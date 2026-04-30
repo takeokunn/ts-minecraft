@@ -5,7 +5,7 @@ export const SLOT_COLORS: Readonly<Partial<Record<BlockType, string>>> = {
   SAND: '#d4c77a', WATER: '#3f76be', WOOD: '#6b4423', LEAVES: '#2d5a1b',
   GLASS: '#c0e0f0', SNOW: '#f0f5ff', GRAVEL: '#7a6a5a', COBBLESTONE: '#606060',
   PLANKS: '#b88754', STICKS: '#d0b07a', CRAFTING_TABLE: '#8b5a2b', FURNACE: '#5c5c5c', TORCH: '#ffcf5a',
-  COAL: '#262626', WOODEN_SWORD: '#c49a6c',
+  COAL: '#262626', WOODEN_SWORD: '#c49a6c', WOODEN_PICKAXE: '#c49a6c', STONE_PICKAXE: '#9b9b9b', RAW_IRON: '#b38b6d', IRON_INGOT: '#cfcfcf', IRON_PICKAXE: '#cfcfcf', RAW_GOLD: '#c7a340', GOLD_INGOT: '#ffd75a', DIAMOND: '#71e0e0', REDSTONE_DUST: '#b02020', LAPIS_LAZULI: '#3456c0', EMERALD: '#2cc36b', DIAMOND_PICKAXE: '#71e0e0',
 }
 
 export const DEFAULT_SLOT_COLOR = '#333333'

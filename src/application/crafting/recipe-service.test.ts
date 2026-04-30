@@ -37,6 +37,12 @@ describe('application/crafting/recipe-service', () => {
         'cobblestone-to-furnace',
         'coal-and-stick-to-torches',
         'planks-and-sticks-to-wooden-sword',
+        'planks-and-sticks-to-wooden-pickaxe',
+        'cobblestone-and-sticks-to-stone-pickaxe',
+        'raw-iron-to-iron-ingot',
+        'iron-ingots-and-sticks-to-iron-pickaxe',
+        'raw-gold-to-gold-ingot',
+        'diamonds-and-sticks-to-diamond-pickaxe',
       ])
     }).pipe(Effect.provide(testLayer))
   )
@@ -57,11 +63,17 @@ describe('application/crafting/recipe-service', () => {
       const craftableWithWood = service.findCraftable(HashMap.make(['WOOD' as BlockType, 1]))
       const craftableWithPlanks = service.findCraftable(HashMap.make(['PLANKS' as BlockType, 4]))
       const craftableWithSwordParts = service.findCraftable(HashMap.make(['PLANKS' as BlockType, 2], ['STICKS' as BlockType, 1], ['CRAFTING_TABLE' as BlockType, 1]))
+      const craftableWithPickaxeParts = service.findCraftable(HashMap.make(['PLANKS' as BlockType, 3], ['STICKS' as BlockType, 2], ['CRAFTING_TABLE' as BlockType, 1]))
+      const craftableWithStoneParts = service.findCraftable(HashMap.make(['COBBLESTONE' as BlockType, 3], ['STICKS' as BlockType, 2], ['CRAFTING_TABLE' as BlockType, 1]))
+      const craftableWithDiamondParts = service.findCraftable(HashMap.make(['DIAMOND' as BlockType, 3], ['STICKS' as BlockType, 2], ['CRAFTING_TABLE' as BlockType, 1]))
 
       expect(Arr.map(craftableWithWood, (recipe) => recipe.id)).toContain('wood-to-planks')
       expect(Arr.map(craftableWithPlanks, (recipe) => recipe.id)).toContain('planks-to-sticks')
       expect(Arr.map(craftableWithPlanks, (recipe) => recipe.id)).toContain('planks-to-crafting-table')
       expect(Arr.map(craftableWithSwordParts, (recipe) => recipe.id)).toContain('planks-and-sticks-to-wooden-sword')
+      expect(Arr.map(craftableWithPickaxeParts, (recipe) => recipe.id)).toContain('planks-and-sticks-to-wooden-pickaxe')
+      expect(Arr.map(craftableWithStoneParts, (recipe) => recipe.id)).toContain('cobblestone-and-sticks-to-stone-pickaxe')
+      expect(Arr.map(craftableWithDiamondParts, (recipe) => recipe.id)).toContain('diamonds-and-sticks-to-diamond-pickaxe')
       expect(Arr.map(craftableWithPlanks, (recipe) => recipe.id)).not.toContain('coal-and-stick-to-torches')
     }).pipe(Effect.provide(testLayer))
   )
@@ -98,6 +110,29 @@ describe('application/crafting/recipe-service', () => {
       expect(countBlock(slotsAfter, 'STICKS')).toBe(3)
       expect(countBlock(slotsAfter, 'CRAFTING_TABLE')).toBe(1)
       expect(countBlock(slotsAfter, 'WOODEN_SWORD')).toBe(1)
+    }).pipe(Effect.provide(testLayer))
+  )
+
+  it.effect('craft supports a pickaxe progression chain from wood to stone', () =>
+    Effect.gen(function* () {
+      const rs = yield* RecipeService
+      const inv = yield* InventoryService
+      yield* inv.addBlock('WOOD', 3)
+      yield* inv.addBlock('COBBLESTONE', 3)
+
+      yield* rs.craft(RecipeId.make('wood-to-planks'), inv)
+      yield* rs.craft(RecipeId.make('wood-to-planks'), inv)
+      yield* rs.craft(RecipeId.make('wood-to-planks'), inv)
+      yield* rs.craft(RecipeId.make('planks-to-sticks'), inv)
+      yield* rs.craft(RecipeId.make('planks-to-crafting-table'), inv)
+      yield* rs.craft(RecipeId.make('planks-and-sticks-to-wooden-pickaxe'), inv)
+      yield* rs.craft(RecipeId.make('cobblestone-and-sticks-to-stone-pickaxe'), inv)
+
+      const slotsAfter = yield* inv.getAllSlots()
+      expect(countBlock(slotsAfter, 'WOODEN_PICKAXE')).toBe(1)
+      expect(countBlock(slotsAfter, 'STONE_PICKAXE')).toBe(1)
+      expect(countBlock(slotsAfter, 'COBBLESTONE')).toBe(0)
+      expect(countBlock(slotsAfter, 'STICKS')).toBe(0)
     }).pipe(Effect.provide(testLayer))
   )
 
@@ -151,6 +186,24 @@ describe('application/crafting/recipe-service', () => {
     }).pipe(Effect.provide(testLayer))
   )
 
+  it.effect('craft rejects wooden-pickaxe recipe without nearby crafting table access', () =>
+    Effect.gen(function* () {
+      const rs = yield* RecipeService
+      const inv = yield* InventoryService
+      yield* inv.addBlock('PLANKS', 3)
+      yield* inv.addBlock('STICKS', 2)
+      yield* inv.addBlock('CRAFTING_TABLE', 1)
+
+      const result = yield* rs.craft(RecipeId.make('planks-and-sticks-to-wooden-pickaxe'), inv, false).pipe(Effect.either)
+      const slotsAfter = yield* inv.getAllSlots()
+
+      expect(result._tag).toBe('Left')
+      expect(countBlock(slotsAfter, 'WOODEN_PICKAXE')).toBe(0)
+      expect(countBlock(slotsAfter, 'PLANKS')).toBe(3)
+      expect(countBlock(slotsAfter, 'STICKS')).toBe(2)
+    }).pipe(Effect.provide(testLayer))
+  )
+
   it.effect('craft produces torches from coal ore and sticks', () =>
     Effect.gen(function* () {
       const rs = yield* RecipeService
@@ -164,6 +217,23 @@ describe('application/crafting/recipe-service', () => {
       expect(countBlock(slotsAfter, 'COAL')).toBe(0)
       expect(countBlock(slotsAfter, 'STICKS')).toBe(0)
       expect(countBlock(slotsAfter, 'TORCH')).toBe(4)
+    }).pipe(Effect.provide(testLayer))
+  )
+
+  it.effect('craft produces a diamond pickaxe from diamonds and sticks', () =>
+    Effect.gen(function* () {
+      const rs = yield* RecipeService
+      const inv = yield* InventoryService
+      yield* inv.addBlock('DIAMOND', 3)
+      yield* inv.addBlock('STICKS', 2)
+      yield* inv.addBlock('CRAFTING_TABLE', 1)
+
+      yield* rs.craft(RecipeId.make('diamonds-and-sticks-to-diamond-pickaxe'), inv)
+
+      const slotsAfter = yield* inv.getAllSlots()
+      expect(countBlock(slotsAfter, 'DIAMOND')).toBe(0)
+      expect(countBlock(slotsAfter, 'STICKS')).toBe(0)
+      expect(countBlock(slotsAfter, 'DIAMOND_PICKAXE')).toBe(1)
     }).pipe(Effect.provide(testLayer))
   )
 

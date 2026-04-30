@@ -17,6 +17,7 @@ export class SettingsOverlayService extends Effect.Service<SettingsOverlayServic
           return {
             overlayEl: Option.none<HTMLDivElement>(),
             renderDistanceInput: Option.none<HTMLInputElement>(),
+            adaptivePerformanceInput: Option.none<HTMLInputElement>(),
             sensitivityInput: Option.none<HTMLInputElement>(),
             dayLengthInput: Option.none<HTMLInputElement>(),
             qualitySelect: Option.none<HTMLSelectElement>(),
@@ -44,6 +45,10 @@ export class SettingsOverlayService extends Effect.Service<SettingsOverlayServic
               <option value="high" selected>High</option>
               <option value="ultra">Ultra</option>
             </select>
+          </label>
+          <label style="display:flex;align-items:center;gap:8px;margin-bottom:12px;cursor:pointer">
+            <input id="adaptive-performance-input" type="checkbox" style="margin:0">
+            <span>Adaptive performance mode</span>
           </label>
           <label style="display:block;margin-bottom:12px">
             Render Distance: <span id="rd-val">8</span>
@@ -81,6 +86,7 @@ export class SettingsOverlayService extends Effect.Service<SettingsOverlayServic
 
         return {
           overlayEl: Option.some(el),
+          adaptivePerformanceInput: dom.querySelector<HTMLInputElement>(el, '#adaptive-performance-input'),
           renderDistanceInput: dom.querySelector<HTMLInputElement>(el, '#rd-input'),
           sensitivityInput: dom.querySelector<HTMLInputElement>(el, '#ms-input'),
           dayLengthInput: dom.querySelector<HTMLInputElement>(el, '#dl-input'),
@@ -89,7 +95,7 @@ export class SettingsOverlayService extends Effect.Service<SettingsOverlayServic
           gearBtn: Option.some(btn),
         }
         }).pipe(
-          Effect.flatMap(({ overlayEl, renderDistanceInput, sensitivityInput, dayLengthInput, qualitySelect, closeBtn, gearBtn }) => {
+          Effect.flatMap(({ overlayEl, renderDistanceInput, adaptivePerformanceInput, sensitivityInput, dayLengthInput, qualitySelect, closeBtn, gearBtn }) => {
         const updateLabel = (labelId: string, value: string): void =>
           Option.match(
             Option.flatMap(overlayEl, (el) => dom.querySelector(el, labelId)),
@@ -112,6 +118,7 @@ export class SettingsOverlayService extends Effect.Service<SettingsOverlayServic
 
         const commitEffect = (): Effect.Effect<void, never> =>
         settingsService.updateSettings({
+          adaptivePerformanceMode: Option.match(adaptivePerformanceInput, { onNone: () => false, onSome: (el) => el.checked }),
           renderDistance: Option.match(renderDistanceInput, { onNone: () => 8, onSome: (el) => parseInt(el.value, 10) }),
           mouseSensitivity: Option.match(sensitivityInput, { onNone: () => 0.5, onSome: (el) => parseFloat(el.value) }),
           dayLengthSeconds: Option.match(dayLengthInput, { onNone: () => 400, onSome: (el) => parseInt(el.value, 10) }),
@@ -140,6 +147,7 @@ export class SettingsOverlayService extends Effect.Service<SettingsOverlayServic
       function syncEffect(): Effect.Effect<void, never> {
         return settingsService.getSettings().pipe(
           Effect.flatMap((settings) => Effect.sync(() => {
+            Option.match(adaptivePerformanceInput, { onNone: () => {}, onSome: (el) => { el.checked = settings.adaptivePerformanceMode } })
             syncInputAndLabel(renderDistanceInput, '#rd-val', String(settings.renderDistance))
             syncInputAndLabel(sensitivityInput, '#ms-val', String(settings.mouseSensitivity))
             syncInputAndLabel(dayLengthInput, '#dl-val', String(settings.dayLengthSeconds))
@@ -149,6 +157,10 @@ export class SettingsOverlayService extends Effect.Service<SettingsOverlayServic
       }
 
       // Named event handler functions for proper cleanup via removeEventListener
+      const handleAdaptivePerformanceChange = () => {
+        runCommit()
+      }
+
       const handleRdInput = () => {
         Option.match(renderDistanceInput, { onNone: () => {}, onSome: (input) => updateLabel('#rd-val', input.value) })
         runCommit()
@@ -193,6 +205,7 @@ export class SettingsOverlayService extends Effect.Service<SettingsOverlayServic
 
         return Effect.acquireRelease(
           Effect.sync(() => {
+            Option.match(adaptivePerformanceInput, { onNone: () => {}, onSome: (el) => el.addEventListener('change', handleAdaptivePerformanceChange) })
             Option.match(renderDistanceInput, { onNone: () => {}, onSome: (el) => el.addEventListener('input', handleRdInput) })
             Option.match(sensitivityInput, { onNone: () => {}, onSome: (el) => el.addEventListener('input', handleMsInput) })
             Option.match(dayLengthInput, { onNone: () => {}, onSome: (el) => el.addEventListener('input', handleDlInput) })
@@ -201,6 +214,7 @@ export class SettingsOverlayService extends Effect.Service<SettingsOverlayServic
             Option.match(gearBtn, { onNone: () => {}, onSome: (el) => el.addEventListener('click', handleGearClick) })
           }),
           () => Effect.sync(() => {
+            Option.match(adaptivePerformanceInput, { onNone: () => {}, onSome: (el) => el.removeEventListener('change', handleAdaptivePerformanceChange) })
             Option.match(renderDistanceInput, { onNone: () => {}, onSome: (el) => el.removeEventListener('input', handleRdInput) })
             Option.match(sensitivityInput, { onNone: () => {}, onSome: (el) => el.removeEventListener('input', handleMsInput) })
             Option.match(dayLengthInput, { onNone: () => {}, onSome: (el) => el.removeEventListener('input', handleDlInput) })

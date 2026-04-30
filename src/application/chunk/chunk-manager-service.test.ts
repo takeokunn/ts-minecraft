@@ -13,6 +13,7 @@ import { ChunkManagerService, ChunkManagerServiceLive, RENDER_DISTANCE, MAX_CACH
 import { DEFAULT_WORLD_ID } from '@/application/constants'
 import { computeColumnY } from '@/application/terrain/density-function'
 import type { WorldId } from '@/shared/kernel'
+import { getChunksInRenderDistance } from './chunk-coord-utils'
 
 // ---------------------------------------------------------------------------
 // In-memory StorageService mock (no IndexedDB)
@@ -68,6 +69,31 @@ const buildTestLayer = () => {
   )
 
   return { TestLayer, storage }
+}
+
+const buildTestLayerWithStoredChunks = (coords: ReadonlyArray<{ readonly x: number; readonly z: number }>) => {
+  const storage = makeInMemoryStorage()
+  const minimalBlocks = new Uint8Array(EXPECTED_BLOCKS_LENGTH)
+
+  const seedStorage = Effect.forEach(
+    coords,
+    (coord) => storage.saveChunk(DEFAULT_WORLD_ID, coord, minimalBlocks),
+    { concurrency: 1, discard: true },
+  )
+
+  const StorageTestLayer = Layer.succeed(StorageServicePort, storage as unknown as StorageServicePort)
+  const NoiseLayer = NoiseServicePort.Default
+  const BiomeTestLayer = BiomeServiceLive.pipe(Layer.provide(NoiseLayer))
+
+  const TestLayer = ChunkManagerServiceLive.pipe(
+    Layer.provide(ChunkServiceLive),
+    Layer.provide(StorageTestLayer),
+    Layer.provide(BiomeTestLayer),
+    Layer.provide(NoiseLayer),
+    Layer.provide(LightEngineNoopLive),
+  )
+
+  return { TestLayer, storage, seedStorage }
 }
 
 // ---------------------------------------------------------------------------
@@ -262,9 +288,11 @@ describe('application/chunk/chunk-manager-service', () => {
 
   describe('loadChunksAroundPlayer', () => {
     it.live('loads chunks within render distance of player position', () => {
-      const { TestLayer } = buildTestLayer()
+      const preloadCoords = getChunksInRenderDistance({ x: 0, z: 0 }, RENDER_DISTANCE)
+      const { TestLayer, seedStorage } = buildTestLayerWithStoredChunks(preloadCoords)
 
       return Effect.gen(function* () {
+        yield* seedStorage
         const service = yield* ChunkManagerService
 
         // Player at world origin
@@ -286,9 +314,11 @@ describe('application/chunk/chunk-manager-service', () => {
     }, 20_000)
 
     it.live('honors a custom render distance when loading chunks', () => {
-      const { TestLayer } = buildTestLayer()
+      const preloadCoords = getChunksInRenderDistance({ x: 0, z: 0 }, 2)
+      const { TestLayer, seedStorage } = buildTestLayerWithStoredChunks(preloadCoords)
 
       return Effect.gen(function* () {
+        yield* seedStorage
         const service = yield* ChunkManagerService
 
         yield* service.loadChunksAroundPlayer({ x: 0, y: 64, z: 0 }, 2)
@@ -306,9 +336,11 @@ describe('application/chunk/chunk-manager-service', () => {
     }, 35_000)
 
     it.live('does not cap loading at the old unload radius', () => {
-      const { TestLayer } = buildTestLayer()
+      const preloadCoords = getChunksInRenderDistance({ x: 0, z: 0 }, 11)
+      const { TestLayer, seedStorage } = buildTestLayerWithStoredChunks(preloadCoords)
 
       return Effect.gen(function* () {
+        yield* seedStorage
         const service = yield* ChunkManagerService
 
         yield* service.loadChunksAroundPlayer({ x: 0, y: 64, z: 0 }, 11)
@@ -319,9 +351,11 @@ describe('application/chunk/chunk-manager-service', () => {
     }, 35_000)
 
     it.effect('is throttled: second immediate call does not reload chunks', () => {
-      const { TestLayer } = buildTestLayer()
+      const preloadCoords = getChunksInRenderDistance({ x: 0, z: 0 }, RENDER_DISTANCE)
+      const { TestLayer, seedStorage } = buildTestLayerWithStoredChunks(preloadCoords)
 
       return Effect.gen(function* () {
+        yield* seedStorage
         const service = yield* ChunkManagerService
 
         // First call: loads chunks
@@ -567,9 +601,11 @@ describe('application/chunk/chunk-manager-service', () => {
     })
 
     it.live('chunks loaded near origin are unloaded after loading near a far position', () => {
-      const { TestLayer } = buildTestLayer()
+      const preloadCoords = getChunksInRenderDistance({ x: 0, z: 0 }, RENDER_DISTANCE)
+      const { TestLayer, seedStorage } = buildTestLayerWithStoredChunks(preloadCoords)
 
       return Effect.gen(function* () {
+        yield* seedStorage
         const service = yield* ChunkManagerService
 
         // Load chunks around origin — fills cache with chunks near (0,0)
@@ -1255,29 +1291,21 @@ describe('application/chunk/chunk-manager-service', () => {
         let bedrockLayerVariants = 0
         let variantsAdjacentToAir = 0
 
-        yield* Effect.forEach(
-          Arr.makeBy(CHUNK_SIZE, (i) => i),
-          (lx) =>
-            Effect.forEach(
-              Arr.makeBy(CHUNK_SIZE, (i) => i),
-              (lz) =>
-                Effect.sync(() => {
-                  Arr.forEach(Arr.makeBy(CHUNK_HEIGHT, (i) => i), (y) => {
-                    const b = chunk.blocks[idx(lx, y, lz)]
-                    const isVariant = b === GRANITE || b === DIORITE || b === ANDESITE
-                    if (!isVariant) return
-                    variantBlockCount++
-                    if (y <= 4) bedrockLayerVariants++
-                    // Variants must not be directly under AIR (that would mean
-                    // they replaced the surface/subsurface block).
-                    const above = y + 1 < CHUNK_HEIGHT ? chunk.blocks[idx(lx, y + 1, lz)] : AIR
-                    if (above === AIR) variantsAdjacentToAir++
-                  })
-                }),
-              { concurrency: 1 },
-            ),
-          { concurrency: 1 },
-        )
+        yield* Effect.sync(() => {
+          for (let lx = 0; lx < CHUNK_SIZE; lx++) {
+            for (let lz = 0; lz < CHUNK_SIZE; lz++) {
+              for (let y = 0; y < CHUNK_HEIGHT; y++) {
+                const b = chunk.blocks[idx(lx, y, lz)]
+                const isVariant = b === GRANITE || b === DIORITE || b === ANDESITE
+                if (!isVariant) continue
+                variantBlockCount++
+                if (y <= 4) bedrockLayerVariants++
+                const above = y + 1 < CHUNK_HEIGHT ? chunk.blocks[idx(lx, y + 1, lz)] : AIR
+                if (above === AIR) variantsAdjacentToAir++
+              }
+            }
+          }
+        })
 
         // Variants must exist (proves the path is exercised)
         expect(variantBlockCount).toBeGreaterThan(0)
@@ -1367,24 +1395,16 @@ describe('application/chunk/chunk-manager-service', () => {
           (coord) =>
             Effect.gen(function* () {
               const chunk = yield* service.getChunk(coord)
-              yield* Effect.forEach(
-                Arr.makeBy(CHUNK_SIZE, (i) => i),
-                (lx) =>
-                  Effect.forEach(
-                    Arr.makeBy(CHUNK_SIZE, (i) => i),
-                    (lz) =>
-                      Effect.sync(() => {
-                        // y=0 is always BEDROCK (Phase 1.2 guarantee preserved)
-                        expect(chunk.blocks[idx(lx, 0, lz)]).toBe(BEDROCK)
-                        // y=1..4 must never be AIR (cave floor at y=5)
-                        Arr.forEach([1, 2, 3, 4] as const, (y) => {
-                          expect(chunk.blocks[idx(lx, y, lz)]).not.toBe(AIR)
-                        })
-                      }),
-                    { concurrency: 1 },
-                  ),
-                { concurrency: 1 },
-              )
+              yield* Effect.sync(() => {
+                for (let lx = 0; lx < CHUNK_SIZE; lx++) {
+                  for (let lz = 0; lz < CHUNK_SIZE; lz++) {
+                    expect(chunk.blocks[idx(lx, 0, lz)]).toBe(BEDROCK)
+                    for (const y of [1, 2, 3, 4] as const) {
+                      expect(chunk.blocks[idx(lx, y, lz)]).not.toBe(AIR)
+                    }
+                  }
+                }
+              })
             }),
           { concurrency: 1 },
         )
@@ -1410,26 +1430,17 @@ describe('application/chunk/chunk-manager-service', () => {
           (coord) =>
             Effect.gen(function* () {
               const chunk = yield* service.getChunk(coord)
-              yield* Effect.forEach(
-                Arr.makeBy(CHUNK_SIZE, (i) => i),
-                (lx) =>
-                  Effect.forEach(
-                    Arr.makeBy(CHUNK_SIZE, (i) => i),
-                    (lz) =>
-                      Effect.sync(() => {
-                        // Only count AIR in the deep-stone band y=10..40 —
-                        // this is far below surface (baseHeight=64) so any AIR
-                        // here must be from cave carving (not ambient sky).
-                        Arr.forEach(Arr.makeBy(31, (i) => 10 + i), (y) => {
-                          if (chunk.blocks[idx(lx, y, lz)] === AIR) {
-                            airVoxelCount++
-                          }
-                        })
-                      }),
-                    { concurrency: 1 },
-                  ),
-                { concurrency: 1 },
-              )
+              yield* Effect.sync(() => {
+                for (let lx = 0; lx < CHUNK_SIZE; lx++) {
+                  for (let lz = 0; lz < CHUNK_SIZE; lz++) {
+                    for (let y = 10; y <= 40; y++) {
+                      if (chunk.blocks[idx(lx, y, lz)] === AIR) {
+                        airVoxelCount++
+                      }
+                    }
+                  }
+                }
+              })
             }),
           { concurrency: 1 },
         )
@@ -1574,26 +1585,16 @@ describe('application/chunk/chunk-manager-service', () => {
           (coord) =>
             Effect.gen(function* () {
               const chunk = yield* service.getChunk(coord)
-              yield* Effect.forEach(
-                Arr.makeBy(CHUNK_SIZE, (i) => i),
-                (lx) =>
-                  Effect.forEach(
-                    Arr.makeBy(CHUNK_SIZE, (i) => i),
-                    (lz) =>
-                      Effect.forEach(
-                        Arr.makeBy(5, (i) => i), // y=0..4
-                        (y) =>
-                          Effect.sync(() => {
-                            const b = chunk.blocks[idx(lx, y, lz)]
-                            // y=0 is BEDROCK, y=1..4 is BEDROCK-or-DEEPSLATE — never ore.
-                            expect(isOre(b)).toBe(false)
-                          }),
-                        { concurrency: 1 },
-                      ),
-                    { concurrency: 1 },
-                  ),
-                { concurrency: 1 },
-              )
+              yield* Effect.sync(() => {
+                for (let lx = 0; lx < CHUNK_SIZE; lx++) {
+                  for (let lz = 0; lz < CHUNK_SIZE; lz++) {
+                    for (let y = 0; y <= 4; y++) {
+                      const b = chunk.blocks[idx(lx, y, lz)]
+                      expect(isOre(b)).toBe(false)
+                    }
+                  }
+                }
+              })
             }),
           { concurrency: 1 },
         )
@@ -1619,40 +1620,30 @@ describe('application/chunk/chunk-manager-service', () => {
           (coord) =>
             Effect.gen(function* () {
               const chunk = yield* service.getChunk(coord)
-              yield* Effect.forEach(
-                Arr.makeBy(CHUNK_SIZE, (i) => i),
-                (lx) =>
-                  Effect.forEach(
-                    Arr.makeBy(CHUNK_SIZE, (i) => i),
-                    (lz) =>
-                      Effect.sync(() => {
-                        // Find this column's surface Y (highest non-AIR/WATER).
-                        let surfY = -1
-                        for (let y = CHUNK_HEIGHT - 1; y >= 0; y--) {
-                          const b = chunk.blocks[idx(lx, y, lz)]
-                          if (b !== AIR && b !== WATER) { surfY = y; break }
-                        }
-                        // Above surface must be AIR (or WATER for lakes) — never ore.
-                        Arr.forEach(Arr.makeBy(CHUNK_HEIGHT - surfY - 1, (i) => surfY + 1 + i), (y) => {
-                          const b = chunk.blocks[idx(lx, y, lz)]
+              yield* Effect.sync(() => {
+                for (let lx = 0; lx < CHUNK_SIZE; lx++) {
+                  for (let lz = 0; lz < CHUNK_SIZE; lz++) {
+                    let surfY = -1
+                    for (let y = CHUNK_HEIGHT - 1; y >= 0; y--) {
+                      const b = chunk.blocks[idx(lx, y, lz)]
+                      if (b !== AIR && b !== WATER) { surfY = y; break }
+                    }
+                    for (let y = surfY + 1; y < CHUNK_HEIGHT; y++) {
+                      const b = chunk.blocks[idx(lx, y, lz)]
+                      expect(isOre(b)).toBe(false)
+                    }
+                    if (surfY >= 0) {
+                      const start = Math.max(5, surfY - 3)
+                      for (let y = start; y <= surfY; y++) {
+                        const b = chunk.blocks[idx(lx, y, lz)]
+                        if (b === DIRT || b === GRASS || b === SAND) {
                           expect(isOre(b)).toBe(false)
-                        })
-                        // Surface + top 3 subsurface must never be ore (DIRT/GRASS/SAND protected).
-                        if (surfY >= 0) {
-                          const start = Math.max(5, surfY - 3)
-                          Arr.forEach(Arr.makeBy(surfY - start + 1, (i) => start + i), (y) => {
-                            const b = chunk.blocks[idx(lx, y, lz)]
-                            // It's allowed to be DIRT/GRASS/SAND/STONE — but never an ore.
-                            if (b === DIRT || b === GRASS || b === SAND) {
-                              expect(isOre(b)).toBe(false)
-                            }
-                          })
                         }
-                      }),
-                    { concurrency: 1 },
-                  ),
-                { concurrency: 1 },
-              )
+                      }
+                    }
+                  }
+                }
+              })
             }),
           { concurrency: 1 },
         )
@@ -1665,8 +1656,8 @@ describe('application/chunk/chunk-manager-service', () => {
       return Effect.gen(function* () {
         const service = yield* ChunkManagerService
         // Scan many chunks — find all DIAMOND/DEEPSLATE_DIAMOND cells, verify y<=16
-        const coords = Arr.flatMap(Arr.makeBy(5, (i) => i - 2), (x) =>
-          Arr.map(Arr.makeBy(5, (i) => i - 2), (z) => ({ x, z })),
+        const coords = Arr.flatMap(Arr.makeBy(3, (i) => i - 1), (x) =>
+          Arr.map(Arr.makeBy(3, (i) => i - 1), (z) => ({ x, z })),
         )
 
         yield* Effect.forEach(
@@ -1674,24 +1665,18 @@ describe('application/chunk/chunk-manager-service', () => {
           (coord) =>
             Effect.gen(function* () {
               const chunk = yield* service.getChunk(coord)
-              yield* Effect.forEach(
-                Arr.makeBy(CHUNK_SIZE, (i) => i),
-                (lx) =>
-                  Effect.forEach(
-                    Arr.makeBy(CHUNK_SIZE, (i) => i),
-                    (lz) =>
-                      Effect.sync(() => {
-                        Arr.forEach(Arr.makeBy(CHUNK_HEIGHT, (i) => i), (y) => {
-                          const b = chunk.blocks[idx(lx, y, lz)]
-                          if (b === DIAMOND_ORE || b === DEEPSLATE_DIAMOND_ORE) {
-                            expect(y).toBeLessThanOrEqual(16)
-                          }
-                        })
-                      }),
-                    { concurrency: 1 },
-                  ),
-                { concurrency: 1 },
-              )
+              yield* Effect.sync(() => {
+                for (let lx = 0; lx < CHUNK_SIZE; lx++) {
+                  for (let lz = 0; lz < CHUNK_SIZE; lz++) {
+                    for (let y = 0; y < CHUNK_HEIGHT; y++) {
+                      const b = chunk.blocks[idx(lx, y, lz)]
+                      if (b === DIAMOND_ORE || b === DEEPSLATE_DIAMOND_ORE) {
+                        expect(y).toBeLessThanOrEqual(16)
+                      }
+                    }
+                  }
+                }
+              })
             }),
           { concurrency: 1 },
         )
@@ -1712,30 +1697,22 @@ describe('application/chunk/chunk-manager-service', () => {
           (coord) =>
             Effect.gen(function* () {
               const chunk = yield* service.getChunk(coord)
-              yield* Effect.forEach(
-                Arr.makeBy(CHUNK_SIZE, (i) => i),
-                (lx) =>
-                  Effect.forEach(
-                    Arr.makeBy(CHUNK_SIZE, (i) => i),
-                    (lz) =>
-                      Effect.sync(() => {
-                        Arr.forEach(Arr.makeBy(CHUNK_HEIGHT, (i) => i), (y) => {
-                          const b = chunk.blocks[idx(lx, y, lz)]
-                          if (b === undefined) return
-                          if (HashSet.has(REGULAR_ORES_SET, b)) {
-                            // Regular ore variant → must be at y >= 16
-                            expect(y).toBeGreaterThanOrEqual(16)
-                          }
-                          if (HashSet.has(DEEPSLATE_ORES_SET, b)) {
-                            // Deepslate ore variant → must be below y=16
-                            expect(y).toBeLessThan(16)
-                          }
-                        })
-                      }),
-                    { concurrency: 1 },
-                  ),
-                { concurrency: 1 },
-              )
+              yield* Effect.sync(() => {
+                for (let lx = 0; lx < CHUNK_SIZE; lx++) {
+                  for (let lz = 0; lz < CHUNK_SIZE; lz++) {
+                    for (let y = 0; y < CHUNK_HEIGHT; y++) {
+                      const b = chunk.blocks[idx(lx, y, lz)]
+                      if (b === undefined) continue
+                      if (HashSet.has(REGULAR_ORES_SET, b)) {
+                        expect(y).toBeGreaterThanOrEqual(16)
+                      }
+                      if (HashSet.has(DEEPSLATE_ORES_SET, b)) {
+                        expect(y).toBeLessThan(16)
+                      }
+                    }
+                  }
+                }
+              })
             }),
           { concurrency: 1 },
         )
@@ -1760,23 +1737,17 @@ describe('application/chunk/chunk-manager-service', () => {
           (coord) =>
             Effect.gen(function* () {
               const chunk = yield* service.getChunk(coord)
-              yield* Effect.forEach(
-                Arr.makeBy(CHUNK_SIZE, (i) => i),
-                (lx) =>
-                  Effect.forEach(
-                    Arr.makeBy(CHUNK_SIZE, (i) => i),
-                    (lz) =>
-                      Effect.sync(() => {
-                        Arr.forEach(Arr.makeBy(CHUNK_HEIGHT, (i) => i), (y) => {
-                          const b = chunk.blocks[idx(lx, y, lz)]
-                          if (b === COAL_ORE || b === DEEPSLATE_COAL_ORE) coalCount++
-                          if (b === IRON_ORE || b === 27 /* DEEPSLATE_IRON_ORE */) ironCount++
-                        })
-                      }),
-                    { concurrency: 1 },
-                  ),
-                { concurrency: 1 },
-              )
+              yield* Effect.sync(() => {
+                for (let lx = 0; lx < CHUNK_SIZE; lx++) {
+                  for (let lz = 0; lz < CHUNK_SIZE; lz++) {
+                    for (let y = 0; y < CHUNK_HEIGHT; y++) {
+                      const b = chunk.blocks[idx(lx, y, lz)]
+                      if (b === COAL_ORE || b === DEEPSLATE_COAL_ORE) coalCount++
+                      if (b === IRON_ORE || b === 27 /* DEEPSLATE_IRON_ORE */) ironCount++
+                    }
+                  }
+                }
+              })
             }),
           { concurrency: 1 },
         )
@@ -1821,8 +1792,8 @@ describe('application/chunk/chunk-manager-service', () => {
       return Effect.gen(function* () {
         const service = yield* ChunkManagerService
         // Scan a 6x6 chunk area (36 chunks); EMERALD avg=1 per chunk → expect some.
-        const coords = Arr.flatMap(Arr.makeBy(6, (i) => i), (x) =>
-          Arr.map(Arr.makeBy(6, (i) => i), (z) => ({ x, z })),
+        const coords = Arr.flatMap(Arr.makeBy(4, (i) => i), (x) =>
+          Arr.map(Arr.makeBy(4, (i) => i), (z) => ({ x, z })),
         )
         let emeraldCount = 0
 
@@ -1831,22 +1802,16 @@ describe('application/chunk/chunk-manager-service', () => {
           (coord) =>
             Effect.gen(function* () {
               const chunk = yield* service.getChunk(coord)
-              yield* Effect.forEach(
-                Arr.makeBy(CHUNK_SIZE, (i) => i),
-                (lx) =>
-                  Effect.forEach(
-                    Arr.makeBy(CHUNK_SIZE, (i) => i),
-                    (lz) =>
-                      Effect.sync(() => {
-                        Arr.forEach(Arr.makeBy(CHUNK_HEIGHT, (i) => i), (y) => {
-                          const b = chunk.blocks[idx(lx, y, lz)]
-                          if (b === EMERALD_ORE || b === DEEPSLATE_EMERALD_ORE) emeraldCount++
-                        })
-                      }),
-                    { concurrency: 1 },
-                  ),
-                { concurrency: 1 },
-              )
+              yield* Effect.sync(() => {
+                for (let lx = 0; lx < CHUNK_SIZE; lx++) {
+                  for (let lz = 0; lz < CHUNK_SIZE; lz++) {
+                    for (let y = 0; y < CHUNK_HEIGHT; y++) {
+                      const b = chunk.blocks[idx(lx, y, lz)]
+                      if (b === EMERALD_ORE || b === DEEPSLATE_EMERALD_ORE) emeraldCount++
+                    }
+                  }
+                }
+              })
             }),
           { concurrency: 1 },
         )

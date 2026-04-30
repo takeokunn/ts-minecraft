@@ -1,9 +1,9 @@
-import { Array as Arr, Effect, Ref, Option, Schema } from 'effect'
+import { Array as Arr, Effect, Ref, Option } from 'effect'
 import type { BlockType } from '@/domain/block'
 import { BlockRegistry } from '@/domain/block-registry'
-import { BlockTypeSchema } from '@/domain/block'
 import { ItemStack, createStack, mergeStacks, canMerge, MAX_STACK_SIZE, addToStack, removeFromStack } from '@/domain/item-stack'
-import { SlotIndex, SlotIndexSchema } from '@/shared/kernel'
+import { SlotIndex } from '@/shared/kernel'
+import { InventorySaveDataSchema, type InventorySaveData } from '@/domain/inventory-save-data'
 
 export type InventorySlot = Option.Option<ItemStack>
 export type InventorySlots = ReadonlyArray<InventorySlot>
@@ -55,15 +55,8 @@ const fillEmptySlots = (
   return [updated, remaining]
 }
 
-const InventorySlotSaveEntrySchema = Schema.Struct({
-  slot: SlotIndexSchema,
-  blockType: BlockTypeSchema,   // Use typed schema for runtime type safety
-  count: Schema.Number.pipe(Schema.int(), Schema.between(1, 64)),
-})
-export const InventorySaveDataSchema = Schema.Struct({
-  slots: Schema.Array(Schema.NullOr(InventorySlotSaveEntrySchema)),
-})
-export type InventorySaveData = Schema.Schema.Type<typeof InventorySaveDataSchema>
+export { InventorySaveDataSchema }
+export type { InventorySaveData }
 
 export class InventoryService extends Effect.Service<InventoryService>()(
   '@minecraft/application/InventoryService',

@@ -179,4 +179,37 @@ describe('entity/entityManager', () => {
       }).pipe(Effect.provide(EntityManagerLive))
     )
   })
+
+  describe('getStructureVersion', () => {
+    it.effect('increments on add/remove but not on position-only update', () =>
+      Effect.gen(function* () {
+        const entityManager = yield* EntityManager
+
+        const version0 = yield* entityManager.getStructureVersion()
+        const entityId = yield* entityManager.addEntity(EntityType.Zombie, { x: 0, y: 64, z: 0 })
+        const version1 = yield* entityManager.getStructureVersion()
+        yield* entityManager.update(DeltaTimeSecs.make(0.016), { x: 5, y: 64, z: 0 })
+        const version2 = yield* entityManager.getStructureVersion()
+        yield* entityManager.removeEntity(entityId)
+        const version3 = yield* entityManager.getStructureVersion()
+
+        expect(version1).toBe(version0 + 1)
+        expect(version2).toBe(version1)
+        expect(version3).toBe(version2 + 1)
+      }).pipe(Effect.provide(EntityManagerLive))
+    )
+
+    it.effect('increments when lethal damage removes an entity', () =>
+      Effect.gen(function* () {
+        const entityManager = yield* EntityManager
+        const entityId = yield* entityManager.addEntity(EntityType.Pig, { x: 0, y: 64, z: 0 })
+        const before = yield* entityManager.getStructureVersion()
+
+        yield* entityManager.applyDamage(entityId, 9999)
+        const after = yield* entityManager.getStructureVersion()
+
+        expect(after).toBe(before + 1)
+      }).pipe(Effect.provide(EntityManagerLive))
+    )
+  })
 })

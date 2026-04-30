@@ -15,6 +15,7 @@ import { carveCaves } from './cave-carver'
 // ---------------------------------------------------------------------------
 
 const AIR     = blockTypeToIndex('AIR')
+const LAVA    = blockTypeToIndex('LAVA')
 const STONE   = blockTypeToIndex('STONE')
 const WATER   = blockTypeToIndex('WATER')
 const BEDROCK = blockTypeToIndex('BEDROCK')
@@ -55,7 +56,7 @@ describe('carveCaves', () => {
     // With all AIR blocks (0), the guard fires and skips every voxel.
     const blocks = makeBlocks() // all AIR
     const samples = makeSamples(0)
-    carveCaves(blocks, samples, AIR, WATER, BEDROCK)
+    carveCaves(blocks, samples, AIR, WATER, BEDROCK, LAVA)
     // All blocks remain AIR — nothing was changed
     expect(blocks.every((b) => b === AIR)).toBe(true)
   })
@@ -72,7 +73,7 @@ describe('carveCaves', () => {
       })
     )
     const samples = makeSamples(1.0)
-    carveCaves(blocks, samples, AIR, WATER, BEDROCK)
+    carveCaves(blocks, samples, AIR, WATER, BEDROCK, LAVA)
     // All STONE blocks remain STONE
     Arr.forEach(cols, ({ lx, lz }) =>
       Arr.forEach(Arr.makeBy(CAVE_CEILING - CAVE_FLOOR + 1, i => CAVE_FLOOR + i), y => {
@@ -93,7 +94,7 @@ describe('carveCaves', () => {
       })
     )
     const samples = makeSamples(0)
-    carveCaves(blocks, samples, AIR, WATER, BEDROCK)
+    carveCaves(blocks, samples, AIR, WATER, BEDROCK, LAVA)
     // At least some blocks in the eligible zone should have been carved to AIR
     const carved = Arr.filter(
       Arr.flatMap(Arr.makeBy(CHUNK_SIZE, lx => lx), lx =>
@@ -118,7 +119,7 @@ describe('carveCaves', () => {
       })
     )
     const samples = makeSamples(0)
-    carveCaves(blocks, samples, AIR, WATER, BEDROCK)
+    carveCaves(blocks, samples, AIR, WATER, BEDROCK, LAVA)
     // y <= BEDROCK_LAYER_TOP (4) is below CAVE_FLOOR (5), so blocks remain STONE
     Arr.forEach(Arr.makeBy(BEDROCK_LAYER_TOP + 1, i => i), y =>
       Arr.forEach(cols, ({ lx, lz }) => {
@@ -138,7 +139,7 @@ describe('carveCaves', () => {
       })
     )
     const samples = makeSamples(0) // all-zero → would carve non-protected blocks
-    carveCaves(blocks, samples, AIR, WATER, BEDROCK)
+    carveCaves(blocks, samples, AIR, WATER, BEDROCK, LAVA)
     Arr.forEach(cols, ({ lx, lz }) =>
       Arr.forEach(Arr.makeBy(CAVE_CEILING - CAVE_FLOOR + 1, i => CAVE_FLOOR + i), y => {
         expect(getBlock(blocks, lx, y, lz)).toBe(WATER)
@@ -157,7 +158,7 @@ describe('carveCaves', () => {
       })
     )
     const samples = makeSamples(0)
-    carveCaves(blocks, samples, AIR, WATER, BEDROCK)
+    carveCaves(blocks, samples, AIR, WATER, BEDROCK, LAVA)
     Arr.forEach(cols, ({ lx, lz }) =>
       Arr.forEach(Arr.makeBy(CAVE_CEILING - CAVE_FLOOR + 1, i => CAVE_FLOOR + i), y => {
         expect(getBlock(blocks, lx, y, lz)).toBe(BEDROCK)
@@ -184,12 +185,20 @@ describe('carveCaves', () => {
       })
     }
     const samples = makeSamples(0)
-    carveCaves(blocks, samples, AIR, WATER, BEDROCK)
+    carveCaves(blocks, samples, AIR, WATER, BEDROCK, LAVA)
     if (ABOVE_Y < CHUNK_HEIGHT) {
       expect(getBlock(blocks, 0, ABOVE_Y, 0)).toBe(STONE)
     }
     if (BELOW_Y >= 0) {
       expect(getBlock(blocks, 0, BELOW_Y, 0)).toBe(STONE)
     }
+  })
+
+  it('fills deep carved caves with lava instead of air', () => {
+    const blocks = makeBlocks()
+    setBlock(blocks, 8, 8, 8, STONE)
+    const samples = makeSamples(0)
+    carveCaves(blocks, samples, AIR, WATER, BEDROCK, LAVA)
+    expect(getBlock(blocks, 8, 8, 8)).toBe(LAVA)
   })
 })

@@ -35,6 +35,11 @@ export const HUM_MOUNTAINS = 0.4
 /** humidity > HUM_SAVANNA_MIN (within hot band) → savanna instead of desert */
 export const HUM_SAVANNA_MIN = 0.22
 
+export const RIVER_NOISE_SCALE = 0.0035
+export const RIVER_WORLD_OFFSET = 20_000
+export const RIVER_CENTER = 0.5
+export const RIVER_HALF_WIDTH = 0.055
+
 // ─── Biome properties ────────────────────────────────────────────────────────
 
 export const BIOME_PROPERTIES: Readonly<Record<BiomeType, BiomeProperties>> = {
@@ -47,6 +52,7 @@ export const BIOME_PROPERTIES: Readonly<Record<BiomeType, BiomeProperties>> = {
   SWAMP:     { surfaceBlock: 'GRASS', subSurfaceBlock: 'DIRT',  treeDensity: 0.20, temperature: 0.60, humidity: 0.80 },
   JUNGLE:    { surfaceBlock: 'GRASS', subSurfaceBlock: 'DIRT',  treeDensity: 0.50, temperature: 0.90, humidity: 0.80 },
   BEACH:     { surfaceBlock: 'SAND',  subSurfaceBlock: 'SAND',  treeDensity: 0.00, temperature: 0.70, humidity: 0.55 },
+  RIVER:     { surfaceBlock: 'SAND',  subSurfaceBlock: 'SAND',  treeDensity: 0.00, temperature: 0.50, humidity: 0.65 },
   TAIGA:     { surfaceBlock: 'GRASS', subSurfaceBlock: 'DIRT',  treeDensity: 0.24, temperature: 0.25, humidity: 0.55 },
   SAVANNA:   { surfaceBlock: 'GRASS', subSurfaceBlock: 'DIRT',  treeDensity: 0.08, temperature: 0.78, humidity: 0.28 },
 } as const

@@ -24,6 +24,7 @@ export const ResolvedGraphicsSchema = Schema.Struct({
   godRaysSamples: Schema.Number.pipe(Schema.int(), Schema.between(0, 40)),
   bloomStrength: Schema.Number.pipe(Schema.finite(), Schema.between(0, 1)),
   refractionThrottleFrames: Schema.Number.pipe(Schema.int(), Schema.between(0, 3)),
+  pixelRatioCap: Schema.Number.pipe(Schema.finite(), Schema.between(0.5, 2)),
 })
 export type ResolvedGraphics = Schema.Schema.Type<typeof ResolvedGraphicsSchema>
 
@@ -49,8 +50,10 @@ export const SettingsSchema = Schema.Struct({
   mouseSensitivity: Schema.Number.pipe(Schema.finite(), Schema.between(0.1, 3.0)),
   /** Day length in seconds. Default: 400. Must be in [120, 1200]. */
   dayLengthSeconds: Schema.Number.pipe(Schema.finite(), Schema.between(120, 1200)),
-  /** Graphics quality preset. Replaces individual post-processing toggles. Default: 'high'. */
-  graphicsQuality: Schema.optionalWith(GraphicsQuality, { default: () => 'high' as const }),
+  /** Graphics quality preset. Replaces individual post-processing toggles. Default: 'low'. */
+  graphicsQuality: Schema.optionalWith(GraphicsQuality, { default: () => 'low' as const }),
+  /** Whether adaptive performance throttling may lower graphics/render distance automatically. Default: true. */
+  adaptivePerformanceMode: Schema.optionalWith(Schema.Boolean, { default: () => true }),
   // NOTE: audioEnabled defaults to false intentionally — do NOT change this to true.
   // Audio is disabled by default because it causes noise during development and testing.
   // Users can enable it via the settings UI.
@@ -65,10 +68,11 @@ export const SettingsSchema = Schema.Struct({
 export type Settings = Schema.Schema.Type<typeof SettingsSchema>
 
 const DEFAULT_SETTINGS: Settings = {
-  renderDistance: 8,
+  renderDistance: 2,
   mouseSensitivity: 0.5,
   dayLengthSeconds: 400,
-  graphicsQuality: 'high',
+  graphicsQuality: 'low',
+  adaptivePerformanceMode: true,
   // NOTE: false intentionally — audio is disabled by default (see Schema comment above).
   audioEnabled: false,
   masterVolume: 0.8,
@@ -98,6 +102,7 @@ const sanitizeLegacySettings = (parsed: unknown): Settings => {
     mouseSensitivity: clampNumber(record['mouseSensitivity'], DEFAULT_SETTINGS.mouseSensitivity, 0.1, 3),
     dayLengthSeconds: clampInteger(record['dayLengthSeconds'], DEFAULT_SETTINGS.dayLengthSeconds, 120, 1200),
     graphicsQuality: isGraphicsQuality(record['graphicsQuality']) ? record['graphicsQuality'] : DEFAULT_SETTINGS.graphicsQuality,
+    adaptivePerformanceMode: typeof record['adaptivePerformanceMode'] === 'boolean' ? record['adaptivePerformanceMode'] : DEFAULT_SETTINGS.adaptivePerformanceMode,
     audioEnabled: typeof record['audioEnabled'] === 'boolean' ? record['audioEnabled'] : DEFAULT_SETTINGS.audioEnabled,
     masterVolume: clampNumber(record['masterVolume'], DEFAULT_SETTINGS.masterVolume, 0, 1),
     sfxVolume: clampNumber(record['sfxVolume'], DEFAULT_SETTINGS.sfxVolume, 0, 1),

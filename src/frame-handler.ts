@@ -49,14 +49,14 @@ import { TradingPresentationService } from '@/presentation/trading'
 import { RedstoneComponentType } from '@/redstone/redstone-model'
 import { RedstoneService } from '@/redstone/redstone-service'
 import { FluidService } from '@/application/fluid/fluid-service'
-import { type Chunk, CHUNK_SIZE, CHUNK_HEIGHT } from '@/domain/chunk'
+import { FurnaceService } from '@/application/furnace/furnace-service'
+import { type Chunk, CHUNK_SIZE, CHUNK_HEIGHT, indexToBlockType } from '@/domain/chunk'
 import type { EntityId as EntityIdType } from '@/entity/entity'
 import { updateDayNightCycle, type DayNightLights } from '@/application/time/day-night-cycle'
 import type { DeltaTimeSecs, Position } from '@/shared/kernel'
 import {
   EYE_LEVEL_OFFSET,
   TRADE_DISTANCE, TRADE_OPEN_KEY, TRADE_NEXT_KEY, TRADE_PREV_KEY, TRADE_EXECUTE_KEY,
-  MAX_DIRTY_CHUNK_UPDATES_PER_FRAME, DIRTY_CHUNK_FLUSH_CONCURRENCY,
   REDSTONE_TICK_INTERVAL_SECS, FLUID_TICK_INTERVAL_SECS,
   REDSTONE_PLACE_WIRE_KEY, REDSTONE_PLACE_LEVER_KEY, REDSTONE_PLACE_BUTTON_KEY,
   REDSTONE_PLACE_TORCH_KEY, REDSTONE_PLACE_PISTON_KEY,
@@ -64,6 +64,13 @@ import {
   PLAYER_ATTACK_REACH, PLAYER_ATTACK_RADIUS, PLAYER_ATTACK_DAMAGE, WOODEN_SWORD_ATTACK_DAMAGE,
   FALLBACK_PLAYER_POS,
 } from './frame-handler.config'
+import {
+  advanceFixedStep,
+  captureCameraPose,
+  decideAdaptiveQuality,
+  hasCameraPoseChanged,
+} from '@/frame/frame-runtime-logic'
+import { createMaintenanceHandler } from '@/frame/frame-maintenance'
 
 /**
  * Three.js objects and DOM state that live outside the Effect layer graph.
@@ -126,6 +133,12 @@ export type FrameHandlerServices = {
   readonly tradingPresentation: TradingPresentationService
   readonly redstoneService: RedstoneService
   readonly fluidService: FluidService
+  readonly furnaceService: FurnaceService
+}
+
+export type FrameLoopHandlers = {
+  readonly frameHandler: (deltaTime: DeltaTimeSecs) => Effect.Effect<void, never>
+  readonly maintenanceHandler: () => Effect.Effect<boolean, never>
 }
 
 const findAttackableEntity = (
@@ -163,25 +176,10 @@ const findAttackableEntity = (
   return closestEntityId === null ? Option.none() : Option.some(closestEntityId)
 }
 
-/**
- * Creates a curried frame handler: `yield* createFrameHandler(deps, services)` returns
- * `(deltaTime) => Effect<void, never>` — a pure Effect requiring no context (R = never).
- *
- * The outer call is an Effect that initialises per-handler Refs (totalTimeSecs) and
- * binds Three.js objects (deps) and service instances (services) at startup.
- * The inner call is invoked once per animation frame by GameLoopService with the delta time.
- *
- * Services are passed explicitly rather than yielded from context to avoid the
- * `Effect.provide(MainLive)` anti-pattern, which would reconstruct the full layer graph
- * every frame at 60 Hz.
- *
- * totalTimeSecs is a Ref rather than a closure `let` — aligns mutable per-handler state
- * with the Effect-TS Ref pattern and makes state management explicit and composable.
- */
-export const createFrameHandler = (
+const createFrameLoopHandlersInternal = (
   deps: FrameHandlerDeps,
   services: FrameHandlerServices,
-): Effect.Effect<(deltaTime: DeltaTimeSecs) => Effect.Effect<void, never>> =>
+): Effect.Effect<FrameLoopHandlers> =>
   Effect.gen(function* () {
     // Accumulated total time for water shader uTime uniform (seconds since game start)
     const totalTimeSecsRef = yield* Ref.make(0)
@@ -203,6 +201,12 @@ export const createFrameHandler = (
     const chunkSyncPendingRef = MutableRef.make(false)
     // Track last renderDistance to avoid per-frame shadow camera updateProjectionMatrix
     const lastRenderDistanceRef = yield* Ref.make(0)
+    const lastEntityStructureVersionRef = yield* Ref.make(-1)
+    const shadowUpdateCounterRef = yield* Ref.make(0)
+    const frustumThrottleStrideRef = yield* Ref.make(1)
+    const frustumThrottleCounterRef = yield* Ref.make(0)
+    const adaptiveQualityCooldownRef = yield* Ref.make(0)
+    const lastAppliedPixelRatioRef = yield* Ref.make(Number.NaN)
     // Track last graphicsQuality + resolved preset to skip resolvePreset and pass enable sync when preset is unchanged
     const lastGraphicsQualityRef = yield* Ref.make<{ quality: string; resolved: ResolvedGraphics }>({ quality: '', resolved: resolvePreset('high') })
     // Dirty chunk accumulator: deduplicates block break/place remesh calls within a single frame
@@ -233,7 +237,45 @@ export const createFrameHandler = (
     const dofPassOrNull = Option.getOrNull(deps.dofPass)
     const smaaPassOrNull = Option.getOrNull(deps.smaaPass)
     const godRaysPassOrNull = Option.getOrNull(deps.godRaysPass)
-    return (deltaTime: DeltaTimeSecs) =>
+    const composerOrNull = Option.getOrNull(deps.composer)
+    const applyPixelRatioCap = (pixelRatioCap: number): Effect.Effect<boolean, never> =>
+      Ref.get(lastAppliedPixelRatioRef).pipe(
+        Effect.flatMap((lastAppliedPixelRatio) => {
+          const devicePixelRatio = typeof window !== 'undefined' ? window.devicePixelRatio : 1
+          const nextPixelRatio = Math.min(devicePixelRatio, pixelRatioCap)
+          if (Math.abs(lastAppliedPixelRatio - nextPixelRatio) < 0.01) {
+            return Effect.succeed(false)
+          }
+          return Effect.sync(() => {
+            const width = deps.renderer.domElement.clientWidth || 1
+            const height = deps.renderer.domElement.clientHeight || 1
+            deps.renderer.setPixelRatio(nextPixelRatio)
+            composerOrNull?.setPixelRatio(nextPixelRatio)
+            deps.renderer.setSize(width, height)
+            composerOrNull?.setSize(width, height)
+          }).pipe(
+            Effect.andThen(Ref.set(lastAppliedPixelRatioRef, nextPixelRatio)),
+            Effect.as(true)
+          )
+        })
+      )
+    const markShadowMapDirty = (): void => {
+      if (deps.renderer.shadowMap) {
+        deps.renderer.shadowMap.needsUpdate = true
+      }
+    }
+    const maintenanceHandler = createMaintenanceHandler(
+      deps,
+      services,
+      {
+        lastLoadedChunksRef,
+        lastChunkStreamingRef,
+        chunkSyncPendingRef,
+        dirtyChunksRef,
+      },
+    )
+
+    const frameHandler = (deltaTime: DeltaTimeSecs) =>
       Effect.gen(function* () {
       const {
         gameState,
@@ -259,12 +301,12 @@ export const createFrameHandler = (
         soundManager,
         musicManager,
         entityManager,
-        mobSpawner,
         villageService,
         tradingPresentation,
-        redstoneService,
-        fluidService,
-      } = services
+    redstoneService,
+    fluidService,
+    furnaceService,
+  } = services
 
       const { renderer, scene, camera, gamePausedRef } = deps
 
@@ -287,6 +329,7 @@ export const createFrameHandler = (
       const effectiveLights = resolvedGraphics.skyEnabled
         ? deps.lights
         : lightsWithoutSky
+      const pixelRatioChanged = yield* applyPixelRatioCap(resolvedGraphics.pixelRatioCap)
       yield* Effect.sync(() => { if (skyMeshOrNull) skyMeshOrNull.visible = resolvedGraphics.skyEnabled })
 
       // Hoist player position — shared across steps 1, 3.5, and 8 to avoid redundant Effect calls
@@ -294,8 +337,6 @@ export const createFrameHandler = (
         Effect.catchAllCause(() => Effect.succeed(FALLBACK_PLAYER_POS))
       )
       let currentPlayerPos: Position = playerPos
-      const cx = Math.floor(playerPos.x / CHUNK_SIZE)
-      const cz = Math.floor(playerPos.z / CHUNK_SIZE)
 
       // Audio settings (FR-005: skip applySettings when values haven't changed)
       const lastAudio = MutableRef.get(lastAudioRef)
@@ -324,82 +365,26 @@ export const createFrameHandler = (
       // Listener position updates every frame (player moves)
       yield* soundManager.setListenerPosition(playerPos)
 
-      // 1. Chunk streaming (throttled internally to 200ms)
-      yield* Effect.gen(function* () {
-        const chunkSyncPending = MutableRef.get(chunkSyncPendingRef)
-        const { cx: lastCx, cz: lastCz, renderDistance: lastRenderDistance } = MutableRef.get(lastChunkStreamingRef)
-        const shouldRefreshChunks =
-          chunkSyncPending ||
-          lastCx !== cx ||
-          lastCz !== cz ||
-          lastRenderDistance !== currentSettings.renderDistance
+      const sceneVersionBeforeCull = yield* worldRendererService.getSceneVersion()
+      const currentFrustumPose = captureCameraPose(camera, sceneVersionBeforeCull)
+      const lastFrustumCull = MutableRef.get(lastFrustumCullRef)
+      const frustumStride = yield* Ref.get(frustumThrottleStrideRef)
+      const frustumTick = yield* Ref.updateAndGet(frustumThrottleCounterRef, (n) => (n + 1) % Math.max(frustumStride, 1))
+      if (frustumTick === 0 && hasCameraPoseChanged(lastFrustumCull, currentFrustumPose)) {
+        yield* worldRendererService.applyFrustumCulling(camera)
+        MutableRef.set(lastFrustumCullRef, currentFrustumPose)
+      }
 
-        if (shouldRefreshChunks) {
-          const didLoadChunks = yield* chunkManagerService.loadChunksAroundPlayer(playerPos, currentSettings.renderDistance)
-          const loadedChunks = yield* chunkManagerService.getLoadedChunks()
-          const lastLoadedChunks = yield* Ref.get(lastLoadedChunksRef)
-          const chunksChanged = Option.match(lastLoadedChunks, {
-            onNone: () => true,
-            onSome: (previousLoadedChunks) => previousLoadedChunks !== loadedChunks,
-          })
-          const shouldSyncWorld = chunkSyncPending || chunksChanged
-
-          if (shouldSyncWorld) {
-            const fullySynced = yield* worldRendererService.syncChunksToScene(loadedChunks, scene)
-
-            if (chunksChanged) {
-              yield* fluidService.syncLoadedChunks(loadedChunks)
-              yield* blockHighlight.invalidateCache()
-            }
-
-            // Only cache loadedChunks when all new chunk meshes were built this frame.
-            // When throttled (fullySynced=false), keep lastLoadedChunksRef stale so
-            // the next frame re-enters this branch and processes remaining chunks.
-            if (fullySynced) {
-              if (chunksChanged) {
-                yield* Ref.set(lastLoadedChunksRef, Option.some(loadedChunks))
-              }
-              MutableRef.set(chunkSyncPendingRef, false)
-            } else {
-              MutableRef.set(chunkSyncPendingRef, true)
-            }
-          }
-
-          if (didLoadChunks) {
-            MutableRef.set(lastChunkStreamingRef, { cx, cz, renderDistance: currentSettings.renderDistance })
-          }
-        }
-
-        const currentFrustumPose = {
-          x: camera.position.x,
-          y: camera.position.y,
-          z: camera.position.z,
-          qx: camera.quaternion.x,
-          qy: camera.quaternion.y,
-          qz: camera.quaternion.z,
-          qw: camera.quaternion.w,
-        }
-        const sceneVersionBeforeCull = yield* worldRendererService.getSceneVersion()
-        const lastFrustumCull = MutableRef.get(lastFrustumCullRef)
-        if (
-          lastFrustumCull.version !== sceneVersionBeforeCull ||
-          lastFrustumCull.x !== currentFrustumPose.x ||
-          lastFrustumCull.y !== currentFrustumPose.y ||
-          lastFrustumCull.z !== currentFrustumPose.z ||
-          lastFrustumCull.qx !== currentFrustumPose.qx ||
-          lastFrustumCull.qy !== currentFrustumPose.qy ||
-          lastFrustumCull.qz !== currentFrustumPose.qz ||
-          lastFrustumCull.qw !== currentFrustumPose.qw
-        ) {
-          yield* worldRendererService.applyFrustumCulling(camera)
-          MutableRef.set(lastFrustumCullRef, { version: sceneVersionBeforeCull, ...currentFrustumPose })
-        }
-
-      }).pipe(Effect.catchAllCause((cause) => Effect.logError(`Chunk streaming error: ${Cause.pretty(cause)}`)))
-
-      // 2. Day/night cycle: advance time and update lighting + sky color
+      // 1. Day/night cycle: advance time and update lighting + sky color
       yield* updateDayNightCycle(deltaTime, effectiveLights, timeService).pipe(
         Effect.catchAllCause((cause) => Effect.logError(`Day/night error: ${Cause.pretty(cause)}`))
+      )
+      yield* Ref.updateAndGet(shadowUpdateCounterRef, (n) => (n + 1) % 8).pipe(
+        Effect.flatMap((shadowFrame) => shadowFrame === 0 && deps.lights.light.castShadow
+          ? Effect.sync(() => {
+              markShadowMapDirty()
+            })
+          : Effect.void)
       )
 
       yield* timeService.isNight().pipe(
@@ -407,15 +392,11 @@ export const createFrameHandler = (
         Effect.catchAllCause((cause) => Effect.logError(`Music update error: ${Cause.pretty(cause)}`))
       )
 
-      // 2.5 / 2.75. Entity and village simulation are independent once time-of-day is known.
-      // Run them sequentially to avoid false parallelism overhead in the CPU-bound frame loop.
+      // 2.5. Entity simulation stays on the frame lane so visible transforms remain responsive.
+      // Slower world simulation (furnace/spawn/village) runs on the maintenance lane.
       const timeOfDay = yield* timeService.getTimeOfDay()
-      yield* mobSpawner.trySpawn(playerPos).pipe(
-        Effect.andThen(entityManager.update(deltaTime, playerPos)),
+      yield* entityManager.update(deltaTime, playerPos).pipe(
         Effect.catchAllCause((cause) => Effect.logError(`Entity system error: ${Cause.pretty(cause)}`))
-      )
-      yield* villageService.update(playerPos, timeOfDay, deltaTime).pipe(
-        Effect.catchAllCause((cause) => Effect.logError(`Village system error: ${Cause.pretty(cause)}`))
       )
 
       // 2.8. Sun-driven shader uniform — derived from the canonical day-factor formula
@@ -427,10 +408,21 @@ export const createFrameHandler = (
 
       // 2.85. Sync entity meshes with the live entity list and animate transforms.
       // Must run after entityManager.update so the snapshot reflects this frame's positions.
-      yield* entityManager.getEntities().pipe(
-        Effect.flatMap((entitiesSnapshot) =>
-          entityRenderer.syncEntities(entitiesSnapshot, scene).pipe(
-            Effect.andThen(entityRenderer.updateEntityTransforms(entitiesSnapshot, totalTimeSecs, deltaTime))
+      yield* Effect.all([
+        entityManager.getEntities(),
+        entityManager.getStructureVersion(),
+      ], { concurrency: 'unbounded' }).pipe(
+        Effect.flatMap(([entitiesSnapshot, structureVersion]) =>
+          Ref.get(lastEntityStructureVersionRef).pipe(
+            Effect.flatMap((lastStructureVersion) =>
+              (lastStructureVersion === structureVersion
+                ? Effect.void
+                : entityRenderer.syncEntities(entitiesSnapshot, scene).pipe(
+                    Effect.andThen(Ref.set(lastEntityStructureVersionRef, structureVersion))
+                  )).pipe(
+                Effect.andThen(entityRenderer.updateEntityTransforms(entitiesSnapshot, totalTimeSecs, deltaTime))
+              )
+            )
           )
         ),
         Effect.catchAllCause((cause) => Effect.logError(`Entity render error: ${Cause.pretty(cause)}`))
@@ -438,9 +430,7 @@ export const createFrameHandler = (
 
       // 2.9. Redstone simulation tick (fixed-step propagation)
       yield* Ref.modify(redstoneTickAccumulatorRef, (accumulated) => {
-        const newAccumulated = accumulated + deltaTime
-        const ticks = Math.floor(newAccumulated / REDSTONE_TICK_INTERVAL_SECS)
-        const remainder = newAccumulated - ticks * REDSTONE_TICK_INTERVAL_SECS
+        const { ticks, remainder } = advanceFixedStep(accumulated, deltaTime, REDSTONE_TICK_INTERVAL_SECS)
         return [ticks, remainder]
       }).pipe(
         Effect.flatMap((ticksToRun) =>
@@ -455,9 +445,7 @@ export const createFrameHandler = (
 
       // 2.95. Fluid simulation tick (fixed-step propagation)
       yield* Ref.modify(fluidTickAccumulatorRef, (accumulated) => {
-        const newAccumulated = accumulated + deltaTime
-        const ticks = Math.floor(newAccumulated / FLUID_TICK_INTERVAL_SECS)
-        const remainder = newAccumulated - ticks * FLUID_TICK_INTERVAL_SECS
+        const { ticks, remainder } = advanceFixedStep(accumulated, deltaTime, FLUID_TICK_INTERVAL_SECS)
         return [ticks, remainder]
       }).pipe(
         Effect.flatMap((ticksToRun) =>
@@ -562,6 +550,7 @@ export const createFrameHandler = (
             MutableRef.set(lastShadowTargetRef, { x: currentPlayerPos.x, z: currentPlayerPos.z })
             deps.lights.light.target.position.set(currentPlayerPos.x, 0, currentPlayerPos.z)
             deps.lights.light.target.updateMatrixWorld()
+            markShadowMapDirty()
           }
         })),
         // Dynamic shadow frustum: tighten bounds to renderDistance for higher texel density.
@@ -583,6 +572,7 @@ export const createFrameHandler = (
               cam.top = halfExtent
               cam.bottom = -halfExtent
               cam.updateProjectionMatrix()
+              markShadowMapDirty()
             })
           : Effect.void
         )
@@ -827,27 +817,41 @@ export const createFrameHandler = (
           if (rightClick) yield* Option.match(targetHit, {
             onNone: () => Effect.void,
             onSome: (hit) => {
-              const adjacentPos = {
-                x: hit.blockX + Math.round(hit.normal.x),
-                y: hit.blockY + Math.round(hit.normal.y),
-                z: hit.blockZ + Math.round(hit.normal.z),
-              }
-              return Effect.all([
-                hotbarService.getSelectedBlockType(),
-                hotbarService.getSelectedSlot(),
-              ], { concurrency: 'unbounded' }).pipe(
-                Effect.flatMap(([selectedBlock, selectedSlot]) => Option.match(selectedBlock, {
-                  onNone: () => Effect.void,
-                  onSome: (blockType) => {
-                    const chunkCoord = { x: Math.floor(adjacentPos.x / CHUNK_SIZE), z: Math.floor(adjacentPos.z / CHUNK_SIZE) }
-                    const coordKey = `${chunkCoord.x},${chunkCoord.z}`
-                    return blockService.placeBlock(adjacentPos, blockType, SlotIndex.make(HOTBAR_START + selectedSlot)).pipe(
-                      Effect.flatMap(() => soundManager.playEffect('blockPlace', { position: adjacentPos })),
-                      Effect.andThen(chunkManagerService.getChunk(chunkCoord)),
-                      Effect.flatMap((updatedChunk) => Ref.update(dirtyChunksRef, (map) => HashMap.set(map, coordKey, updatedChunk)))
-                    )
-                  },
-                }))
+              const targetPos = { x: hit.blockX, y: hit.blockY, z: hit.blockZ }
+              const targetChunkCoord = { x: Math.floor(targetPos.x / CHUNK_SIZE), z: Math.floor(targetPos.z / CHUNK_SIZE) }
+              return chunkManagerService.getChunk(targetChunkCoord).pipe(
+                Effect.flatMap((targetChunk) => {
+                  const targetLx = ((targetPos.x % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE
+                  const targetLz = ((targetPos.z % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE
+                  const targetIdx = targetPos.y + targetLz * CHUNK_HEIGHT + targetLx * CHUNK_HEIGHT * CHUNK_SIZE
+                  const targetBlockType = indexToBlockType(targetChunk.blocks[targetIdx] ?? 0)
+                  if (targetBlockType === 'FURNACE') {
+                    return furnaceService.setSelectedFurnace(targetPos)
+                  }
+
+                  const adjacentPos = {
+                    x: hit.blockX + Math.round(hit.normal.x),
+                    y: hit.blockY + Math.round(hit.normal.y),
+                    z: hit.blockZ + Math.round(hit.normal.z),
+                  }
+                  return Effect.all([
+                    hotbarService.getSelectedBlockType(),
+                    hotbarService.getSelectedSlot(),
+                  ], { concurrency: 'unbounded' }).pipe(
+                    Effect.flatMap(([selectedBlock, selectedSlot]) => Option.match(selectedBlock, {
+                      onNone: () => Effect.void,
+                      onSome: (blockType) => {
+                        const chunkCoord = { x: Math.floor(adjacentPos.x / CHUNK_SIZE), z: Math.floor(adjacentPos.z / CHUNK_SIZE) }
+                        const coordKey = `${chunkCoord.x},${chunkCoord.z}`
+                        return blockService.placeBlock(adjacentPos, blockType, SlotIndex.make(HOTBAR_START + selectedSlot)).pipe(
+                          Effect.flatMap(() => soundManager.playEffect('blockPlace', { position: adjacentPos })),
+                          Effect.andThen(chunkManagerService.getChunk(chunkCoord)),
+                          Effect.flatMap((updatedChunk) => Ref.update(dirtyChunksRef, (map) => HashMap.set(map, coordKey, updatedChunk)))
+                        )
+                      },
+                    })),
+                  )
+                }),
               )
             },
           })
@@ -866,6 +870,24 @@ export const createFrameHandler = (
         Effect.andThen(fpsCounter.getFPS())
       )
       const fpsText = fps.toFixed(1)
+      yield* Ref.set(
+        frustumThrottleStrideRef,
+        fps >= 100 ? 1 : fps >= 60 ? 2 : 4,
+      )
+      const adaptiveCooldown = yield* Ref.get(adaptiveQualityCooldownRef)
+      const adaptiveQualityDecision = decideAdaptiveQuality({
+        adaptivePerformanceMode: currentSettings.adaptivePerformanceMode,
+        graphicsQuality: currentSettings.graphicsQuality,
+        renderDistance: currentSettings.renderDistance,
+        fps,
+        cooldown: adaptiveCooldown,
+      })
+      if (adaptiveQualityDecision.nextCooldown !== adaptiveCooldown) {
+        yield* Ref.set(adaptiveQualityCooldownRef, adaptiveQualityDecision.nextCooldown)
+      }
+      if (adaptiveQualityDecision.settingsPatch !== null) {
+        yield* settingsService.updateSettings(adaptiveQualityDecision.settingsPatch)
+      }
       const fpsChanged = yield* Ref.modify(lastFpsTextRef, (last): [boolean, string] =>
         last === fpsText ? [false, last] : [true, fpsText]
       )
@@ -879,32 +901,16 @@ export const createFrameHandler = (
       if (resolvedGraphics.refractionThrottleFrames > 0) {
         const refractionFrame = yield* Ref.updateAndGet(refractionFrameCounterRef, (n) => n + 1)
         if ((refractionFrame - 1) % resolvedGraphics.refractionThrottleFrames === 0) {
-          const currentRefractionPose = {
-            x: deps.camera.position.x,
-            y: deps.camera.position.y,
-            z: deps.camera.position.z,
-            qx: deps.camera.quaternion.x,
-            qy: deps.camera.quaternion.y,
-            qz: deps.camera.quaternion.z,
-            qw: deps.camera.quaternion.w,
-          }
           const sceneVersionBeforeRefraction = yield* worldRendererService.getSceneVersion()
+          const currentRefractionPose = captureCameraPose(deps.camera, sceneVersionBeforeRefraction)
           const lastRefractionFrame = MutableRef.get(lastRefractionFrameRef)
-          const shouldRunRefraction =
-            lastRefractionFrame.version !== sceneVersionBeforeRefraction ||
-            lastRefractionFrame.x !== currentRefractionPose.x ||
-            lastRefractionFrame.y !== currentRefractionPose.y ||
-            lastRefractionFrame.z !== currentRefractionPose.z ||
-            lastRefractionFrame.qx !== currentRefractionPose.qx ||
-            lastRefractionFrame.qy !== currentRefractionPose.qy ||
-            lastRefractionFrame.qz !== currentRefractionPose.qz ||
-            lastRefractionFrame.qw !== currentRefractionPose.qw
+          const shouldRunRefraction = hasCameraPoseChanged(lastRefractionFrame, currentRefractionPose)
 
           if (shouldRunRefraction) {
             yield* worldRendererService.doRefractionPrePass(deps.renderer, deps.scene, deps.camera).pipe(
               Effect.catchAllCause((cause) => Effect.logError(`Refraction pre-pass error: ${Cause.pretty(cause)}`))
             )
-            MutableRef.set(lastRefractionFrameRef, { version: sceneVersionBeforeRefraction, ...currentRefractionPose })
+            MutableRef.set(lastRefractionFrameRef, currentRefractionPose)
             yield* Ref.getAndSet(refractionValidRef, true).pipe(
               Effect.flatMap((wasValid) => wasValid ? Effect.void : worldRendererService.setRefractionValid(true))
             )
@@ -922,34 +928,38 @@ export const createFrameHandler = (
       // graphicsChanged is computed earlier alongside resolvedGraphics (FR-012 cache)
       // FR-014: disabled passes still hold full-resolution render targets that waste VRAM.
       // On transition: disabled→setSize(1,1) shrinks RTs; enabled→setSize(w,h) restores them.
-      if (graphicsChanged) {
+      if (graphicsChanged || pixelRatioChanged) {
         yield* Effect.sync(() => {
           const w = renderer.domElement.clientWidth || 1
           const h = renderer.domElement.clientHeight || 1
+          const pixelRatio = typeof renderer.getPixelRatio === 'function' ? renderer.getPixelRatio() : 1
+          const rw = Math.max(1, Math.ceil(w * pixelRatio))
+          const rh = Math.max(1, Math.ceil(h * pixelRatio))
           if (deps.lights.light.castShadow !== resolvedGraphics.shadowsEnabled) {
             deps.lights.light.castShadow = resolvedGraphics.shadowsEnabled
+            markShadowMapDirty()
           }
           if (gtaoPassOrNull) {
             const enabled = resolvedGraphics.ssaoEnabled && renderer.capabilities.isWebGL2
             gtaoPassOrNull.enabled = enabled
             // FR-014: Half-resolution GTAO — 75% fill reduction with acceptable quality loss
-            gtaoPassOrNull.setSize(enabled ? Math.ceil(w / 2) : 1, enabled ? Math.ceil(h / 2) : 1)
+            gtaoPassOrNull.setSize(enabled ? Math.ceil(rw / 2) : 1, enabled ? Math.ceil(rh / 2) : 1)
           }
           if (bloomPassOrNull) {
             bloomPassOrNull.enabled = resolvedGraphics.bloomEnabled; bloomPassOrNull.strength = resolvedGraphics.bloomStrength
-            bloomPassOrNull.setSize(resolvedGraphics.bloomEnabled ? w : 1, resolvedGraphics.bloomEnabled ? h : 1)
+            bloomPassOrNull.setSize(resolvedGraphics.bloomEnabled ? rw : 1, resolvedGraphics.bloomEnabled ? rh : 1)
           }
           if (dofPassOrNull) {
             dofPassOrNull.enabled = resolvedGraphics.dofEnabled
-            dofPassOrNull.setSize(resolvedGraphics.dofEnabled ? w : 1, resolvedGraphics.dofEnabled ? h : 1)
+            dofPassOrNull.setSize(resolvedGraphics.dofEnabled ? rw : 1, resolvedGraphics.dofEnabled ? rh : 1)
           }
           if (smaaPassOrNull) {
             smaaPassOrNull.enabled = resolvedGraphics.smaaEnabled
-            smaaPassOrNull.setSize(resolvedGraphics.smaaEnabled ? w : 1, resolvedGraphics.smaaEnabled ? h : 1)
+            smaaPassOrNull.setSize(resolvedGraphics.smaaEnabled ? rw : 1, resolvedGraphics.smaaEnabled ? rh : 1)
           }
           if (godRaysPassOrNull) {
             godRaysPassOrNull.setNumSamples(resolvedGraphics.godRaysSamples)
-            godRaysPassOrNull.setSize(resolvedGraphics.godRaysEnabled ? w : 1, resolvedGraphics.godRaysEnabled ? h : 1)
+            godRaysPassOrNull.setSize(resolvedGraphics.godRaysEnabled ? rw : 1, resolvedGraphics.godRaysEnabled ? rh : 1)
           }
         })
       }
@@ -983,40 +993,41 @@ export const createFrameHandler = (
           }
         }
 
-        renderer.render(scene, camera)
+        if (composerOrNull) {
+          composerOrNull.render()
+        } else {
+          renderer.render(scene, camera)
+        }
       })
 
-      // 10.5. Flush dirty chunks — remesh each modified chunk exactly once per frame,
-      // deduplicating rapid break/place clicks that target the same chunk.
-      yield* Ref.getAndSet(dirtyChunksRef, HashMap.empty()).pipe(
-        Effect.flatMap((dirtyChunks) => {
-          const dirtyEntries = Arr.fromIterable(dirtyChunks)
-          const chunksToUpdate = Arr.take(dirtyEntries, MAX_DIRTY_CHUNK_UPDATES_PER_FRAME)
-          const remainingEntries = Arr.drop(dirtyEntries, MAX_DIRTY_CHUNK_UPDATES_PER_FRAME)
-
-          const flushUpdates = Effect.forEach(
-            chunksToUpdate,
-            ([, chunk]) => worldRendererService.updateChunkInScene(chunk, scene),
-            { concurrency: DIRTY_CHUNK_FLUSH_CONCURRENCY, discard: true }
-          )
-
-          const requeueRemaining = remainingEntries.length > 0
-            ? Ref.set(dirtyChunksRef, HashMap.fromIterable(remainingEntries))
-            : Effect.void
-
-          return flushUpdates.pipe(
-            Effect.andThen(requeueRemaining),
-            Effect.andThen(dirtyEntries.length > 0 ? blockHighlight.invalidateCache() : Effect.void),
-          )
-        }),
-        Effect.catchAllCause((cause) => Effect.logError(`Dirty chunk flush error: ${Cause.pretty(cause)}`))
-      )
-
-      // 11. Render HUD hotbar overlay (second pass; autoClear=false prevents erasing the main scene)
+      // 10. Render HUD hotbar overlay (second pass; autoClear=false prevents erasing the main scene)
       yield* Effect.sync(() => { renderer.autoClear = false }).pipe(
         Effect.andThen(hotbarRenderer.render(renderer)),
         Effect.andThen(Effect.sync(() => { renderer.autoClear = true })),
         Effect.catchAllCause((cause) => Effect.logError(`HUD render error: ${Cause.pretty(cause)}`))
       )
     })
+
+    return { frameHandler, maintenanceHandler }
   })
+
+/**
+ * Creates coordinated frame + maintenance handlers that share chunk-sync state.
+ */
+export const createFrameHandlers = (
+  deps: FrameHandlerDeps,
+  services: FrameHandlerServices,
+): Effect.Effect<FrameLoopHandlers> => createFrameLoopHandlersInternal(deps, services)
+
+/**
+ * Backward-compatible single frame handler factory used by tests.
+ */
+export const createFrameHandler = (
+  deps: FrameHandlerDeps,
+  services: FrameHandlerServices,
+): Effect.Effect<(deltaTime: DeltaTimeSecs) => Effect.Effect<void, never>> =>
+  createFrameLoopHandlersInternal(deps, services).pipe(
+    Effect.map(({ frameHandler, maintenanceHandler }) =>
+      (deltaTime: DeltaTimeSecs) => maintenanceHandler().pipe(Effect.andThen(frameHandler(deltaTime)))
+    )
+  )

@@ -1,17 +1,19 @@
 import { describe, it } from '@effect/vitest'
 import { Array as Arr, Effect, Option, Schema } from 'effect'
 import { expect } from 'vitest'
-import { BlockRegistry, BlockRegistryLive } from './block-registry'
+import { BlockRegistry, BlockRegistryLive, initialBlocks } from './block-registry'
 import { Block } from './block'
+
+const expectedInitialBlockCount = new Set(Arr.map(initialBlocks, (block) => block.type)).size
 
 describe('BlockRegistry', () => {
   describe('initialization', () => {
-    it.effect('should have all forty-seven initial blocks registered', () =>
+    it.effect('should have all initial blocks registered', () =>
       Effect.gen(function* () {
         const registry = yield* BlockRegistry
         const allBlocks = yield* registry.getAll()
 
-        expect(allBlocks).toHaveLength(47)
+        expect(allBlocks).toHaveLength(expectedInitialBlockCount)
 
         const blockTypes = Arr.map(allBlocks, (block) => block.type)
         expect(blockTypes).toContain('AIR')
@@ -194,7 +196,7 @@ describe('BlockRegistry', () => {
 
         const allBlocks = yield* registry.getAll()
 
-        expect(allBlocks).toHaveLength(47)
+        expect(allBlocks).toHaveLength(expectedInitialBlockCount)
         expect(Array.isArray(allBlocks)).toBe(true)
       }).pipe(Effect.provide(BlockRegistryLive))
     )
@@ -230,7 +232,7 @@ describe('BlockRegistry', () => {
         const registry = yield* BlockRegistry
 
         const initialBlocks = yield* registry.getAll()
-        expect(initialBlocks).toHaveLength(47)
+        expect(initialBlocks).toHaveLength(expectedInitialBlockCount)
 
         const newBlockData = {
           id: 'block:obsidian' as const,
@@ -256,7 +258,7 @@ describe('BlockRegistry', () => {
         yield* registry.register(newBlock)
 
         const allBlocks = yield* registry.getAll()
-        expect(allBlocks).toHaveLength(47)
+        expect(allBlocks).toHaveLength(expectedInitialBlockCount)
       }).pipe(Effect.provide(BlockRegistryLive))
     )
   })
@@ -267,7 +269,7 @@ describe('BlockRegistry', () => {
         const registry = yield* BlockRegistry
 
         let allBlocks = yield* registry.getAll()
-        expect(allBlocks).toHaveLength(47)
+        expect(allBlocks).toHaveLength(expectedInitialBlockCount)
 
         yield* registry.dispose()
 

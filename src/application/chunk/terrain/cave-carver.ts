@@ -7,6 +7,7 @@ import {
   CAVE_DEPTH_BIAS,
   CAVE_DEPTH_MIN,
   CAVE_DEPTH_MAX,
+  CAVE_LAVA_MAX_Y,
 } from './constants'
 import { smoothstep, chunkBlockIndexUnchecked } from './math'
 
@@ -27,6 +28,7 @@ export const carveCaves = (
   airBlockIndex: number,
   waterBlockIndex: number,
   bedrockBlockIndex: number,
+  lavaBlockIndex: number,
 ): void => {
   const stride = CAVE_SAMPLE_STRIDE
   const sxCount = Math.floor(CHUNK_SIZE / stride) + 1
@@ -80,7 +82,7 @@ export const carveCaves = (
         const threshold = CAVE_BASE_THRESHOLD + CAVE_DEPTH_BIAS * depth
 
         if (Math.abs(interpolated) < threshold) {
-          blocks[idx] = airBlockIndex
+          blocks[idx] = y <= CAVE_LAVA_MAX_Y ? lavaBlockIndex : airBlockIndex
         }
       }
     }

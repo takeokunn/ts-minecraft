@@ -4,6 +4,24 @@ import { WorldId } from '@/shared/kernel'
 import { StorageError } from '@/domain/errors'
 import { WORLD_SCHEMA_VERSION, type ChunkCoord } from '@/domain/chunk'
 import type { ChunkStorageValue } from '@/application/storage/storage-service-port'
+import { PositionSchema } from '@/shared/kernel'
+import { InventorySaveDataSchema } from '@/domain/inventory-save-data'
+import { BlockTypeSchema } from '@/domain/block'
+import { RecipeIdSchema } from '@/shared/kernel'
+
+const FurnaceItemStackSchema = Schema.Struct({
+  blockType: BlockTypeSchema,
+  count: Schema.Number.pipe(Schema.int(), Schema.between(1, 64)),
+})
+
+const FurnaceStateSchema = Schema.Struct({
+  position: PositionSchema,
+  input: Schema.NullOr(FurnaceItemStackSchema),
+  fuel: Schema.NullOr(FurnaceItemStackSchema),
+  output: Schema.NullOr(FurnaceItemStackSchema),
+  activeRecipeId: Schema.NullOr(RecipeIdSchema),
+  progressSecs: Schema.Number.pipe(Schema.finite(), Schema.nonNegative()),
+})
 
 export type { ChunkCoord }
 
@@ -20,6 +38,15 @@ export const WorldMetadataSchema = Schema.Struct({
     y: Schema.Number.pipe(Schema.int(), Schema.nonNegative()),
     z: Schema.Number.pipe(Schema.int()),
   }),
+  playerState: Schema.optional(
+    Schema.Struct({
+      position: PositionSchema,
+      health: Schema.Number.pipe(Schema.int(), Schema.between(0, 20)),
+      inventory: InventorySaveDataSchema,
+      timeOfDay: Schema.Number.pipe(Schema.finite(), Schema.between(0, 0.9999)),
+    }),
+  ),
+  furnaceStates: Schema.optional(Schema.Array(FurnaceStateSchema)),
 })
 export type WorldMetadata = Schema.Schema.Type<typeof WorldMetadataSchema>
 

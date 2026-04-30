@@ -20,6 +20,25 @@ const makeMockNoiseLayer = (tempValue: number, humidityValue: number) =>
     noise2D: (_x: number, _z: number): Effect.Effect<number, never> => Effect.succeed(0.5),
     octaveNoise2D: (x: number, _z: number, _octaves: number, _persistence: number, _lacunarity: number): Effect.Effect<number, never> =>
       Effect.succeed(x > 25.0 ? humidityValue : tempValue),
+    octaveNoise2DBatchXY: (xs: ReadonlyArray<number>, _zs: ReadonlyArray<number>): Effect.Effect<ReadonlyArray<number>, never> =>
+      Effect.succeed(xs.map((x) => x > 25.0 ? humidityValue : tempValue)),
+    noise2DBatchXY: (xs: ReadonlyArray<number>, _zs: ReadonlyArray<number>): Effect.Effect<ReadonlyArray<number>, never> =>
+      Effect.succeed(Array(xs.length).fill(0.9)),
+    continentalness: (_x: number, _z: number): Effect.Effect<number, never> => Effect.succeed(0.35),
+    erosion: (_x: number, _z: number): Effect.Effect<number, never> => Effect.succeed(0.6),
+    weirdness: (_x: number, _z: number): Effect.Effect<number, never> => Effect.succeed(0),
+    jaggedness: (_x: number, _z: number): Effect.Effect<number, never> => Effect.succeed(0),
+    sampleTerrainChannels: (_x: number, _z: number): Effect.Effect<{
+      readonly continentalness: Float64Array
+      readonly erosion: Float64Array
+      readonly pv: Float64Array
+      readonly jaggedness: Float64Array
+    }, never> => Effect.succeed({
+      continentalness: new Float64Array(Array(CHUNK_SIZE * CHUNK_SIZE).fill(0.35)),
+      erosion: new Float64Array(Array(CHUNK_SIZE * CHUNK_SIZE).fill(0.6)),
+      pv: new Float64Array(Array(CHUNK_SIZE * CHUNK_SIZE).fill(0)),
+      jaggedness: new Float64Array(Array(CHUNK_SIZE * CHUNK_SIZE).fill(0)),
+    }),
     setSeed: (_seed: number): Effect.Effect<void, never> => Effect.void,
   } as unknown as NoiseServicePort)
 
@@ -27,7 +46,7 @@ const makeTestLayer = (tempValue: number, humidityValue: number) =>
   BiomeServiceLive.pipe(Layer.provide(makeMockNoiseLayer(tempValue, humidityValue)))
 
 // All valid BiomeType literals
-const ALL_BIOME_TYPES = ['PLAINS', 'DESERT', 'FOREST', 'OCEAN', 'MOUNTAINS', 'SNOW', 'SWAMP', 'JUNGLE', 'BEACH', 'TAIGA', 'SAVANNA'] as const
+const ALL_BIOME_TYPES = ['PLAINS', 'DESERT', 'FOREST', 'OCEAN', 'MOUNTAINS', 'SNOW', 'SWAMP', 'JUNGLE', 'BEACH', 'RIVER', 'TAIGA', 'SAVANNA'] as const
 
 describe('BiomeService — getBiome property tests', () => {
   it.effect.prop(

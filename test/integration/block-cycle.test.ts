@@ -34,6 +34,8 @@ import { ChunkManagerService, ChunkManagerServiceLive } from '@/application/chun
 import { LightEngineLive } from '@/application/light/light-engine-service'
 import { BlockService, BlockServiceLive } from '@/application/block/block-service'
 import { InventoryService } from '@/application/inventory/inventory-service'
+import { HotbarService } from '@/application/hotbar/hotbar-service'
+import { FurnaceService } from '@/application/furnace/furnace-service'
 import { FluidService } from '@/application/fluid/fluid-service'
 import { DEFAULT_WORLD_ID, DEFAULT_PLAYER_ID } from '@/application/constants'
 
@@ -113,6 +115,28 @@ const buildIntegrationLayer = (playerPos: Position = { x: 100, y: 0, z: 100 }) =
     getHotbarSlots: () => Effect.succeed([]),
   } as unknown as InventoryService)
 
+  const MockHotbarLayer = Layer.succeed(HotbarService, {
+    getSelectedSlot: () => Effect.succeed(0 as never),
+    setSelectedSlot: () => Effect.void,
+    getSelectedBlockType: () => Effect.succeed(Option.none()),
+    getSlots: () => Effect.succeed([]),
+    update: () => Effect.void,
+  } as unknown as HotbarService)
+
+  const MockFurnaceLayer = Layer.succeed(FurnaceService, {
+    getState: () => Effect.succeed({ furnaces: new Map(), selectedFurnacePosition: Option.none() }),
+    getNearestFurnaceState: () => Effect.succeed(Option.none()),
+    hasNearbyFurnace: () => Effect.succeed(false),
+    setSelectedFurnace: () => Effect.void,
+    startSmelting: () => Effect.void,
+    collectOutput: () => Effect.succeed(true),
+    clearFurnace: () => Effect.succeed([]),
+    dismantleFurnace: () => Effect.succeed(true),
+    serialize: () => Effect.succeed([]),
+    deserialize: () => Effect.void,
+    tick: () => Effect.void,
+  } as unknown as FurnaceService)
+
   const MockFluidLayer = Layer.succeed(FluidService, {
     notifyBlockChanged: (_position: unknown) => Effect.void,
     seedWater: (_position: unknown) => Effect.void,
@@ -123,7 +147,8 @@ const buildIntegrationLayer = (playerPos: Position = { x: 100, y: 0, z: 100 }) =
 
   const BlockTestLayer = BlockServiceLive.pipe(
     Layer.provide(
-      Layer.mergeAll(ChunkManagerTestLayer, PlayerTestLayer, ChunkServiceLive, MockInventoryLayer, MockFluidLayer)
+      Layer.mergeAll(ChunkManagerTestLayer, PlayerTestLayer, ChunkServiceLive, MockInventoryLayer, MockHotbarLayer, MockFluidLayer)
+        .pipe(Layer.provideMerge(MockFurnaceLayer))
     )
   )
 

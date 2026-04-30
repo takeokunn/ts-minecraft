@@ -212,6 +212,49 @@ describe('infrastructure/storage/storage-service', () => {
       }).pipe(Effect.provide(TestLayer))
     })
 
+    it.effect('should round-trip optional persisted player state in world metadata', () => {
+      const { TestLayer } = makeInMemoryStorageService()
+      const now = new Date()
+      const metadata: WorldMetadata = {
+        seed: 42,
+        createdAt: now,
+        lastPlayed: now,
+        playerSpawn: { x: 8, y: 64, z: 8 },
+        playerState: {
+          position: { x: 12, y: 70, z: -4 },
+          health: 13,
+          inventory: {
+            slots: [
+              { slot: 0 as never, blockType: 'WOOD', count: 3 },
+              null,
+            ],
+          },
+          timeOfDay: 0.75,
+        },
+        furnaceStates: [
+          {
+            position: { x: 8, y: 64, z: 8 },
+            input: { blockType: 'RAW_IRON', count: 1 },
+            fuel: { blockType: 'COAL', count: 1 },
+            output: null,
+            activeRecipeId: 'raw-iron-to-iron-ingot' as never,
+            progressSecs: 0.5,
+          },
+        ],
+      }
+      return Effect.gen(function* () {
+        const storage = yield* StorageService
+        yield* storage.saveWorldMetadata(testWorldId, metadata)
+        const loaded = Option.getOrThrow(yield* storage.loadWorldMetadata(testWorldId))
+        expect(loaded.playerState?.position).toEqual({ x: 12, y: 70, z: -4 })
+        expect(loaded.playerState?.health).toBe(13)
+        expect(loaded.playerState?.timeOfDay).toBe(0.75)
+        expect(loaded.playerState?.inventory.slots[0]).toEqual({ slot: 0, blockType: 'WOOD', count: 3 })
+        expect(loaded.furnaceStates?.[0]?.position).toEqual({ x: 8, y: 64, z: 8 })
+        expect(loaded.furnaceStates?.[0]?.input).toEqual({ blockType: 'RAW_IRON', count: 1 })
+      }).pipe(Effect.provide(TestLayer))
+    })
+
     it.effect('should return Option.none() for metadata of non-existent worldId', () => {
       const { TestLayer } = makeInMemoryStorageService()
       return Effect.gen(function* () {

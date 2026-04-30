@@ -13,7 +13,7 @@ describe('BlockTypeSchema', () => {
         'DEEPSLATE_COAL_ORE', 'DEEPSLATE_IRON_ORE', 'DEEPSLATE_GOLD_ORE', 'DEEPSLATE_DIAMOND_ORE',
         'DEEPSLATE_REDSTONE_ORE', 'DEEPSLATE_LAPIS_ORE', 'DEEPSLATE_EMERALD_ORE',
         'COAL_BLOCK', 'IRON_BLOCK', 'GOLD_BLOCK', 'DIAMOND_BLOCK', 'REDSTONE_BLOCK', 'LAPIS_BLOCK', 'EMERALD_BLOCK',
-        'PLANKS', 'STICKS', 'CRAFTING_TABLE', 'FURNACE', 'TORCH', 'COAL', 'WOODEN_SWORD',
+        'PLANKS', 'STICKS', 'CRAFTING_TABLE', 'FURNACE', 'TORCH', 'COAL', 'WOODEN_SWORD', 'WOODEN_PICKAXE', 'STONE_PICKAXE', 'RAW_IRON', 'IRON_INGOT', 'IRON_PICKAXE', 'RAW_GOLD', 'GOLD_INGOT', 'DIAMOND', 'REDSTONE_DUST', 'LAPIS_LAZULI', 'EMERALD', 'DIAMOND_PICKAXE',
       ] as const
       return Effect.forEach(validTypes, (type) =>
         Effect.gen(function* () {
@@ -24,7 +24,7 @@ describe('BlockTypeSchema', () => {
     })
 
     it.effect('should reject invalid block types', () => {
-      const invalidTypes = ['NETHERRACK', 'END_STONE', 'DIAMOND_SWORD', 'GOLD_INGOT'] as const
+      const invalidTypes = ['NETHERRACK', 'END_STONE', 'DIAMOND_SWORD', 'NETHERITE_INGOT'] as const
       return Effect.forEach(invalidTypes, (type) =>
         Effect.gen(function* () {
           const result = yield* Effect.either(Schema.decodeUnknown(BlockTypeSchema)(type))

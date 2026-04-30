@@ -3,6 +3,33 @@ import { blockTypeToIndex, CHUNK_SIZE, CHUNK_HEIGHT } from '@/domain/chunk'
 import { ORE_CONFIGS, ORE_MIN_Y_FLOOR, DEEPSLATE_CEILING } from './constants'
 import { mulberry32, seedFromChunk, chunkBlockIndexUnchecked } from './math'
 
+const sampleOreY = (
+  cfg: (typeof ORE_CONFIGS)[number],
+  yMin: number,
+  yMax: number,
+  rngState: number,
+): readonly [number, number] => {
+  const mode = Math.max(yMin, Math.min(yMax, cfg.peakY))
+
+  if (cfg.distribution === 'uniform' || yMin === yMax) {
+    const { state, value } = mulberry32(rngState)
+    return [state, Math.floor(yMin + value * (yMax - yMin + 1))]
+  }
+
+  const { state, value } = mulberry32(rngState)
+  const span = yMax - yMin
+  if (span <= 0) {
+    return [state, yMin]
+  }
+
+  const modeFraction = (mode - yMin) / span
+  const sampled = value < modeFraction
+    ? yMin + Math.sqrt(value * span * (mode - yMin))
+    : yMax - Math.sqrt((1 - value) * span * (yMax - mode))
+
+  return [state, Math.max(yMin, Math.min(yMax, Math.round(sampled)))]
+}
+
 /**
  * Pre-resolved ore block indices — parallel arrays to ORE_CONFIGS.
  * Computed once at module load; reused across every chunk generation.
@@ -141,12 +168,11 @@ export const placeOres = (
       let placed = false
       for (let attempt = 0; attempt < MAX_SEED_ATTEMPTS && !placed; attempt++) {
         const { state: sx, value: rx } = mulberry32(state)
-        const { state: sy, value: ry } = mulberry32(sx)
+        const [sy, seedY] = sampleOreY(cfg, yMin, yMax, sx)
         const { state: sz, value: rz } = mulberry32(sy)
         state = sz
 
         const seedX = Math.floor(rx * CHUNK_SIZE)
-        const seedY = Math.floor(yMin + ry * (yMax - yMin + 1))
         const seedZ = Math.floor(rz * CHUNK_SIZE)
 
         const seedIdx = chunkBlockIndexUnchecked(seedX, seedY, seedZ)

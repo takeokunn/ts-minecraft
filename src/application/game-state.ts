@@ -75,7 +75,8 @@ export class GameStateService extends Effect.Service<GameStateService>()(
       Ref.make<Option.Option<PhysicsBodyId>>(Option.none()),
       // AABB-derived grounded state (updated each frame after block collision resolution)
       Ref.make<boolean>(false),
-    ], { concurrency: 'unbounded' }).pipe(Effect.map(([playerService, physicsService, movementService, cameraState, chunkManagerService, timingStateRef, playerBodyIdRef, isGroundedRef]) => {
+      Ref.make(new Map<string, { blocks: Uint8Array }>()),
+    ], { concurrency: 'unbounded' }).pipe(Effect.map(([playerService, physicsService, movementService, cameraState, chunkManagerService, timingStateRef, playerBodyIdRef, isGroundedRef, chunkCacheRef]) => {
       const playerId = DEFAULT_PLAYER_ID
 
       return {
@@ -169,7 +170,10 @@ export class GameStateService extends Effect.Service<GameStateService>()(
             // Load surrounding chunks for block collision queries
             const playerCx = Math.floor(physPos.x / CHUNK_SIZE)
             const playerCz = Math.floor(physPos.z / CHUNK_SIZE)
-            const chunkCache = new Map<string, { blocks: Uint8Array }>()
+            const chunkCache = yield* Ref.get(chunkCacheRef)
+            yield* Effect.sync(() => {
+              chunkCache.clear()
+            })
             yield* Effect.forEach(
               Arr.flatMap([-1, 0, 1] as const, (dx) => Arr.map([-1, 0, 1] as const, (dz) => ({ dx, dz }))),
               ({ dx, dz }) =>

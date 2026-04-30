@@ -18,6 +18,8 @@ import {
   PLAYER_HALF_HEIGHT,
 } from './block-service'
 import { InventoryService } from '@/application/inventory/inventory-service'
+import { HotbarService } from '@/application/hotbar/hotbar-service'
+import { FurnaceService } from '@/application/furnace/furnace-service'
 import { DEFAULT_WORLD_ID, DEFAULT_PLAYER_ID } from '@/application/constants'
 import { FluidService } from '@/application/fluid/fluid-service'
 
@@ -127,6 +129,28 @@ const createMockInventoryService = (options?: {
   getHotbarSlots: () => Effect.succeed([]),
 } as unknown as InventoryService)
 
+const createMockHotbarService = (selectedBlockType: Option.Option<BlockType> = Option.none()): HotbarService => ({
+  getSelectedSlot: () => Effect.succeed(SlotIndex.make(0)),
+  setSelectedSlot: () => Effect.void,
+  getSelectedBlockType: () => Effect.succeed(selectedBlockType),
+  getSlots: () => Effect.succeed([]),
+  update: () => Effect.void,
+} as unknown as HotbarService)
+
+const createMockFurnaceService = (): FurnaceService => ({
+  getState: () => Effect.succeed({ furnaces: new Map(), selectedFurnacePosition: Option.none() }),
+  getNearestFurnaceState: () => Effect.succeed(Option.none()),
+  hasNearbyFurnace: () => Effect.succeed(false),
+  setSelectedFurnace: () => Effect.void,
+  startSmelting: () => Effect.void,
+  collectOutput: () => Effect.succeed(true),
+  clearFurnace: () => Effect.succeed([]),
+  dismantleFurnace: () => Effect.succeed(true),
+  serialize: () => Effect.succeed([]),
+  deserialize: () => Effect.void,
+  tick: () => Effect.void,
+} as unknown as FurnaceService)
+
 const createFluidRecorder = () => {
   const calls = { notify: [] as Position[], seed: [] as Position[], remove: [] as Position[] }
   const service = {
@@ -150,12 +174,16 @@ const createTestLayer = (
     tick: () => Effect.void,
   },
   inventoryService: InventoryService = createMockInventoryService(),
+  hotbarService: HotbarService = createMockHotbarService(),
+  furnaceService: FurnaceService = createMockFurnaceService(),
 ) =>
   BlockServiceLive.pipe(
     Layer.provide(Layer.mergeAll(
       Layer.succeed(ChunkManagerService, chunkManagerService),
       Layer.succeed(PlayerService, playerService),
       Layer.succeed(InventoryService, inventoryService),
+      Layer.succeed(HotbarService, hotbarService),
+      Layer.succeed(FurnaceService, furnaceService),
       Layer.succeed(FluidService, fluidService as unknown as FluidService),
       ChunkServiceLive,
     ))
@@ -302,7 +330,7 @@ describe('BlockService.breakBlock', () => {
       { pos: pos0, blockType: 'STONE' },
       { pos: pos1, blockType: 'DIRT' },
     ])
-    const layer = createTestLayer(handle.service, createMockPlayerService({ x: 100, y: 0, z: 100 }))
+    const layer = createTestLayer(handle.service, createMockPlayerService({ x: 100, y: 0, z: 100 }), undefined, undefined, createMockHotbarService(Option.some('WOODEN_PICKAXE')))
     const { lx: lx1, lz: lz1, y: y1 } = worldToLocal(pos1)
     const chunk1 = handle.getChunkForPos(pos1)
     return Effect.gen(function* () {
@@ -362,7 +390,7 @@ describe('BlockService.breakBlock', () => {
     const handle = createMockChunkManagerService([{ pos, blockType: 'STONE' }])
     const { lx, lz, y } = worldToLocal(pos)
     const chunk = handle.getChunkForPos(pos)
-    const layer = createTestLayer(handle.service, createMockPlayerService({ x: 100, y: 0, z: 100 }))
+    const layer = createTestLayer(handle.service, createMockPlayerService({ x: 100, y: 0, z: 100 }), undefined, undefined, createMockHotbarService(Option.some('WOODEN_PICKAXE')))
     return Effect.gen(function* () {
       yield* Effect.flatMap(BlockService, (svc) => svc.breakBlock(pos))
       expect(readBlock(chunk, lx, y, lz)).toBe('AIR')
@@ -611,7 +639,7 @@ describe('BlockService — break then place (chaining)', () => {
 })
 
 describe('BlockService — item-like drops and non-placeable inventory items', () => {
-  it.effect('breaking COAL_ORE drops COAL into inventory instead of the ore block', () => {
+  it.effect('breaking COAL_ORE with a wooden pickaxe drops COAL into inventory instead of the ore block', () => {
     const pos: Position = { x: 3, y: 3, z: 3 }
     const handle = createMockChunkManagerService([{ pos, blockType: 'COAL_ORE' }])
     const inventorySpy = vi.fn(() => Effect.succeed(true))
@@ -620,6 +648,7 @@ describe('BlockService — item-like drops and non-placeable inventory items', (
       createMockPlayerService({ x: 100, y: 0, z: 100 }),
       undefined,
       createMockInventoryService({ addBlock: inventorySpy }),
+      createMockHotbarService(Option.some('WOODEN_PICKAXE')),
     )
 
     return Effect.gen(function* () {
@@ -638,13 +667,159 @@ describe('BlockService — item-like drops and non-placeable inventory items', (
       expect(result._tag).toBe('Left')
     }).pipe(Effect.provide(layer))
   })
+
+  it.effect('breaking STONE by hand fails instead of yielding free progression', () => {
+    const pos: Position = { x: 4, y: 4, z: 4 }
+    const handle = createMockChunkManagerService([{ pos, blockType: 'STONE' }])
+    const inventorySpy = vi.fn(() => Effect.succeed(true))
+    const layer = createTestLayer(
+      handle.service,
+      createMockPlayerService({ x: 100, y: 0, z: 100 }),
+      undefined,
+      createMockInventoryService({ addBlock: inventorySpy }),
+      createMockHotbarService(Option.none()),
+    )
+
+    return Effect.gen(function* () {
+      const svc = yield* BlockService
+      const result = yield* Effect.either(svc.breakBlock(pos))
+      expect(result._tag).toBe('Left')
+      expect(inventorySpy).not.toHaveBeenCalled()
+    }).pipe(Effect.provide(layer))
+  })
+
+  it.effect('breaking STONE with a selected pickaxe drops COBBLESTONE into inventory', () => {
+    const pos: Position = { x: 5, y: 5, z: 5 }
+    const handle = createMockChunkManagerService([{ pos, blockType: 'STONE' }])
+    const inventorySpy = vi.fn(() => Effect.succeed(true))
+    const layer = createTestLayer(
+      handle.service,
+      createMockPlayerService({ x: 100, y: 0, z: 100 }),
+      undefined,
+      createMockInventoryService({ addBlock: inventorySpy }),
+      createMockHotbarService(Option.some('WOODEN_PICKAXE')),
+    )
+
+    return Effect.gen(function* () {
+      const svc = yield* BlockService
+      yield* svc.breakBlock(pos)
+      expect(inventorySpy).toHaveBeenCalledWith('COBBLESTONE', 1)
+    }).pipe(Effect.provide(layer))
+  })
+
+  it.effect('breaking COAL_ORE by hand fails instead of yielding free progression', () => {
+    const pos: Position = { x: 6, y: 6, z: 6 }
+    const handle = createMockChunkManagerService([{ pos, blockType: 'COAL_ORE' }])
+    const inventorySpy = vi.fn(() => Effect.succeed(true))
+    const layer = createTestLayer(
+      handle.service,
+      createMockPlayerService({ x: 100, y: 0, z: 100 }),
+      undefined,
+      createMockInventoryService({ addBlock: inventorySpy }),
+      createMockHotbarService(Option.none()),
+    )
+
+    return Effect.gen(function* () {
+      const svc = yield* BlockService
+      const result = yield* Effect.either(svc.breakBlock(pos))
+      expect(result._tag).toBe('Left')
+      expect(inventorySpy).not.toHaveBeenCalled()
+    }).pipe(Effect.provide(layer))
+  })
+
+  it.effect('breaking COAL_ORE with a wooden pickaxe drops COAL into inventory', () => {
+    const pos: Position = { x: 7, y: 7, z: 7 }
+    const handle = createMockChunkManagerService([{ pos, blockType: 'COAL_ORE' }])
+    const inventorySpy = vi.fn(() => Effect.succeed(true))
+    const layer = createTestLayer(
+      handle.service,
+      createMockPlayerService({ x: 100, y: 0, z: 100 }),
+      undefined,
+      createMockInventoryService({ addBlock: inventorySpy }),
+      createMockHotbarService(Option.some('WOODEN_PICKAXE')),
+    )
+
+    return Effect.gen(function* () {
+      const svc = yield* BlockService
+      yield* svc.breakBlock(pos)
+      expect(inventorySpy).toHaveBeenCalledWith('COAL', 1)
+    }).pipe(Effect.provide(layer))
+  })
+
+  it.effect('breaking DIAMOND_ORE with a wooden pickaxe fails instead of yielding free progression', () => {
+    const pos: Position = { x: 8, y: 8, z: 8 }
+    const handle = createMockChunkManagerService([{ pos, blockType: 'DIAMOND_ORE' }])
+    const inventorySpy = vi.fn(() => Effect.succeed(true))
+    const layer = createTestLayer(
+      handle.service,
+      createMockPlayerService({ x: 100, y: 0, z: 100 }),
+      undefined,
+      createMockInventoryService({ addBlock: inventorySpy }),
+      createMockHotbarService(Option.some('WOODEN_PICKAXE')),
+    )
+
+    return Effect.gen(function* () {
+      const svc = yield* BlockService
+      const result = yield* Effect.either(svc.breakBlock(pos))
+      expect(result._tag).toBe('Left')
+      expect(inventorySpy).not.toHaveBeenCalled()
+    }).pipe(Effect.provide(layer))
+  })
+
+  it.effect('breaking DIAMOND_ORE with an iron pickaxe drops DIAMOND into inventory', () => {
+    const pos: Position = { x: 9, y: 9, z: 9 }
+    const handle = createMockChunkManagerService([{ pos, blockType: 'DIAMOND_ORE' }])
+    const inventorySpy = vi.fn(() => Effect.succeed(true))
+    const layer = createTestLayer(
+      handle.service,
+      createMockPlayerService({ x: 100, y: 0, z: 100 }),
+      undefined,
+      createMockInventoryService({ addBlock: inventorySpy }),
+      createMockHotbarService(Option.some('IRON_PICKAXE')),
+    )
+
+    return Effect.gen(function* () {
+      const svc = yield* BlockService
+      yield* svc.breakBlock(pos)
+      expect(inventorySpy).toHaveBeenCalledWith('DIAMOND', 1)
+    }).pipe(Effect.provide(layer))
+  })
+
+  it.effect('breaking GOLD_ORE with an iron pickaxe drops RAW_GOLD into inventory', () => {
+    const pos: Position = { x: 10, y: 10, z: 10 }
+    const handle = createMockChunkManagerService([{ pos, blockType: 'GOLD_ORE' }])
+    const inventorySpy = vi.fn(() => Effect.succeed(true))
+    const layer = createTestLayer(
+      handle.service,
+      createMockPlayerService({ x: 100, y: 0, z: 100 }),
+      undefined,
+      createMockInventoryService({ addBlock: inventorySpy }),
+      createMockHotbarService(Option.some('IRON_PICKAXE')),
+    )
+
+    return Effect.gen(function* () {
+      const svc = yield* BlockService
+      yield* svc.breakBlock(pos)
+      expect(inventorySpy).toHaveBeenCalledWith('RAW_GOLD', 1)
+    }).pipe(Effect.provide(layer))
+  })
+
+  it.effect('cannot place WOODEN_PICKAXE into the world', () => {
+    const pos: Position = { x: 10, y: 2, z: 10 }
+    const layer = createTestLayer(createMockChunkManagerService().service, createMockPlayerService({ x: 100, y: 0, z: 100 }))
+    return Effect.gen(function* () {
+      const svc = yield* BlockService
+      const result = yield* Effect.either(svc.placeBlock(pos, 'WOODEN_PICKAXE'))
+      expect(result._tag).toBe('Left')
+    }).pipe(Effect.provide(layer))
+  })
 })
 
 describe('BlockService — Effect.Metric counters', () => {
   it.effect('breakBlock increments blocks_broken by 1', () => {
     const pos: Position = { x: 10, y: 10, z: 10 }
     const handle = createMockChunkManagerService([{ pos, blockType: 'STONE' }])
-    const layer = createTestLayer(handle.service, createMockPlayerService({ x: 100, y: 0, z: 100 }))
+    const layer = createTestLayer(handle.service, createMockPlayerService({ x: 100, y: 0, z: 100 }), undefined, undefined, createMockHotbarService(Option.some('WOODEN_PICKAXE')))
     return Effect.gen(function* () {
       const counter = Metric.counter('blocks_broken')
       const before = yield* Metric.value(counter)

@@ -12,11 +12,15 @@ import {
   HUM_JUNGLE, TEMP_JUNGLE,
   HUM_TAIGA, HUM_MOUNTAINS,
   HUM_SAVANNA_MIN,
+  RIVER_CENTER,
+  RIVER_HALF_WIDTH,
+  RIVER_NOISE_SCALE,
+  RIVER_WORLD_OFFSET,
 } from './biome-service.config'
 /**
  * Biome types for terrain classification
  */
-export const BiomeTypeSchema = Schema.Literal('PLAINS', 'DESERT', 'FOREST', 'OCEAN', 'MOUNTAINS', 'SNOW', 'SWAMP', 'JUNGLE', 'BEACH', 'TAIGA', 'SAVANNA')
+export const BiomeTypeSchema = Schema.Literal('PLAINS', 'DESERT', 'FOREST', 'OCEAN', 'MOUNTAINS', 'SNOW', 'SWAMP', 'JUNGLE', 'BEACH', 'RIVER', 'TAIGA', 'SAVANNA')
 export type BiomeType = Schema.Schema.Type<typeof BiomeTypeSchema>
 
 /**
@@ -40,6 +44,18 @@ export const BiomePropertiesSchema = Schema.Struct({
   humidity: Schema.Number.pipe(Schema.finite(), Schema.between(0, 1)),
 })
 export type BiomeProperties = Schema.Schema.Type<typeof BiomePropertiesSchema>
+
+type ClimateSample = {
+  readonly temperature: number
+  readonly humidity: number
+  readonly continentalness: number
+  readonly erosion: number
+  readonly pv: number
+  readonly riverNoise: number
+}
+
+const peaksAndValleysFromWeirdness = (weirdness: number): number =>
+  1 - Math.abs(3 * Math.abs(weirdness) - 2)
 
 /**
  * Classify a biome from continuous temperature and humidity values.
@@ -66,15 +82,55 @@ export const classifyBiome = (temperature: number, humidity: number): BiomeType 
   return 'PLAINS'
 }
 
+const classifyBiomeFromClimate = ({
+  temperature,
+  humidity,
+  continentalness,
+  erosion,
+  pv,
+  riverNoise,
+}: ClimateSample): BiomeType => {
+  const riverDistance = Math.abs(riverNoise - RIVER_CENTER)
+  if (continentalness > -0.22 && continentalness < 0.42 && riverDistance < RIVER_HALF_WIDTH) {
+    return 'RIVER'
+  }
+
+  const baseBiome = classifyBiome(temperature, humidity)
+
+  if (continentalness < -0.42) {
+    return 'OCEAN'
+  }
+
+  const mountaininess = Math.max(0, pv) * 0.65 + Math.max(0, 0.45 - erosion) * 0.35
+  if (continentalness > 0.5 && mountaininess > 0.42) {
+    return temperature < TEMP_COLD ? 'SNOW' : 'MOUNTAINS'
+  }
+
+  if (baseBiome === 'OCEAN') {
+    return temperature > TEMP_HOT ? 'SWAMP' : 'FOREST'
+  }
+
+  if (baseBiome === 'SWAMP' && (continentalness > 0.15 || erosion < 0.35)) {
+    return 'FOREST'
+  }
+
+  if (baseBiome === 'MOUNTAINS' && (continentalness < 0.32 || mountaininess < 0.28)) {
+    return temperature < TEMP_COLD ? 'TAIGA' : 'FOREST'
+  }
+
+  return baseBiome
+}
+
 const refineBeachBiome = (
   biome: BiomeType,
   neighboringBiomes: ReadonlyArray<BiomeType>,
+  continentalness: number,
 ): BiomeType => {
   if (biome === 'OCEAN' || biome === 'DESERT' || biome === 'SWAMP') return biome
 
   const adjacentOcean = Arr.some(neighboringBiomes, (neighborBiome) => neighborBiome === 'OCEAN')
 
-  return adjacentOcean ? 'BEACH' : biome
+  return adjacentOcean && continentalness < 0.12 ? 'BEACH' : biome
 }
 
 // ─── Pure data helpers ────────────────────────────────────────────────────────
@@ -104,6 +160,12 @@ export const buildChunkNoiseInputs = (chunkX: number, chunkZ: number): ReadonlyA
     }
   })
 
+const batchTerrainIndexFor = (i: number): number => {
+  const lx = Math.floor(i / CHUNK_SIZE)
+  const lz = i % CHUNK_SIZE
+  return lz * CHUNK_SIZE + lx
+}
+
 // ─── Service ─────────────────────────────────────────────────────────────────
 
 export class BiomeService extends Effect.Service<BiomeService>()(
@@ -117,8 +179,24 @@ export class BiomeService extends Effect.Service<BiomeService>()(
         noiseService.octaveNoise2D((x + HUMIDITY_WORLD_OFFSET) * BIOME_SCALE, (z + HUMIDITY_WORLD_OFFSET) * BIOME_SCALE, 4, 0.5, 2.0)
 
       const getBiome = (x: number, z: number): Effect.Effect<BiomeType, never> =>
-        Effect.all([getTemperature(x, z), getHumidity(x, z)], { concurrency: 'unbounded' }).pipe(
-          Effect.map(([temp, hum]) => classifyBiome(temp, hum))
+        Effect.all([
+          getTemperature(x, z),
+          getHumidity(x, z),
+          noiseService.continentalness(x, z),
+          noiseService.erosion(x, z),
+          noiseService.weirdness(x, z),
+          noiseService.noise2D(x * RIVER_NOISE_SCALE + RIVER_WORLD_OFFSET, z * RIVER_NOISE_SCALE + RIVER_WORLD_OFFSET),
+        ], { concurrency: 'unbounded' }).pipe(
+          Effect.map(([temp, hum, continentalness, erosion, weirdness, riverNoise]) =>
+            classifyBiomeFromClimate({
+              temperature: temp,
+              humidity: hum,
+              continentalness,
+              erosion,
+              pv: peaksAndValleysFromWeirdness(weirdness),
+              riverNoise,
+            })
+          )
         )
 
       const getBiomeProperties = (biome: BiomeType): Effect.Effect<BiomeProperties, never, never> =>
@@ -141,11 +219,23 @@ export class BiomeService extends Effect.Service<BiomeService>()(
               Arr.map(coords, (c) => c.humZ),
               4, 0.5, 2.0,
             ),
+            noiseService.sampleTerrainChannels(chunkX * CHUNK_SIZE, chunkZ * CHUNK_SIZE),
+            noiseService.noise2DBatchXY(
+              Arr.map(coords, (c) => c.tempX * (RIVER_NOISE_SCALE / BIOME_SCALE) + RIVER_WORLD_OFFSET),
+              Arr.map(coords, (c) => c.tempZ * (RIVER_NOISE_SCALE / BIOME_SCALE) + RIVER_WORLD_OFFSET),
+            ),
           ],
           { concurrency: 'unbounded' },
         ).pipe(
-          Effect.flatMap(([tempVals, humVals]) => {
-            const baseBiomes = Arr.makeBy(coords.length, (i) => classifyBiome(tempVals[i]!, humVals[i]!))
+          Effect.flatMap(([tempVals, humVals, terrainChannels, riverNoiseVals]) => {
+            const baseBiomes = Arr.makeBy(coords.length, (i) => classifyBiomeFromClimate({
+              temperature: tempVals[i]!,
+              humidity: humVals[i]!,
+              continentalness: terrainChannels.continentalness[batchTerrainIndexFor(i)]!,
+              erosion: terrainChannels.erosion[batchTerrainIndexFor(i)]!,
+              pv: terrainChannels.pv[batchTerrainIndexFor(i)]!,
+              riverNoise: riverNoiseVals[i]!,
+            }))
             return Effect.forEach(
               Arr.makeBy(coords.length, (i) => i),
               (i) => {
@@ -161,7 +251,11 @@ export class BiomeService extends Effect.Service<BiomeService>()(
                   getBiome(worldX, worldZ + 1),
                 ], { concurrency: 'unbounded' }).pipe(
                   Effect.map((neighbors) => {
-                    const refinedBiome = refineBeachBiome(biome, neighbors)
+                    const refinedBiome = refineBeachBiome(
+                      biome,
+                      neighbors,
+                      terrainChannels.continentalness[batchTerrainIndexFor(i)]!,
+                    )
                     return { biome: refinedBiome, props: BIOME_PROPERTIES[refinedBiome] }
                   }),
                 )

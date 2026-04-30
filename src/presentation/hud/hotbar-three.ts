@@ -52,6 +52,18 @@ const BLOCK_COLORS: Record<BlockType, number> = {
   TORCH: 0xffcf5a,
   COAL: 0x262626,
   WOODEN_SWORD: 0xc49a6c,
+  WOODEN_PICKAXE: 0xc49a6c,
+  STONE_PICKAXE: 0x9b9b9b,
+  RAW_IRON: 0xb38b6d,
+  IRON_INGOT: 0xcfcfcf,
+  IRON_PICKAXE: 0xcfcfcf,
+  RAW_GOLD: 0xc7a340,
+  GOLD_INGOT: 0xffd75a,
+  DIAMOND: 0x71e0e0,
+  REDSTONE_DUST: 0xb02020,
+  LAPIS_LAZULI: 0x3456c0,
+  EMERALD: 0x2cc36b,
+  DIAMOND_PICKAXE: 0x71e0e0,
 }
 
 const SLOT_SIZE = 60

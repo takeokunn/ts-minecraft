@@ -11,6 +11,9 @@ import {
   LAKE_MAX_DEPTH,
   LAKE_MIN_DEPTH,
   LAKE_SHORE_WIDTH,
+  RIVER_MAX_CUT,
+  RIVER_MIN_CUT,
+  RIVER_WATER_LEVEL,
   VARIANT_NOISE_SCALE,
   GRANITE_OFFSET_X,
   GRANITE_OFFSET_Z,
@@ -84,6 +87,416 @@ const computeLakeBasin = (
  *   y < height-3: STONE
  *   y == 0: STONE (bedrock-like)
  */
+type ColumnNoiseCoordinates = {
+  readonly lakeX: number
+  readonly lakeZ: number
+  readonly graniteX: number
+  readonly graniteZ: number
+  readonly dioriteX: number
+  readonly dioriteZ: number
+  readonly andesiteX: number
+  readonly andesiteZ: number
+}
+
+type CaveGridPoint = {
+  readonly x: number
+  readonly y: number
+  readonly z: number
+}
+
+type BlockIndices = {
+  readonly stoneBlockIndex: number
+  readonly waterBlockIndex: number
+  readonly lavaBlockIndex: number
+  readonly sandBlockIndex: number
+  readonly gravelBlockIndex: number
+  readonly bedrockBlockIndex: number
+  readonly deepslateBlockIndex: number
+  readonly graniteBlockIndex: number
+  readonly dioriteBlockIndex: number
+  readonly andesiteBlockIndex: number
+  readonly airBlockIndex: number
+}
+
+type ColumnState = {
+  readonly biome: BiomeType
+  readonly props: BiomeProperties
+  readonly surfaceY: number
+  readonly lakeBasinY: Option.Option<number>
+  readonly ruggedness: number
+}
+
+type OverhangTarget = {
+  readonly lx: number
+  readonly lz: number
+  readonly y: number
+}
+
+type TreeColumnContextResolverDeps = {
+  readonly biomeService: BiomeService
+  readonly noiseService: NoiseServicePort
+  readonly treeColumnContextCache: Map<string, TreeColumnContext>
+  readonly blockIndices: BlockIndices
+}
+
+type ColumnStateBuildArgs = {
+  readonly blocks: Uint8Array
+  readonly baseWorldX: number
+  readonly baseWorldZ: number
+  readonly biomeColumns: ReadonlyArray<{ readonly biome: BiomeType; readonly props: BiomeProperties }>
+  readonly terrainChannels: Parameters<typeof computeColumnY>[0]
+  readonly initialSurfaceYs: ReadonlyArray<number>
+  readonly lakeNoiseVals: ReadonlyArray<number>
+  readonly graniteNoiseVals: ReadonlyArray<number>
+  readonly dioriteNoiseVals: ReadonlyArray<number>
+  readonly andesiteNoiseVals: ReadonlyArray<number>
+  readonly treeColumnContextCache: Map<string, TreeColumnContext>
+  readonly blockIndices: BlockIndices
+}
+
+const createColumnNoiseCoordinates = (baseWorldX: number, baseWorldZ: number): ReadonlyArray<ColumnNoiseCoordinates> =>
+  Arr.flatMap(Arr.makeBy(CHUNK_SIZE, (lx) => lx), (lx) =>
+    Arr.makeBy(CHUNK_SIZE, (lz) => {
+      const x = baseWorldX + lx
+      const z = baseWorldZ + lz
+      return {
+        lakeX: x * LAKE_NOISE_SCALE + 5000,
+        lakeZ: z * LAKE_NOISE_SCALE + 5000,
+        graniteX: x * VARIANT_NOISE_SCALE + GRANITE_OFFSET_X,
+        graniteZ: z * VARIANT_NOISE_SCALE + GRANITE_OFFSET_Z,
+        dioriteX: x * VARIANT_NOISE_SCALE + DIORITE_OFFSET_X,
+        dioriteZ: z * VARIANT_NOISE_SCALE + DIORITE_OFFSET_Z,
+        andesiteX: x * VARIANT_NOISE_SCALE + ANDESITE_OFFSET_X,
+        andesiteZ: z * VARIANT_NOISE_SCALE + ANDESITE_OFFSET_Z,
+      }
+    })
+  )
+
+const createCaveGridPoints = (baseWorldX: number, baseWorldZ: number): ReadonlyArray<CaveGridPoint> => {
+  const caveSX = Math.floor(CHUNK_SIZE / CAVE_SAMPLE_STRIDE) + 1
+  const caveSZ = Math.floor(CHUNK_SIZE / CAVE_SAMPLE_STRIDE) + 1
+  const caveSY = Math.floor(CHUNK_HEIGHT / CAVE_SAMPLE_STRIDE) + 1
+
+  return Arr.flatMap(Arr.makeBy(caveSY, (sy) => sy), (sy) =>
+    Arr.flatMap(Arr.makeBy(caveSZ, (sz) => sz), (sz) =>
+      Arr.makeBy(caveSX, (sx) => ({
+        x: (baseWorldX + sx * CAVE_SAMPLE_STRIDE) * CAVE_NOISE_SCALE,
+        y: sy * CAVE_SAMPLE_STRIDE * CAVE_NOISE_SCALE,
+        z: (baseWorldZ + sz * CAVE_SAMPLE_STRIDE) * CAVE_NOISE_SCALE,
+      }))
+    )
+  )
+}
+
+const createBlockIndices = (): BlockIndices => ({
+  stoneBlockIndex: blockTypeToIndex('STONE'),
+  waterBlockIndex: blockTypeToIndex('WATER'),
+  lavaBlockIndex: blockTypeToIndex('LAVA'),
+  sandBlockIndex: blockTypeToIndex('SAND'),
+  gravelBlockIndex: blockTypeToIndex('GRAVEL'),
+  bedrockBlockIndex: blockTypeToIndex('BEDROCK'),
+  deepslateBlockIndex: blockTypeToIndex('DEEPSLATE'),
+  graniteBlockIndex: blockTypeToIndex('GRANITE'),
+  dioriteBlockIndex: blockTypeToIndex('DIORITE'),
+  andesiteBlockIndex: blockTypeToIndex('ANDESITE'),
+  airBlockIndex: AIR_BLOCK_INDEX,
+})
+
+const resolveSurfaceY = (biome: BiomeType, initialSurfaceY: number, lakeBasinY: Option.Option<number>): number => {
+  const riverCut = biome === 'RIVER'
+    ? Math.max(RIVER_MIN_CUT, Math.min(RIVER_MAX_CUT, initialSurfaceY - RIVER_WATER_LEVEL + 1))
+    : 0
+  const riverSurfaceY = biome === 'RIVER'
+    ? Math.max(RIVER_WATER_LEVEL - 1, initialSurfaceY - riverCut)
+    : initialSurfaceY
+
+  return Option.getOrElse(lakeBasinY, () => riverSurfaceY)
+}
+
+const supportsTreeAtSurface = (
+  surfaceBlock: number,
+  biome: BiomeType,
+  blockIndices: BlockIndices,
+): boolean =>
+  surfaceBlock !== blockIndices.airBlockIndex
+  && surfaceBlock !== blockIndices.waterBlockIndex
+  && surfaceBlock !== blockIndices.sandBlockIndex
+  && surfaceBlock !== blockIndices.gravelBlockIndex
+  && (surfaceBlock !== blockIndices.stoneBlockIndex || biome === 'MOUNTAINS' || biome === 'SNOW')
+
+const fillWaterForColumn = (
+  blocks: Uint8Array,
+  lx: number,
+  lz: number,
+  biome: BiomeType,
+  surfaceY: number,
+  lakeBasinY: Option.Option<number>,
+  waterBlockIndex: number,
+): void => {
+  const waterTopY = biome === 'RIVER'
+    ? RIVER_WATER_LEVEL
+    : surfaceY < SEA_LEVEL
+      ? SEA_LEVEL
+      : Option.isSome(lakeBasinY)
+        ? LAKE_LEVEL
+        : null
+
+  if (waterTopY === null) {
+    return
+  }
+
+  for (let y = surfaceY + 1; y <= waterTopY; y++) {
+    blocks[chunkBlockIndexUnchecked(lx, y, lz)] = waterBlockIndex
+  }
+}
+
+const buildColumnStates = ({
+  blocks,
+  baseWorldX,
+  baseWorldZ,
+  biomeColumns,
+  terrainChannels,
+  initialSurfaceYs,
+  lakeNoiseVals,
+  graniteNoiseVals,
+  dioriteNoiseVals,
+  andesiteNoiseVals,
+  treeColumnContextCache,
+  blockIndices,
+}: ColumnStateBuildArgs): ReadonlyArray<ColumnState> => {
+  const columnStates: ColumnState[] = []
+  let columnIndex = 0
+
+  for (let lx = 0; lx < CHUNK_SIZE; lx++) {
+    for (let lz = 0; lz < CHUNK_SIZE; lz++) {
+      const wx = baseWorldX + lx
+      const wz = baseWorldZ + lz
+      const terrainIndex = lz * CHUNK_SIZE + lx
+      const { biome, props } = biomeColumns[columnIndex]!
+      const initialSurfaceY = initialSurfaceYs[columnIndex]!
+      const lakeNoiseVal = biome !== 'OCEAN' ? lakeNoiseVals[columnIndex]! : 0
+      const lakeBasinY = computeLakeBasin(biome, lakeNoiseVal, initialSurfaceY)
+      const surfaceY = resolveSurfaceY(biome, initialSurfaceY, lakeBasinY)
+      const isShore = Option.isNone(lakeBasinY)
+        && lakeNoiseVal > LAKE_THRESHOLD - LAKE_SHORE_WIDTH
+        && surfaceY < LAKE_LEVEL + 4
+      const ruggedness = computeRuggedness(
+        terrainChannels.erosion[terrainIndex]!,
+        terrainChannels.jaggedness[terrainIndex]!,
+      )
+      const graniteFlag = graniteNoiseVals[columnIndex]! > VARIANT_THRESHOLD
+      const dioriteFlag = !graniteFlag && dioriteNoiseVals[columnIndex]! > VARIANT_THRESHOLD
+      const andesiteFlag = !graniteFlag && !dioriteFlag && andesiteNoiseVals[columnIndex]! > VARIANT_THRESHOLD
+      const surfaceProfile = resolveSurfaceProfile({
+        biome,
+        defaultSurfaceBlockIndex: blockTypeToIndex(props.surfaceBlock),
+        defaultSubSurfaceBlockIndex: blockTypeToIndex(props.subSurfaceBlock),
+        surfaceY,
+        ruggedness,
+        hasLakeBasin: Option.isSome(lakeBasinY),
+        isShore,
+        sandBlockIndex: blockIndices.sandBlockIndex,
+        gravelBlockIndex: blockIndices.gravelBlockIndex,
+        stoneBlockIndex: blockIndices.stoneBlockIndex,
+      })
+
+      fillColumn(blocks, lx, lz, wx, wz, surfaceY, {
+        ...surfaceProfile,
+        stoneBlockIndex: blockIndices.stoneBlockIndex,
+        bedrockBlockIndex: blockIndices.bedrockBlockIndex,
+        deepslateBlockIndex: blockIndices.deepslateBlockIndex,
+        graniteBlockIndex: blockIndices.graniteBlockIndex,
+        dioriteBlockIndex: blockIndices.dioriteBlockIndex,
+        andesiteBlockIndex: blockIndices.andesiteBlockIndex,
+        graniteFlag,
+        dioriteFlag,
+        andesiteFlag,
+      })
+
+      fillWaterForColumn(blocks, lx, lz, biome, surfaceY, lakeBasinY, blockIndices.waterBlockIndex)
+
+      const surfaceBlock = blocks[chunkBlockIndexUnchecked(lx, surfaceY, lz)] ?? blockIndices.airBlockIndex
+      treeColumnContextCache.set(createTreeColumnKey(wx, wz), {
+        biome,
+        props,
+        surfaceY,
+        hasLakeBasin: Option.isSome(lakeBasinY),
+        supportsTree: supportsTreeAtSurface(surfaceBlock, biome, blockIndices),
+      })
+
+      columnStates.push({
+        biome,
+        props,
+        surfaceY,
+        lakeBasinY,
+        ruggedness,
+      })
+
+      columnIndex++
+    }
+  }
+
+  return columnStates
+}
+
+const collectOverhangTargets = (
+  blocks: Uint8Array,
+  baseWorldX: number,
+  baseWorldZ: number,
+  columnStates: ReadonlyArray<ColumnState>,
+  airBlockIndex: number,
+): {
+  readonly overhangXs: ReadonlyArray<number>
+  readonly overhangYs: ReadonlyArray<number>
+  readonly overhangZs: ReadonlyArray<number>
+  readonly overhangTargets: ReadonlyArray<OverhangTarget>
+} => {
+  const overhangXs: number[] = []
+  const overhangYs: number[] = []
+  const overhangZs: number[] = []
+  const overhangTargets: OverhangTarget[] = []
+
+  for (let lx = 0; lx < CHUNK_SIZE; lx++) {
+    for (let lz = 0; lz < CHUNK_SIZE; lz++) {
+      const columnIndex = lz * CHUNK_SIZE + lx
+      const { biome, ruggedness, surfaceY } = columnStates[columnIndex]!
+      const eligible = biome === 'MOUNTAINS' || ruggedness >= 0.58
+      if (!eligible) continue
+
+      let neighborMaxSurface = surfaceY
+      for (let dx = -1; dx <= 1; dx++) {
+        for (let dz = -1; dz <= 1; dz++) {
+          if (dx === 0 && dz === 0) continue
+          const nx = lx + dx
+          const nz = lz + dz
+          if (nx < 0 || nx >= CHUNK_SIZE || nz < 0 || nz >= CHUNK_SIZE) continue
+          neighborMaxSurface = Math.max(neighborMaxSurface, columnStates[nz * CHUNK_SIZE + nx]!.surfaceY)
+        }
+      }
+
+      const supportCeiling = biome === 'MOUNTAINS'
+        ? Math.max(neighborMaxSurface + 2, surfaceY + 6)
+        : neighborMaxSurface + 2
+      if (supportCeiling <= surfaceY + 1) continue
+
+      const bandTop = Math.min(CHUNK_HEIGHT - 2, surfaceY + OVERHANG_BAND_HEIGHT)
+      for (let y = surfaceY + 2; y <= bandTop; y++) {
+        if (y > supportCeiling) continue
+        const blockIndex = chunkBlockIndexUnchecked(lx, y, lz)
+        if (blocks[blockIndex] !== airBlockIndex) continue
+        overhangXs.push((baseWorldX + lx) * OVERHANG_NOISE_SCALE)
+        overhangYs.push(y * OVERHANG_NOISE_SCALE)
+        overhangZs.push((baseWorldZ + lz) * OVERHANG_NOISE_SCALE)
+        overhangTargets.push({ lx, lz, y })
+      }
+    }
+  }
+
+  return { overhangXs, overhangYs, overhangZs, overhangTargets }
+}
+
+const applyOverhangNoise = (
+  blocks: Uint8Array,
+  overhangTargets: ReadonlyArray<OverhangTarget>,
+  overhangNoiseVals: ReadonlyArray<number>,
+  columnStates: ReadonlyArray<ColumnState>,
+  stoneBlockIndex: number,
+  airBlockIndex: number,
+): void => {
+  Arr.forEach(overhangTargets, ({ lx, lz, y }, index) => {
+    const blockIndex = chunkBlockIndexUnchecked(lx, y, lz)
+    if (blocks[blockIndex] !== airBlockIndex) return
+
+    const { biome, surfaceY } = columnStates[lz * CHUNK_SIZE + lx]!
+    const heightFactor = 1 - (y - surfaceY) / OVERHANG_BAND_HEIGHT
+    const baseThreshold = biome === 'MOUNTAINS' ? OVERHANG_THRESHOLD - 0.08 : OVERHANG_THRESHOLD
+    const threshold = baseThreshold - heightFactor * 0.14
+    if (overhangNoiseVals[index]! > threshold) {
+      blocks[blockIndex] = stoneBlockIndex
+    }
+  })
+}
+
+const createTreeColumnContextResolver = ({
+  biomeService,
+  noiseService,
+  treeColumnContextCache,
+  blockIndices,
+}: TreeColumnContextResolverDeps) => (wx: number, wz: number): Effect.Effect<TreeColumnContext, never> =>
+  Effect.gen(function* () {
+    const cacheKey = createTreeColumnKey(wx, wz)
+    const cached = treeColumnContextCache.get(cacheKey)
+    if (cached) {
+      return cached
+    }
+
+    const [biome, props, continentalness, erosion, pv, jaggedness, lakeNoiseVal] = yield* Effect.all([
+      biomeService.getBiome(wx, wz),
+      biomeService.getBiome(wx, wz).pipe(Effect.flatMap((resolvedBiome) => biomeService.getBiomeProperties(resolvedBiome))),
+      noiseService.continentalness(wx, wz),
+      noiseService.erosion(wx, wz),
+      noiseService.weirdness(wx, wz),
+      noiseService.jaggedness(wx, wz),
+      noiseService.noise2D(wx * LAKE_NOISE_SCALE + 5000, wz * LAKE_NOISE_SCALE + 5000),
+    ], { concurrency: 'unbounded' })
+
+    const initialSurfaceY = computeColumnYFromValues(continentalness, erosion, pv, jaggedness)
+    const lakeBasinY = computeLakeBasin(biome, lakeNoiseVal, initialSurfaceY)
+    const surfaceY = resolveSurfaceY(biome, initialSurfaceY, lakeBasinY)
+    const isShore = Option.isNone(lakeBasinY)
+      && lakeNoiseVal > LAKE_THRESHOLD - LAKE_SHORE_WIDTH
+      && surfaceY < LAKE_LEVEL + 4
+    const ruggedness = computeRuggedness(erosion, jaggedness)
+    const surfaceProfile = resolveSurfaceProfile({
+      biome,
+      defaultSurfaceBlockIndex: blockTypeToIndex(props.surfaceBlock),
+      defaultSubSurfaceBlockIndex: blockTypeToIndex(props.subSurfaceBlock),
+      surfaceY,
+      ruggedness,
+      hasLakeBasin: Option.isSome(lakeBasinY),
+      isShore,
+      sandBlockIndex: blockIndices.sandBlockIndex,
+      gravelBlockIndex: blockIndices.gravelBlockIndex,
+      stoneBlockIndex: blockIndices.stoneBlockIndex,
+    })
+
+    const context: TreeColumnContext = {
+      biome,
+      props,
+      surfaceY,
+      hasLakeBasin: Option.isSome(lakeBasinY),
+      supportsTree: supportsTreeAtSurface(surfaceProfile.surfaceBlockIndex, biome, blockIndices),
+    }
+
+    treeColumnContextCache.set(cacheKey, context)
+    return context
+  })
+
+const placeChunkTrees = (
+  blocks: Uint8Array,
+  baseWorldX: number,
+  baseWorldZ: number,
+  resolveTreeColumnContext: (wx: number, wz: number) => Effect.Effect<TreeColumnContext, never>,
+): Effect.Effect<void, never> =>
+  Effect.forEach(
+    Arr.makeBy(CHUNK_SIZE + TREE_CANOPY_MARGIN * 2, (index) => index - TREE_CANOPY_MARGIN),
+    (originLx) =>
+      Effect.forEach(
+        Arr.makeBy(CHUNK_SIZE + TREE_CANOPY_MARGIN * 2, (index) => index - TREE_CANOPY_MARGIN),
+        (originLz) =>
+          Effect.gen(function* () {
+            const wx = baseWorldX + originLx
+            const wz = baseWorldZ + originLz
+            const context = yield* resolveTreeColumnContext(wx, wz)
+            const { place, treeRng } = shouldPlaceTree(context.props.treeDensity, context.surfaceY, wx, wz)
+            if (place && !context.hasLakeBasin && context.supportsTree) {
+              placeTree(blocks, originLx, originLz, context.surfaceY, context.biome, treeRng)
+            }
+          }),
+        { concurrency: 1 },
+      ),
+    { concurrency: 1 },
+  )
 export const generateTerrain = (
   chunkService: ChunkService,
   biomeService: BiomeService,
@@ -95,314 +508,97 @@ export const generateTerrain = (
     const blocks = new Uint8Array(chunk.blocks)
     const baseWorldX = coord.x * CHUNK_SIZE
     const baseWorldZ = coord.z * CHUNK_SIZE
-
-    // Build flattened noise coordinate arrays for batch sampling (row-major: lx outer, lz inner)
-    const columnCoords = Arr.flatMap(Arr.makeBy(CHUNK_SIZE, lx => lx), lx =>
-      Arr.makeBy(CHUNK_SIZE, lz => {
-        const x = baseWorldX + lx
-        const z = baseWorldZ + lz
-        return {
-          lakeX:    x * LAKE_NOISE_SCALE + 5000,
-          lakeZ:    z * LAKE_NOISE_SCALE + 5000,
-          graniteX: x * VARIANT_NOISE_SCALE + GRANITE_OFFSET_X,
-          graniteZ: z * VARIANT_NOISE_SCALE + GRANITE_OFFSET_Z,
-          dioriteX: x * VARIANT_NOISE_SCALE + DIORITE_OFFSET_X,
-          dioriteZ: z * VARIANT_NOISE_SCALE + DIORITE_OFFSET_Z,
-          andesiteX: x * VARIANT_NOISE_SCALE + ANDESITE_OFFSET_X,
-          andesiteZ: z * VARIANT_NOISE_SCALE + ANDESITE_OFFSET_Z,
-        }
-      })
-    )
-    const lakeNoiseXs    = Arr.map(columnCoords, c => c.lakeX)
-    const lakeNoiseZs    = Arr.map(columnCoords, c => c.lakeZ)
-    const graniteNoiseXs = Arr.map(columnCoords, c => c.graniteX)
-    const graniteNoiseZs = Arr.map(columnCoords, c => c.graniteZ)
-    const dioriteNoiseXs = Arr.map(columnCoords, c => c.dioriteX)
-    const dioriteNoiseZs = Arr.map(columnCoords, c => c.dioriteZ)
-    const andesiteNoiseXs = Arr.map(columnCoords, c => c.andesiteX)
-    const andesiteNoiseZs = Arr.map(columnCoords, c => c.andesiteZ)
+    const columnCoords = createColumnNoiseCoordinates(baseWorldX, baseWorldZ)
+    const caveGridPoints = createCaveGridPoints(baseWorldX, baseWorldZ)
+    const blockIndices = createBlockIndices()
+    const treeColumnContextCache = new Map<string, TreeColumnContext>()
 
     const biomeColumns = yield* biomeService.getBiomesAndPropertiesForChunk(coord.x, coord.z)
     const terrainChannels = yield* noiseService.sampleTerrainChannels(baseWorldX, baseWorldZ)
-    const lakeNoiseVals = yield* noiseService.noise2DBatchXY(lakeNoiseXs, lakeNoiseZs)
-    const graniteNoiseVals = yield* noiseService.noise2DBatchXY(graniteNoiseXs, graniteNoiseZs)
-    const dioriteNoiseVals = yield* noiseService.noise2DBatchXY(dioriteNoiseXs, dioriteNoiseZs)
-    const andesiteNoiseVals = yield* noiseService.noise2DBatchXY(andesiteNoiseXs, andesiteNoiseZs)
-
-    const initialSurfaceYs = Arr.flatMap(Arr.makeBy(CHUNK_SIZE, lx => lx), lx =>
-      Arr.makeBy(CHUNK_SIZE, lz => computeColumnY(terrainChannels, lx, lz))
+    const lakeNoiseVals = yield* noiseService.noise2DBatchXY(
+      Arr.map(columnCoords, (column) => column.lakeX),
+      Arr.map(columnCoords, (column) => column.lakeZ),
+    )
+    const graniteNoiseVals = yield* noiseService.noise2DBatchXY(
+      Arr.map(columnCoords, (column) => column.graniteX),
+      Arr.map(columnCoords, (column) => column.graniteZ),
+    )
+    const dioriteNoiseVals = yield* noiseService.noise2DBatchXY(
+      Arr.map(columnCoords, (column) => column.dioriteX),
+      Arr.map(columnCoords, (column) => column.dioriteZ),
+    )
+    const andesiteNoiseVals = yield* noiseService.noise2DBatchXY(
+      Arr.map(columnCoords, (column) => column.andesiteX),
+      Arr.map(columnCoords, (column) => column.andesiteZ),
+    )
+    const initialSurfaceYs = Arr.flatMap(Arr.makeBy(CHUNK_SIZE, (lx) => lx), (lx) =>
+      Arr.makeBy(CHUNK_SIZE, (lz) => computeColumnY(terrainChannels, lx, lz))
+    )
+    const caveSampleVals = yield* noiseService.noise3DBatchXYZ(
+      Arr.map(caveGridPoints, (point) => point.x),
+      Arr.map(caveGridPoints, (point) => point.y),
+      Arr.map(caveGridPoints, (point) => point.z),
     )
 
-    const caveSX = Math.floor(CHUNK_SIZE / CAVE_SAMPLE_STRIDE) + 1
-    const caveSZ = Math.floor(CHUNK_SIZE / CAVE_SAMPLE_STRIDE) + 1
-    const caveSY = Math.floor(CHUNK_HEIGHT / CAVE_SAMPLE_STRIDE) + 1
+    const columnStates = buildColumnStates({
+      blocks,
+      baseWorldX,
+      baseWorldZ,
+      biomeColumns,
+      terrainChannels,
+      initialSurfaceYs,
+      lakeNoiseVals,
+      graniteNoiseVals,
+      dioriteNoiseVals,
+      andesiteNoiseVals,
+      treeColumnContextCache,
+      blockIndices,
+    })
 
-    // Cave grid: sy (Y-fastest outer) → sz → sx (X-fastest inner) to match carveCaves stride order
-    const caveGridPoints = Arr.flatMap(Arr.makeBy(caveSY, sy => sy), sy =>
-      Arr.flatMap(Arr.makeBy(caveSZ, sz => sz), sz =>
-        Arr.makeBy(caveSX, sx => ({
-          x: (baseWorldX + sx * CAVE_SAMPLE_STRIDE) * CAVE_NOISE_SCALE,
-          y: sy * CAVE_SAMPLE_STRIDE * CAVE_NOISE_SCALE,
-          z: (baseWorldZ + sz * CAVE_SAMPLE_STRIDE) * CAVE_NOISE_SCALE,
-        }))
-      )
+    const { overhangXs, overhangYs, overhangZs, overhangTargets } = collectOverhangTargets(
+      blocks,
+      baseWorldX,
+      baseWorldZ,
+      columnStates,
+      blockIndices.airBlockIndex,
     )
-    const caveXs = Arr.map(caveGridPoints, p => p.x)
-    const caveYs = Arr.map(caveGridPoints, p => p.y)
-    const caveZs = Arr.map(caveGridPoints, p => p.z)
-    const caveSampleVals = yield* noiseService.noise3DBatchXYZ(caveXs, caveYs, caveZs)
 
-    const stoneBlockIndex = blockTypeToIndex('STONE')
-    const waterBlockIndex = blockTypeToIndex('WATER')
-    const sandBlockIndex = blockTypeToIndex('SAND')
-    const gravelBlockIndex = blockTypeToIndex('GRAVEL')
-    const bedrockBlockIndex = blockTypeToIndex('BEDROCK')
-    const deepslateBlockIndex = blockTypeToIndex('DEEPSLATE')
-    const graniteBlockIndex = blockTypeToIndex('GRANITE')
-    const dioriteBlockIndex = blockTypeToIndex('DIORITE')
-    const andesiteBlockIndex = blockTypeToIndex('ANDESITE')
-    const airBlockIndex = AIR_BLOCK_INDEX
-
-    const columnSurfaceY: number[] = []
-    const columnLakeBasin: Array<Option.Option<number>> = []
-    const columnTreeDensity: number[] = []
-    const columnRuggedness: number[] = []
-    const columnBiome: BiomeType[] = []
-    const treeColumnContextCache = new Map<string, TreeColumnContext>()
-
-    let columnIndex = 0
-    for (let lx = 0; lx < CHUNK_SIZE; lx++) {
-      for (let lz = 0; lz < CHUNK_SIZE; lz++) {
-        const wx = baseWorldX + lx
-        const wz = baseWorldZ + lz
-        const terrainIndex = lz * CHUNK_SIZE + lx
-
-        const { biome, props } = biomeColumns[columnIndex]!
-        const defaultSurfaceBlockIndex = blockTypeToIndex(props.surfaceBlock)
-        const defaultSubSurfaceBlockIndex = blockTypeToIndex(props.subSurfaceBlock)
-        const initialSurfaceY = initialSurfaceYs[columnIndex]!
-
-        const lakeNoiseVal = biome !== 'OCEAN' ? lakeNoiseVals[columnIndex]! : 0
-
-        const lakeBasinY = computeLakeBasin(biome, lakeNoiseVal, initialSurfaceY)
-        const surfaceY = Option.getOrElse(lakeBasinY, () => initialSurfaceY)
-
-        const isShore = Option.isNone(lakeBasinY)
-          && lakeNoiseVal > LAKE_THRESHOLD - LAKE_SHORE_WIDTH
-          && surfaceY < LAKE_LEVEL + 4
-
-        const graniteFlag = graniteNoiseVals[columnIndex]! > VARIANT_THRESHOLD
-        const dioriteFlag = !graniteFlag && dioriteNoiseVals[columnIndex]! > VARIANT_THRESHOLD
-        const andesiteFlag = !graniteFlag && !dioriteFlag && andesiteNoiseVals[columnIndex]! > VARIANT_THRESHOLD
-        const ruggedness = computeRuggedness(
-          terrainChannels.erosion[terrainIndex]!,
-          terrainChannels.jaggedness[terrainIndex]!,
-        )
-        const surfaceProfile = resolveSurfaceProfile({
-          biome,
-          defaultSurfaceBlockIndex,
-          defaultSubSurfaceBlockIndex,
-          surfaceY,
-          ruggedness,
-          hasLakeBasin: Option.isSome(lakeBasinY),
-          isShore,
-          sandBlockIndex,
-          gravelBlockIndex,
-          stoneBlockIndex,
-        })
-
-        fillColumn(
-          blocks,
-          lx,
-          lz,
-          wx,
-          wz,
-          surfaceY,
-          {
-            ...surfaceProfile,
-            stoneBlockIndex,
-            bedrockBlockIndex,
-            deepslateBlockIndex,
-            graniteBlockIndex,
-            dioriteBlockIndex,
-            andesiteBlockIndex,
-            graniteFlag,
-            dioriteFlag,
-            andesiteFlag,
-          },
-        )
-
-        if (surfaceY < SEA_LEVEL) {
-          for (let y = surfaceY + 1; y <= SEA_LEVEL; y++) {
-            blocks[chunkBlockIndexUnchecked(lx, y, lz)] = waterBlockIndex
-          }
-        } else if (Option.isSome(lakeBasinY)) {
-          for (let y = surfaceY + 1; y <= LAKE_LEVEL; y++) {
-            blocks[chunkBlockIndexUnchecked(lx, y, lz)] = waterBlockIndex
-          }
-        }
-
-        columnSurfaceY[columnIndex] = surfaceY
-        columnLakeBasin[columnIndex] = lakeBasinY
-        columnTreeDensity[columnIndex] = props.treeDensity
-        columnRuggedness[columnIndex] = ruggedness
-        columnBiome[columnIndex] = biome
-        const surfaceIdx = chunkBlockIndexUnchecked(lx, surfaceY, lz)
-        const surfaceBlock = blocks[surfaceIdx]
-        const supportsTree = surfaceBlock !== airBlockIndex
-          && surfaceBlock !== waterBlockIndex
-          && surfaceBlock !== sandBlockIndex
-          && surfaceBlock !== gravelBlockIndex
-          && (surfaceBlock !== stoneBlockIndex || biome === 'MOUNTAINS' || biome === 'SNOW')
-        treeColumnContextCache.set(createTreeColumnKey(wx, wz), {
-          biome,
-          props,
-          surfaceY,
-          hasLakeBasin: Option.isSome(lakeBasinY),
-          supportsTree,
-        })
-        columnIndex++
-      }
-    }
-
-    const overhangXs: number[] = []
-    const overhangYs: number[] = []
-    const overhangZs: number[] = []
-    const overhangTargets: Array<{ readonly lx: number; readonly lz: number; readonly y: number }> = []
-
-    for (let lx = 0; lx < CHUNK_SIZE; lx++) {
-      for (let lz = 0; lz < CHUNK_SIZE; lz++) {
-        const i = lz * CHUNK_SIZE + lx
-        const biome = columnBiome[i]!
-        const ruggedness = columnRuggedness[i]!
-        const surfaceY = columnSurfaceY[i]!
-        const eligible = biome === 'MOUNTAINS' || ruggedness >= 0.58
-        if (!eligible) continue
-
-        let neighborMaxSurface = surfaceY
-        for (let dx = -1; dx <= 1; dx++) {
-          for (let dz = -1; dz <= 1; dz++) {
-            if (dx === 0 && dz === 0) continue
-            const nx = lx + dx
-            const nz = lz + dz
-            if (nx < 0 || nx >= CHUNK_SIZE || nz < 0 || nz >= CHUNK_SIZE) continue
-            neighborMaxSurface = Math.max(neighborMaxSurface, columnSurfaceY[nz * CHUNK_SIZE + nx]!)
-          }
-        }
-
-        const supportCeiling = biome === 'MOUNTAINS'
-          ? Math.max(neighborMaxSurface + 2, surfaceY + 6)
-          : neighborMaxSurface + 2
-        if (supportCeiling <= surfaceY + 1) continue
-
-        const bandTop = Math.min(CHUNK_HEIGHT - 2, surfaceY + OVERHANG_BAND_HEIGHT)
-        for (let y = surfaceY + 2; y <= bandTop; y++) {
-          if (y > supportCeiling) continue
-          const idx = chunkBlockIndexUnchecked(lx, y, lz)
-          if (blocks[idx] !== airBlockIndex) continue
-          overhangXs.push((baseWorldX + lx) * OVERHANG_NOISE_SCALE)
-          overhangYs.push(y * OVERHANG_NOISE_SCALE)
-          overhangZs.push((baseWorldZ + lz) * OVERHANG_NOISE_SCALE)
-          overhangTargets.push({ lx, lz, y })
-        }
-      }
-    }
-
-    carveCaves(blocks, caveSampleVals, airBlockIndex, waterBlockIndex, bedrockBlockIndex)
+    carveCaves(
+      blocks,
+      caveSampleVals,
+      blockIndices.airBlockIndex,
+      blockIndices.waterBlockIndex,
+      blockIndices.bedrockBlockIndex,
+      blockIndices.lavaBlockIndex,
+    )
 
     if (overhangTargets.length > 0) {
       const overhangNoiseVals = yield* noiseService.noise3DBatchXYZ(overhangXs, overhangYs, overhangZs)
-      Arr.forEach(overhangTargets, ({ lx, lz, y }, index) => {
-        const idx = chunkBlockIndexUnchecked(lx, y, lz)
-        if (blocks[idx] !== airBlockIndex) return
-
-        const surfaceY = columnSurfaceY[lz * CHUNK_SIZE + lx]!
-        const heightFactor = 1 - (y - surfaceY) / OVERHANG_BAND_HEIGHT
-        const baseThreshold = columnBiome[lz * CHUNK_SIZE + lx]! === 'MOUNTAINS' ? OVERHANG_THRESHOLD - 0.08 : OVERHANG_THRESHOLD
-        const threshold = baseThreshold - heightFactor * 0.14
-        if (overhangNoiseVals[index]! > threshold) {
-          blocks[idx] = stoneBlockIndex
-        }
-      })
+      applyOverhangNoise(
+        blocks,
+        overhangTargets,
+        overhangNoiseVals,
+        columnStates,
+        blockIndices.stoneBlockIndex,
+        blockIndices.airBlockIndex,
+      )
     }
 
     placeOres(blocks, baseWorldX, baseWorldZ, {
-      stoneBlockIndex,
-      deepslateBlockIndex,
+      stoneBlockIndex: blockIndices.stoneBlockIndex,
+      deepslateBlockIndex: blockIndices.deepslateBlockIndex,
       regular: ORE_REGULAR_INDICES,
       deepslate: ORE_DEEPSLATE_INDICES,
     })
 
-    const resolveTreeColumnContext = (wx: number, wz: number): Effect.Effect<TreeColumnContext, never> =>
-      Effect.gen(function* () {
-        const cached = treeColumnContextCache.get(createTreeColumnKey(wx, wz))
-        if (cached) return cached
+    const resolveTreeColumnContext = createTreeColumnContextResolver({
+      biomeService,
+      noiseService,
+      treeColumnContextCache,
+      blockIndices,
+    })
 
-        const [biome, props, continentalness, erosion, pv, jaggedness, lakeNoiseVal] = yield* Effect.all([
-          biomeService.getBiome(wx, wz),
-          biomeService.getBiome(wx, wz).pipe(Effect.flatMap((resolvedBiome) => biomeService.getBiomeProperties(resolvedBiome))),
-          noiseService.continentalness(wx, wz),
-          noiseService.erosion(wx, wz),
-          noiseService.weirdness(wx, wz),
-          noiseService.jaggedness(wx, wz),
-          noiseService.noise2D(wx * LAKE_NOISE_SCALE + 5000, wz * LAKE_NOISE_SCALE + 5000),
-        ], { concurrency: 'unbounded' })
-
-        const initialSurfaceY = computeColumnYFromValues(continentalness, erosion, pv, jaggedness)
-        const lakeBasinY = computeLakeBasin(biome, lakeNoiseVal, initialSurfaceY)
-        const surfaceY = Option.getOrElse(lakeBasinY, () => initialSurfaceY)
-        const isShore = Option.isNone(lakeBasinY)
-          && lakeNoiseVal > LAKE_THRESHOLD - LAKE_SHORE_WIDTH
-          && surfaceY < LAKE_LEVEL + 4
-        const ruggedness = computeRuggedness(erosion, jaggedness)
-        const surfaceProfile = resolveSurfaceProfile({
-          biome,
-          defaultSurfaceBlockIndex: blockTypeToIndex(props.surfaceBlock),
-          defaultSubSurfaceBlockIndex: blockTypeToIndex(props.subSurfaceBlock),
-          surfaceY,
-          ruggedness,
-          hasLakeBasin: Option.isSome(lakeBasinY),
-          isShore,
-          sandBlockIndex,
-          gravelBlockIndex,
-          stoneBlockIndex,
-        })
-        const supportsTree = surfaceProfile.surfaceBlockIndex !== airBlockIndex
-          && surfaceProfile.surfaceBlockIndex !== waterBlockIndex
-          && surfaceProfile.surfaceBlockIndex !== sandBlockIndex
-          && surfaceProfile.surfaceBlockIndex !== gravelBlockIndex
-          && (surfaceProfile.surfaceBlockIndex !== stoneBlockIndex || biome === 'MOUNTAINS' || biome === 'SNOW')
-
-        const context: TreeColumnContext = {
-          biome,
-          props,
-          surfaceY,
-          hasLakeBasin: Option.isSome(lakeBasinY),
-          supportsTree,
-        }
-        treeColumnContextCache.set(createTreeColumnKey(wx, wz), context)
-        return context
-      })
-
-    yield* Effect.forEach(
-      Arr.makeBy(CHUNK_SIZE + TREE_CANOPY_MARGIN * 2, (index) => index - TREE_CANOPY_MARGIN),
-      (originLx) =>
-        Effect.forEach(
-          Arr.makeBy(CHUNK_SIZE + TREE_CANOPY_MARGIN * 2, (index) => index - TREE_CANOPY_MARGIN),
-          (originLz) =>
-            Effect.gen(function* () {
-              const wx = baseWorldX + originLx
-              const wz = baseWorldZ + originLz
-              const context = yield* resolveTreeColumnContext(wx, wz)
-              const { place, treeRng } = shouldPlaceTree(context.props.treeDensity, context.surfaceY, wx, wz)
-              if (place && !context.hasLakeBasin && context.supportsTree) {
-                placeTree(blocks, originLx, originLz, context.surfaceY, context.biome, treeRng)
-              }
-            }),
-          { concurrency: 1 },
-        ),
-      { concurrency: 1 },
-    )
+    yield* placeChunkTrees(blocks, baseWorldX, baseWorldZ, resolveTreeColumnContext)
 
     return { ...chunk, blocks }
   })

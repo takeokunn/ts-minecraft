@@ -9,6 +9,7 @@ describe('SettingsSchema encode round-trip', () => {
     mouseSensitivity: 0.5,
     dayLengthSeconds: 400,
     graphicsQuality: 'high',
+    adaptivePerformanceMode: false,
     audioEnabled: false, // NOTE: false intentionally — matches DEFAULT_SETTINGS in settings-service.ts
     masterVolume: 0.8,
     sfxVolume: 1.0,
@@ -21,6 +22,7 @@ describe('SettingsSchema encode round-trip', () => {
     expect(encoded.mouseSensitivity).toBe(0.5)
     expect(encoded.dayLengthSeconds).toBe(400)
     expect(encoded.graphicsQuality).toBe('high')
+    expect(encoded.adaptivePerformanceMode).toBe(false)
   })
 
   it('round-trips encode then decode back to identical values', () => {
@@ -30,6 +32,7 @@ describe('SettingsSchema encode round-trip', () => {
     expect(decoded.mouseSensitivity).toBe(validSettings.mouseSensitivity)
     expect(decoded.dayLengthSeconds).toBe(validSettings.dayLengthSeconds)
     expect(decoded.graphicsQuality).toBe(validSettings.graphicsQuality)
+    expect(decoded.adaptivePerformanceMode).toBe(validSettings.adaptivePerformanceMode)
   })
 
   it('round-trips with renderDistance at minimum boundary (2)', () => {
@@ -79,6 +82,13 @@ describe('SettingsSchema encode round-trip', () => {
     const encoded = Schema.encodeSync(SettingsSchema)(settings)
     const decoded = Schema.decodeUnknownSync(SettingsSchema)(encoded)
     expect(decoded.graphicsQuality).toBe('low')
+  })
+
+  it('round-trips with adaptivePerformanceMode=true', () => {
+    const settings: Settings = { ...validSettings, adaptivePerformanceMode: true }
+    const encoded = Schema.encodeSync(SettingsSchema)(settings)
+    const decoded = Schema.decodeUnknownSync(SettingsSchema)(encoded)
+    expect(decoded.adaptivePerformanceMode).toBe(true)
   })
 
   it('decode rejects renderDistance below minimum (1)', () => {

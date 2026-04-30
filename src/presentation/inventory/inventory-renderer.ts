@@ -1,7 +1,8 @@
-import { Array as Arr, Cause, Effect, HashMap, Match, Option, Ref } from 'effect'
+import { Array as Arr, Cause, Effect, Either, HashMap, Option, Ref } from 'effect'
 import { InventoryService, INVENTORY_SIZE, HOTBAR_START, type InventorySlot } from '@/application/inventory/inventory-service'
 import { HotbarService } from '@/application/hotbar/hotbar-service'
 import { RecipeService } from '@/application/crafting/recipe-service'
+import { FurnaceService } from '@/application/furnace/furnace-service'
 import { GameStateService } from '@/application/game-state'
 import { ChunkManagerService } from '@/application/chunk/chunk-manager-service'
 import { DEFAULT_PLAYER_ID } from '@/application/constants'
@@ -30,6 +31,7 @@ export class InventoryRendererService extends Effect.Service<InventoryRendererSe
       InventoryService,
       HotbarService,
       RecipeService,
+      FurnaceService,
       GameStateService,
       ChunkManagerService,
       DomOperationsService,
@@ -38,7 +40,7 @@ export class InventoryRendererService extends Effect.Service<InventoryRendererSe
       Ref.make(0),
       Ref.make('Click a recipe to craft it.'),
     ], { concurrency: 'unbounded' }).pipe(
-      Effect.flatMap(([inventoryService, hotbarService, recipeService, gameState, chunkManagerService, dom, isVisibleRef, availableRecipesRef, selectedRecipeIndexRef, statusMessageRef]) => {
+      Effect.flatMap(([inventoryService, hotbarService, recipeService, furnaceService, gameState, chunkManagerService, dom, isVisibleRef, availableRecipesRef, selectedRecipeIndexRef, statusMessageRef]) => {
       const getSlotColor = (blockType: BlockType): string =>
         Option.getOrElse(Option.fromNullable(SLOT_COLORS[blockType as BlockType]), () => DEFAULT_SLOT_COLOR)
 
@@ -90,9 +92,39 @@ export class InventoryRendererService extends Effect.Service<InventoryRendererSe
           return false
         })
 
+      const hasNearbyFurnace = (): Effect.Effect<boolean, never> =>
+        Effect.gen(function* () {
+          const playerPos = yield* gameState.getPlayerPosition(DEFAULT_PLAYER_ID).pipe(Effect.catchAll(() => Effect.succeed({ x: 0, y: 0, z: 0 })))
+          const searchRadius = 5
+          const furnaceIndex = blockTypeToIndex('FURNACE')
+
+          for (let dx = -searchRadius; dx <= searchRadius; dx++) {
+            for (let dy = -1; dy <= 2; dy++) {
+              for (let dz = -searchRadius; dz <= searchRadius; dz++) {
+                const wx = Math.floor(playerPos.x + dx)
+                const wy = Math.floor(playerPos.y + dy)
+                const wz = Math.floor(playerPos.z + dz)
+                if (wy < 0 || wy >= CHUNK_HEIGHT) continue
+                const cx = Math.floor(wx / CHUNK_SIZE)
+                const cz = Math.floor(wz / CHUNK_SIZE)
+                const chunk = yield* chunkManagerService.getChunk({ x: cx, z: cz }).pipe(Effect.catchAll(() => Effect.succeed(null)))
+                if (chunk === null) continue
+                const lx = ((wx % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE
+                const lz = ((wz % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE
+                const idx = wy + lz * CHUNK_HEIGHT + lx * CHUNK_HEIGHT * CHUNK_SIZE
+                if (chunk.blocks[idx] === furnaceIndex) return true
+              }
+            }
+          }
+
+          return false
+        })
+
       const refreshCraftingState = (slots: ReadonlyArray<InventorySlot>): Effect.Effect<readonly [ReadonlyArray<Recipe>, number], never> =>
         Effect.gen(function* () {
-          const craftable = recipeService.findCraftable(collectAvailableCounts(slots), yield* hasNearbyCraftingTable())
+          const hasTableAccess = yield* hasNearbyCraftingTable()
+          const hasFurnaceAccess = yield* hasNearbyFurnace()
+          const craftable = recipeService.findCraftable(collectAvailableCounts(slots), hasTableAccess, hasFurnaceAccess)
           const nextSelectedIndex = yield* Ref.modify(selectedRecipeIndexRef, (current) => {
             if (craftable.length === 0) return [0, 0] as const
             const clamped = Math.max(0, Math.min(current, craftable.length - 1))
@@ -101,6 +133,27 @@ export class InventoryRendererService extends Effect.Service<InventoryRendererSe
           yield* Ref.set(availableRecipesRef, craftable)
           return [craftable, nextSelectedIndex] as const
         })
+
+      const performRecipe = (
+        recipeId: RecipeId,
+        hasTableAccess: boolean,
+        hasFurnaceAccess: boolean,
+      ): Effect.Effect<void, Error, never> => {
+        const recipe = recipeService.findById(recipeId)
+        return Option.match(recipe, {
+          onNone: () => recipeService.craft(recipeId, inventoryService, hasTableAccess, hasFurnaceAccess),
+          onSome: (resolvedRecipe) => resolvedRecipe.station === 'furnace'
+            ? furnaceService.getNearestFurnaceState().pipe(
+                Effect.flatMap((furnaceOpt) => Option.match(furnaceOpt, {
+                  onNone: () => furnaceService.startSmelting(recipeId),
+                  onSome: (furnace) => Option.isSome(furnace.output)
+                    ? furnaceService.collectOutput().pipe(Effect.asVoid)
+                    : furnaceService.startSmelting(recipeId),
+                })),
+              )
+            : recipeService.craft(recipeId, inventoryService, hasTableAccess, hasFurnaceAccess),
+        }) as Effect.Effect<void, Error, never>
+      }
 
       const createSlotEl = (index: number): HTMLDivElement => {
         const el = dom.createElement('div')
@@ -181,15 +234,12 @@ export class InventoryRendererService extends Effect.Service<InventoryRendererSe
             onSome: (target) => {
               const recipeId = target.dataset['recipeId']
               if (!recipeId) return
-              Effect.runFork(
-                hasNearbyCraftingTable().pipe(
-                  Effect.flatMap((hasTableAccess) => recipeService.craft(RecipeId.make(recipeId), inventoryService, hasTableAccess)),
+                Effect.runFork(
+                Effect.all([hasNearbyCraftingTable(), hasNearbyFurnace()], { concurrency: 'unbounded' }).pipe(
+                  Effect.flatMap(([hasTableAccess, hasFurnaceAccess]) => performRecipe(RecipeId.make(recipeId), hasTableAccess, hasFurnaceAccess)),
                   Effect.andThen(Ref.set(statusMessageRef, 'Crafted successfully.')),
                   Effect.catchAll((error) =>
-                    Ref.set(statusMessageRef, Match.value(error).pipe(
-                      Match.tag('RecipeError', (recipeError) => String(recipeError.cause)),
-                      Match.orElse(() => 'Crafting failed.'),
-                    )),
+                    Ref.set(statusMessageRef, error instanceof Error ? error.message : 'Crafting failed.'),
                   ),
                   Effect.andThen(refreshSlots()),
                   Effect.catchAllCause((cause) =>
@@ -269,7 +319,11 @@ export class InventoryRendererService extends Effect.Service<InventoryRendererSe
                     'border:1px solid ' + (isSelected ? RECIPE_ROW_SELECTED_BORDER : RECIPE_ROW_DEFAULT_BORDER),
                     'background:' + (isSelected ? RECIPE_ROW_SELECTED_BG : RECIPE_ROW_DEFAULT_BG),
                   ].join(';')
-                  const stationLabel = recipe.station === 'crafting_table' ? ' [Crafting Table]' : ''
+                  const stationLabel = recipe.station === 'crafting_table'
+                    ? ' [Crafting Table]'
+                    : recipe.station === 'furnace'
+                      ? ' [Furnace]'
+                      : ''
                   row.textContent = `${Arr.map(recipe.ingredients, (ingredient) => `${ingredient.count} ${ingredient.blockType}`).join(' + ')} → ${recipe.output.count} ${recipe.output.blockType}${stationLabel}`
                   dom.appendChildTo(container, row)
                 })
@@ -327,12 +381,10 @@ export class InventoryRendererService extends Effect.Service<InventoryRendererSe
                 return false
               }
 
-              const result = yield* recipeService.craft(recipe.id, inventoryService, yield* hasNearbyCraftingTable()).pipe(Effect.either)
-              const crafted = Match.value(result).pipe(
-                Match.tag('Right', () => true),
-                Match.tag('Left', () => false),
-                Match.exhaustive,
-              )
+              const hasTableAccess = yield* hasNearbyCraftingTable()
+              const hasFurnaceAccess = yield* hasNearbyFurnace()
+              const result = yield* performRecipe(recipe.id, hasTableAccess, hasFurnaceAccess).pipe(Effect.either)
+              const crafted = Either.isRight(result)
 
               yield* Ref.set(
                 statusMessageRef,

@@ -1,4 +1,4 @@
-import { Effect, Data, HashSet, Metric } from 'effect'
+import { Effect, Data, HashSet, Metric, Option } from 'effect'
 import { ChunkManagerService } from '@/application/chunk/chunk-manager-service'
 import { DEFAULT_PLAYER_ID } from '@/application/constants'
 import { FluidService } from '@/application/fluid/fluid-service'
@@ -6,15 +6,39 @@ import { ChunkService, CHUNK_SIZE, setBlockInChunk, BlockIndexError } from '@/do
 import type { ChunkCoord } from '@/domain/chunk'
 import { PlayerService } from '@/application/player/player-state'
 import { InventoryService } from '@/application/inventory/inventory-service'
+import { HotbarService } from '@/application/hotbar/hotbar-service'
+import { FurnaceService } from '@/application/furnace/furnace-service'
 import { BlockType } from '@/domain/block'
 import { Position, SlotIndex } from '@/shared/kernel'
-import { NON_PLACEABLE_BLOCK_TYPES, getInventoryDropForBlock } from './block-service.config'
+import {
+  NON_PLACEABLE_BLOCK_TYPES,
+  PICKAXE_BLOCK_TYPES,
+  DIAMOND_PICKAXE_HARVESTABLE_BLOCKS,
+  IRON_PICKAXE_HARVESTABLE_BLOCKS,
+  STONE_PICKAXE_HARVESTABLE_BLOCKS,
+  WOODEN_PICKAXE_HARVESTABLE_BLOCKS,
+  getInventoryDropForBlock,
+} from './block-service.config'
+
+const REQUIRES_PICKAXE_BLOCKS = DIAMOND_PICKAXE_HARVESTABLE_BLOCKS
 
 // ─── Player AABB dimensions ────────────────────────────────────────────────────
 // Must match the Cannon-ES body half-extents in physics-service.ts.
 
 export const PLAYER_HALF_WIDTH = 0.3   // x and z half-extents
 export const PLAYER_HALF_HEIGHT = 0.9  // y half-extent
+
+const canHarvestBlock = (blockType: BlockType, selectedTool: Option.Option<BlockType>): boolean =>
+  Option.match(selectedTool, {
+    onNone: () => !HashSet.has(IRON_PICKAXE_HARVESTABLE_BLOCKS, blockType),
+    onSome: (tool) => {
+      if (tool === 'DIAMOND_PICKAXE') return HashSet.has(DIAMOND_PICKAXE_HARVESTABLE_BLOCKS, blockType)
+      if (tool === 'IRON_PICKAXE') return HashSet.has(IRON_PICKAXE_HARVESTABLE_BLOCKS, blockType)
+      if (tool === 'STONE_PICKAXE') return HashSet.has(STONE_PICKAXE_HARVESTABLE_BLOCKS, blockType)
+      if (tool === 'WOODEN_PICKAXE') return HashSet.has(WOODEN_PICKAXE_HARVESTABLE_BLOCKS, blockType)
+      return !HashSet.has(IRON_PICKAXE_HARVESTABLE_BLOCKS, blockType)
+    },
+  })
 
 // ─── Error type ───────────────────────────────────────────────────────────────
 
@@ -71,8 +95,10 @@ export class BlockService extends Effect.Service<BlockService>()(
       FluidService,
       PlayerService,
       InventoryService,
+      HotbarService,
+      FurnaceService,
     ], { concurrency: 'unbounded' }).pipe(
-      Effect.map(([chunkManagerService, chunkService, fluidService, playerService, inventoryService]) => ({
+      Effect.map(([chunkManagerService, chunkService, fluidService, playerService, inventoryService, hotbarService, furnaceService]) => ({
 
         /**
          * Remove a block at the given position.
@@ -106,6 +132,27 @@ export class BlockService extends Effect.Service<BlockService>()(
               }))
             }
 
+            const selectedTool = yield* hotbarService.getSelectedBlockType()
+            const shouldDrop = HashSet.has(PICKAXE_BLOCK_TYPES, Option.getOrElse(selectedTool, () => 'AIR'))
+              ? canHarvestBlock(blockType, selectedTool)
+              : canHarvestBlock(blockType, Option.none())
+            if (HashSet.has(REQUIRES_PICKAXE_BLOCKS, blockType) && !shouldDrop) {
+              return yield* Effect.fail(new BlockServiceError({
+                operation: 'breakBlock',
+                reason: `Block requires a stronger pickaxe: ${blockType}`,
+              }))
+            }
+
+            if (blockType === 'FURNACE') {
+              const dismantled = yield* furnaceService.dismantleFurnace(position)
+              if (!dismantled) {
+                return yield* Effect.fail(new BlockServiceError({
+                  operation: 'breakBlock',
+                  reason: 'Cannot break furnace while its contents cannot fit in inventory',
+                }))
+              }
+            }
+
             yield* setBlockInChunk(chunk, lx, y, lz, 'AIR').pipe(
               Effect.mapError((e: BlockIndexError) => new BlockServiceError({
                 operation: 'breakBlock',
@@ -118,7 +165,9 @@ export class BlockService extends Effect.Service<BlockService>()(
             if (blockType === 'WATER') yield* fluidService.removeWater(position)
             yield* fluidService.notifyBlockChanged(position)
             yield* Metric.counter('blocks_broken').pipe(Metric.increment)
-            yield* inventoryService.addBlock(getInventoryDropForBlock(blockType), 1).pipe(Effect.catchAllCause(() => Effect.void))
+            if (shouldDrop) {
+              yield* inventoryService.addBlock(getInventoryDropForBlock(blockType), 1).pipe(Effect.catchAllCause(() => Effect.void))
+            }
           }),
 
         /**

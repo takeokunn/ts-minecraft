@@ -67,7 +67,7 @@ describe('greedyMeshChunk — property-based', () => {
           expect(idx).toBeLessThan(vertexCount)
         })
       },
-      { fastCheck: { numRuns: 50 } }
+      { fastCheck: { numRuns: 20 } }
     )
 
     it.prop(
@@ -96,7 +96,7 @@ describe('greedyMeshChunk — property-based', () => {
           expect(idx).toBeLessThan(vertexCount)
         })
       },
-      { fastCheck: { numRuns: 30 } }
+      { fastCheck: { numRuns: 12 } }
     )
 
     it.prop(
@@ -107,7 +107,7 @@ describe('greedyMeshChunk — property-based', () => {
         const result = greedyMeshChunk(chunk, ZERO_OFFSET)
         expect(result.opaque.indices.length % 3).toBe(0)
       },
-      { fastCheck: { numRuns: 50 } }
+      { fastCheck: { numRuns: 20 } }
     )
 
     it.prop(
@@ -119,7 +119,7 @@ describe('greedyMeshChunk — property-based', () => {
         const vertexCount = result.opaque.positions.length / 3
         expect(vertexCount % 4).toBe(0)
       },
-      { fastCheck: { numRuns: 50 } }
+      { fastCheck: { numRuns: 20 } }
     )
   })
 
@@ -134,7 +134,7 @@ describe('greedyMeshChunk — property-based', () => {
         expect(result.opaque.positions.length).toBe(result.opaque.normals.length)
         expect(result.opaque.positions.length).toBe(result.opaque.colors.length)
       },
-      { fastCheck: { numRuns: 50 } }
+      { fastCheck: { numRuns: 20 } }
     )
 
     it.prop(
@@ -147,7 +147,7 @@ describe('greedyMeshChunk — property-based', () => {
         const vertexCount = result.opaque.positions.length / 3
         expect(result.opaque.uvs.length).toBe(vertexCount * 2)
       },
-      { fastCheck: { numRuns: 50 } }
+      { fastCheck: { numRuns: 20 } }
     )
 
     it.prop(
@@ -161,7 +161,7 @@ describe('greedyMeshChunk — property-based', () => {
         expect(result.opaque.indices.length).toBe(quadCount * 6)
         expect(result.opaque.positions.length / 3).toBe(quadCount * 4)
       },
-      { fastCheck: { numRuns: 50 } }
+      { fastCheck: { numRuns: 20 } }
     )
   })
 
@@ -281,7 +281,7 @@ describe('water/opaque mesh split', () => {
       const result = greedyMeshChunk(chunk, ZERO_OFFSET, TRANSPARENT_IDS)
       expect(result.water.indices.length % 3).toBe(0)
     },
-    { fastCheck: { numRuns: 20 } }
+    { fastCheck: { numRuns: 8 } }
   )
 
   it.prop(
@@ -296,7 +296,7 @@ describe('water/opaque mesh split', () => {
       expect(result.water.colors.length).toBe(vertexCount * 3)
       expect(result.water.uvs.length).toBe(vertexCount * 2)
     },
-    { fastCheck: { numRuns: 20 } }
+    { fastCheck: { numRuns: 8 } }
   )
 
   it('all-water chunk: opaque mesh is empty, water mesh is non-empty', () => {

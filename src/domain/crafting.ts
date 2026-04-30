@@ -2,7 +2,7 @@ import { Schema } from 'effect'
 import { BlockTypeSchema } from '@/domain/block'
 import { RecipeIdSchema } from '@/shared/kernel'
 
-export const CraftingStationSchema = Schema.Literal('inventory', 'crafting_table')
+export const CraftingStationSchema = Schema.Literal('inventory', 'crafting_table', 'furnace')
 export type CraftingStation = Schema.Schema.Type<typeof CraftingStationSchema>
 
 export class RecipeIngredient extends Schema.Class<RecipeIngredient>('RecipeIngredient')({

@@ -50,7 +50,19 @@ export const BlockTypeSchema = Schema.Literal(
   'FURNACE',
   'TORCH',
   'COAL',
-  'WOODEN_SWORD'
+  'WOODEN_SWORD',
+  'WOODEN_PICKAXE',
+  'STONE_PICKAXE',
+  'RAW_IRON',
+  'IRON_INGOT',
+  'IRON_PICKAXE',
+  'RAW_GOLD',
+  'GOLD_INGOT',
+  'DIAMOND',
+  'REDSTONE_DUST',
+  'LAPIS_LAZULI',
+  'EMERALD',
+  'DIAMOND_PICKAXE'
 )
 export type BlockType = Schema.Schema.Type<typeof BlockTypeSchema>
 

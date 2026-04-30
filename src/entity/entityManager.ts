@@ -22,7 +22,8 @@ export class EntityManager extends Effect.Service<EntityManager>()(
       Ref.make(1),
       Ref.make(0),
       Ref.make<ReadonlyArray<Entity> | null>(null),
-    ], { concurrency: 'unbounded' }).pipe(Effect.map(([entitiesRef, nextEntityNumberRef, updateTickRef, cachedEntitiesRef]) => ({
+      Ref.make(0),
+    ], { concurrency: 'unbounded' }).pipe(Effect.map(([entitiesRef, nextEntityNumberRef, updateTickRef, cachedEntitiesRef, structureVersionRef]) => ({
         addEntity: (
           type: EntityType,
           position: Position,
@@ -58,6 +59,7 @@ export class EntityManager extends Effect.Service<EntityManager>()(
               HashMap.set(entities, entityId, managedEntity)
             )
             yield* Ref.set(cachedEntitiesRef, null)
+            yield* Ref.update(structureVersionRef, (version) => version + 1)
 
             return entityId
           }),
@@ -68,7 +70,12 @@ export class EntityManager extends Effect.Service<EntityManager>()(
               onNone: () => [false, entities],
               onSome: () => [true, HashMap.remove(entities, entityId)],
             })
-          ).pipe(Effect.tap((removed) => removed ? Ref.set(cachedEntitiesRef, null) : Effect.void)),
+          ).pipe(Effect.tap((removed) => removed
+            ? Effect.all([
+                Ref.set(cachedEntitiesRef, null),
+                Ref.update(structureVersionRef, (version) => version + 1),
+              ], { concurrency: 'unbounded', discard: true })
+            : Effect.void)),
 
         getEntity: (entityId: EntityIdType): Effect.Effect<Option.Option<Entity>, never> =>
           Ref.get(entitiesRef).pipe(
@@ -99,6 +106,8 @@ export class EntityManager extends Effect.Service<EntityManager>()(
 
         getCount: (): Effect.Effect<number, never> =>
           Ref.get(entitiesRef).pipe(Effect.map(HashMap.size)),
+
+        getStructureVersion: (): Effect.Effect<number, never> => Ref.get(structureVersionRef),
 
         getPlayerContactDamage: (playerPosition: Position): Effect.Effect<number, never> =>
           Ref.modify(entitiesRef, (entities): [number, HashMap.HashMap<EntityIdType, ManagedEntity>] => {
@@ -224,7 +233,14 @@ export class EntityManager extends Effect.Service<EntityManager>()(
                   ]
                 },
               }),
-          ).pipe(Effect.tap(() => Ref.set(cachedEntitiesRef, null)))
+          ).pipe(Effect.tap((dropsOpt) =>
+            Effect.all([
+              Ref.set(cachedEntitiesRef, null),
+              Option.isSome(dropsOpt)
+                ? Ref.update(structureVersionRef, (version) => version + 1)
+                : Effect.void,
+            ], { concurrency: 'unbounded', discard: true })
+          ))
         },
     })))
   },

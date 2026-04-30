@@ -123,8 +123,8 @@ describe('application/fluid/fluid-service', () => {
   const resolveContactCases: ReadonlyArray<[string, Parameters<typeof resolveContact>, Option.Option<string>]> = [
     ['flowing lava + water source → COBBLESTONE',  [{ level: 1, source: false, type: 'lava' }, { level: 0, source: true,  type: 'water' }], Option.some('COBBLESTONE')],
     ['flowing lava + flowing water → COBBLESTONE', [{ level: 1, source: false, type: 'lava' }, { level: 2, source: false, type: 'water' }], Option.some('COBBLESTONE')],
-    ['lava source + flowing water → STONE',        [{ level: 0, source: true,  type: 'lava' }, { level: 2, source: false, type: 'water' }], Option.some('STONE')],
-    ['lava source + water source → none',          [{ level: 0, source: true,  type: 'lava' }, { level: 0, source: true,  type: 'water' }], Option.none()],
+    ['lava source + flowing water → OBSIDIAN',     [{ level: 0, source: true,  type: 'lava' }, { level: 2, source: false, type: 'water' }], Option.some('OBSIDIAN')],
+    ['lava source + water source → OBSIDIAN',      [{ level: 0, source: true,  type: 'lava' }, { level: 0, source: true,  type: 'water' }], Option.some('OBSIDIAN')],
     ['two water cells → none',                     [{ level: 0, source: true,  type: 'water'}, { level: 0, source: true,  type: 'water' }], Option.none()],
     ['two lava cells → none',                      [{ level: 0, source: true,  type: 'lava' }, { level: 0, source: true,  type: 'lava'  }], Option.none()],
   ]
@@ -135,7 +135,7 @@ describe('application/fluid/fluid-service', () => {
     })
   })
 
-  it.effect('lava adjacent to water converts to cobblestone on tick', () =>
+  it.effect('lava adjacent to water converts to obsidian/cobblestone on tick depending on source state', () =>
     Effect.gen(function* () {
       const chunkService = yield* ChunkService
       const chunk = yield* chunkService.createChunk({ x: 0, z: 0 })
@@ -160,13 +160,13 @@ describe('application/fluid/fluid-service', () => {
         yield* Effect.forEach(Arr.makeBy(6, (i) => i), () => fluid.tick(), { concurrency: 1, discard: true })
       }).pipe(Effect.provide(FluidServiceLive.pipe(Layer.provide(chunkManagerLayer))))
 
-      // Either the water became STONE or the lava became COBBLESTONE somewhere
+      // Either the contact produced OBSIDIAN (source lava) or COBBLESTONE (flowing lava)
       const indices = Arr.makeBy(16, (i) => i)
       const hasConversion = Arr.some(indices, (lx) =>
         Arr.some(indices, (lz) => {
           const idx = Option.getOrElse(blockIndex(lx, 6, lz), () => -1)
           if (idx < 0) return false
-          return chunk.blocks[idx] === blockTypeToIndex('STONE') || chunk.blocks[idx] === blockTypeToIndex('COBBLESTONE')
+          return chunk.blocks[idx] === blockTypeToIndex('OBSIDIAN') || chunk.blocks[idx] === blockTypeToIndex('COBBLESTONE')
         })
       )
       expect(hasConversion).toBe(true)

@@ -5,6 +5,7 @@ import { InventoryRendererService, InventoryRendererLive } from './inventory-ren
 import { InventoryService, INVENTORY_SIZE, HOTBAR_START } from '@/application/inventory/inventory-service'
 import { HotbarService } from '@/application/hotbar/hotbar-service'
 import { RecipeService } from '@/application/crafting/recipe-service'
+import { FurnaceService } from '@/application/furnace/furnace-service'
 import { GameStateService } from '@/application/game-state'
 import { ChunkManagerService } from '@/application/chunk/chunk-manager-service'
 import { DomOperationsService } from '@/presentation/hud/crosshair'
@@ -103,6 +104,25 @@ const createMockRecipeLayer = () => {
   return { MockRecipeLayer, getAllRecipes, findCraftable, craft, recipes }
 }
 
+const createMockFurnaceLayer = () => {
+  const startSmelting = vi.fn((_id: string) => Effect.void)
+  const collectOutput = vi.fn(() => Effect.succeed(true))
+  const MockFurnaceLayer = Layer.succeed(FurnaceService, {
+    getState: () => Effect.succeed({ active: Option.none() }),
+    getNearestFurnaceState: () => Effect.succeed(Option.none()),
+    hasNearbyFurnace: () => Effect.succeed(false),
+    startSmelting,
+    collectOutput,
+    setSelectedFurnace: () => Effect.void,
+    clearFurnace: () => Effect.succeed([]),
+    dismantleFurnace: () => Effect.succeed(true),
+    serialize: () => Effect.succeed([]),
+    deserialize: () => Effect.void,
+    tick: () => Effect.void,
+  } as unknown as FurnaceService)
+  return { MockFurnaceLayer, startSmelting, collectOutput }
+}
+
 const createMockGameStateLayer = () => {
   const MockGameStateLayer = Layer.succeed(GameStateService, {
     getPlayerPosition: () => Effect.succeed({ x: 0, y: 0, z: 0 }),
@@ -122,6 +142,7 @@ const buildTestLayer = (
   mockInventory = createMockInventoryLayer(),
   mockHotbar = createMockHotbarLayer(),
   mockRecipe = createMockRecipeLayer(),
+  mockFurnace = createMockFurnaceLayer(),
   mockGameState = createMockGameStateLayer(),
   mockChunkManager = createMockChunkManagerLayer(),
 ) =>
@@ -130,6 +151,7 @@ const buildTestLayer = (
     Layer.provide(mockInventory.MockInventoryLayer),
     Layer.provide(mockHotbar.MockHotbarLayer),
     Layer.provide(mockRecipe.MockRecipeLayer),
+    Layer.provide(mockFurnace.MockFurnaceLayer),
     Layer.provide(mockGameState.MockGameStateLayer),
     Layer.provide(mockChunkManager.MockChunkManagerLayer),
   )

@@ -48,6 +48,32 @@ const buildTestLayer = (mockDom = createMockDomLayer()) =>
 // Tests verify that hide() and other methods complete without error in this environment.
 
 describe('presentation/loading/loading-screen', () => {
+  it.scoped('creates and hides the overlay in a browser-like environment', () => {
+    const mockDom = createMockDomLayer()
+    const appendToHead = vi.fn((element: unknown) => {
+      ;(element as { parentNode?: unknown }).parentNode = { removeChild: vi.fn() }
+    })
+
+    Reflect.set(globalThis as object, 'document', {
+      head: { appendChild: appendToHead },
+    })
+
+    const TestLayer = buildTestLayer(mockDom)
+
+    return Effect.gen(function* () {
+      const loading = yield* LoadingScreenService
+      yield* loading.hide()
+
+      expect(mockDom.createElement).toHaveBeenCalledTimes(2)
+      expect(appendToHead).toHaveBeenCalledTimes(1)
+      expect(mockDom.overlayEl.id).toBe('loading-screen')
+      expect(mockDom.overlayEl.style.cssText).toContain('position:fixed')
+      expect(mockDom.overlayEl.style.display).toBe('none')
+    }).pipe(Effect.provide(TestLayer), Effect.ensuring(Effect.sync(() => {
+      Reflect.deleteProperty(globalThis as object, 'document')
+    })))
+  })
+
   describe('LoadingScreenLive — layer provision', () => {
     it.scoped('should provide LoadingScreen as a Layer without error', () => {
       const TestLayer = buildTestLayer()

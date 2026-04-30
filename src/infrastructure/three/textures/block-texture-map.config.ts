@@ -61,4 +61,16 @@ export const TILE_MAP: ReadonlyArray<Readonly<Record<FaceDir, number>>> = [
   { top: 45, bottom: 45, side: 45 }, // 44: TORCH
   { top: 46, bottom: 46, side: 46 }, // 45: COAL
   { top: 47, bottom: 47, side: 47 }, // 46: WOODEN_SWORD
+  { top: 47, bottom: 47, side: 47 }, // 47: WOODEN_PICKAXE
+  { top: 44, bottom: 44, side: 44 }, // 48: STONE_PICKAXE
+  { top: 20, bottom: 20, side: 20 }, // 49: RAW_IRON
+  { top: 34, bottom: 34, side: 34 }, // 50: IRON_INGOT
+  { top: 34, bottom: 34, side: 34 }, // 51: IRON_PICKAXE
+  { top: 21, bottom: 21, side: 21 }, // 52: RAW_GOLD
+  { top: 35, bottom: 35, side: 35 }, // 53: GOLD_INGOT
+  { top: 37, bottom: 37, side: 37 }, // 54: DIAMOND
+  { top: 24, bottom: 24, side: 24 }, // 55: REDSTONE_DUST
+  { top: 25, bottom: 25, side: 25 }, // 56: LAPIS_LAZULI
+  { top: 40, bottom: 40, side: 40 }, // 57: EMERALD
+  { top: 37, bottom: 37, side: 37 }, // 58: DIAMOND_PICKAXE
 ]

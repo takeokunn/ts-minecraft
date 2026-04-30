@@ -1,469 +1,52 @@
-/**
- * Tests for createFrameHandler.
- *
- * Design note: createFrameHandler returns (deltaTime) => Effect<void, never>
- * with R = never — the returned Effect is fully self-contained and requires no
- * Effect.provide call.  We therefore call Effect.runPromise directly on each
- * frame Effect, which keeps tests synchronous-feeling while still exercising
- * the full Effect.gen execution path.
- *
- * Stubs are plain objects that structurally satisfy FrameHandlerDeps /
- * FrameHandlerServices.  We do NOT construct real Effect.Service instances
- * here — the goal is to unit-test the overlay-toggle and pause-gate logic
- * inside createFrameHandler, not the individual services themselves.
- */
 import { describe, expect, vi } from 'vitest'
 import { it } from '@effect/vitest'
 import { Effect, MutableHashSet, Option, Ref } from 'effect'
 import * as THREE from 'three'
-import { createFrameHandler, type FrameHandlerDeps, type FrameHandlerServices } from '@/frame-handler'
+import { createFrameHandler, createFrameHandlers, type FrameHandlerDeps } from '@/frame-handler'
 import { KeyMappings } from '@/application/input/key-mappings'
 import type { DeltaTimeSecs } from '@/shared/kernel'
+import {
+  DEFAULT_SETTINGS,
+  makeDeps,
+  makeInputService,
+  makeInventoryRenderer,
+  makeServices,
+  makeSettingsOverlay,
+  makeTradingPresentation,
+  runFrame,
+} from '../test/frame-handler-test-kit'
 
-type CameraMode = 'firstPerson' | 'thirdPerson'
-
-interface CameraStateStub {
-  mode: CameraMode
+type FrameHarnessOptions = {
+  readonly paused?: boolean
+  readonly inventoryOpen?: boolean
+  readonly settingsOpen?: boolean
+  readonly withComposer?: boolean
+  readonly pressedKeys?: MutableHashSet.MutableHashSet<string>
 }
 
-// ---------------------------------------------------------------------------
-// Minimal DayNightLights stub (shape required by FrameHandlerDeps.lights)
-//
-// DayNightLights = { light, ambientLight, renderer: { setClearColor }, skyNight, skyDay, skyCurrent }
-// ---------------------------------------------------------------------------
-
-const makeLights = () =>
-  ({
-    light: { position: { set: vi.fn() }, intensity: 1, castShadow: true, color: { setHSL: vi.fn() }, target: { position: { set: vi.fn() }, updateMatrixWorld: vi.fn() }, shadow: { camera: { left: -128, right: 128, top: 128, bottom: -128, updateProjectionMatrix: vi.fn() } } } as unknown as THREE.DirectionalLight,
-    ambientLight: { intensity: 0.3, color: { setHSL: vi.fn() } } as unknown as THREE.AmbientLight,
-    renderer: { setClearColor: vi.fn() },
-    skyNight: new THREE.Color(0x001133),
-    skyDay: new THREE.Color(0x87ceeb),
-    skyCurrent: new THREE.Color(0x87ceeb),
-    sky: Option.none(),
-  }) as unknown as import('@/application/time/day-night-cycle').DayNightLights
-
-// ---------------------------------------------------------------------------
-// FrameHandlerDeps factory
-//
-// gamePausedRef is a real Ref so we can observe its state after each frame.
-// renderer / scene / camera are minimal THREE.js stubs (avoid WebGL init).
-// ---------------------------------------------------------------------------
-
-const makeRenderer = () =>
-  ({
-    render: vi.fn(),
-    autoClear: true,
-    domElement: { clientWidth: 800, clientHeight: 600 },
-  }) as unknown as THREE.WebGLRenderer
-
-const makeCamera = () => {
-  const cam = new THREE.PerspectiveCamera()
-  // Stub updateProjectionMatrix to avoid WebGL warnings in jsdom
-  cam.updateProjectionMatrix = vi.fn()
-  return cam
-}
-
-const makeCameraState = (initialMode: CameraMode = 'firstPerson') => {
-  const state: CameraStateStub = { mode: initialMode }
-
-  const service = {
-    getRotation: () => Effect.succeed({ yaw: 0, pitch: 0 }),
-    getMode: () => Effect.sync(() => state.mode),
-    setYaw: (_yaw: number) => Effect.void,
-    setPitch: (_pitch: number) => Effect.void,
-    addYaw: (_delta: number) => Effect.void,
-    addPitch: (_delta: number) => Effect.void,
-    setMode: (mode: CameraMode) =>
-      Effect.sync(() => {
-        state.mode = mode
-      }),
-    toggleMode: () =>
-      Effect.sync(() => {
-        state.mode = state.mode === 'firstPerson' ? 'thirdPerson' : 'firstPerson'
-      }),
-    reset: () =>
-      Effect.sync(() => {
-        state.mode = 'firstPerson'
-      }),
-  } as unknown as InstanceType<typeof import('@/application/camera/camera-state').PlayerCameraStateService>
-
-  return { service, state }
-}
-
-const makeDeps = (paused = false): Effect.Effect<FrameHandlerDeps & { gamePausedRef: Ref.Ref<boolean> }> =>
-  Effect.flatMap(
-    Ref.make(paused),
-    (gamePausedRef) => Effect.succeed({
-      renderer: makeRenderer(),
-      scene: new THREE.Scene(),
-      camera: makeCamera(),
-      respawnPosition: { x: 0, y: 64, z: 0 },
-      lights: makeLights(),
-      fpsElement: Option.none(),
-      healthValueElement: Option.none(),
-      healthMaxElement: Option.none(),
-      skyMesh: Option.none(),
-      gamePausedRef,
-      composer: Option.none(),
-      gtaoPass: Option.none(),
-      bloomPass: Option.none(),
-      dofPass: Option.none(),
-      godRaysPass: Option.none(),
-      smaaPass: Option.none(),
-    })
-  )
-
-// ---------------------------------------------------------------------------
-// FrameHandlerServices factory
-//
-// Each service method returns a trivial Effect.  Mocked methods use vi.fn()
-// wrapped in Effect.sync so we can assert call counts / return values.
-// The shape mirrors the return objects of the corresponding Effect.Service
-// implementations, but contains no real logic.
-// ---------------------------------------------------------------------------
-
-interface OverlayState {
-  open: boolean
-}
-
-/**
- * Build a minimal InventoryRenderer stub.
- * `toggle` flips `state.open` and returns the new value.
- */
-const makeInventoryRenderer = (state: OverlayState) =>
-  ({
-    isOpen: () => Effect.sync(() => state.open),
-    toggle: () =>
-      Effect.sync(() => {
-        state.open = !state.open
-        return state.open
-      }),
-    update: () => Effect.void,
-    cycleRecipes: (_delta: number) => Effect.void,
-    craftSelectedRecipe: () => Effect.succeed(false),
-  }) as unknown as InstanceType<typeof import('@/presentation/inventory/inventory-renderer').InventoryRendererService>
-
-/**
- * Build a minimal SettingsOverlay stub.
- * `toggle` flips `state.open` and returns the new value.
- */
-const makeSettingsOverlay = (state: OverlayState) =>
-  ({
-    isOpen: () => Effect.sync(() => state.open),
-    toggle: () =>
-      Effect.sync(() => {
-        state.open = !state.open
-        return state.open
-      }),
-    syncFromSettings: () => Effect.void,
-    applyToSettings: () => Effect.void,
-  }) as unknown as InstanceType<typeof import('@/presentation/settings/settings-overlay').SettingsOverlayService>
-
-const makeTradingPresentation = (state: OverlayState) =>
-  ({
-    open: (_villagerId: string) =>
-      Effect.sync(() => {
-        state.open = true
-        return true
-      }),
-    close: () =>
-      Effect.sync(() => {
-        state.open = false
-      }),
-    isOpen: () => Effect.sync(() => state.open),
-    cycleSelection: (_delta: number) => Effect.void,
-    refresh: () => Effect.void,
-    executeSelectedTrade: () => Effect.succeed(false),
-  }) as unknown as InstanceType<typeof import('@/presentation/trading').TradingPresentationService>
-
-/**
- * Build a minimal InputService stub.
- * `consumeKeyPress` returns true for keys listed in `pressedKeys`.
- * `consumeMouseClick` always returns false (block interaction not under test here).
- */
-const makeInputService = (pressedKeys: MutableHashSet.MutableHashSet<string> = MutableHashSet.empty()) =>
-  ({
-    consumeKeyPress: (key: string) =>
-      Effect.sync(() => {
-        if (MutableHashSet.has(pressedKeys, key)) {
-          MutableHashSet.remove(pressedKeys, key) // consume — same as real service
-          return true
-        }
-        return false
-      }),
-    consumeMouseClick: (_btn: number) => Effect.succeed(false),
-    isKeyPressed: (_key: string) => Effect.succeed(false),
-    getMouseDelta: () => Effect.succeed({ x: 0, y: 0 }),
-    isMouseDown: (_btn: number) => Effect.succeed(false),
-    requestPointerLock: () => Effect.void,
-    exitPointerLock: () => Effect.void,
-    isPointerLocked: () => Effect.succeed(false),
-    consumeWheelDelta: () => Effect.succeed(0),
-  }) as unknown as InstanceType<typeof import('@/presentation/input/input-service').InputService>
-
-const DEFAULT_SETTINGS = {
-  renderDistance: 8,
-  mouseSensitivity: 0.5,
-  dayLengthSeconds: 400,
-  graphicsQuality: 'high' as const,
-  audioEnabled: true,
-  masterVolume: 0.8,
-  sfxVolume: 1,
-  musicVolume: 0.55,
-}
-
-/**
- * Build a complete FrameHandlerServices stub.
- * Only the services exercised by overlay-toggle and pause-gate tests need
- * non-trivial stubs — everything else returns void / empty values.
- */
-const makeServices = (opts: {
-  inputService: ReturnType<typeof makeInputService>
-  inventoryRenderer: ReturnType<typeof makeInventoryRenderer>
-  settingsOverlay: ReturnType<typeof makeSettingsOverlay>
-  tradingPresentation?: ReturnType<typeof makeTradingPresentation>
-}): FrameHandlerServices & { cameraState: CameraStateStub } => {
-  const { inputService, inventoryRenderer, settingsOverlay } = opts
-  const tradingPresentation = opts.tradingPresentation ?? makeTradingPresentation({ open: false })
-  const cameraState = makeCameraState()
-
-  const gameState = {
-    getPlayerPosition: (_id: unknown) => Effect.succeed({ x: 0, y: 64, z: 0 }),
-    update: (_dt: unknown) => Effect.void,
-    respawn: (_position: unknown) => Effect.void,
-    isPlayerGrounded: () => Effect.succeed(true),
-  } as unknown as InstanceType<typeof import('@/application/game-state').GameStateService>
-
-  const firstPersonCamera = {
-    update: (_cam: unknown) => Effect.void,
-  } as unknown as InstanceType<typeof import('@/application/camera/first-person-camera-service').FirstPersonCameraService>
-
-  const thirdPersonCamera = {
-    update: (cam: THREE.PerspectiveCamera, playerPos: { x: number; y: number; z: number }, eyeLevelOffset = 0.72) =>
-      Effect.sync(() => {
-        const distance = 4
-        const shoulderHeight = 1.5
-        const eyeY = playerPos.y + eyeLevelOffset
-        cam.position.set(playerPos.x, eyeY + shoulderHeight, playerPos.z - distance)
-        cam.lookAt(playerPos.x, eyeY, playerPos.z)
-      }),
-  } as unknown as InstanceType<typeof import('@/application/camera/third-person-camera-service').ThirdPersonCameraService>
-
-  const blockHighlight = {
-    update: (_cam: unknown, _scene: unknown) => Effect.void,
-    invalidateCache: () => Effect.void,
-    getTargetBlock: () => Effect.succeed(Option.none()),
-    getTargetHit: () => Effect.succeed(Option.none()),
-  } as unknown as InstanceType<typeof import('@/presentation/highlight/block-highlight').BlockHighlightService>
-
-  const blockService = {
-    breakBlock: (_pos: unknown) => Effect.void,
-    placeBlock: (_pos: unknown, _type: unknown, _slot?: unknown) => Effect.void,
-  } as unknown as InstanceType<typeof import('@/application/block/block-service').BlockService>
-
-  const inventoryService = {
-    getAllSlots: () => Effect.succeed([]),
-    getSlot: (_index: unknown) => Effect.succeed(Option.none()),
-    setSlot: (_index: unknown, _stack: unknown) => Effect.void,
-    moveStack: (_from: unknown, _to: unknown) => Effect.void,
-    addBlock: (_type: unknown, _count: unknown) => Effect.succeed(true),
-    removeBlock: (_type: unknown, _count: unknown, _slot?: unknown) => Effect.succeed(true),
-    getHotbarSlots: () => Effect.succeed([]),
-    serialize: () => Effect.succeed({ slots: [] }),
-    deserialize: (_data: unknown) => Effect.void,
-  } as unknown as InstanceType<typeof import('@/application/inventory/inventory-service').InventoryService>
-
-  const hotbarService = {
-    update: () => Effect.void,
-    getSlots: () => Effect.succeed([]),
-    getSelectedSlot: () => Effect.succeed(0),
-    getSelectedBlockType: () => Effect.succeed({ _tag: 'None' }),
-  } as unknown as InstanceType<typeof import('@/application/hotbar/hotbar-service').HotbarService>
-
-  const hotbarRenderer = {
-    update: (_slots: unknown, _sel: unknown) => Effect.void,
-    render: (_renderer: unknown) => Effect.void,
-  } as unknown as InstanceType<typeof import('@/presentation/hud/hotbar-three').HotbarRendererService>
-
-  const chunkManagerService = {
-    loadChunksAroundPlayer: (_pos: unknown) => Effect.void,
-    getLoadedChunks: () => Effect.succeed([]),
-    getChunk: (_coord: unknown) => Effect.succeed({ coord: { x: 0, z: 0 }, blocks: new Uint8Array(0), dirty: false }),
-  } as unknown as InstanceType<typeof import('@/application/chunk/chunk-manager-service').ChunkManagerService>
-
-  const timeService = {
-    advanceTick: (_dt: unknown) => Effect.void,
-    getTimeOfDay: () => Effect.succeed(0.5),
-    isNight: () => Effect.succeed(false),
-    getDayLength: () => Effect.succeed(DEFAULT_SETTINGS.dayLengthSeconds),
-    setDayLength: (_s: unknown) => Effect.void,
-    setTimeOfDay: (_f: unknown) => Effect.void,
-  } as unknown as InstanceType<typeof import('@/application/time/time-service').TimeService>
-
-  const settingsService = {
-    getSettings: () => Effect.succeed({ ...DEFAULT_SETTINGS }),
-    updateSettings: (_p: unknown) => Effect.void,
-    resetToDefaults: () => Effect.void,
-  } as unknown as InstanceType<typeof import('@/application/settings/settings-service').SettingsService>
-
-  const fpsCounter = {
-    tick: (_dt: unknown) => Effect.void,
-    getFPS: () => Effect.succeed(60),
-    getFrameCount: () => Effect.succeed(0),
-    reset: () => Effect.void,
-  } as unknown as InstanceType<typeof import('@/presentation/fps-counter').FPSCounterService>
-
-  const worldRendererService = {
-    syncChunksToScene: (_chunks: unknown, _scene: unknown) => Effect.succeed(true as boolean),
-    applyFrustumCulling: (_cam: unknown) => Effect.void,
-    updateChunkInScene: (_chunk: unknown, _scene: unknown) => Effect.void,
-    clearScene: (_scene: unknown) => Effect.void,
-    doRefractionPrePass: (_renderer: unknown, _scene: unknown, _camera: unknown) => Effect.void,
-    updateWaterUniforms: (_time: number, _camPos: unknown) => Effect.void,
-    updateWaterResolution: (_w: number, _h: number) => Effect.void,
-    resizeRefractionRT: (_w: number, _h: number) => Effect.void,
-    resizeRefractionCamera: (_aspect: number) => Effect.void,
-    getWaterMeshes: () => Effect.succeed([] as THREE.Mesh[]),
-    getSceneVersion: () => Effect.succeed(0),
-    setRefractionValid: (_valid: boolean) => Effect.void,
-  } as unknown as InstanceType<typeof import('@/infrastructure/three/world-renderer').WorldRendererService>
-
-  const entityRenderer = {
-    syncEntities: (_entities: unknown, _scene: unknown) => Effect.void,
-    updateEntityTransforms: (_entities: unknown, _total: unknown, _delta: unknown) => Effect.void,
-    clearScene: (_scene: unknown) => Effect.void,
-    _getTrackedGroup: (_id: unknown) => Effect.succeed(Option.none()),
-  } as unknown as InstanceType<typeof import('@/infrastructure/three/entity-renderer').EntityRendererService>
-
-  const chunkMeshService = {
-    setSunIntensity: (_value: number) => Effect.void,
-  } as unknown as InstanceType<typeof import('@/infrastructure/three/meshing/chunk-mesh').ChunkMeshService>
-
-  const healthService = {
-    getHealth: () => Effect.succeed({ current: 20, max: 20, invincibilityTicks: 0 }),
-    applyDamage: (_amount: unknown) => Effect.void,
-    isDead: () => Effect.succeed(false),
-    tick: () => Effect.void,
-    processFallDamage: (_y: unknown, _grounded: unknown) => Effect.succeed(0),
-    reset: () => Effect.void,
-  } as unknown as InstanceType<typeof import('@/application/player/health-service').HealthService>
-
-  const soundManager = {
-    applySettings: (_settings: unknown) => Effect.void,
-    setListenerPosition: (_position: unknown) => Effect.void,
-    playEffect: (_effect: unknown, _options?: unknown) => Effect.void,
-    getState: () => Effect.succeed({
-      enabled: true,
-      masterVolume: 0.8,
-      sfxVolume: 1,
-      listenerPosition: { x: 0, y: 64, z: 0 },
-    }),
-  } as unknown as InstanceType<typeof import('@/audio').SoundManager>
-
-  const musicManager = {
-    applySettings: (_settings: unknown) => Effect.void,
-    setEnvironment: (_environment: unknown) => Effect.void,
-    updateFromContext: (_context: unknown) => Effect.void,
-    stop: () => Effect.void,
-    getCurrentEnvironment: () => Effect.succeed(Option.none()),
-    getState: () => Effect.succeed({
-      enabled: true,
-      masterVolume: 0.8,
-      musicVolume: 0.55,
-    }),
-  } as unknown as InstanceType<typeof import('@/audio').MusicManager>
-
-  const entityManager = {
-    addEntity: (_type: unknown, _position: unknown) => Effect.succeed('entity-1' as unknown),
-    removeEntity: (_entityId: unknown) => Effect.succeed(false),
-    getEntity: (_entityId: unknown) => Effect.succeed(Option.none()),
-    getEntities: () => Effect.succeed([]),
-    getEntityAIState: (_entityId: unknown) => Effect.succeed(Option.none()),
-    getCount: () => Effect.succeed(0),
-    getPlayerContactDamage: (_playerPosition: unknown) => Effect.succeed(0),
-    update: (_deltaTime: unknown, _playerPosition: unknown) => Effect.void,
-    applyDamage: (_entityId: unknown, _amount: unknown) => Effect.succeed(Option.none()),
-  } as unknown as InstanceType<typeof import('@/entity/entityManager').EntityManager>
-
-  const mobSpawner = {
-    trySpawn: (_playerPosition: unknown) => Effect.succeed(Option.none()),
-    getSpawnBounds: () => Effect.succeed({ minDistance: 16, maxDistance: 40 }),
-    getMaxPopulation: () => Effect.succeed(24),
-  } as unknown as InstanceType<typeof import('@/entity/spawner').MobSpawner>
-
-  const villageService = {
-    ensureVillageNear: (_playerPosition: unknown) =>
-      Effect.succeed({ villageId: 'village-1', center: { x: 0, y: 64, z: 0 }, structures: [], villagers: [] }),
-    getVillages: () => Effect.succeed([]),
-    getVillagers: () => Effect.succeed([]),
-    getVillager: (_villagerId: unknown) => Effect.succeed(Option.none()),
-    findNearestVillager: (_position: unknown, _maxDistance: unknown) => Effect.succeed(Option.none()),
-    addVillagerExperience: (_villagerId: unknown, _amount: unknown) => Effect.succeed(Option.none()),
-    update: (_playerPosition: unknown, _timeOfDay: unknown, _deltaTime: unknown) => Effect.void,
-  } as unknown as InstanceType<typeof import('@/village/village-service').VillageService>
-
-  const redstoneService = {
-    setComponent: (_position: unknown, _type: unknown) =>
-      Effect.succeed({ type: 'wire', position: { x: 0, y: 0, z: 0 }, state: { active: false, buttonTicksRemaining: 0, pistonExtended: false } }),
-    removeComponent: (_position: unknown) => Effect.void,
-    getComponent: (_position: unknown) => Effect.succeed(Option.none()),
-    getComponents: () => Effect.succeed([]),
-    toggleLever: (_position: unknown) => Effect.succeed(Option.none()),
-    pressButton: (_position: unknown, _durationTicks?: unknown) => Effect.succeed(Option.none()),
-    toggleTorch: (_position: unknown) => Effect.succeed(Option.none()),
-    getPowerAt: (_position: unknown) => Effect.succeed(0),
-    getPowerSnapshot: () => Effect.succeed({ tick: 0, poweredPositions: [] }),
-    tick: () => Effect.succeed({ tick: 0, poweredPositions: [] }),
-  } as unknown as InstanceType<typeof import('@/redstone/redstone-service').RedstoneService>
-
-  const fluidService = {
-    notifyBlockChanged: (_position: unknown) => Effect.void,
-    seedWater: (_position: unknown) => Effect.void,
-    removeWater: (_position: unknown) => Effect.void,
-    syncLoadedChunks: (_chunks: unknown) => Effect.void,
-    tick: () => Effect.void,
-  } as unknown as InstanceType<typeof import('@/application/fluid/fluid-service').FluidService>
-
-  return {
-    gameState,
-    playerCameraState: cameraState.service,
-    firstPersonCamera,
-    thirdPersonCamera,
-    blockHighlight,
-    inputService,
-    blockService,
-    hotbarService,
-    hotbarRenderer,
-    chunkManagerService,
-    timeService,
-    settingsService,
-    settingsOverlay,
-    inventoryRenderer,
-    inventoryService,
-    fpsCounter,
-    worldRendererService,
-    entityRenderer,
-    chunkMeshService,
-    healthService,
-    soundManager,
-    musicManager,
-    entityManager,
-    mobSpawner,
-    villageService,
-    tradingPresentation,
-    redstoneService,
-    fluidService,
-    cameraState: cameraState.state,
-  }
-}
-
-// Convenience: run one frame with the provided deps and services.
-// createFrameHandler is now an Effect (initialises Refs) — yield* before calling the handler.
-const runFrame = (deps: FrameHandlerDeps, services: FrameHandlerServices): Effect.Effect<void> =>
+const arrangeFrameHarness = ({
+  paused = false,
+  inventoryOpen = false,
+  settingsOpen = false,
+  withComposer = false,
+  pressedKeys = MutableHashSet.empty<string>(),
+}: FrameHarnessOptions = {}) =>
   Effect.gen(function* () {
-    const handler = yield* createFrameHandler(deps, services)
-    yield* handler(0.016 as DeltaTimeSecs)
+    const inventoryState = { open: inventoryOpen }
+    const settingsState = { open: settingsOpen }
+    const deps = yield* makeDeps(paused, withComposer)
+    const services = makeServices({
+      inputService: makeInputService(pressedKeys),
+      inventoryRenderer: makeInventoryRenderer(inventoryState),
+      settingsOverlay: makeSettingsOverlay(settingsState),
+    })
+
+    return {
+      deps,
+      services,
+      inventoryState,
+      settingsState,
+    }
   })
 
 // ---------------------------------------------------------------------------
@@ -477,16 +60,8 @@ describe('frame-handler', () => {
 
   describe('pause gate', () => {
     it.effect('suppresses firstPersonCamera.update when gamePausedRef is true', () => Effect.gen(function* () {
-      const deps = yield* makeDeps(true /* paused */)
+      const { deps, services } = yield* arrangeFrameHarness({ paused: true })
       const cameraUpdateSpy = vi.fn(() => Effect.void)
-
-      const invState = { open: false }
-      const setState = { open: false }
-      const services = makeServices({
-        inputService: makeInputService(),
-        inventoryRenderer: makeInventoryRenderer(invState),
-        settingsOverlay: makeSettingsOverlay(setState),
-      })
       // Override firstPersonCamera.update with spy
       ;(services.firstPersonCamera as unknown as { update: unknown }).update = cameraUpdateSpy
 
@@ -496,16 +71,8 @@ describe('frame-handler', () => {
     }))
 
     it.effect('calls firstPersonCamera.update when gamePausedRef is false', () => Effect.gen(function* () {
-      const deps = yield* makeDeps(false /* not paused */)
+      const { deps, services } = yield* arrangeFrameHarness()
       const cameraUpdateSpy = vi.fn(() => Effect.void)
-
-      const invState = { open: false }
-      const setState = { open: false }
-      const services = makeServices({
-        inputService: makeInputService(),
-        inventoryRenderer: makeInventoryRenderer(invState),
-        settingsOverlay: makeSettingsOverlay(setState),
-      })
       ;(services.firstPersonCamera as unknown as { update: unknown }).update = cameraUpdateSpy
 
       yield* runFrame(deps, services)
@@ -514,16 +81,8 @@ describe('frame-handler', () => {
     }))
 
     it.effect('suppresses hotbarService.update when gamePausedRef is true', () => Effect.gen(function* () {
-      const deps = yield* makeDeps(true)
+      const { deps, services } = yield* arrangeFrameHarness({ paused: true })
       const hotbarUpdateSpy = vi.fn(() => Effect.void)
-
-      const invState = { open: false }
-      const setState = { open: false }
-      const services = makeServices({
-        inputService: makeInputService(),
-        inventoryRenderer: makeInventoryRenderer(invState),
-        settingsOverlay: makeSettingsOverlay(setState),
-      })
       ;(services.hotbarService as unknown as { update: unknown }).update = hotbarUpdateSpy
 
       yield* runFrame(deps, services)
@@ -532,16 +91,8 @@ describe('frame-handler', () => {
     }))
 
     it.effect('calls hotbarService.update when gamePausedRef is false', () => Effect.gen(function* () {
-      const deps = yield* makeDeps(false)
+      const { deps, services } = yield* arrangeFrameHarness()
       const hotbarUpdateSpy = vi.fn(() => Effect.void)
-
-      const invState = { open: false }
-      const setState = { open: false }
-      const services = makeServices({
-        inputService: makeInputService(),
-        inventoryRenderer: makeInventoryRenderer(invState),
-        settingsOverlay: makeSettingsOverlay(setState),
-      })
       ;(services.hotbarService as unknown as { update: unknown }).update = hotbarUpdateSpy
 
       yield* runFrame(deps, services)
@@ -556,83 +107,51 @@ describe('frame-handler', () => {
 
   describe('Escape key handling', () => {
     it.effect('closes inventory and sets gamePausedRef to false when Escape is pressed while inventory is open', () => Effect.gen(function* () {
-      const invState = { open: true }
-      const setState = { open: false }
       const pressedKeys = MutableHashSet.make(KeyMappings.ESCAPE)
-
-      const deps = yield* makeDeps(true /* paused because inventory is open */)
-      const services = makeServices({
-        inputService: makeInputService(pressedKeys),
-        inventoryRenderer: makeInventoryRenderer(invState),
-        settingsOverlay: makeSettingsOverlay(setState),
-      })
+      const { deps, services, inventoryState } = yield* arrangeFrameHarness({ paused: true, inventoryOpen: true, pressedKeys })
 
       yield* runFrame(deps, services)
 
       // Inventory must now be closed
-      expect(invState.open).toBe(false)
+      expect(inventoryState.open).toBe(false)
       // gamePausedRef must be false
       const paused = yield* Ref.get(deps.gamePausedRef)
       expect(paused).toBe(false)
     }))
 
     it.effect('closes settings and sets gamePausedRef to false when Escape is pressed while settings is open', () => Effect.gen(function* () {
-      const invState = { open: false }
-      const setState = { open: true }
       const pressedKeys = MutableHashSet.make(KeyMappings.ESCAPE)
-
-      const deps = yield* makeDeps(true /* paused because settings is open */)
-      const services = makeServices({
-        inputService: makeInputService(pressedKeys),
-        inventoryRenderer: makeInventoryRenderer(invState),
-        settingsOverlay: makeSettingsOverlay(setState),
-      })
+      const { deps, services, settingsState } = yield* arrangeFrameHarness({ paused: true, settingsOpen: true, pressedKeys })
 
       yield* runFrame(deps, services)
 
       // Settings must now be closed
-      expect(setState.open).toBe(false)
+      expect(settingsState.open).toBe(false)
       // gamePausedRef must be false
       const paused = yield* Ref.get(deps.gamePausedRef)
       expect(paused).toBe(false)
     }))
 
     it.effect('opens settings and sets gamePausedRef to true when Escape is pressed while nothing is open', () => Effect.gen(function* () {
-      const invState = { open: false }
-      const setState = { open: false }
       const pressedKeys = MutableHashSet.make(KeyMappings.ESCAPE)
-
-      const deps = yield* makeDeps(false /* not paused */)
-      const services = makeServices({
-        inputService: makeInputService(pressedKeys),
-        inventoryRenderer: makeInventoryRenderer(invState),
-        settingsOverlay: makeSettingsOverlay(setState),
-      })
+      const { deps, services, settingsState } = yield* arrangeFrameHarness({ pressedKeys })
 
       yield* runFrame(deps, services)
 
       // Settings must now be open
-      expect(setState.open).toBe(true)
+      expect(settingsState.open).toBe(true)
       // gamePausedRef must be true
       const paused = yield* Ref.get(deps.gamePausedRef)
       expect(paused).toBe(true)
     }))
 
     it.effect('does not change overlay states when Escape is not pressed', () => Effect.gen(function* () {
-      const invState = { open: false }
-      const setState = { open: false }
-
-      const deps = yield* makeDeps(false)
-      const services = makeServices({
-        inputService: makeInputService(/* no pressed keys */),
-        inventoryRenderer: makeInventoryRenderer(invState),
-        settingsOverlay: makeSettingsOverlay(setState),
-      })
+      const { deps, services, inventoryState, settingsState } = yield* arrangeFrameHarness()
 
       yield* runFrame(deps, services)
 
-      expect(invState.open).toBe(false)
-      expect(setState.open).toBe(false)
+      expect(inventoryState.open).toBe(false)
+      expect(settingsState.open).toBe(false)
       const paused = yield* Ref.get(deps.gamePausedRef)
       expect(paused).toBe(false)
     }))
@@ -713,6 +232,30 @@ describe('frame-handler', () => {
   // -------------------------------------------------------------------------
 
   describe('step 1 — chunk streaming', () => {
+    it.effect('production split handlers keep chunk streaming on maintenance only', () => Effect.gen(function* () {
+      const deps = yield* makeDeps(false)
+      const services = makeServices({
+        inputService: makeInputService(),
+        inventoryRenderer: makeInventoryRenderer({ open: false }),
+        settingsOverlay: makeSettingsOverlay({ open: false }),
+      })
+      const loadSpy = vi.fn(() => Effect.void)
+      const syncSpy = vi.fn(() => Effect.succeed(true as boolean))
+
+      ;(services.chunkManagerService as unknown as { loadChunksAroundPlayer: unknown }).loadChunksAroundPlayer = loadSpy
+      ;(services.worldRendererService as unknown as { syncChunksToScene: unknown }).syncChunksToScene = syncSpy
+
+      const { frameHandler, maintenanceHandler } = yield* createFrameHandlers(deps, services)
+
+      yield* frameHandler(0.016 as DeltaTimeSecs)
+      expect(loadSpy).not.toHaveBeenCalled()
+      expect(syncSpy).not.toHaveBeenCalled()
+
+      yield* maintenanceHandler()
+      expect(loadSpy).toHaveBeenCalledOnce()
+      expect(syncSpy).toHaveBeenCalledOnce()
+    }))
+
     it.effect('calls loadChunksAroundPlayer each frame', () => Effect.gen(function* () {
       const deps = yield* makeDeps(false)
       const services = makeServices({
@@ -799,6 +342,57 @@ describe('frame-handler', () => {
       yield* handler(0.016 as DeltaTimeSecs)
 
       expect(spy).toHaveBeenCalledTimes(2)
+    }))
+
+    it.effect('preserves dirty chunk updates added while maintenance requeues remaining work', () => Effect.gen(function* () {
+      const deps = yield* makeDeps(false)
+      const services = makeServices({
+        inputService: makeInputService(),
+        inventoryRenderer: makeInventoryRenderer({ open: false }),
+        settingsOverlay: makeSettingsOverlay({ open: false }),
+      })
+
+      const queuedTargets = [0, 16, 32, 48, 64, 80].map((x) => ({ x, y: 64, z: 0 }))
+      let clickCount = 0
+      let maintenanceInjectionDone = false
+      let updateCount = 0
+
+      ;(services.inputService as unknown as { consumeMouseClick: (button: number) => Effect.Effect<boolean, never> }).consumeMouseClick = (button: number) =>
+        Effect.succeed(button === 0 && clickCount < queuedTargets.length)
+
+      ;(services.blockHighlight as unknown as { getTargetBlock: () => Effect.Effect<Option.Option<{ x: number; y: number; z: number }>, never> }).getTargetBlock = () =>
+        Effect.succeed(clickCount < queuedTargets.length ? Option.some(queuedTargets[clickCount]!) : Option.none())
+
+      ;(services.blockHighlight as unknown as { getTargetHit: () => Effect.Effect<Option.Option<never>, never> }).getTargetHit = () => Effect.succeed(Option.none())
+
+      ;(services.blockService as unknown as { breakBlock: (pos: { x: number; y: number; z: number }) => Effect.Effect<void, never> }).breakBlock = () =>
+        Effect.sync(() => {
+          clickCount += 1
+        })
+
+      ;(services.chunkManagerService as unknown as { getChunk: (coord: { x: number; z: number }) => Effect.Effect<{ coord: { x: number; z: number }; blocks: Uint8Array; dirty: false }, never> }).getChunk = (coord) =>
+        Effect.succeed({ coord, blocks: new Uint8Array(0), dirty: false })
+
+      const { frameHandler, maintenanceHandler } = yield* createFrameHandlers(deps, services)
+
+      ;(services.worldRendererService as unknown as { updateChunkInScene: (chunk: { coord: { x: number; z: number } }, scene: THREE.Scene) => Effect.Effect<void, never> }).updateChunkInScene = () =>
+        Effect.suspend(() => {
+          updateCount += 1
+          if (!maintenanceInjectionDone) {
+            maintenanceInjectionDone = true
+            return frameHandler(0.016 as DeltaTimeSecs).pipe(Effect.asVoid)
+          }
+          return Effect.void
+        })
+
+      for (let index = 0; index < 5; index += 1) {
+        yield* frameHandler(0.016 as DeltaTimeSecs)
+      }
+
+      yield* maintenanceHandler()
+      yield* maintenanceHandler()
+
+      expect(updateCount).toBe(6)
     }))
 
   })
@@ -1238,6 +832,65 @@ describe('frame-handler', () => {
     }))
   })
 
+  describe('adaptive performance mode', () => {
+    it.effect('does not auto-degrade quality when adaptivePerformanceMode is disabled', () => Effect.gen(function* () {
+      const deps = yield* makeDeps(false)
+      const services = makeServices({
+        inputService: makeInputService(),
+        inventoryRenderer: makeInventoryRenderer({ open: false }),
+        settingsOverlay: makeSettingsOverlay({ open: false }),
+      })
+      ;(services.settingsService as unknown as { getSettings: unknown }).getSettings = vi.fn(() =>
+        Effect.succeed({ ...DEFAULT_SETTINGS, adaptivePerformanceMode: false, graphicsQuality: 'high' as const })
+      )
+      const updateSpy = vi.fn(() => Effect.void)
+      ;(services.settingsService as unknown as { updateSettings: unknown }).updateSettings = updateSpy
+      ;(services.fpsCounter as unknown as { getFPS: unknown }).getFPS = vi.fn(() => Effect.succeed(100))
+
+      yield* runFrame(deps, services)
+
+      expect(updateSpy).not.toHaveBeenCalled()
+    }))
+
+    it.effect('lowers graphicsQuality when adaptivePerformanceMode is enabled and FPS drops', () => Effect.gen(function* () {
+      const deps = yield* makeDeps(false)
+      const services = makeServices({
+        inputService: makeInputService(),
+        inventoryRenderer: makeInventoryRenderer({ open: false }),
+        settingsOverlay: makeSettingsOverlay({ open: false }),
+      })
+      ;(services.settingsService as unknown as { getSettings: unknown }).getSettings = vi.fn(() =>
+        Effect.succeed({ ...DEFAULT_SETTINGS, adaptivePerformanceMode: true, graphicsQuality: 'high' as const })
+      )
+      const updateSpy = vi.fn(() => Effect.void)
+      ;(services.settingsService as unknown as { updateSettings: unknown }).updateSettings = updateSpy
+      ;(services.fpsCounter as unknown as { getFPS: unknown }).getFPS = vi.fn(() => Effect.succeed(100))
+
+      yield* runFrame(deps, services)
+
+      expect(updateSpy).toHaveBeenCalledWith({ graphicsQuality: 'medium' })
+    }))
+
+    it.effect('lowers renderDistance when adaptivePerformanceMode is enabled and quality is already low', () => Effect.gen(function* () {
+      const deps = yield* makeDeps(false)
+      const services = makeServices({
+        inputService: makeInputService(),
+        inventoryRenderer: makeInventoryRenderer({ open: false }),
+        settingsOverlay: makeSettingsOverlay({ open: false }),
+      })
+      ;(services.settingsService as unknown as { getSettings: unknown }).getSettings = vi.fn(() =>
+        Effect.succeed({ ...DEFAULT_SETTINGS, adaptivePerformanceMode: true, graphicsQuality: 'low' as const, renderDistance: 8 })
+      )
+      const updateSpy = vi.fn(() => Effect.void)
+      ;(services.settingsService as unknown as { updateSettings: unknown }).updateSettings = updateSpy
+      ;(services.fpsCounter as unknown as { getFPS: unknown }).getFPS = vi.fn(() => Effect.succeed(100))
+
+      yield* runFrame(deps, services)
+
+      expect(updateSpy).toHaveBeenCalledWith({ renderDistance: 7 })
+    }))
+  })
+
   // -------------------------------------------------------------------------
   // Step 11: HUD render
   // -------------------------------------------------------------------------
@@ -1287,7 +940,7 @@ describe('frame-handler', () => {
       yield* runFrame(deps, services)
     }))
 
-    it.effect('calls renderer.render every frame regardless of pause state', () => Effect.gen(function* () {
+    it.effect('calls renderer.render every frame when composer is absent', () => Effect.gen(function* () {
       const deps = yield* makeDeps(true)
       const services = makeServices({
         inputService: makeInputService(),
@@ -1298,6 +951,21 @@ describe('frame-handler', () => {
       yield* runFrame(deps, services)
 
       expect((deps.renderer as unknown as { render: ReturnType<typeof vi.fn> }).render).toHaveBeenCalledOnce()
+    }))
+
+    it.effect('calls composer.render every frame when composer is present', () => Effect.gen(function* () {
+      const deps = yield* makeDeps(false, true)
+      const services = makeServices({
+        inputService: makeInputService(),
+        inventoryRenderer: makeInventoryRenderer({ open: false }),
+        settingsOverlay: makeSettingsOverlay({ open: false }),
+      })
+
+      yield* runFrame(deps, services)
+
+      const composer = Option.getOrNull(deps.composer)
+      expect((composer as unknown as { render: ReturnType<typeof vi.fn> }).render).toHaveBeenCalledOnce()
+      expect((deps.renderer as unknown as { render: ReturnType<typeof vi.fn> }).render).not.toHaveBeenCalled()
     }))
   })
 
@@ -1446,7 +1114,7 @@ describe('frame-handler', () => {
   })
 
   describe('step 2.85 — entity renderer wiring', () => {
-    it.effect('calls entityRenderer.syncEntities each frame with the live entity snapshot', () => Effect.gen(function* () {
+    it.effect('calls entityRenderer.syncEntities on the first frame with the live entity snapshot', () => Effect.gen(function* () {
       const deps = yield* makeDeps(false)
       const services = makeServices({
         inputService: makeInputService(),
@@ -1466,6 +1134,30 @@ describe('frame-handler', () => {
       // First arg is the snapshot, second arg is the scene
       expect(syncSpy.mock.calls[0]?.[0]).toBe(entitiesStub)
       expect(syncSpy.mock.calls[0]?.[1]).toBe(deps.scene)
+    }))
+
+    it.effect('skips entityRenderer.syncEntities when entity structure version is unchanged', () => Effect.gen(function* () {
+      const deps = yield* makeDeps(false)
+      const services = makeServices({
+        inputService: makeInputService(),
+        inventoryRenderer: makeInventoryRenderer({ open: false }),
+        settingsOverlay: makeSettingsOverlay({ open: false }),
+      })
+      const entitiesStub = [{ entityId: 'entity-1', position: { x: 0, y: 0, z: 0 } }] as unknown as ReadonlyArray<unknown>
+      ;(services.entityManager as unknown as { getEntities: unknown }).getEntities = vi.fn(() =>
+        Effect.succeed(entitiesStub)
+      )
+      ;(services.entityManager as unknown as { getStructureVersion: unknown }).getStructureVersion = vi.fn(() =>
+        Effect.succeed(7)
+      )
+      const syncSpy = vi.fn(() => Effect.void)
+      ;(services.entityRenderer as unknown as { syncEntities: unknown }).syncEntities = syncSpy
+
+      const handler = yield* createFrameHandler(deps, services)
+      yield* handler(0.016 as DeltaTimeSecs)
+      yield* handler(0.016 as DeltaTimeSecs)
+
+      expect(syncSpy).toHaveBeenCalledTimes(1)
     }))
 
     it.effect('calls entityRenderer.updateEntityTransforms with deltaTime each frame', () => Effect.gen(function* () {
@@ -1576,6 +1268,41 @@ describe('frame-handler', () => {
 
       // Only the second frame should call doRefractionPrePass
       expect(refractionSpy).toHaveBeenCalledOnce()
+    }))
+
+    it.effect('applies a reduced pixel ratio for low quality', () => Effect.gen(function* () {
+      const deps = yield* makeDeps(false)
+      const services = makeServices({
+        inputService: makeInputService(),
+        inventoryRenderer: makeInventoryRenderer({ open: false }),
+        settingsOverlay: makeSettingsOverlay({ open: false }),
+      })
+      ;(services.settingsService as unknown as { getSettings: unknown }).getSettings = vi.fn(() =>
+        Effect.succeed({ ...DEFAULT_SETTINGS, graphicsQuality: 'low' as const })
+      )
+
+      const handler = yield* createFrameHandler(deps, services)
+      yield* handler(0.016 as DeltaTimeSecs)
+
+      expect((deps.renderer.setPixelRatio as ReturnType<typeof vi.fn>)).toHaveBeenCalledWith(0.5)
+    }))
+
+    it.effect('applies the reduced pixel ratio to composer when present', () => Effect.gen(function* () {
+      const deps = yield* makeDeps(false, true)
+      const services = makeServices({
+        inputService: makeInputService(),
+        inventoryRenderer: makeInventoryRenderer({ open: false }),
+        settingsOverlay: makeSettingsOverlay({ open: false }),
+      })
+      ;(services.settingsService as unknown as { getSettings: unknown }).getSettings = vi.fn(() =>
+        Effect.succeed({ ...DEFAULT_SETTINGS, graphicsQuality: 'low' as const })
+      )
+
+      const handler = yield* createFrameHandler(deps, services)
+      yield* handler(0.016 as DeltaTimeSecs)
+
+      const composer = Option.getOrNull(deps.composer)
+      expect((composer as unknown as { setPixelRatio: ReturnType<typeof vi.fn> }).setPixelRatio).toHaveBeenCalledWith(0.5)
     }))
   })
 })

@@ -11,11 +11,12 @@ node_modules/
 
 # Build outputs
 dist/
+dist-debug/
+dist-debug-sourcemap/
 build/
 out/
 
 # playwright
-.playwright-mcp/
 playwright-report/
 e2e-report/
 
@@ -50,7 +51,6 @@ yarn-error.log*
 *.swp
 *.swo
 *~
-.DS_Store
 *.sublime-project
 *.sublime-workspace
 

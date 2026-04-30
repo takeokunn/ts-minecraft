@@ -63,6 +63,7 @@ import { TradingServiceLive } from '@/trading/trading-service'
 import { TradingPresentationLive } from '@/presentation/trading'
 import { RedstoneServiceLive } from '@/redstone/redstone-service'
 import { FluidServiceLive } from '@/application/fluid/fluid-service'
+import { FurnaceServiceLive } from '@/application/furnace/furnace-service'
 import { LightEngineLive } from '@/application/light/light-engine-service'
 
 // Game state, camera, physics, input, raycasting, and game loop
@@ -255,15 +256,33 @@ export const MobSpawnerLayer = MobSpawnerLive.pipe(
   Layer.provide(TimeServiceLive),
 )
 
-// Level 4: BlockService depends on ChunkManagerService, ChunkService, PlayerService, InventoryService (all independent peers)
-export const BlockLayer = BlockServiceLive.pipe(
-  Layer.provide(Layer.mergeAll(ChunkManagerLayer, ChunkServiceLive, FluidLayer, PlayerServiceLive, InventoryLayer))
-)
-
 // HotbarService depends on PlayerInputService and InventoryService
 export const HotbarLayer = HotbarServiceLive.pipe(
   Layer.provide(PlayerInputLayer),
   Layer.provide(InventoryLayer),
+)
+
+export const FurnaceLayer = FurnaceServiceLive.pipe(
+  Layer.provide(RecipeServiceLive),
+  Layer.provide(InventoryLayer),
+  Layer.provide(GameLayer),
+  Layer.provide(ChunkManagerLayer),
+)
+
+// Level 4: BlockService depends on ChunkManagerService, ChunkService, PlayerService, InventoryService (all independent peers)
+export const BlockLayer = BlockServiceLive.pipe(
+  Layer.provide(Layer.mergeAll(
+    ChunkManagerLayer,
+    ChunkServiceLive,
+    FluidLayer,
+    PlayerServiceLive,
+    InventoryLayer,
+    FurnaceLayer,
+    HotbarServiceLive.pipe(
+      Layer.provide(PlayerInputLayer),
+      Layer.provide(InventoryLayer),
+    ),
+  ))
 )
 
 // HotbarRenderer depends on RendererService
@@ -285,6 +304,7 @@ export const InventoryRendererLayer = InventoryRendererLive.pipe(
   Layer.provide(InventoryLayer),
   Layer.provide(HotbarLayer),
   Layer.provide(RecipeServiceLive),
+  Layer.provide(FurnaceLayer),
   Layer.provide(GameLayer),
   Layer.provide(ChunkManagerLayer),
   Layer.provide(DomOperationsLive),
@@ -336,6 +356,7 @@ export const GameLogicLayers = Layer.mergeAll(
   MobSpawnerLayer,
   HealthServiceLive,
   RecipeServiceLive,
+  FurnaceLayer,
   PlayerInputLayer,
   MovementLayer,
   CameraStateLayer,

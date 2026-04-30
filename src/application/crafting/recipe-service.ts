@@ -22,15 +22,19 @@ export class RecipeService extends Effect.Service<RecipeService>()(
       const canUseRecipe = (
         recipe: Recipe,
         hasCraftingTableAccess: boolean,
+        hasFurnaceAccess: boolean,
       ): boolean =>
-        recipe.station === 'inventory' || hasCraftingTableAccess
+        recipe.station === 'inventory'
+        || (recipe.station === 'crafting_table' && hasCraftingTableAccess)
+        || (recipe.station === 'furnace' && hasFurnaceAccess)
 
       const findCraftable = (
         available: HashMap.HashMap<BlockType, number>,
         hasCraftingTableAccess = true,
+        hasFurnaceAccess = true,
       ): ReadonlyArray<Recipe> =>
         Arr.filter(recipes, (recipe) =>
-          canUseRecipe(recipe, hasCraftingTableAccess)
+          canUseRecipe(recipe, hasCraftingTableAccess, hasFurnaceAccess)
           &&
           Arr.every(recipe.ingredients, (ing) =>
             Option.getOrElse(HashMap.get(available, ing.blockType), () => 0) >= ing.count
@@ -49,6 +53,7 @@ export class RecipeService extends Effect.Service<RecipeService>()(
         recipeId: RecipeId,
         inventoryService: InventoryService,
         hasCraftingTableAccess = true,
+        hasFurnaceAccess = true,
       ): Effect.Effect<void, RecipeError> =>
         Effect.gen(function* () {
           const recipe = yield* Option.match(findById(recipeId), {
@@ -74,10 +79,12 @@ export class RecipeService extends Effect.Service<RecipeService>()(
           const shortageOpt = Arr.findFirst(recipe.ingredients, (ing) =>
             Option.getOrElse(HashMap.get(available, ing.blockType), () => 0) < ing.count
           )
-          if (!canUseRecipe(recipe, hasCraftingTableAccess)) {
+          if (!canUseRecipe(recipe, hasCraftingTableAccess, hasFurnaceAccess)) {
             return yield* Effect.fail(new RecipeError({
               operation: 'craft',
-              cause: `Recipe requires a crafting table: ${recipeId}`,
+              cause: recipe.station === 'furnace'
+                ? `Recipe requires a furnace: ${recipeId}`
+                : `Recipe requires a crafting table: ${recipeId}`,
             }))
           }
           yield* Option.match(shortageOpt, {

@@ -11,6 +11,9 @@ export const LAKE_MAX_DEPTH = 18
 export const LAKE_MIN_DEPTH = 10
 /** Noise range below LAKE_THRESHOLD that becomes sandy shoreline */
 export const LAKE_SHORE_WIDTH = 0.04
+export const RIVER_WATER_LEVEL = 62
+export const RIVER_MIN_CUT = 4
+export const RIVER_MAX_CUT = 10
 
 /**
  * Bedrock / Deepslate constants (Phase 1.2)
@@ -89,6 +92,8 @@ export type OreConfig = {
   readonly name: 'COAL' | 'IRON' | 'GOLD' | 'DIAMOND' | 'REDSTONE' | 'LAPIS' | 'EMERALD'
   readonly minY: number
   readonly maxY: number
+  readonly peakY: number
+  readonly distribution: 'uniform' | 'triangle'
   readonly avgVeins: number
   readonly minSize: number
   readonly maxSize: number
@@ -97,13 +102,13 @@ export type OreConfig = {
 }
 
 export const ORE_CONFIGS: ReadonlyArray<OreConfig> = [
-  { name: 'COAL',     minY: 1, maxY: 128, avgVeins: 20, minSize: 5, maxSize: 12, saltX: 10007, saltZ: 20011 },
-  { name: 'IRON',     minY: 1, maxY: 64,  avgVeins: 15, minSize: 4, maxSize: 9,  saltX: 30013, saltZ: 40013 },
-  { name: 'GOLD',     minY: 1, maxY: 32,  avgVeins: 4,  minSize: 3, maxSize: 7,  saltX: 50021, saltZ: 60029 },
-  { name: 'DIAMOND',  minY: 1, maxY: 16,  avgVeins: 2,  minSize: 2, maxSize: 6,  saltX: 70037, saltZ: 80039 },
-  { name: 'REDSTONE', minY: 1, maxY: 16,  avgVeins: 5,  minSize: 3, maxSize: 7,  saltX: 90043, saltZ: 100049 },
-  { name: 'LAPIS',    minY: 1, maxY: 32,  avgVeins: 2,  minSize: 3, maxSize: 6,  saltX: 110059, saltZ: 120071 },
-  { name: 'EMERALD',  minY: 1, maxY: 32,  avgVeins: 1,  minSize: 1, maxSize: 3,  saltX: 130081, saltZ: 140089 },
+  { name: 'COAL',     minY: 12, maxY: 180, peakY: 96, distribution: 'triangle', avgVeins: 18, minSize: 6, maxSize: 14, saltX: 10007, saltZ: 20011 },
+  { name: 'IRON',     minY: 8,  maxY: 128, peakY: 48, distribution: 'triangle', avgVeins: 12, minSize: 4, maxSize: 9,  saltX: 30013, saltZ: 40013 },
+  { name: 'GOLD',     minY: 5,  maxY: 48,  peakY: 24, distribution: 'triangle', avgVeins: 4,  minSize: 3, maxSize: 7,  saltX: 50021, saltZ: 60029 },
+  { name: 'DIAMOND',  minY: 5,  maxY: 16,  peakY: 8,  distribution: 'triangle', avgVeins: 2,  minSize: 2, maxSize: 6,  saltX: 70037, saltZ: 80039 },
+  { name: 'REDSTONE', minY: 5,  maxY: 20,  peakY: 8,  distribution: 'triangle', avgVeins: 5,  minSize: 3, maxSize: 7,  saltX: 90043, saltZ: 100049 },
+  { name: 'LAPIS',    minY: 8,  maxY: 72,  peakY: 28, distribution: 'triangle', avgVeins: 3,  minSize: 3, maxSize: 6,  saltX: 110059, saltZ: 120071 },
+  { name: 'EMERALD',  minY: 24, maxY: 160, peakY: 96, distribution: 'triangle', avgVeins: 2,  minSize: 1, maxSize: 3,  saltX: 130081, saltZ: 140089 },
 ]
 
 /**
@@ -111,6 +116,9 @@ export const ORE_CONFIGS: ReadonlyArray<OreConfig> = [
  * layer (y=0..4) even if an ore's minY is permissive.
  */
 export const ORE_MIN_Y_FLOOR = BEDROCK_LAYER_TOP + 1 // y=5
+
+/** Deep-cave lava cutoff for carved voids. */
+export const CAVE_LAVA_MAX_Y = 10
 
 /**
  * Overhang generation constants

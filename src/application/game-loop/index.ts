@@ -1,4 +1,4 @@
-import { Effect, Option, Queue, Ref, Fiber, Schema, Cause, MutableRef } from 'effect'
+import { Effect, Option, Queue, Ref, Fiber, Schema, Cause, MutableRef, Duration } from 'effect'
 import { GameLoopError } from '@/domain/errors'
 import { DeltaTimeSecs } from '@/shared/kernel'
 import { FIRST_FRAME_DELTA_SECS } from '@/application/constants'
@@ -36,10 +36,11 @@ export class GameLoopService extends Effect.Service<GameLoopService>()(
       Ref.make<Option.Option<Queue.Queue<FrameCommand>>>(Option.none()),
       // Holds the current processing fiber (None when stopped)
       Ref.make<Option.Option<Fiber.RuntimeFiber<void, never>>>(Option.none()),
+      Ref.make<Option.Option<Fiber.RuntimeFiber<void, never>>>(Option.none()),
       Effect.sync(() => MutableRef.make(false)),
-      Effect.sync(() => MutableRef.make<Option.Option<ReturnType<typeof globalThis.setInterval>>>(Option.none())),
+      Effect.sync(() => MutableRef.make<Option.Option<number>>(Option.none())),
     ], { concurrency: 'unbounded' }).pipe(
-      Effect.flatMap(([frameQueueRef, processingFiberRef, isRunningRef, animationFrameIdRef]) =>
+      Effect.flatMap(([frameQueueRef, processingFiberRef, maintenanceFiberRef, isRunningRef, animationFrameIdRef]) =>
         Effect.succeed({
           /**
            * Start the game loop with a frame handler.
@@ -97,19 +98,32 @@ export class GameLoopService extends Effect.Service<GameLoopService>()(
               yield* Ref.set(processingFiberRef, Option.some(fiber))
 
               const scheduleFrame = (): void => {
-                const rafId = globalThis.setInterval(() => {
-                  if (!MutableRef.get(isRunningRef)) return
+                const hasRequestAnimationFrame = typeof globalThis.requestAnimationFrame === 'function'
+                const rafId = hasRequestAnimationFrame
+                  ? globalThis.requestAnimationFrame((timestamp) => {
+                      if (!MutableRef.get(isRunningRef)) return
 
-                  const timestamp = performance.now()
+                      Effect.runFork(
+                        Queue.offer(frameQueue, { _tag: 'Tick', timestamp }).pipe(
+                          Effect.asVoid,
+                          Effect.catchAllCause((cause) => Effect.logError(`Frame queue error: ${Cause.pretty(cause)}`)),
+                        ),
+                      )
 
-                  Effect.runFork(
-                    Queue.offer(frameQueue, { _tag: 'Tick', timestamp }).pipe(
-                      Effect.asVoid,
-                      Effect.catchAllCause((cause) => Effect.logError(`Frame queue error: ${Cause.pretty(cause)}`)),
-                    ),
-                  )
+                      if (MutableRef.get(isRunningRef)) {
+                        scheduleFrame()
+                      }
+                    })
+                  : globalThis.setInterval(() => {
+                      if (!MutableRef.get(isRunningRef)) return
 
-                }, 16)
+                      Effect.runFork(
+                        Queue.offer(frameQueue, { _tag: 'Tick', timestamp: performance.now() }).pipe(
+                          Effect.asVoid,
+                          Effect.catchAllCause((cause) => Effect.logError(`Frame queue error: ${Cause.pretty(cause)}`)),
+                        ),
+                      )
+                    }, 16)
 
                 MutableRef.set(animationFrameIdRef, Option.some(rafId))
               }
@@ -117,6 +131,28 @@ export class GameLoopService extends Effect.Service<GameLoopService>()(
               scheduleFrame()
 
               yield* Effect.log('Game loop started')
+            }),
+
+          startMaintenance: (
+            maintenanceHandler: () => Effect.Effect<boolean, never>,
+          ): Effect.Effect<void, GameLoopError> =>
+            Effect.gen(function* () {
+              const existingMaintenanceFiber = yield* Ref.get(maintenanceFiberRef)
+              if (Option.isSome(existingMaintenanceFiber)) {
+                yield* Effect.fail(new GameLoopError({ reason: 'Maintenance loop is already running' }))
+              }
+
+              const maintenanceLoop = maintenanceHandler().pipe(
+                Effect.catchAllCause((cause) =>
+                  Effect.logError(`Maintenance loop error: ${Cause.pretty(cause)}`).pipe(Effect.as(true))
+                ),
+                Effect.flatMap((wasBusy) => Effect.sleep(Duration.millis(wasBusy ? 16 : 48))),
+                Effect.forever,
+              )
+
+              const fiber = yield* Effect.forkDaemon(maintenanceLoop)
+              yield* Ref.set(maintenanceFiberRef, Option.some(fiber))
+              yield* Effect.log('Maintenance loop started')
             }),
 
           /**
@@ -130,7 +166,13 @@ export class GameLoopService extends Effect.Service<GameLoopService>()(
             MutableRef.set(isRunningRef, false)
 
             const animationFrameId = MutableRef.get(animationFrameIdRef)
-            Option.map(animationFrameId, (id) => globalThis.clearInterval(id))
+            Option.map(animationFrameId, (id) => {
+              if (typeof globalThis.requestAnimationFrame === 'function') {
+                globalThis.cancelAnimationFrame(id)
+              } else {
+                globalThis.clearInterval(id)
+              }
+            })
             MutableRef.set(animationFrameIdRef, Option.none())
 
               yield* Option.match(yield* Ref.get(processingFiberRef), {
@@ -148,6 +190,15 @@ export class GameLoopService extends Effect.Service<GameLoopService>()(
                   Effect.gen(function* () {
                     yield* Queue.shutdown(queue)
                     yield* Ref.set(frameQueueRef, Option.none())
+                  }),
+              })
+
+              yield* Option.match(yield* Ref.get(maintenanceFiberRef), {
+                onNone: () => Effect.void,
+                onSome: (fiber) =>
+                  Effect.gen(function* () {
+                    yield* Fiber.interrupt(fiber)
+                    yield* Ref.set(maintenanceFiberRef, Option.none())
                   }),
               })
 

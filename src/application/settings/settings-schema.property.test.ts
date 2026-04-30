@@ -8,6 +8,7 @@ const BASE = {
   mouseSensitivity: 0.5,
   dayLengthSeconds: 400,
   graphicsQuality: 'high' as const,
+  adaptivePerformanceMode: false,
 } as const
 
 const decode = Schema.decodeUnknownSync(SettingsSchema)
@@ -127,6 +128,16 @@ describe('SettingsSchema property tests', () => {
     )
   })
 
+  describe('adaptivePerformanceMode', () => {
+    it.prop('accepts boolean values', { enabled: Arbitrary.make(Schema.Boolean) }, ({ enabled }) => {
+      expect(() => decode({ ...BASE, adaptivePerformanceMode: enabled })).not.toThrow()
+    })
+
+    it.prop('rejects non-boolean values', { v: Arbitrary.make(Schema.Union(Schema.Number, Schema.String, Schema.Null)) }, ({ v }) => {
+      expect(() => decode({ ...BASE, adaptivePerformanceMode: v })).toThrow()
+    })
+  })
+
   describe('full object round-trip', () => {
     it.prop(
       'encode then decode is identity for any valid settings object',
@@ -137,6 +148,7 @@ describe('SettingsSchema property tests', () => {
         expect(redecoded.renderDistance).toBe(settings.renderDistance)
         expect(redecoded.dayLengthSeconds).toBe(settings.dayLengthSeconds)
         expect(redecoded.graphicsQuality).toBe(settings.graphicsQuality)
+        expect(redecoded.adaptivePerformanceMode).toBe(settings.adaptivePerformanceMode)
       }
     )
   })

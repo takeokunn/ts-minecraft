@@ -5,19 +5,30 @@ import { GameLoopService, GameLoopServiceLive } from '.'
 import { GameLoopError } from '@/domain/errors'
 
 // ---------------------------------------------------------------------------
-// setInterval mock
+// requestAnimationFrame / setInterval mocks
 //
-// The game loop uses a fixed interval scheduler. To control frame delivery in
-// tests we keep a reference to the registered callback and expose a helper that
-// fires it once.
+// The game loop prefers requestAnimationFrame in browser-like environments and
+// falls back to setInterval elsewhere. Keep references to both callbacks so
+// tests can drive either scheduling path explicitly.
 // ---------------------------------------------------------------------------
 
+const rafCallbackRef = MutableRef.make<Option.Option<(timestamp: number) => void>>(Option.none())
+const rafIdRef = MutableRef.make(0)
 const intervalCallbackRef = MutableRef.make<Option.Option<() => void>>(Option.none())
 const intervalIdRef = MutableRef.make(0)
 
 beforeEach(() => {
+  MutableRef.set(rafCallbackRef, Option.none())
+  MutableRef.set(rafIdRef, 0)
   MutableRef.set(intervalCallbackRef, Option.none())
   MutableRef.set(intervalIdRef, 0)
+  vi.stubGlobal('requestAnimationFrame', (cb: (timestamp: number) => void) => {
+    MutableRef.set(rafCallbackRef, Option.some(cb))
+    return MutableRef.updateAndGet(rafIdRef, n => n + 1)
+  })
+  vi.stubGlobal('cancelAnimationFrame', (_id: number) => {
+    MutableRef.set(rafCallbackRef, Option.none())
+  })
   vi.stubGlobal('setInterval', (cb: () => void) => {
     MutableRef.set(intervalCallbackRef, Option.some(cb))
     return MutableRef.updateAndGet(intervalIdRef, n => n + 1)
@@ -32,12 +43,17 @@ afterEach(() => {
 })
 
 // ---------------------------------------------------------------------------
-// Helper: fire the current interval callback once.
+// Helper: fire whichever scheduler callback is active.
 // ---------------------------------------------------------------------------
 const fireRaf = (timestamp = 16): void => {
-  void timestamp
-  const cb = MutableRef.get(intervalCallbackRef)
-  Option.map(cb, fn => fn())
+  const rafCb = MutableRef.get(rafCallbackRef)
+  if (Option.isSome(rafCb)) {
+    rafCb.value(timestamp)
+    return
+  }
+
+  const intervalCb = MutableRef.get(intervalCallbackRef)
+  Option.map(intervalCb, fn => fn())
 }
 
 // ---------------------------------------------------------------------------
@@ -256,6 +272,7 @@ describe('application/game-loop', () => {
       Effect.gen(function* () {
         const service = yield* GameLoopService
         expect(typeof service.start).toBe('function')
+        expect(typeof service.startMaintenance).toBe('function')
         expect(typeof service.stop).toBe('function')
         expect(typeof service.isRunning).toBe('function')
       }).pipe(Effect.provide(TestLayer))
@@ -409,6 +426,95 @@ describe('application/game-loop', () => {
 
         const finalCount = yield* Ref.get(callCountRef)
         expect(finalCount).toBeGreaterThan(0)
+
+        yield* service.stop()
+      }).pipe(Effect.provide(TestLayer))
+    )
+  })
+
+  describe('scheduler branches', () => {
+    it.live('uses requestAnimationFrame when available', () =>
+      Effect.gen(function* () {
+        const callCountRef = yield* Ref.make(0)
+        const service = yield* GameLoopService
+
+        yield* service.start(() => Ref.update(callCountRef, (n) => n + 1))
+
+        expect(Option.isSome(MutableRef.get(rafCallbackRef))).toBe(true)
+        expect(Option.isNone(MutableRef.get(intervalCallbackRef))).toBe(true)
+
+        fireRaf(16)
+        yield* Effect.sleep(10)
+
+        expect(yield* Ref.get(callCountRef)).toBeGreaterThan(0)
+        yield* service.stop()
+      }).pipe(Effect.provide(TestLayer))
+    )
+
+    it.live('falls back to setInterval when requestAnimationFrame is unavailable', () =>
+      Effect.gen(function* () {
+        vi.unstubAllGlobals()
+        MutableRef.set(rafCallbackRef, Option.none())
+        MutableRef.set(intervalCallbackRef, Option.none())
+        vi.stubGlobal('setInterval', (cb: () => void) => {
+          MutableRef.set(intervalCallbackRef, Option.some(cb))
+          return MutableRef.updateAndGet(intervalIdRef, n => n + 1)
+        })
+        vi.stubGlobal('clearInterval', (_id: number) => {
+          MutableRef.set(intervalCallbackRef, Option.none())
+        })
+
+        const callCountRef = yield* Ref.make(0)
+        const service = yield* GameLoopService
+
+        yield* service.start(() => Ref.update(callCountRef, (n) => n + 1))
+
+        expect(Option.isNone(MutableRef.get(rafCallbackRef))).toBe(true)
+        expect(Option.isSome(MutableRef.get(intervalCallbackRef))).toBe(true)
+
+        fireRaf(16)
+        yield* Effect.sleep(10)
+
+        expect(yield* Ref.get(callCountRef)).toBeGreaterThan(0)
+        yield* service.stop()
+      }).pipe(Effect.provide(TestLayer))
+    )
+  })
+
+  describe('maintenance loop', () => {
+    it.live('startMaintenance runs the maintenance handler until stop is called', () =>
+      Effect.gen(function* () {
+        const service = yield* GameLoopService
+        const callCountRef = yield* Ref.make(0)
+
+        yield* service.start(() => Effect.void)
+        yield* service.startMaintenance(() =>
+          Ref.update(callCountRef, (n) => n + 1).pipe(Effect.as(true))
+        )
+
+        yield* Effect.sleep(60)
+        const countBeforeStop = yield* Ref.get(callCountRef)
+        expect(countBeforeStop).toBeGreaterThan(0)
+
+        yield* service.stop()
+        yield* Effect.sleep(60)
+
+        const countAfterStop = yield* Ref.get(callCountRef)
+        expect(countAfterStop).toBe(countBeforeStop)
+      }).pipe(Effect.provide(TestLayer))
+    )
+
+    it.effect('startMaintenance fails when called twice without stop', () =>
+      Effect.gen(function* () {
+        const service = yield* GameLoopService
+
+        yield* service.startMaintenance(() => Effect.succeed(false))
+        const result = yield* Effect.either(service.startMaintenance(() => Effect.succeed(false)))
+
+        expect(Either.isLeft(result)).toBe(true)
+        const err = Option.getOrThrow(Either.getLeft(result))
+        expect(err).toBeInstanceOf(GameLoopError)
+        expect((err as GameLoopError).reason).toContain('Maintenance loop is already running')
 
         yield* service.stop()
       }).pipe(Effect.provide(TestLayer))

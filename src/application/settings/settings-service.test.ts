@@ -7,10 +7,11 @@ import { GRAPHICS_PRESETS } from './settings-service.config'
 const STORAGE_KEY = 'minecraft-settings'
 
 const DEFAULT_SETTINGS = {
-  renderDistance: 8,
+  renderDistance: 2,
   mouseSensitivity: 0.5,
   dayLengthSeconds: 400,
-  graphicsQuality: 'high',
+  graphicsQuality: 'low',
+  adaptivePerformanceMode: true,
   audioEnabled: false, // NOTE: false intentionally — must match settings-service.ts DEFAULT_SETTINGS
   masterVolume: 0.8,
   sfxVolume: 1.0,
@@ -50,10 +51,11 @@ describe('application/settings/settings-service', () => {
 
     it('decodes valid settings', () => {
       const result = decode({
-        renderDistance: 8,
+        renderDistance: 2,
         mouseSensitivity: 0.5,
         dayLengthSeconds: 400,
-        graphicsQuality: 'high',
+        graphicsQuality: 'low',
+  adaptivePerformanceMode: true,
       })
 
       expect(result).toEqual(DEFAULT_SETTINGS)
@@ -65,6 +67,7 @@ describe('application/settings/settings-service', () => {
         mouseSensitivity: 0.1,
         dayLengthSeconds: 120,
         graphicsQuality: 'low',
+  adaptivePerformanceMode: false,
       })
 
       expect(result).toEqual({
@@ -72,6 +75,7 @@ describe('application/settings/settings-service', () => {
         mouseSensitivity: 0.1,
         dayLengthSeconds: 120,
         graphicsQuality: 'low',
+  adaptivePerformanceMode: false,
         audioEnabled: false,
         masterVolume: 0.8,
         sfxVolume: 1.0,
@@ -85,6 +89,7 @@ describe('application/settings/settings-service', () => {
         mouseSensitivity: 3,
         dayLengthSeconds: 1200,
         graphicsQuality: 'ultra',
+  adaptivePerformanceMode: false,
       })
 
       expect(result).toEqual({
@@ -92,6 +97,7 @@ describe('application/settings/settings-service', () => {
         mouseSensitivity: 3,
         dayLengthSeconds: 1200,
         graphicsQuality: 'ultra',
+  adaptivePerformanceMode: false,
         audioEnabled: false,
         masterVolume: 0.8,
         sfxVolume: 1.0,
@@ -202,6 +208,7 @@ describe('application/settings/settings-service', () => {
           mouseSensitivity: 1.2,
           dayLengthSeconds: 900,
           graphicsQuality: 'ultra',
+  adaptivePerformanceMode: false,
         })
       )
       return Effect.gen(function* () {
@@ -212,6 +219,7 @@ describe('application/settings/settings-service', () => {
           mouseSensitivity: 1.2,
           dayLengthSeconds: 900,
           graphicsQuality: 'ultra',
+  adaptivePerformanceMode: false,
           audioEnabled: false,
           masterVolume: 0.8,
           sfxVolume: 1.0,
@@ -237,6 +245,7 @@ describe('application/settings/settings-service', () => {
           mouseSensitivity: 1.25,
           dayLengthSeconds: 600,
           graphicsQuality: 'ultra',
+  adaptivePerformanceMode: false,
           audioEnabled: false,
           masterVolume: 0.25,
           sfxVolume: 0.4,
@@ -251,6 +260,7 @@ describe('application/settings/settings-service', () => {
           mouseSensitivity: 1.25,
           dayLengthSeconds: 600,
           graphicsQuality: 'ultra',
+  adaptivePerformanceMode: false,
           audioEnabled: false,
           masterVolume: 0.25,
           sfxVolume: 0.4,
@@ -263,6 +273,7 @@ describe('application/settings/settings-service', () => {
             mouseSensitivity: 1.25,
             dayLengthSeconds: 600,
             graphicsQuality: 'ultra',
+  adaptivePerformanceMode: false,
             audioEnabled: false,
             masterVolume: 0.25,
             sfxVolume: 0.4,
@@ -283,11 +294,11 @@ describe('application/settings/settings-service', () => {
       }).pipe(Effect.provide(SettingsServiceLive))
     })
 
-    it.effect("default settings should include graphicsQuality='high'", () =>
+    it.effect("default settings should include graphicsQuality='low'", () =>
       Effect.gen(function* () {
         const service = yield* SettingsService
         const settings = yield* service.getSettings()
-        expect(settings.graphicsQuality).toBe('high')
+        expect(settings.graphicsQuality).toBe('low')
       }).pipe(Effect.provide(SettingsService.Default))
     )
 
@@ -325,8 +336,15 @@ describe('application/settings/settings-service', () => {
           expect(resolved.godRaysSamples).toBe(expected.godRaysSamples)
           expect(resolved.bloomStrength).toBe(expected.bloomStrength)
           expect(resolved.refractionThrottleFrames).toBe(expected.refractionThrottleFrames)
+          expect(resolved.pixelRatioCap).toBe(expected.pixelRatioCap)
         }
       )
+    })
+
+    it('resolvePreset: lower quality presets clamp DPR more aggressively', () => {
+      expect(GRAPHICS_PRESETS.low.pixelRatioCap).toBeLessThanOrEqual(GRAPHICS_PRESETS.medium.pixelRatioCap)
+      expect(GRAPHICS_PRESETS.medium.pixelRatioCap).toBeLessThanOrEqual(GRAPHICS_PRESETS.high.pixelRatioCap)
+      expect(GRAPHICS_PRESETS.high.pixelRatioCap).toBeLessThanOrEqual(GRAPHICS_PRESETS.ultra.pixelRatioCap)
     })
 
     it('resolvePreset: each higher quality level has >= enabled passes than lower ones', () => {
