@@ -17,6 +17,8 @@ import { StorageServicePort } from '@/application/storage/storage-service-port'
 import type { ChunkStorageValue } from '@/application/storage/storage-service-port'
 import { StorageError } from '@/domain/errors'
 import { NoiseServicePort } from '@/application/noise/noise-service-port'
+import { NoiseServiceLive } from '@/infrastructure/noise/noise-service'
+import { TerrainWorkerPoolLive } from '@/infrastructure/terrain/terrain-worker-pool'
 import { BiomeServiceLive } from '@/application/biome/biome-service'
 import {
   ChunkServiceLive,
@@ -101,6 +103,8 @@ const buildIntegrationLayer = (playerPos: Position = { x: 100, y: 0, z: 100 }) =
     Layer.provide(StorageTestLayer),
     Layer.provide(BiomeTestLayer),
     Layer.provide(NoiseLayer),
+    Layer.provide(NoiseServiceLive),
+    Layer.provide(TerrainWorkerPoolLive),
     Layer.provide(LightEngineLive),
   )
 
@@ -172,6 +176,8 @@ const buildSecondSessionLayer = (storage: ReturnType<typeof makeInMemoryStorage>
     Layer.provide(StorageTestLayer),
     Layer.provide(BiomeTestLayer),
     Layer.provide(NoiseLayer),
+    Layer.provide(NoiseServiceLive),
+    Layer.provide(TerrainWorkerPoolLive),
     Layer.provide(LightEngineLive),
   )
 }

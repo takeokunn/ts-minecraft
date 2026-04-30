@@ -26,6 +26,7 @@ import { PhysicsWorldServiceLive, RigidBodyServiceLive, ShapeServiceLive } from 
 import { NoiseService, NoiseServiceLive } from '@/infrastructure/noise/noise-service'
 import { StorageService, StorageServiceLive } from '@/infrastructure/storage/storage-service'
 import { ChunkMeshServiceLive } from '@/infrastructure/three/meshing/chunk-mesh'
+import { TerrainWorkerPoolLive } from '@/infrastructure/terrain/terrain-worker-pool'
 
 // Chunk domain service
 import { ChunkServiceLive } from '@/domain/chunk'
@@ -201,9 +202,19 @@ export const ThirdPersonCameraLayer = ThirdPersonCameraServiceLive.pipe(
 // LightEngineService has no service dependencies — exposes Effect.succeed for compute/update
 export const LightEngineLayer = LightEngineLive
 
-// Level 3: ChunkManagerService depends on ChunkService, StorageServicePort, BiomeService, NoiseServicePort, LightEngineService
+// Level 3: ChunkManagerService depends on ChunkService, StorageServicePort, BiomeService,
+// NoiseServicePort (port), NoiseService (infrastructure — for getSeed only), LightEngineService,
+// and TerrainWorkerPool (off-thread terrain generation, with sync fallback in non-browser envs).
 export const ChunkManagerLayer = ChunkManagerServiceLive.pipe(
-  Layer.provide(Layer.mergeAll(ChunkServiceLive, StoragePortLayer, BiomeLayer, NoisePortLayer, LightEngineLayer))
+  Layer.provide(Layer.mergeAll(
+    ChunkServiceLive,
+    StoragePortLayer,
+    BiomeLayer,
+    NoisePortLayer,
+    NoiseLayer,
+    LightEngineLayer,
+    TerrainWorkerPoolLive,
+  ))
 )
 
 // Fluid simulation service depends on chunk and world state

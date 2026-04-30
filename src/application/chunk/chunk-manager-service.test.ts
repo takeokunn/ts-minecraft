@@ -5,10 +5,13 @@ import { StorageServicePort } from '@/application/storage/storage-service-port'
 import type { ChunkStorageValue } from '@/application/storage/storage-service-port'
 import { StorageError } from '@/domain/errors'
 import { NoiseServicePort } from '@/application/noise/noise-service-port'
+import { NoiseServiceLive } from '@/infrastructure/noise/noise-service'
+import { TerrainWorkerPool, TerrainWorkerPoolLive } from '@/infrastructure/terrain/terrain-worker-pool'
+import { generateTerrain as legacyGenerateTerrain } from './terrain/generator'
 import { BiomeService, BiomeServiceLive, type BiomeType } from '@/application/biome/biome-service'
 import { LightEngineService } from '@/application/light/light-engine-service'
 import { LIGHT_BYTE_LENGTH } from '@/domain/light'
-import { ChunkServiceLive, CHUNK_SIZE, CHUNK_HEIGHT } from '@/domain/chunk'
+import { ChunkService, ChunkServiceLive, CHUNK_SIZE, CHUNK_HEIGHT } from '@/domain/chunk'
 import { ChunkManagerService, ChunkManagerServiceLive, RENDER_DISTANCE, MAX_CACHED_CHUNKS, UNLOAD_DISTANCE } from './chunk-manager-service'
 import { DEFAULT_WORLD_ID } from '@/application/constants'
 import { computeColumnY } from '@/application/terrain/density-function'
@@ -51,6 +54,40 @@ const LightEngineNoopLive = Layer.succeed(LightEngineService, {
 } as unknown as LightEngineService)
 
 // ---------------------------------------------------------------------------
+// Custom TerrainWorkerPool layer that delegates back to the legacy generator
+// using the test-provided BiomeService + NoiseServicePort. This preserves the
+// pre-FR-001 contract for tests that inject custom biome/noise to drive terrain
+// output. The default TerrainWorkerPool ignores those services (it builds its
+// own seeded primitives), so tests using custom biome/noise must use this layer.
+// Caller must provide ChunkService, BiomeService, and NoiseServicePort — the
+// `buildLegacyTerrainPoolLayer` helper composes them in for ergonomic use.
+// ---------------------------------------------------------------------------
+
+const buildLegacyTerrainPoolLayer = (
+  deps: Layer.Layer<ChunkService | BiomeService | NoiseServicePort>,
+): Layer.Layer<TerrainWorkerPool> =>
+  Layer.effect(
+    TerrainWorkerPool,
+    Effect.gen(function* () {
+      const chunkService = yield* ChunkService
+      const biomeService = yield* BiomeService
+      const noiseService = yield* NoiseServicePort
+      return {
+        _tag: '@minecraft/infrastructure/terrain/TerrainWorkerPool' as const,
+        generateTerrain: (coord: { readonly x: number; readonly z: number }, _options: { seaLevel: number; lakeLevel: number; seed: number }) =>
+          legacyGenerateTerrain(chunkService, biomeService, noiseService, coord).pipe(
+            Effect.map((chunk) => ({
+              blocks: chunk.blocks,
+              skyLight: new Uint8Array(LIGHT_BYTE_LENGTH),
+              blockLight: new Uint8Array(LIGHT_BYTE_LENGTH),
+            })),
+          ),
+        workerCount: 0,
+      } as unknown as TerrainWorkerPool
+    }),
+  ).pipe(Layer.provide(deps))
+
+// ---------------------------------------------------------------------------
 // Test layer composition
 // ---------------------------------------------------------------------------
 
@@ -65,6 +102,8 @@ const buildTestLayer = () => {
     Layer.provide(StorageTestLayer),
     Layer.provide(BiomeTestLayer),
     Layer.provide(NoiseLayer),
+    Layer.provide(NoiseServiceLive),
+    Layer.provide(TerrainWorkerPoolLive),
     Layer.provide(LightEngineNoopLive),
   )
 
@@ -90,6 +129,8 @@ const buildTestLayerWithStoredChunks = (coords: ReadonlyArray<{ readonly x: numb
     Layer.provide(StorageTestLayer),
     Layer.provide(BiomeTestLayer),
     Layer.provide(NoiseLayer),
+    Layer.provide(NoiseServiceLive),
+    Layer.provide(TerrainWorkerPoolLive),
     Layer.provide(LightEngineNoopLive),
   )
 
@@ -424,6 +465,8 @@ describe('application/chunk/chunk-manager-service', () => {
         Layer.provide(StorageTestLayer),
         Layer.provide(BiomeTestLayer),
         Layer.provide(NoiseLayer),
+        Layer.provide(NoiseServiceLive),
+        Layer.provide(TerrainWorkerPoolLive),
         Layer.provide(LightEngineNoopLive),
       )
 
@@ -574,6 +617,8 @@ describe('application/chunk/chunk-manager-service', () => {
         Layer.provide(FailingStorageLayer),
         Layer.provide(BiomeTestLayer),
         Layer.provide(NoiseLayer),
+        Layer.provide(NoiseServiceLive),
+        Layer.provide(TerrainWorkerPoolLive),
         Layer.provide(LightEngineNoopLive),
       )
 
@@ -938,6 +983,10 @@ describe('application/chunk/chunk-manager-service', () => {
         Layer.provide(StorageTestLayer),
         Layer.provide(CustomBiomeLayer),
         Layer.provide(CustomNoise),
+        Layer.provide(NoiseServiceLive),
+        Layer.provide(buildLegacyTerrainPoolLayer(
+          Layer.mergeAll(ChunkServiceLive, CustomBiomeLayer, CustomNoise),
+        )),
         Layer.provide(LightEngineNoopLive),
       )
 
@@ -1066,6 +1115,10 @@ describe('application/chunk/chunk-manager-service', () => {
         Layer.provide(StorageTestLayer),
         Layer.provide(SeamBiomeLayer),
         Layer.provide(SeamNoise),
+        Layer.provide(NoiseServiceLive),
+        Layer.provide(buildLegacyTerrainPoolLayer(
+          Layer.mergeAll(ChunkServiceLive, SeamBiomeLayer, SeamNoise),
+        )),
         Layer.provide(LightEngineNoopLive),
       )
 
@@ -1274,6 +1327,10 @@ describe('application/chunk/chunk-manager-service', () => {
         Layer.provide(StorageTestLayer),
         Layer.provide(BiomeTestLayer),
         Layer.provide(HighVariantNoise),
+        Layer.provide(NoiseServiceLive),
+        Layer.provide(buildLegacyTerrainPoolLayer(
+          Layer.mergeAll(ChunkServiceLive, BiomeTestLayer, HighVariantNoise),
+        )),
         Layer.provide(LightEngineNoopLive),
       )
 
@@ -1563,6 +1620,10 @@ describe('application/chunk/chunk-manager-service', () => {
         Layer.provide(StorageTestLayer),
         Layer.provide(BiomeTestLayer),
         Layer.provide(OreNoise),
+        Layer.provide(NoiseServiceLive),
+        Layer.provide(buildLegacyTerrainPoolLayer(
+          Layer.mergeAll(ChunkServiceLive, BiomeTestLayer, OreNoise),
+        )),
         Layer.provide(LightEngineNoopLive),
       )
 

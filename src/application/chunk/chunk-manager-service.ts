@@ -5,11 +5,13 @@ import { LightEngineService } from '@/application/light/light-engine-service'
 import { StorageServicePort } from '@/application/storage/storage-service-port'
 import type { ChunkStorageValue } from '@/application/storage/storage-service-port'
 import { Position, ChunkCacheKey } from '@/shared/kernel'
-import { DEFAULT_WORLD_ID } from '@/application/constants'
+import { DEFAULT_WORLD_ID, SEA_LEVEL, LAKE_LEVEL } from '@/application/constants'
 import { ChunkError, StorageError } from '@/domain/errors'
 import { BiomeService } from '@/application/biome/biome-service'
 import { NoiseServicePort } from '@/application/noise/noise-service-port'
-import { chunkLoadHistogram, generateTerrain } from './terrain/generator'
+import { NoiseService } from '@/infrastructure/noise/noise-service'
+import { TerrainWorkerPool } from '@/infrastructure/terrain/terrain-worker-pool'
+import { chunkLoadHistogram } from './terrain/generator'
 import {
   chunkDistanceSquared,
   worldToChunkCoord,
@@ -98,10 +100,21 @@ export class ChunkManagerService extends Effect.Service<ChunkManagerService>()(
   '@minecraft/application/ChunkManagerService',
   {
     effect: Effect.gen(function* () {
-      const chunkService = yield* ChunkService
+      // ChunkService, BiomeService, and NoiseServicePort are still required at the layer
+      // boundary (other services in the graph depend on them being provided alongside
+      // ChunkManagerService) but the chunk-manager body itself no longer touches them
+      // directly — terrain generation moved off-thread via TerrainWorkerPool.
+      yield* ChunkService
       const storageService = yield* StorageServicePort
-      const biomeService = yield* BiomeService
-      const noiseService = yield* NoiseServicePort
+      yield* BiomeService
+      yield* NoiseServicePort
+      // Infrastructure NoiseService is consumed only to read the active world seed via
+      // `getSeed()`. The application-layer NoiseServicePort intentionally does not expose
+      // `getSeed`, so we reach into the infrastructure service directly. Output remains
+      // byte-identical because generateTerrainBlocks (in the worker pool's sync fallback
+      // and in the worker itself) constructs the same NoisePrimitives from the same seed.
+      const noiseInfrastructure = yield* NoiseService
+      const terrainPool = yield* TerrainWorkerPool
       const lightEngine = yield* LightEngineService
 
       // Compute and attach skyLight + blockLight grids onto a freshly-loaded or
@@ -209,12 +222,21 @@ export class ChunkManagerService extends Effect.Service<ChunkManagerService>()(
 
           const generateAndInsert = (): Effect.Effect<Chunk, ChunkManagerError> =>
             Effect.gen(function* () {
-              // Generate new chunk via procedural terrain — track load duration
-              const generated = yield* generateTerrain(chunkService, biomeService, noiseService, coord).pipe(
-                Metric.trackDurationWith(chunkLoadHistogram, (d) => Duration.toMillis(d))
-              )
-              // Attach skyLight + blockLight grids before insert so the mesher can sample them.
-              const newChunk = yield* withLighting(generated)
+              // Generate new chunk off-main-thread via TerrainWorkerPool — falls back to
+              // synchronous generation when Worker is unavailable (Node.js / Vitest).
+              // Output is byte-identical to the previous main-thread generateTerrain call
+              // (proved by terrain-worker-pool.parity.property.test.ts).
+              const seed = yield* noiseInfrastructure.getSeed()
+              const generated = yield* terrainPool
+                .generateTerrain(coord, { seaLevel: SEA_LEVEL, lakeLevel: LAKE_LEVEL, seed })
+                .pipe(
+                  Effect.mapError((err) => new ChunkError({ chunkCoord: coord, reason: err.reason })),
+                  Metric.trackDurationWith(chunkLoadHistogram, (d) => Duration.toMillis(d)),
+                )
+              // Lift the worker's ChunkBlocks into a Chunk and attach lighting grids so
+              // the mesher can sample them.
+              const baseChunk: Chunk = { coord, blocks: generated.blocks, fluid: Option.none() }
+              const newChunk = yield* withLighting(baseChunk)
               yield* insertWithEviction(coord, newChunk)
               return newChunk
             })
