@@ -7,6 +7,10 @@
  *
  * Architectural note: this file lives at src/ root alongside main.ts and layers.ts.
  * Cross-layer imports here are the same kind of orchestration — acceptable in a composition root.
+ *
+ * Per-stage decomposition (FR-017): each high-level frame phase is a named const
+ * exported as Effect.gen. The orchestrator at the bottom sequences them in order.
+ * Stage boundaries enable upcoming per-stage instrumentation (FR-004, separate session).
  */
 import { Array as Arr, Cause, Effect, HashMap, MutableRef, Option, Ref } from 'effect'
 import * as THREE from 'three'
@@ -28,7 +32,12 @@ import { HOTBAR_START } from '@/application/inventory/inventory-service'
 import { SlotIndex } from '@/shared/kernel'
 import { ChunkManagerService } from '@/application/chunk/chunk-manager-service'
 import { TimeService } from '@/application/time/time-service'
-import { SettingsService, resolvePreset, type ResolvedGraphics } from '@/application/settings/settings-service'
+import {
+  SettingsService,
+  resolvePreset,
+  type ResolvedGraphics,
+  type Settings,
+} from '@/application/settings/settings-service'
 import { FPSCounterService } from '@/presentation/fps-counter'
 import { HotbarRendererService } from '@/presentation/hud/hotbar-three'
 import { BlockHighlightService } from '@/presentation/highlight/block-highlight'
@@ -69,6 +78,7 @@ import {
   captureCameraPose,
   decideAdaptiveQuality,
   hasCameraPoseChanged,
+  type CameraPoseSnapshot,
 } from '@/frame/frame-runtime-logic'
 import { createMaintenanceHandler } from '@/frame/frame-maintenance'
 
@@ -176,11 +186,958 @@ const findAttackableEntity = (
   return closestEntityId === null ? Option.none() : Option.some(closestEntityId)
 }
 
+// ---------------------------------------------------------------------------
+// Stage context — bundle of refs and pre-resolved deps shared across stages.
+// ---------------------------------------------------------------------------
+
+type FrameStageRefs = {
+  readonly totalTimeSecsRef: Ref.Ref<number>
+  readonly redstoneTickAccumulatorRef: Ref.Ref<number>
+  readonly fluidTickAccumulatorRef: Ref.Ref<number>
+  readonly refractionFrameCounterRef: Ref.Ref<number>
+  readonly refractionValidRef: Ref.Ref<boolean>
+  readonly lastFpsTextRef: Ref.Ref<string>
+  readonly lastHealthRef: MutableRef.MutableRef<{ current: number; max: number }>
+  readonly lastRenderDistanceRef: Ref.Ref<number>
+  readonly lastEntityStructureVersionRef: Ref.Ref<number>
+  readonly shadowUpdateCounterRef: Ref.Ref<number>
+  readonly frustumThrottleStrideRef: Ref.Ref<number>
+  readonly frustumThrottleCounterRef: Ref.Ref<number>
+  readonly adaptiveQualityCooldownRef: Ref.Ref<number>
+  readonly lastAppliedPixelRatioRef: Ref.Ref<number>
+  readonly lastGraphicsQualityRef: Ref.Ref<{ quality: string; resolved: ResolvedGraphics }>
+  readonly dirtyChunksRef: Ref.Ref<HashMap.HashMap<string, Chunk>>
+  readonly lastShadowTargetRef: MutableRef.MutableRef<{ x: number; z: number }>
+  readonly lastFrustumCullRef: MutableRef.MutableRef<CameraPoseSnapshot>
+  readonly lastRefractionFrameRef: MutableRef.MutableRef<CameraPoseSnapshot>
+  readonly lastAudioRef: MutableRef.MutableRef<{ enabled: boolean; master: number; sfx: number; music: number }>
+}
+
+type ResolvedDeps = {
+  readonly skyMeshOrNull: THREE.Object3D | null
+  readonly fpsElementOrNull: HTMLElement | null
+  readonly healthValueElementOrNull: HTMLElement | null
+  readonly healthMaxElementOrNull: HTMLElement | null
+  readonly gtaoPassOrNull: GTAOPass | null
+  readonly bloomPassOrNull: UnrealBloomPass | null
+  readonly dofPassOrNull: BokehPass | null
+  readonly smaaPassOrNull: SMAAPass | null
+  readonly godRaysPassOrNull: GodRaysPass | null
+  readonly composerOrNull: EffectComposer | null
+}
+
+type FrameSettingsView = Settings
+
+// ---------------------------------------------------------------------------
+// Stage 1: lightingStage — day/night cycle, shadow dirty, music context, sun intensity
+// ---------------------------------------------------------------------------
+
+const lightingStage = (
+  deps: Pick<FrameHandlerDeps, 'lights' | 'renderer'>,
+  services: Pick<FrameHandlerServices, 'timeService' | 'musicManager' | 'chunkMeshService'>,
+  refs: Pick<FrameStageRefs, 'shadowUpdateCounterRef'>,
+  inputs: {
+    readonly deltaTime: DeltaTimeSecs
+    readonly effectiveLights: DayNightLights
+    readonly playerPos: Position
+    readonly markShadowMapDirty: () => void
+  },
+): Effect.Effect<{ readonly timeOfDay: number }, never> =>
+  Effect.gen(function* () {
+    yield* updateDayNightCycle(inputs.deltaTime, inputs.effectiveLights, services.timeService).pipe(
+      Effect.catchAllCause((cause) => Effect.logError(`Day/night error: ${Cause.pretty(cause)}`)),
+    )
+    yield* Ref.updateAndGet(refs.shadowUpdateCounterRef, (n) => (n + 1) % 8).pipe(
+      Effect.flatMap((shadowFrame) =>
+        shadowFrame === 0 && deps.lights.light.castShadow
+          ? Effect.sync(() => {
+              inputs.markShadowMapDirty()
+            })
+          : Effect.void,
+      ),
+    )
+
+    yield* services.timeService.isNight().pipe(
+      Effect.flatMap((isNight) => services.musicManager.updateFromContext({ isNight, playerPosition: inputs.playerPos })),
+      Effect.catchAllCause((cause) => Effect.logError(`Music update error: ${Cause.pretty(cause)}`)),
+    )
+
+    const timeOfDay = yield* services.timeService.getTimeOfDay()
+
+    // Sun-driven shader uniform — derived from the canonical day-factor formula
+    // (matches `updateDayNightCycle`'s sin curve so chunk lighting tracks the visible sun).
+    const sunIntensity = Math.max(0, Math.sin((timeOfDay - 0.25) * Math.PI * 2))
+    yield* services.chunkMeshService.setSunIntensity(sunIntensity).pipe(
+      Effect.catchAllCause((cause) => Effect.logError(`Sun intensity sync error: ${Cause.pretty(cause)}`)),
+    )
+
+    return { timeOfDay }
+  })
+
+// ---------------------------------------------------------------------------
+// Stage 2: entityUpdateStage — entityManager.update + mesh sync + transform animate
+//                              + redstone tick + fluid tick (fixed-step world sims)
+// ---------------------------------------------------------------------------
+
+const entityUpdateStage = (
+  deps: Pick<FrameHandlerDeps, 'scene'>,
+  services: Pick<FrameHandlerServices, 'entityManager' | 'entityRenderer' | 'redstoneService' | 'fluidService'>,
+  refs: Pick<FrameStageRefs, 'lastEntityStructureVersionRef' | 'redstoneTickAccumulatorRef' | 'fluidTickAccumulatorRef'>,
+  inputs: {
+    readonly deltaTime: DeltaTimeSecs
+    readonly playerPos: Position
+    readonly totalTimeSecs: number
+  },
+): Effect.Effect<void, never> =>
+  Effect.gen(function* () {
+    // Entity simulation stays on the frame lane so visible transforms remain responsive.
+    // Slower world simulation (furnace/spawn/village) runs on the maintenance lane.
+    yield* services.entityManager.update(inputs.deltaTime, inputs.playerPos).pipe(
+      Effect.catchAllCause((cause) => Effect.logError(`Entity system error: ${Cause.pretty(cause)}`)),
+    )
+
+    // Sync entity meshes with the live entity list and animate transforms.
+    // Must run after entityManager.update so the snapshot reflects this frame's positions.
+    yield* Effect.all(
+      [services.entityManager.getEntities(), services.entityManager.getStructureVersion()],
+      { concurrency: 'unbounded' },
+    ).pipe(
+      Effect.flatMap(([entitiesSnapshot, structureVersion]) =>
+        Ref.get(refs.lastEntityStructureVersionRef).pipe(
+          Effect.flatMap((lastStructureVersion) =>
+            (lastStructureVersion === structureVersion
+              ? Effect.void
+              : services.entityRenderer.syncEntities(entitiesSnapshot, deps.scene).pipe(
+                  Effect.andThen(Ref.set(refs.lastEntityStructureVersionRef, structureVersion)),
+                )
+            ).pipe(
+              Effect.andThen(
+                services.entityRenderer.updateEntityTransforms(entitiesSnapshot, inputs.totalTimeSecs, inputs.deltaTime),
+              ),
+            ),
+          ),
+        ),
+      ),
+      Effect.catchAllCause((cause) => Effect.logError(`Entity render error: ${Cause.pretty(cause)}`)),
+    )
+
+    // Redstone simulation tick (fixed-step propagation)
+    yield* Ref.modify(refs.redstoneTickAccumulatorRef, (accumulated) => {
+      const { ticks, remainder } = advanceFixedStep(accumulated, inputs.deltaTime, REDSTONE_TICK_INTERVAL_SECS)
+      return [ticks, remainder]
+    }).pipe(
+      Effect.flatMap((ticksToRun) =>
+        ticksToRun === 1
+          ? services.redstoneService.tick().pipe(Effect.asVoid)
+          : ticksToRun > 1
+            ? Effect.repeatN(services.redstoneService.tick(), ticksToRun - 1).pipe(Effect.asVoid)
+            : Effect.void,
+      ),
+      Effect.catchAllCause((cause) => Effect.logError(`Redstone system error: ${Cause.pretty(cause)}`)),
+    )
+
+    // Fluid simulation tick (fixed-step propagation)
+    yield* Ref.modify(refs.fluidTickAccumulatorRef, (accumulated) => {
+      const { ticks, remainder } = advanceFixedStep(accumulated, inputs.deltaTime, FLUID_TICK_INTERVAL_SECS)
+      return [ticks, remainder]
+    }).pipe(
+      Effect.flatMap((ticksToRun) =>
+        ticksToRun === 1
+          ? services.fluidService.tick().pipe(Effect.asVoid)
+          : ticksToRun > 1
+            ? Effect.repeatN(services.fluidService.tick(), ticksToRun - 1).pipe(Effect.asVoid)
+            : Effect.void,
+      ),
+      Effect.catchAllCause((cause) => Effect.logError(`Fluid system error: ${Cause.pretty(cause)}`)),
+    )
+  })
+
+// ---------------------------------------------------------------------------
+// Stage 3: chunkSyncStage — frustum culling on the frame lane
+//                           (heavy chunk load/sync runs on maintenance lane)
+// ---------------------------------------------------------------------------
+
+const chunkSyncStage = (
+  deps: Pick<FrameHandlerDeps, 'camera'>,
+  services: Pick<FrameHandlerServices, 'worldRendererService'>,
+  refs: Pick<FrameStageRefs, 'frustumThrottleStrideRef' | 'frustumThrottleCounterRef' | 'lastFrustumCullRef'>,
+): Effect.Effect<void, never> =>
+  Effect.gen(function* () {
+    const sceneVersionBeforeCull = yield* services.worldRendererService.getSceneVersion()
+    const currentFrustumPose = captureCameraPose(deps.camera, sceneVersionBeforeCull)
+    const lastFrustumCull = MutableRef.get(refs.lastFrustumCullRef)
+    const frustumStride = yield* Ref.get(refs.frustumThrottleStrideRef)
+    const frustumTick = yield* Ref.updateAndGet(
+      refs.frustumThrottleCounterRef,
+      (n) => (n + 1) % Math.max(frustumStride, 1),
+    )
+    if (frustumTick === 0 && hasCameraPoseChanged(lastFrustumCull, currentFrustumPose)) {
+      yield* services.worldRendererService.applyFrustumCulling(deps.camera)
+      MutableRef.set(refs.lastFrustumCullRef, currentFrustumPose)
+    }
+  })
+
+// ---------------------------------------------------------------------------
+// Stage 4: physicsStage — gameState.update + health (fall damage / contact / death)
+// ---------------------------------------------------------------------------
+
+const physicsStage = (
+  deps: Pick<FrameHandlerDeps, 'respawnPosition'>,
+  services: Pick<FrameHandlerServices, 'gameState' | 'healthService' | 'soundManager' | 'entityManager'>,
+  refs: Pick<FrameStageRefs, 'lastHealthRef'>,
+  inputs: {
+    readonly deltaTime: DeltaTimeSecs
+    readonly initialPlayerPos: Position
+    readonly healthValueElementOrNull: HTMLElement | null
+    readonly healthMaxElementOrNull: HTMLElement | null
+  },
+): Effect.Effect<{ readonly playerPos: Position }, never> =>
+  Effect.gen(function* () {
+    // Update game state (input -> movement -> physics -> position sync)
+    yield* services.gameState.update(inputs.deltaTime).pipe(
+      Effect.catchAllCause((cause) => Effect.logError(`Physics update error: ${Cause.pretty(cause)}`)),
+    )
+
+    // Health: fall damage processing and HUD update
+    const finalPosRef = yield* Ref.make(inputs.initialPlayerPos)
+
+    yield* Effect.gen(function* () {
+      const refreshedPos = yield* services.gameState.getPlayerPosition(DEFAULT_PLAYER_ID).pipe(
+        Effect.catchAllCause(() => Effect.succeed(inputs.initialPlayerPos)),
+      )
+      yield* Ref.set(finalPosRef, refreshedPos)
+
+      const tryApplyPlayerDamage = (amount: number): Effect.Effect<boolean, never> =>
+        amount <= 0
+          ? Effect.succeed(false)
+          : services.healthService.getHealth().pipe(
+              Effect.flatMap((health) =>
+                health.current <= 0 || health.invincibilityTicks > 0
+                  ? Effect.succeed(false)
+                  : services.healthService.applyDamage(amount).pipe(Effect.as(true)),
+              ),
+            )
+
+      const isGrounded = yield* services.gameState.isPlayerGrounded()
+      const fallDamage = yield* services.healthService.processFallDamage(refreshedPos.y, isGrounded)
+      const tookFallDamage = yield* tryApplyPlayerDamage(fallDamage)
+      if (tookFallDamage) {
+        yield* services.soundManager.playEffect('playerHurt', { position: refreshedPos })
+      }
+
+      const hostileDamage = yield* services.entityManager.getPlayerContactDamage(refreshedPos)
+      const tookHostileDamage = yield* tryApplyPlayerDamage(hostileDamage)
+      if (tookHostileDamage) {
+        yield* services.soundManager.playEffect('playerHurt', { position: refreshedPos })
+      }
+
+      const isDead = yield* services.healthService.isDead()
+      if (isDead) {
+        yield* services.healthService.reset()
+        yield* services.gameState.respawn(deps.respawnPosition)
+        yield* Ref.set(finalPosRef, deps.respawnPosition)
+      } else {
+        yield* services.healthService.tick()
+      }
+
+      const health = yield* services.healthService.getHealth()
+      // Pre-cached element refs (resolved once at startup in FrameHandlerDeps)
+      // FR-006: Only write DOM when health values actually change
+      const lastHealth = MutableRef.get(refs.lastHealthRef)
+      if (lastHealth.current !== health.current || lastHealth.max !== health.max) {
+        MutableRef.set(refs.lastHealthRef, { current: health.current, max: health.max })
+        yield* Effect.sync(() => {
+          if (inputs.healthValueElementOrNull) inputs.healthValueElementOrNull.textContent = String(health.current)
+          if (inputs.healthMaxElementOrNull) inputs.healthMaxElementOrNull.textContent = String(health.max)
+        })
+      }
+    }).pipe(Effect.catchAllCause((cause) => Effect.logError(`Health error: ${Cause.pretty(cause)}`)))
+
+    const playerPos = yield* Ref.get(finalPosRef)
+    return { playerPos }
+  })
+
+// ---------------------------------------------------------------------------
+// Stage 5: inputStage — mouse-look (when unpaused) + overlay/inventory/trade input
+// ---------------------------------------------------------------------------
+
+const inputStage = (
+  deps: Pick<FrameHandlerDeps, 'camera' | 'gamePausedRef'>,
+  services: Pick<
+    FrameHandlerServices,
+    | 'firstPersonCamera'
+    | 'inputService'
+    | 'inventoryRenderer'
+    | 'settingsOverlay'
+    | 'tradingPresentation'
+    | 'villageService'
+    | 'timeService'
+  >,
+  inputs: {
+    readonly mouseSensitivity: number
+    readonly dayLengthSeconds: number
+    readonly playerPos: Position
+  },
+): Effect.Effect<void, never> =>
+  Effect.gen(function* () {
+    // Update camera rotation from mouse look (suppressed when a modal is open)
+    yield* Ref.get(deps.gamePausedRef).pipe(
+      Effect.flatMap((paused) =>
+        paused ? Effect.void : services.firstPersonCamera.update(deps.camera, inputs.mouseSensitivity),
+      ),
+    )
+
+    // Handle overlay toggles: Escape (settings), E (inventory), T (trade)
+    yield* Effect.gen(function* () {
+      const [escPressed, inventoryPressed, tradePressed, tradeNextPressed, tradePrevPressed, tradeExecutePressed] =
+        yield* Effect.all(
+          [
+            services.inputService.consumeKeyPress(KeyMappings.ESCAPE),
+            services.inputService.consumeKeyPress(KeyMappings.INVENTORY_OPEN),
+            services.inputService.consumeKeyPress(TRADE_OPEN_KEY),
+            services.inputService.consumeKeyPress(TRADE_NEXT_KEY),
+            services.inputService.consumeKeyPress(TRADE_PREV_KEY),
+            services.inputService.consumeKeyPress(TRADE_EXECUTE_KEY),
+          ],
+          { concurrency: 'unbounded' },
+        )
+
+      const isTradeOpen = yield* services.tradingPresentation.isOpen()
+
+      if (escPressed) {
+        const isInvOpen = yield* services.inventoryRenderer.isOpen()
+        const isSettingsOpen = yield* services.settingsOverlay.isOpen()
+
+        if (isTradeOpen) {
+          yield* services.tradingPresentation.close()
+          yield* Ref.set(deps.gamePausedRef, false)
+        } else if (isInvOpen) {
+          yield* services.inventoryRenderer.toggle()
+          yield* Ref.set(deps.gamePausedRef, false)
+        } else if (isSettingsOpen) {
+          yield* services.settingsOverlay.toggle()
+          yield* Ref.set(deps.gamePausedRef, false)
+        } else {
+          const nowOpen = yield* services.settingsOverlay.toggle()
+          yield* Ref.set(deps.gamePausedRef, nowOpen)
+        }
+      }
+
+      if (inventoryPressed) {
+        const isInvOpen = yield* services.inventoryRenderer.isOpen()
+        if (isInvOpen) {
+          yield* services.inventoryRenderer.toggle()
+          yield* Ref.set(deps.gamePausedRef, false)
+        } else {
+          const isSettingsOpen = yield* services.settingsOverlay.isOpen()
+          const tradeOpen = yield* services.tradingPresentation.isOpen()
+          if (isSettingsOpen) yield* services.settingsOverlay.toggle()
+          if (tradeOpen) yield* services.tradingPresentation.close()
+          yield* services.inventoryRenderer.toggle()
+          yield* Ref.set(deps.gamePausedRef, true)
+        }
+      }
+
+      if (tradePressed) {
+        const tradeOpen = yield* services.tradingPresentation.isOpen()
+        if (tradeOpen) {
+          yield* services.tradingPresentation.close()
+          yield* Ref.set(deps.gamePausedRef, false)
+        } else {
+          const isInvOpen = yield* services.inventoryRenderer.isOpen()
+          const isSettingsOpen = yield* services.settingsOverlay.isOpen()
+          if (!isInvOpen && !isSettingsOpen) {
+            const villagerOption = yield* services.villageService.findNearestVillager(inputs.playerPos, TRADE_DISTANCE)
+            yield* Option.match(villagerOption, {
+              onNone: () => Effect.void,
+              onSome: (villager) =>
+                services.tradingPresentation.open(villager.villagerId).pipe(
+                  Effect.flatMap((opened) => (opened ? Ref.set(deps.gamePausedRef, true) : Effect.void)),
+                ),
+            })
+          }
+        }
+      }
+
+      // FR-007: Early-exit guard — when no overlay is open (gamePausedRef=false),
+      // skip trading navigation/refresh and inventory update entirely.
+      const anyOverlayOpen = yield* Ref.get(deps.gamePausedRef)
+
+      if (anyOverlayOpen) {
+        const tradeOpenAfterToggles = yield* services.tradingPresentation.isOpen()
+
+        if (tradeOpenAfterToggles) {
+          if (tradePrevPressed) {
+            yield* services.tradingPresentation.cycleSelection(-1)
+          }
+          if (tradeNextPressed) {
+            yield* services.tradingPresentation.cycleSelection(1)
+          }
+          if (tradeExecutePressed) {
+            yield* services.tradingPresentation.executeSelectedTrade()
+          }
+          yield* services.tradingPresentation.refresh()
+        } else {
+          const inventoryOpenAfterToggles = yield* services.inventoryRenderer.isOpen()
+          if (inventoryOpenAfterToggles) {
+            if (tradePrevPressed) {
+              yield* services.inventoryRenderer.cycleRecipes(-1)
+            }
+            if (tradeNextPressed) {
+              yield* services.inventoryRenderer.cycleRecipes(1)
+            }
+            if (tradeExecutePressed) {
+              yield* services.inventoryRenderer.craftSelectedRecipe()
+            }
+          }
+        }
+
+        yield* services.inventoryRenderer.update()
+      }
+
+      // Sync day length to TimeService in case user applied settings changes
+      // Guard: only update if the value has actually changed (avoids 60 allocs/sec)
+      const currentDayLength = yield* services.timeService.getDayLength()
+      if (currentDayLength !== inputs.dayLengthSeconds) {
+        yield* services.timeService.setDayLength(inputs.dayLengthSeconds)
+      }
+    }).pipe(Effect.catchAllCause((cause) => Effect.logError(`Overlay error: ${Cause.pretty(cause)}`)))
+  })
+
+// ---------------------------------------------------------------------------
+// Stage 6: cameraStage — F5 view toggle, camera position+rotation sync,
+//                        shadow target follow, dynamic far-plane / shadow camera.
+// ---------------------------------------------------------------------------
+
+const cameraStage = (
+  deps: Pick<FrameHandlerDeps, 'camera' | 'lights'>,
+  services: Pick<FrameHandlerServices, 'inputService' | 'playerCameraState' | 'thirdPersonCamera'>,
+  refs: Pick<FrameStageRefs, 'lastShadowTargetRef' | 'lastRenderDistanceRef'>,
+  inputs: {
+    readonly playerPos: Position
+    readonly renderDistance: number
+    readonly markShadowMapDirty: () => void
+  },
+): Effect.Effect<void, never> =>
+  Effect.gen(function* () {
+    // Handle view toggle: F5 switches first/third person before raycasting
+    yield* services.inputService.consumeKeyPress(KeyMappings.CAMERA_TOGGLE).pipe(
+      Effect.flatMap((pressed) => (pressed ? services.playerCameraState.toggleMode() : Effect.void)),
+      Effect.catchAllCause((cause) => Effect.logError(`Camera toggle error: ${Cause.pretty(cause)}`)),
+    )
+
+    // Camera perspective + position sync (use current mode before raycasting)
+    yield* Effect.all(
+      [services.playerCameraState.getRotation(), services.playerCameraState.getMode()],
+      { concurrency: 'unbounded' },
+    ).pipe(
+      Effect.flatMap(([rotation, cameraMode]) =>
+        cameraMode === 'firstPerson'
+          ? Effect.sync(() => {
+              const eyeY = inputs.playerPos.y + EYE_LEVEL_OFFSET
+              deps.camera.position.set(inputs.playerPos.x, eyeY, inputs.playerPos.z)
+              deps.camera.rotation.set(rotation.pitch, rotation.yaw, 0, 'YXZ')
+            })
+          : services.thirdPersonCamera.update(deps.camera, inputs.playerPos, EYE_LEVEL_OFFSET),
+      ),
+      // Shadow frustum follows player so terrain around them is always shadow-covered
+      // FR-009: Only update when player has moved more than 0.5 blocks (avoids per-frame updateMatrixWorld)
+      Effect.andThen(
+        Effect.sync(() => {
+          const lastTarget = MutableRef.get(refs.lastShadowTargetRef)
+          const dx = inputs.playerPos.x - lastTarget.x
+          const dz = inputs.playerPos.z - lastTarget.z
+          if (dx * dx + dz * dz > 0.25) {
+            MutableRef.set(refs.lastShadowTargetRef, { x: inputs.playerPos.x, z: inputs.playerPos.z })
+            deps.lights.light.target.position.set(inputs.playerPos.x, 0, inputs.playerPos.z)
+            deps.lights.light.target.updateMatrixWorld()
+            inputs.markShadowMapDirty()
+          }
+        }),
+      ),
+      // Dynamic shadow frustum: tighten bounds to renderDistance for higher texel density.
+      // Only update when renderDistance changes (avoids per-frame updateProjectionMatrix).
+      Effect.andThen(
+        Ref.modify(refs.lastRenderDistanceRef, (lastRd): [boolean, number] =>
+          lastRd === inputs.renderDistance ? [false, lastRd] : [true, inputs.renderDistance],
+        ),
+      ),
+      Effect.flatMap((changed) =>
+        changed
+          ? Effect.sync(() => {
+              // Dynamic camera far plane: keep Z-buffer precision tight to visible range
+              deps.camera.far = Math.max(inputs.renderDistance * CHUNK_SIZE * 1.5 + CHUNK_HEIGHT, 300)
+              deps.camera.updateProjectionMatrix()
+              // Shadow frustum: tighten bounds to renderDistance for higher texel density
+              const halfExtent = Math.min(
+                Math.ceil(inputs.renderDistance * CHUNK_SIZE * 0.5),
+                MAX_SHADOW_HALF_EXTENT,
+              )
+              const cam = deps.lights.light.shadow.camera
+              cam.far = Math.max(inputs.renderDistance * CHUNK_SIZE * 1.5 + CHUNK_HEIGHT, 300)
+              cam.left = -halfExtent
+              cam.right = halfExtent
+              cam.top = halfExtent
+              cam.bottom = -halfExtent
+              cam.updateProjectionMatrix()
+              inputs.markShadowMapDirty()
+            })
+          : Effect.void,
+      ),
+    )
+  })
+
+// ---------------------------------------------------------------------------
+// Stage 7: interactionStage — block highlight, then break/place/redstone interactions.
+// ---------------------------------------------------------------------------
+
+const interactionStage = (
+  deps: Pick<FrameHandlerDeps, 'camera' | 'scene' | 'gamePausedRef'>,
+  services: Pick<
+    FrameHandlerServices,
+    | 'blockHighlight'
+    | 'hotbarService'
+    | 'hotbarRenderer'
+    | 'inputService'
+    | 'blockService'
+    | 'chunkManagerService'
+    | 'soundManager'
+    | 'entityManager'
+    | 'inventoryService'
+    | 'redstoneService'
+    | 'furnaceService'
+  >,
+  refs: Pick<FrameStageRefs, 'dirtyChunksRef'>,
+): Effect.Effect<void, never> =>
+  Effect.gen(function* () {
+    // Update block highlight (always — independent of pause; spy uses scene state)
+    yield* services.blockHighlight.update(deps.camera, deps.scene)
+
+    // Handle block interaction (break/place) and hotbar (suppressed when paused)
+    yield* Effect.gen(function* () {
+      const paused = yield* Ref.get(deps.gamePausedRef)
+      if (paused) return
+
+      // Update hotbar slot selection (keyboard 1-9 and mouse wheel)
+      yield* services.hotbarService.update()
+
+      // Process block break/place clicks
+      const leftClick = yield* services.inputService.consumeMouseClick(0)
+      const rightClick = yield* services.inputService.consumeMouseClick(2)
+      const [
+        placeWirePressed,
+        placeLeverPressed,
+        placeButtonPressed,
+        placeTorchPressed,
+        placePistonPressed,
+        toggleLeverPressed,
+        pressButtonPressed,
+        toggleTorchPressed,
+      ] = yield* Effect.all(
+        [
+          services.inputService.consumeKeyPress(REDSTONE_PLACE_WIRE_KEY),
+          services.inputService.consumeKeyPress(REDSTONE_PLACE_LEVER_KEY),
+          services.inputService.consumeKeyPress(REDSTONE_PLACE_BUTTON_KEY),
+          services.inputService.consumeKeyPress(REDSTONE_PLACE_TORCH_KEY),
+          services.inputService.consumeKeyPress(REDSTONE_PLACE_PISTON_KEY),
+          services.inputService.consumeKeyPress(REDSTONE_TOGGLE_LEVER_KEY),
+          services.inputService.consumeKeyPress(REDSTONE_PRESS_BUTTON_KEY),
+          services.inputService.consumeKeyPress(REDSTONE_TOGGLE_TORCH_KEY),
+        ],
+        { concurrency: 'unbounded' },
+      )
+
+      const hasRedstoneInput =
+        placeWirePressed ||
+        placeLeverPressed ||
+        placeButtonPressed ||
+        placeTorchPressed ||
+        placePistonPressed ||
+        toggleLeverPressed ||
+        pressButtonPressed ||
+        toggleTorchPressed
+
+      if (leftClick || rightClick || hasRedstoneInput) {
+        const targetBlock = yield* services.blockHighlight.getTargetBlock()
+        const targetHit = yield* services.blockHighlight.getTargetHit()
+        const selectedHotbarItem = yield* services.hotbarService.getSelectedBlockType()
+
+        if (hasRedstoneInput) {
+          yield* Option.match(targetBlock, {
+            onNone: () => Effect.void,
+            onSome: (tb) =>
+              Effect.gen(function* () {
+                const position = { x: tb.x, y: tb.y, z: tb.z }
+
+                if (placeWirePressed) {
+                  yield* services.redstoneService.setComponent(position, RedstoneComponentType.Wire)
+                }
+                if (placeLeverPressed) {
+                  yield* services.redstoneService.setComponent(position, RedstoneComponentType.Lever)
+                }
+                if (placeButtonPressed) {
+                  yield* services.redstoneService.setComponent(position, RedstoneComponentType.Button)
+                }
+                if (placeTorchPressed) {
+                  yield* services.redstoneService.setComponent(position, RedstoneComponentType.Torch)
+                }
+                if (placePistonPressed) {
+                  yield* services.redstoneService.setComponent(position, RedstoneComponentType.Piston)
+                }
+                if (toggleLeverPressed) {
+                  yield* services.redstoneService.toggleLever(position)
+                }
+                if (pressButtonPressed) {
+                  yield* services.redstoneService.pressButton(position)
+                }
+                if (toggleTorchPressed) {
+                  yield* services.redstoneService.toggleTorch(position)
+                }
+              }),
+          })
+
+          yield* services.redstoneService.tick()
+        }
+
+        if (leftClick) {
+          const targetEntity = yield* services.entityManager.getEntities().pipe(
+            Effect.map((entities) =>
+              findAttackableEntity(entities, deps.camera, Option.map(targetHit, (hit) => hit.distance)),
+            ),
+          )
+
+          yield* Option.match(targetEntity, {
+            onNone: () =>
+              Option.match(targetBlock, {
+                onNone: () => Effect.void,
+                onSome: (tb) => {
+                  const pos = { x: tb.x, y: tb.y, z: tb.z }
+                  const chunkCoord = { x: Math.floor(tb.x / CHUNK_SIZE), z: Math.floor(tb.z / CHUNK_SIZE) }
+                  const coordKey = `${chunkCoord.x},${chunkCoord.z}`
+                  return Effect.all(
+                    [services.blockService.breakBlock(pos), services.soundManager.playEffect('blockBreak', { position: pos })],
+                    { concurrency: 'unbounded', discard: true },
+                  ).pipe(
+                    Effect.andThen(services.chunkManagerService.getChunk(chunkCoord)),
+                    Effect.flatMap((updatedChunk) =>
+                      Ref.update(refs.dirtyChunksRef, (map) => HashMap.set(map, coordKey, updatedChunk)),
+                    ),
+                  )
+                },
+              }),
+            onSome: (entityId) =>
+              services.entityManager
+                .applyDamage(
+                  entityId,
+                  Option.match(selectedHotbarItem, {
+                    onNone: () => PLAYER_ATTACK_DAMAGE,
+                    onSome: (item) => (item === 'WOODEN_SWORD' ? WOODEN_SWORD_ATTACK_DAMAGE : PLAYER_ATTACK_DAMAGE),
+                  }),
+                )
+                .pipe(
+                  Effect.flatMap((drops) =>
+                    Effect.forEach(
+                      Option.getOrElse(drops, () => []),
+                      (drop) => services.inventoryService.addBlock(drop.blockType, drop.count),
+                      { concurrency: 'unbounded', discard: true },
+                    ),
+                  ),
+                ),
+          })
+        }
+
+        if (rightClick) {
+          yield* Option.match(targetHit, {
+            onNone: () => Effect.void,
+            onSome: (hit) => {
+              const targetPos = { x: hit.blockX, y: hit.blockY, z: hit.blockZ }
+              const targetChunkCoord = {
+                x: Math.floor(targetPos.x / CHUNK_SIZE),
+                z: Math.floor(targetPos.z / CHUNK_SIZE),
+              }
+              return services.chunkManagerService.getChunk(targetChunkCoord).pipe(
+                Effect.flatMap((targetChunk) => {
+                  const targetLx = ((targetPos.x % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE
+                  const targetLz = ((targetPos.z % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE
+                  const targetIdx = targetPos.y + targetLz * CHUNK_HEIGHT + targetLx * CHUNK_HEIGHT * CHUNK_SIZE
+                  const targetBlockType = indexToBlockType(targetChunk.blocks[targetIdx] ?? 0)
+                  if (targetBlockType === 'FURNACE') {
+                    return services.furnaceService.setSelectedFurnace(targetPos)
+                  }
+
+                  const adjacentPos = {
+                    x: hit.blockX + Math.round(hit.normal.x),
+                    y: hit.blockY + Math.round(hit.normal.y),
+                    z: hit.blockZ + Math.round(hit.normal.z),
+                  }
+                  return Effect.all(
+                    [services.hotbarService.getSelectedBlockType(), services.hotbarService.getSelectedSlot()],
+                    { concurrency: 'unbounded' },
+                  ).pipe(
+                    Effect.flatMap(([selectedBlock, selectedSlot]) =>
+                      Option.match(selectedBlock, {
+                        onNone: () => Effect.void,
+                        onSome: (blockType) => {
+                          const chunkCoord = {
+                            x: Math.floor(adjacentPos.x / CHUNK_SIZE),
+                            z: Math.floor(adjacentPos.z / CHUNK_SIZE),
+                          }
+                          const coordKey = `${chunkCoord.x},${chunkCoord.z}`
+                          return services.blockService
+                            .placeBlock(adjacentPos, blockType, SlotIndex.make(HOTBAR_START + selectedSlot))
+                            .pipe(
+                              Effect.flatMap(() =>
+                                services.soundManager.playEffect('blockPlace', { position: adjacentPos }),
+                              ),
+                              Effect.andThen(services.chunkManagerService.getChunk(chunkCoord)),
+                              Effect.flatMap((updatedChunk) =>
+                                Ref.update(refs.dirtyChunksRef, (map) => HashMap.set(map, coordKey, updatedChunk)),
+                              ),
+                            )
+                        },
+                      }),
+                    ),
+                  )
+                }),
+              )
+            },
+          })
+        }
+      }
+
+      // Update hotbar renderer with current slot state (first pass; second pass in hudStage)
+      const [slots, selectedSlot] = yield* Effect.all(
+        [services.hotbarService.getSlots(), services.hotbarService.getSelectedSlot()],
+        { concurrency: 'unbounded' },
+      )
+      yield* services.hotbarRenderer.update(slots, selectedSlot)
+    }).pipe(Effect.catchAllCause((cause) => Effect.logError(`Block interaction error: ${Cause.pretty(cause)}`)))
+  })
+
+// ---------------------------------------------------------------------------
+// Stage 8: refractionPrepassStage — water refraction RT (throttled by quality preset)
+// ---------------------------------------------------------------------------
+
+const refractionPrepassStage = (
+  deps: Pick<FrameHandlerDeps, 'renderer' | 'scene' | 'camera'>,
+  services: Pick<FrameHandlerServices, 'worldRendererService'>,
+  refs: Pick<FrameStageRefs, 'refractionFrameCounterRef' | 'refractionValidRef' | 'lastRefractionFrameRef' | 'totalTimeSecsRef'>,
+  inputs: {
+    readonly resolvedGraphics: ResolvedGraphics
+    readonly totalTimeSecs: number
+  },
+): Effect.Effect<void, never> =>
+  Effect.gen(function* () {
+    // Refraction pre-pass for water shader — throttled by quality preset.
+    // low=skip entirely, medium=every 3 frames, high=every 2, ultra=every frame.
+    // Counter uses (n-1) so the first frame always runs (no initial-frame stutter).
+    if (inputs.resolvedGraphics.refractionThrottleFrames > 0) {
+      const refractionFrame = yield* Ref.updateAndGet(refs.refractionFrameCounterRef, (n) => n + 1)
+      if ((refractionFrame - 1) % inputs.resolvedGraphics.refractionThrottleFrames === 0) {
+        const sceneVersionBeforeRefraction = yield* services.worldRendererService.getSceneVersion()
+        const currentRefractionPose = captureCameraPose(deps.camera, sceneVersionBeforeRefraction)
+        const lastRefractionFrame = MutableRef.get(refs.lastRefractionFrameRef)
+        const shouldRunRefraction = hasCameraPoseChanged(lastRefractionFrame, currentRefractionPose)
+
+        if (shouldRunRefraction) {
+          yield* services.worldRendererService
+            .doRefractionPrePass(deps.renderer, deps.scene, deps.camera)
+            .pipe(
+              Effect.catchAllCause((cause) => Effect.logError(`Refraction pre-pass error: ${Cause.pretty(cause)}`)),
+            )
+          MutableRef.set(refs.lastRefractionFrameRef, currentRefractionPose)
+          yield* Ref.getAndSet(refs.refractionValidRef, true).pipe(
+            Effect.flatMap((wasValid) =>
+              wasValid ? Effect.void : services.worldRendererService.setRefractionValid(true),
+            ),
+          )
+        }
+      }
+    }
+
+    // Update water uniforms (time + camera position only — resolution is set on resize)
+    yield* services.worldRendererService.updateWaterUniforms(inputs.totalTimeSecs, deps.camera.position)
+  })
+
+// ---------------------------------------------------------------------------
+// Stage 9: postProcessingSetupStage — sync pass enable/setSize from quality preset.
+// ---------------------------------------------------------------------------
+
+const postProcessingSetupStage = (
+  deps: Pick<FrameHandlerDeps, 'renderer' | 'lights'>,
+  resolved: Pick<ResolvedDeps, 'gtaoPassOrNull' | 'bloomPassOrNull' | 'dofPassOrNull' | 'smaaPassOrNull' | 'godRaysPassOrNull'>,
+  inputs: {
+    readonly resolvedGraphics: ResolvedGraphics
+    readonly graphicsChanged: boolean
+    readonly pixelRatioChanged: boolean
+    readonly markShadowMapDirty: () => void
+  },
+): Effect.Effect<void, never> =>
+  Effect.gen(function* () {
+    // FR-014: disabled passes still hold full-resolution render targets that waste VRAM.
+    // On transition: disabled→setSize(1,1) shrinks RTs; enabled→setSize(w,h) restores them.
+    if (inputs.graphicsChanged || inputs.pixelRatioChanged) {
+      yield* Effect.sync(() => {
+        const w = deps.renderer.domElement.clientWidth || 1
+        const h = deps.renderer.domElement.clientHeight || 1
+        const pixelRatio = typeof deps.renderer.getPixelRatio === 'function' ? deps.renderer.getPixelRatio() : 1
+        const rw = Math.max(1, Math.ceil(w * pixelRatio))
+        const rh = Math.max(1, Math.ceil(h * pixelRatio))
+        if (deps.lights.light.castShadow !== inputs.resolvedGraphics.shadowsEnabled) {
+          deps.lights.light.castShadow = inputs.resolvedGraphics.shadowsEnabled
+          inputs.markShadowMapDirty()
+        }
+        if (resolved.gtaoPassOrNull) {
+          const enabled = inputs.resolvedGraphics.ssaoEnabled && deps.renderer.capabilities.isWebGL2
+          resolved.gtaoPassOrNull.enabled = enabled
+          // FR-014: Half-resolution GTAO — 75% fill reduction with acceptable quality loss
+          resolved.gtaoPassOrNull.setSize(enabled ? Math.ceil(rw / 2) : 1, enabled ? Math.ceil(rh / 2) : 1)
+        }
+        if (resolved.bloomPassOrNull) {
+          resolved.bloomPassOrNull.enabled = inputs.resolvedGraphics.bloomEnabled
+          resolved.bloomPassOrNull.strength = inputs.resolvedGraphics.bloomStrength
+          resolved.bloomPassOrNull.setSize(
+            inputs.resolvedGraphics.bloomEnabled ? rw : 1,
+            inputs.resolvedGraphics.bloomEnabled ? rh : 1,
+          )
+        }
+        if (resolved.dofPassOrNull) {
+          resolved.dofPassOrNull.enabled = inputs.resolvedGraphics.dofEnabled
+          resolved.dofPassOrNull.setSize(
+            inputs.resolvedGraphics.dofEnabled ? rw : 1,
+            inputs.resolvedGraphics.dofEnabled ? rh : 1,
+          )
+        }
+        if (resolved.smaaPassOrNull) {
+          resolved.smaaPassOrNull.enabled = inputs.resolvedGraphics.smaaEnabled
+          resolved.smaaPassOrNull.setSize(
+            inputs.resolvedGraphics.smaaEnabled ? rw : 1,
+            inputs.resolvedGraphics.smaaEnabled ? rh : 1,
+          )
+        }
+        if (resolved.godRaysPassOrNull) {
+          resolved.godRaysPassOrNull.setNumSamples(inputs.resolvedGraphics.godRaysSamples)
+          resolved.godRaysPassOrNull.setSize(
+            inputs.resolvedGraphics.godRaysEnabled ? rw : 1,
+            inputs.resolvedGraphics.godRaysEnabled ? rh : 1,
+          )
+        }
+      })
+    }
+  })
+
+// ---------------------------------------------------------------------------
+// Stage 10: renderStage — god-rays sun projection + composer.render (or fallback).
+// ---------------------------------------------------------------------------
+
+const renderStage = (
+  deps: Pick<FrameHandlerDeps, 'renderer' | 'scene' | 'camera' | 'lights'>,
+  resolved: Pick<ResolvedDeps, 'godRaysPassOrNull' | 'composerOrNull'>,
+  inputs: {
+    readonly resolvedGraphics: ResolvedGraphics
+    readonly sunWorldPos: THREE.Vector3
+  },
+): Effect.Effect<void, never> =>
+  Effect.sync(() => {
+    if (resolved.godRaysPassOrNull) {
+      if (inputs.resolvedGraphics.godRaysEnabled) {
+        const lightPos = deps.lights.light.position
+        inputs.sunWorldPos.copy(lightPos).normalize().multiplyScalar(100)
+        inputs.sunWorldPos.project(deps.camera)
+        const sunU = (inputs.sunWorldPos.x + 1) * 0.5
+        const sunV = (inputs.sunWorldPos.y + 1) * 0.5
+        const behindCamera = inputs.sunWorldPos.z > 1
+        const offScreen = sunU < -0.2 || sunU > 1.2 || sunV < -0.2 || sunV > 1.2
+        if (behindCamera || offScreen) {
+          resolved.godRaysPassOrNull.enabled = false
+        } else {
+          resolved.godRaysPassOrNull.sunScreenPos.set(sunU, sunV)
+          // FR-003: Adaptive god-rays sample count — reduce by 50% when
+          // sun is in the outer 40% of the screen where quality loss is imperceptible.
+          const distFromCenter = Math.hypot(sunU - 0.5, sunV - 0.5)
+          const baseSamples = inputs.resolvedGraphics.godRaysSamples
+          const adaptiveSamples = distFromCenter > 0.3 ? Math.max(5, Math.floor(baseSamples * 0.5)) : baseSamples
+          resolved.godRaysPassOrNull.setNumSamples(adaptiveSamples)
+          resolved.godRaysPassOrNull.enabled = true
+        }
+      } else {
+        resolved.godRaysPassOrNull.enabled = false
+      }
+    }
+
+    if (resolved.composerOrNull) {
+      resolved.composerOrNull.render()
+    } else {
+      deps.renderer.render(deps.scene, deps.camera)
+    }
+  })
+
+// ---------------------------------------------------------------------------
+// Stage 11: hudStage — FPS tick + adaptive quality + DOM update + hotbar HUD pass.
+// ---------------------------------------------------------------------------
+
+const hudStage = (
+  deps: Pick<FrameHandlerDeps, 'renderer'>,
+  services: Pick<FrameHandlerServices, 'fpsCounter' | 'settingsService' | 'hotbarRenderer'>,
+  refs: Pick<FrameStageRefs, 'frustumThrottleStrideRef' | 'adaptiveQualityCooldownRef' | 'lastFpsTextRef'>,
+  inputs: {
+    readonly deltaTime: DeltaTimeSecs
+    readonly currentSettings: FrameSettingsView
+    readonly fpsElementOrNull: HTMLElement | null
+  },
+): Effect.Effect<void, never> =>
+  Effect.gen(function* () {
+    // Update FPS display — tick first, then update DOM only when displayed value changes
+    const fps = yield* services.fpsCounter.tick(inputs.deltaTime).pipe(Effect.andThen(services.fpsCounter.getFPS()))
+    const fpsText = fps.toFixed(1)
+    yield* Ref.set(refs.frustumThrottleStrideRef, fps >= 100 ? 1 : fps >= 60 ? 2 : 4)
+    const adaptiveCooldown = yield* Ref.get(refs.adaptiveQualityCooldownRef)
+    const adaptiveQualityDecision = decideAdaptiveQuality({
+      adaptivePerformanceMode: inputs.currentSettings.adaptivePerformanceMode,
+      graphicsQuality: inputs.currentSettings.graphicsQuality,
+      renderDistance: inputs.currentSettings.renderDistance,
+      fps,
+      cooldown: adaptiveCooldown,
+    })
+    if (adaptiveQualityDecision.nextCooldown !== adaptiveCooldown) {
+      yield* Ref.set(refs.adaptiveQualityCooldownRef, adaptiveQualityDecision.nextCooldown)
+    }
+    if (adaptiveQualityDecision.settingsPatch !== null) {
+      yield* services.settingsService.updateSettings(adaptiveQualityDecision.settingsPatch)
+    }
+    const fpsChanged = yield* Ref.modify(refs.lastFpsTextRef, (last): [boolean, string] =>
+      last === fpsText ? [false, last] : [true, fpsText],
+    )
+    if (fpsChanged && inputs.fpsElementOrNull) {
+      yield* Effect.sync(() => {
+        inputs.fpsElementOrNull!.textContent = fpsText
+      })
+    }
+
+    // Render HUD hotbar overlay (second pass; autoClear=false prevents erasing the main scene)
+    yield* Effect.sync(() => {
+      deps.renderer.autoClear = false
+    }).pipe(
+      Effect.andThen(services.hotbarRenderer.render(deps.renderer)),
+      Effect.andThen(
+        Effect.sync(() => {
+          deps.renderer.autoClear = true
+        }),
+      ),
+      Effect.catchAllCause((cause) => Effect.logError(`HUD render error: ${Cause.pretty(cause)}`)),
+    )
+  })
+
+// ---------------------------------------------------------------------------
+// Internal factory — wires refs, derived deps, and the per-frame orchestrator.
+// ---------------------------------------------------------------------------
+
 const createFrameLoopHandlersInternal = (
   deps: FrameHandlerDeps,
   services: FrameHandlerServices,
 ): Effect.Effect<FrameLoopHandlers> =>
   Effect.gen(function* () {
+    // ---- Allocate refs that span across frames ----
     // Accumulated total time for water shader uTime uniform (seconds since game start)
     const totalTimeSecsRef = yield* Ref.make(0)
     const redstoneTickAccumulatorRef = yield* Ref.make(0)
@@ -208,7 +1165,10 @@ const createFrameLoopHandlersInternal = (
     const adaptiveQualityCooldownRef = yield* Ref.make(0)
     const lastAppliedPixelRatioRef = yield* Ref.make(Number.NaN)
     // Track last graphicsQuality + resolved preset to skip resolvePreset and pass enable sync when preset is unchanged
-    const lastGraphicsQualityRef = yield* Ref.make<{ quality: string; resolved: ResolvedGraphics }>({ quality: '', resolved: resolvePreset('high') })
+    const lastGraphicsQualityRef = yield* Ref.make<{ quality: string; resolved: ResolvedGraphics }>({
+      quality: '',
+      resolved: resolvePreset('high'),
+    })
     // Dirty chunk accumulator: deduplicates block break/place remesh calls within a single frame
     const dirtyChunksRef = yield* Ref.make(HashMap.empty<string, Chunk>())
 
@@ -218,8 +1178,26 @@ const createFrameLoopHandlersInternal = (
     // FR-009: Cache last shadow target position — skip updateMatrixWorld when player hasn't moved significantly
     const lastShadowTargetRef = MutableRef.make({ x: NaN, z: NaN })
     // Cache last world-renderer scene version + camera pose for frustum/refraction skips.
-    const lastFrustumCullRef = MutableRef.make({ version: -1, x: NaN, y: NaN, z: NaN, qx: NaN, qy: NaN, qz: NaN, qw: NaN })
-    const lastRefractionFrameRef = MutableRef.make({ version: -1, x: NaN, y: NaN, z: NaN, qx: NaN, qy: NaN, qz: NaN, qw: NaN })
+    const lastFrustumCullRef = MutableRef.make<CameraPoseSnapshot>({
+      version: -1,
+      x: NaN,
+      y: NaN,
+      z: NaN,
+      qx: NaN,
+      qy: NaN,
+      qz: NaN,
+      qw: NaN,
+    })
+    const lastRefractionFrameRef = MutableRef.make<CameraPoseSnapshot>({
+      version: -1,
+      x: NaN,
+      y: NaN,
+      z: NaN,
+      qx: NaN,
+      qy: NaN,
+      qz: NaN,
+      qw: NaN,
+    })
     // FR-005: Skip audio applySettings when volume/enabled haven't changed
     const lastAudioRef = MutableRef.make({ enabled: false, master: -1, sfx: -1, music: -1 })
 
@@ -228,16 +1206,42 @@ const createFrameLoopHandlersInternal = (
 
     // FR-004: Pre-resolve Option deps that never change between frames.
     // Eliminates Option.match dispatch overhead on every frame for fixed references.
-    const skyMeshOrNull = Option.getOrNull(deps.skyMesh)
-    const fpsElementOrNull = Option.getOrNull(deps.fpsElement)
-    const healthValueElementOrNull = Option.getOrNull(deps.healthValueElement)
-    const healthMaxElementOrNull = Option.getOrNull(deps.healthMaxElement)
-    const gtaoPassOrNull = Option.getOrNull(deps.gtaoPass)
-    const bloomPassOrNull = Option.getOrNull(deps.bloomPass)
-    const dofPassOrNull = Option.getOrNull(deps.dofPass)
-    const smaaPassOrNull = Option.getOrNull(deps.smaaPass)
-    const godRaysPassOrNull = Option.getOrNull(deps.godRaysPass)
-    const composerOrNull = Option.getOrNull(deps.composer)
+    const resolved: ResolvedDeps = {
+      skyMeshOrNull: Option.getOrNull(deps.skyMesh),
+      fpsElementOrNull: Option.getOrNull(deps.fpsElement),
+      healthValueElementOrNull: Option.getOrNull(deps.healthValueElement),
+      healthMaxElementOrNull: Option.getOrNull(deps.healthMaxElement),
+      gtaoPassOrNull: Option.getOrNull(deps.gtaoPass),
+      bloomPassOrNull: Option.getOrNull(deps.bloomPass),
+      dofPassOrNull: Option.getOrNull(deps.dofPass),
+      smaaPassOrNull: Option.getOrNull(deps.smaaPass),
+      godRaysPassOrNull: Option.getOrNull(deps.godRaysPass),
+      composerOrNull: Option.getOrNull(deps.composer),
+    }
+
+    const refs: FrameStageRefs = {
+      totalTimeSecsRef,
+      redstoneTickAccumulatorRef,
+      fluidTickAccumulatorRef,
+      refractionFrameCounterRef,
+      refractionValidRef,
+      lastFpsTextRef,
+      lastHealthRef,
+      lastRenderDistanceRef,
+      lastEntityStructureVersionRef,
+      shadowUpdateCounterRef,
+      frustumThrottleStrideRef,
+      frustumThrottleCounterRef,
+      adaptiveQualityCooldownRef,
+      lastAppliedPixelRatioRef,
+      lastGraphicsQualityRef,
+      dirtyChunksRef,
+      lastShadowTargetRef,
+      lastFrustumCullRef,
+      lastRefractionFrameRef,
+      lastAudioRef,
+    }
+
     const applyPixelRatioCap = (pixelRatioCap: number): Effect.Effect<boolean, never> =>
       Ref.get(lastAppliedPixelRatioRef).pipe(
         Effect.flatMap((lastAppliedPixelRatio) => {
@@ -250,763 +1254,147 @@ const createFrameLoopHandlersInternal = (
             const width = deps.renderer.domElement.clientWidth || 1
             const height = deps.renderer.domElement.clientHeight || 1
             deps.renderer.setPixelRatio(nextPixelRatio)
-            composerOrNull?.setPixelRatio(nextPixelRatio)
+            resolved.composerOrNull?.setPixelRatio(nextPixelRatio)
             deps.renderer.setSize(width, height)
-            composerOrNull?.setSize(width, height)
-          }).pipe(
-            Effect.andThen(Ref.set(lastAppliedPixelRatioRef, nextPixelRatio)),
-            Effect.as(true)
-          )
-        })
+            resolved.composerOrNull?.setSize(width, height)
+          }).pipe(Effect.andThen(Ref.set(lastAppliedPixelRatioRef, nextPixelRatio)), Effect.as(true))
+        }),
       )
+
     const markShadowMapDirty = (): void => {
       if (deps.renderer.shadowMap) {
         deps.renderer.shadowMap.needsUpdate = true
       }
     }
-    const maintenanceHandler = createMaintenanceHandler(
-      deps,
-      services,
-      {
-        lastLoadedChunksRef,
-        lastChunkStreamingRef,
-        chunkSyncPendingRef,
-        dirtyChunksRef,
-      },
-    )
 
+    const maintenanceHandler = createMaintenanceHandler(deps, services, {
+      lastLoadedChunksRef,
+      lastChunkStreamingRef,
+      chunkSyncPendingRef,
+      dirtyChunksRef,
+    })
+
+    // ---- Per-frame orchestrator: sequences stages in order ----
     const frameHandler = (deltaTime: DeltaTimeSecs) =>
       Effect.gen(function* () {
-      const {
-        gameState,
-        playerCameraState,
-        firstPersonCamera,
-        thirdPersonCamera,
-        blockHighlight,
-        inputService,
-        blockService,
-        hotbarService,
-        hotbarRenderer,
-        chunkManagerService,
-        timeService,
-        settingsService,
-        settingsOverlay,
-        inventoryRenderer,
-        inventoryService,
-        fpsCounter,
-        worldRendererService,
-        entityRenderer,
-        chunkMeshService,
-        healthService,
-        soundManager,
-        musicManager,
-        entityManager,
-        villageService,
-        tradingPresentation,
-    redstoneService,
-    fluidService,
-    furnaceService,
-  } = services
+        // Accumulate total elapsed time for water shader uniform
+        const totalTimeSecs = yield* Ref.updateAndGet(totalTimeSecsRef, (t) => t + deltaTime)
 
-      const { renderer, scene, camera, gamePausedRef } = deps
+        // Fetch settings once per frame for shadow/SSAO and day-length reactive changes
+        const currentSettings = yield* services.settingsService.getSettings()
 
-      // Accumulate total elapsed time for water shader uniform
-      const totalTimeSecs = yield* Ref.updateAndGet(totalTimeSecsRef, (t) => t + deltaTime)
-
-      // Fetch settings once per frame for shadow/SSAO and day-length reactive changes
-      const currentSettings = yield* settingsService.getSettings()
-
-      // Derive effective lights: conditionally nullify sky port based on preset
-      // Cache resolvePreset result — only recompute when graphicsQuality changes
-      const [resolvedGraphics, graphicsChanged] = yield* Ref.modify(
-        lastGraphicsQualityRef,
-        (last): [[ResolvedGraphics, boolean], { quality: string; resolved: ResolvedGraphics }] => {
-          if (last.quality === currentSettings.graphicsQuality) return [[last.resolved, false], last]
-          const next = { quality: currentSettings.graphicsQuality, resolved: resolvePreset(currentSettings.graphicsQuality) }
-          return [[next.resolved, true], next]
-        }
-      )
-      const effectiveLights = resolvedGraphics.skyEnabled
-        ? deps.lights
-        : lightsWithoutSky
-      const pixelRatioChanged = yield* applyPixelRatioCap(resolvedGraphics.pixelRatioCap)
-      yield* Effect.sync(() => { if (skyMeshOrNull) skyMeshOrNull.visible = resolvedGraphics.skyEnabled })
-
-      // Hoist player position — shared across steps 1, 3.5, and 8 to avoid redundant Effect calls
-      const playerPos = yield* gameState.getPlayerPosition(DEFAULT_PLAYER_ID).pipe(
-        Effect.catchAllCause(() => Effect.succeed(FALLBACK_PLAYER_POS))
-      )
-      let currentPlayerPos: Position = playerPos
-
-      // Audio settings (FR-005: skip applySettings when values haven't changed)
-      const lastAudio = MutableRef.get(lastAudioRef)
-      const audioChanged = lastAudio.enabled !== currentSettings.audioEnabled ||
-        lastAudio.master !== currentSettings.masterVolume ||
-        lastAudio.sfx !== currentSettings.sfxVolume ||
-        lastAudio.music !== currentSettings.musicVolume
-      if (audioChanged) {
-        MutableRef.set(lastAudioRef, {
-          enabled: currentSettings.audioEnabled,
-          master: currentSettings.masterVolume,
-          sfx: currentSettings.sfxVolume,
-          music: currentSettings.musicVolume,
-        })
-        yield* soundManager.applySettings({
-          enabled: currentSettings.audioEnabled,
-          masterVolume: currentSettings.masterVolume,
-          sfxVolume: currentSettings.sfxVolume,
-        })
-        yield* musicManager.applySettings({
-          enabled: currentSettings.audioEnabled,
-          masterVolume: currentSettings.masterVolume,
-          musicVolume: currentSettings.musicVolume,
-        })
-      }
-      // Listener position updates every frame (player moves)
-      yield* soundManager.setListenerPosition(playerPos)
-
-      const sceneVersionBeforeCull = yield* worldRendererService.getSceneVersion()
-      const currentFrustumPose = captureCameraPose(camera, sceneVersionBeforeCull)
-      const lastFrustumCull = MutableRef.get(lastFrustumCullRef)
-      const frustumStride = yield* Ref.get(frustumThrottleStrideRef)
-      const frustumTick = yield* Ref.updateAndGet(frustumThrottleCounterRef, (n) => (n + 1) % Math.max(frustumStride, 1))
-      if (frustumTick === 0 && hasCameraPoseChanged(lastFrustumCull, currentFrustumPose)) {
-        yield* worldRendererService.applyFrustumCulling(camera)
-        MutableRef.set(lastFrustumCullRef, currentFrustumPose)
-      }
-
-      // 1. Day/night cycle: advance time and update lighting + sky color
-      yield* updateDayNightCycle(deltaTime, effectiveLights, timeService).pipe(
-        Effect.catchAllCause((cause) => Effect.logError(`Day/night error: ${Cause.pretty(cause)}`))
-      )
-      yield* Ref.updateAndGet(shadowUpdateCounterRef, (n) => (n + 1) % 8).pipe(
-        Effect.flatMap((shadowFrame) => shadowFrame === 0 && deps.lights.light.castShadow
-          ? Effect.sync(() => {
-              markShadowMapDirty()
-            })
-          : Effect.void)
-      )
-
-      yield* timeService.isNight().pipe(
-        Effect.flatMap((isNight) => musicManager.updateFromContext({ isNight, playerPosition: playerPos })),
-        Effect.catchAllCause((cause) => Effect.logError(`Music update error: ${Cause.pretty(cause)}`))
-      )
-
-      // 2.5. Entity simulation stays on the frame lane so visible transforms remain responsive.
-      // Slower world simulation (furnace/spawn/village) runs on the maintenance lane.
-      const timeOfDay = yield* timeService.getTimeOfDay()
-      yield* entityManager.update(deltaTime, playerPos).pipe(
-        Effect.catchAllCause((cause) => Effect.logError(`Entity system error: ${Cause.pretty(cause)}`))
-      )
-
-      // 2.8. Sun-driven shader uniform — derived from the canonical day-factor formula
-      // (matches `updateDayNightCycle`'s sin curve so chunk lighting tracks the visible sun).
-      const sunIntensity = Math.max(0, Math.sin((timeOfDay - 0.25) * Math.PI * 2))
-      yield* chunkMeshService.setSunIntensity(sunIntensity).pipe(
-        Effect.catchAllCause((cause) => Effect.logError(`Sun intensity sync error: ${Cause.pretty(cause)}`))
-      )
-
-      // 2.85. Sync entity meshes with the live entity list and animate transforms.
-      // Must run after entityManager.update so the snapshot reflects this frame's positions.
-      yield* Effect.all([
-        entityManager.getEntities(),
-        entityManager.getStructureVersion(),
-      ], { concurrency: 'unbounded' }).pipe(
-        Effect.flatMap(([entitiesSnapshot, structureVersion]) =>
-          Ref.get(lastEntityStructureVersionRef).pipe(
-            Effect.flatMap((lastStructureVersion) =>
-              (lastStructureVersion === structureVersion
-                ? Effect.void
-                : entityRenderer.syncEntities(entitiesSnapshot, scene).pipe(
-                    Effect.andThen(Ref.set(lastEntityStructureVersionRef, structureVersion))
-                  )).pipe(
-                Effect.andThen(entityRenderer.updateEntityTransforms(entitiesSnapshot, totalTimeSecs, deltaTime))
-              )
-            )
-          )
-        ),
-        Effect.catchAllCause((cause) => Effect.logError(`Entity render error: ${Cause.pretty(cause)}`))
-      )
-
-      // 2.9. Redstone simulation tick (fixed-step propagation)
-      yield* Ref.modify(redstoneTickAccumulatorRef, (accumulated) => {
-        const { ticks, remainder } = advanceFixedStep(accumulated, deltaTime, REDSTONE_TICK_INTERVAL_SECS)
-        return [ticks, remainder]
-      }).pipe(
-        Effect.flatMap((ticksToRun) =>
-          ticksToRun === 1
-            ? redstoneService.tick().pipe(Effect.asVoid)
-            : ticksToRun > 1
-              ? Effect.repeatN(redstoneService.tick(), ticksToRun - 1).pipe(Effect.asVoid)
-              : Effect.void
-        ),
-        Effect.catchAllCause((cause) => Effect.logError(`Redstone system error: ${Cause.pretty(cause)}`))
-      )
-
-      // 2.95. Fluid simulation tick (fixed-step propagation)
-      yield* Ref.modify(fluidTickAccumulatorRef, (accumulated) => {
-        const { ticks, remainder } = advanceFixedStep(accumulated, deltaTime, FLUID_TICK_INTERVAL_SECS)
-        return [ticks, remainder]
-      }).pipe(
-        Effect.flatMap((ticksToRun) =>
-          ticksToRun === 1
-            ? fluidService.tick().pipe(Effect.asVoid)
-            : ticksToRun > 1
-              ? Effect.repeatN(fluidService.tick(), ticksToRun - 1).pipe(Effect.asVoid)
-              : Effect.void
-        ),
-        Effect.catchAllCause((cause) => Effect.logError(`Fluid system error: ${Cause.pretty(cause)}`))
-      )
-
-      // 3. Update game state (input -> movement -> physics -> position sync)
-      yield* gameState.update(deltaTime).pipe(
-        Effect.catchAllCause((cause) => Effect.logError(`Physics update error: ${Cause.pretty(cause)}`))
-      )
-
-      // 3.5. Health: fall damage processing and HUD update
-      yield* Effect.gen(function* () {
-        currentPlayerPos = yield* gameState.getPlayerPosition(DEFAULT_PLAYER_ID).pipe(
-          Effect.catchAllCause(() => Effect.succeed(currentPlayerPos))
+        // Derive effective lights: conditionally nullify sky port based on preset
+        // Cache resolvePreset result — only recompute when graphicsQuality changes
+        const [resolvedGraphics, graphicsChanged] = yield* Ref.modify(
+          lastGraphicsQualityRef,
+          (last): [[ResolvedGraphics, boolean], { quality: string; resolved: ResolvedGraphics }] => {
+            if (last.quality === currentSettings.graphicsQuality) return [[last.resolved, false], last]
+            const next = {
+              quality: currentSettings.graphicsQuality,
+              resolved: resolvePreset(currentSettings.graphicsQuality),
+            }
+            return [[next.resolved, true], next]
+          },
         )
-
-        const tryApplyPlayerDamage = (amount: number): Effect.Effect<boolean, never> =>
-          amount <= 0
-            ? Effect.succeed(false)
-            : healthService.getHealth().pipe(
-                Effect.flatMap((health) =>
-                  health.current <= 0 || health.invincibilityTicks > 0
-                    ? Effect.succeed(false)
-                    : healthService.applyDamage(amount).pipe(Effect.as(true))
-                )
-              )
-
-        const isGrounded = yield* gameState.isPlayerGrounded()
-        const fallDamage = yield* healthService.processFallDamage(currentPlayerPos.y, isGrounded)
-        const tookFallDamage = yield* tryApplyPlayerDamage(fallDamage)
-        if (tookFallDamage) {
-          yield* soundManager.playEffect('playerHurt', { position: currentPlayerPos })
-        }
-
-        const hostileDamage = yield* entityManager.getPlayerContactDamage(currentPlayerPos)
-        const tookHostileDamage = yield* tryApplyPlayerDamage(hostileDamage)
-        if (tookHostileDamage) {
-          yield* soundManager.playEffect('playerHurt', { position: currentPlayerPos })
-        }
-
-        const isDead = yield* healthService.isDead()
-        if (isDead) {
-          yield* healthService.reset()
-          yield* gameState.respawn(deps.respawnPosition)
-          currentPlayerPos = deps.respawnPosition
-        } else {
-          yield* healthService.tick()
-        }
-
-        const health = yield* healthService.getHealth()
-        // Pre-cached element refs (resolved once at startup in FrameHandlerDeps)
-        // FR-006: Only write DOM when health values actually change
-        const lastHealth = MutableRef.get(lastHealthRef)
-        if (lastHealth.current !== health.current || lastHealth.max !== health.max) {
-          MutableRef.set(lastHealthRef, { current: health.current, max: health.max })
-          yield* Effect.sync(() => {
-            if (healthValueElementOrNull) healthValueElementOrNull.textContent = String(health.current)
-            if (healthMaxElementOrNull) healthMaxElementOrNull.textContent = String(health.max)
-          })
-        }
-      }).pipe(Effect.catchAllCause((cause) => Effect.logError(`Health error: ${Cause.pretty(cause)}`)))
-
-      // 4. Update camera rotation from mouse look (suppressed when a modal is open)
-      yield* Ref.get(gamePausedRef).pipe(
-        Effect.flatMap((paused) => paused ? Effect.void : firstPersonCamera.update(camera, currentSettings.mouseSensitivity))
-      )
-
-      // 4.5. Handle view toggle: F5 switches first/third person before raycasting
-      yield* inputService.consumeKeyPress(KeyMappings.CAMERA_TOGGLE).pipe(
-        Effect.flatMap((pressed) => pressed ? playerCameraState.toggleMode() : Effect.void),
-        Effect.catchAllCause((cause) => Effect.logError(`Camera toggle error: ${Cause.pretty(cause)}`))
-      )
-
-      // 4.6. Camera perspective + position sync (use current mode before raycasting)
-      yield* Effect.all(
-        [playerCameraState.getRotation(), playerCameraState.getMode()],
-        { concurrency: 'unbounded' }
-      ).pipe(
-        Effect.flatMap(([rotation, cameraMode]) =>
-          cameraMode === 'firstPerson'
-            ? Effect.sync(() => {
-                const eyeY = currentPlayerPos.y + EYE_LEVEL_OFFSET
-                camera.position.set(currentPlayerPos.x, eyeY, currentPlayerPos.z)
-                camera.rotation.set(rotation.pitch, rotation.yaw, 0, 'YXZ')
-              })
-            : thirdPersonCamera.update(camera, currentPlayerPos, EYE_LEVEL_OFFSET)
-        ),
-        // Shadow frustum follows player so terrain around them is always shadow-covered
-        // FR-009: Only update when player has moved more than 0.5 blocks (avoids per-frame updateMatrixWorld)
-        Effect.andThen(Effect.sync(() => {
-          const lastTarget = MutableRef.get(lastShadowTargetRef)
-          const dx = currentPlayerPos.x - lastTarget.x
-          const dz = currentPlayerPos.z - lastTarget.z
-          if (dx * dx + dz * dz > 0.25) {
-            MutableRef.set(lastShadowTargetRef, { x: currentPlayerPos.x, z: currentPlayerPos.z })
-            deps.lights.light.target.position.set(currentPlayerPos.x, 0, currentPlayerPos.z)
-            deps.lights.light.target.updateMatrixWorld()
-            markShadowMapDirty()
-          }
-        })),
-        // Dynamic shadow frustum: tighten bounds to renderDistance for higher texel density.
-        // Only update when renderDistance changes (avoids per-frame updateProjectionMatrix).
-        Effect.andThen(Ref.modify(lastRenderDistanceRef, (lastRd): [boolean, number] =>
-          lastRd === currentSettings.renderDistance ? [false, lastRd] : [true, currentSettings.renderDistance]
-        )),
-        Effect.flatMap((changed) => changed
-          ? Effect.sync(() => {
-              // Dynamic camera far plane: keep Z-buffer precision tight to visible range
-              camera.far = Math.max(currentSettings.renderDistance * CHUNK_SIZE * 1.5 + CHUNK_HEIGHT, 300)
-              camera.updateProjectionMatrix()
-              // Shadow frustum: tighten bounds to renderDistance for higher texel density
-              const halfExtent = Math.min(Math.ceil(currentSettings.renderDistance * CHUNK_SIZE * 0.5), MAX_SHADOW_HALF_EXTENT)
-              const cam = deps.lights.light.shadow.camera
-              cam.far = Math.max(currentSettings.renderDistance * CHUNK_SIZE * 1.5 + CHUNK_HEIGHT, 300)
-              cam.left = -halfExtent
-              cam.right = halfExtent
-              cam.top = halfExtent
-              cam.bottom = -halfExtent
-              cam.updateProjectionMatrix()
-              markShadowMapDirty()
-            })
-          : Effect.void
-        )
-      )
-
-      // 5. Update block highlight
-      yield* blockHighlight.update(camera, scene)
-
-      // 6. Handle overlay toggles: Escape (settings), E (inventory)
-      yield* Effect.gen(function* () {
-          const [escPressed, inventoryPressed, tradePressed, tradeNextPressed, tradePrevPressed, tradeExecutePressed] = yield* Effect.all([
-          inputService.consumeKeyPress(KeyMappings.ESCAPE),
-          inputService.consumeKeyPress(KeyMappings.INVENTORY_OPEN),
-          inputService.consumeKeyPress(TRADE_OPEN_KEY),
-          inputService.consumeKeyPress(TRADE_NEXT_KEY),
-          inputService.consumeKeyPress(TRADE_PREV_KEY),
-          inputService.consumeKeyPress(TRADE_EXECUTE_KEY),
-        ], { concurrency: 'unbounded' })
-
-        const isTradeOpen = yield* tradingPresentation.isOpen()
-
-        if (escPressed) {
-          const isInvOpen = yield* inventoryRenderer.isOpen()
-          const isSettingsOpen = yield* settingsOverlay.isOpen()
-
-          if (isTradeOpen) {
-            yield* tradingPresentation.close()
-            yield* Ref.set(gamePausedRef, false)
-          } else if (isInvOpen) {
-            // Close inventory
-            yield* inventoryRenderer.toggle()
-            yield* Ref.set(gamePausedRef, false)
-          } else if (isSettingsOpen) {
-            // Close settings
-            yield* settingsOverlay.toggle()
-            yield* Ref.set(gamePausedRef, false)
-          } else {
-            // Open settings
-            const nowOpen = yield* settingsOverlay.toggle()
-            yield* Ref.set(gamePausedRef, nowOpen)
-          }
-        }
-
-        if (inventoryPressed) {
-          const isInvOpen = yield* inventoryRenderer.isOpen()
-          if (isInvOpen) {
-            // Close inventory
-            yield* inventoryRenderer.toggle()
-            yield* Ref.set(gamePausedRef, false)
-          } else {
-            // Close settings first if open, then open inventory
-            const isSettingsOpen = yield* settingsOverlay.isOpen()
-            const tradeOpen = yield* tradingPresentation.isOpen()
-            if (isSettingsOpen) yield* settingsOverlay.toggle()
-            if (tradeOpen) yield* tradingPresentation.close()
-            yield* inventoryRenderer.toggle()
-            yield* Ref.set(gamePausedRef, true)
-          }
-        }
-
-        if (tradePressed) {
-          const tradeOpen = yield* tradingPresentation.isOpen()
-          if (tradeOpen) {
-            yield* tradingPresentation.close()
-            yield* Ref.set(gamePausedRef, false)
-          } else {
-            const isInvOpen = yield* inventoryRenderer.isOpen()
-            const isSettingsOpen = yield* settingsOverlay.isOpen()
-            if (!isInvOpen && !isSettingsOpen) {
-              const villagerOption = yield* villageService.findNearestVillager(currentPlayerPos, TRADE_DISTANCE)
-              yield* Option.match(villagerOption, {
-                onNone: () => Effect.void,
-                onSome: (villager) =>
-                  tradingPresentation.open(villager.villagerId).pipe(
-                    Effect.flatMap((opened) => opened ? Ref.set(gamePausedRef, true) : Effect.void)
-                  ),
-              })
-            }
-          }
-        }
-
-        // FR-007: Early-exit guard — when no overlay is open (gamePausedRef=false),
-        // skip trading navigation/refresh and inventory update entirely.
-        // This avoids per-frame Effect allocations (tradingPresentation.isOpen Ref.get,
-        // inventoryRenderer.update Effect.gen + Ref.get) when overlays are closed.
-        const anyOverlayOpen = yield* Ref.get(gamePausedRef)
-
-        if (anyOverlayOpen) {
-          const tradeOpenAfterToggles = yield* tradingPresentation.isOpen()
-
-          if (tradeOpenAfterToggles) {
-            if (tradePrevPressed) {
-              yield* tradingPresentation.cycleSelection(-1)
-            }
-            if (tradeNextPressed) {
-              yield* tradingPresentation.cycleSelection(1)
-            }
-            if (tradeExecutePressed) {
-              yield* tradingPresentation.executeSelectedTrade()
-            }
-            yield* tradingPresentation.refresh()
-          } else {
-            const inventoryOpenAfterToggles = yield* inventoryRenderer.isOpen()
-            if (inventoryOpenAfterToggles) {
-              if (tradePrevPressed) {
-                yield* inventoryRenderer.cycleRecipes(-1)
-              }
-              if (tradeNextPressed) {
-                yield* inventoryRenderer.cycleRecipes(1)
-              }
-              if (tradeExecutePressed) {
-                yield* inventoryRenderer.craftSelectedRecipe()
-              }
-            }
-          }
-
-          yield* inventoryRenderer.update()
-        }
-
-        // Sync day length to TimeService in case user applied settings changes
-        // Guard: only update if the value has actually changed (avoids 60 allocs/sec)
-        const currentDayLength = yield* timeService.getDayLength()
-        if (currentDayLength !== currentSettings.dayLengthSeconds) {
-          yield* timeService.setDayLength(currentSettings.dayLengthSeconds)
-        }
-      }).pipe(Effect.catchAllCause((cause) => Effect.logError(`Overlay error: ${Cause.pretty(cause)}`)))
-
-      // 7. Handle block interaction (break/place) and hotbar (suppressed when paused)
-      yield* Effect.gen(function* () {
-        const paused = yield* Ref.get(gamePausedRef)
-        if (paused) return
-
-        // Update hotbar slot selection (keyboard 1-9 and mouse wheel)
-        yield* hotbarService.update()
-
-        // Process block break/place clicks
-        const leftClick = yield* inputService.consumeMouseClick(0)
-        const rightClick = yield* inputService.consumeMouseClick(2)
-        const [placeWirePressed, placeLeverPressed, placeButtonPressed, placeTorchPressed, placePistonPressed, toggleLeverPressed, pressButtonPressed, toggleTorchPressed] = yield* Effect.all([
-          inputService.consumeKeyPress(REDSTONE_PLACE_WIRE_KEY),
-          inputService.consumeKeyPress(REDSTONE_PLACE_LEVER_KEY),
-          inputService.consumeKeyPress(REDSTONE_PLACE_BUTTON_KEY),
-          inputService.consumeKeyPress(REDSTONE_PLACE_TORCH_KEY),
-          inputService.consumeKeyPress(REDSTONE_PLACE_PISTON_KEY),
-          inputService.consumeKeyPress(REDSTONE_TOGGLE_LEVER_KEY),
-          inputService.consumeKeyPress(REDSTONE_PRESS_BUTTON_KEY),
-          inputService.consumeKeyPress(REDSTONE_TOGGLE_TORCH_KEY),
-        ], { concurrency: 'unbounded' })
-
-        const hasRedstoneInput =
-          placeWirePressed ||
-          placeLeverPressed ||
-          placeButtonPressed ||
-          placeTorchPressed ||
-          placePistonPressed ||
-          toggleLeverPressed ||
-          pressButtonPressed ||
-          toggleTorchPressed
-
-        if (leftClick || rightClick || hasRedstoneInput) {
-          const targetBlock = yield* blockHighlight.getTargetBlock()
-          const targetHit = yield* blockHighlight.getTargetHit()
-          const selectedHotbarItem = yield* hotbarService.getSelectedBlockType()
-
-          if (hasRedstoneInput) {
-            yield* Option.match(targetBlock, {
-              onNone: () => Effect.void,
-              onSome: (tb) =>
-                Effect.gen(function* () {
-                  const position = { x: tb.x, y: tb.y, z: tb.z }
-
-                  if (placeWirePressed) {
-                    yield* redstoneService.setComponent(position, RedstoneComponentType.Wire)
-                  }
-                  if (placeLeverPressed) {
-                    yield* redstoneService.setComponent(position, RedstoneComponentType.Lever)
-                  }
-                  if (placeButtonPressed) {
-                    yield* redstoneService.setComponent(position, RedstoneComponentType.Button)
-                  }
-                  if (placeTorchPressed) {
-                    yield* redstoneService.setComponent(position, RedstoneComponentType.Torch)
-                  }
-                  if (placePistonPressed) {
-                    yield* redstoneService.setComponent(position, RedstoneComponentType.Piston)
-                  }
-                  if (toggleLeverPressed) {
-                    yield* redstoneService.toggleLever(position)
-                  }
-                  if (pressButtonPressed) {
-                    yield* redstoneService.pressButton(position)
-                  }
-                  if (toggleTorchPressed) {
-                    yield* redstoneService.toggleTorch(position)
-                  }
-                }),
-            })
-
-            yield* redstoneService.tick()
-          }
-
-          if (leftClick) {
-            const targetEntity = yield* entityManager.getEntities().pipe(
-              Effect.map((entities) => findAttackableEntity(entities, camera, Option.map(targetHit, (hit) => hit.distance))),
-            )
-
-            yield* Option.match(targetEntity, {
-              onNone: () => Option.match(targetBlock, {
-                onNone: () => Effect.void,
-                onSome: (tb) => {
-                  const pos = { x: tb.x, y: tb.y, z: tb.z }
-                  const chunkCoord = { x: Math.floor(tb.x / CHUNK_SIZE), z: Math.floor(tb.z / CHUNK_SIZE) }
-                  const coordKey = `${chunkCoord.x},${chunkCoord.z}`
-                  return Effect.all([
-                    blockService.breakBlock(pos),
-                    soundManager.playEffect('blockBreak', { position: pos }),
-                  ], { concurrency: 'unbounded', discard: true }).pipe(
-                    Effect.andThen(chunkManagerService.getChunk(chunkCoord)),
-                    Effect.flatMap((updatedChunk) => Ref.update(dirtyChunksRef, (map) => HashMap.set(map, coordKey, updatedChunk)))
-                  )
-                },
-              }),
-              onSome: (entityId) =>
-                entityManager.applyDamage(
-                  entityId,
-                  Option.match(selectedHotbarItem, {
-                    onNone: () => PLAYER_ATTACK_DAMAGE,
-                    onSome: (item) => item === 'WOODEN_SWORD' ? WOODEN_SWORD_ATTACK_DAMAGE : PLAYER_ATTACK_DAMAGE,
-                  }),
-                ).pipe(
-                  Effect.flatMap((drops) =>
-                    Effect.forEach(
-                      Option.getOrElse(drops, () => []),
-                      (drop) => inventoryService.addBlock(drop.blockType, drop.count),
-                      { concurrency: 'unbounded', discard: true },
-                    ),
-                  ),
-                ),
-            })
-          }
-
-          if (rightClick) yield* Option.match(targetHit, {
-            onNone: () => Effect.void,
-            onSome: (hit) => {
-              const targetPos = { x: hit.blockX, y: hit.blockY, z: hit.blockZ }
-              const targetChunkCoord = { x: Math.floor(targetPos.x / CHUNK_SIZE), z: Math.floor(targetPos.z / CHUNK_SIZE) }
-              return chunkManagerService.getChunk(targetChunkCoord).pipe(
-                Effect.flatMap((targetChunk) => {
-                  const targetLx = ((targetPos.x % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE
-                  const targetLz = ((targetPos.z % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE
-                  const targetIdx = targetPos.y + targetLz * CHUNK_HEIGHT + targetLx * CHUNK_HEIGHT * CHUNK_SIZE
-                  const targetBlockType = indexToBlockType(targetChunk.blocks[targetIdx] ?? 0)
-                  if (targetBlockType === 'FURNACE') {
-                    return furnaceService.setSelectedFurnace(targetPos)
-                  }
-
-                  const adjacentPos = {
-                    x: hit.blockX + Math.round(hit.normal.x),
-                    y: hit.blockY + Math.round(hit.normal.y),
-                    z: hit.blockZ + Math.round(hit.normal.z),
-                  }
-                  return Effect.all([
-                    hotbarService.getSelectedBlockType(),
-                    hotbarService.getSelectedSlot(),
-                  ], { concurrency: 'unbounded' }).pipe(
-                    Effect.flatMap(([selectedBlock, selectedSlot]) => Option.match(selectedBlock, {
-                      onNone: () => Effect.void,
-                      onSome: (blockType) => {
-                        const chunkCoord = { x: Math.floor(adjacentPos.x / CHUNK_SIZE), z: Math.floor(adjacentPos.z / CHUNK_SIZE) }
-                        const coordKey = `${chunkCoord.x},${chunkCoord.z}`
-                        return blockService.placeBlock(adjacentPos, blockType, SlotIndex.make(HOTBAR_START + selectedSlot)).pipe(
-                          Effect.flatMap(() => soundManager.playEffect('blockPlace', { position: adjacentPos })),
-                          Effect.andThen(chunkManagerService.getChunk(chunkCoord)),
-                          Effect.flatMap((updatedChunk) => Ref.update(dirtyChunksRef, (map) => HashMap.set(map, coordKey, updatedChunk)))
-                        )
-                      },
-                    })),
-                  )
-                }),
-              )
-            },
-          })
-        }
-
-        // Update hotbar renderer with current slot state
-        const [slots, selectedSlot] = yield* Effect.all([
-          hotbarService.getSlots(),
-          hotbarService.getSelectedSlot(),
-        ], { concurrency: 'unbounded' })
-        yield* hotbarRenderer.update(slots, selectedSlot)
-      }).pipe(Effect.catchAllCause((cause) => Effect.logError(`Block interaction error: ${Cause.pretty(cause)}`)))
-
-      // 9. Update FPS display — tick first, then update DOM only when displayed value changes
-      const fps = yield* fpsCounter.tick(deltaTime).pipe(
-        Effect.andThen(fpsCounter.getFPS())
-      )
-      const fpsText = fps.toFixed(1)
-      yield* Ref.set(
-        frustumThrottleStrideRef,
-        fps >= 100 ? 1 : fps >= 60 ? 2 : 4,
-      )
-      const adaptiveCooldown = yield* Ref.get(adaptiveQualityCooldownRef)
-      const adaptiveQualityDecision = decideAdaptiveQuality({
-        adaptivePerformanceMode: currentSettings.adaptivePerformanceMode,
-        graphicsQuality: currentSettings.graphicsQuality,
-        renderDistance: currentSettings.renderDistance,
-        fps,
-        cooldown: adaptiveCooldown,
-      })
-      if (adaptiveQualityDecision.nextCooldown !== adaptiveCooldown) {
-        yield* Ref.set(adaptiveQualityCooldownRef, adaptiveQualityDecision.nextCooldown)
-      }
-      if (adaptiveQualityDecision.settingsPatch !== null) {
-        yield* settingsService.updateSettings(adaptiveQualityDecision.settingsPatch)
-      }
-      const fpsChanged = yield* Ref.modify(lastFpsTextRef, (last): [boolean, string] =>
-        last === fpsText ? [false, last] : [true, fpsText]
-      )
-      if (fpsChanged && fpsElementOrNull) {
-        yield* Effect.sync(() => { fpsElementOrNull.textContent = fpsText })
-      }
-
-      // 9.5. Refraction pre-pass for water shader — throttled by quality preset
-      // low=skip entirely, medium=every 3 frames, high=every 2, ultra=every frame
-      // Counter uses (n-1) so the first frame always runs (no initial-frame stutter).
-      if (resolvedGraphics.refractionThrottleFrames > 0) {
-        const refractionFrame = yield* Ref.updateAndGet(refractionFrameCounterRef, (n) => n + 1)
-        if ((refractionFrame - 1) % resolvedGraphics.refractionThrottleFrames === 0) {
-          const sceneVersionBeforeRefraction = yield* worldRendererService.getSceneVersion()
-          const currentRefractionPose = captureCameraPose(deps.camera, sceneVersionBeforeRefraction)
-          const lastRefractionFrame = MutableRef.get(lastRefractionFrameRef)
-          const shouldRunRefraction = hasCameraPoseChanged(lastRefractionFrame, currentRefractionPose)
-
-          if (shouldRunRefraction) {
-            yield* worldRendererService.doRefractionPrePass(deps.renderer, deps.scene, deps.camera).pipe(
-              Effect.catchAllCause((cause) => Effect.logError(`Refraction pre-pass error: ${Cause.pretty(cause)}`))
-            )
-            MutableRef.set(lastRefractionFrameRef, currentRefractionPose)
-            yield* Ref.getAndSet(refractionValidRef, true).pipe(
-              Effect.flatMap((wasValid) => wasValid ? Effect.void : worldRendererService.setRefractionValid(true))
-            )
-          }
-        }
-      }
-
-      // Update water uniforms (time + camera position only — resolution is set on resize)
-      yield* worldRendererService.updateWaterUniforms(
-        totalTimeSecs,
-        deps.camera.position,
-      )
-
-      // 10. Sync pass enable states from graphics quality preset, then render via EffectComposer
-      // graphicsChanged is computed earlier alongside resolvedGraphics (FR-012 cache)
-      // FR-014: disabled passes still hold full-resolution render targets that waste VRAM.
-      // On transition: disabled→setSize(1,1) shrinks RTs; enabled→setSize(w,h) restores them.
-      if (graphicsChanged || pixelRatioChanged) {
+        const effectiveLights = resolvedGraphics.skyEnabled ? deps.lights : lightsWithoutSky
+        const pixelRatioChanged = yield* applyPixelRatioCap(resolvedGraphics.pixelRatioCap)
         yield* Effect.sync(() => {
-          const w = renderer.domElement.clientWidth || 1
-          const h = renderer.domElement.clientHeight || 1
-          const pixelRatio = typeof renderer.getPixelRatio === 'function' ? renderer.getPixelRatio() : 1
-          const rw = Math.max(1, Math.ceil(w * pixelRatio))
-          const rh = Math.max(1, Math.ceil(h * pixelRatio))
-          if (deps.lights.light.castShadow !== resolvedGraphics.shadowsEnabled) {
-            deps.lights.light.castShadow = resolvedGraphics.shadowsEnabled
-            markShadowMapDirty()
-          }
-          if (gtaoPassOrNull) {
-            const enabled = resolvedGraphics.ssaoEnabled && renderer.capabilities.isWebGL2
-            gtaoPassOrNull.enabled = enabled
-            // FR-014: Half-resolution GTAO — 75% fill reduction with acceptable quality loss
-            gtaoPassOrNull.setSize(enabled ? Math.ceil(rw / 2) : 1, enabled ? Math.ceil(rh / 2) : 1)
-          }
-          if (bloomPassOrNull) {
-            bloomPassOrNull.enabled = resolvedGraphics.bloomEnabled; bloomPassOrNull.strength = resolvedGraphics.bloomStrength
-            bloomPassOrNull.setSize(resolvedGraphics.bloomEnabled ? rw : 1, resolvedGraphics.bloomEnabled ? rh : 1)
-          }
-          if (dofPassOrNull) {
-            dofPassOrNull.enabled = resolvedGraphics.dofEnabled
-            dofPassOrNull.setSize(resolvedGraphics.dofEnabled ? rw : 1, resolvedGraphics.dofEnabled ? rh : 1)
-          }
-          if (smaaPassOrNull) {
-            smaaPassOrNull.enabled = resolvedGraphics.smaaEnabled
-            smaaPassOrNull.setSize(resolvedGraphics.smaaEnabled ? rw : 1, resolvedGraphics.smaaEnabled ? rh : 1)
-          }
-          if (godRaysPassOrNull) {
-            godRaysPassOrNull.setNumSamples(resolvedGraphics.godRaysSamples)
-            godRaysPassOrNull.setSize(resolvedGraphics.godRaysEnabled ? rw : 1, resolvedGraphics.godRaysEnabled ? rh : 1)
-          }
+          if (resolved.skyMeshOrNull) resolved.skyMeshOrNull.visible = resolvedGraphics.skyEnabled
         })
-      }
 
-      yield* Effect.sync(() => {
-        if (godRaysPassOrNull) {
-          if (resolvedGraphics.godRaysEnabled) {
-            const lightPos = deps.lights.light.position
-            sunWorldPos.copy(lightPos).normalize().multiplyScalar(100)
-            sunWorldPos.project(camera)
-            const sunU = (sunWorldPos.x + 1) * 0.5
-            const sunV = (sunWorldPos.y + 1) * 0.5
-            const behindCamera = sunWorldPos.z > 1
-            const offScreen = sunU < -0.2 || sunU > 1.2 || sunV < -0.2 || sunV > 1.2
-            if (behindCamera || offScreen) {
-              godRaysPassOrNull.enabled = false
-            } else {
-              godRaysPassOrNull.sunScreenPos.set(sunU, sunV)
-              // FR-003: Adaptive god-rays sample count — reduce by 50% when
-              // sun is in the outer 40% of the screen where quality loss is imperceptible.
-              const distFromCenter = Math.hypot(sunU - 0.5, sunV - 0.5)
-              const baseSamples = resolvedGraphics.godRaysSamples
-              const adaptiveSamples = distFromCenter > 0.3
-                ? Math.max(5, Math.floor(baseSamples * 0.5))
-                : baseSamples
-              godRaysPassOrNull.setNumSamples(adaptiveSamples)
-              godRaysPassOrNull.enabled = true
-            }
-          } else {
-            godRaysPassOrNull.enabled = false
-          }
-        }
+        // Hoist player position — shared across stages to avoid redundant Effect calls
+        const initialPlayerPos = yield* services.gameState
+          .getPlayerPosition(DEFAULT_PLAYER_ID)
+          .pipe(Effect.catchAllCause(() => Effect.succeed(FALLBACK_PLAYER_POS)))
 
-        if (composerOrNull) {
-          composerOrNull.render()
-        } else {
-          renderer.render(scene, camera)
+        // Audio settings (FR-005: skip applySettings when values haven't changed)
+        const lastAudio = MutableRef.get(lastAudioRef)
+        const audioChanged =
+          lastAudio.enabled !== currentSettings.audioEnabled ||
+          lastAudio.master !== currentSettings.masterVolume ||
+          lastAudio.sfx !== currentSettings.sfxVolume ||
+          lastAudio.music !== currentSettings.musicVolume
+        if (audioChanged) {
+          MutableRef.set(lastAudioRef, {
+            enabled: currentSettings.audioEnabled,
+            master: currentSettings.masterVolume,
+            sfx: currentSettings.sfxVolume,
+            music: currentSettings.musicVolume,
+          })
+          yield* services.soundManager.applySettings({
+            enabled: currentSettings.audioEnabled,
+            masterVolume: currentSettings.masterVolume,
+            sfxVolume: currentSettings.sfxVolume,
+          })
+          yield* services.musicManager.applySettings({
+            enabled: currentSettings.audioEnabled,
+            masterVolume: currentSettings.masterVolume,
+            musicVolume: currentSettings.musicVolume,
+          })
         }
+        // Listener position updates every frame (player moves)
+        yield* services.soundManager.setListenerPosition(initialPlayerPos)
+
+        // === Stage execution ===
+        yield* chunkSyncStage(deps, services, refs)
+
+        yield* lightingStage(deps, services, refs, {
+          deltaTime,
+          effectiveLights,
+          playerPos: initialPlayerPos,
+          markShadowMapDirty,
+        })
+
+        yield* entityUpdateStage(deps, services, refs, {
+          deltaTime,
+          playerPos: initialPlayerPos,
+          totalTimeSecs,
+        })
+
+        const { playerPos } = yield* physicsStage(deps, services, refs, {
+          deltaTime,
+          initialPlayerPos,
+          healthValueElementOrNull: resolved.healthValueElementOrNull,
+          healthMaxElementOrNull: resolved.healthMaxElementOrNull,
+        })
+
+        yield* inputStage(deps, services, {
+          mouseSensitivity: currentSettings.mouseSensitivity,
+          dayLengthSeconds: currentSettings.dayLengthSeconds,
+          playerPos,
+        })
+
+        yield* cameraStage(deps, services, refs, {
+          playerPos,
+          renderDistance: currentSettings.renderDistance,
+          markShadowMapDirty,
+        })
+
+        yield* interactionStage(deps, services, refs)
+
+        yield* refractionPrepassStage(deps, services, refs, {
+          resolvedGraphics,
+          totalTimeSecs,
+        })
+
+        yield* postProcessingSetupStage(deps, resolved, {
+          resolvedGraphics,
+          graphicsChanged,
+          pixelRatioChanged,
+          markShadowMapDirty,
+        })
+
+        yield* renderStage(deps, resolved, {
+          resolvedGraphics,
+          sunWorldPos,
+        })
+
+        yield* hudStage(deps, services, refs, {
+          deltaTime,
+          currentSettings,
+          fpsElementOrNull: resolved.fpsElementOrNull,
+        })
       })
-
-      // 10. Render HUD hotbar overlay (second pass; autoClear=false prevents erasing the main scene)
-      yield* Effect.sync(() => { renderer.autoClear = false }).pipe(
-        Effect.andThen(hotbarRenderer.render(renderer)),
-        Effect.andThen(Effect.sync(() => { renderer.autoClear = true })),
-        Effect.catchAllCause((cause) => Effect.logError(`HUD render error: ${Cause.pretty(cause)}`))
-      )
-    })
 
     return { frameHandler, maintenanceHandler }
   })
@@ -1027,7 +1415,7 @@ export const createFrameHandler = (
   services: FrameHandlerServices,
 ): Effect.Effect<(deltaTime: DeltaTimeSecs) => Effect.Effect<void, never>> =>
   createFrameLoopHandlersInternal(deps, services).pipe(
-    Effect.map(({ frameHandler, maintenanceHandler }) =>
-      (deltaTime: DeltaTimeSecs) => maintenanceHandler().pipe(Effect.andThen(frameHandler(deltaTime)))
-    )
+    Effect.map(({ frameHandler, maintenanceHandler }) => (deltaTime: DeltaTimeSecs) =>
+      maintenanceHandler().pipe(Effect.andThen(frameHandler(deltaTime))),
+    ),
   )
