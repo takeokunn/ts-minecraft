@@ -1,0 +1,411 @@
+import { Effect, MutableHashSet, Option, Ref } from 'effect'
+import * as THREE from 'three'
+import { vi } from 'vitest'
+import { createFrameHandler, type FrameHandlerDeps, type FrameHandlerServices } from '@/frame-handler'
+import type { DeltaTimeSecs } from '@/shared/kernel'
+
+export type CameraMode = 'firstPerson' | 'thirdPerson'
+
+export interface CameraStateStub {
+  mode: CameraMode
+}
+
+export interface OverlayState {
+  open: boolean
+}
+
+export const DEFAULT_SETTINGS = {
+  renderDistance: 8,
+  mouseSensitivity: 0.5,
+  dayLengthSeconds: 400,
+  graphicsQuality: 'high' as const,
+  adaptivePerformanceMode: false,
+  audioEnabled: true,
+  masterVolume: 0.8,
+  sfxVolume: 1,
+  musicVolume: 0.55,
+}
+
+export const makeLights = () =>
+  ({
+    light: { position: { set: () => {} }, intensity: 1, castShadow: true, color: { setHSL: () => {} }, target: { position: { set: () => {} }, updateMatrixWorld: () => {} }, shadow: { camera: { left: -128, right: 128, top: 128, bottom: -128, updateProjectionMatrix: () => {} } } } as unknown as THREE.DirectionalLight,
+    ambientLight: { intensity: 0.3, color: { setHSL: () => {} } } as unknown as THREE.AmbientLight,
+    renderer: { setClearColor: () => {} },
+    skyNight: new THREE.Color(0x001133),
+    skyDay: new THREE.Color(0x87ceeb),
+    skyCurrent: new THREE.Color(0x87ceeb),
+    sky: Option.none(),
+  }) as unknown as import('@/application/time/day-night-cycle').DayNightLights
+
+export const makeRenderer = () =>
+  ({
+    render: vi.fn(),
+    setPixelRatio: vi.fn(),
+    getPixelRatio: vi.fn(() => 1),
+    setSize: vi.fn(),
+    autoClear: true,
+    domElement: { clientWidth: 800, clientHeight: 600 },
+    shadowMap: { needsUpdate: false },
+  }) as unknown as THREE.WebGLRenderer
+
+export const makeCamera = () => {
+  const camera = new THREE.PerspectiveCamera()
+  camera.updateProjectionMatrix = () => {}
+  return camera
+}
+
+export const makeComposer = () =>
+  ({
+    render: vi.fn(),
+    setPixelRatio: vi.fn(),
+    setSize: vi.fn(),
+  }) as unknown as import('three/addons/postprocessing/EffectComposer.js').EffectComposer
+
+export const makeCameraState = (initialMode: CameraMode = 'firstPerson') => {
+  const state: CameraStateStub = { mode: initialMode }
+
+  const service = {
+    getRotation: () => Effect.succeed({ yaw: 0, pitch: 0 }),
+    getMode: () => Effect.sync(() => state.mode),
+    setYaw: (_yaw: number) => Effect.void,
+    setPitch: (_pitch: number) => Effect.void,
+    addYaw: (_delta: number) => Effect.void,
+    addPitch: (_delta: number) => Effect.void,
+    setMode: (mode: CameraMode) => Effect.sync(() => { state.mode = mode }),
+    toggleMode: () => Effect.sync(() => { state.mode = state.mode === 'firstPerson' ? 'thirdPerson' : 'firstPerson' }),
+    reset: () => Effect.sync(() => { state.mode = 'firstPerson' }),
+  } as unknown as InstanceType<typeof import('@/application/camera/camera-state').PlayerCameraStateService>
+
+  return { service, state }
+}
+
+export const makeDeps = (paused = false, withComposer = false): Effect.Effect<FrameHandlerDeps & { gamePausedRef: Ref.Ref<boolean> }> =>
+  Effect.flatMap(
+    Ref.make(paused),
+    (gamePausedRef) => Effect.succeed({
+      renderer: makeRenderer(),
+      scene: new THREE.Scene(),
+      camera: makeCamera(),
+      respawnPosition: { x: 0, y: 64, z: 0 },
+      lights: makeLights(),
+      fpsElement: Option.none(),
+      healthValueElement: Option.none(),
+      healthMaxElement: Option.none(),
+      skyMesh: Option.none(),
+      gamePausedRef,
+      composer: withComposer ? Option.some(makeComposer()) : Option.none(),
+      gtaoPass: Option.none(),
+      bloomPass: Option.none(),
+      dofPass: Option.none(),
+      godRaysPass: Option.none(),
+      smaaPass: Option.none(),
+    })
+  )
+
+export const makeInventoryRenderer = (state: OverlayState) =>
+  ({
+    isOpen: () => Effect.sync(() => state.open),
+    toggle: () => Effect.sync(() => {
+      state.open = !state.open
+      return state.open
+    }),
+    update: () => Effect.void,
+    cycleRecipes: (_delta: number) => Effect.void,
+    craftSelectedRecipe: () => Effect.succeed(false),
+  }) as unknown as InstanceType<typeof import('@/presentation/inventory/inventory-renderer').InventoryRendererService>
+
+export const makeSettingsOverlay = (state: OverlayState) =>
+  ({
+    isOpen: () => Effect.sync(() => state.open),
+    toggle: () => Effect.sync(() => {
+      state.open = !state.open
+      return state.open
+    }),
+    syncFromSettings: () => Effect.void,
+    applyToSettings: () => Effect.void,
+  }) as unknown as InstanceType<typeof import('@/presentation/settings/settings-overlay').SettingsOverlayService>
+
+export const makeTradingPresentation = (state: OverlayState) =>
+  ({
+    open: (_villagerId: string) => Effect.sync(() => {
+      state.open = true
+      return true
+    }),
+    close: () => Effect.sync(() => {
+      state.open = false
+    }),
+    isOpen: () => Effect.sync(() => state.open),
+    cycleSelection: (_delta: number) => Effect.void,
+    refresh: () => Effect.void,
+    executeSelectedTrade: () => Effect.succeed(false),
+  }) as unknown as InstanceType<typeof import('@/presentation/trading').TradingPresentationService>
+
+export const makeInputService = (pressedKeys: MutableHashSet.MutableHashSet<string> = MutableHashSet.empty()) =>
+  ({
+    consumeKeyPress: (key: string) => Effect.sync(() => {
+      if (MutableHashSet.has(pressedKeys, key)) {
+        MutableHashSet.remove(pressedKeys, key)
+        return true
+      }
+      return false
+    }),
+    consumeMouseClick: (_btn: number) => Effect.succeed(false),
+    isKeyPressed: (_key: string) => Effect.succeed(false),
+    getMouseDelta: () => Effect.succeed({ x: 0, y: 0 }),
+    isMouseDown: (_btn: number) => Effect.succeed(false),
+    requestPointerLock: () => Effect.void,
+    exitPointerLock: () => Effect.void,
+    isPointerLocked: () => Effect.succeed(false),
+    consumeWheelDelta: () => Effect.succeed(0),
+  }) as unknown as InstanceType<typeof import('@/presentation/input/input-service').InputService>
+
+export const makeServices = (opts: {
+  inputService: ReturnType<typeof makeInputService>
+  inventoryRenderer: ReturnType<typeof makeInventoryRenderer>
+  settingsOverlay: ReturnType<typeof makeSettingsOverlay>
+  tradingPresentation?: ReturnType<typeof makeTradingPresentation>
+}): FrameHandlerServices & { cameraState: CameraStateStub } => {
+  const { inputService, inventoryRenderer, settingsOverlay } = opts
+  const tradingPresentation = opts.tradingPresentation ?? makeTradingPresentation({ open: false })
+  const cameraState = makeCameraState()
+
+  const gameState = {
+    getPlayerPosition: (_id: unknown) => Effect.succeed({ x: 0, y: 64, z: 0 }),
+    update: (_dt: unknown) => Effect.void,
+    respawn: (_position: unknown) => Effect.void,
+    isPlayerGrounded: () => Effect.succeed(true),
+  } as unknown as InstanceType<typeof import('@/application/game-state').GameStateService>
+
+  const firstPersonCamera = {
+    update: (_cam: unknown) => Effect.void,
+  } as unknown as InstanceType<typeof import('@/application/camera/first-person-camera-service').FirstPersonCameraService>
+
+  const thirdPersonCamera = {
+    update: (camera: THREE.PerspectiveCamera, playerPos: { x: number; y: number; z: number }, eyeLevelOffset = 0.72) =>
+      Effect.sync(() => {
+        const distance = 4
+        const shoulderHeight = 1.5
+        const eyeY = playerPos.y + eyeLevelOffset
+        camera.position.set(playerPos.x, eyeY + shoulderHeight, playerPos.z - distance)
+        camera.lookAt(playerPos.x, eyeY, playerPos.z)
+      }),
+  } as unknown as InstanceType<typeof import('@/application/camera/third-person-camera-service').ThirdPersonCameraService>
+
+  const blockHighlight = {
+    update: (_cam: unknown, _scene: unknown) => Effect.void,
+    invalidateCache: () => Effect.void,
+    getTargetBlock: () => Effect.succeed(Option.none()),
+    getTargetHit: () => Effect.succeed(Option.none()),
+  } as unknown as InstanceType<typeof import('@/presentation/highlight/block-highlight').BlockHighlightService>
+
+  const blockService = {
+    breakBlock: (_pos: unknown) => Effect.void,
+    placeBlock: (_pos: unknown, _type: unknown, _slot?: unknown) => Effect.void,
+  } as unknown as InstanceType<typeof import('@/application/block/block-service').BlockService>
+
+  const inventoryService = {
+    getAllSlots: () => Effect.succeed([]),
+    getSlot: (_index: unknown) => Effect.succeed(Option.none()),
+    setSlot: (_index: unknown, _stack: unknown) => Effect.void,
+    moveStack: (_from: unknown, _to: unknown) => Effect.void,
+    addBlock: (_type: unknown, _count: unknown) => Effect.succeed(true),
+    removeBlock: (_type: unknown, _count: unknown, _slot?: unknown) => Effect.succeed(true),
+    getHotbarSlots: () => Effect.succeed([]),
+    serialize: () => Effect.succeed({ slots: [] }),
+    deserialize: (_data: unknown) => Effect.void,
+  } as unknown as InstanceType<typeof import('@/application/inventory/inventory-service').InventoryService>
+
+  const hotbarService = {
+    update: () => Effect.void,
+    getSlots: () => Effect.succeed([]),
+    getSelectedSlot: () => Effect.succeed(0),
+    getSelectedBlockType: () => Effect.succeed({ _tag: 'None' }),
+  } as unknown as InstanceType<typeof import('@/application/hotbar/hotbar-service').HotbarService>
+
+  const hotbarRenderer = {
+    update: (_slots: unknown, _sel: unknown) => Effect.void,
+    render: (_renderer: unknown) => Effect.void,
+  } as unknown as InstanceType<typeof import('@/presentation/hud/hotbar-three').HotbarRendererService>
+
+  const chunkManagerService = {
+    loadChunksAroundPlayer: (_pos: unknown) => Effect.void,
+    getLoadedChunks: () => Effect.succeed([]),
+    getChunk: (_coord: unknown) => Effect.succeed({ coord: { x: 0, z: 0 }, blocks: new Uint8Array(0), dirty: false }),
+  } as unknown as InstanceType<typeof import('@/application/chunk/chunk-manager-service').ChunkManagerService>
+
+  const timeService = {
+    advanceTick: (_dt: unknown) => Effect.void,
+    getTimeOfDay: () => Effect.succeed(0.5),
+    isNight: () => Effect.succeed(false),
+    getDayLength: () => Effect.succeed(DEFAULT_SETTINGS.dayLengthSeconds),
+    setDayLength: (_seconds: unknown) => Effect.void,
+    setTimeOfDay: (_time: unknown) => Effect.void,
+  } as unknown as InstanceType<typeof import('@/application/time/time-service').TimeService>
+
+  const settingsService = {
+    getSettings: () => Effect.succeed({ ...DEFAULT_SETTINGS }),
+    updateSettings: (_patch: unknown) => Effect.void,
+    resetToDefaults: () => Effect.void,
+  } as unknown as InstanceType<typeof import('@/application/settings/settings-service').SettingsService>
+
+  const fpsCounter = {
+    tick: (_dt: unknown) => Effect.void,
+    getFPS: () => Effect.succeed(60),
+    getFrameCount: () => Effect.succeed(0),
+    reset: () => Effect.void,
+  } as unknown as InstanceType<typeof import('@/presentation/fps-counter').FPSCounterService>
+
+  const worldRendererService = {
+    syncChunksToScene: (_chunks: unknown, _scene: unknown) => Effect.succeed(true as boolean),
+    applyFrustumCulling: (_camera: unknown) => Effect.void,
+    updateChunkInScene: (_chunk: unknown, _scene: unknown) => Effect.void,
+    clearScene: (_scene: unknown) => Effect.void,
+    doRefractionPrePass: (_renderer: unknown, _scene: unknown, _camera: unknown) => Effect.void,
+    updateWaterUniforms: (_time: number, _cameraPosition: unknown) => Effect.void,
+    updateWaterResolution: (_width: number, _height: number) => Effect.void,
+    resizeRefractionRT: (_width: number, _height: number) => Effect.void,
+    resizeRefractionCamera: (_aspect: number) => Effect.void,
+    getWaterMeshes: () => Effect.succeed([] as THREE.Mesh[]),
+    getSceneVersion: () => Effect.succeed(0),
+    setRefractionValid: (_valid: boolean) => Effect.void,
+  } as unknown as InstanceType<typeof import('@/infrastructure/three/world-renderer').WorldRendererService>
+
+  const entityRenderer = {
+    syncEntities: (_entities: unknown, _scene: unknown) => Effect.void,
+    updateEntityTransforms: (_entities: unknown, _total: unknown, _delta: unknown) => Effect.void,
+    clearScene: (_scene: unknown) => Effect.void,
+    _getTrackedGroup: (_id: unknown) => Effect.succeed(Option.none()),
+  } as unknown as InstanceType<typeof import('@/infrastructure/three/entity-renderer').EntityRendererService>
+
+  const chunkMeshService = {
+    setSunIntensity: (_value: number) => Effect.void,
+  } as unknown as InstanceType<typeof import('@/infrastructure/three/meshing/chunk-mesh').ChunkMeshService>
+
+  const healthService = {
+    getHealth: () => Effect.succeed({ current: 20, max: 20, invincibilityTicks: 0 }),
+    applyDamage: (_amount: unknown) => Effect.void,
+    isDead: () => Effect.succeed(false),
+    tick: () => Effect.void,
+    processFallDamage: (_y: unknown, _grounded: unknown) => Effect.succeed(0),
+    reset: () => Effect.void,
+  } as unknown as InstanceType<typeof import('@/application/player/health-service').HealthService>
+
+  const soundManager = {
+    applySettings: (_settings: unknown) => Effect.void,
+    setListenerPosition: (_position: unknown) => Effect.void,
+    playEffect: (_effect: unknown, _options?: unknown) => Effect.void,
+    getState: () => Effect.succeed({ enabled: true, masterVolume: 0.8, sfxVolume: 1, listenerPosition: { x: 0, y: 64, z: 0 } }),
+  } as unknown as InstanceType<typeof import('@/audio').SoundManager>
+
+  const musicManager = {
+    applySettings: (_settings: unknown) => Effect.void,
+    setEnvironment: (_environment: unknown) => Effect.void,
+    updateFromContext: (_context: unknown) => Effect.void,
+    stop: () => Effect.void,
+    getCurrentEnvironment: () => Effect.succeed(Option.none()),
+    getState: () => Effect.succeed({ enabled: true, masterVolume: 0.8, musicVolume: 0.55 }),
+  } as unknown as InstanceType<typeof import('@/audio').MusicManager>
+
+  const entityManager = {
+    addEntity: (_type: unknown, _position: unknown) => Effect.succeed('entity-1' as unknown),
+    removeEntity: (_entityId: unknown) => Effect.succeed(false),
+    getEntity: (_entityId: unknown) => Effect.succeed(Option.none()),
+    getEntities: () => Effect.succeed([]),
+    getEntityAIState: (_entityId: unknown) => Effect.succeed(Option.none()),
+    getCount: () => Effect.succeed(0),
+    getStructureVersion: () => Effect.succeed(0),
+    getPlayerContactDamage: (_playerPosition: unknown) => Effect.succeed(0),
+    update: (_deltaTime: unknown, _playerPosition: unknown) => Effect.void,
+    applyDamage: (_entityId: unknown, _amount: unknown) => Effect.succeed(Option.none()),
+  } as unknown as InstanceType<typeof import('@/entity/entityManager').EntityManager>
+
+  const mobSpawner = {
+    trySpawn: (_playerPosition: unknown) => Effect.succeed(Option.none()),
+    getSpawnBounds: () => Effect.succeed({ minDistance: 16, maxDistance: 40 }),
+    getMaxPopulation: () => Effect.succeed(24),
+  } as unknown as InstanceType<typeof import('@/entity/spawner').MobSpawner>
+
+  const villageService = {
+    ensureVillageNear: (_playerPosition: unknown) => Effect.succeed({ villageId: 'village-1', center: { x: 0, y: 64, z: 0 }, structures: [], villagers: [] }),
+    getVillages: () => Effect.succeed([]),
+    getVillagers: () => Effect.succeed([]),
+    getVillager: (_villagerId: unknown) => Effect.succeed(Option.none()),
+    findNearestVillager: (_position: unknown, _maxDistance: unknown) => Effect.succeed(Option.none()),
+    addVillagerExperience: (_villagerId: unknown, _amount: unknown) => Effect.succeed(Option.none()),
+    update: (_playerPosition: unknown, _timeOfDay: unknown, _deltaTime: unknown) => Effect.void,
+  } as unknown as InstanceType<typeof import('@/village/village-service').VillageService>
+
+  const redstoneService = {
+    setComponent: (_position: unknown, _type: unknown) => Effect.succeed({ type: 'wire', position: { x: 0, y: 0, z: 0 }, state: { active: false, buttonTicksRemaining: 0, pistonExtended: false } }),
+    removeComponent: (_position: unknown) => Effect.void,
+    getComponent: (_position: unknown) => Effect.succeed(Option.none()),
+    getComponents: () => Effect.succeed([]),
+    toggleLever: (_position: unknown) => Effect.succeed(Option.none()),
+    pressButton: (_position: unknown, _durationTicks?: unknown) => Effect.succeed(Option.none()),
+    toggleTorch: (_position: unknown) => Effect.succeed(Option.none()),
+    getPowerAt: (_position: unknown) => Effect.succeed(0),
+    getPowerSnapshot: () => Effect.succeed({ tick: 0, poweredPositions: [] }),
+    tick: () => Effect.succeed({ tick: 0, poweredPositions: [] }),
+  } as unknown as InstanceType<typeof import('@/redstone/redstone-service').RedstoneService>
+
+  const fluidService = {
+    notifyBlockChanged: (_position: unknown) => Effect.void,
+    seedWater: (_position: unknown) => Effect.void,
+    removeWater: (_position: unknown) => Effect.void,
+    syncLoadedChunks: (_chunks: unknown) => Effect.void,
+    tick: () => Effect.void,
+  } as unknown as InstanceType<typeof import('@/application/fluid/fluid-service').FluidService>
+
+  const furnaceService = {
+    getState: () => Effect.succeed({ active: Option.none() }),
+    getNearestFurnaceState: () => Effect.succeed(Option.none()),
+    hasNearbyFurnace: () => Effect.succeed(false),
+    setSelectedFurnace: (_position: unknown) => Effect.void,
+    startSmelting: (_recipeId: unknown) => Effect.void,
+    collectOutput: () => Effect.succeed(true),
+    clearFurnace: (_position: unknown) => Effect.succeed([]),
+    dismantleFurnace: (_position: unknown) => Effect.succeed(true),
+    serialize: () => Effect.succeed([]),
+    deserialize: (_serialized: unknown) => Effect.void,
+    tick: (_deltaTime: unknown) => Effect.void,
+  } as unknown as InstanceType<typeof import('@/application/furnace/furnace-service').FurnaceService>
+
+  return {
+    gameState,
+    playerCameraState: cameraState.service,
+    firstPersonCamera,
+    thirdPersonCamera,
+    blockHighlight,
+    inputService,
+    blockService,
+    hotbarService,
+    hotbarRenderer,
+    chunkManagerService,
+    timeService,
+    settingsService,
+    settingsOverlay,
+    inventoryRenderer,
+    inventoryService,
+    fpsCounter,
+    worldRendererService,
+    entityRenderer,
+    chunkMeshService,
+    healthService,
+    soundManager,
+    musicManager,
+    entityManager,
+    mobSpawner,
+    villageService,
+    tradingPresentation,
+    redstoneService,
+    fluidService,
+    furnaceService,
+    cameraState: cameraState.state,
+  }
+}
+
+export const runFrame = (deps: FrameHandlerDeps, services: FrameHandlerServices): Effect.Effect<void> =>
+  Effect.gen(function* () {
+    const handler = yield* createFrameHandler(deps, services)
+    yield* handler(0.016 as DeltaTimeSecs)
+  })

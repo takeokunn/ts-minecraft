@@ -1,0 +1,1 @@
+export const FURNACE_SMELT_DURATION_SECS = 1.5
