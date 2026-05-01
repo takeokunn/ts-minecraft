@@ -17,6 +17,9 @@ import { PlayerCameraStateLive } from '@/application/camera/camera-state'
 import { PlayerServiceLive } from '@/application/player/player-state'
 import { PlayerInputService } from '@/application/input/player-input-service'
 import { ChunkManagerService } from '@/application/chunk/chunk-manager-service'
+import { GameModeServiceLive } from '@/application/game-mode'
+import { InventoryServiceLive } from '@/application/inventory/inventory-service'
+import { BlockRegistryLive } from '@/domain'
 import { DeltaTimeSecs } from '@/shared/kernel'
 
 // ---------------------------------------------------------------------------
@@ -50,12 +53,16 @@ const NoOpChunkManagerLayer = Layer.succeed(ChunkManagerService, {
   evictChunksOutsideRange: (_pos: unknown, _dist: unknown) => Effect.succeed([]),
 } as unknown as ChunkManagerService)
 
+const InventoryLayerForTest = InventoryServiceLive.pipe(Layer.provide(BlockRegistryLive))
+
 const TestGameLayer = GameStateServiceLive.pipe(
   Layer.provide(PlayerServiceLive),
   Layer.provide(PhysicsLayer),
   Layer.provide(MovementLayer),
   Layer.provide(PlayerCameraStateLive),
   Layer.provide(NoOpChunkManagerLayer),
+  Layer.provide(GameModeServiceLive),
+  Layer.provide(InventoryLayerForTest),
 )
 
 // ---------------------------------------------------------------------------

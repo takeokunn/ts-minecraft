@@ -18,6 +18,9 @@ import { PlayerServiceLive } from '@/application/player/player-state'
 import { PlayerInputService } from '@/application/input/player-input-service'
 import { ChunkManagerService } from '@/application/chunk/chunk-manager-service'
 import { HealthService } from '@/application/player/health-service'
+import { GameModeServiceLive } from '@/application/game-mode'
+import { InventoryServiceLive } from '@/application/inventory/inventory-service'
+import { BlockRegistryLive } from '@/domain'
 import { DeltaTimeSecs, PlayerId } from '@/shared/kernel'
 import { DEFAULT_PLAYER_ID } from '@/application/constants'
 
@@ -59,12 +62,16 @@ const MovementLayer = MovementServiceLive.pipe(
   Layer.provide(NoOpPlayerInputLayer),
 )
 
+const InventoryLayerForTest = InventoryServiceLive.pipe(Layer.provide(BlockRegistryLive))
+
 const TestGameLayer = GameStateServiceLive.pipe(
   Layer.provide(PlayerServiceLive),
   Layer.provide(PhysicsLayer),
   Layer.provide(MovementLayer),
   Layer.provide(PlayerCameraStateLive),
   Layer.provide(NoOpChunkManagerLayer),
+  Layer.provide(GameModeServiceLive),
+  Layer.provide(InventoryLayerForTest),
 )
 
 // ---------------------------------------------------------------------------

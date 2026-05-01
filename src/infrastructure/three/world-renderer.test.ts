@@ -201,13 +201,32 @@ const makeRenderer = (): THREE.WebGLRenderer =>
     shadowMap: { autoUpdate: true, needsUpdate: false },
   } as unknown as THREE.WebGLRenderer)
 
+  // Drain helper: call syncChunksToScene repeatedly until it returns true
+  // (i.e. all new chunks have been meshed). The time-budget throttle in
+  // syncChunksToScene means a single call may not mesh every chunk if real
+  // wall-clock time is slow (test scheduler delay can blow past the 4ms
+  // budget), so tests that want to assert on the post-drain state must drive
+  // it to completion. Bounded at 32 iterations so a logic bug can't infinite-loop.
+  const drainSync = (
+    s: { syncChunksToScene: (chunks: ReadonlyArray<Chunk>, scene: THREE.Scene) => Effect.Effect<boolean, never> },
+    chunks: ReadonlyArray<Chunk>,
+    scene: THREE.Scene,
+  ): Effect.Effect<void, never> =>
+    Effect.iterate({ done: false, i: 0 }, {
+      while: (state) => !state.done && state.i < 32,
+      body: (state) => Effect.gen(function* () {
+        const done = yield* s.syncChunksToScene(chunks, scene)
+        return { done, i: state.i + 1 }
+      }),
+    }).pipe(Effect.asVoid)
+
   describe('syncChunksToScene', () => {
     it.effect('should add new chunk meshes to scene', () => {
       const TestLayer = buildTestLayer()
       const scene = makeScene()
       return Effect.gen(function* () {
         const s = yield* WorldRendererService
-        yield* s.syncChunksToScene([makeChunk(0, 0), makeChunk(1, 0)], scene)
+        yield* drainSync(s, [makeChunk(0, 0), makeChunk(1, 0)], scene)
         // scene.add should be called once per new chunk
         expect(scene.add).toHaveBeenCalledTimes(2)
       }).pipe(Effect.provide(TestLayer))
@@ -236,7 +255,7 @@ const makeRenderer = (): THREE.WebGLRenderer =>
       const scene = makeScene()
       return Effect.gen(function* () {
         const s = yield* WorldRendererService
-        yield* s.syncChunksToScene([makeChunk(0, 0), makeChunk(1, 0)], scene)
+        yield* drainSync(s, [makeChunk(0, 0), makeChunk(1, 0)], scene)
         yield* s.syncChunksToScene([makeChunk(0, 0)], scene)
         expect(scene.remove).toHaveBeenCalledTimes(1)
       }).pipe(Effect.provide(TestLayer))
@@ -262,7 +281,7 @@ const makeRenderer = (): THREE.WebGLRenderer =>
       const scene = makeScene()
       return Effect.gen(function* () {
         const s = yield* WorldRendererService
-        yield* s.syncChunksToScene([makeChunk(0, 0), makeChunk(1, 0), makeChunk(0, 1)], scene)
+        yield* drainSync(s, [makeChunk(0, 0), makeChunk(1, 0), makeChunk(0, 1)], scene)
         yield* s.clearScene(scene)
         // 3 added, then 3 removed
         expect(scene.remove).toHaveBeenCalledTimes(3)

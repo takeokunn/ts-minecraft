@@ -8,6 +8,15 @@ import { PositionSchema } from '@/shared/kernel'
 import { InventorySaveDataSchema } from '@/domain/inventory-save-data'
 import { BlockTypeSchema } from '@/domain/block'
 import { RecipeIdSchema } from '@/shared/kernel'
+import { GameModeSchema } from '@/application/game-mode'
+
+/**
+ * Latest WorldMetadata save version. Bumped on schema-shape changes that the
+ * decoder cannot reconstruct from defaults alone (e.g. semantic field rename,
+ * value transforms). Adding optional fields with defaults does NOT require a
+ * version bump — the optionalWith default fills in legacy data automatically.
+ */
+export const CURRENT_WORLD_SAVE_VERSION = 1
 
 const FurnaceItemStackSchema = Schema.Struct({
   blockType: BlockTypeSchema,
@@ -27,7 +36,12 @@ export type { ChunkCoord }
 
 /**
  * Schema for world metadata persisted to IndexedDB.
+ *
  * Note: uses Schema.DateFromSelf (JS Date instances), not Schema.Date (ISO string).
+ *
+ * Backward compatibility: `gameMode` and `saveVersion` are `Schema.optionalWith` —
+ * legacy saves missing these fields decode cleanly with defaults applied
+ * (`gameMode='survival'`, `saveVersion=1`). New writes always include both.
  */
 export const WorldMetadataSchema = Schema.Struct({
   seed: Schema.Number.pipe(Schema.int(), Schema.nonNegative()),
@@ -47,6 +61,12 @@ export const WorldMetadataSchema = Schema.Struct({
     }),
   ),
   furnaceStates: Schema.optional(Schema.Array(FurnaceStateSchema)),
+  /** Active game mode for the world. Pre-Phase-1 saves default to 'survival'. */
+  gameMode: Schema.optionalWith(GameModeSchema, { default: () => 'survival' as const }),
+  /** Save schema version for future migrations. Pre-Phase-1 saves default to 1. */
+  saveVersion: Schema.optionalWith(Schema.Number.pipe(Schema.int(), Schema.positive()), {
+    default: () => CURRENT_WORLD_SAVE_VERSION,
+  }),
 })
 export type WorldMetadata = Schema.Schema.Type<typeof WorldMetadataSchema>
 
@@ -312,12 +332,61 @@ export class StorageService extends Effect.Service<StorageService>()(
           })
         })
 
+      /**
+       * Enumerate every world metadata record. Decoding failures (corrupt rows)
+       * do NOT abort the listing — they are collected into `corrupt` so the
+       * main-menu UI can offer a "Corrupt: delete?" recovery row.
+       *
+       * Returned arrays are unsorted. The caller (main menu) is responsible for
+       * sorting `valid` by `lastPlayed desc` for display.
+       */
+      const listWorldMetadata: Effect.Effect<{
+        readonly valid: ReadonlyArray<{ readonly worldId: WorldId; readonly metadata: WorldMetadata }>
+        readonly corrupt: ReadonlyArray<WorldId>
+      }, StorageError> =
+        Effect.gen(function* () {
+          yield* initialize
+          return yield* Option.match(yield* Ref.get(dbRef), {
+            onNone: () => Effect.fail(new StorageError({ operation: 'listWorldMetadata', cause: 'Database not initialized' })),
+            onSome: (db) => Effect.gen(function* () {
+              const raw: Array<{ key: string; value: unknown }> = []
+              yield* tryCatchStorage(
+                'listWorldMetadata',
+                db.forEachCursor(STORE_METADATA, (cursor) =>
+                  Effect.sync(() => {
+                    raw.push({ key: cursor.key.toString(), value: cursor.value })
+                  }),
+                ),
+              )
+              const valid: Array<{ worldId: WorldId; metadata: WorldMetadata }> = []
+              const corrupt: Array<WorldId> = []
+              yield* Effect.forEach(
+                raw,
+                (row) =>
+                  Schema.decodeUnknown(WorldMetadataSchema)(row.value).pipe(
+                    Effect.match({
+                      onSuccess: (metadata) => {
+                        valid.push({ worldId: row.key as WorldId, metadata })
+                      },
+                      onFailure: () => {
+                        corrupt.push(row.key as WorldId)
+                      },
+                    }),
+                  ),
+                { concurrency: 1 },
+              )
+              return { valid: valid as ReadonlyArray<{ worldId: WorldId; metadata: WorldMetadata }>, corrupt: corrupt as ReadonlyArray<WorldId> }
+            }),
+          })
+        })
+
       return {
         initialize,
         saveChunk,
         loadChunk,
         saveWorldMetadata,
         loadWorldMetadata,
+        listWorldMetadata,
         deleteWorld,
       }
     })),

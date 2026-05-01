@@ -26,6 +26,7 @@ import { PhysicsWorldServiceLive, RigidBodyServiceLive, ShapeServiceLive } from 
 import { NoiseService, NoiseServiceLive } from '@/infrastructure/noise/noise-service'
 import { StorageService, StorageServiceLive } from '@/infrastructure/storage/storage-service'
 import { ChunkMeshServiceLive } from '@/infrastructure/three/meshing/chunk-mesh'
+import { ParticleSystemServiceLive } from '@/infrastructure/three/particles/particle-system'
 import { TerrainWorkerPoolLive } from '@/infrastructure/terrain/terrain-worker-pool'
 
 // Chunk domain service
@@ -49,6 +50,9 @@ import { BlockServiceLive } from '@/application/block/block-service'
 import { HotbarServiceLive } from '@/application/hotbar/hotbar-service'
 import { HotbarRendererLive } from '@/presentation/hud/hotbar-three'
 
+// Game mode (survival/creative) — single-instance state for the active session
+import { GameModeServiceLive } from '@/application/game-mode'
+
 // Inventory, time, settings, and overlays
 import { InventoryServiceLive } from '@/application/inventory/inventory-service'
 import { RecipeServiceLive } from '@/application/crafting/recipe-service'
@@ -58,6 +62,10 @@ import { EntityManagerLive } from '@/entity/entityManager'
 import { MobSpawnerLive } from '@/entity/spawner'
 import { SettingsServiceLive } from '@/application/settings/settings-service'
 import { SettingsOverlayLive } from '@/presentation/settings/settings-overlay'
+import { ConfirmDialogLive } from '@/presentation/menu/confirm-dialog'
+import { MainMenuLive } from '@/presentation/menu/main-menu'
+import { PauseMenuLive } from '@/presentation/menu/pause-menu'
+import { DeathScreenLive } from '@/presentation/menu/death-screen'
 import { InventoryRendererLive } from '@/presentation/inventory/inventory-renderer'
 import { VillageServiceLive } from '@/village/village-service'
 import { TradingServiceLive } from '@/trading/trading-service'
@@ -74,6 +82,8 @@ import { ThirdPersonCameraServiceLive } from '@/application/camera/third-person-
 import { PhysicsServiceLive } from '@/application/physics/physics-service'
 import { PlayerCameraStateLive } from '@/application/camera/camera-state'
 import { CrosshairLive, DomOperationsLive } from '@/presentation/hud/crosshair'
+import { DebugOverlayLive } from '@/presentation/hud/debug-overlay'
+import { LoadingScreenLive } from '@/presentation/loading/loading-screen'
 import { BlockHighlightLive } from '@/presentation/highlight/block-highlight'
 import { RaycastingServiceLive } from '@/infrastructure/three/raycasting/raycasting-service'
 import { InputServiceLive, PlayerInputServiceLive } from '@/presentation/input/input-service'
@@ -226,13 +236,23 @@ export const FluidLayer = FluidServiceLive.pipe(
   Layer.provide(ChunkManagerLayer),
 )
 
-// Level 4: GameStateService depends on PlayerService, PhysicsService, MovementService, CameraState, ChunkManagerService
+// InventoryService depends on BlockRegistry — declared before GameLayer because
+// GameLayer's death-clears-inventory pathway (FR-1.3) requires it.
+export const InventoryLayer = InventoryServiceLive.pipe(
+  Layer.provide(BlockRegistryLive),
+)
+
+// Level 4: GameStateService depends on PlayerService, PhysicsService, MovementService,
+// CameraState, ChunkManagerService, GameModeService (mode-aware respawn FR-1.3),
+// and InventoryService (clears on survival death).
 export const GameLayer = GameStateServiceLive.pipe(
   Layer.provide(PlayerServiceLive),
   Layer.provide(PhysicsLayer),
   Layer.provide(MovementLayer),
   Layer.provide(CameraStateLayer),
   Layer.provide(ChunkManagerLayer),
+  Layer.provide(GameModeServiceLive),
+  Layer.provide(InventoryLayer),
 )
 
 // Level 4: WorldRendererService depends on ChunkMeshService and SceneService
@@ -246,9 +266,9 @@ export const EntityRendererLayer = EntityRendererLive.pipe(
   Layer.provide(SceneServiceLive),
 )
 
-// InventoryService depends on BlockRegistry
-export const InventoryLayer = InventoryServiceLive.pipe(
-  Layer.provide(BlockRegistryLive),
+// Level 4: ParticleSystemService depends on ChunkMeshService (atlas texture)
+export const ParticleSystemLayer = ParticleSystemServiceLive.pipe(
+  Layer.provide(ChunkMeshServiceLive),
 )
 
 // Audio infrastructure and managers
@@ -314,6 +334,50 @@ export const SettingsOverlayLayer = SettingsOverlayLive.pipe(
   Layer.provide(DomOperationsLive),
 )
 
+// ConfirmDialog depends only on DomOperations — generic modal reusable by
+// PauseMenu (Save & Quit) and W2a MainMenu (world delete).
+export const ConfirmDialogLayer = ConfirmDialogLive.pipe(
+  Layer.provide(DomOperationsLive),
+)
+
+// PauseMenu depends on DomOperations, SettingsOverlay, ChunkManager, ConfirmDialog.
+export const PauseMenuLayer = PauseMenuLive.pipe(
+  Layer.provide(DomOperationsLive),
+  Layer.provide(SettingsOverlayLayer),
+  Layer.provide(ChunkManagerLayer),
+  Layer.provide(ConfirmDialogLayer),
+)
+
+// MainMenu (Phase 1, FR-1.1/1.9/1.11/1.12) — boot-scope world selection menu.
+// Depends on StorageService, DomOperations, and ConfirmDialog (for delete
+// confirmation). Lives ABOVE session scope so it persists across worlds.
+export const MainMenuLayer = MainMenuLive.pipe(
+  Layer.provide(StorageServiceLive),
+  Layer.provide(DomOperationsLive),
+  Layer.provide(ConfirmDialogLayer),
+)
+
+// DeathScreen (Phase 1, FR-1.3) — survival-mode death overlay. Depends on
+// DOM, GameState (for respawn), GameMode (creative skips overlay),
+// HealthService (awaitDeath signal), and InventoryService (Phase-3 drop hook).
+export const DeathScreenLayer = DeathScreenLive.pipe(
+  Layer.provide(DomOperationsLive),
+  Layer.provide(GameLayer),
+  Layer.provide(GameModeServiceLive),
+  Layer.provide(HealthServiceLive),
+  Layer.provide(InventoryLayer),
+)
+
+// LoadingScreen (Phase 1, FR-1.7) — depends on DomOperations only. The overlay
+// is created when the service is acquired and torn down via the scope finalizer.
+export const LoadingScreenLayer = LoadingScreenLive.pipe(
+  Layer.provide(DomOperationsLive),
+)
+
+// DebugOverlay (Phase 1, FR-1.5) — F3-toggled debug HUD. Service has no
+// Effect dependencies (deps are passed at attach() time).
+export const DebugOverlayLayer = DebugOverlayLive
+
 // InventoryRenderer depends on InventoryService, HotbarService, RecipeService, and DomOperations
 export const InventoryRendererLayer = InventoryRendererLive.pipe(
   Layer.provide(InventoryLayer),
@@ -378,6 +442,8 @@ export const GameLogicLayers = Layer.mergeAll(
   RaycastingLayer,
   WorldRendererLayer,  // moved from InfrastructureLayers: orchestrates application→infrastructure
   EntityRendererLayer,
+  ParticleSystemLayer,
+  GameModeServiceLive,
 )
 
 export const PresentationLayers = Layer.mergeAll(
@@ -388,6 +454,12 @@ export const PresentationLayers = Layer.mergeAll(
   HotbarRendererLayer,
   SettingsLayer,
   SettingsOverlayLayer,
+  ConfirmDialogLayer,
+  PauseMenuLayer,
+  MainMenuLayer,
+  DeathScreenLayer,
+  LoadingScreenLayer,
+  DebugOverlayLayer,
   InventoryRendererLayer,
   TradingPresentationLayer,
   FPSCounterLive,  // presentation service: reads FPS counter state for HUD display

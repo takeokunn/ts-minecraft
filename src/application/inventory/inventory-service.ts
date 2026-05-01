@@ -168,6 +168,14 @@ export class InventoryService extends Effect.Service<InventoryService>()(
               }))
             ),
 
+          /**
+           * Empty every slot. Used by the death flow in survival mode (FR-1.3):
+           * inventory is dropped at the death position. Phase-1 semantics treat
+           * "drop" as "clear" — Phase-3 will materialize world-entity drops.
+           */
+          clear: (): Effect.Effect<void, never> =>
+            Ref.set(slotsRef, Arr.makeBy(INVENTORY_SIZE, () => Option.none<ItemStack>())),
+
           deserialize: (data: InventorySaveData): Effect.Effect<void, never> =>
             Ref.update(slotsRef, (slots) =>
               Arr.reduce(data.slots, slots, (acc, entry) =>

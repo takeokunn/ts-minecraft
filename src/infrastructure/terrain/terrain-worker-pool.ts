@@ -3,7 +3,7 @@
  *
  * Mirrors the architecture of `infrastructure/three/meshing/MeshingWorkerPool`:
  *   - Effect.Service / scoped layer
- *   - Round-robin dispatch over Math.max(1, Math.min(4, hardwareConcurrency-1))
+ *   - Round-robin dispatch over Math.max(2, Math.min(8, hardwareConcurrency-1))
  *     workers
  *   - Per-worker `MutableHashMap<id, deferred>` for pending requests
  *   - Finalizer terminates all workers
@@ -82,7 +82,7 @@ const computeWorkerCount = (): number => {
   const hc = (typeof navigator !== 'undefined' && typeof navigator.hardwareConcurrency === 'number')
     ? navigator.hardwareConcurrency
     : 2
-  return Math.max(1, Math.min(4, hc - 1))
+  return Math.max(2, Math.min(8, hc - 1))
 }
 
 // In dev builds, assert that the buffer has been detached post-postMessage.
@@ -131,6 +131,7 @@ export class TerrainWorkerPool extends Effect.Service<TerrainWorkerPool>()(
               }),
             }),
           workerCount: 0,
+          queueDepth: () => 0,
         }
       }
 
@@ -312,6 +313,8 @@ export class TerrainWorkerPool extends Effect.Service<TerrainWorkerPool>()(
             })
           }),
         workerCount,
+        queueDepth: (): number =>
+          Arr.reduce(MutableRef.get(poolWorkersRef), 0, (acc, w) => acc + MutableHashMap.size(w.pending)),
       }
     }),
   },

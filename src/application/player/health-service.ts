@@ -1,4 +1,4 @@
-import { Effect, Option, Ref } from 'effect'
+import { Deferred, Effect, Option, Ref } from 'effect'
 import { PlayerHealth } from '@/domain/player-health'
 import { INVINCIBILITY_TICKS_ON_HIT, PLAYER_MAX_HEALTH, PLAYER_START_HEALTH, FALL_DAMAGE_FREE_BLOCKS } from './health-service.config'
 
@@ -65,50 +65,98 @@ export const computeFallDamage = (
 export class HealthService extends Effect.Service<HealthService>()(
   '@minecraft/application/HealthService',
   {
-    // Single Ref for all health-related state — reset() is atomic
-    effect: Ref.make<HealthState>(INITIAL_STATE).pipe(Effect.map((stateRef) => ({
+    // Single Ref for all health-related state — reset() is atomic.
+    // Death is signaled through a one-shot Deferred held in a Ref so reset()
+    // can swap in a fresh deferred for the next death cycle. The death-screen
+    // service awaits this deferred to drive the overlay; in-frame death detection
+    // continues to rely on `isDead()` for synchronous (per-frame) reads.
+    effect: Effect.all([
+      Ref.make<HealthState>(INITIAL_STATE),
+      Deferred.make<void, never>().pipe(Effect.flatMap((d) => Ref.make(d))),
+    ], { concurrency: 'unbounded' }).pipe(Effect.map(([stateRef, deathDeferredRef]) => {
+      // Atomic damage-with-death-signal: returns true when this damage caused death
+      // (i.e. health crossed from > 0 to ≤ 0 on this call). Used internally to
+      // fulfill the death deferred exactly once per death.
+      const applyDamageInternal = (amount: number): Effect.Effect<boolean, never> =>
+        Ref.modify(stateRef, (s) => {
+          const wasAlive = s.health.current > 0
+          const next = applyDamageToHealth(s.health, amount)
+          const justDied = wasAlive && next.current <= 0
+          return [justDied, { ...s, health: next }] as const
+        })
 
-      getHealth: (): Effect.Effect<PlayerHealth, never> =>
-        Ref.get(stateRef).pipe(Effect.map((s) => s.health)),
+      const signalDeath = (): Effect.Effect<void, never> =>
+        Ref.get(deathDeferredRef).pipe(
+          Effect.flatMap((d) => Deferred.succeed(d, undefined)),
+          Effect.asVoid,
+        )
 
-      applyDamage: (amount: number): Effect.Effect<void, never> =>
-        Ref.update(stateRef, (s) => ({ ...s, health: applyDamageToHealth(s.health, amount) })),
+      return {
+        getHealth: (): Effect.Effect<PlayerHealth, never> =>
+          Ref.get(stateRef).pipe(Effect.map((s) => s.health)),
 
-      heal: (amount: number): Effect.Effect<void, never> =>
-        Ref.update(stateRef, (s) => ({ ...s, health: healHealth(s.health, amount) })),
+        applyDamage: (amount: number): Effect.Effect<void, never> =>
+          applyDamageInternal(amount).pipe(
+            Effect.flatMap((justDied) => (justDied ? signalDeath() : Effect.void)),
+          ),
 
-      isDead: (): Effect.Effect<boolean, never> =>
-        Ref.get(stateRef).pipe(Effect.map((s) => s.health.current <= 0)),
+        heal: (amount: number): Effect.Effect<void, never> =>
+          Ref.update(stateRef, (s) => ({ ...s, health: healHealth(s.health, amount) })),
 
-      tick: (): Effect.Effect<void, never> =>
-        Ref.update(stateRef, (s) => ({ ...s, health: tickInvincibility(s.health) })),
+        isDead: (): Effect.Effect<boolean, never> =>
+          Ref.get(stateRef).pipe(Effect.map((s) => s.health.current <= 0)),
 
-      processFallDamage: (currentY: number, isGrounded: boolean): Effect.Effect<number, never> =>
-        Effect.gen(function* () {
-          const { fallState: { prevY: prevYOpt, isFalling: wasFalling } } = yield* Ref.get(stateRef)
+        /**
+         * Block until the player dies. Resolves immediately if already dead.
+         * Single-shot per death cycle: after `reset()` a fresh deferred is installed,
+         * so the next `awaitDeath()` call waits for the next death.
+         */
+        awaitDeath: (): Effect.Effect<void, never> =>
+          Ref.get(stateRef).pipe(
+            Effect.flatMap((s) =>
+              s.health.current <= 0
+                ? Effect.void
+                : Ref.get(deathDeferredRef).pipe(Effect.flatMap(Deferred.await)),
+            ),
+          ),
 
-          return yield* Option.match(prevYOpt, {
-            onNone: () =>
-              Ref.update(stateRef, (s) => ({
-                ...s,
-                fallState: { ...s.fallState, prevY: Option.some(currentY) },
-              })).pipe(Effect.as(0)),
+        tick: (): Effect.Effect<void, never> =>
+          Ref.update(stateRef, (s) => ({ ...s, health: tickInvincibility(s.health) })),
 
-            onSome: (prevY) => {
-              const falling = currentY < prevY
-              const damage = computeFallDamage(prevY, currentY, wasFalling, isGrounded)
-              return Ref.update(stateRef, (s) => ({
-                ...s,
-                fallState: { prevY: Option.some(currentY), isFalling: falling },
-              })).pipe(Effect.as(damage))
-            },
-          })
-        }),
+        processFallDamage: (currentY: number, isGrounded: boolean): Effect.Effect<number, never> =>
+          Effect.gen(function* () {
+            const { fallState: { prevY: prevYOpt, isFalling: wasFalling } } = yield* Ref.get(stateRef)
 
-      // Atomic reset: single Ref.set restores both health and fall state simultaneously
-      reset: (): Effect.Effect<void, never> =>
-        Ref.set(stateRef, INITIAL_STATE),
-    })))
+            return yield* Option.match(prevYOpt, {
+              onNone: () =>
+                Ref.update(stateRef, (s) => ({
+                  ...s,
+                  fallState: { ...s.fallState, prevY: Option.some(currentY) },
+                })).pipe(Effect.as(0)),
+
+              onSome: (prevY) => {
+                const falling = currentY < prevY
+                const damage = computeFallDamage(prevY, currentY, wasFalling, isGrounded)
+                return Ref.update(stateRef, (s) => ({
+                  ...s,
+                  fallState: { prevY: Option.some(currentY), isFalling: falling },
+                })).pipe(Effect.as(damage))
+              },
+            })
+          }),
+
+        // Atomic reset: restores health/fall state AND swaps in a fresh death
+        // deferred so the next death cycle can be awaited from scratch.
+        reset: (): Effect.Effect<void, never> =>
+          Effect.all(
+            [
+              Ref.set(stateRef, INITIAL_STATE),
+              Deferred.make<void, never>().pipe(Effect.flatMap((fresh) => Ref.set(deathDeferredRef, fresh))),
+            ],
+            { concurrency: 'unbounded', discard: true },
+          ),
+      }
+    }))
   }
 ) {}
 export const HealthServiceLive = HealthService.Default

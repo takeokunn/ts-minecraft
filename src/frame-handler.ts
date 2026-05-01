@@ -21,6 +21,7 @@ import { BokehPass } from 'three/addons/postprocessing/BokehPass.js'
 import { SMAAPass } from 'three/addons/postprocessing/SMAAPass.js'
 import { GodRaysPass } from '@/infrastructure/three/god-rays-pass'
 import { GameStateService } from '@/application/game-state'
+import { GameModeService } from '@/application/game-mode'
 import { DEFAULT_PLAYER_ID } from '@/application/constants'
 import { MAX_SHADOW_HALF_EXTENT } from '@/shared/rendering-constants'
 import { PlayerCameraStateService } from '@/application/camera/camera-state'
@@ -44,9 +45,12 @@ import { BlockHighlightService } from '@/presentation/highlight/block-highlight'
 import { WorldRendererService } from '@/infrastructure/three/world-renderer'
 import { EntityRendererService } from '@/infrastructure/three/entity-renderer'
 import { ChunkMeshService } from '@/infrastructure/three/meshing/chunk-mesh'
+import { ParticleSystemService, getParticleUvOffset } from '@/infrastructure/three/particles/particle-system'
+import { PerfHudService } from '@/infrastructure/perf/perf-hud'
 import { InputService } from '@/presentation/input/input-service'
 import { KeyMappings } from '@/application/input/key-mappings'
 import { SettingsOverlayService } from '@/presentation/settings/settings-overlay'
+import { PauseMenuService } from '@/presentation/menu/pause-menu'
 import { InventoryRendererService } from '@/presentation/inventory/inventory-renderer'
 import { InventoryService } from '@/application/inventory/inventory-service'
 import { HealthService } from '@/application/player/health-service'
@@ -78,6 +82,7 @@ import {
   captureCameraPose,
   decideAdaptiveQuality,
   hasCameraPoseChanged,
+  type AdaptiveQualityDecision,
   type CameraPoseSnapshot,
 } from '@/frame/frame-runtime-logic'
 import { createMaintenanceHandler } from '@/frame/frame-maintenance'
@@ -99,6 +104,14 @@ export type FrameHandlerDeps = {
   readonly healthValueElement: Option.Option<HTMLElement>
   readonly healthMaxElement: Option.Option<HTMLElement>
   readonly gamePausedRef: Ref.Ref<boolean>
+  /**
+   * FR-1.4 session pause flag — set to `true` while the pause-menu is open
+   * (boot-level / Quit-to-Title flow). Distinct from `gamePausedRef`, which
+   * tracks transient overlay state (settings/inventory/trading). Read
+   * synchronously by frame stages to early-skip simulation while keeping
+   * input + render running so the menu can draw on top.
+   */
+  readonly sessionPausedRef: MutableRef.MutableRef<boolean>
   readonly composer: Option.Option<EffectComposer>
   readonly skyMesh: Option.Option<THREE.Object3D>
   readonly gtaoPass: Option.Option<GTAOPass>
@@ -128,6 +141,7 @@ export type FrameHandlerServices = {
   readonly timeService: TimeService
   readonly settingsService: SettingsService
   readonly settingsOverlay: SettingsOverlayService
+  readonly pauseMenu: PauseMenuService
   readonly inventoryRenderer: InventoryRendererService
   readonly inventoryService: InventoryService
   readonly fpsCounter: FPSCounterService
@@ -135,6 +149,7 @@ export type FrameHandlerServices = {
   readonly worldRendererService: WorldRendererService
   readonly entityRenderer: EntityRendererService
   readonly chunkMeshService: ChunkMeshService
+  readonly particleSystem: ParticleSystemService
   readonly soundManager: SoundManager
   readonly musicManager: MusicManager
   readonly entityManager: EntityManager
@@ -144,6 +159,8 @@ export type FrameHandlerServices = {
   readonly redstoneService: RedstoneService
   readonly fluidService: FluidService
   readonly furnaceService: FurnaceService
+  readonly perfHud: PerfHudService
+  readonly gameMode: GameModeService
 }
 
 export type FrameLoopHandlers = {
@@ -281,7 +298,7 @@ const lightingStage = (
 
 const entityUpdateStage = (
   deps: Pick<FrameHandlerDeps, 'scene'>,
-  services: Pick<FrameHandlerServices, 'entityManager' | 'entityRenderer' | 'redstoneService' | 'fluidService'>,
+  services: Pick<FrameHandlerServices, 'entityManager' | 'entityRenderer' | 'redstoneService' | 'fluidService' | 'particleSystem'>,
   refs: Pick<FrameStageRefs, 'lastEntityStructureVersionRef' | 'redstoneTickAccumulatorRef' | 'fluidTickAccumulatorRef'>,
   inputs: {
     readonly deltaTime: DeltaTimeSecs
@@ -350,6 +367,13 @@ const entityUpdateStage = (
       ),
       Effect.catchAllCause((cause) => Effect.logError(`Fluid system error: ${Cause.pretty(cause)}`)),
     )
+
+    // FR-1.6 — block-break particles: integrate position/velocity/lifetime
+    // and write the InstancedMesh's instanceMatrix exactly once per frame.
+    // Cheap O(MAX_PARTICLES=512) sweep over typed arrays — no per-particle GC.
+    yield* services.particleSystem.update(inputs.deltaTime).pipe(
+      Effect.catchAllCause((cause) => Effect.logError(`Particle system error: ${Cause.pretty(cause)}`)),
+    )
   })
 
 // ---------------------------------------------------------------------------
@@ -383,7 +407,7 @@ const chunkSyncStage = (
 
 const physicsStage = (
   deps: Pick<FrameHandlerDeps, 'respawnPosition'>,
-  services: Pick<FrameHandlerServices, 'gameState' | 'healthService' | 'soundManager' | 'entityManager'>,
+  services: Pick<FrameHandlerServices, 'gameState' | 'healthService' | 'soundManager' | 'entityManager' | 'gameMode'>,
   refs: Pick<FrameStageRefs, 'lastHealthRef'>,
   inputs: {
     readonly deltaTime: DeltaTimeSecs
@@ -433,9 +457,18 @@ const physicsStage = (
 
       const isDead = yield* services.healthService.isDead()
       if (isDead) {
-        yield* services.healthService.reset()
-        yield* services.gameState.respawn(deps.respawnPosition)
-        yield* Ref.set(finalPosRef, deps.respawnPosition)
+        // FR-1.3: in SURVIVAL, the death-screen overlay (DeathScreenService)
+        // owns respawn — it shows "YOU DIED" and waits for the player to click
+        // Respawn or Quit-to-Title. Auto-respawning here would race the overlay
+        // and produce a 1-frame flicker where the player snaps back to spawn
+        // before the screen renders.
+        // CREATIVE preserves the legacy auto-respawn (no death screen).
+        const isCreative = yield* services.gameMode.isCreative()
+        if (isCreative) {
+          yield* services.healthService.reset()
+          yield* services.gameState.respawn(deps.respawnPosition)
+          yield* Ref.set(finalPosRef, deps.respawnPosition)
+        }
       } else {
         yield* services.healthService.tick()
       }
@@ -469,6 +502,7 @@ const inputStage = (
     | 'inputService'
     | 'inventoryRenderer'
     | 'settingsOverlay'
+    | 'pauseMenu'
     | 'tradingPresentation'
     | 'villageService'
     | 'timeService'
@@ -507,6 +541,7 @@ const inputStage = (
       if (escPressed) {
         const isInvOpen = yield* services.inventoryRenderer.isOpen()
         const isSettingsOpen = yield* services.settingsOverlay.isOpen()
+        const isPauseMenuOpen = yield* services.pauseMenu.isOpen()
 
         if (isTradeOpen) {
           yield* services.tradingPresentation.close()
@@ -515,11 +550,18 @@ const inputStage = (
           yield* services.inventoryRenderer.toggle()
           yield* Ref.set(deps.gamePausedRef, false)
         } else if (isSettingsOpen) {
+          // Settings overlay close — pause-menu's own watchdog re-shows itself
+          // afterward when it remains the active modal.
           yield* services.settingsOverlay.toggle()
           yield* Ref.set(deps.gamePausedRef, false)
+        } else if (isPauseMenuOpen) {
+          // Pause menu has its own keydown handler that consumes Esc to
+          // resume; nothing more to do here.
         } else {
-          const nowOpen = yield* services.settingsOverlay.toggle()
-          yield* Ref.set(deps.gamePausedRef, nowOpen)
+          // FR-1.4: ESC during play opens the in-session pause menu (formerly
+          // toggled the settings overlay; settings is now reachable via the
+          // pause menu's "Settings" button).
+          yield* services.pauseMenu.openIfClosed()
         }
       }
 
@@ -706,6 +748,7 @@ const interactionStage = (
     | 'inventoryService'
     | 'redstoneService'
     | 'furnaceService'
+    | 'particleSystem'
   >,
   refs: Pick<FrameStageRefs, 'dirtyChunksRef'>,
 ): Effect.Effect<void, never> =>
@@ -814,14 +857,39 @@ const interactionStage = (
                   const pos = { x: tb.x, y: tb.y, z: tb.z }
                   const chunkCoord = { x: Math.floor(tb.x / CHUNK_SIZE), z: Math.floor(tb.z / CHUNK_SIZE) }
                   const coordKey = `${chunkCoord.x},${chunkCoord.z}`
-                  return Effect.all(
-                    [services.blockService.breakBlock(pos), services.soundManager.playEffect('blockBreak', { position: pos })],
-                    { concurrency: 'unbounded', discard: true },
-                  ).pipe(
-                    Effect.andThen(services.chunkManagerService.getChunk(chunkCoord)),
-                    Effect.flatMap((updatedChunk) =>
-                      Ref.update(refs.dirtyChunksRef, (map) => HashMap.set(map, coordKey, updatedChunk)),
-                    ),
+                  // FR-1.6 — read block type BEFORE breakBlock mutates it so the
+                  // particle UV uses the correct atlas tile. Falls back to dirt
+                  // (tile 0) if the local index is out of range.
+                  const lx = ((tb.x % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE
+                  const lz = ((tb.z % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE
+                  const flatIdx = tb.y + lz * CHUNK_HEIGHT + lx * CHUNK_HEIGHT * CHUNK_SIZE
+                  return services.chunkManagerService.getChunk(chunkCoord).pipe(
+                    Effect.flatMap((preBreakChunk) => {
+                      const blockId = preBreakChunk.blocks[flatIdx] ?? 0
+                      const uv = getParticleUvOffset(blockId)
+                      return Effect.all(
+                        [
+                          services.blockService.breakBlock(pos),
+                          services.soundManager.playEffect('blockBreak', { position: pos }),
+                          // 6 particles per break — center-of-block origin so the
+                          // burst expands outward symmetrically.
+                          services.particleSystem.spawnBurst(
+                            tb.x + 0.5,
+                            tb.y + 0.5,
+                            tb.z + 0.5,
+                            uv.u,
+                            uv.v,
+                            6,
+                          ),
+                        ],
+                        { concurrency: 'unbounded', discard: true },
+                      ).pipe(
+                        Effect.andThen(services.chunkManagerService.getChunk(chunkCoord)),
+                        Effect.flatMap((updatedChunk) =>
+                          Ref.update(refs.dirtyChunksRef, (map) => HashMap.set(map, coordKey, updatedChunk)),
+                        ),
+                      )
+                    }),
                   )
                 },
               }),
@@ -1032,6 +1100,7 @@ const postProcessingSetupStage = (
 
 const renderStage = (
   deps: Pick<FrameHandlerDeps, 'renderer' | 'scene' | 'camera' | 'lights'>,
+  services: Pick<FrameHandlerServices, 'perfHud'>,
   resolved: Pick<ResolvedDeps, 'godRaysPassOrNull' | 'composerOrNull'>,
   inputs: {
     readonly resolvedGraphics: ResolvedGraphics
@@ -1070,7 +1139,9 @@ const renderStage = (
     } else {
       deps.renderer.render(deps.scene, deps.camera)
     }
-  })
+  }).pipe(
+    Effect.andThen(services.perfHud.setDrawCalls(deps.renderer.info.render.calls)),
+  )
 
 // ---------------------------------------------------------------------------
 // Stage 11: hudStage — FPS tick + adaptive quality + DOM update + hotbar HUD pass.
@@ -1078,27 +1149,36 @@ const renderStage = (
 
 const hudStage = (
   deps: Pick<FrameHandlerDeps, 'renderer'>,
-  services: Pick<FrameHandlerServices, 'fpsCounter' | 'settingsService' | 'hotbarRenderer'>,
+  services: Pick<FrameHandlerServices, 'fpsCounter' | 'settingsService' | 'hotbarRenderer' | 'perfHud'>,
   refs: Pick<FrameStageRefs, 'frustumThrottleStrideRef' | 'adaptiveQualityCooldownRef' | 'lastFpsTextRef'>,
   inputs: {
     readonly deltaTime: DeltaTimeSecs
     readonly currentSettings: FrameSettingsView
     readonly fpsElementOrNull: HTMLElement | null
+    readonly paused?: boolean
   },
 ): Effect.Effect<void, never> =>
   Effect.gen(function* () {
+    // Feed the per-frame delta into the perf-HUD ring buffer. No-op when
+    // `?debug=perf` is absent (PerfHudService returns trivial impl).
+    yield* services.perfHud.recordFrame(inputs.deltaTime)
+
     // Update FPS display — tick first, then update DOM only when displayed value changes
     const fps = yield* services.fpsCounter.tick(inputs.deltaTime).pipe(Effect.andThen(services.fpsCounter.getFPS()))
     const fpsText = fps.toFixed(1)
     yield* Ref.set(refs.frustumThrottleStrideRef, fps >= 100 ? 1 : fps >= 60 ? 2 : 4)
     const adaptiveCooldown = yield* Ref.get(refs.adaptiveQualityCooldownRef)
-    const adaptiveQualityDecision = decideAdaptiveQuality({
-      adaptivePerformanceMode: inputs.currentSettings.adaptivePerformanceMode,
-      graphicsQuality: inputs.currentSettings.graphicsQuality,
-      renderDistance: inputs.currentSettings.renderDistance,
-      fps,
-      cooldown: adaptiveCooldown,
-    })
+    // FR-1.4: suspend adaptive-quality evaluation while paused — pause-menu
+    // overhead can briefly tank FPS without indicating a real perf problem.
+    const adaptiveQualityDecision: AdaptiveQualityDecision = inputs.paused
+      ? { nextCooldown: adaptiveCooldown, settingsPatch: null }
+      : decideAdaptiveQuality({
+          adaptivePerformanceMode: inputs.currentSettings.adaptivePerformanceMode,
+          graphicsQuality: inputs.currentSettings.graphicsQuality,
+          renderDistance: inputs.currentSettings.renderDistance,
+          fps,
+          cooldown: adaptiveCooldown,
+        })
     if (adaptiveQualityDecision.nextCooldown !== adaptiveCooldown) {
       yield* Ref.set(refs.adaptiveQualityCooldownRef, adaptiveQualityDecision.nextCooldown)
     }
@@ -1335,48 +1415,66 @@ const createFrameLoopHandlersInternal = (
         // Listener position updates every frame (player moves)
         yield* services.soundManager.setListenerPosition(initialPlayerPos)
 
+        // FR-1.4 pause matrix: when sessionPausedRef is true (pause-menu open or
+        // quit-to-title in progress), skip simulation/world stages but keep
+        // input + render running so the menu draws on top of the paused scene.
+        // See main/session-control.ts for the pause-flag owner.
+        const sessionPaused = MutableRef.get(deps.sessionPausedRef)
+
         // === Stage execution ===
-        yield* chunkSyncStage(deps, services, refs)
+        if (!sessionPaused) {
+          yield* chunkSyncStage(deps, services, refs)
 
-        yield* lightingStage(deps, services, refs, {
-          deltaTime,
-          effectiveLights,
-          playerPos: initialPlayerPos,
-          markShadowMapDirty,
-        })
+          yield* lightingStage(deps, services, refs, {
+            deltaTime,
+            effectiveLights,
+            playerPos: initialPlayerPos,
+            markShadowMapDirty,
+          })
 
-        yield* entityUpdateStage(deps, services, refs, {
-          deltaTime,
-          playerPos: initialPlayerPos,
-          totalTimeSecs,
-        })
+          yield* entityUpdateStage(deps, services, refs, {
+            deltaTime,
+            playerPos: initialPlayerPos,
+            totalTimeSecs,
+          })
+        }
 
-        const { playerPos } = yield* physicsStage(deps, services, refs, {
-          deltaTime,
-          initialPlayerPos,
-          healthValueElementOrNull: resolved.healthValueElementOrNull,
-          healthMaxElementOrNull: resolved.healthMaxElementOrNull,
-        })
+        // Physics: paused → skip update, but still snapshot last-known position
+        // so cameraStage receives a sensible playerPos to render the static scene.
+        const { playerPos } = sessionPaused
+          ? { playerPos: initialPlayerPos }
+          : yield* physicsStage(deps, services, refs, {
+              deltaTime,
+              initialPlayerPos,
+              healthValueElementOrNull: resolved.healthValueElementOrNull,
+              healthMaxElementOrNull: resolved.healthMaxElementOrNull,
+            })
 
+        // inputStage: ALWAYS runs — needed to receive ESC to unpause + dismiss
+        // overlays. Inside, the existing gamePausedRef gates per-overlay logic.
         yield* inputStage(deps, services, {
           mouseSensitivity: currentSettings.mouseSensitivity,
           dayLengthSeconds: currentSettings.dayLengthSeconds,
           playerPos,
         })
 
-        yield* cameraStage(deps, services, refs, {
-          playerPos,
-          renderDistance: currentSettings.renderDistance,
-          markShadowMapDirty,
-        })
+        if (!sessionPaused) {
+          yield* cameraStage(deps, services, refs, {
+            playerPos,
+            renderDistance: currentSettings.renderDistance,
+            markShadowMapDirty,
+          })
 
-        yield* interactionStage(deps, services, refs)
+          yield* interactionStage(deps, services, refs)
 
-        yield* refractionPrepassStage(deps, services, refs, {
-          resolvedGraphics,
-          totalTimeSecs,
-        })
+          yield* refractionPrepassStage(deps, services, refs, {
+            resolvedGraphics,
+            totalTimeSecs,
+          })
+        }
 
+        // postProcessingSetupStage: ALWAYS runs — pass enable/setSize must
+        // react to resize events that arrive while paused.
         yield* postProcessingSetupStage(deps, resolved, {
           resolvedGraphics,
           graphicsChanged,
@@ -1384,15 +1482,21 @@ const createFrameLoopHandlersInternal = (
           markShadowMapDirty,
         })
 
-        yield* renderStage(deps, resolved, {
+        // renderStage: ALWAYS runs — pause-menu draws over the static world.
+        yield* renderStage(deps, services, resolved, {
           resolvedGraphics,
           sunWorldPos,
         })
 
+        // hudStage: ALWAYS runs — FPS counter + adaptive perf still update.
+        // Adaptive perf eval inside hudStage already guards on cooldown; we
+        // additionally suppress its FPS-driven preset switches while paused so
+        // a temporarily low FPS at pause doesn't downgrade graphics.
         yield* hudStage(deps, services, refs, {
           deltaTime,
           currentSettings,
           fpsElementOrNull: resolved.fpsElementOrNull,
+          paused: sessionPaused,
         })
       })
 

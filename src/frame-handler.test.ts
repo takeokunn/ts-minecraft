@@ -132,17 +132,24 @@ describe('frame-handler', () => {
       expect(paused).toBe(false)
     }))
 
-    it.effect('opens settings and sets gamePausedRef to true when Escape is pressed while nothing is open', () => Effect.gen(function* () {
+    // FR-1.4: ESC during play opens the pause menu (not the settings overlay).
+    // Settings is now reachable via the pause menu's "Settings" button.
+    it.effect('opens the pause menu (NOT settings) when Escape is pressed while nothing is open', () => Effect.gen(function* () {
       const pressedKeys = MutableHashSet.make(KeyMappings.ESCAPE)
       const { deps, services, settingsState } = yield* arrangeFrameHarness({ pressedKeys })
+      const openIfClosedSpy = vi.fn(() => Effect.void)
+      ;(services.pauseMenu as unknown as { openIfClosed: unknown }).openIfClosed = openIfClosedSpy
 
       yield* runFrame(deps, services)
 
-      // Settings must now be open
-      expect(settingsState.open).toBe(true)
-      // gamePausedRef must be true
+      // Pause menu must have been opened
+      expect(openIfClosedSpy).toHaveBeenCalledOnce()
+      // Settings overlay must NOT have been opened by ESC alone
+      expect(settingsState.open).toBe(false)
+      // gamePausedRef is unchanged here — pauseMenu owns its own pause state
+      // (via the watchdog/attach mechanism), so the inputStage doesn't toggle it.
       const paused = yield* Ref.get(deps.gamePausedRef)
-      expect(paused).toBe(true)
+      expect(paused).toBe(false)
     }))
 
     it.effect('does not change overlay states when Escape is not pressed', () => Effect.gen(function* () {
@@ -508,7 +515,9 @@ describe('frame-handler', () => {
       expect(applyDamageSpy).toHaveBeenCalledWith(3)
     }))
 
-    it.effect('resets health and respawns the player when health reaches zero', () => Effect.gen(function* () {
+    // FR-1.3: in SURVIVAL the death-screen overlay owns respawn; the frame
+    // handler must NOT auto-respawn (would race the overlay and flicker).
+    it.effect('does NOT auto-respawn the player on death in survival mode (death screen owns respawn)', () => Effect.gen(function* () {
       const deps = yield* makeDeps(false)
       const services = makeServices({
         inputService: makeInputService(),
@@ -516,6 +525,29 @@ describe('frame-handler', () => {
         settingsOverlay: makeSettingsOverlay({ open: false }),
       })
       ;(services.healthService as unknown as { isDead: unknown }).isDead = vi.fn(() => Effect.succeed(true))
+      // Default test-kit gameMode is survival (isCreative -> false).
+      const resetSpy = vi.fn(() => Effect.void)
+      const respawnSpy = vi.fn(() => Effect.void)
+      ;(services.healthService as unknown as { reset: unknown }).reset = resetSpy
+      ;(services.gameState as unknown as { respawn: unknown }).respawn = respawnSpy
+
+      yield* runFrame(deps, services)
+
+      expect(resetSpy).not.toHaveBeenCalled()
+      expect(respawnSpy).not.toHaveBeenCalled()
+    }))
+
+    // FR-1.3: in CREATIVE there is no death screen, so the legacy auto-respawn
+    // path runs (resets health, repositions to respawnPosition).
+    it.effect('auto-respawns the player on death in creative mode', () => Effect.gen(function* () {
+      const deps = yield* makeDeps(false)
+      const services = makeServices({
+        inputService: makeInputService(),
+        inventoryRenderer: makeInventoryRenderer({ open: false }),
+        settingsOverlay: makeSettingsOverlay({ open: false }),
+      })
+      ;(services.healthService as unknown as { isDead: unknown }).isDead = vi.fn(() => Effect.succeed(true))
+      ;(services.gameMode as unknown as { isCreative: unknown }).isCreative = vi.fn(() => Effect.succeed(true))
       const resetSpy = vi.fn(() => Effect.void)
       const respawnSpy = vi.fn(() => Effect.void)
       ;(services.healthService as unknown as { reset: unknown }).reset = resetSpy

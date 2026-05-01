@@ -19,12 +19,18 @@ type MaintenanceServices = Pick<
 >
 
 export const createMaintenanceHandler = (
-  deps: Pick<FrameHandlerDeps, 'scene'>,
+  deps: Pick<FrameHandlerDeps, 'scene' | 'sessionPausedRef'>,
   services: MaintenanceServices,
   state: MaintenanceState,
 ): (() => Effect.Effect<boolean, never>) =>
   () =>
     Effect.gen(function* () {
+      // FR-1.4: gate ALL maintenance work behind session-pause. Auto-save
+      // continues to run because it lives on its own forkDaemon (in main.ts /
+      // bootProgram), not in this handler.
+      if (MutableRef.get(deps.sessionPausedRef)) {
+        return false
+      }
       const {
         gameState,
         chunkManagerService,

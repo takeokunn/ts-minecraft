@@ -8,13 +8,30 @@ import { SceneService } from './scene/scene-service'
 import { createWaterMaterial } from './water-material'
 
 /**
- * Maximum number of chunk mesh creations per syncChunksToScene call.
- * Limits GPU/CPU work per frame when many chunks become dirty simultaneously,
- * spreading mesh builds across subsequent frames to avoid frame spikes.
- * Only throttles creation/update — removal of stale chunks is always immediate.
+ * Hard safety cap on chunk mesh creations per syncChunksToScene call.
+ * The primary throttle is now `WORLD_RENDERER_TIME_BUDGET_MS`; this cap only
+ * exists so a degenerate single-mesh-takes-100ms case doesn't loop forever.
+ * Raised from 4 to 8 to mirror MAX_DIRTY_CHUNK_UPDATES_PER_FRAME — the time
+ * budget is the real throttle and 8 typical meshes at ~1ms each comfortably
+ * fit under WORLD_RENDERER_TIME_BUDGET_MS.
+ * Only throttles creation — removal of stale chunks is always immediate.
  */
-export const MAX_CHUNK_UPDATES_PER_FRAME = 4
+export const MAX_CHUNK_UPDATES_PER_FRAME = 8
+
+/**
+ * Time budget (ms) for chunk mesh creation per syncChunksToScene call.
+ * Drains the new-chunks queue one mesh at a time and breaks once the elapsed
+ * wall-clock exceeds this budget. Mirrors `DIRTY_CHUNK_FLUSH_TIME_BUDGET_MS`
+ * in frame-maintenance — the two pipelines target the same per-frame budget.
+ * At cold-start with RD=2 (25 chunks) this turns the 4-per-frame drip into
+ * "as many as fit in this frame's idle window".
+ */
+export const WORLD_RENDERER_TIME_BUDGET_MS = 4
+
 const CHUNK_SYNC_CONCURRENCY = typeof Worker === 'undefined' ? 1 : 2
+
+const nowMs = (): number =>
+  typeof performance !== 'undefined' ? performance.now() : Date.now()
 
 /**
  * Key for chunk mesh tracking — uses the shared ChunkCacheKey brand so this
@@ -155,19 +172,34 @@ export class WorldRendererService extends Effect.Service<WorldRendererService>()
                     const loadedKeySet = HashSet.fromIterable(Arr.map(loadedChunks, (c) => chunkKey(c.coord)))
 
                     // Add meshes for newly loaded chunks not yet in scene.
-                    // Throttle: process at most MAX_CHUNK_UPDATES_PER_FRAME new chunks per call
-                    // to avoid frame spikes when many chunks become dirty simultaneously.
-                    // Remaining new chunks will be picked up in subsequent frames.
-                    const chunksToMesh = Arr.take(newChunks, MAX_CHUNK_UPDATES_PER_FRAME)
-                    const allNewChunksMeshed = newChunks.length <= MAX_CHUNK_UPDATES_PER_FRAME
-                    const meshedChunks = yield* Effect.forEach(
-                      chunksToMesh,
-                      (chunk) =>
-                        chunkMeshService.createChunkMesh(chunk, waterMaterial).pipe(
-                          Effect.map((chunkMeshes) => [chunkKey(chunk.coord), chunkMeshes] as const)
-                        ),
-                      { concurrency: CHUNK_SYNC_CONCURRENCY }
-                    )
+                    // Throttle: drain one chunk at a time, checking elapsed wall-clock
+                    // time after each. Stop when WORLD_RENDERER_TIME_BUDGET_MS is reached
+                    // OR MAX_CHUNK_UPDATES_PER_FRAME (hard safety cap) is hit. Remaining
+                    // chunks are picked up next frame. Mirrors the dirty-chunk drain in
+                    // frame-maintenance.ts (same time-budget pattern).
+                    //
+                    // CHUNK_SYNC_CONCURRENCY is preserved as concurrency: 1 here for
+                    // correctness — we need to check the time budget AFTER each
+                    // createChunkMesh, which only works if the inner pipeline is
+                    // sequential. The previous concurrency: CHUNK_SYNC_CONCURRENCY (=2)
+                    // batched the work and would overshoot the budget by up to one full
+                    // mesh build. Per-frame impact is negligible because meshing is
+                    // mostly main-thread sync work anyway.
+                    const startMs = nowMs()
+                    const hardCap = Math.min(MAX_CHUNK_UPDATES_PER_FRAME, newChunks.length)
+                    const meshedChunks: Array<readonly [ChunkCacheKey, { opaqueMesh: THREE.Mesh; waterMesh: Option.Option<THREE.Mesh> }]> = []
+                    let processed = 0
+                    for (let i = 0; i < hardCap; i++) {
+                      const chunk = newChunks[i]
+                      if (chunk === undefined) break
+                      const chunkMeshes = yield* chunkMeshService.createChunkMesh(chunk, waterMaterial)
+                      meshedChunks.push([chunkKey(chunk.coord), chunkMeshes] as const)
+                      processed = i + 1
+                      if (nowMs() - startMs >= WORLD_RENDERER_TIME_BUDGET_MS) break
+                    }
+                    // allNewChunksMeshed is `false` if either the time budget OR the hard
+                    // cap stopped us short of draining the entire newChunks queue.
+                    const allNewChunksMeshed = processed >= newChunks.length
 
                     const nextMeshesAfterAdd = yield* Effect.all(
                       Arr.map(meshedChunks, ([key, { opaqueMesh, waterMesh }]) =>

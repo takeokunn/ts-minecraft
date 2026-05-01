@@ -1,0 +1,164 @@
+import { test, expect } from '@playwright/test'
+import { attachFatalErrorMonitor } from '../helpers/console-monitor'
+import { waitForGameReady, getFpsValue } from '../helpers/wait-helpers'
+
+// -----------------------------------------------------------------------------
+// Perf-target regression test (V-1)
+//
+// Purpose: catch regressions in cold-start steady-state performance under the
+// e2e SwiftShader (CPU rasterizer) environment. This is NOT an aspirational
+// 60-FPS gate — that target is verified separately on real GPU via Playwright
+// MCP screenshots (V-2). Thresholds here are deliberately generous so the test
+// is a regression detector, not a flake source.
+//
+// Cross-references for threshold floors:
+//   - e2e/gameplay/fps-threshold.e2e.ts                  : FPS >= 10 on CI / 12 locally
+//   - e2e/gameplay/long-run-stability.e2e.ts             : every-sample FPS >= 10
+//   - e2e/gameplay/user-flow.e2e.ts                      : every-sample FPS >= 10, avg >= 15
+// We use the strictest common floor (10) to avoid false positives on slower CI
+// runners while still catching real regressions.
+// -----------------------------------------------------------------------------
+
+// Minimum sustained FPS read from #fps-value DOM element (existing rolling
+// 0.5s window FPS counter). Matches long-run-stability + user-flow per-sample
+// floor; identical to fps-threshold.e2e.ts CI floor.
+const FPS_FLOOR = 10
+
+// Generous p99 cap. At 10 FPS the mean frame is 100ms, so p99 must be allowed
+// higher; SwiftShader chunk-stream + meshing can spike into the 150-200ms
+// range even after settle. 250ms catches >5x degradations without flake.
+const P99_MS_CAP = 250
+
+// Largest single-frame gap (in seconds — `samples` from perf-hud are raw dtSecs).
+// 500ms = 0.5s catches stalls that would be visible to a player.
+const MAX_GAP_SECS = 0.5
+
+// Heap growth budget over the sampling window. SwiftShader builds Three.js
+// buffer attributes during chunk streaming; 50MB across a 30s window is the
+// budget below which steady-state should always remain.
+const HEAP_DELTA_BYTES = 50 * 1024 * 1024
+
+// Wait windows. Total: ~5s boot + 10s settle + 30s sample = ~45s, safe under
+// the 60s per-test timeout in playwright.config.ts.
+const POST_READY_SETTLE_MS = 10_000
+const PERF_SAMPLE_WINDOW_MS = 30_000
+
+// Perf HUD snapshot contract — matches PerfHudSnapshot in
+// src/infrastructure/three/perf-hud.ts. Re-declared here (not imported) so the
+// e2e test stays decoupled from src/.
+type PerfHudSnapshot = Readonly<{
+  fps: number
+  p50Ms: number
+  p99Ms: number
+  drawCalls: number
+  chunkCount: number
+  workerQueueDepth: number
+  samples: ReadonlyArray<number>
+}>
+
+test('default settings — perf target window (30s)', async ({ page }) => {
+  // ---------------------------------------------------------------------------
+  // 1. Boot with ?debug=perf so PerfHudService takes the active path and
+  //    installs window.__perfHud__.snapshot. The GamePage fixture's goto()
+  //    hardcodes '/', so we navigate directly here and inline the same
+  //    storage-cleanup init script the fixture uses.
+  // ---------------------------------------------------------------------------
+  await page.addInitScript(() => {
+    window.localStorage.clear()
+    window.sessionStorage.clear()
+    indexedDB.databases?.().then((dbs) =>
+      dbs.forEach((db) => {
+        if (db.name) indexedDB.deleteDatabase(db.name)
+      })
+    )
+  })
+
+  const getFatalErrors = attachFatalErrorMonitor(page)
+
+  await page.goto('/?debug=perf')
+  await waitForGameReady(page)
+
+  // ---------------------------------------------------------------------------
+  // 2. Cold-start chunk-stream flood window. The first ~5s after #fps-value
+  //    becomes non-zero are dominated by initial chunk generation/meshing —
+  //    we wait it out so the sample window measures steady state, not boot.
+  // ---------------------------------------------------------------------------
+  await page.waitForTimeout(POST_READY_SETTLE_MS)
+
+  // Capture baseline heap. performance.memory is a non-standard Chromium API
+  // and may be absent or quantized in headless mode; treat 0 as "unavailable"
+  // and skip the heap assertion in that case.
+  const heapStart = await page.evaluate(() => {
+    const mem = (performance as unknown as { memory?: { usedJSHeapSize: number } }).memory
+    return mem ? mem.usedJSHeapSize : 0
+  })
+
+  // ---------------------------------------------------------------------------
+  // 3. Sampling window. We don't need to do anything during this window —
+  //    we just let the game render and let perf-hud accumulate frame samples.
+  // ---------------------------------------------------------------------------
+  await page.waitForTimeout(PERF_SAMPLE_WINDOW_MS)
+
+  // ---------------------------------------------------------------------------
+  // 4. Snapshot perf HUD + DOM-fps + heap.
+  // ---------------------------------------------------------------------------
+  const snap = await page.evaluate((): PerfHudSnapshot | null => {
+    const w = window as unknown as { __perfHud__?: { snapshot: () => PerfHudSnapshot } }
+    return w.__perfHud__ ? w.__perfHud__.snapshot() : null
+  })
+
+  const domFps = await getFpsValue(page)
+
+  const heapEnd = await page.evaluate(() => {
+    const mem = (performance as unknown as { memory?: { usedJSHeapSize: number } }).memory
+    return mem ? mem.usedJSHeapSize : 0
+  })
+
+  // Log the snapshot — Playwright's list reporter shows console.warn even on
+  // success, so this is useful for tracking trends across PRs.
+  console.warn(
+    `[perf-target] domFps=${domFps.toFixed(1)} ` +
+      `snap=${JSON.stringify({
+        fps: snap?.fps?.toFixed?.(1) ?? null,
+        p50Ms: snap?.p50Ms?.toFixed?.(1) ?? null,
+        p99Ms: snap?.p99Ms?.toFixed?.(1) ?? null,
+        drawCalls: snap?.drawCalls ?? null,
+        chunkCount: snap?.chunkCount ?? null,
+        workerQueueDepth: snap?.workerQueueDepth ?? null,
+        sampleCount: snap?.samples?.length ?? null,
+      })} ` +
+      `heapDeltaMB=${((heapEnd - heapStart) / (1024 * 1024)).toFixed(2)}`
+  )
+
+  // ---------------------------------------------------------------------------
+  // 5. Regression assertions.
+  // ---------------------------------------------------------------------------
+
+  // Perf HUD must have activated — proves the ?debug=perf gate is wired
+  // correctly. If this fails, either PerfHudService is broken or the URL
+  // query-param parse changed.
+  expect(snap).not.toBeNull()
+  expect(snap!.samples.length).toBeGreaterThan(0)
+
+  // FPS floor — read from the existing #fps-value rolling counter (more
+  // stable than perf-hud's single-frame-derived fps field).
+  expect(domFps).toBeGreaterThanOrEqual(FPS_FLOOR)
+
+  // p99 frame time cap. Generous to absorb SwiftShader meshing spikes.
+  expect(snap!.p99Ms).toBeLessThan(P99_MS_CAP)
+
+  // Largest single-frame gap. samples are in seconds (raw dtSecs in the ring
+  // buffer per perf-hud.ts:232), so compare against MAX_GAP_SECS directly.
+  const maxGap = Math.max(...snap!.samples)
+  expect(maxGap).toBeLessThan(MAX_GAP_SECS)
+
+  // Heap regression gate — only enforced when performance.memory is populated.
+  if (heapStart > 0 && heapEnd > 0) {
+    expect(heapEnd - heapStart).toBeLessThan(HEAP_DELTA_BYTES)
+  }
+
+  // Fatal error gate — matches long-run-stability.e2e.ts. Note: this monitors
+  // 'Failed to start application' patterns only; the game intentionally uses
+  // console.error for non-fatal Effect pipeline diagnostics.
+  expect(getFatalErrors()).toHaveLength(0)
+})

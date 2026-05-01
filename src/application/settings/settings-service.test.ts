@@ -1,7 +1,7 @@
 import { Array as Arr, Effect, MutableHashMap, Option, Schema } from 'effect'
 import { afterEach, beforeEach, expect, vi } from 'vitest'
 import { describe, it } from '@effect/vitest'
-import { resolvePreset, SettingsSchema, SettingsService, SettingsServiceLive } from './settings-service'
+import { ResolvedGraphicsSchema, resolvePreset, SettingsSchema, SettingsService, SettingsServiceLive, type GraphicsQuality } from './settings-service'
 import { GRAPHICS_PRESETS } from './settings-service.config'
 
 const STORAGE_KEY = 'minecraft-settings'
@@ -187,6 +187,28 @@ describe('application/settings/settings-service', () => {
 
     it('rejects missing required fields', () => {
       expect(() => decode({ renderDistance: 8, mouseSensitivity: 0.5 })).toThrow()
+    })
+  })
+
+  describe('ResolvedGraphicsSchema/preset bounds', () => {
+    // Guards against schema/preset bound mismatches: every value in
+    // GRAPHICS_PRESETS[q] must satisfy ResolvedGraphicsSchema. A regression
+    // here (e.g. shrinking refractionThrottleFrames bounds without updating
+    // the medium preset) would throw at runtime any time a path decodes
+    // preset values.
+    const decodeResolved = ResolvedGraphicsSchema.pipe(Schema.decodeUnknownSync)
+
+    Arr.forEach(['low', 'medium', 'high', 'ultra'] as const satisfies ReadonlyArray<GraphicsQuality>, (quality) => {
+      it(`GRAPHICS_PRESETS.${quality} satisfies ResolvedGraphicsSchema`, () => {
+        expect(() => decodeResolved(GRAPHICS_PRESETS[quality])).not.toThrow()
+      })
+    })
+
+    it('resolvePreset output round-trips through ResolvedGraphicsSchema for every quality', () => {
+      Arr.forEach(['low', 'medium', 'high', 'ultra'] as const satisfies ReadonlyArray<GraphicsQuality>, (quality) => {
+        const resolved = resolvePreset(quality)
+        expect(() => decodeResolved(resolved)).not.toThrow()
+      })
     })
   })
 

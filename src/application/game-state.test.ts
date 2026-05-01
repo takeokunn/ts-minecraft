@@ -17,6 +17,9 @@ import { ChunkManagerService } from './chunk/chunk-manager-service'
 import { PhysicsWorldServiceLive } from '../infrastructure/physics/boundary/physics-world-service'
 import { RigidBodyServiceLive } from '../infrastructure/physics/boundary/rigid-body-service'
 import { ShapeServiceLive } from '../infrastructure/physics/boundary/shape-service'
+import { GameModeServiceLive } from '@/application/game-mode'
+import { InventoryServiceLive } from '@/application/inventory/inventory-service'
+import { BlockRegistryLive } from '@/domain'
 
 const NoOpChunkManagerLayer = Layer.succeed(ChunkManagerService, {
   _tag: '@minecraft/application/ChunkManagerService' as const,
@@ -104,13 +107,17 @@ const createTestLayer = (inputService: ReturnType<typeof createTestInputService>
   const playerLayer = PlayerServiceLive
   const cameraLayer = PlayerCameraStateLive
 
-  // Merge all dependency layers
+  // Merge all dependency layers — includes GameModeService (mode-aware respawn FR-1.3)
+  // and InventoryService (clears on survival death) per the W2c death-screen wiring.
+  const inventoryLayer = InventoryServiceLive.pipe(Layer.provide(BlockRegistryLive))
   const dependencyLayers = Layer.mergeAll(
     physicsLayer,
     movementLayer,
     cameraLayer,
     playerLayer,
     NoOpChunkManagerLayer,
+    GameModeServiceLive,
+    inventoryLayer,
   )
 
   // Create final layer with GameStateService

@@ -7,6 +7,8 @@ import { MovementService } from './player/movement-service'
 import { PlayerCameraStateService } from '@/application/camera/camera-state'
 import { DEFAULT_PLAYER_ID, FIRST_FRAME_DELTA_SECS } from '@/application/constants'
 import { ChunkManagerService } from '@/application/chunk/chunk-manager-service'
+import { GameModeService } from '@/application/game-mode'
+import { InventoryService } from '@/application/inventory/inventory-service'
 import { CHUNK_SIZE, CHUNK_HEIGHT } from '@/domain/chunk'
 import { resolveBlockCollisions } from '@/application/physics/aabb-collision'
 
@@ -65,6 +67,8 @@ export class GameStateService extends Effect.Service<GameStateService>()(
       MovementService,
       PlayerCameraStateService,
       ChunkManagerService,
+      GameModeService,
+      InventoryService,
       // Timing state (deltaTime initial value uses a first-frame estimate of 16ms at 60fps)
       Ref.make<TimingState>({
         lastFrameTime: 0,
@@ -76,7 +80,7 @@ export class GameStateService extends Effect.Service<GameStateService>()(
       // AABB-derived grounded state (updated each frame after block collision resolution)
       Ref.make<boolean>(false),
       Ref.make(new Map<string, { blocks: Uint8Array }>()),
-    ], { concurrency: 'unbounded' }).pipe(Effect.map(([playerService, physicsService, movementService, cameraState, chunkManagerService, timingStateRef, playerBodyIdRef, isGroundedRef, chunkCacheRef]) => {
+    ], { concurrency: 'unbounded' }).pipe(Effect.map(([playerService, physicsService, movementService, cameraState, chunkManagerService, gameModeService, inventoryService, timingStateRef, playerBodyIdRef, isGroundedRef, chunkCacheRef]) => {
       const playerId = DEFAULT_PLAYER_ID
 
       return {
@@ -242,6 +246,14 @@ export class GameStateService extends Effect.Service<GameStateService>()(
               onNone: () => Effect.fail(new GameStateError({ operation: 'respawn', reason: 'Physics not initialized. Call initialize() first.' })),
               onSome: (id) => Effect.succeed(id),
             })
+
+            // Mode-aware inventory handling (FR-1.3): in survival, the player
+            // drops everything on death (Phase 1: clear; Phase 3 will add
+            // world-entity drops at deathPos). Creative preserves the inventory.
+            const isSurvival = yield* gameModeService.isSurvival()
+            if (isSurvival) {
+              yield* inventoryService.clear()
+            }
 
             yield* physicsService.setPosition(playerBodyId, spawnPosition)
             yield* physicsService.setVelocity(playerBodyId, ZERO_VEC3)

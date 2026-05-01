@@ -17,10 +17,9 @@ import {
   CHUNK_SIZE,
   ChunkCoordSchema,
   ChunkService,
-  blockIndexUnsafe,
 } from '@/domain/chunk'
 import type { ChunkCoord } from '@/domain/chunk'
-import { LIGHT_BYTE_LENGTH } from '@/domain/light'
+import { LIGHT_BYTE_LENGTH, computeBlockLight, computeSkyLight } from '@/domain/light'
 import { BiomeService } from '@/application/biome/biome-service'
 import { NoiseServicePort } from '@/application/noise/noise-service-port'
 import { generateTerrain } from '@/application/chunk/terrain/generator'
@@ -158,32 +157,23 @@ export const buildTerrainLayer = (
 }
 
 // ---------------------------------------------------------------------------
-// Skylight: simple top-down sweep — every voxel above the highest non-AIR
-// block in its column receives full skylight (15). The light engine on the
-// main thread will refine this per chunk if needed; the worker just provides
-// a non-zero starting state so transferred buffers are usable.
+// Lighting: run the full sky+block BFS inside the worker so the main thread
+// receives genuinely-lit grids. Re-uses the same `computeSkyLight` /
+// `computeBlockLight` BFS implementations the main thread used to call via
+// `LightEngineService.updateLight` — no logic duplication, just a relocation
+// of the work to the worker side of the boundary.
+//
+// Performance impact (RD=2, 25 chunks): ~0.6-1.25s of main-thread blocking
+// on cold start moves into N worker fibers running in parallel.
 // ---------------------------------------------------------------------------
-const computeInitialSkyLight = (blocks: Uint8Array): Uint8Array => {
-  const out = new Uint8Array(LIGHT_BYTE_LENGTH)
-  // AIR block index is 0 — using the constant directly keeps this hot loop
-  // free of cross-module lookups.
-  const AIR_INDEX = 0
-  for (let lx = 0; lx < CHUNK_SIZE; lx++) {
-    for (let lz = 0; lz < CHUNK_SIZE; lz++) {
-      let topY = CHUNK_HEIGHT - 1
-      while (topY >= 0 && blocks[blockIndexUnsafe(lx, topY, lz)] === AIR_INDEX) {
-        topY--
-      }
-      for (let y = topY + 1; y < CHUNK_HEIGHT; y++) {
-        const voxelIndex = blockIndexUnsafe(lx, y, lz)
-        const byteIndex = voxelIndex >> 1
-        const isHigh = (voxelIndex & 1) === 1
-        const prev = out[byteIndex]!
-        out[byteIndex] = isHigh ? (prev & 0x0f) | (15 << 4) : (prev & 0xf0) | 15
-      }
-    }
-  }
-  return out
+const computeInitialLightGrids = (blocks: Uint8Array): { skyLight: Uint8Array; blockLight: Uint8Array } => {
+  const skyLight = new Uint8Array(LIGHT_BYTE_LENGTH)
+  const blockLight = new Uint8Array(LIGHT_BYTE_LENGTH)
+  // computeSkyLight / computeBlockLight are pure sync flood-fill BFS — they
+  // mutate the passed-in buffer in place and return void.
+  computeSkyLight(blocks, skyLight)
+  computeBlockLight(blocks, blockLight)
+  return { skyLight, blockLight }
 }
 
 // ---------------------------------------------------------------------------
@@ -227,15 +217,15 @@ export const buildTerrainProgram = (coord: ChunkCoord) =>
 
 /**
  * Convert the program output (a `Chunk`) into the `ChunkBlocks` envelope the
- * worker protocol carries. Skylight is initialised top-down; blockLight is a
- * fresh zero-filled buffer (the main-thread light engine fills it during
- * `withLighting`).
+ * worker protocol carries. Both light grids are fully BFS-propagated here so
+ * the main thread can adopt them directly without re-running the lighting
+ * engine — moving this work off the main thread is the primary cold-start
+ * fix (see `computeInitialLightGrids` comment).
  */
-export const toChunkBlocks = (chunk: { blocks: Uint8Array }): ChunkBlocks => ({
-  blocks: chunk.blocks,
-  skyLight: computeInitialSkyLight(chunk.blocks),
-  blockLight: new Uint8Array(LIGHT_BYTE_LENGTH),
-})
+export const toChunkBlocks = (chunk: { blocks: Uint8Array }): ChunkBlocks => {
+  const { skyLight, blockLight } = computeInitialLightGrids(chunk.blocks)
+  return { blocks: chunk.blocks, skyLight, blockLight }
+}
 
 export const generateTerrainBlocks = (input: TerrainGenerationInput): ChunkBlocks => {
   const layer = buildTerrainLayer(input.seed)

@@ -1,4 +1,4 @@
-import { Effect, MutableHashSet, Option, Ref } from 'effect'
+import { Effect, MutableHashSet, MutableRef, Option, Ref } from 'effect'
 import * as THREE from 'three'
 import { vi } from 'vitest'
 import { createFrameHandler, type FrameHandlerDeps, type FrameHandlerServices } from '@/frame-handler'
@@ -46,6 +46,10 @@ export const makeRenderer = () =>
     autoClear: true,
     domElement: { clientWidth: 800, clientHeight: 600 },
     shadowMap: { needsUpdate: false },
+    // `info.render.calls` is read by frame-handler.renderStage to feed the
+    // perf-HUD draw-call counter. Stub the entire `info` shape so tests
+    // exercising real frames don't crash on undefined access.
+    info: { render: { calls: 0, triangles: 0, points: 0, lines: 0, frame: 0 } },
   }) as unknown as THREE.WebGLRenderer
 
 export const makeCamera = () => {
@@ -93,6 +97,9 @@ export const makeDeps = (paused = false, withComposer = false): Effect.Effect<Fr
       healthMaxElement: Option.none(),
       skyMesh: Option.none(),
       gamePausedRef,
+      // Tests default to "session not paused" — pause-matrix gating is verified
+      // by dedicated tests that override this ref via spread.
+      sessionPausedRef: MutableRef.make(false),
       composer: withComposer ? Option.some(makeComposer()) : Option.none(),
       gtaoPass: Option.none(),
       bloomPass: Option.none(),
@@ -124,6 +131,13 @@ export const makeSettingsOverlay = (state: OverlayState) =>
     syncFromSettings: () => Effect.void,
     applyToSettings: () => Effect.void,
   }) as unknown as InstanceType<typeof import('@/presentation/settings/settings-overlay').SettingsOverlayService>
+
+export const makePauseMenu = (state: OverlayState = { open: false }) =>
+  ({
+    isOpen: () => Effect.sync(() => state.open),
+    openIfClosed: () => Effect.sync(() => { state.open = true }),
+    attach: (_control: unknown, _persist: unknown) => Effect.void,
+  }) as unknown as InstanceType<typeof import('@/presentation/menu/pause-menu').PauseMenuService>
 
 export const makeTradingPresentation = (state: OverlayState) =>
   ({
@@ -167,6 +181,13 @@ export const makeServices = (opts: {
 }): FrameHandlerServices & { cameraState: CameraStateStub } => {
   const { inputService, inventoryRenderer, settingsOverlay } = opts
   const tradingPresentation = opts.tradingPresentation ?? makeTradingPresentation({ open: false })
+  const pauseMenu = makePauseMenu()
+  const gameMode = {
+    get: () => Effect.succeed('survival' as const),
+    set: (_mode: unknown) => Effect.void,
+    isCreative: () => Effect.succeed(false),
+    isSurvival: () => Effect.succeed(true),
+  } as unknown as InstanceType<typeof import('@/application/game-mode').GameModeService>
   const cameraState = makeCameraState()
 
   const gameState = {
@@ -281,6 +302,15 @@ export const makeServices = (opts: {
     setSunIntensity: (_value: number) => Effect.void,
   } as unknown as InstanceType<typeof import('@/infrastructure/three/meshing/chunk-mesh').ChunkMeshService>
 
+  // ParticleSystem stub: spawnBurst/update/getActiveCount no-op. Real impl
+  // requires an InstancedMesh + atlas texture which the test-kit avoids.
+  const particleSystem = {
+    attach: (_scene: unknown) => Effect.void,
+    spawnBurst: (_x: number, _y: number, _z: number, _u: number, _v: number, _count?: number) => Effect.void,
+    update: (_dtSecs: number) => Effect.void,
+    getActiveCount: () => Effect.succeed(0),
+  } as unknown as InstanceType<typeof import('@/infrastructure/three/particles/particle-system').ParticleSystemService>
+
   const healthService = {
     getHealth: () => Effect.succeed({ current: 20, max: 20, invincibilityTicks: 0 }),
     applyDamage: (_amount: unknown) => Effect.void,
@@ -370,6 +400,15 @@ export const makeServices = (opts: {
     tick: (_deltaTime: unknown) => Effect.void,
   } as unknown as InstanceType<typeof import('@/application/furnace/furnace-service').FurnaceService>
 
+  // PerfHud stub: no-op for all four methods. Real implementation activates only
+  // under `?debug=perf`; the test-kit always uses the inert path.
+  const perfHud = {
+    recordFrame: (_dtSecs: number) => Effect.void,
+    setWorkerQueueDepth: (_n: number) => Effect.void,
+    setChunkCount: (_n: number) => Effect.void,
+    setDrawCalls: (_n: number) => Effect.void,
+  } as unknown as InstanceType<typeof import('@/infrastructure/perf/perf-hud').PerfHudService>
+
   return {
     gameState,
     playerCameraState: cameraState.service,
@@ -384,12 +423,14 @@ export const makeServices = (opts: {
     timeService,
     settingsService,
     settingsOverlay,
+    pauseMenu,
     inventoryRenderer,
     inventoryService,
     fpsCounter,
     worldRendererService,
     entityRenderer,
     chunkMeshService,
+    particleSystem,
     healthService,
     soundManager,
     musicManager,
@@ -400,6 +441,8 @@ export const makeServices = (opts: {
     redstoneService,
     fluidService,
     furnaceService,
+    perfHud,
+    gameMode,
     cameraState: cameraState.state,
   }
 }

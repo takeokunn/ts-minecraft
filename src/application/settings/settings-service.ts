@@ -23,7 +23,7 @@ export const ResolvedGraphicsSchema = Schema.Struct({
   godRaysEnabled: Schema.Boolean,
   godRaysSamples: Schema.Number.pipe(Schema.int(), Schema.between(0, 40)),
   bloomStrength: Schema.Number.pipe(Schema.finite(), Schema.between(0, 1)),
-  refractionThrottleFrames: Schema.Number.pipe(Schema.int(), Schema.between(0, 3)),
+  refractionThrottleFrames: Schema.Number.pipe(Schema.int(), Schema.between(0, 5)),
   pixelRatioCap: Schema.Number.pipe(Schema.finite(), Schema.between(0.5, 2)),
 })
 export type ResolvedGraphics = Schema.Schema.Type<typeof ResolvedGraphicsSchema>

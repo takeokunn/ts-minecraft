@@ -222,6 +222,12 @@ export class ChunkManagerService extends Effect.Service<ChunkManagerService>()(
               // synchronous generation when Worker is unavailable (Node.js / Vitest).
               // Output is byte-identical to the previous main-thread generateTerrain call
               // (proved by terrain-worker-pool.parity.property.test.ts).
+              //
+              // The worker now also runs the full sky+block-light BFS (see
+              // `terrain-generation.computeInitialLightGrids`), so we adopt the
+              // returned `skyLight`/`blockLight` directly — no `withLighting` call
+              // here. That moves ~0.6-1.25s of main-thread BFS at RD=2 cold-start
+              // onto the worker fibers.
               const seed = yield* noiseService.getSeed
               const generated = yield* terrainPool
                 .generateTerrain(coord, { seaLevel: SEA_LEVEL, lakeLevel: LAKE_LEVEL, seed })
@@ -229,10 +235,13 @@ export class ChunkManagerService extends Effect.Service<ChunkManagerService>()(
                   Effect.mapError((err) => new ChunkError({ chunkCoord: coord, reason: err.reason })),
                   Metric.trackDurationWith(chunkLoadHistogram, (d) => Duration.toMillis(d)),
                 )
-              // Lift the worker's ChunkBlocks into a Chunk and attach lighting grids so
-              // the mesher can sample them.
-              const baseChunk: Chunk = { coord, blocks: generated.blocks, fluid: Option.none() }
-              const newChunk = yield* withLighting(baseChunk)
+              const newChunk: Chunk = {
+                coord,
+                blocks: generated.blocks,
+                skyLight: generated.skyLight,
+                blockLight: generated.blockLight,
+                fluid: Option.none(),
+              }
               yield* insertWithEviction(coord, newChunk)
               return newChunk
             })
