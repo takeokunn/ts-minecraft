@@ -1,6 +1,6 @@
 {
   "extends": "../../tsconfig.base.json",
-  "compilerOptions": { "composite": true, "outDir": "dist", "rootDir": "src" },
+  "compilerOptions": { "composite": true, "outDir": "dist", "rootDir": "." },
   "references": [
     { "path": "../kernel" },
     { "path": "../domain" },
@@ -9,6 +9,6 @@
     { "path": "../terrain-generator" },
     { "path": "../biome-classifier" }
   ],
-  "include": ["src/**/*"],
+  "include": ["domain/**/*", "application/**/*", "index.ts"],
   "exclude": ["node_modules", "dist"]
 }

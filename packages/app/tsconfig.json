@@ -1,6 +1,6 @@
 {
   "extends": "../../tsconfig.base.json",
-  "compilerOptions": { "composite": true, "outDir": "dist", "rootDir": "src" },
+  "compilerOptions": { "composite": true, "outDir": "dist", "rootDir": "." },
   "references": [
     { "path": "../kernel" },
     { "path": "../domain" },
@@ -35,6 +35,6 @@
     { "path": "../terrain-worker-pool" },
     { "path": "../environment" }
   ],
-  "include": ["src/**/*"],
+  "include": ["application/**/*", "infrastructure/**/*", "presentation/**/*", "index.ts"],
   "exclude": ["node_modules", "dist"]
 }

@@ -1,5 +1,5 @@
 import { Cause, Effect, Option } from 'effect'
-import { MainLive } from '@/layers'
+import { MainLive } from '@ts-minecraft/app'
 import { PerfHudService } from '@ts-minecraft/perf-hud'
 import { TerrainWorkerPool } from '@ts-minecraft/terrain-worker-pool'
 import { StorageService } from '@ts-minecraft/block-storage'

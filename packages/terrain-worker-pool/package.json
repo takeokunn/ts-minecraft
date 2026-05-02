@@ -2,7 +2,7 @@
   "name": "@ts-minecraft/terrain-worker-pool",
   "version": "0.0.0",
   "type": "module",
-  "main": "./src/index.ts",
+  "main": "./index.ts",
   "dependencies": {
     "@ts-minecraft/domain": "workspace:*",
     "@ts-minecraft/terrain-generator": "workspace:*"

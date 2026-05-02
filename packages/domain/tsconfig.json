@@ -3,11 +3,11 @@
   "compilerOptions": {
     "composite": true,
     "outDir": "dist",
-    "rootDir": "src"
+    "rootDir": "."
   },
   "references": [
     { "path": "../kernel" }
   ],
-  "include": ["src/**/*"],
+  "include": ["domain/**/*", "index.ts"],
   "exclude": ["node_modules", "dist"]
 }

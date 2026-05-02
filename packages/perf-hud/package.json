@@ -2,7 +2,8 @@
   "name": "@ts-minecraft/perf-hud",
   "version": "0.0.0",
   "type": "module",
-  "main": "./src/index.ts",
+  "main": "./index.ts",
+  "exports": { ".": "./index.ts" },
   "dependencies": {
     "@ts-minecraft/chunk-manager": "workspace:*"
   }

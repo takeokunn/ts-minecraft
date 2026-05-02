@@ -1,6 +1,6 @@
 {
   "extends": "../../tsconfig.base.json",
-  "compilerOptions": { "composite": true, "outDir": "dist", "rootDir": "src" },
+  "compilerOptions": { "composite": true, "outDir": "dist", "rootDir": "." },
   "references": [
     { "path": "../kernel" },
     { "path": "../domain" },
@@ -18,6 +18,6 @@
     { "path": "../settings-manager" },
     { "path": "../game-loop" }
   ],
-  "include": ["src/**/*"],
+  "include": ["application/**/*", "index.ts"],
   "exclude": ["node_modules", "dist"]
 }

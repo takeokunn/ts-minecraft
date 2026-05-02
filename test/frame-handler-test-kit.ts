@@ -1,7 +1,7 @@
 import { Effect, MutableHashSet, MutableRef, Option, Ref } from 'effect'
 import * as THREE from 'three'
 import { vi } from 'vitest'
-import { createFrameHandler, type FrameHandlerDeps, type FrameHandlerServices } from '@/frame-handler'
+import { createFrameHandler, type FrameHandlerDeps, type FrameHandlerServices } from '@ts-minecraft/app'
 import type { DeltaTimeSecs } from '@ts-minecraft/kernel'
 
 export type CameraMode = 'firstPerson' | 'thirdPerson'

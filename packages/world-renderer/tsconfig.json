@@ -1,12 +1,12 @@
 {
   "extends": "../../tsconfig.base.json",
-  "compilerOptions": { "composite": true, "outDir": "dist", "rootDir": "src" },
+  "compilerOptions": { "composite": true, "outDir": "dist", "rootDir": "." },
   "references": [
     { "path": "../kernel" },
     { "path": "../domain" },
     { "path": "../chunk-manager" },
     { "path": "../entity-manager" }
   ],
-  "include": ["src/**/*"],
+  "include": ["application/**/*", "infrastructure/**/*", "index.ts"],
   "exclude": ["node_modules", "dist"]
 }
