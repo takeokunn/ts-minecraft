@@ -1,8 +1,8 @@
 import { Cause, Effect, Option } from 'effect'
 import { MainLive } from '@ts-minecraft/app'
-import { PerfHudService } from '@ts-minecraft/perf-hud'
-import { TerrainWorkerPool } from '@ts-minecraft/terrain-worker-pool'
-import { StorageService } from '@ts-minecraft/block-storage'
+import { PerfHudService } from '@ts-minecraft/rendering'
+import { TerrainWorkerPool } from '@ts-minecraft/terrain'
+import { StorageService } from '@ts-minecraft/world-state'
 import {
   MainMenuService,
   SettingsOverlayService,
@@ -10,7 +10,7 @@ import {
   sessionProgram,
 } from '@ts-minecraft/app'
 import type { BootContext } from '@ts-minecraft/app'
-import type { GameMode } from '@ts-minecraft/game-mode'
+import type { GameMode } from '@ts-minecraft/game'
 
 /**
  * `mainMenuLoop` — outer loop that owns world-selection + session lifecycle.

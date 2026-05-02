@@ -5,7 +5,7 @@ import { Effect, MutableRef, Ref } from 'effect'
 import { logErrors } from '@ts-minecraft/app/frame/error-logging'
 import type { FrameHandlerDeps, FrameHandlerServices, FrameStageRefs, ResolvedDeps } from '@ts-minecraft/app/frame/types'
 import { captureCameraPose, hasCameraPoseChanged } from '@ts-minecraft/app/frame/frame-runtime-logic'
-import type { ResolvedGraphics } from '@ts-minecraft/settings-manager'
+import type { ResolvedGraphics } from '@ts-minecraft/game'
 
 // ---------------------------------------------------------------------------
 // Stage 8: refractionPrepassStage — water refraction RT (throttled by quality preset)

@@ -1,4 +1,4 @@
-import type { BlockType } from '@ts-minecraft/domain'
+import type { BlockType } from '@ts-minecraft/kernel'
 
 export const SLOT_COLORS: Readonly<Partial<Record<BlockType, string>>> = {
   AIR: '#444444', GRASS: '#5a8a3a', DIRT: '#8b6344', STONE: '#888888',

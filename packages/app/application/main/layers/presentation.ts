@@ -9,7 +9,7 @@ import { CrosshairLive, DomOperationsLive } from '@ts-minecraft/app/presentation
 import { DebugOverlayLive } from '@ts-minecraft/app/presentation/hud/debug-overlay'
 import { LoadingScreenLive } from '@ts-minecraft/app/presentation/loading/loading-screen'
 import { BlockHighlightLive } from '@ts-minecraft/app/presentation/highlight/block-highlight'
-import { SettingsServiceLive } from '@ts-minecraft/settings-manager'
+import { SettingsServiceLive } from '@ts-minecraft/game'
 import { SettingsOverlayLive } from '@ts-minecraft/app/presentation/settings/settings-overlay'
 import { ConfirmDialogLive } from '@ts-minecraft/app/presentation/menu/confirm-dialog'
 import { MainMenuLive } from '@ts-minecraft/app/presentation/menu/main-menu'
@@ -19,14 +19,14 @@ import { InventoryRendererLive } from '@ts-minecraft/app/presentation/inventory/
 import { TradingPresentationLive } from '@ts-minecraft/app/presentation/trading'
 
 // Camera services — application-layer implementations, presentation-tier wiring
-import { FirstPersonCameraServiceLive } from '@ts-minecraft/camera-controller'
-import { ThirdPersonCameraServiceLive } from '@ts-minecraft/camera-controller'
+import { FirstPersonCameraServiceLive } from '@ts-minecraft/player'
+import { ThirdPersonCameraServiceLive } from '@ts-minecraft/player'
 
 // Cross-tier deps
-import { StorageServiceLive } from '@ts-minecraft/block-storage'
-import { HealthServiceLive } from '@ts-minecraft/player-controller'
-import { RecipeServiceLive } from '@ts-minecraft/crafting-system'
-import { GameModeServiceLive } from '@ts-minecraft/game-mode'
+import { StorageServiceLive } from '@ts-minecraft/world-state'
+import { HealthServiceLive } from '@ts-minecraft/player'
+import { RecipeServiceLive } from '@ts-minecraft/inventory'
+import { GameModeServiceLive } from '@ts-minecraft/game'
 
 import { EnvironmentLayer } from './infrastructure'
 import {

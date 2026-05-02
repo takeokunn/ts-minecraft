@@ -1,8 +1,8 @@
 import { Array as Arr, Effect, Match, Option, Ref } from 'effect'
 import { DomOperationsService } from '@ts-minecraft/app/presentation/hud/crosshair'
-import { TradingService, type TradeOffer, type TradeResult } from '@ts-minecraft/trading-system'
-import { VillageService } from '@ts-minecraft/village-system'
-import type { VillagerId } from '@ts-minecraft/village-system'
+import { TradingService, type TradeOffer, type TradeResult } from '@ts-minecraft/entities'
+import { VillageService } from '@ts-minecraft/entities'
+import type { VillagerId } from '@ts-minecraft/entities'
 
 type TradingUiState = {
   readonly villagerId: VillagerId

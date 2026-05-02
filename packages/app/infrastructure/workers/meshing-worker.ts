@@ -1,8 +1,9 @@
 import { Option, Schema } from 'effect'
-import { createGreedyMeshScratch, greedyMeshChunk } from '@ts-minecraft/world-renderer'
-import { CHUNK_SIZE } from '@ts-minecraft/domain'
-import type { Chunk } from '@ts-minecraft/domain'
-import { LIGHT_BYTE_LENGTH, type LightGrids } from '@ts-minecraft/domain'
+import { createGreedyMeshScratch, greedyMeshChunk } from '@ts-minecraft/rendering'
+import { CHUNK_SIZE } from '@ts-minecraft/kernel'
+import type { Chunk } from '@ts-minecraft/terrain'
+import { LIGHT_BYTE_LENGTH } from '@ts-minecraft/world-state'
+import type { LightGrids } from '@ts-minecraft/world-state'
 
 // Message shapes for the meshing worker protocol.
 //

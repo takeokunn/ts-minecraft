@@ -1,7 +1,7 @@
 import { Cause, Effect, MutableRef, Option, Scope } from 'effect'
 import { DomOperationsService } from '@ts-minecraft/app/presentation/hud/crosshair'
 import { SettingsOverlayService } from '@ts-minecraft/app/presentation/settings/settings-overlay'
-import { ChunkManagerService } from '@ts-minecraft/chunk-manager'
+import { ChunkManagerService } from '@ts-minecraft/terrain'
 import { ConfirmDialogService } from '@ts-minecraft/app/presentation/menu/confirm-dialog'
 import {
   type SessionControl,

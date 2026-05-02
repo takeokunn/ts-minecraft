@@ -1,7 +1,0 @@
-{
-  "extends": "../../tsconfig.base.json",
-  "compilerOptions": { "composite": true, "outDir": "dist", "rootDir": "." },
-  "references": [{ "path": "../domain" }, { "path": "../terrain-generator" }],
-  "include": ["domain/**/*", "infrastructure/**/*", "index.ts"],
-  "exclude": ["node_modules", "dist"]
-}

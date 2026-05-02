@@ -8,7 +8,7 @@ import {
   createWireframeCube,
   DEFAULT_HIGHLIGHT_COLOR,
 } from '@ts-minecraft/app/presentation/highlight/block-highlight'
-import { RaycastingService, type RaycastHit } from '@ts-minecraft/world-renderer'
+import { RaycastingService, type RaycastHit } from '@ts-minecraft/rendering'
 
 const createMockRaycastingService = (
   hitResult: Option.Option<RaycastHit> = Option.none()

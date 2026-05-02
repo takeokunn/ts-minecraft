@@ -1,14 +1,14 @@
 import { Effect, Option } from 'effect'
 import * as THREE from 'three'
-import { StartupError } from '@ts-minecraft/domain'
+import { StartupError } from '@ts-minecraft/game'
 
-import { RendererService } from '@ts-minecraft/world-renderer'
-import { PerfHudService } from '@ts-minecraft/perf-hud'
-import { TerrainWorkerPool } from '@ts-minecraft/terrain-worker-pool'
-import { SettingsService } from '@ts-minecraft/settings-manager'
-import { StorageService } from '@ts-minecraft/block-storage'
-import { NoiseService } from '@ts-minecraft/noise-generator'
-import { SoundManager, MusicManager } from '@ts-minecraft/audio-engine'
+import { RendererService } from '@ts-minecraft/rendering'
+import { PerfHudService } from '@ts-minecraft/rendering'
+import { TerrainWorkerPool } from '@ts-minecraft/terrain'
+import { SettingsService } from '@ts-minecraft/game'
+import { StorageService } from '@ts-minecraft/world-state'
+import { NoiseService } from '@ts-minecraft/terrain'
+import { SoundManager, MusicManager } from '@ts-minecraft/game'
 
 // BootContext — persistent process-level resources that survive across world sessions.
 // Created once by `bootProgram` at process startup and threaded into every

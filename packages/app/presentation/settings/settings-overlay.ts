@@ -1,5 +1,5 @@
 import { Cause, Effect, Match, Option, Ref } from 'effect'
-import { SettingsService } from '@ts-minecraft/settings-manager'
+import { SettingsService } from '@ts-minecraft/game'
 import { DomOperationsService } from '@ts-minecraft/app/presentation/hud/crosshair'
 
 export class SettingsOverlayService extends Effect.Service<SettingsOverlayService>()(

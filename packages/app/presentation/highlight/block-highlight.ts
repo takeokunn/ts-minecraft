@@ -1,6 +1,6 @@
 import { Effect, Option, Ref, Schema } from 'effect'
 import * as THREE from 'three'
-import { RaycastHit, RaycastingService } from '@ts-minecraft/world-renderer'
+import { RaycastHit, RaycastingService } from '@ts-minecraft/rendering'
 
 export const BlockTargetSchema = Schema.Struct({
   x: Schema.Int,

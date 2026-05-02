@@ -8,7 +8,7 @@
 import { Effect, Option, Ref } from 'effect'
 import { logErrors } from '@ts-minecraft/app/frame/error-logging'
 import type { FrameHandlerDeps, FrameHandlerServices } from '@ts-minecraft/app/frame/types'
-import { KeyMappings } from '@ts-minecraft/input-handler'
+import { KeyMappings } from '@ts-minecraft/player'
 import {
   TRADE_DISTANCE,
   TRADE_OPEN_KEY,

@@ -9,7 +9,7 @@ import {
   projectBlockAhead,
   scanNearbyBlock,
 } from '@ts-minecraft/app/main/qa-spatial'
-import { CHUNK_HEIGHT, CHUNK_SIZE } from '@ts-minecraft/domain'
+import { CHUNK_HEIGHT, CHUNK_SIZE } from '@ts-minecraft/kernel'
 
 describe('qa-spatial', () => {
   it('derives normalized look direction and projected positions', () => {

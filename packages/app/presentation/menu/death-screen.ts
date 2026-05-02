@@ -1,9 +1,9 @@
 import { Cause, Effect, Fiber, MutableRef, Option, Scope } from 'effect'
 import { DomOperationsService } from '@ts-minecraft/app/presentation/hud/crosshair'
-import { GameStateService } from '@ts-minecraft/game-session'
-import { GameModeService } from '@ts-minecraft/game-mode'
-import { HealthService } from '@ts-minecraft/player-controller'
-import { InventoryService } from '@ts-minecraft/inventory-system'
+import { GameStateService } from '@ts-minecraft/game'
+import { GameModeService } from '@ts-minecraft/game'
+import { HealthService } from '@ts-minecraft/player'
+import { InventoryService } from '@ts-minecraft/inventory'
 import { DEFAULT_PLAYER_ID } from '@ts-minecraft/kernel'
 import {
   type SessionControl,

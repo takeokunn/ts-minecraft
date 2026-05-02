@@ -4,9 +4,9 @@ import { Array as Arr, Effect, Layer, Option } from 'effect'
 import { MainMenuLive, MainMenuService } from '@ts-minecraft/app/presentation/menu/main-menu'
 import { ConfirmDialogService } from '@ts-minecraft/app/presentation/menu/confirm-dialog'
 import { DomOperationsService } from '@ts-minecraft/app/presentation/hud/crosshair'
-import { StorageService, type WorldMetadata } from '@ts-minecraft/block-storage'
+import { StorageService, type WorldMetadata } from '@ts-minecraft/world-state'
 import { WorldId } from '@ts-minecraft/kernel'
-import type { ChunkCoord } from '@ts-minecraft/domain'
+import type { ChunkCoord } from '@ts-minecraft/kernel'
 
 // ---------------------------------------------------------------------------
 // Test scaffolding

@@ -2,7 +2,7 @@ import { describe, it } from '@effect/vitest'
 import { afterEach, expect, vi } from 'vitest'
 import { Effect, Layer, Option } from 'effect'
 import { SettingsOverlayService, SettingsOverlayLive } from '@ts-minecraft/app/presentation/settings/settings-overlay'
-import { SettingsService } from '@ts-minecraft/settings-manager'
+import { SettingsService } from '@ts-minecraft/game'
 import { DomOperationsService } from '@ts-minecraft/app/presentation/hud/crosshair'
 
 // ---------------------------------------------------------------------------

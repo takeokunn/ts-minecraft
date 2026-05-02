@@ -4,11 +4,11 @@
 import { Cause, Duration, Effect, MutableRef, Schedule } from 'effect'
 import type * as Scope from 'effect/Scope'
 
-import type { BiomeService } from '@ts-minecraft/biome-classifier'
-import type { ChunkManagerService } from '@ts-minecraft/chunk-manager'
-import type { GameStateService } from '@ts-minecraft/game-session'
-import type { TimeService } from '@ts-minecraft/day-night-cycle'
-import type { PlayerCameraStateService } from '@ts-minecraft/camera-controller'
+import type { BiomeService } from '@ts-minecraft/terrain'
+import type { ChunkManagerService } from '@ts-minecraft/terrain'
+import type { GameStateService } from '@ts-minecraft/game'
+import type { TimeService } from '@ts-minecraft/game'
+import type { PlayerCameraStateService } from '@ts-minecraft/player'
 import type { FPSCounterService } from '@ts-minecraft/app/presentation/fps-counter'
 import { DEFAULT_PLAYER_ID } from '@ts-minecraft/kernel'
 

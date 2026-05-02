@@ -8,11 +8,11 @@ import { Effect, HashMap, Match, Option, Ref } from 'effect'
 import { logErrors } from '@ts-minecraft/app/frame/error-logging'
 import type { FrameHandlerDeps, FrameHandlerServices, FrameStageRefs } from '@ts-minecraft/app/frame/types'
 import { findAttackableEntity } from '@ts-minecraft/app/frame/stages/attack-targeting'
-import { CHUNK_SIZE, CHUNK_HEIGHT, indexToBlockType } from '@ts-minecraft/domain'
-import { HOTBAR_START } from '@ts-minecraft/inventory-system'
+import { CHUNK_SIZE, CHUNK_HEIGHT, indexToBlockType } from '@ts-minecraft/kernel'
+import { HOTBAR_START } from '@ts-minecraft/inventory'
 import { SlotIndex } from '@ts-minecraft/kernel'
-import { RedstoneComponentType } from '@ts-minecraft/redstone-circuit'
-import { getParticleUvOffset } from '@ts-minecraft/world-renderer/particles/particle-system'
+import { RedstoneComponentType } from '@ts-minecraft/entities'
+import { getParticleUvOffset } from '@ts-minecraft/rendering/particles/particle-system'
 import {
   PLAYER_ATTACK_DAMAGE,
   WOODEN_SWORD_ATTACK_DAMAGE,

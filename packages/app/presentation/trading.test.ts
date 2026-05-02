@@ -3,9 +3,9 @@ import { Effect, Layer, Option } from 'effect'
 import { expect, vi } from 'vitest'
 import { DomOperationsService } from '@ts-minecraft/app/presentation/hud/crosshair'
 import { TradingPresentationService, TradingPresentationLive } from '@ts-minecraft/app/presentation/trading'
-import { TradingService, TradeFailure, TradeOfferId, TradeSuccess, type TradeOffer } from '@ts-minecraft/trading-system'
-import { VillageService } from '@ts-minecraft/village-system'
-import { VillageId, VillageStructureId, VillagerActivity, VillagerId, VillagerProfession, type Villager } from '@ts-minecraft/village-system'
+import { TradingService, TradeFailure, TradeOfferId, TradeSuccess, type TradeOffer } from '@ts-minecraft/entities'
+import { VillageService } from '@ts-minecraft/entities'
+import { VillageId, VillageStructureId, VillagerActivity, VillagerId, VillagerProfession, type Villager } from '@ts-minecraft/entities'
 
 type MockElement = {
   id: string

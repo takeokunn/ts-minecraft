@@ -1,7 +1,7 @@
 import { describe, it, expect } from '@effect/vitest'
 import { Effect, Layer, MutableHashMap, MutableHashSet, Option } from 'effect'
 import { InputService, MouseButton, PlayerInputServiceLive } from '@ts-minecraft/app/presentation/input/input-service'
-import { PlayerInputService } from '@ts-minecraft/input-handler'
+import { PlayerInputService } from '@ts-minecraft/player'
 import type { InputService as InputServiceType } from '@ts-minecraft/app/presentation/input/input-service'
 
 const createTestInputService = (initialState: {

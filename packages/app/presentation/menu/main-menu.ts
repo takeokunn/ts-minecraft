@@ -1,9 +1,9 @@
 import { Array as Arr, Cause, Deferred, Effect, MutableRef, Option, Order } from 'effect'
-import { StorageService, type WorldMetadata } from '@ts-minecraft/block-storage'
+import { StorageService, type WorldMetadata } from '@ts-minecraft/world-state'
 import { DomOperationsService } from '@ts-minecraft/app/presentation/hud/crosshair'
 import { ConfirmDialogService } from '@ts-minecraft/app/presentation/menu/confirm-dialog'
 import { WorldId } from '@ts-minecraft/kernel'
-import type { GameMode } from '@ts-minecraft/game-mode'
+import type { GameMode } from '@ts-minecraft/game'
 
 // DOM built once at boot scope (acquireRelease) and show/hidden across sessions —
 // re-creating DOM per visit would defeat the "menu outlives sessions" invariant.

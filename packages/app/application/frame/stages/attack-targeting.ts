@@ -1,6 +1,6 @@
 import { Array as Arr, Option } from 'effect'
 import * as THREE from 'three'
-import type { EntityId as EntityIdType } from '@ts-minecraft/entity-manager'
+import type { EntityId as EntityIdType } from '@ts-minecraft/entities'
 import type { Position } from '@ts-minecraft/kernel'
 import { PLAYER_ATTACK_REACH, PLAYER_ATTACK_RADIUS } from '@ts-minecraft/app/frame-handler.config'
 

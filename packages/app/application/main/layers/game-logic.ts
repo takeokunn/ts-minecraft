@@ -4,49 +4,49 @@
 import { Layer } from 'effect'
 
 // Three.js infrastructure consumed directly by world/entity/particle renderers
-import { SceneServiceLive, WorldRendererServiceLive, EntityRendererLive, ChunkMeshServiceLive, RaycastingServiceLive, RendererServiceLive } from '@ts-minecraft/world-renderer'
-import { ParticleSystemServiceLive } from '@ts-minecraft/world-renderer/particles/particle-system'
+import { SceneServiceLive, WorldRendererServiceLive, EntityRendererLive, ChunkMeshServiceLive, RaycastingServiceLive, RendererServiceLive } from '@ts-minecraft/rendering'
+import { ParticleSystemServiceLive } from '@ts-minecraft/rendering/particles/particle-system'
 
 // Chunk domain service (used by ChunkManagerLayer / BlockLayer)
-import { ChunkServiceLive } from '@ts-minecraft/domain'
-import { BlockRegistryLive } from '@ts-minecraft/domain'
+import { ChunkServiceLive } from '@ts-minecraft/terrain'
+import { BlockRegistryLive } from '@ts-minecraft/world-state'
 
 // Player state, health, and movement
-import { PlayerServiceLive } from '@ts-minecraft/player-controller'
-import { HealthServiceLive } from '@ts-minecraft/player-controller'
-import { MovementServiceLive } from '@ts-minecraft/player-controller'
+import { PlayerServiceLive } from '@ts-minecraft/player'
+import { HealthServiceLive } from '@ts-minecraft/player'
+import { MovementServiceLive } from '@ts-minecraft/player'
 
 // Block interaction and hotbar
-import { BlockServiceLive } from '@ts-minecraft/block-service'
-import { HotbarServiceLive } from '@ts-minecraft/hotbar-system'
+import { BlockServiceLive } from '@ts-minecraft/terrain'
+import { HotbarServiceLive } from '@ts-minecraft/inventory'
 import { HotbarRendererLive } from '@ts-minecraft/app/presentation/hud/hotbar-three'
 
 // Game mode (survival/creative) — single-instance state for the active session
-import { GameModeServiceLive } from '@ts-minecraft/game-mode'
+import { GameModeServiceLive } from '@ts-minecraft/game'
 
 // Inventory, time, recipes, audio, entities
-import { InventoryServiceLive } from '@ts-minecraft/inventory-system'
-import { RecipeServiceLive } from '@ts-minecraft/crafting-system'
-import { TimeServiceLive } from '@ts-minecraft/day-night-cycle'
-import { AudioEngineLive, MusicManagerLive, SoundManagerLive } from '@ts-minecraft/audio-engine'
-import { EntityManagerLive, MobSpawnerLive } from '@ts-minecraft/entity-manager'
+import { InventoryServiceLive } from '@ts-minecraft/inventory'
+import { RecipeServiceLive } from '@ts-minecraft/inventory'
+import { TimeServiceLive } from '@ts-minecraft/game'
+import { AudioEngineLive, MusicManagerLive, SoundManagerLive } from '@ts-minecraft/game'
+import { EntityManagerLive, MobSpawnerLive } from '@ts-minecraft/entities'
 
 // Village / Trading / Redstone simulation services
-import { VillageServiceLive } from '@ts-minecraft/village-system'
-import { TradingServiceLive } from '@ts-minecraft/trading-system'
-import { RedstoneServiceLive } from '@ts-minecraft/redstone-circuit'
+import { VillageServiceLive } from '@ts-minecraft/entities'
+import { TradingServiceLive } from '@ts-minecraft/entities'
+import { RedstoneServiceLive } from '@ts-minecraft/entities'
 
 // Fluid, furnace, light engine
-import { FluidServiceLive } from '@ts-minecraft/fluid-simulation'
-import { FurnaceServiceLive } from '@ts-minecraft/furnace-system'
-import { LightEngineLive } from '@ts-minecraft/light-engine'
+import { FluidServiceLive } from '@ts-minecraft/terrain'
+import { FurnaceServiceLive } from '@ts-minecraft/inventory'
+import { LightEngineLive } from '@ts-minecraft/terrain'
 
 // Chunk management
-import { ChunkManagerServiceLive } from '@ts-minecraft/chunk-manager'
+import { ChunkManagerServiceLive } from '@ts-minecraft/terrain'
 
 // Game state, camera state
-import { GameStateServiceLive } from '@ts-minecraft/game-session'
-import { PlayerCameraStateLive } from '@ts-minecraft/camera-controller'
+import { GameStateServiceLive } from '@ts-minecraft/game'
+import { PlayerCameraStateLive } from '@ts-minecraft/player'
 
 // Input adapter (presentation → application)
 import { InputServiceLive, PlayerInputServiceLive } from '@ts-minecraft/app/presentation/input/input-service'

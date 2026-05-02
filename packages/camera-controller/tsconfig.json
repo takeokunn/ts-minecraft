@@ -1,7 +1,0 @@
-{
-  "extends": "../../tsconfig.base.json",
-  "compilerOptions": { "composite": true, "outDir": "dist", "rootDir": "." },
-  "references": [{ "path": "../kernel" }, { "path": "../input-handler" }],
-  "include": ["domain/**/*", "application/**/*", "index.ts"],
-  "exclude": ["node_modules", "dist"]
-}

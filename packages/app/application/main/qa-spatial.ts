@@ -1,7 +1,7 @@
 import { Effect, Option } from 'effect'
 import * as THREE from 'three'
 import type { Position } from '@ts-minecraft/kernel'
-import { CHUNK_HEIGHT, CHUNK_SIZE } from '@ts-minecraft/domain'
+import { CHUNK_HEIGHT, CHUNK_SIZE } from '@ts-minecraft/kernel'
 
 export const getNormalizedLookDirection = (camera: THREE.PerspectiveCamera): THREE.Vector3 => {
   const direction = new THREE.Vector3()

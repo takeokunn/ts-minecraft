@@ -5,8 +5,8 @@
 import { Effect, Layer } from 'effect'
 
 // Three.js rendering infrastructure
-import { RendererServiceLive, SceneServiceLive, PerspectiveCameraServiceLive, TextureServiceLive, BlockMeshServiceLive, ChunkMeshServiceLive } from '@ts-minecraft/world-renderer'
-import { BlockRegistryLive } from '@ts-minecraft/domain'
+import { RendererServiceLive, SceneServiceLive, PerspectiveCameraServiceLive, TextureServiceLive, BlockMeshServiceLive, ChunkMeshServiceLive } from '@ts-minecraft/rendering'
+import { BlockRegistryLive } from '@ts-minecraft/world-state'
 
 // Physics infrastructure (custom engine)
 import {
@@ -16,37 +16,37 @@ import {
   RigidBodyServiceLive,
   ShapeService,
   ShapeServiceLive,
-} from '@ts-minecraft/physics-engine'
+} from '@ts-minecraft/physics'
 import {
   PhysicsWorldPort,
   RigidBodyPort,
   ShapePort,
-} from '@ts-minecraft/physics-engine'
+} from '@ts-minecraft/physics'
 
 // Procedural generation and storage infrastructure
-import { NoiseService, NoiseServiceLive } from '@ts-minecraft/noise-generator'
-import { StorageService, StorageServiceLive } from '@ts-minecraft/block-storage'
-import { TerrainWorkerPool, TerrainWorkerPoolLive } from '@ts-minecraft/terrain-worker-pool'
+import { NoiseService, NoiseServiceLive } from '@ts-minecraft/terrain'
+import { StorageService, StorageServiceLive } from '@ts-minecraft/world-state'
+import { TerrainWorkerPool, TerrainWorkerPoolLive } from '@ts-minecraft/terrain'
 
 // Chunk domain service
-import { ChunkServiceLive } from '@ts-minecraft/domain'
+import { ChunkServiceLive } from '@ts-minecraft/terrain'
 
 // Application-layer ports (decouple application from infrastructure)
-import { NoiseServicePort } from '@ts-minecraft/noise-generator'
-import { StorageServicePort } from '@ts-minecraft/block-storage'
-import { TerrainWorkerPoolPort, TerrainGenerationError as PortTerrainGenerationError } from '@ts-minecraft/terrain-generator'
-import { EnvironmentLive } from '@ts-minecraft/environment'
+import { NoiseServicePort } from '@ts-minecraft/terrain'
+import { StorageServicePort } from '@ts-minecraft/terrain'
+import { TerrainWorkerPoolPort, TerrainGenerationError as PortTerrainGenerationError } from '@ts-minecraft/terrain'
+import { EnvironmentLive } from '@ts-minecraft/world-state'
 
 // Terrain
-import { BiomeServiceLive } from '@ts-minecraft/biome-classifier'
+import { BiomeServiceLive } from '@ts-minecraft/terrain'
 
 // Application services that consume only ports — live alongside infrastructure
 // because they have no presentation/game-logic dependencies.
-import { PhysicsServiceLive } from '@ts-minecraft/physics-engine'
+import { PhysicsServiceLive } from '@ts-minecraft/physics'
 
 // Player state (used by GameLayer in game-logic.ts; declared here because
 // PlayerServiceLive has no dependencies and is part of the base graph).
-import { PlayerServiceLive } from '@ts-minecraft/player-controller'
+import { PlayerServiceLive } from '@ts-minecraft/player'
 
 // Input infrastructure (raw DOM/keyboard) — exposed at this layer because
 // DomOperationsLive is the lowest-level DOM port the rest of the graph builds on.
@@ -54,7 +54,7 @@ import { InputServiceLive } from '@ts-minecraft/app/presentation/input/input-ser
 import { DomOperationsLive } from '@ts-minecraft/app/presentation/hud/crosshair'
 
 // Game loop service (no external service dependencies)
-import { GameLoopServiceLive } from '@ts-minecraft/game-loop'
+import { GameLoopServiceLive } from '@ts-minecraft/game'
 
 // Build layers from the bottom up, providing dependencies at each level
 

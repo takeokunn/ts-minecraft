@@ -1,7 +1,7 @@
 import { Effect } from 'effect'
 import * as THREE from 'three'
 import type { FrameHandlerDeps, FrameHandlerServices, ResolvedDeps } from '@ts-minecraft/app/frame/types'
-import type { ResolvedGraphics } from '@ts-minecraft/settings-manager'
+import type { ResolvedGraphics } from '@ts-minecraft/game'
 
 export const renderStage = (
   deps: Pick<FrameHandlerDeps, 'renderer' | 'scene' | 'camera' | 'lights'>,

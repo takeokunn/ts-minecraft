@@ -1,9 +1,9 @@
 import { Effect, MutableRef, Ref } from 'effect'
 import { logErrors } from '@ts-minecraft/app/frame/error-logging'
 import type { FrameHandlerDeps, FrameHandlerServices, FrameStageRefs } from '@ts-minecraft/app/frame/types'
-import { KeyMappings } from '@ts-minecraft/input-handler'
+import { KeyMappings } from '@ts-minecraft/player'
 import { EYE_LEVEL_OFFSET } from '@ts-minecraft/app/frame-handler.config'
-import { CHUNK_SIZE, CHUNK_HEIGHT } from '@ts-minecraft/domain'
+import { CHUNK_SIZE, CHUNK_HEIGHT } from '@ts-minecraft/kernel'
 import { MAX_SHADOW_HALF_EXTENT } from '@ts-minecraft/kernel'
 import type { Position } from '@ts-minecraft/kernel'
 

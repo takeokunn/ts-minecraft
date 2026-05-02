@@ -1,7 +1,7 @@
 import { describe, expect, vi } from 'vitest'
 import { it } from '@effect/vitest'
 import { Effect, MutableHashSet } from 'effect'
-import { KeyMappings } from '@ts-minecraft/input-handler'
+import { KeyMappings } from '@ts-minecraft/player'
 import {
   makeDeps,
   makeInputService,

@@ -1,8 +1,8 @@
 import { Effect, Layer, Option, HashMap, HashSet, Schema, MutableRef } from 'effect'
-import { PlayerInputService } from '@ts-minecraft/input-handler'
-import type { MouseDelta } from '@ts-minecraft/input-handler'
-export type { MouseDelta } from '@ts-minecraft/input-handler'
-export { MouseDeltaSchema } from '@ts-minecraft/input-handler'
+import { PlayerInputService } from '@ts-minecraft/player'
+import type { MouseDelta } from '@ts-minecraft/player'
+export type { MouseDelta } from '@ts-minecraft/player'
+export { MouseDeltaSchema } from '@ts-minecraft/player'
 
 export const MouseButtonSchema = Schema.Literal(0, 1, 2)
 export type MouseButton = Schema.Schema.Type<typeof MouseButtonSchema>

@@ -1,7 +1,7 @@
 import { Array as Arr, Effect, Option, Ref, MutableRef } from 'effect'
 import * as THREE from 'three'
-import { BlockType } from '@ts-minecraft/domain'
-import { RendererService } from '@ts-minecraft/world-renderer'
+import { BlockType } from '@ts-minecraft/kernel'
+import { RendererService } from '@ts-minecraft/rendering'
 import { SlotIndex } from '@ts-minecraft/kernel'
 
 const BLOCK_COLORS: Record<BlockType, number> = {
