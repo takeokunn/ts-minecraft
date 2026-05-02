@@ -2,12 +2,9 @@ import { describe, expect, vi, beforeEach } from 'vitest'
 import { it } from '@effect/vitest'
 import { Effect, Layer, Option } from 'effect'
 import * as THREE from 'three'
-import { EntityRendererService, EntityRendererLive } from './entity-renderer'
-import { SceneService } from './scene/scene-service'
-import { _resetMobGeometryCachesForTest } from './entity/mob-geometry'
-import { LIMB_SWING_AMPLITUDE } from './entity/walk-cycle'
-import { EntityId, type Entity, type EntityType } from '@/entity/entity'
-import { identity } from '@/shared/math/three'
+import { EntityRendererService, EntityRendererLive, SceneService, _resetMobGeometryCachesForTest, LIMB_SWING_AMPLITUDE } from '@ts-minecraft/world-renderer'
+import { EntityId, type Entity, type EntityType } from '@ts-minecraft/entity-manager'
+import { identity } from '@ts-minecraft/kernel'
 
 // ---------------------------------------------------------------------------
 // Helpers

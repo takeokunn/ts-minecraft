@@ -1,13 +1,13 @@
 import { describe, expect } from 'vitest'
 import { it } from '@effect/vitest'
 import { Array as Arr, Effect, Layer, MutableHashMap, MutableHashSet, Option } from 'effect'
-import { Block, BlockType } from '@/domain/block'
-import { BlockRegistry } from '@/domain/block-registry'
-import { PlayerInputService } from '@/application/input/player-input-service'
-import { HOTBAR_START, InventoryService, InventoryServiceLive } from '@/application/inventory/inventory-service'
-import { createStack } from '@/domain/item-stack'
-import { HotbarService, HotbarServiceLive, HOTBAR_SIZE } from './hotbar-service'
-import type { SlotIndex } from '@/shared/kernel'
+import { Block, BlockType } from '@ts-minecraft/domain'
+import { BlockRegistry } from '@ts-minecraft/domain'
+import { PlayerInputService } from '@ts-minecraft/input-handler'
+import { HOTBAR_START, InventoryService, InventoryServiceLive } from '@ts-minecraft/inventory-system'
+import { createStack } from '@ts-minecraft/domain'
+import { HotbarService, HotbarServiceLive, HOTBAR_SIZE } from '@ts-minecraft/hotbar-system'
+import type { SlotIndex } from '@ts-minecraft/kernel'
 
 const asSlotIndex = (n: number): SlotIndex => n as unknown as SlotIndex
 

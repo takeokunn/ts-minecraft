@@ -2,8 +2,8 @@ import { describe, expect, vi } from 'vitest'
 import { it } from '@effect/vitest'
 import { Array as Arr, Effect, Layer, Option } from 'effect'
 import * as THREE from 'three'
-import { CHUNK_SIZE, CHUNK_HEIGHT } from '@/domain/chunk'
-import type { Chunk, ChunkCoord } from '@/domain/chunk'
+import { CHUNK_SIZE, CHUNK_HEIGHT } from '@ts-minecraft/domain'
+import type { Chunk, ChunkCoord } from '@ts-minecraft/domain'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -28,8 +28,7 @@ const makeSingleBlockChunk = (coord: ChunkCoord = { x: 0, z: 0 }): Chunk => {
 // This lets us exercise all the geometry / userData / dispose logic without any
 // browser dependency.
 
-import { greedyMeshChunk } from './greedy-meshing'
-import { ChunkMeshService } from './chunk-mesh'
+import { greedyMeshChunk, ChunkMeshService } from '@ts-minecraft/world-renderer'
 
 /**
  * A test-only layer for ChunkMeshService that avoids any DOM / canvas calls.

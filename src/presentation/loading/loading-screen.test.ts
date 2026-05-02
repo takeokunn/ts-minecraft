@@ -1,8 +1,8 @@
 import { describe, it } from '@effect/vitest'
 import { expect, vi } from 'vitest'
 import { Effect, Layer, Option } from 'effect'
-import { LoadingScreenService, LoadingScreenLive } from './loading-screen'
-import { DomOperationsService } from '@/presentation/hud/crosshair'
+import { LoadingScreenService, LoadingScreenLive } from '@ts-minecraft/app/presentation/loading/loading-screen'
+import { DomOperationsService } from '@ts-minecraft/app/presentation/hud/crosshair'
 
 // ---------------------------------------------------------------------------
 // Mock factories

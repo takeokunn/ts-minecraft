@@ -1,0 +1,14 @@
+{
+  "name": "@ts-minecraft/terrain-generator",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "exports": { ".": "./src/index.ts" },
+  "dependencies": {
+    "@ts-minecraft/kernel": "workspace:*",
+    "@ts-minecraft/domain": "workspace:*",
+    "@ts-minecraft/noise-generator": "workspace:*",
+    "@ts-minecraft/biome-classifier": "workspace:*"
+  }
+}

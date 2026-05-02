@@ -46,8 +46,10 @@ test.describe('Settings overlay', () => {
     const initiallyOpen = await game.isOverlayOpen('settings-overlay')
     expect(initiallyOpen).toBe(false)
 
-    // Press Escape to open
+    // ESC now opens the pause menu; click Settings to open the overlay
     await page.keyboard.press('Escape')
+    await page.waitForSelector('#pause-menu-backdrop', { state: 'visible', timeout: 5_000 })
+    await page.click('[data-role="settings"]')
     await waitForOverlayState(page, true)
 
     const isOpen = await game.isOverlayOpen('settings-overlay')
@@ -57,13 +59,15 @@ test.describe('Settings overlay', () => {
   test('second Escape key closes settings overlay', async ({ page }) => {
     const game = new GamePage(page)
 
-    // Open it first
+    // Open settings via pause menu flow
     await page.keyboard.press('Escape')
+    await page.waitForSelector('#pause-menu-backdrop', { state: 'visible', timeout: 5_000 })
+    await page.click('[data-role="settings"]')
     await waitForOverlayState(page, true)
     const isOpen = await game.isOverlayOpen('settings-overlay')
     expect(isOpen).toBe(true)
 
-    // Close it
+    // Close settings overlay with Escape
     await page.keyboard.press('Escape')
     await waitForOverlayState(page, false)
     const isClosed = await game.isOverlayOpen('settings-overlay')
@@ -73,8 +77,10 @@ test.describe('Settings overlay', () => {
   test('#settings-close button closes overlay', async ({ page }) => {
     const game = new GamePage(page)
 
-    // Open settings
+    // Open settings via pause menu flow
     await page.keyboard.press('Escape')
+    await page.waitForSelector('#pause-menu-backdrop', { state: 'visible', timeout: 5_000 })
+    await page.click('[data-role="settings"]')
     await waitForOverlayState(page, true)
 
     // Click close button
@@ -86,16 +92,20 @@ test.describe('Settings overlay', () => {
   })
 
   test('#settings-apply button is not rendered', async ({ page }) => {
-    // Open settings
+    // Open settings via pause menu flow
     await page.keyboard.press('Escape')
+    await page.waitForSelector('#pause-menu-backdrop', { state: 'visible', timeout: 5_000 })
+    await page.click('[data-role="settings"]')
     await waitForOverlayState(page, true)
 
     await expect(page.locator('#settings-apply')).toHaveCount(0)
   })
 
   test('#rd-input slider is interactable', async ({ page }) => {
-    // Open settings to make slider accessible
+    // Open settings via pause menu flow
     await page.keyboard.press('Escape')
+    await page.waitForSelector('#pause-menu-backdrop', { state: 'visible', timeout: 5_000 })
+    await page.click('[data-role="settings"]')
     await waitForOverlayState(page, true)
 
     // Verify slider exists and has a value
@@ -108,8 +118,10 @@ test.describe('Settings overlay', () => {
   })
 
   test('render distance change persists to localStorage immediately', async ({ page }) => {
-    // Open settings
+    // Open settings via pause menu flow
     await page.keyboard.press('Escape')
+    await page.waitForSelector('#pause-menu-backdrop', { state: 'visible', timeout: 5_000 })
+    await page.click('[data-role="settings"]')
     await waitForOverlayState(page, true)
 
     // Read current slider value and compute a new distinct value
@@ -146,6 +158,8 @@ test.describe('Settings overlay', () => {
 
   test('quality selection persists immediately without Apply', async ({ page }) => {
     await page.keyboard.press('Escape')
+    await page.waitForSelector('#pause-menu-backdrop', { state: 'visible', timeout: 5_000 })
+    await page.click('[data-role="settings"]')
     await waitForOverlayState(page, true)
 
     await page.locator('#quality-select').selectOption('low')
@@ -165,8 +179,10 @@ test.describe('Settings overlay', () => {
   })
 
   test('persisted render distance is reflected in slider after page reload', async ({ page }) => {
-    // Open settings and set a known render distance
+    // Open settings via pause menu flow and set a known render distance
     await page.keyboard.press('Escape')
+    await page.waitForSelector('#pause-menu-backdrop', { state: 'visible', timeout: 5_000 })
+    await page.click('[data-role="settings"]')
     await waitForOverlayState(page, true)
 
     const targetValue = 5
@@ -192,8 +208,10 @@ test.describe('Settings overlay', () => {
     )
     await page.waitForSelector('#settings-overlay', { state: 'attached', timeout: 8_000 })
 
-    // Open settings overlay to reveal the slider
+    // Open settings overlay via pause menu flow to reveal the slider
     await page.keyboard.press('Escape')
+    await page.waitForSelector('#pause-menu-backdrop', { state: 'visible', timeout: 5_000 })
+    await page.click('[data-role="settings"]')
     await waitForOverlayState(page, true)
 
     const sliderValueAfterReload = await page.evaluate(() => {

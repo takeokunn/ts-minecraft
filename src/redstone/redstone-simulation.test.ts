@@ -1,8 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { Array as Arr, HashMap, HashSet, Option } from 'effect'
-import { RedstoneComponentType } from '@/redstone/redstone-model'
-import type { RedstoneComponent } from '@/redstone/redstone-model'
 import {
+  RedstoneComponentType,
   canConduct,
   isPowerSource,
   neighborsOf,
@@ -10,8 +9,9 @@ import {
   updatePistons,
   decayButtonTimers,
   sortedPowerSnapshot,
-} from './redstone-simulation'
-import { positionKey, type PositionKey } from './redstone-position-utils'
+  positionKey,
+} from '@ts-minecraft/redstone-circuit'
+import type { RedstoneComponent, PositionKey } from '@ts-minecraft/redstone-circuit'
 
 // --- Helpers ---
 

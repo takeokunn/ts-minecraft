@@ -5,7 +5,7 @@ import {
   captureCameraPose,
   decideAdaptiveQuality,
   hasCameraPoseChanged,
-} from './frame-runtime-logic'
+} from '@ts-minecraft/app/frame/frame-runtime-logic'
 
 describe('frame-runtime-logic', () => {
   it('returns ticks and remainder for fixed-step accumulation', () => {

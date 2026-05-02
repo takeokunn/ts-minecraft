@@ -7,7 +7,7 @@ import {
   RaycastingServiceLive,
   RaycastHitSchema,
   DEFAULT_RAY_DISTANCE,
-} from '@/infrastructure/three/raycasting/raycasting-service'
+} from '@ts-minecraft/world-renderer'
 
 /**
  * Helper function to set up camera and scene for raycasting

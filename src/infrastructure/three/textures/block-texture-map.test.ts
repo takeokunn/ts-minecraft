@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { Array as Arr } from 'effect'
-import { getTileIndex, getTileUVs, ATLAS_COLS, ATLAS_SIZE, HALF_TEXEL } from './block-texture-map'
-import type { FaceDir } from './block-texture-map'
+import { getTileIndex, getTileUVs, ATLAS_COLS, ATLAS_SIZE, HALF_TEXEL } from '@ts-minecraft/world-renderer'
+import type { FaceDir } from '@ts-minecraft/world-renderer'
 
 describe('infrastructure/three/textures/block-texture-map', () => {
   describe('constants', () => {

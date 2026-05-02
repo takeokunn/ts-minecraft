@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { Effect, Option } from 'effect'
 import * as THREE from 'three'
-import { installQaApi } from './qa-api'
+import { installQaApi } from '@ts-minecraft/app/main/qa-api'
 
 type QaApiShape = {
   getInventorySnapshot(): Promise<ReadonlyArray<null | { readonly slot: number; readonly blockType: string; readonly count: number }>>

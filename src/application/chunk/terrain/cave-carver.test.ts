@@ -1,14 +1,14 @@
 import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
 import { Array as Arr } from 'effect'
-import { blockTypeToIndex, CHUNK_HEIGHT, CHUNK_SIZE } from '@/domain/chunk'
+import { blockTypeToIndex, CHUNK_HEIGHT, CHUNK_SIZE } from '@ts-minecraft/domain'
 import {
   CAVE_SAMPLE_STRIDE,
   CAVE_FLOOR,
   CAVE_CEILING,
   BEDROCK_LAYER_TOP,
-} from './constants'
-import { carveCaves } from './cave-carver'
+  carveCaves,
+} from '@ts-minecraft/terrain-generator'
 
 // ---------------------------------------------------------------------------
 // Shared constants

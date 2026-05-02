@@ -1,12 +1,15 @@
 import { test, expect } from '@playwright/test'
 import { GamePage } from '../fixtures/game-page'
 import { attachFatalErrorMonitor } from '../helpers/console-monitor'
+import { waitForMainMenu } from '../helpers/wait-helpers'
 
-test.describe('Boot smoke tests', () => {
+test.describe('Boot / main menu phase', () => {
+  test.describe.configure({ mode: 'serial' })
+
   test('WebGL2 canvas is present and active', async ({ page }) => {
-    const getFatalErrors = attachFatalErrorMonitor(page)
     const game = new GamePage(page)
-    await game.goto()
+    await game.gotoMainMenuOnly()
+    await waitForMainMenu(page)
 
     // #game-canvas is static in index.html — immediately present
     await expect(page.locator('#game-canvas')).toBeVisible()
@@ -18,9 +21,35 @@ test.describe('Boot smoke tests', () => {
       return canvas.getContext('webgl2') !== null
     })
     expect(webglActive).toBe(true)
+  })
 
+  test('main menu renders on boot', async ({ page }) => {
+    const getFatalErrors = attachFatalErrorMonitor(page)
+    const game = new GamePage(page)
+    await game.gotoMainMenuOnly()
+    await waitForMainMenu(page)
+
+    await expect(page.locator('#mm-new-world')).toBeVisible()
+    await expect(page.locator('#mm-load-world')).toBeVisible()
+    await expect(page.locator('#mm-settings')).toBeVisible()
+    await expect(page.locator('#mm-quit')).toBeVisible()
     expect(getFatalErrors()).toHaveLength(0)
   })
+
+  test('no fatal startup errors before game session', async ({ page }) => {
+    const getFatalErrors = attachFatalErrorMonitor(page)
+    const game = new GamePage(page)
+    await game.gotoMainMenuOnly()
+    await waitForMainMenu(page)
+
+    // The game intentionally uses console.error for non-fatal Effect errors.
+    // We only check for the fatal "Failed to start application" pattern.
+    expect(getFatalErrors()).toHaveLength(0)
+  })
+})
+
+test.describe('Game session phase', () => {
+  test.describe.configure({ mode: 'serial' })
 
   test('game loop starts and FPS counter becomes non-zero', async ({ page }) => {
     const getFatalErrors = attachFatalErrorMonitor(page)
@@ -60,7 +89,7 @@ test.describe('Boot smoke tests', () => {
     expect(settingsHidden).toBe(true)
   })
 
-  test('no fatal startup errors occur', async ({ page }) => {
+  test('no fatal startup errors during session', async ({ page }) => {
     const getFatalErrors = attachFatalErrorMonitor(page)
     const game = new GamePage(page)
     await game.goto()

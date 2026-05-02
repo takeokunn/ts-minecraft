@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import * as THREE from 'three'
 import { Option } from 'effect'
-import { _resetMobGeometryCachesForTest, buildMobGroup } from './mob-geometry'
+import { _resetMobGeometryCachesForTest, buildMobGroup } from '@ts-minecraft/world-renderer'
 
 describe('mob-geometry', () => {
   beforeEach(() => {

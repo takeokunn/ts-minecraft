@@ -1,8 +1,8 @@
 import { describe, expect } from '@effect/vitest'
 import { it } from '@effect/vitest'
 import { Effect, Option } from 'effect'
-import { MeshingWorkerPool } from './meshing-worker-pool'
-import type { Chunk } from '@/domain/chunk'
+import { MeshingWorkerPool } from '@ts-minecraft/world-renderer'
+import type { Chunk } from '@ts-minecraft/domain'
 
 const makeChunk = (): Chunk => ({
   coord: { x: 0, z: 0 },

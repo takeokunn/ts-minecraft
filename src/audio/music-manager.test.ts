@@ -1,8 +1,8 @@
 import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
 import { Effect, Layer, Option } from 'effect'
-import { AudioEngine, type AudioEngine as AudioEngineService, type ToneRequest } from '@/audio/audio-engine'
-import { MusicManager, MusicManagerLive } from '@/audio/music-manager'
+import { AudioEngine, type AudioEngine as AudioEngineService, type ToneRequest } from '@ts-minecraft/audio-engine'
+import { MusicManager, MusicManagerLive } from '@ts-minecraft/audio-engine'
 
 const makeFakeAudioEngine = () => {
   const playRequests: ToneRequest[] = []

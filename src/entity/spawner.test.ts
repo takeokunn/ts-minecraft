@@ -1,9 +1,7 @@
 import { describe, expect, it } from '@effect/vitest'
 import { Array as Arr, Effect, Layer, Option } from 'effect'
-import { TimeService } from '@/application/time/time-service'
-import { EntityType, type EntityId } from '@/entity/entity'
-import { EntityManager, EntityManagerLive } from '@/entity/entityManager'
-import { MobSpawner, MobSpawnerLive } from '@/entity/spawner'
+import { TimeService } from '@ts-minecraft/day-night-cycle'
+import { EntityType, type EntityId, EntityManager, EntityManagerLive, MobSpawner, MobSpawnerLive } from '@ts-minecraft/entity-manager'
 
 const makeTimeLayer = (night: boolean) =>
   Layer.succeed(TimeService, {

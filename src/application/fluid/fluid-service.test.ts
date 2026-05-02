@@ -1,9 +1,9 @@
 import { describe, expect, it } from '@effect/vitest'
 import { Array as Arr, Effect, Layer, Option } from 'effect'
-import { ChunkManagerService } from '@/application/chunk/chunk-manager-service'
-import { ChunkService, ChunkServiceLive, blockIndex, blockTypeToIndex, setBlockInChunk } from '@/domain/chunk'
-import { encodeFluidCell } from '@/domain/fluid'
-import { FluidService, FluidServiceLive, resolveContact } from './fluid-service'
+import { ChunkManagerService } from '@ts-minecraft/chunk-manager'
+import { ChunkService, ChunkServiceLive, blockIndex, blockTypeToIndex, setBlockInChunk } from '@ts-minecraft/domain'
+import { encodeFluidCell } from '@ts-minecraft/domain'
+import { FluidService, FluidServiceLive, resolveContact } from '@ts-minecraft/fluid-simulation'
 
 const makeChunkManager = (loadedChunks: ReadonlyArray<{ coord: { x: number; z: number }; blocks: Uint8Array; fluid: Option.Option<Uint8Array> }>) => {
   const dirtyCalls: Array<{ x: number; z: number }> = []

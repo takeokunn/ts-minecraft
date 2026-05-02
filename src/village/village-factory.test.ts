@@ -1,7 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { Array as Arr, HashSet } from 'effect'
-import { INITIAL_STATE, createVillage, ensureVillageInState } from './village-factory'
-import { VILLAGE_NEAR_DISTANCE } from './village-simulation'
+import { INITIAL_STATE, createVillage, ensureVillageInState, VILLAGE_NEAR_DISTANCE } from '@ts-minecraft/village-system'
 
 describe('village/village-factory', () => {
   describe('createVillage', () => {

@@ -1,12 +1,12 @@
 import { describe, it, expect } from 'vitest'
 import { Array as Arr, Option } from 'effect'
-import { evaluateSpline } from '@/domain/spline'
+import { evaluateSpline } from '@ts-minecraft/domain'
 import {
   OFFSET_SPLINE,
   FACTOR_SPLINE,
   PV_OFFSET,
   JAGGED_AMP,
-} from './terrain-splines'
+} from '@ts-minecraft/terrain-generator'
 
 describe('application/terrain/terrain-splines', () => {
   it('OFFSET_SPLINE at C=-0.5 returns ~40 (ocean band); at C=0.8 returns ~128 (plateau band, +/-5 OK)', () => {

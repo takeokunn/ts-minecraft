@@ -9,20 +9,19 @@
 import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
 import { Array as Arr, Effect, Either, Layer, Option, Ref } from 'effect'
-import { GameStateService, GameStateServiceLive } from '@/application/game-state'
-import { PhysicsServiceLive } from '@/application/physics/physics-service'
-import { PhysicsWorldServiceLive, RigidBodyServiceLive, ShapeServiceLive } from '@/infrastructure/physics/boundary'
-import { MovementServiceLive } from '@/application/player/movement-service'
-import { PlayerCameraStateLive } from '@/application/camera/camera-state'
-import { PlayerServiceLive } from '@/application/player/player-state'
-import { PlayerInputService } from '@/application/input/player-input-service'
-import { ChunkManagerService } from '@/application/chunk/chunk-manager-service'
-import { HealthService } from '@/application/player/health-service'
-import { GameModeServiceLive } from '@/application/game-mode'
-import { InventoryServiceLive } from '@/application/inventory/inventory-service'
-import { BlockRegistryLive } from '@/domain'
-import { DeltaTimeSecs, PlayerId } from '@/shared/kernel'
-import { DEFAULT_PLAYER_ID } from '@/application/constants'
+import { GameStateService, GameStateServiceLive } from '@ts-minecraft/game-session'
+import { PhysicsServiceLive } from '@ts-minecraft/physics-engine'
+import { PhysicsWorldPortLayer, RigidBodyPortLayer, ShapePortLayer } from '@/layers'
+import { MovementServiceLive } from '@ts-minecraft/player-controller'
+import { PlayerCameraStateLive } from '@ts-minecraft/camera-controller'
+import { PlayerServiceLive } from '@ts-minecraft/player-controller'
+import { PlayerInputService } from '@ts-minecraft/input-handler'
+import { ChunkManagerService } from '@ts-minecraft/chunk-manager'
+import { HealthService } from '@ts-minecraft/player-controller'
+import { GameModeServiceLive } from '@ts-minecraft/game-mode'
+import { InventoryServiceLive } from '@ts-minecraft/inventory-system'
+import { BlockRegistryLive } from '@ts-minecraft/domain'
+import { DeltaTimeSecs, PlayerId, DEFAULT_PLAYER_ID } from '@ts-minecraft/kernel'
 
 /** Player center Y when standing on bedrock (feet at y=0) */
 const PLAYER_HALF_HEIGHT = 0.9
@@ -53,9 +52,9 @@ const NoOpChunkManagerLayer = Layer.succeed(ChunkManagerService, {
 // Layer composition matching src/layers.ts GameLayer
 // ---------------------------------------------------------------------------
 const PhysicsLayer = PhysicsServiceLive.pipe(
-  Layer.provide(PhysicsWorldServiceLive),
-  Layer.provide(RigidBodyServiceLive),
-  Layer.provide(ShapeServiceLive),
+  Layer.provide(PhysicsWorldPortLayer),
+  Layer.provide(RigidBodyPortLayer),
+  Layer.provide(ShapePortLayer),
 )
 
 const MovementLayer = MovementServiceLive.pipe(

@@ -1,8 +1,8 @@
 import { describe, it } from '@effect/vitest'
 import { Array as Arr, Effect, Schema, Metric } from 'effect'
-import { DeltaTimeSecs } from '@/shared/kernel'
+import { DeltaTimeSecs } from '@ts-minecraft/kernel'
 import { expect } from 'vitest'
-import { FPSCounterService, FPSCounterLive, FPSCounterStateSchema } from './fps-counter'
+import { FPSCounterService, FPSCounterLive, FPSCounterStateSchema } from '@ts-minecraft/app/presentation/fps-counter'
 
 describe('FPSCounterService', () => {
   describe('tick', () => {

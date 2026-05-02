@@ -7,9 +7,9 @@ import {
   BiomeType,
   buildChunkNoiseInputs,
   classifyBiome,
-} from '@/application/biome/biome-service'
-import { NoiseServicePort } from '@/application/noise/noise-service-port'
-import { CHUNK_SIZE } from '@/domain/chunk'
+} from '@ts-minecraft/biome-classifier'
+import { NoiseServicePort } from '@ts-minecraft/noise-generator'
+import { CHUNK_SIZE } from '@ts-minecraft/domain'
 
 // ─── Mock infrastructure ──────────────────────────────────────────────────────
 

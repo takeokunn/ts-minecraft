@@ -2,7 +2,7 @@ import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
 import { Effect } from 'effect'
 import * as THREE from 'three'
-import { SceneService, SceneServiceLive } from './scene-service'
+import { SceneService, SceneServiceLive } from '@ts-minecraft/world-renderer'
 
 // THREE.Scene, THREE.Object3D, and THREE.Mesh work without WebGL in Node.js,
 // so no mocking is needed for this service.

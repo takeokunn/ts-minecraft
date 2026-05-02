@@ -1,7 +1,7 @@
 import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
 import { Arbitrary, Schema } from 'effect'
-import { SettingsSchema } from './settings-service'
+import { SettingsSchema } from '@ts-minecraft/settings-manager'
 
 const BASE = {
   renderDistance: 8,

@@ -9,18 +9,18 @@
 import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
 import { Array as Arr, Effect, Layer } from 'effect'
-import { GameStateService, GameStateServiceLive } from '@/application/game-state'
-import { PhysicsServiceLive } from '@/application/physics/physics-service'
-import { PhysicsWorldServiceLive, RigidBodyServiceLive, ShapeServiceLive } from '@/infrastructure/physics/boundary'
-import { MovementServiceLive } from '@/application/player/movement-service'
-import { PlayerCameraStateLive } from '@/application/camera/camera-state'
-import { PlayerServiceLive } from '@/application/player/player-state'
-import { PlayerInputService } from '@/application/input/player-input-service'
-import { ChunkManagerService } from '@/application/chunk/chunk-manager-service'
-import { GameModeServiceLive } from '@/application/game-mode'
-import { InventoryServiceLive } from '@/application/inventory/inventory-service'
-import { BlockRegistryLive } from '@/domain'
-import { DeltaTimeSecs } from '@/shared/kernel'
+import { GameStateService, GameStateServiceLive } from '@ts-minecraft/game-session'
+import { PhysicsServiceLive } from '@ts-minecraft/physics-engine'
+import { PhysicsWorldPortLayer, RigidBodyPortLayer, ShapePortLayer } from '@/layers'
+import { MovementServiceLive } from '@ts-minecraft/player-controller'
+import { PlayerCameraStateLive } from '@ts-minecraft/camera-controller'
+import { PlayerServiceLive } from '@ts-minecraft/player-controller'
+import { PlayerInputService } from '@ts-minecraft/input-handler'
+import { ChunkManagerService } from '@ts-minecraft/chunk-manager'
+import { GameModeServiceLive } from '@ts-minecraft/game-mode'
+import { InventoryServiceLive } from '@ts-minecraft/inventory-system'
+import { BlockRegistryLive } from '@ts-minecraft/domain'
+import { DeltaTimeSecs } from '@ts-minecraft/kernel'
 
 // ---------------------------------------------------------------------------
 // Shared layer composition (mirrors game-state.integration.test.ts)
@@ -35,9 +35,9 @@ const NoOpPlayerInputLayer = Layer.succeed(PlayerInputService, {
 } as unknown as PlayerInputService)
 
 const PhysicsLayer = PhysicsServiceLive.pipe(
-  Layer.provide(PhysicsWorldServiceLive),
-  Layer.provide(RigidBodyServiceLive),
-  Layer.provide(ShapeServiceLive),
+  Layer.provide(PhysicsWorldPortLayer),
+  Layer.provide(RigidBodyPortLayer),
+  Layer.provide(ShapePortLayer),
 )
 
 const MovementLayer = MovementServiceLive.pipe(

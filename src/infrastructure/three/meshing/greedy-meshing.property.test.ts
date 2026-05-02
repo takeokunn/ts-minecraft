@@ -2,9 +2,9 @@ import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
 import { Array as Arr, Arbitrary, Option, Schema } from 'effect'
 import * as fc from 'effect/FastCheck'
-import { greedyMeshChunk } from './greedy-meshing'
-import { CHUNK_SIZE, CHUNK_HEIGHT } from '@/domain/chunk'
-import type { Chunk, ChunkCoord } from '@/domain/chunk'
+import { greedyMeshChunk } from '@ts-minecraft/world-renderer'
+import { CHUNK_SIZE, CHUNK_HEIGHT } from '@ts-minecraft/domain'
+import type { Chunk, ChunkCoord } from '@ts-minecraft/domain'
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 

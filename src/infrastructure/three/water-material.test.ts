@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import * as THREE from 'three'
 import { Option } from 'effect'
-import { createWaterMaterial } from './water-material'
+import { createWaterMaterial } from '@ts-minecraft/world-renderer'
 
 describe('createWaterMaterial', () => {
   const fakeTexture = {} as THREE.Texture

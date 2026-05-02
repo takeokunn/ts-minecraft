@@ -1,7 +1,7 @@
 import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
 import { Effect } from 'effect'
-import { GameModeService, GameModeServiceLive, DEFAULT_GAME_MODE } from './game-mode-service'
+import { GameModeService, GameModeServiceLive, DEFAULT_GAME_MODE } from '@ts-minecraft/game-mode'
 
 describe('application/game-mode/game-mode-service', () => {
   it.effect('defaults to survival', () =>

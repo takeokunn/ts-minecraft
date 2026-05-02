@@ -1,7 +1,11 @@
 import { describe, it, expect } from 'vitest'
 import { Option } from 'effect'
-import { VillageId, VillageStructureId, VillagerId, VillagerActivity, VillagerProfession } from '@/village/village-model'
 import {
+  VillageId,
+  VillageStructureId,
+  VillagerId,
+  VillagerActivity,
+  VillagerProfession,
   TRADE_DISTANCE,
   distanceSq,
   hashString,
@@ -10,8 +14,8 @@ import {
   snapVillageCenter,
   nextActivityForVillager,
   flattenVillagers,
-} from './village-simulation'
-import type { Village, Villager } from '@/village/village-model'
+} from '@ts-minecraft/village-system'
+import type { Village, Villager } from '@ts-minecraft/village-system'
 
 const makeVillage = (id: string, cx: number, cy: number, cz: number): Village => ({
   villageId: VillageId.make(id),

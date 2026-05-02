@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { HashSet } from 'effect'
-import { positionKey, positionFromKey, toBlockPosition } from './redstone-position-utils'
+import { positionKey, positionFromKey, toBlockPosition } from '@ts-minecraft/redstone-circuit'
 
 describe('redstone/redstone-position-utils', () => {
   describe('toBlockPosition', () => {

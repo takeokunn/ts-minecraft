@@ -1,11 +1,10 @@
 import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
 import { Array as Arr, Effect, Layer, Match, Option } from 'effect'
-import { InventoryService, InventoryServiceLive } from '@/application/inventory/inventory-service'
-import { BlockRegistryLive } from '@/domain'
-import { TradingService, TradingServiceLive, TRADE_CURRENCY_BLOCK } from '@/trading/trading-service'
-import { TradeFailure, TradeSuccess } from '@/trading/trading-model'
-import { VillageService, VillageServiceLive } from '@/village/village-service'
+import { InventoryService, InventoryServiceLive } from '@ts-minecraft/inventory-system'
+import { BlockRegistryLive } from '@ts-minecraft/domain'
+import { TradingService, TradingServiceLive, TRADE_CURRENCY_BLOCK, TradeFailure, TradeSuccess } from '@ts-minecraft/trading-system'
+import { VillageService, VillageServiceLive } from '@ts-minecraft/village-system'
 
 const InventoryLayer = InventoryServiceLive.pipe(
   Layer.provide(BlockRegistryLive),

@@ -1,9 +1,9 @@
 import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
 import { Effect, Option } from 'effect'
-import { EntityType } from '@/entity/entity'
-import { EntityManager, EntityManagerLive } from './entityManager'
-import { DeltaTimeSecs } from '@/shared/kernel'
+import { EntityType } from '@ts-minecraft/entity-manager'
+import { EntityManager, EntityManagerLive } from '@ts-minecraft/entity-manager'
+import { DeltaTimeSecs } from '@ts-minecraft/kernel'
 
 describe('entity/entityManager', () => {
   describe('addEntity', () => {
@@ -52,7 +52,7 @@ describe('entity/entityManager', () => {
     it.effect('returns false for a non-existent entity id', () =>
       Effect.gen(function* () {
         const entityManager = yield* EntityManager
-        const { EntityId } = yield* Effect.promise(() => import('@/entity/entity'))
+        const { EntityId } = yield* Effect.promise(() => import('@ts-minecraft/entity-manager'))
         const fakeId = EntityId.make('entity-nonexistent')
         const removed = yield* entityManager.removeEntity(fakeId)
         expect(removed).toBe(false)
@@ -85,7 +85,7 @@ describe('entity/entityManager', () => {
     it.effect('returns Option.none for an unknown id', () =>
       Effect.gen(function* () {
         const entityManager = yield* EntityManager
-        const { EntityId } = yield* Effect.promise(() => import('@/entity/entity'))
+        const { EntityId } = yield* Effect.promise(() => import('@ts-minecraft/entity-manager'))
         const fakeId = EntityId.make('entity-unknown')
         const result = yield* entityManager.getEntity(fakeId)
         expect(Option.isNone(result)).toBe(true)

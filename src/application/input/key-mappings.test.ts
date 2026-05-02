@@ -1,7 +1,7 @@
 import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
 import { Arbitrary, Array as Arr, Either, HashSet, Option, Schema } from 'effect'
-import { KeyMappings, KeyMappingsSchema } from './key-mappings'
+import { KeyMappings, KeyMappingsSchema } from '@ts-minecraft/input-handler'
 
 // All valid literal values in order matching the schema
 const VALID_KEYS = [

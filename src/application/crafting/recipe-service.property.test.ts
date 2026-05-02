@@ -8,8 +8,8 @@
 import { describe, it } from '@effect/vitest'
 import { Array as Arr, Effect, HashMap, HashSet, Option } from 'effect'
 import * as fc from 'effect/FastCheck'
-import type { BlockType } from '@/domain/block'
-import { RecipeService } from '@/application/crafting/recipe-service'
+import type { BlockType } from '@ts-minecraft/domain'
+import { RecipeService } from '@ts-minecraft/crafting-system'
 
 describe('recipe-service / findCraftable (property-based)', () => {
   it.effect(

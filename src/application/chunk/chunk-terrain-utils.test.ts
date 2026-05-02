@@ -1,14 +1,14 @@
 import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
 import { Array as Arr, HashSet } from 'effect'
-import { CHUNK_SIZE } from '@/domain/chunk'
+import { CHUNK_SIZE } from '@ts-minecraft/domain'
 import {
   chunkDistanceSquared,
   worldToChunkCoord,
   getChunkLoadOffsets,
   countChunksInRadius,
   getChunksInRenderDistance,
-} from './chunk-coord-utils'
+} from '@ts-minecraft/chunk-manager'
 import {
   smoothstep,
   mulberry32,
@@ -17,7 +17,7 @@ import {
   fract,
   clamp01,
   computeRuggedness,
-} from './terrain/math'
+} from '@ts-minecraft/terrain-generator'
 
 // ---------------------------------------------------------------------------
 // chunkDistanceSquared

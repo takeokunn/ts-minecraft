@@ -1,12 +1,12 @@
 import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
 import { Array as Arr, Effect, Layer, Option } from 'effect'
-import { MainMenuLive, MainMenuService } from './main-menu'
-import { ConfirmDialogService } from './confirm-dialog'
-import { DomOperationsService } from '@/presentation/hud/crosshair'
-import { StorageService, type WorldMetadata } from '@/infrastructure/storage/storage-service'
-import { WorldId } from '@/shared/kernel'
-import type { ChunkCoord } from '@/domain/chunk'
+import { MainMenuLive, MainMenuService } from '@ts-minecraft/app/presentation/menu/main-menu'
+import { ConfirmDialogService } from '@ts-minecraft/app/presentation/menu/confirm-dialog'
+import { DomOperationsService } from '@ts-minecraft/app/presentation/hud/crosshair'
+import { StorageService, type WorldMetadata } from '@ts-minecraft/block-storage'
+import { WorldId } from '@ts-minecraft/kernel'
+import type { ChunkCoord } from '@ts-minecraft/domain'
 
 // ---------------------------------------------------------------------------
 // Test scaffolding

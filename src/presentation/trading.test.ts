@@ -1,12 +1,11 @@
 import { beforeEach, describe, it } from '@effect/vitest'
 import { Effect, Layer, Option } from 'effect'
 import { expect, vi } from 'vitest'
-import { DomOperationsService } from '@/presentation/hud/crosshair'
-import { TradingPresentationService, TradingPresentationLive } from './trading'
-import { TradingService } from '@/trading/trading-service'
-import { TradeFailure, TradeOfferId, TradeSuccess, type TradeOffer } from '@/trading/trading-model'
-import { VillageService } from '@/village/village-service'
-import { VillageId, VillageStructureId, VillagerActivity, VillagerId, VillagerProfession, type Villager } from '@/village/village-model'
+import { DomOperationsService } from '@ts-minecraft/app/presentation/hud/crosshair'
+import { TradingPresentationService, TradingPresentationLive } from '@ts-minecraft/app/presentation/trading'
+import { TradingService, TradeFailure, TradeOfferId, TradeSuccess, type TradeOffer } from '@ts-minecraft/trading-system'
+import { VillageService } from '@ts-minecraft/village-system'
+import { VillageId, VillageStructureId, VillagerActivity, VillagerId, VillagerProfession, type Villager } from '@ts-minecraft/village-system'
 
 type MockElement = {
   id: string

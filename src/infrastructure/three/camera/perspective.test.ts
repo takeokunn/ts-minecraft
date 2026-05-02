@@ -7,7 +7,7 @@ import {
   PerspectiveCameraParamsSchema,
   DEFAULT_CAMERA_OFFSET,
   DEFAULT_LERP_FACTOR,
-} from './perspective'
+} from '@ts-minecraft/world-renderer'
 import { Schema } from 'effect'
 
 // ---------------------------------------------------------------------------

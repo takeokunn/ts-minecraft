@@ -2,26 +2,26 @@ import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
 import { vi } from 'vitest'
 import { Array as Arr, Effect, Either, Layer, Metric, MutableHashMap, MutableRef, Option } from 'effect'
-import { ChunkManagerService, ChunkManagerError } from '@/application/chunk/chunk-manager-service'
-import { ChunkServiceLive, Chunk, ChunkCoord, CHUNK_SIZE, CHUNK_HEIGHT, blockTypeToIndex, indexToBlockType } from '@/domain/chunk'
-import { PlayerService } from '@/application/player/player-state'
-import { BlockType } from '@/domain/block'
-import { ChunkCacheKey, Position, PlayerId, SlotIndex } from '@/shared/kernel'
-import { PlayerError, StorageError } from '@/domain/errors'
+import { ChunkManagerService, ChunkManagerError } from '@ts-minecraft/chunk-manager'
+import { ChunkServiceLive, Chunk, ChunkCoord, CHUNK_SIZE, CHUNK_HEIGHT, blockTypeToIndex, indexToBlockType } from '@ts-minecraft/domain'
+import { PlayerService } from '@ts-minecraft/player-controller'
+import { BlockType } from '@ts-minecraft/domain'
+import { ChunkCacheKey, Position, PlayerId, SlotIndex } from '@ts-minecraft/kernel'
+import { PlayerError, StorageError } from '@ts-minecraft/domain'
 import {
   BlockService,
   BlockServiceLive,
   BlockServiceError,
-  worldToChunkCoord,
+  worldToBlockLocal,
   blockOverlapsPlayer,
   PLAYER_HALF_WIDTH,
   PLAYER_HALF_HEIGHT,
-} from './block-service'
-import { InventoryService } from '@/application/inventory/inventory-service'
-import { HotbarService } from '@/application/hotbar/hotbar-service'
-import { FurnaceService } from '@/application/furnace/furnace-service'
-import { DEFAULT_WORLD_ID, DEFAULT_PLAYER_ID } from '@/application/constants'
-import { FluidService } from '@/application/fluid/fluid-service'
+} from '@ts-minecraft/block-service'
+import { InventoryService } from '@ts-minecraft/inventory-system'
+import { HotbarService } from '@ts-minecraft/hotbar-system'
+import { FurnaceService } from '@ts-minecraft/furnace-system'
+import { DEFAULT_WORLD_ID, DEFAULT_PLAYER_ID } from '@ts-minecraft/kernel'
+import { FluidService } from '@ts-minecraft/fluid-simulation'
 
 // ─── Chunk test utilities ─────────────────────────────────────────────────────
 
@@ -42,7 +42,7 @@ const writeBlock = (chunk: Chunk, lx: number, y: number, lz: number, blockType: 
 }
 
 const worldToLocal = (pos: Position): { coord: ChunkCoord; lx: number; lz: number; y: number } => {
-  const { chunkCoord, lx, lz } = worldToChunkCoord(pos)
+  const { chunkCoord, lx, lz } = worldToBlockLocal(pos)
   return { coord: chunkCoord, lx, lz, y: Math.floor(pos.y) }
 }
 
@@ -199,29 +199,29 @@ const assertLeft = <E>(result: Either.Either<unknown, E>): E => {
 
 // ─── Pure function tests ──────────────────────────────────────────────────────
 
-describe('worldToChunkCoord', () => {
+describe('worldToBlockLocal', () => {
   it('positive coordinates map to correct chunk and local offsets', () => {
-    const { chunkCoord, lx, lz } = worldToChunkCoord({ x: 17, y: 0, z: 5 })
+    const { chunkCoord, lx, lz } = worldToBlockLocal({ x: 17, y: 0, z: 5 })
     expect(chunkCoord).toEqual({ x: 1, z: 0 })
     expect(lx).toBe(1)   // 17 % 16 = 1
     expect(lz).toBe(5)   // 5 % 16 = 5
   })
 
   it('position at chunk boundary maps to lx=0', () => {
-    const { chunkCoord, lx } = worldToChunkCoord({ x: 16, y: 0, z: 0 })
+    const { chunkCoord, lx } = worldToBlockLocal({ x: 16, y: 0, z: 0 })
     expect(chunkCoord.x).toBe(1)
     expect(lx).toBe(0)
   })
 
   it('negative coordinates use double-modulo (no negative local offsets)', () => {
-    const { chunkCoord, lx, lz } = worldToChunkCoord({ x: -1, y: 0, z: -1 })
+    const { chunkCoord, lx, lz } = worldToBlockLocal({ x: -1, y: 0, z: -1 })
     expect(chunkCoord).toEqual({ x: -1, z: -1 })
     expect(lx).toBe(15)  // (-1 % 16 + 16) % 16 = 15
     expect(lz).toBe(15)
   })
 
   it('world (0,0) maps to chunk (0,0) with lx=0 lz=0', () => {
-    const { chunkCoord, lx, lz } = worldToChunkCoord({ x: 0, y: 0, z: 0 })
+    const { chunkCoord, lx, lz } = worldToBlockLocal({ x: 0, y: 0, z: 0 })
     expect(chunkCoord).toEqual({ x: 0, z: 0 })
     expect(lx).toBe(0)
     expect(lz).toBe(0)

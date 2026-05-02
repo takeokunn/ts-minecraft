@@ -13,12 +13,12 @@ import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
 import { Array as Arr, Effect, Layer } from 'effect'
 import * as fc from 'effect/FastCheck'
-import { ChunkService } from '@/domain/chunk'
-import { BiomeService } from '@/application/biome/biome-service'
-import { NoiseService } from '@/infrastructure/noise/noise-service'
-import { NoiseServicePort } from '@/application/noise/noise-service-port'
-import { generateTerrain } from '@/application/chunk/terrain/generator'
-import { TerrainWorkerPool } from './terrain-worker-pool'
+import { ChunkService } from '@ts-minecraft/domain'
+import { BiomeService } from '@ts-minecraft/biome-classifier'
+import { NoiseService } from '@ts-minecraft/noise-generator'
+import { NoiseServicePort } from '@ts-minecraft/noise-generator'
+import { generateTerrain } from '@ts-minecraft/terrain-generator'
+import { TerrainWorkerPool } from '@ts-minecraft/terrain-worker-pool'
 
 // Bridge identical in shape to `src/layers.ts NoisePortLayer` so we can drive
 // `BiomeService` + `generateTerrain` through the real Effect-side noise stack

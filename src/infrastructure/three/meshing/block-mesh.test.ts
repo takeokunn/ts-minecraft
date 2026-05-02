@@ -2,7 +2,7 @@ import { describe, it } from '@effect/vitest'
 import { expect, vi, beforeEach, afterEach } from 'vitest'
 import { Effect } from 'effect'
 import * as THREE from 'three'
-import { BlockMeshService, BlockMeshServiceLive } from './block-mesh'
+import { BlockMeshService, BlockMeshServiceLive } from '@ts-minecraft/world-renderer'
 
 describe('three/meshing/block-mesh', () => {
   beforeEach(() => {

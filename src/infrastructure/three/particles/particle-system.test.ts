@@ -3,14 +3,14 @@ import { it } from '@effect/vitest'
 import { Effect, Layer } from 'effect'
 import * as THREE from 'three'
 
-import { ChunkMeshService } from '@/infrastructure/three/meshing/chunk-mesh'
+import { ChunkMeshService } from '@ts-minecraft/world-renderer'
 import {
   ParticleSystemService,
   ParticleSystemServiceLive,
   MAX_PARTICLES,
   PARTICLE_LIFETIME_SECS,
   getParticleUvOffset,
-} from './particle-system'
+} from '@ts-minecraft/world-renderer/particles/particle-system'
 
 // Test-only ChunkMeshService stub: provides a no-op atlas texture so the
 // particle system can build its material without DOM/canvas. We only ever

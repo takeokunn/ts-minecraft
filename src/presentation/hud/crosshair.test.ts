@@ -1,7 +1,7 @@
 import { describe, it } from '@effect/vitest'
 import { Array as Arr, Effect, Layer, Option } from 'effect'
 import { expect, vi } from 'vitest'
-import { CrosshairService, CrosshairLive, DomOperationsService } from './crosshair'
+import { CrosshairService, CrosshairLive, DomOperationsService } from '@ts-minecraft/app/presentation/hud/crosshair'
 
 describe('CrosshairService', () => {
   describe('with mocked DOM', () => {

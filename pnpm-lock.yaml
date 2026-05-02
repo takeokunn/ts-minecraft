@@ -7,6 +7,7 @@ settings:
 overrides:
   typescript: ^5.9.0
   minimatch: '>=10.2.1'
+  flatted: '>=3.4.2'
 
 importers:
 
@@ -16,15 +17,15 @@ importers:
         specifier: ^0.170.0
         version: 0.170.0
       effect:
-        specifier: ^3.19.19
-        version: 3.19.19
+        specifier: ^3.20.0
+        version: 3.21.2
       three:
         specifier: ^0.170.0
         version: 0.170.0
     devDependencies:
       '@effect/vitest':
         specifier: ^0.25.1
-        version: 0.25.1(effect@3.19.19)(vitest@3.2.4)
+        version: 0.25.1(effect@3.21.2)(vitest@3.2.4)
       '@napi-rs/canvas':
         specifier: ^0.1.67
         version: 0.1.99
@@ -55,6 +56,450 @@ importers:
       vitest:
         specifier: ^3.2.4
         version: 3.2.4(@types/node@22.19.11)(@vitest/ui@3.2.4)(lightningcss@1.31.1)(terser@5.46.0)
+
+  packages/app:
+    dependencies:
+      '@ts-minecraft/audio-engine':
+        specifier: workspace:*
+        version: link:../audio-engine
+      '@ts-minecraft/biome-classifier':
+        specifier: workspace:*
+        version: link:../biome-classifier
+      '@ts-minecraft/block-service':
+        specifier: workspace:*
+        version: link:../block-service
+      '@ts-minecraft/block-storage':
+        specifier: workspace:*
+        version: link:../block-storage
+      '@ts-minecraft/camera-controller':
+        specifier: workspace:*
+        version: link:../camera-controller
+      '@ts-minecraft/chunk-manager':
+        specifier: workspace:*
+        version: link:../chunk-manager
+      '@ts-minecraft/crafting-system':
+        specifier: workspace:*
+        version: link:../crafting-system
+      '@ts-minecraft/day-night-cycle':
+        specifier: workspace:*
+        version: link:../day-night-cycle
+      '@ts-minecraft/domain':
+        specifier: workspace:*
+        version: link:../domain
+      '@ts-minecraft/entity-manager':
+        specifier: workspace:*
+        version: link:../entity-manager
+      '@ts-minecraft/fluid-simulation':
+        specifier: workspace:*
+        version: link:../fluid-simulation
+      '@ts-minecraft/furnace-system':
+        specifier: workspace:*
+        version: link:../furnace-system
+      '@ts-minecraft/game-loop':
+        specifier: workspace:*
+        version: link:../game-loop
+      '@ts-minecraft/game-mode':
+        specifier: workspace:*
+        version: link:../game-mode
+      '@ts-minecraft/game-session':
+        specifier: workspace:*
+        version: link:../game-session
+      '@ts-minecraft/hotbar-system':
+        specifier: workspace:*
+        version: link:../hotbar-system
+      '@ts-minecraft/input-handler':
+        specifier: workspace:*
+        version: link:../input-handler
+      '@ts-minecraft/inventory-system':
+        specifier: workspace:*
+        version: link:../inventory-system
+      '@ts-minecraft/kernel':
+        specifier: workspace:*
+        version: link:../kernel
+      '@ts-minecraft/light-engine':
+        specifier: workspace:*
+        version: link:../light-engine
+      '@ts-minecraft/noise-generator':
+        specifier: workspace:*
+        version: link:../noise-generator
+      '@ts-minecraft/physics-engine':
+        specifier: workspace:*
+        version: link:../physics-engine
+      '@ts-minecraft/player-controller':
+        specifier: workspace:*
+        version: link:../player-controller
+      '@ts-minecraft/redstone-circuit':
+        specifier: workspace:*
+        version: link:../redstone-circuit
+      '@ts-minecraft/settings-manager':
+        specifier: workspace:*
+        version: link:../settings-manager
+      '@ts-minecraft/terrain-generator':
+        specifier: workspace:*
+        version: link:../terrain-generator
+      '@ts-minecraft/trading-system':
+        specifier: workspace:*
+        version: link:../trading-system
+      '@ts-minecraft/village-system':
+        specifier: workspace:*
+        version: link:../village-system
+      '@ts-minecraft/world-renderer':
+        specifier: workspace:*
+        version: link:../world-renderer
+
+  packages/audio-engine:
+    dependencies:
+      '@ts-minecraft/kernel':
+        specifier: workspace:*
+        version: link:../kernel
+
+  packages/biome-classifier:
+    dependencies:
+      '@ts-minecraft/domain':
+        specifier: workspace:*
+        version: link:../domain
+      '@ts-minecraft/kernel':
+        specifier: workspace:*
+        version: link:../kernel
+      '@ts-minecraft/noise-generator':
+        specifier: workspace:*
+        version: link:../noise-generator
+
+  packages/block-service:
+    dependencies:
+      '@ts-minecraft/chunk-manager':
+        specifier: workspace:*
+        version: link:../chunk-manager
+      '@ts-minecraft/domain':
+        specifier: workspace:*
+        version: link:../domain
+      '@ts-minecraft/fluid-simulation':
+        specifier: workspace:*
+        version: link:../fluid-simulation
+      '@ts-minecraft/furnace-system':
+        specifier: workspace:*
+        version: link:../furnace-system
+      '@ts-minecraft/hotbar-system':
+        specifier: workspace:*
+        version: link:../hotbar-system
+      '@ts-minecraft/inventory-system':
+        specifier: workspace:*
+        version: link:../inventory-system
+      '@ts-minecraft/kernel':
+        specifier: workspace:*
+        version: link:../kernel
+      '@ts-minecraft/player-controller':
+        specifier: workspace:*
+        version: link:../player-controller
+
+  packages/block-storage:
+    dependencies:
+      '@ts-minecraft/domain':
+        specifier: workspace:*
+        version: link:../domain
+      '@ts-minecraft/game-mode':
+        specifier: workspace:*
+        version: link:../game-mode
+      '@ts-minecraft/kernel':
+        specifier: workspace:*
+        version: link:../kernel
+
+  packages/camera-controller:
+    dependencies:
+      '@ts-minecraft/input-handler':
+        specifier: workspace:*
+        version: link:../input-handler
+      '@ts-minecraft/kernel':
+        specifier: workspace:*
+        version: link:../kernel
+
+  packages/chunk-manager:
+    dependencies:
+      '@ts-minecraft/biome-classifier':
+        specifier: workspace:*
+        version: link:../biome-classifier
+      '@ts-minecraft/block-storage':
+        specifier: workspace:*
+        version: link:../block-storage
+      '@ts-minecraft/domain':
+        specifier: workspace:*
+        version: link:../domain
+      '@ts-minecraft/kernel':
+        specifier: workspace:*
+        version: link:../kernel
+      '@ts-minecraft/light-engine':
+        specifier: workspace:*
+        version: link:../light-engine
+      '@ts-minecraft/noise-generator':
+        specifier: workspace:*
+        version: link:../noise-generator
+      '@ts-minecraft/terrain-generator':
+        specifier: workspace:*
+        version: link:../terrain-generator
+
+  packages/crafting-system:
+    dependencies:
+      '@ts-minecraft/domain':
+        specifier: workspace:*
+        version: link:../domain
+      '@ts-minecraft/inventory-system':
+        specifier: workspace:*
+        version: link:../inventory-system
+      '@ts-minecraft/kernel':
+        specifier: workspace:*
+        version: link:../kernel
+
+  packages/day-night-cycle:
+    dependencies:
+      '@ts-minecraft/kernel':
+        specifier: workspace:*
+        version: link:../kernel
+
+  packages/domain:
+    dependencies:
+      '@ts-minecraft/kernel':
+        specifier: workspace:*
+        version: link:../kernel
+
+  packages/entity-manager:
+    dependencies:
+      '@ts-minecraft/day-night-cycle':
+        specifier: workspace:*
+        version: link:../day-night-cycle
+      '@ts-minecraft/domain':
+        specifier: workspace:*
+        version: link:../domain
+      '@ts-minecraft/kernel':
+        specifier: workspace:*
+        version: link:../kernel
+
+  packages/environment: {}
+
+  packages/fluid-simulation:
+    dependencies:
+      '@ts-minecraft/chunk-manager':
+        specifier: workspace:*
+        version: link:../chunk-manager
+      '@ts-minecraft/domain':
+        specifier: workspace:*
+        version: link:../domain
+      '@ts-minecraft/kernel':
+        specifier: workspace:*
+        version: link:../kernel
+
+  packages/furnace-system:
+    dependencies:
+      '@ts-minecraft/chunk-manager':
+        specifier: workspace:*
+        version: link:../chunk-manager
+      '@ts-minecraft/crafting-system':
+        specifier: workspace:*
+        version: link:../crafting-system
+      '@ts-minecraft/domain':
+        specifier: workspace:*
+        version: link:../domain
+      '@ts-minecraft/game-session':
+        specifier: workspace:*
+        version: link:../game-session
+      '@ts-minecraft/inventory-system':
+        specifier: workspace:*
+        version: link:../inventory-system
+      '@ts-minecraft/kernel':
+        specifier: workspace:*
+        version: link:../kernel
+
+  packages/game-loop:
+    dependencies:
+      '@ts-minecraft/kernel':
+        specifier: workspace:*
+        version: link:../kernel
+
+  packages/game-mode:
+    dependencies:
+      '@ts-minecraft/domain':
+        specifier: workspace:*
+        version: link:../domain
+      '@ts-minecraft/kernel':
+        specifier: workspace:*
+        version: link:../kernel
+
+  packages/game-session:
+    dependencies:
+      '@ts-minecraft/camera-controller':
+        specifier: workspace:*
+        version: link:../camera-controller
+      '@ts-minecraft/chunk-manager':
+        specifier: workspace:*
+        version: link:../chunk-manager
+      '@ts-minecraft/domain':
+        specifier: workspace:*
+        version: link:../domain
+      '@ts-minecraft/game-mode':
+        specifier: workspace:*
+        version: link:../game-mode
+      '@ts-minecraft/inventory-system':
+        specifier: workspace:*
+        version: link:../inventory-system
+      '@ts-minecraft/kernel':
+        specifier: workspace:*
+        version: link:../kernel
+      '@ts-minecraft/physics-engine':
+        specifier: workspace:*
+        version: link:../physics-engine
+      '@ts-minecraft/player-controller':
+        specifier: workspace:*
+        version: link:../player-controller
+      '@ts-minecraft/terrain-generator':
+        specifier: workspace:*
+        version: link:../terrain-generator
+
+  packages/hotbar-system:
+    dependencies:
+      '@ts-minecraft/domain':
+        specifier: workspace:*
+        version: link:../domain
+      '@ts-minecraft/input-handler':
+        specifier: workspace:*
+        version: link:../input-handler
+      '@ts-minecraft/inventory-system':
+        specifier: workspace:*
+        version: link:../inventory-system
+      '@ts-minecraft/kernel':
+        specifier: workspace:*
+        version: link:../kernel
+
+  packages/input-handler:
+    dependencies:
+      '@ts-minecraft/domain':
+        specifier: workspace:*
+        version: link:../domain
+      '@ts-minecraft/kernel':
+        specifier: workspace:*
+        version: link:../kernel
+
+  packages/inventory-system:
+    dependencies:
+      '@ts-minecraft/domain':
+        specifier: workspace:*
+        version: link:../domain
+      '@ts-minecraft/kernel':
+        specifier: workspace:*
+        version: link:../kernel
+
+  packages/kernel: {}
+
+  packages/light-engine:
+    dependencies:
+      '@ts-minecraft/domain':
+        specifier: workspace:*
+        version: link:../domain
+
+  packages/noise-generator: {}
+
+  packages/perf-hud:
+    dependencies:
+      '@ts-minecraft/chunk-manager':
+        specifier: workspace:*
+        version: link:../chunk-manager
+
+  packages/physics-engine:
+    dependencies:
+      '@ts-minecraft/domain':
+        specifier: workspace:*
+        version: link:../domain
+      '@ts-minecraft/kernel':
+        specifier: workspace:*
+        version: link:../kernel
+
+  packages/player-controller:
+    dependencies:
+      '@ts-minecraft/domain':
+        specifier: workspace:*
+        version: link:../domain
+      '@ts-minecraft/input-handler':
+        specifier: workspace:*
+        version: link:../input-handler
+      '@ts-minecraft/kernel':
+        specifier: workspace:*
+        version: link:../kernel
+
+  packages/redstone-circuit:
+    dependencies:
+      '@ts-minecraft/domain':
+        specifier: workspace:*
+        version: link:../domain
+      '@ts-minecraft/kernel':
+        specifier: workspace:*
+        version: link:../kernel
+
+  packages/settings-manager:
+    dependencies:
+      '@ts-minecraft/domain':
+        specifier: workspace:*
+        version: link:../domain
+      '@ts-minecraft/kernel':
+        specifier: workspace:*
+        version: link:../kernel
+
+  packages/terrain-generator:
+    dependencies:
+      '@ts-minecraft/biome-classifier':
+        specifier: workspace:*
+        version: link:../biome-classifier
+      '@ts-minecraft/domain':
+        specifier: workspace:*
+        version: link:../domain
+      '@ts-minecraft/kernel':
+        specifier: workspace:*
+        version: link:../kernel
+      '@ts-minecraft/noise-generator':
+        specifier: workspace:*
+        version: link:../noise-generator
+
+  packages/terrain-worker-pool:
+    dependencies:
+      '@ts-minecraft/domain':
+        specifier: workspace:*
+        version: link:../domain
+      '@ts-minecraft/terrain-generator':
+        specifier: workspace:*
+        version: link:../terrain-generator
+
+  packages/trading-system:
+    dependencies:
+      '@ts-minecraft/domain':
+        specifier: workspace:*
+        version: link:../domain
+      '@ts-minecraft/inventory-system':
+        specifier: workspace:*
+        version: link:../inventory-system
+      '@ts-minecraft/kernel':
+        specifier: workspace:*
+        version: link:../kernel
+      '@ts-minecraft/village-system':
+        specifier: workspace:*
+        version: link:../village-system
+
+  packages/village-system:
+    dependencies:
+      '@ts-minecraft/kernel':
+        specifier: workspace:*
+        version: link:../kernel
+
+  packages/world-renderer:
+    dependencies:
+      '@ts-minecraft/chunk-manager':
+        specifier: workspace:*
+        version: link:../chunk-manager
+      '@ts-minecraft/domain':
+        specifier: workspace:*
+        version: link:../domain
+      '@ts-minecraft/entity-manager':
+        specifier: workspace:*
+        version: link:../entity-manager
+      '@ts-minecraft/kernel':
+        specifier: workspace:*
+        version: link:../kernel
 
 packages:
 
@@ -674,8 +1119,8 @@ packages:
   eastasianwidth@0.2.0:
     resolution: {integrity: sha512-I88TYZWc9XiYHRQ4/3c5rjjfgkjhLyW2luGIheGERbNQ6OY7yTybanSpDXZa8y7VUP9YmDcYa+eyq4ca7iLqWA==}
 
-  effect@3.19.19:
-    resolution: {integrity: sha512-Yc8U/SVXo2dHnaP7zNBlAo83h/nzSJpi7vph6Hzyl4ulgMBIgPmz3UzOjb9sBgpFE00gC0iETR244sfXDNLHRg==}
+  effect@3.21.2:
+    resolution: {integrity: sha512-rXd2FGDM8KdjSIrc+mqEELo7ScW7xTVxEf1iInmPSpIde9/nyGuFM710cjTo7/EreGXiUX2MOonPpprbz2XHCg==}
 
   emoji-regex@8.0.0:
     resolution: {integrity: sha512-MSjYzcWNOA0ewAHpz0MxpYFvwg6yjy1NG3xteoqz644VCo/RPgnr1/GGt+ic3iJTzQ8Eu3TdM14SawnVUmGE6A==}
@@ -714,8 +1159,8 @@ packages:
   fflate@0.8.2:
     resolution: {integrity: sha512-cPJU47OaAoCbg0pBvzsgpTPhmhqI5eJjh/JIu8tPj5q+T7iLvW/JAYUqmE7KOB4R1ZyEhzBaIQpQpardBF5z8A==}
 
-  flatted@3.3.3:
-    resolution: {integrity: sha512-GX+ysw4PBCz0PzosHDepZGANEuFCMLrnRTiEy9McGjmkCQYwRq4A/X786G/fjM/+OjsWSU1ZrY5qyARZmO/uwg==}
+  flatted@3.4.2:
+    resolution: {integrity: sha512-PjDse7RzhcPkIJwy5t7KPWQSZ9cAbzQXcafsetQoD7sOJRQlGikNbx7yZp2OotDnJyrDcbyRq3Ttb18iYOqkxA==}
 
   foreground-child@3.3.1:
     resolution: {integrity: sha512-gIXjKqtFuWEgzFRJA9WCQeSJLZDjgJUOMCMzxtvFq/37KojM1BFGufqsCy0r4qSQmYLsZYMeyRqzIWOMup03sw==}
@@ -1159,9 +1604,9 @@ snapshots:
 
   '@bcoe/v8-coverage@1.0.2': {}
 
-  '@effect/vitest@0.25.1(effect@3.19.19)(vitest@3.2.4)':
+  '@effect/vitest@0.25.1(effect@3.21.2)(vitest@3.2.4)':
     dependencies:
-      effect: 3.19.19
+      effect: 3.21.2
       vitest: 3.2.4(@types/node@22.19.11)(@vitest/ui@3.2.4)(lightningcss@1.31.1)(terser@5.46.0)
 
   '@esbuild/aix-ppc64@0.27.3':
@@ -1517,7 +1962,7 @@ snapshots:
     dependencies:
       '@vitest/utils': 3.2.4
       fflate: 0.8.2
-      flatted: 3.3.3
+      flatted: 3.4.2
       pathe: 2.0.3
       sirv: 3.0.2
       tinyglobby: 0.2.15
@@ -1600,7 +2045,7 @@ snapshots:
 
   eastasianwidth@0.2.0: {}
 
-  effect@3.19.19:
+  effect@3.21.2:
     dependencies:
       '@standard-schema/spec': 1.1.0
       fast-check: 3.23.2
@@ -1656,7 +2101,7 @@ snapshots:
 
   fflate@0.8.2: {}
 
-  flatted@3.3.3: {}
+  flatted@3.4.2: {}
 
   foreground-child@3.3.1:
     dependencies:

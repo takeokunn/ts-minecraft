@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { computeColumnY, type ChannelSamples } from './density-function'
+import { computeColumnY, type ChannelSamples } from '@ts-minecraft/terrain-generator'
 
 const makeSamples = (c: number, e: number, p: number, j: number): ChannelSamples => {
   const continentalness = new Float64Array(256)

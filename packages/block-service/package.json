@@ -1,0 +1,18 @@
+{
+  "name": "@ts-minecraft/block-service",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "exports": { ".": "./src/index.ts" },
+  "dependencies": {
+    "@ts-minecraft/kernel": "workspace:*",
+    "@ts-minecraft/domain": "workspace:*",
+    "@ts-minecraft/chunk-manager": "workspace:*",
+    "@ts-minecraft/fluid-simulation": "workspace:*",
+    "@ts-minecraft/player-controller": "workspace:*",
+    "@ts-minecraft/inventory-system": "workspace:*",
+    "@ts-minecraft/hotbar-system": "workspace:*",
+    "@ts-minecraft/furnace-system": "workspace:*"
+  }
+}

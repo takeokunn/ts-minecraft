@@ -1,9 +1,8 @@
 import { describe, expect, it } from '@effect/vitest'
 import { Effect, Option } from 'effect'
-import { AIState } from '@/ai/stateMachine'
-import { EntityType } from '@/entity/entity'
-import { EntityManager, EntityManagerLive } from '@/entity/entityManager'
-import { DeltaTimeSecs } from '@/shared/kernel'
+import { AIState } from '@ts-minecraft/entity-manager'
+import { EntityType, EntityManager, EntityManagerLive } from '@ts-minecraft/entity-manager'
+import { DeltaTimeSecs } from '@ts-minecraft/kernel'
 
 describe('entity/entityManager', () => {
   it.effect('adds, retrieves, and removes entities', () =>

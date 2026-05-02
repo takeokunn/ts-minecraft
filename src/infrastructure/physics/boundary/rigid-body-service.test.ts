@@ -6,7 +6,7 @@ import {
   RigidBodyServiceLive,
   RigidBodyConfigSchema,
   type RigidBodyConfig,
-} from './rigid-body-service'
+} from '@ts-minecraft/physics-engine'
 
 describe('physics/boundary/rigid-body-service', () => {
   const defaultConfig: RigidBodyConfig = {

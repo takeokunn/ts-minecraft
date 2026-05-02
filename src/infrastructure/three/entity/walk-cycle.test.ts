@@ -5,7 +5,7 @@ import {
   WALK_DAMPING_SECONDS,
   computeLimbAngle,
   dampLimbAngle,
-} from './walk-cycle'
+} from '@ts-minecraft/world-renderer'
 
 const APPROX = 1e-9
 

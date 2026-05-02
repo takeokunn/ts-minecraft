@@ -1,22 +1,20 @@
 import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
 import { Array as Arr, Effect, Either, Layer, Option, Schema } from 'effect'
-import { DeltaTimeSecs } from '@/shared/kernel'
+import { DeltaTimeSecs } from '@ts-minecraft/kernel'
 import {
   PhysicsService,
   PhysicsServiceLive,
   PhysicsServiceError,
   AddBodyConfigSchema,
-} from './physics-service'
-import { PhysicsWorldServiceLive } from '../../infrastructure/physics/boundary/physics-world-service'
-import { RigidBodyServiceLive } from '../../infrastructure/physics/boundary/rigid-body-service'
-import { ShapeServiceLive } from '../../infrastructure/physics/boundary/shape-service'
+} from '@ts-minecraft/physics-engine'
+import { PhysicsWorldPortLayer, RigidBodyPortLayer, ShapePortLayer } from '@/layers'
 
-// Create test layer by combining all dependencies
+// Create test layer by combining all dependencies (via port bridges to infrastructure)
 const TestLayer = PhysicsServiceLive.pipe(
-  Layer.provide(PhysicsWorldServiceLive),
-  Layer.provide(RigidBodyServiceLive),
-  Layer.provide(ShapeServiceLive)
+  Layer.provide(PhysicsWorldPortLayer),
+  Layer.provide(RigidBodyPortLayer),
+  Layer.provide(ShapePortLayer)
 )
 
 describe('application/physics/physics-service', () => {
@@ -229,7 +227,7 @@ describe('application/physics/physics-service', () => {
         yield* service.initialize({ gravity: { x: 0, y: -9.82, z: 0 }, broadphase: 'naive' })
 
         // Use a valid-looking but unregistered body ID
-        const fakeId = 'physics-body-99999' as ReturnType<typeof import('@/shared/kernel').PhysicsBodyIdSchema.make>
+        const fakeId = 'physics-body-99999' as ReturnType<typeof import('@ts-minecraft/kernel').PhysicsBodyIdSchema.make>
         const result = yield* Effect.either(service.setVelocity(fakeId, { x: 5, y: 2, z: -3 }))
 
         expect(Either.isLeft(result)).toBe(true)
@@ -242,7 +240,7 @@ describe('application/physics/physics-service', () => {
 
         yield* service.initialize({ gravity: { x: 0, y: -9.82, z: 0 }, broadphase: 'naive' })
 
-        const fakeId = 'physics-body-99999' as ReturnType<typeof import('@/shared/kernel').PhysicsBodyIdSchema.make>
+        const fakeId = 'physics-body-99999' as ReturnType<typeof import('@ts-minecraft/kernel').PhysicsBodyIdSchema.make>
         const result = yield* Effect.either(service.getVelocity(fakeId))
 
         expect(Either.isLeft(result)).toBe(true)
@@ -379,7 +377,7 @@ describe('application/physics/physics-service', () => {
       Effect.gen(function* () {
         const service = yield* PhysicsService
         yield* service.initialize({ gravity: { x: 0, y: -9.82, z: 0 }, broadphase: 'naive' })
-        const unknownId = 'physics-body-nonexistent' as ReturnType<typeof import('@/shared/kernel').PhysicsBodyIdSchema.make>
+        const unknownId = 'physics-body-nonexistent' as ReturnType<typeof import('@ts-minecraft/kernel').PhysicsBodyIdSchema.make>
         const caught = yield* service.getVelocity(unknownId).pipe(
           Effect.catchTag('PhysicsServiceError', (e) => Effect.succeed(e._tag))
         )
@@ -391,7 +389,7 @@ describe('application/physics/physics-service', () => {
       Effect.gen(function* () {
         const service = yield* PhysicsService
         yield* service.initialize({ gravity: { x: 0, y: -9.82, z: 0 }, broadphase: 'naive' })
-        const unknownId = 'physics-body-nonexistent' as ReturnType<typeof import('@/shared/kernel').PhysicsBodyIdSchema.make>
+        const unknownId = 'physics-body-nonexistent' as ReturnType<typeof import('@ts-minecraft/kernel').PhysicsBodyIdSchema.make>
         const caught = yield* service.setVelocity(unknownId, { x: 1, y: 0, z: 0 }).pipe(
           Effect.catchTag('PhysicsServiceError', (e) => Effect.succeed(e._tag))
         )
@@ -403,7 +401,7 @@ describe('application/physics/physics-service', () => {
       Effect.gen(function* () {
         const service = yield* PhysicsService
         yield* service.initialize({ gravity: { x: 0, y: -9.82, z: 0 }, broadphase: 'naive' })
-        const unknownId = 'physics-body-nonexistent' as ReturnType<typeof import('@/shared/kernel').PhysicsBodyIdSchema.make>
+        const unknownId = 'physics-body-nonexistent' as ReturnType<typeof import('@ts-minecraft/kernel').PhysicsBodyIdSchema.make>
         const caught = yield* service.getPosition(unknownId).pipe(
           Effect.catchTag('PhysicsServiceError', (e) => Effect.succeed(e._tag))
         )
@@ -425,7 +423,7 @@ describe('application/physics/physics-service', () => {
       Effect.gen(function* () {
         const service = yield* PhysicsService
         yield* service.initialize({ gravity: { x: 0, y: -9.82, z: 0 }, broadphase: 'naive' })
-        const unknownId = 'physics-body-nonexistent' as ReturnType<typeof import('@/shared/kernel').PhysicsBodyIdSchema.make>
+        const unknownId = 'physics-body-nonexistent' as ReturnType<typeof import('@ts-minecraft/kernel').PhysicsBodyIdSchema.make>
         const errorMsg = yield* service.getVelocity(unknownId).pipe(
           Effect.catchTag('PhysicsServiceError', (e) => Effect.succeed(e.message as string))
         )

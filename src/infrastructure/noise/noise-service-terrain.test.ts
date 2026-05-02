@@ -1,11 +1,16 @@
 import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
 import { Array as Arr, Effect } from 'effect'
-import { NoiseService } from './noise-service'
+import { NoiseService } from '@ts-minecraft/noise-generator'
 
 // ---------------------------------------------------------------------------
 // Phase 2.1c: Terrain-channel noise (C / E / PV / J)
 // ---------------------------------------------------------------------------
+
+// Dense-grid index: out[z * 16 + x] for a 16x16 channel buffer.
+// Helper preserves the explicit z-stride * 16 documentation across call sites
+// while keeping the iy=0 row-base out of `0 * 16` lint-warned form.
+const denseIdx = (z: number, x: number): number => z * 16 + x
 
 describe('infrastructure/noise/noise-service — terrain channels', () => {
   describe('sampleTerrainChannels — shape & determinism', () => {
@@ -90,9 +95,9 @@ describe('infrastructure/noise/noise-service — terrain channels', () => {
         Arr.forEach(['continentalness', 'erosion', 'pv', 'jaggedness'] as const, (channel) => {
           const arr = out[channel]
           Arr.forEach([1, 3, 5, 7, 9, 11, 13] as const, (x) => {
-            const mid = arr[0 * 16 + x]!
-            const lo = arr[0 * 16 + (x - 1)]!
-            const hi = arr[0 * 16 + (x + 1)]!
+            const mid = arr[denseIdx(0, x)]!
+            const lo = arr[denseIdx(0, x - 1)]!
+            const hi = arr[denseIdx(0, x + 1)]!
             const min = Math.min(lo, hi)
             const max = Math.max(lo, hi)
             // Tiny epsilon guards against float-rounding at the exact endpoints.
@@ -113,7 +118,7 @@ describe('infrastructure/noise/noise-service — terrain channels', () => {
         // At (x=0, z=0) the dense output equals the sparse corner (sx=0, sz=0) which is the
         // raw noise at world-space (xStart, zStart). Index: z*16 + x.
         const rawC = yield* service.continentalness(xStart, zStart)
-        expect(out.continentalness[0 * 16 + 0]).toBeCloseTo(rawC, 12)
+        expect(out.continentalness[denseIdx(0, 0)]).toBeCloseTo(rawC, 12)
         // Likewise at (x=2, z=2) → sparse corner (sx=1, sz=1) = world (xStart+2, zStart+2).
         const rawC22 = yield* service.continentalness(xStart + 2, zStart + 2)
         expect(out.continentalness[2 * 16 + 2]).toBeCloseTo(rawC22, 12)

@@ -1,11 +1,11 @@
 import { describe, it, expect } from 'vitest'
 import { Array as Arr, MutableHashMap, MutableHashSet, Option } from 'effect'
-import { greedyMeshChunk } from './greedy-meshing'
-import { CHUNK_SIZE, CHUNK_HEIGHT, blockTypeToIndex } from '@/domain/chunk'
-import type { Chunk, ChunkCoord } from '@/domain/chunk'
-import type { BlockType } from '@/domain/block'
-import { createLightBuffer, setLightAt, LIGHT_LEVEL_MAX, computeBlockLight } from '@/domain/light'
-import type { LightGrids } from '@/domain/light'
+import { greedyMeshChunk } from '@ts-minecraft/world-renderer'
+import { CHUNK_SIZE, CHUNK_HEIGHT, blockTypeToIndex } from '@ts-minecraft/domain'
+import type { Chunk, ChunkCoord } from '@ts-minecraft/domain'
+import type { BlockType } from '@ts-minecraft/domain'
+import { createLightBuffer, setLightAt, LIGHT_LEVEL_MAX, computeBlockLight } from '@ts-minecraft/domain'
+import type { LightGrids } from '@ts-minecraft/domain'
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
 

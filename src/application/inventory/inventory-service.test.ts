@@ -1,10 +1,10 @@
 import { describe, it, expect } from '@effect/vitest'
 import { Array as Arr, Effect, Layer, MutableHashMap, Option, Schema } from 'effect'
-import type { Block, BlockType } from '@/domain/block'
-import { BlockRegistry } from '@/domain/block-registry'
-import { MAX_STACK_SIZE, createStack } from '@/domain/item-stack'
-import type { ItemStack } from '@/domain/item-stack'
-import type { SlotIndex } from '@/shared/kernel'
+import type { Block, BlockType } from '@ts-minecraft/domain'
+import { BlockRegistry } from '@ts-minecraft/domain'
+import { MAX_STACK_SIZE, createStack } from '@ts-minecraft/domain'
+import type { ItemStack } from '@ts-minecraft/domain'
+import type { SlotIndex } from '@ts-minecraft/kernel'
 import {
   HOTBAR_SIZE,
   HOTBAR_START,
@@ -12,7 +12,7 @@ import {
   InventoryService,
   InventoryServiceLive,
   InventorySaveDataSchema,
-} from './inventory-service'
+} from '@ts-minecraft/inventory-system'
 
 const asSlotIndex = (n: number): SlotIndex => n as unknown as SlotIndex
 

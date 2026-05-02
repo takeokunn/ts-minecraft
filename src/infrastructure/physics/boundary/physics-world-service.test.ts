@@ -1,13 +1,14 @@
 import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
 import { Effect } from 'effect'
-import { DeltaTimeSecs } from '@/shared/kernel'
+import { DeltaTimeSecs } from '@ts-minecraft/kernel'
 import {
   PhysicsWorldService,
   PhysicsWorldServiceLive,
   type WorldConfig,
-} from './physics-world-service'
-import { RigidBodyService, RigidBodyServiceLive } from './rigid-body-service'
+  RigidBodyService,
+  RigidBodyServiceLive,
+} from '@ts-minecraft/physics-engine'
 
 describe('physics/boundary/physics-world-service', () => {
   const defaultConfig: WorldConfig = {

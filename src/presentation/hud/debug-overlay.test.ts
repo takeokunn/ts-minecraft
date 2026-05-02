@@ -2,7 +2,7 @@ import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
 import { Effect } from 'effect'
 
-import { DebugOverlayService, DebugOverlayLive, facingFromYaw } from './debug-overlay'
+import { DebugOverlayService, DebugOverlayLive, facingFromYaw } from '@ts-minecraft/app/presentation/hud/debug-overlay'
 
 describe('presentation/hud/debug-overlay', () => {
   describe('facingFromYaw', () => {

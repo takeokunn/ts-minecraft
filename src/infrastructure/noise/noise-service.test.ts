@@ -1,7 +1,7 @@
 import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
 import { Array as Arr, Effect, MutableHashSet } from 'effect'
-import { NoiseService } from './noise-service'
+import { NoiseService } from '@ts-minecraft/noise-generator'
 
 // ---------------------------------------------------------------------------
 // Group 1: noise2D value range

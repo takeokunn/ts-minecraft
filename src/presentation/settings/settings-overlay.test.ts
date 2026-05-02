@@ -1,9 +1,9 @@
 import { describe, it } from '@effect/vitest'
 import { afterEach, expect, vi } from 'vitest'
 import { Effect, Layer, Option } from 'effect'
-import { SettingsOverlayService, SettingsOverlayLive } from './settings-overlay'
-import { SettingsService } from '@/application/settings/settings-service'
-import { DomOperationsService } from '@/presentation/hud/crosshair'
+import { SettingsOverlayService, SettingsOverlayLive } from '@ts-minecraft/app/presentation/settings/settings-overlay'
+import { SettingsService } from '@ts-minecraft/settings-manager'
+import { DomOperationsService } from '@ts-minecraft/app/presentation/hud/crosshair'
 
 // ---------------------------------------------------------------------------
 // Mock factories
@@ -378,8 +378,10 @@ describe('presentation/settings/settings-overlay', () => {
     it.scoped('should include adaptivePerformanceMode in the update payload', () => {
       vi.stubGlobal('document', {})
       const mockDom = createMockDomLayer()
-      mockDom.elements.adaptivePerformanceInput.checked = true
-      const mockSettings = createMockSettingsLayer()
+      // Mount-time syncEffect() now primes DOM inputs from the service, so the
+      // checkbox state must be supplied via the mock service, not pre-staged
+      // on the DOM (which would be overwritten during overlay acquire).
+      const mockSettings = createMockSettingsLayer({ ...defaultSettings, adaptivePerformanceMode: true })
       const TestLayer = buildTestLayer(mockDom, mockSettings)
       return Effect.gen(function* () {
         const overlay = yield* SettingsOverlayService

@@ -1,0 +1,12 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": { "composite": true, "outDir": "dist", "rootDir": "src" },
+  "references": [
+    { "path": "../kernel" },
+    { "path": "../domain" },
+    { "path": "../noise-generator" },
+    { "path": "../biome-classifier" }
+  ],
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist"]
+}

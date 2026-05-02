@@ -2,10 +2,10 @@ import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
 import { Effect, MutableRef, Option } from 'effect'
 import * as THREE from 'three'
-import { TimeService, TimeServiceLive } from '@/application/time/time-service'
-import { updateDayNightCycle, type DayNightLights } from '@/application/time/day-night-cycle'
-import type { DeltaTimeSecs } from '@/shared/kernel'
-import type { SkyMaterialPort } from '@/shared/math/three/day-night-port'
+import { TimeService, TimeServiceLive } from '@ts-minecraft/day-night-cycle'
+import { updateDayNightCycle, type DayNightLights } from '@ts-minecraft/day-night-cycle'
+import type { DeltaTimeSecs } from '@ts-minecraft/kernel'
+import type { SkyMaterialPort } from '@ts-minecraft/kernel'
 
 /**
  * Lightweight stub for DayNightLights.

@@ -27,9 +27,11 @@ test.describe('User flow', () => {
       },
       async () => {
         await page.keyboard.press('Escape')
-        await expect(page.locator('#settings-overlay')).toBeVisible()
-        await page.keyboard.press('Escape')
-        await expect(page.locator('#settings-overlay')).toBeHidden()
+        // ESC now opens the pause menu, not settings overlay directly
+        await page.waitForSelector('#pause-menu-backdrop', { state: 'visible', timeout: 5_000 })
+        // Resume to close the pause menu
+        await page.click('[data-role="resume"]')
+        await page.waitForSelector('#pause-menu-backdrop', { state: 'hidden', timeout: 5_000 })
       },
       async () => {
         await page.keyboard.press('e')

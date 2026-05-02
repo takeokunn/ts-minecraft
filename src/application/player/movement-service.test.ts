@@ -1,8 +1,8 @@
 import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
 import { Arbitrary, Array as Arr, Effect, Layer, MutableHashMap, MutableHashSet, Option, Ref, Schema } from 'effect'
-import { PlayerInputService } from '@/application/input/player-input-service'
-import type { InputServicePort as InputServiceType } from '@/application/input'
+import { PlayerInputService } from '@ts-minecraft/input-handler'
+import type { InputServicePort as InputServiceType } from '@ts-minecraft/input-handler'
 import {
   MovementService,
   MovementServiceLive,
@@ -11,7 +11,7 @@ import {
   DEFAULT_WALK_SPEED,
   DEFAULT_SPRINT_SPEED,
   DEFAULT_JUMP_VELOCITY,
-} from './movement-service'
+} from '@ts-minecraft/player-controller'
 
 /**
  * Test implementation of InputService with controllable key state

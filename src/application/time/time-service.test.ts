@@ -1,7 +1,7 @@
 import { describe, it, expect } from '@effect/vitest'
 import { Array as Arr, Effect } from 'effect'
-import { TimeService, TimeServiceLive } from '@/application/time/time-service'
-import { DeltaTimeSecs } from '@/shared/kernel'
+import { TimeService, TimeServiceLive } from '@ts-minecraft/day-night-cycle'
+import { DeltaTimeSecs } from '@ts-minecraft/kernel'
 
 /**
  * TimeService has no external dependencies, so we use TimeService.Default (= TimeServiceLive)

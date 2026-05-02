@@ -1,8 +1,8 @@
 import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
 import { Array as Arr, Effect, Option } from 'effect'
-import { RedstoneComponentType } from '@/redstone/redstone-model'
-import { RedstoneService, RedstoneServiceLive } from '@/redstone/redstone-service'
+import { RedstoneComponentType } from '@ts-minecraft/redstone-circuit'
+import { RedstoneService, RedstoneServiceLive } from '@ts-minecraft/redstone-circuit'
 
 describe('redstone/redstone-service', () => {
   it.effect('propagates signal with 1-step attenuation up to power distance limit', () =>

@@ -2,12 +2,12 @@ import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
 import { Array as Arr, Effect, Layer, Option } from 'effect'
 import * as fc from 'effect/FastCheck'
-import type { Block, BlockType } from '@/domain/block'
-import { BlockRegistry } from '@/domain/block-registry'
-import { PlayerInputService } from '@/application/input/player-input-service'
-import { InventoryServiceLive } from '@/application/inventory/inventory-service'
-import { HotbarService, HotbarServiceLive, HOTBAR_SIZE } from './hotbar-service'
-import type { SlotIndex } from '@/shared/kernel'
+import type { Block, BlockType } from '@ts-minecraft/domain'
+import { BlockRegistry } from '@ts-minecraft/domain'
+import { PlayerInputService } from '@ts-minecraft/input-handler'
+import { InventoryServiceLive } from '@ts-minecraft/inventory-system'
+import { HotbarService, HotbarServiceLive, HOTBAR_SIZE } from '@ts-minecraft/hotbar-system'
+import type { SlotIndex } from '@ts-minecraft/kernel'
 
 // ---------------------------------------------------------------------------
 // Shared test infrastructure (mirrors hotbar-service.test.ts)

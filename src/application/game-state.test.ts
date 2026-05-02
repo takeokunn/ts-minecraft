@@ -1,25 +1,23 @@
 import { describe, it, expect } from '@effect/vitest'
 import { Array as Arr, Effect, Either, Layer, MutableHashMap, MutableHashSet, Option } from 'effect'
-import { DeltaTimeSecs } from '@/shared/kernel'
+import { DeltaTimeSecs } from '@ts-minecraft/kernel'
 import {
   GameStateService,
   GameStateServiceLive,
   GameStateError,
   PLAYER_BODY_ID,
-} from './game-state'
-import { DEFAULT_PLAYER_ID } from '@/application/constants'
-import { PhysicsServiceLive } from './physics/physics-service'
-import { MovementServiceLive } from './player/movement-service'
-import { PlayerCameraStateLive } from '@/application/camera/camera-state'
-import { PlayerServiceLive } from '@/application/player/player-state'
-import { PlayerInputService } from './input/player-input-service'
-import { ChunkManagerService } from './chunk/chunk-manager-service'
-import { PhysicsWorldServiceLive } from '../infrastructure/physics/boundary/physics-world-service'
-import { RigidBodyServiceLive } from '../infrastructure/physics/boundary/rigid-body-service'
-import { ShapeServiceLive } from '../infrastructure/physics/boundary/shape-service'
-import { GameModeServiceLive } from '@/application/game-mode'
-import { InventoryServiceLive } from '@/application/inventory/inventory-service'
-import { BlockRegistryLive } from '@/domain'
+} from '@ts-minecraft/game-session'
+import { DEFAULT_PLAYER_ID } from '@ts-minecraft/kernel'
+import { PhysicsServiceLive } from '@ts-minecraft/physics-engine'
+import { MovementServiceLive } from '@ts-minecraft/player-controller'
+import { PlayerCameraStateLive } from '@ts-minecraft/camera-controller'
+import { PlayerServiceLive } from '@ts-minecraft/player-controller'
+import { PlayerInputService } from '@ts-minecraft/input-handler'
+import { ChunkManagerService } from '@ts-minecraft/chunk-manager'
+import { PhysicsWorldPortLayer, RigidBodyPortLayer, ShapePortLayer } from '@/layers'
+import { GameModeServiceLive } from '@ts-minecraft/game-mode'
+import { InventoryServiceLive } from '@ts-minecraft/inventory-system'
+import { BlockRegistryLive } from '@ts-minecraft/domain'
 
 const NoOpChunkManagerLayer = Layer.succeed(ChunkManagerService, {
   _tag: '@minecraft/application/ChunkManagerService' as const,
@@ -89,15 +87,12 @@ const createTestInputService = (initialState: {
 const createTestLayer = (inputService: ReturnType<typeof createTestInputService>) => {
   // Create the base layers that don't have dependencies
   const inputLayer = Layer.succeed(PlayerInputService, inputService as unknown as PlayerInputService)
-  const shapeLayer = ShapeServiceLive
-  const bodyLayer = RigidBodyServiceLive.pipe(Layer.provide(shapeLayer))
-  const worldLayer = PhysicsWorldServiceLive
 
-  // Create physics layer with its dependencies
+  // Create physics layer using application-layer ports (bridges to infrastructure live in @/layers)
   const physicsLayer = PhysicsServiceLive.pipe(
-    Layer.provide(worldLayer),
-    Layer.provide(bodyLayer),
-    Layer.provide(shapeLayer)
+    Layer.provide(PhysicsWorldPortLayer),
+    Layer.provide(RigidBodyPortLayer),
+    Layer.provide(ShapePortLayer)
   )
 
   // Create movement layer with input dependency

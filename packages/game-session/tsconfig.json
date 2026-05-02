@@ -1,0 +1,23 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": { "composite": true, "outDir": "dist", "rootDir": "src" },
+  "references": [
+    { "path": "../kernel" },
+    { "path": "../domain" },
+    { "path": "../physics-engine" },
+    { "path": "../chunk-manager" },
+    { "path": "../block-service" },
+    { "path": "../player-controller" },
+    { "path": "../camera-controller" },
+    { "path": "../hotbar-system" },
+    { "path": "../inventory-system" },
+    { "path": "../light-engine" },
+    { "path": "../fluid-simulation" },
+    { "path": "../crafting-system" },
+    { "path": "../furnace-system" },
+    { "path": "../settings-manager" },
+    { "path": "../game-loop" }
+  ],
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist"]
+}

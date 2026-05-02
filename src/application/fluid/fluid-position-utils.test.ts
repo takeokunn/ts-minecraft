@@ -1,7 +1,7 @@
 import { describe, it } from '@effect/vitest'
 import { HashSet, Option } from 'effect'
 import { expect } from 'vitest'
-import { CHUNK_HEIGHT, CHUNK_SIZE } from '@/domain/chunk'
+import { CHUNK_HEIGHT, CHUNK_SIZE } from '@ts-minecraft/domain'
 import {
   blockKey,
   blockTypeFor,
@@ -16,8 +16,11 @@ import {
   maxLevelFor,
   parseKey,
   positionFromChunk,
-} from './fluid-position-utils'
-import { LAVA_INDEX, LAVA_MAX_LEVEL, WATER_INDEX, WATER_MAX_LEVEL } from './fluid-model'
+  LAVA_INDEX,
+  LAVA_MAX_LEVEL,
+  WATER_INDEX,
+  WATER_MAX_LEVEL,
+} from '@ts-minecraft/fluid-simulation'
 
 describe('floorMod', () => {
   it('positive value, positive modulo', () => {

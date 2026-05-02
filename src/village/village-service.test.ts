@@ -1,9 +1,9 @@
 import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
 import { Array as Arr, Effect, HashSet, Option } from 'effect'
-import type { DeltaTimeSecs } from '@/shared/kernel'
-import { VillagerActivity } from '@/village/village-model'
-import { VillageService, VillageServiceLive } from '@/village/village-service'
+import type { DeltaTimeSecs } from '@ts-minecraft/kernel'
+import { VillagerActivity } from '@ts-minecraft/village-system'
+import { VillageService, VillageServiceLive } from '@ts-minecraft/village-system'
 
 const ONE_SECOND = 1 as DeltaTimeSecs
 

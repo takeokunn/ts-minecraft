@@ -7,7 +7,7 @@ import {
   PITCH_MIN,
   PITCH_MAX,
   type CameraRotation,
-} from './camera-state'
+} from '@ts-minecraft/camera-controller'
 
 describe('PlayerCameraStateService', () => {
   describe('getRotation', () => {

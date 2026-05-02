@@ -1,8 +1,15 @@
-import { Array as Arr, Effect, MutableHashMap, Option, Schema } from 'effect'
+import { Array as Arr, Effect, Layer, MutableHashMap, Option, Schema } from 'effect'
 import { afterEach, beforeEach, expect, vi } from 'vitest'
 import { describe, it } from '@effect/vitest'
-import { ResolvedGraphicsSchema, resolvePreset, SettingsSchema, SettingsService, SettingsServiceLive, type GraphicsQuality } from './settings-service'
-import { GRAPHICS_PRESETS } from './settings-service.config'
+import { ResolvedGraphicsSchema, resolvePreset, SettingsSchema, SettingsService, SettingsServiceLive, type GraphicsQuality, GRAPHICS_PRESETS } from '@ts-minecraft/settings-manager'
+import { EnvironmentPort } from '@ts-minecraft/environment'
+
+// Test EnvironmentPort: previous behavior treated jsdom (`window.location.hostname === 'localhost'`)
+// as localhost, which forces audioEnabled=false on load. Replicate that explicitly here.
+const EnvironmentTest = Layer.succeed(EnvironmentPort, { isLocalhost: Effect.succeed(true) })
+
+const SettingsLive = SettingsServiceLive.pipe(Layer.provide(EnvironmentTest))
+const SettingsDefault = SettingsService.Default.pipe(Layer.provide(EnvironmentTest))
 
 const STORAGE_KEY = 'minecraft-settings'
 
@@ -219,7 +226,7 @@ describe('application/settings/settings-service', () => {
         const settings = yield* service.getSettings()
         expect(settings).toEqual(DEFAULT_SETTINGS)
         expect(getItemSpy).toHaveBeenCalledWith(STORAGE_KEY)
-      }).pipe(Effect.provide(SettingsServiceLive))
+      }).pipe(Effect.provide(SettingsLive))
     )
 
     it.effect('loads persisted settings when localStorage has valid data', () => {
@@ -247,7 +254,7 @@ describe('application/settings/settings-service', () => {
           sfxVolume: 1.0,
           musicVolume: 0.55,
         })
-      }).pipe(Effect.provide(SettingsServiceLive))
+      }).pipe(Effect.provide(SettingsLive))
     })
 
     it.effect('falls back to defaults when localStorage contains invalid JSON', () => {
@@ -256,7 +263,7 @@ describe('application/settings/settings-service', () => {
         const service = yield* SettingsService
         const settings = yield* service.getSettings()
         expect(settings).toEqual(DEFAULT_SETTINGS)
-      }).pipe(Effect.provide(SettingsServiceLive))
+      }).pipe(Effect.provide(SettingsLive))
     })
 
     it.effect('migrates schema-invalid legacy data instead of discarding valid fields', () => {
@@ -302,7 +309,7 @@ describe('application/settings/settings-service', () => {
             musicVolume: 0.6,
           })
         )
-      }).pipe(Effect.provide(SettingsServiceLive))
+      }).pipe(Effect.provide(SettingsLive))
     })
 
     it.effect('falls back to defaults when localStorage.getItem throws', () => {
@@ -313,7 +320,7 @@ describe('application/settings/settings-service', () => {
         const service = yield* SettingsService
         const settings = yield* service.getSettings()
         expect(settings).toEqual(DEFAULT_SETTINGS)
-      }).pipe(Effect.provide(SettingsServiceLive))
+      }).pipe(Effect.provide(SettingsLive))
     })
 
     it.effect("default settings should include graphicsQuality='low'", () =>
@@ -321,7 +328,7 @@ describe('application/settings/settings-service', () => {
         const service = yield* SettingsService
         const settings = yield* service.getSettings()
         expect(settings.graphicsQuality).toBe('low')
-      }).pipe(Effect.provide(SettingsService.Default))
+      }).pipe(Effect.provide(SettingsDefault))
     )
 
     it.effect("should accept and persist graphicsQuality='low'", () =>
@@ -330,7 +337,7 @@ describe('application/settings/settings-service', () => {
         yield* service.updateSettings({ graphicsQuality: 'low' })
         const settings = yield* service.getSettings()
         expect(settings.graphicsQuality).toBe('low')
-      }).pipe(Effect.provide(SettingsService.Default))
+      }).pipe(Effect.provide(SettingsDefault))
     )
 
     it.effect("should accept and persist graphicsQuality='ultra'", () =>
@@ -339,7 +346,7 @@ describe('application/settings/settings-service', () => {
         yield* service.updateSettings({ graphicsQuality: 'ultra' })
         const settings = yield* service.getSettings()
         expect(settings.graphicsQuality).toBe('ultra')
-      }).pipe(Effect.provide(SettingsService.Default))
+      }).pipe(Effect.provide(SettingsDefault))
     )
 
     it('resolvePreset returns the correct values for every quality level', () => {
@@ -385,7 +392,7 @@ describe('application/settings/settings-service', () => {
         yield* service.updateSettings({ renderDistance: 10 })
         const settings = yield* service.getSettings()
         expect(settings).toEqual({ ...DEFAULT_SETTINGS, renderDistance: 10 })
-      }).pipe(Effect.provide(SettingsServiceLive))
+      }).pipe(Effect.provide(SettingsLive))
     )
 
     it.effect('updates multiple fields', () =>
@@ -394,7 +401,7 @@ describe('application/settings/settings-service', () => {
         yield* service.updateSettings({ renderDistance: 14, dayLengthSeconds: 600 })
         const settings = yield* service.getSettings()
         expect(settings).toEqual({ ...DEFAULT_SETTINGS, renderDistance: 14, dayLengthSeconds: 600 })
-      }).pipe(Effect.provide(SettingsServiceLive))
+      }).pipe(Effect.provide(SettingsLive))
     )
 
     it.effect('accumulates valid sequential partial updates', () =>
@@ -405,7 +412,7 @@ describe('application/settings/settings-service', () => {
         yield* service.updateSettings({ dayLengthSeconds: 300 })
         const settings = yield* service.getSettings()
         expect(settings).toEqual({ ...DEFAULT_SETTINGS, renderDistance: 6, mouseSensitivity: 1.8, dayLengthSeconds: 300 })
-      }).pipe(Effect.provide(SettingsServiceLive))
+      }).pipe(Effect.provide(SettingsLive))
     )
 
     it.effect('falls back to defaults when renderDistance is out of range', () =>
@@ -414,7 +421,7 @@ describe('application/settings/settings-service', () => {
         yield* service.updateSettings({ renderDistance: 17 })
         const settings = yield* service.getSettings()
         expect(settings).toEqual(DEFAULT_SETTINGS)
-      }).pipe(Effect.provide(SettingsServiceLive))
+      }).pipe(Effect.provide(SettingsLive))
     )
 
     it.effect('falls back to defaults when mouseSensitivity is out of range', () =>
@@ -423,7 +430,7 @@ describe('application/settings/settings-service', () => {
         yield* service.updateSettings({ mouseSensitivity: 0.05 })
         const settings = yield* service.getSettings()
         expect(settings).toEqual(DEFAULT_SETTINGS)
-      }).pipe(Effect.provide(SettingsServiceLive))
+      }).pipe(Effect.provide(SettingsLive))
     )
 
     it.effect('falls back to defaults when dayLengthSeconds is out of range', () =>
@@ -432,7 +439,7 @@ describe('application/settings/settings-service', () => {
         yield* service.updateSettings({ dayLengthSeconds: 5000 })
         const settings = yield* service.getSettings()
         expect(settings).toEqual(DEFAULT_SETTINGS)
-      }).pipe(Effect.provide(SettingsServiceLive))
+      }).pipe(Effect.provide(SettingsLive))
     )
 
     it.effect('falls back to defaults when one field is valid and another is invalid', () =>
@@ -441,7 +448,7 @@ describe('application/settings/settings-service', () => {
         yield* service.updateSettings({ renderDistance: 12, mouseSensitivity: 99 })
         const settings = yield* service.getSettings()
         expect(settings).toEqual(DEFAULT_SETTINGS)
-      }).pipe(Effect.provide(SettingsServiceLive))
+      }).pipe(Effect.provide(SettingsLive))
     )
 
     it.effect('keeps previously valid settings when an update becomes invalid', () =>
@@ -451,7 +458,7 @@ describe('application/settings/settings-service', () => {
         yield* service.updateSettings({ renderDistance: 99 })
         const settings = yield* service.getSettings()
         expect(settings).toEqual({ ...DEFAULT_SETTINGS, renderDistance: 10, mouseSensitivity: 1.4 })
-      }).pipe(Effect.provide(SettingsServiceLive))
+      }).pipe(Effect.provide(SettingsLive))
     )
 
     it.effect('persists updated settings to localStorage', () =>
@@ -462,7 +469,7 @@ describe('application/settings/settings-service', () => {
           STORAGE_KEY,
           JSON.stringify({ ...DEFAULT_SETTINGS, renderDistance: 11 })
         )
-      }).pipe(Effect.provide(SettingsServiceLive))
+      }).pipe(Effect.provide(SettingsLive))
     )
 
     it.effect('keeps in-memory update even when localStorage.setItem throws', () => {
@@ -474,7 +481,7 @@ describe('application/settings/settings-service', () => {
         yield* service.updateSettings({ mouseSensitivity: 2.2 })
         const settings = yield* service.getSettings()
         expect(settings).toEqual({ ...DEFAULT_SETTINGS, mouseSensitivity: 2.2 })
-      }).pipe(Effect.provide(SettingsServiceLive))
+      }).pipe(Effect.provide(SettingsLive))
     })
   })
 
@@ -490,7 +497,7 @@ describe('application/settings/settings-service', () => {
         yield* service.resetToDefaults()
         const settings = yield* service.getSettings()
         expect(settings).toEqual(DEFAULT_SETTINGS)
-      }).pipe(Effect.provide(SettingsServiceLive))
+      }).pipe(Effect.provide(SettingsLive))
     )
 
     it.effect('persists defaults to localStorage on reset', () =>
@@ -500,7 +507,7 @@ describe('application/settings/settings-service', () => {
         yield* service.resetToDefaults()
         const lastCall = Option.getOrThrow(Arr.last(setItemSpy.mock.calls))
         expect(lastCall).toEqual([STORAGE_KEY, JSON.stringify(DEFAULT_SETTINGS)])
-      }).pipe(Effect.provide(SettingsServiceLive))
+      }).pipe(Effect.provide(SettingsLive))
     )
   })
 
@@ -513,7 +520,7 @@ describe('application/settings/settings-service', () => {
         const after = yield* service.getSettings()
         expect(before).toEqual(DEFAULT_SETTINGS)
         expect(after).toEqual({ ...DEFAULT_SETTINGS, renderDistance: 9 })
-      }).pipe(Effect.provide(SettingsServiceLive))
+      }).pipe(Effect.provide(SettingsLive))
     )
 
     it.effect('chains getSettings -> updateSettings -> resetToDefaults -> getSettings', () =>
@@ -527,7 +534,7 @@ describe('application/settings/settings-service', () => {
         expect(initial).toEqual(DEFAULT_SETTINGS)
         expect(updated).toEqual({ ...DEFAULT_SETTINGS, dayLengthSeconds: 850 })
         expect(reset).toEqual(DEFAULT_SETTINGS)
-      }).pipe(Effect.provide(SettingsServiceLive))
+      }).pipe(Effect.provide(SettingsLive))
     )
   })
 
@@ -539,7 +546,7 @@ describe('application/settings/settings-service', () => {
         yield* service.updateSettings({})
         const after = yield* service.getSettings()
         expect(after).toEqual(before)
-      }).pipe(Effect.provide(SettingsServiceLive))
+      }).pipe(Effect.provide(SettingsLive))
     )
   })
 })

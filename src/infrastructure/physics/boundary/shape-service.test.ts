@@ -7,7 +7,7 @@ import {
   ShapeServiceLive,
   BoxShapeConfigSchema,
   SphereShapeConfigSchema,
-} from './shape-service'
+} from '@ts-minecraft/physics-engine'
 
 describe('physics/boundary/shape-service', () => {
   describe('Schema validation', () => {

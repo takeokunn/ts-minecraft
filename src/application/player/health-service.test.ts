@@ -7,8 +7,8 @@ import {
   healHealth,
   tickInvincibility,
   computeFallDamage,
-} from '@/application/player/health-service'
-import { PlayerHealth } from '@/domain/player-health'
+} from '@ts-minecraft/player-controller'
+import { PlayerHealth } from '@ts-minecraft/domain'
 // ─── Test helpers ─────────────────────────────────────────────────────────────
 
 const withHealthService = <A>(

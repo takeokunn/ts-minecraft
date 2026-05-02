@@ -14,8 +14,8 @@ import {
   addVelocities,
   scaleVelocity,
   DEFAULT_GRAVITY,
-} from './physics-utils'
-import { DeltaTimeSecs } from '@/shared/kernel'
+} from '@ts-minecraft/physics-engine'
+import { DeltaTimeSecs } from '@ts-minecraft/kernel'
 
 /**
  * Physics utilities test suite with property-based testing

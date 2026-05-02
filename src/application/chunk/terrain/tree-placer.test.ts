@@ -1,10 +1,14 @@
 import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
 import { Array as Arr, Option } from 'effect'
-import { blockTypeToIndex, CHUNK_HEIGHT, CHUNK_SIZE } from '@/domain/chunk'
-import { SEA_LEVEL } from '@/application/constants'
-import { shouldPlaceTree, selectTreeArchetype, placeTree } from './tree-placer'
-import { WOOD_BLOCK_INDEX } from './surface-resolver'
+import { blockTypeToIndex, CHUNK_HEIGHT, CHUNK_SIZE } from '@ts-minecraft/domain'
+import { SEA_LEVEL } from '@ts-minecraft/kernel'
+import {
+  shouldPlaceTree,
+  selectTreeArchetype,
+  placeTree,
+  WOOD_BLOCK_INDEX,
+} from '@ts-minecraft/terrain-generator'
 
 // ---------------------------------------------------------------------------
 // Shared helpers

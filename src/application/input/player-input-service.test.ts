@@ -1,8 +1,7 @@
 import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
 import { Array as Arr, Effect, HashSet, Option } from 'effect'
-import { PlayerInputService } from './player-input-service'
-import { KeyMappings } from './key-mappings'
+import { PlayerInputService, KeyMappings } from '@ts-minecraft/input-handler'
 
 const TestLayer = PlayerInputService.Default
 

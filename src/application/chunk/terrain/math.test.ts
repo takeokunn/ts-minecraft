@@ -1,8 +1,8 @@
 import { describe, it } from '@effect/vitest'
 import { Array as Arr } from 'effect'
 import { expect } from 'vitest'
-import { CHUNK_HEIGHT, CHUNK_SIZE } from '@/domain/chunk'
-import { chunkBlockIndexUnchecked } from './math'
+import { CHUNK_HEIGHT, CHUNK_SIZE } from '@ts-minecraft/domain'
+import { chunkBlockIndexUnchecked } from '@ts-minecraft/terrain-generator'
 
 // ---------------------------------------------------------------------------
 // chunkBlockIndexUnchecked

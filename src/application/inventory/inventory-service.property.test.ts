@@ -1,12 +1,12 @@
 import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
 import { Arbitrary, Array as Arr, Effect, Layer, Option, Schema } from 'effect'
-import type { Block, BlockType } from '@/domain/block'
+import type { Block, BlockType } from '@ts-minecraft/domain'
 // Block is used only in the registry stub below
-import { BlockRegistry } from '@/domain/block-registry'
-import { createStack, MAX_STACK_SIZE } from '@/domain/item-stack'
-import type { SlotIndex } from '@/shared/kernel'
-import { InventoryService, InventoryServiceLive, INVENTORY_SIZE } from './inventory-service'
+import { BlockRegistry } from '@ts-minecraft/domain'
+import { createStack, MAX_STACK_SIZE } from '@ts-minecraft/domain'
+import type { SlotIndex } from '@ts-minecraft/kernel'
+import { InventoryService, InventoryServiceLive, INVENTORY_SIZE } from '@ts-minecraft/inventory-system'
 
 // ---------------------------------------------------------------------------
 // Helpers

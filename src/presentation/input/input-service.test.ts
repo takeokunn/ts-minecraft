@@ -1,8 +1,8 @@
 import { describe, it, expect } from '@effect/vitest'
 import { Effect, Layer, MutableHashMap, MutableHashSet, Option } from 'effect'
-import { InputService, MouseButton, PlayerInputServiceLive } from './input-service'
-import { PlayerInputService } from '@/application/input/player-input-service'
-import type { InputService as InputServiceType } from './input-service'
+import { InputService, MouseButton, PlayerInputServiceLive } from '@ts-minecraft/app/presentation/input/input-service'
+import { PlayerInputService } from '@ts-minecraft/input-handler'
+import type { InputService as InputServiceType } from '@ts-minecraft/app/presentation/input/input-service'
 
 /**
  * Test implementation of InputService for unit testing

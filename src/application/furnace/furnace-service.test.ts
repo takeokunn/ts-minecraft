@@ -1,13 +1,13 @@
 import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
 import { Effect, Layer, Option } from 'effect'
-import { FurnaceService, FurnaceServiceLive } from './furnace-service'
-import { RecipeService } from '@/application/crafting/recipe-service'
-import { InventoryService } from '@/application/inventory/inventory-service'
-import { GameStateService } from '@/application/game-state'
-import { ChunkManagerService } from '@/application/chunk/chunk-manager-service'
-import { RecipeId } from '@/shared/kernel'
-import { blockTypeToIndex, CHUNK_HEIGHT, CHUNK_SIZE } from '@/domain/chunk'
+import { FurnaceService, FurnaceServiceLive } from '@ts-minecraft/furnace-system'
+import { RecipeService } from '@ts-minecraft/crafting-system'
+import { InventoryService } from '@ts-minecraft/inventory-system'
+import { GameStateService } from '@ts-minecraft/game-session'
+import { ChunkManagerService } from '@ts-minecraft/chunk-manager'
+import { RecipeId } from '@ts-minecraft/kernel'
+import { blockTypeToIndex, CHUNK_HEIGHT, CHUNK_SIZE } from '@ts-minecraft/domain'
 
 const makeChunkWithFurnace = () => {
   const blocks = new Uint8Array(CHUNK_SIZE * CHUNK_SIZE * CHUNK_HEIGHT)

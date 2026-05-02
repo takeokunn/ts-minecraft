@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { resolveBlockCollisions } from './aabb-collision'
+import { resolveBlockCollisions } from '@ts-minecraft/physics-engine'
 
 const HALF_W = 0.3
 const HALF_H = 0.9

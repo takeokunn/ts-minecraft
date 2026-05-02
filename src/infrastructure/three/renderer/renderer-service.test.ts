@@ -1,7 +1,7 @@
 import { describe, expect } from 'vitest'
 import { it } from '@effect/vitest'
 import { Effect } from 'effect'
-import { RendererService, RendererServiceLive } from './renderer-service'
+import { RendererService, RendererServiceLive } from '@ts-minecraft/world-renderer'
 
 describe('three/renderer/renderer-service', () => {
   describe('RendererServiceLive', () => {

@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import { Array as Arr } from 'effect'
-import { EntityId } from '@/entity/entity'
-import { hashEntityId, makeWanderDirection, toPublicEntity } from './entity-utils'
-import type { ManagedEntity } from './entity-internal'
-import { AIState } from '@/ai/stateMachine'
+import { EntityId } from '@ts-minecraft/entity-manager'
+import { hashEntityId, makeWanderDirection, toPublicEntity } from '@ts-minecraft/entity-manager'
+import type { ManagedEntity } from '@ts-minecraft/entity-manager'
+import { AIState } from '@ts-minecraft/entity-manager'
 
 describe('entity/entity-utils', () => {
   describe('hashEntityId', () => {

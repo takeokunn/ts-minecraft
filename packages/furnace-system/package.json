@@ -1,0 +1,16 @@
+{
+  "name": "@ts-minecraft/furnace-system",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "exports": { ".": "./src/index.ts" },
+  "dependencies": {
+    "@ts-minecraft/kernel": "workspace:*",
+    "@ts-minecraft/domain": "workspace:*",
+    "@ts-minecraft/inventory-system": "workspace:*",
+    "@ts-minecraft/crafting-system": "workspace:*",
+    "@ts-minecraft/chunk-manager": "workspace:*",
+    "@ts-minecraft/game-session": "workspace:*"
+  }
+}

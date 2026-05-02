@@ -1,8 +1,8 @@
 import { describe, it as itEffect } from '@effect/vitest'
 import { expect, it, vi } from 'vitest'
 import { Effect, Fiber, Layer, Option } from 'effect'
-import { ConfirmDialogLive, ConfirmDialogService } from './confirm-dialog'
-import { DomOperationsService } from '@/presentation/hud/crosshair'
+import { ConfirmDialogLive, ConfirmDialogService } from '@ts-minecraft/app/presentation/menu/confirm-dialog'
+import { DomOperationsService } from '@ts-minecraft/app/presentation/hud/crosshair'
 
 /**
  * vitest.config.ts uses `environment: 'node'`, so `document` is undefined by

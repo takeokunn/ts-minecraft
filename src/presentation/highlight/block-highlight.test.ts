@@ -7,8 +7,8 @@ import {
   BlockHighlightLive,
   createWireframeCube,
   DEFAULT_HIGHLIGHT_COLOR,
-} from './block-highlight'
-import { RaycastingService, type RaycastHit } from '@/infrastructure/three/raycasting/raycasting-service'
+} from '@ts-minecraft/app/presentation/highlight/block-highlight'
+import { RaycastingService, type RaycastHit } from '@ts-minecraft/world-renderer'
 
 /**
  * Helper to create a mock RaycastingService

@@ -2,9 +2,9 @@ import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
 import { Arbitrary, Effect, Either, Layer, Schema } from 'effect'
 import * as fc from 'effect/FastCheck'
-import { BiomeService, BiomeServiceLive, BiomeTypeSchema } from '@/application/biome/biome-service'
-import { NoiseServicePort } from '@/application/noise/noise-service-port'
-import { CHUNK_SIZE, CHUNK_HEIGHT } from '@/domain/chunk'
+import { BiomeService, BiomeServiceLive, BiomeTypeSchema } from '@ts-minecraft/biome-classifier'
+import { NoiseServicePort } from '@ts-minecraft/noise-generator'
+import { CHUNK_SIZE, CHUNK_HEIGHT } from '@ts-minecraft/domain'
 
 // Valid block type indices stored in Uint8Array (0=AIR through 11=COBBLESTONE)
 const MAX_BLOCK_INDEX = 11

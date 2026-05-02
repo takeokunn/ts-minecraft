@@ -1,7 +1,7 @@
 /**
- * Gap P — BlockService worldToChunkCoord round-trip property
+ * Gap P — BlockService worldToBlockLocal round-trip property
  *
- * The internal worldToChunkCoord function uses double-modulo for negative
+ * The internal worldToBlockLocal function uses double-modulo for negative
  * coordinates. The invariant is:
  *
  *   chunkCoord.x * CHUNK_SIZE + lx  ===  Math.floor(wx)
@@ -14,19 +14,19 @@
 import { describe, it } from '@effect/vitest'
 import { Effect } from 'effect'
 import * as fc from 'effect/FastCheck'
-import { CHUNK_SIZE } from '@/domain/chunk'
+import { CHUNK_SIZE } from '@ts-minecraft/domain'
 
 /**
- * Mirrors the private worldToChunkCoord function in block-service.ts.
+ * Mirrors the private worldToBlockLocal function in block-service.ts.
  * Returns chunk coordinate and local block offset for a world coordinate.
  */
-const worldToChunkCoord = (w: number): { chunkCoord: number; local: number } => {
+const worldToBlockLocal = (w: number): { chunkCoord: number; local: number } => {
   const chunkCoord = Math.floor(w / CHUNK_SIZE)
   const local = ((Math.floor(w) % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE
   return { chunkCoord, local }
 }
 
-describe('block-service / worldToChunkCoord (property-based)', () => {
+describe('block-service / worldToBlockLocal (property-based)', () => {
   it.effect(
     'round-trip: chunkCoord * CHUNK_SIZE + local === Math.floor(wx) for any integer x',
     () =>
@@ -35,7 +35,7 @@ describe('block-service / worldToChunkCoord (property-based)', () => {
           fc.property(
             fc.integer({ min: -10000, max: 10000 }),
             (wx) => {
-              const { chunkCoord, local } = worldToChunkCoord(wx)
+              const { chunkCoord, local } = worldToBlockLocal(wx)
               return chunkCoord * CHUNK_SIZE + local === Math.floor(wx)
             }
           )
@@ -51,7 +51,7 @@ describe('block-service / worldToChunkCoord (property-based)', () => {
           fc.property(
             fc.integer({ min: -10000, max: 10000 }),
             (wz) => {
-              const { chunkCoord, local } = worldToChunkCoord(wz)
+              const { chunkCoord, local } = worldToBlockLocal(wz)
               return chunkCoord * CHUNK_SIZE + local === Math.floor(wz)
             }
           )
@@ -67,7 +67,7 @@ describe('block-service / worldToChunkCoord (property-based)', () => {
           fc.property(
             fc.integer({ min: -10000, max: 10000 }),
             (w) => {
-              const { local } = worldToChunkCoord(w)
+              const { local } = worldToBlockLocal(w)
               return local >= 0 && local < CHUNK_SIZE
             }
           )
@@ -83,7 +83,7 @@ describe('block-service / worldToChunkCoord (property-based)', () => {
           fc.property(
             fc.integer({ min: -10000, max: -1 }),
             (wx) => {
-              const { chunkCoord } = worldToChunkCoord(wx)
+              const { chunkCoord } = worldToBlockLocal(wx)
               return chunkCoord < 0
             }
           )
@@ -99,7 +99,7 @@ describe('block-service / worldToChunkCoord (property-based)', () => {
           fc.property(
             fc.integer({ min: 0, max: 10000 }),
             (wx) => {
-              const { chunkCoord } = worldToChunkCoord(wx)
+              const { chunkCoord } = worldToBlockLocal(wx)
               return chunkCoord >= 0
             }
           )
@@ -116,8 +116,8 @@ describe('block-service / worldToChunkCoord (property-based)', () => {
             fc.integer({ min: -10000, max: 10000 }),
             fc.integer({ min: -10000, max: 10000 }),
             (wx, wz) => {
-              const x = worldToChunkCoord(wx)
-              const z = worldToChunkCoord(wz)
+              const x = worldToBlockLocal(wx)
+              const z = worldToBlockLocal(wz)
               return (
                 x.chunkCoord * CHUNK_SIZE + x.local === Math.floor(wx) &&
                 z.chunkCoord * CHUNK_SIZE + z.local === Math.floor(wz)

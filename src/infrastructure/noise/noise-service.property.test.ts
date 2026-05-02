@@ -1,7 +1,7 @@
 import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
 import { Arbitrary, Effect, Schema } from 'effect'
-import { NoiseService } from './noise-service'
+import { NoiseService } from '@ts-minecraft/noise-generator'
 
 const finiteFloat = Arbitrary.make(Schema.Number.pipe(Schema.between(-10000, 10000)))
 

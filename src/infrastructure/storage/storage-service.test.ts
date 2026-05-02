@@ -1,11 +1,11 @@
 import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
 import { Array as Arr, Effect, Either, Layer, MutableHashMap, MutableRef, Option, Schema } from 'effect'
-import { StorageService, WorldMetadataSchema, WorldMetadata, ChunkStorageKey } from './storage-service'
-import { StorageError } from '@/domain/errors'
-import { WorldId } from '@/shared/kernel'
-import type { ChunkCoord } from '@/domain/chunk'
-import type { ChunkStorageValue } from '@/application/storage/storage-service-port'
+import { StorageService, WorldMetadataSchema, WorldMetadata, ChunkStorageKey } from '@ts-minecraft/block-storage'
+import { StorageError } from '@ts-minecraft/domain'
+import { WorldId } from '@ts-minecraft/kernel'
+import type { ChunkCoord } from '@ts-minecraft/domain'
+import type { ChunkStorageValue } from '@ts-minecraft/block-storage'
 
 // ---------------------------------------------------------------------------
 // Test helpers

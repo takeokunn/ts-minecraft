@@ -1,5 +1,0 @@
-export { PlayerInputService, MouseDeltaSchema } from './player-input-service'
-export type { MouseDelta } from './player-input-service'
-export { KeyMappings, KeyMappingsSchema } from './key-mappings'
-export type { KeyMappings as KeyMappingsType } from './key-mappings'
-export type { InputServicePort } from './input-service-port'

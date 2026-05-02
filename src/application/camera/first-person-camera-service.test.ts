@@ -2,15 +2,15 @@ import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
 import { Arbitrary, Array as Arr, Effect, Layer, MutableRef, Option, Schema } from 'effect'
 import * as THREE from 'three'
-import { PlayerInputService } from '../../application/input/player-input-service'
-import type { MouseDelta } from '../../application/input/player-input-service'
-import type { InputServicePort as InputServiceType } from '@/application/input'
-import { PlayerCameraStateService, PlayerCameraStateLive, PITCH_MIN, PITCH_MAX } from '@/application/camera/camera-state'
+import { PlayerInputService } from '@ts-minecraft/input-handler'
+import type { MouseDelta } from '@ts-minecraft/input-handler'
+import type { InputServicePort as InputServiceType } from '@ts-minecraft/input-handler'
+import { PlayerCameraStateService, PlayerCameraStateLive, PITCH_MIN, PITCH_MAX } from '@ts-minecraft/camera-controller'
 import {
   FirstPersonCameraService,
   FirstPersonCameraServiceLive,
   BASE_MOUSE_SENSITIVITY,
-} from './first-person-camera-service'
+} from '@ts-minecraft/camera-controller'
 
 /**
  * Test implementation of InputService with controllable state

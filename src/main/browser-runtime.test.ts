@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { Effect, MutableRef, Option } from 'effect'
-import { installBrowserEventBridge, wrapFrameHandlerWithBrowserEffects } from './browser-runtime'
+import { installBrowserEventBridge, wrapFrameHandlerWithBrowserEffects } from '@ts-minecraft/app/main/browser-runtime'
 
 const restoreGlobals = () => {
   Reflect.deleteProperty(globalThis as object, 'window')

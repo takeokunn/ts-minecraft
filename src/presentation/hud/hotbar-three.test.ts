@@ -76,10 +76,10 @@ vi.mock('three', () => {
 // ---------------------------------------------------------------------------
 // Import the service under test and dependencies *after* the mock declaration
 // ---------------------------------------------------------------------------
-import { HotbarRendererService, HotbarRendererLive } from './hotbar-three'
-import { RendererService } from '@/infrastructure/three/renderer/renderer-service'
-import type { BlockType } from '@/domain/block'
-import { SlotIndex } from '@/shared/kernel'
+import { HotbarRendererService, HotbarRendererLive } from '@ts-minecraft/app/presentation/hud/hotbar-three'
+import { RendererService } from '@ts-minecraft/world-renderer'
+import type { BlockType } from '@ts-minecraft/domain'
+import { SlotIndex } from '@ts-minecraft/kernel'
 
 // ---------------------------------------------------------------------------
 // Helpers

@@ -1,9 +1,9 @@
 import { describe, expect } from '@effect/vitest'
 import { it } from '@effect/vitest'
 import { Array as Arr, Effect } from 'effect'
-import { CHUNK_HEIGHT, CHUNK_SIZE } from '@/domain/chunk'
-import { LIGHT_BYTE_LENGTH } from '@/domain/light'
-import { TerrainWorkerPool } from './terrain-worker-pool'
+import { CHUNK_HEIGHT, CHUNK_SIZE } from '@ts-minecraft/domain'
+import { LIGHT_BYTE_LENGTH } from '@ts-minecraft/domain'
+import { TerrainWorkerPool } from '@ts-minecraft/terrain-worker-pool'
 
 const BLOCK_BYTES = CHUNK_SIZE * CHUNK_SIZE * CHUNK_HEIGHT
 
@@ -31,6 +31,7 @@ describe('infrastructure/terrain/terrain-worker-pool', () => {
       // assert that y=0 voxels are non-zero (i.e. not AIR).
       const yZeroSamples = Arr.makeBy(CHUNK_SIZE, (lx) => lx)
       Arr.forEach(yZeroSamples, (lx) => {
+        // oxlint-disable-next-line oxc/erasing-op -- explicit y=0, z=0 3D index formula for documentation
         const idx = 0 + 0 * CHUNK_HEIGHT + lx * CHUNK_HEIGHT * CHUNK_SIZE
         expect(result.blocks[idx]).not.toBe(0)
       })

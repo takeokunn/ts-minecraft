@@ -1,11 +1,11 @@
 import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
 import { Array as Arr, Effect, HashMap, Layer, Option } from 'effect'
-import type { Block, BlockType } from '@/domain/block'
-import { BlockRegistry } from '@/domain/block-registry'
-import { RecipeService } from '@/application/crafting/recipe-service'
-import { InventoryService, InventoryServiceLive } from '@/application/inventory/inventory-service'
-import { RecipeId } from '@/shared/kernel'
+import type { Block, BlockType } from '@ts-minecraft/domain'
+import { BlockRegistry } from '@ts-minecraft/domain'
+import { RecipeService } from '@ts-minecraft/crafting-system'
+import { InventoryService, InventoryServiceLive } from '@ts-minecraft/inventory-system'
+import { RecipeId } from '@ts-minecraft/kernel'
 
 const registryLayer = Layer.succeed(BlockRegistry, {
   register: (_block: Block) => Effect.void,

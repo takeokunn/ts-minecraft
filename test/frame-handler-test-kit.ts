@@ -2,7 +2,7 @@ import { Effect, MutableHashSet, MutableRef, Option, Ref } from 'effect'
 import * as THREE from 'three'
 import { vi } from 'vitest'
 import { createFrameHandler, type FrameHandlerDeps, type FrameHandlerServices } from '@/frame-handler'
-import type { DeltaTimeSecs } from '@/shared/kernel'
+import type { DeltaTimeSecs } from '@ts-minecraft/kernel'
 
 export type CameraMode = 'firstPerson' | 'thirdPerson'
 
@@ -35,7 +35,7 @@ export const makeLights = () =>
     skyDay: new THREE.Color(0x87ceeb),
     skyCurrent: new THREE.Color(0x87ceeb),
     sky: Option.none(),
-  }) as unknown as import('@/application/time/day-night-cycle').DayNightLights
+  }) as unknown as import('@ts-minecraft/day-night-cycle').DayNightLights
 
 export const makeRenderer = () =>
   ({
@@ -78,7 +78,7 @@ export const makeCameraState = (initialMode: CameraMode = 'firstPerson') => {
     setMode: (mode: CameraMode) => Effect.sync(() => { state.mode = mode }),
     toggleMode: () => Effect.sync(() => { state.mode = state.mode === 'firstPerson' ? 'thirdPerson' : 'firstPerson' }),
     reset: () => Effect.sync(() => { state.mode = 'firstPerson' }),
-  } as unknown as InstanceType<typeof import('@/application/camera/camera-state').PlayerCameraStateService>
+  } as unknown as InstanceType<typeof import('@ts-minecraft/camera-controller').PlayerCameraStateService>
 
   return { service, state }
 }
@@ -119,7 +119,7 @@ export const makeInventoryRenderer = (state: OverlayState) =>
     update: () => Effect.void,
     cycleRecipes: (_delta: number) => Effect.void,
     craftSelectedRecipe: () => Effect.succeed(false),
-  }) as unknown as InstanceType<typeof import('@/presentation/inventory/inventory-renderer').InventoryRendererService>
+  }) as unknown as InstanceType<typeof import('@ts-minecraft/app/presentation/inventory/inventory-renderer').InventoryRendererService>
 
 export const makeSettingsOverlay = (state: OverlayState) =>
   ({
@@ -130,14 +130,14 @@ export const makeSettingsOverlay = (state: OverlayState) =>
     }),
     syncFromSettings: () => Effect.void,
     applyToSettings: () => Effect.void,
-  }) as unknown as InstanceType<typeof import('@/presentation/settings/settings-overlay').SettingsOverlayService>
+  }) as unknown as InstanceType<typeof import('@ts-minecraft/app/presentation/settings/settings-overlay').SettingsOverlayService>
 
 export const makePauseMenu = (state: OverlayState = { open: false }) =>
   ({
     isOpen: () => Effect.sync(() => state.open),
     openIfClosed: () => Effect.sync(() => { state.open = true }),
     attach: (_control: unknown, _persist: unknown) => Effect.void,
-  }) as unknown as InstanceType<typeof import('@/presentation/menu/pause-menu').PauseMenuService>
+  }) as unknown as InstanceType<typeof import('@ts-minecraft/app/presentation/menu/pause-menu').PauseMenuService>
 
 export const makeTradingPresentation = (state: OverlayState) =>
   ({
@@ -152,7 +152,7 @@ export const makeTradingPresentation = (state: OverlayState) =>
     cycleSelection: (_delta: number) => Effect.void,
     refresh: () => Effect.void,
     executeSelectedTrade: () => Effect.succeed(false),
-  }) as unknown as InstanceType<typeof import('@/presentation/trading').TradingPresentationService>
+  }) as unknown as InstanceType<typeof import('@ts-minecraft/app/presentation/trading').TradingPresentationService>
 
 export const makeInputService = (pressedKeys: MutableHashSet.MutableHashSet<string> = MutableHashSet.empty()) =>
   ({
@@ -171,7 +171,7 @@ export const makeInputService = (pressedKeys: MutableHashSet.MutableHashSet<stri
     exitPointerLock: () => Effect.void,
     isPointerLocked: () => Effect.succeed(false),
     consumeWheelDelta: () => Effect.succeed(0),
-  }) as unknown as InstanceType<typeof import('@/presentation/input/input-service').InputService>
+  }) as unknown as InstanceType<typeof import('@ts-minecraft/app/presentation/input/input-service').InputService>
 
 export const makeServices = (opts: {
   inputService: ReturnType<typeof makeInputService>
@@ -187,7 +187,7 @@ export const makeServices = (opts: {
     set: (_mode: unknown) => Effect.void,
     isCreative: () => Effect.succeed(false),
     isSurvival: () => Effect.succeed(true),
-  } as unknown as InstanceType<typeof import('@/application/game-mode').GameModeService>
+  } as unknown as InstanceType<typeof import('@ts-minecraft/game-mode').GameModeService>
   const cameraState = makeCameraState()
 
   const gameState = {
@@ -195,11 +195,11 @@ export const makeServices = (opts: {
     update: (_dt: unknown) => Effect.void,
     respawn: (_position: unknown) => Effect.void,
     isPlayerGrounded: () => Effect.succeed(true),
-  } as unknown as InstanceType<typeof import('@/application/game-state').GameStateService>
+  } as unknown as InstanceType<typeof import('@ts-minecraft/game-session').GameStateService>
 
   const firstPersonCamera = {
     update: (_cam: unknown) => Effect.void,
-  } as unknown as InstanceType<typeof import('@/application/camera/first-person-camera-service').FirstPersonCameraService>
+  } as unknown as InstanceType<typeof import('@ts-minecraft/camera-controller').FirstPersonCameraService>
 
   const thirdPersonCamera = {
     update: (camera: THREE.PerspectiveCamera, playerPos: { x: number; y: number; z: number }, eyeLevelOffset = 0.72) =>
@@ -210,19 +210,19 @@ export const makeServices = (opts: {
         camera.position.set(playerPos.x, eyeY + shoulderHeight, playerPos.z - distance)
         camera.lookAt(playerPos.x, eyeY, playerPos.z)
       }),
-  } as unknown as InstanceType<typeof import('@/application/camera/third-person-camera-service').ThirdPersonCameraService>
+  } as unknown as InstanceType<typeof import('@ts-minecraft/camera-controller').ThirdPersonCameraService>
 
   const blockHighlight = {
     update: (_cam: unknown, _scene: unknown) => Effect.void,
     invalidateCache: () => Effect.void,
     getTargetBlock: () => Effect.succeed(Option.none()),
     getTargetHit: () => Effect.succeed(Option.none()),
-  } as unknown as InstanceType<typeof import('@/presentation/highlight/block-highlight').BlockHighlightService>
+  } as unknown as InstanceType<typeof import('@ts-minecraft/app/presentation/highlight/block-highlight').BlockHighlightService>
 
   const blockService = {
     breakBlock: (_pos: unknown) => Effect.void,
     placeBlock: (_pos: unknown, _type: unknown, _slot?: unknown) => Effect.void,
-  } as unknown as InstanceType<typeof import('@/application/block/block-service').BlockService>
+  } as unknown as InstanceType<typeof import('@ts-minecraft/block-service').BlockService>
 
   const inventoryService = {
     getAllSlots: () => Effect.succeed([]),
@@ -234,25 +234,25 @@ export const makeServices = (opts: {
     getHotbarSlots: () => Effect.succeed([]),
     serialize: () => Effect.succeed({ slots: [] }),
     deserialize: (_data: unknown) => Effect.void,
-  } as unknown as InstanceType<typeof import('@/application/inventory/inventory-service').InventoryService>
+  } as unknown as InstanceType<typeof import('@ts-minecraft/inventory-system').InventoryService>
 
   const hotbarService = {
     update: () => Effect.void,
     getSlots: () => Effect.succeed([]),
     getSelectedSlot: () => Effect.succeed(0),
     getSelectedBlockType: () => Effect.succeed({ _tag: 'None' }),
-  } as unknown as InstanceType<typeof import('@/application/hotbar/hotbar-service').HotbarService>
+  } as unknown as InstanceType<typeof import('@ts-minecraft/hotbar-system').HotbarService>
 
   const hotbarRenderer = {
     update: (_slots: unknown, _sel: unknown) => Effect.void,
     render: (_renderer: unknown) => Effect.void,
-  } as unknown as InstanceType<typeof import('@/presentation/hud/hotbar-three').HotbarRendererService>
+  } as unknown as InstanceType<typeof import('@ts-minecraft/app/presentation/hud/hotbar-three').HotbarRendererService>
 
   const chunkManagerService = {
     loadChunksAroundPlayer: (_pos: unknown) => Effect.void,
     getLoadedChunks: () => Effect.succeed([]),
     getChunk: (_coord: unknown) => Effect.succeed({ coord: { x: 0, z: 0 }, blocks: new Uint8Array(0), dirty: false }),
-  } as unknown as InstanceType<typeof import('@/application/chunk/chunk-manager-service').ChunkManagerService>
+  } as unknown as InstanceType<typeof import('@ts-minecraft/chunk-manager').ChunkManagerService>
 
   const timeService = {
     advanceTick: (_dt: unknown) => Effect.void,
@@ -261,20 +261,20 @@ export const makeServices = (opts: {
     getDayLength: () => Effect.succeed(DEFAULT_SETTINGS.dayLengthSeconds),
     setDayLength: (_seconds: unknown) => Effect.void,
     setTimeOfDay: (_time: unknown) => Effect.void,
-  } as unknown as InstanceType<typeof import('@/application/time/time-service').TimeService>
+  } as unknown as InstanceType<typeof import('@ts-minecraft/day-night-cycle').TimeService>
 
   const settingsService = {
     getSettings: () => Effect.succeed({ ...DEFAULT_SETTINGS }),
     updateSettings: (_patch: unknown) => Effect.void,
     resetToDefaults: () => Effect.void,
-  } as unknown as InstanceType<typeof import('@/application/settings/settings-service').SettingsService>
+  } as unknown as InstanceType<typeof import('@ts-minecraft/settings-manager').SettingsService>
 
   const fpsCounter = {
     tick: (_dt: unknown) => Effect.void,
     getFPS: () => Effect.succeed(60),
     getFrameCount: () => Effect.succeed(0),
     reset: () => Effect.void,
-  } as unknown as InstanceType<typeof import('@/presentation/fps-counter').FPSCounterService>
+  } as unknown as InstanceType<typeof import('@ts-minecraft/app/presentation/fps-counter').FPSCounterService>
 
   const worldRendererService = {
     syncChunksToScene: (_chunks: unknown, _scene: unknown) => Effect.succeed(true as boolean),
@@ -289,18 +289,18 @@ export const makeServices = (opts: {
     getWaterMeshes: () => Effect.succeed([] as THREE.Mesh[]),
     getSceneVersion: () => Effect.succeed(0),
     setRefractionValid: (_valid: boolean) => Effect.void,
-  } as unknown as InstanceType<typeof import('@/infrastructure/three/world-renderer').WorldRendererService>
+  } as unknown as InstanceType<typeof import('@ts-minecraft/world-renderer').WorldRendererService>
 
   const entityRenderer = {
     syncEntities: (_entities: unknown, _scene: unknown) => Effect.void,
     updateEntityTransforms: (_entities: unknown, _total: unknown, _delta: unknown) => Effect.void,
     clearScene: (_scene: unknown) => Effect.void,
     _getTrackedGroup: (_id: unknown) => Effect.succeed(Option.none()),
-  } as unknown as InstanceType<typeof import('@/infrastructure/three/entity-renderer').EntityRendererService>
+  } as unknown as InstanceType<typeof import('@ts-minecraft/world-renderer').EntityRendererService>
 
   const chunkMeshService = {
     setSunIntensity: (_value: number) => Effect.void,
-  } as unknown as InstanceType<typeof import('@/infrastructure/three/meshing/chunk-mesh').ChunkMeshService>
+  } as unknown as InstanceType<typeof import('@ts-minecraft/world-renderer').ChunkMeshService>
 
   // ParticleSystem stub: spawnBurst/update/getActiveCount no-op. Real impl
   // requires an InstancedMesh + atlas texture which the test-kit avoids.
@@ -309,7 +309,7 @@ export const makeServices = (opts: {
     spawnBurst: (_x: number, _y: number, _z: number, _u: number, _v: number, _count?: number) => Effect.void,
     update: (_dtSecs: number) => Effect.void,
     getActiveCount: () => Effect.succeed(0),
-  } as unknown as InstanceType<typeof import('@/infrastructure/three/particles/particle-system').ParticleSystemService>
+  } as unknown as InstanceType<typeof import('@ts-minecraft/world-renderer/particles/particle-system').ParticleSystemService>
 
   const healthService = {
     getHealth: () => Effect.succeed({ current: 20, max: 20, invincibilityTicks: 0 }),
@@ -318,14 +318,14 @@ export const makeServices = (opts: {
     tick: () => Effect.void,
     processFallDamage: (_y: unknown, _grounded: unknown) => Effect.succeed(0),
     reset: () => Effect.void,
-  } as unknown as InstanceType<typeof import('@/application/player/health-service').HealthService>
+  } as unknown as InstanceType<typeof import('@ts-minecraft/player-controller').HealthService>
 
   const soundManager = {
     applySettings: (_settings: unknown) => Effect.void,
     setListenerPosition: (_position: unknown) => Effect.void,
     playEffect: (_effect: unknown, _options?: unknown) => Effect.void,
     getState: () => Effect.succeed({ enabled: true, masterVolume: 0.8, sfxVolume: 1, listenerPosition: { x: 0, y: 64, z: 0 } }),
-  } as unknown as InstanceType<typeof import('@/audio').SoundManager>
+  } as unknown as InstanceType<typeof import('@ts-minecraft/audio-engine').SoundManager>
 
   const musicManager = {
     applySettings: (_settings: unknown) => Effect.void,
@@ -334,7 +334,7 @@ export const makeServices = (opts: {
     stop: () => Effect.void,
     getCurrentEnvironment: () => Effect.succeed(Option.none()),
     getState: () => Effect.succeed({ enabled: true, masterVolume: 0.8, musicVolume: 0.55 }),
-  } as unknown as InstanceType<typeof import('@/audio').MusicManager>
+  } as unknown as InstanceType<typeof import('@ts-minecraft/audio-engine').MusicManager>
 
   const entityManager = {
     addEntity: (_type: unknown, _position: unknown) => Effect.succeed('entity-1' as unknown),
@@ -347,13 +347,13 @@ export const makeServices = (opts: {
     getPlayerContactDamage: (_playerPosition: unknown) => Effect.succeed(0),
     update: (_deltaTime: unknown, _playerPosition: unknown) => Effect.void,
     applyDamage: (_entityId: unknown, _amount: unknown) => Effect.succeed(Option.none()),
-  } as unknown as InstanceType<typeof import('@/entity/entityManager').EntityManager>
+  } as unknown as InstanceType<typeof import('@ts-minecraft/entity-manager').EntityManager>
 
   const mobSpawner = {
     trySpawn: (_playerPosition: unknown) => Effect.succeed(Option.none()),
     getSpawnBounds: () => Effect.succeed({ minDistance: 16, maxDistance: 40 }),
     getMaxPopulation: () => Effect.succeed(24),
-  } as unknown as InstanceType<typeof import('@/entity/spawner').MobSpawner>
+  } as unknown as InstanceType<typeof import('@ts-minecraft/entity-manager').MobSpawner>
 
   const villageService = {
     ensureVillageNear: (_playerPosition: unknown) => Effect.succeed({ villageId: 'village-1', center: { x: 0, y: 64, z: 0 }, structures: [], villagers: [] }),
@@ -363,7 +363,7 @@ export const makeServices = (opts: {
     findNearestVillager: (_position: unknown, _maxDistance: unknown) => Effect.succeed(Option.none()),
     addVillagerExperience: (_villagerId: unknown, _amount: unknown) => Effect.succeed(Option.none()),
     update: (_playerPosition: unknown, _timeOfDay: unknown, _deltaTime: unknown) => Effect.void,
-  } as unknown as InstanceType<typeof import('@/village/village-service').VillageService>
+  } as unknown as InstanceType<typeof import('@ts-minecraft/village-system').VillageService>
 
   const redstoneService = {
     setComponent: (_position: unknown, _type: unknown) => Effect.succeed({ type: 'wire', position: { x: 0, y: 0, z: 0 }, state: { active: false, buttonTicksRemaining: 0, pistonExtended: false } }),
@@ -376,7 +376,7 @@ export const makeServices = (opts: {
     getPowerAt: (_position: unknown) => Effect.succeed(0),
     getPowerSnapshot: () => Effect.succeed({ tick: 0, poweredPositions: [] }),
     tick: () => Effect.succeed({ tick: 0, poweredPositions: [] }),
-  } as unknown as InstanceType<typeof import('@/redstone/redstone-service').RedstoneService>
+  } as unknown as InstanceType<typeof import('@ts-minecraft/redstone-circuit').RedstoneService>
 
   const fluidService = {
     notifyBlockChanged: (_position: unknown) => Effect.void,
@@ -384,7 +384,7 @@ export const makeServices = (opts: {
     removeWater: (_position: unknown) => Effect.void,
     syncLoadedChunks: (_chunks: unknown) => Effect.void,
     tick: () => Effect.void,
-  } as unknown as InstanceType<typeof import('@/application/fluid/fluid-service').FluidService>
+  } as unknown as InstanceType<typeof import('@ts-minecraft/fluid-simulation').FluidService>
 
   const furnaceService = {
     getState: () => Effect.succeed({ active: Option.none() }),
@@ -398,7 +398,7 @@ export const makeServices = (opts: {
     serialize: () => Effect.succeed([]),
     deserialize: (_serialized: unknown) => Effect.void,
     tick: (_deltaTime: unknown) => Effect.void,
-  } as unknown as InstanceType<typeof import('@/application/furnace/furnace-service').FurnaceService>
+  } as unknown as InstanceType<typeof import('@ts-minecraft/furnace-system').FurnaceService>
 
   // PerfHud stub: no-op for all four methods. Real implementation activates only
   // under `?debug=perf`; the test-kit always uses the inert path.
@@ -407,7 +407,7 @@ export const makeServices = (opts: {
     setWorkerQueueDepth: (_n: number) => Effect.void,
     setChunkCount: (_n: number) => Effect.void,
     setDrawCalls: (_n: number) => Effect.void,
-  } as unknown as InstanceType<typeof import('@/infrastructure/perf/perf-hud').PerfHudService>
+  } as unknown as InstanceType<typeof import('@ts-minecraft/perf-hud').PerfHudService>
 
   return {
     gameState,
@@ -451,4 +451,37 @@ export const runFrame = (deps: FrameHandlerDeps, services: FrameHandlerServices)
   Effect.gen(function* () {
     const handler = yield* createFrameHandler(deps, services)
     yield* handler(0.016 as DeltaTimeSecs)
+  })
+
+export type FrameHarnessOptions = {
+  readonly paused?: boolean
+  readonly inventoryOpen?: boolean
+  readonly settingsOpen?: boolean
+  readonly withComposer?: boolean
+  readonly pressedKeys?: MutableHashSet.MutableHashSet<string>
+}
+
+export const arrangeFrameHarness = ({
+  paused = false,
+  inventoryOpen = false,
+  settingsOpen = false,
+  withComposer = false,
+  pressedKeys = MutableHashSet.empty<string>(),
+}: FrameHarnessOptions = {}) =>
+  Effect.gen(function* () {
+    const inventoryState = { open: inventoryOpen }
+    const settingsState = { open: settingsOpen }
+    const deps = yield* makeDeps(paused, withComposer)
+    const services = makeServices({
+      inputService: makeInputService(pressedKeys),
+      inventoryRenderer: makeInventoryRenderer(inventoryState),
+      settingsOverlay: makeSettingsOverlay(settingsState),
+    })
+
+    return {
+      deps,
+      services,
+      inventoryState,
+      settingsState,
+    }
   })

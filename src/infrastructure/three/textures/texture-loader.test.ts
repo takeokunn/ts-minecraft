@@ -2,7 +2,7 @@ import { describe, it } from '@effect/vitest'
 import { expect, beforeEach, afterEach, vi } from 'vitest'
 import { Effect } from 'effect'
 import * as THREE from 'three'
-import { TextureService, TextureServiceLive } from './texture-loader'
+import { TextureService, TextureServiceLive } from '@ts-minecraft/world-renderer'
 import { mockCanvasElement } from '../../../../test/helpers/three-mocks'
 
 describe('three/textures/texture-loader', () => {

@@ -15,8 +15,8 @@
 import { describe, it } from '@effect/vitest'
 import { Effect, MutableHashMap, Option } from 'effect'
 import * as fc from 'effect/FastCheck'
-import { WorldId } from '@/shared/kernel'
-import type { ChunkCoord } from '@/domain/chunk'
+import { WorldId } from '@ts-minecraft/kernel'
+import type { ChunkCoord } from '@ts-minecraft/domain'
 
 // ---------------------------------------------------------------------------
 // Replicate the chunk key formula (mirrors storage-service.ts chunkKey)

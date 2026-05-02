@@ -111,10 +111,8 @@ vi.mock('three', () => ({
   FrontSide: 0,
 }))
 
-import { WorldRendererService, WorldRendererServiceLive } from './world-renderer'
-import { ChunkMeshService } from './meshing/chunk-mesh'
-import { SceneService } from './scene/scene-service'
-import type { Chunk } from '@/domain/chunk'
+import { WorldRendererService, WorldRendererServiceLive, ChunkMeshService, SceneService } from '@ts-minecraft/world-renderer'
+import type { Chunk } from '@ts-minecraft/domain'
 
 // ---------------------------------------------------------------------------
 // Helpers

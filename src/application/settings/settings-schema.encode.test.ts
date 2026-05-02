@@ -1,7 +1,7 @@
 import { describe, it } from 'vitest'
 import { expect } from 'vitest'
 import { Array as Arr, Either, Schema } from 'effect'
-import { SettingsSchema, type Settings } from './settings-service'
+import { SettingsSchema, type Settings } from '@ts-minecraft/settings-manager'
 
 describe('SettingsSchema encode round-trip', () => {
   const validSettings: Settings = {

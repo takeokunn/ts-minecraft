@@ -37,3 +37,18 @@ export async function getFpsValue(page: Page): Promise<number> {
 export async function waitForStableRender(page: Page, ms = 2_000): Promise<void> {
   await page.waitForTimeout(ms)
 }
+
+/**
+ * Wait until the main menu is rendered and interactive.
+ * Uses #mm-new-world visibility as the signal.
+ */
+export async function waitForMainMenu(page: Page, timeoutMs = 10_000): Promise<void> {
+  await page.waitForSelector('#mm-new-world', { state: 'visible', timeout: timeoutMs })
+}
+
+/**
+ * Wait until the in-session pause menu backdrop is visible.
+ */
+export async function waitForPauseMenu(page: Page, timeoutMs = 5_000): Promise<void> {
+  await page.waitForSelector('#pause-menu-backdrop', { state: 'visible', timeout: timeoutMs })
+}

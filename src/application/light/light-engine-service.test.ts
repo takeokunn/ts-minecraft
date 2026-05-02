@@ -1,9 +1,9 @@
 import { describe, expect, it } from '@effect/vitest'
 import { Array as Arr, Effect, Layer } from 'effect'
-import { ChunkService, ChunkServiceLive, blockIndexUnsafe, blockTypeToIndex } from '@/domain/chunk'
-import type { ChunkService as ChunkServiceType } from '@/domain/chunk'
-import { LIGHT_LEVEL_MAX, getLightAt } from '@/domain/light'
-import { LightEngineLive, LightEngineService } from './light-engine-service'
+import { ChunkService, ChunkServiceLive, blockIndexUnsafe, blockTypeToIndex } from '@ts-minecraft/domain'
+import type { ChunkService as ChunkServiceType } from '@ts-minecraft/domain'
+import { LIGHT_LEVEL_MAX, getLightAt } from '@ts-minecraft/domain'
+import { LightEngineLive, LightEngineService } from '@ts-minecraft/light-engine'
 
 const STONE = blockTypeToIndex('STONE')
 const LAVA = blockTypeToIndex('LAVA')

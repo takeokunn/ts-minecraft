@@ -1,9 +1,16 @@
 import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
 import { Array as Arr, HashSet } from 'effect'
-import { blockTypeToIndex, CHUNK_HEIGHT, CHUNK_SIZE } from '@/domain/chunk'
-import { ORE_CONFIGS, ORE_MIN_Y_FLOOR, DEEPSLATE_CEILING } from './constants'
-import { ORE_REGULAR_INDICES, ORE_DEEPSLATE_INDICES, growVein, placeOres } from './ore-generator'
+import { blockTypeToIndex, CHUNK_HEIGHT, CHUNK_SIZE } from '@ts-minecraft/domain'
+import {
+  ORE_CONFIGS,
+  ORE_MIN_Y_FLOOR,
+  DEEPSLATE_CEILING,
+  ORE_REGULAR_INDICES,
+  ORE_DEEPSLATE_INDICES,
+  growVein,
+  placeOres,
+} from '@ts-minecraft/terrain-generator'
 
 // ---------------------------------------------------------------------------
 // Shared block indices

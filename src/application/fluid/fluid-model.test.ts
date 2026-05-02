@@ -10,7 +10,7 @@ import {
   NOTIFY_OFFSETS,
   FluidKey,
   INITIAL_STATE,
-} from './fluid-model'
+} from '@ts-minecraft/fluid-simulation'
 
 describe('constants sanity checks', () => {
   it('WATER_MAX_LEVEL is 7', () => {

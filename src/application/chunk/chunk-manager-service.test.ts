@@ -1,22 +1,21 @@
 import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
 import { Arbitrary, Array as Arr, Brand, Effect, HashSet, Layer, MutableHashMap, Option, Schema } from 'effect'
-import { StorageServicePort } from '@/application/storage/storage-service-port'
-import type { ChunkStorageValue } from '@/application/storage/storage-service-port'
-import { StorageError } from '@/domain/errors'
-import { NoiseServicePort } from '@/application/noise/noise-service-port'
-import { NoiseServiceLive } from '@/infrastructure/noise/noise-service'
-import { TerrainWorkerPool, TerrainWorkerPoolLive } from '@/infrastructure/terrain/terrain-worker-pool'
-import { generateTerrain as legacyGenerateTerrain } from './terrain/generator'
-import { BiomeService, BiomeServiceLive, type BiomeType } from '@/application/biome/biome-service'
-import { LightEngineService } from '@/application/light/light-engine-service'
-import { LIGHT_BYTE_LENGTH } from '@/domain/light'
-import { ChunkService, ChunkServiceLive, CHUNK_SIZE, CHUNK_HEIGHT } from '@/domain/chunk'
-import { ChunkManagerService, ChunkManagerServiceLive, RENDER_DISTANCE, MAX_CACHED_CHUNKS, UNLOAD_DISTANCE } from './chunk-manager-service'
-import { DEFAULT_WORLD_ID } from '@/application/constants'
-import { computeColumnY } from '@/application/terrain/density-function'
-import type { WorldId } from '@/shared/kernel'
-import { getChunksInRenderDistance } from './chunk-coord-utils'
+import { StorageServicePort } from '@ts-minecraft/block-storage'
+import type { ChunkStorageValue } from '@ts-minecraft/block-storage'
+import { StorageError } from '@ts-minecraft/domain'
+import { NoiseServicePort } from '@ts-minecraft/noise-generator'
+import { NoiseServiceLive } from '@ts-minecraft/noise-generator'
+import { TerrainWorkerPoolPort } from '@ts-minecraft/terrain-generator'
+import { TerrainWorkerPoolPortLayer } from '@/layers'
+import { generateTerrain as legacyGenerateTerrain } from '@ts-minecraft/terrain-generator'
+import { BiomeService, BiomeServiceLive, type BiomeType } from '@ts-minecraft/biome-classifier'
+import { LightEngineService } from '@ts-minecraft/light-engine'
+import { LIGHT_BYTE_LENGTH } from '@ts-minecraft/domain'
+import { ChunkService, ChunkServiceLive, CHUNK_SIZE, CHUNK_HEIGHT } from '@ts-minecraft/domain'
+import { ChunkManagerService, ChunkManagerServiceLive, RENDER_DISTANCE, MAX_CACHED_CHUNKS, UNLOAD_DISTANCE, getChunksInRenderDistance } from '@ts-minecraft/chunk-manager'
+import { DEFAULT_WORLD_ID, type WorldId } from '@ts-minecraft/kernel'
+import { computeColumnY } from '@ts-minecraft/terrain-generator'
 
 // ---------------------------------------------------------------------------
 // In-memory StorageService mock (no IndexedDB)
@@ -54,7 +53,7 @@ const LightEngineNoopLive = Layer.succeed(LightEngineService, {
 } as unknown as LightEngineService)
 
 // ---------------------------------------------------------------------------
-// Custom TerrainWorkerPool layer that delegates back to the legacy generator
+// Custom TerrainWorkerPoolPort layer that delegates back to the legacy generator
 // using the test-provided BiomeService + NoiseServicePort. This preserves the
 // pre-FR-001 contract for tests that inject custom biome/noise to drive terrain
 // output. The default TerrainWorkerPool ignores those services (it builds its
@@ -65,15 +64,15 @@ const LightEngineNoopLive = Layer.succeed(LightEngineService, {
 
 const buildLegacyTerrainPoolLayer = (
   deps: Layer.Layer<ChunkService | BiomeService | NoiseServicePort>,
-): Layer.Layer<TerrainWorkerPool> =>
+): Layer.Layer<TerrainWorkerPoolPort> =>
   Layer.effect(
-    TerrainWorkerPool,
+    TerrainWorkerPoolPort,
     Effect.gen(function* () {
       const chunkService = yield* ChunkService
       const biomeService = yield* BiomeService
       const noiseService = yield* NoiseServicePort
       return {
-        _tag: '@minecraft/infrastructure/terrain/TerrainWorkerPool' as const,
+        _tag: '@minecraft/application/terrain/TerrainWorkerPoolPort' as const,
         generateTerrain: (coord: { readonly x: number; readonly z: number }, _options: { seaLevel: number; lakeLevel: number; seed: number }) =>
           legacyGenerateTerrain(chunkService, biomeService, noiseService, coord).pipe(
             Effect.map((chunk) => ({
@@ -82,8 +81,7 @@ const buildLegacyTerrainPoolLayer = (
               blockLight: new Uint8Array(LIGHT_BYTE_LENGTH),
             })),
           ),
-        workerCount: 0,
-      } as unknown as TerrainWorkerPool
+      } as unknown as TerrainWorkerPoolPort
     }),
   ).pipe(Layer.provide(deps))
 
@@ -103,7 +101,7 @@ const buildTestLayer = () => {
     Layer.provide(BiomeTestLayer),
     Layer.provide(NoiseLayer),
     Layer.provide(NoiseServiceLive),
-    Layer.provide(TerrainWorkerPoolLive),
+    Layer.provide(TerrainWorkerPoolPortLayer),
     Layer.provide(LightEngineNoopLive),
   )
 
@@ -130,7 +128,7 @@ const buildTestLayerWithStoredChunks = (coords: ReadonlyArray<{ readonly x: numb
     Layer.provide(BiomeTestLayer),
     Layer.provide(NoiseLayer),
     Layer.provide(NoiseServiceLive),
-    Layer.provide(TerrainWorkerPoolLive),
+    Layer.provide(TerrainWorkerPoolPortLayer),
     Layer.provide(LightEngineNoopLive),
   )
 
@@ -466,7 +464,7 @@ describe('application/chunk/chunk-manager-service', () => {
         Layer.provide(BiomeTestLayer),
         Layer.provide(NoiseLayer),
         Layer.provide(NoiseServiceLive),
-        Layer.provide(TerrainWorkerPoolLive),
+        Layer.provide(TerrainWorkerPoolPortLayer),
         Layer.provide(LightEngineNoopLive),
       )
 
@@ -618,7 +616,7 @@ describe('application/chunk/chunk-manager-service', () => {
         Layer.provide(BiomeTestLayer),
         Layer.provide(NoiseLayer),
         Layer.provide(NoiseServiceLive),
-        Layer.provide(TerrainWorkerPoolLive),
+        Layer.provide(TerrainWorkerPoolPortLayer),
         Layer.provide(LightEngineNoopLive),
       )
 
