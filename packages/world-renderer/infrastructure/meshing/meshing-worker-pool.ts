@@ -46,15 +46,11 @@ type PoolWorker = {
   readonly pending: MutableRef.MutableRef<Map<number, PendingMesh>>
 }
 
-/**
- * Worker pool for offloading greedyMeshChunk to background threads.
- *
- * In browser environments, creates Math.max(1, Math.min(4, hardwareConcurrency - 1))
- * workers so the main thread retains at least one core for rendering.
- *
- * In non-browser environments (Node.js / vitest), falls back to synchronous
- * greedyMeshChunk calls — no Worker API required, tests pass unmodified.
- */
+// Worker pool for offloading greedyMeshChunk to background threads.
+// In browser environments, creates Math.max(1, Math.min(4, hardwareConcurrency - 1))
+// workers so the main thread retains at least one core for rendering.
+// In non-browser environments (Node.js / vitest), falls back to synchronous
+// greedyMeshChunk calls — no Worker API required, tests pass unmodified.
 export class MeshingWorkerPool extends Effect.Service<MeshingWorkerPool>()(
   '@minecraft/infrastructure/three/MeshingWorkerPool',
   {

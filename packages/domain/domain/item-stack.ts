@@ -7,43 +7,24 @@ export class ItemStack extends Schema.Class<ItemStack>('ItemStack')({
   count: Schema.Number.pipe(Schema.int(), Schema.between(1, 64)),
 }) {}
 
-/**
- * Maximum items per stack
- */
 export const MAX_STACK_SIZE = 64
 
-/**
- * Create a new ItemStack
- */
 export const createStack = (blockType: BlockType, count = 1): ItemStack =>
   new ItemStack({ blockType, count: Math.max(1, Math.min(MAX_STACK_SIZE, count)) })
 
-/**
- * Add n items to a stack, clamping at MAX_STACK_SIZE.
- * Returns the updated stack.
- */
 export const addToStack = (stack: ItemStack, n: number): ItemStack =>
   new ItemStack({ blockType: stack.blockType, count: Math.min(MAX_STACK_SIZE, stack.count + n) })
 
-/**
- * Remove n items from a stack.
- * Returns Option.none() when the stack is depleted (count reaches 0).
- */
+// Returns Option.none() when the stack is depleted.
 export const removeFromStack = (stack: ItemStack, n: number): Option.Option<ItemStack> => {
   const newCount = stack.count - n
   if (newCount <= 0) return Option.none()
   return Option.some(new ItemStack({ blockType: stack.blockType, count: newCount }))
 }
 
-/**
- * Check if two stacks can be merged (same block type)
- */
 export const canMerge = (a: ItemStack, b: ItemStack): boolean => a.blockType === b.blockType
 
-/**
- * Merge stack b into stack a, up to MAX_STACK_SIZE.
- * Returns [updatedA, remainderB] where remainderB is Option.none() if b was fully absorbed.
- */
+// Returns [updatedA, remainderB]; remainderB is Option.none() when b was fully absorbed.
 export const mergeStacks = (
   a: ItemStack,
   b: ItemStack,

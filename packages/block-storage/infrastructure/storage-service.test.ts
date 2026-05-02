@@ -18,11 +18,9 @@ const testCoord: ChunkCoord = { x: 0, z: 0 }
 const chunkStorageBlocks = (value: ChunkStorageValue): Uint8Array<ArrayBufferLike> =>
   value instanceof Uint8Array ? value : value.blocks
 
-/**
- * Build an in-memory StorageService implementation for contract testing.
- * Uses plain Maps to simulate the IndexedDB storage contract without requiring
- * a real browser environment.
- */
+// Build an in-memory StorageService for contract testing.
+// Uses MutableHashMap to simulate the IndexedDB storage contract without requiring
+// a real browser environment.
 const makeInMemoryStorageService = () => {
   const chunkStore = MutableHashMap.empty<ChunkStorageKey, Uint8Array>()
   const metaStore = MutableHashMap.empty<WorldId, WorldMetadata>()
@@ -750,10 +748,6 @@ describe('infrastructure/storage/storage-service', () => {
   // ---------------------------------------------------------------------------
 
   describe('isQuotaExceeded and QuotaExceededError handling (in-memory mock)', () => {
-    /**
-     * Build a StorageService layer backed by a mock that throws on saveChunk.
-     * The `throwOnSave` function is called instead of the normal Map write.
-     */
     const makeFailingStorageService = (throwOnSave: () => void) => {
       const chunkStore = MutableHashMap.empty<string, Uint8Array>()
       const metaStore = MutableHashMap.empty<string, WorldMetadata>()

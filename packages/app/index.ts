@@ -3,7 +3,6 @@
 
 // Frame handler (public API consumed by src/main.ts + tests)
 export {
-  createFrameHandler,
   createFrameHandlers,
 } from './application/frame-handler'
 export type {

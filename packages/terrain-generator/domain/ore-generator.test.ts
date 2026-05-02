@@ -22,19 +22,15 @@ const DEEPSLATE = blockTypeToIndex('DEEPSLATE')
 const COAL_ORE  = blockTypeToIndex('COAL_ORE')
 const DS_COAL   = blockTypeToIndex('DEEPSLATE_COAL_ORE')
 
-/** Return a zeroed chunk block array (65536 bytes) */
 const makeBlocks = (): Uint8Array => new Uint8Array(CHUNK_SIZE * CHUNK_SIZE * CHUNK_HEIGHT)
 
-/** Write a block at local chunk coords */
 const setBlock = (blocks: Uint8Array, lx: number, y: number, lz: number, val: number): void => {
   blocks[y + lz * CHUNK_HEIGHT + lx * CHUNK_HEIGHT * CHUNK_SIZE] = val
 }
 
-/** Read a block at local chunk coords */
 const getBlock = (blocks: Uint8Array, lx: number, y: number, lz: number): number =>
   blocks[y + lz * CHUNK_HEIGHT + lx * CHUNK_HEIGHT * CHUNK_SIZE]!
 
-/** Fill all voxels in a block range with `val` */
 const fillAll = (blocks: Uint8Array, val: number): void => {
   blocks.fill(val)
 }

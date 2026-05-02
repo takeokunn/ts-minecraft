@@ -19,26 +19,10 @@ import {
   chunkCoordToKey,
 } from '../domain/chunk-coord-utils'
 
-/**
- * Render distance configuration
- * Circular radius of 8 chunks around player
- */
 export const RENDER_DISTANCE = 8
-
-/**
- * Unload distance configuration
- * Chunks beyond this radius are unloaded
- */
 export const UNLOAD_DISTANCE = 10
-
-/**
- * Maximum number of chunks to keep in LRU cache
- */
 export const MAX_CACHED_CHUNKS = 400
 
-/**
- * Combined error type for chunk operations
- */
 export type ChunkManagerError = ChunkError | StorageError
 
 const normalizeFluidBuffer = (value: unknown): Uint8Array<ArrayBufferLike> => {
@@ -59,10 +43,7 @@ const normalizeChunkStorageValue = (stored: ChunkStorageValue): { blocks: Uint8A
   }
 }
 
-/**
- * LRU cache entry wrapping a chunk with its last access time.
- * lastAccessed is intentionally mutable for O(1) in-place LRU updates.
- */
+// lastAccessed is intentionally mutable for O(1) in-place LRU updates.
 const ChunkCacheEntrySchema = Schema.mutable(
   Schema.Struct({
     chunk: ChunkSchema,         // ChunkSchema defined in src/domain/chunk.ts
@@ -71,30 +52,12 @@ const ChunkCacheEntrySchema = Schema.mutable(
 )
 type ChunkCacheEntry = Schema.Schema.Type<typeof ChunkCacheEntrySchema>
 
-/**
- * Internal state for loaded chunks with LRU tracking
- *
- * FR-006 DEFERRED: Effect.Cache is architecturally incompatible with this LRU implementation.
- * Incompatibilities: (1) no onEvict callback for dirty-chunk persistence, (2) distance-based
- * eviction not supported, (3) dirty tracking atomicity broken by Cache's key-deduplication.
- * The current Phase 8 atomic LRU (HashMap + eviction loop) is correct and should be kept.
- *
- * HashMap/HashSet from Effect replace the native Map/Set:
- * - Immutable: no defensive copies needed in Ref.modify callbacks (eliminates TOCTOU risk)
- * - Value equality: structural equality for key lookup (no accidental reference bugs)
- */
+// FR-006 DEFERRED: Effect.Cache is incompatible (no onEvict, no distance eviction, atomicity broken by key-dedup).
 type ChunkCache = {
   chunks: HashMap.HashMap<ChunkCacheKey, ChunkCacheEntry>
   dirtyChunks: HashSet.HashSet<ChunkCacheKey>
 }
 
-/**
- * ChunkManagerService class for chunk lifecycle management
- *
- * Handles loading, caching, and unloading of chunks based on player position.
- * Coordinates between ChunkService (creation), StorageService (persistence),
- * and TerrainService (procedural generation).
- */
 export class ChunkManagerService extends Effect.Service<ChunkManagerService>()(
   '@minecraft/application/ChunkManagerService',
   {
@@ -306,16 +269,8 @@ export class ChunkManagerService extends Effect.Service<ChunkManagerService>()(
         })
 
       return {
-        /**
-         * Get a chunk at the specified coordinate
-         * Loads from storage, generates if needed, or returns cached
-         */
         getChunk,
 
-        /**
-         * Load chunks around the player position within render distance
-         * Unloads chunks outside render distance
-         */
         loadChunksAroundPlayer: (playerPos: Position, renderDistance: number = RENDER_DISTANCE): Effect.Effect<boolean, ChunkManagerError> =>
           Effect.gen(function* () {
             const now = yield* Clock.currentTimeMillis
@@ -356,11 +311,7 @@ export class ChunkManagerService extends Effect.Service<ChunkManagerService>()(
             return true
           }),
 
-        /**
-         * Get all currently loaded chunks.
-         * Result is cached and only recomputed when the chunk set changes (insert/remove).
-         * Avoids allocating two arrays + N object refs on every frame at 60 Hz.
-         */
+        // Result is cached per-insert/remove to avoid per-frame array allocation at 60 Hz.
         getLoadedChunks: (): Effect.Effect<ReadonlyArray<Chunk>, never> =>
           Effect.gen(function* () {
             return yield* Option.match(yield* Ref.get(cachedLoadedChunksRef), {
@@ -374,12 +325,7 @@ export class ChunkManagerService extends Effect.Service<ChunkManagerService>()(
             })
           }),
 
-        /**
-         * Mark a chunk as dirty (modified, needs saving) and refresh its light grids.
-         * Also marks the 8 neighboring chunks as dirty so the renderer re-meshes them —
-         * lighting changes near chunk borders affect adjacent chunks (no cross-chunk BFS yet,
-         * but corner sampling reaches one voxel into the AIR side which may be in a neighbor).
-         */
+        // Also marks 8 neighbors dirty — corner lighting samples cross chunk borders.
         markChunkDirty: (coord: ChunkCoord): Effect.Effect<void, never> =>
           Effect.gen(function* () {
             const key = chunkCoordToKey(coord)
@@ -423,9 +369,6 @@ export class ChunkManagerService extends Effect.Service<ChunkManagerService>()(
             }))
           }),
 
-        /**
-         * Save all dirty chunks to storage
-         */
         saveDirtyChunks: (): Effect.Effect<void, StorageError> =>
           Effect.gen(function* () {
             // Snapshot the dirty key set — saves only these keys, not any new ones added
@@ -449,9 +392,6 @@ export class ChunkManagerService extends Effect.Service<ChunkManagerService>()(
             }))
           }),
 
-        /**
-         * Unload a specific chunk (saves if dirty first)
-         */
         unloadChunk,
       }
     }),

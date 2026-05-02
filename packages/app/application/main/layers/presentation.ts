@@ -1,10 +1,7 @@
-/**
- * Presentation-tier Layers — overlays, menus, HUDs, settings UI, and the
- * presentation-level camera/highlight services that depend on application
- * state but are consumed exclusively by UI code.
- *
- * Depends on infrastructure-tier and game-logic-tier layers.
- */
+// Presentation-tier Layers — overlays, menus, HUDs, settings UI, and the
+// presentation-level camera/highlight services that depend on application
+// state but are consumed exclusively by UI code.
+// Depends on infrastructure-tier and game-logic-tier layers.
 import { Layer } from 'effect'
 
 import { FPSCounterLive } from '@ts-minecraft/app/presentation/fps-counter'

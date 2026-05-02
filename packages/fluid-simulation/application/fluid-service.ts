@@ -45,13 +45,7 @@ const ensureFluidBuffer = (chunk: Chunk): Effect.Effect<Uint8Array<ArrayBufferLi
     }
   )
 
-/**
- * Vanilla-style lava+water contact resolution.
- * Returns the block that should replace one of the cells, or null if no conversion applies.
- * - Flowing lava touching any water -> COBBLESTONE
- * - Lava source touching any water -> OBSIDIAN
- * - Two sources or two flowing of same type -> no reaction
- */
+// Flowing lava + any water → COBBLESTONE; lava source + any water → OBSIDIAN.
 export const resolveContact = (lavaCell: FluidCell, waterCell: FluidCell): Option.Option<BlockType> => {
   if (lavaCell.type !== 'lava' || waterCell.type !== 'water') return Option.none()
   if (!lavaCell.source && waterCell.source) return Option.some('COBBLESTONE')
@@ -276,10 +270,7 @@ export class FluidService extends Effect.Service<FluidService>()(
           yield* writeAir(loaded, normalized)
         })
 
-      /**
-       * Check neighbors for cross-fluid contact (lava<->water); convert to solid if detected.
-       * Returns true if the current cell was consumed by the reaction.
-       */
+      // Returns true if the current cell was consumed by the lava<->water reaction.
       const resolveNeighborContact = (
         loaded: HashMap.HashMap<ChunkCacheKey, Chunk>,
         stateRefLocal: Ref.Ref<FluidState>,

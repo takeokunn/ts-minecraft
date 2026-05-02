@@ -7,10 +7,8 @@ import { updateDayNightCycle, type DayNightLights } from '@ts-minecraft/day-nigh
 import type { DeltaTimeSecs } from '@ts-minecraft/kernel'
 import type { SkyMaterialPort } from '@ts-minecraft/kernel'
 
-/**
- * Lightweight stub for DayNightLights.
- * Captures the clear color passed to renderer.setClearColor for assertions.
- */
+// Lightweight stub for DayNightLights.
+// Captures the clear color passed to renderer.setClearColor for assertions.
 const makeFakeLights = (): DayNightLights & {
   capturedClearColor: MutableRef.MutableRef<Option.Option<THREE.Color>>
 } => {

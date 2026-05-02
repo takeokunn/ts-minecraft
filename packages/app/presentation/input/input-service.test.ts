@@ -4,10 +4,6 @@ import { InputService, MouseButton, PlayerInputServiceLive } from '@ts-minecraft
 import { PlayerInputService } from '@ts-minecraft/input-handler'
 import type { InputService as InputServiceType } from '@ts-minecraft/app/presentation/input/input-service'
 
-/**
- * Test implementation of InputService for unit testing
- * Provides direct control over input state without DOM dependencies
- */
 const createTestInputService = (initialState: {
   pressedKeys?: MutableHashSet.MutableHashSet<string>
   justPressedKeys?: MutableHashSet.MutableHashSet<string>
@@ -65,9 +61,6 @@ const createTestInputService = (initialState: {
   }
 }
 
-/**
- * Helper to create a test layer with controlled state
- */
 const createTestLayer = (service: InputServiceType) =>
   Layer.succeed(InputService, service)
 

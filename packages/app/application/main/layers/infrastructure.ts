@@ -1,10 +1,7 @@
-/**
- * Infrastructure-tier Layers — pure infrastructure services + port bridges that
- * decouple the application layer from THREE.js / IndexedDB / WebWorker concerns.
- *
- * Dependency order: pure services (BaseLayer, NoiseLayer) → port bridges →
- * BiomeLayer/PhysicsLayer (application services that consume only ports).
- */
+// Infrastructure-tier Layers — pure infrastructure services + port bridges that
+// decouple the application layer from THREE.js / IndexedDB / WebWorker concerns.
+// Dependency order: pure services (BaseLayer, NoiseLayer) → port bridges →
+// BiomeLayer/PhysicsLayer (application services that consume only ports).
 import { Effect, Layer } from 'effect'
 
 // Three.js rendering infrastructure

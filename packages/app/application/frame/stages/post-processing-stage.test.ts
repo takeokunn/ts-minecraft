@@ -1,7 +1,7 @@
 import { describe, expect, vi } from 'vitest'
 import { it } from '@effect/vitest'
 import { Effect, Option } from 'effect'
-import { createFrameHandler } from '@ts-minecraft/app'
+import { createFrameHandlers } from '@ts-minecraft/app'
 import type { DeltaTimeSecs } from '@ts-minecraft/kernel'
 import {
   DEFAULT_SETTINGS,
@@ -84,7 +84,8 @@ describe('FR-009 — refraction pre-pass skip on low quality', () => {
     const refractionSpy = vi.fn(() => Effect.void)
     ;(services.worldRendererService as unknown as { doRefractionPrePass: unknown }).doRefractionPrePass = refractionSpy
 
-    const handler = yield* createFrameHandler(deps, services)
+    const { frameHandler, maintenanceHandler } = yield* createFrameHandlers(deps, services)
+    const handler = (deltaTime: DeltaTimeSecs) => maintenanceHandler().pipe(Effect.andThen(frameHandler(deltaTime)))
     yield* handler(0.016 as DeltaTimeSecs)
     yield* handler(0.016 as DeltaTimeSecs)
 
@@ -111,7 +112,8 @@ describe('FR-008 — graphics quality caching', () => {
     ;(services.worldRendererService as unknown as { doRefractionPrePass: unknown }).doRefractionPrePass = refractionSpy
 
     // Run two frames with the same handler instance to test caching
-    const handler = yield* createFrameHandler(deps, services)
+    const { frameHandler, maintenanceHandler } = yield* createFrameHandlers(deps, services)
+    const handler = (deltaTime: DeltaTimeSecs) => maintenanceHandler().pipe(Effect.andThen(frameHandler(deltaTime)))
     yield* handler(0.016 as DeltaTimeSecs)
     yield* handler(0.016 as DeltaTimeSecs)
 
@@ -130,7 +132,8 @@ describe('FR-008 — graphics quality caching', () => {
     ;(services.worldRendererService as unknown as { doRefractionPrePass: unknown }).doRefractionPrePass = refractionSpy
 
     // Run three frames: high quality (refractionThrottleFrames=2) runs on frames 1 and 3
-    const handler = yield* createFrameHandler(deps, services)
+    const { frameHandler, maintenanceHandler } = yield* createFrameHandlers(deps, services)
+    const handler = (deltaTime: DeltaTimeSecs) => maintenanceHandler().pipe(Effect.andThen(frameHandler(deltaTime)))
     yield* handler(0.016 as DeltaTimeSecs)
     yield* handler(0.016 as DeltaTimeSecs)
     yield* handler(0.016 as DeltaTimeSecs)
@@ -156,7 +159,8 @@ describe('FR-008 — graphics quality caching', () => {
     const refractionSpy = vi.fn(() => Effect.void)
     ;(services.worldRendererService as unknown as { doRefractionPrePass: unknown }).doRefractionPrePass = refractionSpy
 
-    const handler = yield* createFrameHandler(deps, services)
+    const { frameHandler, maintenanceHandler } = yield* createFrameHandlers(deps, services)
+    const handler = (deltaTime: DeltaTimeSecs) => maintenanceHandler().pipe(Effect.andThen(frameHandler(deltaTime)))
     yield* handler(0.016 as DeltaTimeSecs) // low — skip refraction
     yield* handler(0.016 as DeltaTimeSecs) // high — call refraction
 
@@ -175,7 +179,8 @@ describe('FR-008 — graphics quality caching', () => {
       Effect.succeed({ ...DEFAULT_SETTINGS, graphicsQuality: 'low' as const })
     )
 
-    const handler = yield* createFrameHandler(deps, services)
+    const { frameHandler, maintenanceHandler } = yield* createFrameHandlers(deps, services)
+    const handler = (deltaTime: DeltaTimeSecs) => maintenanceHandler().pipe(Effect.andThen(frameHandler(deltaTime)))
     yield* handler(0.016 as DeltaTimeSecs)
 
     expect((deps.renderer.setPixelRatio as ReturnType<typeof vi.fn>)).toHaveBeenCalledWith(0.5)
@@ -192,7 +197,8 @@ describe('FR-008 — graphics quality caching', () => {
       Effect.succeed({ ...DEFAULT_SETTINGS, graphicsQuality: 'low' as const })
     )
 
-    const handler = yield* createFrameHandler(deps, services)
+    const { frameHandler, maintenanceHandler } = yield* createFrameHandlers(deps, services)
+    const handler = (deltaTime: DeltaTimeSecs) => maintenanceHandler().pipe(Effect.andThen(frameHandler(deltaTime)))
     yield* handler(0.016 as DeltaTimeSecs)
 
     const composer = Option.getOrNull(deps.composer)

@@ -1,22 +1,6 @@
-/**
- * F3 debug overlay (FR-1.5).
- *
- * Runtime-toggled debug HUD distinct from the URL-gated `?debug=perf` perf-hud.
- * Surfaces vanilla-style debug fields: XYZ coords, facing direction, current
- * biome, FPS, loaded chunk count, and time-of-day fraction.
- *
- * Toggle: F3 keypress flips visibility. Default state: hidden.
- *
- * Design follows perf-hud:
- *   - Pre-allocated DOM text nodes (no innerHTML / textContent churn).
- *   - 4 Hz refresh daemon via `Effect.repeat(... Schedule.spaced(250 millis))`.
- *   - `Effect.acquireRelease` for DOM lifecycle (overlay + key listener).
- *
- * Position: top-LEFT @ z-index 5500 — perf-hud lives at top-left @ z-index 5000;
- * visually they will overlap if both are active under `?debug=perf`. The F3
- * overlay sits ABOVE perf-hud in stacking order so it remains readable when
- * both are visible (a known acceptable trade-off — both are debug surfaces).
- */
+// F3 debug overlay (FR-1.5). Runtime-toggled, distinct from URL-gated `?debug=perf` perf-hud.
+// z-index 5500 — above perf-hud (5000), so F3 stays readable when both are active.
+// Pre-allocated DOM text nodes (no innerHTML churn); 4 Hz daemon; acquireRelease lifecycle.
 import { Cause, Duration, Effect, MutableRef, Schedule } from 'effect'
 import type * as Scope from 'effect/Scope'
 
@@ -32,17 +16,7 @@ import { DEFAULT_PLAYER_ID } from '@ts-minecraft/kernel'
 // Facing direction conversion (vanilla format)
 // -----------------------------------------------------------------------------
 
-/**
- * Convert camera yaw (radians) to a vanilla-style facing string.
- * Vanilla mapping (in Three.js convention where `+Z` is "south"):
- *   yaw ≈   0   → south  (Towards positive Z)
- *   yaw ≈  π/2  → west   (Towards negative X)
- *   yaw ≈  ±π   → north  (Towards negative Z)
- *   yaw ≈ -π/2  → east   (Towards positive X)
- *
- * Yaw is normalized to (-π, π]; the cardinal name + axis follows
- * the perspective-camera convention used in `third-person-camera-service`.
- */
+// Vanilla mapping (Three.js +Z = south): yaw≈0→south, ≈π/2→west, ≈±π→north, ≈-π/2→east. Normalized to (-π, π].
 export const facingFromYaw = (yawRad: number): { name: string; axis: string } => {
   // Normalize to (-π, π].
   let y = yawRad % (2 * Math.PI)
@@ -74,21 +48,11 @@ export type DebugOverlayDeps = {
 // -----------------------------------------------------------------------------
 
 export interface DebugOverlayInterface {
-  /**
-   * Mount the overlay DOM, register the F3 keydown listener, and start the
-   * 4 Hz update daemon. Returns once setup is complete; the daemon runs for
-   * the lifetime of the supplied scope.
-   *
-   * Idempotent: re-attach is a no-op (the DOM scaffold is already present).
-   */
+  // Idempotent: re-attach is a no-op (DOM scaffold already present). Daemon runs for lifetime of scope.
   readonly attach: (deps: DebugOverlayDeps) => Effect.Effect<void, never, Scope.Scope>
-  /** Manual visibility toggle — also wired to the F3 keypress. */
   readonly toggle: () => Effect.Effect<void, never>
-  /** Force visible — used by tests to assert metric content. */
   readonly show: () => Effect.Effect<void, never>
-  /** Force hidden — used by tests + by the boot path. */
   readonly hide: () => Effect.Effect<void, never>
-  /** True when overlay is currently shown (used in tests). */
   readonly isVisible: () => Effect.Effect<boolean, never>
 }
 

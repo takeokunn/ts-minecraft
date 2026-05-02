@@ -13,11 +13,9 @@ import { CHUNK_SIZE } from '@ts-minecraft/domain'
 
 // ─── Mock infrastructure ──────────────────────────────────────────────────────
 
-/**
- * Mock noise layer. Distinguishes temperature vs humidity calls by checking
- * whether the scaled x-argument exceeds 25.0 — the humidity offset (+10000)
- * places it far beyond any temperature x-value within reasonable world bounds.
- */
+// Mock noise layer. Distinguishes temperature vs humidity calls by checking
+// whether the scaled x-argument exceeds 25.0 — the humidity offset (+10000)
+// places it far beyond any temperature x-value within reasonable world bounds.
 const makeMockNoiseLayer = (tempValue: number, humidityValue: number) =>
   Layer.succeed(NoiseServicePort, {
     noise2D: (_x: number, _z: number) => Effect.succeed(0.5),

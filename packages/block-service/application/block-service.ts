@@ -55,10 +55,7 @@ export class BlockServiceError extends Data.TaggedError('BlockServiceError')<{
 
 // ─── Pure data/logic helpers ──────────────────────────────────────────────────
 
-/**
- * Convert a world position to chunk coordinate and local block offsets.
- * Uses double-modulo to handle negative coordinates correctly.
- */
+// Double-modulo handles negative coordinates correctly.
 export const worldToBlockLocal = (
   pos: Position
 ): { chunkCoord: ChunkCoord; lx: number; lz: number } => {
@@ -69,11 +66,7 @@ export const worldToBlockLocal = (
   return { chunkCoord: { x: cx, z: cz }, lx, lz }
 }
 
-/**
- * Returns true if the block at `blockPos` overlaps the player's AABB.
- * Player AABB: centered at (playerFeetPos.x, feet+HALF_HEIGHT, playerFeetPos.z)
- * Block AABB: unit cube at blockPos with center at (blockPos + 0.5)
- */
+// Player AABB centered at (feet.x, feet.y+HALF_HEIGHT, feet.z); block is unit cube centered at (pos+0.5).
 export const blockOverlapsPlayer = (blockPos: Position, playerFeetPos: Position): boolean => {
   const playerCenterY = playerFeetPos.y + PLAYER_HALF_HEIGHT
   const blockHalf = 0.5
@@ -100,10 +93,6 @@ export class BlockService extends Effect.Service<BlockService>()(
     ], { concurrency: 'unbounded' }).pipe(
       Effect.map(([chunkManagerService, chunkService, fluidService, playerService, inventoryService, hotbarService, furnaceService]) => ({
 
-        /**
-         * Remove a block at the given position.
-         * Fails if no block exists at the position.
-         */
         breakBlock: (position: Position): Effect.Effect<void, BlockServiceError> =>
           Effect.gen(function* () {
             const { chunkCoord, lx, lz } = worldToBlockLocal(position)
@@ -170,10 +159,6 @@ export class BlockService extends Effect.Service<BlockService>()(
             }
           }),
 
-        /**
-         * Place a block at the given position.
-         * Fails if the position is occupied or overlaps the player's AABB.
-         */
         placeBlock: (position: Position, blockType: BlockType, preferredInventorySlot?: SlotIndex): Effect.Effect<void, BlockServiceError> =>
           Effect.gen(function* () {
             const { chunkCoord, lx, lz } = worldToBlockLocal(position)

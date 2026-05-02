@@ -32,10 +32,6 @@ export class RendererService extends Effect.Service<RendererService>()(
         Effect.sync(() => {
           renderer.setSize(width, height)
         }),
-      /**
-       * Render a HUD overlay scene on top of the current frame
-       * Clears depth buffer first so HUD always appears in front of world geometry
-       */
       renderOverlay: (renderer: THREE.WebGLRenderer, hudScene: THREE.Scene, hudCamera: THREE.Camera): Effect.Effect<void, never> =>
         Effect.sync(() => {
           // Reset depth buffer so HUD geometry always renders in front of world geometry,

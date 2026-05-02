@@ -1,16 +1,14 @@
-/**
- * Integration test: block operation → chunk state → storage cycle
- *
- * Verifies the full pipeline:
- *   BlockService.breakBlock / placeBlock
- *   → ChunkManagerService (cache + dirty tracking)
- *   → StorageService (in-memory mock)
- *
- * Key relationships verified:
- *   - breakBlock sets chunk.dirty = true (via markChunkDirty)
- *   - saveDirtyChunks persists modified block data to storage
- *   - A new ChunkManagerService instance reads back the saved data unchanged
- */
+// Integration test: block operation → chunk state → storage cycle
+//
+// Verifies the full pipeline:
+//   BlockService.breakBlock / placeBlock
+//   → ChunkManagerService (cache + dirty tracking)
+//   → StorageService (in-memory mock)
+//
+// Key relationships verified:
+//   - breakBlock sets chunk.dirty = true (via markChunkDirty)
+//   - saveDirtyChunks persists modified block data to storage
+//   - A new ChunkManagerService instance reads back the saved data unchanged
 import { describe, it, expect } from 'vitest'
 import { Array as Arr, Brand, Effect, Layer, MutableHashMap, Option } from 'effect'
 import { StorageServicePort } from '@ts-minecraft/block-storage'
@@ -88,10 +86,8 @@ const createMockPlayerService = (position: Position): PlayerService =>
 // Layer builders
 // ---------------------------------------------------------------------------
 
-/**
- * Build the full integration layer: BlockService + ChunkManagerService + deps.
- * Returns the shared in-memory storage so tests can inspect it directly.
- */
+// Build the full integration layer: BlockService + ChunkManagerService + deps.
+// Returns the shared in-memory storage so tests can inspect it directly.
 const buildIntegrationLayer = (playerPos: Position = { x: 100, y: 0, z: 100 }) => {
   const storage = makeInMemoryStorage()
   const StorageTestLayer = Layer.succeed(StorageServicePort, storage as unknown as StorageServicePort)
@@ -162,10 +158,8 @@ const buildIntegrationLayer = (playerPos: Position = { x: 100, y: 0, z: 100 }) =
   return { TestLayer, storage }
 }
 
-/**
- * Build a second ChunkManagerService layer backed by the SAME in-memory storage.
- * Simulates a new game session loading persisted chunk data.
- */
+// Build a second ChunkManagerService layer backed by the SAME in-memory storage.
+// Simulates a new game session loading persisted chunk data.
 const buildSecondSessionLayer = (storage: ReturnType<typeof makeInMemoryStorage>) => {
   const StorageTestLayer = Layer.succeed(StorageServicePort, storage as unknown as StorageServicePort)
   const NoiseLayer = NoiseServicePort.Default

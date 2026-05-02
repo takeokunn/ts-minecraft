@@ -1,25 +1,19 @@
-/**
- * Gap P — BlockService worldToBlockLocal round-trip property
- *
- * The internal worldToBlockLocal function uses double-modulo for negative
- * coordinates. The invariant is:
- *
- *   chunkCoord.x * CHUNK_SIZE + lx  ===  Math.floor(wx)
- *   chunkCoord.z * CHUNK_SIZE + lz  ===  Math.floor(wz)
- *
- * We exercise this at the integration level by using the same formula that
- * block-service.ts uses (mirrored in worldToLocal in block-service.test.ts)
- * and asserting the round-trip for any integer world coordinate.
- */
+// Gap P — BlockService worldToBlockLocal round-trip property
+//
+// The internal worldToBlockLocal function uses double-modulo for negative
+// coordinates. The invariant is:
+//
+//   chunkCoord.x * CHUNK_SIZE + lx  ===  Math.floor(wx)
+//   chunkCoord.z * CHUNK_SIZE + lz  ===  Math.floor(wz)
+//
+// We exercise this at the integration level by using the same formula that
+// block-service.ts uses (mirrored in worldToLocal in block-service.test.ts)
+// and asserting the round-trip for any integer world coordinate.
 import { describe, it } from '@effect/vitest'
 import { Effect } from 'effect'
 import * as fc from 'effect/FastCheck'
 import { CHUNK_SIZE } from '@ts-minecraft/domain'
 
-/**
- * Mirrors the private worldToBlockLocal function in block-service.ts.
- * Returns chunk coordinate and local block offset for a world coordinate.
- */
 const worldToBlockLocal = (w: number): { chunkCoord: number; local: number } => {
   const chunkCoord = Math.floor(w / CHUNK_SIZE)
   const local = ((Math.floor(w) % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE

@@ -1,7 +1,3 @@
-/**
- * Stage 6: cameraStage — F5 view toggle, camera position+rotation sync,
- *                        shadow target follow, dynamic far-plane / shadow camera.
- */
 import { Effect, MutableRef, Ref } from 'effect'
 import { logErrors } from '@ts-minecraft/app/frame/error-logging'
 import type { FrameHandlerDeps, FrameHandlerServices, FrameStageRefs } from '@ts-minecraft/app/frame/types'

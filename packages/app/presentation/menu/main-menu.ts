@@ -5,32 +5,10 @@ import { ConfirmDialogService } from '@ts-minecraft/app/presentation/menu/confir
 import { WorldId } from '@ts-minecraft/kernel'
 import type { GameMode } from '@ts-minecraft/game-mode'
 
-/**
- * MainMenuService — top-level world selection menu (Phase 1, FR-1.1/1.9/1.11/1.12).
- *
- * Lifecycle:
- *   - DOM lives at boot scope (created once via Effect.acquireRelease in the
- *     scoped service body). The same overlay is shown/hidden across every
- *     trip through `mainMenuLoop` — re-creating DOM per visit would be
- *     wasteful and would defeat the "menu outlives sessions" invariant.
- *   - `show()` resets sub-state to ROOT, refreshes the world list, displays
- *     the overlay, and awaits a Deferred that the click handlers fulfill.
- *   - `hide()` removes the overlay from view (display:none); DOM stays mounted.
- *
- * Sub-states:
- *   - ROOT       — 4 buttons (New World / Load World / Settings / Quit)
- *   - NEW_WORLD  — name input + survival/creative cycler card + Confirm/Cancel
- *   - LOAD_WORLD — scrollable list of saved worlds + Back
- *
- * Keyboard nav:
- *   - Tab/Shift-Tab cycles focus through visible buttons (browser default).
- *   - Enter activates focused button (browser default — buttons are <button>).
- *   - Esc returns to ROOT (or no-op if already at ROOT — main menu has nowhere
- *     to "exit to" because there is no game running yet).
- *
- * Corrupt-row recovery: `listWorldMetadata` returns `{ valid, corrupt }`.
- * Corrupt rows render as a dedicated row with only a Delete button.
- */
+// DOM built once at boot scope (acquireRelease) and show/hidden across sessions —
+// re-creating DOM per visit would defeat the "menu outlives sessions" invariant.
+// Esc returns to ROOT — no-op if already ROOT (menu has nowhere to exit to).
+// Corrupt world rows render with only a Delete button (via listWorldMetadata { valid, corrupt }).
 
 export type MainMenuChoice =
   | { readonly action: 'newWorld'; readonly worldId: WorldId; readonly gameMode: GameMode }
@@ -463,12 +441,8 @@ export class MainMenuService extends Effect.Service<MainMenuService>()(
                     })
                     MutableRef.set(escHandlerRef, Option.none())
                   }),
-                /**
-                 * Register a callback for the Settings button. The MainMenuService
-                 * is layer-agnostic about the SettingsOverlayService (lives in
-                 * presentation, but our scope cuts across boot/session lines —
-                 * the caller wires it up after both services exist).
-                 */
+                // Caller wires this after both services exist — MainMenuService is
+                // agnostic to SettingsOverlayService (scope crosses boot/session lines).
                 onSettings: (handler: () => void): Effect.Effect<void, never> =>
                   Effect.sync(() => {
                     MutableRef.set(settingsHandlerRef, Option.some(handler))

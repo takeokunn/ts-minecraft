@@ -3,34 +3,16 @@ import { BlockType } from './block'
 import { initialBlocks } from './block-registry'
 import { CHUNK_HEIGHT, CHUNK_SIZE, blockIndexUnsafe, blockTypeToIndex } from './chunk'
 
-/**
- * Block light engine (Phase 1.6)
- *
- * Each chunk may store two 4-bit-per-voxel light grids:
- *   - skyLight:   propagates from y=CHUNK_HEIGHT-1 downward through transparent blocks
- *   - blockLight: emitted by emissive blocks (LAVA=15, REDSTONE_ORE=9, etc.)
- *
- * Storage: Uint8Array of length (CHUNK_SIZE*CHUNK_SIZE*CHUNK_HEIGHT / 2).
- * Each byte packs 2 adjacent voxels (voxelIndex 2k → low nibble, 2k+1 → high nibble).
- */
-
+// 4-bit-per-voxel light grids. Storage: Uint8Array of LIGHT_BYTE_LENGTH bytes; 2 voxels per byte (low/high nibbles).
 export const LIGHT_LEVEL_MAX = 15
 export const LIGHT_LEVEL_MIN = 0
 export const LIGHT_BYTE_LENGTH = (CHUNK_SIZE * CHUNK_SIZE * CHUNK_HEIGHT) / 2
 
-/**
- * A pair of computed per-voxel light grids for a chunk: sky and block (emissive) light.
- * Each Uint8Array is LIGHT_BYTE_LENGTH bytes, packing 2 voxels per byte (low/high nibbles).
- */
 export type LightGrids = Readonly<{
   readonly skyLight: Uint8Array
   readonly blockLight: Uint8Array
 }>
 
-/**
- * Static transparency table: derived from block-registry's `transparency` flag.
- * A transparent block allows light to propagate through it.
- */
 const TRANSPARENCY_TABLE: Record<BlockType, boolean> = (() => {
   const table = {} as Record<BlockType, boolean>
   Arr.forEach(initialBlocks, (b) => {
@@ -39,12 +21,7 @@ const TRANSPARENCY_TABLE: Record<BlockType, boolean> = (() => {
   return table
 })()
 
-/**
- * Emissive light level per block type.
- * Phase 1.6: LAVA=15, REDSTONE_BLOCK=15, REDSTONE_ORE=9, DEEPSLATE_REDSTONE_ORE=9.
- * Non-emissive blocks are 0. Derived from block-registry's `emissive` flag combined
- * with a hardcoded level map (registry stores only a boolean, not a numeric level).
- */
+// LAVA=15, REDSTONE_BLOCK=15, REDSTONE_ORE=9, DEEPSLATE_REDSTONE_ORE=9. Registry stores boolean, not level.
 const EMISSIVE_LEVEL_OVERRIDES: Partial<Record<BlockType, number>> = {
   LAVA: 15,
   REDSTONE_BLOCK: 15,
@@ -60,10 +37,7 @@ const EMISSIVE_TABLE: Record<BlockType, number> = (() => {
   return table
 })()
 
-/**
- * Same-length lookup table indexed by BlockType numeric index (0=AIR, ...).
- * Built as Uint8Array for tight BFS inner-loop access.
- */
+// Uint8Array for tight BFS inner-loop access (avoid object property lookup overhead).
 const TRANSPARENCY_BY_INDEX: Uint8Array = (() => {
   const arr = new Uint8Array(64)
   Arr.forEach(initialBlocks, (b) => {
@@ -90,20 +64,11 @@ export const isTransparentIndex = (blockIdx: number): boolean =>
 export const emissiveLevelByIndex = (blockIdx: number): number =>
   EMISSIVE_BY_INDEX[blockIdx] ?? 0
 
-/**
- * Allocate a zero-filled light grid sized for one chunk.
- */
 export const createLightBuffer = (): Uint8Array<ArrayBufferLike> => new Uint8Array(LIGHT_BYTE_LENGTH)
 
-/**
- * Map (lx, y, lz) → voxel index matching the block layout convention.
- */
 const voxelIndex = (lx: number, y: number, lz: number): number => blockIndexUnsafe(lx, y, lz)
 
-/**
- * Read a 4-bit light value (0..15) at the given local coordinates.
- * Caller must ensure 0 ≤ lx < CHUNK_SIZE, 0 ≤ y < CHUNK_HEIGHT, 0 ≤ lz < CHUNK_SIZE.
- */
+// Caller must ensure 0 ≤ lx < CHUNK_SIZE, 0 ≤ y < CHUNK_HEIGHT, 0 ≤ lz < CHUNK_SIZE.
 export const getLightAt = (grid: Uint8Array, lx: number, y: number, lz: number): number => {
   const vi = voxelIndex(lx, y, lz)
   const byteIdx = vi >> 1
@@ -111,10 +76,6 @@ export const getLightAt = (grid: Uint8Array, lx: number, y: number, lz: number):
   return (vi & 1) === 0 ? byte & 0x0f : (byte >> 4) & 0x0f
 }
 
-/**
- * Write a 4-bit light value at the given local coordinates (in-place mutation).
- * Value is clamped to [0, 15].
- */
 export const setLightAt = (grid: Uint8Array, lx: number, y: number, lz: number, value: number): void => {
   const v = value < 0 ? 0 : value > 15 ? 15 : value
   const vi = voxelIndex(lx, y, lz)
@@ -125,20 +86,13 @@ export const setLightAt = (grid: Uint8Array, lx: number, y: number, lz: number, 
     : (byte & 0x0f) | (v << 4)
 }
 
-/**
- * Neighbor offsets for 6-direction BFS (±x, ±y, ±z).
- */
 export const NEIGHBOR_OFFSETS: ReadonlyArray<readonly [number, number, number]> = [
   [1, 0, 0], [-1, 0, 0],
   [0, 1, 0], [0, -1, 0],
   [0, 0, 1], [0, 0, -1],
 ]
 
-/**
- * Compute block-light BFS flood-fill into `lightGrid` from emissive sources in `blocks`.
- * Uses a plain `number[]` queue with a head pointer for hot-loop performance.
- * Pure sync compute — no Effect wrapper.
- */
+// plain number[] queue with head pointer — avoids shift() O(n) on hot BFS loop.
 export const computeBlockLight = (blocks: Uint8Array, lightGrid: Uint8Array): void => {
   // Zero the grid — caller may pass a stale buffer.
   lightGrid.fill(0)
@@ -186,11 +140,6 @@ export const computeBlockLight = (blocks: Uint8Array, lightGrid: Uint8Array): vo
   }
 }
 
-/**
- * Compute sky-light BFS. Starts at y = CHUNK_HEIGHT - 1 for every (x,z) column,
- * seeds all consecutive transparent voxels from top down with level 15 until the
- * first opaque block, then runs standard BFS from all seeded cells.
- */
 export const computeSkyLight = (blocks: Uint8Array, lightGrid: Uint8Array): void => {
   lightGrid.fill(0)
   const queue: number[] = []

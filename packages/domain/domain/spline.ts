@@ -2,11 +2,11 @@
 // Pure math primitive — no Effect wrapper, no service dependencies.
 // Used by the 1.18-style multi-noise heightmap pipeline.
 
-/** Piecewise-linear spline: sorted ascending by t. Evaluation clamps outside [t_min, t_max]. */
+// Caller must keep control points sorted ascending by t — evaluateSpline clamps outside [t_min, t_max].
 export type ControlPoint = readonly [t: number, value: number]
 export type Spline = ReadonlyArray<ControlPoint>
 
-/** Evaluate a spline at t. Returns the endpoint value when t is outside the range. */
+// Returns the endpoint value when t is outside the spline range (clamped, not extrapolated).
 export const evaluateSpline = (spline: Spline, t: number): number => {
   const n = spline.length
   if (n === 0) return 0

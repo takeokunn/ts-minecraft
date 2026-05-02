@@ -5,9 +5,6 @@ import { PlayerInputService } from '@ts-minecraft/input-handler'
 import { KeyMappings } from '@ts-minecraft/input-handler'
 import { MetersPerSec } from '@ts-minecraft/kernel'
 
-/**
- * Movement input state representing which movement keys are pressed
- */
 export const MovementInputSchema = Schema.Struct({
   forward: Schema.Boolean,
   backward: Schema.Boolean,
@@ -18,24 +15,15 @@ export const MovementInputSchema = Schema.Struct({
 })
 export type MovementInput = Schema.Schema.Type<typeof MovementInputSchema>
 
-/**
- * Velocity vector for player movement (alias for Vector3Schema)
- */
 export const VelocitySchema = Vector3Schema
 export type Velocity = Vector3
 
-/**
- * Movement speed constants in meters per second.
- * Branded type enforces unit at compile time and validates finiteness at runtime.
- */
+// Branded type enforces unit at compile time and validates finiteness at runtime.
 export const DEFAULT_WALK_SPEED: MetersPerSec = MetersPerSec.make(8.0)
 export const DEFAULT_SPRINT_SPEED: MetersPerSec = MetersPerSec.make(14.0)
 export const DEFAULT_JUMP_VELOCITY: MetersPerSec = MetersPerSec.make(5.0)
 
-/**
- * Pure math: compute movement velocity from input state and camera yaw.
- * No side effects — safe to call anywhere without Effect wrapping.
- */
+// Pure math: no side effects — safe to call anywhere without Effect wrapping.
 export const computeVelocity = (
   input: MovementInput,
   yaw: number,
@@ -67,14 +55,6 @@ export const computeVelocity = (
   return { x: moveX, y: moveY, z: moveZ }
 }
 
-/**
- * MovementService class for handling player movement input
- *
- * Provides functionality to:
- * - Read current keyboard input state
- * - Calculate velocity based on input and camera direction
- * - Handle sprint and jump mechanics
- */
 export class MovementService extends Effect.Service<MovementService>()(
   '@minecraft/application/MovementService',
   {
@@ -102,24 +82,8 @@ export class MovementService extends Effect.Service<MovementService>()(
         Effect.succeed(computeVelocity(input, yaw, isGrounded))
 
       return {
-        /**
-         * Get current movement input state
-         */
         getInput,
-
-        /**
-         * Calculate velocity based on input, camera yaw, and grounded state
-         * @param input - Current movement input state
-         * @param yaw - Camera yaw angle in radians
-         * @param isGrounded - Whether the player is on the ground
-         */
         calculateVelocity,
-
-        /**
-         * Update movement by combining input reading and velocity calculation
-         * @param yaw - Camera yaw angle in radians
-         * @param isGrounded - Whether the player is on the ground
-         */
         update: (yaw: number, isGrounded: boolean): Effect.Effect<Velocity, never> =>
           Effect.gen(function* () {
             const input = yield* getInput()

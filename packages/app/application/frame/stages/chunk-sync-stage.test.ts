@@ -2,7 +2,7 @@ import { describe, expect, vi } from 'vitest'
 import { it } from '@effect/vitest'
 import { Effect, Option } from 'effect'
 import * as THREE from 'three'
-import { createFrameHandler, createFrameHandlers } from '@ts-minecraft/app'
+import { createFrameHandlers } from '@ts-minecraft/app'
 import type { DeltaTimeSecs } from '@ts-minecraft/kernel'
 import {
   makeDeps,
@@ -89,7 +89,8 @@ describe('step 1 — chunk streaming', () => {
     ;(services.chunkManagerService as unknown as { getLoadedChunks: unknown }).getLoadedChunks = vi.fn(() => Effect.succeed(loadedChunks))
     ;(services.worldRendererService as unknown as { syncChunksToScene: unknown }).syncChunksToScene = syncSpy
 
-    const handler = yield* createFrameHandler(deps, services)
+    const { frameHandler, maintenanceHandler } = yield* createFrameHandlers(deps, services)
+    const handler = (deltaTime: DeltaTimeSecs) => maintenanceHandler().pipe(Effect.andThen(frameHandler(deltaTime)))
     yield* handler(0.016 as DeltaTimeSecs)
     yield* handler(0.016 as DeltaTimeSecs)
 
@@ -122,7 +123,8 @@ describe('step 1 — chunk streaming', () => {
     const spy = vi.fn(() => Effect.void)
     ;(services.worldRendererService as unknown as { applyFrustumCulling: unknown }).applyFrustumCulling = spy
 
-    const handler = yield* createFrameHandler(deps, services)
+    const { frameHandler, maintenanceHandler } = yield* createFrameHandlers(deps, services)
+    const handler = (deltaTime: DeltaTimeSecs) => maintenanceHandler().pipe(Effect.andThen(frameHandler(deltaTime)))
     yield* handler(0.016 as DeltaTimeSecs)
     yield* handler(0.016 as DeltaTimeSecs)
     yield* handler(0.016 as DeltaTimeSecs)

@@ -1,17 +1,15 @@
-/**
- * Wire-format schemas for the terrain worker pool.
- *
- * Two channels:
- *   - main → worker: TerrainWorkerRequest. Plain structured-cloneable values
- *     plus an `id` for response correlation.
- *   - worker → main: TerrainWorkerResponse. Either { kind: 'success', blocks,
- *     skyLight, blockLight } or { kind: 'failure', error }.
- *
- * Buffers cross the worker boundary as `Uint8Array`. The pool is responsible
- * for picking out their `.buffer` properties for the structured-clone transfer
- * list (zero-copy); decoders here are agnostic to whether the buffer was
- * transferred or copied.
- */
+// Wire-format schemas for the terrain worker pool.
+//
+// Two channels:
+//   - main → worker: TerrainWorkerRequest. Plain structured-cloneable values
+//     plus an `id` for response correlation.
+//   - worker → main: TerrainWorkerResponse. Either { kind: 'success', blocks,
+//     skyLight, blockLight } or { kind: 'failure', error }.
+//
+// Buffers cross the worker boundary as Uint8Array. The pool is responsible
+// for picking out their .buffer properties for the structured-clone transfer
+// list (zero-copy); decoders here are agnostic to whether the buffer was
+// transferred or copied.
 import { Effect, Schema } from 'effect'
 import { ChunkCoordSchema } from '@ts-minecraft/domain'
 

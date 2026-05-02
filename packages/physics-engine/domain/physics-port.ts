@@ -2,20 +2,13 @@ import { Effect, Schema } from 'effect'
 import type { DeltaTimeSecs } from '@ts-minecraft/kernel'
 import { Vector3Schema, type Vector3 } from '@ts-minecraft/kernel'
 
-/**
- * Application-layer ports for the custom physics engine.
- *
- * These ports decouple PhysicsService (application) from the concrete
- * RigidBodyService / PhysicsWorldService / ShapeService (infrastructure)
- * implementations. They are wired in src/layers.ts via bridge Layer.effect
- * adapters, mirroring StorageServicePort and NoiseServicePort.
- *
- * The body/world/shape data types are defined here (the application owns
- * the contract). The infrastructure implementations export structurally
- * compatible types; the bridge in layers.ts performs an `as unknown as`
- * cast since Effect.Service adds a `_tag` discriminant to the
- * infrastructure value that the port surface intentionally omits.
- */
+// Application-layer ports for the custom physics engine.
+// Decouples PhysicsService (application) from RigidBodyService / PhysicsWorldService /
+// ShapeService (infrastructure). Wired in src/layers.ts via bridge Layer.effect adapters.
+//
+// Data types are owned here (application owns the contract). Infrastructure implementations
+// export structurally compatible types; the bridge uses `as unknown as` because Effect.Service
+// adds a `_tag` discriminant that the port surface intentionally omits.
 
 const QuaternionSchema = Schema.Struct({
   x: Schema.Number.pipe(Schema.finite()),

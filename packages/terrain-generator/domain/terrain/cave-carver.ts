@@ -11,17 +11,8 @@ import {
 } from './constants'
 import { smoothstep, chunkBlockIndexUnchecked } from './math'
 
-/**
- * Carve caves into a pre-filled chunk block array.
- *
- * Pure synchronous function: no Effect overhead in the inner loop.
- * `caveSamples` is the coarse 3D-noise sample grid, indexed as
- *   `caveSamples[sx + sz * SX + sy * SX * SZ]`
- * where SX = SZ = floor(CHUNK_SIZE / STRIDE) + 1 and SY = floor(CHUNK_HEIGHT / STRIDE) + 1.
- * Values are trilinearly interpolated per voxel, and voxels satisfying
- * `|noise| < threshold(y)` are set to AIR — provided they are currently STONE,
- * DIRT, or a stone variant (never BEDROCK, AIR, WATER, or surface blocks).
- */
+// Trilinearly interpolates coarse 3D noise samples; voxels where |noise| < threshold(y) become AIR.
+// Sample grid index: sx + sz*SX + sy*SX*SZ, SX=SZ=floor(CHUNK_SIZE/STRIDE)+1.
 export const carveCaves = (
   blocks: Uint8Array,
   caveSamples: ReadonlyArray<number>,

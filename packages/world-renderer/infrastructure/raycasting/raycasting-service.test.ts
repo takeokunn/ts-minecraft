@@ -9,10 +9,8 @@ import {
   DEFAULT_RAY_DISTANCE,
 } from '@ts-minecraft/world-renderer'
 
-/**
- * Helper function to set up camera and scene for raycasting
- * Three.js requires world matrices to be updated for raycasting to work
- */
+// Set up camera and scene for raycasting tests.
+// Three.js requires world matrices to be updated for raycasting to work.
 const setupRaycastingTest = (
   cameraPos: THREE.Vector3,
   lookAt: THREE.Vector3,

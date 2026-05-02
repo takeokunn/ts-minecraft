@@ -281,10 +281,6 @@ export class ChunkMeshService extends Effect.Service<ChunkMeshService>()(
             mesh.geometry.dispose()
           }),
 
-        /**
-         * Adjust the sun-light intensity uniform on the shared opaque chunk material.
-         * Value is clamped to [0, 1]. Future TimeService can drive this from day-night cycle.
-         */
         setSunIntensity: (value: number): Effect.Effect<void, never> =>
           Effect.sync(() => {
             sharedUniforms.uSunIntensity.value = Math.max(0, Math.min(1, value))

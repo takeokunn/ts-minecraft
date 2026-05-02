@@ -1,10 +1,6 @@
-/**
- * Per-stage error logging helper.
- *
- * Frame stages must never raise — every stage wraps its work in `logErrors`
- * to convert typed errors and defects into log lines, preserving the
- * `Effect.Effect<A, never>` contract that the frame orchestrator depends on.
- */
+// Frame stages must never raise — every stage wraps its work in `logErrors`
+// to convert typed errors and defects into log lines, preserving the
+// `Effect.Effect<A, never>` contract that the frame orchestrator depends on.
 import { Cause, Effect } from 'effect'
 
 export const logErrors = <A, E, R>(

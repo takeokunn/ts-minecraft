@@ -1,7 +1,3 @@
-/**
- * Stage 3: chunkSyncStage — frustum culling on the frame lane
- *                           (heavy chunk load/sync runs on maintenance lane).
- */
 import { Effect, MutableRef, Ref } from 'effect'
 import type { FrameHandlerDeps, FrameHandlerServices, FrameStageRefs } from '@ts-minecraft/app/frame/types'
 import { captureCameraPose, hasCameraPoseChanged } from '@ts-minecraft/app/frame/frame-runtime-logic'

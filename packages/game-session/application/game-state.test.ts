@@ -28,9 +28,6 @@ const NoOpChunkManagerLayer = Layer.succeed(ChunkManagerService, {
   evictChunksOutsideRange: (_pos: unknown, _dist: unknown) => Effect.succeed([]),
 } as unknown as ChunkManagerService)
 
-/**
- * Test implementation of InputService with controllable key state
- */
 const createTestInputService = (initialState: {
   forward?: boolean
   backward?: boolean
@@ -81,9 +78,6 @@ const createTestInputService = (initialState: {
   }
 }
 
-/**
- * Create test layer with all dependencies
- */
 const createTestLayer = (inputService: ReturnType<typeof createTestInputService>) => {
   // Create the base layers that don't have dependencies
   const inputLayer = Layer.succeed(PlayerInputService, inputService as unknown as PlayerInputService)

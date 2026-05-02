@@ -1,32 +1,8 @@
-/**
- * Performance HUD overlay — debug-only, activated by `?debug=perf` URL query param.
- *
- * Surfaces rolling perf metrics so developers can see live FPS, frame-time
- * percentiles (p50/p99), draw calls, chunk count, and worker queue depth.
- *
- * Production builds (no `?debug=perf` flag) take the no-op path: every method
- * returns `Effect.void` immediately, so there is ZERO runtime cost when disabled.
- *
- * Activation gate: ONLY `?debug=perf` URL query param. No env var, no settings field.
- *
- * Lives under `infrastructure/perf/` rather than `infrastructure/three/` because
- * the implementation reads only DOM + `performance` APIs and never imports THREE.
- *
- * Public window contract (used by e2e test W3):
- *   window.__perfHud__.snapshot(): {
- *     fps, p50Ms, p99Ms, drawCalls, chunkCount, workerQueueDepth,
- *     samples: ReadonlyArray<number>
- *   }
- *
- * Performance design:
- *   - Pre-allocated DOM text nodes — 6 lines, each with a fixed `Text` node whose
- *     `nodeValue` is rewritten in place. Never `.textContent =` (avoids text node
- *     churn) and never `innerHTML` (avoids reparse).
- *   - Sample buffer: `Float64Array(120)` ring; `recordFrame` writes index modulo
- *     length in O(1), no allocations.
- *   - Percentile + DOM text computation throttled to at most 4 Hz (every 250 ms).
- *   - Sorted scratch buffer is also pre-allocated `Float64Array(120)`.
- */
+// Debug-only performance HUD, active only when `?debug=perf` URL param is present.
+// Activation gate: ONLY `?debug=perf` — no env var, no settings field.
+// Production: every method returns Effect.void immediately (zero runtime cost when disabled).
+// e2e contract (test W3): window.__perfHud__.snapshot() → { fps, p50Ms, p99Ms, drawCalls, chunkCount, workerQueueDepth, samples }
+// Performance: pre-allocated DOM Text nodes (nodeValue mutation) + Float64Array(120) ring buffer (no allocations on hot path).
 import { Cause, Duration, Effect, MutableRef, Schedule, Scope } from 'effect'
 import { isPerfEnabled } from '../infrastructure/perf-marks'
 import type { ChunkManagerService } from '@ts-minecraft/chunk-manager'
@@ -315,23 +291,9 @@ export const PerfHudServiceLive = PerfHudService.Default
 // Counter installation helper
 // -----------------------------------------------------------------------------
 
-/**
- * Forks a 4 Hz daemon that polls slow-changing counters (chunk count, worker
- * queue depth) and pushes them into the perf HUD. Counters that update
- * frequently (FPS, frame-time percentiles, draw calls) are already wired into
- * the per-frame `recordFrame` / `setDrawCalls` calls in frame-handler.
- *
- * Gated on `isPerfEnabled()`: when `?debug=perf` is absent, the helper returns
- * `Effect.void` immediately and the daemon is never scheduled, so the 250 ms
- * tick has zero cost in production builds.
- *
- * The `queueDepthSource` is supplied by the caller (typically
- * `() => terrainPool.queueDepth()`) so the helper has no hard dependency on
- * the worker pool's surface area — keeping it ergonomic to test in isolation.
- *
- * Errors in the polling body are logged via `Effect.logError` (matches the
- * auto-save error pattern in main.ts) — never silently swallowed.
- */
+// Forks a 4 Hz daemon polling chunk count + worker queue depth into the perf HUD.
+// Gated on isPerfEnabled(): zero-cost no-op if `?debug=perf` absent.
+// queueDepthSource is caller-supplied to avoid hard dependency on the worker pool.
 export const installPerfHudCounters = (
   perfHud: PerfHudService,
   chunkManager: ChunkManagerService,

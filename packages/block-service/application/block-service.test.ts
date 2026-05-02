@@ -191,7 +191,6 @@ const createTestLayer = (
 
 // ─── Test assertion helpers ───────────────────────────────────────────────────
 
-/** Assert an Either is Left and return the error value. */
 const assertLeft = <E>(result: Either.Either<unknown, E>): E => {
   expect(Either.isLeft(result)).toBe(true)
   return Option.getOrThrow(Either.getLeft(result))

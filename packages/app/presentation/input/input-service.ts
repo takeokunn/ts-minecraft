@@ -4,9 +4,6 @@ import type { MouseDelta } from '@ts-minecraft/input-handler'
 export type { MouseDelta } from '@ts-minecraft/input-handler'
 export { MouseDeltaSchema } from '@ts-minecraft/input-handler'
 
-/**
- * Mouse button constants (standard MouseEvent.button values)
- */
 export const MouseButtonSchema = Schema.Literal(0, 1, 2)
 export type MouseButton = Schema.Schema.Type<typeof MouseButtonSchema>
 export const MouseButton = {
@@ -16,16 +13,7 @@ export const MouseButton = {
 } as const
 
 
-/**
- * Input service for player controls
- *
- * Provides keyboard state tracking and mouse movement detection
- * for player movement and camera control.
- *
- * Sets up DOM event listeners for keyboard and mouse input.
- * Uses direct JavaScript state for event handlers (synchronous access required).
- * Uses scoped: so all listeners are removed when the scope is closed.
- */
+// Scoped: DOM event listeners removed when the scope closes (HMR, test teardown).
 export class InputService extends Effect.Service<InputService>()(
   '@minecraft/presentation/InputService',
   {

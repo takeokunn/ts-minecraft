@@ -1,12 +1,9 @@
-/**
- * Stage 7: interactionStage — block highlight, then break/place/redstone interactions.
- *
- * Decomposed into 4 helpers (P1-8):
- *   - handleHotbarInput   — keyboard 1-9 / wheel slot selection + HUD update
- *   - handleRedstoneInput — 8-way Match dispatch on redstone key flags
- *   - handleLeftClick     — entity attack / block break / particle burst
- *   - handleRightClick    — furnace select / block place
- */
+// Stage 7: interactionStage — block highlight, then break/place/redstone interactions.
+// Decomposed into 4 helpers to keep the orchestrator at low cyclomatic complexity:
+//   - handleHotbarInput   — keyboard 1-9 / wheel slot selection + HUD update
+//   - handleRedstoneInput — 8-way Match dispatch on redstone key flags
+//   - handleLeftClick     — entity attack / block break / particle burst
+//   - handleRightClick    — furnace select / block place
 import { Effect, HashMap, Match, Option, Ref } from 'effect'
 import { logErrors } from '@ts-minecraft/app/frame/error-logging'
 import type { FrameHandlerDeps, FrameHandlerServices, FrameStageRefs } from '@ts-minecraft/app/frame/types'

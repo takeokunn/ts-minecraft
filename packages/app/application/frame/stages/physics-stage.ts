@@ -1,6 +1,3 @@
-/**
- * Stage 4: physicsStage — gameState.update + health (fall damage / contact / death).
- */
 import { Effect, MutableRef, Ref } from 'effect'
 import { logErrors } from '@ts-minecraft/app/frame/error-logging'
 import type { FrameHandlerDeps, FrameHandlerServices, FrameStageRefs } from '@ts-minecraft/app/frame/types'

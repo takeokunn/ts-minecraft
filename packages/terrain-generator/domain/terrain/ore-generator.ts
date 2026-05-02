@@ -30,29 +30,11 @@ const sampleOreY = (
   return [state, Math.max(yMin, Math.min(yMax, Math.round(sampled)))]
 }
 
-/**
- * Pre-resolved ore block indices — parallel arrays to ORE_CONFIGS.
- * Computed once at module load; reused across every chunk generation.
- */
+// Parallel to ORE_CONFIGS; resolved once at module load to avoid per-chunk blockTypeToIndex calls.
 export const ORE_REGULAR_INDICES: ReadonlyArray<number> = Arr.map(ORE_CONFIGS, (cfg) => blockTypeToIndex(`${cfg.name}_ORE`))
 export const ORE_DEEPSLATE_INDICES: ReadonlyArray<number> = Arr.map(ORE_CONFIGS, (cfg) => blockTypeToIndex(`DEEPSLATE_${cfg.name}_ORE`))
 
-/**
- * Grow a single ore vein starting at (seedX, seedY, seedZ) via stack-based
- * random walk. Places `targetSize` voxels total (fewer if candidates run out).
- *
- * Replaces ONLY stoneBlockIndex or deepslateBlockIndex — skips AIR/WATER/
- * BEDROCK/DIRT/other-ores. The block type chosen at each voxel depends on
- * the altitude: y < DEEPSLATE_CEILING → deepslate variant, else regular.
- *
- * `yMin`/`yMax` clamp the vein's vertical extent to the ore's depth band so
- * neighbor expansion cannot leak a vein outside the configured range (e.g.
- * DIAMOND growing from y=16 up to y=17).
- *
- * `rngState` is advanced across calls — caller threads the returned state
- * back into subsequent rolls so the whole chunk's ore placement is one
- * deterministic PRNG stream.
- */
+// Stack-based random-walk vein growth. Replaces only STONE/DEEPSLATE; threads rngState for deterministic output.
 export const growVein = (
   blocks: Uint8Array,
   seedX: number,
@@ -115,16 +97,7 @@ export const growVein = (
   return state
 }
 
-/**
- * Place depth-banded ore veins into a pre-carved chunk block array.
- *
- * Pure synchronous function. Seeded deterministically from (baseWorldX,
- * baseWorldZ) so chunk reloads produce identical ore placement. No external
- * RNG dependency, no Effect overhead.
- *
- * Never overwrites AIR/WATER/BEDROCK/DIRT/GRASS/SAND/existing-ores. Only
- * STONE and DEEPSLATE are valid replacement targets.
- */
+// Place all ore veins for a chunk. Deterministic from world coords; only replaces STONE/DEEPSLATE.
 export const placeOres = (
   blocks: Uint8Array,
   baseWorldX: number,

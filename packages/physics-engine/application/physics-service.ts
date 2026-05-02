@@ -10,11 +10,7 @@ import {
   type CustomShape,
 } from '../domain/physics-port'
 
-/**
- * Error type for PhysicsService operations.
- * Uses distinct _tag 'PhysicsServiceError' to avoid collision with
- * domain-level PhysicsError in domain/errors.ts.
- */
+// Distinct _tag 'PhysicsServiceError' avoids collision with domain-level PhysicsError in domain/errors.ts.
 export class PhysicsServiceError extends Data.TaggedError('PhysicsServiceError')<{
   readonly operation: string
   readonly cause?: unknown
@@ -26,15 +22,9 @@ export class PhysicsServiceError extends Data.TaggedError('PhysicsServiceError')
   }
 }
 
-/**
- * PhysicsBody handle — only exposes the opaque ID, not the raw body
- */
 export const PhysicsBodySchema = Schema.Struct({ id: PhysicsBodyIdSchema })
 export type PhysicsBody = Schema.Schema.Type<typeof PhysicsBodySchema>
 
-/**
- * Configuration for adding a rigid body
- */
 const ShapeParamsSchema = Schema.Struct({
   halfExtents: Schema.optional(Vector3Schema),
   radius: Schema.optional(Schema.Number.pipe(Schema.finite(), Schema.positive())),
@@ -69,9 +59,6 @@ export class PhysicsService extends Effect.Service<PhysicsService>()(
       const makeBodyId: Effect.Effect<PhysicsBodyId, never> =
         Ref.modify(nextBodyIdRef, (n) => [PhysicsBodyId.make(`physics-body-${n}`), n + 1])
 
-      /**
-       * Helper: get world or fail with PhysicsServiceError
-       */
       const getWorld: Effect.Effect<CustomWorld, PhysicsServiceError> = Ref.get(worldRef).pipe(
         Effect.flatMap((world) =>
           Option.match(world, {
@@ -81,9 +68,6 @@ export class PhysicsService extends Effect.Service<PhysicsService>()(
         )
       )
 
-      /**
-       * Helper: get CustomBody or fail with PhysicsServiceError
-       */
       const getBody = (bodyId: PhysicsBodyId): Effect.Effect<CustomBody, PhysicsServiceError> =>
         Ref.get(bodyMapRef).pipe(
           Effect.flatMap((bodyMap) =>

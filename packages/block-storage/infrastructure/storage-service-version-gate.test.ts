@@ -4,17 +4,15 @@ import { Effect, MutableHashMap, MutableRef, Option } from 'effect'
 import { StorageService, StorageServiceLive } from '@ts-minecraft/block-storage'
 import { WORLD_SCHEMA_VERSION } from '@ts-minecraft/domain'
 
-/**
- * Tests for the StorageService version-gate subroutine.
- *
- * The gate reads `localStorage['minecraft-worlds.schema-version']` before
- * opening the IndexedDB database. If the stored value does not match
- * `String(WORLD_SCHEMA_VERSION)`, it calls `indexedDB.deleteDatabase('minecraft-worlds')`
- * and writes the current version string back into localStorage.
- *
- * Rationale: v2 (single-noise) chunks would produce 50+ block seam cliffs when
- * rendered alongside v3 (multi-noise) chunks — so we wipe instead of migrate.
- */
+// Tests for the StorageService version-gate subroutine.
+//
+// The gate reads `localStorage['minecraft-worlds.schema-version']` before
+// opening the IndexedDB database. If the stored value does not match
+// `String(WORLD_SCHEMA_VERSION)`, it calls `indexedDB.deleteDatabase('minecraft-worlds')`
+// and writes the current version string back into localStorage.
+//
+// Rationale: v2 (single-noise) chunks would produce 50+ block seam cliffs when
+// rendered alongside v3 (multi-noise) chunks — so we wipe instead of migrate.
 
 const SCHEMA_VERSION_LS_KEY = 'minecraft-worlds.schema-version'
 const DB_NAME = 'minecraft-worlds'

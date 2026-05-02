@@ -1,9 +1,6 @@
-/**
- * Game-logic-tier Layers — application services that orchestrate domain operations
- * (game state, chunks, blocks, entities, inventory, audio, etc.).
- *
- * Depends on infrastructure-tier layers (see ./infrastructure.ts).
- */
+// Game-logic-tier Layers — application services that orchestrate domain operations
+// (game state, chunks, blocks, entities, inventory, audio, etc.).
+// Depends on infrastructure-tier layers (see ./infrastructure.ts).
 import { Layer } from 'effect'
 
 // Three.js infrastructure consumed directly by world/entity/particle renderers

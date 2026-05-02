@@ -12,38 +12,10 @@ import {
 } from '@ts-minecraft/app/main/session-control'
 import type { Position } from '@ts-minecraft/kernel'
 
-/**
- * FR-1.3 — Death screen overlay.
- *
- * Behaviour:
- *   - Subscribes to `HealthService.awaitDeath()` on `attach()`. When that
- *     deferred resolves, the overlay shows "YOU DIED" with two buttons:
- *       1. Respawn          — restores spawn position + full health.
- *                             In survival the inventory is cleared first
- *                             (see `GameStateService.respawn` mode-aware path).
- *                             Phase-1 semantics: "drop at deathPos" is
- *                             approximated as "clear" until Phase 3 ships
- *                             world-entity drops.
- *       2. Quit to Title    — calls `requestQuitToTitle(control)`.
- *
- *   - The overlay is intentionally suppressed in CREATIVE: frame-handler
- *     auto-respawns there before this listener even runs. We additionally
- *     re-check the mode when the deferred resolves so a mode-flip during
- *     a death (e.g. /gamemode in a future phase) doesn't show a stale screen.
- *
- * Keyboard:
- *   - Enter activates the focused button (default = Respawn).
- *   - Tab cycles between buttons (browser-native, we just stop propagation).
- *   - Esc behaves as Respawn so Esc cannot accidentally open the pause menu
- *     mid-death.
- *
- * No flicker contract:
- *   - The frame-handler suppresses auto-respawn in survival as soon as it
- *     observes `health.current === 0`, BEFORE it reads playerPos. The
- *     death-screen DOM element is created at session start and only its
- *     `display:none` toggles, so showing the overlay is a single style
- *     mutation that completes within the same task as the death signal.
- */
+// FR-1.3 — death screen overlay. Subscribes to healthService.awaitDeath() on attach().
+// Suppressed in CREATIVE: frame-handler auto-respawns before this listener runs.
+// Phase-1: inventory cleared on respawn instead of world-entity drops (Phase 3 will add drops).
+// Esc routes to Respawn (not pause menu) to avoid stale menu state mid-death.
 const Z_INDEX = 1100
 
 const BACKDROP_STYLE = [
@@ -230,18 +202,7 @@ export class DeathScreenService extends Effect.Service<DeathScreenService>()(
               )
 
             return {
-              /**
-               * Mount click + keyboard listeners and fork the death-watcher
-               * fiber. The fiber blocks on `healthService.awaitDeath()`; on
-               * resolution it re-checks the game mode (creative auto-respawns
-               * via the frame-handler so we should NOT show the overlay there)
-               * and otherwise shows the overlay. After respawn, it loops back
-               * to await the next death.
-               *
-               * Scope-managed: when the surrounding session scope closes the
-               * fiber is interrupted, the listeners are removed, and the DOM
-               * is torn down by the outer `acquireRelease`.
-               */
+              // Scope-managed: fiber is interrupted and DOM torn down when the surrounding session scope closes.
               attach: (
                 control: SessionControl,
                 spawnPosition: Position,
@@ -360,7 +321,6 @@ export class DeathScreenService extends Effect.Service<DeathScreenService>()(
                     }),
                 ).pipe(Effect.asVoid),
 
-              /** Whether the death overlay is currently visible. */
               isOpen: (): Effect.Effect<boolean, never> =>
                 Effect.sync(() => MutableRef.get(isOpenRef)),
             }

@@ -30,10 +30,8 @@ const makeSingleBlockChunk = (coord: ChunkCoord = { x: 0, z: 0 }): Chunk => {
 
 import { greedyMeshChunk, ChunkMeshService } from '@ts-minecraft/world-renderer'
 
-/**
- * A test-only layer for ChunkMeshService that avoids any DOM / canvas calls.
- * The shared material is a simple MeshBasicMaterial (no texture required).
- */
+// A test-only layer for ChunkMeshService that avoids any DOM / canvas calls.
+// The shared material is a simple MeshBasicMaterial (no texture required).
 const ChunkMeshServiceTest = Layer.succeed(
   ChunkMeshService,
   (() => {
@@ -45,11 +43,11 @@ const ChunkMeshServiceTest = Layer.succeed(
         wz: chunk.coord.z * CHUNK_SIZE,
       })
       const geometry = new THREE.BufferGeometry()
-      geometry.setAttribute('position', new THREE.BufferAttribute(meshed.opaque.positions, 3))
-      geometry.setAttribute('normal', new THREE.BufferAttribute(meshed.opaque.normals, 3, true))
-      geometry.setAttribute('color', new THREE.BufferAttribute(meshed.opaque.colors, 3, true))
-      geometry.setAttribute('uv', new THREE.BufferAttribute(meshed.opaque.uvs, 2))
-      geometry.setIndex(new THREE.BufferAttribute(meshed.opaque.indices, 1))
+      geometry.setAttribute('position', new THREE.BufferAttribute(meshed.toMeshed().opaque.positions, 3))
+      geometry.setAttribute('normal', new THREE.BufferAttribute(meshed.toMeshed().opaque.normals, 3, true))
+      geometry.setAttribute('color', new THREE.BufferAttribute(meshed.toMeshed().opaque.colors, 3, true))
+      geometry.setAttribute('uv', new THREE.BufferAttribute(meshed.toMeshed().opaque.uvs, 2))
+      geometry.setIndex(new THREE.BufferAttribute(meshed.toMeshed().opaque.indices, 1))
       return geometry
     }
 

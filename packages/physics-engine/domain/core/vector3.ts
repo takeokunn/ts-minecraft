@@ -2,14 +2,6 @@ import type { Vector3 } from '@ts-minecraft/kernel'
 export { Vector3Schema } from '@ts-minecraft/kernel'
 export type { Vector3 } from '@ts-minecraft/kernel'
 
-/**
- * Physics engine Vector3 utilities
- *
- * **Design Philosophy**:
- * - Immutable data structure
- * - Pure functions (returns directly, not Effect type)
- */
-
 // Constructors
 export const makeVector3 = (x: number, y: number, z: number): Vector3 => ({ x, y, z })
 

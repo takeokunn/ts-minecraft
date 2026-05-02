@@ -12,9 +12,6 @@ import {
   BASE_MOUSE_SENSITIVITY,
 } from '@ts-minecraft/camera-controller'
 
-/**
- * Test implementation of InputService with controllable state
- */
 const createTestInputService = (initialState: {
   mouseDelta?: MouseDelta
   pointerLocked?: boolean
@@ -52,9 +49,6 @@ const createTestInputService = (initialState: {
   } as unknown as InputServiceType & { setMouseDelta: (delta: MouseDelta) => void; setPointerLocked: (locked: boolean) => void }
 }
 
-/**
- * Helper to create test layers with mock PlayerInputService
- */
 const createTestLayers = (inputService: InputServiceType) =>
   Layer.merge(
     Layer.succeed(PlayerInputService, inputService as unknown as PlayerInputService),

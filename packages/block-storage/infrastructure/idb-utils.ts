@@ -1,15 +1,8 @@
 import { Effect, MutableRef } from 'effect'
 
-/**
- * Minimal IndexedDB utility — hand-rolled replacement for the `idb` npm package.
- * Provides Effect-based and async-iterable wrappers over the IDBRequest/event API
- * with DBSchema-generic type safety.
- */
+// Minimal IndexedDB utility — hand-rolled replacement for the `idb` npm package.
+// Provides Effect-based wrappers over the IDBRequest/event API with DBSchema-generic type safety.
 
-/**
- * Describes the shape of an IndexedDB database.
- * Each key is a store name; the value type describes that store's key/value types.
- */
 export type DBSchema = {
   [storeName: string]: {
     key: IDBValidKey
@@ -17,10 +10,6 @@ export type DBSchema = {
   }
 }
 
-/**
- * Database handle passed to the `upgrade` callback in `openDatabase`.
- * Exposes only the methods needed during schema migrations.
- */
 export type UpgradeDB = {
   readonly objectStoreNames: ReadonlyArray<string>
   createObjectStore(name: string): void
@@ -37,10 +26,7 @@ export class IndexedDBError extends Error {
   }
 }
 
-/**
- * Type-safe database handle returned by `openDatabase`.
- * Store names and value types are checked against the `T` schema.
- */
+// Store names and value types are checked against the T schema at compile time.
 export type TypedIDBDatabase<T extends DBSchema> = {
   put<S extends Extract<keyof T, string>>(storeName: S, value: T[S]['value'], key?: T[S]['key']): Effect.Effect<T[S]['key'], IndexedDBError>
   get<S extends Extract<keyof T, string>>(
@@ -143,11 +129,7 @@ const makeTypedDB = <T extends DBSchema>(db: IDBDatabase): TypedIDBDatabase<T> =
   },
 })
 
-/**
- * Deletes an IndexedDB database by name. Resolves successfully even if the
- * database did not exist. Rejects with `IndexedDBError` on block or error
- * events so callers can decide whether to ignore or propagate the failure.
- */
+// Resolves successfully even if the database did not exist. Rejects with IndexedDBError on block or error events.
 export const deleteDatabase = (name: string): Effect.Effect<void, IndexedDBError> =>
   Effect.async((resume) => {
     const settledRef = MutableRef.make(false)
@@ -170,10 +152,7 @@ export const deleteDatabase = (name: string): Effect.Effect<void, IndexedDBError
     })
   })
 
-/**
- * Opens (or creates/upgrades) an IndexedDB database.
- * Replaces `openDB<T>()` from the `idb` package.
- */
+// Opens (or creates/upgrades) an IndexedDB database — replaces openDB<T>() from the `idb` package.
 export const openDatabase = <T extends DBSchema>(
   name: string,
   version: number,

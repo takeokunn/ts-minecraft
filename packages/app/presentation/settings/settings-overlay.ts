@@ -230,10 +230,6 @@ export class SettingsOverlayService extends Effect.Service<SettingsOverlayServic
             Option.match(overlayEl, { onNone: () => {}, onSome: (el) => el.remove() })
           })
         ).pipe(Effect.as({
-        /**
-         * Toggle the settings overlay visibility.
-         * Returns true if now open, false if now closed.
-         */
         toggle: (): Effect.Effect<boolean, never> =>
           Ref.modify(isVisibleRef, (current): [boolean, boolean] => [!current, !current]).pipe(
             Effect.tap((next) => Effect.sync(() => {
@@ -242,19 +238,10 @@ export class SettingsOverlayService extends Effect.Service<SettingsOverlayServic
             Effect.tap((next) => next ? syncEffect() : Effect.void),
           ),
 
-        /**
-         * Check if the settings overlay is currently open.
-         */
         isOpen: (): Effect.Effect<boolean, never> => Ref.get(isVisibleRef),
 
-        /**
-         * Sync the overlay inputs with the current settings values.
-         */
         syncFromSettings: (): Effect.Effect<void, never> => syncEffect(),
 
-        /**
-         * Read the current input values and apply them to SettingsService.
-         */
         applyToSettings: (): Effect.Effect<void, never> => commitEffect(),
         }))
       })

@@ -42,10 +42,7 @@ type TreeColumnContext = {
   readonly supportsTree: boolean
 }
 
-/**
- * Histogram metric for chunk load duration (generation + storage load) in milliseconds.
- * Buckets: 20 linear buckets from 0ms to 1000ms (width=50ms each).
- */
+// Chunk load duration histogram: 20 linear buckets 0–1000ms (width=50ms).
 export const chunkLoadHistogram = Metric.histogram(
   'chunk_load_ms',
   MetricBoundaries.linear({ start: 0, width: 50, count: 20 }),
@@ -54,12 +51,7 @@ export const chunkLoadHistogram = Metric.histogram(
 
 const createTreeColumnKey = (wx: number, wz: number): string => `${wx},${wz}`
 
-/**
- * Compute the depressed surface Y for an inland lake basin, or Option.none() if no lake forms.
- *
- * A lake basin requires: non-OCEAN biome, noise above threshold, terrain high enough to depress,
- * and the resulting depression must actually dip below LAKE_LEVEL.
- */
+// Returns depressed surface Y if noise threshold + terrain height produce a basin below LAKE_LEVEL; Option.none() otherwise.
 const computeLakeBasin = (
   biome: BiomeType,
   lakeNoiseVal: number,
@@ -74,17 +66,6 @@ const computeLakeBasin = (
   return depressedY < LAKE_LEVEL ? Option.some(depressedY) : Option.none()
 }
 
-/**
- * Generate terrain for a chunk using noise-based heightmap.
- *
- * Height range: 48-80 blocks (sea level 64)
- * Block assignment:
- *   y > height: AIR
- *   y == height: biome surface block (GRASS, SAND, STONE, etc.)
- *   height-1 >= y >= height-3: biome subsurface block (DIRT, SAND, etc.)
- *   y < height-3: STONE
- *   y == 0: STONE (bedrock-like)
- */
 type ColumnNoiseCoordinates = {
   readonly lakeX: number
   readonly lakeZ: number

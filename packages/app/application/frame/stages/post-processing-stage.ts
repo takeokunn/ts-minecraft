@@ -1,9 +1,6 @@
-/**
- * Stages 8 + 9 — water refraction pre-pass and post-processing pass enable/setSize sync.
- *
- * Both stages live in the same file because they share the post-processing
- * concern (water shader uniforms feed into the composer's render flow).
- */
+// Stages 8 + 9 — water refraction pre-pass and post-processing pass enable/setSize sync.
+// Both stages live in the same file because they share the post-processing
+// concern (water shader uniforms feed into the composer's render flow).
 import { Effect, MutableRef, Ref } from 'effect'
 import { logErrors } from '@ts-minecraft/app/frame/error-logging'
 import type { FrameHandlerDeps, FrameHandlerServices, FrameStageRefs, ResolvedDeps } from '@ts-minecraft/app/frame/types'

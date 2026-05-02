@@ -1,8 +1,6 @@
-/**
- * Pure AABB block collision resolution.
- * Separate-axis resolution: Y first → X → Z
- * Returns corrected position, corrected velocity, and isGrounded flag.
- */
+// Pure AABB block collision resolution.
+// Separate-axis resolution order: Y first → X → Z (Y establishes correct floor/ceiling before
+// horizontal axes run, preventing corner-climbing and step-up artifacts).
 
 export interface CollisionResult {
   readonly position: { readonly x: number; readonly y: number; readonly z: number }

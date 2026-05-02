@@ -1,18 +1,16 @@
 import type { FaceDir } from './block-texture-map'
 
-/**
- * Atlas tile index per blockId per face direction.
- * Tile layout (16×16 grid):
- *   0: dirt          1: stone          2: wood_side    3: wood_top
- *   4: grass_top     5: grass_side     6: sand         7: water
- *   8: leaves        9: glass          10: snow        11: gravel
- *   12: cobblestone  13: granite       14: diorite     15: andesite
- *   16: deepslate    17: bedrock       18: lava        19: obsidian
- *   20-26: ores (coal, iron, gold, diamond, redstone, lapis, emerald)
- *   27-33: deepslate ores (same order)
- *   34-40: blocks (coal, iron, gold, diamond, redstone, lapis, emerald)
- *   41-47: planks, sticks, crafting table, furnace, torch, coal, wooden sword
- */
+// Atlas tile index per blockId per face direction.
+// Tile layout (16×16 grid):
+//   0: dirt          1: stone          2: wood_side    3: wood_top
+//   4: grass_top     5: grass_side     6: sand         7: water
+//   8: leaves        9: glass          10: snow        11: gravel
+//   12: cobblestone  13: granite       14: diorite     15: andesite
+//   16: deepslate    17: bedrock       18: lava        19: obsidian
+//   20-26: ores (coal, iron, gold, diamond, redstone, lapis, emerald)
+//   27-33: deepslate ores (same order)
+//   34-40: blocks (coal, iron, gold, diamond, redstone, lapis, emerald)
+//   41-47: planks, sticks, crafting table, furnace, torch, coal, wooden sword
 export const TILE_MAP: ReadonlyArray<Readonly<Record<FaceDir, number>>> = [
   { top: 0,  bottom: 0,  side: 0  }, //  0: AIR (unused)
   { top: 0,  bottom: 0,  side: 0  }, //  1: DIRT

@@ -3,32 +3,18 @@ import { Position, ChunkCacheKey } from '@ts-minecraft/kernel'
 import { ChunkCoord, CHUNK_SIZE } from '@ts-minecraft/domain'
 import { chunkBlockIndexUnchecked } from '@ts-minecraft/terrain-generator'
 
-/**
- * Calculate distance squared between two chunk coordinates
- */
 export const chunkDistanceSquared = (a: ChunkCoord, b: ChunkCoord): number => {
   const dx = a.x - b.x
   const dz = a.z - b.z
   return dx * dx + dz * dz
 }
 
-/**
- * Convert world position to chunk coordinate
- */
 export const worldToChunkCoord = (pos: Position): ChunkCoord => ({
   x: Math.floor(pos.x / CHUNK_SIZE),
   z: Math.floor(pos.z / CHUNK_SIZE),
 })
 
-/**
- * Compute chunk coordinate, local block coords, flat block index, and cache key
- * for a world position. Combines the double-modulo local-offset derivation with
- * `chunkBlockIndexUnchecked`, eliminating repetition across collision/raycast
- * sites that all need the same `(chunkCoord, lx, lz, flatIdx)` tuple.
- *
- * Note: caller must guard `ly` against `[0, CHUNK_HEIGHT)` if they care about
- * out-of-range Y; this helper does not bounds-check Y.
- */
+// Caller must guard ly against [0, CHUNK_HEIGHT) — Y is not bounds-checked here.
 export const worldToBlockIndex = (
   worldPos: Position
 ): {
@@ -73,15 +59,8 @@ export const countChunksInRadius = (radius: number): number => {
   return Arr.filter(allPairs, dist => dist <= radius * radius).length
 }
 
-/**
- * Get all chunk coordinates within render distance of a center point
- * Uses a circular check for a nicer radius shape
- */
 export const getChunksInRenderDistance = (center: ChunkCoord, renderDistance: number): ReadonlyArray<ChunkCoord> => {
   return Arr.map(getChunkLoadOffsets(renderDistance), ([dx, dz]) => ({ x: center.x + dx, z: center.z + dz }))
 }
 
-/**
- * Create a unique key for chunk coordinate
- */
 export const chunkCoordToKey = (coord: ChunkCoord): ChunkCacheKey => ChunkCacheKey.make(coord)

@@ -1,14 +1,6 @@
 import * as THREE from 'three'
 import { Schema } from 'effect'
 
-/**
- * Three.js Vector3のラッパー
- *
- * **設計方針**:
- * - Immutableなデータ構造
- * - 純粋関数（Effect型ではなく直接返す）
- */
-
 export const Vector3Schema = Schema.Struct({ x: Schema.Number.pipe(Schema.finite()), y: Schema.Number.pipe(Schema.finite()), z: Schema.Number.pipe(Schema.finite()) })
 export type Vector3 = Schema.Schema.Type<typeof Vector3Schema>
 

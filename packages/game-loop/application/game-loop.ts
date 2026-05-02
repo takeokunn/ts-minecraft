@@ -3,31 +3,14 @@ import { GameLoopError } from '@ts-minecraft/domain'
 import { DeltaTimeSecs } from '@ts-minecraft/kernel'
 import { FIRST_FRAME_DELTA_SECS } from '../domain/constants'
 
-/**
- * Frame command type for queue-based game loop
- */
 export const FrameCommandSchema = Schema.TaggedStruct('Tick', {
   timestamp: Schema.Number.pipe(Schema.finite(), Schema.nonNegative()),
 })
 export type FrameCommand = Schema.Schema.Type<typeof FrameCommandSchema>
 
-/**
- * Maximum queue capacity for frame commands
- */
 const QUEUE_CAPACITY = 60
 
-/**
- * GameLoopService class for managing the game loop
- *
- * Uses Effect.Queue for frame command processing with a bridge pattern
- * that connects requestAnimationFrame to the Effect-TS ecosystem.
- *
- * Design:
- *   - start() creates a fresh queue, forks the processing fiber, starts rAF bridge,
- *     and returns immediately. The loop runs in the background.
- *   - stop() interrupts the fiber, cancels animation frames, shuts down the queue.
- *   - The queue is recreated on each start() to support restart semantics.
- */
+// Queue-based bridge: dropping queue prevents rAF fiber pile-up under load; loop recreated on each start() for restart semantics.
 export class GameLoopService extends Effect.Service<GameLoopService>()(
   '@minecraft/application/GameLoopService',
   {
@@ -42,15 +25,6 @@ export class GameLoopService extends Effect.Service<GameLoopService>()(
     ], { concurrency: 'unbounded' }).pipe(
       Effect.flatMap(([frameQueueRef, processingFiberRef, maintenanceFiberRef, isRunningRef, animationFrameIdRef]) =>
         Effect.succeed({
-          /**
-           * Start the game loop with a frame handler.
-           *
-           * Creates a fresh queue, forks the frame-processing fiber, and starts the
-           * rAF bridge. Returns immediately — the loop runs in the background until
-           * stop() is called.
-           *
-           * Fails with GameLoopError if the loop is already running.
-           */
           start: (
             frameHandler: (deltaTime: DeltaTimeSecs) => Effect.Effect<void, never>
           ): Effect.Effect<void, GameLoopError> =>
@@ -69,11 +43,7 @@ export class GameLoopService extends Effect.Service<GameLoopService>()(
               // Timestamp accumulator as Ref — reset to 0 on each start(), no mutable let needed
               const lastTimestampRef = yield* Ref.make(0)
 
-              /**
-               * Frame processing loop - runs in a separate fiber.
-               * Effect.forever re-executes the take+process step until the fiber is interrupted.
-               * Computes variable delta time from successive timestamps via lastTimestampRef.
-               */
+              // Effect.forever drives the take+process loop; fiber interrupt (from stop()) terminates it cleanly.
               const processFrames: Effect.Effect<void, never> = Queue.take(frameQueue).pipe(
                 Effect.flatMap((cmd) =>
                   Effect.gen(function* () {
@@ -155,12 +125,6 @@ export class GameLoopService extends Effect.Service<GameLoopService>()(
               yield* Effect.log('Maintenance loop started')
             }),
 
-          /**
-           * Stop the game loop.
-           *
-           * Cancels the pending animation frame, interrupts the processing fiber,
-           * and shuts down the queue. Safe to call when the loop is not running.
-           */
           stop: (): Effect.Effect<void, never> =>
             Effect.gen(function* () {
             MutableRef.set(isRunningRef, false)

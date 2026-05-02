@@ -1,10 +1,8 @@
-/**
- * Gap Q — RecipeService findCraftable monotonicity property
- *
- * Invariant: if findCraftable(available) returns recipe R, then
- * findCraftable({...available, moreStuff}) must also return R.
- * Adding items never removes a craftable recipe.
- */
+// Gap Q — RecipeService findCraftable monotonicity property
+//
+// Invariant: if findCraftable(available) returns recipe R, then
+// findCraftable({...available, moreStuff}) must also return R.
+// Adding items never removes a craftable recipe.
 import { describe, it } from '@effect/vitest'
 import { Array as Arr, Effect, HashMap, HashSet, Option } from 'effect'
 import * as fc from 'effect/FastCheck'

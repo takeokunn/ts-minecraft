@@ -4,10 +4,8 @@ import { Arbitrary, Effect, Either, Option, Schema } from 'effect'
 import { blockIndex, setBlockInChunk, CHUNK_SIZE, CHUNK_HEIGHT, type Chunk } from './chunk'
 import type { BlockType } from './block'
 
-/**
- * Recovers (x, y, z) coordinates from a flat block index.
- * Inverse of: index = y + z * CHUNK_HEIGHT + x * CHUNK_HEIGHT * CHUNK_SIZE
- */
+// Recovers (x, y, z) coordinates from a flat block index.
+// Inverse of: index = y + z * CHUNK_HEIGHT + x * CHUNK_HEIGHT * CHUNK_SIZE
 function indexToCoords(index: number): { x: number; y: number; z: number } {
   const y = index % CHUNK_HEIGHT
   const z = Math.floor(index / CHUNK_HEIGHT) % CHUNK_SIZE

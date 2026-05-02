@@ -1,7 +1,7 @@
 import { Effect, MutableHashSet, MutableRef, Option, Ref } from 'effect'
 import * as THREE from 'three'
 import { vi } from 'vitest'
-import { createFrameHandler, type FrameHandlerDeps, type FrameHandlerServices } from '@ts-minecraft/app'
+import { createFrameHandlers, type FrameHandlerDeps, type FrameHandlerServices } from '@ts-minecraft/app'
 import type { DeltaTimeSecs } from '@ts-minecraft/kernel'
 
 export type CameraMode = 'firstPerson' | 'thirdPerson'
@@ -449,8 +449,8 @@ export const makeServices = (opts: {
 
 export const runFrame = (deps: FrameHandlerDeps, services: FrameHandlerServices): Effect.Effect<void> =>
   Effect.gen(function* () {
-    const handler = yield* createFrameHandler(deps, services)
-    yield* handler(0.016 as DeltaTimeSecs)
+    const { frameHandler, maintenanceHandler } = yield* createFrameHandlers(deps, services)
+    yield* maintenanceHandler().pipe(Effect.andThen(frameHandler(0.016 as DeltaTimeSecs)))
   })
 
 export type FrameHarnessOptions = {

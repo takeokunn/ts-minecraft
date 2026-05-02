@@ -134,13 +134,8 @@ export const selectTreeArchetype = (biome: BiomeType, surfaceY: number, treeRng:
   }
 }
 
-/**
- * Return true if a tree should be placed at this world column.
- *
- * Uses a deterministic sine-hash RNG so tree placement is reproducible across
- * chunk reloads. Returns the treeRng value as well so the caller can reuse it
- * for trunk-height calculation without recomputing the hash.
- */
+// Deterministic sine-hash RNG — tree placement reproducible across chunk reloads.
+// Returns treeRng so the caller can reuse it for trunk-height without recomputing.
 export const shouldPlaceTree = (
   treeDensity: number,
   surfaceY: number,
@@ -159,13 +154,9 @@ export const shouldPlaceTree = (
   return { place: treeProb < treeDensity, treeRng }
 }
 
-/**
- * Place a tree (trunk + 3x3x3 leaf canopy) into the blocks array.
- *
- * Writes are cropped to chunk boundaries. Seamless cross-chunk canopies are
- * achieved by having neighboring chunks also evaluate nearby tree origins.
- * Leaves are only placed into AIR blocks to avoid overwriting solid terrain.
- */
+// Writes are cropped to chunk boundaries.
+// Seamless cross-chunk canopies: neighboring chunks re-evaluate nearby tree origins.
+// Leaves only placed into AIR to avoid overwriting solid terrain.
 export const placeTree = (
   blocks: Uint8Array,
   lx: number,

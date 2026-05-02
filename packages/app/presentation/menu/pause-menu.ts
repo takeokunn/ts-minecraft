@@ -9,26 +9,9 @@ import {
   setPaused,
 } from '@ts-minecraft/app/main/session-control'
 
-/**
- * FR-1.4 / FR-1.10 / FR-1.12 — In-session pause menu.
- *
- * Three buttons:
- *   1. Resume      — closes the menu, unpauses the session.
- *   2. Settings    — hides this menu, opens SettingsOverlayService; on close
- *                    re-shows this menu so the player remains paused.
- *   3. Save & Quit — opens a ConfirmDialog; on confirm flushes saves and
- *                    fulfills `quitToTitleSignal` to return to the title screen.
- *
- * Keyboard nav:
- *   - Tab cycles focus between buttons.
- *   - Enter activates the focused button.
- *   - Esc behaves as Resume (closes the menu / unpauses).
- *
- * The frame-handler `inputStage` calls `openIfClosed(control)` when ESC is
- * pressed during play. The menu owns its open/closed lifecycle internally;
- * once open the keyboard listener handles further ESC presses (so we don't
- * race against `consumeKeyPress` from the input service).
- */
+// FR-1.4/FR-1.10/FR-1.12 — in-session pause menu. ESC from frame-handler input stage calls
+// `openIfClosed`; once open, the keyboard listener owns further ESC presses to avoid racing
+// `consumeKeyPress`. Settings button hides this menu and re-shows it when settings closes.
 const Z_INDEX = 1050
 
 const BACKDROP_STYLE = [
@@ -193,11 +176,8 @@ export class PauseMenuService extends Effect.Service<PauseMenuService>()(
               })
             }
 
-            /**
-             * Save-flush + quit. Failures during the save are logged but do
-             * NOT prevent the quit signal — the user already chose to leave,
-             * and `Deferred.succeed` is idempotent so a retry path remains.
-             */
+            // Save failures are logged but do NOT prevent quit — user chose to leave,
+            // and requestQuitToTitle is idempotent so a retry path remains.
             const performSaveAndQuit = (
               control: SessionControl,
               persistSessionState: () => Effect.Effect<void, unknown>,
@@ -216,14 +196,7 @@ export class PauseMenuService extends Effect.Service<PauseMenuService>()(
               )
 
             return {
-              /**
-               * Mount the pause-menu's keyboard + click listeners against the
-               * given session control. Returns immediately after wiring; the
-               * actual show/hide is driven by ESC presses + button clicks.
-               *
-               * The Scope dependency comes from the surrounding scoped Effect
-               * — listeners + DOM are torn down when that scope closes.
-               */
+              // Scope-managed: listeners and DOM are torn down when the surrounding scoped Effect closes.
               attach: (
                 control: SessionControl,
                 persistSessionState: () => Effect.Effect<void, unknown>,
@@ -382,12 +355,8 @@ export class PauseMenuService extends Effect.Service<PauseMenuService>()(
                     }),
                 ).pipe(Effect.asVoid),
 
-              /**
-               * Open the menu if it isn't already. Idempotent. Sets the
-               * session pause flag synchronously so the frame stages skip
-               * simulation immediately on the same tick. No-op when no
-               * SessionControl is currently attached (called outside session).
-               */
+              // Sets session pause flag synchronously so frame stages skip simulation on the same tick.
+              // No-op when no SessionControl is attached (called outside session).
               openIfClosed: (): Effect.Effect<void, never> =>
                 Effect.sync(() => {
                   if (MutableRef.get(isOpenRef)) return
@@ -401,7 +370,6 @@ export class PauseMenuService extends Effect.Service<PauseMenuService>()(
                   })
                 }),
 
-              /** Whether the pause menu is currently visible. */
               isOpen: (): Effect.Effect<boolean, never> =>
                 Effect.sync(() => MutableRef.get(isOpenRef)),
             }

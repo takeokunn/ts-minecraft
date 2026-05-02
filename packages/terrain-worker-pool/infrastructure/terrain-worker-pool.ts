@@ -1,26 +1,23 @@
-/**
- * Worker pool for off-main-thread terrain generation.
- *
- * Mirrors the architecture of `infrastructure/three/meshing/MeshingWorkerPool`:
- *   - Effect.Service / scoped layer
- *   - Round-robin dispatch over Math.max(2, Math.min(8, hardwareConcurrency-1))
- *     workers
- *   - Per-worker `MutableHashMap<id, deferred>` for pending requests
- *   - Finalizer terminates all workers
- *   - Synchronous fallback when `Worker` is unavailable (Vitest / Node.js)
- *
- * Robustness extensions over the meshing pool (FR-016):
- *   - Worker `onerror` triggers respawn: the dead worker is terminated, a fresh
- *     one is created. Re-routing of stranded pending requests is NOT
- *     implemented — every stranded request fails with a typed
- *     `TerrainGenerationError` so the caller can retry against the now-healthy
- *     pool. (The original request envelope is not retained, so genuine re-route
- *     would need protocol changes.)
- *   - Decode failures on `onmessage` are caught and logged via
- *     `Effect.logError(Cause.pretty(...))` — never thrown.
- *   - `postMessage` uses an explicit transfer list. In dev builds we assert
- *     `buffer.byteLength === 0` post-send to catch ownership leaks.
- */
+// Worker pool for off-main-thread terrain generation.
+//
+// Mirrors the architecture of infrastructure/three/meshing/MeshingWorkerPool:
+//   - Effect.Service / scoped layer
+//   - Round-robin dispatch over Math.max(2, Math.min(8, hardwareConcurrency-1)) workers
+//   - Per-worker MutableHashMap<id, deferred> for pending requests
+//   - Finalizer terminates all workers
+//   - Synchronous fallback when Worker is unavailable (Vitest / Node.js)
+//
+// Robustness extensions over the meshing pool (FR-016):
+//   - Worker onerror triggers respawn: the dead worker is terminated, a fresh
+//     one is created. Re-routing of stranded pending requests is NOT
+//     implemented — every stranded request fails with a typed
+//     TerrainGenerationError so the caller can retry against the now-healthy
+//     pool. (The original request envelope is not retained, so genuine re-route
+//     would need protocol changes.)
+//   - Decode failures on onmessage are caught and logged via
+//     Effect.logError(Cause.pretty(...)) — never thrown.
+//   - postMessage uses an explicit transfer list. In dev builds we assert
+//     buffer.byteLength === 0 post-send to catch ownership leaks.
 import {
   Array as Arr,
   Cause,

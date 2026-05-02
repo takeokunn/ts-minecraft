@@ -1,9 +1,5 @@
-/**
- * Shared types for the per-frame stage modules.
- *
- * Extracted from `frame-handler.ts` so individual stage files can import
- * them without creating a circular dependency back to the orchestrator.
- */
+// Shared types for per-frame stage modules. Extracted from frame-handler.ts to avoid
+// a circular dependency back to the orchestrator.
 import { HashMap, MutableRef, Option, Ref } from 'effect'
 import * as THREE from 'three'
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js'
@@ -49,13 +45,8 @@ import { type DayNightLights } from '@ts-minecraft/day-night-cycle'
 import type { Position } from '@ts-minecraft/kernel'
 import type { CameraPoseSnapshot } from '@ts-minecraft/app/frame/frame-runtime-logic'
 
-/**
- * Three.js objects and DOM state that live outside the Effect layer graph.
- * These are mutable references passed by value at startup — not Effect services —
- * because they are created and owned by main.ts before the game loop starts.
- * `gamePausedRef` is a Ref rather than a dedicated service to avoid introducing
- * a `GamePauseService` for a single boolean that only frame-handler reads/writes.
- */
+// Three.js objects/DOM state owned by main.ts before the game loop starts — passed as values,
+// not Effect services. gamePausedRef is a plain Ref rather than a dedicated service (single boolean).
 export type FrameHandlerDeps = {
   readonly renderer: THREE.WebGLRenderer
   readonly scene: THREE.Scene
@@ -66,13 +57,8 @@ export type FrameHandlerDeps = {
   readonly healthValueElement: Option.Option<HTMLElement>
   readonly healthMaxElement: Option.Option<HTMLElement>
   readonly gamePausedRef: Ref.Ref<boolean>
-  /**
-   * FR-1.4 session pause flag — set to `true` while the pause-menu is open
-   * (boot-level / Quit-to-Title flow). Distinct from `gamePausedRef`, which
-   * tracks transient overlay state (settings/inventory/trading). Read
-   * synchronously by frame stages to early-skip simulation while keeping
-   * input + render running so the menu can draw on top.
-   */
+  // FR-1.4: true while pause-menu is open. Distinct from gamePausedRef (transient overlay state).
+  // Read synchronously by frame stages to skip simulation while keeping input + render alive.
   readonly sessionPausedRef: MutableRef.MutableRef<boolean>
   readonly composer: Option.Option<EffectComposer>
   readonly skyMesh: Option.Option<THREE.Object3D>
@@ -83,12 +69,8 @@ export type FrameHandlerDeps = {
   readonly smaaPass: Option.Option<SMAAPass>
 }
 
-/**
- * All Effect services needed per frame. Passed as explicit instances (not yielded from
- * context) so the returned handler has R = never — the frame Effect is self-contained
- * and does not require a per-frame `Effect.provide(MainLive)` that would rebuild all
- * 30+ layers at 60 Hz. Instances are resolved once in main.ts and forwarded here.
- */
+// Passed as explicit instances (not yielded from context) so R = never — avoids rebuilding
+// all 30+ layers at 60 Hz. Resolved once in main.ts and forwarded to the frame handler.
 export type FrameHandlerServices = {
   readonly gameState: GameStateService
   readonly playerCameraState: PlayerCameraStateService

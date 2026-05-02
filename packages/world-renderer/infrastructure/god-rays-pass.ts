@@ -1,13 +1,5 @@
-/**
- * GodRaysPass — screen-space radial blur to simulate crepuscular light shafts.
- *
- * Algorithm: radial blur from a sun screen-position UV toward the edges.
- * Implemented as a custom Three.js postprocessing Pass using ShaderPass.
- *
- * FR-002: The blit step uses AdditiveBlending to composite the god-rays texture
- * directly onto readBuffer (like UnrealBloomPass), eliminating one full-screen
- * texture read (~4MB/frame at 1080p). needsSwap=false since we write to readBuffer.
- */
+// GodRaysPass — radial blur from sun UV toward edges. AdditiveBlending composites onto readBuffer
+// (like UnrealBloomPass), eliminating one full-screen texture read (~4MB/frame at 1080p). needsSwap=false.
 import * as THREE from 'three'
 import { Pass, FullScreenQuad } from 'three/addons/postprocessing/Pass.js'
 import { CopyShader } from 'three/addons/shaders/CopyShader.js'
@@ -73,7 +65,7 @@ export class GodRaysPass extends Pass {
   private readonly blendMaterial: THREE.ShaderMaterial
   private readonly blendQuad: FullScreenQuad
 
-  /** Sun position in screen UV space [0,1] — update each frame before render. */
+  // Update each frame before render.
   readonly sunScreenPos: THREE.Vector2
 
   constructor() {
@@ -130,13 +122,11 @@ export class GodRaysPass extends Pass {
     this.needsSwap = false
   }
 
-  /** Update the effective sample count at runtime (clamped to MAX_SAMPLES). */
   setNumSamples(n: number): void {
     // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
     this.sunVisibleMaterial.uniforms['uNumSamples']!.value = Math.min(n, MAX_SAMPLES)
   }
 
-  /** Swap the fsQuad material between the full radial-blur and the transparent-black variant. */
   setSunVisible(visible: boolean): void {
     this.fsQuad.material = visible ? this.sunVisibleMaterial : this.sunHiddenMaterial
   }

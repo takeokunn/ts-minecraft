@@ -1,27 +1,13 @@
 import { Effect, Ref, Schema } from 'effect'
 import { DeltaTimeSecs } from '@ts-minecraft/kernel'
 
-/**
- * State for the time system
- */
 const TimeStateSchema = Schema.Struct({
   ticks: Schema.Number.pipe(Schema.int(), Schema.nonNegative()),
   dayLengthTicks: Schema.Number.pipe(Schema.int(), Schema.positive()),
 })
 type TimeState = Schema.Schema.Type<typeof TimeStateSchema>
 
-/**
- * TimeService manages the in-game day/night cycle.
- *
- * Time is measured in ticks. At 60fps, one tick = one frame ≈ 16ms.
- * Default day length: 24000 ticks ≈ 400 seconds.
- *
- * Time of day mapping:
- *   0.0 = midnight  (dark)
- *   0.25 = dawn     (sunrise)
- *   0.5 = noon      (bright)
- *   0.75 = dusk     (sunset)
- */
+// Time-of-day: 0.0=midnight, 0.25=dawn, 0.5=noon, 0.75=dusk. One tick = one frame ≈ 16ms at 60fps.
 export class TimeService extends Effect.Service<TimeService>()(
   '@minecraft/application/TimeService',
   {

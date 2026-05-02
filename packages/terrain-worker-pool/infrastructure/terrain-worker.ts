@@ -1,26 +1,24 @@
-/**
- * Terrain worker entrypoint.
- *
- * Listens for TerrainWorkerRequest, runs the chunk-gen pipeline via
- * ManagedRuntime.runPromise, and posts back a TerrainWorkerSuccess / Failure
- * response with explicit transfer list (the three Uint8Array buffers cross
- * the boundary zero-copy).
- *
- * Per-worker Runtime cache: building the terrain Layer (BiomeService.Default +
- * ChunkService.Default + pure NoiseServicePort) is non-trivial — it allocates
- * service instances and wires their dependency graph. Across many chunks with
- * the same seed (the common case during world streaming) we'd repeat that work
- * for every message. The cache below memoises the Runtime by seed, rebuilding
- * only when the world seed changes.
- *
- * runPromise (not runSync): ManagedRuntime initialises its layers in a
- * background fiber. Calling runSync before that fiber completes throws
- * "Fiber #1 cannot be resolved synchronously". runPromise awaits the runtime
- * to be ready, so it works correctly on the first request and subsequent ones.
- *
- * All errors are caught and posted as `kind: 'failure'` — the worker never
- * throws, so the main thread is the single owner of error handling policy.
- */
+// Terrain worker entrypoint.
+//
+// Listens for TerrainWorkerRequest, runs the chunk-gen pipeline via
+// ManagedRuntime.runPromise, and posts back a TerrainWorkerSuccess / Failure
+// response with explicit transfer list (the three Uint8Array buffers cross
+// the boundary zero-copy).
+//
+// Per-worker Runtime cache: building the terrain Layer (BiomeService.Default +
+// ChunkService.Default + pure NoiseServicePort) is non-trivial — it allocates
+// service instances and wires their dependency graph. Across many chunks with
+// the same seed (the common case during world streaming) we'd repeat that work
+// for every message. The cache below memoises the Runtime by seed, rebuilding
+// only when the world seed changes.
+//
+// runPromise (not runSync): ManagedRuntime initialises its layers in a
+// background fiber. Calling runSync before that fiber completes throws
+// "Fiber #1 cannot be resolved synchronously". runPromise awaits the runtime
+// to be ready, so it works correctly on the first request and subsequent ones.
+//
+// All errors are caught and posted as kind: 'failure' — the worker never
+// throws, so the main thread is the single owner of error handling policy.
 import { Effect, ManagedRuntime } from 'effect'
 import {
   buildTerrainLayer,

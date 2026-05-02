@@ -10,12 +10,7 @@ import { BlockTypeSchema } from '@ts-minecraft/domain'
 import { RecipeIdSchema } from '@ts-minecraft/kernel'
 import { GameModeSchema } from '@ts-minecraft/game-mode'
 
-/**
- * Latest WorldMetadata save version. Bumped on schema-shape changes that the
- * decoder cannot reconstruct from defaults alone (e.g. semantic field rename,
- * value transforms). Adding optional fields with defaults does NOT require a
- * version bump — the optionalWith default fills in legacy data automatically.
- */
+// Bump when schema changes require migration (not just new optional fields with defaults).
 export const CURRENT_WORLD_SAVE_VERSION = 1
 
 const FurnaceItemStackSchema = Schema.Struct({
@@ -34,15 +29,6 @@ const FurnaceStateSchema = Schema.Struct({
 
 export type { ChunkCoord }
 
-/**
- * Schema for world metadata persisted to IndexedDB.
- *
- * Note: uses Schema.DateFromSelf (JS Date instances), not Schema.Date (ISO string).
- *
- * Backward compatibility: `gameMode` and `saveVersion` are `Schema.optionalWith` —
- * legacy saves missing these fields decode cleanly with defaults applied
- * (`gameMode='survival'`, `saveVersion=1`). New writes always include both.
- */
 export const WorldMetadataSchema = Schema.Struct({
   seed: Schema.Number.pipe(Schema.int(), Schema.nonNegative()),
   createdAt: Schema.DateFromSelf,
@@ -61,18 +47,15 @@ export const WorldMetadataSchema = Schema.Struct({
     }),
   ),
   furnaceStates: Schema.optional(Schema.Array(FurnaceStateSchema)),
-  /** Active game mode for the world. Pre-Phase-1 saves default to 'survival'. */
+  // pre-Phase-1 saves default to 'survival'
   gameMode: Schema.optionalWith(GameModeSchema, { default: () => 'survival' as const }),
-  /** Save schema version for future migrations. Pre-Phase-1 saves default to 1. */
+  // pre-Phase-1 saves default to 1
   saveVersion: Schema.optionalWith(Schema.Number.pipe(Schema.int(), Schema.positive()), {
     default: () => CURRENT_WORLD_SAVE_VERSION,
   }),
 })
 export type WorldMetadata = Schema.Schema.Type<typeof WorldMetadataSchema>
 
-/**
- * IndexedDB schema definition
- */
 type MinecraftWorldsDB = DBSchema & {
   chunks: {
     key: string
@@ -84,31 +67,15 @@ type MinecraftWorldsDB = DBSchema & {
   }
 }
 
-/**
- * Database configuration
- */
 const DB_NAME = 'minecraft-worlds'
 const DB_VERSION = 2  // v2: added SNOW/GRAVEL/COBBLESTONE block types; existing chunk data cleared on upgrade
 const STORE_CHUNKS = 'chunks'
 const STORE_METADATA = 'metadata'
 
-/**
- * `localStorage` key recording the last WORLD_SCHEMA_VERSION successfully
- * associated with the `minecraft-worlds` IndexedDB database.
- *
- * The key is namespaced with the IndexedDB database name (`minecraft-worlds`)
- * so it cannot collide with unrelated apps sharing the same origin — only code
- * that targets the same DB reads/writes this key. The `.schema-version`
- * suffix further distinguishes it from any future gameplay keys that might
- * reuse the `minecraft-worlds` prefix.
- */
+// Namespaced to DB name to avoid collisions; `.schema-version` suffix avoids future gameplay key conflicts.
 const SCHEMA_VERSION_LS_KEY = `${DB_NAME}.schema-version`
 
-/**
- * Safe `localStorage` accessor. Returns `Option.none()` when localStorage is
- * unavailable (e.g. SSR, sandboxed tests, or when the access throws due to
- * strict privacy settings).
- */
+// Returns None when localStorage is unavailable (SSR, sandboxed tests, strict privacy).
 const safeLocalStorage: Effect.Effect<Option.Option<Storage>> = Effect.sync(() => {
   try {
     return typeof localStorage !== 'undefined' ? Option.some(localStorage) : Option.none()
@@ -117,16 +84,7 @@ const safeLocalStorage: Effect.Effect<Option.Option<Storage>> = Effect.sync(() =
   }
 })
 
-/**
- * Version-gate subroutine. Checks the stored schema version under
- * `SCHEMA_VERSION_LS_KEY` and, if it differs from `WORLD_SCHEMA_VERSION`,
- * deletes the IndexedDB `minecraft-worlds` database so the fresh open/upgrade
- * path runs from scratch. Failures of `deleteDatabase` are logged (not
- * propagated as defects) so startup can still proceed — a subsequent open
- * will either succeed or surface its own error through the normal open path.
- *
- * When `localStorage` is unavailable, the gate is skipped with a warning.
- */
+// On schema mismatch, wipes the DB so the fresh open/upgrade path runs from scratch.
 const runSchemaVersionGate: Effect.Effect<void> = Effect.gen(function* () {
   const storageOpt = yield* safeLocalStorage
   yield* Option.match(storageOpt, {
@@ -165,22 +123,13 @@ const runSchemaVersionGate: Effect.Effect<void> = Effect.gen(function* () {
   })
 })
 
-/**
- * Branded composite key for IndexedDB chunk storage ("worldId:x:z" format).
- * Prevents accidental use of arbitrary strings as storage keys.
- */
+// "worldId:x:z" format; branded to prevent accidental plain-string usage.
 export type ChunkStorageKey = string & Brand.Brand<'ChunkStorageKey'>
 export const ChunkStorageKey = Brand.nominal<ChunkStorageKey>()
 
-/**
- * Helper to create chunk key from worldId and chunk coordinates
- */
 const chunkKey = (worldId: WorldId, chunkCoord: ChunkCoord): ChunkStorageKey =>
   ChunkStorageKey(`${worldId}:${chunkCoord.x}:${chunkCoord.z}`)
 
-/**
- * Helper to check if error is quota exceeded
- */
 const isQuotaExceeded = (error: unknown): boolean => {
   if (error instanceof DOMException) {
     return error.name === 'QuotaExceededError'
@@ -188,9 +137,6 @@ const isQuotaExceeded = (error: unknown): boolean => {
   return false
 }
 
-/**
- * Helper to wrap IndexedDB operations in Effect
- */
 const tryCatchStorage = <A>(operation: string, effect: Effect.Effect<A, unknown>): Effect.Effect<A, StorageError> =>
   effect.pipe(
     Effect.mapError((cause) => {
@@ -201,10 +147,7 @@ const tryCatchStorage = <A>(operation: string, effect: Effect.Effect<A, unknown>
     })
   )
 
-/**
- * Helper to wrap IndexedDB operations with exponential backoff retry.
- * Retries up to 3 times with exponential delay, but skips retry for QuotaExceededError.
- */
+// Retries up to 3× with exponential backoff; skips retry for QuotaExceededError.
 const tryCatchStorageWithRetry = <A>(operation: string, effect: Effect.Effect<A, unknown>): Effect.Effect<A, StorageError> =>
   tryCatchStorage(operation, effect).pipe(
     Effect.retry({
@@ -214,12 +157,6 @@ const tryCatchStorageWithRetry = <A>(operation: string, effect: Effect.Effect<A,
     })
   )
 
-/**
- * StorageService — IndexedDB persistence for chunk and world metadata
- *
- * Provides low-level chunk and world metadata persistence using IndexedDB.
- * This is an infrastructure layer service that abstracts browser storage.
- */
 export class StorageService extends Effect.Service<StorageService>()(
   '@minecraft/infrastructure/storage/StorageService',
   {
@@ -332,14 +269,7 @@ export class StorageService extends Effect.Service<StorageService>()(
           })
         })
 
-      /**
-       * Enumerate every world metadata record. Decoding failures (corrupt rows)
-       * do NOT abort the listing — they are collected into `corrupt` so the
-       * main-menu UI can offer a "Corrupt: delete?" recovery row.
-       *
-       * Returned arrays are unsorted. The caller (main menu) is responsible for
-       * sorting `valid` by `lastPlayed desc` for display.
-       */
+      // Decoding failures do not abort — corrupt rows are collected for UI recovery display, not propagated.
       const listWorldMetadata: Effect.Effect<{
         readonly valid: ReadonlyArray<{ readonly worldId: WorldId; readonly metadata: WorldMetadata }>
         readonly corrupt: ReadonlyArray<WorldId>

@@ -1,17 +1,6 @@
-/**
- * Frame handler factory — composition-root orchestrator for the game loop.
- *
- * This file intentionally imports from both application/ and presentation/ layers
- * because it is the per-frame coordinator: it sequences all subsystems (physics,
- * rendering, input, UI) in a single Effect.gen for each frame.
- *
- * Architectural note: this file lives at src/ root alongside main.ts and layers.ts.
- * Cross-layer imports here are the same kind of orchestration — acceptable in a composition root.
- *
- * Per-stage decomposition (FR-017): each high-level frame phase lives in its own
- * file under `src/frame/stages/`. This module composes them in order while owning
- * the long-lived refs and per-frame state derivation.
- */
+// Composition-root orchestrator for the game loop.
+// Cross-layer imports are intentional — this file sequences all subsystems per frame.
+// Per-stage decomposition (FR-017): each phase lives under frame/stages/; this module owns long-lived refs.
 import { Effect, HashMap, MutableRef, Option, Ref } from 'effect'
 import * as THREE from 'three'
 import { DEFAULT_PLAYER_ID } from '@ts-minecraft/kernel'
@@ -343,23 +332,9 @@ const createFrameLoopHandlersInternal = (
     return { frameHandler, maintenanceHandler }
   })
 
-/**
- * Creates coordinated frame + maintenance handlers that share chunk-sync state.
- */
+// Coordinated frame + maintenance handlers that share chunk-sync state.
 export const createFrameHandlers = (
   deps: FrameHandlerDeps,
   services: FrameHandlerServices,
 ): Effect.Effect<FrameLoopHandlers> => createFrameLoopHandlersInternal(deps, services)
 
-/**
- * Backward-compatible single frame handler factory used by tests.
- */
-export const createFrameHandler = (
-  deps: FrameHandlerDeps,
-  services: FrameHandlerServices,
-): Effect.Effect<(deltaTime: DeltaTimeSecs) => Effect.Effect<void, never>> =>
-  createFrameLoopHandlersInternal(deps, services).pipe(
-    Effect.map(({ frameHandler, maintenanceHandler }) => (deltaTime: DeltaTimeSecs) =>
-      maintenanceHandler().pipe(Effect.andThen(frameHandler(deltaTime))),
-    ),
-  )

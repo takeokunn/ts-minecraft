@@ -1,15 +1,12 @@
 import { CHUNK_HEIGHT, CHUNK_SIZE } from '@ts-minecraft/domain'
 
-/** Smoothstep between edge0 and edge1 — classic Perlin smoothstep */
+// t*t*(3-2*t) smoothstep — classic Perlin smooth curve
 export const smoothstep = (edge0: number, edge1: number, x: number): number => {
   const t = Math.max(0, Math.min(1, (x - edge0) / (edge1 - edge0)))
   return t * t * (3 - 2 * t)
 }
 
-/**
- * Mulberry32 PRNG step — deterministic, cheap, good enough for ore placement.
- * Input/output state is a 32-bit unsigned integer. Returns [nextState, uniform01].
- */
+// Mulberry32 PRNG step — cheap 32-bit PRNG; returns {nextState, value∈[0,1)}.
 export const mulberry32 = (state: number): { state: number; value: number } => {
   let s = (state + 0x6d2b79f5) | 0
   let t = s
@@ -19,10 +16,7 @@ export const mulberry32 = (state: number): { state: number; value: number } => {
   return { state: s, value }
 }
 
-/**
- * Seed a Mulberry32 RNG from chunk world coords + a per-ore salt.
- * Produces a 32-bit starting state; identical inputs → identical sequences.
- */
+// Seed Mulberry32 from chunk world coords + per-ore salt; identical inputs → identical sequences.
 export const seedFromChunk = (wx: number, wz: number, saltX: number, saltZ: number): number => {
   // Combine with Math.imul for uniform bit mixing; |0 keeps everything 32-bit.
   let h = Math.imul(wx | 0, 0x27d4eb2d) ^ Math.imul(wz | 0, 0x85ebca6b)
@@ -33,10 +27,7 @@ export const seedFromChunk = (wx: number, wz: number, saltX: number, saltZ: numb
   return (h ^ (h >>> 16)) >>> 0
 }
 
-/**
- * Deterministic fractional hash of 3 integer coordinates.
- * Returns a value in [0, 1). Used for bedrock probability at (wx, y, wz).
- */
+// Sine-based fractional hash of 3 coords → [0,1). Used for bedrock probability.
 export const hash3 = (wx: number, y: number, wz: number): number => {
   const v = Math.sin(wx * 127.1 + y * 311.7 + wz * 74.7) * 43758.5453
   return v - Math.floor(v)

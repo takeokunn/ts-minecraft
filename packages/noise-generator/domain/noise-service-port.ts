@@ -1,10 +1,8 @@
 import { Array as Arr, Effect } from 'effect'
 
-/**
- * Application-layer port for noise generation.
- * Decouples application services from the infrastructure Perlin-noise implementation.
- * Wired to infrastructure/noise/NoiseService via NoisePortLayer in src/layers.ts.
- */
+// Application-layer port for noise generation.
+// Decouples application services from the infrastructure Perlin-noise implementation.
+// Wired to infrastructure/noise/NoiseService via NoisePortLayer in src/layers.ts.
 export class NoiseServicePort extends Effect.Service<NoiseServicePort>()(
   '@minecraft/application/noise/NoiseServicePort',
   {

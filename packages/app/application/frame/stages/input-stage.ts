@@ -1,13 +1,10 @@
-/**
- * Stage 5: inputStage — mouse-look (when unpaused) + overlay/inventory/trade input.
- *
- * Decomposed into 4 helpers (P1-7) so the orchestrator stays at CC≈6:
- *   - handleEscape       — Esc-driven modal closing / pause-menu open
- *   - handleInventoryKey — E key inventory toggle
- *   - handleTradeKeys    — T key trade open/close + nav keys (also routes nav
- *                          keys to inventory crafting when inventory is open)
- *   - syncDayLength      — write-through of settings.dayLengthSeconds
- */
+// Stage 5: inputStage — mouse-look (when unpaused) + overlay/inventory/trade input.
+// Decomposed into 4 helpers so the orchestrator stays at CC≈6:
+//   - handleEscape       — Esc-driven modal closing / pause-menu open
+//   - handleInventoryKey — E key inventory toggle
+//   - handleTradeKeys    — T key trade open/close + nav keys (also routes nav
+//                          keys to inventory crafting when inventory is open)
+//   - syncDayLength      — write-through of settings.dayLengthSeconds
 import { Effect, Option, Ref } from 'effect'
 import { logErrors } from '@ts-minecraft/app/frame/error-logging'
 import type { FrameHandlerDeps, FrameHandlerServices } from '@ts-minecraft/app/frame/types'

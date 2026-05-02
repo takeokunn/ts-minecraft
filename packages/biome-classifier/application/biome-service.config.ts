@@ -3,36 +3,36 @@ import type { BiomeType, BiomeProperties } from './biome-service'
 // ─── Noise sampling ──────────────────────────────────────────────────────────
 
 export const BIOME_SCALE = 0.005
-/** Offset added to X/Z before sampling humidity — separates it from temperature noise domain. */
+// Offset added to X/Z before sampling humidity — separates it from temperature noise domain.
 export const HUMIDITY_WORLD_OFFSET = 10_000
 
 // ─── Classification thresholds ──────────────────────────────────────────────
 
-/** temperature < TEMP_COLD → "cold" zone */
+// temperature < TEMP_COLD → "cold" zone
 export const TEMP_COLD = 0.3
-/** temperature > TEMP_HOT → "hot" zone */
+// temperature > TEMP_HOT → "hot" zone
 export const TEMP_HOT = 0.7
 
-/** humidity < HUM_DRY → "dry" zone */
+// humidity < HUM_DRY → "dry" zone
 export const HUM_DRY = 0.3
-/** humidity > HUM_WET → "wet" zone */
+// humidity > HUM_WET → "wet" zone
 export const HUM_WET = 0.6
 
-/** humidity < HUM_VERY_DRY → desert/snow override regardless of temperature */
+// humidity < HUM_VERY_DRY → desert/snow override regardless of temperature
 export const HUM_VERY_DRY = 0.15
-/** humidity > HUM_VERY_WET → ocean/swamp override regardless of temperature */
+// humidity > HUM_VERY_WET → ocean/swamp override regardless of temperature
 export const HUM_VERY_WET = 0.85
 
-/** humidity > HUM_JUNGLE && temperature > TEMP_JUNGLE → jungle override in temperate band */
+// humidity > HUM_JUNGLE && temperature > TEMP_JUNGLE → jungle override in temperate band
 export const HUM_JUNGLE = 0.72
 export const TEMP_JUNGLE = 0.78
 
-/** humidity > HUM_TAIGA (within cold band) → taiga instead of mountains */
+// humidity > HUM_TAIGA (within cold band) → taiga instead of mountains
 export const HUM_TAIGA = 0.55
-/** humidity > HUM_MOUNTAINS (within cold band) → mountains instead of snow */
+// humidity > HUM_MOUNTAINS (within cold band) → mountains instead of snow
 export const HUM_MOUNTAINS = 0.4
 
-/** humidity > HUM_SAVANNA_MIN (within hot band) → savanna instead of desert */
+// humidity > HUM_SAVANNA_MIN (within hot band) → savanna instead of desert
 export const HUM_SAVANNA_MIN = 0.22
 
 export const RIVER_NOISE_SCALE = 0.0035

@@ -18,6 +18,10 @@ import {
   PhysicsBodyIdSchema,
   ChunkId,
   ChunkIdSchema,
+  RecipeId,
+  RecipeIdSchema,
+  MetersPerSec,
+  MetersPerSecSchema,
 } from './kernel'
 
 describe('SlotIndex (property-based)', () => {
@@ -107,6 +111,24 @@ describe('String branded types (property-based)', () => {
   it.prop('ChunkId.make() is a total function for any string', { s: Arbitrary.make(ChunkIdSchema) }, ({ s }) => {
     expect(() => ChunkId.make(s)).not.toThrow()
     const result = Schema.decodeUnknownEither(ChunkIdSchema)(ChunkId.make(s))
+    expect(Either.isRight(result)).toBe(true)
+  })
+})
+
+describe('MetersPerSec (property-based)', () => {
+  it.prop('make() accepts any finite number', { n: Arbitrary.make(MetersPerSecSchema) }, ({ n }) => {
+    expect(() => MetersPerSec.make(n)).not.toThrow()
+  })
+
+  it.prop('toNumber(make(n)) === n for finite values', { n: Arbitrary.make(MetersPerSecSchema) }, ({ n }) => {
+    expect(MetersPerSec.toNumber(MetersPerSec.make(n))).toBe(n)
+  })
+})
+
+describe('RecipeId (property-based)', () => {
+  it.prop('make() is total for any string', { s: Arbitrary.make(RecipeIdSchema) }, ({ s }) => {
+    expect(() => RecipeId.make(s)).not.toThrow()
+    const result = Schema.decodeUnknownEither(RecipeIdSchema)(RecipeId.make(s))
     expect(Either.isRight(result)).toBe(true)
   })
 })

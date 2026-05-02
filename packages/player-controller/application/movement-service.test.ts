@@ -13,9 +13,6 @@ import {
   DEFAULT_JUMP_VELOCITY,
 } from '@ts-minecraft/player-controller'
 
-/**
- * Test implementation of InputService with controllable key state
- */
 const createTestInputService = (
   initialState: Partial<MovementInput> = {}
 ): InputServiceType & { setKeyPressed: (key: string, pressed: boolean) => void } => {
@@ -57,9 +54,6 @@ const createTestInputService = (
   } as unknown as InputServiceType & { setKeyPressed: (key: string, pressed: boolean) => void }
 }
 
-/**
- * Helper to create test layers with mock PlayerInputService
- */
 const createTestLayers = (inputService: InputServiceType) =>
   Layer.succeed(PlayerInputService, inputService as unknown as PlayerInputService)
 

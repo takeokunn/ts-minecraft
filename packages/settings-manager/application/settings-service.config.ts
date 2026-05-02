@@ -1,18 +1,14 @@
-/**
- * Per-quality preset values for resolved graphics settings.
- *
- * Tuning philosophy: typical desktop hardware should hit 60+ FPS at "medium",
- * which is the recommended preset for new users. Bloom and SMAA are full-res
- * post-process passes that compound with shadows; on integrated GPUs they
- * dominate frame time, so medium keeps shadows + sky (the day/night feel)
- * but skips bloom/smaa to free ~3-6 ms of GPU time. High clamps DPR to 0.85
- * because high-DPI displays at DPR=2 burn fillrate without proportional gain.
- *
- * - low:    no post-processing, no sky, no shadows (maximum performance)
- * - medium: + shadows + sky (balanced; recommended default)
- * - high:   + ssao + bloom + smaa (DPR clamped to 0.85)
- * - ultra:  + god rays + dof (maximum quality)
- */
+// Tuning philosophy: typical desktop hardware should hit 60+ FPS at "medium",
+// which is the recommended preset for new users. Bloom and SMAA are full-res
+// post-process passes that compound with shadows; on integrated GPUs they
+// dominate frame time, so medium keeps shadows + sky (the day/night feel)
+// but skips bloom/smaa to free ~3-6 ms of GPU time. High clamps DPR to 0.85
+// because high-DPI displays at DPR=2 burn fillrate without proportional gain.
+//
+// - low:    no post-processing, no sky, no shadows (maximum performance)
+// - medium: + shadows + sky (balanced; recommended default)
+// - high:   + ssao + bloom + smaa (DPR clamped to 0.85)
+// - ultra:  + god rays + dof (maximum quality)
 export const GRAPHICS_PRESETS = {
   low: {
     shadowsEnabled: false, ssaoEnabled: false, bloomEnabled: false,

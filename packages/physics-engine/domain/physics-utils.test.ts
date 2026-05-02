@@ -17,11 +17,6 @@ import {
 } from '@ts-minecraft/physics-engine'
 import { DeltaTimeSecs } from '@ts-minecraft/kernel'
 
-/**
- * Physics utilities test suite with property-based testing
- * Uses randomized inputs to verify mathematical properties
- * Each property test runs 100 iterations with random values
- */
 describe('application/physics/physics-utils', () => {
   describe('Constants', () => {
     it('should have DEFAULT_GRAVITY set to 9.82', () => {

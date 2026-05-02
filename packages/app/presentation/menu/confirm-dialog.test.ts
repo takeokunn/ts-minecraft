@@ -4,12 +4,10 @@ import { Effect, Fiber, Layer, Option } from 'effect'
 import { ConfirmDialogLive, ConfirmDialogService } from '@ts-minecraft/app/presentation/menu/confirm-dialog'
 import { DomOperationsService } from '@ts-minecraft/app/presentation/hud/crosshair'
 
-/**
- * vitest.config.ts uses `environment: 'node'`, so `document` is undefined by
- * default. The dialog returns `false` (cancel) without touching the DOM in
- * that case. Tests that exercise the DOM path stub `document` via
- * `Reflect.set(globalThis, 'document', ...)` so handlers fire deterministically.
- */
+// vitest.config.ts uses `environment: 'node'`, so `document` is undefined by
+// default. The dialog returns `false` (cancel) without touching the DOM in
+// that case. Tests that exercise the DOM path stub `document` via
+// `Reflect.set(globalThis, 'document', ...)` so handlers fire deterministically.
 
 type StubElement = HTMLElement & {
   __listeners: Map<string, EventListener[]>
@@ -122,13 +120,11 @@ describe('presentation/menu/confirm-dialog', () => {
       }
     }
 
-    /**
-     * Standard `it` + `Effect.runPromise` is used here (not `itEffect.effect`):
-     * the dialog's internal `Effect.scoped` + `Deferred.await` chain, when run
-     * inside `@effect/vitest`'s scope, blocks the test's scope-finalization
-     * even with `Fiber.interrupt`. Plain `Effect.runPromise` lets us fork,
-     * assert on the synchronous construction phase, and interrupt cleanly.
-     */
+    // Standard `it` + `Effect.runPromise` is used here (not `itEffect.effect`):
+    // the dialog's internal `Effect.scoped` + `Deferred.await` chain, when run
+    // inside `@effect/vitest`'s scope, blocks the test's scope-finalization
+    // even with `Fiber.interrupt`. Plain `Effect.runPromise` lets us fork,
+    // assert on the synchronous construction phase, and interrupt cleanly.
     const runDialogConstruction = (
       message: string,
       confirmLabel: string,

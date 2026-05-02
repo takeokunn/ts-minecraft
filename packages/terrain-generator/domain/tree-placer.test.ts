@@ -14,10 +14,8 @@ import {
 // Shared helpers
 // ---------------------------------------------------------------------------
 
-/** Return a zeroed chunk block array (65536 bytes) */
 const makeBlocks = (): Uint8Array => new Uint8Array(CHUNK_SIZE * CHUNK_SIZE * CHUNK_HEIGHT)
 
-/** Read a block at local chunk coords */
 const getBlock = (blocks: Uint8Array, lx: number, y: number, lz: number): number =>
   blocks[y + lz * CHUNK_HEIGHT + lx * CHUNK_HEIGHT * CHUNK_SIZE]!
 

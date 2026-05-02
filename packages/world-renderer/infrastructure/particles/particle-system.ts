@@ -3,29 +3,10 @@ import * as THREE from 'three'
 import { ChunkMeshService } from '../meshing/chunk-mesh'
 import { getTileIndex, getTileUVs, type FaceDir } from '../textures/block-texture-map'
 
-/**
- * Particle system (FR-1.6) — pre-allocated InstancedMesh pool for block-break visuals.
- *
- * Performance contract:
- *  - p99 frame impact ≤ 1ms even at 100 simultaneous particles.
- *  - ZERO per-particle GC allocation in `update()` and `spawnBurst()`.
- *  - Pool size is fixed at MAX_PARTICLES = 512; oldest slot is recycled when full.
- *
- * Implementation notes:
- *  - Uses ONE THREE.InstancedMesh with PlaneGeometry(0.1, 0.1), atlas-textured,
- *    additively reused. Each particle is a billboard quad with per-instance UV
- *    offset (encoded into the geometry via duplicate `uvOffset` instanced attribute).
- *  - State arrays are pre-allocated typed arrays:
- *      position : Float32Array(N*3)
- *      velocity : Float32Array(N*3)
- *      lifetime : Float32Array(N)        — 0 = inactive (slot hidden via zero-scale)
- *      uvOffset : Float32Array(N*2)
- *  - The 4×4 instance matrix is reused per slot via a single THREE.Matrix4 scratch.
- *  - Inactive slots use a pre-built ZERO_MATRIX (identity scaled to 0) so they
- *    never appear, without paying the cost of count-management.
- *  - Per-particle gravity integration uses a dedicated cheap-Euler integrator
- *    (NOT PhysicsService — that engine is for AABB/world-collision physics).
- */
+// Particle system (FR-1.6) — pre-allocated InstancedMesh pool for block-break visuals.
+// p99 frame impact ≤ 1ms; ZERO per-particle GC allocation in update()/spawnBurst(); pool size fixed at 512.
+// State: Float32Array pre-allocated for positions/velocities/lifetimes/uvOffsets.
+// Inactive slots use ZERO_MATRIX (scale=0); Euler integrator, NOT PhysicsService (wrong scope for visual flecks).
 
 export const MAX_PARTICLES = 512
 export const PARTICLE_LIFETIME_SECS = 0.5
@@ -45,12 +26,7 @@ const TILE_FRACTION = 1 / 16 // ATLAS_COLS=16; one tile spans 1/16 of UV space
 // Allocated once at module load — never recreated.
 const ZERO_MATRIX = new THREE.Matrix4().makeScale(0, 0, 0)
 
-/**
- * Build the particle billboard geometry. Each instance shares this geometry;
- * per-instance position/scale comes from the InstancedMesh's instanceMatrix,
- * and per-instance UV comes from the `uvOffset` instanced buffer attribute
- * sampled in a custom onBeforeCompile shader patch.
- */
+// Per-instance UV comes from `uvOffset` instanced buffer attribute, sampled via onBeforeCompile shader patch.
 const buildParticleGeometry = (atlasTileFraction: number): THREE.PlaneGeometry => {
   const geom = new THREE.PlaneGeometry(PARTICLE_BASE_SIZE, PARTICLE_BASE_SIZE)
   // Replace the default UVs (which span the full atlas) with a sub-tile patch
@@ -68,12 +44,7 @@ const buildParticleGeometry = (atlasTileFraction: number): THREE.PlaneGeometry =
   return geom
 }
 
-/**
- * UV resolution path for a broken block:
- *  - Phase 1: use the `top` face tile (most visually representative).
- *  - For unknown blockId, defaults to dirt (tile index 0).
- * Returns the (u0, v0) origin for the per-instance uvOffset attribute.
- */
+// Uses top face tile (most visually representative). Unknown blockId → dirt (tile 0).
 export const getParticleUvOffset = (
   blockId: number,
   faceDir: FaceDir = 'top',
@@ -84,24 +55,10 @@ export const getParticleUvOffset = (
 }
 
 export type ParticleSystemServiceAPI = {
-  /**
-   * Attach the InstancedMesh to a scene. Returns a scoped effect: the finalizer
-   * removes the mesh from the scene at session teardown.
-   * Must be called exactly once per session, from inside an `Effect.scoped` parent.
-   */
+  // Must be called exactly once per session, inside an Effect.scoped parent. Finalizer removes mesh from scene.
   readonly attach: (scene: THREE.Scene) => Effect.Effect<void, never, Scope.Scope>
 
-  /**
-   * Spawn a burst of particles from a world-space origin. Synchronous — no
-   * allocation in the hot path.
-   *
-   * @param x      world x of burst origin (typically blockX + 0.5)
-   * @param y      world y of burst origin (typically blockY + 0.5)
-   * @param z      world z of burst origin (typically blockZ + 0.5)
-   * @param uvU    atlas UV origin u (use `getParticleUvOffset(blockId).u`)
-   * @param uvV    atlas UV origin v (use `getParticleUvOffset(blockId).v`)
-   * @param count  number of particles to spawn (default 6, clamped to [1, MAX_PARTICLES])
-   */
+  // Synchronous — no allocation in hot path. uvU/uvV from getParticleUvOffset(blockId).
   readonly spawnBurst: (
     x: number,
     y: number,
@@ -111,16 +68,9 @@ export type ParticleSystemServiceAPI = {
     count?: number,
   ) => Effect.Effect<void, never>
 
-  /**
-   * Per-frame integrator. Advances all active particles by `dtSecs`, hides
-   * expired slots, and writes the InstancedMesh's instanceMatrix exactly once.
-   * Cost: O(N) where N = MAX_PARTICLES (cache-friendly typed-array sweep).
-   */
+  // O(N) cache-friendly typed-array sweep. Writes instanceMatrix exactly once per call.
   readonly update: (dtSecs: number) => Effect.Effect<void, never>
 
-  /**
-   * Number of currently active slots — for tests / perf HUD only.
-   */
   readonly getActiveCount: () => Effect.Effect<number, never>
 }
 

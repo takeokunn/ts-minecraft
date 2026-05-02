@@ -1,17 +1,15 @@
-/**
- * Gap R — StorageService chunk key uniqueness property
- *
- * The chunkKey function produces `${worldId}:${x}:${z}`.
- * Property: distinct (worldId, x, z) triples produce distinct keys.
- *
- * This prevents collision bugs such as z=1,x=10 producing the same key as
- * z=10,x=1 (which would happen with a naive `${x}${z}` scheme).
- *
- * Since chunkKey is private, we test it indirectly through the in-memory
- * storage mock that mirrors the StorageService contract: save a chunk at
- * coord (x1,z1) and another at (x2,z2) in the same world — they must not
- * overwrite each other.
- */
+// Gap R — StorageService chunk key uniqueness property
+//
+// The chunkKey function produces `${worldId}:${x}:${z}`.
+// Property: distinct (worldId, x, z) triples produce distinct keys.
+//
+// This prevents collision bugs such as z=1,x=10 producing the same key as
+// z=10,x=1 (which would happen with a naive `${x}${z}` scheme).
+//
+// Since chunkKey is private, we test it indirectly through the in-memory
+// storage mock that mirrors the StorageService contract: save a chunk at
+// coord (x1,z1) and another at (x2,z2) in the same world — they must not
+// overwrite each other.
 import { describe, it } from '@effect/vitest'
 import { Effect, MutableHashMap, Option } from 'effect'
 import * as fc from 'effect/FastCheck'

@@ -18,6 +18,7 @@ export default defineConfig({
     exclude: ['**/node_modules/**', '**/dist/**', '**/.git/**', '**/coverage/**'],
     testTimeout: 10000,
     hookTimeout: 10000,
+    teardownTimeout: 5000,
     slowTestThreshold: 300,
     fileParallelism: true,
     sequence: {
@@ -58,14 +59,7 @@ export default defineConfig({
         statements: 80,
       },
     },
-    deps: {
-      optimizer: {
-        ssr: {
-          enabled: true,
-          include: ['effect'],
-        },
-      },
-    },
+    deps: {},
   },
   resolve: {
     alias: {

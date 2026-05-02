@@ -50,21 +50,21 @@ describe('greedyMeshChunk', () => {
       const chunk = makeEmptyChunk(ZERO_COORD)
       const result = greedyMeshChunk(chunk, ZERO_OFFSET)
 
-      expect(result.opaque.positions.length).toBe(0)
-      expect(result.opaque.normals.length).toBe(0)
-      expect(result.opaque.colors.length).toBe(0)
-      expect(result.opaque.indices.length).toBe(0)
-      expect(result.opaque.indices.length).toBe(0)
+      expect(result.toMeshed().opaque.positions.length).toBe(0)
+      expect(result.toMeshed().opaque.normals.length).toBe(0)
+      expect(result.toMeshed().opaque.colors.length).toBe(0)
+      expect(result.toMeshed().opaque.indices.length).toBe(0)
+      expect(result.toMeshed().opaque.indices.length).toBe(0)
     })
 
     it('returns typed arrays with zero length', () => {
       const chunk = makeEmptyChunk(ZERO_COORD)
       const result = greedyMeshChunk(chunk, ZERO_OFFSET)
 
-      expect(result.opaque.positions).toBeInstanceOf(Float32Array)
-      expect(result.opaque.normals).toBeInstanceOf(Int8Array)
-      expect(result.opaque.colors).toBeInstanceOf(Uint8Array)
-      expect(result.opaque.indices).toBeInstanceOf(Uint32Array)
+      expect(result.toMeshed().opaque.positions).toBeInstanceOf(Float32Array)
+      expect(result.toMeshed().opaque.normals).toBeInstanceOf(Int8Array)
+      expect(result.toMeshed().opaque.colors).toBeInstanceOf(Uint8Array)
+      expect(result.toMeshed().opaque.indices).toBeInstanceOf(Uint32Array)
     })
   })
 
@@ -74,33 +74,33 @@ describe('greedyMeshChunk', () => {
       const result = greedyMeshChunk(chunk, ZERO_OFFSET)
 
       // 6 faces × 4 vertices × 3 floats = 72 position components
-      expect(result.opaque.positions.length).toBe(72)
+      expect(result.toMeshed().opaque.positions.length).toBe(72)
       // 6 faces × 4 normals × 3 floats = 72 normal components
-      expect(result.opaque.normals.length).toBe(72)
+      expect(result.toMeshed().opaque.normals.length).toBe(72)
       // 6 faces × 4 vertices × 3 color channels = 72 color components
-      expect(result.opaque.colors.length).toBe(72)
+      expect(result.toMeshed().opaque.colors.length).toBe(72)
       // 6 faces × 2 triangles × 3 indices = 36 indices
-      expect(result.opaque.indices.length).toBe(36)
+      expect(result.toMeshed().opaque.indices.length).toBe(36)
       // one blockPosition entry per quad
-      expect(result.opaque.indices.length / 6).toBe(6)
+      expect(result.toMeshed().opaque.indices.length / 6).toBe(6)
     })
 
     it('produces 6 faces for a STONE block in the interior of the chunk', () => {
       const chunk = makeChunkWithBlock(ZERO_COORD, 5, 10, 5, 'STONE')
       const result = greedyMeshChunk(chunk, ZERO_OFFSET)
 
-      expect(result.opaque.positions.length).toBe(72)
-      expect(result.opaque.indices.length).toBe(36)
-      expect(result.opaque.indices.length / 6).toBe(6)
+      expect(result.toMeshed().opaque.positions.length).toBe(72)
+      expect(result.toMeshed().opaque.indices.length).toBe(36)
+      expect(result.toMeshed().opaque.indices.length / 6).toBe(6)
     })
 
     it('produces valid index values that reference existing vertices', () => {
       const chunk = makeChunkWithBlock(ZERO_COORD, 0, 0, 0, 'DIRT')
       const result = greedyMeshChunk(chunk, ZERO_OFFSET)
 
-      const vertexCount = result.opaque.positions.length / 3
-      Arr.forEach(Arr.makeBy(result.opaque.indices.length, i => i), i => {
-        const idx = result.opaque.indices[i]
+      const vertexCount = result.toMeshed().opaque.positions.length / 3
+      Arr.forEach(Arr.makeBy(result.toMeshed().opaque.indices.length, i => i), i => {
+        const idx = result.toMeshed().opaque.indices[i]
         expect(idx).toBeDefined()
         expect(idx).toBeGreaterThanOrEqual(0)
         expect(idx!).toBeLessThan(vertexCount)
@@ -121,7 +121,7 @@ describe('greedyMeshChunk', () => {
       // Without merging: 3 blocks × 6 faces = 18 quads (108 pos floats)
       // With merging all 6 directions are merged to 1 quad each = 6 quads total
       // The total should be strictly less than 18 quads
-      const quadCount = result.opaque.indices.length / 6
+      const quadCount = result.toMeshed().opaque.indices.length / 6
       expect(quadCount).toBeLessThan(18)
       // Fully merged: 6 faces total (each direction produces 1 merged quad)
       expect(quadCount).toBe(6)
@@ -137,12 +137,12 @@ describe('greedyMeshChunk', () => {
 
       // Top face normals are (0, 1, 0); count quads with that normal
       let topFaceCount = 0
-      const normalCount = result.opaque.normals.length / 3
+      const normalCount = result.toMeshed().opaque.normals.length / 3
       // Each quad contributes 4 normals; check every 4th normal
       for (let v = 0; v < normalCount; v += 4) {
-        const nx = result.opaque.normals[v * 3]
-        const ny = result.opaque.normals[v * 3 + 1]
-        const nz = result.opaque.normals[v * 3 + 2]
+        const nx = result.toMeshed().opaque.normals[v * 3]
+        const ny = result.toMeshed().opaque.normals[v * 3 + 1]
+        const nz = result.toMeshed().opaque.normals[v * 3 + 2]
         if (nx === 0 && ny === 1 && nz === 0) {
           topFaceCount++
         }
@@ -163,7 +163,7 @@ describe('greedyMeshChunk', () => {
 
       // With full greedy merging a 3×3 solid slab at y=0 should produce
       // 6 quads (top, bottom, +X side, -X side, +Z side, -Z side)
-      expect(result.opaque.indices.length / 6).toBe(6)
+      expect(result.toMeshed().opaque.indices.length / 6).toBe(6)
     })
   })
 
@@ -179,11 +179,11 @@ describe('greedyMeshChunk', () => {
       // are NOT visible (solid neighbors), so we get fewer than 12 but more
       // than 6.  Top faces must remain separate (2 quads with normal 0,1,0).
       let topFaceCount = 0
-      const normalCount = result.opaque.normals.length / 3
+      const normalCount = result.toMeshed().opaque.normals.length / 3
       for (let v = 0; v < normalCount; v += 4) {
-        const nx = result.opaque.normals[v * 3]
-        const ny = result.opaque.normals[v * 3 + 1]
-        const nz = result.opaque.normals[v * 3 + 2]
+        const nx = result.toMeshed().opaque.normals[v * 3]
+        const ny = result.toMeshed().opaque.normals[v * 3 + 1]
+        const nz = result.toMeshed().opaque.normals[v * 3 + 2]
         if (nx === 0 && ny === 1 && nz === 0) {
           topFaceCount++
         }
@@ -204,7 +204,7 @@ describe('greedyMeshChunk', () => {
       const resultDiff = greedyMeshChunk(chunkDiff, ZERO_OFFSET)
 
       // Same type: all merging possible; different type: top/bottom cannot merge
-      expect(resultDiff.opaque.indices.length / 6).toBeGreaterThan(resultSame.opaque.indices.length / 6)
+      expect(resultDiff.toMeshed().opaque.indices.length / 6).toBeGreaterThan(resultSame.toMeshed().opaque.indices.length / 6)
     })
   })
 
@@ -214,7 +214,7 @@ describe('greedyMeshChunk', () => {
       const chunk = makeChunkWithBlock(ZERO_COORD, 0, 0, 0, 'DIRT')
       const result = greedyMeshChunk(chunk, ZERO_OFFSET)
 
-      expect(result.opaque.indices.length / 6).toBe(6)
+      expect(result.toMeshed().opaque.indices.length / 6).toBe(6)
     })
 
     it('two stacked DIRT blocks share an internal face which is hidden', () => {
@@ -230,7 +230,7 @@ describe('greedyMeshChunk', () => {
       // the top +Y face from y=1 and the bottom -Y face from y=0 remain.
       // Internal faces (top of y=0 block, bottom of y=1 block) are hidden.
       // Result: 6 merged quads total (all directions merge to 1 each).
-      expect(result.opaque.indices.length / 6).toBe(6)
+      expect(result.toMeshed().opaque.indices.length / 6).toBe(6)
     })
   })
 
@@ -243,9 +243,9 @@ describe('greedyMeshChunk', () => {
       const result = greedyMeshChunk(chunk, offset)
 
       // All X coordinates in positions must be >= 16 (wx offset applied)
-      expect(result.opaque.positions.length).toBeGreaterThan(0)
-      for (let i = 0; i < result.opaque.positions.length; i += 3) {
-        const x = result.opaque.positions[i]
+      expect(result.toMeshed().opaque.positions.length).toBeGreaterThan(0)
+      for (let i = 0; i < result.toMeshed().opaque.positions.length; i += 3) {
+        const x = result.toMeshed().opaque.positions[i]
         expect(x).toBeGreaterThanOrEqual(16)
       }
     })
@@ -257,9 +257,9 @@ describe('greedyMeshChunk', () => {
       const chunk = makeChunkWithBlock(coord, 0, 0, 0, 'GRASS')
       const result = greedyMeshChunk(chunk, offset)
 
-      expect(result.opaque.positions.length).toBeGreaterThan(0)
-      for (let i = 0; i < result.opaque.positions.length; i += 3) {
-        const z = result.opaque.positions[i + 2]
+      expect(result.toMeshed().opaque.positions.length).toBeGreaterThan(0)
+      for (let i = 0; i < result.toMeshed().opaque.positions.length; i += 3) {
+        const z = result.toMeshed().opaque.positions[i + 2]
         expect(z).toBeGreaterThanOrEqual(32)
       }
     })
@@ -272,11 +272,11 @@ describe('greedyMeshChunk', () => {
 
       const seenNormals = MutableHashSet.empty<string>()
       // Each quad has 4 identical normals; sample one per quad (every 4 vertices)
-      const vertCount = result.opaque.normals.length / 3
+      const vertCount = result.toMeshed().opaque.normals.length / 3
       for (let v = 0; v < vertCount; v += 4) {
-        const nx = result.opaque.normals[v * 3]
-        const ny = result.opaque.normals[v * 3 + 1]
-        const nz = result.opaque.normals[v * 3 + 2]
+        const nx = result.toMeshed().opaque.normals[v * 3]
+        const ny = result.toMeshed().opaque.normals[v * 3 + 1]
+        const nz = result.toMeshed().opaque.normals[v * 3 + 2]
         MutableHashSet.add(seenNormals, `${nx},${ny},${nz}`)
       }
 
@@ -295,9 +295,9 @@ describe('greedyMeshChunk', () => {
       const chunk = makeChunkWithBlock(ZERO_COORD, 0, 0, 0, 'DIRT')
       const result = greedyMeshChunk(chunk, ZERO_OFFSET)
 
-      expect(result.opaque.colors.length).toBe(72)  // 6 faces × 4 verts × 3 channels
+      expect(result.toMeshed().opaque.colors.length).toBe(72)  // 6 faces × 4 verts × 3 channels
       // Colors are grayscale AO factors (1.0 = no darkening) — must be non-zero
-      const hasNonZero = Arr.some(Arr.fromIterable(result.opaque.colors), (v) => v > 0)
+      const hasNonZero = Arr.some(Arr.fromIterable(result.toMeshed().opaque.colors), (v) => v > 0)
       expect(hasNonZero).toBe(true)
     })
 
@@ -308,8 +308,8 @@ describe('greedyMeshChunk', () => {
       const stoneResult = greedyMeshChunk(stoneChunk, ZERO_OFFSET)
 
       // Both have ao=0 (no solid neighbors), so both should be factor=255 (1.0 * 255)
-      expect(dirtResult.opaque.colors[0]).toBe(255)
-      expect(stoneResult.opaque.colors[0]).toBe(255)
+      expect(dirtResult.toMeshed().opaque.colors[0]).toBe(255)
+      expect(stoneResult.toMeshed().opaque.colors[0]).toBe(255)
     })
 
     it('assigns different UVs to DIRT and STONE blocks (atlas tile lookup)', () => {
@@ -319,7 +319,7 @@ describe('greedyMeshChunk', () => {
       const stoneResult = greedyMeshChunk(stoneChunk, ZERO_OFFSET)
 
       // DIRT maps to atlas tile 0, STONE to tile 1 — u0 values must differ
-      expect(dirtResult.opaque.uvs[0]).not.toBe(stoneResult.opaque.uvs[0])
+      expect(dirtResult.toMeshed().opaque.uvs[0]).not.toBe(stoneResult.toMeshed().opaque.uvs[0])
     })
   })
 
@@ -327,20 +327,20 @@ describe('greedyMeshChunk', () => {
     it('returns uvs as Float32Array', () => {
       const chunk = makeEmptyChunk(ZERO_COORD)
       const result = greedyMeshChunk(chunk, ZERO_OFFSET)
-      expect(result.opaque.uvs).toBeInstanceOf(Float32Array)
+      expect(result.toMeshed().opaque.uvs).toBeInstanceOf(Float32Array)
     })
 
     it('uvs length equals 2 UV components per vertex', () => {
       const chunk = makeChunkWithBlock(ZERO_COORD, 0, 0, 0, 'DIRT')
       const result = greedyMeshChunk(chunk, ZERO_OFFSET)
-      const vertexCount = result.opaque.positions.length / 3
-      expect(result.opaque.uvs.length).toBe(vertexCount * 2)
+      const vertexCount = result.toMeshed().opaque.positions.length / 3
+      expect(result.toMeshed().opaque.uvs.length).toBe(vertexCount * 2)
     })
 
     it('all UV values are in [0, 1] range', () => {
       const chunk = makeChunkWithBlock(ZERO_COORD, 0, 0, 0, 'GRASS')
       const result = greedyMeshChunk(chunk, ZERO_OFFSET)
-      Arr.forEach(Arr.fromIterable(result.opaque.uvs), uv => {
+      Arr.forEach(Arr.fromIterable(result.toMeshed().opaque.uvs), uv => {
         expect(uv).toBeGreaterThanOrEqual(0)
         expect(uv).toBeLessThanOrEqual(1)
       })
@@ -352,14 +352,14 @@ describe('greedyMeshChunk', () => {
 
       // Collect first UV per face direction by checking normals
       const uvsByNormal = MutableHashMap.empty<string, number>()
-      const vertCount = result.opaque.normals.length / 3
+      const vertCount = result.toMeshed().opaque.normals.length / 3
       let uvOffset = 0
       for (let v = 0; v < vertCount; v += 4) {
-        const ny = Option.getOrElse(Option.fromNullable(result.opaque.normals[v * 3 + 1]), () => 0)
-        const nz = Option.getOrElse(Option.fromNullable(result.opaque.normals[v * 3 + 2]), () => 0)
+        const ny = Option.getOrElse(Option.fromNullable(result.toMeshed().opaque.normals[v * 3 + 1]), () => 0)
+        const nz = Option.getOrElse(Option.fromNullable(result.toMeshed().opaque.normals[v * 3 + 2]), () => 0)
         const key = ny === 1 ? 'top' : nz !== 0 ? 'side' : 'other'
         if (!MutableHashMap.has(uvsByNormal, key)) {
-          MutableHashMap.set(uvsByNormal, key, Option.getOrElse(Option.fromNullable(result.opaque.uvs[uvOffset]), () => 0))
+          MutableHashMap.set(uvsByNormal, key, Option.getOrElse(Option.fromNullable(result.toMeshed().opaque.uvs[uvOffset]), () => 0))
         }
         uvOffset += 8  // 4 verts × 2 UV components
       }
@@ -375,19 +375,19 @@ describe('greedyMeshChunk', () => {
       const chunk = makeChunkWithBlock(ZERO_COORD, 5, 5, 5, 'WOOD')
       const result = greedyMeshChunk(chunk, ZERO_OFFSET)
 
-      expect(result.opaque.positions.length).toBe(result.opaque.normals.length)
-      expect(result.opaque.positions.length).toBe(result.opaque.colors.length)
+      expect(result.toMeshed().opaque.positions.length).toBe(result.toMeshed().opaque.normals.length)
+      expect(result.toMeshed().opaque.positions.length).toBe(result.toMeshed().opaque.colors.length)
     })
 
     it('index count is consistent with vertex count (2 triangles per quad)', () => {
       const chunk = makeChunkWithBlock(ZERO_COORD, 5, 5, 5, 'WOOD')
       const result = greedyMeshChunk(chunk, ZERO_OFFSET)
 
-      const quadCount = result.opaque.indices.length / 6
-      const vertexCount = result.opaque.positions.length / 3
+      const quadCount = result.toMeshed().opaque.indices.length / 6
+      const vertexCount = result.toMeshed().opaque.positions.length / 3
 
       expect(vertexCount).toBe(quadCount * 4)
-      expect(result.opaque.indices.length).toBe(quadCount * 6)
+      expect(result.toMeshed().opaque.indices.length).toBe(quadCount * 6)
     })
   })
 
@@ -403,7 +403,7 @@ describe('greedyMeshChunk', () => {
       const result = greedyMeshChunk(chunk, ZERO_OFFSET)
 
       // A full 16x16 slab at y=0 should merge into exactly 6 faces
-      expect(result.opaque.indices.length / 6).toBe(6)
+      expect(result.toMeshed().opaque.indices.length / 6).toBe(6)
     })
 
     it('16x16 flat layer produces far fewer quads than 16*16*6', () => {
@@ -418,8 +418,8 @@ describe('greedyMeshChunk', () => {
 
       // Without merging: 256 blocks * 6 faces = 1536 quads
       // With full merging: 6 quads
-      expect(result.opaque.indices.length / 6).toBeLessThan(1536)
-      expect(result.opaque.indices.length / 6).toBe(6)
+      expect(result.toMeshed().opaque.indices.length / 6).toBeLessThan(1536)
+      expect(result.toMeshed().opaque.indices.length / 6).toBe(6)
     })
   })
 
@@ -429,13 +429,13 @@ describe('greedyMeshChunk', () => {
       const result = greedyMeshChunk(chunk, ZERO_OFFSET)
 
       // Should have 6 faces (all exposed at chunk boundary)
-      expect(result.opaque.indices.length / 6).toBe(6)
+      expect(result.toMeshed().opaque.indices.length / 6).toBe(6)
 
       // Check that +X face normal exists
       let hasPositiveXFace = false
-      const normalCount = result.opaque.normals.length / 3
+      const normalCount = result.toMeshed().opaque.normals.length / 3
       for (let v = 0; v < normalCount; v += 4) {
-        const nx = result.opaque.normals[v * 3]
+        const nx = result.toMeshed().opaque.normals[v * 3]
         if (nx === 1) {
           hasPositiveXFace = true
           break
@@ -448,13 +448,13 @@ describe('greedyMeshChunk', () => {
       const chunk = makeChunkWithBlock(ZERO_COORD, 0, 0, 15, 'STONE')
       const result = greedyMeshChunk(chunk, ZERO_OFFSET)
 
-      expect(result.opaque.indices.length / 6).toBe(6)
+      expect(result.toMeshed().opaque.indices.length / 6).toBe(6)
 
       // Check that +Z face normal exists
       let hasPositiveZFace = false
-      const normalCount = result.opaque.normals.length / 3
+      const normalCount = result.toMeshed().opaque.normals.length / 3
       for (let v = 0; v < normalCount; v += 4) {
-        const nz = result.opaque.normals[v * 3 + 2]
+        const nz = result.toMeshed().opaque.normals[v * 3 + 2]
         if (nz === 1) {
           hasPositiveZFace = true
           break
@@ -467,12 +467,12 @@ describe('greedyMeshChunk', () => {
       const chunk = makeChunkWithBlock(ZERO_COORD, 0, CHUNK_HEIGHT - 1, 0, 'DIRT')
       const result = greedyMeshChunk(chunk, ZERO_OFFSET)
 
-      expect(result.opaque.indices.length / 6).toBe(6)
+      expect(result.toMeshed().opaque.indices.length / 6).toBe(6)
 
       let hasTopFace = false
-      const normalCount = result.opaque.normals.length / 3
+      const normalCount = result.toMeshed().opaque.normals.length / 3
       for (let v = 0; v < normalCount; v += 4) {
-        const ny = result.opaque.normals[v * 3 + 1]
+        const ny = result.toMeshed().opaque.normals[v * 3 + 1]
         if (ny === 1) {
           hasTopFace = true
           break
@@ -485,12 +485,12 @@ describe('greedyMeshChunk', () => {
       const chunk = makeChunkWithBlock(ZERO_COORD, 8, 0, 8, 'GRASS')
       const result = greedyMeshChunk(chunk, ZERO_OFFSET)
 
-      expect(result.opaque.indices.length / 6).toBe(6)
+      expect(result.toMeshed().opaque.indices.length / 6).toBe(6)
 
       let hasBottomFace = false
-      const normalCount = result.opaque.normals.length / 3
+      const normalCount = result.toMeshed().opaque.normals.length / 3
       for (let v = 0; v < normalCount; v += 4) {
-        const ny = result.opaque.normals[v * 3 + 1]
+        const ny = result.toMeshed().opaque.normals[v * 3 + 1]
         if (ny === -1) {
           hasBottomFace = true
           break
@@ -508,9 +508,9 @@ describe('greedyMeshChunk', () => {
         const chunk = makeChunkWithBlock(ZERO_COORD, 3, 3, 3, blockType)
         const result = greedyMeshChunk(chunk, ZERO_OFFSET)
 
-        expect(result.opaque.indices.length / 6).toBe(6)
-        expect(result.opaque.positions.length).toBe(72)  // 6 faces * 4 verts * 3 floats
-        expect(result.opaque.indices.length).toBe(36)    // 6 faces * 2 tris * 3 indices
+        expect(result.toMeshed().opaque.indices.length / 6).toBe(6)
+        expect(result.toMeshed().opaque.positions.length).toBe(72)  // 6 faces * 4 verts * 3 floats
+        expect(result.toMeshed().opaque.indices.length).toBe(36)    // 6 faces * 2 tris * 3 indices
       })
     })
   })
@@ -523,9 +523,9 @@ describe('greedyMeshChunk', () => {
       const result = greedyMeshChunk(chunk, ZERO_OFFSET, TRANSPARENT_BLOCK_IDS)
 
       // Water geometry must be non-empty
-      expect(result.water.positions.length).toBeGreaterThan(0)
+      expect(result.toMeshed().water.positions.length).toBeGreaterThan(0)
       // Opaque geometry must be empty (only WATER block present)
-      expect(result.opaque.positions.length).toBe(0)
+      expect(result.toMeshed().opaque.positions.length).toBe(0)
     })
 
     it('a chunk with DIRT and WATER produces separate geometry in result.opaque (DIRT) and result.water (WATER)', () => {
@@ -536,8 +536,8 @@ describe('greedyMeshChunk', () => {
       const result = greedyMeshChunk(chunk, ZERO_OFFSET, TRANSPARENT_BLOCK_IDS)
 
       // Both accumulators should have geometry
-      expect(result.opaque.positions.length).toBeGreaterThan(0)
-      expect(result.water.positions.length).toBeGreaterThan(0)
+      expect(result.toMeshed().opaque.positions.length).toBeGreaterThan(0)
+      expect(result.toMeshed().water.positions.length).toBeGreaterThan(0)
     })
 
     it('a chunk with WATER but no transparentBlockIds passed routes WATER to result.opaque', () => {
@@ -546,8 +546,8 @@ describe('greedyMeshChunk', () => {
       const result = greedyMeshChunk(chunk, ZERO_OFFSET)
 
       // Without transparent routing, WATER goes to opaque
-      expect(result.opaque.positions.length).toBeGreaterThan(0)
-      expect(result.water.positions.length).toBe(0)
+      expect(result.toMeshed().opaque.positions.length).toBeGreaterThan(0)
+      expect(result.toMeshed().water.positions.length).toBe(0)
     })
   })
 
@@ -570,25 +570,25 @@ describe('greedyMeshChunk', () => {
       const result = greedyMeshChunk(chunk, ZERO_OFFSET)
 
       // Verify the mesh was produced (buffer growth succeeded)
-      expect(result.opaque.positions.length).toBeGreaterThan(0)
-      expect(result.opaque.normals.length).toBeGreaterThan(0)
-      expect(result.opaque.indices.length).toBeGreaterThan(0)
+      expect(result.toMeshed().opaque.positions.length).toBeGreaterThan(0)
+      expect(result.toMeshed().opaque.normals.length).toBeGreaterThan(0)
+      expect(result.toMeshed().opaque.indices.length).toBeGreaterThan(0)
 
       // Verify the quad count exceeds initial capacity — proves buffers were grown
-      const quadCount = result.opaque.indices.length / 6
+      const quadCount = result.toMeshed().opaque.indices.length / 6
       expect(quadCount).toBeGreaterThan(8192)
 
       // Verify typed array lengths are internally consistent
-      const vertexCount = result.opaque.positions.length / 3
-      expect(result.opaque.positions.length).toBe(result.opaque.normals.length)
-      expect(result.opaque.positions.length).toBe(result.opaque.colors.length)
-      expect(result.opaque.uvs.length).toBe(vertexCount * 2)
-      expect(result.opaque.indices.length).toBe(quadCount * 6)
+      const vertexCount = result.toMeshed().opaque.positions.length / 3
+      expect(result.toMeshed().opaque.positions.length).toBe(result.toMeshed().opaque.normals.length)
+      expect(result.toMeshed().opaque.positions.length).toBe(result.toMeshed().opaque.colors.length)
+      expect(result.toMeshed().opaque.uvs.length).toBe(vertexCount * 2)
+      expect(result.toMeshed().opaque.indices.length).toBe(quadCount * 6)
       expect(vertexCount).toBe(quadCount * 4)
 
       // Verify all indices reference valid vertices (no out-of-bounds after growth)
-      Arr.forEach(Arr.makeBy(result.opaque.indices.length, i => i), i => {
-        const idx = result.opaque.indices[i]!
+      Arr.forEach(Arr.makeBy(result.toMeshed().opaque.indices.length, i => i), i => {
+        const idx = result.toMeshed().opaque.indices[i]!
         expect(idx).toBeGreaterThanOrEqual(0)
         expect(idx).toBeLessThan(vertexCount)
       })
@@ -599,15 +599,15 @@ describe('greedyMeshChunk', () => {
     it('should return Float32Array for uvs on a non-empty chunk', () => {
       const chunk = makeChunkWithBlock(ZERO_COORD, 0, 0, 0, 'DIRT')
       const result = greedyMeshChunk(chunk, ZERO_OFFSET)
-      expect(result.opaque.uvs).toBeInstanceOf(Float32Array)
-      expect(result.opaque.uvs.length).toBeGreaterThan(0)
+      expect(result.toMeshed().opaque.uvs).toBeInstanceOf(Float32Array)
+      expect(result.toMeshed().opaque.uvs.length).toBeGreaterThan(0)
     })
 
     it('should return Uint32Array for indices on a non-empty chunk', () => {
       const chunk = makeChunkWithBlock(ZERO_COORD, 0, 0, 0, 'DIRT')
       const result = greedyMeshChunk(chunk, ZERO_OFFSET)
-      expect(result.opaque.indices).toBeInstanceOf(Uint32Array)
-      expect(result.opaque.indices.length).toBeGreaterThan(0)
+      expect(result.toMeshed().opaque.indices).toBeInstanceOf(Uint32Array)
+      expect(result.toMeshed().opaque.indices.length).toBeGreaterThan(0)
     })
   })
 
@@ -648,7 +648,7 @@ describe('greedyMeshChunk', () => {
       const chunk = makeChunkWithBlock(ZERO_COORD, 5, 10, 5, 'DIRT')
       const result = greedyMeshChunk(chunk, ZERO_OFFSET, new Set(), undefined, makeUniformLightGrids(15, 0))
 
-      const verts = sliceColors(result.opaque.colors)
+      const verts = sliceColors(result.toMeshed().opaque.colors)
       // All 24 vertices (6 faces × 4) should have full sky and zero block light.
       Arr.forEach(verts, ([, g, b]) => {
         expect(g).toBe(255)
@@ -660,7 +660,7 @@ describe('greedyMeshChunk', () => {
       const chunk = makeChunkWithBlock(ZERO_COORD, 5, 10, 5, 'DIRT')
       const result = greedyMeshChunk(chunk, ZERO_OFFSET)
 
-      const verts = sliceColors(result.opaque.colors)
+      const verts = sliceColors(result.toMeshed().opaque.colors)
       Arr.forEach(verts, ([, g, b]) => {
         expect(g).toBe(255)
         expect(b).toBe(0)
@@ -672,7 +672,7 @@ describe('greedyMeshChunk', () => {
       const chunk = makeChunkWithBlock(ZERO_COORD, 5, 10, 5, 'DIRT')
       const result = greedyMeshChunk(chunk, ZERO_OFFSET, new Set(), undefined, makeUniformLightGrids(0, 0))
 
-      const verts = sliceColors(result.opaque.colors)
+      const verts = sliceColors(result.toMeshed().opaque.colors)
       Arr.forEach(verts, ([, g, b]) => {
         expect(g).toBe(0)
         expect(b).toBe(0)
@@ -683,7 +683,7 @@ describe('greedyMeshChunk', () => {
       const chunk = makeChunkWithBlock(ZERO_COORD, 5, 10, 5, 'DIRT')
       const result = greedyMeshChunk(chunk, ZERO_OFFSET, new Set(), undefined, makeUniformLightGrids(0, 15))
 
-      const verts = sliceColors(result.opaque.colors)
+      const verts = sliceColors(result.toMeshed().opaque.colors)
       Arr.forEach(verts, ([, g, b]) => {
         expect(g).toBe(0)
         expect(b).toBe(255)
@@ -718,7 +718,7 @@ describe('greedyMeshChunk', () => {
       // Find the maximum block-light B-channel across all opaque vertices.
       // Both blocks contribute faces; the near block (lx=4) sits beside light=14 on its +X face,
       // the far block (lx=12) sits beside light=6 on its -X face — clearly distinguishable.
-      const verts = sliceColors(result.opaque.colors)
+      const verts = sliceColors(result.toMeshed().opaque.colors)
       const maxB = Arr.reduce(verts, 0, (acc, [, , b]) => Math.max(acc, b))
       const minB = Arr.reduce(verts, 255, (acc, [, , b]) => Math.min(acc, b))
 
@@ -744,7 +744,7 @@ describe('greedyMeshChunk', () => {
 
       const result = greedyMeshChunk(chunk, ZERO_OFFSET, new Set(), undefined, { skyLight, blockLight })
 
-      const verts = sliceColors(result.opaque.colors)
+      const verts = sliceColors(result.toMeshed().opaque.colors)
       const maxB = Arr.reduce(verts, 0, (acc, [, , b]) => Math.max(acc, b))
       // BFS spreads at least 11 (LAVA=15, distance 4 → 11) toward the DIRT face → dequant ≥ 10 → 170.
       expect(maxB).toBeGreaterThanOrEqual(170)

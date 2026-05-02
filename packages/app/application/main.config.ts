@@ -11,10 +11,8 @@ export const SKY_COLOR_DAY     = 0x87ceeb  // sky blue
 
 // ─── Bloom pass parameters ───────────────────────────────────────────────────
 
-/**
- * Threshold prevents terrain from glowing — only sky/lava-bright surfaces bloom.
- * Strength and radius tuned for Minecraft's art style.
- */
+// Threshold prevents terrain from glowing — only sky/lava-bright surfaces bloom.
+// Strength and radius tuned for Minecraft's art style.
 export const BLOOM_STRENGTH  = 0.25
 export const BLOOM_RADIUS    = 0.45
 export const BLOOM_THRESHOLD = 0.9

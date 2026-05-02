@@ -12,14 +12,7 @@ const setLimbRotation = (mesh: THREE.Mesh | null, angle: number): void => {
   mesh.rotation.x = angle
 }
 
-/**
- * EntityRendererService — keeps a THREE.Group per tracked entity in sync with
- * the game's mob list. Add/remove based on entityId set diff; per-frame
- * transform + walk-cycle update applied to every tracked group.
- *
- * State: Ref<HashMap<EntityId, MobLimbGroup>>. Geometries and materials owned
- * by mob-geometry are shared per-type; this service does NOT dispose them.
- */
+// State: Ref<HashMap<EntityId, MobLimbGroup>>. Geometries/materials owned by mob-geometry are shared — NOT disposed here.
 export class EntityRendererService extends Effect.Service<EntityRendererService>()(
   '@minecraft/infrastructure/three/EntityRendererService',
   {
@@ -28,12 +21,7 @@ export class EntityRendererService extends Effect.Service<EntityRendererService>
       Ref.make(HashMap.empty<EntityIdType, MobLimbGroup>()),
     ], { concurrency: 'unbounded' }).pipe(
       Effect.map(([sceneService, groupsRef]) => ({
-        /**
-         * Reconcile the tracked group set with the live entity list:
-         * - Build + add a Group for any new entityId.
-         * - Remove the Group for any entityId no longer present.
-         * Idempotent: a no-op if the entityId set is unchanged.
-         */
+        // Reconciles tracked groups with the live entity list by entityId set diff. Idempotent.
         syncEntities: (
           entities: ReadonlyArray<Entity>,
           scene: THREE.Scene,
@@ -73,13 +61,8 @@ export class EntityRendererService extends Effect.Service<EntityRendererService>
             yield* Ref.set(groupsRef, next)
           }),
 
-        /**
-         * Per-frame transform + walk-cycle update for every tracked entity.
-         * Performance boundary: plain for-loop inside Effect.sync — N is small
-         * (<100 typical), avoiding Effect scheduler overhead per entity.
-         * `deltaTimeSecs` is reserved for future damping (currently the walk
-         * cycle is a pure function of speed + wall-clock time).
-         */
+        // Performance boundary: plain for-loop in Effect.sync — N<100; avoids Effect scheduler overhead per entity.
+        // deltaTimeSecs reserved for future damping (walk cycle is currently pure speed + wall-clock).
         updateEntityTransforms: (
           entities: ReadonlyArray<Entity>,
           totalTimeSecs: number,
@@ -120,11 +103,7 @@ export class EntityRendererService extends Effect.Service<EntityRendererService>
           )
         },
 
-        /**
-         * Remove every tracked group from the scene and clear internal state.
-         * Geometries/materials are shared via mob-geometry caches and are NOT
-         * disposed here.
-         */
+        // Geometries/materials are shared via mob-geometry caches — NOT disposed here.
         clearScene: (scene: THREE.Scene): Effect.Effect<void, never> =>
           Ref.get(groupsRef).pipe(
             Effect.flatMap((groups) =>
@@ -137,9 +116,6 @@ export class EntityRendererService extends Effect.Service<EntityRendererService>
             Effect.andThen(Ref.set(groupsRef, HashMap.empty())),
           ),
 
-        /**
-         * Test-only accessor.
-         */
         _getTrackedGroup: (id: EntityIdType): Effect.Effect<Option.Option<MobLimbGroup>, never> =>
           Ref.get(groupsRef).pipe(Effect.map((g) => HashMap.get(g, id))),
       })),

@@ -7,25 +7,11 @@ import { ChunkMeshService } from '../infrastructure/meshing/chunk-mesh'
 import { SceneService } from '../infrastructure/scene/scene-service'
 import { createWaterMaterial } from '../infrastructure/water-material'
 
-/**
- * Hard safety cap on chunk mesh creations per syncChunksToScene call.
- * The primary throttle is now `WORLD_RENDERER_TIME_BUDGET_MS`; this cap only
- * exists so a degenerate single-mesh-takes-100ms case doesn't loop forever.
- * Raised from 4 to 8 to mirror MAX_DIRTY_CHUNK_UPDATES_PER_FRAME — the time
- * budget is the real throttle and 8 typical meshes at ~1ms each comfortably
- * fit under WORLD_RENDERER_TIME_BUDGET_MS.
- * Only throttles creation — removal of stale chunks is always immediate.
- */
+// Safety cap: time budget is the real throttle; this prevents an infinite loop if one mesh takes 100ms.
+// Only throttles creation — removal of stale chunks is always immediate.
 export const MAX_CHUNK_UPDATES_PER_FRAME = 8
 
-/**
- * Time budget (ms) for chunk mesh creation per syncChunksToScene call.
- * Drains the new-chunks queue one mesh at a time and breaks once the elapsed
- * wall-clock exceeds this budget. Mirrors `DIRTY_CHUNK_FLUSH_TIME_BUDGET_MS`
- * in frame-maintenance — the two pipelines target the same per-frame budget.
- * At cold-start with RD=2 (25 chunks) this turns the 4-per-frame drip into
- * "as many as fit in this frame's idle window".
- */
+// Mirrors DIRTY_CHUNK_FLUSH_TIME_BUDGET_MS in frame-maintenance — both pipelines target the same per-frame budget.
 export const WORLD_RENDERER_TIME_BUDGET_MS = 4
 
 const CHUNK_SYNC_CONCURRENCY = typeof Worker === 'undefined' ? 1 : 2
@@ -33,10 +19,6 @@ const CHUNK_SYNC_CONCURRENCY = typeof Worker === 'undefined' ? 1 : 2
 const nowMs = (): number =>
   typeof performance !== 'undefined' ? performance.now() : Date.now()
 
-/**
- * Key for chunk mesh tracking — uses the shared ChunkCacheKey brand so this
- * HashMap<ChunkCacheKey, ChunkMeshes> is type-compatible with chunk-manager-service maps.
- */
 const chunkKey = (coord: ChunkCoord): ChunkCacheKey => ChunkCacheKey.make(coord)
 
 // Keep the refraction pass lower-resolution than the main canvas to cut GPU fill cost.
@@ -61,9 +43,6 @@ type ChunkMeshes = {
   }>
 }
 
-/**
- * Service for synchronizing chunk state with Three.js scene
- */
 export class WorldRendererService extends Effect.Service<WorldRendererService>()(
   '@minecraft/infrastructure/three/WorldRendererService',
   {
@@ -145,14 +124,7 @@ export class WorldRendererService extends Effect.Service<WorldRendererService>()
                   Ref.update(sceneVersionRef, (version) => version + 1),
                 ], { concurrency: 'unbounded', discard: true })
               return {
-                /**
-                 * Sync scene with loaded chunks:
-                 * - Add meshes for newly loaded chunks not yet in scene (throttled to MAX_CHUNK_UPDATES_PER_FRAME)
-                 * - Remove and dispose meshes for chunks no longer loaded (always immediate)
-                 *
-                 * Returns `true` when all loaded chunks have meshes (fully synced),
-                 * `false` when some new chunks were deferred to subsequent frames.
-                 */
+                // Returns true when all loaded chunks have meshes; false when new chunks were deferred to next frame.
                 syncChunksToScene: (loadedChunks: ReadonlyArray<Chunk>, scene: THREE.Scene): Effect.Effect<boolean, never> =>
                   Effect.gen(function* () {
                     const meshes = yield* Ref.get(meshesRef)
@@ -259,10 +231,7 @@ export class WorldRendererService extends Effect.Service<WorldRendererService>()
                     return allNewChunksMeshed
                   }),
 
-                /**
-                 * Update (re-mesh) a single chunk that has been modified.
-                 * Call this after block break/place for the affected chunk.
-                 */
+                // Re-meshes a single chunk in place; call after block break/place for the affected chunk.
                       updateChunkInScene: (chunk: Chunk, scene: THREE.Scene): Effect.Effect<void, never> => {
                   const key = chunkKey(chunk.coord)
                   return Ref.get(meshesRef).pipe(
@@ -321,10 +290,7 @@ export class WorldRendererService extends Effect.Service<WorldRendererService>()
                   )
                 },
 
-                /**
-                 * Apply frustum culling: toggle mesh.visible for all tracked chunk meshes.
-                 * Does NOT add/remove objects from scene (avoids scene graph mutation overhead).
-                 */
+                // Toggles mesh.visible only — never mutates scene graph (avoids Three.js graph overhead).
                 applyFrustumCulling: (camera: THREE.PerspectiveCamera): Effect.Effect<void, never> =>
                   // camera.updateMatrixWorld() is intentionally called here even though Three.js
                   // also calls it during renderer.render(). This method runs BEFORE render() in the
@@ -400,9 +366,6 @@ export class WorldRendererService extends Effect.Service<WorldRendererService>()
                     )
                   ),
 
-                /**
-                 * Remove all chunk meshes from scene and dispose resources
-                 */
                 clearScene: (scene: THREE.Scene): Effect.Effect<void, never> =>
                   Ref.get(meshesRef).pipe(
                     Effect.flatMap((meshes) =>
@@ -431,10 +394,7 @@ export class WorldRendererService extends Effect.Service<WorldRendererService>()
                     ], { concurrency: 'unbounded', discard: true }))
                   ),
 
-                /**
-                 * Refraction pre-pass: render scene without water meshes into refractionRT.
-                 * Call this every frame BEFORE the main render.
-                 */
+                // Renders scene without water into refractionRT. Must be called BEFORE the main render each frame.
                 doRefractionPrePass: (
                   renderer: THREE.WebGLRenderer,
                   scene: THREE.Scene,
@@ -506,9 +466,6 @@ export class WorldRendererService extends Effect.Service<WorldRendererService>()
                     MutableRef.set(_lastRefractionState, { version: currentSceneVersion, ...currentPose })
                   }),
 
-                /**
-                 * Update water shader uniforms each frame.
-                 */
                 updateWaterUniforms: (
                   time: number,
                   cameraPosition: THREE.Vector3,
@@ -519,46 +476,30 @@ export class WorldRendererService extends Effect.Service<WorldRendererService>()
                     uniforms.uCameraPosition.value.copy(cameraPosition)
                   }),
 
-                /**
-                 * Mark refraction texture as valid (called once after first refraction pre-pass).
-                 */
                 setRefractionValid: (valid: boolean): Effect.Effect<void, never> =>
                   Effect.sync(() => {
                     waterMaterial.uniforms.uRefractionValid.value = valid
                   }),
 
-                /**
-                 * Update water resolution uniform — called only on resize (not per-frame).
-                 */
+                // Called only on canvas resize, not per-frame.
                 updateWaterResolution: (width: number, height: number): Effect.Effect<void, never> =>
                   Effect.sync(() => {
                     waterMaterial.uniforms.uResolution.value.set(width, height)
                   }),
 
-                /**
-                 * Resize refraction render target when canvas resizes.
-                 */
                 resizeRefractionRT: (width: number, height: number): Effect.Effect<void, never> =>
                   Effect.sync(() => {
                     refractionRT.setSize(width, height)
                   }),
 
-                /**
-                 * Sync refraction camera aspect ratio with main camera on resize.
-                 * Only calls updateProjectionMatrix once per resize (not per frame).
-                 */
+                // Calls updateProjectionMatrix once per resize, not per frame.
                 resizeRefractionCamera: (aspect: number): Effect.Effect<void, never> =>
                   Effect.sync(() => {
                     refractionCamera.aspect = aspect
                     refractionCamera.updateProjectionMatrix()
                   }),
 
-                /**
-                 * Get all currently tracked water meshes.
-                 * Returns a reference-stable array: same reference is returned when the
-                 * water mesh set has not changed (by length + individual mesh identity),
-                 * so callers can skip downstream work via `===` check.
-                 */
+                // Reference-stable: same array reference returned when the mesh set is unchanged, so callers can short-circuit with ===.
                 getWaterMeshes: (): Effect.Effect<ReadonlyArray<THREE.Mesh>, never> =>
                   Ref.get(waterMeshesRef).pipe(
                     Effect.map((current) => {
@@ -574,9 +515,6 @@ export class WorldRendererService extends Effect.Service<WorldRendererService>()
                     })
                   ),
 
-                /**
-                 * Monotonic scene version used to gate repeated frame-loop work.
-                 */
                 getSceneVersion: (): Effect.Effect<number, never> => Ref.get(sceneVersionRef),
               }
               })

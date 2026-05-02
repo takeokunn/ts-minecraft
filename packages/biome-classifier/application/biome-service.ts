@@ -17,30 +17,15 @@ import {
   RIVER_NOISE_SCALE,
   RIVER_WORLD_OFFSET,
 } from './biome-service.config'
-/**
- * Biome types for terrain classification
- */
 export const BiomeTypeSchema = Schema.Literal('PLAINS', 'DESERT', 'FOREST', 'OCEAN', 'MOUNTAINS', 'SNOW', 'SWAMP', 'JUNGLE', 'BEACH', 'RIVER', 'TAIGA', 'SAVANNA')
 export type BiomeType = Schema.Schema.Type<typeof BiomeTypeSchema>
 
-/**
- * Properties that define how a biome affects terrain generation.
- *
- * Phase 2.1 (multi-noise biomes): `baseHeight` and `heightModifier` have been
- * removed — height is now derived from continentalness / erosion /
- * peaks-and-valleys noise via the density function (task 2.1g). Biomes no
- * longer carry per-biome height parameters.
- */
+// baseHeight/heightModifier removed in Phase 2.1 — height derives from continentalness/erosion/pv noise now.
 export const BiomePropertiesSchema = Schema.Struct({
-  /** Block type for surface layer */
   surfaceBlock: BlockTypeSchema,
-  /** Block type below surface */
   subSurfaceBlock: BlockTypeSchema,
-  /** Density of trees (0-1) */
   treeDensity: Schema.Number.pipe(Schema.finite(), Schema.between(0, 1)),
-  /** Temperature range (0-1) */
   temperature: Schema.Number.pipe(Schema.finite(), Schema.between(0, 1)),
-  /** Humidity range (0-1) */
   humidity: Schema.Number.pipe(Schema.finite(), Schema.between(0, 1)),
 })
 export type BiomeProperties = Schema.Schema.Type<typeof BiomePropertiesSchema>
@@ -57,13 +42,7 @@ type ClimateSample = {
 const peaksAndValleysFromWeirdness = (weirdness: number): number =>
   1 - Math.abs(3 * Math.abs(weirdness) - 2)
 
-/**
- * Classify a biome from continuous temperature and humidity values.
- *
- * Both axes use thresholds defined in biome-service.config.ts:
- *   temperature: cold < TEMP_COLD < temperate < TEMP_HOT < hot
- *   humidity:    dry < HUM_DRY < moderate < HUM_WET < wet < HUM_VERY_WET < very-wet
- */
+// temperature: cold < TEMP_COLD < temperate < TEMP_HOT < hot; humidity: dry < HUM_DRY < moderate < HUM_WET < wet < HUM_VERY_WET < very-wet
 export const classifyBiome = (temperature: number, humidity: number): BiomeType => {
   const isCold = temperature < TEMP_COLD
   const isHot  = temperature > TEMP_HOT
@@ -142,10 +121,7 @@ type ChunkNoiseCoord = {
   readonly humZ: number
 }
 
-/**
- * Build noise-input coordinates for every column in a chunk.
- * Index layout matches generateTerrain: outer=lx (i/CHUNK_SIZE), inner=lz (i%CHUNK_SIZE).
- */
+// Index layout: outer=lx (i/CHUNK_SIZE), inner=lz (i%CHUNK_SIZE) — matches generateTerrain iteration order.
 export const buildChunkNoiseInputs = (chunkX: number, chunkZ: number): ReadonlyArray<ChunkNoiseCoord> =>
   Arr.makeBy(CHUNK_SIZE * CHUNK_SIZE, (i) => {
     const lx = Math.floor(i / CHUNK_SIZE)

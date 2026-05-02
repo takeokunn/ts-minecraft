@@ -20,22 +20,16 @@ const STONE   = blockTypeToIndex('STONE')
 const WATER   = blockTypeToIndex('WATER')
 const BEDROCK = blockTypeToIndex('BEDROCK')
 
-/** Return a zeroed chunk block array (65536 bytes) */
 const makeBlocks = (): Uint8Array => new Uint8Array(CHUNK_SIZE * CHUNK_SIZE * CHUNK_HEIGHT)
 
-/** Read a block at local chunk coords */
 const getBlock = (blocks: Uint8Array, lx: number, y: number, lz: number): number =>
   blocks[y + lz * CHUNK_HEIGHT + lx * CHUNK_HEIGHT * CHUNK_SIZE]!
 
-/** Write a block at local chunk coords */
 const setBlock = (blocks: Uint8Array, lx: number, y: number, lz: number, val: number): void => {
   blocks[y + lz * CHUNK_HEIGHT + lx * CHUNK_HEIGHT * CHUNK_SIZE] = val
 }
 
-/**
- * Build a flat cave-sample grid of the correct length.
- * The grid shape: sxCount × szCount × syCount, indexed as [sx + sz*sxC + sy*sxC*szC].
- */
+// Grid shape: sxCount × szCount × syCount, indexed as [sx + sz*sxC + sy*sxC*szC].
 const makeSamples = (value: number): number[] => {
   const stride = CAVE_SAMPLE_STRIDE
   const sxCount = Math.floor(CHUNK_SIZE / stride) + 1

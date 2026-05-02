@@ -105,28 +105,24 @@ export const resolveSurfaceProfile = (params: {
   return defaultProfile
 }
 
-/**
- * Fill a single vertical column of blocks up to surfaceY using biome block types.
- *
- * Block assignment (pure, no Effect overhead):
- *   y == 0: BEDROCK (always)
- *   y == 1..4: probabilistic BEDROCK (decreasing with altitude) else DEEPSLATE.
- *             Deterministic hash of (wx, y, wz) — regenerates identically on reload.
- *   y == surfaceY: biome surface block (GRASS, SAND, STONE, etc.)
- *   surfaceY-3 <= y < surfaceY: biome subsurface block (DIRT, SAND, etc.)
- *   y < surfaceY-3: STONE — replaced by DEEPSLATE below DEEPSLATE_CEILING (16).
- *                   Additionally, per-column GRANITE/DIORITE/ANDESITE noise flags
- *                   may replace STONE (and only STONE, never DEEPSLATE at this
- *                   scope — see module doc).
- *
- * Stone variants (GRANITE/DIORITE/ANDESITE):
- *   Applied only inside the deep-stone region (y < surfaceY-3) AND only to
- *   STONE/DEEPSLATE blocks — never to BEDROCK, AIR, or sub-surface DIRT/SAND.
- *   A pre-sampled per-column flag (granite/diorite/andesite) gates the entire
- *   vertical stripe; first match wins (GRANITE > DIORITE > ANDESITE).
- *   NOTE: current scope replaces STONE layer only; DEEPSLATE-variants are
- *   intentionally out-of-scope (vanilla behaviour).
- */
+// Block assignment (pure, no Effect overhead):
+//   y == 0: BEDROCK (always)
+//   y == 1..4: probabilistic BEDROCK (decreasing with altitude) else DEEPSLATE.
+//             Deterministic hash of (wx, y, wz) — regenerates identically on reload.
+//   y == surfaceY: biome surface block (GRASS, SAND, STONE, etc.)
+//   surfaceY-3 <= y < surfaceY: biome subsurface block (DIRT, SAND, etc.)
+//   y < surfaceY-3: STONE — replaced by DEEPSLATE below DEEPSLATE_CEILING (16).
+//                   Additionally, per-column GRANITE/DIORITE/ANDESITE noise flags
+//                   may replace STONE (and only STONE, never DEEPSLATE at this
+//                   scope — see module doc).
+//
+// Stone variants (GRANITE/DIORITE/ANDESITE):
+//   Applied only inside the deep-stone region (y < surfaceY-3) AND only to
+//   STONE/DEEPSLATE blocks — never to BEDROCK, AIR, or sub-surface DIRT/SAND.
+//   A pre-sampled per-column flag (granite/diorite/andesite) gates the entire
+//   vertical stripe; first match wins (GRANITE > DIORITE > ANDESITE).
+//   NOTE: current scope replaces STONE layer only; DEEPSLATE-variants are
+//   intentionally out-of-scope (vanilla behaviour).
 export const fillColumn = (
   blocks: Uint8Array,
   lx: number,

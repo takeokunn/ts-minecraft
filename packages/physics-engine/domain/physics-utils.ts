@@ -1,19 +1,7 @@
 import type { Position, DeltaTimeSecs, Vector3 as Velocity } from '@ts-minecraft/kernel'
 
-/**
- * Default gravity constant (m/s^2)
- */
 export const DEFAULT_GRAVITY = 9.82
 
-/**
- * Calculate the initial velocity needed to jump to a specific height
- *
- * Uses kinematic equation: v = sqrt(2 * g * h)
- *
- * @param height - The target jump height in meters
- * @param gravity - The gravity acceleration (default: 9.82 m/s^2)
- * @returns The initial upward velocity needed
- */
 export const calculateJumpVelocity = (
   height: number,
   gravity: number = DEFAULT_GRAVITY
@@ -24,13 +12,6 @@ export const calculateJumpVelocity = (
   return Math.sqrt(2 * gravity * height)
 }
 
-/**
- * Clamp velocity magnitude to a maximum speed
- *
- * @param velocity - The velocity to clamp
- * @param maxSpeed - The maximum speed allowed
- * @returns The clamped velocity
- */
 export const clampVelocity = (
   velocity: Velocity,
   maxSpeed: number
@@ -53,14 +34,6 @@ export const clampVelocity = (
   }
 }
 
-/**
- * Apply friction to horizontal velocity
- *
- * @param velocity - The velocity to apply friction to
- * @param friction - The friction coefficient (0-1, where 1 is no friction)
- * @param deltaTime - Time step in seconds
- * @returns The velocity after friction is applied
- */
 export const applyFriction = (
   velocity: Velocity,
   friction: number,
@@ -81,16 +54,6 @@ export const applyFriction = (
   }
 }
 
-/**
- * Update position based on velocity and time step
- *
- * Uses simple Euler integration: new_pos = pos + vel * dt
- *
- * @param position - Current position
- * @param velocity - Current velocity
- * @param deltaTime - Time step in seconds
- * @returns The new position
- */
 export const updatePosition = (
   position: Position,
   velocity: Velocity,
@@ -107,14 +70,6 @@ export const updatePosition = (
   }
 }
 
-/**
- * Check if a point is on the ground by raycasting
- *
- * @param playerY - Player's Y position (feet)
- * @param groundY - Ground Y position
- * @param threshold - Distance threshold for ground detection (default: 0.15m)
- * @returns Whether the player is grounded
- */
 export const checkGroundedByDistance = (
   playerY: number,
   groundY: number,
@@ -124,33 +79,14 @@ export const checkGroundedByDistance = (
   return distanceToGround >= 0 && distanceToGround <= threshold
 }
 
-/**
- * Calculate horizontal speed from velocity
- *
- * @param velocity - The velocity vector
- * @returns The horizontal speed (magnitude in XZ plane)
- */
 export const getHorizontalSpeed = (velocity: Velocity): number => {
   return Math.sqrt(velocity.x ** 2 + velocity.z ** 2)
 }
 
-/**
- * Calculate total speed from velocity
- *
- * @param velocity - The velocity vector
- * @returns The total speed (magnitude)
- */
 export const getTotalSpeed = (velocity: Velocity): number => {
   return Math.sqrt(velocity.x ** 2 + velocity.y ** 2 + velocity.z ** 2)
 }
 
-/**
- * Normalize horizontal velocity to a specific speed
- *
- * @param velocity - The velocity to normalize
- * @param targetSpeed - The target horizontal speed
- * @returns The normalized velocity
- */
 export const normalizeHorizontalVelocity = (
   velocity: Velocity,
   targetSpeed: number
@@ -173,28 +109,16 @@ export const normalizeHorizontalVelocity = (
   }
 }
 
-/**
- * Create a zero velocity vector
- */
 export const zeroVelocity = (): Velocity => ({ x: 0, y: 0, z: 0 })
 
-/**
- * Create a zero position vector
- */
 export const zeroPosition = (): Position => ({ x: 0, y: 0, z: 0 })
 
-/**
- * Add two velocities together
- */
 export const addVelocities = (a: Velocity, b: Velocity): Velocity => ({
   x: a.x + b.x,
   y: a.y + b.y,
   z: a.z + b.z,
 })
 
-/**
- * Scale a velocity by a scalar
- */
 export const scaleVelocity = (velocity: Velocity, scalar: number): Velocity => ({
   x: velocity.x * scalar,
   y: velocity.y * scalar,

@@ -22,18 +22,13 @@ const makeEmptyChunk = (coord: ChunkCoord = { x: 0, z: 0 }): Chunk => ({
   fluid: Option.none(),
 })
 
-/** Build a fully-solid chunk: every block set to STONE (index 2) */
 const makeSolidChunk = (coord: ChunkCoord = { x: 0, z: 0 }): Chunk => {
   const blocks = new Uint8Array(TOTAL_BLOCKS)
   blocks.fill(2) // STONE
   return { coord, blocks, fluid: Option.none() }
 }
 
-/**
- * Build a chunk with a single horizontal layer at y=0.
- * Each column in the 16x16 footprint gets block type = layer[lx*16+lz] % 12.
- * All other blocks stay AIR (0).
- */
+// Block type = layer[lx*16+lz] % 12 at y=0; all other blocks are AIR.
 const makeLayerChunk = (layer: Uint8Array, coord: ChunkCoord = { x: 0, z: 0 }): Chunk => {
   const blocks = new Uint8Array(TOTAL_BLOCKS)
   Arr.forEach(Arr.makeBy(CHUNK_SIZE, lx => lx), lx => {
@@ -58,11 +53,11 @@ describe('greedyMeshChunk — property-based', () => {
       { layer: fc.uint8Array({ minLength: CHUNK_SIZE * CHUNK_SIZE, maxLength: CHUNK_SIZE * CHUNK_SIZE }) },
       ({ layer }) => {
         const chunk = makeLayerChunk(layer)
-        const result = greedyMeshChunk(chunk, ZERO_OFFSET)
+        const meshed = greedyMeshChunk(chunk, ZERO_OFFSET).toMeshed()
 
-        const vertexCount = result.opaque.positions.length / 3
-        Arr.forEach(Arr.makeBy(result.opaque.indices.length, i => i), i => {
-          const idx = result.opaque.indices[i]!
+        const vertexCount = meshed.opaque.positions.length / 3
+        Arr.forEach(Arr.makeBy(meshed.opaque.indices.length, i => i), i => {
+          const idx = meshed.opaque.indices[i]!
           expect(idx).toBeGreaterThanOrEqual(0)
           expect(idx).toBeLessThan(vertexCount)
         })
@@ -87,11 +82,11 @@ describe('greedyMeshChunk — property-based', () => {
           })
         })
         const chunk = makeChunkFromBlocks(blocks)
-        const result = greedyMeshChunk(chunk, ZERO_OFFSET)
+        const meshed = greedyMeshChunk(chunk, ZERO_OFFSET).toMeshed()
 
-        const vertexCount = result.opaque.positions.length / 3
-        Arr.forEach(Arr.makeBy(result.opaque.indices.length, i => i), i => {
-          const idx = result.opaque.indices[i]!
+        const vertexCount = meshed.opaque.positions.length / 3
+        Arr.forEach(Arr.makeBy(meshed.opaque.indices.length, i => i), i => {
+          const idx = meshed.opaque.indices[i]!
           expect(idx).toBeGreaterThanOrEqual(0)
           expect(idx).toBeLessThan(vertexCount)
         })
@@ -104,8 +99,8 @@ describe('greedyMeshChunk — property-based', () => {
       { layer: fc.uint8Array({ minLength: CHUNK_SIZE * CHUNK_SIZE, maxLength: CHUNK_SIZE * CHUNK_SIZE }) },
       ({ layer }) => {
         const chunk = makeLayerChunk(layer)
-        const result = greedyMeshChunk(chunk, ZERO_OFFSET)
-        expect(result.opaque.indices.length % 3).toBe(0)
+        const meshed = greedyMeshChunk(chunk, ZERO_OFFSET).toMeshed()
+        expect(meshed.opaque.indices.length % 3).toBe(0)
       },
       { fastCheck: { numRuns: 20 } }
     )
@@ -115,8 +110,8 @@ describe('greedyMeshChunk — property-based', () => {
       { layer: fc.uint8Array({ minLength: CHUNK_SIZE * CHUNK_SIZE, maxLength: CHUNK_SIZE * CHUNK_SIZE }) },
       ({ layer }) => {
         const chunk = makeLayerChunk(layer)
-        const result = greedyMeshChunk(chunk, ZERO_OFFSET)
-        const vertexCount = result.opaque.positions.length / 3
+        const meshed = greedyMeshChunk(chunk, ZERO_OFFSET).toMeshed()
+        const vertexCount = meshed.opaque.positions.length / 3
         expect(vertexCount % 4).toBe(0)
       },
       { fastCheck: { numRuns: 20 } }
@@ -129,10 +124,10 @@ describe('greedyMeshChunk — property-based', () => {
       { layer: fc.uint8Array({ minLength: CHUNK_SIZE * CHUNK_SIZE, maxLength: CHUNK_SIZE * CHUNK_SIZE }) },
       ({ layer }) => {
         const chunk = makeLayerChunk(layer)
-        const result = greedyMeshChunk(chunk, ZERO_OFFSET)
+        const meshed = greedyMeshChunk(chunk, ZERO_OFFSET).toMeshed()
 
-        expect(result.opaque.positions.length).toBe(result.opaque.normals.length)
-        expect(result.opaque.positions.length).toBe(result.opaque.colors.length)
+        expect(meshed.opaque.positions.length).toBe(meshed.opaque.normals.length)
+        expect(meshed.opaque.positions.length).toBe(meshed.opaque.colors.length)
       },
       { fastCheck: { numRuns: 20 } }
     )
@@ -142,10 +137,10 @@ describe('greedyMeshChunk — property-based', () => {
       { layer: fc.uint8Array({ minLength: CHUNK_SIZE * CHUNK_SIZE, maxLength: CHUNK_SIZE * CHUNK_SIZE }) },
       ({ layer }) => {
         const chunk = makeLayerChunk(layer)
-        const result = greedyMeshChunk(chunk, ZERO_OFFSET)
+        const meshed = greedyMeshChunk(chunk, ZERO_OFFSET).toMeshed()
 
-        const vertexCount = result.opaque.positions.length / 3
-        expect(result.opaque.uvs.length).toBe(vertexCount * 2)
+        const vertexCount = meshed.opaque.positions.length / 3
+        expect(meshed.opaque.uvs.length).toBe(vertexCount * 2)
       },
       { fastCheck: { numRuns: 20 } }
     )
@@ -155,11 +150,11 @@ describe('greedyMeshChunk — property-based', () => {
       { layer: fc.uint8Array({ minLength: CHUNK_SIZE * CHUNK_SIZE, maxLength: CHUNK_SIZE * CHUNK_SIZE }) },
       ({ layer }) => {
         const chunk = makeLayerChunk(layer)
-        const result = greedyMeshChunk(chunk, ZERO_OFFSET)
+        const meshed = greedyMeshChunk(chunk, ZERO_OFFSET).toMeshed()
 
-        const quadCount = result.opaque.indices.length / 6
-        expect(result.opaque.indices.length).toBe(quadCount * 6)
-        expect(result.opaque.positions.length / 3).toBe(quadCount * 4)
+        const quadCount = meshed.opaque.indices.length / 6
+        expect(meshed.opaque.indices.length).toBe(quadCount * 6)
+        expect(meshed.opaque.positions.length / 3).toBe(quadCount * 4)
       },
       { fastCheck: { numRuns: 20 } }
     )
@@ -168,13 +163,13 @@ describe('greedyMeshChunk — property-based', () => {
   describe('all-air chunk', () => {
     it('produces 0 faces (positions.length === 0)', () => {
       const chunk = makeEmptyChunk()
-      const result = greedyMeshChunk(chunk, ZERO_OFFSET)
+      const meshed = greedyMeshChunk(chunk, ZERO_OFFSET).toMeshed()
 
-      expect(result.opaque.positions.length).toBe(0)
-      expect(result.opaque.normals.length).toBe(0)
-      expect(result.opaque.colors.length).toBe(0)
-      expect(result.opaque.indices.length).toBe(0)
-      expect(result.opaque.indices.length / 6).toBe(0)
+      expect(meshed.opaque.positions.length).toBe(0)
+      expect(meshed.opaque.normals.length).toBe(0)
+      expect(meshed.opaque.colors.length).toBe(0)
+      expect(meshed.opaque.indices.length).toBe(0)
+      expect(meshed.opaque.indices.length / 6).toBe(0)
     })
 
     it.prop(
@@ -182,8 +177,8 @@ describe('greedyMeshChunk — property-based', () => {
       { cx: Arbitrary.make(Schema.Number.pipe(Schema.int(), Schema.between(-100, 100))), cz: Arbitrary.make(Schema.Number.pipe(Schema.int(), Schema.between(-100, 100))) },
       ({ cx, cz }) => {
         const chunk = makeEmptyChunk({ x: cx, z: cz })
-        const result = greedyMeshChunk(chunk, { wx: cx * CHUNK_SIZE, wz: cz * CHUNK_SIZE })
-        expect(result.opaque.positions.length).toBe(0)
+        const meshed = greedyMeshChunk(chunk, { wx: cx * CHUNK_SIZE, wz: cz * CHUNK_SIZE }).toMeshed()
+        expect(meshed.opaque.positions.length).toBe(0)
       },
       { fastCheck: { numRuns: 20 } }
     )
@@ -192,20 +187,20 @@ describe('greedyMeshChunk — property-based', () => {
   describe('solid chunk', () => {
     it('produces > 0 faces for a fully solid chunk', () => {
       const chunk = makeSolidChunk()
-      const result = greedyMeshChunk(chunk, ZERO_OFFSET)
+      const meshed = greedyMeshChunk(chunk, ZERO_OFFSET).toMeshed()
 
       // Only the outermost shell faces are visible
-      expect(result.opaque.positions.length).toBeGreaterThan(0)
-      expect(result.opaque.indices.length / 6).toBeGreaterThan(0)
+      expect(meshed.opaque.positions.length).toBeGreaterThan(0)
+      expect(meshed.opaque.indices.length / 6).toBeGreaterThan(0)
     })
 
     it('fully solid chunk has all indices within vertex range', () => {
       const chunk = makeSolidChunk()
-      const result = greedyMeshChunk(chunk, ZERO_OFFSET)
+      const meshed = greedyMeshChunk(chunk, ZERO_OFFSET).toMeshed()
 
-      const vertexCount = result.opaque.positions.length / 3
-      Arr.forEach(Arr.makeBy(result.opaque.indices.length, i => i), i => {
-        const idx = result.opaque.indices[i]!
+      const vertexCount = meshed.opaque.positions.length / 3
+      Arr.forEach(Arr.makeBy(meshed.opaque.indices.length, i => i), i => {
+        const idx = meshed.opaque.indices[i]!
         expect(idx).toBeGreaterThanOrEqual(0)
         expect(idx).toBeLessThan(vertexCount)
       })
@@ -213,10 +208,10 @@ describe('greedyMeshChunk — property-based', () => {
 
     it('fully solid chunk indices are multiples of 3 and vertices multiples of 4', () => {
       const chunk = makeSolidChunk()
-      const result = greedyMeshChunk(chunk, ZERO_OFFSET)
+      const meshed = greedyMeshChunk(chunk, ZERO_OFFSET).toMeshed()
 
-      expect(result.opaque.indices.length % 3).toBe(0)
-      expect((result.opaque.positions.length / 3) % 4).toBe(0)
+      expect(meshed.opaque.indices.length % 3).toBe(0)
+      expect((meshed.opaque.positions.length / 3) % 4).toBe(0)
     })
   })
 
@@ -231,13 +226,13 @@ describe('greedyMeshChunk — property-based', () => {
           blocks[0 + 5 * CHUNK_HEIGHT + 5 * CHUNK_HEIGHT * CHUNK_SIZE] = 1
         }
         const chunk = makeChunkFromBlocks(blocks)
-        const result = greedyMeshChunk(chunk, ZERO_OFFSET)
+        const meshed = greedyMeshChunk(chunk, ZERO_OFFSET).toMeshed()
 
-        expect(result.opaque.positions).toBeInstanceOf(Float32Array)
-        expect(result.opaque.normals).toBeInstanceOf(Int8Array)
-        expect(result.opaque.colors).toBeInstanceOf(Uint8Array)
-        expect(result.opaque.uvs).toBeInstanceOf(Float32Array)
-        expect(result.opaque.indices).toBeInstanceOf(Uint32Array)
+        expect(meshed.opaque.positions).toBeInstanceOf(Float32Array)
+        expect(meshed.opaque.normals).toBeInstanceOf(Int8Array)
+        expect(meshed.opaque.colors).toBeInstanceOf(Uint8Array)
+        expect(meshed.opaque.uvs).toBeInstanceOf(Float32Array)
+        expect(meshed.opaque.indices).toBeInstanceOf(Uint32Array)
       },
       { fastCheck: { numRuns: 10 } }
     )
@@ -255,12 +250,12 @@ describe('greedyMeshChunk — property-based', () => {
         layer[0] = 1
         const coord: ChunkCoord = { x: cx, z: 0 }
         const chunk = makeLayerChunk(layer, coord)
-        const result = greedyMeshChunk(chunk, { wx: cx * CHUNK_SIZE, wz: 0 })
+        const meshed = greedyMeshChunk(chunk, { wx: cx * CHUNK_SIZE, wz: 0 }).toMeshed()
 
-        if (result.opaque.positions.length === 0) return // all-air after mod — skip
+        if (meshed.opaque.positions.length === 0) return // all-air after mod — skip
 
-        for (let i = 0; i < result.opaque.positions.length; i += 3) {
-          expect(result.opaque.positions[i]!).toBeGreaterThanOrEqual(cx * CHUNK_SIZE)
+        for (let i = 0; i < meshed.opaque.positions.length; i += 3) {
+          expect(meshed.opaque.positions[i]!).toBeGreaterThanOrEqual(cx * CHUNK_SIZE)
         }
       },
       { fastCheck: { numRuns: 20 } }
@@ -278,8 +273,8 @@ describe('water/opaque mesh split', () => {
     ({ rawBlocks }) => {
       const blocks = new Uint8Array(rawBlocks)
       const chunk = makeChunkFromBlocks(blocks)
-      const result = greedyMeshChunk(chunk, ZERO_OFFSET, TRANSPARENT_IDS)
-      expect(result.water.indices.length % 3).toBe(0)
+      const meshed = greedyMeshChunk(chunk, ZERO_OFFSET, TRANSPARENT_IDS).toMeshed()
+      expect(meshed.water.indices.length % 3).toBe(0)
     },
     { fastCheck: { numRuns: 8 } }
   )
@@ -290,11 +285,11 @@ describe('water/opaque mesh split', () => {
     ({ rawBlocks }) => {
       const blocks = new Uint8Array(rawBlocks)
       const chunk = makeChunkFromBlocks(blocks)
-      const result = greedyMeshChunk(chunk, ZERO_OFFSET, TRANSPARENT_IDS)
-      const vertexCount = result.water.positions.length / 3
-      expect(result.water.normals.length).toBe(vertexCount * 3)
-      expect(result.water.colors.length).toBe(vertexCount * 3)
-      expect(result.water.uvs.length).toBe(vertexCount * 2)
+      const meshed = greedyMeshChunk(chunk, ZERO_OFFSET, TRANSPARENT_IDS).toMeshed()
+      const vertexCount = meshed.water.positions.length / 3
+      expect(meshed.water.normals.length).toBe(vertexCount * 3)
+      expect(meshed.water.colors.length).toBe(vertexCount * 3)
+      expect(meshed.water.uvs.length).toBe(vertexCount * 2)
     },
     { fastCheck: { numRuns: 8 } }
   )
@@ -309,9 +304,9 @@ describe('water/opaque mesh split', () => {
       })
     })
     const chunk = makeChunkFromBlocks(blocks)
-    const result = greedyMeshChunk(chunk, ZERO_OFFSET, TRANSPARENT_IDS)
-    expect(result.opaque.positions.length).toBe(0)
-    expect(result.water.positions.length).toBeGreaterThan(0)
+    const meshed = greedyMeshChunk(chunk, ZERO_OFFSET, TRANSPARENT_IDS).toMeshed()
+    expect(meshed.opaque.positions.length).toBe(0)
+    expect(meshed.water.positions.length).toBeGreaterThan(0)
   })
 
   it('empty transparentBlockIds: water block goes to opaque mesh', () => {
@@ -324,14 +319,14 @@ describe('water/opaque mesh split', () => {
     })
     const chunk = makeChunkFromBlocks(blocks)
     // No transparent IDs — water treated as opaque
-    const result = greedyMeshChunk(chunk, ZERO_OFFSET, new Set())
-    expect(result.opaque.positions.length).toBeGreaterThan(0)
-    expect(result.water.positions.length).toBe(0)
+    const meshed = greedyMeshChunk(chunk, ZERO_OFFSET, new Set()).toMeshed()
+    expect(meshed.opaque.positions.length).toBeGreaterThan(0)
+    expect(meshed.water.positions.length).toBe(0)
   })
 
   it('all-stone chunk: water mesh is empty regardless of transparentBlockIds', () => {
     const chunk = makeSolidChunk()
-    const result = greedyMeshChunk(chunk, ZERO_OFFSET, TRANSPARENT_IDS)
-    expect(result.water.positions.length).toBe(0)
+    const meshed = greedyMeshChunk(chunk, ZERO_OFFSET, TRANSPARENT_IDS).toMeshed()
+    expect(meshed.water.positions.length).toBe(0)
   })
 })

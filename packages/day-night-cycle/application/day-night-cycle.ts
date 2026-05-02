@@ -17,9 +17,6 @@ const SKY_TURBIDITY_HORIZON = 4
 const SKY_RAYLEIGH_DAY = 3
 const SKY_RAYLEIGH_NIGHT = 0.5
 
-/**
- * Re-export port type as DayNightLights for backward compatibility with call sites.
- */
 export type { DayNightLightsPort as DayNightLights }
 
 export const updateDayNightCycle = (

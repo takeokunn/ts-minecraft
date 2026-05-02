@@ -76,27 +76,14 @@ export type SessionResult = {
   readonly control: SessionControl
 }
 
-/**
- * `sessionProgram` — runs ONE world session.
- *
- * Lifecycle:
- *   1. Allocates per-world scene + camera + composer + post-processing passes.
- *   2. Loads (or creates) world metadata for `worldId` and seeds NoiseService.
- *   3. Initializes per-world domain state (chunks, entities, health, inventory, etc.).
- *   4. Forks the game loop + maintenance + auto-save daemons.
- *   5. Awaits `quitToTitleSignal` (set by pause-menu "Save & Quit").
- *   6. Releases all session-scoped resources (composer RTs, scene meshes,
- *      forked daemons) via Effect.scoped's release stack — boot-level
- *      resources (renderer, settings, audio, workers) survive untouched.
- *
- * Wave-2 / Wave-3 agents will mount the following overlays into this scope:
- *   - MainMenuService (W2a)        — but: that lives ABOVE this program
- *   - PauseMenuService (W2b)       — read sessionPausedRef + call requestQuitToTitle
- *   - DeathScreen (W2c)            — driven by HealthService.isDead()
- *   - DebugOverlay F3 (W3a)        — toggled by F3 keypress
- *   - LoadingScreen (W3a)          — covers the chunk-prewarm phase
- *   - ParticleSystem (W3b)         — block-break InstancedMesh pool
- */
+// Runs ONE world session. Lifecycle:
+//   1. Allocates per-world scene + camera + composer + post-processing passes.
+//   2. Loads (or creates) world metadata for `worldId` and seeds NoiseService.
+//   3. Initializes per-world domain state (chunks, entities, health, inventory, etc.).
+//   4. Forks the game loop + maintenance + auto-save daemons.
+//   5. Awaits `quitToTitleSignal` (set by pause-menu "Save & Quit").
+//   6. Releases all session-scoped resources (composer RTs, scene meshes, forked daemons)
+//      via Effect.scoped's release stack — boot-level resources survive untouched.
 export const sessionProgram = (
   bootCtx: BootContext,
   worldId: WorldId,
@@ -451,7 +438,7 @@ export const sessionProgram = (
       skyCurrent: new THREE.Color(),
     }))
 
-    yield* gameState.initialize(spawnPosition, 0)
+    yield* gameState.initialize(spawnPosition)
 
     // Auto-save daemon: spaced (not fixed) Schedule prevents burst on tab-resume.
     // Lives on its own forkDaemon so it continues regardless of pause-state.

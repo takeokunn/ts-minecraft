@@ -1,6 +1,3 @@
-/**
- * Stage 10: renderStage — god-rays sun projection + composer.render (or fallback).
- */
 import { Effect } from 'effect'
 import * as THREE from 'three'
 import type { FrameHandlerDeps, FrameHandlerServices, ResolvedDeps } from '@ts-minecraft/app/frame/types'

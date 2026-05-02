@@ -1,23 +1,8 @@
 import { Deferred, Effect, Option } from 'effect'
 import { DomOperationsService } from '@ts-minecraft/app/presentation/hud/crosshair'
 
-/**
- * Reusable modal confirmation dialog.
- *
- * Lifecycle: each `show()` call constructs a fresh DOM overlay (so multiple
- * dialogs cannot collide), wires keyboard/click handlers, and tears the DOM
- * down via `Effect.acquireRelease`'s finalizer when the user resolves the
- * dialog (Enter / button click) or dismisses it (Escape / cancel click).
- *
- * Returns `true` on confirm, `false` on cancel/Esc. Never fails.
- *
- * Used by:
- *   - PauseMenuService — "Save & Quit" confirmation (FR-1.4)
- *   - W2a MainMenuService — world-delete confirmation (planned reuse)
- *
- * Higher z-index (1100) than the pause menu (1050) so it stacks visually
- * above any caller's overlay.
- */
+// Each show() builds a fresh DOM overlay (no collision with concurrent dialogs).
+// Higher z-index (1100) than pause menu (1050) so dialogs always stack above their caller.
 const DIALOG_Z_INDEX = 1100
 
 const BACKDROP_STYLE = [
@@ -76,14 +61,7 @@ export class ConfirmDialogService extends Effect.Service<ConfirmDialogService>()
   {
     effect: Effect.flatMap(DomOperationsService, (dom) =>
       Effect.succeed({
-        /**
-         * Display a modal confirmation dialog and await the user's choice.
-         *
-         * Returns `true` if the user clicks the confirm button or presses Enter,
-         * `false` if the user clicks the cancel button or presses Escape.
-         *
-         * In SSR / non-DOM environments the dialog short-circuits to `false`.
-         */
+        // Short-circuits to false in SSR / non-DOM environments.
         show: (
           message: string,
           confirmLabel: string,

@@ -1,7 +1,3 @@
-/**
- * Stage 2: entityUpdateStage — entityManager.update + mesh sync + transform animate
- *                              + redstone tick + fluid tick (fixed-step world sims).
- */
 import { Effect, Ref } from 'effect'
 import { logErrors } from '@ts-minecraft/app/frame/error-logging'
 import type { FrameHandlerDeps, FrameHandlerServices, FrameStageRefs } from '@ts-minecraft/app/frame/types'

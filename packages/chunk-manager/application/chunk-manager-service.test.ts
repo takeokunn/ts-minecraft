@@ -438,11 +438,6 @@ describe('application/chunk/chunk-manager-service', () => {
   // instead of running the noise pipeline, making the loop fast.
   // ---------------------------------------------------------------------------
   describe('insertWithEviction (LRU cache eviction)', () => {
-    /**
-     * Build a test layer with N chunks pre-populated in storage.
-     * Coordinates are laid out on the x-axis: (0,0), (1,0), (2,0), …
-     * Each chunk has a minimal but valid block array (all zeros = AIR).
-     */
     const buildLayerWithStorageChunks = (count: number) => {
       const storage = makeInMemoryStorage()
 
@@ -1199,7 +1194,6 @@ describe('application/chunk/chunk-manager-service', () => {
     const ANDESITE = 14
     const BEDROCK = 16
 
-    /** index helper matching chunkBlockIndexUnchecked */
     const idx = (lx: number, y: number, lz: number): number =>
       y + lz * CHUNK_HEIGHT + lx * CHUNK_HEIGHT * CHUNK_SIZE
 
@@ -1571,16 +1565,12 @@ describe('application/chunk/chunk-manager-service', () => {
 
     const isOre = (b: number | undefined): boolean => b !== undefined && HashSet.has(ALL_ORES_SET, b)
 
-    /**
-     * Build a test layer with a mock noise service that returns values keeping
-     * caves from carving (noise3D = 1.0 > any threshold). Stone variants remain
-     * off (2D noise = 0.5 < VARIANT_THRESHOLD). Terrain is flat-ish, biomes use
-     * the port's default biome → fills columns with STONE/DEEPSLATE/DIRT/GRASS.
-     *
-     * This ensures ore placement has enough STONE/DEEPSLATE real estate to land
-     * veins for reliable test counts. (The stateless default NoiseServicePort
-     * returns noise3D=0 which causes every voxel in y=5..58 to be carved to AIR.)
-     */
+    // Build a test layer with a mock noise service that keeps caves from carving
+    // (noise3D = 1.0 > any threshold). Stone variants off (2D noise = 0.5 <
+    // VARIANT_THRESHOLD). Terrain is flat-ish → fills columns with STONE/DEEPSLATE/DIRT/GRASS.
+    // Ensures ore placement has enough STONE/DEEPSLATE real estate for reliable test counts.
+    // (The stateless default NoiseServicePort returns noise3D=0 which carves every
+    // voxel in y=5..58 to AIR, leaving no STONE for ores to replace.)
     const buildOreTestLayer = () => {
       const OreNoise = Layer.succeed(
         NoiseServicePort,

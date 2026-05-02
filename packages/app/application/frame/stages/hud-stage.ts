@@ -1,6 +1,3 @@
-/**
- * Stage 11: hudStage — FPS tick + adaptive quality + DOM update + hotbar HUD pass.
- */
 import { Effect, Ref } from 'effect'
 import { logErrors } from '@ts-minecraft/app/frame/error-logging'
 import type { FrameHandlerDeps, FrameHandlerServices, FrameSettingsView, FrameStageRefs } from '@ts-minecraft/app/frame/types'

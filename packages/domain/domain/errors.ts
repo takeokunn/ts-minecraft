@@ -1,31 +1,20 @@
-/**
- * Domain-specific error types for Minecraft clone
- *
- * These errors follow Effect-TS Data.TaggedError patterns for discriminated
- * union type narrowing, structural equality, and Effect.catchTag compatibility.
- *
- * Error handling should use Effect.catchTag('ErrorTag', ...) or pattern matching
- * via the _tag property — NOT runtime type guard functions.
- */
+// Domain error types — all extend Data.TaggedError for Effect.catchTag compatibility.
 import { Data } from 'effect'
 import type { ChunkCoord } from './chunk'
 
-/**
- * Error type for texture loading failures
- */
+const formatCause = (cause?: unknown): string =>
+  cause instanceof Error ? cause.message : cause ? String(cause) : ''
+
 export class TextureError extends Data.TaggedError('TextureError')<{
   readonly url: string
   readonly cause?: unknown
 }> {
   override get message(): string {
-    const causeMessage = this.cause instanceof Error ? this.cause.message : this.cause ? String(this.cause) : ''
+    const causeMessage = formatCause(this.cause)
     return `Failed to load texture from ${this.url}${causeMessage ? `: ${causeMessage}` : ''}`
   }
 }
 
-/**
- * Error type for invalid block operations
- */
 export class BlockError extends Data.TaggedError('BlockError')<{
   readonly blockType: string
   readonly reason: string
@@ -39,24 +28,18 @@ export class BlockError extends Data.TaggedError('BlockError')<{
   }
 }
 
-/**
- * Error type for mesh generation failures
- */
 export class MeshError extends Data.TaggedError('MeshError')<{
   readonly reason: string
   readonly cause?: unknown
   readonly details?: string
 }> {
   override get message(): string {
-    const causeMessage = this.cause instanceof Error ? this.cause.message : this.cause ? String(this.cause) : ''
+    const causeMessage = formatCause(this.cause)
     const detailsStr = this.details ? ` (${this.details})` : ''
     return `Mesh generation failed: ${this.reason}${detailsStr}${causeMessage ? `: ${causeMessage}` : ''}`
   }
 }
 
-/**
- * Error type for player operations
- */
 export class PlayerError extends Data.TaggedError('PlayerError')<{
   readonly playerId: string
   readonly reason: string
@@ -66,9 +49,6 @@ export class PlayerError extends Data.TaggedError('PlayerError')<{
   }
 }
 
-/**
- * Error type for world operations
- */
 export class WorldError extends Data.TaggedError('WorldError')<{
   readonly worldId: string
   readonly reason: string
@@ -82,35 +62,26 @@ export class WorldError extends Data.TaggedError('WorldError')<{
   }
 }
 
-/**
- * Error type for game loop operations
- */
 export class GameLoopError extends Data.TaggedError('GameLoopError')<{
   readonly reason: string
   readonly cause?: unknown
 }> {
   override get message(): string {
-    const causeMessage = this.cause instanceof Error ? this.cause.message : this.cause ? String(this.cause) : ''
+    const causeMessage = formatCause(this.cause)
     return `Game loop error: ${this.reason}${causeMessage ? `: ${causeMessage}` : ''}`
   }
 }
 
-/**
- * Error type for storage operations
- */
 export class StorageError extends Data.TaggedError('StorageError')<{
   readonly operation: string
   readonly cause?: unknown
 }> {
   override get message(): string {
-    const causeMessage = this.cause instanceof Error ? this.cause.message : this.cause ? String(this.cause) : ''
+    const causeMessage = formatCause(this.cause)
     return `Storage operation '${this.operation}' failed${causeMessage ? `: ${causeMessage}` : ''}`
   }
 }
 
-/**
- * Error type for chunk operations
- */
 export class ChunkError extends Data.TaggedError('ChunkError')<{
   readonly chunkCoord: ChunkCoord
   readonly reason: string
@@ -124,35 +95,26 @@ export class ChunkError extends Data.TaggedError('ChunkError')<{
   }
 }
 
-/**
- * Error type for settings operations
- */
 export class SettingsError extends Data.TaggedError('SettingsError')<{
   readonly operation: string
   readonly cause?: unknown
 }> {
   override get message(): string {
-    const causeMessage = this.cause instanceof Error ? this.cause.message : this.cause ? String(this.cause) : ''
+    const causeMessage = formatCause(this.cause)
     return `Settings ${this.operation} failed${causeMessage ? `: ${causeMessage}` : ''}`
   }
 }
 
-/**
- * Error type for application startup failures
- */
 export class StartupError extends Data.TaggedError('StartupError')<{
   readonly reason: string
   readonly cause?: unknown
 }> {
   override get message(): string {
-    const causeMessage = this.cause instanceof Error ? this.cause.message : this.cause ? String(this.cause) : ''
+    const causeMessage = formatCause(this.cause)
     return `${this.reason}${causeMessage ? `: ${causeMessage}` : ''}`
   }
 }
 
-/**
- * Error type for inventory operation failures
- */
 export class InventoryError extends Data.TaggedError('InventoryError')<{
   readonly operation: string
   readonly cause?: unknown
@@ -164,9 +126,6 @@ export class InventoryError extends Data.TaggedError('InventoryError')<{
   }
 }
 
-/**
- * Error type for recipe operation failures
- */
 export class RecipeError extends Data.TaggedError('RecipeError')<{
   readonly operation: string
   readonly cause?: unknown
@@ -178,14 +137,11 @@ export class RecipeError extends Data.TaggedError('RecipeError')<{
   }
 }
 
-/**
- * Error type for camera creation failures
- */
 export class CameraError extends Data.TaggedError('CameraError')<{
   readonly cause?: unknown
 }> {
   override get message(): string {
-    const causeMessage = this.cause instanceof Error ? this.cause.message : this.cause ? String(this.cause) : ''
+    const causeMessage = formatCause(this.cause)
     return `Camera creation failed${causeMessage ? `: ${causeMessage}` : ''}`
   }
 }

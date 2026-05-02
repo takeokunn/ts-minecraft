@@ -21,7 +21,6 @@ const DIRT    = blockTypeToIndex('DIRT')
 const BEDROCK = blockTypeToIndex('BEDROCK')
 const DEEPSLATE = blockTypeToIndex('DEEPSLATE')
 
-/** Base params shared across most resolveSurfaceProfile tests */
 const BASE_PARAMS = {
   defaultSurfaceBlockIndex: GRASS,
   defaultSubSurfaceBlockIndex: DIRT,
@@ -350,7 +349,6 @@ describe('resolveSurfaceProfile', () => {
 // fillColumn
 // ---------------------------------------------------------------------------
 
-/** Minimal fillColumn props; caller overrides what's needed */
 const FILL_PROPS = {
   surfaceBlockIndex: GRASS,
   subSurfaceBlockIndex: DIRT,
@@ -366,12 +364,10 @@ const FILL_PROPS = {
   andesiteFlag: false,
 }
 
-/** Read the block at local (lx, y, lz) from a Uint8Array */
 const getBlock = (blocks: Uint8Array, lx: number, y: number, lz: number): number => {
   return blocks[y + lz * CHUNK_HEIGHT + lx * CHUNK_HEIGHT * CHUNK_SIZE]!
 }
 
-/** Return a zeroed chunk block array (65536 bytes) */
 const makeBlocks = (): Uint8Array => new Uint8Array(CHUNK_SIZE * CHUNK_SIZE * CHUNK_HEIGHT)
 
 describe('fillColumn', () => {

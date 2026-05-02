@@ -3,29 +3,15 @@ import type { CameraRotationPort } from '@ts-minecraft/kernel'
 import { PlayerInputService } from '@ts-minecraft/input-handler'
 import { PlayerCameraStateService } from '../domain/camera-state'
 
-/**
- * Base sensitivity constant — multiplied by the mouseSensitivity setting.
- * At the default setting of 0.5: 0.5 * 0.004 = 0.002 rad/px (was the previous hardcoded value).
- * At setting 1.0: 0.004 rad/px. At max 3.0: 0.012 rad/px.
- */
+// At default sensitivity 0.5: 0.5 * 0.004 = 0.002 rad/px. At max 3.0: 0.012 rad/px.
 export const BASE_MOUSE_SENSITIVITY = 0.004
 
-/**
- * First-person camera service class
- *
- * Provides mouse look functionality for first-person camera control.
- * Integrates with InputService for mouse input and PlayerCameraState
- * for rotation state management.
- */
 export class FirstPersonCameraService extends Effect.Service<FirstPersonCameraService>()(
   '@minecraft/application/FirstPersonCameraService',
   {
     effect: Effect.all([PlayerInputService, PlayerCameraStateService], { concurrency: 'unbounded' }).pipe(
       Effect.map(([inputService, cameraState]) => ({
-        /**
-         * Update camera rotation based on mouse movement
-         * Only updates when pointer is locked (captured by the game)
-         */
+        // Only updates when pointer is locked (captured by the game).
         update: (camera: CameraRotationPort, sensitivity = 0.5): Effect.Effect<void, never> =>
           Effect.gen(function* () {
             // Only update if pointer is locked
@@ -56,10 +42,6 @@ export class FirstPersonCameraService extends Effect.Service<FirstPersonCameraSe
             yield* Effect.sync(() => { camera.rotation.set(rotation.pitch, rotation.yaw, 0, 'YXZ') })
           }),
 
-        /**
-         * Attach camera to player state (sync rotation from state to camera)
-         * Used when initializing or resuming the game
-         */
         attachToPlayer: (camera: CameraRotationPort): Effect.Effect<void, never> =>
           Effect.gen(function* () {
             const rotation = yield* cameraState.getRotation()

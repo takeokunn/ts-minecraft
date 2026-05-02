@@ -10,11 +10,9 @@ export type ChunkStorageValue =
       readonly fluid: Uint8Array<ArrayBufferLike> | undefined
     }
 
-/**
- * Application-layer port for chunk persistence.
- * Decouples application services from IndexedDB infrastructure.
- * Wired to infrastructure/storage/StorageService via StoragePortLayer in src/layers.ts.
- */
+// Application-layer port for chunk persistence.
+// Decouples application services from IndexedDB infrastructure.
+// Wired to infrastructure/storage/StorageService via StoragePortLayer in src/layers.ts.
 export class StorageServicePort extends Effect.Service<StorageServicePort>()(
   '@minecraft/application/storage/StorageServicePort',
   {

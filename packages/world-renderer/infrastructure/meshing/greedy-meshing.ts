@@ -441,23 +441,17 @@ const runGreedyExpansion = (
 export type GreedyMeshToMeshed = () => { opaque: MeshedChunk; water: MeshedChunk }
 
 export type GreedyMeshResult = {
-  /** Zero-copy subarray views into accumulator buffers (valid until next greedyMeshChunk call) */
+  // Zero-copy subarray views — valid until next greedyMeshChunk call (aliases accumulator backing store).
   readonly opaqueRaw: RawMeshData
   readonly waterRaw: RawMeshData | null
-  /** Lazily produces sliced (owned) copies — call only when you need independent arrays */
+  // Lazily produces sliced (owned) copies — call only when you need independent arrays.
   readonly toMeshed: GreedyMeshToMeshed
-  /** Backward-compatible lazy accessor — calls toMeshed().opaque on first access */
-  readonly opaque: MeshedChunk
-  /** Backward-compatible lazy accessor — calls toMeshed().water on first access */
-  readonly water: MeshedChunk
 }
 
 export const GreedyMeshResultSchema = Schema.Struct({
   opaqueRaw: RawMeshDataSchema,
   waterRaw: Schema.NullOr(RawMeshDataSchema),
   toMeshed: Schema.declare((u): u is GreedyMeshToMeshed => typeof u === 'function'),
-  opaque: MeshedChunkSchema,
-  water: MeshedChunkSchema,
 })
 
 export const greedyMeshChunk = (
@@ -859,10 +853,5 @@ export const greedyMeshChunk = (
     opaqueRaw,
     waterRaw,
     toMeshed,
-    // Backward-compatible accessors: lazily slice on first access.
-    // Tests and createChunkMesh use these via toMeshed() which produces owned copies (.slice()).
-    // opaqueRaw/waterRaw are available for potential future direct-update optimization.
-    get opaque() { return toMeshed().opaque },
-    get water() { return toMeshed().water },
   }
 }

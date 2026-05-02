@@ -3,13 +3,11 @@ import { Array as Arr, Effect } from 'effect'
 import { TimeService, TimeServiceLive } from '@ts-minecraft/day-night-cycle'
 import { DeltaTimeSecs } from '@ts-minecraft/kernel'
 
-/**
- * TimeService has no external dependencies, so we use TimeService.Default (= TimeServiceLive)
- * directly for every test.
- *
- * MEMORY note: Always call setTimeOfDay AFTER setDayLength so that ticks are
- * computed against the correct dayLengthTicks denominator.
- */
+// TimeService has no external dependencies, so we use TimeService.Default (= TimeServiceLive)
+// directly for every test.
+//
+// MEMORY note: Always call setTimeOfDay AFTER setDayLength so that ticks are
+// computed against the correct dayLengthTicks denominator.
 
 describe('application/time/time-service', () => {
   describe('TimeService interface', () => {

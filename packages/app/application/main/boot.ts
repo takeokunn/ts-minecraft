@@ -10,18 +10,14 @@ import { StorageService } from '@ts-minecraft/block-storage'
 import { NoiseService } from '@ts-minecraft/noise-generator'
 import { SoundManager, MusicManager } from '@ts-minecraft/audio-engine'
 
-/**
- * BootContext — persistent process-level resources that survive across world
- * sessions. Created once by `bootProgram` at process startup and threaded into
- * every `sessionProgram` invocation by `mainMenuLoop`.
- *
- * Lifetime: the entire browser tab. The boot scope is closed only when the
- * page unloads (which fires Effect's release path via Effect.scoped).
- *
- * Per FR-1.8 (Quit-to-Title with clean GPU teardown), these resources MUST
- * NOT be torn down when a session ends — only session-scoped GPU resources
- * (chunk meshes, refraction RT, water shader uniforms) are released.
- */
+// BootContext — persistent process-level resources that survive across world sessions.
+// Created once by `bootProgram` at process startup and threaded into every
+// `sessionProgram` invocation by `mainMenuLoop`.
+// Lifetime: the entire browser tab; the boot scope is closed only when the page
+// unloads (Effect's release path via Effect.scoped).
+// Per FR-1.8 (Quit-to-Title with clean GPU teardown), these resources MUST NOT be
+// torn down when a session ends — only session-scoped GPU resources (chunk meshes,
+// refraction RT, water shader uniforms) are released.
 export type BootContext = {
   readonly canvas: HTMLCanvasElement
   readonly renderer: THREE.WebGLRenderer
@@ -34,27 +30,20 @@ export type BootContext = {
   readonly musicManager: MusicManager
 }
 
-/**
- * `bootProgram` — initializes the persistent process-level layer.
- *
- * This program runs ONCE at startup and returns a BootContext that is reused
- * across every world session. The Effect must be invoked under `Effect.scoped`
- * so the renderer + audio engine are released on tab unload.
- *
- * Excluded from boot (lives in sessionProgram):
- *   - scene + camera (per-world scene graph)
- *   - composer + post-processing passes (depend on scene/camera bindings)
- *   - chunk/entity/world services (per-world domain state)
- *   - all overlays (mounted into session scope by W2/W3 agents)
- *   - game loop (forked per session)
- *
- * NOTE on composer/passes: the original P1-W1 brief listed composer + passes as
- * boot-level resources. They are kept in sessionProgram for now because the
- * RenderPass binds scene+camera by reference at construction. Pulling composer
- * into boot would require rebinding `renderPass.scene = ...` on every session
- * entry — a refactor that is left for a follow-up wave so this PR stays
- * focused on the boot/session boundary.
- */
+// Initializes the persistent process-level layer — runs ONCE at startup and returns
+// a BootContext reused across every world session. Must be invoked under `Effect.scoped`
+// so the renderer + audio engine are released on tab unload.
+//
+// Excluded from boot (lives in sessionProgram):
+//   - scene + camera (per-world scene graph)
+//   - composer + post-processing passes (depend on scene/camera bindings)
+//   - chunk/entity/world services (per-world domain state)
+//   - all overlays (mounted into session scope)
+//   - game loop (forked per session)
+//
+// NOTE: composer/passes are kept in sessionProgram because RenderPass binds
+// scene+camera by reference at construction; pulling them into boot would require
+// rebinding `renderPass.scene = ...` on every session entry.
 export const bootProgram = Effect.gen(function* () {
   const canvas = yield* Effect.sync(() => Option.fromNullable(document.getElementById('game-canvas'))).pipe(
     Effect.flatMap(

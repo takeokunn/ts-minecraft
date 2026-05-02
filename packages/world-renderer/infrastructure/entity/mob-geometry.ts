@@ -15,12 +15,8 @@ export type MobLimbGroup = Readonly<{
 
 type Dim3 = readonly [number, number, number]
 
-/**
- * Shared BoxGeometry cache, keyed by `${type}:${role}`. Geometries are immutable
- * after construction and translated so the mesh's local origin is at the limb's
- * pivot point (top center for limbs; geometric center for head/body). Sharing
- * across instances is safe and required — callers MUST NOT dispose these.
- */
+// Shared BoxGeometry cache keyed by `${type}:${role}`. Geometries are translated so the local origin is at the
+// limb pivot (top center for limbs, geometric center for head/body). Callers MUST NOT dispose these.
 const geometryCache = new Map<string, THREE.BoxGeometry>()
 
 const getOrCreateGeometry = (
@@ -40,10 +36,7 @@ const getOrCreateGeometry = (
   return g
 }
 
-/**
- * Per-type material cache. Each MeshStandardMaterial is shared across all mobs
- * of the same type+role. MUST NOT be disposed by the renderer.
- */
+// Per-type material cache; shared across all mobs of the same type+role. MUST NOT be disposed by the renderer.
 const materialCache = new Map<string, THREE.MeshStandardMaterial>()
 
 const getOrCreateMaterial = (key: string, color: number): THREE.MeshStandardMaterial => {
@@ -213,10 +206,7 @@ export const buildMobGroup = (type: EntityType): MobLimbGroup => {
   }
 }
 
-/**
- * For tests only — clear the geometry/material caches between test runs that
- * mock THREE.js so the next run rebuilds via the new mock constructors.
- */
+// For tests only — clears geometry/material caches so THREE.js mock constructors are used in subsequent runs.
 export const _resetMobGeometryCachesForTest = (): void => {
   geometryCache.clear()
   materialCache.clear()

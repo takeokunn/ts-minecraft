@@ -1,7 +1,7 @@
 import { describe, expect, vi } from 'vitest'
 import { it } from '@effect/vitest'
 import { Effect } from 'effect'
-import { createFrameHandler } from '@ts-minecraft/app'
+import { createFrameHandlers } from '@ts-minecraft/app'
 import type { DeltaTimeSecs } from '@ts-minecraft/kernel'
 import {
   makeDeps,
@@ -56,7 +56,8 @@ describe('step 2.85 — entity renderer wiring', () => {
     const syncSpy = vi.fn(() => Effect.void)
     ;(services.entityRenderer as unknown as { syncEntities: unknown }).syncEntities = syncSpy
 
-    const handler = yield* createFrameHandler(deps, services)
+    const { frameHandler, maintenanceHandler } = yield* createFrameHandlers(deps, services)
+    const handler = (deltaTime: DeltaTimeSecs) => maintenanceHandler().pipe(Effect.andThen(frameHandler(deltaTime)))
     yield* handler(0.016 as DeltaTimeSecs)
     yield* handler(0.016 as DeltaTimeSecs)
 
@@ -91,7 +92,8 @@ describe('step 2.85 — entity renderer wiring', () => {
     const updateSpy = vi.fn(() => Effect.void)
     ;(services.entityRenderer as unknown as { updateEntityTransforms: unknown }).updateEntityTransforms = updateSpy
 
-    const handler = yield* createFrameHandler(deps, services)
+    const { frameHandler, maintenanceHandler } = yield* createFrameHandlers(deps, services)
+    const handler = (deltaTime: DeltaTimeSecs) => maintenanceHandler().pipe(Effect.andThen(frameHandler(deltaTime)))
     yield* handler(0.016 as DeltaTimeSecs)
     yield* handler(0.016 as DeltaTimeSecs)
 

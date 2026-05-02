@@ -1,22 +1,5 @@
-/**
- * Pure synchronous noise primitives.
- *
- * Single source of truth for the deterministic noise functions used by both
- * `infrastructure/noise/NoiseService` (Effect-wrapped) and the off-thread
- * `application/terrain/terrain-generation` worker pipeline.
- *
- * Self-contained: imports only `effect/Array` for lightweight functional
- * helpers and the existing `infrastructure/noise/perlin` core (Ken Perlin
- * "Improved Noise" 2D + 3D), which is itself dependency-free apart from
- * `Option` for an optional rand fallback.
- *
- * Determinism contract:
- *   For a given `seed: number`, `createNoisePrimitives(seed)` returns a struct
- *   whose method outputs are byte-identical to the corresponding methods on
- *   `NoiseService` after `setSeed(seed)`. This guarantee is enforced by
- *   `noise-service.ts` delegating to this module, and by the parity property
- *   test in `infrastructure/terrain/terrain-worker-pool.parity.property.test.ts`.
- */
+// Single source of truth for deterministic noise functions shared by NoiseService and the terrain worker.
+// Determinism contract: createNoisePrimitives(seed) output is byte-identical to NoiseService.setSeed(seed).
 import { Array as Arr } from 'effect'
 import {
   createPerlinNoise2D,
@@ -30,7 +13,6 @@ import {
 // PRNG
 // ---------------------------------------------------------------------------
 
-/** Mulberry32 — deterministic, cheap, uniform [0,1) generator. */
 export const mulberry32 = (seed: number): RandFn => {
   let s = seed >>> 0
   return () => {
@@ -45,7 +27,7 @@ export const mulberry32 = (seed: number): RandFn => {
 // Constants
 // ---------------------------------------------------------------------------
 
-/** Map 2D Perlin output from [-1, 1] to [0, 1]. */
+// Map 2D Perlin output from [-1, 1] to [0, 1].
 export const normalizeNoise = (value: number): number => (value + 1) / 2
 
 // Weyl-constant XORs decorrelate per-channel Perlin seeds while keeping every
@@ -64,7 +46,7 @@ export const SCALE_E = 0.001
 export const SCALE_W = 0.002
 export const SCALE_J = 0.02
 
-/** Peaks-and-valleys transform of the weirdness channel: pv = 1 - |3|w| - 2|. */
+// pv = 1 - |3|w| - 2|  (peaks-and-valleys transform of weirdness)
 export const toPV = (w: number): number => 1 - Math.abs(3 * Math.abs(w) - 2)
 
 // ---------------------------------------------------------------------------
@@ -182,33 +164,19 @@ export const computeTerrainChannels = (
 // source of truth for "what does seed=N produce".
 // ---------------------------------------------------------------------------
 export type NoisePrimitives = Readonly<{
-  /** Base 2D Perlin sampled directly (range ≈ [-1, 1]). */
-  raw2D: NoiseFn2D
-  /** Base 3D Perlin sampled directly (range ≈ [-1, 1]). */
-  raw3D: NoiseFn3D
-  /** Per-channel 2D Perlin instances. */
+  raw2D: NoiseFn2D        // raw [-1,1] Perlin 2D
+  raw3D: NoiseFn3D        // raw [-1,1] Perlin 3D
   continentalness: NoiseFn2D
   erosion: NoiseFn2D
   weirdness: NoiseFn2D
   jaggedness: NoiseFn2D
-  /** noise2D normalised to [0, 1]. */
   noise2D: (x: number, z: number) => number
-  /** Multi-octave normalised noise. */
-  octaveNoise2D: (
-    x: number,
-    z: number,
-    octaves: number,
-    persistence: number,
-    lacunarity: number,
-  ) => number
-  /** Raw 3D Perlin (range ≈ [-1, 1]). */
+  octaveNoise2D: (x: number, z: number, octaves: number, persistence: number, lacunarity: number) => number
   noise3D: (x: number, y: number, z: number) => number
-  /** Continentalness sampler — internally applies SCALE_C. */
   continentalnessAt: (x: number, z: number) => number
   erosionAt: (x: number, z: number) => number
   weirdnessAt: (x: number, z: number) => number
   jaggednessAt: (x: number, z: number) => number
-  /** Sparse-grid bilinear terrain channels. */
   sampleTerrainChannels: (xStart: number, zStart: number) => TerrainChannelSamples
 }>
 

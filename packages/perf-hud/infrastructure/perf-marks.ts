@@ -1,8 +1,6 @@
-/**
- * Activated by `?debug=perf` URL query. `markEffect` wraps Effect-typed boundaries
- * with `performance.mark`+`performance.measure` for browser DevTools timeline + Playwright
- * `browser_console_messages` capture. No-op when the flag is absent.
- */
+// Activated by `?debug=perf` URL query. `markEffect` wraps Effect-typed boundaries
+// with `performance.mark`+`performance.measure` for browser DevTools timeline and Playwright
+// `browser_console_messages` capture. No-op when the flag is absent.
 import { Effect } from 'effect'
 
 const PERF_ENABLED =

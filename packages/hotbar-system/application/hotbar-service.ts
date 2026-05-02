@@ -7,23 +7,6 @@ import { SlotIndex } from '@ts-minecraft/kernel'
 
 export { HOTBAR_SIZE }
 
-/**
- * Service interface for managing the player's hotbar
- *
- * The hotbar is a view over InventoryService slots 27-35 (the bottom row).
- * Slot indices 0-8 in HotbarService map to inventory indices 27-35.
- */
-
-/**
- * Context tag for HotbarService
- */
-
-/**
- * Live implementation of HotbarService
- *
- * A thin projection over InventoryService slots 27-35.
- * Selected slot state is managed locally; slot content comes from InventoryService.
- */
 export class HotbarService extends Effect.Service<HotbarService>()(
   '@minecraft/application/HotbarService',
   {
@@ -45,22 +28,12 @@ export class HotbarService extends Effect.Service<HotbarService>()(
       ]
 
       return {
-        /**
-         * Get the currently selected slot index (0-8)
-         */
         getSelectedSlot: (): Effect.Effect<SlotIndex, never> =>
           Ref.get(selectedSlotRef),
 
-        /**
-         * Set the selected slot index (clamped to 0-8)
-         */
         setSelectedSlot: (slot: SlotIndex): Effect.Effect<void, never> =>
           Ref.set(selectedSlotRef, SlotIndex.make(Math.max(0, Math.min(HOTBAR_SIZE - 1, SlotIndex.toNumber(slot))))),
 
-        /**
-         * Get the BlockType for the currently selected slot.
-         * Returns Option.none() if the slot is empty or index is out of bounds.
-         */
         getSelectedBlockType: (): Effect.Effect<Option.Option<BlockType>, never> =>
           Effect.gen(function* () {
             const slot = yield* Ref.get(selectedSlotRef)
@@ -68,20 +41,12 @@ export class HotbarService extends Effect.Service<HotbarService>()(
             return Option.map(inventorySlot, (stack) => stack.blockType)
           }),
 
-        /**
-         * Get all hotbar slot block types (array of length HOTBAR_SIZE, entries may be None).
-         * Maps InventoryService slots 27-35, discarding item count.
-         */
         getSlots: (): Effect.Effect<ReadonlyArray<Option.Option<BlockType>>, never> =>
           Effect.gen(function* () {
             const hotbarSlots = yield* inventoryService.getHotbarSlots()
             return Arr.map(hotbarSlots, (slot) => Option.map(slot, (stack) => stack.blockType))
           }),
 
-        /**
-         * Process input for slot selection (call once per frame from game loop).
-         * Handles Digit1-9 key presses and mouse wheel scrolling.
-         */
         update: (): Effect.Effect<void, never> =>
           Effect.gen(function* () {
             const keyFound = yield* Effect.reduce(

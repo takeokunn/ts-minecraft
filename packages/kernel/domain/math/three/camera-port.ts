@@ -1,7 +1,4 @@
-/**
- * Minimal duck-typed interface for a 3D camera that supports rotation mutation.
- * Satisfied structurally by THREE.PerspectiveCamera and any compatible mock.
- */
+// Duck-typed: satisfied structurally by THREE.PerspectiveCamera and any compatible mock.
 import { Schema } from 'effect'
 import type { EulerOrder } from 'three'
 
@@ -17,11 +14,7 @@ export const CameraRotationPortSchema = Schema.mutable(Schema.Struct({
 
 export type CameraRotationPort = Schema.Schema.Type<typeof CameraRotationPortSchema>
 
-/**
- * Extended camera port that also exposes position mutation and lookAt.
- * Satisfied structurally by THREE.PerspectiveCamera. Used by third-person
- * camera service which needs to relocate the camera and orient it toward the player.
- */
+// Extended port with position + lookAt; used by third-person camera to relocate and orient.
 export const CameraTransformPortSchema = Schema.mutable(Schema.Struct({
   rotation: Schema.Struct({
     set: Schema.declare((u): u is CameraRotationSet => typeof u === 'function'),

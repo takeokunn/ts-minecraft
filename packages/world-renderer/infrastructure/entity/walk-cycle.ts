@@ -1,11 +1,8 @@
-/**
- * Pure walk-cycle math — no THREE.js, no side effects.
- *
- * Used by the entity renderer to compute per-limb swing angles each frame.
- * Bipeds: arm-L pairs with leg-R (and vice versa); legs L/R are π apart.
- * Quadrupeds: front legs use the same phase relationships as biped legs;
- * the renderer negates the result for back legs.
- */
+// Pure walk-cycle math — no THREE.js, no side effects.
+// Used by the entity renderer to compute per-limb swing angles each frame.
+// Bipeds: arm-L pairs with leg-R (and vice versa); legs L/R are π apart.
+// Quadrupeds: front legs use the same phase relationships as biped legs;
+// the renderer negates the result for back legs.
 
 export const STRIDE_LENGTH = 1.2
 export const LIMB_SWING_AMPLITUDE = Math.PI / 6 // 30°

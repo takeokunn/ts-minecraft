@@ -13,21 +13,13 @@ import { CHUNK_SIZE, CHUNK_HEIGHT } from '@ts-minecraft/domain'
 import { chunkBlockIndexUnchecked } from '@ts-minecraft/terrain-generator'
 import { resolveBlockCollisions } from '@ts-minecraft/physics-engine'
 
-/**
- * Module-level offset table for the 3×3 chunk neighborhood used during
- * physics block collision queries. Hoisted to module scope so the array
- * itself is allocated once (not per frame) and the offsets array literal
- * is shared across all frames.
- */
+// Hoisted to module scope: array allocated once, not per frame.
 const OFFSETS_3x3 = [
   [-1, -1], [-1, 0], [-1, 1],
   [ 0, -1], [ 0, 0], [ 0, 1],
   [ 1, -1], [ 1, 0], [ 1, 1],
 ] as const
 
-/**
- * Schema for TimingState representing frame timing information
- */
 export const TimingStateSchema = Schema.Struct({
   lastFrameTime: Schema.Number.pipe(Schema.finite(), Schema.nonNegative()),
   deltaTime: DeltaTimeSecsSchema,
@@ -35,9 +27,6 @@ export const TimingStateSchema = Schema.Struct({
 })
 export type TimingState = Schema.Schema.Type<typeof TimingStateSchema>
 
-/**
- * Error type for game state operations
- */
 export class GameStateError extends Data.TaggedError('GameStateError')<{
   readonly operation: string
   readonly reason: string
@@ -49,28 +38,15 @@ export class GameStateError extends Data.TaggedError('GameStateError')<{
   }
 }
 
-/**
- * Player physics body ID constant (legacy string, kept for external compatibility)
- */
 export const PLAYER_BODY_ID = 'player'
 
-/** Gravitational acceleration (m/s²) — standard Earth gravity */
 const GRAVITY_Y = -9.82
-
-/** Player rigid body mass in kg */
 const PLAYER_MASS = 70
-
-/** Player box half-extents in meters (x and z) */
 const PLAYER_HALF_WIDTH = 0.3
-
-/** Player box half-extents in meters (y) */
 const PLAYER_HALF_HEIGHT = 0.9
 
 const ZERO_VEC3 = Object.freeze({ x: 0, y: 0, z: 0 })
 
-/**
- * Service class for coordinating game state across services
- */
 export class GameStateService extends Effect.Service<GameStateService>()(
   '@minecraft/application/GameStateService',
   {
@@ -102,7 +78,7 @@ export class GameStateService extends Effect.Service<GameStateService>()(
       const playerId = DEFAULT_PLAYER_ID
 
       return {
-        initialize: (spawnPosition: Position, groundY = 0): Effect.Effect<void, GameStateError> =>
+        initialize: (spawnPosition: Position): Effect.Effect<void, GameStateError> =>
           Effect.gen(function* () {
             // Initialize the physics world
             yield* physicsService.initialize({
@@ -126,9 +102,6 @@ export class GameStateService extends Effect.Service<GameStateService>()(
 
             // Initialize player state at spawn position
             yield* playerService.create(playerId, spawnPosition)
-
-            // Suppress unused warning for groundY parameter (kept for API compatibility)
-            void groundY
           }).pipe(
             Effect.catchTag('PhysicsServiceError', (e) =>
               Effect.fail(new GameStateError({ operation: 'initialize', reason: e.operation, cause: e }))

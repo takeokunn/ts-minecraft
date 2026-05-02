@@ -3,17 +3,10 @@ import { GRAPHICS_PRESETS } from './settings-service.config'
 import { SettingsError } from '@ts-minecraft/domain'
 import { EnvironmentPort } from '../domain/environment-port'
 
-/**
- * Graphics quality preset — replaces individual post-processing toggles.
- * Each level maps to a fixed combination of pass enable states via resolvePreset().
- */
+// Replaces individual post-processing toggles; each level maps to a fixed combination of pass enable states via resolvePreset().
 export const GraphicsQuality = Schema.Literal('low', 'medium', 'high', 'ultra')
 export type GraphicsQuality = Schema.Schema.Type<typeof GraphicsQuality>
 
-/**
- * Resolved graphics settings derived from a quality preset.
- * Used by frame-handler and main.ts to configure post-processing passes.
- */
 export const ResolvedGraphicsSchema = Schema.Struct({
   shadowsEnabled: Schema.Boolean,
   ssaoEnabled: Schema.Boolean,
@@ -29,41 +22,23 @@ export const ResolvedGraphicsSchema = Schema.Struct({
 })
 export type ResolvedGraphics = Schema.Schema.Type<typeof ResolvedGraphicsSchema>
 
-/**
- * Map a quality preset to individual pass enable states.
- * Preset values are defined in settings-service.config.ts.
- */
 export const resolvePreset = (quality: GraphicsQuality): ResolvedGraphics =>
   GRAPHICS_PRESETS[quality]
 
-/**
- * Schema for validating the structure of stored settings.
- * Numeric fields are validated as finite and must be within their valid ranges (out-of-range values are rejected).
- *
- * graphicsQuality replaces individual post-processing booleans (shadowsEnabled, ssaoEnabled, etc.).
- * Old localStorage data with individual booleans is silently migrated — the booleans are ignored
- * and graphicsQuality defaults to 'high' (matching the original default pass configuration).
- */
+// Old localStorage data with individual post-processing booleans (shadowsEnabled, ssaoEnabled etc.) is silently migrated —
+// the booleans are ignored and graphicsQuality defaults to 'low'.
 export const SettingsSchema = Schema.Struct({
-  /** Chunk render distance in chunks. Default: 8. Must be in [2, 16]. */
   renderDistance: Schema.Number.pipe(Schema.finite(), Schema.between(2, 16)),
-  /** Mouse sensitivity multiplier. Default: 0.5. Must be in [0.1, 3.0]. */
   mouseSensitivity: Schema.Number.pipe(Schema.finite(), Schema.between(0.1, 3.0)),
-  /** Day length in seconds. Default: 400. Must be in [120, 1200]. */
   dayLengthSeconds: Schema.Number.pipe(Schema.finite(), Schema.between(120, 1200)),
-  /** Graphics quality preset. Replaces individual post-processing toggles. Default: 'low'. */
   graphicsQuality: Schema.optionalWith(GraphicsQuality, { default: () => 'low' as const }),
-  /** Whether adaptive performance throttling may lower graphics/render distance automatically. Default: true. */
   adaptivePerformanceMode: Schema.optionalWith(Schema.Boolean, { default: () => true }),
   // NOTE: audioEnabled defaults to false intentionally — do NOT change this to true.
   // Audio is disabled by default because it causes noise during development and testing.
   // Users can enable it via the settings UI.
   audioEnabled: Schema.optionalWith(Schema.Boolean, { default: () => false }),
-  /** Master audio volume in [0,1] (optional in stored data; defaults to 0.8 for backward compatibility). */
   masterVolume: Schema.optionalWith(Schema.Number.pipe(Schema.finite(), Schema.between(0, 1)), { default: () => 0.8 }),
-  /** Sound effect volume in [0,1] (optional in stored data; defaults to 1.0 for backward compatibility). */
   sfxVolume: Schema.optionalWith(Schema.Number.pipe(Schema.finite(), Schema.between(0, 1)), { default: () => 1.0 }),
-  /** Music volume in [0,1] (optional in stored data; defaults to 0.55 for backward compatibility). */
   musicVolume: Schema.optionalWith(Schema.Number.pipe(Schema.finite(), Schema.between(0, 1)), { default: () => 0.55 }),
 })
 export type Settings = Schema.Schema.Type<typeof SettingsSchema>

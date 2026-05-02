@@ -1,14 +1,12 @@
-/**
- * Parity property test: worker-pool sync-fallback output is byte-identical to
- * main-thread `application/chunk/terrain/generator.generateTerrain` output.
- *
- * If this test fails, save corruption is the immediate consequence — every
- * existing world's terrain would regenerate differently. Treat any regression
- * here as a critical bug.
- *
- * Strategy: drive both paths with the same `(coord, seed)` and compare the
- * `blocks` Uint8Array byte-for-byte.
- */
+// Parity property test: worker-pool sync-fallback output is byte-identical to
+// main-thread `application/chunk/terrain/generator.generateTerrain` output.
+//
+// If this test fails, save corruption is the immediate consequence — every
+// existing world's terrain would regenerate differently. Treat any regression
+// here as a critical bug.
+//
+// Strategy: drive both paths with the same `(coord, seed)` and compare the
+// `blocks` Uint8Array byte-for-byte.
 import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
 import { Array as Arr, Effect, Layer } from 'effect'

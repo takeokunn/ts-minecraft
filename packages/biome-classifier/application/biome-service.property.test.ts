@@ -9,12 +9,10 @@ import { CHUNK_SIZE, CHUNK_HEIGHT } from '@ts-minecraft/domain'
 // Valid block type indices stored in Uint8Array (0=AIR through 11=COBBLESTONE)
 const MAX_BLOCK_INDEX = 11
 
-/**
- * Build a mock NoiseService layer that returns controlled [0,1] values.
- * Uses the same threshold heuristic as biome-service.test.ts:
- *   x_arg > 25.0 → humidity call
- *   x_arg ≤ 25.0 → temperature call
- */
+// Build a mock NoiseService layer that returns controlled [0,1] values.
+// Uses the same threshold heuristic as biome-service.test.ts:
+//   x_arg > 25.0 → humidity call
+//   x_arg ≤ 25.0 → temperature call
 const makeMockNoiseLayer = (tempValue: number, humidityValue: number) =>
   Layer.succeed(NoiseServicePort, {
     noise2D: (_x: number, _z: number): Effect.Effect<number, never> => Effect.succeed(0.5),

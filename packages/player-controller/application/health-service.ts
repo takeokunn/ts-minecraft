@@ -48,10 +48,7 @@ export const tickInvincibility = (health: PlayerHealth): PlayerHealth =>
       })
     : health
 
-/**
- * Compute fall damage on landing.
- * Minecraft formula: damage = fallDistance - 3 (min 3 blocks to take damage).
- */
+// Minecraft formula: damage = fallDistance - FALL_DAMAGE_FREE_BLOCKS (min 3 blocks free).
 export const computeFallDamage = (
   prevY: number,
   currentY: number,
@@ -106,11 +103,8 @@ export class HealthService extends Effect.Service<HealthService>()(
         isDead: (): Effect.Effect<boolean, never> =>
           Ref.get(stateRef).pipe(Effect.map((s) => s.health.current <= 0)),
 
-        /**
-         * Block until the player dies. Resolves immediately if already dead.
-         * Single-shot per death cycle: after `reset()` a fresh deferred is installed,
-         * so the next `awaitDeath()` call waits for the next death.
-         */
+        // Single-shot per death cycle: reset() installs a fresh deferred, so the next
+        // awaitDeath() waits for the next death rather than resolving immediately.
         awaitDeath: (): Effect.Effect<void, never> =>
           Ref.get(stateRef).pipe(
             Effect.flatMap((s) =>

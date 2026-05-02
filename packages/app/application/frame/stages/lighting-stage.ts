@@ -1,6 +1,3 @@
-/**
- * Stage 1: lightingStage — day/night cycle, shadow dirty, music context, sun intensity.
- */
 import { Effect, Ref } from 'effect'
 import { logErrors } from '@ts-minecraft/app/frame/error-logging'
 import type { FrameHandlerDeps, FrameHandlerServices, FrameStageRefs } from '@ts-minecraft/app/frame/types'

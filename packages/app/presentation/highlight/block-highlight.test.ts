@@ -10,9 +10,6 @@ import {
 } from '@ts-minecraft/app/presentation/highlight/block-highlight'
 import { RaycastingService, type RaycastHit } from '@ts-minecraft/world-renderer'
 
-/**
- * Helper to create a mock RaycastingService
- */
 const createMockRaycastingService = (
   hitResult: Option.Option<RaycastHit> = Option.none()
 ) => {
@@ -34,9 +31,6 @@ const createMockRaycastingService = (
   } as unknown as RaycastingService
 }
 
-/**
- * Helper to create a mock scene that tracks added objects
- */
 const createMockScene = () => {
   const children: THREE.Object3D[] = []
   return {
@@ -56,9 +50,6 @@ const createMockScene = () => {
   }
 }
 
-/**
- * Helper to create a mock camera
- */
 const createMockCamera = () => {
   return new THREE.PerspectiveCamera(75, 1, 0.1, 1000)
 }

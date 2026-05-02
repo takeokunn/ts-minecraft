@@ -1,8 +1,6 @@
-/**
- * Structural port for the scene lighting objects manipulated by the day/night cycle.
- * Duck-typed — no Three.js import required. Any Three.js objects satisfying this
- * shape will work, keeping the application layer free from rendering infrastructure.
- */
+// Structural port for the scene lighting objects manipulated by the day/night cycle.
+// Duck-typed — no Three.js import required. Any Three.js objects satisfying this
+// shape will work, keeping the application layer free from rendering infrastructure.
 import { Option, Schema } from 'effect'
 import type { Color as ThreeColor } from 'three'
 export { Option }

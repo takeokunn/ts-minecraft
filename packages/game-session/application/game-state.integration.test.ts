@@ -1,11 +1,9 @@
-/**
- * D1: Physics → movement → position integration test
- *
- * Verifies that AABB block collision in GameStateService.update() prevents the
- * player physics body from falling below y=0 (bedrock). With NoOpChunkManager
- * (no blocks loaded), the player falls until the bedrock rule triggers, settling
- * at center y = PLAYER_HALF_HEIGHT (0.9).
- */
+// D1: Physics → movement → position integration test
+//
+// Verifies that AABB block collision in GameStateService.update() prevents the
+// player physics body from falling below y=0 (bedrock). With NoOpChunkManager
+// (no blocks loaded), the player falls until the bedrock rule triggers, settling
+// at center y = PLAYER_HALF_HEIGHT (0.9).
 import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
 import { Array as Arr, Effect, Either, Layer, Option, Ref } from 'effect'
@@ -23,7 +21,7 @@ import { InventoryServiceLive } from '@ts-minecraft/inventory-system'
 import { BlockRegistryLive } from '@ts-minecraft/domain'
 import { DeltaTimeSecs, PlayerId, DEFAULT_PLAYER_ID } from '@ts-minecraft/kernel'
 
-/** Player center Y when standing on bedrock (feet at y=0) */
+// Player center Y when standing on bedrock (feet at y=0)
 const PLAYER_HALF_HEIGHT = 0.9
 
 // ---------------------------------------------------------------------------

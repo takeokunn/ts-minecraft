@@ -1,16 +1,7 @@
-/**
- * Pure synchronous terrain generation for off-thread workers.
- *
- * `generateTerrainBlocks` produces byte-identical output to the main-thread
- * `application/chunk/terrain/generator.generateTerrain` pipeline given the
- * same `(coord, seed, seaLevel, lakeLevel)` inputs. This is enforced by
- * `infrastructure/terrain/terrain-worker-pool.parity.property.test.ts`.
- *
- * Strategy: build pure-function `NoiseServicePort` and `BiomeService` /
- * `ChunkService` impls backed by `shared/noise/primitives.ts`, then run the
- * existing `generateTerrain` Effect through `Effect.runSync`. No new terrain
- * logic is duplicated — the single source of truth remains `generator.ts`.
- */
+// Pure synchronous terrain generation for off-thread workers.
+// Output is byte-identical to main-thread generator.generateTerrain for the same inputs;
+// enforced by terrain-worker-pool.parity.property.test.ts.
+// No logic duplication — single source of truth remains generator.ts.
 import { Array as Arr, Effect, Layer, Schema } from 'effect'
 import {
   CHUNK_HEIGHT,
@@ -203,10 +194,7 @@ export const createTerrainNoiseCoordinates = (
 // the pipeline is `Effect.sync` / `Effect.succeed` — no async boundary.
 // ---------------------------------------------------------------------------
 
-/**
- * Build the chunk-generation program for a given coord. Exposed so the worker
- * entrypoint can pair it with a cached runtime built from `buildTerrainLayer`.
- */
+// Exposed so worker entrypoint pairs with a cached runtime from buildTerrainLayer (avoids Layer-init cost per chunk).
 export const buildTerrainProgram = (coord: ChunkCoord) =>
   Effect.gen(function* () {
     const chunkService = yield* ChunkService
@@ -215,13 +203,7 @@ export const buildTerrainProgram = (coord: ChunkCoord) =>
     return yield* generateTerrain(chunkService, biomeService, noiseService, coord)
   })
 
-/**
- * Convert the program output (a `Chunk`) into the `ChunkBlocks` envelope the
- * worker protocol carries. Both light grids are fully BFS-propagated here so
- * the main thread can adopt them directly without re-running the lighting
- * engine — moving this work off the main thread is the primary cold-start
- * fix (see `computeInitialLightGrids` comment).
- */
+// Light grids are fully BFS-propagated here so main thread adopts them directly — primary cold-start fix.
 export const toChunkBlocks = (chunk: { blocks: Uint8Array }): ChunkBlocks => {
   const { skyLight, blockLight } = computeInitialLightGrids(chunk.blocks)
   return { blocks: chunk.blocks, skyLight, blockLight }

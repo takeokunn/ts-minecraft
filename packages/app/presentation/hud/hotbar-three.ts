@@ -138,9 +138,6 @@ export class HotbarRendererService extends Effect.Service<HotbarRendererService>
               }),
           ).pipe(
             Effect.as({
-              /**
-               * Create HUD scene, camera, and slot meshes. Call once after renderer is created.
-               */
               initialize: (initialWidth: number, initialHeight: number): Effect.Effect<void, never> =>
                 Effect.gen(function* () {
                   const cam = makeCamera(initialWidth, initialHeight)
@@ -165,9 +162,6 @@ export class HotbarRendererService extends Effect.Service<HotbarRendererService>
                   MutableRef.set(slotMeshesRef, meshes)
                 }),
 
-              /**
-               * Update slot colors and highlight based on current slots and selected slot. Call every frame.
-               */
               update: (slots: ReadonlyArray<Option.Option<BlockType>>, selectedSlot: SlotIndex): Effect.Effect<void, never> =>
                 Effect.gen(function* () {
                   const slotMeshes = MutableRef.get(slotMeshesRef)
@@ -207,9 +201,6 @@ export class HotbarRendererService extends Effect.Service<HotbarRendererService>
                   })
                 }),
 
-              /**
-               * Render the HUD overlay onto the renderer. Call after main scene render with autoClear=false.
-               */
               render: (renderer: THREE.WebGLRenderer): Effect.Effect<void, never> =>
                 Option.match(MutableRef.get(hudCameraRef), {
                   onNone: () => Effect.void,

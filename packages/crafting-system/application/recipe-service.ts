@@ -41,14 +41,10 @@ export class RecipeService extends Effect.Service<RecipeService>()(
           )
         )
 
-      /**
-       * Attempts to craft a recipe by consuming ingredients from inventory and adding the output.
-       *
-       * Atomicity note: ingredient counts are checked before any removal. If all checks pass,
-       * removals are performed sequentially. In practice the pre-check prevents partial failure,
-       * but the operation is NOT transactional — a concurrent mutation between check and removal
-       * could leave inventory in an inconsistent state.
-       */
+      // Atomicity note: ingredient counts are checked before any removal. If all checks pass,
+      // removals are performed sequentially. In practice the pre-check prevents partial failure,
+      // but the operation is NOT transactional — a concurrent mutation between check and removal
+      // could leave inventory in an inconsistent state.
       const craft = (
         recipeId: RecipeId,
         inventoryService: InventoryService,

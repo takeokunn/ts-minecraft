@@ -11,9 +11,6 @@ import type { SlotIndex } from '@ts-minecraft/kernel'
 
 const asSlotIndex = (n: number): SlotIndex => n as unknown as SlotIndex
 
-/**
- * Test implementation of InputService with controllable wheel and key state
- */
 const createTestInputService = (config: {
   justPressedKeys?: ReadonlyArray<string>
   wheelDelta?: number
@@ -53,9 +50,6 @@ const createTestInputService = (config: {
   }
 }
 
-/**
- * Build a minimal Block object for a given BlockType
- */
 const makeBlock = (type: BlockType): Block => ({
   id: `block:${type.toLowerCase()}` as Block['id'],
   type,
@@ -76,9 +70,6 @@ const makeBlock = (type: BlockType): Block => ({
   },
 })
 
-/**
- * Test implementation of BlockRegistry with a fixed set of blocks
- */
 const createTestBlockRegistry = (blocks: ReadonlyArray<Block> = []) => {
   let blockMap = MutableHashMap.empty<BlockType, Block>()
   Arr.forEach(blocks, (block) => {
@@ -100,9 +91,6 @@ const createTestBlockRegistry = (blocks: ReadonlyArray<Block> = []) => {
   }
 }
 
-/**
- * Default blocks used for most tests: AIR + 8 non-AIR types to fill all 9 slots
- */
 const defaultTestBlocks: ReadonlyArray<Block> = [
   makeBlock('AIR'),
   makeBlock('DIRT'),
@@ -115,10 +103,6 @@ const defaultTestBlocks: ReadonlyArray<Block> = [
   makeBlock('GLASS'),
 ]
 
-/**
- * Create the HotbarService test layer with given input and block configurations.
- * HotbarService now depends on InventoryService (which in turn depends on BlockRegistry).
- */
 const createTestLayer = (
   inputService: ReturnType<typeof createTestInputService>,
   blockRegistry: ReturnType<typeof createTestBlockRegistry>
