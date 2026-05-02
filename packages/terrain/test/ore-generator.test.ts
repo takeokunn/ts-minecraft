@@ -228,4 +228,73 @@ describe('placeOres', () => {
     const oreCount = Arr.filter(Arr.fromIterable(blocks), b => HashSet.has(oreIndexSet, b)).length
     expect(oreCount).toBeGreaterThan(0)
   })
+
+  it('places deepslate ore variants in the deepslate zone of a fully-DEEPSLATE chunk', () => {
+    // Fill only the deepslate zone (y < DEEPSLATE_CEILING) with DEEPSLATE — ores placed
+    // there must use the deepslate variant index. Remaining cells are AIR so
+    // above-ceiling seed positions are skipped, exercising the sampleOreY triangular
+    // path for low-y ore configs (DIAMOND, REDSTONE, GOLD, LAPIS).
+    const blocks = makeBlocks()
+    Arr.forEach(
+      Arr.flatMap(Arr.makeBy(CHUNK_SIZE, lx => lx), lx =>
+        Arr.map(Arr.makeBy(CHUNK_SIZE, lz => lz), lz => ({ lx, lz }))
+      ),
+      ({ lx, lz }) =>
+        Arr.forEach(Arr.makeBy(DEEPSLATE_CEILING - ORE_MIN_Y_FLOOR, i => ORE_MIN_Y_FLOOR + i), y =>
+          setBlock(blocks, lx, y, lz, DEEPSLATE)
+        )
+    )
+
+    placeOres(blocks, 0, 0, ORE_INDICES)
+
+    // Any ore placed below DEEPSLATE_CEILING must be a deepslate variant.
+    const deepslateOreSet = HashSet.fromIterable(ORE_DEEPSLATE_INDICES)
+    const regularOreSet  = HashSet.fromIterable(ORE_REGULAR_INDICES)
+
+    Arr.forEach(
+      Arr.flatMap(Arr.makeBy(CHUNK_SIZE, lx => lx), lx =>
+        Arr.flatMap(Arr.makeBy(CHUNK_SIZE, lz => lz), lz =>
+          Arr.makeBy(DEEPSLATE_CEILING, y => ({ lx, lz, y }))
+        )
+      ),
+      ({ lx, lz, y }) => {
+        const b = getBlock(blocks, lx, y, lz)
+        // Regular ore must never appear in the deepslate zone.
+        if (HashSet.has(regularOreSet, b)) {
+          expect.fail(`Regular ore index ${b} found at y=${y} which is below DEEPSLATE_CEILING=${DEEPSLATE_CEILING}`)
+        }
+        // Any block must be AIR, DEEPSLATE, or a deepslate ore variant.
+        expect(
+          b === AIR || b === DEEPSLATE || HashSet.has(deepslateOreSet, b)
+        ).toBe(true)
+      }
+    )
+  })
+
+  it('produces a different ore layout for every distinct chunk coordinate pair sampled', () => {
+    // Exercises sampleOreY with different RNG seeds for multiple chunk origins,
+    // confirming the per-chunk salt in seedFromChunk produces unique distributions.
+    const coords = [[0, 0], [0, 16], [16, 0], [16, 16], [-16, 0], [0, -16]] as const
+    const snapshots = Arr.map(coords, ([wx, wz]) => {
+      const b = makeBlocks()
+      fillAll(b, STONE)
+      placeOres(b, wx, wz, ORE_INDICES)
+      return b.slice()
+    })
+
+    // Each pair of snapshots must differ (unique salt ensures unique placement).
+    Arr.forEach(Arr.makeBy(snapshots.length, i => i), i =>
+      Arr.forEach(Arr.makeBy(snapshots.length, j => j), j => {
+        if (i >= j) return
+        // Snapshots i and j should NOT be identical.
+        let different = false
+        const a = snapshots[i]!
+        const b = snapshots[j]!
+        for (let k = 0; k < a.length; k++) {
+          if (a[k] !== b[k]) { different = true; break }
+        }
+        expect(different).toBe(true)
+      })
+    )
+  })
 })

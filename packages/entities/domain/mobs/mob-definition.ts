@@ -1,6 +1,11 @@
 import { Schema } from 'effect'
-import { ItemStack } from '@ts-minecraft/inventory'
+import type { EntityDrop } from '../drop'
 import { EntityTypeSchema, MobBehaviorSchema } from '../entity'
+
+const EntityDropSchema = Schema.Struct({
+  blockType: Schema.String,
+  count: Schema.Number,
+})
 
 export const MobDefinitionSchema = Schema.Struct({
   type: EntityTypeSchema,
@@ -11,6 +16,16 @@ export const MobDefinitionSchema = Schema.Struct({
   detectionRange: Schema.Number.pipe(Schema.finite(), Schema.positive()),
   attackRange: Schema.Number.pipe(Schema.finite(), Schema.positive()),
   fleeHealthThreshold: Schema.Number.pipe(Schema.finite(), Schema.between(0, 1)),
-  drops: Schema.Array(ItemStack),
+  drops: Schema.Array(EntityDropSchema),
 })
-export type MobDefinition = Schema.Schema.Type<typeof MobDefinitionSchema>
+export type MobDefinition = {
+  readonly type: Schema.Schema.Type<typeof EntityTypeSchema>
+  readonly behavior: Schema.Schema.Type<typeof MobBehaviorSchema>
+  readonly maxHealth: number
+  readonly attackDamage: number
+  readonly speed: number
+  readonly detectionRange: number
+  readonly attackRange: number
+  readonly fleeHealthThreshold: number
+  readonly drops: ReadonlyArray<EntityDrop>
+}

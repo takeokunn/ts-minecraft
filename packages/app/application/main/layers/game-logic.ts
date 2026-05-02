@@ -28,7 +28,7 @@ import { GameModeServiceLive } from '@ts-minecraft/game'
 import { InventoryServiceLive } from '@ts-minecraft/inventory'
 import { RecipeServiceLive } from '@ts-minecraft/inventory'
 import { TimeServiceLive } from '@ts-minecraft/game'
-import { AudioEngineLive, MusicManagerLive, SoundManagerLive } from '@ts-minecraft/game'
+import { AudioEngineLive, AudioEnginePortLive, MusicManagerLive, SoundManagerLive } from '@ts-minecraft/game'
 import { EntityManagerLive, MobSpawnerLive } from '@ts-minecraft/entities'
 
 // Village / Trading / Redstone simulation services
@@ -136,12 +136,16 @@ export const ParticleSystemLayer = ParticleSystemServiceLive.pipe(
 // Audio infrastructure and managers
 export const AudioEngineLayer = AudioEngineLive
 
-export const SoundLayer = SoundManagerLive.pipe(
+export const AudioEnginePortLayer = AudioEnginePortLive.pipe(
   Layer.provide(AudioEngineLayer),
 )
 
+export const SoundLayer = SoundManagerLive.pipe(
+  Layer.provide(AudioEnginePortLayer),
+)
+
 export const MusicLayer = MusicManagerLive.pipe(
-  Layer.provide(AudioEngineLayer),
+  Layer.provide(AudioEnginePortLayer),
 )
 
 // EntityManager has no service dependencies

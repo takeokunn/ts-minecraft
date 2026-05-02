@@ -1,6 +1,6 @@
 import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
-import { Array as Arr, Effect } from 'effect'
+import { Array as Arr, Effect, Fiber } from 'effect'
 import {
   HealthService,
   applyDamageToHealth,
@@ -314,6 +314,37 @@ describe('HealthService.reset', () => {
         const afterReset = yield* hs.processFallDamage(80, true)
         expect(afterReset).toBe(0)
       })
+    )
+  )
+})
+
+describe('HealthService.awaitDeath', () => {
+  it.effect('resolves immediately when player is already dead (health <= 0)', () =>
+    withHealthService((hs) =>
+      Effect.gen(function* () {
+        yield* hs.applyDamage(1000)  // lethal damage → health drops to 0
+        // awaitDeath must resolve synchronously when already dead
+        yield* hs.awaitDeath()
+        const dead = yield* hs.isDead()
+        expect(dead).toBe(true)
+      })
+    )
+  )
+
+  it('resolves after lethal damage is applied (Deferred path)', () =>
+    Effect.runPromise(
+      withHealthService((hs) =>
+        Effect.gen(function* () {
+          // Fork awaitDeath while player is alive — it waits on a Deferred
+          const fiber = yield* Effect.fork(hs.awaitDeath())
+          // Kill the player — this triggers the deferred
+          yield* hs.applyDamage(1000)
+          // Joining fiber must complete (deferred resolved)
+          yield* Fiber.join(fiber)
+          const dead = yield* hs.isDead()
+          expect(dead).toBe(true)
+        })
+      )
     )
   )
 })

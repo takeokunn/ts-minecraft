@@ -553,46 +553,38 @@ describe('greedyMeshChunk', () => {
   })
 
   describe('ensureCapacity buffer growth', () => {
-    it('handles a 3D checkerboard chunk that exceeds INITIAL_QUAD_CAPACITY (8192) without error', { timeout: 20_000 }, () => {
-      // A 3D checkerboard in 16×128×16 produces ~2048*6 = ~12288 quads per axis combination,
-      // well above the INITIAL_QUAD_CAPACITY of 8192. This forces ensureCapacity to double buffers.
+    it('handles a chunk that exceeds INITIAL_QUAD_CAPACITY (8192) without error', () => {
+      // A 3D checkerboard in 16×32×16 generates ~6144 filled blocks × 6 faces = ~36k quads,
+      // well above INITIAL_QUAD_CAPACITY (8192). Forces ensureCapacity to grow buffers.
+      // Using Y=32 (not full 128) keeps the test fast while still exceeding capacity.
       const blocks = new Uint8Array(CHUNK_SIZE * CHUNK_SIZE * CHUNK_HEIGHT)
       const STONE = blockTypeToIndex('STONE')
-      Arr.forEach(Arr.makeBy(CHUNK_SIZE, x => x), x => {
-        Arr.forEach(Arr.makeBy(128, y => y), y => {
-          Arr.forEach(Arr.makeBy(CHUNK_SIZE, z => z), z => {
+      for (let x = 0; x < CHUNK_SIZE; x++) {
+        for (let y = 0; y < 32; y++) {
+          for (let z = 0; z < CHUNK_SIZE; z++) {
             if ((x + y + z) % 2 === 0) {
               blocks[y + z * CHUNK_HEIGHT + x * CHUNK_HEIGHT * CHUNK_SIZE] = STONE
             }
-          })
-        })
-      })
+          }
+        }
+      }
       const chunk: Chunk = { coord: ZERO_COORD, blocks, fluid: Option.none() }
-      const result = greedyMeshChunk(chunk, ZERO_OFFSET)
+      const meshed = greedyMeshChunk(chunk, ZERO_OFFSET).toMeshed()
 
-      // Verify the mesh was produced (buffer growth succeeded)
-      expect(result.toMeshed().opaque.positions.length).toBeGreaterThan(0)
-      expect(result.toMeshed().opaque.normals.length).toBeGreaterThan(0)
-      expect(result.toMeshed().opaque.indices.length).toBeGreaterThan(0)
+      expect(meshed.opaque.positions.length).toBeGreaterThan(0)
+      expect(meshed.opaque.indices.length).toBeGreaterThan(0)
 
-      // Verify the quad count exceeds initial capacity — proves buffers were grown
-      const quadCount = result.toMeshed().opaque.indices.length / 6
+      const quadCount = meshed.opaque.indices.length / 6
       expect(quadCount).toBeGreaterThan(8192)
 
-      // Verify typed array lengths are internally consistent
-      const vertexCount = result.toMeshed().opaque.positions.length / 3
-      expect(result.toMeshed().opaque.positions.length).toBe(result.toMeshed().opaque.normals.length)
-      expect(result.toMeshed().opaque.positions.length).toBe(result.toMeshed().opaque.colors.length)
-      expect(result.toMeshed().opaque.uvs.length).toBe(vertexCount * 2)
-      expect(result.toMeshed().opaque.indices.length).toBe(quadCount * 6)
+      const vertexCount = meshed.opaque.positions.length / 3
+      expect(meshed.opaque.positions.length).toBe(meshed.opaque.normals.length)
+      expect(meshed.opaque.positions.length).toBe(meshed.opaque.colors.length)
+      expect(meshed.opaque.uvs.length).toBe(vertexCount * 2)
       expect(vertexCount).toBe(quadCount * 4)
 
-      // Verify all indices reference valid vertices (no out-of-bounds after growth)
-      Arr.forEach(Arr.makeBy(result.toMeshed().opaque.indices.length, i => i), i => {
-        const idx = result.toMeshed().opaque.indices[i]!
-        expect(idx).toBeGreaterThanOrEqual(0)
-        expect(idx).toBeLessThan(vertexCount)
-      })
+      const maxIdx = meshed.opaque.indices.reduce((m, v) => Math.max(m, v), 0)
+      expect(maxIdx).toBeLessThan(vertexCount)
     })
   })
 

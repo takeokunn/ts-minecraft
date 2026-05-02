@@ -517,3 +517,59 @@ describe('infrastructure/noise/noise-service', () => {
     )
   })
 })
+
+describe('NoiseService.octaveNoise2DBatch / noise2DBatch (tuple-pair format)', () => {
+  it.effect('noise2DBatch returns one value per input point', () =>
+    Effect.gen(function* () {
+      const service = yield* NoiseService
+      yield* service.setSeed(42)
+      const points: ReadonlyArray<readonly [number, number]> = [[0, 0], [10, 5], [100, 200]]
+      const results = yield* service.noise2DBatch(points)
+      expect(results).toHaveLength(3)
+    }).pipe(Effect.provide(NoiseService.Default))
+  )
+
+  it.effect('noise2DBatch matches scalar noise2D for the same coordinates', () =>
+    Effect.gen(function* () {
+      const service = yield* NoiseService
+      yield* service.setSeed(7)
+      const points: ReadonlyArray<readonly [number, number]> = [[3, 4], [10, 20], [0, 0]]
+      const batch = yield* service.noise2DBatch(points)
+      const [v0, v1, v2] = yield* Effect.all([
+        service.noise2D(3, 4),
+        service.noise2D(10, 20),
+        service.noise2D(0, 0),
+      ], { concurrency: 'unbounded' })
+      expect(batch[0]).toBeCloseTo(v0, 10)
+      expect(batch[1]).toBeCloseTo(v1, 10)
+      expect(batch[2]).toBeCloseTo(v2, 10)
+    }).pipe(Effect.provide(NoiseService.Default))
+  )
+
+  it.effect('octaveNoise2DBatch returns one value per input point', () =>
+    Effect.gen(function* () {
+      const service = yield* NoiseService
+      yield* service.setSeed(42)
+      const points: ReadonlyArray<readonly [number, number]> = [[0, 0], [10, 5], [100, 200]]
+      const results = yield* service.octaveNoise2DBatch(points, 4, 0.5, 2.0)
+      expect(results).toHaveLength(3)
+    }).pipe(Effect.provide(NoiseService.Default))
+  )
+
+  it.effect('octaveNoise2DBatch matches scalar octaveNoise2D for the same coordinates', () =>
+    Effect.gen(function* () {
+      const service = yield* NoiseService
+      yield* service.setSeed(7)
+      const points: ReadonlyArray<readonly [number, number]> = [[3, 4], [10, 20], [0, 0]]
+      const batch = yield* service.octaveNoise2DBatch(points, 4, 0.5, 2.0)
+      const [v0, v1, v2] = yield* Effect.all([
+        service.octaveNoise2D(3, 4, 4, 0.5, 2.0),
+        service.octaveNoise2D(10, 20, 4, 0.5, 2.0),
+        service.octaveNoise2D(0, 0, 4, 0.5, 2.0),
+      ], { concurrency: 'unbounded' })
+      expect(batch[0]).toBeCloseTo(v0, 10)
+      expect(batch[1]).toBeCloseTo(v1, 10)
+      expect(batch[2]).toBeCloseTo(v2, 10)
+    }).pipe(Effect.provide(NoiseService.Default))
+  )
+})

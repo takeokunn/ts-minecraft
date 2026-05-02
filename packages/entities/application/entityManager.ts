@@ -1,5 +1,5 @@
 import { Array as Arr, Effect, HashMap, Option, Ref } from 'effect'
-import type { ItemStack } from '@ts-minecraft/inventory'
+import type { EntityDrop } from '../domain/drop'
 import { AIState, computeStateVelocity, distanceToPlayer, resolveAIState } from '../domain/stateMachine'
 import {
   EntityId,
@@ -21,7 +21,7 @@ export class EntityManager extends Effect.Service<EntityManager>()(
       Ref.make(HashMap.empty<EntityIdType, ManagedEntity>()),
       Ref.make(1),
       Ref.make(0),
-      Ref.make<ReadonlyArray<Entity> | null>(null),
+      Ref.make<Option.Option<ReadonlyArray<Entity>>>(Option.none()),
       Ref.make(0),
     ], { concurrency: 'unbounded' }).pipe(Effect.map(([entitiesRef, nextEntityNumberRef, updateTickRef, cachedEntitiesRef, structureVersionRef]) => ({
         addEntity: (
@@ -58,7 +58,7 @@ export class EntityManager extends Effect.Service<EntityManager>()(
             yield* Ref.update(entitiesRef, (entities) =>
               HashMap.set(entities, entityId, managedEntity)
             )
-            yield* Ref.set(cachedEntitiesRef, null)
+            yield* Ref.set(cachedEntitiesRef, Option.none())
             yield* Ref.update(structureVersionRef, (version) => version + 1)
 
             return entityId
@@ -72,7 +72,7 @@ export class EntityManager extends Effect.Service<EntityManager>()(
             })
           ).pipe(Effect.tap((removed) => removed
             ? Effect.all([
-                Ref.set(cachedEntitiesRef, null),
+                Ref.set(cachedEntitiesRef, Option.none()),
                 Ref.update(structureVersionRef, (version) => version + 1),
               ], { concurrency: 'unbounded', discard: true })
             : Effect.void)),
@@ -85,17 +85,19 @@ export class EntityManager extends Effect.Service<EntityManager>()(
         getEntities: (): Effect.Effect<ReadonlyArray<Entity>, never> =>
           Ref.get(cachedEntitiesRef).pipe(
             Effect.flatMap((cached) =>
-              cached !== null
-                ? Effect.succeed(cached)
-                : Ref.get(entitiesRef).pipe(
+              Option.match(cached, {
+                onSome: Effect.succeed,
+                onNone: () =>
+                  Ref.get(entitiesRef).pipe(
                     Effect.flatMap((entities) => {
                       const result = Arr.map(
                         Arr.fromIterable(HashMap.values(entities)),
                         toPublicEntity
                       ) as ReadonlyArray<Entity>
-                      return Ref.set(cachedEntitiesRef, result).pipe(Effect.as(result))
+                      return Ref.set(cachedEntitiesRef, Option.some(result)).pipe(Effect.as(result))
                     })
-                  )
+                  ),
+              })
             )
           ),
 
@@ -132,7 +134,7 @@ export class EntityManager extends Effect.Service<EntityManager>()(
               )
 
               return [totalDamage, changed ? updatedEntities : entities]
-            }).pipe(Effect.tap((damage) => damage > 0 ? Ref.set(cachedEntitiesRef, null) : Effect.void)),
+            }).pipe(Effect.tap((damage) => damage > 0 ? Ref.set(cachedEntitiesRef, Option.none()) : Effect.void)),
 
         update: (
           deltaTime: DeltaTimeSecs,
@@ -200,13 +202,13 @@ export class EntityManager extends Effect.Service<EntityManager>()(
                 }
               })
             )
-            yield* Ref.set(cachedEntitiesRef, null)
+            yield* Ref.set(cachedEntitiesRef, Option.none())
           }),
 
         applyDamage: (
           entityId: EntityIdType,
           amount: number,
-        ): Effect.Effect<Option.Option<ReadonlyArray<ItemStack>>, never> => {
+        ): Effect.Effect<Option.Option<ReadonlyArray<EntityDrop>>, never> => {
           if (amount <= 0) {
             return Effect.succeed(Option.none())
           }
@@ -215,7 +217,7 @@ export class EntityManager extends Effect.Service<EntityManager>()(
             entitiesRef,
             (
               entities,
-            ): [Option.Option<ReadonlyArray<ItemStack>>, HashMap.HashMap<EntityIdType, ManagedEntity>] =>
+            ): [Option.Option<ReadonlyArray<EntityDrop>>, HashMap.HashMap<EntityIdType, ManagedEntity>] =>
               Option.match(HashMap.get(entities, entityId), {
                 onNone: () => [Option.none(), entities],
                 onSome: (entity) => {
@@ -235,7 +237,7 @@ export class EntityManager extends Effect.Service<EntityManager>()(
               }),
           ).pipe(Effect.tap((dropsOpt) =>
             Effect.all([
-              Ref.set(cachedEntitiesRef, null),
+              Ref.set(cachedEntitiesRef, Option.none()),
               Option.isSome(dropsOpt)
                 ? Ref.update(structureVersionRef, (version) => version + 1)
                 : Effect.void,

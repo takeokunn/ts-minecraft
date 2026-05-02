@@ -81,5 +81,21 @@ describe('frame-runtime-logic', () => {
       fps: 120,
       cooldown: 0,
     })).toEqual({ nextCooldown: 0, settingsPatch: null })
+
+    expect(decideAdaptiveQuality({
+      adaptivePerformanceMode: true,
+      graphicsQuality: 'medium',
+      renderDistance: 8,
+      fps: 40,
+      cooldown: 0,
+    })).toEqual({ nextCooldown: 20, settingsPatch: { graphicsQuality: 'low' } })
+
+    expect(decideAdaptiveQuality({
+      adaptivePerformanceMode: true,
+      graphicsQuality: 'low',
+      renderDistance: 4,
+      fps: 40,
+      cooldown: 0,
+    })).toEqual({ nextCooldown: 0, settingsPatch: null })
   })
 })

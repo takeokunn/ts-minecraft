@@ -1,6 +1,7 @@
 import { Effect, Option, Ref, Schema } from 'effect'
 import type { Position } from '@ts-minecraft/kernel'
-import { AudioEngine, clamp01, type OscillatorWave, type ToneHandle } from '../infrastructure/audio-engine'
+import { AudioEnginePort } from '../domain/audio-engine-port'
+import { clamp01, type OscillatorWave, type ToneHandle } from '../domain/audio-types'
 
 export const MusicEnvironmentSchema = Schema.Literal('day', 'night', 'cave')
 export type MusicEnvironment = Schema.Schema.Type<typeof MusicEnvironmentSchema>
@@ -47,7 +48,7 @@ export class MusicManager extends Effect.Service<MusicManager>()(
   '@minecraft/audio/MusicManager',
   {
     effect: Effect.all([
-      AudioEngine,
+      AudioEnginePort,
       Ref.make(true),
       Ref.make(0.8),
       Ref.make(0.55),

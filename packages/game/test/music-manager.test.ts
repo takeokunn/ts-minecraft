@@ -1,7 +1,7 @@
 import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
 import { Effect, Layer, Option } from 'effect'
-import { AudioEngine, type AudioEngine as AudioEngineService, type ToneRequest } from '@ts-minecraft/game'
+import { AudioEnginePort, type AudioEnginePortShape, type ToneRequest } from '@ts-minecraft/game'
 import { MusicManager, MusicManagerLive } from '@ts-minecraft/game'
 
 const makeFakeAudioEngine = () => {
@@ -10,8 +10,7 @@ const makeFakeAudioEngine = () => {
   const masterGains: number[] = []
   let nextToneId = 1
 
-  const engine: AudioEngineService = {
-    _tag: '@minecraft/audio/AudioEngine' as const,
+  const engine: AudioEnginePortShape = {
     playTone: (request) =>
       Effect.sync(() => {
         playRequests.push(request)
@@ -32,9 +31,9 @@ const makeFakeAudioEngine = () => {
   return { engine, playRequests, stoppedToneIds, masterGains }
 }
 
-const makeMusicLayer = (engine: AudioEngineService) =>
+const makeMusicLayer = (engine: AudioEnginePortShape) =>
   MusicManagerLive.pipe(
-    Layer.provide(Layer.succeed(AudioEngine, engine)),
+    Layer.provide(Layer.succeed(AudioEnginePort, engine)),
   )
 
 describe('audio/music-manager', () => {
@@ -116,6 +115,18 @@ describe('audio/music-manager', () => {
       expect(fake.stoppedToneIds).toEqual([1])
       expect(fake.playRequests.length).toBe(1)
       expect(currentEnvironment).toEqual(Option.none())
+    }).pipe(Effect.provide(makeMusicLayer(fake.engine)))
+  })
+
+  it.effect('getState returns current enabled flag and volumes', () => {
+    const fake = makeFakeAudioEngine()
+    return Effect.gen(function* () {
+      const musicManager = yield* MusicManager
+      yield* musicManager.applySettings({ enabled: true, masterVolume: 0.6, musicVolume: 0.4 })
+      const state = yield* musicManager.getState()
+      expect(state.enabled).toBe(true)
+      expect(state.masterVolume).toBeCloseTo(0.6, 5)
+      expect(state.musicVolume).toBeCloseTo(0.4, 5)
     }).pipe(Effect.provide(makeMusicLayer(fake.engine)))
   })
 })

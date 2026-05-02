@@ -1,9 +1,12 @@
-import { describe, it, expect } from 'vitest'
-import { Array as Arr, Schema } from 'effect'
+import { describe, expect } from 'vitest'
+import { it } from '@effect/vitest'
+import { Array as Arr, Effect, Schema } from 'effect'
 import { CHUNK_SIZE, CHUNK_HEIGHT } from '@ts-minecraft/kernel'
 import {
   createTerrainNoiseCoordinates,
   TerrainGenerationInputSchema,
+  NoiseServicePort,
+  buildTerrainLayer,
 } from '@ts-minecraft/terrain'
 
 // ---------------------------------------------------------------------------
@@ -182,4 +185,34 @@ describe('application/terrain/terrain-generation — TerrainGenerationInputSchem
     })
     expect(input.seed).toBe(-99999)
   })
+})
+
+describe('buildTerrainLayer — NoiseServicePort octaveNoise2DBatch / noise2DBatch', () => {
+  it.effect('noise2DBatch via buildTerrainLayer returns one value per point', () =>
+    Effect.gen(function* () {
+      const noisePort = yield* NoiseServicePort
+      const points: ReadonlyArray<readonly [number, number]> = [[0, 0], [10, 5], [100, 200]]
+      const results = yield* noisePort.noise2DBatch(points)
+      expect(results).toHaveLength(3)
+      results.forEach(v => {
+        expect(v).toBeGreaterThanOrEqual(0)
+        expect(v).toBeLessThanOrEqual(1)
+      })
+    }).pipe(Effect.provide(buildTerrainLayer(42)))
+  )
+
+  it.effect('octaveNoise2DBatch via buildTerrainLayer matches scalar octaveNoise2D', () =>
+    Effect.gen(function* () {
+      const noisePort = yield* NoiseServicePort
+      const points: ReadonlyArray<readonly [number, number]> = [[3, 4], [10, 20]]
+      const batch = yield* noisePort.octaveNoise2DBatch(points, 4, 0.5, 2.0)
+      const [v0, v1] = yield* Effect.all([
+        noisePort.octaveNoise2D(3, 4, 4, 0.5, 2.0),
+        noisePort.octaveNoise2D(10, 20, 4, 0.5, 2.0),
+      ], { concurrency: 'unbounded' })
+      expect(batch).toHaveLength(2)
+      expect(batch[0]).toBeCloseTo(v0, 10)
+      expect(batch[1]).toBeCloseTo(v1, 10)
+    }).pipe(Effect.provide(buildTerrainLayer(42)))
+  )
 })

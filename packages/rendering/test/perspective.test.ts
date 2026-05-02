@@ -78,12 +78,48 @@ describe('infrastructure/three/camera/perspective', () => {
       }).pipe(Effect.provide(PerspectiveCameraServiceLive))
     )
 
+    it.effect('create should return a PerspectiveCamera from valid params', () =>
+      Effect.gen(function* () {
+        const service = yield* PerspectiveCameraService
+        const result = yield* service.create({ fov: 75, aspect: 1.6, near: 0.1, far: 1000 })
+        expect(typeof result).toBe('object')
+        expect(result).not.toBeNull()
+      }).pipe(Effect.provide(PerspectiveCameraServiceLive))
+    )
+
     it.effect('updateAspect should update camera.aspect', () => {
       camera = makeMockCamera()
       return Effect.gen(function* () {
         const service = yield* PerspectiveCameraService
         yield* service.updateAspect(camera as never, 2.0)
         expect(camera.aspect).toBe(2.0)
+      }).pipe(Effect.provide(PerspectiveCameraServiceLive))
+    })
+
+    it.effect('updateProjectionMatrix should call camera.updateProjectionMatrix', () => {
+      let called = false
+      const mockCam = {
+        ...makeMockCamera(),
+        updateProjectionMatrix: () => { called = true },
+      }
+      return Effect.gen(function* () {
+        const service = yield* PerspectiveCameraService
+        yield* service.updateProjectionMatrix(mockCam as never)
+        expect(called).toBe(true)
+      }).pipe(Effect.provide(PerspectiveCameraServiceLive))
+    })
+
+    it.effect('lookAt should call camera.lookAt with given target coordinates', () => {
+      const calls: Array<{ x: number; y: number; z: number }> = []
+      const mockCam = {
+        ...makeMockCamera(),
+        lookAt: (x: number, y: number, z: number) => { calls.push({ x, y, z }) },
+      }
+      return Effect.gen(function* () {
+        const service = yield* PerspectiveCameraService
+        yield* service.lookAt(mockCam as never, { x: 1, y: 2, z: 3 })
+        expect(calls).toHaveLength(1)
+        expect(calls[0]).toEqual({ x: 1, y: 2, z: 3 })
       }).pipe(Effect.provide(PerspectiveCameraServiceLive))
     })
 

@@ -7,15 +7,18 @@ import {
   VillagerActivity,
   VillagerProfession,
   TRADE_DISTANCE,
+  WANDER_RADIUS,
   distanceSq,
   hashString,
   moveTowards,
   findNearestVillage,
+  findStructureAnchor,
   snapVillageCenter,
   nextActivityForVillager,
+  getTargetPosition,
   flattenVillagers,
 } from '@ts-minecraft/entities'
-import type { Village, Villager } from '@ts-minecraft/entities'
+import type { Village, Villager, VillageStructure } from '@ts-minecraft/entities'
 
 const makeVillage = (id: string, cx: number, cy: number, cz: number): Village => ({
   villageId: VillageId.make(id),
@@ -182,6 +185,123 @@ describe('village/village-simulation', () => {
       expect(nextActivityForVillager(villager, farPlayer, 0.25)).toBe(VillagerActivity.Wander)
       // Between 0.72 and 0.78 → Wander
       expect(nextActivityForVillager(villager, farPlayer, 0.75)).toBe(VillagerActivity.Wander)
+    })
+  })
+
+  describe('findNearestVillage (onSome branch coverage)', () => {
+    it('keeps the closer village when a farther one is encountered later', () => {
+      // onSome branch: new village is NOT closer → return existing closest
+      const near = makeVillage('village-near', 10, 64, 0)
+      const far = makeVillage('village-far', 500, 64, 0)
+      const query = { x: 0, y: 64, z: 0 }
+      const result = findNearestVillage([near, far], query)
+      expect(Option.getOrThrow(result).villageId).toBe(near.villageId)
+    })
+
+    it('replaces closest when a nearer village is encountered later', () => {
+      // onSome branch: new village IS closer → return Option.some(village)
+      const far = makeVillage('village-far', 500, 64, 0)
+      const near = makeVillage('village-near', 10, 64, 0)
+      const query = { x: 0, y: 64, z: 0 }
+      // far is processed first (becomes initial closest), then near replaces it
+      const result = findNearestVillage([far, near], query)
+      expect(Option.getOrThrow(result).villageId).toBe(near.villageId)
+    })
+  })
+
+  describe('findStructureAnchor', () => {
+    const makeStructure = (id: string, ax: number, ay: number, az: number): VillageStructure => ({
+      structureId: VillageStructureId.make(id),
+      type: 'house',
+      anchor: { x: ax, y: ay, z: az },
+    })
+
+    it('returns anchor of matching structure', () => {
+      const structures = [
+        makeStructure('village-1:house-a', 10, 64, 20),
+        makeStructure('village-1:farm', 30, 64, 40),
+      ]
+      const result = findStructureAnchor(
+        structures,
+        VillageStructureId.make('village-1:farm'),
+        { x: 0, y: 64, z: 0 },
+      )
+      expect(result).toEqual({ x: 30, y: 64, z: 40 })
+    })
+
+    it('returns fallback position when structureId is not found', () => {
+      const structures = [makeStructure('village-1:house-a', 10, 64, 20)]
+      const fallback = { x: 99, y: 64, z: 99 }
+      const result = findStructureAnchor(
+        structures,
+        VillageStructureId.make('village-1:nonexistent'),
+        fallback,
+      )
+      expect(result).toEqual(fallback)
+    })
+
+    it('returns fallback when structures array is empty', () => {
+      const fallback = { x: 5, y: 64, z: 5 }
+      const result = findStructureAnchor(
+        [],
+        VillageStructureId.make('village-1:house-a'),
+        fallback,
+      )
+      expect(result).toEqual(fallback)
+    })
+  })
+
+  describe('getTargetPosition', () => {
+    const workplaceId = VillageStructureId.make('village-1:farm')
+    const homeId = VillageStructureId.make('village-1:house-a')
+
+    const makeStructure = (id: string, ax: number, ay: number, az: number): VillageStructure => ({
+      structureId: VillageStructureId.make(id),
+      type: 'house',
+      anchor: { x: ax, y: ay, z: az },
+    })
+
+    const village: Village = {
+      ...makeVillage('village-1', 0, 64, 0),
+      structures: [
+        makeStructure('village-1:farm', 50, 64, 50),
+        makeStructure('village-1:house-a', 10, 64, 10),
+      ],
+    }
+    const villager: Villager = {
+      ...makeVillager('village-1:villager-farmer', 0, 64, 0),
+      workplaceStructureId: workplaceId,
+      homeStructureId: homeId,
+    }
+
+    it('Work activity returns workplace structure anchor', () => {
+      const result = getTargetPosition(village, villager, VillagerActivity.Work, 0)
+      expect(result).toEqual({ x: 50, y: 64, z: 50 })
+    })
+
+    it('Rest activity returns home structure anchor', () => {
+      const result = getTargetPosition(village, villager, VillagerActivity.Rest, 0)
+      expect(result).toEqual({ x: 10, y: 64, z: 10 })
+    })
+
+    it('Wander activity returns orbiting position within WANDER_RADIUS of home', () => {
+      const result = getTargetPosition(village, villager, VillagerActivity.Wander, 0)
+      const home = { x: 10, y: 64, z: 10 }
+      expect(result.y).toBe(home.y)
+      const dist = Math.sqrt(
+        (result.x - home.x) ** 2 + (result.z - home.z) ** 2,
+      )
+      expect(dist).toBeCloseTo(WANDER_RADIUS, 5)
+    })
+
+    it('Trade activity (fallthrough) returns villager current position', () => {
+      const result = getTargetPosition(village, villager, VillagerActivity.Trade, 0)
+      expect(result).toEqual(villager.position)
+    })
+
+    it('Idle activity (fallthrough) returns villager current position', () => {
+      const result = getTargetPosition(village, villager, VillagerActivity.Idle, 0)
+      expect(result).toEqual(villager.position)
     })
   })
 

@@ -92,8 +92,12 @@ export class FurnaceService extends Effect.Service<FurnaceService>()(
             if (position.y < 0 || position.y >= CHUNK_HEIGHT) return false
             const cx = Math.floor(position.x / CHUNK_SIZE)
             const cz = Math.floor(position.z / CHUNK_SIZE)
-            const chunk = yield* chunkManagerService.getChunk({ x: cx, z: cz }).pipe(Effect.catchAll(() => Effect.succeed(null)))
-            if (chunk === null) return false
+            const chunkOpt = yield* chunkManagerService.getChunk({ x: cx, z: cz }).pipe(
+              Effect.map(Option.some),
+              Effect.catchAll(() => Effect.succeed(Option.none())),
+            )
+            if (Option.isNone(chunkOpt)) return false
+            const chunk = Option.getOrThrow(chunkOpt)
             const lx = ((position.x % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE
             const lz = ((position.z % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE
             const idx = position.y + lz * CHUNK_HEIGHT + lx * CHUNK_HEIGHT * CHUNK_SIZE

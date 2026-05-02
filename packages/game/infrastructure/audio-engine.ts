@@ -1,31 +1,16 @@
-import { Effect, HashMap, Option, Ref, Schema } from 'effect'
+import { Effect, HashMap, Layer, Option, Ref } from 'effect'
+import { AudioEnginePort } from '../domain/audio-engine-port'
+import { clamp01, clampPan } from '../domain/audio-types'
 
-export const OscillatorWaveSchema = Schema.Literal('sine', 'square', 'sawtooth', 'triangle', 'custom')
-export type OscillatorWave = Schema.Schema.Type<typeof OscillatorWaveSchema>
-
-export const ToneRequestSchema = Schema.Struct({
-  frequency: Schema.Number.pipe(Schema.finite(), Schema.positive()),
-  durationMs: Schema.Number.pipe(Schema.finite(), Schema.nonNegative()),
-  gain: Schema.Number.pipe(Schema.finite(), Schema.between(0, 1)),
-  pan: Schema.Number.pipe(Schema.finite(), Schema.between(-1, 1)),
-  wave: OscillatorWaveSchema,
-  loop: Schema.Boolean,
-})
-export type ToneRequest = Schema.Schema.Type<typeof ToneRequestSchema>
-
-export const ToneHandleSchema = Schema.Struct({
-  id: Schema.Number.pipe(Schema.int(), Schema.nonNegative()),
-})
-export type ToneHandle = Schema.Schema.Type<typeof ToneHandleSchema>
+export { OscillatorWaveSchema, ToneRequestSchema, ToneHandleSchema, clamp01, clampPan } from '../domain/audio-types'
+export type { OscillatorWave, ToneRequest, ToneHandle } from '../domain/audio-types'
+import type { ToneHandle, ToneRequest } from '../domain/audio-types'
 
 type ActiveTone = {
   readonly oscillator: OscillatorNode
   readonly gainNode: GainNode
   readonly pannerNode: Option.Option<StereoPannerNode>
 }
-
-export const clamp01 = (value: number): number => Math.max(0, Math.min(1, value))
-export const clampPan = (value: number): number => Math.max(-1, Math.min(1, value))
 
 type GlobalAudioCtor = typeof globalThis & {
   readonly AudioContext?: typeof AudioContext
@@ -233,3 +218,12 @@ export class AudioEngine extends Effect.Service<AudioEngine>()('@minecraft/audio
 }) {}
 
 export const AudioEngineLive = AudioEngine.Default
+
+export const AudioEnginePortLive: Layer.Layer<AudioEnginePort, never, AudioEngine> = Layer.effect(
+  AudioEnginePort,
+  AudioEngine.pipe(Effect.map((engine) => ({
+    playTone: engine.playTone,
+    stopTone: engine.stopTone,
+    setMasterGain: engine.setMasterGain,
+  })))
+)

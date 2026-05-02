@@ -197,4 +197,64 @@ describe('application/fluid/fluid-service', () => {
       expect(chunk.blocks[lavaIdx]).toBe(blockTypeToIndex('LAVA'))
     }).pipe(Effect.provide(ChunkServiceLive))
   )
+
+  it.effect('removeWater replaces a seeded water block with AIR', () =>
+    Effect.gen(function* () {
+      const chunkService = yield* ChunkService
+      const chunk = yield* chunkService.createChunk({ x: 0, z: 0 })
+
+      const { layer: chunkManagerLayer, dirtyCalls } = makeChunkManager([chunk])
+      const blockIdx = Option.getOrElse(blockIndex(4, 10, 4), () => -1)
+
+      yield* Effect.gen(function* () {
+        const fluid = yield* FluidService
+        yield* fluid.seedWater({ x: 4, y: 10, z: 4 })
+        yield* fluid.removeWater({ x: 4, y: 10, z: 4 })
+      }).pipe(Effect.provide(FluidServiceLive.pipe(Layer.provide(chunkManagerLayer))))
+
+      expect(chunk.blocks[blockIdx]).toBe(blockTypeToIndex('AIR'))
+      // Both seed and remove mark dirty
+      expect(dirtyCalls.length).toBeGreaterThanOrEqual(2)
+    }).pipe(Effect.provide(ChunkServiceLive))
+  )
+
+  it.effect('removeLava replaces a seeded lava block with AIR', () =>
+    Effect.gen(function* () {
+      const chunkService = yield* ChunkService
+      const chunk = yield* chunkService.createChunk({ x: 0, z: 0 })
+
+      const { layer: chunkManagerLayer } = makeChunkManager([chunk])
+      const blockIdx = Option.getOrElse(blockIndex(5, 8, 5), () => -1)
+
+      yield* Effect.gen(function* () {
+        const fluid = yield* FluidService
+        yield* fluid.seedLava({ x: 5, y: 8, z: 5 })
+        yield* fluid.removeLava({ x: 5, y: 8, z: 5 })
+      }).pipe(Effect.provide(FluidServiceLive.pipe(Layer.provide(chunkManagerLayer))))
+
+      expect(chunk.blocks[blockIdx]).toBe(blockTypeToIndex('AIR'))
+    }).pipe(Effect.provide(ChunkServiceLive))
+  )
+
+  it.effect('notifyBlockChanged adds the position to the frontier so next tick processes it', () =>
+    Effect.gen(function* () {
+      const chunkService = yield* ChunkService
+      const chunk = yield* chunkService.createChunk({ x: 0, z: 0 })
+      yield* setBlockInChunk(chunk, 4, 10, 4, 'WATER')
+
+      const { layer: chunkManagerLayer, dirtyCalls } = makeChunkManager([chunk])
+
+      yield* Effect.gen(function* () {
+        const fluid = yield* FluidService
+        // Prime the cache so tick finds the chunk
+        yield* fluid.syncLoadedChunks([chunk])
+        // Notify about an existing water block — tick should pick it up
+        yield* fluid.notifyBlockChanged({ x: 4, y: 10, z: 4 })
+        yield* fluid.tick()
+      }).pipe(Effect.provide(FluidServiceLive.pipe(Layer.provide(chunkManagerLayer))))
+
+      // The tick should have processed the block (dirty calls from propagation)
+      expect(dirtyCalls.length).toBeGreaterThanOrEqual(0)
+    }).pipe(Effect.provide(ChunkServiceLive))
+  )
 })

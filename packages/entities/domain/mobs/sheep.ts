@@ -1,4 +1,4 @@
-import { createStack } from '@ts-minecraft/inventory'
+import type { BlockType } from '@ts-minecraft/kernel'
 import { EntityType } from '../entity'
 import type { MobDefinition } from './mob-definition'
 
@@ -11,5 +11,5 @@ export const SheepDefinition: MobDefinition = {
   detectionRange: 10,
   attackRange: 0,
   fleeHealthThreshold: 0.7,
-  drops: [createStack('LEAVES', 1)],
+  drops: [{ blockType: 'LEAVES' as BlockType, count: 1 }],
 }

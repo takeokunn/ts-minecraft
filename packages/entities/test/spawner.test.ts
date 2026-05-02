@@ -77,4 +77,13 @@ describe('entity/spawner', () => {
       expect(count).toBeLessThanOrEqual(maxPopulation)
     }).pipe(Effect.provide(makeSpawnerLayer(false)))
   )
+
+  it.effect('getSpawnBounds returns valid min and max spawn distances', () =>
+    Effect.gen(function* () {
+      const spawner = yield* MobSpawner
+      const bounds = yield* spawner.getSpawnBounds()
+      expect(bounds.minDistance).toBeGreaterThan(0)
+      expect(bounds.maxDistance).toBeGreaterThan(bounds.minDistance)
+    }).pipe(Effect.provide(makeSpawnerLayer(false)))
+  )
 })

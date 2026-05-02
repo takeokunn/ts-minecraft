@@ -8,6 +8,8 @@ import {
   WEYL_C, WEYL_E, WEYL_W, WEYL_J, WEYL_3D,
   SCALE_C, SCALE_E, SCALE_W, SCALE_J,
   createNoisePrimitives,
+  noise2DBatch,
+  octaveNoise2DBatch,
 } from '../infrastructure/primitives'
 
 describe('mulberry32', () => {
@@ -171,5 +173,51 @@ describe('createNoisePrimitives', () => {
     const v = prims.continentalnessAt(100, 200)
     expect(v).toBeGreaterThanOrEqual(-1.01)
     expect(v).toBeLessThanOrEqual(1.01)
+  })
+})
+
+describe('noise2DBatch', () => {
+  it('returns one value per input point', () => {
+    const prims = createNoisePrimitives(42)
+    const points = [[0, 0], [10, 5], [100, 200]] as ReadonlyArray<readonly [number, number]>
+    const results = noise2DBatch(prims, points)
+    expect(results).toHaveLength(3)
+  })
+
+  it('matches scalar noise2D for the same coordinates', () => {
+    const prims = createNoisePrimitives(7)
+    const points: ReadonlyArray<readonly [number, number]> = [[3, 4], [10, 20], [0, 0]]
+    const batch = noise2DBatch(prims, points)
+    points.forEach(([x, z], i) => {
+      expect(batch[i]).toBeCloseTo(prims.noise2D(x, z), 10)
+    })
+  })
+
+  it('returns empty array for empty input', () => {
+    const prims = createNoisePrimitives(1)
+    expect(noise2DBatch(prims, [])).toEqual([])
+  })
+})
+
+describe('octaveNoise2DBatch', () => {
+  it('returns one value per input point', () => {
+    const prims = createNoisePrimitives(42)
+    const points = [[0, 0], [10, 5], [100, 200]] as ReadonlyArray<readonly [number, number]>
+    const results = octaveNoise2DBatch(prims, points, 4, 0.5, 2.0)
+    expect(results).toHaveLength(3)
+  })
+
+  it('matches scalar octaveNoise2D for the same coordinates', () => {
+    const prims = createNoisePrimitives(7)
+    const points: ReadonlyArray<readonly [number, number]> = [[3, 4], [10, 20], [0, 0]]
+    const batch = octaveNoise2DBatch(prims, points, 4, 0.5, 2.0)
+    points.forEach(([x, z], i) => {
+      expect(batch[i]).toBeCloseTo(prims.octaveNoise2D(x, z, 4, 0.5, 2.0), 10)
+    })
+  })
+
+  it('returns empty array for empty input', () => {
+    const prims = createNoisePrimitives(1)
+    expect(octaveNoise2DBatch(prims, [], 4, 0.5, 2.0)).toEqual([])
   })
 })

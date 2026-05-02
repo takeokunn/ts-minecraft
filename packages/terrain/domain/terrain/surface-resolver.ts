@@ -123,6 +123,24 @@ export const resolveSurfaceProfile = (params: {
 //   vertical stripe; first match wins (GRANITE > DIORITE > ANDESITE).
 //   NOTE: current scope replaces STONE layer only; DEEPSLATE-variants are
 //   intentionally out-of-scope (vanilla behaviour).
+const resolveStoneVariant = (
+  y: number,
+  deepslateBlockIndex: number,
+  stoneBlockIndex: number,
+  graniteBlockIndex: number,
+  dioriteBlockIndex: number,
+  andesiteBlockIndex: number,
+  graniteFlag: boolean,
+  dioriteFlag: boolean,
+  andesiteFlag: boolean,
+): number => {
+  if (y < DEEPSLATE_CEILING) return deepslateBlockIndex
+  if (graniteFlag) return graniteBlockIndex
+  if (dioriteFlag) return dioriteBlockIndex
+  if (andesiteFlag) return andesiteBlockIndex
+  return stoneBlockIndex
+}
+
 export const fillColumn = (
   blocks: Uint8Array,
   lx: number,
@@ -145,13 +163,6 @@ export const fillColumn = (
     andesiteFlag: boolean
   }
 ): void => {
-  const variantStone = props.graniteFlag
-    ? props.graniteBlockIndex
-    : props.dioriteFlag
-      ? props.dioriteBlockIndex
-      : props.andesiteFlag
-        ? props.andesiteBlockIndex
-        : -1
   const subSurfaceFloor = Math.max(1, surfaceY - props.surfaceDepth)
   let idx = chunkBlockIndexUnchecked(lx, 0, lz)
   for (let y = 0; y <= surfaceY; y++, idx++) {
@@ -164,11 +175,17 @@ export const fillColumn = (
     } else if (y >= subSurfaceFloor) {
       blocks[idx] = props.subSurfaceBlockIndex
     } else {
-      blocks[idx] = y < DEEPSLATE_CEILING
-        ? props.deepslateBlockIndex
-        : variantStone >= 0
-          ? variantStone
-          : props.stoneBlockIndex
+      blocks[idx] = resolveStoneVariant(
+        y,
+        props.deepslateBlockIndex,
+        props.stoneBlockIndex,
+        props.graniteBlockIndex,
+        props.dioriteBlockIndex,
+        props.andesiteBlockIndex,
+        props.graniteFlag,
+        props.dioriteFlag,
+        props.andesiteFlag,
+      )
     }
   }
 }

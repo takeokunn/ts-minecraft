@@ -437,6 +437,67 @@ const runGreedyExpansion = (
   }
 }
 
+// ─── Pass factory ────────────────────────────────────────────────────────────
+//
+// emitQuadFromMask unpacks the common maskValue fields and calls addQuad.
+// The vertex positions are provided by the caller via a `buildVertices` callback
+// that mutates the pre-allocated v0..v3 tuples in-place — zero allocation per quad.
+//
+// The inner mask-building loop (hot path, ~400k calls/chunk) is NOT factored through
+// this helper; it stays inlined inside each pass call-site in greedyMeshChunk.
+
+type BuildVertices = (
+  u0: number,
+  v0: number,
+  du: number,
+  dv: number,
+  depth: number,
+  verts: [
+    [number, number, number],
+    [number, number, number],
+    [number, number, number],
+    [number, number, number],
+  ]
+) => void
+
+// 6-arg form of EmitQuad that includes the depth-slice (outer loop variable).
+// Each pass creates one via makeEmitQuad and wraps it in a 5-arg lambda for runGreedyExpansion.
+type EmitQuadWithDepth = (u0: number, v0: number, du: number, dv: number, maskValue: number, depth: number) => void
+
+const makeEmitQuad = (
+  normal: readonly [number, number, number],
+  faceDir: FaceDir,
+  buildVertices: BuildVertices,
+  opaqueAcc: MeshAccumulator,
+  getWaterAcc: () => MeshAccumulator,
+  transparentLookup: Uint8Array,
+): EmitQuadWithDepth => {
+  const v0 = [0, 0, 0] as [number, number, number]
+  const v1 = [0, 0, 0] as [number, number, number]
+  const v2 = [0, 0, 0] as [number, number, number]
+  const v3 = [0, 0, 0] as [number, number, number]
+  const aoQuad    = [0, 0, 0, 0] as [number, number, number, number]
+  const skyQuad   = [0, 0, 0, 0] as [number, number, number, number]
+  const blockQuad = [0, 0, 0, 0] as [number, number, number, number]
+  const verts: [[number,number,number],[number,number,number],[number,number,number],[number,number,number]] = [v0, v1, v2, v3]
+  return (u0: number, vCoord0: number, du: number, dv: number, maskValue: number, depth: number): void => {
+    const blockId = maskValue & 0xff
+    const ao = (maskValue >> 8) & 0x3
+    const targetAcc = transparentLookup[blockId] !== 0 ? getWaterAcc() : opaqueAcc
+    buildVertices(u0, vCoord0, du, dv, depth, verts)
+    aoQuad[0] = ao; aoQuad[1] = ao; aoQuad[2] = ao; aoQuad[3] = ao
+    skyQuad[0] = dequantLight((maskValue >> 10) & 0x3)
+    skyQuad[1] = dequantLight((maskValue >> 12) & 0x3)
+    skyQuad[2] = dequantLight((maskValue >> 14) & 0x3)
+    skyQuad[3] = dequantLight((maskValue >> 16) & 0x3)
+    blockQuad[0] = dequantLight((maskValue >> 18) & 0x3)
+    blockQuad[1] = dequantLight((maskValue >> 20) & 0x3)
+    blockQuad[2] = dequantLight((maskValue >> 22) & 0x3)
+    blockQuad[3] = dequantLight((maskValue >> 24) & 0x3)
+    addQuad(targetAcc, v0, v1, v2, v3, normal, blockId, aoQuad, skyQuad, blockQuad, faceDir)
+  }
+}
+
 // ─── Main meshing function ───────────────────────────────────────────────────
 
 export type GreedyMeshToMeshed = () => { opaque: MeshedChunk; water: MeshedChunk }
@@ -472,349 +533,236 @@ export const greedyMeshChunk = (
   // Take a readonly snapshot for consistent reads in the hot loop
   const blocks: Readonly<Uint8Array> = chunk.blocks
 
+  const getWaterAcc = (): MeshAccumulator => (waterAcc ??= createAccumulator())
+
   // ── X+ faces (normal = +1,0,0) ──────────────────────────────────────────
   // Slice over lx; mask u-axis = lz, v-axis = y
   // Face plane tangents: t1 = +Z (lz axis), t2 = +Y (y axis); air side = lx+1.
-  const passXPos = (): void => {
-    const normal = [1, 0, 0] as const
-    const mask = maskCH
-    const v0 = [0, 0, 0] as [number, number, number]
-    const v1 = [0, 0, 0] as [number, number, number]
-    const v2 = [0, 0, 0] as [number, number, number]
-    const v3 = [0, 0, 0] as [number, number, number]
-    const aoQuad = [0, 0, 0, 0] as [number, number, number, number]
-    const skyQuad = [0, 0, 0, 0] as [number, number, number, number]
-    const blockQuad = [0, 0, 0, 0] as [number, number, number, number]
-    for (let lx = 0; lx < CHUNK_SIZE; lx++) {
-      mask.fill(0)
-      for (let lz = 0; lz < CHUNK_SIZE; lz++) {
-        for (let y = 0; y < CHUNK_HEIGHT; y++) {
-          const blockId = getBlock(blocks, lx, y, lz)
-          if (blockId !== AIR && isAir(blocks, lx + 1, y, lz)) {
-            const ao = aoXPos(blocks, lx, y, lz)
-            // 4 corners on +X face — air voxel at (lx+1,y,lz); tangents (lz, y).
-            const c0 = sampleCornerLight(lightGrids, lx + 1, y, lz, 0, 0, 1, 0, 1, 0, 0, 0)
-            const c1 = sampleCornerLight(lightGrids, lx + 1, y, lz, 0, 0, 1, 0, 1, 0, 0, 1)
-            const c2 = sampleCornerLight(lightGrids, lx + 1, y, lz, 0, 0, 1, 0, 1, 0, 1, 1)
-            const c3 = sampleCornerLight(lightGrids, lx + 1, y, lz, 0, 0, 1, 0, 1, 0, 1, 0)
-            mask[lz * CHUNK_HEIGHT + y] = packMask(
-              blockId, ao,
-              (c0 >> 6) & 0x3, (c1 >> 6) & 0x3, (c2 >> 6) & 0x3, (c3 >> 6) & 0x3,
-              (c0 >> 2) & 0x3, (c1 >> 2) & 0x3, (c2 >> 2) & 0x3, (c3 >> 2) & 0x3,
-            )
-          }
+  const emitXPos: EmitQuadWithDepth = makeEmitQuad(
+    [1, 0, 0],
+    'side',
+    (u0, v0, du, dv, depth, verts) => {
+      const lz0 = u0, y0 = v0
+      const fx = offset.wx + depth + 1
+      verts[0][0] = fx; verts[0][1] = y0;      verts[0][2] = offset.wz + lz0
+      verts[1][0] = fx; verts[1][1] = y0 + dv; verts[1][2] = offset.wz + lz0
+      verts[2][0] = fx; verts[2][1] = y0 + dv; verts[2][2] = offset.wz + lz0 + du
+      verts[3][0] = fx; verts[3][1] = y0;      verts[3][2] = offset.wz + lz0 + du
+    },
+    opaqueAcc, getWaterAcc, transparentLookup,
+  )
+  for (let lx = 0; lx < CHUNK_SIZE; lx++) {
+    maskCH.fill(0)
+    for (let lz = 0; lz < CHUNK_SIZE; lz++) {
+      for (let y = 0; y < CHUNK_HEIGHT; y++) {
+        const blockId = getBlock(blocks, lx, y, lz)
+        if (blockId !== AIR && isAir(blocks, lx + 1, y, lz)) {
+          const ao = aoXPos(blocks, lx, y, lz)
+          // 4 corners on +X face — air voxel at (lx+1,y,lz); tangents (lz, y).
+          const c0 = sampleCornerLight(lightGrids, lx + 1, y, lz, 0, 0, 1, 0, 1, 0, 0, 0)
+          const c1 = sampleCornerLight(lightGrids, lx + 1, y, lz, 0, 0, 1, 0, 1, 0, 0, 1)
+          const c2 = sampleCornerLight(lightGrids, lx + 1, y, lz, 0, 0, 1, 0, 1, 0, 1, 1)
+          const c3 = sampleCornerLight(lightGrids, lx + 1, y, lz, 0, 0, 1, 0, 1, 0, 1, 0)
+          maskCH[lz * CHUNK_HEIGHT + y] = packMask(
+            blockId, ao,
+            (c0 >> 6) & 0x3, (c1 >> 6) & 0x3, (c2 >> 6) & 0x3, (c3 >> 6) & 0x3,
+            (c0 >> 2) & 0x3, (c1 >> 2) & 0x3, (c2 >> 2) & 0x3, (c3 >> 2) & 0x3,
+          )
         }
       }
-      runGreedyExpansion(mask, CHUNK_SIZE, CHUNK_HEIGHT, doneBuf, (u0, vCoord0, du, dv, maskValue) => {
-        const lz0 = u0, y0 = vCoord0
-        const fx = offset.wx + lx + 1
-        const blockId = maskValue & 0xff
-        const ao = (maskValue >> 8) & 0x3
-        const targetAcc = transparentLookup[blockId] !== 0 ? (waterAcc ??= createAccumulator()) : opaqueAcc
-        v0[0] = fx; v0[1] = y0; v0[2] = offset.wz + lz0
-        v1[0] = fx; v1[1] = y0 + dv; v1[2] = offset.wz + lz0
-        v2[0] = fx; v2[1] = y0 + dv; v2[2] = offset.wz + lz0 + du
-        v3[0] = fx; v3[1] = y0; v3[2] = offset.wz + lz0 + du
-        aoQuad[0] = ao; aoQuad[1] = ao; aoQuad[2] = ao; aoQuad[3] = ao
-        skyQuad[0] = dequantLight((maskValue >> 10) & 0x3)
-        skyQuad[1] = dequantLight((maskValue >> 12) & 0x3)
-        skyQuad[2] = dequantLight((maskValue >> 14) & 0x3)
-        skyQuad[3] = dequantLight((maskValue >> 16) & 0x3)
-        blockQuad[0] = dequantLight((maskValue >> 18) & 0x3)
-        blockQuad[1] = dequantLight((maskValue >> 20) & 0x3)
-        blockQuad[2] = dequantLight((maskValue >> 22) & 0x3)
-        blockQuad[3] = dequantLight((maskValue >> 24) & 0x3)
-        addQuad(targetAcc, v0, v1, v2, v3, normal, blockId, aoQuad, skyQuad, blockQuad, 'side')
-      })
     }
+    runGreedyExpansion(maskCH, CHUNK_SIZE, CHUNK_HEIGHT, doneBuf, (u0, v0, du, dv, mv) => emitXPos(u0, v0, du, dv, mv, lx))
   }
 
   // ── X- faces (normal = -1,0,0) ──────────────────────────────────────────
   // Air side = lx-1. Tangents: t1 = +Z, t2 = +Y.
-  const passXNeg = (): void => {
-    const normal = [-1, 0, 0] as const
-    const mask = maskCH
-    const v0 = [0, 0, 0] as [number, number, number]
-    const v1 = [0, 0, 0] as [number, number, number]
-    const v2 = [0, 0, 0] as [number, number, number]
-    const v3 = [0, 0, 0] as [number, number, number]
-    const aoQuad = [0, 0, 0, 0] as [number, number, number, number]
-    const skyQuad = [0, 0, 0, 0] as [number, number, number, number]
-    const blockQuad = [0, 0, 0, 0] as [number, number, number, number]
-    for (let lx = 0; lx < CHUNK_SIZE; lx++) {
-      mask.fill(0)
-      for (let lz = 0; lz < CHUNK_SIZE; lz++) {
-        for (let y = 0; y < CHUNK_HEIGHT; y++) {
-          const blockId = getBlock(blocks, lx, y, lz)
-          if (blockId !== AIR && isAir(blocks, lx - 1, y, lz)) {
-            const ao = aoXNeg(blocks, lx, y, lz)
-            // Vertices for X- are emitted in reverse winding (lz0+du..lz0); align corners to that order.
-            const c0 = sampleCornerLight(lightGrids, lx - 1, y, lz, 0, 0, 1, 0, 1, 0, 1, 0)
-            const c1 = sampleCornerLight(lightGrids, lx - 1, y, lz, 0, 0, 1, 0, 1, 0, 1, 1)
-            const c2 = sampleCornerLight(lightGrids, lx - 1, y, lz, 0, 0, 1, 0, 1, 0, 0, 1)
-            const c3 = sampleCornerLight(lightGrids, lx - 1, y, lz, 0, 0, 1, 0, 1, 0, 0, 0)
-            mask[lz * CHUNK_HEIGHT + y] = packMask(
-              blockId, ao,
-              (c0 >> 6) & 0x3, (c1 >> 6) & 0x3, (c2 >> 6) & 0x3, (c3 >> 6) & 0x3,
-              (c0 >> 2) & 0x3, (c1 >> 2) & 0x3, (c2 >> 2) & 0x3, (c3 >> 2) & 0x3,
-            )
-          }
+  const emitXNeg: EmitQuadWithDepth = makeEmitQuad(
+    [-1, 0, 0],
+    'side',
+    (u0, v0, du, dv, depth, verts) => {
+      const lz0 = u0, y0 = v0
+      const fx = offset.wx + depth
+      verts[0][0] = fx; verts[0][1] = y0;      verts[0][2] = offset.wz + lz0 + du
+      verts[1][0] = fx; verts[1][1] = y0 + dv; verts[1][2] = offset.wz + lz0 + du
+      verts[2][0] = fx; verts[2][1] = y0 + dv; verts[2][2] = offset.wz + lz0
+      verts[3][0] = fx; verts[3][1] = y0;      verts[3][2] = offset.wz + lz0
+    },
+    opaqueAcc, getWaterAcc, transparentLookup,
+  )
+  for (let lx = 0; lx < CHUNK_SIZE; lx++) {
+    maskCH.fill(0)
+    for (let lz = 0; lz < CHUNK_SIZE; lz++) {
+      for (let y = 0; y < CHUNK_HEIGHT; y++) {
+        const blockId = getBlock(blocks, lx, y, lz)
+        if (blockId !== AIR && isAir(blocks, lx - 1, y, lz)) {
+          const ao = aoXNeg(blocks, lx, y, lz)
+          // Vertices for X- are emitted in reverse winding (lz0+du..lz0); align corners to that order.
+          const c0 = sampleCornerLight(lightGrids, lx - 1, y, lz, 0, 0, 1, 0, 1, 0, 1, 0)
+          const c1 = sampleCornerLight(lightGrids, lx - 1, y, lz, 0, 0, 1, 0, 1, 0, 1, 1)
+          const c2 = sampleCornerLight(lightGrids, lx - 1, y, lz, 0, 0, 1, 0, 1, 0, 0, 1)
+          const c3 = sampleCornerLight(lightGrids, lx - 1, y, lz, 0, 0, 1, 0, 1, 0, 0, 0)
+          maskCH[lz * CHUNK_HEIGHT + y] = packMask(
+            blockId, ao,
+            (c0 >> 6) & 0x3, (c1 >> 6) & 0x3, (c2 >> 6) & 0x3, (c3 >> 6) & 0x3,
+            (c0 >> 2) & 0x3, (c1 >> 2) & 0x3, (c2 >> 2) & 0x3, (c3 >> 2) & 0x3,
+          )
         }
       }
-      runGreedyExpansion(mask, CHUNK_SIZE, CHUNK_HEIGHT, doneBuf, (u0, vCoord0, du, dv, maskValue) => {
-        const lz0 = u0, y0 = vCoord0
-        const fx = offset.wx + lx
-        const blockId = maskValue & 0xff
-        const ao = (maskValue >> 8) & 0x3
-        const targetAcc = transparentLookup[blockId] !== 0 ? (waterAcc ??= createAccumulator()) : opaqueAcc
-        v0[0] = fx; v0[1] = y0; v0[2] = offset.wz + lz0 + du
-        v1[0] = fx; v1[1] = y0 + dv; v1[2] = offset.wz + lz0 + du
-        v2[0] = fx; v2[1] = y0 + dv; v2[2] = offset.wz + lz0
-        v3[0] = fx; v3[1] = y0; v3[2] = offset.wz + lz0
-        aoQuad[0] = ao; aoQuad[1] = ao; aoQuad[2] = ao; aoQuad[3] = ao
-        skyQuad[0] = dequantLight((maskValue >> 10) & 0x3)
-        skyQuad[1] = dequantLight((maskValue >> 12) & 0x3)
-        skyQuad[2] = dequantLight((maskValue >> 14) & 0x3)
-        skyQuad[3] = dequantLight((maskValue >> 16) & 0x3)
-        blockQuad[0] = dequantLight((maskValue >> 18) & 0x3)
-        blockQuad[1] = dequantLight((maskValue >> 20) & 0x3)
-        blockQuad[2] = dequantLight((maskValue >> 22) & 0x3)
-        blockQuad[3] = dequantLight((maskValue >> 24) & 0x3)
-        addQuad(targetAcc, v0, v1, v2, v3, normal, blockId, aoQuad, skyQuad, blockQuad, 'side')
-      })
     }
+    runGreedyExpansion(maskCH, CHUNK_SIZE, CHUNK_HEIGHT, doneBuf, (u0, v0, du, dv, mv) => emitXNeg(u0, v0, du, dv, mv, lx))
   }
 
   // ── Y+ faces (normal = 0,1,0) ────────────────────────────────────────────
   // Air side = y+1. Tangents: t1 = +X, t2 = +Z.
-  const passYPos = (): void => {
-    const normal = [0, 1, 0] as const
-    const mask = maskSS
-    const v0 = [0, 0, 0] as [number, number, number]
-    const v1 = [0, 0, 0] as [number, number, number]
-    const v2 = [0, 0, 0] as [number, number, number]
-    const v3 = [0, 0, 0] as [number, number, number]
-    const aoQuad = [0, 0, 0, 0] as [number, number, number, number]
-    const skyQuad = [0, 0, 0, 0] as [number, number, number, number]
-    const blockQuad = [0, 0, 0, 0] as [number, number, number, number]
-    for (let y = 0; y < CHUNK_HEIGHT; y++) {
-      mask.fill(0)
-      for (let lx = 0; lx < CHUNK_SIZE; lx++) {
-        for (let lz = 0; lz < CHUNK_SIZE; lz++) {
-          const blockId = getBlock(blocks, lx, y, lz)
-          if (blockId !== AIR && isAir(blocks, lx, y + 1, lz)) {
-            const ao = aoYPos(blocks, lx, y, lz)
-            // Vertex order: (lx0, lz0), (lx0, lz0+dv), (lx0+du, lz0+dv), (lx0+du, lz0).
-            const c0 = sampleCornerLight(lightGrids, lx, y + 1, lz, 1, 0, 0, 0, 0, 1, 0, 0)
-            const c1 = sampleCornerLight(lightGrids, lx, y + 1, lz, 1, 0, 0, 0, 0, 1, 0, 1)
-            const c2 = sampleCornerLight(lightGrids, lx, y + 1, lz, 1, 0, 0, 0, 0, 1, 1, 1)
-            const c3 = sampleCornerLight(lightGrids, lx, y + 1, lz, 1, 0, 0, 0, 0, 1, 1, 0)
-            mask[lx * CHUNK_SIZE + lz] = packMask(
-              blockId, ao,
-              (c0 >> 6) & 0x3, (c1 >> 6) & 0x3, (c2 >> 6) & 0x3, (c3 >> 6) & 0x3,
-              (c0 >> 2) & 0x3, (c1 >> 2) & 0x3, (c2 >> 2) & 0x3, (c3 >> 2) & 0x3,
-            )
-          }
+  const emitYPos: EmitQuadWithDepth = makeEmitQuad(
+    [0, 1, 0],
+    'top',
+    (u0, v0, du, dv, depth, verts) => {
+      const lx0 = u0, lz0 = v0
+      const fy = depth + 1
+      verts[0][0] = offset.wx + lx0;      verts[0][1] = fy; verts[0][2] = offset.wz + lz0
+      verts[1][0] = offset.wx + lx0;      verts[1][1] = fy; verts[1][2] = offset.wz + lz0 + dv
+      verts[2][0] = offset.wx + lx0 + du; verts[2][1] = fy; verts[2][2] = offset.wz + lz0 + dv
+      verts[3][0] = offset.wx + lx0 + du; verts[3][1] = fy; verts[3][2] = offset.wz + lz0
+    },
+    opaqueAcc, getWaterAcc, transparentLookup,
+  )
+  for (let y = 0; y < CHUNK_HEIGHT; y++) {
+    maskSS.fill(0)
+    for (let lx = 0; lx < CHUNK_SIZE; lx++) {
+      for (let lz = 0; lz < CHUNK_SIZE; lz++) {
+        const blockId = getBlock(blocks, lx, y, lz)
+        if (blockId !== AIR && isAir(blocks, lx, y + 1, lz)) {
+          const ao = aoYPos(blocks, lx, y, lz)
+          // Vertex order: (lx0, lz0), (lx0, lz0+dv), (lx0+du, lz0+dv), (lx0+du, lz0).
+          const c0 = sampleCornerLight(lightGrids, lx, y + 1, lz, 1, 0, 0, 0, 0, 1, 0, 0)
+          const c1 = sampleCornerLight(lightGrids, lx, y + 1, lz, 1, 0, 0, 0, 0, 1, 0, 1)
+          const c2 = sampleCornerLight(lightGrids, lx, y + 1, lz, 1, 0, 0, 0, 0, 1, 1, 1)
+          const c3 = sampleCornerLight(lightGrids, lx, y + 1, lz, 1, 0, 0, 0, 0, 1, 1, 0)
+          maskSS[lx * CHUNK_SIZE + lz] = packMask(
+            blockId, ao,
+            (c0 >> 6) & 0x3, (c1 >> 6) & 0x3, (c2 >> 6) & 0x3, (c3 >> 6) & 0x3,
+            (c0 >> 2) & 0x3, (c1 >> 2) & 0x3, (c2 >> 2) & 0x3, (c3 >> 2) & 0x3,
+          )
         }
       }
-      runGreedyExpansion(mask, CHUNK_SIZE, CHUNK_SIZE, doneBuf, (u0, vCoord0, du, dv, maskValue) => {
-        const lx0 = u0, lz0 = vCoord0
-        const fy = y + 1
-        const blockId = maskValue & 0xff
-        const ao = (maskValue >> 8) & 0x3
-        const targetAcc = transparentLookup[blockId] !== 0 ? (waterAcc ??= createAccumulator()) : opaqueAcc
-        v0[0] = offset.wx + lx0; v0[1] = fy; v0[2] = offset.wz + lz0
-        v1[0] = offset.wx + lx0; v1[1] = fy; v1[2] = offset.wz + lz0 + dv
-        v2[0] = offset.wx + lx0 + du; v2[1] = fy; v2[2] = offset.wz + lz0 + dv
-        v3[0] = offset.wx + lx0 + du; v3[1] = fy; v3[2] = offset.wz + lz0
-        aoQuad[0] = ao; aoQuad[1] = ao; aoQuad[2] = ao; aoQuad[3] = ao
-        skyQuad[0] = dequantLight((maskValue >> 10) & 0x3)
-        skyQuad[1] = dequantLight((maskValue >> 12) & 0x3)
-        skyQuad[2] = dequantLight((maskValue >> 14) & 0x3)
-        skyQuad[3] = dequantLight((maskValue >> 16) & 0x3)
-        blockQuad[0] = dequantLight((maskValue >> 18) & 0x3)
-        blockQuad[1] = dequantLight((maskValue >> 20) & 0x3)
-        blockQuad[2] = dequantLight((maskValue >> 22) & 0x3)
-        blockQuad[3] = dequantLight((maskValue >> 24) & 0x3)
-        addQuad(targetAcc, v0, v1, v2, v3, normal, blockId, aoQuad, skyQuad, blockQuad, 'top')
-      })
     }
+    runGreedyExpansion(maskSS, CHUNK_SIZE, CHUNK_SIZE, doneBuf, (u0, v0, du, dv, mv) => emitYPos(u0, v0, du, dv, mv, y))
   }
 
   // ── Y- faces (normal = 0,-1,0) ───────────────────────────────────────────
   // Air side = y-1. Tangents: t1 = +X, t2 = +Z.
-  const passYNeg = (): void => {
-    const normal = [0, -1, 0] as const
-    const mask = maskSS
-    const v0 = [0, 0, 0] as [number, number, number]
-    const v1 = [0, 0, 0] as [number, number, number]
-    const v2 = [0, 0, 0] as [number, number, number]
-    const v3 = [0, 0, 0] as [number, number, number]
-    const aoQuad = [0, 0, 0, 0] as [number, number, number, number]
-    const skyQuad = [0, 0, 0, 0] as [number, number, number, number]
-    const blockQuad = [0, 0, 0, 0] as [number, number, number, number]
-    for (let y = 0; y < CHUNK_HEIGHT; y++) {
-      mask.fill(0)
-      for (let lx = 0; lx < CHUNK_SIZE; lx++) {
-        for (let lz = 0; lz < CHUNK_SIZE; lz++) {
-          const blockId = getBlock(blocks, lx, y, lz)
-          if (blockId !== AIR && isAir(blocks, lx, y - 1, lz)) {
-            const ao = aoYNeg(blocks, lx, y, lz)
-            // Vertex order: (lx0+du, lz0), (lx0+du, lz0+dv), (lx0, lz0+dv), (lx0, lz0).
-            const c0 = sampleCornerLight(lightGrids, lx, y - 1, lz, 1, 0, 0, 0, 0, 1, 1, 0)
-            const c1 = sampleCornerLight(lightGrids, lx, y - 1, lz, 1, 0, 0, 0, 0, 1, 1, 1)
-            const c2 = sampleCornerLight(lightGrids, lx, y - 1, lz, 1, 0, 0, 0, 0, 1, 0, 1)
-            const c3 = sampleCornerLight(lightGrids, lx, y - 1, lz, 1, 0, 0, 0, 0, 1, 0, 0)
-            mask[lx * CHUNK_SIZE + lz] = packMask(
-              blockId, ao,
-              (c0 >> 6) & 0x3, (c1 >> 6) & 0x3, (c2 >> 6) & 0x3, (c3 >> 6) & 0x3,
-              (c0 >> 2) & 0x3, (c1 >> 2) & 0x3, (c2 >> 2) & 0x3, (c3 >> 2) & 0x3,
-            )
-          }
+  const emitYNeg: EmitQuadWithDepth = makeEmitQuad(
+    [0, -1, 0],
+    'bottom',
+    (u0, v0, du, dv, depth, verts) => {
+      const lx0 = u0, lz0 = v0
+      const fy = depth
+      verts[0][0] = offset.wx + lx0 + du; verts[0][1] = fy; verts[0][2] = offset.wz + lz0
+      verts[1][0] = offset.wx + lx0 + du; verts[1][1] = fy; verts[1][2] = offset.wz + lz0 + dv
+      verts[2][0] = offset.wx + lx0;      verts[2][1] = fy; verts[2][2] = offset.wz + lz0 + dv
+      verts[3][0] = offset.wx + lx0;      verts[3][1] = fy; verts[3][2] = offset.wz + lz0
+    },
+    opaqueAcc, getWaterAcc, transparentLookup,
+  )
+  for (let y = 0; y < CHUNK_HEIGHT; y++) {
+    maskSS.fill(0)
+    for (let lx = 0; lx < CHUNK_SIZE; lx++) {
+      for (let lz = 0; lz < CHUNK_SIZE; lz++) {
+        const blockId = getBlock(blocks, lx, y, lz)
+        if (blockId !== AIR && isAir(blocks, lx, y - 1, lz)) {
+          const ao = aoYNeg(blocks, lx, y, lz)
+          // Vertex order: (lx0+du, lz0), (lx0+du, lz0+dv), (lx0, lz0+dv), (lx0, lz0).
+          const c0 = sampleCornerLight(lightGrids, lx, y - 1, lz, 1, 0, 0, 0, 0, 1, 1, 0)
+          const c1 = sampleCornerLight(lightGrids, lx, y - 1, lz, 1, 0, 0, 0, 0, 1, 1, 1)
+          const c2 = sampleCornerLight(lightGrids, lx, y - 1, lz, 1, 0, 0, 0, 0, 1, 0, 1)
+          const c3 = sampleCornerLight(lightGrids, lx, y - 1, lz, 1, 0, 0, 0, 0, 1, 0, 0)
+          maskSS[lx * CHUNK_SIZE + lz] = packMask(
+            blockId, ao,
+            (c0 >> 6) & 0x3, (c1 >> 6) & 0x3, (c2 >> 6) & 0x3, (c3 >> 6) & 0x3,
+            (c0 >> 2) & 0x3, (c1 >> 2) & 0x3, (c2 >> 2) & 0x3, (c3 >> 2) & 0x3,
+          )
         }
       }
-      runGreedyExpansion(mask, CHUNK_SIZE, CHUNK_SIZE, doneBuf, (u0, vCoord0, du, dv, maskValue) => {
-        const lx0 = u0, lz0 = vCoord0
-        const fy = y
-        const blockId = maskValue & 0xff
-        const ao = (maskValue >> 8) & 0x3
-        const targetAcc = transparentLookup[blockId] !== 0 ? (waterAcc ??= createAccumulator()) : opaqueAcc
-        v0[0] = offset.wx + lx0 + du; v0[1] = fy; v0[2] = offset.wz + lz0
-        v1[0] = offset.wx + lx0 + du; v1[1] = fy; v1[2] = offset.wz + lz0 + dv
-        v2[0] = offset.wx + lx0; v2[1] = fy; v2[2] = offset.wz + lz0 + dv
-        v3[0] = offset.wx + lx0; v3[1] = fy; v3[2] = offset.wz + lz0
-        aoQuad[0] = ao; aoQuad[1] = ao; aoQuad[2] = ao; aoQuad[3] = ao
-        skyQuad[0] = dequantLight((maskValue >> 10) & 0x3)
-        skyQuad[1] = dequantLight((maskValue >> 12) & 0x3)
-        skyQuad[2] = dequantLight((maskValue >> 14) & 0x3)
-        skyQuad[3] = dequantLight((maskValue >> 16) & 0x3)
-        blockQuad[0] = dequantLight((maskValue >> 18) & 0x3)
-        blockQuad[1] = dequantLight((maskValue >> 20) & 0x3)
-        blockQuad[2] = dequantLight((maskValue >> 22) & 0x3)
-        blockQuad[3] = dequantLight((maskValue >> 24) & 0x3)
-        addQuad(targetAcc, v0, v1, v2, v3, normal, blockId, aoQuad, skyQuad, blockQuad, 'bottom')
-      })
     }
+    runGreedyExpansion(maskSS, CHUNK_SIZE, CHUNK_SIZE, doneBuf, (u0, v0, du, dv, mv) => emitYNeg(u0, v0, du, dv, mv, y))
   }
 
   // ── Z+ faces (normal = 0,0,1) ────────────────────────────────────────────
   // Air side = lz+1. Tangents: t1 = +X, t2 = +Y.
-  const passZPos = (): void => {
-    const normal = [0, 0, 1] as const
-    const mask = maskCH
-    const v0 = [0, 0, 0] as [number, number, number]
-    const v1 = [0, 0, 0] as [number, number, number]
-    const v2 = [0, 0, 0] as [number, number, number]
-    const v3 = [0, 0, 0] as [number, number, number]
-    const aoQuad = [0, 0, 0, 0] as [number, number, number, number]
-    const skyQuad = [0, 0, 0, 0] as [number, number, number, number]
-    const blockQuad = [0, 0, 0, 0] as [number, number, number, number]
-    for (let lz = 0; lz < CHUNK_SIZE; lz++) {
-      mask.fill(0)
-      for (let lx = 0; lx < CHUNK_SIZE; lx++) {
-        for (let y = 0; y < CHUNK_HEIGHT; y++) {
-          const blockId = getBlock(blocks, lx, y, lz)
-          if (blockId !== AIR && isAir(blocks, lx, y, lz + 1)) {
-            const ao = aoZPos(blocks, lx, y, lz)
-            // Vertex order: (lx0+du, y0), (lx0+du, y0+dv), (lx0, y0+dv), (lx0, y0).
-            const c0 = sampleCornerLight(lightGrids, lx, y, lz + 1, 1, 0, 0, 0, 1, 0, 1, 0)
-            const c1 = sampleCornerLight(lightGrids, lx, y, lz + 1, 1, 0, 0, 0, 1, 0, 1, 1)
-            const c2 = sampleCornerLight(lightGrids, lx, y, lz + 1, 1, 0, 0, 0, 1, 0, 0, 1)
-            const c3 = sampleCornerLight(lightGrids, lx, y, lz + 1, 1, 0, 0, 0, 1, 0, 0, 0)
-            mask[lx * CHUNK_HEIGHT + y] = packMask(
-              blockId, ao,
-              (c0 >> 6) & 0x3, (c1 >> 6) & 0x3, (c2 >> 6) & 0x3, (c3 >> 6) & 0x3,
-              (c0 >> 2) & 0x3, (c1 >> 2) & 0x3, (c2 >> 2) & 0x3, (c3 >> 2) & 0x3,
-            )
-          }
+  const emitZPos: EmitQuadWithDepth = makeEmitQuad(
+    [0, 0, 1],
+    'side',
+    (u0, v0, du, dv, depth, verts) => {
+      const lx0 = u0, y0 = v0
+      const fz = offset.wz + depth + 1
+      verts[0][0] = offset.wx + lx0 + du; verts[0][1] = y0;      verts[0][2] = fz
+      verts[1][0] = offset.wx + lx0 + du; verts[1][1] = y0 + dv; verts[1][2] = fz
+      verts[2][0] = offset.wx + lx0;      verts[2][1] = y0 + dv; verts[2][2] = fz
+      verts[3][0] = offset.wx + lx0;      verts[3][1] = y0;      verts[3][2] = fz
+    },
+    opaqueAcc, getWaterAcc, transparentLookup,
+  )
+  for (let lz = 0; lz < CHUNK_SIZE; lz++) {
+    maskCH.fill(0)
+    for (let lx = 0; lx < CHUNK_SIZE; lx++) {
+      for (let y = 0; y < CHUNK_HEIGHT; y++) {
+        const blockId = getBlock(blocks, lx, y, lz)
+        if (blockId !== AIR && isAir(blocks, lx, y, lz + 1)) {
+          const ao = aoZPos(blocks, lx, y, lz)
+          // Vertex order: (lx0+du, y0), (lx0+du, y0+dv), (lx0, y0+dv), (lx0, y0).
+          const c0 = sampleCornerLight(lightGrids, lx, y, lz + 1, 1, 0, 0, 0, 1, 0, 1, 0)
+          const c1 = sampleCornerLight(lightGrids, lx, y, lz + 1, 1, 0, 0, 0, 1, 0, 1, 1)
+          const c2 = sampleCornerLight(lightGrids, lx, y, lz + 1, 1, 0, 0, 0, 1, 0, 0, 1)
+          const c3 = sampleCornerLight(lightGrids, lx, y, lz + 1, 1, 0, 0, 0, 1, 0, 0, 0)
+          maskCH[lx * CHUNK_HEIGHT + y] = packMask(
+            blockId, ao,
+            (c0 >> 6) & 0x3, (c1 >> 6) & 0x3, (c2 >> 6) & 0x3, (c3 >> 6) & 0x3,
+            (c0 >> 2) & 0x3, (c1 >> 2) & 0x3, (c2 >> 2) & 0x3, (c3 >> 2) & 0x3,
+          )
         }
       }
-      runGreedyExpansion(mask, CHUNK_SIZE, CHUNK_HEIGHT, doneBuf, (u0, vCoord0, du, dv, maskValue) => {
-        const lx0 = u0, y0 = vCoord0
-        const fz = offset.wz + lz + 1
-        const blockId = maskValue & 0xff
-        const ao = (maskValue >> 8) & 0x3
-        const targetAcc = transparentLookup[blockId] !== 0 ? (waterAcc ??= createAccumulator()) : opaqueAcc
-        v0[0] = offset.wx + lx0 + du; v0[1] = y0; v0[2] = fz
-        v1[0] = offset.wx + lx0 + du; v1[1] = y0 + dv; v1[2] = fz
-        v2[0] = offset.wx + lx0; v2[1] = y0 + dv; v2[2] = fz
-        v3[0] = offset.wx + lx0; v3[1] = y0; v3[2] = fz
-        aoQuad[0] = ao; aoQuad[1] = ao; aoQuad[2] = ao; aoQuad[3] = ao
-        skyQuad[0] = dequantLight((maskValue >> 10) & 0x3)
-        skyQuad[1] = dequantLight((maskValue >> 12) & 0x3)
-        skyQuad[2] = dequantLight((maskValue >> 14) & 0x3)
-        skyQuad[3] = dequantLight((maskValue >> 16) & 0x3)
-        blockQuad[0] = dequantLight((maskValue >> 18) & 0x3)
-        blockQuad[1] = dequantLight((maskValue >> 20) & 0x3)
-        blockQuad[2] = dequantLight((maskValue >> 22) & 0x3)
-        blockQuad[3] = dequantLight((maskValue >> 24) & 0x3)
-        addQuad(targetAcc, v0, v1, v2, v3, normal, blockId, aoQuad, skyQuad, blockQuad, 'side')
-      })
     }
+    runGreedyExpansion(maskCH, CHUNK_SIZE, CHUNK_HEIGHT, doneBuf, (u0, v0, du, dv, mv) => emitZPos(u0, v0, du, dv, mv, lz))
   }
 
   // ── Z- faces (normal = 0,0,-1) ───────────────────────────────────────────
   // Air side = lz-1. Tangents: t1 = +X, t2 = +Y.
-  const passZNeg = (): void => {
-    const normal = [0, 0, -1] as const
-    const mask = maskCH
-    const v0 = [0, 0, 0] as [number, number, number]
-    const v1 = [0, 0, 0] as [number, number, number]
-    const v2 = [0, 0, 0] as [number, number, number]
-    const v3 = [0, 0, 0] as [number, number, number]
-    const aoQuad = [0, 0, 0, 0] as [number, number, number, number]
-    const skyQuad = [0, 0, 0, 0] as [number, number, number, number]
-    const blockQuad = [0, 0, 0, 0] as [number, number, number, number]
-    for (let lz = 0; lz < CHUNK_SIZE; lz++) {
-      mask.fill(0)
-      for (let lx = 0; lx < CHUNK_SIZE; lx++) {
-        for (let y = 0; y < CHUNK_HEIGHT; y++) {
-          const blockId = getBlock(blocks, lx, y, lz)
-          if (blockId !== AIR && isAir(blocks, lx, y, lz - 1)) {
-            const ao = aoZNeg(blocks, lx, y, lz)
-            // Vertex order: (lx0, y0), (lx0, y0+dv), (lx0+du, y0+dv), (lx0+du, y0).
-            const c0 = sampleCornerLight(lightGrids, lx, y, lz - 1, 1, 0, 0, 0, 1, 0, 0, 0)
-            const c1 = sampleCornerLight(lightGrids, lx, y, lz - 1, 1, 0, 0, 0, 1, 0, 0, 1)
-            const c2 = sampleCornerLight(lightGrids, lx, y, lz - 1, 1, 0, 0, 0, 1, 0, 1, 1)
-            const c3 = sampleCornerLight(lightGrids, lx, y, lz - 1, 1, 0, 0, 0, 1, 0, 1, 0)
-            mask[lx * CHUNK_HEIGHT + y] = packMask(
-              blockId, ao,
-              (c0 >> 6) & 0x3, (c1 >> 6) & 0x3, (c2 >> 6) & 0x3, (c3 >> 6) & 0x3,
-              (c0 >> 2) & 0x3, (c1 >> 2) & 0x3, (c2 >> 2) & 0x3, (c3 >> 2) & 0x3,
-            )
-          }
+  const emitZNeg: EmitQuadWithDepth = makeEmitQuad(
+    [0, 0, -1],
+    'side',
+    (u0, v0, du, dv, depth, verts) => {
+      const lx0 = u0, y0 = v0
+      const fz = offset.wz + depth
+      verts[0][0] = offset.wx + lx0;      verts[0][1] = y0;      verts[0][2] = fz
+      verts[1][0] = offset.wx + lx0;      verts[1][1] = y0 + dv; verts[1][2] = fz
+      verts[2][0] = offset.wx + lx0 + du; verts[2][1] = y0 + dv; verts[2][2] = fz
+      verts[3][0] = offset.wx + lx0 + du; verts[3][1] = y0;      verts[3][2] = fz
+    },
+    opaqueAcc, getWaterAcc, transparentLookup,
+  )
+  for (let lz = 0; lz < CHUNK_SIZE; lz++) {
+    maskCH.fill(0)
+    for (let lx = 0; lx < CHUNK_SIZE; lx++) {
+      for (let y = 0; y < CHUNK_HEIGHT; y++) {
+        const blockId = getBlock(blocks, lx, y, lz)
+        if (blockId !== AIR && isAir(blocks, lx, y, lz - 1)) {
+          const ao = aoZNeg(blocks, lx, y, lz)
+          // Vertex order: (lx0, y0), (lx0, y0+dv), (lx0+du, y0+dv), (lx0+du, y0).
+          const c0 = sampleCornerLight(lightGrids, lx, y, lz - 1, 1, 0, 0, 0, 1, 0, 0, 0)
+          const c1 = sampleCornerLight(lightGrids, lx, y, lz - 1, 1, 0, 0, 0, 1, 0, 0, 1)
+          const c2 = sampleCornerLight(lightGrids, lx, y, lz - 1, 1, 0, 0, 0, 1, 0, 1, 1)
+          const c3 = sampleCornerLight(lightGrids, lx, y, lz - 1, 1, 0, 0, 0, 1, 0, 1, 0)
+          maskCH[lx * CHUNK_HEIGHT + y] = packMask(
+            blockId, ao,
+            (c0 >> 6) & 0x3, (c1 >> 6) & 0x3, (c2 >> 6) & 0x3, (c3 >> 6) & 0x3,
+            (c0 >> 2) & 0x3, (c1 >> 2) & 0x3, (c2 >> 2) & 0x3, (c3 >> 2) & 0x3,
+          )
         }
       }
-      runGreedyExpansion(mask, CHUNK_SIZE, CHUNK_HEIGHT, doneBuf, (u0, vCoord0, du, dv, maskValue) => {
-        const lx0 = u0, y0 = vCoord0
-        const fz = offset.wz + lz
-        const blockId = maskValue & 0xff
-        const ao = (maskValue >> 8) & 0x3
-        const targetAcc = transparentLookup[blockId] !== 0 ? (waterAcc ??= createAccumulator()) : opaqueAcc
-        v0[0] = offset.wx + lx0; v0[1] = y0; v0[2] = fz
-        v1[0] = offset.wx + lx0; v1[1] = y0 + dv; v1[2] = fz
-        v2[0] = offset.wx + lx0 + du; v2[1] = y0 + dv; v2[2] = fz
-        v3[0] = offset.wx + lx0 + du; v3[1] = y0; v3[2] = fz
-        aoQuad[0] = ao; aoQuad[1] = ao; aoQuad[2] = ao; aoQuad[3] = ao
-        skyQuad[0] = dequantLight((maskValue >> 10) & 0x3)
-        skyQuad[1] = dequantLight((maskValue >> 12) & 0x3)
-        skyQuad[2] = dequantLight((maskValue >> 14) & 0x3)
-        skyQuad[3] = dequantLight((maskValue >> 16) & 0x3)
-        blockQuad[0] = dequantLight((maskValue >> 18) & 0x3)
-        blockQuad[1] = dequantLight((maskValue >> 20) & 0x3)
-        blockQuad[2] = dequantLight((maskValue >> 22) & 0x3)
-        blockQuad[3] = dequantLight((maskValue >> 24) & 0x3)
-        addQuad(targetAcc, v0, v1, v2, v3, normal, blockId, aoQuad, skyQuad, blockQuad, 'side')
-      })
     }
+    runGreedyExpansion(maskCH, CHUNK_SIZE, CHUNK_HEIGHT, doneBuf, (u0, v0, du, dv, mv) => emitZNeg(u0, v0, du, dv, mv, lz))
   }
-
-  passXPos()
-  passXNeg()
-  passYPos()
-  passYNeg()
-  passZPos()
-  passZNeg()
 
   const toRawMeshData = (a: MeshAccumulator): RawMeshData =>
     Schema.decodeUnknownSync(RawMeshDataSchema)({

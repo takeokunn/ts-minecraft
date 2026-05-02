@@ -1,4 +1,4 @@
-import { createStack } from '@ts-minecraft/inventory'
+import type { BlockType } from '@ts-minecraft/kernel'
 import { EntityType } from '../entity'
 import type { MobDefinition } from './mob-definition'
 
@@ -11,5 +11,5 @@ export const CowDefinition: MobDefinition = {
   detectionRange: 12,
   attackRange: 0,
   fleeHealthThreshold: 0.6,
-  drops: [createStack('GRASS', 1)],
+  drops: [{ blockType: 'GRASS' as BlockType, count: 1 }],
 }

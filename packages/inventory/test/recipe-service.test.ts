@@ -1,6 +1,6 @@
 import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
-import { Array as Arr, Effect, HashMap, Layer, Option } from 'effect'
+import { Array as Arr, Effect, Either, HashMap, Layer, Option } from 'effect'
 import type { BlockType } from '@ts-minecraft/kernel'
 import type { Block } from '@ts-minecraft/world-state'
 import { BlockRegistry } from '@ts-minecraft/world-state'
@@ -268,6 +268,77 @@ describe('application/crafting/recipe-service', () => {
       expect(result._tag).toBe('Left')
       expect(countBlock(before, 'PLANKS')).toBe(countBlock(after, 'PLANKS'))
       expect(countBlock(after, 'STICKS')).toBe(0)
+    }).pipe(Effect.provide(testLayer))
+  )
+
+  it.effect('craft fails when crafting_table recipe is attempted without table access', () =>
+    Effect.gen(function* () {
+      const rs = yield* RecipeService
+      const inv = yield* InventoryService
+      yield* inv.addBlock('COBBLESTONE', 8)
+
+      const result = yield* rs.craft(
+        RecipeId.make('cobblestone-to-furnace'),
+        inv,
+        false,  // hasCraftingTableAccess = false
+      ).pipe(Effect.either)
+
+      expect(Either.isLeft(result)).toBe(true)
+      const err = Option.getOrThrow(Either.getLeft(result))
+      expect(err.cause).toContain('requires a crafting table')
+    }).pipe(Effect.provide(testLayer))
+  )
+
+  it.effect('craft fails when furnace recipe is attempted without furnace access', () =>
+    Effect.gen(function* () {
+      const rs = yield* RecipeService
+      const inv = yield* InventoryService
+      yield* inv.addBlock('RAW_IRON', 1)
+      yield* inv.addBlock('FURNACE', 1)
+
+      const result = yield* rs.craft(
+        RecipeId.make('raw-iron-to-iron-ingot'),
+        inv,
+        true,   // hasCraftingTableAccess = true
+        false,  // hasFurnaceAccess = false
+      ).pipe(Effect.either)
+
+      expect(Either.isLeft(result)).toBe(true)
+      const err = Option.getOrThrow(Either.getLeft(result))
+      expect(err.cause).toContain('requires a furnace')
+    }).pipe(Effect.provide(testLayer))
+  )
+
+  it.effect('craft fails with RecipeError when removeBlock returns false (inventory inconsistency)', () =>
+    Effect.gen(function* () {
+      const rs = yield* RecipeService
+
+      // Build a fake InventoryService whose removeBlock always reports failure
+      // (returns false), but whose getAllSlots reports enough items to pass
+      // the pre-check. This exercises lines 101-106 in recipe-service.ts.
+      const fakeInv = {
+        getAllSlots: () => Effect.succeed(
+          // 1 slot with 1 WOOD — satisfies the wood-to-planks pre-check
+          [Option.some({ blockType: 'WOOD' as const, count: 1 }), ...Arr.makeBy(35, () => Option.none())]
+        ),
+        removeBlock: (_blockType: unknown, _count: unknown) => Effect.succeed(false),
+        addBlock: (_blockType: unknown, _count: unknown) => Effect.succeed(true),
+        getSlot: (_idx: unknown) => Effect.succeed(Option.none()),
+        setSlot: (_idx: unknown, _slot: unknown) => Effect.void,
+        moveStack: (_from: unknown, _to: unknown) => Effect.void,
+        getHotbarSlots: () => Effect.succeed([]),
+        clear: () => Effect.void,
+        serialize: () => Effect.succeed({ slots: [] }),
+        deserialize: (_data: unknown) => Effect.void,
+      } as unknown as InventoryService
+
+      const result = yield* rs.craft(RecipeId.make('wood-to-planks'), fakeInv).pipe(Effect.either)
+
+      expect(Either.isLeft(result)).toBe(true)
+      const err = Option.getOrThrow(Either.getLeft(result))
+      expect(err._tag).toBe('RecipeError')
+      expect(err.cause).toContain('Failed to remove')
+      expect(err.cause).toContain('WOOD')
     }).pipe(Effect.provide(testLayer))
   )
 })

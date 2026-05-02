@@ -1,3 +1,5 @@
+export * from './domain/audio-engine-port'
+export * from './domain/audio-types'
 export * from './domain/constants'
 export * from './domain/environment-port'
 export * from './domain/errors'

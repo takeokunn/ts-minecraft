@@ -1,6 +1,7 @@
 import { Effect, Option, Ref, Schema } from 'effect'
 import type { Position } from '@ts-minecraft/kernel'
-import { AudioEngine, clamp01, clampPan, type OscillatorWave } from '../infrastructure/audio-engine'
+import { AudioEnginePort } from '../domain/audio-engine-port'
+import { clamp01, clampPan, type OscillatorWave } from '../domain/audio-types'
 
 export const SoundEffectSchema = Schema.Literal('blockBreak', 'blockPlace', 'playerHurt', 'entityHit')
 export type SoundEffect = Schema.Schema.Type<typeof SoundEffectSchema>
@@ -44,7 +45,7 @@ export class SoundManager extends Effect.Service<SoundManager>()(
   '@minecraft/audio/SoundManager',
   {
     effect: Effect.all([
-      AudioEngine,
+      AudioEnginePort,
       Ref.make(true),
       Ref.make(0.8),
       Ref.make(1.0),

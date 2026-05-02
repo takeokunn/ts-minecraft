@@ -47,7 +47,9 @@ import { FluidService } from '@ts-minecraft/terrain'
 import { FurnaceService } from '@ts-minecraft/inventory'
 import { GameLoopService } from '@ts-minecraft/game'
 import { GameModeService, type GameMode } from '@ts-minecraft/game'
+import { StorageService } from '@ts-minecraft/world-state'
 import type { WorldMetadata } from '@ts-minecraft/world-state'
+import { NoiseService } from '@ts-minecraft/terrain'
 import { CHUNK_HEIGHT, CHUNK_SIZE, blockIndex } from '@ts-minecraft/kernel'
 import { DEFAULT_PLAYER_ID, MAX_SHADOW_HALF_EXTENT, type ColorPort, SkyMaterialPortSchema, WorldId } from '@ts-minecraft/kernel'
 
@@ -70,6 +72,226 @@ import type { BootContext } from '@ts-minecraft/app/main/boot'
 
 // 0.5 = noon in TimeService's day fraction (0.0=midnight, 0.25=dawn, 0.5=noon, 0.75=dusk).
 const BOOT_TIME_OF_DAY = 0.5
+
+const buildPostProcessing = (
+  renderer: THREE.WebGLRenderer,
+  scene: THREE.Scene,
+  camera: THREE.PerspectiveCamera,
+  canvas: { clientWidth: number; clientHeight: number },
+  initialGraphics: ReturnType<typeof resolvePreset>,
+) => Effect.sync(() => {
+  const rt = new THREE.WebGLRenderTarget(
+    canvas.clientWidth,
+    canvas.clientHeight,
+    { type: THREE.HalfFloatType }
+  )
+  const comp = new EffectComposer(renderer, rt)
+  comp.addPass(new RenderPass(scene, camera))
+
+  const gtaoPassInstance = new GTAOPass(scene, camera, canvas.clientWidth, canvas.clientHeight)
+  gtaoPassInstance.blendIntensity = GTAO_BLEND_INTENSITY
+  gtaoPassInstance.enabled = initialGraphics.ssaoEnabled
+  gtaoPassInstance.setSize(
+    initialGraphics.ssaoEnabled ? Math.ceil(canvas.clientWidth / 2) : 1,
+    initialGraphics.ssaoEnabled ? Math.ceil(canvas.clientHeight / 2) : 1,
+  )
+  comp.addPass(gtaoPassInstance)
+  const gtao: Option.Option<GTAOPass> = Option.some(gtaoPassInstance)
+
+  const godRaysPassInstance = new GodRaysPass()
+  godRaysPassInstance.enabled = initialGraphics.godRaysEnabled
+  godRaysPassInstance.setSize(initialGraphics.godRaysEnabled ? canvas.clientWidth : 1, initialGraphics.godRaysEnabled ? canvas.clientHeight : 1)
+  comp.addPass(godRaysPassInstance)
+  const godRays: Option.Option<GodRaysPass> = Option.some(godRaysPassInstance)
+
+  const bloomPassInstance = new UnrealBloomPass(
+    new THREE.Vector2(canvas.clientWidth, canvas.clientHeight),
+    BLOOM_STRENGTH,
+    BLOOM_RADIUS,
+    BLOOM_THRESHOLD,
+  )
+  bloomPassInstance.enabled = initialGraphics.bloomEnabled
+  bloomPassInstance.strength = initialGraphics.bloomStrength
+  bloomPassInstance.setSize(initialGraphics.bloomEnabled ? canvas.clientWidth : 1, initialGraphics.bloomEnabled ? canvas.clientHeight : 1)
+  comp.addPass(bloomPassInstance)
+  const bloom: Option.Option<UnrealBloomPass> = Option.some(bloomPassInstance)
+
+  const bokehPassInstance = new BokehPass(scene, camera, {
+    focus: BOKEH_FOCUS,
+    aperture: BOKEH_APERTURE,
+    maxblur: BOKEH_MAXBLUR,
+  })
+  bokehPassInstance.enabled = initialGraphics.dofEnabled
+  bokehPassInstance.setSize(initialGraphics.dofEnabled ? canvas.clientWidth : 1, initialGraphics.dofEnabled ? canvas.clientHeight : 1)
+  comp.addPass(bokehPassInstance)
+  const bokeh: Option.Option<BokehPass> = Option.some(bokehPassInstance)
+
+  const smaaPassInstance = new SMAAPass(canvas.clientWidth, canvas.clientHeight)
+  smaaPassInstance.enabled = initialGraphics.smaaEnabled
+  smaaPassInstance.setSize(initialGraphics.smaaEnabled ? canvas.clientWidth : 1, initialGraphics.smaaEnabled ? canvas.clientHeight : 1)
+  comp.addPass(smaaPassInstance)
+  const smaa: Option.Option<SMAAPass> = Option.some(smaaPassInstance)
+
+  comp.addPass(new OutputPass())
+
+  return { composerRT: rt, composer: comp, gtaoPass: gtao, godRaysPass: godRays, bloomPass: bloom, bokehPass: bokeh, smaaPass: smaa }
+})
+
+type SavedPlayerState = NonNullable<WorldMetadata['playerState']>
+type SavedFurnaceStates = NonNullable<WorldMetadata['furnaceStates']>
+type WorldBootstrap = {
+  readonly seed: number
+  readonly createdAt: Date
+  readonly baseSpawnPosition: { readonly x: number; readonly y: number; readonly z: number }
+  readonly savedPlayerState: Option.Option<SavedPlayerState>
+  readonly savedFurnaceStates: Option.Option<SavedFurnaceStates>
+  readonly gameMode: GameMode
+}
+
+const loadOrCreateWorld = (
+  worldId: WorldId,
+  initialGameMode: GameMode,
+  storageService: StorageService,
+  noiseService: NoiseService,
+  gameModeService: GameModeService,
+): Effect.Effect<WorldBootstrap, StartupError> =>
+  storageService.loadWorldMetadata(worldId).pipe(
+    Effect.mapError((cause) => new StartupError({ reason: 'Failed to load world metadata', cause })),
+    Effect.flatMap((existingMetadata) =>
+      Option.match(existingMetadata, {
+        onSome: (metadata): Effect.Effect<WorldBootstrap, StartupError, never> =>
+          noiseService.setSeed(metadata.seed).pipe(
+            Effect.andThen(gameModeService.set(metadata.gameMode)),
+            Effect.andThen(
+              Effect.log(
+                `Loaded world '${worldId}' with seed ${metadata.seed} (gameMode=${metadata.gameMode}, saveVersion=${metadata.saveVersion})`,
+              ),
+            ),
+            Effect.as({
+              seed: metadata.seed,
+              createdAt: metadata.createdAt,
+              baseSpawnPosition: metadata.playerSpawn ?? { x: 0, y: 100, z: 0 },
+              savedPlayerState: Option.fromNullable(metadata.playerState),
+              savedFurnaceStates: Option.fromNullable(metadata.furnaceStates),
+              gameMode: metadata.gameMode,
+            }),
+          ),
+        onNone: (): Effect.Effect<WorldBootstrap, StartupError, never> =>
+          Effect.all(
+            [Random.nextIntBetween(0, MAX_SEED_VALUE), Clock.currentTimeMillis],
+            { concurrency: 'unbounded' },
+          ).pipe(
+            Effect.flatMap(([seed, nowMs]) => {
+              const pos = { x: 0, y: 100, z: 0 }
+              const now = new Date(nowMs)
+              return noiseService.setSeed(seed).pipe(
+                Effect.andThen(
+                  storageService.saveWorldMetadata(worldId, {
+                    seed,
+                    createdAt: now,
+                    lastPlayed: now,
+                    playerSpawn: pos,
+                    gameMode: initialGameMode,
+                    saveVersion: 1,
+                  }),
+                ),
+                Effect.andThen(
+                  Effect.log(`Created new world '${worldId}' with seed ${seed} (gameMode=${initialGameMode})`),
+                ),
+                Effect.as({
+                  seed,
+                  createdAt: now,
+                  baseSpawnPosition: pos,
+                  savedPlayerState: Option.none(),
+                  savedFurnaceStates: Option.none(),
+                  gameMode: initialGameMode,
+                }),
+                Effect.mapError((cause) => new StartupError({ reason: 'Failed to save fresh world metadata', cause })),
+              )
+            }),
+          ),
+      }),
+    ),
+  )
+
+const buildRespawnPosition = (
+  baseSpawnPosition: { x: number; y: number; z: number },
+  chunkManagerService: ChunkManagerService,
+) => Effect.gen(function* () {
+  const spawnChunk = yield* chunkManagerService.getChunk({ x: 0, z: 0 })
+  const spawnBlocks: Readonly<Uint8Array> = spawnChunk.blocks
+  const surfaceY = Option.getOrElse(
+    Arr.findFirst(
+      Arr.makeBy(CHUNK_HEIGHT, (i) => CHUNK_HEIGHT - 1 - i),
+      (y) =>
+        Option.match(blockIndex(0, y, 0), {
+          onNone: () => false,
+          onSome: (idx) => spawnBlocks[idx] !== 0,
+        }),
+    ),
+    () => 64,
+  )
+  return { ...baseSpawnPosition, y: surfaceY + 1 + 3 }
+})
+
+const buildLighting = (
+  scene: THREE.Scene,
+  sceneService: SceneService,
+  initialSettings: { renderDistance: number },
+  initialGraphics: ReturnType<typeof resolvePreset>,
+) => Effect.gen(function* () {
+  const light = yield* Effect.sync(() => {
+    const l = new THREE.DirectionalLight(SUN_COLOR, 1)
+    l.shadow.mapSize.width = 2048
+    l.shadow.mapSize.height = 2048
+    l.shadow.camera.near = 0.5
+    l.shadow.camera.far = Math.max(initialSettings.renderDistance * CHUNK_SIZE * 1.5 + CHUNK_HEIGHT, 300)
+    const shadowHalfExtent = Math.min(Math.ceil(initialSettings.renderDistance * CHUNK_SIZE * 0.5), MAX_SHADOW_HALF_EXTENT)
+    l.shadow.camera.left = -shadowHalfExtent
+    l.shadow.camera.right = shadowHalfExtent
+    l.shadow.camera.top = shadowHalfExtent
+    l.shadow.camera.bottom = -shadowHalfExtent
+    l.position.set(5, 10, 7)
+    l.castShadow = initialGraphics.shadowsEnabled
+    return l
+  })
+  yield* sceneService.add(scene, light)
+  yield* sceneService.add(scene, light.target)
+
+  const ambientLight = yield* Effect.sync(() => new THREE.AmbientLight(AMBIENT_COLOR, 0.35))
+  yield* sceneService.add(scene, ambientLight)
+
+  const sky = yield* Effect.sync(() => {
+    const s = new Sky()
+    s.scale.setScalar(10000)
+    return s
+  })
+  yield* sceneService.add(scene, sky)
+  const skyPort = yield* Effect.sync(() => {
+    const skyMaterial = Array.isArray(sky.material) ? sky.material[0] : sky.material
+    if (!(skyMaterial instanceof THREE.ShaderMaterial)) {
+      throw new StartupError({ reason: 'Sky material is not a ShaderMaterial' })
+    }
+    const skyShaderMaterial = skyMaterial
+    Option.match(Option.fromNullable(skyShaderMaterial.uniforms['mieCoefficient']), { onNone: () => {}, onSome: (u) => { u.value = 0.005 } })
+    Option.match(Option.fromNullable(skyShaderMaterial.uniforms['mieDirectionalG']), { onNone: () => {}, onSome: (u) => { u.value = 0.7 } })
+    return Schema.decodeUnknownSync(SkyMaterialPortSchema)({
+      uniforms: {
+        sunPosition: skyShaderMaterial.uniforms['sunPosition'],
+        turbidity: skyShaderMaterial.uniforms['turbidity'],
+        rayleigh: skyShaderMaterial.uniforms['rayleigh'],
+      },
+    })
+  })
+
+  const { skyNight, skyDay, skyCurrent } = yield* Effect.sync(() => ({
+    skyNight: new THREE.Color(SKY_COLOR_NIGHT),
+    skyDay: new THREE.Color(SKY_COLOR_DAY),
+    skyCurrent: new THREE.Color(),
+  }))
+
+  return { light, ambientLight, sky, skyPort, skyNight, skyDay, skyCurrent }
+})
 
 export type SessionResult = {
   readonly reason: 'quit-to-title' | 'never-returned'
@@ -171,63 +393,7 @@ export const sessionProgram = (
     // EffectComposer + 5 post-processing passes — kept in session scope for now
     // (see boot.ts comment for rationale). All pass instances always exist so
     // live preset changes can enable them later without silently no-oping.
-    const { composerRT, composer, gtaoPass, godRaysPass, bloomPass, bokehPass, smaaPass } = yield* Effect.sync(() => {
-      const rt = new THREE.WebGLRenderTarget(
-        canvas.clientWidth,
-        canvas.clientHeight,
-        { type: THREE.HalfFloatType }
-      )
-      const comp = new EffectComposer(renderer, rt)
-      comp.addPass(new RenderPass(scene, camera))
-
-      const gtaoPassInstance = new GTAOPass(scene, camera, canvas.clientWidth, canvas.clientHeight)
-      gtaoPassInstance.blendIntensity = GTAO_BLEND_INTENSITY
-      gtaoPassInstance.enabled = initialGraphics.ssaoEnabled
-      gtaoPassInstance.setSize(
-        initialGraphics.ssaoEnabled ? Math.ceil(canvas.clientWidth / 2) : 1,
-        initialGraphics.ssaoEnabled ? Math.ceil(canvas.clientHeight / 2) : 1,
-      )
-      comp.addPass(gtaoPassInstance)
-      const gtao: Option.Option<GTAOPass> = Option.some(gtaoPassInstance)
-
-      const godRaysPassInstance = new GodRaysPass()
-      godRaysPassInstance.enabled = initialGraphics.godRaysEnabled
-      godRaysPassInstance.setSize(initialGraphics.godRaysEnabled ? canvas.clientWidth : 1, initialGraphics.godRaysEnabled ? canvas.clientHeight : 1)
-      comp.addPass(godRaysPassInstance)
-      const godRays: Option.Option<GodRaysPass> = Option.some(godRaysPassInstance)
-
-      const bloomPassInstance = new UnrealBloomPass(
-        new THREE.Vector2(canvas.clientWidth, canvas.clientHeight),
-        BLOOM_STRENGTH,
-        BLOOM_RADIUS,
-        BLOOM_THRESHOLD,
-      )
-      bloomPassInstance.enabled = initialGraphics.bloomEnabled
-      bloomPassInstance.strength = initialGraphics.bloomStrength
-      bloomPassInstance.setSize(initialGraphics.bloomEnabled ? canvas.clientWidth : 1, initialGraphics.bloomEnabled ? canvas.clientHeight : 1)
-      comp.addPass(bloomPassInstance)
-      const bloom: Option.Option<UnrealBloomPass> = Option.some(bloomPassInstance)
-
-      const bokehPassInstance = new BokehPass(scene, camera, {
-        focus: BOKEH_FOCUS,
-        aperture: BOKEH_APERTURE,
-        maxblur: BOKEH_MAXBLUR,
-      })
-      bokehPassInstance.enabled = initialGraphics.dofEnabled
-      bokehPassInstance.setSize(initialGraphics.dofEnabled ? canvas.clientWidth : 1, initialGraphics.dofEnabled ? canvas.clientHeight : 1)
-      comp.addPass(bokehPassInstance)
-      const bokeh: Option.Option<BokehPass> = Option.some(bokehPassInstance)
-
-      const smaaPassInstance = new SMAAPass(canvas.clientWidth, canvas.clientHeight)
-      smaaPassInstance.enabled = initialGraphics.smaaEnabled
-      smaaPassInstance.setSize(initialGraphics.smaaEnabled ? canvas.clientWidth : 1, initialGraphics.smaaEnabled ? canvas.clientHeight : 1)
-      comp.addPass(smaaPassInstance)
-      const smaa: Option.Option<SMAAPass> = Option.some(smaaPassInstance)
-
-      comp.addPass(new OutputPass())
-
-      return { composerRT: rt, composer: comp, gtaoPass: gtao, godRaysPass: godRays, bloomPass: bloom, bokehPass: bokeh, smaaPass: smaa }
-    })
+    const { composerRT, composer, gtaoPass, godRaysPass, bloomPass, bokehPass, smaaPass } = yield* buildPostProcessing(renderer, scene, camera, canvas, initialGraphics)
 
     // Composer + pass disposal at session end (FR-1.8 GPU teardown).
     yield* Effect.acquireRelease(
@@ -241,77 +407,7 @@ export const sessionProgram = (
     )
 
     // World metadata: load existing or create fresh (with seed + spawn).
-    type SavedPlayerState = NonNullable<WorldMetadata['playerState']>
-    type SavedFurnaceStates = NonNullable<WorldMetadata['furnaceStates']>
-    type WorldBootstrap = {
-      readonly seed: number
-      readonly createdAt: Date
-      readonly baseSpawnPosition: { readonly x: number; readonly y: number; readonly z: number }
-      readonly savedPlayerState: Option.Option<SavedPlayerState>
-      readonly savedFurnaceStates: Option.Option<SavedFurnaceStates>
-      readonly gameMode: GameMode
-    }
-
-    const loadOrCreateWorld: Effect.Effect<WorldBootstrap, StartupError, never> =
-      storageService.loadWorldMetadata(worldId).pipe(
-        Effect.mapError((cause) => new StartupError({ reason: 'Failed to load world metadata', cause })),
-        Effect.flatMap((existingMetadata) =>
-          Option.match(existingMetadata, {
-            onSome: (metadata): Effect.Effect<WorldBootstrap, StartupError, never> =>
-              noiseService.setSeed(metadata.seed).pipe(
-                Effect.andThen(gameModeService.set(metadata.gameMode)),
-                Effect.andThen(
-                  Effect.log(
-                    `Loaded world '${worldId}' with seed ${metadata.seed} (gameMode=${metadata.gameMode}, saveVersion=${metadata.saveVersion})`,
-                  ),
-                ),
-                Effect.as({
-                  seed: metadata.seed,
-                  createdAt: metadata.createdAt,
-                  baseSpawnPosition: metadata.playerSpawn ?? { x: 0, y: 100, z: 0 },
-                  savedPlayerState: Option.fromNullable(metadata.playerState),
-                  savedFurnaceStates: Option.fromNullable(metadata.furnaceStates),
-                  gameMode: metadata.gameMode,
-                }),
-              ),
-            onNone: (): Effect.Effect<WorldBootstrap, StartupError, never> =>
-              Effect.all(
-                [Random.nextIntBetween(0, MAX_SEED_VALUE), Clock.currentTimeMillis],
-                { concurrency: 'unbounded' },
-              ).pipe(
-                Effect.flatMap(([seed, nowMs]) => {
-                  const pos = { x: 0, y: 100, z: 0 }
-                  const now = new Date(nowMs)
-                  return noiseService.setSeed(seed).pipe(
-                    Effect.andThen(
-                      storageService.saveWorldMetadata(worldId, {
-                        seed,
-                        createdAt: now,
-                        lastPlayed: now,
-                        playerSpawn: pos,
-                        gameMode: initialGameMode,
-                        saveVersion: 1,
-                      }),
-                    ),
-                    Effect.andThen(
-                      Effect.log(`Created new world '${worldId}' with seed ${seed} (gameMode=${initialGameMode})`),
-                    ),
-                    Effect.as({
-                      seed,
-                      createdAt: now,
-                      baseSpawnPosition: pos,
-                      savedPlayerState: Option.none(),
-                      savedFurnaceStates: Option.none(),
-                      gameMode: initialGameMode,
-                    }),
-                    Effect.mapError((cause) => new StartupError({ reason: 'Failed to save fresh world metadata', cause })),
-                  )
-                }),
-              ),
-          }),
-        ),
-      )
-    const worldBootstrap = yield* loadOrCreateWorld
+    const worldBootstrap = yield* loadOrCreateWorld(worldId, initialGameMode, storageService, noiseService, gameModeService)
 
     // Persist session state — serializes player + furnace + active gameMode.
     const persistSessionState = () =>
@@ -365,22 +461,7 @@ export const sessionProgram = (
     // the scene graph. Idempotent if the overlay was never created (SSR path).
     yield* loadingScreen.hide()
 
-    const defaultRespawnPosition = yield* Effect.gen(function* () {
-      const spawnChunk = yield* chunkManagerService.getChunk({ x: 0, z: 0 })
-      const spawnBlocks: Readonly<Uint8Array> = spawnChunk.blocks
-      const surfaceY = Option.getOrElse(
-        Arr.findFirst(
-          Arr.makeBy(CHUNK_HEIGHT, (i) => CHUNK_HEIGHT - 1 - i),
-          (y) =>
-            Option.match(blockIndex(0, y, 0), {
-              onNone: () => false,
-              onSome: (idx) => spawnBlocks[idx] !== 0,
-            }),
-        ),
-        () => 64,
-      )
-      return { ...worldBootstrap.baseSpawnPosition, y: surfaceY + 1 + 3 }
-    })
+    const defaultRespawnPosition = yield* buildRespawnPosition(worldBootstrap.baseSpawnPosition, chunkManagerService)
 
     const spawnPosition = Option.getOrElse(
       Option.map(worldBootstrap.savedPlayerState, (saved) => saved.position),
@@ -388,55 +469,7 @@ export const sessionProgram = (
     )
 
     // Lighting setup: directional sun + ambient + Sky shader.
-    const light = yield* Effect.sync(() => {
-      const l = new THREE.DirectionalLight(SUN_COLOR, 1)
-      l.shadow.mapSize.width = 2048
-      l.shadow.mapSize.height = 2048
-      l.shadow.camera.near = 0.5
-      l.shadow.camera.far = Math.max(initialSettings.renderDistance * CHUNK_SIZE * 1.5 + CHUNK_HEIGHT, 300)
-      const shadowHalfExtent = Math.min(Math.ceil(initialSettings.renderDistance * CHUNK_SIZE * 0.5), MAX_SHADOW_HALF_EXTENT)
-      l.shadow.camera.left = -shadowHalfExtent
-      l.shadow.camera.right = shadowHalfExtent
-      l.shadow.camera.top = shadowHalfExtent
-      l.shadow.camera.bottom = -shadowHalfExtent
-      l.position.set(5, 10, 7)
-      l.castShadow = initialGraphics.shadowsEnabled
-      return l
-    })
-    yield* sceneService.add(scene, light)
-    yield* sceneService.add(scene, light.target)
-
-    const ambientLight = yield* Effect.sync(() => new THREE.AmbientLight(AMBIENT_COLOR, 0.35))
-    yield* sceneService.add(scene, ambientLight)
-
-    const sky = yield* Effect.sync(() => {
-      const s = new Sky()
-      s.scale.setScalar(10000)
-      return s
-    })
-    yield* sceneService.add(scene, sky)
-    const skyPort = yield* Effect.sync(() => {
-      const skyMaterial = Array.isArray(sky.material) ? sky.material[0] : sky.material
-      if (!(skyMaterial instanceof THREE.ShaderMaterial)) {
-        throw new StartupError({ reason: 'Sky material is not a ShaderMaterial' })
-      }
-      const skyShaderMaterial = skyMaterial
-      Option.match(Option.fromNullable(skyShaderMaterial.uniforms['mieCoefficient']), { onNone: () => {}, onSome: (u) => { u.value = 0.005 } })
-      Option.match(Option.fromNullable(skyShaderMaterial.uniforms['mieDirectionalG']), { onNone: () => {}, onSome: (u) => { u.value = 0.7 } })
-      return Schema.decodeUnknownSync(SkyMaterialPortSchema)({
-        uniforms: {
-          sunPosition: skyShaderMaterial.uniforms['sunPosition'],
-          turbidity: skyShaderMaterial.uniforms['turbidity'],
-          rayleigh: skyShaderMaterial.uniforms['rayleigh'],
-        },
-      })
-    })
-
-    const { skyNight, skyDay, skyCurrent } = yield* Effect.sync(() => ({
-      skyNight: new THREE.Color(SKY_COLOR_NIGHT),
-      skyDay: new THREE.Color(SKY_COLOR_DAY),
-      skyCurrent: new THREE.Color(),
-    }))
+    const { light, ambientLight, sky, skyPort, skyNight, skyDay, skyCurrent } = yield* buildLighting(scene, sceneService, initialSettings, initialGraphics)
 
     yield* gameState.initialize(spawnPosition)
 

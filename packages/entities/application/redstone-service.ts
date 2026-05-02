@@ -22,7 +22,7 @@ type RedstoneState = {
   readonly powerByPosition: HashMap.HashMap<PositionKey, number>
   readonly pistonKeys: HashSet.HashSet<PositionKey>
   readonly buttonKeys: HashSet.HashSet<PositionKey>
-  readonly cachedSnapshot: RedstoneTickSnapshot['poweredPositions'] | null
+  readonly cachedSnapshot: Option.Option<RedstoneTickSnapshot['poweredPositions']>
 }
 
 const INITIAL_STATE: RedstoneState = {
@@ -31,7 +31,7 @@ const INITIAL_STATE: RedstoneState = {
   powerByPosition: HashMap.empty<PositionKey, number>(),
   pistonKeys: HashSet.empty<PositionKey>(),
   buttonKeys: HashSet.empty<PositionKey>(),
-  cachedSnapshot: null,
+  cachedSnapshot: Option.none(),
 }
 
 export class RedstoneService extends Effect.Service<RedstoneService>()(
@@ -212,9 +212,9 @@ export class RedstoneService extends Effect.Service<RedstoneService>()(
                 nextComponents = decayButtonTimers(state.components, state.buttonKeys)
               }
 
-              const cachedSnapshot: RedstoneTickSnapshot['poweredPositions'] =
-                needsPropagation || state.cachedSnapshot === null
-                  ? sortedPowerSnapshot(powered)
+              const cachedSnapshot: Option.Option<RedstoneTickSnapshot['poweredPositions']> =
+                needsPropagation || Option.isNone(state.cachedSnapshot)
+                  ? Option.some(sortedPowerSnapshot(powered))
                   : state.cachedSnapshot
 
               const nextState: RedstoneState = {
@@ -228,7 +228,7 @@ export class RedstoneService extends Effect.Service<RedstoneService>()(
 
               const snapshot: RedstoneTickSnapshot = {
                 tick: nextState.tick,
-                poweredPositions: cachedSnapshot,
+                poweredPositions: Option.getOrThrow(cachedSnapshot),
               }
 
               return [snapshot, nextState]

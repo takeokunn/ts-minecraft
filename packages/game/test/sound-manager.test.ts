@@ -1,7 +1,7 @@
 import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
 import { Effect, Layer } from 'effect'
-import { AudioEngine, type AudioEngine as AudioEngineService, type ToneRequest } from '@ts-minecraft/game'
+import { AudioEnginePort, type AudioEnginePortShape, type ToneRequest } from '@ts-minecraft/game'
 import { SoundManager, SoundManagerLive } from '@ts-minecraft/game'
 
 const makeFakeAudioEngine = () => {
@@ -10,8 +10,7 @@ const makeFakeAudioEngine = () => {
   const masterGains: number[] = []
   let nextToneId = 1
 
-  const engine: AudioEngineService = {
-    _tag: '@minecraft/audio/AudioEngine' as const,
+  const engine: AudioEnginePortShape = {
     playTone: (request) =>
       Effect.sync(() => {
         playRequests.push(request)
@@ -32,9 +31,9 @@ const makeFakeAudioEngine = () => {
   return { engine, playRequests, stoppedToneIds, masterGains }
 }
 
-const makeSoundLayer = (engine: AudioEngineService) =>
+const makeSoundLayer = (engine: AudioEnginePortShape) =>
   SoundManagerLive.pipe(
-    Layer.provide(Layer.succeed(AudioEngine, engine)),
+    Layer.provide(Layer.succeed(AudioEnginePort, engine)),
   )
 
 describe('audio/sound-manager', () => {
@@ -83,6 +82,20 @@ describe('audio/sound-manager', () => {
       yield* soundManager.applySettings({ enabled: false, masterVolume: 1, sfxVolume: 1 })
       yield* soundManager.playEffect('playerHurt')
       expect(fake.playRequests).toHaveLength(0)
+    }).pipe(Effect.provide(makeSoundLayer(fake.engine)))
+  })
+
+  it.effect('getState returns the current enabled flag, volumes, and listener position', () => {
+    const fake = makeFakeAudioEngine()
+    return Effect.gen(function* () {
+      const soundManager = yield* SoundManager
+      yield* soundManager.applySettings({ enabled: true, masterVolume: 0.7, sfxVolume: 0.3 })
+      yield* soundManager.setListenerPosition({ x: 5, y: 64, z: -3 })
+      const state = yield* soundManager.getState()
+      expect(state.enabled).toBe(true)
+      expect(state.masterVolume).toBeCloseTo(0.7, 5)
+      expect(state.sfxVolume).toBeCloseTo(0.3, 5)
+      expect(state.listenerPosition).toEqual({ x: 5, y: 64, z: -3 })
     }).pipe(Effect.provide(makeSoundLayer(fake.engine)))
   })
 })

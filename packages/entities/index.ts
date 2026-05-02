@@ -1,3 +1,4 @@
+export * from './domain/drop'
 export * from './domain/ai-index'
 export * from './domain/entity-utils'
 export * from './domain/entity'

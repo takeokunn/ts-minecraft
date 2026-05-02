@@ -1,0 +1,169 @@
+import { describe, it, expect } from 'vitest'
+import { Option } from 'effect'
+import {
+  MAX_STACK_SIZE,
+  createStack,
+  addToStack,
+  removeFromStack,
+  canMerge,
+  mergeStacks,
+} from '../domain/item-stack'
+
+describe('domain/item-stack', () => {
+  describe('createStack', () => {
+    it('creates a stack with correct blockType and count', () => {
+      const stack = createStack('DIRT', 10)
+      expect(stack.blockType).toBe('DIRT')
+      expect(stack.count).toBe(10)
+    })
+
+    it('default count is 1', () => {
+      const stack = createStack('STONE')
+      expect(stack.count).toBe(1)
+    })
+
+    it('clamps count to 1 when passed 0', () => {
+      const stack = createStack('WOOD', 0)
+      expect(stack.count).toBe(1)
+    })
+
+    it('clamps count to 1 when passed a negative value', () => {
+      const stack = createStack('WOOD', -5)
+      expect(stack.count).toBe(1)
+    })
+
+    it('clamps count to MAX_STACK_SIZE when passed 65', () => {
+      const stack = createStack('STONE', 65)
+      expect(stack.count).toBe(MAX_STACK_SIZE)
+    })
+
+    it('clamps count to MAX_STACK_SIZE when passed a very large value', () => {
+      const stack = createStack('SAND', 999)
+      expect(stack.count).toBe(MAX_STACK_SIZE)
+    })
+
+    it('accepts exactly MAX_STACK_SIZE without clamping', () => {
+      const stack = createStack('GRAVEL', MAX_STACK_SIZE)
+      expect(stack.count).toBe(MAX_STACK_SIZE)
+    })
+  })
+
+  describe('addToStack', () => {
+    it('adds items to stack', () => {
+      const stack = createStack('DIRT', 10)
+      const result = addToStack(stack, 5)
+      expect(result.blockType).toBe('DIRT')
+      expect(result.count).toBe(15)
+    })
+
+    it('caps at MAX_STACK_SIZE when adding would overflow', () => {
+      const stack = createStack('STONE', 60)
+      const result = addToStack(stack, 10)
+      expect(result.count).toBe(MAX_STACK_SIZE)
+    })
+
+    it('caps at exactly MAX_STACK_SIZE when adding the exact remaining space', () => {
+      const stack = createStack('STONE', 60)
+      const result = addToStack(stack, 4)
+      expect(result.count).toBe(MAX_STACK_SIZE)
+    })
+
+    it('preserves blockType after adding', () => {
+      const stack = createStack('GLASS', 3)
+      const result = addToStack(stack, 2)
+      expect(result.blockType).toBe('GLASS')
+    })
+  })
+
+  describe('removeFromStack', () => {
+    it('returns Option.some with reduced count', () => {
+      const stack = createStack('DIRT', 10)
+      const result = removeFromStack(stack, 3)
+      expect(Option.isSome(result)).toBe(true)
+      const unwrapped = Option.getOrThrow(result)
+      expect(unwrapped.blockType).toBe('DIRT')
+      expect(unwrapped.count).toBe(7)
+    })
+
+    it('returns Option.none when count becomes exactly 0', () => {
+      const stack = createStack('STONE', 5)
+      const result = removeFromStack(stack, 5)
+      expect(Option.isNone(result)).toBe(true)
+    })
+
+    it('returns Option.none when removing more than available', () => {
+      const stack = createStack('WOOD', 3)
+      const result = removeFromStack(stack, 10)
+      expect(Option.isNone(result)).toBe(true)
+    })
+
+    it('preserves blockType in the reduced stack', () => {
+      const stack = createStack('SAND', 8)
+      const result = removeFromStack(stack, 1)
+      expect(Option.isSome(result)).toBe(true)
+      expect(Option.getOrThrow(result).blockType).toBe('SAND')
+    })
+  })
+
+  describe('canMerge', () => {
+    it('returns true for same blockType', () => {
+      const a = createStack('DIRT', 5)
+      const b = createStack('DIRT', 10)
+      expect(canMerge(a, b)).toBe(true)
+    })
+
+    it('returns false for different blockType', () => {
+      const a = createStack('DIRT', 5)
+      const b = createStack('STONE', 10)
+      expect(canMerge(a, b)).toBe(false)
+    })
+  })
+
+  describe('mergeStacks', () => {
+    it('full transfer when a has space and b fits entirely', () => {
+      const a = createStack('DIRT', 10)
+      const b = createStack('DIRT', 20)
+      const [newA, remainderB] = mergeStacks(a, b)
+      expect(newA.count).toBe(30)
+      expect(Option.isNone(remainderB)).toBe(true)
+    })
+
+    it('partial transfer when b would overfill a', () => {
+      const a = createStack('STONE', 60)
+      const b = createStack('STONE', 10)
+      const [newA, remainderB] = mergeStacks(a, b)
+      expect(newA.count).toBe(MAX_STACK_SIZE)
+      expect(Option.isSome(remainderB)).toBe(true)
+      expect(Option.getOrThrow(remainderB).count).toBe(6)
+    })
+
+    it('returns [unchanged a, Option.some(b)] when types differ', () => {
+      const a = createStack('DIRT', 10)
+      const b = createStack('STONE', 5)
+      const [newA, remainderB] = mergeStacks(a, b)
+      expect(newA.count).toBe(10)
+      expect(newA.blockType).toBe('DIRT')
+      expect(Option.isSome(remainderB)).toBe(true)
+      const unwrappedB = Option.getOrThrow(remainderB)
+      expect(unwrappedB.blockType).toBe('STONE')
+      expect(unwrappedB.count).toBe(5)
+    })
+
+    it('returns [full a, Option.some(b)] when a is already at MAX_STACK_SIZE', () => {
+      const a = createStack('WOOD', MAX_STACK_SIZE)
+      const b = createStack('WOOD', 3)
+      const [newA, remainderB] = mergeStacks(a, b)
+      expect(newA.count).toBe(MAX_STACK_SIZE)
+      expect(Option.isSome(remainderB)).toBe(true)
+      expect(Option.getOrThrow(remainderB).count).toBe(3)
+    })
+
+    it('remainder is Option.none when b is fully absorbed', () => {
+      const a = createStack('GLASS', 50)
+      const b = createStack('GLASS', 14)
+      const [newA, remainderB] = mergeStacks(a, b)
+      expect(newA.count).toBe(MAX_STACK_SIZE)
+      expect(Option.isNone(remainderB)).toBe(true)
+    })
+  })
+})

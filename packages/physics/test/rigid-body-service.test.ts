@@ -112,5 +112,21 @@ describe('physics/boundary/rigid-body-service', () => {
         yield* service.updateMassProperties(body)
       }).pipe(Effect.provide(RigidBodyServiceLive))
     )
+
+    it.effect('setQuaternion is a no-op (custom engine does not track rotation)', () =>
+      Effect.gen(function* () {
+        const service = yield* RigidBodyService
+        const body = yield* service.create(defaultConfig)
+        yield* service.setQuaternion(body, { x: 0, y: 0, z: 0, w: 1 })
+      }).pipe(Effect.provide(RigidBodyServiceLive))
+    )
+
+    it.effect('setAngularVelocity is a no-op (custom engine does not track angular velocity)', () =>
+      Effect.gen(function* () {
+        const service = yield* RigidBodyService
+        const body = yield* service.create(defaultConfig)
+        yield* service.setAngularVelocity(body, { x: 1, y: 2, z: 3 })
+      }).pipe(Effect.provide(RigidBodyServiceLive))
+    )
   })
 })

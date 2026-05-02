@@ -1,4 +1,4 @@
-import type { ItemStack } from '@ts-minecraft/inventory'
+import type { EntityDrop } from './drop'
 import type { AIState } from './stateMachine'
 import type { Entity, MobBehavior } from './entity'
 import type { Vector3 } from '@ts-minecraft/kernel'
@@ -13,7 +13,7 @@ export type ManagedEntity = Entity & {
   readonly detectionRange: number
   readonly attackRange: number
   readonly fleeHealthThreshold: number
-  readonly drops: ReadonlyArray<ItemStack>
+  readonly drops: ReadonlyArray<EntityDrop>
   readonly aiState: AIState
   readonly wanderDirection: Vector3
   readonly attackCooldownRemaining: number

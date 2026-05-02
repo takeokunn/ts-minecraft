@@ -1,4 +1,4 @@
-import { Array as Arr, Effect, Metric, MetricBoundaries, Option } from 'effect'
+import { Array as Arr, Effect, Metric, MetricBoundaries, MutableHashMap, Option } from 'effect'
 import { ChunkService, Chunk } from '..//chunk'
 import { ChunkCoord, blockTypeToIndex, CHUNK_SIZE, CHUNK_HEIGHT } from '@ts-minecraft/kernel'
 import { BiomeService } from '../../application/biome-service'
@@ -115,7 +115,7 @@ type OverhangTarget = {
 type TreeColumnContextResolverDeps = {
   readonly biomeService: BiomeService
   readonly noiseService: NoiseServicePort
-  readonly treeColumnContextCache: Map<string, TreeColumnContext>
+  readonly treeColumnContextCache: MutableHashMap.MutableHashMap<string, TreeColumnContext>
   readonly blockIndices: BlockIndices
 }
 
@@ -130,7 +130,7 @@ type ColumnStateBuildArgs = {
   readonly graniteNoiseVals: ReadonlyArray<number>
   readonly dioriteNoiseVals: ReadonlyArray<number>
   readonly andesiteNoiseVals: ReadonlyArray<number>
-  readonly treeColumnContextCache: Map<string, TreeColumnContext>
+  readonly treeColumnContextCache: MutableHashMap.MutableHashMap<string, TreeColumnContext>
   readonly blockIndices: BlockIndices
 }
 
@@ -204,6 +204,17 @@ const supportsTreeAtSurface = (
   && surfaceBlock !== blockIndices.gravelBlockIndex
   && (surfaceBlock !== blockIndices.stoneBlockIndex || biome === 'MOUNTAINS' || biome === 'SNOW')
 
+const determineWaterLevel = (
+  biome: BiomeType,
+  surfaceY: number,
+  lakeBasinY: Option.Option<number>,
+): number | null => {
+  if (biome === 'RIVER') return RIVER_WATER_LEVEL
+  if (surfaceY < SEA_LEVEL) return SEA_LEVEL
+  if (Option.isSome(lakeBasinY)) return LAKE_LEVEL
+  return null
+}
+
 const fillWaterForColumn = (
   blocks: Uint8Array,
   lx: number,
@@ -213,13 +224,7 @@ const fillWaterForColumn = (
   lakeBasinY: Option.Option<number>,
   waterBlockIndex: number,
 ): void => {
-  const waterTopY = biome === 'RIVER'
-    ? RIVER_WATER_LEVEL
-    : surfaceY < SEA_LEVEL
-      ? SEA_LEVEL
-      : Option.isSome(lakeBasinY)
-        ? LAKE_LEVEL
-        : null
+  const waterTopY = determineWaterLevel(biome, surfaceY, lakeBasinY)
 
   if (waterTopY === null) {
     return
@@ -296,7 +301,7 @@ const buildColumnStates = ({
       fillWaterForColumn(blocks, lx, lz, biome, surfaceY, lakeBasinY, blockIndices.waterBlockIndex)
 
       const surfaceBlock = blocks[chunkBlockIndexUnchecked(lx, surfaceY, lz)] ?? blockIndices.airBlockIndex
-      treeColumnContextCache.set(createTreeColumnKey(wx, wz), {
+      MutableHashMap.set(treeColumnContextCache, createTreeColumnKey(wx, wz), {
         biome,
         props,
         surfaceY,
@@ -405,9 +410,9 @@ const createTreeColumnContextResolver = ({
 }: TreeColumnContextResolverDeps) => (wx: number, wz: number): Effect.Effect<TreeColumnContext, never> =>
   Effect.gen(function* () {
     const cacheKey = createTreeColumnKey(wx, wz)
-    const cached = treeColumnContextCache.get(cacheKey)
-    if (cached) {
-      return cached
+    const cached = MutableHashMap.get(treeColumnContextCache, cacheKey)
+    if (Option.isSome(cached)) {
+      return cached.value
     }
 
     const [biome, props, continentalness, erosion, pv, jaggedness, lakeNoiseVal] = yield* Effect.all([
@@ -448,7 +453,7 @@ const createTreeColumnContextResolver = ({
       supportsTree: supportsTreeAtSurface(surfaceProfile.surfaceBlockIndex, biome, blockIndices),
     }
 
-    treeColumnContextCache.set(cacheKey, context)
+    MutableHashMap.set(treeColumnContextCache, cacheKey, context)
     return context
   })
 
@@ -491,7 +496,7 @@ export const generateTerrain = (
     const columnCoords = createColumnNoiseCoordinates(baseWorldX, baseWorldZ)
     const caveGridPoints = createCaveGridPoints(baseWorldX, baseWorldZ)
     const blockIndices = createBlockIndices()
-    const treeColumnContextCache = new Map<string, TreeColumnContext>()
+    const treeColumnContextCache = MutableHashMap.empty<string, TreeColumnContext>()
 
     const biomeColumns = yield* biomeService.getBiomesAndPropertiesForChunk(coord.x, coord.z)
     const terrainChannels = yield* noiseService.sampleTerrainChannels(baseWorldX, baseWorldZ)

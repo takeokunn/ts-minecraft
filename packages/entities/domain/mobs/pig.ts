@@ -1,4 +1,4 @@
-import { createStack } from '@ts-minecraft/inventory'
+import type { BlockType } from '@ts-minecraft/kernel'
 import { EntityType } from '../entity'
 import type { MobDefinition } from './mob-definition'
 
@@ -11,5 +11,5 @@ export const PigDefinition: MobDefinition = {
   detectionRange: 10,
   attackRange: 0,
   fleeHealthThreshold: 0.65,
-  drops: [createStack('DIRT', 1)],
+  drops: [{ blockType: 'DIRT' as BlockType, count: 1 }],
 }
