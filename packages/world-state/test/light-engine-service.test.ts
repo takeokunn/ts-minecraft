@@ -161,4 +161,65 @@ describe('application/light/light-engine-service', () => {
       })
     )
   )
+
+  it.effect('updateLight reuses an existing valid-length sky buffer (lightBufferOrFresh onSome path)', () =>
+    withLightService((cs, ls) =>
+      Effect.gen(function* () {
+        const chunk = yield* cs.createChunk({ x: 0, z: 0 })
+        const firstGrids = yield* ls.updateLight(chunk)
+
+        // Attach the grids so the second call sees valid-length buffers → onSome: (b) => b
+        ;(chunk as unknown as { skyLight: Uint8Array; blockLight: Uint8Array }).skyLight = firstGrids.skyLight
+        ;(chunk as unknown as { skyLight: Uint8Array; blockLight: Uint8Array }).blockLight = firstGrids.blockLight
+
+        const secondGrids = yield* ls.updateLight(chunk)
+
+        expect(secondGrids.skyLight).toBe(firstGrids.skyLight)
+        expect(secondGrids.blockLight).toBe(firstGrids.blockLight)
+        expect(secondGrids.skyLight.byteLength).toBe(16 * 16 * 256 / 2)
+      })
+    )
+  )
+
+  it.effect('updateLight discards a wrong-length existing buffer (lightBufferOrFresh filter false → onNone)', () =>
+    withLightService((cs, ls) =>
+      Effect.gen(function* () {
+        const chunk = yield* cs.createChunk({ x: 0, z: 0 })
+        ;(chunk as unknown as { skyLight: Uint8Array }).skyLight = new Uint8Array(4)
+
+        const grids = yield* ls.updateLight(chunk)
+
+        expect(grids.skyLight).not.toBe((chunk as unknown as { skyLight: Uint8Array }).skyLight)
+        expect(grids.skyLight.byteLength).toBe(16 * 16 * 256 / 2)
+      })
+    )
+  )
+
+  it.effect('getSkyLight reads from existing skyLight buffer (onSome path)', () =>
+    withLightService((cs, ls) =>
+      Effect.gen(function* () {
+        const chunk = yield* cs.createChunk({ x: 0, z: 0 })
+        const grids = yield* ls.updateLight(chunk)
+        // Attach the computed grid so getSkyLight hits the onSome: (grid) => getLightAt path
+        ;(chunk as unknown as { skyLight: Uint8Array }).skyLight = grids.skyLight
+        // All-AIR chunk: sky light at top is max (15)
+        const level = ls.getSkyLight(chunk, 0, 255, 0)
+        expect(level).toBe(15)
+      })
+    )
+  )
+
+  it.effect('getBlockLight reads from existing blockLight buffer (onSome path)', () =>
+    withLightService((cs, ls) =>
+      Effect.gen(function* () {
+        const chunk = yield* cs.createChunk({ x: 0, z: 0 })
+        chunk.blocks[blockIndexUnsafe(8, 100, 8)] = LAVA
+        const grids = yield* ls.updateLight(chunk)
+        // Attach the computed grid so getBlockLight hits the onSome: (grid) => getLightAt path
+        ;(chunk as unknown as { blockLight: Uint8Array }).blockLight = grids.blockLight
+        const level = ls.getBlockLight(chunk, 8, 100, 8)
+        expect(level).toBe(15)
+      })
+    )
+  )
 })

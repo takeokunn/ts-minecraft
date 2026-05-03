@@ -1,5 +1,5 @@
 import { blockTypeToIndex } from '@ts-minecraft/kernel'
-import type { BiomeType } from '../../application/biome-service'
+import type { BiomeType } from '../biome'
 import { SEA_LEVEL } from '@ts-minecraft/kernel'
 import { BEDROCK_LAYER_TOP, DEEPSLATE_CEILING, BEDROCK_PROBABILITY } from './constants'
 import { hash3, chunkBlockIndexUnchecked } from './math'

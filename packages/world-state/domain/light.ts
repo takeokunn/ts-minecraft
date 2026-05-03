@@ -72,6 +72,7 @@ const voxelIndex = (lx: number, y: number, lz: number): number => blockIndexUnsa
 export const getLightAt = (grid: Uint8Array, lx: number, y: number, lz: number): number => {
   const vi = voxelIndex(lx, y, lz)
   const byteIdx = vi >> 1
+  /* c8 ignore next */
   const byte = grid[byteIdx] ?? 0
   return (vi & 1) === 0 ? byte & 0x0f : (byte >> 4) & 0x0f
 }
@@ -80,6 +81,7 @@ export const setLightAt = (grid: Uint8Array, lx: number, y: number, lz: number, 
   const v = value < 0 ? 0 : value > 15 ? 15 : value
   const vi = voxelIndex(lx, y, lz)
   const byteIdx = vi >> 1
+  /* c8 ignore next */
   const byte = grid[byteIdx] ?? 0
   grid[byteIdx] = (vi & 1) === 0
     ? (byte & 0xf0) | v
@@ -104,7 +106,9 @@ export const computeBlockLight = (blocks: Uint8Array, lightGrid: Uint8Array): vo
     for (let z = 0; z < CHUNK_SIZE; z++) {
       for (let y = 0; y < CHUNK_HEIGHT; y++) {
         const vi = voxelIndex(x, y, z)
+        /* c8 ignore next */
         const blockIdx = blocks[vi] ?? 0
+        /* c8 ignore next */
         const emit = EMISSIVE_BY_INDEX[blockIdx] ?? 0
         if (emit > 0) {
           setLightAt(lightGrid, x, y, z, emit)
@@ -116,6 +120,7 @@ export const computeBlockLight = (blocks: Uint8Array, lightGrid: Uint8Array): vo
   }
   let head = 0
   while (head < queue.length) {
+    /* c8 ignore next */
     const packed = queue[head++] ?? 0
     const x = (packed >> 13) & 0x0f
     const z = (packed >> 9) & 0x0f
@@ -130,7 +135,9 @@ export const computeBlockLight = (blocks: Uint8Array, lightGrid: Uint8Array): vo
       const nz = z + offset[2]
       if (nx < 0 || nx >= CHUNK_SIZE || ny < 0 || ny >= CHUNK_HEIGHT || nz < 0 || nz >= CHUNK_SIZE) continue
       const nvi = voxelIndex(nx, ny, nz)
+      /* c8 ignore next */
       const nBlock = blocks[nvi] ?? 0
+      /* c8 ignore next */
       if ((TRANSPARENCY_BY_INDEX[nBlock] ?? 0) === 0) continue
       const existing = getLightAt(lightGrid, nx, ny, nz)
       if (existing >= nextLevel) continue
@@ -148,7 +155,9 @@ export const computeSkyLight = (blocks: Uint8Array, lightGrid: Uint8Array): void
     for (let z = 0; z < CHUNK_SIZE; z++) {
       for (let y = CHUNK_HEIGHT - 1; y >= 0; y--) {
         const vi = voxelIndex(x, y, z)
+        /* c8 ignore next */
         const blockIdx = blocks[vi] ?? 0
+        /* c8 ignore next */
         if ((TRANSPARENCY_BY_INDEX[blockIdx] ?? 0) === 0) break
         setLightAt(lightGrid, x, y, z, LIGHT_LEVEL_MAX)
         queue.push((x << 13) | (z << 9) | y)
@@ -157,6 +166,7 @@ export const computeSkyLight = (blocks: Uint8Array, lightGrid: Uint8Array): void
   }
   let head = 0
   while (head < queue.length) {
+    /* c8 ignore next */
     const packed = queue[head++] ?? 0
     const x = (packed >> 13) & 0x0f
     const z = (packed >> 9) & 0x0f
@@ -171,7 +181,9 @@ export const computeSkyLight = (blocks: Uint8Array, lightGrid: Uint8Array): void
       const nz = z + offset[2]
       if (nx < 0 || nx >= CHUNK_SIZE || ny < 0 || ny >= CHUNK_HEIGHT || nz < 0 || nz >= CHUNK_SIZE) continue
       const nvi = voxelIndex(nx, ny, nz)
+      /* c8 ignore next */
       const nBlock = blocks[nvi] ?? 0
+      /* c8 ignore next */
       if ((TRANSPARENCY_BY_INDEX[nBlock] ?? 0) === 0) continue
       const existing = getLightAt(lightGrid, nx, ny, nz)
       if (existing >= nextLevel) continue

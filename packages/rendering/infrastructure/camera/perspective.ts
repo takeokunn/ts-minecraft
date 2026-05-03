@@ -22,6 +22,7 @@ export class PerspectiveCameraService extends Effect.Service<PerspectiveCameraSe
       create: (params: PerspectiveCameraParams): Effect.Effect<THREE.PerspectiveCamera, CameraError> =>
         Effect.try({
           try: () => new THREE.PerspectiveCamera(params.fov, params.aspect, params.near, params.far),
+          /* c8 ignore next */
           catch: (error) => new CameraError({ cause: error }),
         }),
       updateAspect: (camera: THREE.PerspectiveCamera, aspect: number): Effect.Effect<void, never> =>

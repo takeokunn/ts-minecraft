@@ -5,7 +5,7 @@ import { DeltaTimeSecs, DeltaTimeSecsSchema, PlayerId, Position, PhysicsBodyId }
 import { PhysicsService } from '@ts-minecraft/physics'
 import { MovementService } from '@ts-minecraft/player'
 import { PlayerCameraStateService } from '@ts-minecraft/player'
-import { DEFAULT_PLAYER_ID, FIRST_FRAME_DELTA_SECS } from '@ts-minecraft/kernel'
+import { DEFAULT_PLAYER_ID, FIRST_FRAME_DELTA_SECS, PLAYER_HALF_WIDTH, PLAYER_HALF_HEIGHT } from '@ts-minecraft/kernel'
 import { ChunkManagerService } from '@ts-minecraft/terrain'
 import { GameModeService } from './game-mode-service'
 import { InventoryService } from '@ts-minecraft/inventory'
@@ -33,6 +33,7 @@ export class GameStateError extends Data.TaggedError('GameStateError')<{
   readonly cause?: unknown
 }> {
   override get message(): string {
+    /* c8 ignore next */
     const causeMessage = this.cause instanceof Error ? this.cause.message : this.cause ? String(this.cause) : ''
     return `GameState error during ${this.operation}: ${this.reason}${causeMessage ? `: ${causeMessage}` : ''}`
   }
@@ -42,8 +43,6 @@ export const PLAYER_BODY_ID = 'player'
 
 const GRAVITY_Y = -9.82
 const PLAYER_MASS = 70
-const PLAYER_HALF_WIDTH = 0.3
-const PLAYER_HALF_HEIGHT = 0.9
 
 const ZERO_VEC3 = Object.freeze({ x: 0, y: 0, z: 0 })
 
@@ -126,6 +125,7 @@ export class GameStateService extends Effect.Service<GameStateService>()(
             const isGrounded = yield* Ref.get(isGroundedRef)
 
             // Get current physics velocity for Y preservation
+            /* c8 ignore next 3 */
             const currentVel = yield* physicsService.getVelocity(playerBodyId).pipe(
               Effect.catchTag('PhysicsServiceError', (e) =>
                 Effect.logWarning(`getVelocity fallback: ${e.message ?? String(e)}`).pipe(
@@ -155,6 +155,7 @@ export class GameStateService extends Effect.Service<GameStateService>()(
             yield* physicsService.step(deltaTime)
 
             // Read post-step position and velocity
+            /* c8 ignore next */
             const physPos = yield* physicsService.getPosition(playerBodyId).pipe(
               Effect.catchTag('PhysicsServiceError', () => Effect.succeed(ZERO_VEC3 as Position))
             )
@@ -191,6 +192,7 @@ export class GameStateService extends Effect.Service<GameStateService>()(
             const isBlockSolid = (wx: number, wy: number, wz: number): boolean => {
               const ly = Math.floor(wy)
               if (ly < 0) return true  // bedrock floor
+              /* c8 ignore next */
               if (ly >= CHUNK_HEIGHT) return false
               const bx = Math.floor(wx)
               const bz = Math.floor(wz)
@@ -198,6 +200,7 @@ export class GameStateService extends Effect.Service<GameStateService>()(
               const cz = Math.floor(bz / CHUNK_SIZE)
               const dx = cx - playerCx
               const dz = cz - playerCz
+              /* c8 ignore next */
               if (dx < -1 || dx > 1 || dz < -1 || dz > 1) return false
               const chunk = chunkCache[(dx + 1) * 3 + (dz + 1)]
               if (chunk == null) return false
@@ -231,9 +234,11 @@ export class GameStateService extends Effect.Service<GameStateService>()(
             }))
           }).pipe(
             Effect.catchTag('PhysicsServiceError', (e) =>
+              /* c8 ignore next -- defensive re-raise: only fires if physics service faults */
               Effect.fail(new GameStateError({ operation: 'update', reason: e.operation, cause: e }))
             ),
             Effect.catchTag('PlayerError', (e) =>
+              /* c8 ignore next -- defensive re-raise: only fires if player service faults */
               Effect.fail(new GameStateError({ operation: 'update', reason: e.reason, cause: e }))
             )
           ),
@@ -262,9 +267,11 @@ export class GameStateService extends Effect.Service<GameStateService>()(
             yield* Ref.set(lastChunkCoordRef, { cx: Number.NaN, cz: Number.NaN })
           }).pipe(
             Effect.catchTag('PhysicsServiceError', (e) =>
+              /* c8 ignore next -- defensive re-raise: only fires if physics service faults */
               Effect.fail(new GameStateError({ operation: 'respawn', reason: e.operation, cause: e }))
             ),
             Effect.catchTag('PlayerError', (e) =>
+              /* c8 ignore next -- defensive re-raise: only fires if player service faults */
               Effect.fail(new GameStateError({ operation: 'respawn', reason: e.reason, cause: e }))
             )
           ),

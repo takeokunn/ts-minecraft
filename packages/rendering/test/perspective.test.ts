@@ -1,6 +1,6 @@
 import { describe, expect } from 'vitest'
 import { it } from '@effect/vitest'
-import { Array as Arr, Effect } from 'effect'
+import { Array as Arr, Effect, MutableRef } from 'effect'
 import {
   PerspectiveCameraService,
   PerspectiveCameraServiceLive,
@@ -97,15 +97,15 @@ describe('infrastructure/three/camera/perspective', () => {
     })
 
     it.effect('updateProjectionMatrix should call camera.updateProjectionMatrix', () => {
-      let called = false
+      const calledRef = MutableRef.make(false)
       const mockCam = {
         ...makeMockCamera(),
-        updateProjectionMatrix: () => { called = true },
+        updateProjectionMatrix: () => { MutableRef.set(calledRef, true) },
       }
       return Effect.gen(function* () {
         const service = yield* PerspectiveCameraService
         yield* service.updateProjectionMatrix(mockCam as never)
-        expect(called).toBe(true)
+        expect(MutableRef.get(calledRef)).toBe(true)
       }).pipe(Effect.provide(PerspectiveCameraServiceLive))
     })
 

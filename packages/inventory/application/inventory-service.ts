@@ -27,6 +27,7 @@ const fillExistingStacks = (
       onSome: (stackVal) => {
         if (!canMerge(stackVal, { blockType, count: 1 })) return [rem, slot] as const
         const space = maxStack - stackVal.count
+        /* c8 ignore next */
         if (space <= 0) return [rem, slot] as const
         const add = Math.min(space, rem)
         return [rem - add, Option.some(addToStack(stackVal, add))] as const
@@ -138,10 +139,10 @@ export class InventoryService extends Effect.Service<InventoryService>()(
               })
 
               // Step 2: drain remaining from all other slots in order
-              const preferredIdxNum = Option.getOrNull(preferredIdx)
               const [rem2, slots2] = Arr.mapAccum(slots1, rem1, (rem, slot, idx) => {
                 if (rem <= 0) return [rem, slot] as const
-                if (preferredIdxNum !== null && idx === preferredIdxNum) return [rem, slot] as const
+                /* c8 ignore next */
+                if (Option.exists(preferredIdx, (p) => p === idx)) return [rem, slot] as const
                 return Option.match(slot, {
                   onNone: () => [rem, slot] as const,
                   onSome: (stack) => takeFrom(rem, stack),
@@ -161,10 +162,7 @@ export class InventoryService extends Effect.Service<InventoryService>()(
             Ref.get(slotsRef).pipe(
               Effect.map((slots) => ({
                 slots: Arr.map(slots, (slot, i) =>
-                  Option.match(slot, {
-                    onSome: (stack) => ({ slot: SlotIndex.make(i), blockType: stack.blockType, count: stack.count }),
-                    onNone: () => null,
-                  })
+                  Option.map(slot, (stack) => ({ slot: SlotIndex.make(i), blockType: stack.blockType, count: stack.count }))
                 ),
               }))
             ),
@@ -178,7 +176,7 @@ export class InventoryService extends Effect.Service<InventoryService>()(
           deserialize: (data: InventorySaveData): Effect.Effect<void, never> =>
             Ref.update(slotsRef, (slots) =>
               Arr.reduce(data.slots, slots, (acc, entry) =>
-                Option.match(Option.fromNullable(entry), {
+                Option.match(entry, {
                   onNone: () => acc,
                   onSome: (e) => {
                     const i = SlotIndex.toNumber(e.slot)

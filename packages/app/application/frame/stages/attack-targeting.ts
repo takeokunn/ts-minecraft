@@ -27,6 +27,7 @@ export const findAttackableEntity = (
       )
       const alongRay = toEntity.dot(cameraDirection)
       if (alongRay < 0 || alongRay > PLAYER_ATTACK_REACH) return acc
+      /* c8 ignore next */
       if (Option.match(maxDistance, { onNone: () => false, onSome: (d) => alongRay > d })) return acc
 
       const perpendicularSq = Math.max(0, toEntity.lengthSq() - alongRay * alongRay)

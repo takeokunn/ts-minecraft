@@ -47,14 +47,14 @@ describe('qa-spatial', () => {
       { x: 0, y: 64, z: 0 },
       3,
       7,
-      (coord) => Effect.succeed(coord.x === 0 && coord.z === 0 ? { blocks } : null),
+      (coord) => Effect.succeed(coord.x === 0 && coord.z === 0 ? Option.some({ blocks }) : Option.none()),
     ))
 
     const notFound = await Effect.runPromise(scanNearbyBlock(
       { x: 0, y: -100, z: 0 },
       1,
       7,
-      () => Effect.succeed(null),
+      () => Effect.succeed(Option.none()),
     ))
 
     expect(found).toBe(true)

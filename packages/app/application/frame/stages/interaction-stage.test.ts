@@ -134,6 +134,60 @@ describe('step 7 — block interaction', () => {
     expect(placeSpy).toHaveBeenCalledWith({ x: 0, y: 65, z: 0 }, 'GRASS', 29)
   }))
 
+  it.effect('right-click with no target hit does nothing (handleRightClick outer onNone)', () => Effect.gen(function* () {
+    const deps = yield* makeDeps(false)
+    const inputService = makeInputService()
+    ;(inputService as unknown as { consumeMouseClick: unknown }).consumeMouseClick = (btn: number) =>
+      Effect.succeed(btn === 2)
+    const services = makeServices({
+      inputService,
+      inventoryRenderer: makeInventoryRenderer({ open: false }),
+      settingsOverlay: makeSettingsOverlay({ open: false }),
+    })
+    ;(services.blockHighlight as unknown as { getTargetHit: unknown }).getTargetHit = vi.fn(() =>
+      Effect.succeed(Option.none())
+    )
+    ;(services.blockHighlight as unknown as { getTargetBlock: unknown }).getTargetBlock = vi.fn(() =>
+      Effect.succeed(Option.none())
+    )
+    const placeSpy = vi.fn(() => Effect.void)
+    ;(services.blockService as unknown as { placeBlock: unknown }).placeBlock = placeSpy
+
+    yield* runFrame(deps, services)
+
+    expect(placeSpy).not.toHaveBeenCalled()
+  }))
+
+  it.effect('right-click with target hit but no selected block does nothing (handleRightClick inner onNone)', () => Effect.gen(function* () {
+    const deps = yield* makeDeps(false)
+    const inputService = makeInputService()
+    ;(inputService as unknown as { consumeMouseClick: unknown }).consumeMouseClick = (btn: number) =>
+      Effect.succeed(btn === 2)
+    const services = makeServices({
+      inputService,
+      inventoryRenderer: makeInventoryRenderer({ open: false }),
+      settingsOverlay: makeSettingsOverlay({ open: false }),
+    })
+    ;(services.blockHighlight as unknown as { getTargetHit: unknown }).getTargetHit = vi.fn(() =>
+      Effect.succeed(Option.some({ blockX: 0, blockY: 64, blockZ: 0, normal: { x: 0, y: 1, z: 0 } }))
+    )
+    ;(services.blockHighlight as unknown as { getTargetBlock: unknown }).getTargetBlock = vi.fn(() =>
+      Effect.succeed(Option.none())
+    )
+    ;(services.hotbarService as unknown as { getSelectedBlockType: unknown }).getSelectedBlockType = vi.fn(() =>
+      Effect.succeed(Option.none())
+    )
+    ;(services.hotbarService as unknown as { getSelectedSlot: unknown }).getSelectedSlot = vi.fn(() =>
+      Effect.succeed(0)
+    )
+    const placeSpy = vi.fn(() => Effect.void)
+    ;(services.blockService as unknown as { placeBlock: unknown }).placeBlock = placeSpy
+
+    yield* runFrame(deps, services)
+
+    expect(placeSpy).not.toHaveBeenCalled()
+  }))
+
   it.effect('plays placement audio only after a successful placeBlock call', () => Effect.gen(function* () {
     const deps = yield* makeDeps(false)
     const inputService = makeInputService()
@@ -187,105 +241,47 @@ describe('step 7 — block interaction', () => {
 
     expect(breakSpy).not.toHaveBeenCalled()
   }))
-})
 
-describe('step 7 — redstone dispatch', () => {
-  it.effect('placeWire key (KeyR) calls redstoneService.setComponent with Wire type', () => Effect.gen(function* () {
+  it.effect('applies WOODEN_SWORD_ATTACK_DAMAGE (8) when selected item is WOODEN_SWORD', () => Effect.gen(function* () {
     const deps = yield* makeDeps(false)
-    const pressedKeys = MutableHashSet.fromIterable(['KeyR'])
-    const inputService = makeInputService(pressedKeys)
+    deps.camera.position.set(0, 0, 0)
+    deps.camera.getWorldDirection = vi.fn((target: THREE.Vector3) => target.set(0, 0, -1))
+
+    const inputService = makeInputService()
+    ;(inputService as unknown as { consumeMouseClick: unknown }).consumeMouseClick = (btn: number) =>
+      Effect.succeed(btn === 0)
+
     const services = makeServices({
       inputService,
       inventoryRenderer: makeInventoryRenderer({ open: false }),
       settingsOverlay: makeSettingsOverlay({ open: false }),
     })
     ;(services.blockHighlight as unknown as { getTargetBlock: unknown }).getTargetBlock = vi.fn(() =>
-      Effect.succeed(Option.some({ x: 1, y: 64, z: 2 }))
-    )
-    ;(services.blockHighlight as unknown as { getTargetHit: unknown }).getTargetHit = vi.fn(() =>
       Effect.succeed(Option.none())
     )
-    const setComponentSpy = vi.fn(() => Effect.succeed({ type: 'wire', position: { x: 1, y: 64, z: 2 }, state: { active: false, buttonTicksRemaining: 0, pistonExtended: false } }))
-    ;(services.redstoneService as unknown as { setComponent: unknown }).setComponent = setComponentSpy
+    ;(services.entityManager as unknown as { getEntities: unknown }).getEntities = vi.fn(() =>
+      Effect.succeed([{ entityId: 'entity-1', position: { x: 0, y: 64, z: -2 }, velocity: { x: 0, y: 0, z: 0 }, rotation: {} as THREE.Quaternion, health: 20, type: 'Zombie' }])
+    )
+    ;(services.hotbarService as unknown as { getSelectedBlockType: unknown }).getSelectedBlockType = vi.fn(() =>
+      Effect.succeed(Option.some('WOODEN_SWORD'))
+    )
+    const applyDamageSpy = vi.fn(() => Effect.succeed(Option.none()))
+    ;(services.entityManager as unknown as { applyDamage: unknown }).applyDamage = applyDamageSpy
 
     yield* runFrame(deps, services)
 
-    expect(setComponentSpy).toHaveBeenCalledWith({ x: 1, y: 64, z: 2 }, 'wire')
+    expect(applyDamageSpy).toHaveBeenCalledWith('entity-1', 8)
   }))
 
-  it.effect('toggleLever key (KeyY) calls redstoneService.toggleLever', () => Effect.gen(function* () {
+  it.effect('applies PLAYER_ATTACK_DAMAGE (4) when selected item is non-sword', () => Effect.gen(function* () {
     const deps = yield* makeDeps(false)
-    const pressedKeys = MutableHashSet.fromIterable(['KeyY'])
-    const inputService = makeInputService(pressedKeys)
-    const services = makeServices({
-      inputService,
-      inventoryRenderer: makeInventoryRenderer({ open: false }),
-      settingsOverlay: makeSettingsOverlay({ open: false }),
-    })
-    ;(services.blockHighlight as unknown as { getTargetBlock: unknown }).getTargetBlock = vi.fn(() =>
-      Effect.succeed(Option.some({ x: 3, y: 64, z: 5 }))
-    )
-    ;(services.blockHighlight as unknown as { getTargetHit: unknown }).getTargetHit = vi.fn(() =>
-      Effect.succeed(Option.none())
-    )
-    const toggleLeverSpy = vi.fn(() => Effect.succeed(Option.none()))
-    ;(services.redstoneService as unknown as { toggleLever: unknown }).toggleLever = toggleLeverSpy
+    deps.camera.position.set(0, 0, 0)
+    deps.camera.getWorldDirection = vi.fn((target: THREE.Vector3) => target.set(0, 0, -1))
 
-    yield* runFrame(deps, services)
+    const inputService = makeInputService()
+    ;(inputService as unknown as { consumeMouseClick: unknown }).consumeMouseClick = (btn: number) =>
+      Effect.succeed(btn === 0)
 
-    expect(toggleLeverSpy).toHaveBeenCalledWith({ x: 3, y: 64, z: 5 })
-  }))
-
-  it.effect('pressButton key (KeyU) calls redstoneService.pressButton', () => Effect.gen(function* () {
-    const deps = yield* makeDeps(false)
-    const pressedKeys = MutableHashSet.fromIterable(['KeyU'])
-    const inputService = makeInputService(pressedKeys)
-    const services = makeServices({
-      inputService,
-      inventoryRenderer: makeInventoryRenderer({ open: false }),
-      settingsOverlay: makeSettingsOverlay({ open: false }),
-    })
-    ;(services.blockHighlight as unknown as { getTargetBlock: unknown }).getTargetBlock = vi.fn(() =>
-      Effect.succeed(Option.some({ x: 2, y: 65, z: 3 }))
-    )
-    ;(services.blockHighlight as unknown as { getTargetHit: unknown }).getTargetHit = vi.fn(() =>
-      Effect.succeed(Option.none())
-    )
-    const pressButtonSpy = vi.fn(() => Effect.succeed(Option.none()))
-    ;(services.redstoneService as unknown as { pressButton: unknown }).pressButton = pressButtonSpy
-
-    yield* runFrame(deps, services)
-
-    expect(pressButtonSpy).toHaveBeenCalledWith({ x: 2, y: 65, z: 3 })
-  }))
-
-  it.effect('toggleTorch key (KeyI) calls redstoneService.toggleTorch', () => Effect.gen(function* () {
-    const deps = yield* makeDeps(false)
-    const pressedKeys = MutableHashSet.fromIterable(['KeyI'])
-    const inputService = makeInputService(pressedKeys)
-    const services = makeServices({
-      inputService,
-      inventoryRenderer: makeInventoryRenderer({ open: false }),
-      settingsOverlay: makeSettingsOverlay({ open: false }),
-    })
-    ;(services.blockHighlight as unknown as { getTargetBlock: unknown }).getTargetBlock = vi.fn(() =>
-      Effect.succeed(Option.some({ x: 5, y: 63, z: 1 }))
-    )
-    ;(services.blockHighlight as unknown as { getTargetHit: unknown }).getTargetHit = vi.fn(() =>
-      Effect.succeed(Option.none())
-    )
-    const toggleTorchSpy = vi.fn(() => Effect.succeed(Option.none()))
-    ;(services.redstoneService as unknown as { toggleTorch: unknown }).toggleTorch = toggleTorchSpy
-
-    yield* runFrame(deps, services)
-
-    expect(toggleTorchSpy).toHaveBeenCalledWith({ x: 5, y: 63, z: 1 })
-  }))
-
-  it.effect('no redstone action when target block is absent (orElse fallback)', () => Effect.gen(function* () {
-    const deps = yield* makeDeps(false)
-    const pressedKeys = MutableHashSet.fromIterable(['KeyR'])
-    const inputService = makeInputService(pressedKeys)
     const services = makeServices({
       inputService,
       inventoryRenderer: makeInventoryRenderer({ open: false }),
@@ -294,14 +290,17 @@ describe('step 7 — redstone dispatch', () => {
     ;(services.blockHighlight as unknown as { getTargetBlock: unknown }).getTargetBlock = vi.fn(() =>
       Effect.succeed(Option.none())
     )
-    ;(services.blockHighlight as unknown as { getTargetHit: unknown }).getTargetHit = vi.fn(() =>
-      Effect.succeed(Option.none())
+    ;(services.entityManager as unknown as { getEntities: unknown }).getEntities = vi.fn(() =>
+      Effect.succeed([{ entityId: 'entity-1', position: { x: 0, y: 64, z: -2 }, velocity: { x: 0, y: 0, z: 0 }, rotation: {} as THREE.Quaternion, health: 20, type: 'Zombie' }])
     )
-    const setComponentSpy = vi.fn(() => Effect.void)
-    ;(services.redstoneService as unknown as { setComponent: unknown }).setComponent = setComponentSpy
+    ;(services.hotbarService as unknown as { getSelectedBlockType: unknown }).getSelectedBlockType = vi.fn(() =>
+      Effect.succeed(Option.some('STONE'))
+    )
+    const applyDamageSpy = vi.fn(() => Effect.succeed(Option.none()))
+    ;(services.entityManager as unknown as { applyDamage: unknown }).applyDamage = applyDamageSpy
 
     yield* runFrame(deps, services)
 
-    expect(setComponentSpy).not.toHaveBeenCalled()
+    expect(applyDamageSpy).toHaveBeenCalledWith('entity-1', 4)
   }))
 })

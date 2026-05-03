@@ -192,23 +192,20 @@ export class TerrainWorkerPool extends Effect.Service<TerrainWorkerPool>()(
 
           const entry = MutableHashMap.get(pending, response.id)
           // Late / unknown id — silently drop. Matches the meshing pool.
-          Option.match(entry, {
-            onNone: () => {},
-            onSome: (req) => {
-              MutableHashMap.remove(pending, response.id)
-              if (response.kind === 'success') {
-                req.resume(Effect.succeed({
-                  blocks: response.blocks,
-                  skyLight: response.skyLight,
-                  blockLight: response.blockLight,
-                }))
-              } else {
-                req.resume(Effect.fail(new TerrainGenerationError({
-                  reason: response.error,
-                  chunk: req.chunk,
-                })))
-              }
-            },
+          Option.map(entry, (req) => {
+            MutableHashMap.remove(pending, response.id)
+            if (response.kind === 'success') {
+              req.resume(Effect.succeed({
+                blocks: response.blocks,
+                skyLight: response.skyLight,
+                blockLight: response.blockLight,
+              }))
+            } else {
+              req.resume(Effect.fail(new TerrainGenerationError({
+                reason: response.error,
+                chunk: req.chunk,
+              })))
+            }
           })
         }
 

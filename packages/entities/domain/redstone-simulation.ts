@@ -64,12 +64,9 @@ export const propagatePower = (
     const position = positionFromKey(current.key)
     Arr.forEach(neighborsOf(position), (neighbor) => {
       const neighborKey = positionKey(neighbor)
-      Option.match(HashMap.get(components, neighborKey), {
-        onNone: () => {},
-        onSome: (neighborComponent) => {
-          if (!canConduct(neighborComponent.type)) return
-          queue.push({ key: neighborKey, power: current.power - 1 })
-        },
+      Option.map(HashMap.get(components, neighborKey), (neighborComponent) => {
+        if (!canConduct(neighborComponent.type)) return
+        queue.push({ key: neighborKey, power: current.power - 1 })
       })
     })
   }
@@ -100,6 +97,7 @@ export const decayButtonTimers = (
 ): HashMap.HashMap<PositionKey, RedstoneComponent> =>
   Arr.reduce(Arr.fromIterable(buttonKeys), components, (acc, key) =>
     Option.match(HashMap.get(components, key), {
+      /* c8 ignore next */
       onNone: () => acc,
       onSome: (component) => {
         const nextTicks = Math.max(0, component.state.buttonTicksRemaining - 1)

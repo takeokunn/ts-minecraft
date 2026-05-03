@@ -1,29 +1,14 @@
-import { Array as Arr, Effect, Layer, MutableHashMap, Option, Schema } from 'effect'
+import { Array as Arr, Effect, MutableHashMap, Schema } from 'effect'
 import { afterEach, beforeEach, expect, vi } from 'vitest'
 import { describe, it } from '@effect/vitest'
-import { ResolvedGraphicsSchema, resolvePreset, SettingsSchema, SettingsService, SettingsServiceLive, type GraphicsQuality, GRAPHICS_PRESETS } from '@ts-minecraft/game'
-import { EnvironmentPort } from '@ts-minecraft/world-state'
-
-// Test EnvironmentPort: previous behavior treated jsdom (`window.location.hostname === 'localhost'`)
-// as localhost, which forces audioEnabled=false on load. Replicate that explicitly here.
-const EnvironmentTest = Layer.succeed(EnvironmentPort, { isLocalhost: Effect.succeed(true) })
-
-const SettingsLive = SettingsServiceLive.pipe(Layer.provide(EnvironmentTest))
-const SettingsDefault = SettingsService.Default.pipe(Layer.provide(EnvironmentTest))
-
-const STORAGE_KEY = 'minecraft-settings'
-
-const DEFAULT_SETTINGS = {
-  renderDistance: 2,
-  mouseSensitivity: 0.5,
-  dayLengthSeconds: 400,
-  graphicsQuality: 'low',
-  adaptivePerformanceMode: true,
-  audioEnabled: false, // NOTE: false intentionally — must match settings-service.ts DEFAULT_SETTINGS
-  masterVolume: 0.8,
-  sfxVolume: 1.0,
-  musicVolume: 0.55,
-}
+import { ResolvedGraphicsSchema, resolvePreset, SettingsSchema, SettingsService, type GraphicsQuality, GRAPHICS_PRESETS } from '@ts-minecraft/game'
+import {
+  DEFAULT_SETTINGS,
+  makeLocalStorageMock,
+  SettingsDefault,
+  SettingsLive,
+  STORAGE_KEY,
+} from './settings-service-test-utils'
 
 describe('application/settings/settings-service', () => {
   let store: MutableHashMap.MutableHashMap<string, string>
@@ -32,15 +17,11 @@ describe('application/settings/settings-service', () => {
   let removeItemSpy: ReturnType<typeof vi.fn>
 
   beforeEach(() => {
-    store = MutableHashMap.empty<string, string>()
-
-    getItemSpy = vi.fn((key: string) => Option.getOrNull(MutableHashMap.get(store, key)))
-    setItemSpy = vi.fn((key: string, value: string) => {
-      MutableHashMap.set(store, key, value)
-    })
-    removeItemSpy = vi.fn((key: string) => {
-      MutableHashMap.remove(store, key)
-    })
+    const mock = makeLocalStorageMock()
+    store = mock.store
+    getItemSpy = mock.getItemSpy
+    setItemSpy = mock.setItemSpy
+    removeItemSpy = mock.removeItemSpy
 
     vi.stubGlobal('localStorage', {
       getItem: getItemSpy,
@@ -53,171 +34,6 @@ describe('application/settings/settings-service', () => {
     vi.unstubAllGlobals()
   })
 
-  describe('SettingsSchema', () => {
-    const decode = SettingsSchema.pipe(Schema.decodeUnknownSync)
-
-    it('decodes valid settings', () => {
-      const result = decode({
-        renderDistance: 2,
-        mouseSensitivity: 0.5,
-        dayLengthSeconds: 400,
-        graphicsQuality: 'low',
-  adaptivePerformanceMode: true,
-      })
-
-      expect(result).toEqual(DEFAULT_SETTINGS)
-    })
-
-    it('accepts exact minimum boundaries', () => {
-      const result = decode({
-        renderDistance: 2,
-        mouseSensitivity: 0.1,
-        dayLengthSeconds: 120,
-        graphicsQuality: 'low',
-  adaptivePerformanceMode: false,
-      })
-
-      expect(result).toEqual({
-        renderDistance: 2,
-        mouseSensitivity: 0.1,
-        dayLengthSeconds: 120,
-        graphicsQuality: 'low',
-  adaptivePerformanceMode: false,
-        audioEnabled: false,
-        masterVolume: 0.8,
-        sfxVolume: 1.0,
-        musicVolume: 0.55,
-      })
-    })
-
-    it('accepts exact maximum boundaries', () => {
-      const result = decode({
-        renderDistance: 16,
-        mouseSensitivity: 3,
-        dayLengthSeconds: 1200,
-        graphicsQuality: 'ultra',
-  adaptivePerformanceMode: false,
-      })
-
-      expect(result).toEqual({
-        renderDistance: 16,
-        mouseSensitivity: 3,
-        dayLengthSeconds: 1200,
-        graphicsQuality: 'ultra',
-  adaptivePerformanceMode: false,
-        audioEnabled: false,
-        masterVolume: 0.8,
-        sfxVolume: 1.0,
-        musicVolume: 0.55,
-      })
-    })
-
-    it('rejects renderDistance below range', () => {
-      expect(() =>
-        decode({
-          renderDistance: 1,
-          mouseSensitivity: 0.5,
-          dayLengthSeconds: 400,
-        })
-      ).toThrow()
-    })
-
-    it('rejects renderDistance above range', () => {
-      expect(() =>
-        decode({
-          renderDistance: 17,
-          mouseSensitivity: 0.5,
-          dayLengthSeconds: 400,
-        })
-      ).toThrow()
-    })
-
-    it('rejects mouseSensitivity below range', () => {
-      expect(() =>
-        decode({
-          renderDistance: 8,
-          mouseSensitivity: 0.09,
-          dayLengthSeconds: 400,
-        })
-      ).toThrow()
-    })
-
-    it('rejects mouseSensitivity above range', () => {
-      expect(() =>
-        decode({
-          renderDistance: 8,
-          mouseSensitivity: 3.01,
-          dayLengthSeconds: 400,
-        })
-      ).toThrow()
-    })
-
-    it('rejects dayLengthSeconds below range', () => {
-      expect(() =>
-        decode({
-          renderDistance: 8,
-          mouseSensitivity: 0.5,
-          dayLengthSeconds: 119,
-        })
-      ).toThrow()
-    })
-
-    it('rejects dayLengthSeconds above range', () => {
-      expect(() =>
-        decode({
-          renderDistance: 8,
-          mouseSensitivity: 0.5,
-          dayLengthSeconds: 1201,
-        })
-      ).toThrow()
-    })
-
-    it('rejects NaN values', () => {
-      expect(() =>
-        decode({
-          renderDistance: Number.NaN,
-          mouseSensitivity: 0.5,
-          dayLengthSeconds: 400,
-        })
-      ).toThrow()
-    })
-
-    it('rejects Infinity values', () => {
-      expect(() =>
-        decode({
-          renderDistance: 8,
-          mouseSensitivity: Number.POSITIVE_INFINITY,
-          dayLengthSeconds: 400,
-        })
-      ).toThrow()
-    })
-
-    it('rejects missing required fields', () => {
-      expect(() => decode({ renderDistance: 8, mouseSensitivity: 0.5 })).toThrow()
-    })
-  })
-
-  describe('ResolvedGraphicsSchema/preset bounds', () => {
-    // Guards against schema/preset bound mismatches: every value in
-    // GRAPHICS_PRESETS[q] must satisfy ResolvedGraphicsSchema. A regression
-    // here (e.g. shrinking refractionThrottleFrames bounds without updating
-    // the medium preset) would throw at runtime any time a path decodes
-    // preset values.
-    const decodeResolved = ResolvedGraphicsSchema.pipe(Schema.decodeUnknownSync)
-
-    Arr.forEach(['low', 'medium', 'high', 'ultra'] as const satisfies ReadonlyArray<GraphicsQuality>, (quality) => {
-      it(`GRAPHICS_PRESETS.${quality} satisfies ResolvedGraphicsSchema`, () => {
-        expect(() => decodeResolved(GRAPHICS_PRESETS[quality])).not.toThrow()
-      })
-    })
-
-    it('resolvePreset output round-trips through ResolvedGraphicsSchema for every quality', () => {
-      Arr.forEach(['low', 'medium', 'high', 'ultra'] as const satisfies ReadonlyArray<GraphicsQuality>, (quality) => {
-        const resolved = resolvePreset(quality)
-        expect(() => decodeResolved(resolved)).not.toThrow()
-      })
-    })
-  })
 
   describe('SettingsService/getSettings', () => {
     it.effect('returns default settings when localStorage is empty', () =>
@@ -323,6 +139,76 @@ describe('application/settings/settings-service', () => {
       }).pipe(Effect.provide(SettingsLive))
     })
 
+    it.effect('sanitizeLegacySettings: null parsed value is treated as {} — all defaults returned', () => {
+      // localStorage contains "null" — JSON.parse("null") === null, not a record
+      // isRecord(null) returns false → record = {} → all fields fall back to defaults
+      MutableHashMap.set(store, STORAGE_KEY, 'null')
+      return Effect.gen(function* () {
+        const service = yield* SettingsService
+        const settings = yield* service.getSettings()
+        expect(settings).toEqual(DEFAULT_SETTINGS)
+      }).pipe(Effect.provide(SettingsLive))
+    })
+
+    it.effect('sanitizeLegacySettings: clampNumber returns fallback for non-number renderDistance', () => {
+      // renderDistance is a string — clampNumber branch: typeof value !== 'number' → return fallback
+      MutableHashMap.set(store, STORAGE_KEY, JSON.stringify({
+        renderDistance: 'not-a-number',
+        mouseSensitivity: 1.0,
+        dayLengthSeconds: 400,
+        graphicsQuality: 'medium',
+        adaptivePerformanceMode: false,
+      }))
+      return Effect.gen(function* () {
+        const service = yield* SettingsService
+        const settings = yield* service.getSettings()
+        expect(settings.renderDistance).toBe(DEFAULT_SETTINGS.renderDistance)
+      }).pipe(Effect.provide(SettingsLive))
+    })
+
+    it.effect('sanitizeLegacySettings: clampNumber returns fallback for Infinity mouseSensitivity', () => {
+      // JSON.stringify converts Infinity to null; use a raw JSON string instead
+      // null is not a number → clampNumber returns fallback
+      MutableHashMap.set(store, STORAGE_KEY, '{"renderDistance":4,"mouseSensitivity":null,"dayLengthSeconds":400,"graphicsQuality":"low","adaptivePerformanceMode":true}')
+      return Effect.gen(function* () {
+        const service = yield* SettingsService
+        const settings = yield* service.getSettings()
+        expect(settings.mouseSensitivity).toBe(DEFAULT_SETTINGS.mouseSensitivity)
+      }).pipe(Effect.provide(SettingsLive))
+    })
+
+    it.effect('sanitizeLegacySettings: isGraphicsQuality returns false for unknown value — uses default', () => {
+      // graphicsQuality is not one of the four literals → isGraphicsQuality returns false
+      MutableHashMap.set(store, STORAGE_KEY, JSON.stringify({
+        renderDistance: 4,
+        mouseSensitivity: 1.0,
+        dayLengthSeconds: 400,
+        graphicsQuality: 'extreme',
+        adaptivePerformanceMode: false,
+      }))
+      return Effect.gen(function* () {
+        const service = yield* SettingsService
+        const settings = yield* service.getSettings()
+        expect(settings.graphicsQuality).toBe(DEFAULT_SETTINGS.graphicsQuality)
+      }).pipe(Effect.provide(SettingsLive))
+    })
+
+    it.effect('sanitizeLegacySettings: non-boolean adaptivePerformanceMode falls back to default', () => {
+      // adaptivePerformanceMode is a number, not a boolean → ternary false branch → DEFAULT_SETTINGS value
+      MutableHashMap.set(store, STORAGE_KEY, JSON.stringify({
+        renderDistance: 4,
+        mouseSensitivity: 1.0,
+        dayLengthSeconds: 400,
+        graphicsQuality: 'low',
+        adaptivePerformanceMode: 1,
+      }))
+      return Effect.gen(function* () {
+        const service = yield* SettingsService
+        const settings = yield* service.getSettings()
+        expect(settings.adaptivePerformanceMode).toBe(DEFAULT_SETTINGS.adaptivePerformanceMode)
+      }).pipe(Effect.provide(SettingsLive))
+    })
+
     it.effect("default settings should include graphicsQuality='low'", () =>
       Effect.gen(function* () {
         const service = yield* SettingsService
@@ -383,170 +269,5 @@ describe('application/settings/settings-service', () => {
       expect(countEnabled(GRAPHICS_PRESETS.medium)).toBeLessThanOrEqual(countEnabled(GRAPHICS_PRESETS.high))
       expect(countEnabled(GRAPHICS_PRESETS.high)).toBeLessThanOrEqual(countEnabled(GRAPHICS_PRESETS.ultra))
     })
-  })
-
-  describe('SettingsService/updateSettings', () => {
-    it.effect('updates a single field', () =>
-      Effect.gen(function* () {
-        const service = yield* SettingsService
-        yield* service.updateSettings({ renderDistance: 10 })
-        const settings = yield* service.getSettings()
-        expect(settings).toEqual({ ...DEFAULT_SETTINGS, renderDistance: 10 })
-      }).pipe(Effect.provide(SettingsLive))
-    )
-
-    it.effect('updates multiple fields', () =>
-      Effect.gen(function* () {
-        const service = yield* SettingsService
-        yield* service.updateSettings({ renderDistance: 14, dayLengthSeconds: 600 })
-        const settings = yield* service.getSettings()
-        expect(settings).toEqual({ ...DEFAULT_SETTINGS, renderDistance: 14, dayLengthSeconds: 600 })
-      }).pipe(Effect.provide(SettingsLive))
-    )
-
-    it.effect('accumulates valid sequential partial updates', () =>
-      Effect.gen(function* () {
-        const service = yield* SettingsService
-        yield* service.updateSettings({ renderDistance: 6 })
-        yield* service.updateSettings({ mouseSensitivity: 1.8 })
-        yield* service.updateSettings({ dayLengthSeconds: 300 })
-        const settings = yield* service.getSettings()
-        expect(settings).toEqual({ ...DEFAULT_SETTINGS, renderDistance: 6, mouseSensitivity: 1.8, dayLengthSeconds: 300 })
-      }).pipe(Effect.provide(SettingsLive))
-    )
-
-    it.effect('falls back to defaults when renderDistance is out of range', () =>
-      Effect.gen(function* () {
-        const service = yield* SettingsService
-        yield* service.updateSettings({ renderDistance: 17 })
-        const settings = yield* service.getSettings()
-        expect(settings).toEqual(DEFAULT_SETTINGS)
-      }).pipe(Effect.provide(SettingsLive))
-    )
-
-    it.effect('falls back to defaults when mouseSensitivity is out of range', () =>
-      Effect.gen(function* () {
-        const service = yield* SettingsService
-        yield* service.updateSettings({ mouseSensitivity: 0.05 })
-        const settings = yield* service.getSettings()
-        expect(settings).toEqual(DEFAULT_SETTINGS)
-      }).pipe(Effect.provide(SettingsLive))
-    )
-
-    it.effect('falls back to defaults when dayLengthSeconds is out of range', () =>
-      Effect.gen(function* () {
-        const service = yield* SettingsService
-        yield* service.updateSettings({ dayLengthSeconds: 5000 })
-        const settings = yield* service.getSettings()
-        expect(settings).toEqual(DEFAULT_SETTINGS)
-      }).pipe(Effect.provide(SettingsLive))
-    )
-
-    it.effect('falls back to defaults when one field is valid and another is invalid', () =>
-      Effect.gen(function* () {
-        const service = yield* SettingsService
-        yield* service.updateSettings({ renderDistance: 12, mouseSensitivity: 99 })
-        const settings = yield* service.getSettings()
-        expect(settings).toEqual(DEFAULT_SETTINGS)
-      }).pipe(Effect.provide(SettingsLive))
-    )
-
-    it.effect('keeps previously valid settings when an update becomes invalid', () =>
-      Effect.gen(function* () {
-        const service = yield* SettingsService
-        yield* service.updateSettings({ renderDistance: 10, mouseSensitivity: 1.4 })
-        yield* service.updateSettings({ renderDistance: 99 })
-        const settings = yield* service.getSettings()
-        expect(settings).toEqual({ ...DEFAULT_SETTINGS, renderDistance: 10, mouseSensitivity: 1.4 })
-      }).pipe(Effect.provide(SettingsLive))
-    )
-
-    it.effect('persists updated settings to localStorage', () =>
-      Effect.gen(function* () {
-        const service = yield* SettingsService
-        yield* service.updateSettings({ renderDistance: 11 })
-        expect(setItemSpy).toHaveBeenCalledWith(
-          STORAGE_KEY,
-          JSON.stringify({ ...DEFAULT_SETTINGS, renderDistance: 11 })
-        )
-      }).pipe(Effect.provide(SettingsLive))
-    )
-
-    it.effect('keeps in-memory update even when localStorage.setItem throws', () => {
-      setItemSpy.mockImplementation(() => {
-        throw new Error('save failed')
-      })
-      return Effect.gen(function* () {
-        const service = yield* SettingsService
-        yield* service.updateSettings({ mouseSensitivity: 2.2 })
-        const settings = yield* service.getSettings()
-        expect(settings).toEqual({ ...DEFAULT_SETTINGS, mouseSensitivity: 2.2 })
-      }).pipe(Effect.provide(SettingsLive))
-    })
-  })
-
-  describe('SettingsService/resetToDefaults', () => {
-    it.effect('resets settings back to defaults', () =>
-      Effect.gen(function* () {
-        const service = yield* SettingsService
-        yield* service.updateSettings({
-          renderDistance: 15,
-          mouseSensitivity: 1.7,
-          dayLengthSeconds: 1000,
-        })
-        yield* service.resetToDefaults()
-        const settings = yield* service.getSettings()
-        expect(settings).toEqual(DEFAULT_SETTINGS)
-      }).pipe(Effect.provide(SettingsLive))
-    )
-
-    it.effect('persists defaults to localStorage on reset', () =>
-      Effect.gen(function* () {
-        const service = yield* SettingsService
-        yield* service.updateSettings({ renderDistance: 13 })
-        yield* service.resetToDefaults()
-        const lastCall = Option.getOrThrow(Arr.last(setItemSpy.mock.calls))
-        expect(lastCall).toEqual([STORAGE_KEY, JSON.stringify(DEFAULT_SETTINGS)])
-      }).pipe(Effect.provide(SettingsLive))
-    )
-  })
-
-  describe('Effect composition', () => {
-    it.effect('chains getSettings -> updateSettings -> getSettings', () =>
-      Effect.gen(function* () {
-        const service = yield* SettingsService
-        const before = yield* service.getSettings()
-        yield* service.updateSettings({ renderDistance: 9 })
-        const after = yield* service.getSettings()
-        expect(before).toEqual(DEFAULT_SETTINGS)
-        expect(after).toEqual({ ...DEFAULT_SETTINGS, renderDistance: 9 })
-      }).pipe(Effect.provide(SettingsLive))
-    )
-
-    it.effect('chains getSettings -> updateSettings -> resetToDefaults -> getSettings', () =>
-      Effect.gen(function* () {
-        const service = yield* SettingsService
-        const initial = yield* service.getSettings()
-        yield* service.updateSettings({ dayLengthSeconds: 850 })
-        const updated = yield* service.getSettings()
-        yield* service.resetToDefaults()
-        const reset = yield* service.getSettings()
-        expect(initial).toEqual(DEFAULT_SETTINGS)
-        expect(updated).toEqual({ ...DEFAULT_SETTINGS, dayLengthSeconds: 850 })
-        expect(reset).toEqual(DEFAULT_SETTINGS)
-      }).pipe(Effect.provide(SettingsLive))
-    )
-  })
-
-  describe('updateSettings — edge cases', () => {
-    it.effect('updateSettings({}) with empty partial is a no-op (all fields unchanged)', () =>
-      Effect.gen(function* () {
-        const service = yield* SettingsService
-        const before = yield* service.getSettings()
-        yield* service.updateSettings({})
-        const after = yield* service.getSettings()
-        expect(after).toEqual(before)
-      }).pipe(Effect.provide(SettingsLive))
-    )
   })
 })

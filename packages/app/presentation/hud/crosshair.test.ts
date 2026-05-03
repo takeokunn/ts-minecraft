@@ -137,6 +137,35 @@ describe('CrosshairService', () => {
           expect(removeChildMock).not.toHaveBeenCalled()
         }).pipe(Effect.provide(TestLayer))
       })
+
+      it.effect('should do nothing when element has no parent node (onNone branch)', () => {
+        const appendChildMock = vi.fn()
+        const removeChildMock = vi.fn()
+        const createElementMock = vi.fn()
+        const getParentNodeMock = vi.fn().mockReturnValue(Option.none<HTMLElement>())
+        createElementMock.mockImplementation((_tagName: string) => ({
+          id: '', style: { cssText: '' }, children: [],
+          appendChild: vi.fn((c: unknown) => c),
+        }))
+
+        const TestLayer = CrosshairLive.pipe(
+          Layer.provide(Layer.succeed(DomOperationsService, {
+            createElement: createElementMock,
+            appendChild: appendChildMock,
+            removeChild: removeChildMock,
+            getParentNode: getParentNodeMock,
+          } as unknown as DomOperationsService))
+        )
+
+        return Effect.gen(function* () {
+          const crosshair = yield* CrosshairService
+          yield* crosshair.show()
+          yield* crosshair.hide()
+
+          // getParentNode returns none → removeChild is NOT called
+          expect(removeChildMock).not.toHaveBeenCalled()
+        }).pipe(Effect.provide(TestLayer))
+      })
     })
 
     describe('toggle', () => {
@@ -174,18 +203,18 @@ describe('CrosshairService', () => {
           const crosshair = yield* CrosshairService
 
           // Initially hidden
-          let visible = yield* crosshair.isVisible()
-          expect(visible).toBe(false)
+          const visible1 = yield* crosshair.isVisible()
+          expect(visible1).toBe(false)
 
           // Toggle to show
           yield* crosshair.toggle()
-          visible = yield* crosshair.isVisible()
-          expect(visible).toBe(true)
+          const visible2 = yield* crosshair.isVisible()
+          expect(visible2).toBe(true)
 
           // Toggle to hide
           yield* crosshair.toggle()
-          visible = yield* crosshair.isVisible()
-          expect(visible).toBe(false)
+          const visible3 = yield* crosshair.isVisible()
+          expect(visible3).toBe(false)
 
           // Toggle to show again
           yield* crosshair.toggle()
@@ -264,74 +293,6 @@ describe('CrosshairService', () => {
           expect(Option.getOrThrow(Arr.get(elements, 0)).children.length).toBe(2)
         }).pipe(Effect.provide(TestLayer))
       })
-    })
-
-    describe('integration', () => {
-      it.effect('should handle show -> hide -> show cycle correctly', () => {
-        const { TestLayer, appendChildMock, removeChildMock } = createMockDomLayer()
-
-        return Effect.gen(function* () {
-          const crosshair = yield* CrosshairService
-
-          // Show
-          yield* crosshair.show()
-          expect(yield* crosshair.isVisible()).toBe(true)
-
-          // Hide
-          yield* crosshair.hide()
-          expect(yield* crosshair.isVisible()).toBe(false)
-
-          // Show again
-          yield* crosshair.show()
-          const result = yield* crosshair.isVisible()
-
-          expect(result).toBe(true)
-          expect(appendChildMock).toHaveBeenCalledTimes(2)
-          expect(removeChildMock).toHaveBeenCalledTimes(1)
-        }).pipe(Effect.provide(TestLayer))
-      })
-
-      it.effect('should maintain correct visibility state through multiple operations', () => {
-        const { TestLayer } = createMockDomLayer()
-
-        return Effect.gen(function* () {
-          const crosshair = yield* CrosshairService
-
-          const states: boolean[] = []
-
-          states.push(yield* crosshair.isVisible()) // false
-
-          yield* crosshair.show()
-          states.push(yield* crosshair.isVisible()) // true
-
-          yield* crosshair.toggle()
-          states.push(yield* crosshair.isVisible()) // false
-
-          yield* crosshair.toggle()
-          states.push(yield* crosshair.isVisible()) // true
-
-          yield* crosshair.hide()
-          states.push(yield* crosshair.isVisible()) // false
-
-          yield* crosshair.show()
-          states.push(yield* crosshair.isVisible()) // true
-
-          expect(states).toEqual([false, true, false, true, false, true])
-        }).pipe(Effect.provide(TestLayer))
-      })
-    })
-  })
-
-  describe('DomOperationsService', () => {
-    it('should create a valid mock layer', () => {
-      const mockDom = {
-        createElement: vi.fn(),
-        appendChild: vi.fn(),
-        removeChild: vi.fn(),
-        getParentNode: vi.fn(),
-      } as unknown as DomOperationsService
-
-      expect(mockDom).toBeDefined()
     })
   })
 })

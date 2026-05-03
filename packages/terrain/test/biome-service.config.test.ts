@@ -10,7 +10,7 @@ import {
   HUM_VERY_DRY, HUM_VERY_WET,
   RIVER_CENTER, RIVER_HALF_WIDTH,
 } from '../application/biome-service.config'
-import { BiomePropertiesSchema } from '../application/biome-service'
+import { BiomePropertiesSchema } from '../domain/biome'
 
 const BIOME_TYPES = ['PLAINS', 'DESERT', 'FOREST', 'OCEAN', 'MOUNTAINS', 'SNOW', 'SWAMP', 'JUNGLE', 'BEACH', 'RIVER', 'TAIGA', 'SAVANNA'] as const
 

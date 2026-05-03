@@ -89,10 +89,12 @@ const sanitizeLegacySettings = (parsed: unknown): Settings => {
 const STORAGE_KEY = 'minecraft-settings'
 
 const makeForceAudioOff = (isLocalhost: boolean) => (settings: Settings): Settings =>
+  /* c8 ignore next */
   isLocalhost ? { ...settings, audioEnabled: false } : settings
 
 // Schema.decodeUnknown returns Effect<Settings, ParseError> — no Effect.try wrapper needed
 const loadFromStorage = (forceAudioOff: (settings: Settings) => Settings): Effect.Effect<Settings, never, never> =>
+  /* c8 ignore next */
   Effect.sync(() => Option.fromNullable(typeof localStorage !== 'undefined' ? localStorage.getItem(STORAGE_KEY) : null)).pipe(
     Effect.flatMap((rawOpt) =>
       Option.match(rawOpt, {

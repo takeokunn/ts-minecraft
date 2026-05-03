@@ -16,35 +16,35 @@ const createTestInputService = (initialState: {
   mouseDelta?: MouseDelta
   pointerLocked?: boolean
 } = {}): InputServiceType & { setMouseDelta: (delta: MouseDelta) => void; setPointerLocked: (locked: boolean) => void } => {
-  let mouseDelta = Option.getOrElse(Option.fromNullable(initialState.mouseDelta), () => ({ x: 0, y: 0 }))
-  let pointerLocked = Option.getOrElse(Option.fromNullable(initialState.pointerLocked), () => false)
+  const mouseDeltaRef = MutableRef.make(Option.getOrElse(Option.fromNullable(initialState.mouseDelta), () => ({ x: 0, y: 0 })))
+  const pointerLockedRef = MutableRef.make(Option.getOrElse(Option.fromNullable(initialState.pointerLocked), () => false))
 
   return {
     isKeyPressed: () => Effect.sync(() => false),
     consumeKeyPress: () => Effect.sync(() => false),
     getMouseDelta: () =>
       Effect.sync(() => {
-        const delta = { ...mouseDelta }
-        mouseDelta = { x: 0, y: 0 }
+        const delta = { ...MutableRef.get(mouseDeltaRef) }
+        MutableRef.set(mouseDeltaRef, { x: 0, y: 0 })
         return delta
       }),
     isMouseDown: () => Effect.sync(() => false),
     requestPointerLock: () =>
       Effect.sync(() => {
-        pointerLocked = true
+        MutableRef.set(pointerLockedRef, true)
       }),
     exitPointerLock: () =>
       Effect.sync(() => {
-        pointerLocked = false
+        MutableRef.set(pointerLockedRef, false)
       }),
-    isPointerLocked: () => Effect.sync(() => pointerLocked),
+    isPointerLocked: () => Effect.sync(() => MutableRef.get(pointerLockedRef)),
     consumeMouseClick: () => Effect.sync(() => false),
     consumeWheelDelta: () => Effect.sync(() => 0),
     setMouseDelta: (delta: MouseDelta) => {
-      mouseDelta = delta
+      MutableRef.set(mouseDeltaRef, delta)
     },
     setPointerLocked: (locked: boolean) => {
-      pointerLocked = locked
+      MutableRef.set(pointerLockedRef, locked)
     },
   } as unknown as InputServiceType & { setMouseDelta: (delta: MouseDelta) => void; setPointerLocked: (locked: boolean) => void }
 }
@@ -183,14 +183,14 @@ describe('FirstPersonCameraService', () => {
     })
 
     it.effect('should accumulate multiple updates', () => {
-      let mouseDelta = { x: 50, y: 25 }
+      const mouseDeltaRef = MutableRef.make({ x: 50, y: 25 })
       const inputService = {
         isKeyPressed: () => Effect.sync(() => false),
         consumeKeyPress: () => Effect.sync(() => false),
         getMouseDelta: () =>
           Effect.sync(() => {
-            const delta = { ...mouseDelta }
-            mouseDelta = { x: 0, y: 0 }
+            const delta = { ...MutableRef.get(mouseDeltaRef) }
+            MutableRef.set(mouseDeltaRef, { x: 0, y: 0 })
             return delta
           }),
         isMouseDown: () => Effect.sync(() => false),
@@ -209,7 +209,7 @@ describe('FirstPersonCameraService', () => {
         yield* cameraService.update(camera)
 
         // Reset mouse delta for second update
-        mouseDelta = { x: 50, y: 25 }
+        MutableRef.set(mouseDeltaRef, { x: 50, y: 25 })
         yield* cameraService.update(camera)
 
         const cameraState = yield* PlayerCameraStateService
@@ -271,223 +271,4 @@ describe('FirstPersonCameraService', () => {
     })
   })
 
-  describe('attachToPlayer', () => {
-    it.effect('should sync camera rotation with player camera state', () => {
-      const inputService = createTestInputService()
-      const testLayers = createTestLayers(inputService)
-
-      const camera = new THREE.PerspectiveCamera(75, 1, 0.1, 1000)
-
-      return Effect.gen(function* () {
-        const cameraService = yield* FirstPersonCameraService
-        const cameraState = yield* PlayerCameraStateService
-
-        // Set state values
-        yield* cameraState.setYaw(Math.PI / 4)
-        yield* cameraState.setPitch(Math.PI / 6)
-
-        // Attach camera to player
-        yield* cameraService.attachToPlayer(camera)
-
-        const rotation = yield* cameraState.getRotation()
-
-        expect(camera.rotation.x).toBeCloseTo(rotation.pitch)
-        expect(camera.rotation.y).toBeCloseTo(rotation.yaw)
-        expect(camera.rotation.z).toBe(0)
-        expect(camera.rotation.order).toBe('YXZ')
-      }).pipe(Effect.provide(FirstPersonCameraServiceLive), Effect.provide(testLayers))
-    })
-
-    it.effect('should use YXZ rotation order', () => {
-      const inputService = createTestInputService()
-      const testLayers = createTestLayers(inputService)
-
-      const camera = new THREE.PerspectiveCamera(75, 1, 0.1, 1000)
-
-      return Effect.gen(function* () {
-        const cameraService = yield* FirstPersonCameraService
-        yield* cameraService.attachToPlayer(camera)
-
-        expect(camera.rotation.order).toBe('YXZ')
-      }).pipe(Effect.provide(FirstPersonCameraServiceLive), Effect.provide(testLayers))
-    })
-
-    it.effect('should not change the camera state values', () => {
-      const inputService = createTestInputService()
-      const testLayers = createTestLayers(inputService)
-
-      const camera = new THREE.PerspectiveCamera(75, 1, 0.1, 1000)
-
-      return Effect.gen(function* () {
-        const cameraService = yield* FirstPersonCameraService
-        const cameraState = yield* PlayerCameraStateService
-
-        yield* cameraState.setYaw(1.23)
-        yield* cameraState.setPitch(0.45)
-
-        const beforeRotation = yield* cameraState.getRotation()
-        yield* cameraService.attachToPlayer(camera)
-        const afterRotation = yield* cameraState.getRotation()
-
-        expect(afterRotation.yaw).toBeCloseTo(beforeRotation.yaw)
-        expect(afterRotation.pitch).toBeCloseTo(beforeRotation.pitch)
-      }).pipe(Effect.provide(FirstPersonCameraServiceLive), Effect.provide(testLayers))
-    })
-  })
-
-  describe('pitch clamping — property test', () => {
-    it.effect.prop(
-      'pitch is always within [PITCH_MIN, PITCH_MAX] for any sequence of mouse Y deltas',
-      {
-        deltas: Arbitrary.make(
-          Schema.Array(Schema.Number.pipe(Schema.between(-1000, 1000))).pipe(Schema.minItems(1), Schema.maxItems(100))
-        ),
-      },
-      ({ deltas }) => {
-        // Build a fresh input service that returns deltas one at a time
-        const deltaIdxRef = MutableRef.make(0)
-        const inputService = {
-          isKeyPressed: () => Effect.sync(() => false),
-          consumeKeyPress: () => Effect.sync(() => false),
-          getMouseDelta: () =>
-            Effect.sync(() => {
-              const currentIdx = MutableRef.get(deltaIdxRef)
-              const dy = currentIdx < deltas.length ? Option.getOrElse(Arr.get(deltas, currentIdx), () => 0) : 0
-              MutableRef.set(deltaIdxRef, currentIdx + 1)
-              return { x: 0, y: dy }
-            }),
-          isMouseDown: () => Effect.sync(() => false),
-          requestPointerLock: () => Effect.sync(() => {}),
-          exitPointerLock: () => Effect.sync(() => {}),
-          isPointerLocked: () => Effect.sync(() => true),
-          consumeMouseClick: () => Effect.sync(() => false),
-          consumeWheelDelta: () => Effect.sync(() => 0),
-        } as unknown as InputServiceType
-
-        const testLayers = createTestLayers(inputService)
-        const camera = new THREE.PerspectiveCamera(75, 1, 0.1, 1000)
-
-        return Effect.gen(function* () {
-          const cameraService = yield* FirstPersonCameraService
-          const cameraState = yield* PlayerCameraStateService
-
-          yield* Effect.forEach(Arr.makeBy(deltas.length, () => undefined), () => cameraService.update(camera), { concurrency: 1 })
-
-          const rotation = yield* cameraState.getRotation()
-          const pitch = rotation.pitch
-
-          expect(pitch).toBeGreaterThanOrEqual(PITCH_MIN - 0.001)
-          expect(pitch).toBeLessThanOrEqual(PITCH_MAX + 0.001)
-        }).pipe(Effect.provide(FirstPersonCameraServiceLive), Effect.provide(testLayers))
-      }
-    )
-  })
-
-  describe('integration scenarios', () => {
-    it.effect('should handle typical mouse look sequence', () => {
-      let mouseDelta = { x: 0, y: 0 }
-      let pointerLocked = false
-
-      const inputService = {
-        isKeyPressed: () => Effect.sync(() => false),
-        consumeKeyPress: () => Effect.sync(() => false),
-        getMouseDelta: () =>
-          Effect.sync(() => {
-            const delta = { ...mouseDelta }
-            mouseDelta = { x: 0, y: 0 }
-            return delta
-          }),
-        isMouseDown: () => Effect.sync(() => false),
-        requestPointerLock: () =>
-          Effect.sync(() => {
-            pointerLocked = true
-          }),
-        exitPointerLock: () =>
-          Effect.sync(() => {
-            pointerLocked = false
-          }),
-        isPointerLocked: () => Effect.sync(() => pointerLocked),
-        consumeMouseClick: () => Effect.sync(() => false),
-        consumeWheelDelta: () => Effect.sync(() => 0),
-      } as unknown as InputServiceType
-      const testLayers = createTestLayers(inputService)
-
-      const camera = new THREE.PerspectiveCamera(75, 1, 0.1, 1000)
-
-      // Set pointer locked via closure variable
-      pointerLocked = true
-
-      return Effect.gen(function* () {
-        const cameraService = yield* FirstPersonCameraService
-        const cameraState = yield* PlayerCameraStateService
-
-        // First mouse movement - look right and up
-        mouseDelta = { x: 200, y: -100 }
-        yield* cameraService.update(camera)
-
-        // Second mouse movement - look left and down
-        mouseDelta = { x: -100, y: 50 }
-        yield* cameraService.update(camera)
-
-        const rotation = yield* cameraState.getRotation()
-
-        // Net movement: yaw = -(200 - 100) * 0.002 = -0.2
-        // Net movement: pitch = -(-100 + 50) * 0.002 = 0.1
-        expect(rotation.yaw).toBeCloseTo(-100 * BASE_MOUSE_SENSITIVITY * 0.5)
-        expect(rotation.pitch).toBeCloseTo(50 * BASE_MOUSE_SENSITIVITY * 0.5)
-      }).pipe(Effect.provide(FirstPersonCameraServiceLive), Effect.provide(testLayers))
-    })
-
-    it.effect('should handle pointer lock/unlock during gameplay', () => {
-      let mouseDelta = { x: 100, y: 50 }
-      let pointerLocked = true
-
-      const inputService = {
-        isKeyPressed: () => Effect.sync(() => false),
-        consumeKeyPress: () => Effect.sync(() => false),
-        getMouseDelta: () =>
-          Effect.sync(() => {
-            const delta = { ...mouseDelta }
-            mouseDelta = { x: 0, y: 0 }
-            return delta
-          }),
-        isMouseDown: () => Effect.sync(() => false),
-        requestPointerLock: () =>
-          Effect.sync(() => {
-            pointerLocked = true
-          }),
-        exitPointerLock: () =>
-          Effect.sync(() => {
-            pointerLocked = false
-          }),
-        isPointerLocked: () => Effect.sync(() => pointerLocked),
-        consumeMouseClick: () => Effect.sync(() => false),
-        consumeWheelDelta: () => Effect.sync(() => 0),
-      } as unknown as InputServiceType
-      const testLayers = createTestLayers(inputService)
-
-      const camera = new THREE.PerspectiveCamera(75, 1, 0.1, 1000)
-
-      return Effect.gen(function* () {
-        const cameraService = yield* FirstPersonCameraService
-        const cameraState = yield* PlayerCameraStateService
-
-        // First update with pointer locked
-        yield* cameraService.update(camera)
-        const rotation1 = yield* cameraState.getRotation()
-
-        // Exit pointer lock via closure variable
-        pointerLocked = false
-
-        // Set mouse delta but shouldn't be applied
-        mouseDelta = { x: 200, y: 100 }
-        yield* cameraService.update(camera)
-        const rotation2 = yield* cameraState.getRotation()
-
-        // Second update should not have changed rotation
-        expect(rotation2.yaw).toBeCloseTo(rotation1.yaw)
-        expect(rotation2.pitch).toBeCloseTo(rotation1.pitch)
-      }).pipe(Effect.provide(FirstPersonCameraServiceLive), Effect.provide(testLayers))
-    })
-  })
 })

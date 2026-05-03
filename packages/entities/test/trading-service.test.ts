@@ -3,7 +3,7 @@ import { expect } from 'vitest'
 import { Array as Arr, Effect, Layer, Match, Option } from 'effect'
 import { InventoryService, InventoryServiceLive } from '@ts-minecraft/inventory'
 import { BlockRegistryLive } from '@ts-minecraft/world-state'
-import { TradingService, TradingServiceLive, TRADE_CURRENCY_BLOCK, TradeFailure, TradeSuccess } from '@ts-minecraft/entities'
+import { TradingService, TradingServiceLive, TRADE_CURRENCY_BLOCK, TradeFailure, TradeSuccess, TradeOfferId } from '@ts-minecraft/entities'
 import { VillageService, VillageServiceLive } from '@ts-minecraft/entities'
 import type { BlockType } from '@ts-minecraft/kernel'
 
@@ -206,6 +206,33 @@ describe('trading/trading-service', () => {
       )).toBe('insufficient_input')
     }).pipe(Effect.provide(TestLayer))
   })
+
+  it.effect('returns offer_not_found when a level-1 villager attempts a level-2 offer (offer gated by findOfferForVillager)', () =>
+    Effect.gen(function* () {
+      const villageService = yield* VillageService
+      const tradingService = yield* TradingService
+
+      yield* villageService.ensureVillageNear({ x: 0, y: 64, z: 0 })
+      const villagers = yield* villageService.getVillagers()
+      const farmerOpt = Arr.findFirst(villagers, (v) => v.profession === 'Farmer')
+      if (Option.isNone(farmerOpt)) {
+        expect.fail('No Farmer villager found')
+        return
+      }
+      const farmer = Option.getOrThrow(farmerOpt)
+      // farmer starts at level 1; farmer:sand-bundle requires level 2.
+      // findOfferForVillager gates on levelRequired <= level, so the offer is not
+      // found and the trade fails with 'offer_not_found' before reaching line 66.
+      const sandOfferId = TradeOfferId.make('farmer:sand-bundle')
+      const result = yield* tradingService.executeTrade(farmer.villagerId, sandOfferId)
+      expect(result instanceof TradeFailure).toBe(true)
+      expect(Match.value(result).pipe(
+        Match.tag('TradeFailure', (r) => r.reason),
+        Match.tag('TradeSuccess', () => '' as const),
+        Match.exhaustive,
+      )).toBe('offer_not_found')
+    }).pipe(Effect.provide(TradingTestLayer))
+  )
 
   it.effect('returns inventory_full and restores input blocks when addBlock(output) returns false', () => {
     // Track addBlock calls to verify the rollback (input re-added after output fails).

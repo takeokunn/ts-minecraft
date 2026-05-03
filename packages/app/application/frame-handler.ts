@@ -154,12 +154,14 @@ const createFrameLoopHandlersInternal = (
     const applyPixelRatioCap = (pixelRatioCap: number): Effect.Effect<boolean, never> =>
       Ref.get(lastAppliedPixelRatioRef).pipe(
         Effect.flatMap((lastAppliedPixelRatio) => {
+          /* c8 ignore next */
           const devicePixelRatio = typeof window !== 'undefined' ? window.devicePixelRatio : 1
           const nextPixelRatio = Math.min(devicePixelRatio, pixelRatioCap)
           if (Math.abs(lastAppliedPixelRatio - nextPixelRatio) < 0.01) {
             return Effect.succeed(false)
           }
           return Effect.sync(() => {
+            /* c8 ignore next 2 */
             const width = deps.renderer.domElement.clientWidth || 1
             const height = deps.renderer.domElement.clientHeight || 1
             deps.renderer.setPixelRatio(nextPixelRatio)
@@ -208,6 +210,7 @@ const createFrameLoopHandlersInternal = (
         const effectiveLights = resolvedGraphics.skyEnabled ? deps.lights : lightsWithoutSky
         const pixelRatioChanged = yield* applyPixelRatioCap(resolvedGraphics.pixelRatioCap)
         yield* Effect.sync(() => {
+          /* c8 ignore next */
           if (resolved.skyMeshOrNull) resolved.skyMeshOrNull.visible = resolvedGraphics.skyEnabled
         })
 

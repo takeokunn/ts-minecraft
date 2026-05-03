@@ -1,7 +1,8 @@
 import { Effect, Option, Ref, Schema } from 'effect'
 import type { Position } from '@ts-minecraft/kernel'
 import { AudioEnginePort } from '../domain/audio-engine-port'
-import { clamp01, type OscillatorWave, type ToneHandle } from '../domain/audio-types'
+import { clamp01, type ToneHandle } from '../domain/audio-types'
+import { TRACKS, DEFAULT_CAVE_THRESHOLD_Y, environmentFromContext } from './music-manager.config'
 
 export const MusicEnvironmentSchema = Schema.Literal('day', 'night', 'cave')
 export type MusicEnvironment = Schema.Schema.Type<typeof MusicEnvironmentSchema>
@@ -13,31 +14,6 @@ export const MusicSettingsSchema = Schema.Struct({
 })
 export type MusicSettings = Schema.Schema.Type<typeof MusicSettingsSchema>
 
-type EnvironmentTrack = {
-  readonly frequency: number
-  readonly wave: OscillatorWave
-  readonly baseGain: number
-}
-
-const TRACKS: Readonly<Record<MusicEnvironment, EnvironmentTrack>> = {
-  day: { frequency: 174.61, wave: 'sine', baseGain: 0.28 },
-  night: { frequency: 130.81, wave: 'triangle', baseGain: 0.24 },
-  cave: { frequency: 98.0, wave: 'sawtooth', baseGain: 0.2 },
-}
-
-const DEFAULT_CAVE_THRESHOLD_Y = 40
-
-const environmentFromContext = (
-  isNight: boolean,
-  playerPosition: Position,
-  caveThresholdY: number,
-): MusicEnvironment => {
-  if (playerPosition.y < caveThresholdY) {
-    return 'cave'
-  }
-
-  return isNight ? 'night' : 'day'
-}
 
 type ActiveTrack = {
   readonly environment: MusicEnvironment

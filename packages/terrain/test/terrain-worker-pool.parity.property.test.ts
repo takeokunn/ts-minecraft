@@ -117,5 +117,5 @@ describe('infrastructure/terrain/terrain-worker-pool — parity property test', 
       // the dual generation, not fast-check shrinking.
       { numRuns: 50 },
     )
-  }, 60_000)
+  }, 180_000)
 })

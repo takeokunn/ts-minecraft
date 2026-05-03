@@ -1,54 +1,14 @@
 import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
-import { Array as Arr, Effect, Layer } from 'effect'
+import { Array as Arr, Effect } from 'effect'
 import {
   BiomeService,
-  BiomeServiceLive,
   BiomeType,
   buildChunkNoiseInputs,
   classifyBiome,
 } from '@ts-minecraft/terrain'
-import { NoiseServicePort } from '@ts-minecraft/terrain'
 import { CHUNK_SIZE } from '@ts-minecraft/kernel'
-
-// ─── Mock infrastructure ──────────────────────────────────────────────────────
-
-// Mock noise layer. Distinguishes temperature vs humidity calls by checking
-// whether the scaled x-argument exceeds 25.0 — the humidity offset (+10000)
-// places it far beyond any temperature x-value within reasonable world bounds.
-const makeMockNoiseLayer = (tempValue: number, humidityValue: number) =>
-  Layer.succeed(NoiseServicePort, {
-    noise2D: (_x: number, _z: number) => Effect.succeed(0.5),
-    octaveNoise2D: (x: number, _z: number) =>
-      Effect.succeed(x > 25.0 ? humidityValue : tempValue),
-    octaveNoise2DBatchXY: (xs: ReadonlyArray<number>, _zs: ReadonlyArray<number>) =>
-      Effect.succeed(Arr.map(xs, (x) => (x > 25.0 ? humidityValue : tempValue))),
-    noise2DBatchXY: (xs: ReadonlyArray<number>, _zs: ReadonlyArray<number>) =>
-      Effect.succeed(Arr.makeBy(xs.length, () => 0.9)),
-    continentalness: (_x: number, _z: number) => Effect.succeed(0.35),
-    erosion: (_x: number, _z: number) => Effect.succeed(0.6),
-    weirdness: (_x: number, _z: number) => Effect.succeed(0),
-    jaggedness: (_x: number, _z: number) => Effect.succeed(0),
-    sampleTerrainChannels: (_x: number, _z: number) => Effect.succeed({
-      continentalness: new Float64Array(Arr.makeBy(CHUNK_SIZE * CHUNK_SIZE, () => 0.35)),
-      erosion: new Float64Array(Arr.makeBy(CHUNK_SIZE * CHUNK_SIZE, () => 0.6)),
-      pv: new Float64Array(Arr.makeBy(CHUNK_SIZE * CHUNK_SIZE, () => 0)),
-      jaggedness: new Float64Array(Arr.makeBy(CHUNK_SIZE * CHUNK_SIZE, () => 0)),
-    }),
-    setSeed: (_seed: number) => Effect.void,
-  } as unknown as NoiseServicePort)
-
-const makeTestLayer = (temp: number, hum: number) =>
-  BiomeServiceLive.pipe(Layer.provide(makeMockNoiseLayer(temp, hum)))
-
-const withBiomeService = <A>(
-  temp: number,
-  hum: number,
-  f: (service: BiomeService) => Effect.Effect<A, never>,
-): Effect.Effect<A, never> =>
-  Effect.flatMap(BiomeService, f).pipe(Effect.provide(makeTestLayer(temp, hum)))
-
-// ─── classifyBiome — pure function tests (no Effect overhead) ─────────────────
+import { withBiomeService } from './biome-service-test-utils'
 
 describe('classifyBiome — biome classification', () => {
   const cases: ReadonlyArray<readonly [number, number, BiomeType]> = [
@@ -93,8 +53,6 @@ describe('classifyBiome — threshold boundary conditions', () => {
   })
 })
 
-// ─── buildChunkNoiseInputs — pure data function tests ─────────────────────────
-
 describe('buildChunkNoiseInputs', () => {
   it('returns CHUNK_SIZE² entries for any chunk', () => {
     const result = buildChunkNoiseInputs(0, 0)
@@ -124,8 +82,6 @@ describe('buildChunkNoiseInputs', () => {
     })
   })
 })
-
-// ─── BiomeService — integration tests ────────────────────────────────────────
 
 describe('BiomeService interface', () => {
   it.effect('exposes getBiome, getBiomeProperties, getTemperature, getHumidity', () =>
@@ -217,248 +173,5 @@ describe('BiomeService.getBiomeProperties', () => {
         )
       )
     )
-  })
-})
-
-describe('BiomeService.getBiomesAndPropertiesForChunk', () => {
-  it.effect('returns CHUNK_SIZE² entries', () =>
-    withBiomeService(0.5, 0.45, (service) =>
-      service.getBiomesAndPropertiesForChunk(0, 0).pipe(
-        Effect.map((results) => expect(results).toHaveLength(CHUNK_SIZE * CHUNK_SIZE))
-      )
-    )
-  )
-
-  it.effect('all entries have a valid biome and matching properties', () =>
-    withBiomeService(0.5, 0.45, (service) =>
-      service.getBiomesAndPropertiesForChunk(0, 0).pipe(
-        Effect.map((results) => {
-          Arr.forEach(results, ({ biome, props }) => {
-            expect(typeof biome).toBe('string')
-            expect(typeof props.surfaceBlock).toBe('string')
-            expect(props.treeDensity).toBeGreaterThanOrEqual(0)
-            expect(props.treeDensity).toBeLessThanOrEqual(1)
-          })
-        })
-      )
-    )
-  )
-
-  it.effect('all entries classify to PLAINS when noise returns temperate/moderate values', () =>
-    withBiomeService(0.5, 0.45, (service) =>
-      service.getBiomesAndPropertiesForChunk(0, 0).pipe(
-        Effect.map((results) => {
-          const biomes = Arr.map(results, (r) => r.biome)
-          expect(Arr.every(biomes, (b) => b === 'PLAINS')).toBe(true)
-        })
-      )
-    )
-  )
-
-  it.effect('classifies DESERT when noise returns hot/dry values', () =>
-    withBiomeService(0.8, 0.15, (service) =>
-      service.getBiomesAndPropertiesForChunk(0, 0).pipe(
-        Effect.map((results) => {
-          const biomes = Arr.map(results, (r) => r.biome)
-          expect(Arr.every(biomes, (b) => b === 'DESERT')).toBe(true)
-        })
-      )
-    )
-  )
-
-  it.effect('promotes shoreline-adjacent inland columns to BEACH only when next to OCEAN', () => {
-    const coastlineNoise = Layer.succeed(NoiseServicePort, {
-      noise2D: (_x: number, _z: number) => Effect.succeed(0.5),
-      octaveNoise2D: (x: number, _z: number) => {
-        const isHumidity = x > 25.0
-        const worldX = Math.round((x - (isHumidity ? 50 : 0)) / 0.005)
-        if (worldX === 0) return Effect.succeed(isHumidity ? 0.9 : 0.2)
-        return Effect.succeed(isHumidity ? 0.45 : 0.5)
-      },
-      octaveNoise2DBatchXY: (xs: ReadonlyArray<number>, _zs: ReadonlyArray<number>) =>
-        Effect.succeed(Arr.map(xs, (x, i) => {
-          const lx = Math.floor(i / CHUNK_SIZE)
-          const isHumidity = x > 25.0
-          if (lx === 0) return isHumidity ? 0.9 : 0.2 // OCEAN
-          return isHumidity ? 0.45 : 0.5 // PLAINS candidate next to ocean
-        })),
-      continentalness: (x: number, _z: number) => Effect.succeed(x === 0 ? -0.65 : -0.05),
-      erosion: (_x: number, _z: number) => Effect.succeed(0.7),
-      weirdness: (_x: number, _z: number) => Effect.succeed(0),
-      jaggedness: (_x: number, _z: number) => Effect.succeed(0),
-      noise2DBatchXY: (xs: ReadonlyArray<number>, _zs: ReadonlyArray<number>) => Effect.succeed(Arr.makeBy(xs.length, () => 0.9)),
-      sampleTerrainChannels: (_x: number, _z: number) => Effect.succeed({
-        continentalness: new Float64Array(Arr.makeBy(CHUNK_SIZE * CHUNK_SIZE, (i) => (i % CHUNK_SIZE) === 0 ? -0.65 : -0.05)),
-        erosion: new Float64Array(Arr.makeBy(CHUNK_SIZE * CHUNK_SIZE, () => 0.7)),
-        pv: new Float64Array(Arr.makeBy(CHUNK_SIZE * CHUNK_SIZE, () => 0)),
-        jaggedness: new Float64Array(Arr.makeBy(CHUNK_SIZE * CHUNK_SIZE, () => 0)),
-      }),
-      setSeed: (_seed: number) => Effect.void,
-    } as unknown as NoiseServicePort)
-
-    const layer = BiomeServiceLive.pipe(Layer.provide(coastlineNoise))
-    return Effect.flatMap(BiomeService, (service) =>
-      service.getBiomesAndPropertiesForChunk(0, 0).pipe(
-        Effect.map((results) => {
-          expect(results[0]!.biome).toBe('OCEAN')
-          expect(results[CHUNK_SIZE]!.biome).toBe('BEACH')
-          expect(results[CHUNK_SIZE * 2]!.biome).toBe('PLAINS')
-        })
-      )
-    ).pipe(Effect.provide(layer))
-  })
-
-  it.effect('promotes shoreline columns to BEACH even when the adjacent OCEAN lies in the neighboring chunk', () => {
-    const crossChunkCoastNoise = Layer.succeed(NoiseServicePort, {
-      noise2D: (_x: number, _z: number) => Effect.succeed(0.5),
-      octaveNoise2D: (x: number, _z: number) => {
-        const isHumidity = x > 25.0
-        const worldX = Math.round((x - (isHumidity ? 50 : 0)) / 0.005)
-        if (worldX >= CHUNK_SIZE) return Effect.succeed(isHumidity ? 0.9 : 0.2) // neighboring chunk = ocean
-        return Effect.succeed(isHumidity ? 0.45 : 0.5) // current chunk = plains candidate
-      },
-      octaveNoise2DBatchXY: (xs: ReadonlyArray<number>, zs: ReadonlyArray<number>) =>
-        Effect.forEach(Arr.zip(xs, zs), ([x, z]) => {
-          const isHumidity = x > 25.0
-          const worldX = Math.round((x - (isHumidity ? 50 : 0)) / 0.005)
-          void z
-          if (worldX >= CHUNK_SIZE) return Effect.succeed(isHumidity ? 0.9 : 0.2)
-          return Effect.succeed(isHumidity ? 0.45 : 0.5)
-        }, { concurrency: 'unbounded' }),
-      continentalness: (x: number, _z: number) => Effect.succeed(x >= CHUNK_SIZE ? -0.65 : -0.05),
-      erosion: (_x: number, _z: number) => Effect.succeed(0.7),
-      weirdness: (_x: number, _z: number) => Effect.succeed(0),
-      jaggedness: (_x: number, _z: number) => Effect.succeed(0),
-      noise2DBatchXY: (xs: ReadonlyArray<number>, _zs: ReadonlyArray<number>) => Effect.succeed(Arr.makeBy(xs.length, () => 0.9)),
-      sampleTerrainChannels: (_x: number, _z: number) => Effect.succeed({
-        continentalness: new Float64Array(Arr.makeBy(CHUNK_SIZE * CHUNK_SIZE, () => -0.05)),
-        erosion: new Float64Array(Arr.makeBy(CHUNK_SIZE * CHUNK_SIZE, () => 0.7)),
-        pv: new Float64Array(Arr.makeBy(CHUNK_SIZE * CHUNK_SIZE, () => 0)),
-        jaggedness: new Float64Array(Arr.makeBy(CHUNK_SIZE * CHUNK_SIZE, () => 0)),
-      }),
-      setSeed: (_seed: number) => Effect.void,
-    } as unknown as NoiseServicePort)
-
-    const layer = BiomeServiceLive.pipe(Layer.provide(crossChunkCoastNoise))
-    return Effect.flatMap(BiomeService, (service) =>
-      service.getBiomesAndPropertiesForChunk(0, 0).pipe(
-        Effect.map((results) => {
-          const edgeIndex = (CHUNK_SIZE - 1) * CHUNK_SIZE
-          expect(results[edgeIndex]!.biome).toBe('BEACH')
-        })
-      )
-    ).pipe(Effect.provide(layer))
-  })
-
-  it.effect('results for chunk (0,0) and chunk (1,0) use different world coordinates', () =>
-    withBiomeService(0.5, 0.45, (service) =>
-      Effect.all([
-        service.getBiomesAndPropertiesForChunk(0, 0),
-        service.getBiomesAndPropertiesForChunk(1, 0),
-      ]).pipe(
-        Effect.map(([chunk0, chunk1]) => {
-          // With uniform mock noise, both chunks classify identically — but both must have length CHUNK_SIZE²
-          expect(chunk0).toHaveLength(CHUNK_SIZE * CHUNK_SIZE)
-          expect(chunk1).toHaveLength(CHUNK_SIZE * CHUNK_SIZE)
-        })
-      )
-    )
-  )
-
-  it.effect('batched chunk biome classification matches scalar getBiome for non-uniform terrain channels', () => {
-    const pvFromWeirdness = (w: number): number => 1 - Math.abs(3 * Math.abs(w) - 2)
-    const perCellClimateNoise = Layer.succeed(NoiseServicePort, {
-      noise2D: (_x: number, _z: number) => Effect.succeed(0.9),
-      octaveNoise2D: (x: number, z: number) => {
-        const isHumidity = x > 25.0
-        const worldX = Math.round((x - (isHumidity ? 50 : 0)) / 0.005)
-        const worldZ = Math.round(z / 0.005)
-        const localX = ((worldX % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE
-        const localZ = ((worldZ % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE
-        const warmStripe = localX >= CHUNK_SIZE / 2
-        const humidStripe = localZ >= CHUNK_SIZE / 2
-        return Effect.succeed(isHumidity ? (humidStripe ? 0.72 : 0.24) : (warmStripe ? 0.82 : 0.22))
-      },
-      octaveNoise2DBatchXY: (xs: ReadonlyArray<number>, zs: ReadonlyArray<number>) =>
-        Effect.forEach(Arr.zip(xs, zs), ([x, z]) => {
-          const isHumidity = x > 25.0
-          const worldX = Math.round((x - (isHumidity ? 50 : 0)) / 0.005)
-          const worldZ = Math.round(z / 0.005)
-          const localX = ((worldX % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE
-          const localZ = ((worldZ % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE
-          const warmStripe = localX >= CHUNK_SIZE / 2
-          const humidStripe = localZ >= CHUNK_SIZE / 2
-          return Effect.succeed(isHumidity ? (humidStripe ? 0.72 : 0.24) : (warmStripe ? 0.82 : 0.22))
-        }, { concurrency: 'unbounded' }),
-      continentalness: (x: number, _z: number) => Effect.succeed((Math.floor(x) % CHUNK_SIZE) < CHUNK_SIZE / 2 ? -0.2 : 0.55),
-      erosion: (_x: number, z: number) => Effect.succeed((Math.floor(z) % CHUNK_SIZE) < CHUNK_SIZE / 2 ? 0.7 : 0.2),
-      weirdness: (x: number, z: number) => Effect.succeed(((Math.floor(x) + Math.floor(z)) % 2 === 0) ? 0.85 : -0.15),
-      jaggedness: (_x: number, _z: number) => Effect.succeed(0.3),
-      noise2DBatchXY: (xs: ReadonlyArray<number>, _zs: ReadonlyArray<number>) => Effect.succeed(Arr.makeBy(xs.length, () => 0.9)),
-      sampleTerrainChannels: (xStart: number, zStart: number) => Effect.succeed({
-        continentalness: new Float64Array(Arr.makeBy(CHUNK_SIZE * CHUNK_SIZE, (i) => {
-          const x = xStart + (i % CHUNK_SIZE)
-          return (x % CHUNK_SIZE) < CHUNK_SIZE / 2 ? -0.2 : 0.55
-        })),
-        erosion: new Float64Array(Arr.makeBy(CHUNK_SIZE * CHUNK_SIZE, (i) => {
-          const z = zStart + Math.floor(i / CHUNK_SIZE)
-          return (z % CHUNK_SIZE) < CHUNK_SIZE / 2 ? 0.7 : 0.2
-        })),
-        pv: new Float64Array(Arr.makeBy(CHUNK_SIZE * CHUNK_SIZE, (i) => pvFromWeirdness(((i % CHUNK_SIZE) + Math.floor(i / CHUNK_SIZE)) % 2 === 0 ? 0.85 : -0.15))),
-        jaggedness: new Float64Array(Arr.makeBy(CHUNK_SIZE * CHUNK_SIZE, () => 0.3)),
-      }),
-      setSeed: (_seed: number) => Effect.void,
-    } as unknown as NoiseServicePort)
-
-    const layer = BiomeServiceLive.pipe(Layer.provide(perCellClimateNoise))
-    return Effect.flatMap(BiomeService, (service) =>
-      Effect.gen(function* () {
-        const batched = yield* service.getBiomesAndPropertiesForChunk(0, 0)
-        yield* Effect.forEach(Arr.makeBy(CHUNK_SIZE * CHUNK_SIZE, (i) => i), (i) => {
-          const lx = Math.floor(i / CHUNK_SIZE)
-          const lz = i % CHUNK_SIZE
-          return service.getBiome(lx, lz).pipe(
-            Effect.map((scalarBiome) => {
-              expect(batched[i]!.biome).toBe(scalarBiome)
-            }),
-          )
-        }, { concurrency: 'unbounded', discard: true })
-      })
-    ).pipe(Effect.provide(layer))
-  })
-})
-
-describe('classifyBiomeFromClimate — baseBiome OCEAN passthrough', () => {
-  // classifyBiome(temp=0.5, hum=0.9) → 'OCEAN' (humidity > HUM_VERY_WET=0.85, temp ≤ HUM_WET=0.6)
-  // continentalness=-0.1: NOT < -0.42, so the early "return 'OCEAN'" is skipped.
-  // The baseBiome==='OCEAN' branch fires and temp (0.5) ≤ TEMP_HOT (0.7) → returns 'FOREST'.
-  it.effect('baseBiome OCEAN with temperate climate and mid continentalness → FOREST', () => {
-    const oceanToForestNoise = Layer.succeed(NoiseServicePort, {
-      noise2D: (_x: number, _z: number) => Effect.succeed(0.0),  // riverNoise far from RIVER_CENTER=0.5
-      octaveNoise2D: (x: number, _z: number) =>
-        Effect.succeed(x > 25.0 ? 0.9 : 0.5),  // humidity=0.9, temperature=0.5
-      octaveNoise2DBatchXY: (xs: ReadonlyArray<number>, _zs: ReadonlyArray<number>) =>
-        Effect.succeed(Arr.map(xs, (x) => (x > 25.0 ? 0.9 : 0.5))),
-      noise2DBatchXY: (xs: ReadonlyArray<number>, _zs: ReadonlyArray<number>) =>
-        Effect.succeed(Arr.makeBy(xs.length, () => 0.0)),
-      continentalness: (_x: number, _z: number) => Effect.succeed(-0.1),
-      erosion: (_x: number, _z: number) => Effect.succeed(0.5),
-      weirdness: (_x: number, _z: number) => Effect.succeed(0),
-      jaggedness: (_x: number, _z: number) => Effect.succeed(0),
-      sampleTerrainChannels: (_x: number, _z: number) => Effect.succeed({
-        continentalness: new Float64Array(Arr.makeBy(CHUNK_SIZE * CHUNK_SIZE, () => -0.1)),
-        erosion: new Float64Array(Arr.makeBy(CHUNK_SIZE * CHUNK_SIZE, () => 0.5)),
-        pv: new Float64Array(Arr.makeBy(CHUNK_SIZE * CHUNK_SIZE, () => 0)),
-        jaggedness: new Float64Array(Arr.makeBy(CHUNK_SIZE * CHUNK_SIZE, () => 0)),
-      }),
-      setSeed: (_seed: number) => Effect.void,
-    } as unknown as NoiseServicePort)
-
-    const layer = BiomeServiceLive.pipe(Layer.provide(oceanToForestNoise))
-    return Effect.flatMap(BiomeService, (service) =>
-      service.getBiome(0, 0).pipe(
-        Effect.map((biome) => expect(biome).toBe('FOREST'))
-      )
-    ).pipe(Effect.provide(layer))
   })
 })

@@ -1,15 +1,19 @@
 import { describe, expect, vi } from 'vitest'
 import { it } from '@effect/vitest'
-import { Effect, MutableHashSet } from 'effect'
+import { Effect, MutableHashSet, MutableRef, Ref } from 'effect'
 import { KeyMappings } from '@ts-minecraft/player'
 import {
   makeDeps,
+  makeCamera,
+  makeLights,
+  makeCameraState,
   makeInputService,
   makeInventoryRenderer,
   makeServices,
   makeSettingsOverlay,
   runFrame,
 } from '@test/frame-handler-test-kit'
+import { cameraStage } from '@ts-minecraft/app/frame/stages/camera-stage'
 
 // ---------------------------------------------------------------------------
 // Step 8: Camera sync
@@ -53,5 +57,29 @@ describe('step 8 — camera sync', () => {
     expect(deps.camera.position.x).toBeCloseTo(5)
     expect(deps.camera.position.y).toBeCloseTo(64 + 0.72 + 1.5)
     expect(deps.camera.position.z).toBeCloseTo(3 - 4)
+  }))
+
+  it.effect('marks shadow map dirty and updates lastShadowTargetRef when player moves > 0.5 blocks', () => Effect.gen(function* () {
+    const camera = makeCamera()
+    const lights = makeLights()
+    const { service: cameraStateService } = makeCameraState('firstPerson')
+    const inputService = makeInputService()
+    const thirdPersonCamera = {
+      update: () => Effect.void,
+    } as unknown as Parameters<typeof cameraStage>[1]['thirdPersonCamera']
+
+    const lastShadowTargetRef = MutableRef.make({ x: 4.4, z: 3.0 })
+    const lastRenderDistanceRef = yield* Ref.make(0)
+
+    const shadowDirtyCalledRef = MutableRef.make(false)
+    yield* cameraStage(
+      { camera, lights },
+      { inputService, playerCameraState: cameraStateService, thirdPersonCamera },
+      { lastShadowTargetRef, lastRenderDistanceRef },
+      { playerPos: { x: 5, y: 64, z: 3 }, renderDistance: 8, markShadowMapDirty: () => { MutableRef.set(shadowDirtyCalledRef, true) } },
+    )
+
+    expect(MutableRef.get(shadowDirtyCalledRef)).toBe(true)
+    expect(MutableRef.get(lastShadowTargetRef)).toEqual({ x: 5, z: 3 })
   }))
 })

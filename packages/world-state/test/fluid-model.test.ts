@@ -1,5 +1,5 @@
 import { describe, it } from '@effect/vitest'
-import { Array as Arr, HashMap, HashSet } from 'effect'
+import { Array as Arr, HashMap, HashSet, Option } from 'effect'
 import { expect } from 'vitest'
 import {
   WATER_MAX_LEVEL,
@@ -11,6 +11,7 @@ import {
   FluidKey,
   INITIAL_STATE,
 } from '@ts-minecraft/world-state'
+import { decodeFluidByte, encodeFluidCell } from '../domain/fluid'
 
 describe('constants sanity checks', () => {
   it('WATER_MAX_LEVEL is 7', () => {
@@ -82,5 +83,43 @@ describe('INITIAL_STATE', () => {
 
   it('tickCounter is 0', () => {
     expect(INITIAL_STATE.tickCounter).toBe(0)
+  })
+})
+
+describe('decodeFluidByte', () => {
+  it('returns Option.none() for byte 0 (no fluid present)', () => {
+    expect(decodeFluidByte(0)).toEqual(Option.none())
+  })
+
+  it('returns Option.some with water cell when FLUID_PRESENT_MASK is set', () => {
+    // Encode a water source at level 0, then decode it
+    const encoded = encodeFluidCell({ level: 0, source: true, type: 'water' })
+    const result = decodeFluidByte(encoded)
+    expect(Option.isSome(result)).toBe(true)
+    const cell = Option.getOrThrow(result)
+    expect(cell.type).toBe('water')
+    expect(cell.source).toBe(true)
+    expect(cell.level).toBe(0)
+  })
+
+  it('returns Option.some with lava cell when lava type bit is set', () => {
+    const encoded = encodeFluidCell({ level: 3, source: false, type: 'lava' })
+    const result = decodeFluidByte(encoded)
+    expect(Option.isSome(result)).toBe(true)
+    const cell = Option.getOrThrow(result)
+    expect(cell.type).toBe('lava')
+    expect(cell.source).toBe(false)
+    expect(cell.level).toBe(3)
+  })
+
+  it('round-trips: encode then decode returns original cell', () => {
+    const original = { level: 5, source: false, type: 'water' as const }
+    const encoded = encodeFluidCell(original)
+    const decoded = decodeFluidByte(encoded)
+    expect(Option.isSome(decoded)).toBe(true)
+    const cell = Option.getOrThrow(decoded)
+    expect(cell.level).toBe(original.level)
+    expect(cell.source).toBe(original.source)
+    expect(cell.type).toBe(original.type)
   })
 })

@@ -37,22 +37,13 @@ export class LoadingScreenService extends Effect.Service<LoadingScreenService>()
           return { overlayEl: Option.some(el), styleEl: Option.some(styleEl) }
         }),
         ({ overlayEl, styleEl }) => Effect.sync(() => {
-          Option.match(overlayEl, {
-            onNone: () => {},
-            onSome: (el) => dom.removeChild(el),
-          })
-          Option.match(styleEl, {
-            onNone: () => {},
-            onSome: (s) => { if (s.parentNode) s.parentNode.removeChild(s) },
-          })
+          Option.map(overlayEl, (el) => dom.removeChild(el))
+          Option.map(styleEl, (s) => { if (s.parentNode) s.parentNode.removeChild(s) })
         })
       ).pipe(
         Effect.map(({ overlayEl }) => ({
           hide: (): Effect.Effect<void, never> => Effect.sync(() => {
-            Option.match(overlayEl, {
-              onNone: () => {},
-              onSome: (el) => { el.style.display = 'none' },
-            })
+            Option.map(overlayEl, (el) => { el.style.display = 'none' })
           }),
         }))
       )

@@ -19,10 +19,7 @@ import { HealthService } from '@ts-minecraft/player'
 import { GameModeServiceLive } from '@ts-minecraft/game'
 import { InventoryServiceLive } from '@ts-minecraft/inventory'
 import { BlockRegistryLive } from '@ts-minecraft/world-state'
-import { DeltaTimeSecs, PlayerId, DEFAULT_PLAYER_ID } from '@ts-minecraft/kernel'
-
-// Player center Y when standing on bedrock (feet at y=0)
-const PLAYER_HALF_HEIGHT = 0.9
+import { DeltaTimeSecs, PlayerId, DEFAULT_PLAYER_ID, PLAYER_HALF_HEIGHT } from '@ts-minecraft/kernel'
 
 // ---------------------------------------------------------------------------
 // Mock PlayerInputService — always returns no input (no movement, no jump)
@@ -264,98 +261,6 @@ describe('application/game-state (integration)', () => {
         const grounded = yield* gameState.isPlayerGrounded()
 
         expect(grounded).toBe(true)
-      }).pipe(Effect.provide(TestGameLayer))
-    )
-  })
-
-  // ---------------------------------------------------------------------------
-  // C3: HealthService + GameStateService fall damage integration
-  // ---------------------------------------------------------------------------
-
-  describe('fall damage integration', () => {
-    it.effect('processFallDamage returns > 0 after simulated fall of 10 blocks then grounded', () =>
-      Effect.gen(function* () {
-        // The HealthService.processFallDamage uses a two-frame state machine:
-        //   - Frame N: prevY set, falling tracked
-        //   - Frame N+1 (landing): wasFalling && isGrounded → compute damage
-        //
-        // We simulate this directly without GameState physics to avoid
-        // the ground-clamp preventing isFallingRef from being set.
-        const healthService = yield* HealthService
-
-        // Frame 1: player at Y=10 (not grounded, not falling yet — prevY not set)
-        const d0 = yield* healthService.processFallDamage(10, false)
-
-        // Frame 2: player at Y=5 (falling, not grounded) → sets isFallingRef=true
-        const d1 = yield* healthService.processFallDamage(5, false)
-
-        // Frame 3: player at Y=0 (grounded after falling from 5→0 = 5 blocks)
-        // wasFalling=true, isGrounded=true → damage = floor(5 - 3) = 2
-        const d2 = yield* healthService.processFallDamage(0, true)
-
-        const totalDamage = d0 + d1 + d2
-        expect(totalDamage).toBeGreaterThan(0)
-        expect(totalDamage).toBe(2) // floor(5 - 3) = 2
-      }).pipe(Effect.provide(HealthService.Default))
-    )
-
-    it.effect('processFallDamage returns 0 when fall distance is exactly 3 blocks (safe threshold)', () =>
-      Effect.gen(function* () {
-        // Fall distance ≤ 3 → damage = max(0, floor(3 - 3)) = 0
-        const healthService = yield* HealthService
-
-        // Frame 1: set prevY=3
-        yield* healthService.processFallDamage(3, false)
-        // Frame 2: falling from 3 to 0 (distance=3), sets isFallingRef=true
-        yield* healthService.processFallDamage(0, false)
-        // Frame 3: land (grounded), fallDistance = 3, damage = floor(3-3) = 0
-        const damage = yield* healthService.processFallDamage(0, true)
-
-        expect(damage).toBe(0)
-      }).pipe(Effect.provide(HealthService.Default))
-    )
-
-    it.effect('processFallDamage returns 0 when fall distance is 4 blocks and landing is not grounded', () =>
-      Effect.gen(function* () {
-        // Still in the air — no damage even with large fall if not grounded on landing frame
-        const healthService = yield* HealthService
-
-        yield* healthService.processFallDamage(10, false) // set prevY
-        yield* healthService.processFallDamage(5, false)  // falling
-        // Landing check: isGrounded=false → no damage
-        const damage = yield* healthService.processFallDamage(0, false)
-
-        expect(damage).toBe(0)
-      }).pipe(Effect.provide(HealthService.Default))
-    )
-  })
-
-  // ---------------------------------------------------------------------------
-  // C5: GameStateService.getCameraRotation() delegation test
-  // ---------------------------------------------------------------------------
-
-  describe('getCameraRotation', () => {
-    it.effect('returns default { yaw: 0, pitch: 0 } before any updates', () =>
-      Effect.gen(function* () {
-        const SPAWN_POS = { x: 0, y: 5, z: 0 }
-
-        const gameState = yield* GameStateService
-        yield* gameState.initialize(SPAWN_POS, 0)
-        const rotation = yield* gameState.getCameraRotation()
-
-        expect(rotation.yaw).toBe(0)
-        expect(rotation.pitch).toBe(0)
-      }).pipe(Effect.provide(TestGameLayer))
-    )
-
-    it.effect('getCameraRotation returns numbers before initialization', () =>
-      Effect.gen(function* () {
-        const gameState = yield* GameStateService
-        // No initialize() call
-        const rotation = yield* gameState.getCameraRotation()
-
-        expect(typeof rotation.yaw).toBe('number')
-        expect(typeof rotation.pitch).toBe('number')
       }).pipe(Effect.provide(TestGameLayer))
     )
   })

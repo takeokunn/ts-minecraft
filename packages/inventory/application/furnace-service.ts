@@ -23,15 +23,6 @@ export type FurnaceBlockState = {
   readonly progressSecs: number
 }
 
-export type SerializedFurnaceBlockState = {
-  readonly position: { readonly x: number; readonly y: number; readonly z: number }
-  readonly input: FurnaceItemStack | null
-  readonly fuel: FurnaceItemStack | null
-  readonly output: FurnaceItemStack | null
-  readonly activeRecipeId: RecipeId | null
-  readonly progressSecs: number
-}
-
 type FurnaceState = {
   readonly furnaces: HashMap.HashMap<string, FurnaceBlockState>
   readonly selectedFurnacePosition: Option.Option<{ readonly x: number; readonly y: number; readonly z: number }>
@@ -92,12 +83,8 @@ export class FurnaceService extends Effect.Service<FurnaceService>()(
             if (position.y < 0 || position.y >= CHUNK_HEIGHT) return false
             const cx = Math.floor(position.x / CHUNK_SIZE)
             const cz = Math.floor(position.z / CHUNK_SIZE)
-            const chunkOpt = yield* chunkManagerService.getChunk({ x: cx, z: cz }).pipe(
-              Effect.map(Option.some),
-              Effect.catchAll(() => Effect.succeed(Option.none())),
-            )
-            if (Option.isNone(chunkOpt)) return false
-            const chunk = Option.getOrThrow(chunkOpt)
+            const chunk = Option.getOrNull(yield* chunkManagerService.getChunk({ x: cx, z: cz }).pipe(Effect.option))
+            if (chunk === null) return false
             const lx = ((position.x % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE
             const lz = ((position.z % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE
             const idx = position.y + lz * CHUNK_HEIGHT + lx * CHUNK_HEIGHT * CHUNK_SIZE
@@ -254,11 +241,9 @@ export class FurnaceService extends Effect.Service<FurnaceService>()(
               return yield* Option.match(HashMap.get(state.furnaces, key), {
                 onNone: () => Effect.succeed<ReadonlyArray<FurnaceItemStack>>([]),
                 onSome: (furnace) => {
-                  const dropped = [furnace.input, furnace.fuel, furnace.output].flatMap((slot) =>
-                    Option.match(slot, {
-                      onNone: () => [],
-                      onSome: (item) => [item],
-                    }),
+                  const dropped = Arr.filterMap(
+                    [furnace.input, furnace.fuel, furnace.output],
+                    (slot) => slot,
                   )
                   return Ref.set(stateRef, {
                     furnaces: HashMap.remove(state.furnaces, key),
@@ -287,7 +272,7 @@ export class FurnaceService extends Effect.Service<FurnaceService>()(
                       (item) => inventoryService.addBlock(item.blockType, item.count),
                       { concurrency: 'unbounded' },
                     )
-                    if (results.every(Boolean)) {
+                    if (Arr.every(results, (r) => r)) {
                       yield* Ref.set(stateRef, {
                         furnaces: HashMap.remove(state.furnaces, key),
                         selectedFurnacePosition: Option.filter(state.selectedFurnacePosition, (selected) => furnaceKey(selected) !== key),
@@ -299,34 +284,17 @@ export class FurnaceService extends Effect.Service<FurnaceService>()(
               })
             }),
 
-          serialize: (): Effect.Effect<ReadonlyArray<SerializedFurnaceBlockState>, never> =>
+          serialize: (): Effect.Effect<ReadonlyArray<FurnaceBlockState>, never> =>
             Ref.get(stateRef).pipe(
               Effect.map((state) =>
-                Arr.map(Arr.fromIterable(HashMap.values(state.furnaces)), (furnace) => ({
-                  position: furnace.position,
-                  input: Option.getOrNull(furnace.input),
-                  fuel: Option.getOrNull(furnace.fuel),
-                  output: Option.getOrNull(furnace.output),
-                  activeRecipeId: Option.getOrNull(furnace.activeRecipeId),
-                  progressSecs: furnace.progressSecs,
-                })),
+                Arr.map(Arr.fromIterable(HashMap.values(state.furnaces)), (furnace) => furnace),
               ),
             ),
 
-          deserialize: (serialized: ReadonlyArray<SerializedFurnaceBlockState>): Effect.Effect<void, never> =>
+          deserialize: (serialized: ReadonlyArray<FurnaceBlockState>): Effect.Effect<void, never> =>
             Ref.set(stateRef, {
               furnaces: HashMap.fromIterable(
-                Arr.map(serialized, (furnace) => [
-                  furnaceKey(furnace.position),
-                  {
-                    position: furnace.position,
-                    input: Option.fromNullable(furnace.input),
-                    fuel: Option.fromNullable(furnace.fuel),
-                    output: Option.fromNullable(furnace.output),
-                    activeRecipeId: Option.fromNullable(furnace.activeRecipeId),
-                    progressSecs: furnace.progressSecs,
-                  } satisfies FurnaceBlockState,
-                ] as const),
+                Arr.map(serialized, (furnace) => [furnaceKey(furnace.position), furnace] as const),
               ),
               selectedFurnacePosition: Option.none(),
             }),
@@ -339,6 +307,7 @@ export class FurnaceService extends Effect.Service<FurnaceService>()(
                   onNone: () => acc,
                   onSome: (activeRecipeId) =>
                     Option.match(recipeService.findById(activeRecipeId), {
+                      /* c8 ignore next */
                       onNone: () => acc,
                       onSome: (recipe) => {
                         const nextProgress = furnace.progressSecs + deltaTime

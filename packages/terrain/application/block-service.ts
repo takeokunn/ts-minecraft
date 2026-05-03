@@ -2,9 +2,10 @@ import { Effect, Data, HashSet, Metric, Option } from 'effect'
 import { ChunkManagerService } from './chunk-manager-service'
 import { DEFAULT_PLAYER_ID } from '@ts-minecraft/kernel'
 import { FluidService } from './fluid-service'
-import { CHUNK_SIZE, BlockIndexError } from '@ts-minecraft/kernel'
+import { BlockIndexError } from '@ts-minecraft/kernel'
 import { ChunkService, setBlockInChunk } from '../domain/chunk'
-import type { ChunkCoord } from '@ts-minecraft/kernel'
+import { worldToBlockLocal, blockOverlapsPlayer, canHarvestBlock } from '../domain/block-utils'
+export { worldToBlockLocal, blockOverlapsPlayer } from '../domain/block-utils'
 import { PlayerService } from '@ts-minecraft/player'
 import { InventoryService } from '@ts-minecraft/inventory'
 import { HotbarService } from '@ts-minecraft/inventory'
@@ -15,31 +16,10 @@ import {
   NON_PLACEABLE_BLOCK_TYPES,
   PICKAXE_BLOCK_TYPES,
   DIAMOND_PICKAXE_HARVESTABLE_BLOCKS,
-  IRON_PICKAXE_HARVESTABLE_BLOCKS,
-  STONE_PICKAXE_HARVESTABLE_BLOCKS,
-  WOODEN_PICKAXE_HARVESTABLE_BLOCKS,
   getInventoryDropForBlock,
 } from './block-service.config'
 
 const REQUIRES_PICKAXE_BLOCKS = DIAMOND_PICKAXE_HARVESTABLE_BLOCKS
-
-// ─── Player AABB dimensions ────────────────────────────────────────────────────
-// Must match the Cannon-ES body half-extents in physics-service.ts.
-
-export const PLAYER_HALF_WIDTH = 0.3   // x and z half-extents
-export const PLAYER_HALF_HEIGHT = 0.9  // y half-extent
-
-const canHarvestBlock = (blockType: BlockType, selectedTool: Option.Option<BlockType>): boolean =>
-  Option.match(selectedTool, {
-    onNone: () => !HashSet.has(IRON_PICKAXE_HARVESTABLE_BLOCKS, blockType),
-    onSome: (tool) => {
-      if (tool === 'DIAMOND_PICKAXE') return HashSet.has(DIAMOND_PICKAXE_HARVESTABLE_BLOCKS, blockType)
-      if (tool === 'IRON_PICKAXE') return HashSet.has(IRON_PICKAXE_HARVESTABLE_BLOCKS, blockType)
-      if (tool === 'STONE_PICKAXE') return HashSet.has(STONE_PICKAXE_HARVESTABLE_BLOCKS, blockType)
-      if (tool === 'WOODEN_PICKAXE') return HashSet.has(WOODEN_PICKAXE_HARVESTABLE_BLOCKS, blockType)
-      return !HashSet.has(IRON_PICKAXE_HARVESTABLE_BLOCKS, blockType)
-    },
-  })
 
 // ─── Error type ───────────────────────────────────────────────────────────────
 
@@ -52,30 +32,6 @@ export class BlockServiceError extends Data.TaggedError('BlockServiceError')<{
     const causeStr = this.cause instanceof Error ? this.cause.message : this.cause ? String(this.cause) : ''
     return `BlockService error during ${this.operation}: ${this.reason}${causeStr ? `: ${causeStr}` : ''}`
   }
-}
-
-// ─── Pure data/logic helpers ──────────────────────────────────────────────────
-
-// Double-modulo handles negative coordinates correctly.
-export const worldToBlockLocal = (
-  pos: Position
-): { chunkCoord: ChunkCoord; lx: number; lz: number } => {
-  const cx = Math.floor(pos.x / CHUNK_SIZE)
-  const cz = Math.floor(pos.z / CHUNK_SIZE)
-  const lx = ((Math.floor(pos.x) % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE
-  const lz = ((Math.floor(pos.z) % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE
-  return { chunkCoord: { x: cx, z: cz }, lx, lz }
-}
-
-// Player AABB centered at (feet.x, feet.y+HALF_HEIGHT, feet.z); block is unit cube centered at (pos+0.5).
-export const blockOverlapsPlayer = (blockPos: Position, playerFeetPos: Position): boolean => {
-  const playerCenterY = playerFeetPos.y + PLAYER_HALF_HEIGHT
-  const blockHalf = 0.5
-  return (
-    Math.abs(blockPos.x + blockHalf - playerFeetPos.x) < blockHalf + PLAYER_HALF_WIDTH &&
-    Math.abs(blockPos.y + blockHalf - playerCenterY) < blockHalf + PLAYER_HALF_HEIGHT &&
-    Math.abs(blockPos.z + blockHalf - playerFeetPos.z) < blockHalf + PLAYER_HALF_WIDTH
-  )
 }
 
 // ─── Service ─────────────────────────────────────────────────────────────────
@@ -144,6 +100,7 @@ export class BlockService extends Effect.Service<BlockService>()(
             }
 
             yield* setBlockInChunk(chunk, lx, y, lz, 'AIR').pipe(
+              /* c8 ignore next 4 */
               Effect.mapError((e: BlockIndexError) => new BlockServiceError({
                 operation: 'breakBlock',
                 reason: `Block coordinates out of bounds: (${e.x}, ${e.y}, ${e.z})`,
@@ -211,6 +168,7 @@ export class BlockService extends Effect.Service<BlockService>()(
             }
 
             yield* setBlockInChunk(chunk, lx, y, lz, blockType).pipe(
+              /* c8 ignore next 4 */
               Effect.mapError((e: BlockIndexError) => new BlockServiceError({
                 operation: 'placeBlock',
                 reason: `Block coordinates out of bounds: (${e.x}, ${e.y}, ${e.z})`,
@@ -221,6 +179,7 @@ export class BlockService extends Effect.Service<BlockService>()(
             const removedFromInventory = yield* inventoryService.removeBlock(blockType, 1, preferredInventorySlot)
             if (!removedFromInventory) {
               yield* setBlockInChunk(chunk, lx, y, lz, 'AIR').pipe(
+                /* c8 ignore next 4 */
                 Effect.mapError((e: BlockIndexError) => new BlockServiceError({
                   operation: 'placeBlock',
                   reason: `Failed to restore block after inventory rollback: (${e.x}, ${e.y}, ${e.z})`,

@@ -74,7 +74,7 @@ export class SettingsOverlayService extends Effect.Service<SettingsOverlayServic
 
         const btn = dom.createElement('button')
         btn.id = 'settings-gear-btn'
-        btn.textContent = '\u2699'
+        btn.textContent = '⚙'
         btn.style.cssText = [
           'position:fixed', 'top:10px', 'left:10px',
           'background:rgba(0,0,0,0.7)', 'color:white',
@@ -96,23 +96,21 @@ export class SettingsOverlayService extends Effect.Service<SettingsOverlayServic
         }
         }).pipe(
           Effect.flatMap(({ overlayEl, renderDistanceInput, adaptivePerformanceInput, sensitivityInput, dayLengthInput, qualitySelect, closeBtn, gearBtn }) => {
-        const updateLabel = (labelId: string, value: string): void =>
-          Option.match(
+        const updateLabel = (labelId: string, value: string): void => {
+          Option.map(
             Option.flatMap(overlayEl, (el) => dom.querySelector(el, labelId)),
-            { onNone: () => {}, onSome: (span) => { span.textContent = value } },
+            (span) => { span.textContent = value },
           )
+        }
 
         const syncInputAndLabel = (
           inputOpt: Option.Option<HTMLElement & { value: string }>,
           labelId: string,
           value: string,
         ): void => {
-          Option.match(inputOpt, {
-            onNone: () => {},
-            onSome: (input) => {
-              input.value = value
-              updateLabel(labelId, value)
-            },
+          Option.map(inputOpt, (input) => {
+            input.value = value
+            updateLabel(labelId, value)
           })
         }
 
@@ -147,11 +145,11 @@ export class SettingsOverlayService extends Effect.Service<SettingsOverlayServic
       function syncEffect(): Effect.Effect<void, never> {
         return settingsService.getSettings().pipe(
           Effect.flatMap((settings) => Effect.sync(() => {
-            Option.match(adaptivePerformanceInput, { onNone: () => {}, onSome: (el) => { el.checked = settings.adaptivePerformanceMode } })
+            Option.map(adaptivePerformanceInput, (el) => { el.checked = settings.adaptivePerformanceMode })
             syncInputAndLabel(renderDistanceInput, '#rd-val', String(settings.renderDistance))
             syncInputAndLabel(sensitivityInput, '#ms-val', String(settings.mouseSensitivity))
             syncInputAndLabel(dayLengthInput, '#dl-val', String(settings.dayLengthSeconds))
-            Option.match(qualitySelect, { onNone: () => {}, onSome: (el) => { el.value = settings.graphicsQuality } })
+            Option.map(qualitySelect, (el) => { el.value = settings.graphicsQuality })
           }))
         )
       }
@@ -162,17 +160,17 @@ export class SettingsOverlayService extends Effect.Service<SettingsOverlayServic
       }
 
       const handleRdInput = () => {
-        Option.match(renderDistanceInput, { onNone: () => {}, onSome: (input) => updateLabel('#rd-val', input.value) })
+        Option.map(renderDistanceInput, (input) => updateLabel('#rd-val', input.value))
         runCommit()
       }
 
       const handleMsInput = () => {
-        Option.match(sensitivityInput, { onNone: () => {}, onSome: (input) => updateLabel('#ms-val', input.value) })
+        Option.map(sensitivityInput, (input) => updateLabel('#ms-val', input.value))
         runCommit()
       }
 
       const handleDlInput = () => {
-        Option.match(dayLengthInput, { onNone: () => {}, onSome: (input) => updateLabel('#dl-val', input.value) })
+        Option.map(dayLengthInput, (input) => updateLabel('#dl-val', input.value))
         runCommit()
       }
 
@@ -184,7 +182,7 @@ export class SettingsOverlayService extends Effect.Service<SettingsOverlayServic
         Effect.runFork(
           Ref.set(isVisibleRef, false).pipe(
             Effect.andThen(Effect.sync(() => {
-              Option.match(overlayEl, { onNone: () => {}, onSome: (el) => { el.style.display = 'none' } })
+              Option.map(overlayEl, (el) => { el.style.display = 'none' })
             })),
             Effect.catchAllCause(() => Effect.void)
           )
@@ -195,7 +193,7 @@ export class SettingsOverlayService extends Effect.Service<SettingsOverlayServic
         Effect.runFork(
           Ref.modify(isVisibleRef, (current): [boolean, boolean] => [!current, !current]).pipe(
             Effect.tap((next) => Effect.sync(() => {
-              Option.match(overlayEl, { onNone: () => {}, onSome: (el) => { el.style.display = next ? 'block' : 'none' } })
+              Option.map(overlayEl, (el) => { el.style.display = next ? 'block' : 'none' })
             })),
             Effect.flatMap((next) => next ? syncEffect() : Effect.void),
             Effect.catchAllCause(() => Effect.void)
@@ -205,13 +203,13 @@ export class SettingsOverlayService extends Effect.Service<SettingsOverlayServic
 
         return Effect.acquireRelease(
           Effect.sync(() => {
-            Option.match(adaptivePerformanceInput, { onNone: () => {}, onSome: (el) => el.addEventListener('change', handleAdaptivePerformanceChange) })
-            Option.match(renderDistanceInput, { onNone: () => {}, onSome: (el) => el.addEventListener('input', handleRdInput) })
-            Option.match(sensitivityInput, { onNone: () => {}, onSome: (el) => el.addEventListener('input', handleMsInput) })
-            Option.match(dayLengthInput, { onNone: () => {}, onSome: (el) => el.addEventListener('input', handleDlInput) })
-            Option.match(qualitySelect, { onNone: () => {}, onSome: (el) => el.addEventListener('change', handleQualityChange) })
-            Option.match(closeBtn, { onNone: () => {}, onSome: (el) => el.addEventListener('click', handleClose) })
-            Option.match(gearBtn, { onNone: () => {}, onSome: (el) => el.addEventListener('click', handleGearClick) })
+            Option.map(adaptivePerformanceInput, (el) => el.addEventListener('change', handleAdaptivePerformanceChange))
+            Option.map(renderDistanceInput, (el) => el.addEventListener('input', handleRdInput))
+            Option.map(sensitivityInput, (el) => el.addEventListener('input', handleMsInput))
+            Option.map(dayLengthInput, (el) => el.addEventListener('input', handleDlInput))
+            Option.map(qualitySelect, (el) => el.addEventListener('change', handleQualityChange))
+            Option.map(closeBtn, (el) => el.addEventListener('click', handleClose))
+            Option.map(gearBtn, (el) => el.addEventListener('click', handleGearClick))
           }).pipe(
             // FR-1.4: prime DOM inputs from SettingsService on mount so values
             // reflect actual state from frame 1, eliminating the visual flash
@@ -220,20 +218,20 @@ export class SettingsOverlayService extends Effect.Service<SettingsOverlayServic
             Effect.andThen(syncEffect()),
           ),
           () => Effect.sync(() => {
-            Option.match(adaptivePerformanceInput, { onNone: () => {}, onSome: (el) => el.removeEventListener('change', handleAdaptivePerformanceChange) })
-            Option.match(renderDistanceInput, { onNone: () => {}, onSome: (el) => el.removeEventListener('input', handleRdInput) })
-            Option.match(sensitivityInput, { onNone: () => {}, onSome: (el) => el.removeEventListener('input', handleMsInput) })
-            Option.match(dayLengthInput, { onNone: () => {}, onSome: (el) => el.removeEventListener('input', handleDlInput) })
-            Option.match(qualitySelect, { onNone: () => {}, onSome: (el) => el.removeEventListener('change', handleQualityChange) })
-            Option.match(closeBtn, { onNone: () => {}, onSome: (el) => el.removeEventListener('click', handleClose) })
-            Option.match(gearBtn, { onNone: () => {}, onSome: (el) => { el.removeEventListener('click', handleGearClick); el.remove() } })
-            Option.match(overlayEl, { onNone: () => {}, onSome: (el) => el.remove() })
+            Option.map(adaptivePerformanceInput, (el) => el.removeEventListener('change', handleAdaptivePerformanceChange))
+            Option.map(renderDistanceInput, (el) => el.removeEventListener('input', handleRdInput))
+            Option.map(sensitivityInput, (el) => el.removeEventListener('input', handleMsInput))
+            Option.map(dayLengthInput, (el) => el.removeEventListener('input', handleDlInput))
+            Option.map(qualitySelect, (el) => el.removeEventListener('change', handleQualityChange))
+            Option.map(closeBtn, (el) => el.removeEventListener('click', handleClose))
+            Option.map(gearBtn, (el) => { el.removeEventListener('click', handleGearClick); el.remove() })
+            Option.map(overlayEl, (el) => el.remove())
           })
         ).pipe(Effect.as({
         toggle: (): Effect.Effect<boolean, never> =>
           Ref.modify(isVisibleRef, (current): [boolean, boolean] => [!current, !current]).pipe(
             Effect.tap((next) => Effect.sync(() => {
-              Option.match(overlayEl, { onNone: () => {}, onSome: (el) => { el.style.display = next ? 'block' : 'none' } })
+              Option.map(overlayEl, (el) => { el.style.display = next ? 'block' : 'none' })
             })),
             Effect.tap((next) => next ? syncEffect() : Effect.void),
           ),

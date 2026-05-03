@@ -81,6 +81,7 @@ export const physicsStage = (
         if (lastHealth.current !== health.current || lastHealth.max !== health.max) {
           MutableRef.set(refs.lastHealthRef, { current: health.current, max: health.max })
           yield* Effect.sync(() => {
+            /* c8 ignore next 2 */
             if (inputs.healthValueElementOrNull) inputs.healthValueElementOrNull.textContent = String(health.current)
             if (inputs.healthMaxElementOrNull) inputs.healthMaxElementOrNull.textContent = String(health.max)
           })

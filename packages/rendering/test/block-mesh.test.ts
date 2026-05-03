@@ -154,6 +154,26 @@ describe('three/meshing/block-mesh', () => {
           expect(mesh.geometry).toBe(geometryBefore)
         }).pipe(Effect.provide(layer))
       )
+
+      it.effect('should dispose all materials in a multi-material array mesh', () =>
+        Effect.gen(function* () {
+          const service = yield* BlockMeshService
+
+          const dispose1 = vi.fn()
+          const dispose2 = vi.fn()
+          const mat1 = { dispose: dispose1 } as unknown as THREE.Material
+          const mat2 = { dispose: dispose2 } as unknown as THREE.Material
+
+          const fakeMesh = {
+            material: [mat1, mat2],
+          } as unknown as THREE.Mesh
+
+          yield* service.disposeMesh(fakeMesh)
+
+          expect(dispose1).toHaveBeenCalledOnce()
+          expect(dispose2).toHaveBeenCalledOnce()
+        }).pipe(Effect.provide(layer))
+      )
     })
 
     describe('disposeAll', () => {

@@ -133,14 +133,8 @@ export class DeathScreenService extends Effect.Service<DeathScreenService>()(
           }),
           ({ backdropEl }) =>
             Effect.sync(() => {
-              Option.match(backdropEl, {
-                onNone: () => {},
-                onSome: (el) => {
-                  Option.match(dom.getParentNode(el), {
-                    onNone: () => {},
-                    onSome: () => dom.removeChild(el),
-                  })
-                },
+              Option.map(backdropEl, (el) => {
+                Option.map(dom.getParentNode(el), () => dom.removeChild(el))
               })
             }),
         ).pipe(
@@ -148,23 +142,13 @@ export class DeathScreenService extends Effect.Service<DeathScreenService>()(
             const isOpenRef = MutableRef.make(false)
 
             const showOverlay = (): void => {
-              Option.match(backdropEl, {
-                onNone: () => {},
-                onSome: (el) => {
-                  el.style.display = 'flex'
-                },
-              })
+              Option.map(backdropEl, (el) => { el.style.display = 'flex' })
               // Default-focus Respawn so Enter respawns immediately.
-              Option.match(respawnBtn, { onNone: () => {}, onSome: (btn) => btn.focus() })
+              Option.map(respawnBtn, (btn) => btn.focus())
             }
 
             const hideOverlay = (): void => {
-              Option.match(backdropEl, {
-                onNone: () => {},
-                onSome: (el) => {
-                  el.style.display = 'none'
-                },
-              })
+              Option.map(backdropEl, (el) => { el.style.display = 'none' })
             }
 
             // Snapshot the player's death position. Currently used only for
@@ -257,14 +241,8 @@ export class DeathScreenService extends Effect.Service<DeathScreenService>()(
                       }
                     }
 
-                    Option.match(respawnBtn, {
-                      onNone: () => {},
-                      onSome: (btn) => btn.addEventListener('click', handleRespawnClick),
-                    })
-                    Option.match(quitBtn, {
-                      onNone: () => {},
-                      onSome: (btn) => btn.addEventListener('click', handleQuitClick),
-                    })
+                    Option.map(respawnBtn, (btn) => btn.addEventListener('click', handleRespawnClick))
+                    Option.map(quitBtn, (btn) => btn.addEventListener('click', handleQuitClick))
                     if (typeof document !== 'undefined') {
                       document.addEventListener('keydown', handleKeyDown, true)
                     }
@@ -304,14 +282,8 @@ export class DeathScreenService extends Effect.Service<DeathScreenService>()(
                   }),
                   (handlers) =>
                     Effect.gen(function* () {
-                      Option.match(respawnBtn, {
-                        onNone: () => {},
-                        onSome: (btn) => btn.removeEventListener('click', handlers.handleRespawnClick),
-                      })
-                      Option.match(quitBtn, {
-                        onNone: () => {},
-                        onSome: (btn) => btn.removeEventListener('click', handlers.handleQuitClick),
-                      })
+                      Option.map(respawnBtn, (btn) => btn.removeEventListener('click', handlers.handleRespawnClick))
+                      Option.map(quitBtn, (btn) => btn.removeEventListener('click', handlers.handleQuitClick))
                       if (typeof document !== 'undefined') {
                         document.removeEventListener('keydown', handlers.handleKeyDown, true)
                       }

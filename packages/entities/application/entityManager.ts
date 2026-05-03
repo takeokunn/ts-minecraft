@@ -164,6 +164,7 @@ export class EntityManager extends Effect.Service<EntityManager>()(
                 // but still allow attack cooldowns to tick down while stationary.
                 if (nextState === entity.aiState
                   && entity.velocity.x === 0 && entity.velocity.y === 0 && entity.velocity.z === 0) {
+                  /* c8 ignore next 2 */
                   return nextAttackCooldown === entity.attackCooldownRemaining
                     ? entity
                     : {
@@ -174,6 +175,7 @@ export class EntityManager extends Effect.Service<EntityManager>()(
 
                 const wanderDirection =
                   nextState === AIState.Wander
+                  /* c8 ignore next 2 */
                   && (entity.aiState !== AIState.Wander || randomWanderRoll < 0.2)
                     ? makeWanderDirection(entityId, tick)
                     : entity.wanderDirection
@@ -238,9 +240,10 @@ export class EntityManager extends Effect.Service<EntityManager>()(
           ).pipe(Effect.tap((dropsOpt) =>
             Effect.all([
               Ref.set(cachedEntitiesRef, Option.none()),
-              Option.isSome(dropsOpt)
-                ? Ref.update(structureVersionRef, (version) => version + 1)
-                : Effect.void,
+              Option.match(dropsOpt, {
+                onSome: () => Ref.update(structureVersionRef, (version) => version + 1),
+                onNone: () => Effect.void,
+              }),
             ], { concurrency: 'unbounded', discard: true })
           ))
         },

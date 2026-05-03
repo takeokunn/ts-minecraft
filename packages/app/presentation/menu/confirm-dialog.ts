@@ -164,10 +164,7 @@ export class ConfirmDialogService extends Effect.Service<ConfirmDialogService>()
                   cancelBtn.removeEventListener('click', handleCancelClick)
                   backdrop.removeEventListener('click', handleBackdropClick)
                   document.removeEventListener('keydown', handleKeyDown, true)
-                  Option.match(dom.getParentNode(backdrop), {
-                    onNone: () => {},
-                    onSome: () => dom.removeChild(backdrop),
-                  })
+                  Option.map(dom.getParentNode(backdrop), () => dom.removeChild(backdrop))
                 }),
             ).pipe(
               Effect.andThen(Deferred.await(result)),

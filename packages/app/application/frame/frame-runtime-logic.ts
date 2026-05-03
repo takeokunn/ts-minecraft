@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { Option } from 'effect'
 
 export type CameraPoseSnapshot = {
   readonly version: number
@@ -19,12 +20,14 @@ export type AdaptiveQualityInput = {
   readonly cooldown: number
 }
 
+export type SettingsPatch = {
+  readonly graphicsQuality?: 'low' | 'medium' | 'high'
+  readonly renderDistance?: number
+}
+
 export type AdaptiveQualityDecision = {
   readonly nextCooldown: number
-  readonly settingsPatch: null | {
-    readonly graphicsQuality?: 'low' | 'medium' | 'high'
-    readonly renderDistance?: number
-  }
+  readonly settingsPatch: Option.Option<SettingsPatch>
 }
 
 export const captureCameraPose = (camera: THREE.PerspectiveCamera, version: number): CameraPoseSnapshot => ({
@@ -74,6 +77,9 @@ const nextGraphicsQuality = (
       ? 'medium'
       : 'low'
 
+const noChange = (cooldown: number): AdaptiveQualityDecision =>
+  ({ nextCooldown: cooldown, settingsPatch: Option.none() })
+
 export const decideAdaptiveQuality = ({
   adaptivePerformanceMode,
   graphicsQuality,
@@ -82,30 +88,30 @@ export const decideAdaptiveQuality = ({
   cooldown,
 }: AdaptiveQualityInput): AdaptiveQualityDecision => {
   if (!adaptivePerformanceMode) {
-    return { nextCooldown: cooldown, settingsPatch: null }
+    return noChange(cooldown)
   }
 
   if (cooldown > 0) {
-    return { nextCooldown: cooldown - 1, settingsPatch: null }
+    return noChange(cooldown - 1)
   }
 
   if (fps <= 0 || fps >= 110) {
-    return { nextCooldown: cooldown, settingsPatch: null }
+    return noChange(cooldown)
   }
 
   if (graphicsQuality !== 'low') {
     return {
       nextCooldown: 20,
-      settingsPatch: { graphicsQuality: nextGraphicsQuality(graphicsQuality) },
+      settingsPatch: Option.some({ graphicsQuality: nextGraphicsQuality(graphicsQuality) }),
     }
   }
 
   if (renderDistance > 4) {
     return {
       nextCooldown: 20,
-      settingsPatch: { renderDistance: renderDistance - 1 },
+      settingsPatch: Option.some({ renderDistance: renderDistance - 1 }),
     }
   }
 
-  return { nextCooldown: cooldown, settingsPatch: null }
+  return noChange(cooldown)
 }

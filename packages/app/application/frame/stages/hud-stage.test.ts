@@ -1,6 +1,6 @@
 import { describe, expect, vi } from 'vitest'
 import { it } from '@effect/vitest'
-import { Effect, Option } from 'effect'
+import { Effect, MutableRef, Option } from 'effect'
 import type { FrameHandlerDeps } from '@ts-minecraft/app'
 import {
   DEFAULT_SETTINGS,
@@ -67,6 +67,30 @@ describe('step 9 — FPS display', () => {
 })
 
 describe('adaptive performance mode', () => {
+  it.effect('suspends adaptive-quality evaluation and never calls updateSettings when session is paused', () => Effect.gen(function* () {
+    // FR-1.4: pause-menu overhead can temporarily tank FPS; suppress adaptive-quality
+    // switches while paused so a low-FPS pause event does not downgrade graphics.
+    const deps = yield* makeDeps(false)
+    MutableRef.set(deps.sessionPausedRef, true)
+    const services = makeServices({
+      inputService: makeInputService(),
+      inventoryRenderer: makeInventoryRenderer({ open: false }),
+      settingsOverlay: makeSettingsOverlay({ open: false }),
+    })
+    ;(services.settingsService as unknown as { getSettings: unknown }).getSettings = vi.fn(() =>
+      Effect.succeed({ ...DEFAULT_SETTINGS, adaptivePerformanceMode: true, graphicsQuality: 'high' as const })
+    )
+    const updateSpy = vi.fn(() => Effect.void)
+    ;(services.settingsService as unknown as { updateSettings: unknown }).updateSettings = updateSpy
+    // Return very low FPS to ensure adaptive-quality WOULD fire if not paused
+    ;(services.fpsCounter as unknown as { getFPS: unknown }).getFPS = vi.fn(() => Effect.succeed(10))
+
+    yield* runFrame(deps, services)
+
+    // Even with low FPS + adaptivePerformanceMode=true, updateSettings must NOT be called when paused
+    expect(updateSpy).not.toHaveBeenCalled()
+  }))
+
   it.effect('does not auto-degrade quality when adaptivePerformanceMode is disabled', () => Effect.gen(function* () {
     const deps = yield* makeDeps(false)
     const services = makeServices({

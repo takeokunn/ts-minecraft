@@ -1,6 +1,6 @@
 import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
-import { Effect, Layer, Option } from 'effect'
+import { Effect, Layer, MutableRef, Option } from 'effect'
 import { AudioEnginePort, type AudioEnginePortShape, type ToneRequest } from '@ts-minecraft/game'
 import { MusicManager, MusicManagerLive } from '@ts-minecraft/game'
 
@@ -8,14 +8,14 @@ const makeFakeAudioEngine = () => {
   const playRequests: ToneRequest[] = []
   const stoppedToneIds: number[] = []
   const masterGains: number[] = []
-  let nextToneId = 1
+  const nextToneIdRef = MutableRef.make(1)
 
   const engine: AudioEnginePortShape = {
     playTone: (request) =>
       Effect.sync(() => {
         playRequests.push(request)
-        const id = nextToneId
-        nextToneId += 1
+        const id = MutableRef.get(nextToneIdRef)
+        MutableRef.set(nextToneIdRef, id + 1)
         return { id }
       }),
     stopTone: (handle) =>
@@ -127,6 +127,26 @@ describe('audio/music-manager', () => {
       expect(state.enabled).toBe(true)
       expect(state.masterVolume).toBeCloseTo(0.6, 5)
       expect(state.musicVolume).toBeCloseTo(0.4, 5)
+    }).pipe(Effect.provide(makeMusicLayer(fake.engine)))
+  })
+
+  it.effect('stop() halts the active track and clears getCurrentEnvironment', () => {
+    const fake = makeFakeAudioEngine()
+    return Effect.gen(function* () {
+      const musicManager = yield* MusicManager
+      yield* musicManager.applySettings({ enabled: true, masterVolume: 1, musicVolume: 1 })
+      yield* musicManager.setEnvironment('day')
+      // Track is playing
+      const envBefore = yield* musicManager.getCurrentEnvironment()
+      expect(Option.isSome(envBefore)).toBe(true)
+
+      yield* musicManager.stop()
+
+      // After stop() the active track should be cleared
+      const envAfter = yield* musicManager.getCurrentEnvironment()
+      expect(envAfter).toEqual(Option.none())
+      // The engine received a stopTone call for the day track
+      expect(fake.stoppedToneIds).toEqual([1])
     }).pipe(Effect.provide(makeMusicLayer(fake.engine)))
   })
 })

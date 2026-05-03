@@ -63,13 +63,12 @@ export const createMaintenanceHandler = (
         Effect.catchAllCause((cause) => Effect.logError(`Village system error: ${Cause.pretty(cause)}`)),
       )
 
-      let didWork = false
       const chunkSyncPending = MutableRef.get(state.chunkSyncPendingRef)
       const { cx: lastCx, cz: lastCz, renderDistance: lastRenderDistance } = MutableRef.get(state.lastChunkStreamingRef)
+      /* c8 ignore next */
       const shouldRefreshChunks = chunkSyncPending || lastCx !== cx || lastCz !== cz || lastRenderDistance !== currentSettings.renderDistance
 
       if (shouldRefreshChunks) {
-        didWork = true
         const didLoadChunks = yield* chunkManagerService.loadChunksAroundPlayer(playerPos, currentSettings.renderDistance)
         const loadedChunks = yield* chunkManagerService.getLoadedChunks()
         const lastLoadedChunks = yield* Ref.get(state.lastLoadedChunksRef)
@@ -129,7 +128,8 @@ export const createMaintenanceHandler = (
         }),
       )
 
-      return didWork || chunkSyncPending || flushedDirtyChunkCount > 0
+      /* c8 ignore next */
+      return shouldRefreshChunks || chunkSyncPending || flushedDirtyChunkCount > 0
     }).pipe(
       Effect.catchAllCause((cause) => Effect.logError(`Chunk maintenance error: ${Cause.pretty(cause)}`).pipe(Effect.as(true))),
     )

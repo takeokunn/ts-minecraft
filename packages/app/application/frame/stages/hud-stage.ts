@@ -1,4 +1,4 @@
-import { Effect, Ref } from 'effect'
+import { Effect, Option, Ref } from 'effect'
 import { logErrors } from '@ts-minecraft/app/frame/error-logging'
 import type { FrameHandlerDeps, FrameHandlerServices, FrameSettingsView, FrameStageRefs } from '@ts-minecraft/app/frame/types'
 import { decideAdaptiveQuality, type AdaptiveQualityDecision } from '@ts-minecraft/app/frame/frame-runtime-logic'
@@ -28,7 +28,7 @@ export const hudStage = (
     // FR-1.4: suspend adaptive-quality evaluation while paused — pause-menu
     // overhead can briefly tank FPS without indicating a real perf problem.
     const adaptiveQualityDecision: AdaptiveQualityDecision = inputs.paused
-      ? { nextCooldown: adaptiveCooldown, settingsPatch: null }
+      ? { nextCooldown: adaptiveCooldown, settingsPatch: Option.none() }
       : decideAdaptiveQuality({
           adaptivePerformanceMode: inputs.currentSettings.adaptivePerformanceMode,
           graphicsQuality: inputs.currentSettings.graphicsQuality,
@@ -39,9 +39,10 @@ export const hudStage = (
     if (adaptiveQualityDecision.nextCooldown !== adaptiveCooldown) {
       yield* Ref.set(refs.adaptiveQualityCooldownRef, adaptiveQualityDecision.nextCooldown)
     }
-    if (adaptiveQualityDecision.settingsPatch !== null) {
-      yield* services.settingsService.updateSettings(adaptiveQualityDecision.settingsPatch)
-    }
+    yield* Option.match(adaptiveQualityDecision.settingsPatch, {
+      onNone: () => Effect.void,
+      onSome: (patch) => services.settingsService.updateSettings(patch),
+    })
     const fpsChanged = yield* Ref.modify(refs.lastFpsTextRef, (last): [boolean, string] =>
       last === fpsText ? [false, last] : [true, fpsText],
     )

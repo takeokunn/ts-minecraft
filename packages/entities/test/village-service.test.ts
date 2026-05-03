@@ -60,6 +60,37 @@ describe('village/village-service', () => {
     }).pipe(Effect.provide(VillageServiceLive))
   )
 
+  it.effect('second update at same Trade position short-circuits via no-change path', () =>
+    Effect.gen(function* () {
+      const villageService = yield* VillageService
+      const origin = { x: 0, y: 64, z: 0 }
+
+      yield* villageService.ensureVillageNear(origin)
+
+      // First update: moves villagers toward their targets
+      yield* villageService.update(origin, 0.5, ONE_SECOND)
+      const afterFirst = yield* villageService.getVillagers()
+      const firstVillager = Option.getOrThrow(Arr.get(afterFirst, 0))
+
+      // Second update: player at villager position triggers Trade
+      yield* villageService.update(firstVillager.position, 0.5, ONE_SECOND)
+      const afterTrade = yield* villageService.getVillagers()
+      const tradingVillager = Option.getOrThrow(
+        Arr.findFirst(afterTrade, (v) => v.activity === VillagerActivity.Trade),
+      )
+
+      // Third update: same player position, same Trade activity → no-change branch
+      // (nextActivity === villager.activity && nextPosition === villager.position)
+      yield* villageService.update(tradingVillager.position, 0.5, ONE_SECOND)
+      const afterNoChange = yield* villageService.getVillagers()
+      const sameVillager = Option.getOrThrow(
+        Arr.findFirst(afterNoChange, (v) => v.villagerId === tradingVillager.villagerId),
+      )
+
+      expect(sameVillager.activity).toBe(VillagerActivity.Trade)
+    }).pipe(Effect.provide(VillageServiceLive))
+  )
+
   describe('getVillager', () => {
     it.effect('returns Option.some with the villager when the ID exists', () =>
       Effect.gen(function* () {

@@ -1,6 +1,6 @@
 import { describe, expect } from 'vitest'
 import { it } from '@effect/vitest'
-import { Array as Arr, Effect, Schema } from 'effect'
+import { Array as Arr, Effect, Option, Schema } from 'effect'
 import { CHUNK_SIZE, CHUNK_HEIGHT } from '@ts-minecraft/kernel'
 import {
   createTerrainNoiseCoordinates,
@@ -21,32 +21,23 @@ describe('application/terrain/terrain-generation — createTerrainNoiseCoordinat
 
   it('origin chunk: wx starts at 0 and wz starts at 0', () => {
     const coords = createTerrainNoiseCoordinates({ x: 0, z: 0 })
-    const first = Arr.get(coords, 0)
-    expect(first._tag).toBe('Some')
-    if (first._tag === 'Some') {
-      expect(first.value.wx).toBe(0)
-      expect(first.value.wz).toBe(0)
-    }
+    const first = Option.getOrThrow(Arr.get(coords, 0))
+    expect(first.wx).toBe(0)
+    expect(first.wz).toBe(0)
   })
 
   it('chunk at (1, 0): wx starts at CHUNK_SIZE, wz starts at 0', () => {
     const coords = createTerrainNoiseCoordinates({ x: 1, z: 0 })
-    const first = Arr.get(coords, 0)
-    expect(first._tag).toBe('Some')
-    if (first._tag === 'Some') {
-      expect(first.value.wx).toBe(CHUNK_SIZE)
-      expect(first.value.wz).toBe(0)
-    }
+    const first = Option.getOrThrow(Arr.get(coords, 0))
+    expect(first.wx).toBe(CHUNK_SIZE)
+    expect(first.wz).toBe(0)
   })
 
   it('chunk at (0, 1): wx starts at 0, wz starts at CHUNK_SIZE', () => {
     const coords = createTerrainNoiseCoordinates({ x: 0, z: 1 })
-    const first = Arr.get(coords, 0)
-    expect(first._tag).toBe('Some')
-    if (first._tag === 'Some') {
-      expect(first.value.wx).toBe(0)
-      expect(first.value.wz).toBe(CHUNK_SIZE)
-    }
+    const first = Option.getOrThrow(Arr.get(coords, 0))
+    expect(first.wx).toBe(0)
+    expect(first.wz).toBe(CHUNK_SIZE)
   })
 
   it('all wx values are in [baseX, baseX + CHUNK_SIZE - 1]', () => {
@@ -213,6 +204,35 @@ describe('buildTerrainLayer — NoiseServicePort octaveNoise2DBatch / noise2DBat
       expect(batch).toHaveLength(2)
       expect(batch[0]).toBeCloseTo(v0, 10)
       expect(batch[1]).toBeCloseTo(v1, 10)
+    }).pipe(Effect.provide(buildTerrainLayer(42)))
+  )
+
+  it.effect('noise3D via buildTerrainLayer returns a number in [-1, 1]', () =>
+    Effect.gen(function* () {
+      const noisePort = yield* NoiseServicePort
+      const value = yield* noisePort.noise3D(3, 4, 5)
+      expect(typeof value).toBe('number')
+      expect(value).toBeGreaterThanOrEqual(-1)
+      expect(value).toBeLessThanOrEqual(1)
+    }).pipe(Effect.provide(buildTerrainLayer(42)))
+  )
+
+  it.effect('setSeed via buildTerrainLayer is a no-op and completes without error', () =>
+    Effect.gen(function* () {
+      const noisePort = yield* NoiseServicePort
+      // setSeed is a no-op: the seed is baked in at layer construction time
+      const result = yield* noisePort.setSeed(99999)
+      expect(result).toBeUndefined()
+    }).pipe(Effect.provide(buildTerrainLayer(42)))
+  )
+
+  it.effect('setSeed does not change noise output (seed baked at construction)', () =>
+    Effect.gen(function* () {
+      const noisePort = yield* NoiseServicePort
+      const before = yield* noisePort.noise2D(5, 10)
+      yield* noisePort.setSeed(12345)
+      const after = yield* noisePort.noise2D(5, 10)
+      expect(before).toBe(after)
     }).pipe(Effect.provide(buildTerrainLayer(42)))
   )
 })

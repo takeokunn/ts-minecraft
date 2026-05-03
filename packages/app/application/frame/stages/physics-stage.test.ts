@@ -100,6 +100,31 @@ describe('step 3.5 — fall damage', () => {
     expect(applyDamageSpy).toHaveBeenCalledWith(3)
   }))
 
+  it.effect('does NOT apply fall damage when player has invincibilityTicks > 0', () => Effect.gen(function* () {
+    // Guard: tryApplyPlayerDamage bails early when invincibilityTicks > 0.
+    const deps = yield* makeDeps(false)
+    const services = makeServices({
+      inputService: makeInputService(),
+      inventoryRenderer: makeInventoryRenderer({ open: false }),
+      settingsOverlay: makeSettingsOverlay({ open: false }),
+    })
+    // Fall damage would be applied
+    ;(services.healthService as unknown as { processFallDamage: unknown }).processFallDamage = vi.fn(() =>
+      Effect.succeed(5)
+    )
+    // But the player is currently invincible
+    ;(services.healthService as unknown as { getHealth: unknown }).getHealth = vi.fn(() =>
+      Effect.succeed({ current: 15, max: 20, invincibilityTicks: 10 })
+    )
+    const applyDamageSpy = vi.fn(() => Effect.void)
+    ;(services.healthService as unknown as { applyDamage: unknown }).applyDamage = applyDamageSpy
+
+    yield* runFrame(deps, services)
+
+    // applyDamage must NOT be called because invincibilityTicks > 0
+    expect(applyDamageSpy).not.toHaveBeenCalled()
+  }))
+
   // FR-1.3: in SURVIVAL the death-screen overlay owns respawn; the frame
   // handler must NOT auto-respawn (would race the overlay and flicker).
   it.effect('does NOT auto-respawn the player on death in survival mode (death screen owns respawn)', () => Effect.gen(function* () {

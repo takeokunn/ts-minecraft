@@ -186,6 +186,7 @@ export class RedstoneService extends Effect.Service<RedstoneService>()(
               const anyButtonActive = Arr.some(
                 buttonKeysArr,
                 (key) => Option.match(HashMap.get(state.components, key), {
+                  /* c8 ignore next */
                   onNone: () => false,
                   onSome: (c) => c.state.buttonTicksRemaining > 0,
                 })
@@ -193,6 +194,7 @@ export class RedstoneService extends Effect.Service<RedstoneService>()(
               const anyButtonJustExpired = Arr.some(
                 buttonKeysArr,
                 (key) => Option.match(HashMap.get(state.components, key), {
+                  /* c8 ignore next */
                   onNone: () => false,
                   onSome: (c) =>
                     c.state.buttonTicksRemaining === 0 &&

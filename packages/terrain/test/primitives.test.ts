@@ -1,5 +1,6 @@
 import { describe, it } from 'vitest'
 import { expect } from 'vitest'
+import { Array as Arr } from 'effect'
 import {
   mulberry32,
   normalizeNoise,
@@ -10,16 +11,19 @@ import {
   createNoisePrimitives,
   noise2DBatch,
   octaveNoise2DBatch,
+  noise2DBatchXY,
+  noise3DBatchXYZ,
+  octaveNoise2DBatchXY,
 } from '../infrastructure/primitives'
 
 describe('mulberry32', () => {
   it('produces values in [0, 1)', () => {
     const rand = mulberry32(42)
-    for (let i = 0; i < 100; i++) {
+    Arr.forEach(Arr.makeBy(100, (i) => i), () => {
       const v = rand()
       expect(v).toBeGreaterThanOrEqual(0)
       expect(v).toBeLessThan(1)
-    }
+    })
   })
 
   it('is deterministic for the same seed', () => {
@@ -124,6 +128,11 @@ describe('SCALE constants', () => {
 })
 
 describe('computeOctaveNoise', () => {
+  it('returns 0 immediately when octaves < 1', () => {
+    const prims = createNoisePrimitives(42)
+    expect(computeOctaveNoise(prims.raw2D, 5, 7, 0, 0.5, 2.0)).toBe(0)
+  })
+
   it('with 1 octave matches the base noise function at the same coords', () => {
     const prims = createNoisePrimitives(42)
     // computeOctaveNoise(noiseFn, x, z, 1, ...) = normalizeNoise(noiseFn(x,z))
@@ -145,6 +154,41 @@ describe('computeOctaveNoise', () => {
     const v1 = computeOctaveNoise(prims.raw2D, 3, 9, 3, 0.5, 2.0)
     const v2 = computeOctaveNoise(prims.raw2D, 3, 9, 3, 0.5, 2.0)
     expect(v1).toBe(v2)
+  })
+})
+
+describe('createNoisePrimitives — sampleTerrainChannels', () => {
+  it('sampleTerrainChannels returns four Float64Array each of length 256', () => {
+    const prims = createNoisePrimitives(42)
+    const channels = prims.sampleTerrainChannels(0, 0)
+    expect(channels.continentalness).toBeInstanceOf(Float64Array)
+    expect(channels.erosion).toBeInstanceOf(Float64Array)
+    expect(channels.pv).toBeInstanceOf(Float64Array)
+    expect(channels.jaggedness).toBeInstanceOf(Float64Array)
+    expect(channels.continentalness.length).toBe(256)
+    expect(channels.erosion.length).toBe(256)
+    expect(channels.pv.length).toBe(256)
+    expect(channels.jaggedness.length).toBe(256)
+  })
+
+  it('sampleTerrainChannels is deterministic for the same seed and origin', () => {
+    const p1 = createNoisePrimitives(7)
+    const p2 = createNoisePrimitives(7)
+    const c1 = p1.sampleTerrainChannels(16, 32)
+    const c2 = p2.sampleTerrainChannels(16, 32)
+    expect(Array.from(c1.continentalness)).toEqual(Array.from(c2.continentalness))
+    expect(Array.from(c1.erosion)).toEqual(Array.from(c2.erosion))
+    expect(Array.from(c1.pv)).toEqual(Array.from(c2.pv))
+    expect(Array.from(c1.jaggedness)).toEqual(Array.from(c2.jaggedness))
+  })
+
+  it('sampleTerrainChannels produces different output for different origins', () => {
+    const prims = createNoisePrimitives(99)
+    const c1 = prims.sampleTerrainChannels(0, 0)
+    const c2 = prims.sampleTerrainChannels(1000, 2000)
+    // At least one channel value should differ between distant chunks
+    const anyDiff = Array.from(c1.continentalness).some((v, i) => v !== c2.continentalness[i])
+    expect(anyDiff).toBe(true)
   })
 })
 
@@ -174,50 +218,32 @@ describe('createNoisePrimitives', () => {
     expect(v).toBeGreaterThanOrEqual(-1.01)
     expect(v).toBeLessThanOrEqual(1.01)
   })
-})
 
-describe('noise2DBatch', () => {
-  it('returns one value per input point', () => {
+  it('erosionAt returns value in [-1, 1]', () => {
+    const prims = createNoisePrimitives(10)
+    const v = prims.erosionAt(100, 200)
+    expect(v).toBeGreaterThanOrEqual(-1.01)
+    expect(v).toBeLessThanOrEqual(1.01)
+  })
+
+  it('weirdnessAt returns value in [-1, 1]', () => {
+    const prims = createNoisePrimitives(10)
+    const v = prims.weirdnessAt(100, 200)
+    expect(v).toBeGreaterThanOrEqual(-1.01)
+    expect(v).toBeLessThanOrEqual(1.01)
+  })
+
+  it('jaggednessAt returns value in [-1, 1]', () => {
+    const prims = createNoisePrimitives(10)
+    const v = prims.jaggednessAt(100, 200)
+    expect(v).toBeGreaterThanOrEqual(-1.01)
+    expect(v).toBeLessThanOrEqual(1.01)
+  })
+
+  it('noise3D returns a numeric value', () => {
     const prims = createNoisePrimitives(42)
-    const points = [[0, 0], [10, 5], [100, 200]] as ReadonlyArray<readonly [number, number]>
-    const results = noise2DBatch(prims, points)
-    expect(results).toHaveLength(3)
-  })
-
-  it('matches scalar noise2D for the same coordinates', () => {
-    const prims = createNoisePrimitives(7)
-    const points: ReadonlyArray<readonly [number, number]> = [[3, 4], [10, 20], [0, 0]]
-    const batch = noise2DBatch(prims, points)
-    points.forEach(([x, z], i) => {
-      expect(batch[i]).toBeCloseTo(prims.noise2D(x, z), 10)
-    })
-  })
-
-  it('returns empty array for empty input', () => {
-    const prims = createNoisePrimitives(1)
-    expect(noise2DBatch(prims, [])).toEqual([])
-  })
-})
-
-describe('octaveNoise2DBatch', () => {
-  it('returns one value per input point', () => {
-    const prims = createNoisePrimitives(42)
-    const points = [[0, 0], [10, 5], [100, 200]] as ReadonlyArray<readonly [number, number]>
-    const results = octaveNoise2DBatch(prims, points, 4, 0.5, 2.0)
-    expect(results).toHaveLength(3)
-  })
-
-  it('matches scalar octaveNoise2D for the same coordinates', () => {
-    const prims = createNoisePrimitives(7)
-    const points: ReadonlyArray<readonly [number, number]> = [[3, 4], [10, 20], [0, 0]]
-    const batch = octaveNoise2DBatch(prims, points, 4, 0.5, 2.0)
-    points.forEach(([x, z], i) => {
-      expect(batch[i]).toBeCloseTo(prims.octaveNoise2D(x, z, 4, 0.5, 2.0), 10)
-    })
-  })
-
-  it('returns empty array for empty input', () => {
-    const prims = createNoisePrimitives(1)
-    expect(octaveNoise2DBatch(prims, [], 4, 0.5, 2.0)).toEqual([])
+    const v = prims.noise3D(1, 2, 3)
+    expect(typeof v).toBe('number')
+    expect(isNaN(v)).toBe(false)
   })
 })

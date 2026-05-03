@@ -1,3 +1,5 @@
+export * from './domain/biome'
+export * from './domain/biome-generator-port'
 export * from './domain/chunk'
 export * from './domain/errors'
 export * from './domain/noise-service-port'

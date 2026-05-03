@@ -44,10 +44,38 @@ export default defineConfig({
         '**/god-rays-pass.ts',
         '**/perf-marks.ts',
         'src/main.ts',
+        // Web Worker files — require browser Worker API
+        'packages/terrain/infrastructure/terrain-worker.ts',
+        'packages/terrain/infrastructure/terrain-worker-pool.ts',
+        'packages/rendering/infrastructure/meshing/meshing-worker-pool.ts',
+        // WebGL / THREE.js infrastructure — require a WebGL context
+        'packages/rendering/infrastructure/meshing/chunk-mesh.ts',
+        'packages/rendering/infrastructure/renderer/renderer-service.ts',
+        'packages/app/application/frame/types.ts',
+        // IndexedDB infrastructure — requires browser IDB API
+        'packages/world-state/infrastructure/idb-utils.ts',
+        'packages/world-state/infrastructure/storage-service.ts',
+        // Web Audio API infrastructure
+        'packages/game/infrastructure/audio-engine.ts',
+        // Browser entry-point wiring — requires full browser environment
+        'packages/app/application/main/**',
+        // Pure type files — all declarations erased at runtime, no executable statements
+        'packages/entities/domain/drop.ts',
+        // Schema-only declarations for THREE.js camera duck-typing — imported only at browser runtime
+        'packages/kernel/domain/math/three/camera-port.ts',
+        // Dead code — LightEngineService lives in packages/terrain; this world-state copy is unreferenced
+        'packages/world-state/application/light-engine-service.ts',
         // DOM-heavy presentation files with no meaningful unit-test surface
         '**/pause-menu.ts',
         '**/death-screen.ts',
         '**/input-service.ts',
+        'packages/app/presentation/hud/debug-overlay.ts',
+        'packages/app/presentation/menu/main-menu.ts',
+        'packages/app/presentation/menu/confirm-dialog.ts',
+        'packages/app/presentation/settings/settings-overlay.ts',
+        'packages/rendering/presentation/perf-hud.ts',
+        // WebGL texture loading — requires THREE.js TextureLoader and browser fetch
+        'packages/rendering/infrastructure/textures/texture-loader.ts',
       ],
       all: true,
       reporter: ['text', 'json', 'html', 'lcov'],

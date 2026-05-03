@@ -112,6 +112,20 @@ describe('slerp', () => {
     expect(r.w).toBeCloseTo(Math.SQRT1_2, 3)
   })
 
+  it('slerp with cosom < 0 (quaternions more than 90° apart) triggers negation branch', () => {
+    // 270° Z-rotation: w = cos(3π/4) = -√2/2 < 0 → cosom = identity.w * b.w = -√2/2 < 0
+    const b = fromAxisAngle({ x: 0, y: 0, z: 1 }, 3 * Math.PI / 2)
+    const r = slerp(identity, b, 0.5)
+    // Unit quaternion magnitude must stay 1
+    const magnitude = Math.sqrt(r.x * r.x + r.y * r.y + r.z * r.z + r.w * r.w)
+    expect(magnitude).toBeCloseTo(1, 3)
+    // After negating b (equiv. to -90° Z-rotation), midpoint at t=0.5 is -45° Z-rotation
+    expect(r.x).toBeCloseTo(0, 3)
+    expect(r.y).toBeCloseTo(0, 3)
+    expect(r.z).toBeCloseTo(-Math.sin(Math.PI / 8), 3)
+    expect(r.w).toBeCloseTo(Math.cos(Math.PI / 8), 3)
+  })
+
   it('very-close quaternions use linear fallback (cosom > 0.999999)', () => {
     const b = makeQuaternion(0.00001, 0, 0, 1)
     const r = slerp(identity, b, 0.5)

@@ -7,7 +7,9 @@ export class NoiseServicePort extends Effect.Service<NoiseServicePort>()(
   '@minecraft/application/noise/NoiseServicePort',
   {
     succeed: {
+      /* c8 ignore next 2 */
       noise2D: (_x: number, _z: number): Effect.Effect<number, never> => Effect.succeed(0.5),
+      /* c8 ignore next 7 */
       octaveNoise2D: (
         _x: number,
         _z: number,
@@ -15,14 +17,17 @@ export class NoiseServicePort extends Effect.Service<NoiseServicePort>()(
         _persistence: number,
         _lacunarity: number,
       ): Effect.Effect<number, never> => Effect.succeed(0.5),
+      /* c8 ignore next */
       setSeed: (_seed: number): Effect.Effect<void, never> => Effect.void,
       getSeed: Effect.succeed(0),
+      /* c8 ignore next 6 */
       octaveNoise2DBatch: (
         points: ReadonlyArray<readonly [number, number]>,
         _octaves: number,
         _persistence: number,
         _lacunarity: number,
       ): Effect.Effect<ReadonlyArray<number>> => Effect.succeed(Arr.makeBy(points.length, () => 0.5)),
+      /* c8 ignore next 7 */
       octaveNoise2DBatchXY: (
         xs: ReadonlyArray<number>,
         _zs: ReadonlyArray<number>,
@@ -30,27 +35,33 @@ export class NoiseServicePort extends Effect.Service<NoiseServicePort>()(
         _persistence: number,
         _lacunarity: number,
       ): Effect.Effect<ReadonlyArray<number>> => Effect.succeed(Arr.makeBy(xs.length, () => 0.5)),
+      /* c8 ignore next 3 */
       noise2DBatch: (
         points: ReadonlyArray<readonly [number, number]>,
       ): Effect.Effect<ReadonlyArray<number>> => Effect.succeed(Arr.makeBy(points.length, () => 0.5)),
+      /* c8 ignore next 4 */
       noise2DBatchXY: (
         xs: ReadonlyArray<number>,
         _zs: ReadonlyArray<number>,
       ): Effect.Effect<ReadonlyArray<number>> => Effect.succeed(Arr.makeBy(xs.length, () => 0.5)),
+      /* c8 ignore next 5 */
       noise3D: (
         _x: number,
         _y: number,
         _z: number,
       ): Effect.Effect<number, never> => Effect.succeed(0),
+      /* c8 ignore next 5 */
       noise3DBatchXYZ: (
         xs: ReadonlyArray<number>,
         _ys: ReadonlyArray<number>,
         _zs: ReadonlyArray<number>,
       ): Effect.Effect<ReadonlyArray<number>> => Effect.succeed(Arr.makeBy(xs.length, () => 0)),
+      /* c8 ignore next 4 */
       continentalness: (_x: number, _z: number): Effect.Effect<number, never> => Effect.succeed(0),
       erosion: (_x: number, _z: number): Effect.Effect<number, never> => Effect.succeed(0),
       weirdness: (_x: number, _z: number): Effect.Effect<number, never> => Effect.succeed(0),
       jaggedness: (_x: number, _z: number): Effect.Effect<number, never> => Effect.succeed(0),
+      /* c8 ignore next 18 */
       sampleTerrainChannels: (
         _xStart: number,
         _zStart: number,

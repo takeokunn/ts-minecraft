@@ -52,13 +52,7 @@ describe('recipe-service / findCraftable (property-based)', () => {
               const augmentedIds = HashSet.fromIterable(Arr.map(rs.findCraftable(augmentedMap), (r) => r.id))
 
               // Every recipe craftable from base must still be craftable from augmented
-              let allPresent = true
-              Arr.forEach(Arr.fromIterable(baseIds), id => {
-                if (!HashSet.has(augmentedIds, id)) {
-                  allPresent = false
-                }
-              })
-              return allPresent
+              return Arr.every(Arr.fromIterable(baseIds), id => HashSet.has(augmentedIds, id))
             }
           )
         )

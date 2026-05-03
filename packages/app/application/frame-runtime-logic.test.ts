@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import * as THREE from 'three'
+import { Option } from 'effect'
 import {
   advanceFixedStep,
   captureCameraPose,
@@ -48,7 +49,7 @@ describe('frame-runtime-logic', () => {
       renderDistance: 8,
       fps: 40,
       cooldown: 0,
-    })).toEqual({ nextCooldown: 0, settingsPatch: null })
+    })).toEqual({ nextCooldown: 0, settingsPatch: Option.none() })
 
     expect(decideAdaptiveQuality({
       adaptivePerformanceMode: true,
@@ -56,7 +57,7 @@ describe('frame-runtime-logic', () => {
       renderDistance: 8,
       fps: 40,
       cooldown: 0,
-    })).toEqual({ nextCooldown: 20, settingsPatch: { graphicsQuality: 'high' } })
+    })).toEqual({ nextCooldown: 20, settingsPatch: Option.some({ graphicsQuality: 'high' }) })
 
     expect(decideAdaptiveQuality({
       adaptivePerformanceMode: true,
@@ -64,7 +65,7 @@ describe('frame-runtime-logic', () => {
       renderDistance: 8,
       fps: 40,
       cooldown: 0,
-    })).toEqual({ nextCooldown: 20, settingsPatch: { renderDistance: 7 } })
+    })).toEqual({ nextCooldown: 20, settingsPatch: Option.some({ renderDistance: 7 }) })
 
     expect(decideAdaptiveQuality({
       adaptivePerformanceMode: true,
@@ -72,7 +73,7 @@ describe('frame-runtime-logic', () => {
       renderDistance: 8,
       fps: 40,
       cooldown: 3,
-    })).toEqual({ nextCooldown: 2, settingsPatch: null })
+    })).toEqual({ nextCooldown: 2, settingsPatch: Option.none() })
 
     expect(decideAdaptiveQuality({
       adaptivePerformanceMode: true,
@@ -80,7 +81,7 @@ describe('frame-runtime-logic', () => {
       renderDistance: 8,
       fps: 120,
       cooldown: 0,
-    })).toEqual({ nextCooldown: 0, settingsPatch: null })
+    })).toEqual({ nextCooldown: 0, settingsPatch: Option.none() })
 
     expect(decideAdaptiveQuality({
       adaptivePerformanceMode: true,
@@ -88,7 +89,7 @@ describe('frame-runtime-logic', () => {
       renderDistance: 8,
       fps: 40,
       cooldown: 0,
-    })).toEqual({ nextCooldown: 20, settingsPatch: { graphicsQuality: 'low' } })
+    })).toEqual({ nextCooldown: 20, settingsPatch: Option.some({ graphicsQuality: 'low' }) })
 
     expect(decideAdaptiveQuality({
       adaptivePerformanceMode: true,
@@ -96,6 +97,6 @@ describe('frame-runtime-logic', () => {
       renderDistance: 4,
       fps: 40,
       cooldown: 0,
-    })).toEqual({ nextCooldown: 0, settingsPatch: null })
+    })).toEqual({ nextCooldown: 0, settingsPatch: Option.none() })
   })
 })

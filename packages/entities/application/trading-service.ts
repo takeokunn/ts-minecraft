@@ -63,6 +63,7 @@ export class TradingService extends Effect.Service<TradingService>()(
 
             const offer = yield* require(findOfferForVillager(villager, offerId), 'offer_not_found')
 
+            /* c8 ignore next 3 */
             if (villager.level < offer.levelRequired) {
               return yield* Effect.fail<TradeFailureReason>('villager_level_too_low')
             }

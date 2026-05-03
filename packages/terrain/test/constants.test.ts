@@ -1,6 +1,6 @@
 import { describe, it } from 'vitest'
 import { expect } from 'vitest'
-import { Array as Arr } from 'effect'
+import { Array as Arr, Option } from 'effect'
 import {
   ORE_CONFIGS,
   ORE_MIN_Y_FLOOR,
@@ -47,21 +47,15 @@ describe('terrain constants — data integrity', () => {
     })
 
     it('COAL has the highest maxY (180) as the shallowest ore', () => {
-      const coal = Arr.findFirst(ORE_CONFIGS, (o) => o.name === 'COAL')
-      expect(coal._tag).toBe('Some')
-      if (coal._tag === 'Some') {
-        expect(coal.value.maxY).toBe(180)
-      }
+      const coal = Option.getOrThrow(Arr.findFirst(ORE_CONFIGS, (o) => o.name === 'COAL'))
+      expect(coal.maxY).toBe(180)
     })
 
     it('DIAMOND has the lowest maxY as the deepest ore', () => {
-      const diamond = Arr.findFirst(ORE_CONFIGS, (o) => o.name === 'DIAMOND')
+      const diamond = Option.getOrThrow(Arr.findFirst(ORE_CONFIGS, (o) => o.name === 'DIAMOND'))
       const maxYValues = Arr.map(ORE_CONFIGS, (o) => o.maxY)
       const minMaxY = Math.min(...maxYValues)
-      expect(diamond._tag).toBe('Some')
-      if (diamond._tag === 'Some') {
-        expect(diamond.value.maxY).toBe(minMaxY)
-      }
+      expect(diamond.maxY).toBe(minMaxY)
     })
 
     it('all distribution values are either "uniform" or "triangle"', () => {
@@ -97,9 +91,10 @@ describe('terrain constants — data integrity', () => {
     })
 
     it('BEDROCK_PROBABILITY values are monotonically decreasing', () => {
-      for (let i = 1; i < BEDROCK_PROBABILITY.length; i++) {
-        expect(BEDROCK_PROBABILITY[i]!).toBeLessThanOrEqual(BEDROCK_PROBABILITY[i - 1]!)
-      }
+      Arr.forEach(
+        Arr.zip(Arr.drop(BEDROCK_PROBABILITY as ReadonlyArray<number>, 1), BEDROCK_PROBABILITY as ReadonlyArray<number>),
+        ([cur, prev]) => expect(cur).toBeLessThanOrEqual(prev),
+      )
     })
   })
 

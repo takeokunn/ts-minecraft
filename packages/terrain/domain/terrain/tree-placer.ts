@@ -1,5 +1,5 @@
 import { CHUNK_SIZE, CHUNK_HEIGHT } from '@ts-minecraft/kernel'
-import type { BiomeType } from '../../application/biome-service'
+import type { BiomeType } from '../biome'
 import { SEA_LEVEL } from '@ts-minecraft/kernel'
 import { fract, chunkBlockIndexUnchecked } from './math'
 import { type TreeArchetype, AIR_BLOCK_INDEX, WOOD_BLOCK_INDEX, LEAVES_BLOCK_INDEX } from './surface-resolver'

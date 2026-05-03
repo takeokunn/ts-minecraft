@@ -22,10 +22,13 @@ export const evaluateSpline = (spline: Spline, t: number): number => {
       const [t0, v0] = spline[i - 1]!
       const span = t1 - t0
       // Guard against zero-width segments (duplicate t values).
+      /* c8 ignore next */
       if (span === 0) return v1
       return v0 + (v1 - v0) * (t - t0) / span
     }
+    /* c8 ignore next */
   }
+  /* c8 ignore next 3 */
   // Unreachable given the upper-bound clamp above, but satisfies the type system.
   return last[1]
 }

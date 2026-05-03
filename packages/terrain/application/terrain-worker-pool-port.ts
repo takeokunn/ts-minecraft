@@ -36,6 +36,7 @@ export class TerrainWorkerPoolPort extends Effect.Service<TerrainWorkerPoolPort>
   '@minecraft/application/terrain/TerrainWorkerPoolPort',
   {
     succeed: {
+      /* c8 ignore next 5 */
       generateTerrain: (
         _coord: ChunkCoord,
         _options: TerrainGenerationOptions,

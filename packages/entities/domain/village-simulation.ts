@@ -88,12 +88,9 @@ export const nextActivityForVillager = (
   if (timeOfDay < ACTIVITY_REST_END || timeOfDay > ACTIVITY_REST_START) {
     return VillagerActivity.Rest
   }
-
-  if (timeOfDay >= ACTIVITY_WORK_START && timeOfDay <= ACTIVITY_WORK_END) {
-    return VillagerActivity.Work
-  }
-
-  return VillagerActivity.Wander
+  return timeOfDay >= ACTIVITY_WORK_START && timeOfDay <= ACTIVITY_WORK_END
+    ? VillagerActivity.Work
+    : VillagerActivity.Wander
 }
 
 export const getTargetPosition = (

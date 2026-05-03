@@ -1,6 +1,6 @@
 import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
-import { Array as Arr, Effect, Layer, Option } from 'effect'
+import { Array as Arr, Effect, Layer, MutableRef, Option } from 'effect'
 import * as fc from 'effect/FastCheck'
 import type { BlockType } from '@ts-minecraft/kernel'
 import type { Block } from '@ts-minecraft/world-state'
@@ -17,7 +17,7 @@ import type { SlotIndex } from '@ts-minecraft/kernel'
 const asSlotIndex = (n: number): SlotIndex => n as unknown as SlotIndex
 
 const createTestInputService = (wheelDelta: number = 0) => {
-  let pendingWheelDelta = wheelDelta
+  const pendingWheelDeltaRef = MutableRef.make(wheelDelta)
 
   return {
     isKeyPressed: (_key: string) => Effect.sync(() => false),
@@ -30,11 +30,11 @@ const createTestInputService = (wheelDelta: number = 0) => {
     consumeMouseClick: (_button: number) => Effect.sync(() => false),
     consumeWheelDelta: () =>
       Effect.sync(() => {
-        const delta = pendingWheelDelta
-        pendingWheelDelta = 0
+        const delta = MutableRef.get(pendingWheelDeltaRef)
+        MutableRef.set(pendingWheelDeltaRef, 0)
         return delta
       }),
-    setWheelDelta: (d: number) => { pendingWheelDelta = d },
+    setWheelDelta: (d: number) => { MutableRef.set(pendingWheelDeltaRef, d) },
   }
 }
 

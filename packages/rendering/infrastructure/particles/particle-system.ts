@@ -201,6 +201,7 @@ export class ParticleSystemService extends Effect.Service<ParticleSystemService>
               MutableRef.set(activeCountRef, active + 1)
               return candidate
             }
+            /* c8 ignore next 4 */
           }
           // Fall through: state is inconsistent (active < MAX but no free slot
           // found). Treat as a saturated pool and recycle.

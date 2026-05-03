@@ -1,7 +1,7 @@
 // F3 debug overlay (FR-1.5). Runtime-toggled, distinct from URL-gated `?debug=perf` perf-hud.
 // z-index 5500 — above perf-hud (5000), so F3 stays readable when both are active.
 // Pre-allocated DOM text nodes (no innerHTML churn); 4 Hz daemon; acquireRelease lifecycle.
-import { Cause, Duration, Effect, MutableRef, Schedule } from 'effect'
+import { Array as Arr, Cause, Duration, Effect, MutableRef, Schedule } from 'effect'
 import type * as Scope from 'effect/Scope'
 
 import type { BiomeService } from '@ts-minecraft/terrain'
@@ -114,15 +114,14 @@ export class DebugOverlayService extends Effect.Service<DebugOverlayService>()(
         ]
         const initialValues: ReadonlyArray<string> = ['--', '--', '--', '--', '--', '--']
 
-        const nodes: Text[] = []
-        for (let i = 0; i < labels.length; i++) {
+        const nodes = Arr.map(Arr.zip(labels, initialValues), ([label, initial]) => {
           const line = document.createElement('div')
-          line.appendChild(document.createTextNode(labels[i]!))
-          const valueNode = document.createTextNode(initialValues[i]!)
+          line.appendChild(document.createTextNode(label))
+          const valueNode = document.createTextNode(initial)
           line.appendChild(valueNode)
           overlay.appendChild(line)
-          nodes.push(valueNode)
-        }
+          return valueNode
+        })
         document.body.appendChild(overlay)
         return { overlay, textNodes: nodes }
       }

@@ -13,3 +13,7 @@ export const SEA_LEVEL = 63
 
 // Phase 2.1 MC 1.18-aligned. Non-ocean lake water surface level.
 export const LAKE_LEVEL = 64
+
+// Player AABB half-extents — single source of truth used by block-service and game-state.
+export const PLAYER_HALF_WIDTH = 0.3   // x and z half-extents
+export const PLAYER_HALF_HEIGHT = 0.9  // y half-extent

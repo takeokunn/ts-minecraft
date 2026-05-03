@@ -1,7 +1,8 @@
 import { Effect, Option, Ref, Schema } from 'effect'
 import type { Position } from '@ts-minecraft/kernel'
 import { AudioEnginePort } from '../domain/audio-engine-port'
-import { clamp01, clampPan, type OscillatorWave } from '../domain/audio-types'
+import { clamp01 } from '../domain/audio-types'
+import { SOUND_LIBRARY, DEFAULT_LISTENER_POSITION, computeSpatial } from './sound-manager.config'
 
 export const SoundEffectSchema = Schema.Literal('blockBreak', 'blockPlace', 'playerHurt', 'entityHit')
 export type SoundEffect = Schema.Schema.Type<typeof SoundEffectSchema>
@@ -13,33 +14,6 @@ export const SoundSettingsSchema = Schema.Struct({
 })
 export type SoundSettings = Schema.Schema.Type<typeof SoundSettingsSchema>
 
-type SoundDefinition = {
-  readonly frequency: number
-  readonly durationMs: number
-  readonly wave: OscillatorWave
-  readonly baseGain: number
-}
-
-const SOUND_LIBRARY: Readonly<Record<SoundEffect, SoundDefinition>> = {
-  blockBreak: { frequency: 220, durationMs: 70, wave: 'square', baseGain: 0.4 },
-  blockPlace: { frequency: 320, durationMs: 50, wave: 'triangle', baseGain: 0.32 },
-  playerHurt: { frequency: 140, durationMs: 120, wave: 'sawtooth', baseGain: 0.5 },
-  entityHit: { frequency: 280, durationMs: 90, wave: 'square', baseGain: 0.38 },
-}
-
-const DEFAULT_LISTENER_POSITION: Position = { x: 0, y: 64, z: 0 }
-
-const computeSpatial = (listener: Position, source: Position): { gain: number; pan: number } => {
-  const dx = source.x - listener.x
-  const dy = source.y - listener.y
-  const dz = source.z - listener.z
-  const distance = Math.sqrt(dx * dx + dy * dy + dz * dz)
-
-  const attenuation = 1 / (1 + distance / 12)
-  const pan = clampPan(dx / 12)
-
-  return { gain: attenuation, pan }
-}
 
 export class SoundManager extends Effect.Service<SoundManager>()(
   '@minecraft/audio/SoundManager',

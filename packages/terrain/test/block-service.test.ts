@@ -1,6 +1,6 @@
 import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
-import { Effect, HashSet, Layer, Option } from 'effect'
+import { Array as Arr, Effect, Either, HashSet, Layer, MutableRef, Option } from 'effect'
 import { BlockService, BlockServiceLive, BlockServiceError, blockOverlapsPlayer, worldToBlockLocal } from '@ts-minecraft/terrain'
 import { ChunkManagerService } from '@ts-minecraft/terrain'
 import { ChunkService, ChunkServiceLive } from '../domain/chunk'
@@ -18,9 +18,9 @@ import type { BlockType } from '@ts-minecraft/kernel'
 
 const makeBlocks = (overrides: Array<{ idx: number; type: BlockType }> = []): Uint8Array<ArrayBufferLike> => {
   const blocks = new Uint8Array(CHUNK_SIZE * CHUNK_SIZE * CHUNK_HEIGHT)
-  for (const { idx, type } of overrides) {
+  Arr.forEach(overrides, ({ idx, type }) => {
     blocks[idx] = blockTypeToIndex(type)
-  }
+  })
   return blocks
 }
 
@@ -184,7 +184,7 @@ describe('terrain/application/block-service breakBlock harvest logic', () => {
     return Effect.gen(function* () {
       const svc = yield* BlockService
       const result = yield* Effect.either(svc.breakBlock({ x: 0, y: 64, z: 0 }))
-      expect(result._tag).toBe('Right')
+      expect(Either.isRight(result)).toBe(true)
     }).pipe(Effect.provide(layer))
   })
 
@@ -214,10 +214,9 @@ describe('terrain/application/block-service breakBlock harvest logic', () => {
     return Effect.gen(function* () {
       const svc = yield* BlockService
       const result = yield* Effect.either(svc.breakBlock({ x: 0, y: 64, z: 0 }))
-      expect(result._tag).toBe('Left')
-      if (result._tag === 'Left') {
-        expect(result.left.reason).toContain('requires a stronger pickaxe')
-      }
+      expect(Either.isLeft(result)).toBe(true)
+      const err = Option.getOrThrow(Either.getLeft(result))
+      expect(err.reason).toContain('requires a stronger pickaxe')
     }).pipe(Effect.provide(layer))
   })
 
@@ -229,7 +228,7 @@ describe('terrain/application/block-service breakBlock harvest logic', () => {
     return Effect.gen(function* () {
       const svc = yield* BlockService
       const result = yield* Effect.either(svc.breakBlock({ x: 0, y: 64, z: 0 }))
-      expect(result._tag).toBe('Right')
+      expect(Either.isRight(result)).toBe(true)
     }).pipe(Effect.provide(layer))
   })
 
@@ -241,7 +240,20 @@ describe('terrain/application/block-service breakBlock harvest logic', () => {
     return Effect.gen(function* () {
       const svc = yield* BlockService
       const result = yield* Effect.either(svc.breakBlock({ x: 0, y: 64, z: 0 }))
-      expect(result._tag).toBe('Right')
+      expect(Either.isRight(result)).toBe(true)
+    }).pipe(Effect.provide(layer))
+  })
+
+  it.effect('canHarvestBlock with WOODEN_PICKAXE returns false for non-harvestable block (covers false branch)', () => {
+    // IRON_ORE is NOT in WOODEN_PICKAXE_HARVESTABLE_BLOCKS → HashSet.has returns false → breakBlock fails
+    const layer = buildLayer({
+      blockAtIdx: 'IRON_ORE',
+      selectedTool: Option.some('WOODEN_PICKAXE' as BlockType),
+    })
+    return Effect.gen(function* () {
+      const svc = yield* BlockService
+      const result = yield* Effect.either(svc.breakBlock({ x: 0, y: 64, z: 0 }))
+      expect(Either.isLeft(result)).toBe(true)
     }).pipe(Effect.provide(layer))
   })
 
@@ -253,7 +265,7 @@ describe('terrain/application/block-service breakBlock harvest logic', () => {
     return Effect.gen(function* () {
       const svc = yield* BlockService
       const result = yield* Effect.either(svc.breakBlock({ x: 0, y: 64, z: 0 }))
-      expect(result._tag).toBe('Right')
+      expect(Either.isRight(result)).toBe(true)
     }).pipe(Effect.provide(layer))
   })
 
@@ -265,7 +277,7 @@ describe('terrain/application/block-service breakBlock harvest logic', () => {
     return Effect.gen(function* () {
       const svc = yield* BlockService
       const result = yield* Effect.either(svc.breakBlock({ x: 0, y: 64, z: 0 }))
-      expect(result._tag).toBe('Right')
+      expect(Either.isRight(result)).toBe(true)
     }).pipe(Effect.provide(layer))
   })
 })
@@ -274,243 +286,3 @@ describe('terrain/application/block-service breakBlock harvest logic', () => {
 // breakBlock — FURNACE path (lines 137–150)
 // ---------------------------------------------------------------------------
 
-describe('terrain/application/block-service breakBlock furnace', () => {
-  it.effect('breakBlock on FURNACE succeeds when dismantleFurnace returns true', () => {
-    const chunk = makeChunk('FURNACE', BLOCK_IDX_64)
-    const layer = BlockServiceLive.pipe(
-      Layer.provide(makeChunkManagerLayer({ chunk })),
-      Layer.provide(ChunkServiceLive),
-      Layer.provide(noopFluidService),
-      Layer.provide(makePlayerLayer()),
-      Layer.provide(makeInventoryLayer()),
-      Layer.provide(makeHotbarLayer()),
-      Layer.provide(makeFurnaceLayer({ dismantleResult: true })),
-    )
-    return Effect.gen(function* () {
-      const svc = yield* BlockService
-      const result = yield* Effect.either(svc.breakBlock({ x: 0, y: 64, z: 0 }))
-      expect(result._tag).toBe('Right')
-    }).pipe(Effect.provide(layer))
-  })
-
-  it.effect('breakBlock on FURNACE fails when dismantleFurnace returns false', () => {
-    const chunk = makeChunk('FURNACE', BLOCK_IDX_64)
-    const layer = BlockServiceLive.pipe(
-      Layer.provide(makeChunkManagerLayer({ chunk })),
-      Layer.provide(ChunkServiceLive),
-      Layer.provide(noopFluidService),
-      Layer.provide(makePlayerLayer()),
-      Layer.provide(makeInventoryLayer()),
-      Layer.provide(makeHotbarLayer()),
-      Layer.provide(makeFurnaceLayer({ dismantleResult: false })),
-    )
-    return Effect.gen(function* () {
-      const svc = yield* BlockService
-      const result = yield* Effect.either(svc.breakBlock({ x: 0, y: 64, z: 0 }))
-      expect(result._tag).toBe('Left')
-      if (result._tag === 'Left') {
-        expect(result.left.operation).toBe('breakBlock')
-        expect(result.left.reason).toContain('Cannot break furnace')
-      }
-    }).pipe(Effect.provide(layer))
-  })
-})
-
-// ---------------------------------------------------------------------------
-// placeBlock — inventory rollback path (lines 215–227)
-// ---------------------------------------------------------------------------
-
-describe('terrain/application/block-service placeBlock inventory rollback', () => {
-  it.effect('placeBlock fails and rolls back when removeBlock returns false', () => {
-    // Position far from player so blockOverlapsPlayer is false
-    const chunk = makeChunk('AIR', BLOCK_IDX_64)
-    const layer = BlockServiceLive.pipe(
-      Layer.provide(makeChunkManagerLayer({ chunk })),
-      Layer.provide(ChunkServiceLive),
-      Layer.provide(noopFluidService),
-      Layer.provide(makePlayerLayer({ x: 100, y: 100, z: 100 })),
-      Layer.provide(makeInventoryLayer({ removeBlockResult: false })),
-      Layer.provide(makeHotbarLayer()),
-      Layer.provide(makeFurnaceLayer()),
-    )
-    return Effect.gen(function* () {
-      const svc = yield* BlockService
-      const result = yield* Effect.either(svc.placeBlock({ x: 0, y: 64, z: 0 }, 'STONE'))
-      expect(result._tag).toBe('Left')
-      if (result._tag === 'Left') {
-        expect(result.left.operation).toBe('placeBlock')
-        expect(result.left.reason).toContain('No STONE available in inventory')
-      }
-    }).pipe(Effect.provide(layer))
-  })
-
-  it.effect('placeBlock on a non-air position fails with "Block already exists" error', () => {
-    const chunk = makeChunk('STONE', BLOCK_IDX_64)
-    const layer = buildLayer({ blockAtIdx: 'STONE' })
-    return Effect.gen(function* () {
-      const svc = yield* BlockService
-      const result = yield* Effect.either(svc.placeBlock({ x: 0, y: 64, z: 0 }, 'DIRT'))
-      expect(result._tag).toBe('Left')
-      if (result._tag === 'Left') {
-        expect(result.left.reason).toContain('Block already exists')
-      }
-    }).pipe(Effect.provide(layer))
-  })
-
-  it.effect('placeBlock with NON_PLACEABLE_BLOCK_TYPES fails', () => {
-    const chunk = makeChunk('AIR')
-    const layer = BlockServiceLive.pipe(
-      Layer.provide(makeChunkManagerLayer({ chunk })),
-      Layer.provide(ChunkServiceLive),
-      Layer.provide(noopFluidService),
-      Layer.provide(makePlayerLayer({ x: 100, y: 100, z: 100 })),
-      Layer.provide(makeInventoryLayer()),
-      Layer.provide(makeHotbarLayer()),
-      Layer.provide(makeFurnaceLayer()),
-    )
-    return Effect.gen(function* () {
-      const svc = yield* BlockService
-      const result = yield* Effect.either(svc.placeBlock({ x: 0, y: 64, z: 0 }, 'DIAMOND'))
-      expect(result._tag).toBe('Left')
-      if (result._tag === 'Left') {
-        expect(result.left.reason).toContain('cannot be placed')
-      }
-    }).pipe(Effect.provide(layer))
-  })
-
-  it.effect('placeBlock fails when block overlaps player position', () => {
-    const chunk = makeChunk('AIR')
-    const layer = BlockServiceLive.pipe(
-      Layer.provide(makeChunkManagerLayer({ chunk })),
-      Layer.provide(ChunkServiceLive),
-      Layer.provide(noopFluidService),
-      // Player at (0, 64, 0) → block at (0, 64, 0) will overlap
-      Layer.provide(makePlayerLayer({ x: 0, y: 64, z: 0 })),
-      Layer.provide(makeInventoryLayer()),
-      Layer.provide(makeHotbarLayer()),
-      Layer.provide(makeFurnaceLayer()),
-    )
-    return Effect.gen(function* () {
-      const svc = yield* BlockService
-      const result = yield* Effect.either(svc.placeBlock({ x: 0, y: 64, z: 0 }, 'STONE'))
-      expect(result._tag).toBe('Left')
-      if (result._tag === 'Left') {
-        expect(result.left.reason).toContain('inside player')
-      }
-    }).pipe(Effect.provide(layer))
-  })
-
-  it.effect('placeBlock WATER block triggers seedWater', () => {
-    let seedWaterCalled = false
-    const chunk = makeChunk('AIR')
-    const fluidSvc = Layer.succeed(FluidService, {
-      _tag: '@minecraft/application/FluidService' as const,
-      notifyBlockChanged: () => Effect.void,
-      seedWater: () => Effect.sync(() => { seedWaterCalled = true }),
-      seedLava: () => Effect.void,
-      removeWater: () => Effect.void,
-      removeLava: () => Effect.void,
-      syncLoadedChunks: () => Effect.void,
-      tick: () => Effect.void,
-    } as unknown as FluidService)
-    const layer = BlockServiceLive.pipe(
-      Layer.provide(makeChunkManagerLayer({ chunk })),
-      Layer.provide(ChunkServiceLive),
-      Layer.provide(fluidSvc),
-      Layer.provide(makePlayerLayer({ x: 100, y: 100, z: 100 })),
-      Layer.provide(makeInventoryLayer()),
-      Layer.provide(makeHotbarLayer()),
-      Layer.provide(makeFurnaceLayer()),
-    )
-    return Effect.gen(function* () {
-      const svc = yield* BlockService
-      const result = yield* Effect.either(svc.placeBlock({ x: 0, y: 64, z: 0 }, 'WATER'))
-      expect(result._tag).toBe('Right')
-      expect(seedWaterCalled).toBe(true)
-    }).pipe(Effect.provide(layer))
-  })
-
-  it.effect('breakBlock on WATER block triggers removeWater', () => {
-    let removeWaterCalled = false
-    const chunk = makeChunk('WATER', BLOCK_IDX_64)
-    const fluidSvc = Layer.succeed(FluidService, {
-      _tag: '@minecraft/application/FluidService' as const,
-      notifyBlockChanged: () => Effect.void,
-      seedWater: () => Effect.void,
-      seedLava: () => Effect.void,
-      removeWater: () => Effect.sync(() => { removeWaterCalled = true }),
-      removeLava: () => Effect.void,
-      syncLoadedChunks: () => Effect.void,
-      tick: () => Effect.void,
-    } as unknown as FluidService)
-    const layer = BlockServiceLive.pipe(
-      Layer.provide(makeChunkManagerLayer({ chunk })),
-      Layer.provide(ChunkServiceLive),
-      Layer.provide(fluidSvc),
-      Layer.provide(makePlayerLayer()),
-      Layer.provide(makeInventoryLayer()),
-      Layer.provide(makeHotbarLayer()),
-      Layer.provide(makeFurnaceLayer()),
-    )
-    return Effect.gen(function* () {
-      const svc = yield* BlockService
-      const result = yield* Effect.either(svc.breakBlock({ x: 0, y: 64, z: 0 }))
-      expect(result._tag).toBe('Right')
-      expect(removeWaterCalled).toBe(true)
-    }).pipe(Effect.provide(layer))
-  })
-
-  it.effect('breakBlock on AIR fails with "No block" error', () => {
-    const chunk = makeChunk('AIR')
-    const layer = BlockServiceLive.pipe(
-      Layer.provide(makeChunkManagerLayer({ chunk })),
-      Layer.provide(ChunkServiceLive),
-      Layer.provide(noopFluidService),
-      Layer.provide(makePlayerLayer()),
-      Layer.provide(makeInventoryLayer()),
-      Layer.provide(makeHotbarLayer()),
-      Layer.provide(makeFurnaceLayer()),
-    )
-    return Effect.gen(function* () {
-      const svc = yield* BlockService
-      const result = yield* Effect.either(svc.breakBlock({ x: 0, y: 64, z: 0 }))
-      expect(result._tag).toBe('Left')
-      if (result._tag === 'Left') {
-        expect(result.left.reason).toContain('No block at position')
-      }
-    }).pipe(Effect.provide(layer))
-  })
-})
-
-// ---------------------------------------------------------------------------
-// BlockServiceError.message getter
-// ---------------------------------------------------------------------------
-
-describe('BlockServiceError', () => {
-  it('message includes cause string when cause is an Error', () => {
-    const err = new BlockServiceError({
-      operation: 'breakBlock',
-      reason: 'something failed',
-      cause: new Error('inner'),
-    })
-    expect(err.message).toContain('inner')
-  })
-
-  it('message includes cause string when cause is a plain value', () => {
-    const err = new BlockServiceError({
-      operation: 'breakBlock',
-      reason: 'something failed',
-      cause: 'raw cause',
-    })
-    expect(err.message).toContain('raw cause')
-  })
-
-  it('message has no trailing colon when cause is absent', () => {
-    const err = new BlockServiceError({
-      operation: 'breakBlock',
-      reason: 'no cause',
-    })
-    expect(err.message).not.toContain(':undefined')
-    expect(err.message).toContain('breakBlock')
-  })
-})

@@ -1,7 +1,7 @@
 import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
-import { Effect, Option } from 'effect'
-import { EntityType } from '@ts-minecraft/entities'
+import { Array as Arr, Effect, Option } from 'effect'
+import { EntityType, EntityId } from '@ts-minecraft/entities'
 import { EntityManager, EntityManagerLive } from '@ts-minecraft/entities'
 import { DeltaTimeSecs } from '@ts-minecraft/kernel'
 
@@ -52,7 +52,6 @@ describe('entity/entityManager', () => {
     it.effect('returns false for a non-existent entity id', () =>
       Effect.gen(function* () {
         const entityManager = yield* EntityManager
-        const { EntityId } = yield* Effect.promise(() => import('@ts-minecraft/entities'))
         const fakeId = EntityId.make('entity-nonexistent')
         const removed = yield* entityManager.removeEntity(fakeId)
         expect(removed).toBe(false)
@@ -85,7 +84,6 @@ describe('entity/entityManager', () => {
     it.effect('returns Option.none for an unknown id', () =>
       Effect.gen(function* () {
         const entityManager = yield* EntityManager
-        const { EntityId } = yield* Effect.promise(() => import('@ts-minecraft/entities'))
         const fakeId = EntityId.make('entity-unknown')
         const result = yield* entityManager.getEntity(fakeId)
         expect(Option.isNone(result)).toBe(true)
@@ -138,6 +136,17 @@ describe('entity/entityManager', () => {
         expect(count).toBe(1)
       }).pipe(Effect.provide(EntityManagerLive))
     )
+
+    it.effect('positive damage on non-existent entity returns Option.none() and leaves count at 0', () =>
+      Effect.gen(function* () {
+        const entityManager = yield* EntityManager
+        const fakeId = EntityId.make('entity-nonexistent-damage')
+        const result = yield* entityManager.applyDamage(fakeId, 10)
+        expect(Option.isNone(result)).toBe(true)
+        const count = yield* entityManager.getCount()
+        expect(count).toBe(0)
+      }).pipe(Effect.provide(EntityManagerLive))
+    )
   })
 
   describe('getPlayerContactDamage', () => {
@@ -158,6 +167,41 @@ describe('entity/entityManager', () => {
         expect(damage).toBe(0)
       }).pipe(Effect.provide(EntityManagerLive))
     )
+
+    it.effect('hostile entity within attack range → returns attack damage and sets cooldown', () =>
+      Effect.gen(function* () {
+        const entityManager = yield* EntityManager
+        // Zombie attackDamage=3, attackRange=1.6; place zombie at x=0, player at x=1 (distance=1 < 1.6)
+        yield* entityManager.addEntity(EntityType.Zombie, { x: 0, y: 64, z: 0 })
+        const damage = yield* entityManager.getPlayerContactDamage({ x: 1, y: 64, z: 0 })
+        expect(damage).toBe(3)
+
+        // Cooldown active → returns 0 even though still in range
+        const damageAfterCooldown = yield* entityManager.getPlayerContactDamage({ x: 1, y: 64, z: 0 })
+        expect(damageAfterCooldown).toBe(0)
+      }).pipe(Effect.provide(EntityManagerLive))
+    )
+  })
+
+  describe('getEntityAIState', () => {
+    it.effect('returns Option.some with Idle for a freshly-added entity', () =>
+      Effect.gen(function* () {
+        const entityManager = yield* EntityManager
+        const entityId = yield* entityManager.addEntity(EntityType.Zombie, { x: 0, y: 64, z: 0 })
+        const result = yield* entityManager.getEntityAIState(entityId)
+        expect(Option.isSome(result)).toBe(true)
+        expect(Option.getOrThrow(result)).toBe('Idle')
+      }).pipe(Effect.provide(EntityManagerLive))
+    )
+
+    it.effect('returns Option.none for an unknown entity id', () =>
+      Effect.gen(function* () {
+        const entityManager = yield* EntityManager
+        const fakeId = EntityId.make('entity-nonexistent-ai')
+        const result = yield* entityManager.getEntityAIState(fakeId)
+        expect(Option.isNone(result)).toBe(true)
+      }).pipe(Effect.provide(EntityManagerLive))
+    )
   })
 
   describe('update', () => {
@@ -174,6 +218,36 @@ describe('entity/entityManager', () => {
         const entityManager = yield* EntityManager
         yield* entityManager.addEntity(EntityType.Cow, { x: 0, y: 64, z: 0 })
         yield* entityManager.update(DeltaTimeSecs.make(0.016), { x: 0, y: 64, z: 0 })
+        const entities = yield* entityManager.getEntities()
+        expect(entities.length).toBe(1)
+      }).pipe(Effect.provide(EntityManagerLive))
+    )
+
+    it.effect('entity in attack range transitions to attack state (non-wander wanderDirection path)', () =>
+      Effect.gen(function* () {
+        const entityManager = yield* EntityManager
+        // Zombie attackRange is 2; player at same position triggers Attack state
+        yield* entityManager.addEntity(EntityType.Zombie, { x: 0, y: 64, z: 0 })
+        // Update with player at the zombie's exact position — within attack range
+        yield* entityManager.update(DeltaTimeSecs.make(0.016), { x: 0, y: 64, z: 0 })
+        const entities = yield* entityManager.getEntities()
+        expect(entities.length).toBe(1)
+        // Entity should still exist (attack doesn't remove the entity, only damage does)
+      }).pipe(Effect.provide(EntityManagerLive))
+    )
+
+    it.effect('entity enters Wander state at tick 13 — covers makeWanderDirection (ternary true branch)', () =>
+      Effect.gen(function* () {
+        const entityManager = yield* EntityManager
+        // First entity created = entity-1; hashEntityId('entity-1') % 1000 = 793.
+        // randomWanderRoll at tick t = (793 + t*17) % 1000 / 1000.
+        // At tick=13: (793 + 221) % 1000 / 1000 = 14/1000 = 0.014 < WANDER_TRIGGER_THRESHOLD(0.08).
+        // Player at (1000,64,1000) keeps entity outside detectionRange (16) → no Chase/Flee/Attack.
+        yield* entityManager.addEntity(EntityType.Zombie, { x: 0, y: 64, z: 0 })
+        yield* Effect.forEach(Arr.makeBy(13, (i) => i), () =>
+          entityManager.update(DeltaTimeSecs.make(0.016), { x: 1000, y: 64, z: 1000 }),
+          { concurrency: 1 }
+        )
         const entities = yield* entityManager.getEntities()
         expect(entities.length).toBe(1)
       }).pipe(Effect.provide(EntityManagerLive))

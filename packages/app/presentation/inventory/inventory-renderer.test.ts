@@ -1,160 +1,15 @@
 import { describe, it } from '@effect/vitest'
-import { Array as Arr, Effect, Layer, Option } from 'effect'
-import { expect, vi } from 'vitest'
+import { Array as Arr, Effect, Option } from 'effect'
+import { expect } from 'vitest'
 import { InventoryRendererService, InventoryRendererLive } from '@ts-minecraft/app/presentation/inventory/inventory-renderer'
-import { InventoryService, INVENTORY_SIZE, HOTBAR_START } from '@ts-minecraft/inventory'
-import { HotbarService } from '@ts-minecraft/inventory'
-import { RecipeService } from '@ts-minecraft/inventory'
-import { FurnaceService } from '@ts-minecraft/inventory'
-import { GameStateService } from '@ts-minecraft/game'
-import { ChunkManagerService } from '@ts-minecraft/terrain'
-import { DomOperationsService } from '@ts-minecraft/app/presentation/hud/crosshair'
-import type { SlotIndex } from '@ts-minecraft/kernel'
-
-// ---------------------------------------------------------------------------
-// Mock factories
-// ---------------------------------------------------------------------------
-
-const createMockDomLayer = () => {
-  const createElement = vi.fn((_tagName: string) => {
-    const el = {
-      id: '',
-      style: {
-        cssText: '',
-        display: 'none',
-        background: '#333',
-        border: '2px solid #666',
-      },
-      textContent: null as string | null,
-      title: '',
-      dataset: {} as Record<string, string>,
-      addEventListener: vi.fn(),
-      removeEventListener: vi.fn(),
-      remove: vi.fn(),
-    } as unknown as HTMLElement
-    return el
-  })
-
-  const MockDomLayer = Layer.succeed(DomOperationsService, {
-    createElement,
-    appendChild: vi.fn(),
-    appendChildTo: vi.fn(),
-    removeChild: vi.fn(),
-    getParentNode: vi.fn(() => Option.none()),
-    setInnerHTML: vi.fn(),
-    querySelector: vi.fn(() => Option.none()),
-  } as unknown as DomOperationsService)
-
-  return { MockDomLayer, createElement }
-}
-
-const createMockInventoryLayer = (overrideSlots?: ReadonlyArray<Option.Option<unknown>>) => {
-  const slots = Option.getOrElse(Option.fromNullable(overrideSlots), () => Arr.makeBy(INVENTORY_SIZE, () => Option.none()))
-  const getAllSlots = vi.fn(() => Effect.succeed(slots))
-  const getSlot = vi.fn((_: SlotIndex) => Effect.succeed(Option.none()))
-  const setSlot = vi.fn((_: SlotIndex, __: unknown) => Effect.void)
-  const moveStack = vi.fn((_from: SlotIndex, _to: SlotIndex) => Effect.void)
-  const addBlock = vi.fn((_bt: unknown, _count: number) => Effect.succeed(true))
-  const removeBlock = vi.fn((_bt: unknown, _count: number) => Effect.succeed(true))
-  const getHotbarSlots = vi.fn(() => Effect.succeed(Arr.drop(slots, HOTBAR_START)))
-  const serialize = vi.fn(() => Effect.succeed({ slots: [] }))
-  const deserialize = vi.fn((_: unknown) => Effect.void)
-
-  const MockInventoryLayer = Layer.succeed(InventoryService, {
-    getAllSlots,
-    getSlot,
-    setSlot,
-    moveStack,
-    addBlock,
-    removeBlock,
-    getHotbarSlots,
-    serialize,
-    deserialize,
-  } as unknown as InventoryService)
-
-  return { MockInventoryLayer, getAllSlots, moveStack }
-}
-
-const createMockHotbarLayer = (selectedSlot = 0) => {
-  const getSelectedSlot = vi.fn(() => Effect.succeed(selectedSlot))
-  const MockHotbarLayer = Layer.succeed(HotbarService, {
-    getSelectedSlot,
-    setSelectedSlot: (_: SlotIndex) => Effect.void,
-    getSelectedBlockType: () => Effect.succeed(Option.none()),
-    getSlots: () => Effect.succeed([]),
-    update: () => Effect.void,
-  } as unknown as HotbarService)
-  return { MockHotbarLayer, getSelectedSlot }
-}
-
-const createMockRecipeLayer = () => {
-  const recipes: Array<{ id: string; ingredients: Array<{ blockType: string; count: number }>; output: { blockType: string; count: number } }> = []
-  const getAllRecipes = vi.fn(() => recipes)
-  const findById = vi.fn((_id: string) => Option.none())
-  const findCraftable = vi.fn((_available: unknown, _hasTableAccess: boolean) => recipes)
-  const craft = vi.fn((_id: string, _inventory: unknown, _hasTableAccess: boolean) => Effect.void)
-
-  const MockRecipeLayer = Layer.succeed(RecipeService, {
-    getAllRecipes,
-    findById,
-    findCraftable,
-    craft,
-  } as unknown as RecipeService)
-
-  return { MockRecipeLayer, getAllRecipes, findCraftable, craft, recipes }
-}
-
-const createMockFurnaceLayer = () => {
-  const startSmelting = vi.fn((_id: string) => Effect.void)
-  const collectOutput = vi.fn(() => Effect.succeed(true))
-  const MockFurnaceLayer = Layer.succeed(FurnaceService, {
-    getState: () => Effect.succeed({ active: Option.none() }),
-    getNearestFurnaceState: () => Effect.succeed(Option.none()),
-    hasNearbyFurnace: () => Effect.succeed(false),
-    startSmelting,
-    collectOutput,
-    setSelectedFurnace: () => Effect.void,
-    clearFurnace: () => Effect.succeed([]),
-    dismantleFurnace: () => Effect.succeed(true),
-    serialize: () => Effect.succeed([]),
-    deserialize: () => Effect.void,
-    tick: () => Effect.void,
-  } as unknown as FurnaceService)
-  return { MockFurnaceLayer, startSmelting, collectOutput }
-}
-
-const createMockGameStateLayer = () => {
-  const MockGameStateLayer = Layer.succeed(GameStateService, {
-    getPlayerPosition: () => Effect.succeed({ x: 0, y: 0, z: 0 }),
-  } as unknown as GameStateService)
-  return { MockGameStateLayer }
-}
-
-const createMockChunkManagerLayer = () => {
-  const MockChunkManagerLayer = Layer.succeed(ChunkManagerService, {
-    getChunk: () => Effect.succeed({ blocks: new Uint8Array(256 * 16 * 16) }),
-  } as unknown as ChunkManagerService)
-  return { MockChunkManagerLayer }
-}
-
-const buildTestLayer = (
-  mockDom = createMockDomLayer(),
-  mockInventory = createMockInventoryLayer(),
-  mockHotbar = createMockHotbarLayer(),
-  mockRecipe = createMockRecipeLayer(),
-  mockFurnace = createMockFurnaceLayer(),
-  mockGameState = createMockGameStateLayer(),
-  mockChunkManager = createMockChunkManagerLayer(),
-) =>
-  InventoryRendererLive.pipe(
-    Layer.provide(mockDom.MockDomLayer),
-    Layer.provide(mockInventory.MockInventoryLayer),
-    Layer.provide(mockHotbar.MockHotbarLayer),
-    Layer.provide(mockRecipe.MockRecipeLayer),
-    Layer.provide(mockFurnace.MockFurnaceLayer),
-    Layer.provide(mockGameState.MockGameStateLayer),
-    Layer.provide(mockChunkManager.MockChunkManagerLayer),
-  )
+import { INVENTORY_SIZE } from '@ts-minecraft/inventory'
+import {
+  buildTestLayer,
+  createMockDomLayer,
+  createMockInventoryLayer,
+  createMockHotbarLayer,
+  createMockRecipeLayer,
+} from './inventory-renderer-test-utils'
 
 // ---------------------------------------------------------------------------
 // Tests
@@ -334,6 +189,31 @@ describe('presentation/inventory/inventory-renderer', () => {
         expect(openResult).toBe(true)
         expect(closeResult).toBe(false)
         expect(finalOpen).toBe(false)
+      }).pipe(Effect.provide(TestLayer))
+    })
+  })
+
+  // ---------------------------------------------------------------------------
+  // collectAvailableCounts — onSome branch (lines 59-63)
+  // ---------------------------------------------------------------------------
+
+  describe('collectAvailableCounts (via refreshSlots)', () => {
+    it.scoped('processes inventory items — onSome branch accumulates block counts', () => {
+      const mockRecipe = createMockRecipeLayer()
+      const mockDom = createMockDomLayer()
+      const mockHotbar = createMockHotbarLayer()
+      // Provide two DIRT items in slots 0 and 1 to hit the onSome HashMap.set path
+      const slots = Arr.makeBy(INVENTORY_SIZE, (i) =>
+        i < 2 ? Option.some({ blockType: 'DIRT', count: 5 }) : Option.none(),
+      )
+      const mockInventory = createMockInventoryLayer(slots as ReadonlyArray<Option.Option<unknown>>)
+      const TestLayer = buildTestLayer(mockDom, mockInventory, mockHotbar, mockRecipe)
+
+      return Effect.gen(function* () {
+        const renderer = yield* InventoryRendererService
+        yield* renderer.toggle() // open → refreshSlots → collectAvailableCounts with real items
+        // findCraftable was called with a non-empty HashMap (DIRT → 10 total)
+        expect(mockRecipe.findCraftable).toHaveBeenCalled()
       }).pipe(Effect.provide(TestLayer))
     })
   })

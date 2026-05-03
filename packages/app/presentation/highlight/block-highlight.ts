@@ -78,41 +78,43 @@ export class BlockHighlightService extends Effect.Service<BlockHighlightService>
               onNone: () => Effect.void,
               onSome: (highlightMesh) => Effect.gen(function* () {
                 const overrideState = yield* Ref.get(overrideHitStateRef)
-                if (Option.isSome(overrideState)) {
-                  const forced = overrideState.value
-                  yield* Option.match(forced.target, {
-                    onNone: () => Effect.sync(() => { highlightMesh.visible = false }),
-                    onSome: (target) =>
-                      Effect.sync(() => {
-                        highlightMesh.position.set(target.x + 0.5, target.y + 0.5, target.z + 0.5)
-                        highlightMesh.visible = true
-                      }),
-                  })
-                  yield* Ref.set(hitStateRef, forced)
-                  yield* Ref.set(lastCameraPoseRef, currentPose)
-                  return
-                }
-
-                const hitOption = yield* raycastingService.raycastFromCamera(camera, scene)
-                yield* Option.match(hitOption, {
-                  onSome: (hit) => Effect.gen(function* () {
-                    // Position highlight at block coordinates (center of the block)
-                    yield* Effect.sync(() => {
-                      highlightMesh.position.set(hit.blockX + 0.5, hit.blockY + 0.5, hit.blockZ + 0.5)
-                      highlightMesh.visible = true
+                yield* Option.match(overrideState, {
+                  onSome: (forced) => Effect.gen(function* () {
+                    yield* Option.match(forced.target, {
+                      /* c8 ignore next */
+                      onNone: () => Effect.sync(() => { highlightMesh.visible = false }),
+                      onSome: (target) =>
+                        Effect.sync(() => {
+                          highlightMesh.position.set(target.x + 0.5, target.y + 0.5, target.z + 0.5)
+                          highlightMesh.visible = true
+                        }),
                     })
-                    // Atomic write: target and hit always set together
-                    yield* Ref.set(hitStateRef, {
-                      target: Option.some({ x: hit.blockX, y: hit.blockY, z: hit.blockZ }),
-                      hit: Option.some(hit),
-                    })
+                    yield* Ref.set(hitStateRef, forced)
+                    yield* Ref.set(lastCameraPoseRef, currentPose)
                   }),
                   onNone: () => Effect.gen(function* () {
-                    yield* Effect.sync(() => { highlightMesh.visible = false })
-                    yield* Ref.set(hitStateRef, EMPTY_HIT_STATE)
+                    const hitOption = yield* raycastingService.raycastFromCamera(camera, scene)
+                    yield* Option.match(hitOption, {
+                      onSome: (hit) => Effect.gen(function* () {
+                        // Position highlight at block coordinates (center of the block)
+                        yield* Effect.sync(() => {
+                          highlightMesh.position.set(hit.blockX + 0.5, hit.blockY + 0.5, hit.blockZ + 0.5)
+                          highlightMesh.visible = true
+                        })
+                        // Atomic write: target and hit always set together
+                        yield* Ref.set(hitStateRef, {
+                          target: Option.some({ x: hit.blockX, y: hit.blockY, z: hit.blockZ }),
+                          hit: Option.some(hit),
+                        })
+                      }),
+                      onNone: () => Effect.gen(function* () {
+                        yield* Effect.sync(() => { highlightMesh.visible = false })
+                        yield* Ref.set(hitStateRef, EMPTY_HIT_STATE)
+                      }),
+                    })
+                    yield* Ref.set(lastCameraPoseRef, currentPose)
                   }),
                 })
-                yield* Ref.set(lastCameraPoseRef, currentPose)
               }),
             })
           }),

@@ -40,14 +40,14 @@ describe('application/fluid/fluid-service', () => {
   it.effect('spreads a source downward on tick', () =>
     Effect.gen(function* () {
       const chunkService = yield* ChunkService
-      let chunk = yield* chunkService.createChunk({ x: 0, z: 0 })
-      yield* setBlockInChunk(chunk, 4, 10, 4, 'WATER')
+      const chunkBase = yield* chunkService.createChunk({ x: 0, z: 0 })
+      yield* setBlockInChunk(chunkBase, 4, 10, 4, 'WATER')
       const sourceIdx = Option.getOrElse(blockIndex(4, 10, 4), () => -1)
-      const fluidBuffer = new Uint8Array(chunk.blocks.length)
+      const fluidBuffer = new Uint8Array(chunkBase.blocks.length)
       if (sourceIdx >= 0) {
         fluidBuffer[sourceIdx] = encodeFluidCell({ level: 0, source: true, type: 'water' })
       }
-      chunk = { ...chunk, fluid: Option.some(fluidBuffer) } as typeof chunk
+      const chunk = { ...chunkBase, fluid: Option.some(fluidBuffer) } as typeof chunkBase
 
       const { layer: chunkManagerLayer, dirtyCalls } = makeChunkManager([chunk])
       const blockIdx = yield* Effect.gen(function* () {

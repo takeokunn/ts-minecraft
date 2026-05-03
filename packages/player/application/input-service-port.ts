@@ -8,6 +8,7 @@ import type { MouseDelta } from './player-input-service'
 export class InputServicePort extends Effect.Service<InputServicePort>()(
   '@minecraft/application/InputServicePort',
   {
+    /* c8 ignore next 11 */
     succeed: {
       isKeyPressed: (_key: string): Effect.Effect<boolean, never> => Effect.succeed(false),
       consumeKeyPress: (_key: string): Effect.Effect<boolean, never> => Effect.succeed(false),

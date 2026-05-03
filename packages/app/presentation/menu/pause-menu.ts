@@ -1,4 +1,6 @@
 import { Cause, Effect, MutableRef, Option, Scope } from 'effect'
+import { PlayerError } from '@ts-minecraft/player'
+import { StorageError } from '@ts-minecraft/world-state'
 import { DomOperationsService } from '@ts-minecraft/app/presentation/hud/crosshair'
 import { SettingsOverlayService } from '@ts-minecraft/app/presentation/settings/settings-overlay'
 import { ChunkManagerService } from '@ts-minecraft/terrain'
@@ -138,14 +140,8 @@ export class PauseMenuService extends Effect.Service<PauseMenuService>()(
           }),
           ({ backdropEl }) =>
             Effect.sync(() => {
-              Option.match(backdropEl, {
-                onNone: () => {},
-                onSome: (el) => {
-                  Option.match(dom.getParentNode(el), {
-                    onNone: () => {},
-                    onSome: () => dom.removeChild(el),
-                  })
-                },
+              Option.map(backdropEl, (el) => {
+                Option.map(dom.getParentNode(el), () => dom.removeChild(el))
               })
             }),
         ).pipe(
@@ -157,30 +153,20 @@ export class PauseMenuService extends Effect.Service<PauseMenuService>()(
             const activeControlRef = MutableRef.make<Option.Option<SessionControl>>(Option.none())
 
             const showMenu = (): void => {
-              Option.match(backdropEl, {
-                onNone: () => {},
-                onSome: (el) => {
-                  el.style.display = 'flex'
-                },
-              })
+              Option.map(backdropEl, (el) => { el.style.display = 'flex' })
               // Default-focus Resume so Enter resumes immediately.
-              Option.match(resumeBtn, { onNone: () => {}, onSome: (btn) => btn.focus() })
+              Option.map(resumeBtn, (btn) => btn.focus())
             }
 
             const hideMenu = (): void => {
-              Option.match(backdropEl, {
-                onNone: () => {},
-                onSome: (el) => {
-                  el.style.display = 'none'
-                },
-              })
+              Option.map(backdropEl, (el) => { el.style.display = 'none' })
             }
 
             // Save failures are logged but do NOT prevent quit — user chose to leave,
             // and requestQuitToTitle is idempotent so a retry path remains.
             const performSaveAndQuit = (
               control: SessionControl,
-              persistSessionState: () => Effect.Effect<void, unknown>,
+              persistSessionState: () => Effect.Effect<void, PlayerError | StorageError>,
             ): Effect.Effect<void, never> =>
               Effect.all(
                 [
@@ -199,7 +185,7 @@ export class PauseMenuService extends Effect.Service<PauseMenuService>()(
               // Scope-managed: listeners and DOM are torn down when the surrounding scoped Effect closes.
               attach: (
                 control: SessionControl,
-                persistSessionState: () => Effect.Effect<void, unknown>,
+                persistSessionState: () => Effect.Effect<void, PlayerError | StorageError>,
               ): Effect.Effect<void, never, Scope.Scope> =>
                 Effect.acquireRelease(
                   Effect.sync(() => {
@@ -307,18 +293,9 @@ export class PauseMenuService extends Effect.Service<PauseMenuService>()(
                       }
                     }
 
-                    Option.match(resumeBtn, {
-                      onNone: () => {},
-                      onSome: (btn) => btn.addEventListener('click', handleResumeClick),
-                    })
-                    Option.match(settingsBtn, {
-                      onNone: () => {},
-                      onSome: (btn) => btn.addEventListener('click', handleSettingsClick),
-                    })
-                    Option.match(saveQuitBtn, {
-                      onNone: () => {},
-                      onSome: (btn) => btn.addEventListener('click', handleSaveQuitClick),
-                    })
+                    Option.map(resumeBtn, (btn) => btn.addEventListener('click', handleResumeClick))
+                    Option.map(settingsBtn, (btn) => btn.addEventListener('click', handleSettingsClick))
+                    Option.map(saveQuitBtn, (btn) => btn.addEventListener('click', handleSaveQuitClick))
                     if (typeof document !== 'undefined') {
                       document.addEventListener('keydown', handleKeyDown, true)
                     }
@@ -332,18 +309,9 @@ export class PauseMenuService extends Effect.Service<PauseMenuService>()(
                   }),
                   (handlers) =>
                     Effect.sync(() => {
-                      Option.match(resumeBtn, {
-                        onNone: () => {},
-                        onSome: (btn) => btn.removeEventListener('click', handlers.handleResumeClick),
-                      })
-                      Option.match(settingsBtn, {
-                        onNone: () => {},
-                        onSome: (btn) => btn.removeEventListener('click', handlers.handleSettingsClick),
-                      })
-                      Option.match(saveQuitBtn, {
-                        onNone: () => {},
-                        onSome: (btn) => btn.removeEventListener('click', handlers.handleSaveQuitClick),
-                      })
+                      Option.map(resumeBtn, (btn) => btn.removeEventListener('click', handlers.handleResumeClick))
+                      Option.map(settingsBtn, (btn) => btn.removeEventListener('click', handlers.handleSettingsClick))
+                      Option.map(saveQuitBtn, (btn) => btn.removeEventListener('click', handlers.handleSaveQuitClick))
                       if (typeof document !== 'undefined') {
                         document.removeEventListener('keydown', handlers.handleKeyDown, true)
                       }
@@ -360,13 +328,10 @@ export class PauseMenuService extends Effect.Service<PauseMenuService>()(
               openIfClosed: (): Effect.Effect<void, never> =>
                 Effect.sync(() => {
                   if (MutableRef.get(isOpenRef)) return
-                  Option.match(MutableRef.get(activeControlRef), {
-                    onNone: () => {},
-                    onSome: (control) => {
-                      MutableRef.set(isOpenRef, true)
-                      setPaused(control, true)
-                      showMenu()
-                    },
+                  Option.map(MutableRef.get(activeControlRef), (control) => {
+                    MutableRef.set(isOpenRef, true)
+                    setPaused(control, true)
+                    showMenu()
                   })
                 }),
 

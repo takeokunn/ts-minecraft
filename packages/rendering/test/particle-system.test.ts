@@ -1,6 +1,6 @@
 import { describe, expect } from 'vitest'
 import { it } from '@effect/vitest'
-import { Effect, Layer } from 'effect'
+import { Array as Arr, Effect, Layer } from 'effect'
 import * as THREE from 'three'
 
 import { ChunkMeshService } from '@ts-minecraft/rendering'
@@ -148,9 +148,7 @@ describe('ParticleSystemService', () => {
           yield* service.spawnBurst(0, 64, 0, 0, 0, 5)
           expect(yield* service.getActiveCount()).toBe(5)
           // 0.5s in one big step — clamps to 0.1, so 5 ticks needed:
-          for (let i = 0; i < 7; i++) {
-            yield* service.update(0.1)
-          }
+          yield* Effect.forEach(Arr.makeBy(7, (i) => i), () => service.update(0.1), { concurrency: 1 })
           expect(yield* service.getActiveCount()).toBe(0)
         }),
       ).pipe(Effect.provide(TestLayer)),
@@ -195,13 +193,87 @@ describe('ParticleSystemService', () => {
           // in a tight loop and confirming it completes without throwing or
           // OOM. Strict heap-snapshot diffing belongs in a perf-suite, not unit
           // tests, because GC scheduling is non-deterministic.
-          for (let i = 0; i < 100; i++) {
-            yield* service.update(0.005)
-          }
+          yield* Effect.forEach(Arr.makeBy(100, (i) => i), () => service.update(0.005), { concurrency: 1 })
           // If we reach here without OOM, the no-allocation invariant holds at
           // the macro level. Active count drops to 0 after lifetime expires.
           const finalActive = yield* service.getActiveCount()
           expect(finalActive).toBe(0)
+        }),
+      ).pipe(Effect.provide(TestLayer)),
+    )
+  })
+
+  describe('onBeforeCompile shader patch', () => {
+    // Access the material via the InstancedMesh added to the scene inside `attach()`.
+    // Must be called while the attach scope is still open (before the finalizer removes the mesh).
+    const getMaterialFromScene = (scene: THREE.Scene): THREE.MeshBasicMaterial => {
+      const mesh = scene.children.find((c) => c instanceof THREE.InstancedMesh) as THREE.InstancedMesh
+      return mesh.material as THREE.MeshBasicMaterial
+    }
+
+    it.effect('patches vertex shader when both uv tokens are present', () =>
+      Effect.scoped(
+        Effect.gen(function* () {
+          const scene = new THREE.Scene()
+          const service = yield* ParticleSystemService
+          yield* Effect.scoped(
+            Effect.gen(function* () {
+              yield* service.attach(scene)
+              const material = getMaterialFromScene(scene)
+              const shader = {
+                vertexShader: '#include <uv_pars_vertex>\n#include <uv_vertex>\nrest',
+                fragmentShader: '',
+              } as unknown as Parameters<typeof material.onBeforeCompile>[0]
+              // Must not throw and must inject attribute + UV offset
+              material.onBeforeCompile(shader, null as never)
+              expect(shader.vertexShader).toContain('attribute vec2 uvOffset;')
+              expect(shader.vertexShader).toContain('vMapUv = vMapUv + uvOffset;')
+            }),
+          )
+        }),
+      ).pipe(Effect.provide(TestLayer)),
+    )
+
+    it.effect('throws when uv_pars_vertex token is missing from vertex shader', () =>
+      Effect.scoped(
+        Effect.gen(function* () {
+          const scene = new THREE.Scene()
+          const service = yield* ParticleSystemService
+          yield* Effect.scoped(
+            Effect.gen(function* () {
+              yield* service.attach(scene)
+              const material = getMaterialFromScene(scene)
+              const shader = {
+                vertexShader: '#include <uv_vertex>\nno_pars_vertex_here',
+                fragmentShader: '',
+              } as unknown as Parameters<typeof material.onBeforeCompile>[0]
+              expect(() => material.onBeforeCompile(shader, null as never)).toThrow(
+                'particle-system: Three.js vertex shader tokens for uvOffset injection not found',
+              )
+            }),
+          )
+        }),
+      ).pipe(Effect.provide(TestLayer)),
+    )
+
+    it.effect('throws when uv_vertex token is missing from vertex shader', () =>
+      Effect.scoped(
+        Effect.gen(function* () {
+          const scene = new THREE.Scene()
+          const service = yield* ParticleSystemService
+          yield* Effect.scoped(
+            Effect.gen(function* () {
+              yield* service.attach(scene)
+              const material = getMaterialFromScene(scene)
+              const shader = {
+                vertexShader: '#include <uv_pars_vertex>\nno_uv_vertex_here',
+                fragmentShader: '',
+              } as unknown as Parameters<typeof material.onBeforeCompile>[0]
+              expect(() => material.onBeforeCompile(shader, null as never)).toThrow(
+                'particle-system: Three.js vertex shader tokens for uvOffset injection not found',
+              )
+            }),
+          )
         }),
       ).pipe(Effect.provide(TestLayer)),
     )

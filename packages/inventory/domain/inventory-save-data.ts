@@ -8,7 +8,7 @@ const InventorySlotSaveEntrySchema = Schema.Struct({
 })
 
 export const InventorySaveDataSchema = Schema.Struct({
-  slots: Schema.Array(Schema.NullOr(InventorySlotSaveEntrySchema)),
+  slots: Schema.Array(Schema.OptionFromNullOr(InventorySlotSaveEntrySchema)),
 })
 
 export type InventorySaveData = Schema.Schema.Type<typeof InventorySaveDataSchema>

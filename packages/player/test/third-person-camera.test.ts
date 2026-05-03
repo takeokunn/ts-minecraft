@@ -1,6 +1,6 @@
 import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
-import { Effect, Layer } from 'effect'
+import { Effect, Layer, MutableRef } from 'effect'
 import { PlayerCameraStateService } from '@ts-minecraft/player'
 import {
   ThirdPersonCameraService,
@@ -31,7 +31,7 @@ const makeMockCameraStateLayer = (yaw: number, pitch: number) =>
 const makeMockCamera = () => {
   const positionSet = { x: 0, y: 0, z: 0, called: false, args: [0, 0, 0] as [number, number, number] }
   const lookAtArgs: [number, number, number] = [0, 0, 0]
-  let lookAtCalled = false
+  const lookAtCalledRef = MutableRef.make(false)
 
   const camera = {
     rotation: { set: () => {} },
@@ -42,14 +42,14 @@ const makeMockCamera = () => {
       },
     },
     lookAt: (x: number, y: number, z: number) => {
-      lookAtCalled = true
+      MutableRef.set(lookAtCalledRef, true)
       lookAtArgs[0] = x
       lookAtArgs[1] = y
       lookAtArgs[2] = z
     },
   }
 
-  return { camera, positionSet, lookAtArgs: () => lookAtArgs, wasLookAtCalled: () => lookAtCalled }
+  return { camera, positionSet, lookAtArgs: () => lookAtArgs, wasLookAtCalled: () => MutableRef.get(lookAtCalledRef) }
 }
 
 // ---------------------------------------------------------------------------

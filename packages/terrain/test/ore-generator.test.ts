@@ -287,13 +287,9 @@ describe('placeOres', () => {
       Arr.forEach(Arr.makeBy(snapshots.length, j => j), j => {
         if (i >= j) return
         // Snapshots i and j should NOT be identical.
-        let different = false
         const a = snapshots[i]!
         const b = snapshots[j]!
-        for (let k = 0; k < a.length; k++) {
-          if (a[k] !== b[k]) { different = true; break }
-        }
-        expect(different).toBe(true)
+        expect(a.some((v, k) => v !== b[k])).toBe(true)
       })
     )
   })

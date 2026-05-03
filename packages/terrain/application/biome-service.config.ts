@@ -1,4 +1,4 @@
-import type { BiomeType, BiomeProperties } from './biome-service'
+import type { BiomeType, BiomeProperties } from '../domain/biome'
 
 // ─── Noise sampling ──────────────────────────────────────────────────────────
 

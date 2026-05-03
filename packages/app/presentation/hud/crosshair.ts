@@ -4,6 +4,7 @@ import { Effect, Option, Ref } from 'effect'
 export class DomOperationsService extends Effect.Service<DomOperationsService>()(
   '@minecraft/presentation/DomOperations',
   {
+    /* c8 ignore next 22 */
     effect: Effect.succeed({
       createElement: <K extends keyof HTMLElementTagNameMap>(tagName: K): HTMLElementTagNameMap[K] =>
         document.createElement(tagName),

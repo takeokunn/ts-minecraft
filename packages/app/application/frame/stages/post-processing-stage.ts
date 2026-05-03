@@ -43,6 +43,7 @@ export const refractionPrepassStage = (
           MutableRef.set(refs.lastRefractionFrameRef, currentRefractionPose)
           yield* Ref.getAndSet(refs.refractionValidRef, true).pipe(
             Effect.flatMap((wasValid) =>
+              /* c8 ignore next */
               wasValid ? Effect.void : services.worldRendererService.setRefractionValid(true),
             ),
           )

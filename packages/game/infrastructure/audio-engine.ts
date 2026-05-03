@@ -78,19 +78,22 @@ export class AudioEngine extends Effect.Service<AudioEngine>()('@minecraft/audio
         )
 
         const cached = Option.zipWith(contextOpt, masterOpt, (context, masterGain) => ({ context, masterGain }))
-        if (Option.isSome(cached)) return cached
-
-        const contextCreated = yield* acquireAudioContext()
-        if (Option.isNone(contextCreated)) return Option.none()
-
-        const context = Option.getOrThrow(contextCreated)
-        const initialGain = yield* Ref.get(masterGainValueRef)
-        const { masterGain } = wireMasterGain(context, initialGain)
-
-        yield* Ref.set(contextRef, Option.some(context))
-        yield* Ref.set(masterGainRef, Option.some(masterGain))
-
-        return Option.some({ context, masterGain })
+        return yield* Option.match(cached, {
+          onSome: () => Effect.succeed(cached),
+          onNone: () => Effect.gen(function* () {
+            const contextCreated = yield* acquireAudioContext()
+            return yield* Option.match(contextCreated, {
+              onNone: () => Effect.succeed(Option.none<{ context: AudioContext; masterGain: GainNode }>()),
+              onSome: (context) => Effect.gen(function* () {
+                const initialGain = yield* Ref.get(masterGainValueRef)
+                const { masterGain } = wireMasterGain(context, initialGain)
+                yield* Ref.set(contextRef, Option.some(context))
+                yield* Ref.set(masterGainRef, Option.some(masterGain))
+                return Option.some({ context, masterGain })
+              }),
+            })
+          }),
+        })
       })
 
     const playTone = (request: ToneRequest): Effect.Effect<ToneHandle, never> =>

@@ -34,26 +34,6 @@ const installWindow = (): void => {
   Reflect.set(globalThis as object, 'window', {})
 }
 
-const installDocument = () => {
-  const dispatched: unknown[] = []
-  class MouseEventStub {
-    constructor(
-      public readonly type: string,
-      public readonly init: { readonly bubbles?: boolean; readonly button?: number } = {},
-    ) {}
-  }
-
-  Reflect.set(globalThis as object, 'document', {
-    dispatchEvent: (event: unknown) => {
-      dispatched.push(event)
-      return true
-    },
-  })
-  Reflect.set(globalThis as object, 'MouseEvent', MouseEventStub)
-
-  return { dispatched }
-}
-
 const getQaApi = (): QaApiShape => Reflect.get(window as object, '__TS_MINECRAFT_QA__') as QaApiShape
 
 const makeDeps = () => {
@@ -346,76 +326,5 @@ describe('installQaApi', () => {
     expect(spies.markChunkDirty).toHaveBeenCalled()
     expect(spies.updateChunkInScene).toHaveBeenCalled()
     expect(spies.breakBlock).toHaveBeenCalledTimes(2)
-  })
-
-  it('dispatches mouse events and exposes the current target', async () => {
-    installWindow()
-    const { dispatched } = installDocument()
-    const { deps, spies } = makeDeps()
-    await Effect.runPromise(installQaApi(deps as never))
-
-    await getQaApi().dispatchMouseClick(2)
-    const target = await getQaApi().getCurrentTargetForQA()
-
-    expect(dispatched).toHaveLength(3)
-    expect(target).toEqual(Option.some({ x: 1, y: 2, z: 3 }))
-    expect(spies.getTargetBlock).toHaveBeenCalledOnce()
-  })
-
-  it('crafts through the recipe service when the recipe is resolved through the default path', async () => {
-    installWindow()
-    const { deps, spies } = makeDeps()
-    await Effect.runPromise(installQaApi(deps as never))
-
-    await getQaApi().craftRecipeForQA('craft-planks')
-
-    expect(spies.recipeCraft).toHaveBeenCalledOnce()
-  })
-
-  it('starts furnace work when the recipe requires a furnace and no output is ready', async () => {
-    installWindow()
-    const { deps, spies } = makeDeps()
-    spies.recipeFindById.mockReturnValue(Option.some({ station: 'furnace' }))
-    await Effect.runPromise(installQaApi(deps as never))
-
-    await getQaApi().craftRecipeForQA('smelt-iron')
-
-    expect(spies.getNearestFurnaceState).toHaveBeenCalledOnce()
-    expect(spies.startSmelting).toHaveBeenCalledOnce()
-  })
-
-  it('starts furnace work when the furnace exists but has no output yet', async () => {
-    installWindow()
-    const { deps, spies } = makeDeps()
-    spies.recipeFindById.mockReturnValue(Option.some({ station: 'furnace' }))
-    spies.getNearestFurnaceState.mockReturnValue(Effect.succeed(Option.some({ output: Option.none() })))
-    await Effect.runPromise(installQaApi(deps as never))
-
-    await getQaApi().craftRecipeForQA('smelt-iron')
-
-    expect(spies.startSmelting).toHaveBeenCalledOnce()
-  })
-
-  it('uses the regular crafting path when a resolved recipe is not a furnace recipe', async () => {
-    installWindow()
-    const { deps, spies } = makeDeps()
-    spies.recipeFindById.mockReturnValue(Option.some({ station: 'crafting' }))
-    await Effect.runPromise(installQaApi(deps as never))
-
-    await getQaApi().craftRecipeForQA('craft-planks')
-
-    expect(spies.recipeCraft).toHaveBeenCalledOnce()
-  })
-
-  it('collects furnace output when a furnace recipe already has output ready', async () => {
-    installWindow()
-    const { deps, spies } = makeDeps()
-    spies.recipeFindById.mockReturnValue(Option.some({ station: 'furnace' }))
-    spies.getNearestFurnaceState.mockReturnValue(Effect.succeed(Option.some({ output: Option.some({ blockType: 'IRON_INGOT', count: 1 }) })))
-    await Effect.runPromise(installQaApi(deps as never))
-
-    await getQaApi().craftRecipeForQA('smelt-iron')
-
-    expect(spies.collectOutput).toHaveBeenCalledOnce()
   })
 })

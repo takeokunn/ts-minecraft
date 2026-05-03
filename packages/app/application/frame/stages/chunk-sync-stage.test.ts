@@ -1,6 +1,6 @@
 import { describe, expect, vi } from 'vitest'
 import { it } from '@effect/vitest'
-import { Effect, Option } from 'effect'
+import { Array as Arr, Effect, MutableRef, Option } from 'effect'
 import * as THREE from 'three'
 import { createFrameHandlers } from '@ts-minecraft/app'
 import type { DeltaTimeSecs } from '@ts-minecraft/kernel'
@@ -140,22 +140,22 @@ describe('step 1 — chunk streaming', () => {
       settingsOverlay: makeSettingsOverlay({ open: false }),
     })
 
-    const queuedTargets = [0, 16, 32, 48, 64, 80].map((x) => ({ x, y: 64, z: 0 }))
-    let clickCount = 0
-    let maintenanceInjectionDone = false
-    let updateCount = 0
+    const queuedTargets = Arr.map([0, 16, 32, 48, 64, 80], (x) => ({ x, y: 64, z: 0 }))
+    const clickCountRef = MutableRef.make(0)
+    const maintenanceInjectionDoneRef = MutableRef.make(false)
+    const updateCountRef = MutableRef.make(0)
 
     ;(services.inputService as unknown as { consumeMouseClick: (button: number) => Effect.Effect<boolean, never> }).consumeMouseClick = (button: number) =>
-      Effect.succeed(button === 0 && clickCount < queuedTargets.length)
+      Effect.succeed(button === 0 && MutableRef.get(clickCountRef) < queuedTargets.length)
 
     ;(services.blockHighlight as unknown as { getTargetBlock: () => Effect.Effect<Option.Option<{ x: number; y: number; z: number }>, never> }).getTargetBlock = () =>
-      Effect.succeed(clickCount < queuedTargets.length ? Option.some(queuedTargets[clickCount]!) : Option.none())
+      Effect.succeed(MutableRef.get(clickCountRef) < queuedTargets.length ? Option.some(queuedTargets[MutableRef.get(clickCountRef)]!) : Option.none())
 
     ;(services.blockHighlight as unknown as { getTargetHit: () => Effect.Effect<Option.Option<never>, never> }).getTargetHit = () => Effect.succeed(Option.none())
 
     ;(services.blockService as unknown as { breakBlock: (pos: { x: number; y: number; z: number }) => Effect.Effect<void, never> }).breakBlock = () =>
       Effect.sync(() => {
-        clickCount += 1
+        MutableRef.update(clickCountRef, n => n + 1)
       })
 
     ;(services.chunkManagerService as unknown as { getChunk: (coord: { x: number; z: number }) => Effect.Effect<{ coord: { x: number; z: number }; blocks: Uint8Array; dirty: false }, never> }).getChunk = (coord) =>
@@ -165,22 +165,23 @@ describe('step 1 — chunk streaming', () => {
 
     ;(services.worldRendererService as unknown as { updateChunkInScene: (chunk: { coord: { x: number; z: number } }, scene: THREE.Scene) => Effect.Effect<void, never> }).updateChunkInScene = () =>
       Effect.suspend(() => {
-        updateCount += 1
-        if (!maintenanceInjectionDone) {
-          maintenanceInjectionDone = true
+        MutableRef.update(updateCountRef, n => n + 1)
+        if (!MutableRef.get(maintenanceInjectionDoneRef)) {
+          MutableRef.set(maintenanceInjectionDoneRef, true)
           return frameHandler(0.016 as DeltaTimeSecs).pipe(Effect.asVoid)
         }
         return Effect.void
       })
 
-    for (let index = 0; index < 5; index += 1) {
-      yield* frameHandler(0.016 as DeltaTimeSecs)
-    }
+    yield* Effect.forEach(Arr.makeBy(5, (i) => i), () =>
+      frameHandler(0.016 as DeltaTimeSecs),
+      { concurrency: 1 }
+    )
 
     yield* maintenanceHandler()
     yield* maintenanceHandler()
 
-    expect(updateCount).toBe(6)
+    expect(MutableRef.get(updateCountRef)).toBe(6)
   }))
 
 })

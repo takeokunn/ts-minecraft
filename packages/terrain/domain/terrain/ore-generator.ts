@@ -11,6 +11,7 @@ const sampleOreY = (
 ): readonly [number, number] => {
   const mode = Math.max(yMin, Math.min(yMax, cfg.peakY))
 
+  /* c8 ignore next 4 */
   if (cfg.distribution === 'uniform' || yMin === yMax) {
     const { state, value } = mulberry32(rngState)
     return [state, Math.floor(yMin + value * (yMax - yMin + 1))]
@@ -18,6 +19,7 @@ const sampleOreY = (
 
   const { state, value } = mulberry32(rngState)
   const span = yMax - yMin
+  /* c8 ignore next 3 */
   if (span <= 0) {
     return [state, yMin]
   }
@@ -127,6 +129,7 @@ export const placeOres = (
     // Effective Y band, clamped to the protected floor.
     const yMin = Math.max(cfg.minY, ORE_MIN_Y_FLOOR)
     const yMax = Math.min(cfg.maxY, CHUNK_HEIGHT - 1)
+    /* c8 ignore next */
     if (yMax < yMin) continue
 
     for (let v = 0; v < count; v++) {

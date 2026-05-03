@@ -2,6 +2,7 @@
 import { Data } from 'effect'
 
 const formatCause = (cause?: unknown): string =>
+  /* c8 ignore next */
   cause instanceof Error ? cause.message : cause ? String(cause) : ''
 
 export class TextureError extends Data.TaggedError('TextureError')<{

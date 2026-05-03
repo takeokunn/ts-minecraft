@@ -1,5 +1,5 @@
 import { beforeEach, describe, it } from '@effect/vitest'
-import { Effect, Layer, Option } from 'effect'
+import { Effect, Layer, MutableRef, Option } from 'effect'
 import { expect, vi } from 'vitest'
 import { DomOperationsService } from '@ts-minecraft/app/presentation/hud/crosshair'
 import { TradingPresentationService, TradingPresentationLive } from '@ts-minecraft/app/presentation/trading'
@@ -105,21 +105,21 @@ const installBrowserDocument = (): void => {
 }
 
 const createTradingTestLayer = () => {
-  let villagerState: Option.Option<Villager> = Option.some(makeVillager())
-  let offersState: ReadonlyArray<TradeOffer> = [
+  const villagerStateRef = MutableRef.make<Option.Option<Villager>>(Option.some(makeVillager()))
+  const offersStateRef = MutableRef.make<ReadonlyArray<TradeOffer>>([
     makeOffer(),
     makeOffer({ offerId: TradeOfferId.make('farmer:sand-bundle'), output: { blockType: 'SAND', count: 2 } }),
-  ]
-  let tradeResultState: TradeSuccess | TradeFailure = new TradeSuccess({ offer: makeOffer(), villager: makeVillager(), levelUp: false })
+  ])
+  const tradeResultStateRef = MutableRef.make<TradeSuccess | TradeFailure>(new TradeSuccess({ offer: makeOffer(), villager: makeVillager(), levelUp: false }))
 
   const tradingSpies = {
     getCurrencyBlockType: vi.fn(() => Effect.succeed('EMERALD_ORE' as const)),
-    getOffersForVillager: vi.fn((_villager: Villager) => Effect.succeed(offersState)),
-    executeTrade: vi.fn((_villagerId: VillagerId, _offerId: TradeOfferId) => Effect.succeed(tradeResultState)),
+    getOffersForVillager: vi.fn((_villager: Villager) => Effect.sync(() => MutableRef.get(offersStateRef))),
+    executeTrade: vi.fn((_villagerId: VillagerId, _offerId: TradeOfferId) => Effect.sync(() => MutableRef.get(tradeResultStateRef))),
   }
 
   const villageSpies = {
-    getVillager: vi.fn((_villagerId: VillagerId) => Effect.succeed(villagerState)),
+    getVillager: vi.fn((_villagerId: VillagerId) => Effect.sync(() => MutableRef.get(villagerStateRef))),
   }
 
   const { MockDomLayer, createdElements, appendChild, removeChild } = createMockDomLayer()
@@ -135,9 +135,9 @@ const createTradingTestLayer = () => {
     removeChild,
     tradingSpies,
     villageSpies,
-    setVillager: (villager: Option.Option<Villager>) => Effect.sync(() => { villagerState = villager }),
-    setOffers: (offers: ReadonlyArray<TradeOffer>) => Effect.sync(() => { offersState = offers }),
-    setTradeResult: (result: TradeSuccess | TradeFailure) => Effect.sync(() => { tradeResultState = result }),
+    setVillager: (villager: Option.Option<Villager>) => Effect.sync(() => { MutableRef.set(villagerStateRef, villager) }),
+    setOffers: (offers: ReadonlyArray<TradeOffer>) => Effect.sync(() => { MutableRef.set(offersStateRef, offers) }),
+    setTradeResult: (result: TradeSuccess | TradeFailure) => Effect.sync(() => { MutableRef.set(tradeResultStateRef, result) }),
   }
 }
 

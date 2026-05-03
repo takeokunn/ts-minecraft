@@ -73,14 +73,12 @@ export const installQaApi = ({
         Effect.catchAll(() => Effect.succeed({ x: 0, y: 0, z: 0 })),
       )
 
-    const getChunkOrNull = (coord: { readonly x: number; readonly z: number }) =>
-      chunkManagerService.getChunk(coord).pipe(
-        Effect.catchAll(() => Effect.succeed(null)),
-      )
+    const getChunkOrNone = (coord: { readonly x: number; readonly z: number }) =>
+      chunkManagerService.getChunk(coord).pipe(Effect.option)
 
     const scanNearbyCraftingStation = (targetBlockIndex: number) =>
       getPlayerPositionForQa().pipe(
-        Effect.flatMap((playerPos) => scanNearbyBlock(playerPos, 5, targetBlockIndex, getChunkOrNull)),
+        Effect.flatMap((playerPos) => scanNearbyBlock(playerPos, 5, targetBlockIndex, getChunkOrNone)),
       )
 
     const setAimForQA = (target: Position): Effect.Effect<void, never> =>
@@ -130,9 +128,10 @@ export const installQaApi = ({
               ? furnaceService.getNearestFurnaceState().pipe(
                   Effect.flatMap((furnaceOpt) => Option.match(furnaceOpt, {
                     onNone: () => furnaceService.startSmelting(RecipeId.make(recipeId)),
-                    onSome: (furnace) => Option.isSome(furnace.output)
-                      ? furnaceService.collectOutput().pipe(Effect.asVoid)
-                      : furnaceService.startSmelting(RecipeId.make(recipeId)),
+                    onSome: (furnace) => Option.match(furnace.output, {
+                      onSome: () => furnaceService.collectOutput().pipe(Effect.asVoid),
+                      onNone: () => furnaceService.startSmelting(RecipeId.make(recipeId)),
+                    }),
                   })),
                 )
               : recipeService.craft(RecipeId.make(recipeId), inventoryService, hasTableAccess, hasFurnaceAccess),
@@ -254,15 +253,18 @@ export const installQaApi = ({
           const qaHandDamage = 4
           const entities = yield* entityManager.getEntities()
           const zombieOpt = Arr.findFirst(entities, (entity) => entity.type === 'Zombie')
-          if (Option.isNone(zombieOpt)) return false
-          const zombie = Option.getOrThrow(zombieOpt)
-          const selectedItem = yield* hotbarService.getSelectedBlockType()
-          const damage = Option.match(selectedItem, {
-            onNone: () => qaHandDamage,
-            onSome: (item) => item === 'WOODEN_SWORD' ? qaSwordDamage : qaHandDamage,
+          return yield* Option.match(zombieOpt, {
+            onNone: () => Effect.succeed(false),
+            onSome: (zombie) => Effect.gen(function* () {
+              const selectedItem = yield* hotbarService.getSelectedBlockType()
+              const damage = Option.match(selectedItem, {
+                onNone: () => qaHandDamage,
+                onSome: (item) => item === 'WOODEN_SWORD' ? qaSwordDamage : qaHandDamage,
+              })
+              yield* entityManager.applyDamage(zombie.entityId, damage)
+              return true
+            }),
           })
-          yield* entityManager.applyDamage(zombie.entityId, damage)
-          return true
         })),
       placeSelectedItemInFront: () =>
         Effect.runPromise(Effect.gen(function* () {

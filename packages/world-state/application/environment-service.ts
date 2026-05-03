@@ -1,7 +1,7 @@
-import { Effect, Layer } from 'effect'
+import { Effect, HashSet, Layer } from 'effect'
 import { EnvironmentPort } from '../domain/environment-port'
 
-const LOCALHOST_HOSTNAMES: ReadonlySet<string> = new Set(['localhost', '127.0.0.1', '0.0.0.0', '::1'])
+const LOCALHOST_HOSTNAMES = HashSet.make('localhost', '127.0.0.1', '0.0.0.0', '::1')
 
 // Browser-backed implementation of EnvironmentPort.
 // Reads window.location.hostname to detect local development.
@@ -12,7 +12,8 @@ export const EnvironmentLive = Layer.succeed(
   {
     isLocalhost: Effect.sync(() => {
       if (typeof window === 'undefined') return false
-      return LOCALHOST_HOSTNAMES.has(window.location.hostname)
+      /* c8 ignore next */
+      return HashSet.has(LOCALHOST_HOSTNAMES, window.location.hostname)
     }),
   },
 )

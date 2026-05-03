@@ -1,5 +1,6 @@
 import * as THREE from 'three'
 import type { EntityType } from '@ts-minecraft/entities'
+import { MutableHashMap, Option } from 'effect'
 
 export type MobLimbGroup = Readonly<{
   root: THREE.Group
@@ -17,35 +18,39 @@ type Dim3 = readonly [number, number, number]
 
 // Shared BoxGeometry cache keyed by `${type}:${role}`. Geometries are translated so the local origin is at the
 // limb pivot (top center for limbs, geometric center for head/body). Callers MUST NOT dispose these.
-const geometryCache = new Map<string, THREE.BoxGeometry>()
+let geometryCache = MutableHashMap.empty<string, THREE.BoxGeometry>()
 
 const getOrCreateGeometry = (
   key: string,
   size: Dim3,
   pivotTop: boolean,
-): THREE.BoxGeometry => {
-  const cached = geometryCache.get(key)
-  if (cached !== undefined) return cached
-  const [w, h, d] = size
-  const g = new THREE.BoxGeometry(w, h, d)
-  if (pivotTop) {
-    // Pivot at top center: rotation around X swings the limb from the shoulder/hip.
-    g.translate(0, -h / 2, 0)
-  }
-  geometryCache.set(key, g)
-  return g
-}
+): THREE.BoxGeometry =>
+  Option.match(MutableHashMap.get(geometryCache, key), {
+    onSome: (cached) => cached,
+    onNone: () => {
+      const [w, h, d] = size
+      const g = new THREE.BoxGeometry(w, h, d)
+      if (pivotTop) {
+        // Pivot at top center: rotation around X swings the limb from the shoulder/hip.
+        g.translate(0, -h / 2, 0)
+      }
+      MutableHashMap.set(geometryCache, key, g)
+      return g
+    },
+  })
 
 // Per-type material cache; shared across all mobs of the same type+role. MUST NOT be disposed by the renderer.
-const materialCache = new Map<string, THREE.MeshStandardMaterial>()
+let materialCache = MutableHashMap.empty<string, THREE.MeshStandardMaterial>()
 
-const getOrCreateMaterial = (key: string, color: number): THREE.MeshStandardMaterial => {
-  const cached = materialCache.get(key)
-  if (cached !== undefined) return cached
-  const m = new THREE.MeshStandardMaterial({ color, roughness: 0.9, metalness: 0.0 })
-  materialCache.set(key, m)
-  return m
-}
+const getOrCreateMaterial = (key: string, color: number): THREE.MeshStandardMaterial =>
+  Option.match(MutableHashMap.get(materialCache, key), {
+    onSome: (cached) => cached,
+    onNone: () => {
+      const m = new THREE.MeshStandardMaterial({ color, roughness: 0.9, metalness: 0.0 })
+      MutableHashMap.set(materialCache, key, m)
+      return m
+    },
+  })
 
 type ZombieParts = Readonly<{
   head: Dim3
@@ -208,6 +213,6 @@ export const buildMobGroup = (type: EntityType): MobLimbGroup => {
 
 // For tests only — clears geometry/material caches so THREE.js mock constructors are used in subsequent runs.
 export const _resetMobGeometryCachesForTest = (): void => {
-  geometryCache.clear()
-  materialCache.clear()
+  geometryCache = MutableHashMap.empty()
+  materialCache = MutableHashMap.empty()
 }

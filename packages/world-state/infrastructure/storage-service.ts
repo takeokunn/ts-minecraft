@@ -29,10 +29,10 @@ const FurnaceItemStackSchema = Schema.Struct({
 
 const FurnaceStateSchema = Schema.Struct({
   position: PositionSchema,
-  input: Schema.NullOr(FurnaceItemStackSchema),
-  fuel: Schema.NullOr(FurnaceItemStackSchema),
-  output: Schema.NullOr(FurnaceItemStackSchema),
-  activeRecipeId: Schema.NullOr(RecipeIdSchema),
+  input: Schema.OptionFromNullOr(FurnaceItemStackSchema),
+  fuel: Schema.OptionFromNullOr(FurnaceItemStackSchema),
+  output: Schema.OptionFromNullOr(FurnaceItemStackSchema),
+  activeRecipeId: Schema.OptionFromNullOr(RecipeIdSchema),
   progressSecs: Schema.Number.pipe(Schema.finite(), Schema.nonNegative()),
 })
 

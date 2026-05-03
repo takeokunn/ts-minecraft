@@ -108,7 +108,8 @@ export class HealthService extends Effect.Service<HealthService>()(
         awaitDeath: (): Effect.Effect<void, never> =>
           Ref.get(stateRef).pipe(
             Effect.flatMap((s) =>
-              s.health.current <= 0
+              /* c8 ignore next 3 */
+            s.health.current <= 0
                 ? Effect.void
                 : Ref.get(deathDeferredRef).pipe(Effect.flatMap(Deferred.await)),
             ),

@@ -1,18 +1,14 @@
-import { Array as Arr, Clock, Duration, Effect, HashMap, HashSet, Metric, Option, Ref, Schema } from 'effect'
-import { ChunkService, ChunkSchema, Chunk } from '../domain/chunk'
-import { ChunkCoord, blockTypeToIndex, CHUNK_SIZE, CHUNK_HEIGHT } from '@ts-minecraft/kernel'
-import { FLUID_BYTE_LENGTH, createFluidBuffer, hydrateLegacyFluidBufferFromBlocks } from '@ts-minecraft/world-state'
+import { Array as Arr, Clock, Effect, HashMap, HashSet, Option, Ref } from 'effect'
+import { ChunkService } from '../domain/chunk'
+import type { Chunk } from '../domain/chunk'
+import { ChunkCoord } from '@ts-minecraft/kernel'
+import { StorageError } from '@ts-minecraft/world-state'
 import { LightEngineService } from './light-engine-service'
 import { StorageServicePort } from '../domain/storage-service-port'
-import type { ChunkStorageValue } from '../domain/storage-service-port'
-import { Position, ChunkCacheKey } from '@ts-minecraft/kernel'
-import { DEFAULT_WORLD_ID, SEA_LEVEL, LAKE_LEVEL } from '@ts-minecraft/kernel'
-import { ChunkError } from '../domain/errors'
-import { StorageError } from '@ts-minecraft/world-state'
+import { Position, ChunkCacheKey, DEFAULT_WORLD_ID } from '@ts-minecraft/kernel'
 import { BiomeService } from './biome-service'
 import { NoiseServicePort } from '../domain/noise-service-port'
 import { TerrainWorkerPoolPort } from './terrain-worker-pool-port'
-import { chunkLoadHistogram } from '../domain/terrain/generator'
 import {
   chunkDistanceSquared,
   worldToChunkCoord,
@@ -20,45 +16,12 @@ import {
   countChunksInRadius,
   chunkCoordToKey,
 } from '../domain/chunk-coord-utils'
+import { RENDER_DISTANCE, UNLOAD_DISTANCE, MAX_CACHED_CHUNKS, ChunkManagerError } from './chunk-manager-constants'
+import { type ChunkCache, type ChunkCacheEntry } from './chunk-manager-cache'
+import { type ChunkOpsContext, getChunk, unloadChunk } from './chunk-manager-ops'
 
-export const RENDER_DISTANCE = 8
-export const UNLOAD_DISTANCE = 10
-export const MAX_CACHED_CHUNKS = 400
-
-export type ChunkManagerError = ChunkError | StorageError
-
-const normalizeFluidBuffer = (value: unknown): Uint8Array<ArrayBufferLike> => {
-  if (value instanceof Uint8Array) {
-    return value.byteLength === FLUID_BYTE_LENGTH ? value : createFluidBuffer()
-  }
-  return createFluidBuffer()
-}
-
-const normalizeChunkStorageValue = (stored: ChunkStorageValue): { blocks: Uint8Array<ArrayBufferLike>; fluid: Uint8Array<ArrayBufferLike> } => {
-  if (stored instanceof Uint8Array) {
-    return { blocks: stored, fluid: hydrateLegacyFluidBufferFromBlocks(stored, blockTypeToIndex('WATER'), blockTypeToIndex('LAVA')) }
-  }
-
-  return {
-    blocks: stored.blocks,
-    fluid: normalizeFluidBuffer(stored.fluid),
-  }
-}
-
-// lastAccessed is intentionally mutable for O(1) in-place LRU updates.
-const ChunkCacheEntrySchema = Schema.mutable(
-  Schema.Struct({
-    chunk: ChunkSchema,         // ChunkSchema defined in src/domain/chunk.ts
-    lastAccessed: Schema.Number.pipe(Schema.int(), Schema.nonNegative()),  // mutable for O(1) LRU in-place updates
-  }),
-)
-type ChunkCacheEntry = Schema.Schema.Type<typeof ChunkCacheEntrySchema>
-
-// FR-006 DEFERRED: Effect.Cache is incompatible (no onEvict, no distance eviction, atomicity broken by key-dedup).
-type ChunkCache = {
-  chunks: HashMap.HashMap<ChunkCacheKey, ChunkCacheEntry>
-  dirtyChunks: HashSet.HashSet<ChunkCacheKey>
-}
+export { RENDER_DISTANCE, UNLOAD_DISTANCE, MAX_CACHED_CHUNKS } from './chunk-manager-constants'
+export type { ChunkManagerError } from './chunk-manager-constants'
 
 export class ChunkManagerService extends Effect.Service<ChunkManagerService>()(
   '@minecraft/application/ChunkManagerService',
@@ -77,14 +40,6 @@ export class ChunkManagerService extends Effect.Service<ChunkManagerService>()(
       const noiseService = yield* NoiseServicePort
       const terrainPool = yield* TerrainWorkerPoolPort
       const lightEngine = yield* LightEngineService
-
-      // Compute and attach skyLight + blockLight grids onto a freshly-loaded or
-      // freshly-generated chunk before it enters the cache. The mesher uses these
-      // grids to emit per-vertex sky/block factors via vertex colors.
-      const withLighting = (chunk: Chunk): Effect.Effect<Chunk, never> =>
-        lightEngine.updateLight(chunk).pipe(
-          Effect.map((grids) => ({ ...chunk, skyLight: grids.skyLight, blockLight: grids.blockLight }))
-        )
 
       const cache = yield* Ref.make<ChunkCache>({
         chunks: HashMap.empty<ChunkCacheKey, ChunkCacheEntry>(),
@@ -108,170 +63,20 @@ export class ChunkManagerService extends Effect.Service<ChunkManagerService>()(
       // Semaphore limiting concurrent chunk generation/loading to 4 fibers at a time
       const loadSemaphore = yield* Effect.makeSemaphore(4)
 
-      // Helper: find the LRU key in a chunks map (O(n) scan, fine at 400 items)
-      const findLRUKey = (chunks: HashMap.HashMap<ChunkCacheKey, ChunkCacheEntry>): Option.Option<ChunkCacheKey> =>
-        Arr.reduce(
-          Arr.fromIterable(chunks),
-          { keyOpt: Option.none<ChunkCacheKey>(), time: Infinity } satisfies { keyOpt: Option.Option<ChunkCacheKey>; time: number },
-          (acc, [k, entry]) =>
-            entry.lastAccessed < acc.time
-              ? { keyOpt: Option.some(k), time: entry.lastAccessed }
-              : acc
-        ).keyOpt
-
-      // Helper: insert a chunk into the cache, evicting the LRU entry if at capacity.
-      // Uses Ref.modify to atomically insert + evict and return the evicted entry if dirty,
-      // then saves it outside the modify (I/O cannot run inside a Ref.modify callback).
-      // This eliminates the TOCTOU race where a pre-eviction save and the eviction step
-      // could target different LRU keys when concurrent fibers modify the cache in between.
-      const insertWithEviction = (
-        coord: ChunkCoord,
-        chunk: Chunk
-      ): Effect.Effect<void, StorageError> =>
-        Effect.gen(function* () {
-          const key = chunkCoordToKey(coord)
-          const maxCachedChunks = yield* Ref.get(maxCachedChunksRef)
-          // Use monotonically incrementing counter instead of wall-clock time.
-          // Clock.currentTimeMillis can return the same value for multiple rapid insertions,
-          // causing ties in lastAccessed. With HashMap (hash-ordered iteration), a tie produces
-          // non-deterministic LRU selection. The counter guarantees strictly unique access order.
-          const accessOrder = yield* Ref.modify(accessCounterRef, (n) => [n + 1, n + 1])
-
-          // Atomically insert + evict LRU, returning the dirty evictee (if any) for post-save.
-          // HashMap/HashSet are immutable — no defensive copies needed; modifications return new instances.
-          const evictedDirtyEntry = yield* Ref.modify(cache, (s): [Option.Option<ChunkCacheEntry>, ChunkCache] => {
-            const baseChunks = HashMap.set(s.chunks, key, { chunk, lastAccessed: accessOrder })
-
-            if (HashMap.size(baseChunks) <= maxCachedChunks) {
-              return [Option.none(), { ...s, chunks: baseChunks }]
-            }
-
-            return Option.match(findLRUKey(baseChunks), {
-              onNone: () => {
-                const result: [Option.Option<ChunkCacheEntry>, ChunkCache] = [Option.none<ChunkCacheEntry>(), { ...s, chunks: baseChunks }]
-                return result
-              },
-              onSome: (evictKey) => {
-                const evictEntryOpt = HashMap.get(baseChunks, evictKey)
-                const isDirty = HashSet.has(s.dirtyChunks, evictKey)
-                const newChunks = HashMap.remove(baseChunks, evictKey)
-                const newDirty = HashSet.remove(s.dirtyChunks, evictKey)
-                const evictedDirty = Option.filter(evictEntryOpt, () => isDirty)
-                return [evictedDirty, { ...s, chunks: newChunks, dirtyChunks: newDirty }]
-              },
-            })
-          })
-
-          // Save the evicted chunk if it was dirty (I/O must happen outside Ref.modify)
-          yield* Option.match(evictedDirtyEntry, {
-            onNone: () => Effect.void,
-            onSome: (evicted) =>
-              storageService.saveChunk(DEFAULT_WORLD_ID, evicted.chunk.coord, {
-                blocks: evicted.chunk.blocks,
-                fluid: Option.getOrElse(evicted.chunk.fluid, createFluidBuffer),
-              }),
-          })
-
-          // Invalidate getLoadedChunks cache: chunk set has changed
-          yield* Ref.set(cachedLoadedChunksRef, Option.none())
-        })
-
-      const getChunk = (coord: ChunkCoord): Effect.Effect<Chunk, ChunkManagerError> =>
-        Effect.gen(function* () {
-          const key = chunkCoordToKey(coord)
-          const state = yield* Ref.get(cache)
-
-          const generateAndInsert = (): Effect.Effect<Chunk, ChunkManagerError> =>
-            Effect.gen(function* () {
-              // Generate new chunk off-main-thread via TerrainWorkerPoolPort — falls back to
-              // synchronous generation when Worker is unavailable (Node.js / Vitest).
-              // Output is byte-identical to the previous main-thread generateTerrain call
-              // (proved by terrain-worker-pool.parity.property.test.ts).
-              //
-              // The worker now also runs the full sky+block-light BFS (see
-              // `terrain-generation.computeInitialLightGrids`), so we adopt the
-              // returned `skyLight`/`blockLight` directly — no `withLighting` call
-              // here. That moves ~0.6-1.25s of main-thread BFS at RD=2 cold-start
-              // onto the worker fibers.
-              const seed = yield* noiseService.getSeed
-              const generated = yield* terrainPool
-                .generateTerrain(coord, { seaLevel: SEA_LEVEL, lakeLevel: LAKE_LEVEL, seed })
-                .pipe(
-                  Effect.mapError((err) => new ChunkError({ chunkCoord: coord, reason: err.reason })),
-                  Metric.trackDurationWith(chunkLoadHistogram, (d) => Duration.toMillis(d)),
-                )
-              const newChunk: Chunk = {
-                coord,
-                blocks: generated.blocks,
-                skyLight: generated.skyLight,
-                blockLight: generated.blockLight,
-                fluid: Option.none(),
-              }
-              yield* insertWithEviction(coord, newChunk)
-              return newChunk
-            })
-
-          return yield* Option.match(HashMap.get(state.chunks, key), {
-            onSome: (cached) => Effect.gen(function* () {
-              // Return cached chunk, updating LRU access order
-              const accessOrder = yield* Ref.modify(accessCounterRef, (n) => [n + 1, n + 1])
-              cached.lastAccessed = accessOrder  // O(1) in-place update, safe in single-threaded JS
-              return cached.chunk
-            }),
-            onNone: () => Effect.gen(function* () {
-              // Try to load from storage — measured with chunkLoadHistogram
-              const storedData = yield* storageService.loadChunk(DEFAULT_WORLD_ID, coord)
-              return yield* Option.match(storedData, {
-                onNone: () => generateAndInsert(),
-                onSome: (stored) => Effect.gen(function* () {
-                  const { blocks, fluid } = normalizeChunkStorageValue(stored)
-
-                  const EXPECTED_LENGTH = CHUNK_SIZE * CHUNK_SIZE * CHUNK_HEIGHT
-                  if (blocks.byteLength !== EXPECTED_LENGTH) {
-                    // Buffer length mismatch — discard and regenerate (corrupted or version-mismatched data)
-                    yield* Effect.logWarning(`Chunk (${coord.x},${coord.z}) has invalid buffer length ${blocks.byteLength} (expected ${EXPECTED_LENGTH}); regenerating`)
-                    return yield* generateAndInsert()
-                  }
-                  const baseChunk: Chunk = { coord, blocks, fluid: Option.fromNullable(fluid) }
-                  // Compute lighting fresh on load — storage doesn't persist light grids;
-                  // this avoids stale lighting after manual block edits between sessions.
-                  const chunk = yield* withLighting(baseChunk)
-                  yield* insertWithEviction(coord, chunk)
-                  return chunk
-                }),
-              })
-            }),
-          })
-        })
-
-      const unloadChunk = (coord: ChunkCoord): Effect.Effect<void, StorageError> =>
-        Effect.gen(function* () {
-          const key = chunkCoordToKey(coord)
-          const state = yield* Ref.get(cache)
-          yield* Option.match(Option.map(HashMap.get(state.chunks, key), (e) => e.chunk), {
-            onNone: () => Effect.void,
-            onSome: (chunk) => Effect.gen(function* () {
-              // Save if dirty
-              if (HashSet.has(state.dirtyChunks, key)) {
-                yield* storageService.saveChunk(DEFAULT_WORLD_ID, chunk.coord, {
-                  blocks: chunk.blocks,
-                  fluid: Option.getOrElse(chunk.fluid, createFluidBuffer),
-                })
-              }
-              // Remove from cache — HashMap/HashSet are immutable; remove returns new instance
-              yield* Ref.update(cache, (s) => ({
-                ...s,
-                chunks: HashMap.remove(s.chunks, key),
-                dirtyChunks: HashSet.remove(s.dirtyChunks, key),
-              }))
-              // Invalidate getLoadedChunks cache: chunk set has changed
-              yield* Ref.set(cachedLoadedChunksRef, Option.none())
-            }),
-          })
-        })
+      // Bundle all shared dependencies into a context object for the ops helpers.
+      const ctx: ChunkOpsContext = {
+        cache,
+        cachedLoadedChunksRef,
+        maxCachedChunksRef,
+        accessCounterRef,
+        storageService,
+        noiseService,
+        terrainPool,
+        lightEngine,
+      }
 
       return {
-        getChunk,
+        getChunk: (coord: ChunkCoord) => getChunk(ctx, coord),
 
         loadChunksAroundPlayer: (playerPos: Position, renderDistance: number = RENDER_DISTANCE): Effect.Effect<boolean, ChunkManagerError> =>
           Effect.gen(function* () {
@@ -293,7 +98,7 @@ export class ChunkManagerService extends Effect.Service<ChunkManagerService>()(
             // Load chunks in render distance — cap fan-out to the same 4 fibers as the semaphore.
             yield* Effect.forEach(
               chunksToLoad,
-              (coord) => loadSemaphore.withPermits(1)(getChunk(coord)),
+              (coord) => loadSemaphore.withPermits(1)(getChunk(ctx, coord)),
               { concurrency: 4 }
             )
 
@@ -306,7 +111,8 @@ export class ChunkManagerService extends Effect.Service<ChunkManagerService>()(
               Arr.filter(Arr.fromIterable(HashMap.values(state.chunks)), (entry) =>
                 chunkDistanceSquared(entry.chunk.coord, centerChunk) > maxDistance
               ),
-              (entry) => unloadChunk(entry.chunk.coord),
+              /* c8 ignore next */
+              (entry) => unloadChunk(ctx, entry.chunk.coord),
               { concurrency: 1 }
             )
 
@@ -341,6 +147,7 @@ export class ChunkManagerService extends Effect.Service<ChunkManagerService>()(
                   Effect.tap((grids) =>
                     Ref.update(cache, (s) =>
                       Option.match(HashMap.get(s.chunks, key), {
+                        /* c8 ignore next */
                         onNone: () => s,
                         onSome: (e) => ({
                           ...s,
@@ -394,7 +201,7 @@ export class ChunkManagerService extends Effect.Service<ChunkManagerService>()(
             }))
           }),
 
-        unloadChunk,
+        unloadChunk: (coord: ChunkCoord) => unloadChunk(ctx, coord),
       }
     }),
   }

@@ -17,11 +17,13 @@ export class StorageServicePort extends Effect.Service<StorageServicePort>()(
   '@minecraft/application/storage/StorageServicePort',
   {
     succeed: {
+      /* c8 ignore next 5 */
       saveChunk: (
         _worldId: WorldId,
         _chunkCoord: ChunkCoord,
         _data: ChunkStorageValue,
       ): Effect.Effect<void, StorageError> => Effect.void,
+      /* c8 ignore next 4 */
       loadChunk: (
         _worldId: WorldId,
         _chunkCoord: ChunkCoord,

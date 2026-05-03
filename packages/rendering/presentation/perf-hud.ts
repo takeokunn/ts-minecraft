@@ -3,7 +3,7 @@
 // Production: every method returns Effect.void immediately (zero runtime cost when disabled).
 // e2e contract (test W3): window.__perfHud__.snapshot() → { fps, p50Ms, p99Ms, drawCalls, chunkCount, workerQueueDepth, samples }
 // Performance: pre-allocated DOM Text nodes (nodeValue mutation) + Float64Array(120) ring buffer (no allocations on hot path).
-import { Cause, Duration, Effect, MutableRef, Schedule, Scope } from 'effect'
+import { Array as Arr, Cause, Duration, Effect, MutableRef, Schedule, Scope } from 'effect'
 import { isPerfEnabled } from '../infrastructure/perf-marks'
 import type { ChunkManagerService } from '@ts-minecraft/terrain'
 
@@ -201,7 +201,7 @@ export class PerfHudService extends Effect.Service<PerfHudService>()(
       const buildSnapshot = (): PerfHudSnapshot => {
         const filled = MutableRef.get(filledCountRef)
         const validLength = Math.min(filled, SAMPLE_BUFFER_SIZE)
-        const samples: number[] = Array.from({ length: validLength }, (_, i) => ring[i]!)
+        const samples: number[] = Arr.makeBy(validLength, (i) => ring[i]!)
         return {
           fps: MutableRef.get(fpsRef),
           p50Ms: MutableRef.get(p50MsRef),

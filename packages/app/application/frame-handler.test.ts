@@ -1,6 +1,6 @@
 import { describe, expect, vi } from 'vitest'
 import { it } from '@effect/vitest'
-import { Effect, Option } from 'effect'
+import { Effect, MutableRef, Option } from 'effect'
 import {
   arrangeFrameHarness,
   makeDeps,
@@ -93,6 +93,25 @@ describe('frame-handler', () => {
       })
 
       yield* runFrame(deps, services)
+    }))
+
+    it.effect('skips physicsStage and uses initialPlayerPos when sessionPausedRef is true', () => Effect.gen(function* () {
+      const deps = yield* makeDeps(false)
+      // Set the session-paused flag — simulates pause-menu open / quit-to-title in progress.
+      MutableRef.set(deps.sessionPausedRef, true)
+      const services = makeServices({
+        inputService: makeInputService(),
+        inventoryRenderer: makeInventoryRenderer({ open: false }),
+        settingsOverlay: makeSettingsOverlay({ open: false }),
+      })
+      // gameState.update should NOT be called when session is paused (physics stage is skipped)
+      const updateSpy = vi.fn(() => Effect.void)
+      ;(services.gameState as unknown as { update: unknown }).update = updateSpy
+
+      yield* runFrame(deps, services)
+
+      // physicsStage calls gameState.update; it must be skipped when sessionPausedRef is true
+      expect(updateSpy).not.toHaveBeenCalled()
     }))
 
     it.effect('calls renderer.render every frame when composer is absent', () => Effect.gen(function* () {

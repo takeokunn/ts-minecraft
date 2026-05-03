@@ -1,6 +1,5 @@
-import { Array as Arr, Effect, Schema } from 'effect'
+import { Array as Arr, Effect } from 'effect'
 import { NoiseServicePort } from '../domain/noise-service-port'
-import { BlockTypeSchema } from '@ts-minecraft/kernel'
 import { CHUNK_SIZE } from '@ts-minecraft/kernel'
 import {
   BIOME_PROPERTIES,
@@ -17,18 +16,7 @@ import {
   RIVER_NOISE_SCALE,
   RIVER_WORLD_OFFSET,
 } from './biome-service.config'
-export const BiomeTypeSchema = Schema.Literal('PLAINS', 'DESERT', 'FOREST', 'OCEAN', 'MOUNTAINS', 'SNOW', 'SWAMP', 'JUNGLE', 'BEACH', 'RIVER', 'TAIGA', 'SAVANNA')
-export type BiomeType = Schema.Schema.Type<typeof BiomeTypeSchema>
-
-// baseHeight/heightModifier removed in Phase 2.1 — height derives from continentalness/erosion/pv noise now.
-export const BiomePropertiesSchema = Schema.Struct({
-  surfaceBlock: BlockTypeSchema,
-  subSurfaceBlock: BlockTypeSchema,
-  treeDensity: Schema.Number.pipe(Schema.finite(), Schema.between(0, 1)),
-  temperature: Schema.Number.pipe(Schema.finite(), Schema.between(0, 1)),
-  humidity: Schema.Number.pipe(Schema.finite(), Schema.between(0, 1)),
-})
-export type BiomeProperties = Schema.Schema.Type<typeof BiomePropertiesSchema>
+import type { BiomeType, BiomeProperties } from '../domain/biome'
 
 type ClimateSample = {
   readonly temperature: number
@@ -86,6 +74,9 @@ const classifyBiomeFromClimate = ({
   }
 
   if (baseBiome === 'OCEAN') {
+    // temperature > TEMP_HOT is unreachable here: classifyBiome returns 'OCEAN' only when
+    // humidity > HUM_VERY_WET && temperature <= HUM_WET (0.6), but TEMP_HOT = 0.7 > 0.6.
+    /* c8 ignore next -- 'SWAMP' branch: logically unreachable (OCEAN base requires temp ≤ 0.6 < TEMP_HOT) */
     return temperature > TEMP_HOT ? 'SWAMP' : 'FOREST'
   }
 
@@ -93,7 +84,11 @@ const classifyBiomeFromClimate = ({
     return 'FOREST'
   }
 
+  /* c8 ignore next */
   if (baseBiome === 'MOUNTAINS' && (continentalness < 0.32 || mountaininess < 0.28)) {
+    // 'FOREST' branch is unreachable: classifyBiome returns 'MOUNTAINS' only when isCold (temp < TEMP_COLD),
+    // so temperature < TEMP_COLD is always true here; the ternary false-arm never executes.
+    /* c8 ignore next -- 'FOREST' branch: logically unreachable (MOUNTAINS base requires temp < TEMP_COLD) */
     return temperature < TEMP_COLD ? 'TAIGA' : 'FOREST'
   }
 

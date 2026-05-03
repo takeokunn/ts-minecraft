@@ -1,34 +1,15 @@
-import { Array as Arr, Effect, Match, Option, Ref } from 'effect'
+import { Array as Arr, Effect, Option, Ref } from 'effect'
 import { DomOperationsService } from '@ts-minecraft/app/presentation/hud/crosshair'
-import { TradingService, type TradeOffer, type TradeResult } from '@ts-minecraft/entities'
+import { TradingService, type TradeOffer } from '@ts-minecraft/entities'
 import { VillageService } from '@ts-minecraft/entities'
 import type { VillagerId } from '@ts-minecraft/entities'
+import { normalizeSelection, tradeResultText } from './trading.config'
 
 type TradingUiState = {
   readonly villagerId: VillagerId
   readonly offers: ReadonlyArray<TradeOffer>
   readonly selectedIndex: number
 }
-
-const normalizeSelection = (length: number, index: number): number => {
-  if (length <= 0) {
-    return 0
-  }
-
-  const wrapped = index % length
-  return wrapped < 0 ? wrapped + length : wrapped
-}
-
-const tradeResultText = (result: TradeResult): string =>
-  Match.value(result).pipe(
-    Match.tag('TradeSuccess', (r) =>
-      r.levelUp
-        ? `Trade complete. ${r.villager.profession} reached level ${r.villager.level}.`
-        : 'Trade complete.',
-    ),
-    Match.tag('TradeFailure', (r) => `Trade failed: ${r.reason.replaceAll('_', ' ')}`),
-    Match.exhaustive,
-  )
 
 export class TradingPresentationService extends Effect.Service<TradingPresentationService>()(
   '@minecraft/presentation/TradingPresentationService',

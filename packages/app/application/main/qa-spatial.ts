@@ -1,4 +1,4 @@
-import { Effect, Option } from 'effect'
+import { Array as Arr, Effect, Option } from 'effect'
 import * as THREE from 'three'
 import type { Position } from '@ts-minecraft/kernel'
 import { CHUNK_HEIGHT, CHUNK_SIZE } from '@ts-minecraft/kernel'
@@ -45,28 +45,45 @@ export const scanNearbyBlock = <TChunk extends { readonly blocks: Uint8Array }>(
   playerPos: Position,
   searchRadius: number,
   targetBlockIndex: number,
-  getChunk: (coord: { readonly x: number; readonly z: number }) => Effect.Effect<TChunk | null, never>,
-): Effect.Effect<boolean, never> =>
-  Effect.gen(function* () {
-    for (let dx = -searchRadius; dx <= searchRadius; dx++) {
-      for (let dy = -1; dy <= 2; dy++) {
-        for (let dz = -searchRadius; dz <= searchRadius; dz++) {
-          const worldPos = {
-            x: Math.floor(playerPos.x + dx),
-            y: Math.floor(playerPos.y + dy),
-            z: Math.floor(playerPos.z + dz),
-          }
-          if (worldPos.y < 0 || worldPos.y >= CHUNK_HEIGHT) continue
-          const { chunkCoord, lx, lz } = getChunkAccessForWorldPosition(worldPos)
-          const chunk = yield* getChunk(chunkCoord)
-          if (chunk === null) continue
-          const idx = worldPos.y + lz * CHUNK_HEIGHT + lx * CHUNK_HEIGHT * CHUNK_SIZE
-          if (chunk.blocks[idx] === targetBlockIndex) return true
+  getChunk: (coord: { readonly x: number; readonly z: number }) => Effect.Effect<Option.Option<TChunk>, never>,
+): Effect.Effect<boolean, never> => {
+  const dxRange = Arr.makeBy(searchRadius * 2 + 1, (i) => i - searchRadius)
+  const dyRange = [-1, 0, 1, 2]
+  const dzRange = Arr.makeBy(searchRadius * 2 + 1, (i) => i - searchRadius)
+
+  const searchCoords = Arr.flatMap(dxRange, (dx) =>
+    Arr.flatMap(dyRange, (dy) =>
+      Arr.map(dzRange, (dz) => ({ dx, dy, dz }))
+    )
+  )
+
+  return Effect.iterate(
+    { found: false, i: 0 },
+    {
+      while: (s) => !s.found && s.i < searchCoords.length,
+      body: (s) => {
+        const { dx, dy, dz } = searchCoords[s.i]!
+        const worldPos = {
+          x: Math.floor(playerPos.x + dx),
+          y: Math.floor(playerPos.y + dy),
+          z: Math.floor(playerPos.z + dz),
         }
-      }
+        if (worldPos.y < 0 || worldPos.y >= CHUNK_HEIGHT) {
+          return Effect.succeed({ found: false, i: s.i + 1 })
+        }
+        const { chunkCoord, lx, lz } = getChunkAccessForWorldPosition(worldPos)
+        return getChunk(chunkCoord).pipe(
+          Effect.map((chunkOpt) => {
+            const chunk = Option.getOrNull(chunkOpt)
+            if (chunk === null) return { found: false, i: s.i + 1 }
+            const idx = worldPos.y + lz * CHUNK_HEIGHT + lx * CHUNK_HEIGHT * CHUNK_SIZE
+            return { found: chunk.blocks[idx] === targetBlockIndex, i: s.i + 1 }
+          })
+        )
+      },
     }
-    return false
-  })
+  ).pipe(Effect.map((s) => s.found))
+}
 
 export const getOptionalIndexedValue = <T>(items: ReadonlyArray<T>, index: number): Option.Option<T> =>
   index >= 0 && index < items.length ? Option.some(items[index] as T) : Option.none()

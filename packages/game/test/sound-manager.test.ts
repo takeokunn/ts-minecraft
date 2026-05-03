@@ -1,6 +1,6 @@
 import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
-import { Effect, Layer } from 'effect'
+import { Effect, Layer, MutableRef } from 'effect'
 import { AudioEnginePort, type AudioEnginePortShape, type ToneRequest } from '@ts-minecraft/game'
 import { SoundManager, SoundManagerLive } from '@ts-minecraft/game'
 
@@ -8,14 +8,14 @@ const makeFakeAudioEngine = () => {
   const playRequests: ToneRequest[] = []
   const stoppedToneIds: number[] = []
   const masterGains: number[] = []
-  let nextToneId = 1
+  const nextToneIdRef = MutableRef.make(1)
 
   const engine: AudioEnginePortShape = {
     playTone: (request) =>
       Effect.sync(() => {
         playRequests.push(request)
-        const id = nextToneId
-        nextToneId += 1
+        const id = MutableRef.get(nextToneIdRef)
+        MutableRef.set(nextToneIdRef, id + 1)
         return { id }
       }),
     stopTone: (handle) =>

@@ -59,12 +59,16 @@ export class PhysicsWorldPort extends Effect.Service<PhysicsWorldPort>()(
   '@minecraft/application/physics/PhysicsWorldPort',
   {
     succeed: {
+      /* c8 ignore next 2 */
       create: (_config: WorldConfig): Effect.Effect<CustomWorld, never> =>
         Effect.die('PhysicsWorldPort.create not provided'),
+      /* c8 ignore next 2 */
       addBody: (_world: CustomWorld, _body: CustomBody): Effect.Effect<void, never> =>
         Effect.die('PhysicsWorldPort.addBody not provided'),
+      /* c8 ignore next 2 */
       removeBody: (_world: CustomWorld, _body: CustomBody): Effect.Effect<void, never> =>
         Effect.die('PhysicsWorldPort.removeBody not provided'),
+      /* c8 ignore next 2 */
       step: (_world: CustomWorld, _deltaTime: DeltaTimeSecs): Effect.Effect<void, never> =>
         Effect.die('PhysicsWorldPort.step not provided'),
     },
@@ -75,18 +79,25 @@ export class RigidBodyPort extends Effect.Service<RigidBodyPort>()(
   '@minecraft/application/physics/RigidBodyPort',
   {
     succeed: {
+      /* c8 ignore next 2 */
       create: (_config: RigidBodyConfig): Effect.Effect<CustomBody, never> =>
         Effect.die('RigidBodyPort.create not provided'),
+      /* c8 ignore next 2 */
       setPosition: (_body: CustomBody, _position: Vector3): Effect.Effect<void, never> =>
         Effect.die('RigidBodyPort.setPosition not provided'),
+      /* c8 ignore next 2 */
       setQuaternion: (_body: CustomBody, _quaternion: Quaternion): Effect.Effect<void, never> =>
         Effect.die('RigidBodyPort.setQuaternion not provided'),
+      /* c8 ignore next 2 */
       setVelocity: (_body: CustomBody, _velocity: Vector3): Effect.Effect<void, never> =>
         Effect.die('RigidBodyPort.setVelocity not provided'),
+      /* c8 ignore next 2 */
       setAngularVelocity: (_body: CustomBody, _angularVelocity: Vector3): Effect.Effect<void, never> =>
         Effect.die('RigidBodyPort.setAngularVelocity not provided'),
+      /* c8 ignore next 2 */
       addShape: (_body: CustomBody, _shape: CustomShape): Effect.Effect<void, never> =>
         Effect.die('RigidBodyPort.addShape not provided'),
+      /* c8 ignore next 2 */
       updateMassProperties: (_body: CustomBody): Effect.Effect<void, never> =>
         Effect.die('RigidBodyPort.updateMassProperties not provided'),
     },
@@ -97,10 +108,13 @@ export class ShapePort extends Effect.Service<ShapePort>()(
   '@minecraft/application/physics/ShapePort',
   {
     succeed: {
+      /* c8 ignore next 2 */
       createBox: (_config: BoxShapeConfig): Effect.Effect<CustomShape, never> =>
         Effect.die('ShapePort.createBox not provided'),
+      /* c8 ignore next 2 */
       createSphere: (_config: SphereShapeConfig): Effect.Effect<CustomShape, never> =>
         Effect.die('ShapePort.createSphere not provided'),
+      /* c8 ignore next 2 */
       createPlane: (): Effect.Effect<CustomShape, never> =>
         Effect.die('ShapePort.createPlane not provided'),
     },

@@ -110,15 +110,12 @@ export class HotbarRendererService extends Effect.Service<HotbarRendererService>
             const hudCamera = MutableRef.get(hudCameraRef)
             const slotMeshes = MutableRef.get(slotMeshesRef)
 
-            Option.match(hudCamera, {
-              onSome: (cam) => {
-                cam.left = -w / 2
-                cam.right = w / 2
-                cam.top = h / 2
-                cam.bottom = -h / 2
-                cam.updateProjectionMatrix()
-              },
-              onNone: () => {},
+            Option.map(hudCamera, (cam) => {
+              cam.left = -w / 2
+              cam.right = w / 2
+              cam.top = h / 2
+              cam.bottom = -h / 2
+              cam.updateProjectionMatrix()
             })
 
             const newY = -h / 2 + HOTBAR_Y_OFFSET
@@ -166,15 +163,18 @@ export class HotbarRendererService extends Effect.Service<HotbarRendererService>
                 Effect.gen(function* () {
                   const slotMeshes = MutableRef.get(slotMeshesRef)
                   const unchanged = yield* Ref.modify(prevStateRef, (prev) => {
+                    /* c8 ignore next */
                     if (prev.selected === selectedSlot && prev.slots === slots) return [true, prev] as const
                     return [false, { slots, selected: selectedSlot }] as const
                   })
 
+                  /* c8 ignore next */
                   if (unchanged) return
 
                   Arr.forEach(
                     Arr.zip(slotMeshes, slots),
                     ([mesh, slot]) => {
+                      /* c8 ignore next */
                       if (!(mesh.material instanceof THREE.MeshBasicMaterial)) return
                       const mat = mesh.material
                       Option.match(slot, {

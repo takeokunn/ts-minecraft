@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { Array as Arr, HashMap, HashSet, Option } from 'effect'
 import {
+  RedstonePowerLevel,
   RedstoneComponentType,
   canConduct,
   isPowerSource,
@@ -196,6 +197,20 @@ describe('updatePistons', () => {
     expect(updated.state.pistonExtended).toBe(false)
   })
 
+  it('piston already extended and still powered → state unchanged (no-op)', () => {
+    const piston = makeComponent(RedstoneComponentType.Piston, 0, 64, 0, { pistonExtended: true })
+    const components = makeComponents([piston])
+    const key = positionKey({ x: 0, y: 64, z: 0 })
+    const powered = HashMap.fromIterable([[key, 15]] as const)
+    const pistonKeys = HashSet.fromIterable([key])
+
+    const result = updatePistons(components, powered, pistonKeys)
+    const updated = Option.getOrThrow(HashMap.get(result, key))
+    expect(updated.state.pistonExtended).toBe(true)
+    // result should be the same HashMap reference (acc returned unchanged)
+    expect(HashMap.size(result)).toBe(1)
+  })
+
   it('pistonKey pointing to missing component is handled gracefully (no-op)', () => {
     const key = positionKey({ x: 99, y: 64, z: 99 })
     const powered = HashMap.fromIterable([[key, 15]] as const)
@@ -230,6 +245,20 @@ describe('decayButtonTimers', () => {
       expect(updated.state.buttonTicksRemaining).toBe(expectedTicks)
       expect(updated.state.active).toBe(expectedActive)
     })
+  })
+})
+
+// --- RedstonePowerLevel.toNumber ---
+
+describe('RedstonePowerLevel.toNumber', () => {
+  it('converts a branded power level back to a plain number', () => {
+    const level = RedstonePowerLevel.make(15)
+    expect(RedstonePowerLevel.toNumber(level)).toBe(15)
+  })
+
+  it('converts power level 0 to 0', () => {
+    const level = RedstonePowerLevel.make(0)
+    expect(RedstonePowerLevel.toNumber(level)).toBe(0)
   })
 })
 

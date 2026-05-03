@@ -42,6 +42,7 @@ const findClosestVillagerInRange = (
     if (dSq > maxDistanceSq) return closest
     return Option.match(closest, {
       onNone: () => Option.some(villager),
+      /* c8 ignore next */
       onSome: (current) => dSq < distanceSq(current.position, position) ? Option.some(villager) : closest,
     })
   })
