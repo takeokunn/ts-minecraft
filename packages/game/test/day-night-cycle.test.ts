@@ -14,15 +14,8 @@ const makeFakeLights = (): DayNightLights & {
 } => {
   const capturedColorRef = MutableRef.make<Option.Option<THREE.Color>>(Option.none())
   return {
-    light: {
-      intensity: 0,
-      position: { set: (_x: number, _y: number, _z: number) => {} },
-      color: { setHSL: (_h: number, _s: number, _l: number) => {} },
-    } as unknown as THREE.DirectionalLight,
-    ambientLight: {
-      intensity: 0,
-      color: { setHSL: (_h: number, _s: number, _l: number) => {} },
-    } as unknown as THREE.AmbientLight,
+    light: new THREE.DirectionalLight(0xffffff, 0),
+    ambientLight: new THREE.AmbientLight(0xffffff, 0),
     renderer: {
       setClearColor: (color: THREE.Color) => {
         MutableRef.set(capturedColorRef, Option.some(color))

@@ -11,7 +11,7 @@
 //   - A new ChunkManagerService instance reads back the saved data unchanged
 import { describe, it, expect } from 'vitest'
 import { Array as Arr, Effect, Option } from 'effect'
-import { CHUNK_SIZE, CHUNK_HEIGHT, blockIndex, ChunkCoord, Position, DEFAULT_WORLD_ID } from '@ts-minecraft/kernel'
+import { CHUNK_SIZE, CHUNK_HEIGHT, blockIndex, ChunkCoord, Position, DEFAULT_WORLD_ID, blockTypeToIndex } from '@ts-minecraft/kernel'
 import { ChunkManagerService } from '@ts-minecraft/terrain'
 import { BlockService } from '@ts-minecraft/terrain'
 import {

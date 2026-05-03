@@ -4,8 +4,6 @@ import { Effect, Schema } from 'effect'
 import { PlayerService, PlayerStateSchema } from '@ts-minecraft/player'
 import type { PlayerId, Position } from '@ts-minecraft/kernel'
 
-const testPlayerId = 'player-1' as PlayerId
-const testPosition: Position = { x: 0, y: 64, z: 0 }
 const TestLayer = PlayerService.Default
 
 describe('PlayerService', () => {

@@ -1,13 +1,13 @@
-import { Array as Arr, Effect, MutableHashMap, Schema } from 'effect'
-import { afterEach, beforeEach, expect, vi } from 'vitest'
-import { describe, it } from '@effect/vitest'
-import { ResolvedGraphicsSchema, resolvePreset, SettingsSchema, SettingsService, type GraphicsQuality, GRAPHICS_PRESETS } from '@ts-minecraft/game'
+import { describe,it } from '@effect/vitest'
+import { GRAPHICS_PRESETS,resolvePreset,SettingsService } from '@ts-minecraft/game'
+import { Array as Arr,Effect,MutableHashMap } from 'effect'
+import { afterEach,beforeEach,expect,vi } from 'vitest'
 import {
-  DEFAULT_SETTINGS,
-  makeLocalStorageMock,
-  SettingsDefault,
-  SettingsLive,
-  STORAGE_KEY,
+DEFAULT_SETTINGS,
+makeLocalStorageMock,
+SettingsDefault,
+SettingsLive,
+STORAGE_KEY,
 } from './settings-service-test-utils'
 
 describe('application/settings/settings-service', () => {
@@ -53,7 +53,11 @@ describe('application/settings/settings-service', () => {
           mouseSensitivity: 1.2,
           dayLengthSeconds: 900,
           graphicsQuality: 'ultra',
-  adaptivePerformanceMode: false,
+          adaptivePerformanceMode: false,
+          audioEnabled: true,
+          masterVolume: 0.25,
+          sfxVolume: 0.4,
+          musicVolume: 0.6,
         })
       )
       return Effect.gen(function* () {
@@ -64,11 +68,11 @@ describe('application/settings/settings-service', () => {
           mouseSensitivity: 1.2,
           dayLengthSeconds: 900,
           graphicsQuality: 'ultra',
-  adaptivePerformanceMode: false,
+          adaptivePerformanceMode: false,
           audioEnabled: false,
-          masterVolume: 0.8,
-          sfxVolume: 1.0,
-          musicVolume: 0.55,
+          masterVolume: 0.25,
+          sfxVolume: 0.4,
+          musicVolume: 0.6,
         })
       }).pipe(Effect.provide(SettingsLive))
     })
@@ -82,7 +86,7 @@ describe('application/settings/settings-service', () => {
       }).pipe(Effect.provide(SettingsLive))
     })
 
-    it.effect('migrates schema-invalid legacy data instead of discarding valid fields', () => {
+    it.effect('falls back to defaults when persisted settings fail the current schema', () => {
       MutableHashMap.set(store,
         STORAGE_KEY,
         JSON.stringify({
@@ -100,31 +104,8 @@ describe('application/settings/settings-service', () => {
       return Effect.gen(function* () {
         const service = yield* SettingsService
         const settings = yield* service.getSettings()
-        expect(settings).toEqual({
-          renderDistance: 2,
-          mouseSensitivity: 1.25,
-          dayLengthSeconds: 600,
-          graphicsQuality: 'ultra',
-  adaptivePerformanceMode: false,
-          audioEnabled: false,
-          masterVolume: 0.25,
-          sfxVolume: 0.4,
-          musicVolume: 0.6,
-        })
-        expect(setItemSpy).toHaveBeenCalledWith(
-          STORAGE_KEY,
-          JSON.stringify({
-            renderDistance: 2,
-            mouseSensitivity: 1.25,
-            dayLengthSeconds: 600,
-            graphicsQuality: 'ultra',
-  adaptivePerformanceMode: false,
-            audioEnabled: false,
-            masterVolume: 0.25,
-            sfxVolume: 0.4,
-            musicVolume: 0.6,
-          })
-        )
+        expect(settings).toEqual(DEFAULT_SETTINGS)
+        expect(setItemSpy).not.toHaveBeenCalled()
       }).pipe(Effect.provide(SettingsLive))
     })
 
@@ -136,76 +117,6 @@ describe('application/settings/settings-service', () => {
         const service = yield* SettingsService
         const settings = yield* service.getSettings()
         expect(settings).toEqual(DEFAULT_SETTINGS)
-      }).pipe(Effect.provide(SettingsLive))
-    })
-
-    it.effect('sanitizeLegacySettings: null parsed value is treated as {} — all defaults returned', () => {
-      // localStorage contains "null" — JSON.parse("null") === null, not a record
-      // isRecord(null) returns false → record = {} → all fields fall back to defaults
-      MutableHashMap.set(store, STORAGE_KEY, 'null')
-      return Effect.gen(function* () {
-        const service = yield* SettingsService
-        const settings = yield* service.getSettings()
-        expect(settings).toEqual(DEFAULT_SETTINGS)
-      }).pipe(Effect.provide(SettingsLive))
-    })
-
-    it.effect('sanitizeLegacySettings: clampNumber returns fallback for non-number renderDistance', () => {
-      // renderDistance is a string — clampNumber branch: typeof value !== 'number' → return fallback
-      MutableHashMap.set(store, STORAGE_KEY, JSON.stringify({
-        renderDistance: 'not-a-number',
-        mouseSensitivity: 1.0,
-        dayLengthSeconds: 400,
-        graphicsQuality: 'medium',
-        adaptivePerformanceMode: false,
-      }))
-      return Effect.gen(function* () {
-        const service = yield* SettingsService
-        const settings = yield* service.getSettings()
-        expect(settings.renderDistance).toBe(DEFAULT_SETTINGS.renderDistance)
-      }).pipe(Effect.provide(SettingsLive))
-    })
-
-    it.effect('sanitizeLegacySettings: clampNumber returns fallback for Infinity mouseSensitivity', () => {
-      // JSON.stringify converts Infinity to null; use a raw JSON string instead
-      // null is not a number → clampNumber returns fallback
-      MutableHashMap.set(store, STORAGE_KEY, '{"renderDistance":4,"mouseSensitivity":null,"dayLengthSeconds":400,"graphicsQuality":"low","adaptivePerformanceMode":true}')
-      return Effect.gen(function* () {
-        const service = yield* SettingsService
-        const settings = yield* service.getSettings()
-        expect(settings.mouseSensitivity).toBe(DEFAULT_SETTINGS.mouseSensitivity)
-      }).pipe(Effect.provide(SettingsLive))
-    })
-
-    it.effect('sanitizeLegacySettings: isGraphicsQuality returns false for unknown value — uses default', () => {
-      // graphicsQuality is not one of the four literals → isGraphicsQuality returns false
-      MutableHashMap.set(store, STORAGE_KEY, JSON.stringify({
-        renderDistance: 4,
-        mouseSensitivity: 1.0,
-        dayLengthSeconds: 400,
-        graphicsQuality: 'extreme',
-        adaptivePerformanceMode: false,
-      }))
-      return Effect.gen(function* () {
-        const service = yield* SettingsService
-        const settings = yield* service.getSettings()
-        expect(settings.graphicsQuality).toBe(DEFAULT_SETTINGS.graphicsQuality)
-      }).pipe(Effect.provide(SettingsLive))
-    })
-
-    it.effect('sanitizeLegacySettings: non-boolean adaptivePerformanceMode falls back to default', () => {
-      // adaptivePerformanceMode is a number, not a boolean → ternary false branch → DEFAULT_SETTINGS value
-      MutableHashMap.set(store, STORAGE_KEY, JSON.stringify({
-        renderDistance: 4,
-        mouseSensitivity: 1.0,
-        dayLengthSeconds: 400,
-        graphicsQuality: 'low',
-        adaptivePerformanceMode: 1,
-      }))
-      return Effect.gen(function* () {
-        const service = yield* SettingsService
-        const settings = yield* service.getSettings()
-        expect(settings.adaptivePerformanceMode).toBe(DEFAULT_SETTINGS.adaptivePerformanceMode)
       }).pipe(Effect.provide(SettingsLive))
     })
 

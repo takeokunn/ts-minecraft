@@ -1,14 +1,14 @@
 import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
-import { Effect, Either, HashMap, Layer, MutableRef, Option } from 'effect'
+import { Effect, Either, Layer, Option } from 'effect'
 import { FurnaceService, FurnaceServiceLive, FurnaceError } from '@ts-minecraft/inventory'
 import { RecipeService } from '@ts-minecraft/inventory'
 import { InventoryService } from '@ts-minecraft/inventory'
 import { GameStateService } from '@ts-minecraft/game'
 import { ChunkManagerService } from '@ts-minecraft/terrain'
 import { RecipeId, DeltaTimeSecs } from '@ts-minecraft/kernel'
-import { CHUNK_HEIGHT } from '@ts-minecraft/kernel'
-import { makeFurnaceLayer, makeChunkWithFurnace, makeEmptyChunk } from './furnace-service-test-utils'
+import type { BlockType } from '@ts-minecraft/kernel'
+import { makeFurnaceLayer, makeChunkWithFurnace } from './furnace-service-test-utils'
 
 describe('application/furnace/furnace-service', () => {
   // --- startSmelting error paths ---
@@ -40,9 +40,9 @@ describe('application/furnace/furnace-service', () => {
     }).pipe(Effect.provide(makeFurnaceLayer({
       recipeMap: {
         'workbench-recipe': {
-          station: 'workbench',
-          ingredients: [{ blockType: 'OAK_LOG', count: 1 }],
-          output: { blockType: 'OAK_PLANKS', count: 4 },
+          station: 'crafting_table',
+          ingredients: [{ blockType: 'WOOD', count: 1 }],
+          output: { blockType: 'PLANKS', count: 4 },
         },
       },
     }))),
@@ -74,7 +74,7 @@ describe('application/furnace/furnace-service', () => {
       expect(err._tag).toBe('FurnaceError')
       expect((err as FurnaceError).reason).toContain('Missing input')
     }).pipe(Effect.provide(makeFurnaceLayer({
-      inventoryItems: new Map([['COAL', 1]]), // no RAW_IRON
+      inventoryItems: new Map<BlockType, number>([['COAL', 1]]), // no RAW_IRON
     }))),
   )
 
@@ -157,7 +157,7 @@ describe('application/furnace/furnace-service', () => {
       expect(err._tag).toBe('FurnaceError')
       expect((err as FurnaceError).reason).toContain('Missing furnace fuel: COAL')
     }).pipe(Effect.provide(makeFurnaceLayer({
-      inventoryItems: new Map([['RAW_IRON', 1]]), // no COAL
+      inventoryItems: new Map<BlockType, number>([['RAW_IRON', 1]]), // no COAL
     }))),
   )
 
@@ -178,7 +178,7 @@ describe('application/furnace/furnace-service', () => {
       expect(err._tag).toBe('FurnaceError')
       expect((err as FurnaceError).reason).toContain('already smelting')
     }).pipe(Effect.provide(makeFurnaceLayer({
-      inventoryItems: new Map([['RAW_IRON', 2], ['COAL', 2]]),
+      inventoryItems: new Map<BlockType, number>([['RAW_IRON', 2], ['COAL', 2]]),
     }))),
   )
 
@@ -198,7 +198,7 @@ describe('application/furnace/furnace-service', () => {
       expect(err._tag).toBe('FurnaceError')
       expect((err as FurnaceError).reason).toContain('output slot is occupied')
     }).pipe(Effect.provide(makeFurnaceLayer({
-      inventoryItems: new Map([['RAW_IRON', 2], ['COAL', 2]]),
+      inventoryItems: new Map<BlockType, number>([['RAW_IRON', 2], ['COAL', 2]]),
     }))),
   )
 

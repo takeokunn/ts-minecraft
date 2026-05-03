@@ -93,7 +93,7 @@ const createMockRendererService = () =>
     render: vi.fn(() => Effect.void),
     resize: vi.fn(() => Effect.void),
     renderOverlay: vi.fn(() => Effect.void),
-  }) as unknown as RendererService
+  }) as RendererService
 
 const buildTestLayer = (rendererService: RendererService = createMockRendererService()) => {
   const MockRendererLayer = Layer.succeed(RendererService, rendererService)
@@ -227,7 +227,7 @@ describe('HotbarRendererService', () => {
       const mockRenderer = createMockRendererService()
       const TestLayer = buildTestLayer(mockRenderer)
 
-      const fakeWebGLRenderer = { clearDepth: vi.fn(), render: vi.fn() } as unknown as import('three').WebGLRenderer
+      const fakeWebGLRenderer = { clearDepth: vi.fn(), render: vi.fn() } as import('three').WebGLRenderer
 
       return Effect.gen(function* () {
         const renderer = yield* HotbarRendererService

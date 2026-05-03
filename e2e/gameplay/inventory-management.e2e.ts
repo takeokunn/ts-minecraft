@@ -1,4 +1,4 @@
-import { test, expect, type Page } from '@playwright/test'
+import { test, expect } from '@playwright/test'
 import { GamePage } from '../fixtures/game-page'
 import { attachFatalErrorMonitor } from '../helpers/console-monitor'
 import { waitForStableRender } from '../helpers/wait-helpers'
@@ -44,8 +44,8 @@ test.describe('Inventory management', () => {
     })
 
     expect(inventoryState.craftingVisible).toBe(true)
-    expect(inventoryState.hotbarTitles).toHaveLength(9)
-    expect(inventoryState.hotbarTitles.every((title) => title === '')).toBe(true)
-    expect(getFatalErrors()).toHaveLength(0)
+    expect(inventoryState.hotbarTitles.length).toBe(9)
+    expect(inventoryState.hotbarTitles.every((title: string) => title === '')).toBe(true)
+    expect(getFatalErrors().length).toBe(0)
   })
 })

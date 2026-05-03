@@ -25,7 +25,7 @@ describe('step 9 — FPS display', () => {
       settingsOverlay: makeSettingsOverlay({ open: false }),
     })
     const spy = vi.fn(() => Effect.succeed(60))
-    ;(services.fpsCounter as unknown as { getFPS: unknown }).getFPS = spy
+    Object.assign(services.fpsCounter, { getFPS: spy })
 
     yield* runFrame(deps, services)
 
@@ -40,7 +40,7 @@ describe('step 9 — FPS display', () => {
       settingsOverlay: makeSettingsOverlay({ open: false }),
     })
     const spy = vi.fn(() => Effect.void)
-    ;(services.fpsCounter as unknown as { tick: unknown }).tick = spy
+    Object.assign(services.fpsCounter, { tick: spy })
 
     yield* runFrame(deps, services)
 
@@ -50,7 +50,7 @@ describe('step 9 — FPS display', () => {
 
   it.effect('updates fpsElement.textContent when fpsElement is non-null', () => Effect.gen(function* () {
     // Use a plain stub instead of document.createElement (env is 'node', not jsdom)
-    const fpsElement = { textContent: '' } as unknown as HTMLElement
+    const fpsElement = { textContent: '' } as HTMLElement
     const deps = yield* makeDeps(false)
     const depsWithEl: FrameHandlerDeps = { ...deps, fpsElement: Option.some(fpsElement) }
     const services = makeServices({
@@ -58,7 +58,7 @@ describe('step 9 — FPS display', () => {
       inventoryRenderer: makeInventoryRenderer({ open: false }),
       settingsOverlay: makeSettingsOverlay({ open: false }),
     })
-    ;(services.fpsCounter as unknown as { getFPS: unknown }).getFPS = vi.fn(() => Effect.succeed(42))
+    Object.assign(services.fpsCounter, { getFPS: vi.fn(() => Effect.succeed(42)) })
 
     yield* runFrame(depsWithEl, services)
 
@@ -77,13 +77,11 @@ describe('adaptive performance mode', () => {
       inventoryRenderer: makeInventoryRenderer({ open: false }),
       settingsOverlay: makeSettingsOverlay({ open: false }),
     })
-    ;(services.settingsService as unknown as { getSettings: unknown }).getSettings = vi.fn(() =>
-      Effect.succeed({ ...DEFAULT_SETTINGS, adaptivePerformanceMode: true, graphicsQuality: 'high' as const })
-    )
+    Object.assign(services.settingsService, { getSettings: vi.fn(() => Effect.succeed({ ...DEFAULT_SETTINGS, adaptivePerformanceMode: true, graphicsQuality: 'high' as const })) })
     const updateSpy = vi.fn(() => Effect.void)
-    ;(services.settingsService as unknown as { updateSettings: unknown }).updateSettings = updateSpy
+    Object.assign(services.settingsService, { updateSettings: updateSpy })
     // Return very low FPS to ensure adaptive-quality WOULD fire if not paused
-    ;(services.fpsCounter as unknown as { getFPS: unknown }).getFPS = vi.fn(() => Effect.succeed(10))
+    Object.assign(services.fpsCounter, { getFPS: vi.fn(() => Effect.succeed(10)) })
 
     yield* runFrame(deps, services)
 
@@ -98,12 +96,10 @@ describe('adaptive performance mode', () => {
       inventoryRenderer: makeInventoryRenderer({ open: false }),
       settingsOverlay: makeSettingsOverlay({ open: false }),
     })
-    ;(services.settingsService as unknown as { getSettings: unknown }).getSettings = vi.fn(() =>
-      Effect.succeed({ ...DEFAULT_SETTINGS, adaptivePerformanceMode: false, graphicsQuality: 'high' as const })
-    )
+    Object.assign(services.settingsService, { getSettings: vi.fn(() => Effect.succeed({ ...DEFAULT_SETTINGS, adaptivePerformanceMode: false, graphicsQuality: 'high' as const })) })
     const updateSpy = vi.fn(() => Effect.void)
-    ;(services.settingsService as unknown as { updateSettings: unknown }).updateSettings = updateSpy
-    ;(services.fpsCounter as unknown as { getFPS: unknown }).getFPS = vi.fn(() => Effect.succeed(100))
+    Object.assign(services.settingsService, { updateSettings: updateSpy })
+    Object.assign(services.fpsCounter, { getFPS: vi.fn(() => Effect.succeed(100)) })
 
     yield* runFrame(deps, services)
 
@@ -117,12 +113,10 @@ describe('adaptive performance mode', () => {
       inventoryRenderer: makeInventoryRenderer({ open: false }),
       settingsOverlay: makeSettingsOverlay({ open: false }),
     })
-    ;(services.settingsService as unknown as { getSettings: unknown }).getSettings = vi.fn(() =>
-      Effect.succeed({ ...DEFAULT_SETTINGS, adaptivePerformanceMode: true, graphicsQuality: 'high' as const })
-    )
+    Object.assign(services.settingsService, { getSettings: vi.fn(() => Effect.succeed({ ...DEFAULT_SETTINGS, adaptivePerformanceMode: true, graphicsQuality: 'high' as const })) })
     const updateSpy = vi.fn(() => Effect.void)
-    ;(services.settingsService as unknown as { updateSettings: unknown }).updateSettings = updateSpy
-    ;(services.fpsCounter as unknown as { getFPS: unknown }).getFPS = vi.fn(() => Effect.succeed(100))
+    Object.assign(services.settingsService, { updateSettings: updateSpy })
+    Object.assign(services.fpsCounter, { getFPS: vi.fn(() => Effect.succeed(100)) })
 
     yield* runFrame(deps, services)
 
@@ -136,12 +130,10 @@ describe('adaptive performance mode', () => {
       inventoryRenderer: makeInventoryRenderer({ open: false }),
       settingsOverlay: makeSettingsOverlay({ open: false }),
     })
-    ;(services.settingsService as unknown as { getSettings: unknown }).getSettings = vi.fn(() =>
-      Effect.succeed({ ...DEFAULT_SETTINGS, adaptivePerformanceMode: true, graphicsQuality: 'low' as const, renderDistance: 8 })
-    )
+    Object.assign(services.settingsService, { getSettings: vi.fn(() => Effect.succeed({ ...DEFAULT_SETTINGS, adaptivePerformanceMode: true, graphicsQuality: 'low' as const, renderDistance: 8 })) })
     const updateSpy = vi.fn(() => Effect.void)
-    ;(services.settingsService as unknown as { updateSettings: unknown }).updateSettings = updateSpy
-    ;(services.fpsCounter as unknown as { getFPS: unknown }).getFPS = vi.fn(() => Effect.succeed(100))
+    Object.assign(services.settingsService, { updateSettings: updateSpy })
+    Object.assign(services.fpsCounter, { getFPS: vi.fn(() => Effect.succeed(100)) })
 
     yield* runFrame(deps, services)
 
@@ -162,7 +154,7 @@ describe('step 11 — HUD render', () => {
       settingsOverlay: makeSettingsOverlay({ open: false }),
     })
     const spy = vi.fn(() => Effect.void)
-    ;(services.hotbarRenderer as unknown as { render: unknown }).render = spy
+    Object.assign(services.hotbarRenderer, { render: spy })
 
     yield* runFrame(deps, services)
 

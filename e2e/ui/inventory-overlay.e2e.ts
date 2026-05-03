@@ -40,7 +40,7 @@ test.describe('Inventory overlay', () => {
 
     const isOpen = await game.isOverlayOpen('inventory-overlay')
     expect(isOpen).toBe(true)
-    expect(getFatalErrors()).toHaveLength(0)
+    expect(getFatalErrors().length).toBe(0)
   })
 
   test('inventory overlay contains slot elements when open', async ({ page }) => {
@@ -62,8 +62,8 @@ test.describe('Inventory overlay', () => {
       if (!(overlay instanceof HTMLDivElement)) return 0
       return overlay.querySelectorAll('[data-slot]').length
     })
-    expect(slotCount).toBeGreaterThan(0)
-    expect(getFatalErrors()).toHaveLength(0)
+    expect(slotCount > 0).toBe(true)
+    expect(getFatalErrors().length).toBe(0)
   })
 
   test('second E key closes inventory overlay', async ({ page }) => {
@@ -95,7 +95,7 @@ test.describe('Inventory overlay', () => {
 
     const isClosed = await game.isOverlayOpen('inventory-overlay')
     expect(isClosed).toBe(false)
-    expect(getFatalErrors()).toHaveLength(0)
+    expect(getFatalErrors().length).toBe(0)
   })
 
   test('Escape key closes inventory overlay when open', async ({ page }) => {
@@ -119,7 +119,7 @@ test.describe('Inventory overlay', () => {
     const fps = await page.evaluate(() =>
       parseFloat(document.getElementById('fps-value')?.textContent ?? '0')
     )
-    expect(fps).toBeGreaterThanOrEqual(0)
-    expect(getFatalErrors()).toHaveLength(0)
+    expect(fps >= 0).toBe(true)
+    expect(getFatalErrors().length).toBe(0)
   })
 })

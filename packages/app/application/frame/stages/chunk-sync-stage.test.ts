@@ -1,7 +1,6 @@
 import { describe, expect, vi } from 'vitest'
 import { it } from '@effect/vitest'
 import { Array as Arr, Effect, MutableRef, Option } from 'effect'
-import * as THREE from 'three'
 import { createFrameHandlers } from '@ts-minecraft/app'
 import type { DeltaTimeSecs } from '@ts-minecraft/kernel'
 import {
@@ -28,8 +27,8 @@ describe('step 1 — chunk streaming', () => {
     const loadSpy = vi.fn(() => Effect.void)
     const syncSpy = vi.fn(() => Effect.succeed(true as boolean))
 
-    ;(services.chunkManagerService as unknown as { loadChunksAroundPlayer: unknown }).loadChunksAroundPlayer = loadSpy
-    ;(services.worldRendererService as unknown as { syncChunksToScene: unknown }).syncChunksToScene = syncSpy
+    ;(services.chunkManagerService as { loadChunksAroundPlayer: unknown }).loadChunksAroundPlayer = loadSpy
+    ;(services.worldRendererService as { syncChunksToScene: unknown }).syncChunksToScene = syncSpy
 
     const { frameHandler, maintenanceHandler } = yield* createFrameHandlers(deps, services)
 
@@ -50,7 +49,7 @@ describe('step 1 — chunk streaming', () => {
       settingsOverlay: makeSettingsOverlay({ open: false }),
     })
     const spy = vi.fn(() => Effect.void)
-    ;(services.chunkManagerService as unknown as { loadChunksAroundPlayer: unknown }).loadChunksAroundPlayer = spy
+    ;(services.chunkManagerService as { loadChunksAroundPlayer: unknown }).loadChunksAroundPlayer = spy
 
     yield* runFrame(deps, services)
 
@@ -65,7 +64,7 @@ describe('step 1 — chunk streaming', () => {
       settingsOverlay: makeSettingsOverlay({ open: false }),
     })
     const spy = vi.fn(() => Effect.succeed(true as boolean))
-    ;(services.worldRendererService as unknown as { syncChunksToScene: unknown }).syncChunksToScene = spy
+    ;(services.worldRendererService as { syncChunksToScene: unknown }).syncChunksToScene = spy
 
     yield* runFrame(deps, services)
 
@@ -85,9 +84,9 @@ describe('step 1 — chunk streaming', () => {
     syncSpy.mockImplementationOnce(() => Effect.succeed(false as boolean))
     syncSpy.mockImplementation(() => Effect.succeed(true as boolean))
 
-    ;(services.chunkManagerService as unknown as { loadChunksAroundPlayer: unknown }).loadChunksAroundPlayer = loadSpy
-    ;(services.chunkManagerService as unknown as { getLoadedChunks: unknown }).getLoadedChunks = vi.fn(() => Effect.succeed(loadedChunks))
-    ;(services.worldRendererService as unknown as { syncChunksToScene: unknown }).syncChunksToScene = syncSpy
+    ;(services.chunkManagerService as { loadChunksAroundPlayer: unknown }).loadChunksAroundPlayer = loadSpy
+    ;(services.chunkManagerService as { getLoadedChunks: unknown }).getLoadedChunks = vi.fn(() => Effect.succeed(loadedChunks))
+    ;(services.worldRendererService as { syncChunksToScene: unknown }).syncChunksToScene = syncSpy
 
     const { frameHandler, maintenanceHandler } = yield* createFrameHandlers(deps, services)
     const handler = (deltaTime: DeltaTimeSecs) => maintenanceHandler().pipe(Effect.andThen(frameHandler(deltaTime)))
@@ -106,7 +105,7 @@ describe('step 1 — chunk streaming', () => {
       settingsOverlay: makeSettingsOverlay({ open: false }),
     })
     const spy = vi.fn(() => Effect.void)
-    ;(services.worldRendererService as unknown as { applyFrustumCulling: unknown }).applyFrustumCulling = spy
+    ;(services.worldRendererService as { applyFrustumCulling: unknown }).applyFrustumCulling = spy
 
     yield* runFrame(deps, services)
 
@@ -121,7 +120,7 @@ describe('step 1 — chunk streaming', () => {
       settingsOverlay: makeSettingsOverlay({ open: false }),
     })
     const spy = vi.fn(() => Effect.void)
-    ;(services.worldRendererService as unknown as { applyFrustumCulling: unknown }).applyFrustumCulling = spy
+    ;(services.worldRendererService as { applyFrustumCulling: unknown }).applyFrustumCulling = spy
 
     const { frameHandler, maintenanceHandler } = yield* createFrameHandlers(deps, services)
     const handler = (deltaTime: DeltaTimeSecs) => maintenanceHandler().pipe(Effect.andThen(frameHandler(deltaTime)))
@@ -145,25 +144,25 @@ describe('step 1 — chunk streaming', () => {
     const maintenanceInjectionDoneRef = MutableRef.make(false)
     const updateCountRef = MutableRef.make(0)
 
-    ;(services.inputService as unknown as { consumeMouseClick: (button: number) => Effect.Effect<boolean, never> }).consumeMouseClick = (button: number) =>
+    services.inputService.consumeMouseClick = (button: number) =>
       Effect.succeed(button === 0 && MutableRef.get(clickCountRef) < queuedTargets.length)
 
-    ;(services.blockHighlight as unknown as { getTargetBlock: () => Effect.Effect<Option.Option<{ x: number; y: number; z: number }>, never> }).getTargetBlock = () =>
+    services.blockHighlight.getTargetBlock = () =>
       Effect.succeed(MutableRef.get(clickCountRef) < queuedTargets.length ? Option.some(queuedTargets[MutableRef.get(clickCountRef)]!) : Option.none())
 
-    ;(services.blockHighlight as unknown as { getTargetHit: () => Effect.Effect<Option.Option<never>, never> }).getTargetHit = () => Effect.succeed(Option.none())
+    services.blockHighlight.getTargetHit = () => Effect.succeed(Option.none())
 
-    ;(services.blockService as unknown as { breakBlock: (pos: { x: number; y: number; z: number }) => Effect.Effect<void, never> }).breakBlock = () =>
+    services.blockService.breakBlock = () =>
       Effect.sync(() => {
         MutableRef.update(clickCountRef, n => n + 1)
       })
 
-    ;(services.chunkManagerService as unknown as { getChunk: (coord: { x: number; z: number }) => Effect.Effect<{ coord: { x: number; z: number }; blocks: Uint8Array; dirty: false }, never> }).getChunk = (coord) =>
-      Effect.succeed({ coord, blocks: new Uint8Array(0), dirty: false })
+    services.chunkManagerService.getChunk = (coord) =>
+      Effect.succeed({ coord, blocks: new Uint8Array(0), fluid: Option.none() })
 
     const { frameHandler, maintenanceHandler } = yield* createFrameHandlers(deps, services)
 
-    ;(services.worldRendererService as unknown as { updateChunkInScene: (chunk: { coord: { x: number; z: number } }, scene: THREE.Scene) => Effect.Effect<void, never> }).updateChunkInScene = () =>
+    services.worldRendererService.updateChunkInScene = (_chunk, _scene) =>
       Effect.suspend(() => {
         MutableRef.update(updateCountRef, n => n + 1)
         if (!MutableRef.get(maintenanceInjectionDoneRef)) {

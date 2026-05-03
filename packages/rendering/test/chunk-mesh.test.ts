@@ -35,7 +35,7 @@ import { greedyMeshChunk, ChunkMeshService } from '@ts-minecraft/rendering'
 // The shared material is a simple MeshBasicMaterial (no texture required).
 const ChunkMeshServiceTest = Layer.succeed(
   ChunkMeshService,
-  (() => {
+  ChunkMeshService.of((() => {
     const sharedMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff })
 
     const buildGeometry = (chunk: Chunk): THREE.BufferGeometry => {
@@ -53,7 +53,8 @@ const ChunkMeshServiceTest = Layer.succeed(
     }
 
     return {
-      atlasTexture: {} as THREE.Texture,
+      _tag: '@minecraft/infrastructure/three/ChunkMeshService' as const,
+      atlasTexture: new THREE.Texture(),
 
       createChunkMesh: (chunk: Chunk): Effect.Effect<{ opaqueMesh: THREE.Mesh; waterMesh: Option.Option<THREE.Mesh> }, never> =>
         Effect.sync(() => {
@@ -76,8 +77,9 @@ const ChunkMeshServiceTest = Layer.succeed(
         Effect.sync(() => {
           mesh.geometry.dispose()
         }),
-    } as unknown as ChunkMeshService
-  })()
+      setSunIntensity: (_value: number): Effect.Effect<void, never> => Effect.void,
+    }
+  })())
 )
 
 // ─── Tests ────────────────────────────────────────────────────────────────────

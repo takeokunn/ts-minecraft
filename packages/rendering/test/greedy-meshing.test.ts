@@ -1,9 +1,9 @@
-import { describe, it, expect } from 'vitest'
-import { Array as Arr, MutableHashMap, MutableHashSet, Option } from 'effect'
-import { greedyMeshChunk } from '@ts-minecraft/rendering'
-import { CHUNK_SIZE } from '@ts-minecraft/kernel'
 import type { BlockType } from '@ts-minecraft/kernel'
-import { makeEmptyChunk, makeChunkWithBlock, makeChunkWithBlocks, ZERO_COORD, ZERO_OFFSET } from './greedy-meshing-test-utils'
+import { CHUNK_SIZE } from '@ts-minecraft/kernel'
+import { greedyMeshChunk } from '@ts-minecraft/rendering'
+import { Array as Arr,MutableHashSet } from 'effect'
+import { describe,expect,it } from 'vitest'
+import { makeChunkWithBlock,makeChunkWithBlocks,makeEmptyChunk,ZERO_COORD,ZERO_OFFSET } from './greedy-meshing-test-utils'
 
 // ─── Tests ─────────────────────────────────────────────────────────────────
 

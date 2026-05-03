@@ -2,12 +2,12 @@ import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
 import { Array as Arr, Effect, HashSet, Layer, MutableRef } from 'effect'
 import { StorageServicePort, NoiseServicePort, NoiseServiceLive, BiomeServiceLive, ChunkManagerService, ChunkManagerServiceLive } from '@ts-minecraft/terrain'
-import { ChunkService, ChunkServiceLive } from '../domain/chunk'
+import { ChunkServiceLive } from '../domain/chunk'
 import { CHUNK_SIZE, CHUNK_HEIGHT } from '@ts-minecraft/kernel'
 import {
   LightEngineNoopLive,
   makeInMemoryStorage,
-  buildLegacyTerrainPoolLayer,
+  buildInlineTerrainPoolLayer,
 } from './chunk-manager-test-utils'
 
 describe('terrain/chunk-terrain-ores', () => {
@@ -77,11 +77,11 @@ describe('terrain/chunk-terrain-ores', () => {
               pv: new Float64Array(256),
               jaggedness: new Float64Array(256),
             }),
-        } as unknown as NoiseServicePort),
+        }),
       )
 
       const storage = makeInMemoryStorage()
-      const StorageTestLayer = Layer.succeed(StorageServicePort, storage as unknown as StorageServicePort)
+      const StorageTestLayer = Layer.succeed(StorageServicePort, storage)
       const BiomeTestLayer = BiomeServiceLive.pipe(Layer.provide(OreNoise))
 
       const TestLayer = ChunkManagerServiceLive.pipe(
@@ -90,7 +90,7 @@ describe('terrain/chunk-terrain-ores', () => {
         Layer.provide(BiomeTestLayer),
         Layer.provide(OreNoise),
         Layer.provide(NoiseServiceLive),
-        Layer.provide(buildLegacyTerrainPoolLayer(
+        Layer.provide(buildInlineTerrainPoolLayer(
           Layer.mergeAll(ChunkServiceLive, BiomeTestLayer, OreNoise),
         )),
         Layer.provide(LightEngineNoopLive),
@@ -191,7 +191,7 @@ describe('terrain/chunk-terrain-ores', () => {
             Effect.gen(function* () {
               const chunk = yield* service.getChunk(coord)
               yield* Effect.sync(() => {
-                scanAllBlocks(chunk.blocks, (lx, lz, y, b) => {
+                scanAllBlocks(chunk.blocks, (_lx, _lz, y, b) => {
                   if (b === DIAMOND_ORE || b === DEEPSLATE_DIAMOND_ORE) {
                     expect(y).toBeLessThanOrEqual(16)
                   }
@@ -218,7 +218,7 @@ describe('terrain/chunk-terrain-ores', () => {
             Effect.gen(function* () {
               const chunk = yield* service.getChunk(coord)
               yield* Effect.sync(() => {
-                scanAllBlocks(chunk.blocks, (lx, lz, y, b) => {
+                scanAllBlocks(chunk.blocks, (_lx, _lz, y, b) => {
                   if (HashSet.has(REGULAR_ORES_SET, b)) {
                     expect(y).toBeGreaterThanOrEqual(16)
                   }
@@ -279,8 +279,8 @@ describe('terrain/chunk-terrain-ores', () => {
           return yield* svc.getChunk({ x: 7, z: -2 })
         }).pipe(Effect.provide(layer2))
 
-        const oresA = Arr.filter(Arr.fromIterable(chunkA.blocks), isOre).length
-        const oresB = Arr.filter(Arr.fromIterable(chunkB.blocks), isOre).length
+        const oresA = Array.from(chunkA.blocks).filter(isOre).length
+        const oresB = Array.from(chunkB.blocks).filter(isOre).length
         expect(oresA).toBe(oresB)
         expect(oresA).toBeGreaterThan(0)
         expect(chunkA.blocks).toEqual(chunkB.blocks)

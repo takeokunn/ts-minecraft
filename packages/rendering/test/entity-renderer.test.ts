@@ -25,21 +25,23 @@ const makeEntity = (params: {
 })
 
 const buildTestLayer = () => {
-  // Use the real SceneService.Default (which internally calls scene.add/scene.remove).
+  // Use real SceneService.Default (which internally calls scene.add/scene.remove).
   // We assert on the scene mock's spies, not on a stubbed SceneService.
-  const sceneLayer = Layer.succeed(SceneService, {
-    create: () => Effect.succeed({} as THREE.Scene),
+  const sceneLayer = Layer.succeed(SceneService, SceneService.of({
+    _tag: '@minecraft/infrastructure/three/SceneService' as const,
+    create: () => Effect.succeed(new THREE.Scene()),
     add: (scene: THREE.Scene, object: THREE.Object3D) => Effect.sync(() => { scene.add(object) }),
     remove: (scene: THREE.Scene, object: THREE.Object3D) => Effect.sync(() => { scene.remove(object) }),
-  } as unknown as SceneService)
+  }))
   return Layer.provide(EntityRendererLive, sceneLayer)
 }
 
-const makeScene = (): THREE.Scene => ({
-  add: vi.fn(),
-  remove: vi.fn(),
-  children: [],
-}) as unknown as THREE.Scene
+const makeScene = (): THREE.Scene => {
+  const scene = new THREE.Scene()
+  vi.spyOn(scene, 'add')
+  vi.spyOn(scene, 'remove')
+  return scene
+}
 
 // ---------------------------------------------------------------------------
 // Tests

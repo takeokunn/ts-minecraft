@@ -1,20 +1,17 @@
-import { describe, expect } from 'vitest'
-import { it } from '@effect/vitest'
-import { Either, Schema } from 'effect'
+import { Either,Schema } from 'effect'
+import { describe,expect,it } from 'vitest'
 import {
-  RecipeId,
-  RecipeIdSchema,
-  ChunkCacheKey,
-  ChunkCacheKeySchema,
-  TextureUrl,
-  TextureUrlSchema,
-  MaterialCacheKey,
-  MaterialCacheKeySchema,
-  MetersPerSec,
-  MetersPerSecSchema,
-  SlotIndexSchema,
-  DeltaTimeSecsSchema,
-  BlockIndexSchema,
+BlockIndexSchema,
+ChunkCacheKey,
+ChunkCacheKeySchema,
+DeltaTimeSecsSchema,
+MaterialCacheKey,
+MaterialCacheKeySchema,
+MetersPerSec,
+RecipeIdSchema,
+SlotIndexSchema,
+TextureUrl,
+TextureUrlSchema
 } from './kernel'
 
 describe('shared/kernel (branded types)', () => {
@@ -22,8 +19,8 @@ describe('shared/kernel (branded types)', () => {
     const cases = [
       { input: 'recipe-crafting-table', label: 'crafting table recipe' },
       { input: 'recipe-sword', label: 'sword recipe' },
-    ]
-    it.each(cases)('creates valid RecipeId: $label', ({ input }) => {
+    ] as const
+    it.each(cases)('creates valid RecipeId: $label', ({ input }: (typeof cases)[number]) => {
       expect(RecipeIdSchema.make(input)).toBe(input)
     })
     it('round-trips through encode/decode', () => {

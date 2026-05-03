@@ -29,7 +29,7 @@ describe('frame-handler', () => {
       const { deps, services } = yield* arrangeFrameHarness({ paused: true })
       const cameraUpdateSpy = vi.fn(() => Effect.void)
       // Override firstPersonCamera.update with spy
-      ;(services.firstPersonCamera as unknown as { update: unknown }).update = cameraUpdateSpy
+      ;(services.firstPersonCamera as { update: unknown }).update = cameraUpdateSpy
 
       yield* runFrame(deps, services)
 
@@ -39,7 +39,7 @@ describe('frame-handler', () => {
     it.effect('calls firstPersonCamera.update when gamePausedRef is false', () => Effect.gen(function* () {
       const { deps, services } = yield* arrangeFrameHarness()
       const cameraUpdateSpy = vi.fn(() => Effect.void)
-      ;(services.firstPersonCamera as unknown as { update: unknown }).update = cameraUpdateSpy
+      ;(services.firstPersonCamera as { update: unknown }).update = cameraUpdateSpy
 
       yield* runFrame(deps, services)
 
@@ -49,7 +49,7 @@ describe('frame-handler', () => {
     it.effect('suppresses hotbarService.update when gamePausedRef is true', () => Effect.gen(function* () {
       const { deps, services } = yield* arrangeFrameHarness({ paused: true })
       const hotbarUpdateSpy = vi.fn(() => Effect.void)
-      ;(services.hotbarService as unknown as { update: unknown }).update = hotbarUpdateSpy
+      ;(services.hotbarService as { update: unknown }).update = hotbarUpdateSpy
 
       yield* runFrame(deps, services)
 
@@ -59,7 +59,7 @@ describe('frame-handler', () => {
     it.effect('calls hotbarService.update when gamePausedRef is false', () => Effect.gen(function* () {
       const { deps, services } = yield* arrangeFrameHarness()
       const hotbarUpdateSpy = vi.fn(() => Effect.void)
-      ;(services.hotbarService as unknown as { update: unknown }).update = hotbarUpdateSpy
+      ;(services.hotbarService as { update: unknown }).update = hotbarUpdateSpy
 
       yield* runFrame(deps, services)
 
@@ -106,7 +106,7 @@ describe('frame-handler', () => {
       })
       // gameState.update should NOT be called when session is paused (physics stage is skipped)
       const updateSpy = vi.fn(() => Effect.void)
-      ;(services.gameState as unknown as { update: unknown }).update = updateSpy
+      ;(services.gameState as { update: unknown }).update = updateSpy
 
       yield* runFrame(deps, services)
 
@@ -124,7 +124,7 @@ describe('frame-handler', () => {
 
       yield* runFrame(deps, services)
 
-      expect((deps.renderer as unknown as { render: ReturnType<typeof vi.fn> }).render).toHaveBeenCalledOnce()
+      expect((deps.renderer as { render: ReturnType<typeof vi.fn> }).render).toHaveBeenCalledOnce()
     }))
 
     it.effect('calls composer.render every frame when composer is present', () => Effect.gen(function* () {
@@ -138,8 +138,8 @@ describe('frame-handler', () => {
       yield* runFrame(deps, services)
 
       const composer = Option.getOrNull(deps.composer)
-      expect((composer as unknown as { render: ReturnType<typeof vi.fn> }).render).toHaveBeenCalledOnce()
-      expect((deps.renderer as unknown as { render: ReturnType<typeof vi.fn> }).render).not.toHaveBeenCalled()
+      expect((composer as { render: ReturnType<typeof vi.fn> }).render).toHaveBeenCalledOnce()
+      expect((deps.renderer as { render: ReturnType<typeof vi.fn> }).render).not.toHaveBeenCalled()
     }))
   })
 })

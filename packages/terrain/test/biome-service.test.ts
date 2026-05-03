@@ -1,13 +1,12 @@
-import { describe, it } from '@effect/vitest'
-import { expect } from 'vitest'
-import { Array as Arr, Effect } from 'effect'
-import {
-  BiomeService,
-  BiomeType,
-  buildChunkNoiseInputs,
-  classifyBiome,
-} from '@ts-minecraft/terrain'
+import { describe,it } from '@effect/vitest'
 import { CHUNK_SIZE } from '@ts-minecraft/kernel'
+import {
+BiomeType,
+buildChunkNoiseInputs,
+classifyBiome
+} from '@ts-minecraft/terrain'
+import { Array as Arr,Effect } from 'effect'
+import { expect } from 'vitest'
 import { withBiomeService } from './biome-service-test-utils'
 
 describe('classifyBiome — biome classification', () => {

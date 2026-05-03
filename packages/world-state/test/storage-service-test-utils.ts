@@ -1,7 +1,6 @@
-import { Array as Arr, Effect, Either, Layer, MutableHashMap, MutableRef, Option, Schema } from 'effect'
-import { StorageService, WorldMetadataSchema, WorldMetadata, ChunkStorageKey } from '@ts-minecraft/world-state'
+import { Array as Arr, Effect, Layer, MutableHashMap, MutableRef, Option } from 'effect'
+import { StorageService, WorldMetadata, ChunkStorageKey } from '@ts-minecraft/world-state'
 import type { ChunkStorageValue } from '@ts-minecraft/world-state'
-import { StorageError } from '../domain/errors'
 import { WorldId } from '@ts-minecraft/kernel'
 import type { ChunkCoord } from '@ts-minecraft/kernel'
 
@@ -18,25 +17,50 @@ export const testCoord: ChunkCoord = { x: 0, z: 0 }
 // ---------------------------------------------------------------------------
 
 export const chunkStorageBlocks = (value: ChunkStorageValue): Uint8Array<ArrayBufferLike> =>
-  value instanceof Uint8Array ? value : value.blocks
+  value.blocks
+
+export const chunkStorageValue = (blocks: Uint8Array<ArrayBufferLike>, fluid?: Uint8Array<ArrayBufferLike>): ChunkStorageValue => ({
+  blocks,
+  fluid: fluid ?? undefined,
+})
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null
+
+const isPlayerSpawn = (value: unknown): value is WorldMetadata['playerSpawn'] =>
+  isRecord(value)
+    && typeof value['x'] === 'number'
+    && typeof value['y'] === 'number'
+    && typeof value['z'] === 'number'
+
+const isWorldMetadata = (value: unknown): value is WorldMetadata =>
+  isRecord(value)
+    && typeof value['seed'] === 'number'
+    && value['createdAt'] instanceof Date
+    && value['lastPlayed'] instanceof Date
+    && isPlayerSpawn(value['playerSpawn'])
+    && (value['gameMode'] === 'survival' || value['gameMode'] === 'creative')
+    && typeof value['saveVersion'] === 'number'
 
 // Build an in-memory StorageService for contract testing.
 // Uses MutableHashMap to simulate the IndexedDB storage contract without requiring
 // a real browser environment.
 export const makeInMemoryStorageService = () => {
-  const chunkStore = MutableHashMap.empty<ChunkStorageKey, Uint8Array>()
-  const metaStore = MutableHashMap.empty<WorldId, WorldMetadata>()
+  const chunkStore = MutableHashMap.empty<ChunkStorageKey, ChunkStorageValue>()
+  const metaStore = MutableHashMap.empty<WorldId, unknown>()
   const initializedRef = MutableRef.make(false)
 
   const chunkKey = (worldId: WorldId, coord: ChunkCoord): ChunkStorageKey =>
     ChunkStorageKey(`${worldId}:${coord.x}:${coord.z}`)
 
-  const service = {
+  const storageService = StorageService.of({
+    _tag: '@minecraft/infrastructure/storage/StorageService' as const,
+
     initialize: Effect.sync(() => {
       MutableRef.set(initializedRef, true)
     }),
 
-    saveChunk: (worldId: WorldId, chunkCoord: ChunkCoord, data: Uint8Array) =>
+    saveChunk: (worldId: WorldId, chunkCoord: ChunkCoord, data: ChunkStorageValue) =>
       Effect.sync(() => {
         MutableHashMap.set(chunkStore, chunkKey(worldId, chunkCoord), data)
       }),
@@ -50,7 +74,7 @@ export const makeInMemoryStorageService = () => {
       }),
 
     loadWorldMetadata: (worldId: WorldId) =>
-      Effect.sync(() => MutableHashMap.get(metaStore, worldId)),
+      Effect.sync(() => Option.filter(MutableHashMap.get(metaStore, worldId), isWorldMetadata)),
 
     deleteWorld: (worldId: WorldId) =>
       Effect.sync(() => {
@@ -68,11 +92,11 @@ export const makeInMemoryStorageService = () => {
       Arr.forEach(Arr.fromIterable(MutableHashMap.keys(metaStore)), (worldId) => {
         const metaOpt = MutableHashMap.get(metaStore, worldId)
         Option.map(metaOpt, (raw) => {
-          const decoded = Schema.decodeUnknownEither(WorldMetadataSchema)(raw)
-          Either.match(decoded, {
-            onLeft: () => { corrupt.push(worldId) },
-            onRight: (metadata) => { valid.push({ worldId, metadata }) },
-          })
+          if (isWorldMetadata(raw)) {
+            valid.push({ worldId, metadata: raw })
+          } else {
+            corrupt.push(worldId)
+          }
         })
       })
       return {
@@ -81,13 +105,17 @@ export const makeInMemoryStorageService = () => {
       }
     }),
 
+  })
+
+  const service = {
+    ...storageService,
     // Expose internal state for assertions in tests
     _initialized: () => MutableRef.get(initializedRef),
     _chunkStore: chunkStore,
     _metaStore: metaStore,
   }
 
-  const TestLayer = Layer.succeed(StorageService, service as unknown as StorageService)
+  const TestLayer = Layer.succeed(StorageService, storageService)
 
   return { service, TestLayer }
 }
@@ -95,17 +123,19 @@ export const makeInMemoryStorageService = () => {
 // Build a failing StorageService that calls throwOnSave() on each saveChunk.
 // Used to test error handling and call-count verification.
 export const makeFailingStorageService = (throwOnSave: () => void) => {
-  const chunkStore = MutableHashMap.empty<string, Uint8Array>()
-  const metaStore = MutableHashMap.empty<string, WorldMetadata>()
+  const chunkStore = MutableHashMap.empty<string, ChunkStorageValue>()
+  const metaStore = MutableHashMap.empty<WorldId, WorldMetadata>()
   const saveCallCountRef = MutableRef.make(0)
 
   const chunkKey = (worldId: WorldId, coord: ChunkCoord): string =>
     `${worldId}:${coord.x}:${coord.z}`
 
-  const service = {
+  const storageService = StorageService.of({
+    _tag: '@minecraft/infrastructure/storage/StorageService' as const,
+
     initialize: Effect.void,
 
-    saveChunk: (worldId: WorldId, chunkCoord: ChunkCoord, data: Uint8Array) =>
+    saveChunk: (worldId: WorldId, chunkCoord: ChunkCoord, data: ChunkStorageValue) =>
       Effect.sync(() => {
         MutableRef.updateAndGet(saveCallCountRef, n => n + 1)
         throwOnSave()
@@ -133,9 +163,20 @@ export const makeFailingStorageService = (throwOnSave: () => void) => {
         MutableHashMap.remove(metaStore, worldId)
       }),
 
+    listWorldMetadata: Effect.sync(() => ({
+      valid: Arr.filterMap(Arr.fromIterable(MutableHashMap.keys(metaStore)), (worldId) =>
+        Option.map(MutableHashMap.get(metaStore, worldId), (metadata) => ({ worldId, metadata })),
+      ),
+      corrupt: [],
+    })),
+
+  })
+
+  const service = {
+    ...storageService,
     _saveCallCount: () => MutableRef.get(saveCallCountRef),
   }
 
-  const TestLayer = Layer.succeed(StorageService, service as unknown as StorageService)
+  const TestLayer = Layer.succeed(StorageService, storageService)
   return { service, TestLayer }
 }

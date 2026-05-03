@@ -15,9 +15,9 @@ const createMockDomLayer = () => {
     addEventListener: vi.fn(),
     removeEventListener: vi.fn(),
     remove: vi.fn(),
-  } as unknown as HTMLDivElement
+  } as HTMLDivElement
 
-  const createElement = vi.fn((_tagName: string) => overlayEl as unknown as HTMLElement)
+  const createElement = vi.fn((_tagName: string) => overlayEl as HTMLElement)
 
   const removeChild = vi.fn()
 
@@ -29,7 +29,7 @@ const createMockDomLayer = () => {
     getParentNode: vi.fn(() => Option.none()),
     setInnerHTML: vi.fn(),
     querySelector: vi.fn(() => Option.none()),
-  } as unknown as DomOperationsService)
+  } as DomOperationsService)
 
   return { MockDomLayer, createElement, overlayEl, removeChild }
 }

@@ -4,7 +4,7 @@ import { Array as Arr, Effect, Option, Schema } from 'effect'
 import { StorageService, WorldMetadataSchema, WorldMetadata } from '@ts-minecraft/world-state'
 import { WorldId } from '@ts-minecraft/kernel'
 import type { ChunkCoord } from '@ts-minecraft/kernel'
-import { testWorldId, anotherWorldId, testCoord, chunkStorageBlocks, makeInMemoryStorageService } from './storage-service-test-utils'
+import { testWorldId, anotherWorldId, testCoord, chunkStorageBlocks, chunkStorageValue, makeInMemoryStorageService } from './storage-service-test-utils'
 
 // ---------------------------------------------------------------------------
 // Additional contract tests — edge cases and error handling
@@ -18,7 +18,7 @@ describe('infrastructure/storage/storage-service-schema', () => {
       const largeData = Uint8Array.from({ length: 16 * 16 * 256 }, (_, i) => i % 256)
       return Effect.gen(function* () {
         const storage = yield* StorageService
-        yield* storage.saveChunk(testWorldId, testCoord, largeData)
+        yield* storage.saveChunk(testWorldId, testCoord, chunkStorageValue(largeData))
         const retrieved = Option.getOrThrow(yield* storage.loadChunk(testWorldId, testCoord))
         const retrievedBlocks = chunkStorageBlocks(retrieved)
         expect(retrievedBlocks.length).toBe(largeData.length)
@@ -31,7 +31,7 @@ describe('infrastructure/storage/storage-service-schema', () => {
       const emptyData = new Uint8Array(0)
       return Effect.gen(function* () {
         const storage = yield* StorageService
-        yield* storage.saveChunk(testWorldId, testCoord, emptyData)
+        yield* storage.saveChunk(testWorldId, testCoord, chunkStorageValue(emptyData))
         expect(chunkStorageBlocks(Option.getOrThrow(yield* storage.loadChunk(testWorldId, testCoord))).length).toBe(0)
       }).pipe(Effect.provide(TestLayer))
     })
@@ -42,8 +42,8 @@ describe('infrastructure/storage/storage-service-schema', () => {
       const data = new Uint8Array([42, 43, 44])
       return Effect.gen(function* () {
         const storage = yield* StorageService
-        yield* storage.saveChunk(testWorldId, negativeCoord, data)
-        expect(Option.getOrThrow(yield* storage.loadChunk(testWorldId, negativeCoord))).toEqual(data)
+        yield* storage.saveChunk(testWorldId, negativeCoord, chunkStorageValue(data))
+        expect(chunkStorageBlocks(Option.getOrThrow(yield* storage.loadChunk(testWorldId, negativeCoord)))).toEqual(data)
       }).pipe(Effect.provide(TestLayer))
     })
 
@@ -57,15 +57,15 @@ describe('infrastructure/storage/storage-service-schema', () => {
       const data3 = new Uint8Array([3])
       return Effect.gen(function* () {
         const storage = yield* StorageService
-        yield* storage.saveChunk(testWorldId, coord1, data1)
-        yield* storage.saveChunk(testWorldId, coord2, data2)
-        yield* storage.saveChunk(testWorldId, coord3, data3)
+        yield* storage.saveChunk(testWorldId, coord1, chunkStorageValue(data1))
+        yield* storage.saveChunk(testWorldId, coord2, chunkStorageValue(data2))
+        yield* storage.saveChunk(testWorldId, coord3, chunkStorageValue(data3))
         const r1 = yield* storage.loadChunk(testWorldId, coord1)
         const r2 = yield* storage.loadChunk(testWorldId, coord2)
         const r3 = yield* storage.loadChunk(testWorldId, coord3)
-        expect(Option.getOrThrow(r1)).toEqual(data1)
-        expect(Option.getOrThrow(r2)).toEqual(data2)
-        expect(Option.getOrThrow(r3)).toEqual(data3)
+        expect(chunkStorageBlocks(Option.getOrThrow(r1))).toEqual(data1)
+        expect(chunkStorageBlocks(Option.getOrThrow(r2))).toEqual(data2)
+        expect(chunkStorageBlocks(Option.getOrThrow(r3))).toEqual(data3)
       }).pipe(Effect.provide(TestLayer))
     })
 
@@ -114,7 +114,7 @@ describe('infrastructure/storage/storage-service-schema', () => {
         const storage = yield* StorageService
         yield* Effect.forEach(Arr.makeBy(coordCount, i => i), i => {
           const coord: ChunkCoord = { x: i, z: i * 2 }
-          return storage.saveChunk(testWorldId, coord, new Uint8Array([i]))
+          return storage.saveChunk(testWorldId, coord, chunkStorageValue(new Uint8Array([i])))
         }, { concurrency: 1 })
         // Verify all can be loaded back
         yield* Effect.forEach(Arr.makeBy(coordCount, i => i), i => Effect.gen(function* () {

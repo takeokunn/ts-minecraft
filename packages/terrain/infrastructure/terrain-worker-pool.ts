@@ -76,8 +76,14 @@ const computeWorkerCount = (): number => {
 const isDevBuild = (): boolean => {
   const env = (import.meta as ImportMeta & { env?: { DEV?: boolean } }).env
   if (env && env.DEV === true) return true
-  if (typeof process !== 'undefined' && process.env && process.env['NODE_ENV'] !== 'production') return true
-  return false
+
+  type ProcessLike = {
+    env?: {
+      readonly NODE_ENV?: string
+    }
+  }
+  const processLike = (globalThis as typeof globalThis & { process?: ProcessLike }).process
+  return processLike?.env?.NODE_ENV !== 'production'
 }
 
 // -----------------------------------------------------------------------------

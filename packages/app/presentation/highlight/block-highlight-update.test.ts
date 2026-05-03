@@ -116,13 +116,8 @@ describe('BlockHighlightService (update & integration)', () => {
     it.effect('should clear target block when no hit', () => {
       // First return a hit, then no hit
       const hitCountRef = MutableRef.make(0)
-      const mockRaycastingService = {
-        createRaycaster: () =>
-          Effect.sync(() => {
-            const raycaster = new THREE.Raycaster()
-            raycaster.far = 5
-            return raycaster
-          }),
+      const mockRaycastingService = RaycastingService.of({
+        _tag: '@minecraft/infrastructure/three/RaycastingService' as const,
         raycastFromCamera: vi.fn(() => {
           const count = MutableRef.updateAndGet(hitCountRef, n => n + 1)
           if (count === 1) {
@@ -144,7 +139,7 @@ describe('BlockHighlightService (update & integration)', () => {
             z: Math.floor(worldPos.z),
           }))
         ),
-      } as unknown as RaycastingService
+      })
 
       const MockLayer = Layer.succeed(RaycastingService, mockRaycastingService)
       const TestLayer = BlockHighlightLive.pipe(Layer.provide(MockLayer))

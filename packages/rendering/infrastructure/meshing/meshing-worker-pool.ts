@@ -103,9 +103,9 @@ export class MeshingWorkerPool extends Effect.Service<MeshingWorkerPool>()(
         const pendingRef = MutableRef.make(new Map<number, PendingMesh>())
 
         // Vite resolves this URL at build time and bundles meshing-worker.ts separately.
-        // The @/ alias is resolved by Vite's worker bundler via the same alias config.
+        // Keep the worker beside the meshing implementation so package ownership stays local.
         const worker = new Worker(
-          new URL('../../../../src/workers/meshing-worker.ts', import.meta.url),
+          new URL('./meshing-worker.ts', import.meta.url),
           { type: 'module' }
         )
 

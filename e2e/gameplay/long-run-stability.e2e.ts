@@ -3,7 +3,7 @@ import { GamePage } from '../fixtures/game-page'
 import { attachFatalErrorMonitor } from '../helpers/console-monitor'
 import { waitForStableRender } from '../helpers/wait-helpers'
 
-async function focusCanvas(page: import('@playwright/test').Page): Promise<void> {
+async function focusCanvas(page: Page): Promise<void> {
   await page.mouse.click(320, 240)
 }
 
@@ -65,9 +65,9 @@ test.describe('Long-run stability', () => {
 
     const averageFps = fpsSamples.reduce((sum, value) => sum + value, 0) / fpsSamples.length
 
-    expect(fpsSamples).toHaveLength(actions.length * 3)
+    expect(fpsSamples.length).toBe(actions.length * 3)
     expect(fpsSamples.every((fps) => fps >= 10)).toBe(true)
-    expect(averageFps).toBeGreaterThanOrEqual(15)
-    expect(getFatalErrors()).toHaveLength(0)
+    expect(averageFps >= 15).toBe(true)
+    expect(getFatalErrors().length).toBe(0)
   })
 })

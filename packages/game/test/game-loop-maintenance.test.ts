@@ -43,20 +43,6 @@ afterEach(() => {
 })
 
 // ---------------------------------------------------------------------------
-// Helper: fire whichever scheduler callback is active.
-// ---------------------------------------------------------------------------
-const fireRaf = (timestamp = 16): void => {
-  const rafCb = MutableRef.get(rafCallbackRef)
-  if (Option.isSome(rafCb)) {
-    rafCb.value(timestamp)
-    return
-  }
-
-  const intervalCb = MutableRef.get(intervalCallbackRef)
-  Option.map(intervalCb, fn => fn())
-}
-
-// ---------------------------------------------------------------------------
 // Test layer — GameLoopService has no external dependencies beyond globals.
 // ---------------------------------------------------------------------------
 const TestLayer = GameLoopServiceLive

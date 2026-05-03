@@ -24,7 +24,7 @@ test.describe('HUD elements', () => {
     await game.waitForReady()
 
     const fps = await game.getFPS()
-    expect(fps).toBeGreaterThan(0)
+    expect(fps > 0).toBe(true)
     expect(Number.isFinite(fps)).toBe(true)
   })
 })

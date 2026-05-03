@@ -4,13 +4,13 @@ test('built app boots without runtime ReferenceError', async ({ page }) => {
   const consoleErrors: string[] = []
   const pageErrors: string[] = []
 
-  page.on('console', (message) => {
+  page.on('console', (message: ConsoleMessage) => {
     if (message.type() === 'error') {
       consoleErrors.push(message.text())
     }
   })
 
-  page.on('pageerror', (error) => {
+  page.on('pageerror', (error: Error) => {
     pageErrors.push(String(error))
   })
 
@@ -44,6 +44,6 @@ test('built app boots without runtime ReferenceError', async ({ page }) => {
     message.includes('SyntaxError:')
   )
 
-  expect(runtimeErrors).toEqual([])
-  expect(pageErrors).toEqual([])
+  expect(runtimeErrors.length).toBe(0)
+  expect(pageErrors.length).toBe(0)
 })

@@ -15,7 +15,7 @@
  *  - entity-renderer.ts (sync + transform per frame)
  *  - frame-handler.ts (steps 2.8 sun intensity + 2.85 entity sync)
  */
-import { test, expect, type Page } from '@playwright/test'
+import { test, expect } from '@playwright/test'
 import { GamePage } from '../fixtures/game-page'
 import { waitForStableRender } from '../helpers/wait-helpers'
 
@@ -67,7 +67,7 @@ async function measureCanvas(page: Page, screenshotPath: string): Promise<Canvas
   const pngBytes = await fs.readFile(screenshotPath)
   const dataUrl = `data:image/png;base64,${pngBytes.toString('base64')}`
 
-  return page.evaluate(async (url) => {
+  return page.evaluate(async (url: string) => {
     const img = new Image()
     img.src = url
     await new Promise<void>((resolve, reject) => {
@@ -115,7 +115,7 @@ test.describe('Phase 2.2: lighting + entity rendering smoke', () => {
     // application" — the game intentionally tolerates many other errors. We want to fail
     // specifically when the new subsystems log errors.
     const consoleErrors: string[] = []
-    page.on('console', (msg) => {
+    page.on('console', (msg: ConsoleMessage) => {
       if (msg.type() === 'error') consoleErrors.push(msg.text())
     })
 
@@ -131,27 +131,27 @@ test.describe('Phase 2.2: lighting + entity rendering smoke', () => {
     const stats = await measureCanvas(page, '/tmp/e2e-lighting-surface.png')
 
     // Assertion 1: canvas has dimensions (game actually rendered something).
-    expect(stats.width).toBeGreaterThan(0)
-    expect(stats.height).toBeGreaterThan(0)
+    expect(stats.width > 0).toBe(true)
+    expect(stats.height > 0).toBe(true)
 
     // Assertion 2: a non-trivial fraction of pixels is non-zero. If the entire
     // pipeline black-screens (e.g. shader compile failure, scene cleared but never
     // re-rendered) this fails.
     const nonZeroFraction = stats.nonZeroPixels / (160 * 90)
-    expect(nonZeroFraction).toBeGreaterThan(MIN_NON_ZERO_PIXEL_FRACTION)
+    expect(nonZeroFraction > MIN_NON_ZERO_PIXEL_FRACTION).toBe(true)
 
     // Assertion 3: at least some lit pixels exist on average. Catches the
     // worst-case "everything is (0,0,0)" regression from a broken lighting path.
-    expect(stats.avgBrightness).toBeGreaterThan(MIN_AVG_BRIGHTNESS_THRESHOLD)
+    expect(stats.avgBrightness > MIN_AVG_BRIGHTNESS_THRESHOLD).toBe(true)
 
     // Assertion 4: pixel brightness varies — proves real geometry is visible
     // (not just a uniform sky color or a single solid clear color). This is the
     // primary signal: vertex-color lighting bakes per-face brightness deltas, so
     // surface terrain MUST exhibit high variance even at low overall brightness.
-    expect(stats.varianceBrightness).toBeGreaterThan(NON_UNIFORM_VARIANCE_THRESHOLD)
+    expect(stats.varianceBrightness > NON_UNIFORM_VARIANCE_THRESHOLD).toBe(true)
 
     // Assertion 5: no console errors mention the Phase 2.2 subsystems.
     const phase22Errors = consoleErrors.filter((msg) => PHASE_2_2_ERROR_PATTERN.test(msg))
-    expect(phase22Errors, `Unexpected Phase 2.2 subsystem errors:\n${phase22Errors.join('\n')}`).toHaveLength(0)
+    expect(phase22Errors.length, `Unexpected Phase 2.2 subsystem errors:\n${phase22Errors.join('\n')}`).toBe(0)
   })
 })

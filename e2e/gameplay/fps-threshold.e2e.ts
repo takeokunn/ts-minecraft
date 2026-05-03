@@ -30,5 +30,5 @@ test('sustained FPS meets platform threshold', async ({ page }) => {
   const avg = samples.reduce((a, b) => a + b, 0) / samples.length
   console.log(`FPS samples: ${samples.map((s) => s.toFixed(1)).join(', ')} — avg: ${avg.toFixed(1)} (threshold: ${FPS_THRESHOLD})`)
 
-  expect(avg).toBeGreaterThanOrEqual(FPS_THRESHOLD)
+  expect(avg >= FPS_THRESHOLD).toBe(true)
 })

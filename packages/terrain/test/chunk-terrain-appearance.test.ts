@@ -2,14 +2,15 @@ import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
 import { Array as Arr, Effect, HashSet, Layer, Option } from 'effect'
 import { StorageServicePort } from '@ts-minecraft/terrain'
-import { NoiseServicePort, NoiseServiceLive, BiomeService, BiomeServiceLive, type BiomeType, ChunkManagerService, ChunkManagerServiceLive } from '@ts-minecraft/terrain'
+import { NoiseServicePort, NoiseServiceLive, BiomeService, type BiomeType, ChunkManagerService, ChunkManagerServiceLive } from '@ts-minecraft/terrain'
 import { computeColumnY } from '@ts-minecraft/terrain'
+import type { BiomeProperties } from '@ts-minecraft/terrain'
 import { ChunkServiceLive } from '../domain/chunk'
 import { CHUNK_SIZE, CHUNK_HEIGHT } from '@ts-minecraft/kernel'
 import {
   makeInMemoryStorage,
   LightEngineNoopLive,
-  buildLegacyTerrainPoolLayer,
+  buildInlineTerrainPoolLayer,
 } from './chunk-manager-test-utils'
 
 describe('terrain/chunk-terrain-appearance', () => {
@@ -67,13 +68,7 @@ describe('terrain/chunk-terrain-appearance', () => {
     const buildCustomTerrainLayer = (
       biomeColumns: ReadonlyArray<{
         biome: BiomeType
-        props: {
-          surfaceBlock: string
-          subSurfaceBlock: string
-          treeDensity: number
-          temperature: number
-          humidity: number
-        }
+        props: BiomeProperties
       }>,
       terrainChannels: {
         continentalness: Float64Array
@@ -83,16 +78,17 @@ describe('terrain/chunk-terrain-appearance', () => {
       },
     ) => {
       const storage = makeInMemoryStorage()
-      const StorageTestLayer = Layer.succeed(StorageServicePort, storage as unknown as StorageServicePort)
+      const StorageTestLayer = Layer.succeed(StorageServicePort, storage)
       const CustomBiomeLayer = Layer.succeed(
         BiomeService,
-        {
+        BiomeService.of({
+          _tag: '@minecraft/application/BiomeService' as const,
           getBiome: (_x: number, _z: number) => Effect.succeed('PLAINS' as const),
           getBiomeProperties: (biome: BiomeType) => Effect.succeed(makeBiomeColumn(biome).props),
           getTemperature: (_x: number, _z: number) => Effect.succeed(0.5),
           getHumidity: (_x: number, _z: number) => Effect.succeed(0.5),
           getBiomesAndPropertiesForChunk: (_chunkX: number, _chunkZ: number) => Effect.succeed(biomeColumns),
-        } as unknown as BiomeService,
+        }),
       )
       const CustomNoise = Layer.succeed(
         NoiseServicePort,
@@ -115,7 +111,7 @@ describe('terrain/chunk-terrain-appearance', () => {
           weirdness: (_x: number, _z: number) => Effect.succeed(0.0),
           jaggedness: (_x: number, _z: number) => Effect.succeed(0.0),
           sampleTerrainChannels: (_cx: number, _cz: number) => Effect.succeed(terrainChannels),
-        } as unknown as NoiseServicePort),
+        }),
       )
 
       const TestLayer = ChunkManagerServiceLive.pipe(
@@ -124,7 +120,7 @@ describe('terrain/chunk-terrain-appearance', () => {
         Layer.provide(CustomBiomeLayer),
         Layer.provide(CustomNoise),
         Layer.provide(NoiseServiceLive),
-        Layer.provide(buildLegacyTerrainPoolLayer(
+        Layer.provide(buildInlineTerrainPoolLayer(
           Layer.mergeAll(ChunkServiceLive, CustomBiomeLayer, CustomNoise),
         )),
         Layer.provide(LightEngineNoopLive),
@@ -219,17 +215,18 @@ describe('terrain/chunk-terrain-appearance', () => {
       biomeColumns[columnIndex(15, 8)] = makeBiomeColumn('FOREST', 1)
       const terrainChannels = makeTerrainChannels()
       const storage = makeInMemoryStorage()
-      const StorageTestLayer = Layer.succeed(StorageServicePort, storage as unknown as StorageServicePort)
+      const StorageTestLayer = Layer.succeed(StorageServicePort, storage)
       const SeamBiomeLayer = Layer.succeed(
         BiomeService,
-        {
+        BiomeService.of({
+          _tag: '@minecraft/application/BiomeService' as const,
           getBiome: (x: number, z: number) => Effect.succeed(x === 15 && z === 8 ? 'FOREST' as const : 'DESERT' as const),
           getBiomeProperties: (biome: BiomeType) => Effect.succeed(makeBiomeColumn(biome, biome === 'FOREST' ? 1 : 0).props),
           getTemperature: (_x: number, _z: number) => Effect.succeed(0.5),
           getHumidity: (_x: number, _z: number) => Effect.succeed(0.5),
           getBiomesAndPropertiesForChunk: (chunkX: number, _chunkZ: number) =>
             Effect.succeed(chunkX === 0 ? biomeColumns : Arr.makeBy(CHUNK_SIZE * CHUNK_SIZE, () => makeBiomeColumn('DESERT', 0))),
-        } as unknown as BiomeService,
+        }),
       )
       const SeamNoise = Layer.succeed(
         NoiseServicePort,
@@ -250,7 +247,7 @@ describe('terrain/chunk-terrain-appearance', () => {
           weirdness: (_x: number, _z: number) => Effect.succeed(0.2),
           jaggedness: (_x: number, _z: number) => Effect.succeed(0.0),
           sampleTerrainChannels: (_cx: number, _cz: number) => Effect.succeed(terrainChannels),
-        } as unknown as NoiseServicePort),
+        }),
       )
       const TestLayer = ChunkManagerServiceLive.pipe(
         Layer.provide(ChunkServiceLive),
@@ -258,7 +255,7 @@ describe('terrain/chunk-terrain-appearance', () => {
         Layer.provide(SeamBiomeLayer),
         Layer.provide(SeamNoise),
         Layer.provide(NoiseServiceLive),
-        Layer.provide(buildLegacyTerrainPoolLayer(
+        Layer.provide(buildInlineTerrainPoolLayer(
           Layer.mergeAll(ChunkServiceLive, SeamBiomeLayer, SeamNoise),
         )),
         Layer.provide(LightEngineNoopLive),

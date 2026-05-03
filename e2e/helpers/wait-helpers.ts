@@ -1,4 +1,3 @@
-import type { Page } from '@playwright/test'
 
 /**
  * Wait until the game loop is running and dynamic DOM elements have been injected.

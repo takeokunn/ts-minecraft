@@ -8,6 +8,9 @@ import {
   RecipeId,
 } from './ids'
 
+const invokeWithInvalidInput = (make: (value: string) => unknown, value: unknown) => () =>
+  (make as (value: unknown) => unknown)(value)
+
 describe('ids', () => {
   describe('WorldId', () => {
     it('make returns a branded WorldId', () => {
@@ -19,11 +22,11 @@ describe('ids', () => {
     })
 
     it('throws on null input', () => {
-      expect(() => WorldId.make(null as unknown as string)).toThrow()
+      expect(invokeWithInvalidInput(WorldId.make, null)).toThrow()
     })
 
     it('throws on number input', () => {
-      expect(() => WorldId.make(42 as unknown as string)).toThrow()
+      expect(invokeWithInvalidInput(WorldId.make, 42)).toThrow()
     })
   })
 
@@ -37,11 +40,11 @@ describe('ids', () => {
     })
 
     it('throws on null input', () => {
-      expect(() => PlayerId.make(null as unknown as string)).toThrow()
+      expect(invokeWithInvalidInput(PlayerId.make, null)).toThrow()
     })
 
     it('throws on number input', () => {
-      expect(() => PlayerId.make(0 as unknown as string)).toThrow()
+      expect(invokeWithInvalidInput(PlayerId.make, 0)).toThrow()
     })
   })
 
@@ -55,7 +58,7 @@ describe('ids', () => {
     })
 
     it('throws on null input', () => {
-      expect(() => BlockId.make(null as unknown as string)).toThrow()
+      expect(invokeWithInvalidInput(BlockId.make, null)).toThrow()
     })
   })
 
@@ -69,7 +72,7 @@ describe('ids', () => {
     })
 
     it('throws on null input', () => {
-      expect(() => PhysicsBodyId.make(null as unknown as string)).toThrow()
+      expect(invokeWithInvalidInput(PhysicsBodyId.make, null)).toThrow()
     })
   })
 
@@ -87,7 +90,7 @@ describe('ids', () => {
     })
 
     it('throws on null input', () => {
-      expect(() => ChunkId.make(null as unknown as string)).toThrow()
+      expect(invokeWithInvalidInput(ChunkId.make, null)).toThrow()
     })
   })
 
@@ -101,11 +104,11 @@ describe('ids', () => {
     })
 
     it('throws on null input', () => {
-      expect(() => RecipeId.make(null as unknown as string)).toThrow()
+      expect(invokeWithInvalidInput(RecipeId.make, null)).toThrow()
     })
 
     it('throws on number input', () => {
-      expect(() => RecipeId.make(1 as unknown as string)).toThrow()
+      expect(invokeWithInvalidInput(RecipeId.make, 1)).toThrow()
     })
   })
 })

@@ -1,4 +1,3 @@
-import type { Page } from '@playwright/test'
 
 /**
  * Check if the 'minecraft-worlds' IndexedDB database has been created.

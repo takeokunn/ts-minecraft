@@ -4,7 +4,7 @@ import { Array as Arr, Effect, Either, MutableHashMap, MutableRef, Option } from
 import { StorageService, WorldMetadata } from '@ts-minecraft/world-state'
 import { StorageError } from '../domain/errors'
 import { WorldId } from '@ts-minecraft/kernel'
-import { testWorldId, testCoord, makeInMemoryStorageService, makeFailingStorageService } from './storage-service-test-utils'
+import { testWorldId, testCoord, chunkStorageBlocks, chunkStorageValue, makeInMemoryStorageService, makeFailingStorageService } from './storage-service-test-utils'
 
 // ---------------------------------------------------------------------------
 // isQuotaExceeded and QuotaExceededError handling (in-memory mock)
@@ -65,7 +65,7 @@ describe('infrastructure/storage/storage-service-quota', () => {
         const storage = yield* StorageService
         // The mock throws synchronously inside Effect.sync — this will cause a defect.
         // We use Effect.sandbox to catch defects.
-        const result = yield* storage.saveChunk(testWorldId, testCoord, new Uint8Array([1])).pipe(
+        const result = yield* storage.saveChunk(testWorldId, testCoord, chunkStorageValue(new Uint8Array([1]))).pipe(
           Effect.sandbox,
           Effect.either,
         )
@@ -83,11 +83,12 @@ describe('infrastructure/storage/storage-service-quota', () => {
       })
       return Effect.gen(function* () {
         const storage = yield* StorageService
-        yield* storage.saveChunk(testWorldId, testCoord, new Uint8Array([42]))
+        const blocks = new Uint8Array([42])
+        yield* storage.saveChunk(testWorldId, testCoord, chunkStorageValue(blocks))
         expect(MutableRef.get(callCountRef)).toBe(1)
         const loaded = yield* storage.loadChunk(testWorldId, testCoord)
         // The mock only increments on save, not on the throw path — verify data was stored
-        expect(loaded).toStrictEqual(Option.some(new Uint8Array([42])))
+        expect(chunkStorageBlocks(Option.getOrThrow(loaded))).toEqual(blocks)
       }).pipe(Effect.provide(TestLayer))
     })
   })
@@ -146,7 +147,7 @@ describe('infrastructure/storage/storage-service-quota', () => {
       MutableHashMap.set(service._metaStore, 'broken-world' as WorldId, {
         seed: 'not-a-number',
         notAValidShape: true,
-      } as unknown as WorldMetadata)
+      })
       return Effect.gen(function* () {
         const storage = yield* StorageService
         yield* storage.saveWorldMetadata('good-world' as WorldId, validMeta)

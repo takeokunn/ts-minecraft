@@ -89,7 +89,7 @@ describe('infrastructure/three/world-renderer', () => {
       const createChunkMesh = vi.fn((chunk: Chunk) => {
         const mesh = makeMockMesh(chunk.coord)
         mockMeshes.push(mesh)
-        return Effect.succeed({ opaqueMesh: mesh as unknown as THREE.Mesh, waterMesh: Option.none<THREE.Mesh>() })
+        return Effect.succeed({ opaqueMesh: mesh as THREE.Mesh, waterMesh: Option.none<THREE.Mesh>() })
       })
       const TestLayer = buildTestLayer(createChunkMesh)
       const scene = makeScene()
@@ -109,7 +109,7 @@ describe('infrastructure/three/world-renderer', () => {
       const createChunkMesh = vi.fn((chunk: Chunk) => {
         const mesh = makeMockMesh(chunk.coord)
         mockMeshes.push(mesh)
-        return Effect.succeed({ opaqueMesh: mesh as unknown as THREE.Mesh, waterMesh: Option.none<THREE.Mesh>() })
+        return Effect.succeed({ opaqueMesh: mesh as THREE.Mesh, waterMesh: Option.none<THREE.Mesh>() })
       })
       const TestLayer = buildTestLayer(createChunkMesh)
       const scene = makeScene()
@@ -134,7 +134,7 @@ describe('infrastructure/three/world-renderer', () => {
       const createChunkMesh = vi.fn((chunk: Chunk) => {
         const mesh = makeMockMesh(chunk.coord)
         mockMeshes.push(mesh)
-        return Effect.succeed({ opaqueMesh: mesh as unknown as THREE.Mesh, waterMesh: Option.none<THREE.Mesh>() })
+        return Effect.succeed({ opaqueMesh: mesh as THREE.Mesh, waterMesh: Option.none<THREE.Mesh>() })
       })
       const TestLayer = buildTestLayer(createChunkMesh)
       const scene = makeScene()
@@ -169,7 +169,7 @@ describe('infrastructure/three/world-renderer', () => {
         const mesh = makeMockMesh(chunk.coord)
         mesh.visible = true
         mockMeshes.push(mesh)
-        return Effect.succeed({ opaqueMesh: mesh as unknown as THREE.Mesh, waterMesh: Option.none<THREE.Mesh>() })
+        return Effect.succeed({ opaqueMesh: mesh as THREE.Mesh, waterMesh: Option.none<THREE.Mesh>() })
       })
       const TestLayer = buildTestLayer(createChunkMesh)
       const scene = makeScene()
@@ -203,8 +203,8 @@ describe('infrastructure/three/world-renderer', () => {
         mockOpaqueMeshes.push(opaqueMesh)
         mockWaterMeshes.push(waterMesh)
         return Effect.succeed({
-          opaqueMesh: opaqueMesh as unknown as THREE.Mesh,
-          waterMesh: Option.some(waterMesh as unknown as THREE.Mesh),
+          opaqueMesh: opaqueMesh as THREE.Mesh,
+          waterMesh: Option.some(waterMesh as THREE.Mesh),
         })
       })
       const TestLayer = buildTestLayer(createChunkMesh)
@@ -241,8 +241,8 @@ describe('infrastructure/three/world-renderer', () => {
         mockOpaqueMeshes.push(opaqueMesh)
         mockWaterMeshes.push(waterMesh)
         return Effect.succeed({
-          opaqueMesh: opaqueMesh as unknown as THREE.Mesh,
-          waterMesh: Option.some(waterMesh as unknown as THREE.Mesh),
+          opaqueMesh: opaqueMesh as THREE.Mesh,
+          waterMesh: Option.some(waterMesh as THREE.Mesh),
         })
       })
       const TestLayer = buildTestLayer(createChunkMesh)

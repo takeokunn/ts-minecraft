@@ -1,14 +1,13 @@
-import { describe, it } from '@effect/vitest'
-import { expect } from 'vitest'
-import { Array as Arr, Effect, Either, Layer, Option, Schema } from 'effect'
+import { describe,it } from '@effect/vitest'
+import { PhysicsWorldPortLayer,RigidBodyPortLayer,ShapePortLayer } from '@ts-minecraft/app'
 import { DeltaTimeSecs } from '@ts-minecraft/kernel'
 import {
-  PhysicsService,
-  PhysicsServiceLive,
-  PhysicsServiceError,
-  AddBodyConfigSchema,
+PhysicsService,
+PhysicsServiceError,
+PhysicsServiceLive
 } from '@ts-minecraft/physics'
-import { PhysicsWorldPortLayer, RigidBodyPortLayer, ShapePortLayer } from '@ts-minecraft/app'
+import { Array as Arr,Effect,Either,Layer,Option } from 'effect'
+import { expect } from 'vitest'
 
 // Create test layer by combining all dependencies (via port bridges to infrastructure)
 const TestLayer = PhysicsServiceLive.pipe(

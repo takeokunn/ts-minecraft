@@ -4,7 +4,7 @@ import type { Block } from '@ts-minecraft/world-state'
 import { BlockRegistry } from '@ts-minecraft/world-state'
 import { InventoryServiceLive } from '@ts-minecraft/inventory'
 
-export const asSlotIndex = (n: number): import('@ts-minecraft/kernel').SlotIndex => n as unknown as import('@ts-minecraft/kernel').SlotIndex
+export const asSlotIndex = (n: number): import('@ts-minecraft/kernel').SlotIndex => n as import('@ts-minecraft/kernel').SlotIndex
 
 export const makeBlock = (type: BlockType): Block => ({
   id: `block:${type.toLowerCase()}` as Block['id'],
@@ -32,7 +32,8 @@ export const createTestBlockRegistry = (blocks: ReadonlyArray<Block> = []) => {
     MutableHashMap.set(MutableRef.get(blockMapRef), block.type, block)
   })
 
-  return {
+  return BlockRegistry.of({
+    _tag: '@minecraft/domain/BlockRegistry' as const,
     register: (block: Block) =>
       Effect.sync(() => {
         MutableHashMap.set(MutableRef.get(blockMapRef), block.type, block)
@@ -44,12 +45,12 @@ export const createTestBlockRegistry = (blocks: ReadonlyArray<Block> = []) => {
       Effect.sync(() => {
         MutableRef.set(blockMapRef, MutableHashMap.empty<BlockType, Block>())
       }),
-  }
+  })
 }
 
 export const createTestLayer = (blockRegistry: ReturnType<typeof createTestBlockRegistry>) =>
   InventoryServiceLive.pipe(
-    Layer.provide(Layer.succeed(BlockRegistry, blockRegistry as unknown as BlockRegistry))
+    Layer.provide(Layer.succeed(BlockRegistry, blockRegistry))
   )
 
 export const fullHotbarBlocks: ReadonlyArray<Block> = [

@@ -189,7 +189,10 @@ export class ChunkManagerService extends Effect.Service<ChunkManagerService>()(
 
             yield* Effect.forEach(
               Arr.filterMap(Arr.fromIterable(keysToSave), (key) => HashMap.get(state.chunks, key)),
-              (entry) => storageService.saveChunk(DEFAULT_WORLD_ID, entry.chunk.coord, entry.chunk.blocks), // intentional: raw Uint8Array passed to storage serialization
+              (entry) => storageService.saveChunk(DEFAULT_WORLD_ID, entry.chunk.coord, {
+                blocks: entry.chunk.blocks,
+                fluid: Option.getOrUndefined(entry.chunk.fluid),
+              }),
               { concurrency: 1 }
             )
 

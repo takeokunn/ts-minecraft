@@ -1,9 +1,9 @@
 import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
-import { Array as Arr, Effect, Either, HashSet, Layer, MutableRef, Option } from 'effect'
+import { Array as Arr, Effect, Either, Layer, MutableRef, Option } from 'effect'
 import { BlockService, BlockServiceLive, BlockServiceError } from '@ts-minecraft/terrain'
 import { ChunkManagerService } from '@ts-minecraft/terrain'
-import { ChunkService, ChunkServiceLive } from '../domain/chunk'
+import { ChunkServiceLive } from '../domain/chunk'
 import { FluidService } from '@ts-minecraft/terrain'
 import { PlayerService } from '@ts-minecraft/player'
 import { InventoryService } from '@ts-minecraft/inventory'
@@ -55,6 +55,9 @@ const makeChunkManagerLayer = (opts: {
     getChunk: () => Effect.succeed(chunk),
     markChunkDirty: () => Effect.void,
     getLoadedChunks: () => Effect.succeed([chunk]),
+    loadChunksAroundPlayer: () => Effect.succeed(false),
+    saveDirtyChunks: () => Effect.void,
+    unloadChunk: () => Effect.void,
   } as unknown as ChunkManagerService)
 }
 
@@ -122,9 +125,9 @@ const buildLayer = (opts: {
     Layer.provide(ChunkServiceLive),
     Layer.provide(noopFluidService),
     Layer.provide(makePlayerLayer(opts.playerPos)),
-    Layer.provide(makeInventoryLayer({ removeBlockResult: opts.removeBlockResult })),
+    Layer.provide(makeInventoryLayer(opts.removeBlockResult === undefined ? {} : { removeBlockResult: opts.removeBlockResult })),
     Layer.provide(makeHotbarLayer(opts.selectedTool)),
-    Layer.provide(makeFurnaceLayer({ dismantleResult: opts.dismantleResult })),
+    Layer.provide(makeFurnaceLayer(opts.dismantleResult === undefined ? {} : { dismantleResult: opts.dismantleResult })),
   )
 
 describe('terrain/application/block-service placeBlock inventory rollback', () => {
@@ -151,7 +154,6 @@ describe('terrain/application/block-service placeBlock inventory rollback', () =
   })
 
   it.effect('placeBlock on a non-air position fails with "Block already exists" error', () => {
-    const chunk = makeChunk('STONE', BLOCK_IDX_64)
     const layer = buildLayer({ blockAtIdx: 'STONE' })
     return Effect.gen(function* () {
       const svc = yield* BlockService

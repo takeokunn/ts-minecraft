@@ -151,7 +151,8 @@ describe('trading/trading-service', () => {
   it.effect('returns insufficient_input when removeBlock returns false despite countBlockInInventory being sufficient', () => {
     // Mock inventory: getAllSlots reports 10 GRAVEL (plenty), but removeBlock always
     // returns false — exercises the second insufficient_input guard at line 77-78.
-    const mockInv = {
+    const mockInv = InventoryService.of({
+      _tag: '@minecraft/application/InventoryService' as const,
       getAllSlots: () => Effect.succeed([
         Option.some({ blockType: TRADE_CURRENCY_BLOCK as BlockType, count: 10 }),
       ]),
@@ -162,8 +163,9 @@ describe('trading/trading-service', () => {
       moveStack: (_from: unknown, _to: unknown) => Effect.void,
       getHotbarSlots: () => Effect.succeed([]),
       serialize: () => Effect.succeed({ slots: [] }),
+      clear: () => Effect.void,
       deserialize: (_data: unknown) => Effect.void,
-    } as unknown as InventoryService
+    })
 
     const MockInvLayer = Layer.succeed(InventoryService, mockInv)
 
@@ -238,7 +240,8 @@ describe('trading/trading-service', () => {
     // Track addBlock calls to verify the rollback (input re-added after output fails).
     const addBlockCalls: Array<{ blockType: BlockType; count: number }> = []
 
-    const mockInv = {
+    const mockInv = InventoryService.of({
+      _tag: '@minecraft/application/InventoryService' as const,
       getAllSlots: () => Effect.succeed([
         Option.some({ blockType: TRADE_CURRENCY_BLOCK as BlockType, count: 10 }),
       ]),
@@ -255,8 +258,9 @@ describe('trading/trading-service', () => {
       moveStack: (_from: unknown, _to: unknown) => Effect.void,
       getHotbarSlots: () => Effect.succeed([]),
       serialize: () => Effect.succeed({ slots: [] }),
+      clear: () => Effect.void,
       deserialize: (_data: unknown) => Effect.void,
-    } as unknown as InventoryService
+    })
 
     const MockInvLayer = Layer.succeed(InventoryService, mockInv)
 

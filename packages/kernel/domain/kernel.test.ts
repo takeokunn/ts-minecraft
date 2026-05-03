@@ -1,26 +1,16 @@
-import { describe, expect } from 'vitest'
 import { it } from '@effect/vitest'
-import { Effect, Either, Schema } from 'effect'
+import { Effect,Schema } from 'effect'
+import { describe,expect } from 'vitest'
 import {
-  WorldIdSchema,
-  PlayerIdSchema,
-  BlockIdSchema,
-  PhysicsBodyIdSchema,
-  ChunkIdSchema,
-  SlotIndexSchema,
-  DeltaTimeSecsSchema,
-  BlockIndexSchema,
-  PositionSchema,
-  RecipeId,
-  RecipeIdSchema,
-  ChunkCacheKey,
-  ChunkCacheKeySchema,
-  TextureUrl,
-  TextureUrlSchema,
-  MaterialCacheKey,
-  MaterialCacheKeySchema,
-  MetersPerSec,
-  MetersPerSecSchema,
+BlockIdSchema,
+BlockIndexSchema,
+ChunkIdSchema,
+DeltaTimeSecsSchema,
+PhysicsBodyIdSchema,
+PlayerIdSchema,
+PositionSchema,
+SlotIndexSchema,
+WorldIdSchema
 } from './kernel'
 
 describe('shared/kernel', () => {

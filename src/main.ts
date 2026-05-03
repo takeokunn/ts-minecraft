@@ -42,18 +42,8 @@ const mainMenuLoop = (bootCtx: BootContext) =>
       const choice = yield* menu.show()
 
       if (choice.action === 'quit') {
-        yield* Effect.sync(() => {
-          try {
-            window.close()
-          } catch {
-            // window.close() is a no-op for tabs not opened by script.
-          }
-          // Soft fallback: keep the menu visible so the user knows the
-          // request was received. Browsers ignore window.close() on tabs
-          // the script didn't open — there's nothing more we can do here.
-          // eslint-disable-next-line no-console
-          console.info('Quit requested — please close this tab manually if it remains open.')
-        })
+        yield* Effect.sync(() => window.close()).pipe(Effect.catchAllCause(() => Effect.void))
+        yield* Effect.logInfo('Quit requested — please close this tab manually if it remains open.')
         // Block forever so the loop does not spin after a no-op window.close.
         yield* Effect.never
         return

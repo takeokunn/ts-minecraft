@@ -23,7 +23,7 @@ import type { TerrainWorkerPoolPort, TerrainGenerationError } from './terrain-wo
 import { chunkLoadHistogram } from '../domain/terrain/generator'
 import { chunkCoordToKey } from '../domain/chunk-coord-utils'
 import type { ChunkManagerError } from './chunk-manager-constants'
-import { normalizeChunkStorageValue, type ChunkCacheEntry, type ChunkCache } from './chunk-manager-cache'
+import { storedChunkPayload, type ChunkCacheEntry, type ChunkCache } from './chunk-manager-cache'
 import type { LightEngineService, LightGrids } from './light-engine-service'
 
 // ---------------------------------------------------------------------------
@@ -207,7 +207,7 @@ export const getChunk = (
             onNone: () => generateAndInsert(),
             onSome: (stored) =>
               Effect.gen(function* () {
-                const { blocks, fluid } = normalizeChunkStorageValue(stored)
+                const { blocks, fluid } = storedChunkPayload(stored)
 
                 const EXPECTED_LENGTH = CHUNK_SIZE * CHUNK_SIZE * CHUNK_HEIGHT
                 if (blocks.byteLength !== EXPECTED_LENGTH) {

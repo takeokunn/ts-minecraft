@@ -2,13 +2,9 @@ import { Effect, Option } from 'effect'
 import type { WorldId } from '@ts-minecraft/kernel'
 import type { ChunkCoord } from '@ts-minecraft/kernel'
 import { StorageError } from '@ts-minecraft/world-state'
+import type { ChunkStorageValue } from '@ts-minecraft/world-state'
 
-export type ChunkStorageValue =
-  | Uint8Array<ArrayBufferLike>
-  | {
-      readonly blocks: Uint8Array<ArrayBufferLike>
-      readonly fluid: Uint8Array<ArrayBufferLike> | undefined
-    }
+export type { ChunkStorageValue }
 
 // Application-layer port for chunk persistence.
 // Decouples application services from IndexedDB infrastructure.

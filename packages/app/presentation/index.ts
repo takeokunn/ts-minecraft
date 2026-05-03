@@ -1,4 +1,4 @@
-export { FPSCounterService, FPSCounterLive, FPSCounterStateSchema } from './fps-counter'
+export { FPSCounterService, FPSCounterStateSchema } from './fps-counter'
 export * from './highlight'
 export * from './hud'
 export * from './input'

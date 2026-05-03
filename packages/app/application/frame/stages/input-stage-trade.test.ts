@@ -37,9 +37,10 @@ describe('T key (trade open/close)', () => {
       settingsOverlay: makeSettingsOverlay({ open: false }),
       tradingPresentation: makeTradingPresentation(tradingState),
     })
-    ;(services.tradingPresentation as unknown as { open: unknown }).open = openSpy
-    ;(services.villageService as unknown as { findNearestVillager: unknown }).findNearestVillager =
-      () => Effect.succeed(Option.some({ villagerId: 'villager-1', position: { x: 0, y: 64, z: 0 } }))
+    Object.assign(services.tradingPresentation, { open: openSpy })
+    Object.assign(services.villageService, {
+      findNearestVillager: () => Effect.succeed(Option.some({ villagerId: 'villager-1', position: { x: 0, y: 64, z: 0 } })),
+    })
 
     yield* runFrame(deps, services)
 
@@ -60,7 +61,7 @@ describe('T key (trade open/close)', () => {
       settingsOverlay: makeSettingsOverlay({ open: false }),
       tradingPresentation: makeTradingPresentation(tradingState),
     })
-    ;(services.tradingPresentation as unknown as { close: unknown }).close = closeSpy
+    Object.assign(services.tradingPresentation, { close: closeSpy })
 
     yield* runFrame(deps, services)
 
@@ -80,7 +81,7 @@ describe('T key (trade open/close)', () => {
       settingsOverlay: makeSettingsOverlay({ open: false }),
       tradingPresentation: makeTradingPresentation({ open: false }),
     })
-    ;(services.tradingPresentation as unknown as { open: unknown }).open = openSpy
+    Object.assign(services.tradingPresentation, { open: openSpy })
 
     yield* runFrame(deps, services)
 
@@ -99,9 +100,10 @@ describe('T key (trade open/close)', () => {
       settingsOverlay: makeSettingsOverlay({ open: false }),
       tradingPresentation: makeTradingPresentation(tradingState),
     })
-    ;(services.tradingPresentation as unknown as { open: unknown }).open = openSpy
-    ;(services.villageService as unknown as { findNearestVillager: unknown }).findNearestVillager =
-      () => Effect.succeed(Option.some({ villagerId: 'villager-1', position: { x: 0, y: 64, z: 0 } }))
+    Object.assign(services.tradingPresentation, { open: openSpy })
+    Object.assign(services.villageService, {
+      findNearestVillager: () => Effect.succeed(Option.some({ villagerId: 'villager-1', position: { x: 0, y: 64, z: 0 } })),
+    })
 
     yield* runFrame(deps, services)
 
@@ -128,7 +130,7 @@ describe('trade navigation keys (trade open)', () => {
       settingsOverlay: makeSettingsOverlay({ open: false }),
       tradingPresentation: makeTradingPresentation(tradingState),
     })
-    ;(services.tradingPresentation as unknown as { cycleSelection: unknown }).cycleSelection = cycleSpy
+    Object.assign(services.tradingPresentation, { cycleSelection: cycleSpy })
 
     yield* runFrame(deps, services)
 
@@ -148,7 +150,7 @@ describe('trade navigation keys (trade open)', () => {
       settingsOverlay: makeSettingsOverlay({ open: false }),
       tradingPresentation: makeTradingPresentation(tradingState),
     })
-    ;(services.tradingPresentation as unknown as { executeSelectedTrade: unknown }).executeSelectedTrade = executeSpy
+    Object.assign(services.tradingPresentation, { executeSelectedTrade: executeSpy })
 
     yield* runFrame(deps, services)
 

@@ -1,7 +1,7 @@
-import { describe, it, expect } from '@effect/vitest'
-import { Array as Arr, Effect } from 'effect'
-import { TimeService, TimeServiceLive } from '@ts-minecraft/game'
+import { describe,expect,it } from '@effect/vitest'
+import { TimeService,TimeServiceLive } from '@ts-minecraft/game'
 import { DeltaTimeSecs } from '@ts-minecraft/kernel'
+import { Effect } from 'effect'
 
 describe('application/time/time-service', () => {
   describe('getTimeOfDay — value range', () => {

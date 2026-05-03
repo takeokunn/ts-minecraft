@@ -7,7 +7,7 @@ import { InventoryServiceLive } from '@ts-minecraft/inventory'
 import { HotbarServiceLive } from '@ts-minecraft/inventory'
 import type { SlotIndex } from '@ts-minecraft/kernel'
 
-export const asSlotIndex = (n: number): SlotIndex => n as unknown as SlotIndex
+export const asSlotIndex = (n: number): SlotIndex => n as SlotIndex
 
 export const createTestInputService = (config: {
   justPressedKeys?: ReadonlyArray<string>
@@ -16,36 +16,36 @@ export const createTestInputService = (config: {
   const justPressedKeys = MutableHashSet.fromIterable(Option.getOrElse(Option.fromNullable(config.justPressedKeys), (): ReadonlyArray<string> => []))
   const pendingWheelDeltaRef = MutableRef.make(Option.getOrElse(Option.fromNullable(config.wheelDelta), () => 0))
 
-  return {
-    isKeyPressed: (_key: string) => Effect.sync(() => false),
-    consumeKeyPress: (key: string) =>
-      Effect.sync(() => {
-        if (MutableHashSet.has(justPressedKeys, key)) {
-          MutableHashSet.remove(justPressedKeys, key)
-          return true
-        }
-        return false
-      }),
-    getMouseDelta: () => Effect.sync(() => ({ x: 0, y: 0 })),
-    isMouseDown: (_button: number) => Effect.sync(() => false),
-    requestPointerLock: () => Effect.sync(() => {}),
-    exitPointerLock: () => Effect.sync(() => {}),
-    isPointerLocked: () => Effect.sync(() => false),
-    consumeMouseClick: (_button: number) => Effect.sync(() => false),
-    consumeWheelDelta: () =>
-      Effect.sync(() => {
-        const delta = MutableRef.get(pendingWheelDeltaRef)
-        MutableRef.set(pendingWheelDeltaRef, 0)
-        return delta
-      }),
-    // Test helpers
-    simulateKeyPress: (key: string) => {
-      MutableHashSet.add(justPressedKeys, key)
+  return Object.assign(
+    PlayerInputService.of({
+      _tag: '@minecraft/application/PlayerInputService' as const,
+      isKeyPressed: (_key: string) => Effect.sync(() => false),
+      consumeKeyPress: (key: string) =>
+        Effect.sync(() => {
+          if (MutableHashSet.has(justPressedKeys, key)) {
+            MutableHashSet.remove(justPressedKeys, key)
+            return true
+          }
+          return false
+        }),
+      consumeWheelDelta: () =>
+        Effect.sync(() => {
+          const delta = MutableRef.get(pendingWheelDeltaRef)
+          MutableRef.set(pendingWheelDeltaRef, 0)
+          return delta
+        }),
+      getMouseDelta: () => Effect.sync(() => ({ x: 0, y: 0 })),
+      isPointerLocked: () => Effect.sync(() => false),
+    }),
+    {
+      simulateKeyPress: (key: string) => {
+        MutableHashSet.add(justPressedKeys, key)
+      },
+      setWheelDelta: (delta: number) => {
+        MutableRef.set(pendingWheelDeltaRef, delta)
+      },
     },
-    setWheelDelta: (delta: number) => {
-      MutableRef.set(pendingWheelDeltaRef, delta)
-    },
-  }
+  )
 }
 
 export const makeBlock = (type: BlockType): Block => ({
@@ -74,7 +74,8 @@ export const createTestBlockRegistry = (blocks: ReadonlyArray<Block> = []) => {
     MutableHashMap.set(MutableRef.get(blockMapRef), block.type, block)
   })
 
-  return {
+  return BlockRegistry.of({
+    _tag: '@minecraft/domain/BlockRegistry' as const,
     register: (block: Block) =>
       Effect.sync(() => {
         MutableHashMap.set(MutableRef.get(blockMapRef), block.type, block)
@@ -86,7 +87,7 @@ export const createTestBlockRegistry = (blocks: ReadonlyArray<Block> = []) => {
       Effect.sync(() => {
         MutableRef.set(blockMapRef, MutableHashMap.empty<BlockType, Block>())
       }),
-  }
+  })
 }
 
 export const defaultTestBlocks: ReadonlyArray<Block> = [
@@ -105,8 +106,8 @@ export const createTestLayer = (
   inputService: ReturnType<typeof createTestInputService>,
   blockRegistry: ReturnType<typeof createTestBlockRegistry>
 ) => {
-  const inputLayer = Layer.succeed(PlayerInputService, inputService as unknown as PlayerInputService)
-  const blockRegistryLayer = Layer.succeed(BlockRegistry, blockRegistry as unknown as BlockRegistry)
+  const inputLayer = Layer.succeed(PlayerInputService, inputService)
+  const blockRegistryLayer = Layer.succeed(BlockRegistry, blockRegistry)
   const inventoryLayer = InventoryServiceLive.pipe(
     Layer.provide(blockRegistryLayer)
   )

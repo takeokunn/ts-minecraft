@@ -20,24 +20,27 @@ import type { ChunkCoord } from '@ts-minecraft/kernel'
 // ---------------------------------------------------------------------------
 
 const stubDom = {
-  createElement: () => ({}) as HTMLElement,
+  _tag: '@minecraft/presentation/DomOperations' as const,
+  createElement: <K extends keyof HTMLElementTagNameMap>(_tagName: K): HTMLElementTagNameMap[K] => ({}) as HTMLElementTagNameMap[K],
   appendChild: () => {},
   appendChildTo: () => {},
   removeChild: () => {},
   getParentNode: () => Option.none(),
   setInnerHTML: () => {},
   querySelector: () => Option.none(),
-} as unknown as DomOperationsService
+}
 
-const StubDomLayer = Layer.succeed(DomOperationsService, stubDom)
+const StubDomLayer = Layer.succeed(DomOperationsService, DomOperationsService.of(stubDom))
 
 const stubConfirmDialog = {
+  _tag: '@minecraft/presentation/ConfirmDialog' as const,
   show: () => Effect.succeed(false),
-} as unknown as ConfirmDialogService
+}
 
-const StubConfirmLayer = Layer.succeed(ConfirmDialogService, stubConfirmDialog)
+const StubConfirmLayer = Layer.succeed(ConfirmDialogService, ConfirmDialogService.of(stubConfirmDialog))
 
 const stubStorage = {
+  _tag: '@minecraft/infrastructure/storage/StorageService' as const,
   initialize: Effect.void,
   saveChunk: () => Effect.void,
   loadChunk: () => Effect.succeed(Option.none()),
@@ -48,9 +51,9 @@ const stubStorage = {
     valid: [] as ReadonlyArray<{ worldId: WorldId; metadata: WorldMetadata }>,
     corrupt: [] as ReadonlyArray<WorldId>,
   }),
-} as unknown as StorageService
+}
 
-const StubStorageLayer = Layer.succeed(StorageService, stubStorage)
+const StubStorageLayer = Layer.succeed(StorageService, StorageService.of(stubStorage))
 
 const TestLayer = MainMenuLive.pipe(
   Layer.provide(StubStorageLayer),

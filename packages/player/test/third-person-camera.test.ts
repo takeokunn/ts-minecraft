@@ -2,6 +2,7 @@ import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
 import { Effect, Layer, MutableRef } from 'effect'
 import { PlayerCameraStateService } from '@ts-minecraft/player'
+import type { CameraTransformPort } from '@ts-minecraft/kernel'
 import {
   ThirdPersonCameraService,
   ThirdPersonCameraServiceLive,
@@ -12,7 +13,8 @@ import {
 // ---------------------------------------------------------------------------
 
 const makeMockCameraStateLayer = (yaw: number, pitch: number) =>
-  Layer.succeed(PlayerCameraStateService, {
+  Layer.succeed(PlayerCameraStateService, PlayerCameraStateService.of({
+    _tag: '@minecraft/application/PlayerCameraStateService' as const,
     getRotation: () => Effect.succeed({ yaw, pitch }),
     getMode: () => Effect.succeed('thirdPerson' as const),
     setYaw: () => Effect.void,
@@ -22,7 +24,7 @@ const makeMockCameraStateLayer = (yaw: number, pitch: number) =>
     setMode: () => Effect.void,
     toggleMode: () => Effect.void,
     reset: () => Effect.void,
-  } as PlayerCameraStateService)
+  }))
 
 // ---------------------------------------------------------------------------
 // Mock CameraTransformPort
@@ -33,7 +35,7 @@ const makeMockCamera = () => {
   const lookAtArgs: [number, number, number] = [0, 0, 0]
   const lookAtCalledRef = MutableRef.make(false)
 
-  const camera = {
+  const camera: CameraTransformPort = {
     rotation: { set: () => {} },
     position: {
       set: (x: number, y: number, z: number) => {
@@ -62,7 +64,7 @@ describe('ThirdPersonCameraService', () => {
       const thirdPersonCamera = yield* ThirdPersonCameraService
       const { camera, positionSet, wasLookAtCalled } = makeMockCamera()
 
-      yield* thirdPersonCamera.update(camera as never, { x: 10, y: 64, z: 10 }, 0.7)
+      yield* thirdPersonCamera.update(camera, { x: 10, y: 64, z: 10 }, 0.7)
 
       // yaw=0, pitch=0:
       // offsetX = sin(0)*cos(0)*4 = 0
@@ -89,7 +91,7 @@ describe('ThirdPersonCameraService', () => {
       const thirdPersonCamera = yield* ThirdPersonCameraService
       const { camera, lookAtArgs, wasLookAtCalled } = makeMockCamera()
 
-      yield* thirdPersonCamera.update(camera as never, { x: 10, y: 64, z: 10 }, 0.7)
+      yield* thirdPersonCamera.update(camera, { x: 10, y: 64, z: 10 }, 0.7)
 
       // lookAt is called with (playerPos.x, eyeY, playerPos.z) = (10, 64.7, 10)
       expect(wasLookAtCalled()).toBe(true)
@@ -109,9 +111,8 @@ describe('ThirdPersonCameraService', () => {
     Effect.gen(function* () {
       const thirdPersonCamera = yield* ThirdPersonCameraService
       const { camera, positionSet } = makeMockCamera()
-      const yaw = Math.PI / 2 // 90 degrees
 
-      yield* thirdPersonCamera.update(camera as never, { x: 0, y: 0, z: 0 }, 0)
+      yield* thirdPersonCamera.update(camera, { x: 0, y: 0, z: 0 }, 0)
 
       // yaw=PI/2, pitch=0:
       // offsetX = sin(PI/2)*cos(0)*4 = 4
@@ -133,13 +134,13 @@ describe('ThirdPersonCameraService', () => {
       const thirdPersonCamera = yield* ThirdPersonCameraService
       const { camera, positionSet: flatSet } = makeMockCamera()
 
-      yield* thirdPersonCamera.update(camera as never, { x: 0, y: 0, z: 0 }, 0)
+      yield* thirdPersonCamera.update(camera, { x: 0, y: 0, z: 0 }, 0)
       const flatY = flatSet.args[1]
 
-      const { camera: camera2, positionSet: pitchedSet } = makeMockCamera()
+      const { camera: camera2 } = makeMockCamera()
       const yaw90Camera = yield* ThirdPersonCameraService
 
-      yield* yaw90Camera.update(camera2 as never, { x: 0, y: 0, z: 0 }, 0)
+      yield* yaw90Camera.update(camera2, { x: 0, y: 0, z: 0 }, 0)
 
       // Both are from the same service but the positive pitch check needs a separate layer
       // This test just confirms the flat case (pitch=0) gives the base shoulder height
@@ -160,8 +161,8 @@ describe('ThirdPersonCameraService', () => {
       const { camera: cam1, positionSet: set1 } = makeMockCamera()
       const { camera: cam2, positionSet: set2 } = makeMockCamera()
 
-      yield* thirdPersonCamera.update(cam1 as never, { x: 5, y: 20, z: 5 })
-      yield* thirdPersonCamera.update(cam2 as never, { x: 5, y: 20, z: 5 }, 0.7)
+      yield* thirdPersonCamera.update(cam1, { x: 5, y: 20, z: 5 })
+      yield* thirdPersonCamera.update(cam2, { x: 5, y: 20, z: 5 }, 0.7)
 
       // Both should give the same result since 0.7 is the default
       expect(set1.args[0]).toBeCloseTo(set2.args[0])

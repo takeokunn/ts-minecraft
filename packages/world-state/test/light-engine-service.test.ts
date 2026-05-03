@@ -6,6 +6,16 @@ import type { ChunkService as ChunkServiceType } from '@ts-minecraft/terrain'
 import { LIGHT_LEVEL_MAX, getLightAt } from '../domain/light'
 import { LightEngineLive, LightEngineService } from '@ts-minecraft/terrain'
 
+// Explicit interfaces for test-time chunk mutations
+interface ChunkWithSkyLight {
+  skyLight: Uint8Array
+  blockLight?: Uint8Array
+}
+interface ChunkWithBlockLight {
+  blockLight: Uint8Array
+  skyLight?: Uint8Array
+}
+
 const STONE = blockTypeToIndex('STONE')
 const LAVA = blockTypeToIndex('LAVA')
 const REDSTONE_ORE = blockTypeToIndex('REDSTONE_ORE')
@@ -169,8 +179,8 @@ describe('application/light/light-engine-service', () => {
         const firstGrids = yield* ls.updateLight(chunk)
 
         // Attach the grids so the second call sees valid-length buffers → onSome: (b) => b
-        ;(chunk as unknown as { skyLight: Uint8Array; blockLight: Uint8Array }).skyLight = firstGrids.skyLight
-        ;(chunk as unknown as { skyLight: Uint8Array; blockLight: Uint8Array }).blockLight = firstGrids.blockLight
+        ;(chunk as ChunkWithSkyLight).skyLight = firstGrids.skyLight
+        ;(chunk as ChunkWithBlockLight).blockLight = firstGrids.blockLight
 
         const secondGrids = yield* ls.updateLight(chunk)
 
@@ -185,11 +195,11 @@ describe('application/light/light-engine-service', () => {
     withLightService((cs, ls) =>
       Effect.gen(function* () {
         const chunk = yield* cs.createChunk({ x: 0, z: 0 })
-        ;(chunk as unknown as { skyLight: Uint8Array }).skyLight = new Uint8Array(4)
+        ;(chunk as ChunkWithSkyLight).skyLight = new Uint8Array(4)
 
         const grids = yield* ls.updateLight(chunk)
 
-        expect(grids.skyLight).not.toBe((chunk as unknown as { skyLight: Uint8Array }).skyLight)
+        expect(grids.skyLight).not.toBe((chunk as ChunkWithSkyLight).skyLight)
         expect(grids.skyLight.byteLength).toBe(16 * 16 * 256 / 2)
       })
     )
@@ -201,7 +211,7 @@ describe('application/light/light-engine-service', () => {
         const chunk = yield* cs.createChunk({ x: 0, z: 0 })
         const grids = yield* ls.updateLight(chunk)
         // Attach the computed grid so getSkyLight hits the onSome: (grid) => getLightAt path
-        ;(chunk as unknown as { skyLight: Uint8Array }).skyLight = grids.skyLight
+        ;(chunk as ChunkWithSkyLight).skyLight = grids.skyLight
         // All-AIR chunk: sky light at top is max (15)
         const level = ls.getSkyLight(chunk, 0, 255, 0)
         expect(level).toBe(15)
@@ -216,7 +226,7 @@ describe('application/light/light-engine-service', () => {
         chunk.blocks[blockIndexUnsafe(8, 100, 8)] = LAVA
         const grids = yield* ls.updateLight(chunk)
         // Attach the computed grid so getBlockLight hits the onSome: (grid) => getLightAt path
-        ;(chunk as unknown as { blockLight: Uint8Array }).blockLight = grids.blockLight
+        ;(chunk as ChunkWithBlockLight).blockLight = grids.blockLight
         const level = ls.getBlockLight(chunk, 8, 100, 8)
         expect(level).toBe(15)
       })

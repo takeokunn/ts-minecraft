@@ -1,17 +1,52 @@
 {
   "extends": "../../tsconfig.base.json",
-  "compilerOptions": { "composite": true, "outDir": "dist", "rootDir": "." },
+  "compilerOptions": {
+    "composite": true,
+    "outDir": "dist",
+    "rootDir": "."
+  },
   "references": [
-    { "path": "../kernel" },
-    { "path": "../terrain" },
-    { "path": "../world-state" },
-    { "path": "../player" },
-    { "path": "../inventory" },
-    { "path": "../entities" },
-    { "path": "../rendering" },
-    { "path": "../physics" },
-    { "path": "../game" }
+    {
+      "path": "../kernel"
+    },
+    {
+      "path": "../terrain"
+    },
+    {
+      "path": "../world-state"
+    },
+    {
+      "path": "../player"
+    },
+    {
+      "path": "../inventory"
+    },
+    {
+      "path": "../entities"
+    },
+    {
+      "path": "../rendering"
+    },
+    {
+      "path": "../physics"
+    },
+    {
+      "path": "../game"
+    }
   ],
-  "include": ["application/**/*", "infrastructure/**/*", "presentation/**/*", "index.ts"],
-  "exclude": ["node_modules", "dist"]
+  "include": [
+    "application/**/*",
+    "infrastructure/**/*",
+    "presentation/**/*",
+    "index.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "test",
+    "**/*.test.ts",
+    "**/*.spec.ts",
+    "**/*.property.test.ts",
+    "**/*test-utils.ts"
+  ]
 }

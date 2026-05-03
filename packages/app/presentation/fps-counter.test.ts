@@ -2,7 +2,7 @@ import { describe, it } from '@effect/vitest'
 import { Array as Arr, Effect, Schema, Metric } from 'effect'
 import { DeltaTimeSecs } from '@ts-minecraft/kernel'
 import { expect } from 'vitest'
-import { FPSCounterService, FPSCounterLive, FPSCounterStateSchema } from '@ts-minecraft/app/presentation/fps-counter'
+import { FPSCounterService, FPSCounterStateSchema } from '@ts-minecraft/app/presentation/fps-counter'
 
 describe('FPSCounterService', () => {
   describe('tick', () => {
@@ -14,7 +14,7 @@ describe('FPSCounterService', () => {
         const frameCount = yield* counter.getFrameCount()
 
         expect(frameCount).toBe(1)
-      }).pipe(Effect.provide(FPSCounterLive))
+      }).pipe(Effect.provide(FPSCounterService.Default))
     )
 
     it.effect('should increment frame count on multiple ticks', () =>
@@ -27,7 +27,7 @@ describe('FPSCounterService', () => {
         const frameCount = yield* counter.getFrameCount()
 
         expect(frameCount).toBe(3)
-      }).pipe(Effect.provide(FPSCounterLive))
+      }).pipe(Effect.provide(FPSCounterService.Default))
     )
   })
 
@@ -41,7 +41,7 @@ describe('FPSCounterService', () => {
         const fps = yield* counter.getFPS()
 
         expect(fps).toBe(0)
-      }).pipe(Effect.provide(FPSCounterLive))
+      }).pipe(Effect.provide(FPSCounterService.Default))
     )
 
     it.effect('should return calculated FPS after sample interval', () =>
@@ -54,7 +54,7 @@ describe('FPSCounterService', () => {
         const fps = yield* counter.getFPS()
         expect(fps).toBeGreaterThan(50) // Should be ~60 FPS
         expect(fps).toBeLessThan(70)
-      }).pipe(Effect.provide(FPSCounterLive))
+      }).pipe(Effect.provide(FPSCounterService.Default))
     )
 
     it.effect('should calculate FPS accurately (frame count / time interval)', () =>
@@ -70,7 +70,7 @@ describe('FPSCounterService', () => {
         // FPS should be approximately 60 (31 frames / ~0.52 seconds ≈ 59.6, rounds to ~60)
         expect(fps).toBeGreaterThan(59)
         expect(fps).toBeLessThan(61)
-      }).pipe(Effect.provide(FPSCounterLive))
+      }).pipe(Effect.provide(FPSCounterService.Default))
     )
 
     it.effect('should recalculate FPS after multiple intervals', () =>
@@ -90,7 +90,7 @@ describe('FPSCounterService', () => {
         const fps2 = yield* counter.getFPS()
         expect(fps2).toBeGreaterThan(49)
         expect(fps2).toBeLessThan(51)
-      }).pipe(Effect.provide(FPSCounterLive))
+      }).pipe(Effect.provide(FPSCounterService.Default))
     )
   })
 
@@ -111,7 +111,7 @@ describe('FPSCounterService', () => {
 
         expect(afterOne).toBe(1)
         expect(afterThree).toBe(3)
-      }).pipe(Effect.provide(FPSCounterLive))
+      }).pipe(Effect.provide(FPSCounterService.Default))
     )
   })
 
@@ -130,7 +130,7 @@ describe('FPSCounterService', () => {
         // 35 frames in ~0.56s = ~62.5 FPS
         expect(fps).toBeGreaterThan(55)
         expect(fps).toBeLessThan(70)
-      }).pipe(Effect.provide(FPSCounterLive))
+      }).pipe(Effect.provide(FPSCounterService.Default))
     )
   })
 
@@ -176,7 +176,7 @@ describe('FPSCounterService', () => {
 
         const gaugeState = yield* Metric.value(fpsGauge)
         expect(gaugeState.value).toBeGreaterThan(0)
-      }).pipe(Effect.provide(FPSCounterLive))
+      }).pipe(Effect.provide(FPSCounterService.Default))
     )
 
     it.effect('fps gauge reflects calculated FPS value matching getFPS()', () =>
@@ -193,7 +193,7 @@ describe('FPSCounterService', () => {
         const gaugeState = yield* Metric.value(fpsGauge)
         expect(fps).toBeGreaterThan(50)
         expect(gaugeState.value).toBeGreaterThan(50)
-      }).pipe(Effect.provide(FPSCounterLive))
+      }).pipe(Effect.provide(FPSCounterService.Default))
     )
 
     it.effect('fps gauge is not set before sample interval', () =>
@@ -212,7 +212,7 @@ describe('FPSCounterService', () => {
         const after = yield* Metric.value(fpsGauge)
         // Gauge should not have changed because sample interval was not crossed
         expect(after.value).toBe(before.value)
-      }).pipe(Effect.provide(FPSCounterLive))
+      }).pipe(Effect.provide(FPSCounterService.Default))
     )
   })
 })

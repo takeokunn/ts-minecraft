@@ -1,30 +1,15 @@
-import { describe, it, expect } from 'vitest'
-import { CHUNK_SIZE, CHUNK_HEIGHT, blockTypeToIndex, blockIndexUnsafe } from '@ts-minecraft/kernel'
+import { blockTypeToIndex } from '@ts-minecraft/kernel'
+import { describe,expect,it } from 'vitest'
 import {
-  LIGHT_LEVEL_MAX,
-  LIGHT_BYTE_LENGTH,
-  isTransparent,
-  emissiveLightLevel,
-  isTransparentIndex,
-  emissiveLevelByIndex,
-  createLightBuffer,
-  getLightAt,
-  setLightAt,
-  computeBlockLight,
+LIGHT_BYTE_LENGTH,
+createLightBuffer,
+emissiveLevelByIndex,
+emissiveLightLevel,
+getLightAt,
+isTransparent,
+isTransparentIndex,
+setLightAt
 } from '../domain/light'
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-/** Create an all-AIR blocks array (block index 0 = AIR everywhere). */
-const makeAirBlocks = (): Uint8Array =>
-  new Uint8Array(CHUNK_SIZE * CHUNK_SIZE * CHUNK_HEIGHT)
-
-/** Place a block type at a local (x, y, z) position in a blocks array. */
-const placeBlock = (blocks: Uint8Array, x: number, y: number, z: number, type: string): void => {
-  blocks[blockIndexUnsafe(x, y, z)] = blockTypeToIndex(type as Parameters<typeof blockTypeToIndex>[0])
-}
 
 // ---------------------------------------------------------------------------
 // isTransparent / emissiveLightLevel
@@ -218,4 +203,3 @@ describe('setLightAt clamping', () => {
 // ---------------------------------------------------------------------------
 // computeBlockLight
 // ---------------------------------------------------------------------------
-

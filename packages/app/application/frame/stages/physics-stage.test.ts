@@ -23,7 +23,7 @@ describe('step 3.5 — fall damage', () => {
       settingsOverlay: makeSettingsOverlay({ open: false }),
     })
     const spy = vi.fn(() => Effect.succeed(0))
-    ;(services.healthService as unknown as { processFallDamage: unknown }).processFallDamage = spy
+    ;(services.healthService as { processFallDamage: unknown }).processFallDamage = spy
 
     yield* runFrame(deps, services)
 
@@ -37,11 +37,11 @@ describe('step 3.5 — fall damage', () => {
       inventoryRenderer: makeInventoryRenderer({ open: false }),
       settingsOverlay: makeSettingsOverlay({ open: false }),
     })
-    ;(services.healthService as unknown as { processFallDamage: unknown }).processFallDamage = vi.fn(() =>
+    ;(services.healthService as { processFallDamage: unknown }).processFallDamage = vi.fn(() =>
       Effect.succeed(5)
     )
     const applyDamageSpy = vi.fn(() => Effect.void)
-    ;(services.healthService as unknown as { applyDamage: unknown }).applyDamage = applyDamageSpy
+    ;(services.healthService as { applyDamage: unknown }).applyDamage = applyDamageSpy
 
     yield* runFrame(deps, services)
 
@@ -56,11 +56,11 @@ describe('step 3.5 — fall damage', () => {
       inventoryRenderer: makeInventoryRenderer({ open: false }),
       settingsOverlay: makeSettingsOverlay({ open: false }),
     })
-    ;(services.healthService as unknown as { processFallDamage: unknown }).processFallDamage = vi.fn(() =>
+    ;(services.healthService as { processFallDamage: unknown }).processFallDamage = vi.fn(() =>
       Effect.succeed(0)
     )
     const applyDamageSpy = vi.fn(() => Effect.void)
-    ;(services.healthService as unknown as { applyDamage: unknown }).applyDamage = applyDamageSpy
+    ;(services.healthService as { applyDamage: unknown }).applyDamage = applyDamageSpy
 
     yield* runFrame(deps, services)
 
@@ -75,7 +75,7 @@ describe('step 3.5 — fall damage', () => {
       settingsOverlay: makeSettingsOverlay({ open: false }),
     })
     const spy = vi.fn(() => Effect.void)
-    ;(services.healthService as unknown as { tick: unknown }).tick = spy
+    ;(services.healthService as { tick: unknown }).tick = spy
 
     yield* runFrame(deps, services)
 
@@ -89,11 +89,11 @@ describe('step 3.5 — fall damage', () => {
       inventoryRenderer: makeInventoryRenderer({ open: false }),
       settingsOverlay: makeSettingsOverlay({ open: false }),
     })
-    ;(services.entityManager as unknown as { getPlayerContactDamage: unknown }).getPlayerContactDamage = vi.fn(() =>
+    ;(services.entityManager as { getPlayerContactDamage: unknown }).getPlayerContactDamage = vi.fn(() =>
       Effect.succeed(3)
     )
     const applyDamageSpy = vi.fn(() => Effect.void)
-    ;(services.healthService as unknown as { applyDamage: unknown }).applyDamage = applyDamageSpy
+    ;(services.healthService as { applyDamage: unknown }).applyDamage = applyDamageSpy
 
     yield* runFrame(deps, services)
 
@@ -109,15 +109,15 @@ describe('step 3.5 — fall damage', () => {
       settingsOverlay: makeSettingsOverlay({ open: false }),
     })
     // Fall damage would be applied
-    ;(services.healthService as unknown as { processFallDamage: unknown }).processFallDamage = vi.fn(() =>
+    ;(services.healthService as { processFallDamage: unknown }).processFallDamage = vi.fn(() =>
       Effect.succeed(5)
     )
     // But the player is currently invincible
-    ;(services.healthService as unknown as { getHealth: unknown }).getHealth = vi.fn(() =>
+    ;(services.healthService as { getHealth: unknown }).getHealth = vi.fn(() =>
       Effect.succeed({ current: 15, max: 20, invincibilityTicks: 10 })
     )
     const applyDamageSpy = vi.fn(() => Effect.void)
-    ;(services.healthService as unknown as { applyDamage: unknown }).applyDamage = applyDamageSpy
+    ;(services.healthService as { applyDamage: unknown }).applyDamage = applyDamageSpy
 
     yield* runFrame(deps, services)
 
@@ -134,12 +134,12 @@ describe('step 3.5 — fall damage', () => {
       inventoryRenderer: makeInventoryRenderer({ open: false }),
       settingsOverlay: makeSettingsOverlay({ open: false }),
     })
-    ;(services.healthService as unknown as { isDead: unknown }).isDead = vi.fn(() => Effect.succeed(true))
+    ;(services.healthService as { isDead: unknown }).isDead = vi.fn(() => Effect.succeed(true))
     // Default test-kit gameMode is survival (isCreative -> false).
     const resetSpy = vi.fn(() => Effect.void)
     const respawnSpy = vi.fn(() => Effect.void)
-    ;(services.healthService as unknown as { reset: unknown }).reset = resetSpy
-    ;(services.gameState as unknown as { respawn: unknown }).respawn = respawnSpy
+    ;(services.healthService as { reset: unknown }).reset = resetSpy
+    ;(services.gameState as { respawn: unknown }).respawn = respawnSpy
 
     yield* runFrame(deps, services)
 
@@ -156,12 +156,12 @@ describe('step 3.5 — fall damage', () => {
       inventoryRenderer: makeInventoryRenderer({ open: false }),
       settingsOverlay: makeSettingsOverlay({ open: false }),
     })
-    ;(services.healthService as unknown as { isDead: unknown }).isDead = vi.fn(() => Effect.succeed(true))
-    ;(services.gameMode as unknown as { isCreative: unknown }).isCreative = vi.fn(() => Effect.succeed(true))
+    ;(services.healthService as { isDead: unknown }).isDead = vi.fn(() => Effect.succeed(true))
+    ;(services.gameMode as { isCreative: unknown }).isCreative = vi.fn(() => Effect.succeed(true))
     const resetSpy = vi.fn(() => Effect.void)
     const respawnSpy = vi.fn(() => Effect.void)
-    ;(services.healthService as unknown as { reset: unknown }).reset = resetSpy
-    ;(services.gameState as unknown as { respawn: unknown }).respawn = respawnSpy
+    ;(services.healthService as { reset: unknown }).reset = resetSpy
+    ;(services.gameState as { respawn: unknown }).respawn = respawnSpy
 
     yield* runFrame(deps, services)
 

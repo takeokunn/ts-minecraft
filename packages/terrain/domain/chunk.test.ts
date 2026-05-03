@@ -1,8 +1,8 @@
-import { describe, expect } from 'vitest'
 import { it } from '@effect/vitest'
-import { Effect, Either, Layer, Option } from 'effect'
-import { CHUNK_SIZE, CHUNK_HEIGHT, BlockIndexError } from '@ts-minecraft/kernel'
-import { ChunkService, ChunkServiceLive, getBlocksBatch, setBlockInChunk } from './chunk'
+import { BlockIndexError,CHUNK_HEIGHT,CHUNK_SIZE } from '@ts-minecraft/kernel'
+import { Effect,Either,Option } from 'effect'
+import { describe,expect } from 'vitest'
+import { ChunkService,ChunkServiceLive,getBlocksBatch,setBlockInChunk } from './chunk'
 import { ChunkError } from './errors'
 
 // ---------------------------------------------------------------------------

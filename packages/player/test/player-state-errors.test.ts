@@ -1,9 +1,8 @@
-import { describe, it } from '@effect/vitest'
-import { expect } from 'vitest'
-import { Effect, Either, Option } from 'effect'
+import { describe,it } from '@effect/vitest'
+import type { PlayerId,Position } from '@ts-minecraft/kernel'
 import { PlayerService } from '@ts-minecraft/player'
-import { PlayerError } from '../domain/errors'
-import type { PlayerId, Position } from '@ts-minecraft/kernel'
+import { Effect,Either,Option } from 'effect'
+import { expect } from 'vitest'
 
 const testPlayerId = 'player-1' as PlayerId
 const testPosition: Position = { x: 0, y: 64, z: 0 }

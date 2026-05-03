@@ -2,8 +2,8 @@ import { describe, expect, it } from 'vitest'
 import { Array as Arr } from 'effect'
 import { EntityId } from '@ts-minecraft/entities'
 import { hashEntityId, makeWanderDirection, toPublicEntity } from '@ts-minecraft/entities'
-import type { ManagedEntity } from '@ts-minecraft/entities'
 import { AIState } from '@ts-minecraft/entities'
+import type { ManagedEntity } from '../domain/entity-internal'
 
 describe('entity/entity-utils', () => {
   describe('hashEntityId', () => {

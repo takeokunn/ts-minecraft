@@ -18,7 +18,7 @@ describe('village/village-model', () => {
       [0, 1],
       [1, 1],
       [5, 1],
-    ])('experience %i → level 1', (experience, expected) => {
+    ] as const)('experience %i → level 1', (experience: number, expected: number) => {
       expect(villagerLevelFromExperience(experience)).toBe(expected)
     })
 
@@ -26,7 +26,7 @@ describe('village/village-model', () => {
       [6, 2],
       [10, 2],
       [13, 2],
-    ])('experience %i → level 2', (experience, expected) => {
+    ] as const)('experience %i → level 2', (experience: number, expected: number) => {
       expect(villagerLevelFromExperience(experience)).toBe(expected)
     })
 
@@ -34,14 +34,14 @@ describe('village/village-model', () => {
       [14, 3],
       [20, 3],
       [27, 3],
-    ])('experience %i → level 3', (experience, expected) => {
+    ] as const)('experience %i → level 3', (experience: number, expected: number) => {
       expect(villagerLevelFromExperience(experience)).toBe(expected)
     })
 
     it.each([
       [28, 4],
       [30, 4],
-    ])('experience %i → level 4', (experience, expected) => {
+    ] as const)('experience %i → level 4', (experience: number, expected: number) => {
       expect(villagerLevelFromExperience(experience)).toBe(expected)
     })
   })
@@ -49,7 +49,7 @@ describe('village/village-model', () => {
   describe('VillageStructureTypeSchema', () => {
     const decode = Schema.decodeUnknownSync(VillageStructureTypeSchema)
 
-    it.each(['house', 'road', 'well', 'farm'])('accepts literal "%s"', (value) => {
+    it.each(['house', 'road', 'well', 'farm'] as const)('accepts literal "%s"', (value: string) => {
       expect(decode(value)).toBe(value)
     })
 
@@ -61,7 +61,7 @@ describe('village/village-model', () => {
   describe('VillagerProfessionSchema', () => {
     const decode = Schema.decodeUnknownSync(VillagerProfessionSchema)
 
-    it.each(['Farmer', 'Librarian', 'Blacksmith'])('accepts literal "%s"', (value) => {
+    it.each(['Farmer', 'Librarian', 'Blacksmith'] as const)('accepts literal "%s"', (value: string) => {
       expect(decode(value)).toBe(value)
     })
 
@@ -73,7 +73,7 @@ describe('village/village-model', () => {
   describe('VillagerActivitySchema', () => {
     const decode = Schema.decodeUnknownSync(VillagerActivitySchema)
 
-    it.each(['Idle', 'Wander', 'Work', 'Rest', 'Trade'])('accepts literal "%s"', (value) => {
+    it.each(['Idle', 'Wander', 'Work', 'Rest', 'Trade'] as const)('accepts literal "%s"', (value: string) => {
       expect(decode(value)).toBe(value)
     })
 

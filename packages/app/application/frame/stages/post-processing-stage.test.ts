@@ -1,18 +1,17 @@
-import { describe, expect, vi } from 'vitest'
 import { it } from '@effect/vitest'
-import { Effect, MutableRef, Option } from 'effect'
-import * as THREE from 'three'
+import {
+DEFAULT_SETTINGS,
+makeDeps,
+makeInputService,
+makeInventoryRenderer,
+makeServices,
+makeSettingsOverlay,
+runFrame,
+} from '@test/frame-handler-test-kit'
 import { createFrameHandlers } from '@ts-minecraft/app'
 import type { DeltaTimeSecs } from '@ts-minecraft/kernel'
-import {
-  DEFAULT_SETTINGS,
-  makeDeps,
-  makeInputService,
-  makeInventoryRenderer,
-  makeServices,
-  makeSettingsOverlay,
-  runFrame,
-} from '@test/frame-handler-test-kit'
+import { Effect,MutableRef,Option } from 'effect'
+import { describe,expect,vi } from 'vitest'
 
 // ---------------------------------------------------------------------------
 // FR-009: Refraction pre-pass skip on low quality
@@ -27,11 +26,11 @@ describe('FR-009 — refraction pre-pass skip on low quality', () => {
       settingsOverlay: makeSettingsOverlay({ open: false }),
     })
     // Override settingsService to return low quality
-    ;(services.settingsService as unknown as { getSettings: unknown }).getSettings = vi.fn(() =>
+    ;(services.settingsService as { getSettings: unknown }).getSettings = vi.fn(() =>
       Effect.succeed({ ...DEFAULT_SETTINGS, graphicsQuality: 'low' as const })
     )
     const refractionSpy = vi.fn(() => Effect.void)
-    ;(services.worldRendererService as unknown as { doRefractionPrePass: unknown }).doRefractionPrePass = refractionSpy
+    ;(services.worldRendererService as { doRefractionPrePass: unknown }).doRefractionPrePass = refractionSpy
 
     yield* runFrame(deps, services)
 
@@ -47,7 +46,7 @@ describe('FR-009 — refraction pre-pass skip on low quality', () => {
     })
     // Default settings already have graphicsQuality: 'high'
     const refractionSpy = vi.fn(() => Effect.void)
-    ;(services.worldRendererService as unknown as { doRefractionPrePass: unknown }).doRefractionPrePass = refractionSpy
+    ;(services.worldRendererService as { doRefractionPrePass: unknown }).doRefractionPrePass = refractionSpy
 
     yield* runFrame(deps, services)
 
@@ -61,11 +60,11 @@ describe('FR-009 — refraction pre-pass skip on low quality', () => {
       inventoryRenderer: makeInventoryRenderer({ open: false }),
       settingsOverlay: makeSettingsOverlay({ open: false }),
     })
-    ;(services.settingsService as unknown as { getSettings: unknown }).getSettings = vi.fn(() =>
+    ;(services.settingsService as { getSettings: unknown }).getSettings = vi.fn(() =>
       Effect.succeed({ ...DEFAULT_SETTINGS, graphicsQuality: 'medium' as const })
     )
     const refractionSpy = vi.fn(() => Effect.void)
-    ;(services.worldRendererService as unknown as { doRefractionPrePass: unknown }).doRefractionPrePass = refractionSpy
+    ;(services.worldRendererService as { doRefractionPrePass: unknown }).doRefractionPrePass = refractionSpy
 
     yield* runFrame(deps, services)
 
@@ -79,11 +78,11 @@ describe('FR-009 — refraction pre-pass skip on low quality', () => {
       inventoryRenderer: makeInventoryRenderer({ open: false }),
       settingsOverlay: makeSettingsOverlay({ open: false }),
     })
-    ;(services.settingsService as unknown as { getSettings: unknown }).getSettings = vi.fn(() =>
+    ;(services.settingsService as { getSettings: unknown }).getSettings = vi.fn(() =>
       Effect.succeed({ ...DEFAULT_SETTINGS, graphicsQuality: 'ultra' as const })
     )
     const refractionSpy = vi.fn(() => Effect.void)
-    ;(services.worldRendererService as unknown as { doRefractionPrePass: unknown }).doRefractionPrePass = refractionSpy
+    ;(services.worldRendererService as { doRefractionPrePass: unknown }).doRefractionPrePass = refractionSpy
 
     const { frameHandler, maintenanceHandler } = yield* createFrameHandlers(deps, services)
     const handler = (deltaTime: DeltaTimeSecs) => maintenanceHandler().pipe(Effect.andThen(frameHandler(deltaTime)))
@@ -106,11 +105,11 @@ describe('FR-008 — graphics quality caching', () => {
       inventoryRenderer: makeInventoryRenderer({ open: false }),
       settingsOverlay: makeSettingsOverlay({ open: false }),
     })
-    ;(services.settingsService as unknown as { getSettings: unknown }).getSettings = vi.fn(() =>
+    ;(services.settingsService as { getSettings: unknown }).getSettings = vi.fn(() =>
       Effect.succeed({ ...DEFAULT_SETTINGS, graphicsQuality: 'low' as const })
     )
     const refractionSpy = vi.fn(() => Effect.void)
-    ;(services.worldRendererService as unknown as { doRefractionPrePass: unknown }).doRefractionPrePass = refractionSpy
+    ;(services.worldRendererService as { doRefractionPrePass: unknown }).doRefractionPrePass = refractionSpy
 
     // Run two frames with the same handler instance to test caching
     const { frameHandler, maintenanceHandler } = yield* createFrameHandlers(deps, services)
@@ -130,7 +129,7 @@ describe('FR-008 — graphics quality caching', () => {
       settingsOverlay: makeSettingsOverlay({ open: false }),
     })
     const refractionSpy = vi.fn(() => Effect.void)
-    ;(services.worldRendererService as unknown as { doRefractionPrePass: unknown }).doRefractionPrePass = refractionSpy
+    ;(services.worldRendererService as { doRefractionPrePass: unknown }).doRefractionPrePass = refractionSpy
 
     // Run three frames: high quality (refractionThrottleFrames=2) runs on frames 1 and 3
     const { frameHandler, maintenanceHandler } = yield* createFrameHandlers(deps, services)
@@ -151,14 +150,14 @@ describe('FR-008 — graphics quality caching', () => {
       settingsOverlay: makeSettingsOverlay({ open: false }),
     })
     const callCountRef = MutableRef.make(0)
-    ;(services.settingsService as unknown as { getSettings: unknown }).getSettings = vi.fn(() => {
+    ;(services.settingsService as { getSettings: unknown }).getSettings = vi.fn(() => {
       const count = MutableRef.updateAndGet(callCountRef, n => n + 1)
       // First frame: low quality, second frame: high quality
       const quality = count <= 1 ? 'low' : 'high'
       return Effect.succeed({ ...DEFAULT_SETTINGS, graphicsQuality: quality as 'low' | 'high' })
     })
     const refractionSpy = vi.fn(() => Effect.void)
-    ;(services.worldRendererService as unknown as { doRefractionPrePass: unknown }).doRefractionPrePass = refractionSpy
+    ;(services.worldRendererService as { doRefractionPrePass: unknown }).doRefractionPrePass = refractionSpy
 
     const { frameHandler, maintenanceHandler } = yield* createFrameHandlers(deps, services)
     const handler = (deltaTime: DeltaTimeSecs) => maintenanceHandler().pipe(Effect.andThen(frameHandler(deltaTime)))
@@ -176,7 +175,7 @@ describe('FR-008 — graphics quality caching', () => {
       inventoryRenderer: makeInventoryRenderer({ open: false }),
       settingsOverlay: makeSettingsOverlay({ open: false }),
     })
-    ;(services.settingsService as unknown as { getSettings: unknown }).getSettings = vi.fn(() =>
+    ;(services.settingsService as { getSettings: unknown }).getSettings = vi.fn(() =>
       Effect.succeed({ ...DEFAULT_SETTINGS, graphicsQuality: 'low' as const })
     )
 
@@ -194,7 +193,7 @@ describe('FR-008 — graphics quality caching', () => {
       inventoryRenderer: makeInventoryRenderer({ open: false }),
       settingsOverlay: makeSettingsOverlay({ open: false }),
     })
-    ;(services.settingsService as unknown as { getSettings: unknown }).getSettings = vi.fn(() =>
+    ;(services.settingsService as { getSettings: unknown }).getSettings = vi.fn(() =>
       Effect.succeed({ ...DEFAULT_SETTINGS, graphicsQuality: 'low' as const })
     )
 
@@ -203,6 +202,6 @@ describe('FR-008 — graphics quality caching', () => {
     yield* handler(0.016 as DeltaTimeSecs)
 
     const composer = Option.getOrNull(deps.composer)
-    expect((composer as unknown as { setPixelRatio: ReturnType<typeof vi.fn> }).setPixelRatio).toHaveBeenCalledWith(0.5)
+    expect((composer as { setPixelRatio: ReturnType<typeof vi.fn> }).setPixelRatio).toHaveBeenCalledWith(0.5)
   }))
 })

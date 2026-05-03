@@ -1,6 +1,23 @@
 {
-  "files": [],
-  "references": [
-    { "path": "packages/app" }
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true
+  },
+  "include": [
+    "src/main.ts",
+    "packages/*/index.ts",
+    "packages/*/{domain,application,infrastructure,presentation}/**/*.ts",
+    "types/**/*"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "coverage",
+    "docs",
+    "packages/**/test/**",
+    "**/*.test.ts",
+    "**/*.spec.ts",
+    "**/*.property.test.ts",
+    "**/*test-utils.ts"
   ]
 }

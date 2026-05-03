@@ -1,13 +1,12 @@
-import { describe, it } from '@effect/vitest'
-import { expect } from 'vitest'
-import { Array as Arr, Effect, Either, Option, Schema } from 'effect'
-import * as THREE from 'three'
+import { describe,it } from '@effect/vitest'
 import {
-  RaycastingService,
-  RaycastingServiceLive,
-  RaycastHitSchema,
-  DEFAULT_RAY_DISTANCE,
+DEFAULT_RAY_DISTANCE,
+RaycastingService,
+RaycastingServiceLive
 } from '@ts-minecraft/rendering'
+import { Array as Arr,Effect,Option } from 'effect'
+import * as THREE from 'three'
+import { expect } from 'vitest'
 
 // Set up camera and scene for raycasting tests.
 // Three.js requires world matrices to be updated for raycasting to work.

@@ -1,4 +1,4 @@
-import { test, expect, type Page } from '@playwright/test'
+import { test, expect } from '@playwright/test'
 import { GamePage } from '../fixtures/game-page'
 import { attachFatalErrorMonitor } from '../helpers/console-monitor'
 import { waitForStableRender } from '../helpers/wait-helpers'
@@ -12,7 +12,7 @@ async function openInventory(page: Page): Promise<void> {
 }
 
 async function clickRecipe(page: Page, recipeId: string): Promise<void> {
-  await page.evaluate((id) => window.__TS_MINECRAFT_QA__.craftRecipeForQA(id), recipeId)
+  await page.evaluate((id: string) => (window as typeof window & { __TS_MINECRAFT_QA__?: { craftRecipeForQA: (recipeId: string) => Promise<void> } }).__TS_MINECRAFT_QA__?.craftRecipeForQA(id), recipeId)
   await page.waitForTimeout(100)
 }
 
@@ -39,8 +39,8 @@ test.describe('Progression loop', () => {
     const afterGather = await page.evaluate(() =>
       (window as typeof window & { __TS_MINECRAFT_QA__?: { getInventorySnapshot: () => Promise<Array<{ slot: number; blockType: string; count: number } | null>> } }).__TS_MINECRAFT_QA__?.getInventorySnapshot() ?? []
     )
-    const gatheredWood = afterGather.reduce((sum, slot) => sum + (slot?.blockType === 'WOOD' ? slot.count : 0), 0)
-    expect(gatheredWood).toBeGreaterThanOrEqual(3)
+    const gatheredWood = afterGather.reduce((sum: number, slot: { slot: number; blockType: string; count: number } | null) => sum + (slot?.blockType === 'WOOD' ? slot.count : 0), 0)
+    expect(gatheredWood >= 3).toBe(true)
 
     await openInventory(page)
     await clickRecipe(page, 'wood-to-planks')
@@ -56,7 +56,7 @@ test.describe('Progression loop', () => {
       const snapshot = await qa.getInventorySnapshot()
       return {
         movedTable,
-        craftingTables: snapshot.reduce((sum, slot) => sum + (slot?.blockType === 'CRAFTING_TABLE' ? slot.count : 0), 0),
+        craftingTables: snapshot.reduce((sum: number, slot: { slot: number; blockType: string; count: number } | null) => sum + (slot?.blockType === 'CRAFTING_TABLE' ? slot.count : 0), 0),
       }
     })
     expect(moved.movedTable).toBe(true)
@@ -74,7 +74,7 @@ test.describe('Progression loop', () => {
     const afterBuild = await page.evaluate(() =>
       (window as typeof window & { __TS_MINECRAFT_QA__?: { getInventorySnapshot: () => Promise<Array<{ slot: number; blockType: string; count: number } | null>> } }).__TS_MINECRAFT_QA__?.getInventorySnapshot() ?? []
     )
-    const remainingTables = afterBuild.reduce((sum, slot) => sum + (slot?.blockType === 'CRAFTING_TABLE' ? slot.count : 0), 0)
+    const remainingTables = afterBuild.reduce((sum: number, slot: { slot: number; blockType: string; count: number } | null) => sum + (slot?.blockType === 'CRAFTING_TABLE' ? slot.count : 0), 0)
     expect(remainingTables).toBe(0)
 
     await openInventory(page)
@@ -83,8 +83,8 @@ test.describe('Progression loop', () => {
     const swordAfterPlacedTable = await page.evaluate(() =>
       (window as typeof window & { __TS_MINECRAFT_QA__?: { getInventorySnapshot: () => Promise<Array<{ slot: number; blockType: string; count: number } | null>> } }).__TS_MINECRAFT_QA__?.getInventorySnapshot() ?? []
     )
-    const movedSword = await page.evaluate(() => window.__TS_MINECRAFT_QA__.moveItemToHotbar('WOODEN_SWORD', 1))
-    const swordCount = swordAfterPlacedTable.reduce((sum, slot) => sum + (slot?.blockType === 'WOODEN_SWORD' ? slot.count : 0), 0)
+    const movedSword = await page.evaluate(() => (window as typeof window & { __TS_MINECRAFT_QA__?: { moveItemToHotbar: (blockType: string, hotbarIndex: number) => Promise<boolean> } }).__TS_MINECRAFT_QA__?.moveItemToHotbar('WOODEN_SWORD', 1) ?? false)
+    const swordCount = swordAfterPlacedTable.reduce((sum: number, slot: { slot: number; blockType: string; count: number } | null) => sum + (slot?.blockType === 'WOODEN_SWORD' ? slot.count : 0), 0)
     expect(movedSword).toBe(true)
     expect(swordCount).toBe(1)
 
@@ -105,7 +105,7 @@ test.describe('Progression loop', () => {
     const entitiesAfterFight = await page.evaluate(() =>
       (window as typeof window & { __TS_MINECRAFT_QA__?: { getEntitySnapshot: () => Promise<Array<{ type: string }>> } }).__TS_MINECRAFT_QA__?.getEntitySnapshot() ?? []
     )
-    expect(entitiesAfterFight.some((entity) => entity.type === 'Zombie')).toBe(false)
-    expect(getFatalErrors()).toHaveLength(0)
+    expect(entitiesAfterFight.some((entity: { type: string }) => entity.type === 'Zombie')).toBe(false)
+    expect(getFatalErrors().length).toBe(0)
   })
 })

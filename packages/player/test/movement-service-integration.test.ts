@@ -1,16 +1,14 @@
-import { describe, it } from '@effect/vitest'
-import { expect } from 'vitest'
-import { Arbitrary, Array as Arr, Effect, MutableHashMap, MutableHashSet, Option, Ref, Schema } from 'effect'
-import type { InputServicePort as InputServiceType } from '@ts-minecraft/player'
+import { describe,it } from '@effect/vitest'
 import {
-  MovementService,
-  MovementServiceLive,
-  type MovementInput,
-  DEFAULT_WALK_SPEED,
-  DEFAULT_SPRINT_SPEED,
-  DEFAULT_JUMP_VELOCITY,
+DEFAULT_JUMP_VELOCITY,
+DEFAULT_SPRINT_SPEED,
+DEFAULT_WALK_SPEED,
+MovementService,
+MovementServiceLive
 } from '@ts-minecraft/player'
-import { createTestInputService, createTestLayers } from './movement-service-test-utils'
+import { Array as Arr,Effect,Ref } from 'effect'
+import { expect } from 'vitest'
+import { createTestInputService,createTestLayers } from './movement-service-test-utils'
 
 describe('player/movement-service (integration)', () => {
   describe('update', () => {

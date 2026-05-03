@@ -1,5 +1,5 @@
 import { describe, it, expect } from '@effect/vitest'
-import { Effect, MutableHashMap, MutableHashSet, MutableRef } from 'effect'
+import { Effect, MutableHashSet, MutableRef } from 'effect'
 import { MouseButton } from '@ts-minecraft/app/presentation/input/input-service'
 import { InputService } from '@ts-minecraft/app/presentation/input/input-service'
 import { createTestInputService, createTestLayer } from '@ts-minecraft/app/presentation/input/input-service-test-utils'
@@ -88,7 +88,6 @@ describe('InputService (consume)', () => {
   describe('consumeMouseClick', () => {
     it.effect('should return true when button was just clicked', () => {
       const justPressedKeys = MutableHashSet.empty<string>()
-      const mouseButtons = MutableHashMap.empty<number, boolean>()
       // Simulate a left-click having been registered
       const justClickedButtons = MutableHashSet.make(MouseButton.LEFT)
       const service = createTestInputService({

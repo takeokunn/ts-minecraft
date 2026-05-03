@@ -1,13 +1,13 @@
-import { describe, it } from '@effect/vitest'
-import { expect } from 'vitest'
-import { Array as Arr, Effect, Fiber } from 'effect'
+import { describe,it } from '@effect/vitest'
 import {
-  HealthService,
-  applyDamageToHealth,
-  healHealth,
-  tickInvincibility,
-  computeFallDamage,
+HealthService,
+applyDamageToHealth,
+computeFallDamage,
+healHealth,
+tickInvincibility,
 } from '@ts-minecraft/player'
+import { Array as Arr,Effect } from 'effect'
+import { expect } from 'vitest'
 import { PlayerHealth } from '../domain/player-health'
 // ─── Test helpers ─────────────────────────────────────────────────────────────
 

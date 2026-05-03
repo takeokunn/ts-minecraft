@@ -1,23 +1,22 @@
-import { describe, it } from '@effect/vitest'
-import { expect, vi } from 'vitest'
-import { Array as Arr, Effect } from 'effect'
-import { Position, SlotIndex } from '@ts-minecraft/kernel'
-import { BlockType } from '@ts-minecraft/kernel'
+import { describe,it } from '@effect/vitest'
+import { BlockType,Position,SlotIndex } from '@ts-minecraft/kernel'
 import {
-  BlockService,
-  BlockServiceError,
+BlockService,
+BlockServiceError,
 } from '@ts-minecraft/terrain'
+import { Effect } from 'effect'
+import { expect,vi } from 'vitest'
 import {
-  assertLeft,
-  createMockChunkManagerService,
-  createFailingChunkManagerService,
-  createMockPlayerService,
-  createFailingPlayerService,
-  createMockInventoryService,
-  createFluidRecorder,
-  createTestLayer,
-  worldToLocal,
-  readBlock,
+assertLeft,
+createFailingChunkManagerService,
+createFailingPlayerService,
+createFluidRecorder,
+createMockChunkManagerService,
+createMockInventoryService,
+createMockPlayerService,
+createTestLayer,
+readBlock,
+worldToLocal,
 } from './block-service-test-utils'
 
 describe('BlockService.placeBlock', () => {

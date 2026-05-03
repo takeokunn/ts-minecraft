@@ -1,15 +1,16 @@
-import { describe, it } from '@effect/vitest'
-import { Effect, Option } from 'effect'
-import { expect } from 'vitest'
+import { describe,it } from '@effect/vitest'
 import { InventoryRendererService } from '@ts-minecraft/app/presentation/inventory/inventory-renderer'
 import { RecipeId } from '@ts-minecraft/kernel'
+import { Effect } from 'effect'
+import { RecipeError } from '../../../inventory/domain/errors'
+import { expect } from 'vitest'
 import {
-  buildTestLayer,
-  createMockDomLayer,
-  createMockInventoryLayer,
-  createMockHotbarLayer,
-  createMockRecipeLayer,
-  makeRecipe,
+buildTestLayer,
+createMockDomLayer,
+createMockHotbarLayer,
+createMockInventoryLayer,
+createMockRecipeLayer,
+makeRecipe,
 } from './inventory-renderer-test-utils'
 
 describe('presentation/inventory/inventory-renderer (recipe)', () => {
@@ -27,7 +28,7 @@ describe('presentation/inventory/inventory-renderer (recipe)', () => {
     it.scoped('returns false when crafting fails', () => {
       const mockRecipe = createMockRecipeLayer()
       mockRecipe.recipes.push(makeRecipe('recipe-a'))
-      mockRecipe.craft.mockReturnValue(Effect.fail(new Error('Not enough materials')))
+      mockRecipe.craft.mockReturnValue(Effect.fail(new RecipeError({ operation: 'craft', cause: 'Not enough materials' })))
 
       const mockDom = createMockDomLayer()
       const mockInventory = createMockInventoryLayer()
@@ -45,7 +46,7 @@ describe('presentation/inventory/inventory-renderer (recipe)', () => {
     it.scoped('refreshSlots is called after failed craft', () => {
       const mockRecipe = createMockRecipeLayer()
       mockRecipe.recipes.push(makeRecipe('recipe-a'))
-      mockRecipe.craft.mockReturnValue(Effect.fail(new Error('Not enough materials')))
+      mockRecipe.craft.mockReturnValue(Effect.fail(new RecipeError({ operation: 'craft', cause: 'Not enough materials' })))
 
       const mockDom = createMockDomLayer()
       const mockInventory = createMockInventoryLayer()

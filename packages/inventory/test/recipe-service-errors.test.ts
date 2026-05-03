@@ -2,18 +2,13 @@ import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
 import { Array as Arr, Effect, Either, HashMap, Layer, Option } from 'effect'
 import type { BlockType } from '@ts-minecraft/kernel'
-import type { Block } from '@ts-minecraft/world-state'
-import { BlockRegistry } from '@ts-minecraft/world-state'
 import { RecipeService } from '@ts-minecraft/inventory'
 import { InventoryService, InventoryServiceLive } from '@ts-minecraft/inventory'
 import { RecipeId } from '@ts-minecraft/kernel'
+import { BlockRegistry } from '@ts-minecraft/world-state'
+import { createTestBlockRegistry } from './inventory-service-test-utils'
 
-const registryLayer = Layer.succeed(BlockRegistry, {
-  register: (_block: Block) => Effect.void,
-  get: (_blockType: BlockType) => Effect.succeed(Option.none<Block>()),
-  getAll: () => Effect.succeed([] as Block[]),
-  dispose: () => Effect.void,
-} as unknown as BlockRegistry)
+const registryLayer = Layer.succeed(BlockRegistry, createTestBlockRegistry())
 
 const inventoryLayer = InventoryServiceLive.pipe(Layer.provide(registryLayer))
 const testLayer = Layer.mergeAll(RecipeService.Default, inventoryLayer)
@@ -188,7 +183,8 @@ describe('application/crafting/recipe-service — access control and errors', ()
     Effect.gen(function* () {
       const rs = yield* RecipeService
 
-      const fakeInv = {
+      const fakeInv = InventoryService.of({
+        _tag: '@minecraft/application/InventoryService' as const,
         getAllSlots: () => Effect.succeed(
           [Option.some({ blockType: 'WOOD' as const, count: 1 }), ...Arr.makeBy(35, () => Option.none())]
         ),
@@ -201,7 +197,7 @@ describe('application/crafting/recipe-service — access control and errors', ()
         clear: () => Effect.void,
         serialize: () => Effect.succeed({ slots: [] }),
         deserialize: (_data: unknown) => Effect.void,
-      } as unknown as InventoryService
+      })
 
       const result = yield* rs.craft(RecipeId.make('wood-to-planks'), fakeInv).pipe(Effect.either)
 

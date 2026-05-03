@@ -12,15 +12,20 @@ import {
 describe('application/settings/settings-service', () => {
   describe('SettingsSchema', () => {
     const decode = SettingsSchema.pipe(Schema.decodeUnknownSync)
+    const validSettingsInput = {
+      renderDistance: 2,
+      mouseSensitivity: 0.5,
+      dayLengthSeconds: 400,
+      graphicsQuality: 'low' as const,
+      adaptivePerformanceMode: true,
+      audioEnabled: false,
+      masterVolume: 0.8,
+      sfxVolume: 1.0,
+      musicVolume: 0.55,
+    }
 
     it('decodes valid settings', () => {
-      const result = decode({
-        renderDistance: 2,
-        mouseSensitivity: 0.5,
-        dayLengthSeconds: 400,
-        graphicsQuality: 'low',
-        adaptivePerformanceMode: true,
-      })
+      const result = decode(validSettingsInput)
 
       expect(result.renderDistance).toBe(2)
       expect(result.mouseSensitivity).toBe(0.5)
@@ -31,10 +36,10 @@ describe('application/settings/settings-service', () => {
 
     it('accepts exact minimum boundaries', () => {
       const result = decode({
+        ...validSettingsInput,
         renderDistance: 2,
         mouseSensitivity: 0.1,
         dayLengthSeconds: 120,
-        graphicsQuality: 'low',
         adaptivePerformanceMode: false,
       })
 
@@ -53,6 +58,7 @@ describe('application/settings/settings-service', () => {
 
     it('accepts exact maximum boundaries', () => {
       const result = decode({
+        ...validSettingsInput,
         renderDistance: 16,
         mouseSensitivity: 3,
         dayLengthSeconds: 1200,
@@ -76,9 +82,8 @@ describe('application/settings/settings-service', () => {
     it('rejects renderDistance below range', () => {
       expect(() =>
         decode({
+          ...validSettingsInput,
           renderDistance: 1,
-          mouseSensitivity: 0.5,
-          dayLengthSeconds: 400,
         })
       ).toThrow()
     })
@@ -86,9 +91,8 @@ describe('application/settings/settings-service', () => {
     it('rejects renderDistance above range', () => {
       expect(() =>
         decode({
+          ...validSettingsInput,
           renderDistance: 17,
-          mouseSensitivity: 0.5,
-          dayLengthSeconds: 400,
         })
       ).toThrow()
     })
@@ -96,9 +100,8 @@ describe('application/settings/settings-service', () => {
     it('rejects mouseSensitivity below range', () => {
       expect(() =>
         decode({
-          renderDistance: 8,
+          ...validSettingsInput,
           mouseSensitivity: 0.09,
-          dayLengthSeconds: 400,
         })
       ).toThrow()
     })
@@ -106,9 +109,8 @@ describe('application/settings/settings-service', () => {
     it('rejects mouseSensitivity above range', () => {
       expect(() =>
         decode({
-          renderDistance: 8,
+          ...validSettingsInput,
           mouseSensitivity: 3.01,
-          dayLengthSeconds: 400,
         })
       ).toThrow()
     })
@@ -116,8 +118,7 @@ describe('application/settings/settings-service', () => {
     it('rejects dayLengthSeconds below range', () => {
       expect(() =>
         decode({
-          renderDistance: 8,
-          mouseSensitivity: 0.5,
+          ...validSettingsInput,
           dayLengthSeconds: 119,
         })
       ).toThrow()
@@ -126,8 +127,7 @@ describe('application/settings/settings-service', () => {
     it('rejects dayLengthSeconds above range', () => {
       expect(() =>
         decode({
-          renderDistance: 8,
-          mouseSensitivity: 0.5,
+          ...validSettingsInput,
           dayLengthSeconds: 1201,
         })
       ).toThrow()
@@ -136,9 +136,8 @@ describe('application/settings/settings-service', () => {
     it('rejects NaN values', () => {
       expect(() =>
         decode({
+          ...validSettingsInput,
           renderDistance: Number.NaN,
-          mouseSensitivity: 0.5,
-          dayLengthSeconds: 400,
         })
       ).toThrow()
     })
@@ -146,9 +145,8 @@ describe('application/settings/settings-service', () => {
     it('rejects Infinity values', () => {
       expect(() =>
         decode({
-          renderDistance: 8,
+          ...validSettingsInput,
           mouseSensitivity: Number.POSITIVE_INFINITY,
-          dayLengthSeconds: 400,
         })
       ).toThrow()
     })
@@ -157,14 +155,8 @@ describe('application/settings/settings-service', () => {
       expect(() => decode({ renderDistance: 8, mouseSensitivity: 0.5 })).toThrow()
     })
 
-    it('uses default values for graphicsQuality and adaptivePerformanceMode when omitted', () => {
-      const result = decode({
-        renderDistance: 4,
-        mouseSensitivity: 1.0,
-        dayLengthSeconds: 400,
-      })
-      expect(result.graphicsQuality).toBe('low')
-      expect(result.adaptivePerformanceMode).toBe(true)
+    it('rejects omitted fields instead of applying compatibility defaults', () => {
+      expect(() => decode({ renderDistance: 4, mouseSensitivity: 1.0, dayLengthSeconds: 400 })).toThrow()
     })
   })
 

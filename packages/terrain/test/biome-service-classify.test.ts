@@ -16,13 +16,21 @@ const makeMockLayer = (
   pv = 0,
   river = 0.0,
 ) =>
-  Layer.succeed(NoiseServicePort, {
+  Layer.succeed(NoiseServicePort, NoiseServicePort.of({
+    _tag: '@minecraft/application/noise/NoiseServicePort' as const,
     noise2D: () => Effect.succeed(river),
     octaveNoise2D: (x: number) => Effect.succeed(x > 25.0 ? hum : temp),
+    getSeed: Effect.succeed(0),
+    octaveNoise2DBatch: (points: ReadonlyArray<readonly [number, number]>) =>
+      Effect.succeed(Arr.map(points, ([x]) => (x > 25.0 ? hum : temp))),
     octaveNoise2DBatchXY: (xs: ReadonlyArray<number>) =>
       Effect.succeed(Arr.map(xs, (x) => (x > 25.0 ? hum : temp))),
+    noise2DBatch: (points: ReadonlyArray<readonly [number, number]>) =>
+      Effect.succeed(Arr.makeBy(points.length, () => river)),
     noise2DBatchXY: (xs: ReadonlyArray<number>) =>
       Effect.succeed(Arr.makeBy(xs.length, () => river)),
+    noise3D: () => Effect.succeed(0),
+    noise3DBatchXYZ: (xs: ReadonlyArray<number>) => Effect.succeed(Arr.makeBy(xs.length, () => 0)),
     continentalness: () => Effect.succeed(cont),
     erosion: () => Effect.succeed(eros),
     weirdness: () => Effect.succeed(pv),
@@ -35,7 +43,7 @@ const makeMockLayer = (
         jaggedness: new Float64Array(Arr.makeBy(CHUNK_SIZE * CHUNK_SIZE, () => 0)),
       }),
     setSeed: () => Effect.void,
-  } as unknown as NoiseServicePort)
+  }))
 
 const makeLayer = (temp: number, hum: number, cont: number, eros: number, pv = 0, river = 0.0) =>
   BiomeServiceLive.pipe(Layer.provide(makeMockLayer(temp, hum, cont, eros, pv, river)))

@@ -1,19 +1,18 @@
-import { describe, it } from 'vitest'
-import { expect } from 'vitest'
 import { Array as Arr } from 'effect'
+import { describe,expect,it } from 'vitest'
 import {
-  mulberry32,
-  normalizeNoise,
-  toPV,
-  computeOctaveNoise,
-  WEYL_C, WEYL_E, WEYL_W, WEYL_J, WEYL_3D,
-  SCALE_C, SCALE_E, SCALE_W, SCALE_J,
-  createNoisePrimitives,
-  noise2DBatch,
-  octaveNoise2DBatch,
-  noise2DBatchXY,
-  noise3DBatchXYZ,
-  octaveNoise2DBatchXY,
+computeOctaveNoise,
+createNoisePrimitives,
+mulberry32,
+normalizeNoise,
+SCALE_C,SCALE_E,
+SCALE_J,
+SCALE_W,
+toPV,
+WEYL_3D,
+WEYL_C,WEYL_E,
+WEYL_J,
+WEYL_W
 } from '../infrastructure/primitives'
 
 describe('mulberry32', () => {

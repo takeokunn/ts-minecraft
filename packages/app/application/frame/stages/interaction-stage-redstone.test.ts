@@ -20,14 +20,14 @@ describe('step 7 — redstone dispatch', () => {
       inventoryRenderer: makeInventoryRenderer({ open: false }),
       settingsOverlay: makeSettingsOverlay({ open: false }),
     })
-    ;(services.blockHighlight as unknown as { getTargetBlock: unknown }).getTargetBlock = vi.fn(() =>
+    ;(services.blockHighlight as { getTargetBlock: unknown }).getTargetBlock = vi.fn(() =>
       Effect.succeed(Option.some({ x: 1, y: 64, z: 2 }))
     )
-    ;(services.blockHighlight as unknown as { getTargetHit: unknown }).getTargetHit = vi.fn(() =>
+    ;(services.blockHighlight as { getTargetHit: unknown }).getTargetHit = vi.fn(() =>
       Effect.succeed(Option.none())
     )
     const setComponentSpy = vi.fn(() => Effect.succeed({ type: 'wire', position: { x: 1, y: 64, z: 2 }, state: { active: false, buttonTicksRemaining: 0, pistonExtended: false } }))
-    ;(services.redstoneService as unknown as { setComponent: unknown }).setComponent = setComponentSpy
+    ;(services.redstoneService as { setComponent: unknown }).setComponent = setComponentSpy
 
     yield* runFrame(deps, services)
 
@@ -43,14 +43,14 @@ describe('step 7 — redstone dispatch', () => {
       inventoryRenderer: makeInventoryRenderer({ open: false }),
       settingsOverlay: makeSettingsOverlay({ open: false }),
     })
-    ;(services.blockHighlight as unknown as { getTargetBlock: unknown }).getTargetBlock = vi.fn(() =>
+    ;(services.blockHighlight as { getTargetBlock: unknown }).getTargetBlock = vi.fn(() =>
       Effect.succeed(Option.some({ x: 3, y: 64, z: 5 }))
     )
-    ;(services.blockHighlight as unknown as { getTargetHit: unknown }).getTargetHit = vi.fn(() =>
+    ;(services.blockHighlight as { getTargetHit: unknown }).getTargetHit = vi.fn(() =>
       Effect.succeed(Option.none())
     )
     const toggleLeverSpy = vi.fn(() => Effect.succeed(Option.none()))
-    ;(services.redstoneService as unknown as { toggleLever: unknown }).toggleLever = toggleLeverSpy
+    ;(services.redstoneService as { toggleLever: unknown }).toggleLever = toggleLeverSpy
 
     yield* runFrame(deps, services)
 
@@ -66,14 +66,14 @@ describe('step 7 — redstone dispatch', () => {
       inventoryRenderer: makeInventoryRenderer({ open: false }),
       settingsOverlay: makeSettingsOverlay({ open: false }),
     })
-    ;(services.blockHighlight as unknown as { getTargetBlock: unknown }).getTargetBlock = vi.fn(() =>
+    ;(services.blockHighlight as { getTargetBlock: unknown }).getTargetBlock = vi.fn(() =>
       Effect.succeed(Option.some({ x: 2, y: 65, z: 3 }))
     )
-    ;(services.blockHighlight as unknown as { getTargetHit: unknown }).getTargetHit = vi.fn(() =>
+    ;(services.blockHighlight as { getTargetHit: unknown }).getTargetHit = vi.fn(() =>
       Effect.succeed(Option.none())
     )
     const pressButtonSpy = vi.fn(() => Effect.succeed(Option.none()))
-    ;(services.redstoneService as unknown as { pressButton: unknown }).pressButton = pressButtonSpy
+    ;(services.redstoneService as { pressButton: unknown }).pressButton = pressButtonSpy
 
     yield* runFrame(deps, services)
 
@@ -89,14 +89,14 @@ describe('step 7 — redstone dispatch', () => {
       inventoryRenderer: makeInventoryRenderer({ open: false }),
       settingsOverlay: makeSettingsOverlay({ open: false }),
     })
-    ;(services.blockHighlight as unknown as { getTargetBlock: unknown }).getTargetBlock = vi.fn(() =>
+    ;(services.blockHighlight as { getTargetBlock: unknown }).getTargetBlock = vi.fn(() =>
       Effect.succeed(Option.some({ x: 5, y: 63, z: 1 }))
     )
-    ;(services.blockHighlight as unknown as { getTargetHit: unknown }).getTargetHit = vi.fn(() =>
+    ;(services.blockHighlight as { getTargetHit: unknown }).getTargetHit = vi.fn(() =>
       Effect.succeed(Option.none())
     )
     const toggleTorchSpy = vi.fn(() => Effect.succeed(Option.none()))
-    ;(services.redstoneService as unknown as { toggleTorch: unknown }).toggleTorch = toggleTorchSpy
+    ;(services.redstoneService as { toggleTorch: unknown }).toggleTorch = toggleTorchSpy
 
     yield* runFrame(deps, services)
 
@@ -112,14 +112,14 @@ describe('step 7 — redstone dispatch', () => {
       inventoryRenderer: makeInventoryRenderer({ open: false }),
       settingsOverlay: makeSettingsOverlay({ open: false }),
     })
-    ;(services.blockHighlight as unknown as { getTargetBlock: unknown }).getTargetBlock = vi.fn(() =>
+    ;(services.blockHighlight as { getTargetBlock: unknown }).getTargetBlock = vi.fn(() =>
       Effect.succeed(Option.some({ x: 4, y: 64, z: 7 }))
     )
-    ;(services.blockHighlight as unknown as { getTargetHit: unknown }).getTargetHit = vi.fn(() =>
+    ;(services.blockHighlight as { getTargetHit: unknown }).getTargetHit = vi.fn(() =>
       Effect.succeed(Option.none())
     )
     const setComponentSpy = vi.fn(() => Effect.succeed({ type: 'lever', position: { x: 4, y: 64, z: 7 }, state: { active: false, buttonTicksRemaining: 0, pistonExtended: false } }))
-    ;(services.redstoneService as unknown as { setComponent: unknown }).setComponent = setComponentSpy
+    ;(services.redstoneService as { setComponent: unknown }).setComponent = setComponentSpy
 
     yield* runFrame(deps, services)
 
@@ -135,14 +135,14 @@ describe('step 7 — redstone dispatch', () => {
       inventoryRenderer: makeInventoryRenderer({ open: false }),
       settingsOverlay: makeSettingsOverlay({ open: false }),
     })
-    ;(services.blockHighlight as unknown as { getTargetBlock: unknown }).getTargetBlock = vi.fn(() =>
+    ;(services.blockHighlight as { getTargetBlock: unknown }).getTargetBlock = vi.fn(() =>
       Effect.succeed(Option.some({ x: 0, y: 62, z: 0 }))
     )
-    ;(services.blockHighlight as unknown as { getTargetHit: unknown }).getTargetHit = vi.fn(() =>
+    ;(services.blockHighlight as { getTargetHit: unknown }).getTargetHit = vi.fn(() =>
       Effect.succeed(Option.none())
     )
     const setComponentSpy = vi.fn(() => Effect.succeed({ type: 'button', position: { x: 0, y: 62, z: 0 }, state: { active: false, buttonTicksRemaining: 0, pistonExtended: false } }))
-    ;(services.redstoneService as unknown as { setComponent: unknown }).setComponent = setComponentSpy
+    ;(services.redstoneService as { setComponent: unknown }).setComponent = setComponentSpy
 
     yield* runFrame(deps, services)
 
@@ -158,14 +158,14 @@ describe('step 7 — redstone dispatch', () => {
       inventoryRenderer: makeInventoryRenderer({ open: false }),
       settingsOverlay: makeSettingsOverlay({ open: false }),
     })
-    ;(services.blockHighlight as unknown as { getTargetBlock: unknown }).getTargetBlock = vi.fn(() =>
+    ;(services.blockHighlight as { getTargetBlock: unknown }).getTargetBlock = vi.fn(() =>
       Effect.succeed(Option.some({ x: 6, y: 65, z: 3 }))
     )
-    ;(services.blockHighlight as unknown as { getTargetHit: unknown }).getTargetHit = vi.fn(() =>
+    ;(services.blockHighlight as { getTargetHit: unknown }).getTargetHit = vi.fn(() =>
       Effect.succeed(Option.none())
     )
     const setComponentSpy = vi.fn(() => Effect.succeed({ type: 'torch', position: { x: 6, y: 65, z: 3 }, state: { active: true, buttonTicksRemaining: 0, pistonExtended: false } }))
-    ;(services.redstoneService as unknown as { setComponent: unknown }).setComponent = setComponentSpy
+    ;(services.redstoneService as { setComponent: unknown }).setComponent = setComponentSpy
 
     yield* runFrame(deps, services)
 
@@ -181,14 +181,14 @@ describe('step 7 — redstone dispatch', () => {
       inventoryRenderer: makeInventoryRenderer({ open: false }),
       settingsOverlay: makeSettingsOverlay({ open: false }),
     })
-    ;(services.blockHighlight as unknown as { getTargetBlock: unknown }).getTargetBlock = vi.fn(() =>
+    ;(services.blockHighlight as { getTargetBlock: unknown }).getTargetBlock = vi.fn(() =>
       Effect.succeed(Option.some({ x: 2, y: 63, z: 8 }))
     )
-    ;(services.blockHighlight as unknown as { getTargetHit: unknown }).getTargetHit = vi.fn(() =>
+    ;(services.blockHighlight as { getTargetHit: unknown }).getTargetHit = vi.fn(() =>
       Effect.succeed(Option.none())
     )
     const setComponentSpy = vi.fn(() => Effect.succeed({ type: 'piston', position: { x: 2, y: 63, z: 8 }, state: { active: false, buttonTicksRemaining: 0, pistonExtended: false } }))
-    ;(services.redstoneService as unknown as { setComponent: unknown }).setComponent = setComponentSpy
+    ;(services.redstoneService as { setComponent: unknown }).setComponent = setComponentSpy
 
     yield* runFrame(deps, services)
 
@@ -204,14 +204,14 @@ describe('step 7 — redstone dispatch', () => {
       inventoryRenderer: makeInventoryRenderer({ open: false }),
       settingsOverlay: makeSettingsOverlay({ open: false }),
     })
-    ;(services.blockHighlight as unknown as { getTargetBlock: unknown }).getTargetBlock = vi.fn(() =>
+    ;(services.blockHighlight as { getTargetBlock: unknown }).getTargetBlock = vi.fn(() =>
       Effect.succeed(Option.none())
     )
-    ;(services.blockHighlight as unknown as { getTargetHit: unknown }).getTargetHit = vi.fn(() =>
+    ;(services.blockHighlight as { getTargetHit: unknown }).getTargetHit = vi.fn(() =>
       Effect.succeed(Option.none())
     )
     const setComponentSpy = vi.fn(() => Effect.void)
-    ;(services.redstoneService as unknown as { setComponent: unknown }).setComponent = setComponentSpy
+    ;(services.redstoneService as { setComponent: unknown }).setComponent = setComponentSpy
 
     yield* runFrame(deps, services)
 

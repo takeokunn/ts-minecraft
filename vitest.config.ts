@@ -63,8 +63,6 @@ export default defineConfig({
         'packages/entities/domain/drop.ts',
         // Schema-only declarations for THREE.js camera duck-typing — imported only at browser runtime
         'packages/kernel/domain/math/three/camera-port.ts',
-        // Dead code — LightEngineService lives in packages/terrain; this world-state copy is unreferenced
-        'packages/world-state/application/light-engine-service.ts',
         // DOM-heavy presentation files with no meaningful unit-test surface
         '**/pause-menu.ts',
         '**/death-screen.ts',

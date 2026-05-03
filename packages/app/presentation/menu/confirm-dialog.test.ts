@@ -46,11 +46,11 @@ const createMockDom = () => {
   const createElement = vi.fn((_tag: string) => {
     const el = makeStubElement()
     created.push(el)
-    return el as unknown as HTMLElement
+    return el as HTMLElement
   })
 
   const appendChild = vi.fn((el: HTMLElement) => {
-    backdropEl = el as unknown as StubElement
+    backdropEl = el as StubElement
   })
 
   const layer = Layer.succeed(DomOperationsService, {
@@ -58,10 +58,10 @@ const createMockDom = () => {
     appendChild,
     appendChildTo: vi.fn(),
     removeChild: vi.fn(),
-    getParentNode: vi.fn(() => Option.some({ removeChild: vi.fn() } as unknown as HTMLElement)),
+    getParentNode: vi.fn(() => Option.some({ removeChild: vi.fn() } as HTMLElement)),
     setInnerHTML: vi.fn(),
     querySelector: vi.fn(() => Option.none()),
-  } as unknown as DomOperationsService)
+  } as DomOperationsService)
 
   return {
     layer,
@@ -108,7 +108,7 @@ describe('presentation/menu/confirm-dialog', () => {
           const i = list.indexOf(fn)
           if (i >= 0) list.splice(i, 1)
         }),
-        activeElement: null as unknown as Element | null,
+        activeElement: null as Element | null,
       }
       Reflect.set(globalThis as object, 'document', stubDoc)
       return {

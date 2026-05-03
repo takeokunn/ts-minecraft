@@ -214,6 +214,7 @@ describe('village/village-simulation', () => {
       structureId: VillageStructureId.make(id),
       type: 'house',
       anchor: { x: ax, y: ay, z: az },
+      size: { x: 1, y: 1, z: 1 },
     })
 
     it('returns anchor of matching structure', () => {
@@ -259,6 +260,7 @@ describe('village/village-simulation', () => {
       structureId: VillageStructureId.make(id),
       type: 'house',
       anchor: { x: ax, y: ay, z: az },
+      size: { x: 1, y: 1, z: 1 },
     })
 
     const village: Village = {

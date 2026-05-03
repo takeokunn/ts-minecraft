@@ -33,7 +33,7 @@ test.describe('Boot / main menu phase', () => {
     await expect(page.locator('#mm-load-world')).toBeVisible()
     await expect(page.locator('#mm-settings')).toBeVisible()
     await expect(page.locator('#mm-quit')).toBeVisible()
-    expect(getFatalErrors()).toHaveLength(0)
+    expect(getFatalErrors().length).toBe(0)
   })
 
   test('no fatal startup errors before game session', async ({ page }) => {
@@ -44,7 +44,7 @@ test.describe('Boot / main menu phase', () => {
 
     // The game intentionally uses console.error for non-fatal Effect errors.
     // We only check for the fatal "Failed to start application" pattern.
-    expect(getFatalErrors()).toHaveLength(0)
+    expect(getFatalErrors().length).toBe(0)
   })
 })
 
@@ -61,8 +61,8 @@ test.describe('Game session phase', () => {
     await game.waitForReady()
 
     const fps = await game.getFPS()
-    expect(fps).toBeGreaterThan(0)
-    expect(getFatalErrors()).toHaveLength(0)
+    expect(fps > 0).toBe(true)
+    expect(getFatalErrors().length).toBe(0)
   })
 
   test('dynamic DOM elements are injected after game initialization', async ({ page }) => {
@@ -97,6 +97,6 @@ test.describe('Game session phase', () => {
 
     // The game intentionally uses console.error for non-fatal Effect errors.
     // We only check for the fatal "Failed to start application" pattern.
-    expect(getFatalErrors()).toHaveLength(0)
+    expect(getFatalErrors().length).toBe(0)
   })
 })

@@ -72,7 +72,7 @@ export const BaseLayer = Layer.mergeAll(
   // Input and DOM
   InputServiceLive,
   DomOperationsLive,
-  // FPSCounterLive moved to PresentationLayers
+  // FPS counter presentation wiring lives in PresentationLayers.
   StorageServiceLive,
   ChunkServiceLive,
   ChunkMeshServiceLive,
@@ -84,14 +84,11 @@ export const BaseLayer = Layer.mergeAll(
 export const NoiseLayer = NoiseServiceLive
 
 // Bridge: satisfies NoiseServicePort using the infrastructure NoiseService implementation.
-// Same pattern as PlayerInputServiceLive: the cast is safe because Layer.effect() only
-// accesses the 3 declared methods (noise2D, octaveNoise2D, setSeed).
 export const NoisePortLayer = Layer.effect(
   NoiseServicePort,
   Effect.map(NoiseService, (noise) => {
-    // Typed intermediate validates that NoiseService exposes the required port methods
-    // with the correct signatures. If a method is renamed or its signature changes, tsc fails here.
-    const impl: { noise2D: NoiseService['noise2D']; octaveNoise2D: NoiseService['octaveNoise2D']; setSeed: NoiseService['setSeed']; getSeed: Effect.Effect<number, never>; octaveNoise2DBatch: NoiseService['octaveNoise2DBatch']; noise2DBatch: NoiseService['noise2DBatch']; octaveNoise2DBatchXY: NoiseService['octaveNoise2DBatchXY']; noise2DBatchXY: NoiseService['noise2DBatchXY']; noise3D: NoiseService['noise3D']; noise3DBatchXYZ: NoiseService['noise3DBatchXYZ']; continentalness: NoiseService['continentalness']; erosion: NoiseService['erosion']; weirdness: NoiseService['weirdness']; jaggedness: NoiseService['jaggedness']; sampleTerrainChannels: NoiseService['sampleTerrainChannels'] } = {
+    return NoiseServicePort.of({
+      _tag: '@minecraft/application/noise/NoiseServicePort' as const,
       noise2D: (x, z) => noise.noise2D(x, z),
       octaveNoise2D: (x, z, o, p, l) => noise.octaveNoise2D(x, z, o, p, l),
       setSeed: (seed) => noise.setSeed(seed),
@@ -111,10 +108,7 @@ export const NoisePortLayer = Layer.effect(
       weirdness: (x, z) => noise.weirdness(x, z),
       jaggedness: (x, z) => noise.jaggedness(x, z),
       sampleTerrainChannels: (xStart, zStart) => noise.sampleTerrainChannels(xStart, zStart),
-    }
-    // The `as unknown as NoiseServicePort` cast is unavoidable: Effect.Service adds a `_tag`
-    // discriminant that plain objects cannot satisfy structurally.
-    return impl as unknown as NoiseServicePort
+    })
   })
 ).pipe(Layer.provide(NoiseLayer))
 
@@ -122,15 +116,11 @@ export const NoisePortLayer = Layer.effect(
 export const StoragePortLayer = Layer.effect(
   StorageServicePort,
   Effect.map(StorageService, (storage) => {
-    // Typed intermediate validates that StorageService exposes both required port methods
-    // with the correct signatures. If a method is renamed or its signature changes, tsc fails here.
-    const impl: { saveChunk: StorageService['saveChunk']; loadChunk: StorageService['loadChunk'] } = {
+    return StorageServicePort.of({
+      _tag: '@minecraft/application/storage/StorageServicePort' as const,
       saveChunk: (worldId, chunkCoord, blocks) => storage.saveChunk(worldId, chunkCoord, blocks),
       loadChunk: (worldId, chunkCoord) => storage.loadChunk(worldId, chunkCoord),
-    }
-    // The `as unknown as StorageServicePort` cast is unavoidable: Effect.Service adds a `_tag`
-    // discriminant that plain objects cannot satisfy structurally.
-    return impl as unknown as StorageServicePort
+    })
   })
 ).pipe(Layer.provide(StorageServiceLive))
 
@@ -142,14 +132,13 @@ export const StoragePortLayer = Layer.effect(
 export const TerrainWorkerPoolPortLayer = Layer.effect(
   TerrainWorkerPoolPort,
   Effect.map(TerrainWorkerPool, (pool) => {
-    const impl: { generateTerrain: TerrainWorkerPoolPort['generateTerrain'] } = {
+    return TerrainWorkerPoolPort.of({
+      _tag: '@minecraft/application/terrain/TerrainWorkerPoolPort' as const,
       generateTerrain: (coord, options) =>
         pool.generateTerrain(coord, options).pipe(
           Effect.mapError((err) => new PortTerrainGenerationError({ reason: err.reason, chunk: err.chunk })),
         ),
-    }
-    // Same `as unknown as` rationale as the other port bridges (see MEMORY.md).
-    return impl as unknown as TerrainWorkerPoolPort
+    })
   })
 ).pipe(Layer.provide(TerrainWorkerPoolLive))
 
@@ -159,20 +148,16 @@ export const BiomeLayer = BiomeServiceLive.pipe(
 )
 
 // Bridge: satisfies PhysicsWorldPort using the infrastructure PhysicsWorldService implementation.
-// Same pattern as StoragePortLayer / NoisePortLayer.
 export const PhysicsWorldPortLayer = Layer.effect(
   PhysicsWorldPort,
   Effect.map(PhysicsWorldService, (svc) => {
-    const impl: { create: PhysicsWorldService['create']; addBody: PhysicsWorldService['addBody']; removeBody: PhysicsWorldService['removeBody']; step: PhysicsWorldService['step'] } = {
+    return PhysicsWorldPort.of({
+      _tag: '@minecraft/application/physics/PhysicsWorldPort' as const,
       create: (config) => svc.create(config),
       addBody: (world, body) => svc.addBody(world, body),
       removeBody: (world, body) => svc.removeBody(world, body),
       step: (world, deltaTime) => svc.step(world, deltaTime),
-    }
-    // The cast is unavoidable: Effect.Service adds a `_tag` discriminant that the
-    // structural port surface intentionally omits. The typed `impl` above guarantees
-    // method signatures match.
-    return impl as unknown as PhysicsWorldPort
+    })
   })
 ).pipe(Layer.provide(PhysicsWorldServiceLive))
 
@@ -180,7 +165,8 @@ export const PhysicsWorldPortLayer = Layer.effect(
 export const RigidBodyPortLayer = Layer.effect(
   RigidBodyPort,
   Effect.map(RigidBodyService, (svc) => {
-    const impl: { create: RigidBodyService['create']; setPosition: RigidBodyService['setPosition']; setQuaternion: RigidBodyService['setQuaternion']; setVelocity: RigidBodyService['setVelocity']; setAngularVelocity: RigidBodyService['setAngularVelocity']; addShape: RigidBodyService['addShape']; updateMassProperties: RigidBodyService['updateMassProperties'] } = {
+    return RigidBodyPort.of({
+      _tag: '@minecraft/application/physics/RigidBodyPort' as const,
       create: (config) => svc.create(config),
       setPosition: (body, position) => svc.setPosition(body, position),
       setQuaternion: (body, quaternion) => svc.setQuaternion(body, quaternion),
@@ -188,8 +174,7 @@ export const RigidBodyPortLayer = Layer.effect(
       setAngularVelocity: (body, angularVelocity) => svc.setAngularVelocity(body, angularVelocity),
       addShape: (body, shape) => svc.addShape(body, shape),
       updateMassProperties: (body) => svc.updateMassProperties(body),
-    }
-    return impl as unknown as RigidBodyPort
+    })
   })
 ).pipe(Layer.provide(RigidBodyServiceLive))
 
@@ -197,12 +182,12 @@ export const RigidBodyPortLayer = Layer.effect(
 export const ShapePortLayer = Layer.effect(
   ShapePort,
   Effect.map(ShapeService, (svc) => {
-    const impl: { createBox: ShapeService['createBox']; createSphere: ShapeService['createSphere']; createPlane: ShapeService['createPlane'] } = {
+    return ShapePort.of({
+      _tag: '@minecraft/application/physics/ShapePort' as const,
       createBox: (config) => svc.createBox(config),
       createSphere: (config) => svc.createSphere(config),
       createPlane: () => svc.createPlane(),
-    }
-    return impl as unknown as ShapePort
+    })
   })
 ).pipe(Layer.provide(ShapeServiceLive))
 

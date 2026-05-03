@@ -3,7 +3,7 @@ import { GamePage } from '../fixtures/game-page'
 import { attachFatalErrorMonitor } from '../helpers/console-monitor'
 import { waitForStableRender } from '../helpers/wait-helpers'
 
-async function clickCanvas(page: import('@playwright/test').Page, x: number, y: number): Promise<void> {
+async function clickCanvas(page: Page, x: number, y: number): Promise<void> {
   await page.locator('#game-canvas').click({ position: { x, y } })
 }
 
@@ -20,7 +20,7 @@ test.describe('Block interaction', () => {
       return el?.style.display === 'none'
     })
     expect(isHidden).toBe(false)
-    expect(getFatalErrors()).toHaveLength(0)
+    expect(getFatalErrors().length).toBe(0)
   })
 
   test('left click on canvas does not crash game', async ({ page }) => {
@@ -31,14 +31,14 @@ test.describe('Block interaction', () => {
     await waitForStableRender(page, 500)
 
     const fpsBefore = await game.getFPS()
-    expect(fpsBefore).toBeGreaterThan(0)
+    expect(fpsBefore > 0).toBe(true)
 
     await clickCanvas(page, 300, 220)
     await page.waitForTimeout(300)
 
     const fpsAfter = await game.getFPS()
-    expect(fpsAfter).toBeGreaterThanOrEqual(0)
-    expect(getFatalErrors()).toHaveLength(0)
+    expect(fpsAfter >= 0).toBe(true)
+    expect(getFatalErrors().length).toBe(0)
   })
 
   test('right click on canvas does not crash game', async ({ page }) => {
@@ -49,14 +49,14 @@ test.describe('Block interaction', () => {
     await waitForStableRender(page, 500)
 
     const fpsBefore = await game.getFPS()
-    expect(fpsBefore).toBeGreaterThan(0)
+    expect(fpsBefore > 0).toBe(true)
 
     await page.locator('#game-canvas').click({ position: { x: 300, y: 220 }, button: 'right' })
     await page.waitForTimeout(300)
 
     const fpsAfter = await game.getFPS()
-    expect(fpsAfter).toBeGreaterThanOrEqual(0)
-    expect(getFatalErrors()).toHaveLength(0)
+    expect(fpsAfter >= 0).toBe(true)
+    expect(getFatalErrors().length).toBe(0)
   })
 
   test('repeated left and right clicks do not accumulate errors', async ({ page }) => {
@@ -74,8 +74,8 @@ test.describe('Block interaction', () => {
     }
 
     const fpsAfter = await game.getFPS()
-    expect(fpsAfter).toBeGreaterThanOrEqual(0)
-    expect(getFatalErrors()).toHaveLength(0)
+    expect(fpsAfter >= 0).toBe(true)
+    expect(getFatalErrors().length).toBe(0)
   })
 
   test('game remains in play mode after click (overlays stay closed)', async ({ page }) => {
@@ -92,6 +92,6 @@ test.describe('Block interaction', () => {
     const inventoryOpen = await game.isOverlayOpen('inventory-overlay')
     expect(settingsOpen).toBe(false)
     expect(inventoryOpen).toBe(false)
-    expect(getFatalErrors()).toHaveLength(0)
+    expect(getFatalErrors().length).toBe(0)
   })
 })

@@ -1,24 +1,16 @@
 import { HashSet, HashMap, Schema } from 'effect'
 import { ChunkSchema } from '../domain/chunk'
-import { FLUID_BYTE_LENGTH, createFluidBuffer, hydrateLegacyFluidBufferFromBlocks } from '@ts-minecraft/world-state'
-import { blockTypeToIndex } from '@ts-minecraft/kernel'
+import { FLUID_BYTE_LENGTH, createFluidBuffer } from '@ts-minecraft/world-state'
 import type { ChunkStorageValue } from '../domain/storage-service-port'
 import type { ChunkCacheKey } from '@ts-minecraft/kernel'
 
-export const normalizeFluidBuffer = (value: unknown): Uint8Array<ArrayBufferLike> => {
-  /* c8 ignore next */
-  if (!(value instanceof Uint8Array)) return createFluidBuffer()
-  return value.byteLength === FLUID_BYTE_LENGTH ? value : createFluidBuffer()
-}
+export const storedFluidBuffer = (value: Uint8Array<ArrayBufferLike> | undefined): Uint8Array<ArrayBufferLike> =>
+  value !== undefined && value.byteLength === FLUID_BYTE_LENGTH ? value : createFluidBuffer()
 
-export const normalizeChunkStorageValue = (stored: ChunkStorageValue): { blocks: Uint8Array<ArrayBufferLike>; fluid: Uint8Array<ArrayBufferLike> } => {
-  if (stored instanceof Uint8Array) {
-    return { blocks: stored, fluid: hydrateLegacyFluidBufferFromBlocks(stored, blockTypeToIndex('WATER'), blockTypeToIndex('LAVA')) }
-  }
-
+export const storedChunkPayload = (stored: ChunkStorageValue): { blocks: Uint8Array<ArrayBufferLike>; fluid: Uint8Array<ArrayBufferLike> } => {
   return {
     blocks: stored.blocks,
-    fluid: normalizeFluidBuffer(stored.fluid),
+    fluid: storedFluidBuffer(stored.fluid),
   }
 }
 

@@ -12,7 +12,6 @@ const FPS_SAMPLE_INTERVAL = 0.1 // seconds
 const fpsGauge = Metric.gauge('fps')
 
 export class FPSCounterService extends Effect.Service<FPSCounterService>()(
-  // FPSCounterLive alias kept below for test compatibility
   '@minecraft/presentation/FPSCounter',
   {
     effect: Ref.make<FPSCounterState>({
@@ -52,4 +51,3 @@ export class FPSCounterService extends Effect.Service<FPSCounterService>()(
     })))
   }
 ) {}
-export const FPSCounterLive = FPSCounterService.Default

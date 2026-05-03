@@ -89,7 +89,7 @@ test('default settings — perf target window (30s)', async ({ page }) => {
   // and may be absent or quantized in headless mode; treat 0 as "unavailable"
   // and skip the heap assertion in that case.
   const heapStart = await page.evaluate(() => {
-    const mem = (performance as unknown as { memory?: { usedJSHeapSize: number } }).memory
+    const mem = (performance as { memory?: { usedJSHeapSize: number } }).memory
     return mem ? mem.usedJSHeapSize : 0
   })
 
@@ -103,14 +103,14 @@ test('default settings — perf target window (30s)', async ({ page }) => {
   // 4. Snapshot perf HUD + DOM-fps + heap.
   // ---------------------------------------------------------------------------
   const snap = await page.evaluate((): PerfHudSnapshot | null => {
-    const w = window as unknown as { __perfHud__?: { snapshot: () => PerfHudSnapshot } }
+    const w = window as { __perfHud__?: { snapshot: () => PerfHudSnapshot } }
     return w.__perfHud__ ? w.__perfHud__.snapshot() : null
   })
 
   const domFps = await getFpsValue(page)
 
   const heapEnd = await page.evaluate(() => {
-    const mem = (performance as unknown as { memory?: { usedJSHeapSize: number } }).memory
+    const mem = (performance as { memory?: { usedJSHeapSize: number } }).memory
     return mem ? mem.usedJSHeapSize : 0
   })
 
@@ -138,27 +138,27 @@ test('default settings — perf target window (30s)', async ({ page }) => {
   // correctly. If this fails, either PerfHudService is broken or the URL
   // query-param parse changed.
   expect(snap).not.toBeNull()
-  expect(snap!.samples.length).toBeGreaterThan(0)
+  expect(snap!.samples.length > 0).toBe(true)
 
   // FPS floor — read from the existing #fps-value rolling counter (more
   // stable than perf-hud's single-frame-derived fps field).
-  expect(domFps).toBeGreaterThanOrEqual(FPS_FLOOR)
+  expect(domFps >= FPS_FLOOR).toBe(true)
 
   // p99 frame time cap. Generous to absorb SwiftShader meshing spikes.
-  expect(snap!.p99Ms).toBeLessThan(P99_MS_CAP)
+  expect(snap!.p99Ms < P99_MS_CAP).toBe(true)
 
   // Largest single-frame gap. samples are in seconds (raw dtSecs in the ring
   // buffer per perf-hud.ts:232), so compare against MAX_GAP_SECS directly.
   const maxGap = Math.max(...snap!.samples)
-  expect(maxGap).toBeLessThan(MAX_GAP_SECS)
+  expect(maxGap < MAX_GAP_SECS).toBe(true)
 
   // Heap regression gate — only enforced when performance.memory is populated.
   if (heapStart > 0 && heapEnd > 0) {
-    expect(heapEnd - heapStart).toBeLessThan(HEAP_DELTA_BYTES)
+    expect(heapEnd - heapStart < HEAP_DELTA_BYTES).toBe(true)
   }
 
   // Fatal error gate — matches long-run-stability.e2e.ts. Note: this monitors
   // 'Failed to start application' patterns only; the game intentionally uses
   // console.error for non-fatal Effect pipeline diagnostics.
-  expect(getFatalErrors()).toHaveLength(0)
+  expect(getFatalErrors().length).toBe(0)
 })

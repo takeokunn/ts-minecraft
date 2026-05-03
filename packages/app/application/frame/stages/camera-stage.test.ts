@@ -1,7 +1,7 @@
 import { describe, expect, vi } from 'vitest'
 import { it } from '@effect/vitest'
 import { Effect, MutableHashSet, MutableRef, Ref } from 'effect'
-import { KeyMappings } from '@ts-minecraft/player'
+import { KeyMappings, ThirdPersonCameraService } from '@ts-minecraft/player'
 import {
   makeDeps,
   makeCamera,
@@ -28,9 +28,7 @@ describe('step 8 — camera sync', () => {
       settingsOverlay: makeSettingsOverlay({ open: false }),
     })
     // Override getPlayerPosition to return a known position
-    ;(services.gameState as unknown as { getPlayerPosition: unknown }).getPlayerPosition = vi.fn(() =>
-      Effect.succeed({ x: 5, y: 64, z: 3 })
-    )
+    Object.assign(services.gameState, { getPlayerPosition: vi.fn(() => Effect.succeed({ x: 5, y: 64, z: 3 })) })
 
     yield* runFrame(deps, services)
 
@@ -47,9 +45,7 @@ describe('step 8 — camera sync', () => {
       inventoryRenderer: makeInventoryRenderer({ open: false }),
       settingsOverlay: makeSettingsOverlay({ open: false }),
     })
-    ;(services.gameState as unknown as { getPlayerPosition: unknown }).getPlayerPosition = vi.fn(() =>
-      Effect.succeed({ x: 5, y: 64, z: 3 })
-    )
+    Object.assign(services.gameState, { getPlayerPosition: vi.fn(() => Effect.succeed({ x: 5, y: 64, z: 3 })) })
 
     yield* runFrame(deps, services)
 
@@ -64,9 +60,10 @@ describe('step 8 — camera sync', () => {
     const lights = makeLights()
     const { service: cameraStateService } = makeCameraState('firstPerson')
     const inputService = makeInputService()
-    const thirdPersonCamera = {
+    const thirdPersonCamera: Parameters<typeof cameraStage>[1]['thirdPersonCamera'] = ThirdPersonCameraService.of({
+      _tag: '@minecraft/application/ThirdPersonCameraService' as const,
       update: () => Effect.void,
-    } as unknown as Parameters<typeof cameraStage>[1]['thirdPersonCamera']
+    })
 
     const lastShadowTargetRef = MutableRef.make({ x: 4.4, z: 3.0 })
     const lastRenderDistanceRef = yield* Ref.make(0)

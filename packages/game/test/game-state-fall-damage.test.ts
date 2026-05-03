@@ -1,37 +1,32 @@
-import { describe, it } from '@effect/vitest'
-import { expect } from 'vitest'
-import { Array as Arr, Effect, Layer } from 'effect'
-import { GameStateService, GameStateServiceLive } from '@ts-minecraft/game'
-import { PhysicsServiceLive } from '@ts-minecraft/physics'
-import { PhysicsWorldPortLayer, RigidBodyPortLayer, ShapePortLayer } from '@ts-minecraft/app'
-import { MovementServiceLive } from '@ts-minecraft/player'
-import { PlayerCameraStateLive } from '@ts-minecraft/player'
-import { PlayerServiceLive } from '@ts-minecraft/player'
-import { PlayerInputService } from '@ts-minecraft/player'
-import { ChunkManagerService } from '@ts-minecraft/terrain'
-import { HealthService } from '@ts-minecraft/player'
-import { GameModeServiceLive } from '@ts-minecraft/game'
+import { describe,it } from '@effect/vitest'
+import { PhysicsWorldPortLayer,RigidBodyPortLayer,ShapePortLayer } from '@ts-minecraft/app'
+import { GameModeServiceLive,GameStateService,GameStateServiceLive } from '@ts-minecraft/game'
 import { InventoryServiceLive } from '@ts-minecraft/inventory'
+import { PhysicsServiceLive } from '@ts-minecraft/physics'
+import { HealthService,MovementServiceLive,PlayerCameraStateLive,PlayerInputService,PlayerServiceLive } from '@ts-minecraft/player'
+import { ChunkManagerService } from '@ts-minecraft/terrain'
 import { BlockRegistryLive } from '@ts-minecraft/world-state'
-import { DEFAULT_PLAYER_ID } from '@ts-minecraft/kernel'
+import { Effect,Layer } from 'effect'
+import { expect } from 'vitest'
 
-const NoOpPlayerInputLayer = Layer.succeed(PlayerInputService, {
+const NoOpPlayerInputLayer = Layer.succeed(PlayerInputService, PlayerInputService.of({
   _tag: '@minecraft/application/PlayerInputService' as const,
   isKeyPressed: (_key: string) => Effect.succeed(false),
   consumeKeyPress: (_key: string) => Effect.succeed(false),
   consumeWheelDelta: () => Effect.succeed(0),
   getMouseDelta: () => Effect.succeed({ x: 0, y: 0 }),
   isPointerLocked: () => Effect.succeed(false),
-} as unknown as PlayerInputService)
+}))
 
-const NoOpChunkManagerLayer = Layer.succeed(ChunkManagerService, {
+const NoOpChunkManagerLayer = Layer.succeed(ChunkManagerService, ChunkManagerService.of({
   _tag: '@minecraft/application/ChunkManagerService' as const,
   getChunk: (_coord: unknown) => Effect.fail({ _tag: 'ChunkError', message: 'not loaded' } as never),
   getLoadedChunks: () => Effect.succeed([]),
   loadChunksAroundPlayer: (_pos: unknown, _dist?: unknown) => Effect.succeed(false),
-  saveChunk: (_coord: unknown) => Effect.void,
-  evictChunksOutsideRange: (_pos: unknown, _dist: unknown) => Effect.succeed([]),
-} as unknown as ChunkManagerService)
+  markChunkDirty: () => Effect.void,
+  saveDirtyChunks: () => Effect.void,
+  unloadChunk: () => Effect.void,
+}))
 
 const PhysicsLayer = PhysicsServiceLive.pipe(
   Layer.provide(PhysicsWorldPortLayer),
@@ -112,7 +107,7 @@ describe('application/game-state (integration)', () => {
         const SPAWN_POS = { x: 0, y: 5, z: 0 }
 
         const gameState = yield* GameStateService
-        yield* gameState.initialize(SPAWN_POS, 0)
+        yield* gameState.initialize(SPAWN_POS)
         const rotation = yield* gameState.getCameraRotation()
 
         expect(rotation.yaw).toBe(0)

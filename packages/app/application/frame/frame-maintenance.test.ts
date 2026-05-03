@@ -36,11 +36,13 @@ describe('frame-maintenance / session-pause gate', () => {
     const furnaceTickSpy = vi.fn((_dt: DeltaTimeSecs) => Effect.void)
     const mobSpawnSpy = vi.fn(() => Effect.succeed(undefined))
 
-    ;(services.chunkManagerService as unknown as { loadChunksAroundPlayer: unknown }).loadChunksAroundPlayer = loadSpy
-    ;(services.worldRendererService as unknown as { syncChunksToScene: unknown }).syncChunksToScene = syncSpy
-    ;(services.chunkManagerService as unknown as { getLoadedChunks: unknown }).getLoadedChunks = getChunksSpy
-    ;(services.furnaceService as unknown as { tick: unknown }).tick = furnaceTickSpy
-    ;(services.mobSpawner as unknown as { trySpawn: unknown }).trySpawn = mobSpawnSpy
+    Object.assign(services.chunkManagerService, {
+      loadChunksAroundPlayer: loadSpy,
+      getLoadedChunks: getChunksSpy,
+    })
+    Object.assign(services.worldRendererService, { syncChunksToScene: syncSpy })
+    Object.assign(services.furnaceService, { tick: furnaceTickSpy })
+    Object.assign(services.mobSpawner, { trySpawn: mobSpawnSpy })
 
     const { maintenanceHandler } = yield* createFrameHandlers(deps, services)
 
@@ -66,7 +68,7 @@ describe('frame-maintenance / session-pause gate', () => {
     })
 
     const loadSpy = vi.fn(() => Effect.succeed(true as boolean))
-    ;(services.chunkManagerService as unknown as { loadChunksAroundPlayer: unknown }).loadChunksAroundPlayer = loadSpy
+    Object.assign(services.chunkManagerService, { loadChunksAroundPlayer: loadSpy })
 
     const { maintenanceHandler } = yield* createFrameHandlers(deps, services)
 

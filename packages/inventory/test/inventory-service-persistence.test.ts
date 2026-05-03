@@ -1,5 +1,5 @@
 import { describe, it, expect } from '@effect/vitest'
-import { Effect, Option, Schema } from 'effect'
+import { Array as Arr, Effect, Option, Schema } from 'effect'
 import type { SlotIndex } from '@ts-minecraft/kernel'
 import {
   INVENTORY_SIZE,
@@ -16,6 +16,9 @@ import {
 } from './inventory-service-test-utils'
 
 describe('application/inventory/inventory-service', () => {
+  const getAt = <T>(values: ReadonlyArray<T>, index: number): T =>
+    Option.getOrThrow(Arr.get(values, index))
+
   describe('serialize / deserialize', () => {
     it.effect('serialize returns Option.none for empty slots and Option.some for filled slots', () => {
       const testLayer = createTestLayer(createTestBlockRegistry(airOnlyBlocks))
@@ -27,16 +30,16 @@ describe('application/inventory/inventory-service', () => {
         const data = yield* service.serialize()
 
         expect(data.slots.length).toBe(INVENTORY_SIZE)
-        expect(Option.isNone(data.slots[0])).toBe(true)
+        expect(Option.isNone(getAt(data.slots, 0))).toBe(true)
 
-        const entry1 = data.slots[1]
+        const entry1 = getAt(data.slots, 1)
         expect(Option.isSome(entry1)).toBe(true)
         const unwrapped1 = Option.getOrThrow(entry1)
         expect(unwrapped1.slot).toBe(1)
         expect(unwrapped1.blockType).toBe('STONE')
         expect(unwrapped1.count).toBe(8)
 
-        const entry35 = data.slots[35]
+        const entry35 = getAt(data.slots, 35)
         expect(Option.isSome(entry35)).toBe(true)
         const unwrapped35 = Option.getOrThrow(entry35)
         expect(unwrapped35.slot).toBe(35)
@@ -186,16 +189,16 @@ describe('application/inventory/inventory-service', () => {
 
       expect(decoded.slots.length).toBe(3)
 
-      const entry0 = decoded.slots[0]
+        const entry0 = getAt(decoded.slots, 0)
       expect(Option.isSome(entry0)).toBe(true)
       const unwrapped0 = Option.getOrThrow(entry0)
       expect(unwrapped0.slot).toBe(0)
       expect(unwrapped0.blockType).toBe('DIRT')
       expect(unwrapped0.count).toBe(12)
 
-      expect(Option.isNone(decoded.slots[1])).toBe(true)
+        expect(Option.isNone(getAt(decoded.slots, 1))).toBe(true)
 
-      const entry2 = decoded.slots[2]
+        const entry2 = getAt(decoded.slots, 2)
       expect(Option.isSome(entry2)).toBe(true)
       const unwrapped2 = Option.getOrThrow(entry2)
       expect(unwrapped2.slot).toBe(2)

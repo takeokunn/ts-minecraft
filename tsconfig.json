@@ -1,9 +1,14 @@
 {
   "compilerOptions": {
-    "target": "ES2022",
+    "target": "ES2024",
     "module": "ESNext",
     "moduleResolution": "bundler",
-    "lib": ["ES2023", "DOM", "DOM.Iterable", "WebWorker"],
+    "lib": [
+      "ES2024",
+      "DOM",
+      "DOM.Iterable",
+      "WebWorker"
+    ],
     "allowJs": false,
     "checkJs": false,
     "declaration": true,
@@ -42,28 +47,69 @@
     "tsBuildInfoFile": "./.tsbuildinfo",
     "baseUrl": ".",
     "paths": {
-      "@/test/*": ["test/*"],
-      "@ts-minecraft/kernel": ["packages/kernel/index.ts"],
-      "@ts-minecraft/terrain": ["packages/terrain/index.ts"],
-      "@ts-minecraft/world-state": ["packages/world-state/index.ts"],
-      "@ts-minecraft/player": ["packages/player/index.ts"],
-      "@ts-minecraft/inventory": ["packages/inventory/index.ts"],
-      "@ts-minecraft/entities": ["packages/entities/index.ts"],
-      "@ts-minecraft/rendering": ["packages/rendering/index.ts"],
-      "@ts-minecraft/physics": ["packages/physics/index.ts"],
-      "@ts-minecraft/game": ["packages/game/index.ts"],
-      "@ts-minecraft/app": ["packages/app/index.ts"],
-      "@ts-minecraft/app/frame-handler.config": ["packages/app/application/frame-handler.config"],
-      "@ts-minecraft/app/frame-handler": ["packages/app/application/frame-handler"],
-      "@ts-minecraft/app/frame/*": ["packages/app/application/frame/*"],
-      "@ts-minecraft/app/main.config": ["packages/app/application/main.config"],
-      "@ts-minecraft/app/main/*": ["packages/app/application/main/*"],
-      "@ts-minecraft/app/*": ["packages/app/*"],
-      "@ts-minecraft/rendering/particles/particle-system": ["packages/rendering/infrastructure/particles/particle-system"],
-      "@ts-minecraft/rendering/*": ["packages/rendering/*"]
+      "@test/*": [
+        "test/*"
+      ],
+      "@ts-minecraft/kernel": [
+        "packages/kernel/index.ts"
+      ],
+      "@ts-minecraft/terrain": [
+        "packages/terrain/index.ts"
+      ],
+      "@ts-minecraft/world-state": [
+        "packages/world-state/index.ts"
+      ],
+      "@ts-minecraft/player": [
+        "packages/player/index.ts"
+      ],
+      "@ts-minecraft/inventory": [
+        "packages/inventory/index.ts"
+      ],
+      "@ts-minecraft/entities": [
+        "packages/entities/index.ts"
+      ],
+      "@ts-minecraft/rendering": [
+        "packages/rendering/index.ts"
+      ],
+      "@ts-minecraft/physics": [
+        "packages/physics/index.ts"
+      ],
+      "@ts-minecraft/game": [
+        "packages/game/index.ts"
+      ],
+      "@ts-minecraft/app": [
+        "packages/app/index.ts"
+      ],
+      "@ts-minecraft/app/frame-handler.config": [
+        "packages/app/application/frame-handler.config"
+      ],
+      "@ts-minecraft/app/frame-handler": [
+        "packages/app/application/frame-handler"
+      ],
+      "@ts-minecraft/app/frame/*": [
+        "packages/app/application/frame/*"
+      ],
+      "@ts-minecraft/app/main.config": [
+        "packages/app/application/main.config"
+      ],
+      "@ts-minecraft/app/main/*": [
+        "packages/app/application/main/*"
+      ],
+      "@ts-minecraft/app/*": [
+        "packages/app/*"
+      ],
+      "@ts-minecraft/rendering/particles/particle-system": [
+        "packages/rendering/infrastructure/particles/particle-system"
+      ],
+      "@ts-minecraft/rendering/*": [
+        "packages/rendering/*"
+      ]
     },
     "types": [],
-    "typeRoots": ["node_modules/@types", "src/types", "types"],
+    "typeRoots": [
+      "node_modules/@types",
+      "types"
+    ],
     "sourceRoot": "./src",
     "mapRoot": "./dist",
     "inlineSources": false,
@@ -78,10 +124,26 @@
     "allowArbitraryExtensions": false,
     "importsNotUsedAsValues": "remove"
   },
-  "include": ["src/main.ts", "test/**/*", "types/**/*"],
-  "exclude": ["node_modules", "dist", "coverage", "docs"],
+  "include": [
+    "src/main.ts",
+    "test/**/*",
+    "types/**/*"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "coverage",
+    "docs"
+  ],
   "watchOptions": {
-    "excludeDirectories": ["**/node_modules", "**/.git", "**/dist"],
-    "excludeFiles": ["**/*.js.map", "**/*.d.ts.map"]
+    "excludeDirectories": [
+      "**/node_modules",
+      "**/.git",
+      "**/dist"
+    ],
+    "excludeFiles": [
+      "**/*.js.map",
+      "**/*.d.ts.map"
+    ]
   }
 }

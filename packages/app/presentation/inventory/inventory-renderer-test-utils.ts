@@ -1,4 +1,4 @@
-import { Array as Arr, Effect, Layer, Option } from 'effect'
+import { Array as Arr, Effect, HashMap, Layer, Option } from 'effect'
 import { vi } from 'vitest'
 import { InventoryRendererLive } from '@ts-minecraft/app/presentation/inventory/inventory-renderer'
 import { InventoryService, INVENTORY_SIZE, HOTBAR_START } from '@ts-minecraft/inventory'
@@ -8,8 +8,8 @@ import { FurnaceService } from '@ts-minecraft/inventory'
 import { GameStateService } from '@ts-minecraft/game'
 import { ChunkManagerService } from '@ts-minecraft/terrain'
 import { DomOperationsService } from '@ts-minecraft/app/presentation/hud/crosshair'
-import type { SlotIndex } from '@ts-minecraft/kernel'
-import { RecipeId } from '@ts-minecraft/kernel'
+import { DeltaTimeSecs } from '@ts-minecraft/kernel'
+import { RecipeId, SlotIndex } from '@ts-minecraft/kernel'
 import type { Recipe } from '@ts-minecraft/inventory'
 
 // ---------------------------------------------------------------------------
@@ -18,7 +18,12 @@ import type { Recipe } from '@ts-minecraft/inventory'
 
 export const createMockDomLayer = () => {
   const createElement = vi.fn((_tagName: string) => {
-    const el = {
+    const el: Pick<HTMLElement, 'id' | 'textContent' | 'title' | 'dataset'> & {
+      style: Pick<CSSStyleDeclaration, 'cssText' | 'display' | 'background' | 'border'>
+      addEventListener: ReturnType<typeof vi.fn>
+      removeEventListener: ReturnType<typeof vi.fn>
+      remove: ReturnType<typeof vi.fn>
+    } = {
       id: '',
       style: {
         cssText: '',
@@ -26,13 +31,13 @@ export const createMockDomLayer = () => {
         background: '#333',
         border: '2px solid #666',
       },
-      textContent: null as string | null,
+      textContent: '',
       title: '',
       dataset: {} as Record<string, string>,
       addEventListener: vi.fn(),
       removeEventListener: vi.fn(),
       remove: vi.fn(),
-    } as unknown as HTMLElement
+    }
     return el
   })
 
@@ -44,7 +49,7 @@ export const createMockDomLayer = () => {
     getParentNode: vi.fn(() => Option.none()),
     setInnerHTML: vi.fn(),
     querySelector: vi.fn(() => Option.none()),
-  } as unknown as DomOperationsService)
+  } as DomOperationsService)
 
   return { MockDomLayer, createElement }
 }
@@ -61,7 +66,8 @@ export const createMockInventoryLayer = (overrideSlots?: ReadonlyArray<Option.Op
   const serialize = vi.fn(() => Effect.succeed({ slots: [] }))
   const deserialize = vi.fn((_: unknown) => Effect.void)
 
-  const MockInventoryLayer = Layer.succeed(InventoryService, {
+  const MockInventoryLayer = Layer.succeed(InventoryService, InventoryService.of({
+    _tag: '@minecraft/application/InventoryService' as const,
     getAllSlots,
     getSlot,
     setSlot,
@@ -70,46 +76,52 @@ export const createMockInventoryLayer = (overrideSlots?: ReadonlyArray<Option.Op
     removeBlock,
     getHotbarSlots,
     serialize,
+    clear: () => Effect.void,
     deserialize,
-  } as unknown as InventoryService)
+  }))
 
   return { MockInventoryLayer, getAllSlots, moveStack }
 }
 
 export const createMockHotbarLayer = (selectedSlot = 0) => {
-  const getSelectedSlot = vi.fn(() => Effect.succeed(selectedSlot))
-  const MockHotbarLayer = Layer.succeed(HotbarService, {
+  const getSelectedSlot = vi.fn(() => Effect.succeed(SlotIndex.make(selectedSlot)))
+  const MockHotbarLayer = Layer.succeed(HotbarService, HotbarService.of({
+    _tag: '@minecraft/application/HotbarService' as const,
     getSelectedSlot,
     setSelectedSlot: (_: SlotIndex) => Effect.void,
     getSelectedBlockType: () => Effect.succeed(Option.none()),
     getSlots: () => Effect.succeed([]),
     update: () => Effect.void,
-  } as unknown as HotbarService)
+  }))
   return { MockHotbarLayer, getSelectedSlot }
 }
 
 export const createMockRecipeLayer = () => {
-  const recipes: Array<{ id: string; ingredients: Array<{ blockType: string; count: number }>; output: { blockType: string; count: number } }> = []
+  const recipes: Recipe[] = []
   const getAllRecipes = vi.fn(() => recipes)
-  const findById = vi.fn((_id: string) => Option.none())
-  const findCraftable = vi.fn((_available: unknown, _hasTableAccess: boolean) => recipes)
-  const craft = vi.fn((_id: string, _inventory: unknown, _hasTableAccess: boolean) => Effect.void)
+  const findById = vi.fn((_id: RecipeId) => Option.none<Recipe>())
+  const findCraftable = vi.fn((_available: unknown, _hasTableAccess: boolean, _hasFurnaceAccess: boolean) => recipes)
+  const craft = vi.fn((_id: RecipeId, _inventory: InventoryService, _hasTableAccess: boolean, _hasFurnaceAccess: boolean) => Effect.void)
 
-  const MockRecipeLayer = Layer.succeed(RecipeService, {
+  const MockRecipeLayer = Layer.succeed(RecipeService, RecipeService.of({
+    _tag: '@minecraft/application/RecipeService' as const,
     getAllRecipes,
     findById,
     findCraftable,
     craft,
-  } as unknown as RecipeService)
+  }))
 
   return { MockRecipeLayer, getAllRecipes, findCraftable, craft, recipes, findById }
 }
 
-export const createMockFurnaceLayer = () => {
+export const createMockFurnaceLayer = (overrides: Partial<Pick<FurnaceService,
+  'getState' | 'getNearestFurnaceState' | 'hasNearbyFurnace' | 'startSmelting' | 'collectOutput' | 'setSelectedFurnace' | 'clearFurnace' | 'dismantleFurnace' | 'serialize' | 'deserialize' | 'tick'
+>> = {}) => {
   const startSmelting = vi.fn((_id: string) => Effect.void)
   const collectOutput = vi.fn(() => Effect.succeed(true))
-  const MockFurnaceLayer = Layer.succeed(FurnaceService, {
-    getState: () => Effect.succeed({ active: Option.none() }),
+  const MockFurnaceLayer = Layer.succeed(FurnaceService, FurnaceService.of({
+    _tag: '@minecraft/application/FurnaceService' as const,
+    getState: () => Effect.succeed({ furnaces: HashMap.empty(), selectedFurnacePosition: Option.none() }),
     getNearestFurnaceState: () => Effect.succeed(Option.none()),
     hasNearbyFurnace: () => Effect.succeed(false),
     startSmelting,
@@ -120,21 +132,38 @@ export const createMockFurnaceLayer = () => {
     serialize: () => Effect.succeed([]),
     deserialize: () => Effect.void,
     tick: () => Effect.void,
-  } as unknown as FurnaceService)
+    ...overrides,
+  }))
   return { MockFurnaceLayer, startSmelting, collectOutput }
 }
 
 export const createMockGameStateLayer = () => {
-  const MockGameStateLayer = Layer.succeed(GameStateService, {
+  const MockGameStateLayer = Layer.succeed(GameStateService, GameStateService.of({
+    _tag: '@minecraft/application/GameStateService' as const,
+    initialize: () => Effect.void,
+    update: (_deltaTime: DeltaTimeSecs) => Effect.void,
+    respawn: () => Effect.void,
+    getTiming: () => Effect.succeed({ lastFrameTime: 0, deltaTime: DeltaTimeSecs.make(0.016), frameCount: 0 }),
     getPlayerPosition: () => Effect.succeed({ x: 0, y: 0, z: 0 }),
-  } as unknown as GameStateService)
+    getCameraRotation: () => Effect.succeed({ yaw: 0, pitch: 0 }),
+    isPlayerGrounded: () => Effect.succeed(true),
+  }))
   return { MockGameStateLayer }
 }
 
-export const createMockChunkManagerLayer = () => {
-  const MockChunkManagerLayer = Layer.succeed(ChunkManagerService, {
-    getChunk: () => Effect.succeed({ blocks: new Uint8Array(256 * 16 * 16) }),
-  } as unknown as ChunkManagerService)
+export const createMockChunkManagerLayer = (overrides: Partial<Pick<ChunkManagerService,
+  'getChunk' | 'getLoadedChunks' | 'loadChunksAroundPlayer' | 'markChunkDirty' | 'saveDirtyChunks' | 'unloadChunk'
+>> = {}) => {
+  const MockChunkManagerLayer = Layer.succeed(ChunkManagerService, ChunkManagerService.of({
+    _tag: '@minecraft/application/ChunkManagerService' as const,
+    getChunk: () => Effect.succeed({ coord: { x: 0, z: 0 }, blocks: new Uint8Array(256 * 16 * 16), fluid: Option.none() }),
+    getLoadedChunks: () => Effect.succeed([]),
+    loadChunksAroundPlayer: () => Effect.succeed(false),
+    markChunkDirty: () => Effect.void,
+    saveDirtyChunks: () => Effect.void,
+    unloadChunk: () => Effect.void,
+    ...overrides,
+  }))
   return { MockChunkManagerLayer }
 }
 
@@ -167,7 +196,7 @@ export const makeRecipe = (id: string): Recipe =>
     station: 'inventory' as const,
     ingredients: [{ blockType: 'DIRT', count: 1 }],
     output: { blockType: 'DIRT', count: 1 },
-  }) as unknown as Recipe
+  })
 
 export const makeFurnaceRecipe = (id: string): Recipe =>
   ({
@@ -175,4 +204,4 @@ export const makeFurnaceRecipe = (id: string): Recipe =>
     station: 'furnace' as const,
     ingredients: [{ blockType: 'COBBLESTONE', count: 1 }],
     output: { blockType: 'STONE', count: 1 },
-  }) as unknown as Recipe
+  })

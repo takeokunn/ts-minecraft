@@ -1,20 +1,19 @@
-import { describe, it, expect } from '@effect/vitest'
-import { Array as Arr, Effect, Option } from 'effect'
-import type { SlotIndex } from '@ts-minecraft/kernel'
+import { describe,expect,it } from '@effect/vitest'
 import {
-  HOTBAR_SIZE,
-  HOTBAR_START,
-  INVENTORY_SIZE,
-  InventoryService,
+HOTBAR_SIZE,
+HOTBAR_START,
+INVENTORY_SIZE,
+InventoryService,
 } from '@ts-minecraft/inventory'
-import { MAX_STACK_SIZE, createStack } from '../domain/item-stack'
+import { Array as Arr,Effect,Option } from 'effect'
 import type { ItemStack } from '../domain/item-stack'
+import { MAX_STACK_SIZE,createStack } from '../domain/item-stack'
 import {
-  asSlotIndex,
-  createTestBlockRegistry,
-  createTestLayer,
-  fullHotbarBlocks,
-  airOnlyBlocks,
+airOnlyBlocks,
+asSlotIndex,
+createTestBlockRegistry,
+createTestLayer,
+fullHotbarBlocks,
 } from './inventory-service-test-utils'
 
 describe('application/inventory/inventory-service', () => {

@@ -1,22 +1,19 @@
-import { describe, it } from '@effect/vitest'
-import { Effect, Layer, Option } from 'effect'
-import { expect, vi } from 'vitest'
-import { blockTypeToIndex } from '@ts-minecraft/kernel'
-import { InventoryRendererService, InventoryRendererLive } from '@ts-minecraft/app/presentation/inventory/inventory-renderer'
-import { FurnaceService } from '@ts-minecraft/inventory'
-import { ChunkManagerService } from '@ts-minecraft/terrain'
+import { describe,it } from '@effect/vitest'
+import { InventoryRendererLive,InventoryRendererService } from '@ts-minecraft/app/presentation/inventory/inventory-renderer'
 import { RecipeId } from '@ts-minecraft/kernel'
+import { Effect,Layer,Option } from 'effect'
+import { expect,vi } from 'vitest'
 import {
-  buildTestLayer,
-  createMockDomLayer,
-  createMockInventoryLayer,
-  createMockHotbarLayer,
-  createMockRecipeLayer,
-  createMockFurnaceLayer,
-  createMockGameStateLayer,
-  createMockChunkManagerLayer,
-  makeRecipe,
-  makeFurnaceRecipe,
+buildTestLayer,
+createMockChunkManagerLayer,
+createMockDomLayer,
+createMockFurnaceLayer,
+createMockGameStateLayer,
+createMockHotbarLayer,
+createMockInventoryLayer,
+createMockRecipeLayer,
+makeFurnaceRecipe,
+makeRecipe,
 } from './inventory-renderer-test-utils'
 
 describe('presentation/inventory/inventory-renderer (recipe)', () => {
@@ -53,20 +50,19 @@ describe('presentation/inventory/inventory-renderer (recipe)', () => {
       mockRecipe.recipes.push(furnaceRecipe)
       mockRecipe.findById.mockReturnValue(Option.some(furnaceRecipe))
 
-      const MockFurnaceWithOutput = Layer.succeed(FurnaceService, {
-        getState: () => Effect.succeed({ active: Option.none() }),
+      const MockFurnaceWithOutput = createMockFurnaceLayer({
         getNearestFurnaceState: () =>
-          Effect.succeed(Option.some({ output: Option.some({ blockType: 'STONE', count: 1 }) })),
-        hasNearbyFurnace: () => Effect.succeed(false),
+          Effect.succeed(Option.some({
+            position: { x: 0, y: 64, z: 0 },
+            input: Option.none(),
+            fuel: Option.none(),
+            output: Option.some({ blockType: 'STONE', count: 1 }),
+            activeRecipeId: Option.none(),
+            progressSecs: 0,
+          })),
         startSmelting: vi.fn(() => Effect.void),
         collectOutput: vi.fn(() => Effect.succeed(true)),
-        setSelectedFurnace: () => Effect.void,
-        clearFurnace: () => Effect.succeed([]),
-        dismantleFurnace: () => Effect.succeed(true),
-        serialize: () => Effect.succeed([]),
-        deserialize: () => Effect.void,
-        tick: () => Effect.void,
-      } as unknown as FurnaceService)
+      })
 
       const mockDom = createMockDomLayer()
       const mockInventory = createMockInventoryLayer()
@@ -76,7 +72,7 @@ describe('presentation/inventory/inventory-renderer (recipe)', () => {
         Layer.provide(mockInventory.MockInventoryLayer),
         Layer.provide(mockHotbar.MockHotbarLayer),
         Layer.provide(mockRecipe.MockRecipeLayer),
-        Layer.provide(MockFurnaceWithOutput),
+        Layer.provide(MockFurnaceWithOutput.MockFurnaceLayer),
         Layer.provide(createMockGameStateLayer().MockGameStateLayer),
         Layer.provide(createMockChunkManagerLayer().MockChunkManagerLayer),
       )
@@ -95,20 +91,19 @@ describe('presentation/inventory/inventory-renderer (recipe)', () => {
       mockRecipe.findById.mockReturnValue(Option.some(furnaceRecipe))
 
       const startSmeltingSpy = vi.fn(() => Effect.void)
-      const MockFurnaceNoOutput = Layer.succeed(FurnaceService, {
-        getState: () => Effect.succeed({ active: Option.none() }),
+      const MockFurnaceNoOutput = createMockFurnaceLayer({
         getNearestFurnaceState: () =>
-          Effect.succeed(Option.some({ output: Option.none() })),
-        hasNearbyFurnace: () => Effect.succeed(false),
+          Effect.succeed(Option.some({
+            position: { x: 0, y: 64, z: 0 },
+            input: Option.none(),
+            fuel: Option.none(),
+            output: Option.none(),
+            activeRecipeId: Option.none(),
+            progressSecs: 0,
+          })),
         startSmelting: startSmeltingSpy,
         collectOutput: vi.fn(() => Effect.succeed(true)),
-        setSelectedFurnace: () => Effect.void,
-        clearFurnace: () => Effect.succeed([]),
-        dismantleFurnace: () => Effect.succeed(true),
-        serialize: () => Effect.succeed([]),
-        deserialize: () => Effect.void,
-        tick: () => Effect.void,
-      } as unknown as FurnaceService)
+      })
 
       const mockDom = createMockDomLayer()
       const mockInventory = createMockInventoryLayer()
@@ -118,7 +113,7 @@ describe('presentation/inventory/inventory-renderer (recipe)', () => {
         Layer.provide(mockInventory.MockInventoryLayer),
         Layer.provide(mockHotbar.MockHotbarLayer),
         Layer.provide(mockRecipe.MockRecipeLayer),
-        Layer.provide(MockFurnaceNoOutput),
+        Layer.provide(MockFurnaceNoOutput.MockFurnaceLayer),
         Layer.provide(createMockGameStateLayer().MockGameStateLayer),
         Layer.provide(createMockChunkManagerLayer().MockChunkManagerLayer),
       )

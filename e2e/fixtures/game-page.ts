@@ -1,4 +1,3 @@
-import type { Page } from '@playwright/test'
 import { waitForGameReady, getFpsValue, waitForMainMenu } from '../helpers/wait-helpers'
 
 export class GamePage {
@@ -47,7 +46,7 @@ export class GamePage {
   }
 
   async isOverlayOpen(overlayId: string): Promise<boolean> {
-    return this.page.evaluate((id) => {
+    return this.page.evaluate((id: string) => {
       const el = document.getElementById(id)
       if (!el) return false
       return el.style.display !== 'none' && el.style.display !== ''

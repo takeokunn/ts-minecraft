@@ -14,14 +14,23 @@ const MAX_BLOCK_INDEX = 11
 //   x_arg > 25.0 → humidity call
 //   x_arg ≤ 25.0 → temperature call
 const makeMockNoiseLayer = (tempValue: number, humidityValue: number) =>
-  Layer.succeed(NoiseServicePort, {
+  Layer.succeed(NoiseServicePort, NoiseServicePort.of({
+    _tag: '@minecraft/application/noise/NoiseServicePort' as const,
     noise2D: (_x: number, _z: number): Effect.Effect<number, never> => Effect.succeed(0.5),
     octaveNoise2D: (x: number, _z: number, _octaves: number, _persistence: number, _lacunarity: number): Effect.Effect<number, never> =>
       Effect.succeed(x > 25.0 ? humidityValue : tempValue),
+    getSeed: Effect.succeed(0),
+    octaveNoise2DBatch: (points: ReadonlyArray<readonly [number, number]>): Effect.Effect<ReadonlyArray<number>, never> =>
+      Effect.succeed(points.map(([x]) => x > 25.0 ? humidityValue : tempValue)),
     octaveNoise2DBatchXY: (xs: ReadonlyArray<number>, _zs: ReadonlyArray<number>): Effect.Effect<ReadonlyArray<number>, never> =>
       Effect.succeed(xs.map((x) => x > 25.0 ? humidityValue : tempValue)),
+    noise2DBatch: (points: ReadonlyArray<readonly [number, number]>): Effect.Effect<ReadonlyArray<number>, never> =>
+      Effect.succeed(Array(points.length).fill(0.9)),
     noise2DBatchXY: (xs: ReadonlyArray<number>, _zs: ReadonlyArray<number>): Effect.Effect<ReadonlyArray<number>, never> =>
       Effect.succeed(Array(xs.length).fill(0.9)),
+    noise3D: (_x: number, _y: number, _z: number): Effect.Effect<number, never> => Effect.succeed(0),
+    noise3DBatchXYZ: (xs: ReadonlyArray<number>, _ys: ReadonlyArray<number>, _zs: ReadonlyArray<number>): Effect.Effect<ReadonlyArray<number>, never> =>
+      Effect.succeed(Array(xs.length).fill(0)),
     continentalness: (_x: number, _z: number): Effect.Effect<number, never> => Effect.succeed(0.35),
     erosion: (_x: number, _z: number): Effect.Effect<number, never> => Effect.succeed(0.6),
     weirdness: (_x: number, _z: number): Effect.Effect<number, never> => Effect.succeed(0),
@@ -38,7 +47,7 @@ const makeMockNoiseLayer = (tempValue: number, humidityValue: number) =>
       jaggedness: new Float64Array(Array(CHUNK_SIZE * CHUNK_SIZE).fill(0)),
     }),
     setSeed: (_seed: number): Effect.Effect<void, never> => Effect.void,
-  } as unknown as NoiseServicePort)
+  }))
 
 const makeTestLayer = (tempValue: number, humidityValue: number) =>
   BiomeServiceLive.pipe(Layer.provide(makeMockNoiseLayer(tempValue, humidityValue)))

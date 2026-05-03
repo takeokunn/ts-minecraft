@@ -1,18 +1,18 @@
-import { describe, it } from '@effect/vitest'
-import { Effect, Layer, Option } from 'effect'
-import { expect, vi } from 'vitest'
+import { describe,it } from '@effect/vitest'
+import { InventoryRendererLive,InventoryRendererService } from '@ts-minecraft/app/presentation/inventory/inventory-renderer'
 import { blockTypeToIndex } from '@ts-minecraft/kernel'
-import { InventoryRendererService, InventoryRendererLive } from '@ts-minecraft/app/presentation/inventory/inventory-renderer'
-import { ChunkManagerService } from '@ts-minecraft/terrain'
+import { ChunkError } from '@ts-minecraft/terrain'
+import { Effect,Layer,Option } from 'effect'
+import { expect } from 'vitest'
 import {
-  createMockDomLayer,
-  createMockInventoryLayer,
-  createMockHotbarLayer,
-  createMockRecipeLayer,
-  createMockFurnaceLayer,
-  createMockGameStateLayer,
-  createMockChunkManagerLayer,
-  makeRecipe,
+createMockChunkManagerLayer,
+createMockDomLayer,
+createMockFurnaceLayer,
+createMockGameStateLayer,
+createMockHotbarLayer,
+createMockInventoryLayer,
+createMockRecipeLayer,
+makeRecipe
 } from './inventory-renderer-test-utils'
 
 describe('presentation/inventory/inventory-renderer (recipe)', () => {
@@ -20,13 +20,13 @@ describe('presentation/inventory/inventory-renderer (recipe)', () => {
     it.scoped('hasCraftingTable returns true when crafting table is at player position', () => {
       // Player at (0,0,0); chunk (0,0); block at idx 0 = CRAFTING_TABLE
       const craftingTableIdx = blockTypeToIndex('CRAFTING_TABLE')
-      const MockChunkManagerWithCraftingTable = Layer.succeed(ChunkManagerService, {
+      const mockChunkManager = createMockChunkManagerLayer({
         getChunk: () => {
           const blocks = new Uint8Array(256 * 16 * 16)
           blocks[0] = craftingTableIdx
           return Effect.succeed({ coord: { x: 0, z: 0 }, blocks, fluid: Option.none() })
         },
-      } as unknown as ChunkManagerService)
+      })
 
       const mockRecipe = createMockRecipeLayer()
       mockRecipe.recipes.push(makeRecipe('recipe-a'))
@@ -41,7 +41,7 @@ describe('presentation/inventory/inventory-renderer (recipe)', () => {
         Layer.provide(mockRecipe.MockRecipeLayer),
         Layer.provide(createMockFurnaceLayer().MockFurnaceLayer),
         Layer.provide(createMockGameStateLayer().MockGameStateLayer),
-        Layer.provide(MockChunkManagerWithCraftingTable),
+        Layer.provide(mockChunkManager.MockChunkManagerLayer),
       )
 
       return Effect.gen(function* () {
@@ -61,13 +61,13 @@ describe('presentation/inventory/inventory-renderer (recipe)', () => {
     it.scoped('hasNearbyFurnace returns true when furnace is at player position', () => {
       // Player at (0,0,0); chunk (0,0); block at idx 0 = FURNACE
       const furnaceIdx = blockTypeToIndex('FURNACE')
-      const MockChunkManagerWithFurnace = Layer.succeed(ChunkManagerService, {
+      const mockChunkManager = createMockChunkManagerLayer({
         getChunk: () => {
           const blocks = new Uint8Array(256 * 16 * 16)
           blocks[0] = furnaceIdx
           return Effect.succeed({ coord: { x: 0, z: 0 }, blocks, fluid: Option.none() })
         },
-      } as unknown as ChunkManagerService)
+      })
 
       const mockRecipe = createMockRecipeLayer()
       mockRecipe.recipes.push(makeRecipe('recipe-a'))
@@ -82,7 +82,7 @@ describe('presentation/inventory/inventory-renderer (recipe)', () => {
         Layer.provide(mockRecipe.MockRecipeLayer),
         Layer.provide(createMockFurnaceLayer().MockFurnaceLayer),
         Layer.provide(createMockGameStateLayer().MockGameStateLayer),
-        Layer.provide(MockChunkManagerWithFurnace),
+        Layer.provide(mockChunkManager.MockChunkManagerLayer),
       )
 
       return Effect.gen(function* () {
@@ -101,9 +101,9 @@ describe('presentation/inventory/inventory-renderer (recipe)', () => {
 
     it.scoped('hasCraftingTable returns false when getChunk fails for all positions', () => {
       // getChunk fails → getChunkOrNone returns Option.none() → scanNearbyBlock skips
-      const MockChunkManagerFailing = Layer.succeed(ChunkManagerService, {
-        getChunk: () => Effect.fail(new Error('chunk load failed')),
-      } as unknown as ChunkManagerService)
+      const mockChunkManager = createMockChunkManagerLayer({
+        getChunk: (coord) => Effect.fail(new ChunkError({ chunkCoord: coord, reason: 'chunk load failed' })),
+      })
 
       const mockRecipe = createMockRecipeLayer()
       mockRecipe.recipes.push(makeRecipe('recipe-a'))
@@ -118,7 +118,7 @@ describe('presentation/inventory/inventory-renderer (recipe)', () => {
         Layer.provide(mockRecipe.MockRecipeLayer),
         Layer.provide(createMockFurnaceLayer().MockFurnaceLayer),
         Layer.provide(createMockGameStateLayer().MockGameStateLayer),
-        Layer.provide(MockChunkManagerFailing),
+        Layer.provide(mockChunkManager.MockChunkManagerLayer),
       )
 
       return Effect.gen(function* () {

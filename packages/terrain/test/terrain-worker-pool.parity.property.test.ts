@@ -24,10 +24,12 @@ import { TerrainWorkerPool } from '@ts-minecraft/terrain'
 const BridgedNoisePortLayer = Layer.effect(
   NoiseServicePort,
   Effect.map(NoiseService, (noise) =>
-    ({
+    NoiseServicePort.of({
+      _tag: '@minecraft/application/noise/NoiseServicePort' as const,
       noise2D: noise.noise2D,
       octaveNoise2D: noise.octaveNoise2D,
       setSeed: noise.setSeed,
+      getSeed: Effect.succeed(0),
       octaveNoise2DBatch: noise.octaveNoise2DBatch,
       noise2DBatch: noise.noise2DBatch,
       octaveNoise2DBatchXY: noise.octaveNoise2DBatchXY,
@@ -39,7 +41,7 @@ const BridgedNoisePortLayer = Layer.effect(
       weirdness: noise.weirdness,
       jaggedness: noise.jaggedness,
       sampleTerrainChannels: noise.sampleTerrainChannels,
-    }) as unknown as NoiseServicePort,
+    }),
   ),
 ).pipe(Layer.provide(NoiseService.Default))
 

@@ -1,11 +1,24 @@
 import { Effect, Layer, MutableHashMap, MutableHashSet, Option } from 'effect'
-import { PlayerInputService } from '@ts-minecraft/player'
-import type { InputServicePort as InputServiceType } from '@ts-minecraft/player'
+import { InputServicePort, PlayerInputService } from '@ts-minecraft/player'
 import type { MovementInput } from '@ts-minecraft/player'
+
+type MutableMovementInputService = InputServicePort & {
+  readonly setKeyPressed: (key: string, pressed: boolean) => void
+}
+
+const makePlayerInputService = (inputService: InputServicePort): PlayerInputService =>
+  PlayerInputService.of({
+    _tag: '@minecraft/application/PlayerInputService' as const,
+    isKeyPressed: inputService.isKeyPressed,
+    consumeKeyPress: inputService.consumeKeyPress,
+    consumeWheelDelta: inputService.consumeWheelDelta,
+    getMouseDelta: inputService.getMouseDelta,
+    isPointerLocked: inputService.isPointerLocked,
+  })
 
 export const createTestInputService = (
   initialState: Partial<MovementInput> = {}
-): InputServiceType & { setKeyPressed: (key: string, pressed: boolean) => void } => {
+): MutableMovementInputService => {
   const pressedKeys = MutableHashMap.make(
     ['KeyW', Option.getOrElse(Option.fromNullable(initialState.forward), () => false)],
     ['KeyS', Option.getOrElse(Option.fromNullable(initialState.backward), () => false)],
@@ -21,7 +34,8 @@ export const createTestInputService = (
     MutableHashSet.add(justPressedKeys, 'Space')
   }
 
-  return {
+  return Object.assign(InputServicePort.of({
+    _tag: '@minecraft/application/InputServicePort' as const,
     isKeyPressed: (key: string) => Effect.sync(() => Option.getOrElse(MutableHashMap.get(pressedKeys, key), () => false)),
     consumeKeyPress: (key: string) =>
       Effect.sync(() => {
@@ -38,11 +52,12 @@ export const createTestInputService = (
     isPointerLocked: () => Effect.sync(() => true),
     consumeMouseClick: () => Effect.sync(() => false),
     consumeWheelDelta: () => Effect.sync(() => 0),
+  }), {
     setKeyPressed: (key: string, pressed: boolean) => {
       MutableHashMap.set(pressedKeys, key, pressed)
     },
-  } as unknown as InputServiceType & { setKeyPressed: (key: string, pressed: boolean) => void }
+  })
 }
 
-export const createTestLayers = (inputService: InputServiceType) =>
-  Layer.succeed(PlayerInputService, inputService as unknown as PlayerInputService)
+export const createTestLayers = (inputService: InputServicePort) =>
+  Layer.succeed(PlayerInputService, makePlayerInputService(inputService))

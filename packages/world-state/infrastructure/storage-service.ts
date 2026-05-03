@@ -7,12 +7,10 @@ import type { ChunkCoord } from '@ts-minecraft/kernel'
 // Bumped from 2 → 3 for Phase 2.1 multi-noise. Must match terrain/domain/chunk.ts WORLD_SCHEMA_VERSION.
 const WORLD_SCHEMA_VERSION = 3
 
-type ChunkStorageValue =
-  | Uint8Array<ArrayBufferLike>
-  | {
-      readonly blocks: Uint8Array<ArrayBufferLike>
-      readonly fluid: Uint8Array<ArrayBufferLike> | undefined
-    }
+export type ChunkStorageValue = Readonly<{
+  readonly blocks: Uint8Array<ArrayBufferLike>
+  readonly fluid: Uint8Array<ArrayBufferLike> | undefined
+}>
 import { PositionSchema } from '@ts-minecraft/kernel'
 import { InventorySaveDataSchema } from '@ts-minecraft/inventory'
 import { BlockTypeSchema } from '@ts-minecraft/kernel'

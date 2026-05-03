@@ -3,27 +3,16 @@ import { expect, vi, beforeEach, afterEach } from 'vitest'
 import { Effect } from 'effect'
 import * as THREE from 'three'
 import { BlockMeshService, BlockMeshServiceLive } from '@ts-minecraft/rendering'
+import { mockCanvasElement } from '@test/helpers/three-mocks'
 
 describe('three/meshing/block-mesh', () => {
   beforeEach(() => {
     vi.stubGlobal('document', {
       createElement: vi.fn((tag: string) => {
         if (tag === 'canvas') {
-          return {
-            width: 64,
-            height: 64,
-            getContext: (contextType: string) => {
-              if (contextType === '2d') {
-                return {
-                  fillStyle: '#ffffff',
-                  fillRect: () => {},
-                }
-              }
-              return null
-            },
-          } as unknown as HTMLCanvasElement
+          return mockCanvasElement()
         }
-        return {} as any
+        throw new Error(`Unexpected element request in block-mesh test: ${tag}`)
       }),
     })
   })
@@ -159,14 +148,12 @@ describe('three/meshing/block-mesh', () => {
         Effect.gen(function* () {
           const service = yield* BlockMeshService
 
-          const dispose1 = vi.fn()
-          const dispose2 = vi.fn()
-          const mat1 = { dispose: dispose1 } as unknown as THREE.Material
-          const mat2 = { dispose: dispose2 } as unknown as THREE.Material
+          const mat1 = new THREE.MeshBasicMaterial()
+          const mat2 = new THREE.MeshBasicMaterial()
+          const dispose1 = vi.spyOn(mat1, 'dispose')
+          const dispose2 = vi.spyOn(mat2, 'dispose')
 
-          const fakeMesh = {
-            material: [mat1, mat2],
-          } as unknown as THREE.Mesh
+          const fakeMesh = new THREE.Mesh(new THREE.BoxGeometry(), [mat1, mat2])
 
           yield* service.disposeMesh(fakeMesh)
 

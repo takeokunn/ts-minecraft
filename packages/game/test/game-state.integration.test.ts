@@ -4,44 +4,40 @@
 // player physics body from falling below y=0 (bedrock). With NoOpChunkManager
 // (no blocks loaded), the player falls until the bedrock rule triggers, settling
 // at center y = PLAYER_HALF_HEIGHT (0.9).
-import { describe, it } from '@effect/vitest'
-import { expect } from 'vitest'
-import { Array as Arr, Effect, Either, Layer, Option, Ref } from 'effect'
-import { GameStateService, GameStateServiceLive } from '@ts-minecraft/game'
-import { PhysicsServiceLive } from '@ts-minecraft/physics'
-import { PhysicsWorldPortLayer, RigidBodyPortLayer, ShapePortLayer } from '@ts-minecraft/app'
-import { MovementServiceLive } from '@ts-minecraft/player'
-import { PlayerCameraStateLive } from '@ts-minecraft/player'
-import { PlayerServiceLive } from '@ts-minecraft/player'
-import { PlayerInputService } from '@ts-minecraft/player'
-import { ChunkManagerService } from '@ts-minecraft/terrain'
-import { HealthService } from '@ts-minecraft/player'
-import { GameModeServiceLive } from '@ts-minecraft/game'
+import { describe,it } from '@effect/vitest'
+import { PhysicsWorldPortLayer,RigidBodyPortLayer,ShapePortLayer } from '@ts-minecraft/app'
+import { GameModeServiceLive,GameStateService,GameStateServiceLive } from '@ts-minecraft/game'
 import { InventoryServiceLive } from '@ts-minecraft/inventory'
+import { DEFAULT_PLAYER_ID,DeltaTimeSecs,PLAYER_HALF_HEIGHT,PlayerId } from '@ts-minecraft/kernel'
+import { PhysicsServiceLive } from '@ts-minecraft/physics'
+import { MovementServiceLive,PlayerCameraStateLive,PlayerInputService,PlayerServiceLive } from '@ts-minecraft/player'
+import { ChunkManagerService } from '@ts-minecraft/terrain'
 import { BlockRegistryLive } from '@ts-minecraft/world-state'
-import { DeltaTimeSecs, PlayerId, DEFAULT_PLAYER_ID, PLAYER_HALF_HEIGHT } from '@ts-minecraft/kernel'
+import { Array as Arr,Effect,Either,Layer,Option,Ref } from 'effect'
+import { expect } from 'vitest'
 
 // ---------------------------------------------------------------------------
 // Mock PlayerInputService — always returns no input (no movement, no jump)
 // ---------------------------------------------------------------------------
-const NoOpPlayerInputLayer = Layer.succeed(PlayerInputService, {
+const NoOpPlayerInputLayer = Layer.succeed(PlayerInputService, PlayerInputService.of({
   _tag: '@minecraft/application/PlayerInputService' as const,
   isKeyPressed: (_key: string) => Effect.succeed(false),
   consumeKeyPress: (_key: string) => Effect.succeed(false),
   consumeWheelDelta: () => Effect.succeed(0),
   getMouseDelta: () => Effect.succeed({ x: 0, y: 0 }),
   isPointerLocked: () => Effect.succeed(false),
-} as unknown as PlayerInputService)
+}))
 
 // NoOp ChunkManager — no chunks loaded; bedrock floor still stops the player
-const NoOpChunkManagerLayer = Layer.succeed(ChunkManagerService, {
+const NoOpChunkManagerLayer = Layer.succeed(ChunkManagerService, ChunkManagerService.of({
   _tag: '@minecraft/application/ChunkManagerService' as const,
   getChunk: (_coord: unknown) => Effect.fail({ _tag: 'ChunkError', message: 'not loaded' } as never),
   getLoadedChunks: () => Effect.succeed([]),
   loadChunksAroundPlayer: (_pos: unknown, _dist?: unknown) => Effect.succeed(false),
-  saveChunk: (_coord: unknown) => Effect.void,
-  evictChunksOutsideRange: (_pos: unknown, _dist: unknown) => Effect.succeed([]),
-} as unknown as ChunkManagerService)
+  markChunkDirty: () => Effect.void,
+  saveDirtyChunks: () => Effect.void,
+  unloadChunk: () => Effect.void,
+}))
 
 // ---------------------------------------------------------------------------
 // Layer composition matching src/layers.ts GameLayer
@@ -85,7 +81,7 @@ describe('application/game-state (integration)', () => {
         const gameState = yield* GameStateService
 
         // Initialize physics world, player at SPAWN_POS (no ground plane needed)
-        yield* gameState.initialize(SPAWN_POS, 0)
+        yield* gameState.initialize(SPAWN_POS)
 
         // Run multiple physics steps — gravity pulls the player down
         yield* Effect.forEach(Arr.makeBy(STEPS, () => undefined), () =>
@@ -111,7 +107,7 @@ describe('application/game-state (integration)', () => {
 
         const gameState = yield* GameStateService
 
-        yield* gameState.initialize(SPAWN_POS, 0)
+        yield* gameState.initialize(SPAWN_POS)
 
         const finalYRef = yield* Ref.make(SPAWN_Y)
         yield* Effect.forEach(Arr.makeBy(STEPS, () => undefined), () =>
@@ -144,19 +140,18 @@ describe('application/game-state (integration)', () => {
         // Each run of the effect creates a fresh layer — two sequential initializes
         // on the same service instance (re-initializes physics world).
         const gameState = yield* GameStateService
-        yield* gameState.initialize(SPAWN_POS, 0)
+        yield* gameState.initialize(SPAWN_POS)
         // Second initialize: re-initialize is expected to succeed without error.
-        yield* Effect.either(gameState.initialize(SPAWN_POS, 0))
+        yield* Effect.either(gameState.initialize(SPAWN_POS))
       }).pipe(Effect.provide(TestGameLayer))
     )
 
     it.effect('getPlayerPosition returns the spawn position immediately after initialize', () =>
       Effect.gen(function* () {
         const SPAWN_POS = { x: 3, y: 8, z: -5 }
-        const GROUND_Y = 5
 
         const gameState = yield* GameStateService
-        yield* gameState.initialize(SPAWN_POS, GROUND_Y)
+        yield* gameState.initialize(SPAWN_POS)
         const pos = yield* gameState.getPlayerPosition(DEFAULT_PLAYER_ID)
 
         expect(pos.x).toBeCloseTo(SPAWN_POS.x, 3)
@@ -172,7 +167,7 @@ describe('application/game-state (integration)', () => {
         const SPAWN_POS = { x: 0, y: 5, z: 0 }
 
         const gameState = yield* GameStateService
-        yield* gameState.initialize(SPAWN_POS, 0)
+        yield* gameState.initialize(SPAWN_POS)
         // Query a player ID that was never registered
         const result = yield* Effect.either(
           gameState.getPlayerPosition(PlayerId.make('nonexistent-player'))
@@ -215,7 +210,7 @@ describe('application/game-state (integration)', () => {
         const DELTA = DeltaTimeSecs.make(0.016)
 
         const gameState = yield* GameStateService
-        yield* gameState.initialize(SPAWN_POS, 0)
+        yield* gameState.initialize(SPAWN_POS)
         const before = yield* gameState.getTiming()
         yield* gameState.update(DELTA)
         const after = yield* gameState.getTiming()
@@ -230,7 +225,7 @@ describe('application/game-state (integration)', () => {
         const DELTA = DeltaTimeSecs.make(0.033)
 
         const gameState = yield* GameStateService
-        yield* gameState.initialize(SPAWN_POS, 0)
+        yield* gameState.initialize(SPAWN_POS)
         yield* gameState.update(DELTA)
         const timing = yield* gameState.getTiming()
 
@@ -255,7 +250,7 @@ describe('application/game-state (integration)', () => {
         const DELTA = DeltaTimeSecs.make(0.05)
 
         const gameState = yield* GameStateService
-        yield* gameState.initialize(SPAWN_POS, 0)
+        yield* gameState.initialize(SPAWN_POS)
         // Run enough steps to let the player fall to bedrock and settle
         yield* Effect.forEach(Arr.makeBy(40, () => undefined), () => gameState.update(DELTA), { concurrency: 1 })
         const grounded = yield* gameState.isPlayerGrounded()

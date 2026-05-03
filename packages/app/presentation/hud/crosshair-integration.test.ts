@@ -19,11 +19,11 @@ describe('CrosshairService', () => {
           children: [] as unknown[],
           parentNode: null as unknown | null,
           appendChild: vi.fn((child: unknown) => {
-            ;(element as unknown as { children: unknown[] }).children.push(child)
+            ;(element as { children: unknown[] }).children.push(child)
             return child
           }),
         }
-        createdElements.push(element as unknown as typeof createdElements[0])
+        createdElements.push(element as typeof createdElements[0])
         return element
       })
 
@@ -48,7 +48,7 @@ describe('CrosshairService', () => {
           appendChild: appendChildMock,
           removeChild: removeChildMock,
           getParentNode: getParentNodeMock,
-        } as unknown as DomOperationsService
+        } as DomOperationsService
       )
 
       const TestLayer = CrosshairLive.pipe(Layer.provide(MockDomLayer))
@@ -126,7 +126,7 @@ describe('CrosshairService', () => {
         appendChild: vi.fn(),
         removeChild: vi.fn(),
         getParentNode: vi.fn(),
-      } as unknown as DomOperationsService
+      } as DomOperationsService
 
       expect(mockDom).toBeDefined()
     })

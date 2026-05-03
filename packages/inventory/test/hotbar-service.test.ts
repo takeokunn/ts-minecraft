@@ -1,18 +1,17 @@
-import { describe, expect } from 'vitest'
 import { it } from '@effect/vitest'
-import { Array as Arr, Effect, Option } from 'effect'
+import { HOTBAR_SIZE,HOTBAR_START,HotbarService,InventoryService } from '@ts-minecraft/inventory'
 import { BlockType } from '@ts-minecraft/kernel'
 import { Block } from '@ts-minecraft/world-state'
-import { HOTBAR_START, InventoryService } from '@ts-minecraft/inventory'
+import { Array as Arr,Effect,Option } from 'effect'
+import { describe,expect } from 'vitest'
 import { createStack } from '../domain/item-stack'
-import { HotbarService, HotbarServiceLive, HOTBAR_SIZE } from '@ts-minecraft/inventory'
 import {
-  asSlotIndex,
-  createTestInputService,
-  makeBlock,
-  createTestBlockRegistry,
-  defaultTestBlocks,
-  createTestLayer,
+asSlotIndex,
+createTestBlockRegistry,
+createTestInputService,
+createTestLayer,
+defaultTestBlocks,
+makeBlock,
 } from './hotbar-service-test-utils'
 
 describe('application/hotbar/hotbar-service', () => {

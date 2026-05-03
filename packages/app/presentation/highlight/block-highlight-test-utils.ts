@@ -5,14 +5,9 @@ import { RaycastingService, type RaycastHit } from '@ts-minecraft/rendering'
 
 export const createMockRaycastingService = (
   hitResult: Option.Option<RaycastHit> = Option.none()
-) => {
-  return {
-    createRaycaster: () =>
-      Effect.sync(() => {
-        const raycaster = new THREE.Raycaster()
-        raycaster.far = 5
-        return raycaster
-      }),
+) =>
+  RaycastingService.of({
+    _tag: '@minecraft/infrastructure/three/RaycastingService' as const,
     raycastFromCamera: vi.fn(() => Effect.sync(() => hitResult)),
     worldToBlock: vi.fn((worldPos: { x: number; y: number; z: number }) =>
       Effect.sync(() => ({
@@ -21,8 +16,7 @@ export const createMockRaycastingService = (
         z: Math.floor(worldPos.z),
       }))
     ),
-  } as unknown as RaycastingService
-}
+  })
 
 export const createMockScene = () => {
   const children: THREE.Object3D[] = []
@@ -38,7 +32,7 @@ export const createMockScene = () => {
         }
       }),
       children,
-    } as unknown as THREE.Scene,
+    } as THREE.Scene,
     getChildren: () => children,
   }
 }

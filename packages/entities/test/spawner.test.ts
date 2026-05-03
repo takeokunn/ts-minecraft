@@ -4,14 +4,15 @@ import { TimeService } from '@ts-minecraft/game'
 import { EntityType, type EntityId, EntityManager, EntityManagerLive, MobSpawner, MobSpawnerLive } from '@ts-minecraft/entities'
 
 const makeTimeLayer = (night: boolean) =>
-  Layer.succeed(TimeService, {
-    advanceTick: () => Effect.void,
+  Layer.succeed(TimeService, TimeService.of({
+    _tag: '@minecraft/application/TimeService' as const,
+    advanceTick: (_deltaTime) => Effect.void,
     getTimeOfDay: () => Effect.succeed(night ? 0 : 0.5),
     isNight: () => Effect.succeed(night),
     getDayLength: () => Effect.succeed(400),
-    setDayLength: () => Effect.void,
-    setTimeOfDay: () => Effect.void,
-  } as unknown as TimeService)
+    setDayLength: (_seconds) => Effect.void,
+    setTimeOfDay: (_fraction) => Effect.void,
+  }))
 
 const makeSpawnerLayer = (night: boolean) =>
   Layer.mergeAll(

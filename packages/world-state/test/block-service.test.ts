@@ -1,28 +1,23 @@
-import { describe, it } from '@effect/vitest'
-import { expect } from 'vitest'
-import { vi } from 'vitest'
-import { Array as Arr, Effect, Option } from 'effect'
-import { Position } from '@ts-minecraft/kernel'
-import { BlockType } from '@ts-minecraft/kernel'
+import { describe,it } from '@effect/vitest'
+import { PLAYER_HALF_HEIGHT,PLAYER_HALF_WIDTH,Position } from '@ts-minecraft/kernel'
 import {
-  BlockService,
-  BlockServiceError,
-  worldToBlockLocal,
-  blockOverlapsPlayer,
+blockOverlapsPlayer,
+BlockService,
+BlockServiceError,
+worldToBlockLocal,
 } from '@ts-minecraft/terrain'
-import { PLAYER_HALF_WIDTH, PLAYER_HALF_HEIGHT } from '@ts-minecraft/kernel'
+import { Array as Arr,Effect,Option } from 'effect'
+import { expect } from 'vitest'
 import {
-  assertLeft,
-  createMockChunkManagerService,
-  createFailingChunkManagerService,
-  createMockPlayerService,
-  createFailingPlayerService,
-  createMockInventoryService,
-  createMockHotbarService,
-  createFluidRecorder,
-  createTestLayer,
-  worldToLocal,
-  readBlock,
+assertLeft,
+createFailingChunkManagerService,
+createFluidRecorder,
+createMockChunkManagerService,
+createMockHotbarService,
+createMockPlayerService,
+createTestLayer,
+readBlock,
+worldToLocal
 } from './block-service-test-utils'
 
 // ─── Pure function tests ──────────────────────────────────────────────────────

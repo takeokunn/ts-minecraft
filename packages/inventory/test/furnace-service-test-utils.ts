@@ -1,31 +1,161 @@
-import { Array as Arr, Effect, Layer, MutableHashMap, Option } from 'effect'
+import { Effect, Layer, Option } from 'effect'
 import { FurnaceServiceLive } from '@ts-minecraft/inventory'
 import { RecipeService } from '@ts-minecraft/inventory'
 import { InventoryService } from '@ts-minecraft/inventory'
 import { GameStateService } from '@ts-minecraft/game'
-import { ChunkManagerService } from '@ts-minecraft/terrain'
-import { blockTypeToIndex, CHUNK_HEIGHT, CHUNK_SIZE } from '@ts-minecraft/kernel'
+import { ChunkError, ChunkManagerService } from '@ts-minecraft/terrain'
+import { blockTypeToIndex, CHUNK_HEIGHT, CHUNK_SIZE, DeltaTimeSecs } from '@ts-minecraft/kernel'
+import type { BlockType, Position } from '@ts-minecraft/kernel'
+import type { Chunk } from '@ts-minecraft/terrain'
 
 export const makeChunkWithFurnace = () => {
   const blocks = new Uint8Array(CHUNK_SIZE * CHUNK_SIZE * CHUNK_HEIGHT)
   blocks[64] = blockTypeToIndex('FURNACE')
-  return { coord: { x: 0, z: 0 }, blocks }
+  return { coord: { x: 0, z: 0 }, blocks, fluid: Option.none() }
 }
 
 export const makeEmptyChunk = () => {
   const blocks = new Uint8Array(CHUNK_SIZE * CHUNK_SIZE * CHUNK_HEIGHT)
-  return { coord: { x: 0, z: 0 }, blocks }
+  return { coord: { x: 0, z: 0 }, blocks, fluid: Option.none() }
 }
 
 export type RecipeEntry = {
-  station: string
-  ingredients: { blockType: string; count: number }[]
-  output: { blockType: string; count: number }
+  station: 'inventory' | 'crafting_table' | 'furnace'
+  ingredients: { blockType: BlockType; count: number }[]
+  output: { blockType: BlockType; count: number }
 }
+
+type InventoryMockOverrides = Partial<{
+  getAllSlots: InventoryService['getAllSlots']
+  removeBlock: InventoryService['removeBlock']
+  addBlock: InventoryService['addBlock']
+  getSlot: InventoryService['getSlot']
+  setSlot: InventoryService['setSlot']
+  moveStack: InventoryService['moveStack']
+  getHotbarSlots: InventoryService['getHotbarSlots']
+  clear: InventoryService['clear']
+  serialize: InventoryService['serialize']
+  deserialize: InventoryService['deserialize']
+}>
+
+type RecipeMockOverrides = Partial<{
+  getAllRecipes: RecipeService['getAllRecipes']
+  findById: RecipeService['findById']
+  findCraftable: RecipeService['findCraftable']
+  craft: RecipeService['craft']
+}>
+
+type ChunkManagerMockOverrides = Partial<{
+  getChunk: ChunkManagerService['getChunk']
+  getLoadedChunks: ChunkManagerService['getLoadedChunks']
+  loadChunksAroundPlayer: ChunkManagerService['loadChunksAroundPlayer']
+  markChunkDirty: ChunkManagerService['markChunkDirty']
+  saveDirtyChunks: ChunkManagerService['saveDirtyChunks']
+  unloadChunk: ChunkManagerService['unloadChunk']
+}>
+
+type GameStateMockOverrides = Partial<{
+  initialize: GameStateService['initialize']
+  update: GameStateService['update']
+  respawn: GameStateService['respawn']
+  getTiming: GameStateService['getTiming']
+  getPlayerPosition: GameStateService['getPlayerPosition']
+  getCameraRotation: GameStateService['getCameraRotation']
+  isPlayerGrounded: GameStateService['isPlayerGrounded']
+}>
+
+export const makeRecipeService = (
+  recipeMap: Record<string, RecipeEntry>,
+  overrides: RecipeMockOverrides = {},
+) =>
+  RecipeService.of({
+    _tag: '@minecraft/application/RecipeService' as const,
+    getAllRecipes: () => [],
+    findById: (id) => {
+      const entry = recipeMap[id]
+      return entry ? Option.some({ id, ...entry }) : Option.none()
+    },
+    findCraftable: () => [],
+    craft: () => Effect.void,
+    ...overrides,
+  })
+
+export const makeInventoryService = (
+  items: Map<BlockType, number>,
+  overrides: InventoryMockOverrides = {},
+) =>
+  InventoryService.of({
+    _tag: '@minecraft/application/InventoryService' as const,
+    getAllSlots: (): ReturnType<InventoryService['getAllSlots']> =>
+      Effect.succeed(
+        Array.from(items.entries()).map(([blockType, count]) =>
+          Option.some({ blockType, count }),
+        ),
+      ),
+    removeBlock: (blockType: BlockType, count: number) =>
+      Effect.sync(() => {
+        const current = items.get(blockType) ?? 0
+        if (current < count) return false
+        items.set(blockType, current - count)
+        return true
+      }),
+    addBlock: (blockType: BlockType, count: number) =>
+      Effect.sync(() => {
+        const current = items.get(blockType) ?? 0
+        items.set(blockType, current + count)
+        return true
+      }),
+    getSlot: () => Effect.succeed(Option.none()),
+    setSlot: () => Effect.void,
+    moveStack: () => Effect.void,
+    getHotbarSlots: () => Effect.succeed([]),
+    clear: () =>
+      Effect.sync(() => {
+        items.clear()
+      }),
+    serialize: () => Effect.succeed({ slots: [] }),
+    deserialize: () => Effect.void,
+    ...overrides,
+  })
+
+export const makeGameStateService = (
+  playerPosition: Position,
+  overrides: GameStateMockOverrides = {},
+) =>
+  GameStateService.of({
+    _tag: '@minecraft/application/GameStateService' as const,
+    initialize: () => Effect.void,
+    update: () => Effect.void,
+    respawn: () => Effect.void,
+    getTiming: () => Effect.succeed({
+      lastFrameTime: 0,
+      deltaTime: DeltaTimeSecs.make(1 / 60),
+      frameCount: 0,
+    }),
+    getPlayerPosition: () => Effect.succeed(playerPosition),
+    getCameraRotation: () => Effect.succeed({ yaw: 0, pitch: 0 }),
+    isPlayerGrounded: () => Effect.succeed(false),
+    ...overrides,
+  })
+
+export const makeChunkManagerService = (
+  chunk: Chunk,
+  overrides: ChunkManagerMockOverrides = {},
+) =>
+  ChunkManagerService.of({
+    _tag: '@minecraft/application/ChunkManagerService' as const,
+    getChunk: () => Effect.succeed(chunk),
+    getLoadedChunks: () => Effect.succeed([]),
+    loadChunksAroundPlayer: () => Effect.succeed(false),
+    markChunkDirty: () => Effect.void,
+    saveDirtyChunks: () => Effect.void,
+    unloadChunk: () => Effect.void,
+    ...overrides,
+  })
 
 export type MakeFurnaceLayerOpts = {
   playerPosition?: { x: number; y: number; z: number }
-  inventoryItems?: Map<string, number>
+  inventoryItems?: Map<BlockType, number>
   recipeMap?: Record<string, RecipeEntry>
   chunkBlocks?: Uint8Array
   getChunkFails?: boolean
@@ -34,7 +164,7 @@ export type MakeFurnaceLayerOpts = {
 export const makeFurnaceLayer = (opts: MakeFurnaceLayerOpts = {}) => {
   const {
     playerPosition = { x: 0, y: 64, z: 0 },
-    inventoryItems = new Map([['RAW_IRON', 1], ['COAL', 1]]),
+    inventoryItems = new Map<BlockType, number>([['RAW_IRON', 1], ['COAL', 1]]),
     recipeMap = {
       'raw-iron-to-iron-ingot': {
         station: 'furnace',
@@ -46,57 +176,28 @@ export const makeFurnaceLayer = (opts: MakeFurnaceLayerOpts = {}) => {
     getChunkFails = false,
   } = opts
 
-  const items = MutableHashMap.fromIterable(inventoryItems)
-
-  const inventory = {
-    getAllSlots() {
-      return Effect.succeed(
-        Arr.map(Arr.fromIterable(items), ([blockType, count]) =>
-          Option.some({ blockType, count }),
-        ),
-      )
-    },
-    removeBlock(blockType: string, count: number) {
-      return Effect.sync(() => {
-        const current = Option.getOrElse(MutableHashMap.get(items, blockType), () => 0)
-        if (current < count) return false
-        MutableHashMap.set(items, blockType, current - count)
-        return true
-      })
-    },
-    addBlock(blockType: string, _count: number) {
-      return Effect.sync(() => {
-        const current = Option.getOrElse(MutableHashMap.get(items, blockType), () => 0)
-        MutableHashMap.set(items, blockType, current + _count)
-        return true
-      })
-    },
-  }
-
   const blocks = chunkBlocks ?? (() => {
     const b = new Uint8Array(CHUNK_SIZE * CHUNK_SIZE * CHUNK_HEIGHT)
     b[64] = blockTypeToIndex('FURNACE')
     return b
   })()
 
+  const chunk: Chunk = { coord: { x: 0, z: 0 }, blocks, fluid: Option.none() }
+
   return FurnaceServiceLive.pipe(
-    Layer.provide(Layer.succeed(RecipeService, {
-      findById: (id: string) => {
-        const entry = recipeMap[id]
-        return entry
-          ? Option.some({ id, ...entry })
-          : Option.none()
-      },
-    } as unknown as RecipeService)),
-    Layer.provide(Layer.succeed(InventoryService, inventory as unknown as InventoryService)),
-    Layer.provide(Layer.succeed(GameStateService, {
-      getPlayerPosition: () => Effect.succeed(playerPosition),
-    } as unknown as GameStateService)),
-    Layer.provide(Layer.succeed(ChunkManagerService, {
-      getChunk: () =>
+    Layer.provide(Layer.succeed(RecipeService, makeRecipeService(recipeMap))),
+    Layer.provide(Layer.succeed(InventoryService, makeInventoryService(inventoryItems))),
+    Layer.provide(Layer.succeed(GameStateService, makeGameStateService(playerPosition))),
+    Layer.provide(Layer.succeed(
+      ChunkManagerService,
+      makeChunkManagerService(
+        chunk,
         getChunkFails
-          ? Effect.fail(new Error('chunk unavailable'))
-          : Effect.succeed({ coord: { x: 0, z: 0 }, blocks }),
-    } as unknown as ChunkManagerService)),
+          ? {
+              getChunk: (coord: Chunk['coord']) => Effect.fail(new ChunkError({ chunkCoord: coord, reason: 'chunk unavailable' })),
+            }
+          : {},
+      ),
+    )),
   )
 }

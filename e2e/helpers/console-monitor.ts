@@ -1,4 +1,3 @@
-import type { Page } from '@playwright/test'
 
 /**
  * Monitors browser console for FATAL startup errors only.
@@ -8,7 +7,7 @@ import type { Page } from '@playwright/test'
  */
 export function attachFatalErrorMonitor(page: Page): () => string[] {
   const fatalErrors: string[] = []
-  page.on('console', (msg) => {
+  page.on('console', (msg: ConsoleMessage) => {
     if (msg.type() === 'error' && msg.text().includes('Failed to start application')) {
       fatalErrors.push(msg.text())
     }

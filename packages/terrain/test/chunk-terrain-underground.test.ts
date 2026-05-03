@@ -3,13 +3,13 @@ import { expect } from 'vitest'
 import { Array as Arr, Effect, Layer, MutableRef } from 'effect'
 import { StorageServicePort } from '@ts-minecraft/terrain'
 import { NoiseServicePort, NoiseServiceLive, BiomeServiceLive, ChunkManagerService, ChunkManagerServiceLive } from '@ts-minecraft/terrain'
-import { ChunkService, ChunkServiceLive } from '../domain/chunk'
+import { ChunkServiceLive } from '../domain/chunk'
 import { CHUNK_SIZE, CHUNK_HEIGHT } from '@ts-minecraft/kernel'
 import {
   buildTestLayer,
   LightEngineNoopLive,
   makeInMemoryStorage,
-  buildLegacyTerrainPoolLayer,
+  buildInlineTerrainPoolLayer,
 } from './chunk-manager-test-utils'
 
 describe('terrain/chunk-terrain-underground', () => {
@@ -126,11 +126,11 @@ describe('terrain/chunk-terrain-underground', () => {
               pv: new Float64Array(256),
               jaggedness: new Float64Array(256),
             }),
-        } as unknown as NoiseServicePort),
+        }),
       )
 
       const storage = makeInMemoryStorage()
-      const StorageTestLayer = Layer.succeed(StorageServicePort, storage as unknown as StorageServicePort)
+      const StorageTestLayer = Layer.succeed(StorageServicePort, storage)
       const BiomeTestLayer = BiomeServiceLive.pipe(Layer.provide(HighVariantNoise))
 
       const HighVariantTestLayer = ChunkManagerServiceLive.pipe(
@@ -139,7 +139,7 @@ describe('terrain/chunk-terrain-underground', () => {
         Layer.provide(BiomeTestLayer),
         Layer.provide(HighVariantNoise),
         Layer.provide(NoiseServiceLive),
-        Layer.provide(buildLegacyTerrainPoolLayer(
+        Layer.provide(buildInlineTerrainPoolLayer(
           Layer.mergeAll(ChunkServiceLive, BiomeTestLayer, HighVariantNoise),
         )),
         Layer.provide(LightEngineNoopLive),

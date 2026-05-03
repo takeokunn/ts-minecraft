@@ -136,10 +136,10 @@ describe('infrastructure/three/world-renderer', () => {
       }).pipe(Effect.provide(TestLayer))
     })
 
-    it.effect('should remove meshes for stale chunks', () => {
-      const createChunkMesh = vi.fn((chunk: Chunk) =>
-        Effect.succeed({ opaqueMesh: makeMockMesh(chunk.coord) as unknown as THREE.Mesh, waterMesh: Option.none<THREE.Mesh>() })
-      )
+     it.effect('should remove meshes for stale chunks', () => {
+       const createChunkMesh = vi.fn((chunk: Chunk) =>
+         Effect.succeed({ opaqueMesh: makeMockMesh(chunk.coord) as THREE.Mesh, waterMesh: Option.none<THREE.Mesh>() })
+       )
       const TestLayer = buildTestLayer(createChunkMesh)
       const scene = makeScene()
       return Effect.gen(function* () {
@@ -182,10 +182,10 @@ describe('infrastructure/three/world-renderer', () => {
   })
 
   describe('clearScene', () => {
-    it.effect('should remove all tracked chunk meshes', () => {
-      const createChunkMesh = vi.fn((chunk: Chunk) =>
-        Effect.succeed({ opaqueMesh: makeMockMesh(chunk.coord) as unknown as THREE.Mesh, waterMesh: Option.none<THREE.Mesh>() })
-      )
+     it.effect('should remove all tracked chunk meshes', () => {
+       const createChunkMesh = vi.fn((chunk: Chunk) =>
+         Effect.succeed({ opaqueMesh: makeMockMesh(chunk.coord) as THREE.Mesh, waterMesh: Option.none<THREE.Mesh>() })
+       )
       const TestLayer = buildTestLayer(createChunkMesh)
       const scene = makeScene()
       return Effect.gen(function* () {

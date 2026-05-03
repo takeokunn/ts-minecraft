@@ -1,29 +1,23 @@
-import { describe, it } from '@effect/vitest'
-import { expect } from 'vitest'
-import { Arbitrary, Array as Arr, Effect, Layer, Option, Schema } from 'effect'
-import { StorageServicePort } from '@ts-minecraft/terrain'
-import { StorageError } from '@ts-minecraft/world-state'
-import {
-  NoiseServicePort,
-  NoiseServiceLive,
-  BiomeServiceLive,
-  ChunkManagerService,
-  ChunkManagerServiceLive,
-  MAX_CACHED_CHUNKS,
-  RENDER_DISTANCE,
-  UNLOAD_DISTANCE,
-  getChunksInRenderDistance,
-} from '@ts-minecraft/terrain'
+import { describe,it } from '@effect/vitest'
 import { TerrainWorkerPoolPortLayer } from '@ts-minecraft/app'
-import { ChunkServiceLive } from '../domain/chunk'
-import { CHUNK_HEIGHT, CHUNK_SIZE, DEFAULT_WORLD_ID } from '@ts-minecraft/kernel'
+import { DEFAULT_WORLD_ID } from '@ts-minecraft/kernel'
 import {
-  makeInMemoryStorage,
-  LightEngineNoopLive,
-  buildTestLayer,
-  buildTestLayerWithStoredChunks,
-  EXPECTED_BLOCKS_LENGTH,
-  chunkStorageBlocks,
+BiomeServiceLive,
+ChunkManagerService,
+ChunkManagerServiceLive,
+MAX_CACHED_CHUNKS,NoiseServiceLive,NoiseServicePort,RENDER_DISTANCE,StorageServicePort,UNLOAD_DISTANCE,
+getChunksInRenderDistance
+} from '@ts-minecraft/terrain'
+import { StorageError } from '@ts-minecraft/world-state'
+import { Array as Arr,Effect,Layer,Option } from 'effect'
+import { expect } from 'vitest'
+import { ChunkServiceLive } from '../domain/chunk'
+import {
+EXPECTED_BLOCKS_LENGTH,
+LightEngineNoopLive,
+buildTestLayerWithStoredChunks,
+chunkStorageBlocks,
+makeInMemoryStorage
 } from './chunk-manager-test-utils'
 
 describe('application/chunk/chunk-manager-service (eviction)', () => {
@@ -41,10 +35,10 @@ describe('application/chunk/chunk-manager-service (eviction)', () => {
       // Pre-populate `count` distinct chunks so getChunk reads from storage
       // rather than triggering terrain generation (avoids slow noise pipeline).
       const minimalBlocks = new Uint8Array(EXPECTED_BLOCKS_LENGTH)
-      const StorageTestLayer = Layer.succeed(StorageServicePort, storage as unknown as StorageServicePort)
+      const StorageTestLayer = Layer.succeed(StorageServicePort, storage)
 
       Effect.runSync(
-        Effect.forEach(Arr.makeBy(count, i => i), (i) => storage.saveChunk(DEFAULT_WORLD_ID, { x: i, z: 0 }, minimalBlocks), { concurrency: 1 })
+        Effect.forEach(Arr.makeBy(count, i => i), (i) => storage.saveChunk(DEFAULT_WORLD_ID, { x: i, z: 0 }, { blocks: minimalBlocks, fluid: undefined }), { concurrency: 1 })
       )
 
       const NoiseLayer = NoiseServicePort.Default
@@ -131,7 +125,7 @@ describe('application/chunk/chunk-manager-service (eviction)', () => {
         // Overwrite chunk (0,0) storage entry with a sentinel value so we can
         // detect if the eviction path re-saves it with different data.
         const sentinelBlocks = new Uint8Array(EXPECTED_BLOCKS_LENGTH).fill(99)
-        yield* storage.saveChunk(DEFAULT_WORLD_ID, { x: 0, z: 0 }, sentinelBlocks)
+        yield* storage.saveChunk(DEFAULT_WORLD_ID, { x: 0, z: 0 }, { blocks: sentinelBlocks, fluid: undefined })
 
         const service = yield* ChunkManagerService
 
@@ -191,14 +185,14 @@ describe('application/chunk/chunk-manager-service (eviction)', () => {
       const failingStorage = StorageServicePort.of({
         _tag: '@minecraft/application/storage/StorageServicePort' as const,
         saveChunk: (_worldId, _coord, _data) =>
-          Effect.void as Effect.Effect<undefined, StorageError>,
+          Effect.void,
         loadChunk: (_worldId, _coord) =>
           Effect.fail(
             new StorageError({ operation: 'loadChunk', cause: 'simulated storage failure' })
-          ) as unknown as Effect.Effect<Option.Option<Uint8Array>, StorageError>,
+          ),
       })
 
-      const FailingStorageLayer = Layer.succeed(StorageServicePort, failingStorage as unknown as StorageServicePort)
+      const FailingStorageLayer = Layer.succeed(StorageServicePort, failingStorage)
       const NoiseLayer = NoiseServicePort.Default
       const BiomeTestLayer = BiomeServiceLive.pipe(Layer.provide(NoiseLayer))
 

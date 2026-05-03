@@ -9,6 +9,10 @@ const BASE = {
   dayLengthSeconds: 400,
   graphicsQuality: 'high' as const,
   adaptivePerformanceMode: false,
+  audioEnabled: false,
+  masterVolume: 0.8,
+  sfxVolume: 1.0,
+  musicVolume: 0.55,
 } as const
 
 const decode = Schema.decodeUnknownSync(SettingsSchema)

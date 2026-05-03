@@ -24,12 +24,10 @@ describe('step 2.85 — entity renderer wiring', () => {
       inventoryRenderer: makeInventoryRenderer({ open: false }),
       settingsOverlay: makeSettingsOverlay({ open: false }),
     })
-    const entitiesStub = [{ entityId: 'entity-1', position: { x: 0, y: 0, z: 0 } }] as unknown as ReadonlyArray<unknown>
-    ;(services.entityManager as unknown as { getEntities: unknown }).getEntities = vi.fn(() =>
-      Effect.succeed(entitiesStub)
-    )
+    const entitiesStub: ReadonlyArray<unknown> = [{ entityId: 'entity-1', position: { x: 0, y: 0, z: 0 } }]
+    Object.assign(services.entityManager, { getEntities: vi.fn(() => Effect.succeed(entitiesStub)) })
     const syncSpy = vi.fn(() => Effect.void)
-    ;(services.entityRenderer as unknown as { syncEntities: unknown }).syncEntities = syncSpy
+    Object.assign(services.entityRenderer, { syncEntities: syncSpy })
 
     yield* runFrame(deps, services)
 
@@ -46,15 +44,13 @@ describe('step 2.85 — entity renderer wiring', () => {
       inventoryRenderer: makeInventoryRenderer({ open: false }),
       settingsOverlay: makeSettingsOverlay({ open: false }),
     })
-    const entitiesStub = [{ entityId: 'entity-1', position: { x: 0, y: 0, z: 0 } }] as unknown as ReadonlyArray<unknown>
-    ;(services.entityManager as unknown as { getEntities: unknown }).getEntities = vi.fn(() =>
-      Effect.succeed(entitiesStub)
-    )
-    ;(services.entityManager as unknown as { getStructureVersion: unknown }).getStructureVersion = vi.fn(() =>
-      Effect.succeed(7)
-    )
+    const entitiesStub: ReadonlyArray<unknown> = [{ entityId: 'entity-1', position: { x: 0, y: 0, z: 0 } }]
+    Object.assign(services.entityManager, {
+      getEntities: vi.fn(() => Effect.succeed(entitiesStub)),
+      getStructureVersion: vi.fn(() => Effect.succeed(7)),
+    })
     const syncSpy = vi.fn(() => Effect.void)
-    ;(services.entityRenderer as unknown as { syncEntities: unknown }).syncEntities = syncSpy
+    Object.assign(services.entityRenderer, { syncEntities: syncSpy })
 
     const { frameHandler, maintenanceHandler } = yield* createFrameHandlers(deps, services)
     const handler = (deltaTime: DeltaTimeSecs) => maintenanceHandler().pipe(Effect.andThen(frameHandler(deltaTime)))
@@ -72,7 +68,7 @@ describe('step 2.85 — entity renderer wiring', () => {
       settingsOverlay: makeSettingsOverlay({ open: false }),
     })
     const updateSpy = vi.fn(() => Effect.void)
-    ;(services.entityRenderer as unknown as { updateEntityTransforms: unknown }).updateEntityTransforms = updateSpy
+    Object.assign(services.entityRenderer, { updateEntityTransforms: updateSpy })
 
     yield* runFrame(deps, services)
 
@@ -90,7 +86,7 @@ describe('step 2.85 — entity renderer wiring', () => {
       settingsOverlay: makeSettingsOverlay({ open: false }),
     })
     const updateSpy = vi.fn(() => Effect.void)
-    ;(services.entityRenderer as unknown as { updateEntityTransforms: unknown }).updateEntityTransforms = updateSpy
+    Object.assign(services.entityRenderer, { updateEntityTransforms: updateSpy })
 
     const { frameHandler, maintenanceHandler } = yield* createFrameHandlers(deps, services)
     const handler = (deltaTime: DeltaTimeSecs) => maintenanceHandler().pipe(Effect.andThen(frameHandler(deltaTime)))
@@ -113,11 +109,13 @@ describe('step 2.85 — entity renderer wiring', () => {
     // deltaTime = 0.12 → Math.floor(0.12 / 0.05) = 2 → ticksToRun > 1 branch
     // Effect.repeatN repeats the Effect value, so use Effect.sync to count executions
     const redstoneCountRef = MutableRef.make(0)
-    ;(services.redstoneService as unknown as { tick: unknown }).tick = () =>
-      Effect.sync(() => { MutableRef.update(redstoneCountRef, n => n + 1); return { tick: 0, poweredPositions: [] } })
     const fluidCountRef = MutableRef.make(0)
-    ;(services.fluidService as unknown as { tick: unknown }).tick = () =>
-      Effect.sync(() => { MutableRef.update(fluidCountRef, n => n + 1) })
+    Object.assign(services.redstoneService, {
+      tick: () => Effect.sync(() => { MutableRef.update(redstoneCountRef, n => n + 1); return { tick: 0, poweredPositions: [] } }),
+    })
+    Object.assign(services.fluidService, {
+      tick: () => Effect.sync(() => { MutableRef.update(fluidCountRef, n => n + 1) }),
+    })
 
     const { frameHandler, maintenanceHandler } = yield* createFrameHandlers(deps, services)
     const handler = (deltaTime: DeltaTimeSecs) => maintenanceHandler().pipe(Effect.andThen(frameHandler(deltaTime)))

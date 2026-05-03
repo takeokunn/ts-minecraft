@@ -1,7 +1,20 @@
 import { describe, expect } from 'vitest'
 import { it } from '@effect/vitest'
 import { Effect } from 'effect'
+import * as THREE from 'three'
 import { RendererService, RendererServiceLive } from '@ts-minecraft/rendering'
+
+const makeCanvas = (): HTMLCanvasElement =>
+  ({
+    width: 0,
+    height: 0,
+    getContext: () => null,
+    addEventListener: () => {},
+    removeEventListener: () => {},
+  }) as unknown as HTMLCanvasElement
+
+const makeRenderer = (): THREE.WebGLRenderer =>
+  Object.create(THREE.WebGLRenderer.prototype) as THREE.WebGLRenderer
 
 describe('three/renderer/renderer-service', () => {
   describe('RendererServiceLive', () => {
@@ -27,7 +40,7 @@ describe('three/renderer/renderer-service', () => {
         const service = yield* RendererService
 
         // Verify create returns an Effect
-        const createEffect = service.create(null as any)
+        const createEffect = service.create(makeCanvas())
         expect(typeof createEffect.pipe).toBe('function')
         expect(typeof createEffect).toBe('object')
       }).pipe(Effect.provide(RendererServiceLive))
@@ -38,7 +51,7 @@ describe('three/renderer/renderer-service', () => {
         const service = yield* RendererService
 
         // Verify render returns an Effect
-        const renderEffect = service.render(null as any, null as any, null as any)
+        const renderEffect = service.render(makeRenderer(), new THREE.Scene(), new THREE.PerspectiveCamera())
         expect(typeof renderEffect.pipe).toBe('function')
         expect(typeof renderEffect).toBe('object')
       }).pipe(Effect.provide(RendererServiceLive))
@@ -49,7 +62,7 @@ describe('three/renderer/renderer-service', () => {
         const service = yield* RendererService
 
         // Verify resize returns an Effect
-        const resizeEffect = service.resize(null as any, 100, 100)
+        const resizeEffect = service.resize(makeRenderer(), 100, 100)
         expect(typeof resizeEffect.pipe).toBe('function')
         expect(typeof resizeEffect).toBe('object')
       }).pipe(Effect.provide(RendererServiceLive))
@@ -60,9 +73,9 @@ describe('three/renderer/renderer-service', () => {
         const service = yield* RendererService
 
         // Compose multiple Effect operations
-        const createEffect = service.create(null as any)
-        const resizeEffect = service.resize(null as any, 1024, 768)
-        const renderEffect = service.render(null as any, null as any, null as any)
+        const createEffect = service.create(makeCanvas())
+        const resizeEffect = service.resize(makeRenderer(), 1024, 768)
+        const renderEffect = service.render(makeRenderer(), new THREE.Scene(), new THREE.PerspectiveCamera())
 
         // Verify all have pipe method (indicating they're Effects)
         expect(typeof createEffect.pipe).toBe('function')
@@ -75,7 +88,7 @@ describe('three/renderer/renderer-service', () => {
       Effect.gen(function* () {
         const service = yield* RendererService
 
-        const result = service.resize(null as any, 100, 100).pipe(
+        const result = service.resize(makeRenderer(), 100, 100).pipe(
           Effect.map(() => 'resized')
         )
 
@@ -87,7 +100,7 @@ describe('three/renderer/renderer-service', () => {
       Effect.gen(function* () {
         const service = yield* RendererService
 
-        const result = service.create(null as any).pipe(
+        const result = service.create(makeCanvas()).pipe(
           Effect.flatMap((renderer) => service.resize(renderer, 1024, 768))
         )
 

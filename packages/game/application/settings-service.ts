@@ -25,21 +25,19 @@ export type ResolvedGraphics = Schema.Schema.Type<typeof ResolvedGraphicsSchema>
 export const resolvePreset = (quality: GraphicsQuality): ResolvedGraphics =>
   GRAPHICS_PRESETS[quality]
 
-// Old localStorage data with individual post-processing booleans (shadowsEnabled, ssaoEnabled etc.) is silently migrated —
-// the booleans are ignored and graphicsQuality defaults to 'low'.
 export const SettingsSchema = Schema.Struct({
   renderDistance: Schema.Number.pipe(Schema.finite(), Schema.between(2, 16)),
   mouseSensitivity: Schema.Number.pipe(Schema.finite(), Schema.between(0.1, 3.0)),
   dayLengthSeconds: Schema.Number.pipe(Schema.finite(), Schema.between(120, 1200)),
-  graphicsQuality: Schema.optionalWith(GraphicsQuality, { default: () => 'low' as const }),
-  adaptivePerformanceMode: Schema.optionalWith(Schema.Boolean, { default: () => true }),
+  graphicsQuality: GraphicsQuality,
+  adaptivePerformanceMode: Schema.Boolean,
   // NOTE: audioEnabled defaults to false intentionally — do NOT change this to true.
   // Audio is disabled by default because it causes noise during development and testing.
   // Users can enable it via the settings UI.
-  audioEnabled: Schema.optionalWith(Schema.Boolean, { default: () => false }),
-  masterVolume: Schema.optionalWith(Schema.Number.pipe(Schema.finite(), Schema.between(0, 1)), { default: () => 0.8 }),
-  sfxVolume: Schema.optionalWith(Schema.Number.pipe(Schema.finite(), Schema.between(0, 1)), { default: () => 1.0 }),
-  musicVolume: Schema.optionalWith(Schema.Number.pipe(Schema.finite(), Schema.between(0, 1)), { default: () => 0.55 }),
+  audioEnabled: Schema.Boolean,
+  masterVolume: Schema.Number.pipe(Schema.finite(), Schema.between(0, 1)),
+  sfxVolume: Schema.Number.pipe(Schema.finite(), Schema.between(0, 1)),
+  musicVolume: Schema.Number.pipe(Schema.finite(), Schema.between(0, 1)),
 })
 export type Settings = Schema.Schema.Type<typeof SettingsSchema>
 
@@ -54,36 +52,6 @@ const DEFAULT_SETTINGS: Settings = {
   masterVolume: 0.8,
   sfxVolume: 1.0,
   musicVolume: 0.55,
-}
-
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === 'object' && value !== null
-
-const clampNumber = (value: unknown, fallback: number, min: number, max: number): number => {
-  if (typeof value !== 'number' || !Number.isFinite(value)) return fallback
-  return Math.min(max, Math.max(min, value))
-}
-
-const clampInteger = (value: unknown, fallback: number, min: number, max: number): number =>
-  Math.round(clampNumber(value, fallback, min, max))
-
-const isGraphicsQuality = (value: unknown): value is GraphicsQuality =>
-  value === 'low' || value === 'medium' || value === 'high' || value === 'ultra'
-
-const sanitizeLegacySettings = (parsed: unknown): Settings => {
-  const record = isRecord(parsed) ? parsed : {}
-
-  return {
-    renderDistance: clampInteger(record['renderDistance'], DEFAULT_SETTINGS.renderDistance, 2, 16),
-    mouseSensitivity: clampNumber(record['mouseSensitivity'], DEFAULT_SETTINGS.mouseSensitivity, 0.1, 3),
-    dayLengthSeconds: clampInteger(record['dayLengthSeconds'], DEFAULT_SETTINGS.dayLengthSeconds, 120, 1200),
-    graphicsQuality: isGraphicsQuality(record['graphicsQuality']) ? record['graphicsQuality'] : DEFAULT_SETTINGS.graphicsQuality,
-    adaptivePerformanceMode: typeof record['adaptivePerformanceMode'] === 'boolean' ? record['adaptivePerformanceMode'] : DEFAULT_SETTINGS.adaptivePerformanceMode,
-    audioEnabled: typeof record['audioEnabled'] === 'boolean' ? record['audioEnabled'] : DEFAULT_SETTINGS.audioEnabled,
-    masterVolume: clampNumber(record['masterVolume'], DEFAULT_SETTINGS.masterVolume, 0, 1),
-    sfxVolume: clampNumber(record['sfxVolume'], DEFAULT_SETTINGS.sfxVolume, 0, 1),
-    musicVolume: clampNumber(record['musicVolume'], DEFAULT_SETTINGS.musicVolume, 0, 1),
-  }
 }
 
 const STORAGE_KEY = 'minecraft-settings'
@@ -107,11 +75,6 @@ const loadFromStorage = (forceAudioOff: (settings: Settings) => Settings): Effec
             Effect.flatMap((parsed) => Schema.decodeUnknown(SettingsSchema)(parsed).pipe(
               Effect.mapError((e) => new SettingsError({ operation: 'load', cause: e })),
               Effect.map(forceAudioOff),
-              Effect.catchAll(() =>
-                Effect.sync(() => forceAudioOff(sanitizeLegacySettings(parsed))).pipe(
-                  Effect.flatMap((settings) => saveToStorage(settings).pipe(Effect.as(settings)))
-                )
-              )
             ))
           ),
       })

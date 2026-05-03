@@ -25,7 +25,7 @@ describe('browser-runtime', () => {
       clientHeight: 600,
       addEventListener: vi.fn((type: string, handler: EventListener) => { canvasListeners.set(type, handler) }),
       removeEventListener: vi.fn((type: string) => { canvasListeners.delete(type) }),
-    } as unknown as HTMLCanvasElement
+    } as HTMLCanvasElement
 
     Reflect.set(globalThis as object, 'window', {
       addEventListener: vi.fn((type: string, handler: EventListener) => { windowListeners.set(type, handler) }),

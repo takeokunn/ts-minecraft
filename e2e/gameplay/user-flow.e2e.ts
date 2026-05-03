@@ -3,7 +3,7 @@ import { GamePage } from '../fixtures/game-page'
 import { attachFatalErrorMonitor } from '../helpers/console-monitor'
 import { waitForStableRender } from '../helpers/wait-helpers'
 
-async function focusCanvas(page: import('@playwright/test').Page): Promise<void> {
+async function focusCanvas(page: Page): Promise<void> {
   await page.mouse.click(320, 240)
 }
 
@@ -56,7 +56,7 @@ test.describe('User flow', () => {
 
     expect(fpsSamples.length).toBe(4)
     expect(fpsSamples.every((fps) => fps >= 10)).toBe(true)
-    expect(avg).toBeGreaterThanOrEqual(15)
-    expect(getFatalErrors()).toHaveLength(0)
+    expect(avg >= 15).toBe(true)
+    expect(getFatalErrors().length).toBe(0)
   })
 })

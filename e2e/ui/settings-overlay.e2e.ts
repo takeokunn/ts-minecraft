@@ -1,5 +1,4 @@
 import { test, expect } from '@playwright/test'
-import type { Page } from '@playwright/test'
 import { GamePage } from '../fixtures/game-page'
 
 test.describe('Settings overlay', () => {
@@ -98,7 +97,7 @@ test.describe('Settings overlay', () => {
     await page.click('[data-role="settings"]')
     await waitForOverlayState(page, true)
 
-    await expect(page.locator('#settings-apply')).toHaveCount(0)
+    expect(await page.locator('#settings-apply').count()).toBe(0)
   })
 
   test('#rd-input slider is interactable', async ({ page }) => {
@@ -114,7 +113,7 @@ test.describe('Settings overlay', () => {
       return el ? el.value : null
     })
     expect(sliderValue).not.toBeNull()
-    expect(Number(sliderValue)).toBeGreaterThan(0)
+    expect(Number(sliderValue) > 0).toBe(true)
   })
 
   test('render distance change persists to localStorage immediately', async ({ page }) => {
@@ -134,7 +133,7 @@ test.describe('Settings overlay', () => {
     const targetValue = originalValue === 10 ? 6 : 10
 
     // Set the slider value via JS and fire an 'input' event so the overlay handler picks it up
-    await page.evaluate((val) => {
+    await page.evaluate((val: number) => {
       const el = document.getElementById('rd-input') as HTMLInputElement | null
       if (!el) return
       el.value = String(val)
@@ -143,7 +142,7 @@ test.describe('Settings overlay', () => {
     await waitForStoredSetting(page, 'minecraft-settings', `settings.renderDistance === ${targetValue}`)
 
     // Verify localStorage was updated with the new render distance
-    const storedRenderDistance = await page.evaluate((key) => {
+    const storedRenderDistance = await page.evaluate((key: string) => {
       const raw = localStorage.getItem(key)
       if (!raw) return null
       try {
@@ -165,7 +164,7 @@ test.describe('Settings overlay', () => {
     await page.locator('#quality-select').selectOption('low')
     await waitForStoredSetting(page, 'minecraft-settings', "settings.graphicsQuality === 'low'")
 
-    const storedGraphicsQuality = await page.evaluate((key) => {
+    const storedGraphicsQuality = await page.evaluate((key: string) => {
       const raw = localStorage.getItem(key)
       if (!raw) return null
       try {
@@ -187,7 +186,7 @@ test.describe('Settings overlay', () => {
 
     const targetValue = 5
 
-    await page.evaluate((val) => {
+    await page.evaluate((val: number) => {
       const el = document.getElementById('rd-input') as HTMLInputElement | null
       if (!el) return
       el.value = String(val)

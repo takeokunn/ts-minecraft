@@ -36,16 +36,6 @@ const makeDofPassMock = () => ({
   setSize: vi.fn() as (w: number, h: number) => void,
 })
 
-const makeSmaaPassMock = () => ({
-  enabled: false as boolean,
-  setSize: vi.fn() as (w: number, h: number) => void,
-})
-
-const makeGodRaysPassMock = () => ({
-  setNumSamples: vi.fn() as (n: number) => void,
-  setSize: vi.fn() as (w: number, h: number) => void,
-})
-
 describe('FR-014 — postProcessingSetupStage pass enable/setSize sync (direct)', () => {
   it.effect('skips the inner block when graphicsChanged and pixelRatioChanged are both false', () => Effect.gen(function* () {
     const gtao = makeGtaoPassMock()
@@ -96,9 +86,9 @@ describe('FR-014 — postProcessingSetupStage pass enable/setSize sync (direct)'
 
   it.effect('calls markShadowMapDirty when shadow state changes', () => Effect.gen(function* () {
     const dirtyCalledRef = MutableRef.make(false)
-    const lights = makeLightsStub(false)
+    const lights = { light: { castShadow: false } }
     yield* postProcessingSetupStage(
-      { renderer: makeRendererStub(), lights },
+      { renderer: makeRendererStub(), lights: lights as never },
       { gtaoPassOrNull: null, bloomPassOrNull: null, dofPassOrNull: null, smaaPassOrNull: null, godRaysPassOrNull: null },
       {
         resolvedGraphics: resolvePreset('high'),   // high has shadowsEnabled: true
@@ -108,7 +98,7 @@ describe('FR-014 — postProcessingSetupStage pass enable/setSize sync (direct)'
       },
     )
     expect(MutableRef.get(dirtyCalledRef)).toBe(true)
-    expect((lights as unknown as { light: { castShadow: boolean } }).light.castShadow).toBe(true)
+    expect(lights.light.castShadow).toBe(true)
   }))
 
   it.effect('does NOT call markShadowMapDirty when shadow state is unchanged', () => Effect.gen(function* () {

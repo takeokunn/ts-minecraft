@@ -1,13 +1,9 @@
-import { describe, it } from '@effect/vitest'
-import { expect } from 'vitest'
-import { Array as Arr } from 'effect'
-import { blockTypeToIndex, CHUNK_HEIGHT, CHUNK_SIZE } from '@ts-minecraft/kernel'
-import { SEA_LEVEL } from '@ts-minecraft/kernel'
+import { describe,it } from '@effect/vitest'
+import { blockTypeToIndex,SEA_LEVEL } from '@ts-minecraft/kernel'
 import {
-  BEDROCK_LAYER_TOP,
-  resolveSurfaceProfile,
-  fillColumn,
+resolveSurfaceProfile
 } from '@ts-minecraft/terrain'
+import { expect } from 'vitest'
 
 // ---------------------------------------------------------------------------
 // Shared block indices
@@ -18,8 +14,6 @@ const STONE   = blockTypeToIndex('STONE')
 const GRAVEL  = blockTypeToIndex('GRAVEL')
 const GRASS   = blockTypeToIndex('GRASS')
 const DIRT    = blockTypeToIndex('DIRT')
-const BEDROCK = blockTypeToIndex('BEDROCK')
-const DEEPSLATE = blockTypeToIndex('DEEPSLATE')
 
 const BASE_PARAMS = {
   defaultSurfaceBlockIndex: GRASS,

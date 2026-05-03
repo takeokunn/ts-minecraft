@@ -1,8 +1,7 @@
-import { describe, expect, vi, beforeEach, afterEach } from 'vitest'
 import { it } from '@effect/vitest'
-import { Array as Arr, Effect, Fiber, MutableRef, Option, Ref } from 'effect'
-import { GameLoopService, GameLoopServiceLive } from '@ts-minecraft/game'
-import { GameLoopError } from '../domain/errors'
+import { GameLoopService,GameLoopServiceLive } from '@ts-minecraft/game'
+import { Array as Arr,Effect,Fiber,MutableRef,Option,Ref } from 'effect'
+import { afterEach,beforeEach,describe,expect,vi } from 'vitest'
 
 // ---------------------------------------------------------------------------
 // requestAnimationFrame / setInterval mocks

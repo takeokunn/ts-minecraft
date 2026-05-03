@@ -2,25 +2,19 @@ import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
 import { Arbitrary, Array as Arr, Effect, Layer, Option, Schema } from 'effect'
 import type { BlockType } from '@ts-minecraft/kernel'
-import type { Block } from '@ts-minecraft/world-state'
-// Block is used only in the registry stub below
 import { BlockRegistry } from '@ts-minecraft/world-state'
 import { createStack, MAX_STACK_SIZE } from '../domain/item-stack'
 import type { SlotIndex } from '@ts-minecraft/kernel'
 import { InventoryService, InventoryServiceLive, INVENTORY_SIZE } from '@ts-minecraft/inventory'
+import { createTestBlockRegistry } from './inventory-service-test-utils'
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
-const asSlotIndex = (n: number): SlotIndex => n as unknown as SlotIndex
+const asSlotIndex = (n: number): SlotIndex => n as SlotIndex
 
-const emptyRegistryLayer = Layer.succeed(BlockRegistry, {
-  register: (_block: Block) => Effect.void,
-  get: (_blockType: BlockType) => Effect.succeed(Option.none<Block>()),
-  getAll: () => Effect.succeed([] as Block[]),
-  dispose: () => Effect.void,
-} as unknown as BlockRegistry)
+const emptyRegistryLayer = Layer.succeed(BlockRegistry, createTestBlockRegistry())
 
 const TestLayer = InventoryServiceLive.pipe(Layer.provide(emptyRegistryLayer))
 

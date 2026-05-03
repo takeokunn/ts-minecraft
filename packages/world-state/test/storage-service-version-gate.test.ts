@@ -26,6 +26,9 @@ type DeleteRequestLike = {
   readyState: 'pending' | 'done'
   source: IDBObjectStore | IDBIndex | null
   transaction: IDBTransaction | null
+  addEventListener: IDBRequest['addEventListener']
+  removeEventListener: IDBRequest['removeEventListener']
+  dispatchEvent: IDBRequest['dispatchEvent']
 }
 
 type OpenRequestLike = DeleteRequestLike & {
@@ -73,6 +76,9 @@ describe('infrastructure/storage/storage-service — version gate', () => {
         readyState: 'pending',
         source: null,
         transaction: null,
+        addEventListener: () => {},
+        removeEventListener: () => {},
+        dispatchEvent: () => true,
       }
       // Fire asynchronously (like real IDB) so handlers are attached first.
       queueMicrotask(() => {
@@ -94,7 +100,7 @@ describe('infrastructure/storage/storage-service — version gate', () => {
         objectStoreNames: { contains: (_: string) => true },
         close: () => {},
         createObjectStore: (_: string) => {},
-      } as unknown as OpenRequestLike['result']
+      } satisfies OpenRequestLike['result']
       const req: OpenRequestLike = {
         onsuccess: null,
         onerror: null,
@@ -105,6 +111,9 @@ describe('infrastructure/storage/storage-service — version gate', () => {
         readyState: 'pending',
         source: null,
         transaction: null,
+        addEventListener: () => {},
+        removeEventListener: () => {},
+        dispatchEvent: () => true,
       }
       queueMicrotask(() => {
         req.readyState = 'done'

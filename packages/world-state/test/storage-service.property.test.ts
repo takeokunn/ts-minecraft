@@ -15,6 +15,7 @@ import { Effect, MutableHashMap, Option } from 'effect'
 import * as fc from 'effect/FastCheck'
 import { WorldId } from '@ts-minecraft/kernel'
 import type { ChunkCoord } from '@ts-minecraft/kernel'
+import type { ChunkStorageValue } from '@ts-minecraft/world-state'
 
 // ---------------------------------------------------------------------------
 // Replicate the chunk key formula (mirrors storage-service.ts chunkKey)
@@ -26,14 +27,14 @@ const chunkKey = (worldId: string, coord: ChunkCoord): string =>
 // In-memory storage mock (mirrors makeInMemoryStorageService in test file)
 // ---------------------------------------------------------------------------
 const makeInMemoryStorage = () => {
-  const store = MutableHashMap.empty<string, Uint8Array>()
+  const store = MutableHashMap.empty<string, ChunkStorageValue>()
   const worldId = 'test-world' as WorldId
 
   const save = (coord: ChunkCoord, data: Uint8Array): void => {
-    MutableHashMap.set(store, chunkKey(worldId, coord), data)
+    MutableHashMap.set(store, chunkKey(worldId, coord), { blocks: data, fluid: undefined })
   }
 
-  const load = (coord: ChunkCoord): Option.Option<Uint8Array> =>
+  const load = (coord: ChunkCoord): Option.Option<ChunkStorageValue> =>
     MutableHashMap.get(store, chunkKey(worldId, coord))
 
   return { save, load }
@@ -87,7 +88,7 @@ describe('storage-service / chunk key uniqueness (property-based)', () => {
                 Option.all([loaded1, loaded2] as const),
                 {
                   onNone: () => false,
-                  onSome: ([d1, d2]) => d1[0] === 1 && d2[0] === 7,
+                  onSome: ([d1, d2]) => d1.blocks[0] === 1 && d2.blocks[0] === 7,
                 },
               )
             }
@@ -152,7 +153,7 @@ describe('storage-service / chunk key uniqueness (property-based)', () => {
               const result = storage.load({ x, z })
               return Option.match(result, {
                 onNone: () => false,
-                onSome: (data) => data[0] === 42 && data[1] === 43 && data[2] === 44,
+                onSome: (data) => data.blocks[0] === 42 && data.blocks[1] === 43 && data.blocks[2] === 44,
               })
             }
           )

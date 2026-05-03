@@ -6,6 +6,17 @@
     "rootDir": "."
   },
   "references": [],
-  "include": ["domain/**/*", "index.ts"],
-  "exclude": ["node_modules", "dist"]
+  "include": [
+    "domain/**/*",
+    "index.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "test",
+    "**/*.test.ts",
+    "**/*.spec.ts",
+    "**/*.property.test.ts",
+    "**/*test-utils.ts"
+  ]
 }

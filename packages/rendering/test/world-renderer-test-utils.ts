@@ -2,6 +2,10 @@ import { vi } from 'vitest'
 import { Array as Arr, Effect, Layer, Option } from 'effect'
 import * as THREE from 'three'
 
+const testDouble = <T>(value: object): T => value as T
+const makeAtlasTexture = (): THREE.Texture =>
+  new THREE.CanvasTexture({ width: 1, height: 1 } as unknown as HTMLCanvasElement)
+
 // ---------------------------------------------------------------------------
 // DOM mocks — vitest runs in 'node' (no real DOM)
 // chunk-mesh.ts needs document.createElement (canvas) and Image for atlas build.
@@ -58,36 +62,38 @@ export const makeChunk = (x: number, z: number): Chunk => ({
   fluid: Option.none(),
 })
 
-export const makeMockMesh = (coord: { x: number; z: number }) => ({
-  geometry: { dispose: vi.fn(), getAttribute: vi.fn(() => undefined) },
-  material: {},
-  visible: true,
-  userData: { chunkCoord: coord },
-  position: { set: vi.fn() },
-})
+export const makeMockMesh = (coord: { x: number; z: number }): THREE.Mesh => {
+  const mesh = new THREE.Mesh(new THREE.BufferGeometry(), new THREE.MeshLambertMaterial())
+  mesh.visible = true
+  mesh.userData['chunkCoord'] = coord
+  return mesh
+}
 
 // Build a test-specific Layer that bypasses WorldRendererServiceLive's bundled dependencies.
 // We use Layer.effect to construct WorldRendererService with injected mocks.
 export const buildTestLayer = (
   createChunkMesh: ReturnType<typeof vi.fn> = vi.fn((chunk: Chunk) =>
-    Effect.succeed({ opaqueMesh: makeMockMesh(chunk.coord) as unknown as THREE.Mesh, waterMesh: Option.none<THREE.Mesh>() })
+    Effect.succeed({ opaqueMesh: makeMockMesh(chunk.coord), waterMesh: Option.none<THREE.Mesh>() })
   ),
   updateChunkMesh: ReturnType<typeof vi.fn> = vi.fn((_m: THREE.Mesh, w: Option.Option<THREE.Mesh>) => Effect.succeed(w)),
   sceneAdd: ReturnType<typeof vi.fn> = vi.fn((_s: unknown, _m: unknown) => Effect.void),
   sceneRemove: ReturnType<typeof vi.fn> = vi.fn((_s: unknown, _m: unknown) => Effect.void)
 ) => {
-  const chunkMeshLayer = Layer.succeed(ChunkMeshService, {
-    atlasTexture: {} as THREE.Texture,
+  const chunkMeshLayer = Layer.succeed(ChunkMeshService, ChunkMeshService.of({
+    _tag: '@minecraft/infrastructure/three/ChunkMeshService' as const,
+    atlasTexture: makeAtlasTexture(),
     createChunkMesh,
     updateChunkMesh,
     disposeMesh: vi.fn((_m: THREE.Mesh) => Effect.void),
-  } as unknown as ChunkMeshService)
+    setSunIntensity: (_value: number) => Effect.void,
+  }))
 
-  const sceneLayer = Layer.succeed(SceneService, {
-    create: () => Effect.succeed({} as THREE.Scene),
+  const sceneLayer = Layer.succeed(SceneService, SceneService.of({
+    _tag: '@minecraft/infrastructure/three/SceneService' as const,
+    create: () => Effect.succeed(new THREE.Scene()),
     add: sceneAdd,
     remove: sceneRemove,
-  } as unknown as SceneService)
+  }))
 
   return Layer.provide(WorldRendererServiceLive, Layer.mergeAll(chunkMeshLayer, sceneLayer))
 }
@@ -95,11 +101,11 @@ export const buildTestLayer = (
 export const makeScene = (): THREE.Scene => new THREE.Scene()
 
 export const makeRenderer = (): THREE.WebGLRenderer =>
-  ({
+  testDouble<THREE.WebGLRenderer>({
     setRenderTarget: vi.fn(),
     render: vi.fn(),
     shadowMap: { autoUpdate: true, needsUpdate: false },
-  } as unknown as THREE.WebGLRenderer)
+  })
 
 // Drain helper: call syncChunksToScene repeatedly until it returns true
 // (i.e. all new chunks have been meshed). The time-budget throttle in

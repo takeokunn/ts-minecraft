@@ -1,51 +1,23 @@
 import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
-import { Array as Arr, Effect, Layer, MutableRef, Option } from 'effect'
+import { Array as Arr, Effect, Layer } from 'effect'
 import * as fc from 'effect/FastCheck'
-import type { BlockType } from '@ts-minecraft/kernel'
-import type { Block } from '@ts-minecraft/world-state'
 import { BlockRegistry } from '@ts-minecraft/world-state'
 import { PlayerInputService } from '@ts-minecraft/player'
 import { InventoryServiceLive } from '@ts-minecraft/inventory'
 import { HotbarService, HotbarServiceLive, HOTBAR_SIZE } from '@ts-minecraft/inventory'
 import type { SlotIndex } from '@ts-minecraft/kernel'
+import { createTestBlockRegistry, createTestInputService } from './hotbar-service-test-utils'
 
 // ---------------------------------------------------------------------------
 // Shared test infrastructure (mirrors hotbar-service.test.ts)
 // ---------------------------------------------------------------------------
 
-const asSlotIndex = (n: number): SlotIndex => n as unknown as SlotIndex
-
-const createTestInputService = (wheelDelta: number = 0) => {
-  const pendingWheelDeltaRef = MutableRef.make(wheelDelta)
-
-  return {
-    isKeyPressed: (_key: string) => Effect.sync(() => false),
-    consumeKeyPress: (_key: string) => Effect.sync(() => false),
-    getMouseDelta: () => Effect.sync(() => ({ x: 0, y: 0 })),
-    isMouseDown: (_button: number) => Effect.sync(() => false),
-    requestPointerLock: () => Effect.sync(() => {}),
-    exitPointerLock: () => Effect.sync(() => {}),
-    isPointerLocked: () => Effect.sync(() => false),
-    consumeMouseClick: (_button: number) => Effect.sync(() => false),
-    consumeWheelDelta: () =>
-      Effect.sync(() => {
-        const delta = MutableRef.get(pendingWheelDeltaRef)
-        MutableRef.set(pendingWheelDeltaRef, 0)
-        return delta
-      }),
-    setWheelDelta: (d: number) => { MutableRef.set(pendingWheelDeltaRef, d) },
-  }
-}
+const asSlotIndex = (n: number): SlotIndex => n as SlotIndex
 
 const createTestLayer = (inputService: ReturnType<typeof createTestInputService>) => {
-  const inputLayer = Layer.succeed(PlayerInputService, inputService as unknown as PlayerInputService)
-  const blockRegistryLayer = Layer.succeed(BlockRegistry, {
-    register: (_block: Block) => Effect.void,
-    get: (_blockType: BlockType) => Effect.succeed(Option.none<Block>()),
-    getAll: () => Effect.succeed([] as Block[]),
-    dispose: () => Effect.void,
-  } as unknown as BlockRegistry)
+  const inputLayer = Layer.succeed(PlayerInputService, inputService)
+  const blockRegistryLayer = Layer.succeed(BlockRegistry, createTestBlockRegistry())
   const inventoryLayer = InventoryServiceLive.pipe(Layer.provide(blockRegistryLayer))
 
   return HotbarServiceLive.pipe(

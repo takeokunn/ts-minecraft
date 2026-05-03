@@ -44,7 +44,8 @@ export type ChunkBlocks = Readonly<{
 // are `Effect.sync` over the seeded primitives — no mutable state, no setSeed
 // (the seed is fixed by the layer constructor).
 // ---------------------------------------------------------------------------
-const buildPureNoisePort = (primitives: NoisePrimitives) => ({
+const buildPureNoisePort = (primitives: NoisePrimitives, seed: number): NoiseServicePort => NoiseServicePort.of({
+  _tag: '@minecraft/application/noise/NoiseServicePort' as const,
   noise2D: (x: number, z: number): Effect.Effect<number, never> =>
     Effect.sync(() => primitives.noise2D(x, z)),
   octaveNoise2D: (
@@ -59,6 +60,7 @@ const buildPureNoisePort = (primitives: NoisePrimitives) => ({
   // Returning Effect.void preserves the port shape; any call inside generator
   // would be a logic bug (we never re-seed mid-chunk).
   setSeed: (_seed: number): Effect.Effect<void, never> => Effect.void,
+  getSeed: Effect.succeed(seed),
   noise3D: (x: number, y: number, z: number): Effect.Effect<number, never> =>
     Effect.sync(() => primitives.noise3D(x, y, z)),
   noise3DBatchXYZ: (
@@ -119,10 +121,7 @@ const buildPureNoisePort = (primitives: NoisePrimitives) => ({
 const makePureNoisePortLayer = (seed: number): Layer.Layer<NoiseServicePort> =>
   Layer.succeed(
     NoiseServicePort,
-    // Same `as unknown as NoiseServicePort` cast as `layers.ts NoisePortLayer`
-    // — the plain-object impl matches the structural shape but cannot carry
-    // the `_tag` discriminant Effect.Service tags onto its instances.
-    buildPureNoisePort(createNoisePrimitives(seed)) as unknown as NoiseServicePort,
+    buildPureNoisePort(createNoisePrimitives(seed), seed),
   )
 
 // ChunkService.Default and BiomeService.Default are already pure (BiomeService

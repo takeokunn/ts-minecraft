@@ -1,6 +1,6 @@
 import { describe, expect } from 'vitest'
 import { it } from '@effect/vitest'
-import { Array as Arr, Effect, Layer } from 'effect'
+import { Array as Arr, Effect, Layer, Option } from 'effect'
 import * as THREE from 'three'
 
 import { ChunkMeshService } from '@ts-minecraft/rendering'
@@ -17,10 +17,15 @@ import {
 // read `atlasTexture` from the upstream service.
 const ChunkMeshServiceTest = Layer.succeed(
   ChunkMeshService,
-  {
+  ChunkMeshService.of({
+    _tag: '@minecraft/infrastructure/three/ChunkMeshService' as const,
     atlasTexture: new THREE.Texture(),
     setSunIntensity: (_value: number) => Effect.void,
-  } as unknown as ChunkMeshService,
+    createChunkMesh: () =>
+      Effect.succeed({ opaqueMesh: new THREE.Mesh(), waterMesh: Option.none<THREE.Mesh>() }),
+    updateChunkMesh: (_opaqueMesh: THREE.Mesh, waterMesh: Option.Option<THREE.Mesh>) => Effect.succeed(waterMesh),
+    disposeMesh: () => Effect.void,
+  }),
 )
 
 const TestLayer = ParticleSystemServiceLive.pipe(Layer.provide(ChunkMeshServiceTest))
@@ -223,7 +228,7 @@ describe('ParticleSystemService', () => {
               const shader = {
                 vertexShader: '#include <uv_pars_vertex>\n#include <uv_vertex>\nrest',
                 fragmentShader: '',
-              } as unknown as Parameters<typeof material.onBeforeCompile>[0]
+              } as Parameters<typeof material.onBeforeCompile>[0]
               // Must not throw and must inject attribute + UV offset
               material.onBeforeCompile(shader, null as never)
               expect(shader.vertexShader).toContain('attribute vec2 uvOffset;')
@@ -244,9 +249,9 @@ describe('ParticleSystemService', () => {
               yield* service.attach(scene)
               const material = getMaterialFromScene(scene)
               const shader = {
-                vertexShader: '#include <uv_vertex>\nno_pars_vertex_here',
+                vertexShader: '#include <uv_vertex>\nrest',
                 fragmentShader: '',
-              } as unknown as Parameters<typeof material.onBeforeCompile>[0]
+              } as Parameters<typeof material.onBeforeCompile>[0]
               expect(() => material.onBeforeCompile(shader, null as never)).toThrow(
                 'particle-system: Three.js vertex shader tokens for uvOffset injection not found',
               )
@@ -266,9 +271,9 @@ describe('ParticleSystemService', () => {
               yield* service.attach(scene)
               const material = getMaterialFromScene(scene)
               const shader = {
-                vertexShader: '#include <uv_pars_vertex>\nno_uv_vertex_here',
+                vertexShader: '#include <uv_pars_vertex>\nrest',
                 fragmentShader: '',
-              } as unknown as Parameters<typeof material.onBeforeCompile>[0]
+              } as Parameters<typeof material.onBeforeCompile>[0]
               expect(() => material.onBeforeCompile(shader, null as never)).toThrow(
                 'particle-system: Three.js vertex shader tokens for uvOffset injection not found',
               )

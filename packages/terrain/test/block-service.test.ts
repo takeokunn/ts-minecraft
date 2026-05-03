@@ -1,9 +1,9 @@
 import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
-import { Array as Arr, Effect, Either, HashSet, Layer, MutableRef, Option } from 'effect'
-import { BlockService, BlockServiceLive, BlockServiceError, blockOverlapsPlayer, worldToBlockLocal } from '@ts-minecraft/terrain'
+import { Array as Arr, Effect, Either, Layer, Option } from 'effect'
+import { BlockService, BlockServiceLive, blockOverlapsPlayer, worldToBlockLocal } from '@ts-minecraft/terrain'
 import { ChunkManagerService } from '@ts-minecraft/terrain'
-import { ChunkService, ChunkServiceLive } from '../domain/chunk'
+import { ChunkServiceLive } from '../domain/chunk'
 import { FluidService } from '@ts-minecraft/terrain'
 import { PlayerService } from '@ts-minecraft/player'
 import { InventoryService } from '@ts-minecraft/inventory'
@@ -47,7 +47,6 @@ const noopFluidService = Layer.succeed(FluidService, {
 
 const makeChunkManagerLayer = (opts: {
   chunk?: ReturnType<typeof makeChunk>
-  markDirtyFail?: boolean
 } = {}) => {
   const chunk = opts.chunk ?? makeChunk()
   return Layer.succeed(ChunkManagerService, {
@@ -122,9 +121,9 @@ const buildLayer = (opts: {
     Layer.provide(ChunkServiceLive),
     Layer.provide(noopFluidService),
     Layer.provide(makePlayerLayer(opts.playerPos)),
-    Layer.provide(makeInventoryLayer({ removeBlockResult: opts.removeBlockResult })),
+    Layer.provide(makeInventoryLayer(opts.removeBlockResult === undefined ? {} : { removeBlockResult: opts.removeBlockResult })),
     Layer.provide(makeHotbarLayer(opts.selectedTool)),
-    Layer.provide(makeFurnaceLayer({ dismantleResult: opts.dismantleResult })),
+    Layer.provide(makeFurnaceLayer(opts.dismantleResult === undefined ? {} : { dismantleResult: opts.dismantleResult })),
   )
 
 // ---------------------------------------------------------------------------
@@ -285,4 +284,3 @@ describe('terrain/application/block-service breakBlock harvest logic', () => {
 // ---------------------------------------------------------------------------
 // breakBlock — FURNACE path (lines 137–150)
 // ---------------------------------------------------------------------------
-

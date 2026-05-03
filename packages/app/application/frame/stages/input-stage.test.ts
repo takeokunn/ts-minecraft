@@ -1,13 +1,7 @@
 import { describe, expect, vi } from 'vitest'
 import { it } from '@effect/vitest'
-import { Effect, MutableHashSet, Option, Ref } from 'effect'
+import { Effect, MutableHashSet, Ref } from 'effect'
 import { KeyMappings } from '@ts-minecraft/player'
-import {
-  TRADE_OPEN_KEY,
-  TRADE_NEXT_KEY,
-  TRADE_PREV_KEY,
-  TRADE_EXECUTE_KEY,
-} from '@ts-minecraft/app/frame-handler.config'
 import {
   DEFAULT_SETTINGS,
   arrangeFrameHarness,
@@ -57,7 +51,7 @@ describe('Escape key handling', () => {
     const pressedKeys = MutableHashSet.make(KeyMappings.ESCAPE)
     const { deps, services, settingsState } = yield* arrangeFrameHarness({ pressedKeys })
     const openIfClosedSpy = vi.fn(() => Effect.void)
-    ;(services.pauseMenu as unknown as { openIfClosed: unknown }).openIfClosed = openIfClosedSpy
+    Object.assign(services.pauseMenu, { openIfClosed: openIfClosedSpy })
 
     yield* runFrame(deps, services)
 
@@ -95,9 +89,11 @@ describe('Escape key handling', () => {
       settingsOverlay: makeSettingsOverlay(settingsState),
     })
     // Report pause menu as open; track openIfClosed to ensure it's not called
-    ;(services.pauseMenu as unknown as { isOpen: unknown }).isOpen = () => Effect.succeed(true)
     const openIfClosedSpy = vi.fn(() => Effect.void)
-    ;(services.pauseMenu as unknown as { openIfClosed: unknown }).openIfClosed = openIfClosedSpy
+    Object.assign(services.pauseMenu, {
+      isOpen: () => Effect.succeed(true),
+      openIfClosed: openIfClosedSpy,
+    })
 
     yield* runFrame(deps, services)
 
@@ -192,7 +188,7 @@ describe('inventory key (KeyE) handling', () => {
 
     const deps = yield* makeDeps(true /* paused because trade is open */)
     const tradingPresentation = makeTradingPresentation(tradingState)
-    ;(tradingPresentation as unknown as { close: unknown }).close = closeSpy
+    Object.assign(tradingPresentation, { close: closeSpy })
 
     const services = makeServices({
       inputService: makeInputService(pressedKeys),
@@ -221,8 +217,10 @@ describe('inventory crafting runtime wiring', () => {
     const inventoryRenderer = makeInventoryRenderer(inventoryState)
     const cycleSpy = vi.fn(() => Effect.void)
     const craftSpy = vi.fn(() => Effect.succeed(true))
-    ;(inventoryRenderer as unknown as { cycleRecipes: unknown }).cycleRecipes = cycleSpy
-    ;(inventoryRenderer as unknown as { craftSelectedRecipe: unknown }).craftSelectedRecipe = craftSpy
+    Object.assign(inventoryRenderer, {
+      cycleRecipes: cycleSpy,
+      craftSelectedRecipe: craftSpy,
+    })
 
     const services = makeServices({
       inputService: makeInputService(pressedKeys),
@@ -281,9 +279,10 @@ describe('syncDayLength', () => {
       settingsOverlay: makeSettingsOverlay({ open: false }),
     })
     // Override timeService so getDayLength returns a value ≠ input dayLengthSeconds
-    ;(services.timeService as unknown as { getDayLength: unknown }).getDayLength =
-      () => Effect.succeed(differentDayLength)
-    ;(services.timeService as unknown as { setDayLength: unknown }).setDayLength = setDayLengthSpy
+    Object.assign(services.timeService, {
+      getDayLength: () => Effect.succeed(differentDayLength),
+      setDayLength: setDayLengthSpy,
+    })
 
     // runFrame uses DEFAULT_SETTINGS.dayLengthSeconds as the frame input;
     // differentDayLength ≠ DEFAULT_SETTINGS.dayLengthSeconds → update must fire
@@ -302,7 +301,7 @@ describe('syncDayLength', () => {
       settingsOverlay: makeSettingsOverlay({ open: false }),
     })
     // getDayLength already returns DEFAULT_SETTINGS.dayLengthSeconds (same as frame input)
-    ;(services.timeService as unknown as { setDayLength: unknown }).setDayLength = setDayLengthSpy
+    Object.assign(services.timeService, { setDayLength: setDayLengthSpy })
 
     yield* runFrame(deps, services)
 

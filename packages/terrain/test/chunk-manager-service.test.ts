@@ -1,18 +1,14 @@
-import { describe, it } from '@effect/vitest'
-import { expect } from 'vitest'
-import { Array as Arr, Effect, Option } from 'effect'
-import {
-  ChunkManagerService,
-  RENDER_DISTANCE,
-  MAX_CACHED_CHUNKS,
-  getChunksInRenderDistance,
-} from '@ts-minecraft/terrain'
+import { describe,it } from '@effect/vitest'
 import { DEFAULT_WORLD_ID } from '@ts-minecraft/kernel'
 import {
-  buildTestLayer,
-  buildTestLayerWithStoredChunks,
-  EXPECTED_BLOCKS_LENGTH,
-  chunkStorageBlocks,
+ChunkManagerService
+} from '@ts-minecraft/terrain'
+import { Array as Arr,Effect,Option } from 'effect'
+import { expect } from 'vitest'
+import {
+EXPECTED_BLOCKS_LENGTH,
+buildTestLayer,
+chunkStorageBlocks
 } from './chunk-manager-test-utils'
 
 describe('application/chunk/chunk-manager-service', () => {
@@ -53,7 +49,7 @@ describe('application/chunk/chunk-manager-service', () => {
 
       return Effect.gen(function* () {
         // Write directly to in-memory storage
-        yield* storage.saveChunk(DEFAULT_WORLD_ID, { x: 3, z: 7 }, savedBlocks)
+        yield* storage.saveChunk(DEFAULT_WORLD_ID, { x: 3, z: 7 }, { blocks: savedBlocks, fluid: undefined })
 
         const service = yield* ChunkManagerService
         const chunk = yield* service.getChunk({ x: 3, z: 7 })

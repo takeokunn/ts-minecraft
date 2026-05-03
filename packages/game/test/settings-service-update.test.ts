@@ -1,4 +1,4 @@
-import { Array as Arr, Effect, MutableHashMap, Option } from 'effect'
+import { Array as Arr, Effect, Option } from 'effect'
 import { afterEach, beforeEach, expect, vi } from 'vitest'
 import { describe, it } from '@effect/vitest'
 import { SettingsService } from '@ts-minecraft/game'
@@ -10,14 +10,12 @@ import {
 } from './settings-service-test-utils'
 
 describe('application/settings/settings-service (mutations)', () => {
-  let store: MutableHashMap.MutableHashMap<string, string>
   let getItemSpy: ReturnType<typeof vi.fn>
   let setItemSpy: ReturnType<typeof vi.fn>
   let removeItemSpy: ReturnType<typeof vi.fn>
 
   beforeEach(() => {
     const mock = makeLocalStorageMock()
-    store = mock.store
     getItemSpy = mock.getItemSpy
     setItemSpy = mock.setItemSpy
     removeItemSpy = mock.removeItemSpy

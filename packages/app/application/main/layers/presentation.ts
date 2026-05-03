@@ -4,7 +4,7 @@
 // Depends on infrastructure-tier and game-logic-tier layers.
 import { Layer } from 'effect'
 
-import { FPSCounterLive } from '@ts-minecraft/app/presentation/fps-counter'
+import { FPSCounterService } from '@ts-minecraft/app/presentation/fps-counter'
 import { CrosshairLive, DomOperationsLive } from '@ts-minecraft/app/presentation/hud/crosshair'
 import { DebugOverlayLive } from '@ts-minecraft/app/presentation/hud/debug-overlay'
 import { LoadingScreenLive } from '@ts-minecraft/app/presentation/loading/loading-screen'
@@ -154,5 +154,5 @@ export const PresentationLayers = Layer.mergeAll(
   DebugOverlayLayer,
   InventoryRendererLayer,
   TradingPresentationLayer,
-  FPSCounterLive,  // presentation service: reads FPS counter state for HUD display
+  FPSCounterService.Default,
 )

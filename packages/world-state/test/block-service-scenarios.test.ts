@@ -1,20 +1,16 @@
-import { describe, it } from '@effect/vitest'
-import { vi } from 'vitest'
-import { expect } from 'vitest'
-import { Array as Arr, Effect, Either, Metric, MutableRef, Option } from 'effect'
-import { ChunkCoord, CHUNK_SIZE, Position } from '@ts-minecraft/kernel'
-import { BlockService, BlockServiceError } from '@ts-minecraft/terrain'
-import { SlotIndex } from '@ts-minecraft/kernel'
-import { DEFAULT_WORLD_ID, DEFAULT_PLAYER_ID } from '@ts-minecraft/kernel'
+import { describe,it } from '@effect/vitest'
+import { Position } from '@ts-minecraft/kernel'
+import { BlockService } from '@ts-minecraft/terrain'
+import { Effect,Either,Option } from 'effect'
+import { expect,vi } from 'vitest'
 import {
-  assertLeft,
-  createMockChunkManagerService,
-  createMockPlayerService,
-  createMockInventoryService,
-  createMockHotbarService,
-  createTestLayer,
-  worldToLocal,
-  readBlock,
+createMockChunkManagerService,
+createMockHotbarService,
+createMockInventoryService,
+createMockPlayerService,
+createTestLayer,
+readBlock,
+worldToLocal
 } from './block-service-test-utils'
 
 describe('BlockService — break then place (chaining)', () => {

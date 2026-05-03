@@ -23,14 +23,14 @@ import { DeltaTimeSecs } from '@ts-minecraft/kernel'
 // ---------------------------------------------------------------------------
 // Shared layer composition (mirrors game-state.integration.test.ts)
 // ---------------------------------------------------------------------------
-const NoOpPlayerInputLayer = Layer.succeed(PlayerInputService, {
+const NoOpPlayerInputLayer = Layer.succeed(PlayerInputService, PlayerInputService.of({
   _tag: '@minecraft/application/PlayerInputService' as const,
   isKeyPressed: (_key: string) => Effect.succeed(false),
   consumeKeyPress: (_key: string) => Effect.succeed(false),
   consumeWheelDelta: () => Effect.succeed(0),
   getMouseDelta: () => Effect.succeed({ x: 0, y: 0 }),
   isPointerLocked: () => Effect.succeed(false),
-} as unknown as PlayerInputService)
+}))
 
 const PhysicsLayer = PhysicsServiceLive.pipe(
   Layer.provide(PhysicsWorldPortLayer),
@@ -42,14 +42,15 @@ const MovementLayer = MovementServiceLive.pipe(
   Layer.provide(NoOpPlayerInputLayer),
 )
 
-const NoOpChunkManagerLayer = Layer.succeed(ChunkManagerService, {
+const NoOpChunkManagerLayer = Layer.succeed(ChunkManagerService, ChunkManagerService.of({
   _tag: '@minecraft/application/ChunkManagerService' as const,
   getChunk: (_coord: unknown) => Effect.fail({ _tag: 'ChunkError', message: 'not loaded' } as never),
   getLoadedChunks: () => Effect.succeed([]),
   loadChunksAroundPlayer: (_pos: unknown, _dist?: unknown) => Effect.succeed(false),
-  saveChunk: (_coord: unknown) => Effect.void,
-  evictChunksOutsideRange: (_pos: unknown, _dist: unknown) => Effect.succeed([]),
-} as unknown as ChunkManagerService)
+  markChunkDirty: () => Effect.void,
+  saveDirtyChunks: () => Effect.void,
+  unloadChunk: () => Effect.void,
+}))
 
 const InventoryLayerForTest = InventoryServiceLive.pipe(Layer.provide(BlockRegistryLive))
 

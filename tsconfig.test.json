@@ -1,0 +1,27 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "allowImportingTsExtensions": true,
+    "noEmit": true,
+    "sourceRoot": "./src",
+    "typeRoots": [
+      "node_modules/@types",
+      "types"
+    ],
+    "types": []
+  },
+  "include": [
+    "src/**/*.ts",
+    "packages/**/*.ts",
+    "test/**/*.ts",
+    "e2e/**/*.ts",
+    "types/**/*.d.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "coverage",
+    "docs",
+    "packages/**/dist"
+  ]
+}

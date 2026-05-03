@@ -1,15 +1,15 @@
-import { describe, expect, vi } from 'vitest'
 import { it } from '@effect/vitest'
-import { Effect, MutableHashSet, Option } from 'effect'
-import * as THREE from 'three'
 import {
-  makeDeps,
-  makeInputService,
-  makeInventoryRenderer,
-  makeServices,
-  makeSettingsOverlay,
-  runFrame,
+makeDeps,
+makeInputService,
+makeInventoryRenderer,
+makeServices,
+makeSettingsOverlay,
+runFrame,
 } from '@test/frame-handler-test-kit'
+import { Effect,Option } from 'effect'
+import * as THREE from 'three'
+import { describe,expect,vi } from 'vitest'
 
 // ---------------------------------------------------------------------------
 // Step 7: Block interaction
@@ -22,7 +22,7 @@ describe('step 7 — block interaction', () => {
     deps.camera.getWorldDirection = vi.fn((target: THREE.Vector3) => target.set(0, 0, -1))
 
     const inputService = makeInputService()
-    ;(inputService as unknown as { consumeMouseClick: unknown }).consumeMouseClick = (btn: number) =>
+    ;(inputService as { consumeMouseClick: unknown }).consumeMouseClick = (btn: number) =>
       Effect.succeed(btn === 0)
 
     const services = makeServices({
@@ -30,18 +30,18 @@ describe('step 7 — block interaction', () => {
       inventoryRenderer: makeInventoryRenderer({ open: false }),
       settingsOverlay: makeSettingsOverlay({ open: false }),
     })
-    ;(services.blockHighlight as unknown as { getTargetBlock: unknown }).getTargetBlock = vi.fn(() =>
+    ;(services.blockHighlight as { getTargetBlock: unknown }).getTargetBlock = vi.fn(() =>
       Effect.succeed(Option.none())
     )
-    ;(services.entityManager as unknown as { getEntities: unknown }).getEntities = vi.fn(() =>
+    ;(services.entityManager as { getEntities: unknown }).getEntities = vi.fn(() =>
       Effect.succeed([{ entityId: 'entity-1', position: { x: 0, y: 64, z: -2 }, velocity: { x: 0, y: 0, z: 0 }, rotation: {} as THREE.Quaternion, health: 20, type: 'Zombie' }])
     )
     const applyDamageSpy = vi.fn(() => Effect.succeed(Option.some([{ blockType: 'DIRT', count: 2 }])))
     const addBlockSpy = vi.fn(() => Effect.succeed(true))
     const breakSpy = vi.fn(() => Effect.void)
-    ;(services.entityManager as unknown as { applyDamage: unknown }).applyDamage = applyDamageSpy
-    ;(services.inventoryService as unknown as { addBlock: unknown }).addBlock = addBlockSpy
-    ;(services.blockService as unknown as { breakBlock: unknown }).breakBlock = breakSpy
+    ;(services.entityManager as { applyDamage: unknown }).applyDamage = applyDamageSpy
+    ;(services.inventoryService as { addBlock: unknown }).addBlock = addBlockSpy
+    ;(services.blockService as { breakBlock: unknown }).breakBlock = breakSpy
 
     yield* runFrame(deps, services)
 
@@ -54,7 +54,7 @@ describe('step 7 — block interaction', () => {
     const deps = yield* makeDeps(false)
     const inputService = makeInputService()
     // Override consumeMouseClick to return true for button 0
-    ;(inputService as unknown as { consumeMouseClick: unknown }).consumeMouseClick = (btn: number) =>
+    ;(inputService as { consumeMouseClick: unknown }).consumeMouseClick = (btn: number) =>
       Effect.succeed(btn === 0)
     const services = makeServices({
       inputService,
@@ -62,14 +62,14 @@ describe('step 7 — block interaction', () => {
       settingsOverlay: makeSettingsOverlay({ open: false }),
     })
     // Provide a target block
-    ;(services.blockHighlight as unknown as { getTargetBlock: unknown }).getTargetBlock = vi.fn(() =>
+    ;(services.blockHighlight as { getTargetBlock: unknown }).getTargetBlock = vi.fn(() =>
       Effect.succeed(Option.some({ x: 0, y: 64, z: 0 }))
     )
-    ;(services.blockHighlight as unknown as { getTargetHit: unknown }).getTargetHit = vi.fn(() =>
+    ;(services.blockHighlight as { getTargetHit: unknown }).getTargetHit = vi.fn(() =>
       Effect.succeed(Option.none())
     )
     const breakSpy = vi.fn(() => Effect.void)
-    ;(services.blockService as unknown as { breakBlock: unknown }).breakBlock = breakSpy
+    ;(services.blockService as { breakBlock: unknown }).breakBlock = breakSpy
 
     yield* runFrame(deps, services)
 
@@ -80,7 +80,7 @@ describe('step 7 — block interaction', () => {
   it.effect('does NOT call blockService.breakBlock when no target block', () => Effect.gen(function* () {
     const deps = yield* makeDeps(false)
     const inputService = makeInputService()
-    ;(inputService as unknown as { consumeMouseClick: unknown }).consumeMouseClick = (btn: number) =>
+    ;(inputService as { consumeMouseClick: unknown }).consumeMouseClick = (btn: number) =>
       Effect.succeed(btn === 0)
     const services = makeServices({
       inputService,
@@ -88,14 +88,14 @@ describe('step 7 — block interaction', () => {
       settingsOverlay: makeSettingsOverlay({ open: false }),
     })
     // No target block (Option.none)
-    ;(services.blockHighlight as unknown as { getTargetBlock: unknown }).getTargetBlock = vi.fn(() =>
+    ;(services.blockHighlight as { getTargetBlock: unknown }).getTargetBlock = vi.fn(() =>
       Effect.succeed(Option.none())
     )
-    ;(services.blockHighlight as unknown as { getTargetHit: unknown }).getTargetHit = vi.fn(() =>
+    ;(services.blockHighlight as { getTargetHit: unknown }).getTargetHit = vi.fn(() =>
       Effect.succeed(Option.none())
     )
     const breakSpy = vi.fn(() => Effect.void)
-    ;(services.blockService as unknown as { breakBlock: unknown }).breakBlock = breakSpy
+    ;(services.blockService as { breakBlock: unknown }).breakBlock = breakSpy
 
     yield* runFrame(deps, services)
 
@@ -105,27 +105,27 @@ describe('step 7 — block interaction', () => {
   it.effect('calls blockService.placeBlock on right-click when a target hit and hotbar block are available', () => Effect.gen(function* () {
     const deps = yield* makeDeps(false)
     const inputService = makeInputService()
-    ;(inputService as unknown as { consumeMouseClick: unknown }).consumeMouseClick = (btn: number) =>
+    ;(inputService as { consumeMouseClick: unknown }).consumeMouseClick = (btn: number) =>
       Effect.succeed(btn === 2)
     const services = makeServices({
       inputService,
       inventoryRenderer: makeInventoryRenderer({ open: false }),
       settingsOverlay: makeSettingsOverlay({ open: false }),
     })
-    ;(services.blockHighlight as unknown as { getTargetBlock: unknown }).getTargetBlock = vi.fn(() =>
+    ;(services.blockHighlight as { getTargetBlock: unknown }).getTargetBlock = vi.fn(() =>
       Effect.succeed(Option.none())
     )
-    ;(services.blockHighlight as unknown as { getTargetHit: unknown }).getTargetHit = vi.fn(() =>
+    ;(services.blockHighlight as { getTargetHit: unknown }).getTargetHit = vi.fn(() =>
       Effect.succeed(Option.some({ blockX: 0, blockY: 64, blockZ: 0, normal: { x: 0, y: 1, z: 0 } }))
     )
-    ;(services.hotbarService as unknown as { getSelectedBlockType: unknown }).getSelectedBlockType = vi.fn(() =>
+    ;(services.hotbarService as { getSelectedBlockType: unknown }).getSelectedBlockType = vi.fn(() =>
       Effect.succeed(Option.some('GRASS'))
     )
-    ;(services.hotbarService as unknown as { getSelectedSlot: unknown }).getSelectedSlot = vi.fn(() =>
+    ;(services.hotbarService as { getSelectedSlot: unknown }).getSelectedSlot = vi.fn(() =>
       Effect.succeed(2)
     )
     const placeSpy = vi.fn(() => Effect.void)
-    ;(services.blockService as unknown as { placeBlock: unknown }).placeBlock = placeSpy
+    ;(services.blockService as { placeBlock: unknown }).placeBlock = placeSpy
 
     yield* runFrame(deps, services)
 
@@ -137,21 +137,21 @@ describe('step 7 — block interaction', () => {
   it.effect('right-click with no target hit does nothing (handleRightClick outer onNone)', () => Effect.gen(function* () {
     const deps = yield* makeDeps(false)
     const inputService = makeInputService()
-    ;(inputService as unknown as { consumeMouseClick: unknown }).consumeMouseClick = (btn: number) =>
+    ;(inputService as { consumeMouseClick: unknown }).consumeMouseClick = (btn: number) =>
       Effect.succeed(btn === 2)
     const services = makeServices({
       inputService,
       inventoryRenderer: makeInventoryRenderer({ open: false }),
       settingsOverlay: makeSettingsOverlay({ open: false }),
     })
-    ;(services.blockHighlight as unknown as { getTargetHit: unknown }).getTargetHit = vi.fn(() =>
+    ;(services.blockHighlight as { getTargetHit: unknown }).getTargetHit = vi.fn(() =>
       Effect.succeed(Option.none())
     )
-    ;(services.blockHighlight as unknown as { getTargetBlock: unknown }).getTargetBlock = vi.fn(() =>
+    ;(services.blockHighlight as { getTargetBlock: unknown }).getTargetBlock = vi.fn(() =>
       Effect.succeed(Option.none())
     )
     const placeSpy = vi.fn(() => Effect.void)
-    ;(services.blockService as unknown as { placeBlock: unknown }).placeBlock = placeSpy
+    ;(services.blockService as { placeBlock: unknown }).placeBlock = placeSpy
 
     yield* runFrame(deps, services)
 
@@ -161,27 +161,27 @@ describe('step 7 — block interaction', () => {
   it.effect('right-click with target hit but no selected block does nothing (handleRightClick inner onNone)', () => Effect.gen(function* () {
     const deps = yield* makeDeps(false)
     const inputService = makeInputService()
-    ;(inputService as unknown as { consumeMouseClick: unknown }).consumeMouseClick = (btn: number) =>
+    ;(inputService as { consumeMouseClick: unknown }).consumeMouseClick = (btn: number) =>
       Effect.succeed(btn === 2)
     const services = makeServices({
       inputService,
       inventoryRenderer: makeInventoryRenderer({ open: false }),
       settingsOverlay: makeSettingsOverlay({ open: false }),
     })
-    ;(services.blockHighlight as unknown as { getTargetHit: unknown }).getTargetHit = vi.fn(() =>
+    ;(services.blockHighlight as { getTargetHit: unknown }).getTargetHit = vi.fn(() =>
       Effect.succeed(Option.some({ blockX: 0, blockY: 64, blockZ: 0, normal: { x: 0, y: 1, z: 0 } }))
     )
-    ;(services.blockHighlight as unknown as { getTargetBlock: unknown }).getTargetBlock = vi.fn(() =>
+    ;(services.blockHighlight as { getTargetBlock: unknown }).getTargetBlock = vi.fn(() =>
       Effect.succeed(Option.none())
     )
-    ;(services.hotbarService as unknown as { getSelectedBlockType: unknown }).getSelectedBlockType = vi.fn(() =>
+    ;(services.hotbarService as { getSelectedBlockType: unknown }).getSelectedBlockType = vi.fn(() =>
       Effect.succeed(Option.none())
     )
-    ;(services.hotbarService as unknown as { getSelectedSlot: unknown }).getSelectedSlot = vi.fn(() =>
+    ;(services.hotbarService as { getSelectedSlot: unknown }).getSelectedSlot = vi.fn(() =>
       Effect.succeed(0)
     )
     const placeSpy = vi.fn(() => Effect.void)
-    ;(services.blockService as unknown as { placeBlock: unknown }).placeBlock = placeSpy
+    ;(services.blockService as { placeBlock: unknown }).placeBlock = placeSpy
 
     yield* runFrame(deps, services)
 
@@ -191,29 +191,29 @@ describe('step 7 — block interaction', () => {
   it.effect('plays placement audio only after a successful placeBlock call', () => Effect.gen(function* () {
     const deps = yield* makeDeps(false)
     const inputService = makeInputService()
-    ;(inputService as unknown as { consumeMouseClick: unknown }).consumeMouseClick = (btn: number) =>
+    ;(inputService as { consumeMouseClick: unknown }).consumeMouseClick = (btn: number) =>
       Effect.succeed(btn === 2)
     const services = makeServices({
       inputService,
       inventoryRenderer: makeInventoryRenderer({ open: false }),
       settingsOverlay: makeSettingsOverlay({ open: false }),
     })
-    ;(services.blockHighlight as unknown as { getTargetHit: unknown }).getTargetHit = vi.fn(() =>
+    ;(services.blockHighlight as { getTargetHit: unknown }).getTargetHit = vi.fn(() =>
       Effect.succeed(Option.some({ blockX: 0, blockY: 64, blockZ: 0, normal: { x: 0, y: 1, z: 0 } }))
     )
-    ;(services.blockHighlight as unknown as { getTargetBlock: unknown }).getTargetBlock = vi.fn(() =>
+    ;(services.blockHighlight as { getTargetBlock: unknown }).getTargetBlock = vi.fn(() =>
       Effect.succeed(Option.none())
     )
-    ;(services.hotbarService as unknown as { getSelectedBlockType: unknown }).getSelectedBlockType = vi.fn(() =>
+    ;(services.hotbarService as { getSelectedBlockType: unknown }).getSelectedBlockType = vi.fn(() =>
       Effect.succeed(Option.some('GRASS'))
     )
-    ;(services.hotbarService as unknown as { getSelectedSlot: unknown }).getSelectedSlot = vi.fn(() =>
+    ;(services.hotbarService as { getSelectedSlot: unknown }).getSelectedSlot = vi.fn(() =>
       Effect.succeed(0)
     )
     const placeSpy = vi.fn(() => Effect.fail(new Error('no item')))
     const playEffectSpy = vi.fn(() => Effect.void)
-    ;(services.blockService as unknown as { placeBlock: unknown }).placeBlock = placeSpy
-    ;(services.soundManager as unknown as { playEffect: unknown }).playEffect = playEffectSpy
+    ;(services.blockService as { placeBlock: unknown }).placeBlock = placeSpy
+    ;(services.soundManager as { playEffect: unknown }).playEffect = playEffectSpy
 
     yield* runFrame(deps, services)
 
@@ -224,18 +224,18 @@ describe('step 7 — block interaction', () => {
   it.effect('suppresses block interaction when game is paused', () => Effect.gen(function* () {
     const deps = yield* makeDeps(true /* paused */)
     const inputService = makeInputService()
-    ;(inputService as unknown as { consumeMouseClick: unknown }).consumeMouseClick = (btn: number) =>
+    ;(inputService as { consumeMouseClick: unknown }).consumeMouseClick = (btn: number) =>
       Effect.succeed(btn === 0)
     const services = makeServices({
       inputService,
       inventoryRenderer: makeInventoryRenderer({ open: false }),
       settingsOverlay: makeSettingsOverlay({ open: false }),
     })
-    ;(services.blockHighlight as unknown as { getTargetBlock: unknown }).getTargetBlock = vi.fn(() =>
+    ;(services.blockHighlight as { getTargetBlock: unknown }).getTargetBlock = vi.fn(() =>
       Effect.succeed(Option.some({ x: 0, y: 64, z: 0 }))
     )
     const breakSpy = vi.fn(() => Effect.void)
-    ;(services.blockService as unknown as { breakBlock: unknown }).breakBlock = breakSpy
+    ;(services.blockService as { breakBlock: unknown }).breakBlock = breakSpy
 
     yield* runFrame(deps, services)
 
@@ -248,7 +248,7 @@ describe('step 7 — block interaction', () => {
     deps.camera.getWorldDirection = vi.fn((target: THREE.Vector3) => target.set(0, 0, -1))
 
     const inputService = makeInputService()
-    ;(inputService as unknown as { consumeMouseClick: unknown }).consumeMouseClick = (btn: number) =>
+    ;(inputService as { consumeMouseClick: unknown }).consumeMouseClick = (btn: number) =>
       Effect.succeed(btn === 0)
 
     const services = makeServices({
@@ -256,17 +256,17 @@ describe('step 7 — block interaction', () => {
       inventoryRenderer: makeInventoryRenderer({ open: false }),
       settingsOverlay: makeSettingsOverlay({ open: false }),
     })
-    ;(services.blockHighlight as unknown as { getTargetBlock: unknown }).getTargetBlock = vi.fn(() =>
+    ;(services.blockHighlight as { getTargetBlock: unknown }).getTargetBlock = vi.fn(() =>
       Effect.succeed(Option.none())
     )
-    ;(services.entityManager as unknown as { getEntities: unknown }).getEntities = vi.fn(() =>
+    ;(services.entityManager as { getEntities: unknown }).getEntities = vi.fn(() =>
       Effect.succeed([{ entityId: 'entity-1', position: { x: 0, y: 64, z: -2 }, velocity: { x: 0, y: 0, z: 0 }, rotation: {} as THREE.Quaternion, health: 20, type: 'Zombie' }])
     )
-    ;(services.hotbarService as unknown as { getSelectedBlockType: unknown }).getSelectedBlockType = vi.fn(() =>
+    ;(services.hotbarService as { getSelectedBlockType: unknown }).getSelectedBlockType = vi.fn(() =>
       Effect.succeed(Option.some('WOODEN_SWORD'))
     )
     const applyDamageSpy = vi.fn(() => Effect.succeed(Option.none()))
-    ;(services.entityManager as unknown as { applyDamage: unknown }).applyDamage = applyDamageSpy
+    ;(services.entityManager as { applyDamage: unknown }).applyDamage = applyDamageSpy
 
     yield* runFrame(deps, services)
 
@@ -279,7 +279,7 @@ describe('step 7 — block interaction', () => {
     deps.camera.getWorldDirection = vi.fn((target: THREE.Vector3) => target.set(0, 0, -1))
 
     const inputService = makeInputService()
-    ;(inputService as unknown as { consumeMouseClick: unknown }).consumeMouseClick = (btn: number) =>
+    ;(inputService as { consumeMouseClick: unknown }).consumeMouseClick = (btn: number) =>
       Effect.succeed(btn === 0)
 
     const services = makeServices({
@@ -287,17 +287,17 @@ describe('step 7 — block interaction', () => {
       inventoryRenderer: makeInventoryRenderer({ open: false }),
       settingsOverlay: makeSettingsOverlay({ open: false }),
     })
-    ;(services.blockHighlight as unknown as { getTargetBlock: unknown }).getTargetBlock = vi.fn(() =>
+    ;(services.blockHighlight as { getTargetBlock: unknown }).getTargetBlock = vi.fn(() =>
       Effect.succeed(Option.none())
     )
-    ;(services.entityManager as unknown as { getEntities: unknown }).getEntities = vi.fn(() =>
+    ;(services.entityManager as { getEntities: unknown }).getEntities = vi.fn(() =>
       Effect.succeed([{ entityId: 'entity-1', position: { x: 0, y: 64, z: -2 }, velocity: { x: 0, y: 0, z: 0 }, rotation: {} as THREE.Quaternion, health: 20, type: 'Zombie' }])
     )
-    ;(services.hotbarService as unknown as { getSelectedBlockType: unknown }).getSelectedBlockType = vi.fn(() =>
+    ;(services.hotbarService as { getSelectedBlockType: unknown }).getSelectedBlockType = vi.fn(() =>
       Effect.succeed(Option.some('STONE'))
     )
     const applyDamageSpy = vi.fn(() => Effect.succeed(Option.none()))
-    ;(services.entityManager as unknown as { applyDamage: unknown }).applyDamage = applyDamageSpy
+    ;(services.entityManager as { applyDamage: unknown }).applyDamage = applyDamageSpy
 
     yield* runFrame(deps, services)
 

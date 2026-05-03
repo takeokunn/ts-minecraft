@@ -30,7 +30,7 @@ test.describe('Main Menu', () => {
     await expect(page.locator('#mm-nw-cancel')).toBeVisible()
 
     const modeText = await page.locator('#mm-nw-mode').textContent()
-    expect(['Survival', 'Creative']).toContain(modeText?.trim())
+    expect(['Survival', 'Creative'].includes(modeText?.trim() ?? '')).toBe(true)
   })
 
   test('New World confirm starts game session', async ({ page }) => {
@@ -42,7 +42,7 @@ test.describe('Main Menu', () => {
 
     await game.waitForReady()
 
-    expect(await game.getFPS()).toBeGreaterThan(0)
+    expect((await game.getFPS()) > 0).toBe(true)
   })
 
   test('New World cancel returns to main menu root', async ({ page }) => {
@@ -70,6 +70,6 @@ test.describe('Main Menu', () => {
 
     await waitForMainMenu(page)
 
-    expect(getFatalErrors()).toHaveLength(0)
+    expect(getFatalErrors().length).toBe(0)
   })
 })

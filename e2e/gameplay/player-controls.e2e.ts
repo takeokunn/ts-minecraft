@@ -1,4 +1,4 @@
-import { test, expect, type Page } from '@playwright/test'
+import { test, expect } from '@playwright/test'
 import { GamePage } from '../fixtures/game-page'
 import { attachFatalErrorMonitor } from '../helpers/console-monitor'
 import { getFpsValue, waitForStableRender } from '../helpers/wait-helpers'
@@ -106,8 +106,8 @@ test.describe('Player controls', () => {
     const fpsAfterMove = await getFpsValue(page)
 
     expect(moved).toBe(true)
-    expect(fpsAfterMove).toBeGreaterThan(0)
-    expect(getFatalErrors()).toHaveLength(0)
+    expect(fpsAfterMove > 0).toBe(true)
+    expect(getFatalErrors().length).toBe(0)
   })
 
   test('hotbar slot 1 through 3 can be selected by number keys', async ({ page }) => {
@@ -135,7 +135,7 @@ test.describe('Player controls', () => {
 
       await openInventory(page)
       await page.waitForFunction(
-        (expected) => {
+        (expected: number) => {
           const overlay = document.getElementById('inventory-overlay')
           if (!(overlay instanceof HTMLDivElement)) return false
           const slots = Array.from(overlay.querySelectorAll<HTMLDivElement>('[data-slot]'))
@@ -153,7 +153,7 @@ test.describe('Player controls', () => {
       await closeInventory(page)
     }
 
-    expect(getFatalErrors()).toHaveLength(0)
+    expect(getFatalErrors().length).toBe(0)
   })
 
   test('hotbar slots 4 through 9 can be selected by number keys', async ({ page }) => {
@@ -180,7 +180,7 @@ test.describe('Player controls', () => {
 
       await openInventory(page)
       await page.waitForFunction(
-        (expected) => {
+        (expected: number) => {
           const overlay = document.getElementById('inventory-overlay')
           if (!(overlay instanceof HTMLDivElement)) return false
           const slots = Array.from(overlay.querySelectorAll<HTMLDivElement>('[data-slot]'))
@@ -198,7 +198,7 @@ test.describe('Player controls', () => {
       await closeInventory(page)
     }
 
-    expect(getFatalErrors()).toHaveLength(0)
+    expect(getFatalErrors().length).toBe(0)
   })
 
   test('sprint key (ControlLeft) does not crash game', async ({ page }) => {
@@ -214,7 +214,7 @@ test.describe('Player controls', () => {
     await focusCanvas(page)
 
     const fpsBefore = await game.getFPS()
-    expect(fpsBefore).toBeGreaterThan(0)
+    expect(fpsBefore > 0).toBe(true)
 
     // Hold ControlLeft (sprint) while moving forward to exercise the sprint code path
     await page.keyboard.down('Control')
@@ -231,7 +231,7 @@ test.describe('Player controls', () => {
     }
 
     expect(fpsSamples.every((fps) => fps > 0)).toBe(true)
-    expect(getFatalErrors()).toHaveLength(0)
+    expect(getFatalErrors().length).toBe(0)
   })
 
   test('jump key (Space) does not crash game', async ({ page }) => {
@@ -244,7 +244,7 @@ test.describe('Player controls', () => {
     await focusCanvas(page)
 
     const fpsBeforeJump = await getFpsValue(page)
-    expect(fpsBeforeJump).toBeGreaterThan(0)
+    expect(fpsBeforeJump > 0).toBe(true)
 
     await page.keyboard.down(' ')
     await page.waitForTimeout(120)
@@ -260,7 +260,7 @@ test.describe('Player controls', () => {
     const averageFpsAfterJump = fpsSamples.reduce((sum, value) => sum + value, 0) / fpsSamples.length
 
     expect(fpsSamples.every((fps) => fps > 0)).toBe(true)
-    expect(averageFpsAfterJump).toBeGreaterThanOrEqual(5)
-    expect(getFatalErrors()).toHaveLength(0)
+    expect(averageFpsAfterJump >= 5).toBe(true)
+    expect(getFatalErrors().length).toBe(0)
   })
 })

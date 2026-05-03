@@ -1,6 +1,6 @@
-import { describe, expect, vi } from 'vitest'
 import { it } from '@effect/vitest'
 import * as THREE from 'three'
+import { describe,expect,vi } from 'vitest'
 
 // ---------------------------------------------------------------------------
 // THREE.js mock — must be declared before any imports that touch 'three'
@@ -67,16 +67,15 @@ vi.mock('three', () => ({
   FrontSide: 0,
 }))
 
-import { Array as Arr, Effect, Option } from 'effect'
-import {
-  makeChunk,
-  makeMockMesh,
-  buildTestLayer,
-  makeScene,
-  drainSync,
-  WorldRendererService,
-} from './world-renderer-test-utils'
 import type { Chunk } from '@ts-minecraft/terrain'
+import { Effect,Option } from 'effect'
+import {
+buildTestLayer,
+makeChunk,
+makeMockMesh,
+makeScene,
+WorldRendererService
+} from './world-renderer-test-utils'
 
 // ---------------------------------------------------------------------------
 // Tests
@@ -147,9 +146,9 @@ describe('infrastructure/three/world-renderer', () => {
     })
 
     it.effect('does not call scene.add again when updating an already-tracked chunk mesh', () => {
-      const createChunkMesh = vi.fn((chunk: Chunk) =>
-        Effect.succeed({ opaqueMesh: makeMockMesh(chunk.coord) as unknown as THREE.Mesh, waterMesh: Option.none<THREE.Mesh>() })
-      )
+        const createChunkMesh = vi.fn((chunk: Chunk) =>
+          Effect.succeed({ opaqueMesh: makeMockMesh(chunk.coord) as THREE.Mesh, waterMesh: Option.none<THREE.Mesh>() })
+        )
       const TestLayer = buildTestLayer(createChunkMesh)
       const scene = makeScene()
       const chunk = makeChunk(4, 4)

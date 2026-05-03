@@ -1,35 +1,13 @@
-import { describe, it } from '@effect/vitest'
-import { vi, expect } from 'vitest'
-import { Array as Arr, Effect, Layer, Metric, Option } from 'effect'
-import { ChunkCoord, Position } from '@ts-minecraft/kernel'
-import { BlockService, BlockServiceError } from '@ts-minecraft/terrain'
-import { DEFAULT_WORLD_ID, DEFAULT_PLAYER_ID } from '@ts-minecraft/kernel'
+import { describe,it } from '@effect/vitest'
+import { DEFAULT_PLAYER_ID,DEFAULT_WORLD_ID,Position } from '@ts-minecraft/kernel'
+import { BlockService,ChunkManagerService } from '@ts-minecraft/terrain'
+import { Effect,Either,Metric } from 'effect'
+import { expect,vi } from 'vitest'
 import {
-  assertLeft,
-  createMockChunkManagerService,
-  createMockPlayerService,
-  createMockInventoryService,
-  createMockHotbarService,
-  createTestLayer,
+createMockChunkManagerService,
+createMockPlayerService,
+createTestLayer
 } from './block-service-test-utils'
-import { ChunkManagerService } from '@ts-minecraft/terrain'
-import type { ChunkManagerError } from '@ts-minecraft/terrain'
-import { StorageError } from '../domain/errors'
-import { ChunkServiceLive } from '@ts-minecraft/terrain'
-import { BlockServiceLive } from '@ts-minecraft/terrain'
-import { FluidService, InventoryService, HotbarService } from '@ts-minecraft/terrain'
-import type { FurnaceService } from '@ts-minecraft/inventory'
-
-const createLayerWithDirtyTracker = (pos: Position, dirtyFn: (...args: unknown[]) => unknown) => {
-  const chunkHandle = createMockChunkManagerService()
-  const markChunkDirtySpy = vi.fn(() => Effect.void)
-  const serviceWithSpy = {
-    ...chunkHandle.service,
-    markChunkDirty: markChunkDirtySpy,
-  } as unknown as ChunkManagerService
-  const layer = createTestLayer(serviceWithSpy, createMockPlayerService({ x: 100, y: 0, z: 100 }))
-  return { layer, markChunkDirtySpy, chunkHandle }
-}
 
 describe('BlockService — Effect.Metric counters', () => {
   it.effect('blocks_broken counter increments when a block is broken', () => {
@@ -38,8 +16,9 @@ describe('BlockService — Effect.Metric counters', () => {
     const layer = createTestLayer(handle.service, createMockPlayerService({ x: 100, y: 0, z: 100 }))
     const counter = Metric.counter('blocks_broken')
     return Effect.gen(function* () {
+      const blockService = yield* BlockService
       const before = yield* Metric.value(counter)
-      yield* Effect.flatMap(BlockService, (svc) => svc.breakBlock(pos))
+      yield* blockService.breakBlock(pos)
       const after = yield* Metric.value(counter)
       expect(after.count > before.count).toBe(true)
     }).pipe(Effect.provide(layer))
@@ -51,8 +30,9 @@ describe('BlockService — Effect.Metric counters', () => {
     const layer = createTestLayer(handle.service, createMockPlayerService({ x: 100, y: 0, z: 100 }))
     const counter = Metric.counter('blocks_placed')
     return Effect.gen(function* () {
+      const blockService = yield* BlockService
       const before = yield* Metric.value(counter)
-      yield* Effect.flatMap(BlockService, (svc) => svc.placeBlock(pos, 'STONE'))
+      yield* blockService.placeBlock(pos, 'STONE')
       const after = yield* Metric.value(counter)
       expect(after.count > before.count).toBe(true)
     }).pipe(Effect.provide(layer))
@@ -68,9 +48,10 @@ describe('BlockService — Effect.Metric counters', () => {
     const layer = createTestLayer(handle.service, createMockPlayerService({ x: 100, y: 0, z: 100 }))
     const counter = Metric.counter('blocks_broken')
     return Effect.gen(function* () {
+      const blockService = yield* BlockService
       const before = yield* Metric.value(counter)
       yield* Effect.forEach(positions, (pos) =>
-        Effect.flatMap(BlockService, (svc) => svc.breakBlock(pos)),
+        blockService.breakBlock(pos),
         { concurrency: 1 }
       )
       const after = yield* Metric.value(counter)
@@ -84,9 +65,11 @@ describe('BlockService — catchTag', () => {
     const pos: Position = { x: 0, y: 0, z: 0 }
     const layer = createTestLayer(createMockChunkManagerService().service, createMockPlayerService({ x: 100, y: 0, z: 100 }))
     return Effect.gen(function* () {
-      const tag = yield* Effect.flatMap(BlockService, (svc) => svc.breakBlock(pos)).pipe(
-        Effect.catchTag('BlockServiceError', (e) => Effect.succeed(e._tag))
-      )
+      const result = yield* BlockService.pipe(Effect.flatMap((svc) => svc.breakBlock(pos)), Effect.either)
+      const tag = Either.match(result, {
+        onLeft: (error) => error._tag,
+        onRight: () => 'unexpected-success',
+      })
       expect(tag).toBe('BlockServiceError')
     }).pipe(Effect.provide(layer))
   })
@@ -96,9 +79,11 @@ describe('BlockService — catchTag', () => {
     const handle = createMockChunkManagerService([{ pos, blockType: 'GRASS' }])
     const layer = createTestLayer(handle.service, createMockPlayerService({ x: 100, y: 0, z: 100 }))
     return Effect.gen(function* () {
-      const tag = yield* Effect.flatMap(BlockService, (svc) => svc.placeBlock(pos, 'DIRT')).pipe(
-        Effect.catchTag('BlockServiceError', (e) => Effect.succeed(e._tag))
-      )
+      const result = yield* BlockService.pipe(Effect.flatMap((svc) => svc.placeBlock(pos, 'DIRT')), Effect.either)
+      const tag = Either.match(result, {
+        onLeft: (error) => error._tag,
+        onRight: () => 'unexpected-success',
+      })
       expect(tag).toBe('BlockServiceError')
     }).pipe(Effect.provide(layer))
   })
@@ -107,9 +92,11 @@ describe('BlockService — catchTag', () => {
     const pos: Position = { x: 0, y: 0, z: 0 }
     const layer = createTestLayer(createMockChunkManagerService().service, createMockPlayerService({ x: 100, y: 0, z: 100 }))
     return Effect.gen(function* () {
-      const msg = yield* Effect.flatMap(BlockService, (svc) => svc.breakBlock(pos)).pipe(
-        Effect.catchTag('BlockServiceError', (e) => Effect.succeed(e.message))
-      )
+      const result = yield* BlockService.pipe(Effect.flatMap((svc) => svc.breakBlock(pos)), Effect.either)
+      const msg = Either.match(result, {
+        onLeft: (error) => error.message,
+        onRight: () => '',
+      })
       expect(typeof msg).toBe('string')
       expect(msg.length).toBeGreaterThan(0)
     }).pipe(Effect.provide(layer))
@@ -121,10 +108,11 @@ describe('BlockService — markChunkDirty integration', () => {
     const pos: Position = { x: 0, y: 0, z: 0 }
     const handle = createMockChunkManagerService([{ pos, blockType: 'DIRT' }])
     const markChunkDirtySpy = vi.fn(() => Effect.void)
-    const serviceWithSpy = { ...handle.service, markChunkDirty: markChunkDirtySpy } as unknown as ChunkManagerService
+    const serviceWithSpy = { ...handle.service, markChunkDirty: markChunkDirtySpy } satisfies ChunkManagerService
     const layer = createTestLayer(serviceWithSpy, createMockPlayerService({ x: 100, y: 0, z: 100 }))
     return Effect.gen(function* () {
-      yield* Effect.flatMap(BlockService, (svc) => svc.breakBlock(pos))
+      const blockService = yield* BlockService
+      yield* blockService.breakBlock(pos)
       expect(markChunkDirtySpy).toHaveBeenCalledOnce()
     }).pipe(Effect.provide(layer))
   })
@@ -133,10 +121,11 @@ describe('BlockService — markChunkDirty integration', () => {
     const pos: Position = { x: 3, y: 0, z: 3 }
     const handle = createMockChunkManagerService()
     const markChunkDirtySpy = vi.fn(() => Effect.void)
-    const serviceWithSpy = { ...handle.service, markChunkDirty: markChunkDirtySpy } as unknown as ChunkManagerService
+    const serviceWithSpy = { ...handle.service, markChunkDirty: markChunkDirtySpy } satisfies ChunkManagerService
     const layer = createTestLayer(serviceWithSpy, createMockPlayerService({ x: 100, y: 0, z: 100 }))
     return Effect.gen(function* () {
-      yield* Effect.flatMap(BlockService, (svc) => svc.placeBlock(pos, 'STONE'))
+      const blockService = yield* BlockService
+      yield* blockService.placeBlock(pos, 'STONE')
       expect(markChunkDirtySpy).toHaveBeenCalledOnce()
     }).pipe(Effect.provide(layer))
   })
@@ -145,10 +134,11 @@ describe('BlockService — markChunkDirty integration', () => {
     const pos: Position = { x: 0, y: 0, z: 0 }
     const handle = createMockChunkManagerService()
     const markChunkDirtySpy = vi.fn(() => Effect.void)
-    const serviceWithSpy = { ...handle.service, markChunkDirty: markChunkDirtySpy } as unknown as ChunkManagerService
+    const serviceWithSpy = { ...handle.service, markChunkDirty: markChunkDirtySpy } satisfies ChunkManagerService
     const layer = createTestLayer(serviceWithSpy, createMockPlayerService({ x: 100, y: 0, z: 100 }))
     return Effect.gen(function* () {
-      yield* Effect.either(Effect.flatMap(BlockService, (svc) => svc.breakBlock(pos)))
+      const blockService = yield* BlockService
+      yield* Effect.either(blockService.breakBlock(pos))
       expect(markChunkDirtySpy).not.toHaveBeenCalled()
     }).pipe(Effect.provide(layer))
   })

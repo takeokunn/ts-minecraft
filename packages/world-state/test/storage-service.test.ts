@@ -2,8 +2,8 @@ import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
 import { Effect, Option } from 'effect'
 import { StorageService, WorldMetadata } from '@ts-minecraft/world-state'
-import { WorldId } from '@ts-minecraft/kernel'
-import { testWorldId, anotherWorldId, testCoord, makeInMemoryStorageService } from './storage-service-test-utils'
+import { SlotIndex, WorldId } from '@ts-minecraft/kernel'
+import { testWorldId, anotherWorldId, testCoord, chunkStorageBlocks, chunkStorageValue, makeInMemoryStorageService } from './storage-service-test-utils'
 
 describe('infrastructure/storage/storage-service', () => {
   describe('StorageService contract (in-memory)', () => {
@@ -12,8 +12,8 @@ describe('infrastructure/storage/storage-service', () => {
       const data = new Uint8Array([1, 2, 3, 255, 0, 128])
       return Effect.gen(function* () {
         const storage = yield* StorageService
-        yield* storage.saveChunk(testWorldId, testCoord, data)
-        expect(Option.getOrThrow(yield* storage.loadChunk(testWorldId, testCoord))).toEqual(data)
+        yield* storage.saveChunk(testWorldId, testCoord, chunkStorageValue(data))
+        expect(chunkStorageBlocks(Option.getOrThrow(yield* storage.loadChunk(testWorldId, testCoord)))).toEqual(data)
       }).pipe(Effect.provide(TestLayer))
     })
 
@@ -59,8 +59,8 @@ describe('infrastructure/storage/storage-service', () => {
           health: 13,
           inventory: {
             slots: [
-              { slot: 0 as never, blockType: 'WOOD', count: 3 },
-              null,
+              Option.some({ slot: SlotIndex.make(0), blockType: 'WOOD', count: 3 }),
+              Option.none(),
             ],
           },
           timeOfDay: 0.75,
@@ -85,7 +85,7 @@ describe('infrastructure/storage/storage-service', () => {
         expect(loaded.playerState?.position).toEqual({ x: 12, y: 70, z: -4 })
         expect(loaded.playerState?.health).toBe(13)
         expect(loaded.playerState?.timeOfDay).toBe(0.75)
-        expect(loaded.playerState?.inventory.slots[0]).toEqual({ slot: 0, blockType: 'WOOD', count: 3 })
+        expect(loaded.playerState?.inventory.slots[0]).toEqual(Option.some({ slot: SlotIndex.make(0), blockType: 'WOOD', count: 3 }))
         expect(loaded.furnaceStates?.[0]?.position).toEqual({ x: 8, y: 64, z: 8 })
         expect(loaded.furnaceStates?.[0]?.input).toEqual(Option.some({ blockType: 'RAW_IRON', count: 1 }))
       }).pipe(Effect.provide(TestLayer))
@@ -107,9 +107,9 @@ describe('infrastructure/storage/storage-service', () => {
       const data = new Uint8Array([42])
       return Effect.gen(function* () {
         const storage = yield* StorageService
-        yield* storage.saveChunk(testWorldId, coord1, data)
-        yield* storage.saveChunk(testWorldId, coord2, data)
-        yield* storage.saveChunk(testWorldId, coord3, data)
+        yield* storage.saveChunk(testWorldId, coord1, chunkStorageValue(data))
+        yield* storage.saveChunk(testWorldId, coord2, chunkStorageValue(data))
+        yield* storage.saveChunk(testWorldId, coord3, chunkStorageValue(data))
         yield* storage.deleteWorld(testWorldId)
         expect(yield* storage.loadChunk(testWorldId, coord1)).toStrictEqual(Option.none())
         expect(yield* storage.loadChunk(testWorldId, coord2)).toStrictEqual(Option.none())
@@ -151,10 +151,10 @@ describe('infrastructure/storage/storage-service', () => {
       const data2 = new Uint8Array([2])
       return Effect.gen(function* () {
         const storage = yield* StorageService
-        yield* storage.saveChunk(testWorldId, testCoord, data1)
-        yield* storage.saveChunk(anotherWorldId, testCoord, data2)
-        expect(Option.getOrThrow(yield* storage.loadChunk(testWorldId, testCoord))).toEqual(data1)
-        expect(Option.getOrThrow(yield* storage.loadChunk(anotherWorldId, testCoord))).toEqual(data2)
+        yield* storage.saveChunk(testWorldId, testCoord, chunkStorageValue(data1))
+        yield* storage.saveChunk(anotherWorldId, testCoord, chunkStorageValue(data2))
+        expect(chunkStorageBlocks(Option.getOrThrow(yield* storage.loadChunk(testWorldId, testCoord)))).toEqual(data1)
+        expect(chunkStorageBlocks(Option.getOrThrow(yield* storage.loadChunk(anotherWorldId, testCoord)))).toEqual(data2)
       }).pipe(Effect.provide(TestLayer))
     })
 
@@ -165,12 +165,12 @@ describe('infrastructure/storage/storage-service', () => {
       const dataB = new Uint8Array([40, 50, 60])
       return Effect.gen(function* () {
         const storage = yield* StorageService
-        yield* storage.saveChunk('world-a' as WorldId, coord, dataA)
-        yield* storage.saveChunk('world-b' as WorldId, coord, dataB)
+        yield* storage.saveChunk('world-a' as WorldId, coord, chunkStorageValue(dataA))
+        yield* storage.saveChunk('world-b' as WorldId, coord, chunkStorageValue(dataB))
         const ra = yield* storage.loadChunk('world-a' as WorldId, coord)
         const rb = yield* storage.loadChunk('world-b' as WorldId, coord)
-        expect(Option.getOrThrow(ra)).toEqual(dataA)
-        expect(Option.getOrThrow(rb)).toEqual(dataB)
+        expect(chunkStorageBlocks(Option.getOrThrow(ra))).toEqual(dataA)
+        expect(chunkStorageBlocks(Option.getOrThrow(rb))).toEqual(dataB)
       }).pipe(Effect.provide(TestLayer))
     })
 
@@ -180,10 +180,10 @@ describe('infrastructure/storage/storage-service', () => {
       const secondData = new Uint8Array([9, 9, 9])
       return Effect.gen(function* () {
         const storage = yield* StorageService
-        yield* storage.saveChunk(testWorldId, testCoord, firstData)
-        yield* storage.saveChunk(testWorldId, testCoord, secondData)
+        yield* storage.saveChunk(testWorldId, testCoord, chunkStorageValue(firstData))
+        yield* storage.saveChunk(testWorldId, testCoord, chunkStorageValue(secondData))
         const result = yield* storage.loadChunk(testWorldId, testCoord)
-        expect(Option.getOrThrow(result)).toEqual(secondData)
+        expect(chunkStorageBlocks(Option.getOrThrow(result))).toEqual(secondData)
       }).pipe(Effect.provide(TestLayer))
     })
 
@@ -192,10 +192,10 @@ describe('infrastructure/storage/storage-service', () => {
       const data = new Uint8Array([7])
       return Effect.gen(function* () {
         const storage = yield* StorageService
-        yield* storage.saveChunk(testWorldId, testCoord, data)
-        yield* storage.saveChunk(anotherWorldId, testCoord, data)
+        yield* storage.saveChunk(testWorldId, testCoord, chunkStorageValue(data))
+        yield* storage.saveChunk(anotherWorldId, testCoord, chunkStorageValue(data))
         yield* storage.deleteWorld(testWorldId)
-        expect(Option.getOrThrow(yield* storage.loadChunk(anotherWorldId, testCoord))).toEqual(data)
+        expect(chunkStorageBlocks(Option.getOrThrow(yield* storage.loadChunk(anotherWorldId, testCoord)))).toEqual(data)
       }).pipe(Effect.provide(TestLayer))
     })
 

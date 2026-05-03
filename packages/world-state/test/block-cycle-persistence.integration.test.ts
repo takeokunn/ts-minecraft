@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { Array as Arr, Effect, Option } from 'effect'
-import { CHUNK_SIZE, CHUNK_HEIGHT, blockIndex, ChunkCoord, DEFAULT_WORLD_ID } from '@ts-minecraft/kernel'
+import { CHUNK_SIZE, CHUNK_HEIGHT, blockIndex, ChunkCoord, DEFAULT_WORLD_ID, Position } from '@ts-minecraft/kernel'
 import { ChunkManagerService } from '@ts-minecraft/terrain'
 import { BlockService } from '@ts-minecraft/terrain'
 import {

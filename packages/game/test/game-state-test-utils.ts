@@ -11,14 +11,15 @@ import { InventoryServiceLive } from '@ts-minecraft/inventory'
 import { BlockRegistryLive } from '@ts-minecraft/world-state'
 import { GameStateServiceLive } from '@ts-minecraft/game'
 
-export const NoOpChunkManagerLayer = Layer.succeed(ChunkManagerService, {
+export const NoOpChunkManagerLayer = Layer.succeed(ChunkManagerService, ChunkManagerService.of({
   _tag: '@minecraft/application/ChunkManagerService' as const,
   getChunk: (_coord: unknown) => Effect.fail({ _tag: 'ChunkError', message: 'not loaded' } as never),
   getLoadedChunks: () => Effect.succeed([]),
   loadChunksAroundPlayer: (_pos: unknown, _dist?: unknown) => Effect.succeed(false),
-  saveChunk: (_coord: unknown) => Effect.void,
-  evictChunksOutsideRange: (_pos: unknown, _dist: unknown) => Effect.succeed([]),
-} as unknown as ChunkManagerService)
+  markChunkDirty: () => Effect.void,
+  saveDirtyChunks: () => Effect.void,
+  unloadChunk: () => Effect.void,
+}))
 
 export const createTestInputService = (initialState: {
   forward?: boolean
@@ -42,7 +43,8 @@ export const createTestInputService = (initialState: {
     MutableHashSet.add(justPressedKeys, 'Space')
   }
 
-  return {
+  return Object.assign(PlayerInputService.of({
+    _tag: '@minecraft/application/PlayerInputService' as const,
     isKeyPressed: (key: string) => Effect.sync(() => Option.getOrElse(MutableHashMap.get(pressedKeys, key), () => false)),
     consumeKeyPress: (key: string) =>
       Effect.sync(() => {
@@ -53,12 +55,9 @@ export const createTestInputService = (initialState: {
         return false
       }),
     getMouseDelta: () => Effect.sync(() => ({ x: 0, y: 0 })),
-    isMouseDown: () => Effect.sync(() => false),
-    requestPointerLock: () => Effect.sync(() => {}),
-    exitPointerLock: () => Effect.sync(() => {}),
     isPointerLocked: () => Effect.sync(() => true),
-    consumeMouseClick: () => Effect.sync(() => false),
     consumeWheelDelta: () => Effect.sync(() => 0),
+  }), {
     setKeyPressed: (key: string, pressed: boolean) => {
       MutableHashMap.set(pressedKeys, key, pressed)
     },
@@ -67,12 +66,12 @@ export const createTestInputService = (initialState: {
       MutableHashMap.set(pressedKeys, key, true)
       MutableHashSet.add(justPressedKeys, key)
     },
-  }
+  })
 }
 
 export const createTestLayer = (inputService: ReturnType<typeof createTestInputService>) => {
   // Create the base layers that don't have dependencies
-  const inputLayer = Layer.succeed(PlayerInputService, inputService as unknown as PlayerInputService)
+  const inputLayer = Layer.succeed(PlayerInputService, inputService)
 
   // Create physics layer using application-layer ports (bridges to infrastructure live in @/layers)
   const physicsLayer = PhysicsServiceLive.pipe(

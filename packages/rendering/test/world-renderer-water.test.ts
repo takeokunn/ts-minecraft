@@ -88,10 +88,10 @@ describe('infrastructure/three/world-renderer', () => {
       // with water: Option.some(...). Use a custom createChunkMesh that returns a real water
       // mesh on the first call, so syncChunksToScene stores Option.some(waterMesh).
       // Then updateChunkInScene hits existing.water = Option.some → onSome branch fires.
-      const waterMesh = makeMockMesh({ x: 0, z: 0 }) as unknown as THREE.Mesh
+      const waterMesh = makeMockMesh({ x: 0, z: 0 }) as THREE.Mesh
       const createChunkMesh = vi.fn(() =>
         Effect.succeed({
-          opaqueMesh: makeMockMesh({ x: 0, z: 0 }) as unknown as THREE.Mesh,
+          opaqueMesh: makeMockMesh({ x: 0, z: 0 }) as THREE.Mesh,
           waterMesh: Option.some(waterMesh),
         })
       )

@@ -1,18 +1,18 @@
-import { describe, expect, vi } from 'vitest'
 import { it } from '@effect/vitest'
-import { Array as Arr, Effect, Option, Ref } from 'effect'
-import { createFrameHandlers } from '@ts-minecraft/app'
+import {
+makeDeps,
+makeInputService,
+makeInventoryRenderer,
+makeServices,
+makeSettingsOverlay,
+runFrame,
+} from '@test/frame-handler-test-kit'
 import { lightingStage } from '@ts-minecraft/app/frame/stages/lighting-stage'
 import type { DeltaTimeSecs } from '@ts-minecraft/kernel'
+import type { DayNightLights } from '@ts-minecraft/game'
+import { Array as Arr,Effect,Option,Ref } from 'effect'
 import * as THREE from 'three'
-import {
-  makeDeps,
-  makeInputService,
-  makeInventoryRenderer,
-  makeServices,
-  makeSettingsOverlay,
-  runFrame,
-} from '@test/frame-handler-test-kit'
+import { describe,expect,vi } from 'vitest'
 
 // ---------------------------------------------------------------------------
 // Step 2: Day/night cycle
@@ -27,7 +27,7 @@ describe('step 2 — day/night cycle', () => {
       settingsOverlay: makeSettingsOverlay({ open: false }),
     })
     const spy = vi.fn(() => Effect.void)
-    ;(services.timeService as unknown as { advanceTick: unknown }).advanceTick = spy
+    ;(services.timeService as { advanceTick: unknown }).advanceTick = spy
 
     yield* runFrame(deps, services)
 
@@ -48,7 +48,7 @@ describe('step 2.8 — sun intensity wiring', () => {
       settingsOverlay: makeSettingsOverlay({ open: false }),
     })
     const spy = vi.fn(() => Effect.void)
-    ;(services.chunkMeshService as unknown as { setSunIntensity: unknown }).setSunIntensity = spy
+    ;(services.chunkMeshService as { setSunIntensity: unknown }).setSunIntensity = spy
 
     yield* runFrame(deps, services)
 
@@ -63,11 +63,11 @@ describe('step 2.8 — sun intensity wiring', () => {
       settingsOverlay: makeSettingsOverlay({ open: false }),
     })
     // Force noon (timeOfDay = 0.5) so sin curve peaks at 1.0
-    ;(services.timeService as unknown as { getTimeOfDay: unknown }).getTimeOfDay = vi.fn(() =>
+    ;(services.timeService as { getTimeOfDay: unknown }).getTimeOfDay = vi.fn(() =>
       Effect.succeed(0.5)
     )
     const spy = vi.fn(() => Effect.void)
-    ;(services.chunkMeshService as unknown as { setSunIntensity: unknown }).setSunIntensity = spy
+    ;(services.chunkMeshService as { setSunIntensity: unknown }).setSunIntensity = spy
 
     yield* runFrame(deps, services)
 
@@ -86,11 +86,11 @@ describe('step 2.8 — sun intensity wiring', () => {
       inventoryRenderer: makeInventoryRenderer({ open: false }),
       settingsOverlay: makeSettingsOverlay({ open: false }),
     })
-    ;(services.timeService as unknown as { getTimeOfDay: unknown }).getTimeOfDay = vi.fn(() =>
+    ;(services.timeService as { getTimeOfDay: unknown }).getTimeOfDay = vi.fn(() =>
       Effect.succeed(0)
     )
     const spy = vi.fn(() => Effect.void)
-    ;(services.chunkMeshService as unknown as { setSunIntensity: unknown }).setSunIntensity = spy
+    ;(services.chunkMeshService as { setSunIntensity: unknown }).setSunIntensity = spy
 
     yield* runFrame(deps, services)
 
@@ -108,25 +108,27 @@ describe('step 2.8 — sun intensity wiring', () => {
 // ---------------------------------------------------------------------------
 
 // Minimal DayNightLights stub — lightingStage only reads it via updateDayNightCycle
-const makeFakeEffectiveLights = () => ({
-  light: {
-    intensity: 1,
-    castShadow: true,
-    position: { set: () => {} },
-    color: { setHSL: () => {} },
-    target: { position: { set: () => {} }, updateMatrixWorld: () => {} },
-    shadow: { camera: { left: -128, right: 128, top: 128, bottom: -128, updateProjectionMatrix: () => {} } },
-  } as unknown as THREE.DirectionalLight,
-  ambientLight: {
-    intensity: 0.3,
-    color: { setHSL: () => {} },
-  } as unknown as THREE.AmbientLight,
-  renderer: { setClearColor: () => {} } as unknown as THREE.WebGLRenderer,
-  skyNight: new THREE.Color(0x000000),
-  skyDay: new THREE.Color(0x88ccff),
-  skyCurrent: new THREE.Color(),
-  sky: Option.none(),
-})
+const makeFakeEffectiveLights = (): DayNightLights => {
+  const light = new THREE.DirectionalLight(0xffffff, 1)
+  light.castShadow = true
+  light.shadow.camera.left = -128
+  light.shadow.camera.right = 128
+  light.shadow.camera.top = 128
+  light.shadow.camera.bottom = -128
+  light.shadow.camera.updateProjectionMatrix = () => {}
+
+  return {
+    light,
+    ambientLight: new THREE.AmbientLight(0xffffff, 0.3),
+    renderer: {
+      setClearColor: () => {},
+    },
+    skyNight: new THREE.Color(0x000000),
+    skyDay: new THREE.Color(0x88ccff),
+    skyCurrent: new THREE.Color(),
+    sky: Option.none(),
+  }
+}
 
 const makeLightingServices = () => ({
   timeService: {

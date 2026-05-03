@@ -2,23 +2,38 @@ import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
 import { Arbitrary, Array as Arr, Effect, Layer, MutableRef, Option, Schema } from 'effect'
 import * as THREE from 'three'
-import { PlayerInputService } from '@ts-minecraft/player'
+import { InputServicePort, PlayerInputService } from '@ts-minecraft/player'
 import type { MouseDelta } from '@ts-minecraft/player'
-import type { InputServicePort as InputServiceType } from '@ts-minecraft/player'
 import { PlayerCameraStateService, PlayerCameraStateLive, PITCH_MIN, PITCH_MAX } from '@ts-minecraft/player'
 import {
   FirstPersonCameraService,
   FirstPersonCameraServiceLive,
 } from '@ts-minecraft/player'
 
+type MutablePointerInputService = InputServicePort & {
+  readonly setMouseDelta: (delta: MouseDelta) => void
+  readonly setPointerLocked: (locked: boolean) => void
+}
+
+const makePlayerInputService = (inputService: InputServicePort): PlayerInputService =>
+  PlayerInputService.of({
+    _tag: '@minecraft/application/PlayerInputService' as const,
+    isKeyPressed: inputService.isKeyPressed,
+    consumeKeyPress: inputService.consumeKeyPress,
+    consumeWheelDelta: inputService.consumeWheelDelta,
+    getMouseDelta: inputService.getMouseDelta,
+    isPointerLocked: inputService.isPointerLocked,
+  })
+
 const createTestInputService = (initialState: {
   mouseDelta?: MouseDelta
   pointerLocked?: boolean
-} = {}): InputServiceType & { setMouseDelta: (delta: MouseDelta) => void; setPointerLocked: (locked: boolean) => void } => {
+} = {}): MutablePointerInputService => {
   const mouseDeltaRef = MutableRef.make(Option.getOrElse(Option.fromNullable(initialState.mouseDelta), () => ({ x: 0, y: 0 })))
   const pointerLockedRef = MutableRef.make(Option.getOrElse(Option.fromNullable(initialState.pointerLocked), () => false))
 
-  return {
+  return Object.assign(InputServicePort.of({
+    _tag: '@minecraft/application/InputServicePort' as const,
     isKeyPressed: () => Effect.sync(() => false),
     consumeKeyPress: () => Effect.sync(() => false),
     getMouseDelta: () =>
@@ -39,18 +54,19 @@ const createTestInputService = (initialState: {
     isPointerLocked: () => Effect.sync(() => MutableRef.get(pointerLockedRef)),
     consumeMouseClick: () => Effect.sync(() => false),
     consumeWheelDelta: () => Effect.sync(() => 0),
+  }), {
     setMouseDelta: (delta: MouseDelta) => {
       MutableRef.set(mouseDeltaRef, delta)
     },
     setPointerLocked: (locked: boolean) => {
       MutableRef.set(pointerLockedRef, locked)
     },
-  } as unknown as InputServiceType & { setMouseDelta: (delta: MouseDelta) => void; setPointerLocked: (locked: boolean) => void }
+  })
 }
 
-const createTestLayers = (inputService: InputServiceType) =>
+const createTestLayers = (inputService: InputServicePort) =>
   Layer.merge(
-    Layer.succeed(PlayerInputService, inputService as unknown as PlayerInputService),
+    Layer.succeed(PlayerInputService, makePlayerInputService(inputService)),
     PlayerCameraStateLive
   )
 
@@ -127,7 +143,8 @@ describe('FirstPersonCameraService', () => {
       },
       ({ deltas }) => {
         const deltaIdxRef = MutableRef.make(0)
-        const inputService = {
+        const inputService = InputServicePort.of({
+          _tag: '@minecraft/application/InputServicePort' as const,
           isKeyPressed: () => Effect.sync(() => false),
           consumeKeyPress: () => Effect.sync(() => false),
           getMouseDelta: () =>
@@ -143,7 +160,7 @@ describe('FirstPersonCameraService', () => {
           isPointerLocked: () => Effect.sync(() => true),
           consumeMouseClick: () => Effect.sync(() => false),
           consumeWheelDelta: () => Effect.sync(() => 0),
-        } as unknown as InputServiceType
+        })
 
         const testLayers = createTestLayers(inputService)
         const camera = new THREE.PerspectiveCamera(75, 1, 0.1, 1000)

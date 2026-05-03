@@ -1,10 +1,9 @@
 import { describe, it, expect } from '@effect/vitest'
 import { Effect, Either, Layer, MutableRef, Option } from 'effect'
-import { DeltaTimeSecs, CHUNK_SIZE, CHUNK_HEIGHT } from '@ts-minecraft/kernel'
+import { DeltaTimeSecs, CHUNK_SIZE, CHUNK_HEIGHT, DEFAULT_PLAYER_ID, PhysicsBodyId } from '@ts-minecraft/kernel'
+import type { ChunkCoord } from '@ts-minecraft/kernel'
 import { GameStateService, GameStateServiceLive, GameModeServiceLive } from '@ts-minecraft/game'
-import { DEFAULT_PLAYER_ID } from '@ts-minecraft/kernel'
 import { PhysicsService, PhysicsServiceError, PhysicsServiceLive } from '@ts-minecraft/physics'
-import type { PhysicsBodyId } from '@ts-minecraft/kernel'
 import type { AddBodyConfig } from '@ts-minecraft/physics'
 import { MovementServiceLive, PlayerCameraStateLive, PlayerInputService, PlayerServiceLive } from '@ts-minecraft/player'
 import { ChunkManagerService } from '@ts-minecraft/terrain'
@@ -28,9 +27,9 @@ describe('application/game-state (coverage)', () => {
     const BLOCKS_LENGTH = CHUNK_SIZE * CHUNK_SIZE * CHUNK_HEIGHT
     const allAirBlocks = new Uint8Array(BLOCKS_LENGTH) // all zeros = AIR
 
-    const RealChunkManagerLayer = Layer.succeed(ChunkManagerService, {
+    const RealChunkManagerLayer = Layer.succeed(ChunkManagerService, ChunkManagerService.of({
       _tag: '@minecraft/application/ChunkManagerService' as const,
-      getChunk: (coord: unknown) => Effect.succeed({
+      getChunk: (coord: ChunkCoord) => Effect.succeed({
         coord,
         blocks: allAirBlocks,
         fluid: Option.none(),
@@ -42,10 +41,10 @@ describe('application/game-state (coverage)', () => {
       markChunkDirty: () => Effect.void,
       saveDirtyChunks: () => Effect.void,
       unloadChunk: () => Effect.void,
-    } as unknown as ChunkManagerService)
+    }))
 
     const createLayerWithRealChunks = (inputService: ReturnType<typeof createTestInputService>) => {
-      const inputLayer = Layer.succeed(PlayerInputService, inputService as unknown as PlayerInputService)
+      const inputLayer = Layer.succeed(PlayerInputService, inputService)
       const physicsLayer = PhysicsServiceLive.pipe(
         Layer.provide(PhysicsWorldPortLayer),
         Layer.provide(RigidBodyPortLayer),
@@ -104,21 +103,22 @@ describe('application/game-state (coverage)', () => {
     // GameStateError).
     const makeFailingAddBodyPhysicsLayer = () => {
       const seq = { initialized: false }
-      return Layer.succeed(PhysicsService, {
+      return Layer.succeed(PhysicsService, PhysicsService.of({
         _tag: '@minecraft/application/PhysicsService' as const,
         initialize: (_config: unknown) => Effect.sync(() => { seq.initialized = true }),
         addBody: (_config: AddBodyConfig) =>
           Effect.fail(new PhysicsServiceError({ operation: 'addBody', cause: 'mock addBody failure' })),
+        removeBody: (_id: PhysicsBodyId) => Effect.void,
         step: (_dt: unknown) => Effect.void,
         getVelocity: (_id: PhysicsBodyId) => Effect.succeed({ x: 0, y: 0, z: 0 }),
         getPosition: (_id: PhysicsBodyId) => Effect.succeed({ x: 0, y: 0, z: 0 }),
         setVelocity: (_id: PhysicsBodyId, _v: unknown) => Effect.void,
         setPosition: (_id: PhysicsBodyId, _p: unknown) => Effect.void,
-      } as unknown as PhysicsService)
+      }))
     }
 
     const createLayerWithFailingAddBody = (inputService: ReturnType<typeof createTestInputService>) => {
-      const inputLayer = Layer.succeed(PlayerInputService, inputService as unknown as PlayerInputService)
+      const inputLayer = Layer.succeed(PlayerInputService, inputService)
       const failingPhysicsLayer = makeFailingAddBodyPhysicsLayer()
       const movementLayer = MovementServiceLive.pipe(Layer.provide(inputLayer))
       const inventoryLayer = InventoryServiceLive.pipe(Layer.provide(BlockRegistryLive))
@@ -160,22 +160,23 @@ describe('application/game-state (coverage)', () => {
     // logs a warning and returns ZERO_VEC3.
     const makeGetVelocityFailPhysicsLayer = () => {
       const bodyIdCounterRef = MutableRef.make(0)
-      return Layer.succeed(PhysicsService, {
+      return Layer.succeed(PhysicsService, PhysicsService.of({
         _tag: '@minecraft/application/PhysicsService' as const,
         initialize: (_config: unknown) => Effect.void,
         addBody: (_config: AddBodyConfig) =>
-          Effect.sync(() => `mock-body-${MutableRef.updateAndGet(bodyIdCounterRef, n => n + 1)}` as unknown as PhysicsBodyId),
+          Effect.sync(() => PhysicsBodyId.make(`mock-body-${MutableRef.updateAndGet(bodyIdCounterRef, n => n + 1)}`)),
+        removeBody: (_id: PhysicsBodyId) => Effect.void,
         step: (_dt: unknown) => Effect.void,
         getVelocity: (_id: PhysicsBodyId) =>
           Effect.fail(new PhysicsServiceError({ operation: 'getVelocity', cause: 'mock getVelocity failure' })),
         getPosition: (_id: PhysicsBodyId) => Effect.succeed({ x: 0, y: 0, z: 0 }),
         setVelocity: (_id: PhysicsBodyId, _v: unknown) => Effect.void,
         setPosition: (_id: PhysicsBodyId, _p: unknown) => Effect.void,
-      } as unknown as PhysicsService)
+      }))
     }
 
     const createLayerWithFailingGetVelocity = (inputService: ReturnType<typeof createTestInputService>) => {
-      const inputLayer = Layer.succeed(PlayerInputService, inputService as unknown as PlayerInputService)
+      const inputLayer = Layer.succeed(PlayerInputService, inputService)
       const failingPhysicsLayer = makeGetVelocityFailPhysicsLayer()
       const movementLayer = MovementServiceLive.pipe(Layer.provide(inputLayer))
       const inventoryLayer = InventoryServiceLive.pipe(Layer.provide(BlockRegistryLive))
