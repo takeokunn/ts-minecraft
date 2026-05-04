@@ -166,7 +166,7 @@ export const HotbarLayer = HotbarServiceLive.pipe(
 export const FurnaceLayer = FurnaceServiceLive.pipe(
   Layer.provide(RecipeServiceLive),
   Layer.provide(InventoryLayer),
-  Layer.provide(GameLayer),
+  Layer.provide(PlayerServiceLive),
   Layer.provide(ChunkManagerLayer),
 )
 

@@ -147,7 +147,7 @@ describe('step 3.5 — fall damage', () => {
     expect(respawnSpy).not.toHaveBeenCalled()
   }))
 
-  // FR-1.3: in CREATIVE there is no death screen, so the legacy auto-respawn
+    // FR-1.3: in CREATIVE there is no death screen, so immediate auto-respawn
   // path runs (resets health, repositions to respawnPosition).
   it.effect('auto-respawns the player on death in creative mode', () => Effect.gen(function* () {
     const deps = yield* makeDeps(false)

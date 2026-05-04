@@ -63,7 +63,7 @@ export const physicsStage = (
           // Respawn or Quit-to-Title. Auto-respawning here would race the overlay
           // and produce a 1-frame flicker where the player snaps back to spawn
           // before the screen renders.
-          // CREATIVE preserves the legacy auto-respawn (no death screen).
+          // CREATIVE uses immediate auto-respawn (no death screen).
           const isCreative = yield* services.gameMode.isCreative()
           if (isCreative) {
             yield* services.healthService.reset()

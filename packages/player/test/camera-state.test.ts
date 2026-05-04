@@ -279,4 +279,21 @@ describe('PlayerCameraStateService', () => {
     )
   })
 
+  describe('setMode', () => {
+    it.effect('should update camera mode explicitly', () =>
+      Effect.gen(function* () {
+        const camera = yield* PlayerCameraStateService
+
+        yield* camera.setMode('thirdPerson')
+        const thirdPersonMode = yield* camera.getMode()
+
+        yield* camera.setMode('firstPerson')
+        const firstPersonMode = yield* camera.getMode()
+
+        expect(thirdPersonMode).toBe('thirdPerson')
+        expect(firstPersonMode).toBe('firstPerson')
+      }).pipe(Effect.provide(PlayerCameraStateLive))
+    )
+  })
+
 })

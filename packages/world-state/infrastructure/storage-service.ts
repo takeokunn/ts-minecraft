@@ -117,12 +117,12 @@ const runSchemaVersionGate: Effect.Effect<void> = Effect.gen(function* () {
           ),
           Effect.tap(() =>
             Effect.logInfo(
-              `Wiped legacy v${label} world database (expected v${WORLD_SCHEMA_VERSION})`,
+              `Wiped schema v${label} world database (expected v${WORLD_SCHEMA_VERSION})`,
             ),
           ),
           Effect.catchAll((cause) =>
             Effect.logWarning(
-              `Failed to wipe legacy v${label} world database: ${String(cause)} — continuing startup`,
+              `Failed to wipe schema v${label} world database: ${String(cause)} — continuing startup`,
             ),
           ),
         )

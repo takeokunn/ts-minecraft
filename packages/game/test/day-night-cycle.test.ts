@@ -4,20 +4,20 @@ import { Effect, MutableRef, Option } from 'effect'
 import * as THREE from 'three'
 import { TimeService, TimeServiceLive } from '@ts-minecraft/game'
 import { updateDayNightCycle, type DayNightLights } from '@ts-minecraft/game'
-import type { DeltaTimeSecs } from '@ts-minecraft/kernel'
+import type { DeltaTimeSecs, ColorPort } from '@ts-minecraft/kernel'
 import type { SkyMaterialPort } from '@ts-minecraft/kernel'
 
 // Lightweight stub for DayNightLights.
 // Captures the clear color passed to renderer.setClearColor for assertions.
 const makeFakeLights = (): DayNightLights & {
-  capturedClearColor: MutableRef.MutableRef<Option.Option<THREE.Color>>
+  capturedClearColor: MutableRef.MutableRef<Option.Option<ColorPort>>
 } => {
-  const capturedColorRef = MutableRef.make<Option.Option<THREE.Color>>(Option.none())
+  const capturedColorRef = MutableRef.make<Option.Option<ColorPort>>(Option.none())
   return {
     light: new THREE.DirectionalLight(0xffffff, 0),
     ambientLight: new THREE.AmbientLight(0xffffff, 0),
     renderer: {
-      setClearColor: (color: THREE.Color) => {
+      setClearColor: (color: ColorPort) => {
         MutableRef.set(capturedColorRef, Option.some(color))
       },
     },

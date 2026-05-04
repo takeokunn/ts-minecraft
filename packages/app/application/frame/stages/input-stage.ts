@@ -53,7 +53,9 @@ const handleEscape = (
       // Settings overlay close — pause-menu's own watchdog re-shows itself
       // afterward when it remains the active modal.
       yield* services.settingsOverlay.toggle()
-      yield* Ref.set(deps.gamePausedRef, false)
+      if (!isPauseMenuOpen) {
+        yield* Ref.set(deps.gamePausedRef, false)
+      }
     } else if (isPauseMenuOpen) {
       // Pause menu has its own keydown handler that consumes Esc to
       // resume; nothing more to do here.

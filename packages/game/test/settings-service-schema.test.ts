@@ -155,7 +155,7 @@ describe('application/settings/settings-service', () => {
       expect(() => decode({ renderDistance: 8, mouseSensitivity: 0.5 })).toThrow()
     })
 
-    it('rejects omitted fields instead of applying compatibility defaults', () => {
+  it('rejects omitted fields instead of applying implicit defaults', () => {
       expect(() => decode({ renderDistance: 4, mouseSensitivity: 1.0, dayLengthSeconds: 400 })).toThrow()
     })
   })

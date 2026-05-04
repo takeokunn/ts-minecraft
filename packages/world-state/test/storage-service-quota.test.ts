@@ -37,7 +37,7 @@ describe('infrastructure/storage/storage-service-quota', () => {
     })
 
     it('StorageError with QuotaExceededError DOMException (code 22) includes operation name', () => {
-      // DOMException with code 22 is the legacy QUOTA_EXCEEDED_ERR constant.
+    // DOMException code 22 represents QUOTA_EXCEEDED_ERR.
       // tryCatchStorage maps it to a human-readable cause string.
       const domExc = new DOMException('QuotaExceededError', 'QuotaExceededError')
       const err = new StorageError({ operation: 'saveChunk', cause: domExc })

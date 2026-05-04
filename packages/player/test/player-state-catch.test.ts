@@ -44,7 +44,7 @@ describe('PlayerService', () => {
     )
   })
 
-  describe('Effect.catchTag compatibility', () => {
+describe('typed Effect.catchTag handling', () => {
     it.effect('should catch PlayerError with catchTag on getPosition for non-existent player', () =>
       Effect.gen(function* () {
         const service = yield* PlayerService

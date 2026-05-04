@@ -3,7 +3,7 @@ import { vi } from 'vitest'
 import { SettingsService, SettingsServiceLive } from '@ts-minecraft/game'
 import { EnvironmentPort } from '@ts-minecraft/world-state'
 
-// Test EnvironmentPort: previous behavior treated jsdom (`window.location.hostname === 'localhost'`)
+// Test EnvironmentPort: jsdom localhost is treated as local development.
 // as localhost, which forces audioEnabled=false on load. Replicate that explicitly here.
 export const EnvironmentTest = Layer.succeed(EnvironmentPort, { isLocalhost: Effect.succeed(true) })
 
