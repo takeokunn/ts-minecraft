@@ -1,6 +1,5 @@
 import { describe, it, expect } from 'vitest'
 import { Schema } from 'effect'
-import * as THREE from 'three'
 import {
   Vector3Schema,
   makeVector3,
@@ -12,8 +11,6 @@ import {
   right,
   forward,
   backward,
-  fromThreeVector,
-  toThreeVector,
   add,
   subtract,
   scale,
@@ -111,29 +108,6 @@ describe('makeVector3', () => {
 
   it('should create a vector with negative values', () => {
     expect(makeVector3(-1, -2, -3)).toEqual({ x: -1, y: -2, z: -3 })
-  })
-})
-
-describe('fromThreeVector / toThreeVector', () => {
-  it('fromThreeVector should extract x, y, z from THREE.Vector3', () => {
-    const threeVec = new THREE.Vector3(4, 5, 6)
-    const result = fromThreeVector(threeVec)
-    expect(result).toEqual({ x: 4, y: 5, z: 6 })
-  })
-
-  it('toThreeVector should create a THREE.Vector3 with correct values', () => {
-    const v = { x: 7, y: 8, z: 9 }
-    const threeVec = toThreeVector(v)
-    expect(threeVec).toBeInstanceOf(THREE.Vector3)
-    expect(threeVec.x).toBe(7)
-    expect(threeVec.y).toBe(8)
-    expect(threeVec.z).toBe(9)
-  })
-
-  it('roundtrip fromThreeVector(toThreeVector(v)) should equal v', () => {
-    const v = { x: 1.5, y: -2.5, z: 3.5 }
-    const result = fromThreeVector(toThreeVector(v))
-    expect(result).toEqual(v)
   })
 })
 

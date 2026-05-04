@@ -1,7 +1,6 @@
-import * as THREE from 'three'
 import { Schema } from 'effect'
 import type { Vector3 } from './vector3'
-import { toThreeVector } from './vector3'
+import { normalize } from './vector3'
 
 export const QuaternionSchema = Schema.Struct({ x: Schema.Number.pipe(Schema.finite()), y: Schema.Number.pipe(Schema.finite()), z: Schema.Number.pipe(Schema.finite()), w: Schema.Number.pipe(Schema.finite()) })
 export type Quaternion = Schema.Schema.Type<typeof QuaternionSchema>
@@ -11,23 +10,59 @@ export const identity: Quaternion = { x: 0, y: 0, z: 0, w: 1 }
 export const makeQuaternion = (x: number, y: number, z: number, w: number): Quaternion =>
   ({ x, y, z, w })
 
-export const fromThreeQuaternion = (q: THREE.Quaternion): Quaternion =>
-  ({ x: q.x, y: q.y, z: q.z, w: q.w })
-
-export const toThreeQuaternion = (q: Quaternion): THREE.Quaternion =>
-  new THREE.Quaternion(q.x, q.y, q.z, q.w)
-
 export const fromAxisAngle = (axis: Vector3, angle: number): Quaternion => {
-  const threeQuat = new THREE.Quaternion().setFromAxisAngle(toThreeVector(axis), angle)
-  return ({ x: threeQuat.x, y: threeQuat.y, z: threeQuat.z, w: threeQuat.w })
+  const unitAxis = normalize(axis)
+  const halfAngle = angle / 2
+  const sinHalfAngle = Math.sin(halfAngle)
+  return {
+    x: unitAxis.x * sinHalfAngle,
+    y: unitAxis.y * sinHalfAngle,
+    z: unitAxis.z * sinHalfAngle,
+    w: Math.cos(halfAngle),
+  }
 }
 
-export const multiply = (a: Quaternion, b: Quaternion): Quaternion => {
-  const result = toThreeQuaternion(a).multiply(toThreeQuaternion(b))
-  return ({ x: result.x, y: result.y, z: result.z, w: result.w })
+export const multiply = (a: Quaternion, b: Quaternion): Quaternion => ({
+  x: a.w * b.x + a.x * b.w + a.y * b.z - a.z * b.y,
+  y: a.w * b.y - a.x * b.z + a.y * b.w + a.z * b.x,
+  z: a.w * b.z + a.x * b.y - a.y * b.x + a.z * b.w,
+  w: a.w * b.w - a.x * b.x - a.y * b.y - a.z * b.z,
+})
+
+const length = (q: Quaternion): number =>
+  Math.sqrt(q.x * q.x + q.y * q.y + q.z * q.z + q.w * q.w)
+
+const normalizeQuaternion = (q: Quaternion): Quaternion => {
+  const len = length(q)
+  if (len === 0) return identity
+  return { x: q.x / len, y: q.y / len, z: q.z / len, w: q.w / len }
 }
 
 export const slerp = (a: Quaternion, b: Quaternion, t: number): Quaternion => {
-  const result = toThreeQuaternion(a).slerp(toThreeQuaternion(b), t)
-  return ({ x: result.x, y: result.y, z: result.z, w: result.w })
+  const dot = a.x * b.x + a.y * b.y + a.z * b.z + a.w * b.w
+  const target = dot < 0
+    ? { x: -b.x, y: -b.y, z: -b.z, w: -b.w }
+    : b
+  const cosHalfTheta = Math.min(1, Math.max(-1, Math.abs(dot)))
+
+  if (cosHalfTheta > 0.9995) {
+    return normalizeQuaternion({
+      x: a.x + t * (target.x - a.x),
+      y: a.y + t * (target.y - a.y),
+      z: a.z + t * (target.z - a.z),
+      w: a.w + t * (target.w - a.w),
+    })
+  }
+
+  const halfTheta = Math.acos(cosHalfTheta)
+  const sinHalfTheta = Math.sqrt(1 - cosHalfTheta * cosHalfTheta)
+  const ratioA = Math.sin((1 - t) * halfTheta) / sinHalfTheta
+  const ratioB = Math.sin(t * halfTheta) / sinHalfTheta
+
+  return {
+    x: a.x * ratioA + target.x * ratioB,
+    y: a.y * ratioA + target.y * ratioB,
+    z: a.z * ratioA + target.z * ratioB,
+    w: a.w * ratioA + target.w * ratioB,
+  }
 }

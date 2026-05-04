@@ -1,8 +1,7 @@
 import { describe, it } from 'vitest'
 import { expect } from 'vitest'
 import { Schema } from 'effect'
-import * as THREE from 'three'
-import { ColorSchema, makeColor, fromHex, toThreeColor } from './color'
+import { ColorSchema, makeColor, fromHex } from './color'
 
 describe('ColorSchema', () => {
   it('decodes a valid color with all channels in [0,1]', () => {
@@ -84,41 +83,11 @@ describe('fromHex', () => {
     expect(c.g).toBeCloseTo(0)
     expect(c.b).toBeCloseTo(0)
   })
-})
 
-describe('toThreeColor', () => {
-  it('produces a THREE.Color with correct r, g, b values', () => {
-    const input = { r: 1, g: 0, b: 0.5 }
-    const three = toThreeColor(input)
-    expect(three).toBeInstanceOf(THREE.Color)
-    expect(three.r).toBeCloseTo(1)
-    expect(three.g).toBeCloseTo(0)
-    expect(three.b).toBeCloseTo(0.5)
-  })
-
-  it('produces a THREE.Color for black', () => {
-    const three = toThreeColor({ r: 0, g: 0, b: 0 })
-    expect(three.r).toBe(0)
-    expect(three.g).toBe(0)
-    expect(three.b).toBe(0)
-  })
-})
-
-describe('fromHex + toThreeColor roundtrip', () => {
-  it('fromHex then toThreeColor preserves red channel', () => {
-    const color = fromHex('#ff0000')
-    const three = toThreeColor(color)
-    expect(three).toBeInstanceOf(THREE.Color)
-    expect(three.r).toBeCloseTo(1)
-    expect(three.g).toBeCloseTo(0)
-    expect(three.b).toBeCloseTo(0)
-  })
-
-  it('fromHex then toThreeColor for white', () => {
-    const color = fromHex('#ffffff')
-    const three = toThreeColor(color)
-    expect(three.r).toBeCloseTo(1)
-    expect(three.g).toBeCloseTo(1)
-    expect(three.b).toBeCloseTo(1)
+  it('parses hex strings without a # prefix', () => {
+    const c = fromHex('00ff00')
+    expect(c.r).toBeCloseTo(0)
+    expect(c.g).toBeCloseTo(1)
+    expect(c.b).toBeCloseTo(0)
   })
 })

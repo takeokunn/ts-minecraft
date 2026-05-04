@@ -10,8 +10,6 @@ export {
   right,
   forward,
   backward,
-  fromThreeVector,
-  toThreeVector,
   add,
   subtract,
   scale,
@@ -32,8 +30,6 @@ export {
   QuaternionSchema,
   identity,
   makeQuaternion,
-  fromThreeQuaternion,
-  toThreeQuaternion,
   fromAxisAngle,
   multiply,
   slerp,
@@ -44,14 +40,12 @@ export type { Quaternion } from './quaternion'
 // Matrix4
 export {
   identity as matrix4Identity,
-  fromThreeMatrix4,
-  toThreeMatrix4,
 } from './matrix4'
 
 export type { Matrix4 } from './matrix4'
 
 // Color
-export { ColorSchema, makeColor, fromHex, toThreeColor } from './color'
+export { ColorSchema, makeColor, fromHex } from './color'
 export type { Color } from './color'
 
 // Camera port

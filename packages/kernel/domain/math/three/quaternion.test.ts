@@ -1,12 +1,9 @@
 import { describe, it, expect } from 'vitest'
 import { Schema } from 'effect'
-import * as THREE from 'three'
 import {
   QuaternionSchema,
   identity,
   makeQuaternion,
-  fromThreeQuaternion,
-  toThreeQuaternion,
   fromAxisAngle,
   multiply,
   slerp,
@@ -55,33 +52,6 @@ describe('makeQuaternion', () => {
 
   it('should create a quaternion with non-trivial values', () => {
     expect(makeQuaternion(0.1, 0.2, 0.3, 0.9)).toEqual({ x: 0.1, y: 0.2, z: 0.3, w: 0.9 })
-  })
-})
-
-describe('fromThreeQuaternion / toThreeQuaternion', () => {
-  it('fromThreeQuaternion should extract x, y, z, w from THREE.Quaternion', () => {
-    const threeQuat = new THREE.Quaternion(0, 0, 0, 1)
-    const result = fromThreeQuaternion(threeQuat)
-    expect(result).toEqual({ x: 0, y: 0, z: 0, w: 1 })
-  })
-
-  it('toThreeQuaternion should create a THREE.Quaternion with correct values', () => {
-    const q = { x: 0, y: 0, z: 0, w: 1 }
-    const threeQuat = toThreeQuaternion(q)
-    expect(threeQuat).toBeInstanceOf(THREE.Quaternion)
-    expect(threeQuat.x).toBe(0)
-    expect(threeQuat.y).toBe(0)
-    expect(threeQuat.z).toBe(0)
-    expect(threeQuat.w).toBe(1)
-  })
-
-  it('roundtrip fromThreeQuaternion(toThreeQuaternion(q)) should equal q', () => {
-    const q = { x: 0.5, y: 0.5, z: 0.5, w: 0.5 }
-    const result = fromThreeQuaternion(toThreeQuaternion(q))
-    expect(result.x).toBeCloseTo(q.x)
-    expect(result.y).toBeCloseTo(q.y)
-    expect(result.z).toBeCloseTo(q.z)
-    expect(result.w).toBeCloseTo(q.w)
   })
 })
 
@@ -166,5 +136,33 @@ describe('slerp', () => {
     const result = slerp(a, b, 0.5)
     expect(result.y).toBeCloseTo(half.y)
     expect(result.w).toBeCloseTo(half.w)
+  })
+
+  it('uses the shortest path when the dot product is negative', () => {
+    const result = slerp(identity, makeQuaternion(0, 0, 0, -1), 0.5)
+
+    expect(result.x).toBeCloseTo(identity.x)
+    expect(result.y).toBeCloseTo(identity.y)
+    expect(result.z).toBeCloseTo(identity.z)
+    expect(result.w).toBeCloseTo(identity.w)
+  })
+
+  it('normalizes the linear interpolation path for nearly identical rotations', () => {
+    const a = identity
+    const b = fromAxisAngle({ x: 0, y: 1, z: 0 }, 0.001)
+    const result = slerp(a, b, 0.5)
+    const expected = fromAxisAngle({ x: 0, y: 1, z: 0 }, 0.0005)
+
+    expect(result.x).toBeCloseTo(expected.x)
+    expect(result.y).toBeCloseTo(expected.y)
+    expect(result.z).toBeCloseTo(expected.z)
+    expect(result.w).toBeCloseTo(expected.w)
+  })
+
+
+  it('falls back to identity when extrapolated linear interpolation collapses to zero length', () => {
+    const result = slerp(makeQuaternion(0, 0, 0, 2), makeQuaternion(0, 0, 0, 1), 2)
+
+    expect(result).toEqual(identity)
   })
 })

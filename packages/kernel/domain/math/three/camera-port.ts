@@ -1,6 +1,7 @@
-// Duck-typed: satisfied structurally by THREE.PerspectiveCamera and any compatible mock.
+// Duck-typed: satisfied structurally by THREE.PerspectiveCamera and test doubles with the same shape.
 import { Schema } from 'effect'
-import type { EulerOrder } from 'three'
+
+type EulerOrder = 'XYZ' | 'YZX' | 'ZXY' | 'XZY' | 'YXZ' | 'ZYX'
 
 type CameraRotationSet = (x: number, y: number, z: number, order?: EulerOrder) => void
 type CameraVec3Set = (x: number, y: number, z: number) => void

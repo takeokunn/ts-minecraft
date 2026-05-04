@@ -3,17 +3,21 @@ import { Schema } from 'effect'
 import { ColorPortSchema } from './day-night-port'
 
 describe('ColorPortSchema', () => {
-  it('accepts an object with setHSL and lerpColors methods', () => {
-    const valid = { setHSL: () => {}, lerpColors: () => {} }
+  it('accepts an RGB color object with setHSL and lerpColors methods', () => {
+    const valid = { r: 0.1, g: 0.2, b: 0.3, setHSL: () => {}, lerpColors: () => {} }
     expect(() => Schema.decodeUnknownSync(ColorPortSchema)(valid)).not.toThrow()
   })
 
+  it('rejects a color-like object missing RGB channels', () => {
+    expect(() => Schema.decodeUnknownSync(ColorPortSchema)({ setHSL: () => {}, lerpColors: () => {} })).toThrow()
+  })
+
   it('rejects a plain object missing setHSL', () => {
-    expect(() => Schema.decodeUnknownSync(ColorPortSchema)({ lerpColors: () => {} })).toThrow()
+    expect(() => Schema.decodeUnknownSync(ColorPortSchema)({ r: 0, g: 0, b: 0, lerpColors: () => {} })).toThrow()
   })
 
   it('rejects a plain object missing lerpColors', () => {
-    expect(() => Schema.decodeUnknownSync(ColorPortSchema)({ setHSL: () => {} })).toThrow()
+    expect(() => Schema.decodeUnknownSync(ColorPortSchema)({ r: 0, g: 0, b: 0, setHSL: () => {} })).toThrow()
   })
 
   it('rejects null', () => {

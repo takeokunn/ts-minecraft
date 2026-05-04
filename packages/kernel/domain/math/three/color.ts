@@ -1,4 +1,3 @@
-import * as THREE from 'three'
 import { Schema } from 'effect'
 
 export const ColorSchema = Schema.Struct({
@@ -11,8 +10,11 @@ export type Color = Schema.Schema.Type<typeof ColorSchema>
 export const makeColor = (r: number, g: number, b: number): Color => ({ r, g, b })
 
 export const fromHex = (hex: string): Color => {
-  const threeColor = new THREE.Color(hex)
-  return ({ r: threeColor.r, g: threeColor.g, b: threeColor.b })
+  const normalized = hex.startsWith('#') ? hex.slice(1) : hex
+  const numeric = Number.parseInt(normalized, 16)
+  return {
+    r: ((numeric >> 16) & 0xff) / 255,
+    g: ((numeric >> 8) & 0xff) / 255,
+    b: (numeric & 0xff) / 255,
+  }
 }
-
-export const toThreeColor = (c: Color): THREE.Color => new THREE.Color(c.r, c.g, c.b)

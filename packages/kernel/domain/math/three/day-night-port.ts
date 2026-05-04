@@ -2,7 +2,6 @@
 // Duck-typed — no Three.js import required. Any Three.js objects satisfying this
 // shape will work, keeping the application layer free from rendering infrastructure.
 import { Option, Schema } from 'effect'
-import type { Color as ThreeColor } from 'three'
 export { Option }
 
 type Vec3Set = (x: number, y: number, z: number) => void
@@ -10,16 +9,30 @@ type ClearColor = (color: ColorPort) => void
 type UpdateMatrixWorld = () => void
 type UpdateProjectionMatrix = () => void
 type SkyUniformSet = (x: number, y: number, z: number) => void
+export type ColorPort = {
+  readonly r: number
+  readonly g: number
+  readonly b: number
+  setHSL(h: number, s: number, l: number, colorSpace?: string): unknown
+  lerpColors(color1: ColorPort, color2: ColorPort, alpha: number): unknown
+}
+
+const hasFunctionProperty = <K extends PropertyKey>(value: object, key: K): value is Record<K, (...args: ReadonlyArray<unknown>) => unknown> =>
+  key in value && typeof (value as Record<K, unknown>)[key] === 'function'
+
+const hasNumberProperty = (value: object, key: PropertyKey): boolean =>
+  key in value && typeof Reflect.get(value, key) === 'number'
 
 export const ColorPortSchema = Schema.declare(
-  (u): u is ThreeColor =>
+  (u): u is ColorPort =>
     typeof u === 'object' &&
     u !== null &&
-    'setHSL' in u &&
-    'lerpColors' in u
+    hasNumberProperty(u, 'r') &&
+    hasNumberProperty(u, 'g') &&
+    hasNumberProperty(u, 'b') &&
+    hasFunctionProperty(u, 'setHSL') &&
+    hasFunctionProperty(u, 'lerpColors')
 )
-
-export type ColorPort = ThreeColor
 
 export const LightTargetPortSchema = Schema.mutable(Schema.Struct({
   position: Schema.Struct({

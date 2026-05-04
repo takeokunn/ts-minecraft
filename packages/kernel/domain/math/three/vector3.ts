@@ -1,4 +1,3 @@
-import * as THREE from 'three'
 import { Schema } from 'effect'
 
 export const Vector3Schema = Schema.Struct({ x: Schema.Number.pipe(Schema.finite()), y: Schema.Number.pipe(Schema.finite()), z: Schema.Number.pipe(Schema.finite()) })
@@ -15,11 +14,6 @@ export const left: Vector3 = { x: -1, y: 0, z: 0 }
 export const right: Vector3 = { x: 1, y: 0, z: 0 }
 export const forward: Vector3 = { x: 0, y: 0, z: -1 }
 export const backward: Vector3 = { x: 0, y: 0, z: 1 }
-
-// Three.js相互変換
-export const fromThreeVector = (v: THREE.Vector3): Vector3 => ({ x: v.x, y: v.y, z: v.z })
-
-export const toThreeVector = (v: Vector3): THREE.Vector3 => new THREE.Vector3(v.x, v.y, v.z)
 
 // ベクトル演算（Immutable - 純粋関数）
 export const add = (a: Vector3, b: Vector3): Vector3 => ({ x: a.x + b.x, y: a.y + b.y, z: a.z + b.z })
