@@ -1,4 +1,4 @@
-// Domain error types — all extend Data.TaggedError for Effect.catchTag compatibility.
+// Domain error types — all extend Data.TaggedError for typed Effect.catchTag handling.
 import { Data } from 'effect'
 
 export class InventoryError extends Data.TaggedError('InventoryError')<{

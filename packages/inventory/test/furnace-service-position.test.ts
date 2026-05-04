@@ -4,11 +4,20 @@ import { Effect, Either, HashMap, Layer, Option } from 'effect'
 import { FurnaceService, FurnaceServiceLive } from '@ts-minecraft/inventory'
 import { RecipeService } from '@ts-minecraft/inventory'
 import { InventoryService } from '@ts-minecraft/inventory'
-import { GameStateService } from '@ts-minecraft/game'
+import { PlayerService } from '@ts-minecraft/player'
 import { ChunkManagerService } from '@ts-minecraft/terrain'
 import { RecipeId } from '@ts-minecraft/kernel'
 import { CHUNK_HEIGHT } from '@ts-minecraft/kernel'
-import { makeFurnaceLayer, makeChunkWithFurnace, makeEmptyChunk } from './furnace-service-test-utils'
+import type { BlockType } from '@ts-minecraft/kernel'
+import {
+  makeChunkManagerService,
+  makeChunkWithFurnace,
+  makeEmptyChunk,
+  makeFurnaceLayer,
+  makeInventoryService,
+  makePlayerService,
+  makeRecipeService,
+} from './furnace-service-test-utils'
 
 
 describe('application/furnace/furnace-service', () => {
@@ -72,30 +81,28 @@ describe('application/furnace/furnace-service', () => {
   )
 
   it.effect('startSmelting counts only non-empty slots (onNone path in slot reduction)', () => {
-    const inventory = {
-      getAllSlots: () => Effect.succeed([
-        Option.none(),
-        Option.some({ blockType: 'RAW_IRON', count: 1 }),
-        Option.none(),
-        Option.some({ blockType: 'COAL', count: 1 }),
-      ]),
-      removeBlock: (_bt: string, _c: number) => Effect.succeed(true),
-      addBlock: (_bt: string, _c: number) => Effect.succeed(true),
-    }
+    const inventoryItems = new Map<BlockType, number>([['RAW_IRON', 1], ['COAL', 1]])
 
     const layer = FurnaceServiceLive.pipe(
-      Layer.provide(Layer.succeed(RecipeService, {
-        findById: (id: string) => id === 'raw-iron-to-iron-ingot'
-          ? Option.some({ id, station: 'furnace', ingredients: [{ blockType: 'RAW_IRON', count: 1 }], output: { blockType: 'IRON_INGOT', count: 1 } })
-          : Option.none(),
-      } as unknown as RecipeService)),
-      Layer.provide(Layer.succeed(InventoryService, inventory as unknown as InventoryService)),
-      Layer.provide(Layer.succeed(GameStateService, {
-        getPlayerPosition: () => Effect.succeed({ x: 0, y: 64, z: 0 }),
-      } as unknown as GameStateService)),
-      Layer.provide(Layer.succeed(ChunkManagerService, {
-        getChunk: () => Effect.succeed(makeChunkWithFurnace()),
-      } as unknown as ChunkManagerService)),
+      Layer.provide(Layer.succeed(RecipeService, makeRecipeService({
+        'raw-iron-to-iron-ingot': {
+          station: 'furnace',
+          ingredients: [{ blockType: 'RAW_IRON', count: 1 }],
+          output: { blockType: 'IRON_INGOT', count: 1 },
+        },
+      }))),
+      Layer.provide(Layer.succeed(InventoryService, makeInventoryService(inventoryItems, {
+        getAllSlots: () => Effect.succeed([
+          Option.none(),
+          Option.some({ blockType: 'RAW_IRON', count: 1 }),
+          Option.none(),
+          Option.some({ blockType: 'COAL', count: 1 }),
+        ]),
+        removeBlock: () => Effect.succeed(true),
+        addBlock: () => Effect.succeed(true),
+      }))),
+      Layer.provide(Layer.succeed(PlayerService, makePlayerService({ x: 0, y: 64, z: 0 }))),
+      Layer.provide(Layer.succeed(ChunkManagerService, makeChunkManagerService(makeChunkWithFurnace()))),
     )
 
     return Effect.gen(function* () {

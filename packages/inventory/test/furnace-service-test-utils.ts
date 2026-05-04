@@ -2,10 +2,10 @@ import { Effect, Layer, Option } from 'effect'
 import { FurnaceServiceLive } from '@ts-minecraft/inventory'
 import { RecipeService } from '@ts-minecraft/inventory'
 import { InventoryService } from '@ts-minecraft/inventory'
-import { GameStateService } from '@ts-minecraft/game'
+import { PlayerError, PlayerService } from '@ts-minecraft/player'
 import { ChunkError, ChunkManagerService } from '@ts-minecraft/terrain'
-import { blockTypeToIndex, CHUNK_HEIGHT, CHUNK_SIZE, DeltaTimeSecs } from '@ts-minecraft/kernel'
-import type { BlockType, Position } from '@ts-minecraft/kernel'
+import { blockTypeToIndex, CHUNK_HEIGHT, CHUNK_SIZE, DEFAULT_PLAYER_ID } from '@ts-minecraft/kernel'
+import type { BlockType, PlayerId, Position } from '@ts-minecraft/kernel'
 import type { Chunk } from '@ts-minecraft/terrain'
 
 export const makeChunkWithFurnace = () => {
@@ -54,14 +54,13 @@ type ChunkManagerMockOverrides = Partial<{
   unloadChunk: ChunkManagerService['unloadChunk']
 }>
 
-type GameStateMockOverrides = Partial<{
-  initialize: GameStateService['initialize']
-  update: GameStateService['update']
-  respawn: GameStateService['respawn']
-  getTiming: GameStateService['getTiming']
-  getPlayerPosition: GameStateService['getPlayerPosition']
-  getCameraRotation: GameStateService['getCameraRotation']
-  isPlayerGrounded: GameStateService['isPlayerGrounded']
+type PlayerMockOverrides = Partial<{
+  create: PlayerService['create']
+  updatePosition: PlayerService['updatePosition']
+  updateVelocity: PlayerService['updateVelocity']
+  getPosition: PlayerService['getPosition']
+  getVelocity: PlayerService['getVelocity']
+  getState: PlayerService['getState']
 }>
 
 export const makeRecipeService = (
@@ -118,23 +117,19 @@ export const makeInventoryService = (
     ...overrides,
   })
 
-export const makeGameStateService = (
+export const makePlayerService = (
   playerPosition: Position,
-  overrides: GameStateMockOverrides = {},
+  overrides: PlayerMockOverrides = {},
 ) =>
-  GameStateService.of({
-    _tag: '@minecraft/application/GameStateService' as const,
-    initialize: () => Effect.void,
-    update: () => Effect.void,
-    respawn: () => Effect.void,
-    getTiming: () => Effect.succeed({
-      lastFrameTime: 0,
-      deltaTime: DeltaTimeSecs.make(1 / 60),
-      frameCount: 0,
-    }),
-    getPlayerPosition: () => Effect.succeed(playerPosition),
-    getCameraRotation: () => Effect.succeed({ yaw: 0, pitch: 0 }),
-    isPlayerGrounded: () => Effect.succeed(false),
+  PlayerService.of({
+    _tag: '@minecraft/application/PlayerService' as const,
+    create: (_id: PlayerId, _position: Position) => Effect.void,
+    updatePosition: (_id: PlayerId, _position: Position) => Effect.void,
+    updateVelocity: (_id: PlayerId, _velocity: { x: number; y: number; z: number }) => Effect.void,
+    getPosition: (_id: PlayerId) => Effect.succeed(playerPosition),
+    getVelocity: (_id: PlayerId) => Effect.succeed({ x: 0, y: 0, z: 0 }),
+    getState: (_id: PlayerId) =>
+      Effect.fail(new PlayerError({ playerId: DEFAULT_PLAYER_ID, reason: 'not implemented' })),
     ...overrides,
   })
 
@@ -187,7 +182,7 @@ export const makeFurnaceLayer = (opts: MakeFurnaceLayerOpts = {}) => {
   return FurnaceServiceLive.pipe(
     Layer.provide(Layer.succeed(RecipeService, makeRecipeService(recipeMap))),
     Layer.provide(Layer.succeed(InventoryService, makeInventoryService(inventoryItems))),
-    Layer.provide(Layer.succeed(GameStateService, makeGameStateService(playerPosition))),
+    Layer.provide(Layer.succeed(PlayerService, makePlayerService(playerPosition))),
     Layer.provide(Layer.succeed(
       ChunkManagerService,
       makeChunkManagerService(

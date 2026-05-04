@@ -1,8 +1,8 @@
 import { Array as Arr, Effect, HashMap, Option, Ref } from 'effect'
 import { RecipeService } from './recipe-service'
 import { InventoryService } from './inventory-service'
-import { GameStateService } from '@ts-minecraft/game'
-import { ChunkManagerService } from '@ts-minecraft/terrain'
+import { PlayerService } from '../../player/domain/player-state'
+import { ChunkManagerService } from '../../terrain/application/chunk-manager-service'
 import { DEFAULT_PLAYER_ID } from '@ts-minecraft/kernel'
 import { CHUNK_HEIGHT, CHUNK_SIZE, blockTypeToIndex } from '@ts-minecraft/kernel'
 import type { BlockType } from '@ts-minecraft/kernel'
@@ -69,11 +69,11 @@ export class FurnaceService extends Effect.Service<FurnaceService>()(
     effect: Effect.all([
       RecipeService,
       InventoryService,
-      GameStateService,
-      ChunkManagerService,
+      PlayerService,
+      Effect.suspend(() => ChunkManagerService),
       Ref.make<FurnaceState>(INITIAL_STATE),
     ], { concurrency: 'unbounded' }).pipe(
-      Effect.map(([recipeService, inventoryService, gameState, chunkManagerService, stateRef]) => {
+      Effect.map(([recipeService, inventoryService, playerService, chunkManagerService, stateRef]) => {
         const isFurnaceStillValid = (playerPos: Position, position: { readonly x: number; readonly y: number; readonly z: number }): Effect.Effect<boolean, never> =>
           Effect.gen(function* () {
             const dx = position.x - playerPos.x
@@ -93,7 +93,7 @@ export class FurnaceService extends Effect.Service<FurnaceService>()(
 
         const getSelectedFurnacePosition = (): Effect.Effect<Option.Option<{ readonly x: number; readonly y: number; readonly z: number }>, never> =>
           Effect.gen(function* () {
-            const playerPos = yield* gameState.getPlayerPosition(DEFAULT_PLAYER_ID).pipe(Effect.catchAll(() => Effect.succeed({ x: 0, y: 0, z: 0 })))
+            const playerPos = yield* playerService.getPosition(DEFAULT_PLAYER_ID).pipe(Effect.catchAll(() => Effect.succeed({ x: 0, y: 0, z: 0 })))
             const state = yield* Ref.get(stateRef)
             return yield* Option.match(state.selectedFurnacePosition, {
               onNone: () => Effect.succeed(Option.none<{ readonly x: number; readonly y: number; readonly z: number }>()),

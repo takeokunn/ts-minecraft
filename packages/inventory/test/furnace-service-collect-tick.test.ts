@@ -4,7 +4,7 @@ import { Effect, Either, Layer, MutableRef, Option } from 'effect'
 import { FurnaceService, FurnaceServiceLive, FurnaceError } from '@ts-minecraft/inventory'
 import { RecipeService } from '@ts-minecraft/inventory'
 import { InventoryService } from '@ts-minecraft/inventory'
-import { GameStateService } from '@ts-minecraft/game'
+import { PlayerService } from '@ts-minecraft/player'
 import { ChunkManagerService } from '@ts-minecraft/terrain'
 import { RecipeId, DeltaTimeSecs } from '@ts-minecraft/kernel'
 import type { BlockType } from '@ts-minecraft/kernel'
@@ -12,8 +12,8 @@ import {
   makeChunkManagerService,
   makeFurnaceLayer,
   makeChunkWithFurnace,
-  makeGameStateService,
   makeInventoryService,
+  makePlayerService,
   makeRecipeService,
 } from './furnace-service-test-utils'
 
@@ -71,7 +71,7 @@ describe('application/furnace/furnace-service', () => {
         removeBlock: customInventory.removeBlock,
         addBlock: customInventory.addBlock,
       }))),
-      Layer.provide(Layer.succeed(GameStateService, makeGameStateService({ x: 0, y: 64, z: 0 }))),
+      Layer.provide(Layer.succeed(PlayerService, makePlayerService({ x: 0, y: 64, z: 0 }))),
       Layer.provide(Layer.succeed(ChunkManagerService, makeChunkManagerService(makeChunkWithFurnace()))),
     )
 
@@ -126,7 +126,7 @@ describe('application/furnace/furnace-service', () => {
         removeBlock: refundInventory.removeBlock,
         addBlock: refundInventory.addBlock,
       }))),
-      Layer.provide(Layer.succeed(GameStateService, makeGameStateService({ x: 0, y: 64, z: 0 }))),
+      Layer.provide(Layer.succeed(PlayerService, makePlayerService({ x: 0, y: 64, z: 0 }))),
       Layer.provide(Layer.succeed(ChunkManagerService, makeChunkManagerService(makeChunkWithFurnace()))),
     )
 
