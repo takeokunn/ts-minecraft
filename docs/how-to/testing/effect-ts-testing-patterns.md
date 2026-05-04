@@ -119,7 +119,7 @@ describe('Modern Effect-TS Vitest Pattern', () => {
     })
   )
 
-  // 従来のrunPromiseパターンとの併用例
+  // 比較対象のrunPromiseパターンとの併用例
   it('demonstrates compatibility with Effect.runPromise', async () => {
     const program = Effect.gen(function* () {
       const testData = yield* Schema.decode(TestSchema)({ value: 42 })
@@ -559,7 +559,7 @@ describe('Multi-Service Integration', () => {
 ### 1. 非同期処理の統一パターン
 
 ```typescript
-// 従来のpipe + flatMapから最新のEffect.genへの移行
+// 比較対象のpipe + flatMapから最新のEffect.genへの移行
 describe('Effect.gen Modern Patterns', () => {
   it.effect('demonstrates Effect.gen with complex async operations', () =>
     Effect.gen(function* () {
@@ -1799,10 +1799,10 @@ describe('Custom Mock Usage', () => {
 
 このパターンに従うことで、TypeScript Minecraftプロジェクトは**完全に型安全で予測可能、かつ保守しやすいテストスイート**を構築できます。@effect/vitest 0.25.1+の最新機能を活用し、全てのテストコードがプロダクションコードと同じ関数型パターンに従い、一貫性のある開発体験を提供します。
 
-### 🔄 移行ガイド：従来パターンから最新パターンへ
+### 🔄 移行ガイド：Promiseベースパターンから最新パターンへ
 
 ```typescript
-// ❌ 従来パターン（Promise.runPromise）
+// ❌ Promiseベースパターン（Promise.runPromise）
 it('old pattern with Effect.runPromise', async () => {
   const program = Effect.gen(function* () {
     const result = yield* someEffectOperation()

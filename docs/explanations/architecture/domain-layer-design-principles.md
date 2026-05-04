@@ -39,7 +39,7 @@ related_docs: ['../../reference/api/domain-apis.md', './architecture-overview.md
 const worldService = yield * WorldService
 const result = yield * worldService.loadChunk(coordinate)
 
-// ❌ 非採用パターン - 従来のPromise/async
+// ❌ 非採用パターン - 比較対象のPromise/async
 const result = await worldService.loadChunk(coordinate)
 ```
 

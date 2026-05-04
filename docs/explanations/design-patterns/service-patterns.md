@@ -142,7 +142,7 @@ const benchmarkServicePerformance = Effect.gen(function* () {
 
 ### 🔄 Before/After 実装比較
 
-#### ❌ Before: 従来のPromise実装
+#### ❌ Before: 比較対象のPromise実装
 
 ```typescript
 // 型安全性が不十分、エラーハンドリングが複雑
@@ -1485,7 +1485,7 @@ export const ServiceConfigLive = Layer.effect(ServiceConfigTag, loadConfig())
 
 ### 📊 パターン移行による改善効果
 
-#### **Before: 従来のPromise/async-awaitパターン**
+#### **Before: Promise/async-awaitベースパターン**
 
 ```typescript
 // ❌ Before: 旧来のクラスベース実装
@@ -1964,7 +1964,7 @@ const migrationPriority = {
 **Step 2.1: 最初のサービスの移行**
 
 ```typescript
-// Before: 従来のUserAuthenticationService
+// Before: 比較対象のUserAuthenticationService
 interface UserAuthenticationService {
   async authenticate(credentials: any): Promise<User | null> {
     try {
@@ -2025,17 +2025,17 @@ export const UserAuthenticationServiceLive = Layer.effect(
 // フィーチャーフラグによる段階的移行
 const useEffectTSAuth = Config.boolean('USE_EFFECT_TS_AUTH').pipe(Config.withDefault(false))
 
-// ハイブリッド実装（Match パターン使用）
-const hybridAuthService = Effect.gen(function* () {
+// アダプターパターンによる実装（Match パターン使用）
+const authService = Effect.gen(function* () {
   const useNewImplementation = yield* useEffectTSAuth
-  const legacyService = yield* LegacyAuthService
-  const newService = yield* UserAuthenticationService
+  const primaryAuthService = yield* PrimaryAuthService
+  const newAuthService = yield* UserAuthenticationService
 
   return {
     authenticate: (credentials: AuthCredentials) =>
       Match.value(useNewImplementation).pipe(
-        Match.when(true, () => newService.authenticate(credentials)),
-        Match.when(false, () => Effect.promise(() => legacyService.authenticate(credentials))),
+        Match.when(true, () => newAuthService.authenticate(credentials)),
+        Match.when(false, () => Effect.promise(() => primaryAuthService.authenticate(credentials))),
         Match.exhaustive
       ),
   }
@@ -2047,8 +2047,8 @@ const hybridAuthService = Effect.gen(function* () {
 **Step 3.1: 依存関係の複雑なサービスの移行**
 
 ```typescript
-// WorldService の移行例
-// Before: 複雑な依存関係と状態管理（クラスベース - 非推奨）
+  // WorldService の実装例
+  // Before: 複雑な依存関係と状態管理（クラスベース）
 const WorldServiceData = Schema.Struct({
   player: Schema.Any, // Player schema
   chunks: Schema.Array(Schema.Any), // Chunk schema array
@@ -2582,8 +2582,8 @@ const ServiceError = Schema.TaggedError('ServiceError')({
 #### Week 3-4: コアサービス移行
 
 ```typescript
-// ハイブリッド運用パターン
-const createHybridService = (useEffect: boolean) => (useEffect ? EffectBasedPlayerService : LegacyPlayerService)
+// アダプターパターンによる実装
+const createAdaptiveService = (useEffect: boolean) => (useEffect ? EffectBasedPlayerService : PrimaryPlayerService)
 
 // フィーチャーフラグによる段階的移行
 const featureFlag = Config.boolean('USE_EFFECT_SERVICES')

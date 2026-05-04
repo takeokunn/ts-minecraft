@@ -877,9 +877,9 @@ export const createEventSourcedPlayer = (id: string): EventSourcedAggregate<Play
 
 ### Effect-TS Match パターン使用に関する改善点
 
-上記の実装では、従来のswitch文をEffect-TSのMatchモジュールに置き換えています。この変更により以下の利点が得られます：
+上記の実装では、switch文をEffect-TSのMatchモジュールに置き換えています。この変更により以下の利点が得られます：
 
-#### 修正前（従来のswitch文）：
+#### 修正前（switch文）：
 
 ```typescript
 const apply = (state: PlayerState, event: PlayerEvent): PlayerState => {

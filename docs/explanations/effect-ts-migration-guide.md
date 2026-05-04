@@ -11,7 +11,7 @@ last_updated: '2024-12-24'
 
 ## 概要
 
-本ガイドでは、TypeScript Minecraft CloneプロジェクトにおけるEffect-TS型システムへの完全移行プロセスを説明します。従来のinterfaceからSchema.Structベースの型安全なシステムへの移行方法を詳述します。
+本ガイドでは、TypeScript Minecraft CloneプロジェクトにおけるEffect-TS型システムへの完全移行プロセスを説明します。比較対象のinterfaceからSchema.Structベースの型安全なシステムへの移行方法を詳述します。
 
 ## 移行の目標
 

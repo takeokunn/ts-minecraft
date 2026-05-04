@@ -8,7 +8,7 @@ prerequisites: ['effect-ts-basics', 'async-fundamentals']
 estimated_reading_time: '20分'
 learning_objectives:
   - 'Effect-TSによる非同期処理の基本概念をマスターする'
-  - '従来のPromise/async-awaitからEffect-TSへの移行パターンを理解する'
+  - 'Promise/async-awaitベースからEffect-TSへの移行パターンを理解する'
   - '並行処理と順次処理の使い分けを習得する'
   - '型安全で合成可能な非同期処理の実装方法を学ぶ'
 related_docs:
@@ -671,10 +671,10 @@ const testTimeBasedLogic = Effect.gen(function* () {
 
 ### Promise vs Effect-TS パフォーマンス詳細分析
 
-#### **Before: 従来のPromise/async-await実装**
+#### **Before: Promise/async-awaitベース実装**
 
 ```typescript
-// ❌ Before: 従来の非同期処理実装
+// ❌ Before: Promise/async-awaitベースの非同期処理実装
 interface MinecraftChunkLoader {
   private cache = new Map<string, Chunk>()
   private loadingPromises = new Map<string, Promise<Chunk>>()
@@ -761,7 +761,7 @@ interface MinecraftChunkLoader {
 
   // リトライ実装（手動・不完全）
   async loadWithRetry(x: number, z: number, maxRetries = 3): Promise<Chunk> {
-    // ❌ 従来の命令型アプローチ - 可変状態とループに依存
+    // ❌ 命令型アプローチ - 可変状態とループに依存
     // Effect-TSでは以下のように書き直される:
     /*
     return pipe(
@@ -775,7 +775,7 @@ interface MinecraftChunkLoader {
     )
     */
 
-    // 従来実装（後方互換性のため残置）
+     // 再試行実装
     const attempts = Array.from({ length: maxRetries + 1 }, (_, i) => i)
 
     return attempts.reduce(async (previousAttempt, currentIndex) => {
@@ -1439,11 +1439,11 @@ export const ConfigServiceLive = Layer.effect(ConfigService, makeConfigService)
 **Step 2.2: ハイブリッド実装**
 
 ```typescript
-// 既存コードと新実装の併存期間
-interface HybridChunkLoader {
+// 併存期間中のアダプターモード実装
+interface DualModeChunkLoader {
   constructor(
-    private legacyLoader: LegacyChunkLoader,
-    private effectLoader: ChunkLoaderService
+    private primaryLoader: ChunkLoaderService,
+    private secondaryLoader: SecondaryChunkLoader
   ) {}
 
   async loadChunk(x: number, z: number): Promise<Chunk> {
@@ -1453,13 +1453,13 @@ interface HybridChunkLoader {
       // Effect版を使用
       return Effect.runPromise(
         pipe(
-          this.effectLoader.loadChunk({ x, z }),
+          this.primaryLoader.loadChunk({ x, z }),
           Effect.provide(ChunkLoaderServiceLive)
         )
       )
     } else {
-      // 既存版を使用
-      return this.legacyLoader.loadChunk(x, z)
+      // Secondary版を使用
+      return this.secondaryLoader.loadChunk(x, z)
     }
   }
 }
@@ -2172,7 +2172,7 @@ const loadWorldDataBad = async (worldId: string) => {
   const connections: DatabaseConnection[] = []
 
   try {
-    // ❌ 従来の命令型アプローチ - リソースリークのリスク
+    // ❌ 命令型アプローチ - リソースリークのリスク
     // Effect-TSでは以下のように安全に書き直される:
     /*
     yield* Effect.forEach(
@@ -2186,7 +2186,7 @@ const loadWorldDataBad = async (worldId: string) => {
     )
     */
 
-    // 従来実装（危険なパターンの例として保持）
+    // 比較対象実装（危険なパターンの例として保持）
     const connectionPromises = Array.from({ length: 10 }, async (_, i) => {
       const conn = await createConnection()
       connections.push(conn)

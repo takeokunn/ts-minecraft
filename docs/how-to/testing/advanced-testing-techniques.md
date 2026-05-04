@@ -59,7 +59,7 @@ mindmap
 
 ## 📋 Problem Statement
 
-Effect-TS 3.17+とDDDアーキテクチャを使用したTypeScript Minecraftプロジェクトでは、従来の単体・結合テストだけでは以下の課題をカバーできません。
+Effect-TS 3.17+とDDDアーキテクチャを使用したTypeScript Minecraftプロジェクトでは、単体・結合テストだけでは以下の課題をカバーできません。
 
 ### 主要課題
 
@@ -1017,7 +1017,7 @@ describe('API Contract Tests', () => {
         }),
       }
 
-      // バージョン2.0 API（後方互換性あり）
+      // バージョン2.0 API（アダプターレイヤーあり）
       const v2Contract = {
         response: Schema.Struct({
           id: Schema.String,

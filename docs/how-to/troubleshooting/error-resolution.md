@@ -45,7 +45,7 @@ flowchart TD
 
 ## 📋 Problem Statement
 
-TypeScript Minecraftプロジェクトでは、Effect-TS 3.17+への移行とDDDアーキテクチャ導入により、従来のTypeScript開発とは異なる型エラーパターンが発生します。
+TypeScript Minecraftプロジェクトでは、Effect-TS 3.17+への移行とDDDアーキテクチャ導入により、一般的なTypeScript開発とは異なる型エラーパターンが発生します。
 
 ### 主要課題
 

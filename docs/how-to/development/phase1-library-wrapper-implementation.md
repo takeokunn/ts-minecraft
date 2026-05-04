@@ -1194,7 +1194,7 @@ grep -r "new THREE\." src --include="*.ts" | grep -v "src/infrastructure/three"
 **対策**:
 
 - Schemaバージョニングによる段階的移行
-- 後方互換性のあるAPI設計
+- アダプターレイヤーのAPI設計
 - 変更検出のための自動テスト
 
 ```typescript

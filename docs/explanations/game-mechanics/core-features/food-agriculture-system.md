@@ -1381,7 +1381,7 @@ describe('Agriculture System Integration Tests', () => {
 })
 ```
 
-### 従来のUnit Test用テストケース
+### 比較対象のUnit Test用テストケース
 
 - [ ] 作物が適切な条件下で成長すること
   - [ ] 光源レベル9以上で成長率が向上する

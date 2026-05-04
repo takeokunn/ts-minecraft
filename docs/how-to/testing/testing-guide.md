@@ -312,15 +312,15 @@ describe('PlayerService', () => {
     }).pipe(Effect.provide(TestPlayerServiceLive))
   )
 
-  // 従来のrunPromiseパターンとの併用例
-  it('demonstrates compatibility with Effect.runPromise', async () => {
+  // Effect.runPromiseを使った境界実行例
+  it('demonstrates adapter pattern with Effect.runPromise', async () => {
     const program = Effect.gen(function* () {
       const service = yield* PlayerService
-      return yield* service.create({ name: 'LegacyPlayer' })
+      return yield* service.create({ name: 'TestPlayer' })
     })
 
     const result = await Effect.runPromise(program.pipe(Effect.provide(TestPlayerServiceLive)))
-    expect(result.name).toBe('LegacyPlayer')
+    expect(result.name).toBe('TestPlayer')
   })
 })
 ```
@@ -718,7 +718,7 @@ describe('デバッグ技術', () => {
 - ✅ **Effect-TS 3.17+** とSchemaを活用した型安全テスト
 - ✅ Property-Based Testingの基礎と実践
 - ✅ Layer-basedモックシステムによるDI
-- ✅ **最新パターン**: 従来のEffect.runPromiseからit.effectへの移行
+- ✅ **最新パターン**: 比較対象のEffect.runPromiseからit.effectへの移行
 - ✅ 実践的なテストパターンとデバッグ技術
 
 ## 📚 次に学ぶべきこと
@@ -730,7 +730,7 @@ describe('デバッグ技術', () => {
 
 ## 🔄 移行チェックリスト
 
-従来のテストコードを最新パターンに移行する際の確認事項：
+例ベーステストコードを最新パターンに移行する際の確認事項：
 
 - [ ] `Effect.runPromise` → `it.effect` パターンへの移行
 - [ ] `@effect/vitest` パッケージの追加（0.25.1+）

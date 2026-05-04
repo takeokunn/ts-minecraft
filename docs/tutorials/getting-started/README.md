@@ -333,7 +333,7 @@ const main = Effect.gen(function* () {
 
 ```typescript
 // [LIVE_EXAMPLE: effect-power]
-// 🔄 従来の問題のあるコード（アンチパターン）
+// 🔄 比較対象の問題のあるコード（アンチパターン）
 function traditionalApproach() {
   try {
     const config = JSON.parse(localStorage.getItem('config') || '{}')
@@ -372,7 +372,7 @@ const modernApproach = Effect.gen(function* () {
 
 ```typescript
 // [EXERCISE: value-comparison]
-// 🔴 従来のPromiseベース（問題だらけ）
+// 🔴 Promiseベース（問題だらけ）
 async function badExample() {
   try {
     const config = JSON.parse(localStorage.getItem('config') || '{}')
@@ -402,7 +402,7 @@ const goodExample = Effect.gen(function* () {
 )
 
 // 💭 どちらを選びますか？ 理由は？
-// Your choice: [ ] 従来版 [ ] Effect-TS版
+// Your choice: [ ] Promiseベース版 [ ] Effect-TS版
 // Reason: ______________________
 // [/EXERCISE]
 ```
@@ -548,7 +548,7 @@ const NextModulePreview = {
 
 1. **実行確認**: `npm run dev`でMinecraft世界が表示されますか？ [ ] はい [ ] いいえ
 2. **操作確認**: WASDキーでキャラクターが移動できますか？ [ ] はい [ ] いいえ
-3. **技術理解**: Effect-TSが従来のPromiseより優れている理由を3つ言えますか？ [ ] はい [ ] いいえ
+3. **技術理解**: Effect-TSが比較対象のPromiseより優れている理由を3つ言えますか？ [ ] はい [ ] いいえ
 4. **学習準備**: 次に学ぶべきEffect-TS Fundamentalsの内容を把握していますか？ [ ] はい [ ] いいえ
 
 **🎉 Status判定**:

@@ -885,44 +885,6 @@ export const ProductionLayer = Layer.mergeAll(
 export const TestLayer = Layer.mergeAll(InMemoryStorageLive, MockRepositoryLive, TestEventBusLive)
 ```
 
-### 🔄 **API バージョニング戦略**
-
-```typescript
-// バージョン別Schema管理
-export namespace APIVersions {
-  export namespace V1 {
-    export const ChunkSchema = Schema.Struct({
-      coordinate: Schema.Struct({
-        x: Schema.Number,
-        z: Schema.Number,
-      }),
-      blocks: Schema.Array(BlockV1Schema),
-    })
-  }
-
-  export namespace V2 {
-    export const ChunkSchema = Schema.Struct({
-      coordinate: Schema.Struct({
-        x: Schema.Number,
-        z: Schema.Number,
-      }),
-      blocks: Schema.Array(BlockV2Schema),
-      metadata: ChunkMetadataSchema, // V2で追加
-    })
-  }
-}
-
-// バージョン互換性の確保
-export const migrateChunkV1toV2 = (v1Chunk: APIVersions.V1.Chunk): APIVersions.V2.Chunk => ({
-  ...v1Chunk,
-  metadata: {
-    version: '2.0',
-    createdAt: new Date(),
-    lastModified: new Date(),
-  },
-})
-```
-
 ## 🔗 **関連ドキュメント & リソース**
 
 ### 📚 **API仕様書詳細**
@@ -964,8 +926,7 @@ export const migrateChunkV1toV2 = (v1Chunk: APIVersions.V1.Chunk): APIVersions.V
 
 🚀 **重要**:
 
-- API変更時は**セマンティックバージョニング**を適用
-- **下位互換性**を最優先で維持
+- API変更時は**現行スキーマと呼び出し側の整合性**を同時に更新
 - **Schema-First**アプローチで型安全性を確保
 - **Property-Based Testing**で品質保証を実現
 - **Observability**を設計段階から組み込み

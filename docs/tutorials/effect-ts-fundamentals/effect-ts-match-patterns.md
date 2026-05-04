@@ -24,14 +24,14 @@ estimated_reading_time: '30分'
 
 ## 1. Match モジュール概要
 
-Effect-TS の `Match` モジュールは、TypeScript における **完全な型安全パターンマッチング** を提供します。従来の if/else/switch 文を完全に置き換え、より宣言的で保守性の高いコードを実現します。
+Effect-TS の `Match` モジュールは、TypeScript における **完全な型安全パターンマッチング** を提供します。比較対象の if/else/switch 文を完全に置き換え、より宣言的で保守性の高いコードを実現します。
 
 ### 1.1 なぜ Match を使うのか
 
 ```typescript
 import { Match, Effect, pipe, Option } from 'effect'
 
-// ❌ 従来のアプローチ: 命令的で型安全性が不完全
+// ❌ 比較対象のアプローチ: 命令的で型安全性が不完全
 // if/else/switchを使った古いパターン - 使用禁止
 const processValueOld = (value: number | string | boolean) => {
   // 絶対に使わない: if/else の連鎖
@@ -815,7 +815,7 @@ const manageResource = <T>(state: ResourceState<T>, action: ResourceAction): Eff
 ```typescript
 import { Array, Effect, pipe } from 'effect'
 
-// ❌ 絶対に使わない: 従来のforループ
+// ❌ 絶対に使わない: forループ
 // for (let i = 0; i < items.length; i++) { ... }
 // for (const item of items) { ... }
 
@@ -1596,7 +1596,7 @@ const good = pipe(
 
 ## まとめ
 
-Effect-TS の Match モジュールは、従来の if/else/switch 文を完全に置き換える強力なツールです。以下の高度な機能により、型安全で宣言的なコードを実現します：
+Effect-TS の Match モジュールは、比較対象の if/else/switch 文を完全に置き換える強力なツールです。以下の高度な機能により、型安全で宣言的なコードを実現します：
 
 ### 主要な機能
 

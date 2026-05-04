@@ -246,7 +246,7 @@ describe('Player Properties', () => {
     })
   )
 
-  // 非同期版PBT（互換性のため残存）
+  // アダプターパターン版PBT（同期版用）
   it('player creation invariants (async version)', async () => {
     await it.prop(
       fc.asyncProperty(playerArbitrary, async (playerData) => {

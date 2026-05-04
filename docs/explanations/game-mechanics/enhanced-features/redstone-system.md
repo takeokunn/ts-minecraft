@@ -1559,9 +1559,9 @@ export const AdvancedRedstoneComponents = {
     }),
 }
 
-// MOD互換レイヤー
-export const ModCompatibilityLayer = Layer.effect(
-  Context.GenericTag<ModCompatibilityInterface>('@app/ModCompatibility'),
+// アダプターレイヤー
+export const ModLayer = Layer.effect(
+  Context.GenericTag<ModInterface>('@app/ModLayer'),
   Effect.gen(function* () {
     const loadedMods = yield* Ref.make<Map<string, ModInterface>>(new Map())
     const componentRegistry = yield* Ref.make<Map<string, ComponentBehavior>>(new Map())

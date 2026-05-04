@@ -2,13 +2,13 @@
 
 ## 概要
 
-このガイドでは、従来のforループをEffect-TS Stream APIに移行するパターンを解説します。Stream APIは遅延評価、メモリ効率、エラーハンドリングの改善を提供します。
+このガイドでは、forループをEffect-TS Stream APIに移行するパターンを解説します。Stream APIは遅延評価、メモリ効率、エラーハンドリングの改善を提供します。
 
 ## 基本概念
 
-### Stream vs 従来のループ
+### Stream vs 比較対象のループ
 
-| 従来のループ       | Stream API            | 利点                   |
+| 比較対象のループ       | Stream API            | 利点                   |
 | ------------------ | --------------------- | ---------------------- |
 | `for...of`         | `Stream.fromIterable` | 遅延評価、メモリ効率   |
 | `for(i=0;i<n;i++)` | `Stream.range`        | 不変性、組み合わせ可能 |
@@ -21,7 +21,7 @@
 ### パターン1: 単純な配列処理
 
 ```typescript
-// 従来のforループ
+// forループ
 for (const item of items) {
   processItem(item)
 }
@@ -39,7 +39,7 @@ yield *
 ### パターン2: インデックスベースループ
 
 ```typescript
-// 従来のforループ
+// forループ
 for (let i = 0; i < 10; i++) {
   console.log(i)
 }
@@ -55,7 +55,7 @@ yield *
 ### パターン3: 2次元ネストループ
 
 ```typescript
-// 従来のforループ
+// forループ
 for (let x = 0; x < width; x++) {
   for (let y = 0; y < height; y++) {
     processPixel(x, y)
@@ -74,7 +74,7 @@ yield *
 ### パターン4: 3次元ネストループ（チャンク処理）
 
 ```typescript
-// 従来のforループ
+// forループ
 for (let x = 0; x < 16; x++) {
   for (let y = 0; y < 384; y++) {
     for (let z = 0; z < 16; z++) {
@@ -104,7 +104,7 @@ yield *
 ### パターン5: フィルタと処理
 
 ```typescript
-// 従来のforループ
+// forループ
 for (const user of users) {
   if (user.isActive) {
     sendEmail(user)
@@ -123,7 +123,7 @@ yield *
 ### パターン6: 累積処理
 
 ```typescript
-// 従来のforループ
+// forループ
 let sum = 0
 for (const value of values) {
   sum += value
@@ -141,7 +141,7 @@ const sum =
 ### パターン7: 早期終了
 
 ```typescript
-// 従来のforループ
+// forループ
 for (const item of items) {
   if (!isValid(item)) break
   process(item)
@@ -159,7 +159,7 @@ yield *
 ### パターン8: インデックス付きマッピング
 
 ```typescript
-// 従来のforループ
+// forループ
 const results = []
 for (let i = 0; i < items.length; i++) {
   results[i] = transform(items[i], i)
@@ -288,4 +288,4 @@ yield * stream2D({ start: 0, end: 10 }, { start: 0, end: 10 }, (x, y) => Effect.
 
 ## まとめ
 
-Stream APIへの移行は、コードの可読性、保守性、エラーハンドリングを改善します。パフォーマンスクリティカルな箇所では従来のループを維持しつつ、適切な場所でStream APIを活用することで、モダンで堅牢なコードベースを構築できます。
+Stream APIへの移行は、コードの可読性、保守性、エラーハンドリングを改善します。パフォーマンスクリティカルな箇所では比較対象のループを維持しつつ、適切な場所でStream APIを活用することで、モダンで堅牢なコードベースを構築できます。

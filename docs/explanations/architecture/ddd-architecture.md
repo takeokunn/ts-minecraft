@@ -203,7 +203,7 @@ world_generation → biome
 - 現状: `src/domain/world/value_object/coordinates/`
 - 調査結果: world内部のみで使用、他コンテキストへの影響なし
 - 推奨: `src/domain/biome/value_object/coordinates/` へ移動（安全）
-- 後方互換性: `src/domain/world/value_object/coordinates/` にエイリアス設置
+- アダプターエイリアス: `src/domain/world/value_object/coordinates/` に設置
 
 #### 分割後のコンテキスト構成
 
@@ -240,7 +240,7 @@ src/domain/world_generation/
 src/domain/world/
 ├── domain_service/world_validation/
 ├── value_object/
-│   ├── coordinates/        # エイリアス（後方互換性）
+│   ├── coordinates/        # エイリアス（移動済み）
 │   ├── world_seed/
 │   └── dimension_id/
 └── types/
@@ -328,7 +328,7 @@ src/domain/shared/
 **変更時の注意事項**:
 
 - 全依存コンテキストの合意が必要
-- 後方互換性の維持
+- 依存関係の確保
 - Effect-TS Schemaパターンへの準拠
 
 **追加基準**:
@@ -618,7 +618,7 @@ pnpm build
 ## 変更時の注意事項
 
 1. 全依存コンテキストの合意が必要
-2. 後方互換性の維持
+2. 依存関係の確保
 3. Effect-TS Schemaパターンへの準拠
 
 ## テスト規則
@@ -881,7 +881,7 @@ pnpm build
 
 `src/domain/world/value_object/coordinates/` を `src/domain/biome/value_object/` へ移動
 
-worldに後方互換性のエイリアスを作成:
+worldにアダプターエイリアスを作成:
 `src/domain/world/value_object/coordinates/index.ts` に `export * from '@/domain/biome/value_object/coordinates'` を記述
 
 4. **import文の更新**:
@@ -907,7 +907,7 @@ pnpm build
 
 - [ ] 35ファイルの移動完了
 - [ ] coordinatesの移動完了
-- [ ] 後方互換性エイリアス設置
+- [ ] アダプターエイリアス設置
 - [ ] Layer作成完了
 - [ ] テスト全通過
 
@@ -990,7 +990,7 @@ pnpm build
 src/domain/world/（調整後）
 ├── domain_service/world_validation/
 ├── value_object/
-│   ├── coordinates/        # エイリアス（後方互換性）
+│   ├── coordinates/        # エイリアス（移動済み）
 │   ├── world_seed/
 │   └── dimension_id/
 └── types/
@@ -1082,7 +1082,7 @@ pnpm build
 
 **coordinates移動の影響**:
 
-- 軽減策: 後方互換性エイリアスの設置
+- 減減策: アダプターエイリアスの設置
 - 検証: 既存importが動作することを確認
 - ロールバック: coordinatesをworldに戻し、エイリアス削除
 
@@ -1147,7 +1147,7 @@ pnpm build
 - [ ] `src/domain/biome/`が作成され、35ファイルが移動
 - [ ] `src/domain/world_generation/`が作成され、68ファイルが移動
 - [ ] `src/domain/world/`が調整され、33ファイルが残存
-- [ ] coordinatesの後方互換性エイリアス設置
+- [ ] coordinatesのアダプターエイリアス設置
 - [ ] Layer提供順序の確定（BiomeDomain → WorldGenerationDomain）
 - [ ] 循環依存なし
 - [ ] 型エラー0件
@@ -1221,7 +1221,7 @@ ls src/domain/ | grep -E "(biome|world_generation|world)"
 find src/domain/world -name "*biome*" | grep -v coordinates
 # 期待結果: 0件
 
-# coordinates後方互換性確認
+# coordinatesアダプターエイリアス確認
 cat src/domain/world/value_object/coordinates/index.ts
 # 期待結果: export * from '@/domain/biome/value_object/coordinates'
 ```

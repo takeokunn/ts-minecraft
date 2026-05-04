@@ -45,15 +45,21 @@ pnpm verify         # Run typecheck + lint + test + build
 
 ```
 src/
-  domain/         -- Pure schemas and types (Block, ItemStack, Chunk, etc.)
-  application/    -- Business logic services (Effect.Service classes)
-  infrastructure/ -- External adapters (Three.js, IndexedDB, custom physics)
-  presentation/   -- DOM UI and HUD
-  shared/         -- Cross-cutting utilities (math, branded types)
-  main.ts         -- Entry point and layer composition
+  main.ts         -- Browser entry point
+packages/
+  kernel/         -- Shared kernel: branded types, constants, pure math, ports
+  app/            -- Session, frame pipeline, menu/UI composition
+  game/           -- Game state, time, and game-loop services
+  terrain/        -- Chunks, terrain generation, and block rules
+  rendering/      -- Three.js rendering bounded context
+  physics/        -- Physics and collision systems
+  inventory/      -- Inventory, crafting, and furnace systems
+  player/         -- Player domain state and camera/movement logic
+  entities/       -- Entity data models
+  world-state/    -- Persistent world-state data and storage ports
 ```
 
-All services use Effect-TS layers for dependency injection. See `src/layers.ts` for the full service graph.
+Each package follows package-by-feature layering where needed: `domain/` for pure data/rules/ports, `application/` for Effect services and orchestration, `infrastructure/` for external adapters, and `presentation/` for UI-facing code. Layer composition lives in `packages/app/application/main/layers/` and is wired from `src/main.ts`.
 
 ## Controls
 

@@ -1,6 +1,6 @@
 ---
 title: 'モダンJavaScript開発者向けEffect-TS移行ガイド'
-description: '従来のTypeScript/JavaScript開発者がEffect-TSエコシステムに移行するための実践的ステップバイステップガイド'
+description: '一般的なTypeScript/JavaScript開発者がEffect-TSエコシステムに移行するための実践的ステップバイステップガイド'
 category: 'development'
 difficulty: 'intermediate'
 tags: ['effect-ts', 'migration', 'functional-programming', 'typescript', 'best-practices']
@@ -21,7 +21,7 @@ ai_context:
       'async-patterns-modernization',
     ]
   complexity_level: 3
-  learning_outcomes: ['従来コード→Effect-TS変換', 'エラーハンドリング改善', '型安全性向上', 'テスタビリティ強化']
+  learning_outcomes: ['比較対象コード→Effect-TS変換', 'エラーハンドリング改善', '型安全性向上', 'テスタビリティ強化']
 machine_readable:
   confidence_score: 0.95
   api_maturity: 'stable'
@@ -34,7 +34,7 @@ machine_readable:
 
 **⏱️ 読了時間**: 25分 | **👤 対象**: TypeScript経験者でEffect-TS初心者
 
-React/Node.js/Express.jsなど従来のJavaScript/TypeScriptエコシステムで開発経験があるが、Effect-TSは初めてという開発者向けに、段階的で実践的な移行手順を提供します。
+React/Node.js/Express.jsなど比較対象のJavaScript/TypeScriptエコシステムで開発経験があるが、Effect-TSは初めてという開発者向けに、段階的で実践的な移行手順を提供します。
 
 > 📍 **移行フロー**: **[25分 移行基礎]** → [30分 実践パターン] → [25分 高度技法] → [20分 テスト戦略]
 
@@ -297,7 +297,7 @@ const loadConfig = Effect.gen(function* (_) {
 ### 3.3 エラーハンドリングの統一
 
 ```typescript
-// Before: 異なるエラーハンドリングパターン（避けるべき従来のif/else文）
+// Before: 異なるエラーハンドリングパターン（避けるべき比較対象のif/else文）
 function handleRequest(req: Request, res: Response) {
   try {
     const result = processRequest(req.body)
@@ -413,19 +413,19 @@ const PlayerService = {
 ### 4.3 移行時のベストプラクティス
 
 ```typescript
-// ✅ DO: 段階的移行のための互換レイヤー
-const legacyToEffect = <A, E>(legacyPromise: () => Promise<A>): Effect.Effect<A, E> =>
+// ✅ DO: 段階的移行のためのアダプターパターン
+const promiseToEffect = <A, E>(promiseFactory: () => Promise<A>): Effect.Effect<A, E> =>
   Effect.tryPromise({
-    try: legacyPromise,
+    try: promiseFactory,
     catch: (error) => error as E,
   })
 
-// 既存コードとの共存期間中
-const hybridFunction = (id: string) =>
-  pipe(
-    legacyToEffect(() => oldPlayerService.findById(id)),
-    Effect.flatMap((player) => newPlayerValidation(player))
-  )
+  // コード移行中の併存期間
+  const hybridFunction = (id: string) =>
+    pipe(
+      promiseToEffect(() => primaryPlayerService.findById(id)),
+      Effect.flatMap((player) => newPlayerValidation(player))
+    )
 ```
 
 ```typescript
@@ -561,7 +561,7 @@ Effect-TS移行は段階的なアプローチが成功の鍵：
 2. **エラーファースト**: タグ付きエラーによる明確な問題特定
 3. **テスト駆動**: 既存テストを保持しながら安全な移行を実現
 
-従来のPromise/async-await開発者でも、適切な手順で効率的にEffect-TSエコシステムへ移行できます。
+Promise/async-awaitベース開発者でも、適切な手順で効率的にEffect-TSエコシステムへ移行できます。
 `─────────────────────────────────────────────────`
 
 > 🔗 **Continue Learning**: [Effect-TS Testing Patterns](../testing/effect-ts-testing-patterns.md) - 移行したコードの効果的なテスト手法

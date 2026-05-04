@@ -46,9 +46,9 @@ Effect-TS 3.17+環境での@effect/vitestを使用したテスト実装パター
 
 ## 📊 パフォーマンス分析
 
-### 従来手法 vs Effect-TS テストパターンの比較
+### Promiseベース手法 vs Effect-TS テストパターンの比較
 
-| 指標                 | 従来のテスト (Jest + Promise) | Effect-TS テスト (@effect/vitest) | 改善率         |
+| 指標                 | 例ベーステスト (Jest + Promise) | Effect-TS テスト (@effect/vitest) | 改善率         |
 | -------------------- | ----------------------------- | --------------------------------- | -------------- |
 | **テスト実行時間**   | 2.3秒                         | 1.4秒                             | **39% 高速化** |
 | **モック設定時間**   | 850ms                         | 220ms                             | **74% 削減**   |
@@ -61,7 +61,7 @@ Effect-TS 3.17+環境での@effect/vitestを使用したテスト実装パター
 ### 実測データ（100回実行平均）
 
 ```bash
-# 従来手法
+# Promiseベース手法
 $ pnpm test
 ✓ Player tests (2,341ms)
 ✓ World tests (3,127ms)
@@ -76,12 +76,12 @@ $ pnpm test:effect
 Total: 4.43s (39.8% faster)
 ```
 
-## 🔄 従来手法 vs Effect-TS パターン比較
+## 🔄 Promiseベース手法 vs Effect-TS パターン比較
 
-### Before: 従来のPromiseベーステスト
+### Before: Promiseベーステスト
 
 ```typescript
-// ❌ 従来手法 - 複雑なモック・エラーハンドリング
+// ❌ Promiseベース手法 - 複雑なモック・エラーハンドリング
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 interface Player {
@@ -261,7 +261,7 @@ it.effect('バリデーションエラーのテスト', () =>
 
 ### 主な改善点
 
-| 従来手法の課題         | Effect-TS解決策     | 効果                    |
+| Promiseベース手法の課題         | Effect-TS解決策     | 効果                    |
 | ---------------------- | ------------------- | ----------------------- |
 | **型安全性の欠如**     | Brand TypesとSchema | コンパイル時エラー検出  |
 | **複雑なモック設定**   | Layer-basedDI       | 設定時間74%削減         |
@@ -377,7 +377,7 @@ const TestLayer = Layer.mergeAll(
 
 ### 📈 Property-based Testing ROI 分析
 
-**従来テスト vs PBT 効率比較**
+**例ベーステスト vs PBT 効率比較**
 
 | 指標               | 手動テストケース | Property-based Testing | 改善率        | 備考                  |
 | ------------------ | ---------------- | ---------------------- | ------------- | --------------------- |
