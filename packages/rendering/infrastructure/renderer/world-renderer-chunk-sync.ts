@@ -2,8 +2,8 @@ import { Array as Arr, Effect, HashMap, HashSet, Option, Ref } from 'effect'
 import * as THREE from 'three'
 import { ChunkCacheKey } from '@ts-minecraft/kernel'
 import { Chunk } from '@ts-minecraft/terrain'
-import { ChunkMeshService } from '../infrastructure/meshing/chunk-mesh'
-import { SceneService } from '../infrastructure/scene/scene-service'
+import { ChunkMeshService } from '../meshing/chunk-mesh'
+import { SceneService } from '../scene/scene-service'
 import {
   MAX_CHUNK_UPDATES_PER_FRAME,
   WORLD_RENDERER_TIME_BUDGET_MS,

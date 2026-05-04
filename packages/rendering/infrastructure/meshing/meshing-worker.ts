@@ -45,7 +45,7 @@ self.onmessage = (e: MessageEvent<unknown>): void => {
     self.postMessage({
       id: fallbackId,
       kind: 'failure',
-      error: err instanceof Error ? err.message : String(err),
+      error: String(err),
     })
     return
   }

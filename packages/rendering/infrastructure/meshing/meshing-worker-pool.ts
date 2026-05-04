@@ -10,6 +10,119 @@ import type { Chunk } from '@ts-minecraft/terrain'
 const TRANSPARENT_IDS_ARRAY: readonly number[] = [blockTypeToIndex('WATER')]
 const TRANSPARENT_IDS_SET = new Set(TRANSPARENT_IDS_ARRAY)
 
+const MESHING_WORKER_TIMEOUT = '3 seconds'
+
+const lightGridsFromChunk = (chunk: Chunk): LightGrids | undefined =>
+  Option.match(
+    Option.all([
+      Option.fromNullable(chunk.skyLight),
+      Option.fromNullable(chunk.blockLight),
+    ] as const),
+    {
+      onNone: () => undefined,
+      onSome: ([skyLight, blockLight]) => ({ skyLight, blockLight }),
+    }
+  )
+
+const createSyncChunkMesher = (): ((chunk: Chunk) => WorkerMeshResult) => {
+  const scratch = createGreedyMeshScratch()
+  return (chunk: Chunk): WorkerMeshResult => {
+    const result = greedyMeshChunk(
+      chunk,
+      { wx: chunk.coord.x * CHUNK_SIZE, wz: chunk.coord.z * CHUNK_SIZE },
+      TRANSPARENT_IDS_SET,
+      scratch,
+      lightGridsFromChunk(chunk),
+    )
+    const meshed = result.toMeshed()
+    return {
+      opaque: meshed.opaque,
+      water: meshed.water.positions.length > 0 ? meshed.water : null,
+    }
+  }
+}
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null
+
+const extractResponseId = (data: unknown): number | null => {
+  if (!isRecord(data)) return null
+  const id = data['id']
+  return typeof id === 'number' && Number.isInteger(id) && id >= 0 ? id : null
+}
+
+const toMeshedWater = (response: WorkerResponse): MeshedChunk | null => {
+  if (
+    response.wpositions === null
+    && response.wnormals === null
+    && response.wcolors === null
+    && response.wuvs === null
+    && response.windices === null
+  ) {
+    return null
+  }
+
+  if (
+    response.wpositions !== null
+    && response.wnormals !== null
+    && response.wcolors !== null
+    && response.wuvs !== null
+    && response.windices !== null
+  ) {
+    return {
+      positions: response.wpositions,
+      normals: response.wnormals,
+      colors: response.wcolors,
+      uvs: response.wuvs,
+      indices: response.windices,
+    }
+  }
+
+  throw new Error('Malformed meshing worker response: incomplete water mesh payload')
+}
+
+const toWorkerMeshResult = (response: WorkerResponse): WorkerMeshResult => ({
+  opaque: {
+    positions: response.opositions,
+    normals: response.onormals,
+    colors: response.ocolors,
+    uvs: response.ouvs,
+    indices: response.oindices,
+  },
+  water: toMeshedWater(response),
+})
+
+const toMeshingWorkerError = (error: unknown, prefix: string): Error => {
+  if (error instanceof Error) {
+    return new Error(`${prefix}: ${error.message}`)
+  }
+  return new Error(`${prefix}: ${String(error)}`)
+}
+
+const rejectPendingRequest = (
+  pendingRef: MutableRef.MutableRef<Map<number, PendingMesh>>,
+  id: number,
+  error: unknown,
+): boolean => {
+  const pending = MutableRef.get(pendingRef)
+  const req = pending.get(id)
+  if (req === undefined) return false
+  pending.delete(id)
+  req.reject(error)
+  return true
+}
+
+const rejectAllPendingRequests = (
+  pendingRef: MutableRef.MutableRef<Map<number, PendingMesh>>,
+  error: unknown,
+): void => {
+  const pending = MutableRef.get(pendingRef)
+  Arr.forEach(Arr.fromIterable(pending.values()), (req) => {
+    req.reject(error)
+  })
+  pending.clear()
+}
+
 export const WorkerMeshResultSchema = Schema.Struct({
   opaque: MeshedChunkSchema,
   water: Schema.NullOr(MeshedChunkSchema),
@@ -55,92 +168,51 @@ export class MeshingWorkerPool extends Effect.Service<MeshingWorkerPool>()(
   '@minecraft/infrastructure/three/MeshingWorkerPool',
   {
     scoped: Effect.gen(function* () {
+      const meshChunkSync = createSyncChunkMesher()
+
       if (typeof Worker === 'undefined') {
-        // Node.js / test fallback: synchronous meshing, Effect.sync (no fiber overhead).
-        // Forwards chunk.skyLight + chunk.blockLight as `lightGrids` to greedyMeshChunk
-        // when both are populated; otherwise falls back to all-daylight defaults inside the mesher.
-        const scratch = createGreedyMeshScratch()
-        const lightGridsFromChunk = (chunk: Chunk): LightGrids | undefined =>
-          Option.match(
-            Option.all([
-              Option.fromNullable(chunk.skyLight),
-              Option.fromNullable(chunk.blockLight),
-            ] as const),
-            {
-              onNone: () => undefined,
-              onSome: ([skyLight, blockLight]) => ({ skyLight, blockLight }),
-            }
-          )
         return {
           meshChunk: (chunk: Chunk): Effect.Effect<WorkerMeshResult> =>
-            Effect.sync(() => {
-              const result = greedyMeshChunk(
-                chunk,
-                { wx: chunk.coord.x * CHUNK_SIZE, wz: chunk.coord.z * CHUNK_SIZE },
-                TRANSPARENT_IDS_SET,
-                scratch,
-                lightGridsFromChunk(chunk),
-              )
-              const meshed = result.toMeshed()
-              return {
-                opaque: meshed.opaque,
-                water: meshed.water.positions.length > 0 ? meshed.water : null,
-              }
-            }),
+            Effect.sync(() => meshChunkSync(chunk)),
           workerCount: 0,
         }
       }
 
-      // Leave one core for the main thread (renderer + game loop).
-      // Cap at 4 to avoid diminishing returns from context-switch overhead.
       const workerCount = Math.max(1, Math.min(4, (navigator.hardwareConcurrency ?? 2) - 1))
-
-      // Mutable counters for round-robin dispatch — single frame-handler fiber, no contention.
       const nextIdRef = MutableRef.make(0)
       const nextWorkerIndexRef = MutableRef.make(0)
 
       const makePoolWorker = (): PoolWorker => {
         const pendingRef = MutableRef.make(new Map<number, PendingMesh>())
-
-        // Vite resolves this URL at build time and bundles meshing-worker.ts separately.
-        // Keep the worker beside the meshing implementation so package ownership stays local.
         const worker = new Worker(
           new URL('./meshing-worker.ts', import.meta.url),
           { type: 'module' }
         )
 
-        worker.onmessage = (e: MessageEvent<WorkerResponse>) => {
-          const { id, opositions, onormals, ocolors, ouvs, oindices,
-                  wpositions, wnormals, wcolors, wuvs, windices } = Schema.decodeUnknownSync(WorkerResponseSchema)(e.data)
-          const pending = MutableRef.get(pendingRef)
-          const req = pending.get(id)
-          if (req === undefined) return
-          pending.delete(id)
+        worker.onmessage = (e: MessageEvent<unknown>) => {
+          const responseId = extractResponseId(e.data)
 
-          const opaque: MeshedChunk = {
-            positions: opositions,
-            normals: onormals,
-            colors: ocolors,
-            uvs: ouvs,
-            indices: oindices,
+          try {
+            const response = Schema.decodeUnknownSync(WorkerResponseSchema)(e.data)
+            const pending = MutableRef.get(pendingRef)
+            const req = pending.get(response.id)
+            if (req === undefined) return
+            pending.delete(response.id)
+            req.resolve(toWorkerMeshResult(response))
+          } catch (error) {
+            const workerError = toMeshingWorkerError(error, 'Malformed meshing worker response')
+            if (responseId !== null && rejectPendingRequest(pendingRef, responseId, workerError)) {
+              return
+            }
+            rejectAllPendingRequests(pendingRef, workerError)
           }
-          // Non-null assertion safe: all water arrays are sent together or all null
-          const water: MeshedChunk | null = wpositions !== null
-            ? { positions: wpositions, normals: wnormals!, colors: wcolors!, uvs: wuvs!, indices: windices! }
-            : null
-
-          req.resolve({ opaque, water })
         }
 
         worker.onerror = (e: ErrorEvent) => {
-          const pending = MutableRef.get(pendingRef)
-          // Native Map iteration: pendingRef stores Map<number, PendingMesh> as a
-          // pre-allocated mutable buffer for per-message O(1) get/set/delete; kept as
-          // native Map for the same reason as _savedWaterVisibility (GC-pressure boundary).
-          Arr.forEach(Arr.fromIterable(pending.values()), (req) => {
-            req.reject(new Error(`Meshing worker error: ${e.message ?? 'unknown'}`))
-          })
-          pending.clear()
+          rejectAllPendingRequests(
+            pendingRef,
+            new Error(`Meshing worker error: ${e.message ?? 'unknown'}`),
+          )
         }
 
         return { worker, pending: pendingRef }
@@ -148,7 +220,6 @@ export class MeshingWorkerPool extends Effect.Service<MeshingWorkerPool>()(
 
       const poolWorkersRef = MutableRef.make<PoolWorker[]>(Arr.makeBy(workerCount, () => makePoolWorker()))
 
-      // Terminate all workers when the service scope closes (app shutdown / test teardown)
       yield* Effect.addFinalizer(() =>
         Effect.sync(() => {
           Arr.forEach(MutableRef.get(poolWorkersRef), ({ worker }) => worker.terminate())
@@ -157,42 +228,38 @@ export class MeshingWorkerPool extends Effect.Service<MeshingWorkerPool>()(
 
       return {
         meshChunk: (chunk: Chunk): Effect.Effect<WorkerMeshResult> =>
-          Effect.async<WorkerMeshResult>((resume) => {
-            const id = MutableRef.getAndUpdate(nextIdRef, n => n + 1)
-            const workerIdx = MutableRef.getAndUpdate(nextWorkerIndexRef, n => n + 1) % workerCount
-            const state = MutableRef.get(poolWorkersRef)[workerIdx]!
+          Effect.async<WorkerMeshResult, Error>((resume) => {
+            const id = MutableRef.getAndUpdate(nextIdRef, (n) => n + 1)
+            const workerIdx = MutableRef.getAndUpdate(nextWorkerIndexRef, (n) => n + 1) % workerCount
+            const state = MutableRef.get(poolWorkersRef)[workerIdx]
+
+            if (state === undefined) {
+              resume(Effect.fail(new Error('Meshing worker pool is empty')))
+              return Effect.void
+            }
 
             const pending = MutableRef.get(state.pending)
             pending.set(id, {
-              resolve: (v: WorkerMeshResult) => resume(Effect.succeed(v)),
-              // Worker errors become defects (die) so they appear in logs and crash the
-              // fiber rather than being silently swallowed as typed errors.
-              reject: (e: unknown) => resume(Effect.die(e)),
+              resolve: (value: WorkerMeshResult) => resume(Effect.succeed(value)),
+              reject: (error: unknown) => resume(Effect.fail(error instanceof Error ? error : new Error(String(error)))),
             })
 
-            // ArrayBufferLike.slice returns ArrayBuffer per WebIDL; TS under-types it.
-            // chunk.blocks may be a subarray view of a larger buffer (e.g. from IndexedDB decode);
-            // .buffer.slice(byteOffset, byteOffset + byteLength) returns an owned, transferable
-            // ArrayBuffer with no intermediate memcpy through a Uint8Array view.
             const blocksBuffer = chunk.blocks.buffer.slice(
               chunk.blocks.byteOffset,
               chunk.blocks.byteOffset + chunk.blocks.byteLength
             ) as ArrayBuffer
 
-            // Light grids: only transferred when BOTH are populated (computed by LightEngineService).
-            // Worker reconstructs LightGrids from these buffers; null on either side means "no lighting"
-            // → worker defaults to all-daylight (sky=15, block=0).
             const hasLight = chunk.skyLight !== undefined && chunk.blockLight !== undefined
             const skyBuffer: ArrayBuffer | null = hasLight
-              ? (chunk.skyLight!.buffer.slice(
-                  chunk.skyLight!.byteOffset,
-                  chunk.skyLight!.byteOffset + chunk.skyLight!.byteLength
+              ? (chunk.skyLight.buffer.slice(
+                  chunk.skyLight.byteOffset,
+                  chunk.skyLight.byteOffset + chunk.skyLight.byteLength
                 ) as ArrayBuffer)
               : null
             const blockBuffer: ArrayBuffer | null = hasLight
-              ? (chunk.blockLight!.buffer.slice(
-                  chunk.blockLight!.byteOffset,
-                  chunk.blockLight!.byteOffset + chunk.blockLight!.byteLength
+              ? (chunk.blockLight.buffer.slice(
+                  chunk.blockLight.byteOffset,
+                  chunk.blockLight.byteOffset + chunk.blockLight.byteLength
                 ) as ArrayBuffer)
               : null
 
@@ -200,25 +267,39 @@ export class MeshingWorkerPool extends Effect.Service<MeshingWorkerPool>()(
             if (skyBuffer !== null) transferList.push(skyBuffer)
             if (blockBuffer !== null) transferList.push(blockBuffer)
 
-            state.worker.postMessage(
-              {
-                id,
-                blocks: blocksBuffer,
-                skyLight: skyBuffer,
-                blockLight: blockBuffer,
-                wx: chunk.coord.x * CHUNK_SIZE,
-                wz: chunk.coord.z * CHUNK_SIZE,
-                transparentBlockIds: TRANSPARENT_IDS_ARRAY,
-              },
-              transferList
-            )
+            try {
+              state.worker.postMessage(
+                {
+                  id,
+                  blocks: blocksBuffer,
+                  skyLight: skyBuffer,
+                  blockLight: blockBuffer,
+                  wx: chunk.coord.x * CHUNK_SIZE,
+                  wz: chunk.coord.z * CHUNK_SIZE,
+                  transparentBlockIds: TRANSPARENT_IDS_ARRAY,
+                },
+                transferList
+              )
+            } catch (error) {
+              pending.delete(id)
+              resume(Effect.fail(toMeshingWorkerError(error, 'Failed to post meshing worker request')))
+            }
 
-            // Interruption handler: remove pending entry so a late worker response
-            // is silently discarded instead of resuming a dead fiber.
             return Effect.sync(() => {
               pending.delete(id)
             })
-          }),
+          }).pipe(
+            Effect.timeoutFail({
+              duration: MESHING_WORKER_TIMEOUT,
+              onTimeout: () =>
+                new Error(`Meshing worker response timed out after ${MESHING_WORKER_TIMEOUT}`),
+            }),
+            Effect.catchAll((error) =>
+              Effect.logWarning(
+                `MeshingWorkerPool falling back to sync meshing for chunk (${chunk.coord.x},${chunk.coord.z}): ${error.message}`,
+              ).pipe(Effect.zipRight(Effect.sync(() => meshChunkSync(chunk))))
+            )
+          ),
         workerCount,
       }
     }),

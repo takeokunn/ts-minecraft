@@ -3,9 +3,9 @@ import * as THREE from 'three'
 import { CHUNK_SIZE, CHUNK_HEIGHT, ChunkCacheKey } from '@ts-minecraft/kernel'
 import { Chunk } from '@ts-minecraft/terrain'
 import { MAX_SHADOW_HALF_EXTENT } from '@ts-minecraft/kernel'
-import { ChunkMeshService } from '../infrastructure/meshing/chunk-mesh'
-import { SceneService } from '../infrastructure/scene/scene-service'
-import { createWaterMaterial } from '../infrastructure/water-material'
+import { ChunkMeshService } from '../meshing/chunk-mesh'
+import { SceneService } from '../scene/scene-service'
+import { createWaterMaterial } from '../water-material'
 import {
   REFRACTION_RT_WIDTH,
   REFRACTION_RT_HEIGHT,

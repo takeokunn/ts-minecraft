@@ -1,6 +1,6 @@
 import { Array as Arr, Effect, MutableRef, Ref } from 'effect'
 import * as THREE from 'three'
-import { type WaterMaterial } from '../infrastructure/water-material'
+import { type WaterMaterial } from '../water-material'
 
 export type RefractionContext = {
   readonly waterMeshesRef: Ref.Ref<ReadonlyArray<THREE.Mesh>>

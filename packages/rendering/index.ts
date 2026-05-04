@@ -1,5 +1,5 @@
 export * from './domain/errors'
-export * from './application/world-renderer'
+export * from './infrastructure/renderer/world-renderer'
 export * from './infrastructure/camera/perspective'
 export * from './infrastructure/entity-renderer'
 export * from './infrastructure/entity/mob-geometry'
