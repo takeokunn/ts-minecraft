@@ -103,24 +103,13 @@ export const insertWithEviction = (
           return [Option.none(), { ...s, chunks: baseChunks }]
         }
 
-        return Option.match(findLRUKey(baseChunks), {
-          /* c8 ignore next 4 */
-          onNone: () => {
-            const result: [Option.Option<ChunkCacheEntry>, ChunkCache] = [
-              Option.none<ChunkCacheEntry>(),
-              { ...s, chunks: baseChunks },
-            ]
-            return result
-          },
-          onSome: (evictKey) => {
-            const evictEntryOpt = HashMap.get(baseChunks, evictKey)
-            const isDirty = HashSet.has(s.dirtyChunks, evictKey)
-            const newChunks = HashMap.remove(baseChunks, evictKey)
-            const newDirty = HashSet.remove(s.dirtyChunks, evictKey)
-            const evictedDirty = Option.filter(evictEntryOpt, () => isDirty)
-            return [evictedDirty, { ...s, chunks: newChunks, dirtyChunks: newDirty }]
-          },
-        })
+        const evictKey = Option.getOrThrow(findLRUKey(baseChunks))
+        const evictEntryOpt = HashMap.get(baseChunks, evictKey)
+        const isDirty = HashSet.has(s.dirtyChunks, evictKey)
+        const newChunks = HashMap.remove(baseChunks, evictKey)
+        const newDirty = HashSet.remove(s.dirtyChunks, evictKey)
+        const evictedDirty = Option.filter(evictEntryOpt, () => isDirty)
+        return [evictedDirty, { ...s, chunks: newChunks, dirtyChunks: newDirty }]
       }
     )
 

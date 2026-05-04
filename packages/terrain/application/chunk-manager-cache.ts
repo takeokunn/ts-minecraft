@@ -23,7 +23,7 @@ export const ChunkCacheEntrySchema = Schema.mutable(
 )
 export type ChunkCacheEntry = Schema.Schema.Type<typeof ChunkCacheEntrySchema>
 
-// FR-006 DEFERRED: Effect.Cache is incompatible (no onEvict, no distance eviction, atomicity broken by key-dedup).
+// FR-006 DEFERRED: Effect.Cache lacks required eviction hooks, distance eviction, and per-chunk atomicity.
 export type ChunkCache = {
   chunks: HashMap.HashMap<ChunkCacheKey, ChunkCacheEntry>
   dirtyChunks: HashSet.HashSet<ChunkCacheKey>

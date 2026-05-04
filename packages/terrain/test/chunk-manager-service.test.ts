@@ -1,15 +1,53 @@
 import { describe,it } from '@effect/vitest'
 import { DEFAULT_WORLD_ID } from '@ts-minecraft/kernel'
 import {
-ChunkManagerService
+BiomeServiceLive,
+ChunkManagerService,
+  ChunkManagerServiceLive,
+  ChunkError,
+  ChunkServiceLive,
+NoiseServiceLive,
+NoiseServicePort,
+StorageServicePort,
+TerrainGenerationError,
+TerrainWorkerPoolPort,
 } from '@ts-minecraft/terrain'
-import { Array as Arr,Effect,Option } from 'effect'
+import { Array as Arr,Effect,Either,Layer,Option } from 'effect'
 import { expect } from 'vitest'
 import {
 EXPECTED_BLOCKS_LENGTH,
+LightEngineNoopLive,
 buildTestLayer,
 chunkStorageBlocks
 } from './chunk-manager-test-utils'
+
+const buildTerrainFailureLayer = () => {
+  const storage = buildTestLayer().storage
+  const StorageTestLayer = Layer.succeed(StorageServicePort, storage)
+  const NoiseLayer = NoiseServicePort.Default
+  const BiomeTestLayer = BiomeServiceLive.pipe(Layer.provide(NoiseLayer))
+  const FailingTerrainPoolLayer = Layer.succeed(
+    TerrainWorkerPoolPort,
+    TerrainWorkerPoolPort.of({
+      _tag: '@minecraft/application/terrain/TerrainWorkerPoolPort' as const,
+      generateTerrain: (coord) =>
+        Effect.fail(new TerrainGenerationError({
+          chunk: coord,
+          reason: 'simulated terrain generation failure',
+        })),
+    })
+  )
+
+  return ChunkManagerServiceLive.pipe(
+    Layer.provide(ChunkServiceLive),
+    Layer.provide(StorageTestLayer),
+    Layer.provide(BiomeTestLayer),
+    Layer.provide(NoiseLayer),
+    Layer.provide(NoiseServiceLive),
+    Layer.provide(FailingTerrainPoolLayer),
+    Layer.provide(LightEngineNoopLive),
+  )
+}
 
 describe('application/chunk/chunk-manager-service', () => {
   describe('getChunk', () => {
@@ -57,6 +95,22 @@ describe('application/chunk/chunk-manager-service', () => {
         expect(chunk.coord.x).toBe(3)
         expect(chunk.coord.z).toBe(7)
         expect(chunk.blocks).toEqual(savedBlocks)
+      }).pipe(Effect.provide(TestLayer))
+    })
+
+    it.effect('converts terrain generation failures into ChunkError', () => {
+      const TestLayer = buildTerrainFailureLayer()
+
+      return Effect.gen(function* () {
+        const service = yield* ChunkManagerService
+        const result = yield* Effect.either(service.getChunk({ x: 11, z: 13 }))
+
+        expect(Either.isLeft(result)).toBe(true)
+        const error = Option.getOrThrow(Either.getLeft(result))
+        expect(error._tag).toBe('ChunkError')
+        if (!(error instanceof ChunkError)) throw new Error('Expected ChunkError')
+        expect(error.reason).toBe('simulated terrain generation failure')
+        expect(error.chunkCoord).toEqual({ x: 11, z: 13 })
       }).pipe(Effect.provide(TestLayer))
     })
   })

@@ -86,6 +86,22 @@ describe('classifyBiomeFromClimate — mountain override branches', () => {
     }).pipe(Effect.provide(makeLayer(0.2, 0.45, 0.6, 0.0, 1.0)))
   )
 
+  it.effect('high continentalness and mountaininess with non-cold temperature → MOUNTAINS', () =>
+    Effect.gen(function* () {
+      const svc = yield* BiomeService
+      const biome = yield* svc.getBiome(0, 0)
+      expect(biome).toBe('MOUNTAINS')
+    }).pipe(Effect.provide(makeLayer(0.8, 0.45, 0.6, 0.0, 0.8)))
+  )
+
+  it.effect('high continentalness and mountaininess with cold temperature → SNOW', () =>
+    Effect.gen(function* () {
+      const svc = yield* BiomeService
+      const biome = yield* svc.getBiome(0, 0)
+      expect(biome).toBe('SNOW')
+    }).pipe(Effect.provide(makeLayer(0.2, 0.45, 0.6, 0.0, 0.8)))
+  )
+
   it.effect('MOUNTAINS base with low continentalness → TAIGA override', () =>
     Effect.gen(function* () {
       const svc = yield* BiomeService

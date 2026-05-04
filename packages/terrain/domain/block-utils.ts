@@ -7,7 +7,7 @@ import {
   IRON_PICKAXE_HARVESTABLE_BLOCKS,
   STONE_PICKAXE_HARVESTABLE_BLOCKS,
   WOODEN_PICKAXE_HARVESTABLE_BLOCKS,
-} from '../application/block-service.config'
+} from './harvestable-blocks'
 
 // Double-modulo handles negative coordinates correctly.
 export const worldToBlockLocal = (

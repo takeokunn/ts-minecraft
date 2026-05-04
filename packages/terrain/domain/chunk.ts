@@ -13,7 +13,7 @@ export const WORLD_SCHEMA_VERSION = 3
 // 16*16*256 = 65536 bytes (64KB) per chunk; BlockType stored as its numeric index (0=AIR, etc.).
 export const ChunkSchema = Schema.Struct({
   coord: ChunkCoordSchema,
-  // Schema.declare: opaque brand for Uint8Array (ArrayBufferLike base type, compatible with idb storage returns)
+// Schema.declare: opaque brand for Uint8Array (ArrayBufferLike base type, matching idb storage returns)
   blocks: Schema.declare((u): u is Uint8Array<ArrayBufferLike> => u instanceof Uint8Array),
   fluid: Schema.optionalWith(Schema.declare((u): u is Uint8Array<ArrayBufferLike> => u instanceof Uint8Array), { as: 'Option' }),
   skyLight: Schema.optional(Schema.declare((u): u is Uint8Array<ArrayBufferLike> => u instanceof Uint8Array)),

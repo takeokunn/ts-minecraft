@@ -8,12 +8,10 @@
 //   - Synchronous fallback when Worker is unavailable (Vitest / Node.js)
 //
 // Robustness extensions over the meshing pool (FR-016):
-//   - Worker onerror triggers respawn: the dead worker is terminated, a fresh
-//     one is created. Re-routing of stranded pending requests is NOT
-//     implemented — every stranded request fails with a typed
-//     TerrainGenerationError so the caller can retry against the now-healthy
-//     pool. (The original request envelope is not retained, so genuine re-route
-//     would need protocol changes.)
+//   - Fatal worker onerror degrades the entire pool to synchronous generation.
+//     Every in-flight request fails once with a typed TerrainGenerationError so
+//     the existing per-request catchAll path can retry via generateTerrainSync.
+//     Future requests bypass workers entirely.
 //   - Decode failures on onmessage are caught and logged via
 //     Effect.logError(Cause.pretty(...)) — never thrown.
 //   - postMessage uses an explicit transfer list. In dev builds we assert
@@ -41,6 +39,23 @@ import {
 const decodeResponseSync = Schema.decodeUnknownSync(TerrainWorkerResponseSchema)
 
 const BLOCK_BYTES = CHUNK_SIZE * CHUNK_SIZE * CHUNK_HEIGHT
+
+const generateTerrainSync = (
+  chunk: ChunkCoord,
+  options: TerrainGenerationOptions,
+): Effect.Effect<ChunkBlocks, TerrainGenerationError> =>
+  Effect.try({
+    try: () => generateTerrainBlocks({
+      coord: chunk,
+      seaLevel: options.seaLevel,
+      lakeLevel: options.lakeLevel,
+      seed: options.seed,
+    }),
+    catch: (e) => new TerrainGenerationError({
+      reason: e instanceof Error ? e.message : String(e),
+      chunk,
+    }),
+  })
 
 // Pending: `Effect.async` resume callbacks indexed by request id.
 type Pending = Readonly<{
@@ -103,18 +118,7 @@ export class TerrainWorkerPool extends Effect.Service<TerrainWorkerPool>()(
             chunk: ChunkCoord,
             options: TerrainGenerationOptions,
           ): Effect.Effect<ChunkBlocks, TerrainGenerationError> =>
-            Effect.try({
-              try: () => generateTerrainBlocks({
-                coord: chunk,
-                seaLevel: options.seaLevel,
-                lakeLevel: options.lakeLevel,
-                seed: options.seed,
-              }),
-              catch: (e) => new TerrainGenerationError({
-                reason: e instanceof Error ? e.message : String(e),
-                chunk,
-              }),
-            }),
+            generateTerrainSync(chunk, options),
           workerCount: 0,
           queueDepth: () => 0,
         }
@@ -126,53 +130,63 @@ export class TerrainWorkerPool extends Effect.Service<TerrainWorkerPool>()(
       const workerCount = computeWorkerCount()
       const nextIdRef = MutableRef.make(0)
       const nextWorkerIndexRef = MutableRef.make(0)
+      const degradedRef = MutableRef.make(false)
 
       // Each PoolWorker carries its own pending map. The pool array is held
-      // in a `MutableRef` so respawn can swap one slot in place while keeping
-      // the state visible to the Effect runtime.
+      // in a `MutableRef` so the pool can be drained and terminated on a fatal
+      // worker error while keeping the state visible to the Effect runtime.
       const poolWorkersRef = MutableRef.make<PoolWorker[]>([])
 
-      // Forward declaration so makePoolWorker can refer to the respawn func
-      // via the captured `respawnAt` reference.
-      //
-      // Re-route is NOT implemented: stranded requests fail with a retryable
-      // typed error so the caller can re-issue them against the now-healthy
-      // pool. The original `TerrainGenerationOptions` aren't retained inside
-      // `Pending`, so a genuine re-route would require protocol changes.
-      const respawnAt = (idx: number): void => {
-        const current = MutableRef.get(poolWorkersRef)
-        const dead = current[idx]
-        if (dead === undefined) return
-        // Snapshot the dead worker's pending requests before we tear it down,
-        // so we can fail them with a typed error.
-        const stranded: Pending[] = []
-        Arr.forEach(Arr.fromIterable(MutableHashMap.values(dead.pending)), (p) => {
-          stranded.push(p)
-        })
-        // Drop the old worker.
+      const terminateWorkerSafely = (worker: Worker): void => {
         try {
-          dead.worker.terminate()
+          worker.terminate()
         } catch {
           // ignore: terminate after a fatal error sometimes throws
         }
+      }
 
-        const replacement = makePoolWorker()
-        // In-place mutation through MutableRef: same array identity, single
-        // slot replaced. Performance equals plain `arr[idx] = x` while
-        // explicitly signalling "state mutation" to readers of this code.
-        MutableRef.update(poolWorkersRef, (arr) => {
-          arr[idx] = replacement
-          return arr
-        })
+      const formatWorkerErrorDetails = (event: ErrorEvent): string => {
+        const details = [
+          `message=${event.message === '' ? 'unknown error' : event.message}`,
+        ]
 
-        // Fail every stranded request with a typed retryable error. The caller
-        // is expected to retry; the freshly-spawned replacement (and any other
-        // surviving workers) will handle the retry cleanly.
-        Arr.forEach(stranded, (p) => {
-          p.resume(Effect.fail(new TerrainGenerationError({
-            reason: 'Worker died; request must be retried',
-            chunk: p.chunk,
-          })))
+        if (event.filename !== '') {
+          details.push(`filename=${event.filename}`)
+        }
+        if (event.lineno !== 0) {
+          details.push(`lineno=${String(event.lineno)}`)
+        }
+        if (event.colno !== 0) {
+          details.push(`colno=${String(event.colno)}`)
+        }
+        if (event.error !== undefined && event.error !== null) {
+          details.push(
+            `error=${event.error instanceof Error ? event.error.message : String(event.error)}`,
+          )
+        }
+
+        return details.join(', ')
+      }
+
+      const degradeToSync = (reason: string): void => {
+        if (MutableRef.get(degradedRef)) return
+
+        MutableRef.set(degradedRef, true)
+
+        const activeWorkers = MutableRef.get(poolWorkersRef)
+        MutableRef.set(poolWorkersRef, [])
+
+        Arr.forEach(activeWorkers, ({ pending, worker }) => {
+          const stranded = Arr.fromIterable(MutableHashMap.values(pending))
+
+          Arr.forEach(stranded, (request) => {
+            request.resume(Effect.fail(new TerrainGenerationError({
+              reason,
+              chunk: request.chunk,
+            })))
+          })
+
+          terminateWorkerSafely(worker)
         })
       }
 
@@ -216,15 +230,18 @@ export class TerrainWorkerPool extends Effect.Service<TerrainWorkerPool>()(
         }
 
         worker.onerror = (event: ErrorEvent) => {
-          // Locate this worker in the pool and respawn it. We capture `worker`
-          // in this closure but lookup the index dynamically so respawn works
-          // even after rotations.
+          // Locate this worker in the pool and degrade the whole pool. We
+          // capture `worker` in this closure but lookup the index dynamically so
+          // late errors after teardown become no-ops.
           const idx = MutableRef.get(poolWorkersRef).findIndex((w) => w.worker === worker)
           if (idx < 0) return
+
+          const reason = `Terrain worker fatal error on worker[${idx}]`
+
           Effect.runFork(Effect.logError(
-            `TerrainWorkerPool worker[${idx}] errored: ${event.message ?? 'unknown error'}`,
+            `${reason}; degrading to synchronous terrain generation (${formatWorkerErrorDetails(event)})`,
           ))
-          respawnAt(idx)
+          degradeToSync(reason)
         }
 
         return { worker, pending }
@@ -256,12 +273,25 @@ export class TerrainWorkerPool extends Effect.Service<TerrainWorkerPool>()(
         generateTerrain: (
           chunk: ChunkCoord,
           options: TerrainGenerationOptions,
-        ): Effect.Effect<ChunkBlocks, TerrainGenerationError> =>
-          Effect.async<ChunkBlocks, TerrainGenerationError>((resume) => {
+        ): Effect.Effect<ChunkBlocks, TerrainGenerationError> => {
+          if (MutableRef.get(degradedRef)) {
+            return generateTerrainSync(chunk, options)
+          }
+
+          return Effect.async<ChunkBlocks, TerrainGenerationError>((resume) => {
             const id = MutableRef.getAndUpdate(nextIdRef, (n) => n + 1)
             const workerIdx =
               MutableRef.getAndUpdate(nextWorkerIndexRef, (n) => n + 1) % workerCount
-            const state = MutableRef.get(poolWorkersRef)[workerIdx]!
+            const state = MutableRef.get(poolWorkersRef)[workerIdx]
+
+            if (state === undefined) {
+              resume(Effect.fail(new TerrainGenerationError({
+                reason: 'Terrain worker pool unavailable',
+                chunk,
+              })))
+
+              return Effect.void
+            }
 
             MutableHashMap.set(state.pending, id, { resume, chunk })
 
@@ -293,10 +323,29 @@ export class TerrainWorkerPool extends Effect.Service<TerrainWorkerPool>()(
             return Effect.sync(() => {
               MutableHashMap.remove(state.pending, id)
             })
-          }),
+          }).pipe(
+            Effect.timeoutFail({
+              duration: '3 seconds',
+              onTimeout: () => new TerrainGenerationError({
+                reason: 'Worker response timed out',
+                chunk,
+              }),
+            }),
+            Effect.catchAll((err) =>
+              Effect.logWarning(
+                `TerrainWorkerPool falling back to sync generation for chunk (${chunk.x},${chunk.z}): ${err.reason}`,
+              ).pipe(Effect.zipRight(generateTerrainSync(chunk, options)))
+            ),
+          )
+        },
         workerCount,
-        queueDepth: (): number =>
-          Arr.reduce(MutableRef.get(poolWorkersRef), 0, (acc, w) => acc + MutableHashMap.size(w.pending)),
+        queueDepth: (): number => {
+          if (MutableRef.get(degradedRef)) {
+            return 0
+          }
+
+          return Arr.reduce(MutableRef.get(poolWorkersRef), 0, (acc, w) => acc + MutableHashMap.size(w.pending))
+        },
       }
     }),
   },

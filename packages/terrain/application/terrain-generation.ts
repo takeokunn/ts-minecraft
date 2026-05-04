@@ -215,5 +215,5 @@ export const generateTerrainBlocks = (input: TerrainGenerationInput): ChunkBlock
 // `seaLevel` / `lakeLevel` are accepted in the input envelope (so the worker
 // protocol can carry them) but ignored: the generator reads them from
 // `application/constants` (`SEA_LEVEL=48`, `LAKE_LEVEL=62`). Keeping them in
-// the input keeps the protocol forward-compatible if those constants ever
+        // the input keeps the protocol explicit if those constants ever
 // become per-world configuration.
