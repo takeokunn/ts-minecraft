@@ -43,7 +43,7 @@ export const makeOffer = (overrides?: Partial<TradeOffer>): TradeOffer => ({
   ...overrides,
 })
 
-const createMockDomLayer = () => {
+export const createMockDomLayer = () => {
   const appendChild = vi.fn()
   const appendChildTo = vi.fn((parent: MockElement, child: MockElement) => {
     parent.appendChild(child)
@@ -113,7 +113,7 @@ const createMockDomLayer = () => {
 
   const MockDomLayer = Layer.succeed(DomOperationsService, domOperations)
 
-  return { MockDomLayer, createElement, appendChild, appendChildTo, removeChild, setInnerHTML, createdElements }
+  return { MockDomLayer, domOperations, createElement, appendChild, appendChildTo, removeChild, setInnerHTML, createdElements }
 }
 
 export const installBrowserDocument = (): void => {

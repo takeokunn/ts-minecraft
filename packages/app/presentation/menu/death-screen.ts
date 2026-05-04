@@ -270,7 +270,7 @@ export class DeathScreenService extends Effect.Service<DeathScreenService>()(
 
                     const fiber = yield* Effect.forkDaemon(deathWatcher)
                     // Suppress unused-warning for inventoryService — kept in
-                    // closure for forward-compat with Phase-3 drop entities.
+            // closure for future drop-entity support.
                     void inventoryService
 
                     return {

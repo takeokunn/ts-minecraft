@@ -197,6 +197,12 @@ export class PauseMenuService extends Effect.Service<PauseMenuService>()(
                       setPaused(control, false)
                     }
 
+                    const isSettingsOverlayVisible = (): boolean => {
+                      if (typeof document === 'undefined') return false
+                      const settingsEl = document.getElementById('settings-overlay')
+                      return settingsEl?.style.display === 'block'
+                    }
+
                     const openSettingsFromMenu = (): void => {
                       // Hide pause menu, open settings overlay. When settings
                       // closes (its own toggle/handler), we re-show pause menu
@@ -277,6 +283,7 @@ export class PauseMenuService extends Effect.Service<PauseMenuService>()(
                     const handleKeyDown = (event: KeyboardEvent): void => {
                       if (!MutableRef.get(isOpenRef)) return
                       if (event.key === 'Escape') {
+                        if (isSettingsOverlayVisible()) return
                         event.preventDefault()
                         event.stopPropagation()
                         handleResumeClick()

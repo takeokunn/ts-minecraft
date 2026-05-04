@@ -15,6 +15,17 @@ describe('formatLastPlayed', () => {
     expect(typeof result).toBe('string')
     expect(result.length).toBeGreaterThan(0)
   })
+
+  it('falls back to ISO string when locale formatting throws', () => {
+    class ThrowingLocaleDate extends Date {
+      override toLocaleString(): string {
+        throw new Error('locale unavailable')
+      }
+    }
+
+    const date = new ThrowingLocaleDate('2026-05-03T12:00:00.000Z')
+    expect(formatLastPlayed(date)).toBe(date.toISOString())
+  })
 })
 
 describe('cycleGameMode', () => {
