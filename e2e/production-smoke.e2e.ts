@@ -14,7 +14,7 @@ test('built app boots without runtime ReferenceError', async ({ page }) => {
     pageErrors.push(String(error))
   })
 
-  await page.goto('http://127.0.0.1:4173', { waitUntil: 'domcontentloaded' })
+  await page.goto('/', { waitUntil: 'domcontentloaded' })
   await page.waitForTimeout(3000)
 
   // Wait for the main menu to be interactive before proceeding.
@@ -31,6 +31,7 @@ test('built app boots without runtime ReferenceError', async ({ page }) => {
       const el = document.getElementById('fps-value')
       return el !== null && parseFloat(el.textContent ?? '0') > 0
     },
+    undefined,
     { timeout: 30_000, polling: 200 }
   )
 

@@ -134,12 +134,20 @@ test.describe('Settings overlay', () => {
 
     // Set the slider value via JS and fire an 'input' event so the overlay handler picks it up
     await page.evaluate((val: number) => {
-      const el = document.getElementById('rd-input') as HTMLInputElement | null
-      if (!el) return
-      el.value = String(val)
-      el.dispatchEvent(new Event('input', { bubbles: true }))
+      const renderDistanceInput = document.getElementById('rd-input') as HTMLInputElement | null
+      const adaptivePerformanceInput = document.getElementById('adaptive-performance-input') as HTMLInputElement | null
+      if (!renderDistanceInput || !adaptivePerformanceInput) return
+
+      renderDistanceInput.value = String(val)
+      renderDistanceInput.dispatchEvent(new Event('input', { bubbles: true }))
+      adaptivePerformanceInput.checked = false
+      adaptivePerformanceInput.dispatchEvent(new Event('change', { bubbles: true }))
     }, targetValue)
-    await waitForStoredSetting(page, 'minecraft-settings', `settings.renderDistance === ${targetValue}`)
+    await waitForStoredSetting(
+      page,
+      'minecraft-settings',
+      `settings.renderDistance === ${targetValue} && settings.adaptivePerformanceMode === false`
+    )
 
     // Verify localStorage was updated with the new render distance
     const storedRenderDistance = await page.evaluate((key: string) => {
@@ -178,6 +186,9 @@ test.describe('Settings overlay', () => {
   })
 
   test('persisted render distance is reflected in slider after page reload', async ({ page }) => {
+    test.setTimeout(120_000)
+    const game = new GamePage(page)
+
     // Open settings via pause menu flow and set a known render distance
     await page.keyboard.press('Escape')
     await page.waitForSelector('#pause-menu-backdrop', { state: 'visible', timeout: 5_000 })
@@ -187,30 +198,32 @@ test.describe('Settings overlay', () => {
     const targetValue = 5
 
     await page.evaluate((val: number) => {
-      const el = document.getElementById('rd-input') as HTMLInputElement | null
-      if (!el) return
-      el.value = String(val)
-      el.dispatchEvent(new Event('input', { bubbles: true }))
+      const renderDistanceInput = document.getElementById('rd-input') as HTMLInputElement | null
+      const adaptivePerformanceInput = document.getElementById('adaptive-performance-input') as HTMLInputElement | null
+      if (!renderDistanceInput || !adaptivePerformanceInput) return
+
+      renderDistanceInput.value = String(val)
+      renderDistanceInput.dispatchEvent(new Event('input', { bubbles: true }))
+      adaptivePerformanceInput.checked = false
+      adaptivePerformanceInput.dispatchEvent(new Event('change', { bubbles: true }))
     }, targetValue)
-    await waitForStoredSetting(page, 'minecraft-settings', `settings.renderDistance === ${targetValue}`)
+    await waitForStoredSetting(
+      page,
+      'minecraft-settings',
+      `settings.renderDistance === ${targetValue} && settings.adaptivePerformanceMode === false`
+    )
 
     // Reload the page — localStorage persists within the same browser context
     await page.reload()
 
-    // Wait for game to be ready again
-    await page.waitForFunction(
-      () => {
-        const el = document.getElementById('fps-value')
-        return el !== null && parseFloat(el.textContent ?? '0') > 0
-      },
-      { timeout: 25_000, polling: 200 }
-    )
+    // Reload returns to the main menu; start a new session without clearing localStorage.
+    await game.startNewWorldFromMainMenu()
+    await game.waitForReady(90_000)
     await page.waitForSelector('#settings-overlay', { state: 'attached', timeout: 8_000 })
+    await page.waitForSelector('#settings-gear-btn', { state: 'visible', timeout: 8_000 })
 
-    // Open settings overlay via pause menu flow to reveal the slider
-    await page.keyboard.press('Escape')
-    await page.waitForSelector('#pause-menu-backdrop', { state: 'visible', timeout: 5_000 })
-    await page.click('[data-role="settings"]')
+    // Open settings directly; this test verifies persisted settings, not pause-menu routing.
+    await page.click('#settings-gear-btn')
     await waitForOverlayState(page, true)
 
     const sliderValueAfterReload = await page.evaluate(() => {

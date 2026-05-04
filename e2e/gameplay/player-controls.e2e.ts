@@ -39,6 +39,7 @@ async function openInventory(page: Page): Promise<void> {
       const overlay = document.getElementById('inventory-overlay')
       return overlay instanceof HTMLDivElement && getComputedStyle(overlay).display !== 'none'
     },
+    undefined,
     { timeout: 2_000, polling: 100 }
   )
 }
@@ -50,6 +51,7 @@ async function closeInventory(page: Page): Promise<void> {
       const overlay = document.getElementById('inventory-overlay')
       return overlay instanceof HTMLDivElement && getComputedStyle(overlay).display === 'none'
     },
+    undefined,
     { timeout: 2_000, polling: 100 }
   )
 }

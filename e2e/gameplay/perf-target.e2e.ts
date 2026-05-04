@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test'
+import { GamePage } from '../fixtures/game-page'
 import { attachFatalErrorMonitor } from '../helpers/console-monitor'
-import { waitForGameReady, getFpsValue } from '../helpers/wait-helpers'
+import { getFpsValue } from '../helpers/wait-helpers'
 
 // -----------------------------------------------------------------------------
 // Perf-target regression test (V-1)
@@ -38,9 +39,10 @@ const MAX_GAP_SECS = 0.5
 // budget below which steady-state should always remain.
 const HEAP_DELTA_BYTES = 50 * 1024 * 1024
 
-// Wait windows. Total: ~5s boot + 10s settle + 30s sample = ~45s, safe under
-// the 60s per-test timeout in playwright.config.ts.
-const POST_READY_SETTLE_MS = 10_000
+// Wait windows. Total: ~5s boot + 5s settle + 30s sample = ~40s in isolation.
+// This test still gets its own timeout budget because full-suite SwiftShader
+// runs can add browser-context cleanup/GC overhead after other long gameplay specs.
+const POST_READY_SETTLE_MS = 5_000
 const PERF_SAMPLE_WINDOW_MS = 30_000
 
 // Perf HUD snapshot contract — matches PerfHudSnapshot in
@@ -57,26 +59,17 @@ type PerfHudSnapshot = Readonly<{
 }>
 
 test('default settings — perf target window (30s)', async ({ page }) => {
+  test.setTimeout(75_000)
+
   // ---------------------------------------------------------------------------
   // 1. Boot with ?debug=perf so PerfHudService takes the active path and
-  //    installs window.__perfHud__.snapshot. The GamePage fixture's goto()
-  //    hardcodes '/', so we navigate directly here and inline the same
-  //    storage-cleanup init script the fixture uses.
+  //    installs window.__perfHud__.snapshot.
   // ---------------------------------------------------------------------------
-  await page.addInitScript(() => {
-    window.localStorage.clear()
-    window.sessionStorage.clear()
-    indexedDB.databases?.().then((dbs) =>
-      dbs.forEach((db) => {
-        if (db.name) indexedDB.deleteDatabase(db.name)
-      })
-    )
-  })
-
+  const game = new GamePage(page)
   const getFatalErrors = attachFatalErrorMonitor(page)
 
-  await page.goto('/?debug=perf')
-  await waitForGameReady(page)
+  await game.goto('/?debug=perf')
+  await game.waitForReady()
 
   // ---------------------------------------------------------------------------
   // 2. Cold-start chunk-stream flood window. The first ~5s after #fps-value

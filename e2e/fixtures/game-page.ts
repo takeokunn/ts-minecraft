@@ -1,17 +1,40 @@
+import type { PlaywrightTestArgs } from '@playwright/test'
 import { waitForGameReady, getFpsValue, waitForMainMenu } from '../helpers/wait-helpers'
+
+type Page = PlaywrightTestArgs['page']
 
 export class GamePage {
   constructor(readonly page: Page) {}
 
-  async goto() {
-    await this.page.addInitScript(() => {
+  async resetBrowserStorage(): Promise<void> {
+    await this.page.goto('/e2e-cleanup.html')
+    await this.page.evaluate(async () => {
+      const deleteIndexedDatabase = (name: string): Promise<void> =>
+        new Promise((resolve, reject) => {
+          const request = indexedDB.deleteDatabase(name)
+
+          request.onsuccess = () => resolve()
+          request.onerror = () => reject(request.error ?? new Error(`Failed to delete IndexedDB database: ${name}`))
+          request.onblocked = () => undefined
+        })
+
       window.localStorage.clear()
       window.sessionStorage.clear()
-      indexedDB.databases?.().then((dbs) => dbs.forEach((db) => {
-        if (db.name) indexedDB.deleteDatabase(db.name)
-      }))
+
+      const databases = await indexedDB.databases?.() ?? []
+      await Promise.all(
+        databases.map((database) => database.name ? deleteIndexedDatabase(database.name) : Promise.resolve())
+      )
     })
-    await this.page.goto('/')
+  }
+
+  async goto(url = '/') {
+    await this.resetBrowserStorage()
+    await this.page.goto(url)
+    await this.startNewWorldFromMainMenu()
+  }
+
+  async startNewWorldFromMainMenu() {
     // Navigate through the main menu to start a new game session.
     // All tests that call goto() + waitForReady() require an active session.
     await waitForMainMenu(this.page)
@@ -20,15 +43,9 @@ export class GamePage {
     await this.page.click('#mm-nw-confirm')
   }
 
-  async gotoMainMenuOnly() {
-    await this.page.addInitScript(() => {
-      window.localStorage.clear()
-      window.sessionStorage.clear()
-      indexedDB.databases?.().then((dbs) => dbs.forEach((db) => {
-        if (db.name) indexedDB.deleteDatabase(db.name)
-      }))
-    })
-    await this.page.goto('/')
+  async gotoMainMenuOnly(url = '/') {
+    await this.resetBrowserStorage()
+    await this.page.goto(url)
   }
 
   async openSettings() {
@@ -37,7 +54,7 @@ export class GamePage {
     await this.page.click('[data-role="settings"]')
   }
 
-  async waitForReady(timeoutMs = 25_000) {
+  async waitForReady(timeoutMs?: number) {
     await waitForGameReady(this.page, timeoutMs)
   }
 

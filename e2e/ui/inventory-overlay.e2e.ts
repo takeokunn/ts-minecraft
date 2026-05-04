@@ -35,6 +35,7 @@ test.describe('Inventory overlay', () => {
         const overlay = document.getElementById('inventory-overlay')
         return overlay instanceof HTMLDivElement && getComputedStyle(overlay).display !== 'none'
       },
+      undefined,
       { timeout: 2_000, polling: 100 }
     )
 
@@ -53,6 +54,7 @@ test.describe('Inventory overlay', () => {
         const overlay = document.getElementById('inventory-overlay')
         return overlay instanceof HTMLDivElement && getComputedStyle(overlay).display !== 'none'
       },
+      undefined,
       { timeout: 2_000, polling: 100 }
     )
 
@@ -76,6 +78,7 @@ test.describe('Inventory overlay', () => {
         const overlay = document.getElementById('inventory-overlay')
         return overlay instanceof HTMLDivElement && getComputedStyle(overlay).display !== 'none'
       },
+      undefined,
       { timeout: 2_000, polling: 100 }
     )
 
@@ -90,6 +93,7 @@ test.describe('Inventory overlay', () => {
         const overlay = document.getElementById('inventory-overlay')
         return overlay instanceof HTMLDivElement && getComputedStyle(overlay).display === 'none'
       },
+      undefined,
       { timeout: 2_000, polling: 100 }
     )
 
@@ -108,6 +112,7 @@ test.describe('Inventory overlay', () => {
         const overlay = document.getElementById('inventory-overlay')
         return overlay instanceof HTMLDivElement && getComputedStyle(overlay).display !== 'none'
       },
+      undefined,
       { timeout: 2_000, polling: 100 }
     )
 

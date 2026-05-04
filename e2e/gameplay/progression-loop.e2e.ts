@@ -8,7 +8,7 @@ async function openInventory(page: Page): Promise<void> {
   await page.waitForFunction(() => {
     const overlay = document.getElementById('inventory-overlay')
     return overlay instanceof HTMLDivElement && getComputedStyle(overlay).display !== 'none'
-  }, { timeout: 5_000 })
+  }, undefined, { timeout: 5_000 })
 }
 
 async function clickRecipe(page: Page, recipeId: string): Promise<void> {

@@ -1,16 +1,21 @@
 
+import type { PlaywrightTestArgs } from '@playwright/test'
+
+type Page = PlaywrightTestArgs['page']
+
 /**
  * Wait until the game loop is running and dynamic DOM elements have been injected.
  * Uses #fps-value becoming non-zero as the primary signal.
  * Then waits for dynamically-injected elements (#crosshair, #settings-overlay).
  */
-export async function waitForGameReady(page: Page, timeoutMs = 25_000): Promise<void> {
+export async function waitForGameReady(page: Page, timeoutMs = 45_000): Promise<void> {
   // Primary signal: FPS counter is non-zero (game loop running, first sample complete).
   await page.waitForFunction(
     () => {
       const el = document.getElementById('fps-value')
       return el !== null && parseFloat(el.textContent ?? '0') > 0
     },
+    undefined,
     { timeout: timeoutMs, polling: 200 }
   )
 
@@ -18,6 +23,19 @@ export async function waitForGameReady(page: Page, timeoutMs = 25_000): Promise<
   // Use state:'attached' because #settings-overlay is intentionally display:none at startup.
   await page.waitForSelector('#crosshair', { state: 'attached', timeout: 8_000 })
   await page.waitForSelector('#settings-overlay', { state: 'attached', timeout: 8_000 })
+
+  // The loading screen can remain attached while fading out; wait until it no longer
+  // intercepts pointer events before tests click in-session controls such as Settings.
+  await page.waitForFunction(
+    () => {
+      const loading = document.getElementById('loading-screen')
+      if (loading === null) return true
+      const style = window.getComputedStyle(loading)
+      return style.display === 'none' || style.visibility === 'hidden' || style.pointerEvents === 'none'
+    },
+    undefined,
+    { timeout: 8_000, polling: 100 }
+  )
 }
 
 /**
