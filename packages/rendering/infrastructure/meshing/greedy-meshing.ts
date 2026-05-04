@@ -317,6 +317,7 @@ export const greedyMeshChunk = (
       normals: a.normals.subarray(0, a.vertexCount * 3),
       colors: a.colors.subarray(0, a.vertexCount * 3),
       uvs: a.uvs.subarray(0, a.vertexCount * 2),
+      tileIndexes: a.tileIndexes.subarray(0, a.vertexCount),
       indices: a.indices.subarray(0, a.indexCount),
       vertexCount: a.vertexCount,
       indexCount: a.indexCount,
@@ -327,6 +328,7 @@ export const greedyMeshChunk = (
     normals: raw.normals.slice(),
     colors: raw.colors.slice(),
     uvs: raw.uvs.slice(),
+    tileIndexes: raw.tileIndexes.slice(),
     indices: raw.indices.slice(),
   })
 

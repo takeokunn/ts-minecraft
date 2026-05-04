@@ -14,6 +14,7 @@ export const RawMeshDataSchema = Schema.Struct({
   normals: Schema.instanceOf(Int8Array),
   colors: Schema.instanceOf(Uint8Array),
   uvs: Schema.instanceOf(Float32Array),
+  tileIndexes: Schema.instanceOf(Float32Array),
   indices: Schema.instanceOf(Uint32Array),
   vertexCount: Schema.Number.pipe(Schema.int(), Schema.nonNegative()),
   indexCount: Schema.Number.pipe(Schema.int(), Schema.nonNegative()),
@@ -25,6 +26,7 @@ export const MeshedChunkSchema = Schema.Struct({
   normals: Schema.instanceOf(Int8Array),
   colors: Schema.instanceOf(Uint8Array),
   uvs: Schema.instanceOf(Float32Array),
+  tileIndexes: Schema.instanceOf(Float32Array),
   indices: Schema.instanceOf(Uint32Array),
 })
 export type MeshedChunk = Schema.Schema.Type<typeof MeshedChunkSchema>
@@ -45,6 +47,7 @@ export const EMPTY_MESHED_CHUNK: MeshedChunk = {
   normals: new Int8Array(0),
   colors: new Uint8Array(0),
   uvs: new Float32Array(0),
+  tileIndexes: new Float32Array(0),
   indices: new Uint32Array(0),
 }
 

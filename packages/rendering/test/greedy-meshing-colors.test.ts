@@ -26,14 +26,14 @@ describe('greedyMeshChunk', () => {
       expect(stoneResult.toMeshed().opaque.colors[0]).toBe(255)
     })
 
-    it('assigns different UVs to DIRT and STONE blocks (atlas tile lookup)', () => {
+    it('assigns different tile indexes to DIRT and STONE blocks (atlas tile lookup)', () => {
       const dirtChunk = makeChunkWithBlock(ZERO_COORD, 0, 0, 0, 'DIRT')
       const stoneChunk = makeChunkWithBlock(ZERO_COORD, 0, 0, 0, 'STONE')
       const dirtResult = greedyMeshChunk(dirtChunk, ZERO_OFFSET)
       const stoneResult = greedyMeshChunk(stoneChunk, ZERO_OFFSET)
 
-      // DIRT maps to atlas tile 0, STONE to tile 1 — u0 values must differ
-      expect(dirtResult.toMeshed().opaque.uvs[0]).not.toBe(stoneResult.toMeshed().opaque.uvs[0])
+      // DIRT maps to atlas tile 0, STONE to tile 1 — tile indexes must differ
+      expect(dirtResult.toMeshed().opaque.tileIndexes[0]).not.toBe(stoneResult.toMeshed().opaque.tileIndexes[0])
     })
   })
 
@@ -51,6 +51,13 @@ describe('greedyMeshChunk', () => {
       expect(result.toMeshed().opaque.uvs.length).toBe(vertexCount * 2)
     })
 
+    it('tile indexes length equals one atlas tile per vertex', () => {
+      const chunk = makeChunkWithBlock(ZERO_COORD, 0, 0, 0, 'DIRT')
+      const result = greedyMeshChunk(chunk, ZERO_OFFSET)
+      const vertexCount = result.toMeshed().opaque.positions.length / 3
+      expect(result.toMeshed().opaque.tileIndexes.length).toBe(vertexCount)
+    })
+
     it('all UV values are in [0, 1] range', () => {
       const chunk = makeChunkWithBlock(ZERO_COORD, 0, 0, 0, 'GRASS')
       const result = greedyMeshChunk(chunk, ZERO_OFFSET)
@@ -60,27 +67,25 @@ describe('greedyMeshChunk', () => {
       })
     })
 
-    it('GRASS top face has different UV than GRASS side face', () => {
+    it('GRASS top face has different tile index than GRASS side face', () => {
       const chunk = makeChunkWithBlock(ZERO_COORD, 0, 0, 0, 'GRASS')
       const result = greedyMeshChunk(chunk, ZERO_OFFSET)
 
-      // Collect first UV per face direction by checking normals
-      const uvsByNormal = MutableHashMap.empty<string, number>()
+      // Collect first tile index per face direction by checking normals
+      const tileIndexesByNormal = MutableHashMap.empty<string, number>()
       const vertCount = result.toMeshed().opaque.normals.length / 3
-      let uvOffset = 0
       for (let v = 0; v < vertCount; v += 4) {
         const ny = Option.getOrElse(Option.fromNullable(result.toMeshed().opaque.normals[v * 3 + 1]), () => 0)
         const nz = Option.getOrElse(Option.fromNullable(result.toMeshed().opaque.normals[v * 3 + 2]), () => 0)
         const key = ny === 1 ? 'top' : nz !== 0 ? 'side' : 'other'
-        if (!MutableHashMap.has(uvsByNormal, key)) {
-          MutableHashMap.set(uvsByNormal, key, Option.getOrElse(Option.fromNullable(result.toMeshed().opaque.uvs[uvOffset]), () => 0))
+        if (!MutableHashMap.has(tileIndexesByNormal, key)) {
+          MutableHashMap.set(tileIndexesByNormal, key, Option.getOrElse(Option.fromNullable(result.toMeshed().opaque.tileIndexes[v]), () => 0))
         }
-        uvOffset += 8  // 4 verts × 2 UV components
       }
 
       // grass_top (tile 4) and grass_side (tile 5) have different u0
-      expect(Option.getOrElse(MutableHashMap.get(uvsByNormal, 'top'), () => -1))
-        .not.toBe(Option.getOrElse(MutableHashMap.get(uvsByNormal, 'side'), () => -2))
+      expect(Option.getOrElse(MutableHashMap.get(tileIndexesByNormal, 'top'), () => -1))
+        .not.toBe(Option.getOrElse(MutableHashMap.get(tileIndexesByNormal, 'side'), () => -2))
     })
   })
 })

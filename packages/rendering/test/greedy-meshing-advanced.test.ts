@@ -90,6 +90,13 @@ describe('greedyMeshChunk (advanced)', () => {
       expect(result.toMeshed().opaque.uvs.length).toBeGreaterThan(0)
     })
 
+    it('should return Float32Array for tile indexes on a non-empty chunk', () => {
+      const chunk = makeChunkWithBlock(ZERO_COORD, 0, 0, 0, 'DIRT')
+      const result = greedyMeshChunk(chunk, ZERO_OFFSET)
+      expect(result.toMeshed().opaque.tileIndexes).toBeInstanceOf(Float32Array)
+      expect(result.toMeshed().opaque.tileIndexes.length).toBeGreaterThan(0)
+    })
+
     it('should return Uint32Array for indices on a non-empty chunk', () => {
       const chunk = makeChunkWithBlock(ZERO_COORD, 0, 0, 0, 'DIRT')
       const result = greedyMeshChunk(chunk, ZERO_OFFSET)

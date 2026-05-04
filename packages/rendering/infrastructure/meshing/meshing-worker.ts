@@ -89,6 +89,7 @@ self.onmessage = (e: MessageEvent<unknown>): void => {
     meshed.opaque.normals.buffer,
     meshed.opaque.colors.buffer,
     meshed.opaque.uvs.buffer,
+    meshed.opaque.tileIndexes.buffer,
     meshed.opaque.indices.buffer,
   ]
 
@@ -98,6 +99,7 @@ self.onmessage = (e: MessageEvent<unknown>): void => {
       meshed.water.normals.buffer,
       meshed.water.colors.buffer,
       meshed.water.uvs.buffer,
+      meshed.water.tileIndexes.buffer,
       meshed.water.indices.buffer,
     )
   }
@@ -109,11 +111,13 @@ self.onmessage = (e: MessageEvent<unknown>): void => {
       onormals: meshed.opaque.normals,
       ocolors: meshed.opaque.colors,
       ouvs: meshed.opaque.uvs,
+      otileIndexes: meshed.opaque.tileIndexes,
       oindices: meshed.opaque.indices,
       wpositions: hasWater ? meshed.water.positions : null,
       wnormals: hasWater ? meshed.water.normals : null,
       wcolors: hasWater ? meshed.water.colors : null,
       wuvs: hasWater ? meshed.water.uvs : null,
+      wtileIndexes: hasWater ? meshed.water.tileIndexes : null,
       windices: hasWater ? meshed.water.indices : null,
     },
     transferList

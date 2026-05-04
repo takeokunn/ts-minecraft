@@ -45,9 +45,10 @@ const ChunkMeshServiceTest = Layer.succeed(
       })
       const geometry = new THREE.BufferGeometry()
       geometry.setAttribute('position', new THREE.BufferAttribute(meshed.toMeshed().opaque.positions, 3))
-      geometry.setAttribute('normal', new THREE.BufferAttribute(meshed.toMeshed().opaque.normals, 3, true))
+      geometry.setAttribute('normal', new THREE.BufferAttribute(meshed.toMeshed().opaque.normals, 3, false))
       geometry.setAttribute('color', new THREE.BufferAttribute(meshed.toMeshed().opaque.colors, 3, true))
       geometry.setAttribute('uv', new THREE.BufferAttribute(meshed.toMeshed().opaque.uvs, 2))
+      geometry.setAttribute('tileIndex', new THREE.BufferAttribute(meshed.toMeshed().opaque.tileIndexes, 1))
       geometry.setIndex(new THREE.BufferAttribute(meshed.toMeshed().opaque.indices, 1))
       return geometry
     }
@@ -108,6 +109,19 @@ describe('ChunkMeshService', () => {
         const { opaqueMesh } = yield* service.createChunkMesh(chunk)
         expect(opaqueMesh.geometry).toBeDefined()
         expect(opaqueMesh.geometry).toBeInstanceOf(THREE.BufferGeometry)
+      }).pipe(Effect.provide(ChunkMeshServiceTest))
+    })
+
+    it.effect('keeps byte normals unnormalized so lighting uses full unit directions', () => {
+      const chunk = makeSingleBlockChunk({ x: 0, z: 0 })
+
+      return Effect.gen(function* () {
+        const service = yield* ChunkMeshService
+        const { opaqueMesh } = yield* service.createChunkMesh(chunk)
+        const normalAttr = opaqueMesh.geometry.getAttribute('normal') as THREE.BufferAttribute
+
+        expect(normalAttr.normalized).toBe(false)
+        expect(Math.max(...Array.from(normalAttr.array))).toBe(1)
       }).pipe(Effect.provide(ChunkMeshServiceTest))
     })
 

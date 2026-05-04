@@ -24,6 +24,24 @@ declare global {
       aimAtStagedZombie: () => Promise<void>
       attackFirstZombie: () => Promise<boolean>
       getEntitySnapshot: () => Promise<Array<{ type: string }>>
+      getRenderingSnapshot: () => {
+        sceneChildren: number
+        chunkMeshCount: number
+        visibleChunkMeshCount: number
+        camera: { x: number; y: number; z: number; near: number; far: number }
+        chunks: Array<{
+          chunkCoord: unknown
+          type: string
+          visible: boolean
+          vertexCount: number
+          indexCount: number
+          hasUv: boolean
+          hasTileIndex: boolean
+          tileIndexCount: number
+          materialType: string
+          textureLoaded: boolean
+        }>
+      }
     }
   }
 }

@@ -4,7 +4,7 @@ import { Chunk } from '@ts-minecraft/terrain'
 import { TextureError } from '../../domain/errors'
 import { MeshedChunk } from './greedy-meshing'
 import { MeshingWorkerPool } from './meshing-worker-pool'
-import { ATLAS_SIZE } from '../textures/block-texture-map'
+import { ATLAS_COLS, ATLAS_SIZE, HALF_TEXEL } from '../textures/block-texture-map'
 
 // ─── Draw-call batching strategy ─────────────────────────────────────────────
 //
@@ -42,9 +42,10 @@ import { ATLAS_SIZE } from '../textures/block-texture-map'
 const buildGeometry = (meshed: MeshedChunk): THREE.BufferGeometry => {
   const geometry = new THREE.BufferGeometry()
   geometry.setAttribute('position', new THREE.BufferAttribute(meshed.positions, 3))
-  geometry.setAttribute('normal', new THREE.BufferAttribute(meshed.normals, 3, true))
+  geometry.setAttribute('normal', new THREE.BufferAttribute(meshed.normals, 3, false))
   geometry.setAttribute('color', new THREE.BufferAttribute(meshed.colors, 3, true))
   geometry.setAttribute('uv', new THREE.BufferAttribute(meshed.uvs, 2))
+  geometry.setAttribute('tileIndex', new THREE.BufferAttribute(meshed.tileIndexes, 1))
   geometry.setIndex(new THREE.BufferAttribute(meshed.indices, 1))
   return geometry
 }
@@ -81,6 +82,10 @@ const tryReuseGeometry = (geometry: THREE.BufferGeometry, meshed: MeshedChunk): 
   const uvAttr = getBufferAttr(geometry, 'uv')
   if (!uvAttr) return false
   copyAndMark(uvAttr, meshed.uvs)
+
+  const tileIndexAttr = getBufferAttr(geometry, 'tileIndex')
+  if (!tileIndexAttr) return false
+  copyAndMark(tileIndexAttr, meshed.tileIndexes)
 
   const indexAttr = geometry.getIndex()
   if (indexAttr instanceof THREE.BufferAttribute && indexAttr.count >= meshed.indices.length) {
@@ -151,19 +156,53 @@ export class ChunkMeshService extends Effect.Service<ChunkMeshService>()(
           })
           mat.onBeforeCompile = (shader) => {
             shader.uniforms['uSunIntensity'] = sharedUniforms.uSunIntensity
+            shader.uniforms['uAtlasCols'] = { value: ATLAS_COLS }
+            shader.uniforms['uAtlasHalfTexel'] = { value: HALF_TEXEL }
             // Inject lighting compute into the fragment shader. We replace the standard
             // <color_fragment> chunk (which would multiply diffuseColor by vColor as a tint)
             // with our own combine: sky*sun + block (max-blended), then modulated by AO.
             // The shader's vColor varying carries (R=AO, G=sky, B=block) in [0,1] from the
             // BufferAttribute's `normalized: true` flag.
             // Guard against Three.js upgrade silently breaking smooth-lighting injection.
-            if (!shader.fragmentShader.includes('void main() {') || !shader.fragmentShader.includes('#include <color_fragment>')) {
-              throw new Error('chunk-mesh: Three.js fragment shader tokens for smooth-lighting injection not found — lighting injection will silently no-op')
+            if (
+              !shader.vertexShader.includes('void main() {')
+              || !shader.fragmentShader.includes('void main() {')
+              || !shader.fragmentShader.includes('#include <map_fragment>')
+              || !shader.fragmentShader.includes('#include <color_fragment>')
+            ) {
+              throw new Error('chunk-mesh: Three.js shader tokens for atlas/lighting injection not found — terrain shader injection will silently no-op')
             }
+            shader.vertexShader = shader.vertexShader
+              .replace(
+                'void main() {',
+                `attribute float tileIndex;\nvarying float vAtlasTileIndex;\nvoid main() {\n  vAtlasTileIndex = tileIndex;`
+              )
             shader.fragmentShader = shader.fragmentShader
               .replace(
                 'void main() {',
-                `uniform float uSunIntensity;\nvoid main() {`
+                `uniform float uSunIntensity;\nuniform float uAtlasCols;\nuniform float uAtlasHalfTexel;\nvarying float vAtlasTileIndex;\nvoid main() {`
+              )
+              .replace(
+                '#include <map_fragment>',
+                `#ifdef USE_MAP
+                  float atlasIndex = floor(vAtlasTileIndex + 0.5);
+                  float atlasCol = mod(atlasIndex, uAtlasCols);
+                  float atlasRow = floor(atlasIndex / uAtlasCols);
+                  vec2 tileUv = fract(vMapUv);
+                  vec2 atlasMin = vec2(
+                    atlasCol / uAtlasCols + uAtlasHalfTexel,
+                    1.0 - (atlasRow + 1.0) / uAtlasCols + uAtlasHalfTexel
+                  );
+                  vec2 atlasMax = vec2(
+                    (atlasCol + 1.0) / uAtlasCols - uAtlasHalfTexel,
+                    1.0 - atlasRow / uAtlasCols - uAtlasHalfTexel
+                  );
+                  vec4 sampledDiffuseColor = texture2D(map, mix(atlasMin, atlasMax, tileUv));
+                  #ifdef DECODE_VIDEO_TEXTURE
+                    sampledDiffuseColor = sRGBTransferEOTF(sampledDiffuseColor);
+                  #endif
+                  diffuseColor *= sampledDiffuseColor;
+                #endif`
               )
               .replace(
                 '#include <color_fragment>',

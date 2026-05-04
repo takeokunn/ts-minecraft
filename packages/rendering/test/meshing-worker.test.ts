@@ -71,6 +71,7 @@ describe('infrastructure/meshing/meshing-worker', () => {
       onormals: Float32Array
       ocolors: Uint8Array
       ouvs: Float32Array
+      otileIndexes: Float32Array
       oindices: Uint32Array
       wpositions: Float32Array | null
       windices: Uint32Array | null
@@ -82,10 +83,11 @@ describe('infrastructure/meshing/meshing-worker', () => {
     expect(message.onormals.length).toBeGreaterThan(0)
     expect(message.ocolors.length).toBeGreaterThan(0)
     expect(message.ouvs.length).toBeGreaterThan(0)
+    expect(message.otileIndexes.length).toBeGreaterThan(0)
     expect(message.oindices.length).toBeGreaterThan(0)
     expect(message.wpositions).toBeNull()
     expect(message.windices).toBeNull()
-    expect(transferList).toHaveLength(5)
+    expect(transferList).toHaveLength(6)
   })
 
   it('posts a failure response with the raw id when request decoding fails', async () => {
@@ -147,6 +149,7 @@ describe('infrastructure/meshing/meshing-worker', () => {
       wnormals: Int8Array | null
       wcolors: Uint8Array | null
       wuvs: Float32Array | null
+      wtileIndexes: Float32Array | null
       windices: Uint32Array | null
     }
     const transferList = selfMock.postMessage.mock.calls[0]?.[1] as ArrayBuffer[]
@@ -156,7 +159,8 @@ describe('infrastructure/meshing/meshing-worker', () => {
     expect(message.wnormals).toBeInstanceOf(Int8Array)
     expect(message.wcolors).toBeInstanceOf(Uint8Array)
     expect(message.wuvs).toBeInstanceOf(Float32Array)
+    expect(message.wtileIndexes).toBeInstanceOf(Float32Array)
     expect(message.windices).toBeInstanceOf(Uint32Array)
-    expect(transferList).toHaveLength(10)
+    expect(transferList).toHaveLength(12)
   })
 })

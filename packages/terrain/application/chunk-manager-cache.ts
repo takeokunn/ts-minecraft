@@ -1,16 +1,29 @@
 import { HashSet, HashMap, Schema } from 'effect'
 import { ChunkSchema } from '../domain/chunk'
 import { FLUID_BYTE_LENGTH, createFluidBuffer } from '@ts-minecraft/world-state'
-import type { ChunkStorageValue } from '../domain/storage-service-port'
 import type { ChunkCacheKey } from '@ts-minecraft/kernel'
 
-export const storedFluidBuffer = (value: Uint8Array<ArrayBufferLike> | undefined): Uint8Array<ArrayBufferLike> =>
-  value !== undefined && value.byteLength === FLUID_BYTE_LENGTH ? value : createFluidBuffer()
+const isStoredRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null
 
-export const storedChunkPayload = (stored: ChunkStorageValue): { blocks: Uint8Array<ArrayBufferLike>; fluid: Uint8Array<ArrayBufferLike> } => {
+const storedBlocksBuffer = (value: unknown): Uint8Array<ArrayBufferLike> => {
+  if (value instanceof Uint8Array) {
+    return value
+  }
+
+  if (isStoredRecord(value) && value['blocks'] instanceof Uint8Array) {
+    return value['blocks']
+  }
+
+  return new Uint8Array(0)
+}
+export const storedFluidBuffer = (value: unknown): Uint8Array<ArrayBufferLike> =>
+  value instanceof Uint8Array && value.byteLength === FLUID_BYTE_LENGTH ? value : createFluidBuffer()
+
+export const storedChunkPayload = (stored: unknown): { blocks: Uint8Array<ArrayBufferLike>; fluid: Uint8Array<ArrayBufferLike> } => {
   return {
-    blocks: stored.blocks,
-    fluid: storedFluidBuffer(stored.fluid),
+    blocks: storedBlocksBuffer(stored),
+    fluid: storedFluidBuffer(isStoredRecord(stored) ? stored['fluid'] : undefined),
   }
 }
 

@@ -1,5 +1,5 @@
 import { Schema } from 'effect'
-import { getTileIndex, getTileUVs, FaceDir } from '../textures/block-texture-map'
+import { getTileIndex, FaceDir } from '../textures/block-texture-map'
 
 // Performance boundary: pre-sized typed arrays for ~95% of chunks without reallocation.
 // Previous pattern used number[].push() which triggers backing-store reallocation + copy as JS arrays grow.
@@ -13,6 +13,7 @@ export const MeshAccumulatorSchema = Schema.mutable(Schema.Struct({
   normals: Schema.instanceOf(Int8Array),
   colors: Schema.instanceOf(Uint8Array),
   uvs: Schema.instanceOf(Float32Array),
+  tileIndexes: Schema.instanceOf(Float32Array),
   indices: Schema.instanceOf(Uint32Array),
   vertexCount: Schema.Number.pipe(Schema.int(), Schema.nonNegative()),
   indexCount: Schema.Number.pipe(Schema.int(), Schema.nonNegative()),
@@ -24,6 +25,7 @@ export const createAccumulator = (): MeshAccumulator => ({
   normals: new Int8Array(INITIAL_VERTEX_CAPACITY * 3),
   colors: new Uint8Array(INITIAL_VERTEX_CAPACITY * 3),
   uvs: new Float32Array(INITIAL_VERTEX_CAPACITY * 2),
+  tileIndexes: new Float32Array(INITIAL_VERTEX_CAPACITY),
   indices: new Uint32Array(INITIAL_INDEX_CAPACITY),
   vertexCount: 0,
   indexCount: 0,
@@ -47,6 +49,10 @@ export const ensureCapacity = (acc: MeshAccumulator, additionalQuads: number): v
     const newUv = new Float32Array(newUvCap)
     newUv.set(acc.uvs)
     acc.uvs = newUv
+    const newTileCap = Math.max(acc.tileIndexes.length * 2, neededVerts)
+    const newTileIndexes = new Float32Array(newTileCap)
+    newTileIndexes.set(acc.tileIndexes)
+    acc.tileIndexes = newTileIndexes
   }
   if (neededIndices > acc.indices.length) {
     const newCap = Math.max(acc.indices.length * 2, neededIndices)
@@ -67,7 +73,9 @@ export const addQuad = (
   ao: readonly [number, number, number, number],
   skyLight: readonly [number, number, number, number],
   blockLight: readonly [number, number, number, number],
-  faceDir: FaceDir
+  faceDir: FaceDir,
+  du: number,
+  dv: number
 ): void => {
   ensureCapacity(acc, 1)
 
@@ -108,14 +116,23 @@ export const addQuad = (
   acc.colors[pi + 6] = aoR2; acc.colors[pi + 7]  = skG2; acc.colors[pi + 8]  = blB2
   acc.colors[pi + 9] = aoR3; acc.colors[pi + 10] = skG3; acc.colors[pi + 11] = blB3
 
-  // UV coordinates from atlas tile lookup
-  // NOTE: mask packs blockId in bits 0-7 (supports 0-255); current max is 11 (COBBLESTONE)
-  const { u0, v0: tv0, u1, v1: tv1 } = getTileUVs(getTileIndex(blockId, faceDir))
+  // UV coordinates are local block-tile coordinates, not atlas coordinates.
+  // Greedy meshing may merge a 16×16 grass surface into one quad; keeping UVs
+  // in block units lets the shader repeat the selected atlas tile once per
+  // block instead of stretching one texel tile across the whole merged face.
   const ui = base * 2
-  acc.uvs[ui]     = u0; acc.uvs[ui + 1] = tv0
-  acc.uvs[ui + 2] = u0; acc.uvs[ui + 3] = tv1
-  acc.uvs[ui + 4] = u1; acc.uvs[ui + 5] = tv1
-  acc.uvs[ui + 6] = u1; acc.uvs[ui + 7] = tv0
+  acc.uvs[ui]     = 0;  acc.uvs[ui + 1] = 0
+  acc.uvs[ui + 2] = 0;  acc.uvs[ui + 3] = dv
+  acc.uvs[ui + 4] = du; acc.uvs[ui + 5] = dv
+  acc.uvs[ui + 6] = du; acc.uvs[ui + 7] = 0
+
+  // Tile index is carried separately so the fragment shader can map repeated
+  // local UVs into the correct atlas cell per block face.
+  const tileIndex = getTileIndex(blockId, faceDir)
+  acc.tileIndexes[base] = tileIndex
+  acc.tileIndexes[base + 1] = tileIndex
+  acc.tileIndexes[base + 2] = tileIndex
+  acc.tileIndexes[base + 3] = tileIndex
 
   // Indices — 2 triangles per quad
   const ii = acc.indexCount

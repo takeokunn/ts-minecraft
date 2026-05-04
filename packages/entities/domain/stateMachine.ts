@@ -25,7 +25,8 @@ export const AITransitionContextSchema = Schema.Struct({
 })
 export type AITransitionContext = Schema.Schema.Type<typeof AITransitionContextSchema>
 
-const WANDER_TRIGGER_THRESHOLD = 0.08
+const WANDER_TRIGGER_THRESHOLD = 0.25
+const WANDER_CONTINUE_THRESHOLD = 0.85
 
 export const resolveAIState = (
   currentState: AIState,
@@ -51,7 +52,7 @@ export const resolveAIState = (
     return AIState.Wander
   }
 
-  if (currentState === AIState.Wander && context.randomWanderRoll < 0.5) {
+  if (currentState === AIState.Wander && context.randomWanderRoll < WANDER_CONTINUE_THRESHOLD) {
     return AIState.Wander
   }
 

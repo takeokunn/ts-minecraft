@@ -59,13 +59,19 @@ describe('ai/stateMachine', () => {
         AIState.Idle,
         { ...basePassive, canSeePlayer: false, distanceToPlayer: 30, randomWanderRoll: 0.01 },
         AIState.Wander,
-        'no player seen + low roll (< 0.08) from Idle → Wander',
+        'no player seen + low roll (< 0.25) from Idle → Wander',
+      ],
+      [
+        AIState.Idle,
+        { ...basePassive, canSeePlayer: false, distanceToPlayer: 30, randomWanderRoll: 0.2 },
+        AIState.Wander,
+        'no player seen + active roll (0.2 < 0.25) from Idle → Wander',
       ],
       [
         AIState.Wander,
         { ...basePassive, canSeePlayer: false, distanceToPlayer: 30, randomWanderRoll: 0.3 },
         AIState.Wander,
-        'Wander state + mid roll (0.3 < 0.5) → stays Wander',
+        'Wander state + mid roll (0.3 < 0.85) → stays Wander',
       ],
       [
         AIState.Idle,

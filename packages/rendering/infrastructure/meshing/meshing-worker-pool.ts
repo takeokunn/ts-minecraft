@@ -57,6 +57,7 @@ const toMeshedWater = (response: WorkerResponse): MeshedChunk | null => {
     && response.wnormals === null
     && response.wcolors === null
     && response.wuvs === null
+    && response.wtileIndexes === null
     && response.windices === null
   ) {
     return null
@@ -67,6 +68,7 @@ const toMeshedWater = (response: WorkerResponse): MeshedChunk | null => {
     && response.wnormals !== null
     && response.wcolors !== null
     && response.wuvs !== null
+    && response.wtileIndexes !== null
     && response.windices !== null
   ) {
     return {
@@ -74,6 +76,7 @@ const toMeshedWater = (response: WorkerResponse): MeshedChunk | null => {
       normals: response.wnormals,
       colors: response.wcolors,
       uvs: response.wuvs,
+      tileIndexes: response.wtileIndexes,
       indices: response.windices,
     }
   }
@@ -87,6 +90,7 @@ const toWorkerMeshResult = (response: WorkerResponse): WorkerMeshResult => ({
     normals: response.onormals,
     colors: response.ocolors,
     uvs: response.ouvs,
+    tileIndexes: response.otileIndexes,
     indices: response.oindices,
   },
   water: toMeshedWater(response),
@@ -139,11 +143,13 @@ const WorkerResponseSchema = Schema.Struct({
   onormals: Schema.instanceOf(Int8Array),
   ocolors: Schema.instanceOf(Uint8Array),
   ouvs: Schema.instanceOf(Float32Array),
+  otileIndexes: Schema.instanceOf(Float32Array),
   oindices: Schema.instanceOf(Uint32Array),
   wpositions: Schema.NullOr(Schema.instanceOf(Float32Array)),
   wnormals: Schema.NullOr(Schema.instanceOf(Int8Array)),
   wcolors: Schema.NullOr(Schema.instanceOf(Uint8Array)),
   wuvs: Schema.NullOr(Schema.instanceOf(Float32Array)),
+  wtileIndexes: Schema.NullOr(Schema.instanceOf(Float32Array)),
   windices: Schema.NullOr(Schema.instanceOf(Uint32Array)),
 })
 type WorkerResponse = Schema.Schema.Type<typeof WorkerResponseSchema>

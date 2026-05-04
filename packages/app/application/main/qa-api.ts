@@ -43,6 +43,51 @@ type QaApiDeps = {
   readonly entityManager: EntityManager
 }
 
+type QaChunkMeshSnapshot = {
+  readonly chunkCoord: unknown
+  readonly type: string
+  readonly visible: boolean
+  readonly vertexCount: number
+  readonly indexCount: number
+  readonly hasUv: boolean
+  readonly hasTileIndex: boolean
+  readonly tileIndexCount: number
+  readonly materialType: string
+  readonly textureLoaded: boolean
+}
+
+const getMaterialType = (material: THREE.Material | readonly THREE.Material[]): string => {
+  const firstMaterial = Array.isArray(material) ? material[0] : material
+  return firstMaterial?.type ?? 'UnknownMaterial'
+}
+
+const isAtlasTextureLoaded = (material: THREE.Material | readonly THREE.Material[]): boolean => {
+  const firstMaterial = Array.isArray(material) ? material[0] : material
+  return firstMaterial instanceof THREE.MeshLambertMaterial && Boolean(firstMaterial.map?.image)
+}
+
+const getChunkMeshSnapshots = (scene: THREE.Scene): ReadonlyArray<QaChunkMeshSnapshot> =>
+  scene.children
+    .filter((child): child is THREE.Mesh<THREE.BufferGeometry, THREE.Material | THREE.Material[]> =>
+      child instanceof THREE.Mesh && child.userData['chunkCoord'] !== undefined)
+    .map((mesh) => {
+      const position = mesh.geometry.getAttribute('position')
+      const uv = mesh.geometry.getAttribute('uv')
+      const tileIndex = mesh.geometry.getAttribute('tileIndex')
+      return {
+        chunkCoord: mesh.userData['chunkCoord'],
+        type: mesh.type,
+        visible: mesh.visible,
+        vertexCount: position?.count ?? 0,
+        indexCount: mesh.geometry.index?.count ?? 0,
+        hasUv: uv !== undefined,
+        hasTileIndex: tileIndex !== undefined,
+        tileIndexCount: tileIndex?.count ?? 0,
+        materialType: getMaterialType(mesh.material),
+        textureLoaded: isAtlasTextureLoaded(mesh.material),
+      }
+    })
+
 export const installQaApi = ({
   camera,
   scene,
@@ -294,6 +339,22 @@ export const installQaApi = ({
       selectHotbarSlot: (hotbarIndex: number) => Effect.runPromise(hotbarService.setSelectedSlot(SlotIndex.make(hotbarIndex))),
       getRecipeButtons: () => Arr.map(recipeService.getAllRecipes(), (recipe) => recipe.id),
       getEntitySnapshot: () => Effect.runPromise(entityManager.getEntities()),
+      getRenderingSnapshot: () => {
+        const chunkMeshes = getChunkMeshSnapshots(scene)
+        return {
+          sceneChildren: scene.children.length,
+          chunkMeshCount: chunkMeshes.length,
+          visibleChunkMeshCount: chunkMeshes.filter((mesh) => mesh.visible).length,
+          camera: {
+            x: camera.position.x,
+            y: camera.position.y,
+            z: camera.position.z,
+            near: camera.near,
+            far: camera.far,
+          },
+          chunks: chunkMeshes,
+        }
+      },
     }
 
     Reflect.set(window as object, '__TS_MINECRAFT_QA__', qa)

@@ -1,7 +1,7 @@
 import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
 import { Array as Arr, Effect, Option } from 'effect'
-import { EntityType, EntityId } from '@ts-minecraft/entities'
+import { AIState, EntityType, EntityId } from '@ts-minecraft/entities'
 import { EntityManager, EntityManagerLive } from '@ts-minecraft/entities'
 import { DeltaTimeSecs } from '@ts-minecraft/kernel'
 
@@ -236,20 +236,25 @@ describe('entity/entityManager', () => {
       }).pipe(Effect.provide(EntityManagerLive))
     )
 
-    it.effect('entity enters Wander state at tick 13 — covers makeWanderDirection (ternary true branch)', () =>
+    it.effect('entity wanders and moves while player stays outside detection range', () =>
       Effect.gen(function* () {
         const entityManager = yield* EntityManager
-        // First entity created = entity-1; hashEntityId('entity-1') % 1000 = 793.
-        // randomWanderRoll at tick t = (793 + t*17) % 1000 / 1000.
-        // At tick=13: (793 + 221) % 1000 / 1000 = 14/1000 = 0.014 < WANDER_TRIGGER_THRESHOLD(0.08).
-        // Player at (1000,64,1000) keeps entity outside detectionRange (16) → no Chase/Flee/Attack.
-        yield* entityManager.addEntity(EntityType.Zombie, { x: 0, y: 64, z: 0 })
+        const entityId = yield* entityManager.addEntity(EntityType.Zombie, { x: 0, y: 64, z: 0 })
+
         yield* Effect.forEach(Arr.makeBy(13, (i) => i), () =>
           entityManager.update(DeltaTimeSecs.make(0.016), { x: 1000, y: 64, z: 1000 }),
           { concurrency: 1 }
         )
-        const entities = yield* entityManager.getEntities()
-        expect(entities.length).toBe(1)
+
+        const stateOpt = yield* entityManager.getEntityAIState(entityId)
+        expect(Option.isSome(stateOpt)).toBe(true)
+        expect(Option.getOrThrow(stateOpt)).toBe(AIState.Wander)
+
+        const entityOpt = yield* entityManager.getEntity(entityId)
+        expect(Option.isSome(entityOpt)).toBe(true)
+        const entity = Option.getOrThrow(entityOpt)
+        expect(Math.hypot(entity.velocity.x, entity.velocity.z)).toBeGreaterThan(0)
+        expect(Math.hypot(entity.position.x, entity.position.z)).toBeGreaterThan(0)
       }).pipe(Effect.provide(EntityManagerLive))
     )
   })

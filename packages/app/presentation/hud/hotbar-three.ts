@@ -72,6 +72,9 @@ const SLOT_STRIDE = SLOT_SIZE + SLOT_GAP
 const HOTBAR_SLOTS = 9
 const TOTAL_WIDTH = HOTBAR_SLOTS * SLOT_SIZE + (HOTBAR_SLOTS - 1) * SLOT_GAP
 const HOTBAR_Y_OFFSET = 50 // pixels from bottom edge of viewport to center of hotbar strip
+const EMPTY_SLOT_COLOR = 0x8a8f96
+const SLOT_OPACITY = 0.78
+const SELECTED_BORDER_COLOR = 0xfff4b0
 
 export class HotbarRendererService extends Effect.Service<HotbarRendererService>()(
   '@minecraft/presentation/HotbarRenderer',
@@ -82,7 +85,7 @@ export class HotbarRendererService extends Effect.Service<HotbarRendererService>
         const scene = new THREE.Scene()
         const border = new THREE.Mesh(
           new THREE.PlaneGeometry(SLOT_SIZE + 8, SLOT_SIZE + 8),
-          new THREE.MeshBasicMaterial({ color: 0xffffff })
+          new THREE.MeshBasicMaterial({ color: SELECTED_BORDER_COLOR, transparent: true, opacity: 0.92 })
         )
         border.position.z = 0
         border.visible = false
@@ -143,7 +146,7 @@ export class HotbarRendererService extends Effect.Service<HotbarRendererService>
                   const meshes = yield* Effect.sync(() => {
                     const built = Arr.makeBy(HOTBAR_SLOTS, (i) => {
                       const geo = new THREE.PlaneGeometry(SLOT_SIZE, SLOT_SIZE)
-                      const mat = new THREE.MeshBasicMaterial({ color: BLOCK_COLORS.AIR })
+                      const mat = new THREE.MeshBasicMaterial({ color: EMPTY_SLOT_COLOR, transparent: true, opacity: SLOT_OPACITY })
                       const mesh = new THREE.Mesh(geo, mat)
                       const x = -TOTAL_WIDTH / 2 + SLOT_SIZE / 2 + i * SLOT_STRIDE
                       const y = -initialHeight / 2 + HOTBAR_Y_OFFSET
@@ -182,7 +185,7 @@ export class HotbarRendererService extends Effect.Service<HotbarRendererService>
                           mat.color.setHex(BLOCK_COLORS[blockType])
                         },
                         onNone: () => {
-                          mat.color.setHex(0x333333)
+                          mat.color.setHex(EMPTY_SLOT_COLOR)
                         },
                       })
                       mesh.scale.setScalar(1)

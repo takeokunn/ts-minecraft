@@ -23,6 +23,24 @@ type QaApiShape = {
   selectHotbarSlot(hotbarIndex: number): Promise<void>
   craftRecipeForQA(recipeId: string): Promise<void>
   getEntitySnapshot(): Promise<ReadonlyArray<{ readonly id: string }>>
+  getRenderingSnapshot(): {
+    readonly sceneChildren: number
+    readonly chunkMeshCount: number
+    readonly visibleChunkMeshCount: number
+    readonly camera: { readonly x: number; readonly y: number; readonly z: number; readonly near: number; readonly far: number }
+    readonly chunks: ReadonlyArray<{
+      readonly chunkCoord: unknown
+      readonly type: string
+      readonly visible: boolean
+      readonly vertexCount: number
+      readonly indexCount: number
+      readonly hasUv: boolean
+      readonly hasTileIndex: boolean
+      readonly tileIndexCount: number
+      readonly materialType: string
+      readonly textureLoaded: boolean
+    }>
+  }
   getRecipeButtons(): ReadonlyArray<string>
 }
 
@@ -186,7 +204,42 @@ describe('installQaApi', () => {
     const qa = getQaApi()
     expect(typeof qa.consumeMouseClickForQA).toBe('function')
     expect(typeof qa.getEntitySnapshot).toBe('function')
+    expect(typeof qa.getRenderingSnapshot).toBe('function')
     expect(qa.getRecipeButtons()).toEqual(['craft-planks', 'craft-sticks'])
+  })
+
+  it('returns rendering diagnostics for visible chunk meshes', async () => {
+    installWindow()
+    const { deps } = makeDeps()
+    const geometry = new THREE.BufferGeometry()
+    geometry.setAttribute('position', new THREE.BufferAttribute(new Float32Array([0, 0, 0, 1, 0, 0, 0, 1, 0]), 3))
+    geometry.setAttribute('uv', new THREE.BufferAttribute(new Float32Array([0, 0, 1, 0, 0, 1]), 2))
+    geometry.setAttribute('tileIndex', new THREE.BufferAttribute(new Float32Array([2, 2, 2]), 1))
+    geometry.setIndex([0, 1, 2])
+    const mesh = new THREE.Mesh(geometry, new THREE.MeshLambertMaterial())
+    mesh.userData['chunkCoord'] = { x: 0, z: 0 }
+    deps.camera.position.set(1, 2, 3)
+    deps.scene.add(mesh)
+
+    await Effect.runPromise(installQaApi(deps as never))
+
+    const snapshot = getQaApi().getRenderingSnapshot()
+    expect(snapshot.sceneChildren).toBe(1)
+    expect(snapshot.chunkMeshCount).toBe(1)
+    expect(snapshot.visibleChunkMeshCount).toBe(1)
+    expect(snapshot.camera).toMatchObject({ x: 1, y: 2, z: 3 })
+    expect(snapshot.chunks[0]).toMatchObject({
+      chunkCoord: { x: 0, z: 0 },
+      type: 'Mesh',
+      visible: true,
+      vertexCount: 3,
+      indexCount: 3,
+      hasUv: true,
+      hasTileIndex: true,
+      tileIndexCount: 3,
+      materialType: 'MeshLambertMaterial',
+      textureLoaded: false,
+    })
   })
 
   it('returns a human-readable inventory snapshot', async () => {

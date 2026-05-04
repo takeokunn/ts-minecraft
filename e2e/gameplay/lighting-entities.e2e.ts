@@ -46,6 +46,18 @@ type CanvasStats = {
   readonly nonZeroPixels: number
 }
 
+type RenderingSnapshot = {
+  readonly chunkMeshCount: number
+  readonly visibleChunkMeshCount: number
+  readonly chunks: ReadonlyArray<{
+    readonly vertexCount: number
+    readonly hasUv: boolean
+    readonly hasTileIndex: boolean
+    readonly tileIndexCount: number
+    readonly textureLoaded: boolean
+  }>
+}
+
 /**
  * Sample the game canvas by taking a Playwright screenshot (PNG bytes from the OS
  * compositor — works regardless of WebGL `preserveDrawingBuffer`) then decode it
@@ -126,6 +138,12 @@ test.describe('Phase 2.2: lighting + entity rendering smoke', () => {
     // Wait 3 seconds of gameplay so chunks load, lighting bakes, and the entity
     // renderer's syncEntities runs at least a few hundred times.
     await waitForStableRender(page, 3_000)
+
+    const renderingSnapshot = await page.evaluate<RenderingSnapshot | undefined>(() => window.__TS_MINECRAFT_QA__?.getRenderingSnapshot())
+    expect(renderingSnapshot?.chunkMeshCount ?? 0).toBeGreaterThan(0)
+    expect(renderingSnapshot?.visibleChunkMeshCount ?? 0).toBeGreaterThan(0)
+    expect(renderingSnapshot?.chunks.some((chunk: RenderingSnapshot['chunks'][number]) => chunk.vertexCount > 0 && chunk.hasUv && chunk.hasTileIndex && chunk.tileIndexCount === chunk.vertexCount)).toBe(true)
+    expect(renderingSnapshot?.chunks.some((chunk: RenderingSnapshot['chunks'][number]) => chunk.textureLoaded)).toBe(true)
 
     // Measure canvas pixels (also writes the screenshot for manual inspection).
     const stats = await measureCanvas(page, '/tmp/e2e-lighting-surface.png')

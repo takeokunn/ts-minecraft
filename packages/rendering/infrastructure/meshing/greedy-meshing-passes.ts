@@ -159,7 +159,7 @@ export const makeEmitQuad = (
     blockQuad[1] = dequantLight((maskValue >> 20) & 0x3)
     blockQuad[2] = dequantLight((maskValue >> 22) & 0x3)
     blockQuad[3] = dequantLight((maskValue >> 24) & 0x3)
-    addQuad(targetAcc, v0, v1, v2, v3, normal, blockId, aoQuad, skyQuad, blockQuad, faceDir)
+    addQuad(targetAcc, v0, v1, v2, v3, normal, blockId, aoQuad, skyQuad, blockQuad, faceDir, du, dv)
   }
 }
 

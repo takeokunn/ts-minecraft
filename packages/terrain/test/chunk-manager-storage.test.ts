@@ -18,6 +18,24 @@ import {
   LightEngineNoopLive,
   EXPECTED_BLOCKS_LENGTH,
 } from './chunk-manager-test-utils'
+import { storedChunkPayload } from '../application/chunk-manager-cache'
+
+describe('storedChunkPayload', () => {
+  it('returns empty block buffer for malformed records so caller can regenerate', () => {
+    const payload = storedChunkPayload({ fluid: new Uint8Array(4) })
+
+    expect(payload.blocks.byteLength).toBe(0)
+    expect(payload.fluid.byteLength).toBe(FLUID_BYTE_LENGTH)
+  })
+
+  it('accepts legacy Uint8Array chunk payloads', () => {
+    const legacyBlocks = new Uint8Array(EXPECTED_BLOCKS_LENGTH)
+    const payload = storedChunkPayload(legacyBlocks)
+
+    expect(payload.blocks).toBe(legacyBlocks)
+    expect(payload.fluid.byteLength).toBe(FLUID_BYTE_LENGTH)
+  })
+})
 
 describe('application/chunk/chunk-manager-service (storage)', () => {
   // ---------------------------------------------------------------------------

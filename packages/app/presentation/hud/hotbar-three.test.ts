@@ -29,8 +29,19 @@ vi.mock('three', () => {
   // If vi.fn(() => plainObj) is used instead, the constructor returns a plain object which
   // bypasses prototype-chain setup, breaking the instanceof guard in hotbar-three.ts:184.
   class MockMeshBasicMaterial {
-    color = { setHex: vi.fn(), getHex: vi.fn(() => 0) }
-    constructor(_options?: { color?: number }) {}
+    private currentHex = 0
+    readonly transparent: boolean
+    readonly opacity: number
+    readonly color = {
+      setHex: vi.fn((hex: number) => { this.currentHex = hex }),
+      getHex: vi.fn(() => this.currentHex),
+    }
+
+    constructor(options: { color?: number; transparent?: boolean; opacity?: number } = {}) {
+      this.currentHex = options.color ?? 0
+      this.transparent = options.transparent ?? false
+      this.opacity = options.opacity ?? 1
+    }
   }
 
   const makeMesh = (material?: MockMeshBasicMaterial) => ({
@@ -78,6 +89,7 @@ vi.mock('three', () => {
 // ---------------------------------------------------------------------------
 // Import the service under test and dependencies *after* the mock declaration
 // ---------------------------------------------------------------------------
+import * as THREE from 'three'
 import { HotbarRendererService, HotbarRendererLive } from '@ts-minecraft/app/presentation/hud/hotbar-three'
 import { RendererService } from '@ts-minecraft/rendering'
 import type { BlockType } from '@ts-minecraft/kernel'
@@ -98,6 +110,34 @@ const createMockRendererService = () =>
 const buildTestLayer = (rendererService: RendererService = createMockRendererService()) => {
   const MockRendererLayer = Layer.succeed(RendererService, rendererService)
   return HotbarRendererLive.pipe(Layer.provide(MockRendererLayer))
+}
+
+type MockedMaterial = {
+  readonly transparent: boolean
+  readonly opacity: number
+  readonly color: { readonly getHex: () => number }
+}
+
+const isObjectRecord = (value: unknown): value is object =>
+  typeof value === 'object' && value !== null
+
+const isMockedMaterial = (value: unknown): value is MockedMaterial => {
+  if (!isObjectRecord(value)) return false
+  const color = Reflect.get(value, 'color')
+  return (
+    typeof Reflect.get(value, 'transparent') === 'boolean'
+    && typeof Reflect.get(value, 'opacity') === 'number'
+    && isObjectRecord(color)
+    && typeof Reflect.get(color, 'getHex') === 'function'
+  )
+}
+
+const expectMockedMaterial = (value: unknown): MockedMaterial => {
+  expect(isMockedMaterial(value)).toBe(true)
+  if (!isMockedMaterial(value)) {
+    throw new Error('Expected mocked material')
+  }
+  return value
 }
 
 // ---------------------------------------------------------------------------
@@ -165,6 +205,29 @@ describe('HotbarRendererService', () => {
         const renderer = yield* HotbarRendererService
         yield* renderer.initialize(800, 600)
         yield* renderer.update(slots, SlotIndex.make(0))
+      }).pipe(Effect.provide(TestLayer))
+    })
+
+    it.scoped('uses readable empty slot and warm selected border materials', () => {
+      vi.clearAllMocks()
+      const TestLayer = buildTestLayer()
+      const emptySlots: ReadonlyArray<Option.Option<BlockType>> = Arr.makeBy(9, () => Option.none())
+
+      return Effect.gen(function* () {
+        const renderer = yield* HotbarRendererService
+        yield* renderer.initialize(800, 600)
+        yield* renderer.update(emptySlots, SlotIndex.make(0))
+
+        const meshCalls = vi.mocked(THREE.Mesh).mock.calls
+        const borderMaterial = expectMockedMaterial(meshCalls[0]?.[1])
+        const firstSlotMaterial = expectMockedMaterial(meshCalls[1]?.[1])
+
+        expect(borderMaterial.color.getHex()).toBe(0xfff4b0)
+        expect(borderMaterial.transparent).toBe(true)
+        expect(borderMaterial.opacity).toBeCloseTo(0.92, 5)
+        expect(firstSlotMaterial.color.getHex()).toBe(0x8a8f96)
+        expect(firstSlotMaterial.transparent).toBe(true)
+        expect(firstSlotMaterial.opacity).toBeCloseTo(0.78, 5)
       }).pipe(Effect.provide(TestLayer))
     })
 

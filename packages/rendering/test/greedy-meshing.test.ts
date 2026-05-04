@@ -114,6 +114,36 @@ describe('greedyMeshChunk', () => {
       expect(topFaceCount).toBe(1)
     })
 
+    it('keeps merged top face UVs in block units so the atlas tile repeats per block', () => {
+      const chunk = makeChunkWithBlocks(ZERO_COORD, [
+        { lx: 0, y: 0, lz: 0, blockType: 'DIRT' },
+        { lx: 1, y: 0, lz: 0, blockType: 'DIRT' },
+        { lx: 2, y: 0, lz: 0, blockType: 'DIRT' },
+      ])
+      const meshed = greedyMeshChunk(chunk, ZERO_OFFSET).toMeshed().opaque
+
+      let topQuadVertex = -1
+      const normalCount = meshed.normals.length / 3
+      for (let v = 0; v < normalCount; v += 4) {
+        const nx = meshed.normals[v * 3]
+        const ny = meshed.normals[v * 3 + 1]
+        const nz = meshed.normals[v * 3 + 2]
+        if (nx === 0 && ny === 1 && nz === 0) {
+          topQuadVertex = v
+          break
+        }
+      }
+
+      expect(topQuadVertex).toBeGreaterThanOrEqual(0)
+      const uvOffset = topQuadVertex * 2
+      expect(Array.from(meshed.uvs.slice(uvOffset, uvOffset + 8))).toEqual([
+        0, 0,
+        0, 1,
+        3, 1,
+        3, 0,
+      ])
+    })
+
     it('merges a 3×1×3 flat layer of STONE blocks into 6 quads', () => {
       const entries: Array<{ lx: number; y: number; lz: number; blockType: BlockType }> = []
       Arr.forEach(Arr.makeBy(3, lx => lx), lx => {
