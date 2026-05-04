@@ -1,32 +1,47 @@
 # ファイル棚卸し結果
 
+## 対象範囲
+
+現行の package-by-feature 構成に合わせ、`src/main.ts` と `packages/**/*.ts` / `packages/**/*.tsx` を棚卸し対象にする。
+
 ## 区分ルール
 
-- 構造変更対象: `src/application`, `src/domain`, `src/infrastructure`, `src/presentation` 内のファイル。DDD再編時に責務分割とレイヤー再構築を実施予定。
-- 移行対象: 上記以外 (`src/bootstrap`, `src/testing`, 直下ユーティリティ等)。新構成へ配置替えまたはサポート層への転用を想定。
+- `packages/<feature>/domain`: pure domain data, values, rules, and ports.
+- `packages/<feature>/application`: Effect services, use cases, and orchestration.
+- `packages/<feature>/infrastructure`: external adapters such as Three.js, workers, persistence, and browser APIs.
+- `packages/<feature>/presentation`: DOM/UI-facing presentation code.
+- `packages/<feature>/test`: package-local unit tests and test helpers.
+- `src/main.ts`: application entrypoint and package layer composition.
 
 ## 区分別件数
 
-| 区分         | 件数 | 比率   |
-| ------------ | ---- | ------ |
-| 構造変更対象 | 918  | 97.9%  |
-| 移行対象     | 20   | 2.1%   |
-| 合計         | 938  | 100.0% |
+| レイヤー | 件数 |
+| --- | ---: |
+| (root) | 10 |
+| application | 108 |
+| bootstrap | 1 |
+| domain | 120 |
+| infrastructure | 46 |
+| presentation | 60 |
+| test | 194 |
 
-## ディレクトリ別内訳
+## パッケージ別件数
 
-| トップディレクトリ | 合計 | 構造変更対象 | 移行対象 |
-| ------------------ | ---- | ------------ | -------- |
-| domain             | 843  | 843          | 0        |
-| infrastructure     | 35   | 35           | 0        |
-| presentation       | 23   | 23           | 0        |
-| application        | 17   | 17           | 0        |
-| bootstrap          | 16   | 0            | 16       |
-| (root)             | 3    | 0            | 3        |
-| testing            | 1    | 0            | 1        |
+| パッケージ | 件数 |
+| --- | ---: |
+| (entrypoint) | 1 |
+| app | 119 |
+| entities | 47 |
+| game | 45 |
+| inventory | 31 |
+| kernel | 31 |
+| physics | 21 |
+| player | 36 |
+| rendering | 68 |
+| terrain | 99 |
+| world-state | 41 |
 
-## 追加メモ
+## 参照データ
 
 - 詳細なファイル一覧は `docs/reference/architecture/file-inventory.json` を参照。
-- 直下 (`src/app.ts` など) は暫定的に移行対象とし、Phase 1 完了時に再評価する。
-- 依存グラフ再生成は `.dependency-cruiser.cjs` を利用して `pnpm dlx dependency-cruiser src --config .dependency-cruiser.cjs --output-type json --output-to docs/reference/architecture/dependency-graph.json` を実行する。
+- 依存グラフは `docs/reference/architecture/dependency-graph.json` を参照。

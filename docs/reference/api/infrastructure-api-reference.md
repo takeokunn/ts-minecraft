@@ -451,7 +451,7 @@ const applyLevelOfDetail = Effect.sync(() => {
 
 #### **パターン1: バッチレンダリング最適化**
 
-**最適化前（従来パターン）:**
+**最適化前（Promiseベースパターン）:**
 
 ```typescript
 // ❌ 非効率: 個別描画で大量の描画コール
@@ -558,7 +558,7 @@ export interface OptimizedAssetService extends AssetService {
    * 並列アセット事前読み込み（最適化済み）
    * @param manifest - 読み込み対象アセット情報
    * @returns AssetLoadResult - 読み込み結果統計
-   * @performance 従来比213%高速化（2.5秒 → 0.8秒）
+   * @performance 最適化前比213%高速化（2.5秒 → 0.8秒）
    * @optimization
    *   - 並列度最適化: CPU数に基づく動的調整
    *   - プログレッシブローディング: 重要度順読み込み
@@ -916,7 +916,7 @@ const getKeyboardStateOptimized = Effect.gen(function* () {
     return yield* getRawKeyboardState()
   }
 
-  // 従来のイベントベース状態取得（最適化済み）
+  // 比較対象のイベントベース状態取得（最適化済み）
   const state = new Map<string, boolean>()
 
   // よく使用されるキーのみを高速チェック
@@ -943,7 +943,7 @@ const getKeyboardStateOptimized = Effect.gen(function* () {
 
 // パフォーマンス測定結果
 const inputPerformanceMetrics = {
-  // 従来システム vs 最適化システム
+  // イベントベースシステム vs 最適化システム
   latency: {
     before: 12, // ms
     after: 2, // ms

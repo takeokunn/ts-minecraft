@@ -471,58 +471,6 @@ export const safelyMigrateWorld = (
   })
 ```
 
-### 🔒 **下位互換性保証**
-
-```typescript
-// 下位互換性を維持するスキーマ拡張パターン
-export const extendSchemaCompatibly = <T, U>(
-  baseSchema: Schema.Schema<T, T>,
-  extension: Schema.Schema<U, U>,
-  defaultValues: U
-) =>
-  Schema.Struct({
-    ...baseSchema.fields,
-    ...extension.fields,
-  }).pipe(
-    Schema.attachPropertySignature('__compatibility_version', Schema.Number),
-    Schema.transform(Schema.Struct(baseSchema.fields), {
-      decode: (base) => ({ ...base, ...defaultValues }),
-      encode: (extended) => {
-        // 下位互換性のために基本フィールドのみを抽出
-        const base = Object.keys(baseSchema.fields).reduce((acc, key) => ({ ...acc, [key]: extended[key] }), {} as T)
-        return base
-      },
-    })
-  )
-
-// レガシーデータの自動修復
-export const repairLegacyData = <T>(
-  data: unknown,
-  schema: Schema.Schema<T, T>,
-  repairStrategies: ReadonlyArray<(data: unknown) => Option.Option<T>>
-): Effect.Effect<T, DataRepairError> =>
-  pipe(
-    Schema.decode(schema)(data),
-    Effect.orElse(() =>
-      pipe(
-        repairStrategies,
-        Effect.reduce(Option.none<T>(), (acc, strategy) =>
-          pipe(
-            acc,
-            Option.orElse(() => strategy(data))
-          )
-        ),
-        Effect.flatMap(
-          Option.match({
-            onNone: () => Effect.fail(new UnrepairableDataError()),
-            onSome: (repaired) => Effect.succeed(repaired),
-          })
-        )
-      )
-    )
-  )
-```
-
 ## 📊 データ検証・整合性保証
 
 ### ✅ **多段階バリデーション戦略**
@@ -932,4 +880,4 @@ describe('World Data Persistence', () => {
 
 ---
 
-💾 **重要**: データモデルの変更時は下位互換性とマイグレーション戦略を必ず検討してください。
+💾 **重要**: データモデルの変更時は現行スキーマと整合性検証を必ず更新してください。

@@ -1831,7 +1831,7 @@ export const makeEventDispatcher = Effect.gen(function* () {
 ```typescript
 // Structure of Arrays パターンによる最適化（Schema強化版）
 export namespace PerformanceOptimizations {
-  // 従来の Array of Structures (AoS) - キャッシュ効率が悪い
+  // AoS（Array of Structures） - キャッシュ効率が悪い
   interface BlockDataAoS {
     type: number
     state: number

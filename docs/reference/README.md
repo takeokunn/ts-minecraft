@@ -54,7 +54,7 @@ dependency_versions_verified: true
 api_version: '3.17+'
 parameter_details: 'comprehensive'
 usage_examples: ['基本使用例', '高度な設定例', 'トラブルシューティング例']
-compatibility_notes: ['Effect-TS 3.17+サポート', 'Node.js 18+必須', 'TypeScript 5.0+推奨']
+runtime_requirements: ['Effect-TS 3.17+', 'Node.js 18+必須', 'TypeScript 5.0+推奨']
 quality_gates:
   information_accuracy: '100%'
   completeness_coverage: 'comprehensive'

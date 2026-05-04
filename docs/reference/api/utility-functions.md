@@ -2106,7 +2106,7 @@ export const TypeSafetyDemonstration = {
    * @description 条件分岐のパターンマッチング化による可読性・保守性向上
    * @example
    * ```typescript
-   * // 従来のif-else パターン
+   * // if-else パターン
    * const oldGetDeep = (obj: unknown, path: string[]): Option.Option<unknown> => {
    *   if (path.length === 0) return Option.some(obj);
    *   if (obj === null || typeof obj !== "object") return Option.none();
@@ -2615,19 +2615,19 @@ export const AdvancedEffectPBTPatterns = {
 } as const
 ```
 
-## 🎯 **教育的PBTテスト例: 従来テスト困難なバグ発見パターン**
+## 🎯 **教育的PBTテスト例: 例ベーステスト困難なバグ発見パターン**
 
 ### 📚 **パターン1: 座標変換の微小誤差バグ**
 
 ```typescript
-// 💥 従来テストでは発見困難: 特定の座標でのみ発生する微小誤差
+// 💥 例ベーステストでは発見困難: 特定の座標でのみ発生する微小誤差
 import { pipe } from 'effect'
 import * as fc from '@effect/vitest'
 
 export const CoordinateTransformationBugExamples = {
   /**
    * 🐛 バグ例1: 浮動小数点演算による座標変換エラー
-   * 従来テスト: 整数座標のみテスト → バグ未発見
+   * 例ベーステスト: 整数座標のみテスト → バグ未発見
    * PBTテスト: ランダム浮動小数点 → 微小誤差バグ発見
    */
   floatingPointPrecisionBug: it.prop(
@@ -2660,7 +2660,7 @@ export const CoordinateTransformationBugExamples = {
 
   /**
    * 🐛 バグ例2: 負の座標での floor 関数の予期しない動作
-   * 従来テスト: 正の座標のみ → バグ未発見
+   * 例ベーステスト: 正の座標のみ → バグ未発見
    * PBTテスト: 全座標範囲 → 負座標でのバグ発見
    */
   negativeCoordinateFloorBug: it.prop(
@@ -2716,11 +2716,11 @@ export const CoordinateTransformationBugExamples = {
 ### 📚 **パターン2: インベントリ操作の競合状態バグ**
 
 ```typescript
-// 💥 従来テストでは発見困難: 並行操作による競合状態
+// 💥 例ベーステストでは発見困難: 並行操作による競合状態
 export const InventoryRaceConditionBugExamples = {
   /**
    * 🐛 バグ例4: アイテム移動の原子性違反
-   * 従来テスト: 単一スレッド → 競合状態未発見
+   * 例ベーステスト: 単一スレッド → 競合状態未発見
    * PBTテスト: 並行操作シミュレーション → 競合バグ発見
    */
   itemTransferAtomicityBug: it.prop(
@@ -2834,11 +2834,11 @@ export const InventoryRaceConditionBugExamples = {
 ### 📚 **パターン3: ブロック配置の物理法則違反バグ**
 
 ```typescript
-// 💥 従来テストでは発見困難: 複雑な物理制約違反
+// 💥 例ベーステストでは発見困難: 複雑な物理制約違反
 export const BlockPlacementPhysicsBugExamples = {
   /**
    * 🐛 バグ例6: 重力ブロックの浮遊バグ
-   * 従来テスト: 単純配置のみ → 複雑配置パターンでのバグ未発見
+   * 例ベーステスト: 単純配置のみ → 複雑配置パターンでのバグ未発見
    * PBTテスト: ランダム配置パターン → 物理法則違反発見
    */
   gravityBlockFloatingBug: it.prop(
@@ -3049,7 +3049,7 @@ export const BlockPlacementPhysicsBugExamples = {
 ### 📚 **パターン4: メモリリーク・リソース管理バグ**
 
 ```typescript
-// 💥 従来テストでは発見困難: 長時間実行でのメモリリーク
+// 💥 例ベーステストでは発見困難: 長時間実行でのメモリリーク
 export const ResourceManagementBugExamples = {
   /**
    * 🐛 バグ例9: チャンクローディングでのメモリリーク
@@ -3205,7 +3205,7 @@ export const ResourceManagementBugExamples = {
 ### 📚 **パターン5: データ構造の整合性バグ**
 
 ```typescript
-// 💥 従来テストでは発見困難: 複雑なデータ構造の整合性違反
+// 💥 例ベーステストでは発見困難: 複雑なデータ構造の整合性違反
 export const DataStructureConsistencyBugExamples = {
   /**
    * 🐛 バグ例11: 双方向リンクの整合性エラー
@@ -3413,7 +3413,7 @@ export const DataStructureConsistencyBugExamples = {
 
 ### 🎯 **教育的価値の総括**
 
-#### 🔍 **従来テストの限界**
+#### 🔍 **例ベーステストの限界**
 
 - **決定論的テストケース**: 開発者の想像範囲内のケースのみ
 - **境界値テスト**: 既知の境界のみテスト
