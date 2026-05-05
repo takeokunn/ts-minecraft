@@ -1,10 +1,12 @@
 import { Array as Arr, Cause, Effect, HashMap, MutableRef, Option, Ref } from 'effect'
 import { DEFAULT_PLAYER_ID } from '@ts-minecraft/kernel'
 import type { Chunk } from '@ts-minecraft/terrain'
-import { CHUNK_SIZE } from '@ts-minecraft/kernel'
+import { chunkBlockIndexUnchecked } from '@ts-minecraft/terrain'
+import { DESPAWN_DISTANCE, MOB_HALF_HEIGHT } from '@ts-minecraft/entities'
+import { CHUNK_HEIGHT, CHUNK_SIZE } from '@ts-minecraft/kernel'
 import { FALLBACK_PLAYER_POS, MAX_DIRTY_CHUNK_UPDATES_PER_FRAME, DIRTY_CHUNK_FLUSH_CONCURRENCY } from '@ts-minecraft/app/frame-handler.config'
 import type { FrameHandlerDeps, FrameHandlerServices } from '@ts-minecraft/app/frame-handler'
-import type { DeltaTimeSecs } from '@ts-minecraft/kernel'
+import type { DeltaTimeSecs, Position } from '@ts-minecraft/kernel'
 
 type MaintenanceState = {
   readonly lastLoadedChunksRef: Ref.Ref<Option.Option<ReadonlyArray<Chunk>>>
@@ -15,8 +17,45 @@ type MaintenanceState = {
 
 type MaintenanceServices = Pick<
   FrameHandlerServices,
-  'gameState' | 'chunkManagerService' | 'settingsService' | 'worldRendererService' | 'fluidService' | 'blockHighlight' | 'furnaceService' | 'mobSpawner' | 'villageService' | 'timeService'
+  'entityManager' | 'gameState' | 'chunkManagerService' | 'settingsService' | 'worldRendererService' | 'fluidService' | 'blockHighlight' | 'furnaceService' | 'mobSpawner' | 'villageService' | 'timeService'
 >
+
+const resolveTerrainSpawnPosition = (
+  chunk: Chunk,
+  candidatePosition: Position,
+): Option.Option<Position> => {
+  const blockX = Math.floor(candidatePosition.x)
+  const blockZ = Math.floor(candidatePosition.z)
+  const lx = ((blockX % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE
+  const lz = ((blockZ % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE
+
+  for (let y = CHUNK_HEIGHT - 1; y >= 0; y -= 1) {
+    const blockIndex = chunkBlockIndexUnchecked(lx, y, lz)
+    if ((chunk.blocks[blockIndex] ?? 0) === 0) {
+      continue
+    }
+
+    const bodyBlockY = y + 1
+    const headBlockY = y + 2
+    if (headBlockY >= CHUNK_HEIGHT) {
+      return Option.none()
+    }
+
+    const bodyBlockIndex = chunkBlockIndexUnchecked(lx, bodyBlockY, lz)
+    const headBlockIndex = chunkBlockIndexUnchecked(lx, headBlockY, lz)
+    if ((chunk.blocks[bodyBlockIndex] ?? 0) !== 0 || (chunk.blocks[headBlockIndex] ?? 0) !== 0) {
+      return Option.none()
+    }
+
+    return Option.some({
+      x: candidatePosition.x,
+      y: bodyBlockY + MOB_HALF_HEIGHT,
+      z: candidatePosition.z,
+    })
+  }
+
+  return Option.none()
+}
 
 export const createMaintenanceHandler = (
   deps: Pick<FrameHandlerDeps, 'scene' | 'sessionPausedRef'>,
@@ -32,6 +71,7 @@ export const createMaintenanceHandler = (
         return false
       }
       const {
+        entityManager,
         gameState,
         chunkManagerService,
         settingsService,
@@ -54,10 +94,32 @@ export const createMaintenanceHandler = (
       const cx = Math.floor(playerPos.x / CHUNK_SIZE)
       const cz = Math.floor(playerPos.z / CHUNK_SIZE)
       const maintenanceDeltaTime = 0.05 as DeltaTimeSecs
+      const despawnFarEntities = entityManager.despawnFarEntities
+
+      const despawnedCount = typeof despawnFarEntities === 'function'
+        ? yield* despawnFarEntities(playerPos, DESPAWN_DISTANCE)
+        : 0
 
       yield* furnaceService.tick(maintenanceDeltaTime).pipe(Effect.catchAllCause(() => Effect.void))
-      yield* mobSpawner.trySpawn(playerPos).pipe(
-        Effect.catchAllCause((cause) => Effect.logError(`Mob spawn error: ${Cause.pretty(cause)}`)),
+      const spawnResult = yield* mobSpawner.trySpawn(
+        playerPos,
+        (candidatePosition: Position) => {
+          const chunkCoord = {
+            x: Math.floor(Math.floor(candidatePosition.x) / CHUNK_SIZE),
+            z: Math.floor(Math.floor(candidatePosition.z) / CHUNK_SIZE),
+          }
+
+          return chunkManagerService.getChunk(chunkCoord).pipe(
+            Effect.map((chunk) => resolveTerrainSpawnPosition(chunk, candidatePosition)),
+            Effect.catchAllCause(() => Effect.succeed(Option.none<Position>())),
+          )
+        },
+      ).pipe(
+        Effect.catchAllCause((cause) =>
+          Effect.logError(`Mob spawn error: ${Cause.pretty(cause)}`).pipe(
+            Effect.as(Option.none()),
+          )
+        ),
       )
       yield* villageService.update(playerPos, timeOfDay, maintenanceDeltaTime).pipe(
         Effect.catchAllCause((cause) => Effect.logError(`Village system error: ${Cause.pretty(cause)}`)),
@@ -129,7 +191,7 @@ export const createMaintenanceHandler = (
       )
 
       /* c8 ignore next */
-      return shouldRefreshChunks || chunkSyncPending || flushedDirtyChunkCount > 0
+      return shouldRefreshChunks || chunkSyncPending || flushedDirtyChunkCount > 0 || despawnedCount > 0 || Option.isSome(spawnResult)
     }).pipe(
       Effect.catchAllCause((cause) => Effect.logError(`Chunk maintenance error: ${Cause.pretty(cause)}`).pipe(Effect.as(true))),
     )

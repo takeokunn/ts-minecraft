@@ -31,8 +31,8 @@ test.describe('Boot / main menu phase', () => {
 
     await expect(page.locator('#mm-new-world')).toBeVisible()
     await expect(page.locator('#mm-load-world')).toBeVisible()
-    await expect(page.locator('#mm-settings')).toBeVisible()
-    await expect(page.locator('#mm-quit')).toBeVisible()
+    await expect(page.locator('#mm-settings')).toHaveCount(0)
+    await expect(page.locator('#mm-quit')).toHaveCount(0)
     expect(getFatalErrors().length).toBe(0)
   })
 

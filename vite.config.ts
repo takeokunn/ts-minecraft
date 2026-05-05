@@ -69,6 +69,7 @@ export default defineConfig(({ command, mode }) => {
       sourcemap: isDev,
       minify: isProd ? 'esbuild' : false,
       reportCompressedSize: false,
+      chunkSizeWarningLimit: 700,
       rollupOptions: {
         input: {
           main: resolve(__dirname, 'index.html'),
@@ -78,15 +79,10 @@ export default defineConfig(({ command, mode }) => {
           entryFileNames: 'assets/js/[name]-[hash].js',
           assetFileNames: 'assets/[ext]/[name]-[hash].[ext]',
           manualChunks: (id) => {
-            if (id.includes('node_modules')) {
-              if (id.includes('three')) return 'three'
-              if (id.includes('/effect/')) return 'effect'
-            }
-            if (id.includes('/domain/')) return 'domain'
-            if (id.includes('/application/')) return 'application'
-            if (id.includes('/infrastructure/')) return 'infrastructure'
-            if (id.includes('/presentation/')) return 'presentation'
-            if (id.includes('/shared/')) return 'shared'
+            if (!id.includes('node_modules')) return
+
+            if (id.includes('/three/')) return 'three'
+            if (id.includes('/effect/')) return 'effect'
           },
         },
       },
@@ -94,7 +90,7 @@ export default defineConfig(({ command, mode }) => {
       cssCodeSplit: true,
       modulePreload: {
         polyfill: true,
-        resolveDependencies: (filename, deps, { hostId, hostType }) => {
+        resolveDependencies: (_filename, deps) => {
           return deps.filter((dep) => dep.includes('vendor-core') || dep.includes('game-core'))
         },
       },
@@ -112,6 +108,7 @@ export default defineConfig(({ command, mode }) => {
         '@ts-minecraft/entities': resolve(process.cwd(), 'packages/entities'),
         '@ts-minecraft/game': resolve(process.cwd(), 'packages/game'),
         '@ts-minecraft/inventory': resolve(process.cwd(), 'packages/inventory'),
+        '@ts-minecraft/furnace': resolve(process.cwd(), 'packages/furnace'),
         '@ts-minecraft/physics': resolve(process.cwd(), 'packages/physics'),
         '@ts-minecraft/player': resolve(process.cwd(), 'packages/player'),
         '@ts-minecraft/rendering/particles/particle-system': resolve(process.cwd(), 'packages/rendering/infrastructure/particles/particle-system'),

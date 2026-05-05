@@ -119,9 +119,9 @@ describe('presentation/menu/main-menu-dom', () => {
   })
 
   it('throws a descriptive error when a required element is missing', () => {
-    const { dom } = makeDom('#mm-quit')
+    const { dom } = makeDom('#mm-nw-confirm')
 
-    expect(() => buildMenuDOM(dom)).toThrow('MainMenuService: missing required DOM element #mm-quit')
+    expect(() => buildMenuDOM(dom)).toThrow('MainMenuService: missing required DOM element #mm-nw-confirm')
   })
 
   it('renders valid rows with load and delete click behavior', () => {

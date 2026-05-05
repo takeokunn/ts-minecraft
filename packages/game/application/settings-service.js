@@ -1,0 +1,85 @@
+import { Cause, Effect, Option, Ref, Schema } from 'effect';
+import { GRAPHICS_PRESETS } from './settings-service.config';
+import { SettingsError } from '../domain/errors';
+import { EnvironmentPort } from '@ts-minecraft/kernel';
+// Replaces individual post-processing toggles; each level maps to a fixed combination of pass enable states via resolvePreset().
+export const GraphicsQuality = Schema.Literal('low', 'medium', 'high', 'ultra');
+export const ResolvedGraphicsSchema = Schema.Struct({
+    shadowsEnabled: Schema.Boolean,
+    ssaoEnabled: Schema.Boolean,
+    bloomEnabled: Schema.Boolean,
+    smaaEnabled: Schema.Boolean,
+    skyEnabled: Schema.Boolean,
+    dofEnabled: Schema.Boolean,
+    godRaysEnabled: Schema.Boolean,
+    godRaysSamples: Schema.Number.pipe(Schema.int(), Schema.between(0, 40)),
+    bloomStrength: Schema.Number.pipe(Schema.finite(), Schema.between(0, 1)),
+    refractionThrottleFrames: Schema.Number.pipe(Schema.int(), Schema.between(0, 5)),
+    pixelRatioCap: Schema.Number.pipe(Schema.finite(), Schema.between(0.5, 2)),
+});
+export const resolvePreset = (quality) => GRAPHICS_PRESETS[quality];
+export const SettingsSchema = Schema.Struct({
+    renderDistance: Schema.Number.pipe(Schema.finite(), Schema.between(2, 16)),
+    mouseSensitivity: Schema.Number.pipe(Schema.finite(), Schema.between(0.1, 3.0)),
+    dayLengthSeconds: Schema.Number.pipe(Schema.finite(), Schema.between(120, 1200)),
+    graphicsQuality: GraphicsQuality,
+    adaptivePerformanceMode: Schema.Boolean,
+    // NOTE: audioEnabled defaults to false intentionally — do NOT change this to true.
+    // Audio is disabled by default because it causes noise during development and testing.
+    // Users can enable it via the settings UI.
+    audioEnabled: Schema.Boolean,
+    masterVolume: Schema.Number.pipe(Schema.finite(), Schema.between(0, 1)),
+    sfxVolume: Schema.Number.pipe(Schema.finite(), Schema.between(0, 1)),
+    musicVolume: Schema.Number.pipe(Schema.finite(), Schema.between(0, 1)),
+});
+const DEFAULT_SETTINGS = {
+    renderDistance: 2,
+    mouseSensitivity: 0.5,
+    dayLengthSeconds: 400,
+    graphicsQuality: 'low',
+    adaptivePerformanceMode: true,
+    // NOTE: false intentionally — audio is disabled by default (see Schema comment above).
+    audioEnabled: false,
+    masterVolume: 0.8,
+    sfxVolume: 1.0,
+    musicVolume: 0.55,
+};
+const STORAGE_KEY = 'minecraft-settings';
+const makeForceAudioOff = (isLocalhost) => (settings) => 
+/* c8 ignore next */
+isLocalhost ? { ...settings, audioEnabled: false } : settings;
+// Schema.decodeUnknown returns Effect<Settings, ParseError> — no Effect.try wrapper needed
+const loadFromStorage = (forceAudioOff) => 
+/* c8 ignore next */
+Effect.sync(() => Option.fromNullable(typeof localStorage !== 'undefined' ? localStorage.getItem(STORAGE_KEY) : null)).pipe(Effect.flatMap((rawOpt) => Option.match(rawOpt, {
+    onNone: () => Effect.succeed(DEFAULT_SETTINGS),
+    onSome: (rawStr) => Effect.try({
+        try: () => JSON.parse(rawStr),
+        catch: (e) => new SettingsError({ operation: 'load', cause: e }),
+    }).pipe(Effect.flatMap((parsed) => Schema.decodeUnknown(SettingsSchema)(parsed).pipe(Effect.mapError((e) => new SettingsError({ operation: 'load', cause: e })), Effect.map(forceAudioOff)))),
+})), Effect.tapError((e) => Effect.logWarning(`Settings load failed, using defaults: ${e.message}`)), Effect.catchAllCause(() => Effect.succeed(forceAudioOff(DEFAULT_SETTINGS))));
+const saveToStorage = (settings) => Effect.try({
+    try: () => {
+        if (typeof localStorage !== 'undefined') {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
+        }
+    },
+    catch: (e) => new SettingsError({ operation: 'save', cause: e }),
+}).pipe(Effect.catchAllCause(() => Effect.void));
+export class SettingsService extends Effect.Service()('@minecraft/application/SettingsService', {
+    effect: Effect.flatMap(EnvironmentPort, (env) => env.isLocalhost).pipe(Effect.map(makeForceAudioOff), Effect.flatMap((forceAudioOff) => loadFromStorage(forceAudioOff)), Effect.flatMap((initialSettings) => Ref.make(initialSettings)), Effect.map((settingsRef) => ({
+        getSettings: () => Ref.get(settingsRef),
+        // Schema.decodeUnknown returns Effect<Settings, ParseError> — no Effect.try wrapper needed
+        updateSettings: (partial) => Ref.get(settingsRef).pipe(Effect.flatMap((current) => {
+            const merged = { ...current, ...partial };
+            return Schema.decodeUnknown(SettingsSchema)(merged).pipe(Effect.catchAllCause((cause) => Effect.logWarning(`Settings validation failed, keeping previous settings: ${Cause.pretty(cause)}`).pipe(Effect.as(current))), Effect.flatMap((result) => Effect.all([
+                Ref.set(settingsRef, result),
+                saveToStorage(result),
+            ], { concurrency: 'unbounded', discard: true })));
+        })),
+        resetToDefaults: () => Ref.set(settingsRef, DEFAULT_SETTINGS).pipe(Effect.andThen(saveToStorage(DEFAULT_SETTINGS))),
+    }))),
+}) {
+}
+export const SettingsServiceLive = SettingsService.Default;
+//# sourceMappingURL=settings-service.js.map

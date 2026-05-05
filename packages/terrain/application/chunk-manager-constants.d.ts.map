@@ -1,0 +1,1 @@
+{"version":3,"file":"chunk-manager-constants.d.ts","sourceRoot":"","sources":["chunk-manager-constants.ts"],"names":[],"mappings":"AAAA,OAAO,KAAK,EAAE,UAAU,EAAE,MAAM,kBAAkB,CAAA;AAClD,OAAO,KAAK,EAAE,YAAY,EAAE,MAAM,2BAA2B,CAAA;AAE7D,eAAO,MAAM,eAAe,IAAI,CAAA;AAChC,eAAO,MAAM,eAAe,KAAK,CAAA;AACjC,eAAO,MAAM,iBAAiB,MAAM,CAAA;AAEpC,MAAM,MAAM,iBAAiB,GAAG,UAAU,GAAG,YAAY,CAAA"}

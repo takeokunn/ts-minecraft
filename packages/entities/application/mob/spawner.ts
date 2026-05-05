@@ -26,6 +26,10 @@ const selectMobType = (isNight: boolean, cursor: number): EntityType => {
   return Option.getOrElse(Arr.get(PASSIVE_MOBS, cursor % PASSIVE_MOBS.length), () => EntityType.Cow)
 }
 
+type SpawnPositionResolver = (
+  candidatePosition: Position,
+) => Effect.Effect<Option.Option<Position>, never>
+
 export class MobSpawner extends Effect.Service<MobSpawner>()(
   '@minecraft/entity/MobSpawner',
   {
@@ -35,7 +39,10 @@ export class MobSpawner extends Effect.Service<MobSpawner>()(
       Ref.make(0),
       Ref.make(0),
     ], { concurrency: 'unbounded' }).pipe(Effect.map(([entityManager, timeService, spawnFrameRef, spawnCursorRef]) => ({
-        trySpawn: (playerPosition: Position): Effect.Effect<Option.Option<EntityId>, never> =>
+        trySpawn: (
+          playerPosition: Position,
+          spawnResolver?: SpawnPositionResolver,
+        ): Effect.Effect<Option.Option<EntityId>, never> =>
           Effect.gen(function* () {
             const frame = yield* Ref.updateAndGet(spawnFrameRef, (value) => value + 1)
             if (frame % SPAWN_INTERVAL_FRAMES !== 0) {
@@ -51,7 +58,18 @@ export class MobSpawner extends Effect.Service<MobSpawner>()(
               [timeService.isNight(), Ref.updateAndGet(spawnCursorRef, (value) => value + 1)],
               { concurrency: 'unbounded' },
             )
-            const spawnPosition = getSpawnPosition(playerPosition, cursor)
+
+            const candidateSpawnPosition = getSpawnPosition(playerPosition, cursor)
+            const spawnPositionOption = yield* Option.match(Option.fromNullable(spawnResolver), {
+              onNone: () => Effect.succeed(Option.some(candidateSpawnPosition)),
+              onSome: (resolveSpawnPosition) => resolveSpawnPosition(candidateSpawnPosition),
+            })
+
+            if (Option.isNone(spawnPositionOption)) {
+              return Option.none<EntityId>()
+            }
+
+            const spawnPosition = Option.getOrThrow(spawnPositionOption)
             const sdx = spawnPosition.x - playerPosition.x
             const sdz = spawnPosition.z - playerPosition.z
             const spawnDistanceSq = sdx * sdx + sdz * sdz

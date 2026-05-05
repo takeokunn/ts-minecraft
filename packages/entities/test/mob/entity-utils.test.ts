@@ -92,6 +92,7 @@ describe('entity/entity-utils', () => {
       aiState: AIState.Chase,
       wanderDirection: { x: 1, y: 0, z: 0 },
       attackCooldownRemaining: 0.5,
+      isGrounded: false,
     })
 
     it('preserves all public Entity fields', () => {
@@ -113,6 +114,7 @@ describe('entity/entity-utils', () => {
       'attackDamage',
       'attackCooldownRemaining',
       'drops',
+      'isGrounded',
     ] as const
 
     it('does not expose AI-internal fields on the result', () => {

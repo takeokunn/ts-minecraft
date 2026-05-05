@@ -5,7 +5,6 @@ import { TerrainWorkerPool } from '@ts-minecraft/terrain'
 import { StorageService } from '@ts-minecraft/world-state'
 import {
   MainMenuService,
-  SettingsOverlayService,
   bootProgram,
   sessionProgram,
 } from '@ts-minecraft/app'
@@ -20,8 +19,7 @@ import type { GameMode } from '@ts-minecraft/game'
  *   2. Hide the menu and run a session for the chosen world (sessionProgram is
  *      `Effect.scoped` so its session-scoped GPU resources tear down cleanly
  *      when it returns from quit-to-title).
- *   3. Loop. The forever-loop is escaped only by the user clicking Quit, which
- *      attempts `window.close()` and falls back to a soft warning.
+ *   3. Loop after the session returns to title.
  *
  * The boot context (`bootCtx`) is threaded through every iteration so the
  * renderer + workers + audio + settings/storage services persist across
@@ -31,23 +29,9 @@ const mainMenuLoop = (bootCtx: BootContext) =>
   Effect.gen(function* () {
     const menu = yield* MainMenuService
     const storageService = yield* StorageService
-    const settingsOverlay = yield* SettingsOverlayService
-
-    // Wire the Settings button on the main menu to toggle the existing overlay.
-    yield* menu.onSettings(() => {
-      Effect.runFork(settingsOverlay.toggle().pipe(Effect.catchAllCause(() => Effect.void)))
-    })
 
     const iteration = Effect.gen(function* () {
       const choice = yield* menu.show()
-
-      if (choice.action === 'quit') {
-        yield* Effect.sync(() => window.close()).pipe(Effect.catchAllCause(() => Effect.void))
-        yield* Effect.logInfo('Quit requested — please close this tab manually if it remains open.')
-        // Block forever so the loop does not spin after a no-op window.close.
-        yield* Effect.never
-        return
-      }
 
       yield* menu.hide()
 

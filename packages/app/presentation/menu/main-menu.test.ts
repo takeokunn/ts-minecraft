@@ -1,6 +1,6 @@
 import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
-import { Array as Arr, Effect, Layer, MutableRef, Option } from 'effect'
+import { Array as Arr, Effect, Layer, Option } from 'effect'
 import { MainMenuLive, MainMenuService } from '@ts-minecraft/app/presentation/menu/main-menu'
 import { ConfirmDialogService } from '@ts-minecraft/app/presentation/menu/confirm-dialog'
 import { DomOperationsService } from '@ts-minecraft/app/presentation/hud/crosshair'
@@ -63,12 +63,11 @@ const TestLayer = MainMenuLive.pipe(
 
 describe('presentation/menu/main-menu', () => {
   describe('MainMenuLive — layer provision', () => {
-    it.scoped('exposes show / hide / onSettings methods on the service', () =>
+    it.scoped('exposes show / hide methods on the service', () =>
       Effect.gen(function* () {
         const menu = yield* MainMenuService
         expect(typeof menu.show).toBe('function')
         expect(typeof menu.hide).toBe('function')
-        expect(typeof menu.onSettings).toBe('function')
       }).pipe(Effect.provide(TestLayer)),
     )
 
@@ -76,22 +75,9 @@ describe('presentation/menu/main-menu', () => {
       Effect.gen(function* () {
         const menu = yield* MainMenuService
         // In `node` env, `document` is undefined — the stub branch returns
-        // `Effect.void` from hide() and `onSettings()`.
+        // `Effect.void` from hide().
         const result = yield* menu.hide()
         expect(result).toBeUndefined()
-      }).pipe(Effect.provide(TestLayer)),
-    )
-
-    it.scoped('onSettings() in the SSR stub branch accepts a handler without invoking', () =>
-      Effect.gen(function* () {
-        const menu = yield* MainMenuService
-        const invokedRef = MutableRef.make(false)
-        yield* menu.onSettings(() => {
-          MutableRef.set(invokedRef, true)
-        })
-        // The stub doesn't actually wire the handler — just verifies the call
-        // shape so call sites don't need an `if (typeof document)` guard.
-        expect(MutableRef.get(invokedRef)).toBe(false)
       }).pipe(Effect.provide(TestLayer)),
     )
   })
@@ -109,10 +95,6 @@ describe('presentation/menu/main-menu', () => {
       expect(choice.worldId).toBe('bar')
     })
 
-    it('quit choice has no payload', () => {
-      const choice = { action: 'quit' as const }
-      expect(choice.action).toBe('quit')
-    })
   })
 })
 

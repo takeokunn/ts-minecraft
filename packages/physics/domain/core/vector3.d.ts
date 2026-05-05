@@ -1,0 +1,22 @@
+import type { Vector3 } from '@ts-minecraft/kernel';
+export { Vector3Schema } from '@ts-minecraft/kernel';
+export type { Vector3 } from '@ts-minecraft/kernel';
+export declare const makeVector3: (x: number, y: number, z: number) => Vector3;
+export declare const zero: Vector3;
+export declare const one: Vector3;
+export declare const up: Vector3;
+export declare const down: Vector3;
+export declare const left: Vector3;
+export declare const right: Vector3;
+export declare const forward: Vector3;
+export declare const backward: Vector3;
+export declare const add: (a: Vector3, b: Vector3) => Vector3;
+export declare const subtract: (a: Vector3, b: Vector3) => Vector3;
+export declare const scale: (v: Vector3, s: number) => Vector3;
+export declare const dot: (a: Vector3, b: Vector3) => number;
+export declare const cross: (a: Vector3, b: Vector3) => Vector3;
+export declare const length: (v: Vector3) => number;
+export declare const lengthSquared: (v: Vector3) => number;
+export declare const normalize: (v: Vector3) => Vector3;
+export declare const distance: (a: Vector3, b: Vector3) => number;
+//# sourceMappingURL=vector3.d.ts.map

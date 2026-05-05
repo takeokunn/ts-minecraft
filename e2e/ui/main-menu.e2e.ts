@@ -11,13 +11,13 @@ test.describe('Main Menu', () => {
     await game.gotoMainMenuOnly()
   })
 
-  test('shows title and four main buttons', async ({ page }) => {
+  test('shows title and the two play buttons', async ({ page }) => {
     await waitForMainMenu(page)
 
     await expect(page.locator('#mm-new-world')).toBeVisible()
     await expect(page.locator('#mm-load-world')).toBeVisible()
-    await expect(page.locator('#mm-settings')).toBeVisible()
-    await expect(page.locator('#mm-quit')).toBeVisible()
+    await expect(page.locator('#mm-settings')).toHaveCount(0)
+    await expect(page.locator('#mm-quit')).toHaveCount(0)
   })
 
   test('New World flow shows world name input and confirm button', async ({ page }) => {

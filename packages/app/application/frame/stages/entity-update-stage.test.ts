@@ -2,7 +2,7 @@ import { describe, expect, vi } from 'vitest'
 import { it } from '@effect/vitest'
 import { Effect, MutableRef } from 'effect'
 import { createFrameHandlers } from '@ts-minecraft/app'
-import type { DeltaTimeSecs } from '@ts-minecraft/kernel'
+import type { DeltaTimeSecs, Position, Vector3 } from '@ts-minecraft/kernel'
 import {
   makeDeps,
   makeInputService,
@@ -96,6 +96,43 @@ describe('step 2.85 — entity renderer wiring', () => {
     const total1 = updateSpy.mock.calls[0]?.[1] as number
     const total2 = updateSpy.mock.calls[1]?.[1] as number
     expect(total2).toBeGreaterThan(total1)
+  }))
+
+  it.effect('calls entityManager.applyPhysics with a collision resolver backed by the chunk cache', () => Effect.gen(function* () {
+    const deps = yield* makeDeps(false)
+    const services = makeServices({
+      inputService: makeInputService(),
+      inventoryRenderer: makeInventoryRenderer({ open: false }),
+      settingsOverlay: makeSettingsOverlay({ open: false }),
+    })
+
+    const getChunkSpy = vi.fn(() => Effect.succeed({
+      coord: { x: 0, z: 0 },
+      blocks: new Uint8Array(16 * 16 * 256),
+      dirty: false,
+    }))
+    Object.assign(services.chunkManagerService, { getChunk: getChunkSpy })
+
+    const applyPhysicsSpy = vi.fn((deltaTime: number, resolveCollision: (position: Position, velocity: Vector3) => {
+      readonly position: Position
+      readonly velocity: Vector3
+      readonly isGrounded: boolean
+    }) => Effect.sync(() => {
+      const resolved = resolveCollision(
+        { x: 0, y: -1, z: 0 },
+        { x: 0, y: -1, z: 0 },
+      )
+
+      expect(deltaTime).toBeCloseTo(0.016)
+      expect(resolved.isGrounded).toBe(true)
+      expect(resolved.position.y).toBeGreaterThan(0)
+    }))
+    Object.assign(services.entityManager, { applyPhysics: applyPhysicsSpy })
+
+    yield* runFrame(deps, services)
+
+    expect(applyPhysicsSpy).toHaveBeenCalledOnce()
+    expect(getChunkSpy).toHaveBeenCalledTimes(9)
   }))
 
   it.effect('redstone and fluid tick are called multiple times when deltaTime covers multiple intervals', () => Effect.gen(function* () {

@@ -17,4 +17,5 @@ export type ManagedEntity = Entity & {
   readonly aiState: AIState
   readonly wanderDirection: Vector3
   readonly attackCooldownRemaining: number
+  readonly isGrounded: boolean
 }

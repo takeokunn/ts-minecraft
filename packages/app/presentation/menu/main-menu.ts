@@ -23,7 +23,6 @@ import {
 export type MainMenuChoice =
   | { readonly action: 'newWorld'; readonly worldId: WorldId; readonly gameMode: GameMode }
   | { readonly action: 'loadWorld'; readonly worldId: WorldId }
-  | { readonly action: 'quit' }
 
 export class MainMenuService extends Effect.Service<MainMenuService>()(
   '@minecraft/presentation/MainMenu',
@@ -38,7 +37,6 @@ export class MainMenuService extends Effect.Service<MainMenuService>()(
             show: (): Effect.Effect<MainMenuChoice, never> =>
               Effect.die(new Error('MainMenuService.show called in non-DOM environment')),
             hide: (): Effect.Effect<void, never> => Effect.void,
-            onSettings: (_handler: () => void): Effect.Effect<void, never> => Effect.void,
           })
         }
 
@@ -81,7 +79,7 @@ export class MainMenuService extends Effect.Service<MainMenuService>()(
             )
 
             const {
-              onNewWorldClick, onLoadWorldClick, onSettingsClick, onQuitClick,
+              onNewWorldClick, onLoadWorldClick,
               onNwModeClick, onNwCancelClick, onNwConfirmClick, onLwBackClick, onEsc,
             } = handlers
 
@@ -89,8 +87,6 @@ export class MainMenuService extends Effect.Service<MainMenuService>()(
               Effect.sync(() => {
                 buttons.newWorld.addEventListener('click', onNewWorldClick)
                 buttons.loadWorld.addEventListener('click', onLoadWorldClick)
-                buttons.settings.addEventListener('click', onSettingsClick)
-                buttons.quit.addEventListener('click', onQuitClick)
                 buttons.nwMode.addEventListener('click', onNwModeClick)
                 buttons.nwCancel.addEventListener('click', onNwCancelClick)
                 buttons.nwConfirm.addEventListener('click', onNwConfirmClick)
@@ -100,8 +96,6 @@ export class MainMenuService extends Effect.Service<MainMenuService>()(
                 Effect.sync(() => {
                   buttons.newWorld.removeEventListener('click', onNewWorldClick)
                   buttons.loadWorld.removeEventListener('click', onLoadWorldClick)
-                  buttons.settings.removeEventListener('click', onSettingsClick)
-                  buttons.quit.removeEventListener('click', onQuitClick)
                   buttons.nwMode.removeEventListener('click', onNwModeClick)
                   buttons.nwCancel.removeEventListener('click', onNwCancelClick)
                   buttons.nwConfirm.removeEventListener('click', onNwConfirmClick)
@@ -134,12 +128,6 @@ export class MainMenuService extends Effect.Service<MainMenuService>()(
                       window.removeEventListener('keydown', handler)
                     })
                     MutableRef.set(refs.escHandlerRef, Option.none())
-                  }),
-                // Caller wires this after both services exist — MainMenuService is
-                // agnostic to SettingsOverlayService (scope crosses boot/session lines).
-                onSettings: (handler: () => void): Effect.Effect<void, never> =>
-                  Effect.sync(() => {
-                    MutableRef.set(refs.settingsHandlerRef, Option.some(handler))
                   }),
               }),
             )

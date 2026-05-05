@@ -16,7 +16,6 @@ export interface MenuRefs {
   readonly subStateRef: MutableRef.MutableRef<SubState>
   readonly newWorldModeRef: MutableRef.MutableRef<GameMode>
   readonly activeDeferredRef: MutableRef.MutableRef<Option.Option<Deferred.Deferred<MainMenuChoice, never>>>
-  readonly settingsHandlerRef: MutableRef.MutableRef<Option.Option<() => void>>
   readonly escHandlerRef: MutableRef.MutableRef<Option.Option<(ev: KeyboardEvent) => void>>
 }
 
@@ -24,7 +23,6 @@ export const makeMenuRefs = (): MenuRefs => ({
   subStateRef: MutableRef.make<SubState>('root'),
   newWorldModeRef: MutableRef.make<GameMode>('survival'),
   activeDeferredRef: MutableRef.make<Option.Option<Deferred.Deferred<MainMenuChoice, never>>>(Option.none()),
-  settingsHandlerRef: MutableRef.make<Option.Option<() => void>>(Option.none()),
   escHandlerRef: MutableRef.make<Option.Option<(ev: KeyboardEvent) => void>>(Option.none()),
 })
 
@@ -146,8 +144,6 @@ export const makeOpenDeleteConfirm = (
 export interface ClickHandlers {
   readonly onNewWorldClick: () => void
   readonly onLoadWorldClick: () => void
-  readonly onSettingsClick: () => void
-  readonly onQuitClick: () => void
   readonly onNwModeClick: () => void
   readonly onNwCancelClick: () => void
   readonly onNwConfirmClick: () => void
@@ -173,12 +169,6 @@ export const makeClickHandlers = (
   onLoadWorldClick: () => {
     setSubState('load-world')
     Effect.runFork(refreshLoadList())
-  },
-  onSettingsClick: () => {
-    Option.map(MutableRef.get(refs.settingsHandlerRef), (handler) => handler())
-  },
-  onQuitClick: () => {
-    completeWith({ action: 'quit' })
   },
   onNwModeClick: () => {
     MutableRef.set(refs.newWorldModeRef, cycleGameMode(MutableRef.get(refs.newWorldModeRef)))

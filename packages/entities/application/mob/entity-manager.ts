@@ -9,7 +9,7 @@ import {
   type EntityId as EntityIdType,
 } from '../../domain/mob/entity'
 import { getMobDefinition } from '../../domain/mob/mobs'
-import type { DeltaTimeSecs, Position } from '@ts-minecraft/kernel'
+import type { DeltaTimeSecs, Position, Vector3 } from '@ts-minecraft/kernel'
 import { zero } from '@ts-minecraft/kernel'
 import { HOSTILE_ATTACK_COOLDOWN_SECS, type ManagedEntity } from '../../domain/mob/entity-internal'
 import { hashEntityId, makeWanderDirectionFromHash, toPublicEntity } from '../../domain/mob/entity-utils'
@@ -18,6 +18,48 @@ import { hashEntityId, makeWanderDirectionFromHash, toPublicEntity } from '../..
 const WANDER_REDIRECT_PROBABILITY = 0.2
 // prime tick multiplier — avoids periodicity in wander direction
 const WANDER_PHASE_TICK_STEP = 17
+const MOB_GRAVITY_Y = -9.82
+
+type CollisionResolution = {
+  readonly position: Position
+  readonly velocity: Vector3
+  readonly isGrounded: boolean
+}
+
+type CollisionResolver = (
+  position: Position,
+  velocity: Vector3,
+) => CollisionResolution
+
+const toHorizontalTarget = (entityPosition: Position, playerPosition: Position): Position => ({
+  x: playerPosition.x,
+  y: entityPosition.y,
+  z: playerPosition.z,
+})
+
+const isSamePosition = (left: Position, right: Position): boolean =>
+  left.x === right.x && left.y === right.y && left.z === right.z
+
+const isSameVelocity = (left: Vector3, right: Vector3): boolean =>
+  left.x === right.x && left.y === right.y && left.z === right.z
+
+const isFinitePosition = (position: Position): boolean =>
+  Number.isFinite(position.x) && Number.isFinite(position.y) && Number.isFinite(position.z)
+
+const isFiniteVelocity = (velocity: Vector3): boolean =>
+  Number.isFinite(velocity.x) && Number.isFinite(velocity.y) && Number.isFinite(velocity.z)
+
+const shouldDespawnEntity = (
+  entity: ManagedEntity,
+  playerPosition: Position,
+  maxDistance: number,
+): boolean => {
+  if (!isFinitePosition(entity.position) || !isFiniteVelocity(entity.velocity)) {
+    return true
+  }
+
+  return distanceToPlayerSq(entity.position, playerPosition) > maxDistance * maxDistance
+}
 
 export class EntityManager extends Effect.Service<EntityManager>()(
   '@minecraft/entity/EntityManager',
@@ -58,6 +100,7 @@ export class EntityManager extends Effect.Service<EntityManager>()(
               aiState: AIState.Idle,
               wanderDirection: zero,
               attackCooldownRemaining: 0,
+              isGrounded: false,
             }
 
             yield* Ref.update(entitiesRef, (entities) =>
@@ -165,7 +208,7 @@ export class EntityManager extends Effect.Service<EntityManager>()(
                 // Entity idle/attack skip: avoid object allocation when nothing changed,
                 // but still allow attack cooldowns to tick down while stationary.
                 if (nextState === entity.aiState
-                  && entity.velocity.x === 0 && entity.velocity.y === 0 && entity.velocity.z === 0) {
+                  && entity.velocity.x === 0 && entity.velocity.z === 0) {
                   if (nextAttackCooldown === entity.attackCooldownRemaining) {
                     return entity
                   }
@@ -184,25 +227,23 @@ export class EntityManager extends Effect.Service<EntityManager>()(
                     ? makeWanderDirectionFromHash(hash, tick)
                     : entity.wanderDirection
 
-                const velocity = computeStateVelocity({
+                const horizontalVelocity = computeStateVelocity({
                   state: nextState,
                   entityPosition: entity.position,
-                  playerPosition,
+                  playerPosition: toHorizontalTarget(entity.position, playerPosition),
                   speed: entity.speed,
                   wanderDirection,
                 })
-
-                const nextPosition: Position = {
-                  x: entity.position.x + velocity.x * deltaTime,
-                  y: entity.position.y + velocity.y * deltaTime,
-                  z: entity.position.z + velocity.z * deltaTime,
+                const velocity: Vector3 = {
+                  x: horizontalVelocity.x,
+                  y: entity.velocity.y,
+                  z: horizontalVelocity.z,
                 }
 
                 return {
                   ...entity,
                   aiState: nextState,
                   velocity,
-                  position: nextPosition,
                   wanderDirection,
                   attackCooldownRemaining: nextAttackCooldown,
                 }
@@ -212,6 +253,79 @@ export class EntityManager extends Effect.Service<EntityManager>()(
               yield* Ref.set(cachedEntitiesRef, Option.none())
             }
           }),
+
+        applyPhysics: (
+          deltaTime: DeltaTimeSecs,
+          resolveCollision: CollisionResolver,
+        ): Effect.Effect<void, never> =>
+          Effect.gen(function* () {
+            const dirtyRef = MutableRef.make(false)
+
+            yield* Ref.update(entitiesRef, (entities) =>
+              HashMap.map(entities, (entity) => {
+                const candidateVelocity: Vector3 = {
+                  x: entity.velocity.x,
+                  y: entity.velocity.y + MOB_GRAVITY_Y * deltaTime,
+                  z: entity.velocity.z,
+                }
+                const candidatePosition: Position = {
+                  x: entity.position.x + candidateVelocity.x * deltaTime,
+                  y: entity.position.y + candidateVelocity.y * deltaTime,
+                  z: entity.position.z + candidateVelocity.z * deltaTime,
+                }
+                const resolved = resolveCollision(candidatePosition, candidateVelocity)
+
+                if (
+                  isSamePosition(entity.position, resolved.position)
+                  && isSameVelocity(entity.velocity, resolved.velocity)
+                  && entity.isGrounded === resolved.isGrounded
+                ) {
+                  return entity
+                }
+
+                MutableRef.set(dirtyRef, true)
+                return {
+                  ...entity,
+                  position: resolved.position,
+                  velocity: resolved.velocity,
+                  isGrounded: resolved.isGrounded,
+                }
+              })
+            )
+
+            if (MutableRef.get(dirtyRef)) {
+              yield* Ref.set(cachedEntitiesRef, Option.none())
+            }
+          }),
+
+        despawnFarEntities: (
+          playerPosition: Position,
+          maxDistance: number,
+        ): Effect.Effect<number, never> =>
+          Ref.modify(entitiesRef, (entities): [number, HashMap.HashMap<EntityIdType, ManagedEntity>] => {
+            let removedCount = 0
+            let updatedEntities = entities
+
+            HashMap.forEach(entities, (entity, entityId) => {
+              if (!shouldDespawnEntity(entity, playerPosition, maxDistance)) {
+                return
+              }
+
+              removedCount += 1
+              updatedEntities = HashMap.remove(updatedEntities, entityId)
+            })
+
+            return [removedCount, removedCount > 0 ? updatedEntities : entities]
+          }).pipe(
+            Effect.tap((removedCount) =>
+              removedCount > 0
+                ? Effect.all([
+                    Ref.set(cachedEntitiesRef, Option.none()),
+                    Ref.update(structureVersionRef, (version) => version + 1),
+                  ], { concurrency: 'unbounded', discard: true })
+                : Effect.void,
+            ),
+          ),
 
         applyDamage: (
           entityId: EntityIdType,

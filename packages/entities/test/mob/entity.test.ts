@@ -2,7 +2,7 @@ import { describe, expect, it } from '@effect/vitest'
 import { Effect, Option } from 'effect'
 import { AIState } from '@ts-minecraft/entities'
 import { EntityType, EntityManager, EntityManagerLive } from '@ts-minecraft/entities'
-import { DeltaTimeSecs } from '@ts-minecraft/kernel'
+import { DeltaTimeSecs } from '../../../kernel'
 
 describe('entity/entityManager', () => {
   it.effect('adds, retrieves, and removes entities', () =>
@@ -34,6 +34,10 @@ describe('entity/entityManager', () => {
 
       const entityId = yield* entityManager.addEntity(EntityType.Zombie, { x: 0, y: 64, z: 0 })
       yield* entityManager.update(DeltaTimeSecs.make(1), { x: 6, y: 64, z: 0 })
+      yield* entityManager.applyPhysics(
+        DeltaTimeSecs.make(1),
+        (position, velocity) => ({ position, velocity, isGrounded: false }),
+      )
 
       const stateOpt = yield* entityManager.getEntityAIState(entityId)
       expect(Option.isSome(stateOpt)).toBe(true)
@@ -51,6 +55,10 @@ describe('entity/entityManager', () => {
 
       const entityId = yield* entityManager.addEntity(EntityType.Cow, { x: 0, y: 64, z: 0 })
       yield* entityManager.update(DeltaTimeSecs.make(1), { x: 2, y: 64, z: 0 })
+      yield* entityManager.applyPhysics(
+        DeltaTimeSecs.make(1),
+        (position, velocity) => ({ position, velocity, isGrounded: false }),
+      )
 
       const stateOpt = yield* entityManager.getEntityAIState(entityId)
       expect(Option.isSome(stateOpt)).toBe(true)

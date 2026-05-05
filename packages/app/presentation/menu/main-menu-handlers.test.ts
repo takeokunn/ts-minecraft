@@ -45,8 +45,6 @@ const makeDiv = (id: string): HTMLDivElement => ({
 const makeButtons = (): MenuButtons => ({
   newWorld: makeButton('new-world'),
   loadWorld: makeButton('load-world'),
-  settings: makeButton('settings'),
-  quit: makeButton('quit'),
   nwName: makeInput('nw-name'),
   nwMode: makeButton('nw-mode'),
   nwCancel: makeButton('nw-cancel'),
@@ -117,7 +115,6 @@ describe('presentation/menu/main-menu-handlers', () => {
     expect(MutableRef.get(refs.subStateRef)).toBe('root')
     expect(MutableRef.get(refs.newWorldModeRef)).toBe('survival')
     expect(Option.isNone(MutableRef.get(refs.activeDeferredRef))).toBe(true)
-    expect(Option.isNone(MutableRef.get(refs.settingsHandlerRef))).toBe(true)
     expect(Option.isNone(MutableRef.get(refs.escHandlerRef))).toBe(true)
   })
 
@@ -165,7 +162,7 @@ describe('presentation/menu/main-menu-handlers', () => {
     await Effect.runPromise(Effect.gen(function* () {
       const refs = makeMenuRefs()
       const deferred = yield* Deferred.make<MainMenuChoice, never>()
-      const choice: MainMenuChoice = { action: 'quit' }
+      const choice: MainMenuChoice = { action: 'loadWorld', worldId: WorldId.make('saved-world') }
       MutableRef.set(refs.activeDeferredRef, Option.some(deferred))
 
       makeCompleteWith(refs)(choice)
@@ -305,15 +302,13 @@ describe('presentation/menu/main-menu-handlers', () => {
     expect(refreshLoadList).not.toHaveBeenCalled()
   })
 
-  it('exposes click handlers for menu state, settings, completion, refresh, and escape behavior', async () => {
+  it('exposes click handlers for menu state, completion, refresh, and escape behavior', async () => {
     const refs = makeMenuRefs()
     const buttons = makeButtons()
     const subStates: SubState[] = []
     const choices: MainMenuChoice[] = []
     const updateModeButton = vi.fn()
     const refreshLoadList = vi.fn(() => Effect.void)
-    const settingsHandler = vi.fn()
-    MutableRef.set(refs.settingsHandlerRef, Option.some(settingsHandler))
     const handlers = makeClickHandlers(
       refs,
       buttons,
@@ -338,12 +333,6 @@ describe('presentation/menu/main-menu-handlers', () => {
     buttons.nwName.value = ' Named World '
     handlers.onNwConfirmClick()
     expect(choices).toContainEqual({ action: 'newWorld', worldId: WorldId.make('Named World'), gameMode: 'creative' })
-
-    handlers.onSettingsClick()
-    expect(settingsHandler).toHaveBeenCalledTimes(1)
-
-    handlers.onQuitClick()
-    expect(choices).toContainEqual({ action: 'quit' })
 
     handlers.onLoadWorldClick()
     await delayForFork()

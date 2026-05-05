@@ -3,7 +3,10 @@ import { expect } from 'vitest'
 import {
   MIN_SPAWN_DISTANCE,
   MAX_SPAWN_DISTANCE,
+  DESPAWN_DISTANCE,
   MAX_ENTITY_COUNT,
+  MOB_HALF_HEIGHT,
+  MOB_HALF_WIDTH,
   SPAWN_INTERVAL_FRAMES,
 } from '../../domain/mob/spawner-config'
 
@@ -20,8 +23,17 @@ describe('spawner-config — constants', () => {
     expect(MAX_SPAWN_DISTANCE).toBe(40)
   })
 
+  it('DESPAWN_DISTANCE stays beyond the spawn band', () => {
+    expect(DESPAWN_DISTANCE).toBeGreaterThan(MAX_SPAWN_DISTANCE)
+  })
+
   it('MAX_ENTITY_COUNT is 24', () => {
     expect(MAX_ENTITY_COUNT).toBe(24)
+  })
+
+  it('mob collision half extents match the default entity AABB', () => {
+    expect(MOB_HALF_WIDTH).toBe(0.3)
+    expect(MOB_HALF_HEIGHT).toBe(0.9)
   })
 
   it('MAX_ENTITY_COUNT is positive', () => {

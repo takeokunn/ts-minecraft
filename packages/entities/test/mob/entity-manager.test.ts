@@ -3,7 +3,7 @@ import { it as plainIt, expect } from 'vitest'
 import { Array as Arr, Effect, MutableRef, Option } from 'effect'
 import { AIState, EntityType, EntityId } from '@ts-minecraft/entities'
 import { EntityManager, EntityManagerLive } from '@ts-minecraft/entities'
-import { DeltaTimeSecs } from '@ts-minecraft/kernel'
+import { DeltaTimeSecs } from '../../../kernel'
 import { makeTestEntity } from './test-utils'
 
 describe('entity/entityManager', () => {
@@ -243,7 +243,14 @@ describe('entity/entityManager', () => {
         const entityId = yield* entityManager.addEntity(EntityType.Zombie, { x: 0, y: 64, z: 0 })
 
         yield* Effect.forEach(Arr.makeBy(13, (i) => i), () =>
-          entityManager.update(DeltaTimeSecs.make(0.016), { x: 1000, y: 64, z: 1000 }),
+          entityManager.update(DeltaTimeSecs.make(0.016), { x: 1000, y: 64, z: 1000 }).pipe(
+            Effect.andThen(
+              entityManager.applyPhysics(
+                DeltaTimeSecs.make(0.016),
+                (position, velocity) => ({ position, velocity, isGrounded: false }),
+              ),
+            ),
+          ),
           { concurrency: 1 }
         )
 
@@ -342,6 +349,90 @@ describe('entity/entityManager', () => {
         // At least one continuation tick must have occurred in 30 iterations
         // (probability of all 30 rolls being < 0.2 is 0.2^30 ≈ 1e-21)
         expect(MutableRef.get(directionPreservedRef)).toBe(true)
+      }).pipe(Effect.provide(EntityManagerLive))
+    )
+
+    it.effect('preserves vertical velocity and keeps AI steering on the horizontal plane', () =>
+      Effect.gen(function* () {
+        const entityManager = yield* EntityManager
+        const entityId = yield* entityManager.addEntity(EntityType.Zombie, { x: 0, y: 10, z: 0 })
+
+        yield* entityManager.applyPhysics(
+          DeltaTimeSecs.make(1),
+          (position, velocity) => ({ position, velocity, isGrounded: false }),
+        )
+
+        const beforeUpdate = yield* entityManager.getEntity(entityId)
+        expect(Option.isSome(beforeUpdate)).toBe(true)
+        const fallingEntity = Option.getOrThrow(beforeUpdate)
+
+        yield* entityManager.update(
+          DeltaTimeSecs.make(0.5),
+          { x: 6, y: fallingEntity.position.y + 5, z: 0 },
+        )
+
+        const afterUpdate = yield* entityManager.getEntity(entityId)
+        expect(Option.isSome(afterUpdate)).toBe(true)
+        const entity = Option.getOrThrow(afterUpdate)
+
+        expect(entity.position.y).toBe(fallingEntity.position.y)
+        expect(entity.velocity.y).toBe(fallingEntity.velocity.y)
+        expect(entity.velocity.x).toBeGreaterThan(0)
+        expect(entity.velocity.z).toBe(0)
+      }).pipe(Effect.provide(EntityManagerLive))
+    )
+  })
+
+  describe('applyPhysics', () => {
+    it.effect('applies gravity and uses collision resolution to ground and clamp movement', () =>
+      Effect.gen(function* () {
+        const entityManager = yield* EntityManager
+        const entityId = yield* entityManager.addEntity(EntityType.Zombie, { x: 0, y: 10, z: 0 })
+
+        yield* entityManager.update(DeltaTimeSecs.make(1), { x: 6, y: 10, z: 0 })
+        yield* entityManager.applyPhysics(
+          DeltaTimeSecs.make(1),
+          (position, velocity) => ({
+            position: { x: 2, y: 2, z: position.z },
+            velocity: {
+              x: 0,
+              y: 0,
+              z: velocity.z,
+            },
+            isGrounded: true,
+          }),
+        )
+
+        const entityOpt = yield* entityManager.getEntity(entityId)
+        expect(Option.isSome(entityOpt)).toBe(true)
+        const entity = Option.getOrThrow(entityOpt)
+
+        expect(entity.position.x).toBe(2)
+        expect(entity.position.y).toBe(2)
+        expect(entity.velocity.x).toBe(0)
+        expect(entity.velocity.y).toBe(0)
+      }).pipe(Effect.provide(EntityManagerLive))
+    )
+  })
+
+  describe('despawnFarEntities', () => {
+    it.effect('removes far and invalid entities and returns the number removed', () =>
+      Effect.gen(function* () {
+        const entityManager = yield* EntityManager
+
+        yield* entityManager.addEntity(EntityType.Zombie, { x: 0, y: 64, z: 0 })
+        yield* entityManager.addEntity(EntityType.Cow, { x: 200, y: 64, z: 0 })
+        yield* entityManager.addEntity(EntityType.Sheep, { x: Number.NaN, y: 64, z: 0 })
+
+        const beforeVersion = yield* entityManager.getStructureVersion()
+        const removedCount = yield* entityManager.despawnFarEntities({ x: 0, y: 64, z: 0 }, 40)
+        const afterVersion = yield* entityManager.getStructureVersion()
+        const remainingEntities = yield* entityManager.getEntities()
+
+        expect(removedCount).toBe(2)
+        expect(afterVersion).toBe(beforeVersion + 1)
+        expect(remainingEntities).toHaveLength(1)
+        expect(remainingEntities[0]?.type).toBe(EntityType.Zombie)
       }).pipe(Effect.provide(EntityManagerLive))
     )
   })

@@ -1,0 +1,1 @@
+{"version":3,"file":"game-state-physics.d.ts","sourceRoot":"","sources":["game-state-physics.ts"],"names":[],"mappings":"AAIA,eAAO,MAAM,WAAW,0KAId,CAAA;AAEV,eAAO,MAAM,YAAY,GACvB,IAAI,MAAM,EAAE,IAAI,MAAM,EAAE,IAAI,MAAM,EAClC,YAAY,KAAK,CAAC;IAAE,MAAM,EAAE,UAAU,CAAA;CAAE,GAAG,IAAI,CAAC,EAChD,UAAU,MAAM,EAChB,UAAU,MAAM,KACf,OAgBF,CAAA"}
