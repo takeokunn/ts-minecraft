@@ -3,7 +3,7 @@ import { CHUNK_SIZE } from '@ts-minecraft/kernel'
 import { greedyMeshChunk } from '@ts-minecraft/rendering'
 import { Array as Arr,MutableHashSet } from 'effect'
 import { describe,expect,it } from 'vitest'
-import { makeChunkWithBlock,makeChunkWithBlocks,makeEmptyChunk,ZERO_COORD,ZERO_OFFSET } from './greedy-meshing-test-utils'
+import { makeChunkWithBlock,makeChunkWithBlocks,makeEmptyChunk,ZERO_COORD,ZERO_OFFSET,countFacesByNormal,findFirstFaceVertexWithNormal,assertAllXPositionsGte,assertAllZPositionsGte } from './greedy-meshing-test-utils'
 
 // ─── Tests ─────────────────────────────────────────────────────────────────
 
@@ -98,20 +98,8 @@ describe('greedyMeshChunk', () => {
       ])
       const result = greedyMeshChunk(chunk, ZERO_OFFSET)
 
-      // Top face normals are (0, 1, 0); count quads with that normal
-      let topFaceCount = 0
-      const normalCount = result.toMeshed().opaque.normals.length / 3
-      // Each quad contributes 4 normals; check every 4th normal
-      for (let v = 0; v < normalCount; v += 4) {
-        const nx = result.toMeshed().opaque.normals[v * 3]
-        const ny = result.toMeshed().opaque.normals[v * 3 + 1]
-        const nz = result.toMeshed().opaque.normals[v * 3 + 2]
-        if (nx === 0 && ny === 1 && nz === 0) {
-          topFaceCount++
-        }
-      }
       // The three top-facing voxels should produce exactly 1 merged quad
-      expect(topFaceCount).toBe(1)
+      expect(countFacesByNormal(result.toMeshed().opaque.normals, 0, 1, 0)).toBe(1)
     })
 
     it('keeps merged top face UVs in block units so the atlas tile repeats per block', () => {
@@ -122,17 +110,7 @@ describe('greedyMeshChunk', () => {
       ])
       const meshed = greedyMeshChunk(chunk, ZERO_OFFSET).toMeshed().opaque
 
-      let topQuadVertex = -1
-      const normalCount = meshed.normals.length / 3
-      for (let v = 0; v < normalCount; v += 4) {
-        const nx = meshed.normals[v * 3]
-        const ny = meshed.normals[v * 3 + 1]
-        const nz = meshed.normals[v * 3 + 2]
-        if (nx === 0 && ny === 1 && nz === 0) {
-          topQuadVertex = v
-          break
-        }
-      }
+      const topQuadVertex = findFirstFaceVertexWithNormal(meshed.normals, 0, 1, 0)
 
       expect(topQuadVertex).toBeGreaterThanOrEqual(0)
       const uvOffset = topQuadVertex * 2
@@ -171,17 +149,7 @@ describe('greedyMeshChunk', () => {
       // Each block has 6 faces; internal +X/-X faces between the two blocks
       // are NOT visible (solid neighbors), so we get fewer than 12 but more
       // than 6.  Top faces must remain separate (2 quads with normal 0,1,0).
-      let topFaceCount = 0
-      const normalCount = result.toMeshed().opaque.normals.length / 3
-      for (let v = 0; v < normalCount; v += 4) {
-        const nx = result.toMeshed().opaque.normals[v * 3]
-        const ny = result.toMeshed().opaque.normals[v * 3 + 1]
-        const nz = result.toMeshed().opaque.normals[v * 3 + 2]
-        if (nx === 0 && ny === 1 && nz === 0) {
-          topFaceCount++
-        }
-      }
-      expect(topFaceCount).toBe(2)
+      expect(countFacesByNormal(result.toMeshed().opaque.normals, 0, 1, 0)).toBe(2)
     })
 
     it('produces more quads for two different adjacent types than for two same-type', () => {
@@ -237,10 +205,7 @@ describe('greedyMeshChunk', () => {
 
       // All X coordinates in positions must be >= 16 (wx offset applied)
       expect(result.toMeshed().opaque.positions.length).toBeGreaterThan(0)
-      for (let i = 0; i < result.toMeshed().opaque.positions.length; i += 3) {
-        const x = result.toMeshed().opaque.positions[i]
-        expect(x).toBeGreaterThanOrEqual(16)
-      }
+      assertAllXPositionsGte(result.toMeshed().opaque.positions, 16)
     })
 
     it('offsets vertex positions by wz in the geometry', () => {
@@ -251,10 +216,7 @@ describe('greedyMeshChunk', () => {
       const result = greedyMeshChunk(chunk, offset)
 
       expect(result.toMeshed().opaque.positions.length).toBeGreaterThan(0)
-      for (let i = 0; i < result.toMeshed().opaque.positions.length; i += 3) {
-        const z = result.toMeshed().opaque.positions[i + 2]
-        expect(z).toBeGreaterThanOrEqual(32)
-      }
+      assertAllZPositionsGte(result.toMeshed().opaque.positions, 32)
     })
   })
 

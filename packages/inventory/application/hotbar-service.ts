@@ -1,5 +1,5 @@
 import { Array as Arr, Effect, Option, Ref } from 'effect'
-import type { BlockType } from '@ts-minecraft/kernel'
+import type { InventoryItem } from '@ts-minecraft/kernel'
 import { InventoryService, HOTBAR_SIZE, HOTBAR_START } from './inventory-service'
 import { PlayerInputService } from '@ts-minecraft/player'
 import { KeyMappings } from '@ts-minecraft/player'
@@ -34,17 +34,17 @@ export class HotbarService extends Effect.Service<HotbarService>()(
         setSelectedSlot: (slot: SlotIndex): Effect.Effect<void, never> =>
           Ref.set(selectedSlotRef, SlotIndex.make(Math.max(0, Math.min(HOTBAR_SIZE - 1, SlotIndex.toNumber(slot))))),
 
-        getSelectedBlockType: (): Effect.Effect<Option.Option<BlockType>, never> =>
+        getSelectedBlockType: (): Effect.Effect<Option.Option<InventoryItem>, never> =>
           Effect.gen(function* () {
             const slot = yield* Ref.get(selectedSlotRef)
             const inventorySlot = yield* inventoryService.getSlot(SlotIndex.make(HOTBAR_START + SlotIndex.toNumber(slot)))
-            return Option.map(inventorySlot, (stack) => stack.blockType)
+            return Option.map(inventorySlot, (stack) => stack.itemType)
           }),
 
-        getSlots: (): Effect.Effect<ReadonlyArray<Option.Option<BlockType>>, never> =>
+        getSlots: (): Effect.Effect<ReadonlyArray<Option.Option<InventoryItem>>, never> =>
           Effect.gen(function* () {
             const hotbarSlots = yield* inventoryService.getHotbarSlots()
-            return Arr.map(hotbarSlots, (slot) => Option.map(slot, (stack) => stack.blockType))
+            return Arr.map(hotbarSlots, (slot) => Option.map(slot, (stack) => stack.itemType))
           }),
 
         update: (): Effect.Effect<void, never> =>

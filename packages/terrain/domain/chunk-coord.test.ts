@@ -2,7 +2,7 @@ import { describe, expect } from 'vitest'
 import { it } from '@effect/vitest'
 import { Effect } from 'effect'
 import { CHUNK_SIZE } from '@ts-minecraft/kernel'
-import { ChunkService, ChunkServiceLive } from './chunk'
+import { ChunkService, ChunkServiceLive } from '../application/chunk-service'
 
 describe('ChunkService.worldToChunkCoord', () => {
   it.effect('maps (0, 0) to chunk { x: 0, z: 0 }', () =>

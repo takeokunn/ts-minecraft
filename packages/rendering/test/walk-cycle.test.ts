@@ -1,10 +1,7 @@
 import { describe, it, expect } from 'vitest'
-import { Array as Arr } from 'effect'
 import {
   LIMB_SWING_AMPLITUDE,
-  WALK_DAMPING_SECONDS,
   computeLimbAngle,
-  dampLimbAngle,
 } from '@ts-minecraft/rendering'
 
 const APPROX = 1e-9
@@ -41,28 +38,4 @@ describe('walk-cycle', () => {
     })
   })
 
-  describe('dampLimbAngle', () => {
-    it('returns current when target == current', () => {
-      expect(dampLimbAngle(0.3, 0.3, 0.016)).toBeCloseTo(0.3, 12)
-    })
-
-    it('monotonically approaches the target across small steps', () => {
-      const target = 1
-      const dt = 0.016
-      const finalValue = Arr.reduce(Arr.makeBy(200, (i) => i), 0, (prev, _) => {
-        const next = dampLimbAngle(prev, target, dt)
-        expect(next).toBeGreaterThanOrEqual(prev)
-        expect(next).toBeLessThanOrEqual(target + APPROX)
-        return next
-      })
-      expect(finalValue).toBeCloseTo(target, 3)
-    })
-
-    it('after one time-constant has covered ≈ (1 - 1/e) of the gap', () => {
-      const start = 0
-      const target = 1
-      const after = dampLimbAngle(start, target, WALK_DAMPING_SECONDS)
-      expect(after).toBeCloseTo(1 - Math.exp(-1), 12)
-    })
-  })
 })

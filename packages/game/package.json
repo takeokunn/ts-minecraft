@@ -7,5 +7,13 @@
   "exports": {
     ".": "./index.ts"
   },
-  "dependencies": {}
+  "dependencies": {
+    "@ts-minecraft/kernel": "*",
+    "@ts-minecraft/player": "*",
+    "@ts-minecraft/physics": "*",
+    "@ts-minecraft/terrain": "*",
+    "@ts-minecraft/inventory": "*",
+    "@ts-minecraft/world-state": "*",
+    "effect": "*"
+  }
 }

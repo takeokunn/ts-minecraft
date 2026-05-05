@@ -4,7 +4,7 @@ import { InventoryRendererLive } from '@ts-minecraft/app/presentation/inventory/
 import { InventoryService, INVENTORY_SIZE, HOTBAR_START } from '@ts-minecraft/inventory'
 import { HotbarService } from '@ts-minecraft/inventory'
 import { RecipeService } from '@ts-minecraft/inventory'
-import { FurnaceService } from '@ts-minecraft/inventory'
+import { FurnaceService } from '@ts-minecraft/furnace'
 import { GameStateService } from '@ts-minecraft/game'
 import { ChunkManagerService } from '@ts-minecraft/terrain'
 import { DomOperationsService } from '@ts-minecraft/app/presentation/hud/crosshair'

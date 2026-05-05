@@ -110,4 +110,30 @@ describe('HealthService.awaitDeath', () => {
       )
     )
   )
+
+  it('awaitDeath blocks again after reset — fresh Deferred installed', () =>
+    Effect.runPromise(
+      withHealthService((hs) =>
+        Effect.gen(function* () {
+          // Trigger first death cycle
+          yield* hs.applyDamage(1000)
+          yield* hs.awaitDeath()
+
+          // Reset to living state
+          yield* hs.reset()
+          expect(yield* hs.isDead()).toBe(false)
+
+          // Fork awaitDeath for second death cycle — must block (not resolve immediately)
+          const fiber = yield* Effect.fork(hs.awaitDeath())
+
+          // Trigger second death
+          yield* hs.applyDamage(1000)
+
+          // Fiber must resolve after second kill (not stuck forever)
+          yield* Fiber.join(fiber)
+          expect(yield* hs.isDead()).toBe(true)
+        })
+      )
+    )
+  )
 })

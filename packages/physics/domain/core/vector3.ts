@@ -2,7 +2,6 @@ import type { Vector3 } from '@ts-minecraft/kernel'
 export { Vector3Schema } from '@ts-minecraft/kernel'
 export type { Vector3 } from '@ts-minecraft/kernel'
 
-// Constructors
 export const makeVector3 = (x: number, y: number, z: number): Vector3 => ({ x, y, z })
 
 export const zero: Vector3 = { x: 0, y: 0, z: 0 }
@@ -14,7 +13,6 @@ export const right: Vector3 = { x: 1, y: 0, z: 0 }
 export const forward: Vector3 = { x: 0, y: 0, z: -1 }
 export const backward: Vector3 = { x: 0, y: 0, z: 1 }
 
-// Vector operations (Immutable - pure functions)
 export const add = (a: Vector3, b: Vector3): Vector3 => ({ x: a.x + b.x, y: a.y + b.y, z: a.z + b.z })
 
 export const subtract = (a: Vector3, b: Vector3): Vector3 => ({ x: a.x - b.x, y: a.y - b.y, z: a.z - b.z })
@@ -42,12 +40,3 @@ export const normalize = (v: Vector3): Vector3 => {
 
 export const distance = (a: Vector3, b: Vector3): number =>
   length({ x: b.x - a.x, y: b.y - a.y, z: b.z - a.z })
-
-// JSON serialization
-export const toJSON = (v: Vector3): { x: number; y: number; z: number } => ({
-  x: v.x,
-  y: v.y,
-  z: v.z,
-})
-
-export const fromJSON = (json: { x: number; y: number; z: number }): Vector3 => ({ ...json })

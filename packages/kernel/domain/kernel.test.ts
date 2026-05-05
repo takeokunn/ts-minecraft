@@ -4,7 +4,6 @@ import { describe,expect } from 'vitest'
 import {
 BlockIdSchema,
 BlockIndexSchema,
-ChunkIdSchema,
 DeltaTimeSecsSchema,
 PhysicsBodyIdSchema,
 PlayerIdSchema,
@@ -91,23 +90,6 @@ describe('shared/kernel', () => {
     it('should validate PhysicsBodyId type with Schema.is (positive)', () => {
       const bodyId = PhysicsBodyIdSchema.make('physics-body-1')
       expect(Schema.is(PhysicsBodyIdSchema)(bodyId)).toBe(true)
-    })
-  })
-
-  describe('ChunkId', () => {
-    it('should create valid ChunkId', () => {
-      const result = ChunkIdSchema.make('0,0')
-      expect(result).toBe('0,0')
-    })
-
-    it('should decode unknown string to ChunkId', () => {
-      const result = Schema.decodeUnknownSync(ChunkIdSchema)('5,-3')
-      expect(result).toBe('5,-3')
-    })
-
-    it('should validate ChunkId type with Schema.is (positive)', () => {
-      const chunkId = ChunkIdSchema.make('10,20')
-      expect(Schema.is(ChunkIdSchema)(chunkId)).toBe(true)
     })
   })
 

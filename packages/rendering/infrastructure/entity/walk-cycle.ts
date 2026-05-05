@@ -30,6 +30,3 @@ export const computeLimbAngle = (
   const phase = phaseOf(side, limb)
   return Math.sin((2 * Math.PI * speed * t) / STRIDE_LENGTH + phase) * LIMB_SWING_AMPLITUDE
 }
-
-export const dampLimbAngle = (current: number, target: number, dt: number): number =>
-  current + (target - current) * (1 - Math.exp(-dt / WALK_DAMPING_SECONDS))

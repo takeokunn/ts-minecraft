@@ -3,7 +3,7 @@ import { Array as Arr } from 'effect'
 import { greedyMeshChunk } from '@ts-minecraft/rendering'
 import { CHUNK_HEIGHT } from '@ts-minecraft/kernel'
 import type { BlockType } from '@ts-minecraft/kernel'
-import { makeChunkWithBlock, ZERO_COORD, ZERO_OFFSET } from './greedy-meshing-test-utils'
+import { makeChunkWithBlock, ZERO_COORD, ZERO_OFFSET, hasFaceWithNormal } from './greedy-meshing-test-utils'
 
 describe('greedyMeshChunk', () => {
 
@@ -16,16 +16,7 @@ describe('greedyMeshChunk', () => {
       expect(result.toMeshed().opaque.indices.length / 6).toBe(6)
 
       // Check that +X face normal exists
-      let hasPositiveXFace = false
-      const normalCount = result.toMeshed().opaque.normals.length / 3
-      for (let v = 0; v < normalCount; v += 4) {
-        const nx = result.toMeshed().opaque.normals[v * 3]
-        if (nx === 1) {
-          hasPositiveXFace = true
-          break
-        }
-      }
-      expect(hasPositiveXFace).toBe(true)
+      expect(hasFaceWithNormal(result.toMeshed().opaque.normals, 1, 0, 0)).toBe(true)
     })
 
     it('block at chunk edge (lz=15) should have exposed face towards positive Z', () => {
@@ -35,16 +26,7 @@ describe('greedyMeshChunk', () => {
       expect(result.toMeshed().opaque.indices.length / 6).toBe(6)
 
       // Check that +Z face normal exists
-      let hasPositiveZFace = false
-      const normalCount = result.toMeshed().opaque.normals.length / 3
-      for (let v = 0; v < normalCount; v += 4) {
-        const nz = result.toMeshed().opaque.normals[v * 3 + 2]
-        if (nz === 1) {
-          hasPositiveZFace = true
-          break
-        }
-      }
-      expect(hasPositiveZFace).toBe(true)
+      expect(hasFaceWithNormal(result.toMeshed().opaque.normals, 0, 0, 1)).toBe(true)
     })
 
     it('block at top of chunk (y=CHUNK_HEIGHT-1) should have an exposed +Y face', () => {
@@ -53,16 +35,7 @@ describe('greedyMeshChunk', () => {
 
       expect(result.toMeshed().opaque.indices.length / 6).toBe(6)
 
-      let hasTopFace = false
-      const normalCount = result.toMeshed().opaque.normals.length / 3
-      for (let v = 0; v < normalCount; v += 4) {
-        const ny = result.toMeshed().opaque.normals[v * 3 + 1]
-        if (ny === 1) {
-          hasTopFace = true
-          break
-        }
-      }
-      expect(hasTopFace).toBe(true)
+      expect(hasFaceWithNormal(result.toMeshed().opaque.normals, 0, 1, 0)).toBe(true)
     })
 
     it('block at y=0 should have an exposed -Y (bottom) face', () => {
@@ -71,16 +44,7 @@ describe('greedyMeshChunk', () => {
 
       expect(result.toMeshed().opaque.indices.length / 6).toBe(6)
 
-      let hasBottomFace = false
-      const normalCount = result.toMeshed().opaque.normals.length / 3
-      for (let v = 0; v < normalCount; v += 4) {
-        const ny = result.toMeshed().opaque.normals[v * 3 + 1]
-        if (ny === -1) {
-          hasBottomFace = true
-          break
-        }
-      }
-      expect(hasBottomFace).toBe(true)
+      expect(hasFaceWithNormal(result.toMeshed().opaque.normals, 0, -1, 0)).toBe(true)
     })
   })
 

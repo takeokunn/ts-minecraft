@@ -79,7 +79,7 @@ describe('TradingPresentationService', () => {
     return Effect.gen(function* () {
       const presentation = yield* TradingPresentationService
       yield* presentation.open(VillagerId.make('villager-1'))
-      yield* setOffers([makeOffer({ output: { blockType: 'GLASS', count: 1 } })])
+      yield* setOffers([makeOffer({ output: { itemType: 'GLASS', count: 1 } })])
       yield* presentation.refresh()
 
       const list = createdElements.find((element) => element.style.cssText.includes('display:flex'))!

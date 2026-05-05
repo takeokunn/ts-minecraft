@@ -4,7 +4,6 @@ import {
   zero, one, up, down, left, right, forward, backward,
   add, subtract, scale, dot, cross,
   length, lengthSquared, normalize, distance,
-  toJSON, fromJSON,
 } from './vector3'
 
 describe('constants', () => {
@@ -72,7 +71,6 @@ describe('scale', () => {
     expect(scale({ x: 1, y: 2, z: 3 }, 3)).toEqual({ x: 3, y: 6, z: 9 })
   })
   it('scaling by 0 yields zero vector', () => {
-    // Use all-positive components to avoid IEEE 754 -0 in deep equality check
     expect(scale({ x: 5, y: 3, z: 8 }, 0)).toEqual(zero)
   })
   it('scaling by -1 negates the vector', () => {
@@ -165,20 +163,5 @@ describe('distance', () => {
     const a = { x: 1, y: 2, z: 3 }
     const b = { x: 4, y: 6, z: 3 }
     expect(distance(a, b)).toBeCloseTo(distance(b, a), 10)
-  })
-})
-
-describe('toJSON / fromJSON', () => {
-  it('toJSON returns a plain { x, y, z } object', () => {
-    const v = { x: 1, y: -2, z: 3 }
-    expect(toJSON(v)).toEqual({ x: 1, y: -2, z: 3 })
-  })
-  it('fromJSON reconstructs a Vector3 from a plain object', () => {
-    const json = { x: 5, y: 0, z: -7 }
-    expect(fromJSON(json)).toEqual({ x: 5, y: 0, z: -7 })
-  })
-  it('round-trip: fromJSON(toJSON(v)) equals v', () => {
-    const v = { x: 2.5, y: -3.14, z: 0 }
-    expect(fromJSON(toJSON(v))).toEqual(v)
   })
 })

@@ -5,23 +5,20 @@ import { StorageError } from '../domain/errors'
 import type { ChunkCoord } from '@ts-minecraft/kernel'
 
 // Bumped from 2 → 3 for Phase 2.1 multi-noise. Must match terrain/domain/chunk.ts WORLD_SCHEMA_VERSION.
-const WORLD_SCHEMA_VERSION = 3
+export const WORLD_SCHEMA_VERSION = 3
 
 export type ChunkStorageValue = Readonly<{
   readonly blocks: Uint8Array<ArrayBufferLike>
   readonly fluid: Uint8Array<ArrayBufferLike> | undefined
 }>
 import { PositionSchema } from '@ts-minecraft/kernel'
-import { InventorySaveDataSchema } from '@ts-minecraft/inventory'
-import { BlockTypeSchema } from '@ts-minecraft/kernel'
-import { RecipeIdSchema } from '@ts-minecraft/kernel'
-import { GameModeSchema } from '@ts-minecraft/game'
+import { InventoryItemSchema, RecipeIdSchema, InventorySaveDataSchema, GameModeSchema } from '@ts-minecraft/kernel'
 
 // Bump when schema changes require migration (not just new optional fields with defaults).
 export const CURRENT_WORLD_SAVE_VERSION = 1
 
 const FurnaceItemStackSchema = Schema.Struct({
-  blockType: BlockTypeSchema,
+  itemType: InventoryItemSchema,
   count: Schema.Number.pipe(Schema.int(), Schema.between(1, 64)),
 })
 

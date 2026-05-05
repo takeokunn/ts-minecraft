@@ -32,6 +32,9 @@
     },
     {
       "path": "../game"
+    },
+    {
+      "path": "../furnace"
     }
   ],
   "include": [

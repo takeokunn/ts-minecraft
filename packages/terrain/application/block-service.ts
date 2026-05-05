@@ -3,17 +3,18 @@ import { ChunkManagerService } from './chunk-manager-service'
 import { DEFAULT_PLAYER_ID } from '@ts-minecraft/kernel'
 import { FluidService } from './fluid-service'
 import { BlockIndexError } from '@ts-minecraft/kernel'
-import { ChunkService, setBlockInChunk } from '../domain/chunk'
-import { worldToBlockLocal, blockOverlapsPlayer, canHarvestBlock } from '../domain/block-utils'
-export { worldToBlockLocal, blockOverlapsPlayer } from '../domain/block-utils'
+import { ChunkService } from './chunk-service'
+import { setBlockInChunk } from '../domain/chunk'
+import { worldToBlockLocal, blockOverlapsPlayer, canHarvestBlock } from './block-utils'
+export { worldToBlockLocal, blockOverlapsPlayer } from './block-utils'
 import { PlayerService } from '@ts-minecraft/player'
 import { InventoryService } from '@ts-minecraft/inventory'
 import { HotbarService } from '@ts-minecraft/inventory'
-import { FurnaceService } from '@ts-minecraft/inventory'
-import { BlockType } from '@ts-minecraft/kernel'
+import { FurnaceService } from '@ts-minecraft/furnace'
+import { BlockType, ItemType } from '@ts-minecraft/kernel'
 import { Position, SlotIndex } from '@ts-minecraft/kernel'
 import {
-  NON_PLACEABLE_BLOCK_TYPES,
+  NON_PLACEABLE_ITEM_TYPES,
   PICKAXE_BLOCK_TYPES,
   DIAMOND_PICKAXE_HARVESTABLE_BLOCKS,
   getInventoryDropForBlock,
@@ -79,7 +80,8 @@ export class BlockService extends Effect.Service<BlockService>()(
             }
 
             const selectedTool = yield* hotbarService.getSelectedBlockType()
-            const shouldDrop = HashSet.has(PICKAXE_BLOCK_TYPES, Option.getOrElse(selectedTool, () => 'AIR'))
+            const selectedToolValue = Option.getOrElse(selectedTool, () => 'AIR' as string)
+            const shouldDrop = HashSet.has(PICKAXE_BLOCK_TYPES, selectedToolValue as unknown as ItemType)
               ? canHarvestBlock(blockType, selectedTool)
               : canHarvestBlock(blockType, Option.none())
             if (HashSet.has(REQUIRES_PICKAXE_BLOCKS, blockType) && !shouldDrop) {
@@ -145,7 +147,7 @@ export class BlockService extends Effect.Service<BlockService>()(
               }))
             }
 
-            if (HashSet.has(NON_PLACEABLE_BLOCK_TYPES, blockType)) {
+            if (HashSet.has(NON_PLACEABLE_ITEM_TYPES, blockType as unknown as ItemType)) {
               return yield* Effect.fail(new BlockServiceError({
                 operation: 'placeBlock',
                 reason: `${blockType} is an inventory item and cannot be placed in the world`,
@@ -176,21 +178,22 @@ export class BlockService extends Effect.Service<BlockService>()(
               }))
             )
 
-            const removedFromInventory = yield* inventoryService.removeBlock(blockType, 1, preferredInventorySlot)
-            if (!removedFromInventory) {
-              yield* setBlockInChunk(chunk, lx, y, lz, 'AIR').pipe(
-                /* c8 ignore next 4 */
-                Effect.mapError((e: BlockIndexError) => new BlockServiceError({
-                  operation: 'placeBlock',
-                  reason: `Failed to restore block after inventory rollback: (${e.x}, ${e.y}, ${e.z})`,
-                  cause: e,
-                }))
+            yield* inventoryService.removeBlock(blockType, 1, preferredInventorySlot).pipe(
+              Effect.catchTag('InventoryError', () =>
+                setBlockInChunk(chunk, lx, y, lz, 'AIR').pipe(
+                  /* c8 ignore next 4 */
+                  Effect.mapError((e: BlockIndexError) => new BlockServiceError({
+                    operation: 'placeBlock',
+                    reason: `Failed to restore block after inventory rollback: (${e.x}, ${e.y}, ${e.z})`,
+                    cause: e,
+                  })),
+                  Effect.andThen(Effect.fail(new BlockServiceError({
+                    operation: 'placeBlock',
+                    reason: `No ${blockType} available in inventory`,
+                  })))
+                )
               )
-              return yield* Effect.fail(new BlockServiceError({
-                operation: 'placeBlock',
-                reason: `No ${blockType} available in inventory`,
-              }))
-            }
+            )
 
             yield* chunkManagerService.markChunkDirty(chunkCoord)
             yield* fluidService.notifyBlockChanged(position)

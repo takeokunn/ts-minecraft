@@ -1,11 +1,11 @@
-import { Effect, Ref, Schema } from 'effect'
+import { Effect, Ref } from 'effect'
+import { GameModeSchema, GameMode, DEFAULT_GAME_MODE } from '@ts-minecraft/kernel'
+
+export { GameModeSchema, DEFAULT_GAME_MODE }
+export type { GameMode }
 
 // Canonical source of truth lives on WorldMetadata; sessionProgram pulls from storage
 // at session start and seeds this service via set().
-export const GameModeSchema = Schema.Literal('survival', 'creative')
-export type GameMode = Schema.Schema.Type<typeof GameModeSchema>
-
-export const DEFAULT_GAME_MODE: GameMode = 'survival'
 
 // Stateless across sessions: sessionProgram owns write-on-load + write-on-mode-change.
 export class GameModeService extends Effect.Service<GameModeService>()(

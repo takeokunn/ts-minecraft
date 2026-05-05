@@ -1,5 +1,5 @@
 import { describe,it } from '@effect/vitest'
-import { TerrainWorkerPoolPortLayer } from '@ts-minecraft/app'
+import { TerrainWorkerPoolPortLayer } from '@ts-minecraft/terrain'
 import { DEFAULT_WORLD_ID } from '@ts-minecraft/kernel'
 import {
 BiomeServiceLive,
@@ -11,7 +11,7 @@ getChunksInRenderDistance
 import { StorageError } from '@ts-minecraft/world-state'
 import { Array as Arr,Effect,Layer,Option } from 'effect'
 import { expect } from 'vitest'
-import { ChunkServiceLive } from '../domain/chunk'
+import { ChunkServiceLive } from '../application/chunk-service'
 import {
 EXPECTED_BLOCKS_LENGTH,
 LightEngineNoopLive,

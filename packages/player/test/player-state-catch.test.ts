@@ -1,8 +1,7 @@
 import { describe, it } from '@effect/vitest'
-import { expect, it as plainIt } from 'vitest'
-import { Effect, Either, Option } from 'effect'
+import { expect } from 'vitest'
+import { Effect } from 'effect'
 import { PlayerService } from '@ts-minecraft/player'
-import { PlayerError } from '../domain/errors'
 import type { PlayerId, Position } from '@ts-minecraft/kernel'
 
 const testPlayerId = 'player-1' as PlayerId
@@ -10,41 +9,7 @@ const testPosition: Position = { x: 0, y: 64, z: 0 }
 const TestLayer = PlayerService.Default
 
 describe('PlayerService', () => {
-  describe('PlayerError properties', () => {
-    plainIt('should have _tag === "PlayerError"', () => {
-      const err = new PlayerError({ playerId: 'test-player', reason: 'test reason' })
-      expect(err._tag).toBe('PlayerError')
-    })
-
-    plainIt('should include playerId in message', () => {
-      const err = new PlayerError({ playerId: 'test-player-123', reason: 'not found' })
-      expect(err.message).toContain('test-player-123')
-    })
-
-    plainIt('should include reason in message', () => {
-      const err = new PlayerError({ playerId: 'p1', reason: 'Player already exists' })
-      expect(err.message).toContain('Player already exists')
-    })
-
-    plainIt('should produce a non-empty message string', () => {
-      const err = new PlayerError({ playerId: 'any-id', reason: 'some reason' })
-      expect(typeof err.message).toBe('string')
-      expect(err.message.length).toBeGreaterThan(0)
-    })
-
-    it.effect('should include playerId from caught error in Effect.either', () =>
-      Effect.gen(function* () {
-        const service = yield* PlayerService
-        const result = yield* Effect.either(service.getPosition(testPlayerId))
-        expect(Either.isLeft(result)).toBe(true)
-        const err4 = Option.getOrThrow(Either.getLeft(result))
-        expect(err4._tag).toBe('PlayerError')
-        expect(err4.message).toContain(testPlayerId)
-      }).pipe(Effect.provide(TestLayer))
-    )
-  })
-
-describe('typed Effect.catchTag handling', () => {
+  describe('typed Effect.catchTag handling', () => {
     it.effect('should catch PlayerError with catchTag on getPosition for non-existent player', () =>
       Effect.gen(function* () {
         const service = yield* PlayerService

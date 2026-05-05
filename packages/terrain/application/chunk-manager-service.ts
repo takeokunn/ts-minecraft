@@ -1,5 +1,5 @@
 import { Array as Arr, Clock, Effect, HashMap, HashSet, Option, Ref } from 'effect'
-import { ChunkService } from '../domain/chunk'
+import { ChunkService } from './chunk-service'
 import type { Chunk } from '../domain/chunk'
 import { ChunkCoord } from '@ts-minecraft/kernel'
 import { StorageError } from '@ts-minecraft/world-state'

@@ -5,7 +5,7 @@ import { MovementServiceLive } from '@ts-minecraft/player'
 import { PlayerCameraStateLive } from '@ts-minecraft/player'
 import { PlayerServiceLive } from '@ts-minecraft/player'
 import { PhysicsServiceLive } from '@ts-minecraft/physics'
-import { PhysicsWorldPortLayer, RigidBodyPortLayer, ShapePortLayer } from '@ts-minecraft/app'
+import { PhysicsWorldPortLayer, RigidBodyPortLayer, ShapePortLayer } from '@ts-minecraft/physics'
 import { GameModeServiceLive } from '@ts-minecraft/game'
 import { InventoryServiceLive } from '@ts-minecraft/inventory'
 import { BlockRegistryLive } from '@ts-minecraft/world-state'
@@ -20,6 +20,37 @@ export const NoOpChunkManagerLayer = Layer.succeed(ChunkManagerService, ChunkMan
   saveDirtyChunks: () => Effect.void,
   unloadChunk: () => Effect.void,
 }))
+
+export const NoOpPlayerInputLayer = Layer.succeed(PlayerInputService, PlayerInputService.of({
+  _tag: '@minecraft/application/PlayerInputService' as const,
+  isKeyPressed: (_key: string) => Effect.succeed(false),
+  consumeKeyPress: (_key: string) => Effect.succeed(false),
+  consumeWheelDelta: () => Effect.succeed(0),
+  getMouseDelta: () => Effect.succeed({ x: 0, y: 0 }),
+  isPointerLocked: () => Effect.succeed(false),
+}))
+
+export const PhysicsLayer = PhysicsServiceLive.pipe(
+  Layer.provide(PhysicsWorldPortLayer),
+  Layer.provide(RigidBodyPortLayer),
+  Layer.provide(ShapePortLayer),
+)
+
+export const MovementLayer = MovementServiceLive.pipe(
+  Layer.provide(NoOpPlayerInputLayer),
+)
+
+export const InventoryLayerForTest = InventoryServiceLive.pipe(Layer.provide(BlockRegistryLive))
+
+export const TestGameLayer = GameStateServiceLive.pipe(
+  Layer.provide(PlayerServiceLive),
+  Layer.provide(PhysicsLayer),
+  Layer.provide(MovementLayer),
+  Layer.provide(PlayerCameraStateLive),
+  Layer.provide(NoOpChunkManagerLayer),
+  Layer.provide(GameModeServiceLive),
+  Layer.provide(InventoryLayerForTest),
+)
 
 export const createTestInputService = (initialState: {
   forward?: boolean
@@ -70,39 +101,19 @@ export const createTestInputService = (initialState: {
 }
 
 export const createTestLayer = (inputService: ReturnType<typeof createTestInputService>) => {
-  // Create the base layers that don't have dependencies
   const inputLayer = Layer.succeed(PlayerInputService, inputService)
-
-  // Create physics layer using application-layer ports (bridges to infrastructure live in @/layers)
-  const physicsLayer = PhysicsServiceLive.pipe(
-    Layer.provide(PhysicsWorldPortLayer),
-    Layer.provide(RigidBodyPortLayer),
-    Layer.provide(ShapePortLayer)
-  )
-
-  // Create movement layer with input dependency
   const movementLayer = MovementServiceLive.pipe(Layer.provide(inputLayer))
-
-  // Create player and camera layers
-  const playerLayer = PlayerServiceLive
-  const cameraLayer = PlayerCameraStateLive
-
-  // Merge all dependency layers — includes GameModeService (mode-aware respawn FR-1.3)
-  // and InventoryService (clears on survival death) per the W2c death-screen wiring.
-  const inventoryLayer = InventoryServiceLive.pipe(Layer.provide(BlockRegistryLive))
   const dependencyLayers = Layer.mergeAll(
-    physicsLayer,
+    PhysicsLayer,
     movementLayer,
-    cameraLayer,
-    playerLayer,
+    PlayerCameraStateLive,
+    PlayerServiceLive,
     NoOpChunkManagerLayer,
     GameModeServiceLive,
-    inventoryLayer,
+    InventoryLayerForTest,
   )
-
-  // Create final layer with GameStateService
   return Layer.mergeAll(
     GameStateServiceLive.pipe(Layer.provide(dependencyLayers)),
-    playerLayer,
+    PlayerServiceLive,
   )
 }

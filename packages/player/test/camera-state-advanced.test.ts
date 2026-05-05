@@ -117,12 +117,12 @@ describe('PlayerCameraStateService', () => {
         const camera = yield* PlayerCameraStateService
 
         yield* camera.setPitch(Math.PI / 2)
-        let rotation = yield* camera.getRotation()
-        expect(rotation.pitch).toBeCloseTo(PITCH_MAX)
+        const upRotation = yield* camera.getRotation()
+        expect(upRotation.pitch).toBeCloseTo(PITCH_MAX)
 
         yield* camera.setPitch(-Math.PI / 2)
-        rotation = yield* camera.getRotation()
-        expect(rotation.pitch).toBeCloseTo(PITCH_MIN)
+        const downRotation = yield* camera.getRotation()
+        expect(downRotation.pitch).toBeCloseTo(PITCH_MIN)
       }).pipe(Effect.provide(PlayerCameraStateLive))
     )
 

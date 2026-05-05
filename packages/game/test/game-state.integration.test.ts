@@ -5,64 +5,11 @@
 // (no blocks loaded), the player falls until the bedrock rule triggers, settling
 // at center y = PLAYER_HALF_HEIGHT (0.9).
 import { describe,it } from '@effect/vitest'
-import { PhysicsWorldPortLayer,RigidBodyPortLayer,ShapePortLayer } from '@ts-minecraft/app'
-import { GameModeServiceLive,GameStateService,GameStateServiceLive } from '@ts-minecraft/game'
-import { InventoryServiceLive } from '@ts-minecraft/inventory'
+import { GameStateService } from '@ts-minecraft/game'
 import { DEFAULT_PLAYER_ID,DeltaTimeSecs,PLAYER_HALF_HEIGHT,PlayerId } from '@ts-minecraft/kernel'
-import { PhysicsServiceLive } from '@ts-minecraft/physics'
-import { MovementServiceLive,PlayerCameraStateLive,PlayerInputService,PlayerServiceLive } from '@ts-minecraft/player'
-import { ChunkManagerService } from '@ts-minecraft/terrain'
-import { BlockRegistryLive } from '@ts-minecraft/world-state'
-import { Array as Arr,Effect,Either,Layer,Option,Ref } from 'effect'
+import { Array as Arr,Effect,Either,Option,Ref } from 'effect'
 import { expect } from 'vitest'
-
-// ---------------------------------------------------------------------------
-// Mock PlayerInputService — always returns no input (no movement, no jump)
-// ---------------------------------------------------------------------------
-const NoOpPlayerInputLayer = Layer.succeed(PlayerInputService, PlayerInputService.of({
-  _tag: '@minecraft/application/PlayerInputService' as const,
-  isKeyPressed: (_key: string) => Effect.succeed(false),
-  consumeKeyPress: (_key: string) => Effect.succeed(false),
-  consumeWheelDelta: () => Effect.succeed(0),
-  getMouseDelta: () => Effect.succeed({ x: 0, y: 0 }),
-  isPointerLocked: () => Effect.succeed(false),
-}))
-
-// NoOp ChunkManager — no chunks loaded; bedrock floor still stops the player
-const NoOpChunkManagerLayer = Layer.succeed(ChunkManagerService, ChunkManagerService.of({
-  _tag: '@minecraft/application/ChunkManagerService' as const,
-  getChunk: (_coord: unknown) => Effect.fail({ _tag: 'ChunkError', message: 'not loaded' } as never),
-  getLoadedChunks: () => Effect.succeed([]),
-  loadChunksAroundPlayer: (_pos: unknown, _dist?: unknown) => Effect.succeed(false),
-  markChunkDirty: () => Effect.void,
-  saveDirtyChunks: () => Effect.void,
-  unloadChunk: () => Effect.void,
-}))
-
-// ---------------------------------------------------------------------------
-// Layer composition matching src/layers.ts GameLayer
-// ---------------------------------------------------------------------------
-const PhysicsLayer = PhysicsServiceLive.pipe(
-  Layer.provide(PhysicsWorldPortLayer),
-  Layer.provide(RigidBodyPortLayer),
-  Layer.provide(ShapePortLayer),
-)
-
-const MovementLayer = MovementServiceLive.pipe(
-  Layer.provide(NoOpPlayerInputLayer),
-)
-
-const InventoryLayerForTest = InventoryServiceLive.pipe(Layer.provide(BlockRegistryLive))
-
-const TestGameLayer = GameStateServiceLive.pipe(
-  Layer.provide(PlayerServiceLive),
-  Layer.provide(PhysicsLayer),
-  Layer.provide(MovementLayer),
-  Layer.provide(PlayerCameraStateLive),
-  Layer.provide(NoOpChunkManagerLayer),
-  Layer.provide(GameModeServiceLive),
-  Layer.provide(InventoryLayerForTest),
-)
+import { TestGameLayer } from './game-state-test-utils'
 
 // ---------------------------------------------------------------------------
 // Tests
@@ -256,6 +203,32 @@ describe('application/game-state (integration)', () => {
         const grounded = yield* gameState.isPlayerGrounded()
 
         expect(grounded).toBe(true)
+      }).pipe(Effect.provide(TestGameLayer))
+    )
+  })
+
+  describe('getCameraRotation', () => {
+    it.effect('returns default { yaw: 0, pitch: 0 } before any updates', () =>
+      Effect.gen(function* () {
+        const SPAWN_POS = { x: 0, y: 5, z: 0 }
+
+        const gameState = yield* GameStateService
+        yield* gameState.initialize(SPAWN_POS)
+        const rotation = yield* gameState.getCameraRotation()
+
+        expect(rotation.yaw).toBe(0)
+        expect(rotation.pitch).toBe(0)
+      }).pipe(Effect.provide(TestGameLayer))
+    )
+
+    it.effect('getCameraRotation returns numbers before initialization', () =>
+      Effect.gen(function* () {
+        const gameState = yield* GameStateService
+        // No initialize() call
+        const rotation = yield* gameState.getCameraRotation()
+
+        expect(typeof rotation.yaw).toBe('number')
+        expect(typeof rotation.pitch).toBe('number')
       }).pipe(Effect.provide(TestGameLayer))
     )
   })

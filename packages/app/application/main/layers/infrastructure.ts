@@ -10,23 +10,15 @@ import { BlockRegistryLive } from '@ts-minecraft/world-state'
 
 // Physics infrastructure (custom engine)
 import {
-  PhysicsWorldService,
-  PhysicsWorldServiceLive,
-  RigidBodyService,
-  RigidBodyServiceLive,
-  ShapeService,
-  ShapeServiceLive,
-} from '@ts-minecraft/physics'
-import {
-  PhysicsWorldPort,
-  RigidBodyPort,
-  ShapePort,
+  PhysicsWorldPortLayer,
+  RigidBodyPortLayer,
+  ShapePortLayer,
 } from '@ts-minecraft/physics'
 
 // Procedural generation and storage infrastructure
 import { NoiseService, NoiseServiceLive } from '@ts-minecraft/terrain'
 import { StorageService, StorageServiceLive } from '@ts-minecraft/world-state'
-import { TerrainWorkerPool, TerrainWorkerPoolLive } from '@ts-minecraft/terrain'
+export { TerrainWorkerPoolPortLayer } from '@ts-minecraft/terrain'
 
 // Chunk domain service
 import { ChunkServiceLive } from '@ts-minecraft/terrain'
@@ -34,7 +26,6 @@ import { ChunkServiceLive } from '@ts-minecraft/terrain'
 // Application-layer ports (decouple application from infrastructure)
 import { NoiseServicePort } from '@ts-minecraft/terrain'
 import { StorageServicePort } from '@ts-minecraft/terrain'
-import { TerrainWorkerPoolPort, TerrainGenerationError as PortTerrainGenerationError } from '@ts-minecraft/terrain'
 import { EnvironmentLive } from '@ts-minecraft/world-state'
 
 // Terrain
@@ -92,11 +83,8 @@ export const NoisePortLayer = Layer.effect(
       noise2D: (x, z) => noise.noise2D(x, z),
       octaveNoise2D: (x, z, o, p, l) => noise.octaveNoise2D(x, z, o, p, l),
       setSeed: (seed) => noise.setSeed(seed),
-      // `getSeed` is exposed as a plain Effect (not a thunk) on the port to match
-      // the read-only "current seed" semantics. The infrastructure-side method
-      // is a thunk that builds an `Effect.sync` per call; we evaluate it once
-      // here and reuse the resulting Effect — same value, same shape.
-      getSeed: noise.getSeed(),
+      // `getSeed` is a plain Effect on both the service and port — no call needed.
+      getSeed: noise.getSeed,
       octaveNoise2DBatch: (points, o, p, l) => noise.octaveNoise2DBatch(points, o, p, l),
       noise2DBatch: (points) => noise.noise2DBatch(points),
       octaveNoise2DBatchXY: (xs, zs, o, p, l) => noise.octaveNoise2DBatchXY(xs, zs, o, p, l),
@@ -124,72 +112,10 @@ export const StoragePortLayer = Layer.effect(
   })
 ).pipe(Layer.provide(StorageServiceLive))
 
-// Bridge: satisfies TerrainWorkerPoolPort using the infrastructure TerrainWorkerPool.
-// `generateTerrain` is the only method the application layer consumes; we widen the
-// infrastructure error to the application-side `TerrainGenerationError` via `mapError`
-// so the application layer never imports infrastructure types. Other infrastructure-only
-// fields on the worker pool (workerCount, queueDepth) are deliberately not exposed.
-export const TerrainWorkerPoolPortLayer = Layer.effect(
-  TerrainWorkerPoolPort,
-  Effect.map(TerrainWorkerPool, (pool) => {
-    return TerrainWorkerPoolPort.of({
-      _tag: '@minecraft/application/terrain/TerrainWorkerPoolPort' as const,
-      generateTerrain: (coord, options) =>
-        pool.generateTerrain(coord, options).pipe(
-          Effect.mapError((err) => new PortTerrainGenerationError({ reason: err.reason, chunk: err.chunk })),
-        ),
-    })
-  })
-).pipe(Layer.provide(TerrainWorkerPoolLive))
-
 // Level 2: BiomeService depends on NoiseServicePort (via bridge)
 export const BiomeLayer = BiomeServiceLive.pipe(
   Layer.provide(NoisePortLayer),
 )
-
-// Bridge: satisfies PhysicsWorldPort using the infrastructure PhysicsWorldService implementation.
-export const PhysicsWorldPortLayer = Layer.effect(
-  PhysicsWorldPort,
-  Effect.map(PhysicsWorldService, (svc) => {
-    return PhysicsWorldPort.of({
-      _tag: '@minecraft/application/physics/PhysicsWorldPort' as const,
-      create: (config) => svc.create(config),
-      addBody: (world, body) => svc.addBody(world, body),
-      removeBody: (world, body) => svc.removeBody(world, body),
-      step: (world, deltaTime) => svc.step(world, deltaTime),
-    })
-  })
-).pipe(Layer.provide(PhysicsWorldServiceLive))
-
-// Bridge: satisfies RigidBodyPort using the infrastructure RigidBodyService implementation.
-export const RigidBodyPortLayer = Layer.effect(
-  RigidBodyPort,
-  Effect.map(RigidBodyService, (svc) => {
-    return RigidBodyPort.of({
-      _tag: '@minecraft/application/physics/RigidBodyPort' as const,
-      create: (config) => svc.create(config),
-      setPosition: (body, position) => svc.setPosition(body, position),
-      setQuaternion: (body, quaternion) => svc.setQuaternion(body, quaternion),
-      setVelocity: (body, velocity) => svc.setVelocity(body, velocity),
-      setAngularVelocity: (body, angularVelocity) => svc.setAngularVelocity(body, angularVelocity),
-      addShape: (body, shape) => svc.addShape(body, shape),
-      updateMassProperties: (body) => svc.updateMassProperties(body),
-    })
-  })
-).pipe(Layer.provide(RigidBodyServiceLive))
-
-// Bridge: satisfies ShapePort using the infrastructure ShapeService implementation.
-export const ShapePortLayer = Layer.effect(
-  ShapePort,
-  Effect.map(ShapeService, (svc) => {
-    return ShapePort.of({
-      _tag: '@minecraft/application/physics/ShapePort' as const,
-      createBox: (config) => svc.createBox(config),
-      createSphere: (config) => svc.createSphere(config),
-      createPlane: () => svc.createPlane(),
-    })
-  })
-).pipe(Layer.provide(ShapeServiceLive))
 
 // Level 2: PhysicsService depends on PhysicsWorldPort, RigidBodyPort, ShapePort (all independent peers, satisfied by bridges)
 export const PhysicsLayer = PhysicsServiceLive.pipe(

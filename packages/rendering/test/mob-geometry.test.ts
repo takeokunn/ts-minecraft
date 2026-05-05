@@ -1,13 +1,9 @@
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect } from 'vitest'
 import * as THREE from 'three'
 import { Option } from 'effect'
-import { _resetMobGeometryCachesForTest, buildMobGroup } from '@ts-minecraft/rendering'
+import { buildMobGroup } from '@ts-minecraft/rendering'
 
 describe('mob-geometry', () => {
-  beforeEach(() => {
-    _resetMobGeometryCachesForTest()
-  })
-
   describe('buildMobGroup(Zombie)', () => {
     it('returns a Group with 6 children: head, body, two arms, two legs', () => {
       const g = buildMobGroup('Zombie')

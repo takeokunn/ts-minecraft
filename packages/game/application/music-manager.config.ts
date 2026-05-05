@@ -1,4 +1,3 @@
-import type { Position } from '@ts-minecraft/kernel'
 import type { OscillatorWave } from '../domain/audio-types'
 
 type EnvironmentTrack = {
@@ -14,12 +13,3 @@ export const TRACKS = {
 } satisfies Record<string, EnvironmentTrack>
 
 export const DEFAULT_CAVE_THRESHOLD_Y = 40
-
-export const environmentFromContext = (
-  isNight: boolean,
-  playerPosition: Position,
-  caveThresholdY: number,
-): 'day' | 'night' | 'cave' => {
-  if (playerPosition.y < caveThresholdY) return 'cave'
-  return isNight ? 'night' : 'day'
-}

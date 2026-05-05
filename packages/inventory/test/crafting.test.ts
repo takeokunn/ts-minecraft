@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { Either, Schema } from 'effect'
+import { Array as Arr, Either, Option, Schema } from 'effect'
 import { RecipeId } from '@ts-minecraft/kernel'
 import { CraftingStationSchema, RecipeIngredient, Recipe } from '../domain/crafting'
 
@@ -38,36 +38,36 @@ describe('domain/crafting', () => {
 
   describe('RecipeIngredient', () => {
     it('constructs a valid ingredient', () => {
-      const ingredient = new RecipeIngredient({ blockType: 'WOOD', count: 2 })
-      expect(ingredient.blockType).toBe('WOOD')
+      const ingredient = new RecipeIngredient({ itemType: 'WOOD', count: 2 })
+      expect(ingredient.itemType).toBe('WOOD')
       expect(ingredient.count).toBe(2)
     })
 
     it('constructs an ingredient with count 1', () => {
-      const ingredient = new RecipeIngredient({ blockType: 'STONE', count: 1 })
+      const ingredient = new RecipeIngredient({ itemType: 'STONE', count: 1 })
       expect(ingredient.count).toBe(1)
     })
 
     it('constructs an ingredient with count 64', () => {
-      const ingredient = new RecipeIngredient({ blockType: 'DIRT', count: 64 })
+      const ingredient = new RecipeIngredient({ itemType: 'DIRT', count: 64 })
       expect(ingredient.count).toBe(64)
     })
 
     it('rejects an invalid blockType via Schema.decodeUnknownEither', () => {
       const decode = Schema.decodeUnknownEither(RecipeIngredient)
-      const result = decode({ blockType: 'INVALID_BLOCK', count: 1 })
+      const result = decode({ itemType: 'INVALID_BLOCK', count: 1 })
       expect(Either.isLeft(result)).toBe(true)
     })
 
     it('rejects a count below 1 via Schema.decodeUnknownEither', () => {
       const decode = Schema.decodeUnknownEither(RecipeIngredient)
-      const result = decode({ blockType: 'STONE', count: 0 })
+      const result = decode({ itemType: 'STONE', count: 0 })
       expect(Either.isLeft(result)).toBe(true)
     })
 
     it('rejects a count above 64 via Schema.decodeUnknownEither', () => {
       const decode = Schema.decodeUnknownEither(RecipeIngredient)
-      const result = decode({ blockType: 'STONE', count: 65 })
+      const result = decode({ itemType: 'STONE', count: 65 })
       expect(Either.isLeft(result)).toBe(true)
     })
   })
@@ -76,8 +76,8 @@ describe('domain/crafting', () => {
     const validRecipeData = {
       id: RecipeId.make('wood-to-planks'),
       station: 'inventory' as const,
-      ingredients: [new RecipeIngredient({ blockType: 'WOOD', count: 1 })],
-      output: { blockType: 'PLANKS' as const, count: 4 },
+      ingredients: [new RecipeIngredient({ itemType: 'WOOD', count: 1 })],
+      output: { itemType: 'PLANKS' as const, count: 4 },
     }
 
     it('constructs a valid Recipe', () => {
@@ -85,8 +85,8 @@ describe('domain/crafting', () => {
       expect(recipe.id).toBe('wood-to-planks')
       expect(recipe.station).toBe('inventory')
       expect(recipe.ingredients.length).toBe(1)
-      expect(recipe.ingredients[0]?.blockType).toBe('WOOD')
-      expect(recipe.output.blockType).toBe('PLANKS')
+      expect(Option.getOrThrow(Arr.get(recipe.ingredients, 0)).itemType).toBe('WOOD')
+      expect(recipe.output.itemType).toBe('PLANKS')
       expect(recipe.output.count).toBe(4)
     })
 
@@ -95,10 +95,10 @@ describe('domain/crafting', () => {
         id: RecipeId.make('planks-and-sticks-to-wooden-sword'),
         station: 'crafting_table',
         ingredients: [
-          new RecipeIngredient({ blockType: 'PLANKS', count: 2 }),
-          new RecipeIngredient({ blockType: 'STICKS', count: 1 }),
+          new RecipeIngredient({ itemType: 'PLANKS', count: 2 }),
+          new RecipeIngredient({ itemType: 'STICKS', count: 1 }),
         ],
-        output: { blockType: 'WOODEN_SWORD', count: 1 },
+        output: { itemType: 'WOODEN_SWORD', count: 1 },
       })
       expect(recipe.station).toBe('crafting_table')
       expect(recipe.ingredients.length).toBe(2)
@@ -108,8 +108,8 @@ describe('domain/crafting', () => {
       const recipe = new Recipe({
         id: RecipeId.make('raw-iron-to-iron-ingot'),
         station: 'furnace',
-        ingredients: [new RecipeIngredient({ blockType: 'IRON_ORE', count: 1 })],
-        output: { blockType: 'IRON_INGOT', count: 1 },
+        ingredients: [new RecipeIngredient({ itemType: 'IRON_ORE', count: 1 })],
+        output: { itemType: 'IRON_INGOT', count: 1 },
       })
       expect(recipe.station).toBe('furnace')
     })
@@ -120,7 +120,7 @@ describe('domain/crafting', () => {
         id: 'empty-recipe',
         station: 'inventory',
         ingredients: [],
-        output: { blockType: 'DIRT', count: 1 },
+        output: { itemType: 'DIRT', count: 1 },
       })
       expect(Either.isLeft(result)).toBe(true)
     })
@@ -130,8 +130,8 @@ describe('domain/crafting', () => {
       const result = decode({
         id: 'bad-station',
         station: 'anvil',
-        ingredients: [{ blockType: 'STONE', count: 1 }],
-        output: { blockType: 'DIRT', count: 1 },
+        ingredients: [{ itemType: 'STONE', count: 1 }],
+        output: { itemType: 'DIRT', count: 1 },
       })
       expect(Either.isLeft(result)).toBe(true)
     })
@@ -141,8 +141,8 @@ describe('domain/crafting', () => {
       const result = decode({
         id: 'bad-output',
         station: 'inventory',
-        ingredients: [{ blockType: 'STONE', count: 1 }],
-        output: { blockType: 'NOT_A_BLOCK', count: 1 },
+        ingredients: [{ itemType: 'STONE', count: 1 }],
+        output: { itemType: 'NOT_A_BLOCK', count: 1 },
       })
       expect(Either.isLeft(result)).toBe(true)
     })

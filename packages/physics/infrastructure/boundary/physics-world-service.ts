@@ -1,5 +1,6 @@
 import { Array as Arr, Effect } from 'effect'
-import type { CustomBody, CustomWorld, WorldConfig } from '../../domain/physics-port'
+import type { CustomBody } from '../../domain/physics-body'
+import type { CustomWorld, WorldConfig } from '../../domain/physics-world'
 import type { DeltaTimeSecs } from '@ts-minecraft/kernel'
 
 export class PhysicsWorldService extends Effect.Service<PhysicsWorldService>()(
@@ -21,20 +22,14 @@ export class PhysicsWorldService extends Effect.Service<PhysicsWorldService>()(
         }),
       step: (world: CustomWorld, deltaTime: DeltaTimeSecs): Effect.Effect<void, never> =>
         Effect.sync(() => {
-          const dt = deltaTime
-
-          // Integrate dynamic bodies
           Arr.forEach(world.bodies, (body) => {
             if (body.type !== 'dynamic') return
 
-            // Apply gravity
-            body.velocity.y += world.gravity.y * dt
-
-            // Euler integration
-            body.position.x += body.velocity.x * dt
-            body.position.y += body.velocity.y * dt
-            body.position.z += body.velocity.z * dt
-
+            // Euler integration with gravity
+            body.velocity.y += world.gravity.y * deltaTime
+            body.position.x += body.velocity.x * deltaTime
+            body.position.y += body.velocity.y * deltaTime
+            body.position.z += body.velocity.z * deltaTime
           })
         }),
     },

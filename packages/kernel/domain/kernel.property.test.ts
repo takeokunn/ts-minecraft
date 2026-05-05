@@ -16,8 +16,6 @@ import {
   BlockIdSchema,
   PhysicsBodyId,
   PhysicsBodyIdSchema,
-  ChunkId,
-  ChunkIdSchema,
   RecipeId,
   RecipeIdSchema,
   MetersPerSec,
@@ -108,11 +106,6 @@ describe('String branded types (property-based)', () => {
     expect(Either.isRight(result)).toBe(true)
   })
 
-  it.prop('ChunkId.make() is a total function for any string', { s: Arbitrary.make(ChunkIdSchema) }, ({ s }) => {
-    expect(() => ChunkId.make(s)).not.toThrow()
-    const result = Schema.decodeUnknownEither(ChunkIdSchema)(ChunkId.make(s))
-    expect(Either.isRight(result)).toBe(true)
-  })
 })
 
 describe('MetersPerSec (property-based)', () => {

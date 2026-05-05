@@ -1,224 +1,110 @@
-import { describe, it } from '@effect/vitest'
+import { describe, it } from 'vitest'
 import { expect } from 'vitest'
-import { Arbitrary, Array as Arr, Either, HashSet, Option, Schema } from 'effect'
-import { KeyMappings, KeyMappingsSchema } from '@ts-minecraft/player'
+import { Array as Arr, HashSet } from 'effect'
+import { KeyMappings } from '@ts-minecraft/player'
 
-// All valid literal values in order matching the schema
-const VALID_KEYS = [
-  'KeyW',
-  'KeyS',
-  'KeyA',
-  'KeyD',
-  'Space',
-  'ControlLeft',
-  'ShiftRight',
-  'F5',
-  'Digit1',
-  'Digit2',
-  'Digit3',
-  'Digit4',
-  'Digit5',
-  'Digit6',
-  'Digit7',
-  'Digit8',
-  'Digit9',
-  'KeyE',
-  'Escape',
-] as const
+describe('KeyMappings', () => {
+  describe('movement keys', () => {
+    it('MOVE_FORWARD maps to KeyW', () => {
+      expect(KeyMappings.MOVE_FORWARD).toBe('KeyW')
+    })
 
-describe('KeyMappings constant', () => {
-  it('has non-empty string values for all movement keys', () => {
-    expect(KeyMappings.MOVE_FORWARD).toBeTruthy()
-    expect(KeyMappings.MOVE_BACKWARD).toBeTruthy()
-    expect(KeyMappings.MOVE_LEFT).toBeTruthy()
-    expect(KeyMappings.MOVE_RIGHT).toBeTruthy()
-    expect(typeof KeyMappings.MOVE_FORWARD).toBe('string')
-    expect(typeof KeyMappings.MOVE_BACKWARD).toBe('string')
-    expect(typeof KeyMappings.MOVE_LEFT).toBe('string')
-    expect(typeof KeyMappings.MOVE_RIGHT).toBe('string')
-  })
+    it('MOVE_BACKWARD maps to KeyS', () => {
+      expect(KeyMappings.MOVE_BACKWARD).toBe('KeyS')
+    })
 
-  it('has non-empty string value for JUMP', () => {
-    expect(KeyMappings.JUMP).toBeTruthy()
-    expect(typeof KeyMappings.JUMP).toBe('string')
-  })
+    it('MOVE_LEFT maps to KeyA', () => {
+      expect(KeyMappings.MOVE_LEFT).toBe('KeyA')
+    })
 
-  it('has non-empty string value for INVENTORY_OPEN', () => {
-    expect(KeyMappings.INVENTORY_OPEN).toBeTruthy()
-    expect(typeof KeyMappings.INVENTORY_OPEN).toBe('string')
-  })
+    it('MOVE_RIGHT maps to KeyD', () => {
+      expect(KeyMappings.MOVE_RIGHT).toBe('KeyD')
+    })
 
-  it('has non-empty string value for ESCAPE', () => {
-    expect(KeyMappings.ESCAPE).toBeTruthy()
-    expect(typeof KeyMappings.ESCAPE).toBe('string')
-  })
+    it('JUMP maps to Space', () => {
+      expect(KeyMappings.JUMP).toBe('Space')
+    })
 
-  it('has non-empty string values for all hotbar slot keys', () => {
-    const hotbarKeys = [
-      KeyMappings.HOTBAR_SLOT_1,
-      KeyMappings.HOTBAR_SLOT_2,
-      KeyMappings.HOTBAR_SLOT_3,
-      KeyMappings.HOTBAR_SLOT_4,
-      KeyMappings.HOTBAR_SLOT_5,
-      KeyMappings.HOTBAR_SLOT_6,
-      KeyMappings.HOTBAR_SLOT_7,
-      KeyMappings.HOTBAR_SLOT_8,
-      KeyMappings.HOTBAR_SLOT_9,
-    ]
-    Arr.forEach(hotbarKeys, (key) => {
-      expect(key).toBeTruthy()
-      expect(typeof key).toBe('string')
+    it('SPRINT maps to ControlLeft', () => {
+      expect(KeyMappings.SPRINT).toBe('ControlLeft')
+    })
+
+    it('SNEAK maps to ShiftRight', () => {
+      expect(KeyMappings.SNEAK).toBe('ShiftRight')
     })
   })
 
-  it('has non-empty string values for SPRINT, SNEAK, CAMERA_TOGGLE', () => {
-    expect(KeyMappings.SPRINT).toBeTruthy()
-    expect(KeyMappings.SNEAK).toBeTruthy()
-    expect(KeyMappings.CAMERA_TOGGLE).toBeTruthy()
-  })
-
-  it('has exactly the expected literal values', () => {
-    expect(KeyMappings.MOVE_FORWARD).toBe('KeyW')
-    expect(KeyMappings.MOVE_BACKWARD).toBe('KeyS')
-    expect(KeyMappings.MOVE_LEFT).toBe('KeyA')
-    expect(KeyMappings.MOVE_RIGHT).toBe('KeyD')
-    expect(KeyMappings.JUMP).toBe('Space')
-    expect(KeyMappings.SPRINT).toBe('ControlLeft')
-    expect(KeyMappings.SNEAK).toBe('ShiftRight')
-    expect(KeyMappings.CAMERA_TOGGLE).toBe('F5')
-    expect(KeyMappings.INVENTORY_OPEN).toBe('KeyE')
-    expect(KeyMappings.ESCAPE).toBe('Escape')
-  })
-})
-
-describe('KeyMappingsSchema', () => {
-  it('decodes successfully with the KeyMappings constant values', () => {
-    const result = Schema.decodeUnknownEither(KeyMappingsSchema)(KeyMappings)
-    expect(Either.isRight(result)).toBe(true)
-  })
-
-  it('decodes the exact literal values for each field', () => {
-    const result = Schema.decodeUnknownEither(KeyMappingsSchema)({
-      MOVE_FORWARD: 'KeyW',
-      MOVE_BACKWARD: 'KeyS',
-      MOVE_LEFT: 'KeyA',
-      MOVE_RIGHT: 'KeyD',
-      JUMP: 'Space',
-      SPRINT: 'ControlLeft',
-      SNEAK: 'ShiftRight',
-      CAMERA_TOGGLE: 'F5',
-      HOTBAR_SLOT_1: 'Digit1',
-      HOTBAR_SLOT_2: 'Digit2',
-      HOTBAR_SLOT_3: 'Digit3',
-      HOTBAR_SLOT_4: 'Digit4',
-      HOTBAR_SLOT_5: 'Digit5',
-      HOTBAR_SLOT_6: 'Digit6',
-      HOTBAR_SLOT_7: 'Digit7',
-      HOTBAR_SLOT_8: 'Digit8',
-      HOTBAR_SLOT_9: 'Digit9',
-      INVENTORY_OPEN: 'KeyE',
-      ESCAPE: 'Escape',
+  describe('action keys', () => {
+    it('INVENTORY_OPEN maps to KeyE', () => {
+      expect(KeyMappings.INVENTORY_OPEN).toBe('KeyE')
     })
-    expect(Either.isRight(result)).toBe(true)
-  })
 
-  it('rejects an object with a wrong MOVE_FORWARD value', () => {
-    const result = Schema.decodeUnknownEither(KeyMappingsSchema)({
-      ...KeyMappings,
-      MOVE_FORWARD: 'KeyA', // wrong — should be 'KeyW'
+    it('ESCAPE maps to Escape', () => {
+      expect(KeyMappings.ESCAPE).toBe('Escape')
     })
-    expect(Either.isLeft(result)).toBe(true)
-  })
 
-  it('rejects an object with a wrong ESCAPE value', () => {
-    const result = Schema.decodeUnknownEither(KeyMappingsSchema)({
-      ...KeyMappings,
-      ESCAPE: 'Enter',
+    it('CAMERA_TOGGLE maps to F5', () => {
+      expect(KeyMappings.CAMERA_TOGGLE).toBe('F5')
     })
-    expect(Either.isLeft(result)).toBe(true)
   })
 
-  it('rejects an object missing required fields', () => {
-    const { ESCAPE: _removed, ...withoutEscape } = KeyMappings
-    const result = Schema.decodeUnknownEither(KeyMappingsSchema)(withoutEscape)
-    expect(Either.isLeft(result)).toBe(true)
+  describe('hotbar keys', () => {
+    it('HOTBAR_SLOT_1 maps to Digit1', () => {
+      expect(KeyMappings.HOTBAR_SLOT_1).toBe('Digit1')
+    })
+
+    it('HOTBAR_SLOT_2 maps to Digit2', () => {
+      expect(KeyMappings.HOTBAR_SLOT_2).toBe('Digit2')
+    })
+
+    it('HOTBAR_SLOT_3 maps to Digit3', () => {
+      expect(KeyMappings.HOTBAR_SLOT_3).toBe('Digit3')
+    })
+
+    it('HOTBAR_SLOT_4 maps to Digit4', () => {
+      expect(KeyMappings.HOTBAR_SLOT_4).toBe('Digit4')
+    })
+
+    it('HOTBAR_SLOT_5 maps to Digit5', () => {
+      expect(KeyMappings.HOTBAR_SLOT_5).toBe('Digit5')
+    })
+
+    it('HOTBAR_SLOT_6 maps to Digit6', () => {
+      expect(KeyMappings.HOTBAR_SLOT_6).toBe('Digit6')
+    })
+
+    it('HOTBAR_SLOT_7 maps to Digit7', () => {
+      expect(KeyMappings.HOTBAR_SLOT_7).toBe('Digit7')
+    })
+
+    it('HOTBAR_SLOT_8 maps to Digit8', () => {
+      expect(KeyMappings.HOTBAR_SLOT_8).toBe('Digit8')
+    })
+
+    it('HOTBAR_SLOT_9 maps to Digit9', () => {
+      expect(KeyMappings.HOTBAR_SLOT_9).toBe('Digit9')
+    })
   })
 
-  it('rejects a non-object value', () => {
-    expect(Either.isLeft(Schema.decodeUnknownEither(KeyMappingsSchema)(null))).toBe(true)
-    expect(Either.isLeft(Schema.decodeUnknownEither(KeyMappingsSchema)(42))).toBe(true)
-    expect(Either.isLeft(Schema.decodeUnknownEither(KeyMappingsSchema)('KeyW'))).toBe(true)
-  })
-})
-
-describe('KeyMappingsSchema (property-based)', () => {
-  it.prop(
-    'rejects arbitrary strings as MOVE_FORWARD values unless the exact literal matches',
-    { randomStr: Arbitrary.make(Schema.String.pipe(Schema.filter((s) => s !== 'KeyW'))) },
-    ({ randomStr }) => {
-      const result = Schema.decodeUnknownEither(KeyMappingsSchema)({
-        ...KeyMappings,
-        MOVE_FORWARD: randomStr,
+  describe('value types', () => {
+    it('all values are non-empty strings', () => {
+      const values = Object.values(KeyMappings)
+      Arr.forEach(values, (v) => {
+        expect(typeof v).toBe('string')
+        expect(v.length).toBeGreaterThan(0)
       })
-      expect(Either.isLeft(result)).toBe(true)
-    }
-  )
+    })
 
-  it.prop(
-    'rejects arbitrary strings as JUMP values unless the exact literal matches',
-    { randomStr: Arbitrary.make(Schema.String.pipe(Schema.filter((s) => s !== 'Space'))) },
-    ({ randomStr }) => {
-      const result = Schema.decodeUnknownEither(KeyMappingsSchema)({
-        ...KeyMappings,
-        JUMP: randomStr,
-      })
-      expect(Either.isLeft(result)).toBe(true)
-    }
-  )
-
-  it.prop(
-    'rejects arbitrary strings as INVENTORY_OPEN values unless the exact literal matches',
-    { randomStr: Arbitrary.make(Schema.String.pipe(Schema.filter((s) => s !== 'KeyE'))) },
-    ({ randomStr }) => {
-      const result = Schema.decodeUnknownEither(KeyMappingsSchema)({
-        ...KeyMappings,
-        INVENTORY_OPEN: randomStr,
-      })
-      expect(Either.isLeft(result)).toBe(true)
-    }
-  )
-
-  it.prop(
-    'rejects arbitrary strings as ESCAPE values unless the exact literal matches',
-    { randomStr: Arbitrary.make(Schema.String.pipe(Schema.filter((s) => s !== 'Escape'))) },
-    ({ randomStr }) => {
-      const result = Schema.decodeUnknownEither(KeyMappingsSchema)({
-        ...KeyMappings,
-        ESCAPE: randomStr,
-      })
-      expect(Either.isLeft(result)).toBe(true)
-    }
-  )
-
-  it('accepts only exact valid key strings from the known valid set', () => {
-    // Every value in VALID_KEYS should appear in the decoded KeyMappings
-    const decoded = Schema.decodeUnknownEither(KeyMappingsSchema)(KeyMappings)
-    expect(Either.isRight(decoded)).toBe(true)
-    const values = Object.values(Option.getOrThrow(Either.getRight(decoded)))
-    Arr.forEach(VALID_KEYS, (validKey) => {
-      expect(values).toContain(validKey)
+    it('has exactly 19 key bindings', () => {
+      expect(Object.keys(KeyMappings).length).toBe(19)
     })
   })
-})
 
-// ---------------------------------------------------------------------------
-// B8: KeyMappings uniqueness assertion
-// ---------------------------------------------------------------------------
-
-describe('KeyMappings uniqueness', () => {
-  it('all key mapping values are unique (no key bound twice)', () => {
-    const values = Object.values(KeyMappings)
-    const unique = HashSet.fromIterable(values)
-    expect(HashSet.size(unique)).toBe(values.length)
+  describe('uniqueness', () => {
+    it('all key mapping values are unique (no key bound twice)', () => {
+      const values = Object.values(KeyMappings)
+      const unique = HashSet.fromIterable(values)
+      expect(HashSet.size(unique)).toBe(values.length)
+    })
   })
 })

@@ -1,4 +1,5 @@
-import { EnvironmentLive,EnvironmentPort } from '@ts-minecraft/world-state'
+import { EnvironmentLive } from '@ts-minecraft/world-state'
+import { EnvironmentPort } from '@ts-minecraft/kernel'
 import { Effect } from 'effect'
 import { afterEach,beforeEach,describe,expect,it } from 'vitest'
 

@@ -28,16 +28,16 @@ describe('collectAvailableCounts', () => {
   })
 
   it('counts a single block type', () => {
-    const slots = [Option.some({ blockType: 'STONE' as const, count: 3 })]
+    const slots = [Option.some({ itemType: 'STONE' as const, count: 3 })]
     const counts = collectAvailableCounts(slots)
     expect(Option.getOrElse(HashMap.get(counts, 'STONE'), () => 0)).toBe(3)
   })
 
   it('accumulates counts for the same block type across slots', () => {
     const slots = [
-      Option.some({ blockType: 'STONE' as const, count: 3 }),
+      Option.some({ itemType: 'STONE' as const, count: 3 }),
       Option.none(),
-      Option.some({ blockType: 'STONE' as const, count: 2 }),
+      Option.some({ itemType: 'STONE' as const, count: 2 }),
     ]
     const counts = collectAvailableCounts(slots)
     expect(Option.getOrElse(HashMap.get(counts, 'STONE'), () => 0)).toBe(5)
@@ -45,10 +45,10 @@ describe('collectAvailableCounts', () => {
 
   it('tracks multiple distinct block types independently', () => {
     const slots = [
-      Option.some({ blockType: 'STONE' as const, count: 5 }),
-      Option.some({ blockType: 'DIRT' as const, count: 10 }),
+      Option.some({ itemType: 'STONE' as const, count: 5 }),
+      Option.some({ itemType: 'DIRT' as const, count: 10 }),
       Option.none(),
-      Option.some({ blockType: 'STONE' as const, count: 1 }),
+      Option.some({ itemType: 'STONE' as const, count: 1 }),
     ]
     const counts = collectAvailableCounts(slots)
     expect(Option.getOrElse(HashMap.get(counts, 'STONE'), () => 0)).toBe(6)
@@ -57,7 +57,7 @@ describe('collectAvailableCounts', () => {
   })
 
   it('skips None slots without affecting counts', () => {
-    const slots = Arr.makeBy(5, () => Option.none<{ blockType: 'AIR'; count: number }>())
+    const slots = Arr.makeBy(5, () => Option.none<{ itemType: 'AIR'; count: number }>())
     const counts = collectAvailableCounts(slots)
     expect(HashMap.size(counts)).toBe(0)
   })

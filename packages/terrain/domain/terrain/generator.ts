@@ -1,5 +1,6 @@
-import { Array as Arr, Effect, Metric, MetricBoundaries, MutableHashMap } from 'effect'
-import { ChunkService, Chunk } from '..//chunk'
+import { Array as Arr, Effect, MutableHashMap } from 'effect'
+import { ChunkService } from '../../application/chunk-service'
+import type { Chunk } from '../chunk'
 import { ChunkCoord, CHUNK_SIZE } from '@ts-minecraft/kernel'
 import type { BiomeGeneratorPort } from '../biome-generator-port'
 import { NoiseServicePort } from '../noise-service-port'
@@ -19,13 +20,6 @@ import {
   createTreeColumnContextResolver,
   placeChunkTrees,
 } from './generator-pipeline'
-
-// Chunk load duration histogram: 20 linear buckets 0–1000ms (width=50ms).
-export const chunkLoadHistogram = Metric.histogram(
-  'chunk_load_ms',
-  MetricBoundaries.linear({ start: 0, width: 50, count: 20 }),
-  'Chunk load duration in milliseconds'
-)
 
 export const generateTerrain = (
   chunkService: ChunkService,

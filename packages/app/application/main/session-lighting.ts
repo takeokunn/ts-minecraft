@@ -43,21 +43,22 @@ export const buildLighting = (
     return s
   })
   yield* sceneService.add(scene, sky)
-  const skyPort = yield* Effect.sync(() => {
+  const skyShaderMaterial = yield* Effect.sync(() => {
     const skyMaterial = Array.isArray(sky.material) ? sky.material[0] : sky.material
     if (!(skyMaterial instanceof THREE.ShaderMaterial)) {
       throw new StartupError({ reason: 'Sky material is not a ShaderMaterial' })
     }
-    const skyShaderMaterial = skyMaterial
-    Option.map(Option.fromNullable(skyShaderMaterial.uniforms['mieCoefficient']), (u) => { u.value = 0.005 })
-    Option.map(Option.fromNullable(skyShaderMaterial.uniforms['mieDirectionalG']), (u) => { u.value = 0.7 })
-    return Schema.decodeUnknownSync(SkyMaterialPortSchema)({
-      uniforms: {
-        sunPosition: skyShaderMaterial.uniforms['sunPosition'],
-        turbidity: skyShaderMaterial.uniforms['turbidity'],
-        rayleigh: skyShaderMaterial.uniforms['rayleigh'],
-      },
-    })
+    const mat = skyMaterial
+    Option.map(Option.fromNullable(mat.uniforms['mieCoefficient']), (u) => { u.value = 0.005 })
+    Option.map(Option.fromNullable(mat.uniforms['mieDirectionalG']), (u) => { u.value = 0.7 })
+    return mat
+  })
+  const skyPort = yield* Schema.decodeUnknown(SkyMaterialPortSchema)({
+    uniforms: {
+      sunPosition: skyShaderMaterial.uniforms['sunPosition'],
+      turbidity: skyShaderMaterial.uniforms['turbidity'],
+      rayleigh: skyShaderMaterial.uniforms['rayleigh'],
+    },
   })
 
   const { skyNight, skyDay, skyCurrent } = yield* Effect.sync(() => ({

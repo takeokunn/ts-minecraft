@@ -25,6 +25,7 @@ export const DeltaTimeSecs = {
 export const BlockIndexSchema = Schema.Number.pipe(
   Schema.int(),
   Schema.nonNegative(),
+  Schema.lessThanOrEqualTo(65535),
   Schema.brand('BlockIndex')
 )
 export type BlockIndex = Schema.Schema.Type<typeof BlockIndexSchema>

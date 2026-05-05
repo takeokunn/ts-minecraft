@@ -84,7 +84,7 @@ describe('application/inventory/inventory-service', () => {
 
         expect(Option.isSome(slot)).toBe(true)
         const unwrapped = Option.getOrThrow(slot)
-        expect(unwrapped.blockType).toBe('STONE')
+        expect(unwrapped.itemType).toBe('STONE')
         expect(unwrapped.count).toBe(7)
       }).pipe(Effect.provide(testLayer))
     })
@@ -109,7 +109,7 @@ describe('application/inventory/inventory-service', () => {
 
         expect(Option.isSome(slot)).toBe(true)
         const unwrapped = Option.getOrThrow(slot)
-        expect(unwrapped.blockType).toBe('DIRT')
+        expect(unwrapped.itemType).toBe('DIRT')
         expect(unwrapped.count).toBe(12)
       }).pipe(Effect.provide(testLayer))
     })
@@ -136,7 +136,7 @@ describe('application/inventory/inventory-service', () => {
         const slot = yield* service.getSlot(asSlotIndex(2))
         expect(Option.isSome(slot)).toBe(true)
         const unwrapped = Option.getOrThrow(slot)
-        expect(unwrapped.blockType).toBe('GLASS')
+        expect(unwrapped.itemType).toBe('GLASS')
         expect(unwrapped.count).toBe(9)
       }).pipe(Effect.provide(testLayer))
     })
@@ -157,7 +157,7 @@ describe('application/inventory/inventory-service', () => {
         expect(Option.isNone(from)).toBe(true)
         expect(Option.isSome(to)).toBe(true)
         const unwrapped = Option.getOrThrow(to)
-        expect(unwrapped.blockType).toBe('DIRT')
+        expect(unwrapped.itemType).toBe('DIRT')
         expect(unwrapped.count).toBe(10)
       }).pipe(Effect.provide(testLayer))
     })
@@ -176,7 +176,7 @@ describe('application/inventory/inventory-service', () => {
         expect(Option.isNone(from)).toBe(true)
         expect(Option.isSome(to)).toBe(true)
         const unwrapped = Option.getOrThrow(to)
-        expect(unwrapped.blockType).toBe('STONE')
+        expect(unwrapped.itemType).toBe('STONE')
         expect(unwrapped.count).toBe(30)
       }).pipe(Effect.provide(testLayer))
     })
@@ -198,7 +198,7 @@ describe('application/inventory/inventory-service', () => {
 
         expect(Option.isSome(from)).toBe(true)
         const unwrappedFrom = Option.getOrThrow(from)
-        expect(unwrappedFrom.blockType).toBe('STONE')
+        expect(unwrappedFrom.itemType).toBe('STONE')
         expect(unwrappedFrom.count).toBe(6)
       }).pipe(Effect.provide(testLayer))
     })
@@ -218,10 +218,10 @@ describe('application/inventory/inventory-service', () => {
         expect(Option.isSome(from)).toBe(true)
         expect(Option.isSome(to)).toBe(true)
         const unwrappedFrom = Option.getOrThrow(from)
-        expect(unwrappedFrom.blockType).toBe('WOOD')
+        expect(unwrappedFrom.itemType).toBe('WOOD')
         expect(unwrappedFrom.count).toBe(3)
         const unwrappedTo = Option.getOrThrow(to)
-        expect(unwrappedTo.blockType).toBe('DIRT')
+        expect(unwrappedTo.itemType).toBe('DIRT')
         expect(unwrappedTo.count).toBe(5)
       }).pipe(Effect.provide(testLayer))
     })
@@ -240,7 +240,7 @@ describe('application/inventory/inventory-service', () => {
         expect(Option.isNone(from)).toBe(true)
         expect(Option.isSome(to)).toBe(true)
         const unwrapped = Option.getOrThrow(to)
-        expect(unwrapped.blockType).toBe('GLASS')
+        expect(unwrapped.itemType).toBe('GLASS')
         expect(unwrapped.count).toBe(2)
       }).pipe(Effect.provide(testLayer))
     })
@@ -256,8 +256,30 @@ describe('application/inventory/inventory-service', () => {
         const slot = yield* service.getSlot(asSlotIndex(4))
         expect(Option.isSome(slot)).toBe(true)
         const unwrapped = Option.getOrThrow(slot)
-        expect(unwrapped.blockType).toBe('SNOW')
+        expect(unwrapped.itemType).toBe('SNOW')
         expect(unwrapped.count).toBe(8)
+      }).pipe(Effect.provide(testLayer))
+    })
+  })
+
+  describe('clear', () => {
+    it.effect('resets all 36 slots to Option.none after having items', () => {
+      const testLayer = createTestLayer(createTestBlockRegistry(airOnlyBlocks))
+      return Effect.gen(function* () {
+        const service = yield* InventoryService
+        // Set several slots across main inventory and hotbar
+        yield* service.setSlot(asSlotIndex(0), Option.some(createStack('DIRT', 10)))
+        yield* service.setSlot(asSlotIndex(10), Option.some(createStack('STONE', 5)))
+        yield* service.setSlot(asSlotIndex(HOTBAR_START), Option.some(createStack('WOOD', 3)))
+        yield* service.setSlot(asSlotIndex(HOTBAR_START + 4), Option.some(createStack('SAND', 7)))
+
+        yield* service.clear()
+
+        const all = yield* service.getAllSlots()
+        expect(all.length).toBe(INVENTORY_SIZE)
+        Arr.forEach(all, (slot) => {
+          expect(Option.isNone(slot)).toBe(true)
+        })
       }).pipe(Effect.provide(testLayer))
     })
   })

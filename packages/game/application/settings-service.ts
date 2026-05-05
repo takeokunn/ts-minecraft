@@ -1,7 +1,7 @@
 import { Cause, Effect, Option, Ref, Schema } from 'effect'
 import { GRAPHICS_PRESETS } from './settings-service.config'
 import { SettingsError } from '../domain/errors'
-import { EnvironmentPort } from '../domain/environment-port'
+import { EnvironmentPort } from '@ts-minecraft/kernel'
 
 // Replaces individual post-processing toggles; each level maps to a fixed combination of pass enable states via resolvePreset().
 export const GraphicsQuality = Schema.Literal('low', 'medium', 'high', 'ultra')

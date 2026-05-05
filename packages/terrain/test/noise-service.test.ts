@@ -74,7 +74,7 @@ describe('infrastructure/noise/noise-service', () => {
     it.effect('returns 0 before any setSeed call (default seed)', () =>
       Effect.gen(function* () {
         const service = yield* NoiseService
-        const seed = yield* service.getSeed()
+        const seed = yield* service.getSeed
         expect(seed).toBe(0)
       }).pipe(Effect.provide(NoiseService.Default))
     )
@@ -83,7 +83,7 @@ describe('infrastructure/noise/noise-service', () => {
       Effect.gen(function* () {
         const service = yield* NoiseService
         yield* service.setSeed(42)
-        const seed = yield* service.getSeed()
+        const seed = yield* service.getSeed
         expect(seed).toBe(42)
       }).pipe(Effect.provide(NoiseService.Default))
     )
@@ -93,7 +93,7 @@ describe('infrastructure/noise/noise-service', () => {
         const service = yield* NoiseService
         yield* service.setSeed(100)
         yield* service.setSeed(999)
-        const seed = yield* service.getSeed()
+        const seed = yield* service.getSeed
         expect(seed).toBe(999)
       }).pipe(Effect.provide(NoiseService.Default))
     )

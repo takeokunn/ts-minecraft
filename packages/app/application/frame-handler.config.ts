@@ -31,5 +31,11 @@ export const PLAYER_ATTACK_RADIUS       = 0.9
 export const PLAYER_ATTACK_DAMAGE       = 4
 export const WOODEN_SWORD_ATTACK_DAMAGE = 8
 
+// Entity bounding box center is 0.9 units above position.y (half hitbox height)
+export const ENTITY_CENTER_Y_OFFSET = 0.9
+
+// FPS threshold above which adaptive quality stops degrading (comfortably above 60Hz on 120Hz display)
+export const ADAPTIVE_QUALITY_HIGH_FPS_THRESHOLD = 110
+
 // Fallback when the physics surface query fails.
 export const FALLBACK_PLAYER_POS = Object.freeze({ x: 0, y: 64, z: 0 } as const)

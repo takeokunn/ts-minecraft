@@ -1,9 +1,8 @@
 import { Effect, Schema } from 'effect'
-import { Vector3Schema } from '@ts-minecraft/kernel'
 import type { Vector3 } from '@ts-minecraft/kernel'
+import { MetersPerSec } from '@ts-minecraft/kernel'
 import { PlayerInputService } from './player-input-service'
 import { KeyMappings } from '../domain/key-mappings'
-import { MetersPerSec } from '@ts-minecraft/kernel'
 
 export const MovementInputSchema = Schema.Struct({
   forward: Schema.Boolean,
@@ -14,9 +13,6 @@ export const MovementInputSchema = Schema.Struct({
   sprint: Schema.Boolean,
 })
 export type MovementInput = Schema.Schema.Type<typeof MovementInputSchema>
-
-export const VelocitySchema = Vector3Schema
-export type Velocity = Vector3
 
 // Branded type enforces unit at compile time and validates finiteness at runtime.
 export const DEFAULT_WALK_SPEED: MetersPerSec = MetersPerSec.make(8.0)
@@ -78,13 +74,13 @@ export class MovementService extends Effect.Service<MovementService>()(
         input: MovementInput,
         yaw: number,
         isGrounded: boolean
-      ): Effect.Effect<Velocity, never> =>
+      ): Effect.Effect<Vector3, never> =>
         Effect.succeed(computeVelocity(input, yaw, isGrounded))
 
       return {
         getInput,
         calculateVelocity,
-        update: (yaw: number, isGrounded: boolean): Effect.Effect<Velocity, never> =>
+        update: (yaw: number, isGrounded: boolean): Effect.Effect<Vector3, never> =>
           Effect.gen(function* () {
             const input = yield* getInput()
             return yield* calculateVelocity(input, yaw, isGrounded)

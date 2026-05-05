@@ -3,7 +3,6 @@ import { DomOperationsService } from '@ts-minecraft/app/presentation/hud/crossha
 import { GameStateService } from '@ts-minecraft/game'
 import { GameModeService } from '@ts-minecraft/game'
 import { HealthService } from '@ts-minecraft/player'
-import { InventoryService } from '@ts-minecraft/inventory'
 import { DEFAULT_PLAYER_ID } from '@ts-minecraft/kernel'
 import {
   type SessionControl,
@@ -81,10 +80,10 @@ export class DeathScreenService extends Effect.Service<DeathScreenService>()(
   {
     scoped: Effect.flatMap(
       Effect.all(
-        [DomOperationsService, GameStateService, GameModeService, HealthService, InventoryService],
+        [DomOperationsService, GameStateService, GameModeService, HealthService],
         { concurrency: 'unbounded' },
       ),
-      ([dom, gameState, gameMode, healthService, inventoryService]) =>
+      ([dom, gameState, gameMode, healthService]) =>
         Effect.acquireRelease(
           Effect.sync((): DeathScreenDom => {
             if (typeof document === 'undefined') {
@@ -269,9 +268,6 @@ export class DeathScreenService extends Effect.Service<DeathScreenService>()(
                     )
 
                     const fiber = yield* Effect.forkDaemon(deathWatcher)
-                    // Suppress unused-warning for inventoryService — kept in
-            // closure for future drop-entity support.
-                    void inventoryService
 
                     return {
                       handleRespawnClick,

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { WorldError, GameLoopError, SettingsError, StartupError } from '../domain/errors'
+import { WorldError, GameLoopError, SettingsError, StartupError, GameStateError } from '../domain/errors'
 
 describe('domain/errors', () => {
   describe('WorldError', () => {
@@ -104,6 +104,34 @@ describe('domain/errors', () => {
 
     it('is an instance of Error', () => {
       const err = new StartupError({ reason: 'Something went wrong' })
+      expect(err).toBeInstanceOf(Error)
+    })
+  })
+
+  describe('GameStateError', () => {
+    it('has the correct _tag', () => {
+      const err = new GameStateError({ operation: 'initialize', reason: 'body add failed' })
+      expect(err._tag).toBe('GameStateError')
+    })
+
+    it('message without cause', () => {
+      const err = new GameStateError({ operation: 'initialize', reason: 'body add failed' })
+      expect(err.message).toBe('GameState error during initialize: body add failed')
+    })
+
+    it('message with Error cause', () => {
+      const cause = new Error('underlying error')
+      const err = new GameStateError({ operation: 'update', reason: 'physics fault', cause })
+      expect(err.message).toBe('GameState error during update: physics fault: underlying error')
+    })
+
+    it('message with non-Error cause', () => {
+      const err = new GameStateError({ operation: 'respawn', reason: 'not initialized', cause: 'missing body' })
+      expect(err.message).toBe('GameState error during respawn: not initialized: missing body')
+    })
+
+    it('is an instance of Error', () => {
+      const err = new GameStateError({ operation: 'initialize', reason: 'body add failed' })
       expect(err).toBeInstanceOf(Error)
     })
   })

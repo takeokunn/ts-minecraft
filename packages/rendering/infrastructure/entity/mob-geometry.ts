@@ -18,7 +18,7 @@ type Dim3 = readonly [number, number, number]
 
 // Shared BoxGeometry cache keyed by `${type}:${role}`. Geometries are translated so the local origin is at the
 // limb pivot (top center for limbs, geometric center for head/body). Callers MUST NOT dispose these.
-let geometryCache = MutableHashMap.empty<string, THREE.BoxGeometry>()
+const geometryCache = MutableHashMap.empty<string, THREE.BoxGeometry>()
 
 const getOrCreateGeometry = (
   key: string,
@@ -40,7 +40,7 @@ const getOrCreateGeometry = (
   })
 
 // Per-type material cache; shared across all mobs of the same type+role. MUST NOT be disposed by the renderer.
-let materialCache = MutableHashMap.empty<string, THREE.MeshStandardMaterial>()
+const materialCache = MutableHashMap.empty<string, THREE.MeshStandardMaterial>()
 
 const getOrCreateMaterial = (key: string, color: number): THREE.MeshStandardMaterial =>
   Option.match(MutableHashMap.get(materialCache, key), {
@@ -209,10 +209,4 @@ export const buildMobGroup = (type: EntityType): MobLimbGroup => {
     case 'Sheep':
       return buildQuadruped('Sheep', SHEEP_PARTS, SHEEP_PALETTE)
   }
-}
-
-// For tests only — clears geometry/material caches so THREE.js mock constructors are used in subsequent runs.
-export const _resetMobGeometryCachesForTest = (): void => {
-  geometryCache = MutableHashMap.empty()
-  materialCache = MutableHashMap.empty()
 }

@@ -1,13 +1,13 @@
 import { HashMap, HashSet, Option } from 'effect'
-import type { BlockType } from '@ts-minecraft/kernel'
+import type { BlockType, ItemType, InventoryItem } from '@ts-minecraft/kernel'
 export {
   DIAMOND_PICKAXE_HARVESTABLE_BLOCKS,
   IRON_PICKAXE_HARVESTABLE_BLOCKS,
   STONE_PICKAXE_HARVESTABLE_BLOCKS,
   WOODEN_PICKAXE_HARVESTABLE_BLOCKS,
-} from '../domain/harvestable-blocks'
+} from './harvestable-blocks'
 
-export const NON_PLACEABLE_BLOCK_TYPES: HashSet.HashSet<BlockType> = HashSet.fromIterable<BlockType>([
+export const NON_PLACEABLE_ITEM_TYPES: HashSet.HashSet<ItemType> = HashSet.fromIterable<ItemType>([
   'STICKS',
   'COAL',
   'WOODEN_SWORD',
@@ -25,7 +25,7 @@ export const NON_PLACEABLE_BLOCK_TYPES: HashSet.HashSet<BlockType> = HashSet.fro
   'DIAMOND_PICKAXE',
 ])
 
-export const INVENTORY_DROP_OVERRIDES: HashMap.HashMap<BlockType, BlockType> = HashMap.fromIterable<BlockType, BlockType>([
+export const INVENTORY_DROP_OVERRIDES: HashMap.HashMap<BlockType, InventoryItem> = HashMap.fromIterable<BlockType, InventoryItem>([
   ['STONE', 'COBBLESTONE'],
   ['COAL_ORE', 'COAL'],
   ['DEEPSLATE_COAL_ORE', 'COAL'],
@@ -43,10 +43,10 @@ export const INVENTORY_DROP_OVERRIDES: HashMap.HashMap<BlockType, BlockType> = H
   ['DEEPSLATE_EMERALD_ORE', 'EMERALD'],
 ])
 
-export const getInventoryDropForBlock = (blockType: BlockType): BlockType =>
+export const getInventoryDropForBlock = (blockType: BlockType): InventoryItem =>
   Option.getOrElse(HashMap.get(INVENTORY_DROP_OVERRIDES, blockType), () => blockType)
 
-export const PICKAXE_BLOCK_TYPES: HashSet.HashSet<BlockType> = HashSet.fromIterable<BlockType>([
+export const PICKAXE_BLOCK_TYPES: HashSet.HashSet<ItemType> = HashSet.fromIterable<ItemType>([
   'WOODEN_PICKAXE',
   'STONE_PICKAXE',
   'IRON_PICKAXE',

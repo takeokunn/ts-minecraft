@@ -7,13 +7,48 @@ import {
   removeFromStack,
   canMerge,
   mergeStacks,
+  maxStackFor,
 } from '../domain/item-stack'
 
 describe('domain/item-stack', () => {
+  describe('maxStackFor', () => {
+    it('returns 64 for regular block DIRT', () => {
+      expect(maxStackFor('DIRT')).toBe(64)
+    })
+
+    it('returns 64 for regular block STONE', () => {
+      expect(maxStackFor('STONE')).toBe(64)
+    })
+
+    it('returns 64 for regular block WOOD', () => {
+      expect(maxStackFor('WOOD')).toBe(64)
+    })
+
+    it('returns 1 for WOODEN_SWORD', () => {
+      expect(maxStackFor('WOODEN_SWORD')).toBe(1)
+    })
+
+    it('returns 1 for WOODEN_PICKAXE', () => {
+      expect(maxStackFor('WOODEN_PICKAXE')).toBe(1)
+    })
+
+    it('returns 1 for STONE_PICKAXE', () => {
+      expect(maxStackFor('STONE_PICKAXE')).toBe(1)
+    })
+
+    it('returns 1 for IRON_PICKAXE', () => {
+      expect(maxStackFor('IRON_PICKAXE')).toBe(1)
+    })
+
+    it('returns 1 for DIAMOND_PICKAXE', () => {
+      expect(maxStackFor('DIAMOND_PICKAXE')).toBe(1)
+    })
+  })
+
   describe('createStack', () => {
-    it('creates a stack with correct blockType and count', () => {
+    it('creates a stack with correct itemType and count', () => {
       const stack = createStack('DIRT', 10)
-      expect(stack.blockType).toBe('DIRT')
+      expect(stack.itemType).toBe('DIRT')
       expect(stack.count).toBe(10)
     })
 
@@ -46,13 +81,23 @@ describe('domain/item-stack', () => {
       const stack = createStack('GRAVEL', MAX_STACK_SIZE)
       expect(stack.count).toBe(MAX_STACK_SIZE)
     })
+
+    it('clamps count to 1 for tool type WOODEN_SWORD when passed 5', () => {
+      const stack = createStack('WOODEN_SWORD', 5)
+      expect(stack.count).toBe(1)
+    })
+
+    it('accepts count=1 for tool type IRON_PICKAXE', () => {
+      const stack = createStack('IRON_PICKAXE', 1)
+      expect(stack.count).toBe(1)
+    })
   })
 
   describe('addToStack', () => {
     it('adds items to stack', () => {
       const stack = createStack('DIRT', 10)
       const result = addToStack(stack, 5)
-      expect(result.blockType).toBe('DIRT')
+      expect(result.itemType).toBe('DIRT')
       expect(result.count).toBe(15)
     })
 
@@ -68,10 +113,16 @@ describe('domain/item-stack', () => {
       expect(result.count).toBe(MAX_STACK_SIZE)
     })
 
-    it('preserves blockType after adding', () => {
+    it('preserves itemType after adding', () => {
       const stack = createStack('GLASS', 3)
       const result = addToStack(stack, 2)
-      expect(result.blockType).toBe('GLASS')
+      expect(result.itemType).toBe('GLASS')
+    })
+
+    it('tool stack at max (count=1) stays at 1 when adding more', () => {
+      const stack = createStack('WOODEN_SWORD', 1)
+      const result = addToStack(stack, 1)
+      expect(result.count).toBe(1)
     })
   })
 
@@ -81,7 +132,7 @@ describe('domain/item-stack', () => {
       const result = removeFromStack(stack, 3)
       expect(Option.isSome(result)).toBe(true)
       const unwrapped = Option.getOrThrow(result)
-      expect(unwrapped.blockType).toBe('DIRT')
+      expect(unwrapped.itemType).toBe('DIRT')
       expect(unwrapped.count).toBe(7)
     })
 
@@ -97,22 +148,22 @@ describe('domain/item-stack', () => {
       expect(Option.isNone(result)).toBe(true)
     })
 
-    it('preserves blockType in the reduced stack', () => {
+    it('preserves itemType in the reduced stack', () => {
       const stack = createStack('SAND', 8)
       const result = removeFromStack(stack, 1)
       expect(Option.isSome(result)).toBe(true)
-      expect(Option.getOrThrow(result).blockType).toBe('SAND')
+      expect(Option.getOrThrow(result).itemType).toBe('SAND')
     })
   })
 
   describe('canMerge', () => {
-    it('returns true for same blockType', () => {
+    it('returns true for same itemType', () => {
       const a = createStack('DIRT', 5)
       const b = createStack('DIRT', 10)
       expect(canMerge(a, b)).toBe(true)
     })
 
-    it('returns false for different blockType', () => {
+    it('returns false for different itemType', () => {
       const a = createStack('DIRT', 5)
       const b = createStack('STONE', 10)
       expect(canMerge(a, b)).toBe(false)
@@ -142,10 +193,10 @@ describe('domain/item-stack', () => {
       const b = createStack('STONE', 5)
       const [newA, remainderB] = mergeStacks(a, b)
       expect(newA.count).toBe(10)
-      expect(newA.blockType).toBe('DIRT')
+      expect(newA.itemType).toBe('DIRT')
       expect(Option.isSome(remainderB)).toBe(true)
       const unwrappedB = Option.getOrThrow(remainderB)
-      expect(unwrappedB.blockType).toBe('STONE')
+      expect(unwrappedB.itemType).toBe('STONE')
       expect(unwrappedB.count).toBe(5)
     })
 
@@ -164,6 +215,16 @@ describe('domain/item-stack', () => {
       const [newA, remainderB] = mergeStacks(a, b)
       expect(newA.count).toBe(MAX_STACK_SIZE)
       expect(Option.isNone(remainderB)).toBe(true)
+    })
+
+    it('tool stack at max (count=1) cannot absorb more: returns [unchanged a, Option.some(b)]', () => {
+      const a = createStack('WOODEN_SWORD', 1)
+      const b = createStack('WOODEN_SWORD', 1)
+      const [newA, remainderB] = mergeStacks(a, b)
+      expect(newA.count).toBe(1)
+      expect(Option.isSome(remainderB)).toBe(true)
+      expect(Option.getOrThrow(remainderB).count).toBe(1)
+      expect(Option.getOrThrow(remainderB).itemType).toBe('WOODEN_SWORD')
     })
   })
 })

@@ -4,7 +4,6 @@ import {
   PlayerId,
   BlockId,
   PhysicsBodyId,
-  ChunkId,
   RecipeId,
 } from './ids'
 
@@ -73,24 +72,6 @@ describe('ids', () => {
 
     it('throws on null input', () => {
       expect(invokeWithInvalidInput(PhysicsBodyId.make, null)).toThrow()
-    })
-  })
-
-  describe('ChunkId', () => {
-    it('make returns a branded ChunkId', () => {
-      expect(ChunkId.make('0,0')).toBe('0,0')
-    })
-
-    it('accepts arbitrary string format', () => {
-      expect(ChunkId.make('5,-3')).toBe('5,-3')
-    })
-
-    it('accepts empty string', () => {
-      expect(ChunkId.make('')).toBe('')
-    })
-
-    it('throws on null input', () => {
-      expect(invokeWithInvalidInput(ChunkId.make, null)).toThrow()
     })
   })
 

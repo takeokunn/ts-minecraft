@@ -1,8 +1,8 @@
-import { Array as Arr, Cause, Effect, Either, Option, Ref } from 'effect'
-import { InventoryService, INVENTORY_SIZE, HOTBAR_START, type InventorySlot } from '@ts-minecraft/inventory'
+import { Array as Arr, Effect, Either, Option, Ref } from 'effect'
+import { InventoryService, HOTBAR_START, type InventorySlot } from '@ts-minecraft/inventory'
 import { HotbarService } from '@ts-minecraft/inventory'
 import { RecipeService } from '@ts-minecraft/inventory'
-import { FurnaceService } from '@ts-minecraft/inventory'
+import { FurnaceService } from '@ts-minecraft/furnace'
 import { GameStateService } from '@ts-minecraft/game'
 import { ChunkManagerService } from '@ts-minecraft/terrain'
 import { DEFAULT_PLAYER_ID } from '@ts-minecraft/kernel'
@@ -16,6 +16,7 @@ import { scanNearbyBlock } from '@ts-minecraft/app/main/qa-spatial'
 import { buildOverlayDom } from './inventory-renderer-dom'
 import { collectAvailableCounts } from './inventory-renderer-helpers'
 import { renderSlotElements, renderCraftingList, renderStatusEl } from './inventory-renderer-refresh'
+import { buildHandleDelegatedClick } from './inventory-renderer-click-handler'
 
 export class InventoryRendererService extends Effect.Service<InventoryRendererService>()(
   '@minecraft/presentation/InventoryRenderer',
@@ -40,7 +41,7 @@ export class InventoryRendererService extends Effect.Service<InventoryRendererSe
 
       const getPlayerPos = () =>
         gameState.getPlayerPosition(DEFAULT_PLAYER_ID).pipe(
-          Effect.catchAll(() => Effect.succeed({ x: 0, y: 0, z: 0 })),
+          Effect.catchAllCause(() => Effect.succeed({ x: 0, y: 0, z: 0 })),
         )
 
       const hasNearbyCraftingTable = (): Effect.Effect<boolean, never> =>
@@ -91,55 +92,16 @@ export class InventoryRendererService extends Effect.Service<InventoryRendererSe
 
       return Effect.sync(() => buildOverlayDom(dom)).pipe(
         Effect.flatMap(({ overlayEl, slotEls, craftingListEl, statusEl }) => {
-        /* c8 ignore start */
-        const handleDelegatedClick = (event: MouseEvent) => {
-          const htmlTarget = event.target instanceof HTMLElement ? event.target : null
-          const recipeTarget = Option.fromNullable(htmlTarget?.closest('[data-recipe-id]')).pipe(
-            Option.filter((target): target is HTMLElement => target instanceof HTMLElement),
-          )
-
-          Option.match(recipeTarget, {
-            onSome: (target) => {
-              const recipeId = target.dataset['recipeId']
-              if (!recipeId) return
-                Effect.runFork(
-                Effect.all([hasNearbyCraftingTable(), hasNearbyFurnace()], { concurrency: 'unbounded' }).pipe(
-                  Effect.flatMap(([hasTableAccess, hasFurnaceAccess]) => performRecipe(RecipeId.make(recipeId), hasTableAccess, hasFurnaceAccess)),
-                  Effect.andThen(Ref.set(statusMessageRef, 'Crafted successfully.')),
-                  Effect.catchAll((error) =>
-                    Ref.set(statusMessageRef, error instanceof Error ? error.message : 'Crafting failed.'),
-                  ),
-                  Effect.andThen(refreshSlots()),
-                  Effect.catchAllCause((cause) =>
-                    Effect.logError(`Crafting click error: ${Cause.pretty(cause)}`),
-                  ),
-                ),
-              )
-            },
-            onNone: () => {
-              const slotTarget = Option.fromNullable(htmlTarget?.closest('[data-slot]')).pipe(
-                Option.filter((target): target is HTMLElement => target instanceof HTMLElement),
-              )
-
-              Option.map(slotTarget, (target) => {
-                const index = parseInt(Option.getOrElse(Option.fromNullable(target.dataset['slot']), () => '-1'), 10)
-                if (index < 0 || index >= INVENTORY_SIZE) return
-                Effect.runFork(
-                  Effect.gen(function* () {
-                    const selectedSlot = yield* hotbarService.getSelectedSlot()
-                    const hotbarInventoryIndex = HOTBAR_START + SlotIndex.toNumber(selectedSlot)
-                    yield* inventoryService.moveStack(SlotIndex.make(index), SlotIndex.make(hotbarInventoryIndex))
-                  }).pipe(
-                    Effect.catchAllCause(cause =>
-                      Effect.logError(`Inventory click error: ${Cause.pretty(cause)}`)
-                    )
-                  )
-                )
-              })
-            },
-          })
-        }
-        /* c8 ignore stop */
+        /* c8 ignore next */
+        const handleDelegatedClick = buildHandleDelegatedClick({
+          hasNearbyCraftingTable,
+          hasNearbyFurnace,
+          performRecipe,
+          hotbarService,
+          inventoryService,
+          statusMessageRef,
+          refreshSlots: () => refreshSlots(),
+        })
 
         const refreshSlots = (): Effect.Effect<void, never> =>
           Effect.gen(function* () {
@@ -212,7 +174,7 @@ export class InventoryRendererService extends Effect.Service<InventoryRendererSe
               yield* Ref.set(
                 statusMessageRef,
                 crafted
-                  ? `Crafted ${recipe.output.count} ${recipe.output.blockType}.`
+                  ? `Crafted ${recipe.output.count} ${recipe.output.itemType}.`
                   : 'Crafting failed.',
               )
               yield* refreshSlots()

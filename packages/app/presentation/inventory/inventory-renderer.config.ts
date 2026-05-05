@@ -1,6 +1,6 @@
-import type { BlockType } from '@ts-minecraft/kernel'
+import type { InventoryItem } from '@ts-minecraft/kernel'
 
-export const SLOT_COLORS: Readonly<Partial<Record<BlockType, string>>> = {
+export const SLOT_COLORS: Readonly<Partial<Record<InventoryItem, string>>> = {
   AIR: '#444444', GRASS: '#5a8a3a', DIRT: '#8b6344', STONE: '#888888',
   SAND: '#d4c77a', WATER: '#3f76be', WOOD: '#6b4423', LEAVES: '#2d5a1b',
   GLASS: '#c0e0f0', SNOW: '#f0f5ff', GRAVEL: '#7a6a5a', COBBLESTONE: '#606060',

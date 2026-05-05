@@ -1,10 +1,10 @@
 import { Array as Arr, Effect, Option, Ref, MutableRef } from 'effect'
 import * as THREE from 'three'
-import { BlockType } from '@ts-minecraft/kernel'
+import { InventoryItem } from '@ts-minecraft/kernel'
 import { RendererService } from '@ts-minecraft/rendering'
 import { SlotIndex } from '@ts-minecraft/kernel'
 
-const BLOCK_COLORS: Record<BlockType, number> = {
+const BLOCK_COLORS: Record<InventoryItem, number> = {
   AIR:    0x444444,
   GRASS:  0x5a8a3a,
   DIRT:   0x8b6344,
@@ -92,7 +92,7 @@ export class HotbarRendererService extends Effect.Service<HotbarRendererService>
         scene.add(border)
         return { hudScene: scene, borderMesh: border }
       }),
-      Ref.make<{ slots: ReadonlyArray<Option.Option<BlockType>>; selected: SlotIndex }>({ slots: [], selected: SlotIndex.make(0) }),
+      Ref.make<{ slots: ReadonlyArray<Option.Option<InventoryItem>>; selected: SlotIndex }>({ slots: [], selected: SlotIndex.make(0) }),
     ], { concurrency: 'unbounded' }).pipe(
       Effect.flatMap(([rendererService, { hudScene, borderMesh }, prevStateRef]) =>
         Effect.gen(function* () {
@@ -162,7 +162,7 @@ export class HotbarRendererService extends Effect.Service<HotbarRendererService>
                   MutableRef.set(slotMeshesRef, meshes)
                 }),
 
-              update: (slots: ReadonlyArray<Option.Option<BlockType>>, selectedSlot: SlotIndex): Effect.Effect<void, never> =>
+              update: (slots: ReadonlyArray<Option.Option<InventoryItem>>, selectedSlot: SlotIndex): Effect.Effect<void, never> =>
                 Effect.gen(function* () {
                   const slotMeshes = MutableRef.get(slotMeshesRef)
                   const unchanged = yield* Ref.modify(prevStateRef, (prev) => {

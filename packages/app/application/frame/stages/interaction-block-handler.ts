@@ -1,7 +1,7 @@
-import { Effect, HashMap, Option, Ref } from 'effect'
+import { Effect, HashMap, Option, Ref, Schema } from 'effect'
 import type { FrameHandlerDeps, FrameHandlerServices, FrameStageRefs } from '@ts-minecraft/app/frame/types'
 import { findAttackableEntity } from '@ts-minecraft/app/frame/stages/attack-targeting'
-import { CHUNK_SIZE, CHUNK_HEIGHT, indexToBlockType, SlotIndex } from '@ts-minecraft/kernel'
+import { CHUNK_SIZE, CHUNK_HEIGHT, indexToBlockType, SlotIndex, BlockTypeSchema } from '@ts-minecraft/kernel'
 import { HOTBAR_START } from '@ts-minecraft/inventory'
 import { getParticleUvOffset } from '@ts-minecraft/rendering/particles/particle-system'
 import {
@@ -147,14 +147,15 @@ export const handleRightClick = (
             Effect.flatMap(([selectedBlock, selectedSlot]) =>
               Option.match(selectedBlock, {
                 onNone: () => Effect.void,
-                onSome: (blockType) => {
+                onSome: (item) => {
+                  if (!Schema.is(BlockTypeSchema)(item)) return Effect.void
                   const chunkCoord = {
                     x: Math.floor(adjacentPos.x / CHUNK_SIZE),
                     z: Math.floor(adjacentPos.z / CHUNK_SIZE),
                   }
                   const coordKey = `${chunkCoord.x},${chunkCoord.z}`
                   return services.blockService
-                    .placeBlock(adjacentPos, blockType, SlotIndex.make(HOTBAR_START + selectedSlot))
+                    .placeBlock(adjacentPos, item, SlotIndex.make(HOTBAR_START + selectedSlot))
                     .pipe(
                       Effect.flatMap(() =>
                         services.soundManager.playEffect('blockPlace', { position: adjacentPos }),

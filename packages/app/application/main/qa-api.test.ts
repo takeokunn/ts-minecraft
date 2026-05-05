@@ -4,7 +4,7 @@ import * as THREE from 'three'
 import { installQaApi } from '@ts-minecraft/app/main/qa-api'
 
 type QaApiShape = {
-  getInventorySnapshot(): Promise<ReadonlyArray<null | { readonly slot: number; readonly blockType: string; readonly count: number }>>
+  getInventorySnapshot(): Promise<ReadonlyArray<null | { readonly slot: number; readonly itemType: string; readonly count: number }>>
   openInventoryForQA(): Promise<boolean>
   stageProgressionScenario(): Promise<void>
   collectStagedResources(): Promise<void>
@@ -19,7 +19,7 @@ type QaApiShape = {
   getCurrentTargetForQA(): Promise<unknown>
   attackFirstZombie(): Promise<boolean>
   placeSelectedItemInFront(): Promise<void>
-  moveItemToHotbar(blockType: string, hotbarIndex: number): Promise<boolean>
+  moveItemToHotbar(itemType: string, hotbarIndex: number): Promise<boolean>
   selectHotbarSlot(hotbarIndex: number): Promise<void>
   craftRecipeForQA(recipeId: string): Promise<void>
   getEntitySnapshot(): Promise<ReadonlyArray<{ readonly id: string }>>
@@ -59,9 +59,9 @@ const makeDeps = () => {
   const getEntities = vi.fn(() => Effect.succeed([{ id: 'zombie-1', type: 'Zombie', entityId: 'zombie-1' }]))
   const toggleInventory = vi.fn(() => Effect.succeed(true))
   const getAllSlots = vi.fn(() => Effect.succeed([
-    Option.some({ blockType: 'WOOD', count: 3 }),
+    Option.some({ itemType: 'WOOD', count: 3 }),
     Option.none(),
-    Option.some({ blockType: 'STONE', count: 8 }),
+    Option.some({ itemType: 'STONE', count: 8 }),
   ]))
   const moveStack = vi.fn(() => Effect.void)
   const getChunk = vi.fn(() => Effect.succeed({ coord: { x: 0, z: 0 }, blocks: new Uint8Array(16 * 16 * 256), fluid: Option.none() }))
@@ -248,9 +248,9 @@ describe('installQaApi', () => {
     await Effect.runPromise(installQaApi(deps as never))
 
     await expect(getQaApi().getInventorySnapshot()).resolves.toEqual([
-      { slot: 0, blockType: 'WOOD', count: 3 },
+      { slot: 0, itemType: 'WOOD', count: 3 },
       null,
-      { slot: 2, blockType: 'STONE', count: 8 },
+      { slot: 2, itemType: 'STONE', count: 8 },
     ])
     expect(spies.getAllSlots).toHaveBeenCalledOnce()
   })

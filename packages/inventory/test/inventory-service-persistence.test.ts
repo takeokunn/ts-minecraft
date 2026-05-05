@@ -1,11 +1,11 @@
 import { describe, it, expect } from '@effect/vitest'
-import { Array as Arr, Effect, Option, Schema } from 'effect'
+import { Array as Arr, Effect, Either, Option, Schema } from 'effect'
 import type { SlotIndex } from '@ts-minecraft/kernel'
 import {
   INVENTORY_SIZE,
   InventoryService,
-  InventorySaveDataSchema,
 } from '@ts-minecraft/inventory'
+import { InventorySaveDataSchema } from '@ts-minecraft/kernel'
 import { createStack } from '../domain/item-stack'
 import {
   asSlotIndex,
@@ -36,14 +36,14 @@ describe('application/inventory/inventory-service', () => {
         expect(Option.isSome(entry1)).toBe(true)
         const unwrapped1 = Option.getOrThrow(entry1)
         expect(unwrapped1.slot).toBe(1)
-        expect(unwrapped1.blockType).toBe('STONE')
+        expect(unwrapped1.itemType).toBe('STONE')
         expect(unwrapped1.count).toBe(8)
 
         const entry35 = getAt(data.slots, 35)
         expect(Option.isSome(entry35)).toBe(true)
         const unwrapped35 = Option.getOrThrow(entry35)
         expect(unwrapped35.slot).toBe(35)
-        expect(unwrapped35.blockType).toBe('DIRT')
+        expect(unwrapped35.itemType).toBe('DIRT')
         expect(unwrapped35.count).toBe(1)
       }).pipe(Effect.provide(testLayer))
     })
@@ -68,10 +68,10 @@ describe('application/inventory/inventory-service', () => {
         expect(Option.isSome(slot0)).toBe(true)
         expect(Option.isSome(slot2)).toBe(true)
         const unwrapped0 = Option.getOrThrow(slot0)
-        expect(unwrapped0.blockType).toBe('WOOD')
+        expect(unwrapped0.itemType).toBe('WOOD')
         expect(unwrapped0.count).toBe(7)
         const unwrapped2 = Option.getOrThrow(slot2)
-        expect(unwrapped2.blockType).toBe('GLASS')
+        expect(unwrapped2.itemType).toBe('GLASS')
         expect(unwrapped2.count).toBe(3)
       }).pipe(Effect.provide(testLayer))
     })
@@ -82,10 +82,10 @@ describe('application/inventory/inventory-service', () => {
         const service = yield* InventoryService
         const data = {
           slots: [
-            Option.none<{ slot: SlotIndex; blockType: 'STONE' | 'WOOD' | 'DIRT'; count: number }>(),
-            Option.some({ slot: asSlotIndex(-1), blockType: 'STONE' as const, count: 9 }),
-            Option.some({ slot: asSlotIndex(5), blockType: 'WOOD' as const, count: 4 }),
-            Option.some({ slot: asSlotIndex(99), blockType: 'DIRT' as const, count: 2 }),
+            Option.none<{ slot: SlotIndex; itemType: 'STONE' | 'WOOD' | 'DIRT'; count: number }>(),
+            Option.some({ slot: asSlotIndex(-1), itemType: 'STONE' as const, count: 9 }),
+            Option.some({ slot: asSlotIndex(5), itemType: 'WOOD' as const, count: 4 }),
+            Option.some({ slot: asSlotIndex(99), itemType: 'DIRT' as const, count: 2 }),
           ],
         }
 
@@ -96,7 +96,7 @@ describe('application/inventory/inventory-service', () => {
 
         expect(Option.isSome(slot5)).toBe(true)
         const unwrapped = Option.getOrThrow(slot5)
-        expect(unwrapped.blockType).toBe('WOOD')
+        expect(unwrapped.itemType).toBe('WOOD')
         expect(unwrapped.count).toBe(4)
         expect(Option.isNone(slot0)).toBe(true)
       }).pipe(Effect.provide(testLayer))
@@ -128,38 +128,41 @@ describe('application/inventory/inventory-service', () => {
   // ---------------------------------------------------------------------------
 
   describe('removeBlock on empty slot / inventory', () => {
-    it.effect('removeBlock on fully empty inventory returns false without crashing', () => {
+    it.effect('removeBlock on fully empty inventory fails with InventoryError without crashing', () => {
       const testLayer = createTestLayer(createTestBlockRegistry(airOnlyBlocks))
       return Effect.gen(function* () {
         const service = yield* InventoryService
         // All slots are empty (AIR-only registry → no non-AIR hotbar blocks)
-        const result = yield* service.removeBlock('STONE', 1)
-        expect(result).toBe(false)
+        const result = yield* Effect.either(service.removeBlock('STONE', 1))
+        expect(Either.isLeft(result)).toBe(true)
+        expect(Option.getOrThrow(Either.getLeft(result))._tag).toBe('InventoryError')
       }).pipe(Effect.provide(testLayer))
     })
 
-    it.effect('removeBlock for a block type not present returns false', () => {
+    it.effect('removeBlock for a block type not present fails with InventoryError', () => {
       const testLayer = createTestLayer(createTestBlockRegistry(airOnlyBlocks))
       return Effect.gen(function* () {
         const service = yield* InventoryService
         // Slot 0 has DIRT, we try to remove STONE (absent)
         yield* service.setSlot(asSlotIndex(0), Option.some(createStack('DIRT', 5)))
-        const result = yield* service.removeBlock('STONE', 1)
-        expect(result).toBe(false)
-        // DIRT slot is untouched
+        const result = yield* Effect.either(service.removeBlock('STONE', 1))
+        expect(Either.isLeft(result)).toBe(true)
+        expect(Option.getOrThrow(Either.getLeft(result))._tag).toBe('InventoryError')
+        // DIRT slot is untouched (atomicity: roll back on failure)
         const slot0 = yield* service.getSlot(asSlotIndex(0))
         expect(Option.isSome(slot0)).toBe(true)
         expect(Option.getOrThrow(slot0).count).toBe(5)
       }).pipe(Effect.provide(testLayer))
     })
 
-    it.effect('removeBlock on a slot explicitly set to Option.none returns false', () => {
+    it.effect('removeBlock on a slot explicitly set to Option.none fails with InventoryError', () => {
       const testLayer = createTestLayer(createTestBlockRegistry(airOnlyBlocks))
       return Effect.gen(function* () {
         const service = yield* InventoryService
         yield* service.setSlot(asSlotIndex(3), Option.none())
-        const result = yield* service.removeBlock('DIRT', 1)
-        expect(result).toBe(false)
+        const result = yield* Effect.either(service.removeBlock('DIRT', 1))
+        expect(Either.isLeft(result)).toBe(true)
+        expect(Option.getOrThrow(Either.getLeft(result))._tag).toBe('InventoryError')
         // Slot remains empty
         const slot3 = yield* service.getSlot(asSlotIndex(3))
         expect(Option.isNone(slot3)).toBe(true)
@@ -178,9 +181,9 @@ describe('application/inventory/inventory-service', () => {
     it('encodes and decodes a valid InventorySaveData object correctly', () => {
       const original = {
         slots: [
-          Option.some({ slot: asSlotIndex(0), blockType: 'DIRT' as const, count: 12 }),
+          Option.some({ slot: asSlotIndex(0), itemType: 'DIRT' as const, count: 12 }),
           Option.none(),
-          Option.some({ slot: asSlotIndex(2), blockType: 'STONE' as const, count: 64 }),
+          Option.some({ slot: asSlotIndex(2), itemType: 'STONE' as const, count: 64 }),
         ],
       }
 
@@ -193,7 +196,7 @@ describe('application/inventory/inventory-service', () => {
       expect(Option.isSome(entry0)).toBe(true)
       const unwrapped0 = Option.getOrThrow(entry0)
       expect(unwrapped0.slot).toBe(0)
-      expect(unwrapped0.blockType).toBe('DIRT')
+      expect(unwrapped0.itemType).toBe('DIRT')
       expect(unwrapped0.count).toBe(12)
 
         expect(Option.isNone(getAt(decoded.slots, 1))).toBe(true)
@@ -202,7 +205,7 @@ describe('application/inventory/inventory-service', () => {
       expect(Option.isSome(entry2)).toBe(true)
       const unwrapped2 = Option.getOrThrow(entry2)
       expect(unwrapped2.slot).toBe(2)
-      expect(unwrapped2.blockType).toBe('STONE')
+      expect(unwrapped2.itemType).toBe('STONE')
       expect(unwrapped2.count).toBe(64)
     })
 
@@ -210,9 +213,9 @@ describe('application/inventory/inventory-service', () => {
       const original = {
         slots: [
           Option.none(),
-          Option.some({ slot: asSlotIndex(5), blockType: 'WOOD' as const, count: 1 }),
+          Option.some({ slot: asSlotIndex(5), itemType: 'WOOD' as const, count: 1 }),
           Option.none(),
-          Option.some({ slot: asSlotIndex(27), blockType: 'GLASS' as const, count: 64 }),
+          Option.some({ slot: asSlotIndex(27), itemType: 'GLASS' as const, count: 64 }),
         ],
       }
 
@@ -223,7 +226,7 @@ describe('application/inventory/inventory-service', () => {
     it('decoding invalid data (unknown blockType) throws a ParseError', () => {
       const invalid = {
         slots: [
-          { slot: 0, blockType: 'INVALID_BLOCK_TYPE', count: 5 },
+          { slot: 0, itemType: 'INVALID_BLOCK_TYPE', count: 5 },
         ],
       }
 

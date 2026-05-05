@@ -1,6 +1,6 @@
 import { it } from '@effect/vitest'
 import { HOTBAR_SIZE,HOTBAR_START,HotbarService,InventoryService } from '@ts-minecraft/inventory'
-import { BlockType } from '@ts-minecraft/kernel'
+import { InventoryItem } from '@ts-minecraft/kernel'
 import { Block } from '@ts-minecraft/world-state'
 import { Array as Arr,Effect,Option } from 'effect'
 import { describe,expect } from 'vitest'
@@ -150,12 +150,12 @@ describe('application/hotbar/hotbar-service', () => {
         const slots = yield* service.getSlots()
 
         // First 3 slots should have block types
-        expect(Option.isSome(Option.getOrElse(Arr.get(slots, 0), () => Option.none<BlockType>()))).toBe(true)
-        expect(Option.isSome(Option.getOrElse(Arr.get(slots, 1), () => Option.none<BlockType>()))).toBe(true)
-        expect(Option.isSome(Option.getOrElse(Arr.get(slots, 2), () => Option.none<BlockType>()))).toBe(true)
+        expect(Option.isSome(Option.getOrElse(Arr.get(slots, 0), () => Option.none<InventoryItem>()))).toBe(true)
+        expect(Option.isSome(Option.getOrElse(Arr.get(slots, 1), () => Option.none<InventoryItem>()))).toBe(true)
+        expect(Option.isSome(Option.getOrElse(Arr.get(slots, 2), () => Option.none<InventoryItem>()))).toBe(true)
         // Remaining slots should be None
-        expect(Option.isNone(Option.getOrElse(Arr.get(slots, 3), () => Option.none<BlockType>()))).toBe(true)
-        expect(Option.isNone(Option.getOrElse(Arr.get(slots, 8), () => Option.none<BlockType>()))).toBe(true)
+        expect(Option.isNone(Option.getOrElse(Arr.get(slots, 3), () => Option.none<InventoryItem>()))).toBe(true)
+        expect(Option.isNone(Option.getOrElse(Arr.get(slots, 8), () => Option.none<InventoryItem>()))).toBe(true)
       }).pipe(Effect.provide(testLayer))
     })
 

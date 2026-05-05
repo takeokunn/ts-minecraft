@@ -38,7 +38,7 @@ import { RedstoneServiceLive } from '@ts-minecraft/entities'
 
 // Fluid, furnace, light engine
 import { FluidServiceLive } from '@ts-minecraft/terrain'
-import { FurnaceServiceLive } from '@ts-minecraft/inventory'
+import { FurnaceServiceLive } from '@ts-minecraft/furnace'
 import { LightEngineLive } from '@ts-minecraft/terrain'
 
 // Chunk management

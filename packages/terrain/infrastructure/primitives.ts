@@ -1,6 +1,7 @@
 // Single source of truth for deterministic noise functions shared by NoiseService and the terrain worker.
 // Determinism contract: createNoisePrimitives(seed) output is byte-identical to NoiseService.setSeed(seed).
-import { Array as Arr } from 'effect'
+import { Array as Arr, Effect } from 'effect'
+import { NoiseServicePort } from '../domain/noise-service-port'
 import {
   createPerlinNoise2D,
   createPerlinNoise3D,
@@ -31,9 +32,8 @@ export const mulberry32 = (seed: number): RandFn => {
 export const normalizeNoise = (value: number): number => (value + 1) / 2
 
 // Weyl-constant XORs decorrelate per-channel Perlin seeds while keeping every
-// derived seed inside uint32 range. Identical to the constants previously
-// defined in `infrastructure/noise/noise-service.ts` — moved here so both the
-// Effect service and the pure terrain worker can share them.
+// derived seed inside uint32 range. Identical to the constants in `application/noise-service.ts` — shared here
+// so both the Effect service and the pure terrain worker use the same values.
 export const WEYL_C = 0x9e3779b1
 export const WEYL_E = 0xbb67ae85
 export const WEYL_W = 0x3c6ef372
@@ -51,7 +51,7 @@ export const toPV = (w: number): number => 1 - Math.abs(3 * Math.abs(w) - 2)
 
 // ---------------------------------------------------------------------------
 // Octave-noise core. Pure: takes a `NoiseFn2D` and a sample point.
-// Output range matches `noise-service.ts computeOctaveNoise` exactly.
+// Output range matches `noise-service.ts` exactly.
 // ---------------------------------------------------------------------------
 export const computeOctaveNoise = (
   noiseFn: NoiseFn2D,
@@ -80,8 +80,8 @@ export const computeOctaveNoise = (
 }
 
 // ---------------------------------------------------------------------------
-// Sparse-grid bilinear-interpolated terrain channel sampler. Output bit-
-// identical to `noise-service.ts sampleTerrainChannels`. Indexed `z*16 + x`.
+// Sparse-grid bilinear-interpolated terrain channel sampler.
+// Dense 16×16 output via bilinear interpolation. Index: z*16+x.
 // ---------------------------------------------------------------------------
 export type TerrainChannelSamples = Readonly<{
   continentalness: Float64Array
@@ -257,3 +257,76 @@ export const octaveNoise2DBatch = (
   Arr.map(points, ([x, z]) =>
     primitives.octaveNoise2D(x, z, octaves, persistence, lacunarity),
   )
+
+// ---------------------------------------------------------------------------
+// Effect-wrapped port factory — converts a fixed-seed NoisePrimitives bundle
+// into a NoiseServicePort implementation. Used by the terrain worker (fixed
+// seed per chunk batch) and for test layers that don't need setSeed.
+// ---------------------------------------------------------------------------
+export const buildNoisePortFromPrimitives = (primitives: NoisePrimitives, seed: number): NoiseServicePort =>
+  NoiseServicePort.of({
+    _tag: '@minecraft/application/noise/NoiseServicePort' as const,
+    noise2D: (x: number, z: number): Effect.Effect<number, never> =>
+      Effect.sync(() => primitives.noise2D(x, z)),
+    octaveNoise2D: (
+      x: number,
+      z: number,
+      octaves: number,
+      persistence: number,
+      lacunarity: number,
+    ): Effect.Effect<number, never> =>
+      Effect.sync(() => primitives.octaveNoise2D(x, z, octaves, persistence, lacunarity)),
+    setSeed: (_seed: number): Effect.Effect<void, never> => Effect.void,
+    getSeed: Effect.succeed(seed),
+    noise3D: (x: number, y: number, z: number): Effect.Effect<number, never> =>
+      Effect.sync(() => primitives.noise3D(x, y, z)),
+    noise3DBatchXYZ: (
+      xs: ReadonlyArray<number>,
+      ys: ReadonlyArray<number>,
+      zs: ReadonlyArray<number>,
+    ): Effect.Effect<ReadonlyArray<number>, never> =>
+      Effect.sync(() => noise3DBatchXYZ(primitives, xs, ys, zs)),
+    octaveNoise2DBatch: (
+      points: ReadonlyArray<readonly [number, number]>,
+      octaves: number,
+      persistence: number,
+      lacunarity: number,
+    ): Effect.Effect<ReadonlyArray<number>, never> =>
+      Effect.sync(() => octaveNoise2DBatch(primitives, points, octaves, persistence, lacunarity)),
+    noise2DBatch: (
+      points: ReadonlyArray<readonly [number, number]>,
+    ): Effect.Effect<ReadonlyArray<number>, never> =>
+      Effect.sync(() => noise2DBatch(primitives, points)),
+    octaveNoise2DBatchXY: (
+      xs: ReadonlyArray<number>,
+      zs: ReadonlyArray<number>,
+      octaves: number,
+      persistence: number,
+      lacunarity: number,
+    ): Effect.Effect<ReadonlyArray<number>, never> =>
+      Effect.sync(() => octaveNoise2DBatchXY(primitives, xs, zs, octaves, persistence, lacunarity)),
+    noise2DBatchXY: (
+      xs: ReadonlyArray<number>,
+      zs: ReadonlyArray<number>,
+    ): Effect.Effect<ReadonlyArray<number>, never> =>
+      Effect.sync(() => noise2DBatchXY(primitives, xs, zs)),
+    continentalness: (x: number, z: number): Effect.Effect<number, never> =>
+      Effect.sync(() => primitives.continentalnessAt(x, z)),
+    erosion: (x: number, z: number): Effect.Effect<number, never> =>
+      Effect.sync(() => primitives.erosionAt(x, z)),
+    weirdness: (x: number, z: number): Effect.Effect<number, never> =>
+      Effect.sync(() => primitives.weirdnessAt(x, z)),
+    jaggedness: (x: number, z: number): Effect.Effect<number, never> =>
+      Effect.sync(() => primitives.jaggednessAt(x, z)),
+    sampleTerrainChannels: (xStart: number, zStart: number) =>
+      Effect.sync(() =>
+        computeTerrainChannels(
+          primitives.continentalness,
+          primitives.erosion,
+          primitives.weirdness,
+          primitives.jaggedness,
+          xStart,
+          zStart,
+        ),
+      ),
+  })

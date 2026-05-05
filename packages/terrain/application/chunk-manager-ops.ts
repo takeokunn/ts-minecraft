@@ -20,7 +20,7 @@ import { ChunkCacheKey, DEFAULT_WORLD_ID, SEA_LEVEL, LAKE_LEVEL } from '@ts-mine
 import { ChunkError } from '../domain/errors'
 import type { NoiseServicePort } from '../domain/noise-service-port'
 import type { TerrainWorkerPoolPort, TerrainGenerationError } from './terrain-worker-pool-port'
-import { chunkLoadHistogram } from '../domain/terrain/generator'
+import { chunkLoadHistogram } from './terrain-generation'
 import { chunkCoordToKey } from '../domain/chunk-coord-utils'
 import type { ChunkManagerError } from './chunk-manager-constants'
 import { storedChunkPayload, type ChunkCacheEntry, type ChunkCache } from './chunk-manager-cache'

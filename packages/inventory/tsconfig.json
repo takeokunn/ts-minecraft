@@ -5,7 +5,10 @@
     "outDir": "dist",
     "rootDir": "."
   },
-  "references": [],
+  "references": [
+    { "path": "../kernel" },
+    { "path": "../player" }
+  ],
   "include": [
     "domain/**/*",
     "application/**/*",

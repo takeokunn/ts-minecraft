@@ -398,7 +398,7 @@ export const makeServices = (opts: {
     tick: () => Effect.void,
   } as InstanceType<typeof import('@ts-minecraft/terrain').FluidService>
 
-  const furnaceService = testDouble<InstanceType<typeof import('@ts-minecraft/inventory').FurnaceService>>({
+  const furnaceService = testDouble<InstanceType<typeof import('@ts-minecraft/furnace').FurnaceService>>({
     getState: () => Effect.succeed({ active: Option.none() }),
     getNearestFurnaceState: () => Effect.succeed(Option.none()),
     hasNearbyFurnace: () => Effect.succeed(false),

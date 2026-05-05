@@ -1,56 +1,13 @@
 import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
-import { Arbitrary, Effect, Either, Layer, Schema } from 'effect'
+import { Arbitrary, Effect, Either, Schema } from 'effect'
 import * as fc from 'effect/FastCheck'
-import { BiomeService, BiomeServiceLive, BiomeTypeSchema } from '@ts-minecraft/terrain'
-import { NoiseServicePort } from '@ts-minecraft/terrain'
+import { BiomeService, BiomeTypeSchema } from '@ts-minecraft/terrain'
 import { CHUNK_SIZE, CHUNK_HEIGHT } from '@ts-minecraft/kernel'
+import { makeTestLayer } from './biome-service-test-utils'
 
 // Valid block type indices stored in Uint8Array (0=AIR through 11=COBBLESTONE)
 const MAX_BLOCK_INDEX = 11
-
-// Build a mock NoiseService layer that returns controlled [0,1] values.
-// Uses the same threshold heuristic as biome-service.test.ts:
-//   x_arg > 25.0 → humidity call
-//   x_arg ≤ 25.0 → temperature call
-const makeMockNoiseLayer = (tempValue: number, humidityValue: number) =>
-  Layer.succeed(NoiseServicePort, NoiseServicePort.of({
-    _tag: '@minecraft/application/noise/NoiseServicePort' as const,
-    noise2D: (_x: number, _z: number): Effect.Effect<number, never> => Effect.succeed(0.5),
-    octaveNoise2D: (x: number, _z: number, _octaves: number, _persistence: number, _lacunarity: number): Effect.Effect<number, never> =>
-      Effect.succeed(x > 25.0 ? humidityValue : tempValue),
-    getSeed: Effect.succeed(0),
-    octaveNoise2DBatch: (points: ReadonlyArray<readonly [number, number]>): Effect.Effect<ReadonlyArray<number>, never> =>
-      Effect.succeed(points.map(([x]) => x > 25.0 ? humidityValue : tempValue)),
-    octaveNoise2DBatchXY: (xs: ReadonlyArray<number>, _zs: ReadonlyArray<number>): Effect.Effect<ReadonlyArray<number>, never> =>
-      Effect.succeed(xs.map((x) => x > 25.0 ? humidityValue : tempValue)),
-    noise2DBatch: (points: ReadonlyArray<readonly [number, number]>): Effect.Effect<ReadonlyArray<number>, never> =>
-      Effect.succeed(Array(points.length).fill(0.9)),
-    noise2DBatchXY: (xs: ReadonlyArray<number>, _zs: ReadonlyArray<number>): Effect.Effect<ReadonlyArray<number>, never> =>
-      Effect.succeed(Array(xs.length).fill(0.9)),
-    noise3D: (_x: number, _y: number, _z: number): Effect.Effect<number, never> => Effect.succeed(0),
-    noise3DBatchXYZ: (xs: ReadonlyArray<number>, _ys: ReadonlyArray<number>, _zs: ReadonlyArray<number>): Effect.Effect<ReadonlyArray<number>, never> =>
-      Effect.succeed(Array(xs.length).fill(0)),
-    continentalness: (_x: number, _z: number): Effect.Effect<number, never> => Effect.succeed(0.35),
-    erosion: (_x: number, _z: number): Effect.Effect<number, never> => Effect.succeed(0.6),
-    weirdness: (_x: number, _z: number): Effect.Effect<number, never> => Effect.succeed(0),
-    jaggedness: (_x: number, _z: number): Effect.Effect<number, never> => Effect.succeed(0),
-    sampleTerrainChannels: (_x: number, _z: number): Effect.Effect<{
-      readonly continentalness: Float64Array
-      readonly erosion: Float64Array
-      readonly pv: Float64Array
-      readonly jaggedness: Float64Array
-    }, never> => Effect.succeed({
-      continentalness: new Float64Array(Array(CHUNK_SIZE * CHUNK_SIZE).fill(0.35)),
-      erosion: new Float64Array(Array(CHUNK_SIZE * CHUNK_SIZE).fill(0.6)),
-      pv: new Float64Array(Array(CHUNK_SIZE * CHUNK_SIZE).fill(0)),
-      jaggedness: new Float64Array(Array(CHUNK_SIZE * CHUNK_SIZE).fill(0)),
-    }),
-    setSeed: (_seed: number): Effect.Effect<void, never> => Effect.void,
-  }))
-
-const makeTestLayer = (tempValue: number, humidityValue: number) =>
-  BiomeServiceLive.pipe(Layer.provide(makeMockNoiseLayer(tempValue, humidityValue)))
 
 // All valid BiomeType literals
 const ALL_BIOME_TYPES = ['PLAINS', 'DESERT', 'FOREST', 'OCEAN', 'MOUNTAINS', 'SNOW', 'SWAMP', 'JUNGLE', 'BEACH', 'RIVER', 'TAIGA', 'SAVANNA'] as const

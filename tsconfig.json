@@ -65,6 +65,9 @@
       "@ts-minecraft/inventory": [
         "packages/inventory/index.ts"
       ],
+      "@ts-minecraft/furnace": [
+        "packages/furnace/index.ts"
+      ],
       "@ts-minecraft/entities": [
         "packages/entities/index.ts"
       ],

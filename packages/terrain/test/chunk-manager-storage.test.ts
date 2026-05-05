@@ -10,8 +10,8 @@ import {
   ChunkManagerService,
   ChunkManagerServiceLive,
 } from '@ts-minecraft/terrain'
-import { TerrainWorkerPoolPortLayer } from '@ts-minecraft/app'
-import { ChunkServiceLive } from '../domain/chunk'
+import { TerrainWorkerPoolPortLayer } from '@ts-minecraft/terrain'
+import { ChunkServiceLive } from '../application/chunk-service'
 import { DEFAULT_WORLD_ID } from '@ts-minecraft/kernel'
 import {
   makeInMemoryStorage,

@@ -1,8 +1,18 @@
 import { Effect, Option, Ref, Schema } from 'effect'
 import type { Position } from '@ts-minecraft/kernel'
 import { AudioEnginePort } from '../domain/audio-engine-port'
-import { clamp01 } from '../domain/audio-types'
-import { SOUND_LIBRARY, DEFAULT_LISTENER_POSITION, computeSpatial } from './sound-manager.config'
+import { clamp01, clampPan } from '../domain/audio-types'
+import { SOUND_LIBRARY, DEFAULT_LISTENER_POSITION } from './sound-manager.config'
+
+const computeSpatial = (listener: { x: number; y: number; z: number }, source: { x: number; y: number; z: number }): { gain: number; pan: number } => {
+  const dx = source.x - listener.x
+  const dy = source.y - listener.y
+  const dz = source.z - listener.z
+  const distance = Math.sqrt(dx * dx + dy * dy + dz * dz)
+  const attenuation = 1 / (1 + distance / 12)
+  const pan = clampPan(dx / 12)
+  return { gain: attenuation, pan }
+}
 
 export const SoundEffectSchema = Schema.Literal('blockBreak', 'blockPlace', 'playerHurt', 'entityHit')
 export type SoundEffect = Schema.Schema.Type<typeof SoundEffectSchema>

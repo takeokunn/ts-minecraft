@@ -35,8 +35,7 @@ export class NoiseService extends Effect.Service<NoiseService>()(
         ): Effect.Effect<number, never> =>
           Effect.sync(() => primitives.octaveNoise2D(x, z, octaves, persistence, lacunarity)),
 
-        getSeed: (): Effect.Effect<number, never, never> =>
-          Effect.sync(() => currentSeed),
+        getSeed: Effect.sync(() => currentSeed),
 
         setSeed: (seed: number): Effect.Effect<void, never, never> =>
           Effect.sync(() => {

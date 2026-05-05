@@ -1,11 +1,12 @@
 // Shared test utilities for chunk-manager-service tests
-import { TerrainWorkerPoolPortLayer } from '@ts-minecraft/app'
+import { TerrainWorkerPoolPortLayer } from '@ts-minecraft/terrain'
 import { CHUNK_HEIGHT,CHUNK_SIZE,DEFAULT_WORLD_ID,type WorldId } from '@ts-minecraft/kernel'
 import type { ChunkStorageValue } from '@ts-minecraft/terrain'
 import { BiomeService,BiomeServiceLive,ChunkManagerServiceLive,generateTerrain as generateChunkTerrain,LightEngineService,NoiseServiceLive,NoiseServicePort,StorageServicePort,TerrainWorkerPoolPort } from '@ts-minecraft/terrain'
 import { LIGHT_BYTE_LENGTH,StorageError } from '@ts-minecraft/world-state'
 import { Brand,Effect,Layer,MutableHashMap } from 'effect'
-import { ChunkService,ChunkServiceLive,type Chunk } from '../domain/chunk'
+import { ChunkService,ChunkServiceLive } from '../application/chunk-service'
+import type { Chunk } from '../domain/chunk'
 
 // ---------------------------------------------------------------------------
 // In-memory StorageService mock (no IndexedDB)

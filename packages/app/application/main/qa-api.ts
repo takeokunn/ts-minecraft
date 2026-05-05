@@ -1,4 +1,4 @@
-import { Array as Arr, Effect, Option } from 'effect'
+import { Array as Arr, Cause, Effect, MutableRef, Option } from 'effect'
 import * as THREE from 'three'
 import { BlockService } from '@ts-minecraft/terrain'
 import { ChunkManagerService } from '@ts-minecraft/terrain'
@@ -7,13 +7,14 @@ import { GameStateService } from '@ts-minecraft/game'
 import { HOTBAR_START } from '@ts-minecraft/inventory'
 import { InventoryService } from '@ts-minecraft/inventory'
 import { RecipeService } from '@ts-minecraft/inventory'
-import { FurnaceService } from '@ts-minecraft/inventory'
+import { FurnaceService } from '@ts-minecraft/furnace'
 import { HotbarService } from '@ts-minecraft/inventory'
-import { DEFAULT_PLAYER_ID, Position, SlotIndex, RecipeId } from '@ts-minecraft/kernel'
+import { DEFAULT_PLAYER_ID, Position, SlotIndex, RecipeId, BlockTypeSchema } from '@ts-minecraft/kernel'
 import { WorldRendererService } from '@ts-minecraft/rendering'
 import { blockTypeToIndex } from '@ts-minecraft/kernel'
 import { setBlockInChunk } from '@ts-minecraft/terrain'
-import type { BlockType } from '@ts-minecraft/kernel'
+import type { BlockType, InventoryItem } from '@ts-minecraft/kernel'
+import { Schema } from 'effect'
 import { EntityType, EntityManager } from '@ts-minecraft/entities'
 import { BlockHighlightService } from '@ts-minecraft/app/presentation/highlight/block-highlight'
 import { InputService } from '@ts-minecraft/app/presentation/input/input-service'
@@ -24,6 +25,10 @@ import {
   projectBlockAhead,
   scanNearbyBlock,
 } from '@ts-minecraft/app/main/qa-spatial'
+import {
+  PLAYER_ATTACK_DAMAGE,
+  WOODEN_SWORD_ATTACK_DAMAGE,
+} from '@ts-minecraft/app/frame-handler.config'
 
 type QaApiDeps = {
   readonly camera: THREE.PerspectiveCamera
@@ -88,6 +93,355 @@ const getChunkMeshSnapshots = (scene: THREE.Scene): ReadonlyArray<QaChunkMeshSna
       }
     })
 
+// ---------------------------------------------------------------------------
+// Inventory operations
+// ---------------------------------------------------------------------------
+
+const getInventorySnapshot = (inventoryService: InventoryService) =>
+  Effect.runPromise(
+    inventoryService.getAllSlots().pipe(
+      Effect.map((slots) => Arr.map(slots, (slot, index) =>
+        Option.match(slot, {
+          onNone: () => null,
+          onSome: (stack) => ({ slot: index, itemType: stack.itemType, count: stack.count }),
+        })
+      )),
+    ),
+  )
+
+const openInventoryForQA = (inventoryRenderer: InventoryRendererService) =>
+  Effect.runPromise(inventoryRenderer.toggle())
+
+const moveItemToHotbar = (
+  inventoryService: InventoryService,
+  hotbarService: HotbarService,
+  itemType: InventoryItem,
+  hotbarIndex: number,
+) =>
+  Effect.runPromise(Effect.gen(function* () {
+    const slots = yield* inventoryService.getAllSlots()
+    const fromIndexOpt = Arr.findFirstIndex(slots, (slot) => Option.match(slot, { onNone: () => false, onSome: (stack) => stack.itemType === itemType }))
+    const fromIndex = Option.getOrElse(fromIndexOpt, () => -1)
+    if (fromIndex < 0) return false
+    yield* inventoryService.moveStack(SlotIndex.make(fromIndex), SlotIndex.make(HOTBAR_START + hotbarIndex))
+    yield* hotbarService.setSelectedSlot(SlotIndex.make(hotbarIndex))
+    return true
+  }))
+
+const selectHotbarSlot = (hotbarService: HotbarService, hotbarIndex: number) =>
+  Effect.runPromise(hotbarService.setSelectedSlot(SlotIndex.make(hotbarIndex)))
+
+const getRecipeButtons = (recipeService: RecipeService) =>
+  Arr.map(recipeService.getAllRecipes(), (recipe) => recipe.id)
+
+const craftRecipeForQA = (
+  inventoryService: InventoryService,
+  inventoryRenderer: InventoryRendererService,
+  recipeService: RecipeService,
+  furnaceService: FurnaceService,
+  gameState: GameStateService,
+  chunkManagerService: ChunkManagerService,
+  recipeId: string,
+) =>
+  Effect.runPromise(Effect.gen(function* () {
+    const getChunkOrNone = (coord: { readonly x: number; readonly z: number }) =>
+      chunkManagerService.getChunk(coord).pipe(Effect.option)
+    const getPlayerPositionForQa = () =>
+      gameState.getPlayerPosition(DEFAULT_PLAYER_ID).pipe(
+        Effect.catchAllCause((_cause: Cause.Cause<unknown>) => Effect.succeed({ x: 0, y: 0, z: 0 })),
+      )
+    const scanNearbyCraftingStation = (targetBlockIndex: number) =>
+      inventoryRenderer.isOpen().pipe(
+        Effect.flatMap(() =>
+          getPlayerPositionForQa().pipe(
+            Effect.flatMap((playerPos) => scanNearbyBlock(playerPos, 5, targetBlockIndex, getChunkOrNone)),
+          )
+        ),
+      )
+    const hasTableAccess = yield* scanNearbyCraftingStation(blockTypeToIndex('CRAFTING_TABLE'))
+    const hasFurnaceAccess = yield* scanNearbyCraftingStation(blockTypeToIndex('FURNACE'))
+    const recipe = recipeService.findById(RecipeId.make(recipeId))
+    yield* Option.match(recipe, {
+      onNone: () => recipeService.craft(RecipeId.make(recipeId), inventoryService, hasTableAccess, hasFurnaceAccess),
+      onSome: (resolvedRecipe) => resolvedRecipe.station === 'furnace'
+        ? furnaceService.getNearestFurnaceState().pipe(
+            Effect.flatMap((furnaceOpt) => Option.match(furnaceOpt, {
+              onNone: () => furnaceService.startSmelting(RecipeId.make(recipeId)),
+              onSome: (furnace) => Option.match(furnace.output, {
+                onSome: () => furnaceService.collectOutput().pipe(Effect.asVoid),
+                onNone: () => furnaceService.startSmelting(RecipeId.make(recipeId)),
+              }),
+            })),
+          )
+        : recipeService.craft(RecipeId.make(recipeId), inventoryService, hasTableAccess, hasFurnaceAccess),
+    })
+  }))
+
+// ---------------------------------------------------------------------------
+// Building operations
+// ---------------------------------------------------------------------------
+
+const stageProgressionScenario = (
+  camera: THREE.PerspectiveCamera,
+  scene: THREE.Scene,
+  chunkManagerService: ChunkManagerService,
+  worldRendererService: WorldRendererService,
+  blockHighlight: BlockHighlightService,
+  stagedResourceBlocksRef: MutableRef.MutableRef<Array<{ pos: { x: number; y: number; z: number }; blockType: BlockType }>>,
+  stagedZombiePositionRef: MutableRef.MutableRef<Position | null>,
+) =>
+  Effect.runPromise(Effect.gen(function* () {
+    MutableRef.set(stagedResourceBlocksRef, [])
+    MutableRef.set(stagedZombiePositionRef, null)
+
+    const placeBlockAhead = (distance: number, blockType: BlockType) =>
+      Effect.gen(function* () {
+        const worldPos = projectBlockAhead(camera, distance)
+        const { chunkCoord, lx, lz } = getChunkAccessForWorldPosition(worldPos)
+        const chunk = yield* chunkManagerService.getChunk(chunkCoord)
+        yield* setBlockInChunk(chunk, lx, worldPos.y, lz, blockType)
+        yield* chunkManagerService.markChunkDirty(chunkCoord)
+        yield* worldRendererService.updateChunkInScene(chunk, scene).pipe(Effect.catchAllCause(() => Effect.void))
+        MutableRef.set(stagedResourceBlocksRef, [...MutableRef.get(stagedResourceBlocksRef), { pos: worldPos, blockType }])
+      })
+
+    yield* placeBlockAhead(4, 'WOOD')
+    yield* placeBlockAhead(5, 'WOOD')
+    yield* placeBlockAhead(6, 'WOOD')
+    yield* blockHighlight.invalidateCache()
+  }))
+
+const collectStagedResources = (
+  blockService: BlockService,
+  stagedResourceBlocksRef: MutableRef.MutableRef<Array<{ pos: { x: number; y: number; z: number }; blockType: BlockType }>>,
+) =>
+  Effect.runPromise(Effect.gen(function* () {
+    yield* Effect.forEach(MutableRef.get(stagedResourceBlocksRef), ({ pos }) => blockService.breakBlock(pos), { concurrency: 1, discard: true })
+    MutableRef.set(stagedResourceBlocksRef, [])
+  }))
+
+const stageBuildSupportBlock = (
+  camera: THREE.PerspectiveCamera,
+  scene: THREE.Scene,
+  chunkManagerService: ChunkManagerService,
+  worldRendererService: WorldRendererService,
+  blockHighlight: BlockHighlightService,
+) =>
+  Effect.runPromise(Effect.gen(function* () {
+    const worldPos = projectBlockAhead(camera, 3)
+    const { chunkCoord, lx, lz } = getChunkAccessForWorldPosition(worldPos)
+    const chunk = yield* chunkManagerService.getChunk(chunkCoord)
+    yield* setBlockInChunk(chunk, lx, worldPos.y, lz, 'STONE')
+    yield* chunkManagerService.markChunkDirty(chunkCoord)
+    yield* worldRendererService.updateChunkInScene(chunk, scene).pipe(Effect.catchAllCause(() => Effect.void))
+    yield* blockHighlight.invalidateCache()
+  }))
+
+const placeSelectedItemInFront = (
+  camera: THREE.PerspectiveCamera,
+  hotbarService: HotbarService,
+  blockService: BlockService,
+  blockHighlight: BlockHighlightService,
+) =>
+  Effect.runPromise(Effect.gen(function* () {
+    const selectedItem = yield* hotbarService.getSelectedBlockType()
+    const selectedSlot = yield* hotbarService.getSelectedSlot()
+    yield* Option.match(selectedItem, {
+      onNone: () => Effect.void,
+      onSome: (item) => {
+        if (!Schema.is(BlockTypeSchema)(item)) return Effect.void
+        return blockService.placeBlock(
+          projectBlockAhead(camera, 4),
+          item,
+          SlotIndex.make(HOTBAR_START + SlotIndex.toNumber(selectedSlot)),
+        ).pipe(Effect.catchAllCause(() => Effect.void))
+      },
+    })
+    yield* blockHighlight.invalidateCache()
+  }))
+
+const clearBlocksInFront = (
+  camera: THREE.PerspectiveCamera,
+  blockService: BlockService,
+  blockHighlight: BlockHighlightService,
+) =>
+  Effect.runPromise(Effect.gen(function* () {
+    yield* Effect.forEach([3, 4] as const, (distance) => {
+      const pos = projectBlockAhead(camera, distance)
+      return blockService.breakBlock(pos).pipe(Effect.catchAllCause(() => Effect.void))
+    }, { concurrency: 1, discard: true })
+    yield* blockHighlight.invalidateCache()
+  }))
+
+// ---------------------------------------------------------------------------
+// Combat operations
+// ---------------------------------------------------------------------------
+
+const spawnLowHealthZombieInFront = (
+  camera: THREE.PerspectiveCamera,
+  entityManager: EntityManager,
+  stagedZombiePositionRef: MutableRef.MutableRef<Position | null>,
+) =>
+  Effect.runPromise(Effect.gen(function* () {
+    const direction = getNormalizedLookDirection(camera)
+    const zombiePos = {
+      x: camera.position.x + direction.x * 6,
+      y: camera.position.y,
+      z: camera.position.z + direction.z * 6,
+    }
+    MutableRef.set(stagedZombiePositionRef, zombiePos)
+    const zombieId = yield* entityManager.addEntity(EntityType.Zombie, zombiePos)
+    yield* entityManager.applyDamage(zombieId, 12)
+  }))
+
+const attackFirstZombie = (
+  hotbarService: HotbarService,
+  entityManager: EntityManager,
+) =>
+  Effect.runPromise(Effect.gen(function* () {
+    const entities = yield* entityManager.getEntities()
+    const zombieOpt = Arr.findFirst(entities, (entity) => entity.type === 'Zombie')
+    return yield* Option.match(zombieOpt, {
+      onNone: () => Effect.succeed(false),
+      onSome: (zombie) => Effect.gen(function* () {
+        const selectedItem = yield* hotbarService.getSelectedBlockType()
+        const damage = Option.match(selectedItem, {
+          onNone: () => PLAYER_ATTACK_DAMAGE,
+          onSome: (item) => (item as InventoryItem) === 'WOODEN_SWORD' ? WOODEN_SWORD_ATTACK_DAMAGE : PLAYER_ATTACK_DAMAGE,
+        })
+        yield* entityManager.applyDamage(zombie.entityId, damage)
+        return true
+      }),
+    })
+  }))
+
+// ---------------------------------------------------------------------------
+// Visual / aim / debug operations
+// ---------------------------------------------------------------------------
+
+const makeSetAimForQA = (
+  camera: THREE.PerspectiveCamera,
+  scene: THREE.Scene,
+  playerCameraState: PlayerCameraStateService,
+  blockHighlight: BlockHighlightService,
+) => (target: Position): Effect.Effect<void, never> =>
+  Effect.gen(function* () {
+    const dx = target.x - camera.position.x
+    const dy = target.y - camera.position.y
+    const dz = target.z - camera.position.z
+    const yaw = Math.atan2(dx, -dz)
+    const pitch = Math.atan2(dy, Math.hypot(dx, dz))
+    yield* playerCameraState.setYaw(yaw)
+    yield* playerCameraState.setPitch(pitch)
+    yield* Effect.sync(() => {
+      camera.rotation.set(pitch, yaw, 0, 'YXZ')
+      camera.updateMatrixWorld(true)
+      scene.updateMatrixWorld(true)
+    })
+  }).pipe(
+    Effect.zipRight(blockHighlight.invalidateCache()),
+    Effect.zipRight(blockHighlight.update(camera, scene)),
+  )
+
+const aimAtStagedResource = (
+  camera: THREE.PerspectiveCamera,
+  scene: THREE.Scene,
+  playerCameraState: PlayerCameraStateService,
+  blockHighlight: BlockHighlightService,
+  stagedResourceBlocksRef: MutableRef.MutableRef<Array<{ pos: { x: number; y: number; z: number }; blockType: BlockType }>>,
+  resourceIndex: number,
+) =>
+  Effect.runPromise(Effect.gen(function* () {
+    const target = MutableRef.get(stagedResourceBlocksRef)[resourceIndex]
+    if (!target) return
+    const setAimForQA = makeSetAimForQA(camera, scene, playerCameraState, blockHighlight)
+    yield* setAimForQA({ x: target.pos.x + 0.5, y: target.pos.y + 0.5, z: target.pos.z + 0.5 })
+    yield* blockHighlight.setTargetForQA(
+      { x: target.pos.x, y: target.pos.y, z: target.pos.z },
+      {
+        point: { x: target.pos.x + 0.5, y: target.pos.y + 0.5, z: target.pos.z + 0.5 },
+        normal: { x: 0, y: 0, z: 1 },
+        distance: 4,
+        blockX: target.pos.x,
+        blockY: target.pos.y,
+        blockZ: target.pos.z,
+      },
+    )
+  }))
+
+const aimAtBuildSpot = (
+  camera: THREE.PerspectiveCamera,
+  scene: THREE.Scene,
+  playerCameraState: PlayerCameraStateService,
+  blockHighlight: BlockHighlightService,
+) =>
+  Effect.runPromise(Effect.gen(function* () {
+    const direction = new THREE.Vector3()
+    camera.getWorldDirection(direction)
+    direction.normalize()
+    const wx = Math.floor(camera.position.x + direction.x * 4)
+    const wy = Math.floor(camera.position.y)
+    const wz = Math.floor(camera.position.z + direction.z * 4)
+    const setAimForQA = makeSetAimForQA(camera, scene, playerCameraState, blockHighlight)
+    yield* setAimForQA({ x: wx + 0.5, y: wy + 0.5, z: wz + 0.5 })
+    yield* blockHighlight.setTargetForQA(
+      { x: wx, y: wy, z: wz },
+      {
+        point: { x: wx + 0.5, y: wy + 0.5, z: wz + 0.5 },
+        normal: { x: 0, y: 1, z: 0 },
+        distance: 4,
+        blockX: wx,
+        blockY: wy,
+        blockZ: wz,
+      },
+    )
+  }))
+
+const aimAtStagedZombie = (
+  camera: THREE.PerspectiveCamera,
+  scene: THREE.Scene,
+  playerCameraState: PlayerCameraStateService,
+  blockHighlight: BlockHighlightService,
+  stagedZombiePositionRef: MutableRef.MutableRef<Position | null>,
+) =>
+  Effect.runPromise(Effect.gen(function* () {
+    const stagedZombiePosition = MutableRef.get(stagedZombiePositionRef)
+    if (!stagedZombiePosition) return
+    const setAimForQA = makeSetAimForQA(camera, scene, playerCameraState, blockHighlight)
+    yield* setAimForQA({ x: stagedZombiePosition.x, y: stagedZombiePosition.y + 0.9, z: stagedZombiePosition.z })
+    yield* blockHighlight.clearTargetForQA()
+  }))
+
+const dispatchMouseClick = (button: 0 | 2) =>
+  Effect.runPromise(Effect.sync(() => {
+    document.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, button }))
+    document.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, button }))
+    if (button === 2) {
+      document.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, button }))
+    }
+  }))
+
+const getRenderingSnapshot = (camera: THREE.PerspectiveCamera, scene: THREE.Scene) => {
+  const chunkMeshes = getChunkMeshSnapshots(scene)
+  return {
+    sceneChildren: scene.children.length,
+    chunkMeshCount: chunkMeshes.length,
+    visibleChunkMeshCount: chunkMeshes.filter((mesh) => mesh.visible).length,
+    camera: {
+      x: camera.position.x,
+      y: camera.position.y,
+      z: camera.position.z,
+      near: camera.near,
+      far: camera.far,
+    },
+    chunks: chunkMeshes,
+  }
+}
+
+// ---------------------------------------------------------------------------
+// installQaApi — wires everything together and sets window.__TS_MINECRAFT_QA__
+// ---------------------------------------------------------------------------
+
 export const installQaApi = ({
   camera,
   scene,
@@ -106,255 +460,62 @@ export const installQaApi = ({
   entityManager,
 }: QaApiDeps): Effect.Effect<void, never> =>
   Effect.sync(() => {
+    // Only expose QA API in development builds.
+    // Uses the same two-signal check as terrain-worker-pool.ts: Vite's
+    // import.meta.env.DEV (false in production builds) and the Node.js
+    // NODE_ENV fallback for test environments.
+    const _qaApiEnv = (import.meta as ImportMeta & { env?: { DEV?: boolean } }).env
+    const _qaApiProcess = (globalThis as typeof globalThis & { process?: { env?: { NODE_ENV?: string } } }).process
+    const isDevBuild = (_qaApiEnv?.DEV === true) || (_qaApiProcess?.env?.NODE_ENV !== 'production')
+    if (!isDevBuild) return
+
     if (typeof window === 'undefined') {
       return
     }
 
-    let stagedResourceBlocks: Array<{ pos: { x: number; y: number; z: number }; blockType: BlockType }> = []
-    let stagedZombiePosition: Position | null = null
-
-    const getPlayerPositionForQa = () =>
-      gameState.getPlayerPosition(DEFAULT_PLAYER_ID).pipe(
-        Effect.catchAll(() => Effect.succeed({ x: 0, y: 0, z: 0 })),
-      )
-
-    const getChunkOrNone = (coord: { readonly x: number; readonly z: number }) =>
-      chunkManagerService.getChunk(coord).pipe(Effect.option)
-
-    const scanNearbyCraftingStation = (targetBlockIndex: number) =>
-      getPlayerPositionForQa().pipe(
-        Effect.flatMap((playerPos) => scanNearbyBlock(playerPos, 5, targetBlockIndex, getChunkOrNone)),
-      )
-
-    const setAimForQA = (target: Position): Effect.Effect<void, never> =>
-      Effect.gen(function* () {
-        const dx = target.x - camera.position.x
-        const dy = target.y - camera.position.y
-        const dz = target.z - camera.position.z
-        const yaw = Math.atan2(dx, -dz)
-        const pitch = Math.atan2(dy, Math.hypot(dx, dz))
-        yield* playerCameraState.setYaw(yaw)
-        yield* playerCameraState.setPitch(pitch)
-        yield* Effect.sync(() => {
-          camera.rotation.set(pitch, yaw, 0, 'YXZ')
-          camera.updateMatrixWorld(true)
-          scene.updateMatrixWorld(true)
-        })
-      }).pipe(
-        Effect.zipRight(blockHighlight.invalidateCache()),
-        Effect.zipRight(blockHighlight.update(camera, scene)),
-      )
+    const stagedResourceBlocksRef = MutableRef.make<Array<{ pos: { x: number; y: number; z: number }; blockType: BlockType }>>([])
+    const stagedZombiePositionRef = MutableRef.make<Position | null>(null)
 
     const qa = {
       getInventorySnapshot: () =>
-        Effect.runPromise(
-          inventoryService.getAllSlots().pipe(
-            Effect.map((slots) => Arr.map(slots, (slot, index) =>
-              Option.match(slot, {
-                onNone: () => null,
-                onSome: (stack) => ({ slot: index, blockType: stack.blockType, count: stack.count }),
-              })
-            )),
-          ),
-        ),
-      openInventoryForQA: () => Effect.runPromise(inventoryRenderer.toggle()),
+        getInventorySnapshot(inventoryService),
+      openInventoryForQA: () =>
+        openInventoryForQA(inventoryRenderer),
       craftRecipeForQA: (recipeId: string) =>
-        Effect.runPromise(Effect.gen(function* () {
-          const hasTableAccess = yield* inventoryRenderer.isOpen().pipe(
-            Effect.flatMap(() => scanNearbyCraftingStation(blockTypeToIndex('CRAFTING_TABLE'))),
-          )
-          const hasFurnaceAccess = yield* inventoryRenderer.isOpen().pipe(
-            Effect.flatMap(() => scanNearbyCraftingStation(blockTypeToIndex('FURNACE'))),
-          )
-          const recipe = recipeService.findById(RecipeId.make(recipeId))
-          yield* Option.match(recipe, {
-            onNone: () => recipeService.craft(RecipeId.make(recipeId), inventoryService, hasTableAccess, hasFurnaceAccess),
-            onSome: (resolvedRecipe) => resolvedRecipe.station === 'furnace'
-              ? furnaceService.getNearestFurnaceState().pipe(
-                  Effect.flatMap((furnaceOpt) => Option.match(furnaceOpt, {
-                    onNone: () => furnaceService.startSmelting(RecipeId.make(recipeId)),
-                    onSome: (furnace) => Option.match(furnace.output, {
-                      onSome: () => furnaceService.collectOutput().pipe(Effect.asVoid),
-                      onNone: () => furnaceService.startSmelting(RecipeId.make(recipeId)),
-                    }),
-                  })),
-                )
-              : recipeService.craft(RecipeId.make(recipeId), inventoryService, hasTableAccess, hasFurnaceAccess),
-          })
-        })),
+        craftRecipeForQA(inventoryService, inventoryRenderer, recipeService, furnaceService, gameState, chunkManagerService, recipeId),
       stageProgressionScenario: () =>
-        Effect.runPromise(Effect.gen(function* () {
-          stagedResourceBlocks = []
-          stagedZombiePosition = null
-
-          const placeBlockAhead = (distance: number, blockType: BlockType) =>
-            Effect.gen(function* () {
-              const worldPos = projectBlockAhead(camera, distance)
-              const { chunkCoord, lx, lz } = getChunkAccessForWorldPosition(worldPos)
-              const chunk = yield* chunkManagerService.getChunk(chunkCoord)
-              yield* setBlockInChunk(chunk, lx, worldPos.y, lz, blockType)
-              yield* chunkManagerService.markChunkDirty(chunkCoord)
-              yield* worldRendererService.updateChunkInScene(chunk, scene).pipe(Effect.catchAll(() => Effect.void))
-              stagedResourceBlocks.push({ pos: worldPos, blockType })
-            })
-
-          yield* placeBlockAhead(4, 'WOOD')
-          yield* placeBlockAhead(5, 'WOOD')
-          yield* placeBlockAhead(6, 'WOOD')
-          yield* blockHighlight.invalidateCache()
-        })),
+        stageProgressionScenario(camera, scene, chunkManagerService, worldRendererService, blockHighlight, stagedResourceBlocksRef, stagedZombiePositionRef),
       collectStagedResources: () =>
-        Effect.runPromise(Effect.gen(function* () {
-          yield* Effect.forEach(stagedResourceBlocks, ({ pos }) => blockService.breakBlock(pos), { concurrency: 1, discard: true })
-          stagedResourceBlocks = []
-        })),
+        collectStagedResources(blockService, stagedResourceBlocksRef),
       spawnLowHealthZombieInFront: () =>
-        Effect.runPromise(Effect.gen(function* () {
-          const direction = getNormalizedLookDirection(camera)
-          const zombiePos = {
-            x: camera.position.x + direction.x * 6,
-            y: camera.position.y,
-            z: camera.position.z + direction.z * 6,
-          }
-          stagedZombiePosition = zombiePos
-          const zombieId = yield* entityManager.addEntity(EntityType.Zombie, zombiePos)
-          yield* entityManager.applyDamage(zombieId, 12)
-        })),
+        spawnLowHealthZombieInFront(camera, entityManager, stagedZombiePositionRef),
       aimAtStagedResource: (resourceIndex: number) =>
-        Effect.runPromise(Effect.gen(function* () {
-          const target = stagedResourceBlocks[resourceIndex]
-          if (!target) return
-          yield* setAimForQA({ x: target.pos.x + 0.5, y: target.pos.y + 0.5, z: target.pos.z + 0.5 })
-          yield* blockHighlight.setTargetForQA(
-            { x: target.pos.x, y: target.pos.y, z: target.pos.z },
-            {
-              point: { x: target.pos.x + 0.5, y: target.pos.y + 0.5, z: target.pos.z + 0.5 },
-              normal: { x: 0, y: 0, z: 1 },
-              distance: 4,
-              blockX: target.pos.x,
-              blockY: target.pos.y,
-              blockZ: target.pos.z,
-            },
-          )
-        })),
+        aimAtStagedResource(camera, scene, playerCameraState, blockHighlight, stagedResourceBlocksRef, resourceIndex),
       aimAtBuildSpot: () =>
-        Effect.runPromise(Effect.gen(function* () {
-          const direction = new THREE.Vector3()
-          camera.getWorldDirection(direction)
-          direction.normalize()
-          const wx = Math.floor(camera.position.x + direction.x * 4)
-          const wy = Math.floor(camera.position.y)
-          const wz = Math.floor(camera.position.z + direction.z * 4)
-          yield* setAimForQA({ x: wx + 0.5, y: wy + 0.5, z: wz + 0.5 })
-          yield* blockHighlight.setTargetForQA(
-            { x: wx, y: wy, z: wz },
-            {
-              point: { x: wx + 0.5, y: wy + 0.5, z: wz + 0.5 },
-              normal: { x: 0, y: 1, z: 0 },
-              distance: 4,
-              blockX: wx,
-              blockY: wy,
-              blockZ: wz,
-            },
-          )
-        })),
+        aimAtBuildSpot(camera, scene, playerCameraState, blockHighlight),
       aimAtStagedZombie: () =>
-        Effect.runPromise(Effect.gen(function* () {
-          if (!stagedZombiePosition) return
-          yield* setAimForQA({ x: stagedZombiePosition.x, y: stagedZombiePosition.y + 0.9, z: stagedZombiePosition.z })
-          yield* blockHighlight.clearTargetForQA()
-        })),
+        aimAtStagedZombie(camera, scene, playerCameraState, blockHighlight, stagedZombiePositionRef),
       clearBlocksInFront: () =>
-        Effect.runPromise(Effect.gen(function* () {
-          yield* Effect.forEach([3, 4] as const, (distance) => {
-            const pos = projectBlockAhead(camera, distance)
-            return blockService.breakBlock(pos).pipe(Effect.catchAll(() => Effect.void))
-          }, { concurrency: 1, discard: true })
-          yield* blockHighlight.invalidateCache()
-        })),
+        clearBlocksInFront(camera, blockService, blockHighlight),
       stageBuildSupportBlock: () =>
-        Effect.runPromise(Effect.gen(function* () {
-          const worldPos = projectBlockAhead(camera, 3)
-          const { chunkCoord, lx, lz } = getChunkAccessForWorldPosition(worldPos)
-          const chunk = yield* chunkManagerService.getChunk(chunkCoord)
-          yield* setBlockInChunk(chunk, lx, worldPos.y, lz, 'STONE')
-          yield* chunkManagerService.markChunkDirty(chunkCoord)
-          yield* worldRendererService.updateChunkInScene(chunk, scene).pipe(Effect.catchAll(() => Effect.void))
-          yield* blockHighlight.invalidateCache()
-        })),
+        stageBuildSupportBlock(camera, scene, chunkManagerService, worldRendererService, blockHighlight),
       dispatchMouseClick: (button: 0 | 2) =>
-        Effect.runPromise(Effect.sync(() => {
-          document.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, button }))
-          document.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, button }))
-          if (button === 2) {
-            document.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, button }))
-          }
-        })),
+        dispatchMouseClick(button),
       consumeMouseClickForQA: (button: 0 | 2) => Effect.runPromise(inputService.consumeMouseClick(button)),
       getCurrentTargetForQA: () => Effect.runPromise(blockHighlight.getTargetBlock()),
       attackFirstZombie: () =>
-        Effect.runPromise(Effect.gen(function* () {
-          const qaSwordDamage = 8
-          const qaHandDamage = 4
-          const entities = yield* entityManager.getEntities()
-          const zombieOpt = Arr.findFirst(entities, (entity) => entity.type === 'Zombie')
-          return yield* Option.match(zombieOpt, {
-            onNone: () => Effect.succeed(false),
-            onSome: (zombie) => Effect.gen(function* () {
-              const selectedItem = yield* hotbarService.getSelectedBlockType()
-              const damage = Option.match(selectedItem, {
-                onNone: () => qaHandDamage,
-                onSome: (item) => item === 'WOODEN_SWORD' ? qaSwordDamage : qaHandDamage,
-              })
-              yield* entityManager.applyDamage(zombie.entityId, damage)
-              return true
-            }),
-          })
-        })),
+        attackFirstZombie(hotbarService, entityManager),
       placeSelectedItemInFront: () =>
-        Effect.runPromise(Effect.gen(function* () {
-          const selectedItem = yield* hotbarService.getSelectedBlockType()
-          const selectedSlot = yield* hotbarService.getSelectedSlot()
-          yield* Option.match(selectedItem, {
-            onNone: () => Effect.void,
-            onSome: (blockType) =>
-              blockService.placeBlock(
-                projectBlockAhead(camera, 4),
-                blockType,
-                SlotIndex.make(HOTBAR_START + SlotIndex.toNumber(selectedSlot)),
-              ).pipe(Effect.catchAll(() => Effect.void)),
-          })
-          yield* blockHighlight.invalidateCache()
-        })),
+        placeSelectedItemInFront(camera, hotbarService, blockService, blockHighlight),
       moveItemToHotbar: (blockType: BlockType, hotbarIndex: number) =>
-        Effect.runPromise(Effect.gen(function* () {
-          const slots = yield* inventoryService.getAllSlots()
-          const fromIndexOpt = Arr.findFirstIndex(slots, (slot) => Option.match(slot, { onNone: () => false, onSome: (stack) => stack.blockType === blockType }))
-          const fromIndex = Option.getOrElse(fromIndexOpt, () => -1)
-          if (fromIndex < 0) return false
-          yield* inventoryService.moveStack(SlotIndex.make(fromIndex), SlotIndex.make(HOTBAR_START + hotbarIndex))
-          yield* hotbarService.setSelectedSlot(SlotIndex.make(hotbarIndex))
-          return true
-        })),
-      selectHotbarSlot: (hotbarIndex: number) => Effect.runPromise(hotbarService.setSelectedSlot(SlotIndex.make(hotbarIndex))),
-      getRecipeButtons: () => Arr.map(recipeService.getAllRecipes(), (recipe) => recipe.id),
+        moveItemToHotbar(inventoryService, hotbarService, blockType, hotbarIndex),
+      selectHotbarSlot: (hotbarIndex: number) =>
+        selectHotbarSlot(hotbarService, hotbarIndex),
+      getRecipeButtons: () =>
+        getRecipeButtons(recipeService),
       getEntitySnapshot: () => Effect.runPromise(entityManager.getEntities()),
-      getRenderingSnapshot: () => {
-        const chunkMeshes = getChunkMeshSnapshots(scene)
-        return {
-          sceneChildren: scene.children.length,
-          chunkMeshCount: chunkMeshes.length,
-          visibleChunkMeshCount: chunkMeshes.filter((mesh) => mesh.visible).length,
-          camera: {
-            x: camera.position.x,
-            y: camera.position.y,
-            z: camera.position.z,
-            near: camera.near,
-            far: camera.far,
-          },
-          chunks: chunkMeshes,
-        }
-      },
+      getRenderingSnapshot: () =>
+        getRenderingSnapshot(camera, scene),
     }
 
     Reflect.set(window as object, '__TS_MINECRAFT_QA__', qa)

@@ -5,7 +5,7 @@ import { StorageServicePort } from '@ts-minecraft/terrain'
 import { NoiseServicePort, NoiseServiceLive, BiomeService, type BiomeType, ChunkManagerService, ChunkManagerServiceLive } from '@ts-minecraft/terrain'
 import { computeColumnY } from '@ts-minecraft/terrain'
 import type { BiomeProperties } from '@ts-minecraft/terrain'
-import { ChunkServiceLive } from '../domain/chunk'
+import { ChunkServiceLive } from '../application/chunk-service'
 import { CHUNK_SIZE, CHUNK_HEIGHT } from '@ts-minecraft/kernel'
 import {
   makeInMemoryStorage,

@@ -3,12 +3,12 @@ import { expect } from 'vitest'
 import { Array as Arr, Effect, Either, Layer, Option } from 'effect'
 import { BlockService, BlockServiceLive, blockOverlapsPlayer, worldToBlockLocal } from '@ts-minecraft/terrain'
 import { ChunkManagerService } from '@ts-minecraft/terrain'
-import { ChunkServiceLive } from '../domain/chunk'
+import { ChunkServiceLive } from '../application/chunk-service'
 import { FluidService } from '@ts-minecraft/terrain'
 import { PlayerService } from '@ts-minecraft/player'
-import { InventoryService } from '@ts-minecraft/inventory'
+import { InventoryService, InventoryError } from '@ts-minecraft/inventory'
 import { HotbarService } from '@ts-minecraft/inventory'
-import { FurnaceService } from '@ts-minecraft/inventory'
+import { FurnaceService } from '@ts-minecraft/furnace'
 import { CHUNK_SIZE, CHUNK_HEIGHT, blockTypeToIndex, Position, SlotIndex } from '@ts-minecraft/kernel'
 import type { BlockType } from '@ts-minecraft/kernel'
 
@@ -68,12 +68,14 @@ const makePlayerLayer = (pos: Position = { x: 100, y: 100, z: 100 }) =>
   } as unknown as PlayerService)
 
 const makeInventoryLayer = (opts: {
-  removeBlockResult?: boolean
+  removeBlockFails?: boolean
 } = {}) =>
   Layer.succeed(InventoryService, {
     _tag: '@minecraft/application/InventoryService' as const,
-    addBlock: () => Effect.succeed(true),
-    removeBlock: () => Effect.succeed(opts.removeBlockResult ?? true),
+    addBlock: () => Effect.void,
+    removeBlock: (_blockType: BlockType) => opts.removeBlockFails
+      ? Effect.fail(new InventoryError({ operation: 'removeBlock', cause: `No ${_blockType} available` }))
+      : Effect.void,
     getSlot: () => Effect.succeed(Option.none()),
     getHotbarSlots: () => Effect.succeed([]),
     getAllSlots: () => Effect.succeed([]),
@@ -113,7 +115,7 @@ const buildLayer = (opts: {
   blockAtIdx?: BlockType
   selectedTool?: Option.Option<BlockType>
   playerPos?: Position
-  removeBlockResult?: boolean
+  removeBlockFails?: boolean
   dismantleResult?: boolean
 } = {}) =>
   BlockServiceLive.pipe(
@@ -121,7 +123,7 @@ const buildLayer = (opts: {
     Layer.provide(ChunkServiceLive),
     Layer.provide(noopFluidService),
     Layer.provide(makePlayerLayer(opts.playerPos)),
-    Layer.provide(makeInventoryLayer(opts.removeBlockResult === undefined ? {} : { removeBlockResult: opts.removeBlockResult })),
+    Layer.provide(makeInventoryLayer(opts.removeBlockFails === undefined ? {} : { removeBlockFails: opts.removeBlockFails })),
     Layer.provide(makeHotbarLayer(opts.selectedTool)),
     Layer.provide(makeFurnaceLayer(opts.dismantleResult === undefined ? {} : { dismantleResult: opts.dismantleResult })),
   )

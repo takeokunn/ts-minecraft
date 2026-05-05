@@ -129,30 +129,30 @@ describe('ThirdPersonCameraService', () => {
     )
   )
 
-  it.effect('update with positive pitch elevates the camera higher', () =>
+  it.effect('camera Y is higher with pitch > 0 than with pitch = 0', () =>
     Effect.gen(function* () {
-      const thirdPersonCamera = yield* ThirdPersonCameraService
-      const { camera, positionSet: flatSet } = makeMockCamera()
-
-      yield* thirdPersonCamera.update(camera, { x: 0, y: 0, z: 0 }, 0)
+      // pitch = 0: offsetY = sin(0)*4 + 1.5 = 1.5
+      const { camera: flatCam, positionSet: flatSet } = makeMockCamera()
+      yield* Effect.gen(function* () {
+        const svc = yield* ThirdPersonCameraService
+        yield* svc.update(flatCam, { x: 0, y: 64, z: 0 }, 0.7)
+      }).pipe(
+        Effect.provide(ThirdPersonCameraServiceLive.pipe(Layer.provide(makeMockCameraStateLayer(0, 0)))),
+      )
       const flatY = flatSet.args[1]
 
-      const { camera: camera2 } = makeMockCamera()
-      const yaw90Camera = yield* ThirdPersonCameraService
+      // pitch = PI/4: offsetY = sin(PI/4)*4 + 1.5 ≈ 4.33
+      const { camera: upCam, positionSet: upSet } = makeMockCamera()
+      yield* Effect.gen(function* () {
+        const svc = yield* ThirdPersonCameraService
+        yield* svc.update(upCam, { x: 0, y: 64, z: 0 }, 0.7)
+      }).pipe(
+        Effect.provide(ThirdPersonCameraServiceLive.pipe(Layer.provide(makeMockCameraStateLayer(0, Math.PI / 4)))),
+      )
+      const upY = upSet.args[1]
 
-      yield* yaw90Camera.update(camera2, { x: 0, y: 0, z: 0 }, 0)
-
-      // Both are from the same service but the positive pitch check needs a separate layer
-      // This test just confirms the flat case (pitch=0) gives the base shoulder height
-      // offsetY = sin(0)*4 + 1.5 = 1.5; eyeY = 0; final y = 1.5
-      expect(flatY).toBeCloseTo(1.5)
-    }).pipe(
-      Effect.provide(
-        ThirdPersonCameraServiceLive.pipe(
-          Layer.provide(makeMockCameraStateLayer(0, 0)),
-        ),
-      ),
-    )
+      expect(upY).toBeGreaterThan(flatY)
+    })
   )
 
   it.effect('default eyeLevelOffset of 0.7 is used when not provided', () =>

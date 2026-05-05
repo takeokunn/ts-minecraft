@@ -2,8 +2,6 @@ import { Effect, HashMap, Layer, Option, Ref } from 'effect'
 import { AudioEnginePort } from '../domain/audio-engine-port'
 import { clamp01, clampPan } from '../domain/audio-types'
 
-export { OscillatorWaveSchema, ToneRequestSchema, ToneHandleSchema, clamp01, clampPan } from '../domain/audio-types'
-export type { OscillatorWave, ToneRequest, ToneHandle } from '../domain/audio-types'
 import type { ToneHandle, ToneRequest } from '../domain/audio-types'
 
 type ActiveTone = {
@@ -12,33 +10,18 @@ type ActiveTone = {
   readonly pannerNode: Option.Option<StereoPannerNode>
 }
 
-type GlobalAudioCtor = typeof globalThis & {
-  readonly AudioContext?: typeof AudioContext
-  readonly webkitAudioContext?: typeof AudioContext
-}
-
-const hasAudioContextCtor = (value: typeof globalThis): value is GlobalAudioCtor =>
-  'AudioContext' in value || 'webkitAudioContext' in value
-
-const getAudioContextCtor = (): Option.Option<typeof AudioContext> => {
-  const audioGlobal = globalThis
-  if (!hasAudioContextCtor(audioGlobal)) {
-    return Option.none()
+const acquireAudioContext = (): Effect.Effect<Option.Option<AudioContext>, never> => {
+  if (typeof AudioContext === 'undefined') {
+    return Effect.succeed(Option.none())
   }
-
-  const ctor = audioGlobal.AudioContext ?? audioGlobal.webkitAudioContext
-  return Option.fromNullable(ctor)
+  return Effect.try({
+    try: () => new AudioContext(),
+    catch: () => new Error('AudioContext creation failed'),
+  }).pipe(
+    Effect.map(Option.some),
+    Effect.catchAllCause(() => Effect.succeed(Option.none())),
+  )
 }
-
-const acquireAudioContext = (): Effect.Effect<Option.Option<AudioContext>, never> =>
-  Option.match(getAudioContextCtor(), {
-    onNone: () => Effect.succeed(Option.none()),
-    onSome: (Ctor) =>
-      Effect.try({ try: () => new Ctor(), catch: () => new Error('AudioContext creation failed') }).pipe(
-        Effect.map(Option.some),
-        Effect.catchAllCause(() => Effect.succeed(Option.none())),
-      ),
-  })
 
 const wireMasterGain = (
   context: AudioContext,
@@ -182,7 +165,7 @@ export class AudioEngine extends Effect.Service<AudioEngine>()('@minecraft/audio
             [HashMap.get(state, handle.id), HashMap.remove(state, handle.id)],
         )
 
-          yield* Option.match(toneOpt, {
+        yield* Option.match(toneOpt, {
           onNone: () => Effect.void,
           onSome: (tone) =>
             Effect.all(

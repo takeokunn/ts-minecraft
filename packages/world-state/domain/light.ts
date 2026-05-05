@@ -1,6 +1,6 @@
 import { Array as Arr } from 'effect'
 import { BlockType } from '@ts-minecraft/kernel'
-import { initialBlocks } from './block-registry'
+import { initialBlocks } from './blocks.config'
 import { CHUNK_HEIGHT, CHUNK_SIZE, blockIndexUnsafe, blockTypeToIndex } from '@ts-minecraft/kernel'
 
 // 4-bit-per-voxel light grids. Storage: Uint8Array of LIGHT_BYTE_LENGTH bytes; 2 voxels per byte (low/high nibbles).

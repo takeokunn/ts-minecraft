@@ -24,12 +24,6 @@ export const PhysicsBodyId = {
   make: (s: string): PhysicsBodyId => Schema.decodeUnknownSync(PhysicsBodyIdSchema)(s),
 }
 
-export const ChunkIdSchema = Schema.String.pipe(Schema.brand('ChunkId'))
-export type ChunkId = Schema.Schema.Type<typeof ChunkIdSchema>
-export const ChunkId = {
-  make: (s: string): ChunkId => Schema.decodeUnknownSync(ChunkIdSchema)(s),
-}
-
 export const RecipeIdSchema = Schema.String.pipe(Schema.brand('RecipeId'))
 export type RecipeId = Schema.Schema.Type<typeof RecipeIdSchema>
 export const RecipeId = {

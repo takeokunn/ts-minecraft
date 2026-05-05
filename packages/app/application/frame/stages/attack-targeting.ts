@@ -2,7 +2,7 @@ import { Array as Arr, Option } from 'effect'
 import * as THREE from 'three'
 import type { EntityId as EntityIdType } from '@ts-minecraft/entities'
 import type { Position } from '@ts-minecraft/kernel'
-import { PLAYER_ATTACK_REACH, PLAYER_ATTACK_RADIUS } from '@ts-minecraft/app/frame-handler.config'
+import { PLAYER_ATTACK_REACH, PLAYER_ATTACK_RADIUS, ENTITY_CENTER_Y_OFFSET } from '@ts-minecraft/app/frame-handler.config'
 
 export const findAttackableEntity = (
   entities: ReadonlyArray<{ readonly entityId: EntityIdType; readonly position: Position }>,
@@ -22,7 +22,7 @@ export const findAttackableEntity = (
     (acc, entity) => {
       const toEntity = new THREE.Vector3(
         entity.position.x - rayOrigin.x,
-        entity.position.y + 0.9 - rayOrigin.y,
+        entity.position.y + ENTITY_CENTER_Y_OFFSET - rayOrigin.y,
         entity.position.z - rayOrigin.z,
       )
       const alongRay = toEntity.dot(cameraDirection)

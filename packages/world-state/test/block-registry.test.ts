@@ -30,10 +30,10 @@ const makeTestBlock = (type: Block['type'], idSuffix: string): Block =>
   })
 
 // ---------------------------------------------------------------------------
-// domain/block-registry
+// application/block-registry
 // ---------------------------------------------------------------------------
 
-describe('domain/block-registry', () => {
+describe('application/block-registry', () => {
   it.effect('register adds a block that can be retrieved with get', () =>
     Effect.gen(function* () {
       const registry = yield* BlockRegistry

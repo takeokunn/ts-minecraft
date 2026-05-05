@@ -1,10 +1,9 @@
-import { Effect, Option, Schema } from 'effect'
+import { Effect, Schema } from 'effect'
 import {
-  BlockType, blockTypeToIndex, indexToBlockType,
-  ChunkCoord, ChunkCoordSchema, CHUNK_SIZE, CHUNK_HEIGHT,
-  blockIndex, toBlockIndex, BlockIndexError,
+  BlockType, blockTypeToIndex,
+  ChunkCoordSchema,
+  toBlockIndex, BlockIndexError,
 } from '@ts-minecraft/kernel'
-import { ChunkError } from './errors'
 
 // Bumped from 2 → 3 for Phase 2.1 multi-noise.
 export const WORLD_SCHEMA_VERSION = 3
@@ -20,56 +19,6 @@ export const ChunkSchema = Schema.Struct({
   blockLight: Schema.optional(Schema.declare((u): u is Uint8Array<ArrayBufferLike> => u instanceof Uint8Array)),
 })
 export type Chunk = Schema.Schema.Type<typeof ChunkSchema>
-
-export class ChunkService extends Effect.Service<ChunkService>()(
-  '@minecraft/domain/ChunkService',
-  {
-    effect: Effect.succeed({
-      createChunk: (coord: ChunkCoord): Effect.Effect<Chunk, never> =>
-        Effect.succeed({
-          coord,
-          blocks: new Uint8Array(CHUNK_SIZE * CHUNK_SIZE * CHUNK_HEIGHT),
-          fluid: Option.some(new Uint8Array(CHUNK_SIZE * CHUNK_SIZE * CHUNK_HEIGHT)),
-        }),
-
-      getBlock: (chunk: Chunk, localX: number, y: number, localZ: number): Effect.Effect<BlockType, ChunkError> =>
-        Option.match(blockIndex(localX, y, localZ), {
-          onNone: () => Effect.fail(new ChunkError({
-            chunkCoord: chunk.coord,
-            reason: `Invalid local coordinates: (${localX}, ${y}, ${localZ}). Valid range: x,z=[0,${CHUNK_SIZE - 1}], y=[0,${CHUNK_HEIGHT - 1}]`,
-          })),
-          onSome: (idx) => Effect.succeed(indexToBlockType(Option.getOrElse(Option.fromNullable(chunk.blocks[idx]), () => 0))),
-        }),
-
-      setBlock: (chunk: Chunk, localX: number, y: number, localZ: number, blockType: BlockType): Effect.Effect<Chunk, ChunkError> =>
-        Option.match(blockIndex(localX, y, localZ), {
-          onNone: () => Effect.fail(new ChunkError({
-            chunkCoord: chunk.coord,
-            reason: `Invalid local coordinates: (${localX}, ${y}, ${localZ}). Valid range: x,z=[0,${CHUNK_SIZE - 1}], y=[0,${CHUNK_HEIGHT - 1}]`,
-          })),
-          onSome: (idx) => {
-            const newBlocks = new Uint8Array(chunk.blocks)
-            newBlocks[idx] = blockTypeToIndex(blockType)
-            return Effect.succeed({ ...chunk, blocks: newBlocks })
-          },
-        }),
-
-      worldToChunkCoord: (worldX: number, worldZ: number): Effect.Effect<ChunkCoord, never, never> =>
-        Effect.succeed({
-          x: Math.floor(worldX / CHUNK_SIZE),
-          z: Math.floor(worldZ / CHUNK_SIZE),
-        }),
-
-      chunkToWorldCoord: (coord: ChunkCoord, localX: number, localZ: number): Effect.Effect<ChunkCoord, never, never> =>
-        Effect.succeed({
-          x: coord.x * CHUNK_SIZE + localX,
-          z: coord.z * CHUNK_SIZE + localZ,
-        }),
-    }),
-  }
-) {}
-
-export const ChunkServiceLive = ChunkService.Default
 
 // Zero allocation, no copy — returns backing Uint8Array as Readonly. Use for hot loops (e.g., greedy meshing).
 export const getBlocksBatch = (chunk: Chunk): Effect.Effect<Readonly<Uint8Array>, never> =>
@@ -90,6 +39,3 @@ export const setBlockInChunk = (
       chunk.blocks[idx] = blockTypeToIndex(blockType)
     })
   )
-
-export type { ChunkCoord } from '@ts-minecraft/kernel'
-export { ChunkCoordSchema, CHUNK_SIZE, CHUNK_HEIGHT, blockIndex, toBlockIndex, BlockIndexError } from '@ts-minecraft/kernel'

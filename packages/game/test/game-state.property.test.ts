@@ -6,63 +6,10 @@
 //      and isPlayerGrounded() returns true.
 import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
-import { Array as Arr, Effect, Layer } from 'effect'
-import { GameStateService, GameStateServiceLive } from '@ts-minecraft/game'
-import { PhysicsServiceLive } from '@ts-minecraft/physics'
-import { PhysicsWorldPortLayer, RigidBodyPortLayer, ShapePortLayer } from '@ts-minecraft/app'
-import { MovementServiceLive } from '@ts-minecraft/player'
-import { PlayerCameraStateLive } from '@ts-minecraft/player'
-import { PlayerServiceLive } from '@ts-minecraft/player'
-import { PlayerInputService } from '@ts-minecraft/player'
-import { ChunkManagerService } from '@ts-minecraft/terrain'
-import { GameModeServiceLive } from '@ts-minecraft/game'
-import { InventoryServiceLive } from '@ts-minecraft/inventory'
-import { BlockRegistryLive } from '@ts-minecraft/world-state'
+import { Array as Arr, Effect } from 'effect'
+import { GameStateService } from '@ts-minecraft/game'
 import { DeltaTimeSecs } from '@ts-minecraft/kernel'
-
-// ---------------------------------------------------------------------------
-// Shared layer composition (mirrors game-state.integration.test.ts)
-// ---------------------------------------------------------------------------
-const NoOpPlayerInputLayer = Layer.succeed(PlayerInputService, PlayerInputService.of({
-  _tag: '@minecraft/application/PlayerInputService' as const,
-  isKeyPressed: (_key: string) => Effect.succeed(false),
-  consumeKeyPress: (_key: string) => Effect.succeed(false),
-  consumeWheelDelta: () => Effect.succeed(0),
-  getMouseDelta: () => Effect.succeed({ x: 0, y: 0 }),
-  isPointerLocked: () => Effect.succeed(false),
-}))
-
-const PhysicsLayer = PhysicsServiceLive.pipe(
-  Layer.provide(PhysicsWorldPortLayer),
-  Layer.provide(RigidBodyPortLayer),
-  Layer.provide(ShapePortLayer),
-)
-
-const MovementLayer = MovementServiceLive.pipe(
-  Layer.provide(NoOpPlayerInputLayer),
-)
-
-const NoOpChunkManagerLayer = Layer.succeed(ChunkManagerService, ChunkManagerService.of({
-  _tag: '@minecraft/application/ChunkManagerService' as const,
-  getChunk: (_coord: unknown) => Effect.fail({ _tag: 'ChunkError', message: 'not loaded' } as never),
-  getLoadedChunks: () => Effect.succeed([]),
-  loadChunksAroundPlayer: (_pos: unknown, _dist?: unknown) => Effect.succeed(false),
-  markChunkDirty: () => Effect.void,
-  saveDirtyChunks: () => Effect.void,
-  unloadChunk: () => Effect.void,
-}))
-
-const InventoryLayerForTest = InventoryServiceLive.pipe(Layer.provide(BlockRegistryLive))
-
-const TestGameLayer = GameStateServiceLive.pipe(
-  Layer.provide(PlayerServiceLive),
-  Layer.provide(PhysicsLayer),
-  Layer.provide(MovementLayer),
-  Layer.provide(PlayerCameraStateLive),
-  Layer.provide(NoOpChunkManagerLayer),
-  Layer.provide(GameModeServiceLive),
-  Layer.provide(InventoryLayerForTest),
-)
+import { TestGameLayer } from './game-state-test-utils'
 
 // ---------------------------------------------------------------------------
 // Gap A: player falls to bedrock floor and isPlayerGrounded returns true

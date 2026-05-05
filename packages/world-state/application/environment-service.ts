@@ -1,5 +1,5 @@
 import { Effect, HashSet, Layer } from 'effect'
-import { EnvironmentPort } from '../domain/environment-port'
+import { EnvironmentPort } from '@ts-minecraft/kernel'
 
 const LOCALHOST_HOSTNAMES = HashSet.make('localhost', '127.0.0.1', '0.0.0.0', '::1')
 

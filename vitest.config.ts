@@ -96,6 +96,7 @@ export default defineConfig({
       '@ts-minecraft/world-state': resolve(__dirname, 'packages/world-state'),
       '@ts-minecraft/player': resolve(__dirname, 'packages/player'),
       '@ts-minecraft/inventory': resolve(__dirname, 'packages/inventory'),
+      '@ts-minecraft/furnace': resolve(__dirname, 'packages/furnace'),
       '@ts-minecraft/entities': resolve(__dirname, 'packages/entities'),
       '@ts-minecraft/rendering/particles/particle-system': resolve(__dirname, 'packages/rendering/infrastructure/particles/particle-system'),
       '@ts-minecraft/rendering': resolve(__dirname, 'packages/rendering'),

@@ -1,20 +1,15 @@
 import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
 import { Effect, Schema } from 'effect'
-import {
-  RigidBodyService,
-  RigidBodyServiceLive,
-  RigidBodyConfigSchema,
-  type RigidBodyConfig,
-} from '@ts-minecraft/physics'
+import { RigidBodyService, RigidBodyServiceLive } from '../infrastructure/boundary/rigid-body-service'
+import { RigidBodyConfigSchema, type RigidBodyConfig } from '../domain/physics-body'
+
+const defaultConfig: RigidBodyConfig = {
+  mass: 1,
+  position: { x: 0, y: 0, z: 0 },
+}
 
 describe('physics/boundary/rigid-body-service', () => {
-  const defaultConfig: RigidBodyConfig = {
-    mass: 1,
-    position: { x: 0, y: 0, z: 0 },
-    quaternion: { x: 0, y: 0, z: 0, w: 1 },
-  }
-
   describe('RigidBodyConfigSchema', () => {
     it('should accept valid config', () => {
       const result = Schema.decodeUnknownSync(RigidBodyConfigSchema)(defaultConfig)
@@ -36,16 +31,13 @@ describe('physics/boundary/rigid-body-service', () => {
   })
 
   describe('RigidBodyServiceLive', () => {
-    it.effect('should expose all required methods', () =>
+    it.effect('should expose create, setPosition, setVelocity, addShape methods', () =>
       Effect.gen(function* () {
         const service = yield* RigidBodyService
         expect(typeof service.create).toBe('function')
         expect(typeof service.setPosition).toBe('function')
-        expect(typeof service.setQuaternion).toBe('function')
         expect(typeof service.setVelocity).toBe('function')
-        expect(typeof service.setAngularVelocity).toBe('function')
         expect(typeof service.addShape).toBe('function')
-        expect(typeof service.updateMassProperties).toBe('function')
       }).pipe(Effect.provide(RigidBodyServiceLive))
     )
 
@@ -54,6 +46,14 @@ describe('physics/boundary/rigid-body-service', () => {
         const service = yield* RigidBodyService
         const body = yield* service.create(defaultConfig)
         expect(body.mass).toBe(1)
+      }).pipe(Effect.provide(RigidBodyServiceLive))
+    )
+
+    it.effect('should default to dynamic type when type is not specified', () =>
+      Effect.gen(function* () {
+        const service = yield* RigidBodyService
+        const body = yield* service.create(defaultConfig)
+        expect(body.type).toBe('dynamic')
       }).pipe(Effect.provide(RigidBodyServiceLive))
     )
 
@@ -70,6 +70,16 @@ describe('physics/boundary/rigid-body-service', () => {
         const service = yield* RigidBodyService
         const body = yield* service.create({ ...defaultConfig, type: 'kinematic' })
         expect(body.type).toBe('kinematic')
+      }).pipe(Effect.provide(RigidBodyServiceLive))
+    )
+
+    it.effect('should create a body with zero initial velocity', () =>
+      Effect.gen(function* () {
+        const service = yield* RigidBodyService
+        const body = yield* service.create(defaultConfig)
+        expect(body.velocity.x).toBe(0)
+        expect(body.velocity.y).toBe(0)
+        expect(body.velocity.z).toBe(0)
       }).pipe(Effect.provide(RigidBodyServiceLive))
     )
 
@@ -105,27 +115,13 @@ describe('physics/boundary/rigid-body-service', () => {
       }).pipe(Effect.provide(RigidBodyServiceLive))
     )
 
-    it.effect('updateMassProperties should complete without error', () =>
+    it.effect('should add a sphere shape to a body', () =>
       Effect.gen(function* () {
         const service = yield* RigidBodyService
         const body = yield* service.create(defaultConfig)
-        yield* service.updateMassProperties(body)
-      }).pipe(Effect.provide(RigidBodyServiceLive))
-    )
-
-    it.effect('setQuaternion is a no-op (custom engine does not track rotation)', () =>
-      Effect.gen(function* () {
-        const service = yield* RigidBodyService
-        const body = yield* service.create(defaultConfig)
-        yield* service.setQuaternion(body, { x: 0, y: 0, z: 0, w: 1 })
-      }).pipe(Effect.provide(RigidBodyServiceLive))
-    )
-
-    it.effect('setAngularVelocity is a no-op (custom engine does not track angular velocity)', () =>
-      Effect.gen(function* () {
-        const service = yield* RigidBodyService
-        const body = yield* service.create(defaultConfig)
-        yield* service.setAngularVelocity(body, { x: 1, y: 2, z: 3 })
+        const sphere = { kind: 'sphere' as const, radius: 1.5 }
+        yield* service.addShape(body, sphere)
+        expect(body.shape).toEqual(sphere)
       }).pipe(Effect.provide(RigidBodyServiceLive))
     )
   })

@@ -1,7 +1,7 @@
 import { MutableHashMap, Option, Layer, Effect } from 'effect'
 import { vi } from 'vitest'
 import { SettingsService, SettingsServiceLive } from '@ts-minecraft/game'
-import { EnvironmentPort } from '@ts-minecraft/world-state'
+import { EnvironmentPort } from '@ts-minecraft/kernel'
 
 // Test EnvironmentPort: jsdom localhost is treated as local development.
 // as localhost, which forces audioEnabled=false on load. Replicate that explicitly here.

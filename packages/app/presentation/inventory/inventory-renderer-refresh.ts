@@ -20,8 +20,8 @@ export const renderSlotElements = (
   Arr.forEach(Arr.zip(slotEls, allSlots), ([el, itemOpt], i) => {
     Option.match(itemOpt, {
       onSome: (stack) => {
-        el.style.background = getSlotColor(stack.blockType)
-        el.title = `${stack.blockType} ×${stack.count}`
+        el.style.background = getSlotColor(stack.itemType)
+        el.title = `${stack.itemType} ×${stack.count}`
         el.textContent = stack.count < 64 ? String(stack.count) : ''
       },
       onNone: () => {
@@ -66,7 +66,7 @@ export const renderCraftingList = (
         : recipe.station === 'furnace'
           ? ' [Furnace]'
           : ''
-      row.textContent = `${Arr.map(recipe.ingredients, (ingredient) => `${ingredient.count} ${ingredient.blockType}`).join(' + ')} → ${recipe.output.count} ${recipe.output.blockType}${stationLabel}`
+      row.textContent = `${Arr.map(recipe.ingredients, (ingredient) => `${ingredient.count} ${ingredient.itemType}`).join(' + ')} → ${recipe.output.count} ${recipe.output.itemType}${stationLabel}`
       dom.appendChildTo(container, row)
     })
   })

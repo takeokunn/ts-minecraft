@@ -5,7 +5,7 @@ HOTBAR_START,
 INVENTORY_SIZE,
 InventoryService,
 } from '@ts-minecraft/inventory'
-import { Array as Arr,Effect,Option } from 'effect'
+import { Array as Arr,Effect,Either,Option } from 'effect'
 import type { ItemStack } from '../domain/item-stack'
 import { MAX_STACK_SIZE,createStack } from '../domain/item-stack'
 import {
@@ -22,13 +22,12 @@ describe('application/inventory/inventory-service', () => {
       const testLayer = createTestLayer(createTestBlockRegistry(airOnlyBlocks))
       return Effect.gen(function* () {
         const service = yield* InventoryService
-        const added = yield* service.addBlock('DIRT', 5)
+        yield* service.addBlock('DIRT', 5)
         const slot0 = yield* service.getSlot(asSlotIndex(0))
 
-        expect(added).toBe(true)
         expect(Option.isSome(slot0)).toBe(true)
         const unwrapped = Option.getOrThrow(slot0)
-        expect(unwrapped.blockType).toBe('DIRT')
+        expect(unwrapped.itemType).toBe('DIRT')
         expect(unwrapped.count).toBe(5)
       }).pipe(Effect.provide(testLayer))
     })
@@ -39,11 +38,10 @@ describe('application/inventory/inventory-service', () => {
         const service = yield* InventoryService
         yield* service.setSlot(asSlotIndex(5), Option.some(createStack('DIRT', 60)))
 
-        const added = yield* service.addBlock('DIRT', 3)
+        yield* service.addBlock('DIRT', 3)
         const slot5 = yield* service.getSlot(asSlotIndex(5))
         const slot0 = yield* service.getSlot(asSlotIndex(0))
 
-        expect(added).toBe(true)
         expect(Option.isSome(slot5)).toBe(true)
         expect(Option.getOrThrow(slot5).count).toBe(63)
         expect(Option.isNone(slot0)).toBe(true)
@@ -56,16 +54,15 @@ describe('application/inventory/inventory-service', () => {
         const service = yield* InventoryService
         yield* service.setSlot(asSlotIndex(5), Option.some(createStack('DIRT', 62)))
 
-        const added = yield* service.addBlock('DIRT', 5)
+        yield* service.addBlock('DIRT', 5)
         const slot5 = yield* service.getSlot(asSlotIndex(5))
         const slot0 = yield* service.getSlot(asSlotIndex(0))
 
-        expect(added).toBe(true)
         expect(Option.isSome(slot5)).toBe(true)
         expect(Option.isSome(slot0)).toBe(true)
         expect(Option.getOrThrow(slot5).count).toBe(MAX_STACK_SIZE)
         const unwrappedSlot0 = Option.getOrThrow(slot0)
-        expect(unwrappedSlot0.blockType).toBe('DIRT')
+        expect(unwrappedSlot0.itemType).toBe('DIRT')
         expect(unwrappedSlot0.count).toBe(3)
       }).pipe(Effect.provide(testLayer))
     })
@@ -74,31 +71,31 @@ describe('application/inventory/inventory-service', () => {
       const testLayer = createTestLayer(createTestBlockRegistry(airOnlyBlocks))
       return Effect.gen(function* () {
         const service = yield* InventoryService
-        const added = yield* service.addBlock('STONE', MAX_STACK_SIZE + 2)
+        yield* service.addBlock('STONE', MAX_STACK_SIZE + 2)
 
         const slot0 = yield* service.getSlot(asSlotIndex(0))
         const slot1 = yield* service.getSlot(asSlotIndex(1))
 
-        expect(added).toBe(true)
         expect(Option.isSome(slot0)).toBe(true)
         expect(Option.isSome(slot1)).toBe(true)
         const unwrapped0 = Option.getOrThrow(slot0)
-        expect(unwrapped0.blockType).toBe('STONE')
+        expect(unwrapped0.itemType).toBe('STONE')
         expect(unwrapped0.count).toBe(MAX_STACK_SIZE)
         const unwrapped1 = Option.getOrThrow(slot1)
-        expect(unwrapped1.blockType).toBe('STONE')
+        expect(unwrapped1.itemType).toBe('STONE')
         expect(unwrapped1.count).toBe(2)
       }).pipe(Effect.provide(testLayer))
     })
 
-    it.effect('returns false when inventory cannot fit all blocks', () => {
+    it.effect('fails with InventoryError when inventory cannot fit all blocks', () => {
       const testLayer = createTestLayer(createTestBlockRegistry(airOnlyBlocks))
       return Effect.gen(function* () {
         const service = yield* InventoryService
         yield* Effect.forEach(Arr.makeBy(INVENTORY_SIZE, i => i), (i) => service.setSlot(asSlotIndex(i), Option.some(createStack('STONE', MAX_STACK_SIZE))), { concurrency: 1 })
 
-        const added = yield* service.addBlock('DIRT', 1)
-        expect(added).toBe(false)
+        const result = yield* Effect.either(service.addBlock('DIRT', 1))
+        expect(Either.isLeft(result)).toBe(true)
+        expect(Option.getOrThrow(Either.getLeft(result))._tag).toBe('InventoryError')
       }).pipe(Effect.provide(testLayer))
     })
 
@@ -108,19 +105,85 @@ describe('application/inventory/inventory-service', () => {
         const service = yield* InventoryService
         yield* service.setSlot(asSlotIndex(0), Option.some(createStack('STONE', 60)))
 
-        const added = yield* service.addBlock('DIRT', 3)
+        yield* service.addBlock('DIRT', 3)
         const slot0 = yield* service.getSlot(asSlotIndex(0))
         const slot1 = yield* service.getSlot(asSlotIndex(1))
 
-        expect(added).toBe(true)
         expect(Option.isSome(slot0)).toBe(true)
         expect(Option.isSome(slot1)).toBe(true)
         const unwrapped0 = Option.getOrThrow(slot0)
-        expect(unwrapped0.blockType).toBe('STONE')
+        expect(unwrapped0.itemType).toBe('STONE')
         expect(unwrapped0.count).toBe(60)
         const unwrapped1 = Option.getOrThrow(slot1)
-        expect(unwrapped1.blockType).toBe('DIRT')
+        expect(unwrapped1.itemType).toBe('DIRT')
         expect(unwrapped1.count).toBe(3)
+      }).pipe(Effect.provide(testLayer))
+    })
+
+    it.effect('skips full matching stacks and fills next partial stack', () => {
+      // Exercises the fillExistingStacks space<=0 branch: slot 0 is full STONE (space=0),
+      // so the guard fires and it is skipped; slot 1 is partial and receives the items.
+      const testLayer = createTestLayer(createTestBlockRegistry(airOnlyBlocks))
+      return Effect.gen(function* () {
+        const service = yield* InventoryService
+        yield* service.setSlot(asSlotIndex(0), Option.some(createStack('STONE', MAX_STACK_SIZE)))
+        yield* service.setSlot(asSlotIndex(1), Option.some(createStack('STONE', 60)))
+
+        yield* service.addBlock('STONE', 3)
+
+        const slot0 = yield* service.getSlot(asSlotIndex(0))
+        const slot1 = yield* service.getSlot(asSlotIndex(1))
+
+        // Full stack was skipped (space=0 branch hit)
+        expect(Option.isSome(slot0)).toBe(true)
+        expect(Option.getOrThrow(slot0).count).toBe(MAX_STACK_SIZE)
+        // Partial stack received the items
+        expect(Option.isSome(slot1)).toBe(true)
+        expect(Option.getOrThrow(slot1).count).toBe(63)
+      }).pipe(Effect.provide(testLayer))
+    })
+
+    it.effect('addBlock atomic rollback: state unchanged when not all items fit', () => {
+      // 35 slots at MAX (35*64 = 2240 filled), slot 35 has 30 STONE → only 34 spaces.
+      // Trying to add 60 STONE fails → rollback → slot 35 still has 30.
+      const testLayer = createTestLayer(createTestBlockRegistry(airOnlyBlocks))
+      return Effect.gen(function* () {
+        const service = yield* InventoryService
+        yield* Effect.forEach(
+          Arr.makeBy(INVENTORY_SIZE - 1, (i) => i),
+          (i) => service.setSlot(asSlotIndex(i), Option.some(createStack('STONE', MAX_STACK_SIZE))),
+          { concurrency: 1 },
+        )
+        yield* service.setSlot(asSlotIndex(INVENTORY_SIZE - 1), Option.some(createStack('STONE', 30)))
+
+        const result = yield* Effect.either(service.addBlock('STONE', 60))
+
+        expect(Either.isLeft(result)).toBe(true)
+        expect(Option.getOrThrow(Either.getLeft(result))._tag).toBe('InventoryError')
+        // Atomicity: slot 35 must not have been partially updated
+        const lastSlot = yield* service.getSlot(asSlotIndex(INVENTORY_SIZE - 1))
+        expect(Option.isSome(lastSlot)).toBe(true)
+        expect(Option.getOrThrow(lastSlot).count).toBe(30)
+      }).pipe(Effect.provide(testLayer))
+    })
+
+    it.effect('opens a new slot for each tool (max stack = 1)', () => {
+      // Tools cannot stack, so each addBlock call must open a fresh slot.
+      const testLayer = createTestLayer(createTestBlockRegistry(airOnlyBlocks))
+      return Effect.gen(function* () {
+        const service = yield* InventoryService
+        yield* service.addBlock('WOODEN_SWORD', 1)
+        yield* service.addBlock('WOODEN_SWORD', 1)
+
+        const slot0 = yield* service.getSlot(asSlotIndex(0))
+        const slot1 = yield* service.getSlot(asSlotIndex(1))
+
+        expect(Option.isSome(slot0)).toBe(true)
+        expect(Option.getOrThrow(slot0).itemType).toBe('WOODEN_SWORD')
+        expect(Option.getOrThrow(slot0).count).toBe(1)
+        expect(Option.isSome(slot1)).toBe(true)
+        expect(Option.getOrThrow(slot1).itemType).toBe('WOODEN_SWORD')
+        expect(Option.getOrThrow(slot1).count).toBe(1)
       }).pipe(Effect.provide(testLayer))
     })
   })
@@ -132,10 +195,9 @@ describe('application/inventory/inventory-service', () => {
         const service = yield* InventoryService
         yield* service.setSlot(asSlotIndex(0), Option.some(createStack('WOOD', 10)))
 
-        const removed = yield* service.removeBlock('WOOD', 4)
+        yield* service.removeBlock('WOOD', 4)
         const slot0 = yield* service.getSlot(asSlotIndex(0))
 
-        expect(removed).toBe(true)
         expect(Option.isSome(slot0)).toBe(true)
         expect(Option.getOrThrow(slot0).count).toBe(6)
       }).pipe(Effect.provide(testLayer))
@@ -147,10 +209,9 @@ describe('application/inventory/inventory-service', () => {
         const service = yield* InventoryService
         yield* service.setSlot(asSlotIndex(0), Option.some(createStack('WOOD', 10)))
 
-        const removed = yield* service.removeBlock('WOOD', 10)
+        yield* service.removeBlock('WOOD', 10)
         const slot0 = yield* service.getSlot(asSlotIndex(0))
 
-        expect(removed).toBe(true)
         expect(Option.isNone(slot0)).toBe(true)
       }).pipe(Effect.provide(testLayer))
     })
@@ -162,28 +223,30 @@ describe('application/inventory/inventory-service', () => {
         yield* service.setSlot(asSlotIndex(0), Option.some(createStack('DIRT', 5)))
         yield* service.setSlot(asSlotIndex(1), Option.some(createStack('DIRT', 4)))
 
-        const removed = yield* service.removeBlock('DIRT', 7)
+        yield* service.removeBlock('DIRT', 7)
         const slot0 = yield* service.getSlot(asSlotIndex(0))
         const slot1 = yield* service.getSlot(asSlotIndex(1))
 
-        expect(removed).toBe(true)
         expect(Option.isNone(slot0)).toBe(true)
         expect(Option.isSome(slot1)).toBe(true)
         expect(Option.getOrThrow(slot1).count).toBe(2)
       }).pipe(Effect.provide(testLayer))
     })
 
-    it.effect('returns false when requested amount is larger than available', () => {
+    it.effect('fails with InventoryError when requested amount is larger than available', () => {
       const testLayer = createTestLayer(createTestBlockRegistry(airOnlyBlocks))
       return Effect.gen(function* () {
         const service = yield* InventoryService
         yield* service.setSlot(asSlotIndex(0), Option.some(createStack('DIRT', 3)))
 
-        const removed = yield* service.removeBlock('DIRT', 10)
+        const result = yield* Effect.either(service.removeBlock('DIRT', 10))
         const slot0 = yield* service.getSlot(asSlotIndex(0))
 
-        expect(removed).toBe(false)
-        expect(Option.isNone(slot0)).toBe(true)
+        expect(Either.isLeft(result)).toBe(true)
+        expect(Option.getOrThrow(Either.getLeft(result))._tag).toBe('InventoryError')
+        // Atomicity: slot is unchanged on failure
+        expect(Option.isSome(slot0)).toBe(true)
+        expect(Option.getOrThrow(slot0).count).toBe(3)
       }).pipe(Effect.provide(testLayer))
     })
 
@@ -194,18 +257,17 @@ describe('application/inventory/inventory-service', () => {
         yield* service.setSlot(asSlotIndex(0), Option.some(createStack('STONE', 5)))
         yield* service.setSlot(asSlotIndex(1), Option.some(createStack('DIRT', 5)))
 
-        const removed = yield* service.removeBlock('DIRT', 3)
+        yield* service.removeBlock('DIRT', 3)
         const slot0 = yield* service.getSlot(asSlotIndex(0))
         const slot1 = yield* service.getSlot(asSlotIndex(1))
 
-        expect(removed).toBe(true)
         expect(Option.isSome(slot0)).toBe(true)
         expect(Option.isSome(slot1)).toBe(true)
         const unwrapped0 = Option.getOrThrow(slot0)
-        expect(unwrapped0.blockType).toBe('STONE')
+        expect(unwrapped0.itemType).toBe('STONE')
         expect(unwrapped0.count).toBe(5)
         const unwrapped1 = Option.getOrThrow(slot1)
-        expect(unwrapped1.blockType).toBe('DIRT')
+        expect(unwrapped1.itemType).toBe('DIRT')
         expect(unwrapped1.count).toBe(2)
       }).pipe(Effect.provide(testLayer))
     })
@@ -217,11 +279,10 @@ describe('application/inventory/inventory-service', () => {
         yield* service.setSlot(asSlotIndex(0), Option.some(createStack('DIRT', 5)))
         yield* service.setSlot(asSlotIndex(1), Option.some(createStack('DIRT', 5)))
 
-        const removed = yield* service.removeBlock('DIRT', 3, asSlotIndex(1))
+        yield* service.removeBlock('DIRT', 3, asSlotIndex(1))
         const slot0 = yield* service.getSlot(asSlotIndex(0))
         const slot1 = yield* service.getSlot(asSlotIndex(1))
 
-        expect(removed).toBe(true)
         expect(Option.getOrThrow(slot0).count).toBe(5)
         expect(Option.getOrThrow(slot1).count).toBe(2)
       }).pipe(Effect.provide(testLayer))
@@ -234,11 +295,33 @@ describe('application/inventory/inventory-service', () => {
         yield* service.setSlot(asSlotIndex(0), Option.some(createStack('DIRT', 5)))
 
         // preferredIdx 999 is out of range → inner onNone fires, falls back to slot 0
-        const removed = yield* service.removeBlock('DIRT', 3, asSlotIndex(999))
+        yield* service.removeBlock('DIRT', 3, asSlotIndex(999))
         const slot0 = yield* service.getSlot(asSlotIndex(0))
 
-        expect(removed).toBe(true)
         expect(Option.getOrThrow(slot0).count).toBe(2)
+      }).pipe(Effect.provide(testLayer))
+    })
+
+    it.effect('skips preferred slot on second pass when it was only partially drained', () => {
+      // Exercises the second-pass preferredIdx guard:
+      //   slot 0 (preferred, DIRT×3): step 1 drains all 3, rem1=2; step 2 when idx=0 → guard fires (skip)
+      //   slot 1 (DIRT×5): step 2 drains 2 to satisfy rem1=2
+      const testLayer = createTestLayer(createTestBlockRegistry(airOnlyBlocks))
+      return Effect.gen(function* () {
+        const service = yield* InventoryService
+        yield* service.setSlot(asSlotIndex(0), Option.some(createStack('DIRT', 3)))
+        yield* service.setSlot(asSlotIndex(1), Option.some(createStack('DIRT', 5)))
+
+        yield* service.removeBlock('DIRT', 5, asSlotIndex(0))
+
+        const slot0 = yield* service.getSlot(asSlotIndex(0))
+        const slot1 = yield* service.getSlot(asSlotIndex(1))
+
+        // Slot 0 was fully drained in step 1
+        expect(Option.isNone(slot0)).toBe(true)
+        // Slot 1 had 2 removed in step 2 (5 - 2 = 3 remaining)
+        expect(Option.isSome(slot1)).toBe(true)
+        expect(Option.getOrThrow(slot1).count).toBe(3)
       }).pipe(Effect.provide(testLayer))
     })
   })
@@ -265,7 +348,7 @@ describe('application/inventory/inventory-service', () => {
           const s = Option.flatten(Arr.get(all, HOTBAR_START + i))
           expect(Option.isSome(h)).toBe(Option.isSome(s))
           Option.map(Option.all([h, s] as const), ([hi, si]) => {
-            expect(hi.blockType).toBe(si.blockType)
+            expect(hi.itemType).toBe(si.itemType)
             expect(hi.count).toBe(si.count)
           })
         })
@@ -282,7 +365,7 @@ describe('application/inventory/inventory-service', () => {
         const slot = Option.getOrElse(Arr.get(hotbar, 2), () => Option.none<ItemStack>())
         expect(Option.isSome(slot)).toBe(true)
         const unwrapped = Option.getOrThrow(slot)
-        expect(unwrapped.blockType).toBe('GRAVEL')
+        expect(unwrapped.itemType).toBe('GRAVEL')
         expect(unwrapped.count).toBe(11)
       }).pipe(Effect.provide(testLayer))
     })
@@ -308,7 +391,7 @@ describe('application/inventory/inventory-service', () => {
         const slot10 = Option.getOrElse(Arr.get(all, 10), () => Option.none<ItemStack>())
         expect(Option.isSome(slot10)).toBe(true)
         const unwrapped = Option.getOrThrow(slot10)
-        expect(unwrapped.blockType).toBe('SAND')
+        expect(unwrapped.itemType).toBe('SAND')
         expect(unwrapped.count).toBe(42)
       }).pipe(Effect.provide(testLayer))
     })

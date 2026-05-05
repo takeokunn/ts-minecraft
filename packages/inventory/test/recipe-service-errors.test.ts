@@ -1,9 +1,9 @@
 import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
 import { Array as Arr, Effect, Either, HashMap, Layer, Option } from 'effect'
-import type { BlockType } from '@ts-minecraft/kernel'
+import type { InventoryItem } from '@ts-minecraft/kernel'
 import { RecipeService } from '@ts-minecraft/inventory'
-import { InventoryService, InventoryServiceLive } from '@ts-minecraft/inventory'
+import { InventoryError, InventoryService, InventoryServiceLive } from '@ts-minecraft/inventory'
 import { RecipeId } from '@ts-minecraft/kernel'
 import { BlockRegistry } from '@ts-minecraft/world-state'
 import { createTestBlockRegistry } from './inventory-service-test-utils'
@@ -13,11 +13,11 @@ const registryLayer = Layer.succeed(BlockRegistry, createTestBlockRegistry())
 const inventoryLayer = InventoryServiceLive.pipe(Layer.provide(registryLayer))
 const testLayer = Layer.mergeAll(RecipeService.Default, inventoryLayer)
 
-const countBlock = (slots: ReadonlyArray<Option.Option<{ readonly blockType: BlockType; readonly count: number }>>, blockType: BlockType): number =>
+const countBlock = (slots: ReadonlyArray<Option.Option<{ readonly itemType: InventoryItem; readonly count: number }>>, itemType: InventoryItem): number =>
   Arr.reduce(slots, 0, (sum, slot) =>
     sum + Option.match(slot, {
       onNone: () => 0,
-      onSome: (item) => item.blockType === blockType ? item.count : 0,
+      onSome: (item) => item.itemType === itemType ? item.count : 0,
     }),
   )
 
@@ -26,9 +26,9 @@ describe('application/crafting/recipe-service — access control and errors', ()
     Effect.gen(function* () {
       const rs = yield* RecipeService
       const available = HashMap.make(
-        ['PLANKS' as BlockType, 2],
-        ['STICKS' as BlockType, 1],
-        ['CRAFTING_TABLE' as BlockType, 1],
+        ['PLANKS' as InventoryItem, 2],
+        ['STICKS' as InventoryItem, 1],
+        ['CRAFTING_TABLE' as InventoryItem, 1],
       )
 
       const craftableWithoutTable = rs.findCraftable(available, false)
@@ -179,17 +179,17 @@ describe('application/crafting/recipe-service — access control and errors', ()
     }).pipe(Effect.provide(testLayer))
   )
 
-  it.effect('craft fails with RecipeError when removeBlock returns false (inventory inconsistency)', () =>
+  it.effect('craft fails with RecipeError when removeBlock fails with InventoryError (inventory inconsistency)', () =>
     Effect.gen(function* () {
       const rs = yield* RecipeService
 
       const fakeInv = InventoryService.of({
         _tag: '@minecraft/application/InventoryService' as const,
         getAllSlots: () => Effect.succeed(
-          [Option.some({ blockType: 'WOOD' as const, count: 1 }), ...Arr.makeBy(35, () => Option.none())]
+          [Option.some({ itemType: 'WOOD' as const, count: 1 }), ...Arr.makeBy(35, () => Option.none())]
         ),
-        removeBlock: (_blockType: unknown, _count: unknown) => Effect.succeed(false),
-        addBlock: (_blockType: unknown, _count: unknown) => Effect.succeed(true),
+        removeBlock: (_blockType: unknown, _count: unknown) => Effect.fail(new InventoryError({ operation: 'removeBlock', cause: 'Insufficient WOOD: need 1' })),
+        addBlock: (_blockType: unknown, _count: unknown) => Effect.void,
         getSlot: (_idx: unknown) => Effect.succeed(Option.none()),
         setSlot: (_idx: unknown, _slot: unknown) => Effect.void,
         moveStack: (_from: unknown, _to: unknown) => Effect.void,

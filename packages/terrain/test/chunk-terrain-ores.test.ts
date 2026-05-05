@@ -2,7 +2,7 @@ import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
 import { Array as Arr, Effect, HashSet, Layer, MutableRef } from 'effect'
 import { StorageServicePort, NoiseServicePort, NoiseServiceLive, BiomeServiceLive, ChunkManagerService, ChunkManagerServiceLive } from '@ts-minecraft/terrain'
-import { ChunkServiceLive } from '../domain/chunk'
+import { ChunkServiceLive } from '../application/chunk-service'
 import { CHUNK_SIZE, CHUNK_HEIGHT } from '@ts-minecraft/kernel'
 import {
   LightEngineNoopLive,

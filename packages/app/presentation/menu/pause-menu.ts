@@ -1,4 +1,4 @@
-import { Cause, Effect, MutableRef, Option, Scope } from 'effect'
+import { Cause, Duration, Effect, Fiber, MutableRef, Option, Schedule, Scope } from 'effect'
 import { PlayerError } from '@ts-minecraft/player'
 import { StorageError } from '@ts-minecraft/world-state'
 import { DomOperationsService } from '@ts-minecraft/app/presentation/hud/crosshair'
@@ -188,8 +188,9 @@ export class PauseMenuService extends Effect.Service<PauseMenuService>()(
                 persistSessionState: () => Effect.Effect<void, PlayerError | StorageError>,
               ): Effect.Effect<void, never, Scope.Scope> =>
                 Effect.acquireRelease(
-                  Effect.sync(() => {
+                  Effect.gen(function* () {
                     MutableRef.set(activeControlRef, Option.some(control))
+
                     const handleResumeClick = (): void => {
                       if (!MutableRef.get(isOpenRef)) return
                       MutableRef.set(isOpenRef, false)
@@ -203,47 +204,60 @@ export class PauseMenuService extends Effect.Service<PauseMenuService>()(
                       return settingsEl?.style.display === 'block'
                     }
 
+                    // Watchdog fiber: checks every 100ms whether the settings overlay
+                    // has closed while we were waiting, and re-shows the pause menu.
+                    // Stored so it can be interrupted when settings are not open or
+                    // when the attach scope closes.
+                    const watchdogFiberRef = MutableRef.make<Option.Option<Fiber.RuntimeFiber<number, never>>>(Option.none())
+
+                    const stopWatchdog = (): Effect.Effect<void, never> =>
+                      Effect.gen(function* () {
+                        const fiberOpt = MutableRef.get(watchdogFiberRef)
+                        MutableRef.set(watchdogFiberRef, Option.none())
+                        yield* Option.match(fiberOpt, {
+                          onNone: () => Effect.void,
+                          onSome: (fiber) => Fiber.interrupt(fiber),
+                        })
+                      })
+
+                    const startWatchdog = (): Effect.Effect<void, never> =>
+                      Effect.gen(function* () {
+                        // Interrupt any existing watchdog before starting a new one.
+                        yield* stopWatchdog()
+                        const fiber = yield* settingsOverlay.isOpen().pipe(
+                          Effect.flatMap((isSettingsOpen) =>
+                            !isSettingsOpen && MutableRef.get(isOpenRef)
+                              ? Effect.sync(() => { showMenu() }).pipe(Effect.andThen(stopWatchdog()))
+                              : Effect.void,
+                          ),
+                          Effect.catchAllCause(() => Effect.void),
+                          Effect.repeat(Schedule.spaced(Duration.millis(100))),
+                          // forkDaemon: the watchdog must outlive the ephemeral Effect.runFork call
+                          // that invoked openSettingsFromMenu. Effect.fork would tie the fiber's
+                          // lifetime to that parent scope, which resolves immediately, interrupting
+                          // the watchdog before it polls even once. The acquireRelease finalizer
+                          // in `attach` calls Fiber.interrupt(fiber) for proper cleanup.
+                          Effect.forkDaemon,
+                        )
+                        MutableRef.set(watchdogFiberRef, Option.some(fiber))
+                      })
+
                     const openSettingsFromMenu = (): void => {
                       // Hide pause menu, open settings overlay. When settings
                       // closes (its own toggle/handler), we re-show pause menu
-                      // by listening for the next animation frame check below.
+                      // via the watchdog fiber below.
                       hideMenu()
                       Effect.runFork(
                         settingsOverlay.isOpen().pipe(
                           Effect.flatMap((open) =>
                             open ? Effect.void : settingsOverlay.toggle().pipe(Effect.asVoid),
                           ),
+                          Effect.andThen(startWatchdog()),
                           Effect.catchAllCause((cause) =>
                             Effect.logError(`Pause→Settings open error: ${Cause.pretty(cause)}`),
                           ),
                         ),
                       )
-                      // Poll for settings close while we remain paused. The
-                      // SettingsOverlayService handles its own Esc/close button;
-                      // when it transitions back to !isOpen, we re-show ourselves.
-                      const watchdog = (): void => {
-                        if (!MutableRef.get(isOpenRef)) return
-                        Effect.runFork(
-                          settingsOverlay.isOpen().pipe(
-                            Effect.tap((open) =>
-                              Effect.sync(() => {
-                                if (!open && MutableRef.get(isOpenRef)) {
-                                  showMenu()
-                                } else {
-                                  // Re-poll on next frame.
-                                  if (typeof requestAnimationFrame !== 'undefined') {
-                                    requestAnimationFrame(watchdog)
-                                  }
-                                }
-                              }),
-                            ),
-                            Effect.catchAllCause(() => Effect.void),
-                          ),
-                        )
-                      }
-                      if (typeof requestAnimationFrame !== 'undefined') {
-                        requestAnimationFrame(watchdog)
-                      }
                     }
 
                     const handleSettingsClick = (): void => {
@@ -312,16 +326,23 @@ export class PauseMenuService extends Effect.Service<PauseMenuService>()(
                       handleSettingsClick,
                       handleSaveQuitClick,
                       handleKeyDown,
+                      watchdogFiberRef,
                     }
                   }),
                   (handlers) =>
-                    Effect.sync(() => {
+                    Effect.gen(function* () {
                       Option.map(resumeBtn, (btn) => btn.removeEventListener('click', handlers.handleResumeClick))
                       Option.map(settingsBtn, (btn) => btn.removeEventListener('click', handlers.handleSettingsClick))
                       Option.map(saveQuitBtn, (btn) => btn.removeEventListener('click', handlers.handleSaveQuitClick))
                       if (typeof document !== 'undefined') {
                         document.removeEventListener('keydown', handlers.handleKeyDown, true)
                       }
+                      // Interrupt any active watchdog fiber before tearing down.
+                      const fiberOpt = MutableRef.get(handlers.watchdogFiberRef)
+                      yield* Option.match(fiberOpt, {
+                        onNone: () => Effect.void,
+                        onSome: (fiber) => Fiber.interrupt(fiber),
+                      })
                       // Hide the menu in case the scope closes while it's open
                       // (e.g. the session is torn down by quit-to-title).
                       hideMenu()

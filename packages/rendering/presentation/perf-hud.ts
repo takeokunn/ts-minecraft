@@ -4,8 +4,8 @@
 // e2e contract (test W3): window.__perfHud__.snapshot() → { fps, p50Ms, p99Ms, drawCalls, chunkCount, workerQueueDepth, samples }
 // Performance: pre-allocated DOM Text nodes (nodeValue mutation) + Float64Array(120) ring buffer (no allocations on hot path).
 import { Array as Arr, Cause, Duration, Effect, MutableRef, Schedule, Scope } from 'effect'
-import { isPerfEnabled } from '../infrastructure/perf-marks'
-import type { ChunkManagerService } from '@ts-minecraft/terrain'
+import { isPerfEnabled } from '../application/perf-flags'
+import type { ChunkCountProvider } from '../application/chunk-count-port'
 
 // -----------------------------------------------------------------------------
 // Snapshot type — stable contract for window.__perfHud__.snapshot()
@@ -225,6 +225,7 @@ export class PerfHudService extends Effect.Service<PerfHudService>()(
 
       const recordFrame = (dtSecs: number): Effect.Effect<void, never> =>
         Effect.sync(() => {
+          if (!Number.isFinite(dtSecs) || dtSecs <= 0) return
           // Write into ring buffer (O(1), no allocation).
           const idx = MutableRef.get(writeIndexRef)
           ring[idx] = dtSecs
@@ -296,7 +297,7 @@ export const PerfHudServiceLive = PerfHudService.Default
 // queueDepthSource is caller-supplied to avoid hard dependency on the worker pool.
 export const installPerfHudCounters = (
   perfHud: PerfHudService,
-  chunkManager: ChunkManagerService,
+  chunkManager: ChunkCountProvider,
   queueDepthSource: () => number,
 ): Effect.Effect<void, never, Scope.Scope> => {
   if (!isPerfEnabled()) return Effect.void

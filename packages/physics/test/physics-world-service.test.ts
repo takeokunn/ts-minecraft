@@ -2,25 +2,19 @@ import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
 import { Effect } from 'effect'
 import { DeltaTimeSecs } from '@ts-minecraft/kernel'
-import {
-  PhysicsWorldService,
-  PhysicsWorldServiceLive,
-  type WorldConfig,
-  RigidBodyService,
-  RigidBodyServiceLive,
-} from '@ts-minecraft/physics'
+import type { WorldConfig } from '@ts-minecraft/physics'
+import { PhysicsWorldService, PhysicsWorldServiceLive } from '../infrastructure/boundary/physics-world-service'
+import { RigidBodyService, RigidBodyServiceLive } from '../infrastructure/boundary/rigid-body-service'
+
+const defaultConfig: WorldConfig = { gravity: { x: 0, y: -9.82, z: 0 } }
+
+const defaultBodyConfig = { mass: 1, position: { x: 0, y: 0, z: 0 } }
 
 describe('physics/boundary/physics-world-service', () => {
-  const defaultConfig: WorldConfig = {
-    gravity: { x: 0, y: -9.82, z: 0 },
-    broadphase: 'naive',
-  }
-
   describe('PhysicsWorldServiceLive', () => {
     it('should provide PhysicsWorldService as Layer', () => {
-      const layer = PhysicsWorldServiceLive
-      expect(layer).toBeDefined()
-      expect(typeof layer).toBe('object')
+      expect(PhysicsWorldServiceLive).toBeDefined()
+      expect(typeof PhysicsWorldServiceLive).toBe('object')
     })
 
     it.effect('should have create, addBody, removeBody, step methods', () =>
@@ -48,7 +42,7 @@ describe('physics/boundary/physics-world-service', () => {
         const worldSvc = yield* PhysicsWorldService
         const bodySvc = yield* RigidBodyService
         const world = yield* worldSvc.create(defaultConfig)
-        const body = yield* bodySvc.create({ mass: 1, position: { x: 0, y: 0, z: 0 }, quaternion: { x: 0, y: 0, z: 0, w: 1 } })
+        const body = yield* bodySvc.create(defaultBodyConfig)
         yield* worldSvc.addBody(world, body)
         expect(world.bodies).toContain(body)
       }).pipe(Effect.provide(PhysicsWorldServiceLive), Effect.provide(RigidBodyServiceLive))
@@ -59,7 +53,7 @@ describe('physics/boundary/physics-world-service', () => {
         const worldSvc = yield* PhysicsWorldService
         const bodySvc = yield* RigidBodyService
         const world = yield* worldSvc.create(defaultConfig)
-        const body = yield* bodySvc.create({ mass: 1, position: { x: 0, y: 0, z: 0 }, quaternion: { x: 0, y: 0, z: 0, w: 1 } })
+        const body = yield* bodySvc.create(defaultBodyConfig)
         yield* worldSvc.addBody(world, body)
         expect(world.bodies).toContain(body)
         yield* worldSvc.removeBody(world, body)
@@ -72,14 +66,13 @@ describe('physics/boundary/physics-world-service', () => {
         const worldSvc = yield* PhysicsWorldService
         const bodySvc = yield* RigidBodyService
         const world = yield* worldSvc.create(defaultConfig)
-        const body = yield* bodySvc.create({ mass: 1, position: { x: 0, y: 10, z: 0 }, quaternion: { x: 0, y: 0, z: 0, w: 1 } })
+        const body = yield* bodySvc.create({ mass: 1, position: { x: 0, y: 10, z: 0 } })
         body.shape = { kind: 'box', halfExtents: { x: 0.5, y: 0.5, z: 0.5 } }
         yield* worldSvc.addBody(world, body)
 
         const initialY = body.position.y
         yield* worldSvc.step(world, DeltaTimeSecs.make(1 / 60))
 
-        // Gravity should reduce y position
         expect(body.position.y).toBeLessThan(initialY)
       }).pipe(Effect.provide(PhysicsWorldServiceLive), Effect.provide(RigidBodyServiceLive))
     )
@@ -89,13 +82,27 @@ describe('physics/boundary/physics-world-service', () => {
         const worldSvc = yield* PhysicsWorldService
         const bodySvc = yield* RigidBodyService
         const world = yield* worldSvc.create(defaultConfig)
-        const body = yield* bodySvc.create({ mass: 0, position: { x: 0, y: 10, z: 0 }, quaternion: { x: 0, y: 0, z: 0, w: 1 }, type: 'static' })
+        const body = yield* bodySvc.create({ mass: 0, position: { x: 0, y: 10, z: 0 }, type: 'static' })
         body.shape = { kind: 'plane' }
         yield* worldSvc.addBody(world, body)
 
         yield* worldSvc.step(world, DeltaTimeSecs.make(1 / 60))
 
         expect(body.position.y).toBe(10)
+      }).pipe(Effect.provide(PhysicsWorldServiceLive), Effect.provide(RigidBodyServiceLive))
+    )
+
+    it.effect('kinematic bodies should not be affected by gravity', () =>
+      Effect.gen(function* () {
+        const worldSvc = yield* PhysicsWorldService
+        const bodySvc = yield* RigidBodyService
+        const world = yield* worldSvc.create(defaultConfig)
+        const body = yield* bodySvc.create({ mass: 0, position: { x: 0, y: 5, z: 0 }, type: 'kinematic' })
+        yield* worldSvc.addBody(world, body)
+
+        yield* worldSvc.step(world, DeltaTimeSecs.make(1 / 60))
+
+        expect(body.position.y).toBe(5)
       }).pipe(Effect.provide(PhysicsWorldServiceLive), Effect.provide(RigidBodyServiceLive))
     )
   })

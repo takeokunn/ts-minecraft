@@ -19,15 +19,6 @@ export const projectBlockAhead = (camera: THREE.PerspectiveCamera, distance: num
   }
 }
 
-export const projectAimPointAhead = (camera: THREE.PerspectiveCamera, distance: number): Position => {
-  const block = projectBlockAhead(camera, distance)
-  return {
-    x: block.x + 0.5,
-    y: block.y + 0.5,
-    z: block.z + 0.5,
-  }
-}
-
 export const getChunkAccessForWorldPosition = (position: Position) => {
   const chunkCoord = {
     x: Math.floor(position.x / CHUNK_SIZE),
@@ -41,6 +32,9 @@ export const getChunkAccessForWorldPosition = (position: Position) => {
   }
 }
 
+// Y offsets for nearby-block scan: floor below, at floor level, one above, two above
+export const NEARBY_BLOCK_DY_OFFSETS = [-1, 0, 1, 2] as const
+
 export const scanNearbyBlock = <TChunk extends { readonly blocks: Uint8Array }>(
   playerPos: Position,
   searchRadius: number,
@@ -48,7 +42,7 @@ export const scanNearbyBlock = <TChunk extends { readonly blocks: Uint8Array }>(
   getChunk: (coord: { readonly x: number; readonly z: number }) => Effect.Effect<Option.Option<TChunk>, never>,
 ): Effect.Effect<boolean, never> => {
   const dxRange = Arr.makeBy(searchRadius * 2 + 1, (i) => i - searchRadius)
-  const dyRange = [-1, 0, 1, 2]
+  const dyRange = NEARBY_BLOCK_DY_OFFSETS
   const dzRange = Arr.makeBy(searchRadius * 2 + 1, (i) => i - searchRadius)
 
   const searchCoords = Arr.flatMap(dxRange, (dx) =>
@@ -85,5 +79,3 @@ export const scanNearbyBlock = <TChunk extends { readonly blocks: Uint8Array }>(
   ).pipe(Effect.map((s) => s.found))
 }
 
-export const getOptionalIndexedValue = <T>(items: ReadonlyArray<T>, index: number): Option.Option<T> =>
-  index >= 0 && index < items.length ? Option.some(items[index] as T) : Option.none()

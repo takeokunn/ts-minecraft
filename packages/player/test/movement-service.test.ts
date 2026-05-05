@@ -85,9 +85,39 @@ describe('computeVelocity — pure function', () => {
     const magnitude = Math.sqrt(vel.x ** 2 + vel.z ** 2)
     expect(magnitude).toBeCloseTo(walk, 5)
   })
+
+  it('forward at yaw=PI/2 → x=-walkSpeed, z≈0', () => {
+    // At yaw=PI/2: sin(PI/2)=1, cos(PI/2)=0 → Forward: x -= sin = -walkSpeed, z -= cos = 0
+    const vel = computeVelocity({ ...noInput, forward: true }, Math.PI / 2, false)
+    expect(vel.x).toBeCloseTo(-walk)
+    expect(vel.z).toBeCloseTo(0)
+    expect(vel.y).toBe(0)
+  })
 })
 
 describe('MovementService', () => {
+  describe('calculateVelocity (Effect wrapper sanity check)', () => {
+    it.effect('should return zero velocity when no input is provided', () => {
+      const inputService = createTestInputService()
+      const testLayers = createTestLayers(inputService)
+      const noInput: MovementInput = {
+        forward: false,
+        backward: false,
+        left: false,
+        right: false,
+        jump: false,
+        sprint: false,
+      }
+      return Effect.gen(function* () {
+        const movementService = yield* MovementService
+        const velocity = yield* movementService.calculateVelocity(noInput, 0, false)
+        expect(velocity.x).toBe(0)
+        expect(velocity.y).toBe(0)
+        expect(velocity.z).toBe(0)
+      }).pipe(Effect.provide(MovementServiceLive), Effect.provide(testLayers))
+    })
+  })
+
   describe('constants', () => {
     it('should have default walk speed of 8.0 m/s', () => {
       expect(DEFAULT_WALK_SPEED).toBe(8.0)
@@ -200,6 +230,40 @@ describe('MovementService', () => {
         expect(input.right).toBe(false)
         expect(input.jump).toBe(false)
         expect(input.sprint).toBe(true)
+      }).pipe(Effect.provide(MovementServiceLive), Effect.provide(testLayers))
+    })
+  })
+
+  describe('update', () => {
+    it.effect('should return walk velocity when W is held (grounded)', () => {
+      const inputService = createTestInputService({ forward: true })
+      const testLayers = createTestLayers(inputService)
+      return Effect.gen(function* () {
+        const movementService = yield* MovementService
+        const velocity = yield* movementService.update(0, true)
+        expect(velocity.z).toBeCloseTo(-DEFAULT_WALK_SPEED)
+        expect(velocity.x).toBeCloseTo(0)
+        expect(velocity.y).toBe(0)
+      }).pipe(Effect.provide(MovementServiceLive), Effect.provide(testLayers))
+    })
+
+    it.effect('should return jump velocity when Space is pressed while grounded', () => {
+      const inputService = createTestInputService({ jump: true })
+      const testLayers = createTestLayers(inputService)
+      return Effect.gen(function* () {
+        const movementService = yield* MovementService
+        const velocity = yield* movementService.update(0, true)
+        expect(velocity.y).toBe(DEFAULT_JUMP_VELOCITY)
+      }).pipe(Effect.provide(MovementServiceLive), Effect.provide(testLayers))
+    })
+
+    it.effect('should not jump when not grounded', () => {
+      const inputService = createTestInputService({ jump: true })
+      const testLayers = createTestLayers(inputService)
+      return Effect.gen(function* () {
+        const movementService = yield* MovementService
+        const velocity = yield* movementService.update(0, false)
+        expect(velocity.y).toBe(0)
       }).pipe(Effect.provide(MovementServiceLive), Effect.provide(testLayers))
     })
   })

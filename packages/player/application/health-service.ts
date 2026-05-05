@@ -119,23 +119,21 @@ export class HealthService extends Effect.Service<HealthService>()(
           Ref.update(stateRef, (s) => ({ ...s, health: tickInvincibility(s.health) })),
 
         processFallDamage: (currentY: number, isGrounded: boolean): Effect.Effect<number, never> =>
-          Effect.gen(function* () {
-            const { fallState: { prevY: prevYOpt, isFalling: wasFalling } } = yield* Ref.get(stateRef)
-
-            return yield* Option.match(prevYOpt, {
-              onNone: () =>
-                Ref.update(stateRef, (s) => ({
-                  ...s,
-                  fallState: { ...s.fallState, prevY: Option.some(currentY) },
-                })).pipe(Effect.as(0)),
-
+          !Number.isFinite(currentY) ? Effect.succeed(0) :
+          Ref.modify(stateRef, (s) => {
+            const { prevY: prevYOpt, isFalling: wasFalling } = s.fallState
+            return Option.match(prevYOpt, {
+              onNone: () => [
+                0,
+                { ...s, fallState: { ...s.fallState, prevY: Option.some(currentY) } },
+              ] as const,
               onSome: (prevY) => {
                 const falling = currentY < prevY
                 const damage = computeFallDamage(prevY, currentY, wasFalling, isGrounded)
-                return Ref.update(stateRef, (s) => ({
-                  ...s,
-                  fallState: { prevY: Option.some(currentY), isFalling: falling },
-                })).pipe(Effect.as(damage))
+                return [
+                  damage,
+                  { ...s, fallState: { prevY: Option.some(currentY), isFalling: falling } },
+                ] as const
               },
             })
           }),

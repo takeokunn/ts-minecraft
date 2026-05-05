@@ -2,7 +2,8 @@ import { it } from '@effect/vitest'
 import { BlockIndexError,CHUNK_HEIGHT,CHUNK_SIZE } from '@ts-minecraft/kernel'
 import { Effect,Either,Option } from 'effect'
 import { describe,expect } from 'vitest'
-import { ChunkService,ChunkServiceLive,getBlocksBatch,setBlockInChunk } from './chunk'
+import { ChunkService,ChunkServiceLive } from '../application/chunk-service'
+import { getBlocksBatch,setBlockInChunk } from './chunk'
 import { ChunkError } from './errors'
 
 // ---------------------------------------------------------------------------

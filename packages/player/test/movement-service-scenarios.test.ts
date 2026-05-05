@@ -1,10 +1,10 @@
 import { describe,it } from '@effect/vitest'
 import {
-DEFAULT_JUMP_VELOCITY,DEFAULT_SPRINT_SPEED,DEFAULT_WALK_SPEED,InputServicePort,MovementService,
-MovementServiceLive,
+DEFAULT_JUMP_VELOCITY,DEFAULT_SPRINT_SPEED,DEFAULT_WALK_SPEED,MovementService,
+MovementServiceLive,PlayerInputService,
 type MovementInput
 } from '@ts-minecraft/player'
-import { Arbitrary,Effect,MutableHashMap,MutableHashSet,Option,Schema } from 'effect'
+import { Arbitrary,Effect,Layer,MutableHashMap,MutableHashSet,Option,Schema } from 'effect'
 import { expect } from 'vitest'
 import { createTestInputService,createTestLayers } from './movement-service-test-utils'
 
@@ -21,8 +21,8 @@ describe('player/movement-service (integration)', () => {
       )
       const justPressedKeys = MutableHashSet.empty<string>()
 
-      const inputService = InputServicePort.of({
-        _tag: '@minecraft/application/InputServicePort' as const,
+      const inputService = PlayerInputService.of({
+        _tag: '@minecraft/application/PlayerInputService' as const,
         isKeyPressed: (key: string) => Effect.sync(() => Option.getOrElse(MutableHashMap.get(pressedKeys, key), () => false)),
         consumeKeyPress: (key: string) =>
           Effect.sync(() => {
@@ -33,14 +33,10 @@ describe('player/movement-service (integration)', () => {
             return false
           }),
         getMouseDelta: () => Effect.sync(() => ({ x: 0, y: 0 })),
-        isMouseDown: () => Effect.sync(() => false),
-        requestPointerLock: () => Effect.sync(() => {}),
-        exitPointerLock: () => Effect.sync(() => {}),
         isPointerLocked: () => Effect.sync(() => true),
-        consumeMouseClick: () => Effect.sync(() => false),
         consumeWheelDelta: () => Effect.sync(() => 0),
       })
-      const testLayers = createTestLayers(inputService)
+      const testLayers = Layer.succeed(PlayerInputService, inputService)
 
       return Effect.gen(function* () {
         const movementService = yield* MovementService

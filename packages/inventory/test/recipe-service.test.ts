@@ -1,6 +1,6 @@
 import { describe,it } from '@effect/vitest'
 import { InventoryService,InventoryServiceLive,RecipeService } from '@ts-minecraft/inventory'
-import type { BlockType } from '@ts-minecraft/kernel'
+import type { InventoryItem } from '@ts-minecraft/kernel'
 import { RecipeId } from '@ts-minecraft/kernel'
 import { BlockRegistry } from '@ts-minecraft/world-state'
 import { Array as Arr,Effect,HashMap,Layer,Option } from 'effect'
@@ -12,11 +12,11 @@ const registryLayer = Layer.succeed(BlockRegistry, createTestBlockRegistry())
 const inventoryLayer = InventoryServiceLive.pipe(Layer.provide(registryLayer))
 const testLayer = Layer.mergeAll(RecipeService.Default, inventoryLayer)
 
-const countBlock = (slots: ReadonlyArray<Option.Option<{ readonly blockType: BlockType; readonly count: number }>>, blockType: BlockType): number =>
+const countBlock = (slots: ReadonlyArray<Option.Option<{ readonly itemType: InventoryItem; readonly count: number }>>, itemType: InventoryItem): number =>
   Arr.reduce(slots, 0, (sum, slot) =>
     sum + Option.match(slot, {
       onNone: () => 0,
-      onSome: (item) => item.blockType === blockType ? item.count : 0,
+      onSome: (item) => item.itemType === itemType ? item.count : 0,
     }),
   )
 
@@ -47,7 +47,7 @@ describe('application/crafting/recipe-service', () => {
       const recipe = (yield* RecipeService).findById(RecipeId.make('wood-to-planks'))
       expect(Option.isSome(recipe)).toBe(true)
       const unwrapped = Option.getOrThrow(recipe)
-      expect(unwrapped.output.blockType).toBe('PLANKS')
+      expect(unwrapped.output.itemType).toBe('PLANKS')
       expect(unwrapped.output.count).toBe(4)
     }).pipe(Effect.provide(testLayer))
   )
@@ -55,12 +55,12 @@ describe('application/crafting/recipe-service', () => {
   it.effect('findCraftable returns progression recipes only when ingredients are sufficient', () =>
     Effect.gen(function* () {
       const service = yield* RecipeService
-      const craftableWithWood = service.findCraftable(HashMap.make(['WOOD' as BlockType, 1]))
-      const craftableWithPlanks = service.findCraftable(HashMap.make(['PLANKS' as BlockType, 4]))
-      const craftableWithSwordParts = service.findCraftable(HashMap.make(['PLANKS' as BlockType, 2], ['STICKS' as BlockType, 1], ['CRAFTING_TABLE' as BlockType, 1]))
-      const craftableWithPickaxeParts = service.findCraftable(HashMap.make(['PLANKS' as BlockType, 3], ['STICKS' as BlockType, 2], ['CRAFTING_TABLE' as BlockType, 1]))
-      const craftableWithStoneParts = service.findCraftable(HashMap.make(['COBBLESTONE' as BlockType, 3], ['STICKS' as BlockType, 2], ['CRAFTING_TABLE' as BlockType, 1]))
-      const craftableWithDiamondParts = service.findCraftable(HashMap.make(['DIAMOND' as BlockType, 3], ['STICKS' as BlockType, 2], ['CRAFTING_TABLE' as BlockType, 1]))
+      const craftableWithWood = service.findCraftable(HashMap.make(['WOOD' as InventoryItem, 1]))
+      const craftableWithPlanks = service.findCraftable(HashMap.make(['PLANKS' as InventoryItem, 4]))
+      const craftableWithSwordParts = service.findCraftable(HashMap.make(['PLANKS' as InventoryItem, 2], ['STICKS' as InventoryItem, 1], ['CRAFTING_TABLE' as InventoryItem, 1]))
+      const craftableWithPickaxeParts = service.findCraftable(HashMap.make(['PLANKS' as InventoryItem, 3], ['STICKS' as InventoryItem, 2], ['CRAFTING_TABLE' as InventoryItem, 1]))
+      const craftableWithStoneParts = service.findCraftable(HashMap.make(['COBBLESTONE' as InventoryItem, 3], ['STICKS' as InventoryItem, 2], ['CRAFTING_TABLE' as InventoryItem, 1]))
+      const craftableWithDiamondParts = service.findCraftable(HashMap.make(['DIAMOND' as InventoryItem, 3], ['STICKS' as InventoryItem, 2], ['CRAFTING_TABLE' as InventoryItem, 1]))
 
       expect(Arr.map(craftableWithWood, (recipe) => recipe.id)).toContain('wood-to-planks')
       expect(Arr.map(craftableWithPlanks, (recipe) => recipe.id)).toContain('planks-to-sticks')

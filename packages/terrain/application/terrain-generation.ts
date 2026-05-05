@@ -2,24 +2,22 @@
 // Output is byte-identical to main-thread generator.generateTerrain for the same inputs;
 // enforced by terrain-worker-pool.parity.property.test.ts.
 // No logic duplication — single source of truth remains generator.ts.
-import { Array as Arr, Effect, Layer, Schema } from 'effect'
+import { Array as Arr, Effect, Layer, Metric, MetricBoundaries, Schema } from 'effect'
 import { CHUNK_HEIGHT, CHUNK_SIZE, ChunkCoordSchema } from '@ts-minecraft/kernel'
-import { ChunkService } from '../domain/chunk'
+import { ChunkService } from './chunk-service'
 import type { ChunkCoord } from '@ts-minecraft/kernel'
 import { LIGHT_BYTE_LENGTH, computeBlockLight, computeSkyLight } from '@ts-minecraft/world-state'
 import { BiomeService } from './biome-service'
 import { NoiseServicePort } from '../domain/noise-service-port'
 import { generateTerrain } from '../domain/terrain/generator'
-import {
-  computeTerrainChannels,
-  createNoisePrimitives,
-  noise2DBatch as primitivesNoise2DBatch,
-  noise2DBatchXY as primitivesNoise2DBatchXY,
-  noise3DBatchXYZ as primitivesNoise3DBatchXYZ,
-  octaveNoise2DBatch as primitivesOctaveNoise2DBatch,
-  octaveNoise2DBatchXY as primitivesOctaveNoise2DBatchXY,
-  type NoisePrimitives,
-} from '../infrastructure/primitives'
+import { buildNoisePortFromPrimitives, createNoisePrimitives } from '../infrastructure/primitives'
+
+// Chunk load duration histogram: 20 linear buckets 0–1000ms (width=50ms).
+export const chunkLoadHistogram = Metric.histogram(
+  'chunk_load_ms',
+  MetricBoundaries.linear({ start: 0, width: 50, count: 20 }),
+  'Chunk load duration in milliseconds'
+)
 
 // ---------------------------------------------------------------------------
 // Public input / output shapes (mirrored by the worker protocol so a request
@@ -39,89 +37,10 @@ export type ChunkBlocks = Readonly<{
   blockLight: Uint8Array
 }>
 
-// ---------------------------------------------------------------------------
-// Pure NoiseServicePort implementation backed by a fixed seed. All methods
-// are `Effect.sync` over the seeded primitives — no mutable state, no setSeed
-// (the seed is fixed by the layer constructor).
-// ---------------------------------------------------------------------------
-const buildPureNoisePort = (primitives: NoisePrimitives, seed: number): NoiseServicePort => NoiseServicePort.of({
-  _tag: '@minecraft/application/noise/NoiseServicePort' as const,
-  noise2D: (x: number, z: number): Effect.Effect<number, never> =>
-    Effect.sync(() => primitives.noise2D(x, z)),
-  octaveNoise2D: (
-    x: number,
-    z: number,
-    octaves: number,
-    persistence: number,
-    lacunarity: number,
-  ): Effect.Effect<number, never> =>
-    Effect.sync(() => primitives.octaveNoise2D(x, z, octaves, persistence, lacunarity)),
-  // setSeed is a no-op: the layer baked the seed in at construction time.
-  // Returning Effect.void preserves the port shape; any call inside generator
-  // would be a logic bug (we never re-seed mid-chunk).
-  setSeed: (_seed: number): Effect.Effect<void, never> => Effect.void,
-  getSeed: Effect.succeed(seed),
-  noise3D: (x: number, y: number, z: number): Effect.Effect<number, never> =>
-    Effect.sync(() => primitives.noise3D(x, y, z)),
-  noise3DBatchXYZ: (
-    xs: ReadonlyArray<number>,
-    ys: ReadonlyArray<number>,
-    zs: ReadonlyArray<number>,
-  ): Effect.Effect<ReadonlyArray<number>, never> =>
-    Effect.sync(() => primitivesNoise3DBatchXYZ(primitives, xs, ys, zs)),
-  octaveNoise2DBatch: (
-    points: ReadonlyArray<readonly [number, number]>,
-    octaves: number,
-    persistence: number,
-    lacunarity: number,
-  ): Effect.Effect<ReadonlyArray<number>, never> =>
-    Effect.sync(() =>
-      primitivesOctaveNoise2DBatch(primitives, points, octaves, persistence, lacunarity),
-    ),
-  noise2DBatch: (
-    points: ReadonlyArray<readonly [number, number]>,
-  ): Effect.Effect<ReadonlyArray<number>, never> =>
-    Effect.sync(() => primitivesNoise2DBatch(primitives, points)),
-  octaveNoise2DBatchXY: (
-    xs: ReadonlyArray<number>,
-    zs: ReadonlyArray<number>,
-    octaves: number,
-    persistence: number,
-    lacunarity: number,
-  ): Effect.Effect<ReadonlyArray<number>, never> =>
-    Effect.sync(() =>
-      primitivesOctaveNoise2DBatchXY(primitives, xs, zs, octaves, persistence, lacunarity),
-    ),
-  noise2DBatchXY: (
-    xs: ReadonlyArray<number>,
-    zs: ReadonlyArray<number>,
-  ): Effect.Effect<ReadonlyArray<number>, never> =>
-    Effect.sync(() => primitivesNoise2DBatchXY(primitives, xs, zs)),
-  continentalness: (x: number, z: number): Effect.Effect<number, never> =>
-    Effect.sync(() => primitives.continentalnessAt(x, z)),
-  erosion: (x: number, z: number): Effect.Effect<number, never> =>
-    Effect.sync(() => primitives.erosionAt(x, z)),
-  weirdness: (x: number, z: number): Effect.Effect<number, never> =>
-    Effect.sync(() => primitives.weirdnessAt(x, z)),
-  jaggedness: (x: number, z: number): Effect.Effect<number, never> =>
-    Effect.sync(() => primitives.jaggednessAt(x, z)),
-  sampleTerrainChannels: (xStart: number, zStart: number) =>
-    Effect.sync(() =>
-      computeTerrainChannels(
-        primitives.continentalness,
-        primitives.erosion,
-        primitives.weirdness,
-        primitives.jaggedness,
-        xStart,
-        zStart,
-      ),
-    ),
-})
-
 const makePureNoisePortLayer = (seed: number): Layer.Layer<NoiseServicePort> =>
   Layer.succeed(
     NoiseServicePort,
-    buildPureNoisePort(createNoisePrimitives(seed), seed),
+    buildNoisePortFromPrimitives(createNoisePrimitives(seed), seed),
   )
 
 // ChunkService.Default and BiomeService.Default are already pure (BiomeService
@@ -215,5 +134,5 @@ export const generateTerrainBlocks = (input: TerrainGenerationInput): ChunkBlock
 // `seaLevel` / `lakeLevel` are accepted in the input envelope (so the worker
 // protocol can carry them) but ignored: the generator reads them from
 // `application/constants` (`SEA_LEVEL=48`, `LAKE_LEVEL=62`). Keeping them in
-        // the input keeps the protocol explicit if those constants ever
+// the input keeps the protocol explicit if those constants ever
 // become per-world configuration.

@@ -132,7 +132,7 @@ export class TradingPresentationService extends Effect.Service<TradingPresentati
                       selected ? 'border:1px solid #8fbc8f' : 'border:1px solid #3d3d3d',
                     ].join(';')
 
-                    row.textContent = `${offer.input.count} ${offer.input.blockType} → ${offer.output.count} ${offer.output.blockType} (Lv${offer.levelRequired})`
+                    row.textContent = `${offer.input.count} ${offer.input.itemType} → ${offer.output.count} ${offer.output.itemType} (Lv${offer.levelRequired})`
                     dom.appendChildTo(container, row)
                   })
                 },

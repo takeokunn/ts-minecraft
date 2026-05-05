@@ -9,6 +9,7 @@ tickInvincibility,
 import { Array as Arr,Effect } from 'effect'
 import { expect } from 'vitest'
 import { PlayerHealth } from '../domain/player-health'
+import { INVINCIBILITY_TICKS_ON_HIT } from '../application/health-service.config'
 // ─── Test helpers ─────────────────────────────────────────────────────────────
 
 const withHealthService = <A>(
@@ -123,11 +124,11 @@ describe('HealthService.applyDamage', () => {
     )
   )
 
-  it.effect('sets invincibilityTicks to 10', () =>
+  it.effect('sets invincibility ticks on hit', () =>
     withHealthService((hs) =>
       hs.applyDamage(3).pipe(
         Effect.andThen(hs.getHealth()),
-        Effect.map((h) => expect(h.invincibilityTicks).toBe(10)),
+        Effect.map((h) => expect(h.invincibilityTicks).toBe(INVINCIBILITY_TICKS_ON_HIT)),
       )
     )
   )
@@ -156,11 +157,11 @@ describe('HealthService.applyDamage', () => {
   it.effect('second hit during invincibility is ignored', () =>
     withHealthService((hs) =>
       Effect.gen(function* () {
-        yield* hs.applyDamage(3)   // health → 17, invincibilityTicks → 10
+        yield* hs.applyDamage(3)   // health → 17, invincibilityTicks → INVINCIBILITY_TICKS_ON_HIT
         yield* hs.applyDamage(2)   // ignored
         const after = yield* hs.getHealth()
         expect(after.current).toBe(17)
-        expect(after.invincibilityTicks).toBe(10)
+        expect(after.invincibilityTicks).toBe(INVINCIBILITY_TICKS_ON_HIT)
       })
     )
   )

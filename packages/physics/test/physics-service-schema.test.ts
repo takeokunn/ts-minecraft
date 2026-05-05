@@ -7,7 +7,7 @@ import {
   PhysicsServiceLive,
   AddBodyConfigSchema,
 } from '@ts-minecraft/physics'
-import { PhysicsWorldPortLayer, RigidBodyPortLayer, ShapePortLayer } from '@ts-minecraft/app'
+import { PhysicsWorldPortLayer, RigidBodyPortLayer, ShapePortLayer } from '@ts-minecraft/physics'
 
 const TestLayer = PhysicsServiceLive.pipe(
   Layer.provide(PhysicsWorldPortLayer),
@@ -15,11 +15,11 @@ const TestLayer = PhysicsServiceLive.pipe(
   Layer.provide(ShapePortLayer)
 )
 
-const DEFAULT_INIT_CONFIG = { gravity: { x: 0, y: -9.82, z: 0 }, broadphase: 'naive' as const }
+const DEFAULT_GRAVITY = { x: 0, y: -9.82, z: 0 }
 
 const initializedService = Effect.gen(function* () {
   const service = yield* PhysicsService
-  yield* service.initialize(DEFAULT_INIT_CONFIG)
+  yield* service.initialize({ gravity: DEFAULT_GRAVITY })
   return service
 })
 
@@ -35,18 +35,14 @@ describe('application/physics/physics-service', () => {
       expect(result.shape).toBe('box')
     })
 
-    it('should decode config with all optional fields', () => {
+    it('should decode config with optional type field', () => {
       const result = Schema.decodeSync(AddBodyConfigSchema)({
         mass: 0,
         position: { x: 0, y: 0, z: 0 },
         shape: 'plane',
         type: 'static',
-        fixedRotation: true,
-        angularDamping: 0.9,
-        allowSleep: false,
       })
       expect(result.type).toBe('static')
-      expect(result.fixedRotation).toBe(true)
     })
 
     it('should reject invalid shape literal', () => {

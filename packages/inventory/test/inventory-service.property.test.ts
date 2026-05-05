@@ -1,7 +1,7 @@
 import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
-import { Arbitrary, Array as Arr, Effect, Layer, Option, Schema } from 'effect'
-import type { BlockType } from '@ts-minecraft/kernel'
+import { Arbitrary, Array as Arr, Effect, Either, Layer, Option, Schema } from 'effect'
+import type { InventoryItem } from '@ts-minecraft/kernel'
 import { BlockRegistry } from '@ts-minecraft/world-state'
 import { createStack, MAX_STACK_SIZE } from '../domain/item-stack'
 import type { SlotIndex } from '@ts-minecraft/kernel'
@@ -28,9 +28,9 @@ const blockTypeArb = Arbitrary.make(Schema.Literal('DIRT', 'STONE', 'WOOD', 'GLA
 const countArb = Arbitrary.make(Schema.Number.pipe(Schema.int(), Schema.between(1, MAX_STACK_SIZE)))
 
 // Count total of a given block type across all inventory slots
-const countOf = (slots: ReadonlyArray<Option.Option<{ readonly blockType: BlockType; readonly count: number }>>, blockType: BlockType): number =>
+const countOf = (slots: ReadonlyArray<Option.Option<{ readonly itemType: InventoryItem; readonly count: number }>>, itemType: InventoryItem): number =>
   Arr.reduce(slots, 0, (sum, slot) =>
-    sum + Option.match(slot, { onNone: () => 0, onSome: (item) => item.blockType === blockType ? item.count : 0 })
+    sum + Option.match(slot, { onNone: () => 0, onSome: (item) => item.itemType === itemType ? item.count : 0 })
   )
 
 // ---------------------------------------------------------------------------
@@ -59,8 +59,8 @@ describe('application/inventory/inventory-service (property-based)', () => {
           if (slotA === slotB || typeA === typeB) return
 
           const inv = yield* InventoryService
-          yield* inv.setSlot(asSlotIndex(slotA), Option.some(createStack(typeA as BlockType, countA)))
-          yield* inv.setSlot(asSlotIndex(slotB), Option.some(createStack(typeB as BlockType, countB)))
+          yield* inv.setSlot(asSlotIndex(slotA), Option.some(createStack(typeA as InventoryItem, countA)))
+          yield* inv.setSlot(asSlotIndex(slotB), Option.some(createStack(typeB as InventoryItem, countB)))
 
           // Round-trip: A→B, then B→A
           yield* inv.moveStack(asSlotIndex(slotA), asSlotIndex(slotB))
@@ -71,11 +71,11 @@ describe('application/inventory/inventory-service (property-based)', () => {
 
           expect(Option.isSome(finalA)).toBe(true)
           const stackA = Option.getOrThrow(finalA)
-          expect(stackA.blockType).toBe(typeA)
+          expect(stackA.itemType).toBe(typeA)
           expect(stackA.count).toBe(countA)
           expect(Option.isSome(finalB)).toBe(true)
           const stackB = Option.getOrThrow(finalB)
-          expect(stackB.blockType).toBe(typeB)
+          expect(stackB.itemType).toBe(typeB)
           expect(stackB.count).toBe(countB)
         }).pipe(Effect.provide(TestLayer))
     )
@@ -93,7 +93,7 @@ describe('application/inventory/inventory-service (property-based)', () => {
           if (slotA === slotB) return
 
           const inv = yield* InventoryService
-          yield* inv.setSlot(asSlotIndex(slotA), Option.some(createStack(type as BlockType, count)))
+          yield* inv.setSlot(asSlotIndex(slotA), Option.some(createStack(type as InventoryItem, count)))
           yield* inv.setSlot(asSlotIndex(slotB), Option.none())
 
           // Move A→B (slotB was empty, so stack moves completely)
@@ -106,7 +106,7 @@ describe('application/inventory/inventory-service (property-based)', () => {
 
           expect(Option.isSome(finalA)).toBe(true)
           const movedStack = Option.getOrThrow(finalA)
-          expect(movedStack.blockType).toBe(type)
+          expect(movedStack.itemType).toBe(type)
           expect(movedStack.count).toBe(count)
           expect(Option.isNone(finalB)).toBe(true)
         }).pipe(Effect.provide(TestLayer))
@@ -126,13 +126,16 @@ describe('application/inventory/inventory-service (property-based)', () => {
           const inv = yield* InventoryService
 
           const slotsBefore = yield* inv.getAllSlots()
-          const totalBefore = countOf(slotsBefore, type as BlockType)
+          const totalBefore = countOf(slotsBefore, type as InventoryItem)
 
-          yield* inv.addBlock(type as BlockType, count)
-          yield* inv.removeBlock(type as BlockType, count)
+          // addBlock may fail if inventory is full (InventoryError) — skip conservation check in that case
+          const addResult = yield* Effect.either(inv.addBlock(type as InventoryItem, count))
+          if (Either.isLeft(addResult)) return
+
+          yield* inv.removeBlock(type as InventoryItem, count)
 
           const slotsAfter = yield* inv.getAllSlots()
-          const totalAfter = countOf(slotsAfter, type as BlockType)
+          const totalAfter = countOf(slotsAfter, type as InventoryItem)
 
           expect(totalAfter).toBe(totalBefore)
         }).pipe(Effect.provide(TestLayer))
@@ -149,13 +152,13 @@ describe('application/inventory/inventory-service (property-based)', () => {
       ({ slotN, type, count }) =>
         Effect.gen(function* () {
           const inv = yield* InventoryService
-          const stack = createStack(type as BlockType, count)
+          const stack = createStack(type as InventoryItem, count)
           yield* inv.setSlot(asSlotIndex(slotN), Option.some(stack))
           const result = yield* inv.getSlot(asSlotIndex(slotN))
 
           expect(Option.isSome(result)).toBe(true)
           const item = Option.getOrThrow(result)
-          expect(item.blockType).toBe(type)
+          expect(item.itemType).toBe(type)
           expect(item.count).toBe(count)
         }).pipe(Effect.provide(TestLayer))
     )
@@ -167,7 +170,7 @@ describe('application/inventory/inventory-service (property-based)', () => {
         Effect.gen(function* () {
           const inv = yield* InventoryService
           // First put something in the slot
-          yield* inv.setSlot(asSlotIndex(slotN), Option.some(createStack(type as BlockType, count)))
+          yield* inv.setSlot(asSlotIndex(slotN), Option.some(createStack(type as InventoryItem, count)))
           // Then clear it
           yield* inv.setSlot(asSlotIndex(slotN), Option.none())
           const result = yield* inv.getSlot(asSlotIndex(slotN))

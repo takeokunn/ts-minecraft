@@ -7,7 +7,7 @@ import { PhysicsService, PhysicsServiceError, PhysicsServiceLive } from '@ts-min
 import type { AddBodyConfig } from '@ts-minecraft/physics'
 import { MovementServiceLive, PlayerCameraStateLive, PlayerInputService, PlayerServiceLive } from '@ts-minecraft/player'
 import { ChunkManagerService } from '@ts-minecraft/terrain'
-import { PhysicsWorldPortLayer, RigidBodyPortLayer, ShapePortLayer } from '@ts-minecraft/app'
+import { PhysicsWorldPortLayer, RigidBodyPortLayer, ShapePortLayer } from '@ts-minecraft/physics'
 import { InventoryServiceLive } from '@ts-minecraft/inventory'
 import { BlockRegistryLive } from '@ts-minecraft/world-state'
 import { NoOpChunkManagerLayer, createTestInputService, createTestLayer } from './game-state-test-utils'

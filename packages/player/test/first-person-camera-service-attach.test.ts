@@ -2,71 +2,17 @@ import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
 import { Arbitrary, Array as Arr, Effect, Layer, MutableRef, Option, Schema } from 'effect'
 import * as THREE from 'three'
-import { InputServicePort, PlayerInputService } from '@ts-minecraft/player'
-import type { MouseDelta } from '@ts-minecraft/player'
+import { PlayerInputService } from '@ts-minecraft/player'
 import { PlayerCameraStateService, PlayerCameraStateLive, PITCH_MIN, PITCH_MAX } from '@ts-minecraft/player'
 import {
   FirstPersonCameraService,
   FirstPersonCameraServiceLive,
 } from '@ts-minecraft/player'
+import { createTestInputService } from './movement-service-test-utils'
 
-type MutablePointerInputService = InputServicePort & {
-  readonly setMouseDelta: (delta: MouseDelta) => void
-  readonly setPointerLocked: (locked: boolean) => void
-}
-
-const makePlayerInputService = (inputService: InputServicePort): PlayerInputService =>
-  PlayerInputService.of({
-    _tag: '@minecraft/application/PlayerInputService' as const,
-    isKeyPressed: inputService.isKeyPressed,
-    consumeKeyPress: inputService.consumeKeyPress,
-    consumeWheelDelta: inputService.consumeWheelDelta,
-    getMouseDelta: inputService.getMouseDelta,
-    isPointerLocked: inputService.isPointerLocked,
-  })
-
-const createTestInputService = (initialState: {
-  mouseDelta?: MouseDelta
-  pointerLocked?: boolean
-} = {}): MutablePointerInputService => {
-  const mouseDeltaRef = MutableRef.make(Option.getOrElse(Option.fromNullable(initialState.mouseDelta), () => ({ x: 0, y: 0 })))
-  const pointerLockedRef = MutableRef.make(Option.getOrElse(Option.fromNullable(initialState.pointerLocked), () => false))
-
-  return Object.assign(InputServicePort.of({
-    _tag: '@minecraft/application/InputServicePort' as const,
-    isKeyPressed: () => Effect.sync(() => false),
-    consumeKeyPress: () => Effect.sync(() => false),
-    getMouseDelta: () =>
-      Effect.sync(() => {
-        const delta = { ...MutableRef.get(mouseDeltaRef) }
-        MutableRef.set(mouseDeltaRef, { x: 0, y: 0 })
-        return delta
-      }),
-    isMouseDown: () => Effect.sync(() => false),
-    requestPointerLock: () =>
-      Effect.sync(() => {
-        MutableRef.set(pointerLockedRef, true)
-      }),
-    exitPointerLock: () =>
-      Effect.sync(() => {
-        MutableRef.set(pointerLockedRef, false)
-      }),
-    isPointerLocked: () => Effect.sync(() => MutableRef.get(pointerLockedRef)),
-    consumeMouseClick: () => Effect.sync(() => false),
-    consumeWheelDelta: () => Effect.sync(() => 0),
-  }), {
-    setMouseDelta: (delta: MouseDelta) => {
-      MutableRef.set(mouseDeltaRef, delta)
-    },
-    setPointerLocked: (locked: boolean) => {
-      MutableRef.set(pointerLockedRef, locked)
-    },
-  })
-}
-
-const createTestLayers = (inputService: InputServicePort) =>
+const createTestLayers = (inputService: PlayerInputService) =>
   Layer.merge(
-    Layer.succeed(PlayerInputService, makePlayerInputService(inputService)),
+    Layer.succeed(PlayerInputService, inputService),
     PlayerCameraStateLive
   )
 
@@ -143,8 +89,8 @@ describe('FirstPersonCameraService', () => {
       },
       ({ deltas }) => {
         const deltaIdxRef = MutableRef.make(0)
-        const inputService = InputServicePort.of({
-          _tag: '@minecraft/application/InputServicePort' as const,
+        const inputService = PlayerInputService.of({
+          _tag: '@minecraft/application/PlayerInputService' as const,
           isKeyPressed: () => Effect.sync(() => false),
           consumeKeyPress: () => Effect.sync(() => false),
           getMouseDelta: () =>
@@ -154,11 +100,7 @@ describe('FirstPersonCameraService', () => {
               MutableRef.set(deltaIdxRef, currentIdx + 1)
               return { x: 0, y: dy }
             }),
-          isMouseDown: () => Effect.sync(() => false),
-          requestPointerLock: () => Effect.sync(() => {}),
-          exitPointerLock: () => Effect.sync(() => {}),
           isPointerLocked: () => Effect.sync(() => true),
-          consumeMouseClick: () => Effect.sync(() => false),
           consumeWheelDelta: () => Effect.sync(() => 0),
         })
 

@@ -6,7 +6,7 @@
 import { describe, it } from '@effect/vitest'
 import { Array as Arr, Effect, HashMap, HashSet, Option } from 'effect'
 import * as fc from 'effect/FastCheck'
-import type { BlockType } from '@ts-minecraft/kernel'
+import type { InventoryItem } from '@ts-minecraft/kernel'
 import { RecipeService } from '@ts-minecraft/inventory'
 
 describe('recipe-service / findCraftable (property-based)', () => {
@@ -19,7 +19,7 @@ describe('recipe-service / findCraftable (property-based)', () => {
 
         // Collect the universe of block types that appear in any ingredient
         const allBlockTypes = Arr.fromIterable(HashSet.fromIterable(
-          Arr.flatMap(allRecipes, (r) => Arr.map(r.ingredients, (ing) => ing.blockType))
+          Arr.flatMap(allRecipes, (r) => Arr.map(r.ingredients, (ing) => ing.itemType))
         ))
 
         fc.assert(
@@ -34,7 +34,7 @@ describe('recipe-service / findCraftable (property-based)', () => {
             ) as fc.Arbitrary<Record<string, number>>,
             (baseRecord, extraRecord) => {
               const baseMap = HashMap.fromIterable(
-                Arr.filter(Object.entries(baseRecord) as [BlockType, number][], ([, v]) => v > 0)
+                Arr.filter(Object.entries(baseRecord) as [InventoryItem, number][], ([, v]) => v > 0)
               )
 
               // Augmented inventory: base + extra for each key (immutable fold over entries)
@@ -43,8 +43,8 @@ describe('recipe-service / findCraftable (property-based)', () => {
                 baseMap,
                 (map, [bt, count]) => {
                   if (count <= 0) return map
-                  const current = Option.getOrElse(HashMap.get(map, bt as BlockType), () => 0)
-                  return HashMap.set(map, bt as BlockType, current + count)
+                  const current = Option.getOrElse(HashMap.get(map, bt as InventoryItem), () => 0)
+                  return HashMap.set(map, bt as InventoryItem, current + count)
                 }
               )
 
@@ -67,7 +67,7 @@ describe('recipe-service / findCraftable (property-based)', () => {
         fc.assert(
           fc.property(
             // Empty HashMap (no entries): no matter what, result is empty
-            fc.constant(HashMap.empty<BlockType, number>()),
+            fc.constant(HashMap.empty<InventoryItem, number>()),
             (empty) => {
               return rs.findCraftable(empty).length === 0
             }
@@ -83,7 +83,7 @@ describe('recipe-service / findCraftable (property-based)', () => {
         const rs = yield* RecipeService
         const allIds = HashSet.fromIterable(Arr.map(rs.getAllRecipes(), (r) => r.id))
         const allBlockTypes = Arr.fromIterable(HashSet.fromIterable(
-          Arr.flatMap(rs.getAllRecipes(), (r) => Arr.map(r.ingredients, (ing) => ing.blockType))
+          Arr.flatMap(rs.getAllRecipes(), (r) => Arr.map(r.ingredients, (ing) => ing.itemType))
         ))
 
         fc.assert(
@@ -93,7 +93,7 @@ describe('recipe-service / findCraftable (property-based)', () => {
             ) as fc.Arbitrary<Record<string, number>>,
             (inventoryRecord) => {
               const available = HashMap.fromIterable(
-                Arr.filter(Object.entries(inventoryRecord) as [BlockType, number][], ([, v]) => v > 0)
+                Arr.filter(Object.entries(inventoryRecord) as [InventoryItem, number][], ([, v]) => v > 0)
               )
               const craftable = rs.findCraftable(available)
               return Arr.every(craftable, (r) => HashSet.has(allIds, r.id))
@@ -113,8 +113,8 @@ describe('recipe-service / findCraftable (property-based)', () => {
 
         // Build a HashMap with 64 of every required ingredient block type + CRAFTING_TABLE
         // (CRAFTING_TABLE is a station requirement, not an ingredient, so it's added explicitly)
-        const fullyStocked = Arr.reduce(allRecipes, HashMap.set(HashMap.empty<BlockType, number>(), 'CRAFTING_TABLE' as BlockType, 64), (map, recipe) =>
-          Arr.reduce(recipe.ingredients, map, (m, ing) => HashMap.set(m, ing.blockType, 64))
+        const fullyStocked = Arr.reduce(allRecipes, HashMap.set(HashMap.empty<InventoryItem, number>(), 'CRAFTING_TABLE' as InventoryItem, 64), (map, recipe) =>
+          Arr.reduce(recipe.ingredients, map, (m, ing) => HashMap.set(m, ing.itemType, 64))
         )
 
         const craftable = rs.findCraftable(fullyStocked)

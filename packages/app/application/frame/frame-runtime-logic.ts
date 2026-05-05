@@ -1,5 +1,6 @@
 import * as THREE from 'three'
 import { Option } from 'effect'
+import { ADAPTIVE_QUALITY_HIGH_FPS_THRESHOLD } from '@ts-minecraft/app/frame-handler.config'
 
 export type CameraPoseSnapshot = {
   readonly version: number
@@ -95,7 +96,7 @@ export const decideAdaptiveQuality = ({
     return noChange(cooldown - 1)
   }
 
-  if (fps <= 0 || fps >= 110) {
+  if (fps <= 0 || fps >= ADAPTIVE_QUALITY_HIGH_FPS_THRESHOLD) {
     return noChange(cooldown)
   }
 

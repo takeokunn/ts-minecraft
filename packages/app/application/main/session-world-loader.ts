@@ -41,7 +41,7 @@ export const loadOrCreateWorld = (
             Effect.as({
               seed: metadata.seed,
               createdAt: metadata.createdAt,
-              baseSpawnPosition: metadata.playerSpawn ?? { x: 0, y: 100, z: 0 },
+              baseSpawnPosition: Option.getOrElse(Option.fromNullable(metadata.playerSpawn), () => ({ x: 0, y: 100, z: 0 })),
               savedPlayerState: Option.fromNullable(metadata.playerState),
               savedFurnaceStates: Option.fromNullable(metadata.furnaceStates),
               gameMode: metadata.gameMode,

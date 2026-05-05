@@ -37,8 +37,8 @@ export const makeOffer = (overrides?: Partial<TradeOffer>): TradeOffer => ({
   offerId: TradeOfferId.make('farmer:grass-bundle'),
   profession: VillagerProfession.Farmer,
   levelRequired: 1,
-  input: { blockType: 'EMERALD_ORE', count: 1 },
-  output: { blockType: 'GRASS', count: 4 },
+  input: { itemType: 'EMERALD_ORE', count: 1 },
+  output: { itemType: 'GRASS', count: 4 },
   experienceReward: 1,
   ...overrides,
 })
@@ -124,7 +124,7 @@ export const createTradingTestLayer = () => {
   const villagerStateRef = MutableRef.make<Option.Option<Villager>>(Option.some(makeVillager()))
   const offersStateRef = MutableRef.make<ReadonlyArray<TradeOffer>>([
     makeOffer(),
-    makeOffer({ offerId: TradeOfferId.make('farmer:sand-bundle'), output: { blockType: 'SAND', count: 2 } }),
+    makeOffer({ offerId: TradeOfferId.make('farmer:sand-bundle'), output: { itemType: 'SAND', count: 2 } }),
   ])
   const tradeResultStateRef = MutableRef.make<TradeSuccess | TradeFailure>(new TradeSuccess({ offer: makeOffer(), villager: makeVillager(), levelUp: false }))
 

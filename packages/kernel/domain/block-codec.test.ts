@@ -24,6 +24,35 @@ describe('block-codec', () => {
     it('contains no duplicate block types', () => {
       expect(INDEX_TO_BLOCK_TYPE.length).toBe(new Set(INDEX_TO_BLOCK_TYPE).size)
     })
+
+    it('has exactly 44 entries (world-placeable blocks only, no inventory items)', () => {
+      expect(INDEX_TO_BLOCK_TYPE.length).toBe(44)
+    })
+
+    it('PLANKS is at index 40', () => {
+      expect(INDEX_TO_BLOCK_TYPE[40]).toBe('PLANKS')
+    })
+
+    it('CRAFTING_TABLE is at index 41', () => {
+      expect(INDEX_TO_BLOCK_TYPE[41]).toBe('CRAFTING_TABLE')
+    })
+
+    it('FURNACE is at index 42', () => {
+      expect(INDEX_TO_BLOCK_TYPE[42]).toBe('FURNACE')
+    })
+
+    it('TORCH is at index 43', () => {
+      expect(INDEX_TO_BLOCK_TYPE[43]).toBe('TORCH')
+    })
+
+    it('does not contain inventory-only items', () => {
+      const inventoryItems = ['STICKS', 'COAL', 'WOODEN_SWORD', 'WOODEN_PICKAXE', 'STONE_PICKAXE',
+        'RAW_IRON', 'IRON_INGOT', 'IRON_PICKAXE', 'RAW_GOLD', 'GOLD_INGOT', 'DIAMOND',
+        'REDSTONE_DUST', 'LAPIS_LAZULI', 'EMERALD', 'DIAMOND_PICKAXE']
+      inventoryItems.forEach((item) => {
+        expect(INDEX_TO_BLOCK_TYPE).not.toContain(item)
+      })
+    })
   })
 
   describe('BLOCK_TYPE_TO_INDEX lookup table', () => {

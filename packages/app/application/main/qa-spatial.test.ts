@@ -4,8 +4,6 @@ import * as THREE from 'three'
 import {
   getChunkAccessForWorldPosition,
   getNormalizedLookDirection,
-  getOptionalIndexedValue,
-  projectAimPointAhead,
   projectBlockAhead,
   scanNearbyBlock,
 } from '@ts-minecraft/app/main/qa-spatial'
@@ -20,11 +18,9 @@ describe('qa-spatial', () => {
 
     const direction = getNormalizedLookDirection(camera)
     const block = projectBlockAhead(camera, 4)
-    const aimPoint = projectAimPointAhead(camera, 4)
 
     expect(direction.length()).toBeCloseTo(1)
     expect(block).toEqual({ x: 10, y: 64, z: 16 })
-    expect(aimPoint).toEqual({ x: 10.5, y: 64.5, z: 16.5 })
   })
 
   it('computes chunk/local access for negative and positive positions', () => {
@@ -59,10 +55,5 @@ describe('qa-spatial', () => {
 
     expect(found).toBe(true)
     expect(notFound).toBe(false)
-  })
-
-  it('returns optional indexed values safely', () => {
-    expect(Option.getOrNull(getOptionalIndexedValue(['a', 'b'], 1))).toBe('b')
-    expect(Option.isNone(getOptionalIndexedValue(['a', 'b'], 4))).toBe(true)
   })
 })

@@ -1,8 +1,7 @@
 import { describe, it } from '@effect/vitest'
 import { afterEach, beforeEach, expect, vi } from 'vitest'
 import { Effect, MutableHashMap, MutableRef, Option } from 'effect'
-import { StorageService, StorageServiceLive } from '@ts-minecraft/world-state'
-import { WORLD_SCHEMA_VERSION } from '@ts-minecraft/terrain'
+import { StorageService, StorageServiceLive, WORLD_SCHEMA_VERSION } from '@ts-minecraft/world-state'
 
 // Tests for the StorageService version-gate subroutine.
 //

@@ -1,13 +1,8 @@
 import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
-import { Effect } from 'effect'
-import { Schema } from 'effect'
-import {
-  ShapeService,
-  ShapeServiceLive,
-  BoxShapeConfigSchema,
-  SphereShapeConfigSchema,
-} from '@ts-minecraft/physics'
+import { Effect, Schema } from 'effect'
+import { BoxShapeConfigSchema, SphereShapeConfigSchema } from '@ts-minecraft/physics'
+import { ShapeService, ShapeServiceLive } from '../infrastructure/boundary/shape-service'
 
 describe('physics/boundary/shape-service', () => {
   describe('Schema validation', () => {
@@ -22,10 +17,22 @@ describe('physics/boundary/shape-service', () => {
       const result = Schema.decodeUnknownSync(SphereShapeConfigSchema)({ radius: 1.0 })
       expect(result.radius).toBe(1.0)
     })
+
+    it('BoxShapeConfigSchema rejects non-vector halfExtents', () => {
+      expect(() =>
+        Schema.decodeUnknownSync(BoxShapeConfigSchema)({ halfExtents: 'invalid' })
+      ).toThrow()
+    })
+
+    it('SphereShapeConfigSchema rejects non-positive radius', () => {
+      expect(() =>
+        Schema.decodeUnknownSync(SphereShapeConfigSchema)({ radius: -1 })
+      ).toThrow()
+    })
   })
 
   describe('ShapeServiceLive', () => {
-    it.effect('should expose all required methods', () =>
+    it.effect('should expose createBox, createSphere, createPlane methods', () =>
       Effect.gen(function* () {
         const service = yield* ShapeService
         expect(typeof service.createBox).toBe('function')
@@ -66,13 +73,15 @@ describe('physics/boundary/shape-service', () => {
       }).pipe(Effect.provide(ShapeServiceLive))
     )
 
-    it.effect('should support Effect.flatMap chaining for createBox and createSphere', () =>
+    it.effect('should support Effect.flatMap chaining for multiple shapes', () =>
       Effect.gen(function* () {
         const service = yield* ShapeService
         const box = yield* service.createBox({ halfExtents: { x: 0.5, y: 0.5, z: 0.5 } })
         const sphere = yield* service.createSphere({ radius: 1 })
+        const plane = yield* service.createPlane()
         expect(box.kind).toBe('box')
         expect(sphere.kind).toBe('sphere')
+        expect(plane.kind).toBe('plane')
       }).pipe(Effect.provide(ShapeServiceLive))
     )
   })

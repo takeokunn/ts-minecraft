@@ -1,8 +1,8 @@
-import { describe, expect, vi, beforeEach } from 'vitest'
+import { describe, expect, vi } from 'vitest'
 import { it } from '@effect/vitest'
 import { Effect, Layer, Option } from 'effect'
 import * as THREE from 'three'
-import { EntityRendererService, EntityRendererLive, SceneService, _resetMobGeometryCachesForTest, LIMB_SWING_AMPLITUDE } from '@ts-minecraft/rendering'
+import { EntityRendererService, EntityRendererLive, SceneService, LIMB_SWING_AMPLITUDE } from '@ts-minecraft/rendering'
 import { EntityId, type Entity, type EntityType } from '@ts-minecraft/entities'
 import { identity } from '@ts-minecraft/kernel'
 
@@ -48,10 +48,6 @@ const makeScene = (): THREE.Scene => {
 // ---------------------------------------------------------------------------
 
 describe('infrastructure/three/entity-renderer', () => {
-  beforeEach(() => {
-    _resetMobGeometryCachesForTest()
-  })
-
   describe('syncEntities', () => {
     it.effect('adds a group for a new entity', () => {
       const TestLayer = buildTestLayer()

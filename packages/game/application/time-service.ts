@@ -2,8 +2,8 @@ import { Effect, Ref, Schema } from 'effect'
 import { DeltaTimeSecs } from '@ts-minecraft/kernel'
 
 const TimeStateSchema = Schema.Struct({
-  ticks: Schema.Number.pipe(Schema.int(), Schema.nonNegative()),
-  dayLengthTicks: Schema.Number.pipe(Schema.int(), Schema.positive()),
+  ticks: Schema.Number.pipe(Schema.nonNegative()),
+  dayLengthTicks: Schema.Number.pipe(Schema.positive()),
 })
 type TimeState = Schema.Schema.Type<typeof TimeStateSchema>
 

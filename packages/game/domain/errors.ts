@@ -46,3 +46,14 @@ export class StartupError extends Data.TaggedError('StartupError')<{
     return `${this.reason}${causeMessage ? `: ${causeMessage}` : ''}`
   }
 }
+
+export class GameStateError extends Data.TaggedError('GameStateError')<{
+  readonly operation: string
+  readonly reason: string
+  readonly cause?: unknown
+}> {
+  override get message(): string {
+    const causeMessage = formatCause(this.cause)
+    return `GameState error during ${this.operation}: ${this.reason}${causeMessage ? `: ${causeMessage}` : ''}`
+  }
+}

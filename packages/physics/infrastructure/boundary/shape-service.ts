@@ -1,5 +1,6 @@
 import { Effect } from 'effect'
-import type { CustomShape, BoxShapeConfig, SphereShapeConfig } from '../../domain/physics-port'
+import type { CustomShape } from '../../domain/physics-body'
+import type { BoxShapeConfig, SphereShapeConfig } from '../../domain/physics-shape'
 
 export class ShapeService extends Effect.Service<ShapeService>()(
   '@minecraft/infrastructure/physics/ShapeService',

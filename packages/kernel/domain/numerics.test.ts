@@ -92,6 +92,10 @@ describe('numerics', () => {
       expect(BlockIndex.make(65535)).toBe(65535)
     })
 
+    it('make(65536) throws (exceeds max)', () => {
+      expect(() => BlockIndex.make(65536)).toThrow()
+    })
+
     it('rejects negative integer', () => {
       expect(() => BlockIndex.make(-1)).toThrow()
     })
