@@ -2,8 +2,8 @@ import { Deferred, Effect, Option } from 'effect'
 import { DomOperationsService } from '@ts-minecraft/app/presentation/hud/crosshair'
 
 // Each show() builds a fresh DOM overlay (no collision with concurrent dialogs).
-// Higher z-index (1100) than pause menu (1050) so dialogs always stack above their caller.
-const DIALOG_Z_INDEX = 1100
+// Higher z-index (6000) than main menu overlay (5000) and pause menu (1050) so dialogs always stack above their caller.
+const DIALOG_Z_INDEX = 6000
 
 const BACKDROP_STYLE = [
   'position:fixed',
