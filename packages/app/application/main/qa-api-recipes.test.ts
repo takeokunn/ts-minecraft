@@ -6,6 +6,13 @@ import { EntityId, type Entity } from '@ts-minecraft/entities'
 import type { FurnaceBlockState } from '@ts-minecraft/furnace'
 import { createStack } from '@ts-minecraft/inventory'
 import { installQaApi } from '@ts-minecraft/app/main/qa-api'
+import {
+  DEBUG_FEATURE_FLAG_CATALOG,
+  DEBUG_FEATURE_FLAG_DEFAULTS,
+  type DebugFeatureFlagGroup,
+  type DebugFeatureFlagId,
+  type DebugFeatureFlags,
+} from '@ts-minecraft/app/debug-feature-flags'
 
 type QaInstallDeps = Parameters<typeof installQaApi>[0]
 
@@ -122,6 +129,30 @@ const makeDeps = () => {
   const getNearestFurnaceState = vi.fn(getNearestFurnaceStateImpl)
   const startSmelting: QaInstallDeps['furnaceService']['startSmelting'] = vi.fn(() => Effect.void)
   const collectOutput: QaInstallDeps['furnaceService']['collectOutput'] = vi.fn(() => Effect.succeed(false))
+  const debugFlagsState: { current: DebugFeatureFlags } = { current: { ...DEBUG_FEATURE_FLAG_DEFAULTS } }
+  const setDebugFeatureEnabled = vi.fn((id: DebugFeatureFlagId, enabled: boolean) =>
+    Effect.sync(() => {
+      const changed = debugFlagsState.current[id] !== enabled
+      debugFlagsState.current = { ...debugFlagsState.current, [id]: enabled }
+      return changed
+    })
+  )
+  const resetDebugFeatureGroup = vi.fn((group: DebugFeatureFlagGroup) =>
+    Effect.sync(() => {
+      const next = { ...debugFlagsState.current }
+      for (const entry of DEBUG_FEATURE_FLAG_CATALOG) {
+        if (entry.group === group) {
+          next[entry.id] = DEBUG_FEATURE_FLAG_DEFAULTS[entry.id]
+        }
+      }
+      debugFlagsState.current = next
+    })
+  )
+  const resetDebugFeatures = vi.fn(() =>
+    Effect.sync(() => {
+      debugFlagsState.current = { ...DEBUG_FEATURE_FLAG_DEFAULTS }
+    })
+  )
 
   return {
     spies: {
@@ -150,6 +181,9 @@ const makeDeps = () => {
       getNearestFurnaceState,
       startSmelting,
       collectOutput,
+      setDebugFeatureEnabled,
+      resetDebugFeatureGroup,
+      resetDebugFeatures,
       recipeOverride,
       nearestFurnaceStateOverride,
       selectedBlockType,
@@ -224,6 +258,15 @@ const makeDeps = () => {
         isPlayerGrounded: () => Effect.succeed(true),
         _tag: '@minecraft/application/GameStateService',
       },
+      timeService: {
+        getTimeOfDay: () => Effect.succeed(0.5),
+        getDayLength: () => Effect.succeed(20 * 60),
+        setTimeOfDay: (_fraction: number) => Effect.void,
+        isNight: () => Effect.succeed(false),
+        advanceTick: (_deltaTime: number) => Effect.succeed(0.5),
+        setDayLength: (_seconds: number) => Effect.void,
+        _tag: '@minecraft/application/TimeService',
+      },
       chunkManagerService: {
         getChunk,
         loadChunksAroundPlayer: () => Effect.succeed(true),
@@ -296,7 +339,18 @@ const makeDeps = () => {
         applyPhysics: (_deltaTime, _resolveCollision) => Effect.void,
         despawnFarEntities: (_playerPosition, _maxDistance) => Effect.succeed(0),
         applyDamage,
+        despawnAllEntities: () => Effect.succeed(0),
         _tag: '@minecraft/entity/EntityManager',
+      },
+      debugFeatureFlags: {
+        catalog: DEBUG_FEATURE_FLAG_CATALOG,
+        getSnapshot: () => Effect.succeed({ catalog: DEBUG_FEATURE_FLAG_CATALOG, flags: { ...debugFlagsState.current } }),
+        getFlags: () => Effect.succeed({ ...debugFlagsState.current }),
+        isEnabled: (id: DebugFeatureFlagId) => Effect.succeed(debugFlagsState.current[id]),
+        setEnabled: setDebugFeatureEnabled,
+        resetAll: resetDebugFeatures,
+        resetGroup: resetDebugFeatureGroup,
+        _tag: '@minecraft/application/DebugFeatureFlagsService',
       },
     } satisfies QaInstallDeps,
   }

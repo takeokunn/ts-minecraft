@@ -43,18 +43,18 @@ export const buildSettingsOverlayDom = (dom: DomOperationsService): SettingsOver
       Graphics Quality:
       <select id="quality-select" style="display:block;width:100%;margin-top:4px;padding:4px;background:#333;color:#fff;border:1px solid #555;border-radius:4px;font-family:monospace">
         <option value="low">Low</option>
-        <option value="medium">Medium</option>
-        <option value="high" selected>High</option>
+        <option value="medium" selected>Medium</option>
+        <option value="high">High</option>
         <option value="ultra">Ultra</option>
       </select>
     </label>
     <label style="display:flex;align-items:center;gap:8px;margin-bottom:12px;cursor:pointer">
-      <input id="adaptive-performance-input" type="checkbox" style="margin:0">
+      <input id="adaptive-performance-input" type="checkbox" checked style="margin:0">
       <span>Adaptive performance mode</span>
     </label>
     <label style="display:block;margin-bottom:12px">
-      Render Distance: <span id="rd-val">8</span>
-      <input id="rd-input" type="range" min="2" max="16" step="1" value="8"
+      Render Distance: <span id="rd-val">4</span>
+      <input id="rd-input" type="range" min="2" max="16" step="1" value="4"
         style="display:block;width:100%;margin-top:4px">
     </label>
     <label style="display:block;margin-bottom:12px">

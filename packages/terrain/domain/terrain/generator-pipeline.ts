@@ -12,7 +12,7 @@ import {
   OVERHANG_THRESHOLD,
 } from './constants'
 import { computeRuggedness, chunkBlockIndexUnchecked } from './math'
-import { computeLakeBasin, resolveSurfaceY, fillWaterForColumn } from './lake-generator'
+import { computeLakeBasin, resolveSurfaceY } from './lake-generator'
 import { resolveSurfaceProfile, fillColumn } from './surface-resolver'
 import { TREE_CANOPY_MARGIN, shouldPlaceTree, placeTree } from './tree-placer'
 import { createTreeColumnKey, supportsTreeAtSurface } from './generator-coordinates'
@@ -88,8 +88,6 @@ export const buildColumnStates = ({
         dioriteFlag,
         andesiteFlag,
       })
-
-      fillWaterForColumn(blocks, lx, lz, biome, surfaceY, lakeBasinY, blockIndices.waterBlockIndex)
 
       /* c8 ignore next */
       const surfaceBlock = blocks[chunkBlockIndexUnchecked(lx, surfaceY, lz)] ?? blockIndices.airBlockIndex

@@ -17,7 +17,7 @@ type MaintenanceState = {
 
 type MaintenanceServices = Pick<
   FrameHandlerServices,
-  'entityManager' | 'gameState' | 'chunkManagerService' | 'settingsService' | 'worldRendererService' | 'fluidService' | 'blockHighlight' | 'furnaceService' | 'mobSpawner' | 'villageService' | 'timeService'
+  'entityManager' | 'gameState' | 'chunkManagerService' | 'settingsService' | 'worldRendererService' | 'fluidService' | 'blockHighlight' | 'furnaceService' | 'mobSpawner' | 'villageService' | 'timeService' | 'debugFeatureFlags'
 >
 
 const resolveTerrainSpawnPosition = (
@@ -82,6 +82,7 @@ export const createMaintenanceHandler = (
         mobSpawner,
         villageService,
         timeService,
+        debugFeatureFlags,
       } = services
 
       const playerPos = yield* gameState.getPlayerPosition(DEFAULT_PLAYER_ID).pipe(
@@ -91,72 +92,93 @@ export const createMaintenanceHandler = (
         Effect.catchAllCause(() => Effect.succeed(0.5)),
       )
       const currentSettings = yield* settingsService.getSettings()
+      const debugFlags = yield* debugFeatureFlags.getFlags()
+      const mobsEnabled = debugFlags['mobs.enabled']
+      const mobsSpawnEnabled = mobsEnabled && debugFlags['mobs.spawn']
+      const furnaceEnabled = debugFlags['simulation.furnace']
+      const villageEnabled = debugFlags['simulation.village']
+      const chunkStreamingEnabled = debugFlags['world.chunkStreaming']
+      const chunkSceneSyncEnabled = debugFlags['world.chunkSceneSync']
+      const dirtyChunkFlushEnabled = chunkSceneSyncEnabled && debugFlags['world.dirtyChunkFlush']
       const cx = Math.floor(playerPos.x / CHUNK_SIZE)
       const cz = Math.floor(playerPos.z / CHUNK_SIZE)
       const maintenanceDeltaTime = 0.05 as DeltaTimeSecs
       const despawnFarEntities = entityManager.despawnFarEntities
+      const despawnAllEntities = entityManager.despawnAllEntities
 
-      const despawnedCount = typeof despawnFarEntities === 'function'
-        ? yield* despawnFarEntities(playerPos, DESPAWN_DISTANCE)
-        : 0
+      const despawnedCount = mobsEnabled
+        ? typeof despawnFarEntities === 'function'
+          ? yield* despawnFarEntities(playerPos, DESPAWN_DISTANCE)
+          : 0
+        : typeof despawnAllEntities === 'function'
+          ? yield* despawnAllEntities()
+          : 0
 
-      yield* furnaceService.tick(maintenanceDeltaTime).pipe(Effect.catchAllCause(() => Effect.void))
-      const spawnResult = yield* mobSpawner.trySpawn(
-        playerPos,
-        (candidatePosition: Position) => {
-          const chunkCoord = {
-            x: Math.floor(Math.floor(candidatePosition.x) / CHUNK_SIZE),
-            z: Math.floor(Math.floor(candidatePosition.z) / CHUNK_SIZE),
-          }
+      if (furnaceEnabled) {
+        yield* furnaceService.tick(maintenanceDeltaTime).pipe(Effect.catchAllCause(() => Effect.void))
+      }
+      const spawnResult = mobsSpawnEnabled
+        ? yield* mobSpawner.trySpawn(
+            playerPos,
+            (candidatePosition: Position) => {
+              const chunkCoord = {
+                x: Math.floor(Math.floor(candidatePosition.x) / CHUNK_SIZE),
+                z: Math.floor(Math.floor(candidatePosition.z) / CHUNK_SIZE),
+              }
 
-          return chunkManagerService.getChunk(chunkCoord).pipe(
-            Effect.map((chunk) => resolveTerrainSpawnPosition(chunk, candidatePosition)),
-            Effect.catchAllCause(() => Effect.succeed(Option.none<Position>())),
+              return chunkManagerService.getChunk(chunkCoord).pipe(
+                Effect.map((chunk) => resolveTerrainSpawnPosition(chunk, candidatePosition)),
+                Effect.catchAllCause(() => Effect.succeed(Option.none<Position>())),
+              )
+            },
+          ).pipe(
+            Effect.catchAllCause((cause) =>
+              Effect.logError(`Mob spawn error: ${Cause.pretty(cause)}`).pipe(
+                Effect.as(Option.none()),
+              ),
+            ),
           )
-        },
-      ).pipe(
-        Effect.catchAllCause((cause) =>
-          Effect.logError(`Mob spawn error: ${Cause.pretty(cause)}`).pipe(
-            Effect.as(Option.none()),
-          )
-        ),
-      )
-      yield* villageService.update(playerPos, timeOfDay, maintenanceDeltaTime).pipe(
-        Effect.catchAllCause((cause) => Effect.logError(`Village system error: ${Cause.pretty(cause)}`)),
-      )
+        : Option.none()
+      if (villageEnabled) {
+        yield* villageService.update(playerPos, timeOfDay, maintenanceDeltaTime).pipe(
+          Effect.catchAllCause((cause) => Effect.logError(`Village system error: ${Cause.pretty(cause)}`)),
+        )
+      }
 
       const chunkSyncPending = MutableRef.get(state.chunkSyncPendingRef)
       const { cx: lastCx, cz: lastCz, renderDistance: lastRenderDistance } = MutableRef.get(state.lastChunkStreamingRef)
       /* c8 ignore next */
-      const shouldRefreshChunks = chunkSyncPending || lastCx !== cx || lastCz !== cz || lastRenderDistance !== currentSettings.renderDistance
+      const shouldRefreshChunks = chunkStreamingEnabled && (chunkSyncPending || lastCx !== cx || lastCz !== cz || lastRenderDistance !== currentSettings.renderDistance)
 
       if (shouldRefreshChunks) {
         const didLoadChunks = chunkSyncPending
           ? false
           : yield* chunkManagerService.loadChunksAroundPlayer(playerPos, currentSettings.renderDistance)
-        const loadedChunks = yield* chunkManagerService.getLoadedChunks()
-        const lastLoadedChunks = yield* Ref.get(state.lastLoadedChunksRef)
-        const chunksChanged = Option.match(lastLoadedChunks, {
-          onNone: () => true,
-          onSome: (previousLoadedChunks) => previousLoadedChunks !== loadedChunks,
-        })
-        const shouldSyncWorld = chunkSyncPending || chunksChanged
+        if (chunkSceneSyncEnabled) {
+          const loadedChunks = yield* chunkManagerService.getLoadedChunks()
+          const lastLoadedChunks = yield* Ref.get(state.lastLoadedChunksRef)
+          const chunksChanged = Option.match(lastLoadedChunks, {
+            onNone: () => true,
+            onSome: (previousLoadedChunks) => previousLoadedChunks !== loadedChunks,
+          })
+          const shouldSyncWorld = chunkSyncPending || chunksChanged
 
-        if (shouldSyncWorld) {
-          const fullySynced = yield* worldRendererService.syncChunksToScene(loadedChunks, deps.scene)
+          if (shouldSyncWorld) {
+            const fullySynced = yield* worldRendererService.syncChunksToScene(loadedChunks, deps.scene)
 
-          if (chunksChanged) {
-            yield* fluidService.syncLoadedChunks(loadedChunks)
-            yield* blockHighlight.invalidateCache()
-          }
-
-          if (fullySynced) {
             if (chunksChanged) {
-              yield* Ref.set(state.lastLoadedChunksRef, Option.some(loadedChunks))
+              yield* fluidService.syncLoadedChunks(loadedChunks)
+              yield* blockHighlight.invalidateCache()
             }
-            MutableRef.set(state.chunkSyncPendingRef, false)
-          } else {
-            MutableRef.set(state.chunkSyncPendingRef, true)
+
+            if (fullySynced) {
+              if (chunksChanged) {
+                yield* Ref.set(state.lastLoadedChunksRef, Option.some(loadedChunks))
+              }
+              MutableRef.set(state.chunkSyncPendingRef, false)
+            } else {
+              MutableRef.set(state.chunkSyncPendingRef, true)
+            }
           }
         }
 
@@ -165,7 +187,9 @@ export const createMaintenanceHandler = (
         }
       }
 
-      const renderDirtyChunks = yield* chunkManagerService.drainRenderDirtyChunks()
+      const renderDirtyChunks = dirtyChunkFlushEnabled
+        ? yield* chunkManagerService.drainRenderDirtyChunks()
+        : []
       if (renderDirtyChunks.length > 0) {
         yield* Ref.update(
           state.dirtyChunksRef,
@@ -177,32 +201,34 @@ export const createMaintenanceHandler = (
         )
       }
 
-      const flushedDirtyChunkCount = yield* Ref.getAndSet(state.dirtyChunksRef, HashMap.empty()).pipe(
-        Effect.flatMap((dirtyChunks) => {
-          const dirtyEntries = Arr.fromIterable(dirtyChunks)
-          const chunksToUpdate = Arr.take(dirtyEntries, MAX_DIRTY_CHUNK_UPDATES_PER_FRAME)
-          const remainingEntries = Arr.drop(dirtyEntries, MAX_DIRTY_CHUNK_UPDATES_PER_FRAME)
+      const flushedDirtyChunkCount = dirtyChunkFlushEnabled
+        ? yield* Ref.getAndSet(state.dirtyChunksRef, HashMap.empty()).pipe(
+            Effect.flatMap((dirtyChunks) => {
+              const dirtyEntries = Arr.fromIterable(dirtyChunks)
+              const chunksToUpdate = Arr.take(dirtyEntries, MAX_DIRTY_CHUNK_UPDATES_PER_FRAME)
+              const remainingEntries = Arr.drop(dirtyEntries, MAX_DIRTY_CHUNK_UPDATES_PER_FRAME)
 
-          const flushUpdates = Effect.forEach(
-            chunksToUpdate,
-            ([, chunk]) => worldRendererService.updateChunkInScene(chunk, deps.scene),
-            { concurrency: DIRTY_CHUNK_FLUSH_CONCURRENCY, discard: true },
-          )
-
-          const requeueRemaining = remainingEntries.length > 0
-            ? Ref.update(
-                state.dirtyChunksRef,
-                (current) => Arr.reduce(remainingEntries, current, (acc, [key, chunk]) => HashMap.set(acc, key, chunk)),
+              const flushUpdates = Effect.forEach(
+                chunksToUpdate,
+                ([, chunk]) => worldRendererService.updateChunkInScene(chunk, deps.scene),
+                { concurrency: DIRTY_CHUNK_FLUSH_CONCURRENCY, discard: true },
               )
-            : Effect.void
 
-          return flushUpdates.pipe(
-            Effect.andThen(requeueRemaining),
-            Effect.andThen(dirtyEntries.length > 0 ? blockHighlight.invalidateCache() : Effect.void),
-            Effect.as(dirtyEntries.length),
+              const requeueRemaining = remainingEntries.length > 0
+                ? Ref.update(
+                    state.dirtyChunksRef,
+                    (current) => Arr.reduce(remainingEntries, current, (acc, [key, chunk]) => HashMap.set(acc, key, chunk)),
+                  )
+                : Effect.void
+
+              return flushUpdates.pipe(
+                Effect.andThen(requeueRemaining),
+                Effect.andThen(dirtyEntries.length > 0 ? blockHighlight.invalidateCache() : Effect.void),
+                Effect.as(dirtyEntries.length),
+              )
+            }),
           )
-        }),
-      )
+        : 0
 
       /* c8 ignore next */
       return shouldRefreshChunks || chunkSyncPending || flushedDirtyChunkCount > 0 || despawnedCount > 0 || Option.isSome(spawnResult)

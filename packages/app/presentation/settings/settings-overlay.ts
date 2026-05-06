@@ -36,11 +36,11 @@ export class SettingsOverlayService extends Effect.Service<SettingsOverlayServic
         const commitEffect = (): Effect.Effect<void, never> =>
         settingsService.updateSettings({
           adaptivePerformanceMode: Option.match(adaptivePerformanceInput, { onNone: () => false, onSome: (el) => el.checked }),
-          renderDistance: Option.match(renderDistanceInput, { onNone: () => 8, onSome: (el) => parseInt(el.value, 10) }),
+          renderDistance: Option.match(renderDistanceInput, { onNone: () => 4, onSome: (el) => parseInt(el.value, 10) }),
           mouseSensitivity: Option.match(sensitivityInput, { onNone: () => 0.5, onSome: (el) => parseFloat(el.value) }),
           dayLengthSeconds: Option.match(dayLengthInput, { onNone: () => 400, onSome: (el) => parseInt(el.value, 10) }),
           graphicsQuality: Option.match(qualitySelect, {
-            onNone: () => 'high' as const,
+            onNone: () => 'medium' as const,
             onSome: (el) => Match.value(el.value).pipe(
               Match.when('low', () => 'low' as const),
               Match.when('medium', () => 'medium' as const),
@@ -132,7 +132,7 @@ export class SettingsOverlayService extends Effect.Service<SettingsOverlayServic
           }).pipe(
             // FR-1.4: prime DOM inputs from SettingsService on mount so values
             // reflect actual state from frame 1, eliminating the visual flash
-            // (HTML template defaults quality=high, rd=8) that appears when the
+            // (HTML template defaults quality=medium, rd=4) that appears when the
             // overlay first opens before sync runs.
             Effect.andThen(syncEffect()),
           ),

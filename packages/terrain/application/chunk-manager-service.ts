@@ -25,6 +25,9 @@ export type { ChunkManagerError } from './chunk-manager-constants'
 
 const MAX_CHUNK_LOADS_PER_CALL = 4
 const CHUNK_LOAD_BATCHING_MIN_RENDER_DISTANCE = 3
+type ChunkLoadOptions = {
+  readonly eager?: boolean
+}
 
 let activeChunkWorldIdRef: WorldId = DEFAULT_WORLD_ID
 let activeChunkWorldServiceUpdater: ((worldId: WorldId) => void) | undefined
@@ -89,14 +92,16 @@ export class ChunkManagerService extends Effect.Service<ChunkManagerService>()(
       const service = {
         getChunk: (coord: ChunkCoord) => getChunk(ctx, coord),
 
-        loadChunksAroundPlayer: (playerPos: Position, renderDistance: number = RENDER_DISTANCE): Effect.Effect<boolean, ChunkManagerError> =>
+        loadChunksAroundPlayer: (playerPos: Position, renderDistance: number = RENDER_DISTANCE, options: ChunkLoadOptions = {}): Effect.Effect<boolean, ChunkManagerError> =>
           Effect.gen(function* () {
-            const now = yield* Clock.currentTimeMillis
-            const shouldLoad = yield* Ref.modify(lastLoadTimeRef, (last) =>
-              now - last < 200 ? [false, last] : [true, now]
-            )
-            if (!shouldLoad) {
-              return false
+            if (options.eager !== true) {
+              const now = yield* Clock.currentTimeMillis
+              const shouldLoad = yield* Ref.modify(lastLoadTimeRef, (last) =>
+                now - last < 200 ? [false, last] : [true, now]
+              )
+              if (!shouldLoad) {
+                return false
+              }
             }
 
             const centerChunk = worldToChunkCoord(playerPos)
@@ -111,7 +116,7 @@ export class ChunkManagerService extends Effect.Service<ChunkManagerService>()(
               (coord) => !HashMap.has(stateBeforeLoad.chunks, chunkCoordToWorldKey(coord, currentWorldId)),
             )
 
-            const shouldBatchLoads = renderDistance >= CHUNK_LOAD_BATCHING_MIN_RENDER_DISTANCE
+            const shouldBatchLoads = options.eager !== true && renderDistance >= CHUNK_LOAD_BATCHING_MIN_RENDER_DISTANCE
             const chunkLoadBatch = shouldBatchLoads
               ? Arr.take(missingChunksToLoad, MAX_CHUNK_LOADS_PER_CALL)
               : missingChunksToLoad

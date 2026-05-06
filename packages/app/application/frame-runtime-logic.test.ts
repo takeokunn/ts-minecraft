@@ -112,6 +112,6 @@ describe('frame-runtime-logic', () => {
       fps: 40,
       cooldown: 0,
       chunkSyncPending: true,
-    })).toEqual({ nextCooldown: 0, settingsPatch: Option.none() })
+    })).toEqual({ nextCooldown: 20, settingsPatch: Option.some({ renderDistance: 7 }) })
   })
 })

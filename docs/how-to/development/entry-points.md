@@ -55,7 +55,7 @@ Effect-TS 3.17+とLayerパターンにより、以下を実現：
 const AppConfigSchema = Schema.Struct({
   world: Schema.Struct({
     seed: Schema.Number.pipe(Schema.int()),
-    renderDistance: Schema.Number.pipe(Schema.between(4, 32)),
+    renderDistance: Schema.Number.pipe(Schema.between(2, 16)),
   }),
   performance: Schema.Struct({
     targetFPS: Schema.Number.pipe(Schema.between(30, 144)),
@@ -91,7 +91,7 @@ const GameMode = Schema.Literal("CREATIVE", "SURVIVAL", "ADVENTURE")
 const WorldConfig = Schema.Struct({
   seed: Schema.Number.pipe(Schema.int()),
   name: Schema.String.pipe(Schema.minLength(1), Schema.maxLength(50)),
-  renderDistance: Schema.Number.pipe(Schema.between(4, 32)),
+  renderDistance: Schema.Number.pipe(Schema.between(2, 16)),
   simulationDistance: Schema.Number.pipe(Schema.between(4, 16)),
   difficulty: Schema.Literal("PEACEFUL", "EASY", "NORMAL", "HARD")
 })
@@ -157,7 +157,7 @@ const makeConfigServiceLive = Effect.gen(function* () {
         world: {
           seed: 12345,
           name: "New World",
-          renderDistance: 12,
+          renderDistance: 4,
           simulationDistance: 8,
           difficulty: "NORMAL"
         },

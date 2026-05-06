@@ -4,6 +4,7 @@ import { BlockService } from '@ts-minecraft/terrain'
 import { ChunkManagerService } from '@ts-minecraft/terrain'
 import { PlayerCameraStateService } from '@ts-minecraft/player'
 import { GameStateService } from '@ts-minecraft/game'
+import { TimeService } from '@ts-minecraft/game'
 import { HOTBAR_START } from '@ts-minecraft/inventory'
 import { InventoryService } from '@ts-minecraft/inventory'
 import { RecipeService } from '@ts-minecraft/inventory'
@@ -16,6 +17,12 @@ import { setBlockInChunk } from '@ts-minecraft/terrain'
 import type { BlockType, InventoryItem } from '@ts-minecraft/kernel'
 import { Schema } from 'effect'
 import { EntityType, EntityManager } from '@ts-minecraft/entities'
+import {
+  type DebugFeatureFlagGroup,
+  type DebugFeatureFlagId,
+  type DebugFeatureSnapshot,
+  DebugFeatureFlagsService,
+} from '@ts-minecraft/app/debug-feature-flags'
 import { BlockHighlightService } from '@ts-minecraft/app/presentation/highlight/block-highlight'
 import { InputService } from '@ts-minecraft/app/presentation/input/input-service'
 import { InventoryRendererService } from '@ts-minecraft/app/presentation/inventory/inventory-renderer'
@@ -39,6 +46,7 @@ type QaApiDeps = {
   readonly inventoryService: InventoryService
   readonly inventoryRenderer: InventoryRendererService
   readonly gameState: GameStateService
+  readonly timeService: TimeService
   readonly chunkManagerService: ChunkManagerService
   readonly blockService: BlockService
   readonly hotbarService: HotbarService
@@ -46,6 +54,7 @@ type QaApiDeps = {
   readonly furnaceService: FurnaceService
   readonly worldRendererService: WorldRendererService
   readonly entityManager: EntityManager
+  readonly debugFeatureFlags: DebugFeatureFlagsService
 }
 
 export type QaApi = {
@@ -69,6 +78,15 @@ export type QaApi = {
   readonly selectHotbarSlot: (hotbarIndex: number) => Promise<void>
   readonly getRecipeButtons: () => ReadonlyArray<string>
   readonly getEntitySnapshot: () => Promise<ReadonlyArray<{ entityId: string; type: string }>>
+  readonly getLoadedWaterBlockCount: () => Promise<number>
+  readonly getMobMovementSnapshot: (durationMs: number) => Promise<{
+    tracked: number
+    moved: number
+    maxDistance: number
+    maxHorizontalDistance: number
+    maxVerticalDistance: number
+  }>
+  readonly setTimeOfDayForQA: (timeOfDay: number) => Promise<void>
   readonly getRenderingSnapshot: () => {
     sceneChildren: number
     chunkMeshCount: number
@@ -87,6 +105,9 @@ export type QaApi = {
       textureLoaded: boolean
     }>
   }
+  readonly getDebugFeatureSnapshot: () => Promise<DebugFeatureSnapshot>
+  readonly setDebugFeatureEnabled: (id: DebugFeatureFlagId, enabled: boolean) => Promise<boolean>
+  readonly resetDebugFeatures: (group?: DebugFeatureFlagGroup) => Promise<void>
 }
 
 type QaChunkCoord = {
@@ -522,6 +543,54 @@ const getRenderingSnapshot = (camera: THREE.PerspectiveCamera, scene: THREE.Scen
   }
 }
 
+const getLoadedWaterBlockCount = (chunkManagerService: ChunkManagerService) =>
+  Effect.runPromise(Effect.gen(function* () {
+    const chunks = yield* chunkManagerService.getLoadedChunks()
+    const waterBlockIndex = blockTypeToIndex('WATER')
+    let count = 0
+    for (const chunk of chunks) {
+      for (const block of chunk.blocks) {
+        if (block === waterBlockIndex) count += 1
+      }
+    }
+    return count
+  }))
+
+const getMobMovementSnapshot = (entityManager: EntityManager, durationMs: number) =>
+  Effect.runPromise(Effect.gen(function* () {
+    const clampedDurationMs = Math.max(100, Math.floor(durationMs))
+    const before = yield* entityManager.getEntities()
+    const beforeById = new Map(before.map((entity) => [entity.entityId, entity.position] as const))
+    yield* Effect.sleep(clampedDurationMs)
+    const after = yield* entityManager.getEntities()
+
+    let tracked = 0
+    let moved = 0
+    let maxDistance = 0
+    let maxHorizontalDistance = 0
+    let maxVerticalDistance = 0
+    for (const entity of after) {
+      const previous = beforeById.get(entity.entityId)
+      if (!previous) continue
+      tracked += 1
+      const dx = entity.position.x - previous.x
+      const dy = entity.position.y - previous.y
+      const dz = entity.position.z - previous.z
+      const horizontalDistance = Math.hypot(dx, dz)
+      const distance = Math.hypot(dx, dy, dz)
+      const verticalDistance = Math.abs(dy)
+      if (horizontalDistance > 0.05) moved += 1
+      if (distance > maxDistance) maxDistance = distance
+      if (horizontalDistance > maxHorizontalDistance) maxHorizontalDistance = horizontalDistance
+      if (verticalDistance > maxVerticalDistance) maxVerticalDistance = verticalDistance
+    }
+
+    return { tracked, moved, maxDistance, maxHorizontalDistance, maxVerticalDistance }
+  }))
+
+const setTimeOfDayForQA = (timeService: TimeService, timeOfDay: number) =>
+  Effect.runPromise(timeService.setTimeOfDay(timeOfDay))
+
 // ---------------------------------------------------------------------------
 // installQaApi — wires everything together and sets window.__TS_MINECRAFT_QA__
 // ---------------------------------------------------------------------------
@@ -535,6 +604,7 @@ export const installQaApi = ({
   inventoryService,
   inventoryRenderer,
   gameState,
+  timeService,
   chunkManagerService,
   blockService,
   hotbarService,
@@ -542,6 +612,7 @@ export const installQaApi = ({
   furnaceService,
   worldRendererService,
   entityManager,
+  debugFeatureFlags,
 }: QaApiDeps): Effect.Effect<void, never> =>
   Effect.sync(() => {
     // Only expose QA API in development builds.
@@ -600,8 +671,17 @@ export const installQaApi = ({
       getRecipeButtons: () =>
         getRecipeButtons(recipeService),
       getEntitySnapshot: () => Effect.runPromise(entityManager.getEntities()),
+      getLoadedWaterBlockCount: () => getLoadedWaterBlockCount(chunkManagerService),
+      getMobMovementSnapshot: (durationMs: number) => getMobMovementSnapshot(entityManager, durationMs),
+      setTimeOfDayForQA: (timeOfDay: number) => setTimeOfDayForQA(timeService, timeOfDay),
       getRenderingSnapshot: () =>
         getRenderingSnapshot(camera, scene),
+      getDebugFeatureSnapshot: () =>
+        Effect.runPromise(debugFeatureFlags.getSnapshot()),
+      setDebugFeatureEnabled: (id: DebugFeatureFlagId, enabled: boolean) =>
+        Effect.runPromise(debugFeatureFlags.setEnabled(id, enabled)),
+      resetDebugFeatures: (group?: DebugFeatureFlagGroup) =>
+        Effect.runPromise(group === undefined ? debugFeatureFlags.resetAll() : debugFeatureFlags.resetGroup(group)),
     }
 
     Reflect.set(window, '__TS_MINECRAFT_QA__', qa)

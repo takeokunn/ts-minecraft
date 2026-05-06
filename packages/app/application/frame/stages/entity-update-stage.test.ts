@@ -288,4 +288,45 @@ describe('step 2.85 — entity renderer wiring', () => {
     expect(MutableRef.get(redstoneCountRef)).toBeGreaterThan(1)
     expect(MutableRef.get(fluidCountRef)).toBeGreaterThan(1)
   }))
+
+  it.effect('skips mob, redstone, fluid, and particle work when debug flags disable them', () => Effect.gen(function* () {
+    const deps = yield* makeDeps(false)
+    const services = makeServices({
+      inputService: makeInputService(),
+      inventoryRenderer: makeInventoryRenderer({ open: false }),
+      settingsOverlay: makeSettingsOverlay({ open: false }),
+    })
+
+    yield* services.debugFeatureFlags.setEnabled('mobs.ai', false)
+    yield* services.debugFeatureFlags.setEnabled('mobs.physics', false)
+    yield* services.debugFeatureFlags.setEnabled('mobs.render', false)
+    yield* services.debugFeatureFlags.setEnabled('simulation.redstone', false)
+    yield* services.debugFeatureFlags.setEnabled('simulation.fluid', false)
+    yield* services.debugFeatureFlags.setEnabled('particles.update', false)
+
+    const updateSpy = vi.fn(() => Effect.void)
+    const applyPhysicsSpy = vi.fn(() => Effect.void)
+    const syncSpy = vi.fn(() => Effect.void)
+    const transformSpy = vi.fn(() => Effect.void)
+    const redstoneSpy = vi.fn(() => Effect.succeed({ tick: 0, poweredPositions: [] }))
+    const fluidSpy = vi.fn(() => Effect.void)
+    const particleSpy = vi.fn(() => Effect.void)
+    Object.assign(services.entityManager, { update: updateSpy, applyPhysics: applyPhysicsSpy })
+    Object.assign(services.entityRenderer, { syncEntities: syncSpy, updateEntityTransforms: transformSpy })
+    Object.assign(services.redstoneService, { tick: redstoneSpy })
+    Object.assign(services.fluidService, { tick: fluidSpy })
+    Object.assign(services.particleSystem, { update: particleSpy })
+
+    const { frameHandler } = yield* createFrameHandlers(deps, services)
+    yield* frameHandler(0.12 as DeltaTimeSecs)
+
+    expect(updateSpy).not.toHaveBeenCalled()
+    expect(applyPhysicsSpy).not.toHaveBeenCalled()
+    expect(syncSpy).toHaveBeenCalledOnce()
+    expect(syncSpy).toHaveBeenCalledWith([], deps.scene)
+    expect(transformSpy).not.toHaveBeenCalled()
+    expect(redstoneSpy).not.toHaveBeenCalled()
+    expect(fluidSpy).not.toHaveBeenCalled()
+    expect(particleSpy).not.toHaveBeenCalled()
+  }))
 })

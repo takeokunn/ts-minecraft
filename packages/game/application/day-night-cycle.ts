@@ -4,10 +4,10 @@ import type { DeltaTimeSecs } from '@ts-minecraft/kernel'
 import type { DayNightLightsPort } from '@ts-minecraft/kernel'
 
 const DAWN_PHASE_OFFSET = 0.25   // 0=midnight, 0.25=dawn, 0.5=noon, 0.75=dusk
-const DIRECT_LIGHT_MIN = 0.2
-const DIRECT_LIGHT_RANGE = 0.8
-const AMBIENT_LIGHT_MIN = 0.1
-const AMBIENT_LIGHT_RANGE = 0.4
+const DIRECT_LIGHT_MIN = 0.3
+const DIRECT_LIGHT_RANGE = 0.7
+const AMBIENT_LIGHT_MIN = 0.28
+const AMBIENT_LIGHT_RANGE = 0.42
 const SUN_DISTANCE = 50
 const SUN_HEIGHT = 80
 
@@ -56,7 +56,7 @@ export const updateDayNightCycle = (
 
       // Ambient light at night takes a cool blue tint
       if (dayFactor < 0.1) {
-        lights.ambientLight.color.setHSL(0.6, 0.5, 0.3)  // cool blue at night
+        lights.ambientLight.color.setHSL(0.6, 0.35, 0.42)  // cool blue at night
       } else {
         lights.ambientLight.color.setHSL(0.06, horizonBlend * 0.3, 0.5 + dayFactor * 0.3)
       }

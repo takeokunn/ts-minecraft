@@ -20,6 +20,7 @@ import { MovementServiceLive } from '@ts-minecraft/player'
 import { BlockServiceLive } from '@ts-minecraft/terrain'
 import { HotbarServiceLive } from '@ts-minecraft/inventory'
 import { HotbarRendererLive } from '@ts-minecraft/app/presentation/hud/hotbar-three'
+import { DebugFeatureFlagsServiceLive } from '@ts-minecraft/app/debug-feature-flags'
 
 // Game mode (survival/creative) — single-instance state for the active session
 import { GameModeServiceLive } from '@ts-minecraft/game'
@@ -192,6 +193,8 @@ export const HotbarRendererLayer = HotbarRendererLive.pipe(
   Layer.provide(TextureServiceLive),
 )
 
+export const DebugFeatureFlagsLayer = DebugFeatureFlagsServiceLive
+
 // Village simulation has no service dependencies
 export const VillageLayer = VillageServiceLive
 
@@ -227,6 +230,7 @@ export const GameLogicLayers = Layer.mergeAll(
   PlayerInputLayer,
   MovementLayer,
   CameraStateLayer,
+  DebugFeatureFlagsLayer,
   RaycastingLayer,
   WorldRendererLayer,  // moved from InfrastructureLayers: orchestrates application→infrastructure
   EntityRendererLayer,

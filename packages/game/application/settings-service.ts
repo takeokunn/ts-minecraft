@@ -42,10 +42,10 @@ export const SettingsSchema = Schema.Struct({
 export type Settings = Schema.Schema.Type<typeof SettingsSchema>
 
 const DEFAULT_SETTINGS: Settings = {
-  renderDistance: 2,
+  renderDistance: 4,
   mouseSensitivity: 0.5,
   dayLengthSeconds: 400,
-  graphicsQuality: 'low',
+  graphicsQuality: 'medium',
   adaptivePerformanceMode: true,
   // NOTE: false intentionally — audio is disabled by default (see Schema comment above).
   audioEnabled: false,

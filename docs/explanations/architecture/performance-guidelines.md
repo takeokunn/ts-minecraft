@@ -45,7 +45,7 @@ interface PerformanceTargets {
     readonly bandwidthMax: 1 // Mbps
   }
   readonly worldSize: {
-    readonly renderDistance: 16 // chunks
+    readonly renderDistance: 4 // chunks（既定値。設定範囲は2〜16）
     readonly entityLimit: 200 // 同時エンティティ数
     readonly particleLimit: 1000 // パーティクル上限
   }

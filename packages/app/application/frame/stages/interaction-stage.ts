@@ -25,6 +25,7 @@ export const interactionStage = (
   deps: Pick<FrameHandlerDeps, 'camera' | 'scene' | 'gamePausedRef'>,
   services: Pick<
     FrameHandlerServices,
+    | 'debugFeatureFlags'
     | 'blockHighlight'
     | 'hotbarService'
     | 'hotbarRenderer'
@@ -41,8 +42,12 @@ export const interactionStage = (
   refs: Pick<FrameStageRefs, 'dirtyChunksRef'>,
 ): Effect.Effect<void, never> =>
   Effect.gen(function* () {
-    // Update block highlight (always — independent of pause; spy uses scene state)
+    const debugFlags = yield* services.debugFeatureFlags.getFlags()
+
+    // Keep block targeting live for interactions while allowing the outline itself
+    // to be toggled independently.
     yield* services.blockHighlight.update(deps.camera, deps.scene)
+    yield* services.blockHighlight.setVisible(debugFlags['ui.blockHighlight'])
 
     // Handle block interaction (break/place) and hotbar (suppressed when paused)
     yield* logErrors(
@@ -109,7 +114,9 @@ export const interactionStage = (
         }
 
         // Update hotbar renderer with current slot state (first pass; second pass in hudStage)
-        yield* renderHotbarHud(services)
+        if (debugFlags['ui.hotbar']) {
+          yield* renderHotbarHud(services)
+        }
       }),
       'Block interaction error',
     )

@@ -13,6 +13,7 @@ import { FurnaceService } from '@ts-minecraft/furnace'
 import { PlayerCameraStateService, FirstPersonCameraService, ThirdPersonCameraService, HealthService } from '@ts-minecraft/player'
 import { EntityManager, MobSpawner, VillageService, RedstoneService } from '@ts-minecraft/entities'
 import { CrosshairService } from '@ts-minecraft/app/presentation/hud/crosshair'
+import { DebugFeatureFlagsService } from '@ts-minecraft/app/debug-feature-flags'
 import { DebugOverlayService } from '@ts-minecraft/app/presentation/hud/debug-overlay'
 import { LoadingScreenService } from '@ts-minecraft/app/presentation/loading/loading-screen'
 import { BlockHighlightService } from '@ts-minecraft/app/presentation/highlight/block-highlight'
@@ -43,6 +44,34 @@ import type { BootContext } from '@ts-minecraft/app/main/boot'
 const BOOT_TIME_OF_DAY = 0.5
 
 const MIN_LOADING_SCREEN_DURATION_MS = 2500
+const INITIAL_FPS_GATE_TARGET = 120
+const INITIAL_FPS_GATE_TIMEOUT_MS = 8_000
+const INITIAL_FPS_GATE_POLL_MS = 100
+const INITIAL_FPS_GATE_STABLE_SAMPLES = 10
+
+const readDisplayedFps = (fpsElement: HTMLElement): number => {
+  const fps = Number.parseFloat(fpsElement.textContent ?? '0')
+  return Number.isFinite(fps) ? fps : 0
+}
+
+const waitForInitialFrameRate = (fpsElement: HTMLElement | null): Effect.Effect<void, never> =>
+  Effect.gen(function* () {
+    if (fpsElement === null) return
+
+    const startedAtMs = yield* Effect.sync(() => Date.now())
+    let stableSamples = 0
+
+    while (stableSamples < INITIAL_FPS_GATE_STABLE_SAMPLES) {
+      const elapsedMs = (yield* Effect.sync(() => Date.now())) - startedAtMs
+      if (elapsedMs >= INITIAL_FPS_GATE_TIMEOUT_MS) return
+
+      stableSamples = readDisplayedFps(fpsElement) >= INITIAL_FPS_GATE_TARGET
+        ? stableSamples + 1
+        : 0
+
+      yield* Effect.sleep(Duration.millis(INITIAL_FPS_GATE_POLL_MS))
+    }
+  })
 
 export type SessionResult = {
   readonly reason: 'quit-to-title' | 'never-returned'
@@ -88,6 +117,7 @@ export const sessionProgram = (
     const timeService = yield* TimeService
     const settingsOverlay = yield* SettingsOverlayService
     const pauseMenu = yield* PauseMenuService
+    const debugFeatureFlags = yield* DebugFeatureFlagsService
     // FR-1.3 — death screen overlay; mounted below via `deathScreen.attach`.
     const deathScreen = yield* DeathScreenService
     // FR-1.5/FR-1.7 — debug overlay (F3) and loading screen are session-scoped:
@@ -181,7 +211,7 @@ export const sessionProgram = (
     )
 
     yield* Effect.sync(() => setActiveChunkWorldId(worldId))
-    yield* chunkManagerService.loadChunksAroundPlayer(initialChunkLoadAnchor, initialSettings.renderDistance)
+    yield* chunkManagerService.loadChunksAroundPlayer(initialChunkLoadAnchor, initialSettings.renderDistance, { eager: true })
     const initialChunks = yield* chunkManagerService.getLoadedChunks()
     // Drive `syncChunksToScene` until every queued chunk has a mesh in
     // the scene before lifting the loading screen. A single call can stop short
@@ -239,10 +269,6 @@ export const sessionProgram = (
     if (remainingLoadingMs > 0) {
       yield* Effect.sleep(Duration.millis(remainingLoadingMs))
     }
-
-    // Hide the loading screen only after terrain is ready and min duration elapsed.
-    // Idempotent if the overlay was never created (SSR path).
-    yield* loadingScreen.hide()
 
     const defaultRespawnPosition = yield* buildRespawnPosition(worldBootstrap.baseSpawnPosition, chunkManagerService)
 
@@ -315,7 +341,7 @@ export const sessionProgram = (
       {
         gameState, playerCameraState, firstPersonCamera, thirdPersonCamera,
         blockHighlight, inputService, blockService, hotbarService, hotbarRenderer,
-        chunkManagerService, timeService, settingsService, settingsOverlay, pauseMenu,
+        chunkManagerService, timeService, settingsService, debugFeatureFlags, settingsOverlay, pauseMenu,
         inventoryRenderer, inventoryService, fpsCounter, worldRendererService,
         entityRenderer, chunkMeshService, particleSystem, healthService,
         soundManager, musicManager, entityManager, mobSpawner, villageService,
@@ -340,6 +366,9 @@ export const sessionProgram = (
     ).pipe(
       Effect.mapError((cause) => new StartupError({ reason: 'Failed to start game loop', cause })),
     )
+
+    yield* waitForInitialFrameRate(fpsElement)
+    yield* loadingScreen.hide()
 
     // Wait until the user requests quit-to-title (signaled by the Wave-2 pause
     // menu via `requestQuitToTitle(control)`). Once fulfilled, the Effect.gen

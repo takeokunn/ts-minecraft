@@ -103,7 +103,7 @@ export const addQuad = (
   //   R = AO factor (1.0 = no darkening)
   //   G = sky-light factor (skyLight / 15)
   //   B = block-light factor (blockLight / 15)
-  // The fragment shader combines: light = max(G * sunIntensity, B); diffuse *= (0.25 + 0.75*light) * (0.8 + 0.2*R).
+  // The fragment shader combines: light = max(G * sunIntensity, B); diffuse *= (0.38 + 0.62*light) * (0.8 + 0.2*R).
   const aoR0 = AO_COLOR_BY_LEVEL[ao[0]]!
   const aoR1 = AO_COLOR_BY_LEVEL[ao[1]]!
   const aoR2 = AO_COLOR_BY_LEVEL[ao[2]]!

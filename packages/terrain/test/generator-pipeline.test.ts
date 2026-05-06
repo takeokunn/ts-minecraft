@@ -1,11 +1,14 @@
 import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
 import { Effect, MutableHashMap } from 'effect'
+import { CHUNK_HEIGHT, CHUNK_SIZE, blockTypeToIndex } from '../../kernel/index.ts'
 import type { BiomeGeneratorPort } from '../domain/biome-generator-port'
 import { computeColumnYFromValues } from '../domain/density-function'
 import { peaksAndValleysFromWeirdness } from '../domain/biome-classifier'
 import { createBlockIndices } from '../domain/terrain/generator-coordinates'
-import { createTreeColumnContextResolver } from '../domain/terrain/generator-pipeline'
+import { buildColumnStates, createTreeColumnContextResolver } from '../domain/terrain/generator-pipeline'
+import type { BiomeProperties } from '../domain/biome'
+import type { ColumnStateBuildArgs } from '../domain/terrain/generator-types'
 import { NoiseServicePort } from '../domain/noise-service-port'
 
 describe('terrain/generator-pipeline', () => {
@@ -70,4 +73,47 @@ describe('terrain/generator-pipeline', () => {
       expect(context.surfaceY).not.toBe(rawSurfaceY)
     })
   )
+
+  it('does not place generated water blocks for ocean or lake basins', () => {
+    const blockIndices = createBlockIndices()
+    const columnCount = CHUNK_SIZE * CHUNK_SIZE
+    const props: BiomeProperties = {
+      surfaceBlock: 'SAND',
+      subSurfaceBlock: 'SAND',
+      treeDensity: 0,
+      temperature: 0.5,
+      humidity: 0.5,
+    }
+    const biomeColumns: ColumnStateBuildArgs['biomeColumns'] = Array.from(
+      { length: columnCount },
+      (_, index) => ({
+        biome: index % 2 === 0 ? 'OCEAN' : 'PLAINS',
+        props,
+      }),
+    )
+    const terrainChannels = {
+      continentalness: new Float64Array(columnCount).fill(0.5),
+      erosion: new Float64Array(columnCount).fill(0.5),
+      pv: new Float64Array(columnCount).fill(0.5),
+      jaggedness: new Float64Array(columnCount).fill(0.5),
+    }
+    const blocks = new Uint8Array(CHUNK_SIZE * CHUNK_HEIGHT * CHUNK_SIZE)
+
+    buildColumnStates({
+      blocks,
+      baseWorldX: 0,
+      baseWorldZ: 0,
+      biomeColumns,
+      terrainChannels,
+      initialSurfaceYs: new Int32Array(columnCount).fill(64),
+      lakeNoiseVals: Array.from({ length: columnCount }, () => 1),
+      graniteNoiseVals: Array.from({ length: columnCount }, () => 0),
+      dioriteNoiseVals: Array.from({ length: columnCount }, () => 0),
+      andesiteNoiseVals: Array.from({ length: columnCount }, () => 0),
+      treeColumnContextCache: MutableHashMap.empty(),
+      blockIndices,
+    })
+
+    expect(blocks.includes(blockTypeToIndex('WATER'))).toBe(false)
+  })
 })

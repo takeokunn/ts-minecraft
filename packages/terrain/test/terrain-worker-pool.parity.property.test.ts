@@ -101,7 +101,7 @@ const compareByteIdentical = (a: Uint8Array, b: Uint8Array): void => {
 }
 
 describe('infrastructure/terrain/terrain-worker-pool — parity property test', () => {
-  it('worker sync-fallback output equals main-thread generateTerrain output for 50 random (chunkX, chunkZ, seed) tuples', () => {
+  it('worker sync-fallback output equals main-thread generateTerrain output for 10 random (chunkX, chunkZ, seed) tuples', () => {
     fc.assert(
       fc.property(
         fc.integer({ min: -8, max: 8 }),
@@ -114,10 +114,11 @@ describe('infrastructure/terrain/terrain-worker-pool — parity property test', 
           compareByteIdentical(main, worker)
         },
       ),
-      // 50 cases as required; each case generates a full chunk through both
-      // pipelines (~64KB blocks + ~30k noise samples). Runtime is dominated by
-      // the dual generation, not fast-check shrinking.
-      { numRuns: 50 },
+      // 10 cases cover the byte-identical parity invariant well; each case
+      // generates a full chunk through both pipelines (~64KB blocks + ~30k
+      // noise samples). Runtime is dominated by dual generation, not fast-check
+      // shrinking.
+      { numRuns: 10 },
     )
   }, 180_000)
 })

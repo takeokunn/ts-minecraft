@@ -40,11 +40,11 @@ const createMockControl = (tagName: string, id: string, value = '', checked = fa
 const createMockText = (textContent: string): MockTextElement => ({ textContent })
 
 export const defaultSettings = {
-  renderDistance: 8,
+  renderDistance: 4,
   mouseSensitivity: 0.5,
   dayLengthSeconds: 400,
-  graphicsQuality: 'high' as const,
-  adaptivePerformanceMode: false,
+  graphicsQuality: 'medium' as const,
+  adaptivePerformanceMode: true,
   audioEnabled: false,
   masterVolume: 0.8,
   sfxVolume: 1,
@@ -55,12 +55,12 @@ export const createMockDomLayer = () => {
   const overlay = createMockControl('DIV', '')
   const gearBtn = createMockControl('BUTTON', '')
   const adaptivePerformanceInput = createMockControl('INPUT', 'adaptive-performance-input', 'on')
-  const renderDistanceInput = createMockControl('INPUT', 'rd-input', '8')
+  const renderDistanceInput = createMockControl('INPUT', 'rd-input', '4')
   const sensitivityInput = createMockControl('INPUT', 'ms-input', '0.5')
   const dayLengthInput = createMockControl('INPUT', 'dl-input', '400')
-  const qualitySelect = createMockControl('SELECT', 'quality-select', 'high')
+  const qualitySelect = createMockControl('SELECT', 'quality-select', 'medium')
   const closeBtn = createMockControl('BUTTON', 'settings-close')
-  const rdVal = createMockText('8')
+  const rdVal = createMockText('4')
   const msVal = createMockText('0.5')
   const dlVal = createMockText('400')
 

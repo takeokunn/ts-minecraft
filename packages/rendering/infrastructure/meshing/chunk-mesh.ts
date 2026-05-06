@@ -214,7 +214,7 @@ export class ChunkMeshService extends Effect.Service<ChunkMeshService>()(
                    float skyFactor = vColor.g;
                    float blockFactor = vColor.b;
                    float lightFactor = max(skyFactor * uSunIntensity, blockFactor);
-                    diffuseColor.rgb *= (0.25 + 0.75 * lightFactor) * (0.8 + 0.2 * aoFactor);
+                    diffuseColor.rgb *= (0.38 + 0.62 * lightFactor) * (0.8 + 0.2 * aoFactor);
                  #endif`
               )
           }

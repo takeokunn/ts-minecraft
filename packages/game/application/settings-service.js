@@ -33,10 +33,10 @@ export const SettingsSchema = Schema.Struct({
     musicVolume: Schema.Number.pipe(Schema.finite(), Schema.between(0, 1)),
 });
 const DEFAULT_SETTINGS = {
-    renderDistance: 2,
+    renderDistance: 4,
     mouseSensitivity: 0.5,
     dayLengthSeconds: 400,
-    graphicsQuality: 'low',
+    graphicsQuality: 'medium',
     adaptivePerformanceMode: true,
     // NOTE: false intentionally — audio is disabled by default (see Schema comment above).
     audioEnabled: false,

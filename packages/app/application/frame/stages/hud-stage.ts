@@ -6,7 +6,7 @@ import type { DeltaTimeSecs } from '@ts-minecraft/kernel'
 
 export const hudStage = (
   deps: Pick<FrameHandlerDeps, 'renderer'>,
-  services: Pick<FrameHandlerServices, 'fpsCounter' | 'settingsService' | 'hotbarRenderer' | 'perfHud'>,
+  services: Pick<FrameHandlerServices, 'fpsCounter' | 'settingsService' | 'hotbarRenderer' | 'perfHud' | 'debugFeatureFlags'>,
   refs: Pick<FrameStageRefs, 'frustumThrottleStrideRef' | 'adaptiveQualityCooldownRef' | 'lastFpsTextRef' | 'chunkSyncPendingRef'>,
   inputs: {
     readonly deltaTime: DeltaTimeSecs
@@ -16,6 +16,8 @@ export const hudStage = (
   },
 ): Effect.Effect<void, never> =>
   Effect.gen(function* () {
+    const debugFlags = yield* services.debugFeatureFlags.getFlags()
+
     // Feed the per-frame delta into the perf-HUD ring buffer. No-op when
     // `?debug=perf` is absent (PerfHudService returns trivial impl).
     yield* services.perfHud.recordFrame(inputs.deltaTime)
@@ -47,24 +49,26 @@ export const hudStage = (
     const fpsChanged = yield* Ref.modify(refs.lastFpsTextRef, (last): [boolean, string] =>
       last === fpsText ? [false, last] : [true, fpsText],
     )
-    if (fpsChanged && inputs.fpsElementOrNull) {
+    if (fpsChanged && inputs.fpsElementOrNull && debugFlags['ui.fps']) {
       yield* Effect.sync(() => {
         inputs.fpsElementOrNull!.textContent = fpsText
       })
     }
 
     // Render HUD hotbar overlay (second pass; autoClear=false prevents erasing the main scene)
-    yield* logErrors(
-      Effect.sync(() => {
-        deps.renderer.autoClear = false
-      }).pipe(
-        Effect.andThen(services.hotbarRenderer.render(deps.renderer)),
-        Effect.andThen(
-          Effect.sync(() => {
-            deps.renderer.autoClear = true
-          }),
+    if (debugFlags['ui.hotbar']) {
+      yield* logErrors(
+        Effect.sync(() => {
+          deps.renderer.autoClear = false
+        }).pipe(
+          Effect.andThen(services.hotbarRenderer.render(deps.renderer)),
+          Effect.andThen(
+            Effect.sync(() => {
+              deps.renderer.autoClear = true
+            }),
+          ),
         ),
-      ),
-      'HUD render error',
-    )
+        'HUD render error',
+      )
+    }
   })

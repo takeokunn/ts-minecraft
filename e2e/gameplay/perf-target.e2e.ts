@@ -23,7 +23,7 @@ import { getFpsValue } from '../helpers/wait-helpers'
 // Minimum sustained FPS read from #fps-value DOM element (existing rolling
 // 0.5s window FPS counter). Matches long-run-stability + user-flow per-sample
 // floor; identical to fps-threshold.e2e.ts CI floor.
-const FPS_FLOOR = 10
+const FPS_FLOOR = 120
 
 // Generous p99 cap. At 10 FPS the mean frame is 100ms, so p99 must be allowed
 // higher; SwiftShader chunk-stream + meshing can spike into the 150-200ms
@@ -60,6 +60,11 @@ type PerfHudSnapshot = Readonly<{
 
 test('default settings — perf target window (30s)', async ({ page }) => {
   test.setTimeout(75_000)
+
+  test.skip(
+    process.env['PLAYWRIGHT_USE_SWIFTSHADER'] === '1',
+    '120 FPS validation requires non-SwiftShader rendering backend',
+  )
 
   // ---------------------------------------------------------------------------
   // 1. Boot with ?debug=perf so PerfHudService takes the active path and
@@ -107,8 +112,6 @@ test('default settings — perf target window (30s)', async ({ page }) => {
     return mem ? mem.usedJSHeapSize : 0
   })
 
-  // Log the snapshot — Playwright's list reporter shows console.warn even on
-  // success, so this is useful for tracking trends across PRs.
   console.warn(
     `[perf-target] domFps=${domFps.toFixed(1)} ` +
       `snap=${JSON.stringify({
@@ -126,32 +129,20 @@ test('default settings — perf target window (30s)', async ({ page }) => {
   // ---------------------------------------------------------------------------
   // 5. Regression assertions.
   // ---------------------------------------------------------------------------
-
-  // Perf HUD must have activated — proves the ?debug=perf gate is wired
-  // correctly. If this fails, either PerfHudService is broken or the URL
-  // query-param parse changed.
   expect(snap).not.toBeNull()
   expect(snap!.samples.length > 0).toBe(true)
 
-  // FPS floor — read from the existing #fps-value rolling counter (more
-  // stable than perf-hud's single-frame-derived fps field).
+  // FPS floor — read from the existing #fps-value rolling counter.
   expect(domFps >= FPS_FLOOR).toBe(true)
 
-  // p99 frame time cap. Generous to absorb SwiftShader meshing spikes.
   expect(snap!.p99Ms < P99_MS_CAP).toBe(true)
 
-  // Largest single-frame gap. samples are in seconds (raw dtSecs in the ring
-  // buffer per perf-hud.ts:232), so compare against MAX_GAP_SECS directly.
   const maxGap = Math.max(...snap!.samples)
   expect(maxGap < MAX_GAP_SECS).toBe(true)
 
-  // Heap regression gate — only enforced when performance.memory is populated.
   if (heapStart > 0 && heapEnd > 0) {
     expect(heapEnd - heapStart < HEAP_DELTA_BYTES).toBe(true)
   }
 
-  // Fatal error gate — matches long-run-stability.e2e.ts. Note: this monitors
-  // 'Failed to start application' patterns only; the game intentionally uses
-  // console.error for non-fatal Effect pipeline diagnostics.
   expect(getFatalErrors().length).toBe(0)
 })

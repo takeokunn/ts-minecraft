@@ -15,12 +15,13 @@ const ENTITY_PHYSICS_CHUNK_OFFSETS = [
   [1, -1, 6], [1, 0, 7], [1, 1, 8],
 ] as const
 const CHUNK_LOCAL_MASK = CHUNK_SIZE - 1
+const RENDER_DISABLED_STRUCTURE_VERSION = Number.NEGATIVE_INFINITY
 
 export const entityUpdateStage = (
   deps: Pick<FrameHandlerDeps, 'scene'>,
   services: Pick<
     FrameHandlerServices,
-    'chunkManagerService' | 'entityManager' | 'entityRenderer' | 'redstoneService' | 'fluidService' | 'particleSystem'
+    'chunkManagerService' | 'entityManager' | 'entityRenderer' | 'redstoneService' | 'fluidService' | 'particleSystem' | 'debugFeatureFlags'
   >,
   refs: Pick<
     FrameStageRefs,
@@ -39,12 +40,20 @@ export const entityUpdateStage = (
   },
 ): Effect.Effect<void, never> =>
   Effect.gen(function* () {
+    const debugFlags = yield* services.debugFeatureFlags.getFlags()
+    const mobsEnabled = debugFlags['mobs.enabled']
+    const mobsAiEnabled = mobsEnabled && debugFlags['mobs.ai']
+    const mobsPhysicsEnabled = mobsEnabled && debugFlags['mobs.physics']
+    const mobsRenderEnabled = mobsEnabled && debugFlags['mobs.render']
+
     // Entity simulation stays on the frame lane so visible transforms remain responsive.
     // Slower world simulation (furnace/spawn/village) runs on the maintenance lane.
-    yield* logErrors(services.entityManager.update(inputs.deltaTime, inputs.playerPos), 'Entity system error')
+    if (mobsAiEnabled) {
+      yield* logErrors(services.entityManager.update(inputs.deltaTime, inputs.playerPos), 'Entity system error')
+    }
 
     const applyPhysics = services.entityManager.applyPhysics
-    if (typeof applyPhysics === 'function') {
+    if (mobsPhysicsEnabled && typeof applyPhysics === 'function') {
       const playerCx = Math.floor(inputs.playerPos.x / CHUNK_SIZE)
       const playerCz = Math.floor(inputs.playerPos.z / CHUNK_SIZE)
       const lastChunkCoord = yield* Ref.get(refs.lastEntityPhysicsChunkCoordRef)
@@ -128,8 +137,16 @@ export const entityUpdateStage = (
       ).pipe(
         Effect.flatMap(([entitiesSnapshot, structureVersion]) =>
           Ref.get(refs.lastEntityStructureVersionRef).pipe(
-            Effect.flatMap((lastStructureVersion) =>
-              (lastStructureVersion === structureVersion
+            Effect.flatMap((lastStructureVersion) => {
+              if (!mobsRenderEnabled) {
+                return lastStructureVersion === RENDER_DISABLED_STRUCTURE_VERSION
+                  ? Effect.void
+                  : services.entityRenderer.syncEntities([], deps.scene).pipe(
+                      Effect.andThen(Ref.set(refs.lastEntityStructureVersionRef, RENDER_DISABLED_STRUCTURE_VERSION)),
+                    )
+              }
+
+              return (lastStructureVersion === structureVersion
                 ? Effect.void
                 : services.entityRenderer.syncEntities(entitiesSnapshot, deps.scene).pipe(
                     Effect.andThen(Ref.set(refs.lastEntityStructureVersionRef, structureVersion)),
@@ -142,47 +159,53 @@ export const entityUpdateStage = (
                     inputs.deltaTime,
                   ),
                 ),
-              ),
-            ),
+              )
+            }),
           ),
         ),
       ),
       'Entity render error',
     )
 
-    yield* logErrors(
-      Ref.modify(refs.redstoneTickAccumulatorRef, (accumulated) => {
-        const { ticks, remainder } = advanceFixedStep(accumulated, inputs.deltaTime, REDSTONE_TICK_INTERVAL_SECS)
-        return [ticks, remainder]
-      }).pipe(
-        Effect.flatMap((ticksToRun) =>
-          ticksToRun === 1
-            ? services.redstoneService.tick().pipe(Effect.asVoid)
-            : ticksToRun > 1
-              ? Effect.repeatN(services.redstoneService.tick(), ticksToRun - 1).pipe(Effect.asVoid)
-              : Effect.void,
+    if (debugFlags['simulation.redstone']) {
+      yield* logErrors(
+        Ref.modify(refs.redstoneTickAccumulatorRef, (accumulated) => {
+          const { ticks, remainder } = advanceFixedStep(accumulated, inputs.deltaTime, REDSTONE_TICK_INTERVAL_SECS)
+          return [ticks, remainder]
+        }).pipe(
+          Effect.flatMap((ticksToRun) =>
+            ticksToRun === 1
+              ? services.redstoneService.tick().pipe(Effect.asVoid)
+              : ticksToRun > 1
+                ? Effect.repeatN(services.redstoneService.tick(), ticksToRun - 1).pipe(Effect.asVoid)
+                : Effect.void,
+          ),
         ),
-      ),
-      'Redstone system error',
-    )
+        'Redstone system error',
+      )
+    }
 
-    yield* logErrors(
-      Ref.modify(refs.fluidTickAccumulatorRef, (accumulated) => {
-        const { ticks, remainder } = advanceFixedStep(accumulated, inputs.deltaTime, FLUID_TICK_INTERVAL_SECS)
-        return [ticks, remainder]
-      }).pipe(
-        Effect.flatMap((ticksToRun) =>
-          ticksToRun === 1
-            ? services.fluidService.tick().pipe(Effect.asVoid)
-            : ticksToRun > 1
-              ? Effect.repeatN(services.fluidService.tick(), ticksToRun - 1).pipe(Effect.asVoid)
-              : Effect.void,
+    if (debugFlags['simulation.fluid']) {
+      yield* logErrors(
+        Ref.modify(refs.fluidTickAccumulatorRef, (accumulated) => {
+          const { ticks, remainder } = advanceFixedStep(accumulated, inputs.deltaTime, FLUID_TICK_INTERVAL_SECS)
+          return [ticks, remainder]
+        }).pipe(
+          Effect.flatMap((ticksToRun) =>
+            ticksToRun === 1
+              ? services.fluidService.tick().pipe(Effect.asVoid)
+              : ticksToRun > 1
+                ? Effect.repeatN(services.fluidService.tick(), ticksToRun - 1).pipe(Effect.asVoid)
+                : Effect.void,
+          ),
         ),
-      ),
-      'Fluid system error',
-    )
+        'Fluid system error',
+      )
+    }
 
     // FR-1.6 — block-break particles: integrate position/velocity/lifetime
     // and write the InstancedMesh's instanceMatrix exactly once per frame.
-    yield* logErrors(services.particleSystem.update(inputs.deltaTime), 'Particle system error')
+    if (debugFlags['particles.update']) {
+      yield* logErrors(services.particleSystem.update(inputs.deltaTime), 'Particle system error')
+    }
   })

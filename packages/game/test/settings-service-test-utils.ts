@@ -13,10 +13,10 @@ export const SettingsDefault = SettingsService.Default.pipe(Layer.provide(Enviro
 export const STORAGE_KEY = 'minecraft-settings'
 
 export const DEFAULT_SETTINGS = {
-  renderDistance: 2,
+  renderDistance: 4,
   mouseSensitivity: 0.5,
   dayLengthSeconds: 400,
-  graphicsQuality: 'low',
+  graphicsQuality: 'medium',
   adaptivePerformanceMode: true,
   audioEnabled: false, // NOTE: false intentionally — must match settings-service.ts DEFAULT_SETTINGS
   masterVolume: 0.8,

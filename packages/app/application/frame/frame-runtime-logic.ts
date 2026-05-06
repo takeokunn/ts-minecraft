@@ -103,7 +103,6 @@ export const decideAdaptiveQuality = ({
   renderDistance,
   fps,
   cooldown,
-  chunkSyncPending = false,
 }: AdaptiveQualityInput): AdaptiveQualityDecision => {
   if (!adaptivePerformanceMode) {
     return noChange(cooldown)
@@ -124,9 +123,9 @@ export const decideAdaptiveQuality = ({
     }
   }
 
-  // Do not shrink view distance while the renderer is still draining a chunk
-  // sync backlog; otherwise cold-load FPS dips can amplify terrain pop-in.
-  if (renderDistance > 4 && !chunkSyncPending) {
+  // Lower view distance even while chunk sync is draining; waiting keeps cold-load
+  // worlds stuck in the most expensive state for too long.
+  if (renderDistance > 4) {
     return {
       nextCooldown: 20,
       settingsPatch: Option.some({ renderDistance: renderDistance - 1 }),

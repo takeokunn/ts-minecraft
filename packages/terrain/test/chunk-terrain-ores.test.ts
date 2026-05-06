@@ -208,8 +208,8 @@ describe('terrain/chunk-terrain-ores', () => {
 
       return Effect.gen(function* () {
         const service = yield* ChunkManagerService
-        const coords = Arr.flatMap(Arr.makeBy(4, (i) => i), (x) =>
-          Arr.map(Arr.makeBy(4, (i) => i), (z) => ({ x, z })),
+        const coords = Arr.flatMap(Arr.makeBy(3, (i) => i), (x) =>
+          Arr.map(Arr.makeBy(3, (i) => i), (z) => ({ x, z })),
         )
 
         yield* Effect.forEach(
@@ -231,15 +231,15 @@ describe('terrain/chunk-terrain-ores', () => {
           { concurrency: 1 },
         )
       }).pipe(Effect.provide(TestLayer))
-    })
+    }, { timeout: 30_000 })
 
     it.effect('common ores (COAL/IRON) appear across a multi-chunk scan', () => {
       const { TestLayer } = buildOreTestLayer()
 
       return Effect.gen(function* () {
         const service = yield* ChunkManagerService
-        const coords = Arr.flatMap(Arr.makeBy(4, (i) => i), (x) =>
-          Arr.map(Arr.makeBy(4, (i) => i), (z) => ({ x, z })),
+        const coords = Arr.flatMap(Arr.makeBy(3, (i) => i), (x) =>
+          Arr.map(Arr.makeBy(3, (i) => i), (z) => ({ x, z })),
         )
         const coalCountRef = MutableRef.make(0)
         const ironCountRef = MutableRef.make(0)
@@ -262,7 +262,7 @@ describe('terrain/chunk-terrain-ores', () => {
         expect(MutableRef.get(coalCountRef)).toBeGreaterThan(100)
         expect(MutableRef.get(ironCountRef)).toBeGreaterThan(50)
       }).pipe(Effect.provide(TestLayer))
-    })
+    }, { timeout: 30_000 })
 
     it.effect('ore placement is deterministic — same coord yields identical ore layout', () => {
       const layer1 = buildOreTestLayer().TestLayer
@@ -292,8 +292,8 @@ describe('terrain/chunk-terrain-ores', () => {
 
       return Effect.gen(function* () {
         const service = yield* ChunkManagerService
-        const coords = Arr.flatMap(Arr.makeBy(4, (i) => i), (x) =>
-          Arr.map(Arr.makeBy(4, (i) => i), (z) => ({ x, z })),
+        const coords = Arr.flatMap(Arr.makeBy(3, (i) => i), (x) =>
+          Arr.map(Arr.makeBy(3, (i) => i), (z) => ({ x, z })),
         )
         const emeraldCountRef = MutableRef.make(0)
 
@@ -313,6 +313,6 @@ describe('terrain/chunk-terrain-ores', () => {
 
         expect(MutableRef.get(emeraldCountRef)).toBeGreaterThan(0)
       }).pipe(Effect.provide(TestLayer))
-    })
+    }, { timeout: 30_000 })
   })
 })

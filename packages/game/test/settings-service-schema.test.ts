@@ -13,10 +13,10 @@ describe('application/settings/settings-service', () => {
   describe('SettingsSchema', () => {
     const decode = SettingsSchema.pipe(Schema.decodeUnknownSync)
     const validSettingsInput = {
-      renderDistance: 2,
+      renderDistance: 4,
       mouseSensitivity: 0.5,
       dayLengthSeconds: 400,
-      graphicsQuality: 'low' as const,
+      graphicsQuality: 'medium' as const,
       adaptivePerformanceMode: true,
       audioEnabled: false,
       masterVolume: 0.8,
@@ -27,27 +27,27 @@ describe('application/settings/settings-service', () => {
     it('decodes valid settings', () => {
       const result = decode(validSettingsInput)
 
-      expect(result.renderDistance).toBe(2)
+      expect(result.renderDistance).toBe(4)
       expect(result.mouseSensitivity).toBe(0.5)
       expect(result.dayLengthSeconds).toBe(400)
-      expect(result.graphicsQuality).toBe('low')
+      expect(result.graphicsQuality).toBe('medium')
       expect(result.adaptivePerformanceMode).toBe(true)
     })
 
     it('accepts exact minimum boundaries', () => {
       const result = decode({
         ...validSettingsInput,
-        renderDistance: 2,
+        renderDistance: 4,
         mouseSensitivity: 0.1,
         dayLengthSeconds: 120,
         adaptivePerformanceMode: false,
       })
 
       expect(result).toEqual({
-        renderDistance: 2,
+        renderDistance: 4,
         mouseSensitivity: 0.1,
         dayLengthSeconds: 120,
-        graphicsQuality: 'low',
+        graphicsQuality: 'medium',
         adaptivePerformanceMode: false,
         audioEnabled: false,
         masterVolume: 0.8,

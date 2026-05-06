@@ -24,6 +24,7 @@ export const handleLeftClick = (
     FrameHandlerServices,
     | 'blockService'
     | 'chunkManagerService'
+    | 'debugFeatureFlags'
     | 'soundManager'
     | 'entityManager'
     | 'inventoryService'
@@ -37,6 +38,7 @@ export const handleLeftClick = (
   },
 ) =>
   Effect.gen(function* () {
+    const debugFlags = yield* services.debugFeatureFlags.getFlags()
     const targetEntity = yield* services.entityManager.getEntities().pipe(
       Effect.map((entities) =>
         findAttackableEntity(entities, deps.camera, Option.map(context.targetHit, (hit) => hit.distance)),
@@ -65,16 +67,16 @@ export const handleLeftClick = (
                   [
                     services.blockService.breakBlock(pos),
                     services.soundManager.playEffect('blockBreak', { position: pos }),
-                    // 6 particles per break — center-of-block origin so the
-                    // burst expands outward symmetrically.
-                    services.particleSystem.spawnBurst(
-                      tb.x + 0.5,
-                      tb.y + 0.5,
-                      tb.z + 0.5,
-                      uv.u,
-                      uv.v,
-                      6,
-                    ),
+                    debugFlags['particles.spawn']
+                      ? services.particleSystem.spawnBurst(
+                          tb.x + 0.5,
+                          tb.y + 0.5,
+                          tb.z + 0.5,
+                          uv.u,
+                          uv.v,
+                          6,
+                        )
+                      : Effect.void,
                   ],
                   { concurrency: 'unbounded', discard: true },
                 ).pipe(

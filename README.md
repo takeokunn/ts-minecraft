@@ -4,14 +4,14 @@ A Minecraft-like voxel game built entirely in the browser with TypeScript, Three
 
 ## Features
 
-- Procedural terrain generation with biomes (plains, forests, deserts, mountains, lakes)
+- Procedural terrain generation with biomes (plains, forests, deserts, mountains, dry lake/ocean basins)
 - Block breaking and placement
 - Inventory system with hotbar
 - Day/night cycle with physical sky simulation
 - Custom physics engine (Euler integration + AABB collision)
 - Greedy meshing for efficient chunk rendering
 - Post-processing pipeline (GTAO, bloom, SSR, depth-of-field, god rays, SMAA)
-- Water rendering with refraction shader
+- Water rendering support remains available, while new terrain generation keeps lake/ocean basins dry
 - World persistence via IndexedDB
 - Comprehensive test suite (1800+ unit tests, E2E tests with Playwright)
 

@@ -2,6 +2,7 @@ import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
 import { Effect } from 'effect'
 import * as THREE from 'three'
+import { DEBUG_FEATURE_FLAG_DEFAULTS, type DebugFeatureFlags } from '@ts-minecraft/app/debug-feature-flags'
 import { renderStage } from '@ts-minecraft/app/frame/stages/render-stage'
 import { resolvePreset } from '@ts-minecraft/game'
 
@@ -54,6 +55,13 @@ const makePerfHud = () => ({
   setDrawCalls: (_n: number) => Effect.void,
 })
 
+const makeServices = (flags: DebugFeatureFlags = DEBUG_FEATURE_FLAG_DEFAULTS) => ({
+  perfHud: makePerfHud(),
+  debugFeatureFlags: {
+    getFlags: () => Effect.succeed({ ...flags }),
+  },
+})
+
 // ---------------------------------------------------------------------------
 // render-stage tests
 // ---------------------------------------------------------------------------
@@ -67,7 +75,7 @@ describe('render-stage', () => {
         const resolved = { godRaysPassOrNull: null, composerOrNull: null }
         const inputs = { resolvedGraphics: resolvePreset('low'), sunWorldPos: new THREE.Vector3() }
 
-        yield* renderStage(deps, { perfHud: makePerfHud() } as never, resolved, inputs)
+        yield* renderStage(deps, makeServices() as never, resolved, inputs)
 
         expect(renderer.wasRenderCalled()).toBe(true)
       })
@@ -83,10 +91,26 @@ describe('render-stage', () => {
         const resolved = { godRaysPassOrNull: null, composerOrNull: composer as never }
         const inputs = { resolvedGraphics: resolvePreset('ultra'), sunWorldPos: new THREE.Vector3() }
 
-        yield* renderStage(deps, { perfHud: makePerfHud() } as never, resolved, inputs)
+        yield* renderStage(deps, makeServices() as never, resolved, inputs)
 
         expect(composer.wasRenderCalled()).toBe(true)
         expect(renderer.wasRenderCalled()).toBe(false)
+      })
+    )
+
+    it.effect('falls back to renderer.render when post-processing debug flag is disabled', () =>
+      Effect.gen(function* () {
+        const renderer = makeRendererMock()
+        const composer = makeComposerMock()
+        const deps = makeDeps(renderer)
+        const resolved = { godRaysPassOrNull: null, composerOrNull: composer as never }
+        const inputs = { resolvedGraphics: resolvePreset('ultra'), sunWorldPos: new THREE.Vector3() }
+        const services = makeServices({ ...DEBUG_FEATURE_FLAG_DEFAULTS, 'rendering.postProcessing': false })
+
+        yield* renderStage(deps, services as never, resolved, inputs)
+
+        expect(composer.wasRenderCalled()).toBe(false)
+        expect(renderer.wasRenderCalled()).toBe(true)
       })
     )
   })
@@ -102,7 +126,7 @@ describe('render-stage', () => {
         const resolvedGraphics = { ...resolvePreset('ultra'), godRaysEnabled: true, godRaysSamples: 40 }
         const inputs = { resolvedGraphics, sunWorldPos: makeControlledSunPos(0, 0, 0) }
 
-        yield* renderStage(deps, { perfHud: makePerfHud() } as never, resolved, inputs)
+        yield* renderStage(deps, makeServices() as never, resolved, inputs)
 
         expect(godRaysPass.enabled).toBe(true)
       })
@@ -118,7 +142,7 @@ describe('render-stage', () => {
         const resolvedGraphics = { ...resolvePreset('ultra'), godRaysEnabled: true, godRaysSamples: 40 }
         const inputs = { resolvedGraphics, sunWorldPos: makeControlledSunPos(0, 0, 1.5) }
 
-        yield* renderStage(deps, { perfHud: makePerfHud() } as never, resolved, inputs)
+        yield* renderStage(deps, makeServices() as never, resolved, inputs)
 
         expect(godRaysPass.enabled).toBe(false)
       })
@@ -135,7 +159,7 @@ describe('render-stage', () => {
         // NDC (2, 2, 0): sunU = (2+1)*0.5 = 1.5, sunV = 1.5 → off-screen (> 1.2)
         const inputs = { resolvedGraphics, sunWorldPos: makeControlledSunPos(2, 2, 0) }
 
-        yield* renderStage(deps, { perfHud: makePerfHud() } as never, resolved, inputs)
+        yield* renderStage(deps, makeServices() as never, resolved, inputs)
 
         expect(godRaysPass.enabled).toBe(false)
       })
@@ -153,7 +177,7 @@ describe('render-stage', () => {
         // distFromCenter = sqrt((0.9-0.5)² + 0²) = 0.4 > 0.3 → half samples
         const inputs = { resolvedGraphics, sunWorldPos: makeControlledSunPos(0.8, 0, 0) }
 
-        yield* renderStage(deps, { perfHud: makePerfHud() } as never, resolved, inputs)
+        yield* renderStage(deps, makeServices() as never, resolved, inputs)
 
         // adaptiveSamples = max(5, floor(40 * 0.5)) = 20
         expect(godRaysPass.samplesSet).toBe(20)
@@ -171,7 +195,7 @@ describe('render-stage', () => {
         // NDC (0, 0, 0): sunU=0.5, sunV=0.5, distFromCenter=0 ≤ 0.3 → full samples
         const inputs = { resolvedGraphics, sunWorldPos: makeControlledSunPos(0, 0, 0) }
 
-        yield* renderStage(deps, { perfHud: makePerfHud() } as never, resolved, inputs)
+        yield* renderStage(deps, makeServices() as never, resolved, inputs)
 
         expect(godRaysPass.samplesSet).toBe(40)
       })
@@ -189,7 +213,7 @@ describe('render-stage', () => {
         const resolvedGraphics = { ...resolvePreset('ultra'), godRaysEnabled: false }
         const inputs = { resolvedGraphics, sunWorldPos: new THREE.Vector3() }
 
-        yield* renderStage(deps, { perfHud: makePerfHud() } as never, resolved, inputs)
+        yield* renderStage(deps, makeServices() as never, resolved, inputs)
 
         expect(godRaysPass.enabled).toBe(false)
       })

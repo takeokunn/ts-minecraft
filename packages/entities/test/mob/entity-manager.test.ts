@@ -413,6 +413,59 @@ describe('entity/entityManager', () => {
         expect(entity.velocity.y).toBe(0)
       }).pipe(Effect.provide(EntityManagerLive))
     )
+
+    it.effect('hops and redirects wandering movement when grounded horizontal motion is blocked', () =>
+      Effect.gen(function* () {
+        const entityManager = yield* EntityManager
+        const entityId = yield* entityManager.addEntity(EntityType.Zombie, { x: 0, y: 64, z: 0 })
+        const playerFar = { x: 1000, y: 64, z: 1000 }
+
+        yield* Effect.forEach(Arr.makeBy(26, (i) => i), () =>
+          entityManager.update(DeltaTimeSecs.make(0.016), playerFar),
+          { concurrency: 1 },
+        )
+
+        const aiStateOpt = yield* entityManager.getEntityAIState(entityId)
+        expect(Option.isSome(aiStateOpt)).toBe(true)
+        expect(Option.getOrThrow(aiStateOpt)).toBe(AIState.Wander)
+
+        yield* entityManager.applyPhysics(
+          DeltaTimeSecs.make(0.001),
+          (position, velocity) => ({ position, velocity, isGrounded: true }),
+        )
+
+        const beforeBlockOpt = yield* entityManager.getEntity(entityId)
+        expect(Option.isSome(beforeBlockOpt)).toBe(true)
+        const beforeBlock = Option.getOrThrow(beforeBlockOpt)
+        expect(Math.hypot(beforeBlock.velocity.x, beforeBlock.velocity.z)).toBeGreaterThan(0)
+
+        yield* entityManager.applyPhysics(
+          DeltaTimeSecs.make(0.016),
+          () => ({
+            position: { x: beforeBlock.position.x, y: beforeBlock.position.y, z: beforeBlock.position.z },
+            velocity: { x: 0, y: 0, z: 0 },
+            isGrounded: true,
+          }),
+        )
+
+        const hoppedOpt = yield* entityManager.getEntity(entityId)
+        expect(Option.isSome(hoppedOpt)).toBe(true)
+        const hopped = Option.getOrThrow(hoppedOpt)
+        expect(hopped.velocity.x).toBe(0)
+        expect(hopped.velocity.z).toBe(0)
+        expect(hopped.velocity.y).toBe(4.2)
+
+        yield* entityManager.update(DeltaTimeSecs.make(0.016), playerFar)
+
+        const afterRedirectOpt = yield* entityManager.getEntity(entityId)
+        expect(Option.isSome(afterRedirectOpt)).toBe(true)
+        const afterRedirect = Option.getOrThrow(afterRedirectOpt)
+        expect(Math.hypot(afterRedirect.velocity.x, afterRedirect.velocity.z)).toBeGreaterThan(0)
+        expect(afterRedirect.velocity.y).toBe(4.2)
+        expect(afterRedirect.velocity.x).not.toBeCloseTo(beforeBlock.velocity.x)
+        expect(afterRedirect.velocity.z).not.toBeCloseTo(beforeBlock.velocity.z)
+      }).pipe(Effect.provide(EntityManagerLive))
+    )
   })
 
   describe('despawnFarEntities', () => {
@@ -434,8 +487,7 @@ describe('entity/entityManager', () => {
         expect(remainingEntities).toHaveLength(1)
         expect(remainingEntities[0]?.type).toBe(EntityType.Zombie)
       }).pipe(Effect.provide(EntityManagerLive))
-    )
-  })
+    )  })
 
   describe('getStructureVersion', () => {
     it.effect('increments on add/remove but not on position-only update', () =>

@@ -10,6 +10,8 @@ import { chunkDistanceSquared, worldToChunkCoord, getChunksInRenderDistance, cou
 import { RENDER_DISTANCE, UNLOAD_DISTANCE, MAX_CACHED_CHUNKS } from './chunk-manager-constants';
 import { getChunk, unloadChunk } from './chunk-manager-ops';
 export { RENDER_DISTANCE, UNLOAD_DISTANCE, MAX_CACHED_CHUNKS } from './chunk-manager-constants';
+const MAX_CHUNK_LOADS_PER_CALL = 4;
+const CHUNK_LOAD_BATCHING_MIN_RENDER_DISTANCE = 3;
 let activeChunkWorldIdRef = DEFAULT_WORLD_ID;
 let activeChunkWorldServiceUpdater;
 export const setActiveChunkWorldId = (worldId) => {
@@ -77,12 +79,14 @@ export class ChunkManagerService extends Effect.Service()('@minecraft/applicatio
         };
         return {
             getChunk: (coord) => getChunk(ctx, coord),
-            loadChunksAroundPlayer: (playerPos, renderDistance = RENDER_DISTANCE) => Effect.gen(function* () {
-                const now = yield* Clock.currentTimeMillis;
-                // Throttle: atomic check-and-update so concurrent callers can't both pass the gate
-                const shouldLoad = yield* Ref.modify(lastLoadTimeRef, (last) => now - last < 200 ? [false, last] : [true, now]);
-                if (!shouldLoad) {
-                    return false;
+            loadChunksAroundPlayer: (playerPos, renderDistance = RENDER_DISTANCE, options = {}) => Effect.gen(function* () {
+                if (options.eager !== true) {
+                    const now = yield* Clock.currentTimeMillis;
+                    // Throttle: atomic check-and-update so concurrent callers can't both pass the gate
+                    const shouldLoad = yield* Ref.modify(lastLoadTimeRef, (last) => now - last < 200 ? [false, last] : [true, now]);
+                    if (!shouldLoad) {
+                        return false;
+                    }
                 }
                 const centerChunk = worldToChunkCoord(playerPos);
                 const chunkCacheCapacity = Math.max(MAX_CACHED_CHUNKS, countChunksInRadius(renderDistance + 2));
@@ -91,8 +95,8 @@ export class ChunkManagerService extends Effect.Service()('@minecraft/applicatio
                 const chunksToLoad = getChunksInRenderDistance(centerChunk, renderDistance);
                 const stateBeforeLoad = yield* Ref.get(cache);
                 const missingChunksToLoad = Arr.filter(chunksToLoad, (coord) => !HashMap.has(stateBeforeLoad.chunks, chunkCoordToWorldKey(coord, currentWorldId)));
-                const shouldBatchLoads = renderDistance >= 3;
-                const chunkLoadBatch = shouldBatchLoads ? Arr.take(missingChunksToLoad, 4) : missingChunksToLoad;
+                const shouldBatchLoads = options.eager !== true && renderDistance >= CHUNK_LOAD_BATCHING_MIN_RENDER_DISTANCE;
+                const chunkLoadBatch = shouldBatchLoads ? Arr.take(missingChunksToLoad, MAX_CHUNK_LOADS_PER_CALL) : missingChunksToLoad;
                 // Load chunks in render distance — cap fan-out to the same 4 fibers as the semaphore.
                 yield* Effect.forEach(chunkLoadBatch, (coord) => loadSemaphore.withPermits(1)(getChunk(ctx, coord)), { concurrency: 4 });
                 // Unload chunks outside the render radius plus a small buffer.

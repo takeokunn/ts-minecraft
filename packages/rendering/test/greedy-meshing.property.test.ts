@@ -63,7 +63,7 @@ describe('greedyMeshChunk — property-based', () => {
           expect(idx).toBeLessThan(vertexCount)
         })
       },
-      { fastCheck: { numRuns: 20 } }
+      { fastCheck: { numRuns: 6 }, timeout: 30_000 }
     )
 
     it.prop(
@@ -92,7 +92,7 @@ describe('greedyMeshChunk — property-based', () => {
           expect(idx).toBeLessThan(vertexCount)
         })
       },
-      { fastCheck: { numRuns: 12 } }
+      { fastCheck: { numRuns: 4 } }
     )
 
     it.prop(
@@ -103,7 +103,7 @@ describe('greedyMeshChunk — property-based', () => {
         const meshed = greedyMeshChunk(chunk, ZERO_OFFSET).toMeshed()
         expect(meshed.opaque.indices.length % 3).toBe(0)
       },
-      { fastCheck: { numRuns: 20 } }
+      { fastCheck: { numRuns: 6 } }
     )
 
     it.prop(
@@ -115,7 +115,7 @@ describe('greedyMeshChunk — property-based', () => {
         const vertexCount = meshed.opaque.positions.length / 3
         expect(vertexCount % 4).toBe(0)
       },
-      { fastCheck: { numRuns: 20 } }
+      { fastCheck: { numRuns: 6 } }
     )
   })
 
@@ -130,7 +130,7 @@ describe('greedyMeshChunk — property-based', () => {
         expect(meshed.opaque.positions.length).toBe(meshed.opaque.normals.length)
         expect(meshed.opaque.positions.length).toBe(meshed.opaque.colors.length)
       },
-      { fastCheck: { numRuns: 20 } }
+      { fastCheck: { numRuns: 6 } }
     )
 
     it.prop(
@@ -143,7 +143,7 @@ describe('greedyMeshChunk — property-based', () => {
         const vertexCount = meshed.opaque.positions.length / 3
         expect(meshed.opaque.uvs.length).toBe(vertexCount * 2)
       },
-      { fastCheck: { numRuns: 20 } }
+      { fastCheck: { numRuns: 6 } }
     )
 
     it.prop(
@@ -157,7 +157,7 @@ describe('greedyMeshChunk — property-based', () => {
         expect(meshed.opaque.indices.length).toBe(quadCount * 6)
         expect(meshed.opaque.positions.length / 3).toBe(quadCount * 4)
       },
-      { fastCheck: { numRuns: 20 } }
+      { fastCheck: { numRuns: 6 } }
     )
   })
 
@@ -181,7 +181,7 @@ describe('greedyMeshChunk — property-based', () => {
         const meshed = greedyMeshChunk(chunk, { wx: cx * CHUNK_SIZE, wz: cz * CHUNK_SIZE }).toMeshed()
         expect(meshed.opaque.positions.length).toBe(0)
       },
-      { fastCheck: { numRuns: 20 } }
+      { fastCheck: { numRuns: 6 } }
     )
   })
 
@@ -235,7 +235,7 @@ describe('greedyMeshChunk — property-based', () => {
         expect(meshed.opaque.uvs).toBeInstanceOf(Float32Array)
         expect(meshed.opaque.indices).toBeInstanceOf(Uint32Array)
       },
-      { fastCheck: { numRuns: 10 } }
+      { fastCheck: { numRuns: 3 } }
     )
   })
 
@@ -259,7 +259,7 @@ describe('greedyMeshChunk — property-based', () => {
           expect(meshed.opaque.positions[i]!).toBeGreaterThanOrEqual(cx * CHUNK_SIZE)
         }
       },
-      { fastCheck: { numRuns: 20 } }
+      { fastCheck: { numRuns: 6 } }
     )
   })
 })

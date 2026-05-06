@@ -213,16 +213,31 @@ const createFrameLoopHandlersInternal = (
 
         // Fetch settings once per frame for shadow/SSAO and day-length reactive changes
         const currentSettings = yield* services.settingsService.getSettings()
+        const debugFlags = yield* services.debugFeatureFlags.getFlags()
+        const graphicsCacheKey = [
+          currentSettings.graphicsQuality,
+          debugFlags['rendering.shadows'] ? 'shadows:on' : 'shadows:off',
+          debugFlags['rendering.sky'] ? 'sky:on' : 'sky:off',
+        ].join('|')
 
-        // Derive effective lights: conditionally nullify sky port based on preset
-        // Cache resolvePreset result — only recompute when graphicsQuality changes
+        // Derive effective lights: conditionally nullify sky port based on preset/debug flag.
+        // Cache resolvePreset result — only recompute when graphics quality or rendering debug flags change.
         const [resolvedGraphics, graphicsChanged] = yield* Ref.modify(
           lastGraphicsQualityRef,
           (last): [[ResolvedGraphics, boolean], { quality: string; resolved: ResolvedGraphics }] => {
-            if (last.quality === currentSettings.graphicsQuality) return [[last.resolved, false], last]
+            if (last.quality === graphicsCacheKey) return [[last.resolved, false], last]
+            const preset = resolvePreset(currentSettings.graphicsQuality)
+            const resolvedWithDebugFlags =
+              debugFlags['rendering.shadows'] && debugFlags['rendering.sky']
+                ? preset
+                : {
+                    ...preset,
+                    shadowsEnabled: preset.shadowsEnabled && debugFlags['rendering.shadows'],
+                    skyEnabled: preset.skyEnabled && debugFlags['rendering.sky'],
+                  }
             const next = {
-              quality: currentSettings.graphicsQuality,
-              resolved: resolvePreset(currentSettings.graphicsQuality),
+              quality: graphicsCacheKey,
+              resolved: resolvedWithDebugFlags,
             }
             return [[next.resolved, true], next]
           },

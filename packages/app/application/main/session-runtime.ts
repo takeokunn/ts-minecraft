@@ -135,6 +135,7 @@ export const buildSessionRuntime = (
       chunkManagerService,
       timeService,
       settingsService,
+      debugFeatureFlags,
       pauseMenu,
       worldRendererService,
       entityManager,
@@ -153,6 +154,7 @@ export const buildSessionRuntime = (
       inventoryService,
       inventoryRenderer,
       gameState,
+      timeService,
       chunkManagerService,
       blockService,
       hotbarService,
@@ -160,6 +162,7 @@ export const buildSessionRuntime = (
       furnaceService,
       worldRendererService,
       entityManager,
+      debugFeatureFlags,
     })
 
     yield* deathScreen.attach(control, defaultRespawnPosition)
@@ -180,6 +183,7 @@ export const buildSessionRuntime = (
       timeService,
       cameraState: playerCameraState,
       fpsCounter,
+      debugFeatureFlags,
     })
 
     const frameHandlerWithBrowserEvents = wrapFrameHandlerWithBrowserEffects({

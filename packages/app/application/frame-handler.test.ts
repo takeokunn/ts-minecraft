@@ -1,6 +1,9 @@
 import { describe, expect, vi } from 'vitest'
 import { it } from '@effect/vitest'
 import { Effect, MutableRef, Option } from 'effect'
+import * as THREE from 'three'
+import { createFrameHandlers } from '@ts-minecraft/app'
+import type { DeltaTimeSecs, SkyMaterialPort } from '@ts-minecraft/kernel'
 import {
   arrangeFrameHarness,
   makeDeps,
@@ -10,6 +13,16 @@ import {
   makeSettingsOverlay,
   runFrame,
 } from '@test/frame-handler-test-kit'
+
+const FRAME_DELTA = 0.016 as DeltaTimeSecs
+
+const makeSkyPort = (setSunPosition: (x: number, y: number, z: number) => void): SkyMaterialPort => ({
+  uniforms: {
+    sunPosition: { value: { set: setSunPosition } },
+    turbidity: { value: 0 },
+    rayleigh: { value: 0 },
+  },
+})
 
 // ---------------------------------------------------------------------------
 // Orchestrator-level tests
@@ -140,6 +153,67 @@ describe('frame-handler', () => {
       const composer = Option.getOrNull(deps.composer)
       expect((composer as { render: ReturnType<typeof vi.fn> }).render).toHaveBeenCalledOnce()
       expect((deps.renderer as { render: ReturnType<typeof vi.fn> }).render).not.toHaveBeenCalled()
+    }))
+
+    it.effect('applies rendering.shadows debug flag to shadow casting', () => Effect.gen(function* () {
+      const deps = yield* makeDeps(false)
+      const services = makeServices({
+        inputService: makeInputService(),
+        inventoryRenderer: makeInventoryRenderer({ open: false }),
+        settingsOverlay: makeSettingsOverlay({ open: false }),
+      })
+
+      yield* services.debugFeatureFlags.setEnabled('rendering.shadows', false)
+      yield* runFrame(deps, services)
+
+      expect(deps.lights.light.castShadow).toBe(false)
+    }))
+
+    it.effect('applies rendering.sky debug flag to sky mesh visibility', () => Effect.gen(function* () {
+      const deps = yield* makeDeps(false)
+      const skyMesh = new THREE.Object3D()
+      const depsWithSky = { ...deps, skyMesh: Option.some(skyMesh) }
+      const services = makeServices({
+        inputService: makeInputService(),
+        inventoryRenderer: makeInventoryRenderer({ open: false }),
+        settingsOverlay: makeSettingsOverlay({ open: false }),
+      })
+
+      yield* services.debugFeatureFlags.setEnabled('rendering.sky', false)
+      yield* runFrame(depsWithSky, services)
+
+      expect(skyMesh.visible).toBe(false)
+    }))
+
+    it.effect('recomputes rendering debug flags across frames on the same handler', () => Effect.gen(function* () {
+      const deps = yield* makeDeps(false)
+      const skyMesh = new THREE.Object3D()
+      const setSunPosition = vi.fn((_x: number, _y: number, _z: number) => {})
+      const depsWithSky = {
+        ...deps,
+        lights: { ...deps.lights, sky: Option.some(makeSkyPort(setSunPosition)) },
+        skyMesh: Option.some(skyMesh),
+      }
+      const services = makeServices({
+        inputService: makeInputService(),
+        inventoryRenderer: makeInventoryRenderer({ open: false }),
+        settingsOverlay: makeSettingsOverlay({ open: false }),
+      })
+      const { frameHandler } = yield* createFrameHandlers(depsWithSky, services)
+
+      yield* frameHandler(FRAME_DELTA)
+      expect(depsWithSky.lights.light.castShadow).toBe(true)
+      expect(skyMesh.visible).toBe(true)
+      expect(setSunPosition).toHaveBeenCalled()
+
+      setSunPosition.mockClear()
+      yield* services.debugFeatureFlags.setEnabled('rendering.shadows', false)
+      yield* services.debugFeatureFlags.setEnabled('rendering.sky', false)
+      yield* frameHandler(FRAME_DELTA)
+
+      expect(depsWithSky.lights.light.castShadow).toBe(false)
+      expect(skyMesh.visible).toBe(false)
+      expect(setSunPosition).not.toHaveBeenCalled()
     }))
   })
 })

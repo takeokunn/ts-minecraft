@@ -2,7 +2,14 @@ import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
 import { Effect } from 'effect'
 
-import { DebugOverlayService, DebugOverlayLive, facingFromYaw } from '@ts-minecraft/app/presentation/hud/debug-overlay'
+import { DEBUG_FEATURE_FLAG_CATALOG } from '@ts-minecraft/app/debug-feature-flags'
+import {
+  DebugOverlayService,
+  DebugOverlayLive,
+  debugFeatureGroupLabels,
+  debugFeatureSearchMatches,
+  facingFromYaw,
+} from '@ts-minecraft/app/presentation/hud/debug-overlay'
 
 describe('presentation/hud/debug-overlay', () => {
   describe('facingFromYaw', () => {
@@ -34,6 +41,28 @@ describe('presentation/hud/debug-overlay', () => {
       // 5π/2 == π/2 (mod 2π)
       const f = facingFromYaw(5 * Math.PI / 2)
       expect(f.name).toBe('west')
+    })
+  })
+
+  describe('debug toggle panel helpers', () => {
+    it('exposes readable labels for each debug feature group', () => {
+      expect(debugFeatureGroupLabels.rendering).toBe('Rendering')
+      expect(debugFeatureGroupLabels.mobs).toBe('Mobs')
+      expect(debugFeatureGroupLabels.world).toBe('World / Chunks')
+    })
+
+    it('matches search text against id, label, group, description, and badges', () => {
+      const mobMaster = DEBUG_FEATURE_FLAG_CATALOG.find((entry) => entry.id === 'mobs.enabled')
+      const postProcessing = DEBUG_FEATURE_FLAG_CATALOG.find((entry) => entry.id === 'rendering.postProcessing')
+
+      expect(mobMaster).toBeDefined()
+      expect(postProcessing).toBeDefined()
+      if (mobMaster === undefined || postProcessing === undefined) return
+
+      expect(debugFeatureSearchMatches(mobMaster, 'mobs')).toBe(true)
+      expect(debugFeatureSearchMatches(mobMaster, 'danger')).toBe(true)
+      expect(debugFeatureSearchMatches(postProcessing, 'fullscreen')).toBe(true)
+      expect(debugFeatureSearchMatches(postProcessing, 'not-present')).toBe(false)
     })
   })
 

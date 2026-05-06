@@ -141,7 +141,7 @@ describe('adaptive performance mode', () => {
     expect(updateSpy).toHaveBeenCalledWith({ renderDistance: 7 })
   }))
 
-  it.effect('does not lower renderDistance while chunk sync is pending', () => Effect.gen(function* () {
+  it.effect('lowers renderDistance even while chunk sync is pending', () => Effect.gen(function* () {
     const deps = yield* makeDeps(false)
     const services = makeServices({
       inputService: makeInputService(),
@@ -161,7 +161,7 @@ describe('adaptive performance mode', () => {
     const { frameHandler, maintenanceHandler } = yield* createFrameHandlers(deps, services)
     yield* maintenanceHandler().pipe(Effect.andThen(frameHandler(0.016 as DeltaTimeSecs)))
 
-    expect(updateSpy).not.toHaveBeenCalledWith({ renderDistance: 7 })
+    expect(updateSpy).toHaveBeenCalledWith({ renderDistance: 7 })
   }))
 })
 

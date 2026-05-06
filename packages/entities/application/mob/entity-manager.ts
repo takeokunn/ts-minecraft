@@ -19,6 +19,13 @@ const WANDER_REDIRECT_PROBABILITY = 0.2
 // prime tick multiplier — avoids periodicity in wander direction
 const WANDER_PHASE_TICK_STEP = 17
 const MOB_GRAVITY_Y = -9.82
+const MOB_JUMP_VELOCITY_Y = 4.2
+const MOB_STUCK_EPSILON = 1e-4
+const WANDER_STUCK_REDIRECT_TICK_OFFSET = 11
+
+const isHorizontalBlocked = (before: Vector3, after: Vector3): boolean =>
+  (Math.abs(before.x) > MOB_STUCK_EPSILON && Math.abs(after.x) <= MOB_STUCK_EPSILON)
+  || (Math.abs(before.z) > MOB_STUCK_EPSILON && Math.abs(after.z) <= MOB_STUCK_EPSILON)
 
 type CollisionResolution = {
   readonly position: Position
@@ -208,6 +215,7 @@ export class EntityManager extends Effect.Service<EntityManager>()(
                 // Entity idle/attack skip: avoid object allocation when nothing changed,
                 // but still allow attack cooldowns to tick down while stationary.
                 if (nextState === entity.aiState
+                  && (nextState === AIState.Idle || nextState === AIState.Attack)
                   && entity.velocity.x === 0 && entity.velocity.z === 0) {
                   if (nextAttackCooldown === entity.attackCooldownRemaining) {
                     return entity
@@ -260,9 +268,10 @@ export class EntityManager extends Effect.Service<EntityManager>()(
         ): Effect.Effect<void, never> =>
           Effect.gen(function* () {
             const dirtyRef = MutableRef.make(false)
+            const tick = yield* Ref.get(updateTickRef)
 
             yield* Ref.update(entitiesRef, (entities) =>
-              HashMap.map(entities, (entity) => {
+              HashMap.map(entities, (entity, entityId) => {
                 const candidateVelocity: Vector3 = {
                   x: entity.velocity.x,
                   y: entity.velocity.y + MOB_GRAVITY_Y * deltaTime,
@@ -274,10 +283,23 @@ export class EntityManager extends Effect.Service<EntityManager>()(
                   z: entity.position.z + candidateVelocity.z * deltaTime,
                 }
                 const resolved = resolveCollision(candidatePosition, candidateVelocity)
+                const shouldHop = entity.isGrounded
+                  && resolved.isGrounded
+                  && isHorizontalBlocked(candidateVelocity, resolved.velocity)
+                const velocity = shouldHop
+                  ? { ...resolved.velocity, y: MOB_JUMP_VELOCITY_Y }
+                  : resolved.velocity
+                const wanderDirection = shouldHop
+                  ? makeWanderDirectionFromHash(
+                      hashEntityId(entityId),
+                      tick + WANDER_STUCK_REDIRECT_TICK_OFFSET,
+                    )
+                  : entity.wanderDirection
 
                 if (
                   isSamePosition(entity.position, resolved.position)
-                  && isSameVelocity(entity.velocity, resolved.velocity)
+                  && isSameVelocity(entity.velocity, velocity)
+                  && isSameVelocity(entity.wanderDirection, wanderDirection)
                   && entity.isGrounded === resolved.isGrounded
                 ) {
                   return entity
@@ -287,7 +309,8 @@ export class EntityManager extends Effect.Service<EntityManager>()(
                 return {
                   ...entity,
                   position: resolved.position,
-                  velocity: resolved.velocity,
+                  velocity,
+                  wanderDirection,
                   isGrounded: resolved.isGrounded,
                 }
               })
@@ -317,6 +340,24 @@ export class EntityManager extends Effect.Service<EntityManager>()(
 
             return [removedCount, removedCount > 0 ? updatedEntities : entities]
           }).pipe(
+            Effect.tap((removedCount) =>
+              removedCount > 0
+                ? Effect.all([
+                    Ref.set(cachedEntitiesRef, Option.none()),
+                    Ref.update(structureVersionRef, (version) => version + 1),
+                  ], { concurrency: 'unbounded', discard: true })
+                : Effect.void,
+            ),
+          ),
+
+        despawnAllEntities: (): Effect.Effect<number, never> =>
+          Ref.modify(
+            entitiesRef,
+            (entities): [number, HashMap.HashMap<EntityIdType, ManagedEntity>] => {
+              const removedCount = HashMap.size(entities)
+              return [removedCount, removedCount > 0 ? HashMap.empty() : entities]
+            },
+          ).pipe(
             Effect.tap((removedCount) =>
               removedCount > 0
                 ? Effect.all([

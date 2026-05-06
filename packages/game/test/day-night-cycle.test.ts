@@ -29,16 +29,16 @@ const makeFakeLights = (): DayNightLights & {
   }
 }
 
-const DIRECT_LIGHT_MIN = 0.2
-const DIRECT_LIGHT_RANGE = 0.8
-const AMBIENT_LIGHT_MIN = 0.1
-const AMBIENT_LIGHT_RANGE = 0.4
+const DIRECT_LIGHT_MIN = 0.3
+const DIRECT_LIGHT_RANGE = 0.7
+const AMBIENT_LIGHT_MIN = 0.28
+const AMBIENT_LIGHT_RANGE = 0.42
 
 describe('application/time/day-night-cycle', () => {
   describe('updateDayNightCycle — noon (timeOfDay=0.5)', () => {
     it.effect('should give maximum direct light intensity at noon', () =>
       // dayFactor = sin((0.5 - 0.25) * π * 2) = sin(π/2) = 1.0
-      // direct intensity = 0.2 + 1.0 * 0.8 = 1.0
+      // direct intensity = 0.3 + 1.0 * 0.7 = 1.0
       Effect.gen(function* () {
         const timeService = yield* TimeService
         yield* timeService.setDayLength(400)
@@ -51,7 +51,7 @@ describe('application/time/day-night-cycle', () => {
 
     it.effect('should give maximum ambient light intensity at noon', () =>
       // dayFactor = 1.0
-      // ambient intensity = 0.1 + 1.0 * 0.4 = 0.5
+      // ambient intensity = 0.28 + 1.0 * 0.42 = 0.7
       Effect.gen(function* () {
         const timeService = yield* TimeService
         yield* timeService.setDayLength(400)
@@ -66,7 +66,7 @@ describe('application/time/day-night-cycle', () => {
   describe('updateDayNightCycle — midnight (timeOfDay=0.0)', () => {
     it.effect('should give minimum direct light intensity at midnight', () =>
       // dayFactor = max(0, sin((0.0 - 0.25) * π * 2)) = max(0, sin(-π/2)) = max(0, -1) = 0
-      // direct intensity = 0.2 + 0 * 0.8 = 0.2
+      // direct intensity = 0.3 + 0 * 0.7 = 0.3
       Effect.gen(function* () {
         const timeService = yield* TimeService
         yield* timeService.setDayLength(400)
@@ -78,7 +78,7 @@ describe('application/time/day-night-cycle', () => {
     )
 
     it.effect('should give minimum ambient light intensity at midnight', () =>
-      // dayFactor = 0 → ambient = 0.1
+      // dayFactor = 0 → ambient = 0.28
       Effect.gen(function* () {
         const timeService = yield* TimeService
         yield* timeService.setDayLength(400)
@@ -93,7 +93,7 @@ describe('application/time/day-night-cycle', () => {
   describe('updateDayNightCycle — dawn (timeOfDay=0.25)', () => {
     it.effect('should give minimum direct light intensity at dawn', () =>
       // dayFactor = max(0, sin((0.25 - 0.25) * π * 2)) = max(0, sin(0)) = 0
-      // direct intensity = 0.2
+      // direct intensity = 0.3
       Effect.gen(function* () {
         const timeService = yield* TimeService
         yield* timeService.setDayLength(400)

@@ -8,7 +8,7 @@ export const physicsStage = (
   deps: Pick<FrameHandlerDeps, 'respawnPosition'>,
   services: Pick<
     FrameHandlerServices,
-    'gameState' | 'healthService' | 'soundManager' | 'entityManager' | 'gameMode'
+    'gameState' | 'healthService' | 'soundManager' | 'entityManager' | 'gameMode' | 'debugFeatureFlags'
   >,
   refs: Pick<FrameStageRefs, 'lastHealthRef'>,
   inputs: {
@@ -19,6 +19,8 @@ export const physicsStage = (
   },
 ): Effect.Effect<{ readonly playerPos: Position }, never> =>
   Effect.gen(function* () {
+    const debugFlags = yield* services.debugFeatureFlags.getFlags()
+
     // Update game state (input -> movement -> physics -> position sync)
     yield* logErrors(services.gameState.update(inputs.deltaTime), 'Physics update error')
 
@@ -50,7 +52,9 @@ export const physicsStage = (
           yield* services.soundManager.playEffect('playerHurt', { position: refreshedPos })
         }
 
-        const hostileDamage = yield* services.entityManager.getPlayerContactDamage(refreshedPos)
+        const hostileDamage = debugFlags['mobs.enabled'] && debugFlags['mobs.damage']
+          ? yield* services.entityManager.getPlayerContactDamage(refreshedPos)
+          : 0
         const tookHostileDamage = yield* tryApplyPlayerDamage(hostileDamage)
         if (tookHostileDamage) {
           yield* services.soundManager.playEffect('playerHurt', { position: refreshedPos })

@@ -64,10 +64,10 @@ describe('presentation/settings/settings-overlay', () => {
         yield* overlay.applyToSettings()
         expect(mockSettings.updateSettings).toHaveBeenCalledWith({
           adaptivePerformanceMode: true,
-          renderDistance: 8,
+          renderDistance: 4,
           mouseSensitivity: 0.5,
           dayLengthSeconds: 400,
-          graphicsQuality: 'high',
+          graphicsQuality: 'medium',
         })
       }).pipe(Effect.provide(TestLayer))
     })

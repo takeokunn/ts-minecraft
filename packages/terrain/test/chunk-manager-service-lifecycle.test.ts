@@ -217,6 +217,30 @@ describe('application/chunk/chunk-manager-service', () => {
         Effect.provide(TestContext.TestContext),
       )
     }, 20_000)
+
+    it.effect('eager loading bypasses streaming throttle and loads the full render distance', () => {
+      const renderDistance = 3
+      const center = { x: 64, z: 64 }
+      const preloadCoords = getChunksInRenderDistance(center, renderDistance)
+      const { TestLayer, seedStorage } = buildTestLayerWithStoredChunks(preloadCoords)
+      const playerPos = { x: center.x * CHUNK_SIZE, y: 64, z: center.z * CHUNK_SIZE }
+
+      return Effect.gen(function* () {
+        yield* seedStorage
+        const service = yield* ChunkManagerService
+
+        const completed = yield* service.loadChunksAroundPlayer(playerPos, renderDistance, { eager: true })
+        const loaded = yield* service.getLoadedChunks()
+
+        expect(completed).toBe(true)
+        Arr.forEach(preloadCoords, (coord) => {
+          expect(Arr.some(loaded, (chunk) => chunk.coord.x === coord.x && chunk.coord.z === coord.z)).toBe(true)
+        })
+      }).pipe(
+        Effect.provide(TestLayer),
+        Effect.provide(TestContext.TestContext),
+      )
+    }, 20_000)
   })
 
   describe('RENDER_DISTANCE constant', () => {

@@ -31,6 +31,7 @@ import { InputService } from '@ts-minecraft/app/presentation/input/input-service
 import { SettingsOverlayService } from '@ts-minecraft/app/presentation/settings/settings-overlay'
 import { PauseMenuService } from '@ts-minecraft/app/presentation/menu/pause-menu'
 import { InventoryRendererService } from '@ts-minecraft/app/presentation/inventory/inventory-renderer'
+import { DebugFeatureFlagsService } from '@ts-minecraft/app/debug-feature-flags'
 import { InventoryService } from '@ts-minecraft/inventory'
 import { HealthService } from '@ts-minecraft/player'
 import { MusicManager, SoundManager } from '@ts-minecraft/game'
@@ -84,6 +85,7 @@ export type FrameHandlerServices = {
   readonly chunkManagerService: ChunkManagerService
   readonly timeService: TimeService
   readonly settingsService: SettingsService
+  readonly debugFeatureFlags: DebugFeatureFlagsService
   readonly settingsOverlay: SettingsOverlayService
   readonly pauseMenu: PauseMenuService
   readonly inventoryRenderer: InventoryRendererService

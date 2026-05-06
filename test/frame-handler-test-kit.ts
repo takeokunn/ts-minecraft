@@ -2,6 +2,12 @@ import { Effect, MutableHashSet, MutableRef, Option, Ref } from 'effect'
 import * as THREE from 'three'
 import { vi } from 'vitest'
 import { createFrameHandlers, type FrameHandlerDeps, type FrameHandlerServices } from '@ts-minecraft/app'
+import {
+  DEBUG_FEATURE_FLAG_CATALOG,
+  DEBUG_FEATURE_FLAG_DEFAULTS,
+  type DebugFeatureFlagGroup,
+  type DebugFeatureFlagId,
+} from '@ts-minecraft/app/debug-feature-flags'
 import type { DeltaTimeSecs } from '@ts-minecraft/kernel'
 import type { DayNightLights } from '@ts-minecraft/game'
 import type { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js'
@@ -227,6 +233,7 @@ export const makeServices = (opts: {
   const blockHighlight = {
     update: (_cam: unknown, _scene: unknown) => Effect.void,
     invalidateCache: () => Effect.void,
+    setVisible: (_visible: boolean) => Effect.void,
     getTargetBlock: () => Effect.succeed(Option.none()),
     getTargetHit: () => Effect.succeed(Option.none()),
   } as InstanceType<typeof import('@ts-minecraft/app/presentation/highlight/block-highlight').BlockHighlightService>
@@ -281,6 +288,37 @@ export const makeServices = (opts: {
     updateSettings: (_patch: unknown) => Effect.void,
     resetToDefaults: () => Effect.void,
   } as InstanceType<typeof import('@ts-minecraft/game').SettingsService>
+
+  const debugFlagsState = { current: { ...DEBUG_FEATURE_FLAG_DEFAULTS } }
+  const resetDebugFeatureGroup = (group: DebugFeatureFlagGroup): Effect.Effect<void, never> =>
+    Effect.sync(() => {
+      let nextFlags = { ...debugFlagsState.current }
+      for (const entry of DEBUG_FEATURE_FLAG_CATALOG) {
+        if (entry.group === group) {
+          nextFlags = { ...nextFlags, [entry.id]: DEBUG_FEATURE_FLAG_DEFAULTS[entry.id] }
+        }
+      }
+      debugFlagsState.current = nextFlags
+    })
+  const debugFeatureFlags = testDouble<InstanceType<typeof import('@ts-minecraft/app/debug-feature-flags').DebugFeatureFlagsService>>({
+    catalog: DEBUG_FEATURE_FLAG_CATALOG,
+    getSnapshot: () => Effect.succeed({
+      catalog: DEBUG_FEATURE_FLAG_CATALOG,
+      flags: { ...debugFlagsState.current },
+    }),
+    getFlags: () => Effect.succeed({ ...debugFlagsState.current }),
+    isEnabled: (id: DebugFeatureFlagId) => Effect.succeed(debugFlagsState.current[id]),
+    setEnabled: (id: DebugFeatureFlagId, enabled: boolean) =>
+      Effect.sync(() => {
+        const changed = debugFlagsState.current[id] !== enabled
+        debugFlagsState.current = { ...debugFlagsState.current, [id]: enabled }
+        return changed
+      }),
+    resetAll: () => Effect.sync(() => {
+      debugFlagsState.current = { ...DEBUG_FEATURE_FLAG_DEFAULTS }
+    }),
+    resetGroup: resetDebugFeatureGroup,
+  })
 
   const fpsCounter = testDouble<InstanceType<typeof import('@ts-minecraft/app/presentation/fps-counter').FPSCounterService>>({
     tick: (_dt: unknown) => Effect.void,
@@ -435,6 +473,7 @@ export const makeServices = (opts: {
     chunkManagerService,
     timeService,
     settingsService,
+    debugFeatureFlags,
     settingsOverlay,
     pauseMenu,
     inventoryRenderer,
