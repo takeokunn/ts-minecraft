@@ -20,7 +20,6 @@ declare const PerfHudService_base: Effect.Service.Class<PerfHudService, "@minecr
 }>;
 export declare class PerfHudService extends PerfHudService_base {
 }
-export declare const PerfHudServiceLive: import("effect/Layer").Layer<PerfHudService, never, never>;
 export declare const installPerfHudCounters: (perfHud: PerfHudService, chunkManager: ChunkCountProvider, queueDepthSource: () => number) => Effect.Effect<void, never, Scope.Scope>;
 export {};
 //# sourceMappingURL=perf-hud.d.ts.map

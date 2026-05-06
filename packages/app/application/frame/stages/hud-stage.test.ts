@@ -1,7 +1,8 @@
 import { describe, expect, vi } from 'vitest'
 import { it } from '@effect/vitest'
 import { Effect, MutableRef, Option } from 'effect'
-import type { FrameHandlerDeps } from '@ts-minecraft/app'
+import { createFrameHandlers, type FrameHandlerDeps } from '@ts-minecraft/app'
+import type { DeltaTimeSecs } from '@ts-minecraft/kernel'
 import {
   DEFAULT_SETTINGS,
   makeDeps,
@@ -138,6 +139,29 @@ describe('adaptive performance mode', () => {
     yield* runFrame(deps, services)
 
     expect(updateSpy).toHaveBeenCalledWith({ renderDistance: 7 })
+  }))
+
+  it.effect('does not lower renderDistance while chunk sync is pending', () => Effect.gen(function* () {
+    const deps = yield* makeDeps(false)
+    const services = makeServices({
+      inputService: makeInputService(),
+      inventoryRenderer: makeInventoryRenderer({ open: false }),
+      settingsOverlay: makeSettingsOverlay({ open: false }),
+    })
+    Object.assign(services.settingsService, { getSettings: vi.fn(() => Effect.succeed({ ...DEFAULT_SETTINGS, adaptivePerformanceMode: true, graphicsQuality: 'low' as const, renderDistance: 8 })) })
+    const updateSpy = vi.fn(() => Effect.void)
+    Object.assign(services.settingsService, { updateSettings: updateSpy })
+    Object.assign(services.fpsCounter, { getFPS: vi.fn(() => Effect.succeed(100)) })
+    Object.assign(services.chunkManagerService, {
+      loadChunksAroundPlayer: vi.fn(() => Effect.void),
+      getLoadedChunks: vi.fn(() => Effect.succeed([{ coord: { x: 0, z: 0 }, blocks: new Uint8Array(0), dirty: false }])),
+    })
+    Object.assign(services.worldRendererService, { syncChunksToScene: vi.fn(() => Effect.succeed(false)) })
+
+    const { frameHandler, maintenanceHandler } = yield* createFrameHandlers(deps, services)
+    yield* maintenanceHandler().pipe(Effect.andThen(frameHandler(0.016 as DeltaTimeSecs)))
+
+    expect(updateSpy).not.toHaveBeenCalledWith({ renderDistance: 7 })
   }))
 })
 

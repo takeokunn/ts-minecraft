@@ -56,6 +56,14 @@ vi.mock('three', () => {
       setScalar: vi.fn(function (this: { _val: number }, v: number) { this._val = v }),
     },
     material: material ?? new MockMeshBasicMaterial(),
+    geometry: {
+      attributes: {
+        uv: {
+          setXY: vi.fn(),
+          needsUpdate: false,
+        },
+      },
+    },
     visible: false,
   })
 
@@ -91,7 +99,7 @@ vi.mock('three', () => {
 // ---------------------------------------------------------------------------
 import * as THREE from 'three'
 import { HotbarRendererService, HotbarRendererLive } from '@ts-minecraft/app/presentation/hud/hotbar-three'
-import { RendererService } from '@ts-minecraft/rendering'
+import { RendererService, TextureService } from '@ts-minecraft/rendering'
 import type { BlockType } from '@ts-minecraft/kernel'
 import { SlotIndex } from '@ts-minecraft/kernel'
 
@@ -107,9 +115,22 @@ const createMockRendererService = () =>
     renderOverlay: vi.fn(() => Effect.void),
   }) as RendererService
 
+const createMockTextureService = () =>
+  ({
+    load: vi.fn(() => Effect.succeed({} as THREE.Texture)),
+    createSolidColor: vi.fn(() => Effect.succeed({} as THREE.CanvasTexture)),
+    getCached: vi.fn(() => Effect.succeed(Option.none())),
+    preload: vi.fn(() => Effect.void),
+    dispose: vi.fn(() => Effect.void),
+  }) as TextureService
+
 const buildTestLayer = (rendererService: RendererService = createMockRendererService()) => {
   const MockRendererLayer = Layer.succeed(RendererService, rendererService)
-  return HotbarRendererLive.pipe(Layer.provide(MockRendererLayer))
+  const MockTextureLayer = Layer.succeed(TextureService, createMockTextureService())
+  return HotbarRendererLive.pipe(
+    Layer.provide(MockRendererLayer),
+    Layer.provide(MockTextureLayer),
+  )
 }
 
 type MockedMaterial = {
@@ -250,6 +271,36 @@ describe('HotbarRendererService', () => {
         const renderer = yield* HotbarRendererService
         // update before initialize — slot meshes array is empty, should be a safe no-op
         yield* renderer.update(emptySlots, SlotIndex.make(0))
+      }).pipe(Effect.provide(TestLayer))
+    })
+
+    it.scoped('should skip redundant updates when slots content and selection are unchanged', () => {
+      vi.clearAllMocks()
+      const TestLayer = buildTestLayer()
+
+      const slotsA: ReadonlyArray<Option.Option<BlockType>> = [
+        Option.some('GRASS' as BlockType),
+        ...Arr.makeBy(8, () => Option.none<BlockType>()),
+      ]
+      const slotsB: ReadonlyArray<Option.Option<BlockType>> = [
+        Option.some('GRASS' as BlockType),
+        ...Arr.makeBy(8, () => Option.none<BlockType>()),
+      ]
+
+      return Effect.gen(function* () {
+        const renderer = yield* HotbarRendererService
+        yield* renderer.initialize(800, 600)
+        yield* renderer.update(slotsA, SlotIndex.make(0))
+
+        const meshCalls = vi.mocked(THREE.Mesh).mock.calls
+        const firstSlotMesh = meshCalls[1]?.[0] ? vi.mocked(THREE.Mesh).mock.results[1]?.value : null
+        const uvSetXY = firstSlotMesh?.geometry?.attributes?.uv?.setXY
+        const beforeCount = uvSetXY?.mock?.calls?.length ?? 0
+
+        yield* renderer.update(slotsB, SlotIndex.make(0))
+
+        const afterCount = uvSetXY?.mock?.calls?.length ?? 0
+        expect(afterCount).toBe(beforeCount)
       }).pipe(Effect.provide(TestLayer))
     })
   })

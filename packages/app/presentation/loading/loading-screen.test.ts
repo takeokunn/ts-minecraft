@@ -9,22 +9,51 @@ import { DomOperationsService } from '@ts-minecraft/app/presentation/hud/crossha
 // ---------------------------------------------------------------------------
 
 const createMockDomLayer = () => {
-  const overlayEl = {
-    id: '',
-    style: { cssText: '', display: 'flex' },
-    addEventListener: vi.fn(),
-    removeEventListener: vi.fn(),
-    remove: vi.fn(),
-  } as HTMLDivElement
+  const makeElement = (tagName: string) => {
+    const node = {
+      tagName,
+      id: '',
+      className: '',
+      textContent: '',
+      style: { cssText: '', display: 'flex' },
+      children: [] as unknown[],
+      parentNode: null as unknown,
+      firstChild: null as unknown,
+      appendChild: vi.fn(function (this: { children: unknown[]; firstChild: unknown }, child: unknown) {
+        this.children.push(child)
+        this.firstChild = this.children[0] ?? null
+      }),
+      removeChild: vi.fn(function (this: { children: unknown[]; firstChild: unknown }, child: unknown) {
+        this.children = this.children.filter((c) => c !== child)
+        this.firstChild = this.children[0] ?? null
+      }),
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      remove: vi.fn(),
+    }
+    return node as unknown as HTMLElement
+  }
 
-  const createElement = vi.fn((_tagName: string) => overlayEl as HTMLElement)
+  const overlayEl = makeElement('div') as HTMLElement & {
+    style: { cssText: string; display: string }
+    children: unknown[]
+  }
+
+  const createElement = vi.fn((tagName: string) => {
+    if (tagName === 'div' && overlayEl.id === '') {
+      return overlayEl as HTMLElement
+    }
+    return makeElement(tagName)
+  })
 
   const removeChild = vi.fn()
 
   const MockDomLayer = Layer.succeed(DomOperationsService, {
     createElement,
     appendChild: vi.fn(),
-    appendChildTo: vi.fn(),
+    appendChildTo: vi.fn((parent: HTMLElement, child: HTMLElement) => {
+      parent.appendChild(child)
+    }),
     removeChild,
     getParentNode: vi.fn(() => Option.none()),
     setInnerHTML: vi.fn(),
@@ -64,11 +93,38 @@ describe('presentation/loading/loading-screen', () => {
       const loading = yield* LoadingScreenService
       yield* loading.hide()
 
-      expect(mockDom.createElement).toHaveBeenCalledTimes(2)
+      expect(mockDom.createElement).toHaveBeenCalledWith('style')
+      expect(mockDom.createElement).toHaveBeenCalledWith('div')
       expect(appendToHead).toHaveBeenCalledTimes(1)
       expect(mockDom.overlayEl.id).toBe('loading-screen')
       expect(mockDom.overlayEl.style.cssText).toContain('position:fixed')
       expect(mockDom.overlayEl.style.display).toBe('none')
+      expect(mockDom.overlayEl.children).toHaveLength(3)
+    }).pipe(Effect.provide(TestLayer), Effect.ensuring(Effect.sync(() => {
+      Reflect.deleteProperty(globalThis as object, 'document')
+    })))
+  })
+
+  it.scoped('showError should render message via textContent without HTML injection', () => {
+    const mockDom = createMockDomLayer()
+    const appendToHead = vi.fn((element: unknown) => {
+      ;(element as { parentNode?: unknown }).parentNode = { removeChild: vi.fn() }
+    })
+
+    Reflect.set(globalThis as object, 'document', {
+      head: { appendChild: appendToHead },
+    })
+
+    const TestLayer = buildTestLayer(mockDom)
+
+    return Effect.gen(function* () {
+      const loading = yield* LoadingScreenService
+      const payload = '<img src=x onerror=alert(1) />'
+      yield* loading.showError(payload)
+
+      expect(mockDom.overlayEl.children).toHaveLength(3)
+      const messageNode = mockDom.overlayEl.children[1] as { textContent: string }
+      expect(messageNode.textContent).toBe(payload)
     }).pipe(Effect.provide(TestLayer), Effect.ensuring(Effect.sync(() => {
       Reflect.deleteProperty(globalThis as object, 'document')
     })))

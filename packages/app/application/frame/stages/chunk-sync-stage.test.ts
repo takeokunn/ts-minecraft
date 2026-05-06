@@ -93,7 +93,7 @@ describe('step 1 — chunk streaming', () => {
     yield* handler(0.016 as DeltaTimeSecs)
     yield* handler(0.016 as DeltaTimeSecs)
 
-    expect(loadSpy).toHaveBeenCalledTimes(2)
+    expect(loadSpy).toHaveBeenCalledTimes(1)
     expect(syncSpy).toHaveBeenCalledTimes(2)
   }))
 

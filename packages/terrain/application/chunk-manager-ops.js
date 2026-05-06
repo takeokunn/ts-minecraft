@@ -13,10 +13,10 @@
 import { Array as Arr, Duration, Effect, HashMap, HashSet, Metric, Option, Ref } from 'effect';
 import { CHUNK_SIZE, CHUNK_HEIGHT } from '@ts-minecraft/kernel';
 import { createFluidBuffer } from '@ts-minecraft/world-state';
-import { DEFAULT_WORLD_ID, SEA_LEVEL, LAKE_LEVEL } from '@ts-minecraft/kernel';
+import { SEA_LEVEL, LAKE_LEVEL } from '@ts-minecraft/kernel';
 import { ChunkError } from '../domain/errors';
 import { chunkLoadHistogram } from './terrain-generation';
-import { chunkCoordToKey } from '../domain/chunk-coord-utils';
+import { chunkCoordToWorldKey } from '../domain/chunk-coord-utils';
 import { storedChunkPayload } from './chunk-manager-cache';
 // ---------------------------------------------------------------------------
 // findLRUKey
@@ -42,7 +42,8 @@ export const findLRUKey = (chunks) => Arr.reduce(Arr.fromIterable(chunks), { key
  * the modify callback.
  */
 export const insertWithEviction = (ctx, coord, chunk) => Effect.gen(function* () {
-    const key = chunkCoordToKey(coord);
+    const worldId = yield* Ref.get(ctx.worldIdRef);
+    const key = chunkCoordToWorldKey(coord, worldId);
     const maxCachedChunks = yield* Ref.get(ctx.maxCachedChunksRef);
     // Use monotonically incrementing counter instead of wall-clock time.
     // Clock.currentTimeMillis can return the same value for multiple rapid insertions,
@@ -52,7 +53,7 @@ export const insertWithEviction = (ctx, coord, chunk) => Effect.gen(function* ()
     // Atomically insert + evict LRU, returning the dirty evictee (if any) for post-save.
     // HashMap/HashSet are immutable — no defensive copies needed; modifications return new instances.
     const evictedDirtyEntry = yield* Ref.modify(ctx.cache, (s) => {
-        const baseChunks = HashMap.set(s.chunks, key, { chunk, lastAccessed: accessOrder });
+        const baseChunks = HashMap.set(s.chunks, key, { chunk, lastAccessed: accessOrder, worldId });
         if (HashMap.size(baseChunks) <= maxCachedChunks) {
             return [Option.none(), { ...s, chunks: baseChunks }];
         }
@@ -61,13 +62,14 @@ export const insertWithEviction = (ctx, coord, chunk) => Effect.gen(function* ()
         const isDirty = HashSet.has(s.dirtyChunks, evictKey);
         const newChunks = HashMap.remove(baseChunks, evictKey);
         const newDirty = HashSet.remove(s.dirtyChunks, evictKey);
+        const newRenderDirty = HashSet.remove(s.renderDirtyChunks, evictKey);
         const evictedDirty = Option.filter(evictEntryOpt, () => isDirty);
-        return [evictedDirty, { ...s, chunks: newChunks, dirtyChunks: newDirty }];
+        return [evictedDirty, { ...s, chunks: newChunks, dirtyChunks: newDirty, renderDirtyChunks: newRenderDirty }];
     });
     // Save the evicted chunk if it was dirty (I/O must happen outside Ref.modify)
     yield* Option.match(evictedDirtyEntry, {
         onNone: () => Effect.void,
-        onSome: (evicted) => ctx.storageService.saveChunk(DEFAULT_WORLD_ID, evicted.chunk.coord, {
+        onSome: (evicted) => ctx.storageService.saveChunk(evicted.worldId ?? worldId, evicted.chunk.coord, {
             blocks: evicted.chunk.blocks,
             fluid: Option.getOrElse(evicted.chunk.fluid, createFluidBuffer),
         }),
@@ -87,7 +89,8 @@ export const insertWithEviction = (ctx, coord, chunk) => Effect.gen(function* ()
  * This is the most performance-critical path — preserve its structure carefully.
  */
 export const getChunk = (ctx, coord) => Effect.gen(function* () {
-    const key = chunkCoordToKey(coord);
+    const worldId = yield* Ref.get(ctx.worldIdRef);
+    const key = chunkCoordToWorldKey(coord, worldId);
     const state = yield* Ref.get(ctx.cache);
     const generateAndInsert = () => Effect.gen(function* () {
         // Generate new chunk off-main-thread via TerrainWorkerPoolPort — falls back to
@@ -123,7 +126,7 @@ export const getChunk = (ctx, coord) => Effect.gen(function* () {
         }),
         onNone: () => Effect.gen(function* () {
             // Try to load from storage — measured with chunkLoadHistogram
-            const storedData = yield* ctx.storageService.loadChunk(DEFAULT_WORLD_ID, coord);
+            const storedData = yield* ctx.storageService.loadChunk(worldId, coord);
             return yield* Option.match(storedData, {
                 onNone: () => generateAndInsert(),
                 onSome: (stored) => Effect.gen(function* () {
@@ -153,16 +156,17 @@ export const getChunk = (ctx, coord) => Effect.gen(function* () {
  * Save a chunk to storage if it is dirty, then remove it from the in-memory cache.
  */
 export const unloadChunk = (ctx, coord) => Effect.gen(function* () {
-    const key = chunkCoordToKey(coord);
+    const worldId = yield* Ref.get(ctx.worldIdRef);
+    const key = chunkCoordToWorldKey(coord, worldId);
     const state = yield* Ref.get(ctx.cache);
-    yield* Option.match(Option.map(HashMap.get(state.chunks, key), (e) => e.chunk), {
+    yield* Option.match(HashMap.get(state.chunks, key), {
         onNone: () => Effect.void,
-        onSome: (chunk) => Effect.gen(function* () {
+        onSome: (entry) => Effect.gen(function* () {
             // Save if dirty
             if (HashSet.has(state.dirtyChunks, key)) {
-                yield* ctx.storageService.saveChunk(DEFAULT_WORLD_ID, chunk.coord, {
-                    blocks: chunk.blocks,
-                    fluid: Option.getOrElse(chunk.fluid, createFluidBuffer),
+                yield* ctx.storageService.saveChunk(entry.worldId ?? worldId, entry.chunk.coord, {
+                    blocks: entry.chunk.blocks,
+                    fluid: Option.getOrElse(entry.chunk.fluid, createFluidBuffer),
                 });
             }
             // Remove from cache — HashMap/HashSet are immutable; remove returns new instance
@@ -170,6 +174,7 @@ export const unloadChunk = (ctx, coord) => Effect.gen(function* () {
                 ...s,
                 chunks: HashMap.remove(s.chunks, key),
                 dirtyChunks: HashSet.remove(s.dirtyChunks, key),
+                renderDirtyChunks: HashSet.remove(s.renderDirtyChunks, key),
             }));
             // Invalidate getLoadedChunks cache: chunk set has changed
             yield* Ref.set(ctx.cachedLoadedChunksRef, Option.none());

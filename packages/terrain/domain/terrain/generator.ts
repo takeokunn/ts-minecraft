@@ -1,4 +1,4 @@
-import { Array as Arr, Effect, MutableHashMap } from 'effect'
+import { Effect, MutableHashMap } from 'effect'
 import { ChunkService } from '../../application/chunk-service'
 import type { Chunk } from '../chunk'
 import { ChunkCoord, CHUNK_SIZE } from '@ts-minecraft/kernel'
@@ -9,8 +9,8 @@ import { carveCaves } from './cave-carver'
 import { ORE_REGULAR_INDICES, ORE_DEEPSLATE_INDICES, placeOres } from './ore-generator'
 import type { TreeColumnContext } from './generator-types'
 import {
-  createColumnNoiseCoordinates,
-  createCaveGridPoints,
+  createColumnNoiseCoordinateArrays,
+  createCaveGridCoordinateArrays,
   createBlockIndices,
 } from './generator-coordinates'
 import {
@@ -29,39 +29,44 @@ export const generateTerrain = (
 ): Effect.Effect<Chunk, never> =>
   Effect.gen(function* () {
     const chunk = yield* chunkService.createChunk(coord)
-    const blocks = new Uint8Array(chunk.blocks)
+    const blocks = chunk.blocks
     const baseWorldX = coord.x * CHUNK_SIZE
     const baseWorldZ = coord.z * CHUNK_SIZE
-    const columnCoords = createColumnNoiseCoordinates(baseWorldX, baseWorldZ)
-    const caveGridPoints = createCaveGridPoints(baseWorldX, baseWorldZ)
+    const columnCoords = createColumnNoiseCoordinateArrays(baseWorldX, baseWorldZ)
+    const caveGridPoints = createCaveGridCoordinateArrays(baseWorldX, baseWorldZ)
     const blockIndices = createBlockIndices()
     const treeColumnContextCache = MutableHashMap.empty<string, TreeColumnContext>()
 
     const biomeColumns = yield* biomeService.getBiomesAndPropertiesForChunk(coord.x, coord.z)
     const terrainChannels = yield* noiseService.sampleTerrainChannels(baseWorldX, baseWorldZ)
     const lakeNoiseVals = yield* noiseService.noise2DBatchXY(
-      Arr.map(columnCoords, (column) => column.lakeX),
-      Arr.map(columnCoords, (column) => column.lakeZ),
+      columnCoords.lakeXs,
+      columnCoords.lakeZs,
     )
     const graniteNoiseVals = yield* noiseService.noise2DBatchXY(
-      Arr.map(columnCoords, (column) => column.graniteX),
-      Arr.map(columnCoords, (column) => column.graniteZ),
+      columnCoords.graniteXs,
+      columnCoords.graniteZs,
     )
     const dioriteNoiseVals = yield* noiseService.noise2DBatchXY(
-      Arr.map(columnCoords, (column) => column.dioriteX),
-      Arr.map(columnCoords, (column) => column.dioriteZ),
+      columnCoords.dioriteXs,
+      columnCoords.dioriteZs,
     )
     const andesiteNoiseVals = yield* noiseService.noise2DBatchXY(
-      Arr.map(columnCoords, (column) => column.andesiteX),
-      Arr.map(columnCoords, (column) => column.andesiteZ),
+      columnCoords.andesiteXs,
+      columnCoords.andesiteZs,
     )
-    const initialSurfaceYs = Arr.flatMap(Arr.makeBy(CHUNK_SIZE, (lx) => lx), (lx) =>
-      Arr.makeBy(CHUNK_SIZE, (lz) => computeColumnY(terrainChannels, lx, lz))
-    )
+    const initialSurfaceYs = new Int32Array(CHUNK_SIZE * CHUNK_SIZE)
+    let surfaceIndex = 0
+    for (let lx = 0; lx < CHUNK_SIZE; lx++) {
+      for (let lz = 0; lz < CHUNK_SIZE; lz++) {
+        initialSurfaceYs[surfaceIndex] = computeColumnY(terrainChannels, lx, lz)
+        surfaceIndex++
+      }
+    }
     const caveSampleVals = yield* noiseService.noise3DBatchXYZ(
-      Arr.map(caveGridPoints, (point) => point.x),
-      Arr.map(caveGridPoints, (point) => point.y),
-      Arr.map(caveGridPoints, (point) => point.z),
+      caveGridPoints.caveXs,
+      caveGridPoints.caveYs,
+      caveGridPoints.caveZs,
     )
 
     const columnStates = buildColumnStates({

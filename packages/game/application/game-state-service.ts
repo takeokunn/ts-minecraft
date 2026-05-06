@@ -130,7 +130,7 @@ export class GameStateService extends Effect.Service<GameStateService>()(
             const playerCz = Math.floor(physPos.z / CHUNK_SIZE)
             const lastChunkCoord = yield* Ref.get(lastChunkCoordRef)
             if (lastChunkCoord.cx !== playerCx || lastChunkCoord.cz !== playerCz) {
-              const newCache: Array<{ blocks: Uint8Array } | null> = new Array(9).fill(null)
+              const newCache: Array<{ blocks: Uint8Array } | null> = Array.from({ length: 9 }, () => null)
               yield* Effect.forEach(
                 OFFSETS_3x3,
                 ([dx, dz]) =>

@@ -1,5 +1,8 @@
-import { test, expect } from '@playwright/test'
+import { test, expect, type PlaywrightTestArgs } from '@playwright/test'
 import { GamePage } from '../fixtures/game-page'
+import { waitForPauseMenu } from '../helpers/wait-helpers'
+
+type Page = PlaywrightTestArgs['page']
 
 test.describe('Settings overlay', () => {
   const waitForOverlayState = async (page: Page, open: boolean) => {
@@ -71,6 +74,27 @@ test.describe('Settings overlay', () => {
     await waitForOverlayState(page, false)
     const isClosed = await game.isOverlayOpen('settings-overlay')
     expect(isClosed).toBe(false)
+  })
+
+  test('pause -> settings -> resume returns to active gameplay state', async ({ page }) => {
+    await page.keyboard.press('Escape')
+    await waitForPauseMenu(page)
+    await page.click('[data-role="settings"]')
+    await waitForOverlayState(page, true)
+    await expect(page.locator('#pause-menu-backdrop')).toBeHidden()
+
+    await page.keyboard.press('Escape')
+    await waitForOverlayState(page, false)
+    await waitForPauseMenu(page)
+
+    await page.click('[data-role="resume"]')
+    await expect(page.locator('#pause-menu-backdrop')).toBeHidden()
+    await expect(page.locator('#settings-overlay')).toBeHidden()
+
+    await page.keyboard.press('e')
+    await expect(page.locator('#inventory-overlay')).toBeVisible()
+    await page.keyboard.press('e')
+    await expect(page.locator('#inventory-overlay')).toBeHidden()
   })
 
   test('#settings-close button closes overlay', async ({ page }) => {

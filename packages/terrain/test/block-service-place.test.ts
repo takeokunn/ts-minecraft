@@ -55,6 +55,7 @@ const makeChunkManagerLayer = (opts: {
     getChunk: () => Effect.succeed(chunk),
     markChunkDirty: () => Effect.void,
     getLoadedChunks: () => Effect.succeed([chunk]),
+    drainRenderDirtyChunks: () => Effect.succeed([]),
     loadChunksAroundPlayer: () => Effect.succeed(false),
     saveDirtyChunks: () => Effect.void,
     unloadChunk: () => Effect.void,
@@ -237,6 +238,36 @@ describe('terrain/application/block-service placeBlock inventory rollback', () =
     }).pipe(Effect.provide(layer))
   })
 
+  it.effect('placeBlock LAVA block triggers seedLava', () => {
+    const seedLavaCalledRef = MutableRef.make(false)
+    const chunk = makeChunk('AIR')
+    const fluidSvc = Layer.succeed(FluidService, {
+      _tag: '@minecraft/application/FluidService' as const,
+      notifyBlockChanged: () => Effect.void,
+      seedWater: () => Effect.void,
+      seedLava: () => Effect.sync(() => { MutableRef.set(seedLavaCalledRef, true) }),
+      removeWater: () => Effect.void,
+      removeLava: () => Effect.void,
+      syncLoadedChunks: () => Effect.void,
+      tick: () => Effect.void,
+    } as unknown as FluidService)
+    const layer = BlockServiceLive.pipe(
+      Layer.provide(makeChunkManagerLayer({ chunk })),
+      Layer.provide(ChunkServiceLive),
+      Layer.provide(fluidSvc),
+      Layer.provide(makePlayerLayer({ x: 100, y: 100, z: 100 })),
+      Layer.provide(makeInventoryLayer()),
+      Layer.provide(makeHotbarLayer()),
+      Layer.provide(makeFurnaceLayer()),
+    )
+    return Effect.gen(function* () {
+      const svc = yield* BlockService
+      const result = yield* Effect.either(svc.placeBlock({ x: 0, y: 64, z: 0 }, 'LAVA'))
+      expect(Either.isRight(result)).toBe(true)
+      expect(MutableRef.get(seedLavaCalledRef)).toBe(true)
+    }).pipe(Effect.provide(layer))
+  })
+
   it.effect('breakBlock on WATER block triggers removeWater', () => {
     const removeWaterCalledRef = MutableRef.make(false)
     const chunk = makeChunk('WATER', BLOCK_IDX_64)
@@ -264,6 +295,36 @@ describe('terrain/application/block-service placeBlock inventory rollback', () =
       const result = yield* Effect.either(svc.breakBlock({ x: 0, y: 64, z: 0 }))
       expect(Either.isRight(result)).toBe(true)
       expect(MutableRef.get(removeWaterCalledRef)).toBe(true)
+    }).pipe(Effect.provide(layer))
+  })
+
+  it.effect('breakBlock on LAVA block triggers removeLava', () => {
+    const removeLavaCalledRef = MutableRef.make(false)
+    const chunk = makeChunk('LAVA', BLOCK_IDX_64)
+    const fluidSvc = Layer.succeed(FluidService, {
+      _tag: '@minecraft/application/FluidService' as const,
+      notifyBlockChanged: () => Effect.void,
+      seedWater: () => Effect.void,
+      seedLava: () => Effect.void,
+      removeWater: () => Effect.void,
+      removeLava: () => Effect.sync(() => { MutableRef.set(removeLavaCalledRef, true) }),
+      syncLoadedChunks: () => Effect.void,
+      tick: () => Effect.void,
+    } as unknown as FluidService)
+    const layer = BlockServiceLive.pipe(
+      Layer.provide(makeChunkManagerLayer({ chunk })),
+      Layer.provide(ChunkServiceLive),
+      Layer.provide(fluidSvc),
+      Layer.provide(makePlayerLayer()),
+      Layer.provide(makeInventoryLayer()),
+      Layer.provide(makeHotbarLayer()),
+      Layer.provide(makeFurnaceLayer()),
+    )
+    return Effect.gen(function* () {
+      const svc = yield* BlockService
+      const result = yield* Effect.either(svc.breakBlock({ x: 0, y: 64, z: 0 }))
+      expect(Either.isRight(result)).toBe(true)
+      expect(MutableRef.get(removeLavaCalledRef)).toBe(true)
     }).pipe(Effect.provide(layer))
   })
 

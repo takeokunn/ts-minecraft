@@ -5,7 +5,6 @@ import {
   VillageStructureId,
   VillagerId,
   VillagerActivity,
-  VillagerProfession,
   TRADE_DISTANCE,
   WANDER_RADIUS,
   distanceSq,

@@ -9,6 +9,13 @@ import { advanceFixedStep } from '@ts-minecraft/app/frame/frame-runtime-logic'
 import { REDSTONE_TICK_INTERVAL_SECS, FLUID_TICK_INTERVAL_SECS } from '@ts-minecraft/app/frame-handler.config'
 import { CHUNK_HEIGHT, CHUNK_SIZE, type DeltaTimeSecs, type Position } from '@ts-minecraft/kernel'
 
+const ENTITY_PHYSICS_CHUNK_OFFSETS = [
+  [-1, -1, 0], [-1, 0, 1], [-1, 1, 2],
+  [0, -1, 3], [0, 0, 4], [0, 1, 5],
+  [1, -1, 6], [1, 0, 7], [1, 1, 8],
+] as const
+const CHUNK_LOCAL_MASK = CHUNK_SIZE - 1
+
 export const entityUpdateStage = (
   deps: Pick<FrameHandlerDeps, 'scene'>,
   services: Pick<
@@ -17,7 +24,13 @@ export const entityUpdateStage = (
   >,
   refs: Pick<
     FrameStageRefs,
-    'lastEntityStructureVersionRef' | 'redstoneTickAccumulatorRef' | 'fluidTickAccumulatorRef'
+    | 'lastEntityStructureVersionRef'
+    | 'entityPhysicsChunkCacheRef'
+    | 'lastEntityPhysicsChunkCoordRef'
+    | 'lastEntityPhysicsLoadedChunksRef'
+    | 'lastLoadedChunksRef'
+    | 'redstoneTickAccumulatorRef'
+    | 'fluidTickAccumulatorRef'
   >,
   inputs: {
     readonly deltaTime: DeltaTimeSecs
@@ -34,21 +47,50 @@ export const entityUpdateStage = (
     if (typeof applyPhysics === 'function') {
       const playerCx = Math.floor(inputs.playerPos.x / CHUNK_SIZE)
       const playerCz = Math.floor(inputs.playerPos.z / CHUNK_SIZE)
-      const chunkCache: ReadonlyArray<Chunk | null> = yield* Effect.all(
-        Array.from({ length: 9 }, (_, index) => {
-          const dx = Math.floor(index / 3) - 1
-          const dz = (index % 3) - 1
+      const lastChunkCoord = yield* Ref.get(refs.lastEntityPhysicsChunkCoordRef)
+      const loadedChunks = yield* Ref.get(refs.lastLoadedChunksRef)
+      const lastLoadedChunks = yield* Ref.get(refs.lastEntityPhysicsLoadedChunksRef)
+      const loadedChunksChanged = loadedChunks._tag !== lastLoadedChunks._tag ||
+        (loadedChunks._tag === 'Some' && lastLoadedChunks._tag === 'Some' && loadedChunks.value !== lastLoadedChunks.value)
+      let chunkCache = yield* Ref.get(refs.entityPhysicsChunkCacheRef)
+      const chunkCoordChanged = lastChunkCoord.cx !== playerCx || lastChunkCoord.cz !== playerCz
+      const hasMissingChunk = chunkCache.some((chunk) => chunk == null)
 
-          return services.chunkManagerService.getChunk({
-            x: playerCx + dx,
-            z: playerCz + dz,
-          }).pipe(
-            Effect.option,
-            Effect.map((chunkOption) => (chunkOption._tag === 'Some' ? chunkOption.value : null)),
-          )
-        }),
-        { concurrency: 'unbounded' },
-      )
+      if (chunkCoordChanged || loadedChunksChanged || hasMissingChunk) {
+        const refreshAllChunks = chunkCoordChanged || loadedChunksChanged
+        const nextChunkCache: Array<Chunk | null> = refreshAllChunks
+          ? [
+              null, null, null,
+              null, null, null,
+              null, null, null,
+            ]
+          : [...chunkCache]
+
+        yield* Effect.forEach(
+          ENTITY_PHYSICS_CHUNK_OFFSETS,
+          ([dx, dz, index]) => {
+            if (!refreshAllChunks && nextChunkCache[index] != null) {
+              return Effect.void
+            }
+
+            return services.chunkManagerService.getChunk({
+              x: playerCx + dx,
+              z: playerCz + dz,
+            }).pipe(
+              Effect.match({
+                onSuccess: (chunk) => { nextChunkCache[index] = chunk },
+                onFailure: () => {},
+              }),
+            )
+          },
+          { concurrency: 'unbounded', discard: true },
+        )
+
+        chunkCache = nextChunkCache
+        yield* Ref.set(refs.entityPhysicsChunkCacheRef, nextChunkCache)
+        yield* Ref.set(refs.lastEntityPhysicsChunkCoordRef, { cx: playerCx, cz: playerCz })
+        yield* Ref.set(refs.lastEntityPhysicsLoadedChunksRef, loadedChunks)
+      }
 
       const isBlockSolid = (wx: number, wy: number, wz: number): boolean => {
         const ly = Math.floor(wy)
@@ -66,8 +108,8 @@ export const entityUpdateStage = (
         const cachedChunk = chunkCache[(dx + 1) * 3 + (dz + 1)]
         if (cachedChunk == null) return false
 
-        const lx = ((bx % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE
-        const lz = ((bz % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE
+        const lx = bx & CHUNK_LOCAL_MASK
+        const lz = bz & CHUNK_LOCAL_MASK
         return (cachedChunk.blocks[chunkBlockIndexUnchecked(lx, ly, lz)] ?? 0) !== 0
       }
 

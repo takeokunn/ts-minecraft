@@ -7,7 +7,7 @@ export {
   WOODEN_PICKAXE_HARVESTABLE_BLOCKS,
 } from './harvestable-blocks'
 
-export const NON_PLACEABLE_ITEM_TYPES: HashSet.HashSet<ItemType> = HashSet.fromIterable<ItemType>([
+export const NON_PLACEABLE_ITEM_TYPES: HashSet.HashSet<InventoryItem> = HashSet.fromIterable<InventoryItem>([
   'STICKS',
   'COAL',
   'WOODEN_SWORD',

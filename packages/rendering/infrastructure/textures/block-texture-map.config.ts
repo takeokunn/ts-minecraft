@@ -10,7 +10,9 @@ import type { FaceDir } from './block-texture-map'
 //   20-26: ores (coal, iron, gold, diamond, redstone, lapis, emerald)
 //   27-33: deepslate ores (same order)
 //   34-40: blocks (coal, iron, gold, diamond, redstone, lapis, emerald)
-//   41-47: planks, sticks, crafting table, furnace, torch, coal, wooden sword
+//   41-45: planks, sticks (item-only atlas tile), crafting table, furnace, torch
+// TILE_MAP is indexed by BlockType storage id only. Inventory-only atlas tiles
+// such as sticks are not valid block ids and must not be inserted here.
 export const TILE_MAP: ReadonlyArray<Readonly<Record<FaceDir, number>>> = [
   { top: 0,  bottom: 0,  side: 0  }, //  0: AIR (unused)
   { top: 0,  bottom: 0,  side: 0  }, //  1: DIRT
@@ -53,22 +55,7 @@ export const TILE_MAP: ReadonlyArray<Readonly<Record<FaceDir, number>>> = [
   { top: 39, bottom: 39, side: 39 }, // 38: LAPIS_BLOCK
   { top: 40, bottom: 40, side: 40 }, // 39: EMERALD_BLOCK
   { top: 41, bottom: 41, side: 41 }, // 40: PLANKS
-  { top: 42, bottom: 42, side: 42 }, // 41: STICKS
-  { top: 43, bottom: 43, side: 43 }, // 42: CRAFTING_TABLE
-  { top: 44, bottom: 44, side: 44 }, // 43: FURNACE
-  { top: 45, bottom: 45, side: 45 }, // 44: TORCH
-  { top: 46, bottom: 46, side: 46 }, // 45: COAL
-  { top: 47, bottom: 47, side: 47 }, // 46: WOODEN_SWORD
-  { top: 47, bottom: 47, side: 47 }, // 47: WOODEN_PICKAXE
-  { top: 44, bottom: 44, side: 44 }, // 48: STONE_PICKAXE
-  { top: 20, bottom: 20, side: 20 }, // 49: RAW_IRON
-  { top: 34, bottom: 34, side: 34 }, // 50: IRON_INGOT
-  { top: 34, bottom: 34, side: 34 }, // 51: IRON_PICKAXE
-  { top: 21, bottom: 21, side: 21 }, // 52: RAW_GOLD
-  { top: 35, bottom: 35, side: 35 }, // 53: GOLD_INGOT
-  { top: 37, bottom: 37, side: 37 }, // 54: DIAMOND
-  { top: 24, bottom: 24, side: 24 }, // 55: REDSTONE_DUST
-  { top: 25, bottom: 25, side: 25 }, // 56: LAPIS_LAZULI
-  { top: 40, bottom: 40, side: 40 }, // 57: EMERALD
-  { top: 37, bottom: 37, side: 37 }, // 58: DIAMOND_PICKAXE
+  { top: 43, bottom: 43, side: 43 }, // 41: CRAFTING_TABLE
+  { top: 44, bottom: 44, side: 44 }, // 42: FURNACE
+  { top: 45, bottom: 45, side: 45 }, // 43: TORCH
 ]

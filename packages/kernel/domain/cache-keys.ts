@@ -4,7 +4,10 @@ import { Schema } from 'effect'
 export const ChunkCacheKeySchema = Schema.String.pipe(Schema.brand('ChunkCacheKey'))
 export type ChunkCacheKey = Schema.Schema.Type<typeof ChunkCacheKeySchema>
 export const ChunkCacheKey = {
-  make: (coord: { x: number; z: number }): ChunkCacheKey => Schema.decodeUnknownSync(ChunkCacheKeySchema)(`${coord.x},${coord.z}`),
+  make: (coordOrKey: { x: number; z: number } | string): ChunkCacheKey =>
+    Schema.decodeUnknownSync(ChunkCacheKeySchema)(
+      typeof coordOrKey === 'string' ? coordOrKey : `${coordOrKey.x},${coordOrKey.z}`,
+    ),
 }
 
 // Branded to prevent mixing texture URLs with arbitrary strings.

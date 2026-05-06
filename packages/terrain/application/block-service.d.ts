@@ -7,7 +7,7 @@ import { PlayerService } from '@ts-minecraft/player';
 import { InventoryService } from '@ts-minecraft/inventory';
 import { HotbarService } from '@ts-minecraft/inventory';
 import { FurnaceService } from '@ts-minecraft/furnace';
-import { BlockType } from '@ts-minecraft/kernel';
+import { InventoryItem } from '@ts-minecraft/kernel';
 import { Position, SlotIndex } from '@ts-minecraft/kernel';
 declare const BlockServiceError_base: new <A extends Record<string, any> = {}>(args: import("effect/Types").VoidIfEmpty<{ readonly [P in keyof A as P extends "_tag" ? never : P]: A[P]; }>) => import("effect/Cause").YieldableError & {
     readonly _tag: "BlockServiceError";
@@ -22,7 +22,7 @@ export declare class BlockServiceError extends BlockServiceError_base<{
 declare const BlockService_base: Effect.Service.Class<BlockService, "@minecraft/application/BlockService", {
     readonly effect: Effect.Effect<{
         breakBlock: (position: Position) => Effect.Effect<void, BlockServiceError>;
-        placeBlock: (position: Position, blockType: BlockType, preferredInventorySlot?: SlotIndex) => Effect.Effect<void, BlockServiceError>;
+        placeBlock: (position: Position, itemType: InventoryItem, preferredInventorySlot?: SlotIndex) => Effect.Effect<void, BlockServiceError>;
     }, never, PlayerService | ChunkService | ChunkManagerService | InventoryService | HotbarService | FurnaceService | FluidService>;
 }>;
 export declare class BlockService extends BlockService_base {

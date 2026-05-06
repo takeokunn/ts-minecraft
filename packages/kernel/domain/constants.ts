@@ -11,8 +11,8 @@ export const FIRST_FRAME_DELTA_SECS: DeltaTimeSecs = DeltaTimeSecs.make(0.016)
 // Phase 2.1 MC 1.18-aligned. Ocean biome water fills up to this height.
 export const SEA_LEVEL = 63
 
-// Phase 2.1 MC 1.18-aligned. Non-ocean lake water surface level.
-export const LAKE_LEVEL = 64
+// Phase 2.1 MC 1.18-aligned. Inland lake water surface matches sea level.
+export const LAKE_LEVEL = SEA_LEVEL
 
 // Player AABB half-extents — single source of truth used by block-service and game-state.
 export const PLAYER_HALF_WIDTH = 0.3   // x and z half-extents

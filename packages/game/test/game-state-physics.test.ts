@@ -7,7 +7,7 @@ const blockIndex = (lx: number, ly: number, lz: number): number =>
   ly + lz * CHUNK_HEIGHT + lx * CHUNK_HEIGHT * CHUNK_SIZE
 
 const makeEmptyCache = (): Array<{ blocks: Uint8Array } | null> =>
-  new Array(9).fill(null)
+  Array.from({ length: 9 }, () => null)
 
 const allAirChunk = () => ({
   blocks: new Uint8Array(CHUNK_SIZE * CHUNK_SIZE * CHUNK_HEIGHT),

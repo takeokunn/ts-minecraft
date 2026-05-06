@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { Array as Arr, MutableHashMap, Option } from 'effect'
 import { greedyMeshChunk } from '@ts-minecraft/rendering'
+import type { BlockType } from '@ts-minecraft/kernel'
 import { makeEmptyChunk, makeChunkWithBlock, ZERO_COORD, ZERO_OFFSET } from './greedy-meshing-test-utils'
 
 describe('greedyMeshChunk', () => {
@@ -34,6 +35,24 @@ describe('greedyMeshChunk', () => {
 
       // DIRT maps to atlas tile 0, STONE to tile 1 — tile indexes must differ
       expect(dirtResult.toMeshed().opaque.tileIndexes[0]).not.toBe(stoneResult.toMeshed().opaque.tileIndexes[0])
+    })
+
+    it('assigns correct tile indexes to late crafted placeable blocks', () => {
+      const cases: ReadonlyArray<{ readonly blockType: BlockType; readonly expectedTileIndex: number }> = [
+        { blockType: 'PLANKS', expectedTileIndex: 41 },
+        { blockType: 'CRAFTING_TABLE', expectedTileIndex: 43 },
+        { blockType: 'FURNACE', expectedTileIndex: 44 },
+        { blockType: 'TORCH', expectedTileIndex: 45 },
+      ]
+
+      Arr.forEach(cases, ({ blockType, expectedTileIndex }) => {
+        const chunk = makeChunkWithBlock(ZERO_COORD, 0, 0, 0, blockType)
+        const result = greedyMeshChunk(chunk, ZERO_OFFSET)
+
+        Arr.forEach(Arr.fromIterable(result.toMeshed().opaque.tileIndexes), tileIndex => {
+          expect(tileIndex).toBe(expectedTileIndex)
+        })
+      })
     })
   })
 

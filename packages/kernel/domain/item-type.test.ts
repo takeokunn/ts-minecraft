@@ -21,7 +21,7 @@ describe('ItemTypeSchema', () => {
     'DIAMOND_PICKAXE',
   ] as const
 
-  it.each(validItems)('accepts "%s"', (item) => {
+  it.each(validItems)('accepts "%s"', (item: (typeof validItems)[number]) => {
     const result = Schema.decodeUnknownEither(ItemTypeSchema)(item)
     expect(Either.isRight(result)).toBe(true)
   })

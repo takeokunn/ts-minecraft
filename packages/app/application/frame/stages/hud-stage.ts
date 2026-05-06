@@ -1,4 +1,4 @@
-import { Effect, Option, Ref } from 'effect'
+import { Effect, MutableRef, Option, Ref } from 'effect'
 import { logErrors } from '@ts-minecraft/app/frame/error-logging'
 import type { FrameHandlerDeps, FrameHandlerServices, FrameSettingsView, FrameStageRefs } from '@ts-minecraft/app/frame/types'
 import { decideAdaptiveQuality, type AdaptiveQualityDecision } from '@ts-minecraft/app/frame/frame-runtime-logic'
@@ -7,7 +7,7 @@ import type { DeltaTimeSecs } from '@ts-minecraft/kernel'
 export const hudStage = (
   deps: Pick<FrameHandlerDeps, 'renderer'>,
   services: Pick<FrameHandlerServices, 'fpsCounter' | 'settingsService' | 'hotbarRenderer' | 'perfHud'>,
-  refs: Pick<FrameStageRefs, 'frustumThrottleStrideRef' | 'adaptiveQualityCooldownRef' | 'lastFpsTextRef'>,
+  refs: Pick<FrameStageRefs, 'frustumThrottleStrideRef' | 'adaptiveQualityCooldownRef' | 'lastFpsTextRef' | 'chunkSyncPendingRef'>,
   inputs: {
     readonly deltaTime: DeltaTimeSecs
     readonly currentSettings: FrameSettingsView
@@ -35,6 +35,7 @@ export const hudStage = (
           renderDistance: inputs.currentSettings.renderDistance,
           fps,
           cooldown: adaptiveCooldown,
+          chunkSyncPending: MutableRef.get(refs.chunkSyncPendingRef),
         })
     if (adaptiveQualityDecision.nextCooldown !== adaptiveCooldown) {
       yield* Ref.set(refs.adaptiveQualityCooldownRef, adaptiveQualityDecision.nextCooldown)

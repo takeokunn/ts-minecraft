@@ -6,7 +6,9 @@ import {
   BiomeServiceLive,
   NoiseServicePort,
 } from '@ts-minecraft/terrain'
-import { CHUNK_SIZE } from '@ts-minecraft/kernel'
+import { CHUNK_SIZE } from '../../kernel/index.ts'
+import { classifyBiome } from '../domain/biome-classifier.ts'
+import { TEMP_HOT } from '../domain/biome-classifier.config.ts'
 
 const makeMockLayer = (
   temp: number,
@@ -15,8 +17,11 @@ const makeMockLayer = (
   eros: number,
   pv = 0,
   river = 0.0,
-) =>
-  Layer.succeed(NoiseServicePort, NoiseServicePort.of({
+) => {
+  // Inverse on the ascending PV branch; keeps mocked weirdness aligned with the requested pv.
+  const weirdness = (pv + 1) / 3
+
+  return Layer.succeed(NoiseServicePort, NoiseServicePort.of({
     _tag: '@minecraft/application/noise/NoiseServicePort' as const,
     noise2D: () => Effect.succeed(river),
     octaveNoise2D: (x: number) => Effect.succeed(x > 25.0 ? hum : temp),
@@ -33,7 +38,7 @@ const makeMockLayer = (
     noise3DBatchXYZ: (xs: ReadonlyArray<number>) => Effect.succeed(Arr.makeBy(xs.length, () => 0)),
     continentalness: () => Effect.succeed(cont),
     erosion: () => Effect.succeed(eros),
-    weirdness: () => Effect.succeed(pv),
+    weirdness: () => Effect.succeed(weirdness),
     jaggedness: () => Effect.succeed(0),
     sampleTerrainChannels: () =>
       Effect.succeed({
@@ -44,33 +49,34 @@ const makeMockLayer = (
       }),
     setSeed: () => Effect.void,
   }))
+}
 
 const makeLayer = (temp: number, hum: number, cont: number, eros: number, pv = 0, river = 0.0) =>
   BiomeServiceLive.pipe(Layer.provide(makeMockLayer(temp, hum, cont, eros, pv, river)))
 
 describe('classifyBiomeFromClimate — baseBiome SWAMP overridden to FOREST by continentalness', () => {
-  it.effect('temp=0.65, hum=0.9, cont=0.2, eros=0.6 → FOREST (continentalness > 0.15)', () =>
+  it.effect('temp=0.71, hum=0.9, cont=0.2, eros=0.6 → FOREST (continentalness > 0.15)', () =>
     Effect.gen(function* () {
       const svc = yield* BiomeService
       const biome = yield* svc.getBiome(0, 0)
       expect(biome).toBe('FOREST')
-    }).pipe(Effect.provide(makeLayer(0.65, 0.9, 0.2, 0.6)))
+    }).pipe(Effect.provide(makeLayer(0.71, 0.9, 0.2, 0.6)))
   )
 
-  it.effect('temp=0.65, hum=0.9, cont=0.16, eros=0.6 → FOREST (continentalness just over 0.15)', () =>
+  it.effect('temp=0.71, hum=0.9, cont=0.16, eros=0.6 → FOREST (continentalness just over 0.15)', () =>
     Effect.gen(function* () {
       const svc = yield* BiomeService
       const biome = yield* svc.getBiome(0, 0)
       expect(biome).toBe('FOREST')
-    }).pipe(Effect.provide(makeLayer(0.65, 0.9, 0.16, 0.6)))
+    }).pipe(Effect.provide(makeLayer(0.71, 0.9, 0.16, 0.6)))
   )
 
-  it.effect('temp=0.65, hum=0.9, cont=0.1, eros=0.3 → FOREST (erosion < 0.35)', () =>
+  it.effect('temp=0.71, hum=0.9, cont=0.1, eros=0.3 → FOREST (erosion < 0.35)', () =>
     Effect.gen(function* () {
       const svc = yield* BiomeService
       const biome = yield* svc.getBiome(0, 0)
       expect(biome).toBe('FOREST')
-    }).pipe(Effect.provide(makeLayer(0.65, 0.9, 0.1, 0.3)))
+    }).pipe(Effect.provide(makeLayer(0.71, 0.9, 0.1, 0.3)))
   )
 })
 
@@ -114,28 +120,28 @@ describe('classifyBiomeFromClimate — mountain override branches', () => {
 })
 
 describe('classifyBiomeFromClimate — SWAMP stays SWAMP when continentalness ≤ 0.15 and erosion ≥ 0.35', () => {
-  it.effect('temp=0.65, hum=0.9, cont=0.1, eros=0.5 → SWAMP', () =>
+  it.effect('temp=0.71, hum=0.9, cont=0.1, eros=0.5 → SWAMP', () =>
     Effect.gen(function* () {
       const svc = yield* BiomeService
       const biome = yield* svc.getBiome(0, 0)
       expect(biome).toBe('SWAMP')
-    }).pipe(Effect.provide(makeLayer(0.65, 0.9, 0.1, 0.5)))
+    }).pipe(Effect.provide(makeLayer(0.71, 0.9, 0.1, 0.5)))
   )
 
-  it.effect('temp=0.65, hum=0.9, cont=0.0, eros=0.35 → SWAMP (exactly at boundary)', () =>
+  it.effect('temp=0.71, hum=0.9, cont=0.0, eros=0.35 → SWAMP (exactly at boundary)', () =>
     Effect.gen(function* () {
       const svc = yield* BiomeService
       const biome = yield* svc.getBiome(0, 0)
       expect(biome).toBe('SWAMP')
-    }).pipe(Effect.provide(makeLayer(0.65, 0.9, 0.0, 0.35)))
+    }).pipe(Effect.provide(makeLayer(0.71, 0.9, 0.0, 0.35)))
   )
 
-  it.effect('temp=0.65, hum=0.9, cont=0.15, eros=0.4 → SWAMP (cont exactly 0.15)', () =>
+  it.effect('temp=0.71, hum=0.9, cont=0.15, eros=0.4 → SWAMP (cont exactly 0.15)', () =>
     Effect.gen(function* () {
       const svc = yield* BiomeService
       const biome = yield* svc.getBiome(0, 0)
       expect(biome).toBe('SWAMP')
-    }).pipe(Effect.provide(makeLayer(0.65, 0.9, 0.15, 0.4)))
+    }).pipe(Effect.provide(makeLayer(0.71, 0.9, 0.15, 0.4)))
   )
 })
 
@@ -151,12 +157,17 @@ describe('classifyBiomeFromClimate — MOUNTAINS base overridden to TAIGA/FOREST
 })
 
 describe('classifyBiomeFromClimate — baseBiome OCEAN passthrough', () => {
-  it.effect('humidity > 0.85, temp ≤ 0.6, cont > -0.42 → FOREST (OCEAN base converted)', () =>
+  it('classifyBiome keeps very-wet temp at TEMP_HOT in OCEAN and only flips above TEMP_HOT', () => {
+    expect(classifyBiome(TEMP_HOT, 0.9)).toBe('OCEAN')
+    expect(classifyBiome(TEMP_HOT + 0.01, 0.9)).toBe('SWAMP')
+  })
+
+  it.effect('humidity > 0.85, temp ≤ TEMP_HOT, cont > -0.42 → FOREST (OCEAN base converted)', () =>
     Effect.gen(function* () {
       const svc = yield* BiomeService
       const biome = yield* svc.getBiome(0, 0)
-      // humidity > HUM_VERY_WET and temp ≤ HUM_WET → OCEAN base biome
-      // OCEAN base → returns FOREST (since temp ≤ TEMP_HOT=0.7)
+      // humidity > HUM_VERY_WET and temp ≤ TEMP_HOT → OCEAN base biome
+      // OCEAN base → returns FOREST
       expect(biome).toBe('FOREST')
     }).pipe(Effect.provide(makeLayer(0.5, 0.9, 0.35, 0.6)))
   )

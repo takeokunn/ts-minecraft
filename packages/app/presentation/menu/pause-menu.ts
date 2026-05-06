@@ -1,9 +1,6 @@
 import { Cause, Duration, Effect, Fiber, MutableRef, Option, Schedule, Scope } from 'effect'
-import { PlayerError } from '@ts-minecraft/player'
-import { StorageError } from '@ts-minecraft/world-state'
 import { DomOperationsService } from '@ts-minecraft/app/presentation/hud/crosshair'
 import { SettingsOverlayService } from '@ts-minecraft/app/presentation/settings/settings-overlay'
-import { ChunkManagerService } from '@ts-minecraft/terrain'
 import { ConfirmDialogService } from '@ts-minecraft/app/presentation/menu/confirm-dialog'
 import {
   type SessionControl,
@@ -80,10 +77,10 @@ export class PauseMenuService extends Effect.Service<PauseMenuService>()(
   {
     scoped: Effect.flatMap(
       Effect.all(
-        [DomOperationsService, SettingsOverlayService, ChunkManagerService, ConfirmDialogService],
+        [DomOperationsService, SettingsOverlayService, ConfirmDialogService],
         { concurrency: 'unbounded' },
       ),
-      ([dom, settingsOverlay, chunkManager, confirmDialog]) =>
+      ([dom, settingsOverlay, confirmDialog]) =>
         Effect.acquireRelease(
           Effect.sync((): PauseMenuDom => {
             if (typeof document === 'undefined') {
@@ -162,33 +159,13 @@ export class PauseMenuService extends Effect.Service<PauseMenuService>()(
               Option.map(backdropEl, (el) => { el.style.display = 'none' })
             }
 
-            // Save failures are logged but do NOT prevent quit — user chose to leave,
-            // and requestQuitToTitle is idempotent so a retry path remains.
-            const performSaveAndQuit = (
-              control: SessionControl,
-              persistSessionState: () => Effect.Effect<void, PlayerError | StorageError>,
-            ): Effect.Effect<void, never> =>
-              Effect.all(
-                [
-                  chunkManager.saveDirtyChunks(),
-                  persistSessionState(),
-                ],
-                { concurrency: 'unbounded', discard: true },
-              ).pipe(
-                Effect.catchAllCause((cause) =>
-                  Effect.logError(`Save & Quit save error: ${Cause.pretty(cause)}`),
-                ),
-                Effect.andThen(requestQuitToTitle(control)),
-              )
-
             return {
               // Scope-managed: listeners and DOM are torn down when the surrounding scoped Effect closes.
               attach: (
                 control: SessionControl,
-                persistSessionState: () => Effect.Effect<void, PlayerError | StorageError>,
               ): Effect.Effect<void, never, Scope.Scope> =>
                 Effect.acquireRelease(
-                  Effect.gen(function* () {
+                  Effect.sync(() => {
                     MutableRef.set(activeControlRef, Option.some(control))
 
                     const handleResumeClick = (): void => {
@@ -280,7 +257,11 @@ export class PauseMenuService extends Effect.Service<PauseMenuService>()(
                                 ? Effect.sync(() => {
                                     MutableRef.set(isOpenRef, false)
                                   }).pipe(
-                                    Effect.andThen(performSaveAndQuit(control, persistSessionState)),
+                                    // Session teardown already performs the authoritative
+                                    // save flush after the quit signal is observed. Signaling
+                                    // first avoids blocking the title transition on a redundant
+                                    // pre-quit save path here.
+                                    Effect.andThen(requestQuitToTitle(control)),
                                   )
                                 : Effect.sync(() => {
                                     if (MutableRef.get(isOpenRef)) showMenu()

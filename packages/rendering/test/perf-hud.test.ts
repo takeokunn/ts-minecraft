@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { Effect, MutableRef } from 'effect'
-import { PerfHudService, PerfHudServiceLive, installPerfHudCounters } from '@ts-minecraft/rendering'
+import { PerfHudService, installPerfHudCounters } from '@ts-minecraft/rendering'
 import type { ChunkCountProvider } from '@ts-minecraft/rendering'
 
 // In vitest node environment, `window` is undefined.
@@ -16,7 +16,7 @@ describe('PerfHudService (node environment — no-op path)', () => {
           yield* hud.setWorkerQueueDepth(5)
           yield* hud.setChunkCount(10)
           yield* hud.setDrawCalls(100)
-        }).pipe(Effect.provide(PerfHudServiceLive)),
+        }).pipe(Effect.provide(PerfHudService.Default)),
       ),
     )
     // If we reach here without error, all methods returned Effect.void successfully.
@@ -28,7 +28,7 @@ describe('PerfHudService (node environment — no-op path)', () => {
         Effect.gen(function* () {
           const hud = yield* PerfHudService
           return yield* hud.recordFrame(0.033)
-        }).pipe(Effect.provide(PerfHudServiceLive)),
+        }).pipe(Effect.provide(PerfHudService.Default)),
       ),
     )
     expect(result).toBeUndefined()
@@ -40,7 +40,7 @@ describe('PerfHudService (node environment — no-op path)', () => {
         Effect.gen(function* () {
           const hud = yield* PerfHudService
           return yield* hud.setChunkCount(42)
-        }).pipe(Effect.provide(PerfHudServiceLive)),
+        }).pipe(Effect.provide(PerfHudService.Default)),
       ),
     )
     expect(result).toBeUndefined()

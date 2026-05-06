@@ -59,7 +59,7 @@ describe('infrastructure/storage/storage-service', () => {
           health: 13,
           inventory: {
             slots: [
-              Option.some({ slot: SlotIndex.make(0), blockType: 'WOOD', count: 3 }),
+              Option.some({ slot: SlotIndex.make(0), itemType: 'WOOD', count: 3 }),
               Option.none(),
             ],
           },
@@ -68,8 +68,8 @@ describe('infrastructure/storage/storage-service', () => {
         furnaceStates: [
           {
             position: { x: 8, y: 64, z: 8 },
-            input: Option.some({ blockType: 'RAW_IRON', count: 1 }),
-            fuel: Option.some({ blockType: 'COAL', count: 1 }),
+            input: Option.some({ itemType: 'RAW_IRON', count: 1 }),
+            fuel: Option.some({ itemType: 'COAL', count: 1 }),
             output: Option.none(),
             activeRecipeId: Option.some('raw-iron-to-iron-ingot' as never),
             progressSecs: 0.5,
@@ -85,9 +85,9 @@ describe('infrastructure/storage/storage-service', () => {
         expect(loaded.playerState?.position).toEqual({ x: 12, y: 70, z: -4 })
         expect(loaded.playerState?.health).toBe(13)
         expect(loaded.playerState?.timeOfDay).toBe(0.75)
-        expect(loaded.playerState?.inventory.slots[0]).toEqual(Option.some({ slot: SlotIndex.make(0), blockType: 'WOOD', count: 3 }))
+        expect(loaded.playerState?.inventory.slots[0]).toEqual(Option.some({ slot: SlotIndex.make(0), itemType: 'WOOD', count: 3 }))
         expect(loaded.furnaceStates?.[0]?.position).toEqual({ x: 8, y: 64, z: 8 })
-        expect(loaded.furnaceStates?.[0]?.input).toEqual(Option.some({ blockType: 'RAW_IRON', count: 1 }))
+        expect(loaded.furnaceStates?.[0]?.input).toEqual(Option.some({ itemType: 'RAW_IRON', count: 1 }))
       }).pipe(Effect.provide(TestLayer))
     })
 

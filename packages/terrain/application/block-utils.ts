@@ -20,21 +20,27 @@ export const worldToBlockLocal = (
   return { chunkCoord: { x: cx, z: cz }, lx, lz }
 }
 
-const PICKAXE_HARVEST_SETS: Partial<Record<ItemType, HashSet.HashSet<BlockType>>> = {
+const PICKAXE_HARVEST_SETS = {
   DIAMOND_PICKAXE: DIAMOND_PICKAXE_HARVESTABLE_BLOCKS,
   IRON_PICKAXE: IRON_PICKAXE_HARVESTABLE_BLOCKS,
   STONE_PICKAXE: STONE_PICKAXE_HARVESTABLE_BLOCKS,
   WOODEN_PICKAXE: WOODEN_PICKAXE_HARVESTABLE_BLOCKS,
-}
+} satisfies Partial<Record<ItemType, HashSet.HashSet<BlockType>>>
+
+type PickaxeTool = keyof typeof PICKAXE_HARVEST_SETS
+
+const isPickaxeTool = (item: InventoryItem): item is PickaxeTool =>
+  item === 'DIAMOND_PICKAXE' ||
+  item === 'IRON_PICKAXE' ||
+  item === 'STONE_PICKAXE' ||
+  item === 'WOODEN_PICKAXE'
 
 export const canHarvestBlock = (blockType: BlockType, selectedTool: Option.Option<InventoryItem>): boolean =>
   Option.match(selectedTool, {
     onNone: () => !HashSet.has(IRON_PICKAXE_HARVESTABLE_BLOCKS, blockType),
     onSome: (tool) => {
-      const harvestSet = (PICKAXE_HARVEST_SETS as Partial<Record<string, HashSet.HashSet<BlockType>>>)[tool]
-      /* c8 ignore next */
-      if (harvestSet === undefined) return !HashSet.has(IRON_PICKAXE_HARVESTABLE_BLOCKS, blockType)
-      return HashSet.has(harvestSet, blockType)
+      if (!isPickaxeTool(tool)) return !HashSet.has(IRON_PICKAXE_HARVESTABLE_BLOCKS, blockType)
+      return HashSet.has(PICKAXE_HARVEST_SETS[tool], blockType)
     },
   })
 

@@ -1,4 +1,5 @@
 import type { InventoryItem } from '@ts-minecraft/kernel'
+import { ITEM_TILE_MAP } from '@ts-minecraft/rendering'
 
 export const SLOT_COLORS: Readonly<Partial<Record<InventoryItem, string>>> = {
   AIR: '#444444', GRASS: '#5a8a3a', DIRT: '#8b6344', STONE: '#888888',
@@ -9,6 +10,33 @@ export const SLOT_COLORS: Readonly<Partial<Record<InventoryItem, string>>> = {
 }
 
 export const DEFAULT_SLOT_COLOR = '#333333'
+
+// Resolve the tile PNG path for a given InventoryItem.
+// Returns the URL to the individual tile image (e.g. "/textures/tile-01-stone.png").
+const TILE_NAMES: Record<number, string> = {
+  0: 'dirt', 1: 'stone', 2: 'wood-side', 3: 'wood-top', 4: 'grass-top', 5: 'grass-side',
+  6: 'sand', 7: 'water', 8: 'leaves', 9: 'glass', 10: 'snow', 11: 'gravel',
+  12: 'cobblestone', 13: 'granite', 14: 'diorite', 15: 'andesite', 16: 'deepslate',
+  17: 'bedrock', 18: 'lava', 19: 'obsidian', 20: 'coal-ore', 21: 'iron-ore', 22: 'gold-ore',
+  23: 'diamond-ore', 24: 'redstone-ore', 25: 'lapis-ore', 26: 'emerald-ore',
+  27: 'deepslate-coal-ore', 28: 'deepslate-iron-ore', 29: 'deepslate-gold-ore',
+  30: 'deepslate-diamond-ore', 31: 'deepslate-redstone-ore', 32: 'deepslate-lapis-ore',
+  33: 'deepslate-emerald-ore', 34: 'coal-block', 35: 'iron-block', 36: 'gold-block',
+  37: 'diamond-block', 38: 'redstone-block', 39: 'lapis-block', 40: 'emerald-block',
+  41: 'planks', 43: 'crafting-table', 44: 'furnace', 45: 'torch',
+  48: 'item-sticks', 49: 'item-coal', 50: 'item-wooden-sword', 51: 'item-wooden-pickaxe',
+  52: 'item-stone-pickaxe', 53: 'item-raw-iron', 54: 'item-iron-ingot', 55: 'item-iron-pickaxe',
+  56: 'item-raw-gold', 57: 'item-gold-ingot', 58: 'item-diamond', 59: 'item-redstone-dust',
+  60: 'item-lapis-lazuli', 61: 'item-emerald', 62: 'item-diamond-pickaxe',
+}
+
+export const getTileImageUrl = (item: InventoryItem): string | null => {
+  const tileIndex = ITEM_TILE_MAP[item]
+  if (tileIndex === undefined || tileIndex < 0) return null
+  const name = TILE_NAMES[tileIndex]
+  if (!name) return null
+  return `/textures/tile-${String(tileIndex).padStart(2, '0')}-${name}.png`
+}
 
 export const SLOT_EL_STYLE = [
   'width:48px', 'height:48px', 'border:2px solid #666',

@@ -3,7 +3,7 @@ import { ChunkError, ChunkManagerService } from '@ts-minecraft/terrain'
 import { ChunkCoord, CHUNK_SIZE, CHUNK_HEIGHT, blockTypeToIndex, indexToBlockType } from '@ts-minecraft/kernel'
 import { ChunkServiceLive, Chunk } from '@ts-minecraft/terrain'
 import { PlayerService } from '@ts-minecraft/player'
-import { BlockType } from '@ts-minecraft/kernel'
+import type { BlockType, InventoryItem } from '@ts-minecraft/kernel'
 import { ChunkCacheKey, Position, PlayerId, SlotIndex } from '@ts-minecraft/kernel'
 import { PlayerError } from '@ts-minecraft/player'
 import { BlockServiceLive, worldToBlockLocal } from '@ts-minecraft/terrain'
@@ -70,6 +70,7 @@ export const createMockChunkManagerService = (
     getChunk: (coord: ChunkCoord) => Effect.sync(() => ensureChunk(coord)),
     loadChunksAroundPlayer: (_playerPos: Position, _renderDistance?: number) => Effect.succeed(false),
     getLoadedChunks: () => Effect.succeed(Arr.fromIterable(MutableHashMap.values(chunkMap))),
+    drainRenderDirtyChunks: () => Effect.succeed([]),
     markChunkDirty: (_coord: ChunkCoord) => Effect.void,
     saveDirtyChunks: () => Effect.void,
     unloadChunk: (_coord: ChunkCoord) => Effect.void,
@@ -87,6 +88,7 @@ export const createFailingChunkManagerService = (): ChunkManagerService => Chunk
     Effect.fail(new ChunkError({ chunkCoord: { x: 0, z: 0 }, reason: 'Chunk load error' })),
   loadChunksAroundPlayer: (_playerPos: Position, _renderDistance?: number) => Effect.succeed(false),
   getLoadedChunks: () => Effect.succeed([]),
+  drainRenderDirtyChunks: () => Effect.succeed([]),
   markChunkDirty: (_coord: ChunkCoord) => Effect.void,
   saveDirtyChunks: () => Effect.void,
   unloadChunk: (_coord: ChunkCoord) => Effect.void,
@@ -113,14 +115,14 @@ export const createFailingPlayerService = (): PlayerService => PlayerService.of(
 })
 
 export const createMockInventoryService = (options?: {
-  readonly removeBlock?: (blockType: BlockType, count: number, slot?: SlotIndex) => Effect.Effect<void, InventoryError>
-  readonly addBlock?: (blockType: BlockType, count: number) => Effect.Effect<void, InventoryError>
+  readonly removeBlock?: (itemType: InventoryItem, count: number, slot?: SlotIndex) => Effect.Effect<void, InventoryError>
+  readonly addBlock?: (itemType: InventoryItem, count: number) => Effect.Effect<void, InventoryError>
 }): InventoryService => InventoryService.of({
   _tag: '@minecraft/application/InventoryService' as const,
-  addBlock: (blockType: BlockType, count: number) =>
-    options?.addBlock ? options.addBlock(blockType, count) : Effect.void,
-  removeBlock: (blockType: BlockType, count: number, slot?: SlotIndex) =>
-    options?.removeBlock ? options.removeBlock(blockType, count, slot) : Effect.void,
+  addBlock: (itemType: InventoryItem, count: number) =>
+    options?.addBlock ? options.addBlock(itemType, count) : Effect.void,
+  removeBlock: (itemType: InventoryItem, count: number, slot?: SlotIndex) =>
+    options?.removeBlock ? options.removeBlock(itemType, count, slot) : Effect.void,
   getSlot: (_idx: SlotIndex) => Effect.succeed(Option.none<InventorySlot extends Option.Option<infer T> ? T : never>()),
   setSlot: (_idx: SlotIndex, _slot: InventorySlot) => Effect.void,
   moveStack: (_from: SlotIndex, _to: SlotIndex) => Effect.void,
@@ -131,7 +133,7 @@ export const createMockInventoryService = (options?: {
   deserialize: (_data) => Effect.void,
 })
 
-export const createMockHotbarService = (selectedBlockType: Option.Option<BlockType> = Option.none()): HotbarService => HotbarService.of({
+export const createMockHotbarService = (selectedBlockType: Option.Option<InventoryItem> = Option.none()): HotbarService => HotbarService.of({
   _tag: '@minecraft/application/HotbarService' as const,
   getSelectedSlot: () => Effect.succeed(SlotIndex.make(0)),
   setSelectedSlot: (_slot: SlotIndex) => Effect.void,

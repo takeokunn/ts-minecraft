@@ -1,4 +1,4 @@
-import { Array as Arr, Effect } from 'effect'
+import { Effect } from 'effect'
 import type { CustomBody } from '../../domain/physics-body'
 import type { CustomWorld, WorldConfig } from '../../domain/physics-world'
 import type { DeltaTimeSecs } from '@ts-minecraft/kernel'
@@ -14,23 +14,27 @@ export class PhysicsWorldService extends Effect.Service<PhysicsWorldService>()(
         }),
       addBody: (world: CustomWorld, body: CustomBody): Effect.Effect<void, never> =>
         Effect.sync(() => {
-          world.bodies = Arr.append(world.bodies, body)
+          world.bodies.push(body)
         }),
       removeBody: (world: CustomWorld, body: CustomBody): Effect.Effect<void, never> =>
         Effect.sync(() => {
-          world.bodies = Arr.filter(world.bodies, (b) => b !== body)
+          for (let index = world.bodies.length - 1; index >= 0; index -= 1) {
+            if (world.bodies[index] === body) {
+              world.bodies.splice(index, 1)
+            }
+          }
         }),
       step: (world: CustomWorld, deltaTime: DeltaTimeSecs): Effect.Effect<void, never> =>
         Effect.sync(() => {
-          Arr.forEach(world.bodies, (body) => {
-            if (body.type !== 'dynamic') return
+          const gravityY = world.gravity.y
+          for (const body of world.bodies) {
+            if (body.type !== 'dynamic') continue
 
-            // Euler integration with gravity
-            body.velocity.y += world.gravity.y * deltaTime
+            body.velocity.y += gravityY * deltaTime
             body.position.x += body.velocity.x * deltaTime
             body.position.y += body.velocity.y * deltaTime
             body.position.z += body.velocity.z * deltaTime
-          })
+          }
         }),
     },
   }

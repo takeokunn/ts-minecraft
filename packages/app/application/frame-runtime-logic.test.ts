@@ -40,6 +40,12 @@ describe('frame-runtime-logic', () => {
     camera.quaternion.set(0, 0.5, 0, 1)
     const rotated = captureCameraPose(camera, 1)
     expect(hasCameraPoseChanged(previous, rotated)).toBe(true)
+
+    camera.quaternion.set(0, 0, 0, 1)
+    camera.far = 512
+    camera.updateProjectionMatrix()
+    const projectionChanged = captureCameraPose(camera, 1)
+    expect(hasCameraPoseChanged(previous, projectionChanged)).toBe(true)
   })
 
   it('decides adaptive quality changes in the expected order', () => {
@@ -97,6 +103,15 @@ describe('frame-runtime-logic', () => {
       renderDistance: 4,
       fps: 40,
       cooldown: 0,
+    })).toEqual({ nextCooldown: 0, settingsPatch: Option.none() })
+
+    expect(decideAdaptiveQuality({
+      adaptivePerformanceMode: true,
+      graphicsQuality: 'low',
+      renderDistance: 8,
+      fps: 40,
+      cooldown: 0,
+      chunkSyncPending: true,
     })).toEqual({ nextCooldown: 0, settingsPatch: Option.none() })
   })
 })

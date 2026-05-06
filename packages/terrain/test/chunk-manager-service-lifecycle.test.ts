@@ -1,13 +1,14 @@
 import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
-import { Array as Arr, Effect, Option } from 'effect'
+import { Array as Arr, Effect, Option, TestClock, TestContext } from 'effect'
 import {
   ChunkManagerService,
   RENDER_DISTANCE,
   MAX_CACHED_CHUNKS,
   getChunksInRenderDistance,
 } from '@ts-minecraft/terrain'
-import { DEFAULT_WORLD_ID } from '@ts-minecraft/kernel'
+import { CHUNK_SIZE, DEFAULT_WORLD_ID, WorldId } from '@ts-minecraft/kernel'
+import { setActiveChunkWorldId } from '../application/chunk-manager-service'
 import {
   buildTestLayer,
   buildTestLayerWithStoredChunks,
@@ -35,20 +36,24 @@ describe('application/chunk/chunk-manager-service', () => {
 
     it.effect('auto-saves dirty chunk to storage on unload', () => {
       const { TestLayer, storage } = buildTestLayer()
+      const customWorldId = WorldId.make('world-2')
 
       return Effect.gen(function* () {
         const service = yield* ChunkManagerService
+        yield* Effect.sync(() => setActiveChunkWorldId(customWorldId))
 
         yield* service.getChunk({ x: 4, z: 4 })
         yield* service.markChunkDirty({ x: 4, z: 4 })
-
         yield* service.unloadChunk({ x: 4, z: 4 })
 
-        const stored = yield* storage.loadChunk(DEFAULT_WORLD_ID, { x: 4, z: 4 })
-        expect(Option.isSome(stored)).toBe(true)
+        const customStored = yield* storage.loadChunk(customWorldId, { x: 4, z: 4 })
+        const defaultStored = yield* storage.loadChunk(DEFAULT_WORLD_ID, { x: 4, z: 4 })
+        expect(Option.isSome(customStored)).toBe(true)
+        expect(Option.isNone(defaultStored)).toBe(true)
+
+        yield* Effect.sync(() => setActiveChunkWorldId(DEFAULT_WORLD_ID))
       }).pipe(Effect.provide(TestLayer))
     })
-
     it.effect('is a no-op when chunk is not loaded', () => {
       const { TestLayer } = buildTestLayer()
 
@@ -59,6 +64,21 @@ describe('application/chunk/chunk-manager-service', () => {
 
         const loaded = yield* service.getLoadedChunks()
         expect(loaded.length).toBe(0)
+      }).pipe(Effect.provide(TestLayer))
+    })
+
+    it.effect('removes unloaded chunks from the render-dirty drain set', () => {
+      const { TestLayer } = buildTestLayer()
+
+      return Effect.gen(function* () {
+        const service = yield* ChunkManagerService
+
+        yield* service.getChunk({ x: 6, z: 6 })
+        yield* service.markChunkDirty({ x: 6, z: 6 })
+        yield* service.unloadChunk({ x: 6, z: 6 })
+
+        const renderDirtyChunks = yield* service.drainRenderDirtyChunks()
+        expect(renderDirtyChunks).toEqual([])
       }).pipe(Effect.provide(TestLayer))
     })
   })
@@ -109,7 +129,7 @@ describe('application/chunk/chunk-manager-service', () => {
       }).pipe(Effect.provide(TestLayer))
     }, 35_000)
 
-    it.live('does not cap loading at the old unload radius', () => {
+    it.effect('does not cap loading at the old unload radius', () => {
       const preloadCoords = getChunksInRenderDistance({ x: 0, z: 0 }, 11)
       const { TestLayer, seedStorage } = buildTestLayerWithStoredChunks(preloadCoords)
 
@@ -117,26 +137,36 @@ describe('application/chunk/chunk-manager-service', () => {
         yield* seedStorage
         const service = yield* ChunkManagerService
 
-        yield* service.loadChunksAroundPlayer({ x: 0, y: 64, z: 0 }, 11)
+        let completed = yield* service.loadChunksAroundPlayer({ x: 0, y: 64, z: 0 }, 11)
+        for (let i = 0; i < preloadCoords.length; i += 1) {
+          if (completed) break
+          yield* TestClock.adjust('200 millis')
+          completed = yield* service.loadChunksAroundPlayer({ x: 0, y: 64, z: 0 }, 11)
+        }
 
         const loaded = yield* service.getLoadedChunks()
+        expect(completed).toBe(true)
         expect(Arr.some(loaded, (chunk) => chunk.coord.x === 11 && chunk.coord.z === 0)).toBe(true)
-      }).pipe(Effect.provide(TestLayer))
+      }).pipe(
+        Effect.provide(TestLayer),
+        Effect.provide(TestContext.TestContext),
+      )
     }, 35_000)
 
     it.effect('is throttled: second immediate call does not reload chunks', () => {
-      const preloadCoords = getChunksInRenderDistance({ x: 0, z: 0 }, RENDER_DISTANCE)
+      const renderDistance = 2
+      const preloadCoords = getChunksInRenderDistance({ x: 0, z: 0 }, renderDistance)
       const { TestLayer, seedStorage } = buildTestLayerWithStoredChunks(preloadCoords)
 
       return Effect.gen(function* () {
         yield* seedStorage
         const service = yield* ChunkManagerService
 
-        const firstLoaded = yield* service.loadChunksAroundPlayer({ x: 0, y: 64, z: 0 })
+        const firstLoaded = yield* service.loadChunksAroundPlayer({ x: 0, y: 64, z: 0 }, renderDistance)
         const afterFirst = yield* service.getLoadedChunks()
         const countFirst = afterFirst.length
 
-        const secondLoaded = yield* service.loadChunksAroundPlayer({ x: 0, y: 64, z: 0 })
+        const secondLoaded = yield* service.loadChunksAroundPlayer({ x: 0, y: 64, z: 0 }, renderDistance)
         const afterSecond = yield* service.getLoadedChunks()
         const countSecond = afterSecond.length
 
@@ -144,6 +174,48 @@ describe('application/chunk/chunk-manager-service', () => {
         expect(secondLoaded).toBe(false)
         expect(countFirst).toBe(countSecond)
       }).pipe(Effect.provide(TestLayer))
+    }, 20_000)
+
+    it.effect('streams large render distances in small throttled batches', () => {
+      const renderDistance = 3
+      const center = { x: 64, z: 64 }
+      const preloadCoords = getChunksInRenderDistance(center, renderDistance)
+      const { TestLayer, seedStorage } = buildTestLayerWithStoredChunks(preloadCoords)
+      const playerPos = { x: center.x * CHUNK_SIZE, y: 64, z: center.z * CHUNK_SIZE }
+
+      return Effect.gen(function* () {
+        yield* seedStorage
+        const service = yield* ChunkManagerService
+        const beforeFirst = yield* service.getLoadedChunks()
+
+        const firstLoaded = yield* service.loadChunksAroundPlayer(playerPos, renderDistance)
+        const afterFirst = yield* service.getLoadedChunks()
+        const firstDelta = afterFirst.length - beforeFirst.length
+
+        const immediateSecondLoaded = yield* service.loadChunksAroundPlayer(playerPos, renderDistance)
+        const afterImmediateSecond = yield* service.getLoadedChunks()
+        const immediateSecondDelta = afterImmediateSecond.length - afterFirst.length
+
+        let completed = firstLoaded
+        for (let i = 0; i < preloadCoords.length; i += 1) {
+          if (completed) break
+          yield* TestClock.adjust('200 millis')
+          completed = yield* service.loadChunksAroundPlayer(playerPos, renderDistance)
+        }
+
+        const afterStreaming = yield* service.getLoadedChunks()
+
+        expect(firstDelta).toBeGreaterThan(0)
+        expect(immediateSecondLoaded).toBe(false)
+        expect(immediateSecondDelta).toBe(0)
+        expect(completed).toBe(true)
+        Arr.forEach(preloadCoords, (coord) => {
+          expect(Arr.some(afterStreaming, (chunk) => chunk.coord.x === coord.x && chunk.coord.z === coord.z)).toBe(true)
+        })
+      }).pipe(
+        Effect.provide(TestLayer),
+        Effect.provide(TestContext.TestContext),
+      )
     }, 20_000)
   })
 

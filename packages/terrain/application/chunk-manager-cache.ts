@@ -1,7 +1,7 @@
 import { HashSet, HashMap, Schema } from 'effect'
 import { ChunkSchema } from '../domain/chunk'
 import { FLUID_BYTE_LENGTH, createFluidBuffer } from '@ts-minecraft/world-state'
-import type { ChunkCacheKey } from '@ts-minecraft/kernel'
+import type { ChunkCacheKey, WorldId } from '@ts-minecraft/kernel'
 
 const isStoredRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null
@@ -30,14 +30,20 @@ export const storedChunkPayload = (stored: unknown): { blocks: Uint8Array<ArrayB
 // lastAccessed is intentionally mutable for O(1) in-place LRU updates.
 export const ChunkCacheEntrySchema = Schema.mutable(
   Schema.Struct({
-    chunk: ChunkSchema,         // ChunkSchema defined in src/domain/chunk.ts
-    lastAccessed: Schema.Number.pipe(Schema.int(), Schema.nonNegative()),  // mutable for O(1) LRU in-place updates
+    chunk: ChunkSchema,
+    lastAccessed: Schema.Number.pipe(Schema.int(), Schema.nonNegative()),
+    worldId: Schema.optional(Schema.String),
   }),
 )
-export type ChunkCacheEntry = Schema.Schema.Type<typeof ChunkCacheEntrySchema>
+export type ChunkCacheEntry = {
+  chunk: Schema.Schema.Type<typeof ChunkSchema>
+  lastAccessed: number
+  worldId?: WorldId
+}
 
 // FR-006 DEFERRED: Effect.Cache lacks required eviction hooks, distance eviction, and per-chunk atomicity.
 export type ChunkCache = {
   chunks: HashMap.HashMap<ChunkCacheKey, ChunkCacheEntry>
   dirtyChunks: HashSet.HashSet<ChunkCacheKey>
+  renderDirtyChunks: HashSet.HashSet<ChunkCacheKey>
 }

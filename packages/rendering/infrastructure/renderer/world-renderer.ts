@@ -59,11 +59,15 @@ export class WorldRendererService extends Effect.Service<WorldRendererService>()
         qy: NaN,
         qz: NaN,
         qw: NaN,
+        p0: NaN,
+        p5: NaN,
+        p10: NaN,
+        p14: NaN,
       })
 
-      // Dedicated refraction camera — cloned once, far=128 permanently.
-      // Per-frame doRefractionPrePass copies position/quaternion (cheap matrix copy)
-      // instead of mutating the main camera's far plane and calling updateProjectionMatrix() twice.
+      // Dedicated refraction camera. Projection is synchronized from the main
+      // camera only when it changes, keeping render-distance updates visible to
+      // the water pre-pass without mutating the main camera.
       const refractionCamera = yield* Effect.sync(() => {
         const cam = new THREE.PerspectiveCamera()
         cam.fov = 75

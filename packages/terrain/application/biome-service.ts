@@ -53,6 +53,21 @@ export class BiomeService extends Effect.Service<BiomeService>()(
       const getBiomeProperties = (biome: BiomeType): Effect.Effect<BiomeProperties, never, never> =>
         Effect.succeed(BIOME_PROPERTIES[biome])
 
+      const coordKey = (x: number, z: number): string => `${x},${z}`
+
+      const addOutsideNeighbor = (
+        coords: Array<Readonly<{ readonly key: string; readonly x: number; readonly z: number }>>,
+        indexByKey: Map<string, number>,
+        x: number,
+        z: number,
+      ): void => {
+        const key = coordKey(x, z)
+        if (!indexByKey.has(key)) {
+          indexByKey.set(key, coords.length)
+          coords.push({ key, x, z })
+        }
+      }
+
       const getBiomesAndPropertiesForChunk = (
         chunkX: number,
         chunkZ: number,
@@ -90,32 +105,59 @@ export class BiomeService extends Effect.Service<BiomeService>()(
                 riverNoise: riverNoiseVals[i]!,
               })
             })
+
+            const outsideNeighborCoords: Array<Readonly<{ readonly key: string; readonly x: number; readonly z: number }>> = []
+            const outsideNeighborIndexByKey = new Map<string, number>()
+            const baseWorldX = chunkX * CHUNK_SIZE
+            const baseWorldZ = chunkZ * CHUNK_SIZE
+
+            for (let lx = 0; lx < CHUNK_SIZE; lx++) {
+              const worldX = baseWorldX + lx
+              for (let lz = 0; lz < CHUNK_SIZE; lz++) {
+                const worldZ = baseWorldZ + lz
+                if (lx === 0) addOutsideNeighbor(outsideNeighborCoords, outsideNeighborIndexByKey, worldX - 1, worldZ)
+                if (lx === CHUNK_SIZE - 1) addOutsideNeighbor(outsideNeighborCoords, outsideNeighborIndexByKey, worldX + 1, worldZ)
+                if (lz === 0) addOutsideNeighbor(outsideNeighborCoords, outsideNeighborIndexByKey, worldX, worldZ - 1)
+                if (lz === CHUNK_SIZE - 1) addOutsideNeighbor(outsideNeighborCoords, outsideNeighborIndexByKey, worldX, worldZ + 1)
+              }
+            }
+
             return Effect.forEach(
-              Arr.makeBy(coords.length, (i) => i),
-              (i) => {
+              outsideNeighborCoords,
+              ({ x, z }) => getBiome(x, z),
+              { concurrency: 'unbounded' },
+            ).pipe(
+              Effect.map((outsideNeighborBiomes) => Arr.makeBy(coords.length, (i) => {
                 const lx = Math.floor(i / CHUNK_SIZE)
                 const lz = i % CHUNK_SIZE
-                const worldX = chunkX * CHUNK_SIZE + lx
-                const worldZ = chunkZ * CHUNK_SIZE + lz
+                const worldX = baseWorldX + lx
+                const worldZ = baseWorldZ + lz
                 const biome = baseBiomes[i]!
                 const terrainIdx = batchTerrainIndexFor(i)
-                return Effect.all([
-                  getBiome(worldX - 1, worldZ),
-                  getBiome(worldX + 1, worldZ),
-                  getBiome(worldX, worldZ - 1),
-                  getBiome(worldX, worldZ + 1),
-                ], { concurrency: 'unbounded' }).pipe(
-                  Effect.map((neighbors) => {
-                    const refinedBiome = refineBeachBiome(
-                      biome,
-                      neighbors,
-                      terrainChannels.continentalness[terrainIdx]!,
-                    )
-                    return { biome: refinedBiome, props: BIOME_PROPERTIES[refinedBiome] }
-                  }),
+
+                const getNeighborBiome = (dx: number, dz: number): BiomeType => {
+                  const nx = lx + dx
+                  const nz = lz + dz
+                  if (nx >= 0 && nx < CHUNK_SIZE && nz >= 0 && nz < CHUNK_SIZE) {
+                    return baseBiomes[nx * CHUNK_SIZE + nz]!
+                  }
+
+                  const outsideIndex = outsideNeighborIndexByKey.get(coordKey(worldX + dx, worldZ + dz))
+                  return outsideIndex === undefined ? biome : outsideNeighborBiomes[outsideIndex]!
+                }
+
+                const refinedBiome = refineBeachBiome(
+                  biome,
+                  [
+                    getNeighborBiome(-1, 0),
+                    getNeighborBiome(1, 0),
+                    getNeighborBiome(0, -1),
+                    getNeighborBiome(0, 1),
+                  ],
+                  terrainChannels.continentalness[terrainIdx]!,
                 )
-              },
-              { concurrency: 'unbounded' },
+                return { biome: refinedBiome, props: BIOME_PROPERTIES[refinedBiome] }
+              }))
             )
           })
         )

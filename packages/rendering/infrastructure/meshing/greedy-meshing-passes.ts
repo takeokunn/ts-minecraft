@@ -46,7 +46,7 @@ export const packMask = (
 
 // Dequantize 2-bit corner light to a 4-bit value (0..15). Spread evenly:
 // 0 → 0, 1 → 5, 2 → 10, 3 → 15.
-export const dequantLight = (q: number): number => Math.round(q * 5)
+export const dequantLight = (q: number): number => q * 5
 
 // ─── Shared greedy expansion ────────────────────────────────────────────────
 //
@@ -69,33 +69,30 @@ export const runGreedyExpansion = (
   mask: Uint32Array,
   uSize: number,
   vSize: number,
-  doneBuf: Uint8Array,
   emitQuad: EmitQuad
 ): void => {
-  const done = doneBuf.subarray(0, uSize * vSize)
-  done.fill(0)
   for (let u = 0; u < uSize; u++) {
     for (let v = 0; v < vSize; v++) {
       const mi = u * vSize + v
       const maskValue = mask[mi]!
-      if (!maskValue || done[mi]) continue
+      if (!maskValue) continue
       let dv = 1
-      while (v + dv < vSize && mask[u * vSize + v + dv] === maskValue && !done[u * vSize + v + dv]) {
+      while (v + dv < vSize && mask[mi + dv] === maskValue) {
         dv++
       }
       let du = 1
       outer: while (u + du < uSize) {
+        const rowStart = (u + du) * vSize + v
         for (let k = 0; k < dv; k++) {
-          if (mask[(u + du) * vSize + v + k] !== maskValue || done[(u + du) * vSize + v + k]) {
+          if (mask[rowStart + k] !== maskValue) {
             break outer
           }
         }
         du++
       }
       for (let a = u; a < u + du; a++) {
-        for (let b = v; b < v + dv; b++) {
-          done[a * vSize + b] = 1
-        }
+        const rowStart = a * vSize + v
+        mask.fill(0, rowStart, rowStart + dv)
       }
       emitQuad(u, v, du, dv, maskValue)
     }
@@ -168,7 +165,6 @@ export const makeEmitQuad = (
 export type FacePassState = {
   readonly blocks: Readonly<Uint8Array>
   readonly lightGrids: LightGrids | undefined
-  readonly doneBuf: Uint8Array
   readonly maskCH: Uint32Array
   readonly maskSS: Uint32Array
   readonly opaqueAcc: MeshAccumulator

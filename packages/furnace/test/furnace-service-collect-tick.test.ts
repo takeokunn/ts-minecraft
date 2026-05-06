@@ -7,7 +7,7 @@ import { InventoryService } from '@ts-minecraft/inventory'
 import { PlayerService } from '@ts-minecraft/player'
 import { ChunkManagerService } from '@ts-minecraft/terrain'
 import { RecipeId, DeltaTimeSecs } from '@ts-minecraft/kernel'
-import type { BlockType, InventoryItem } from '@ts-minecraft/kernel'
+import type { InventoryItem } from '@ts-minecraft/kernel'
 import {
   makeChunkManagerService,
   makeFurnaceLayer,

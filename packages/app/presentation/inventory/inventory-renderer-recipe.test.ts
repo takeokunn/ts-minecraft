@@ -56,7 +56,7 @@ describe('presentation/inventory/inventory-renderer (recipe)', () => {
             position: { x: 0, y: 64, z: 0 },
             input: Option.none(),
             fuel: Option.none(),
-            output: Option.some({ blockType: 'STONE', count: 1 }),
+            output: Option.some({ itemType: 'STONE', count: 1 }),
             activeRecipeId: Option.none(),
             progressSecs: 0,
           })),

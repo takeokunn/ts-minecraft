@@ -2,10 +2,12 @@
  * Generates individual tile PNGs and a combined atlas.png into /public/textures/.
  * Run once with: pnpm generate-textures
  *
- * - tile-{00-47}-*.png : individual 32×32 tiles for manual inspection/editing
+ * - tile-{00-62}-*.png : individual 32×32 tiles for manual inspection/editing
  * - atlas.png          : 512×512 combined atlas loaded by chunk-mesh.ts at runtime
  *
- * Drawing logic is the single source of truth for all block appearance.
+ * Drawing logic is the single source of truth for all block and item appearance.
+ * Tiles 0-47: block textures (indexed by TILE_MAP in block-texture-map.config.ts)
+ * Tiles 48-62: item textures (indexed by ITEM_TILE_MAP in item-texture-map.config.ts)
  */
 
 import { createCanvas } from '@napi-rs/canvas'
@@ -498,8 +500,273 @@ saveTile(47, 'wooden-sword', (ctx) => {
   ctx.fillRect(13, 2, 6, 10)
 })
 
+// ── Item tiles (48-62) ───────────────────────────────────────────────────────
+
+// tile 48: sticks (improved — diagonal cross)
+saveTile(48, 'item-sticks', (ctx) => {
+  ctx.fillStyle = '#3b2a18'
+  ctx.fillRect(0, 0, TILE_PX, TILE_PX)
+  ctx.fillStyle = '#c9a26b'
+  // diagonal stick 1
+  for (let i = 0; i < 20; i++) {
+    ctx.fillRect(6 + i, 4 + i, 3, 1)
+  }
+  // diagonal stick 2
+  for (let i = 0; i < 20; i++) {
+    ctx.fillRect(22 - i, 6 + i, 3, 1)
+  }
+  ctx.fillStyle = '#b08a50'
+  for (let i = 0; i < 18; i++) {
+    ctx.fillRect(7 + i, 5 + i, 1, 1)
+  }
+})
+
+// tile 49: coal (dark lumpy item)
+saveTile(49, 'item-coal', (ctx) => {
+  ctx.fillStyle = '#3b2a18'
+  ctx.fillRect(0, 0, TILE_PX, TILE_PX)
+  ctx.fillStyle = '#1a1a1a'
+  ctx.fillRect(9, 7, 14, 18)
+  ctx.fillRect(7, 9, 18, 14)
+  ctx.fillStyle = '#3a3a3a'
+  ctx.fillRect(10, 8, 4, 3)
+  ctx.fillRect(16, 14, 3, 4)
+  ctx.fillStyle = '#0a0a0a'
+  ctx.fillRect(12, 18, 5, 3)
+})
+
+// tile 50: wooden sword (improved)
+saveTile(50, 'item-wooden-sword', (ctx) => {
+  ctx.fillStyle = '#3b2a18'
+  ctx.fillRect(0, 0, TILE_PX, TILE_PX)
+  // blade (wooden)
+  ctx.fillStyle = '#e8d0a8'
+  ctx.fillRect(14, 2, 4, 12)
+  ctx.fillRect(12, 3, 8, 2)
+  // crossguard
+  ctx.fillStyle = '#8b6f47'
+  ctx.fillRect(10, 13, 12, 3)
+  // handle
+  ctx.fillStyle = '#6b4423'
+  ctx.fillRect(14, 16, 4, 10)
+  // pommel
+  ctx.fillStyle = '#8b6f47'
+  ctx.fillRect(13, 25, 6, 3)
+})
+
+// tile 51: wooden pickaxe
+saveTile(51, 'item-wooden-pickaxe', (ctx) => {
+  ctx.fillStyle = '#3b2a18'
+  ctx.fillRect(0, 0, TILE_PX, TILE_PX)
+  // handle (diagonal)
+  ctx.fillStyle = '#6b4423'
+  for (let i = 0; i < 22; i++) {
+    ctx.fillRect(8 + Math.floor(i * 0.6), 10 + i, 2, 1)
+  }
+  // head
+  ctx.fillStyle = '#c9a26b'
+  ctx.fillRect(4, 2, 24, 3)
+  ctx.fillRect(4, 5, 4, 4)
+  ctx.fillRect(24, 5, 4, 4)
+  ctx.fillStyle = '#e8d0a8'
+  ctx.fillRect(10, 3, 12, 1)
+})
+
+// tile 52: stone pickaxe
+saveTile(52, 'item-stone-pickaxe', (ctx) => {
+  ctx.fillStyle = '#3b2a18'
+  ctx.fillRect(0, 0, TILE_PX, TILE_PX)
+  // handle
+  ctx.fillStyle = '#6b4423'
+  for (let i = 0; i < 22; i++) {
+    ctx.fillRect(8 + Math.floor(i * 0.6), 10 + i, 2, 1)
+  }
+  // stone head
+  ctx.fillStyle = '#8a8a8a'
+  ctx.fillRect(4, 2, 24, 4)
+  ctx.fillRect(4, 6, 5, 4)
+  ctx.fillRect(23, 6, 5, 4)
+  ctx.fillStyle = '#aaaaaa'
+  ctx.fillRect(10, 3, 12, 1)
+})
+
+// tile 53: raw iron (peach/tan lump)
+saveTile(53, 'item-raw-iron', (ctx) => {
+  ctx.fillStyle = '#3b2a18'
+  ctx.fillRect(0, 0, TILE_PX, TILE_PX)
+  ctx.fillStyle = '#b38b6d'
+  ctx.fillRect(8, 8, 16, 16)
+  ctx.fillRect(6, 10, 20, 12)
+  ctx.fillStyle = '#c9a080'
+  ctx.fillRect(10, 9, 6, 4)
+  ctx.fillStyle = '#8a6a4a'
+  ctx.fillRect(14, 18, 5, 3)
+})
+
+// tile 54: iron ingot (metallic bar)
+saveTile(54, 'item-iron-ingot', (ctx) => {
+  ctx.fillStyle = '#3b2a18'
+  ctx.fillRect(0, 0, TILE_PX, TILE_PX)
+  ctx.fillStyle = '#d8d8d8'
+  ctx.fillRect(4, 10, 24, 12)
+  ctx.fillStyle = '#eeeeee'
+  ctx.fillRect(5, 11, 22, 2)
+  ctx.fillRect(5, 11, 2, 9)
+  ctx.fillStyle = '#a8a8a8'
+  ctx.fillRect(5, 20, 22, 1)
+  ctx.fillRect(26, 12, 1, 9)
+  // trapezoid shape
+  ctx.fillStyle = '#3b2a18'
+  ctx.fillRect(2, 10, 2, 12)
+  ctx.fillRect(28, 10, 2, 12)
+})
+
+// tile 55: iron pickaxe
+saveTile(55, 'item-iron-pickaxe', (ctx) => {
+  ctx.fillStyle = '#3b2a18'
+  ctx.fillRect(0, 0, TILE_PX, TILE_PX)
+  // handle
+  ctx.fillStyle = '#6b4423'
+  for (let i = 0; i < 22; i++) {
+    ctx.fillRect(8 + Math.floor(i * 0.6), 10 + i, 2, 1)
+  }
+  // iron head
+  ctx.fillStyle = '#d8d8d8'
+  ctx.fillRect(4, 2, 24, 4)
+  ctx.fillRect(4, 6, 5, 4)
+  ctx.fillRect(23, 6, 5, 4)
+  ctx.fillStyle = '#eeeeee'
+  ctx.fillRect(10, 3, 12, 1)
+  ctx.fillStyle = '#a8a8a8'
+  ctx.fillRect(4, 5, 24, 1)
+})
+
+// tile 56: raw gold (dark gold lump)
+saveTile(56, 'item-raw-gold', (ctx) => {
+  ctx.fillStyle = '#3b2a18'
+  ctx.fillRect(0, 0, TILE_PX, TILE_PX)
+  ctx.fillStyle = '#c7a340'
+  ctx.fillRect(8, 8, 16, 16)
+  ctx.fillRect(6, 10, 20, 12)
+  ctx.fillStyle = '#ddb850'
+  ctx.fillRect(10, 9, 6, 4)
+  ctx.fillStyle = '#9a7a20'
+  ctx.fillRect(14, 18, 5, 3)
+})
+
+// tile 57: gold ingot (golden bar)
+saveTile(57, 'item-gold-ingot', (ctx) => {
+  ctx.fillStyle = '#3b2a18'
+  ctx.fillRect(0, 0, TILE_PX, TILE_PX)
+  ctx.fillStyle = '#f0c020'
+  ctx.fillRect(4, 10, 24, 12)
+  ctx.fillStyle = '#ffd840'
+  ctx.fillRect(5, 11, 22, 2)
+  ctx.fillRect(5, 11, 2, 9)
+  ctx.fillStyle = '#b08000'
+  ctx.fillRect(5, 20, 22, 1)
+  ctx.fillRect(26, 12, 1, 9)
+  ctx.fillStyle = '#3b2a18'
+  ctx.fillRect(2, 10, 2, 12)
+  ctx.fillRect(28, 10, 2, 12)
+})
+
+// tile 58: diamond (cyan gem)
+saveTile(58, 'item-diamond', (ctx) => {
+  ctx.fillStyle = '#3b2a18'
+  ctx.fillRect(0, 0, TILE_PX, TILE_PX)
+  // diamond shape
+  ctx.fillStyle = '#40e0e0'
+  ctx.fillRect(12, 4, 8, 4)
+  ctx.fillRect(10, 8, 12, 4)
+  ctx.fillRect(8, 12, 16, 4)
+  ctx.fillRect(10, 16, 12, 4)
+  ctx.fillRect(12, 20, 8, 4)
+  // highlight
+  ctx.fillStyle = '#80ffff'
+  ctx.fillRect(14, 5, 4, 2)
+  ctx.fillRect(12, 9, 4, 2)
+  // shadow
+  ctx.fillStyle = '#20a0c0'
+  ctx.fillRect(18, 17, 3, 2)
+  ctx.fillRect(12, 21, 4, 2)
+})
+
+// tile 59: redstone dust (red sparkly powder)
+saveTile(59, 'item-redstone-dust', (ctx) => {
+  ctx.fillStyle = '#3b2a18'
+  ctx.fillRect(0, 0, TILE_PX, TILE_PX)
+  ctx.fillStyle = '#b02020'
+  ctx.fillRect(6, 6, 20, 20)
+  ctx.fillStyle = '#ff4040'
+  ctx.fillRect(8, 8, 4, 4)
+  ctx.fillRect(18, 12, 4, 4)
+  ctx.fillRect(12, 18, 4, 4)
+  ctx.fillStyle = '#801010'
+  ctx.fillRect(14, 8, 6, 3)
+  ctx.fillRect(8, 16, 5, 4)
+  // sparkle dots
+  ctx.fillStyle = '#ff8080'
+  ctx.fillRect(10, 10, 2, 2)
+  ctx.fillRect(20, 14, 2, 2)
+})
+
+// tile 60: lapis lazuli (blue stone)
+saveTile(60, 'item-lapis-lazuli', (ctx) => {
+  ctx.fillStyle = '#3b2a18'
+  ctx.fillRect(0, 0, TILE_PX, TILE_PX)
+  ctx.fillStyle = '#2050c0'
+  ctx.fillRect(8, 8, 16, 16)
+  ctx.fillRect(6, 10, 20, 12)
+  ctx.fillStyle = '#4080ff'
+  ctx.fillRect(10, 9, 6, 4)
+  ctx.fillRect(16, 16, 5, 3)
+  ctx.fillStyle = '#1030a0'
+  ctx.fillRect(14, 20, 4, 2)
+})
+
+// tile 61: emerald (green gem)
+saveTile(61, 'item-emerald', (ctx) => {
+  ctx.fillStyle = '#3b2a18'
+  ctx.fillRect(0, 0, TILE_PX, TILE_PX)
+  // emerald shape — hexagonal
+  ctx.fillStyle = '#20c040'
+  ctx.fillRect(12, 4, 8, 4)
+  ctx.fillRect(10, 8, 12, 4)
+  ctx.fillRect(8, 12, 16, 4)
+  ctx.fillRect(10, 16, 12, 4)
+  ctx.fillRect(12, 20, 8, 4)
+  // highlight
+  ctx.fillStyle = '#60ff80'
+  ctx.fillRect(14, 5, 3, 2)
+  ctx.fillRect(12, 9, 3, 2)
+  // shadow
+  ctx.fillStyle = '#108020'
+  ctx.fillRect(18, 17, 3, 2)
+})
+
+// tile 62: diamond pickaxe
+saveTile(62, 'item-diamond-pickaxe', (ctx) => {
+  ctx.fillStyle = '#3b2a18'
+  ctx.fillRect(0, 0, TILE_PX, TILE_PX)
+  // handle
+  ctx.fillStyle = '#6b4423'
+  for (let i = 0; i < 22; i++) {
+    ctx.fillRect(8 + Math.floor(i * 0.6), 10 + i, 2, 1)
+  }
+  // diamond head
+  ctx.fillStyle = '#60e0d0'
+  ctx.fillRect(4, 2, 24, 4)
+  ctx.fillRect(4, 6, 5, 4)
+  ctx.fillRect(23, 6, 5, 4)
+  ctx.fillStyle = '#a0ffff'
+  ctx.fillRect(10, 3, 12, 1)
+  ctx.fillStyle = '#20a090'
+  ctx.fillRect(4, 5, 24, 1)
+})
+
 // Save combined atlas (single file loaded by chunk-mesh.ts at runtime).
 writeFileSync(join(OUTPUT_DIR, 'atlas.png'), atlasCanvas.toBuffer('image/png'))
-console.log(`  ✓ atlas.png (512×512, all 48 tiles combined)`)
+console.log(`  ✓ atlas.png (512×512, all 63 tiles combined)`)
 
-console.log(`\nDone — 48 individual tiles + atlas.png written to ${OUTPUT_DIR}`)
+console.log(`\nDone — 63 individual tiles + atlas.png written to ${OUTPUT_DIR}`)

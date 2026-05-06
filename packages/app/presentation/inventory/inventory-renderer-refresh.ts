@@ -2,7 +2,7 @@ import { Array as Arr, Option } from 'effect'
 import { HOTBAR_START } from '@ts-minecraft/inventory'
 import type { InventorySlot, Recipe } from '@ts-minecraft/inventory'
 import { DomOperationsService } from '@ts-minecraft/app/presentation/hud/crosshair'
-import { getSlotColor } from './inventory-renderer-helpers'
+import { getSlotColor, getSlotImageStyle } from './inventory-renderer-helpers'
 import {
   DEFAULT_SLOT_COLOR,
   EMPTY_RECIPE_STYLE, RECIPE_ROW_BASE_STYLE,
@@ -20,11 +20,20 @@ export const renderSlotElements = (
   Arr.forEach(Arr.zip(slotEls, allSlots), ([el, itemOpt], i) => {
     Option.match(itemOpt, {
       onSome: (stack) => {
-        el.style.background = getSlotColor(stack.itemType)
+        const imageStyle = getSlotImageStyle(stack.itemType)
+        if (imageStyle) {
+          el.style.cssText = el.style.cssText.replace(/background:[^;]+;?/, '')
+          el.style.backgroundImage = imageStyle
+          el.style.backgroundSize = 'cover'
+        } else {
+          el.style.backgroundImage = ''
+          el.style.background = getSlotColor(stack.itemType)
+        }
         el.title = `${stack.itemType} ×${stack.count}`
         el.textContent = stack.count < 64 ? String(stack.count) : ''
       },
       onNone: () => {
+        el.style.backgroundImage = ''
         el.style.background = DEFAULT_SLOT_COLOR
         el.title = ''
         el.textContent = ''

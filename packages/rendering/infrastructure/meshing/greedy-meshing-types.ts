@@ -40,8 +40,8 @@ export type ChunkWorldOffset = Schema.Schema.Type<typeof ChunkWorldOffsetSchema>
 export const AIR = 0
 
 // Greedy meshing scratch buffers.
-// Reusing these per worker/service instance avoids reallocating ~4 KB of done-tracking
-// plus the two mask buffers on every chunk rebuild.
+// Reusing these per worker/service instance avoids reallocating the two mask buffers
+// on every chunk rebuild.
 export const EMPTY_MESHED_CHUNK: MeshedChunk = {
   positions: new Float32Array(0),
   normals: new Int8Array(0),
@@ -58,13 +58,11 @@ export const EMPTY_MESHED_CHUNK: MeshedChunk = {
 //   block0..3    bits 18-25 (2 bits each, 4 corners)
 // Uint32Array is required to fit all 26 bits.
 export type GreedyMeshScratch = {
-  readonly doneBuf: Uint8Array
   readonly maskCH: Uint32Array
   readonly maskSS: Uint32Array
 }
 
 export const createGreedyMeshScratch = (): GreedyMeshScratch => ({
-  doneBuf: new Uint8Array(CHUNK_SIZE * CHUNK_HEIGHT),
   maskCH: new Uint32Array(CHUNK_SIZE * CHUNK_HEIGHT),
   maskSS: new Uint32Array(CHUNK_SIZE * CHUNK_SIZE),
 })

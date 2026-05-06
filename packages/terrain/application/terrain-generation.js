@@ -83,7 +83,7 @@ export const generateTerrainBlocks = (input) => {
 };
 // `seaLevel` / `lakeLevel` are accepted in the input envelope (so the worker
 // protocol can carry them) but ignored: the generator reads them from
-// `application/constants` (`SEA_LEVEL=48`, `LAKE_LEVEL=62`). Keeping them in
+// `kernel/constants` (`SEA_LEVEL=63`, `LAKE_LEVEL=SEA_LEVEL`). Keeping them in
 // the input keeps the protocol explicit if those constants ever
 // become per-world configuration.
 //# sourceMappingURL=terrain-generation.js.map

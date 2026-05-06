@@ -1,6 +1,58 @@
 import { Effect, Option } from 'effect'
 import { DomOperationsService } from '@ts-minecraft/app/presentation/hud/crosshair'
 
+const clearElementChildren = (element: HTMLElement): void => {
+  while (element.firstChild) {
+    element.removeChild(element.firstChild)
+  }
+}
+
+const createBaseTitle = (dom: DomOperationsService): HTMLDivElement => {
+  const title = dom.createElement('div')
+  title.textContent = 'ts-minecraft'
+  title.style.cssText = 'color:#fff;font-size:32px;font-family:monospace;text-shadow:2px 2px 4px rgba(0,0,0,0.8);margin-bottom:24px'
+  return title
+}
+
+const createLoadingSpinner = (dom: DomOperationsService): HTMLDivElement => {
+  const spinner = dom.createElement('div')
+  spinner.className = 'loading-spinner'
+  spinner.style.cssText = 'width:48px;height:48px;border:4px solid rgba(255,255,255,0.2);border-top:4px solid #fff;border-radius:50%'
+  return spinner
+}
+
+const createLoadingText = (dom: DomOperationsService): HTMLDivElement => {
+  const loadingText = dom.createElement('div')
+  loadingText.textContent = 'Loading...'
+  loadingText.style.cssText = 'color:#fff;font-family:monospace;font-size:16px;margin-top:16px'
+  return loadingText
+}
+
+const renderLoadingView = (dom: DomOperationsService, overlayEl: HTMLDivElement): void => {
+  clearElementChildren(overlayEl)
+  dom.appendChildTo(overlayEl, createBaseTitle(dom))
+  dom.appendChildTo(overlayEl, createLoadingSpinner(dom))
+  dom.appendChildTo(overlayEl, createLoadingText(dom))
+}
+
+const renderErrorView = (dom: DomOperationsService, overlayEl: HTMLDivElement, message: string): void => {
+  clearElementChildren(overlayEl)
+
+  const title = createBaseTitle(dom)
+
+  const errorMessage = dom.createElement('div')
+  errorMessage.textContent = message
+  errorMessage.style.cssText = 'color:#ffb4b4;font-family:monospace;font-size:16px;max-width:680px;text-align:center;line-height:1.6;padding:0 16px'
+
+  const detail = dom.createElement('div')
+  detail.textContent = 'Returning to main menu...'
+  detail.style.cssText = 'color:#fff;font-family:monospace;font-size:14px;margin-top:16px;opacity:0.9'
+
+  dom.appendChildTo(overlayEl, title)
+  dom.appendChildTo(overlayEl, errorMessage)
+  dom.appendChildTo(overlayEl, detail)
+}
+
 export class LoadingScreenService extends Effect.Service<LoadingScreenService>()(
   '@minecraft/presentation/LoadingScreen',
   {
@@ -26,11 +78,7 @@ export class LoadingScreenService extends Effect.Service<LoadingScreenService>()
             'display:flex', 'align-items:center', 'justify-content:center', 'flex-direction:column',
           ].join(';')
 
-          dom.setInnerHTML(el, `
-            <div style="color:#fff;font-size:32px;font-family:monospace;text-shadow:2px 2px 4px rgba(0,0,0,0.8);margin-bottom:24px">ts-minecraft</div>
-            <div class="loading-spinner" style="width:48px;height:48px;border:4px solid rgba(255,255,255,0.2);border-top:4px solid #fff;border-radius:50%"></div>
-            <div style="color:#fff;font-family:monospace;font-size:16px;margin-top:16px">Loading...</div>
-          `)
+          renderLoadingView(dom, el)
 
           dom.appendChild(el)
 
@@ -44,6 +92,12 @@ export class LoadingScreenService extends Effect.Service<LoadingScreenService>()
         Effect.map(({ overlayEl }) => ({
           hide: (): Effect.Effect<void, never> => Effect.sync(() => {
             Option.map(overlayEl, (el) => { el.style.display = 'none' })
+          }),
+          showError: (message: string): Effect.Effect<void, never> => Effect.sync(() => {
+            Option.map(overlayEl, (el) => {
+              el.style.display = 'flex'
+              renderErrorView(dom, el, message)
+            })
           }),
         }))
       )

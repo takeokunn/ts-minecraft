@@ -7,7 +7,7 @@ import { InventoryService } from '@ts-minecraft/inventory'
 import { PlayerService } from '@ts-minecraft/player'
 import { ChunkManagerService } from '@ts-minecraft/terrain'
 import { RecipeId, DeltaTimeSecs } from '@ts-minecraft/kernel'
-import type { BlockType, InventoryItem } from '@ts-minecraft/kernel'
+import type { InventoryItem } from '@ts-minecraft/kernel'
 import {
   makeChunkManagerService,
   makeFurnaceLayer,
@@ -262,14 +262,14 @@ describe('application/furnace/furnace-service', () => {
       items: MutableHashMap.fromIterable<InventoryItem, number>([['RAW_IRON', 1], ['COAL', 1]]),
       getAllSlots() {
         return Effect.succeed([
-          Option.some({ blockType: 'RAW_IRON', count: 1 }),
-          Option.some({ blockType: 'COAL', count: 1 }),
+          Option.some({ itemType: 'RAW_IRON', count: 1 }),
+          Option.some({ itemType: 'COAL', count: 1 }),
         ])
       },
-      removeBlock(_blockType: BlockType, _count: number) {
+      removeBlock(_itemType: InventoryItem, _count: number) {
         return Effect.void
       },
-      addBlock(_blockType: BlockType, _count: number) {
+      addBlock(_itemType: InventoryItem, _count: number) {
         MutableRef.update(addCallCountRef, (n) => n + 1)
         return Effect.fail(new InventoryError({ operation: 'addBlock', cause: 'inventory full' })) // inventory full
       },

@@ -6,7 +6,7 @@ import { NoiseServicePort, NoiseServiceLive, BiomeService, type BiomeType, Chunk
 import { computeColumnY } from '@ts-minecraft/terrain'
 import type { BiomeProperties } from '@ts-minecraft/terrain'
 import { ChunkServiceLive } from '../application/chunk-service'
-import { CHUNK_SIZE, CHUNK_HEIGHT } from '@ts-minecraft/kernel'
+import { CHUNK_SIZE, CHUNK_HEIGHT } from '../../kernel/index.ts'
 import {
   makeInMemoryStorage,
   LightEngineNoopLive,
@@ -27,6 +27,9 @@ describe('terrain/chunk-terrain-appearance', () => {
     const DIORITE = 13
     const ANDESITE = 14
     const DEEPSLATE = 15
+    const DEFAULT_TREE_PV = 0.2
+    // Inverse on the ascending PV branch; keeps point-sampled weirdness aligned with terrainChannels.pv.
+    const DEFAULT_TREE_WEIRDNESS = (DEFAULT_TREE_PV + 1) / 3
 
     const idx = (lx: number, y: number, lz: number): number =>
       y + lz * CHUNK_HEIGHT + lx * CHUNK_HEIGHT * CHUNK_SIZE
@@ -61,7 +64,7 @@ describe('terrain/chunk-terrain-appearance', () => {
     const makeTerrainChannels = () => ({
       continentalness: new Float64Array(256).fill(0.7),
       erosion: new Float64Array(256).fill(0.8),
-      pv: new Float64Array(256).fill(0.2),
+      pv: new Float64Array(256).fill(DEFAULT_TREE_PV),
       jaggedness: new Float64Array(256),
     })
 
@@ -108,7 +111,7 @@ describe('terrain/chunk-terrain-appearance', () => {
           noise3DBatchXYZ: (xs: ReadonlyArray<number>) => Effect.succeed(xs.map(() => 1.0)),
           continentalness: (_x: number, _z: number) => Effect.succeed(0.0),
           erosion: (_x: number, _z: number) => Effect.succeed(0.0),
-          weirdness: (_x: number, _z: number) => Effect.succeed(0.0),
+          weirdness: (_x: number, _z: number) => Effect.succeed(DEFAULT_TREE_WEIRDNESS),
           jaggedness: (_x: number, _z: number) => Effect.succeed(0.0),
           sampleTerrainChannels: (_cx: number, _cz: number) => Effect.succeed(terrainChannels),
         }),
@@ -244,7 +247,7 @@ describe('terrain/chunk-terrain-appearance', () => {
           noise3DBatchXYZ: (xs: ReadonlyArray<number>) => Effect.succeed(xs.map(() => 1.0)),
           continentalness: (_x: number, _z: number) => Effect.succeed(0.7),
           erosion: (_x: number, _z: number) => Effect.succeed(0.8),
-          weirdness: (_x: number, _z: number) => Effect.succeed(0.2),
+          weirdness: (_x: number, _z: number) => Effect.succeed(DEFAULT_TREE_WEIRDNESS),
           jaggedness: (_x: number, _z: number) => Effect.succeed(0.0),
           sampleTerrainChannels: (_cx: number, _cz: number) => Effect.succeed(terrainChannels),
         }),
@@ -322,6 +325,44 @@ describe('terrain/chunk-terrain-appearance', () => {
           (y) => HashSet.has(overhangBlockSet, chunk.blocks[idx(8, y, 8)]!),
         )
         expect(foundOverhang).toBe(true)
+      }))
+    })
+
+    it('keeps overhang placement aligned to x-major column states instead of transposing x/z', () => {
+      const biomeColumns = Arr.makeBy(CHUNK_SIZE * CHUNK_SIZE, () => makeBiomeColumn('FOREST', 0))
+      const terrainChannels = makeTerrainChannels()
+      const ruggedX = 3
+      const ruggedZ = 10
+      const transposedX = 10
+      const transposedZ = 3
+
+      terrainChannels.continentalness[terrainIndex(ruggedX, ruggedZ)] = 0.8
+      terrainChannels.erosion[terrainIndex(ruggedX, ruggedZ)] = -0.8
+      terrainChannels.pv[terrainIndex(ruggedX, ruggedZ)] = 0.9
+      terrainChannels.jaggedness[terrainIndex(ruggedX, ruggedZ)] = 1.0
+
+      terrainChannels.continentalness[terrainIndex(transposedX, transposedZ)] = 0.8
+      terrainChannels.erosion[terrainIndex(transposedX, transposedZ)] = 0.9
+      terrainChannels.pv[terrainIndex(transposedX, transposedZ)] = 0.5
+      terrainChannels.jaggedness[terrainIndex(transposedX, transposedZ)] = 0.0
+
+      const { TestLayer } = buildCustomTerrainLayer(biomeColumns, terrainChannels)
+
+      const hasOverhangAbove = (blocks: Uint8Array, lx: number, lz: number): boolean => {
+        const baseSurfaceY = computeColumnY(terrainChannels, lx, lz)
+        const overhangBlockSet = HashSet.make(STONE, DEEPSLATE, GRANITE, DIORITE, ANDESITE)
+        const top = Math.min(baseSurfaceY + 14, CHUNK_HEIGHT)
+        return Arr.some(
+          Arr.makeBy(top - (baseSurfaceY + 2), (i) => baseSurfaceY + 2 + i),
+          (y) => HashSet.has(overhangBlockSet, blocks[idx(lx, y, lz)]!),
+        )
+      }
+
+      return Effect.runPromise(Effect.gen(function* () {
+        const chunk = yield* loadChunk.pipe(Effect.provide(TestLayer))
+
+        expect(hasOverhangAbove(chunk.blocks, ruggedX, ruggedZ)).toBe(true)
+        expect(hasOverhangAbove(chunk.blocks, transposedX, transposedZ)).toBe(false)
       }))
     })
   })

@@ -18,7 +18,7 @@ export type ColorPort = {
 }
 
 const hasFunctionProperty = <K extends PropertyKey>(value: object, key: K): value is Record<K, (...args: ReadonlyArray<unknown>) => unknown> =>
-  key in value && typeof (value as Record<K, unknown>)[key] === 'function'
+  key in value && typeof Reflect.get(value, key) === 'function'
 
 const hasNumberProperty = (value: object, key: PropertyKey): boolean =>
   key in value && typeof Reflect.get(value, key) === 'number'
@@ -106,7 +106,13 @@ const DayNightLightsPortSchemaBase = Schema.mutable(Schema.Struct({
   skyNight: ColorPortSchema,
   skyDay: ColorPortSchema,
   skyCurrent: ColorPortSchema,
-  sky: Schema.declare((u): u is Option.Option<SkyMaterialPort> => typeof u === 'object' && u !== null && '_tag' in u),
+  sky: Schema.declare((u): u is Option.Option<SkyMaterialPort> => {
+  if (!Option.isOption(u)) return false
+  return Option.match(u, {
+    onNone: () => true,
+    onSome: (value) => Schema.is(SkyMaterialPortSchema)(value),
+  })
+}),
 }))
 
 export const DayNightLightsPortSchema = DayNightLightsPortSchemaBase

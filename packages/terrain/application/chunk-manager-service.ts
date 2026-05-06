@@ -1,7 +1,7 @@
 import { Array as Arr, Clock, Effect, HashMap, HashSet, Option, Ref } from 'effect'
 import { ChunkService } from './chunk-service'
 import type { Chunk } from '../domain/chunk'
-import { ChunkCoord } from '@ts-minecraft/kernel'
+import { ChunkCoord, type WorldId } from '@ts-minecraft/kernel'
 import { StorageError } from '@ts-minecraft/world-state'
 import { LightEngineService } from './light-engine-service'
 import { StorageServicePort } from '../domain/storage-service-port'
@@ -14,7 +14,7 @@ import {
   worldToChunkCoord,
   getChunksInRenderDistance,
   countChunksInRadius,
-  chunkCoordToKey,
+  chunkCoordToWorldKey,
 } from '../domain/chunk-coord-utils'
 import { RENDER_DISTANCE, UNLOAD_DISTANCE, MAX_CACHED_CHUNKS, ChunkManagerError } from './chunk-manager-constants'
 import { type ChunkCache, type ChunkCacheEntry } from './chunk-manager-cache'
@@ -23,48 +23,59 @@ import { type ChunkOpsContext, getChunk, unloadChunk } from './chunk-manager-ops
 export { RENDER_DISTANCE, UNLOAD_DISTANCE, MAX_CACHED_CHUNKS } from './chunk-manager-constants'
 export type { ChunkManagerError } from './chunk-manager-constants'
 
+const MAX_CHUNK_LOADS_PER_CALL = 4
+const CHUNK_LOAD_BATCHING_MIN_RENDER_DISTANCE = 3
+
+let activeChunkWorldIdRef: WorldId = DEFAULT_WORLD_ID
+let activeChunkWorldServiceUpdater: ((worldId: WorldId) => void) | undefined
+
+export const setActiveChunkWorldId = (worldId: WorldId): void => {
+  activeChunkWorldIdRef = worldId
+  activeChunkWorldServiceUpdater?.(worldId)
+}
 export class ChunkManagerService extends Effect.Service<ChunkManagerService>()(
   '@minecraft/application/ChunkManagerService',
   {
     effect: Effect.gen(function* () {
-      // ChunkService and BiomeService are still required at the layer boundary
-      // (other services in the graph depend on them being provided alongside
-      // ChunkManagerService) but the chunk-manager body itself no longer touches them
-      // directly — terrain generation moved off-thread via TerrainWorkerPoolPort.
       yield* ChunkService
       const storageService = yield* StorageServicePort
       yield* BiomeService
-      // NoiseServicePort exposes `getSeed` (the active world seed). Output remains
-      // byte-identical because generateTerrainBlocks (in the worker pool's sync fallback
-      // and in the worker itself) constructs the same NoisePrimitives from the same seed.
       const noiseService = yield* NoiseServicePort
       const terrainPool = yield* TerrainWorkerPoolPort
       const lightEngine = yield* LightEngineService
 
-      const cache = yield* Ref.make<ChunkCache>({
+      const emptyCacheState = (): ChunkCache => ({
         chunks: HashMap.empty<ChunkCacheKey, ChunkCacheEntry>(),
         dirtyChunks: HashSet.empty<ChunkCacheKey>(),
+        renderDirtyChunks: HashSet.empty<ChunkCacheKey>(),
       })
 
-      // Cache for getLoadedChunks result — invalidated whenever a chunk is inserted or removed.
-      // Avoids allocating two arrays + N object refs on every frame at 60 Hz.
+      const cache = yield* Ref.make<ChunkCache>(emptyCacheState())
+
       const cachedLoadedChunksRef = yield* Ref.make<Option.Option<ReadonlyArray<Chunk>>>(Option.none())
       const maxCachedChunksRef = yield* Ref.make(MAX_CACHED_CHUNKS)
-
+      const worldIdRef = yield* Ref.make<WorldId>(activeChunkWorldIdRef)
       const lastLoadTimeRef = yield* Ref.make<number>(-200)
-
-      // Monotonically incrementing counter for LRU access ordering.
-      // Using a counter instead of wall-clock time guarantees strict uniqueness per access,
-      // which avoids ties when multiple chunks are inserted within the same millisecond.
-      // HashMap iteration order is hash-based (not insertion-ordered like native Map),
-      // so ties in lastAccessed would produce non-deterministic LRU eviction — the counter fixes this.
       const accessCounterRef = yield* Ref.make<number>(0)
-
-      // Semaphore limiting concurrent chunk generation/loading to 4 fibers at a time
       const loadSemaphore = yield* Effect.makeSemaphore(4)
 
-      // Bundle all shared dependencies into a context object for the ops helpers.
+      const updateActiveWorldId = (worldId: WorldId): Effect.Effect<void, never> =>
+        Effect.gen(function* () {
+          activeChunkWorldIdRef = worldId
+          yield* Ref.set(worldIdRef, worldId)
+          yield* Ref.set(cache, emptyCacheState())
+          yield* Ref.set(cachedLoadedChunksRef, Option.none())
+          yield* Ref.set(maxCachedChunksRef, MAX_CACHED_CHUNKS)
+          yield* Ref.set(lastLoadTimeRef, -200)
+          yield* Ref.set(accessCounterRef, 0)
+        })
+
+      activeChunkWorldServiceUpdater = (worldId) => {
+        Effect.runSync(updateActiveWorldId(worldId))
+      }
+
       const ctx: ChunkOpsContext = {
+        worldIdRef,
         cache,
         cachedLoadedChunksRef,
         maxCachedChunksRef,
@@ -75,14 +86,12 @@ export class ChunkManagerService extends Effect.Service<ChunkManagerService>()(
         lightEngine,
       }
 
-      return {
+      const service = {
         getChunk: (coord: ChunkCoord) => getChunk(ctx, coord),
 
         loadChunksAroundPlayer: (playerPos: Position, renderDistance: number = RENDER_DISTANCE): Effect.Effect<boolean, ChunkManagerError> =>
           Effect.gen(function* () {
             const now = yield* Clock.currentTimeMillis
-
-            // Throttle: atomic check-and-update so concurrent callers can't both pass the gate
             const shouldLoad = yield* Ref.modify(lastLoadTimeRef, (last) =>
               now - last < 200 ? [false, last] : [true, now]
             )
@@ -93,16 +102,26 @@ export class ChunkManagerService extends Effect.Service<ChunkManagerService>()(
             const centerChunk = worldToChunkCoord(playerPos)
             const chunkCacheCapacity = Math.max(MAX_CACHED_CHUNKS, countChunksInRadius(renderDistance + 2))
             yield* Ref.update(maxCachedChunksRef, (current) => Math.max(current, chunkCacheCapacity))
-            const chunksToLoad = getChunksInRenderDistance(centerChunk, renderDistance)
 
-            // Load chunks in render distance — cap fan-out to the same 4 fibers as the semaphore.
-            yield* Effect.forEach(
+            const currentWorldId = yield* Ref.get(worldIdRef)
+            const chunksToLoad = getChunksInRenderDistance(centerChunk, renderDistance)
+            const stateBeforeLoad = yield* Ref.get(cache)
+            const missingChunksToLoad = Arr.filter(
               chunksToLoad,
+              (coord) => !HashMap.has(stateBeforeLoad.chunks, chunkCoordToWorldKey(coord, currentWorldId)),
+            )
+
+            const shouldBatchLoads = renderDistance >= CHUNK_LOAD_BATCHING_MIN_RENDER_DISTANCE
+            const chunkLoadBatch = shouldBatchLoads
+              ? Arr.take(missingChunksToLoad, MAX_CHUNK_LOADS_PER_CALL)
+              : missingChunksToLoad
+
+            yield* Effect.forEach(
+              chunkLoadBatch,
               (coord) => loadSemaphore.withPermits(1)(getChunk(ctx, coord)),
               { concurrency: 4 }
             )
 
-            // Unload chunks outside the render radius plus a small buffer.
             const state = yield* Ref.get(cache)
             const unloadDistance = Math.max(renderDistance + 2, UNLOAD_DISTANCE)
             const maxDistance = unloadDistance * unloadDistance
@@ -111,15 +130,13 @@ export class ChunkManagerService extends Effect.Service<ChunkManagerService>()(
               Arr.filter(Arr.fromIterable(HashMap.values(state.chunks)), (entry) =>
                 chunkDistanceSquared(entry.chunk.coord, centerChunk) > maxDistance
               ),
-              /* c8 ignore next */
               (entry) => unloadChunk(ctx, entry.chunk.coord),
               { concurrency: 1 }
             )
 
-            return true
+            return chunkLoadBatch.length === missingChunksToLoad.length
           }),
 
-        // Result is cached per-insert/remove to avoid per-frame array allocation at 60 Hz.
         getLoadedChunks: (): Effect.Effect<ReadonlyArray<Chunk>, never> =>
           Effect.gen(function* () {
             return yield* Option.match(yield* Ref.get(cachedLoadedChunksRef), {
@@ -133,12 +150,23 @@ export class ChunkManagerService extends Effect.Service<ChunkManagerService>()(
             })
           }),
 
-        // Also marks 8 neighbors dirty — corner lighting samples cross chunk borders.
+        drainRenderDirtyChunks: (): Effect.Effect<ReadonlyArray<Chunk>, never> =>
+          Effect.gen(function* () {
+            const renderDirtyKeys = yield* Ref.modify(cache, (s) => [
+              s.renderDirtyChunks,
+              { ...s, renderDirtyChunks: HashSet.empty<ChunkCacheKey>() },
+            ])
+            const state = yield* Ref.get(cache)
+            return Arr.filterMap(
+              Arr.fromIterable(renderDirtyKeys),
+              (key) => Option.map(HashMap.get(state.chunks, key), (entry) => entry.chunk),
+            )
+          }),
+
         markChunkDirty: (coord: ChunkCoord): Effect.Effect<void, never> =>
           Effect.gen(function* () {
-            const key = chunkCoordToKey(coord)
-            // Recompute lighting for the modified chunk in-place — the existing skyLight/blockLight
-            // buffers are reused (lightBufferOrFresh checks byteLength) so no extra allocations.
+            const worldId = yield* Ref.get(worldIdRef)
+            const key = chunkCoordToWorldKey(coord, worldId)
             const state = yield* Ref.get(cache)
             yield* Option.match(HashMap.get(state.chunks, key), {
               onNone: () => Effect.void,
@@ -147,7 +175,6 @@ export class ChunkManagerService extends Effect.Service<ChunkManagerService>()(
                   Effect.tap((grids) =>
                     Ref.update(cache, (s) =>
                       Option.match(HashMap.get(s.chunks, key), {
-                        /* c8 ignore next */
                         onNone: () => s,
                         onSome: (e) => ({
                           ...s,
@@ -162,42 +189,37 @@ export class ChunkManagerService extends Effect.Service<ChunkManagerService>()(
                 ),
             })
 
-            // Mark this chunk + 8 neighbors as dirty (renderer re-meshes from dirty set).
             const neighborOffsets: ReadonlyArray<readonly [number, number]> = [
               [0, 0],
               [-1, -1], [-1, 0], [-1, 1],
-              [0, -1],           [0, 1],
-              [1, -1],  [1, 0],  [1, 1],
+              [0, -1], [0, 1],
+              [1, -1], [1, 0], [1, 1],
             ]
             const allKeys = Arr.map(neighborOffsets, ([dx, dz]) =>
-              chunkCoordToKey({ x: coord.x + dx, z: coord.z + dz })
+              chunkCoordToWorldKey({ x: coord.x + dx, z: coord.z + dz }, worldId)
             )
             yield* Ref.update(cache, (s) => ({
               ...s,
               dirtyChunks: Arr.reduce(allKeys, s.dirtyChunks, (set, k) => HashSet.add(set, k)),
+              renderDirtyChunks: Arr.reduce(allKeys, s.renderDirtyChunks, (set, k) => HashSet.add(set, k)),
             }))
           }),
 
         saveDirtyChunks: (): Effect.Effect<void, StorageError> =>
           Effect.gen(function* () {
-            // Snapshot the dirty key set — saves only these keys, not any new ones added
-            // during the async save loop. Clears only the saved keys afterward so that
-            // block modifications arriving mid-save are not silently discarded.
-            // HashSet is immutable — holding a reference IS a snapshot (no defensive copy needed).
             const state = yield* Ref.get(cache)
             const keysToSave = state.dirtyChunks
+            const currentWorldId = yield* Ref.get(worldIdRef)
 
             yield* Effect.forEach(
               Arr.filterMap(Arr.fromIterable(keysToSave), (key) => HashMap.get(state.chunks, key)),
-              (entry) => storageService.saveChunk(DEFAULT_WORLD_ID, entry.chunk.coord, {
+              (entry) => storageService.saveChunk(entry.worldId ?? currentWorldId, entry.chunk.coord, {
                 blocks: entry.chunk.blocks,
                 fluid: Option.getOrUndefined(entry.chunk.fluid),
               }),
               { concurrency: 1 }
             )
 
-            // Clear only the keys we actually saved — preserves new dirty flags set during save.
-            // HashSet.difference returns elements in s.dirtyChunks NOT in keysToSave.
             yield* Ref.update(cache, (s) => ({
               ...s,
               dirtyChunks: HashSet.difference(s.dirtyChunks, keysToSave),
@@ -206,6 +228,8 @@ export class ChunkManagerService extends Effect.Service<ChunkManagerService>()(
 
         unloadChunk: (coord: ChunkCoord) => unloadChunk(ctx, coord),
       }
+
+      return service
     }),
   }
 ) {}

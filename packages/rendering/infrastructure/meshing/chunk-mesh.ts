@@ -151,6 +151,9 @@ export class ChunkMeshService extends Effect.Service<ChunkMeshService>()(
       const sharedMaterial = yield* Effect.acquireRelease(
         Effect.sync(() => {
           const mat = new THREE.MeshLambertMaterial({
+            color: 0xffffff,
+            emissive: 0xffffff,
+            emissiveIntensity: 0.08,
             map: atlasTexture,
             vertexColors: true,
           })
@@ -211,7 +214,7 @@ export class ChunkMeshService extends Effect.Service<ChunkMeshService>()(
                    float skyFactor = vColor.g;
                    float blockFactor = vColor.b;
                    float lightFactor = max(skyFactor * uSunIntensity, blockFactor);
-                   diffuseColor.rgb *= (0.15 + 0.85 * lightFactor) * (0.7 + 0.3 * aoFactor);
+                    diffuseColor.rgb *= (0.25 + 0.75 * lightFactor) * (0.8 + 0.2 * aoFactor);
                  #endif`
               )
           }

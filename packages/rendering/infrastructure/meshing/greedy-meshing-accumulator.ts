@@ -7,6 +7,11 @@ import { getTileIndex, FaceDir } from '../textures/block-texture-map'
 export const INITIAL_QUAD_CAPACITY = 8192
 export const INITIAL_VERTEX_CAPACITY = INITIAL_QUAD_CAPACITY * 4  // 4 verts per quad
 export const INITIAL_INDEX_CAPACITY = INITIAL_QUAD_CAPACITY * 6   // 6 indices per quad (2 triangles)
+const AO_COLOR_BY_LEVEL = [255, 204, 153, 102] as const
+const LIGHT_COLOR_BY_LEVEL = [
+  0, 17, 34, 51, 68, 85, 102, 119,
+  136, 153, 170, 187, 204, 221, 238, 255,
+] as const
 
 export const MeshAccumulatorSchema = Schema.mutable(Schema.Struct({
   positions: Schema.instanceOf(Float32Array),
@@ -98,19 +103,19 @@ export const addQuad = (
   //   R = AO factor (1.0 = no darkening)
   //   G = sky-light factor (skyLight / 15)
   //   B = block-light factor (blockLight / 15)
-  // The fragment shader combines: light = max(G * sunIntensity, B); diffuse *= (0.15 + 0.85*light) * (0.7 + 0.3*R).
-  const aoR0 = Math.round((1.0 - ao[0] * 0.2) * 255)
-  const aoR1 = Math.round((1.0 - ao[1] * 0.2) * 255)
-  const aoR2 = Math.round((1.0 - ao[2] * 0.2) * 255)
-  const aoR3 = Math.round((1.0 - ao[3] * 0.2) * 255)
-  const skG0 = Math.round((skyLight[0] / 15) * 255)
-  const skG1 = Math.round((skyLight[1] / 15) * 255)
-  const skG2 = Math.round((skyLight[2] / 15) * 255)
-  const skG3 = Math.round((skyLight[3] / 15) * 255)
-  const blB0 = Math.round((blockLight[0] / 15) * 255)
-  const blB1 = Math.round((blockLight[1] / 15) * 255)
-  const blB2 = Math.round((blockLight[2] / 15) * 255)
-  const blB3 = Math.round((blockLight[3] / 15) * 255)
+  // The fragment shader combines: light = max(G * sunIntensity, B); diffuse *= (0.25 + 0.75*light) * (0.8 + 0.2*R).
+  const aoR0 = AO_COLOR_BY_LEVEL[ao[0]]!
+  const aoR1 = AO_COLOR_BY_LEVEL[ao[1]]!
+  const aoR2 = AO_COLOR_BY_LEVEL[ao[2]]!
+  const aoR3 = AO_COLOR_BY_LEVEL[ao[3]]!
+  const skG0 = LIGHT_COLOR_BY_LEVEL[skyLight[0]]!
+  const skG1 = LIGHT_COLOR_BY_LEVEL[skyLight[1]]!
+  const skG2 = LIGHT_COLOR_BY_LEVEL[skyLight[2]]!
+  const skG3 = LIGHT_COLOR_BY_LEVEL[skyLight[3]]!
+  const blB0 = LIGHT_COLOR_BY_LEVEL[blockLight[0]]!
+  const blB1 = LIGHT_COLOR_BY_LEVEL[blockLight[1]]!
+  const blB2 = LIGHT_COLOR_BY_LEVEL[blockLight[2]]!
+  const blB3 = LIGHT_COLOR_BY_LEVEL[blockLight[3]]!
   acc.colors[pi]     = aoR0; acc.colors[pi + 1]  = skG0; acc.colors[pi + 2]  = blB0
   acc.colors[pi + 3] = aoR1; acc.colors[pi + 4]  = skG1; acc.colors[pi + 5]  = blB1
   acc.colors[pi + 6] = aoR2; acc.colors[pi + 7]  = skG2; acc.colors[pi + 8]  = blB2

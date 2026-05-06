@@ -22,7 +22,7 @@ export const computeLakeBasin = (
   }
   const t = (lakeNoiseVal - LAKE_THRESHOLD) / (1.0 - LAKE_THRESHOLD)
   const lakeDepth = Math.max(LAKE_MIN_DEPTH, Math.floor(t * LAKE_MAX_DEPTH))
-  const depressedY = Math.max(SEA_LEVEL + 1, initialSurfaceY - lakeDepth)
+  const depressedY = Math.max(LAKE_LEVEL - LAKE_MAX_DEPTH, initialSurfaceY - lakeDepth)
   /* c8 ignore next */
   return depressedY < LAKE_LEVEL ? Option.some(depressedY) : Option.none()
 }

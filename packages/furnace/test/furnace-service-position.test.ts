@@ -8,7 +8,7 @@ import { PlayerService } from '@ts-minecraft/player'
 import { ChunkManagerService } from '@ts-minecraft/terrain'
 import { RecipeId } from '@ts-minecraft/kernel'
 import { CHUNK_HEIGHT } from '@ts-minecraft/kernel'
-import type { BlockType, InventoryItem } from '@ts-minecraft/kernel'
+import type { InventoryItem } from '@ts-minecraft/kernel'
 import {
   makeChunkManagerService,
   makeChunkWithFurnace,

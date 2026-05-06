@@ -152,12 +152,13 @@ export const createMockGameStateLayer = () => {
 }
 
 export const createMockChunkManagerLayer = (overrides: Partial<Pick<ChunkManagerService,
-  'getChunk' | 'getLoadedChunks' | 'loadChunksAroundPlayer' | 'markChunkDirty' | 'saveDirtyChunks' | 'unloadChunk'
+  'getChunk' | 'getLoadedChunks' | 'drainRenderDirtyChunks' | 'loadChunksAroundPlayer' | 'markChunkDirty' | 'saveDirtyChunks' | 'unloadChunk'
 >> = {}) => {
   const MockChunkManagerLayer = Layer.succeed(ChunkManagerService, ChunkManagerService.of({
     _tag: '@minecraft/application/ChunkManagerService' as const,
     getChunk: () => Effect.succeed({ coord: { x: 0, z: 0 }, blocks: new Uint8Array(256 * 16 * 16), fluid: Option.none() }),
     getLoadedChunks: () => Effect.succeed([]),
+    drainRenderDirtyChunks: () => Effect.succeed([]),
     loadChunksAroundPlayer: () => Effect.succeed(false),
     markChunkDirty: () => Effect.void,
     saveDirtyChunks: () => Effect.void,
@@ -194,14 +195,14 @@ export const makeRecipe = (id: string): Recipe =>
   ({
     id: RecipeId.make(id),
     station: 'inventory' as const,
-    ingredients: [{ blockType: 'DIRT', count: 1 }],
-    output: { blockType: 'DIRT', count: 1 },
+    ingredients: [{ itemType: 'DIRT', count: 1 }],
+    output: { itemType: 'DIRT', count: 1 },
   })
 
 export const makeFurnaceRecipe = (id: string): Recipe =>
   ({
     id: RecipeId.make(id),
     station: 'furnace' as const,
-    ingredients: [{ blockType: 'COBBLESTONE', count: 1 }],
-    output: { blockType: 'STONE', count: 1 },
+    ingredients: [{ itemType: 'COBBLESTONE', count: 1 }],
+    output: { itemType: 'STONE', count: 1 },
   })

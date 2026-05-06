@@ -1,6 +1,8 @@
 import { describe, it, expect } from 'vitest'
 import { Array as Arr } from 'effect'
-import { getTileIndex, getTileUVs, ATLAS_COLS, ATLAS_SIZE, HALF_TEXEL } from '@ts-minecraft/rendering'
+import { blockTypeToIndex, INDEX_TO_BLOCK_TYPE } from '@ts-minecraft/kernel'
+import { getTileIndex, getTileUVs, ATLAS_COLS, ATLAS_SIZE, HALF_TEXEL, TILE_MAP } from '@ts-minecraft/rendering'
+import type { BlockType } from '@ts-minecraft/kernel'
 import type { FaceDir } from '@ts-minecraft/rendering'
 
 describe('infrastructure/three/textures/block-texture-map', () => {
@@ -19,6 +21,10 @@ describe('infrastructure/three/textures/block-texture-map', () => {
   })
 
   describe('getTileIndex', () => {
+    it('contains one texture entry per block storage index', () => {
+      expect(TILE_MAP).toHaveLength(INDEX_TO_BLOCK_TYPE.length)
+    })
+
     it('should return 0 for blockId=0 (AIR) all faces', () => {
       const faces: FaceDir[] = ['top', 'bottom', 'side']
       Arr.forEach(faces, face => {
@@ -59,6 +65,23 @@ describe('infrastructure/three/textures/block-texture-map', () => {
       expect(getTileIndex(11, 'top')).toBe(12)
       expect(getTileIndex(11, 'bottom')).toBe(12)
       expect(getTileIndex(11, 'side')).toBe(12)
+    })
+
+    it('should map crafted placeable block ids to their atlas tiles', () => {
+      const faces: FaceDir[] = ['top', 'bottom', 'side']
+      const cases: ReadonlyArray<{ readonly blockType: BlockType; readonly expectedTileIndex: number }> = [
+        { blockType: 'PLANKS', expectedTileIndex: 41 },
+        { blockType: 'CRAFTING_TABLE', expectedTileIndex: 43 },
+        { blockType: 'FURNACE', expectedTileIndex: 44 },
+        { blockType: 'TORCH', expectedTileIndex: 45 },
+      ]
+
+      Arr.forEach(cases, ({ blockType, expectedTileIndex }) => {
+        const blockId = blockTypeToIndex(blockType)
+        Arr.forEach(faces, face => {
+          expect(getTileIndex(blockId, face)).toBe(expectedTileIndex)
+        })
+      })
     })
   })
 

@@ -117,6 +117,9 @@ export type FrameStageRefs = {
   readonly lastHealthRef: MutableRef.MutableRef<{ current: number; max: number }>
   readonly lastRenderDistanceRef: Ref.Ref<number>
   readonly lastEntityStructureVersionRef: Ref.Ref<number>
+  readonly entityPhysicsChunkCacheRef: Ref.Ref<ReadonlyArray<Chunk | null>>
+  readonly lastEntityPhysicsChunkCoordRef: Ref.Ref<{ readonly cx: number; readonly cz: number }>
+  readonly lastEntityPhysicsLoadedChunksRef: Ref.Ref<Option.Option<ReadonlyArray<Chunk>>>
   readonly shadowUpdateCounterRef: Ref.Ref<number>
   readonly frustumThrottleStrideRef: Ref.Ref<number>
   readonly frustumThrottleCounterRef: Ref.Ref<number>
@@ -124,6 +127,8 @@ export type FrameStageRefs = {
   readonly lastAppliedPixelRatioRef: Ref.Ref<number>
   readonly lastGraphicsQualityRef: Ref.Ref<{ quality: string; resolved: ResolvedGraphics }>
   readonly dirtyChunksRef: Ref.Ref<HashMap.HashMap<string, Chunk>>
+  readonly lastLoadedChunksRef: Ref.Ref<Option.Option<ReadonlyArray<Chunk>>>
+  readonly chunkSyncPendingRef: MutableRef.MutableRef<boolean>
   readonly lastShadowTargetRef: MutableRef.MutableRef<{ x: number; z: number }>
   readonly lastFrustumCullRef: MutableRef.MutableRef<CameraPoseSnapshot>
   readonly lastRefractionFrameRef: MutableRef.MutableRef<CameraPoseSnapshot>

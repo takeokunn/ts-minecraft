@@ -33,7 +33,7 @@ export const classifyBiome = (temperature: number, humidity: number): BiomeType 
   const isWet  = humidity > HUM_WET
 
   if (humidity < HUM_VERY_DRY)  return isCold ? 'SNOW' : 'DESERT'
-  if (humidity > HUM_VERY_WET)  return temperature > HUM_WET ? 'SWAMP' : 'OCEAN'
+  if (humidity > HUM_VERY_WET)  return temperature > TEMP_HOT ? 'SWAMP' : 'OCEAN'
   if (humidity > HUM_JUNGLE && temperature > TEMP_JUNGLE) return 'JUNGLE'
 
   if (isCold) return humidity > HUM_TAIGA ? 'TAIGA' : humidity > HUM_MOUNTAINS ? 'MOUNTAINS' : 'SNOW'
@@ -70,8 +70,8 @@ export const classifyBiomeFromClimate = ({
 
   if (baseBiome === 'OCEAN') {
     // temperature > TEMP_HOT is unreachable here: classifyBiome returns 'OCEAN' only when
-    // humidity > HUM_VERY_WET && temperature <= HUM_WET (0.6), but TEMP_HOT = 0.7 > 0.6.
-    /* c8 ignore next -- 'SWAMP' branch: logically unreachable (OCEAN base requires temp ≤ 0.6 < TEMP_HOT) */
+    // humidity > HUM_VERY_WET && temperature <= TEMP_HOT.
+    /* c8 ignore next -- 'SWAMP' branch: logically unreachable (OCEAN base requires temp ≤ TEMP_HOT) */
     return temperature > TEMP_HOT ? 'SWAMP' : 'FOREST'
   }
 

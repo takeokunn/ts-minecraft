@@ -131,7 +131,9 @@ export const createMaintenanceHandler = (
       const shouldRefreshChunks = chunkSyncPending || lastCx !== cx || lastCz !== cz || lastRenderDistance !== currentSettings.renderDistance
 
       if (shouldRefreshChunks) {
-        const didLoadChunks = yield* chunkManagerService.loadChunksAroundPlayer(playerPos, currentSettings.renderDistance)
+        const didLoadChunks = chunkSyncPending
+          ? false
+          : yield* chunkManagerService.loadChunksAroundPlayer(playerPos, currentSettings.renderDistance)
         const loadedChunks = yield* chunkManagerService.getLoadedChunks()
         const lastLoadedChunks = yield* Ref.get(state.lastLoadedChunksRef)
         const chunksChanged = Option.match(lastLoadedChunks, {
@@ -161,6 +163,18 @@ export const createMaintenanceHandler = (
         if (didLoadChunks) {
           MutableRef.set(state.lastChunkStreamingRef, { cx, cz, renderDistance: currentSettings.renderDistance })
         }
+      }
+
+      const renderDirtyChunks = yield* chunkManagerService.drainRenderDirtyChunks()
+      if (renderDirtyChunks.length > 0) {
+        yield* Ref.update(
+          state.dirtyChunksRef,
+          (current) => Arr.reduce(
+            renderDirtyChunks,
+            current,
+            (acc, chunk) => HashMap.set(acc, `${chunk.coord.x},${chunk.coord.z}`, chunk),
+          ),
+        )
       }
 
       const flushedDirtyChunkCount = yield* Ref.getAndSet(state.dirtyChunksRef, HashMap.empty()).pipe(

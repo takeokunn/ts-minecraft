@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { Array as Arr, HashMap, Option } from 'effect'
-import { getSlotColor, collectAvailableCounts } from './inventory-renderer-helpers'
+import { getSlotColor, getSlotImageStyle, collectAvailableCounts } from './inventory-renderer-helpers'
 import { DEFAULT_SLOT_COLOR } from './inventory-renderer.config'
 
 describe('getSlotColor', () => {
@@ -60,5 +60,16 @@ describe('collectAvailableCounts', () => {
     const slots = Arr.makeBy(5, () => Option.none<{ itemType: 'AIR'; count: number }>())
     const counts = collectAvailableCounts(slots)
     expect(HashMap.size(counts)).toBe(0)
+  })
+})
+
+describe('getSlotImageStyle', () => {
+  it('returns null for AIR (no texture icon)', () => {
+    expect(getSlotImageStyle('AIR')).toBeNull()
+  })
+
+  it('returns url style for inventory-only items', () => {
+    const style = getSlotImageStyle('STICKS')
+    expect(style).toContain("url('/textures/tile-48-item-sticks.png')")
   })
 })

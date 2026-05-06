@@ -5,7 +5,7 @@ import { InventoryService } from '@ts-minecraft/inventory'
 import { PlayerError, PlayerService } from '@ts-minecraft/player'
 import { ChunkError, ChunkManagerService } from '@ts-minecraft/terrain'
 import { blockTypeToIndex, CHUNK_HEIGHT, CHUNK_SIZE, DEFAULT_PLAYER_ID } from '@ts-minecraft/kernel'
-import type { BlockType, InventoryItem, PlayerId, Position } from '@ts-minecraft/kernel'
+import type { InventoryItem, PlayerId, Position } from '@ts-minecraft/kernel'
 import type { Chunk } from '@ts-minecraft/terrain'
 
 export const makeChunkWithFurnace = () => {
@@ -48,6 +48,7 @@ type RecipeMockOverrides = Partial<{
 type ChunkManagerMockOverrides = Partial<{
   getChunk: ChunkManagerService['getChunk']
   getLoadedChunks: ChunkManagerService['getLoadedChunks']
+  drainRenderDirtyChunks: ChunkManagerService['drainRenderDirtyChunks']
   loadChunksAroundPlayer: ChunkManagerService['loadChunksAroundPlayer']
   markChunkDirty: ChunkManagerService['markChunkDirty']
   saveDirtyChunks: ChunkManagerService['saveDirtyChunks']
@@ -140,6 +141,7 @@ export const makeChunkManagerService = (
     _tag: '@minecraft/application/ChunkManagerService' as const,
     getChunk: () => Effect.succeed(chunk),
     getLoadedChunks: () => Effect.succeed([]),
+    drainRenderDirtyChunks: () => Effect.succeed([]),
     loadChunksAroundPlayer: () => Effect.succeed(false),
     markChunkDirty: () => Effect.void,
     saveDirtyChunks: () => Effect.void,

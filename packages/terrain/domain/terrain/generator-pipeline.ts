@@ -1,6 +1,7 @@
 import { Array as Arr, Effect, MutableHashMap, Option } from 'effect'
 import { blockTypeToIndex, CHUNK_SIZE, CHUNK_HEIGHT, LAKE_LEVEL } from '@ts-minecraft/kernel'
 import { computeColumnYFromValues } from '../density-function'
+import { peaksAndValleysFromWeirdness } from '../biome-classifier'
 import {
   LAKE_NOISE_SCALE,
   LAKE_THRESHOLD,
@@ -19,7 +20,6 @@ import type {
   TreeColumnContext,
   ColumnState,
   OverhangTarget,
-  OverhangEntry,
   TreeColumnContextResolverDeps,
   ColumnStateBuildArgs,
 } from './generator-types'
@@ -37,9 +37,12 @@ export const buildColumnStates = ({
   andesiteNoiseVals,
   treeColumnContextCache,
   blockIndices,
-}: ColumnStateBuildArgs): ReadonlyArray<ColumnState> =>
-  Arr.flatMap(Arr.makeBy(CHUNK_SIZE, (lx) => lx), (lx) =>
-    Arr.makeBy(CHUNK_SIZE, (lz) => {
+}: ColumnStateBuildArgs): ReadonlyArray<ColumnState> => {
+  const columnStates: ColumnState[] = []
+  columnStates.length = CHUNK_SIZE * CHUNK_SIZE
+
+  for (let lx = 0; lx < CHUNK_SIZE; lx++) {
+    for (let lz = 0; lz < CHUNK_SIZE; lz++) {
       const columnIndex = lx * CHUNK_SIZE + lz
       const terrainIndex = lz * CHUNK_SIZE + lx
       const wx = baseWorldX + lx
@@ -98,9 +101,12 @@ export const buildColumnStates = ({
         supportsTree: supportsTreeAtSurface(surfaceBlock, biome, blockIndices),
       })
 
-      return { biome, props, surfaceY, lakeBasinY, ruggedness }
-    })
-  )
+      columnStates[columnIndex] = { biome, props, surfaceY, lakeBasinY, ruggedness }
+    }
+  }
+
+  return columnStates
+}
 
 export const collectOverhangTargets = (
   blocks: Uint8Array,
@@ -114,51 +120,47 @@ export const collectOverhangTargets = (
   readonly overhangZs: ReadonlyArray<number>
   readonly overhangTargets: ReadonlyArray<OverhangTarget>
 } => {
-  const columnPairs = Arr.flatMap(Arr.makeBy(CHUNK_SIZE, (lx) => lx), (lx) =>
-    Arr.makeBy(CHUNK_SIZE, (lz) => ({ lx, lz }))
-  )
+  const overhangXs: number[] = []
+  const overhangYs: number[] = []
+  const overhangZs: number[] = []
+  const overhangTargets: OverhangTarget[] = []
 
-  const entries = Arr.flatMap(columnPairs, ({ lx, lz }) => {
-    const columnIndex = lz * CHUNK_SIZE + lx
-    const { biome, ruggedness, surfaceY } = columnStates[columnIndex]!
-    const eligible = biome === 'MOUNTAINS' || ruggedness >= 0.58
-    if (!eligible) return []
+  for (let lx = 0; lx < CHUNK_SIZE; lx++) {
+    for (let lz = 0; lz < CHUNK_SIZE; lz++) {
+      const columnIndex = lx * CHUNK_SIZE + lz
+      const { biome, ruggedness, surfaceY } = columnStates[columnIndex]!
+      const eligible = biome === 'MOUNTAINS' || ruggedness >= 0.58
+      if (!eligible) continue
 
-    let neighborMaxSurface = surfaceY
-    for (let dx = -1; dx <= 1; dx++) {
-      for (let dz = -1; dz <= 1; dz++) {
-        if (dx === 0 && dz === 0) continue
-        const nx = lx + dx
-        const nz = lz + dz
-        if (nx < 0 || nx >= CHUNK_SIZE || nz < 0 || nz >= CHUNK_SIZE) continue
-        neighborMaxSurface = Math.max(neighborMaxSurface, columnStates[nz * CHUNK_SIZE + nx]!.surfaceY)
+      let neighborMaxSurface = surfaceY
+      for (let dx = -1; dx <= 1; dx++) {
+        for (let dz = -1; dz <= 1; dz++) {
+          if (dx === 0 && dz === 0) continue
+          const nx = lx + dx
+          const nz = lz + dz
+          if (nx < 0 || nx >= CHUNK_SIZE || nz < 0 || nz >= CHUNK_SIZE) continue
+          neighborMaxSurface = Math.max(neighborMaxSurface, columnStates[nx * CHUNK_SIZE + nz]!.surfaceY)
+        }
+      }
+
+      const supportCeiling = biome === 'MOUNTAINS'
+        ? Math.max(neighborMaxSurface + 2, surfaceY + 6)
+        : neighborMaxSurface + 2
+      /* c8 ignore next */
+      if (supportCeiling <= surfaceY + 1) continue
+
+      const bandTop = Math.min(CHUNK_HEIGHT - 2, surfaceY + OVERHANG_BAND_HEIGHT)
+      for (let y = surfaceY + 2; y <= bandTop; y++) {
+        if (y > supportCeiling) continue
+        const blockIndex = chunkBlockIndexUnchecked(lx, y, lz)
+        if (blocks[blockIndex] !== airBlockIndex) continue
+        overhangTargets.push({ lx, lz, y })
+        overhangXs.push((baseWorldX + lx) * OVERHANG_NOISE_SCALE)
+        overhangYs.push(y * OVERHANG_NOISE_SCALE)
+        overhangZs.push((baseWorldZ + lz) * OVERHANG_NOISE_SCALE)
       }
     }
-
-    const supportCeiling = biome === 'MOUNTAINS'
-      ? Math.max(neighborMaxSurface + 2, surfaceY + 6)
-      : neighborMaxSurface + 2
-    /* c8 ignore next */
-    if (supportCeiling <= surfaceY + 1) return []
-
-    const bandTop = Math.min(CHUNK_HEIGHT - 2, surfaceY + OVERHANG_BAND_HEIGHT)
-    return Arr.filterMap(Arr.makeBy(bandTop - (surfaceY + 2) + 1, (i) => surfaceY + 2 + i), (y) => {
-      if (y > supportCeiling) return Option.none()
-      const blockIndex = chunkBlockIndexUnchecked(lx, y, lz)
-      if (blocks[blockIndex] !== airBlockIndex) return Option.none()
-      return Option.some<OverhangEntry>({
-        target: { lx, lz, y },
-        noiseX: (baseWorldX + lx) * OVERHANG_NOISE_SCALE,
-        noiseY: y * OVERHANG_NOISE_SCALE,
-        noiseZ: (baseWorldZ + lz) * OVERHANG_NOISE_SCALE,
-      })
-    })
-  })
-
-  const overhangXs = Arr.map(entries, (e) => e.noiseX)
-  const overhangYs = Arr.map(entries, (e) => e.noiseY)
-  const overhangZs = Arr.map(entries, (e) => e.noiseZ)
-  const overhangTargets = Arr.map(entries, (e) => e.target)
+  }
 
   return { overhangXs, overhangYs, overhangZs, overhangTargets }
 }
@@ -176,7 +178,7 @@ export const applyOverhangNoise = (
     /* c8 ignore next */
     if (blocks[blockIndex] !== airBlockIndex) return
 
-    const { biome, surfaceY } = columnStates[lz * CHUNK_SIZE + lx]!
+    const { biome, surfaceY } = columnStates[lx * CHUNK_SIZE + lz]!
     const heightFactor = 1 - (y - surfaceY) / OVERHANG_BAND_HEIGHT
     const baseThreshold = biome === 'MOUNTAINS' ? OVERHANG_THRESHOLD - 0.08 : OVERHANG_THRESHOLD
     const threshold = baseThreshold - heightFactor * 0.14
@@ -198,7 +200,7 @@ export const createTreeColumnContextResolver = ({
     onNone: () => Effect.gen(function* () {
 
     const biome = yield* biomeService.getBiome(wx, wz)
-    const [props, continentalness, erosion, pv, jaggedness, lakeNoiseVal] = yield* Effect.all([
+    const [props, continentalness, erosion, weirdness, jaggedness, lakeNoiseVal] = yield* Effect.all([
       biomeService.getBiomeProperties(biome),
       noiseService.continentalness(wx, wz),
       noiseService.erosion(wx, wz),
@@ -207,6 +209,8 @@ export const createTreeColumnContextResolver = ({
       noiseService.noise2D(wx * LAKE_NOISE_SCALE + 5000, wz * LAKE_NOISE_SCALE + 5000),
     ], { concurrency: 'unbounded' })
 
+    // computeColumnYFromValues expects Minecraft's peaks-and-valleys channel, not raw weirdness.
+    const pv = peaksAndValleysFromWeirdness(weirdness)
     const initialSurfaceY = computeColumnYFromValues(continentalness, erosion, pv, jaggedness)
     const lakeBasinY = computeLakeBasin(biome, lakeNoiseVal, initialSurfaceY)
     const surfaceY = resolveSurfaceY(biome, initialSurfaceY, lakeBasinY)

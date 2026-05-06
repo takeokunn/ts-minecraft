@@ -286,8 +286,6 @@ export class PerfHudService extends Effect.Service<PerfHudService>()(
   },
 ) {}
 
-export const PerfHudServiceLive = PerfHudService.Default
-
 // -----------------------------------------------------------------------------
 // Counter installation helper
 // -----------------------------------------------------------------------------

@@ -204,7 +204,7 @@ describe('presentation/inventory/inventory-renderer', () => {
       const mockHotbar = createMockHotbarLayer()
       // Provide two DIRT items in slots 0 and 1 to hit the onSome HashMap.set path
       const slots = Arr.makeBy(INVENTORY_SIZE, (i) =>
-        i < 2 ? Option.some({ blockType: 'DIRT', count: 5 }) : Option.none(),
+        i < 2 ? Option.some({ itemType: 'DIRT', count: 5 }) : Option.none(),
       )
       const mockInventory = createMockInventoryLayer(slots as ReadonlyArray<Option.Option<unknown>>)
       const TestLayer = buildTestLayer(mockDom, mockInventory, mockHotbar, mockRecipe)

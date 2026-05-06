@@ -1,7 +1,7 @@
 import { Effect, Option } from 'effect';
 import { ChunkService } from './chunk-service';
 import type { Chunk } from '../domain/chunk';
-import { ChunkCoord } from '@ts-minecraft/kernel';
+import { ChunkCoord, type WorldId } from '@ts-minecraft/kernel';
 import { StorageError } from '@ts-minecraft/world-state';
 import { LightEngineService } from './light-engine-service';
 import { StorageServicePort } from '../domain/storage-service-port';
@@ -12,6 +12,7 @@ import { TerrainWorkerPoolPort } from './terrain-worker-pool-port';
 import { ChunkManagerError } from './chunk-manager-constants';
 export { RENDER_DISTANCE, UNLOAD_DISTANCE, MAX_CACHED_CHUNKS } from './chunk-manager-constants';
 export type { ChunkManagerError } from './chunk-manager-constants';
+export declare const setActiveChunkWorldId: (worldId: WorldId) => void;
 declare const ChunkManagerService_base: Effect.Service.Class<ChunkManagerService, "@minecraft/application/ChunkManagerService", {
     readonly effect: Effect.Effect<{
         getChunk: (coord: ChunkCoord) => Effect.Effect<{
@@ -26,6 +27,7 @@ declare const ChunkManagerService_base: Effect.Service.Class<ChunkManagerService
         }, ChunkManagerError, never>;
         loadChunksAroundPlayer: (playerPos: Position, renderDistance?: number) => Effect.Effect<boolean, ChunkManagerError>;
         getLoadedChunks: () => Effect.Effect<ReadonlyArray<Chunk>, never>;
+        drainRenderDirtyChunks: () => Effect.Effect<ReadonlyArray<Chunk>, never>;
         markChunkDirty: (coord: ChunkCoord) => Effect.Effect<void, never>;
         saveDirtyChunks: () => Effect.Effect<void, StorageError>;
         unloadChunk: (coord: ChunkCoord) => Effect.Effect<void, StorageError, never>;

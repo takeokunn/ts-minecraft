@@ -15,6 +15,7 @@ export const NoOpChunkManagerLayer = Layer.succeed(ChunkManagerService, ChunkMan
   _tag: '@minecraft/application/ChunkManagerService' as const,
   getChunk: (_coord: unknown) => Effect.fail({ _tag: 'ChunkError', message: 'not loaded' } as never),
   getLoadedChunks: () => Effect.succeed([]),
+  drainRenderDirtyChunks: () => Effect.succeed([]),
   loadChunksAroundPlayer: (_pos: unknown, _dist?: unknown) => Effect.succeed(false),
   markChunkDirty: () => Effect.void,
   saveDirtyChunks: () => Effect.void,

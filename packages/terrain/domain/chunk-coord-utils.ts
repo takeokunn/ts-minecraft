@@ -64,3 +64,6 @@ export const getChunksInRenderDistance = (center: ChunkCoord, renderDistance: nu
 }
 
 export const chunkCoordToKey = (coord: ChunkCoord): ChunkCacheKey => ChunkCacheKey.make(coord)
+
+export const chunkCoordToWorldKey = (coord: ChunkCoord, worldId: string): ChunkCacheKey =>
+  ChunkCacheKey.make(`${worldId}:${coord.x},${coord.z}`)

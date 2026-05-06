@@ -1,4 +1,4 @@
-import { Effect, Data, HashSet, Metric, Option } from 'effect'
+import { Effect, Data, Either, HashSet, Metric, Option, Schema } from 'effect'
 import { ChunkManagerService } from './chunk-manager-service'
 import { DEFAULT_PLAYER_ID } from '@ts-minecraft/kernel'
 import { FluidService } from './fluid-service'
@@ -11,11 +11,11 @@ import { PlayerService } from '@ts-minecraft/player'
 import { InventoryService } from '@ts-minecraft/inventory'
 import { HotbarService } from '@ts-minecraft/inventory'
 import { FurnaceService } from '@ts-minecraft/furnace'
-import { BlockType, ItemType } from '@ts-minecraft/kernel'
+import { BlockTypeSchema } from '@ts-minecraft/kernel'
+import type { InventoryItem } from '@ts-minecraft/kernel'
 import { Position, SlotIndex } from '@ts-minecraft/kernel'
 import {
   NON_PLACEABLE_ITEM_TYPES,
-  PICKAXE_BLOCK_TYPES,
   DIAMOND_PICKAXE_HARVESTABLE_BLOCKS,
   getInventoryDropForBlock,
 } from './block-service.config'
@@ -80,10 +80,7 @@ export class BlockService extends Effect.Service<BlockService>()(
             }
 
             const selectedTool = yield* hotbarService.getSelectedBlockType()
-            const selectedToolValue = Option.getOrElse(selectedTool, () => 'AIR' as string)
-            const shouldDrop = HashSet.has(PICKAXE_BLOCK_TYPES, selectedToolValue as unknown as ItemType)
-              ? canHarvestBlock(blockType, selectedTool)
-              : canHarvestBlock(blockType, Option.none())
+            const shouldDrop = canHarvestBlock(blockType, selectedTool)
             if (HashSet.has(REQUIRES_PICKAXE_BLOCKS, blockType) && !shouldDrop) {
               return yield* Effect.fail(new BlockServiceError({
                 operation: 'breakBlock',
@@ -112,6 +109,7 @@ export class BlockService extends Effect.Service<BlockService>()(
 
             yield* chunkManagerService.markChunkDirty(chunkCoord)
             if (blockType === 'WATER') yield* fluidService.removeWater(position)
+            if (blockType === 'LAVA') yield* fluidService.removeLava(position)
             yield* fluidService.notifyBlockChanged(position)
             yield* Metric.counter('blocks_broken').pipe(Metric.increment)
             if (shouldDrop) {
@@ -119,7 +117,7 @@ export class BlockService extends Effect.Service<BlockService>()(
             }
           }),
 
-        placeBlock: (position: Position, blockType: BlockType, preferredInventorySlot?: SlotIndex): Effect.Effect<void, BlockServiceError> =>
+        placeBlock: (position: Position, itemType: InventoryItem, preferredInventorySlot?: SlotIndex): Effect.Effect<void, BlockServiceError> =>
           Effect.gen(function* () {
             const { chunkCoord, lx, lz } = worldToBlockLocal(position)
             const y = Math.floor(position.y)
@@ -147,12 +145,21 @@ export class BlockService extends Effect.Service<BlockService>()(
               }))
             }
 
-            if (HashSet.has(NON_PLACEABLE_ITEM_TYPES, blockType as unknown as ItemType)) {
+            if (HashSet.has(NON_PLACEABLE_ITEM_TYPES, itemType)) {
               return yield* Effect.fail(new BlockServiceError({
                 operation: 'placeBlock',
-                reason: `${blockType} is an inventory item and cannot be placed in the world`,
+                reason: `${itemType} is an inventory item and cannot be placed in the world`,
               }))
             }
+
+            const decodedBlockType = Schema.decodeUnknownEither(BlockTypeSchema)(itemType)
+            if (Either.isLeft(decodedBlockType)) {
+              return yield* Effect.fail(new BlockServiceError({
+                operation: 'placeBlock',
+                reason: `${itemType} cannot be placed in the world`,
+              }))
+            }
+            const blockType = Option.getOrThrow(Either.getRight(decodedBlockType))
 
             const playerPos = yield* playerService.getPosition(DEFAULT_PLAYER_ID).pipe(
               Effect.mapError((e) => new BlockServiceError({
@@ -198,6 +205,7 @@ export class BlockService extends Effect.Service<BlockService>()(
             yield* chunkManagerService.markChunkDirty(chunkCoord)
             yield* fluidService.notifyBlockChanged(position)
             if (blockType === 'WATER') yield* fluidService.seedWater(position)
+            if (blockType === 'LAVA') yield* fluidService.seedLava(position)
             yield* Metric.counter('blocks_placed').pipe(Metric.increment)
           }),
       }))

@@ -1,4 +1,4 @@
-import { Array as Arr, Option, Schema } from 'effect'
+import { Schema } from 'effect'
 import { TILE_MAP } from './block-texture-map.config'
 
 export { TILE_MAP }
@@ -10,7 +10,7 @@ export const ATLAS_SIZE = 512
 export const HALF_TEXEL = 0.5 / ATLAS_SIZE
 
 export const getTileIndex = (blockId: number, faceDir: FaceDir): number =>
-  Option.getOrElse(Option.map(Arr.get(TILE_MAP, blockId), (entry) => entry[faceDir]), () => 0)
+  TILE_MAP[blockId]?.[faceDir] ?? 0
 
 export const getTileUVs = (
   tileIndex: number

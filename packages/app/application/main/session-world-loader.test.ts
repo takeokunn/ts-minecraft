@@ -1,43 +1,108 @@
 import { describe, expect, it, vi } from 'vitest'
 import { Effect, Either, Option } from 'effect'
 import {
-  loadOrCreateWorld,
   buildRespawnPosition,
-  type WorldBootstrap,
-} from '@ts-minecraft/app/main/session-world-loader'
+  loadOrCreateWorld,
+  type SavedFurnaceStates,
+  type SavedPlayerState,
+} from './session-world-loader'
+import { GameModeService, type GameMode } from '../../../game'
 import { WorldId, CHUNK_HEIGHT } from '@ts-minecraft/kernel'
-import { StorageError } from '@ts-minecraft/world-state'
+import { ChunkManagerService } from '../../../terrain/application/chunk-manager-service'
+import { NoiseService } from '../../../terrain/application/noise-service'
+import { StorageError } from '../../../world-state/domain/errors'
+import {
+  StorageService,
+  type WorldMetadata,
+} from '../../../world-state/infrastructure/storage-service'
 
 // ---------------------------------------------------------------------------
 // Mock factories
 // ---------------------------------------------------------------------------
 
-const makeStorageService = (
-  overrides?: Partial<{
-    loadWorldMetadata: ReturnType<typeof vi.fn>
-    saveWorldMetadata: ReturnType<typeof vi.fn>
-  }>,
-) => ({
-  loadWorldMetadata: overrides?.loadWorldMetadata ?? vi.fn(() => Effect.succeed(Option.none())),
-  saveWorldMetadata: overrides?.saveWorldMetadata ?? vi.fn(() => Effect.void),
-})
+const makeStorageService = (overrides: Partial<StorageService> = {}): StorageService =>
+  StorageService.of({
+    _tag: '@minecraft/infrastructure/storage/StorageService' as const,
+    initialize: Effect.void,
+    saveChunk: (_worldId, _chunkCoord, _data) => Effect.void,
+    loadChunk: (_worldId, _chunkCoord) => Effect.succeed(Option.none()),
+    saveWorldMetadata: (_worldId, _metadata) => Effect.void,
+    loadWorldMetadata: (_worldId) => Effect.succeed(Option.none()),
+    deleteWorld: (_worldId) => Effect.void,
+    listWorldMetadata: Effect.succeed({ valid: [], corrupt: [] }),
+    ...overrides,
+  })
 
-const makeNoiseService = () => ({
-  setSeed: vi.fn(() => Effect.void),
-})
+const makeNoiseService = (overrides: Partial<NoiseService> = {}): NoiseService =>
+  NoiseService.of({
+    _tag: '@minecraft/infrastructure/noise/NoiseService' as const,
+    noise2D: (_x, _z) => Effect.succeed(0),
+    octaveNoise2D: (_x, _z, _octaves, _persistence, _lacunarity) => Effect.succeed(0),
+    getSeed: Effect.succeed(0),
+    setSeed: (_seed) => Effect.void,
+    noise3D: (_x, _y, _z) => Effect.succeed(0),
+    noise3DBatchXYZ: (_xs, _ys, _zs) => Effect.succeed([]),
+    octaveNoise2DBatch: (_points, _octaves, _persistence, _lacunarity) => Effect.succeed([]),
+    noise2DBatch: (_points) => Effect.succeed([]),
+    octaveNoise2DBatchXY: (_xs, _zs, _octaves, _persistence, _lacunarity) => Effect.succeed([]),
+    noise2DBatchXY: (_xs, _zs) => Effect.succeed([]),
+    continentalness: (_x, _z) => Effect.succeed(0),
+    erosion: (_x, _z) => Effect.succeed(0),
+    weirdness: (_x, _z) => Effect.succeed(0),
+    jaggedness: (_x, _z) => Effect.succeed(0),
+    sampleTerrainChannels: (_xStart, _zStart) =>
+      Effect.succeed({
+        continentalness: new Float64Array(),
+        erosion: new Float64Array(),
+        pv: new Float64Array(),
+        jaggedness: new Float64Array(),
+      }),
+    ...overrides,
+  })
 
-const makeGameModeService = () => ({
-  set: vi.fn(() => Effect.void),
-})
+const makeGameModeService = (overrides: Partial<GameModeService> = {}): GameModeService =>
+  GameModeService.of({
+    _tag: '@minecraft/application/GameModeService' as const,
+    get: () => Effect.succeed('survival'),
+    set: (_mode) => Effect.void,
+    isCreative: () => Effect.succeed(false),
+    isSurvival: () => Effect.succeed(true),
+    ...overrides,
+  })
 
-const makeMetadata = (overrides?: Partial<{
-  seed: number
-  createdAt: Date
-  lastPlayed: Date
-  playerSpawn: { x: number; y: number; z: number }
-  gameMode: 'survival' | 'creative'
-  saveVersion: number
-}>) => ({
+const makeChunkWithSurfaceAt = (
+  surfaceY: number,
+  options: {
+    readonly coord?: { readonly x: number; readonly z: number }
+    readonly lx?: number
+    readonly lz?: number
+    readonly blockId?: number
+  } = {},
+) => {
+  const blocks = new Uint8Array(CHUNK_HEIGHT * 16 * 16)
+  const lx = options.lx ?? 0
+  const lz = options.lz ?? 0
+  blocks[surfaceY + (lz * CHUNK_HEIGHT) + (lx * CHUNK_HEIGHT * 16)] = options.blockId ?? 1
+  return { coord: options.coord ?? { x: 0, z: 0 }, blocks, fluid: Option.none() }
+}
+
+const WATER_BLOCK_ID = 6
+
+const makeChunkManagerService = (overrides: Partial<ChunkManagerService> = {}): ChunkManagerService =>
+  ChunkManagerService.of({
+    _tag: '@minecraft/application/ChunkManagerService' as const,
+    getChunk: (_coord): Effect.Effect<ReturnType<typeof makeChunkWithSurfaceAt>, never> =>
+      Effect.succeed(makeChunkWithSurfaceAt(64)),
+    loadChunksAroundPlayer: (_playerPos, _renderDistance) => Effect.succeed(false),
+    getLoadedChunks: () => Effect.succeed([]),
+    drainRenderDirtyChunks: () => Effect.succeed([]),
+    markChunkDirty: (_coord) => Effect.void,
+    saveDirtyChunks: () => Effect.void,
+    unloadChunk: (_coord) => Effect.void,
+    ...overrides,
+  })
+
+const makeMetadata = (overrides: Partial<WorldMetadata> = {}): WorldMetadata => ({
   seed: 42,
   createdAt: new Date('2024-01-01'),
   lastPlayed: new Date('2024-06-01'),
@@ -46,6 +111,14 @@ const makeMetadata = (overrides?: Partial<{
   saveVersion: 1,
   ...overrides,
 })
+
+const runLoad = (
+  worldId: WorldId,
+  initialGameMode: GameMode,
+  storageService: StorageService,
+  noiseService: NoiseService,
+  gameModeService: GameModeService,
+) => Effect.runPromise(Effect.either(loadOrCreateWorld(worldId, initialGameMode, storageService, noiseService, gameModeService)))
 
 // ---------------------------------------------------------------------------
 // loadOrCreateWorld
@@ -62,9 +135,7 @@ describe('loadOrCreateWorld', () => {
       const gameModeService = makeGameModeService()
       const worldId = WorldId.make('world-1')
 
-      const result = await Effect.runPromise(
-        Effect.either(loadOrCreateWorld(worldId, 'survival', storageService as never, noiseService as never, gameModeService as never)),
-      )
+      const result = await runLoad(worldId, 'survival', storageService, noiseService, gameModeService)
 
       expect(Either.isRight(result)).toBe(true)
       const bootstrap = Option.getOrThrow(Either.getRight(result))
@@ -81,9 +152,7 @@ describe('loadOrCreateWorld', () => {
       const gameModeService = makeGameModeService()
       const worldId = WorldId.make('world-1')
 
-      const result = await Effect.runPromise(
-        Effect.either(loadOrCreateWorld(worldId, 'survival', storageService as never, noiseService as never, gameModeService as never)),
-      )
+      const result = await runLoad(worldId, 'survival', storageService, noiseService, gameModeService)
 
       const bootstrap = Option.getOrThrow(Either.getRight(result))
       expect(bootstrap.baseSpawnPosition).toEqual({ x: 10, y: 72, z: 20 })
@@ -91,34 +160,32 @@ describe('loadOrCreateWorld', () => {
 
     it('seeds the noise service with the stored seed', async () => {
       const metadata = makeMetadata({ seed: 9999 })
-      const noiseService = makeNoiseService()
+      const setSeed = vi.fn().mockImplementation((_seed: number) => Effect.void)
+      const noiseService = makeNoiseService({ setSeed })
       const storageService = makeStorageService({
         loadWorldMetadata: vi.fn(() => Effect.succeed(Option.some(metadata))),
       })
       const gameModeService = makeGameModeService()
       const worldId = WorldId.make('world-1')
 
-      await Effect.runPromise(
-        Effect.either(loadOrCreateWorld(worldId, 'survival', storageService as never, noiseService as never, gameModeService as never)),
-      )
+      await runLoad(worldId, 'survival', storageService, noiseService, gameModeService)
 
-      expect(noiseService.setSeed).toHaveBeenCalledWith(9999)
+      expect(setSeed).toHaveBeenCalledWith(9999)
     })
 
     it('sets game mode service to the stored game mode', async () => {
       const metadata = makeMetadata({ gameMode: 'creative' })
-      const gameModeService = makeGameModeService()
+      const setGameMode = vi.fn((_: GameMode) => Effect.void)
+      const gameModeService = makeGameModeService({ set: setGameMode })
       const storageService = makeStorageService({
         loadWorldMetadata: vi.fn(() => Effect.succeed(Option.some(metadata))),
       })
       const noiseService = makeNoiseService()
       const worldId = WorldId.make('world-1')
 
-      await Effect.runPromise(
-        Effect.either(loadOrCreateWorld(worldId, 'survival', storageService as never, noiseService as never, gameModeService as never)),
-      )
+      await runLoad(worldId, 'survival', storageService, noiseService, gameModeService)
 
-      expect(gameModeService.set).toHaveBeenCalledWith('creative')
+      expect(setGameMode).toHaveBeenCalledWith('creative')
     })
 
     it('returns savedPlayerState as none when metadata has no playerState', async () => {
@@ -131,19 +198,17 @@ describe('loadOrCreateWorld', () => {
       const gameModeService = makeGameModeService()
       const worldId = WorldId.make('world-1')
 
-      const result = await Effect.runPromise(
-        Effect.either(loadOrCreateWorld(worldId, 'survival', storageService as never, noiseService as never, gameModeService as never)),
-      )
+      const result = await runLoad(worldId, 'survival', storageService, noiseService, gameModeService)
 
       const bootstrap = Option.getOrThrow(Either.getRight(result))
       expect(Option.isNone(bootstrap.savedPlayerState)).toBe(true)
     })
 
     it('returns savedPlayerState as some when metadata has a playerState', async () => {
-      const playerState = {
+      const playerState: SavedPlayerState = {
         position: { x: 1, y: 64, z: 2 },
         health: 15,
-        inventory: { slots: [] as never[] },
+        inventory: { slots: [] },
         timeOfDay: 0.3,
       }
       const metadata = { ...makeMetadata(), playerState }
@@ -154,9 +219,7 @@ describe('loadOrCreateWorld', () => {
       const gameModeService = makeGameModeService()
       const worldId = WorldId.make('world-1')
 
-      const result = await Effect.runPromise(
-        Effect.either(loadOrCreateWorld(worldId, 'survival', storageService as never, noiseService as never, gameModeService as never)),
-      )
+      const result = await runLoad(worldId, 'survival', storageService, noiseService, gameModeService)
 
       const bootstrap = Option.getOrThrow(Either.getRight(result))
       expect(Option.isSome(bootstrap.savedPlayerState)).toBe(true)
@@ -164,7 +227,7 @@ describe('loadOrCreateWorld', () => {
     })
 
     it('returns savedFurnaceStates as some when metadata has a furnaceStates value', async () => {
-      const furnaceStates = [
+      const furnaceStates: SavedFurnaceStates = [
         { position: { x: 2, y: 64, z: 3 }, input: Option.none(), fuel: Option.none(), output: Option.none(), activeRecipeId: Option.none(), progressSecs: 0 },
       ]
       const metadata = { ...makeMetadata(), furnaceStates }
@@ -175,31 +238,13 @@ describe('loadOrCreateWorld', () => {
       const gameModeService = makeGameModeService()
       const worldId = WorldId.make('world-1')
 
-      const result = await Effect.runPromise(
-        Effect.either(loadOrCreateWorld(worldId, 'survival', storageService as never, noiseService as never, gameModeService as never)),
-      )
+      const result = await runLoad(worldId, 'survival', storageService, noiseService, gameModeService)
 
       const bootstrap = Option.getOrThrow(Either.getRight(result))
       expect(Option.isSome(bootstrap.savedFurnaceStates)).toBe(true)
       expect(Option.getOrThrow(bootstrap.savedFurnaceStates)).toEqual(furnaceStates)
     })
 
-    it('falls back to { x:0, y:100, z:0 } when playerSpawn is null/undefined in metadata', async () => {
-      const metadata = { ...makeMetadata(), playerSpawn: null as never }
-      const storageService = makeStorageService({
-        loadWorldMetadata: vi.fn(() => Effect.succeed(Option.some(metadata))),
-      })
-      const noiseService = makeNoiseService()
-      const gameModeService = makeGameModeService()
-      const worldId = WorldId.make('world-1')
-
-      const result = await Effect.runPromise(
-        Effect.either(loadOrCreateWorld(worldId, 'survival', storageService as never, noiseService as never, gameModeService as never)),
-      )
-
-      const bootstrap = Option.getOrThrow(Either.getRight(result))
-      expect(bootstrap.baseSpawnPosition).toEqual({ x: 0, y: 100, z: 0 })
-    })
   })
 
   describe('when world does NOT exist in storage (onNone path)', () => {
@@ -213,9 +258,7 @@ describe('loadOrCreateWorld', () => {
       const gameModeService = makeGameModeService()
       const worldId = WorldId.make('world-new')
 
-      await Effect.runPromise(
-        Effect.either(loadOrCreateWorld(worldId, 'survival', storageService as never, noiseService as never, gameModeService as never)),
-      )
+      await runLoad(worldId, 'survival', storageService, noiseService, gameModeService)
 
       expect(saveWorldMetadataSpy).toHaveBeenCalledOnce()
     })
@@ -229,9 +272,7 @@ describe('loadOrCreateWorld', () => {
       const gameModeService = makeGameModeService()
       const worldId = WorldId.make('world-new')
 
-      const result = await Effect.runPromise(
-        Effect.either(loadOrCreateWorld(worldId, 'survival', storageService as never, noiseService as never, gameModeService as never)),
-      )
+      const result = await runLoad(worldId, 'survival', storageService, noiseService, gameModeService)
 
       const bootstrap = Option.getOrThrow(Either.getRight(result))
       expect(Option.isNone(bootstrap.savedPlayerState)).toBe(true)
@@ -247,9 +288,7 @@ describe('loadOrCreateWorld', () => {
       const gameModeService = makeGameModeService()
       const worldId = WorldId.make('world-new')
 
-      const result = await Effect.runPromise(
-        Effect.either(loadOrCreateWorld(worldId, 'creative', storageService as never, noiseService as never, gameModeService as never)),
-      )
+      const result = await runLoad(worldId, 'creative', storageService, noiseService, gameModeService)
 
       const bootstrap = Option.getOrThrow(Either.getRight(result))
       expect(bootstrap.gameMode).toBe('creative')
@@ -264,9 +303,7 @@ describe('loadOrCreateWorld', () => {
       const gameModeService = makeGameModeService()
       const worldId = WorldId.make('world-new')
 
-      const result = await Effect.runPromise(
-        Effect.either(loadOrCreateWorld(worldId, 'survival', storageService as never, noiseService as never, gameModeService as never)),
-      )
+      const result = await runLoad(worldId, 'survival', storageService, noiseService, gameModeService)
 
       const bootstrap = Option.getOrThrow(Either.getRight(result))
       expect(bootstrap.baseSpawnPosition).toEqual({ x: 0, y: 100, z: 0 })
@@ -277,17 +314,18 @@ describe('loadOrCreateWorld', () => {
         loadWorldMetadata: vi.fn(() => Effect.succeed(Option.none())),
         saveWorldMetadata: vi.fn(() => Effect.void),
       })
-      const noiseService = makeNoiseService()
+      let calledSeed: number | undefined
+      const setSeed = vi.fn().mockImplementation((seed: number) => {
+        calledSeed = seed
+        return Effect.void
+      })
+      const noiseService = makeNoiseService({ setSeed })
       const gameModeService = makeGameModeService()
       const worldId = WorldId.make('world-new')
 
-      await Effect.runPromise(
-        Effect.either(loadOrCreateWorld(worldId, 'survival', storageService as never, noiseService as never, gameModeService as never)),
-      )
+      await runLoad(worldId, 'survival', storageService, noiseService, gameModeService)
 
-      expect(noiseService.setSeed).toHaveBeenCalledOnce()
-      // The seed is random, so we just verify it was called with a number
-      const calledSeed = noiseService.setSeed.mock.calls[0]?.[0] as number
+      expect(setSeed).toHaveBeenCalledOnce()
       expect(typeof calledSeed).toBe('number')
     })
   })
@@ -302,9 +340,7 @@ describe('loadOrCreateWorld', () => {
       const gameModeService = makeGameModeService()
       const worldId = WorldId.make('world-1')
 
-      const result = await Effect.runPromise(
-        Effect.either(loadOrCreateWorld(worldId, 'survival', storageService as never, noiseService as never, gameModeService as never)),
-      )
+      const result = await runLoad(worldId, 'survival', storageService, noiseService, gameModeService)
 
       expect(Either.isLeft(result)).toBe(true)
       const err = Option.getOrThrow(Either.getLeft(result))
@@ -321,9 +357,7 @@ describe('loadOrCreateWorld', () => {
       const gameModeService = makeGameModeService()
       const worldId = WorldId.make('world-new')
 
-      const result = await Effect.runPromise(
-        Effect.either(loadOrCreateWorld(worldId, 'survival', storageService as never, noiseService as never, gameModeService as never)),
-      )
+      const result = await runLoad(worldId, 'survival', storageService, noiseService, gameModeService)
 
       expect(Either.isLeft(result)).toBe(true)
       const err = Option.getOrThrow(Either.getLeft(result))
@@ -337,94 +371,89 @@ describe('loadOrCreateWorld', () => {
 // ---------------------------------------------------------------------------
 
 describe('buildRespawnPosition', () => {
-  // Chunk block index formula: idx = y + (z * CHUNK_HEIGHT) + (x * CHUNK_HEIGHT * CHUNK_SIZE)
-  // For x=0, z=0: idx = y
-  const makeChunkWithSurfaceAt = (surfaceY: number) => {
-    const blocks = new Uint8Array(CHUNK_HEIGHT * 16 * 16)
-    // Block type 1 (non-zero = solid) at the surface Y
-    blocks[surfaceY] = 1
-    return { coord: { x: 0, z: 0 }, blocks, fluid: Option.none() }
+  const chunkKey = (coord: { readonly x: number; readonly z: number }) => `${coord.x}:${coord.z}`
+  const makeEmptyChunk = (coord: { readonly x: number; readonly z: number }) => ({
+    coord,
+    blocks: new Uint8Array(CHUNK_HEIGHT * 16 * 16),
+    fluid: Option.none(),
+  })
+  const makeChunkLookupService = (chunks: ReadonlyArray<ReturnType<typeof makeChunkWithSurfaceAt>>) => {
+    const chunksByKey = new Map(chunks.map((chunk) => [chunkKey(chunk.coord), chunk]))
+    return makeChunkManagerService({
+      getChunk: (coord): Effect.Effect<ReturnType<typeof makeChunkWithSurfaceAt>, never> =>
+        Effect.succeed(chunksByKey.get(chunkKey(coord)) ?? makeEmptyChunk(coord)),
+    })
   }
 
-  it('returns a Y position 4 above the highest solid block (surfaceY + 1 + 3)', async () => {
+  it('returns a Y position 4 above the highest safe block (surfaceY + 1 + 3)', async () => {
     const chunk = makeChunkWithSurfaceAt(63)
-    const chunkManagerService = {
-      getChunk: vi.fn(() => Effect.succeed(chunk)),
-    }
+    const chunkManagerService = makeChunkLookupService([chunk])
     const baseSpawnPosition = { x: 0, y: 100, z: 0 }
 
-    const result = await Effect.runPromise(
-      buildRespawnPosition(baseSpawnPosition, chunkManagerService as never),
-    )
+    const result = await Effect.runPromise(buildRespawnPosition(baseSpawnPosition, chunkManagerService))
 
-    // surfaceY = 63 → result.y = 63 + 1 + 3 = 67
-    expect(result.y).toBe(67)
+    expect(result).toEqual({ x: 0, y: 67, z: 0 })
   })
 
-  it('preserves the x and z from baseSpawnPosition', async () => {
-    const chunk = makeChunkWithSurfaceAt(64)
-    const chunkManagerService = {
-      getChunk: vi.fn(() => Effect.succeed(chunk)),
-    }
+  it('uses the nearest safe column across nearby spawn chunks', async () => {
+    const chunk = makeChunkWithSurfaceAt(64, { coord: { x: 0, z: 1 }, lx: 8, lz: 0 })
+    const chunkManagerService = makeChunkLookupService([chunk])
     const baseSpawnPosition = { x: 8, y: 100, z: 16 }
 
-    const result = await Effect.runPromise(
-      buildRespawnPosition(baseSpawnPosition, chunkManagerService as never),
-    )
+    const result = await Effect.runPromise(buildRespawnPosition(baseSpawnPosition, chunkManagerService))
 
-    expect(result.x).toBe(8)
-    expect(result.z).toBe(16)
+    expect(result).toEqual({ x: 8, y: 68, z: 16 })
   })
 
-  it('uses the highest solid Y when multiple blocks are solid at different heights', async () => {
+  it('uses the highest safe Y when multiple blocks are solid at different heights', async () => {
     const blocks = new Uint8Array(CHUNK_HEIGHT * 16 * 16)
-    // Solid blocks at y=10, y=50, and y=80 — should find y=80 as the surface
     blocks[10] = 1
     blocks[50] = 1
     blocks[80] = 1
     const chunk = { coord: { x: 0, z: 0 }, blocks, fluid: Option.none() }
-    const chunkManagerService = {
-      getChunk: vi.fn(() => Effect.succeed(chunk)),
-    }
+    const chunkManagerService = makeChunkLookupService([chunk])
     const baseSpawnPosition = { x: 0, y: 100, z: 0 }
 
-    const result = await Effect.runPromise(
-      buildRespawnPosition(baseSpawnPosition, chunkManagerService as never),
-    )
+    const result = await Effect.runPromise(buildRespawnPosition(baseSpawnPosition, chunkManagerService))
 
-    // surfaceY = 80 → result.y = 80 + 1 + 3 = 84
-    expect(result.y).toBe(84)
+    expect(result).toEqual({ x: 0, y: 84, z: 0 })
   })
 
-  it('falls back to y=68 (64+1+3) when the chunk has no solid blocks', async () => {
-    const blocks = new Uint8Array(CHUNK_HEIGHT * 16 * 16) // all zeros = air
-    const chunk = { coord: { x: 0, z: 0 }, blocks, fluid: Option.none() }
-    const chunkManagerService = {
-      getChunk: vi.fn(() => Effect.succeed(chunk)),
-    }
+  it('ignores water surfaces and picks nearby land instead', async () => {
+    const waterChunk = makeChunkWithSurfaceAt(64, { blockId: WATER_BLOCK_ID })
+    const landChunk = makeChunkWithSurfaceAt(65, { coord: { x: 1, z: 0 } })
+    const chunkManagerService = makeChunkLookupService([waterChunk, landChunk])
     const baseSpawnPosition = { x: 0, y: 100, z: 0 }
 
-    const result = await Effect.runPromise(
-      buildRespawnPosition(baseSpawnPosition, chunkManagerService as never),
-    )
+    const result = await Effect.runPromise(buildRespawnPosition(baseSpawnPosition, chunkManagerService))
 
-    // fallback surfaceY = 64 → result.y = 64 + 1 + 3 = 68
-    expect(result.y).toBe(68)
+    expect(result).toEqual({ x: 16, y: 69, z: 0 })
   })
 
-  it('requests the spawn chunk at { x: 0, z: 0 }', async () => {
-    const blocks = new Uint8Array(CHUNK_HEIGHT * 16 * 16)
-    blocks[64] = 1
-    const chunk = { coord: { x: 0, z: 0 }, blocks, fluid: Option.none() }
-    const getChunkSpy = vi.fn(() => Effect.succeed(chunk))
-    const chunkManagerService = { getChunk: getChunkSpy }
+  it('falls back to y=68 (64+1+3) when no nearby chunk has a safe surface', async () => {
+    const chunkManagerService = makeChunkLookupService([])
+    const baseSpawnPosition = { x: 7, y: 100, z: -9 }
+
+    const result = await Effect.runPromise(buildRespawnPosition(baseSpawnPosition, chunkManagerService))
+
+    expect(result).toEqual({ x: 7, y: 68, z: -9 })
+  })
+
+  it('requests a bounded square of chunks around the base spawn chunk', async () => {
+    const chunk = makeChunkWithSurfaceAt(64)
+    const getChunkSpy = vi.fn((coord: { x: number; z: number }) => Effect.succeed(
+      coord.x === 0 && coord.z === 0 ? chunk : makeEmptyChunk(coord),
+    ))
+    const chunkManagerService = makeChunkManagerService({
+      getChunk: (coord): Effect.Effect<ReturnType<typeof makeChunkWithSurfaceAt>, never> => getChunkSpy(coord),
+    })
     const baseSpawnPosition = { x: 0, y: 100, z: 0 }
 
-    await Effect.runPromise(
-      buildRespawnPosition(baseSpawnPosition, chunkManagerService as never),
-    )
+    await Effect.runPromise(buildRespawnPosition(baseSpawnPosition, chunkManagerService))
 
-    expect(getChunkSpy).toHaveBeenCalledOnce()
+    expect(getChunkSpy).toHaveBeenCalledTimes(25)
+    expect(getChunkSpy).toHaveBeenCalledWith({ x: -2, z: -2 })
     expect(getChunkSpy).toHaveBeenCalledWith({ x: 0, z: 0 })
+    expect(getChunkSpy).toHaveBeenCalledWith({ x: 2, z: 2 })
   })
 })

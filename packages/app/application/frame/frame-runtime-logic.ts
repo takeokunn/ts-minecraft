@@ -11,6 +11,10 @@ export type CameraPoseSnapshot = {
   readonly qy: number
   readonly qz: number
   readonly qw: number
+  readonly p0: number
+  readonly p5: number
+  readonly p10: number
+  readonly p14: number
 }
 
 export type AdaptiveQualityInput = {
@@ -19,6 +23,7 @@ export type AdaptiveQualityInput = {
   readonly renderDistance: number
   readonly fps: number
   readonly cooldown: number
+  readonly chunkSyncPending?: boolean
 }
 
 export type SettingsPatch = {
@@ -31,16 +36,23 @@ export type AdaptiveQualityDecision = {
   readonly settingsPatch: Option.Option<SettingsPatch>
 }
 
-export const captureCameraPose = (camera: THREE.PerspectiveCamera, version: number): CameraPoseSnapshot => ({
-  version,
-  x: camera.position.x,
-  y: camera.position.y,
-  z: camera.position.z,
-  qx: camera.quaternion.x,
-  qy: camera.quaternion.y,
-  qz: camera.quaternion.z,
-  qw: camera.quaternion.w,
-})
+export const captureCameraPose = (camera: THREE.PerspectiveCamera, version: number): CameraPoseSnapshot => {
+  const projection = camera.projectionMatrix.elements
+  return {
+    version,
+    x: camera.position.x,
+    y: camera.position.y,
+    z: camera.position.z,
+    qx: camera.quaternion.x,
+    qy: camera.quaternion.y,
+    qz: camera.quaternion.z,
+    qw: camera.quaternion.w,
+    p0: projection[0] ?? Number.NaN,
+    p5: projection[5] ?? Number.NaN,
+    p10: projection[10] ?? Number.NaN,
+    p14: projection[14] ?? Number.NaN,
+  }
+}
 
 export const hasCameraPoseChanged = (
   previous: CameraPoseSnapshot,
@@ -54,6 +66,10 @@ export const hasCameraPoseChanged = (
   || previous.qy !== current.qy
   || previous.qz !== current.qz
   || previous.qw !== current.qw
+  || previous.p0 !== current.p0
+  || previous.p5 !== current.p5
+  || previous.p10 !== current.p10
+  || previous.p14 !== current.p14
 
 export const advanceFixedStep = (
   accumulated: number,
@@ -87,6 +103,7 @@ export const decideAdaptiveQuality = ({
   renderDistance,
   fps,
   cooldown,
+  chunkSyncPending = false,
 }: AdaptiveQualityInput): AdaptiveQualityDecision => {
   if (!adaptivePerformanceMode) {
     return noChange(cooldown)
@@ -107,7 +124,9 @@ export const decideAdaptiveQuality = ({
     }
   }
 
-  if (renderDistance > 4) {
+  // Do not shrink view distance while the renderer is still draining a chunk
+  // sync backlog; otherwise cold-load FPS dips can amplify terrain pop-in.
+  if (renderDistance > 4 && !chunkSyncPending) {
     return {
       nextCooldown: 20,
       settingsPatch: Option.some({ renderDistance: renderDistance - 1 }),

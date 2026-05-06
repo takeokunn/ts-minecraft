@@ -187,6 +187,7 @@ export class MeshingWorkerPool extends Effect.Service<MeshingWorkerPool>()(
       const workerCount = Math.max(1, Math.min(4, (navigator.hardwareConcurrency ?? 2) - 1))
       const nextIdRef = MutableRef.make(0)
       const nextWorkerIndexRef = MutableRef.make(0)
+      const workerPoolDisabledRef = MutableRef.make(false)
 
       const makePoolWorker = (): PoolWorker => {
         const pendingRef = MutableRef.make(new Map<number, PendingMesh>())
@@ -226,6 +227,16 @@ export class MeshingWorkerPool extends Effect.Service<MeshingWorkerPool>()(
 
       const poolWorkersRef = MutableRef.make<PoolWorker[]>(Arr.makeBy(workerCount, () => makePoolWorker()))
 
+      const disableWorkerPool = (error: Error): void => {
+        if (MutableRef.get(workerPoolDisabledRef)) return
+
+        MutableRef.set(workerPoolDisabledRef, true)
+        Arr.forEach(MutableRef.get(poolWorkersRef), ({ worker, pending }) => {
+          rejectAllPendingRequests(pending, error)
+          worker.terminate()
+        })
+      }
+
       yield* Effect.addFinalizer(() =>
         Effect.sync(() => {
           Arr.forEach(MutableRef.get(poolWorkersRef), ({ worker }) => worker.terminate())
@@ -234,7 +245,9 @@ export class MeshingWorkerPool extends Effect.Service<MeshingWorkerPool>()(
 
       return {
         meshChunk: (chunk: Chunk): Effect.Effect<WorkerMeshResult> =>
-          Effect.async<WorkerMeshResult, Error>((resume) => {
+          MutableRef.get(workerPoolDisabledRef)
+            ? Effect.sync(() => meshChunkSync(chunk))
+            : Effect.async<WorkerMeshResult, Error>((resume) => {
             const id = MutableRef.getAndUpdate(nextIdRef, (n) => n + 1)
             const workerIdx = MutableRef.getAndUpdate(nextWorkerIndexRef, (n) => n + 1) % workerCount
             const state = MutableRef.get(poolWorkersRef)[workerIdx]
@@ -254,6 +267,13 @@ export class MeshingWorkerPool extends Effect.Service<MeshingWorkerPool>()(
               chunk.blocks.byteOffset,
               chunk.blocks.byteOffset + chunk.blocks.byteLength
             ) as ArrayBuffer
+            const fluidBuffer: ArrayBuffer | null = Option.match(chunk.fluid, {
+              onNone: () => null,
+              onSome: (fluid) => fluid.buffer.slice(
+                fluid.byteOffset,
+                fluid.byteOffset + fluid.byteLength
+              ) as ArrayBuffer,
+            })
 
             const hasLight = chunk.skyLight !== undefined && chunk.blockLight !== undefined
             const skyBuffer: ArrayBuffer | null = hasLight
@@ -270,6 +290,7 @@ export class MeshingWorkerPool extends Effect.Service<MeshingWorkerPool>()(
               : null
 
             const transferList: ArrayBuffer[] = [blocksBuffer]
+            if (fluidBuffer !== null) transferList.push(fluidBuffer)
             if (skyBuffer !== null) transferList.push(skyBuffer)
             if (blockBuffer !== null) transferList.push(blockBuffer)
 
@@ -278,6 +299,7 @@ export class MeshingWorkerPool extends Effect.Service<MeshingWorkerPool>()(
                 {
                   id,
                   blocks: blocksBuffer,
+                  fluid: fluidBuffer,
                   skyLight: skyBuffer,
                   blockLight: blockBuffer,
                   wx: chunk.coord.x * CHUNK_SIZE,
@@ -295,20 +317,22 @@ export class MeshingWorkerPool extends Effect.Service<MeshingWorkerPool>()(
               pending.delete(id)
             })
           }).pipe(
-            Effect.timeoutFail({
-              duration: MESHING_WORKER_TIMEOUT,
-              onTimeout: () =>
-                new Error(`Meshing worker response timed out after ${MESHING_WORKER_TIMEOUT}`),
-            }),
-            Effect.catchAll((error) =>
-              Effect.logWarning(
-                `MeshingWorkerPool falling back to sync meshing for chunk (${chunk.coord.x},${chunk.coord.z}): ${error.message}`,
-              ).pipe(Effect.zipRight(Effect.sync(() => meshChunkSync(chunk))))
-            )
-          ),
+              Effect.timeoutFail({
+                duration: MESHING_WORKER_TIMEOUT,
+                onTimeout: () =>
+                  new Error(`Meshing worker response timed out after ${MESHING_WORKER_TIMEOUT}`),
+              }),
+              Effect.catchAll((error) =>
+                Effect.sync(() => disableWorkerPool(error)).pipe(
+                  Effect.zipRight(Effect.logWarning(
+                    `MeshingWorkerPool disabling workers and falling back to sync meshing for chunk (${chunk.coord.x},${chunk.coord.z}): ${error.message}`,
+                  )),
+                  Effect.zipRight(Effect.sync(() => meshChunkSync(chunk)))
+                )
+              )
+            ),
         workerCount,
       }
     }),
   }
 ) {}
-export const MeshingWorkerPoolLive = MeshingWorkerPool.Default

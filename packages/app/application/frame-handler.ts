@@ -68,6 +68,13 @@ const createFrameLoopHandlersInternal = (
     // Track last renderDistance to avoid per-frame shadow camera updateProjectionMatrix
     const lastRenderDistanceRef = yield* Ref.make(0)
     const lastEntityStructureVersionRef = yield* Ref.make(-1)
+    const entityPhysicsChunkCacheRef = yield* Ref.make<ReadonlyArray<Chunk | null>>([
+      null, null, null,
+      null, null, null,
+      null, null, null,
+    ])
+    const lastEntityPhysicsChunkCoordRef = yield* Ref.make({ cx: NaN, cz: NaN })
+    const lastEntityPhysicsLoadedChunksRef = yield* Ref.make<Option.Option<ReadonlyArray<Chunk>>>(Option.none())
     const shadowUpdateCounterRef = yield* Ref.make(0)
     const frustumThrottleStrideRef = yield* Ref.make(1)
     const frustumThrottleCounterRef = yield* Ref.make(0)
@@ -96,6 +103,10 @@ const createFrameLoopHandlersInternal = (
       qy: NaN,
       qz: NaN,
       qw: NaN,
+      p0: NaN,
+      p5: NaN,
+      p10: NaN,
+      p14: NaN,
     })
     const lastRefractionFrameRef = MutableRef.make<CameraPoseSnapshot>({
       version: -1,
@@ -106,6 +117,10 @@ const createFrameLoopHandlersInternal = (
       qy: NaN,
       qz: NaN,
       qw: NaN,
+      p0: NaN,
+      p5: NaN,
+      p10: NaN,
+      p14: NaN,
     })
     // FR-005: Skip audio applySettings when volume/enabled haven't changed
     const lastAudioRef = MutableRef.make({ enabled: false, master: -1, sfx: -1, music: -1 })
@@ -138,6 +153,9 @@ const createFrameLoopHandlersInternal = (
       lastHealthRef,
       lastRenderDistanceRef,
       lastEntityStructureVersionRef,
+      entityPhysicsChunkCacheRef,
+      lastEntityPhysicsChunkCoordRef,
+      lastEntityPhysicsLoadedChunksRef,
       shadowUpdateCounterRef,
       frustumThrottleStrideRef,
       frustumThrottleCounterRef,
@@ -145,6 +163,8 @@ const createFrameLoopHandlersInternal = (
       lastAppliedPixelRatioRef,
       lastGraphicsQualityRef,
       dirtyChunksRef,
+      lastLoadedChunksRef,
+      chunkSyncPendingRef,
       lastShadowTargetRef,
       lastFrustumCullRef,
       lastRefractionFrameRef,
@@ -340,4 +360,3 @@ export const createFrameHandlers = (
   deps: FrameHandlerDeps,
   services: FrameHandlerServices,
 ): Effect.Effect<FrameLoopHandlers> => createFrameLoopHandlersInternal(deps, services)
-

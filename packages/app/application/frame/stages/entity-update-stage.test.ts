@@ -135,6 +135,133 @@ describe('step 2.85 — entity renderer wiring', () => {
     expect(getChunkSpy).toHaveBeenCalledTimes(9)
   }))
 
+  it.effect('reuses the entity physics chunk cache while the player remains in the same chunk', () => Effect.gen(function* () {
+    const deps = yield* makeDeps(false)
+    const services = makeServices({
+      inputService: makeInputService(),
+      inventoryRenderer: makeInventoryRenderer({ open: false }),
+      settingsOverlay: makeSettingsOverlay({ open: false }),
+    })
+
+    const getChunkSpy = vi.fn(() => Effect.succeed({
+      coord: { x: 0, z: 0 },
+      blocks: new Uint8Array(16 * 16 * 256),
+      dirty: false,
+    }))
+    Object.assign(services.chunkManagerService, { getChunk: getChunkSpy })
+    Object.assign(services.entityManager, {
+      applyPhysics: vi.fn(() => Effect.void),
+    })
+
+    const { frameHandler } = yield* createFrameHandlers(deps, services)
+    yield* frameHandler(0.016 as DeltaTimeSecs)
+    yield* frameHandler(0.016 as DeltaTimeSecs)
+
+    expect(getChunkSpy).toHaveBeenCalledTimes(9)
+  }))
+
+  it.effect('retries missing entity physics chunks while the player remains in the same chunk', () => Effect.gen(function* () {
+    const deps = yield* makeDeps(false)
+    const services = makeServices({
+      inputService: makeInputService(),
+      inventoryRenderer: makeInventoryRenderer({ open: false }),
+      settingsOverlay: makeSettingsOverlay({ open: false }),
+    })
+    const chunk = {
+      coord: { x: 0, z: 0 },
+      blocks: new Uint8Array(16 * 16 * 256),
+      dirty: false,
+    }
+    let getChunkCallCount = 0
+    const getChunkSpy = vi.fn(() => {
+      getChunkCallCount += 1
+      return getChunkCallCount <= 9 ? Effect.fail(new Error('chunk unavailable')) : Effect.succeed(chunk)
+    })
+    Object.assign(services.chunkManagerService, { getChunk: getChunkSpy })
+    Object.assign(services.entityManager, {
+      applyPhysics: vi.fn(() => Effect.void),
+    })
+
+    const { frameHandler } = yield* createFrameHandlers(deps, services)
+    yield* frameHandler(0.016 as DeltaTimeSecs)
+    yield* frameHandler(0.016 as DeltaTimeSecs)
+
+    expect(getChunkSpy).toHaveBeenCalledTimes(18)
+  }))
+
+  it.effect('refreshes the entity physics chunk cache when the player enters another chunk', () => Effect.gen(function* () {
+    const deps = yield* makeDeps(false)
+    const services = makeServices({
+      inputService: makeInputService(),
+      inventoryRenderer: makeInventoryRenderer({ open: false }),
+      settingsOverlay: makeSettingsOverlay({ open: false }),
+    })
+    const getChunkSpy = vi.fn(() => Effect.succeed({
+      coord: { x: 0, z: 0 },
+      blocks: new Uint8Array(16 * 16 * 256),
+      dirty: false,
+    }))
+    let positionReadCount = 0
+    Object.assign(services.chunkManagerService, { getChunk: getChunkSpy })
+    Object.assign(services.entityManager, {
+      applyPhysics: vi.fn(() => Effect.void),
+    })
+    Object.assign(services.gameState, {
+      getPlayerPosition: vi.fn(() => {
+        const frameIndex = Math.floor(positionReadCount / 2)
+        positionReadCount += 1
+        return Effect.succeed(frameIndex === 0 ? { x: 0, y: 64, z: 0 } : { x: 16, y: 64, z: 0 })
+      }),
+    })
+
+    const { frameHandler } = yield* createFrameHandlers(deps, services)
+    yield* frameHandler(0.016 as DeltaTimeSecs)
+    yield* frameHandler(0.016 as DeltaTimeSecs)
+
+    expect(getChunkSpy).toHaveBeenCalledTimes(18)
+  }))
+
+  it.effect('refreshes the entity physics chunk cache when loaded chunks change', () => Effect.gen(function* () {
+    const deps = yield* makeDeps(false)
+    const services = makeServices({
+      inputService: makeInputService(),
+      inventoryRenderer: makeInventoryRenderer({ open: false }),
+      settingsOverlay: makeSettingsOverlay({ open: false }),
+    })
+    const firstLoadedChunks: ReadonlyArray<unknown> = []
+    const secondLoadedChunks: ReadonlyArray<unknown> = [{ coord: { x: 0, z: 0 } }]
+    const getChunkSpy = vi.fn(() => Effect.succeed({
+      coord: { x: 0, z: 0 },
+      blocks: new Uint8Array(16 * 16 * 256),
+      dirty: false,
+    }))
+    let loadedChunksReadCount = 0
+    let syncCount = 0
+    Object.assign(services.chunkManagerService, {
+      getChunk: getChunkSpy,
+      getLoadedChunks: vi.fn(() => {
+        loadedChunksReadCount += 1
+        return Effect.succeed(loadedChunksReadCount === 1 ? firstLoadedChunks : secondLoadedChunks)
+      }),
+    })
+    Object.assign(services.worldRendererService, {
+      syncChunksToScene: vi.fn(() => {
+        syncCount += 1
+        return Effect.succeed(syncCount > 1)
+      }),
+    })
+    Object.assign(services.entityManager, {
+      applyPhysics: vi.fn(() => Effect.void),
+    })
+
+    const { frameHandler, maintenanceHandler } = yield* createFrameHandlers(deps, services)
+    const handler = (deltaTime: DeltaTimeSecs) => maintenanceHandler().pipe(Effect.andThen(frameHandler(deltaTime)))
+    yield* handler(0.016 as DeltaTimeSecs)
+    yield* handler(0.016 as DeltaTimeSecs)
+
+    expect(getChunkSpy).toHaveBeenCalledTimes(18)
+  }))
+
   it.effect('redstone and fluid tick are called multiple times when deltaTime covers multiple intervals', () => Effect.gen(function* () {
     const deps = yield* makeDeps(false)
     const services = makeServices({

@@ -37,6 +37,7 @@ describe('application/game-state (coverage)', () => {
         blockLight: new Uint8Array(0),
       }),
       getLoadedChunks: () => Effect.succeed([]),
+      drainRenderDirtyChunks: () => Effect.succeed([]),
       loadChunksAroundPlayer: () => Effect.succeed(false),
       markChunkDirty: () => Effect.void,
       saveDirtyChunks: () => Effect.void,

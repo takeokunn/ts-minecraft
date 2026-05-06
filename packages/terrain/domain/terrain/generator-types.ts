@@ -77,7 +77,7 @@ export type ColumnStateBuildArgs = {
   readonly baseWorldZ: number
   readonly biomeColumns: ReadonlyArray<{ readonly biome: BiomeType; readonly props: BiomeProperties }>
   readonly terrainChannels: Parameters<typeof computeColumnY>[0]
-  readonly initialSurfaceYs: ReadonlyArray<number>
+  readonly initialSurfaceYs: ArrayLike<number>
   readonly lakeNoiseVals: ReadonlyArray<number>
   readonly graniteNoiseVals: ReadonlyArray<number>
   readonly dioriteNoiseVals: ReadonlyArray<number>

@@ -1,6 +1,6 @@
-import { Effect, Data, HashSet, Metric, Option } from 'effect';
+import { Effect, Data, Either, HashSet, Metric, Option, Schema } from 'effect';
 import { ChunkManagerService } from './chunk-manager-service';
-import { DEFAULT_PLAYER_ID } from '@ts-minecraft/kernel';
+import { DEFAULT_PLAYER_ID, BlockTypeSchema } from '@ts-minecraft/kernel';
 import { FluidService } from './fluid-service';
 import { ChunkService } from './chunk-service';
 import { setBlockInChunk } from '../domain/chunk';
@@ -79,13 +79,15 @@ export class BlockService extends Effect.Service()('@minecraft/application/Block
             yield* chunkManagerService.markChunkDirty(chunkCoord);
             if (blockType === 'WATER')
                 yield* fluidService.removeWater(position);
+            if (blockType === 'LAVA')
+                yield* fluidService.removeLava(position);
             yield* fluidService.notifyBlockChanged(position);
             yield* Metric.counter('blocks_broken').pipe(Metric.increment);
             if (shouldDrop) {
                 yield* inventoryService.addBlock(getInventoryDropForBlock(blockType), 1).pipe(Effect.catchAllCause(() => Effect.void));
             }
         }),
-        placeBlock: (position, blockType, preferredInventorySlot) => Effect.gen(function* () {
+        placeBlock: (position, itemType, preferredInventorySlot) => Effect.gen(function* () {
             const { chunkCoord, lx, lz } = worldToBlockLocal(position);
             const y = Math.floor(position.y);
             const chunk = yield* chunkManagerService.getChunk(chunkCoord).pipe(Effect.mapError((e) => new BlockServiceError({
@@ -104,12 +106,20 @@ export class BlockService extends Effect.Service()('@minecraft/application/Block
                     reason: `Block already exists at position (${position.x}, ${position.y}, ${position.z})`,
                 }));
             }
-            if (HashSet.has(NON_PLACEABLE_ITEM_TYPES, blockType)) {
+            if (HashSet.has(NON_PLACEABLE_ITEM_TYPES, itemType)) {
                 return yield* Effect.fail(new BlockServiceError({
                     operation: 'placeBlock',
-                    reason: `${blockType} is an inventory item and cannot be placed in the world`,
+                    reason: `${itemType} is an inventory item and cannot be placed in the world`,
                 }));
             }
+            const decodedBlockType = Schema.decodeUnknownEither(BlockTypeSchema)(itemType);
+            if (Either.isLeft(decodedBlockType)) {
+                return yield* Effect.fail(new BlockServiceError({
+                    operation: 'placeBlock',
+                    reason: `${itemType} cannot be placed in the world`,
+                }));
+            }
+            const blockType = Option.getOrThrow(Either.getRight(decodedBlockType));
             const playerPos = yield* playerService.getPosition(DEFAULT_PLAYER_ID).pipe(Effect.mapError((e) => new BlockServiceError({
                 operation: 'placeBlock',
                 reason: `Player position error: ${e.message}`,
@@ -142,6 +152,8 @@ export class BlockService extends Effect.Service()('@minecraft/application/Block
             yield* fluidService.notifyBlockChanged(position);
             if (blockType === 'WATER')
                 yield* fluidService.seedWater(position);
+            if (blockType === 'LAVA')
+                yield* fluidService.seedLava(position);
             yield* Metric.counter('blocks_placed').pipe(Metric.increment);
         }),
     }))),

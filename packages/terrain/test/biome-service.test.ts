@@ -17,7 +17,7 @@ describe('classifyBiome — biome classification', () => {
     [0.2, 0.90, 'OCEAN'],     // cold, very wet
     [0.1, 0.50, 'MOUNTAINS'], // cold, humid
     [0.1, 0.30, 'SNOW'],      // cold, low humidity
-    [0.7, 0.90, 'SWAMP'],     // warm, very wet
+    [0.71, 0.90, 'SWAMP'],    // hot, very wet
     [0.8, 0.75, 'JUNGLE'],    // hot, wet
     [0.22, 0.58, 'TAIGA'],    // cold and wetter than mountains
     [0.82, 0.28, 'SAVANNA'],  // hot semi-arid
@@ -37,8 +37,8 @@ describe('classifyBiome — threshold boundary conditions', () => {
     [0.5, 0.29, 'PLAINS',    'temperate, just below dry boundary (0.3)'],
     [0.5, 0.45, 'PLAINS',    'temperate, middle humidity (no-zone default)'],
     [0.5, 0.61, 'FOREST',    'temperate, just above wet boundary (0.6)'],
-    [0.65, 0.86, 'SWAMP',    'just above very-wet threshold, temp > 0.6'],
-    [0.55, 0.86, 'OCEAN',    'just above very-wet threshold, temp ≤ 0.6'],
+    [0.71, 0.86, 'SWAMP',    'just above very-wet threshold, temp > TEMP_HOT'],
+    [0.70, 0.86, 'OCEAN',    'just above very-wet threshold, temp ≤ TEMP_HOT'],
     [0.29, 0.50, 'MOUNTAINS','just below cold threshold (0.3), humid'],
     [0.71, 0.50, 'SAVANNA',  'just above hot threshold (0.7), semi-arid'],
     [0.22, 0.56, 'TAIGA',    'cold and wetter than mountains threshold'],

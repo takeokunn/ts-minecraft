@@ -17,6 +17,7 @@ import { createGreedyMeshScratch, greedyMeshChunk } from './greedy-meshing'
 export const MeshRequestSchema = Schema.Struct({
   id: Schema.Number.pipe(Schema.int(), Schema.nonNegative()),
   blocks: Schema.instanceOf(ArrayBuffer),
+  fluid: Schema.optionalWith(Schema.NullOr(Schema.instanceOf(ArrayBuffer)), { default: () => null }),
   skyLight: Schema.NullOr(Schema.instanceOf(ArrayBuffer)),
   blockLight: Schema.NullOr(Schema.instanceOf(ArrayBuffer)),
   wx: Schema.Number.pipe(Schema.int()),
@@ -50,7 +51,7 @@ self.onmessage = (e: MessageEvent<unknown>): void => {
     return
   }
 
-  const { id, blocks, skyLight, blockLight, wx, wz, transparentBlockIds } = req
+  const { id, blocks, fluid, skyLight, blockLight, wx, wz, transparentBlockIds } = req
 
   // Reconstruct a minimal Chunk — greedyMeshChunk only reads chunk.blocks; coord
   // is required by the type but unused inside the meshing algorithm (offset carries
@@ -58,7 +59,7 @@ self.onmessage = (e: MessageEvent<unknown>): void => {
   const chunk: Chunk = {
     coord: { x: Math.floor(wx / CHUNK_SIZE), z: Math.floor(wz / CHUNK_SIZE) },
     blocks: new Uint8Array(blocks),
-    fluid: Option.none(),
+    fluid: fluid === null ? Option.none() : Option.some(new Uint8Array(fluid)),
   }
 
   // Reconstruct LightGrids only when both buffers arrived AND have the expected byte length;

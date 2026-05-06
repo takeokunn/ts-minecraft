@@ -168,7 +168,7 @@ export const buildSessionRuntime = (
     // frame-handler input stage (which calls `pauseMenu.openIfClosed(control)`)
     // and drives Resume / Settings / Save & Quit. Listeners + DOM are torn
     // down with the surrounding session scope on quit-to-title.
-    yield* pauseMenu.attach(control, persistSessionState)
+    yield* pauseMenu.attach(control)
 
     // FR-1.5: mount the F3 debug overlay. Hidden by default; F3 toggles it.
     // The 4 Hz refresh daemon is forked into the session scope so it tears

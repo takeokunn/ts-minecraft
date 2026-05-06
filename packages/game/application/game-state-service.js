@@ -91,7 +91,7 @@ export class GameStateService extends Effect.Service()('@minecraft/application/G
                 const playerCz = Math.floor(physPos.z / CHUNK_SIZE);
                 const lastChunkCoord = yield* Ref.get(lastChunkCoordRef);
                 if (lastChunkCoord.cx !== playerCx || lastChunkCoord.cz !== playerCz) {
-                    const newCache = new Array(9).fill(null);
+                    const newCache = Array.from({ length: 9 }, () => null);
                     yield* Effect.forEach(OFFSETS_3x3, ([dx, dz]) => chunkManagerService.getChunk({ x: playerCx + dx, z: playerCz + dz }).pipe(Effect.match({
                         onSuccess: (chunk) => { newCache[(dx + 1) * 3 + (dz + 1)] = chunk; },
                         onFailure: () => { },

@@ -47,8 +47,11 @@ vi.mock('three', () => ({
     matrixWorldInverse: { elements: Array.from({ length: 16 }, () => 0) },
     isCamera: true,
     isPerspectiveCamera: true,
+    fov: 50,
+    near: 0.1,
     far: 1000,
     aspect: 1,
+    zoom: 1,
     position: { set: vi.fn(), copy: vi.fn(), x: 0, y: 0, z: 0 },
     quaternion: { copy: vi.fn(), x: 0, y: 0, z: 0, w: 1 },
   })),
@@ -117,6 +120,10 @@ const makeRefractionContext = (
         qy: Number.NaN,
         qz: Number.NaN,
         qw: Number.NaN,
+        p0: Number.NaN,
+        p5: Number.NaN,
+        p10: Number.NaN,
+        p14: Number.NaN,
       }),
       refractionCamera: new THREE.PerspectiveCamera(),
       refractionRT: new THREE.WebGLRenderTarget(400, 300),
@@ -153,6 +160,37 @@ describe('infrastructure/renderer/world-renderer-refraction', () => {
         camera.position.z = 4
         yield* doRefractionPrePass(ctx, renderer, scene, camera)
 
+        expect(renderer.render).toHaveBeenCalledTimes(2)
+      })
+    )
+
+    it.effect('syncs projection and refreshes when the source projection changes without movement', () =>
+      Effect.gen(function* () {
+        const waterMesh = makeMockMesh({ x: 0, z: 0 }) as THREE.Mesh
+        const ctx = yield* makeRefractionContext([waterMesh])
+        const renderer = makeRenderer()
+        const scene = makeScene()
+        const camera = new THREE.PerspectiveCamera()
+        camera.fov = 60
+        camera.aspect = 1.5
+        camera.near = 0.25
+        camera.far = 512
+        camera.zoom = 1.25
+        camera.projectionMatrix.elements[10] = -1
+
+        yield* doRefractionPrePass(ctx, renderer, scene, camera)
+        yield* doRefractionPrePass(ctx, renderer, scene, camera)
+
+        camera.far = 1024
+        camera.projectionMatrix.elements[10] = -2
+        yield* doRefractionPrePass(ctx, renderer, scene, camera)
+
+        expect(ctx.refractionCamera.fov).toBe(60)
+        expect(ctx.refractionCamera.aspect).toBe(1.5)
+        expect(ctx.refractionCamera.near).toBe(0.25)
+        expect(ctx.refractionCamera.far).toBe(1024)
+        expect(ctx.refractionCamera.zoom).toBe(1.25)
+        expect(ctx.refractionCamera.updateProjectionMatrix).toHaveBeenCalledTimes(2)
         expect(renderer.render).toHaveBeenCalledTimes(2)
       })
     )

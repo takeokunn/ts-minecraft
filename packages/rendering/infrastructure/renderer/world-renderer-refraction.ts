@@ -16,10 +16,42 @@ export type RefractionContext = {
     qy: number
     qz: number
     qw: number
+    p0: number
+    p5: number
+    p10: number
+    p14: number
   }>
   readonly refractionCamera: THREE.PerspectiveCamera
   readonly refractionRT: THREE.WebGLRenderTarget
   readonly waterMaterial: WaterMaterial
+}
+
+const syncRefractionProjection = (
+  refractionCamera: THREE.PerspectiveCamera,
+  sourceCamera: THREE.Camera,
+): void => {
+  const perspectiveCamera = sourceCamera as THREE.PerspectiveCamera
+  if (perspectiveCamera.isPerspectiveCamera !== true) {
+    return
+  }
+
+  const changed =
+    refractionCamera.fov !== perspectiveCamera.fov ||
+    refractionCamera.aspect !== perspectiveCamera.aspect ||
+    refractionCamera.near !== perspectiveCamera.near ||
+    refractionCamera.far !== perspectiveCamera.far ||
+    refractionCamera.zoom !== perspectiveCamera.zoom
+
+  if (!changed) {
+    return
+  }
+
+  refractionCamera.fov = perspectiveCamera.fov
+  refractionCamera.aspect = perspectiveCamera.aspect
+  refractionCamera.near = perspectiveCamera.near
+  refractionCamera.far = perspectiveCamera.far
+  refractionCamera.zoom = perspectiveCamera.zoom
+  refractionCamera.updateProjectionMatrix()
 }
 
 /**
@@ -41,6 +73,7 @@ export const doRefractionPrePass = (
     if (!Arr.some(waterMeshes, (m) => m.visible)) return
 
     const currentSceneVersion = yield* Ref.get(sceneVersionRef)
+    const projection = camera.projectionMatrix.elements
     const currentPose = {
       x: camera.position.x,
       y: camera.position.y,
@@ -49,6 +82,10 @@ export const doRefractionPrePass = (
       qy: camera.quaternion.y,
       qz: camera.quaternion.z,
       qw: camera.quaternion.w,
+      p0: projection[0] ?? Number.NaN,
+      p5: projection[5] ?? Number.NaN,
+      p10: projection[10] ?? Number.NaN,
+      p14: projection[14] ?? Number.NaN,
     }
     const lastRefractionState = MutableRef.get(_lastRefractionState)
     if (
@@ -59,7 +96,11 @@ export const doRefractionPrePass = (
       lastRefractionState.qx === currentPose.qx &&
       lastRefractionState.qy === currentPose.qy &&
       lastRefractionState.qz === currentPose.qz &&
-      lastRefractionState.qw === currentPose.qw
+      lastRefractionState.qw === currentPose.qw &&
+      lastRefractionState.p0 === currentPose.p0 &&
+      lastRefractionState.p5 === currentPose.p5 &&
+      lastRefractionState.p10 === currentPose.p10 &&
+      lastRefractionState.p14 === currentPose.p14
     ) {
       return
     }
@@ -72,7 +113,8 @@ export const doRefractionPrePass = (
         mesh.visible = false
       })
 
-      // Sync refraction camera with main camera's position/rotation (cheap copy, no projection recompute)
+      // Sync refraction camera with the main camera's pose and projection.
+      syncRefractionProjection(refractionCamera, camera)
       refractionCamera.position.copy(camera.position)
       refractionCamera.quaternion.copy(camera.quaternion)
       refractionCamera.updateMatrixWorld()

@@ -48,15 +48,15 @@ describe('SEA_LEVEL / LAKE_LEVEL ordering', () => {
     expect(Number.isInteger(LAKE_LEVEL)).toBe(true)
   })
 
-  it('LAKE_LEVEL >= SEA_LEVEL (lakes are at or above sea level)', () => {
-    expect(LAKE_LEVEL).toBeGreaterThanOrEqual(SEA_LEVEL)
+  it('LAKE_LEVEL matches SEA_LEVEL for lake surface alignment', () => {
+    expect(LAKE_LEVEL).toBe(SEA_LEVEL)
   })
 
   it('SEA_LEVEL is 63 (MC 1.18-aligned)', () => {
     expect(SEA_LEVEL).toBe(63)
   })
 
-  it('LAKE_LEVEL is 64', () => {
-    expect(LAKE_LEVEL).toBe(64)
+  it('LAKE_LEVEL is 63', () => {
+    expect(LAKE_LEVEL).toBe(63)
   })
 })

@@ -6,7 +6,7 @@ import { StartupError } from '@ts-minecraft/game'
 import { ParticleSystemService } from '@ts-minecraft/rendering/particles/particle-system'
 import { installPerfHudCounters } from '@ts-minecraft/rendering'
 
-import { BiomeService, ChunkManagerService, BlockService, FluidService } from '@ts-minecraft/terrain'
+import { BiomeService, ChunkManagerService, BlockService, FluidService, setActiveChunkWorldId } from '@ts-minecraft/terrain'
 import { GameStateService, TimeService, resolvePreset, GameLoopService, GameModeService, type GameMode } from '@ts-minecraft/game'
 import { HotbarService, InventoryService, RecipeService } from '@ts-minecraft/inventory'
 import { FurnaceService } from '@ts-minecraft/furnace'
@@ -41,6 +41,8 @@ import type { BootContext } from '@ts-minecraft/app/main/boot'
 
 // 0.5 = noon in TimeService's day fraction (0.0=midnight, 0.25=dawn, 0.5=noon, 0.75=dusk).
 const BOOT_TIME_OF_DAY = 0.5
+
+const MIN_LOADING_SCREEN_DURATION_MS = 2500
 
 export type SessionResult = {
   readonly reason: 'quit-to-title' | 'never-returned'
@@ -171,29 +173,75 @@ export const sessionProgram = (
       worldId,
     })
 
+    const loadingStartedAtMs = yield* Effect.sync(() => Date.now())
+
     const initialChunkLoadAnchor = Option.getOrElse(
       Option.map(worldBootstrap.savedPlayerState, (saved) => saved.position),
       () => worldBootstrap.baseSpawnPosition,
     )
 
+    yield* Effect.sync(() => setActiveChunkWorldId(worldId))
     yield* chunkManagerService.loadChunksAroundPlayer(initialChunkLoadAnchor, initialSettings.renderDistance)
     const initialChunks = yield* chunkManagerService.getLoadedChunks()
-    // FR-1.7: drive `syncChunksToScene` until every queued chunk has a mesh in
-    // the scene before lifting the loading screen. The first call may stop
-    // short of a full drain (`MAX_CHUNK_UPDATES_PER_FRAME`/time-budget caps);
-    // we re-invoke until it returns `true`. A 9-chunk 3×3 prewarm completes
-    // well inside the cap, so the loop iterates at most a handful of times.
-    yield* Effect.iterate(false, {
-      while: (settled) => !settled,
-      body: () =>
-        worldRendererService.syncChunksToScene(initialChunks, scene).pipe(
-          Effect.flatMap((settled) =>
-            settled ? Effect.succeed(true) : Effect.sleep(Duration.millis(50)).pipe(Effect.as(false)),
+    // Drive `syncChunksToScene` until every queued chunk has a mesh in
+    // the scene before lifting the loading screen. A single call can stop short
+    // due to time-budget / per-call caps, so we loop until settled.
+    yield* Effect.raceFirst(
+      Effect.iterate(false, {
+        while: (settled) => !settled,
+        body: () =>
+          worldRendererService.syncChunksToScene(initialChunks, scene).pipe(
+            Effect.flatMap((settled) =>
+              settled ? Effect.succeed(true) : Effect.sleep(Duration.millis(50)).pipe(Effect.as(false)),
+            ),
           ),
+      }),
+      Effect.sleep(Duration.seconds(30)).pipe(
+        Effect.flatMap(() => Effect.fail(new Error('Timed out while syncing initial chunk meshes'))),
+      ),
+    ).pipe(
+      Effect.catchAll((cause) =>
+        loadingScreen.showError('Failed to prepare initial terrain meshes.').pipe(
+          Effect.zipRight(Effect.logError(`Loading gate failed: ${String(cause)}`)),
+          Effect.zipRight(Effect.sleep(Duration.seconds(3))),
+          Effect.zipRight(Effect.fail(new StartupError({ reason: 'Failed to prepare initial chunk meshes', cause }))),
         ),
-    })
-    // Hide the loading screen now that the 3×3 prewarm has fully landed in
-    // the scene graph. Idempotent if the overlay was never created (SSR path).
+      ),
+    )
+
+    // Additional safety gate: wait until terrain worker queue is drained.
+    yield* Effect.raceFirst(
+      Effect.iterate(false, {
+        while: (queueDrained) => !queueDrained,
+        body: () =>
+          Effect.sync(() => terrainPool.queueDepth() === 0).pipe(
+            Effect.flatMap((queueDrained) =>
+              queueDrained ? Effect.succeed(true) : Effect.sleep(Duration.millis(25)).pipe(Effect.as(false)),
+            ),
+          ),
+      }),
+      Effect.sleep(Duration.seconds(30)).pipe(
+        Effect.flatMap(() => Effect.fail(new Error('Timed out while draining terrain worker queue'))),
+      ),
+    ).pipe(
+      Effect.catchAll((cause) =>
+        loadingScreen.showError('Terrain generation took too long and was aborted.').pipe(
+          Effect.zipRight(Effect.logError(`Terrain queue drain failed: ${String(cause)}`)),
+          Effect.zipRight(Effect.sleep(Duration.seconds(3))),
+          Effect.zipRight(Effect.fail(new StartupError({ reason: 'Timed out while draining terrain worker queue', cause }))),
+        ),
+      ),
+    )
+
+    // Enforce a minimum loading-screen display duration to avoid abrupt flashes.
+    const loadingElapsedMs = (yield* Effect.sync(() => Date.now())) - loadingStartedAtMs
+    const remainingLoadingMs = Math.max(0, MIN_LOADING_SCREEN_DURATION_MS - loadingElapsedMs)
+    if (remainingLoadingMs > 0) {
+      yield* Effect.sleep(Duration.millis(remainingLoadingMs))
+    }
+
+    // Hide the loading screen only after terrain is ready and min duration elapsed.
+    // Idempotent if the overlay was never created (SSR path).
     yield* loadingScreen.hide()
 
     const defaultRespawnPosition = yield* buildRespawnPosition(worldBootstrap.baseSpawnPosition, chunkManagerService)
@@ -208,6 +256,8 @@ export const sessionProgram = (
 
     yield* gameState.initialize(spawnPosition)
 
+    yield* restoreSavedState(worldBootstrap, { inventoryService, healthService, furnaceService })
+
     // Auto-save daemon: spaced (not fixed) Schedule prevents burst on tab-resume.
     // Lives on its own forkDaemon so it continues regardless of pause-state.
     yield* Effect.forkDaemon(
@@ -221,8 +271,6 @@ export const sessionProgram = (
         Schedule.spaced(Duration.seconds(5)),
       ),
     )
-
-    yield* restoreSavedState(worldBootstrap, { inventoryService, healthService, furnaceService })
 
     yield* blockHighlight.initialize(scene)
     yield* hotbarRenderer.initialize(canvas.clientWidth, canvas.clientHeight)
@@ -298,12 +346,18 @@ export const sessionProgram = (
     // exits and Effect.scoped releases all session resources.
     yield* Deferred.await(control.quitToTitleSignal)
 
-    // Best-effort save flush before tearing down — release path also triggers
-    // disposal of session-scoped GPU resources.
-    yield* Effect.all(
-      [chunkManagerService.saveDirtyChunks(), persistSessionState()],
-      { concurrency: 'unbounded', discard: true },
-    ).pipe(Effect.catchAllCause(() => Effect.void))
+    // Best-effort save flush before tearing down — metadata save runs first so
+    // player-position / health / inventory restoration is prioritized for
+    // quit-to-title flows, while both stages are time-bounded so a stalled save
+    // path cannot trap the user in-session indefinitely.
+    yield* Effect.raceFirst(
+      persistSessionState().pipe(Effect.catchAllCause(() => Effect.void)),
+      Effect.sleep(Duration.seconds(5)),
+    )
+    yield* Effect.raceFirst(
+      chunkManagerService.saveDirtyChunks().pipe(Effect.catchAllCause(() => Effect.void)),
+      Effect.sleep(Duration.seconds(5)),
+    )
 
     return { reason: 'quit-to-title' as const, control }
   })

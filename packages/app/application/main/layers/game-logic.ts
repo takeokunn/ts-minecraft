@@ -4,7 +4,7 @@
 import { Layer } from 'effect'
 
 // Three.js infrastructure consumed directly by world/entity/particle renderers
-import { SceneServiceLive, WorldRendererServiceLive, EntityRendererLive, ChunkMeshServiceLive, RaycastingServiceLive, RendererServiceLive } from '@ts-minecraft/rendering'
+import { SceneServiceLive, WorldRendererServiceLive, EntityRendererLive, ChunkMeshServiceLive, RaycastingServiceLive, RendererServiceLive, TextureServiceLive } from '@ts-minecraft/rendering'
 import { ParticleSystemServiceLive } from '@ts-minecraft/rendering/particles/particle-system'
 
 // Chunk domain service (used by ChunkManagerLayer / BlockLayer)
@@ -189,6 +189,7 @@ export const BlockLayer = BlockServiceLive.pipe(
 // HotbarRenderer depends on RendererService
 export const HotbarRendererLayer = HotbarRendererLive.pipe(
   Layer.provide(RendererServiceLive),
+  Layer.provide(TextureServiceLive),
 )
 
 // Village simulation has no service dependencies

@@ -61,6 +61,21 @@ describe('physics/boundary/physics-world-service', () => {
       }).pipe(Effect.provide(PhysicsWorldServiceLive), Effect.provide(RigidBodyServiceLive))
     )
 
+    it.effect('should remove every matching body reference from world', () =>
+      Effect.gen(function* () {
+        const worldSvc = yield* PhysicsWorldService
+        const bodySvc = yield* RigidBodyService
+        const world = yield* worldSvc.create(defaultConfig)
+        const body = yield* bodySvc.create(defaultBodyConfig)
+        yield* worldSvc.addBody(world, body)
+        yield* worldSvc.addBody(world, body)
+
+        yield* worldSvc.removeBody(world, body)
+
+        expect(world.bodies).not.toContain(body)
+      }).pipe(Effect.provide(PhysicsWorldServiceLive), Effect.provide(RigidBodyServiceLive))
+    )
+
     it.effect('should apply gravity when stepping (body falls)', () =>
       Effect.gen(function* () {
         const worldSvc = yield* PhysicsWorldService
@@ -89,6 +104,24 @@ describe('physics/boundary/physics-world-service', () => {
         yield* worldSvc.step(world, DeltaTimeSecs.make(1 / 60))
 
         expect(body.position.y).toBe(10)
+      }).pipe(Effect.provide(PhysicsWorldServiceLive), Effect.provide(RigidBodyServiceLive))
+    )
+
+    it.effect('dynamic bodies still step when static bodies are present first', () =>
+      Effect.gen(function* () {
+        const worldSvc = yield* PhysicsWorldService
+        const bodySvc = yield* RigidBodyService
+        const world = yield* worldSvc.create(defaultConfig)
+        const staticBody = yield* bodySvc.create({ mass: 0, position: { x: 0, y: 10, z: 0 }, type: 'static' })
+        const dynamicBody = yield* bodySvc.create({ mass: 1, position: { x: 0, y: 10, z: 0 } })
+        yield* worldSvc.addBody(world, staticBody)
+        yield* worldSvc.addBody(world, dynamicBody)
+
+        const initialDynamicY = dynamicBody.position.y
+        yield* worldSvc.step(world, DeltaTimeSecs.make(1 / 60))
+
+        expect(staticBody.position.y).toBe(10)
+        expect(dynamicBody.position.y).toBeLessThan(initialDynamicY)
       }).pipe(Effect.provide(PhysicsWorldServiceLive), Effect.provide(RigidBodyServiceLive))
     )
 

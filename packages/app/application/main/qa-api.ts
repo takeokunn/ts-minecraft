@@ -48,8 +48,54 @@ type QaApiDeps = {
   readonly entityManager: EntityManager
 }
 
+export type QaApi = {
+  readonly getInventorySnapshot: () => Promise<ReadonlyArray<null | { readonly slot: number; readonly itemType: InventoryItem; readonly count: number }>>
+  readonly openInventoryForQA: () => Promise<boolean>
+  readonly craftRecipeForQA: (recipeId: string) => Promise<void>
+  readonly stageProgressionScenario: () => Promise<void>
+  readonly collectStagedResources: () => Promise<void>
+  readonly spawnLowHealthZombieInFront: () => Promise<void>
+  readonly aimAtStagedResource: (resourceIndex: number) => Promise<void>
+  readonly aimAtBuildSpot: () => Promise<void>
+  readonly aimAtStagedZombie: () => Promise<void>
+  readonly clearBlocksInFront: () => Promise<void>
+  readonly stageBuildSupportBlock: () => Promise<void>
+  readonly dispatchMouseClick: (button: 0 | 2) => Promise<void>
+  readonly consumeMouseClickForQA: (button: 0 | 2) => Promise<boolean>
+  readonly getCurrentTargetForQA: () => Promise<unknown>
+  readonly attackFirstZombie: () => Promise<boolean>
+  readonly placeSelectedItemInFront: () => Promise<void>
+  readonly moveItemToHotbar: (itemType: InventoryItem, hotbarIndex: number) => Promise<boolean>
+  readonly selectHotbarSlot: (hotbarIndex: number) => Promise<void>
+  readonly getRecipeButtons: () => ReadonlyArray<string>
+  readonly getEntitySnapshot: () => Promise<ReadonlyArray<{ entityId: string; type: string }>>
+  readonly getRenderingSnapshot: () => {
+    sceneChildren: number
+    chunkMeshCount: number
+    visibleChunkMeshCount: number
+    camera: { x: number; y: number; z: number; near: number; far: number }
+    chunks: ReadonlyArray<{
+      readonly chunkCoord: { readonly x: number; readonly z: number }
+      type: string
+      visible: boolean
+      vertexCount: number
+      indexCount: number
+      hasUv: boolean
+      hasTileIndex: boolean
+      tileIndexCount: number
+      materialType: string
+      textureLoaded: boolean
+    }>
+  }
+}
+
+type QaChunkCoord = {
+  readonly x: number
+  readonly z: number
+}
+
 type QaChunkMeshSnapshot = {
-  readonly chunkCoord: unknown
+  readonly chunkCoord: QaChunkCoord
   readonly type: string
   readonly visible: boolean
   readonly vertexCount: number
@@ -59,6 +105,45 @@ type QaChunkMeshSnapshot = {
   readonly tileIndexCount: number
   readonly materialType: string
   readonly textureLoaded: boolean
+}
+
+type ChunkMeshWithCoord = THREE.Mesh<THREE.BufferGeometry, THREE.Material | THREE.Material[]> & {
+  readonly userData: { readonly chunkCoord: QaChunkCoord }
+}
+
+type EnvLike = {
+  readonly DEV?: boolean
+}
+
+type ProcessLike = {
+  readonly env?: { readonly NODE_ENV?: string }
+}
+
+const getUnknownProperty = (value: object, key: PropertyKey): unknown => Reflect.get(value, key)
+
+const isQaChunkCoord = (value: unknown): value is QaChunkCoord =>
+  typeof value === 'object' &&
+  value !== null &&
+  typeof getUnknownProperty(value, 'x') === 'number' &&
+  typeof getUnknownProperty(value, 'z') === 'number'
+
+const isChunkMeshWithCoord = (child: THREE.Object3D): child is ChunkMeshWithCoord =>
+  child instanceof THREE.Mesh && isQaChunkCoord(getUnknownProperty(child.userData, 'chunkCoord'))
+
+const isEnvLike = (value: unknown): value is EnvLike =>
+  typeof value === 'object' &&
+  value !== null &&
+  (getUnknownProperty(value, 'DEV') === undefined || typeof getUnknownProperty(value, 'DEV') === 'boolean')
+
+const isProcessLike = (value: unknown): value is ProcessLike => {
+  if (typeof value !== 'object' || value === null) return false
+  const env = getUnknownProperty(value, 'env')
+  if (env === undefined) return true
+  return (
+    typeof env === 'object' &&
+    env !== null &&
+    (getUnknownProperty(env, 'NODE_ENV') === undefined || typeof getUnknownProperty(env, 'NODE_ENV') === 'string')
+  )
 }
 
 const getMaterialType = (material: THREE.Material | readonly THREE.Material[]): string => {
@@ -73,14 +158,13 @@ const isAtlasTextureLoaded = (material: THREE.Material | readonly THREE.Material
 
 const getChunkMeshSnapshots = (scene: THREE.Scene): ReadonlyArray<QaChunkMeshSnapshot> =>
   scene.children
-    .filter((child): child is THREE.Mesh<THREE.BufferGeometry, THREE.Material | THREE.Material[]> =>
-      child instanceof THREE.Mesh && child.userData['chunkCoord'] !== undefined)
+    .filter(isChunkMeshWithCoord)
     .map((mesh) => {
       const position = mesh.geometry.getAttribute('position')
       const uv = mesh.geometry.getAttribute('uv')
       const tileIndex = mesh.geometry.getAttribute('tileIndex')
       return {
-        chunkCoord: mesh.userData['chunkCoord'],
+        chunkCoord: mesh.userData.chunkCoord,
         type: mesh.type,
         visible: mesh.visible,
         vertexCount: position?.count ?? 0,
@@ -307,7 +391,7 @@ const attackFirstZombie = (
         const selectedItem = yield* hotbarService.getSelectedBlockType()
         const damage = Option.match(selectedItem, {
           onNone: () => PLAYER_ATTACK_DAMAGE,
-          onSome: (item) => (item as InventoryItem) === 'WOODEN_SWORD' ? WOODEN_SWORD_ATTACK_DAMAGE : PLAYER_ATTACK_DAMAGE,
+          onSome: (item) => item === 'WOODEN_SWORD' ? WOODEN_SWORD_ATTACK_DAMAGE : PLAYER_ATTACK_DAMAGE,
         })
         yield* entityManager.applyDamage(zombie.entityId, damage)
         return true
@@ -464,9 +548,11 @@ export const installQaApi = ({
     // Uses the same two-signal check as terrain-worker-pool.ts: Vite's
     // import.meta.env.DEV (false in production builds) and the Node.js
     // NODE_ENV fallback for test environments.
-    const _qaApiEnv = (import.meta as ImportMeta & { env?: { DEV?: boolean } }).env
-    const _qaApiProcess = (globalThis as typeof globalThis & { process?: { env?: { NODE_ENV?: string } } }).process
-    const isDevBuild = (_qaApiEnv?.DEV === true) || (_qaApiProcess?.env?.NODE_ENV !== 'production')
+    const qaApiEnv = getUnknownProperty(import.meta, 'env')
+    const qaApiProcess = getUnknownProperty(globalThis, 'process')
+    const isViteDev = isEnvLike(qaApiEnv) && qaApiEnv.DEV === true;
+    const isNodeDev = isProcessLike(qaApiProcess) && qaApiProcess.env?.NODE_ENV === 'development';
+    const isDevBuild = isViteDev || isNodeDev
     if (!isDevBuild) return
 
     if (typeof window === 'undefined') {
@@ -476,7 +562,7 @@ export const installQaApi = ({
     const stagedResourceBlocksRef = MutableRef.make<Array<{ pos: { x: number; y: number; z: number }; blockType: BlockType }>>([])
     const stagedZombiePositionRef = MutableRef.make<Position | null>(null)
 
-    const qa = {
+    const qa: QaApi = {
       getInventorySnapshot: () =>
         getInventorySnapshot(inventoryService),
       openInventoryForQA: () =>
@@ -507,8 +593,8 @@ export const installQaApi = ({
         attackFirstZombie(hotbarService, entityManager),
       placeSelectedItemInFront: () =>
         placeSelectedItemInFront(camera, hotbarService, blockService, blockHighlight),
-      moveItemToHotbar: (blockType: BlockType, hotbarIndex: number) =>
-        moveItemToHotbar(inventoryService, hotbarService, blockType, hotbarIndex),
+      moveItemToHotbar: (itemType: InventoryItem, hotbarIndex: number) =>
+        moveItemToHotbar(inventoryService, hotbarService, itemType, hotbarIndex),
       selectHotbarSlot: (hotbarIndex: number) =>
         selectHotbarSlot(hotbarService, hotbarIndex),
       getRecipeButtons: () =>
@@ -518,5 +604,5 @@ export const installQaApi = ({
         getRenderingSnapshot(camera, scene),
     }
 
-    Reflect.set(window as object, '__TS_MINECRAFT_QA__', qa)
+    Reflect.set(window, '__TS_MINECRAFT_QA__', qa)
   })

@@ -168,6 +168,29 @@ describe('application/chunk/chunk-manager-service', () => {
         expect(Option.isNone(stored)).toBe(true)
       }).pipe(Effect.provide(TestLayer))
     })
+
+    it.effect('drainRenderDirtyChunks clears only render-dirty state and preserves persistence dirty chunks', () => {
+      const { TestLayer, storage } = buildTestLayer()
+
+      return Effect.gen(function* () {
+        const service = yield* ChunkManagerService
+
+        yield* service.getChunk({ x: 1, z: 1 })
+        yield* service.markChunkDirty({ x: 1, z: 1 })
+
+        const renderDirtyChunks = yield* service.drainRenderDirtyChunks()
+        expect(renderDirtyChunks).toHaveLength(1)
+        expect(renderDirtyChunks[0]?.coord).toEqual({ x: 1, z: 1 })
+
+        const drainedAgain = yield* service.drainRenderDirtyChunks()
+        expect(drainedAgain).toEqual([])
+
+        yield* service.saveDirtyChunks()
+
+        const stored = yield* storage.loadChunk(DEFAULT_WORLD_ID, { x: 1, z: 1 })
+        expect(Option.isSome(stored)).toBe(true)
+      }).pipe(Effect.provide(TestLayer))
+    })
   })
 
   describe('getLoadedChunks', () => {

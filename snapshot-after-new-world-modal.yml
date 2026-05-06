@@ -1,0 +1,19 @@
+- generic [ref=e1]:
+  - generic: "FPS: 0"
+  - generic: ♥ 20/20
+  - generic [ref=e3]:
+    - generic [ref=e4]: ts-minecraft
+    - generic [ref=e6]: Loading...
+  - button "⚙" [ref=e7] [cursor=pointer]
+  - generic [ref=e13]:
+    - heading "Create New World" [level=2] [ref=e14]
+    - generic [ref=e15]:
+      - generic [ref=e16]: World name
+      - textbox "World name" [active] [ref=e17]:
+        - /placeholder: My World
+    - generic [ref=e18]:
+      - generic [ref=e19]: Game mode
+      - button "Game mode" [ref=e20] [cursor=pointer]: Survival
+    - generic [ref=e21]:
+      - button "Cancel" [ref=e22] [cursor=pointer]
+      - button "Confirm" [ref=e23] [cursor=pointer]

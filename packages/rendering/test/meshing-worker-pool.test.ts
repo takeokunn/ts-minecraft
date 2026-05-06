@@ -1,6 +1,6 @@
 import { describe, expect } from '@effect/vitest'
 import { it } from '@effect/vitest'
-import { Effect, Option } from 'effect'
+import { Effect, Fiber, Option, TestClock, TestContext } from 'effect'
 import { MeshingWorkerPool } from '@ts-minecraft/rendering'
 import type { Chunk } from '../../terrain'
 
@@ -27,13 +27,17 @@ type WorkerMessageHandler = (event: { readonly data: unknown }) => void
 type WorkerErrorHandler = (event: { readonly message?: string }) => void
 type WorkerConstructorMock = new (url: string | URL, options?: WorkerOptions) => HungWorker
 
+let hungPostMessageCount = 0
+
 class HungWorker {
   onmessage: WorkerMessageHandler | null = null
   onerror: WorkerErrorHandler | null = null
 
   constructor(_url: string | URL, _options?: WorkerOptions) {}
 
-  postMessage(_message: unknown): void {}
+  postMessage(_message: unknown, _transfer?: readonly Transferable[]): void {
+    hungPostMessageCount += 1
+  }
 
   terminate(): void {}
 }
@@ -51,6 +55,36 @@ class ErroringWorker extends HungWorker {
   override postMessage(_message: unknown): void {
     queueMicrotask(() => {
       this.onerror?.({ message: 'synthetic worker failure' })
+    })
+  }
+}
+
+let lastPostedMessage: unknown = undefined
+let lastTransferList: ReadonlyArray<Transferable> = []
+
+class CapturingWorker extends HungWorker {
+  override postMessage(message: unknown, transfer?: readonly Transferable[]): void {
+    lastPostedMessage = message
+    lastTransferList = [...(transfer ?? [])]
+    const id = extractMessageId(message)
+    queueMicrotask(() => {
+      this.onmessage?.({
+        data: {
+          id,
+          opositions: new Float32Array(),
+          onormals: new Int8Array(),
+          ocolors: new Uint8Array(),
+          ouvs: new Float32Array(),
+          otileIndexes: new Float32Array(),
+          oindices: new Uint32Array(),
+          wpositions: null,
+          wnormals: null,
+          wcolors: null,
+          wuvs: null,
+          wtileIndexes: null,
+          windices: null,
+        },
+      })
     })
   }
 }
@@ -137,6 +171,64 @@ describe('infrastructure/three/meshing/meshing-worker-pool', () => {
         const result = yield* pool.meshChunk(makeChunk())
         expect(result.opaque.positions.length).toBeGreaterThan(0)
         expect(result.opaque.indices.length).toBeGreaterThan(0)
+      }).pipe(Effect.provide(MeshingWorkerPool.Default))
+    )
+  )
+
+  it.effect('disables workers after a hung worker timeout so later chunks do not wait again', () =>
+    withBrowserWorkerMock(
+      HungWorker,
+      Effect.gen(function* () {
+        hungPostMessageCount = 0
+        const pool = yield* MeshingWorkerPool
+        expect(pool.workerCount).toBeGreaterThan(0)
+
+        const firstFiber = yield* pool.meshChunk(makeChunk()).pipe(Effect.fork)
+        yield* TestClock.adjust('3 seconds')
+        const firstResult = yield* Fiber.join(firstFiber)
+
+        const secondResult = yield* pool.meshChunk(makeChunk())
+
+        expect(firstResult.opaque.positions.length).toBeGreaterThan(0)
+        expect(firstResult.opaque.indices.length).toBeGreaterThan(0)
+        expect(secondResult.opaque.positions.length).toBeGreaterThan(0)
+        expect(secondResult.opaque.indices.length).toBeGreaterThan(0)
+        expect(hungPostMessageCount).toBe(1)
+      }).pipe(
+        Effect.provide(MeshingWorkerPool.Default),
+        Effect.provide(TestContext.TestContext),
+      )
+    )
+  )
+
+  it.effect('transfers a sliced fluid buffer when the chunk carries fluid data', () =>
+    withBrowserWorkerMock(
+      CapturingWorker,
+      Effect.gen(function* () {
+        lastPostedMessage = undefined
+        lastTransferList = []
+
+        const pool = yield* MeshingWorkerPool
+        const baseChunk = makeChunk()
+        const fluid = new Uint8Array(baseChunk.blocks.length)
+        fluid[0] = 0x8f
+        const chunk = { ...baseChunk, fluid: Option.some(fluid) } satisfies Chunk
+
+        yield* pool.meshChunk(chunk)
+
+        expect(typeof lastPostedMessage).toBe('object')
+        expect(lastPostedMessage).not.toBeNull()
+        if (typeof lastPostedMessage !== 'object' || lastPostedMessage === null) {
+          throw new Error('Expected worker message payload')
+        }
+
+        const fluidPayload = 'fluid' in lastPostedMessage ? lastPostedMessage['fluid'] : null
+        expect(fluidPayload).toBeInstanceOf(ArrayBuffer)
+        expect(fluidPayload).not.toBe(fluid.buffer)
+        expect((fluidPayload as ArrayBuffer).byteLength).toBe(fluid.byteLength)
+        expect(lastTransferList).toContain(fluidPayload as ArrayBuffer)
+        expect(Option.isSome(chunk.fluid)).toBe(true)
+        expect(fluid[0]).toBe(0x8f)
       }).pipe(Effect.provide(MeshingWorkerPool.Default))
     )
   )
