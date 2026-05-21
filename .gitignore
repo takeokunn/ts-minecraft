@@ -23,6 +23,15 @@ e2e-report/
 # TypeScript
 *.tsbuildinfo
 
+# TypeScript in-place compiled output (packages/ and test/ use tsc with composite;
+# build artifacts must not be committed — source files are .ts, Vite/Vitest transpiles at runtime)
+packages/**/*.js
+packages/**/*.js.map
+packages/**/*.d.ts
+packages/**/*.d.ts.map
+test/helpers/*.js
+test/helpers/*.js.map
+
 # Test coverage
 coverage/
 *.lcov

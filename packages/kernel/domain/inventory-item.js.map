@@ -1,1 +1,0 @@
-{"version":3,"file":"inventory-item.js","sourceRoot":"./src/","sources":["packages/kernel/domain/inventory-item.ts"],"names":[],"mappings":"AAAA,OAAO,EAAE,MAAM,EAAE,MAAM,QAAQ,CAAA;AAC/B,OAAO,EAAE,eAAe,EAAE,MAAM,cAAc,CAAA;AAC9C,OAAO,EAAE,cAAc,EAAE,MAAM,aAAa,CAAA;AAE5C,8DAA8D;AAC9D,0EAA0E;AAC1E,MAAM,CAAC,MAAM,mBAAmB,GAAG,MAAM,CAAC,KAAK,CAAC,eAAe,EAAE,cAAc,CAAC,CAAA"}
