@@ -272,6 +272,7 @@ const makeDeps = () => {
         loadChunksAroundPlayer: () => Effect.succeed(true),
         getLoadedChunks: () => Effect.succeed([]),
         drainRenderDirtyChunks: () => Effect.succeed([]),
+        drainRenderDirtyChunkEntries: () => Effect.succeed([]),
         markChunkDirty,
         saveDirtyChunks: () => Effect.void,
         unloadChunk: () => Effect.void,

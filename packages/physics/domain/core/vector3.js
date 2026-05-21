@@ -26,4 +26,4 @@ export const normalize = (v) => {
     return scale(v, 1 / len);
 };
 export const distance = (a, b) => length({ x: b.x - a.x, y: b.y - a.y, z: b.z - a.z });
-//# sourceMappingURL=vector3.js.map
+//# sourceMappingURL=../../../../dist/packages/physics/domain/core/vector3.js.map

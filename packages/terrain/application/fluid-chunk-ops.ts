@@ -34,13 +34,16 @@ export const setFluidBlockIfLoaded = (
     /* c8 ignore next */
     onNone: () => Effect.void,
     onSome: (chunk) => Effect.gen(function* () {
-      yield* Effect.ignore(setBlockInChunk(chunk, localX(position), localY(position), localZ(position), blockTypeFor(cell.type)))
+      const lx = localX(position)
+      const ly = localY(position)
+      const lz = localZ(position)
+      yield* Effect.ignore(setBlockInChunk(chunk, lx, ly, lz, blockTypeFor(cell.type)))
       const fluid = yield* ensureFluidBuffer(chunk)
       const idx = getBlockIndex(position)
       if (idx >= 0) {
         fluid[idx] = encodeFluidCell(cell)
       }
-      yield* chunkManagerService.markChunkDirty(chunk.coord)
+      yield* chunkManagerService.markChunkDirty(chunk.coord, [{ lx, y: ly, lz }])
     }),
   })
 
@@ -53,13 +56,16 @@ export const setAirBlockIfLoaded = (
     /* c8 ignore next */
     onNone: () => Effect.void,
     onSome: (chunk) => Effect.gen(function* () {
-      yield* Effect.ignore(setBlockInChunk(chunk, localX(position), localY(position), localZ(position), 'AIR'))
+      const lx = localX(position)
+      const ly = localY(position)
+      const lz = localZ(position)
+      yield* Effect.ignore(setBlockInChunk(chunk, lx, ly, lz, 'AIR'))
       const fluid = yield* ensureFluidBuffer(chunk)
       const idx = getBlockIndex(position)
       if (idx >= 0) {
         fluid[idx] = 0
       }
-      yield* chunkManagerService.markChunkDirty(chunk.coord)
+      yield* chunkManagerService.markChunkDirty(chunk.coord, [{ lx, y: ly, lz }])
     }),
   })
 
@@ -73,13 +79,16 @@ export const setSolidBlockIfLoaded = (
     /* c8 ignore next */
     onNone: () => Effect.void,
     onSome: (chunk) => Effect.gen(function* () {
-      yield* Effect.ignore(setBlockInChunk(chunk, localX(position), localY(position), localZ(position), blockType))
+      const lx = localX(position)
+      const ly = localY(position)
+      const lz = localZ(position)
+      yield* Effect.ignore(setBlockInChunk(chunk, lx, ly, lz, blockType))
       const fluid = yield* ensureFluidBuffer(chunk)
       const idx = getBlockIndex(position)
       /* c8 ignore next */
       if (idx >= 0) {
         fluid[idx] = 0
       }
-      yield* chunkManagerService.markChunkDirty(chunk.coord)
+      yield* chunkManagerService.markChunkDirty(chunk.coord, [{ lx, y: ly, lz }])
     }),
   })

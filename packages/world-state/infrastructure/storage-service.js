@@ -218,4 +218,4 @@ export class StorageService extends Effect.Service()('@minecraft/infrastructure/
 }) {
 }
 export const StorageServiceLive = StorageService.Default;
-//# sourceMappingURL=storage-service.js.map
+//# sourceMappingURL=../../../dist/packages/world-state/infrastructure/storage-service.js.map

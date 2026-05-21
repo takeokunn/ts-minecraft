@@ -2,9 +2,21 @@ import { describe, expect, vi } from 'vitest'
 import { it } from '@effect/vitest'
 import { Effect, Layer, Option } from 'effect'
 import * as THREE from 'three'
-import { EntityRendererService, EntityRendererLive, SceneService, LIMB_SWING_AMPLITUDE } from '@ts-minecraft/rendering'
+import {
+  EntityRendererService,
+  EntityRendererLive,
+  SceneService,
+  LIMB_SWING_AMPLITUDE,
+} from '@ts-minecraft/rendering'
 import { EntityId, type Entity, type EntityType } from '@ts-minecraft/entities'
 import { identity } from '@ts-minecraft/kernel'
+
+// FR-2.5: pool→syncEntities full wire. `scene.add` is now called once per
+// (type, role) bucket (lazy creation), NOT once per entity. Each entity type
+// materializes 6 buckets (Zombie: head/body/armL/armR/legFL/legFR; quadrupeds:
+// head/body/legFL/legFR/legBL/legBR). The tracking ref still holds a per-entity
+// MobLimbGroup carrier, but the carrier root is NEVER added to the scene.
+const ROLES_PER_TYPE = 6
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -49,20 +61,27 @@ const makeScene = (): THREE.Scene => {
 
 describe('infrastructure/three/entity-renderer', () => {
   describe('syncEntities', () => {
-    it.effect('adds a group for a new entity', () => {
+    it.effect('adds buckets for a new entity (1 InstancedMesh per role)', () => {
       const TestLayer = buildTestLayer()
       const scene = makeScene()
       return Effect.gen(function* () {
         const r = yield* EntityRendererService
         const e = makeEntity({ id: 'mob-1', type: 'Zombie' })
         yield* r.syncEntities([e], scene)
-        expect((scene.add as ReturnType<typeof vi.fn>).mock.calls.length).toBe(1)
+        // 6 buckets are lazily created on first allocation: head/body/armL/armR/legFL/legFR.
+        expect((scene.add as ReturnType<typeof vi.fn>).mock.calls.length).toBe(ROLES_PER_TYPE)
+        // The pool reports 6 buckets, each containing 1 active instance.
+        const pool = r._getInstancePool()
+        const buckets = pool.getBuckets()
+        expect(buckets.length).toBe(ROLES_PER_TYPE)
+        for (const bucket of buckets) expect(bucket.count).toBe(1)
+        // Tracking carrier still exists (used by updateEntityTransforms).
         const tracked = yield* r._getTrackedGroup(e.entityId)
         expect(Option.isSome(tracked)).toBe(true)
       }).pipe(Effect.provide(TestLayer))
     })
 
-    it.effect('removes a group when the entity is no longer in the list', () => {
+    it.effect('releases pool slots when the entity is no longer in the list', () => {
       const TestLayer = buildTestLayer()
       const scene = makeScene()
       return Effect.gen(function* () {
@@ -70,11 +89,23 @@ describe('infrastructure/three/entity-renderer', () => {
         const e1 = makeEntity({ id: 'mob-a', type: 'Cow' })
         const e2 = makeEntity({ id: 'mob-b', type: 'Pig' })
         yield* r.syncEntities([e1, e2], scene)
-        expect((scene.add as ReturnType<typeof vi.fn>).mock.calls.length).toBe(2)
+        // 2 types × 6 roles = 12 buckets created.
+        expect((scene.add as ReturnType<typeof vi.fn>).mock.calls.length).toBe(ROLES_PER_TYPE * 2)
+        const pool = r._getInstancePool()
+        // Each bucket holds 1 instance — one Cow + one Pig populate disjoint buckets.
+        for (const bucket of pool.getBuckets()) expect(bucket.count).toBe(1)
         yield* r.syncEntities([e1], scene)
-        expect((scene.remove as ReturnType<typeof vi.fn>).mock.calls.length).toBe(1)
+        // Buckets are NOT removed from the scene on entity drop — only slots
+        // are released. Pig buckets drop to count=0; Cow buckets stay at 1.
+        expect((scene.remove as ReturnType<typeof vi.fn>).mock.calls.length).toBe(0)
         expect(Option.isNone(yield* r._getTrackedGroup(e2.entityId))).toBe(true)
         expect(Option.isSome(yield* r._getTrackedGroup(e1.entityId))).toBe(true)
+        // Verify slot release: total active instances across all buckets is 6
+        // (one Cow occupying its 6 buckets); Pig buckets are empty.
+        const totalActive = pool
+          .getBuckets()
+          .reduce((sum, b) => sum + b.count, 0)
+        expect(totalActive).toBe(ROLES_PER_TYPE)
       }).pipe(Effect.provide(TestLayer))
     })
 
@@ -86,7 +117,11 @@ describe('infrastructure/three/entity-renderer', () => {
         const e = makeEntity({ id: 'mob-x' })
         yield* r.syncEntities([e], scene)
         yield* r.syncEntities([e], scene)
-        expect((scene.add as ReturnType<typeof vi.fn>).mock.calls.length).toBe(1)
+        // Buckets are reused on the second call — no additional scene.add.
+        expect((scene.add as ReturnType<typeof vi.fn>).mock.calls.length).toBe(ROLES_PER_TYPE)
+        // And the pool didn't double-allocate.
+        const pool = r._getInstancePool()
+        for (const bucket of pool.getBuckets()) expect(bucket.count).toBe(1)
       }).pipe(Effect.provide(TestLayer))
     })
   })
@@ -188,7 +223,7 @@ describe('infrastructure/three/entity-renderer', () => {
   })
 
   describe('clearScene', () => {
-    it.effect('removes all tracked groups and resets state', () => {
+    it.effect('disposes all bucket InstancedMeshes and resets state', () => {
       const TestLayer = buildTestLayer()
       const scene = makeScene()
       return Effect.gen(function* () {
@@ -196,10 +231,15 @@ describe('infrastructure/three/entity-renderer', () => {
         const e1 = makeEntity({ id: 'm1', type: 'Pig' })
         const e2 = makeEntity({ id: 'm2', type: 'Sheep' })
         yield* r.syncEntities([e1, e2], scene)
+        // 2 types × 6 buckets = 12 buckets created.
+        expect((scene.add as ReturnType<typeof vi.fn>).mock.calls.length).toBe(ROLES_PER_TYPE * 2)
         yield* r.clearScene(scene)
-        expect((scene.remove as ReturnType<typeof vi.fn>).mock.calls.length).toBe(2)
+        // disposeAll removes every bucket from the scene.
+        expect((scene.remove as ReturnType<typeof vi.fn>).mock.calls.length).toBe(ROLES_PER_TYPE * 2)
         expect(Option.isNone(yield* r._getTrackedGroup(e1.entityId))).toBe(true)
         expect(Option.isNone(yield* r._getTrackedGroup(e2.entityId))).toBe(true)
+        // Pool is empty post-dispose.
+        expect(r._getInstancePool().getBuckets().length).toBe(0)
       }).pipe(Effect.provide(TestLayer))
     })
 

@@ -13,4 +13,4 @@ export const BlockIndexSchema = Schema.Number.pipe(Schema.int(), Schema.nonNegat
 export const BlockIndex = {
     make: (n) => Schema.decodeUnknownSync(BlockIndexSchema)(n),
 };
-//# sourceMappingURL=numerics.js.map
+//# sourceMappingURL=../../../dist/packages/kernel/domain/numerics.js.map

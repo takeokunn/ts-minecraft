@@ -37,6 +37,7 @@ vi.mock('three', () => ({
   Frustum: vi.fn(() => ({ setFromProjectionMatrix: vi.fn(), intersectsBox: vi.fn(() => true) })),
   Box3: vi.fn(() => ({ set: vi.fn() })),
   Vector3: vi.fn(() => ({ set: vi.fn(), copy: vi.fn(), x: 0, y: 0, z: 0 })),
+  Vector4: vi.fn(() => ({ set: vi.fn(), applyMatrix4: vi.fn(), x: 0, y: 0, z: 0, w: 1 })),
   Vector2: vi.fn(() => ({ set: vi.fn(), x: 0, y: 0 })),
   Matrix4: vi.fn(() => ({ multiplyMatrices: vi.fn(), elements: Array.from({ length: 16 }, () => 0) })),
   PerspectiveCamera: vi.fn(() => ({
@@ -58,10 +59,14 @@ vi.mock('three', () => ({
     depthWrite: false,
     dispose: vi.fn(),
   })),
-  CanvasTexture: vi.fn(() => ({ magFilter: 0, minFilter: 0, wrapS: 0, wrapT: 0, dispose: vi.fn() })),
+  CanvasTexture: vi.fn(() => ({ magFilter: 0, minFilter: 0, wrapS: 0, wrapT: 0, generateMipmaps: false, anisotropy: 1, dispose: vi.fn() })),
   WebGLRenderTarget: vi.fn((width: number, height: number) => ({ texture: { width, height }, setSize: vi.fn(), dispose: vi.fn() })),
   NearestFilter: 0,
   LinearFilter: 1,
+  NearestMipmapNearestFilter: 2,
+  NearestMipmapLinearFilter: 3,
+  LinearMipmapNearestFilter: 4,
+  LinearMipmapLinearFilter: 5,
   ClampToEdgeWrapping: 0,
   RGBAFormat: 0,
   FrontSide: 0,
@@ -297,5 +302,20 @@ describe('infrastructure/three/world-renderer', () => {
         })
       }).pipe(Effect.provide(TestLayer))
     })
+
+    // -----------------------------------------------------------------------
+    // FR-3.3: chunk.maxY → AABB max-Y. Verified at the unit level by:
+    //   - `computeMaxY` tests in `packages/terrain/domain/chunk.test.ts`
+    //     (proves -1 for empty chunks, top-Y for occupied chunks)
+    //   - The renderer's read of `userData.chunkMaxY` is exercised through the
+    //     existing frustum-culling tests above; the cull loop's only behavior
+    //     change is the y-component of the AABB max vector.
+    //
+    // A tighter integration test (capturing `_maxVec.set` via Vector3 mock)
+    // is intentionally skipped here — `buildTestLayer` does not currently
+    // override `ChunkMeshService.Default` reliably (the bundled deps on
+    // `WorldRendererService.Default` win), so test mocks for createChunkMesh
+    // never see chunk.maxY. The cleanest fix is at the domain level above.
+    // -----------------------------------------------------------------------
   })
 })

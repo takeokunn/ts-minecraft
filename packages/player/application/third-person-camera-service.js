@@ -21,4 +21,4 @@ export class ThirdPersonCameraService extends Effect.Service()('@minecraft/appli
 }) {
 }
 export const ThirdPersonCameraServiceLive = ThirdPersonCameraService.Default;
-//# sourceMappingURL=third-person-camera-service.js.map
+//# sourceMappingURL=../../../dist/packages/player/application/third-person-camera-service.js.map

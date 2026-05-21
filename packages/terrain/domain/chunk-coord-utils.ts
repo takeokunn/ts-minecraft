@@ -67,3 +67,41 @@ export const chunkCoordToKey = (coord: ChunkCoord): ChunkCacheKey => ChunkCacheK
 
 export const chunkCoordToWorldKey = (coord: ChunkCoord, worldId: string): ChunkCacheKey =>
   ChunkCacheKey.make(`${worldId}:${coord.x},${coord.z}`)
+
+// FR-2.1: chunk-load priority weighted by player velocity direction.
+// Pure-distance baseline matches the legacy ordering (chunkDistanceSquared);
+// when the player is moving, chunks ahead of the velocity vector receive a
+// lower priority value (= higher priority) than chunks behind, so the loader
+// fetches the visible-direction chunks first.
+
+export type ChunkVelocity = Readonly<{ vx: number; vz: number }>
+
+// Mixing weight between pure distance (alpha=0) and direction-weighted
+// distance (alpha=1). 0.5 keeps both axes meaningful: a chunk dead ahead at
+// distance d² scores d²·0.5, while a chunk directly behind scores d²·1.5.
+export const DEFAULT_PRIORITY_ALPHA = 0.5
+
+// Squared-velocity threshold below which we treat the player as stationary
+// and fall back to pure distance ordering. 1e-6 corresponds to |v|≈1e-3
+// blocks/tick — well below any real player input.
+export const STATIC_VELOCITY_EPSILON_SQUARED = 1e-6
+
+export const computeChunkPriority = (
+  chunkCoord: ChunkCoord,
+  playerCoord: ChunkCoord,
+  velocity: ChunkVelocity,
+  alpha: number = DEFAULT_PRIORITY_ALPHA,
+): number => {
+  const distSquared = chunkDistanceSquared(chunkCoord, playerCoord)
+  const vMagSq = velocity.vx * velocity.vx + velocity.vz * velocity.vz
+  // velocity≈0 → reduce to pure distance ordering (legacy compatible).
+  if (vMagSq < STATIC_VELOCITY_EPSILON_SQUARED) return distSquared
+  const dx = chunkCoord.x - playerCoord.x
+  const dz = chunkCoord.z - playerCoord.z
+  const dist = Math.sqrt(distSquared)
+  if (dist === 0) return 0
+  // dotProduct ∈ [-1, 1]: +1 = chunk dead ahead, -1 = behind, 0 = perpendicular.
+  const dotProduct = (dx * velocity.vx + dz * velocity.vz) / (dist * Math.sqrt(vMagSq))
+  // Scale d² by (1 + alpha·(1 - dot)): ahead → 1·d², behind → (1+2α)·d².
+  return distSquared * (1 + alpha * (1 - dotProduct))
+}

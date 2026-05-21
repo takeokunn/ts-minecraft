@@ -99,4 +99,4 @@ export class HealthService extends Effect.Service()('@minecraft/application/Heal
 }) {
 }
 export const HealthServiceLive = HealthService.Default;
-//# sourceMappingURL=health-service.js.map
+//# sourceMappingURL=../../../dist/packages/player/application/health-service.js.map

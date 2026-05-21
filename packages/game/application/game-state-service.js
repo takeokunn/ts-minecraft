@@ -149,4 +149,4 @@ export class GameStateService extends Effect.Service()('@minecraft/application/G
 }) {
 }
 export const GameStateServiceLive = GameStateService.Default;
-//# sourceMappingURL=game-state-service.js.map
+//# sourceMappingURL=../../../dist/packages/game/application/game-state-service.js.map

@@ -7,4 +7,4 @@ export const PlayerStateSchema = Schema.Struct({
     velocity: Vector3Schema,
     rotation: QuaternionSchema,
 });
-//# sourceMappingURL=player-state.js.map
+//# sourceMappingURL=../../../dist/packages/player/domain/player-state.js.map

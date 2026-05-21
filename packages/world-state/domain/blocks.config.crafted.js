@@ -28,4 +28,4 @@ export const craftedAndItemBlocks = [
         faces: defaultBlockFaces,
     }),
 ];
-//# sourceMappingURL=blocks.config.crafted.js.map
+//# sourceMappingURL=../../../dist/packages/world-state/domain/blocks.config.crafted.js.map

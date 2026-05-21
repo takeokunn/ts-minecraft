@@ -36,8 +36,15 @@ export const refractionPrepassStage = (
         const shouldRunRefraction = hasCameraPoseChanged(lastRefractionFrame, currentRefractionPose)
 
         if (shouldRunRefraction) {
+          // FR-4.4: pass preset-resolved threshold so refraction skips when on-screen
+          // water footprint is below the preset's tolerance.
           yield* logErrors(
-            services.worldRendererService.doRefractionPrePass(deps.renderer, deps.scene, deps.camera),
+            services.worldRendererService.doRefractionPrePass(
+              deps.renderer,
+              deps.scene,
+              deps.camera,
+              inputs.resolvedGraphics.refractionMinScreenRatio,
+            ),
             'Refraction pre-pass error',
           )
           MutableRef.set(refs.lastRefractionFrameRef, currentRefractionPose)

@@ -8,4 +8,4 @@ export * from './domain/fluid';
 export * from './domain/light';
 export * from './application/environment-service';
 export * from './infrastructure/storage-service';
-//# sourceMappingURL=index.js.map
+//# sourceMappingURL=../../dist/packages/world-state/index.js.map

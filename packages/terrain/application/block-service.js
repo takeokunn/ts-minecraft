@@ -1,6 +1,6 @@
 import { Effect, Data, Either, HashSet, Metric, Option, Schema } from 'effect';
 import { ChunkManagerService } from './chunk-manager-service';
-import { DEFAULT_PLAYER_ID, BlockTypeSchema } from '@ts-minecraft/kernel';
+import { DEFAULT_PLAYER_ID } from '@ts-minecraft/kernel';
 import { FluidService } from './fluid-service';
 import { ChunkService } from './chunk-service';
 import { setBlockInChunk } from '../domain/chunk';
@@ -10,7 +10,8 @@ import { PlayerService } from '@ts-minecraft/player';
 import { InventoryService } from '@ts-minecraft/inventory';
 import { HotbarService } from '@ts-minecraft/inventory';
 import { FurnaceService } from '@ts-minecraft/furnace';
-import { NON_PLACEABLE_ITEM_TYPES, PICKAXE_BLOCK_TYPES, DIAMOND_PICKAXE_HARVESTABLE_BLOCKS, getInventoryDropForBlock, } from './block-service.config';
+import { BlockTypeSchema } from '@ts-minecraft/kernel';
+import { NON_PLACEABLE_ITEM_TYPES, DIAMOND_PICKAXE_HARVESTABLE_BLOCKS, getInventoryDropForBlock, } from './block-service.config';
 const REQUIRES_PICKAXE_BLOCKS = DIAMOND_PICKAXE_HARVESTABLE_BLOCKS;
 // ─── Error type ───────────────────────────────────────────────────────────────
 export class BlockServiceError extends Data.TaggedError('BlockServiceError') {
@@ -50,10 +51,7 @@ export class BlockService extends Effect.Service()('@minecraft/application/Block
                 }));
             }
             const selectedTool = yield* hotbarService.getSelectedBlockType();
-            const selectedToolValue = Option.getOrElse(selectedTool, () => 'AIR');
-            const shouldDrop = HashSet.has(PICKAXE_BLOCK_TYPES, selectedToolValue)
-                ? canHarvestBlock(blockType, selectedTool)
-                : canHarvestBlock(blockType, Option.none());
+            const shouldDrop = canHarvestBlock(blockType, selectedTool);
             if (HashSet.has(REQUIRES_PICKAXE_BLOCKS, blockType) && !shouldDrop) {
                 return yield* Effect.fail(new BlockServiceError({
                     operation: 'breakBlock',
@@ -160,4 +158,4 @@ export class BlockService extends Effect.Service()('@minecraft/application/Block
 }) {
 }
 export const BlockServiceLive = BlockService.Default;
-//# sourceMappingURL=block-service.js.map
+//# sourceMappingURL=../../../dist/packages/terrain/application/block-service.js.map

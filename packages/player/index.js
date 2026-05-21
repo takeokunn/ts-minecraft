@@ -11,4 +11,4 @@ export * from './application/movement-service';
 export * from './application/player-input-service';
 export * from './application/player-service';
 export * from './application/third-person-camera-service';
-//# sourceMappingURL=index.js.map
+//# sourceMappingURL=../../dist/packages/player/index.js.map

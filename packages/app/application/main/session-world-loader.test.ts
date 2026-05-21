@@ -96,6 +96,7 @@ const makeChunkManagerService = (overrides: Partial<ChunkManagerService> = {}): 
     loadChunksAroundPlayer: (_playerPos, _renderDistance) => Effect.succeed(false),
     getLoadedChunks: () => Effect.succeed([]),
     drainRenderDirtyChunks: () => Effect.succeed([]),
+        drainRenderDirtyChunkEntries: () => Effect.succeed([]),
     markChunkDirty: (_coord) => Effect.void,
     saveDirtyChunks: () => Effect.void,
     unloadChunk: (_coord) => Effect.void,

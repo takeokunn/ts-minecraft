@@ -220,7 +220,6 @@ export class PerfHudService extends Effect.Service()('@minecraft/infrastructure/
     }),
 }) {
 }
-export const PerfHudServiceLive = PerfHudService.Default;
 // -----------------------------------------------------------------------------
 // Counter installation helper
 // -----------------------------------------------------------------------------
@@ -236,4 +235,4 @@ export const installPerfHudCounters = (perfHud, chunkManager, queueDepthSource) 
         yield* perfHud.setWorkerQueueDepth(queueDepthSource());
     }).pipe(Effect.catchAllCause((cause) => Effect.logError(`perf-hud daemon failed: ${Cause.pretty(cause)}`))), Schedule.spaced(Duration.millis(250)))).pipe(Effect.asVoid);
 };
-//# sourceMappingURL=perf-hud.js.map
+//# sourceMappingURL=../../../dist/packages/rendering/presentation/perf-hud.js.map

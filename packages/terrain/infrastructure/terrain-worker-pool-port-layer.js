@@ -7,4 +7,4 @@ export const TerrainWorkerPoolPortLayer = Layer.effect(TerrainWorkerPoolPort, Ef
         generateTerrain: (coord, options) => pool.generateTerrain(coord, options).pipe(Effect.mapError((err) => new TerrainGenerationError({ reason: err.reason, chunk: err.chunk }))),
     });
 })).pipe(Layer.provide(TerrainWorkerPoolLive));
-//# sourceMappingURL=terrain-worker-pool-port-layer.js.map
+//# sourceMappingURL=../../../dist/packages/terrain/infrastructure/terrain-worker-pool-port-layer.js.map

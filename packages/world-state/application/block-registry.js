@@ -14,4 +14,4 @@ export class BlockRegistry extends Effect.Service()('@minecraft/domain/BlockRegi
 }) {
 }
 export const BlockRegistryLive = BlockRegistry.Default;
-//# sourceMappingURL=block-registry.js.map
+//# sourceMappingURL=../../../dist/packages/world-state/application/block-registry.js.map

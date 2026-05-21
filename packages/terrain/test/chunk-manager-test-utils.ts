@@ -4,7 +4,7 @@ import { CHUNK_HEIGHT,CHUNK_SIZE,DEFAULT_WORLD_ID,type WorldId } from '@ts-minec
 import type { ChunkStorageValue } from '@ts-minecraft/terrain'
 import { BiomeService,BiomeServiceLive,ChunkManagerServiceLive,generateTerrain as generateChunkTerrain,LightEngineService,NoiseServiceLive,NoiseServicePort,StorageServicePort,TerrainWorkerPoolPort } from '@ts-minecraft/terrain'
 import { LIGHT_BYTE_LENGTH,StorageError } from '@ts-minecraft/world-state'
-import { Brand,Effect,Layer,MutableHashMap } from 'effect'
+import { Brand,Effect,Layer,MutableHashMap,Option } from 'effect'
 import { ChunkService,ChunkServiceLive } from '../application/chunk-service'
 import type { Chunk } from '../domain/chunk'
 
@@ -35,10 +35,15 @@ export const makeInMemoryStorage = () => {
 // No-op LightEngine mock — skips BFS for tests that don't exercise lighting
 // ---------------------------------------------------------------------------
 
+const noopLightGrids = () => ({ skyLight: new Uint8Array(LIGHT_BYTE_LENGTH), blockLight: new Uint8Array(LIGHT_BYTE_LENGTH) })
+const noopBoundary = { nx: true, px: true, nz: true, pz: true } as const
+
 export const LightEngineNoopLive = Layer.succeed(LightEngineService, {
   _tag: '@minecraft/application/LightEngineService' as const,
-  computeLight: (_chunk: Chunk) => Effect.sync(() => ({ skyLight: new Uint8Array(LIGHT_BYTE_LENGTH), blockLight: new Uint8Array(LIGHT_BYTE_LENGTH) })),
-  updateLight: (_chunk: Chunk) => Effect.sync(() => ({ skyLight: new Uint8Array(LIGHT_BYTE_LENGTH), blockLight: new Uint8Array(LIGHT_BYTE_LENGTH) })),
+  computeLight: (_chunk: Chunk) => Effect.sync(noopLightGrids),
+  updateLight: (_chunk: Chunk) => Effect.sync(noopLightGrids),
+  propagateLightIncremental: (_chunk: Chunk, _dirty: ReadonlyArray<{ readonly lx: number; readonly y: number; readonly lz: number }>) =>
+    Effect.sync(() => ({ ...noopLightGrids(), boundary: noopBoundary, affectedAABB: Option.none() })),
   getSkyLight: (_chunk: Chunk, _lx: number, _y: number, _lz: number) => 15,
   getBlockLight: (_chunk: Chunk, _lx: number, _y: number, _lz: number) => 0,
 })

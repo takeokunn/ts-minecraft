@@ -21,4 +21,4 @@ export const IRON_PICKAXE_HARVESTABLE_BLOCKS = HashSet.union(STONE_PICKAXE_HARVE
     'DEEPSLATE_EMERALD_ORE',
 ]));
 export const DIAMOND_PICKAXE_HARVESTABLE_BLOCKS = HashSet.union(IRON_PICKAXE_HARVESTABLE_BLOCKS, HashSet.fromIterable(['OBSIDIAN']));
-//# sourceMappingURL=harvestable-blocks.js.map
+//# sourceMappingURL=../../../dist/packages/terrain/application/harvestable-blocks.js.map

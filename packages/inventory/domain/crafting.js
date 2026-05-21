@@ -16,4 +16,4 @@ export class Recipe extends Schema.Class('Recipe')({
     }),
 }) {
 }
-//# sourceMappingURL=crafting.js.map
+//# sourceMappingURL=../../../dist/packages/inventory/domain/crafting.js.map

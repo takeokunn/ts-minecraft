@@ -1,3 +1,8 @@
+import {
+  computeMaxDirtyChunkUpdatesPerFrame,
+  DEFAULT_TARGET_FPS,
+} from './frame/frame-budget'
+
 // Camera eye level offset: player height minus half body height.
 export const EYE_LEVEL_OFFSET = 0.72
 
@@ -8,7 +13,8 @@ export const TRADE_NEXT_KEY = 'ArrowDown'
 export const TRADE_PREV_KEY = 'ArrowUp'
 export const TRADE_EXECUTE_KEY = 'Enter'
 
-export const MAX_DIRTY_CHUNK_UPDATES_PER_FRAME = 4
+// Derived from the helper at DEFAULT_TARGET_FPS so the legacy constant scales with the target FPS.
+export const MAX_DIRTY_CHUNK_UPDATES_PER_FRAME = computeMaxDirtyChunkUpdatesPerFrame(DEFAULT_TARGET_FPS)
 
 // 2 on platforms with Web Workers, 1 otherwise.
 export const DIRTY_CHUNK_FLUSH_CONCURRENCY = typeof Worker === 'undefined' ? 1 : 2

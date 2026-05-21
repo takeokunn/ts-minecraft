@@ -13,4 +13,4 @@ export const RigidBodyConfigSchema = Schema.Struct({
     position: Vector3Schema,
     type: Schema.optional(Schema.Literal('dynamic', 'static', 'kinematic')),
 });
-//# sourceMappingURL=physics-body.js.map
+//# sourceMappingURL=../../../dist/packages/physics/domain/physics-body.js.map

@@ -37,4 +37,4 @@ export class PlayerService extends Effect.Service()('@minecraft/application/Play
 }) {
 }
 export const PlayerServiceLive = PlayerService.Default;
-//# sourceMappingURL=player-service.js.map
+//# sourceMappingURL=../../../dist/packages/player/application/player-service.js.map

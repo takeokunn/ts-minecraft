@@ -79,6 +79,7 @@ const ChunkMeshServiceTest = Layer.succeed(
           mesh.geometry.dispose()
         }),
       setSunIntensity: (_value: number): Effect.Effect<void, never> => Effect.void,
+      releasePrevCachedMesh: (): Effect.Effect<void, never> => Effect.void,
     }
   })())
 )

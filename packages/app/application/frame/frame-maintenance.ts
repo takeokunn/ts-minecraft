@@ -1,6 +1,6 @@
 import { Array as Arr, Cause, Effect, HashMap, MutableRef, Option, Ref } from 'effect'
 import { DEFAULT_PLAYER_ID } from '@ts-minecraft/kernel'
-import type { Chunk } from '@ts-minecraft/terrain'
+import type { Chunk, ChunkAABB } from '@ts-minecraft/terrain'
 import { chunkBlockIndexUnchecked } from '@ts-minecraft/terrain'
 import { DESPAWN_DISTANCE, MOB_HALF_HEIGHT } from '@ts-minecraft/entities'
 import { CHUNK_HEIGHT, CHUNK_SIZE } from '@ts-minecraft/kernel'
@@ -8,11 +8,17 @@ import { FALLBACK_PLAYER_POS, MAX_DIRTY_CHUNK_UPDATES_PER_FRAME, DIRTY_CHUNK_FLU
 import type { FrameHandlerDeps, FrameHandlerServices } from '@ts-minecraft/app/frame-handler'
 import type { DeltaTimeSecs, Position } from '@ts-minecraft/kernel'
 
+// FR-4.2: dirty chunks queued for re-mesh now carry their accumulated dirty
+// AABB (Option.none() means "full chunk"). Producers (block-handler & the
+// chunk-manager drain) supply both fields; the flush step forwards the AABB
+// to `worldRendererService.updateChunkInScene`.
+export type DirtyChunkEntry = { readonly chunk: Chunk; readonly dirtyAABB: Option.Option<ChunkAABB> }
+
 type MaintenanceState = {
   readonly lastLoadedChunksRef: Ref.Ref<Option.Option<ReadonlyArray<Chunk>>>
   readonly lastChunkStreamingRef: MutableRef.MutableRef<{ readonly cx: number; readonly cz: number; readonly renderDistance: number }>
   readonly chunkSyncPendingRef: MutableRef.MutableRef<boolean>
-  readonly dirtyChunksRef: Ref.Ref<HashMap.HashMap<string, Chunk>>
+  readonly dirtyChunksRef: Ref.Ref<HashMap.HashMap<string, DirtyChunkEntry>>
 }
 
 type MaintenanceServices = Pick<
@@ -187,16 +193,40 @@ export const createMaintenanceHandler = (
         }
       }
 
-      const renderDirtyChunks = dirtyChunkFlushEnabled
-        ? yield* chunkManagerService.drainRenderDirtyChunks()
+      // FR-4.2: drain render-dirty entries with their accumulated AABBs. If a
+      // chunk is already queued (from interaction-block-handler), union the
+      // AABBs so the flush sees the widest dirty region for that chunk.
+      const renderDirtyEntries = dirtyChunkFlushEnabled
+        ? yield* chunkManagerService.drainRenderDirtyChunkEntries()
         : []
-      if (renderDirtyChunks.length > 0) {
+      if (renderDirtyEntries.length > 0) {
         yield* Ref.update(
           state.dirtyChunksRef,
           (current) => Arr.reduce(
-            renderDirtyChunks,
+            renderDirtyEntries,
             current,
-            (acc, chunk) => HashMap.set(acc, `${chunk.coord.x},${chunk.coord.z}`, chunk),
+            (acc, entry) => {
+              const k = `${entry.chunk.coord.x},${entry.chunk.coord.z}`
+              return HashMap.set(acc, k, Option.match(HashMap.get(acc, k), {
+                onNone: () => ({ chunk: entry.chunk, dirtyAABB: entry.dirtyAABB }),
+                // Union new AABB with whatever was already queued. Either side
+                // being Option.none() ⇒ full-chunk fallback (Option.none()).
+                onSome: (prev) => ({
+                  chunk: entry.chunk,
+                  dirtyAABB: Option.match(prev.dirtyAABB, {
+                    onNone: () => Option.none<ChunkAABB>(),
+                    onSome: (a) => Option.match(entry.dirtyAABB, {
+                      onNone: () => Option.none<ChunkAABB>(),
+                      onSome: (b) => Option.some({
+                        minX: Math.min(a.minX, b.minX), maxX: Math.max(a.maxX, b.maxX),
+                        minY: Math.min(a.minY, b.minY), maxY: Math.max(a.maxY, b.maxY),
+                        minZ: Math.min(a.minZ, b.minZ), maxZ: Math.max(a.maxZ, b.maxZ),
+                      }),
+                    }),
+                  }),
+                }),
+              }))
+            },
           ),
         )
       }
@@ -210,14 +240,16 @@ export const createMaintenanceHandler = (
 
               const flushUpdates = Effect.forEach(
                 chunksToUpdate,
-                ([, chunk]) => worldRendererService.updateChunkInScene(chunk, deps.scene),
+                ([, entry]) => worldRendererService.updateChunkInScene(
+                  entry.chunk, deps.scene, Option.getOrUndefined(entry.dirtyAABB),
+                ),
                 { concurrency: DIRTY_CHUNK_FLUSH_CONCURRENCY, discard: true },
               )
 
               const requeueRemaining = remainingEntries.length > 0
                 ? Ref.update(
                     state.dirtyChunksRef,
-                    (current) => Arr.reduce(remainingEntries, current, (acc, [key, chunk]) => HashMap.set(acc, key, chunk)),
+                    (current) => Arr.reduce(remainingEntries, current, (acc, [key, entry]) => HashMap.set(acc, key, entry)),
                   )
                 : Effect.void
 

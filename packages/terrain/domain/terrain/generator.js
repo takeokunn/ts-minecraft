@@ -1,27 +1,34 @@
-import { Array as Arr, Effect, MutableHashMap } from 'effect';
+import { Effect, MutableHashMap } from 'effect';
 import { CHUNK_SIZE } from '@ts-minecraft/kernel';
 import { computeColumnY } from '../density-function';
 import { carveCaves } from './cave-carver';
 import { ORE_REGULAR_INDICES, ORE_DEEPSLATE_INDICES, placeOres } from './ore-generator';
-import { createColumnNoiseCoordinates, createCaveGridPoints, createBlockIndices, } from './generator-coordinates';
+import { createColumnNoiseCoordinateArrays, createCaveGridCoordinateArrays, createBlockIndices, } from './generator-coordinates';
 import { buildColumnStates, collectOverhangTargets, applyOverhangNoise, createTreeColumnContextResolver, placeChunkTrees, } from './generator-pipeline';
 export const generateTerrain = (chunkService, biomeService, noiseService, coord) => Effect.gen(function* () {
     const chunk = yield* chunkService.createChunk(coord);
-    const blocks = new Uint8Array(chunk.blocks);
+    const blocks = chunk.blocks;
     const baseWorldX = coord.x * CHUNK_SIZE;
     const baseWorldZ = coord.z * CHUNK_SIZE;
-    const columnCoords = createColumnNoiseCoordinates(baseWorldX, baseWorldZ);
-    const caveGridPoints = createCaveGridPoints(baseWorldX, baseWorldZ);
+    const columnCoords = createColumnNoiseCoordinateArrays(baseWorldX, baseWorldZ);
+    const caveGridPoints = createCaveGridCoordinateArrays(baseWorldX, baseWorldZ);
     const blockIndices = createBlockIndices();
     const treeColumnContextCache = MutableHashMap.empty();
     const biomeColumns = yield* biomeService.getBiomesAndPropertiesForChunk(coord.x, coord.z);
     const terrainChannels = yield* noiseService.sampleTerrainChannels(baseWorldX, baseWorldZ);
-    const lakeNoiseVals = yield* noiseService.noise2DBatchXY(Arr.map(columnCoords, (column) => column.lakeX), Arr.map(columnCoords, (column) => column.lakeZ));
-    const graniteNoiseVals = yield* noiseService.noise2DBatchXY(Arr.map(columnCoords, (column) => column.graniteX), Arr.map(columnCoords, (column) => column.graniteZ));
-    const dioriteNoiseVals = yield* noiseService.noise2DBatchXY(Arr.map(columnCoords, (column) => column.dioriteX), Arr.map(columnCoords, (column) => column.dioriteZ));
-    const andesiteNoiseVals = yield* noiseService.noise2DBatchXY(Arr.map(columnCoords, (column) => column.andesiteX), Arr.map(columnCoords, (column) => column.andesiteZ));
-    const initialSurfaceYs = Arr.flatMap(Arr.makeBy(CHUNK_SIZE, (lx) => lx), (lx) => Arr.makeBy(CHUNK_SIZE, (lz) => computeColumnY(terrainChannels, lx, lz)));
-    const caveSampleVals = yield* noiseService.noise3DBatchXYZ(Arr.map(caveGridPoints, (point) => point.x), Arr.map(caveGridPoints, (point) => point.y), Arr.map(caveGridPoints, (point) => point.z));
+    const lakeNoiseVals = yield* noiseService.noise2DBatchXY(columnCoords.lakeXs, columnCoords.lakeZs);
+    const graniteNoiseVals = yield* noiseService.noise2DBatchXY(columnCoords.graniteXs, columnCoords.graniteZs);
+    const dioriteNoiseVals = yield* noiseService.noise2DBatchXY(columnCoords.dioriteXs, columnCoords.dioriteZs);
+    const andesiteNoiseVals = yield* noiseService.noise2DBatchXY(columnCoords.andesiteXs, columnCoords.andesiteZs);
+    const initialSurfaceYs = new Int32Array(CHUNK_SIZE * CHUNK_SIZE);
+    let surfaceIndex = 0;
+    for (let lx = 0; lx < CHUNK_SIZE; lx++) {
+        for (let lz = 0; lz < CHUNK_SIZE; lz++) {
+            initialSurfaceYs[surfaceIndex] = computeColumnY(terrainChannels, lx, lz);
+            surfaceIndex++;
+        }
+    }
+    const caveSampleVals = yield* noiseService.noise3DBatchXYZ(caveGridPoints.caveXs, caveGridPoints.caveYs, caveGridPoints.caveZs);
     const columnStates = buildColumnStates({
         blocks,
         baseWorldX,
@@ -57,4 +64,4 @@ export const generateTerrain = (chunkService, biomeService, noiseService, coord)
     yield* placeChunkTrees(blocks, baseWorldX, baseWorldZ, resolveTreeColumnContext);
     return { ...chunk, blocks };
 });
-//# sourceMappingURL=generator.js.map
+//# sourceMappingURL=../../../../dist/packages/terrain/domain/terrain/generator.js.map

@@ -5,4 +5,4 @@ export const SOUND_LIBRARY = {
     entityHit: { frequency: 280, durationMs: 90, wave: 'square', baseGain: 0.38 },
 };
 export const DEFAULT_LISTENER_POSITION = { x: 0, y: 64, z: 0 };
-//# sourceMappingURL=sound-manager.config.js.map
+//# sourceMappingURL=../../../dist/packages/game/application/sound-manager.config.js.map

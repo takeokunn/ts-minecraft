@@ -32,4 +32,4 @@ export class FirstPersonCameraService extends Effect.Service()('@minecraft/appli
 }) {
 }
 export const FirstPersonCameraServiceLive = FirstPersonCameraService.Default;
-//# sourceMappingURL=first-person-camera-service.js.map
+//# sourceMappingURL=../../../dist/packages/player/application/first-person-camera-service.js.map

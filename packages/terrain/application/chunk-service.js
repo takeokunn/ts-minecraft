@@ -39,4 +39,4 @@ export class ChunkService extends Effect.Service()('@minecraft/application/Chunk
 }) {
 }
 export const ChunkServiceLive = ChunkService.Default;
-//# sourceMappingURL=chunk-service.js.map
+//# sourceMappingURL=../../../dist/packages/terrain/application/chunk-service.js.map

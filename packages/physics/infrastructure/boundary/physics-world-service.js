@@ -1,4 +1,4 @@
-import { Array as Arr, Effect } from 'effect';
+import { Effect } from 'effect';
 export class PhysicsWorldService extends Effect.Service()('@minecraft/infrastructure/physics/PhysicsWorldService', {
     succeed: {
         create: (config) => Effect.succeed({
@@ -6,24 +6,28 @@ export class PhysicsWorldService extends Effect.Service()('@minecraft/infrastruc
             bodies: [],
         }),
         addBody: (world, body) => Effect.sync(() => {
-            world.bodies = Arr.append(world.bodies, body);
+            world.bodies.push(body);
         }),
         removeBody: (world, body) => Effect.sync(() => {
-            world.bodies = Arr.filter(world.bodies, (b) => b !== body);
+            for (let index = world.bodies.length - 1; index >= 0; index -= 1) {
+                if (world.bodies[index] === body) {
+                    world.bodies.splice(index, 1);
+                }
+            }
         }),
         step: (world, deltaTime) => Effect.sync(() => {
-            Arr.forEach(world.bodies, (body) => {
+            const gravityY = world.gravity.y;
+            for (const body of world.bodies) {
                 if (body.type !== 'dynamic')
-                    return;
-                // Euler integration with gravity
-                body.velocity.y += world.gravity.y * deltaTime;
+                    continue;
+                body.velocity.y += gravityY * deltaTime;
                 body.position.x += body.velocity.x * deltaTime;
                 body.position.y += body.velocity.y * deltaTime;
                 body.position.z += body.velocity.z * deltaTime;
-            });
+            }
         }),
     },
 }) {
 }
 export const PhysicsWorldServiceLive = PhysicsWorldService.Default;
-//# sourceMappingURL=physics-world-service.js.map
+//# sourceMappingURL=../../../../dist/packages/physics/infrastructure/boundary/physics-world-service.js.map

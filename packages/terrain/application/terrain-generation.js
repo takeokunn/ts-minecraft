@@ -86,4 +86,4 @@ export const generateTerrainBlocks = (input) => {
 // `kernel/constants` (`SEA_LEVEL=63`, `LAKE_LEVEL=SEA_LEVEL`). Keeping them in
 // the input keeps the protocol explicit if those constants ever
 // become per-world configuration.
-//# sourceMappingURL=terrain-generation.js.map
+//# sourceMappingURL=../../../dist/packages/terrain/application/terrain-generation.js.map

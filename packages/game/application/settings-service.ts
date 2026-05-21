@@ -18,7 +18,20 @@ export const ResolvedGraphicsSchema = Schema.Struct({
   godRaysSamples: Schema.Number.pipe(Schema.int(), Schema.between(0, 40)),
   bloomStrength: Schema.Number.pipe(Schema.finite(), Schema.between(0, 1)),
   refractionThrottleFrames: Schema.Number.pipe(Schema.int(), Schema.between(0, 5)),
+  // FR-4.4: skip refraction pre-pass when conservative water screen-pixel ratio
+  // (sum of clipped AABB rect areas / NDC viewport area) is below this value.
+  // 0 disables the gate; low/medium use 0.05 (aggressive skip), high/ultra 0.005 (conservative).
+  refractionMinScreenRatio: Schema.Number.pipe(Schema.finite(), Schema.between(0, 1)),
   pixelRatioCap: Schema.Number.pipe(Schema.finite(), Schema.between(0.5, 2)),
+  // EffectComposer intermediate RT pixel type. 1009 = THREE.UnsignedByteType (8-bit unorm,
+  // halves VRAM bandwidth on low/medium where no HDR pass exists). 1016 = THREE.HalfFloatType
+  // (16-bit float, required when bloom/god-rays produce values >1.0). Numeric literals avoid
+  // pulling THREE into @ts-minecraft/game; settings-service-schema test guards renumbering.
+  composerRtType: Schema.Literal(1009, 1016),
+  // FR-4.3: when true, CompositePass merges Bloom + GodRays + Bokeh into a single
+  // full-screen shader (~25 MB/frame bandwidth savings vs. three separate passes).
+  // false on low/medium (no HDR effects to composite); true on high/ultra.
+  useCompositePass: Schema.Boolean,
 })
 export type ResolvedGraphics = Schema.Schema.Type<typeof ResolvedGraphicsSchema>
 

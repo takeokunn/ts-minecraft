@@ -7,4 +7,4 @@ export * from './domain/core/vector3';
 export * from './domain/core/quaternion';
 export * from './application/physics-service';
 export * from './infrastructure/port-layers';
-//# sourceMappingURL=index.js.map
+//# sourceMappingURL=../../dist/packages/physics/index.js.map

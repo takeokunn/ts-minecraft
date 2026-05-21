@@ -6,4 +6,4 @@ export { QuaternionSchema, identity, makeQuaternion, fromAxisAngle, multiply, sl
 export { ColorSchema, makeColor, fromHex } from './color';
 // Day/night port
 export { SkyMaterialPortSchema, DayNightLightsPortSchema, Option } from './day-night-port';
-//# sourceMappingURL=index.js.map
+//# sourceMappingURL=../../../../dist/packages/kernel/domain/math/index.js.map

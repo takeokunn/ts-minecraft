@@ -39,4 +39,4 @@ export const mergeStacks = (a, b) => {
     const newB = remaining > 0 ? Option.some(new ItemStack({ itemType: b.itemType, count: remaining })) : Option.none();
     return [newA, newB];
 };
-//# sourceMappingURL=item-stack.js.map
+//# sourceMappingURL=../../../dist/packages/inventory/domain/item-stack.js.map

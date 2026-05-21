@@ -14,4 +14,4 @@ export const BIOME_PROPERTIES = {
     TAIGA: { surfaceBlock: 'GRASS', subSurfaceBlock: 'DIRT', treeDensity: 0.24, temperature: 0.25, humidity: 0.55 },
     SAVANNA: { surfaceBlock: 'GRASS', subSurfaceBlock: 'DIRT', treeDensity: 0.08, temperature: 0.78, humidity: 0.28 },
 };
-//# sourceMappingURL=biome-service.config.js.map
+//# sourceMappingURL=../../../dist/packages/terrain/application/biome-service.config.js.map

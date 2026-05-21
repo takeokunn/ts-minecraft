@@ -52,4 +52,4 @@ export class HotbarService extends Effect.Service()('@minecraft/application/Hotb
 }) {
 }
 export const HotbarServiceLive = HotbarService.Default;
-//# sourceMappingURL=hotbar-service.js.map
+//# sourceMappingURL=../../../dist/packages/inventory/application/hotbar-service.js.map

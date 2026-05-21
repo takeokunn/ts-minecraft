@@ -174,13 +174,19 @@ export const sessionProgram = (
     // EffectComposer + 5 post-processing passes — kept in session scope for now
     // (see boot.ts comment for rationale). All pass instances always exist so
     // live preset changes can enable them later without silently no-oping.
-    const { composerRT, composer, gtaoPass, godRaysPass, bloomPass, bokehPass, smaaPass } = yield* buildPostProcessing(renderer, scene, camera, canvas, initialGraphics)
+    // FR-4.3: `useCompositePass` is now a per-preset flag (low/medium=false,
+    // high/ultra=true). When true, Bloom + GodRays + Bokeh are merged into a
+    // single full-screen shader pass for ~25 MB/frame bandwidth savings.
+    const { composerRT, composer, gtaoPass, godRaysPass, bloomPass, bokehPass, smaaPass, compositePass } = yield* buildPostProcessing(
+      renderer, scene, camera, canvas, initialGraphics,
+      { useCompositePass: initialGraphics.useCompositePass },
+    )
 
     // Composer + pass disposal at session end (FR-1.8 GPU teardown).
     yield* Effect.acquireRelease(
       Effect.void,
       () => Effect.sync(() => {
-        const passes: ReadonlyArray<Option.Option<{ dispose(): void }>> = [gtaoPass, bloomPass, bokehPass, godRaysPass, smaaPass]
+        const passes: ReadonlyArray<Option.Option<{ dispose(): void }>> = [gtaoPass, bloomPass, bokehPass, godRaysPass, smaaPass, compositePass]
         Arr.forEach(passes, (pass) => Option.map(pass, (p) => p.dispose()))
         composerRT.dispose()
         composer.dispose()

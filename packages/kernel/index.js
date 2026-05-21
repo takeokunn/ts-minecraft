@@ -10,4 +10,4 @@ export * from './domain/block-codec';
 export * from './domain/game-mode';
 export * from './domain/inventory-save-data';
 export * from './domain/environment-port';
-//# sourceMappingURL=index.js.map
+//# sourceMappingURL=../../dist/packages/kernel/index.js.map

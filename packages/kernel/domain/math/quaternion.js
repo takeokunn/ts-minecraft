@@ -52,4 +52,4 @@ export const slerp = (a, b, t) => {
         w: a.w * ratioA + target.w * ratioB,
     };
 };
-//# sourceMappingURL=quaternion.js.map
+//# sourceMappingURL=../../../../dist/packages/kernel/domain/math/quaternion.js.map

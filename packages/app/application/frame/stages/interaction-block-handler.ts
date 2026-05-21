@@ -1,4 +1,5 @@
 import { Effect, HashMap, Option, Ref, Schema } from 'effect'
+import { aabbFromVoxel } from '@ts-minecraft/terrain'
 import type { FrameHandlerDeps, FrameHandlerServices, FrameStageRefs } from '@ts-minecraft/app/frame/types'
 import { findAttackableEntity } from '@ts-minecraft/app/frame/stages/attack-targeting'
 import { CHUNK_SIZE, CHUNK_HEIGHT, indexToBlockType, SlotIndex, BlockTypeSchema } from '@ts-minecraft/kernel'
@@ -82,7 +83,16 @@ export const handleLeftClick = (
                 ).pipe(
                   Effect.andThen(services.chunkManagerService.getChunk(chunkCoord)),
                   Effect.flatMap((updatedChunk) =>
-                    Ref.update(refs.dirtyChunksRef, (map) => HashMap.set(map, coordKey, updatedChunk)),
+                    // FR-4.2: seed AABB is the broken voxel itself — chunk-manager's
+                    // markChunkDirty (called inside breakBlock) records the fuller
+                    // light-affected AABB which the next drainRenderDirtyChunkEntries
+                    // will union in via frame-maintenance.
+                    Ref.update(refs.dirtyChunksRef, (map) =>
+                      HashMap.set(map, coordKey, {
+                        chunk: updatedChunk,
+                        dirtyAABB: Option.some(aabbFromVoxel({ lx, y: tb.y, lz })),
+                      }),
+                    ),
                   ),
                 )
               }),
@@ -156,6 +166,8 @@ export const handleRightClick = (
                     z: Math.floor(adjacentPos.z / CHUNK_SIZE),
                   }
                   const coordKey = `${chunkCoord.x},${chunkCoord.z}`
+                  const adjLx = ((adjacentPos.x % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE
+                  const adjLz = ((adjacentPos.z % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE
                   return services.blockService
                     .placeBlock(adjacentPos, item, SlotIndex.make(HOTBAR_START + selectedSlot))
                     .pipe(
@@ -164,7 +176,13 @@ export const handleRightClick = (
                       ),
                       Effect.andThen(services.chunkManagerService.getChunk(chunkCoord)),
                       Effect.flatMap((updatedChunk) =>
-                        Ref.update(refs.dirtyChunksRef, (map) => HashMap.set(map, coordKey, updatedChunk)),
+                        // FR-4.2: seed AABB at the placed voxel; see handleLeftClick.
+                        Ref.update(refs.dirtyChunksRef, (map) =>
+                          HashMap.set(map, coordKey, {
+                            chunk: updatedChunk,
+                            dirtyAABB: Option.some(aabbFromVoxel({ lx: adjLx, y: adjacentPos.y, lz: adjLz })),
+                          }),
+                        ),
                       ),
                     )
                 },

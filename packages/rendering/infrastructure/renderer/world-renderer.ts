@@ -1,7 +1,7 @@
 import { Array as Arr, Effect, HashMap, MutableRef, Option, Ref } from 'effect'
 import * as THREE from 'three'
 import { CHUNK_SIZE, CHUNK_HEIGHT, ChunkCacheKey } from '@ts-minecraft/kernel'
-import { Chunk } from '@ts-minecraft/terrain'
+import { Chunk, type ChunkAABB } from '@ts-minecraft/terrain'
 import { MAX_SHADOW_HALF_EXTENT } from '@ts-minecraft/kernel'
 import { ChunkMeshService } from '../meshing/chunk-mesh'
 import { SceneService } from '../scene/scene-service'
@@ -14,6 +14,11 @@ import {
 import { disposeMesh } from './world-renderer-utils'
 import { syncChunksToScene } from './world-renderer-chunk-sync'
 import { updateChunkInScene } from './world-renderer-chunk-update'
+import {
+  initialPoseCache,
+  isCameraPoseSimilar,
+  type CameraPoseCache,
+} from './world-renderer-pose-cache'
 import {
   doRefractionPrePass,
   updateWaterUniforms,
@@ -37,7 +42,8 @@ export class WorldRendererService extends Effect.Service<WorldRendererService>()
       // Stable water mesh list — only replaced (new array reference) when chunks are added/removed.
       const waterMeshesRef = yield* Ref.make<ReadonlyArray<THREE.Mesh>>([])
       // Cache key for frustum culling — invalidated whenever chunk meshes change.
-      const lastFrustumPoseRef = yield* Ref.make({ x: NaN, y: NaN, z: NaN, qx: NaN, qy: NaN, qz: NaN, qw: NaN, p0: NaN, p5: NaN, p10: NaN, p14: NaN })
+      // FR-3.6: tolerance-based comparison (not strict equality) — see world-renderer-pose-cache.ts.
+      const lastFrustumPoseRef = yield* Ref.make<CameraPoseCache>(initialPoseCache())
       const sceneVersionRef = yield* Ref.make(0)
 
       // Pre-allocated objects for frustum culling and refraction pre-pass — reused every frame to avoid GC pressure
@@ -97,7 +103,7 @@ export class WorldRendererService extends Effect.Service<WorldRendererService>()
       )
 
       const invalidateFrustumCache = () =>
-        Ref.set(lastFrustumPoseRef, { x: NaN, y: NaN, z: NaN, qx: NaN, qy: NaN, qz: NaN, qw: NaN, p0: NaN, p5: NaN, p10: NaN, p14: NaN })
+        Ref.set(lastFrustumPoseRef, initialPoseCache())
       const invalidateSceneCaches = () =>
         Effect.all([
           invalidateFrustumCache(),
@@ -111,8 +117,8 @@ export class WorldRendererService extends Effect.Service<WorldRendererService>()
         syncChunksToScene: (loadedChunks: ReadonlyArray<Chunk>, scene: THREE.Scene): Effect.Effect<boolean, never> =>
           syncChunksToScene(chunkCtx, loadedChunks, scene),
 
-        updateChunkInScene: (chunk: Chunk, scene: THREE.Scene): Effect.Effect<void, never> =>
-          updateChunkInScene(chunkCtx, chunk, scene),
+        updateChunkInScene: (chunk: Chunk, scene: THREE.Scene, dirtyAABB?: ChunkAABB): Effect.Effect<void, never> =>
+          updateChunkInScene(chunkCtx, chunk, scene, dirtyAABB),
 
         // Toggles mesh.visible only — never mutates scene graph (avoids Three.js graph overhead).
         applyFrustumCulling: (camera: THREE.PerspectiveCamera): Effect.Effect<void, never> =>
@@ -127,7 +133,7 @@ export class WorldRendererService extends Effect.Service<WorldRendererService>()
                 Effect.flatMap((lastPose) => Effect.gen(function* () {
                   // Compare camera state against lastPose inline first; only allocate
                   // a new pose object when something actually changed. The hot-path
-                  // (camera idle) returns immediately with zero allocations.
+                  // (camera idle / sub-tolerance jitter) returns immediately with zero allocations.
                   const cx = camera.position.x
                   const cy = camera.position.y
                   const cz = camera.position.z
@@ -140,19 +146,17 @@ export class WorldRendererService extends Effect.Service<WorldRendererService>()
                   const p10 = camera.projectionMatrix.elements[10]
                   const p14 = camera.projectionMatrix.elements[14]
 
-                  if (
-                    lastPose.x === cx &&
-                    lastPose.y === cy &&
-                    lastPose.z === cz &&
-                    lastPose.qx === qx &&
-                    lastPose.qy === qy &&
-                    lastPose.qz === qz &&
-                    lastPose.qw === qw &&
-                    lastPose.p0 === p0 &&
-                    lastPose.p5 === p5 &&
-                    lastPose.p10 === p10 &&
-                    lastPose.p14 === p14
-                  ) {
+                  // FR-3.6: tolerance-based pose comparison — sub-pixel jitter is treated as cache hit
+                  // (movement of <1 mm or rotation of <0.011° cannot affect chunk-level visibility).
+                  const currentPose: CameraPoseCache = {
+                    x: cx, y: cy, z: cz,
+                    qx, qy, qz, qw,
+                    p0: p0 ?? Number.NaN,
+                    p5: p5 ?? Number.NaN,
+                    p10: p10 ?? Number.NaN,
+                    p14: p14 ?? Number.NaN,
+                  }
+                  if (isCameraPoseSimilar(lastPose, currentPose)) {
                     return
                   }
 
@@ -167,8 +171,16 @@ export class WorldRendererService extends Effect.Service<WorldRendererService>()
                     /* c8 ignore next */
                     if (coord == null) continue
 
+                    // FR-3.3: tighten AABB max-Y to actual chunk content. Empty chunks (maxY = -1)
+                    // collapse to a near-zero-height box so they're never spuriously included; chunks
+                    // missing maxY (legacy, pre-FR-3.3) fall back to full CHUNK_HEIGHT for safety.
+                    const chunkMaxY = chunkMeshes.opaque.userData.chunkMaxY
+                    const maxYBound = chunkMaxY === undefined
+                      ? CHUNK_HEIGHT
+                      : chunkMaxY < 0 ? 0 : chunkMaxY + 1
+
                     _minVec.set(coord.x * CHUNK_SIZE, 0, coord.z * CHUNK_SIZE)
-                    _maxVec.set(coord.x * CHUNK_SIZE + CHUNK_SIZE, CHUNK_HEIGHT, coord.z * CHUNK_SIZE + CHUNK_SIZE)
+                    _maxVec.set(coord.x * CHUNK_SIZE + CHUNK_SIZE, maxYBound, coord.z * CHUNK_SIZE + CHUNK_SIZE)
                     _box.set(_minVec, _maxVec)
 
                     const visible = _frustum.intersectsBox(_box)
@@ -185,7 +197,7 @@ export class WorldRendererService extends Effect.Service<WorldRendererService>()
                     }
                   }
 
-                  yield* Ref.set(lastFrustumPoseRef, { x: cx, y: cy, z: cz, qx, qy, qz, qw, p0, p5, p10, p14 })
+                  yield* Ref.set(lastFrustumPoseRef, currentPose)
                 }))
               )
             )
@@ -222,9 +234,12 @@ export class WorldRendererService extends Effect.Service<WorldRendererService>()
         doRefractionPrePass: (
           renderer: THREE.WebGLRenderer,
           scene: THREE.Scene,
-          camera: THREE.Camera
+          camera: THREE.Camera,
+          // FR-4.4: 0 disables the screen-ratio gate (default keeps legacy behavior).
+          // Caller (post-processing-stage) passes resolvedGraphics.refractionMinScreenRatio.
+          minScreenRatio: number = 0,
         ): Effect.Effect<void, never> =>
-          doRefractionPrePass(refractionCtx, renderer, scene, camera),
+          doRefractionPrePass(refractionCtx, renderer, scene, camera, minScreenRatio),
 
         updateWaterUniforms: (
           time: number,

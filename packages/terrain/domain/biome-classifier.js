@@ -11,7 +11,7 @@ export const classifyBiome = (temperature, humidity) => {
     if (humidity < HUM_VERY_DRY)
         return isCold ? 'SNOW' : 'DESERT';
     if (humidity > HUM_VERY_WET)
-    return temperature > TEMP_HOT ? 'SWAMP' : 'OCEAN';
+        return temperature > TEMP_HOT ? 'SWAMP' : 'OCEAN';
     if (humidity > HUM_JUNGLE && temperature > TEMP_JUNGLE)
         return 'JUNGLE';
     if (isCold)
@@ -81,4 +81,4 @@ export const batchTerrainIndexFor = (i) => {
     const lz = i % CHUNK_SIZE;
     return lz * CHUNK_SIZE + lx;
 };
-//# sourceMappingURL=biome-classifier.js.map
+//# sourceMappingURL=../../../dist/packages/terrain/domain/biome-classifier.js.map

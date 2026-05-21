@@ -9,11 +9,11 @@ A Minecraft-like voxel game built entirely in the browser with TypeScript, Three
 - Inventory system with hotbar
 - Day/night cycle with physical sky simulation
 - Custom physics engine (Euler integration + AABB collision)
-- Greedy meshing for efficient chunk rendering
-- Post-processing pipeline (GTAO, bloom, SSR, depth-of-field, god rays, SMAA)
-- Water rendering support remains available, while new terrain generation keeps lake/ocean basins dry
+- Greedy meshing for efficient chunk rendering, with sub-region re-meshing on dirty AABBs (FR-4.1/4.2) and distance-based LOD simplification (FR-3.1/3.2)
+- Post-processing pipeline (GTAO + SMAA always; bloom + DOF + god rays merged via CompositePass on `high`/`ultra` presets to save ~25 MB/frame full-screen RT bandwidth — FR-4.3)
+- Water rendering support remains available, while new terrain generation keeps lake/ocean basins dry; water refraction pre-pass is screen-ratio gated (FR-4.4)
 - World persistence via IndexedDB
-- Comprehensive test suite (1800+ unit tests, E2E tests with Playwright)
+- Comprehensive test suite (3390+ unit tests across 292 files, E2E tests with Playwright)
 
 ## Tech Stack
 
@@ -49,17 +49,24 @@ src/
 packages/
   kernel/         -- Shared kernel: branded types, constants, pure math, ports
   app/            -- Session, frame pipeline, menu/UI composition
-  game/           -- Game state, time, and game-loop services
-  terrain/        -- Chunks, terrain generation, and block rules
-  rendering/      -- Three.js rendering bounded context
+  game/           -- Game state, time, settings presets, and game-loop services
+  terrain/        -- Chunks, terrain generation, block rules, dirty-AABB tracking (FR-4.2)
+  rendering/      -- Three.js rendering bounded context: greedy meshing, sub-region re-mesh (FR-4.1),
+                     LOD simplification (FR-3.1/3.2), CompositePass (FR-4.3), refraction gating (FR-4.4),
+                     GPU timer/perf marks
   physics/        -- Physics and collision systems
-  inventory/      -- Inventory, crafting, and furnace systems
+  inventory/      -- Inventory and crafting systems
+  furnace/        -- Furnace cooking pipeline (extracted from inventory)
   player/         -- Player domain state and camera/movement logic
-  entities/       -- Entity data models
+  entities/       -- Entity data models, mob categories, drops
   world-state/    -- Persistent world-state data and storage ports
 ```
 
 Each package follows package-by-feature layering where needed: `domain/` for pure data/rules/ports, `application/` for Effect services and orchestration, `infrastructure/` for external adapters, and `presentation/` for UI-facing code. Layer composition lives in `packages/app/application/main/layers/` and is wired from `src/main.ts`.
+
+## Performance Status
+
+The performance roadmap covers five phases (P0..P4) of mandatory functional requirements (FRs) — all 28 mandatory FRs are implemented and gated on test count `3390+ passing`. Production wiring is complete for the user-visible quality presets (`low` / `medium` / `high` / `ultra`); the optional FR-4.5 (perceptual SSIM auto-quality gate) and FR-4.6 (cross-frame slice cache for sub-region greedy; FR-4.1 worker still full-re-meshes pending the cache) remain deferred and are tracked in [`CHANGELOG.md`](CHANGELOG.md) and [`phase/04-performance-requirements.md`](phase/04-performance-requirements.md).
 
 ## Controls
 

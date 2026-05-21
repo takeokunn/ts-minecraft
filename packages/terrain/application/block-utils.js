@@ -15,14 +15,16 @@ const PICKAXE_HARVEST_SETS = {
     STONE_PICKAXE: STONE_PICKAXE_HARVESTABLE_BLOCKS,
     WOODEN_PICKAXE: WOODEN_PICKAXE_HARVESTABLE_BLOCKS,
 };
+const isPickaxeTool = (item) => item === 'DIAMOND_PICKAXE' ||
+    item === 'IRON_PICKAXE' ||
+    item === 'STONE_PICKAXE' ||
+    item === 'WOODEN_PICKAXE';
 export const canHarvestBlock = (blockType, selectedTool) => Option.match(selectedTool, {
     onNone: () => !HashSet.has(IRON_PICKAXE_HARVESTABLE_BLOCKS, blockType),
     onSome: (tool) => {
-        const harvestSet = PICKAXE_HARVEST_SETS[tool];
-        /* c8 ignore next */
-        if (harvestSet === undefined)
+        if (!isPickaxeTool(tool))
             return !HashSet.has(IRON_PICKAXE_HARVESTABLE_BLOCKS, blockType);
-        return HashSet.has(harvestSet, blockType);
+        return HashSet.has(PICKAXE_HARVEST_SETS[tool], blockType);
     },
 });
 // Player AABB centered at (feet.x, feet.y+HALF_HEIGHT, feet.z); block is unit cube centered at (pos+0.5).
@@ -33,4 +35,4 @@ export const blockOverlapsPlayer = (blockPos, playerFeetPos) => {
         Math.abs(blockPos.y + blockHalf - playerCenterY) < blockHalf + PLAYER_HALF_HEIGHT &&
         Math.abs(blockPos.z + blockHalf - playerFeetPos.z) < blockHalf + PLAYER_HALF_WIDTH);
 };
-//# sourceMappingURL=block-utils.js.map
+//# sourceMappingURL=../../../dist/packages/terrain/application/block-utils.js.map

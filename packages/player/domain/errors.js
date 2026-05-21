@@ -11,4 +11,4 @@ export class CameraError extends Data.TaggedError('CameraError') {
         return `Camera creation failed${causeMessage ? `: ${causeMessage}` : ''}`;
     }
 }
-//# sourceMappingURL=errors.js.map
+//# sourceMappingURL=../../../dist/packages/player/domain/errors.js.map

@@ -3,7 +3,7 @@ import { BlockIndexError,CHUNK_HEIGHT,CHUNK_SIZE } from '@ts-minecraft/kernel'
 import { Effect,Either,Option } from 'effect'
 import { describe,expect } from 'vitest'
 import { ChunkService,ChunkServiceLive } from '../application/chunk-service'
-import { getBlocksBatch,setBlockInChunk } from './chunk'
+import { computeMaxY,getBlocksBatch,setBlockInChunk } from './chunk'
 import { ChunkError } from './errors'
 
 // ---------------------------------------------------------------------------
@@ -318,4 +318,67 @@ describe('ChunkService.setBlock', () => {
 // ---------------------------------------------------------------------------
 // ChunkService.worldToChunkCoord
 // ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// FR-3.3: computeMaxY — derives the chunk's tightest top-Y for frustum AABB.
+// ---------------------------------------------------------------------------
+
+// Mirrors the index layout in `chunk.ts` (idx = y + z*CHUNK_HEIGHT + x*CHUNK_HEIGHT*CHUNK_SIZE).
+// Test-only direct write; production code uses `toBlockIndex` + `setBlockInChunk`.
+const writeBlockUnsafe = (
+  blocks: Uint8Array,
+  localX: number,
+  y: number,
+  localZ: number,
+  blockIdx: number,
+): void => {
+  blocks[y + localZ * CHUNK_HEIGHT + localX * CHUNK_HEIGHT * CHUNK_SIZE] = blockIdx
+}
+
+describe('FR-3.3 computeMaxY', () => {
+  it('returns -1 for an entirely AIR chunk', () => {
+    const blocks = new Uint8Array(CHUNK_SIZE * CHUNK_SIZE * CHUNK_HEIGHT)
+    expect(computeMaxY(blocks)).toBe(-1)
+  })
+
+  it('returns 0 when only y=0 has a non-AIR block', () => {
+    const blocks = new Uint8Array(CHUNK_SIZE * CHUNK_SIZE * CHUNK_HEIGHT)
+    writeBlockUnsafe(blocks, 0, 0, 0, 1) // STONE at (0,0,0)
+    expect(computeMaxY(blocks)).toBe(0)
+  })
+
+  it('returns the highest Y when multiple blocks exist at different heights', () => {
+    const blocks = new Uint8Array(CHUNK_SIZE * CHUNK_SIZE * CHUNK_HEIGHT)
+    writeBlockUnsafe(blocks, 0, 5, 0, 1)
+    writeBlockUnsafe(blocks, 5, 80, 5, 2)
+    writeBlockUnsafe(blocks, 0, 30, 0, 1)
+    expect(computeMaxY(blocks)).toBe(80)
+  })
+
+  it('returns CHUNK_HEIGHT - 1 when the topmost layer has any block', () => {
+    const blocks = new Uint8Array(CHUNK_SIZE * CHUNK_SIZE * CHUNK_HEIGHT)
+    writeBlockUnsafe(blocks, 8, CHUNK_HEIGHT - 1, 8, 1)
+    expect(computeMaxY(blocks)).toBe(CHUNK_HEIGHT - 1)
+  })
+
+  it('finds maxY in any (x, z) column — not just (0, 0)', () => {
+    const blocks = new Uint8Array(CHUNK_SIZE * CHUNK_SIZE * CHUNK_HEIGHT)
+    // The only non-AIR block is in the far corner of the chunk at y=42.
+    writeBlockUnsafe(blocks, CHUNK_SIZE - 1, 42, CHUNK_SIZE - 1, 1)
+    expect(computeMaxY(blocks)).toBe(42)
+  })
+
+  it('handles a typical mountain-like profile (y up to ~110)', () => {
+    const blocks = new Uint8Array(CHUNK_SIZE * CHUNK_SIZE * CHUNK_HEIGHT)
+    // Fill a 16x16 column up to y=110 to simulate a tall terrain peak.
+    for (let x = 0; x < CHUNK_SIZE; x++) {
+      for (let z = 0; z < CHUNK_SIZE; z++) {
+        for (let y = 0; y <= 110; y++) {
+          writeBlockUnsafe(blocks, x, y, z, 2)
+        }
+      }
+    }
+    expect(computeMaxY(blocks)).toBe(110)
+  })
+})
 

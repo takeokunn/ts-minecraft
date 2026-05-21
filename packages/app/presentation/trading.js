@@ -1,0 +1,196 @@
+import { Array as Arr, Effect, Option, Ref } from 'effect';
+import { DomOperationsService } from '@ts-minecraft/app/presentation/hud/crosshair';
+import { TradingService } from '@ts-minecraft/entities';
+import { VillageService } from '@ts-minecraft/entities';
+import { normalizeSelection, tradeResultText } from './trading.config';
+export class TradingPresentationService extends Effect.Service()('@minecraft/presentation/TradingPresentationService', {
+    scoped: Effect.all([
+        DomOperationsService,
+        TradingService,
+        VillageService,
+        Ref.make(false),
+        Ref.make(Option.none()),
+    ], { concurrency: 'unbounded' }).pipe(Effect.flatMap(([dom, tradingService, villageService, isVisibleRef, uiStateRef]) => Effect.sync(() => {
+        if (typeof document === 'undefined') {
+            return {
+                overlayEl: Option.none(),
+                titleEl: Option.none(),
+                currencyEl: Option.none(),
+                listEl: Option.none(),
+                statusEl: Option.none(),
+            };
+        }
+        const root = dom.createElement('div');
+        root.id = 'trading-overlay';
+        root.style.cssText = [
+            'position:fixed',
+            'top:50%',
+            'left:50%',
+            'transform:translate(-50%,-50%)',
+            'background:rgba(10,10,10,0.92)',
+            'color:#fff',
+            'padding:16px',
+            'border-radius:8px',
+            'min-width:360px',
+            'max-width:480px',
+            'font-family:monospace',
+            'z-index:1002',
+            'display:none',
+            'border:1px solid #4d4d4d',
+        ].join(';');
+        const title = dom.createElement('div');
+        title.style.cssText = 'font-size:16px;font-weight:bold;margin-bottom:8px';
+        title.textContent = 'Trading';
+        const currency = dom.createElement('div');
+        currency.style.cssText = 'font-size:12px;color:#ddd;margin-bottom:8px';
+        const list = dom.createElement('div');
+        list.style.cssText = 'display:flex;flex-direction:column;gap:4px;margin-bottom:8px;max-height:180px;overflow:auto';
+        const status = dom.createElement('div');
+        status.style.cssText = 'font-size:12px;color:#b0b0b0';
+        status.textContent = 'T: open/close, ↑↓: select, Enter: trade, Esc: close';
+        dom.appendChildTo(root, title);
+        dom.appendChildTo(root, currency);
+        dom.appendChildTo(root, list);
+        dom.appendChildTo(root, status);
+        dom.appendChild(root);
+        return {
+            overlayEl: Option.some(root),
+            titleEl: Option.some(title),
+            currencyEl: Option.some(currency),
+            listEl: Option.some(list),
+            statusEl: Option.some(status),
+        };
+    }).pipe(Effect.flatMap(({ overlayEl, titleEl, currencyEl, listEl, statusEl }) => {
+        const renderUi = () => Effect.gen(function* () {
+            const [uiStateOption, currencyType] = yield* Effect.all([Ref.get(uiStateRef), tradingService.getCurrencyBlockType()], { concurrency: 'unbounded' });
+            yield* Effect.sync(() => {
+                Option.map(currencyEl, (el) => {
+                    el.textContent = `Currency: ${currencyType}`;
+                });
+                Option.map(titleEl, (el) => {
+                    Option.match(uiStateOption, {
+                        onNone: () => {
+                            el.textContent = 'Trading';
+                        },
+                        onSome: (state) => {
+                            el.textContent = `Trading with ${state.villagerId}`;
+                        },
+                    });
+                });
+                Option.map(listEl, (container) => {
+                    container.innerHTML = '';
+                    Option.match(uiStateOption, {
+                        onNone: () => {
+                            const empty = dom.createElement('div');
+                            empty.textContent = 'No villager selected.';
+                            empty.style.cssText = 'color:#aaa;font-size:12px';
+                            dom.appendChildTo(container, empty);
+                        },
+                        onSome: (state) => {
+                            if (Arr.isEmptyReadonlyArray(state.offers)) {
+                                const none = dom.createElement('div');
+                                none.textContent = 'No available offers for current villager level.';
+                                none.style.cssText = 'color:#aaa;font-size:12px';
+                                dom.appendChildTo(container, none);
+                                return;
+                            }
+                            Arr.forEach(state.offers, (offer, index) => {
+                                const row = dom.createElement('div');
+                                const selected = index === state.selectedIndex;
+                                row.style.cssText = [
+                                    'padding:6px 8px',
+                                    'border-radius:4px',
+                                    selected ? 'background:#2f4f2f' : 'background:#1f1f1f',
+                                    selected ? 'border:1px solid #8fbc8f' : 'border:1px solid #3d3d3d',
+                                ].join(';');
+                                row.textContent = `${offer.input.count} ${offer.input.itemType} → ${offer.output.count} ${offer.output.itemType} (Lv${offer.levelRequired})`;
+                                dom.appendChildTo(container, row);
+                            });
+                        },
+                    });
+                });
+            });
+        });
+        const refreshForVillager = (villagerId) => Effect.gen(function* () {
+            const villagerOption = yield* villageService.getVillager(villagerId);
+            return yield* Option.match(villagerOption, {
+                onNone: () => Effect.gen(function* () {
+                    yield* Ref.set(uiStateRef, Option.none());
+                    yield* renderUi();
+                    return false;
+                }),
+                onSome: (villager) => Effect.gen(function* () {
+                    const [offers, current] = yield* Effect.all([tradingService.getOffersForVillager(villager), Ref.get(uiStateRef)], { concurrency: 'unbounded' });
+                    const selectedIndex = Option.match(current, {
+                        onNone: () => 0,
+                        onSome: (state) => normalizeSelection(offers.length, state.selectedIndex),
+                    });
+                    yield* Ref.set(uiStateRef, Option.some({ villagerId, offers, selectedIndex }));
+                    yield* renderUi();
+                    return true;
+                }),
+            });
+        });
+        return Effect.acquireRelease(Effect.void, () => Effect.sync(() => {
+            Option.map(overlayEl, (el) => {
+                el.remove();
+            });
+        })).pipe(Effect.as({
+            open: (villagerId) => Effect.gen(function* () {
+                const refreshed = yield* refreshForVillager(villagerId);
+                if (!refreshed) {
+                    return false;
+                }
+                yield* Ref.set(isVisibleRef, true);
+                yield* Effect.sync(() => {
+                    Option.map(overlayEl, (el) => {
+                        el.style.display = 'block';
+                    });
+                });
+                return true;
+            }),
+            close: () => Effect.gen(function* () {
+                yield* Ref.set(isVisibleRef, false);
+                yield* Effect.sync(() => {
+                    Option.map(overlayEl, (el) => {
+                        el.style.display = 'none';
+                    });
+                });
+            }),
+            isOpen: () => Ref.get(isVisibleRef),
+            cycleSelection: (delta) => Ref.update(uiStateRef, (uiStateOption) => Option.match(uiStateOption, {
+                onNone: () => uiStateOption,
+                onSome: (state) => Option.some({
+                    ...state,
+                    selectedIndex: normalizeSelection(state.offers.length, state.selectedIndex + delta),
+                }),
+            })).pipe(Effect.zipRight(renderUi())),
+            refresh: () => Effect.gen(function* () {
+                const uiStateOption = yield* Ref.get(uiStateRef);
+                yield* Option.match(uiStateOption, {
+                    onNone: () => renderUi(),
+                    onSome: (state) => refreshForVillager(state.villagerId).pipe(Effect.asVoid),
+                });
+            }),
+            executeSelectedTrade: () => Effect.gen(function* () {
+                const uiStateOption = yield* Ref.get(uiStateRef);
+                return yield* Option.match(Option.flatMap(uiStateOption, (state) => Option.map(Arr.get(state.offers, state.selectedIndex), (offer) => ({ state, offer }))), {
+                    onNone: () => Effect.succeed(false),
+                    onSome: ({ state, offer }) => Effect.gen(function* () {
+                        const result = yield* tradingService.executeTrade(state.villagerId, offer.offerId);
+                        yield* Effect.sync(() => {
+                            Option.map(statusEl, (el) => { el.textContent = tradeResultText(result); });
+                        });
+                        if (result._tag === 'TradeFailure')
+                            return false;
+                        yield* refreshForVillager(state.villagerId);
+                        return true;
+                    }),
+                });
+            }),
+        }));
+    })))),
+}) {
+}
+export const TradingPresentationLive = TradingPresentationService.Default;
+//# sourceMappingURL=../../../dist/packages/app/presentation/trading.js.map

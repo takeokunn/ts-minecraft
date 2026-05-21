@@ -20,4 +20,4 @@ export const ShapePortLayer = Layer.effect(ShapePort, Effect.map(ShapeService, (
     createSphere: (config) => svc.createSphere(config),
     createPlane: () => svc.createPlane(),
 }))).pipe(Layer.provide(ShapeServiceLive));
-//# sourceMappingURL=port-layers.js.map
+//# sourceMappingURL=../../../dist/packages/physics/infrastructure/port-layers.js.map

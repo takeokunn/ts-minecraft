@@ -14,4 +14,4 @@ export class GameModeService extends Effect.Service()('@minecraft/application/Ga
 }) {
 }
 export const GameModeServiceLive = GameModeService.Default;
-//# sourceMappingURL=game-mode-service.js.map
+//# sourceMappingURL=../../../dist/packages/game/application/game-mode-service.js.map

@@ -62,4 +62,4 @@ export class MovementService extends Effect.Service()('@minecraft/application/Mo
 }) {
 }
 export const MovementServiceLive = MovementService.Default;
-//# sourceMappingURL=movement-service.js.map
+//# sourceMappingURL=../../../dist/packages/player/application/movement-service.js.map

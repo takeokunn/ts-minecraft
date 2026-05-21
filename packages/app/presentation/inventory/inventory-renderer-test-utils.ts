@@ -159,6 +159,7 @@ export const createMockChunkManagerLayer = (overrides: Partial<Pick<ChunkManager
     getChunk: () => Effect.succeed({ coord: { x: 0, z: 0 }, blocks: new Uint8Array(256 * 16 * 16), fluid: Option.none() }),
     getLoadedChunks: () => Effect.succeed([]),
     drainRenderDirtyChunks: () => Effect.succeed([]),
+        drainRenderDirtyChunkEntries: () => Effect.succeed([]),
     loadChunksAroundPlayer: () => Effect.succeed(false),
     markChunkDirty: () => Effect.void,
     saveDirtyChunks: () => Effect.void,

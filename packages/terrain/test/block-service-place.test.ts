@@ -56,6 +56,7 @@ const makeChunkManagerLayer = (opts: {
     markChunkDirty: () => Effect.void,
     getLoadedChunks: () => Effect.succeed([chunk]),
     drainRenderDirtyChunks: () => Effect.succeed([]),
+        drainRenderDirtyChunkEntries: () => Effect.succeed([]),
     loadChunksAroundPlayer: () => Effect.succeed(false),
     saveDirtyChunks: () => Effect.void,
     unloadChunk: () => Effect.void,

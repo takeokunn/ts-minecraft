@@ -14,4 +14,4 @@ export class RecipeError extends Data.TaggedError('RecipeError') {
             : `Recipe error [${this.operation}]`;
     }
 }
-//# sourceMappingURL=errors.js.map
+//# sourceMappingURL=../../../dist/packages/inventory/domain/errors.js.map

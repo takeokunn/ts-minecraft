@@ -14,4 +14,4 @@ export const fromHex = (hex) => {
         b: (numeric & 0xff) / 255,
     };
 };
-//# sourceMappingURL=color.js.map
+//# sourceMappingURL=../../../../dist/packages/kernel/domain/math/color.js.map

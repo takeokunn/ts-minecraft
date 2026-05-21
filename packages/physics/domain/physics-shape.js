@@ -6,4 +6,4 @@ export const BoxShapeConfigSchema = Schema.Struct({
 export const SphereShapeConfigSchema = Schema.Struct({
     radius: Schema.Number.pipe(Schema.finite(), Schema.positive()),
 });
-//# sourceMappingURL=physics-shape.js.map
+//# sourceMappingURL=../../../dist/packages/physics/domain/physics-shape.js.map

@@ -11,4 +11,4 @@ const InventorySlotSaveEntrySchema = Schema.Struct({
 export const InventorySaveDataSchema = Schema.Struct({
     slots: Schema.Array(Schema.OptionFromNullOr(InventorySlotSaveEntrySchema)),
 });
-//# sourceMappingURL=inventory-save-data.js.map
+//# sourceMappingURL=../../../dist/packages/kernel/domain/inventory-save-data.js.map

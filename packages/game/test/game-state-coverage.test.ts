@@ -38,6 +38,7 @@ describe('application/game-state (coverage)', () => {
       }),
       getLoadedChunks: () => Effect.succeed([]),
       drainRenderDirtyChunks: () => Effect.succeed([]),
+        drainRenderDirtyChunkEntries: () => Effect.succeed([]),
       loadChunksAroundPlayer: () => Effect.succeed(false),
       markChunkDirty: () => Effect.void,
       saveDirtyChunks: () => Effect.void,

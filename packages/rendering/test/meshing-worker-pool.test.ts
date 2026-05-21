@@ -1,11 +1,30 @@
 import { describe, expect } from '@effect/vitest'
 import { it } from '@effect/vitest'
+import { vi } from 'vitest'
 import { Effect, Fiber, Option, TestClock, TestContext } from 'effect'
 import { MeshingWorkerPool } from '@ts-minecraft/rendering'
 import type { Chunk } from '../../terrain'
+import type { ChunkCoord } from '@ts-minecraft/kernel'
 
-const makeChunk = (): Chunk => ({
-  coord: { x: 0, z: 0 },
+// SEC-W1: spy on greedyMeshChunkSubregion so we can detect when
+// MeshingWorkerPool's sync fallback path takes the splice branch (cache hit)
+// versus the full re-mesh branch (cache miss / released).
+const subregionSpy = vi.fn()
+vi.mock('../infrastructure/meshing/subregion-greedy', async () => {
+  const actual = await vi.importActual<typeof import('../infrastructure/meshing/subregion-greedy')>(
+    '../infrastructure/meshing/subregion-greedy'
+  )
+  return {
+    ...actual,
+    greedyMeshChunkSubregion: vi.fn((...args: Parameters<typeof actual.greedyMeshChunkSubregion>) => {
+      subregionSpy(...args)
+      return actual.greedyMeshChunkSubregion(...args)
+    }),
+  }
+})
+
+const makeChunk = (coord: ChunkCoord = { x: 0, z: 0 }): Chunk => ({
+  coord,
   blocks: (() => {
     const blocks = new Uint8Array(16 * 16 * 256)
     blocks[0] = 1
@@ -199,6 +218,47 @@ describe('infrastructure/three/meshing/meshing-worker-pool', () => {
         Effect.provide(TestContext.TestContext),
       )
     )
+  )
+
+  it.effect('SEC-W1: releasePrevCachedMesh evicts the sync mesher prev cache so the next dirty-AABB call falls back to a full re-mesh', () =>
+    Effect.gen(function* () {
+      subregionSpy.mockClear()
+      const pool = yield* MeshingWorkerPool
+      // Sync fallback path: Worker is undefined in vitest node env.
+      expect(pool.workerCount).toBe(0)
+
+      const coord: ChunkCoord = { x: 7, z: 11 }
+      const chunk = makeChunk(coord)
+      const dirtyAABB = { minX: 0, maxX: 0, minY: 0, maxY: 0, minZ: 0, maxZ: 0 }
+
+      // 1) First call (no dirtyAABB) populates the prev cache for `coord`.
+      yield* pool.meshChunk(chunk)
+      expect(subregionSpy).toHaveBeenCalledTimes(0)
+
+      // 2) Second call WITH dirtyAABB takes the splice path (cache hit).
+      yield* pool.meshChunk(chunk, { dirtyAABB })
+      expect(subregionSpy).toHaveBeenCalledTimes(1)
+
+      // 3) Release the cached prev for `coord`.
+      yield* pool.releasePrevCachedMesh(coord)
+
+      // 4) Third call WITH dirtyAABB now falls back to a full re-mesh
+      // (the splice path requires a cached prev). Spy count stays at 1.
+      const result = yield* pool.meshChunk(chunk, { dirtyAABB })
+      expect(subregionSpy).toHaveBeenCalledTimes(1)
+      expect(result.opaque.positions.length).toBeGreaterThan(0)
+      expect(result.opaque.indices.length).toBeGreaterThan(0)
+    }).pipe(Effect.provide(MeshingWorkerPool.Default))
+  )
+
+  it.effect('SEC-W1: releasePrevCachedMesh on an unknown coord is a no-op', () =>
+    Effect.gen(function* () {
+      const pool = yield* MeshingWorkerPool
+      // Should not throw / fail.
+      yield* pool.releasePrevCachedMesh({ x: 999, z: -999 })
+      const result = yield* pool.meshChunk(makeChunk())
+      expect(result.opaque.positions.length).toBeGreaterThan(0)
+    }).pipe(Effect.provide(MeshingWorkerPool.Default))
   )
 
   it.effect('transfers a sliced fluid buffer when the chunk carries fluid data', () =>

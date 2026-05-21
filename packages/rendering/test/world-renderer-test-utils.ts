@@ -86,6 +86,7 @@ export const buildTestLayer = (
     updateChunkMesh,
     disposeMesh: vi.fn((_m: THREE.Mesh) => Effect.void),
     setSunIntensity: (_value: number) => Effect.void,
+    releasePrevCachedMesh: vi.fn(() => Effect.void),
   }))
 
   const sceneLayer = Layer.succeed(SceneService, SceneService.of({

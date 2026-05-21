@@ -41,4 +41,4 @@ export const PICKAXE_BLOCK_TYPES = HashSet.fromIterable([
     'IRON_PICKAXE',
     'DIAMOND_PICKAXE',
 ]);
-//# sourceMappingURL=block-service.config.js.map
+//# sourceMappingURL=../../../dist/packages/terrain/application/block-service.config.js.map

@@ -162,6 +162,7 @@ describe('application/settings/settings-service', () => {
           expect(resolved.godRaysSamples).toBe(expected.godRaysSamples)
           expect(resolved.bloomStrength).toBe(expected.bloomStrength)
           expect(resolved.refractionThrottleFrames).toBe(expected.refractionThrottleFrames)
+          expect(resolved.refractionMinScreenRatio).toBe(expected.refractionMinScreenRatio)
           expect(resolved.pixelRatioCap).toBe(expected.pixelRatioCap)
         }
       )

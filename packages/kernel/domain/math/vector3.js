@@ -36,4 +36,4 @@ export const toJSON = (v) => ({
     z: v.z,
 });
 export const fromJSON = (json) => ({ ...json });
-//# sourceMappingURL=vector3.js.map
+//# sourceMappingURL=../../../../dist/packages/kernel/domain/math/vector3.js.map

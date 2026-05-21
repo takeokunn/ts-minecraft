@@ -24,4 +24,4 @@ export class PlayerCameraStateService extends Effect.Service()('@minecraft/appli
 }) {
 }
 export const PlayerCameraStateLive = PlayerCameraStateService.Default;
-//# sourceMappingURL=camera-state.js.map
+//# sourceMappingURL=../../../dist/packages/player/application/camera-state.js.map

@@ -16,4 +16,4 @@ export const RIVER_NOISE_SCALE = 0.0035;
 export const RIVER_WORLD_OFFSET = 20_000;
 export const RIVER_CENTER = 0.5;
 export const RIVER_HALF_WIDTH = 0.055;
-//# sourceMappingURL=biome-classifier.config.js.map
+//# sourceMappingURL=../../../dist/packages/terrain/domain/biome-classifier.config.js.map

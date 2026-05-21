@@ -75,4 +75,4 @@ export class SoundManager extends Effect.Service()('@minecraft/audio/SoundManage
 }) {
 }
 export const SoundManagerLive = SoundManager.Default;
-//# sourceMappingURL=sound-manager.js.map
+//# sourceMappingURL=../../../dist/packages/game/application/sound-manager.js.map

@@ -167,4 +167,4 @@ export const buildNoisePortFromPrimitives = (primitives, seed) => NoiseServicePo
     jaggedness: (x, z) => Effect.sync(() => primitives.jaggednessAt(x, z)),
     sampleTerrainChannels: (xStart, zStart) => Effect.sync(() => computeTerrainChannels(primitives.continentalness, primitives.erosion, primitives.weirdness, primitives.jaggedness, xStart, zStart)),
 });
-//# sourceMappingURL=primitives.js.map
+//# sourceMappingURL=../../../dist/packages/terrain/infrastructure/primitives.js.map

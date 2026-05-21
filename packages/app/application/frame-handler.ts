@@ -6,6 +6,7 @@ import * as THREE from 'three'
 import { DEFAULT_PLAYER_ID } from '@ts-minecraft/kernel'
 import { resolvePreset, type ResolvedGraphics } from '@ts-minecraft/game'
 import type { Chunk } from '@ts-minecraft/terrain'
+import type { DirtyChunkEntry } from './frame/frame-maintenance'
 import { type DayNightLights } from '@ts-minecraft/game'
 import type { DeltaTimeSecs } from '@ts-minecraft/kernel'
 import { FALLBACK_PLAYER_POS } from './frame-handler.config'
@@ -86,7 +87,7 @@ const createFrameLoopHandlersInternal = (
       resolved: resolvePreset('high'),
     })
     // Dirty chunk accumulator: deduplicates block break/place remesh calls within a single frame
-    const dirtyChunksRef = yield* Ref.make(HashMap.empty<string, Chunk>())
+    const dirtyChunksRef = yield* Ref.make(HashMap.empty<string, DirtyChunkEntry>())
 
     // Pre-allocated for god rays sun position projection — reused each frame to avoid GC
     const sunWorldPos = yield* Effect.sync(() => new THREE.Vector3())

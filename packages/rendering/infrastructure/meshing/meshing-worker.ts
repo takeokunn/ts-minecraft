@@ -4,6 +4,7 @@ import type { Chunk } from '@ts-minecraft/terrain'
 import { LIGHT_BYTE_LENGTH } from '@ts-minecraft/world-state'
 import type { LightGrids } from '@ts-minecraft/world-state'
 import { createGreedyMeshScratch, greedyMeshChunk } from './greedy-meshing'
+import { LodLevelSchema, simplifyMesh } from './lod-simplification'
 
 // Message shapes for the meshing worker protocol.
 //
@@ -14,6 +15,20 @@ import { createGreedyMeshScratch, greedyMeshChunk } from './greedy-meshing'
 //
 // Output: all TypedArrays are *transferred* back to main thread (zero-copy).
 // null water arrays signal that this chunk has no transparent faces.
+// FR-4.1: optional dirty AABB describing the chunk-local subregion that
+// changed. Forwarded through the protocol so the worker can attach a hint to
+// its response (the actual sub-region splice happens on the main thread,
+// where the previous mesh is reachable). When omitted the worker performs a
+// behaviour-preserving full re-mesh.
+const DirtyAABBSchema = Schema.Struct({
+  minX: Schema.Number.pipe(Schema.int(), Schema.nonNegative()),
+  maxX: Schema.Number.pipe(Schema.int(), Schema.nonNegative()),
+  minY: Schema.Number.pipe(Schema.int(), Schema.nonNegative()),
+  maxY: Schema.Number.pipe(Schema.int(), Schema.nonNegative()),
+  minZ: Schema.Number.pipe(Schema.int(), Schema.nonNegative()),
+  maxZ: Schema.Number.pipe(Schema.int(), Schema.nonNegative()),
+})
+
 export const MeshRequestSchema = Schema.Struct({
   id: Schema.Number.pipe(Schema.int(), Schema.nonNegative()),
   blocks: Schema.instanceOf(ArrayBuffer),
@@ -23,6 +38,13 @@ export const MeshRequestSchema = Schema.Struct({
   wx: Schema.Number.pipe(Schema.int()),
   wz: Schema.Number.pipe(Schema.int()),
   transparentBlockIds: Schema.Array(Schema.Number.pipe(Schema.int(), Schema.nonNegative())),
+  // FR-3.2: LOD level applied AFTER greedy meshing. Optional with default 0
+  // so legacy senders (no `lod` field) still produce LOD-0 meshes.
+  lod: Schema.optionalWith(LodLevelSchema, { default: () => 0 as const }),
+  // FR-4.1: optional dirtyAABB; the worker currently full-re-meshes regardless,
+  // but the field is forwarded so future worker-side splicing remains a
+  // protocol-level no-op for legacy senders.
+  dirtyAABB: Schema.optionalWith(Schema.NullOr(DirtyAABBSchema), { default: () => null }),
 })
 export type MeshRequest = Schema.Schema.Type<typeof MeshRequestSchema>
 
@@ -51,7 +73,10 @@ self.onmessage = (e: MessageEvent<unknown>): void => {
     return
   }
 
-  const { id, blocks, fluid, skyLight, blockLight, wx, wz, transparentBlockIds } = req
+  // dirtyAABB is accepted but currently unused — the worker always returns a
+  // full re-mesh; sub-region splicing is performed on the main thread (only
+  // the main thread has access to the previous WorkerMeshResult).
+  const { id, blocks, fluid, skyLight, blockLight, wx, wz, transparentBlockIds, lod } = req
 
   // Reconstruct a minimal Chunk — greedyMeshChunk only reads chunk.blocks; coord
   // is required by the type but unused inside the meshing algorithm (offset carries
@@ -83,15 +108,20 @@ self.onmessage = (e: MessageEvent<unknown>): void => {
   // per typed array. This allocation is in the worker thread, not the main thread —
   // the main thread only receives transferred (detached) buffers, with zero GC cost.
   const meshed = result.toMeshed()
+  // FR-3.2: simplify the opaque pass per requested LOD inside the worker so the
+  // main thread receives the smaller buffers directly (no main-thread CPU cost).
+  // Water keeps full detail — water is rare at LOD-2 distances and the surface
+  // shader benefits from full vertex resolution for ripples.
+  const opaque = lod === 0 ? meshed.opaque : simplifyMesh(meshed.opaque, lod)
   const hasWater = meshed.water.positions.length > 0
 
   const transferList: ArrayBuffer[] = [
-    meshed.opaque.positions.buffer,
-    meshed.opaque.normals.buffer,
-    meshed.opaque.colors.buffer,
-    meshed.opaque.uvs.buffer,
-    meshed.opaque.tileIndexes.buffer,
-    meshed.opaque.indices.buffer,
+    opaque.positions.buffer,
+    opaque.normals.buffer,
+    opaque.colors.buffer,
+    opaque.uvs.buffer,
+    opaque.tileIndexes.buffer,
+    opaque.indices.buffer,
   ]
 
   if (hasWater) {
@@ -108,12 +138,12 @@ self.onmessage = (e: MessageEvent<unknown>): void => {
   self.postMessage(
     {
       id,
-      opositions: meshed.opaque.positions,
-      onormals: meshed.opaque.normals,
-      ocolors: meshed.opaque.colors,
-      ouvs: meshed.opaque.uvs,
-      otileIndexes: meshed.opaque.tileIndexes,
-      oindices: meshed.opaque.indices,
+      opositions: opaque.positions,
+      onormals: opaque.normals,
+      ocolors: opaque.colors,
+      ouvs: opaque.uvs,
+      otileIndexes: opaque.tileIndexes,
+      oindices: opaque.indices,
       wpositions: hasWater ? meshed.water.positions : null,
       wnormals: hasWater ? meshed.water.normals : null,
       wcolors: hasWater ? meshed.water.colors : null,

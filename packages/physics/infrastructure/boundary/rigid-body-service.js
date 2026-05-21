@@ -27,4 +27,4 @@ export class RigidBodyService extends Effect.Service()('@minecraft/infrastructur
 }) {
 }
 export const RigidBodyServiceLive = RigidBodyService.Default;
-//# sourceMappingURL=rigid-body-service.js.map
+//# sourceMappingURL=../../../../dist/packages/physics/infrastructure/boundary/rigid-body-service.js.map

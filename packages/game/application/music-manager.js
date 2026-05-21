@@ -83,4 +83,4 @@ export class MusicManager extends Effect.Service()('@minecraft/audio/MusicManage
 }) {
 }
 export const MusicManagerLive = MusicManager.Default;
-//# sourceMappingURL=music-manager.js.map
+//# sourceMappingURL=../../../dist/packages/game/application/music-manager.js.map

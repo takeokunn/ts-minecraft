@@ -13,4 +13,4 @@ export const INDEX_TO_BLOCK_TYPE = [
 export const BLOCK_TYPE_TO_INDEX = Object.fromEntries(INDEX_TO_BLOCK_TYPE.map((type, idx) => [type, idx]));
 export const blockTypeToIndex = (blockType) => BLOCK_TYPE_TO_INDEX[blockType];
 export const indexToBlockType = (index) => Option.getOrElse(Arr.get(INDEX_TO_BLOCK_TYPE, index), () => 'AIR');
-//# sourceMappingURL=block-codec.js.map
+//# sourceMappingURL=../../../dist/packages/kernel/domain/block-codec.js.map

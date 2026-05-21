@@ -49,6 +49,7 @@ type ChunkManagerMockOverrides = Partial<{
   getChunk: ChunkManagerService['getChunk']
   getLoadedChunks: ChunkManagerService['getLoadedChunks']
   drainRenderDirtyChunks: ChunkManagerService['drainRenderDirtyChunks']
+  drainRenderDirtyChunkEntries: ChunkManagerService['drainRenderDirtyChunkEntries']
   loadChunksAroundPlayer: ChunkManagerService['loadChunksAroundPlayer']
   markChunkDirty: ChunkManagerService['markChunkDirty']
   saveDirtyChunks: ChunkManagerService['saveDirtyChunks']
@@ -142,6 +143,7 @@ export const makeChunkManagerService = (
     getChunk: () => Effect.succeed(chunk),
     getLoadedChunks: () => Effect.succeed([]),
     drainRenderDirtyChunks: () => Effect.succeed([]),
+        drainRenderDirtyChunkEntries: () => Effect.succeed([]),
     loadChunksAroundPlayer: () => Effect.succeed(false),
     markChunkDirty: () => Effect.void,
     saveDirtyChunks: () => Effect.void,

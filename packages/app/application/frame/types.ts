@@ -42,6 +42,7 @@ import { RedstoneService } from '@ts-minecraft/entities'
 import { FluidService } from '@ts-minecraft/terrain'
 import { FurnaceService } from '@ts-minecraft/furnace'
 import type { Chunk } from '@ts-minecraft/terrain'
+import type { DirtyChunkEntry } from './frame-maintenance'
 import { type DayNightLights } from '@ts-minecraft/game'
 import type { Position } from '@ts-minecraft/kernel'
 import type { CameraPoseSnapshot } from '@ts-minecraft/app/frame/frame-runtime-logic'
@@ -128,7 +129,7 @@ export type FrameStageRefs = {
   readonly adaptiveQualityCooldownRef: Ref.Ref<number>
   readonly lastAppliedPixelRatioRef: Ref.Ref<number>
   readonly lastGraphicsQualityRef: Ref.Ref<{ quality: string; resolved: ResolvedGraphics }>
-  readonly dirtyChunksRef: Ref.Ref<HashMap.HashMap<string, Chunk>>
+  readonly dirtyChunksRef: Ref.Ref<HashMap.HashMap<string, DirtyChunkEntry>>
   readonly lastLoadedChunksRef: Ref.Ref<Option.Option<ReadonlyArray<Chunk>>>
   readonly chunkSyncPendingRef: MutableRef.MutableRef<boolean>
   readonly lastShadowTargetRef: MutableRef.MutableRef<{ x: number; z: number }>

@@ -1,10 +1,25 @@
 import { Effect, Option } from 'effect'
 import * as THREE from 'three'
+import type { ChunkCoord } from '@ts-minecraft/kernel'
 import { Chunk } from '@ts-minecraft/terrain'
 import { TextureError } from '../../domain/errors'
 import { MeshedChunk } from './greedy-meshing'
-import { MeshingWorkerPool } from './meshing-worker-pool'
+import type { LodLevel } from './lod-simplification'
+import { MeshingWorkerPool, type DirtyAABB, type MeshChunkOptions } from './meshing-worker-pool'
 import { ATLAS_COLS, ATLAS_SIZE, HALF_TEXEL } from '../textures/block-texture-map'
+
+// Builds a MeshChunkOptions object that satisfies exactOptionalPropertyTypes.
+// We construct distinct shapes per branch so each property is either present
+// with a defined value or absent — never `T | undefined`.
+const buildMeshChunkOptions = (
+  lod: LodLevel | undefined,
+  dirtyAABB: DirtyAABB | undefined,
+): MeshChunkOptions | undefined => {
+  if (lod === undefined && dirtyAABB === undefined) return undefined
+  if (lod === undefined) return { dirtyAABB: dirtyAABB! }
+  if (dirtyAABB === undefined) return { lod }
+  return { lod, dirtyAABB }
+}
 
 // ─── Draw-call batching strategy ─────────────────────────────────────────────
 //
@@ -113,8 +128,9 @@ const buildAtlasTexture = (): Effect.Effect<THREE.Texture, TextureError> =>
       ctx.drawImage(img, 0, 0)
       const texture = new THREE.CanvasTexture(canvas)
       texture.magFilter = THREE.NearestFilter
-      texture.minFilter = THREE.NearestFilter
-      texture.generateMipmaps = false
+      texture.minFilter = THREE.NearestMipmapNearestFilter
+      texture.generateMipmaps = true
+      texture.anisotropy = 8
       texture.wrapS = THREE.ClampToEdgeWrapping
       texture.wrapT = THREE.ClampToEdgeWrapping
       resume(Effect.succeed(texture))
@@ -231,9 +247,10 @@ export class ChunkMeshService extends Effect.Service<ChunkMeshService>()(
 
         createChunkMesh: (
           chunk: Chunk,
-          waterMaterial?: THREE.ShaderMaterial
+          waterMaterial?: THREE.ShaderMaterial,
+          lod?: LodLevel
         ): Effect.Effect<{ opaqueMesh: THREE.Mesh; waterMesh: Option.Option<THREE.Mesh> }, never> =>
-          pool.meshChunk(chunk).pipe(
+          pool.meshChunk(chunk, lod === undefined ? undefined : { lod }).pipe(
             Effect.map(({ opaque, water }) => {
               const opaqueGeometry = buildGeometry(opaque)
               // All opaque chunks share ONE material instance (sharedMaterial above) —
@@ -246,6 +263,9 @@ export class ChunkMeshService extends Effect.Service<ChunkMeshService>()(
               opaqueMesh.castShadow = true
               opaqueMesh.receiveShadow = true
               opaqueMesh.userData['chunkCoord'] = chunk.coord
+              // FR-3.3: propagate chunk-level maxY for tighter frustum AABB. Optional —
+              // older chunks (pre-FR-3.3) leave it undefined; renderer falls back to CHUNK_HEIGHT.
+              if (chunk.maxY !== undefined) opaqueMesh.userData['chunkMaxY'] = chunk.maxY
 
               const waterMesh: Option.Option<THREE.Mesh> = water === null || water.positions.length === 0
                 ? Option.none()
@@ -257,6 +277,7 @@ export class ChunkMeshService extends Effect.Service<ChunkMeshService>()(
                     wm.receiveShadow = false
                     wm.renderOrder = 1
                     wm.userData['chunkCoord'] = chunk.coord
+                    if (chunk.maxY !== undefined) wm.userData['chunkMaxY'] = chunk.maxY
                     return wm
                   })
 
@@ -268,9 +289,15 @@ export class ChunkMeshService extends Effect.Service<ChunkMeshService>()(
           opaqueMesh: THREE.Mesh,
           waterMesh: Option.Option<THREE.Mesh>,
           chunk: Chunk,
-          waterMaterial?: THREE.ShaderMaterial
+          waterMaterial?: THREE.ShaderMaterial,
+          lod?: LodLevel,
+          // FR-4.1: chunk-local AABB of the changed sub-region. When provided,
+          // forwarded to the worker through the protocol so future sub-region
+          // splicing can short-circuit unaffected slices. Today the worker
+          // still produces a full re-mesh; behaviour is preserved either way.
+          dirtyAABB?: DirtyAABB,
         ): Effect.Effect<Option.Option<THREE.Mesh>, never> =>
-          pool.meshChunk(chunk).pipe(
+          pool.meshChunk(chunk, buildMeshChunkOptions(lod, dirtyAABB)).pipe(
             Effect.map(({ opaque, water }) => {
               // Opaque mesh: in-place update using owned arrays from worker transfer.
               // Falls back to full geometry rebuild only when buffer capacity is insufficient.
@@ -281,6 +308,8 @@ export class ChunkMeshService extends Effect.Service<ChunkMeshService>()(
               }
 
               opaqueMesh.userData['chunkCoord'] = { x: chunk.coord.x, z: chunk.coord.z }
+              // FR-3.3: refresh maxY whenever chunk geometry is rebuilt (block edits can change it).
+              if (chunk.maxY !== undefined) opaqueMesh.userData['chunkMaxY'] = chunk.maxY
 
               // Water mesh: update in place when it already exists, or create/remove it when topology changes.
               return Option.match(waterMesh, {
@@ -297,6 +326,7 @@ export class ChunkMeshService extends Effect.Service<ChunkMeshService>()(
                       wm.receiveShadow = false
                       wm.renderOrder = 1
                       wm.userData['chunkCoord'] = chunk.coord
+                      if (chunk.maxY !== undefined) wm.userData['chunkMaxY'] = chunk.maxY
                       return Option.some(wm)
                     },
                   })
@@ -312,6 +342,7 @@ export class ChunkMeshService extends Effect.Service<ChunkMeshService>()(
                     oldWaterGeometry.dispose()
                   }
                   wm.userData['chunkCoord'] = chunk.coord
+                  if (chunk.maxY !== undefined) wm.userData['chunkMaxY'] = chunk.maxY
                   return waterMesh
                 },
               })
@@ -322,6 +353,14 @@ export class ChunkMeshService extends Effect.Service<ChunkMeshService>()(
           Effect.sync(() => {
             mesh.geometry.dispose()
           }),
+
+        // SEC-W1: invalidate the sync-fallback per-coord prev mesh cache held
+        // inside MeshingWorkerPool. Called by world-renderer-chunk-sync.ts
+        // when a chunk is removed from the scene so the cache cannot grow
+        // unbounded over long sessions. Worker path is a no-op (worker has
+        // no per-coord cache).
+        releasePrevCachedMesh: (coord: ChunkCoord): Effect.Effect<void, never> =>
+          pool.releasePrevCachedMesh(coord),
 
         setSunIntensity: (value: number): Effect.Effect<void, never> =>
           Effect.sync(() => {

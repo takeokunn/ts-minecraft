@@ -8,4 +8,4 @@ export const CustomWorldSchema = Schema.mutable(Schema.Struct({
     gravity: Vector3Schema,
     bodies: Schema.mutable(Schema.Array(CustomBodySchema)),
 }));
-//# sourceMappingURL=physics-world.js.map
+//# sourceMappingURL=../../../dist/packages/physics/domain/physics-world.js.map

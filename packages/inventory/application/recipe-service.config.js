@@ -92,4 +92,4 @@ export const RECIPE_DEFINITIONS = [
         output: { itemType: 'DIAMOND_PICKAXE', count: 1 },
     }),
 ];
-//# sourceMappingURL=recipe-service.config.js.map
+//# sourceMappingURL=../../../dist/packages/inventory/application/recipe-service.config.js.map

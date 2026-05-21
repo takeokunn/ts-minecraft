@@ -12,4 +12,4 @@ export const EnvironmentLive = Layer.succeed(EnvironmentPort, {
         return HashSet.has(LOCALHOST_HOSTNAMES, window.location.hostname);
     }),
 });
-//# sourceMappingURL=environment-service.js.map
+//# sourceMappingURL=../../../dist/packages/world-state/application/environment-service.js.map

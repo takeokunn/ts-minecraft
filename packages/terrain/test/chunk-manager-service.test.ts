@@ -1,5 +1,5 @@
 import { describe,it } from '@effect/vitest'
-import { DEFAULT_WORLD_ID } from '@ts-minecraft/kernel'
+import { DEFAULT_WORLD_ID, blockIndexUnsafe, blockTypeToIndex } from '@ts-minecraft/kernel'
 import {
 BiomeServiceLive,
 ChunkManagerService,
@@ -169,6 +169,63 @@ describe('application/chunk/chunk-manager-service', () => {
       }).pipe(Effect.provide(TestLayer))
     })
 
+    // FR-4.2: dirty AABB tracking — drainRenderDirtyChunkEntries pairs each
+    // dirty chunk with the union of voxel AABBs accumulated since last drain.
+    it.effect('drainRenderDirtyChunkEntries reports unioned AABB per chunk and is reset on drain', () => {
+      const { TestLayer } = buildTestLayer()
+      return Effect.gen(function* () {
+        const service = yield* ChunkManagerService
+
+        yield* service.getChunk({ x: 0, z: 0 })
+        // First mark with a single voxel.
+        yield* service.markChunkDirty({ x: 0, z: 0 }, [{ lx: 3, y: 60, lz: 5 }])
+        // Second mark with a different voxel — AABB should be unioned.
+        yield* service.markChunkDirty({ x: 0, z: 0 }, [{ lx: 7, y: 70, lz: 2 }])
+
+        const entries = yield* service.drainRenderDirtyChunkEntries()
+        // Edited chunk plus all 9 neighbors get marked (legacy when no BFS, or
+        // BFS-trimmed). Find the (0,0) entry.
+        const target = entries.find((e) => e.chunk.coord.x === 0 && e.chunk.coord.z === 0)
+        expect(target).toBeDefined()
+        if (target === undefined) throw new Error('expected (0,0) entry')
+        expect(Option.isSome(target.dirtyAABB)).toBe(true)
+        const aabb = Option.getOrThrow(target.dirtyAABB)
+        // The union covers both voxels — first voxel set lower bounds, second
+        // raises maxX/maxY beyond the first while pulling minZ down.
+        expect(aabb.minX).toBeLessThanOrEqual(3)
+        expect(aabb.maxX).toBeGreaterThanOrEqual(7)
+        expect(aabb.minY).toBeLessThanOrEqual(60)
+        expect(aabb.maxY).toBeGreaterThanOrEqual(70)
+        expect(aabb.minZ).toBeLessThanOrEqual(2)
+        expect(aabb.maxZ).toBeGreaterThanOrEqual(5)
+
+        // Drain resets state — second drain returns empty.
+        const second = yield* service.drainRenderDirtyChunkEntries()
+        expect(second).toEqual([])
+      }).pipe(Effect.provide(TestLayer))
+    })
+
+    it.effect('drainRenderDirtyChunkEntries falls back to full-chunk (Option.none) when no voxels supplied', () => {
+      const { TestLayer } = buildTestLayer()
+      return Effect.gen(function* () {
+        const service = yield* ChunkManagerService
+        yield* service.getChunk({ x: 0, z: 0 })
+        // markChunkDirty WITHOUT voxels → caller signals "full chunk dirty".
+        yield* service.markChunkDirty({ x: 0, z: 0 })
+
+        const entries = yield* service.drainRenderDirtyChunkEntries()
+        const target = entries.find((e) => e.chunk.coord.x === 0 && e.chunk.coord.z === 0)
+        expect(target).toBeDefined()
+        if (target === undefined) throw new Error('expected (0,0) entry')
+        // No voxels supplied AND noop light engine ⇒ fallback to full-chunk
+        // AABB stored as a concrete value (not Option.none).
+        expect(Option.isSome(target.dirtyAABB)).toBe(true)
+        const aabb = Option.getOrThrow(target.dirtyAABB)
+        expect(aabb.minX).toBe(0)
+        expect(aabb.maxX).toBe(15)
+      }).pipe(Effect.provide(TestLayer))
+    })
+
     it.effect('drainRenderDirtyChunks clears only render-dirty state and preserves persistence dirty chunks', () => {
       const { TestLayer, storage } = buildTestLayer()
 
@@ -189,6 +246,57 @@ describe('application/chunk/chunk-manager-service', () => {
 
         const stored = yield* storage.loadChunk(DEFAULT_WORLD_ID, { x: 1, z: 1 })
         expect(Option.isSome(stored)).toBe(true)
+      }).pipe(Effect.provide(TestLayer))
+    })
+
+    // FR-3.3: markChunkDirty must refresh chunk.maxY after in-place block edits.
+    // Without this, building above the original maxY (e.g. tower construction)
+    // leaves a stale AABB upper bound and the new geometry is frustum-culled.
+    it.effect('refreshes chunk.maxY when a block is added above the original maxY', () => {
+      const { TestLayer } = buildTestLayer()
+
+      return Effect.gen(function* () {
+        const service = yield* ChunkManagerService
+
+        const chunk = yield* service.getChunk({ x: 0, z: 0 })
+        const originalMaxY = chunk.maxY ?? -1
+
+        // Place a STONE block well above the existing terrain top (mimics tower build).
+        const towerY = Math.min(originalMaxY + 50, 250)
+        chunk.blocks[blockIndexUnsafe(0, towerY, 0)] = blockTypeToIndex('STONE')
+
+        yield* service.markChunkDirty({ x: 0, z: 0 })
+
+        const refreshed = Arr.fromIterable(yield* service.getLoadedChunks())
+        const updated = refreshed.find((c) => c.coord.x === 0 && c.coord.z === 0)
+        expect(updated).toBeDefined()
+        expect(updated!.maxY).toBe(towerY)
+        expect(updated!.maxY).toBeGreaterThan(originalMaxY)
+      }).pipe(Effect.provide(TestLayer))
+    })
+
+    it.effect('refreshes chunk.maxY downward when the highest block is removed', () => {
+      const { TestLayer } = buildTestLayer()
+
+      return Effect.gen(function* () {
+        const service = yield* ChunkManagerService
+
+        const chunk = yield* service.getChunk({ x: 0, z: 0 })
+        const originalMaxY = chunk.maxY ?? -1
+
+        // Wipe the entire y=originalMaxY plane so maxY must drop.
+        for (let x = 0; x < 16; x++) {
+          for (let z = 0; z < 16; z++) {
+            chunk.blocks[blockIndexUnsafe(x, originalMaxY, z)] = 0
+          }
+        }
+
+        yield* service.markChunkDirty({ x: 0, z: 0 })
+
+        const refreshed = Arr.fromIterable(yield* service.getLoadedChunks())
+        const updated = refreshed.find((c) => c.coord.x === 0 && c.coord.z === 0)
+        expect(updated).toBeDefined()
+        expect(updated!.maxY).toBeLessThan(originalMaxY)
       }).pipe(Effect.provide(TestLayer))
     })
   })

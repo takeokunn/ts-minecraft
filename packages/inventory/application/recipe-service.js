@@ -64,4 +64,4 @@ export class RecipeService extends Effect.Service()('@minecraft/application/Reci
 }) {
 }
 export const RecipeServiceLive = RecipeService.Default;
-//# sourceMappingURL=recipe-service.js.map
+//# sourceMappingURL=../../../dist/packages/inventory/application/recipe-service.js.map

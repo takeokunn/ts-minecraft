@@ -1,0 +1,20 @@
+import { HashSet } from 'effect';
+import type { ChunkCoord } from '@ts-minecraft/kernel';
+import type { FluidType } from './fluid';
+import type { BlockType } from '@ts-minecraft/kernel';
+import type { Position } from '@ts-minecraft/kernel';
+import { type FluidKey as FluidKeyType } from './fluid-model';
+export declare const blockKey: (position: Position) => FluidKeyType;
+export declare const parseKey: (key: FluidKeyType) => Position;
+export declare const floorMod: (value: number, modulo: number) => number;
+export declare const localX: (position: Position) => number;
+export declare const localY: (position: Position) => number;
+export declare const localZ: (position: Position) => number;
+export declare const enqueue: (frontier: HashSet.HashSet<FluidKeyType>, position: Position) => HashSet.HashSet<FluidKeyType>;
+export declare const chunkCoordsForPosition: (position: Position) => ChunkCoord;
+export declare const positionFromChunk: (chunkCoord: ChunkCoord, idx: number) => Position;
+export declare const getBlockIndex: (position: Position) => number;
+export declare const maxLevelFor: (type: FluidType) => number;
+export declare const blockTypeFor: (type: FluidType) => BlockType;
+export declare const blockIndexFor: (type: FluidType) => number;
+//# sourceMappingURL=fluid-position-utils.d.ts.map

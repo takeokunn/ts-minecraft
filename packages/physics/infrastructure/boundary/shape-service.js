@@ -8,4 +8,4 @@ export class ShapeService extends Effect.Service()('@minecraft/infrastructure/ph
 }) {
 }
 export const ShapeServiceLive = ShapeService.Default;
-//# sourceMappingURL=shape-service.js.map
+//# sourceMappingURL=../../../../dist/packages/physics/infrastructure/boundary/shape-service.js.map

@@ -176,4 +176,4 @@ export const computeSkyLight = (blocks, lightGrid) => {
         }
     }
 };
-//# sourceMappingURL=light.js.map
+//# sourceMappingURL=../../../dist/packages/world-state/domain/light.js.map

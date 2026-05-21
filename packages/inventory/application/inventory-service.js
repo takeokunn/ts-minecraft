@@ -139,4 +139,4 @@ export class InventoryService extends Effect.Service()('@minecraft/application/I
 }) {
 }
 export const InventoryServiceLive = InventoryService.Default;
-//# sourceMappingURL=inventory-service.js.map
+//# sourceMappingURL=../../../dist/packages/inventory/application/inventory-service.js.map

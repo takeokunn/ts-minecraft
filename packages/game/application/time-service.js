@@ -1,4 +1,8 @@
-import { Effect, Ref } from 'effect';
+import { Effect, Ref, Schema } from 'effect';
+const TimeStateSchema = Schema.Struct({
+    ticks: Schema.Number.pipe(Schema.nonNegative()),
+    dayLengthTicks: Schema.Number.pipe(Schema.positive()),
+});
 // Time-of-day: 0.0=midnight, 0.25=dawn, 0.5=noon, 0.75=dusk. One tick = one frame ≈ 16ms at 60fps.
 export class TimeService extends Effect.Service()('@minecraft/application/TimeService', {
     effect: Ref.make({
@@ -27,4 +31,4 @@ export class TimeService extends Effect.Service()('@minecraft/application/TimeSe
 }) {
 }
 export const TimeServiceLive = TimeService.Default;
-//# sourceMappingURL=time-service.js.map
+//# sourceMappingURL=../../../dist/packages/game/application/time-service.js.map

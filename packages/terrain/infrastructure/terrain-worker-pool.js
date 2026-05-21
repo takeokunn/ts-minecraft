@@ -265,4 +265,4 @@ export const TerrainWorkerPoolLive = TerrainWorkerPool.Default;
 // the value-level helpers (BLOCK_BYTES, LIGHT_BYTE_LENGTH) from a single
 // import site.
 export { BLOCK_BYTES, LIGHT_BYTE_LENGTH, isDevBuild };
-//# sourceMappingURL=terrain-worker-pool.js.map
+//# sourceMappingURL=../../../dist/packages/terrain/infrastructure/terrain-worker-pool.js.map

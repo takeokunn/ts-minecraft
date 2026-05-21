@@ -19,4 +19,4 @@ export const KeyMappings = {
     INVENTORY_OPEN: 'KeyE',
     ESCAPE: 'Escape',
 };
-//# sourceMappingURL=key-mappings.js.map
+//# sourceMappingURL=../../../dist/packages/player/domain/key-mappings.js.map

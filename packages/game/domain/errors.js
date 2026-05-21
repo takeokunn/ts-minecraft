@@ -33,4 +33,4 @@ export class GameStateError extends Data.TaggedError('GameStateError') {
         return `GameState error during ${this.operation}: ${this.reason}${causeMessage ? `: ${causeMessage}` : ''}`;
     }
 }
-//# sourceMappingURL=errors.js.map
+//# sourceMappingURL=../../../dist/packages/game/domain/errors.js.map

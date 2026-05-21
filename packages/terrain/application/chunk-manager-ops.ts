@@ -12,7 +12,7 @@
  */
 
 import { Duration, Effect, HashMap, HashSet, Metric, Option, Ref } from 'effect'
-import type { Chunk } from '../domain/chunk'
+import { computeMaxY, type Chunk } from '../domain/chunk'
 import { ChunkCoord, CHUNK_SIZE, CHUNK_HEIGHT, type WorldId } from '@ts-minecraft/kernel'
 import { createFluidBuffer, StorageError } from '@ts-minecraft/world-state'
 import type { StorageServicePort } from '../domain/storage-service-port'
@@ -162,6 +162,8 @@ export const getChunk = (
           skyLight: generated.skyLight,
           blockLight: generated.blockLight,
           fluid: Option.none(),
+          // FR-3.3: derived metadata for tighter frustum AABB; computed once at gen time.
+          maxY: computeMaxY(generated.blocks),
         }
         yield* insertWithEviction(ctx, coord, newChunk)
         return newChunk
@@ -190,7 +192,9 @@ export const getChunk = (
                   )
                   return yield* generateAndInsert()
                 }
-                const baseChunk: Chunk = { coord, blocks, fluid: Option.fromNullable(fluid) }
+                // FR-3.3: IndexedDB migration is implicit — saved-chunk schema does not persist `maxY`.
+                // Recompute on every load so legacy saves (pre-FR-3.3) and current saves are uniform.
+                const baseChunk: Chunk = { coord, blocks, fluid: Option.fromNullable(fluid), maxY: computeMaxY(blocks) }
                 const grids: LightGrids = yield* ctx.lightEngine.updateLight(baseChunk)
                 const chunk: Chunk = { ...baseChunk, skyLight: grids.skyLight, blockLight: grids.blockLight }
                 yield* insertWithEviction(ctx, coord, chunk)

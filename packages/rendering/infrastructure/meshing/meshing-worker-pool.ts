@@ -1,9 +1,11 @@
 import { Array as Arr, Effect, MutableRef, Option, Schema } from 'effect'
 import { createGreedyMeshScratch, greedyMeshChunk, MeshedChunkSchema } from './greedy-meshing'
-import type { MeshedChunk } from './greedy-meshing'
+import type { GreedyMeshResult, MeshedChunk } from './greedy-meshing'
+import { greedyMeshChunkSubregion } from './subregion-greedy'
+import { simplifyMesh, type LodLevel } from './lod-simplification'
 import type { LightGrids } from '@ts-minecraft/world-state'
-import { CHUNK_SIZE, blockTypeToIndex } from '@ts-minecraft/kernel'
-import type { Chunk } from '@ts-minecraft/terrain'
+import { CHUNK_SIZE, blockTypeToIndex, type ChunkCoord } from '@ts-minecraft/kernel'
+import type { Chunk, ChunkAABB } from '@ts-minecraft/terrain'
 
 // Single source of truth for transparent block IDs used by the meshing pipeline.
 // Array form is sent with each worker message; Set form is used in the synchronous fallback.
@@ -24,22 +26,83 @@ const lightGridsFromChunk = (chunk: Chunk): LightGrids | undefined =>
     }
   )
 
-const createSyncChunkMesher = (): ((chunk: Chunk) => WorkerMeshResult) => {
+// Per-coord cache key for the previous full GreedyMeshResult — used by the
+// FR-4.1 sub-region splice path. Keying by coord (not by Chunk identity)
+// matches the production scene-graph invariant: at most one mesh exists per
+// chunk coord at a time.
+const coordCacheKey = (coord: ChunkCoord): string => `${coord.x},${coord.z}`
+
+// SEC-W1: surface returned by `createSyncChunkMesher` — the mesh function and
+// an explicit `releasePrev` to evict a coord's cached LOD-0 prev when the
+// chunk is removed from the scene. Without `releasePrev`, the inner
+// `prevByCoord` map grows unbounded for the lifetime of the meshing service
+// (≈ ~360KB per cached chunk × thousands of evicted chunks under the sync
+// fallback path).
+type SyncChunkMesher = {
+  readonly mesh: (chunk: Chunk, lod: LodLevel, dirtyAABB?: ChunkAABB) => WorkerMeshResult
+  readonly releasePrev: (coord: ChunkCoord) => void
+}
+
+const createSyncChunkMesher = (): SyncChunkMesher => {
   const scratch = createGreedyMeshScratch()
-  return (chunk: Chunk): WorkerMeshResult => {
-    const result = greedyMeshChunk(
-      chunk,
-      { wx: chunk.coord.x * CHUNK_SIZE, wz: chunk.coord.z * CHUNK_SIZE },
-      TRANSPARENT_IDS_SET,
-      scratch,
-      lightGridsFromChunk(chunk),
-    )
+  // FR-4.1: cache the most recent LOD-0 GreedyMeshResult per chunk coord so
+  // a follow-up call carrying `dirtyAABB` can splice the unaffected slices.
+  // The result's raw arrays are owned by per-call accumulators (NOT the
+  // shared scratch), so caching across calls is safe — see
+  // greedy-meshing.ts toRawMeshData where each call allocates new
+  // accumulator buffers.
+  const prevByCoord = new Map<string, GreedyMeshResult>()
+
+  const mesh = (chunk: Chunk, lod: LodLevel, dirtyAABB?: ChunkAABB): WorkerMeshResult => {
+    const offset = { wx: chunk.coord.x * CHUNK_SIZE, wz: chunk.coord.z * CHUNK_SIZE }
+    const lights = lightGridsFromChunk(chunk)
+    const cacheKey = coordCacheKey(chunk.coord)
+
+    // FR-4.1 sub-region path: opt-in via dirtyAABB AND a cached prev result.
+    // Sub-region splicing is restricted to LOD 0 because the simplifier
+    // applied at LOD 1/2 produces a different vertex layout that cannot be
+    // spliced byte-equivalently against the cached LOD-0 prev.
+    const prev = prevByCoord.get(cacheKey)
+    const result =
+      dirtyAABB !== undefined && lod === 0 && prev !== undefined
+        ? greedyMeshChunkSubregion(
+            chunk,
+            offset,
+            { dirtyAABB, prev },
+            TRANSPARENT_IDS_SET,
+            scratch,
+            lights,
+          )
+        : greedyMeshChunk(chunk, offset, TRANSPARENT_IDS_SET, scratch, lights)
+
+    // Update the cache only for LOD 0 (LOD 1/2 produces simplified buffers
+    // we cannot use as a future splice prev). Cache is updated regardless of
+    // whether THIS call used the splice path — the splice output is itself a
+    // valid prev for the next edit.
+    if (lod === 0) prevByCoord.set(cacheKey, result)
+
     const meshed = result.toMeshed()
+    // FR-3.1: simplify the opaque pass per the requested LOD. Water meshes
+    // skip simplification — water is rare at LOD-2 distances and the surface
+    // shader benefits from full vertex resolution for ripples.
+    const opaque = lod === 0 ? meshed.opaque : simplifyMesh(meshed.opaque, lod)
     return {
-      opaque: meshed.opaque,
+      opaque,
       water: meshed.water.positions.length > 0 ? meshed.water : null,
     }
   }
+
+  // SEC-W1: drop the cached prev for `coord`. The next call for that coord
+  // (whether a fresh load or an edit carrying `dirtyAABB`) will fall back to
+  // a full re-mesh — the splice path requires a cached prev. This is safe:
+  // when a chunk is evicted from the scene the splice "prev" is no longer a
+  // valid baseline (the chunk could be reloaded with completely different
+  // contents), so dropping it is also correctness-preserving.
+  const releasePrev = (coord: ChunkCoord): void => {
+    prevByCoord.delete(coordCacheKey(coord))
+  }
+
+  return { mesh, releasePrev }
 }
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -165,6 +228,56 @@ type PoolWorker = {
   readonly pending: MutableRef.MutableRef<Map<number, PendingMesh>>
 }
 
+/**
+ * FR-3.2: options bag for `meshChunk`. Currently carries an optional LOD
+ * level that the meshing worker (or sync fallback) applies AFTER greedy
+ * meshing. Older callers omit the field for behaviour-preserving LOD-0.
+ *
+ * FR-4.1: optional `dirtyAABB` enables sub-region greedy meshing — when both
+ * `dirtyAABB` and a previous mesh result are available, the meshing pipeline
+ * splices in only the affected slices instead of re-meshing the full
+ * 16×256×16 chunk. Sub-region meshing applies ONLY at LOD 0 — LOD 1/2 chunks
+ * always re-mesh fully because the simplification step downstream produces a
+ * different output layout that cannot be spliced. The AABB is opt-in:
+ * omitting the field falls back to a full re-mesh (behaviour-preserving).
+ *
+ * Production wiring status:
+ *   - Synchronous fallback path (Worker undefined OR pool disabled): consumes
+ *     `dirtyAABB` and routes through `greedyMeshChunkSubregion`, keyed by a
+ *     per-coord `prev` cache held inside `createSyncChunkMesher`.
+ *   - Worker path: still performs a full re-mesh; the worker does not yet
+ *     hold a `prev` cache (would require transferring the previous mesh into
+ *     the worker each call). The `dirtyAABB` field is forwarded through the
+ *     worker protocol as a no-op so future worker-side splicing requires no
+ *     protocol change.
+ *
+ * Behaviour invariant: the splice output is byte-equivalent (multiset) with
+ * the full re-mesh, proven by `subregion-greedy.test.ts` property tests.
+ */
+// Local type alias preserved for backward compatibility — structurally
+// identical to and assignable from/to `ChunkAABB` from `@ts-minecraft/terrain`.
+export type DirtyAABB = ChunkAABB
+
+export type MeshChunkOptions = {
+  /**
+   * 0 = full detail (default — behaviour-preserving)
+   * 1 = simplified (~25-30% of LOD 0 vertices)
+   * 2 = ultra-simplified (~6-10% of LOD 0 vertices)
+   * Distance-aware callers should map chunk distance to a level via
+   * `lodForDistance` from `./lod-simplification`.
+   */
+  readonly lod?: LodLevel
+  /**
+   * FR-4.1: chunk-local AABB of the changed sub-region. Required for the
+   * sub-region path; omitting this field is the legacy full re-mesh path.
+   * FR-4.2: ChunkManagerService.drainRenderDirtyChunkEntries supplies this
+   * value built from the union of seed dirty voxels + light-BFS affected
+   * voxels. Sync fallback path actively splices via
+   * `greedyMeshChunkSubregion`; worker path still full re-meshes.
+   */
+  readonly dirtyAABB?: ChunkAABB
+}
+
 // Worker pool for offloading greedyMeshChunk to background threads.
 // In browser environments, creates Math.max(1, Math.min(4, hardwareConcurrency - 1))
 // workers so the main thread retains at least one core for rendering.
@@ -174,12 +287,23 @@ export class MeshingWorkerPool extends Effect.Service<MeshingWorkerPool>()(
   '@minecraft/infrastructure/three/MeshingWorkerPool',
   {
     scoped: Effect.gen(function* () {
-      const meshChunkSync = createSyncChunkMesher()
+      const syncMesher = createSyncChunkMesher()
+      const meshChunkSync = syncMesher.mesh
+
+      // SEC-W1: drops the sync-fallback prev cache for `coord`. Worker path
+      // is a no-op because the worker never holds a per-coord prev cache —
+      // splicing is currently main-thread-only (see `MeshChunkOptions`).
+      // Caller (`world-renderer-chunk-sync.ts` removal loop) invokes this
+      // when a chunk leaves the loaded set so the cache cannot grow
+      // unbounded over a long session under the sync fallback path.
+      const releasePrevCachedMesh = (coord: ChunkCoord): Effect.Effect<void> =>
+        Effect.sync(() => syncMesher.releasePrev(coord))
 
       if (typeof Worker === 'undefined') {
         return {
-          meshChunk: (chunk: Chunk): Effect.Effect<WorkerMeshResult> =>
-            Effect.sync(() => meshChunkSync(chunk)),
+          meshChunk: (chunk: Chunk, options?: MeshChunkOptions): Effect.Effect<WorkerMeshResult> =>
+            Effect.sync(() => meshChunkSync(chunk, options?.lod ?? 0, options?.dirtyAABB)),
+          releasePrevCachedMesh,
           workerCount: 0,
         }
       }
@@ -244,9 +368,9 @@ export class MeshingWorkerPool extends Effect.Service<MeshingWorkerPool>()(
       )
 
       return {
-        meshChunk: (chunk: Chunk): Effect.Effect<WorkerMeshResult> =>
+        meshChunk: (chunk: Chunk, options?: MeshChunkOptions): Effect.Effect<WorkerMeshResult> =>
           MutableRef.get(workerPoolDisabledRef)
-            ? Effect.sync(() => meshChunkSync(chunk))
+            ? Effect.sync(() => meshChunkSync(chunk, options?.lod ?? 0, options?.dirtyAABB))
             : Effect.async<WorkerMeshResult, Error>((resume) => {
             const id = MutableRef.getAndUpdate(nextIdRef, (n) => n + 1)
             const workerIdx = MutableRef.getAndUpdate(nextWorkerIndexRef, (n) => n + 1) % workerCount
@@ -305,6 +429,14 @@ export class MeshingWorkerPool extends Effect.Service<MeshingWorkerPool>()(
                   wx: chunk.coord.x * CHUNK_SIZE,
                   wz: chunk.coord.z * CHUNK_SIZE,
                   transparentBlockIds: TRANSPARENT_IDS_ARRAY,
+                  // FR-3.2: include LOD so the worker can apply simplification
+                  // before transferring the meshed buffers back.
+                  lod: options?.lod ?? 0,
+                  // FR-4.1: forward dirtyAABB through the protocol so future
+                  // worker-side optimisations can be wired without protocol
+                  // changes. Currently unused on the worker side — main-thread
+                  // splicing in chunk-mesh.ts owns the sub-region path.
+                  dirtyAABB: options?.dirtyAABB ?? null,
                 },
                 transferList
               )
@@ -327,10 +459,11 @@ export class MeshingWorkerPool extends Effect.Service<MeshingWorkerPool>()(
                   Effect.zipRight(Effect.logWarning(
                     `MeshingWorkerPool disabling workers and falling back to sync meshing for chunk (${chunk.coord.x},${chunk.coord.z}): ${error.message}`,
                   )),
-                  Effect.zipRight(Effect.sync(() => meshChunkSync(chunk)))
+                  Effect.zipRight(Effect.sync(() => meshChunkSync(chunk, options?.lod ?? 0, options?.dirtyAABB)))
                 )
               )
             ),
+        releasePrevCachedMesh,
         workerCount,
       }
     }),

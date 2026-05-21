@@ -12,4 +12,4 @@ export * from './application/settings-service';
 export * from './application/sound-manager';
 export * from './application/time-service';
 export * from './infrastructure/audio-engine';
-//# sourceMappingURL=index.js.map
+//# sourceMappingURL=../../dist/packages/game/index.js.map

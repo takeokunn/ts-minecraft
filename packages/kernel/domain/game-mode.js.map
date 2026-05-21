@@ -1,1 +1,1 @@
-{"version":3,"file":"game-mode.js","sourceRoot":"","sources":["game-mode.ts"],"names":[],"mappings":"AAAA,OAAO,EAAE,MAAM,EAAE,MAAM,QAAQ,CAAA;AAE/B,MAAM,CAAC,MAAM,cAAc,GAAG,MAAM,CAAC,OAAO,CAAC,UAAU,EAAE,UAAU,CAAC,CAAA;AAEpE,MAAM,CAAC,MAAM,iBAAiB,GAAa,UAAU,CAAA"}
+{"version":3,"file":"game-mode.js","sourceRoot":"./src/","sources":["packages/kernel/domain/game-mode.ts"],"names":[],"mappings":"AAAA,OAAO,EAAE,MAAM,EAAE,MAAM,QAAQ,CAAA;AAE/B,MAAM,CAAC,MAAM,cAAc,GAAG,MAAM,CAAC,OAAO,CAAC,UAAU,EAAE,UAAU,CAAC,CAAA;AAEpE,MAAM,CAAC,MAAM,iBAAiB,GAAa,UAAU,CAAA"}

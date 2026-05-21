@@ -15,4 +15,4 @@ export const CameraTransformPortSchema = Schema.mutable(Schema.Struct({
     }),
     lookAt: Schema.declare((u) => typeof u === 'function'),
 }));
-//# sourceMappingURL=camera-port.js.map
+//# sourceMappingURL=../../../../dist/packages/kernel/domain/math/camera-port.js.map

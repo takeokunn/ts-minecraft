@@ -6,4 +6,4 @@ export const CameraRotationSchema = Schema.Struct({
 export const CameraModeSchema = Schema.Union(Schema.Literal('firstPerson'), Schema.Literal('thirdPerson'));
 export const PITCH_MIN = -Math.PI / 2 + 0.01;
 export const PITCH_MAX = Math.PI / 2 - 0.01;
-//# sourceMappingURL=camera-state.js.map
+//# sourceMappingURL=../../../dist/packages/player/domain/camera-state.js.map

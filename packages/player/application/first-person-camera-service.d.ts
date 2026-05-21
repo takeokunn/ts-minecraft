@@ -7,10 +7,10 @@ declare const FirstPersonCameraService_base: Effect.Service.Class<FirstPersonCam
     readonly effect: Effect.Effect<{
         update: (camera: CameraRotationPort, sensitivity?: number) => Effect.Effect<void, never>;
         attachToPlayer: (camera: CameraRotationPort) => Effect.Effect<void, never>;
-    }, never, PlayerCameraStateService | PlayerInputService>;
+    }, never, PlayerInputService | PlayerCameraStateService>;
 }>;
 export declare class FirstPersonCameraService extends FirstPersonCameraService_base {
 }
-export declare const FirstPersonCameraServiceLive: import("effect/Layer").Layer<FirstPersonCameraService, never, PlayerCameraStateService | PlayerInputService>;
+export declare const FirstPersonCameraServiceLive: import("effect/Layer").Layer<FirstPersonCameraService, never, PlayerInputService | PlayerCameraStateService>;
 export {};
 //# sourceMappingURL=first-person-camera-service.d.ts.map

@@ -25,6 +25,7 @@ const ChunkMeshServiceTest = Layer.succeed(
       Effect.succeed({ opaqueMesh: new THREE.Mesh(), waterMesh: Option.none<THREE.Mesh>() }),
     updateChunkMesh: (_opaqueMesh: THREE.Mesh, waterMesh: Option.Option<THREE.Mesh>) => Effect.succeed(waterMesh),
     disposeMesh: () => Effect.void,
+    releasePrevCachedMesh: () => Effect.void,
   }),
 )
 

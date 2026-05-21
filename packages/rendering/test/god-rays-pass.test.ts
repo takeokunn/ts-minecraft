@@ -37,6 +37,9 @@ vi.mock('three', () => ({
     dispose: vi.fn(),
   })),
   Vector2: vi.fn().mockImplementation((x = 0, y = 0) => ({ x, y })),
+  // Stubs needed by transient world-renderer-refraction.ts module-level allocations
+  Matrix4: vi.fn(() => ({ multiplyMatrices: vi.fn(), elements: Array.from({ length: 16 }, () => 0) })),
+  Vector4: vi.fn(() => ({ set: vi.fn(), applyMatrix4: vi.fn(), x: 0, y: 0, z: 0, w: 1 })),
   UniformsUtils: { clone: (u: Record<string, unknown>) => ({ ...u }) },
   UnsignedByteType: 1,
   LinearFilter: 1,

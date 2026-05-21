@@ -64,4 +64,4 @@ export class NoiseService extends Effect.Service()('@minecraft/infrastructure/no
 }) {
 }
 export const NoiseServiceLive = NoiseService.Default;
-//# sourceMappingURL=noise-service.js.map
+//# sourceMappingURL=../../../dist/packages/terrain/application/noise-service.js.map

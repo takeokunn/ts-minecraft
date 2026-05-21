@@ -1,5 +1,6 @@
 import { HashSet, HashMap, Schema } from 'effect'
 import { ChunkSchema } from '../domain/chunk'
+import type { ChunkAABB } from '../domain/chunk-aabb'
 import { FLUID_BYTE_LENGTH, createFluidBuffer } from '@ts-minecraft/world-state'
 import type { ChunkCacheKey, WorldId } from '@ts-minecraft/kernel'
 
@@ -42,8 +43,11 @@ export type ChunkCacheEntry = {
 }
 
 // FR-006 DEFERRED: Effect.Cache lacks required eviction hooks, distance eviction, and per-chunk atomicity.
+// FR-4.2: `renderDirtyAABBs` mirrors `renderDirtyChunks`, holding the running
+// union of dirty voxels per chunk. Absence in this map = "full chunk dirty".
 export type ChunkCache = {
   chunks: HashMap.HashMap<ChunkCacheKey, ChunkCacheEntry>
   dirtyChunks: HashSet.HashSet<ChunkCacheKey>
   renderDirtyChunks: HashSet.HashSet<ChunkCacheKey>
+  renderDirtyAABBs: HashMap.HashMap<ChunkCacheKey, ChunkAABB>
 }

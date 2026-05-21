@@ -6,4 +6,4 @@ export class StorageError extends Data.TaggedError('StorageError') {
         return `Storage operation '${this.operation}' failed${causeMessage ? `: ${causeMessage}` : ''}`;
     }
 }
-//# sourceMappingURL=errors.js.map
+//# sourceMappingURL=../../../dist/packages/world-state/domain/errors.js.map

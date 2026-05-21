@@ -271,6 +271,8 @@ export const makeServices = (opts: {
     loadChunksAroundPlayer: (_pos: unknown) => Effect.void,
     getLoadedChunks: () => Effect.succeed([]),
     drainRenderDirtyChunks: () => Effect.succeed([]),
+    // FR-4.2: AABB-aware drain — defaults to empty so existing tests behave unchanged.
+    drainRenderDirtyChunkEntries: () => Effect.succeed([]),
     getChunk: (_coord: unknown) => Effect.succeed({ coord: { x: 0, z: 0 }, blocks: new Uint8Array(0), dirty: false }),
   })
 

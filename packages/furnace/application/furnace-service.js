@@ -214,4 +214,4 @@ export class FurnaceService extends Effect.Service()('@minecraft/application/Fur
 }) {
 }
 export const FurnaceServiceLive = FurnaceService.Default;
-//# sourceMappingURL=furnace-service.js.map
+//# sourceMappingURL=../../../dist/packages/furnace/application/furnace-service.js.map

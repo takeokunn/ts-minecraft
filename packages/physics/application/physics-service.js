@@ -95,4 +95,4 @@ export class PhysicsService extends Effect.Service()('@minecraft/application/Phy
 }) {
 }
 export const PhysicsServiceLive = PhysicsService.Default;
-//# sourceMappingURL=physics-service.js.map
+//# sourceMappingURL=../../../dist/packages/physics/application/physics-service.js.map

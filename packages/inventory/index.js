@@ -4,4 +4,4 @@ export * from './domain/item-stack';
 export * from './application/hotbar-service';
 export * from './application/inventory-service';
 export * from './application/recipe-service';
-//# sourceMappingURL=index.js.map
+//# sourceMappingURL=../../dist/packages/inventory/index.js.map
