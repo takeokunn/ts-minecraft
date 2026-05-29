@@ -8,6 +8,8 @@ const InventorySlotSaveEntrySchema = Schema.Struct({
   slot: SlotIndexSchema,
   itemType: InventoryItemSchema,
   count: Schema.Number.pipe(Schema.int(), Schema.between(1, 64)),
+  // Optional for back-compat: pre-Phase-12 saves predate tool durability.
+  durability: Schema.optional(Schema.Number.pipe(Schema.int(), Schema.nonNegative())),
 })
 
 export type InventorySlotSaveEntry = Schema.Schema.Type<typeof InventorySlotSaveEntrySchema>

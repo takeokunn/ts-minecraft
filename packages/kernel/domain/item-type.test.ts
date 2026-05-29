@@ -19,6 +19,7 @@ describe('ItemTypeSchema', () => {
     'LAPIS_LAZULI',
     'EMERALD',
     'DIAMOND_PICKAXE',
+    'ROTTEN_FLESH',
   ] as const
 
   it.each(validItems)('accepts "%s"', (item: (typeof validItems)[number]) => {
