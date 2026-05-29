@@ -70,6 +70,7 @@ vi.mock('three', () => ({
   ClampToEdgeWrapping: 0,
   RGBAFormat: 0,
   FrontSide: 0,
+  DoubleSide: 2,
 }))
 
 import type { Chunk } from '@ts-minecraft/terrain'
@@ -152,7 +153,7 @@ describe('infrastructure/three/world-renderer', () => {
 
     it.effect('does not call scene.add again when updating an already-tracked chunk mesh', () => {
         const createChunkMesh = vi.fn((chunk: Chunk) =>
-          Effect.succeed({ opaqueMesh: makeMockMesh(chunk.coord) as THREE.Mesh, waterMesh: Option.none<THREE.Mesh>() })
+          Effect.succeed({ opaqueMesh: makeMockMesh(chunk.coord) as THREE.Mesh, waterMesh: Option.none<THREE.Mesh>(), transparentSolidMesh: Option.none<THREE.Mesh>() })
         )
       const TestLayer = buildTestLayer(createChunkMesh)
       const scene = makeScene()

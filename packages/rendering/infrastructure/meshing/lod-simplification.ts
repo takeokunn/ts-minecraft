@@ -119,6 +119,14 @@ export const simplifyMesh = (meshed: MeshedChunk, lodLevel: LodLevel): MeshedChu
   let outV = 0
   let outI = 0
 
+  // Snapping collapses neighbouring small quads onto the same LOD-grid cell.
+  // Quads that snap to an identical box+normal are coincident — emitting them
+  // all wastes geometry and z-fights at distance. Dedup on the snapped key so
+  // a 2×2 (or 4×4) cluster collapses to a single quad: this is where the actual
+  // LOD vertex reduction happens. Removing an exact-coincident quad cannot open
+  // a hole — the surviving quad covers the same area.
+  const seenQuads = new Set<string>()
+
   for (let q = 0; q < quadCount; q += 1) {
     const indexBase = q * 6
     const vBase = meshed.indices[indexBase]!
@@ -165,6 +173,13 @@ export const simplifyMesh = (meshed: MeshedChunk, lodLevel: LodLevel): MeshedChu
     const nv1x = pickX(v1[0]!), nv1y = pickY(v1[1]!), nv1z = pickZ(v1[2]!)
     const nv2x = pickX(v2[0]!), nv2y = pickY(v2[1]!), nv2z = pickZ(v2[2]!)
     const nv3x = pickX(v3[0]!), nv3y = pickY(v3[1]!), nv3z = pickZ(v3[2]!)
+
+    // Skip a quad that snaps onto a cell already emitted (same plane + extent).
+    // Keyed on the snapped box corners + normal, which uniquely identify the
+    // coincident rectangle regardless of original vertex order.
+    const key = `${nx},${ny},${nz}|${p0x},${p0y},${p0z}|${p2x},${p2y},${p2z}`
+    if (seenQuads.has(key)) continue
+    seenQuads.add(key)
 
     const o3 = outV * 3
     positions[o3 + 0] = nv0x; positions[o3 + 1] = nv0y; positions[o3 + 2] = nv0z

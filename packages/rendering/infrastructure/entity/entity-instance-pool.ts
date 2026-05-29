@@ -160,11 +160,135 @@ const SHEEP_SPECS = buildQuadrupedSpecs(
   { head: 0xf0d8b0, body: 0xf5f5f5, leg: 0xf0d8b0 },
 )
 
+// Creeper: quadruped (4 stubby legs), no arms, dark-green all over.
+const CREEPER_SPECS = buildQuadrupedSpecs(
+  { head: [0.5, 0.5, 0.5], body: [0.5, 0.75, 0.375], leg: [0.25, 0.5, 0.25] },
+  { head: 0x2d5c1e, body: 0x2d5c1e, leg: 0x2d5c1e },
+)
+
+// Skeleton: biped like Zombie but thinner arms and bone-white palette.
+const SKELETON_LEG_H = 0.75
+const SKELETON_BODY_W = 0.5
+const SKELETON_BODY_H = 0.75
+const SKELETON_HEAD_H = 0.5
+const SKELETON_ARM_W = 0.125
+
+const SKELETON_SPECS: Readonly<Record<PartRole, Option.Option<RoleSpec>>> = {
+  head: Option.some({
+    size: [0.5, 0.5, 0.5],
+    pivot: 'center',
+    offset: { x: 0, y: SKELETON_LEG_H + SKELETON_BODY_H + SKELETON_HEAD_H / 2, z: 0 },
+    color: 0xf0f0f0,
+    swingAxis: null,
+  }),
+  body: Option.some({
+    size: [0.5, 0.75, 0.125],
+    pivot: 'center',
+    offset: { x: 0, y: SKELETON_LEG_H + SKELETON_BODY_H / 2, z: 0 },
+    color: 0xf0f0f0,
+    swingAxis: null,
+  }),
+  armL: Option.some({
+    size: [0.125, 0.75, 0.125],
+    pivot: 'top',
+    offset: { x: +(SKELETON_BODY_W / 2 + SKELETON_ARM_W / 2), y: SKELETON_LEG_H + SKELETON_BODY_H, z: 0 },
+    color: 0xf0f0f0,
+    swingAxis: 'x',
+  }),
+  armR: Option.some({
+    size: [0.125, 0.75, 0.125],
+    pivot: 'top',
+    offset: { x: -(SKELETON_BODY_W / 2 + SKELETON_ARM_W / 2), y: SKELETON_LEG_H + SKELETON_BODY_H, z: 0 },
+    color: 0xf0f0f0,
+    swingAxis: 'x',
+  }),
+  legFL: Option.some({
+    size: [0.25, 0.75, 0.25],
+    pivot: 'top',
+    offset: { x: +0.125, y: SKELETON_LEG_H, z: 0 },
+    color: 0xf0f0f0,
+    swingAxis: 'x',
+  }),
+  legFR: Option.some({
+    size: [0.25, 0.75, 0.25],
+    pivot: 'top',
+    offset: { x: -0.125, y: SKELETON_LEG_H, z: 0 },
+    color: 0xf0f0f0,
+    swingAxis: 'x',
+  }),
+  legBL: Option.none(),
+  legBR: Option.none(),
+}
+
+// Spider: dark low quadruped (sits close to ground), 8-legged simplified as 4.
+const SPIDER_SPECS = buildQuadrupedSpecs(
+  { head: [0.5, 0.375, 0.5], body: [1.5, 0.375, 0.75], leg: [0.125, 0.5, 0.125] },
+  { head: 0x2a2a2a, body: 0x2a2a2a, leg: 0x2a2a2a },
+)
+
+// Enderman: extremely tall biped — 3-block-high legs, purple-eye black body.
+const ENDERMAN_LEG_H = 3.0
+const ENDERMAN_BODY_W = 0.375
+const ENDERMAN_BODY_H = 0.875
+const ENDERMAN_HEAD_H = 0.5
+const ENDERMAN_ARM_W = 0.125
+
+const ENDERMAN_SPECS: Readonly<Record<PartRole, Option.Option<RoleSpec>>> = {
+  head: Option.some({
+    size: [0.5, 0.5, 0.5],
+    pivot: 'center',
+    offset: { x: 0, y: ENDERMAN_LEG_H + ENDERMAN_BODY_H + ENDERMAN_HEAD_H / 2, z: 0 },
+    color: 0x1a0d2e,
+    swingAxis: null,
+  }),
+  body: Option.some({
+    size: [0.375, 0.875, 0.25],
+    pivot: 'center',
+    offset: { x: 0, y: ENDERMAN_LEG_H + ENDERMAN_BODY_H / 2, z: 0 },
+    color: 0x111111,
+    swingAxis: null,
+  }),
+  armL: Option.some({
+    size: [0.125, 1.5, 0.125],
+    pivot: 'top',
+    offset: { x: +(ENDERMAN_BODY_W / 2 + ENDERMAN_ARM_W / 2), y: ENDERMAN_LEG_H + ENDERMAN_BODY_H, z: 0 },
+    color: 0x111111,
+    swingAxis: 'x',
+  }),
+  armR: Option.some({
+    size: [0.125, 1.5, 0.125],
+    pivot: 'top',
+    offset: { x: -(ENDERMAN_BODY_W / 2 + ENDERMAN_ARM_W / 2), y: ENDERMAN_LEG_H + ENDERMAN_BODY_H, z: 0 },
+    color: 0x111111,
+    swingAxis: 'x',
+  }),
+  legFL: Option.some({
+    size: [0.125, 3.0, 0.125],
+    pivot: 'top',
+    offset: { x: +0.125, y: ENDERMAN_LEG_H, z: 0 },
+    color: 0x111111,
+    swingAxis: 'x',
+  }),
+  legFR: Option.some({
+    size: [0.125, 3.0, 0.125],
+    pivot: 'top',
+    offset: { x: -0.125, y: ENDERMAN_LEG_H, z: 0 },
+    color: 0x111111,
+    swingAxis: 'x',
+  }),
+  legBL: Option.none(),
+  legBR: Option.none(),
+}
+
 const SPECS_BY_TYPE: Readonly<Record<EntityType, Readonly<Record<PartRole, Option.Option<RoleSpec>>>>> = {
   Zombie: ZOMBIE_SPECS,
   Cow: COW_SPECS,
   Pig: PIG_SPECS,
   Sheep: SHEEP_SPECS,
+  Creeper: CREEPER_SPECS,
+  Skeleton: SKELETON_SPECS,
+  Spider: SPIDER_SPECS,
+  Enderman: ENDERMAN_SPECS,
 }
 
 export const getRoleSpec = (type: EntityType, role: PartRole): Option.Option<RoleSpec> =>
@@ -175,6 +299,10 @@ export const ROLES_BY_TYPE: Readonly<Record<EntityType, ReadonlyArray<PartRole>>
   Cow: ['head', 'body', 'legFL', 'legFR', 'legBL', 'legBR'],
   Pig: ['head', 'body', 'legFL', 'legFR', 'legBL', 'legBR'],
   Sheep: ['head', 'body', 'legFL', 'legFR', 'legBL', 'legBR'],
+  Creeper: ['head', 'body', 'legFL', 'legFR', 'legBL', 'legBR'],
+  Skeleton: ['head', 'body', 'armL', 'armR', 'legFL', 'legFR'],
+  Spider: ['head', 'body', 'legFL', 'legFR', 'legBL', 'legBR'],
+  Enderman: ['head', 'body', 'armL', 'armR', 'legFL', 'legFR'],
 }
 
 // ---------------------------------------------------------------------------
@@ -273,6 +401,8 @@ export const createEntityInstancePool = (): EntityInstancePool => {
         const geometry = buildBucketGeometry(spec.size, spec.pivot)
         const material = new THREE.MeshStandardMaterial({
           color: spec.color,
+          emissive: spec.color,
+          emissiveIntensity: 0.12,
           roughness: 0.9,
           metalness: 0.0,
         })

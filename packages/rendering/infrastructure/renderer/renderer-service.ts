@@ -1,7 +1,7 @@
 import { Effect } from 'effect'
 import * as THREE from 'three'
 
-const TONE_MAPPING_EXPOSURE = 0.7
+const TONE_MAPPING_EXPOSURE = 0.9
 
 export class RendererService extends Effect.Service<RendererService>()(
   '@minecraft/infrastructure/three/RendererService',

@@ -70,6 +70,7 @@ vi.mock('three', () => ({
   ClampToEdgeWrapping: 0,
   RGBAFormat: 0,
   FrontSide: 0,
+  DoubleSide: 2,
 }))
 
 import { Effect, Option } from 'effect'
@@ -98,6 +99,7 @@ describe('infrastructure/three/world-renderer', () => {
         Effect.succeed({
           opaqueMesh: makeMockMesh({ x: 0, z: 0 }) as THREE.Mesh,
           waterMesh: Option.some(waterMesh),
+          transparentSolidMesh: Option.none<THREE.Mesh>(),
         })
       )
       // Default updateChunkMesh returns w unchanged (Option.some(waterMesh) → same ref)

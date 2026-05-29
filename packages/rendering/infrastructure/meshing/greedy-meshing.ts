@@ -27,7 +27,6 @@ import {
 
 import {
   getBlock,
-  isAir,
   aoXPos,
   aoXNeg,
   aoYPos,
@@ -166,7 +165,35 @@ const fluidTopCornerYsForCell = (
   y + fluidCornerHeightForCell(blocks, fluid, current, lx, y, lz, 1, 0),
 ]
 
-const isOpaqueSolidBlock = (blockId: number): boolean => blockId !== AIR && !isFluidBlockId(blockId)
+// A neighbour occludes a fluid face only when it is TRULY opaque — not air, not
+// another fluid, and not a transparent-solid block (GLASS/LEAVES). Water behind
+// glass (aquariums) must still show its surface and sides, so glass/leaves are
+// not occluders here. Mirrors isSolidFaceExposed on the solid-block side.
+const isFluidFaceOccluder = (blockId: number, transparentSolidLookup: Uint8Array): boolean =>
+  blockId !== AIR && !isFluidBlockId(blockId) && transparentSolidLookup[blockId] === 0
+
+// Face exposure for the six solid passes (opaque + transparent-solid sources).
+// A face is exposed when the neighbour is AIR. Additionally, an OPAQUE source
+// block exposes its face through a transparent-solid neighbour (GLASS, LEAVES):
+// otherwise the opaque surface behind the glass/leaves would show a see-through
+// hole. Transparent-solid SOURCE blocks keep air-only exposure, so adjacent
+// same-type panes still cull their shared face (no internal double faces /
+// z-fighting). Fluid neighbours are deliberately treated as occluders here —
+// fluid surfaces are meshed by the dedicated fluid pass, which owns that
+// boundary, so routing opaque faces through them would double-render.
+const isSolidFaceExposed = (
+  blocks: Readonly<Uint8Array>,
+  sourceBlockId: number,
+  transparentSolidLookup: Uint8Array,
+  nx: number,
+  ny: number,
+  nz: number,
+): boolean => {
+  const neighborId = getBlock(blocks, nx, ny, nz)
+  if (neighborId === AIR) return true
+  if (transparentSolidLookup[sourceBlockId] !== 0) return false
+  return transparentSolidLookup[neighborId] !== 0
+}
 
 const decodeFaceLighting = (
   c0: number,
@@ -198,6 +225,7 @@ const meshFluidFaces = (
   opaqueAcc: MeshAccumulator,
   getWaterAcc: () => MeshAccumulator,
   transparentLookup: Uint8Array,
+  transparentSolidLookup: Uint8Array,
   offset: ChunkWorldOffset,
 ): void => {
   const emitFluidQuad = (
@@ -242,7 +270,7 @@ const meshFluidFaces = (
         const [topY00, topY01, topY11, topY10] = fluidTopCornerYsForCell(blocks, fluid, current, lx, y, lz)
         const aboveBlockId = getBlock(blocks, lx, y + 1, lz)
         const aboveFluid = resolveFluidState(blocks, fluid, lx, y + 1, lz)
-        if (!isOpaqueSolidBlock(aboveBlockId) && aboveFluid === null) {
+        if (!isFluidFaceOccluder(aboveBlockId, transparentSolidLookup) && aboveFluid === null) {
           const lighting = decodeFaceLighting(
             sampleCornerLight(lightGrids, lx, y + 1, lz, 1, 0, 0, 0, 0, 1, 0, 0),
             sampleCornerLight(lightGrids, lx, y + 1, lz, 1, 0, 0, 0, 0, 1, 0, 1),
@@ -264,7 +292,7 @@ const meshFluidFaces = (
         }
 
         const xPosNeighborBlockId = getBlock(blocks, lx + 1, y, lz)
-        if (!isOpaqueSolidBlock(xPosNeighborBlockId)) {
+        if (!isFluidFaceOccluder(xPosNeighborBlockId, transparentSolidLookup)) {
           const xPosNeighbor = resolveFluidState(blocks, fluid, lx + 1, y, lz)
           const xPosBottomY = xPosNeighbor !== null && xPosNeighbor.type === current.type
             ? y + xPosNeighbor.height
@@ -292,7 +320,7 @@ const meshFluidFaces = (
         }
 
         const xNegNeighborBlockId = getBlock(blocks, lx - 1, y, lz)
-        if (!isOpaqueSolidBlock(xNegNeighborBlockId)) {
+        if (!isFluidFaceOccluder(xNegNeighborBlockId, transparentSolidLookup)) {
           const xNegNeighbor = resolveFluidState(blocks, fluid, lx - 1, y, lz)
           const xNegBottomY = xNegNeighbor !== null && xNegNeighbor.type === current.type
             ? y + xNegNeighbor.height
@@ -320,7 +348,7 @@ const meshFluidFaces = (
         }
 
         const zPosNeighborBlockId = getBlock(blocks, lx, y, lz + 1)
-        if (!isOpaqueSolidBlock(zPosNeighborBlockId)) {
+        if (!isFluidFaceOccluder(zPosNeighborBlockId, transparentSolidLookup)) {
           const zPosNeighbor = resolveFluidState(blocks, fluid, lx, y, lz + 1)
           const zPosBottomY = zPosNeighbor !== null && zPosNeighbor.type === current.type
             ? y + zPosNeighbor.height
@@ -348,7 +376,7 @@ const meshFluidFaces = (
         }
 
         const zNegNeighborBlockId = getBlock(blocks, lx, y, lz - 1)
-        if (!isOpaqueSolidBlock(zNegNeighborBlockId)) {
+        if (!isFluidFaceOccluder(zNegNeighborBlockId, transparentSolidLookup)) {
           const zNegNeighbor = resolveFluidState(blocks, fluid, lx, y, lz - 1)
           const zNegBottomY = zNegNeighbor !== null && zNegNeighbor.type === current.type
             ? y + zNegNeighbor.height
@@ -394,13 +422,14 @@ const meshXPosFace = (s: FacePassState): void => {
       verts[3][0] = fx; verts[3][1] = y0;      verts[3][2] = s.offset.wz + lz0 + du
     },
     s.opaqueAcc, s.getWaterAcc, s.transparentLookup,
+    s.getTransparentSolidAcc, s.transparentSolidLookup,
   )
   for (let lx = 0; lx < CHUNK_SIZE; lx++) {
     s.maskCH.fill(0)
     for (let lz = 0; lz < CHUNK_SIZE; lz++) {
       for (let y = 0; y < CHUNK_HEIGHT; y++) {
         const blockId = getBlock(s.blocks, lx, y, lz)
-        if (blockId !== AIR && !isFluidBlockId(blockId) && isAir(s.blocks, lx + 1, y, lz)) {
+        if (blockId !== AIR && !isFluidBlockId(blockId) && isSolidFaceExposed(s.blocks, blockId, s.transparentSolidLookup, lx + 1, y, lz)) {
           const ao = aoXPos(s.blocks, lx, y, lz)
           // 4 corners on +X face — air voxel at (lx+1,y,lz); tangents (lz, y).
           const c0 = sampleCornerLight(s.lightGrids, lx + 1, y, lz, 0, 0, 1, 0, 1, 0, 0, 0)
@@ -432,13 +461,14 @@ const meshXNegFace = (s: FacePassState): void => {
       verts[3][0] = fx; verts[3][1] = y0;      verts[3][2] = s.offset.wz + lz0
     },
     s.opaqueAcc, s.getWaterAcc, s.transparentLookup,
+    s.getTransparentSolidAcc, s.transparentSolidLookup,
   )
   for (let lx = 0; lx < CHUNK_SIZE; lx++) {
     s.maskCH.fill(0)
     for (let lz = 0; lz < CHUNK_SIZE; lz++) {
       for (let y = 0; y < CHUNK_HEIGHT; y++) {
         const blockId = getBlock(s.blocks, lx, y, lz)
-        if (blockId !== AIR && !isFluidBlockId(blockId) && isAir(s.blocks, lx - 1, y, lz)) {
+        if (blockId !== AIR && !isFluidBlockId(blockId) && isSolidFaceExposed(s.blocks, blockId, s.transparentSolidLookup, lx - 1, y, lz)) {
           const ao = aoXNeg(s.blocks, lx, y, lz)
           // Vertices for X- are emitted in reverse winding (lz0+du..lz0); align corners to that order.
           const c0 = sampleCornerLight(s.lightGrids, lx - 1, y, lz, 0, 0, 1, 0, 1, 0, 1, 0)
@@ -470,13 +500,14 @@ const meshYPosFace = (s: FacePassState): void => {
       verts[3][0] = s.offset.wx + lx0 + du; verts[3][1] = fy; verts[3][2] = s.offset.wz + lz0
     },
     s.opaqueAcc, s.getWaterAcc, s.transparentLookup,
+    s.getTransparentSolidAcc, s.transparentSolidLookup,
   )
   for (let y = 0; y < CHUNK_HEIGHT; y++) {
     s.maskSS.fill(0)
     for (let lx = 0; lx < CHUNK_SIZE; lx++) {
       for (let lz = 0; lz < CHUNK_SIZE; lz++) {
         const blockId = getBlock(s.blocks, lx, y, lz)
-        if (blockId !== AIR && !isFluidBlockId(blockId) && isAir(s.blocks, lx, y + 1, lz)) {
+        if (blockId !== AIR && !isFluidBlockId(blockId) && isSolidFaceExposed(s.blocks, blockId, s.transparentSolidLookup, lx, y + 1, lz)) {
           const ao = aoYPos(s.blocks, lx, y, lz)
           // Vertex order: (lx0, lz0), (lx0, lz0+dv), (lx0+du, lz0+dv), (lx0+du, lz0).
           const c0 = sampleCornerLight(s.lightGrids, lx, y + 1, lz, 1, 0, 0, 0, 0, 1, 0, 0)
@@ -508,13 +539,14 @@ const meshYNegFace = (s: FacePassState): void => {
       verts[3][0] = s.offset.wx + lx0;      verts[3][1] = fy; verts[3][2] = s.offset.wz + lz0
     },
     s.opaqueAcc, s.getWaterAcc, s.transparentLookup,
+    s.getTransparentSolidAcc, s.transparentSolidLookup,
   )
   for (let y = 0; y < CHUNK_HEIGHT; y++) {
     s.maskSS.fill(0)
     for (let lx = 0; lx < CHUNK_SIZE; lx++) {
       for (let lz = 0; lz < CHUNK_SIZE; lz++) {
         const blockId = getBlock(s.blocks, lx, y, lz)
-        if (blockId !== AIR && !isFluidBlockId(blockId) && isAir(s.blocks, lx, y - 1, lz)) {
+        if (blockId !== AIR && !isFluidBlockId(blockId) && isSolidFaceExposed(s.blocks, blockId, s.transparentSolidLookup, lx, y - 1, lz)) {
           const ao = aoYNeg(s.blocks, lx, y, lz)
           // Vertex order: (lx0+du, lz0), (lx0+du, lz0+dv), (lx0, lz0+dv), (lx0, lz0).
           const c0 = sampleCornerLight(s.lightGrids, lx, y - 1, lz, 1, 0, 0, 0, 0, 1, 1, 0)
@@ -546,13 +578,14 @@ const meshZPosFace = (s: FacePassState): void => {
       verts[3][0] = s.offset.wx + lx0;      verts[3][1] = y0;      verts[3][2] = fz
     },
     s.opaqueAcc, s.getWaterAcc, s.transparentLookup,
+    s.getTransparentSolidAcc, s.transparentSolidLookup,
   )
   for (let lz = 0; lz < CHUNK_SIZE; lz++) {
     s.maskCH.fill(0)
     for (let lx = 0; lx < CHUNK_SIZE; lx++) {
       for (let y = 0; y < CHUNK_HEIGHT; y++) {
         const blockId = getBlock(s.blocks, lx, y, lz)
-        if (blockId !== AIR && !isFluidBlockId(blockId) && isAir(s.blocks, lx, y, lz + 1)) {
+        if (blockId !== AIR && !isFluidBlockId(blockId) && isSolidFaceExposed(s.blocks, blockId, s.transparentSolidLookup, lx, y, lz + 1)) {
           const ao = aoZPos(s.blocks, lx, y, lz)
           // Vertex order: (lx0+du, y0), (lx0+du, y0+dv), (lx0, y0+dv), (lx0, y0).
           const c0 = sampleCornerLight(s.lightGrids, lx, y, lz + 1, 1, 0, 0, 0, 1, 0, 1, 0)
@@ -584,13 +617,14 @@ const meshZNegFace = (s: FacePassState): void => {
       verts[3][0] = s.offset.wx + lx0 + du; verts[3][1] = y0;      verts[3][2] = fz
     },
     s.opaqueAcc, s.getWaterAcc, s.transparentLookup,
+    s.getTransparentSolidAcc, s.transparentSolidLookup,
   )
   for (let lz = 0; lz < CHUNK_SIZE; lz++) {
     s.maskCH.fill(0)
     for (let lx = 0; lx < CHUNK_SIZE; lx++) {
       for (let y = 0; y < CHUNK_HEIGHT; y++) {
         const blockId = getBlock(s.blocks, lx, y, lz)
-        if (blockId !== AIR && !isFluidBlockId(blockId) && isAir(s.blocks, lx, y, lz - 1)) {
+        if (blockId !== AIR && !isFluidBlockId(blockId) && isSolidFaceExposed(s.blocks, blockId, s.transparentSolidLookup, lx, y, lz - 1)) {
           const ao = aoZNeg(s.blocks, lx, y, lz)
           // Vertex order: (lx0, y0), (lx0, y0+dv), (lx0+du, y0+dv), (lx0+du, y0).
           const c0 = sampleCornerLight(s.lightGrids, lx, y, lz - 1, 1, 0, 0, 0, 1, 0, 0, 0)
@@ -617,15 +651,20 @@ export const greedyMeshChunk = (
   transparentBlockIds: ReadonlySet<number> = new Set(),
   scratch: GreedyMeshScratch = createGreedyMeshScratch(),
   lightGrids?: LightGrids,
+  transparentSolidBlockIds: ReadonlySet<number> = new Set(),
 ): GreedyMeshResult => {
   const opaqueAcc = createAccumulator()
   let waterAccStorage: MeshAccumulator | null = null
+  let transparentSolidAccStorage: MeshAccumulator | null = null
   const transparentLookup = new Uint8Array(256)
   for (const blockId of transparentBlockIds) transparentLookup[blockId] = 1
+  const transparentSolidLookup = new Uint8Array(256)
+  for (const blockId of transparentSolidBlockIds) transparentSolidLookup[blockId] = 1
 
   const { maskCH, maskSS } = scratch
   const blocks: Readonly<Uint8Array> = chunk.blocks
   const getWaterAcc = (): MeshAccumulator => (waterAccStorage ??= createAccumulator())
+  const getTransparentSolidAcc = (): MeshAccumulator => (transparentSolidAccStorage ??= createAccumulator())
 
   const state: FacePassState = {
     blocks,
@@ -635,6 +674,8 @@ export const greedyMeshChunk = (
     opaqueAcc,
     getWaterAcc,
     transparentLookup,
+    getTransparentSolidAcc,
+    transparentSolidLookup,
     offset,
   }
 
@@ -651,6 +692,7 @@ export const greedyMeshChunk = (
     opaqueAcc,
     getWaterAcc,
     transparentLookup,
+    transparentSolidLookup,
     offset,
   )
 
@@ -677,14 +719,16 @@ export const greedyMeshChunk = (
 
   const opaqueRaw = toRawMeshData(opaqueAcc)
   const waterRaw = waterAccStorage !== null ? toRawMeshData(waterAccStorage) : null
+  const transparentSolidRaw = transparentSolidAccStorage !== null ? toRawMeshData(transparentSolidAccStorage) : null
 
   // Lazy cache: toMeshed() allocates sliced copies on first call, then returns the cached result.
-  let _meshedCache: { opaque: MeshedChunk; water: MeshedChunk } | null = null
-  const toMeshed = (): { opaque: MeshedChunk; water: MeshedChunk } => {
+  let _meshedCache: { opaque: MeshedChunk; water: MeshedChunk; transparentSolid: MeshedChunk } | null = null
+  const toMeshed = (): { opaque: MeshedChunk; water: MeshedChunk; transparentSolid: MeshedChunk } => {
     if (_meshedCache === null) {
       _meshedCache = {
         opaque: toMeshedChunk(opaqueRaw),
         water: waterRaw !== null ? toMeshedChunk(waterRaw) : EMPTY_MESHED_CHUNK,
+        transparentSolid: transparentSolidRaw !== null ? toMeshedChunk(transparentSolidRaw) : EMPTY_MESHED_CHUNK,
       }
     }
     return _meshedCache
@@ -693,6 +737,7 @@ export const greedyMeshChunk = (
   return {
     opaqueRaw,
     waterRaw,
+    transparentSolidRaw,
     toMeshed,
   }
 }

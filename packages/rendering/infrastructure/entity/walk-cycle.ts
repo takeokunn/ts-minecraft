@@ -6,6 +6,7 @@
 
 export const STRIDE_LENGTH = 1.2
 export const LIMB_SWING_AMPLITUDE = Math.PI / 6 // 30°
+const REFERENCE_SPEED = 3.0
 export const WALK_DAMPING_SECONDS = 0.2
 
 const SPEED_THRESHOLD = 0.05
@@ -28,5 +29,6 @@ export const computeLimbAngle = (
 ): number => {
   if (speed < SPEED_THRESHOLD) return 0
   const phase = phaseOf(side, limb)
-  return Math.sin((2 * Math.PI * speed * t) / STRIDE_LENGTH + phase) * LIMB_SWING_AMPLITUDE
+  const amp = LIMB_SWING_AMPLITUDE * Math.min(1, speed / REFERENCE_SPEED)
+  return Math.sin((2 * Math.PI * speed * t) / STRIDE_LENGTH + phase) * amp
 }

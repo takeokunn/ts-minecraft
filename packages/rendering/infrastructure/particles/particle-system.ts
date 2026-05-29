@@ -114,6 +114,7 @@ export class ParticleSystemService extends Effect.Service<ParticleSystemService>
       // MeshBasicMaterial keyed off the atlas — no lighting needed (particles
       // are short-lived flecks that look better unlit).
       const material = new THREE.MeshBasicMaterial({
+        color: 0xcccccc,
         map: chunkMeshService.atlasTexture,
         transparent: true,
         alphaTest: 0.5,

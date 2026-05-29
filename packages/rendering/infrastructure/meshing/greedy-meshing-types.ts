@@ -67,12 +67,14 @@ export const createGreedyMeshScratch = (): GreedyMeshScratch => ({
   maskSS: new Uint32Array(CHUNK_SIZE * CHUNK_SIZE),
 })
 
-export type GreedyMeshToMeshed = () => { opaque: MeshedChunk; water: MeshedChunk }
+export type GreedyMeshToMeshed = () => { opaque: MeshedChunk; water: MeshedChunk; transparentSolid: MeshedChunk }
 
 export type GreedyMeshResult = {
   // Zero-copy subarray views — valid until next greedyMeshChunk call (aliases accumulator backing store).
   readonly opaqueRaw: RawMeshData
   readonly waterRaw: RawMeshData | null
+  // Transparent-solid (GLASS, LEAVES) faces — rendered with atlas material + transparency, not water shader.
+  readonly transparentSolidRaw: RawMeshData | null
   // Lazily produces sliced (owned) copies — call only when you need independent arrays.
   readonly toMeshed: GreedyMeshToMeshed
 }
@@ -80,5 +82,6 @@ export type GreedyMeshResult = {
 export const GreedyMeshResultSchema = Schema.Struct({
   opaqueRaw: RawMeshDataSchema,
   waterRaw: Schema.NullOr(RawMeshDataSchema),
+  transparentSolidRaw: Schema.NullOr(RawMeshDataSchema),
   toMeshed: Schema.declare((u): u is GreedyMeshToMeshed => typeof u === 'function'),
 })

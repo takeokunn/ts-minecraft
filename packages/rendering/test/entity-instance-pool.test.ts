@@ -7,6 +7,8 @@ import {
   EntityRendererLive,
   SceneService,
   MAX_INSTANCES_PER_TYPE,
+  createEntityInstancePool,
+  type PartRole,
 } from '@ts-minecraft/rendering'
 import { EntityId, type Entity, type EntityType } from '@ts-minecraft/entities'
 import { identity } from '@ts-minecraft/kernel'
@@ -194,5 +196,72 @@ describe('infrastructure/three/entity-instance-pool — saturation', () => {
         expect(bucket.count).toBe(MAX_INSTANCES_PER_TYPE)
       }
     }).pipe(Effect.provide(TestLayer))
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Tests — releaseSlot swap-with-last (the subtlest pool invariant). Freeing a
+// non-last slot must move the LAST entity into the hole: its matrix must be
+// copied and its slot bookkeeping updated, or a surviving mob would render at
+// the freed entity's position / getSlot would return a stale index.
+// ---------------------------------------------------------------------------
+
+describe('infrastructure/three/entity-instance-pool — releaseSlot swap-with-last', () => {
+  const type: EntityType = 'Zombie'
+  const role: PartRole = 'body' // present on every mob type
+  const translationX = (m: THREE.Matrix4): number => m.elements[12]!
+
+  it('moves the last entity into a freed middle slot, preserving its matrix', () => {
+    const pool = createEntityInstancePool()
+    const scene = new THREE.Scene()
+
+    // Allocate A, B, C → slots 0, 1, 2; give each a distinct translation.
+    expect(Option.getOrThrow(pool.allocateSlot(scene, type, role, 'A'))).toBe(0)
+    expect(Option.getOrThrow(pool.allocateSlot(scene, type, role, 'B'))).toBe(1)
+    expect(Option.getOrThrow(pool.allocateSlot(scene, type, role, 'C'))).toBe(2)
+    pool.setMatrixAt(type, role, 0, new THREE.Matrix4().makeTranslation(10, 0, 0))
+    pool.setMatrixAt(type, role, 1, new THREE.Matrix4().makeTranslation(20, 0, 0))
+    pool.setMatrixAt(type, role, 2, new THREE.Matrix4().makeTranslation(30, 0, 0))
+
+    // Free the MIDDLE entity. C (the last) must swap down into slot 1.
+    pool.releaseSlot(type, role, 'B')
+
+    expect(Option.isNone(pool.getSlot(type, role, 'B'))).toBe(true)
+    expect(Option.getOrThrow(pool.getSlot(type, role, 'A')).slot).toBe(0)
+
+    const cSlot = Option.getOrThrow(pool.getSlot(type, role, 'C'))
+    expect(cSlot.slot).toBe(1)
+    expect(cSlot.bucket.count).toBe(2)
+    expect(cSlot.bucket.mesh.count).toBe(2)
+
+    // The matrix now at slot 1 must be C's (x=30), NOT the released B's (x=20).
+    const got = new THREE.Matrix4()
+    cSlot.bucket.mesh.getMatrixAt(1, got)
+    expect(translationX(got)).toBe(30)
+  })
+
+  it('releasing the last slot needs no swap and just shrinks the count', () => {
+    const pool = createEntityInstancePool()
+    const scene = new THREE.Scene()
+    pool.allocateSlot(scene, type, role, 'A')
+    pool.allocateSlot(scene, type, role, 'B') // B is last (slot 1)
+
+    pool.releaseSlot(type, role, 'B')
+
+    expect(Option.isNone(pool.getSlot(type, role, 'B'))).toBe(true)
+    const aSlot = Option.getOrThrow(pool.getSlot(type, role, 'A'))
+    expect(aSlot.slot).toBe(0)
+    expect(aSlot.bucket.count).toBe(1)
+    expect(aSlot.bucket.mesh.count).toBe(1)
+  })
+
+  it('releasing an untracked entity is a no-op', () => {
+    const pool = createEntityInstancePool()
+    const scene = new THREE.Scene()
+    pool.allocateSlot(scene, type, role, 'A')
+    pool.releaseSlot(type, role, 'ghost') // never allocated
+    const aSlot = Option.getOrThrow(pool.getSlot(type, role, 'A'))
+    expect(aSlot.slot).toBe(0)
+    expect(aSlot.bucket.count).toBe(1)
   })
 })

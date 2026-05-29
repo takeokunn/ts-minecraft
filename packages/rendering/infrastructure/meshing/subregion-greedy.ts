@@ -280,7 +280,6 @@ export const greedyMeshChunkSubregion = (
   const ranges = computeAffectedSlices(options.dirtyAABB)
   const fresh = greedyMeshChunk(chunk, offset, transparentBlockIds, scratch, lightGrids)
   const prevOpaque = options.prev.opaqueRaw
-  const prevWater = options.prev.waterRaw
 
   const opaqueIsAffected: QuadSelector = (q) => {
     const fd = quadAxisDepth(fresh.opaqueRaw.positions, fresh.opaqueRaw.normals, q, offset)
@@ -298,6 +297,7 @@ export const greedyMeshChunkSubregion = (
   const opaqueRaw = decodeRaw(opaqueMeshed)
 
   const freshWater = fresh.waterRaw
+  const prevWater = options.prev.waterRaw
   const waterMeshed: MeshedChunk | null = freshWater === null
     ? null
     : prevWater === null
@@ -327,16 +327,49 @@ export const greedyMeshChunkSubregion = (
         )
   const waterRaw = waterMeshed === null ? null : decodeRaw(waterMeshed)
 
-  let _meshedCache: { opaque: MeshedChunk; water: MeshedChunk } | null = null
-  const toMeshed = (): { opaque: MeshedChunk; water: MeshedChunk } => {
+  // Transparent solid (GLASS, LEAVES): splice same way as water.
+  const freshTransparentSolid = fresh.transparentSolidRaw
+  const prevTransparentSolid = options.prev.transparentSolidRaw
+  const transparentSolidMeshed: MeshedChunk | null = freshTransparentSolid === null
+    ? null
+    : prevTransparentSolid === null
+      ? {
+          positions: freshTransparentSolid.positions.slice(),
+          normals: freshTransparentSolid.normals.slice(),
+          colors: freshTransparentSolid.colors.slice(),
+          uvs: freshTransparentSolid.uvs.slice(),
+          tileIndexes: freshTransparentSolid.tileIndexes.slice(),
+          indices: freshTransparentSolid.indices.slice(),
+        }
+      : spliceMesh(
+          prevTransparentSolid,
+          freshTransparentSolid,
+          (q) => {
+            const fd = quadAxisDepth(prevTransparentSolid.positions, prevTransparentSolid.normals, q, offset)
+            return fd === null
+              ? !fluidQuadIsAffected(prevTransparentSolid.positions, q, offset, options.dirtyAABB)
+              : !quadIsAffected(fd.axis, fd.depth, ranges)
+          },
+          (q) => {
+            const fd = quadAxisDepth(freshTransparentSolid.positions, freshTransparentSolid.normals, q, offset)
+            return fd === null
+              ? fluidQuadIsAffected(freshTransparentSolid.positions, q, offset, options.dirtyAABB)
+              : quadIsAffected(fd.axis, fd.depth, ranges)
+          },
+        )
+  const transparentSolidRaw = transparentSolidMeshed === null ? null : decodeRaw(transparentSolidMeshed)
+
+  let _meshedCache: { opaque: MeshedChunk; water: MeshedChunk; transparentSolid: MeshedChunk } | null = null
+  const toMeshed = (): { opaque: MeshedChunk; water: MeshedChunk; transparentSolid: MeshedChunk } => {
     if (_meshedCache === null) {
       _meshedCache = {
         opaque: opaqueMeshed,
         water: waterMeshed ?? EMPTY_MESHED_CHUNK,
+        transparentSolid: transparentSolidMeshed ?? EMPTY_MESHED_CHUNK,
       }
     }
     return _meshedCache
   }
 
-  return { opaqueRaw, waterRaw, toMeshed }
+  return { opaqueRaw, waterRaw, transparentSolidRaw, toMeshed }
 }

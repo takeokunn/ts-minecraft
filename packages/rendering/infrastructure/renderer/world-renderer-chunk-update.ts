@@ -16,6 +16,35 @@ export type UpdateChunkContext = {
   readonly invalidateSceneCaches: () => Effect.Effect<void, never>
 }
 
+const syncOptionalMeshInScene = (
+  scene: THREE.Scene,
+  sceneService: SceneService,
+  waterMeshesRef: Ref.Ref<ReadonlyArray<THREE.Mesh>>,
+  prevMesh: Option.Option<THREE.Mesh>,
+  nextMesh: Option.Option<THREE.Mesh>,
+): Effect.Effect<void, never> =>
+  Option.match(prevMesh, {
+    onNone: () => Option.match(nextMesh, {
+      onNone: () => Effect.void,
+      onSome: (m) => sceneService.add(scene, m).pipe(
+        Effect.andThen(Ref.update(waterMeshesRef, (arr) => Arr.append(arr, m)))
+      ),
+    }),
+    onSome: (oldMesh) => Option.match(nextMesh, {
+      onNone: () => sceneService.remove(scene, oldMesh).pipe(
+        Effect.andThen(Ref.update(waterMeshesRef, (arr) => Arr.filter(arr, (mesh) => mesh !== oldMesh)))
+      ),
+      onSome: (newMesh) => oldMesh === newMesh
+        /* c8 ignore next 6 */
+        ? Effect.void
+        : Effect.all([
+          sceneService.remove(scene, oldMesh),
+          sceneService.add(scene, newMesh),
+          Ref.update(waterMeshesRef, (arr) => Arr.append(Arr.filter(arr, (mesh) => mesh !== oldMesh), newMesh)),
+        ], { concurrency: 'unbounded', discard: true }),
+    }),
+  })
+
 /**
  * Re-meshes a single chunk in place; call after block break/place for the
  * affected chunk. FR-4.2: optionally accepts the chunk's accumulated dirty
@@ -36,34 +65,15 @@ export const updateChunkInScene = (
       onSome: (existing) =>
         // Reuse the existing mesh: update geometry in place, avoiding scene graph mutation.
         // FR-4.2: thread dirtyAABB; preserves existing.lod via positional 5th arg.
-        chunkMeshService.updateChunkMesh(existing.opaque, existing.water, chunk, waterMaterial, undefined, dirtyAABB).pipe(
-          Effect.flatMap((nextWaterMesh) => {
-            const updateWaterScene = Option.match(existing.water, {
-              onNone: () => Option.match(nextWaterMesh, {
-                onNone: () => Effect.void,
-                onSome: (m) => sceneService.add(scene, m).pipe(
-                  Effect.andThen(Ref.update(waterMeshesRef, (waterMeshes) => Arr.append(waterMeshes, m)))
-                ),
-              }),
-              onSome: (oldWaterMesh) => Option.match(nextWaterMesh, {
-                onNone: () => sceneService.remove(scene, oldWaterMesh).pipe(
-                  Effect.andThen(Ref.update(waterMeshesRef, (waterMeshes) => Arr.filter(waterMeshes, (mesh) => mesh !== oldWaterMesh)))
-                ),
-                onSome: (newWaterMesh) => oldWaterMesh === newWaterMesh
-                  /* c8 ignore next 6 */
-                  ? Effect.void
-                  : Effect.all([
-                    sceneService.remove(scene, oldWaterMesh),
-                    sceneService.add(scene, newWaterMesh),
-                    Ref.update(waterMeshesRef, (waterMeshes) => Arr.append(Arr.filter(waterMeshes, (mesh) => mesh !== oldWaterMesh), newWaterMesh)),
-                  ], { concurrency: 'unbounded', discard: true }),
-              }),
-            })
+        chunkMeshService.updateChunkMesh(existing.opaque, existing.water, chunk, waterMaterial, undefined, dirtyAABB, existing.transparentSolid).pipe(
+          Effect.flatMap(({ waterMesh: nextWaterMesh, transparentSolidMesh: nextTransparentSolidMesh }) => {
+            const updateWaterScene = syncOptionalMeshInScene(scene, sceneService, waterMeshesRef, existing.water, nextWaterMesh)
+            const updateTransparentSolidScene = syncOptionalMeshInScene(scene, sceneService, waterMeshesRef, existing.transparentSolid, nextTransparentSolidMesh)
 
-            return updateWaterScene.pipe(
+            return Effect.all([updateWaterScene, updateTransparentSolidScene], { concurrency: 'unbounded', discard: true }).pipe(
               // FR-3.1: preserve the existing chunk's LOD when re-meshing in
               // place (block break / place doesn't change distance band).
-              Effect.andThen(Ref.update(meshesRef, (map) => HashMap.set(map, key, { opaque: existing.opaque, water: nextWaterMesh, lod: existing.lod }))),
+              Effect.andThen(Ref.update(meshesRef, (map) => HashMap.set(map, key, { opaque: existing.opaque, water: nextWaterMesh, transparentSolid: nextTransparentSolidMesh, lod: existing.lod }))),
               Effect.andThen(invalidateSceneCaches())
             )
           })
@@ -71,7 +81,7 @@ export const updateChunkInScene = (
       onNone: () =>
         // First time this chunk appears — create and register a new mesh
         chunkMeshService.createChunkMesh(chunk, waterMaterial).pipe(
-          Effect.flatMap(({ opaqueMesh, waterMesh }) =>
+          Effect.flatMap(({ opaqueMesh, waterMesh, transparentSolidMesh }) =>
               Effect.all([
                 sceneService.add(scene, opaqueMesh),
                 Option.match(waterMesh, {
@@ -81,12 +91,16 @@ export const updateChunkInScene = (
                     Effect.andThen(Ref.update(waterMeshesRef, (waterMeshes) => Arr.append(waterMeshes, m)))
                   ),
               }),
+                Option.match(transparentSolidMesh, {
+                  onNone: () => Effect.void,
+                  onSome: (m) => sceneService.add(scene, m),
+                }),
               ], { concurrency: 'unbounded', discard: true }).pipe(
               // FR-3.1: when a chunk first appears via the dirty-update path
               // (e.g. far-side block edit before the sync-loop gets to it),
               // default to LOD 0. The sync-loop will reconcile the LOD on
               // its next pass via the `hasLodChanges` detector.
-              Effect.andThen(Ref.update(meshesRef, (map) => HashMap.set(map, key, { opaque: opaqueMesh, water: waterMesh, lod: 0 }))),
+              Effect.andThen(Ref.update(meshesRef, (map) => HashMap.set(map, key, { opaque: opaqueMesh, water: waterMesh, transparentSolid: transparentSolidMesh, lod: 0 }))),
               Effect.andThen(invalidateSceneCaches())
             )
           )

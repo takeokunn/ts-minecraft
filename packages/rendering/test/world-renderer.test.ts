@@ -70,6 +70,7 @@ vi.mock('three', () => ({
   ClampToEdgeWrapping: 0,
   RGBAFormat: 0,
   FrontSide: 0,
+  DoubleSide: 2,
 }))
 
 import { Effect, Option } from 'effect'
@@ -143,7 +144,7 @@ describe('infrastructure/three/world-renderer', () => {
 
      it.effect('should remove meshes for stale chunks', () => {
        const createChunkMesh = vi.fn((chunk: Chunk) =>
-         Effect.succeed({ opaqueMesh: makeMockMesh(chunk.coord) as THREE.Mesh, waterMesh: Option.none<THREE.Mesh>() })
+         Effect.succeed({ opaqueMesh: makeMockMesh(chunk.coord) as THREE.Mesh, waterMesh: Option.none<THREE.Mesh>(), transparentSolidMesh: Option.none<THREE.Mesh>() })
        )
       const TestLayer = buildTestLayer(createChunkMesh)
       const scene = makeScene()
@@ -189,7 +190,7 @@ describe('infrastructure/three/world-renderer', () => {
   describe('clearScene', () => {
      it.effect('should remove all tracked chunk meshes', () => {
        const createChunkMesh = vi.fn((chunk: Chunk) =>
-         Effect.succeed({ opaqueMesh: makeMockMesh(chunk.coord) as THREE.Mesh, waterMesh: Option.none<THREE.Mesh>() })
+         Effect.succeed({ opaqueMesh: makeMockMesh(chunk.coord) as THREE.Mesh, waterMesh: Option.none<THREE.Mesh>(), transparentSolidMesh: Option.none<THREE.Mesh>() })
        )
       const TestLayer = buildTestLayer(createChunkMesh)
       const scene = makeScene()

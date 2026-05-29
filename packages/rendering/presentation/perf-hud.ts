@@ -44,10 +44,14 @@ const isPerfDebugEnabled = (): boolean => {
 const formatNumber = (n: number, decimals: number): string =>
   Number.isFinite(n) ? n.toFixed(decimals) : '--'
 
-// Compute p50/p99 from a populated ring buffer.
-// `validLength` is min(filled, capacity) — accounts for the warm-up window
-// before the ring has wrapped.
-const computePercentiles = (
+// Compute p50/p99 (in milliseconds) from a populated ring buffer of frame
+// durations (seconds). `validLength` is min(filled, capacity) — accounts for
+// the warm-up window before the ring has wrapped. Percentiles are
+// order-independent, so the circular buffer's chronological scrambling after
+// wrap-around is irrelevant: only the populated prefix [0, validLength) is read.
+// Exported for unit testing — the rest of the active path needs a DOM/window
+// gate that rendering's node-env tests can't provide.
+export const computePercentiles = (
   ring: Float64Array,
   scratch: Float64Array,
   validLength: number,

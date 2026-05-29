@@ -8,6 +8,7 @@ export type WaterMaterialUniforms = {
   readonly uCameraPosition: WaterUniform<THREE.Vector3>
   readonly uResolution: WaterUniform<THREE.Vector2>
   readonly uRefractionValid: WaterUniform<boolean>
+  readonly uSunIntensity: WaterUniform<number>
 }
 
 export type WaterMaterial = THREE.ShaderMaterial & {
@@ -40,6 +41,7 @@ uniform sampler2D uRefractionMap;
 uniform vec3 uCameraPosition;
 uniform vec2 uResolution;
 uniform bool uRefractionValid;
+uniform float uSunIntensity;
 
 varying vec3 vWorldPos;
 varying vec3 vNormal;
@@ -69,13 +71,16 @@ void main() {
 
   vec3 viewDir = normalize(uCameraPosition - vWorldPos);
   vec3 n = normalize(vNormal);
-  // Schlick-style Fresnel approximation: x*x*x ≈ pow(x, 2.6) — saves a GPU transcendental
+  // Schlick Fresnel (F0 = 0.02 for water) — F0 + (1 - F0) * (1 - cosθ)^5,
+  // computed via squared/quartic terms to avoid a GPU pow() transcendental.
   float NdotV = 1.0 - max(dot(viewDir, n), 0.0);
-  float fresnel = NdotV * NdotV * NdotV;
+  float f2 = NdotV * NdotV;
+  float f5 = f2 * f2 * NdotV;
+  float fresnel = 0.02 + 0.98 * f5;
 
   vec4 shallowColor = vec4(0.10, 0.42, 0.64, 0.84);
   vec4 deepColor = vec4(0.02, 0.16, 0.40, 0.92);
-  float depthFactor = clamp(0.45 + fresnel * 0.35, 0.0, 1.0);
+  float depthFactor = clamp(0.55 + (1.0 - fresnel) * 0.4, 0.0, 1.0);
   vec4 waterTint = mix(shallowColor, deepColor, depthFactor);
 
   // Approximate sky reflection — replaces SSR post-processing pass.
@@ -83,7 +88,9 @@ void main() {
   // skyFactor maps the reflected Y component to [0,1]: looking up = bright sky, down = dark horizon.
   vec3 reflectDir = reflect(-viewDir, n);
   float skyFactor = clamp(reflectDir.y * 0.5 + 0.5, 0.0, 1.0);
-  vec3 skyColor = mix(vec3(0.6, 0.7, 0.9), vec3(0.3, 0.5, 0.85), skyFactor);
+  vec3 daySky = mix(vec3(0.6, 0.7, 0.9), vec3(0.3, 0.5, 0.85), skyFactor);
+  vec3 nightSky = mix(vec3(0.04, 0.06, 0.12), vec3(0.02, 0.03, 0.07), skyFactor);
+  vec3 skyColor = mix(nightSky, daySky, uSunIntensity);
 
   // Fresnel-weighted blend: at glancing angles show more sky reflection,
   // at steep angles show more refraction / water tint.
@@ -92,8 +99,9 @@ void main() {
     ? texture2D(uRefractionMap, screenUV + distort)
     : waterTint;
   vec4 color = uRefractionValid
-    ? mix(refracted, vec4(mix(skyColor, waterTint.rgb, 0.5), waterTint.a), fresnel * 0.45 + 0.12)
+    ? mix(refracted, vec4(mix(skyColor, waterTint.rgb, 0.4), waterTint.a), clamp(fresnel, 0.05, 0.95))
     : vec4(mix(skyColor, waterTint.rgb, 0.3), waterTint.a);
+  color.rgb *= (0.30 + 0.70 * uSunIntensity);
   color.a = 0.86;
 
   gl_FragColor = color;
@@ -111,6 +119,7 @@ export const createWaterMaterial = (
     uCameraPosition: { value: new THREE.Vector3() },
     uResolution: { value: new THREE.Vector2(width, height) },
     uRefractionValid: { value: false },
+    uSunIntensity: { value: 1.0 },
   } satisfies WaterMaterialUniforms
 
   return Object.assign(new THREE.ShaderMaterial({

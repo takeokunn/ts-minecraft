@@ -46,7 +46,7 @@ const getOrCreateMaterial = (key: string, color: number): THREE.MeshStandardMate
   Option.match(MutableHashMap.get(materialCache, key), {
     onSome: (cached) => cached,
     onNone: () => {
-      const m = new THREE.MeshStandardMaterial({ color, roughness: 0.9, metalness: 0.0 })
+      const m = new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: 0.12, roughness: 0.9, metalness: 0.0 })
       MutableHashMap.set(materialCache, key, m)
       return m
     },
@@ -198,6 +198,36 @@ const buildQuadruped = (
   return { root, head, body, armL: null, armR: null, legFL, legFR, legBL, legBR }
 }
 
+const CREEPER_PARTS: QuadrupedParts = {
+  head: [0.5, 0.5, 0.5],
+  body: [0.5, 0.75, 0.375],
+  leg: [0.25, 0.5, 0.25],
+}
+const CREEPER_PALETTE: QuadrupedPalette = { head: 0x2d5c1e, body: 0x2d5c1e, leg: 0x2d5c1e }
+
+const SKELETON_PARTS: ZombieParts = {
+  head: [0.5, 0.5, 0.5],
+  body: [0.5, 0.75, 0.125],
+  arm: [0.125, 0.75, 0.125],
+  leg: [0.25, 0.75, 0.25],
+}
+const SKELETON_PALETTE: ZombiePalette = { head: 0xf0f0f0, body: 0xf0f0f0, arm: 0xf0f0f0, leg: 0xf0f0f0 }
+
+const SPIDER_PARTS: QuadrupedParts = {
+  head: [0.5, 0.375, 0.5],
+  body: [1.5, 0.375, 0.75],
+  leg: [0.125, 0.5, 0.125],
+}
+const SPIDER_PALETTE: QuadrupedPalette = { head: 0x2a2a2a, body: 0x2a2a2a, leg: 0x2a2a2a }
+
+const ENDERMAN_PARTS: ZombieParts = {
+  head: [0.5, 0.5, 0.5],
+  body: [0.375, 0.875, 0.25],
+  arm: [0.125, 1.5, 0.125],
+  leg: [0.125, 3.0, 0.125],
+}
+const ENDERMAN_PALETTE: ZombiePalette = { head: 0x1a0d2e, body: 0x111111, arm: 0x111111, leg: 0x111111 }
+
 export const buildMobGroup = (type: EntityType): MobLimbGroup => {
   switch (type) {
     case 'Zombie':
@@ -208,5 +238,13 @@ export const buildMobGroup = (type: EntityType): MobLimbGroup => {
       return buildQuadruped('Pig', PIG_PARTS, PIG_PALETTE)
     case 'Sheep':
       return buildQuadruped('Sheep', SHEEP_PARTS, SHEEP_PALETTE)
+    case 'Creeper':
+      return buildQuadruped('Creeper', CREEPER_PARTS, CREEPER_PALETTE)
+    case 'Skeleton':
+      return buildBiped('Skeleton', SKELETON_PARTS, SKELETON_PALETTE)
+    case 'Spider':
+      return buildQuadruped('Spider', SPIDER_PARTS, SPIDER_PALETTE)
+    case 'Enderman':
+      return buildBiped('Enderman', ENDERMAN_PARTS, ENDERMAN_PALETTE)
   }
 }

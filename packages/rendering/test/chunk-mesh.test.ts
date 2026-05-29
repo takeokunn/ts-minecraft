@@ -57,21 +57,25 @@ const ChunkMeshServiceTest = Layer.succeed(
       _tag: '@minecraft/infrastructure/three/ChunkMeshService' as const,
       atlasTexture: new THREE.Texture(),
 
-      createChunkMesh: (chunk: Chunk): Effect.Effect<{ opaqueMesh: THREE.Mesh; waterMesh: Option.Option<THREE.Mesh> }, never> =>
+      createChunkMesh: (chunk: Chunk): Effect.Effect<{ opaqueMesh: THREE.Mesh; waterMesh: Option.Option<THREE.Mesh>; transparentSolidMesh: Option.Option<THREE.Mesh> }, never> =>
         Effect.sync(() => {
           const geometry = buildGeometry(chunk)
           const opaqueMesh = new THREE.Mesh(geometry, sharedMaterial)
           opaqueMesh.userData['chunkCoord'] = chunk.coord
-          return { opaqueMesh, waterMesh: Option.none() }
+          return { opaqueMesh, waterMesh: Option.none(), transparentSolidMesh: Option.none() }
         }),
 
-      updateChunkMesh: (opaqueMesh: THREE.Mesh, _waterMesh: Option.Option<THREE.Mesh>, chunk: Chunk): Effect.Effect<Option.Option<THREE.Mesh>, never> =>
+      updateChunkMesh: (
+        opaqueMesh: THREE.Mesh,
+        _waterMesh: Option.Option<THREE.Mesh>,
+        chunk: Chunk,
+      ): Effect.Effect<{ waterMesh: Option.Option<THREE.Mesh>; transparentSolidMesh: Option.Option<THREE.Mesh> }, never> =>
         Effect.sync(() => {
           const oldGeometry = opaqueMesh.geometry
           opaqueMesh.geometry = buildGeometry(chunk)
           opaqueMesh.userData['chunkCoord'] = chunk.coord
           oldGeometry.dispose()
-          return _waterMesh
+          return { waterMesh: _waterMesh, transparentSolidMesh: Option.none() }
         }),
 
       disposeMesh: (mesh: THREE.Mesh): Effect.Effect<void, never> =>

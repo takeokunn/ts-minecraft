@@ -73,9 +73,11 @@ export const makeMockMesh = (coord: { x: number; z: number }): THREE.Mesh => {
 // We use Layer.effect to construct WorldRendererService with injected mocks.
 export const buildTestLayer = (
   createChunkMesh: ReturnType<typeof vi.fn> = vi.fn((chunk: Chunk) =>
-    Effect.succeed({ opaqueMesh: makeMockMesh(chunk.coord), waterMesh: Option.none<THREE.Mesh>() })
+    Effect.succeed({ opaqueMesh: makeMockMesh(chunk.coord), waterMesh: Option.none<THREE.Mesh>(), transparentSolidMesh: Option.none<THREE.Mesh>() })
   ),
-  updateChunkMesh: ReturnType<typeof vi.fn> = vi.fn((_m: THREE.Mesh, w: Option.Option<THREE.Mesh>) => Effect.succeed(w)),
+  updateChunkMesh: ReturnType<typeof vi.fn> = vi.fn((_m: THREE.Mesh, w: Option.Option<THREE.Mesh>) =>
+    Effect.succeed({ waterMesh: w, transparentSolidMesh: Option.none<THREE.Mesh>() })
+  ),
   sceneAdd: ReturnType<typeof vi.fn> = vi.fn((_s: unknown, _m: unknown) => Effect.void),
   sceneRemove: ReturnType<typeof vi.fn> = vi.fn((_s: unknown, _m: unknown) => Effect.void)
 ) => {

@@ -22,8 +22,9 @@ const ChunkMeshServiceTest = Layer.succeed(
     atlasTexture: new THREE.Texture(),
     setSunIntensity: (_value: number) => Effect.void,
     createChunkMesh: () =>
-      Effect.succeed({ opaqueMesh: new THREE.Mesh(), waterMesh: Option.none<THREE.Mesh>() }),
-    updateChunkMesh: (_opaqueMesh: THREE.Mesh, waterMesh: Option.Option<THREE.Mesh>) => Effect.succeed(waterMesh),
+      Effect.succeed({ opaqueMesh: new THREE.Mesh(), waterMesh: Option.none<THREE.Mesh>(), transparentSolidMesh: Option.none<THREE.Mesh>() }),
+    updateChunkMesh: (_opaqueMesh: THREE.Mesh, waterMesh: Option.Option<THREE.Mesh>) =>
+      Effect.succeed({ waterMesh, transparentSolidMesh: Option.none<THREE.Mesh>() }),
     disposeMesh: () => Effect.void,
     releasePrevCachedMesh: () => Effect.void,
   }),

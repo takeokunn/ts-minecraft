@@ -38,6 +38,11 @@ export const MeshRequestSchema = Schema.Struct({
   wx: Schema.Number.pipe(Schema.int()),
   wz: Schema.Number.pipe(Schema.int()),
   transparentBlockIds: Schema.Array(Schema.Number.pipe(Schema.int(), Schema.nonNegative())),
+  // Transparent-solid block IDs (GLASS, LEAVES) — atlas material + alpha blending, NOT water shader.
+  transparentSolidBlockIds: Schema.optionalWith(
+    Schema.Array(Schema.Number.pipe(Schema.int(), Schema.nonNegative())),
+    { default: () => [] as readonly number[] }
+  ),
   // FR-3.2: LOD level applied AFTER greedy meshing. Optional with default 0
   // so legacy senders (no `lod` field) still produce LOD-0 meshes.
   lod: Schema.optionalWith(LodLevelSchema, { default: () => 0 as const }),
@@ -76,7 +81,7 @@ self.onmessage = (e: MessageEvent<unknown>): void => {
   // dirtyAABB is accepted but currently unused — the worker always returns a
   // full re-mesh; sub-region splicing is performed on the main thread (only
   // the main thread has access to the previous WorkerMeshResult).
-  const { id, blocks, fluid, skyLight, blockLight, wx, wz, transparentBlockIds, lod } = req
+  const { id, blocks, fluid, skyLight, blockLight, wx, wz, transparentBlockIds, transparentSolidBlockIds, lod } = req
 
   // Reconstruct a minimal Chunk — greedyMeshChunk only reads chunk.blocks; coord
   // is required by the type but unused inside the meshing algorithm (offset carries
@@ -102,6 +107,7 @@ self.onmessage = (e: MessageEvent<unknown>): void => {
     new Set(transparentBlockIds),
     scratch,
     lightGrids,
+    new Set(transparentSolidBlockIds),
   )
 
   // toMeshed() calls .slice() on each accumulator subarray, producing owned ArrayBuffers
@@ -114,6 +120,7 @@ self.onmessage = (e: MessageEvent<unknown>): void => {
   // shader benefits from full vertex resolution for ripples.
   const opaque = lod === 0 ? meshed.opaque : simplifyMesh(meshed.opaque, lod)
   const hasWater = meshed.water.positions.length > 0
+  const hasTransparentSolid = meshed.transparentSolid.positions.length > 0
 
   const transferList: ArrayBuffer[] = [
     opaque.positions.buffer,
@@ -135,6 +142,17 @@ self.onmessage = (e: MessageEvent<unknown>): void => {
     )
   }
 
+  if (hasTransparentSolid) {
+    transferList.push(
+      meshed.transparentSolid.positions.buffer,
+      meshed.transparentSolid.normals.buffer,
+      meshed.transparentSolid.colors.buffer,
+      meshed.transparentSolid.uvs.buffer,
+      meshed.transparentSolid.tileIndexes.buffer,
+      meshed.transparentSolid.indices.buffer,
+    )
+  }
+
   self.postMessage(
     {
       id,
@@ -150,6 +168,12 @@ self.onmessage = (e: MessageEvent<unknown>): void => {
       wuvs: hasWater ? meshed.water.uvs : null,
       wtileIndexes: hasWater ? meshed.water.tileIndexes : null,
       windices: hasWater ? meshed.water.indices : null,
+      tspositions: hasTransparentSolid ? meshed.transparentSolid.positions : null,
+      tsnormals: hasTransparentSolid ? meshed.transparentSolid.normals : null,
+      tscolors: hasTransparentSolid ? meshed.transparentSolid.colors : null,
+      tsuvs: hasTransparentSolid ? meshed.transparentSolid.uvs : null,
+      tstileIndexes: hasTransparentSolid ? meshed.transparentSolid.tileIndexes : null,
+      tsindices: hasTransparentSolid ? meshed.transparentSolid.indices : null,
     },
     transferList
   )

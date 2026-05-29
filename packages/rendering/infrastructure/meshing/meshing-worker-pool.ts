@@ -8,9 +8,16 @@ import { CHUNK_SIZE, blockTypeToIndex, type ChunkCoord } from '@ts-minecraft/ker
 import type { Chunk, ChunkAABB } from '@ts-minecraft/terrain'
 
 // Single source of truth for transparent block IDs used by the meshing pipeline.
-// Array form is sent with each worker message; Set form is used in the synchronous fallback.
+// Fluid IDs (WATER) use the water ShaderMaterial with ripple/refraction effects.
+// Transparent-solid IDs (GLASS, LEAVES) use the atlas material + alpha blending.
+// Array forms are sent with each worker message; Set forms are used in the synchronous fallback.
 const TRANSPARENT_IDS_ARRAY: readonly number[] = [blockTypeToIndex('WATER')]
 const TRANSPARENT_IDS_SET = new Set(TRANSPARENT_IDS_ARRAY)
+const TRANSPARENT_SOLID_IDS_ARRAY: readonly number[] = [
+  blockTypeToIndex('GLASS'),
+  blockTypeToIndex('LEAVES'),
+]
+const TRANSPARENT_SOLID_IDS_SET = new Set(TRANSPARENT_SOLID_IDS_ARRAY)
 
 const MESHING_WORKER_TIMEOUT = '3 seconds'
 
@@ -73,7 +80,7 @@ const createSyncChunkMesher = (): SyncChunkMesher => {
             scratch,
             lights,
           )
-        : greedyMeshChunk(chunk, offset, TRANSPARENT_IDS_SET, scratch, lights)
+        : greedyMeshChunk(chunk, offset, TRANSPARENT_IDS_SET, scratch, lights, TRANSPARENT_SOLID_IDS_SET)
 
     // Update the cache only for LOD 0 (LOD 1/2 produces simplified buffers
     // we cannot use as a future splice prev). Cache is updated regardless of
@@ -89,6 +96,7 @@ const createSyncChunkMesher = (): SyncChunkMesher => {
     return {
       opaque,
       water: meshed.water.positions.length > 0 ? meshed.water : null,
+      transparentSolid: meshed.transparentSolid.positions.length > 0 ? meshed.transparentSolid : null,
     }
   }
 
@@ -114,37 +122,47 @@ const extractResponseId = (data: unknown): number | null => {
   return typeof id === 'number' && Number.isInteger(id) && id >= 0 ? id : null
 }
 
-const toMeshedWater = (response: WorkerResponse): MeshedChunk | null => {
+const toNullableMeshed = (
+  positions: Float32Array | null,
+  normals: Int8Array | null,
+  colors: Uint8Array | null,
+  uvs: Float32Array | null,
+  tileIndexes: Float32Array | null,
+  indices: Uint32Array | null,
+  meshName: string,
+): MeshedChunk | null => {
   if (
-    response.wpositions === null
-    && response.wnormals === null
-    && response.wcolors === null
-    && response.wuvs === null
-    && response.wtileIndexes === null
-    && response.windices === null
+    positions === null
+    && normals === null
+    && colors === null
+    && uvs === null
+    && tileIndexes === null
+    && indices === null
   ) {
     return null
   }
 
   if (
-    response.wpositions !== null
-    && response.wnormals !== null
-    && response.wcolors !== null
-    && response.wuvs !== null
-    && response.wtileIndexes !== null
-    && response.windices !== null
+    positions !== null
+    && normals !== null
+    && colors !== null
+    && uvs !== null
+    && tileIndexes !== null
+    && indices !== null
   ) {
+    // postMessage with transfer always detaches the underlying ArrayBuffer —
+    // the received typed arrays always have a plain ArrayBuffer backing store.
     return {
-      positions: response.wpositions,
-      normals: response.wnormals,
-      colors: response.wcolors,
-      uvs: response.wuvs,
-      tileIndexes: response.wtileIndexes,
-      indices: response.windices,
+      positions: positions as Float32Array<ArrayBuffer>,
+      normals: normals as Int8Array<ArrayBuffer>,
+      colors: colors as Uint8Array<ArrayBuffer>,
+      uvs: uvs as Float32Array<ArrayBuffer>,
+      tileIndexes: tileIndexes as Float32Array<ArrayBuffer>,
+      indices: indices as Uint32Array<ArrayBuffer>,
     }
   }
 
-  throw new Error('Malformed meshing worker response: incomplete water mesh payload')
+  throw new Error(`Malformed meshing worker response: incomplete ${meshName} mesh payload`)
 }
 
 const toWorkerMeshResult = (response: WorkerResponse): WorkerMeshResult => ({
@@ -156,7 +174,16 @@ const toWorkerMeshResult = (response: WorkerResponse): WorkerMeshResult => ({
     tileIndexes: response.otileIndexes,
     indices: response.oindices,
   },
-  water: toMeshedWater(response),
+  water: toNullableMeshed(
+    response.wpositions, response.wnormals, response.wcolors,
+    response.wuvs, response.wtileIndexes, response.windices,
+    'water',
+  ),
+  transparentSolid: toNullableMeshed(
+    response.tspositions, response.tsnormals, response.tscolors,
+    response.tsuvs, response.tstileIndexes, response.tsindices,
+    'transparentSolid',
+  ),
 })
 
 const toMeshingWorkerError = (error: unknown, prefix: string): Error => {
@@ -193,11 +220,13 @@ const rejectAllPendingRequests = (
 export const WorkerMeshResultSchema = Schema.Struct({
   opaque: MeshedChunkSchema,
   water: Schema.NullOr(MeshedChunkSchema),
+  transparentSolid: Schema.NullOr(MeshedChunkSchema),
 })
 export type WorkerMeshResult = Schema.Schema.Type<typeof WorkerMeshResultSchema>
 
 // Typed shape of the message returned by meshing-worker.ts.
-// 'o' prefix = opaque, 'w' prefix = water. null water arrays mean no transparent faces.
+// 'o' prefix = opaque, 'w' prefix = water, 'ts' prefix = transparent solid (GLASS/LEAVES).
+// null arrays mean no faces of that type in this chunk.
 // ArrayBuffer (not ArrayBufferLike) because postMessage with transfer always detaches
 // the underlying ArrayBuffer — SharedArrayBuffer cannot be transferred this way.
 const WorkerResponseSchema = Schema.Struct({
@@ -214,6 +243,12 @@ const WorkerResponseSchema = Schema.Struct({
   wuvs: Schema.NullOr(Schema.instanceOf(Float32Array)),
   wtileIndexes: Schema.NullOr(Schema.instanceOf(Float32Array)),
   windices: Schema.NullOr(Schema.instanceOf(Uint32Array)),
+  tspositions: Schema.NullOr(Schema.instanceOf(Float32Array)),
+  tsnormals: Schema.NullOr(Schema.instanceOf(Int8Array)),
+  tscolors: Schema.NullOr(Schema.instanceOf(Uint8Array)),
+  tsuvs: Schema.NullOr(Schema.instanceOf(Float32Array)),
+  tstileIndexes: Schema.NullOr(Schema.instanceOf(Float32Array)),
+  tsindices: Schema.NullOr(Schema.instanceOf(Uint32Array)),
 })
 type WorkerResponse = Schema.Schema.Type<typeof WorkerResponseSchema>
 
@@ -429,6 +464,7 @@ export class MeshingWorkerPool extends Effect.Service<MeshingWorkerPool>()(
                   wx: chunk.coord.x * CHUNK_SIZE,
                   wz: chunk.coord.z * CHUNK_SIZE,
                   transparentBlockIds: TRANSPARENT_IDS_ARRAY,
+                  transparentSolidBlockIds: TRANSPARENT_SOLID_IDS_ARRAY,
                   // FR-3.2: include LOD so the worker can apply simplification
                   // before transferring the meshed buffers back.
                   lod: options?.lod ?? 0,

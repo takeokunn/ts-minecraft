@@ -81,6 +81,7 @@ vi.mock('three', () => ({
   ClampToEdgeWrapping: 0,
   RGBAFormat: 0,
   FrontSide: 0,
+  DoubleSide: 2,
 }))
 
 import { Effect, MutableRef, Ref } from 'effect'

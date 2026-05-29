@@ -1,5 +1,5 @@
 import type { BlockType } from '@ts-minecraft/kernel'
-import { CHUNK_SIZE } from '@ts-minecraft/kernel'
+import { CHUNK_SIZE, blockTypeToIndex } from '@ts-minecraft/kernel'
 import { greedyMeshChunk } from '@ts-minecraft/rendering'
 import { Array as Arr,MutableHashSet } from 'effect'
 import { describe,expect,it } from 'vitest'
@@ -245,4 +245,110 @@ describe('greedyMeshChunk', () => {
     })
   })
 
+})
+
+// ─── Transparent solid (GLASS / LEAVES) meshing ─────────────────────────────
+
+describe('greedyMeshChunk transparent solid meshing', () => {
+  const GLASS_ID = blockTypeToIndex('GLASS')
+  const LEAVES_ID = blockTypeToIndex('LEAVES')
+  const transparentSolidIds = new Set([GLASS_ID, LEAVES_ID])
+
+  it('GLASS block with transparent solid IDs goes to transparentSolid mesh, not opaque', () => {
+    const chunk = makeChunkWithBlock(ZERO_COORD, 0, 0, 0, 'GLASS')
+    const result = greedyMeshChunk(chunk, ZERO_OFFSET, new Set(), undefined, undefined, transparentSolidIds)
+
+    expect(result.toMeshed().opaque.positions.length).toBe(0)
+    expect(result.toMeshed().water.positions.length).toBe(0)
+    expect(result.toMeshed().transparentSolid.positions.length).toBeGreaterThan(0)
+  })
+
+  it('LEAVES block with transparent solid IDs goes to transparentSolid mesh, not opaque', () => {
+    const chunk = makeChunkWithBlock(ZERO_COORD, 3, 5, 3, 'LEAVES')
+    const result = greedyMeshChunk(chunk, ZERO_OFFSET, new Set(), undefined, undefined, transparentSolidIds)
+
+    expect(result.toMeshed().opaque.positions.length).toBe(0)
+    expect(result.toMeshed().water.positions.length).toBe(0)
+    expect(result.toMeshed().transparentSolid.positions.length).toBeGreaterThan(0)
+  })
+
+  it('GLASS block without transparent solid IDs remains in opaque mesh (backward compat)', () => {
+    const chunk = makeChunkWithBlock(ZERO_COORD, 0, 0, 0, 'GLASS')
+    const result = greedyMeshChunk(chunk, ZERO_OFFSET)
+
+    expect(result.toMeshed().opaque.positions.length).toBeGreaterThan(0)
+    expect(result.toMeshed().transparentSolid.positions.length).toBe(0)
+  })
+
+  it('GLASS block produces 6 faces in transparentSolid mesh', () => {
+    const chunk = makeChunkWithBlock(ZERO_COORD, 0, 0, 0, 'GLASS')
+    const result = greedyMeshChunk(chunk, ZERO_OFFSET, new Set(), undefined, undefined, transparentSolidIds)
+
+    // 6 faces × 4 vertices × 3 floats = 72 position components
+    expect(result.toMeshed().transparentSolid.positions.length).toBe(72)
+    // 6 faces × 2 triangles × 3 indices = 36 indices
+    expect(result.toMeshed().transparentSolid.indices.length).toBe(36)
+  })
+
+  it('transparentSolidRaw is null when no transparent solid blocks present', () => {
+    const chunk = makeChunkWithBlock(ZERO_COORD, 0, 0, 0, 'DIRT')
+    const result = greedyMeshChunk(chunk, ZERO_OFFSET, new Set(), undefined, undefined, transparentSolidIds)
+
+    expect(result.transparentSolidRaw).toBeNull()
+    expect(result.toMeshed().transparentSolid.positions.length).toBe(0)
+  })
+
+  it('mixed chunk: DIRT stays opaque, GLASS goes to transparentSolid', () => {
+    const chunk = makeChunkWithBlocks(ZERO_COORD, [
+      { lx: 0, y: 0, lz: 0, blockType: 'DIRT' },
+      { lx: 2, y: 0, lz: 0, blockType: 'GLASS' },
+    ])
+    const result = greedyMeshChunk(chunk, ZERO_OFFSET, new Set(), undefined, undefined, transparentSolidIds)
+
+    expect(result.toMeshed().opaque.positions.length).toBeGreaterThan(0)
+    expect(result.toMeshed().transparentSolid.positions.length).toBeGreaterThan(0)
+    expect(result.toMeshed().water.positions.length).toBe(0)
+  })
+
+  // An opaque surface behind glass/leaves must still be drawn — otherwise you
+  // see a hole through the transparent block. The opaque block's face toward
+  // the transparent-solid neighbour is exposed, while the transparent block's
+  // face toward the opaque is culled (so there is exactly one face at the
+  // shared plane → no z-fighting).
+  it('opaque face adjacent to GLASS is exposed (no see-through hole), glass face behind it is culled', () => {
+    const chunk = makeChunkWithBlocks(ZERO_COORD, [
+      { lx: 0, y: 0, lz: 0, blockType: 'DIRT' },  // opaque
+      { lx: 1, y: 0, lz: 0, blockType: 'GLASS' }, // transparent-solid neighbour on +X
+    ])
+    const result = greedyMeshChunk(chunk, ZERO_OFFSET, new Set(), undefined, undefined, transparentSolidIds)
+    const meshed = result.toMeshed()
+
+    // DIRT: all 6 faces exposed (incl. +X toward glass) → 6 × 4 × 3 = 72.
+    // Before the fix this was 60 (the +X face was wrongly culled → hole).
+    expect(meshed.opaque.positions.length).toBe(72)
+    // GLASS: only 5 faces (the -X face toward DIRT is culled) → 60. The shared
+    // plane therefore carries exactly one face (the DIRT +X) — no z-fighting.
+    expect(meshed.transparentSolid.positions.length).toBe(60)
+  })
+
+  it('same opaque block behind LEAVES is exposed too (trunk faces under foliage are not holes)', () => {
+    const chunk = makeChunkWithBlocks(ZERO_COORD, [
+      { lx: 0, y: 0, lz: 0, blockType: 'WOOD' },
+      { lx: 1, y: 0, lz: 0, blockType: 'LEAVES' },
+    ])
+    const result = greedyMeshChunk(chunk, ZERO_OFFSET, new Set(), undefined, undefined, transparentSolidIds)
+    // WOOD keeps all 6 faces; its +X face toward the leaves is exposed.
+    expect(result.toMeshed().opaque.positions.length).toBe(72)
+  })
+
+  it('adjacent same-type transparent-solid blocks cull their shared face (no internal double faces)', () => {
+    const chunk = makeChunkWithBlocks(ZERO_COORD, [
+      { lx: 0, y: 0, lz: 0, blockType: 'GLASS' },
+      { lx: 1, y: 0, lz: 0, blockType: 'GLASS' },
+    ])
+    const result = greedyMeshChunk(chunk, ZERO_OFFSET, new Set(), undefined, undefined, transparentSolidIds)
+    // A 2×1×1 glass run is a box: 6 merged quads = 72 floats. The internal
+    // shared face is culled (otherwise it would be 8 quads = 96).
+    expect(result.toMeshed().transparentSolid.positions.length).toBe(72)
+  })
 })

@@ -35,6 +35,31 @@ describe('greedyMeshChunk (advanced)', () => {
       expect(result.toMeshed().water.positions.length).toBeGreaterThan(0)
     })
 
+    it('water side face adjacent to GLASS is exposed (aquarium walls), unlike adjacent to STONE', () => {
+      const GLASS = new Set([blockTypeToIndex('GLASS')])
+
+      // Water next to GLASS — a transparent-solid neighbour does NOT occlude, so
+      // the water's +X side face is exposed (you see the water through the glass).
+      const glassChunk = makeChunkWithBlocks(ZERO_COORD, [
+        { lx: 0, y: 0, lz: 0, blockType: 'WATER' },
+        { lx: 1, y: 0, lz: 0, blockType: 'GLASS' },
+      ])
+      const glassWater = greedyMeshChunk(glassChunk, ZERO_OFFSET, TRANSPARENT_BLOCK_IDS, undefined, undefined, GLASS)
+        .toMeshed().water.positions.length
+
+      // Water next to STONE — an opaque neighbour occludes, so the +X face is
+      // culled. Control case: identical except for the neighbour block type.
+      const stoneChunk = makeChunkWithBlocks(ZERO_COORD, [
+        { lx: 0, y: 0, lz: 0, blockType: 'WATER' },
+        { lx: 1, y: 0, lz: 0, blockType: 'STONE' },
+      ])
+      const stoneWater = greedyMeshChunk(stoneChunk, ZERO_OFFSET, TRANSPARENT_BLOCK_IDS, undefined, undefined, GLASS)
+        .toMeshed().water.positions.length
+
+      // Exactly one extra water face in the glass case (+X side) → 4 verts × 3 = 12.
+      expect(glassWater).toBe(stoneWater + 12)
+    })
+
     it('a chunk with WATER but no transparentBlockIds passed routes WATER to result.opaque', () => {
       const chunk = makeChunkWithBlock(ZERO_COORD, 4, 10, 4, 'WATER')
       // No transparentBlockIds argument — uses default empty Set

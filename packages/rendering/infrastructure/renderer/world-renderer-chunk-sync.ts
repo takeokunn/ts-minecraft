@@ -103,7 +103,7 @@ export const syncChunksToScene = (
     const startMs = nowMs()
     const hardCap = Math.min(MAX_CHUNK_UPDATES_PER_FRAME, newChunks.length)
     const { chunks: meshedChunks, processed } = yield* Effect.iterate(
-      { chunks: [] as Array<readonly [ChunkCacheKey, { opaqueMesh: THREE.Mesh; waterMesh: Option.Option<THREE.Mesh>; lod: LodLevel }]>, processed: 0 },
+      { chunks: [] as Array<readonly [ChunkCacheKey, { opaqueMesh: THREE.Mesh; waterMesh: Option.Option<THREE.Mesh>; transparentSolidMesh: Option.Option<THREE.Mesh>; lod: LodLevel }]>, processed: 0 },
       {
         while: (s) => s.processed < hardCap && nowMs() - startMs < WORLD_RENDERER_TIME_BUDGET_MS,
         body: (s) => {
@@ -112,8 +112,8 @@ export const syncChunksToScene = (
           return chunkMeshService
             .createChunkMesh(chunk, waterMaterial, lod)
             .pipe(
-              Effect.map(({ opaqueMesh, waterMesh }) => ({
-                chunks: [...s.chunks, [chunkKey(chunk.coord), { opaqueMesh, waterMesh, lod }] as const],
+              Effect.map(({ opaqueMesh, waterMesh, transparentSolidMesh }) => ({
+                chunks: [...s.chunks, [chunkKey(chunk.coord), { opaqueMesh, waterMesh, transparentSolidMesh, lod }] as const],
                 processed: s.processed + 1,
               }))
             )
@@ -125,15 +125,19 @@ export const syncChunksToScene = (
     const allNewChunksMeshed = processed >= newChunks.length
 
     const nextMeshesAfterAdd = yield* Effect.all(
-      Arr.map(meshedChunks, ([key, { opaqueMesh, waterMesh, lod }]) =>
+      Arr.map(meshedChunks, ([key, { opaqueMesh, waterMesh, transparentSolidMesh, lod }]) =>
         Effect.all([
           sceneService.add(scene, opaqueMesh),
           Option.match(waterMesh, {
             onNone: () => Effect.void,
             onSome: (m) => sceneService.add(scene, m),
           }),
+          Option.match(transparentSolidMesh, {
+            onNone: () => Effect.void,
+            onSome: (m) => sceneService.add(scene, m),
+          }),
         ], { concurrency: 'unbounded', discard: true }).pipe(
-          Effect.as([key, { opaque: opaqueMesh, water: waterMesh, lod }] as const)
+          Effect.as([key, { opaque: opaqueMesh, water: waterMesh, transparentSolid: transparentSolidMesh, lod }] as const)
         )
       ),
       { concurrency: CHUNK_SYNC_CONCURRENCY }
@@ -156,6 +160,13 @@ export const syncChunksToScene = (
             Effect.andThen(Effect.sync(() => disposeMesh(chunkMeshes.opaque)))
           ),
           Option.match(chunkMeshes.water, {
+            onNone: () => Effect.void,
+            onSome: (m) =>
+              sceneService.remove(scene, m).pipe(
+                Effect.andThen(Effect.sync(() => disposeMesh(m)))
+              ),
+          }),
+          Option.match(chunkMeshes.transparentSolid, {
             onNone: () => Effect.void,
             onSome: (m) =>
               sceneService.remove(scene, m).pipe(

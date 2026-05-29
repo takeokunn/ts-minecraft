@@ -195,6 +195,9 @@ export class WorldRendererService extends Effect.Service<WorldRendererService>()
                     if (chunkMeshes.water._tag === 'Some') {
                       chunkMeshes.water.value.visible = visible
                     }
+                    if (chunkMeshes.transparentSolid._tag === 'Some') {
+                      chunkMeshes.transparentSolid.value.visible = visible
+                    }
                   }
 
                   yield* Ref.set(lastFrustumPoseRef, currentPose)
@@ -214,6 +217,13 @@ export class WorldRendererService extends Effect.Service<WorldRendererService>()
                       Effect.andThen(Effect.sync(() => disposeMesh(chunkMeshes.opaque)))
                     ),
                     Option.match(chunkMeshes.water, {
+                      onNone: () => Effect.void,
+                      onSome: (m) =>
+                        sceneService.remove(scene, m).pipe(
+                          Effect.andThen(Effect.sync(() => disposeMesh(m)))
+                        ),
+                    }),
+                    Option.match(chunkMeshes.transparentSolid, {
                       onNone: () => Effect.void,
                       onSome: (m) =>
                         sceneService.remove(scene, m).pipe(
@@ -244,8 +254,9 @@ export class WorldRendererService extends Effect.Service<WorldRendererService>()
         updateWaterUniforms: (
           time: number,
           cameraPosition: THREE.Vector3,
+          sunIntensity: number,
         ): Effect.Effect<void, never> =>
-          updateWaterUniforms(waterMaterial, time, cameraPosition),
+          updateWaterUniforms(waterMaterial, time, cameraPosition, sunIntensity),
 
         setRefractionValid: (valid: boolean): Effect.Effect<void, never> =>
           setRefractionValid(waterMaterial, valid),

@@ -133,6 +133,8 @@ export const makeEmitQuad = (
   opaqueAcc: MeshAccumulator,
   getWaterAcc: () => MeshAccumulator,
   transparentLookup: Uint8Array,
+  getTransparentSolidAcc: () => MeshAccumulator,
+  transparentSolidLookup: Uint8Array,
 ): EmitQuadWithDepth => {
   const v0 = [0, 0, 0] as [number, number, number]
   const v1 = [0, 0, 0] as [number, number, number]
@@ -145,7 +147,11 @@ export const makeEmitQuad = (
   return (u0: number, vCoord0: number, du: number, dv: number, maskValue: number, depth: number): void => {
     const blockId = maskValue & 0xff
     const ao = (maskValue >> 8) & 0x3
-    const targetAcc = transparentLookup[blockId] !== 0 ? getWaterAcc() : opaqueAcc
+    const targetAcc = transparentSolidLookup[blockId] !== 0
+      ? getTransparentSolidAcc()
+      : transparentLookup[blockId] !== 0
+        ? getWaterAcc()
+        : opaqueAcc
     buildVertices(u0, vCoord0, du, dv, depth, verts)
     aoQuad[0] = ao; aoQuad[1] = ao; aoQuad[2] = ao; aoQuad[3] = ao
     skyQuad[0] = dequantLight((maskValue >> 10) & 0x3)
@@ -170,5 +176,8 @@ export type FacePassState = {
   readonly opaqueAcc: MeshAccumulator
   readonly getWaterAcc: () => MeshAccumulator
   readonly transparentLookup: Uint8Array
+  // Transparent-solid accumulator (GLASS, LEAVES) — atlas material + alpha blending.
+  readonly getTransparentSolidAcc: () => MeshAccumulator
+  readonly transparentSolidLookup: Uint8Array
   readonly offset: ChunkWorldOffset
 }

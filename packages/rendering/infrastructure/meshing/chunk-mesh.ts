@@ -133,6 +133,7 @@ const buildAtlasTexture = (): Effect.Effect<THREE.Texture, TextureError> =>
       texture.anisotropy = 8
       texture.wrapS = THREE.ClampToEdgeWrapping
       texture.wrapT = THREE.ClampToEdgeWrapping
+      texture.colorSpace = THREE.SRGBColorSpace
       resume(Effect.succeed(texture))
     }
     img.onerror = (e) => {
@@ -169,7 +170,7 @@ export class ChunkMeshService extends Effect.Service<ChunkMeshService>()(
           const mat = new THREE.MeshLambertMaterial({
             color: 0xffffff,
             emissive: 0xffffff,
-            emissiveIntensity: 0.08,
+            emissiveIntensity: 0.02,
             map: atlasTexture,
             vertexColors: true,
           })
@@ -242,6 +243,85 @@ export class ChunkMeshService extends Effect.Service<ChunkMeshService>()(
         (mat) => Effect.sync(() => mat.dispose())
       )
 
+      // Transparent-solid material: atlas texture + alpha blending + depth-write off.
+      // Shared across all GLASS/LEAVES chunks — same atlas, so atlas-UVs and tileIndex work identically.
+      // alphaTest:0.1 cuts out fully-transparent atlas texels (leaves silhouette); opacity:0.6
+      // gives a tinted glass appearance. depthWrite:false prevents z-fighting with overlapping faces.
+      const transparentSolidMaterial = yield* Effect.acquireRelease(
+        Effect.sync(() => {
+          const mat = new THREE.MeshLambertMaterial({
+            color: 0xffffff,
+            emissive: 0xffffff,
+            emissiveIntensity: 0.02,
+            map: atlasTexture,
+            vertexColors: true,
+            transparent: true,
+            opacity: 0.6,
+            alphaTest: 0.1,
+            depthWrite: false,
+            side: THREE.DoubleSide,
+          })
+          mat.onBeforeCompile = (shader) => {
+            shader.uniforms['uSunIntensity'] = sharedUniforms.uSunIntensity
+            shader.uniforms['uAtlasCols'] = { value: ATLAS_COLS }
+            shader.uniforms['uAtlasHalfTexel'] = { value: HALF_TEXEL }
+            if (
+              !shader.vertexShader.includes('void main() {')
+              || !shader.fragmentShader.includes('void main() {')
+              || !shader.fragmentShader.includes('#include <map_fragment>')
+              || !shader.fragmentShader.includes('#include <color_fragment>')
+            ) {
+              throw new Error('chunk-mesh: Three.js shader tokens for atlas/lighting injection not found — transparent solid shader injection will silently no-op')
+            }
+            shader.vertexShader = shader.vertexShader
+              .replace(
+                'void main() {',
+                `attribute float tileIndex;\nvarying float vAtlasTileIndex;\nvoid main() {\n  vAtlasTileIndex = tileIndex;`
+              )
+            shader.fragmentShader = shader.fragmentShader
+              .replace(
+                'void main() {',
+                `uniform float uSunIntensity;\nuniform float uAtlasCols;\nuniform float uAtlasHalfTexel;\nvarying float vAtlasTileIndex;\nvoid main() {`
+              )
+              .replace(
+                '#include <map_fragment>',
+                `#ifdef USE_MAP
+                  float atlasIndex = floor(vAtlasTileIndex + 0.5);
+                  float atlasCol = mod(atlasIndex, uAtlasCols);
+                  float atlasRow = floor(atlasIndex / uAtlasCols);
+                  vec2 tileUv = fract(vMapUv);
+                  vec2 atlasMin = vec2(
+                    atlasCol / uAtlasCols + uAtlasHalfTexel,
+                    1.0 - (atlasRow + 1.0) / uAtlasCols + uAtlasHalfTexel
+                  );
+                  vec2 atlasMax = vec2(
+                    (atlasCol + 1.0) / uAtlasCols - uAtlasHalfTexel,
+                    1.0 - atlasRow / uAtlasCols - uAtlasHalfTexel
+                  );
+                  vec4 sampledDiffuseColor = texture2D(map, mix(atlasMin, atlasMax, tileUv));
+                  #ifdef DECODE_VIDEO_TEXTURE
+                    sampledDiffuseColor = sRGBTransferEOTF(sampledDiffuseColor);
+                  #endif
+                  diffuseColor *= sampledDiffuseColor;
+                #endif`
+              )
+              .replace(
+                '#include <color_fragment>',
+                `#ifdef USE_COLOR
+                   float aoFactor = vColor.r;
+                   float skyFactor = vColor.g;
+                   float blockFactor = vColor.b;
+                   float lightFactor = max(skyFactor * uSunIntensity, blockFactor);
+                    diffuseColor.rgb *= (0.38 + 0.62 * lightFactor) * (0.8 + 0.2 * aoFactor);
+                 #endif`
+              )
+          }
+          mat.needsUpdate = true
+          return mat
+        }),
+        (mat) => Effect.sync(() => mat.dispose())
+      )
+
       return {
         atlasTexture,
 
@@ -249,9 +329,9 @@ export class ChunkMeshService extends Effect.Service<ChunkMeshService>()(
           chunk: Chunk,
           waterMaterial?: THREE.ShaderMaterial,
           lod?: LodLevel
-        ): Effect.Effect<{ opaqueMesh: THREE.Mesh; waterMesh: Option.Option<THREE.Mesh> }, never> =>
+        ): Effect.Effect<{ opaqueMesh: THREE.Mesh; waterMesh: Option.Option<THREE.Mesh>; transparentSolidMesh: Option.Option<THREE.Mesh> }, never> =>
           pool.meshChunk(chunk, lod === undefined ? undefined : { lod }).pipe(
-            Effect.map(({ opaque, water }) => {
+            Effect.map(({ opaque, water, transparentSolid }) => {
               const opaqueGeometry = buildGeometry(opaque)
               // All opaque chunks share ONE material instance (sharedMaterial above) —
               // this lets Three.js batch state changes and avoids GPU material switches.
@@ -281,7 +361,21 @@ export class ChunkMeshService extends Effect.Service<ChunkMeshService>()(
                     return wm
                   })
 
-              return { opaqueMesh, waterMesh }
+              // Transparent-solid mesh (GLASS, LEAVES): atlas material + alpha blending.
+              const transparentSolidMeshOpt: Option.Option<THREE.Mesh> = transparentSolid === null || transparentSolid.positions.length === 0
+                ? Option.none()
+                : Option.some((() => {
+                    const tsm = new THREE.Mesh(buildGeometry(transparentSolid), transparentSolidMaterial)
+                    tsm.frustumCulled = false
+                    tsm.castShadow = false
+                    tsm.receiveShadow = false
+                    tsm.renderOrder = 2
+                    tsm.userData['chunkCoord'] = chunk.coord
+                    if (chunk.maxY !== undefined) tsm.userData['chunkMaxY'] = chunk.maxY
+                    return tsm
+                  })())
+
+              return { opaqueMesh, waterMesh, transparentSolidMesh: transparentSolidMeshOpt }
             })
           ),
 
@@ -296,9 +390,10 @@ export class ChunkMeshService extends Effect.Service<ChunkMeshService>()(
           // splicing can short-circuit unaffected slices. Today the worker
           // still produces a full re-mesh; behaviour is preserved either way.
           dirtyAABB?: DirtyAABB,
-        ): Effect.Effect<Option.Option<THREE.Mesh>, never> =>
+          transparentSolidMesh?: Option.Option<THREE.Mesh>,
+        ): Effect.Effect<{ waterMesh: Option.Option<THREE.Mesh>; transparentSolidMesh: Option.Option<THREE.Mesh> }, never> =>
           pool.meshChunk(chunk, buildMeshChunkOptions(lod, dirtyAABB)).pipe(
-            Effect.map(({ opaque, water }) => {
+            Effect.map(({ opaque, water, transparentSolid }) => {
               // Opaque mesh: in-place update using owned arrays from worker transfer.
               // Falls back to full geometry rebuild only when buffer capacity is insufficient.
               if (!tryReuseGeometry(opaqueMesh.geometry, opaque)) {
@@ -312,13 +407,13 @@ export class ChunkMeshService extends Effect.Service<ChunkMeshService>()(
               if (chunk.maxY !== undefined) opaqueMesh.userData['chunkMaxY'] = chunk.maxY
 
               // Water mesh: update in place when it already exists, or create/remove it when topology changes.
-              return Option.match(waterMesh, {
+              const updatedWaterMesh = Option.match(waterMesh, {
                 onNone: () => {
                   if (water === null || water.positions.length === 0) {
-                    return Option.none()
+                    return Option.none<THREE.Mesh>()
                   }
                   return Option.match(Option.fromNullable(waterMaterial), {
-                    onNone: () => Option.none(),
+                    onNone: () => Option.none<THREE.Mesh>(),
                     onSome: (mat) => {
                       const wm = new THREE.Mesh(buildGeometry(water), mat)
                       wm.frustumCulled = false
@@ -334,7 +429,7 @@ export class ChunkMeshService extends Effect.Service<ChunkMeshService>()(
                 onSome: (wm) => {
                   if (water === null || water.positions.length === 0) {
                     wm.geometry.dispose()
-                    return Option.none()
+                    return Option.none<THREE.Mesh>()
                   }
                   if (!tryReuseGeometry(wm.geometry, water)) {
                     const oldWaterGeometry = wm.geometry
@@ -346,6 +441,40 @@ export class ChunkMeshService extends Effect.Service<ChunkMeshService>()(
                   return waterMesh
                 },
               })
+
+              // Transparent-solid mesh: update in place or create/remove.
+              const prevTsMesh = transparentSolidMesh ?? Option.none<THREE.Mesh>()
+              const updatedTransparentSolidMesh = Option.match(prevTsMesh, {
+                onNone: () => {
+                  if (transparentSolid === null || transparentSolid.positions.length === 0) {
+                    return Option.none<THREE.Mesh>()
+                  }
+                  const tsm = new THREE.Mesh(buildGeometry(transparentSolid), transparentSolidMaterial)
+                  tsm.frustumCulled = false
+                  tsm.castShadow = false
+                  tsm.receiveShadow = false
+                  tsm.renderOrder = 2
+                  tsm.userData['chunkCoord'] = chunk.coord
+                  if (chunk.maxY !== undefined) tsm.userData['chunkMaxY'] = chunk.maxY
+                  return Option.some(tsm)
+                },
+                onSome: (tsm) => {
+                  if (transparentSolid === null || transparentSolid.positions.length === 0) {
+                    tsm.geometry.dispose()
+                    return Option.none<THREE.Mesh>()
+                  }
+                  if (!tryReuseGeometry(tsm.geometry, transparentSolid)) {
+                    const oldGeom = tsm.geometry
+                    tsm.geometry = buildGeometry(transparentSolid)
+                    oldGeom.dispose()
+                  }
+                  tsm.userData['chunkCoord'] = chunk.coord
+                  if (chunk.maxY !== undefined) tsm.userData['chunkMaxY'] = chunk.maxY
+                  return prevTsMesh
+                },
+              })
+
+              return { waterMesh: updatedWaterMesh, transparentSolidMesh: updatedTransparentSolidMesh }
             })
           ),
 

@@ -258,11 +258,13 @@ export const updateWaterUniforms = (
   waterMaterial: WaterMaterial,
   time: number,
   cameraPosition: THREE.Vector3,
+  sunIntensity: number,
 ): Effect.Effect<void, never> =>
   Effect.sync(() => {
     const uniforms = waterMaterial.uniforms
     uniforms.uTime.value = time
     uniforms.uCameraPosition.value.copy(cameraPosition)
+    uniforms.uSunIntensity.value = sunIntensity < 0 ? 0 : sunIntensity > 1 ? 1 : sunIntensity
   })
 
 /** Marks the refraction texture as valid or invalid for the water shader. */

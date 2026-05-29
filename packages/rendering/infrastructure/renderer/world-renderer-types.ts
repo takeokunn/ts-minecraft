@@ -43,6 +43,13 @@ export type ChunkMeshes = {
       readonly chunkMaxY?: number
     }
   }>
+  // GLASS and LEAVES faces — rendered with atlas material + alpha blending.
+  transparentSolid: Option.Option<THREE.Mesh & {
+    readonly userData: THREE.Mesh['userData'] & {
+      readonly chunkCoord?: ChunkCoord
+      readonly chunkMaxY?: number
+    }
+  }>
   // FR-3.1: LOD level used to mesh this chunk. Tracked per-mesh so the
   // renderer can detect LOD-band crossings (player movement / settings
   // change) and schedule a re-mesh only for chunks whose LOD has changed.
