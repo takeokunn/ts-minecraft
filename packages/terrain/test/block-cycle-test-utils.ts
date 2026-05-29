@@ -86,6 +86,7 @@ export const buildIntegrationLayer = (playerPos: Position = { x: 100, y: 0, z: 1
     removeBlock: (_blockType, _count, _preferredSlot) => Effect.succeed(true),
     getSlot: (_idx) => Effect.succeed(Option.none()),
     setSlot: (_idx, _slot) => Effect.void,
+    damageSlot: (_idx, _amount) => Effect.void,
     moveStack: (_from, _to) => Effect.void,
     getHotbarSlots: () => Effect.succeed([]),
     getAllSlots: () => Effect.succeed(emptyInventorySlots),

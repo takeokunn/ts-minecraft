@@ -183,7 +183,7 @@ describe('application/furnace/furnace-service', () => {
       yield* furnace.setSelectedFurnace({ x: 0, y: 64, z: 0 })
       yield* furnace.startSmelting(RecipeId.make('raw-iron-to-iron-ingot'))
       // tick to completion — output slot now has IRON_INGOT
-      yield* furnace.tick(DeltaTimeSecs.make(1.5))
+      yield* furnace.tick(DeltaTimeSecs.make(10.0))
       // try to smelt again with fresh items
       const result = yield* Effect.either(
         furnace.startSmelting(RecipeId.make('raw-iron-to-iron-ingot')),

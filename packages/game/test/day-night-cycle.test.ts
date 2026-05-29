@@ -63,6 +63,62 @@ describe('application/time/day-night-cycle', () => {
     )
   })
 
+  describe('updateDayNightCycle — sun position arc', () => {
+    // Returns the directional light's world position after running the cycle at
+    // the given time-of-day fraction (deltaTime 0 so the set time is preserved).
+    const sunPosAt = (fraction: number) =>
+      Effect.gen(function* () {
+        const timeService = yield* TimeService
+        yield* timeService.setDayLength(400)
+        yield* timeService.setTimeOfDay(fraction)
+        const lights = makeFakeLights()
+        yield* updateDayNightCycle(0 as DeltaTimeSecs, lights, timeService)
+        return lights.light.position
+      }).pipe(Effect.provide(TimeServiceLive))
+
+    it.effect('sun is directly overhead at noon (x≈0, above horizon)', () =>
+      Effect.gen(function* () {
+        const p = yield* sunPosAt(0.5)
+        expect(p.x).toBeCloseTo(0, 5) // overhead, not off to one side
+        expect(p.y).toBeGreaterThan(0)
+      })
+    )
+
+    it.effect('sun rises in the east at dawn (x>0, on the horizon)', () =>
+      Effect.gen(function* () {
+        const p = yield* sunPosAt(0.25)
+        expect(p.x).toBeGreaterThan(0)
+        expect(p.y).toBeCloseTo(0, 5)
+      })
+    )
+
+    it.effect('sun sets in the west at dusk (x<0, on the horizon)', () =>
+      Effect.gen(function* () {
+        const p = yield* sunPosAt(0.75)
+        expect(p.x).toBeLessThan(0)
+        expect(p.y).toBeCloseTo(0, 5)
+      })
+    )
+
+    it.effect('sun is below the horizon at midnight (y<0)', () =>
+      Effect.gen(function* () {
+        const p = yield* sunPosAt(0.0)
+        expect(p.y).toBeLessThan(0)
+      })
+    )
+
+    // Regression: the arc previously used ×π (not ×2π) for the position, which
+    // put the sun's PEAK at dusk instead of noon. The sun must be higher at
+    // noon than at dusk.
+    it.effect('sun is higher at noon than at dusk', () =>
+      Effect.gen(function* () {
+        const noonY = (yield* sunPosAt(0.5)).y
+        const duskY = (yield* sunPosAt(0.75)).y
+        expect(noonY).toBeGreaterThan(duskY)
+      })
+    )
+  })
+
   describe('updateDayNightCycle — midnight (timeOfDay=0.0)', () => {
     it.effect('should give minimum direct light intensity at midnight', () =>
       // dayFactor = max(0, sin((0.0 - 0.25) * π * 2)) = max(0, sin(-π/2)) = max(0, -1) = 0

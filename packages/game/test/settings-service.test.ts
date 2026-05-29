@@ -109,6 +109,39 @@ describe('application/settings/settings-service', () => {
       }).pipe(Effect.provide(SettingsLive))
     })
 
+    it.effect('preserves present fields and defaults missing ones for a payload from an older version', () => {
+      // Simulate settings written by an older app build that predates several
+      // fields. Present fields use NON-default values so the assertion can tell
+      // "preserved" apart from "reset to defaults". Before the load-path merge,
+      // the missing required fields made decode fail → the whole payload was
+      // discarded and renderDistance/etc. reverted to defaults.
+      MutableHashMap.set(store,
+        STORAGE_KEY,
+        JSON.stringify({
+          renderDistance: 12,
+          mouseSensitivity: 1.2,
+          dayLengthSeconds: 900,
+          // graphicsQuality, adaptivePerformanceMode, audioEnabled,
+          // masterVolume, sfxVolume, musicVolume intentionally absent.
+        })
+      )
+      return Effect.gen(function* () {
+        const service = yield* SettingsService
+        const settings = yield* service.getSettings()
+        // Present fields survive the version gap...
+        expect(settings.renderDistance).toBe(12)
+        expect(settings.mouseSensitivity).toBe(1.2)
+        expect(settings.dayLengthSeconds).toBe(900)
+        // ...and absent fields fall back to their individual defaults.
+        expect(settings.graphicsQuality).toBe(DEFAULT_SETTINGS.graphicsQuality)
+        expect(settings.adaptivePerformanceMode).toBe(DEFAULT_SETTINGS.adaptivePerformanceMode)
+        expect(settings.audioEnabled).toBe(false)
+        expect(settings.masterVolume).toBe(DEFAULT_SETTINGS.masterVolume)
+        expect(settings.sfxVolume).toBe(DEFAULT_SETTINGS.sfxVolume)
+        expect(settings.musicVolume).toBe(DEFAULT_SETTINGS.musicVolume)
+      }).pipe(Effect.provide(SettingsLive))
+    })
+
     it.effect('falls back to defaults when localStorage.getItem throws', () => {
       getItemSpy.mockImplementation(() => {
         throw new Error('boom')

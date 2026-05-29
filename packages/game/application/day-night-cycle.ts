@@ -33,8 +33,13 @@ export const updateDayNightCycle = (
     // sin peaks at noon (0.5), zero at dawn/dusk, negative at night → clamp to 0
     const dayFactor = Math.max(0, Math.sin((timeOfDay - DAWN_PHASE_OFFSET) * Math.PI * 2))
 
-    // Directional light follows a horizontal arc east→west
-    const sunAngle = (timeOfDay - DAWN_PHASE_OFFSET) * Math.PI  // 0 at dawn, π at dusk
+    // Directional light follows a semicircular arc east→zenith→west across the
+    // day. sunAngle spans 0 (dawn, east horizon) → π/2 (noon, overhead) → π
+    // (dusk, west horizon), and goes negative / past π at night (sun below the
+    // horizon). The ×2 matches dayFactor's full-cycle scaling so the sun peaks
+    // exactly at noon — not at dusk, as the prior ×π (only reaching π/2 at dusk)
+    // incorrectly did.
+    const sunAngle = (timeOfDay - DAWN_PHASE_OFFSET) * Math.PI * 2  // 0 at dawn, π/2 at noon, π at dusk
 
     yield* Effect.sync(() => {
       lights.light.intensity = DIRECT_LIGHT_MIN + dayFactor * DIRECT_LIGHT_RANGE

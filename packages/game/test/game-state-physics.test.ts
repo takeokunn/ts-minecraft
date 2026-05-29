@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { CHUNK_SIZE, CHUNK_HEIGHT } from '@ts-minecraft/kernel'
-import { isBlockSolid } from '../application/game-state-physics'
+import { CHUNK_SIZE, CHUNK_HEIGHT, blockTypeToIndex } from '@ts-minecraft/kernel'
+import { isBlockSolid, isInWater } from '../application/game-state-physics'
 
 // Index formula: y + z * CHUNK_HEIGHT + x * CHUNK_HEIGHT * CHUNK_SIZE  (column-major)
 const blockIndex = (lx: number, ly: number, lz: number): number =>
@@ -13,9 +13,9 @@ const allAirChunk = () => ({
   blocks: new Uint8Array(CHUNK_SIZE * CHUNK_SIZE * CHUNK_HEIGHT),
 })
 
-const chunkWithBlock = (lx: number, ly: number, lz: number) => {
+const chunkWithBlock = (lx: number, ly: number, lz: number, blockId = 1) => {
   const blocks = new Uint8Array(CHUNK_SIZE * CHUNK_SIZE * CHUNK_HEIGHT)
-  blocks[blockIndex(lx, ly, lz)] = 1
+  blocks[blockIndex(lx, ly, lz)] = blockId
   return { blocks }
 }
 
@@ -142,5 +142,83 @@ describe('application/game-state-physics — isBlockSolid', () => {
       cache[slot(0, 1)] = chunkWithBlock(0, 5, 0)
       expect(isBlockSolid(0, 5, CHUNK_SIZE, cache, 0, 0)).toBe(true)
     })
+  })
+})
+
+describe('application/game-state-physics — passable blocks', () => {
+  it('returns false for WATER block (player should pass through)', () => {
+    const cache = makeEmptyCache()
+    cache[slot(0, 0)] = chunkWithBlock(0, 5, 0, blockTypeToIndex('WATER'))
+    expect(isBlockSolid(0, 5, 0, cache, 0, 0)).toBe(false)
+  })
+
+  it('returns false for LAVA block (player should pass through)', () => {
+    const cache = makeEmptyCache()
+    cache[slot(0, 0)] = chunkWithBlock(0, 5, 0, blockTypeToIndex('LAVA'))
+    expect(isBlockSolid(0, 5, 0, cache, 0, 0)).toBe(false)
+  })
+
+  it('returns false for LEAVES block (player should pass through)', () => {
+    const cache = makeEmptyCache()
+    cache[slot(0, 0)] = chunkWithBlock(0, 5, 0, blockTypeToIndex('LEAVES'))
+    expect(isBlockSolid(0, 5, 0, cache, 0, 0)).toBe(false)
+  })
+
+  it('returns false for TORCH block (player should pass through)', () => {
+    const cache = makeEmptyCache()
+    cache[slot(0, 0)] = chunkWithBlock(0, 5, 0, blockTypeToIndex('TORCH'))
+    expect(isBlockSolid(0, 5, 0, cache, 0, 0)).toBe(false)
+  })
+
+  it('still returns true for STONE (solid block unaffected by passable list)', () => {
+    const cache = makeEmptyCache()
+    cache[slot(0, 0)] = chunkWithBlock(0, 5, 0, blockTypeToIndex('STONE'))
+    expect(isBlockSolid(0, 5, 0, cache, 0, 0)).toBe(true)
+  })
+})
+
+describe('application/game-state-physics — isInWater', () => {
+  it('returns false when cache slot is null', () => {
+    expect(isInWater(0, 5, 0, makeEmptyCache(), 0, 0)).toBe(false)
+  })
+
+  it('returns false when block is not WATER', () => {
+    const cache = makeEmptyCache()
+    cache[slot(0, 0)] = chunkWithBlock(0, 5, 0, blockTypeToIndex('STONE'))
+    expect(isInWater(0, 5, 0, cache, 0, 0)).toBe(false)
+  })
+
+  it('returns true when block is WATER', () => {
+    const cache = makeEmptyCache()
+    cache[slot(0, 0)] = chunkWithBlock(0, 5, 0, blockTypeToIndex('WATER'))
+    expect(isInWater(0, 5, 0, cache, 0, 0)).toBe(true)
+  })
+
+  it('returns false for air block (blockId = 0)', () => {
+    const cache = makeEmptyCache()
+    cache[slot(0, 0)] = allAirChunk()
+    expect(isInWater(0, 5, 0, cache, 0, 0)).toBe(false)
+  })
+
+  it('returns false when wy < 0 (bedrock region)', () => {
+    const cache = makeEmptyCache()
+    cache[slot(0, 0)] = chunkWithBlock(0, 0, 0, blockTypeToIndex('WATER'))
+    expect(isInWater(0, -1, 0, cache, 0, 0)).toBe(false)
+  })
+
+  it('returns false when wy >= CHUNK_HEIGHT (above world)', () => {
+    const cache = makeEmptyCache()
+    expect(isInWater(0, CHUNK_HEIGHT, 0, cache, 0, 0)).toBe(false)
+  })
+
+  it('returns false when chunk offset is out of 3x3 range (dx = 2)', () => {
+    const cache = makeEmptyCache()
+    expect(isInWater(2 * CHUNK_SIZE, 5, 0, cache, 0, 0)).toBe(false)
+  })
+
+  it('returns true for WATER in neighboring chunk slot (dx=1)', () => {
+    const cache = makeEmptyCache()
+    cache[slot(1, 0)] = chunkWithBlock(0, 5, 0, blockTypeToIndex('WATER'))
+    expect(isInWater(CHUNK_SIZE, 5, 0, cache, 0, 0)).toBe(true)
   })
 })

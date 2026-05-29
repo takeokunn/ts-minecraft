@@ -85,7 +85,19 @@ const loadFromStorage = (forceAudioOff: (settings: Settings) => Settings): Effec
             try: () => JSON.parse(rawStr),
             catch: (e) => new SettingsError({ operation: 'load', cause: e }),
           }).pipe(
-            Effect.flatMap((parsed) => Schema.decodeUnknown(SettingsSchema)(parsed).pipe(
+            // Merge stored values OVER defaults before decoding so a payload
+            // written by an older app version (missing fields added since)
+            // keeps the user's other settings instead of resetting everything.
+            // decodeUnknown still validates: out-of-range or wrong-typed stored
+            // values override the default, fail the schema, and fall through to
+            // DEFAULT_SETTINGS below — same as before. Only the MISSING-field
+            // case is rescued. Mirrors the merge in updateSettings. Non-object
+            // payloads (string/number/array) bypass the merge so they fail decode.
+            Effect.flatMap((parsed) => Schema.decodeUnknown(SettingsSchema)(
+              typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)
+                ? { ...DEFAULT_SETTINGS, ...parsed }
+                : parsed
+            ).pipe(
               Effect.mapError((e) => new SettingsError({ operation: 'load', cause: e })),
               Effect.map(forceAudioOff),
             ))

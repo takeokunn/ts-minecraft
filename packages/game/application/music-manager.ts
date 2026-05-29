@@ -64,11 +64,10 @@ export class MusicManager extends Effect.Service<MusicManager>()(
           yield* stopActiveTrack()
 
           const track = TRACKS[environment]
-          const [masterVolume, musicVolume] = yield* Effect.all(
-            [Ref.get(masterVolumeRef), Ref.get(musicVolumeRef)],
-            { concurrency: 'unbounded' }
-          )
-          const gain = clamp01(track.baseGain * masterVolume * musicVolume)
+          // masterVolume is applied ONCE by the engine's master gain node (see
+          // setMasterGain in applySettings); multiplying here too would square it.
+          const musicVolume = yield* Ref.get(musicVolumeRef)
+          const gain = clamp01(track.baseGain * musicVolume)
           const handle = yield* audioEngine.playTone({
             frequency: track.frequency,
             durationMs: 2000,

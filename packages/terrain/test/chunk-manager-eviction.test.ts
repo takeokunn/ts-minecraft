@@ -173,6 +173,38 @@ describe('application/chunk/chunk-manager-service (eviction)', () => {
         expect(Arr.some(loaded, (c) => c.coord.x === MAX_CACHED_CHUNKS && c.coord.z === 0)).toBe(true)
       }).pipe(Effect.provide(TestLayer))
     }, { timeout: 30_000 })
+
+    // The defining LRU property (vs FIFO): a cache HIT refreshes a chunk's
+    // recency so it survives eviction. getChunk does this via an in-place
+    // `cached.lastAccessed = …` mutation that relies on Effect HashMap returning
+    // the entry by reference. If that mechanism silently broke, the cache would
+    // degrade to FIFO and the chunk the player is standing in could be evicted
+    // and reloaded (visible pop-in). This test fails under FIFO.
+    it.effect('a cache hit refreshes LRU recency, protecting the chunk from eviction', () => {
+      const { TestLayer } = buildLayerWithStorageChunks(MAX_CACHED_CHUNKS + 1)
+
+      return Effect.gen(function* () {
+        const service = yield* ChunkManagerService
+
+        // (0,0) loaded first → initially the oldest entry.
+        yield* service.getChunk({ x: 0, z: 0 })
+        // Fill the cache to capacity with chunks 1..MAX-1.
+        yield* Effect.forEach(Arr.makeBy(MAX_CACHED_CHUNKS - 1, i => i + 1), (i) => service.getChunk({ x: i, z: 0 }), { concurrency: 1 })
+
+        // Re-access (0,0): a cache hit that must bump it to most-recently-used,
+        // making (1,0) the new LRU entry.
+        yield* service.getChunk({ x: 0, z: 0 })
+
+        // One more load triggers eviction of the LRU entry.
+        yield* service.getChunk({ x: MAX_CACHED_CHUNKS, z: 0 })
+
+        const loaded = yield* service.getLoadedChunks()
+        // (0,0) survived because the cache hit refreshed its recency.
+        expect(Arr.some(loaded, (c) => c.coord.x === 0 && c.coord.z === 0)).toBe(true)
+        // (1,0) — the genuine LRU after the touch — was evicted instead.
+        expect(Arr.some(loaded, (c) => c.coord.x === 1 && c.coord.z === 0)).toBe(false)
+      }).pipe(Effect.provide(TestLayer))
+    }, { timeout: 30_000 })
   })
 
   // ---------------------------------------------------------------------------

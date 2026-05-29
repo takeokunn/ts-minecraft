@@ -63,7 +63,7 @@ describe('application/furnace/furnace-service', () => {
       const furnace = yield* FurnaceService
       yield* furnace.setSelectedFurnace({ x: 0, y: 64, z: 0 })
       yield* furnace.startSmelting(RecipeId.make('raw-iron-to-iron-ingot'))
-      yield* furnace.tick(1.5 as never)
+      yield* furnace.tick(10.0 as never)
       const state = yield* furnace.getNearestFurnaceState().pipe(Effect.map(Option.getOrNull))
       expect(state?.output).toEqual(Option.some({ itemType: 'IRON_INGOT', count: 1 }))
       expect(Option.getOrElse(MutableHashMap.get(items, 'RAW_IRON'), () => 0)).toBe(0)
@@ -181,7 +181,7 @@ describe('application/furnace/furnace-service', () => {
       yield* furnace.setSelectedFurnace({ x: 0, y: 64, z: 0 })
       yield* furnace.startSmelting(RecipeId.make('raw-iron-to-iron-ingot'))
       // tick to completion to also populate output slot
-      yield* furnace.tick(DeltaTimeSecs.make(1.5))
+      yield* furnace.tick(DeltaTimeSecs.make(10.0))
       const items = yield* furnace.clearFurnace({ x: 0, y: 64, z: 0 })
       // after tick: input+fuel removed, output=IRON_INGOT → 1 item
       expect(items).toEqual([{ itemType: 'IRON_INGOT', count: 1 }])
@@ -298,6 +298,62 @@ describe('application/furnace/furnace-service', () => {
       const result = yield* furnace.dismantleFurnace({ x: 0, y: 64, z: 0 })
       expect(result).toBe(false)
       expect(MutableRef.get(addCallCountRef)).toBeGreaterThan(0)
+    }).pipe(Effect.provide(layer))
+  })
+
+  it.effect('dismantleFurnace rolls back a partial add and keeps the furnace when the inventory fills mid-dismantle', () => {
+    // A furnace holding input (RAW_IRON) + fuel (COAL) is dismantled into an
+    // inventory with room for exactly ONE item: the first add succeeds, the
+    // second fails. Without rollback the first item would be DUPLICATED — added
+    // to the inventory AND left in the furnace, which stays put because we only
+    // remove it once every add succeeds.
+    const added: InventoryItem[] = []
+    const rolledBackRef = MutableRef.make(false)
+    const inv = makeInventoryService(MutableHashMap.empty<InventoryItem, number>(), {
+      addBlock: (itemType: InventoryItem) =>
+        Effect.suspend(() => {
+          if (added.length >= 1) return Effect.fail(new InventoryError({ operation: 'addBlock', cause: 'inventory full' }))
+          added.push(itemType)
+          return Effect.void
+        }),
+      serialize: () => Effect.succeed({ slots: [] }),
+      deserialize: () =>
+        Effect.sync(() => {
+          MutableRef.set(rolledBackRef, true)
+          added.length = 0 // restore to the pre-dismantle (empty) snapshot
+        }),
+    })
+
+    const layer = FurnaceServiceLive.pipe(
+      Layer.provide(Layer.succeed(RecipeService, makeRecipeService({}))),
+      Layer.provide(Layer.succeed(InventoryService, inv)),
+      Layer.provide(Layer.succeed(PlayerService, makePlayerService({ x: 0, y: 64, z: 0 }))),
+      Layer.provide(Layer.succeed(ChunkManagerService, makeChunkManagerService(makeChunkWithFurnace()))),
+    )
+
+    return Effect.gen(function* () {
+      const furnace = yield* FurnaceService
+      // Plant a furnace with input + fuel directly (no inventory interaction).
+      yield* furnace.deserialize([{
+        position: { x: 0, y: 64, z: 0 },
+        input: Option.some({ itemType: 'RAW_IRON', count: 1 }),
+        fuel: Option.some({ itemType: 'COAL', count: 1 }),
+        output: Option.none(),
+        activeRecipeId: Option.none(),
+        progressSecs: 0,
+      }])
+
+      const result = yield* furnace.dismantleFurnace({ x: 0, y: 64, z: 0 })
+
+      expect(result).toBe(false)
+      // Rollback ran, undoing the one successful add → no duplicated item left behind.
+      expect(MutableRef.get(rolledBackRef)).toBe(true)
+      expect(added).toEqual([])
+      // The furnace is untouched: still present, still holding its input + fuel — nothing lost.
+      const remaining = yield* furnace.serialize()
+      expect(remaining.length).toBe(1)
+      expect(Option.isSome(remaining[0]!.input)).toBe(true)
+      expect(Option.isSome(remaining[0]!.fuel)).toBe(true)
     }).pipe(Effect.provide(layer))
   })
 })

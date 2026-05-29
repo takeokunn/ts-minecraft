@@ -189,19 +189,9 @@ describe('terrain/application/block-service breakBlock harvest logic', () => {
     }).pipe(Effect.provide(layer))
   })
 
-  it.effect('breakBlock with OBSIDIAN and a non-pickaxe tool selected fails (requires pickaxe)', () => {
-    // OBSIDIAN is in DIAMOND_PICKAXE_HARVESTABLE_BLOCKS (= REQUIRES_PICKAXE_BLOCKS).
-    // With tool 'DIRT' (not a pickaxe), canHarvestBlock returns !has(IRON_SET, OBSIDIAN).
-    // OBSIDIAN is in DIAMOND set but not IRON set, so !has(IRON_SET, OBSIDIAN) = true — shouldDrop = true.
-    // But wait, actually DIAMOND_PICKAXE_HARVESTABLE_BLOCKS = IRON_PICKAXE_HARVESTABLE_BLOCKS + OBSIDIAN.
-    // IRON_PICKAXE_HARVESTABLE_BLOCKS does NOT contain OBSIDIAN.
-    // So !has(IRON_SET, OBSIDIAN) = true → shouldDrop = true.
-    // OBSIDIAN is in REQUIRES_PICKAXE_BLOCKS, shouldDrop = true → it proceeds.
-    // Actually: let's pick 'IRON_ORE' with a non-pickaxe tool.
-    // IRON_ORE is in IRON_PICKAXE_HARVESTABLE_BLOCKS → !has(IRON_SET, IRON_ORE) = false → shouldDrop = false.
-    // IRON_ORE is in REQUIRES_PICKAXE_BLOCKS? REQUIRES_PICKAXE_BLOCKS = DIAMOND_PICKAXE_HARVESTABLE_BLOCKS.
-    // DIAMOND set includes IRON set, so yes IRON_ORE is in REQUIRES_PICKAXE_BLOCKS.
-    // shouldDrop = false and IRON_ORE is in REQUIRES_PICKAXE_BLOCKS → fail with "requires stronger pickaxe".
+  it.effect('breakBlock with IRON_ORE and a non-pickaxe tool fails (requires a pickaxe)', () => {
+    // IRON_ORE ∈ REQUIRES_PICKAXE_BLOCKS, and a non-pickaxe tool ('DIRT') gives
+    // shouldDrop = false → breakBlock rejects with "requires a stronger pickaxe".
     const chunk = makeChunk('IRON_ORE', BLOCK_IDX_64)
     const layer = BlockServiceLive.pipe(
       Layer.provide(makeChunkManagerLayer({ chunk })),
@@ -278,6 +268,44 @@ describe('terrain/application/block-service breakBlock harvest logic', () => {
     return Effect.gen(function* () {
       const svc = yield* BlockService
       const result = yield* Effect.either(svc.breakBlock({ x: 0, y: 64, z: 0 }))
+      expect(Either.isRight(result)).toBe(true)
+    }).pipe(Effect.provide(layer))
+  })
+
+  // OBSIDIAN is the only DIAMOND-tier-exclusive block (in the diamond set but not
+  // the iron set). It must require a DIAMOND pickaxe: bare hand, a non-pickaxe
+  // tool, and even an IRON pickaxe must all be rejected. (Regression: the
+  // bare-hand / non-pickaxe boundary previously used the iron set, which let a
+  // hand or sword harvest obsidian — breaking the diamond-tier progression gate.)
+  it.effect('OBSIDIAN cannot be harvested by hand (requires a diamond pickaxe)', () => {
+    const layer = buildLayer({ blockAtIdx: 'OBSIDIAN', selectedTool: Option.none() })
+    return Effect.gen(function* () {
+      const result = yield* Effect.either((yield* BlockService).breakBlock({ x: 0, y: 64, z: 0 }))
+      expect(Either.isLeft(result)).toBe(true)
+      expect(Option.getOrThrow(Either.getLeft(result)).reason).toContain('requires a stronger pickaxe')
+    }).pipe(Effect.provide(layer))
+  })
+
+  it.effect('OBSIDIAN cannot be harvested by a non-pickaxe tool', () => {
+    const layer = buildLayer({ blockAtIdx: 'OBSIDIAN', selectedTool: Option.some('STONE_SWORD' as BlockType) })
+    return Effect.gen(function* () {
+      const result = yield* Effect.either((yield* BlockService).breakBlock({ x: 0, y: 64, z: 0 }))
+      expect(Either.isLeft(result)).toBe(true)
+    }).pipe(Effect.provide(layer))
+  })
+
+  it.effect('OBSIDIAN cannot be harvested by an IRON pickaxe (needs diamond)', () => {
+    const layer = buildLayer({ blockAtIdx: 'OBSIDIAN', selectedTool: Option.some('IRON_PICKAXE' as BlockType) })
+    return Effect.gen(function* () {
+      const result = yield* Effect.either((yield* BlockService).breakBlock({ x: 0, y: 64, z: 0 }))
+      expect(Either.isLeft(result)).toBe(true)
+    }).pipe(Effect.provide(layer))
+  })
+
+  it.effect('OBSIDIAN IS harvestable by a DIAMOND pickaxe', () => {
+    const layer = buildLayer({ blockAtIdx: 'OBSIDIAN', selectedTool: Option.some('DIAMOND_PICKAXE' as BlockType) })
+    return Effect.gen(function* () {
+      const result = yield* Effect.either((yield* BlockService).breakBlock({ x: 0, y: 64, z: 0 }))
       expect(Either.isRight(result)).toBe(true)
     }).pipe(Effect.provide(layer))
   })

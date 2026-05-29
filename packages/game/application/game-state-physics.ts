@@ -1,7 +1,16 @@
-import { CHUNK_SIZE, CHUNK_HEIGHT } from '@ts-minecraft/kernel'
+import { CHUNK_SIZE, CHUNK_HEIGHT, blockTypeToIndex } from '@ts-minecraft/kernel'
 import { chunkBlockIndexUnchecked } from '@ts-minecraft/terrain'
 
 const CHUNK_LOCAL_MASK = CHUNK_SIZE - 1
+
+// Blocks that should not collide with the player (transparent/passable).
+// Uses a native Set per codebase policy for hot-path collision checks.
+const PASSABLE_BLOCK_IDS: ReadonlySet<number> = new Set([
+  blockTypeToIndex('WATER'),
+  blockTypeToIndex('LAVA'),
+  blockTypeToIndex('LEAVES'),
+  blockTypeToIndex('TORCH'),
+])
 
 // Hoisted to module scope: array allocated once, not per frame.
 export const OFFSETS_3x3 = [
@@ -30,5 +39,29 @@ export const isBlockSolid = (
   if (chunk == null) return false
   const lx = bx & CHUNK_LOCAL_MASK
   const lz = bz & CHUNK_LOCAL_MASK
-  return chunk.blocks[chunkBlockIndexUnchecked(lx, ly, lz)] !== 0
+  const blockId = chunk.blocks[chunkBlockIndexUnchecked(lx, ly, lz)] ?? 0
+  return blockId !== 0 && !PASSABLE_BLOCK_IDS.has(blockId)
+}
+
+export const isInWater = (
+  wx: number, wy: number, wz: number,
+  chunkCache: Array<{ blocks: Uint8Array } | null>,
+  playerCx: number,
+  playerCz: number,
+): boolean => {
+  const WATER_ID = blockTypeToIndex('WATER')
+  const ly = Math.floor(wy)
+  if (ly < 0 || ly >= CHUNK_HEIGHT) return false
+  const bx = Math.floor(wx)
+  const bz = Math.floor(wz)
+  const cx = Math.floor(bx / CHUNK_SIZE)
+  const cz = Math.floor(bz / CHUNK_SIZE)
+  const dx = cx - playerCx
+  const dz = cz - playerCz
+  if (dx < -1 || dx > 1 || dz < -1 || dz > 1) return false
+  const chunk = chunkCache[(dx + 1) * 3 + (dz + 1)]
+  if (chunk == null) return false
+  const lx = bx & CHUNK_LOCAL_MASK
+  const lz = bz & CHUNK_LOCAL_MASK
+  return (chunk.blocks[chunkBlockIndexUnchecked(lx, ly, lz)] ?? 0) === WATER_ID
 }

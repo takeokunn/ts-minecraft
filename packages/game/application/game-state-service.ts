@@ -6,7 +6,7 @@ import { ChunkManagerService } from '@ts-minecraft/terrain'
 import { InventoryService } from '@ts-minecraft/inventory'
 import { GameStateError } from '../domain/errors'
 import { GameModeService } from './game-mode-service'
-import { OFFSETS_3x3, isBlockSolid } from './game-state-physics'
+import { OFFSETS_3x3, isBlockSolid, isInWater } from './game-state-physics'
 
 export const PLAYER_BODY_ID = 'player'
 
@@ -161,6 +161,16 @@ export class GameStateService extends Effect.Service<GameStateService>()(
               Effect.catchTag('PhysicsServiceError', () => Effect.void)
             )
             yield* Ref.set(isGroundedRef, newIsGrounded)
+
+            // Apply water drag when player is inside a water block.
+            // Dampens velocity by 60% and caps downward terminal velocity at -2 m/s.
+            if (isInWater(resolvedPos.x, resolvedPos.y, resolvedPos.z, chunkCache, playerCx, playerCz)) {
+              yield* physicsService.setVelocity(playerBodyId, {
+                x: resolvedVel.x * 0.4,
+                y: Math.max(resolvedVel.y * 0.4, -2),
+                z: resolvedVel.z * 0.4,
+              }).pipe(Effect.catchTag('PhysicsServiceError', () => Effect.void))
+            }
 
             yield* playerService.updatePosition(playerId, resolvedPos as Position)
             yield* playerService.updateVelocity(playerId, resolvedVel)

@@ -127,6 +127,7 @@ export const createMockInventoryService = (options?: {
     options?.removeBlock ? options.removeBlock(itemType, count, slot) : Effect.void,
   getSlot: (_idx: SlotIndex) => Effect.succeed(Option.none<InventorySlot extends Option.Option<infer T> ? T : never>()),
   setSlot: (_idx: SlotIndex, _slot: InventorySlot) => Effect.void,
+  damageSlot: (_idx: SlotIndex, _amount?: number) => Effect.void,
   moveStack: (_from: SlotIndex, _to: SlotIndex) => Effect.void,
   getHotbarSlots: () => Effect.succeed([]),
   getAllSlots: () => Effect.succeed([]),

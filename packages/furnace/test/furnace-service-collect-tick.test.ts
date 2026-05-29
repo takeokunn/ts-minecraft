@@ -1,6 +1,6 @@
 import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
-import { Effect, Either, Layer, MutableHashMap, MutableRef, Option } from 'effect'
+import { Effect, Either, HashMap, Layer, MutableHashMap, MutableRef, Option } from 'effect'
 import { FurnaceService, FurnaceServiceLive, FurnaceError } from '@ts-minecraft/furnace'
 import { RecipeService, InventoryError } from '@ts-minecraft/inventory'
 import { InventoryService } from '@ts-minecraft/inventory'
@@ -79,9 +79,20 @@ describe('application/furnace/furnace-service', () => {
       const furnace = yield* FurnaceService
       yield* furnace.setSelectedFurnace({ x: 0, y: 64, z: 0 })
       yield* furnace.startSmelting(RecipeId.make('raw-iron-to-iron-ingot'))
-      yield* furnace.tick(DeltaTimeSecs.make(1.5))
+      yield* furnace.tick(DeltaTimeSecs.make(10.0))
       const result = yield* furnace.collectOutput()
       expect(result).toBe(false)
+
+      // Safety guarantee: a failed collect (full inventory) must NOT destroy the
+      // smelted item — it stays in the furnace output slot so the player can
+      // retry after freeing space. (collectOutput adds to inventory first and
+      // only clears the slot on success.)
+      const state = yield* furnace.getState()
+      const preserved = HashMap.get(state.furnaces, '0,64,0')
+      expect(Option.isSome(preserved)).toBe(true)
+      const output = Option.getOrThrow(preserved).output
+      expect(Option.getOrThrow(output).itemType).toBe('IRON_INGOT')
+      expect(Option.getOrThrow(output).count).toBe(1)
     }).pipe(Effect.provide(layer))
   })
 
@@ -177,7 +188,7 @@ describe('application/furnace/furnace-service', () => {
       const furnace = yield* FurnaceService
       yield* furnace.setSelectedFurnace({ x: 0, y: 64, z: 0 })
       yield* furnace.startSmelting(RecipeId.make('raw-iron-to-iron-ingot'))
-      yield* furnace.tick(DeltaTimeSecs.make(1.5))
+      yield* furnace.tick(DeltaTimeSecs.make(10.0))
       yield* furnace.collectOutput()
       const idleStateBefore = yield* furnace.getNearestFurnaceState()
       const progressBefore = Option.map(idleStateBefore, (s) => s.progressSecs)

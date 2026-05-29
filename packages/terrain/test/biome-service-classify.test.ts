@@ -1,9 +1,10 @@
 import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
-import { Array as Arr, Effect, Layer } from 'effect'
+import { Array as Arr, Effect, Layer, Schema } from 'effect'
 import {
   BiomeService,
   BiomeServiceLive,
+  BiomeTypeSchema,
   NoiseServicePort,
 } from '@ts-minecraft/terrain'
 import { CHUNK_SIZE } from '../../kernel/index.ts'
@@ -160,6 +161,20 @@ describe('classifyBiomeFromClimate — baseBiome OCEAN passthrough', () => {
   it('classifyBiome keeps very-wet temp at TEMP_HOT in OCEAN and only flips above TEMP_HOT', () => {
     expect(classifyBiome(TEMP_HOT, 0.9)).toBe('OCEAN')
     expect(classifyBiome(TEMP_HOT + 0.01, 0.9)).toBe('SWAMP')
+  })
+
+  // Totality: the if-chain must classify EVERY point of the climate domain (and
+  // beyond) to a valid BiomeType — never fall through to undefined and never
+  // throw. The point-tests above pin specific biomes; this guards a future
+  // refactor of the branch order/thresholds from opening a gap anywhere.
+  it('classifyBiome is total across the full temperature/humidity domain', () => {
+    const isValidBiome = Schema.is(BiomeTypeSchema)
+    for (let t = -1; t <= 2.0001; t += 0.1) {
+      for (let h = -1; h <= 2.0001; h += 0.1) {
+        const biome = classifyBiome(t, h)
+        expect(isValidBiome(biome)).toBe(true)
+      }
+    }
   })
 
   it.effect('humidity > 0.85, temp ≤ TEMP_HOT, cont > -0.42 → FOREST (OCEAN base converted)', () =>

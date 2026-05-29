@@ -152,6 +152,28 @@ describe('application/chunk/chunk-manager-service', () => {
       }).pipe(Effect.provide(TestLayer))
     })
 
+    it.effect('clears the dirty set after save so an immediate re-save (no new edits) persists nothing', () => {
+      // Without clearing the dirty set, every loaded-and-once-edited chunk would
+      // be re-written on every autosave tick forever. A redundant re-save writes
+      // identical bytes, so loadChunk cannot detect it — assert via the save-call
+      // counter that the SECOND saveDirtyChunks issues no further writes.
+      const { TestLayer, storage } = buildTestLayer()
+
+      return Effect.gen(function* () {
+        const service = yield* ChunkManagerService
+        yield* service.getChunk({ x: 3, z: 3 })
+        yield* service.markChunkDirty({ x: 3, z: 3 })
+
+        yield* service.saveDirtyChunks()
+        const afterFirst = storage._saveChunkCount()
+        expect(afterFirst).toBeGreaterThan(0)
+
+        // No new edits between saves → the dirty set must now be empty.
+        yield* service.saveDirtyChunks()
+        expect(storage._saveChunkCount()).toBe(afterFirst)
+      }).pipe(Effect.provide(TestLayer))
+    })
+
     it.effect('does not persist chunk to storage when not marked dirty', () => {
       const { TestLayer, storage } = buildTestLayer()
 

@@ -87,8 +87,12 @@ describe('blockOverlapsPlayer — AABB collision (pure)', () => {
     ['separated on X',                        { x: 2, y: 0, z: 0 }, { x: 0, y: 0, z: 0 }, false],
     ['separated on Z',                        { x: 0, y: 0, z: 2 }, { x: 0, y: 0, z: 0 }, false],
     ['separated on Y (block above player)',   { x: 0, y: 3, z: 0 }, { x: 0, y: 0, z: 0 }, false],
-    // blockCenterX=0.5, threshold=0.8 → player must be at x≥1.31 to NOT overlap
-    ['X just beyond threshold (player at 1.31)', { x: 0, y: 0, z: 0 }, { x: 1.31, y: 0, z: 0 }, false],
+    // blockCenterX=0.5, threshold=0.8 → player must be at x≥1.31 to NOT overlap.
+    // Bracket the threshold from both sides so its LOCATION (0.8 = blockHalf +
+    // PLAYER_HALF_WIDTH) is pinned — this is the suffocation guard's boundary:
+    // a block flush against the player must stay placeable, one inside must not.
+    ['X just beyond threshold (player at 1.31) → placeable', { x: 0, y: 0, z: 0 }, { x: 1.31, y: 0, z: 0 }, false],
+    ['X just inside threshold (player at 1.29) → blocked', { x: 0, y: 0, z: 0 }, { x: 1.29, y: 0, z: 0 }, true],
   ] as const
 
   Arr.forEach(axisTable, ([desc, blockPos, playerPos, expected]) => {

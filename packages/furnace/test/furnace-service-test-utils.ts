@@ -31,6 +31,7 @@ type InventoryMockOverrides = Partial<{
   addBlock: InventoryService['addBlock']
   getSlot: InventoryService['getSlot']
   setSlot: InventoryService['setSlot']
+  damageSlot: InventoryService['damageSlot']
   moveStack: InventoryService['moveStack']
   getHotbarSlots: InventoryService['getHotbarSlots']
   clear: InventoryService['clear']
@@ -107,6 +108,7 @@ export const makeInventoryService = (
       }),
     getSlot: () => Effect.succeed(Option.none()),
     setSlot: () => Effect.void,
+    damageSlot: () => Effect.void,
     moveStack: () => Effect.void,
     getHotbarSlots: () => Effect.succeed([]),
     clear: () =>

@@ -8,6 +8,7 @@ import type { Chunk } from '../domain/chunk'
 import {
   createFluidBuffer,
   encodeFluidCell,
+  decodeFluidByte,
 } from '@ts-minecraft/world-state'
 import { blockIndex } from '@ts-minecraft/kernel'
 
@@ -159,6 +160,43 @@ describe('terrain/application/fluid-service', () => {
       yield* svc.tick()
       // markChunkDirty should be called for the water spread
       expect(MutableRef.get(markDirtyCountRef)).toBeGreaterThan(0)
+    }).pipe(Effect.provide(layer))
+  })
+
+  it.effect('tick spreads a water source downward AT decayed level 1 (outcome, not just markDirty)', () => {
+    // A source (level 0) spreads out at level 1 (the first flowing level). This
+    // asserts the OUTCOME — the cell below holds WATER at level 1, flowing — not
+    // merely that markChunkDirty fired, so a wrong nextLevel or target is caught.
+    const chunk = makeChunkWith([{ lx: 0, y: 64, lz: 0, blockType: 'WATER' }])
+    const fluidBuffer = createFluidBuffer()
+    fluidBuffer[blockIndexAt(0, 64, 0)] = encodeFluidCell({ level: 0, source: true, type: 'water' })
+    ;(chunk as { fluid: Option.Option<Uint8Array<ArrayBufferLike>> }).fluid = Option.some(fluidBuffer)
+
+    const chunkMgrLayer = Layer.succeed(ChunkManagerService, ChunkManagerService.of({
+      _tag: '@minecraft/application/ChunkManagerService' as const,
+      getChunk: () => Effect.succeed(chunk),
+      markChunkDirty: () => Effect.void,
+      getLoadedChunks: () => Effect.succeed([chunk]),
+      drainRenderDirtyChunks: () => Effect.succeed([]),
+      drainRenderDirtyChunkEntries: () => Effect.succeed([]),
+      loadChunksAroundPlayer: () => Effect.succeed(false),
+      saveDirtyChunks: () => Effect.void,
+      unloadChunk: () => Effect.void,
+    }))
+    const layer = FluidServiceLive.pipe(Layer.provide(chunkMgrLayer))
+    return Effect.gen(function* () {
+      const svc = yield* FluidService
+      yield* svc.syncLoadedChunks([chunk])
+      yield* svc.tick()
+
+      const belowIdx = blockIndexAt(0, 63, 0)
+      // The block below became WATER...
+      expect(chunk.blocks[belowIdx]).toBe(blockTypeToIndex('WATER'))
+      // ...carrying a FLOWING cell at level 1 (source decays by one on spread).
+      const cell = Option.getOrThrow(decodeFluidByte(Option.getOrThrow(chunk.fluid)[belowIdx]!))
+      expect(cell.type).toBe('water')
+      expect(cell.source).toBe(false)
+      expect(cell.level).toBe(1)
     }).pipe(Effect.provide(layer))
   })
 

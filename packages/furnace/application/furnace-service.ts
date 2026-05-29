@@ -248,6 +248,12 @@ export class FurnaceService extends Effect.Service<FurnaceService>()(
                       [furnace.input, furnace.fuel, furnace.output],
                       (slot) => slot,
                     )
+                    // Snapshot the inventory before adding so a PARTIAL success
+                    // (e.g. fuel fits but the output does not) can be undone.
+                    // Without rollback the items that DID fit would be duplicated:
+                    // left in the inventory AND in the furnace, which stays put
+                    // because we only remove it when every add succeeds.
+                    const snapshot = yield* inventoryService.serialize()
                     const results = yield* Effect.forEach(
                       dropped,
                       (item) => inventoryService.addBlock(item.itemType as BlockType, item.count).pipe(
@@ -263,6 +269,10 @@ export class FurnaceService extends Effect.Service<FurnaceService>()(
                       })
                       return true
                     }
+                    // Partial failure: roll back any successful adds and keep the
+                    // furnace intact, so dismantling a furnace into an almost-full
+                    // inventory neither duplicates nor loses items.
+                    yield* inventoryService.deserialize(snapshot)
                     return false
                   }),
               })

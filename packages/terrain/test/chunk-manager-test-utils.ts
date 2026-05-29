@@ -19,16 +19,23 @@ const storageKey = (worldId: WorldId, coord: { x: number; z: number }): ChunkSto
 
 export const makeInMemoryStorage = () => {
   const chunks = MutableHashMap.empty<ChunkStorageKey, ChunkStorageValue>()
+  let saveChunkCount = 0
 
-  return StorageServicePort.of({
+  const port = StorageServicePort.of({
     _tag: '@minecraft/application/storage/StorageServicePort' as const,
     saveChunk: (worldId, coord, data) =>
       Effect.sync(() => {
+        saveChunkCount += 1
         MutableHashMap.set(chunks, storageKey(worldId, coord), data)
       }) as Effect.Effect<undefined, StorageError>,
     loadChunk: (worldId, coord) =>
       Effect.sync(() => MutableHashMap.get(chunks, storageKey(worldId, coord))),
   })
+
+  // Additive test-only accessor (not part of the port interface): lets tests
+  // distinguish a redundant re-save from a no-op, which loadChunk cannot since
+  // re-saving identical data is invisible.
+  return Object.assign(port, { _saveChunkCount: (): number => saveChunkCount })
 }
 
 // ---------------------------------------------------------------------------

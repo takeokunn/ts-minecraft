@@ -14,8 +14,16 @@ const computeSpatial = (listener: { x: number; y: number; z: number }, source: {
   return { gain: attenuation, pan }
 }
 
-export const SoundEffectSchema = Schema.Literal('blockBreak', 'blockPlace', 'playerHurt', 'entityHit')
+export const SoundEffectSchema = Schema.Literal('blockBreak', 'blockPlace', 'playerHurt', 'entityHit', 'mobHurt', 'mobDeath')
 export type SoundEffect = Schema.Schema.Type<typeof SoundEffectSchema>
+
+// Bidirectional lockstep between the schema union and the synth table. The
+// schema→table direction is already enforced by `SOUND_LIBRARY[effect]` indexing
+// in playEffect (a union member with no table key would be ill-typed). This
+// `satisfies` clause adds the table→schema direction: a SOUND_LIBRARY key with
+// no matching literal would make the table not assignable to the keyed record,
+// so adding either side without the other is a tsc error.
+SOUND_LIBRARY satisfies Record<SoundEffect, unknown>
 
 export const SoundSettingsSchema = Schema.Struct({
   enabled: Schema.Boolean,
@@ -60,8 +68,8 @@ export class SoundManager extends Effect.Service<SoundManager>()(
             }
 
             const definition = SOUND_LIBRARY[effect]
-            const [listenerPosition, masterVolume, sfxVolume] = yield* Effect.all(
-              [Ref.get(listenerPositionRef), Ref.get(masterVolumeRef), Ref.get(sfxVolumeRef)],
+            const [listenerPosition, sfxVolume] = yield* Effect.all(
+              [Ref.get(listenerPositionRef), Ref.get(sfxVolumeRef)],
               { concurrency: 'unbounded' }
             )
 
@@ -70,9 +78,13 @@ export class SoundManager extends Effect.Service<SoundManager>()(
               onSome: (pos) => computeSpatial(listenerPosition, pos),
             })
 
+            // NOTE: masterVolume is applied ONCE by the audio engine's master
+            // gain node (set via setMasterGain in applySettings) — every tone is
+            // routed through it. Multiplying by masterVolume here too would apply
+            // it twice (masterVolume²), making sounds far too quiet at non-max
+            // master. So finalGain carries only the per-effect/sfx factors.
             const finalGain = clamp01(
               definition.baseGain
-              * masterVolume
               * sfxVolume
               * spatial.gain
               * clamp01(Option.getOrElse(Option.fromNullable(options?.gainScale), () => 1)),

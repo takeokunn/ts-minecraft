@@ -182,6 +182,18 @@ describe('placeTree', () => {
     expect(foundWood).toBe(true)
   })
 
+  it('a fully off-chunk tree origin writes nothing (bounds-clipped — no cross-column corruption)', () => {
+    // placeChunkTrees iterates a canopy-margin-expanded grid, so it calls
+    // placeTree with origins outside [0, CHUNK_SIZE). Every trunk/canopy voxel
+    // of a far +z origin lands at lz >= CHUNK_SIZE and must be clipped. Without
+    // the bounds guard the flat-index math (y + lz*H + lx*H*W) would wrap into a
+    // valid in-chunk column and silently corrupt it — so an untouched all-AIR
+    // chunk is the proof the clip holds.
+    const blocks = makeBlocks()
+    placeTree(blocks, 8, CHUNK_SIZE + 10, SURFACE_Y, 'PLAINS', 0.5)
+    expect(blocks.every((b) => b === 0)).toBe(true)
+  })
+
   it('places JUNGLE tree (TALL_CANOPY archetype) with wood in trunk column', () => {
     const blocks = makeBlocks()
     placeTree(blocks, LX, LZ, SURFACE_Y, 'JUNGLE', 0.7)

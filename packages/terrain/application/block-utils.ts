@@ -35,11 +35,18 @@ const isPickaxeTool = (item: InventoryItem): item is PickaxeTool =>
   item === 'STONE_PICKAXE' ||
   item === 'WOODEN_PICKAXE'
 
+// Every block that needs *some* pickaxe to drop = the largest (diamond) tier,
+// since the sets are nested (wooden ⊆ stone ⊆ iron ⊆ diamond). A bare hand or a
+// non-pickaxe tool drops a block only when it is NOT in this set — using the
+// iron set here would wrongly let a hand/sword harvest diamond-only blocks like
+// OBSIDIAN (in the diamond set but not the iron set).
+const PICKAXE_REQUIRED_BLOCKS = DIAMOND_PICKAXE_HARVESTABLE_BLOCKS
+
 export const canHarvestBlock = (blockType: BlockType, selectedTool: Option.Option<InventoryItem>): boolean =>
   Option.match(selectedTool, {
-    onNone: () => !HashSet.has(IRON_PICKAXE_HARVESTABLE_BLOCKS, blockType),
+    onNone: () => !HashSet.has(PICKAXE_REQUIRED_BLOCKS, blockType),
     onSome: (tool) => {
-      if (!isPickaxeTool(tool)) return !HashSet.has(IRON_PICKAXE_HARVESTABLE_BLOCKS, blockType)
+      if (!isPickaxeTool(tool)) return !HashSet.has(PICKAXE_REQUIRED_BLOCKS, blockType)
       return HashSet.has(PICKAXE_HARVEST_SETS[tool], blockType)
     },
   })

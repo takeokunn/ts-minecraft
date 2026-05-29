@@ -43,6 +43,26 @@ describe('resolveBlockCollisions', () => {
       expect(result.position.y).toBeCloseTo(5 + HALF_H, 5)
     })
 
+    it('falling onto a 2-block stack lands on TOP (highest floor wins, not embedded in the upper block)', () => {
+      // Solid blocks at by=4 AND by=5 (a 2-tall stack). The player's 1.8-tall
+      // bounding box overlaps BOTH while falling. The multi-block Y scan must
+      // pick the HIGHEST floor (top of by=5 = 6) so the player ends up standing
+      // ON the stack — a single-block resolver would snap to 5 (feet at 5.0),
+      // leaving the player embedded inside block by=5.
+      const feetY = 4.5
+      const centerY = feetY + HALF_H // 5.4 → headY = 6.3, spans by=4 and by=5
+      const pos = { x: 0, y: centerY, z: 0 }
+      const vel = { x: 0, y: -1, z: 0 }
+      const solid = (_bx: number, by: number, _bz: number): boolean => by === 4 || by === 5
+
+      const result = resolveBlockCollisions(pos, vel, HALF_W, HALF_H, solid)
+
+      expect(result.isGrounded).toBe(true)
+      expect(result.velocity.y).toBe(0)
+      // Top of the stack is y=6; feet there, centre at 6 + halfH = 6.9.
+      expect(result.position.y).toBeCloseTo(6 + HALF_H, 5)
+    })
+
     it('player in air (no block below): not grounded, y unchanged', () => {
       const pos = { x: 0, y: 10, z: 0 }
       const vel = { x: 0, y: -1, z: 0 }

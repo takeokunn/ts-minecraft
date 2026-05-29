@@ -1,9 +1,9 @@
 import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
 import { Effect } from 'effect'
-import { DeltaTimeSecs } from '@ts-minecraft/kernel'
+import { DeltaTimeSecs, PLAYER_HALF_HEIGHT } from '@ts-minecraft/kernel'
 import type { WorldConfig } from '@ts-minecraft/physics'
-import { PhysicsWorldService, PhysicsWorldServiceLive } from '../infrastructure/boundary/physics-world-service'
+import { PhysicsWorldService, PhysicsWorldServiceLive, TERMINAL_VELOCITY_Y } from '../infrastructure/boundary/physics-world-service'
 import { RigidBodyService, RigidBodyServiceLive } from '../infrastructure/boundary/rigid-body-service'
 
 const defaultConfig: WorldConfig = { gravity: { x: 0, y: -9.82, z: 0 } }
@@ -91,6 +91,35 @@ describe('physics/boundary/physics-world-service', () => {
         expect(body.position.y).toBeLessThan(initialY)
       }).pipe(Effect.provide(PhysicsWorldServiceLive), Effect.provide(RigidBodyServiceLive))
     )
+
+    it.effect('free fall is clamped to terminal velocity (never grows unbounded)', () =>
+      Effect.gen(function* () {
+        const worldSvc = yield* PhysicsWorldService
+        const bodySvc = yield* RigidBodyService
+        const world = yield* worldSvc.create(defaultConfig)
+        const body = yield* bodySvc.create({ mass: 1, position: { x: 0, y: 1000, z: 0 } })
+        yield* worldSvc.addBody(world, body)
+
+        // Step well past the time needed to reach terminal velocity
+        // (|terminal| / |gravity| ≈ 3.3s ≈ 66 steps at dt=0.05).
+        for (let i = 0; i < 100; i += 1) {
+          yield* worldSvc.step(world, DeltaTimeSecs.make(0.05))
+        }
+
+        expect(body.velocity.y).toBe(TERMINAL_VELOCITY_Y)
+        // And it never exceeds the cap on the way down.
+        expect(body.velocity.y).toBeGreaterThanOrEqual(TERMINAL_VELOCITY_Y)
+      }).pipe(Effect.provide(PhysicsWorldServiceLive), Effect.provide(RigidBodyServiceLive))
+    )
+
+    it('terminal velocity keeps per-step fall within the resolver bbox (tunneling-safe invariant)', () => {
+      // The AABB resolver only catches a floor that lands inside the body's
+      // ~1.8-block-tall box after a step, so the per-step fall at the deltaTime
+      // ceiling must not exceed that height — otherwise a fast fall tunnels.
+      const MAX_DELTA_TIME = 0.05 // game-loop.ts deltaTime cap
+      const bodyHeight = 2 * PLAYER_HALF_HEIGHT
+      expect(Math.abs(TERMINAL_VELOCITY_Y) * MAX_DELTA_TIME).toBeLessThanOrEqual(bodyHeight)
+    })
 
     it.effect('static bodies should not be affected by gravity', () =>
       Effect.gen(function* () {
