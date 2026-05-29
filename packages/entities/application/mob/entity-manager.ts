@@ -12,6 +12,7 @@ import { getMobDefinition } from '../../domain/mob/mobs'
 import type { DeltaTimeSecs, Position, Vector3 } from '@ts-minecraft/kernel'
 import { zero } from '@ts-minecraft/kernel'
 import { HOSTILE_ATTACK_COOLDOWN_SECS, type ManagedEntity } from '../../domain/mob/entity-internal'
+import { KNOCKBACK_DURATION_TICKS } from '../../domain/combat'
 import { hashEntityId, makeWanderDirectionFromHash, toPublicEntity } from '../../domain/mob/entity-utils'
 
 // probability of choosing a new wander direction each tick
@@ -19,6 +20,12 @@ const WANDER_REDIRECT_PROBABILITY = 0.2
 // prime tick multiplier — avoids periodicity in wander direction
 const WANDER_PHASE_TICK_STEP = 17
 const MOB_GRAVITY_Y = -9.82
+// Terminal downward fall velocity for mobs (mirrors the player cap in
+// physics-world-service). Without it, free-fall velocity grows unbounded and a
+// single step can move a mob farther than its own ~1.8-block height, past the
+// AABB resolver's current-bbox scan, letting it tunnel through floors. Safe cap
+// = mobHeight / dtCeiling = 1.8 / 0.05 = 36; -32 leaves margin (per-step ≤ 1.6).
+const MOB_TERMINAL_VELOCITY_Y = -32
 const MOB_JUMP_VELOCITY_Y = 4.2
 const MOB_STUCK_EPSILON = 1e-4
 const WANDER_STUCK_REDIRECT_TICK_OFFSET = 11
@@ -108,6 +115,7 @@ export class EntityManager extends Effect.Service<EntityManager>()(
               wanderDirection: zero,
               attackCooldownRemaining: 0,
               isGrounded: false,
+              knockbackTicksRemaining: 0,
             }
 
             yield* Ref.update(entitiesRef, (entities) =>
@@ -188,10 +196,13 @@ export class EntityManager extends Effect.Service<EntityManager>()(
         update: (
           deltaTime: DeltaTimeSecs,
           playerPosition: Position,
+          isNight: boolean = true,
         ): Effect.Effect<void, never> =>
           Effect.gen(function* () {
             const tick = yield* Ref.updateAndGet(updateTickRef, (value) => value + 1)
             const dirtyRef = MutableRef.make(false)
+            // Hostile mobs burn in daylight every 20 ticks (≈ 1 s at 20 UPS).
+            const daytimeBurningActive = !isNight && tick % 20 === 0
 
             yield* Ref.update(entitiesRef, (entities) =>
               HashMap.map(entities, (entity, entityId) => {
@@ -211,6 +222,17 @@ export class EntityManager extends Effect.Service<EntityManager>()(
                 })
 
                 const nextAttackCooldown = Math.max(0, entity.attackCooldownRemaining - deltaTime)
+
+                // Knockback active: yield horizontal velocity control to the shove
+                // (applyPhysics integrates entity.velocity) and tick the timer down.
+                if (entity.knockbackTicksRemaining > 0) {
+                  MutableRef.set(dirtyRef, true)
+                  return {
+                    ...entity,
+                    attackCooldownRemaining: nextAttackCooldown,
+                    knockbackTicksRemaining: entity.knockbackTicksRemaining - 1,
+                  }
+                }
 
                 // Entity idle/attack skip: avoid object allocation when nothing changed,
                 // but still allow attack cooldowns to tick down while stationary.
@@ -248,8 +270,12 @@ export class EntityManager extends Effect.Service<EntityManager>()(
                   z: horizontalVelocity.z,
                 }
 
+                const burnDamage = daytimeBurningActive && entity.behavior === 'hostile' ? 1 : 0
+                if (burnDamage > 0) MutableRef.set(dirtyRef, true)
+
                 return {
                   ...entity,
+                  health: Math.max(0, entity.health - burnDamage),
                   aiState: nextState,
                   velocity,
                   wanderDirection,
@@ -257,7 +283,28 @@ export class EntityManager extends Effect.Service<EntityManager>()(
                 }
               })
             )
-            if (MutableRef.get(dirtyRef)) {
+            // Remove hostile mobs that burned to death (health=0). No drops for
+            // environmental death — consistent with vanilla fire damage behaviour.
+            if (daytimeBurningActive) {
+              yield* Ref.modify(entitiesRef, (entities): [boolean, HashMap.HashMap<EntityIdType, ManagedEntity>] => {
+                let changed = false
+                let updated = entities
+                HashMap.forEach(entities, (entity, id) => {
+                  if (entity.behavior === 'hostile' && entity.health <= 0) {
+                    updated = HashMap.remove(updated, id)
+                    changed = true
+                  }
+                })
+                return [changed, updated]
+              }).pipe(Effect.flatMap((changed) =>
+                changed
+                  ? Effect.all([
+                      Ref.set(cachedEntitiesRef, Option.none()),
+                      Ref.update(structureVersionRef, (v) => v + 1),
+                    ], { concurrency: 'unbounded', discard: true })
+                  : Effect.void,
+              ))
+            } else if (MutableRef.get(dirtyRef)) {
               yield* Ref.set(cachedEntitiesRef, Option.none())
             }
           }),
@@ -274,7 +321,8 @@ export class EntityManager extends Effect.Service<EntityManager>()(
               HashMap.map(entities, (entity, entityId) => {
                 const candidateVelocity: Vector3 = {
                   x: entity.velocity.x,
-                  y: entity.velocity.y + MOB_GRAVITY_Y * deltaTime,
+                  // Clamp downward fall to terminal velocity (tunneling guard).
+                  y: Math.max(entity.velocity.y + MOB_GRAVITY_Y * deltaTime, MOB_TERMINAL_VELOCITY_Y),
                   z: entity.velocity.z,
                 }
                 const candidatePosition: Position = {
@@ -389,11 +437,26 @@ export class EntityManager extends Effect.Service<EntityManager>()(
                     return [Option.some(entity.drops), HashMap.remove(entities, entityId)]
                   }
 
+                  // Enderman teleports when hit but survives (deterministic offset
+                  // derived from remaining health so each hit lands at a different spot).
+                  const nextPosition: Position = entity.type === EntityType.Enderman
+                    ? (() => {
+                        const angle = (nextHealth * 1.618) % (Math.PI * 2)
+                        const dist = 4 + (Math.floor(nextHealth) % 8)
+                        return {
+                          x: entity.position.x + Math.cos(angle) * dist,
+                          y: entity.position.y,
+                          z: entity.position.z + Math.sin(angle) * dist,
+                        }
+                      })()
+                    : entity.position
+
                   return [
                     Option.none(),
                     HashMap.set(entities, entityId, {
                       ...entity,
                       health: nextHealth,
+                      position: nextPosition,
                     }),
                   ]
                 },
@@ -408,6 +471,25 @@ export class EntityManager extends Effect.Service<EntityManager>()(
             ], { concurrency: 'unbounded', discard: true })
           ))
         },
+
+        // Applies a combat knockback: replaces the entity's velocity with the
+        // impulse and arms the knockback timer so AI does not immediately reclaim
+        // horizontal velocity (see update). No-op for unknown entities.
+        applyKnockback: (
+          entityId: EntityIdType,
+          impulse: Vector3,
+        ): Effect.Effect<void, never> =>
+          Ref.update(entitiesRef, (entities) =>
+            Option.match(HashMap.get(entities, entityId), {
+              onNone: () => entities,
+              onSome: (entity) =>
+                HashMap.set(entities, entityId, {
+                  ...entity,
+                  velocity: impulse,
+                  knockbackTicksRemaining: KNOCKBACK_DURATION_TICKS,
+                }),
+            }),
+          ).pipe(Effect.andThen(Ref.set(cachedEntitiesRef, Option.none()))),
     })))
   },
 ) {}

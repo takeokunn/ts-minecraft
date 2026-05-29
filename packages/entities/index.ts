@@ -7,9 +7,17 @@ export * from './domain/mob/mobs/cow'
 export * from './domain/mob/mobs/pig'
 export * from './domain/mob/mobs/sheep'
 export * from './domain/mob/mobs/zombie'
+export * from './domain/mob/mobs/creeper'
+export * from './domain/mob/mobs/skeleton'
+export * from './domain/mob/mobs/spider'
+export * from './domain/mob/mobs/enderman'
+export * from './domain/mob/mobs/index'
 export * from './domain/mob/spawner-config'
 export * from './domain/mob/mob-categories'
 export * from './domain/mob/state-machine'
+
+// domain/combat
+export * from './domain/combat'
 
 // domain/redstone
 export * from './domain/redstone/redstone-model'

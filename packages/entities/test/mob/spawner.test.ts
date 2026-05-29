@@ -1,7 +1,7 @@
 import { describe, expect, it } from '@effect/vitest'
 import { Array as Arr, Effect, Layer, Option } from 'effect'
 import { TimeService } from '../../../game'
-import { EntityType, type EntityId, EntityManager, EntityManagerLive, MobSpawner, MobSpawnerLive } from '@ts-minecraft/entities'
+import { HOSTILE_MOBS, PASSIVE_MOBS, type EntityId, EntityManager, EntityManagerLive, MobSpawner, MobSpawnerLive } from '@ts-minecraft/entities'
 
 const makeTimeLayer = (night: boolean) =>
   Layer.succeed(TimeService, TimeService.of({
@@ -41,7 +41,8 @@ describe('entity/spawner', () => {
 
       const entities = yield* entityManager.getEntities()
       expect(entities.length).toBe(1)
-      expect(entities[0]?.type).toBe(EntityType.Zombie)
+      // Any hostile mob (Zombie, Creeper, or Skeleton) may spawn at night via rotation
+      expect(HOSTILE_MOBS).toContain(entities[0]?.type)
     }).pipe(Effect.provide(makeSpawnerLayer(true)))
   )
 
@@ -62,7 +63,8 @@ describe('entity/spawner', () => {
 
       const entities = yield* entityManager.getEntities()
       expect(entities.length).toBe(1)
-      expect(entities[0]?.type).not.toBe(EntityType.Zombie)
+      // Only passive mobs spawn during the day
+      expect(PASSIVE_MOBS).toContain(entities[0]?.type)
     }).pipe(Effect.provide(makeSpawnerLayer(false)))
   )
 

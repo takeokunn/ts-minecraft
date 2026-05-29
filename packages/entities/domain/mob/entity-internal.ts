@@ -18,4 +18,7 @@ export type ManagedEntity = Entity & {
   readonly wanderDirection: Vector3
   readonly attackCooldownRemaining: number
   readonly isGrounded: boolean
+  // > 0 while a combat knockback impulse is active; AI yields horizontal velocity
+  // control for this many update ticks so the shove is not immediately overwritten.
+  readonly knockbackTicksRemaining: number
 }

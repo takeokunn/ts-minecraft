@@ -266,6 +266,31 @@ describe('entity/entityManager', () => {
       }).pipe(Effect.provide(EntityManagerLive))
     )
 
+    it.effect('free-falling mob velocity is clamped to a bounded terminal velocity (tunneling guard)', () =>
+      Effect.gen(function* () {
+        const entityManager = yield* EntityManager
+        const entityId = yield* entityManager.addEntity(EntityType.Zombie, { x: 0, y: 500, z: 0 })
+
+        // Pure free fall: applyPhysics only (no AI update), resolver never grounds
+        // it, so gravity accrues every tick. Step well past terminal (~65 ticks).
+        yield* Effect.forEach(Arr.makeBy(100, (i) => i), () =>
+          entityManager.applyPhysics(DeltaTimeSecs.make(0.05), (position, velocity) => ({ position, velocity, isGrounded: false })),
+          { concurrency: 1 },
+        )
+
+        const v1 = Option.getOrThrow(yield* entityManager.getEntity(entityId)).velocity.y
+        yield* entityManager.applyPhysics(DeltaTimeSecs.make(0.05), (position, velocity) => ({ position, velocity, isGrounded: false }))
+        const v2 = Option.getOrThrow(yield* entityManager.getEntity(entityId)).velocity.y
+
+        // Terminal reached: velocity stops growing (would keep decreasing if
+        // unbounded), stays downward, and stays within the tunneling-safe bound
+        // (per-step fall ≤ mob height 1.8 at the 0.05s dt cap → |v| ≤ 36).
+        expect(v1).toBe(v2)
+        expect(v1).toBeLessThan(0)
+        expect(v1).toBeGreaterThanOrEqual(-36)
+      }).pipe(Effect.provide(EntityManagerLive))
+    )
+
     it.effect('idle entity with active attack cooldown decrements cooldown without changing AI state', () =>
       Effect.gen(function* () {
         const entityManager = yield* EntityManager
@@ -487,7 +512,27 @@ describe('entity/entityManager', () => {
         expect(remainingEntities).toHaveLength(1)
         expect(remainingEntities[0]?.type).toBe(EntityType.Zombie)
       }).pipe(Effect.provide(EntityManagerLive))
-    )  })
+    )
+
+    // Boundary: shouldDespawnEntity uses strict `>`, so an entity exactly AT
+    // maxDistance is RETAINED; one just beyond is removed. Guards the despawn
+    // edge against an off-by-one that would flicker mobs in/out at the rim.
+    it.effect('retains an entity exactly at maxDistance and removes one just beyond', () =>
+      Effect.gen(function* () {
+        const entityManager = yield* EntityManager
+        // Player at origin, maxDistance 40.
+        yield* entityManager.addEntity(EntityType.Cow, { x: 40, y: 64, z: 0 }) // exactly 40 → kept
+        yield* entityManager.addEntity(EntityType.Pig, { x: 41, y: 64, z: 0 }) // 41 > 40 → removed
+
+        const removedCount = yield* entityManager.despawnFarEntities({ x: 0, y: 64, z: 0 }, 40)
+        const remaining = yield* entityManager.getEntities()
+
+        expect(removedCount).toBe(1)
+        expect(remaining).toHaveLength(1)
+        expect(remaining[0]?.type).toBe(EntityType.Cow)
+      }).pipe(Effect.provide(EntityManagerLive))
+    )
+  })
 
   describe('getStructureVersion', () => {
     it.effect('increments on add/remove but not on position-only update', () =>
@@ -547,5 +592,40 @@ describe('entity/entityManager', () => {
       const b = makeTestEntity()
       expect(a.entityId).not.toBe(b.entityId)
     })
+  })
+
+  describe('applyKnockback', () => {
+    it.effect('sets the entity velocity to the impulse', () =>
+      Effect.gen(function* () {
+        const em = yield* EntityManager
+        const id = yield* em.addEntity(EntityType.Zombie, { x: 0, y: 64, z: 0 })
+        yield* em.applyKnockback(id, { x: 5, y: 4.2, z: 0 })
+        const e = Option.getOrThrow(yield* em.getEntity(id))
+        expect(e.velocity.x).toBeCloseTo(5)
+        expect(e.velocity.y).toBeCloseTo(4.2)
+      }).pipe(Effect.provide(EntityManagerLive))
+    )
+
+    it.effect('is a no-op for an unknown entity id', () =>
+      Effect.gen(function* () {
+        const em = yield* EntityManager
+        yield* em.applyKnockback(EntityId.make('entity-missing'), { x: 5, y: 0, z: 0 })
+        const count = yield* em.getCount()
+        expect(count).toBe(0)
+      }).pipe(Effect.provide(EntityManagerLive))
+    )
+
+    it.effect('preserves the knockback velocity across an update tick (AI does not clobber it)', () =>
+      Effect.gen(function* () {
+        const em = yield* EntityManager
+        const id = yield* em.addEntity(EntityType.Zombie, { x: 0, y: 64, z: 0 })
+        yield* em.applyKnockback(id, { x: 5, y: 0, z: 0 })
+        // Player far away → AI would normally set horizontal velocity to idle/wander;
+        // the knockback timer must keep the impulse intact this tick.
+        yield* em.update(DeltaTimeSecs.make(0.016), { x: 1000, y: 64, z: 1000 })
+        const e = Option.getOrThrow(yield* em.getEntity(id))
+        expect(e.velocity.x).toBeCloseTo(5)
+      }).pipe(Effect.provide(EntityManagerLive))
+    )
   })
 })

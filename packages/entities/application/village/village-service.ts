@@ -18,6 +18,7 @@ import {
 } from './village-service.config'
 import {
   VILLAGE_NEAR_DISTANCE,
+  VILLAGE_SIMULATION_DISTANCE,
   distanceSq,
   moveTowards,
   findNearestVillage,
@@ -198,7 +199,16 @@ export class VillageService extends Effect.Service<VillageService>()(
             const tick = ensuredState.updateTick + 1
             const maxMoveDelta = Math.max(0, VILLAGER_MOVE_SPEED * deltaTime * 60)  // normalise speed (defined at 60 fps reference rate) to actual frame duration
 
-            const villages = Arr.map(ensuredState.villages, (village) => ({
+            const villages = Arr.map(ensuredState.villages, (village) => {
+              // Freeze villages far from the player: their villagers are
+              // unobservable, so skip the per-villager AI/movement work. This
+              // bounds per-tick cost to the player's vicinity rather than the
+              // ever-growing total village count. State is preserved — a frozen
+              // village resumes from its last positions when the player returns.
+              if (distanceSq(village.center, playerPosition) > VILLAGE_SIMULATION_DISTANCE * VILLAGE_SIMULATION_DISTANCE) {
+                return village
+              }
+              return {
               ...village,
               villagers: Arr.map(village.villagers, (villager) => {
                 const nextActivity = nextActivityForVillager(villager, playerPosition, timeOfDay)
@@ -218,7 +228,8 @@ export class VillageService extends Effect.Service<VillageService>()(
                   position: nextPosition,
                 }
               }),
-            }))
+              }
+            })
 
             return {
               ...ensuredState,

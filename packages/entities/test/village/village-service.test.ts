@@ -37,6 +37,41 @@ describe('village/village-service', () => {
     }).pipe(Effect.provide(VillageServiceLive))
   )
 
+  it.effect('freezes villager AI for villages far from the player, and resumes when near (bounded simulation)', () =>
+    Effect.gen(function* () {
+      const villageService = yield* VillageService
+      const near = { x: 0, y: 64, z: 0 }
+      yield* villageService.ensureVillageNear(near)
+
+      // Establish a mid-journey state: villagers step toward their workplaces.
+      yield* villageService.update(near, 0.5, ONE_SECOND)
+      const established = yield* villageService.getVillagers()
+      const positionOf = (id: VillagerId) => villageService.getVillager(id).pipe(
+        Effect.map((o) => Option.getOrThrow(o).position),
+      )
+
+      // Player travels far (> VILLAGE_SIMULATION_DISTANCE): the original village
+      // is frozen — its villagers must not move (a new village spawns near the
+      // player, but the old one is untouched, bounding per-tick cost).
+      yield* villageService.update({ x: 5000, y: 64, z: 5000 }, 0.5, ONE_SECOND)
+      for (const v of established) {
+        const frozen = yield* positionOf(v.villagerId)
+        expect(frozen.x).toBe(v.position.x)
+        expect(frozen.z).toBe(v.position.z)
+      }
+
+      // Resume: with the player back near, at least one villager moves again —
+      // proving the freeze above suppressed real movement, not a static state.
+      yield* villageService.update(near, 0.5, ONE_SECOND)
+      const resumed = yield* Effect.forEach(established, (v) => positionOf(v.villagerId))
+      const anyMoved = Arr.some(resumed, (pos, i) => {
+        const before = Option.getOrThrow(Arr.get(established, i)).position
+        return pos.x !== before.x || pos.z !== before.z
+      })
+      expect(anyMoved).toBe(true)
+    }).pipe(Effect.provide(VillageServiceLive))
+  )
+
   it.effect('updates villager activities based on time and player proximity', () =>
     Effect.gen(function* () {
       const villageService = yield* VillageService

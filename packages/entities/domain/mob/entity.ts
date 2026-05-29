@@ -8,13 +8,17 @@ export const EntityId = {
   make: (value: string): EntityId => Schema.decodeUnknownSync(EntityIdSchema)(value),
 }
 
-export const EntityTypeSchema = Schema.Literal('Zombie', 'Cow', 'Pig', 'Sheep')
+export const EntityTypeSchema = Schema.Literal('Zombie', 'Cow', 'Pig', 'Sheep', 'Creeper', 'Skeleton', 'Spider', 'Enderman')
 export type EntityType = Schema.Schema.Type<typeof EntityTypeSchema>
 export const EntityType = {
   Zombie: 'Zombie' as const,
   Cow: 'Cow' as const,
   Pig: 'Pig' as const,
   Sheep: 'Sheep' as const,
+  Creeper: 'Creeper' as const,
+  Skeleton: 'Skeleton' as const,
+  Spider: 'Spider' as const,
+  Enderman: 'Enderman' as const,
 }
 
 export const MobBehaviorSchema = Schema.Literal('hostile', 'passive')

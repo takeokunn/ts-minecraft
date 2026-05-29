@@ -16,6 +16,13 @@ import {
 export const VILLAGE_GRID_SIZE = 96
 export const VILLAGE_NEAR_DISTANCE = 80
 export const TRADE_DISTANCE = 4
+// Villages are generated on exploration and never evicted, so the village list
+// grows with the explored world. Only villages within this radius of the player
+// have their villagers simulated each tick — distant villages are frozen (state
+// preserved, resumes on return), bounding per-tick cost to the player's vicinity
+// instead of O(every village ever generated). Comfortably exceeds the grid +
+// near-distance so the player's current village is always simulated.
+export const VILLAGE_SIMULATION_DISTANCE = 192
 
 export const distanceSq = (a: Position, b: Position): number => {
   const dx = b.x - a.x

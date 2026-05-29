@@ -161,6 +161,25 @@ describe('propagatePower', () => {
     const wirePower = Option.getOrElse(HashMap.get(power, positionKey({ x: 2, y: 64, z: 0 })), () => 0)
     expect(wirePower).toBe(0)
   })
+
+  it('a wire reachable from two sources takes the MAX power (nearer source wins)', () => {
+    // Levers at x=0 and x=5 (both power 15); wires fill x=1..4 between them.
+    // Each wire must take the higher of the two distance-attenuated values, not
+    // whichever BFS path reaches it first — this exercises the `power <=
+    // currentKnown` max-guard, the core of correct multi-source propagation.
+    const leverA = makeComponent(RedstoneComponentType.Lever, 0, 64, 0, { active: true })
+    const leverB = makeComponent(RedstoneComponentType.Lever, 5, 64, 0, { active: true })
+    const wires = Arr.makeBy(4, (i) => makeComponent(RedstoneComponentType.Wire, i + 1, 64, 0))
+    const power = propagatePower(makeComponents([leverA, leverB, ...wires]))
+    const at = (x: number) => Option.getOrElse(HashMap.get(power, positionKey({ x, y: 64, z: 0 })), () => 0)
+
+    // x=1: 1 step from A (14) vs 4 from B (11) → 14.  x=4: mirror → 14.
+    expect(at(1)).toBe(14)
+    expect(at(4)).toBe(14)
+    // x=2: 2 from A (13) vs 3 from B (12) → 13.  x=3: mirror → 13.
+    expect(at(2)).toBe(13)
+    expect(at(3)).toBe(13)
+  })
 })
 
 // --- updatePistons ---

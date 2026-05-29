@@ -1,4 +1,3 @@
-import type { BlockType } from '@ts-minecraft/kernel'
 import { EntityType } from '../entity'
 import type { MobDefinition } from './mob-definition'
 
@@ -11,5 +10,6 @@ export const ZombieDefinition: MobDefinition = {
   detectionRange: 16,
   attackRange: 1.6,
   fleeHealthThreshold: 0.1,
-  drops: [{ blockType: 'COBBLESTONE' as BlockType, count: 1 }],
+  drops: [{ blockType: 'ROTTEN_FLESH', count: 1 }],
+  xpReward: 5,
 }

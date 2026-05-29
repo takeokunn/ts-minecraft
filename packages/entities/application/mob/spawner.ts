@@ -4,7 +4,7 @@ import { EntityManager } from './entity-manager'
 import { EntityType, type EntityId } from '../../domain/mob/entity'
 import type { Position } from '@ts-minecraft/kernel'
 import { MIN_SPAWN_DISTANCE, MAX_SPAWN_DISTANCE, MAX_ENTITY_COUNT, SPAWN_INTERVAL_FRAMES } from '../../domain/mob/spawner-config'
-import { PASSIVE_MOBS } from '../../domain/mob/mob-categories'
+import { PASSIVE_MOBS, HOSTILE_MOBS } from '../../domain/mob/mob-categories'
 
 
 const getSpawnPosition = (playerPosition: Position, cursor: number): Position => {
@@ -20,7 +20,7 @@ const getSpawnPosition = (playerPosition: Position, cursor: number): Position =>
 
 const selectMobType = (isNight: boolean, cursor: number): EntityType => {
   if (isNight) {
-    return EntityType.Zombie
+    return Option.getOrElse(Arr.get(HOSTILE_MOBS, cursor % HOSTILE_MOBS.length), () => EntityType.Zombie)
   }
 
   return Option.getOrElse(Arr.get(PASSIVE_MOBS, cursor % PASSIVE_MOBS.length), () => EntityType.Cow)

@@ -93,6 +93,7 @@ describe('entity/entity-utils', () => {
       wanderDirection: { x: 1, y: 0, z: 0 },
       attackCooldownRemaining: 0.5,
       isGrounded: false,
+      knockbackTicksRemaining: 0,
     })
 
     it('preserves all public Entity fields', () => {

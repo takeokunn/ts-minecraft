@@ -1,6 +1,6 @@
-import type { BlockType } from '@ts-minecraft/kernel'
+import type { InventoryItem } from '@ts-minecraft/kernel'
 
 export type EntityDrop = {
-  readonly blockType: BlockType
+  readonly blockType: InventoryItem
   readonly count: number
 }
