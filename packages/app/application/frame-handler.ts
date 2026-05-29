@@ -61,6 +61,11 @@ const createFrameLoopHandlersInternal = (
     const lastFpsTextRef = yield* Ref.make('')
     // Health display throttle: skip DOM write when health values are unchanged (FR-006)
     const lastHealthRef = MutableRef.make({ current: -1, max: -1 })
+    const lastHungerRef = MutableRef.make({ foodLevel: -1, max: -1 })
+    const lastXPRef = MutableRef.make({ level: -1, xpIntoLevel: -1, xpRequiredForNext: -1 })
+    const lastArmorRef = MutableRef.make({ armorPoints: -1 })
+    // Far in the past so the first attack of a session is fully charged.
+    const lastPlayerAttackTimeRef = yield* Ref.make(-1000)
     const lastLoadedChunksRef = yield* Ref.make<Option.Option<ReadonlyArray<Chunk>>>(Option.none())
     // Skip chunk streaming work until the player changes chunk or render distance changes.
     const lastChunkStreamingRef = MutableRef.make({ cx: NaN, cz: NaN, renderDistance: NaN })
@@ -136,6 +141,11 @@ const createFrameLoopHandlersInternal = (
       fpsElementOrNull: Option.getOrNull(deps.fpsElement),
       healthValueElementOrNull: Option.getOrNull(deps.healthValueElement),
       healthMaxElementOrNull: Option.getOrNull(deps.healthMaxElement),
+      hungerValueElementOrNull: Option.getOrNull(deps.hungerValueElement),
+      hungerMaxElementOrNull: Option.getOrNull(deps.hungerMaxElement),
+      xpLevelElementOrNull: Option.getOrNull(deps.xpLevelElement),
+      xpBarElementOrNull: Option.getOrNull(deps.xpBarElement),
+      armorValueElementOrNull: Option.getOrNull(deps.armorValueElement),
       gtaoPassOrNull: Option.getOrNull(deps.gtaoPass),
       bloomPassOrNull: Option.getOrNull(deps.bloomPass),
       dofPassOrNull: Option.getOrNull(deps.dofPass),
@@ -152,6 +162,10 @@ const createFrameLoopHandlersInternal = (
       refractionValidRef,
       lastFpsTextRef,
       lastHealthRef,
+      lastHungerRef,
+      lastXPRef,
+      lastArmorRef,
+      lastPlayerAttackTimeRef,
       lastRenderDistanceRef,
       lastEntityStructureVersionRef,
       entityPhysicsChunkCacheRef,
@@ -300,10 +314,12 @@ const createFrameLoopHandlersInternal = (
             markShadowMapDirty,
           })
 
+          const isNight = yield* services.timeService.isNight()
           yield* entityUpdateStage(deps, services, refs, {
             deltaTime,
             playerPos: initialPlayerPos,
             totalTimeSecs,
+            isNight,
           })
         }
 
@@ -316,6 +332,11 @@ const createFrameLoopHandlersInternal = (
               initialPlayerPos,
               healthValueElementOrNull: resolved.healthValueElementOrNull,
               healthMaxElementOrNull: resolved.healthMaxElementOrNull,
+              hungerValueElementOrNull: resolved.hungerValueElementOrNull,
+              hungerMaxElementOrNull: resolved.hungerMaxElementOrNull,
+              xpLevelElementOrNull: resolved.xpLevelElementOrNull,
+              xpBarElementOrNull: resolved.xpBarElementOrNull,
+              armorValueElementOrNull: resolved.armorValueElementOrNull,
             })
 
         // inputStage: ALWAYS runs — needed to receive ESC to unpause + dismiss

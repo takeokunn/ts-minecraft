@@ -48,6 +48,28 @@ export const WorldMetadataSchema = Schema.Struct({
       health: Schema.Number.pipe(Schema.int(), Schema.between(0, 20)),
       inventory: InventorySaveDataSchema,
       timeOfDay: Schema.Number.pipe(Schema.finite(), Schema.between(0, 0.9999)),
+      // Pre-hunger saves omit this — default to a full food bar with spawn saturation.
+      hunger: Schema.optionalWith(
+        Schema.Struct({
+          foodLevel: Schema.Number.pipe(Schema.int(), Schema.between(0, 20)),
+          saturation: Schema.Number.pipe(Schema.finite(), Schema.between(0, 20)),
+        }),
+        { default: () => ({ foodLevel: 20, saturation: 5 }) },
+      ),
+      // Pre-XP saves default to 0 total XP (level 0).
+      totalXP: Schema.optionalWith(Schema.Number.pipe(Schema.int(), Schema.nonNegative()), {
+        default: () => 0,
+      }),
+      // Pre-equipment saves default to empty object (no armor slots).
+      equipment: Schema.optionalWith(
+        Schema.Struct({
+          HELMET: Schema.optional(InventoryItemSchema),
+          CHESTPLATE: Schema.optional(InventoryItemSchema),
+          LEGGINGS: Schema.optional(InventoryItemSchema),
+          BOOTS: Schema.optional(InventoryItemSchema),
+        }),
+        { default: () => ({}) },
+      ),
     }),
   ),
   furnaceStates: Schema.optional(Schema.Array(FurnaceStateSchema)),
@@ -67,9 +89,14 @@ type MinecraftWorldsDB = DBSchema & {
   }
   metadata: {
     key: string
-    value: WorldMetadata
+    // The store physically holds the ENCODED form (Options → null | value), which
+    // is what survives IndexedDB's structured clone. saveWorldMetadata encodes
+    // before put; loadWorldMetadata decodes after get.
+    value: WorldMetadataEncoded
   }
 }
+
+type WorldMetadataEncoded = Schema.Schema.Encoded<typeof WorldMetadataSchema>
 
 const DB_NAME = 'minecraft-worlds'
 const DB_VERSION = 2  // v2: added SNOW/GRAVEL/COBBLESTONE block types; existing chunk data cleared on upgrade
@@ -220,9 +247,26 @@ export class StorageService extends Effect.Service<StorageService>()(
       const saveWorldMetadata = (worldId: WorldId, metadata: WorldMetadata) =>
         Effect.gen(function* () {
           yield* initialize
+          // Encode Type-side → Encoded-side BEFORE storing. IndexedDB's `put`
+          // structured-clones the value, which strips the prototype off Effect
+          // `Option` instances (Some → { value }, None → {}). Storing decoded
+          // Options and then `Schema.decodeUnknown`-ing on load therefore fails,
+          // because OptionFromNullOr expects the encoded `null | value` shape.
+          // Encoding turns every Option into `null | value` (a plain structure
+          // that survives structured clone and decodes back losslessly), making
+          // save symmetric with the decode in loadWorldMetadata. Without this,
+          // any world saved with inventory items or an active furnace cannot be
+          // reloaded in a real browser.
+          // encodeUnknown (not encode): the strict Type-side input of `encode`
+          // does not unify with the WorldMetadata alias because of the
+          // `optionalWith({ default })` hunger field. encodeUnknown validates the
+          // value and produces the identical encoded structure.
+          const encoded = yield* Schema.encodeUnknown(WorldMetadataSchema)(metadata).pipe(
+            Effect.mapError((e) => new StorageError({ operation: 'saveWorldMetadata', cause: e })),
+          )
           yield* Option.match(yield* Ref.get(dbRef), {
             onNone: () => Effect.fail(new StorageError({ operation: 'saveWorldMetadata', cause: 'Database not initialized' })),
-            onSome: (db) => tryCatchStorageWithRetry('saveWorldMetadata', db.put(STORE_METADATA, metadata, worldId)),
+            onSome: (db) => tryCatchStorageWithRetry('saveWorldMetadata', db.put(STORE_METADATA, encoded, worldId)),
           })
         })
 

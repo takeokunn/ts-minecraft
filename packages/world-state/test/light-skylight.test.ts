@@ -70,6 +70,33 @@ describe('computeSkyLight', () => {
     expect(getLightAt(lightGrid, 15, 0, 15)).toBe(0)
   })
 
+  it('skylight spreads horizontally under an overhang, attenuating 1 per block', () => {
+    // A STONE roof at y=100 over x∈[2,15] for ALL z, leaving x=0,1 as open
+    // columns. Sunlight fills the open columns to 15 at every y; under the roof
+    // the only light path is horizontal from x=1, so it attenuates 1/block.
+    // This is the cave-mouth / overhang lighting case.
+    const blocks = makeAirBlocks()
+    for (let z = 0; z < CHUNK_SIZE; z++) {
+      for (let x = 2; x < CHUNK_SIZE; x++) {
+        placeBlock(blocks, x, 100, z, 'STONE')
+      }
+    }
+    const lightGrid = createLightBuffer()
+    computeSkyLight(blocks, lightGrid)
+
+    // Open columns: full skylight at the row just below the roof.
+    expect(getLightAt(lightGrid, 0, 99, 8)).toBe(LIGHT_LEVEL_MAX)
+    expect(getLightAt(lightGrid, 1, 99, 8)).toBe(LIGHT_LEVEL_MAX)
+    // Under the roof: horizontal attenuation from the open edge (x=1 → 15).
+    expect(getLightAt(lightGrid, 2, 99, 8)).toBe(14)
+    expect(getLightAt(lightGrid, 3, 99, 8)).toBe(13)
+    expect(getLightAt(lightGrid, 4, 99, 8)).toBe(12)
+    // The roof block itself blocks vertical light.
+    expect(getLightAt(lightGrid, 2, 100, 8)).toBe(0)
+    // Above the roof, open sky is still full.
+    expect(getLightAt(lightGrid, 2, 150, 8)).toBe(LIGHT_LEVEL_MAX)
+  })
+
   it('computeSkyLight zeroes the grid before computing (stale buffer is reset)', () => {
     const blocks = makeAirBlocks()
     blocks.fill(blockTypeToIndex('STONE'))

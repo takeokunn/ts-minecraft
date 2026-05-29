@@ -7,9 +7,10 @@ makeServices,
 makeSettingsOverlay,
 runFrame,
 } from '@test/frame-handler-test-kit'
-import { Effect,Option } from 'effect'
+import { Effect,MutableHashSet,Option } from 'effect'
 import * as THREE from 'three'
 import { describe,expect,vi } from 'vitest'
+import { getParticleUvOffset } from '@ts-minecraft/rendering/particles/particle-system'
 
 // ---------------------------------------------------------------------------
 // Step 7: Block interaction
@@ -273,6 +274,99 @@ describe('step 7 — block interaction', () => {
     expect(applyDamageSpy).toHaveBeenCalledWith('entity-1', 8)
   }))
 
+  it.effect('applies STONE_SWORD_ATTACK_DAMAGE (9) when selected item is STONE_SWORD', () => Effect.gen(function* () {
+    const deps = yield* makeDeps(false)
+    deps.camera.position.set(0, 0, 0)
+    deps.camera.getWorldDirection = vi.fn((target: THREE.Vector3) => target.set(0, 0, -1))
+
+    const inputService = makeInputService()
+    ;(inputService as { consumeMouseClick: unknown }).consumeMouseClick = (btn: number) =>
+      Effect.succeed(btn === 0)
+
+    const services = makeServices({
+      inputService,
+      inventoryRenderer: makeInventoryRenderer({ open: false }),
+      settingsOverlay: makeSettingsOverlay({ open: false }),
+    })
+    ;(services.blockHighlight as { getTargetBlock: unknown }).getTargetBlock = vi.fn(() =>
+      Effect.succeed(Option.none())
+    )
+    ;(services.entityManager as { getEntities: unknown }).getEntities = vi.fn(() =>
+      Effect.succeed([{ entityId: 'entity-1', position: { x: 0, y: 64, z: -2 }, velocity: { x: 0, y: 0, z: 0 }, rotation: {} as THREE.Quaternion, health: 20, type: 'Zombie' }])
+    )
+    ;(services.hotbarService as { getSelectedBlockType: unknown }).getSelectedBlockType = vi.fn(() =>
+      Effect.succeed(Option.some('STONE_SWORD'))
+    )
+    const applyDamageSpy = vi.fn(() => Effect.succeed(Option.none()))
+    ;(services.entityManager as { applyDamage: unknown }).applyDamage = applyDamageSpy
+
+    yield* runFrame(deps, services)
+
+    expect(applyDamageSpy).toHaveBeenCalledWith('entity-1', 9)
+  }))
+
+  it.effect('applies IRON_SWORD_ATTACK_DAMAGE (12) when selected item is IRON_SWORD', () => Effect.gen(function* () {
+    const deps = yield* makeDeps(false)
+    deps.camera.position.set(0, 0, 0)
+    deps.camera.getWorldDirection = vi.fn((target: THREE.Vector3) => target.set(0, 0, -1))
+
+    const inputService = makeInputService()
+    ;(inputService as { consumeMouseClick: unknown }).consumeMouseClick = (btn: number) =>
+      Effect.succeed(btn === 0)
+
+    const services = makeServices({
+      inputService,
+      inventoryRenderer: makeInventoryRenderer({ open: false }),
+      settingsOverlay: makeSettingsOverlay({ open: false }),
+    })
+    ;(services.blockHighlight as { getTargetBlock: unknown }).getTargetBlock = vi.fn(() =>
+      Effect.succeed(Option.none())
+    )
+    ;(services.entityManager as { getEntities: unknown }).getEntities = vi.fn(() =>
+      Effect.succeed([{ entityId: 'entity-1', position: { x: 0, y: 64, z: -2 }, velocity: { x: 0, y: 0, z: 0 }, rotation: {} as THREE.Quaternion, health: 20, type: 'Zombie' }])
+    )
+    ;(services.hotbarService as { getSelectedBlockType: unknown }).getSelectedBlockType = vi.fn(() =>
+      Effect.succeed(Option.some('IRON_SWORD'))
+    )
+    const applyDamageSpy = vi.fn(() => Effect.succeed(Option.none()))
+    ;(services.entityManager as { applyDamage: unknown }).applyDamage = applyDamageSpy
+
+    yield* runFrame(deps, services)
+
+    expect(applyDamageSpy).toHaveBeenCalledWith('entity-1', 12)
+  }))
+
+  it.effect('applies DIAMOND_SWORD_ATTACK_DAMAGE (16) when selected item is DIAMOND_SWORD', () => Effect.gen(function* () {
+    const deps = yield* makeDeps(false)
+    deps.camera.position.set(0, 0, 0)
+    deps.camera.getWorldDirection = vi.fn((target: THREE.Vector3) => target.set(0, 0, -1))
+
+    const inputService = makeInputService()
+    ;(inputService as { consumeMouseClick: unknown }).consumeMouseClick = (btn: number) =>
+      Effect.succeed(btn === 0)
+
+    const services = makeServices({
+      inputService,
+      inventoryRenderer: makeInventoryRenderer({ open: false }),
+      settingsOverlay: makeSettingsOverlay({ open: false }),
+    })
+    ;(services.blockHighlight as { getTargetBlock: unknown }).getTargetBlock = vi.fn(() =>
+      Effect.succeed(Option.none())
+    )
+    ;(services.entityManager as { getEntities: unknown }).getEntities = vi.fn(() =>
+      Effect.succeed([{ entityId: 'entity-1', position: { x: 0, y: 64, z: -2 }, velocity: { x: 0, y: 0, z: 0 }, rotation: {} as THREE.Quaternion, health: 20, type: 'Zombie' }])
+    )
+    ;(services.hotbarService as { getSelectedBlockType: unknown }).getSelectedBlockType = vi.fn(() =>
+      Effect.succeed(Option.some('DIAMOND_SWORD'))
+    )
+    const applyDamageSpy = vi.fn(() => Effect.succeed(Option.none()))
+    ;(services.entityManager as { applyDamage: unknown }).applyDamage = applyDamageSpy
+
+    yield* runFrame(deps, services)
+
+    expect(applyDamageSpy).toHaveBeenCalledWith('entity-1', 16)
+  }))
+
   it.effect('applies PLAYER_ATTACK_DAMAGE (4) when selected item is non-sword', () => Effect.gen(function* () {
     const deps = yield* makeDeps(false)
     deps.camera.position.set(0, 0, 0)
@@ -302,5 +396,469 @@ describe('step 7 — block interaction', () => {
     yield* runFrame(deps, services)
 
     expect(applyDamageSpy).toHaveBeenCalledWith('entity-1', 4)
+  }))
+
+  it.effect('applies a 1.5× critical hit (6) when attacking while airborne', () => Effect.gen(function* () {
+    const deps = yield* makeDeps(false)
+    deps.camera.position.set(0, 0, 0)
+    deps.camera.getWorldDirection = vi.fn((target: THREE.Vector3) => target.set(0, 0, -1))
+
+    const inputService = makeInputService()
+    ;(inputService as { consumeMouseClick: unknown }).consumeMouseClick = (btn: number) =>
+      Effect.succeed(btn === 0)
+
+    const services = makeServices({
+      inputService,
+      inventoryRenderer: makeInventoryRenderer({ open: false }),
+      settingsOverlay: makeSettingsOverlay({ open: false }),
+    })
+    ;(services.blockHighlight as { getTargetBlock: unknown }).getTargetBlock = vi.fn(() =>
+      Effect.succeed(Option.none())
+    )
+    ;(services.entityManager as { getEntities: unknown }).getEntities = vi.fn(() =>
+      Effect.succeed([{ entityId: 'entity-1', position: { x: 0, y: 64, z: -2 }, velocity: { x: 0, y: 0, z: 0 }, rotation: {} as THREE.Quaternion, health: 20, type: 'Zombie' }])
+    )
+    ;(services.hotbarService as { getSelectedBlockType: unknown }).getSelectedBlockType = vi.fn(() =>
+      Effect.succeed(Option.some('STONE'))
+    )
+    // Airborne → critical hit.
+    ;(services.gameState as { isPlayerGrounded: unknown }).isPlayerGrounded = vi.fn(() => Effect.succeed(false))
+    const applyDamageSpy = vi.fn(() => Effect.succeed(Option.none()))
+    ;(services.entityManager as { applyDamage: unknown }).applyDamage = applyDamageSpy
+
+    yield* runFrame(deps, services)
+
+    expect(applyDamageSpy).toHaveBeenCalledWith('entity-1', 6) // 4 × 1.5
+  }))
+
+  it.effect('knocks the attacked entity away from the player', () => Effect.gen(function* () {
+    const deps = yield* makeDeps(false)
+    deps.camera.position.set(0, 0, 0)
+    deps.camera.getWorldDirection = vi.fn((target: THREE.Vector3) => target.set(0, 0, -1))
+
+    const inputService = makeInputService()
+    ;(inputService as { consumeMouseClick: unknown }).consumeMouseClick = (btn: number) =>
+      Effect.succeed(btn === 0)
+
+    const services = makeServices({
+      inputService,
+      inventoryRenderer: makeInventoryRenderer({ open: false }),
+      settingsOverlay: makeSettingsOverlay({ open: false }),
+    })
+    const entity = { entityId: 'entity-1', position: { x: 0, y: 64, z: -2 }, velocity: { x: 0, y: 0, z: 0 }, rotation: {} as THREE.Quaternion, health: 20, type: 'Zombie' }
+    ;(services.blockHighlight as { getTargetBlock: unknown }).getTargetBlock = vi.fn(() => Effect.succeed(Option.none()))
+    ;(services.entityManager as { getEntities: unknown }).getEntities = vi.fn(() => Effect.succeed([entity]))
+    ;(services.entityManager as { getEntity: unknown }).getEntity = vi.fn(() => Effect.succeed(Option.some(entity)))
+    ;(services.hotbarService as { getSelectedBlockType: unknown }).getSelectedBlockType = vi.fn(() => Effect.succeed(Option.none()))
+    const knockbackSpy = vi.fn(() => Effect.void)
+    ;(services.entityManager as { applyKnockback: unknown }).applyKnockback = knockbackSpy
+
+    yield* runFrame(deps, services)
+
+    // direction = entity(0,-2) − camera(0,0) = (0,-2) → normalized (0,-1) × 5 horizontal, +4.2 up
+    expect(knockbackSpy).toHaveBeenCalledWith('entity-1', { x: 0, y: 4.2, z: -5 })
+  }))
+
+  it.effect('plays the entityHit sound when an attack lands on a mob', () => Effect.gen(function* () {
+    const deps = yield* makeDeps(false)
+    deps.camera.position.set(0, 0, 0)
+    deps.camera.getWorldDirection = vi.fn((target: THREE.Vector3) => target.set(0, 0, -1))
+
+    const inputService = makeInputService()
+    ;(inputService as { consumeMouseClick: unknown }).consumeMouseClick = (btn: number) =>
+      Effect.succeed(btn === 0)
+
+    const services = makeServices({
+      inputService,
+      inventoryRenderer: makeInventoryRenderer({ open: false }),
+      settingsOverlay: makeSettingsOverlay({ open: false }),
+    })
+    const entity = { entityId: 'entity-1', position: { x: 0, y: 64, z: -2 }, velocity: { x: 0, y: 0, z: 0 }, rotation: {} as THREE.Quaternion, health: 20, type: 'Zombie' }
+    ;(services.blockHighlight as { getTargetBlock: unknown }).getTargetBlock = vi.fn(() => Effect.succeed(Option.none()))
+    ;(services.entityManager as { getEntities: unknown }).getEntities = vi.fn(() => Effect.succeed([entity]))
+    ;(services.entityManager as { getEntity: unknown }).getEntity = vi.fn(() => Effect.succeed(Option.some(entity)))
+    ;(services.hotbarService as { getSelectedBlockType: unknown }).getSelectedBlockType = vi.fn(() => Effect.succeed(Option.none()))
+    const playEffectSpy = vi.fn(() => Effect.void)
+    ;(services.soundManager as { playEffect: unknown }).playEffect = playEffectSpy
+
+    yield* runFrame(deps, services)
+
+    expect(playEffectSpy).toHaveBeenCalledWith('entityHit', { position: entity.position })
+  }))
+
+  it.effect('spawns a hit-burst particle (count 6) at the entity center on a grounded landed attack', () => Effect.gen(function* () {
+    const deps = yield* makeDeps(false)
+    deps.camera.position.set(0, 0, 0)
+    deps.camera.getWorldDirection = vi.fn((target: THREE.Vector3) => target.set(0, 0, -1))
+
+    const inputService = makeInputService()
+    ;(inputService as { consumeMouseClick: unknown }).consumeMouseClick = (btn: number) =>
+      Effect.succeed(btn === 0)
+
+    const services = makeServices({
+      inputService,
+      inventoryRenderer: makeInventoryRenderer({ open: false }),
+      settingsOverlay: makeSettingsOverlay({ open: false }),
+    })
+    const entity = { entityId: 'entity-1', position: { x: 0, y: 64, z: -2 }, velocity: { x: 0, y: 0, z: 0 }, rotation: {} as THREE.Quaternion, health: 20, type: 'Zombie' }
+    ;(services.blockHighlight as { getTargetBlock: unknown }).getTargetBlock = vi.fn(() => Effect.succeed(Option.none()))
+    ;(services.entityManager as { getEntities: unknown }).getEntities = vi.fn(() => Effect.succeed([entity]))
+    ;(services.entityManager as { getEntity: unknown }).getEntity = vi.fn(() => Effect.succeed(Option.some(entity)))
+    ;(services.hotbarService as { getSelectedBlockType: unknown }).getSelectedBlockType = vi.fn(() => Effect.succeed(Option.none()))
+    const spawnBurstSpy = vi.fn(() => Effect.void)
+    ;(services.particleSystem as { spawnBurst: unknown }).spawnBurst = spawnBurstSpy
+
+    yield* runFrame(deps, services)
+
+    // UV asserted BY VALUE from getParticleUvOffset(37) (REDSTONE_BLOCK), never a tile literal.
+    const uv = getParticleUvOffset(37)
+    // Entity center Y = position.y (64) + ENTITY_CENTER_Y_OFFSET (0.9) = 64.9. Grounded → count 6.
+    expect(spawnBurstSpy).toHaveBeenCalledOnce()
+    expect(spawnBurstSpy).toHaveBeenCalledWith(0, 64.9, -2, uv.u, uv.v, 6)
+  }))
+
+  it.effect('spawns a denser hit-burst (count 12) on a critical (airborne) landed attack', () => Effect.gen(function* () {
+    const deps = yield* makeDeps(false)
+    deps.camera.position.set(0, 0, 0)
+    deps.camera.getWorldDirection = vi.fn((target: THREE.Vector3) => target.set(0, 0, -1))
+
+    const inputService = makeInputService()
+    ;(inputService as { consumeMouseClick: unknown }).consumeMouseClick = (btn: number) =>
+      Effect.succeed(btn === 0)
+
+    const services = makeServices({
+      inputService,
+      inventoryRenderer: makeInventoryRenderer({ open: false }),
+      settingsOverlay: makeSettingsOverlay({ open: false }),
+    })
+    const entity = { entityId: 'entity-1', position: { x: 0, y: 64, z: -2 }, velocity: { x: 0, y: 0, z: 0 }, rotation: {} as THREE.Quaternion, health: 20, type: 'Zombie' }
+    ;(services.blockHighlight as { getTargetBlock: unknown }).getTargetBlock = vi.fn(() => Effect.succeed(Option.none()))
+    ;(services.entityManager as { getEntities: unknown }).getEntities = vi.fn(() => Effect.succeed([entity]))
+    ;(services.entityManager as { getEntity: unknown }).getEntity = vi.fn(() => Effect.succeed(Option.some(entity)))
+    ;(services.hotbarService as { getSelectedBlockType: unknown }).getSelectedBlockType = vi.fn(() => Effect.succeed(Option.none()))
+    // Airborne → deterministic crit → denser burst.
+    ;(services.gameState as { isPlayerGrounded: unknown }).isPlayerGrounded = vi.fn(() => Effect.succeed(false))
+    const spawnBurstSpy = vi.fn(() => Effect.void)
+    ;(services.particleSystem as { spawnBurst: unknown }).spawnBurst = spawnBurstSpy
+
+    yield* runFrame(deps, services)
+
+    const uv = getParticleUvOffset(37)
+    expect(spawnBurstSpy).toHaveBeenCalledOnce()
+    expect(spawnBurstSpy).toHaveBeenCalledWith(0, 64.9, -2, uv.u, uv.v, 12)
+  }))
+
+  it.effect('damages the held weapon durability after landing a hit with a durable item', () => Effect.gen(function* () {
+    const deps = yield* makeDeps(false)
+    deps.camera.position.set(0, 0, 0)
+    deps.camera.getWorldDirection = vi.fn((target: THREE.Vector3) => target.set(0, 0, -1))
+
+    const inputService = makeInputService()
+    ;(inputService as { consumeMouseClick: unknown }).consumeMouseClick = (btn: number) =>
+      Effect.succeed(btn === 0)
+
+    const services = makeServices({
+      inputService,
+      inventoryRenderer: makeInventoryRenderer({ open: false }),
+      settingsOverlay: makeSettingsOverlay({ open: false }),
+    })
+    ;(services.blockHighlight as { getTargetBlock: unknown }).getTargetBlock = vi.fn(() =>
+      Effect.succeed(Option.none())
+    )
+    ;(services.entityManager as { getEntities: unknown }).getEntities = vi.fn(() =>
+      Effect.succeed([{ entityId: 'entity-1', position: { x: 0, y: 64, z: -2 }, velocity: { x: 0, y: 0, z: 0 }, rotation: {} as THREE.Quaternion, health: 20, type: 'Zombie' }])
+    )
+    ;(services.hotbarService as { getSelectedBlockType: unknown }).getSelectedBlockType = vi.fn(() =>
+      Effect.succeed(Option.some('IRON_SWORD'))
+    )
+    ;(services.hotbarService as { getSelectedSlot: unknown }).getSelectedSlot = vi.fn(() => Effect.succeed(3))
+    const damageSlotSpy = vi.fn(() => Effect.void)
+    ;(services.inventoryService as { damageSlot: unknown }).damageSlot = damageSlotSpy
+
+    yield* runFrame(deps, services)
+
+    // HOTBAR_START (27) + selectedSlot (3) = 30
+    expect(damageSlotSpy).toHaveBeenCalledWith(30, 1)
+  }))
+
+  it.effect('does NOT damage durability when the held item is not a durable tool', () => Effect.gen(function* () {
+    const deps = yield* makeDeps(false)
+    deps.camera.position.set(0, 0, 0)
+    deps.camera.getWorldDirection = vi.fn((target: THREE.Vector3) => target.set(0, 0, -1))
+
+    const inputService = makeInputService()
+    ;(inputService as { consumeMouseClick: unknown }).consumeMouseClick = (btn: number) =>
+      Effect.succeed(btn === 0)
+
+    const services = makeServices({
+      inputService,
+      inventoryRenderer: makeInventoryRenderer({ open: false }),
+      settingsOverlay: makeSettingsOverlay({ open: false }),
+    })
+    ;(services.blockHighlight as { getTargetBlock: unknown }).getTargetBlock = vi.fn(() =>
+      Effect.succeed(Option.none())
+    )
+    ;(services.entityManager as { getEntities: unknown }).getEntities = vi.fn(() =>
+      Effect.succeed([{ entityId: 'entity-1', position: { x: 0, y: 64, z: -2 }, velocity: { x: 0, y: 0, z: 0 }, rotation: {} as THREE.Quaternion, health: 20, type: 'Zombie' }])
+    )
+    ;(services.hotbarService as { getSelectedBlockType: unknown }).getSelectedBlockType = vi.fn(() =>
+      Effect.succeed(Option.some('STONE'))
+    )
+    const damageSlotSpy = vi.fn(() => Effect.void)
+    ;(services.inventoryService as { damageSlot: unknown }).damageSlot = damageSlotSpy
+
+    yield* runFrame(deps, services)
+
+    expect(damageSlotSpy).not.toHaveBeenCalled()
+  }))
+
+  it.effect('does NOT damage durability for a bare-hand attack (no selected item)', () => Effect.gen(function* () {
+    const deps = yield* makeDeps(false)
+    deps.camera.position.set(0, 0, 0)
+    deps.camera.getWorldDirection = vi.fn((target: THREE.Vector3) => target.set(0, 0, -1))
+
+    const inputService = makeInputService()
+    ;(inputService as { consumeMouseClick: unknown }).consumeMouseClick = (btn: number) =>
+      Effect.succeed(btn === 0)
+
+    const services = makeServices({
+      inputService,
+      inventoryRenderer: makeInventoryRenderer({ open: false }),
+      settingsOverlay: makeSettingsOverlay({ open: false }),
+    })
+    ;(services.blockHighlight as { getTargetBlock: unknown }).getTargetBlock = vi.fn(() =>
+      Effect.succeed(Option.none())
+    )
+    ;(services.entityManager as { getEntities: unknown }).getEntities = vi.fn(() =>
+      Effect.succeed([{ entityId: 'entity-1', position: { x: 0, y: 64, z: -2 }, velocity: { x: 0, y: 0, z: 0 }, rotation: {} as THREE.Quaternion, health: 20, type: 'Zombie' }])
+    )
+    // Bare hand: no item is selected.
+    ;(services.hotbarService as { getSelectedBlockType: unknown }).getSelectedBlockType = vi.fn(() =>
+      Effect.succeed(Option.none())
+    )
+    const damageSlotSpy = vi.fn(() => Effect.void)
+    ;(services.inventoryService as { damageSlot: unknown }).damageSlot = damageSlotSpy
+
+    yield* runFrame(deps, services)
+
+    expect(damageSlotSpy).not.toHaveBeenCalled()
+  }))
+
+  it.effect('right-click holding food eats it: restores hunger, consumes one, skips placement', () => Effect.gen(function* () {
+    const deps = yield* makeDeps(false)
+    const inputService = makeInputService()
+    ;(inputService as { consumeMouseClick: unknown }).consumeMouseClick = (btn: number) =>
+      Effect.succeed(btn === 2)
+    const services = makeServices({
+      inputService,
+      inventoryRenderer: makeInventoryRenderer({ open: false }),
+      settingsOverlay: makeSettingsOverlay({ open: false }),
+    })
+    // No block target — eating must work regardless (e.g. looking at the sky).
+    ;(services.blockHighlight as { getTargetHit: unknown }).getTargetHit = vi.fn(() => Effect.succeed(Option.none()))
+    ;(services.hotbarService as { getSelectedBlockType: unknown }).getSelectedBlockType = vi.fn(() =>
+      Effect.succeed(Option.some('APPLE'))
+    )
+    ;(services.hungerService as { getHunger: unknown }).getHunger = vi.fn(() =>
+      Effect.succeed({ foodLevel: 10, saturation: 0, exhaustion: 0 })
+    )
+    const eatSpy = vi.fn(() => Effect.void)
+    ;(services.hungerService as { eat: unknown }).eat = eatSpy
+    const removeSpy = vi.fn(() => Effect.succeed(true))
+    ;(services.inventoryService as { removeBlock: unknown }).removeBlock = removeSpy
+    const placeSpy = vi.fn(() => Effect.void)
+    ;(services.blockService as { placeBlock: unknown }).placeBlock = placeSpy
+
+    yield* runFrame(deps, services)
+
+    expect(eatSpy).toHaveBeenCalledWith(4, 0.3) // APPLE: foodLevel 4, saturationModifier 0.3
+    expect(removeSpy).toHaveBeenCalled()
+    expect(placeSpy).not.toHaveBeenCalled()
+  }))
+
+  it.effect('does NOT eat when the food bar is already full', () => Effect.gen(function* () {
+    const deps = yield* makeDeps(false)
+    const inputService = makeInputService()
+    ;(inputService as { consumeMouseClick: unknown }).consumeMouseClick = (btn: number) =>
+      Effect.succeed(btn === 2)
+    const services = makeServices({
+      inputService,
+      inventoryRenderer: makeInventoryRenderer({ open: false }),
+      settingsOverlay: makeSettingsOverlay({ open: false }),
+    })
+    ;(services.hotbarService as { getSelectedBlockType: unknown }).getSelectedBlockType = vi.fn(() =>
+      Effect.succeed(Option.some('APPLE'))
+    )
+    ;(services.hungerService as { getHunger: unknown }).getHunger = vi.fn(() =>
+      Effect.succeed({ foodLevel: 20, saturation: 5, exhaustion: 0 })
+    )
+    const eatSpy = vi.fn(() => Effect.void)
+    ;(services.hungerService as { eat: unknown }).eat = eatSpy
+
+    yield* runFrame(deps, services)
+
+    expect(eatSpy).not.toHaveBeenCalled()
+  }))
+
+  it.effect('right-click holding a placeable block does not trigger eating', () => Effect.gen(function* () {
+    const deps = yield* makeDeps(false)
+    const inputService = makeInputService()
+    ;(inputService as { consumeMouseClick: unknown }).consumeMouseClick = (btn: number) =>
+      Effect.succeed(btn === 2)
+    const services = makeServices({
+      inputService,
+      inventoryRenderer: makeInventoryRenderer({ open: false }),
+      settingsOverlay: makeSettingsOverlay({ open: false }),
+    })
+    ;(services.hotbarService as { getSelectedBlockType: unknown }).getSelectedBlockType = vi.fn(() =>
+      Effect.succeed(Option.some('GRASS'))
+    )
+    ;(services.hungerService as { getHunger: unknown }).getHunger = vi.fn(() =>
+      Effect.succeed({ foodLevel: 10, saturation: 0, exhaustion: 0 })
+    )
+    const eatSpy = vi.fn(() => Effect.void)
+    ;(services.hungerService as { eat: unknown }).eat = eatSpy
+
+    yield* runFrame(deps, services)
+
+    expect(eatSpy).not.toHaveBeenCalled()
+  }))
+
+  it.effect('KeyG unequips the first occupied armor slot back into the inventory', () => Effect.gen(function* () {
+    const deps = yield* makeDeps(false)
+    // Inject a KeyG press via the input service's pressed-key set.
+    const inputService = makeInputService(MutableHashSet.fromIterable(['KeyG']))
+    const services = makeServices({
+      inputService,
+      inventoryRenderer: makeInventoryRenderer({ open: false }),
+      settingsOverlay: makeSettingsOverlay({ open: false }),
+    })
+    // HELMET occupied; the other slots are empty.
+    const unequipSlotSpy = vi.fn((slot: string) =>
+      Effect.succeed(slot === 'HELMET' ? Option.some('IRON_HELMET') : Option.none()),
+    )
+    ;(services.equipmentService as { unequipSlot: unknown }).unequipSlot = unequipSlotSpy
+    const addBlockSpy = vi.fn(() => Effect.succeed(true))
+    ;(services.inventoryService as { addBlock: unknown }).addBlock = addBlockSpy
+
+    yield* runFrame(deps, services)
+
+    expect(unequipSlotSpy).toHaveBeenCalledWith('HELMET')
+    expect(addBlockSpy).toHaveBeenCalledWith('IRON_HELMET', 1)
+  }))
+
+  it.effect('KeyG with no armor equipped does not add anything to the inventory', () => Effect.gen(function* () {
+    const deps = yield* makeDeps(false)
+    const inputService = makeInputService(MutableHashSet.fromIterable(['KeyG']))
+    const services = makeServices({
+      inputService,
+      inventoryRenderer: makeInventoryRenderer({ open: false }),
+      settingsOverlay: makeSettingsOverlay({ open: false }),
+    })
+    // All four slots empty.
+    const unequipSlotSpy = vi.fn(() => Effect.succeed(Option.none()))
+    ;(services.equipmentService as { unequipSlot: unknown }).unequipSlot = unequipSlotSpy
+    const addBlockSpy = vi.fn(() => Effect.succeed(true))
+    ;(services.inventoryService as { addBlock: unknown }).addBlock = addBlockSpy
+
+    yield* runFrame(deps, services)
+
+    expect(addBlockSpy).not.toHaveBeenCalled()
+    // The loop must drain ALL four slots before giving up (none was occupied).
+    expect(unequipSlotSpy).toHaveBeenCalledTimes(4)
+    expect(unequipSlotSpy).toHaveBeenCalledWith('HELMET')
+    expect(unequipSlotSpy).toHaveBeenCalledWith('CHESTPLATE')
+    expect(unequipSlotSpy).toHaveBeenCalledWith('LEGGINGS')
+    expect(unequipSlotSpy).toHaveBeenCalledWith('BOOTS')
+  }))
+
+  it.effect('KeyG re-equips the armor when the inventory is full (rollback, not destroyed)', () => Effect.gen(function* () {
+    const deps = yield* makeDeps(false)
+    const inputService = makeInputService(MutableHashSet.fromIterable(['KeyG']))
+    const services = makeServices({
+      inputService,
+      inventoryRenderer: makeInventoryRenderer({ open: false }),
+      settingsOverlay: makeSettingsOverlay({ open: false }),
+    })
+    // HELMET occupied; the slot is cleared by unequip before addBlock is attempted.
+    const unequipSlotSpy = vi.fn((slot: string) =>
+      Effect.succeed(slot === 'HELMET' ? Option.some('IRON_HELMET') : Option.none()),
+    )
+    ;(services.equipmentService as { unequipSlot: unknown }).unequipSlot = unequipSlotSpy
+    // Inventory is full → addBlock fails.
+    const addBlockSpy = vi.fn(() => Effect.fail(new Error('inventory full')))
+    ;(services.inventoryService as { addBlock: unknown }).addBlock = addBlockSpy
+    const equipSpy = vi.fn(() => Effect.succeed(true))
+    ;(services.equipmentService as { equip: unknown }).equip = equipSpy
+
+    // The frame must complete (no defect) and the helmet must be re-equipped.
+    yield* runFrame(deps, services)
+
+    expect(addBlockSpy).toHaveBeenCalledWith('IRON_HELMET', 1)
+    // Rollback: the removed piece is re-equipped so it is NOT destroyed.
+    expect(equipSpy).toHaveBeenCalledWith('IRON_HELMET')
+  }))
+
+  it.effect('KeyG unequips the first OCCUPIED slot (CHESTPLATE) when HELMET is empty', () => Effect.gen(function* () {
+    const deps = yield* makeDeps(false)
+    const inputService = makeInputService(MutableHashSet.fromIterable(['KeyG']))
+    const services = makeServices({
+      inputService,
+      inventoryRenderer: makeInventoryRenderer({ open: false }),
+      settingsOverlay: makeSettingsOverlay({ open: false }),
+    })
+    // HELMET empty, CHESTPLATE occupied → loop stops at the chestplate.
+    const unequipSlotSpy = vi.fn((slot: string) =>
+      Effect.succeed(slot === 'CHESTPLATE' ? Option.some('IRON_CHESTPLATE') : Option.none()),
+    )
+    ;(services.equipmentService as { unequipSlot: unknown }).unequipSlot = unequipSlotSpy
+    const addBlockSpy = vi.fn(() => Effect.succeed(true))
+    ;(services.inventoryService as { addBlock: unknown }).addBlock = addBlockSpy
+
+    yield* runFrame(deps, services)
+
+    expect(unequipSlotSpy).toHaveBeenCalledWith('HELMET')
+    expect(unequipSlotSpy).toHaveBeenCalledWith('CHESTPLATE')
+    // The loop returns at the chestplate, so the later slots are never probed.
+    expect(unequipSlotSpy).not.toHaveBeenCalledWith('LEGGINGS')
+    expect(unequipSlotSpy).not.toHaveBeenCalledWith('BOOTS')
+    expect(addBlockSpy).toHaveBeenCalledOnce()
+    expect(addBlockSpy).toHaveBeenCalledWith('IRON_CHESTPLATE', 1)
+  }))
+
+  it.effect('does NOT spawn a hit-burst particle when particles.spawn is disabled (damage + knockback still run)', () => Effect.gen(function* () {
+    const deps = yield* makeDeps(false)
+    deps.camera.position.set(0, 0, 0)
+    deps.camera.getWorldDirection = vi.fn((target: THREE.Vector3) => target.set(0, 0, -1))
+
+    const inputService = makeInputService()
+    ;(inputService as { consumeMouseClick: unknown }).consumeMouseClick = (btn: number) =>
+      Effect.succeed(btn === 0)
+
+    const services = makeServices({
+      inputService,
+      inventoryRenderer: makeInventoryRenderer({ open: false }),
+      settingsOverlay: makeSettingsOverlay({ open: false }),
+    })
+    // Disable the particle-spawn debug flag (mirror entity-update-stage tests).
+    yield* services.debugFeatureFlags.setEnabled('particles.spawn', false)
+    const entity = { entityId: 'entity-1', position: { x: 0, y: 64, z: -2 }, velocity: { x: 0, y: 0, z: 0 }, rotation: {} as THREE.Quaternion, health: 20, type: 'Zombie' }
+    ;(services.blockHighlight as { getTargetBlock: unknown }).getTargetBlock = vi.fn(() => Effect.succeed(Option.none()))
+    ;(services.entityManager as { getEntities: unknown }).getEntities = vi.fn(() => Effect.succeed([entity]))
+    ;(services.entityManager as { getEntity: unknown }).getEntity = vi.fn(() => Effect.succeed(Option.some(entity)))
+    ;(services.hotbarService as { getSelectedBlockType: unknown }).getSelectedBlockType = vi.fn(() => Effect.succeed(Option.none()))
+    const spawnBurstSpy = vi.fn(() => Effect.void)
+    ;(services.particleSystem as { spawnBurst: unknown }).spawnBurst = spawnBurstSpy
+    const applyDamageSpy = vi.fn(() => Effect.succeed(Option.none()))
+    ;(services.entityManager as { applyDamage: unknown }).applyDamage = applyDamageSpy
+    const knockbackSpy = vi.fn(() => Effect.void)
+    ;(services.entityManager as { applyKnockback: unknown }).applyKnockback = knockbackSpy
+
+    yield* runFrame(deps, services)
+
+    // No particle burst, but the gameplay effects (damage + knockback) still ran.
+    expect(spawnBurstSpy).not.toHaveBeenCalled()
+    expect(applyDamageSpy).toHaveBeenCalledWith('entity-1', 4)
+    expect(knockbackSpy).toHaveBeenCalledWith('entity-1', { x: 0, y: 4.2, z: -5 })
   }))
 })

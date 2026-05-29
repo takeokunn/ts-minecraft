@@ -37,6 +37,7 @@ export const entityUpdateStage = (
     readonly deltaTime: DeltaTimeSecs
     readonly playerPos: Position
     readonly totalTimeSecs: number
+    readonly isNight: boolean
   },
 ): Effect.Effect<void, never> =>
   Effect.gen(function* () {
@@ -49,7 +50,7 @@ export const entityUpdateStage = (
     // Entity simulation stays on the frame lane so visible transforms remain responsive.
     // Slower world simulation (furnace/spawn/village) runs on the maintenance lane.
     if (mobsAiEnabled) {
-      yield* logErrors(services.entityManager.update(inputs.deltaTime, inputs.playerPos), 'Entity system error')
+      yield* logErrors(services.entityManager.update(inputs.deltaTime, inputs.playerPos, inputs.isNight), 'Entity system error')
     }
 
     const applyPhysics = services.entityManager.applyPhysics

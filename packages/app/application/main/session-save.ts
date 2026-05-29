@@ -3,9 +3,9 @@ import { Clock, Effect, Option } from 'effect'
 import { GameStateService } from '@ts-minecraft/game'
 import { GameModeService } from '@ts-minecraft/game'
 import { TimeService } from '@ts-minecraft/game'
-import { InventoryService } from '@ts-minecraft/inventory'
+import { InventoryService, EquipmentService } from '@ts-minecraft/inventory'
 import { FurnaceService } from '@ts-minecraft/furnace'
-import { HealthService } from '@ts-minecraft/player'
+import { HealthService, HungerService, XPService } from '@ts-minecraft/player'
 import { PlayerError } from '@ts-minecraft/player'
 import { StorageService } from '@ts-minecraft/world-state'
 import { StorageError } from '@ts-minecraft/world-state'
@@ -16,7 +16,10 @@ import type { WorldBootstrap } from '@ts-minecraft/app/main/session-world-loader
 export type PersistSessionStateDeps = {
   readonly gameState: GameStateService
   readonly inventoryService: InventoryService
+  readonly equipmentService: EquipmentService
   readonly healthService: HealthService
+  readonly hungerService: HungerService
+  readonly xpService: XPService
   readonly timeService: TimeService
   readonly furnaceService: FurnaceService
   readonly gameModeService: GameModeService
@@ -25,16 +28,16 @@ export type PersistSessionStateDeps = {
   readonly worldId: WorldId
 }
 
-// Builds a thunk that serializes and persists full session state to storage.
-// The thunk is called by the auto-save daemon, the pause menu "Save & Quit"
-// action, and the best-effort flush before session teardown.
 export const buildPersistSessionState = (deps: PersistSessionStateDeps) => (): Effect.Effect<void, PlayerError | StorageError> => {
-  const { gameState, inventoryService, healthService, timeService, furnaceService, gameModeService, storageService, worldBootstrap, worldId } = deps
+  const { gameState, inventoryService, equipmentService, healthService, hungerService, xpService, timeService, furnaceService, gameModeService, storageService, worldBootstrap, worldId } = deps
   return Effect.gen(function* () {
     const nowMs = yield* Clock.currentTimeMillis
     const playerPosition = yield* gameState.getPlayerPosition(DEFAULT_PLAYER_ID)
     const inventory = yield* inventoryService.serialize()
+    const equipment = yield* equipmentService.serialize()
     const health = yield* healthService.getHealth()
+    const hunger = yield* hungerService.getHunger()
+    const xp = yield* xpService.getXP()
     const timeOfDay = yield* timeService.getTimeOfDay()
     const furnaceStates = yield* furnaceService.serialize()
     const gameMode = yield* gameModeService.get()
@@ -48,6 +51,9 @@ export const buildPersistSessionState = (deps: PersistSessionStateDeps) => (): E
         health: health.current,
         inventory,
         timeOfDay,
+        hunger: { foodLevel: hunger.foodLevel, saturation: hunger.saturation },
+        totalXP: xp.totalXP,
+        equipment,
       },
       furnaceStates,
       gameMode,
@@ -56,17 +62,18 @@ export const buildPersistSessionState = (deps: PersistSessionStateDeps) => (): E
   })
 }
 
-// Restores player inventory, health, and furnace state from a saved world bootstrap.
-// Called once at session start after chunks are loaded and game state is initialized.
 export const restoreSavedState = (
   worldBootstrap: WorldBootstrap,
   services: {
     readonly inventoryService: InventoryService
+    readonly equipmentService: EquipmentService
     readonly healthService: HealthService
+    readonly hungerService: HungerService
+    readonly xpService: XPService
     readonly furnaceService: FurnaceService
   },
 ): Effect.Effect<void, never> => {
-  const { inventoryService, healthService, furnaceService } = services
+  const { inventoryService, equipmentService, healthService, hungerService, xpService, furnaceService } = services
   return Effect.gen(function* () {
     yield* Option.match(worldBootstrap.savedPlayerState, {
       onNone: () => Effect.void,
@@ -79,6 +86,16 @@ export const restoreSavedState = (
           if (damageToApply > 0) {
             yield* healthService.applyDamage(damageToApply)
           }
+          yield* Option.match(Option.fromNullable(saved.hunger), {
+            onNone: () => Effect.void,
+            onSome: (h) => hungerService.restore(h.foodLevel, h.saturation),
+          })
+          // Restore XP (default 0 for pre-XP saves via schema).
+          yield* xpService.setTotalXP(saved.totalXP ?? 0)
+          // Restore equipment (default empty record for pre-equipment saves).
+          yield* equipmentService.deserialize(
+            (saved.equipment ?? {}) as Parameters<typeof equipmentService.deserialize>[0],
+          )
         }),
     })
 

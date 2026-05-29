@@ -22,11 +22,13 @@ const TRANSPARENCY_TABLE: Record<BlockType, boolean> = (() => {
 })()
 
 // LAVA=15, REDSTONE_BLOCK=15, REDSTONE_ORE=9, DEEPSLATE_REDSTONE_ORE=9. Registry stores boolean, not level.
+// TORCH=14: vanilla torch emits light level 14, not the default 15.
 const EMISSIVE_LEVEL_OVERRIDES: Partial<Record<BlockType, number>> = {
   LAVA: 15,
   REDSTONE_BLOCK: 15,
   REDSTONE_ORE: 9,
   DEEPSLATE_REDSTONE_ORE: 9,
+  TORCH: 14,
 }
 
 const EMISSIVE_TABLE: Record<BlockType, number> = (() => {

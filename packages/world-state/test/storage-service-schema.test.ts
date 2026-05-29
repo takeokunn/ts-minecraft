@@ -236,6 +236,62 @@ describe('infrastructure/storage/storage-service-schema', () => {
       ).toThrow()
     })
 
+    // Backward compatibility: a save written before hunger / XP / equipment
+    // existed has a playerState lacking those keys. The schema's optionalWith
+    // defaults must materialise them on decode, or every pre-Phase-11/12 save
+    // would fail to load. This pins that contract so a future change turning any
+    // of these fields required (dropping the default) fails here, not in-game.
+    it('decodes a pre-hunger/pre-XP/pre-equipment playerState with defaults', () => {
+      const now = new Date()
+      const legacyPlayerState = {
+        position: { x: 1, y: 64, z: 2 },
+        health: 20,
+        inventory: { slots: [] },
+        timeOfDay: 0.5,
+        // hunger / totalXP / equipment intentionally omitted (legacy save).
+      }
+      const decoded = Schema.decodeUnknownSync(WorldMetadataSchema)({
+        seed: 5,
+        createdAt: now,
+        lastPlayed: now,
+        playerSpawn: { x: 0, y: 64, z: 0 },
+        playerState: legacyPlayerState,
+        gameMode: 'survival',
+        saveVersion: 1,
+      })
+      const ps = decoded.playerState
+      expect(ps).toBeDefined()
+      // Full food bar with spawn saturation (Phase 11 default).
+      expect(ps?.hunger).toEqual({ foodLevel: 20, saturation: 5 })
+      // Level 0 (Phase 12 default).
+      expect(ps?.totalXP).toBe(0)
+      // No armor equipped (Phase 12 default).
+      expect(ps?.equipment).toEqual({})
+    })
+
+    it('decodes an inventory slot entry that predates the durability field', () => {
+      const now = new Date()
+      const decoded = Schema.decodeUnknownSync(WorldMetadataSchema)({
+        seed: 5,
+        createdAt: now,
+        lastPlayed: now,
+        playerSpawn: { x: 0, y: 64, z: 0 },
+        playerState: {
+          position: { x: 0, y: 64, z: 0 },
+          health: 20,
+          // A tool stack saved before durability tracking existed.
+          inventory: { slots: [{ slot: 0, itemType: 'WOODEN_SWORD', count: 1 }] },
+          timeOfDay: 0.5,
+        },
+        gameMode: 'survival',
+        saveVersion: 1,
+      })
+      const entry = decoded.playerState?.inventory.slots[0]
+      expect(Option.getOrThrow(entry!).itemType).toBe('WOODEN_SWORD')
+      // durability is absent (Option.none) for legacy entries, not a crash.
+      expect(Option.getOrThrow(entry!).durability).toBeUndefined()
+    })
+
     it.effect('overwritten metadata returns the new values on load', () => {
       const { TestLayer } = makeInMemoryStorageService()
       const t1 = new Date(2024, 0, 1)

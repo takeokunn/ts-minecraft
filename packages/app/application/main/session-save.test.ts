@@ -44,6 +44,18 @@ const makeDeps = (overrides?: {
     reset: vi.fn(() => Effect.void),
     applyDamage: vi.fn(() => Effect.void),
   }
+  const hungerService = {
+    getHunger: vi.fn(() => Effect.succeed({ foodLevel: 15, saturation: 2, exhaustion: 0 })),
+    restore: vi.fn(() => Effect.void),
+  }
+  const xpService = {
+    getXP: vi.fn(() => Effect.succeed({ totalXP: 0, level: 0, xpIntoLevel: 0, xpRequiredForNext: 7 })),
+    setTotalXP: vi.fn(() => Effect.void),
+  }
+  const equipmentService = {
+    serialize: vi.fn(() => Effect.succeed({})),
+    deserialize: vi.fn(() => Effect.void),
+  }
   const timeService = {
     getTimeOfDay: vi.fn(() => Effect.succeed(0.5)),
   }
@@ -61,11 +73,14 @@ const makeDeps = (overrides?: {
   const worldId = WorldId.make('world-1')
 
   return {
-    spies: { gameState, inventoryService, healthService, timeService, furnaceService, gameModeService, storageService },
+    spies: { gameState, inventoryService, healthService, hungerService, xpService, equipmentService, timeService, furnaceService, gameModeService, storageService },
     deps: {
       gameState,
       inventoryService,
+      equipmentService,
       healthService,
+      hungerService,
+      xpService,
       timeService,
       furnaceService,
       gameModeService,
@@ -115,6 +130,17 @@ describe('buildPersistSessionState', () => {
 
     const [, metadata] = spies.storageService.saveWorldMetadata.mock.calls[0] as [unknown, { playerState: { health: number } }]
     expect(metadata.playerState?.health).toBe(12)
+  })
+
+  it('includes the current hunger (foodLevel + saturation) in playerState', async () => {
+    const { deps, spies } = makeDeps()
+    spies.hungerService.getHunger.mockReturnValue(Effect.succeed({ foodLevel: 13, saturation: 4, exhaustion: 1.5 }))
+    const persistFn = buildPersistSessionState(deps)
+
+    await Effect.runPromise(persistFn())
+
+    const [, metadata] = spies.storageService.saveWorldMetadata.mock.calls[0] as [unknown, { playerState: { hunger: { foodLevel: number; saturation: number } } }]
+    expect(metadata.playerState?.hunger).toEqual({ foodLevel: 13, saturation: 4 })
   })
 
   it('includes the timeOfDay value in playerState', async () => {
@@ -182,6 +208,11 @@ describe('buildPersistSessionState', () => {
 // restoreSavedState
 // ---------------------------------------------------------------------------
 
+// Minimal no-op mocks for services that are not under test in a given case.
+const makeNoopXpService = () => ({ setTotalXP: vi.fn(() => Effect.void), getXP: vi.fn(() => Effect.succeed({ totalXP: 0, level: 0, xpIntoLevel: 0, xpRequiredForNext: 7 })) })
+const makeNoopEquipmentService = () => ({ deserialize: vi.fn(() => Effect.void), serialize: vi.fn(() => Effect.succeed({})) })
+const makeNoopHungerService = () => ({ restore: vi.fn(() => Effect.void), getHunger: vi.fn(() => Effect.succeed({ foodLevel: 20, saturation: 5, exhaustion: 0 })) })
+
 describe('restoreSavedState', () => {
   it('does NOT call deserialize when savedPlayerState is Option.none()', async () => {
     const worldBootstrap = makeWorldBootstrap({ savedPlayerState: Option.none() })
@@ -189,7 +220,7 @@ describe('restoreSavedState', () => {
     const healthService = { reset: vi.fn(() => Effect.void), getHealth: vi.fn(), applyDamage: vi.fn() }
     const furnaceService = { deserialize: vi.fn(() => Effect.void) }
 
-    await Effect.runPromise(restoreSavedState(worldBootstrap as never, { inventoryService, healthService, furnaceService } as never))
+    await Effect.runPromise(restoreSavedState(worldBootstrap as never, { inventoryService, healthService, furnaceService, xpService: makeNoopXpService(), equipmentService: makeNoopEquipmentService(), hungerService: makeNoopHungerService() } as never))
 
     expect(inventoryService.deserialize).not.toHaveBeenCalled()
     expect(healthService.reset).not.toHaveBeenCalled()
@@ -213,7 +244,7 @@ describe('restoreSavedState', () => {
     }
     const furnaceService = { deserialize: vi.fn(() => Effect.void) }
 
-    await Effect.runPromise(restoreSavedState(worldBootstrap as never, { inventoryService, healthService, furnaceService } as never))
+    await Effect.runPromise(restoreSavedState(worldBootstrap as never, { inventoryService, healthService, furnaceService, xpService: makeNoopXpService(), equipmentService: makeNoopEquipmentService(), hungerService: makeNoopHungerService() } as never))
 
     expect(inventoryService.deserialize).toHaveBeenCalledOnce()
     expect(inventoryService.deserialize).toHaveBeenCalledWith(savedInventory)
@@ -239,7 +270,7 @@ describe('restoreSavedState', () => {
     const inventoryService = { deserialize: vi.fn(() => Effect.void) }
     const furnaceService = { deserialize: vi.fn(() => Effect.void) }
 
-    await Effect.runPromise(restoreSavedState(worldBootstrap as never, { inventoryService, healthService, furnaceService } as never))
+    await Effect.runPromise(restoreSavedState(worldBootstrap as never, { inventoryService, healthService, furnaceService, xpService: makeNoopXpService(), equipmentService: makeNoopEquipmentService(), hungerService: makeNoopHungerService() } as never))
 
     // damageToApply = max(0, resetHealth - savedHealth) = max(0, 20 - 12) = 8
     expect(applyDamageSpy).toHaveBeenCalledOnce()
@@ -264,9 +295,34 @@ describe('restoreSavedState', () => {
     const inventoryService = { deserialize: vi.fn(() => Effect.void) }
     const furnaceService = { deserialize: vi.fn(() => Effect.void) }
 
-    await Effect.runPromise(restoreSavedState(worldBootstrap as never, { inventoryService, healthService, furnaceService } as never))
+    await Effect.runPromise(restoreSavedState(worldBootstrap as never, { inventoryService, healthService, furnaceService, xpService: makeNoopXpService(), equipmentService: makeNoopEquipmentService(), hungerService: makeNoopHungerService() } as never))
 
     expect(applyDamageSpy).not.toHaveBeenCalled()
+  })
+
+  it('restores hunger via hungerService.restore when savedPlayerState includes hunger', async () => {
+    const worldBootstrap = makeWorldBootstrap({
+      savedPlayerState: Option.some({
+        position: { x: 0, y: 64, z: 0 },
+        health: 20,
+        inventory: { slots: [] as never[] },
+        timeOfDay: 0.5,
+        hunger: { foodLevel: 7, saturation: 1 },
+      }),
+    })
+    const restoreSpy = vi.fn(() => Effect.void)
+    const inventoryService = { deserialize: vi.fn(() => Effect.void) }
+    const healthService = {
+      reset: vi.fn(() => Effect.void),
+      getHealth: vi.fn(() => Effect.succeed({ current: 20, max: 20, invincibilityTicks: 0 })),
+      applyDamage: vi.fn(() => Effect.void),
+    }
+    const hungerService = { restore: restoreSpy }
+    const furnaceService = { deserialize: vi.fn(() => Effect.void) }
+
+    await Effect.runPromise(restoreSavedState(worldBootstrap as never, { inventoryService, healthService, hungerService, furnaceService, xpService: makeNoopXpService(), equipmentService: makeNoopEquipmentService() } as never))
+
+    expect(restoreSpy).toHaveBeenCalledWith(7, 1)
   })
 
   it('calls furnaceService.deserialize when savedFurnaceStates is some', async () => {
@@ -279,7 +335,7 @@ describe('restoreSavedState', () => {
     const healthService = { reset: vi.fn(), getHealth: vi.fn(), applyDamage: vi.fn() }
     const furnaceService = { deserialize: furnaceDeserializeSpy }
 
-    await Effect.runPromise(restoreSavedState(worldBootstrap as never, { inventoryService, healthService, furnaceService } as never))
+    await Effect.runPromise(restoreSavedState(worldBootstrap as never, { inventoryService, healthService, furnaceService, xpService: makeNoopXpService(), equipmentService: makeNoopEquipmentService(), hungerService: makeNoopHungerService() } as never))
 
     expect(furnaceDeserializeSpy).toHaveBeenCalledOnce()
     expect(furnaceDeserializeSpy).toHaveBeenCalledWith(savedStates)
@@ -292,7 +348,7 @@ describe('restoreSavedState', () => {
     const healthService = { reset: vi.fn(), getHealth: vi.fn(), applyDamage: vi.fn() }
     const furnaceService = { deserialize: furnaceDeserializeSpy }
 
-    await Effect.runPromise(restoreSavedState(worldBootstrap as never, { inventoryService, healthService, furnaceService } as never))
+    await Effect.runPromise(restoreSavedState(worldBootstrap as never, { inventoryService, healthService, furnaceService, xpService: makeNoopXpService(), equipmentService: makeNoopEquipmentService(), hungerService: makeNoopHungerService() } as never))
 
     expect(furnaceDeserializeSpy).not.toHaveBeenCalled()
   })

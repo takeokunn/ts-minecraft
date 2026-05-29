@@ -37,6 +37,10 @@ describe('emissiveLightLevel', () => {
   it('STONE has emissive level 0', () => {
     expect(emissiveLightLevel('STONE')).toBe(0)
   })
+
+  it('TORCH has emissive level 14, not the default 15 (vanilla correctness)', () => {
+    expect(emissiveLightLevel('TORCH')).toBe(14)
+  })
 })
 
 // ---------------------------------------------------------------------------

@@ -32,8 +32,8 @@ import { SettingsOverlayService } from '@ts-minecraft/app/presentation/settings/
 import { PauseMenuService } from '@ts-minecraft/app/presentation/menu/pause-menu'
 import { InventoryRendererService } from '@ts-minecraft/app/presentation/inventory/inventory-renderer'
 import { DebugFeatureFlagsService } from '@ts-minecraft/app/debug-feature-flags'
-import { InventoryService } from '@ts-minecraft/inventory'
-import { HealthService } from '@ts-minecraft/player'
+import { InventoryService, EquipmentService } from '@ts-minecraft/inventory'
+import { HealthService, HungerService, XPService, FishingService } from '@ts-minecraft/player'
 import { MusicManager, SoundManager } from '@ts-minecraft/game'
 import { EntityManager, MobSpawner } from '@ts-minecraft/entities'
 import { VillageService } from '@ts-minecraft/entities'
@@ -58,6 +58,11 @@ export type FrameHandlerDeps = {
   readonly fpsElement: Option.Option<HTMLElement>
   readonly healthValueElement: Option.Option<HTMLElement>
   readonly healthMaxElement: Option.Option<HTMLElement>
+  readonly hungerValueElement: Option.Option<HTMLElement>
+  readonly hungerMaxElement: Option.Option<HTMLElement>
+  readonly xpLevelElement: Option.Option<HTMLElement>
+  readonly xpBarElement: Option.Option<HTMLElement>
+  readonly armorValueElement: Option.Option<HTMLElement>
   readonly gamePausedRef: Ref.Ref<boolean>
   // FR-1.4: true while pause-menu is open. Distinct from gamePausedRef (transient overlay state).
   // Read synchronously by frame stages to skip simulation while keeping input + render alive.
@@ -91,8 +96,12 @@ export type FrameHandlerServices = {
   readonly pauseMenu: PauseMenuService
   readonly inventoryRenderer: InventoryRendererService
   readonly inventoryService: InventoryService
+  readonly equipmentService: EquipmentService
   readonly fpsCounter: FPSCounterService
   readonly healthService: HealthService
+  readonly hungerService: HungerService
+  readonly xpService: XPService
+  readonly fishingService: FishingService
   readonly worldRendererService: WorldRendererService
   readonly entityRenderer: EntityRendererService
   readonly chunkMeshService: ChunkMeshService
@@ -118,6 +127,11 @@ export type FrameStageRefs = {
   readonly refractionValidRef: Ref.Ref<boolean>
   readonly lastFpsTextRef: Ref.Ref<string>
   readonly lastHealthRef: MutableRef.MutableRef<{ current: number; max: number }>
+  readonly lastHungerRef: MutableRef.MutableRef<{ foodLevel: number; max: number }>
+  readonly lastXPRef: MutableRef.MutableRef<{ level: number; xpIntoLevel: number; xpRequiredForNext: number }>
+  readonly lastArmorRef: MutableRef.MutableRef<{ armorPoints: number }>
+  // totalTimeSecs of the player's last melee attack — drives attack-cooldown charge.
+  readonly lastPlayerAttackTimeRef: Ref.Ref<number>
   readonly lastRenderDistanceRef: Ref.Ref<number>
   readonly lastEntityStructureVersionRef: Ref.Ref<number>
   readonly entityPhysicsChunkCacheRef: Ref.Ref<ReadonlyArray<Chunk | null>>
@@ -143,6 +157,11 @@ export type ResolvedDeps = {
   readonly fpsElementOrNull: HTMLElement | null
   readonly healthValueElementOrNull: HTMLElement | null
   readonly healthMaxElementOrNull: HTMLElement | null
+  readonly hungerValueElementOrNull: HTMLElement | null
+  readonly hungerMaxElementOrNull: HTMLElement | null
+  readonly xpLevelElementOrNull: HTMLElement | null
+  readonly xpBarElementOrNull: HTMLElement | null
+  readonly armorValueElementOrNull: HTMLElement | null
   readonly gtaoPassOrNull: GTAOPass | null
   readonly bloomPassOrNull: UnrealBloomPass | null
   readonly dofPassOrNull: BokehPass | null

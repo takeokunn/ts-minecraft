@@ -16,10 +16,11 @@ import {
   REDSTONE_TOGGLE_LEVER_KEY,
   REDSTONE_PRESS_BUTTON_KEY,
   REDSTONE_TOGGLE_TORCH_KEY,
+  UNEQUIP_ARMOR_KEY,
 } from '@ts-minecraft/app/frame-handler.config'
 import { handleHotbarInput, renderHotbarHud } from '@ts-minecraft/app/frame/stages/interaction-hotbar-handler'
 import { handleRedstoneInput, type RedstoneFlags } from '@ts-minecraft/app/frame/stages/interaction-redstone-handler'
-import { handleLeftClick, handleRightClick } from '@ts-minecraft/app/frame/stages/interaction-block-handler'
+import { handleLeftClick, handleRightClick, handleFoodConsumption, handleUnequipArmor } from '@ts-minecraft/app/frame/stages/interaction-block-handler'
 
 export const interactionStage = (
   deps: Pick<FrameHandlerDeps, 'camera' | 'scene' | 'gamePausedRef'>,
@@ -35,11 +36,16 @@ export const interactionStage = (
     | 'soundManager'
     | 'entityManager'
     | 'inventoryService'
+    | 'equipmentService'
+    | 'xpService'
+    | 'fishingService'
     | 'redstoneService'
     | 'furnaceService'
     | 'particleSystem'
+    | 'hungerService'
+    | 'gameState'
   >,
-  refs: Pick<FrameStageRefs, 'dirtyChunksRef'>,
+  refs: Pick<FrameStageRefs, 'dirtyChunksRef' | 'totalTimeSecsRef' | 'lastPlayerAttackTimeRef'>,
 ): Effect.Effect<void, never> =>
   Effect.gen(function* () {
     const debugFlags = yield* services.debugFeatureFlags.getFlags()
@@ -92,6 +98,13 @@ export const interactionStage = (
           toggleTorch,
         }
 
+        // Consumed via a SEPARATE statement so the positional redstone tuple
+        // above stays untouched. Independent of the click/redstone branch below.
+        const unequipArmor = yield* services.inputService.consumeKeyPress(UNEQUIP_ARMOR_KEY)
+        if (unequipArmor) {
+          yield* handleUnequipArmor(services)
+        }
+
         const hasRedstoneInput =
           placeWire || placeLever || placeButton || placeTorch || placePiston || toggleLever || pressButton || toggleTorch
 
@@ -109,7 +122,13 @@ export const interactionStage = (
           }
 
           if (rightClick) {
-            yield* handleRightClick(services, refs, { targetHit })
+            // Eating takes priority over placing: a right-click holding food
+            // consumes it (independent of any block target). Only fall through
+            // to block placement when nothing was eaten.
+            const ate = yield* handleFoodConsumption(services)
+            if (!ate) {
+              yield* handleRightClick(services, refs, { targetHit })
+            }
           }
         }
 

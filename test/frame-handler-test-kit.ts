@@ -113,6 +113,11 @@ export const makeDeps = (paused = false, withComposer = false): Effect.Effect<Fr
       fpsElement: Option.none(),
       healthValueElement: Option.none(),
       healthMaxElement: Option.none(),
+      hungerValueElement: Option.none(),
+      hungerMaxElement: Option.none(),
+      xpLevelElement: Option.none(),
+      xpBarElement: Option.none(),
+      armorValueElement: Option.none(),
       skyMesh: Option.none(),
       gamePausedRef,
       // Tests default to "session not paused" — pause-matrix gating is verified
@@ -247,6 +252,7 @@ export const makeServices = (opts: {
     getAllSlots: () => Effect.succeed([]),
     getSlot: (_index: unknown) => Effect.succeed(Option.none()),
     setSlot: (_index: unknown, _stack: unknown) => Effect.void,
+    damageSlot: (_index: unknown, _amount?: unknown) => Effect.void,
     moveStack: (_from: unknown, _to: unknown) => Effect.void,
     addBlock: (_type: unknown, _count: unknown) => Effect.succeed(true),
     removeBlock: (_type: unknown, _count: unknown, _slot?: unknown) => Effect.succeed(true),
@@ -367,11 +373,48 @@ export const makeServices = (opts: {
   const healthService = {
     getHealth: () => Effect.succeed({ current: 20, max: 20, invincibilityTicks: 0 }),
     applyDamage: (_amount: unknown) => Effect.void,
+    heal: (_amount: unknown) => Effect.void,
     isDead: () => Effect.succeed(false),
     tick: () => Effect.void,
     processFallDamage: (_y: unknown, _grounded: unknown) => Effect.succeed(0),
     reset: () => Effect.void,
   } as InstanceType<typeof import('@ts-minecraft/player').HealthService>
+
+  const hungerService = {
+    getHunger: () => Effect.succeed({ foodLevel: 20, saturation: 5, exhaustion: 0 }),
+    addExhaustion: (_amount: unknown) => Effect.void,
+    eat: (_food: unknown, _saturationModifier: unknown) => Effect.void,
+    // Default to a neutral food tick so frame tests don't incidentally regen/starve.
+    tick: () => Effect.succeed('none' as const),
+    reset: () => Effect.void,
+  } as InstanceType<typeof import('@ts-minecraft/player').HungerService>
+
+  const equipmentService = {
+    equip: (_item: unknown) => Effect.succeed(false),
+    unequipSlot: (_slot: unknown) => Effect.succeed(Option.none()),
+    getEquippedItem: (_slot: unknown) => Effect.succeed(Option.none()),
+    getAll: () => Effect.succeed({ HELMET: Option.none(), CHESTPLATE: Option.none(), LEGGINGS: Option.none(), BOOTS: Option.none() }),
+    getTotalArmorPoints: () => Effect.succeed(0),
+    serialize: () => Effect.succeed({}),
+    deserialize: (_saved: unknown) => Effect.void,
+    reset: () => Effect.void,
+  } as InstanceType<typeof import('@ts-minecraft/inventory').EquipmentService>
+
+  const xpService = {
+    getXP: () => Effect.succeed({ totalXP: 0, level: 0, xpIntoLevel: 0, xpRequiredForNext: 7 }),
+    addXP: (_amount: unknown) => Effect.succeed({ totalXP: 0, level: 0, xpIntoLevel: 0, xpRequiredForNext: 7 }),
+    setTotalXP: (_totalXP: unknown) => Effect.void,
+    reset: () => Effect.void,
+  } as InstanceType<typeof import('@ts-minecraft/player').XPService>
+
+  const fishingService = {
+    cast: (_seed: unknown) => Effect.void,
+    tick: (_deltaSecs: unknown) => Effect.succeed(Option.none()),
+    cancel: () => Effect.void,
+    isFishing: () => Effect.succeed(false),
+    getProgress: () => Effect.succeed(0),
+    reset: () => Effect.void,
+  } as InstanceType<typeof import('@ts-minecraft/player').FishingService>
 
   const soundManager = {
     applySettings: (_settings: unknown) => Effect.void,
@@ -400,6 +443,7 @@ export const makeServices = (opts: {
     getPlayerContactDamage: (_playerPosition: unknown) => Effect.succeed(0),
     update: (_deltaTime: unknown, _playerPosition: unknown) => Effect.void,
     applyDamage: (_entityId: unknown, _amount: unknown) => Effect.succeed(Option.none()),
+    applyKnockback: (_entityId: unknown, _impulse: unknown) => Effect.void,
   })
 
   const mobSpawner = {
@@ -480,12 +524,16 @@ export const makeServices = (opts: {
     pauseMenu,
     inventoryRenderer,
     inventoryService,
+    equipmentService,
+    xpService,
+    fishingService,
     fpsCounter,
     worldRendererService,
     entityRenderer,
     chunkMeshService,
     particleSystem,
     healthService,
+    hungerService,
     soundManager,
     musicManager,
     entityManager,

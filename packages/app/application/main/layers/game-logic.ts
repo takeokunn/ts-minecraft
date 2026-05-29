@@ -13,7 +13,7 @@ import { BlockRegistryLive } from '@ts-minecraft/world-state'
 
 // Player state, health, and movement
 import { PlayerServiceLive } from '@ts-minecraft/player'
-import { HealthServiceLive } from '@ts-minecraft/player'
+import { HealthServiceLive, HungerServiceLive, XPServiceLive, FishingServiceLive } from '@ts-minecraft/player'
 import { MovementServiceLive } from '@ts-minecraft/player'
 
 // Block interaction and hotbar
@@ -28,6 +28,7 @@ import { GameModeServiceLive } from '@ts-minecraft/game'
 // Inventory, time, recipes, audio, entities
 import { InventoryServiceLive } from '@ts-minecraft/inventory'
 import { RecipeServiceLive } from '@ts-minecraft/inventory'
+import { EquipmentServiceLive } from '@ts-minecraft/inventory'
 import { TimeServiceLive } from '@ts-minecraft/game'
 import { AudioEngineLive, AudioEnginePortLive, MusicManagerLive, SoundManagerLive } from '@ts-minecraft/game'
 import { EntityManagerLive, MobSpawnerLive } from '@ts-minecraft/entities'
@@ -225,6 +226,10 @@ export const GameLogicLayers = Layer.mergeAll(
   LightEngineLayer,
   MobSpawnerLayer,
   HealthServiceLive,
+  HungerServiceLive,
+  XPServiceLive,
+  FishingServiceLive,
+  EquipmentServiceLive,
   RecipeServiceLive,
   FurnaceLayer,
   PlayerInputLayer,

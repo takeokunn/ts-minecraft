@@ -1,6 +1,8 @@
 import { describe, expect, vi } from 'vitest'
 import { it } from '@effect/vitest'
-import { Effect } from 'effect'
+import { Effect, Option } from 'effect'
+import { createFrameHandlers } from '@ts-minecraft/app'
+import type { DeltaTimeSecs } from '@ts-minecraft/kernel'
 import {
   makeDeps,
   makeInputService,
@@ -82,6 +84,134 @@ describe('step 3.5 — fall damage', () => {
     expect(spy).toHaveBeenCalledOnce()
   }))
 
+  it.effect('ticks the hunger service each frame while alive', () => Effect.gen(function* () {
+    const deps = yield* makeDeps(false)
+    const services = makeServices({
+      inputService: makeInputService(),
+      inventoryRenderer: makeInventoryRenderer({ open: false }),
+      settingsOverlay: makeSettingsOverlay({ open: false }),
+    })
+    const spy = vi.fn(() => Effect.succeed('none' as const))
+    ;(services.hungerService as { tick: unknown }).tick = spy
+
+    yield* runFrame(deps, services)
+
+    expect(spy).toHaveBeenCalledOnce()
+  }))
+
+  it.effect('does NOT accrue hunger exhaustion when the player is stationary', () => Effect.gen(function* () {
+    // initialPlayerPos and the refreshed position both read the same static
+    // mock ({0,64,0}), so distance moved is 0 → no exhaustion.
+    const deps = yield* makeDeps(false)
+    const services = makeServices({
+      inputService: makeInputService(),
+      inventoryRenderer: makeInventoryRenderer({ open: false }),
+      settingsOverlay: makeSettingsOverlay({ open: false }),
+    })
+    const spy = vi.fn(() => Effect.void)
+    ;(services.hungerService as { addExhaustion: unknown }).addExhaustion = spy
+
+    yield* runFrame(deps, services)
+
+    expect(spy).not.toHaveBeenCalled()
+  }))
+
+  it.effect('heals 1 HP when the food tick reports "regen"', () => Effect.gen(function* () {
+    const deps = yield* makeDeps(false)
+    const services = makeServices({
+      inputService: makeInputService(),
+      inventoryRenderer: makeInventoryRenderer({ open: false }),
+      settingsOverlay: makeSettingsOverlay({ open: false }),
+    })
+    ;(services.hungerService as { tick: unknown }).tick = vi.fn(() => Effect.succeed('regen' as const))
+    const healSpy = vi.fn(() => Effect.void)
+    ;(services.healthService as { heal: unknown }).heal = healSpy
+
+    yield* runFrame(deps, services)
+
+    expect(healSpy).toHaveBeenCalledWith(1)
+  }))
+
+  it.effect('applies 1 starvation damage when the food tick reports "starve"', () => Effect.gen(function* () {
+    const deps = yield* makeDeps(false)
+    const services = makeServices({
+      inputService: makeInputService(),
+      inventoryRenderer: makeInventoryRenderer({ open: false }),
+      settingsOverlay: makeSettingsOverlay({ open: false }),
+    })
+    ;(services.hungerService as { tick: unknown }).tick = vi.fn(() => Effect.succeed('starve' as const))
+    const applyDamageSpy = vi.fn(() => Effect.void)
+    ;(services.healthService as { applyDamage: unknown }).applyDamage = applyDamageSpy
+
+    yield* runFrame(deps, services)
+
+    // Fall damage + hostile damage both default to 0, so the only applyDamage
+    // call comes from starvation.
+    expect(applyDamageSpy).toHaveBeenCalledWith(1)
+  }))
+
+  it.effect('writes the current foodLevel to the hunger HUD element', () => Effect.gen(function* () {
+    const deps = yield* makeDeps(false)
+    const fakeEl = { textContent: '' } as unknown as HTMLElement
+    ;(deps as { hungerValueElement: unknown }).hungerValueElement = Option.some(fakeEl)
+    const services = makeServices({
+      inputService: makeInputService(),
+      inventoryRenderer: makeInventoryRenderer({ open: false }),
+      settingsOverlay: makeSettingsOverlay({ open: false }),
+    })
+    ;(services.hungerService as { getHunger: unknown }).getHunger = vi.fn(() =>
+      Effect.succeed({ foodLevel: 17, saturation: 3, exhaustion: 0 })
+    )
+
+    yield* runFrame(deps, services)
+
+    expect(fakeEl.textContent).toBe('17')
+  }))
+
+  it.effect('writes the total armor points to the armor HUD element', () => Effect.gen(function* () {
+    const deps = yield* makeDeps(false)
+    const fakeEl = { textContent: '' } as unknown as HTMLElement
+    ;(deps as { armorValueElement: unknown }).armorValueElement = Option.some(fakeEl)
+    const services = makeServices({
+      inputService: makeInputService(),
+      inventoryRenderer: makeInventoryRenderer({ open: false }),
+      settingsOverlay: makeSettingsOverlay({ open: false }),
+    })
+    ;(services.equipmentService as { getTotalArmorPoints: unknown }).getTotalArmorPoints = vi.fn(() =>
+      Effect.succeed(11)
+    )
+
+    yield* runFrame(deps, services)
+
+    expect(fakeEl.textContent).toBe('11')
+  }))
+
+  it.effect('writes the armor HUD at most once across two frames with the same value (change-gated)', () => Effect.gen(function* () {
+    const deps = yield* makeDeps(false)
+    let writes = 0
+    const fakeEl = {
+      get textContent() { return '' },
+      set textContent(_value: string) { writes += 1 },
+    } as unknown as HTMLElement
+    ;(deps as { armorValueElement: unknown }).armorValueElement = Option.some(fakeEl)
+    const services = makeServices({
+      inputService: makeInputService(),
+      inventoryRenderer: makeInventoryRenderer({ open: false }),
+      settingsOverlay: makeSettingsOverlay({ open: false }),
+    })
+    ;(services.equipmentService as { getTotalArmorPoints: unknown }).getTotalArmorPoints = vi.fn(() =>
+      Effect.succeed(11)
+    )
+
+    // createFrameHandlers owns the cross-frame lastArmorRef, so build the handler
+    // once and drive two frames through the same instance to exercise the gate.
+    const { frameHandler } = yield* createFrameHandlers(deps, services)
+    yield* frameHandler(0.016 as DeltaTimeSecs)
+    yield* frameHandler(0.016 as DeltaTimeSecs)
+
+    expect(writes).toBe(1)
+  }))
+
   it.effect('applies hostile contact damage when the entity manager reports an attacker in range', () => Effect.gen(function* () {
     const deps = yield* makeDeps(false)
     const services = makeServices({
@@ -98,6 +228,64 @@ describe('step 3.5 — fall damage', () => {
     yield* runFrame(deps, services)
 
     expect(applyDamageSpy).toHaveBeenCalledWith(3)
+  }))
+
+  it.effect('mitigates hostile contact damage by the player\'s equipped armor (4%/point)', () => Effect.gen(function* () {
+    const deps = yield* makeDeps(false)
+    const services = makeServices({
+      inputService: makeInputService(),
+      inventoryRenderer: makeInventoryRenderer({ open: false }),
+      settingsOverlay: makeSettingsOverlay({ open: false }),
+    })
+    ;(services.entityManager as { getPlayerContactDamage: unknown }).getPlayerContactDamage = vi.fn(() =>
+      Effect.succeed(3)
+    )
+    // 5 armor points → 20% reduction → 3 × 0.8 = 2.4
+    ;(services.equipmentService as { getTotalArmorPoints: unknown }).getTotalArmorPoints = vi.fn(() =>
+      Effect.succeed(5)
+    )
+    const applyDamageSpy = vi.fn(() => Effect.void)
+    ;(services.healthService as { applyDamage: unknown }).applyDamage = applyDamageSpy
+
+    yield* runFrame(deps, services)
+
+    expect(applyDamageSpy).toHaveBeenCalledTimes(1)
+    expect(applyDamageSpy.mock.calls[0]?.[0]).toBeCloseTo(2.4)
+  }))
+
+  it.effect('deposits a resolved fishing catch into the inventory', () => Effect.gen(function* () {
+    const deps = yield* makeDeps(false)
+    const services = makeServices({
+      inputService: makeInputService(),
+      inventoryRenderer: makeInventoryRenderer({ open: false }),
+      settingsOverlay: makeSettingsOverlay({ open: false }),
+    })
+    // The bobber resolves this frame, yielding a cooked cod.
+    ;(services.fishingService as { tick: unknown }).tick = vi.fn(() =>
+      Effect.succeed(Option.some('COOKED_COD'))
+    )
+    const addBlockSpy = vi.fn(() => Effect.succeed(true))
+    ;(services.inventoryService as { addBlock: unknown }).addBlock = addBlockSpy
+
+    yield* runFrame(deps, services)
+
+    expect(addBlockSpy).toHaveBeenCalledWith('COOKED_COD', 1)
+  }))
+
+  it.effect('does NOT add anything when fishing is idle (tick returns none)', () => Effect.gen(function* () {
+    const deps = yield* makeDeps(false)
+    const services = makeServices({
+      inputService: makeInputService(),
+      inventoryRenderer: makeInventoryRenderer({ open: false }),
+      settingsOverlay: makeSettingsOverlay({ open: false }),
+    })
+    const addBlockSpy = vi.fn(() => Effect.succeed(true))
+    ;(services.inventoryService as { addBlock: unknown }).addBlock = addBlockSpy
+
+    yield* runFrame(deps, services)
+
+    // Default mock tick returns Option.none() → no catch → no inventory write.
+    expect(addBlockSpy).not.toHaveBeenCalled()
   }))
 
   it.effect('does NOT apply fall damage when player has invincibilityTicks > 0', () => Effect.gen(function* () {

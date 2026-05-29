@@ -47,6 +47,11 @@ export type SessionRuntimeParams = {
   readonly fpsElement: HTMLElement | null
   readonly healthValueElement: HTMLElement | null
   readonly healthMaxElement: HTMLElement | null
+  readonly hungerValueElement: HTMLElement | null
+  readonly hungerMaxElement: HTMLElement | null
+  readonly xpLevelElement: HTMLElement | null
+  readonly xpBarElement: HTMLElement | null
+  readonly armorValueElement: HTMLElement | null
   // --- Session primitives ---
   readonly control: SessionControl
   readonly gamePausedRef: Ref.Ref<boolean>
@@ -79,6 +84,11 @@ const assembleFrameHandlerDeps = (p: SessionRuntimeParams): FrameHandlerDeps => 
     fpsElement: Option.fromNullable(p.fpsElement),
     healthValueElement: Option.fromNullable(p.healthValueElement),
     healthMaxElement: Option.fromNullable(p.healthMaxElement),
+    hungerValueElement: Option.fromNullable(p.hungerValueElement),
+    hungerMaxElement: Option.fromNullable(p.hungerMaxElement),
+    xpLevelElement: Option.fromNullable(p.xpLevelElement),
+    xpBarElement: Option.fromNullable(p.xpBarElement),
+    armorValueElement: Option.fromNullable(p.armorValueElement),
     gamePausedRef: p.gamePausedRef,
     sessionPausedRef: p.control.isPausedRef,
     composer: Option.some(p.composer),

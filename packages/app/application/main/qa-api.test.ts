@@ -205,6 +205,7 @@ const makeDeps = () => {
       inventoryService: {
         getSlot: (_index: SlotIndex) => Effect.succeed(Option.none()),
         setSlot: (_index: SlotIndex, _stack: Option.Option<unknown>) => Effect.void,
+        damageSlot: (_index: SlotIndex, _amount?: number) => Effect.void,
         getAllSlots,
         moveStack,
         addBlock: (_itemType: InventoryItem, _count: number) => Effect.void,
@@ -315,6 +316,7 @@ const makeDeps = () => {
         applyPhysics: (_deltaTime, _resolveCollision) => Effect.void,
         despawnFarEntities: (_playerPosition, _maxDistance) => Effect.succeed(0),
         applyDamage,
+        applyKnockback: (_entityId, _impulse) => Effect.void,
         despawnAllEntities: () => Effect.succeed(0),
         _tag: '@minecraft/entity/EntityManager',
       },

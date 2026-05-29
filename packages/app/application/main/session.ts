@@ -1,4 +1,4 @@
-import { Array as Arr, Cause, Deferred, Duration, Effect, MutableRef, Option, Ref, Schedule } from 'effect'
+import { Array as Arr, Deferred, Duration, Effect, MutableRef, Option, Ref, Schedule } from 'effect'
 import { SceneService, PerspectiveCameraService, WorldRendererService, EntityRendererService, ChunkMeshService } from '@ts-minecraft/rendering'
 
 import { StartupError } from '@ts-minecraft/game'
@@ -8,9 +8,9 @@ import { installPerfHudCounters } from '@ts-minecraft/rendering'
 
 import { BiomeService, ChunkManagerService, BlockService, FluidService, setActiveChunkWorldId } from '@ts-minecraft/terrain'
 import { GameStateService, TimeService, resolvePreset, GameLoopService, GameModeService, type GameMode } from '@ts-minecraft/game'
-import { HotbarService, InventoryService, RecipeService } from '@ts-minecraft/inventory'
+import { HotbarService, InventoryService, RecipeService, EquipmentService } from '@ts-minecraft/inventory'
 import { FurnaceService } from '@ts-minecraft/furnace'
-import { PlayerCameraStateService, FirstPersonCameraService, ThirdPersonCameraService, HealthService } from '@ts-minecraft/player'
+import { PlayerCameraStateService, FirstPersonCameraService, ThirdPersonCameraService, HealthService, HungerService, XPService, FishingService } from '@ts-minecraft/player'
 import { EntityManager, MobSpawner, VillageService, RedstoneService } from '@ts-minecraft/entities'
 import { CrosshairService } from '@ts-minecraft/app/presentation/hud/crosshair'
 import { DebugFeatureFlagsService } from '@ts-minecraft/app/debug-feature-flags'
@@ -37,6 +37,7 @@ import { loadOrCreateWorld, buildRespawnPosition } from '@ts-minecraft/app/main/
 import { buildLighting } from '@ts-minecraft/app/main/session-lighting'
 import { buildSessionRuntime } from '@ts-minecraft/app/main/session-runtime'
 import { buildPersistSessionState, restoreSavedState } from '@ts-minecraft/app/main/session-save'
+import { performAutoSaveTick } from '@ts-minecraft/app/main/session-autosave'
 
 import type { BootContext } from '@ts-minecraft/app/main/boot'
 
@@ -126,8 +127,12 @@ export const sessionProgram = (
     const loadingScreen = yield* LoadingScreenService
     const inventoryRenderer = yield* InventoryRendererService
     const inventoryService = yield* InventoryService
+    const equipmentService = yield* EquipmentService
     const recipeService = yield* RecipeService
     const healthService = yield* HealthService
+    const hungerService = yield* HungerService
+    const xpService = yield* XPService
+    const fishingService = yield* FishingService
     const entityManager = yield* EntityManager
     const mobSpawner = yield* MobSpawner
     const villageService = yield* VillageService
@@ -200,7 +205,10 @@ export const sessionProgram = (
     const persistSessionState = buildPersistSessionState({
       gameState,
       inventoryService,
+      equipmentService,
       healthService,
+      hungerService,
+      xpService,
       timeService,
       furnaceService,
       gameModeService,
@@ -288,18 +296,13 @@ export const sessionProgram = (
 
     yield* gameState.initialize(spawnPosition)
 
-    yield* restoreSavedState(worldBootstrap, { inventoryService, healthService, furnaceService })
+    yield* restoreSavedState(worldBootstrap, { inventoryService, equipmentService, healthService, hungerService, xpService, furnaceService })
 
     // Auto-save daemon: spaced (not fixed) Schedule prevents burst on tab-resume.
     // Lives on its own forkDaemon so it continues regardless of pause-state.
     yield* Effect.forkDaemon(
       Effect.repeat(
-        Effect.all([
-          chunkManagerService.saveDirtyChunks(),
-          persistSessionState(),
-        ], { concurrency: 'unbounded', discard: true }).pipe(
-          Effect.catchAllCause((cause) => Effect.logError(`Auto-save error: ${Cause.pretty(cause)}`)),
-        ),
+        performAutoSaveTick(chunkManagerService.saveDirtyChunks(), persistSessionState()),
         Schedule.spaced(Duration.seconds(5)),
       ),
     )
@@ -324,11 +327,16 @@ export const sessionProgram = (
       pendingSaveDirtyChunksRef,
     })
 
-    // FPS + health DOM elements (resolved once at session start; pre-cached for HUD).
-    const { fpsElement, healthValueElement, healthMaxElement } = yield* Effect.sync(() => ({
+    // FPS + health + hunger + XP + armor DOM elements (resolved once at session start; pre-cached for HUD).
+    const { fpsElement, healthValueElement, healthMaxElement, hungerValueElement, hungerMaxElement, xpLevelElement, xpBarElement, armorValueElement } = yield* Effect.sync(() => ({
       fpsElement: document.getElementById('fps-value'),
       healthValueElement: document.getElementById('health-value'),
       healthMaxElement: document.getElementById('health-max'),
+      hungerValueElement: document.getElementById('hunger-value'),
+      hungerMaxElement: document.getElementById('hunger-max'),
+      xpLevelElement: document.getElementById('xp-level'),
+      xpBarElement: document.getElementById('xp-bar'),
+      armorValueElement: document.getElementById('armor-value'),
     }))
 
     // gamePausedRef tracks transient overlay state (settings/inventory/trading)
@@ -339,7 +347,7 @@ export const sessionProgram = (
       {
         renderer, scene, camera, composerRT, composer,
         gtaoPass, bloomPass, bokehPass, godRaysPass, smaaPass,
-        lighting, fpsElement, healthValueElement, healthMaxElement,
+        lighting, fpsElement, healthValueElement, healthMaxElement, hungerValueElement, hungerMaxElement, xpLevelElement, xpBarElement, armorValueElement,
         control, gamePausedRef, defaultRespawnPosition,
         pendingResizeRef, pendingSaveDirtyChunksRef, persistSessionState,
         deathScreen, debugOverlay, biomeService, recipeService,
@@ -348,8 +356,8 @@ export const sessionProgram = (
         gameState, playerCameraState, firstPersonCamera, thirdPersonCamera,
         blockHighlight, inputService, blockService, hotbarService, hotbarRenderer,
         chunkManagerService, timeService, settingsService, debugFeatureFlags, settingsOverlay, pauseMenu,
-        inventoryRenderer, inventoryService, fpsCounter, worldRendererService,
-        entityRenderer, chunkMeshService, particleSystem, healthService,
+        inventoryRenderer, inventoryService, equipmentService, fpsCounter, worldRendererService,
+        entityRenderer, chunkMeshService, particleSystem, healthService, hungerService, xpService, fishingService,
         soundManager, musicManager, entityManager, mobSpawner, villageService,
         tradingPresentation, redstoneService, fluidService, furnaceService,
         perfHud, gameMode: gameModeService,

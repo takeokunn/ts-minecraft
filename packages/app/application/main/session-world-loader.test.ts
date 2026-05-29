@@ -211,6 +211,9 @@ describe('loadOrCreateWorld', () => {
         health: 15,
         inventory: { slots: [] },
         timeOfDay: 0.3,
+        hunger: { foodLevel: 20, saturation: 5 },
+        totalXP: 0,
+        equipment: {},
       }
       const metadata = { ...makeMetadata(), playerState }
       const storageService = makeStorageService({

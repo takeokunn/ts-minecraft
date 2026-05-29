@@ -158,6 +158,44 @@ describe('infrastructure/storage/storage-service-quota', () => {
       }).pipe(Effect.provide(TestLayer))
     })
 
+    it.effect('surfaces a furnace and inventory bearing world in the valid list (not corrupt)', () => {
+      // Every other list test uses minimal worlds with no Option-bearing state.
+      // A real played world carries inventory items and maybe an active furnace;
+      // listWorldMetadata must surface it as VALID with those fields intact —
+      // otherwise every played world would be flagged corrupt and vanish from the
+      // main menu. Save through the normal API (Type-side Options) and confirm the
+      // list round-trips the furnace fuel + inventory slot.
+      const { TestLayer } = makeInMemoryStorageService()
+      const now = new Date()
+      const rich: WorldMetadata = {
+        seed: 5, createdAt: now, lastPlayed: now,
+        playerSpawn: { x: 0, y: 64, z: 0 },
+        playerState: {
+          position: { x: 1, y: 64, z: 2 }, health: 20,
+          inventory: { slots: [Option.some({ slot: 0, itemType: 'WOOD', count: 3 }), Option.none()] },
+          timeOfDay: 0.5, hunger: { foodLevel: 20, saturation: 5 }, totalXP: 0, equipment: {},
+        },
+        furnaceStates: [{
+          position: { x: 8, y: 64, z: 8 },
+          input: Option.some({ itemType: 'RAW_IRON', count: 1 }),
+          fuel: Option.some({ itemType: 'COAL', count: 1 }),
+          output: Option.none(), activeRecipeId: Option.none(), progressSecs: 0.5,
+        }],
+        gameMode: 'survival', saveVersion: 1,
+      }
+      return Effect.gen(function* () {
+        const storage = yield* StorageService
+        yield* storage.saveWorldMetadata('rich-world' as WorldId, rich)
+        const result = yield* storage.listWorldMetadata
+        expect(result.corrupt).toEqual([])
+        expect(result.valid.length).toBe(1)
+        const entry = result.valid[0]!
+        expect(entry.worldId).toBe('rich-world')
+        expect(entry.metadata.furnaceStates?.[0]?.fuel).toEqual(Option.some({ itemType: 'COAL', count: 1 }))
+        expect(entry.metadata.playerState?.inventory.slots[0]).toEqual(Option.some({ slot: 0, itemType: 'WOOD', count: 3 }))
+      }).pipe(Effect.provide(TestLayer))
+    })
+
     it.effect('result preserves the gameMode badge field for the menu UI', () => {
       const { TestLayer } = makeInMemoryStorageService()
       const now = new Date()

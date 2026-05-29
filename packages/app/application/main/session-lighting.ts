@@ -20,6 +20,7 @@ export const buildLighting = (
     const l = new THREE.DirectionalLight(SUN_COLOR, 1)
     l.shadow.mapSize.width = 2048
     l.shadow.mapSize.height = 2048
+    l.shadow.radius = 3
     l.shadow.camera.near = 0.5
     l.shadow.camera.far = Math.max(initialSettings.renderDistance * CHUNK_SIZE * 1.5 + CHUNK_HEIGHT, 300)
     const shadowHalfExtent = Math.min(Math.ceil(initialSettings.renderDistance * CHUNK_SIZE * 0.5), MAX_SHADOW_HALF_EXTENT)
@@ -27,6 +28,8 @@ export const buildLighting = (
     l.shadow.camera.right = shadowHalfExtent
     l.shadow.camera.top = shadowHalfExtent
     l.shadow.camera.bottom = -shadowHalfExtent
+    l.shadow.bias = -0.0005
+    l.shadow.normalBias = 0.6
     l.position.set(5, 10, 7)
     l.castShadow = initialGraphics.shadowsEnabled
     return l

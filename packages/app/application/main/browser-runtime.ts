@@ -1,6 +1,7 @@
 import { Effect, MutableRef, Option } from 'effect'
 import type { DeltaTimeSecs } from '@ts-minecraft/kernel'
 import { resolvePreset } from '@ts-minecraft/game'
+import { performAutoSaveTick } from '@ts-minecraft/app/main/session-autosave'
 import type { SettingsService } from '@ts-minecraft/game'
 import type { ChunkManagerService } from '@ts-minecraft/terrain'
 import type { WorldRendererService, GodRaysPass } from '@ts-minecraft/rendering'
@@ -91,12 +92,12 @@ const flushPendingSaves = ({
   MutableRef.set(pendingSaveDirtyChunksRef, false)
   if (!pendingSaveDirtyChunks) return Effect.void
 
-  return Effect.all([
-    chunkManagerService.saveDirtyChunks(),
-    persistSessionState,
-  ], { concurrency: 'unbounded', discard: true }).pipe(
-    Effect.catchAllCause(() => Effect.void),
-  )
+  // Shares the autosave-daemon tick: persist chunks + session together, swallowing
+  // (and now LOGGING) any failure. Previously this path silently dropped errors;
+  // routing through performAutoSaveTick surfaces a failed pending-flush — exactly
+  // the save you'd want visible (e.g. on tab-blur) — and keeps a single source for
+  // the Effect.all + catchAllCause shape.
+  return performAutoSaveTick(chunkManagerService.saveDirtyChunks(), persistSessionState)
 }
 
 const applyPendingResize = ({
