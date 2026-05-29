@@ -14,8 +14,8 @@ export const SKY_COLOR_DAY     = 0x87ceeb  // sky blue
 // Threshold prevents terrain from glowing — only sky/lava-bright surfaces bloom.
 // Strength and radius tuned for Minecraft's art style.
 export const BLOOM_STRENGTH  = 0.25
-export const BLOOM_RADIUS    = 0.45
-export const BLOOM_THRESHOLD = 0.9
+export const BLOOM_RADIUS    = 0.6
+export const BLOOM_THRESHOLD = 0.8
 
 // ─── Depth-of-field (Bokeh) pass parameters ──────────────────────────────────
 
@@ -25,4 +25,4 @@ export const BOKEH_MAXBLUR  = 0.02
 
 // ─── GTAO blend ─────────────────────────────────────────────────────────────
 
-export const GTAO_BLEND_INTENSITY = 1.0
+export const GTAO_BLEND_INTENSITY = 0.8

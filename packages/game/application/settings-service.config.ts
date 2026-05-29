@@ -41,7 +41,7 @@ export const GRAPHICS_PRESETS = {
   },
   ultra: {
     shadowsEnabled: true,  ssaoEnabled: true,  bloomEnabled: true,
-    smaaEnabled: true,  skyEnabled: true,  dofEnabled: true,  godRaysEnabled: true,
+    smaaEnabled: true,  skyEnabled: true,  dofEnabled: false,  godRaysEnabled: true,
     godRaysSamples: 40, bloomStrength: 0.3,  refractionThrottleFrames: 1, pixelRatioCap: 1.25,
     refractionMinScreenRatio: 0.005, // FR-4.4: conservative — preserve quality
     composerRtType: 1016, // THREE.HalfFloatType — bloom + god rays need HDR
