@@ -141,6 +141,29 @@ describe('application/crafting/recipe-service — access control and errors', ()
     }).pipe(Effect.provide(testLayer))
   )
 
+  it.effect('craft rolls back ingredient consumption when there is no space for the output', () =>
+    Effect.gen(function* () {
+      const rs = yield* RecipeService
+      const inv = yield* InventoryService
+      // Fill every slot with PLANKS (36 × 64). Crafting planks→sticks removes 2
+      // planks (a slot drops 64→62, still occupied) but STICKS — a different
+      // item — has no empty slot to land in, so addBlock fails AFTER removal.
+      // The transactional craft must restore the consumed planks.
+      yield* inv.addBlock('PLANKS', 36 * 64)
+      const before = yield* inv.getAllSlots()
+
+      const result = yield* rs.craft(RecipeId.make('planks-to-sticks'), inv).pipe(Effect.either)
+      const after = yield* inv.getAllSlots()
+
+      expect(Either.isLeft(result)).toBe(true)
+      const err = Option.getOrThrow(Either.getLeft(result))
+      expect(err.cause).toContain('No space for output')
+      // Ingredients restored — no silent consumption on a failed craft.
+      expect(countBlock(after, 'PLANKS')).toBe(countBlock(before, 'PLANKS'))
+      expect(countBlock(after, 'STICKS')).toBe(0)
+    }).pipe(Effect.provide(testLayer))
+  )
+
   it.effect('craft fails when crafting_table recipe is attempted without table access', () =>
     Effect.gen(function* () {
       const rs = yield* RecipeService
@@ -192,6 +215,7 @@ describe('application/crafting/recipe-service — access control and errors', ()
         addBlock: (_blockType: unknown, _count: unknown) => Effect.void,
         getSlot: (_idx: unknown) => Effect.succeed(Option.none()),
         setSlot: (_idx: unknown, _slot: unknown) => Effect.void,
+        damageSlot: (_idx: unknown, _amount?: number) => Effect.void,
         moveStack: (_from: unknown, _to: unknown) => Effect.void,
         getHotbarSlots: () => Effect.succeed([]),
         clear: () => Effect.void,

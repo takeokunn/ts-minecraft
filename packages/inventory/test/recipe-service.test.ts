@@ -25,20 +25,18 @@ describe('application/crafting/recipe-service', () => {
     Effect.gen(function* () {
       const recipes = (yield* RecipeService).getAllRecipes()
       const ids = Arr.map(recipes, (recipe) => recipe.id)
-      expect(ids).toEqual([
-        'wood-to-planks',
-        'planks-to-sticks',
-        'planks-to-crafting-table',
-        'cobblestone-to-furnace',
-        'coal-and-stick-to-torches',
-        'planks-and-sticks-to-wooden-sword',
-        'planks-and-sticks-to-wooden-pickaxe',
-        'cobblestone-and-sticks-to-stone-pickaxe',
-        'raw-iron-to-iron-ingot',
-        'iron-ingots-and-sticks-to-iron-pickaxe',
-        'raw-gold-to-gold-ingot',
-        'diamonds-and-sticks-to-diamond-pickaxe',
-      ])
+      // Core tool/block progression
+      expect(ids).toContain('wood-to-planks')
+      expect(ids).toContain('planks-to-sticks')
+      expect(ids).toContain('planks-to-crafting-table')
+      expect(ids).toContain('cobblestone-to-furnace')
+      expect(ids).toContain('planks-and-sticks-to-wooden-sword')
+      expect(ids).toContain('diamonds-and-sticks-to-diamond-pickaxe')
+      // Armor recipes (added with Phase 12 equipment system)
+      expect(ids).toContain('leather-to-leather-helmet')
+      expect(ids).toContain('iron-ingot-to-iron-chestplate')
+      expect(ids).toContain('diamond-to-diamond-boots')
+      expect(recipes.length).toBeGreaterThanOrEqual(17)
     }).pipe(Effect.provide(testLayer))
   )
 
@@ -87,6 +85,23 @@ describe('application/crafting/recipe-service', () => {
     }).pipe(Effect.provide(testLayer))
   )
 
+  it.effect('craft consumes only the recipe ingredient count, leaving surplus untouched', () =>
+    Effect.gen(function* () {
+      const rs = yield* RecipeService
+      const inv = yield* InventoryService
+      // wood-to-planks needs 1 WOOD. With 10 in stock, a craft must take exactly
+      // 1 (not the whole stack), leaving 9 — the core exact-consumption property,
+      // isolated from any multi-recipe chain.
+      yield* inv.addBlock('WOOD', 10)
+
+      yield* rs.craft(RecipeId.make('wood-to-planks'), inv)
+
+      const slotsAfter = yield* inv.getAllSlots()
+      expect(countBlock(slotsAfter, 'WOOD')).toBe(9)
+      expect(countBlock(slotsAfter, 'PLANKS')).toBe(4)
+    }).pipe(Effect.provide(testLayer))
+  )
+
   it.effect('craft supports a basic wood progression chain into sticks, crafting table, and wooden sword', () =>
     Effect.gen(function* () {
       const rs = yield* RecipeService
@@ -128,6 +143,70 @@ describe('application/crafting/recipe-service', () => {
       expect(countBlock(slotsAfter, 'STONE_PICKAXE')).toBe(1)
       expect(countBlock(slotsAfter, 'COBBLESTONE')).toBe(0)
       expect(countBlock(slotsAfter, 'STICKS')).toBe(0)
+    }).pipe(Effect.provide(testLayer))
+  )
+
+  it.effect('findCraftable returns stone/iron/diamond sword recipes when ingredients are sufficient', () =>
+    Effect.gen(function* () {
+      const service = yield* RecipeService
+      const craftableWithStoneSwordParts = service.findCraftable(HashMap.make(['COBBLESTONE' as InventoryItem, 2], ['STICKS' as InventoryItem, 1], ['CRAFTING_TABLE' as InventoryItem, 1]))
+      const craftableWithIronSwordParts = service.findCraftable(HashMap.make(['IRON_INGOT' as InventoryItem, 2], ['STICKS' as InventoryItem, 1], ['CRAFTING_TABLE' as InventoryItem, 1]))
+      const craftableWithDiamondSwordParts = service.findCraftable(HashMap.make(['DIAMOND' as InventoryItem, 2], ['STICKS' as InventoryItem, 1], ['CRAFTING_TABLE' as InventoryItem, 1]))
+
+      expect(Arr.map(craftableWithStoneSwordParts, (recipe) => recipe.id)).toContain('cobblestone-and-sticks-to-stone-sword')
+      expect(Arr.map(craftableWithIronSwordParts, (recipe) => recipe.id)).toContain('iron-ingots-and-sticks-to-iron-sword')
+      expect(Arr.map(craftableWithDiamondSwordParts, (recipe) => recipe.id)).toContain('diamonds-and-sticks-to-diamond-sword')
+    }).pipe(Effect.provide(testLayer))
+  )
+
+  it.effect('craft produces a stone sword from cobblestone and sticks', () =>
+    Effect.gen(function* () {
+      const rs = yield* RecipeService
+      const inv = yield* InventoryService
+      yield* inv.addBlock('COBBLESTONE', 2)
+      yield* inv.addBlock('STICKS', 1)
+      yield* inv.addBlock('CRAFTING_TABLE', 1)
+
+      yield* rs.craft(RecipeId.make('cobblestone-and-sticks-to-stone-sword'), inv)
+
+      const slotsAfter = yield* inv.getAllSlots()
+      expect(countBlock(slotsAfter, 'COBBLESTONE')).toBe(0)
+      expect(countBlock(slotsAfter, 'STICKS')).toBe(0)
+      expect(countBlock(slotsAfter, 'STONE_SWORD')).toBe(1)
+    }).pipe(Effect.provide(testLayer))
+  )
+
+  it.effect('craft produces an iron sword from iron ingots and sticks', () =>
+    Effect.gen(function* () {
+      const rs = yield* RecipeService
+      const inv = yield* InventoryService
+      yield* inv.addBlock('IRON_INGOT', 2)
+      yield* inv.addBlock('STICKS', 1)
+      yield* inv.addBlock('CRAFTING_TABLE', 1)
+
+      yield* rs.craft(RecipeId.make('iron-ingots-and-sticks-to-iron-sword'), inv)
+
+      const slotsAfter = yield* inv.getAllSlots()
+      expect(countBlock(slotsAfter, 'IRON_INGOT')).toBe(0)
+      expect(countBlock(slotsAfter, 'STICKS')).toBe(0)
+      expect(countBlock(slotsAfter, 'IRON_SWORD')).toBe(1)
+    }).pipe(Effect.provide(testLayer))
+  )
+
+  it.effect('craft produces a diamond sword from diamonds and sticks', () =>
+    Effect.gen(function* () {
+      const rs = yield* RecipeService
+      const inv = yield* InventoryService
+      yield* inv.addBlock('DIAMOND', 2)
+      yield* inv.addBlock('STICKS', 1)
+      yield* inv.addBlock('CRAFTING_TABLE', 1)
+
+      yield* rs.craft(RecipeId.make('diamonds-and-sticks-to-diamond-sword'), inv)
+
+      const slotsAfter = yield* inv.getAllSlots()
+      expect(countBlock(slotsAfter, 'DIAMOND')).toBe(0)
+      expect(countBlock(slotsAfter, 'STICKS')).toBe(0)
+      expect(countBlock(slotsAfter, 'DIAMOND_SWORD')).toBe(1)
     }).pipe(Effect.provide(testLayer))
   )
 

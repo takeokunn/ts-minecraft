@@ -1,7 +1,7 @@
 import { Array as Arr, Effect, Ref, Option } from 'effect'
 import type { InventoryItem } from '@ts-minecraft/kernel'
 import type { InventorySaveData } from '@ts-minecraft/kernel'
-import { ItemStack, createStack, mergeStacks, canMerge, addToStack, removeFromStack, maxStackFor } from '../domain/item-stack'
+import { ItemStack, createStack, mergeStacks, canMerge, addToStack, removeFromStack, maxStackFor, damageStack } from '../domain/item-stack'
 import { SlotIndex } from '@ts-minecraft/kernel'
 import { InventoryError } from '../domain/errors'
 
@@ -65,6 +65,18 @@ export class InventoryService extends Effect.Service<InventoryService>()(
 
         setSlot: (index: SlotIndex, stack: InventorySlot): Effect.Effect<void, never> =>
           Ref.update(slotsRef, Arr.modify(SlotIndex.toNumber(index), () => stack)),
+
+        // Applies `amount` durability damage to the held tool at `index`. A non-durable
+        // item is unaffected; a tool reduced to 0 durability breaks and its slot is cleared.
+        damageSlot: (index: SlotIndex, amount = 1): Effect.Effect<void, never> =>
+          Ref.update(slotsRef, (slots) => {
+            const i = SlotIndex.toNumber(index)
+            const slot = Option.getOrElse(Arr.get(slots, i), () => Option.none<ItemStack>())
+            return Option.match(slot, {
+              onNone: () => slots,
+              onSome: (stack) => Arr.modify(slots, i, () => damageStack(stack, amount)),
+            })
+          }),
 
         moveStack: (from: SlotIndex, to: SlotIndex): Effect.Effect<void, never> =>
           Ref.update(slotsRef, (slots) => {
@@ -167,7 +179,7 @@ export class InventoryService extends Effect.Service<InventoryService>()(
           Ref.get(slotsRef).pipe(
             Effect.map((slots) => ({
               slots: Arr.map(slots, (slot, i) =>
-                Option.map(slot, (stack) => ({ slot: SlotIndex.make(i), itemType: stack.itemType, count: stack.count }))
+                Option.map(slot, (stack) => ({ slot: SlotIndex.make(i), itemType: stack.itemType, count: stack.count, durability: stack.durability }))
               ),
             }))
           ),
@@ -185,8 +197,10 @@ export class InventoryService extends Effect.Service<InventoryService>()(
                 onNone: () => acc,
                 onSome: (e) => {
                   const i = SlotIndex.toNumber(e.slot)
+                  // Restore saved durability (if any) rather than resetting tools to full.
+                  const stack = new ItemStack({ itemType: e.itemType, count: e.count, durability: e.durability })
                   return i >= 0 && i < INVENTORY_SIZE
-                    ? Arr.modify(acc, i, () => Option.some(createStack(e.itemType, e.count)))
+                    ? Arr.modify(acc, i, () => Option.some(stack))
                     : acc
                 },
               })

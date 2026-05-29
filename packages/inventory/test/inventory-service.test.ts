@@ -6,7 +6,7 @@ import {
   INVENTORY_SIZE,
   InventoryService,
 } from '@ts-minecraft/inventory'
-import { MAX_STACK_SIZE, createStack } from '../domain/item-stack'
+import { ItemStack, MAX_STACK_SIZE, createStack } from '../domain/item-stack'
 import {
   asSlotIndex,
   createTestBlockRegistry,
@@ -223,6 +223,32 @@ describe('application/inventory/inventory-service', () => {
         const unwrappedTo = Option.getOrThrow(to)
         expect(unwrappedTo.itemType).toBe('DIRT')
         expect(unwrappedTo.count).toBe(5)
+      }).pipe(Effect.provide(testLayer))
+    })
+
+    it.effect('swaps two same-type tools instead of merging, preserving each durability', () => {
+      // canMerge() refuses durable tools even when the item type matches, so a
+      // tool dropped onto a same-type tool must SWAP (vanilla behaviour) — never
+      // merge (which would destroy one instance's durability) and never no-op.
+      // Distinct durabilities (50 vs 20) prove each instance is carried intact.
+      const testLayer = createTestLayer(createTestBlockRegistry(airOnlyBlocks))
+      return Effect.gen(function* () {
+        const service = yield* InventoryService
+        yield* service.setSlot(asSlotIndex(0), Option.some(new ItemStack({ itemType: 'WOODEN_PICKAXE', count: 1, durability: 50 })))
+        yield* service.setSlot(asSlotIndex(1), Option.some(new ItemStack({ itemType: 'WOODEN_PICKAXE', count: 1, durability: 20 })))
+
+        yield* service.moveStack(asSlotIndex(0), asSlotIndex(1))
+
+        const from = Option.getOrThrow(yield* service.getSlot(asSlotIndex(0)))
+        const to = Option.getOrThrow(yield* service.getSlot(asSlotIndex(1)))
+        // Both slots still occupied by single tools (no merge into count>1, no loss).
+        expect(from.itemType).toBe('WOODEN_PICKAXE')
+        expect(to.itemType).toBe('WOODEN_PICKAXE')
+        expect(from.count).toBe(1)
+        expect(to.count).toBe(1)
+        // Swapped: the durability-20 tool is now in slot 0, the durability-50 in slot 1.
+        expect(from.durability).toBe(20)
+        expect(to.durability).toBe(50)
       }).pipe(Effect.provide(testLayer))
     })
 

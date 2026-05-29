@@ -41,10 +41,13 @@ export class RecipeService extends Effect.Service<RecipeService>()(
           )
         )
 
-      // Atomicity note: ingredient counts are checked before any removal. If all checks pass,
-      // removals are performed sequentially. In practice the pre-check prevents partial failure,
-      // but the operation is NOT transactional — a concurrent mutation between check and removal
-      // could leave inventory in an inconsistent state.
+      // Atomicity: counts are pre-checked before any removal, and the body below
+      // is transactional — it snapshots the inventory, then on ANY failure (a
+      // mid-sequence removal error or no room for the output) restores the
+      // snapshot, so a craft either fully succeeds or leaves the inventory
+      // untouched. Ingredients are never consumed without producing the output
+      // (verified by the "rolls back ... when there is no space for the output"
+      // test). See the transaction comment on the snapshot below for mechanics.
       const craft = (
         recipeId: RecipeId,
         inventoryService: InventoryService,
@@ -91,23 +94,36 @@ export class RecipeService extends Effect.Service<RecipeService>()(
             })),
           })
 
-          yield* Effect.forEach(
-            recipe.ingredients,
-            (ing) =>
-              inventoryService.removeBlock(ing.itemType, ing.count).pipe(
-                Effect.mapError(() => new RecipeError({
-                  operation: 'craft',
-                  cause: `Failed to remove ${ing.count}x ${ing.itemType} from inventory`,
-                }))
-              ),
-            { concurrency: 1 }
-          )
+          // Transactional craft: snapshot the inventory, then remove ingredients
+          // and add the output. If ANY step fails — a mid-sequence removal error,
+          // or no room for the output (a full inventory where ingredient removal
+          // did not free a usable slot) — restore the snapshot so ingredients are
+          // never silently consumed without producing the output. deserialize is
+          // infallible, so the rollback always succeeds before re-failing.
+          const snapshot = yield* inventoryService.serialize()
+          yield* Effect.gen(function* () {
+            yield* Effect.forEach(
+              recipe.ingredients,
+              (ing) =>
+                inventoryService.removeBlock(ing.itemType, ing.count).pipe(
+                  Effect.mapError(() => new RecipeError({
+                    operation: 'craft',
+                    cause: `Failed to remove ${ing.count}x ${ing.itemType} from inventory`,
+                  }))
+                ),
+              { concurrency: 1 }
+            )
 
-          yield* inventoryService.addBlock(recipe.output.itemType, recipe.output.count).pipe(
-            Effect.mapError(() => new RecipeError({
-              operation: 'craft',
-              cause: `No space for output: ${recipe.output.count}x ${recipe.output.itemType}`,
-            }))
+            yield* inventoryService.addBlock(recipe.output.itemType, recipe.output.count).pipe(
+              Effect.mapError(() => new RecipeError({
+                operation: 'craft',
+                cause: `No space for output: ${recipe.output.count}x ${recipe.output.itemType}`,
+              }))
+            )
+          }).pipe(
+            Effect.catchAll((err) =>
+              inventoryService.deserialize(snapshot).pipe(Effect.andThen(Effect.fail(err))),
+            ),
           )
         })
 
