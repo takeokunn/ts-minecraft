@@ -1,6 +1,6 @@
-import { it } from '@effect/vitest'
+import { describe, it } from '@effect/vitest'
 import * as THREE from 'three'
-import { describe,expect,vi } from 'vitest'
+import { expect,vi } from 'vitest'
 
 // ---------------------------------------------------------------------------
 // THREE.js mock — must be declared before any imports that touch 'three'
@@ -71,9 +71,10 @@ vi.mock('three', () => ({
   RGBAFormat: 0,
   FrontSide: 0,
   DoubleSide: 2,
+  SRGBColorSpace: 'srgb',
 }))
 
-import type { Chunk } from '@ts-minecraft/terrain'
+import type { Chunk } from '@ts-minecraft/world'
 import { Effect,Option } from 'effect'
 import {
 buildTestLayer,

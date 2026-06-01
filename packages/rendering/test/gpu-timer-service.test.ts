@@ -1,4 +1,5 @@
-import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest'
+import { describe, it } from '@effect/vitest'
+import { expect, vi, beforeEach, afterEach } from 'vitest'
 import { Array as Arr, Effect, MutableRef } from 'effect'
 import * as THREE from 'three'
 
@@ -193,8 +194,6 @@ const makeFakeRenderer = (gl: WebGL2RenderingContext | null): THREE.WebGLRendere
   }) as unknown as THREE.WebGLRenderer
 
 describe('GpuTimerService — active path (perf enabled, mocked WebGL2)', () => {
-  // Re-import inside each test to ensure the mock is honored. Vitest hoists
-  // vi.mock so the module factory above takes effect on first import.
   let mod: typeof import('../infrastructure/perf/gpu-timer-service')
   beforeEach(async () => {
     vi.resetModules()
@@ -206,24 +205,18 @@ describe('GpuTimerService — active path (perf enabled, mocked WebGL2)', () => 
   })
 
   it('falls back to no-op when the extension is unavailable', async () => {
-    const mock = createMockGl(false /* extension disabled */)
+    const mock = createMockGl(false)
     const renderer = makeFakeRenderer(mock.ctx)
-
     const inner = Effect.succeed('payload')
-
     await Effect.runPromise(
-      Effect.scoped(
-        Effect.gen(function* () {
-          const timer = yield* mod.GpuTimerService
-          yield* timer.attach(renderer)
-          // Extension absent → markGpuRange must remain a pass-through.
-          const wrapped = timer.markGpuRange('foo', inner)
-          expect(wrapped).toBe(inner)
-          yield* wrapped
-        }).pipe(Effect.provide(mod.GpuTimerService.Default)),
-      ),
+      Effect.scoped(Effect.gen(function* () {
+        const timer = yield* mod.GpuTimerService
+        yield* timer.attach(renderer)
+        const wrapped = timer.markGpuRange('foo', inner)
+        expect(wrapped).toBe(inner)
+        yield* wrapped
+      }).pipe(Effect.provide(mod.GpuTimerService.Default))),
     )
-
     expect(mock.beginQueryCalls).toHaveLength(0)
     expect(mock.endQueryCalls).toHaveLength(0)
   })
@@ -231,37 +224,29 @@ describe('GpuTimerService — active path (perf enabled, mocked WebGL2)', () => 
   it('falls back to no-op when getContext returns null', async () => {
     const renderer = makeFakeRenderer(null)
     const inner = Effect.succeed(7)
-
     await Effect.runPromise(
-      Effect.scoped(
-        Effect.gen(function* () {
-          const timer = yield* mod.GpuTimerService
-          yield* timer.attach(renderer)
-          const wrapped = timer.markGpuRange('foo', inner)
-          expect(wrapped).toBe(inner)
-        }).pipe(Effect.provide(mod.GpuTimerService.Default)),
-      ),
+      Effect.scoped(Effect.gen(function* () {
+        const timer = yield* mod.GpuTimerService
+        yield* timer.attach(renderer)
+        const wrapped = timer.markGpuRange('foo', inner)
+        expect(wrapped).toBe(inner)
+      }).pipe(Effect.provide(mod.GpuTimerService.Default))),
     )
   })
 
   it('issues begin/end query pairs around the wrapped effect', async () => {
     const mock = createMockGl()
     const renderer = makeFakeRenderer(mock.ctx)
-
     await Effect.runPromise(
-      Effect.scoped(
-        Effect.gen(function* () {
-          const timer = yield* mod.GpuTimerService
-          yield* timer.attach(renderer)
-          yield* timer.markGpuRange('terrain', Effect.succeed('inner'))
-          yield* timer.markGpuRange('water', Effect.succeed('inner'))
-        }).pipe(Effect.provide(mod.GpuTimerService.Default)),
-      ),
+      Effect.scoped(Effect.gen(function* () {
+        const timer = yield* mod.GpuTimerService
+        yield* timer.attach(renderer)
+        yield* timer.markGpuRange('terrain', Effect.succeed('inner'))
+        yield* timer.markGpuRange('water', Effect.succeed('inner'))
+      }).pipe(Effect.provide(mod.GpuTimerService.Default))),
     )
-
     expect(mock.beginQueryCalls).toHaveLength(2)
     expect(mock.endQueryCalls).toHaveLength(2)
-    // TIME_ELAPSED_EXT = 0x88bf
     expect(mock.beginQueryCalls[0]?.[0]).toBe(0x88bf)
     expect(mock.endQueryCalls[0]).toBe(0x88bf)
   })
@@ -269,150 +254,105 @@ describe('GpuTimerService — active path (perf enabled, mocked WebGL2)', () => 
   it('poll drains completed queries and updates getSnapshot', async () => {
     const mock = createMockGl()
     const renderer = makeFakeRenderer(mock.ctx)
-
     const snapshot = await Effect.runPromise(
-      Effect.scoped(
-        Effect.gen(function* () {
-          const timer = yield* mod.GpuTimerService
-          yield* timer.attach(renderer)
-          yield* timer.markGpuRange('shadow', Effect.succeed(null))
-          yield* timer.markGpuRange('shadow', Effect.succeed(null))
-
-          // Mark both queries as available with known ns counts.
-          const queries = Array.from(mock.results.keys())
-          // 2,000,000 ns = 2.0 ms; 4,000,000 ns = 4.0 ms → average 3.0 ms.
-          mock.setResult(queries[0]!, 2_000_000)
-          mock.setResult(queries[1]!, 4_000_000)
-
-          yield* timer.poll()
-          return yield* timer.getSnapshot()
-        }).pipe(Effect.provide(mod.GpuTimerService.Default)),
-      ),
+      Effect.scoped(Effect.gen(function* () {
+        const timer = yield* mod.GpuTimerService
+        yield* timer.attach(renderer)
+        yield* timer.markGpuRange('shadow', Effect.succeed(null))
+        yield* timer.markGpuRange('shadow', Effect.succeed(null))
+        const queries = Array.from(mock.results.keys())
+        mock.setResult(queries[0]!, 2_000_000)
+        mock.setResult(queries[1]!, 4_000_000)
+        yield* timer.poll()
+        return yield* timer.getSnapshot()
+      }).pipe(Effect.provide(mod.GpuTimerService.Default))),
     )
-
     expect(snapshot.get('shadow')).toBeCloseTo(3.0, 5)
-    // Both queries consumed → deleteQuery invoked twice.
     expect(mock.deleteQueryCalls.length).toBeGreaterThanOrEqual(2)
   })
 
   it('discards samples when GPU_DISJOINT_EXT is true', async () => {
     const mock = createMockGl()
     const renderer = makeFakeRenderer(mock.ctx)
-
     const snapshot = await Effect.runPromise(
-      Effect.scoped(
-        Effect.gen(function* () {
-          const timer = yield* mod.GpuTimerService
-          yield* timer.attach(renderer)
-          yield* timer.markGpuRange('disjoint-test', Effect.succeed(null))
-
-          const queries = Array.from(mock.results.keys())
-          mock.setResult(queries[0]!, 1_000_000)
-          mock.setDisjoint(true)
-
-          yield* timer.poll()
-          return yield* timer.getSnapshot()
-        }).pipe(Effect.provide(mod.GpuTimerService.Default)),
-      ),
+      Effect.scoped(Effect.gen(function* () {
+        const timer = yield* mod.GpuTimerService
+        yield* timer.attach(renderer)
+        yield* timer.markGpuRange('disjoint-test', Effect.succeed(null))
+        const queries = Array.from(mock.results.keys())
+        mock.setResult(queries[0]!, 1_000_000)
+        mock.setDisjoint(true)
+        yield* timer.poll()
+        return yield* timer.getSnapshot()
+      }).pipe(Effect.provide(mod.GpuTimerService.Default))),
     )
-
-    // No sample should have been recorded.
     expect(snapshot.has('disjoint-test')).toBe(false)
   })
 
   it('rolling average is capped at 10 samples', async () => {
     const mock = createMockGl()
     const renderer = makeFakeRenderer(mock.ctx)
-
     const snapshot = await Effect.runPromise(
-      Effect.scoped(
-        Effect.gen(function* () {
-          const timer = yield* mod.GpuTimerService
-          yield* timer.attach(renderer)
-
-          // Issue 12 queries with nanosecond values 1ms..12ms.
-          yield* Effect.forEach(
-            [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
-            () => timer.markGpuRange('rolling', Effect.succeed(null)),
-            { concurrency: 1 },
-          )
-
-          const queries = Array.from(mock.results.keys())
-          Arr.forEach(queries, (q, i) => mock.setResult(q, (i + 1) * 1_000_000)) // 1ms, 2ms, ...
-
-          yield* timer.poll()
-          return yield* timer.getSnapshot()
-        }).pipe(Effect.provide(mod.GpuTimerService.Default)),
-      ),
+      Effect.scoped(Effect.gen(function* () {
+        const timer = yield* mod.GpuTimerService
+        yield* timer.attach(renderer)
+        yield* Effect.forEach(
+          [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
+          () => timer.markGpuRange('rolling', Effect.succeed(null)),
+          { concurrency: 1 },
+        )
+        const queries = Array.from(mock.results.keys())
+        Arr.forEach(queries, (q, i) => mock.setResult(q, (i + 1) * 1_000_000))
+        yield* timer.poll()
+        return yield* timer.getSnapshot()
+      }).pipe(Effect.provide(mod.GpuTimerService.Default))),
     )
-
-    // Window keeps only the last 10 samples: 3..12 → average = 7.5
     expect(snapshot.get('rolling')).toBeCloseTo(7.5, 5)
   })
 
   it('stops draining at the first incomplete query (FIFO ordering)', async () => {
     const mock = createMockGl()
     const renderer = makeFakeRenderer(mock.ctx)
-
     const snapshot = await Effect.runPromise(
-      Effect.scoped(
-        Effect.gen(function* () {
-          const timer = yield* mod.GpuTimerService
-          yield* timer.attach(renderer)
-          yield* timer.markGpuRange('a', Effect.succeed(null))
-          yield* timer.markGpuRange('a', Effect.succeed(null))
-
-          const queries = Array.from(mock.results.keys())
-          // Only the FIRST query is available; the second is still pending.
-          mock.setResult(queries[0]!, 5_000_000)
-          // queries[1] left as available=false
-
-          yield* timer.poll()
-          return yield* timer.getSnapshot()
-        }).pipe(Effect.provide(mod.GpuTimerService.Default)),
-      ),
+      Effect.scoped(Effect.gen(function* () {
+        const timer = yield* mod.GpuTimerService
+        yield* timer.attach(renderer)
+        yield* timer.markGpuRange('a', Effect.succeed(null))
+        yield* timer.markGpuRange('a', Effect.succeed(null))
+        const queries = Array.from(mock.results.keys())
+        mock.setResult(queries[0]!, 5_000_000)
+        yield* timer.poll()
+        return yield* timer.getSnapshot()
+      }).pipe(Effect.provide(mod.GpuTimerService.Default))),
     )
-
-    // Only the 5ms sample is drained → average = 5.0
     expect(snapshot.get('a')).toBeCloseTo(5.0, 5)
   })
 
   it('releases all in-flight queries on scope teardown', async () => {
     const mock = createMockGl()
     const renderer = makeFakeRenderer(mock.ctx)
-
     await Effect.runPromise(
-      Effect.scoped(
-        Effect.gen(function* () {
-          const timer = yield* mod.GpuTimerService
-          yield* timer.attach(renderer)
-          yield* timer.markGpuRange('leak-check-1', Effect.succeed(null))
-          yield* timer.markGpuRange('leak-check-2', Effect.succeed(null))
-          // Note: no poll() — leave both queries in-flight.
-        }).pipe(Effect.provide(mod.GpuTimerService.Default)),
-      ),
+      Effect.scoped(Effect.gen(function* () {
+        const timer = yield* mod.GpuTimerService
+        yield* timer.attach(renderer)
+        yield* timer.markGpuRange('leak-check-1', Effect.succeed(null))
+        yield* timer.markGpuRange('leak-check-2', Effect.succeed(null))
+      }).pipe(Effect.provide(mod.GpuTimerService.Default))),
     )
-
-    // Both queries must be released by the scope finalizer.
     expect(mock.deleteQueryCalls.length).toBeGreaterThanOrEqual(2)
   })
 
   it('attach is idempotent — second call does not re-bind', async () => {
     const mock = createMockGl()
     const renderer = makeFakeRenderer(mock.ctx)
-
     await Effect.runPromise(
-      Effect.scoped(
-        Effect.gen(function* () {
-          const timer = yield* mod.GpuTimerService
-          yield* timer.attach(renderer)
-          yield* timer.attach(renderer) // second call — should no-op
-          yield* timer.markGpuRange('idem', Effect.succeed(null))
-        }).pipe(Effect.provide(mod.GpuTimerService.Default)),
-      ),
+      Effect.scoped(Effect.gen(function* () {
+        const timer = yield* mod.GpuTimerService
+        yield* timer.attach(renderer)
+        yield* timer.attach(renderer)
+        yield* timer.markGpuRange('idem', Effect.succeed(null))
+      }).pipe(Effect.provide(mod.GpuTimerService.Default))),
     )
-
-    // Only ONE begin/end pair should have been issued for the single mark.
     expect(mock.beginQueryCalls).toHaveLength(1)
     expect(mock.endQueryCalls).toHaveLength(1)
   })

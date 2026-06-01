@@ -360,637 +360,637 @@
     "classification": "現行パッケージルート"
   },
   {
-    "path": "packages/app/presentation/fps-counter.test.ts",
+    "path": "packages/presentation/fps-counter.test.ts",
     "package": "app",
     "layer": "presentation",
     "classification": "現行presentation層"
   },
   {
-    "path": "packages/app/presentation/fps-counter.ts",
+    "path": "packages/presentation/fps-counter.ts",
     "package": "app",
     "layer": "presentation",
     "classification": "現行presentation層"
   },
   {
-    "path": "packages/app/presentation/highlight/block-highlight-integration.test.ts",
+    "path": "packages/presentation/highlight/block-highlight-integration.test.ts",
     "package": "app",
     "layer": "presentation",
     "classification": "現行presentation層"
   },
   {
-    "path": "packages/app/presentation/highlight/block-highlight-qa-override.test.ts",
+    "path": "packages/presentation/highlight/block-highlight-qa-override.test.ts",
     "package": "app",
     "layer": "presentation",
     "classification": "現行presentation層"
   },
   {
-    "path": "packages/app/presentation/highlight/block-highlight-test-utils.ts",
+    "path": "packages/presentation/highlight/block-highlight-test-utils.ts",
     "package": "app",
     "layer": "presentation",
     "classification": "現行presentation層"
   },
   {
-    "path": "packages/app/presentation/highlight/block-highlight-update.test.ts",
+    "path": "packages/presentation/highlight/block-highlight-update.test.ts",
     "package": "app",
     "layer": "presentation",
     "classification": "現行presentation層"
   },
   {
-    "path": "packages/app/presentation/highlight/block-highlight.test.ts",
+    "path": "packages/presentation/highlight/block-highlight.test.ts",
     "package": "app",
     "layer": "presentation",
     "classification": "現行presentation層"
   },
   {
-    "path": "packages/app/presentation/highlight/block-highlight.ts",
+    "path": "packages/presentation/highlight/block-highlight.ts",
     "package": "app",
     "layer": "presentation",
     "classification": "現行presentation層"
   },
   {
-    "path": "packages/app/presentation/highlight/index.ts",
+    "path": "packages/presentation/highlight/index.ts",
     "package": "app",
     "layer": "presentation",
     "classification": "現行presentation層"
   },
   {
-    "path": "packages/app/presentation/hud/crosshair-integration.test.ts",
+    "path": "packages/presentation/hud/crosshair-integration.test.ts",
     "package": "app",
     "layer": "presentation",
     "classification": "現行presentation層"
   },
   {
-    "path": "packages/app/presentation/hud/crosshair.test.ts",
+    "path": "packages/presentation/hud/crosshair.test.ts",
     "package": "app",
     "layer": "presentation",
     "classification": "現行presentation層"
   },
   {
-    "path": "packages/app/presentation/hud/crosshair.ts",
+    "path": "packages/presentation/hud/crosshair.ts",
     "package": "app",
     "layer": "presentation",
     "classification": "現行presentation層"
   },
   {
-    "path": "packages/app/presentation/hud/debug-overlay.test.ts",
+    "path": "packages/presentation/hud/debug-overlay.test.ts",
     "package": "app",
     "layer": "presentation",
     "classification": "現行presentation層"
   },
   {
-    "path": "packages/app/presentation/hud/debug-overlay.ts",
+    "path": "packages/presentation/hud/debug-overlay.ts",
     "package": "app",
     "layer": "presentation",
     "classification": "現行presentation層"
   },
   {
-    "path": "packages/app/presentation/hud/hotbar-three.test.ts",
+    "path": "packages/presentation/hud/hotbar-three.test.ts",
     "package": "app",
     "layer": "presentation",
     "classification": "現行presentation層"
   },
   {
-    "path": "packages/app/presentation/hud/hotbar-three.ts",
+    "path": "packages/presentation/hud/hotbar-three.ts",
     "package": "app",
     "layer": "presentation",
     "classification": "現行presentation層"
   },
   {
-    "path": "packages/app/presentation/hud/index.ts",
+    "path": "packages/presentation/hud/index.ts",
     "package": "app",
     "layer": "presentation",
     "classification": "現行presentation層"
   },
   {
-    "path": "packages/app/presentation/index.ts",
+    "path": "packages/presentation/index.ts",
     "package": "app",
     "layer": "presentation",
     "classification": "現行presentation層"
   },
   {
-    "path": "packages/app/presentation/input/index.ts",
+    "path": "packages/presentation/input/index.ts",
     "package": "app",
     "layer": "presentation",
     "classification": "現行presentation層"
   },
   {
-    "path": "packages/app/presentation/input/input-service-consume.test.ts",
+    "path": "packages/presentation/input/input-service-consume.test.ts",
     "package": "app",
     "layer": "presentation",
     "classification": "現行presentation層"
   },
   {
-    "path": "packages/app/presentation/input/input-service-test-utils.ts",
+    "path": "packages/presentation/input/input-service-test-utils.ts",
     "package": "app",
     "layer": "presentation",
     "classification": "現行presentation層"
   },
   {
-    "path": "packages/app/presentation/input/input-service.test.ts",
+    "path": "packages/presentation/input/input-service.test.ts",
     "package": "app",
     "layer": "presentation",
     "classification": "現行presentation層"
   },
   {
-    "path": "packages/app/presentation/input/input-service.ts",
+    "path": "packages/presentation/input/input-service.ts",
     "package": "app",
     "layer": "presentation",
     "classification": "現行presentation層"
   },
   {
-    "path": "packages/app/presentation/inventory/index.ts",
+    "path": "packages/presentation/inventory/index.ts",
     "package": "app",
     "layer": "presentation",
     "classification": "現行presentation層"
   },
   {
-    "path": "packages/app/presentation/inventory/inventory-renderer-craft-action.test.ts",
+    "path": "packages/presentation/inventory/inventory-renderer-craft-action.test.ts",
     "package": "app",
     "layer": "presentation",
     "classification": "現行presentation層"
   },
   {
-    "path": "packages/app/presentation/inventory/inventory-renderer-crafting.test.ts",
+    "path": "packages/presentation/inventory/inventory-renderer-crafting.test.ts",
     "package": "app",
     "layer": "presentation",
     "classification": "現行presentation層"
   },
   {
-    "path": "packages/app/presentation/inventory/inventory-renderer-dom.ts",
+    "path": "packages/presentation/inventory/inventory-renderer-dom.ts",
     "package": "app",
     "layer": "presentation",
     "classification": "現行presentation層"
   },
   {
-    "path": "packages/app/presentation/inventory/inventory-renderer-helpers.test.ts",
+    "path": "packages/presentation/inventory/inventory-renderer-helpers.test.ts",
     "package": "app",
     "layer": "presentation",
     "classification": "現行presentation層"
   },
   {
-    "path": "packages/app/presentation/inventory/inventory-renderer-helpers.ts",
+    "path": "packages/presentation/inventory/inventory-renderer-helpers.ts",
     "package": "app",
     "layer": "presentation",
     "classification": "現行presentation層"
   },
   {
-    "path": "packages/app/presentation/inventory/inventory-renderer-recipe.test.ts",
+    "path": "packages/presentation/inventory/inventory-renderer-recipe.test.ts",
     "package": "app",
     "layer": "presentation",
     "classification": "現行presentation層"
   },
   {
-    "path": "packages/app/presentation/inventory/inventory-renderer-refresh.ts",
+    "path": "packages/presentation/inventory/inventory-renderer-refresh.ts",
     "package": "app",
     "layer": "presentation",
     "classification": "現行presentation層"
   },
   {
-    "path": "packages/app/presentation/inventory/inventory-renderer-test-utils.ts",
+    "path": "packages/presentation/inventory/inventory-renderer-test-utils.ts",
     "package": "app",
     "layer": "presentation",
     "classification": "現行presentation層"
   },
   {
-    "path": "packages/app/presentation/inventory/inventory-renderer.config.ts",
+    "path": "packages/presentation/inventory/inventory-renderer.config.ts",
     "package": "app",
     "layer": "presentation",
     "classification": "現行presentation層"
   },
   {
-    "path": "packages/app/presentation/inventory/inventory-renderer.test.ts",
+    "path": "packages/presentation/inventory/inventory-renderer.test.ts",
     "package": "app",
     "layer": "presentation",
     "classification": "現行presentation層"
   },
   {
-    "path": "packages/app/presentation/inventory/inventory-renderer.ts",
+    "path": "packages/presentation/inventory/inventory-renderer.ts",
     "package": "app",
     "layer": "presentation",
     "classification": "現行presentation層"
   },
   {
-    "path": "packages/app/presentation/loading/loading-screen.test.ts",
+    "path": "packages/presentation/loading/loading-screen.test.ts",
     "package": "app",
     "layer": "presentation",
     "classification": "現行presentation層"
   },
   {
-    "path": "packages/app/presentation/loading/loading-screen.ts",
+    "path": "packages/presentation/loading/loading-screen.ts",
     "package": "app",
     "layer": "presentation",
     "classification": "現行presentation層"
   },
   {
-    "path": "packages/app/presentation/menu/confirm-dialog.test.ts",
+    "path": "packages/presentation/menu/confirm-dialog.test.ts",
     "package": "app",
     "layer": "presentation",
     "classification": "現行presentation層"
   },
   {
-    "path": "packages/app/presentation/menu/confirm-dialog.ts",
+    "path": "packages/presentation/menu/confirm-dialog.ts",
     "package": "app",
     "layer": "presentation",
     "classification": "現行presentation層"
   },
   {
-    "path": "packages/app/presentation/menu/death-screen.ts",
+    "path": "packages/presentation/menu/death-screen.ts",
     "package": "app",
     "layer": "presentation",
     "classification": "現行presentation層"
   },
   {
-    "path": "packages/app/presentation/menu/main-menu-dom.ts",
+    "path": "packages/presentation/menu/main-menu-dom.ts",
     "package": "app",
     "layer": "presentation",
     "classification": "現行presentation層"
   },
   {
-    "path": "packages/app/presentation/menu/main-menu-handlers.ts",
+    "path": "packages/presentation/menu/main-menu-handlers.ts",
     "package": "app",
     "layer": "presentation",
     "classification": "現行presentation層"
   },
   {
-    "path": "packages/app/presentation/menu/main-menu-styles.ts",
+    "path": "packages/presentation/menu/main-menu-styles.ts",
     "package": "app",
     "layer": "presentation",
     "classification": "現行presentation層"
   },
   {
-    "path": "packages/app/presentation/menu/main-menu-utils.test.ts",
+    "path": "packages/presentation/menu/main-menu-utils.test.ts",
     "package": "app",
     "layer": "presentation",
     "classification": "現行presentation層"
   },
   {
-    "path": "packages/app/presentation/menu/main-menu-utils.ts",
+    "path": "packages/presentation/menu/main-menu-utils.ts",
     "package": "app",
     "layer": "presentation",
     "classification": "現行presentation層"
   },
   {
-    "path": "packages/app/presentation/menu/main-menu.test.ts",
+    "path": "packages/presentation/menu/main-menu.test.ts",
     "package": "app",
     "layer": "presentation",
     "classification": "現行presentation層"
   },
   {
-    "path": "packages/app/presentation/menu/main-menu.ts",
+    "path": "packages/presentation/menu/main-menu.ts",
     "package": "app",
     "layer": "presentation",
     "classification": "現行presentation層"
   },
   {
-    "path": "packages/app/presentation/menu/pause-menu.ts",
+    "path": "packages/presentation/menu/pause-menu.ts",
     "package": "app",
     "layer": "presentation",
     "classification": "現行presentation層"
   },
   {
-    "path": "packages/app/presentation/settings/index.ts",
+    "path": "packages/presentation/settings/index.ts",
     "package": "app",
     "layer": "presentation",
     "classification": "現行presentation層"
   },
   {
-    "path": "packages/app/presentation/settings/settings-overlay-sync.test.ts",
+    "path": "packages/presentation/settings/settings-overlay-sync.test.ts",
     "package": "app",
     "layer": "presentation",
     "classification": "現行presentation層"
   },
   {
-    "path": "packages/app/presentation/settings/settings-overlay-test-utils.ts",
+    "path": "packages/presentation/settings/settings-overlay-test-utils.ts",
     "package": "app",
     "layer": "presentation",
     "classification": "現行presentation層"
   },
   {
-    "path": "packages/app/presentation/settings/settings-overlay-toggle.test.ts",
+    "path": "packages/presentation/settings/settings-overlay-toggle.test.ts",
     "package": "app",
     "layer": "presentation",
     "classification": "現行presentation層"
   },
   {
-    "path": "packages/app/presentation/settings/settings-overlay.test.ts",
+    "path": "packages/presentation/settings/settings-overlay.test.ts",
     "package": "app",
     "layer": "presentation",
     "classification": "現行presentation層"
   },
   {
-    "path": "packages/app/presentation/settings/settings-overlay.ts",
+    "path": "packages/presentation/settings/settings-overlay.ts",
     "package": "app",
     "layer": "presentation",
     "classification": "現行presentation層"
   },
   {
-    "path": "packages/app/presentation/trading-edge-cases.test.ts",
+    "path": "packages/presentation/trading-edge-cases.test.ts",
     "package": "app",
     "layer": "presentation",
     "classification": "現行presentation層"
   },
   {
-    "path": "packages/app/presentation/trading-test-utils.ts",
+    "path": "packages/presentation/trading-test-utils.ts",
     "package": "app",
     "layer": "presentation",
     "classification": "現行presentation層"
   },
   {
-    "path": "packages/app/presentation/trading.config.ts",
+    "path": "packages/presentation/trading.config.ts",
     "package": "app",
     "layer": "presentation",
     "classification": "現行presentation層"
   },
   {
-    "path": "packages/app/presentation/trading.test.ts",
+    "path": "packages/presentation/trading.test.ts",
     "package": "app",
     "layer": "presentation",
     "classification": "現行presentation層"
   },
   {
-    "path": "packages/app/presentation/trading.ts",
+    "path": "packages/presentation/trading.ts",
     "package": "app",
     "layer": "presentation",
     "classification": "現行presentation層"
   },
   {
-    "path": "packages/entities/application/entityManager.ts",
+    "path": "packages/entity/application/entityManager.ts",
     "package": "entities",
     "layer": "application",
     "classification": "現行application層"
   },
   {
-    "path": "packages/entities/application/redstone-service.ts",
+    "path": "packages/entity/application/redstone-service.ts",
     "package": "entities",
     "layer": "application",
     "classification": "現行application層"
   },
   {
-    "path": "packages/entities/application/spawner.ts",
+    "path": "packages/entity/application/spawner.ts",
     "package": "entities",
     "layer": "application",
     "classification": "現行application層"
   },
   {
-    "path": "packages/entities/application/trading-service.config.ts",
+    "path": "packages/entity/application/trading-service.config.ts",
     "package": "entities",
     "layer": "application",
     "classification": "現行application層"
   },
   {
-    "path": "packages/entities/application/trading-service.ts",
+    "path": "packages/entity/application/trading-service.ts",
     "package": "entities",
     "layer": "application",
     "classification": "現行application層"
   },
   {
-    "path": "packages/entities/application/village-service.config.ts",
+    "path": "packages/entity/application/village-service.config.ts",
     "package": "entities",
     "layer": "application",
     "classification": "現行application層"
   },
   {
-    "path": "packages/entities/application/village-service.ts",
+    "path": "packages/entity/application/village-service.ts",
     "package": "entities",
     "layer": "application",
     "classification": "現行application層"
   },
   {
-    "path": "packages/entities/domain/ai-index.ts",
+    "path": "packages/entity/domain/ai-index.ts",
     "package": "entities",
     "layer": "domain",
     "classification": "現行domain層"
   },
   {
-    "path": "packages/entities/domain/drop.test.ts",
+    "path": "packages/entity/domain/drop.test.ts",
     "package": "entities",
     "layer": "domain",
     "classification": "現行domain層"
   },
   {
-    "path": "packages/entities/domain/drop.ts",
+    "path": "packages/entity/domain/drop.ts",
     "package": "entities",
     "layer": "domain",
     "classification": "現行domain層"
   },
   {
-    "path": "packages/entities/domain/entity-internal.ts",
+    "path": "packages/entity/domain/entity-internal.ts",
     "package": "entities",
     "layer": "domain",
     "classification": "現行domain層"
   },
   {
-    "path": "packages/entities/domain/entity-utils.ts",
+    "path": "packages/entity/domain/entity-utils.ts",
     "package": "entities",
     "layer": "domain",
     "classification": "現行domain層"
   },
   {
-    "path": "packages/entities/domain/entity.ts",
+    "path": "packages/entity/domain/entity.ts",
     "package": "entities",
     "layer": "domain",
     "classification": "現行domain層"
   },
   {
-    "path": "packages/entities/domain/mobs/cow.ts",
+    "path": "packages/entity/domain/mobs/cow.ts",
     "package": "entities",
     "layer": "domain",
     "classification": "現行domain層"
   },
   {
-    "path": "packages/entities/domain/mobs/index.ts",
+    "path": "packages/entity/domain/mobs/index.ts",
     "package": "entities",
     "layer": "domain",
     "classification": "現行domain層"
   },
   {
-    "path": "packages/entities/domain/mobs/mob-definition.ts",
+    "path": "packages/entity/domain/mobs/mob-definition.ts",
     "package": "entities",
     "layer": "domain",
     "classification": "現行domain層"
   },
   {
-    "path": "packages/entities/domain/mobs/pig.ts",
+    "path": "packages/entity/domain/mobs/pig.ts",
     "package": "entities",
     "layer": "domain",
     "classification": "現行domain層"
   },
   {
-    "path": "packages/entities/domain/mobs/sheep.ts",
+    "path": "packages/entity/domain/mobs/sheep.ts",
     "package": "entities",
     "layer": "domain",
     "classification": "現行domain層"
   },
   {
-    "path": "packages/entities/domain/mobs/zombie.ts",
+    "path": "packages/entity/domain/mobs/zombie.ts",
     "package": "entities",
     "layer": "domain",
     "classification": "現行domain層"
   },
   {
-    "path": "packages/entities/domain/redstone-model.ts",
+    "path": "packages/entity/domain/redstone-model.ts",
     "package": "entities",
     "layer": "domain",
     "classification": "現行domain層"
   },
   {
-    "path": "packages/entities/domain/redstone-position-utils.ts",
+    "path": "packages/entity/domain/redstone-position-utils.ts",
     "package": "entities",
     "layer": "domain",
     "classification": "現行domain層"
   },
   {
-    "path": "packages/entities/domain/redstone-simulation.ts",
+    "path": "packages/entity/domain/redstone-simulation.ts",
     "package": "entities",
     "layer": "domain",
     "classification": "現行domain層"
   },
   {
-    "path": "packages/entities/domain/redstone.config.ts",
+    "path": "packages/entity/domain/redstone.config.ts",
     "package": "entities",
     "layer": "domain",
     "classification": "現行domain層"
   },
   {
-    "path": "packages/entities/domain/spawner-config.ts",
+    "path": "packages/entity/domain/spawner-config.ts",
     "package": "entities",
     "layer": "domain",
     "classification": "現行domain層"
   },
   {
-    "path": "packages/entities/domain/stateMachine.ts",
+    "path": "packages/entity/domain/stateMachine.ts",
     "package": "entities",
     "layer": "domain",
     "classification": "現行domain層"
   },
   {
-    "path": "packages/entities/domain/trading-model.ts",
+    "path": "packages/entity/domain/trading-model.ts",
     "package": "entities",
     "layer": "domain",
     "classification": "現行domain層"
   },
   {
-    "path": "packages/entities/domain/village-factory.ts",
+    "path": "packages/entity/domain/village-factory.ts",
     "package": "entities",
     "layer": "domain",
     "classification": "現行domain層"
   },
   {
-    "path": "packages/entities/domain/village-model.ts",
+    "path": "packages/entity/domain/village-model.ts",
     "package": "entities",
     "layer": "domain",
     "classification": "現行domain層"
   },
   {
-    "path": "packages/entities/domain/village-simulation.config.ts",
+    "path": "packages/entity/domain/village-simulation.config.ts",
     "package": "entities",
     "layer": "domain",
     "classification": "現行domain層"
   },
   {
-    "path": "packages/entities/domain/village-simulation.ts",
+    "path": "packages/entity/domain/village-simulation.ts",
     "package": "entities",
     "layer": "domain",
     "classification": "現行domain層"
   },
   {
-    "path": "packages/entities/index.ts",
+    "path": "packages/entity/index.ts",
     "package": "entities",
     "layer": "(root)",
     "classification": "現行パッケージルート"
   },
   {
-    "path": "packages/entities/test/entity-utils.test.ts",
+    "path": "packages/entity/test/entity-utils.test.ts",
     "package": "entities",
     "layer": "test",
     "classification": "現行test層"
   },
   {
-    "path": "packages/entities/test/entity.test.ts",
+    "path": "packages/entity/test/entity.test.ts",
     "package": "entities",
     "layer": "test",
     "classification": "現行test層"
   },
   {
-    "path": "packages/entities/test/entityManager.test.ts",
+    "path": "packages/entity/test/entityManager.test.ts",
     "package": "entities",
     "layer": "test",
     "classification": "現行test層"
   },
   {
-    "path": "packages/entities/test/mobs.test.ts",
+    "path": "packages/entity/test/mobs.test.ts",
     "package": "entities",
     "layer": "test",
     "classification": "現行test層"
   },
   {
-    "path": "packages/entities/test/redstone-position-utils.test.ts",
+    "path": "packages/entity/test/redstone-position-utils.test.ts",
     "package": "entities",
     "layer": "test",
     "classification": "現行test層"
   },
   {
-    "path": "packages/entities/test/redstone-service-snapshot.test.ts",
+    "path": "packages/entity/test/redstone-service-snapshot.test.ts",
     "package": "entities",
     "layer": "test",
     "classification": "現行test層"
   },
   {
-    "path": "packages/entities/test/redstone-service.test.ts",
+    "path": "packages/entity/test/redstone-service.test.ts",
     "package": "entities",
     "layer": "test",
     "classification": "現行test層"
   },
   {
-    "path": "packages/entities/test/redstone-simulation.test.ts",
+    "path": "packages/entity/test/redstone-simulation.test.ts",
     "package": "entities",
     "layer": "test",
     "classification": "現行test層"
   },
   {
-    "path": "packages/entities/test/spawner-config.test.ts",
+    "path": "packages/entity/test/spawner-config.test.ts",
     "package": "entities",
     "layer": "test",
     "classification": "現行test層"
   },
   {
-    "path": "packages/entities/test/spawner.test.ts",
+    "path": "packages/entity/test/spawner.test.ts",
     "package": "entities",
     "layer": "test",
     "classification": "現行test層"
   },
   {
-    "path": "packages/entities/test/stateMachine.test.ts",
+    "path": "packages/entity/test/stateMachine.test.ts",
     "package": "entities",
     "layer": "test",
     "classification": "現行test層"
   },
   {
-    "path": "packages/entities/test/trading-service.test.ts",
+    "path": "packages/entity/test/trading-service.test.ts",
     "package": "entities",
     "layer": "test",
     "classification": "現行test層"
   },
   {
-    "path": "packages/entities/test/village-factory.test.ts",
+    "path": "packages/entity/test/village-factory.test.ts",
     "package": "entities",
     "layer": "test",
     "classification": "現行test層"
   },
   {
-    "path": "packages/entities/test/village-model.test.ts",
+    "path": "packages/entity/test/village-model.test.ts",
     "package": "entities",
     "layer": "test",
     "classification": "現行test層"
   },
   {
-    "path": "packages/entities/test/village-service.test.ts",
+    "path": "packages/entity/test/village-service.test.ts",
     "package": "entities",
     "layer": "test",
     "classification": "現行test層"
   },
   {
-    "path": "packages/entities/test/village-simulation.test.ts",
+    "path": "packages/entity/test/village-simulation.test.ts",
     "package": "entities",
     "layer": "test",
     "classification": "現行test層"
@@ -1452,529 +1452,529 @@
     "classification": "現行test層"
   },
   {
-    "path": "packages/kernel/domain/block-codec.test.ts",
+    "path": "packages/core/domain/block-codec.test.ts",
     "package": "kernel",
     "layer": "domain",
     "classification": "現行domain層"
   },
   {
-    "path": "packages/kernel/domain/block-codec.ts",
+    "path": "packages/core/domain/block-codec.ts",
     "package": "kernel",
     "layer": "domain",
     "classification": "現行domain層"
   },
   {
-    "path": "packages/kernel/domain/block-type.ts",
+    "path": "packages/core/domain/block-type.ts",
     "package": "kernel",
     "layer": "domain",
     "classification": "現行domain層"
   },
   {
-    "path": "packages/kernel/domain/cache-keys.ts",
+    "path": "packages/core/domain/cache-keys.ts",
     "package": "kernel",
     "layer": "domain",
     "classification": "現行domain層"
   },
   {
-    "path": "packages/kernel/domain/chunk-coords.ts",
+    "path": "packages/core/domain/chunk-coords.ts",
     "package": "kernel",
     "layer": "domain",
     "classification": "現行domain層"
   },
   {
-    "path": "packages/kernel/domain/constants.test.ts",
+    "path": "packages/core/domain/constants.test.ts",
     "package": "kernel",
     "layer": "domain",
     "classification": "現行domain層"
   },
   {
-    "path": "packages/kernel/domain/constants.ts",
+    "path": "packages/core/domain/constants.ts",
     "package": "kernel",
     "layer": "domain",
     "classification": "現行domain層"
   },
   {
-    "path": "packages/kernel/domain/ids.test.ts",
+    "path": "packages/core/domain/ids.test.ts",
     "package": "kernel",
     "layer": "domain",
     "classification": "現行domain層"
   },
   {
-    "path": "packages/kernel/domain/ids.ts",
+    "path": "packages/core/domain/ids.ts",
     "package": "kernel",
     "layer": "domain",
     "classification": "現行domain層"
   },
   {
-    "path": "packages/kernel/domain/kernel-branded-types.test.ts",
+    "path": "packages/core/domain/kernel-branded-types.test.ts",
     "package": "kernel",
     "layer": "domain",
     "classification": "現行domain層"
   },
   {
-    "path": "packages/kernel/domain/kernel.property.test.ts",
+    "path": "packages/core/domain/kernel.property.test.ts",
     "package": "kernel",
     "layer": "domain",
     "classification": "現行domain層"
   },
   {
-    "path": "packages/kernel/domain/kernel.test.ts",
+    "path": "packages/core/domain/kernel.test.ts",
     "package": "kernel",
     "layer": "domain",
     "classification": "現行domain層"
   },
   {
-    "path": "packages/kernel/domain/kernel.ts",
+    "path": "packages/core/domain/kernel.ts",
     "package": "kernel",
     "layer": "domain",
     "classification": "現行domain層"
   },
   {
-    "path": "packages/kernel/domain/math/three/camera-port.ts",
+    "path": "packages/core/domain/math/three/camera-port.ts",
     "package": "kernel",
     "layer": "domain",
     "classification": "現行domain層"
   },
   {
-    "path": "packages/kernel/domain/math/three/color.test.ts",
+    "path": "packages/core/domain/math/three/color.test.ts",
     "package": "kernel",
     "layer": "domain",
     "classification": "現行domain層"
   },
   {
-    "path": "packages/kernel/domain/math/three/color.ts",
+    "path": "packages/core/domain/math/three/color.ts",
     "package": "kernel",
     "layer": "domain",
     "classification": "現行domain層"
   },
   {
-    "path": "packages/kernel/domain/math/three/day-night-port.test.ts",
+    "path": "packages/core/domain/math/three/day-night-port.test.ts",
     "package": "kernel",
     "layer": "domain",
     "classification": "現行domain層"
   },
   {
-    "path": "packages/kernel/domain/math/three/day-night-port.ts",
+    "path": "packages/core/domain/math/three/day-night-port.ts",
     "package": "kernel",
     "layer": "domain",
     "classification": "現行domain層"
   },
   {
-    "path": "packages/kernel/domain/math/three/index.ts",
+    "path": "packages/core/domain/math/three/index.ts",
     "package": "kernel",
     "layer": "domain",
     "classification": "現行domain層"
   },
   {
-    "path": "packages/kernel/domain/math/three/matrix4.test.ts",
+    "path": "packages/core/domain/math/three/matrix4.test.ts",
     "package": "kernel",
     "layer": "domain",
     "classification": "現行domain層"
   },
   {
-    "path": "packages/kernel/domain/math/three/matrix4.ts",
+    "path": "packages/core/domain/math/three/matrix4.ts",
     "package": "kernel",
     "layer": "domain",
     "classification": "現行domain層"
   },
   {
-    "path": "packages/kernel/domain/math/three/quaternion.test.ts",
+    "path": "packages/core/domain/math/three/quaternion.test.ts",
     "package": "kernel",
     "layer": "domain",
     "classification": "現行domain層"
   },
   {
-    "path": "packages/kernel/domain/math/three/quaternion.ts",
+    "path": "packages/core/domain/math/three/quaternion.ts",
     "package": "kernel",
     "layer": "domain",
     "classification": "現行domain層"
   },
   {
-    "path": "packages/kernel/domain/math/three/vector3.test.ts",
+    "path": "packages/core/domain/math/three/vector3.test.ts",
     "package": "kernel",
     "layer": "domain",
     "classification": "現行domain層"
   },
   {
-    "path": "packages/kernel/domain/math/three/vector3.ts",
+    "path": "packages/core/domain/math/three/vector3.ts",
     "package": "kernel",
     "layer": "domain",
     "classification": "現行domain層"
   },
   {
-    "path": "packages/kernel/domain/numerics.test.ts",
+    "path": "packages/core/domain/numerics.test.ts",
     "package": "kernel",
     "layer": "domain",
     "classification": "現行domain層"
   },
   {
-    "path": "packages/kernel/domain/numerics.ts",
+    "path": "packages/core/domain/numerics.ts",
     "package": "kernel",
     "layer": "domain",
     "classification": "現行domain層"
   },
   {
-    "path": "packages/kernel/domain/physics.ts",
+    "path": "packages/core/domain/physics.ts",
     "package": "kernel",
     "layer": "domain",
     "classification": "現行domain層"
   },
   {
-    "path": "packages/kernel/domain/position.ts",
+    "path": "packages/core/domain/position.ts",
     "package": "kernel",
     "layer": "domain",
     "classification": "現行domain層"
   },
   {
-    "path": "packages/kernel/domain/rendering-constants.ts",
+    "path": "packages/core/domain/rendering-constants.ts",
     "package": "kernel",
     "layer": "domain",
     "classification": "現行domain層"
   },
   {
-    "path": "packages/kernel/index.ts",
+    "path": "packages/core/index.ts",
     "package": "kernel",
     "layer": "(root)",
     "classification": "現行パッケージルート"
   },
   {
-    "path": "packages/physics/application/physics-service.ts",
+    "path": "packages/game/application/physics-service.ts",
     "package": "physics",
     "layer": "application",
     "classification": "現行application層"
   },
   {
-    "path": "packages/physics/domain/aabb-collision.ts",
+    "path": "packages/game/domain/aabb-collision.ts",
     "package": "physics",
     "layer": "domain",
     "classification": "現行domain層"
   },
   {
-    "path": "packages/physics/domain/core/index.ts",
+    "path": "packages/game/domain/core/index.ts",
     "package": "physics",
     "layer": "domain",
     "classification": "現行domain層"
   },
   {
-    "path": "packages/physics/domain/core/quaternion.test.ts",
+    "path": "packages/game/domain/core/quaternion.test.ts",
     "package": "physics",
     "layer": "domain",
     "classification": "現行domain層"
   },
   {
-    "path": "packages/physics/domain/core/quaternion.ts",
+    "path": "packages/game/domain/core/quaternion.ts",
     "package": "physics",
     "layer": "domain",
     "classification": "現行domain層"
   },
   {
-    "path": "packages/physics/domain/core/vector3.test.ts",
+    "path": "packages/game/domain/core/vector3.test.ts",
     "package": "physics",
     "layer": "domain",
     "classification": "現行domain層"
   },
   {
-    "path": "packages/physics/domain/core/vector3.ts",
+    "path": "packages/game/domain/core/vector3.ts",
     "package": "physics",
     "layer": "domain",
     "classification": "現行domain層"
   },
   {
-    "path": "packages/physics/domain/physics-port.ts",
+    "path": "packages/game/domain/physics-port.ts",
     "package": "physics",
     "layer": "domain",
     "classification": "現行domain層"
   },
   {
-    "path": "packages/physics/domain/physics-utils.ts",
+    "path": "packages/game/domain/physics-utils.ts",
     "package": "physics",
     "layer": "domain",
     "classification": "現行domain層"
   },
   {
-    "path": "packages/physics/index.ts",
+    "path": "packages/game/index.ts",
     "package": "physics",
     "layer": "(root)",
     "classification": "現行パッケージルート"
   },
   {
-    "path": "packages/physics/infrastructure/boundary/physics-world-service.ts",
+    "path": "packages/game/infrastructure/boundary/physics-world-service.ts",
     "package": "physics",
     "layer": "infrastructure",
     "classification": "現行infrastructure層"
   },
   {
-    "path": "packages/physics/infrastructure/boundary/rigid-body-service.ts",
+    "path": "packages/game/infrastructure/boundary/rigid-body-service.ts",
     "package": "physics",
     "layer": "infrastructure",
     "classification": "現行infrastructure層"
   },
   {
-    "path": "packages/physics/infrastructure/boundary/shape-service.ts",
+    "path": "packages/game/infrastructure/boundary/shape-service.ts",
     "package": "physics",
     "layer": "infrastructure",
     "classification": "現行infrastructure層"
   },
   {
-    "path": "packages/physics/test/aabb-collision.test.ts",
+    "path": "packages/game/test/aabb-collision.test.ts",
     "package": "physics",
     "layer": "test",
     "classification": "現行test層"
   },
   {
-    "path": "packages/physics/test/physics-service-schema.test.ts",
+    "path": "packages/game/test/physics-service-schema.test.ts",
     "package": "physics",
     "layer": "test",
     "classification": "現行test層"
   },
   {
-    "path": "packages/physics/test/physics-service.test.ts",
+    "path": "packages/game/test/physics-service.test.ts",
     "package": "physics",
     "layer": "test",
     "classification": "現行test層"
   },
   {
-    "path": "packages/physics/test/physics-utils-vector.test.ts",
+    "path": "packages/game/test/physics-utils-vector.test.ts",
     "package": "physics",
     "layer": "test",
     "classification": "現行test層"
   },
   {
-    "path": "packages/physics/test/physics-utils.test.ts",
+    "path": "packages/game/test/physics-utils.test.ts",
     "package": "physics",
     "layer": "test",
     "classification": "現行test層"
   },
   {
-    "path": "packages/physics/test/physics-world-service.test.ts",
+    "path": "packages/game/test/physics-world-service.test.ts",
     "package": "physics",
     "layer": "test",
     "classification": "現行test層"
   },
   {
-    "path": "packages/physics/test/rigid-body-service.test.ts",
+    "path": "packages/game/test/rigid-body-service.test.ts",
     "package": "physics",
     "layer": "test",
     "classification": "現行test層"
   },
   {
-    "path": "packages/physics/test/shape-service.test.ts",
+    "path": "packages/game/test/shape-service.test.ts",
     "package": "physics",
     "layer": "test",
     "classification": "現行test層"
   },
   {
-    "path": "packages/player/application/first-person-camera-service.ts",
+    "path": "packages/entity/application/first-person-camera-service.ts",
     "package": "player",
     "layer": "application",
     "classification": "現行application層"
   },
   {
-    "path": "packages/player/application/health-service.config.ts",
+    "path": "packages/entity/application/health-service.config.ts",
     "package": "player",
     "layer": "application",
     "classification": "現行application層"
   },
   {
-    "path": "packages/player/application/health-service.ts",
+    "path": "packages/entity/application/health-service.ts",
     "package": "player",
     "layer": "application",
     "classification": "現行application層"
   },
   {
-    "path": "packages/player/application/input-service-port.ts",
+    "path": "packages/entity/application/input-service-port.ts",
     "package": "player",
     "layer": "application",
     "classification": "現行application層"
   },
   {
-    "path": "packages/player/application/movement-service.ts",
+    "path": "packages/entity/application/movement-service.ts",
     "package": "player",
     "layer": "application",
     "classification": "現行application層"
   },
   {
-    "path": "packages/player/application/player-input-service.ts",
+    "path": "packages/entity/application/player-input-service.ts",
     "package": "player",
     "layer": "application",
     "classification": "現行application層"
   },
   {
-    "path": "packages/player/application/third-person-camera-service.ts",
+    "path": "packages/entity/application/third-person-camera-service.ts",
     "package": "player",
     "layer": "application",
     "classification": "現行application層"
   },
   {
-    "path": "packages/player/domain/camera-state.ts",
+    "path": "packages/entity/domain/camera-state.ts",
     "package": "player",
     "layer": "domain",
     "classification": "現行domain層"
   },
   {
-    "path": "packages/player/domain/errors.ts",
+    "path": "packages/entity/domain/errors.ts",
     "package": "player",
     "layer": "domain",
     "classification": "現行domain層"
   },
   {
-    "path": "packages/player/domain/key-mappings.ts",
+    "path": "packages/entity/domain/key-mappings.ts",
     "package": "player",
     "layer": "domain",
     "classification": "現行domain層"
   },
   {
-    "path": "packages/player/domain/player-health.ts",
+    "path": "packages/entity/domain/player-health.ts",
     "package": "player",
     "layer": "domain",
     "classification": "現行domain層"
   },
   {
-    "path": "packages/player/domain/player-state.ts",
+    "path": "packages/entity/domain/player-state.ts",
     "package": "player",
     "layer": "domain",
     "classification": "現行domain層"
   },
   {
-    "path": "packages/player/index.ts",
+    "path": "packages/entity/index.ts",
     "package": "player",
     "layer": "(root)",
     "classification": "現行パッケージルート"
   },
   {
-    "path": "packages/player/test/camera-state-advanced.test.ts",
+    "path": "packages/entity/test/camera-state-advanced.test.ts",
     "package": "player",
     "layer": "test",
     "classification": "現行test層"
   },
   {
-    "path": "packages/player/test/camera-state.test.ts",
+    "path": "packages/entity/test/camera-state.test.ts",
     "package": "player",
     "layer": "test",
     "classification": "現行test層"
   },
   {
-    "path": "packages/player/test/errors.test.ts",
+    "path": "packages/entity/test/errors.test.ts",
     "package": "player",
     "layer": "test",
     "classification": "現行test層"
   },
   {
-    "path": "packages/player/test/first-person-camera-integration.test.ts",
+    "path": "packages/entity/test/first-person-camera-integration.test.ts",
     "package": "player",
     "layer": "test",
     "classification": "現行test層"
   },
   {
-    "path": "packages/player/test/first-person-camera-service-attach.test.ts",
+    "path": "packages/entity/test/first-person-camera-service-attach.test.ts",
     "package": "player",
     "layer": "test",
     "classification": "現行test層"
   },
   {
-    "path": "packages/player/test/first-person-camera-service.test.ts",
+    "path": "packages/entity/test/first-person-camera-service.test.ts",
     "package": "player",
     "layer": "test",
     "classification": "現行test層"
   },
   {
-    "path": "packages/player/test/health-service-async.test.ts",
+    "path": "packages/entity/test/health-service-async.test.ts",
     "package": "player",
     "layer": "test",
     "classification": "現行test層"
   },
   {
-    "path": "packages/player/test/health-service.property.test.ts",
+    "path": "packages/entity/test/health-service.property.test.ts",
     "package": "player",
     "layer": "test",
     "classification": "現行test層"
   },
   {
-    "path": "packages/player/test/health-service.test.ts",
+    "path": "packages/entity/test/health-service.test.ts",
     "package": "player",
     "layer": "test",
     "classification": "現行test層"
   },
   {
-    "path": "packages/player/test/key-mappings.test.ts",
+    "path": "packages/entity/test/key-mappings.test.ts",
     "package": "player",
     "layer": "test",
     "classification": "現行test層"
   },
   {
-    "path": "packages/player/test/movement-service-camera.test.ts",
+    "path": "packages/entity/test/movement-service-camera.test.ts",
     "package": "player",
     "layer": "test",
     "classification": "現行test層"
   },
   {
-    "path": "packages/player/test/movement-service-integration.test.ts",
+    "path": "packages/entity/test/movement-service-integration.test.ts",
     "package": "player",
     "layer": "test",
     "classification": "現行test層"
   },
   {
-    "path": "packages/player/test/movement-service-scenarios.test.ts",
+    "path": "packages/entity/test/movement-service-scenarios.test.ts",
     "package": "player",
     "layer": "test",
     "classification": "現行test層"
   },
   {
-    "path": "packages/player/test/movement-service-test-utils.ts",
+    "path": "packages/entity/test/movement-service-test-utils.ts",
     "package": "player",
     "layer": "test",
     "classification": "現行test層"
   },
   {
-    "path": "packages/player/test/movement-service-velocity.test.ts",
+    "path": "packages/entity/test/movement-service-velocity.test.ts",
     "package": "player",
     "layer": "test",
     "classification": "現行test層"
   },
   {
-    "path": "packages/player/test/movement-service.test.ts",
+    "path": "packages/entity/test/movement-service.test.ts",
     "package": "player",
     "layer": "test",
     "classification": "現行test層"
   },
   {
-    "path": "packages/player/test/player-health.test.ts",
+    "path": "packages/entity/test/player-health.test.ts",
     "package": "player",
     "layer": "test",
     "classification": "現行test層"
   },
   {
-    "path": "packages/player/test/player-input-service.test.ts",
+    "path": "packages/entity/test/player-input-service.test.ts",
     "package": "player",
     "layer": "test",
     "classification": "現行test層"
   },
   {
-    "path": "packages/player/test/player-state-catch.test.ts",
+    "path": "packages/entity/test/player-state-catch.test.ts",
     "package": "player",
     "layer": "test",
     "classification": "現行test層"
   },
   {
-    "path": "packages/player/test/player-state-errors.test.ts",
+    "path": "packages/entity/test/player-state-errors.test.ts",
     "package": "player",
     "layer": "test",
     "classification": "現行test層"
   },
   {
-    "path": "packages/player/test/player-state-isolation.test.ts",
+    "path": "packages/entity/test/player-state-isolation.test.ts",
     "package": "player",
     "layer": "test",
     "classification": "現行test層"
   },
   {
-    "path": "packages/player/test/player-state.test.ts",
+    "path": "packages/entity/test/player-state.test.ts",
     "package": "player",
     "layer": "test",
     "classification": "現行test層"
   },
   {
-    "path": "packages/player/test/third-person-camera.test.ts",
+    "path": "packages/entity/test/third-person-camera.test.ts",
     "package": "player",
     "layer": "test",
     "classification": "現行test層"
@@ -2388,841 +2388,841 @@
     "classification": "現行test層"
   },
   {
-    "path": "packages/terrain/application/biome-service.config.ts",
+    "path": "packages/world/application/biome-service.config.ts",
     "package": "terrain",
     "layer": "application",
     "classification": "現行application層"
   },
   {
-    "path": "packages/terrain/application/biome-service.ts",
+    "path": "packages/world/application/biome-service.ts",
     "package": "terrain",
     "layer": "application",
     "classification": "現行application層"
   },
   {
-    "path": "packages/terrain/application/block-service.config.ts",
+    "path": "packages/world/application/block-service.config.ts",
     "package": "terrain",
     "layer": "application",
     "classification": "現行application層"
   },
   {
-    "path": "packages/terrain/application/block-service.ts",
+    "path": "packages/world/application/block-service.ts",
     "package": "terrain",
     "layer": "application",
     "classification": "現行application層"
   },
   {
-    "path": "packages/terrain/application/chunk-manager-cache.ts",
+    "path": "packages/world/application/chunk-manager-cache.ts",
     "package": "terrain",
     "layer": "application",
     "classification": "現行application層"
   },
   {
-    "path": "packages/terrain/application/chunk-manager-constants.ts",
+    "path": "packages/world/application/chunk-manager-constants.ts",
     "package": "terrain",
     "layer": "application",
     "classification": "現行application層"
   },
   {
-    "path": "packages/terrain/application/chunk-manager-ops.ts",
+    "path": "packages/world/application/chunk-manager-ops.ts",
     "package": "terrain",
     "layer": "application",
     "classification": "現行application層"
   },
   {
-    "path": "packages/terrain/application/chunk-manager-service.ts",
+    "path": "packages/world/application/chunk-manager-service.ts",
     "package": "terrain",
     "layer": "application",
     "classification": "現行application層"
   },
   {
-    "path": "packages/terrain/application/fluid-chunk-ops.ts",
+    "path": "packages/world/application/fluid-chunk-ops.ts",
     "package": "terrain",
     "layer": "application",
     "classification": "現行application層"
   },
   {
-    "path": "packages/terrain/application/fluid-service.ts",
+    "path": "packages/world/application/fluid-service.ts",
     "package": "terrain",
     "layer": "application",
     "classification": "現行application層"
   },
   {
-    "path": "packages/terrain/application/fluid-state-ops.ts",
+    "path": "packages/world/application/fluid-state-ops.ts",
     "package": "terrain",
     "layer": "application",
     "classification": "現行application層"
   },
   {
-    "path": "packages/terrain/application/fluid-tick-budget.ts",
+    "path": "packages/world/application/fluid-tick-budget.ts",
     "package": "terrain",
     "layer": "application",
     "classification": "現行application層"
   },
   {
-    "path": "packages/terrain/application/light-engine-service.ts",
+    "path": "packages/world/application/light-engine-service.ts",
     "package": "terrain",
     "layer": "application",
     "classification": "現行application層"
   },
   {
-    "path": "packages/terrain/application/noise-service.ts",
+    "path": "packages/world/application/noise-service.ts",
     "package": "terrain",
     "layer": "application",
     "classification": "現行application層"
   },
   {
-    "path": "packages/terrain/application/terrain-generation.ts",
+    "path": "packages/world/application/terrain-generation.ts",
     "package": "terrain",
     "layer": "application",
     "classification": "現行application層"
   },
   {
-    "path": "packages/terrain/application/terrain-worker-pool-port.ts",
+    "path": "packages/world/application/terrain-worker-pool-port.ts",
     "package": "terrain",
     "layer": "application",
     "classification": "現行application層"
   },
   {
-    "path": "packages/terrain/domain/biome-generator-port.ts",
+    "path": "packages/world/domain/biome-generator-port.ts",
     "package": "terrain",
     "layer": "domain",
     "classification": "現行domain層"
   },
   {
-    "path": "packages/terrain/domain/biome.ts",
+    "path": "packages/world/domain/biome.ts",
     "package": "terrain",
     "layer": "domain",
     "classification": "現行domain層"
   },
   {
-    "path": "packages/terrain/domain/block-utils.ts",
+    "path": "packages/world/domain/block-utils.ts",
     "package": "terrain",
     "layer": "domain",
     "classification": "現行domain層"
   },
   {
-    "path": "packages/terrain/domain/chunk-coord-utils.ts",
+    "path": "packages/world/domain/chunk-coord-utils.ts",
     "package": "terrain",
     "layer": "domain",
     "classification": "現行domain層"
   },
   {
-    "path": "packages/terrain/domain/chunk-coord.test.ts",
+    "path": "packages/world/domain/chunk-coord.test.ts",
     "package": "terrain",
     "layer": "domain",
     "classification": "現行domain層"
   },
   {
-    "path": "packages/terrain/domain/chunk.test.ts",
+    "path": "packages/world/domain/chunk.test.ts",
     "package": "terrain",
     "layer": "domain",
     "classification": "現行domain層"
   },
   {
-    "path": "packages/terrain/domain/chunk.ts",
+    "path": "packages/world/domain/chunk.ts",
     "package": "terrain",
     "layer": "domain",
     "classification": "現行domain層"
   },
   {
-    "path": "packages/terrain/domain/density-function.ts",
+    "path": "packages/world/domain/density-function.ts",
     "package": "terrain",
     "layer": "domain",
     "classification": "現行domain層"
   },
   {
-    "path": "packages/terrain/domain/errors.ts",
+    "path": "packages/world/domain/errors.ts",
     "package": "terrain",
     "layer": "domain",
     "classification": "現行domain層"
   },
   {
-    "path": "packages/terrain/domain/fluid-contact.ts",
+    "path": "packages/world/domain/fluid-contact.ts",
     "package": "terrain",
     "layer": "domain",
     "classification": "現行domain層"
   },
   {
-    "path": "packages/terrain/domain/harvestable-blocks.ts",
+    "path": "packages/world/domain/harvestable-blocks.ts",
     "package": "terrain",
     "layer": "domain",
     "classification": "現行domain層"
   },
   {
-    "path": "packages/terrain/domain/noise-service-port.ts",
+    "path": "packages/world/domain/noise-service-port.ts",
     "package": "terrain",
     "layer": "domain",
     "classification": "現行domain層"
   },
   {
-    "path": "packages/terrain/domain/spline.test.ts",
+    "path": "packages/world/domain/spline.test.ts",
     "package": "terrain",
     "layer": "domain",
     "classification": "現行domain層"
   },
   {
-    "path": "packages/terrain/domain/spline.ts",
+    "path": "packages/world/domain/spline.ts",
     "package": "terrain",
     "layer": "domain",
     "classification": "現行domain層"
   },
   {
-    "path": "packages/terrain/domain/storage-service-port.ts",
+    "path": "packages/world/domain/storage-service-port.ts",
     "package": "terrain",
     "layer": "domain",
     "classification": "現行domain層"
   },
   {
-    "path": "packages/terrain/domain/terrain-splines.ts",
+    "path": "packages/world/domain/terrain-splines.ts",
     "package": "terrain",
     "layer": "domain",
     "classification": "現行domain層"
   },
   {
-    "path": "packages/terrain/domain/terrain-worker-protocol.ts",
+    "path": "packages/world/domain/terrain-worker-protocol.ts",
     "package": "terrain",
     "layer": "domain",
     "classification": "現行domain層"
   },
   {
-    "path": "packages/terrain/domain/terrain/cave-carver.ts",
+    "path": "packages/world/domain/terrain/cave-carver.ts",
     "package": "terrain",
     "layer": "domain",
     "classification": "現行domain層"
   },
   {
-    "path": "packages/terrain/domain/terrain/constants.ts",
+    "path": "packages/world/domain/terrain/constants.ts",
     "package": "terrain",
     "layer": "domain",
     "classification": "現行domain層"
   },
   {
-    "path": "packages/terrain/domain/terrain/generator-coordinates.ts",
+    "path": "packages/world/domain/terrain/generator-coordinates.ts",
     "package": "terrain",
     "layer": "domain",
     "classification": "現行domain層"
   },
   {
-    "path": "packages/terrain/domain/terrain/generator-pipeline.ts",
+    "path": "packages/world/domain/terrain/generator-pipeline.ts",
     "package": "terrain",
     "layer": "domain",
     "classification": "現行domain層"
   },
   {
-    "path": "packages/terrain/domain/terrain/generator-types.ts",
+    "path": "packages/world/domain/terrain/generator-types.ts",
     "package": "terrain",
     "layer": "domain",
     "classification": "現行domain層"
   },
   {
-    "path": "packages/terrain/domain/terrain/generator.ts",
+    "path": "packages/world/domain/terrain/generator.ts",
     "package": "terrain",
     "layer": "domain",
     "classification": "現行domain層"
   },
   {
-    "path": "packages/terrain/domain/terrain/lake-generator.ts",
+    "path": "packages/world/domain/terrain/lake-generator.ts",
     "package": "terrain",
     "layer": "domain",
     "classification": "現行domain層"
   },
   {
-    "path": "packages/terrain/domain/terrain/math.ts",
+    "path": "packages/world/domain/terrain/math.ts",
     "package": "terrain",
     "layer": "domain",
     "classification": "現行domain層"
   },
   {
-    "path": "packages/terrain/domain/terrain/ore-generator.ts",
+    "path": "packages/world/domain/terrain/ore-generator.ts",
     "package": "terrain",
     "layer": "domain",
     "classification": "現行domain層"
   },
   {
-    "path": "packages/terrain/domain/terrain/surface-resolver.config.ts",
+    "path": "packages/world/domain/terrain/surface-resolver.config.ts",
     "package": "terrain",
     "layer": "domain",
     "classification": "現行domain層"
   },
   {
-    "path": "packages/terrain/domain/terrain/surface-resolver.ts",
+    "path": "packages/world/domain/terrain/surface-resolver.ts",
     "package": "terrain",
     "layer": "domain",
     "classification": "現行domain層"
   },
   {
-    "path": "packages/terrain/domain/terrain/tree-placer.config.ts",
+    "path": "packages/world/domain/terrain/tree-placer.config.ts",
     "package": "terrain",
     "layer": "domain",
     "classification": "現行domain層"
   },
   {
-    "path": "packages/terrain/domain/terrain/tree-placer.ts",
+    "path": "packages/world/domain/terrain/tree-placer.ts",
     "package": "terrain",
     "layer": "domain",
     "classification": "現行domain層"
   },
   {
-    "path": "packages/terrain/index.ts",
+    "path": "packages/world/index.ts",
     "package": "terrain",
     "layer": "(root)",
     "classification": "現行パッケージルート"
   },
   {
-    "path": "packages/terrain/infrastructure/perlin.ts",
+    "path": "packages/world/infrastructure/perlin.ts",
     "package": "terrain",
     "layer": "infrastructure",
     "classification": "現行infrastructure層"
   },
   {
-    "path": "packages/terrain/infrastructure/primitives.ts",
+    "path": "packages/world/infrastructure/primitives.ts",
     "package": "terrain",
     "layer": "infrastructure",
     "classification": "現行infrastructure層"
   },
   {
-    "path": "packages/terrain/infrastructure/terrain-worker-pool.ts",
+    "path": "packages/world/infrastructure/terrain-worker-pool.ts",
     "package": "terrain",
     "layer": "infrastructure",
     "classification": "現行infrastructure層"
   },
   {
-    "path": "packages/terrain/infrastructure/terrain-worker.ts",
+    "path": "packages/world/infrastructure/terrain-worker.ts",
     "package": "terrain",
     "layer": "infrastructure",
     "classification": "現行infrastructure層"
   },
   {
-    "path": "packages/terrain/test/biome-service-chunk.test.ts",
+    "path": "packages/world/test/biome-service-chunk.test.ts",
     "package": "terrain",
     "layer": "test",
     "classification": "現行test層"
   },
   {
-    "path": "packages/terrain/test/biome-service-classify.test.ts",
+    "path": "packages/world/test/biome-service-classify.test.ts",
     "package": "terrain",
     "layer": "test",
     "classification": "現行test層"
   },
   {
-    "path": "packages/terrain/test/biome-service-test-utils.ts",
+    "path": "packages/world/test/biome-service-test-utils.ts",
     "package": "terrain",
     "layer": "test",
     "classification": "現行test層"
   },
   {
-    "path": "packages/terrain/test/biome-service.config.test.ts",
+    "path": "packages/world/test/biome-service.config.test.ts",
     "package": "terrain",
     "layer": "test",
     "classification": "現行test層"
   },
   {
-    "path": "packages/terrain/test/biome-service.property.test.ts",
+    "path": "packages/world/test/biome-service.property.test.ts",
     "package": "terrain",
     "layer": "test",
     "classification": "現行test層"
   },
   {
-    "path": "packages/terrain/test/biome-service.test.ts",
+    "path": "packages/world/test/biome-service.test.ts",
     "package": "terrain",
     "layer": "test",
     "classification": "現行test層"
   },
   {
-    "path": "packages/terrain/test/block-service-furnace.test.ts",
+    "path": "packages/world/test/block-service-furnace.test.ts",
     "package": "terrain",
     "layer": "test",
     "classification": "現行test層"
   },
   {
-    "path": "packages/terrain/test/block-service-place.test.ts",
+    "path": "packages/world/test/block-service-place.test.ts",
     "package": "terrain",
     "layer": "test",
     "classification": "現行test層"
   },
   {
-    "path": "packages/terrain/test/block-service.test.ts",
+    "path": "packages/world/test/block-service.test.ts",
     "package": "terrain",
     "layer": "test",
     "classification": "現行test層"
   },
   {
-    "path": "packages/terrain/test/cave-carver.test.ts",
+    "path": "packages/world/test/cave-carver.test.ts",
     "package": "terrain",
     "layer": "test",
     "classification": "現行test層"
   },
   {
-    "path": "packages/terrain/test/chunk-manager-cache.test.ts",
+    "path": "packages/world/test/chunk-manager-cache.test.ts",
     "package": "terrain",
     "layer": "test",
     "classification": "現行test層"
   },
   {
-    "path": "packages/terrain/test/chunk-manager-eviction.test.ts",
+    "path": "packages/world/test/chunk-manager-eviction.test.ts",
     "package": "terrain",
     "layer": "test",
     "classification": "現行test層"
   },
   {
-    "path": "packages/terrain/test/chunk-manager-ops-lru.test.ts",
+    "path": "packages/world/test/chunk-manager-ops-lru.test.ts",
     "package": "terrain",
     "layer": "test",
     "classification": "現行test層"
   },
   {
-    "path": "packages/terrain/test/chunk-manager-service-lifecycle.test.ts",
+    "path": "packages/world/test/chunk-manager-service-lifecycle.test.ts",
     "package": "terrain",
     "layer": "test",
     "classification": "現行test層"
   },
   {
-    "path": "packages/terrain/test/chunk-manager-service.test.ts",
+    "path": "packages/world/test/chunk-manager-service.test.ts",
     "package": "terrain",
     "layer": "test",
     "classification": "現行test層"
   },
   {
-    "path": "packages/terrain/test/chunk-manager-storage.test.ts",
+    "path": "packages/world/test/chunk-manager-storage.test.ts",
     "package": "terrain",
     "layer": "test",
     "classification": "現行test層"
   },
   {
-    "path": "packages/terrain/test/chunk-manager-test-utils.ts",
+    "path": "packages/world/test/chunk-manager-test-utils.ts",
     "package": "terrain",
     "layer": "test",
     "classification": "現行test層"
   },
   {
-    "path": "packages/terrain/test/chunk-terrain-appearance.test.ts",
+    "path": "packages/world/test/chunk-terrain-appearance.test.ts",
     "package": "terrain",
     "layer": "test",
     "classification": "現行test層"
   },
   {
-    "path": "packages/terrain/test/chunk-terrain-caves.test.ts",
+    "path": "packages/world/test/chunk-terrain-caves.test.ts",
     "package": "terrain",
     "layer": "test",
     "classification": "現行test層"
   },
   {
-    "path": "packages/terrain/test/chunk-terrain-math-hashing.test.ts",
+    "path": "packages/world/test/chunk-terrain-math-hashing.test.ts",
     "package": "terrain",
     "layer": "test",
     "classification": "現行test層"
   },
   {
-    "path": "packages/terrain/test/chunk-terrain-math-utils.test.ts",
+    "path": "packages/world/test/chunk-terrain-math-utils.test.ts",
     "package": "terrain",
     "layer": "test",
     "classification": "現行test層"
   },
   {
-    "path": "packages/terrain/test/chunk-terrain-ores.test.ts",
+    "path": "packages/world/test/chunk-terrain-ores.test.ts",
     "package": "terrain",
     "layer": "test",
     "classification": "現行test層"
   },
   {
-    "path": "packages/terrain/test/chunk-terrain-underground.test.ts",
+    "path": "packages/world/test/chunk-terrain-underground.test.ts",
     "package": "terrain",
     "layer": "test",
     "classification": "現行test層"
   },
   {
-    "path": "packages/terrain/test/chunk-terrain-utils.test.ts",
+    "path": "packages/world/test/chunk-terrain-utils.test.ts",
     "package": "terrain",
     "layer": "test",
     "classification": "現行test層"
   },
   {
-    "path": "packages/terrain/test/constants.test.ts",
+    "path": "packages/world/test/constants.test.ts",
     "package": "terrain",
     "layer": "test",
     "classification": "現行test層"
   },
   {
-    "path": "packages/terrain/test/density-function.test.ts",
+    "path": "packages/world/test/density-function.test.ts",
     "package": "terrain",
     "layer": "test",
     "classification": "現行test層"
   },
   {
-    "path": "packages/terrain/test/errors.test.ts",
+    "path": "packages/world/test/errors.test.ts",
     "package": "terrain",
     "layer": "test",
     "classification": "現行test層"
   },
   {
-    "path": "packages/terrain/test/fluid-service-lava.test.ts",
+    "path": "packages/world/test/fluid-service-lava.test.ts",
     "package": "terrain",
     "layer": "test",
     "classification": "現行test層"
   },
   {
-    "path": "packages/terrain/test/fluid-service-tick.test.ts",
+    "path": "packages/world/test/fluid-service-tick.test.ts",
     "package": "terrain",
     "layer": "test",
     "classification": "現行test層"
   },
   {
-    "path": "packages/terrain/test/fluid-service.test.ts",
+    "path": "packages/world/test/fluid-service.test.ts",
     "package": "terrain",
     "layer": "test",
     "classification": "現行test層"
   },
   {
-    "path": "packages/terrain/test/math.test.ts",
+    "path": "packages/world/test/math.test.ts",
     "package": "terrain",
     "layer": "test",
     "classification": "現行test層"
   },
   {
-    "path": "packages/terrain/test/noise-service-advanced.test.ts",
+    "path": "packages/world/test/noise-service-advanced.test.ts",
     "package": "terrain",
     "layer": "test",
     "classification": "現行test層"
   },
   {
-    "path": "packages/terrain/test/noise-service-batch.test.ts",
+    "path": "packages/world/test/noise-service-batch.test.ts",
     "package": "terrain",
     "layer": "test",
     "classification": "現行test層"
   },
   {
-    "path": "packages/terrain/test/noise-service-terrain.test.ts",
+    "path": "packages/world/test/noise-service-terrain.test.ts",
     "package": "terrain",
     "layer": "test",
     "classification": "現行test層"
   },
   {
-    "path": "packages/terrain/test/noise-service.property.test.ts",
+    "path": "packages/world/test/noise-service.property.test.ts",
     "package": "terrain",
     "layer": "test",
     "classification": "現行test層"
   },
   {
-    "path": "packages/terrain/test/noise-service.test.ts",
+    "path": "packages/world/test/noise-service.test.ts",
     "package": "terrain",
     "layer": "test",
     "classification": "現行test層"
   },
   {
-    "path": "packages/terrain/test/ore-generator.test.ts",
+    "path": "packages/world/test/ore-generator.test.ts",
     "package": "terrain",
     "layer": "test",
     "classification": "現行test層"
   },
   {
-    "path": "packages/terrain/test/primitives-batch.test.ts",
+    "path": "packages/world/test/primitives-batch.test.ts",
     "package": "terrain",
     "layer": "test",
     "classification": "現行test層"
   },
   {
-    "path": "packages/terrain/test/primitives.test.ts",
+    "path": "packages/world/test/primitives.test.ts",
     "package": "terrain",
     "layer": "test",
     "classification": "現行test層"
   },
   {
-    "path": "packages/terrain/test/spline.test.ts",
+    "path": "packages/world/test/spline.test.ts",
     "package": "terrain",
     "layer": "test",
     "classification": "現行test層"
   },
   {
-    "path": "packages/terrain/test/surface-resolver-biome-edge.test.ts",
+    "path": "packages/world/test/surface-resolver-biome-edge.test.ts",
     "package": "terrain",
     "layer": "test",
     "classification": "現行test層"
   },
   {
-    "path": "packages/terrain/test/surface-resolver-fill.test.ts",
+    "path": "packages/world/test/surface-resolver-fill.test.ts",
     "package": "terrain",
     "layer": "test",
     "classification": "現行test層"
   },
   {
-    "path": "packages/terrain/test/surface-resolver.test.ts",
+    "path": "packages/world/test/surface-resolver.test.ts",
     "package": "terrain",
     "layer": "test",
     "classification": "現行test層"
   },
   {
-    "path": "packages/terrain/test/terrain-generation.test.ts",
+    "path": "packages/world/test/terrain-generation.test.ts",
     "package": "terrain",
     "layer": "test",
     "classification": "現行test層"
   },
   {
-    "path": "packages/terrain/test/terrain-splines.test.ts",
+    "path": "packages/world/test/terrain-splines.test.ts",
     "package": "terrain",
     "layer": "test",
     "classification": "現行test層"
   },
   {
-    "path": "packages/terrain/test/terrain-worker-pool.parity.property.test.ts",
+    "path": "packages/world/test/terrain-worker-pool.parity.property.test.ts",
     "package": "terrain",
     "layer": "test",
     "classification": "現行test層"
   },
   {
-    "path": "packages/terrain/test/terrain-worker-pool.test.ts",
+    "path": "packages/world/test/terrain-worker-pool.test.ts",
     "package": "terrain",
     "layer": "test",
     "classification": "現行test層"
   },
   {
-    "path": "packages/terrain/test/tree-placer.test.ts",
+    "path": "packages/world/test/tree-placer.test.ts",
     "package": "terrain",
     "layer": "test",
     "classification": "現行test層"
   },
   {
-    "path": "packages/world-state/application/environment-service.ts",
+    "path": "packages/world/application/environment-service.ts",
     "package": "world-state",
     "layer": "application",
     "classification": "現行application層"
   },
   {
-    "path": "packages/world-state/domain/block-registry.ts",
+    "path": "packages/world/domain/block-registry.ts",
     "package": "world-state",
     "layer": "domain",
     "classification": "現行domain層"
   },
   {
-    "path": "packages/world-state/domain/block.ts",
+    "path": "packages/world/domain/block.ts",
     "package": "world-state",
     "layer": "domain",
     "classification": "現行domain層"
   },
   {
-    "path": "packages/world-state/domain/blocks.config.crafted.ts",
+    "path": "packages/world/domain/blocks.config.crafted.ts",
     "package": "world-state",
     "layer": "domain",
     "classification": "現行domain層"
   },
   {
-    "path": "packages/world-state/domain/blocks.config.ores.ts",
+    "path": "packages/world/domain/blocks.config.ores.ts",
     "package": "world-state",
     "layer": "domain",
     "classification": "現行domain層"
   },
   {
-    "path": "packages/world-state/domain/blocks.config.terrain.ts",
+    "path": "packages/world/domain/blocks.config.terrain.ts",
     "package": "world-state",
     "layer": "domain",
     "classification": "現行domain層"
   },
   {
-    "path": "packages/world-state/domain/blocks.config.ts",
+    "path": "packages/world/domain/blocks.config.ts",
     "package": "world-state",
     "layer": "domain",
     "classification": "現行domain層"
   },
   {
-    "path": "packages/world-state/domain/environment-port.ts",
+    "path": "packages/world/domain/environment-port.ts",
     "package": "world-state",
     "layer": "domain",
     "classification": "現行domain層"
   },
   {
-    "path": "packages/world-state/domain/errors.ts",
+    "path": "packages/world/domain/errors.ts",
     "package": "world-state",
     "layer": "domain",
     "classification": "現行domain層"
   },
   {
-    "path": "packages/world-state/domain/fluid-model.ts",
+    "path": "packages/world/domain/fluid-model.ts",
     "package": "world-state",
     "layer": "domain",
     "classification": "現行domain層"
   },
   {
-    "path": "packages/world-state/domain/fluid-position-utils.ts",
+    "path": "packages/world/domain/fluid-position-utils.ts",
     "package": "world-state",
     "layer": "domain",
     "classification": "現行domain層"
   },
   {
-    "path": "packages/world-state/domain/fluid.ts",
+    "path": "packages/world/domain/fluid.ts",
     "package": "world-state",
     "layer": "domain",
     "classification": "現行domain層"
   },
   {
-    "path": "packages/world-state/domain/light.ts",
+    "path": "packages/world/domain/light.ts",
     "package": "world-state",
     "layer": "domain",
     "classification": "現行domain層"
   },
   {
-    "path": "packages/world-state/index.ts",
+    "path": "packages/world/index.ts",
     "package": "world-state",
     "layer": "(root)",
     "classification": "現行パッケージルート"
   },
   {
-    "path": "packages/world-state/infrastructure/idb-utils.ts",
+    "path": "packages/world/infrastructure/idb-utils.ts",
     "package": "world-state",
     "layer": "infrastructure",
     "classification": "現行infrastructure層"
   },
   {
-    "path": "packages/world-state/infrastructure/storage-service.ts",
+    "path": "packages/world/infrastructure/storage-service.ts",
     "package": "world-state",
     "layer": "infrastructure",
     "classification": "現行infrastructure層"
   },
   {
-    "path": "packages/world-state/test/block-cycle-persistence.integration.test.ts",
+    "path": "packages/world/test/block-cycle-persistence.integration.test.ts",
     "package": "world-state",
     "layer": "test",
     "classification": "現行test層"
   },
   {
-    "path": "packages/world-state/test/block-cycle-test-utils.ts",
+    "path": "packages/world/test/block-cycle-test-utils.ts",
     "package": "world-state",
     "layer": "test",
     "classification": "現行test層"
   },
   {
-    "path": "packages/world-state/test/block-cycle.integration.test.ts",
+    "path": "packages/world/test/block-cycle.integration.test.ts",
     "package": "world-state",
     "layer": "test",
     "classification": "現行test層"
   },
   {
-    "path": "packages/world-state/test/block-registry.test.ts",
+    "path": "packages/world/test/block-registry.test.ts",
     "package": "world-state",
     "layer": "test",
     "classification": "現行test層"
   },
   {
-    "path": "packages/world-state/test/block-service-advanced.test.ts",
+    "path": "packages/world/test/block-service-advanced.test.ts",
     "package": "world-state",
     "layer": "test",
     "classification": "現行test層"
   },
   {
-    "path": "packages/world-state/test/block-service-place.test.ts",
+    "path": "packages/world/test/block-service-place.test.ts",
     "package": "world-state",
     "layer": "test",
     "classification": "現行test層"
   },
   {
-    "path": "packages/world-state/test/block-service-scenarios.test.ts",
+    "path": "packages/world/test/block-service-scenarios.test.ts",
     "package": "world-state",
     "layer": "test",
     "classification": "現行test層"
   },
   {
-    "path": "packages/world-state/test/block-service-test-utils.ts",
+    "path": "packages/world/test/block-service-test-utils.ts",
     "package": "world-state",
     "layer": "test",
     "classification": "現行test層"
   },
   {
-    "path": "packages/world-state/test/block-service.property.test.ts",
+    "path": "packages/world/test/block-service.property.test.ts",
     "package": "world-state",
     "layer": "test",
     "classification": "現行test層"
   },
   {
-    "path": "packages/world-state/test/block-service.test.ts",
+    "path": "packages/world/test/block-service.test.ts",
     "package": "world-state",
     "layer": "test",
     "classification": "現行test層"
   },
   {
-    "path": "packages/world-state/test/environment-service.test.ts",
+    "path": "packages/world/test/environment-service.test.ts",
     "package": "world-state",
     "layer": "test",
     "classification": "現行test層"
   },
   {
-    "path": "packages/world-state/test/errors.test.ts",
+    "path": "packages/world/test/errors.test.ts",
     "package": "world-state",
     "layer": "test",
     "classification": "現行test層"
   },
   {
-    "path": "packages/world-state/test/fluid-model.test.ts",
+    "path": "packages/world/test/fluid-model.test.ts",
     "package": "world-state",
     "layer": "test",
     "classification": "現行test層"
   },
   {
-    "path": "packages/world-state/test/fluid-position-utils.test.ts",
+    "path": "packages/world/test/fluid-position-utils.test.ts",
     "package": "world-state",
     "layer": "test",
     "classification": "現行test層"
   },
   {
-    "path": "packages/world-state/test/fluid-service.test.ts",
+    "path": "packages/world/test/fluid-service.test.ts",
     "package": "world-state",
     "layer": "test",
     "classification": "現行test層"
   },
   {
-    "path": "packages/world-state/test/light-compute.test.ts",
+    "path": "packages/world/test/light-compute.test.ts",
     "package": "world-state",
     "layer": "test",
     "classification": "現行test層"
   },
   {
-    "path": "packages/world-state/test/light-engine-service.test.ts",
+    "path": "packages/world/test/light-engine-service.test.ts",
     "package": "world-state",
     "layer": "test",
     "classification": "現行test層"
   },
   {
-    "path": "packages/world-state/test/light-skylight.test.ts",
+    "path": "packages/world/test/light-skylight.test.ts",
     "package": "world-state",
     "layer": "test",
     "classification": "現行test層"
   },
   {
-    "path": "packages/world-state/test/light.test.ts",
+    "path": "packages/world/test/light.test.ts",
     "package": "world-state",
     "layer": "test",
     "classification": "現行test層"
   },
   {
-    "path": "packages/world-state/test/storage-service-quota.test.ts",
+    "path": "packages/world/test/storage-service-quota.test.ts",
     "package": "world-state",
     "layer": "test",
     "classification": "現行test層"
   },
   {
-    "path": "packages/world-state/test/storage-service-schema.test.ts",
+    "path": "packages/world/test/storage-service-schema.test.ts",
     "package": "world-state",
     "layer": "test",
     "classification": "現行test層"
   },
   {
-    "path": "packages/world-state/test/storage-service-test-utils.ts",
+    "path": "packages/world/test/storage-service-test-utils.ts",
     "package": "world-state",
     "layer": "test",
     "classification": "現行test層"
   },
   {
-    "path": "packages/world-state/test/storage-service-version-gate.test.ts",
+    "path": "packages/world/test/storage-service-version-gate.test.ts",
     "package": "world-state",
     "layer": "test",
     "classification": "現行test層"
   },
   {
-    "path": "packages/world-state/test/storage-service.property.test.ts",
+    "path": "packages/world/test/storage-service.property.test.ts",
     "package": "world-state",
     "layer": "test",
     "classification": "現行test層"
   },
   {
-    "path": "packages/world-state/test/storage-service.test.ts",
+    "path": "packages/world/test/storage-service.test.ts",
     "package": "world-state",
     "layer": "test",
     "classification": "現行test層"

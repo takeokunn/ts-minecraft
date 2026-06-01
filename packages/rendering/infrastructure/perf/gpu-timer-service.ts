@@ -151,18 +151,18 @@ export class GpuTimerService extends Effect.Service<GpuTimerService>()(
       //   - `attach()` is never called, OR
       //   - the WebGL2 extension is unavailable.
       // -------------------------------------------------------------------
+      /* c8 ignore start -- noop GPU timer path; only active when perf profiling is disabled or WebGL2 unavailable */
       const buildNoop = (): GpuTimerInterface => ({
         markGpuRange: <A, E, R>(_name: string, effect: Effect.Effect<A, E, R>) => effect,
         poll: () => Effect.void,
         getSnapshot: () => Effect.succeed(new Map<string, number>()),
-        // Even attach is a no-op in the disabled path — flag check happens once
-        // at scope acquisition.
         attach: (_renderer: THREE.WebGLRenderer) => Effect.void,
       })
 
       if (!enabled) {
         return buildNoop()
       }
+      /* c8 ignore end */
 
       // -------------------------------------------------------------------
       // Active path — `?debug=perf` flag detected.

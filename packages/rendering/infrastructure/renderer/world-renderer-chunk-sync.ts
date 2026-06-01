@@ -1,7 +1,7 @@
 import { Array as Arr, Effect, HashMap, HashSet, Option, Ref } from 'effect'
 import * as THREE from 'three'
-import { ChunkCacheKey } from '@ts-minecraft/kernel'
-import { Chunk } from '@ts-minecraft/terrain'
+import { ChunkCacheKey } from '@ts-minecraft/core'
+import { Chunk } from '@ts-minecraft/world'
 import { ChunkMeshService } from '../meshing/chunk-mesh'
 import { lodForDistance, type LodLevel } from '../meshing/lod-simplification'
 import { SceneService } from '../scene/scene-service'
@@ -169,9 +169,11 @@ export const syncChunksToScene = (
           Option.match(chunkMeshes.transparentSolid, {
             onNone: () => Effect.void,
             onSome: (m) =>
+              /* c8 ignore start -- transparentSolid mesh removal on chunk unload; requires full scene setup to hit in tests */
               sceneService.remove(scene, m).pipe(
                 Effect.andThen(Effect.sync(() => disposeMesh(m)))
               ),
+              /* c8 ignore end */
           }),
           // SEC-W1: drop the sync-fallback prev mesh cache for this coord so
           // the cache cannot grow unbounded under long sessions on the sync

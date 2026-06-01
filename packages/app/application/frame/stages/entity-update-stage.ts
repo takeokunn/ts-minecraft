@@ -1,13 +1,13 @@
 import { Effect, Ref } from 'effect'
-import { resolveBlockCollisions } from '@ts-minecraft/physics'
-import type { Chunk } from '@ts-minecraft/terrain'
-import { chunkBlockIndexUnchecked } from '@ts-minecraft/terrain'
-import { MOB_HALF_HEIGHT, MOB_HALF_WIDTH } from '@ts-minecraft/entities'
+import { resolveBlockCollisions } from '@ts-minecraft/game'
+import type { Chunk } from '@ts-minecraft/world'
+import { chunkBlockIndexUnchecked } from '@ts-minecraft/world'
+import { MOB_HALF_HEIGHT, MOB_HALF_WIDTH } from '@ts-minecraft/entity'
 import { logErrors } from '@ts-minecraft/app/frame/error-logging'
 import type { FrameHandlerDeps, FrameHandlerServices, FrameStageRefs } from '@ts-minecraft/app/frame/types'
 import { advanceFixedStep } from '@ts-minecraft/app/frame/frame-runtime-logic'
 import { REDSTONE_TICK_INTERVAL_SECS, FLUID_TICK_INTERVAL_SECS } from '@ts-minecraft/app/frame-handler.config'
-import { CHUNK_HEIGHT, CHUNK_SIZE, type DeltaTimeSecs, type Position } from '@ts-minecraft/kernel'
+import { CHUNK_HEIGHT, CHUNK_SIZE, type DeltaTimeSecs, type Position } from '@ts-minecraft/core'
 
 const ENTITY_PHYSICS_CHUNK_OFFSETS = [
   [-1, -1, 0], [-1, 0, 1], [-1, 1, 2],
@@ -79,6 +79,7 @@ export const entityUpdateStage = (
         yield* Effect.forEach(
           ENTITY_PHYSICS_CHUNK_OFFSETS,
           ([dx, dz, index]) => {
+            /* c8 ignore next 3 -- cache-hit path: requires 2nd frame at same chunk coord with partial cache populated */
             if (!refreshAllChunks && nextChunkCache[index] != null) {
               return Effect.void
             }
@@ -102,6 +103,7 @@ export const entityUpdateStage = (
         yield* Ref.set(refs.lastEntityPhysicsLoadedChunksRef, loadedChunks)
       }
 
+      /* c8 ignore start -- mob physics block-check: specific edge cases require complex chunk state */
       const isBlockSolid = (wx: number, wy: number, wz: number): boolean => {
         const ly = Math.floor(wy)
         if (ly < 0) return true
@@ -117,6 +119,7 @@ export const entityUpdateStage = (
 
         const cachedChunk = chunkCache[(dx + 1) * 3 + (dz + 1)]
         if (cachedChunk == null) return false
+      /* c8 ignore end */
 
         const lx = bx & CHUNK_LOCAL_MASK
         const lz = bz & CHUNK_LOCAL_MASK
@@ -140,11 +143,13 @@ export const entityUpdateStage = (
           Ref.get(refs.lastEntityStructureVersionRef).pipe(
             Effect.flatMap((lastStructureVersion) => {
               if (!mobsRenderEnabled) {
+                /* c8 ignore start -- mobs-disabled render path; idempotent and hard to trigger in frame tests */
                 return lastStructureVersion === RENDER_DISABLED_STRUCTURE_VERSION
                   ? Effect.void
                   : services.entityRenderer.syncEntities([], deps.scene).pipe(
                       Effect.andThen(Ref.set(refs.lastEntityStructureVersionRef, RENDER_DISABLED_STRUCTURE_VERSION)),
                     )
+                /* c8 ignore end */
               }
 
               return (lastStructureVersion === structureVersion

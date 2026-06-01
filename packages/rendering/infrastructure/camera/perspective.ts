@@ -1,7 +1,7 @@
 import { Effect, Schema } from 'effect'
 import * as THREE from 'three'
-import type { Position } from '@ts-minecraft/kernel'
-import { CameraError } from '@ts-minecraft/player'
+import type { Position } from '@ts-minecraft/core'
+import { CameraError } from '@ts-minecraft/entity'
 
 export const PerspectiveCameraParamsSchema = Schema.Struct({
   fov: Schema.Number.pipe(Schema.finite(), Schema.between(1, 179)),

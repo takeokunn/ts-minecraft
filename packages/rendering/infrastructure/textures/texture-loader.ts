@@ -1,7 +1,8 @@
+// @effect-boundary Three.js TextureLoader exposes Promise/callback APIs; this adapter wraps them in Effect.
 import { Effect, Ref, Option, HashMap, Array as Arr } from 'effect'
 import * as THREE from 'three'
 import { TextureError } from '../../domain/errors'
-import { TextureUrl } from '@ts-minecraft/kernel'
+import { TextureUrl } from '@ts-minecraft/core'
 
 export class TextureService extends Effect.Service<TextureService>()(
   '@minecraft/infrastructure/three/TextureService',

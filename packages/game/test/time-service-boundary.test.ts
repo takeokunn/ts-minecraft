@@ -1,6 +1,6 @@
 import { describe,expect,it } from '@effect/vitest'
 import { TimeService,TimeServiceLive } from '@ts-minecraft/game'
-import { DeltaTimeSecs } from '@ts-minecraft/kernel'
+import { DeltaTimeSecs } from '@ts-minecraft/core'
 import { Effect } from 'effect'
 
 describe('application/time/time-service', () => {

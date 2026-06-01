@@ -1,13 +1,13 @@
 import { Cause, Effect, Option } from 'effect'
 import { MainLive } from '@ts-minecraft/app'
 import { PerfHudService } from '@ts-minecraft/rendering'
-import { TerrainWorkerPool } from '@ts-minecraft/terrain'
-import { StorageService } from '@ts-minecraft/world-state'
+import { TerrainWorkerPool } from '@ts-minecraft/worker'
+import { StorageService } from '@ts-minecraft/world'
 import {
-  MainMenuService,
   bootProgram,
   sessionProgram,
 } from '@ts-minecraft/app'
+import { MainMenuService } from '@ts-minecraft/presentation'
 import type { BootContext } from '@ts-minecraft/app'
 import type { GameMode } from '@ts-minecraft/game'
 

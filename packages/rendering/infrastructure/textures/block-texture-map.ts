@@ -1,9 +1,9 @@
 import { Schema } from 'effect'
-import { TILE_MAP } from './block-texture-map.config'
+import { TILE_MAP, type TextureFaceDir } from './block-texture-map.config'
 
 export { TILE_MAP }
 export const FaceDirSchema = Schema.Literal('top', 'bottom', 'side')
-export type FaceDir = Schema.Schema.Type<typeof FaceDirSchema>
+export type FaceDir = TextureFaceDir
 
 export const ATLAS_COLS = 16
 export const ATLAS_SIZE = 512

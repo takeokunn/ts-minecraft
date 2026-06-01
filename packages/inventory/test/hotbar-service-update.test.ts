@@ -1,5 +1,5 @@
-import { describe, expect } from 'vitest'
-import { it } from '@effect/vitest'
+import { describe, it } from '@effect/vitest'
+import { expect } from 'vitest'
 import { Effect } from 'effect'
 import { HotbarService, HOTBAR_SIZE } from '@ts-minecraft/inventory'
 import {

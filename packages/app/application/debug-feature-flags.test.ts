@@ -1,5 +1,5 @@
-import { describe, expect } from 'vitest'
-import { it } from '@effect/vitest'
+import { describe, it } from '@effect/vitest'
+import { expect } from 'vitest'
 import { Effect } from 'effect'
 
 import {
@@ -29,6 +29,23 @@ describe('application/debug-feature-flags', () => {
       expect(afterDisable['mobs.spawn']).toBe(false)
       expect(afterGroupReset['mobs.spawn']).toBe(true)
       expect(afterResetAll).toEqual(DEBUG_FEATURE_FLAG_DEFAULTS)
+    }).pipe(Effect.provide(DebugFeatureFlagsServiceLive)),
+  )
+
+  it.effect('isEnabled returns the current flag value', () =>
+    Effect.gen(function* () {
+      const svc = yield* DebugFeatureFlagsService
+      const enabled = yield* svc.isEnabled('mobs.enabled')
+      expect(enabled).toBe(DEBUG_FEATURE_FLAG_DEFAULTS['mobs.enabled'])
+    }).pipe(Effect.provide(DebugFeatureFlagsServiceLive)),
+  )
+
+  it.effect('setEnabled returns false (no-op) when the value is already set to the same state', () =>
+    Effect.gen(function* () {
+      const svc = yield* DebugFeatureFlagsService
+      // mobs.enabled defaults to true → setting it to true again returns false
+      const changed = yield* svc.setEnabled('mobs.enabled', true)
+      expect(changed).toBe(false)
     }).pipe(Effect.provide(DebugFeatureFlagsServiceLive)),
   )
 })

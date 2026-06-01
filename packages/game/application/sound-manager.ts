@@ -1,5 +1,5 @@
 import { Effect, Option, Ref, Schema } from 'effect'
-import type { Position } from '@ts-minecraft/kernel'
+import type { Position } from '@ts-minecraft/core'
 import { AudioEnginePort } from '../domain/audio-engine-port'
 import { clamp01, clampPan } from '../domain/audio-types'
 import { SOUND_LIBRARY, DEFAULT_LISTENER_POSITION } from './sound-manager.config'

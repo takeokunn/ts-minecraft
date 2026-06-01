@@ -1,5 +1,6 @@
 import { Array as Arr, Effect } from 'effect'
-import { describe, expect, it, vi } from 'vitest'
+import { describe, it } from '@effect/vitest'
+import { expect, vi } from 'vitest'
 import { resolvePreset, type GraphicsQuality } from '@ts-minecraft/game'
 
 // ---------------------------------------------------------------------------

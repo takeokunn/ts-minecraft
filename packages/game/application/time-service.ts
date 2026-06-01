@@ -1,5 +1,5 @@
 import { Effect, Ref, Schema } from 'effect'
-import { DeltaTimeSecs } from '@ts-minecraft/kernel'
+import { DeltaTimeSecs } from '@ts-minecraft/core'
 
 const TimeStateSchema = Schema.Struct({
   ticks: Schema.Number.pipe(Schema.nonNegative()),

@@ -2,23 +2,14 @@
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
     "composite": true,
-    "outDir": "dist",
-    "rootDir": "."
+    "rootDir": ".",
+    "outDir": "dist"
   },
-  "references": [],
   "include": [
-    "domain/**/*",
-    "application/**/*",
-    "infrastructure/**/*",
-    "index.ts"
+    "**/*.ts"
   ],
   "exclude": [
-    "node_modules",
     "dist",
-    "test",
-    "**/*.test.ts",
-    "**/*.spec.ts",
-    "**/*.property.test.ts",
-    "**/*test-utils.ts"
+    "node_modules"
   ]
 }

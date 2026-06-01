@@ -1,10 +1,10 @@
 import { Array as Arr, Effect, HashMap, Option } from 'effect'
 import { Recipe } from '../domain/crafting'
-import type { InventoryItem } from '@ts-minecraft/kernel'
+import type { InventoryItem } from '@ts-minecraft/core'
 import { RecipeError } from '../domain/errors'
 import type { InventoryService } from './inventory-service'
-import { RecipeId } from '@ts-minecraft/kernel'
-import { RECIPE_DEFINITIONS } from './recipe-service.config'
+import { RecipeId } from '@ts-minecraft/core'
+import { RECIPE_DEFINITIONS } from './recipes'
 
 export class RecipeService extends Effect.Service<RecipeService>()(
   '@minecraft/application/RecipeService',

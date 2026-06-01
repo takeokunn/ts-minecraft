@@ -37,11 +37,11 @@ export const GRAPHICS_PRESETS = {
     godRaysSamples: 25, bloomStrength: 0.25, refractionThrottleFrames: 2, pixelRatioCap: 0.85,
     refractionMinScreenRatio: 0.005, // FR-4.4: conservative — only drop frames where water is <0.5% of screen
     composerRtType: 1016, // THREE.HalfFloatType — bloom needs HDR
-    useCompositePass: true, // FR-4.3: bloom merged into CompositePass; legacy bloomPass disabled
+    useCompositePass: true, // FR-4.3: bloom merged into CompositePass; standalone bloomPass disabled
   },
   ultra: {
     shadowsEnabled: true,  ssaoEnabled: true,  bloomEnabled: true,
-    smaaEnabled: true,  skyEnabled: true,  dofEnabled: false,  godRaysEnabled: true,
+    smaaEnabled: true,  skyEnabled: true,  dofEnabled: true,  godRaysEnabled: true,
     godRaysSamples: 40, bloomStrength: 0.3,  refractionThrottleFrames: 1, pixelRatioCap: 1.25,
     refractionMinScreenRatio: 0.005, // FR-4.4: conservative — preserve quality
     composerRtType: 1016, // THREE.HalfFloatType — bloom + god rays need HDR

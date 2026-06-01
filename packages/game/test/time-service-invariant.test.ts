@@ -1,7 +1,7 @@
 import { describe, it, expect } from '@effect/vitest'
 import { Effect } from 'effect'
 import { TimeService, TimeServiceLive } from '@ts-minecraft/game'
-import { DeltaTimeSecs } from '@ts-minecraft/kernel'
+import { DeltaTimeSecs } from '@ts-minecraft/core'
 
 describe('application/time/time-service', () => {
   describe('setDayLength → setTimeOfDay(0.5) ordering invariant', () => {

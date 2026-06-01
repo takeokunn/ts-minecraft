@@ -59,7 +59,7 @@ importers:
 
   packages/app:
     dependencies:
-      '@ts-minecraft/entities':
+      '@ts-minecraft/entity':
         specifier: workspace:*
         version: link:../entities
       '@ts-minecraft/game':
@@ -68,42 +68,42 @@ importers:
       '@ts-minecraft/inventory':
         specifier: workspace:*
         version: link:../inventory
-      '@ts-minecraft/kernel':
+      '@ts-minecraft/core':
         specifier: workspace:*
         version: link:../kernel
-      '@ts-minecraft/physics':
+      '@ts-minecraft/game':
         specifier: workspace:*
         version: link:../physics
-      '@ts-minecraft/player':
+      '@ts-minecraft/entity':
         specifier: workspace:*
         version: link:../player
       '@ts-minecraft/rendering':
         specifier: workspace:*
         version: link:../rendering
-      '@ts-minecraft/terrain':
+      '@ts-minecraft/world':
         specifier: workspace:*
         version: link:../terrain
-      '@ts-minecraft/world-state':
+      '@ts-minecraft/world':
         specifier: workspace:*
         version: link:../world-state
 
-  packages/entities: {}
+  packages/entity: {}
 
   packages/game: {}
 
   packages/inventory: {}
 
-  packages/kernel: {}
+  packages/core: {}
 
-  packages/physics: {}
+  packages/game: {}
 
-  packages/player: {}
+  packages/entity: {}
 
   packages/rendering: {}
 
-  packages/terrain: {}
+  packages/world: {}
 
-  packages/world-state: {}
+  packages/world: {}
 
 packages:
 

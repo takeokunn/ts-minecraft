@@ -8,7 +8,7 @@
 import { Effect, Option, Ref } from 'effect'
 import { logErrors } from '@ts-minecraft/app/frame/error-logging'
 import type { FrameHandlerDeps, FrameHandlerServices } from '@ts-minecraft/app/frame/types'
-import { KeyMappings } from '@ts-minecraft/player'
+import { KeyMappings } from '@ts-minecraft/entity'
 import {
   TRADE_DISTANCE,
   TRADE_OPEN_KEY,
@@ -16,7 +16,7 @@ import {
   TRADE_PREV_KEY,
   TRADE_EXECUTE_KEY,
 } from '@ts-minecraft/app/frame-handler.config'
-import type { Position } from '@ts-minecraft/kernel'
+import type { Position } from '@ts-minecraft/core'
 
 type InputDeps = Pick<FrameHandlerDeps, 'gamePausedRef'>
 type InputServices = Pick<

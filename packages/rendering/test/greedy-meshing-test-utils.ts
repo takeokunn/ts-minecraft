@@ -1,9 +1,9 @@
 import { expect } from 'vitest'
 import { Array as Arr, Option } from 'effect'
-import { CHUNK_SIZE, CHUNK_HEIGHT, blockTypeToIndex } from '@ts-minecraft/kernel'
-import type { ChunkCoord } from '@ts-minecraft/kernel'
-import type { Chunk } from '@ts-minecraft/terrain'
-import type { BlockType } from '@ts-minecraft/kernel'
+import { CHUNK_SIZE, CHUNK_HEIGHT, blockTypeToIndex } from '@ts-minecraft/core'
+import type { ChunkCoord } from '@ts-minecraft/core'
+import type { Chunk } from '@ts-minecraft/world'
+import type { BlockType } from '@ts-minecraft/core'
 import type { MeshedChunk } from '@ts-minecraft/rendering'
 
 // ─── Helpers ───────────────────────────────────────────────────────────────

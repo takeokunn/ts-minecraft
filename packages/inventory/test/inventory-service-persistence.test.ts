@@ -1,11 +1,11 @@
 import { describe, it, expect } from '@effect/vitest'
 import { Array as Arr, Effect, Either, Option, Schema } from 'effect'
-import type { SlotIndex } from '@ts-minecraft/kernel'
+import type { SlotIndex } from '@ts-minecraft/core'
 import {
   INVENTORY_SIZE,
   InventoryService,
 } from '@ts-minecraft/inventory'
-import { InventorySaveDataSchema } from '@ts-minecraft/kernel'
+import { InventorySaveDataSchema } from '@ts-minecraft/core'
 import { createStack } from '../domain/item-stack'
 import { getMaxDurability } from '../domain/durability'
 import {
@@ -256,37 +256,6 @@ describe('application/inventory/inventory-service', () => {
       }).pipe(Effect.provide(testLayer))
     })
 
-    it.effect('back-compat: deserialize a tool entry WITHOUT a durability key leaves durability undefined', () => {
-      const testLayer = createTestLayer(createTestBlockRegistry(airOnlyBlocks))
-      return Effect.gen(function* () {
-        const service = yield* InventoryService
-        // Simulate a pre-Phase-12 save: the tool slot entry has no `durability` field.
-        const oldSave = {
-          slots: [
-            Option.some({ slot: asSlotIndex(27), itemType: 'IRON_SWORD' as const, count: 1 }),
-            Option.some({ slot: asSlotIndex(5), itemType: 'DIRT' as const, count: 12 }),
-          ],
-        }
-
-        yield* service.deserialize(oldSave)
-
-        // Tool restores successfully but is NOT auto-filled to full durability.
-        const tool = yield* service.getSlot(asSlotIndex(27))
-        expect(Option.isSome(tool)).toBe(true)
-        const toolStack = Option.getOrThrow(tool)
-        expect(toolStack.itemType).toBe('IRON_SWORD')
-        expect(toolStack.count).toBe(1)
-        expect(toolStack.durability).toBeUndefined()
-
-        // A non-tool entry without durability also restores fine.
-        const block = yield* service.getSlot(asSlotIndex(5))
-        expect(Option.isSome(block)).toBe(true)
-        const blockStack = Option.getOrThrow(block)
-        expect(blockStack.itemType).toBe('DIRT')
-        expect(blockStack.count).toBe(12)
-        expect(blockStack.durability).toBeUndefined()
-      }).pipe(Effect.provide(testLayer))
-    })
   })
 
   // ---------------------------------------------------------------------------

@@ -1,8 +1,8 @@
-import { describe, expect, vi } from 'vitest'
-import { it } from '@effect/vitest'
+import { describe, it } from '@effect/vitest'
+import { expect, vi } from 'vitest'
 import { Array as Arr, Effect, MutableRef, Option } from 'effect'
 import { createFrameHandlers } from '@ts-minecraft/app'
-import type { DeltaTimeSecs } from '@ts-minecraft/kernel'
+import type { DeltaTimeSecs } from '@ts-minecraft/core'
 import {
   makeDeps,
   makeInputService,

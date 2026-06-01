@@ -1,6 +1,6 @@
 import { describe, it } from '@effect/vitest'
 import { getMaxDurability, isDurable, damageDurability, isBroken } from '@ts-minecraft/inventory'
-import type { InventoryItem } from '@ts-minecraft/kernel'
+import type { InventoryItem } from '@ts-minecraft/core'
 import { Array as Arr, Option } from 'effect'
 import { expect } from 'vitest'
 

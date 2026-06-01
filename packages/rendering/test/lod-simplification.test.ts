@@ -1,6 +1,7 @@
-import { describe, expect, it } from 'vitest'
+import { describe, it } from '@effect/vitest'
+import { expect } from 'vitest'
 import { Array as Arr } from 'effect'
-import { CHUNK_SIZE } from '@ts-minecraft/kernel'
+import { CHUNK_SIZE } from '@ts-minecraft/core'
 import {
   greedyMeshChunk,
   simplifyMesh,
@@ -167,7 +168,7 @@ describe('simplifyMesh', () => {
     }
   })
 
-  it.each([1, 2] as const satisfies readonly LodLevel[])(
+  it['each']([1, 2] as const satisfies readonly LodLevel[])(
     'LOD %i fits within LOD-1/2 vertex-count expectation for a full slab',
     (lod: LodLevel) => {
       const meshed = meshSlab()

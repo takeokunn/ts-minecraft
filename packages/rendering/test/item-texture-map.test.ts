@@ -1,4 +1,5 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it } from '@effect/vitest'
+import { expect } from 'vitest'
 import { ITEM_TILE_MAP, getItemTileIndex, getItemTileUVs, ITEM_ATLAS_COLS, ITEM_ATLAS_SIZE, ITEM_HALF_TEXEL } from '@ts-minecraft/rendering'
 
 describe('infrastructure/three/textures/item-texture-map', () => {

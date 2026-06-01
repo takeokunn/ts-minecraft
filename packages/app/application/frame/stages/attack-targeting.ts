@@ -1,7 +1,7 @@
 import { Array as Arr, Option } from 'effect'
 import * as THREE from 'three'
-import type { EntityId as EntityIdType } from '@ts-minecraft/entities'
-import type { Position } from '@ts-minecraft/kernel'
+import type { EntityId as EntityIdType } from '@ts-minecraft/entity'
+import type { Position } from '@ts-minecraft/core'
 import { PLAYER_ATTACK_REACH, PLAYER_ATTACK_RADIUS, ENTITY_CENTER_Y_OFFSET } from '@ts-minecraft/app/frame-handler.config'
 
 export const findAttackableEntity = (

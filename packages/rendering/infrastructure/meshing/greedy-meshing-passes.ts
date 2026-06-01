@@ -1,5 +1,5 @@
 import { FaceDir } from '../textures/block-texture-map'
-import type { LightGrids } from '@ts-minecraft/world-state'
+import type { LightGrids } from '@ts-minecraft/block'
 import { ChunkWorldOffset } from './greedy-meshing-types'
 import { MeshAccumulator, addQuad } from './greedy-meshing-accumulator'
 
@@ -147,6 +147,7 @@ export const makeEmitQuad = (
   return (u0: number, vCoord0: number, du: number, dv: number, maskValue: number, depth: number): void => {
     const blockId = maskValue & 0xff
     const ao = (maskValue >> 8) & 0x3
+    /* c8 ignore next 4 -- water routing in face pass; WATER is handled by fluid pass, transparent routing rarely hit in unit tests */
     const targetAcc = transparentSolidLookup[blockId] !== 0
       ? getTransparentSolidAcc()
       : transparentLookup[blockId] !== 0

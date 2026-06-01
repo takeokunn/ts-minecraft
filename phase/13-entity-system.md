@@ -28,15 +28,15 @@ difficulty: 'advanced'
 - [x] モブにダメージが入る
 - [x] モブが死亡するとドロップする
 
-*実装エビデンス: スポーン = `packages/app/application/frame/frame-maintenance.ts:127`（`MobSpawner.trySpawn`、`mobsSpawnEnabled` ゲート）→ `packages/entities/application/mob/spawner.ts:81`（8モブ定義: cow/pig/sheep/zombie/creeper/skeleton/spider/enderman、`selectMobType` が `timeService.isNight()` で HOSTILE/PASSIVE を選択）。移動+アニメ = `packages/app/application/frame/stages/entity-update-stage.ts:53`（`entityManager.update` → AI速度 `resolveAIState`/`computeStateVelocity`）+ `:127`（`applyPhysics`）+ `:157`（`updateEntityTransforms` が `packages/rendering/infrastructure/entity/walk-cycle.ts:23` の `computeLimbAngle` を消費）。AI = Wander/Chase/Flee は `packages/entities/domain/mob/state-machine.ts` の純粋関数（`packages/entities/application/mob/entity-manager.ts:213,260` で駆動）。モブ→プレイヤー戦闘 = `packages/app/application/frame/stages/physics-stage.ts:70`（`getPlayerContactDamage`、`:72` 防具軽減、`:75` ヒット音）。プレイヤー→モブ戦闘 = `packages/app/application/frame/stages/interaction-block-handler.ts:189`（`applyDamage`）→ `:190-194`（ドロップ→インベントリ）→ `:197`（XP）。回帰ガード: `packages/entities/test/mob/phase-13-acceptance.test.ts`（9テスト緑）。*
+*実装エビデンス: スポーン = `packages/app/application/frame/frame-maintenance.ts:127`（`MobSpawner.trySpawn`、`mobsSpawnEnabled` ゲート）→ `packages/entity/application/mob/spawner.ts:81`（8モブ定義: cow/pig/sheep/zombie/creeper/skeleton/spider/enderman、`selectMobType` が `timeService.isNight()` で HOSTILE/PASSIVE を選択）。移動+アニメ = `packages/app/application/frame/stages/entity-update-stage.ts:53`（`entityManager.update` → AI速度 `resolveAIState`/`computeStateVelocity`）+ `:127`（`applyPhysics`）+ `:157`（`updateEntityTransforms` が `packages/rendering/infrastructure/entity/walk-cycle.ts:23` の `computeLimbAngle` を消費）。AI = Wander/Chase/Flee は `packages/entity/domain/mob/state-machine.ts` の純粋関数（`packages/entity/application/mob/entity-manager.ts:213,260` で駆動）。モブ→プレイヤー戦闘 = `packages/app/application/frame/stages/physics-stage.ts:70`（`getPlayerContactDamage`、`:72` 防具軽減、`:75` ヒット音）。プレイヤー→モブ戦闘 = `packages/app/application/frame/stages/interaction-block-handler.ts:189`（`applyDamage`）→ `:190-194`（ドロップ→インベントリ）→ `:197`（XP）。回帰ガード: `packages/entity/test/mob/phase-13-acceptance.test.ts`（9テスト緑）。*
 
 ## 📝 タスク
 
 ### Day 1: エンティティシステム基盤
 
 #### エンティティ定義
-- [x] `src/entity/entity.ts` の作成 → `packages/entities/domain/mob/entity.ts`
-  - [x] `Entity` 型定義 → `packages/entities/domain/mob/entity.ts`（`ManagedEntity` は `packages/entities/domain/mob/entity-internal.ts`）
+- [x] `src/entity/entity.ts` の作成 → `packages/entity/domain/mob/entity.ts`
+  - [x] `Entity` 型定義 → `packages/entity/domain/mob/entity.ts`（`ManagedEntity` は `packages/entity/domain/mob/entity-internal.ts`）
     ```typescript
     type Entity = {
       entityId: EntityId
@@ -47,11 +47,11 @@ difficulty: 'advanced'
       type: EntityType
     }
     ```
-  - [x] `EntityIdSchema`（ブランドタイプ）→ `packages/entities/domain/mob/entity.ts`
-  - [x] `EntityType` enum → `packages/entities/domain/mob/mob-categories.ts`（`PASSIVE_MOBS`/`HOSTILE_MOBS`）
+  - [x] `EntityIdSchema`（ブランドタイプ）→ `packages/entity/domain/mob/entity.ts`
+  - [x] `EntityType` enum → `packages/entity/domain/mob/mob-categories.ts`（`PASSIVE_MOBS`/`HOSTILE_MOBS`）
 
 #### エンティティマネージャー
-- [x] `src/entity/entityManager.ts` の作成 → `packages/entities/application/mob/entity-manager.ts`
+- [x] `src/entity/entityManager.ts` の作成 → `packages/entity/application/mob/entity-manager.ts`
   - [x] `EntityManager = Context.GenericTag<EntityManager>('@minecraft/EntityManager')` → `Effect.Service` 形式（`EntityManagerLive = EntityManager.Default`）
   - [x] エンティティの追加・削除 → `addEntity`/`applyDamage`（致死で削除）
   - [x] エンティティの更新ループ → `update`（AI速度 + 昼焼け）、`entity-update-stage.ts:53` で駆動
@@ -60,7 +60,7 @@ difficulty: 'advanced'
 ### Day 2: モブスポーン
 
 #### スポーンシステム
-- [x] `src/entity/spawner.ts` の作成 → `packages/entities/application/mob/spawner.ts`
+- [x] `src/entity/spawner.ts` の作成 → `packages/entity/application/mob/spawner.ts`
   - [x] `MobSpawner = Context.GenericTag<MobSpawner>('@minecraft/MobSpawner')` → `Effect.Service` 形式（TimeService 依存）
 
 #### スポーン条件
@@ -85,7 +85,7 @@ difficulty: 'advanced'
 ### Day 3: AIステートマシン
 
 #### ステート定義
-- [x] `src/ai/stateMachine.ts` の作成 → `packages/entities/domain/mob/state-machine.ts`（純粋・THREEフリー、entities barrel から re-export）
+- [x] `src/ai/stateMachine.ts` の作成 → `packages/entity/domain/mob/state-machine.ts`（純粋・THREEフリー、entities barrel から re-export）
   - [x] `AIState` enum → `AIState`（`state-machine.ts`）
     - [x] Idle（待機）
     - [x] Wander（徘徊）
@@ -135,7 +135,7 @@ difficulty: 'advanced'
 ### Day 5: 基本的なモブ
 
 #### モブタイプ
-- [x] `src/entity/mobs/` ディレクトリの作成 → `packages/entities/domain/mob/mobs/`
+- [x] `src/entity/mobs/` ディレクトリの作成 → `packages/entity/domain/mob/mobs/`
   - [x] Zombie（ゾンビ）- 敵対的 → `mobs/zombie.ts`（drops `[{ROTTEN_FLESH,1}]`）
   - [x] Cow（牛）- 受動的 → `mobs/cow.ts`（drops `[{RAW_BEEF,1},{LEATHER,1}]`）
   - [x] Pig（豚）- 受動的 → `mobs/pig.ts`
@@ -160,16 +160,16 @@ difficulty: 'advanced'
 - [x] テクスチャ → `packages/rendering/infrastructure/entity/` のモブマテリアル
 
 #### テスト
-- [x] `src/entity/entity.test.ts` の作成 → `packages/entities/test/mob/entity-manager.test.ts`
+- [x] `src/entity/entity.test.ts` の作成 → `packages/entity/test/mob/entity-manager.test.ts`
   - [x] エンティティ管理
-- [x] `src/ai/stateMachine.test.ts` の作成 → ステートマシン純粋関数は `packages/entities/test/mob/` 配下（加えて回帰ガード `packages/entities/test/mob/phase-13-acceptance.test.ts`）
+- [x] `src/ai/stateMachine.test.ts` の作成 → ステートマシン純粋関数は `packages/entity/test/mob/` 配下（加えて回帰ガード `packages/entity/test/mob/phase-13-acceptance.test.ts`）
   - [x] ステート遷移
   - [x] AI行動
-- [x] `src/entity/spawner.test.ts` の作成 → `packages/entities/test/mob/spawner.test.ts`
+- [x] `src/entity/spawner.test.ts` の作成 → `packages/entity/test/mob/spawner.test.ts`
   - [x] スポーン条件
 
 #### 最終検証
-> 注: 機能的にはすべて WIRED 済み（実装エビデンスは上記 受け入れ条件 ブロック参照）。最終ゲートは **全通過**: `pnpm typecheck` 0 errors / `pnpm lint` 0 warnings / `pnpm vitest run` **3791 passed (0 failed, 308 files)** / `pnpm build` exit 0（2026-05-30 直接検証）。回帰ガード: `packages/entities/test/mob/phase-13-acceptance.test.ts`（AI Chase/Flee/Attack 遷移・接触ダメージ＋クールダウン減衰・ドロップ・日中燃焼カデンス・デスポーン距離）と `packages/rendering/test/walk-cycle.test.ts`（`computeLimbAngle` 純粋関数: ゼロ速度→0・振動・腕脚逆位相）。
+> 注: 機能的にはすべて WIRED 済み（実装エビデンスは上記 受け入れ条件 ブロック参照）。最終ゲートは **全通過**: `pnpm typecheck` 0 errors / `pnpm lint` 0 warnings / `pnpm vitest run` **3791 passed (0 failed, 308 files)** / `pnpm build` exit 0（2026-05-30 直接検証）。回帰ガード: `packages/entity/test/mob/phase-13-acceptance.test.ts`（AI Chase/Flee/Attack 遷移・接触ダメージ＋クールダウン減衰・ドロップ・日中燃焼カデンス・デスポーン距離）と `packages/rendering/test/walk-cycle.test.ts`（`computeLimbAngle` 純粋関数: ゼロ速度→0・振動・腕脚逆位相）。
 - [x] モブがスポーンする（機能WIRED: `frame-maintenance.ts:127` `trySpawn`）
 - [x] モブが移動する（機能WIRED: `entity-update-stage.ts:53` AI速度 + `:127` 物理）
 - [x] AIが正しく動作する（機能WIRED: `resolveAIState`/`computeStateVelocity`、`entity-manager.ts:213,260`）

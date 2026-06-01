@@ -1,9 +1,9 @@
 import { Array as Arr, Effect, Option, Ref } from 'effect'
-import type { InventoryItem } from '@ts-minecraft/kernel'
+import type { InventoryItem } from '@ts-minecraft/core'
 import { InventoryService, HOTBAR_SIZE, HOTBAR_START } from './inventory-service'
-import { PlayerInputService } from '@ts-minecraft/player'
-import { KeyMappings } from '@ts-minecraft/player'
-import { SlotIndex } from '@ts-minecraft/kernel'
+import { PlayerInputService } from '@ts-minecraft/entity/application/player-input-service'
+import { KeyMappings } from '@ts-minecraft/entity/domain/key-mappings'
+import { SlotIndex } from '@ts-minecraft/core'
 
 export { HOTBAR_SIZE }
 

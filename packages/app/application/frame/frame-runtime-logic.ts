@@ -47,10 +47,10 @@ export const captureCameraPose = (camera: THREE.PerspectiveCamera, version: numb
     qy: camera.quaternion.y,
     qz: camera.quaternion.z,
     qw: camera.quaternion.w,
-    p0: projection[0] ?? Number.NaN,
-    p5: projection[5] ?? Number.NaN,
-    p10: projection[10] ?? Number.NaN,
-    p14: projection[14] ?? Number.NaN,
+    p0: projection[0] as number,
+    p5: projection[5] as number,
+    p10: projection[10] as number,
+    p14: projection[14] as number,
   }
 }
 

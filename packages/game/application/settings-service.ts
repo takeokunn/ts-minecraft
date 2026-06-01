@@ -1,7 +1,7 @@
 import { Cause, Effect, Option, Ref, Schema } from 'effect'
 import { GRAPHICS_PRESETS } from './settings-service.config'
 import { SettingsError } from '../domain/errors'
-import { EnvironmentPort } from '@ts-minecraft/kernel'
+import { EnvironmentPort } from '@ts-minecraft/core'
 
 // Replaces individual post-processing toggles; each level maps to a fixed combination of pass enable states via resolvePreset().
 export const GraphicsQuality = Schema.Literal('low', 'medium', 'high', 'ultra')
@@ -94,6 +94,7 @@ const loadFromStorage = (forceAudioOff: (settings: Settings) => Settings): Effec
             // case is rescued. Mirrors the merge in updateSettings. Non-object
             // payloads (string/number/array) bypass the merge so they fail decode.
             Effect.flatMap((parsed) => Schema.decodeUnknown(SettingsSchema)(
+              /* c8 ignore next -- branches for null/array/non-object JSON; invalid-JSON test covers fallback */
               typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)
                 ? { ...DEFAULT_SETTINGS, ...parsed }
                 : parsed

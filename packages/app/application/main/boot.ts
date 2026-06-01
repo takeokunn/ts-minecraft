@@ -4,10 +4,9 @@ import { StartupError } from '@ts-minecraft/game'
 
 import { RendererService } from '@ts-minecraft/rendering'
 import { PerfHudService } from '@ts-minecraft/rendering'
-import { TerrainWorkerPool } from '@ts-minecraft/terrain'
+import { TerrainWorkerPool } from '@ts-minecraft/worker'
 import { SettingsService } from '@ts-minecraft/game'
-import { StorageService } from '@ts-minecraft/world-state'
-import { NoiseService } from '@ts-minecraft/terrain'
+import { StorageService, NoiseService } from '@ts-minecraft/world'
 import { SoundManager, MusicManager } from '@ts-minecraft/game'
 
 // BootContext — persistent process-level resources that survive across world sessions.

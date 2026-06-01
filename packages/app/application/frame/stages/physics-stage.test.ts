@@ -1,8 +1,8 @@
-import { describe, expect, vi } from 'vitest'
-import { it } from '@effect/vitest'
+import { describe, it } from '@effect/vitest'
+import { expect, vi } from 'vitest'
 import { Effect, Option } from 'effect'
 import { createFrameHandlers } from '@ts-minecraft/app'
-import type { DeltaTimeSecs } from '@ts-minecraft/kernel'
+import type { DeltaTimeSecs } from '@ts-minecraft/core'
 import {
   makeDeps,
   makeInputService,
@@ -356,5 +356,49 @@ describe('step 3.5 — fall damage', () => {
     expect(resetSpy).toHaveBeenCalledOnce()
     expect(respawnSpy).toHaveBeenCalledOnce()
     expect(respawnSpy).toHaveBeenCalledWith(deps.respawnPosition)
+  }))
+
+  it.effect('skips getPlayerContactDamage when mobs.enabled debug flag is false', () => Effect.gen(function* () {
+    const deps = yield* makeDeps(false)
+    const services = makeServices({
+      inputService: makeInputService(),
+      inventoryRenderer: makeInventoryRenderer({ open: false }),
+      settingsOverlay: makeSettingsOverlay({ open: false }),
+    })
+    yield* services.debugFeatureFlags.setEnabled('mobs.enabled', false)
+    const contactDamageSpy = vi.fn(() => Effect.succeed(0))
+    ;(services.entityManager as { getPlayerContactDamage: unknown }).getPlayerContactDamage = contactDamageSpy
+
+    yield* runFrame(deps, services)
+
+    expect(contactDamageSpy).not.toHaveBeenCalled()
+  }))
+
+  it.effect('accrues hunger exhaustion proportional to horizontal distance moved', () => Effect.gen(function* () {
+    const deps = yield* makeDeps(false)
+    const services = makeServices({
+      inputService: makeInputService(),
+      inventoryRenderer: makeInventoryRenderer({ open: false }),
+      settingsOverlay: makeSettingsOverlay({ open: false }),
+    })
+    // runFrame calls maintenanceHandler() then frameHandler().
+    // getPlayerPosition call order:
+    //   1) maintenanceHandler (frame-maintenance) → initial pos (0,64,0)
+    //   2) frameHandler initial position fetch → initial pos (0,64,0)
+    //   3) physicsStage internal refresh → post-physics pos (3,64,4) → distance=5
+    let posCallCount = 0
+    ;(services.gameState as { getPlayerPosition: unknown }).getPlayerPosition = vi.fn(() => {
+      posCallCount++
+      if (posCallCount < 3) return Effect.succeed({ x: 0, y: 64, z: 0 })
+      return Effect.succeed({ x: 3, y: 64, z: 4 })
+    })
+    const addExhaustionSpy = vi.fn(() => Effect.void)
+    ;(services.hungerService as { addExhaustion: unknown }).addExhaustion = addExhaustionSpy
+
+    yield* runFrame(deps, services)
+
+    expect(addExhaustionSpy).toHaveBeenCalledOnce()
+    // distance=5, EXHAUSTION_SPRINT_PER_BLOCK=0.1 → 0.5
+    expect(addExhaustionSpy.mock.calls[0]?.[0]).toBeCloseTo(0.5, 5)
   }))
 })

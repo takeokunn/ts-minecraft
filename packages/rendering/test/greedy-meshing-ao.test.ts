@@ -1,5 +1,6 @@
-import { describe, it, expect } from 'vitest'
-import { CHUNK_SIZE, CHUNK_HEIGHT, blockTypeToIndex } from '@ts-minecraft/kernel'
+import { describe, it } from '@effect/vitest'
+import { expect } from 'vitest'
+import { CHUNK_SIZE, CHUNK_HEIGHT, blockTypeToIndex } from '@ts-minecraft/core'
 import {
   aoXPos,
   aoXNeg,
@@ -7,6 +8,8 @@ import {
   aoYNeg,
   aoZPos,
   aoZNeg,
+  isAir,
+  getBlock,
 } from '../infrastructure/meshing/greedy-meshing-ao'
 
 // The six per-face AO functions are copy-paste variants: each counts how many of
@@ -86,5 +89,23 @@ describe('greedy-meshing AO — per-face edge-occlusion symmetry', () => {
     expect(aoYNeg(blocks, CX, 0, CZ)).toBe(0)
     expect(aoZPos(blocks, CX, CY, CHUNK_SIZE - 1)).toBe(0)
     expect(aoZNeg(blocks, CX, CY, 0)).toBe(0)
+  })
+})
+
+describe('greedy-meshing-ao / helper functions', () => {
+  it('getBlock returns 0 for AIR in an empty chunk', () => {
+    const blocks = new Uint8Array(CHUNK_SIZE * CHUNK_SIZE * CHUNK_HEIGHT)
+    expect(getBlock(blocks, 0, 0, 0)).toBe(0)
+  })
+
+  it('isAir returns true for an AIR block', () => {
+    const blocks = new Uint8Array(CHUNK_SIZE * CHUNK_SIZE * CHUNK_HEIGHT)
+    expect(isAir(blocks, 0, 0, 0)).toBe(true)
+  })
+
+  it('isAir returns false for a solid block', () => {
+    const blocks = new Uint8Array(CHUNK_SIZE * CHUNK_SIZE * CHUNK_HEIGHT)
+    blocks[0] = STONE
+    expect(isAir(blocks, 0, 0, 0)).toBe(false)
   })
 })

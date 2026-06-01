@@ -1,9 +1,9 @@
-import { describe, expect, vi } from 'vitest'
-import { it } from '@effect/vitest'
+import { describe, it } from '@effect/vitest'
+import { expect, vi } from 'vitest'
 import { Effect, MutableRef, Option } from 'effect'
 import * as THREE from 'three'
 import { createFrameHandlers } from '@ts-minecraft/app'
-import type { DeltaTimeSecs, SkyMaterialPort } from '@ts-minecraft/kernel'
+import type { DeltaTimeSecs, SkyMaterialPort } from '@ts-minecraft/core'
 import {
   arrangeFrameHarness,
   makeDeps,

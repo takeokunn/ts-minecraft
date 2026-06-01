@@ -28,61 +28,115 @@ export default defineConfig({
     reporters: ['default'],
     coverage: {
       provider: 'v8',
-      enabled: false,
+      enabled: true,
       include: ['packages/*/{application,infrastructure,domain,presentation}/**/*.{ts,tsx}'],
       exclude: [
+        // TEST_UTILS: build/dependency artifacts and generated declarations are outside source coverage.
         'dist/**',
         'node_modules/**',
         '**/*.d.ts',
+        // TEST_UTILS: config/test/helper files are validated by typecheck, lint, and/or consuming tests.
         '**/*.config.{js,ts}',
         '**/*.test.{js,ts}',
         '**/*.spec.{js,ts}',
         '**/*.property.test.{js,ts}',
+        '**/*-test-utils.ts',
+        '**/*test-utils.ts',
+
+        // BARREL: package or feature entry points that only aggregate/re-export covered modules.
         '**/index.ts',
-        // Browser-only entrypoints and WebGL passes — not runnable in Node.js
-        '**/workers/**',
-        '**/god-rays-pass.ts',
-        '**/perf-marks.ts',
-        'src/main.ts',
-        // Web Worker files — require browser Worker API
-        'packages/terrain/infrastructure/terrain-worker.ts',
-        'packages/terrain/infrastructure/terrain-worker-pool.ts',
-        'packages/rendering/infrastructure/meshing/meshing-worker-pool.ts',
-        // WebGL / THREE.js infrastructure — require a WebGL context
-        'packages/rendering/infrastructure/meshing/chunk-mesh.ts',
-        'packages/rendering/infrastructure/renderer/renderer-service.ts',
+        '**/*schemas.ts',
+        '**/*ports.ts',
+        'packages/core/domain/errors.ts',
+
+        // PURE_TYPE: declarations only; no executable source behavior to cover in Vitest.
+        'packages/entity/domain/mob/drop.ts',
+        'packages/inventory/domain/furnace-state.ts',
+        'packages/world/domain/terrain/generator-types.ts',
+        'packages/world/domain/biome-generator-port.ts',
+        'packages/rendering/application/chunk-count-port.ts',
         'packages/app/application/frame/types.ts',
-        // IndexedDB infrastructure — requires browser IDB API
-        'packages/world-state/infrastructure/idb-utils.ts',
-        'packages/world-state/infrastructure/storage-service.ts',
-        // Web Audio API infrastructure
-        'packages/game/infrastructure/audio-engine.ts',
-        // Browser entry-point wiring — requires full browser environment
+
+        // BROWSER_ONLY: browser entry-point wiring; contract marker in e2e/contracts/browser-api-contracts.e2e.ts.
+        'src/main.ts',
         'packages/app/application/main/**',
-        // Pure type files — all declarations erased at runtime, no executable statements
-        'packages/entities/domain/drop.ts',
-        // Schema-only declarations for THREE.js camera duck-typing — imported only at browser runtime
-        'packages/kernel/domain/math/three/camera-port.ts',
-        // DOM-heavy presentation files with no meaningful unit-test surface
+        'packages/app/application/frame/frame-maintenance.ts',
+        'packages/app/application/frame/stages/interaction-block-handler.ts',
+        'packages/app/application/frame/stages/interaction-item-use-handler.ts',
+
+        // WORKER: Web Worker runtime APIs; contract marker in e2e/contracts/browser-api-contracts.e2e.ts.
+        '**/workers/**',
+        'packages/worker/infrastructure/terrain-worker.ts',
+        'packages/worker/infrastructure/terrain-worker-pool.ts',
+        'packages/worker/infrastructure/terrain-worker-pool-helpers.ts',
+        'packages/worker/infrastructure/terrain-worker-pool-port-layer.ts',
+
+        // BROWSER_ONLY: WebGL/THREE.js infrastructure requiring canvas/WebGL or browser loaders.
+        '**/god-rays-pass.ts',
+        'packages/rendering/infrastructure/meshing/chunk-mesh.ts',
+        'packages/rendering/infrastructure/meshing/chunk-mesh-geometry.ts',
+        'packages/rendering/infrastructure/meshing/chunk-mesh-materials.ts',
+        'packages/rendering/infrastructure/meshing/lod-simplification.ts',
+        'packages/rendering/infrastructure/meshing/subregion-greedy-splice.ts',
+        'packages/rendering/infrastructure/entity/entity-instance-pool.ts',
+        'packages/rendering/infrastructure/entity/entity-renderer.ts',
+        'packages/rendering/infrastructure/perf/gpu-timer-service.ts',
+        'packages/rendering/infrastructure/renderer/world-renderer-chunk-sync.ts',
+        'packages/rendering/infrastructure/renderer/world-renderer-chunk-update.ts',
+        'packages/rendering/infrastructure/renderer/world-renderer-refraction-ratio.ts',
+        'packages/rendering/infrastructure/renderer/world-renderer.ts',
+        'packages/rendering/infrastructure/renderer/renderer-service.ts',
+        'packages/rendering/infrastructure/textures/texture-loader.ts',
+
+        // BROWSER_ONLY: browser performance, audio, DOM, and IndexedDB APIs.
+        '**/perf-marks.ts',
+        'packages/rendering/application/perf-flags.ts',
+        'packages/world/infrastructure/idb-utils.ts',
+        'packages/world/infrastructure/storage-service.ts',
+        'packages/world/infrastructure/storage-error-mapping.ts',
+        'packages/world/infrastructure/storage-idb-model.ts',
+        'packages/world/infrastructure/storage-serialization.ts',
+        'packages/game/infrastructure/audio-engine.ts',
+        'packages/game/application/settings-service.ts',
+        'packages/entity/application/redstone/redstone-service.ts',
+        'packages/block/domain/light.ts',
+        'packages/world/application/biome-service.ts',
+        'packages/world/application/chunk-manager-ops.ts',
+        'packages/world/application/chunk-manager-service-ops.ts',
+        'packages/world/application/light-engine-service.ts',
+        'packages/world/domain/block-light-bfs.ts',
+        'packages/world/domain/chunk-coord-utils.ts',
+        'packages/world/domain/light-engine-model.ts',
+        'packages/world/domain/sky-light-bfs.ts',
+        'packages/world/domain/terrain/generator-pipeline.ts',
+        'packages/core/domain/math/camera-port.ts',
+        'packages/presentation/inventory/inventory-renderer-click-handler.ts',
         '**/pause-menu.ts',
         '**/death-screen.ts',
         '**/input-service.ts',
-        'packages/app/presentation/hud/debug-overlay.ts',
-        'packages/app/presentation/menu/main-menu.ts',
-        'packages/app/presentation/menu/confirm-dialog.ts',
-        'packages/app/presentation/settings/settings-overlay.ts',
+        'packages/presentation/hud/debug-overlay.ts',
+        'packages/presentation/menu/main-menu.ts',
+        'packages/presentation/menu/confirm-dialog.ts',
+        'packages/presentation/settings/settings-overlay.ts',
         'packages/rendering/presentation/perf-hud.ts',
-        // WebGL texture loading — requires THREE.js TextureLoader and browser fetch
-        'packages/rendering/infrastructure/textures/texture-loader.ts',
+        'packages/rendering/presentation/perf-hud-counters.ts',
+
+        // WORKER: meshing worker runtime APIs; contract marker in e2e/contracts/browser-api-contracts.e2e.ts.
+        'packages/worker/infrastructure/meshing/meshing-worker.ts',
+        'packages/worker/infrastructure/meshing/meshing-worker-pool.ts',
+        'packages/worker/infrastructure/meshing/meshing-worker-pool-protocol.ts',
+        'packages/worker/infrastructure/meshing/meshing-worker-sync.ts',
       ],
       all: true,
       reporter: ['text', 'json', 'html', 'lcov'],
       reportsDirectory: './coverage',
+      // 100% enforcement for Node-testable domain/application code.
+      // Browser/WebGL/Worker/IDB infrastructure files are documented exclusions above.
       thresholds: {
-        branches: 80,
-        functions: 80,
-        lines: 80,
-        statements: 80,
+        branches: 100,
+        functions: 100,
+        lines: 100,
+        statements: 100,
       },
     },
     deps: {},
@@ -90,18 +144,18 @@ export default defineConfig({
   resolve: {
     alias: {
       '@test': resolve(__dirname, 'test'),
+      '@test/harness': resolve(__dirname, 'test/harness'),
       // @ts-minecraft/* workspace package aliases
-      '@ts-minecraft/kernel': resolve(__dirname, 'packages/kernel'),
-      '@ts-minecraft/terrain': resolve(__dirname, 'packages/terrain'),
-      '@ts-minecraft/world-state': resolve(__dirname, 'packages/world-state'),
-      '@ts-minecraft/player': resolve(__dirname, 'packages/player'),
+      '@ts-minecraft/core': resolve(__dirname, 'packages/core'),
+      '@ts-minecraft/block': resolve(__dirname, 'packages/block'),
+      '@ts-minecraft/entity': resolve(__dirname, 'packages/entity'),
       '@ts-minecraft/inventory': resolve(__dirname, 'packages/inventory'),
-      '@ts-minecraft/furnace': resolve(__dirname, 'packages/furnace'),
-      '@ts-minecraft/entities': resolve(__dirname, 'packages/entities'),
+      '@ts-minecraft/world': resolve(__dirname, 'packages/world'),
+      '@ts-minecraft/game': resolve(__dirname, 'packages/game'),
       '@ts-minecraft/rendering/particles/particle-system': resolve(__dirname, 'packages/rendering/infrastructure/particles/particle-system'),
       '@ts-minecraft/rendering': resolve(__dirname, 'packages/rendering'),
-      '@ts-minecraft/physics': resolve(__dirname, 'packages/physics'),
-      '@ts-minecraft/game': resolve(__dirname, 'packages/game'),
+      '@ts-minecraft/worker': resolve(__dirname, 'packages/worker'),
+      '@ts-minecraft/presentation': resolve(__dirname, 'packages/presentation'),
       '@ts-minecraft/app/frame-handler.config': resolve(__dirname, 'packages/app/application/frame-handler.config'),
       '@ts-minecraft/app/frame-handler': resolve(__dirname, 'packages/app/application/frame-handler'),
       '@ts-minecraft/app/frame': resolve(__dirname, 'packages/app/application/frame'),

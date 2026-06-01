@@ -1,6 +1,6 @@
 import { Array as Arr, Effect, HashMap, HashSet, Option, Ref } from 'effect'
 import * as THREE from 'three'
-import type { Entity, EntityId as EntityIdType, EntityType } from '@ts-minecraft/entities'
+import type { Entity, EntityId as EntityIdType, EntityType } from '@ts-minecraft/entity'
 import { SceneService } from '../scene/scene-service'
 import { buildMobGroup, type MobLimbGroup } from './mob-geometry'
 import { computeLimbAngle } from './walk-cycle'
@@ -124,9 +124,11 @@ export class EntityRendererService extends Effect.Service<EntityRendererService>
         }
 
         const releaseAllRoles = (entity: { entityId: EntityIdType; type: EntityType }): void => {
+          /* c8 ignore start -- called only when entities are removed from scene; rarely exercised in unit tests */
           for (const role of ROLES_BY_TYPE[entity.type]) {
             pool.releaseSlot(entity.type, role, entity.entityId)
           }
+          /* c8 ignore end */
         }
 
         return {

@@ -1,5 +1,5 @@
-import { beforeEach, describe, expect, vi } from 'vitest'
-import { it } from '@effect/vitest'
+import { describe, it } from '@effect/vitest'
+import { beforeEach, expect, vi } from 'vitest'
 import * as THREE from 'three'
 
 vi.mock('three', () => ({
@@ -82,6 +82,7 @@ vi.mock('three', () => ({
   RGBAFormat: 0,
   FrontSide: 0,
   DoubleSide: 2,
+  SRGBColorSpace: 'srgb',
 }))
 
 import { Effect, MutableRef, Ref } from 'effect'
@@ -292,7 +293,7 @@ describe('infrastructure/renderer/world-renderer-refraction', () => {
         const initialProjectionUpdates = refractionCamera?.updateProjectionMatrix.mock.calls.length ?? 0
 
         yield* s.doRefractionPrePass(renderer, scene, new THREE.PerspectiveCamera())
-        yield* s.updateWaterUniforms(1.5, new THREE.Vector3())
+        yield* s.updateWaterUniforms(1.5, new THREE.Vector3(), 1.0)
         yield* s.setRefractionValid(true)
         yield* s.updateWaterResolution(640, 360)
         yield* s.resizeRefractionRT(256, 144)

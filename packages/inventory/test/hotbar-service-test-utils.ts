@@ -1,11 +1,11 @@
 import { Array as Arr, Effect, Layer, MutableHashMap, MutableHashSet, MutableRef, Option } from 'effect'
-import { BlockType } from '@ts-minecraft/kernel'
-import { Block } from '@ts-minecraft/world-state'
-import { BlockRegistry } from '@ts-minecraft/world-state'
-import { PlayerInputService } from '@ts-minecraft/player'
+import { BlockType } from '@ts-minecraft/core'
+import { Block } from '@ts-minecraft/block'
+import { BlockRegistry } from '@ts-minecraft/block'
+import { PlayerInputService } from '@ts-minecraft/entity'
 import { InventoryServiceLive } from '@ts-minecraft/inventory'
 import { HotbarServiceLive } from '@ts-minecraft/inventory'
-import type { SlotIndex } from '@ts-minecraft/kernel'
+import type { SlotIndex } from '@ts-minecraft/core'
 
 export const asSlotIndex = (n: number): SlotIndex => n as SlotIndex
 

@@ -1,10 +1,11 @@
-import { describe, expect, it } from 'vitest'
+import { describe, it } from '@effect/vitest'
+import { expect } from 'vitest'
 import { Option } from 'effect'
-import { CHUNK_HEIGHT, CHUNK_SIZE, blockTypeToIndex } from '@ts-minecraft/kernel'
+import { CHUNK_HEIGHT, CHUNK_SIZE, blockTypeToIndex } from '@ts-minecraft/core'
 import type { MeshedChunk } from '@ts-minecraft/rendering'
 import { greedyMeshChunk } from '@ts-minecraft/rendering'
-import { createFluidBuffer, encodeFluidCell } from '@ts-minecraft/world-state'
-import type { FluidCell } from '@ts-minecraft/world-state'
+import { createFluidBuffer, encodeFluidCell } from '@ts-minecraft/world'
+import type { FluidCell } from '@ts-minecraft/world'
 import {
   countFacesByNormal,
   findFirstFaceVertexWithNormal,

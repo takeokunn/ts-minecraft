@@ -1,5 +1,5 @@
 import * as THREE from 'three'
-import { ChunkCoord, ChunkCacheKey } from '@ts-minecraft/kernel'
+import { ChunkCoord, ChunkCacheKey } from '@ts-minecraft/core'
 
 export const nowMs = (): number =>
   /* c8 ignore next */

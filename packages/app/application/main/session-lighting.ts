@@ -4,8 +4,8 @@ import { Sky } from 'three/addons/objects/Sky.js'
 import { SceneService } from '@ts-minecraft/rendering'
 import { StartupError } from '@ts-minecraft/game'
 import { resolvePreset } from '@ts-minecraft/game'
-import { CHUNK_SIZE, CHUNK_HEIGHT } from '@ts-minecraft/kernel'
-import { MAX_SHADOW_HALF_EXTENT, SkyMaterialPortSchema } from '@ts-minecraft/kernel'
+import { CHUNK_SIZE, CHUNK_HEIGHT } from '@ts-minecraft/core'
+import { MAX_SHADOW_HALF_EXTENT, SkyMaterialPortSchema } from '@ts-minecraft/core'
 import {
   SUN_COLOR, AMBIENT_COLOR, SKY_COLOR_NIGHT, SKY_COLOR_DAY,
 } from '@ts-minecraft/app/main.config'
@@ -46,10 +46,10 @@ export const buildLighting = (
     return s
   })
   yield* sceneService.add(scene, sky)
-  const skyShaderMaterial = yield* Effect.sync(() => {
+  const skyShaderMaterial = yield* Effect.gen(function* () {
     const skyMaterial = Array.isArray(sky.material) ? sky.material[0] : sky.material
     if (!(skyMaterial instanceof THREE.ShaderMaterial)) {
-      throw new StartupError({ reason: 'Sky material is not a ShaderMaterial' })
+      return yield* Effect.fail(new StartupError({ reason: 'Sky material is not a ShaderMaterial' }))
     }
     const mat = skyMaterial
     Option.map(Option.fromNullable(mat.uniforms['mieCoefficient']), (u) => { u.value = 0.005 })

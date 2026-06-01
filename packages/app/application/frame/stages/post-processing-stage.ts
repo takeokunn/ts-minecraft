@@ -12,7 +12,7 @@ import type { ResolvedGraphics } from '@ts-minecraft/game'
 // ---------------------------------------------------------------------------
 
 export const refractionPrepassStage = (
-  deps: Pick<FrameHandlerDeps, 'renderer' | 'scene' | 'camera'>,
+  deps: Pick<FrameHandlerDeps, 'renderer' | 'scene' | 'camera' | 'lights'>,
   services: Pick<FrameHandlerServices, 'worldRendererService'>,
   refs: Pick<
     FrameStageRefs,
@@ -59,7 +59,7 @@ export const refractionPrepassStage = (
     }
 
     // Update water uniforms (time + camera position only — resolution is set on resize)
-    yield* services.worldRendererService.updateWaterUniforms(inputs.totalTimeSecs, deps.camera.position)
+    yield* services.worldRendererService.updateWaterUniforms(inputs.totalTimeSecs, deps.camera.position, 1.0)
   })
 
 // ---------------------------------------------------------------------------

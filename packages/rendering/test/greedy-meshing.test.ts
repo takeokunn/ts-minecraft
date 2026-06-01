@@ -1,8 +1,9 @@
-import type { BlockType } from '@ts-minecraft/kernel'
-import { CHUNK_SIZE, blockTypeToIndex } from '@ts-minecraft/kernel'
+import type { BlockType } from '@ts-minecraft/core'
+import { CHUNK_SIZE, blockTypeToIndex } from '@ts-minecraft/core'
 import { greedyMeshChunk } from '@ts-minecraft/rendering'
 import { Array as Arr,MutableHashSet } from 'effect'
-import { describe,expect,it } from 'vitest'
+import { describe, it } from '@effect/vitest'
+import { expect } from 'vitest'
 import { makeChunkWithBlock,makeChunkWithBlocks,makeEmptyChunk,ZERO_COORD,ZERO_OFFSET,countFacesByNormal,findFirstFaceVertexWithNormal,assertAllXPositionsGte,assertAllZPositionsGte } from './greedy-meshing-test-utils'
 
 // ─── Tests ─────────────────────────────────────────────────────────────────
@@ -272,7 +273,7 @@ describe('greedyMeshChunk transparent solid meshing', () => {
     expect(result.toMeshed().transparentSolid.positions.length).toBeGreaterThan(0)
   })
 
-  it('GLASS block without transparent solid IDs remains in opaque mesh (backward compat)', () => {
+  it('GLASS block without transparent solid IDs remains in opaque mesh', () => {
     const chunk = makeChunkWithBlock(ZERO_COORD, 0, 0, 0, 'GLASS')
     const result = greedyMeshChunk(chunk, ZERO_OFFSET)
 

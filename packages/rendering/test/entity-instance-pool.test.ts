@@ -1,5 +1,5 @@
-import { describe, expect } from 'vitest'
-import { it } from '@effect/vitest'
+import { describe, it } from '@effect/vitest'
+import { expect } from 'vitest'
 import { Effect, Layer, Logger, LogLevel, Option } from 'effect'
 import * as THREE from 'three'
 import {
@@ -10,8 +10,8 @@ import {
   createEntityInstancePool,
   type PartRole,
 } from '@ts-minecraft/rendering'
-import { EntityId, type Entity, type EntityType } from '@ts-minecraft/entities'
-import { identity } from '@ts-minecraft/kernel'
+import { EntityId, type Entity, type EntityType } from '@ts-minecraft/entity'
+import { identity } from '@ts-minecraft/core'
 
 // ---------------------------------------------------------------------------
 // Test infrastructure

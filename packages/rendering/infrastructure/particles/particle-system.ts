@@ -1,58 +1,9 @@
+// @effect-boundary Three.js particle adapter validates renderer capabilities at the WebGL boundary.
 import { Effect, MutableRef, type Scope } from 'effect'
 import * as THREE from 'three'
 import { ChunkMeshService } from '../meshing/chunk-mesh'
-import { getTileIndex, getTileUVs, type FaceDir } from '../textures/block-texture-map'
-
-// Particle system (FR-1.6) — pre-allocated InstancedMesh pool for block-break visuals.
-// p99 frame impact ≤ 1ms; ZERO per-particle GC allocation in update()/spawnBurst(); pool size fixed at 512.
-// State: Float32Array pre-allocated for positions/velocities/lifetimes/uvOffsets.
-// Inactive slots use ZERO_MATRIX (scale=0); Euler integrator, NOT PhysicsService (wrong scope for visual flecks).
-
-export const MAX_PARTICLES = 512
-export const PARTICLE_LIFETIME_SECS = 0.5
-const PARTICLE_GRAVITY = 12 // m/s² — tuned to feel snappy in 0.5s lifetime
-const PARTICLE_BASE_SIZE = 0.1
-// Default burst velocity envelope — random uniform per axis.
-// Tuned so 6-particle bursts visually scatter without leaving the 1m source cube.
-const SPREAD_HORIZONTAL = 2.0 // m/s
-const SPREAD_UP = 3.0          // m/s upward kick
-const SPREAD_DOWN = 0.5        // m/s downward seed (so some particles fall faster)
-
-// Tile size (in atlas UV space) — particle quad samples a single tile patch
-// so per-particle UV varies by `(uOffset, vOffset)` from the base UV (0,0)..(tileSize,tileSize).
-const TILE_FRACTION = 1 / 16 // ATLAS_COLS=16; one tile spans 1/16 of UV space
-
-// Pre-built constant: identity matrix scaled to zero (inactive slot marker).
-// Allocated once at module load — never recreated.
-const ZERO_MATRIX = new THREE.Matrix4().makeScale(0, 0, 0)
-
-// Per-instance UV comes from `uvOffset` instanced buffer attribute, sampled via onBeforeCompile shader patch.
-const buildParticleGeometry = (atlasTileFraction: number): THREE.PlaneGeometry => {
-  const geom = new THREE.PlaneGeometry(PARTICLE_BASE_SIZE, PARTICLE_BASE_SIZE)
-  // Replace the default UVs (which span the full atlas) with a sub-tile patch
-  // anchored at (0,0). The per-instance uvOffset attribute slides this patch
-  // across the atlas at render time.
-  const uv = geom.getAttribute('uv') as THREE.BufferAttribute
-  const arr = uv.array as Float32Array
-  // Quad UVs: top-left, top-right, bottom-left, bottom-right.
-  // We want each particle to sample a `tileFraction`-sized patch.
-  arr[0] = 0;                  arr[1] = atlasTileFraction
-  arr[2] = atlasTileFraction;  arr[3] = atlasTileFraction
-  arr[4] = 0;                  arr[5] = 0
-  arr[6] = atlasTileFraction;  arr[7] = 0
-  uv.needsUpdate = true
-  return geom
-}
-
-// Uses top face tile (most visually representative). Unknown blockId → dirt (tile 0).
-export const getParticleUvOffset = (
-  blockId: number,
-  faceDir: FaceDir = 'top',
-): { readonly u: number; readonly v: number } => {
-  const tileIndex = getTileIndex(blockId, faceDir)
-  const { u0, v0 } = getTileUVs(tileIndex)
-  return { u: u0, v: v0 }
-}
+import { buildParticleGeometry, MAX_PARTICLES, PARTICLE_GRAVITY, PARTICLE_LIFETIME_SECS, SPREAD_DOWN, SPREAD_HORIZONTAL, SPREAD_UP, TILE_FRACTION, ZERO_MATRIX } from './particle-system-factory'
+export { getParticleUvOffset, MAX_PARTICLES, PARTICLE_LIFETIME_SECS } from './particle-system-factory'
 
 export type ParticleSystemServiceAPI = {
   // Must be called exactly once per session, inside an Effect.scoped parent. Finalizer removes mesh from scene.

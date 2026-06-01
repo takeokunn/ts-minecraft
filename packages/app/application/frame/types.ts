@@ -9,42 +9,42 @@ import { BokehPass } from 'three/addons/postprocessing/BokehPass.js'
 import { SMAAPass } from 'three/addons/postprocessing/SMAAPass.js'
 import { GameStateService } from '@ts-minecraft/game'
 import { GameModeService } from '@ts-minecraft/game'
-import { PlayerCameraStateService } from '@ts-minecraft/player'
-import { FirstPersonCameraService } from '@ts-minecraft/player'
-import { ThirdPersonCameraService } from '@ts-minecraft/player'
-import { BlockService } from '@ts-minecraft/terrain'
+import { PlayerCameraStateService } from '@ts-minecraft/entity'
+import { FirstPersonCameraService } from '@ts-minecraft/entity'
+import { ThirdPersonCameraService } from '@ts-minecraft/entity'
+import { BlockService } from '@ts-minecraft/world'
 import { HotbarService } from '@ts-minecraft/inventory'
-import { ChunkManagerService } from '@ts-minecraft/terrain'
+import { ChunkManagerService } from '@ts-minecraft/world'
 import { TimeService } from '@ts-minecraft/game'
 import {
   SettingsService,
   type ResolvedGraphics,
   type Settings,
 } from '@ts-minecraft/game'
-import { FPSCounterService } from '@ts-minecraft/app/presentation/fps-counter'
-import { HotbarRendererService } from '@ts-minecraft/app/presentation/hud/hotbar-three'
-import { BlockHighlightService } from '@ts-minecraft/app/presentation/highlight/block-highlight'
+import { FPSCounterService } from '@ts-minecraft/presentation/fps-counter'
+import { HotbarRendererService } from '@ts-minecraft/presentation/hud/hotbar-three'
+import { BlockHighlightService } from '@ts-minecraft/presentation/highlight/block-highlight'
 import { GodRaysPass, WorldRendererService, EntityRendererService, ChunkMeshService } from '@ts-minecraft/rendering'
 import { ParticleSystemService } from '@ts-minecraft/rendering/particles/particle-system'
 import { PerfHudService } from '@ts-minecraft/rendering'
-import { InputService } from '@ts-minecraft/app/presentation/input/input-service'
-import { SettingsOverlayService } from '@ts-minecraft/app/presentation/settings/settings-overlay'
-import { PauseMenuService } from '@ts-minecraft/app/presentation/menu/pause-menu'
-import { InventoryRendererService } from '@ts-minecraft/app/presentation/inventory/inventory-renderer'
+import { InputService } from '@ts-minecraft/presentation/input/input-service'
+import { SettingsOverlayService } from '@ts-minecraft/presentation/settings/settings-overlay'
+import { PauseMenuService } from '@ts-minecraft/presentation/menu/pause-menu'
+import { InventoryRendererService } from '@ts-minecraft/presentation/inventory/inventory-renderer'
 import { DebugFeatureFlagsService } from '@ts-minecraft/app/debug-feature-flags'
 import { InventoryService, EquipmentService } from '@ts-minecraft/inventory'
-import { HealthService, HungerService, XPService, FishingService } from '@ts-minecraft/player'
+import { HealthService, HungerService, XPService, FishingService } from '@ts-minecraft/entity'
 import { MusicManager, SoundManager } from '@ts-minecraft/game'
-import { EntityManager, MobSpawner } from '@ts-minecraft/entities'
-import { VillageService } from '@ts-minecraft/entities'
-import { TradingPresentationService } from '@ts-minecraft/app/presentation/trading'
-import { RedstoneService } from '@ts-minecraft/entities'
-import { FluidService } from '@ts-minecraft/terrain'
-import { FurnaceService } from '@ts-minecraft/furnace'
-import type { Chunk } from '@ts-minecraft/terrain'
+import { EntityManager, MobSpawner } from '@ts-minecraft/entity'
+import { VillageService } from '@ts-minecraft/entity'
+import { TradingPresentationService } from '@ts-minecraft/presentation/trading'
+import { RedstoneService } from '@ts-minecraft/entity'
+import { FluidService } from '@ts-minecraft/world'
+import { FurnaceService } from '@ts-minecraft/inventory'
+import type { Chunk } from '@ts-minecraft/world'
 import type { DirtyChunkEntry } from './frame-maintenance'
 import { type DayNightLights } from '@ts-minecraft/game'
-import type { Position } from '@ts-minecraft/kernel'
+import type { Position } from '@ts-minecraft/core'
 import type { CameraPoseSnapshot } from '@ts-minecraft/app/frame/frame-runtime-logic'
 
 // Three.js objects/DOM state owned by main.ts before the game loop starts — passed as values,
@@ -173,6 +173,6 @@ export type ResolvedDeps = {
 export type FrameSettingsView = Settings
 
 export type FrameLoopHandlers = {
-  readonly frameHandler: (deltaTime: import('@ts-minecraft/kernel').DeltaTimeSecs) => import('effect').Effect.Effect<void, never>
+  readonly frameHandler: (deltaTime: import('@ts-minecraft/core').DeltaTimeSecs) => import('effect').Effect.Effect<void, never>
   readonly maintenanceHandler: () => import('effect').Effect.Effect<boolean, never>
 }

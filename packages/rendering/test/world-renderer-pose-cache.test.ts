@@ -1,4 +1,5 @@
-import { describe, expect, it } from 'vitest'
+import { describe, it } from '@effect/vitest'
+import { expect } from 'vitest'
 import {
   POSE_POSITION_TOLERANCE,
   POSE_QUATERNION_TOLERANCE,

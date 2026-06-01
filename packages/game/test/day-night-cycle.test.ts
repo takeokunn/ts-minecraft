@@ -4,8 +4,8 @@ import { Effect, MutableRef, Option } from 'effect'
 import * as THREE from 'three'
 import { TimeService, TimeServiceLive } from '@ts-minecraft/game'
 import { updateDayNightCycle, type DayNightLights } from '@ts-minecraft/game'
-import type { DeltaTimeSecs, ColorPort } from '@ts-minecraft/kernel'
-import type { SkyMaterialPort } from '@ts-minecraft/kernel'
+import type { DeltaTimeSecs, ColorPort } from '@ts-minecraft/core'
+import type { SkyMaterialPort } from '@ts-minecraft/core'
 
 // Lightweight stub for DayNightLights.
 // Captures the clear color passed to renderer.setClearColor for assertions.

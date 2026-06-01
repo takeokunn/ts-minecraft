@@ -2,7 +2,6 @@ import { vi } from 'vitest'
 import { Array as Arr, Effect, Layer, Option } from 'effect'
 import * as THREE from 'three'
 
-const testDouble = <T>(value: object): T => value as T
 const makeAtlasTexture = (): THREE.Texture =>
   new THREE.CanvasTexture({ width: 1, height: 1 } as unknown as HTMLCanvasElement)
 
@@ -50,7 +49,7 @@ if (typeof globalThis.Image === 'undefined') {
 }
 
 import { WorldRendererService, WorldRendererServiceLive, ChunkMeshService, SceneService } from '@ts-minecraft/rendering'
-import type { Chunk } from '@ts-minecraft/terrain'
+import type { Chunk } from '@ts-minecraft/world'
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -104,11 +103,11 @@ export const buildTestLayer = (
 export const makeScene = (): THREE.Scene => new THREE.Scene()
 
 export const makeRenderer = (): THREE.WebGLRenderer =>
-  testDouble<THREE.WebGLRenderer>({
+  ({
     setRenderTarget: vi.fn(),
     render: vi.fn(),
     shadowMap: { autoUpdate: true, needsUpdate: false },
-  })
+  }) as unknown as THREE.WebGLRenderer
 
 // Drain helper: call syncChunksToScene repeatedly until it returns true
 // (i.e. all new chunks have been meshed). The time-budget throttle in

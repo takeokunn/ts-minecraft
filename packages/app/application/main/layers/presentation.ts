@@ -4,27 +4,27 @@
 // Depends on infrastructure-tier and game-logic-tier layers.
 import { Layer } from 'effect'
 
-import { FPSCounterService } from '@ts-minecraft/app/presentation/fps-counter'
-import { CrosshairLive, DomOperationsLive } from '@ts-minecraft/app/presentation/hud/crosshair'
-import { DebugOverlayLive } from '@ts-minecraft/app/presentation/hud/debug-overlay'
-import { LoadingScreenLive } from '@ts-minecraft/app/presentation/loading/loading-screen'
-import { BlockHighlightLive } from '@ts-minecraft/app/presentation/highlight/block-highlight'
+import { FPSCounterService } from '@ts-minecraft/presentation/fps-counter'
+import { CrosshairLive, DomOperationsLive } from '@ts-minecraft/presentation/hud/crosshair'
+import { DebugOverlayLive } from '@ts-minecraft/presentation/hud/debug-overlay'
+import { LoadingScreenLive } from '@ts-minecraft/presentation/loading/loading-screen'
+import { BlockHighlightLive } from '@ts-minecraft/presentation/highlight/block-highlight'
 import { SettingsServiceLive } from '@ts-minecraft/game'
-import { SettingsOverlayLive } from '@ts-minecraft/app/presentation/settings/settings-overlay'
-import { ConfirmDialogLive } from '@ts-minecraft/app/presentation/menu/confirm-dialog'
-import { MainMenuLive } from '@ts-minecraft/app/presentation/menu/main-menu'
-import { PauseMenuLive } from '@ts-minecraft/app/presentation/menu/pause-menu'
-import { DeathScreenLive } from '@ts-minecraft/app/presentation/menu/death-screen'
-import { InventoryRendererLive } from '@ts-minecraft/app/presentation/inventory/inventory-renderer'
-import { TradingPresentationLive } from '@ts-minecraft/app/presentation/trading'
+import { SettingsOverlayLive } from '@ts-minecraft/presentation/settings/settings-overlay'
+import { ConfirmDialogLive } from '@ts-minecraft/presentation/menu/confirm-dialog'
+import { MainMenuLive } from '@ts-minecraft/presentation/menu/main-menu'
+import { PauseMenuLive } from '@ts-minecraft/presentation/menu/pause-menu'
+import { DeathScreenLive } from '@ts-minecraft/presentation/menu/death-screen'
+import { InventoryRendererLive } from '@ts-minecraft/presentation/inventory/inventory-renderer'
+import { TradingPresentationLive } from '@ts-minecraft/presentation/trading'
 
 // Camera services — application-layer implementations, presentation-tier wiring
-import { FirstPersonCameraServiceLive } from '@ts-minecraft/player'
-import { ThirdPersonCameraServiceLive } from '@ts-minecraft/player'
+import { FirstPersonCameraServiceLive } from '@ts-minecraft/entity'
+import { ThirdPersonCameraServiceLive } from '@ts-minecraft/entity'
 
 // Cross-tier deps
-import { StorageServiceLive } from '@ts-minecraft/world-state'
-import { HealthServiceLive } from '@ts-minecraft/player'
+import { StorageServiceLive } from '@ts-minecraft/world'
+import { HealthServiceLive } from '@ts-minecraft/entity'
 import { RecipeServiceLive } from '@ts-minecraft/inventory'
 import { GameModeServiceLive } from '@ts-minecraft/game'
 

@@ -51,38 +51,44 @@
       "@test/*": [
         "test/*"
       ],
-      "@ts-minecraft/kernel": [
-        "packages/kernel/index.ts"
+      "@ts-minecraft/core": [
+        "packages/core/index.ts"
       ],
-      "@ts-minecraft/terrain": [
-        "packages/terrain/index.ts"
+      "@ts-minecraft/block": [
+        "packages/block/index.ts"
       ],
-      "@ts-minecraft/world-state": [
-        "packages/world-state/index.ts"
-      ],
-      "@ts-minecraft/player": [
-        "packages/player/index.ts"
+      "@ts-minecraft/entity": [
+        "packages/entity/index.ts"
       ],
       "@ts-minecraft/inventory": [
         "packages/inventory/index.ts"
       ],
-      "@ts-minecraft/furnace": [
-        "packages/furnace/index.ts"
-      ],
-      "@ts-minecraft/entities": [
-        "packages/entities/index.ts"
-      ],
-      "@ts-minecraft/rendering": [
-        "packages/rendering/index.ts"
-      ],
-      "@ts-minecraft/physics": [
-        "packages/physics/index.ts"
+      "@ts-minecraft/world": [
+        "packages/world/index.ts"
       ],
       "@ts-minecraft/game": [
         "packages/game/index.ts"
       ],
-      "@ts-minecraft/app": [
-        "packages/app/index.ts"
+      "@ts-minecraft/rendering/particles/particle-system": [
+        "packages/rendering/infrastructure/particles/particle-system"
+      ],
+      "@ts-minecraft/rendering/*": [
+        "packages/rendering/*"
+      ],
+      "@ts-minecraft/rendering": [
+        "packages/rendering/index.ts"
+      ],
+      "@ts-minecraft/worker/*": [
+        "packages/worker/*"
+      ],
+      "@ts-minecraft/worker": [
+        "packages/worker/index.ts"
+      ],
+      "@ts-minecraft/presentation/*": [
+        "packages/presentation/*"
+      ],
+      "@ts-minecraft/presentation": [
+        "packages/presentation/index.ts"
       ],
       "@ts-minecraft/app/frame-handler.config": [
         "packages/app/application/frame-handler.config"
@@ -102,11 +108,26 @@
       "@ts-minecraft/app/*": [
         "packages/app/*"
       ],
-      "@ts-minecraft/rendering/particles/particle-system": [
-        "packages/rendering/infrastructure/particles/particle-system"
+      "@ts-minecraft/app": [
+        "packages/app/index.ts"
       ],
-      "@ts-minecraft/rendering/*": [
-        "packages/rendering/*"
+      "@ts-minecraft/core/*": [
+        "packages/core/*"
+      ],
+      "@ts-minecraft/block/*": [
+        "packages/block/*"
+      ],
+      "@ts-minecraft/entity/*": [
+        "packages/entity/*"
+      ],
+      "@ts-minecraft/inventory/*": [
+        "packages/inventory/*"
+      ],
+      "@ts-minecraft/world/*": [
+        "packages/world/*"
+      ],
+      "@ts-minecraft/game/*": [
+        "packages/game/*"
       ]
     },
     "baseUrl": "."

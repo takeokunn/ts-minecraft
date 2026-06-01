@@ -17,15 +17,15 @@ import {
 
 // FR-4.3: When `useCompositePass` is true, Bloom + GodRays + Bokeh are merged
 // into a single CompositePass that runs ONE full-screen read/write instead of
-// three. The legacy passes (UnrealBloomPass, GodRaysPass, BokehPass) are still
-// instantiated and added to the composer for backward compatibility (resize
-// handling, frame-handler hooks), but their `enabled` flag is forced to false.
+// three. The individual passes (UnrealBloomPass, GodRaysPass, BokehPass) remain
+// available for presets that do not use the composite shader; when the composite
+// shader is active, their `enabled` flag is forced to false.
 //
 // Preset wiring (resolved by resolveCompositeFlags + preset booleans):
-//   low    → CompositePass disabled (no effects), legacy passes disabled
-//   medium → CompositePass disabled, legacy passes disabled
-//   high   → CompositePass enabled with { bloom:true }; legacy bloom disabled
-//   ultra  → CompositePass enabled with { bloom, godRays, bokeh }; legacy all disabled
+//   low    → CompositePass disabled (no effects), individual passes disabled
+//   medium → CompositePass disabled, individual passes disabled
+//   high   → CompositePass enabled with { bloom:true }; individual bloom disabled
+//   ultra  → CompositePass enabled with { bloom, godRays, bokeh }; individual passes disabled
 //
 // SSIM > 0.95 requirement: shader includes equivalent #ifdef blocks per effect;
 // disabled effects produce zero instructions (no overdraw).
@@ -60,44 +60,43 @@ export const buildPostProcessing = (
   comp.addPass(gtaoPassInstance)
   const gtao: Option.Option<GTAOPass> = Option.some(gtaoPassInstance)
 
-  // GodRaysPass (legacy): kept for backward compatibility / fallback when
-  // CompositePass is disabled. When CompositePass is active, this pass is
+  // GodRaysPass: used when CompositePass is disabled. When CompositePass is active, this pass is
   // force-disabled because its godRays uniform contribution is in the composite shader.
   const godRaysPassInstance = new GodRaysPass()
-  const godRaysLegacyEnabled = initialGraphics.godRaysEnabled && !compositeActive
-  godRaysPassInstance.enabled = godRaysLegacyEnabled
-  godRaysPassInstance.setSize(godRaysLegacyEnabled ? canvas.clientWidth : 1, godRaysLegacyEnabled ? canvas.clientHeight : 1)
+  const godRaysPassEnabled = initialGraphics.godRaysEnabled && !compositeActive
+  godRaysPassInstance.enabled = godRaysPassEnabled
+  godRaysPassInstance.setSize(godRaysPassEnabled ? canvas.clientWidth : 1, godRaysPassEnabled ? canvas.clientHeight : 1)
   comp.addPass(godRaysPassInstance)
   const godRays: Option.Option<GodRaysPass> = Option.some(godRaysPassInstance)
 
-  // UnrealBloomPass (legacy): same migration semantics as GodRaysPass above.
+  // UnrealBloomPass: same composite toggle semantics as GodRaysPass above.
   const bloomPassInstance = new UnrealBloomPass(
     new THREE.Vector2(canvas.clientWidth, canvas.clientHeight),
     BLOOM_STRENGTH,
     BLOOM_RADIUS,
     BLOOM_THRESHOLD,
   )
-  const bloomLegacyEnabled = initialGraphics.bloomEnabled && !compositeActive
-  bloomPassInstance.enabled = bloomLegacyEnabled
+  const bloomPassEnabled = initialGraphics.bloomEnabled && !compositeActive
+  bloomPassInstance.enabled = bloomPassEnabled
   bloomPassInstance.strength = initialGraphics.bloomStrength
-  bloomPassInstance.setSize(bloomLegacyEnabled ? canvas.clientWidth : 1, bloomLegacyEnabled ? canvas.clientHeight : 1)
+  bloomPassInstance.setSize(bloomPassEnabled ? canvas.clientWidth : 1, bloomPassEnabled ? canvas.clientHeight : 1)
   comp.addPass(bloomPassInstance)
   const bloom: Option.Option<UnrealBloomPass> = Option.some(bloomPassInstance)
 
-  // BokehPass (legacy): same migration semantics.
+  // BokehPass: same composite toggle semantics.
   const bokehPassInstance = new BokehPass(scene, camera, {
     focus: BOKEH_FOCUS,
     aperture: BOKEH_APERTURE,
     maxblur: BOKEH_MAXBLUR,
   })
-  const bokehLegacyEnabled = initialGraphics.dofEnabled && !compositeActive
-  bokehPassInstance.enabled = bokehLegacyEnabled
-  bokehPassInstance.setSize(bokehLegacyEnabled ? canvas.clientWidth : 1, bokehLegacyEnabled ? canvas.clientHeight : 1)
+  const bokehPassEnabled = initialGraphics.dofEnabled && !compositeActive
+  bokehPassInstance.enabled = bokehPassEnabled
+  bokehPassInstance.setSize(bokehPassEnabled ? canvas.clientWidth : 1, bokehPassEnabled ? canvas.clientHeight : 1)
   comp.addPass(bokehPassInstance)
   const bokeh: Option.Option<BokehPass> = Option.some(bokehPassInstance)
 
   // CompositePass (new): single fragment shader for bloom + godRays + bokeh.
-  // Inserted AFTER the legacy passes (which are now no-ops when active) and
+  // Inserted AFTER the individual passes (which are no-ops when active) and
   // BEFORE SMAA so anti-aliasing operates on the final composited image.
   const composite: Option.Option<CompositePass> = compositeActive
     ? Option.some((() => {

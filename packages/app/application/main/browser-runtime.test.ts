@@ -1,4 +1,5 @@
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { describe, it } from '@effect/vitest'
+import { afterEach, expect, vi } from 'vitest'
 import { Effect, MutableRef, Option } from 'effect'
 import { installBrowserEventBridge, wrapFrameHandlerWithBrowserEffects } from '@ts-minecraft/app/main/browser-runtime'
 

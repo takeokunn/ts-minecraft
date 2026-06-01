@@ -1,9 +1,10 @@
-import { describe, expect, it } from 'vitest'
+import { describe, it } from '@effect/vitest'
+import { expect } from 'vitest'
 import { Array as Arr, Option } from 'effect'
 import * as fc from 'effect/FastCheck'
-import { CHUNK_SIZE, CHUNK_HEIGHT, blockTypeToIndex } from '@ts-minecraft/kernel'
-import type { ChunkCoord, BlockType } from '@ts-minecraft/kernel'
-import type { Chunk } from '@ts-minecraft/terrain'
+import { CHUNK_SIZE, CHUNK_HEIGHT, blockTypeToIndex } from '@ts-minecraft/core'
+import type { ChunkCoord, BlockType } from '@ts-minecraft/core'
+import type { Chunk } from '@ts-minecraft/world'
 import {
   greedyMeshChunk,
   greedyMeshChunkSubregion,
@@ -195,7 +196,64 @@ describe('greedyMeshChunkSubregion — property equivalence', () => {
       setBlock(sharedBefore, plx, 0, plz, 'STONE')
     }
   }
-  const sharedPrev = greedyMeshChunk(sharedBefore, ZERO_OFFSET)
+
+const WATER_ID_SET = new Set([blockTypeToIndex('WATER')])
+const GLASS_ID_SET = new Set([blockTypeToIndex('GLASS')])
+
+describe('greedyMeshChunkSubregion — water and transparent mesh paths', () => {
+  it('produces a water mesh when freshWater is present and prevWater was null (new water path)', () => {
+    // prev has no water → prevWater = null; fresh has water → freshWater != null
+    const emptyPrev = greedyMeshChunk(makeEmptyChunk(), ZERO_OFFSET, WATER_ID_SET)
+    const withWater = makeEmptyChunk()
+    setBlock(withWater, 5, 10, 5, 'WATER')
+    const aabb: DirtyAABB = { minX: 5, maxX: 5, minY: 10, maxY: 10, minZ: 5, maxZ: 5 }
+    const result = greedyMeshChunkSubregion(withWater, ZERO_OFFSET, { dirtyAABB: aabb, prev: emptyPrev }, WATER_ID_SET)
+    const meshed = result.toMeshed()
+    expect(meshed.water).not.toBeNull()
+    expect(meshed.water!.indices.length).toBeGreaterThan(0)
+  })
+
+  it('splices the water mesh when both fresh and prev have water (spliceMesh water path)', () => {
+    const before = makeEmptyChunk()
+    setBlock(before, 5, 10, 5, 'WATER')
+    setBlock(before, 5, 10, 6, 'WATER')
+    const prevMesh = greedyMeshChunk(before, ZERO_OFFSET, WATER_ID_SET)
+
+    const after = makeEmptyChunk()
+    setBlock(after, 5, 10, 6, 'WATER')
+    const aabb: DirtyAABB = { minX: 5, maxX: 5, minY: 10, maxY: 10, minZ: 5, maxZ: 5 }
+    const result = greedyMeshChunkSubregion(after, ZERO_OFFSET, { dirtyAABB: aabb, prev: prevMesh }, WATER_ID_SET)
+    const meshed = result.toMeshed()
+    expect(meshed.water).not.toBeNull()
+  })
+
+  it('produces a transparent solid mesh when freshTransparentSolid is present and prev had none (GLASS path)', () => {
+    const emptyPrev = greedyMeshChunk(makeEmptyChunk(), ZERO_OFFSET, new Set(), undefined, undefined, GLASS_ID_SET)
+    const withGlass = makeEmptyChunk()
+    setBlock(withGlass, 3, 5, 3, 'GLASS')
+    const aabb: DirtyAABB = { minX: 3, maxX: 3, minY: 5, maxY: 5, minZ: 3, maxZ: 3 }
+    const result = greedyMeshChunkSubregion(withGlass, ZERO_OFFSET, { dirtyAABB: aabb, prev: emptyPrev }, new Set(), undefined, undefined, GLASS_ID_SET)
+    const meshed = result.toMeshed()
+    expect(meshed.transparentSolid).not.toBeNull()
+    expect(meshed.transparentSolid!.indices.length).toBeGreaterThan(0)
+  })
+
+  it('splices transparent solid mesh when both prev and fresh have GLASS (spliceMesh transparentSolid path)', () => {
+    const before = makeEmptyChunk()
+    setBlock(before, 3, 5, 3, 'GLASS')
+    setBlock(before, 3, 5, 4, 'GLASS')
+    const prevMesh = greedyMeshChunk(before, ZERO_OFFSET, new Set(), undefined, undefined, GLASS_ID_SET)
+
+    const after = makeEmptyChunk()
+    setBlock(after, 3, 5, 4, 'GLASS')
+    const aabb: DirtyAABB = { minX: 3, maxX: 3, minY: 5, maxY: 5, minZ: 3, maxZ: 3 }
+    const result = greedyMeshChunkSubregion(after, ZERO_OFFSET, { dirtyAABB: aabb, prev: prevMesh }, new Set(), undefined, undefined, GLASS_ID_SET)
+    const meshed = result.toMeshed()
+    expect(meshed.transparentSolid).not.toBeNull()
+  })
+})
+
+const sharedPrev = greedyMeshChunk(sharedBefore, ZERO_OFFSET)
 
   it('is multiset-equivalent to greedyMeshChunk for any single-block edit', () => {
     fc.assert(

@@ -1,4 +1,4 @@
-import { describe, it } from 'vitest'
+import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
 import { Array as Arr, Either, Schema } from 'effect'
 import { SettingsSchema, type Settings } from '@ts-minecraft/game'

@@ -4,9 +4,10 @@
 // findCraftable({...available, moreStuff}) must also return R.
 // Adding items never removes a craftable recipe.
 import { describe, it } from '@effect/vitest'
+import { expect } from 'vitest'
 import { Array as Arr, Effect, HashMap, HashSet, Option } from 'effect'
 import * as fc from 'effect/FastCheck'
-import type { InventoryItem } from '@ts-minecraft/kernel'
+import type { InventoryItem } from '@ts-minecraft/core'
 import { RecipeService } from '@ts-minecraft/inventory'
 
 describe('recipe-service / findCraftable (property-based)', () => {
@@ -123,7 +124,7 @@ describe('recipe-service / findCraftable (property-based)', () => {
         // All known recipes must be craftable when all ingredients are available
         Arr.forEach(Arr.fromIterable(allIds), id => {
           if (!HashSet.has(craftableIds, id)) {
-            throw new Error(`Recipe ${id} should be craftable with fully stocked inventory`)
+expect.fail(`Recipe ${id} should be craftable with fully stocked inventory`)
           }
         })
       }).pipe(Effect.provide(RecipeService.Default))

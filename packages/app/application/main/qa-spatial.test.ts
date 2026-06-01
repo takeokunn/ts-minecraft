@@ -1,4 +1,5 @@
-import { describe, expect, it } from 'vitest'
+import { describe, it } from '@effect/vitest'
+import { expect } from 'vitest'
 import { Effect, Option } from 'effect'
 import * as THREE from 'three'
 import {
@@ -7,7 +8,7 @@ import {
   projectBlockAhead,
   scanNearbyBlock,
 } from '@ts-minecraft/app/main/qa-spatial'
-import { CHUNK_HEIGHT, CHUNK_SIZE } from '@ts-minecraft/kernel'
+import { CHUNK_HEIGHT, CHUNK_SIZE } from '@ts-minecraft/core'
 
 describe('qa-spatial', () => {
   it('derives normalized look direction and projected positions', () => {

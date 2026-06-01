@@ -1,4 +1,5 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { describe, it } from '@effect/vitest'
+import { beforeEach, expect, vi } from 'vitest'
 
 // ─── Module mocks (hoisted by vitest before any imports) ────────────────────
 

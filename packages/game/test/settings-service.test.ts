@@ -144,7 +144,7 @@ describe('application/settings/settings-service', () => {
 
     it.effect('falls back to defaults when localStorage.getItem throws', () => {
       getItemSpy.mockImplementation(() => {
-        throw new Error('boom')
+expect.fail('boom')
       })
       return Effect.gen(function* () {
         const service = yield* SettingsService

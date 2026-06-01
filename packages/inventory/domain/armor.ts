@@ -1,5 +1,5 @@
 import { Option } from 'effect'
-import type { InventoryItem } from '@ts-minecraft/kernel'
+import type { InventoryItem } from '@ts-minecraft/core'
 
 // Armor slot types — correspond to the four equipment positions.
 export type ArmorSlot = 'HELMET' | 'CHESTPLATE' | 'LEGGINGS' | 'BOOTS'

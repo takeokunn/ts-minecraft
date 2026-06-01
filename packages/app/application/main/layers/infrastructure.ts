@@ -6,43 +6,40 @@ import { Effect, Layer } from 'effect'
 
 // Three.js rendering infrastructure
 import { RendererServiceLive, SceneServiceLive, PerspectiveCameraServiceLive, TextureServiceLive, BlockMeshServiceLive, ChunkMeshServiceLive } from '@ts-minecraft/rendering'
-import { BlockRegistryLive } from '@ts-minecraft/world-state'
+import { BlockRegistryLive } from '@ts-minecraft/block'
 
 // Physics infrastructure (custom engine)
 import {
   PhysicsWorldPortLayer,
   RigidBodyPortLayer,
   ShapePortLayer,
-} from '@ts-minecraft/physics'
+} from '@ts-minecraft/game'
 
 // Procedural generation and storage infrastructure
-import { NoiseService, NoiseServiceLive } from '@ts-minecraft/terrain'
-import { StorageService, StorageServiceLive } from '@ts-minecraft/world-state'
-export { TerrainWorkerPoolPortLayer } from '@ts-minecraft/terrain'
+import { NoiseService, NoiseServiceLive, StorageService, StorageServiceLive } from '@ts-minecraft/world'
+export { TerrainWorkerPoolPortLayer } from '@ts-minecraft/worker'
 
 // Chunk domain service
-import { ChunkServiceLive } from '@ts-minecraft/terrain'
+import { ChunkServiceLive } from '@ts-minecraft/world'
 
 // Application-layer ports (decouple application from infrastructure)
-import { NoiseServicePort } from '@ts-minecraft/terrain'
-import { StorageServicePort } from '@ts-minecraft/terrain'
-import { EnvironmentLive } from '@ts-minecraft/world-state'
+import { NoiseServicePort, StorageServicePort, EnvironmentLive } from '@ts-minecraft/world'
 
 // Terrain
-import { BiomeServiceLive } from '@ts-minecraft/terrain'
+import { BiomeServiceLive } from '@ts-minecraft/world'
 
 // Application services that consume only ports — live alongside infrastructure
 // because they have no presentation/game-logic dependencies.
-import { PhysicsServiceLive } from '@ts-minecraft/physics'
+import { PhysicsServiceLive } from '@ts-minecraft/game'
 
 // Player state (used by GameLayer in game-logic.ts; declared here because
 // PlayerServiceLive has no dependencies and is part of the base graph).
-import { PlayerServiceLive } from '@ts-minecraft/player'
+import { PlayerServiceLive } from '@ts-minecraft/entity'
 
 // Input infrastructure (raw DOM/keyboard) — exposed at this layer because
 // DomOperationsLive is the lowest-level DOM port the rest of the graph builds on.
-import { InputServiceLive } from '@ts-minecraft/app/presentation/input/input-service'
-import { DomOperationsLive } from '@ts-minecraft/app/presentation/hud/crosshair'
+import { InputServiceLive } from '@ts-minecraft/presentation/input/input-service'
+import { DomOperationsLive } from '@ts-minecraft/presentation/hud/crosshair'
 
 // Game loop service (no external service dependencies)
 import { GameLoopServiceLive } from '@ts-minecraft/game'

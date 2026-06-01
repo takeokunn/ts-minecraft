@@ -1,6 +1,6 @@
 import { Array as Arr, Effect, Option, Schema } from 'effect'
 import * as THREE from 'three'
-import { Vector3Schema } from '@ts-minecraft/kernel'
+import { Vector3Schema } from '@ts-minecraft/core'
 
 export const RaycastHitSchema = Schema.Struct({
   point: Vector3Schema,

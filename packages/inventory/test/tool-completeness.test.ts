@@ -1,7 +1,8 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it } from '@effect/vitest'
+import { expect } from 'vitest'
 import { TOOL_MAX_DURABILITY, isDurable, getMaxDurability } from '../domain/durability'
 import { Option } from 'effect'
-import type { InventoryItem } from '@ts-minecraft/kernel'
+import type { InventoryItem } from '@ts-minecraft/core'
 
 // Guards: every tool tier should have all four tool types.
 // If a new material tier is added, this test catches missing entries.

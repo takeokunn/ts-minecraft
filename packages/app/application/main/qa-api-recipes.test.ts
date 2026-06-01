@@ -1,9 +1,10 @@
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { describe, it } from '@effect/vitest'
+import { afterEach, expect, vi } from 'vitest'
 import { Effect, HashMap, Option } from 'effect'
 import * as THREE from 'three'
-import { DeltaTimeSecs, RecipeId, SlotIndex, type InventoryItem, type InventorySaveData } from '@ts-minecraft/kernel'
-import { EntityId, type Entity } from '@ts-minecraft/entities'
-import type { FurnaceBlockState } from '@ts-minecraft/furnace'
+import { DeltaTimeSecs, RecipeId, SlotIndex, type InventoryItem, type InventorySaveData } from '@ts-minecraft/core'
+import { EntityId, type Entity } from '@ts-minecraft/entity'
+import type { FurnaceBlockState } from '@ts-minecraft/inventory'
 import { createStack } from '@ts-minecraft/inventory'
 import { installQaApi } from '@ts-minecraft/app/main/qa-api'
 import {
@@ -46,7 +47,7 @@ const installDocument = () => {
 
 const getQaApi = (): NonNullable<typeof window.__TS_MINECRAFT_QA__> => {
   const qa = window.__TS_MINECRAFT_QA__
-  if (!qa) throw new Error('QA API is not installed on window')
+if (!qa) expect.fail('QA API is not installed on window')
   return qa
 }
 

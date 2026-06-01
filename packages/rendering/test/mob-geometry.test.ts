@@ -1,4 +1,5 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it } from '@effect/vitest'
+import { expect } from 'vitest'
 import * as THREE from 'three'
 import { Option } from 'effect'
 import { buildMobGroup } from '@ts-minecraft/rendering'
@@ -100,5 +101,37 @@ describe('mob-geometry', () => {
       expect(fl).toBe(bl)
       expect(fl).toBe(br)
     })
+  })
+})
+
+describe('buildMobGroup — additional mob types', () => {
+  it('builds a Creeper (quadruped) without error', () => {
+    const g = buildMobGroup('Creeper')
+    expect(g.head).toBeDefined()
+    expect(g.body).toBeDefined()
+    expect(g.legFL).toBeDefined()
+  })
+
+  it('builds a Skeleton (biped) without error', () => {
+    const g = buildMobGroup('Skeleton')
+    expect(g.head).toBeDefined()
+    expect(g.body).toBeDefined()
+    expect(g.legFL).toBeDefined()
+    expect(g.armL).toBeDefined()
+  })
+
+  it('builds a Spider (quadruped) without error', () => {
+    const g = buildMobGroup('Spider')
+    expect(g.head).toBeDefined()
+    expect(g.body).toBeDefined()
+    expect(g.legFL).toBeDefined()
+  })
+
+  it('builds an Enderman (biped) without error', () => {
+    const g = buildMobGroup('Enderman')
+    expect(g.head).toBeDefined()
+    expect(g.body).toBeDefined()
+    expect(g.legFL).toBeDefined()
+    expect(g.armL).toBeDefined()
   })
 })

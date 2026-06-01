@@ -1,5 +1,5 @@
 import * as THREE from 'three'
-import type { EntityType } from '@ts-minecraft/entities'
+import type { EntityType } from '@ts-minecraft/entity'
 import { MutableHashMap, Option } from 'effect'
 
 export type MobLimbGroup = Readonly<{

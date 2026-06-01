@@ -1,8 +1,8 @@
 import { Array as Arr, Effect, Ref, Option } from 'effect'
-import type { InventoryItem } from '@ts-minecraft/kernel'
-import type { InventorySaveData } from '@ts-minecraft/kernel'
+import type { InventoryItem } from '@ts-minecraft/core'
+import type { InventorySaveData } from '@ts-minecraft/core'
 import { ItemStack, createStack, mergeStacks, canMerge, addToStack, removeFromStack, maxStackFor, damageStack } from '../domain/item-stack'
-import { SlotIndex } from '@ts-minecraft/kernel'
+import { SlotIndex } from '@ts-minecraft/core'
 import { InventoryError } from '../domain/errors'
 
 export type InventorySlot = Option.Option<ItemStack>

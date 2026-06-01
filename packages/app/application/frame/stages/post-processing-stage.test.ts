@@ -1,4 +1,4 @@
-import { it } from '@effect/vitest'
+import { describe, it } from '@effect/vitest'
 import {
 DEFAULT_SETTINGS,
 makeDeps,
@@ -9,9 +9,9 @@ makeSettingsOverlay,
 runFrame,
 } from '@test/frame-handler-test-kit'
 import { createFrameHandlers } from '@ts-minecraft/app'
-import type { DeltaTimeSecs } from '@ts-minecraft/kernel'
+import type { DeltaTimeSecs } from '@ts-minecraft/core'
 import { Effect,MutableRef,Option } from 'effect'
-import { describe,expect,vi } from 'vitest'
+import { expect,vi } from 'vitest'
 
 // ---------------------------------------------------------------------------
 // FR-009: Refraction pre-pass skip on low quality

@@ -1,4 +1,5 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, it } from '@effect/vitest'
+import { expect, vi } from 'vitest'
 import { Effect, Either, Option } from 'effect'
 import {
   buildRespawnPosition,
@@ -7,14 +8,14 @@ import {
   type SavedPlayerState,
 } from './session-world-loader'
 import { GameModeService, type GameMode } from '../../../game'
-import { WorldId, CHUNK_HEIGHT } from '@ts-minecraft/kernel'
-import { ChunkManagerService } from '../../../terrain/application/chunk-manager-service'
-import { NoiseService } from '../../../terrain/application/noise-service'
-import { StorageError } from '../../../world-state/domain/errors'
+import { WorldId, CHUNK_HEIGHT } from '@ts-minecraft/core'
+import { ChunkManagerService } from '@ts-minecraft/world/application/chunk-manager-service'
+import { NoiseService } from '@ts-minecraft/world/application/noise-service'
+import { StorageError } from '@ts-minecraft/world/domain/errors'
 import {
   StorageService,
   type WorldMetadata,
-} from '../../../world-state/infrastructure/storage-service'
+} from '@ts-minecraft/world/infrastructure/storage-service'
 
 // ---------------------------------------------------------------------------
 // Mock factories

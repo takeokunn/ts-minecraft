@@ -1,6 +1,6 @@
 import { Array as Arr, Effect, Ref, HashMap, Option } from 'effect'
 import * as THREE from 'three'
-import { MaterialCacheKey } from '@ts-minecraft/kernel'
+import { MaterialCacheKey } from '@ts-minecraft/core'
 
 export class BlockMeshService extends Effect.Service<BlockMeshService>()(
   '@minecraft/infrastructure/three/BlockMeshService',

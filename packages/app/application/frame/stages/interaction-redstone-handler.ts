@@ -1,7 +1,7 @@
 import { Effect, Match, Option } from 'effect'
-import { RedstoneComponentType } from '@ts-minecraft/entities'
+import { RedstoneComponentType } from '@ts-minecraft/entity'
 import type { FrameHandlerServices } from '@ts-minecraft/app/frame/types'
-import type { Position } from '@ts-minecraft/kernel'
+import type { Position } from '@ts-minecraft/core'
 
 export type RedstoneFlags = {
   readonly placeWire: boolean

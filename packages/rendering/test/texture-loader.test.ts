@@ -13,7 +13,7 @@ describe('three/textures/texture-loader', () => {
           if (tag === 'canvas') {
             return mockCanvasElement()
           }
-          throw new Error(`Unexpected element request in texture-loader test: ${tag}`)
+expect.fail(`Unexpected element request in texture-loader test: ${tag}`)
         }),
       })
     })

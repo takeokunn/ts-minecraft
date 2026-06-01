@@ -1,4 +1,4 @@
-import type { InventoryItem } from '@ts-minecraft/kernel'
+import type { InventoryItem } from '@ts-minecraft/core'
 
 // Maps every InventoryItem (BlockType | ItemType) to a single atlas tile index
 // for use in inventory/hotbar rendering.

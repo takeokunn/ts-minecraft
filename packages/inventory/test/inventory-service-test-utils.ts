@@ -1,10 +1,10 @@
 import { Array as Arr, Effect, Layer, MutableHashMap, MutableRef } from 'effect'
-import type { BlockType } from '@ts-minecraft/kernel'
-import type { Block } from '@ts-minecraft/world-state'
-import { BlockRegistry } from '@ts-minecraft/world-state'
+import type { BlockType } from '@ts-minecraft/core'
+import type { Block } from '@ts-minecraft/block'
+import { BlockRegistry } from '@ts-minecraft/block'
 import { InventoryServiceLive } from '@ts-minecraft/inventory'
 
-export const asSlotIndex = (n: number): import('@ts-minecraft/kernel').SlotIndex => n as import('@ts-minecraft/kernel').SlotIndex
+export const asSlotIndex = (n: number): import('@ts-minecraft/core').SlotIndex => n as import('@ts-minecraft/core').SlotIndex
 
 export const makeBlock = (type: BlockType): Block => ({
   id: `block:${type.toLowerCase()}` as Block['id'],

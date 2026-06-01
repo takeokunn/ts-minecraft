@@ -25,8 +25,7 @@ export const TargetFps = {
   toNumber: (fps: TargetFps): number => fps,
 }
 
-const fpsValue = (fps: TargetFps | number): number =>
-  typeof fps === 'number' ? fps : TargetFps.toNumber(fps)
+const fpsValue = (fps: TargetFps | number): number => fps
 
 /**
  * Total frame budget in milliseconds for the given target FPS.
@@ -63,6 +62,6 @@ export const computeMaxDirtyChunkUpdatesPerFrame = (targetFps: TargetFps | numbe
 /**
  * Default target FPS used by the rest of the engine until `SettingsSchema`
  * grows a first-class field for it. Centralised here so a single edit will
- * roll the new value out everywhere when that migration happens.
+ * roll the new value out everywhere when that settings field is added.
  */
 export const DEFAULT_TARGET_FPS: TargetFps = TargetFps.make(120)

@@ -1,4 +1,4 @@
-import { it } from '@effect/vitest'
+import { describe, it } from '@effect/vitest'
 import {
   makeDeps,
   makeInputService,
@@ -9,7 +9,7 @@ import {
 } from '@test/frame-handler-test-kit'
 import { Effect, Option } from 'effect'
 import * as THREE from 'three'
-import { describe, expect, vi } from 'vitest'
+import { expect, vi } from 'vitest'
 
 // ---------------------------------------------------------------------------
 // Phase 14 — mob vocalizations: a LETHAL player attack plays mobDeath only;

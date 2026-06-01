@@ -1,5 +1,5 @@
 import { Effect, Ref } from 'effect'
-import { GameModeSchema, GameMode, DEFAULT_GAME_MODE } from '@ts-minecraft/kernel'
+import { GameModeSchema, GameMode, DEFAULT_GAME_MODE } from '@ts-minecraft/core'
 
 export { GameModeSchema, DEFAULT_GAME_MODE }
 export type { GameMode }

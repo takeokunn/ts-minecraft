@@ -1,5 +1,5 @@
 import { ITEM_TILE_MAP } from './item-texture-map.config'
-import type { InventoryItem } from '@ts-minecraft/kernel'
+import type { InventoryItem } from '@ts-minecraft/core'
 
 export { ITEM_TILE_MAP }
 

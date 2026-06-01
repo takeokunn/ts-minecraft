@@ -1,12 +1,12 @@
 import { describe, it, expect } from '@effect/vitest'
 import { Array as Arr, Effect, Either, Option } from 'effect'
-import { DeltaTimeSecs } from '@ts-minecraft/kernel'
+import { DeltaTimeSecs } from '@ts-minecraft/core'
 import {
   GameStateService,
   GameStateError,
   PLAYER_BODY_ID,
 } from '@ts-minecraft/game'
-import { DEFAULT_PLAYER_ID } from '@ts-minecraft/kernel'
+import { DEFAULT_PLAYER_ID } from '@ts-minecraft/core'
 import { createTestInputService, createTestLayer } from './game-state-test-utils'
 
 describe('application/game-state (core)', () => {

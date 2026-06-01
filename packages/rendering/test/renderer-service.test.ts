@@ -1,5 +1,5 @@
-import { describe, expect } from 'vitest'
-import { it } from '@effect/vitest'
+import { describe, it } from '@effect/vitest'
+import { expect } from 'vitest'
 import { Effect } from 'effect'
 import * as THREE from 'three'
 import { RendererService, RendererServiceLive } from '@ts-minecraft/rendering'

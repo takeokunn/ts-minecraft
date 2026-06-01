@@ -8,18 +8,18 @@ import { SceneServiceLive, WorldRendererServiceLive, EntityRendererLive, ChunkMe
 import { ParticleSystemServiceLive } from '@ts-minecraft/rendering/particles/particle-system'
 
 // Chunk domain service (used by ChunkManagerLayer / BlockLayer)
-import { ChunkServiceLive } from '@ts-minecraft/terrain'
-import { BlockRegistryLive } from '@ts-minecraft/world-state'
+import { ChunkServiceLive } from '@ts-minecraft/world'
+import { BlockRegistryLive } from '@ts-minecraft/block'
 
 // Player state, health, and movement
-import { PlayerServiceLive } from '@ts-minecraft/player'
-import { HealthServiceLive, HungerServiceLive, XPServiceLive, FishingServiceLive } from '@ts-minecraft/player'
-import { MovementServiceLive } from '@ts-minecraft/player'
+import { PlayerServiceLive } from '@ts-minecraft/entity'
+import { HealthServiceLive, HungerServiceLive, XPServiceLive, FishingServiceLive } from '@ts-minecraft/entity'
+import { MovementServiceLive } from '@ts-minecraft/entity'
 
 // Block interaction and hotbar
-import { BlockServiceLive } from '@ts-minecraft/terrain'
+import { BlockServiceLive } from '@ts-minecraft/world'
 import { HotbarServiceLive } from '@ts-minecraft/inventory'
-import { HotbarRendererLive } from '@ts-minecraft/app/presentation/hud/hotbar-three'
+import { HotbarRendererLive } from '@ts-minecraft/presentation/hud/hotbar-three'
 import { DebugFeatureFlagsServiceLive } from '@ts-minecraft/app/debug-feature-flags'
 
 // Game mode (survival/creative) — single-instance state for the active session
@@ -31,27 +31,27 @@ import { RecipeServiceLive } from '@ts-minecraft/inventory'
 import { EquipmentServiceLive } from '@ts-minecraft/inventory'
 import { TimeServiceLive } from '@ts-minecraft/game'
 import { AudioEngineLive, AudioEnginePortLive, MusicManagerLive, SoundManagerLive } from '@ts-minecraft/game'
-import { EntityManagerLive, MobSpawnerLive } from '@ts-minecraft/entities'
+import { EntityManagerLive, MobSpawnerLive } from '@ts-minecraft/entity'
 
 // Village / Trading / Redstone simulation services
-import { VillageServiceLive } from '@ts-minecraft/entities'
-import { TradingServiceLive } from '@ts-minecraft/entities'
-import { RedstoneServiceLive } from '@ts-minecraft/entities'
+import { VillageServiceLive } from '@ts-minecraft/entity'
+import { TradingServiceLive } from '@ts-minecraft/entity'
+import { RedstoneServiceLive } from '@ts-minecraft/entity'
 
 // Fluid, furnace, light engine
-import { FluidServiceLive } from '@ts-minecraft/terrain'
-import { FurnaceServiceLive } from '@ts-minecraft/furnace'
-import { LightEngineLive } from '@ts-minecraft/terrain'
+import { FluidServiceLive } from '@ts-minecraft/world'
+import { FurnaceServiceLive } from '@ts-minecraft/inventory'
+import { LightEngineLive } from '@ts-minecraft/world'
 
 // Chunk management
-import { ChunkManagerServiceLive } from '@ts-minecraft/terrain'
+import { ChunkManagerServiceLive } from '@ts-minecraft/world'
 
 // Game state, camera state
 import { GameStateServiceLive } from '@ts-minecraft/game'
-import { PlayerCameraStateLive } from '@ts-minecraft/player'
+import { PlayerCameraStateLive } from '@ts-minecraft/entity'
 
 // Input adapter (presentation → application)
-import { InputServiceLive, PlayerInputServiceLive } from '@ts-minecraft/app/presentation/input/input-service'
+import { InputServiceLive, PlayerInputServiceLive } from '@ts-minecraft/presentation/input/input-service'
 
 // Cross-tier deps from infrastructure module
 import {

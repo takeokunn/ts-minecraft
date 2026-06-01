@@ -6,7 +6,7 @@
 // at center y = PLAYER_HALF_HEIGHT (0.9).
 import { describe,it } from '@effect/vitest'
 import { GameStateService } from '@ts-minecraft/game'
-import { DEFAULT_PLAYER_ID,DeltaTimeSecs,PLAYER_HALF_HEIGHT,PlayerId } from '@ts-minecraft/kernel'
+import { DEFAULT_PLAYER_ID,DeltaTimeSecs,PLAYER_HALF_HEIGHT,PlayerId } from '@ts-minecraft/core'
 import { Array as Arr,Effect,Either,Option,Ref } from 'effect'
 import { expect } from 'vitest'
 import { TestGameLayer } from './game-state-test-utils'

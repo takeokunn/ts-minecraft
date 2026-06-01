@@ -1,7 +1,7 @@
 // FR-4.4 — refraction pre-pass skip when on-screen water pixel ratio is below the
 // preset-resolved threshold. Uses real THREE so the projection math runs end-to-end.
-import { describe, expect, vi } from 'vitest'
-import { it } from '@effect/vitest'
+import { describe, it } from '@effect/vitest'
+import { expect, vi } from 'vitest'
 import { Effect, MutableRef, Ref } from 'effect'
 import * as THREE from 'three'
 import { createWaterMaterial } from '@ts-minecraft/rendering'
@@ -94,7 +94,7 @@ describe('FR-4.4 — refraction pre-pass screen-ratio skip', () => {
     })
   )
 
-  it.effect('legacy behavior: minScreenRatio=0 disables the gate (always renders when water visible)', () =>
+  it.effect('minScreenRatio=0 disables the gate (always renders when water visible)', () =>
     Effect.gen(function* () {
       // Same far-water setup as the skip test; with minScreenRatio=0 the new gate is bypassed.
       const farMesh = makeWaterMesh({ x: -1, z: -50 }, 4)

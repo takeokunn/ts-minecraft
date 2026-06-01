@@ -1,0 +1,133 @@
+// @effect-boundary IndexedDB persistence adapter converts browser exceptions to Effect failures.
+import { Effect, Option, Ref } from 'effect'
+import type { WorldId, ChunkCoord } from '@ts-minecraft/core'
+import { openDatabase, type TypedIDBDatabase } from './idb-utils'
+import { StorageError } from '../domain/errors'
+import type { ChunkStorageValue } from '../domain/storage-service-port'
+import type { WorldMetadata } from '../domain/world-metadata-model'
+import { DB_NAME, DB_VERSION, STORE_CHUNKS, STORE_METADATA, chunkKey, type MinecraftWorldsDB } from './storage-idb-model'
+import { tryCatchStorage, tryCatchStorageWithRetry } from './storage-error-mapping'
+import { collectDecodedWorldMetadata, decodeOptionalWorldMetadata, encodeWorldMetadata } from './storage-serialization'
+
+export type { ChunkCoord }
+export type { ChunkStorageValue } from '../domain/storage-service-port'
+export { CURRENT_WORLD_SAVE_VERSION, WorldMetadataSchema, type WorldMetadata } from '../domain/world-metadata-model'
+export { WORLD_SCHEMA_VERSION, ChunkStorageKey } from './storage-idb-model'
+
+const uninitialized = (operation: string): StorageError =>
+  new StorageError({ operation, cause: 'Database not initialized' })
+
+const withDb = <A>(
+  dbRef: Ref.Ref<Option.Option<TypedIDBDatabase<MinecraftWorldsDB>>>,
+  operation: string,
+  f: (db: TypedIDBDatabase<MinecraftWorldsDB>) => Effect.Effect<A, StorageError>,
+): Effect.Effect<A, StorageError> =>
+  Effect.gen(function* () {
+    return yield* Option.match(yield* Ref.get(dbRef), {
+      onNone: () => Effect.fail(uninitialized(operation)),
+      onSome: f,
+    })
+  })
+
+const openWorldDatabase = (): Effect.Effect<TypedIDBDatabase<MinecraftWorldsDB>, StorageError> =>
+  openDatabase<MinecraftWorldsDB>(DB_NAME, DB_VERSION, (db) => {
+    if (!db.objectStoreNames.includes(STORE_CHUNKS)) {
+      db.createObjectStore(STORE_CHUNKS)
+    }
+    if (!db.objectStoreNames.includes(STORE_METADATA)) {
+      db.createObjectStore(STORE_METADATA)
+    }
+  }).pipe(Effect.mapError((cause) => new StorageError({ operation: 'open database', cause })))
+
+export class StorageService extends Effect.Service<StorageService>()(
+  '@minecraft/infrastructure/storage/StorageService',
+  {
+    effect: Ref.make<Option.Option<TypedIDBDatabase<MinecraftWorldsDB>>>(Option.none()).pipe(Effect.map((dbRef) => {
+      const initialize: Effect.Effect<void, StorageError> = Effect.gen(function* () {
+        yield* Option.match(yield* Ref.get(dbRef), {
+          onSome: () => Effect.void,
+          onNone: () => Effect.gen(function* () {
+            const newDb = yield* openWorldDatabase()
+            yield* Ref.set(dbRef, Option.some(newDb))
+          }),
+        })
+      })
+
+      const saveChunk = (worldId: WorldId, chunkCoord: ChunkCoord, data: ChunkStorageValue) =>
+        Effect.gen(function* () {
+          yield* initialize
+          yield* withDb(dbRef, 'saveChunk', (db) =>
+            tryCatchStorageWithRetry('saveChunk', db.put(STORE_CHUNKS, data, chunkKey(worldId, chunkCoord)))
+          )
+        })
+
+      const loadChunk = (worldId: WorldId, chunkCoord: ChunkCoord) =>
+        Effect.gen(function* () {
+          yield* initialize
+          return yield* withDb(dbRef, 'loadChunk', (db) =>
+            tryCatchStorageWithRetry('loadChunk', db.get(STORE_CHUNKS, chunkKey(worldId, chunkCoord))).pipe(
+              Effect.map(Option.fromNullable),
+            )
+          )
+        })
+
+      const saveWorldMetadata = (worldId: WorldId, metadata: WorldMetadata) =>
+        Effect.gen(function* () {
+          yield* initialize
+          const encoded = yield* encodeWorldMetadata(metadata)
+          yield* withDb(dbRef, 'saveWorldMetadata', (db) =>
+            tryCatchStorageWithRetry('saveWorldMetadata', db.put(STORE_METADATA, encoded, worldId))
+          )
+        })
+
+      const loadWorldMetadata = (worldId: WorldId) =>
+        Effect.gen(function* () {
+          yield* initialize
+          return yield* withDb(dbRef, 'loadWorldMetadata', (db) =>
+            tryCatchStorageWithRetry('loadWorldMetadata', db.get(STORE_METADATA, worldId)).pipe(
+              Effect.flatMap(decodeOptionalWorldMetadata),
+            )
+          )
+        })
+
+      const deleteWorld = (worldId: WorldId) =>
+        Effect.gen(function* () {
+          yield* initialize
+          yield* withDb(dbRef, 'deleteWorld', (db) => Effect.gen(function* () {
+            const keys: string[] = []
+            yield* tryCatchStorage(
+              'deleteWorld',
+              db.forEachCursor(STORE_CHUNKS, (cursor) =>
+                Effect.sync(() => {
+                  if (cursor.key.toString().startsWith(`${worldId}:`)) {
+                    keys.push(cursor.key.toString())
+                  }
+                })
+              ),
+            )
+            yield* Effect.forEach(keys, (key) => tryCatchStorage('deleteWorld', db.delete(STORE_CHUNKS, key)), { concurrency: 1 })
+            yield* tryCatchStorage('deleteWorld', db.delete(STORE_METADATA, worldId))
+          }))
+        })
+
+      const listWorldMetadata = Effect.gen(function* () {
+        yield* initialize
+        return yield* withDb(dbRef, 'listWorldMetadata', (db) => Effect.gen(function* () {
+          const raw: Array<{ key: string; value: unknown }> = []
+          yield* tryCatchStorage(
+            'listWorldMetadata',
+            db.forEachCursor(STORE_METADATA, (cursor) =>
+              Effect.sync(() => {
+                raw.push({ key: cursor.key.toString(), value: cursor.value })
+              }),
+            ),
+          )
+          return yield* collectDecodedWorldMetadata(raw)
+        }))
+      })
+
+      return { initialize, saveChunk, loadChunk, saveWorldMetadata, loadWorldMetadata, listWorldMetadata, deleteWorld }
+    })),
+  }
+) {}
+export const StorageServiceLive = StorageService.Default

@@ -3,15 +3,13 @@
 // Per-stage decomposition (FR-017): each phase lives under frame/stages/; this module owns long-lived refs.
 import { Effect, HashMap, MutableRef, Option, Ref } from 'effect'
 import * as THREE from 'three'
-import { DEFAULT_PLAYER_ID } from '@ts-minecraft/kernel'
 import { resolvePreset, type ResolvedGraphics } from '@ts-minecraft/game'
-import type { Chunk } from '@ts-minecraft/terrain'
+import type { Chunk } from '@ts-minecraft/world'
 import type { DirtyChunkEntry } from './frame/frame-maintenance'
 import { type DayNightLights } from '@ts-minecraft/game'
-import type { DeltaTimeSecs } from '@ts-minecraft/kernel'
-import { FALLBACK_PLAYER_POS } from './frame-handler.config'
 import { type CameraPoseSnapshot } from '@ts-minecraft/app/frame/frame-runtime-logic'
 import { createMaintenanceHandler } from '@ts-minecraft/app/frame/frame-maintenance'
+import { runFrameStages } from '@ts-minecraft/app/frame/frame-stage-executor'
 import type {
   FrameHandlerDeps,
   FrameHandlerServices,
@@ -19,16 +17,6 @@ import type {
   FrameStageRefs,
   ResolvedDeps,
 } from '@ts-minecraft/app/frame/types'
-import { lightingStage } from '@ts-minecraft/app/frame/stages/lighting-stage'
-import { entityUpdateStage } from '@ts-minecraft/app/frame/stages/entity-update-stage'
-import { chunkSyncStage } from '@ts-minecraft/app/frame/stages/chunk-sync-stage'
-import { physicsStage } from '@ts-minecraft/app/frame/stages/physics-stage'
-import { inputStage } from '@ts-minecraft/app/frame/stages/input-stage'
-import { cameraStage } from '@ts-minecraft/app/frame/stages/camera-stage'
-import { interactionStage } from '@ts-minecraft/app/frame/stages/interaction-stage'
-import { refractionPrepassStage, postProcessingSetupStage } from '@ts-minecraft/app/frame/stages/post-processing-stage'
-import { renderStage } from '@ts-minecraft/app/frame/stages/render-stage'
-import { hudStage } from '@ts-minecraft/app/frame/stages/hud-stage'
 
 // Re-export shared types so callers (tests, layers, presentation) keep importing
 // from `@/frame-handler` without needing to reach into `@/frame/types`.
@@ -220,173 +208,13 @@ const createFrameLoopHandlersInternal = (
       dirtyChunksRef,
     })
 
-    // ---- Per-frame orchestrator: sequences stages in order ----
-    const frameHandler = (deltaTime: DeltaTimeSecs) =>
-      Effect.gen(function* () {
-        // Accumulate total elapsed time for water shader uniform
-        const totalTimeSecs = yield* Ref.updateAndGet(totalTimeSecsRef, (t) => t + deltaTime)
-
-        // Fetch settings once per frame for shadow/SSAO and day-length reactive changes
-        const currentSettings = yield* services.settingsService.getSettings()
-        const debugFlags = yield* services.debugFeatureFlags.getFlags()
-        const graphicsCacheKey = [
-          currentSettings.graphicsQuality,
-          debugFlags['rendering.shadows'] ? 'shadows:on' : 'shadows:off',
-          debugFlags['rendering.sky'] ? 'sky:on' : 'sky:off',
-        ].join('|')
-
-        // Derive effective lights: conditionally nullify sky port based on preset/debug flag.
-        // Cache resolvePreset result — only recompute when graphics quality or rendering debug flags change.
-        const [resolvedGraphics, graphicsChanged] = yield* Ref.modify(
-          lastGraphicsQualityRef,
-          (last): [[ResolvedGraphics, boolean], { quality: string; resolved: ResolvedGraphics }] => {
-            if (last.quality === graphicsCacheKey) return [[last.resolved, false], last]
-            const preset = resolvePreset(currentSettings.graphicsQuality)
-            const resolvedWithDebugFlags =
-              debugFlags['rendering.shadows'] && debugFlags['rendering.sky']
-                ? preset
-                : {
-                    ...preset,
-                    shadowsEnabled: preset.shadowsEnabled && debugFlags['rendering.shadows'],
-                    skyEnabled: preset.skyEnabled && debugFlags['rendering.sky'],
-                  }
-            const next = {
-              quality: graphicsCacheKey,
-              resolved: resolvedWithDebugFlags,
-            }
-            return [[next.resolved, true], next]
-          },
-        )
-        const effectiveLights = resolvedGraphics.skyEnabled ? deps.lights : lightsWithoutSky
-        const pixelRatioChanged = yield* applyPixelRatioCap(resolvedGraphics.pixelRatioCap)
-        yield* Effect.sync(() => {
-          /* c8 ignore next */
-          if (resolved.skyMeshOrNull) resolved.skyMeshOrNull.visible = resolvedGraphics.skyEnabled
-        })
-
-        // Hoist player position — shared across stages to avoid redundant Effect calls
-        const initialPlayerPos = yield* services.gameState
-          .getPlayerPosition(DEFAULT_PLAYER_ID)
-          .pipe(Effect.catchAllCause(() => Effect.succeed(FALLBACK_PLAYER_POS)))
-
-        // Audio settings (FR-005: skip applySettings when values haven't changed)
-        const lastAudio = MutableRef.get(lastAudioRef)
-        const audioChanged =
-          lastAudio.enabled !== currentSettings.audioEnabled ||
-          lastAudio.master !== currentSettings.masterVolume ||
-          lastAudio.sfx !== currentSettings.sfxVolume ||
-          lastAudio.music !== currentSettings.musicVolume
-        if (audioChanged) {
-          MutableRef.set(lastAudioRef, {
-            enabled: currentSettings.audioEnabled,
-            master: currentSettings.masterVolume,
-            sfx: currentSettings.sfxVolume,
-            music: currentSettings.musicVolume,
-          })
-          yield* services.soundManager.applySettings({
-            enabled: currentSettings.audioEnabled,
-            masterVolume: currentSettings.masterVolume,
-            sfxVolume: currentSettings.sfxVolume,
-          })
-          yield* services.musicManager.applySettings({
-            enabled: currentSettings.audioEnabled,
-            masterVolume: currentSettings.masterVolume,
-            musicVolume: currentSettings.musicVolume,
-          })
-        }
-        // Listener position updates every frame (player moves)
-        yield* services.soundManager.setListenerPosition(initialPlayerPos)
-
-        // FR-1.4 pause matrix: when sessionPausedRef is true (pause-menu open or
-        // quit-to-title in progress), skip simulation/world stages but keep
-        // input + render running so the menu draws on top of the paused scene.
-        // See main/session-control.ts for the pause-flag owner.
-        const sessionPaused = MutableRef.get(deps.sessionPausedRef)
-
-        // === Stage execution ===
-        if (!sessionPaused) {
-          yield* chunkSyncStage(deps, services, refs)
-
-          yield* lightingStage(deps, services, refs, {
-            deltaTime,
-            effectiveLights,
-            playerPos: initialPlayerPos,
-            markShadowMapDirty,
-          })
-
-          const isNight = yield* services.timeService.isNight()
-          yield* entityUpdateStage(deps, services, refs, {
-            deltaTime,
-            playerPos: initialPlayerPos,
-            totalTimeSecs,
-            isNight,
-          })
-        }
-
-        // Physics: paused → skip update, but still snapshot last-known position
-        // so cameraStage receives a sensible playerPos to render the static scene.
-        const { playerPos } = sessionPaused
-          ? { playerPos: initialPlayerPos }
-          : yield* physicsStage(deps, services, refs, {
-              deltaTime,
-              initialPlayerPos,
-              healthValueElementOrNull: resolved.healthValueElementOrNull,
-              healthMaxElementOrNull: resolved.healthMaxElementOrNull,
-              hungerValueElementOrNull: resolved.hungerValueElementOrNull,
-              hungerMaxElementOrNull: resolved.hungerMaxElementOrNull,
-              xpLevelElementOrNull: resolved.xpLevelElementOrNull,
-              xpBarElementOrNull: resolved.xpBarElementOrNull,
-              armorValueElementOrNull: resolved.armorValueElementOrNull,
-            })
-
-        // inputStage: ALWAYS runs — needed to receive ESC to unpause + dismiss
-        // overlays. Inside, the existing gamePausedRef gates per-overlay logic.
-        yield* inputStage(deps, services, {
-          mouseSensitivity: currentSettings.mouseSensitivity,
-          dayLengthSeconds: currentSettings.dayLengthSeconds,
-          playerPos,
-        })
-
-        if (!sessionPaused) {
-          yield* cameraStage(deps, services, refs, {
-            playerPos,
-            renderDistance: currentSettings.renderDistance,
-            markShadowMapDirty,
-          })
-
-          yield* interactionStage(deps, services, refs)
-
-          yield* refractionPrepassStage(deps, services, refs, {
-            resolvedGraphics,
-            totalTimeSecs,
-          })
-        }
-
-        // postProcessingSetupStage: ALWAYS runs — pass enable/setSize must
-        // react to resize events that arrive while paused.
-        yield* postProcessingSetupStage(deps, resolved, {
-          resolvedGraphics,
-          graphicsChanged,
-          pixelRatioChanged,
-          markShadowMapDirty,
-        })
-
-        // renderStage: ALWAYS runs — pause-menu draws over the static world.
-        yield* renderStage(deps, services, resolved, {
-          resolvedGraphics,
-          sunWorldPos,
-        })
-
-        // hudStage: ALWAYS runs — FPS counter + adaptive perf still update.
-        // Adaptive perf eval inside hudStage already guards on cooldown; we
-        // additionally suppress its FPS-driven preset switches while paused so
-        // a temporarily low FPS at pause doesn't downgrade graphics.
-        yield* hudStage(deps, services, refs, {
-          deltaTime,
-          currentSettings,
-          fpsElementOrNull: resolved.fpsElementOrNull,
-          paused: sessionPaused,
-        })
+    const frameHandler = (deltaTime: Parameters<FrameLoopHandlers['frameHandler']>[0]) =>
+      runFrameStages(deltaTime, deps, services, refs, {
+        resolved,
+        lightsWithoutSky,
+        sunWorldPos,
+        applyPixelRatioCap,
+        markShadowMapDirty,
       })
 
     return { frameHandler, maintenanceHandler }

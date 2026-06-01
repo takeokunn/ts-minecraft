@@ -1,4 +1,4 @@
-import { it } from '@effect/vitest'
+import { describe, it } from '@effect/vitest'
 import {
 makeDeps,
 makeInputService,
@@ -8,11 +8,11 @@ makeSettingsOverlay,
 runFrame,
 } from '@test/frame-handler-test-kit'
 import { lightingStage } from '@ts-minecraft/app/frame/stages/lighting-stage'
-import type { DeltaTimeSecs } from '@ts-minecraft/kernel'
+import type { DeltaTimeSecs } from '@ts-minecraft/core'
 import type { DayNightLights } from '@ts-minecraft/game'
 import { Array as Arr,Effect,Option,Ref } from 'effect'
 import * as THREE from 'three'
-import { describe,expect,vi } from 'vitest'
+import { expect,vi } from 'vitest'
 
 // ---------------------------------------------------------------------------
 // Step 2: Day/night cycle

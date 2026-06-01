@@ -1,5 +1,5 @@
 import { Schema } from 'effect'
-import { InventoryItemSchema, RecipeIdSchema } from '@ts-minecraft/kernel'
+import { InventoryItemSchema, RecipeIdSchema } from '@ts-minecraft/core'
 
 export const CraftingStationSchema = Schema.Literal('inventory', 'crafting_table', 'furnace')
 export type CraftingStation = Schema.Schema.Type<typeof CraftingStationSchema>

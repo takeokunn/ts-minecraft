@@ -1,0 +1,17 @@
+{
+  "name": "@ts-minecraft/entity",
+  "version": "1.0.0",
+  "type": "module",
+  "private": true,
+  "exports": {
+    ".": "./index.ts",
+    "./*": "./*"
+  },
+  "dependencies": {
+    "@ts-minecraft/core": "workspace:*",
+    "@ts-minecraft/block": "workspace:*",
+    "@ts-minecraft/inventory": "workspace:*",
+    "@ts-minecraft/world": "workspace:*",
+    "@ts-minecraft/game": "workspace:*"
+  }
+}

@@ -1,6 +1,6 @@
 import { Effect, Option, Queue, Ref, Fiber, Schema, Cause, MutableRef, Duration } from 'effect'
 import { GameLoopError } from '../domain/errors'
-import { DeltaTimeSecs } from '@ts-minecraft/kernel'
+import { DeltaTimeSecs } from '@ts-minecraft/core'
 import { FIRST_FRAME_DELTA_SECS } from '../domain/constants'
 
 export const FrameCommandSchema = Schema.TaggedStruct('Tick', {

@@ -8,7 +8,7 @@ import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
 import { Array as Arr, Effect } from 'effect'
 import { GameStateService } from '@ts-minecraft/game'
-import { DeltaTimeSecs } from '@ts-minecraft/kernel'
+import { DeltaTimeSecs } from '@ts-minecraft/core'
 import { TestGameLayer } from './game-state-test-utils'
 
 // ---------------------------------------------------------------------------

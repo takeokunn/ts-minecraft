@@ -1,8 +1,9 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, it } from '@effect/vitest'
+import { expect, vi } from 'vitest'
 import { Effect, Either, Option } from 'effect'
 import { buildPersistSessionState, restoreSavedState } from '@ts-minecraft/app/main/session-save'
-import { WorldId } from '@ts-minecraft/kernel'
-import { StorageError } from '@ts-minecraft/world-state'
+import { WorldId } from '@ts-minecraft/core'
+import { StorageError } from '@ts-minecraft/world'
 
 // ---------------------------------------------------------------------------
 // Minimal mock factories

@@ -1,5 +1,5 @@
-import { describe, expect, vi, beforeEach, afterEach } from 'vitest'
-import { it } from '@effect/vitest'
+import { describe, it } from '@effect/vitest'
+import { expect, vi, beforeEach, afterEach } from 'vitest'
 import { Effect, Either, MutableRef, Option, Ref } from 'effect'
 import { GameLoopService, GameLoopServiceLive } from '@ts-minecraft/game'
 import { GameLoopError } from '../domain/errors'

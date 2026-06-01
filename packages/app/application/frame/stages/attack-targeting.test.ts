@@ -1,7 +1,8 @@
-import { describe, expect, it } from 'vitest'
+import { describe, it } from '@effect/vitest'
+import { expect } from 'vitest'
 import { Option } from 'effect'
 import * as THREE from 'three'
-import { EntityId } from '@ts-minecraft/entities'
+import { EntityId } from '@ts-minecraft/entity'
 import { findAttackableEntity } from './attack-targeting'
 
 const makeCamera = (px: number, py: number, pz: number, dirX: number, dirY: number, dirZ: number): THREE.PerspectiveCamera => {

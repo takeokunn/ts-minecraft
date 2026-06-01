@@ -2,7 +2,7 @@ import { Effect, MutableRef, Option, Ref } from 'effect'
 import { logErrors } from '@ts-minecraft/app/frame/error-logging'
 import type { FrameHandlerDeps, FrameHandlerServices, FrameSettingsView, FrameStageRefs } from '@ts-minecraft/app/frame/types'
 import { decideAdaptiveQuality, type AdaptiveQualityDecision } from '@ts-minecraft/app/frame/frame-runtime-logic'
-import type { DeltaTimeSecs } from '@ts-minecraft/kernel'
+import type { DeltaTimeSecs } from '@ts-minecraft/core'
 
 export const hudStage = (
   deps: Pick<FrameHandlerDeps, 'renderer'>,

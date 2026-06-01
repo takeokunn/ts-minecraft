@@ -1,19 +1,18 @@
 {
   "name": "@ts-minecraft/game",
-  "version": "0.0.0",
-  "private": true,
+  "version": "1.0.0",
   "type": "module",
-  "main": "./index.ts",
+  "private": true,
   "exports": {
-    ".": "./index.ts"
+    ".": "./index.ts",
+    "./*": "./*"
   },
   "dependencies": {
-    "@ts-minecraft/kernel": "*",
-    "@ts-minecraft/player": "*",
-    "@ts-minecraft/physics": "*",
-    "@ts-minecraft/terrain": "*",
-    "@ts-minecraft/inventory": "*",
-    "@ts-minecraft/world-state": "*",
-    "effect": "*"
+    "@ts-minecraft/core": "workspace:*",
+    "@ts-minecraft/block": "workspace:*",
+    "@ts-minecraft/entity": "workspace:*",
+    "@ts-minecraft/inventory": "workspace:*",
+    "@ts-minecraft/world": "workspace:*",
+    "effect": "^3.20.0"
   }
 }

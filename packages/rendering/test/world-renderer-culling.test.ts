@@ -1,5 +1,5 @@
-import { describe, expect, vi } from 'vitest'
-import { it } from '@effect/vitest'
+import { describe, it } from '@effect/vitest'
+import { expect, vi } from 'vitest'
 import * as THREE from 'three'
 
 // ---------------------------------------------------------------------------
@@ -71,6 +71,7 @@ vi.mock('three', () => ({
   RGBAFormat: 0,
   FrontSide: 0,
   DoubleSide: 2,
+  SRGBColorSpace: 'srgb',
 }))
 
 import { Array as Arr, Effect, Option } from 'effect'
@@ -82,7 +83,7 @@ import {
   drainSync,
   WorldRendererService,
 } from './world-renderer-test-utils'
-import type { Chunk } from '@ts-minecraft/terrain'
+import type { Chunk } from '@ts-minecraft/world'
 
 describe('infrastructure/three/world-renderer', () => {
   // ---------------------------------------------------------------------------
@@ -308,7 +309,7 @@ describe('infrastructure/three/world-renderer', () => {
 
     // -----------------------------------------------------------------------
     // FR-3.3: chunk.maxY → AABB max-Y. Verified at the unit level by:
-    //   - `computeMaxY` tests in `packages/terrain/domain/chunk.test.ts`
+    //   - `computeMaxY` tests in `packages/world/domain/chunk.test.ts`
     //     (proves -1 for empty chunks, top-Y for occupied chunks)
     //   - The renderer's read of `userData.chunkMaxY` is exercised through the
     //     existing frustum-culling tests above; the cull loop's only behavior

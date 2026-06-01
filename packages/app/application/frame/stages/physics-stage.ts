@@ -1,10 +1,10 @@
 import { Effect, MutableRef, Option, Ref } from 'effect'
 import { logErrors } from '@ts-minecraft/app/frame/error-logging'
 import type { FrameHandlerDeps, FrameHandlerServices, FrameStageRefs } from '@ts-minecraft/app/frame/types'
-import { applyArmorReduction } from '@ts-minecraft/entities'
-import { DEFAULT_PLAYER_ID } from '@ts-minecraft/kernel'
-import type { DeltaTimeSecs, Position } from '@ts-minecraft/kernel'
-import { EXHAUSTION_SPRINT_PER_BLOCK, MAX_FOOD_LEVEL } from '@ts-minecraft/player'
+import { applyArmorReduction } from '@ts-minecraft/entity'
+import { DEFAULT_PLAYER_ID } from '@ts-minecraft/core'
+import type { DeltaTimeSecs, Position } from '@ts-minecraft/core'
+import { EXHAUSTION_SPRINT_PER_BLOCK, MAX_FOOD_LEVEL } from '@ts-minecraft/entity'
 
 export const physicsStage = (
   deps: Pick<FrameHandlerDeps, 'respawnPosition'>,

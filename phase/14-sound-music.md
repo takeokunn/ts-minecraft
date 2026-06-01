@@ -14,7 +14,7 @@ difficulty: 'beginner'
 ## ✅ 受け入れ条件（画面で確認）
 
 > 注: これらは「画面（耳）で確認」項目。`audioEnabled` が既定 false（箱出し無音）で、音量調整 UI も未実装のため未チェックのまま。各能力の実装・接続状況とテスト被覆は下記「実装状況」および「📝 タスク」の各 `[x]` を参照（モブの鳴き声を含め配線・正しさは vitest で検証済み）。
-> ⚠️ ゲート状況: vitest は緑 (3800 passing / 0 failed)・oxlint 0・`vite build` exit 0 だが、`pnpm typecheck` が 1 件失敗 (`packages/world-state/test/storage-service-quota.test.ts:175` TS2375、branded `SlotIndex` 不整合、本 Phase 14 とは無関係) のため全ゲートはまだ緑ではない。よってモブの鳴き声 (#22) を含む新規チェックは保留。
+> ⚠️ ゲート状況: vitest は緑 (3800 passing / 0 failed)・oxlint 0・`vite build` exit 0 だが、`pnpm typecheck` が 1 件失敗 (`packages/world/test/storage-service-quota.test.ts:175` TS2375、branded `SlotIndex` 不整合、本 Phase 14 とは無関係) のため全ゲートはまだ緑ではない。よってモブの鳴き声 (#22) を含む新規チェックは保留。
 
 ### 効果音
 - [ ] ブロック破壊音が鳴る
@@ -147,7 +147,7 @@ difficulty: 'beginner'
 - [ ] 左右の音が正確
 - [ ] BGMが再生される
 - [ ] 設定でボリューム調整ができる
-- [ ] すべてのテストが成功 — vitest は緑 (3800 passing / 0 failed、`sound-manager.test.ts` + `interaction-mob-sound.test.ts` 含む) だが、`pnpm typecheck` が 1 件失敗のため全ゲート未達。失敗は本 Phase 14 と無関係: `packages/world-state/test/storage-service-quota.test.ts:175` (TS2375) — `slot: 0` が branded `SlotIndex` (`number & Brand<"SlotIndex">`) でない (`exactOptionalPropertyTypes` 下、`SlotIndex.make(0)` で修正要)。build tsconfig はパス、production bundle は影響なし。
+- [ ] すべてのテストが成功 — vitest は緑 (3800 passing / 0 failed、`sound-manager.test.ts` + `interaction-mob-sound.test.ts` 含む) だが、`pnpm typecheck` が 1 件失敗のため全ゲート未達。失敗は本 Phase 14 と無関係: `packages/world/test/storage-service-quota.test.ts:175` (TS2375) — `slot: 0` が branded `SlotIndex` (`number & Brand<"SlotIndex">`) でない (`exactOptionalPropertyTypes` 下、`SlotIndex.make(0)` で修正要)。build tsconfig はパス、production bundle は影響なし。
 
 ## 🎯 成功基準
 - 効果音システムが実装されている

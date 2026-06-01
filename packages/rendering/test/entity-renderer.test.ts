@@ -1,5 +1,5 @@
-import { describe, expect, vi } from 'vitest'
-import { it } from '@effect/vitest'
+import { describe, it } from '@effect/vitest'
+import { expect, vi } from 'vitest'
 import { Effect, Layer, Option } from 'effect'
 import * as THREE from 'three'
 import {
@@ -8,8 +8,8 @@ import {
   SceneService,
   LIMB_SWING_AMPLITUDE,
 } from '@ts-minecraft/rendering'
-import { EntityId, type Entity, type EntityType } from '@ts-minecraft/entities'
-import { identity } from '@ts-minecraft/kernel'
+import { EntityId, type Entity, type EntityType } from '@ts-minecraft/entity'
+import { identity } from '@ts-minecraft/core'
 
 // FR-2.5: pool→syncEntities full wire. `scene.add` is now called once per
 // (type, role) bucket (lazy creation), NOT once per entity. Each entity type

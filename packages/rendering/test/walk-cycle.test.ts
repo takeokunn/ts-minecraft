@@ -1,4 +1,5 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it } from '@effect/vitest'
+import { expect } from 'vitest'
 import {
   LIMB_SWING_AMPLITUDE,
   computeLimbAngle,

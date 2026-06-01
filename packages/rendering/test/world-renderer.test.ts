@@ -1,5 +1,5 @@
-import { describe, expect, vi } from 'vitest'
-import { it } from '@effect/vitest'
+import { describe, it } from '@effect/vitest'
+import { expect, vi } from 'vitest'
 import * as THREE from 'three'
 
 // ---------------------------------------------------------------------------
@@ -71,6 +71,7 @@ vi.mock('three', () => ({
   RGBAFormat: 0,
   FrontSide: 0,
   DoubleSide: 2,
+  SRGBColorSpace: 'srgb',
 }))
 
 import { Effect, Option } from 'effect'
@@ -83,7 +84,7 @@ import {
   WorldRendererService,
   WorldRendererServiceLive,
 } from './world-renderer-test-utils'
-import type { Chunk } from '@ts-minecraft/terrain'
+import type { Chunk } from '@ts-minecraft/world'
 
 // ---------------------------------------------------------------------------
 // Tests

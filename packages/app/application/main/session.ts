@@ -1,4 +1,4 @@
-import { Array as Arr, Deferred, Duration, Effect, MutableRef, Option, Ref, Schedule } from 'effect'
+import { Deferred, Duration, Effect, MutableRef, Option, Ref, Schedule } from 'effect'
 import { SceneService, PerspectiveCameraService, WorldRendererService, EntityRendererService, ChunkMeshService } from '@ts-minecraft/rendering'
 
 import { StartupError } from '@ts-minecraft/game'
@@ -6,26 +6,26 @@ import { StartupError } from '@ts-minecraft/game'
 import { ParticleSystemService } from '@ts-minecraft/rendering/particles/particle-system'
 import { installPerfHudCounters } from '@ts-minecraft/rendering'
 
-import { BiomeService, ChunkManagerService, BlockService, FluidService, setActiveChunkWorldId } from '@ts-minecraft/terrain'
+import { BiomeService, ChunkManagerService, BlockService, FluidService, setActiveChunkWorldId } from '@ts-minecraft/world'
 import { GameStateService, TimeService, resolvePreset, GameLoopService, GameModeService, type GameMode } from '@ts-minecraft/game'
 import { HotbarService, InventoryService, RecipeService, EquipmentService } from '@ts-minecraft/inventory'
-import { FurnaceService } from '@ts-minecraft/furnace'
-import { PlayerCameraStateService, FirstPersonCameraService, ThirdPersonCameraService, HealthService, HungerService, XPService, FishingService } from '@ts-minecraft/player'
-import { EntityManager, MobSpawner, VillageService, RedstoneService } from '@ts-minecraft/entities'
-import { CrosshairService } from '@ts-minecraft/app/presentation/hud/crosshair'
+import { FurnaceService } from '@ts-minecraft/inventory'
+import { PlayerCameraStateService, FirstPersonCameraService, ThirdPersonCameraService, HealthService, HungerService, XPService, FishingService } from '@ts-minecraft/entity'
+import { EntityManager, MobSpawner, VillageService, RedstoneService } from '@ts-minecraft/entity'
+import { CrosshairService } from '@ts-minecraft/presentation/hud/crosshair'
 import { DebugFeatureFlagsService } from '@ts-minecraft/app/debug-feature-flags'
-import { DebugOverlayService } from '@ts-minecraft/app/presentation/hud/debug-overlay'
-import { LoadingScreenService } from '@ts-minecraft/app/presentation/loading/loading-screen'
-import { BlockHighlightService } from '@ts-minecraft/app/presentation/highlight/block-highlight'
-import { InputService } from '@ts-minecraft/app/presentation/input/input-service'
-import { HotbarRendererService } from '@ts-minecraft/app/presentation/hud/hotbar-three'
-import { FPSCounterService } from '@ts-minecraft/app/presentation/fps-counter'
-import { SettingsOverlayService } from '@ts-minecraft/app/presentation/settings/settings-overlay'
-import { PauseMenuService } from '@ts-minecraft/app/presentation/menu/pause-menu'
-import { DeathScreenService } from '@ts-minecraft/app/presentation/menu/death-screen'
-import { InventoryRendererService } from '@ts-minecraft/app/presentation/inventory/inventory-renderer'
-import { TradingPresentationService } from '@ts-minecraft/app/presentation/trading'
-import { CHUNK_SIZE, CHUNK_HEIGHT, WorldId } from '@ts-minecraft/kernel'
+import { DebugOverlayService } from '@ts-minecraft/presentation/hud/debug-overlay'
+import { LoadingScreenService } from '@ts-minecraft/presentation/loading/loading-screen'
+import { BlockHighlightService } from '@ts-minecraft/presentation/highlight/block-highlight'
+import { InputService } from '@ts-minecraft/presentation/input/input-service'
+import { HotbarRendererService } from '@ts-minecraft/presentation/hud/hotbar-three'
+import { FPSCounterService } from '@ts-minecraft/presentation/fps-counter'
+import { SettingsOverlayService } from '@ts-minecraft/presentation/settings/settings-overlay'
+import { PauseMenuService } from '@ts-minecraft/presentation/menu/pause-menu'
+import { DeathScreenService } from '@ts-minecraft/presentation/menu/death-screen'
+import { InventoryRendererService } from '@ts-minecraft/presentation/inventory/inventory-renderer'
+import { TradingPresentationService } from '@ts-minecraft/presentation/trading'
+import { CHUNK_SIZE, CHUNK_HEIGHT, WorldId } from '@ts-minecraft/core'
 
 import { installBrowserEventBridge, type PendingResize } from '@ts-minecraft/app/main/browser-runtime'
 import {
@@ -38,55 +38,19 @@ import { buildLighting } from '@ts-minecraft/app/main/session-lighting'
 import { buildSessionRuntime } from '@ts-minecraft/app/main/session-runtime'
 import { buildPersistSessionState, restoreSavedState } from '@ts-minecraft/app/main/session-save'
 import { performAutoSaveTick } from '@ts-minecraft/app/main/session-autosave'
+import { prepareInitialTerrain, waitForInitialFrameRate } from '@ts-minecraft/app/main/session-loading-gates'
+import { registerComposerDisposal } from '@ts-minecraft/app/main/session-disposal'
 
 import type { BootContext } from '@ts-minecraft/app/main/boot'
 
 // 0.5 = noon in TimeService's day fraction (0.0=midnight, 0.25=dawn, 0.5=noon, 0.75=dusk).
 const BOOT_TIME_OF_DAY = 0.5
 
-const MIN_LOADING_SCREEN_DURATION_MS = 2500
-const INITIAL_FPS_GATE_TARGET = 120
-const INITIAL_FPS_GATE_TIMEOUT_MS = 8_000
-const INITIAL_FPS_GATE_POLL_MS = 100
-const INITIAL_FPS_GATE_STABLE_SAMPLES = 10
-
-const readDisplayedFps = (fpsElement: HTMLElement): number => {
-  const fps = Number.parseFloat(fpsElement.textContent ?? '0')
-  return Number.isFinite(fps) ? fps : 0
-}
-
-const waitForInitialFrameRate = (fpsElement: HTMLElement | null): Effect.Effect<void, never> =>
-  Effect.gen(function* () {
-    if (fpsElement === null) return
-
-    const startedAtMs = yield* Effect.sync(() => Date.now())
-    let stableSamples = 0
-
-    while (stableSamples < INITIAL_FPS_GATE_STABLE_SAMPLES) {
-      const elapsedMs = (yield* Effect.sync(() => Date.now())) - startedAtMs
-      if (elapsedMs >= INITIAL_FPS_GATE_TIMEOUT_MS) return
-
-      stableSamples = readDisplayedFps(fpsElement) >= INITIAL_FPS_GATE_TARGET
-        ? stableSamples + 1
-        : 0
-
-      yield* Effect.sleep(Duration.millis(INITIAL_FPS_GATE_POLL_MS))
-    }
-  })
-
 export type SessionResult = {
   readonly reason: 'quit-to-title' | 'never-returned'
   readonly control: SessionControl
 }
 
-// Runs ONE world session. Lifecycle:
-//   1. Allocates per-world scene + camera + composer + post-processing passes.
-//   2. Loads (or creates) world metadata for `worldId` and seeds NoiseService.
-//   3. Initializes per-world domain state (chunks, entities, health, inventory, etc.).
-//   4. Forks the game loop + maintenance + auto-save daemons.
-//   5. Awaits `quitToTitleSignal` (set by pause-menu "Save & Quit").
-//   6. Releases all session-scoped resources (composer RTs, scene meshes, forked daemons)
-//      via Effect.scoped's release stack — boot-level resources survive untouched.
 export const sessionProgram = (
   bootCtx: BootContext,
   worldId: WorldId,
@@ -158,12 +122,8 @@ export const sessionProgram = (
     // Allocate session-control primitives (pause flag + quit-to-title signal).
     const control = yield* createSessionControl
 
-    // Seed the GameModeService with the persisted game mode (will be overridden
-    // below if metadata loads successfully — done first so cleanup paths see
-    // the correct mode).
     yield* gameModeService.set(initialGameMode)
 
-    // Settings snapshot + resolved graphics — used for camera/shadow far plane.
     const initialSettings = yield* settingsService.getSettings()
     const initialGraphics = resolvePreset(initialSettings.graphicsQuality)
 
@@ -176,32 +136,15 @@ export const sessionProgram = (
       far: Math.max(initialSettings.renderDistance * CHUNK_SIZE * 1.5 + CHUNK_HEIGHT, 300),
     })
 
-    // EffectComposer + 5 post-processing passes — kept in session scope for now
-    // (see boot.ts comment for rationale). All pass instances always exist so
-    // live preset changes can enable them later without silently no-oping.
-    // FR-4.3: `useCompositePass` is now a per-preset flag (low/medium=false,
-    // high/ultra=true). When true, Bloom + GodRays + Bokeh are merged into a
-    // single full-screen shader pass for ~25 MB/frame bandwidth savings.
     const { composerRT, composer, gtaoPass, godRaysPass, bloomPass, bokehPass, smaaPass, compositePass } = yield* buildPostProcessing(
       renderer, scene, camera, canvas, initialGraphics,
       { useCompositePass: initialGraphics.useCompositePass },
     )
 
-    // Composer + pass disposal at session end (FR-1.8 GPU teardown).
-    yield* Effect.acquireRelease(
-      Effect.void,
-      () => Effect.sync(() => {
-        const passes: ReadonlyArray<Option.Option<{ dispose(): void }>> = [gtaoPass, bloomPass, bokehPass, godRaysPass, smaaPass, compositePass]
-        Arr.forEach(passes, (pass) => Option.map(pass, (p) => p.dispose()))
-        composerRT.dispose()
-        composer.dispose()
-      }),
-    )
+    yield* registerComposerDisposal(composerRT, composer, [gtaoPass, bloomPass, bokehPass, godRaysPass, smaaPass, compositePass])
 
-    // World metadata: load existing or create fresh (with seed + spawn).
     const worldBootstrap = yield* loadOrCreateWorld(worldId, initialGameMode, storageService, noiseService, gameModeService)
 
-    // Persist session state — serializes player + furnace + active gameMode.
     const persistSessionState = buildPersistSessionState({
       gameState,
       inventoryService,
@@ -217,72 +160,21 @@ export const sessionProgram = (
       worldId,
     })
 
-    const loadingStartedAtMs = yield* Effect.sync(() => Date.now())
-
     const initialChunkLoadAnchor = Option.getOrElse(
       Option.map(worldBootstrap.savedPlayerState, (saved) => saved.position),
       () => worldBootstrap.baseSpawnPosition,
     )
 
     yield* Effect.sync(() => setActiveChunkWorldId(worldId))
-    yield* chunkManagerService.loadChunksAroundPlayer(initialChunkLoadAnchor, initialSettings.renderDistance, { eager: true })
-    const initialChunks = yield* chunkManagerService.getLoadedChunks()
-    // Drive `syncChunksToScene` until every queued chunk has a mesh in
-    // the scene before lifting the loading screen. A single call can stop short
-    // due to time-budget / per-call caps, so we loop until settled.
-    yield* Effect.raceFirst(
-      Effect.iterate(false, {
-        while: (settled) => !settled,
-        body: () =>
-          worldRendererService.syncChunksToScene(initialChunks, scene).pipe(
-            Effect.flatMap((settled) =>
-              settled ? Effect.succeed(true) : Effect.sleep(Duration.millis(50)).pipe(Effect.as(false)),
-            ),
-          ),
-      }),
-      Effect.sleep(Duration.seconds(30)).pipe(
-        Effect.flatMap(() => Effect.fail(new Error('Timed out while syncing initial chunk meshes'))),
-      ),
-    ).pipe(
-      Effect.catchAll((cause) =>
-        loadingScreen.showError('Failed to prepare initial terrain meshes.').pipe(
-          Effect.zipRight(Effect.logError(`Loading gate failed: ${String(cause)}`)),
-          Effect.zipRight(Effect.sleep(Duration.seconds(3))),
-          Effect.zipRight(Effect.fail(new StartupError({ reason: 'Failed to prepare initial chunk meshes', cause }))),
-        ),
-      ),
-    )
-
-    // Additional safety gate: wait until terrain worker queue is drained.
-    yield* Effect.raceFirst(
-      Effect.iterate(false, {
-        while: (queueDrained) => !queueDrained,
-        body: () =>
-          Effect.sync(() => terrainPool.queueDepth() === 0).pipe(
-            Effect.flatMap((queueDrained) =>
-              queueDrained ? Effect.succeed(true) : Effect.sleep(Duration.millis(25)).pipe(Effect.as(false)),
-            ),
-          ),
-      }),
-      Effect.sleep(Duration.seconds(30)).pipe(
-        Effect.flatMap(() => Effect.fail(new Error('Timed out while draining terrain worker queue'))),
-      ),
-    ).pipe(
-      Effect.catchAll((cause) =>
-        loadingScreen.showError('Terrain generation took too long and was aborted.').pipe(
-          Effect.zipRight(Effect.logError(`Terrain queue drain failed: ${String(cause)}`)),
-          Effect.zipRight(Effect.sleep(Duration.seconds(3))),
-          Effect.zipRight(Effect.fail(new StartupError({ reason: 'Timed out while draining terrain worker queue', cause }))),
-        ),
-      ),
-    )
-
-    // Enforce a minimum loading-screen display duration to avoid abrupt flashes.
-    const loadingElapsedMs = (yield* Effect.sync(() => Date.now())) - loadingStartedAtMs
-    const remainingLoadingMs = Math.max(0, MIN_LOADING_SCREEN_DURATION_MS - loadingElapsedMs)
-    if (remainingLoadingMs > 0) {
-      yield* Effect.sleep(Duration.millis(remainingLoadingMs))
-    }
+    yield* prepareInitialTerrain({
+      chunkManagerService,
+      worldRendererService,
+      terrainPool,
+      loadingScreen,
+      scene,
+      anchor: initialChunkLoadAnchor,
+      renderDistance: initialSettings.renderDistance,
+    })
 
     const defaultRespawnPosition = yield* buildRespawnPosition(worldBootstrap.baseSpawnPosition, chunkManagerService)
 

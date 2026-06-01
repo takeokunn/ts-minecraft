@@ -1,5 +1,5 @@
 import { Schema } from 'effect'
-import { CHUNK_SIZE, CHUNK_HEIGHT } from '@ts-minecraft/kernel'
+import { CHUNK_SIZE, CHUNK_HEIGHT } from '@ts-minecraft/core'
 
 // Zero-copy view into accumulator buffers — subarrays (NOT sliced copies).
 // Used by the update path (tryReuseGeometry) to avoid an intermediate ~200-400KB allocation

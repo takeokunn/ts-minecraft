@@ -1,11 +1,11 @@
 import { Array as Arr, Clock, Duration, Effect, Option, Random } from 'effect'
 import { StartupError } from '@ts-minecraft/game'
-import { ChunkManagerService } from '@ts-minecraft/terrain'
-import { NoiseService } from '@ts-minecraft/terrain'
+import { ChunkManagerService } from '@ts-minecraft/world'
+import { NoiseService } from '@ts-minecraft/world'
 import { GameModeService, type GameMode } from '@ts-minecraft/game'
-import { StorageService, type WorldMetadata } from '@ts-minecraft/world-state'
-import { CHUNK_HEIGHT, CHUNK_SIZE, blockIndex, blockTypeToIndex } from '@ts-minecraft/kernel'
-import { WorldId } from '@ts-minecraft/kernel'
+import { StorageService, type WorldMetadata } from '@ts-minecraft/world'
+import { CHUNK_HEIGHT, CHUNK_SIZE, blockIndex, blockTypeToIndex } from '@ts-minecraft/core'
+import { WorldId } from '@ts-minecraft/core'
 import { MAX_SEED_VALUE } from '@ts-minecraft/app/main.config'
 
 export type SavedPlayerState = NonNullable<WorldMetadata['playerState']>

@@ -1,4 +1,5 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it } from '@effect/vitest'
+import { expect } from 'vitest'
 import {
   computeFrameBudgetMs,
   computeChunkSyncBudgetMs,
@@ -36,7 +37,7 @@ describe('frame-budget — FR-1.1 dynamic frame budgets', () => {
   })
 
   describe('computeChunkSyncBudgetMs', () => {
-    it('60 FPS → exactly 4 ms (matches legacy WORLD_RENDERER_TIME_BUDGET_MS)', () => {
+    it('60 FPS → exactly 4 ms', () => {
       expect(computeChunkSyncBudgetMs(SIXTY_FPS)).toBe(4)
     })
 
@@ -56,7 +57,7 @@ describe('frame-budget — FR-1.1 dynamic frame budgets', () => {
   })
 
   describe('computeMaxChunkUpdatesPerFrame', () => {
-    it('60 FPS → 8 (matches legacy MAX_CHUNK_UPDATES_PER_FRAME)', () => {
+    it('60 FPS → 8', () => {
       expect(computeMaxChunkUpdatesPerFrame(SIXTY_FPS)).toBe(8)
     })
 
@@ -76,7 +77,7 @@ describe('frame-budget — FR-1.1 dynamic frame budgets', () => {
   })
 
   describe('computeMaxDirtyChunkUpdatesPerFrame', () => {
-    it('60 FPS → 4 (matches legacy MAX_DIRTY_CHUNK_UPDATES_PER_FRAME)', () => {
+    it('60 FPS → 4', () => {
       expect(computeMaxDirtyChunkUpdatesPerFrame(SIXTY_FPS)).toBe(4)
     })
 
@@ -90,7 +91,7 @@ describe('frame-budget — FR-1.1 dynamic frame budgets', () => {
     })
   })
 
-  describe('legacy constant compatibility', () => {
+  describe('exported frame-budget constants', () => {
     it('exported MAX_CHUNK_UPDATES_PER_FRAME equals helper at DEFAULT_TARGET_FPS', () => {
       expect(MAX_CHUNK_UPDATES_PER_FRAME).toBe(computeMaxChunkUpdatesPerFrame(DEFAULT_TARGET_FPS))
     })

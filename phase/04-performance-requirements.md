@@ -34,10 +34,10 @@ P03..P20; each Pn here is independent of feature-phase numbering.
 
 | ID | Requirement | Status | Production wire |
 |----|-------------|--------|------------------|
-| FR-2.1 | LRU chunk cache with explicit eviction | Implemented | `packages/terrain/test/chunk-manager-ops-lru.test.ts` |
+| FR-2.1 | LRU chunk cache with explicit eviction | Implemented | `packages/world/test/chunk-manager-ops-lru.test.ts` |
 | FR-2.2 | Asynchronous chunk load via `Effect.all({ concurrency })` capped at 4 fibers | Implemented | `chunk-manager-service.ts` |
-| FR-2.3 | Auto-save backed by `IndexedDB` ('minecraft-worlds') with `Schedule.spaced` cadence | Implemented | `packages/world-state/infrastructure/` |
-| FR-2.4 | Lake-generator deterministic seed | Implemented | `packages/terrain/test/lake-generator.test.ts` |
+| FR-2.3 | Auto-save backed by `IndexedDB` ('minecraft-worlds') with `Schedule.spaced` cadence | Implemented | `packages/world/infrastructure/` |
+| FR-2.4 | Lake-generator deterministic seed | Implemented | `packages/world/test/lake-generator.test.ts` |
 
 ## P3 — Meshing & LOD
 
@@ -47,14 +47,14 @@ P03..P20; each Pn here is independent of feature-phase numbering.
 | FR-3.2 | LOD applies to opaque pass only; water/fluid stays at LOD 0 | Implemented | `lod-simplification.ts` (deliberate exclusion) |
 | FR-3.3 | Greedy meshing produces opaque + water sub-meshes via `TRANSPARENT_BLOCK_IDS` | Implemented | `greedy-meshing.ts` |
 | FR-3.4 | Six-axis greedy passes share AO computation | Implemented | `greedy-meshing-ao.ts`, `greedy-meshing-passes.ts` |
-| FR-3.5 | Light propagation reports cardinal-neighbour boundary changes | Implemented | `packages/terrain/application/light-engine-service.ts` |
+| FR-3.5 | Light propagation reports cardinal-neighbour boundary changes | Implemented | `packages/world/application/light-engine-service.ts` |
 
 ## P4 — Rendering bandwidth
 
 | ID | Requirement | Status | Production wire |
 |----|-------------|--------|------------------|
 | FR-4.1 | Sub-region greedy meshing entrypoint accepts dirty AABB | Implemented (entrypoint + protocol) | `subregion-greedy.ts`, `meshing-worker-pool.ts`. Worker still full-re-meshes; cache lands in FR-4.6. |
-| FR-4.2 | Per-chunk dirty AABB accumulated and drained from render-dirty queue | Implemented | `packages/terrain/domain/chunk-aabb.ts`; `frame-maintenance.ts:196`; `interaction-block-handler.ts:86,179` |
+| FR-4.2 | Per-chunk dirty AABB accumulated and drained from render-dirty queue | Implemented | `packages/world/domain/chunk-aabb.ts`; `frame-maintenance.ts:196`; `interaction-block-handler.ts:86,179` |
 | FR-4.3 | CompositePass merges Bloom + GodRays + Bokeh in one fragment program | Implemented | `composite-pass.ts`; gated on `useCompositePass` per preset (`high`: bloom; `ultra`: bloom+godRays+bokeh) |
 | FR-4.4 | Refraction pre-pass skipped when on-screen water ratio < `refractionMinScreenRatio` | Implemented | `post-processing-stage.ts:39`; presets in `settings-service.config.ts` |
 | FR-4.5 | Perceptual SSIM auto-quality gate (runtime downgrade when SSIM < 0.95 vs reference) | **Deferred** | SSIM > 0.95 verified at build via `composite-pass.test.ts`; runtime probe + policy not yet wired |
@@ -79,4 +79,4 @@ P03..P20; each Pn here is independent of feature-phase numbering.
 - Settings presets: [`packages/game/application/settings-service.config.ts`](../packages/game/application/settings-service.config.ts).
 - Test coverage: `packages/rendering/test/composite-pass.test.ts`,
   `packages/rendering/test/lod-simplification.test.ts`,
-  `packages/terrain/domain/chunk-aabb.test.ts`.
+  `packages/world/domain/chunk-aabb.test.ts`.

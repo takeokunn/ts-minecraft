@@ -1,4 +1,5 @@
-import { describe, expect, it } from 'vitest'
+import { describe, it } from '@effect/vitest'
+import { expect } from 'vitest'
 import { Effect, MutableRef } from 'effect'
 import { PerfHudService, computePercentiles, installPerfHudCounters } from '@ts-minecraft/rendering'
 import type { ChunkCountProvider } from '@ts-minecraft/rendering'

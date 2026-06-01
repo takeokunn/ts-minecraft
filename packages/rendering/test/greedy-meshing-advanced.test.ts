@@ -1,10 +1,11 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it } from '@effect/vitest'
+import { expect } from 'vitest'
 import { Array as Arr, Option } from 'effect'
 import { greedyMeshChunk } from '@ts-minecraft/rendering'
-import { CHUNK_SIZE, CHUNK_HEIGHT, blockTypeToIndex } from '@ts-minecraft/kernel'
-import { createLightBuffer, setLightAt, LIGHT_LEVEL_MAX, computeBlockLight } from '@ts-minecraft/world-state'
-import type { LightGrids } from '@ts-minecraft/world-state'
-import type { Chunk } from '@ts-minecraft/terrain'
+import { CHUNK_SIZE, CHUNK_HEIGHT, blockTypeToIndex } from '@ts-minecraft/core'
+import { createLightBuffer, setLightAt, LIGHT_LEVEL_MAX, computeBlockLight } from '@ts-minecraft/world'
+import type { LightGrids } from '@ts-minecraft/world'
+import type { Chunk } from '@ts-minecraft/world'
 import { makeChunkWithBlock, makeChunkWithBlocks, ZERO_COORD, ZERO_OFFSET } from './greedy-meshing-test-utils'
 
 // ─── Tests ─────────────────────────────────────────────────────────────────

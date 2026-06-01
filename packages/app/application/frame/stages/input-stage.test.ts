@@ -1,7 +1,7 @@
-import { describe, expect, vi } from 'vitest'
-import { it } from '@effect/vitest'
+import { describe, it } from '@effect/vitest'
+import { expect, vi } from 'vitest'
 import { Effect, MutableHashSet, Ref } from 'effect'
-import { KeyMappings } from '@ts-minecraft/player'
+import { KeyMappings } from '@ts-minecraft/entity'
 import {
   DEFAULT_SETTINGS,
   arrangeFrameHarness,

@@ -12,7 +12,7 @@ describe('three/meshing/block-mesh', () => {
         if (tag === 'canvas') {
           return mockCanvasElement()
         }
-        throw new Error(`Unexpected element request in block-mesh test: ${tag}`)
+expect.fail(`Unexpected element request in block-mesh test: ${tag}`)
       }),
     })
   })

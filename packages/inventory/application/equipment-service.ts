@@ -1,5 +1,5 @@
 import { Array as Arr, Effect, Option, Ref } from 'effect'
-import type { InventoryItem } from '@ts-minecraft/kernel'
+import type { InventoryItem } from '@ts-minecraft/core'
 import { isArmorItem, getArmorSlot, computeTotalArmorPoints, type ArmorSlot } from '../domain/armor'
 
 type EquipmentSlots = {

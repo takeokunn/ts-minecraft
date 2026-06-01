@@ -1,7 +1,7 @@
 import { Effect, Option } from 'effect'
 import { TimeService } from './time-service'
-import type { DeltaTimeSecs } from '@ts-minecraft/kernel'
-import type { DayNightLightsPort } from '@ts-minecraft/kernel'
+import type { DeltaTimeSecs } from '@ts-minecraft/core'
+import type { DayNightLightsPort } from '@ts-minecraft/core'
 
 const DAWN_PHASE_OFFSET = 0.25   // 0=midnight, 0.25=dawn, 0.5=noon, 0.75=dusk
 const DIRECT_LIGHT_MIN = 0.3

@@ -1,5 +1,5 @@
 import { Option } from 'effect'
-import type { InventoryItem } from '@ts-minecraft/kernel'
+import type { InventoryItem } from '@ts-minecraft/core'
 
 // Tool/weapon durability (Phase 12). Pure domain — the maximum number of uses a
 // tool has before it breaks. Values match Minecraft Java Edition material tiers;

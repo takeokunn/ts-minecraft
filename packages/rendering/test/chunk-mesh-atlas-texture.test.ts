@@ -1,4 +1,5 @@
-import { describe, expect, it, beforeAll, afterAll, vi } from 'vitest'
+import { describe, it } from '@effect/vitest'
+import { expect, beforeAll, afterAll, vi } from 'vitest'
 import { Effect } from 'effect'
 import * as THREE from 'three'
 
@@ -131,4 +132,3 @@ describe('chunk-mesh atlas texture wiring', () => {
     )
   })
 })
-

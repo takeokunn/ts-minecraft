@@ -1,4 +1,4 @@
-import { it } from '@effect/vitest'
+import { describe, it } from '@effect/vitest'
 import {
 makeDeps,
 makeInputService,
@@ -9,7 +9,7 @@ runFrame,
 } from '@test/frame-handler-test-kit'
 import { Effect,MutableHashSet,Option } from 'effect'
 import * as THREE from 'three'
-import { describe,expect,vi } from 'vitest'
+import { expect,vi } from 'vitest'
 import { getParticleUvOffset } from '@ts-minecraft/rendering/particles/particle-system'
 
 // ---------------------------------------------------------------------------
@@ -824,6 +824,127 @@ describe('step 7 — block interaction', () => {
     expect(unequipSlotSpy).not.toHaveBeenCalledWith('BOOTS')
     expect(addBlockSpy).toHaveBeenCalledOnce()
     expect(addBlockSpy).toHaveBeenCalledWith('IRON_CHESTPLATE', 1)
+  }))
+
+  it.effect('right-click with an armor item equips it into the equipment slot', () => Effect.gen(function* () {
+    const deps = yield* makeDeps(false)
+    const inputService = makeInputService()
+    ;(inputService as { consumeMouseClick: unknown }).consumeMouseClick = (btn: number) =>
+      Effect.succeed(btn === 2)
+    const services = makeServices({
+      inputService,
+      inventoryRenderer: makeInventoryRenderer({ open: false }),
+      settingsOverlay: makeSettingsOverlay({ open: false }),
+    })
+    ;(services.hotbarService as { getSelectedBlockType: unknown }).getSelectedBlockType = vi.fn(() =>
+      Effect.succeed(Option.some('IRON_HELMET'))
+    )
+    ;(services.blockHighlight as { getTargetHit: unknown }).getTargetHit = vi.fn(() =>
+      Effect.succeed(Option.none())
+    )
+    ;(services.blockHighlight as { getTargetBlock: unknown }).getTargetBlock = vi.fn(() =>
+      Effect.succeed(Option.none())
+    )
+    const equipSpy = vi.fn(() => Effect.succeed(true))
+    ;(services.equipmentService as { equip: unknown }).equip = equipSpy
+    const removeSpy = vi.fn(() => Effect.succeed(true))
+    ;(services.inventoryService as { removeBlock: unknown }).removeBlock = removeSpy
+
+    yield* runFrame(deps, services)
+
+    expect(removeSpy).toHaveBeenCalledOnce()
+    expect(equipSpy).toHaveBeenCalledOnce()
+  }))
+
+  it.effect('right-click with armor item returns false when equip fails (catchAll path)', () => Effect.gen(function* () {
+    const deps = yield* makeDeps(false)
+    const inputService = makeInputService()
+    ;(inputService as { consumeMouseClick: unknown }).consumeMouseClick = (btn: number) =>
+      Effect.succeed(btn === 2)
+    const services = makeServices({
+      inputService,
+      inventoryRenderer: makeInventoryRenderer({ open: false }),
+      settingsOverlay: makeSettingsOverlay({ open: false }),
+    })
+    ;(services.hotbarService as { getSelectedBlockType: unknown }).getSelectedBlockType = vi.fn(() =>
+      Effect.succeed(Option.some('IRON_HELMET'))
+    )
+    ;(services.blockHighlight as { getTargetHit: unknown }).getTargetHit = vi.fn(() =>
+      Effect.succeed(Option.none())
+    )
+    ;(services.blockHighlight as { getTargetBlock: unknown }).getTargetBlock = vi.fn(() =>
+      Effect.succeed(Option.none())
+    )
+    // removeBlock fails → catchAll returns false, equip Effect never executes
+    let equipExecuted = false
+    ;(services.inventoryService as { removeBlock: unknown }).removeBlock = vi.fn(() =>
+      Effect.fail(new Error('inventory full'))
+    )
+    ;(services.equipmentService as { equip: unknown }).equip = vi.fn(() =>
+      Effect.sync(() => { equipExecuted = true; return true as unknown })
+    )
+
+    yield* runFrame(deps, services)
+
+    // The equip Effect was NOT executed (removeBlock failed, andThen short-circuited)
+    expect(equipExecuted).toBe(false)
+  }))
+
+  it.effect('right-click with FISHING_ROD when not fishing casts the rod', () => Effect.gen(function* () {
+    const deps = yield* makeDeps(false)
+    const inputService = makeInputService()
+    ;(inputService as { consumeMouseClick: unknown }).consumeMouseClick = (btn: number) =>
+      Effect.succeed(btn === 2)
+    const services = makeServices({
+      inputService,
+      inventoryRenderer: makeInventoryRenderer({ open: false }),
+      settingsOverlay: makeSettingsOverlay({ open: false }),
+    })
+    ;(services.hotbarService as { getSelectedBlockType: unknown }).getSelectedBlockType = vi.fn(() =>
+      Effect.succeed(Option.some('FISHING_ROD'))
+    )
+    ;(services.blockHighlight as { getTargetHit: unknown }).getTargetHit = vi.fn(() =>
+      Effect.succeed(Option.none())
+    )
+    ;(services.blockHighlight as { getTargetBlock: unknown }).getTargetBlock = vi.fn(() =>
+      Effect.succeed(Option.none())
+    )
+    const castSpy = vi.fn(() => Effect.void)
+    ;(services.fishingService as { cast: unknown }).cast = castSpy
+
+    yield* runFrame(deps, services)
+
+    expect(castSpy).toHaveBeenCalledOnce()
+  }))
+
+  it.effect('right-click with FISHING_ROD when already fishing cancels the rod', () => Effect.gen(function* () {
+    const deps = yield* makeDeps(false)
+    const inputService = makeInputService()
+    ;(inputService as { consumeMouseClick: unknown }).consumeMouseClick = (btn: number) =>
+      Effect.succeed(btn === 2)
+    const services = makeServices({
+      inputService,
+      inventoryRenderer: makeInventoryRenderer({ open: false }),
+      settingsOverlay: makeSettingsOverlay({ open: false }),
+    })
+    ;(services.hotbarService as { getSelectedBlockType: unknown }).getSelectedBlockType = vi.fn(() =>
+      Effect.succeed(Option.some('FISHING_ROD'))
+    )
+    ;(services.blockHighlight as { getTargetHit: unknown }).getTargetHit = vi.fn(() =>
+      Effect.succeed(Option.none())
+    )
+    ;(services.blockHighlight as { getTargetBlock: unknown }).getTargetBlock = vi.fn(() =>
+      Effect.succeed(Option.none())
+    )
+    ;(services.fishingService as { isFishing: unknown }).isFishing = vi.fn(() =>
+      Effect.succeed(true)
+    )
+    const cancelSpy = vi.fn(() => Effect.void)
+    ;(services.fishingService as { cancel: unknown }).cancel = cancelSpy
+
+    yield* runFrame(deps, services)
+
+    expect(cancelSpy).toHaveBeenCalledOnce()
   }))
 
   it.effect('does NOT spawn a hit-burst particle when particles.spawn is disabled (damage + knockback still run)', () => Effect.gen(function* () {

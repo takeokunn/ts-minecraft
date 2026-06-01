@@ -24,7 +24,7 @@ for the FR-by-FR table and production wire status.
   - Multi-stage frame pipeline (`stages/`) with cancellable per-stage Effects.
   - Adaptive performance mode hooks honoured by `frame-maintenance.ts`.
 - **P2 — Chunk pipeline**
-  - `packages/terrain/domain/chunk-aabb.ts` — chunk-local dirty AABB primitive
+  - `packages/world/domain/chunk-aabb.ts` — chunk-local dirty AABB primitive
     used by light propagation, render-dirty drains, and sub-region meshing
     (FR-4.2).
   - Render-dirty queue carries accumulated AABBs through to the meshing

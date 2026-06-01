@@ -120,7 +120,7 @@ describe('application/settings/settings-service (mutations)', () => {
 
     it.effect('keeps in-memory update even when localStorage.setItem throws', () => {
       setItemSpy.mockImplementation(() => {
-        throw new Error('save failed')
+expect.fail('save failed')
       })
       return Effect.gen(function* () {
         const service = yield* SettingsService

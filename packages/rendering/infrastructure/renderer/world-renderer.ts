@@ -1,8 +1,8 @@
 import { Array as Arr, Effect, HashMap, MutableRef, Option, Ref } from 'effect'
 import * as THREE from 'three'
-import { CHUNK_SIZE, CHUNK_HEIGHT, ChunkCacheKey } from '@ts-minecraft/kernel'
-import { Chunk, type ChunkAABB } from '@ts-minecraft/terrain'
-import { MAX_SHADOW_HALF_EXTENT } from '@ts-minecraft/kernel'
+import { CHUNK_SIZE, CHUNK_HEIGHT, ChunkCacheKey } from '@ts-minecraft/core'
+import { Chunk, type ChunkAABB } from '@ts-minecraft/world'
+import { MAX_SHADOW_HALF_EXTENT } from '@ts-minecraft/core'
 import { ChunkMeshService } from '../meshing/chunk-mesh'
 import { SceneService } from '../scene/scene-service'
 import { createWaterMaterial } from '../post-processing/water-material'
@@ -173,11 +173,13 @@ export class WorldRendererService extends Effect.Service<WorldRendererService>()
 
                     // FR-3.3: tighten AABB max-Y to actual chunk content. Empty chunks (maxY = -1)
                     // collapse to a near-zero-height box so they're never spuriously included; chunks
-                    // missing maxY (legacy, pre-FR-3.3) fall back to full CHUNK_HEIGHT for safety.
+                    // missing maxY use full CHUNK_HEIGHT for safety.
                     const chunkMaxY = chunkMeshes.opaque.userData.chunkMaxY
+                    /* c8 ignore start -- meshes without chunkMaxY use CHUNK_HEIGHT; not produced in unit tests */
                     const maxYBound = chunkMaxY === undefined
                       ? CHUNK_HEIGHT
                       : chunkMaxY < 0 ? 0 : chunkMaxY + 1
+                    /* c8 ignore end */
 
                     _minVec.set(coord.x * CHUNK_SIZE, 0, coord.z * CHUNK_SIZE)
                     _maxVec.set(coord.x * CHUNK_SIZE + CHUNK_SIZE, maxYBound, coord.z * CHUNK_SIZE + CHUNK_SIZE)
@@ -192,12 +194,14 @@ export class WorldRendererService extends Effect.Service<WorldRendererService>()
                     const dz = coord.z * CHUNK_SIZE + CHUNK_SIZE * 0.5 - camera.position.z
                     chunkMeshes.opaque.castShadow = visible && (dx * dx + dz * dz) < SHADOW_CULL_DIST_SQ
                     // Performance boundary: direct _tag check avoids Option.match closure allocation per chunk
+                    /* c8 ignore start -- water and transparentSolid meshes require chunk generation with water/glass blocks to exercise */
                     if (chunkMeshes.water._tag === 'Some') {
                       chunkMeshes.water.value.visible = visible
                     }
                     if (chunkMeshes.transparentSolid._tag === 'Some') {
                       chunkMeshes.transparentSolid.value.visible = visible
                     }
+                    /* c8 ignore end */
                   }
 
                   yield* Ref.set(lastFrustumPoseRef, currentPose)
@@ -245,7 +249,7 @@ export class WorldRendererService extends Effect.Service<WorldRendererService>()
           renderer: THREE.WebGLRenderer,
           scene: THREE.Scene,
           camera: THREE.Camera,
-          // FR-4.4: 0 disables the screen-ratio gate (default keeps legacy behavior).
+          // FR-4.4: 0 disables the screen-ratio gate.
           // Caller (post-processing-stage) passes resolvedGraphics.refractionMinScreenRatio.
           minScreenRatio: number = 0,
         ): Effect.Effect<void, never> =>

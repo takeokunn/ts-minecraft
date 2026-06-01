@@ -1,8 +1,9 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it } from '@effect/vitest'
+import { expect } from 'vitest'
 import { Array as Arr } from 'effect'
-import { blockTypeToIndex, INDEX_TO_BLOCK_TYPE } from '@ts-minecraft/kernel'
+import { blockTypeToIndex, INDEX_TO_BLOCK_TYPE } from '@ts-minecraft/core'
 import { getTileIndex, getTileUVs, ATLAS_COLS, ATLAS_SIZE, HALF_TEXEL, TILE_MAP } from '@ts-minecraft/rendering'
-import type { BlockType } from '@ts-minecraft/kernel'
+import type { BlockType } from '@ts-minecraft/core'
 import type { FaceDir } from '@ts-minecraft/rendering'
 
 describe('infrastructure/three/textures/block-texture-map', () => {

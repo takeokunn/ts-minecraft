@@ -1,5 +1,6 @@
-import { describe, it, expect } from 'vitest'
-import { CHUNK_SIZE, CHUNK_HEIGHT, blockTypeToIndex } from '@ts-minecraft/kernel'
+import { describe, it } from '@effect/vitest'
+import { expect } from 'vitest'
+import { CHUNK_SIZE, CHUNK_HEIGHT, blockTypeToIndex } from '@ts-minecraft/core'
 import { isBlockSolid, isInWater } from '../application/game-state-physics'
 
 // Index formula: y + z * CHUNK_HEIGHT + x * CHUNK_HEIGHT * CHUNK_SIZE  (column-major)

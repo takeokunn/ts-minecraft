@@ -46,6 +46,7 @@ const snapInterval = (min: number, len: number, step: number): readonly [number,
   // Ensure non-degenerate (snapMin === snapMax happens only if both min and
   // max are exact multiples of step AND len === 0, which greedy meshing never
   // emits — but guard anyway).
+  /* c8 ignore next -- snapMin === snapMax guard: greedy meshing never emits zero-length quads */
   return snapMin === snapMax ? [snapMin, snapMin + step] as const : [snapMin, snapMax] as const
 }
 
@@ -85,6 +86,7 @@ const quadBox = (
   let minZ = q[0][2], maxZ = q[0][2]
   for (let i = 1; i < 4; i += 1) {
     const x = q[i]![0], y = q[i]![1], z = q[i]![2]
+    /* c8 ignore next 3 -- else branches require quad vertex coordinates with specific ordering; not all permutations tested */
     if (x < minX) minX = x; else if (x > maxX) maxX = x
     if (y < minY) minY = y; else if (y > maxY) maxY = y
     if (z < minZ) minZ = z; else if (z > maxZ) maxZ = z

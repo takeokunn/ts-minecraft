@@ -1,5 +1,3 @@
-import type { FaceDir } from './block-texture-map'
-
 // Atlas tile index per blockId per face direction.
 // Tile layout (16×16 grid):
 //   0: dirt          1: stone          2: wood_side    3: wood_top
@@ -13,7 +11,9 @@ import type { FaceDir } from './block-texture-map'
 //   41-45: planks, sticks (item-only atlas tile), crafting table, furnace, torch
 // TILE_MAP is indexed by BlockType storage id only. Inventory-only atlas tiles
 // such as sticks are not valid block ids and must not be inserted here.
-export const TILE_MAP: ReadonlyArray<Readonly<Record<FaceDir, number>>> = [
+export type TextureFaceDir = 'top' | 'bottom' | 'side'
+
+export const TILE_MAP: ReadonlyArray<Readonly<Record<TextureFaceDir, number>>> = [
   { top: 0,  bottom: 0,  side: 0  }, //  0: AIR (unused)
   { top: 0,  bottom: 0,  side: 0  }, //  1: DIRT
   { top: 1,  bottom: 1,  side: 1  }, //  2: STONE

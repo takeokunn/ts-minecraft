@@ -1,4 +1,5 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { describe, it } from '@effect/vitest'
+import { beforeEach, expect, vi } from 'vitest'
 
 // FR-4.3: CompositePass merges Bloom + GodRays + Bokeh into a single
 // fragment shader pass with #ifdef-gated effect blocks. Tests verify:

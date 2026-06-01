@@ -1,11 +1,11 @@
 import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
 import { Array as Arr, Effect, Either, HashMap, Layer, Option } from 'effect'
-import type { InventoryItem } from '@ts-minecraft/kernel'
+import type { InventoryItem } from '@ts-minecraft/core'
 import { RecipeService } from '@ts-minecraft/inventory'
 import { InventoryError, InventoryService, InventoryServiceLive } from '@ts-minecraft/inventory'
-import { RecipeId } from '@ts-minecraft/kernel'
-import { BlockRegistry } from '@ts-minecraft/world-state'
+import { RecipeId } from '@ts-minecraft/core'
+import { BlockRegistry } from '@ts-minecraft/block'
 import { createTestBlockRegistry } from './inventory-service-test-utils'
 
 const registryLayer = Layer.succeed(BlockRegistry, createTestBlockRegistry())

@@ -1,6 +1,6 @@
 // FR-3.6: tolerance-based camera-pose cache for frustum culling.
 //
-// The legacy 11-field strict-equality cache miss-fired on sub-pixel jitter
+// The strict-equality cache miss-fired on sub-pixel jitter
 // (qx changing by 1e-7 invalidated the cache and forced a full rebuild of the
 // frustum + N AABB intersect tests every frame). Tolerance buckets eliminate
 // that miss path while leaving meaningful changes (any movement that visibly

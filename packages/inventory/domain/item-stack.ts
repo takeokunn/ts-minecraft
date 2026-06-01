@@ -1,5 +1,5 @@
 import { Option, Schema } from 'effect'
-import { InventoryItem, InventoryItemSchema } from '@ts-minecraft/kernel'
+import { InventoryItem, InventoryItemSchema } from '@ts-minecraft/core'
 import { isDurable, getMaxDurability, damageDurability, isBroken, TOOL_MAX_DURABILITY } from './durability'
 
 export class ItemStack extends Schema.Class<ItemStack>('ItemStack')({

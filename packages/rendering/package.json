@@ -1,11 +1,17 @@
 {
   "name": "@ts-minecraft/rendering",
-  "version": "0.0.0",
-  "private": true,
+  "version": "1.0.0",
   "type": "module",
-  "main": "./index.ts",
+  "private": true,
   "exports": {
-    ".": "./index.ts"
+    ".": "./index.ts",
+    "./*": "./*"
   },
-  "dependencies": {}
+  "dependencies": {
+    "@ts-minecraft/core": "workspace:*",
+    "@ts-minecraft/block": "workspace:*",
+    "@ts-minecraft/entity": "workspace:*",
+    "@ts-minecraft/world": "workspace:*",
+    "@ts-minecraft/worker": "workspace:*"
+  }
 }

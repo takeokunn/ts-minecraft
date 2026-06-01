@@ -1,7 +1,7 @@
 import { describe, it, expect } from '@effect/vitest'
 import { Array as Arr, Effect } from 'effect'
 import { TimeService, TimeServiceLive } from '@ts-minecraft/game'
-import { DeltaTimeSecs } from '@ts-minecraft/kernel'
+import { DeltaTimeSecs } from '@ts-minecraft/core'
 
 // TimeService has no external dependencies, so we use TimeService.Default (= TimeServiceLive)
 // directly for every test.

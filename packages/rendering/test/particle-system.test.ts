@@ -1,5 +1,5 @@
-import { describe, expect } from 'vitest'
-import { it } from '@effect/vitest'
+import { describe, it } from '@effect/vitest'
+import { expect } from 'vitest'
 import { Array as Arr, Effect, Layer, Option } from 'effect'
 import * as THREE from 'three'
 

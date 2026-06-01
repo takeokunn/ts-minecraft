@@ -1,5 +1,5 @@
-import { CHUNK_SIZE, CHUNK_HEIGHT, blockTypeToIndex } from '@ts-minecraft/kernel'
-import { chunkBlockIndexUnchecked } from '@ts-minecraft/terrain'
+import { CHUNK_SIZE, CHUNK_HEIGHT, blockTypeToIndex } from '@ts-minecraft/core'
+import { chunkBlockIndexUnchecked } from '@ts-minecraft/world'
 
 const CHUNK_LOCAL_MASK = CHUNK_SIZE - 1
 
@@ -39,7 +39,7 @@ export const isBlockSolid = (
   if (chunk == null) return false
   const lx = bx & CHUNK_LOCAL_MASK
   const lz = bz & CHUNK_LOCAL_MASK
-  const blockId = chunk.blocks[chunkBlockIndexUnchecked(lx, ly, lz)] ?? 0
+  const blockId = chunk.blocks[chunkBlockIndexUnchecked(lx, ly, lz)] as number
   return blockId !== 0 && !PASSABLE_BLOCK_IDS.has(blockId)
 }
 
@@ -63,5 +63,5 @@ export const isInWater = (
   if (chunk == null) return false
   const lx = bx & CHUNK_LOCAL_MASK
   const lz = bz & CHUNK_LOCAL_MASK
-  return (chunk.blocks[chunkBlockIndexUnchecked(lx, ly, lz)] ?? 0) === WATER_ID
+  return (chunk.blocks[chunkBlockIndexUnchecked(lx, ly, lz)] as number) === WATER_ID
 }

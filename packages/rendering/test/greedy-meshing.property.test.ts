@@ -3,9 +3,9 @@ import { expect } from 'vitest'
 import { Array as Arr, Arbitrary, Option, Schema } from 'effect'
 import * as fc from 'effect/FastCheck'
 import { greedyMeshChunk } from '@ts-minecraft/rendering'
-import { CHUNK_SIZE, CHUNK_HEIGHT } from '@ts-minecraft/kernel'
-import type { ChunkCoord } from '@ts-minecraft/kernel'
-import type { Chunk } from '@ts-minecraft/terrain'
+import { CHUNK_SIZE, CHUNK_HEIGHT } from '@ts-minecraft/core'
+import type { ChunkCoord } from '@ts-minecraft/core'
+import type { Chunk } from '@ts-minecraft/world'
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 

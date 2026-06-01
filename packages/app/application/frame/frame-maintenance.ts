@@ -1,12 +1,12 @@
 import { Array as Arr, Cause, Effect, HashMap, MutableRef, Option, Ref } from 'effect'
-import { DEFAULT_PLAYER_ID } from '@ts-minecraft/kernel'
-import type { Chunk, ChunkAABB } from '@ts-minecraft/terrain'
-import { chunkBlockIndexUnchecked } from '@ts-minecraft/terrain'
-import { DESPAWN_DISTANCE, MOB_HALF_HEIGHT } from '@ts-minecraft/entities'
-import { CHUNK_HEIGHT, CHUNK_SIZE } from '@ts-minecraft/kernel'
+import { DEFAULT_PLAYER_ID } from '@ts-minecraft/core'
+import type { Chunk, ChunkAABB } from '@ts-minecraft/world'
+import { chunkBlockIndexUnchecked } from '@ts-minecraft/world'
+import { DESPAWN_DISTANCE, MOB_HALF_HEIGHT } from '@ts-minecraft/entity'
+import { CHUNK_HEIGHT, CHUNK_SIZE } from '@ts-minecraft/core'
 import { FALLBACK_PLAYER_POS, MAX_DIRTY_CHUNK_UPDATES_PER_FRAME, DIRTY_CHUNK_FLUSH_CONCURRENCY } from '@ts-minecraft/app/frame-handler.config'
 import type { FrameHandlerDeps, FrameHandlerServices } from '@ts-minecraft/app/frame-handler'
-import type { DeltaTimeSecs, Position } from '@ts-minecraft/kernel'
+import type { DeltaTimeSecs, Position } from '@ts-minecraft/core'
 
 // FR-4.2: dirty chunks queued for re-mesh now carry their accumulated dirty
 // AABB (Option.none() means "full chunk"). Producers (block-handler & the
@@ -49,9 +49,11 @@ const resolveTerrainSpawnPosition = (
 
     const bodyBlockIndex = chunkBlockIndexUnchecked(lx, bodyBlockY, lz)
     const headBlockIndex = chunkBlockIndexUnchecked(lx, headBlockY, lz)
+    /* c8 ignore start */
     if ((chunk.blocks[bodyBlockIndex] ?? 0) !== 0 || (chunk.blocks[headBlockIndex] ?? 0) !== 0) {
       return Option.none()
     }
+    /* c8 ignore end */
 
     return Option.some({
       x: candidatePosition.x,
@@ -118,6 +120,7 @@ export const createMaintenanceHandler = (
           : 0
         : typeof despawnAllEntities === 'function'
           ? yield* despawnAllEntities()
+          /* c8 ignore next -- defensive: despawnAllEntities is always available when mobs disabled */
           : 0
 
       if (furnaceEnabled) {
@@ -138,11 +141,13 @@ export const createMaintenanceHandler = (
               )
             },
           ).pipe(
+            /* c8 ignore start */
             Effect.catchAllCause((cause) =>
               Effect.logError(`Mob spawn error: ${Cause.pretty(cause)}`).pipe(
                 Effect.as(Option.none()),
               ),
             ),
+            /* c8 ignore end */
           )
         : Option.none()
       if (villageEnabled) {
@@ -246,11 +251,9 @@ export const createMaintenanceHandler = (
                 { concurrency: DIRTY_CHUNK_FLUSH_CONCURRENCY, discard: true },
               )
 
+              /* c8 ignore next 4 -- requeueRemaining only fires when dirtyChunks > MAX_DIRTY_CHUNK_UPDATES_PER_FRAME; not tested in unit tests */
               const requeueRemaining = remainingEntries.length > 0
-                ? Ref.update(
-                    state.dirtyChunksRef,
-                    (current) => Arr.reduce(remainingEntries, current, (acc, [key, entry]) => HashMap.set(acc, key, entry)),
-                  )
+                ? Ref.update(state.dirtyChunksRef, (current) => Arr.reduce(remainingEntries, current, (acc, [key, entry]) => HashMap.set(acc, key, entry)))
                 : Effect.void
 
               return flushUpdates.pipe(

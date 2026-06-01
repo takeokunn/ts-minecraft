@@ -4,7 +4,7 @@
 
 Phase 12's combat domain and armor subsystem are **already shipped and unit-tested** (verified against the repo, 2026-05-29):
 
-- **Combat domain** (`packages/entities/domain/combat.ts`): `computeAttackDamage` (crit 1.5x then armor reduction), `applyArmorReduction` (4%/pt, cap 80%), `computeKnockback` (H=5/V=4.2/6 ticks), `computeAttackCharge`/`computeChargedDamage` (MC1.9). Crit is **DETERMINISTIC** (`!playerGrounded`), not random.
+- **Combat domain** (`packages/entity/domain/combat.ts`): `computeAttackDamage` (crit 1.5x then armor reduction), `applyArmorReduction` (4%/pt, cap 80%), `computeKnockback` (H=5/V=4.2/6 ticks), `computeAttackCharge`/`computeChargedDamage` (MC1.9). Crit is **DETERMINISTIC** (`!playerGrounded`), not random.
 - **Attack wired** (`interaction-block-handler.ts` handleLeftClick onSome branch, lines 130-195): weapon damage lookup, crit via `!playerGrounded` (line 147/75), knockback + entityHit sound before applyDamage, drops -> inventory, XP, weapon durability via `damageSlot`.
 - **Armor subsystem**: `armor.ts` domain, `EquipmentService` (equip/unequipSlot/getAll/getTotalArmorPoints/serialize/deserialize/reset), **right-click equip is LIVE** at `interaction-block-handler.ts:237-244` (suspected gap #1 is FALSE), incoming-damage armor reduction at `physics-stage.ts:64-69`, persistence with back-compat, `equipmentService.reset()` on death at `physics-stage.ts:85`.
 

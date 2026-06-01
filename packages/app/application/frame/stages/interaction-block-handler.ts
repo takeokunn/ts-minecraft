@@ -1,11 +1,10 @@
 import { Effect, HashMap, Option, Ref, Schema } from 'effect'
-import { aabbFromVoxel } from '@ts-minecraft/terrain'
+import { aabbFromVoxel } from '@ts-minecraft/world'
 import type { FrameHandlerDeps, FrameHandlerServices, FrameStageRefs } from '@ts-minecraft/app/frame/types'
 import { findAttackableEntity } from '@ts-minecraft/app/frame/stages/attack-targeting'
-import { CHUNK_SIZE, CHUNK_HEIGHT, indexToBlockType, blockTypeToIndex, SlotIndex, BlockTypeSchema, ItemTypeSchema } from '@ts-minecraft/kernel'
-import { HOTBAR_START, isDurable, isArmorItem } from '@ts-minecraft/inventory'
-import { getFoodProperties, MAX_FOOD_LEVEL } from '@ts-minecraft/player'
-import { computeAttackDamage, computeKnockback, computeAttackCharge, computeChargedDamage, DEFAULT_ATTACK_COOLDOWN_SECS, getMobDefinition } from '@ts-minecraft/entities'
+import { CHUNK_SIZE, CHUNK_HEIGHT, blockTypeToIndex, SlotIndex, ItemTypeSchema } from '@ts-minecraft/core'
+import { HOTBAR_START, isDurable } from '@ts-minecraft/inventory'
+import { computeAttackDamage, computeKnockback, computeAttackCharge, computeChargedDamage, DEFAULT_ATTACK_COOLDOWN_SECS, getMobDefinition } from '@ts-minecraft/entity'
 import { getParticleUvOffset } from '@ts-minecraft/rendering/particles/particle-system'
 import {
   ENTITY_CENTER_Y_OFFSET,
@@ -48,6 +47,9 @@ export type TargetRayHit = {
   readonly distance: number
   readonly normal: { readonly x: number; readonly y: number; readonly z: number }
 }
+
+export { handleFoodConsumption, handleUnequipArmor } from '@ts-minecraft/app/frame/stages/interaction-item-use-handler'
+export { handleRightClick } from '@ts-minecraft/app/frame/stages/interaction-placement-handler'
 
 export const handleLeftClick = (
   deps: Pick<FrameHandlerDeps, 'camera'>,
@@ -113,6 +115,7 @@ export const handleLeftClick = (
                           uv.v,
                           6,
                         )
+                      /* c8 ignore next -- particles.spawn=false during block-break; covered by entity attack test */
                       : Effect.void,
                   ],
                   { concurrency: 'unbounded', discard: true },
@@ -233,171 +236,4 @@ export const handleLeftClick = (
           })
         }),
     })
-  })
-
-// Handles right-click item use on the selected hotbar item, in priority order:
-//   1. fishing rod  → toggle cast/cancel (does not consume the rod)
-//   2. armor item   → equip it (removes one from the slot)
-//   3. food item    → eat it (restores hunger, consumes one from the slot)
-// Returns true when an item action was taken, so the caller skips the block-
-// placement path. Independent of any block target (e.g. you can eat while looking
-// at the sky). Eating is suppressed when the food bar is already full (vanilla
-// behaviour), and for both equip and eat the slot consumption (removeBlock) runs
-// BEFORE the grant — so a failed removeBlock never gives free hunger/equipment.
-export const handleFoodConsumption = (
-  services: Pick<FrameHandlerServices, 'hotbarService' | 'hungerService' | 'inventoryService' | 'equipmentService' | 'fishingService' | 'xpService'>,
-): Effect.Effect<boolean, never> =>
-  Effect.all(
-    [services.hotbarService.getSelectedBlockType(), services.hotbarService.getSelectedSlot()],
-    { concurrency: 'unbounded' },
-  ).pipe(
-    Effect.flatMap(([selected, selectedSlot]) =>
-      Option.match(selected, {
-        onNone: () => Effect.succeed(false),
-        onSome: (item) => {
-          if (!Schema.is(ItemTypeSchema)(item)) return Effect.succeed(false)
-
-          // Priority 0: fishing rod — toggle cast/cancel (does not consume the rod).
-          if (item === 'FISHING_ROD') {
-            return services.fishingService.isFishing().pipe(
-              Effect.flatMap((alreadyFishing) =>
-                alreadyFishing
-                  ? services.fishingService.cancel().pipe(Effect.as(true))
-                  : services.xpService.getXP().pipe(
-                      Effect.flatMap((xp) =>
-                        services.fishingService.cast(xp.totalXP + xp.xpIntoLevel),
-                      ),
-                      Effect.as(true),
-                    ),
-              ),
-            )
-          }
-
-          // Priority 1: equip armor.
-          if (isArmorItem(item)) {
-            return services.inventoryService
-              .removeBlock(item, 1, SlotIndex.make(HOTBAR_START + selectedSlot))
-              .pipe(
-                Effect.andThen(services.equipmentService.equip(item)),
-                Effect.as(true),
-                Effect.catchAll(() => Effect.succeed(false)),
-              )
-          }
-
-          // Priority 2: eat food.
-          return Option.match(getFoodProperties(item), {
-            onNone: () => Effect.succeed(false),
-            onSome: (food) =>
-              services.hungerService.getHunger().pipe(
-                Effect.flatMap((hunger) =>
-                  hunger.foodLevel >= MAX_FOOD_LEVEL
-                    ? Effect.succeed(false)
-                    : services.inventoryService
-                        .removeBlock(item, 1, SlotIndex.make(HOTBAR_START + selectedSlot))
-                        .pipe(
-                          Effect.andThen(services.hungerService.eat(food.foodLevel, food.saturationModifier)),
-                          Effect.as(true),
-                          Effect.catchAll(() => Effect.succeed(false)),
-                        ),
-                ),
-              ),
-          })
-        },
-      }),
-    ),
-  )
-
-// In-game unequip (KeyG): removes the FIRST occupied armor slot and deposits it
-// back into the inventory. Symmetric with the per-item right-click equip path.
-// If addBlock fails (a full inventory), the piece is RE-EQUIPPED so it stays worn
-// rather than being silently destroyed — the slot was already cleared by unequip,
-// so re-equip restores the original state. The frame never crashes either way.
-export const handleUnequipArmor = (
-  services: Pick<FrameHandlerServices, 'equipmentService' | 'inventoryService'>,
-): Effect.Effect<void, never> =>
-  Effect.gen(function* () {
-    const slots = ['HELMET', 'CHESTPLATE', 'LEGGINGS', 'BOOTS'] as const
-    for (const slot of slots) {
-      const removed = yield* services.equipmentService.unequipSlot(slot)
-      if (Option.isSome(removed)) {
-        yield* services.inventoryService
-          .addBlock(removed.value, 1)
-          .pipe(Effect.catchAll(() => services.equipmentService.equip(removed.value).pipe(Effect.asVoid)))
-        return
-      }
-    }
-  })
-
-export const handleRightClick = (
-  services: Pick<
-    FrameHandlerServices,
-    'blockService' | 'chunkManagerService' | 'soundManager' | 'hotbarService' | 'furnaceService'
-  >,
-  refs: Pick<FrameStageRefs, 'dirtyChunksRef'>,
-  context: { readonly targetHit: Option.Option<TargetRayHit> },
-) =>
-  Option.match(context.targetHit, {
-    onNone: () => Effect.void,
-    onSome: (hit) => {
-      const targetPos = { x: hit.blockX, y: hit.blockY, z: hit.blockZ }
-      const targetChunkCoord = {
-        x: Math.floor(targetPos.x / CHUNK_SIZE),
-        z: Math.floor(targetPos.z / CHUNK_SIZE),
-      }
-      return services.chunkManagerService.getChunk(targetChunkCoord).pipe(
-        Effect.flatMap((targetChunk) => {
-          const targetLx = ((targetPos.x % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE
-          const targetLz = ((targetPos.z % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE
-          const targetIdx = targetPos.y + targetLz * CHUNK_HEIGHT + targetLx * CHUNK_HEIGHT * CHUNK_SIZE
-          const targetBlockType = indexToBlockType(targetChunk.blocks[targetIdx] ?? 0)
-          /* c8 ignore next 3 */
-          if (targetBlockType === 'FURNACE') {
-            return services.furnaceService.setSelectedFurnace(targetPos)
-          }
-
-          const adjacentPos = {
-            x: hit.blockX + Math.round(hit.normal.x),
-            y: hit.blockY + Math.round(hit.normal.y),
-            z: hit.blockZ + Math.round(hit.normal.z),
-          }
-          return Effect.all(
-            [services.hotbarService.getSelectedBlockType(), services.hotbarService.getSelectedSlot()],
-            { concurrency: 'unbounded' },
-          ).pipe(
-            Effect.flatMap(([selectedBlock, selectedSlot]) =>
-              Option.match(selectedBlock, {
-                onNone: () => Effect.void,
-                onSome: (item) => {
-                  if (!Schema.is(BlockTypeSchema)(item)) return Effect.void
-                  const chunkCoord = {
-                    x: Math.floor(adjacentPos.x / CHUNK_SIZE),
-                    z: Math.floor(adjacentPos.z / CHUNK_SIZE),
-                  }
-                  const coordKey = `${chunkCoord.x},${chunkCoord.z}`
-                  const adjLx = ((adjacentPos.x % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE
-                  const adjLz = ((adjacentPos.z % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE
-                  return services.blockService
-                    .placeBlock(adjacentPos, item, SlotIndex.make(HOTBAR_START + selectedSlot))
-                    .pipe(
-                      Effect.flatMap(() =>
-                        services.soundManager.playEffect('blockPlace', { position: adjacentPos }),
-                      ),
-                      Effect.andThen(services.chunkManagerService.getChunk(chunkCoord)),
-                      Effect.flatMap((updatedChunk) =>
-                        // FR-4.2: seed AABB at the placed voxel; see handleLeftClick.
-                        Ref.update(refs.dirtyChunksRef, (map) =>
-                          HashMap.set(map, coordKey, {
-                            chunk: updatedChunk,
-                            dirtyAABB: Option.some(aabbFromVoxel({ lx: adjLx, y: adjacentPos.y, lz: adjLz })),
-                          }),
-                        ),
-                      ),
-                    )
-                },
-              }),
-            ),
-          )
-        }),
-      )
-    },
   })

@@ -1,5 +1,5 @@
 import { Option } from 'effect'
-import type { ItemType } from '@ts-minecraft/kernel'
+import type { ItemType } from '@ts-minecraft/core'
 
 // ─── Enchantment types (vanilla subset) ────────────────────────────────────
 

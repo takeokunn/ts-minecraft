@@ -1,7 +1,8 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it } from '@effect/vitest'
+import { expect } from 'vitest'
 import { Array as Arr, MutableHashMap, Option } from 'effect'
 import { greedyMeshChunk } from '@ts-minecraft/rendering'
-import type { BlockType } from '@ts-minecraft/kernel'
+import type { BlockType } from '@ts-minecraft/core'
 import { makeEmptyChunk, makeChunkWithBlock, ZERO_COORD, ZERO_OFFSET } from './greedy-meshing-test-utils'
 
 describe('greedyMeshChunk', () => {

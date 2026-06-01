@@ -2,7 +2,7 @@ import { Effect, Ref } from 'effect'
 import { logErrors } from '@ts-minecraft/app/frame/error-logging'
 import type { FrameHandlerDeps, FrameHandlerServices, FrameStageRefs } from '@ts-minecraft/app/frame/types'
 import { updateDayNightCycle, type DayNightLights } from '@ts-minecraft/game'
-import type { DeltaTimeSecs, Position } from '@ts-minecraft/kernel'
+import type { DeltaTimeSecs, Position } from '@ts-minecraft/core'
 
 export const lightingStage = (
   deps: Pick<FrameHandlerDeps, 'lights' | 'renderer'>,

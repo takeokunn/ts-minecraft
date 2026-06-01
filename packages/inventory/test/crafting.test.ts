@@ -1,6 +1,7 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it } from '@effect/vitest'
+import { expect } from 'vitest'
 import { Array as Arr, Either, Option, Schema } from 'effect'
-import { RecipeId } from '@ts-minecraft/kernel'
+import { RecipeId } from '@ts-minecraft/core'
 import { CraftingStationSchema, RecipeIngredient, Recipe } from '../domain/crafting'
 
 describe('domain/crafting', () => {

@@ -1,11 +1,12 @@
-import { describe, expect, it } from 'vitest'
+import { describe, it } from '@effect/vitest'
+import { expect } from 'vitest'
 import * as fc from 'fast-check'
 import { Array as Arr, Option } from 'effect'
-import { CHUNK_SIZE, CHUNK_HEIGHT, blockTypeToIndex } from '@ts-minecraft/kernel'
-import type { Chunk } from '@ts-minecraft/terrain'
+import { CHUNK_SIZE, CHUNK_HEIGHT, blockTypeToIndex } from '@ts-minecraft/core'
+import type { Chunk } from '@ts-minecraft/world'
 import { greedyMeshChunk, simplifyMesh, lodForDistance } from '@ts-minecraft/rendering'
-import { createLightBuffer, setLightAt } from '@ts-minecraft/world-state'
-import type { LightGrids } from '@ts-minecraft/world-state'
+import { createLightBuffer, setLightAt } from '@ts-minecraft/world'
+import type { LightGrids } from '@ts-minecraft/world'
 
 const DIRT_ID = blockTypeToIndex('DIRT')
 

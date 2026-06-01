@@ -13,7 +13,7 @@ A Minecraft-like voxel game built entirely in the browser with TypeScript, Three
 - Post-processing pipeline (GTAO + SMAA always; bloom + DOF + god rays merged via CompositePass on `high`/`ultra` presets to save ~25 MB/frame full-screen RT bandwidth — FR-4.3)
 - Water rendering support remains available, while new terrain generation keeps lake/ocean basins dry; water refraction pre-pass is screen-ratio gated (FR-4.4)
 - World persistence via IndexedDB
-- Comprehensive test suite (3390+ unit tests across 292 files, E2E tests with Playwright)
+- Comprehensive test suite (3580+ unit tests across 287 files, E2E tests with Playwright)
 
 ## Tech Stack
 
@@ -47,22 +47,19 @@ pnpm verify         # Run typecheck + lint + test + build
 src/
   main.ts         -- Browser entry point
 packages/
-  kernel/         -- Shared kernel: branded types, constants, pure math, ports
-  app/            -- Session, frame pipeline, menu/UI composition
-  game/           -- Game state, time, settings presets, and game-loop services
-  terrain/        -- Chunks, terrain generation, block rules, dirty-AABB tracking (FR-4.2)
-  rendering/      -- Three.js rendering bounded context: greedy meshing, sub-region re-mesh (FR-4.1),
-                     LOD simplification (FR-3.1/3.2), CompositePass (FR-4.3), refraction gating (FR-4.4),
-                     GPU timer/perf marks
-  physics/        -- Physics and collision systems
-  inventory/      -- Inventory and crafting systems
-  furnace/        -- Furnace cooking pipeline (extracted from inventory)
-  player/         -- Player domain state and camera/movement logic
-  entities/       -- Entity data models, mob categories, drops
-  world-state/    -- Persistent world-state data and storage ports
+  core/           -- Shared kernel: branded types, constants, pure math, ports
+  block/          -- Block definitions, light model, and block-level data
+  world/          -- Terrain generation, chunk management, world persistence (IndexedDB)
+  entity/         -- Entity management (mobs, player, AI, physics, drops)
+  inventory/      -- Inventory, crafting, furnace pipeline, recipe definitions
+  game/           -- Game state, time, settings presets, and game-loop services (physics absorbed)
+  rendering/      -- Three.js rendering: greedy meshing, entity rendering, post-processing, GPU timer
+  worker/         -- Web Worker pools (terrain generation, meshing)
+  presentation/   -- Menu, HUD, debug overlay (extracted from app)
+  app/            -- Boot, session lifecycle, frame pipeline, composition root
 ```
 
-Each package follows package-by-feature layering where needed: `domain/` for pure data/rules/ports, `application/` for Effect services and orchestration, `infrastructure/` for external adapters, and `presentation/` for UI-facing code. Layer composition lives in `packages/app/application/main/layers/` and is wired from `src/main.ts`.
+Each package follows DDD layering: `domain/` for pure data/rules/ports, `application/` for Effect services and orchestration, `infrastructure/` for external adapters, and `presentation/` for UI-facing code. All production source files are ≤300 lines. Layer composition lives in `packages/app/application/main/layers/` and is wired from `src/main.ts`.
 
 ## Performance Status
 

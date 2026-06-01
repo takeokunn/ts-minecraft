@@ -8,7 +8,11 @@
       "node_modules/@types",
       "types"
     ],
-    "types": []
+    "types": [],
+    "noPropertyAccessFromIndexSignature": false,
+    "noImplicitAny": false,
+    "noUnusedLocals": false,
+    "noUnusedParameters": false
   },
   "include": [
     "src/**/*.ts",
@@ -22,6 +26,9 @@
     "dist",
     "coverage",
     "docs",
-    "packages/**/dist"
+    "packages/**/dist",
+    "**/*.test.ts",
+    "**/*.spec.ts",
+    "**/*.property.test.ts"
   ]
 }

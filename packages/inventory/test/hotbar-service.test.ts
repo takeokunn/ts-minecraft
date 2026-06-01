@@ -1,9 +1,9 @@
-import { it } from '@effect/vitest'
+import { describe, it } from '@effect/vitest'
 import { HOTBAR_SIZE,HOTBAR_START,HotbarService,InventoryService } from '@ts-minecraft/inventory'
-import { InventoryItem } from '@ts-minecraft/kernel'
-import { Block } from '@ts-minecraft/world-state'
+import { InventoryItem } from '@ts-minecraft/core'
+import { Block } from '@ts-minecraft/block'
 import { Array as Arr,Effect,Option } from 'effect'
-import { describe,expect } from 'vitest'
+import { expect } from 'vitest'
 import { createStack } from '../domain/item-stack'
 import {
 asSlotIndex,

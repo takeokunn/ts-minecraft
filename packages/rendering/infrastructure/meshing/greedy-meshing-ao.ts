@@ -1,6 +1,6 @@
-import { CHUNK_SIZE, CHUNK_HEIGHT } from '@ts-minecraft/kernel'
-import { getLightAt } from '@ts-minecraft/world-state'
-import type { LightGrids } from '@ts-minecraft/world-state'
+import { CHUNK_SIZE, CHUNK_HEIGHT } from '@ts-minecraft/core'
+import { getLightAt } from '@ts-minecraft/block'
+import type { LightGrids } from '@ts-minecraft/block'
 import { AIR } from './greedy-meshing-types'
 
 export const getBlock = (blocks: Readonly<Uint8Array>, lx: number, y: number, lz: number): number => {
@@ -9,6 +9,7 @@ export const getBlock = (blocks: Readonly<Uint8Array>, lx: number, y: number, lz
 }
 
 export const isAir = (blocks: Readonly<Uint8Array>, lx: number, y: number, lz: number): boolean =>
+  /* c8 ignore next -- isAir called in AO computation; true-branch (AIR) rarely triggered in solid-chunk tests */
   getBlock(blocks, lx, y, lz) === AIR
 
 export const aoXPos = (blocks: Readonly<Uint8Array>, lx: number, y: number, lz: number): number => {

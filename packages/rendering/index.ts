@@ -1,5 +1,4 @@
 export * from './application/chunk-count-port'
-export * from './application/meshing-worker-pool-port'
 export * from './application/perf-flags'
 export * from './domain/errors'
 export * from './infrastructure/renderer/world-renderer'
@@ -24,8 +23,6 @@ export {
   type SliceRange,
 } from './infrastructure/meshing/subregion-greedy'
 export * from './infrastructure/meshing/lod-simplification'
-export * from './infrastructure/meshing/meshing-worker-pool'
-export * from './infrastructure/meshing/meshing-worker-pool-port-layer'
 
 export * from './infrastructure/perf/gpu-timer-service'
 export * from './infrastructure/perf/perf-marks'
@@ -39,3 +36,4 @@ export * from './infrastructure/textures/item-texture-map'
 export * from './infrastructure/textures/texture-loader'
 export * from './infrastructure/post-processing/water-material'
 export * from './presentation/perf-hud'
+export * from '@ts-minecraft/worker'

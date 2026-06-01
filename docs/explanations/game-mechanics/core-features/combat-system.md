@@ -17,7 +17,7 @@ related_docs: ['./04-entity-system.md', './12-health-hunger-system.md', './06-ph
 プレイヤーやMob間の戦闘を管理するシステムです。近接攻撃、遠距離攻撃、ダメージ計算、防具、エンチャント効果などを扱います。
 
 > **実装状況 (Phase 12, 2026-05)** — 本ドキュメントは将来像を含む**仕様**です。現状の実装は以下の通りで、ここに記載の `WeaponType` 合成スキーマ（武器ごとの `durability` フィールド等）とは構造が異なります:
-> - **ダメージ計算 / クリティカル / 防具軽減**: `packages/entities/domain/combat.ts` の純粋関数 `computeAttackDamage(baseDamage, isCritical, armorPoints)` および `applyArmorReduction(rawDamage, armorPoints)`。クリティカルは確率ではなく**滞空中攻撃で確定**（バニラ準拠）。防具軽減は4%/pt・上限80%で、`armorPoints` はプレイヤーが装備中の防具から `EquipmentService.getTotalArmorPoints` 経由で算出される（モブへの攻撃側は防具を持たないため `armorPoints=0`）。
+> - **ダメージ計算 / クリティカル / 防具軽減**: `packages/entity/domain/combat.ts` の純粋関数 `computeAttackDamage(baseDamage, isCritical, armorPoints)` および `applyArmorReduction(rawDamage, armorPoints)`。クリティカルは確率ではなく**滞空中攻撃で確定**（バニラ準拠）。防具軽減は4%/pt・上限80%で、`armorPoints` はプレイヤーが装備中の防具から `EquipmentService.getTotalArmorPoints` 経由で算出される（モブへの攻撃側は防具を持たないため `armorPoints=0`）。
 > - **攻撃クールダウン**: `computeAttackCharge` + `computeChargedDamage`（1.9式 `0.2 + 0.8·charge²`）。
 > - **ノックバック**: `computeKnockback` + `EntityManager.applyKnockback`（`knockbackTicksRemaining` でAIの速度上書きを抑制）。
 > - **武器耐久度**: `WeaponType` への埋め込みではなく、`packages/inventory/domain/durability.ts` の `TOOL_MAX_DURABILITY` テーブル + `ItemStack.durability`（任意フィールド）+ `InventoryService.damageSlot` で実装。攻撃ごとに1減少し、0で `ItemStack` が消滅。

@@ -1,5 +1,6 @@
-import { describe, expect, it } from 'vitest'
-import { Effect } from 'effect'
+import { describe, it } from '@effect/vitest'
+import { expect } from 'vitest'
+import { Data, Effect } from 'effect'
 import { isPerfEnabled, markEffect } from '@ts-minecraft/rendering'
 
 // In vitest node environment, `window` is undefined → PERF_ENABLED module constant is false.
@@ -27,8 +28,8 @@ describe('perf-marks', () => {
     })
 
     it('propagates errors from the inner effect unchanged', async () => {
-      class TestError extends Error {}
-      const inner: Effect.Effect<never, TestError> = Effect.fail(new TestError('propagated'))
+      class TestError extends Data.TaggedError('TestError')<{ readonly message: string }> {}
+      const inner: Effect.Effect<never, TestError> = Effect.fail(new TestError({ message: 'propagated' }))
       const wrapped = markEffect('failing-op', inner)
       const exit = await Effect.runPromiseExit(wrapped)
       expect(exit._tag).toBe('Failure')

@@ -1,5 +1,5 @@
 import { Effect, Option, Ref, Schema } from 'effect'
-import type { Position } from '@ts-minecraft/kernel'
+import type { Position } from '@ts-minecraft/core'
 import { AudioEnginePort } from '../domain/audio-engine-port'
 import { clamp01, type ToneHandle } from '../domain/audio-types'
 import { TRACKS, DEFAULT_CAVE_THRESHOLD_Y } from './music-manager.config'
