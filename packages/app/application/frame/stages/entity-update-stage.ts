@@ -1,4 +1,4 @@
-import { Effect, Ref } from 'effect'
+import { Effect, Option, Ref } from 'effect'
 import { resolveBlockCollisions } from '@ts-minecraft/game'
 import type { Chunk } from '@ts-minecraft/world'
 import { chunkBlockIndexUnchecked } from '@ts-minecraft/world'
@@ -60,8 +60,8 @@ export const entityUpdateStage = (
       const lastChunkCoord = yield* Ref.get(refs.lastEntityPhysicsChunkCoordRef)
       const loadedChunks = yield* Ref.get(refs.lastLoadedChunksRef)
       const lastLoadedChunks = yield* Ref.get(refs.lastEntityPhysicsLoadedChunksRef)
-      const loadedChunksChanged = loadedChunks._tag !== lastLoadedChunks._tag ||
-        (loadedChunks._tag === 'Some' && lastLoadedChunks._tag === 'Some' && loadedChunks.value !== lastLoadedChunks.value)
+      const loadedChunksChanged = Option.isSome(loadedChunks) !== Option.isSome(lastLoadedChunks) ||
+        (Option.isSome(loadedChunks) && Option.isSome(lastLoadedChunks) && loadedChunks.value !== lastLoadedChunks.value)
       let chunkCache = yield* Ref.get(refs.entityPhysicsChunkCacheRef)
       const chunkCoordChanged = lastChunkCoord.cx !== playerCx || lastChunkCoord.cz !== playerCz
       const hasMissingChunk = chunkCache.some((chunk) => chunk == null)

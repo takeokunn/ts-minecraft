@@ -1,18 +1,18 @@
-import { Either,Schema } from 'effect'
+import { Either, Schema } from 'effect'
 import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
 import {
-BlockIndexSchema,
-ChunkCacheKey,
-ChunkCacheKeySchema,
-DeltaTimeSecsSchema,
-MaterialCacheKey,
-MaterialCacheKeySchema,
-MetersPerSec,
-RecipeIdSchema,
-SlotIndexSchema,
-TextureUrl,
-TextureUrlSchema
+  BlockIndexSchema,
+  ChunkCacheKey,
+  ChunkCacheKeySchema,
+  DeltaTimeSecsSchema,
+  MaterialCacheKey,
+  MaterialCacheKeySchema,
+  MetersPerSec,
+  RecipeIdSchema,
+  SlotIndexSchema,
+  TextureUrl,
+  TextureUrlSchema,
 } from './kernel'
 
 describe('shared/kernel (branded types)', () => {
@@ -39,6 +39,13 @@ describe('shared/kernel (branded types)', () => {
     })
     it('make({x:5, z:-3}) produces "5,-3"', () => {
       expect(ChunkCacheKey.make({ x: 5, z: -3 })).toBe('5,-3')
+    })
+    it('make(string) passes the string through as-is (string overload)', () => {
+      expect(ChunkCacheKey.make('10,-20')).toBe('10,-20')
+    })
+    it('make(string) round-trips through Schema.is', () => {
+      const key = ChunkCacheKey.make('3,7')
+      expect(Schema.is(ChunkCacheKeySchema)(key)).toBe(true)
     })
     it('validates with Schema.is', () => {
       expect(Schema.is(ChunkCacheKeySchema)(ChunkCacheKey.make({ x: 1, z: 2 }))).toBe(true)

@@ -44,6 +44,38 @@ export const BlockTypeSchema = Schema.Literal(
   'PLANKS',
   'CRAFTING_TABLE',
   'FURNACE',
-  'TORCH'
+  'TORCH',
+  'NETHERRACK',
+  'NETHER_PORTAL',
+  'FARMLAND',
+  'WHEAT_CROP',
+  // Redstone components (Phase 16)
+  'REDSTONE_WIRE',
+  'REDSTONE_TORCH',
+  'LEVER',
+  'STONE_BUTTON',
+  'REPEATER',
+  // Furniture / utility
+  'BED',
+  'ENCHANTING_TABLE',
+  // The End dimension
+  'END_STONE',
+  'END_PORTAL_FRAME',
+  'END_PORTAL',
+  'CHORUS_FLOWER',
+  'CHORUS_PLANT',
+  'DRAGON_EGG',
+  'END_CRYSTAL',
+  'END_GATEWAY',
+  'END_ROD',
+  'END_STONE_BRICKS',
+  'ENDER_CHEST',
+  'PURPUR_BLOCK',
+  'PURPUR_PILLAR',
+  'PURPUR_SLAB',
+  'PURPUR_STAIRS',
+  'SHULKER_BOX',
+  // Explosives
+  'TNT'
 )
 export type BlockType = Schema.Schema.Type<typeof BlockTypeSchema>

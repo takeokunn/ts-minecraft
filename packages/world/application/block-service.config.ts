@@ -80,6 +80,10 @@ export const NON_PLACEABLE_ITEM_TYPES: HashSet.HashSet<InventoryItem> = HashSet.
   'DIAMOND_CHESTPLATE',
   'DIAMOND_LEGGINGS',
   'DIAMOND_BOOTS',
+  // Portal blocks — placed by ignition only, never from inventory
+  'NETHER_PORTAL',
+  // Portal ignition tool — activates portal frames, not placed as blocks
+  'FLINT_AND_STEEL',
 ])
 
 export const INVENTORY_DROP_OVERRIDES: HashMap.HashMap<BlockType, InventoryItem> = HashMap.fromIterable<BlockType, InventoryItem>([
@@ -98,6 +102,11 @@ export const INVENTORY_DROP_OVERRIDES: HashMap.HashMap<BlockType, InventoryItem>
   ['DEEPSLATE_LAPIS_ORE', 'LAPIS_LAZULI'],
   ['EMERALD_ORE', 'EMERALD'],
   ['DEEPSLATE_EMERALD_ORE', 'EMERALD'],
+  ['FARMLAND', 'DIRT'],
+  ['WHEAT_CROP', 'WHEAT'],
+  // Redstone components drop REDSTONE_DUST when broken
+  ['REDSTONE_WIRE', 'REDSTONE_DUST'],
+  ['REDSTONE_TORCH', 'REDSTONE_DUST'],
 ])
 
 export const getInventoryDropForBlock = (blockType: BlockType): InventoryItem =>
@@ -108,4 +117,13 @@ export const PICKAXE_BLOCK_TYPES: HashSet.HashSet<ItemType> = HashSet.fromIterab
   'STONE_PICKAXE',
   'IRON_PICKAXE',
   'DIAMOND_PICKAXE',
+])
+
+// Blocks that benefit from Fortune enchantment (ore drops that can be multiplied).
+export const FORTUNE_ORE_BLOCKS: HashSet.HashSet<BlockType> = HashSet.fromIterable<BlockType>([
+  'COAL_ORE', 'DEEPSLATE_COAL_ORE',
+  'DIAMOND_ORE', 'DEEPSLATE_DIAMOND_ORE',
+  'EMERALD_ORE', 'DEEPSLATE_EMERALD_ORE',
+  'LAPIS_ORE', 'DEEPSLATE_LAPIS_ORE',
+  'REDSTONE_ORE', 'DEEPSLATE_REDSTONE_ORE',
 ])

@@ -1,6 +1,7 @@
 import { Effect, MutableRef, Option } from 'effect'
 import type { DeltaTimeSecs } from '@ts-minecraft/core'
 import { resolvePreset } from '@ts-minecraft/game'
+import type { FrameHandler, GameLoopService } from '@ts-minecraft/game'
 import { performAutoSaveTick } from '@ts-minecraft/app/main/session-autosave'
 import type { SettingsService } from '@ts-minecraft/game'
 import type { ChunkManagerService } from '@ts-minecraft/world'
@@ -19,6 +20,8 @@ type BrowserEventBridgeDeps = {
   readonly inputPointerLock: Effect.Effect<void, never>
   readonly pendingResizeRef: MutableRef.MutableRef<Option.Option<PendingResize>>
   readonly pendingSaveDirtyChunksRef: MutableRef.MutableRef<boolean>
+  readonly gameLoopService?: GameLoopService
+  readonly frameHandler?: FrameHandler
 }
 
 type BrowserFrameEffectDeps = {
@@ -45,6 +48,8 @@ export const installBrowserEventBridge = ({
   inputPointerLock,
   pendingResizeRef,
   pendingSaveDirtyChunksRef,
+  gameLoopService,
+  frameHandler,
 }: BrowserEventBridgeDeps) => {
   const handleResize = () => {
     const width = canvas.clientWidth
@@ -56,6 +61,9 @@ export const installBrowserEventBridge = ({
   const handleVisibilityChange = () => {
     if (document.hidden) {
       MutableRef.set(pendingSaveDirtyChunksRef, true)
+      if (gameLoopService) Effect.runFork(gameLoopService.pause())
+    } else if (gameLoopService && frameHandler) {
+      Effect.runFork(gameLoopService.resume(frameHandler))
     }
   }
 

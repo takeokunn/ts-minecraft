@@ -1,10 +1,12 @@
 import { describe, it } from '@effect/vitest'
 import { it as plainIt, expect } from 'vitest'
 import { Array as Arr, Effect, Either, Layer, Match, Option } from 'effect'
-import { InventoryService, InventoryServiceLive, InventoryError } from '@ts-minecraft/inventory'
+import { InventoryService, InventoryServiceLive } from '@ts-minecraft/inventory'
 import { BlockRegistryLive } from '@ts-minecraft/block'
 import { TradingService, TradingServiceLive, TRADE_CURRENCY_BLOCK, TradeFailure, TradeSuccess, TradeOfferId, VillagerProfession } from '@ts-minecraft/entity'
 import { VillageService, VillageServiceLive } from '@ts-minecraft/entity'
+import { InventoryServicePort } from '../../domain/ports'
+import { InventoryError } from '../../domain/errors'
 import type { InventoryItem } from '@ts-minecraft/core'
 import { makeTestTradeOffer } from './test-utils'
 
@@ -12,12 +14,28 @@ const InventoryLayer = InventoryServiceLive.pipe(
   Layer.provide(BlockRegistryLive),
 )
 
+// Adapter layer: bridges the concrete InventoryService (used for test setup assertions)
+// to the InventoryServicePort abstraction that TradingService depends on.
+const makeInventoryPortLayer = (base: Layer.Layer<InventoryService>): Layer.Layer<InventoryServicePort> =>
+  Layer.effect(InventoryServicePort, Effect.gen(function* () {
+    const inv = yield* InventoryService
+    return InventoryServicePort.of({
+      _tag: '@minecraft/entity/domain/InventoryServicePort' as const,
+      getAllSlots: () => inv.getAllSlots(),
+      removeBlock: (itemType, count) => inv.removeBlock(itemType, count),
+      addBlock: (itemType, count) => inv.addBlock(itemType, count),
+    })
+  })).pipe(Layer.provide(base))
+
+const InventoryPortLayer = makeInventoryPortLayer(InventoryLayer)
+
 const TradingTestLayer = Layer.mergeAll(
   VillageServiceLive,
   InventoryLayer,
+  InventoryPortLayer,
   TradingServiceLive.pipe(
     Layer.provide(VillageServiceLive),
-    Layer.provide(InventoryLayer),
+    Layer.provide(InventoryPortLayer),
   ),
 )
 
@@ -152,31 +170,23 @@ describe('trading/trading-service', () => {
   it.effect('returns insufficient_input when removeBlock returns false despite countBlockInInventory being sufficient', () => {
     // Mock inventory: getAllSlots reports 10 GRAVEL (plenty), but removeBlock always
     // returns false — exercises the second insufficient_input guard at line 77-78.
-    const mockInv = InventoryService.of({
-      _tag: '@minecraft/application/InventoryService' as const,
+    const mockInv = InventoryServicePort.of({
+      _tag: '@minecraft/entity/domain/InventoryServicePort' as const,
       getAllSlots: () => Effect.succeed([
         Option.some({ itemType: TRADE_CURRENCY_BLOCK as InventoryItem, count: 10 }),
       ]),
       removeBlock: (_itemType: InventoryItem, _count: number) => Effect.fail(new InventoryError({ operation: 'removeBlock', cause: 'simulated failure' })),
       addBlock: (_itemType: InventoryItem, _count: number) => Effect.void,
-      getSlot: (_index: unknown) => Effect.succeed(Option.none()),
-      setSlot: (_index: unknown, _stack: unknown) => Effect.void,
-      damageSlot: (_index: unknown, _amount?: number) => Effect.void,
-      moveStack: (_from: unknown, _to: unknown) => Effect.void,
-      getHotbarSlots: () => Effect.succeed([]),
-      serialize: () => Effect.succeed({ slots: [] }),
-      clear: () => Effect.void,
-      deserialize: (_data: unknown) => Effect.void,
     })
 
-    const MockInvLayer = Layer.succeed(InventoryService, mockInv)
+    const MockInvPortLayer = Layer.succeed(InventoryServicePort, mockInv)
 
     const TestLayer = Layer.mergeAll(
       VillageServiceLive,
-      MockInvLayer,
+      MockInvPortLayer,
       TradingServiceLive.pipe(
         Layer.provide(VillageServiceLive),
-        Layer.provide(MockInvLayer),
+        Layer.provide(MockInvPortLayer),
       ),
     )
 
@@ -242,8 +252,8 @@ describe('trading/trading-service', () => {
     // Track addBlock calls to verify the rollback (input re-added after output fails).
     const addBlockCalls: Array<{ itemType: InventoryItem; count: number }> = []
 
-    const mockInv = InventoryService.of({
-      _tag: '@minecraft/application/InventoryService' as const,
+    const mockInv = InventoryServicePort.of({
+      _tag: '@minecraft/entity/domain/InventoryServicePort' as const,
       getAllSlots: () => Effect.succeed([
         Option.some({ itemType: TRADE_CURRENCY_BLOCK as InventoryItem, count: 10 }),
       ]),
@@ -255,23 +265,15 @@ describe('trading/trading-service', () => {
         addBlockCalls.push({ itemType, count })
         return Effect.fail(new InventoryError({ operation: 'addBlock', cause: 'inventory full' }))
       }),
-      getSlot: (_index: unknown) => Effect.succeed(Option.none()),
-      setSlot: (_index: unknown, _stack: unknown) => Effect.void,
-      damageSlot: (_index: unknown, _amount?: number) => Effect.void,
-      moveStack: (_from: unknown, _to: unknown) => Effect.void,
-      getHotbarSlots: () => Effect.succeed([]),
-      serialize: () => Effect.succeed({ slots: [] }),
-      clear: () => Effect.void,
-      deserialize: (_data: unknown) => Effect.void,
     })
 
-    const MockInvLayer = Layer.succeed(InventoryService, mockInv)
+    const MockInvPortLayer = Layer.succeed(InventoryServicePort, mockInv)
 
     const TestLayer = Layer.mergeAll(
       VillageServiceLive,
       TradingServiceLive.pipe(
         Layer.provide(VillageServiceLive),
-        Layer.provide(MockInvLayer),
+        Layer.provide(MockInvPortLayer),
       ),
     )
 

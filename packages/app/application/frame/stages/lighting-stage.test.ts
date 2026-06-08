@@ -141,6 +141,12 @@ const makeLightingServices = () => ({
   },
   musicManager: { updateFromContext: () => Effect.void },
   chunkMeshService: { setSunIntensity: () => Effect.void },
+  netherService: { getDimension: () => Effect.succeed('overworld' as const) },
+  weatherService: {
+    tick: (_dt: unknown) => Effect.succeed('clear' as const),
+    getWeather: () => Effect.succeed('clear' as const),
+    setWeather: (_w: unknown) => Effect.void,
+  },
 })
 
 describe('step 2.5 — shadow map dirty flag', () => {

@@ -12,6 +12,9 @@ import {
   decayButtonTimers,
   sortedPowerSnapshot,
   positionKey,
+  toBlockPosition,
+  normalizeComponentPosition,
+  computeNeedsPropagation,
 } from '@ts-minecraft/entity'
 import type { RedstoneComponent, PositionKey } from '@ts-minecraft/entity'
 import { makeTestRedstoneComponent } from '../redstone/test-utils'
@@ -329,5 +332,69 @@ describe('sortedPowerSnapshot', () => {
     expect(result[0]!.power).toBe(15)
     expect(result[1]!.power).toBe(14)
     expect(result[2]!.power).toBe(13)
+  })
+})
+
+// --- normalizeComponentPosition ---
+
+describe('normalizeComponentPosition', () => {
+  it('snaps a fractional position to block coordinates while preserving other fields', () => {
+    const base = makeComponent(RedstoneComponentType.Wire, 0, 64, 0)
+    const fractional: RedstoneComponent = { ...base, position: { x: 2.9, y: 64.1, z: -1.5 } }
+
+    const normalized = normalizeComponentPosition(fractional)
+
+    expect(normalized.position).toEqual(toBlockPosition({ x: 2.9, y: 64.1, z: -1.5 }))
+    expect(normalized.type).toBe(RedstoneComponentType.Wire)
+    expect(normalized.state).toEqual(fractional.state)
+  })
+
+  it('leaves an already block-aligned position unchanged', () => {
+    const aligned = makeComponent(RedstoneComponentType.Torch, 3, 70, -2)
+    expect(normalizeComponentPosition(aligned).position).toEqual(aligned.position)
+  })
+})
+
+// --- computeNeedsPropagation ---
+
+describe('computeNeedsPropagation', () => {
+  const buttonAt = (x: number, y: number, z: number, ticks: number): RedstoneComponent =>
+    makeComponent(RedstoneComponentType.Button, x, y, z, { buttonTicksRemaining: ticks })
+
+  it('short-circuits to true when the dirty flag is set', () => {
+    expect(
+      computeNeedsPropagation(makeComponents([]), HashMap.empty<PositionKey, number>(), HashSet.empty<PositionKey>(), true),
+    ).toBe(true)
+  })
+
+  it('returns true while a tracked button is still counting down', () => {
+    const button = buttonAt(1, 64, 1, 3)
+    const key = positionKey(button.position)
+    expect(
+      computeNeedsPropagation(makeComponents([button]), HashMap.empty<PositionKey, number>(), HashSet.make(key), false),
+    ).toBe(true)
+  })
+
+  it('returns true when a just-expired button still carries residual power', () => {
+    const button = buttonAt(2, 64, 2, 0)
+    const key = positionKey(button.position)
+    expect(
+      computeNeedsPropagation(makeComponents([button]), HashMap.make([key, 5] as const), HashSet.make(key), false),
+    ).toBe(true)
+  })
+
+  it('returns false when expired buttons no longer hold power', () => {
+    const button = buttonAt(3, 64, 3, 0)
+    const key = positionKey(button.position)
+    expect(
+      computeNeedsPropagation(makeComponents([button]), HashMap.empty<PositionKey, number>(), HashSet.make(key), false),
+    ).toBe(false)
+  })
+
+  it('ignores button keys that are absent from the component map', () => {
+    const orphanKey = positionKey({ x: 9, y: 9, z: 9 })
+    expect(
+      computeNeedsPropagation(makeComponents([]), HashMap.empty<PositionKey, number>(), HashSet.make(orphanKey), false),
+    ).toBe(false)
   })
 })

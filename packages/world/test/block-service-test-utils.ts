@@ -78,8 +78,9 @@ export const createMockChunkManagerService = (
     markChunkDirty: (_coord: ChunkCoord) => Effect.void,
     saveDirtyChunks: () => Effect.void,
     unloadChunk: (_coord: ChunkCoord) => Effect.void,
+    setActiveWorldId: (_worldId: unknown) => Effect.void,
+    setActiveDimension: (_dim: unknown) => Effect.void,
   })
-
   return {
     service,
     getChunkForPos: (pos: Position) => ensureChunk(worldToLocal(pos).coord),
@@ -97,6 +98,8 @@ export const createFailingChunkManagerService = (): ChunkManagerService => Chunk
   markChunkDirty: (_coord: ChunkCoord) => Effect.void,
   saveDirtyChunks: () => Effect.void,
   unloadChunk: (_coord: ChunkCoord) => Effect.void,
+  setActiveWorldId: (_worldId: unknown) => Effect.void,
+  setActiveDimension: (_dim: unknown) => Effect.void,
 })
 
 export const createMockPlayerService = (position: Position): PlayerService => PlayerService.of({

@@ -12,6 +12,9 @@ const PASSABLE_BLOCK_IDS: ReadonlySet<number> = new Set([
   blockTypeToIndex('TORCH'),
 ])
 
+// Hoisted to module scope: computed once at module load, not per frame.
+const WATER_ID = blockTypeToIndex('WATER')
+
 // Hoisted to module scope: array allocated once, not per frame.
 export const OFFSETS_3x3 = [
   [-1, -1], [-1, 0], [-1, 1],
@@ -49,7 +52,6 @@ export const isInWater = (
   playerCx: number,
   playerCz: number,
 ): boolean => {
-  const WATER_ID = blockTypeToIndex('WATER')
   const ly = Math.floor(wy)
   if (ly < 0 || ly >= CHUNK_HEIGHT) return false
   const bx = Math.floor(wx)

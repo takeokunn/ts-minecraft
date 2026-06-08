@@ -228,6 +228,14 @@ const ENDERMAN_PARTS: ZombieParts = {
 }
 const ENDERMAN_PALETTE: ZombiePalette = { head: 0x1a0d2e, body: 0x111111, arm: 0x111111, leg: 0x111111 }
 
+const DRAGON_PARTS: ZombieParts = {
+  head: [1.0, 0.75, 1.5],
+  body: [1.25, 1.0, 3.0],
+  arm: [0.25, 0.75, 0.25],
+  leg: [0.25, 0.5, 0.25],
+}
+const DRAGON_PALETTE: ZombiePalette = { head: 0x0a0020, body: 0x0a0020, arm: 0x0a0020, leg: 0x0a0020 }
+
 export const buildMobGroup = (type: EntityType): MobLimbGroup => {
   switch (type) {
     case 'Zombie':
@@ -246,5 +254,7 @@ export const buildMobGroup = (type: EntityType): MobLimbGroup => {
       return buildQuadruped('Spider', SPIDER_PARTS, SPIDER_PALETTE)
     case 'Enderman':
       return buildBiped('Enderman', ENDERMAN_PARTS, ENDERMAN_PALETTE)
+    case 'EnderDragon':
+      return buildBiped('EnderDragon', DRAGON_PARTS, DRAGON_PALETTE)
   }
 }

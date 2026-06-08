@@ -55,7 +55,7 @@ describe('audio/sound-manager', () => {
     }).pipe(Effect.provide(makeSoundLayer(fake.engine)))
   })
 
-  it.effect('applies positional attenuation and stereo pan for 3D playback', () => {
+  it.effect('applies positional attenuation and 3D coordinates for playback', () => {
     const fake = makeFakeAudioEngine()
     return Effect.gen(function* () {
       const soundManager = yield* SoundManager
@@ -77,6 +77,9 @@ describe('audio/sound-manager', () => {
       expect(near!.gain > farRight!.gain).toBe(true)
       expect(farRight!.pan).toBeGreaterThan(0)
       expect(left!.pan).toBeLessThan(0)
+      expect(near!.position).toEqual({ x: 0, y: 0, z: 0 })
+      expect(farRight!.position).toEqual({ x: 24, y: 0, z: 0 })
+      expect(left!.position).toEqual({ x: -12, y: 0, z: 0 })
 
       // Co-located (distance 0): attenuation = 1/(1+0) = 1 → full gain
       // (blockPlace baseGain 0.32 × sfx 1), and pan centred at 0.
@@ -113,6 +116,7 @@ describe('audio/sound-manager', () => {
       // sfx=1, attenuation=1 → finalGain = baseGain.
       expect(hurt!.gain).toBeCloseTo(SOUND_LIBRARY.mobHurt.baseGain, 4)
       expect(hurt!.pan).toBeCloseTo(0, 5)
+      expect(hurt!.position).toEqual({ x: 0, y: 0, z: 0 })
 
       expect(death!.frequency).toBe(SOUND_LIBRARY.mobDeath.frequency)
       expect(death!.wave).toBe(SOUND_LIBRARY.mobDeath.wave)
@@ -120,6 +124,7 @@ describe('audio/sound-manager', () => {
       // dx=24 → attenuation 1/3 → finalGain = baseGain/3; pan = clamp(2) → 1.
       expect(death!.gain).toBeCloseTo(SOUND_LIBRARY.mobDeath.baseGain / 3, 4)
       expect(death!.pan).toBeCloseTo(1, 5)
+      expect(death!.position).toEqual({ x: 24, y: 0, z: 0 })
     }).pipe(Effect.provide(makeSoundLayer(fake.engine)))
   })
 

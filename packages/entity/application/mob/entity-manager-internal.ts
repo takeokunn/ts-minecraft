@@ -9,7 +9,21 @@ import {
 import type { Position, Vector3 } from '@ts-minecraft/core'
 import { HOSTILE_ATTACK_COOLDOWN_SECS, type ManagedEntity } from '../../domain/mob/entity-internal'
 import { KNOCKBACK_DURATION_TICKS } from '../../domain/combat'
+import { computeExplosionDamageAt, CREEPER_EXPLOSION_POWER } from '../../domain/explosion'
+import { CREEPER_FUSE_SECONDS } from '../../domain/mob/creeper-fuse'
 import { shouldDespawnEntity } from '../../domain/mob/entity-manager-utils'
+import {
+  TELEPORT_ATTEMPTS,
+  computeEndermanTeleportTarget,
+  shouldEndermanTeleport,
+} from '../../domain/mob/enderman-teleport'
+import { hashEntityId } from '../../domain/mob/entity-utils'
+
+const makeDeterministicRoll = (entity: ManagedEntity, salt: number): number =>
+  ((hashEntityId(entity.entityId) + Math.floor(entity.health * 31) + salt * 997) % 1000) / 1000
+
+const makeTeleportAttempts = (entity: ManagedEntity, salt: number): ReadonlyArray<number> =>
+  Array.from({ length: TELEPORT_ATTEMPTS * 2 }, (_, index) => makeDeterministicRoll(entity, salt + index + 1))
 
 // ── Internal method factory ──────────────────────────────────────────────────
 
@@ -19,10 +33,23 @@ export const makeEntityManagerInternal = (
   structureVersionRef: Ref.Ref<number>,
 ) => ({
   getPlayerContactDamage: (playerPosition: Position): Effect.Effect<number, never> =>
-    Ref.modify(entitiesRef, (entities): [number, HashMap.HashMap<EntityId, ManagedEntity>] => {
+    Ref.modify(entitiesRef, (entities): [{ damage: number; removed: boolean }, HashMap.HashMap<EntityId, ManagedEntity>] => {
       let totalDamage = 0
       let updatedEntities = entities
+      let touched = false
+      let removed = false
       HashMap.forEach(entities, (entity) => {
+        // Creepers never melee — once the fuse completes they detonate, dealing
+        // area explosion damage and self-destructing.
+        if (entity.type === EntityType.Creeper) {
+          if (entity.fuseSecs >= CREEPER_FUSE_SECONDS) {
+            totalDamage += computeExplosionDamageAt(entity.position, CREEPER_EXPLOSION_POWER, playerPosition)
+            updatedEntities = HashMap.remove(updatedEntities, entity.entityId)
+            touched = true
+            removed = true
+          }
+          return
+        }
         if (entity.behavior !== 'hostile' || entity.attackDamage <= 0) return
         if (entity.attackCooldownRemaining > 0) return
         const distSq = distanceToPlayerSq(entity.position, playerPosition)
@@ -32,10 +59,22 @@ export const makeEntityManagerInternal = (
             ...entity,
             attackCooldownRemaining: HOSTILE_ATTACK_COOLDOWN_SECS,
           })
+          touched = true
         }
       })
-      return [totalDamage, totalDamage > 0 ? updatedEntities : entities]
-    }).pipe(Effect.tap((damage) => damage > 0 ? Ref.set(cachedEntitiesRef, Option.none()) : Effect.void)),
+      return [{ damage: totalDamage, removed }, touched ? updatedEntities : entities]
+    }).pipe(
+      Effect.flatMap(({ damage, removed }) =>
+        removed
+          ? Effect.all([
+              Ref.set(cachedEntitiesRef, Option.none()),
+              Ref.update(structureVersionRef, (version) => version + 1),
+            ], { concurrency: 'unbounded', discard: true }).pipe(Effect.as(damage))
+          : damage > 0
+            ? Ref.set(cachedEntitiesRef, Option.none()).pipe(Effect.as(damage))
+            : Effect.succeed(damage),
+      ),
+    ),
 
   despawnFarEntities: (
     playerPosition: Position,
@@ -105,17 +144,16 @@ export const makeEntityManagerInternal = (
               return [Option.some(entity.drops), HashMap.remove(entities, entityId)]
             }
 
-            const nextPosition: Position = entity.type === EntityType.Enderman
-              ? (() => {
-                  const angle = (nextHealth * 1.618) % (Math.PI * 2)
-                  const dist = 4 + (Math.floor(nextHealth) % 8)
-                  return {
-                    x: entity.position.x + Math.cos(angle) * dist,
-                    y: entity.position.y,
-                    z: entity.position.z + Math.sin(angle) * dist,
-                  }
-                })()
-              : entity.position
+            const shouldTeleport = entity.type === EntityType.Enderman
+              && shouldEndermanTeleport(true, 0, 0)
+            const teleportTarget = shouldTeleport
+              ? computeEndermanTeleportTarget(
+                  entity.position,
+                  entity.position,
+                  makeTeleportAttempts(entity, Math.floor(nextHealth)),
+                )
+              : null
+            const nextPosition: Position = teleportTarget ?? entity.position
 
             return [
               Option.none(),

@@ -1,6 +1,6 @@
 import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
-import { CHUNK_SIZE, CHUNK_HEIGHT } from '@ts-minecraft/core'
+import { CHUNK_SIZE } from '@ts-minecraft/core'
 import { createColumnNoiseCoordinates, createCaveGridPoints } from '../domain/terrain/generator-coordinates'
 
 describe('terrain/domain/terrain/generator-coordinates', () => {

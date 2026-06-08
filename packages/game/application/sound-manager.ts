@@ -1,36 +1,25 @@
-import { Effect, Option, Ref, Schema } from 'effect'
+import { Effect, Option, Ref } from 'effect'
 import type { Position } from '@ts-minecraft/core'
 import { AudioEnginePort } from '../domain/audio-engine-port'
-import { clamp01, clampPan } from '../domain/audio-types'
+import { clamp01, clampPan } from '../domain/audio-utils'
 import { SOUND_LIBRARY, DEFAULT_LISTENER_POSITION } from './sound-manager.config'
+import type { SoundEffect, SoundSettings } from './sound-manager.types'
 
-const computeSpatial = (listener: { x: number; y: number; z: number }, source: { x: number; y: number; z: number }): { gain: number; pan: number } => {
+export type { SoundEffect, SoundSettings }
+export { SoundEffectSchema, SoundSettingsSchema } from './sound-manager.types'
+
+const computeSpatial = (
+  listener: { x: number; y: number; z: number },
+  source: { x: number; y: number; z: number },
+): { gain: number; pan: number; position: { x: number; y: number; z: number } } => {
   const dx = source.x - listener.x
   const dy = source.y - listener.y
   const dz = source.z - listener.z
   const distance = Math.sqrt(dx * dx + dy * dy + dz * dz)
   const attenuation = 1 / (1 + distance / 12)
   const pan = clampPan(dx / 12)
-  return { gain: attenuation, pan }
+  return { gain: attenuation, pan, position: { x: dx, y: dy, z: dz } }
 }
-
-export const SoundEffectSchema = Schema.Literal('blockBreak', 'blockPlace', 'playerHurt', 'entityHit', 'mobHurt', 'mobDeath')
-export type SoundEffect = Schema.Schema.Type<typeof SoundEffectSchema>
-
-// Bidirectional lockstep between the schema union and the synth table. The
-// schema→table direction is already enforced by `SOUND_LIBRARY[effect]` indexing
-// in playEffect (a union member with no table key would be ill-typed). This
-// `satisfies` clause adds the table→schema direction: a SOUND_LIBRARY key with
-// no matching literal would make the table not assignable to the keyed record,
-// so adding either side without the other is a tsc error.
-SOUND_LIBRARY satisfies Record<SoundEffect, unknown>
-
-export const SoundSettingsSchema = Schema.Struct({
-  enabled: Schema.Boolean,
-  masterVolume: Schema.Number.pipe(Schema.finite(), Schema.between(0, 1)),
-  sfxVolume: Schema.Number.pipe(Schema.finite(), Schema.between(0, 1)),
-})
-export type SoundSettings = Schema.Schema.Type<typeof SoundSettingsSchema>
 
 
 export class SoundManager extends Effect.Service<SoundManager>()(
@@ -74,7 +63,7 @@ export class SoundManager extends Effect.Service<SoundManager>()(
             )
 
             const spatial = Option.match(Option.fromNullable(options?.position), {
-              onNone: () => ({ gain: 1, pan: 0 }),
+              onNone: () => ({ gain: 1, pan: 0, position: undefined }),
               onSome: (pos) => computeSpatial(listenerPosition, pos),
             })
 
@@ -97,6 +86,7 @@ export class SoundManager extends Effect.Service<SoundManager>()(
               pan: spatial.pan,
               wave: definition.wave,
               loop: false,
+              ...(spatial.position ? { position: spatial.position } : {}),
             })
           }),
 

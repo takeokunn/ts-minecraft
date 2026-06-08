@@ -1,6 +1,12 @@
 import { Effect, HashMap, MutableRef, Option, Ref } from 'effect'
 import { AIState, computeStateVelocity, distanceToPlayerSq, resolveAIState } from '../../domain/mob/state-machine'
-import { type Entity, type EntityId } from '../../domain/mob/entity'
+import { EntityType, type Entity, type EntityId } from '../../domain/mob/entity'
+import { tickCreeperFuse } from '../../domain/mob/creeper-fuse'
+import {
+  TELEPORT_ATTEMPTS,
+  computeEndermanTeleportTarget,
+  shouldEndermanTeleport,
+} from '../../domain/mob/enderman-teleport'
 import type { DeltaTimeSecs, Position, Vector3 } from '@ts-minecraft/core'
 import { type ManagedEntity } from '../../domain/mob/entity-internal'
 import { hashEntityId, makeWanderDirectionFromHash } from '../../domain/mob/entity-utils'
@@ -17,6 +23,11 @@ import {
   isSameVelocity,
   toHorizontalTarget,
 } from '../../domain/mob/entity-manager-utils'
+
+const makeTeleportAttempts = (hash: number, tick: number): ReadonlyArray<number> =>
+  Array.from({ length: TELEPORT_ATTEMPTS * 2 }, (_, index) =>
+    ((hash + tick * 131 + index * 977) % 1000) / 1000
+  )
 
 export const makeEntityManagerUpdate = (
   entitiesRef: Ref.Ref<HashMap.HashMap<EntityId, ManagedEntity>>,
@@ -52,6 +63,10 @@ export const makeEntityManagerUpdate = (
           })
 
           const nextAttackCooldown = Math.max(0, entity.attackCooldownRemaining - deltaTime)
+          // A hostile mob on a daylight burn tick must take 1 burn damage; it must NOT
+          // hit the unchanged-state early-return below (which skips the burn entirely),
+          // or stationary idle/attacking hostiles become immune to daylight.
+          const burning = daytimeBurningActive && entity.behavior === 'hostile'
 
           if (entity.knockbackTicksRemaining > 0) {
             MutableRef.set(dirtyRef, true)
@@ -62,7 +77,8 @@ export const makeEntityManagerUpdate = (
             }
           }
 
-          if (nextState === entity.aiState
+          if (!burning
+            && nextState === entity.aiState
             && (nextState === AIState.Idle || nextState === AIState.Attack)
             && entity.velocity.x === 0 && entity.velocity.z === 0) {
             if (nextAttackCooldown === entity.attackCooldownRemaining) {
@@ -76,6 +92,28 @@ export const makeEntityManagerUpdate = (
           }
 
           MutableRef.set(dirtyRef, true)
+
+          if (
+            entity.type === EntityType.Enderman
+            && nextState === AIState.Chase
+            && shouldEndermanTeleport(false, entity.stuckTicks ?? 0, randomWanderRoll)
+          ) {
+            const teleportTarget = computeEndermanTeleportTarget(
+              entity.position,
+              playerPosition,
+              makeTeleportAttempts(hash, tick),
+            )
+            if (teleportTarget !== null) {
+              return {
+                ...entity,
+                position: teleportTarget,
+                velocity: { x: 0, y: entity.velocity.y, z: 0 },
+                aiState: nextState,
+                attackCooldownRemaining: nextAttackCooldown,
+                stuckTicks: 0,
+              }
+            }
+          }
 
           const wanderDirection =
             nextState === AIState.Wander
@@ -96,7 +134,7 @@ export const makeEntityManagerUpdate = (
             z: horizontalVelocity.z,
           }
 
-          const burnDamage = daytimeBurningActive && entity.behavior === 'hostile' ? 1 : 0
+          const burnDamage = burning ? 1 : 0
           if (burnDamage > 0) MutableRef.set(dirtyRef, true)
 
           return {
@@ -106,9 +144,27 @@ export const makeEntityManagerUpdate = (
             velocity,
             wanderDirection,
             attackCooldownRemaining: nextAttackCooldown,
+            stuckTicks: nextState === AIState.Chase ? entity.stuckTicks : 0,
           }
         })
       )
+
+      // Advance creeper detonation fuses: burn while the player is in ignition
+      // range, reset otherwise. Detonation is resolved in getPlayerContactDamage,
+      // which runs later this frame (physics stage follows the entity-update stage).
+      yield* Ref.update(entitiesRef, (entities) =>
+        HashMap.map(entities, (entity) => {
+          if (entity.type !== EntityType.Creeper) return entity
+          const nextFuse = tickCreeperFuse(
+            entity.position,
+            playerPosition,
+            { fuseSecs: entity.fuseSecs, ignited: entity.fuseSecs > 0 },
+            deltaTime,
+          ).state.fuseSecs
+          return nextFuse === entity.fuseSecs ? entity : { ...entity, fuseSecs: nextFuse }
+        })
+      )
+
       if (daytimeBurningActive) {
         yield* Ref.modify(entitiesRef, (entities): [boolean, HashMap.HashMap<EntityId, ManagedEntity>] => {
           let changed = false
@@ -146,9 +202,12 @@ export const makeEntityManagerUpdate = (
 
       yield* Ref.update(entitiesRef, (entities) =>
         HashMap.map(entities, (entity, entityId) => {
+          const isFlyingType = entity.type === 'EnderDragon'
           const candidateVelocity: Vector3 = {
             x: entity.velocity.x,
-            y: Math.max(entity.velocity.y + MOB_GRAVITY_Y * deltaTime, MOB_TERMINAL_VELOCITY_Y),
+            y: isFlyingType
+              ? entity.velocity.y
+              : Math.max(entity.velocity.y + MOB_GRAVITY_Y * deltaTime, MOB_TERMINAL_VELOCITY_Y),
             z: entity.velocity.z,
           }
           const candidatePosition: Position = {
@@ -169,6 +228,9 @@ export const makeEntityManagerUpdate = (
                 tick + WANDER_STUCK_REDIRECT_TICK_OFFSET,
               )
             : entity.wanderDirection
+          const stuckTicks = entity.type === EntityType.Enderman && entity.aiState === AIState.Chase
+            ? shouldHop ? (entity.stuckTicks ?? 0) + 1 : 0
+            : entity.stuckTicks
 
           /* c8 ignore start -- early-return when entity state is identical after physics; requires exact position/velocity match */
           if (
@@ -176,6 +238,7 @@ export const makeEntityManagerUpdate = (
             && isSameVelocity(entity.velocity, velocity)
             && isSameVelocity(entity.wanderDirection, wanderDirection)
             && entity.isGrounded === resolved.isGrounded
+            && entity.stuckTicks === stuckTicks
           ) {
             return entity
           }
@@ -188,6 +251,7 @@ export const makeEntityManagerUpdate = (
             velocity,
             wanderDirection,
             isGrounded: resolved.isGrounded,
+            stuckTicks,
           }
         })
       )

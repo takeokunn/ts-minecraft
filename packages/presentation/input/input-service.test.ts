@@ -1,11 +1,80 @@
 import { describe, it, expect } from '@effect/vitest'
 import { Effect, Layer, MutableHashMap, MutableHashSet } from 'effect'
+import { afterEach } from 'vitest'
 import { MouseButton, PlayerInputServiceLive } from '@ts-minecraft/presentation/input/input-service'
 import { InputService } from '@ts-minecraft/presentation/input/input-service'
 import { PlayerInputService } from '@ts-minecraft/entity'
 import { createTestInputService, createTestLayer } from '@ts-minecraft/presentation/input/input-service-test-utils'
 
+const restoreDomGlobals = () => {
+  Reflect.deleteProperty(globalThis, 'window')
+  Reflect.deleteProperty(globalThis, 'document')
+  Reflect.deleteProperty(globalThis, 'HTMLCanvasElement')
+}
+
+const installPointerLockDom = () => {
+  const listeners = new Map<string, Set<EventListenerOrEventListenerObject>>()
+
+  class TestCanvasElement {
+    requestPointerLock() {}
+  }
+
+  const canvas = new TestCanvasElement()
+  const fakeDocument = {
+    pointerLockElement: null,
+    getElementById: (id: string) => id === 'game-canvas' ? canvas : null,
+    addEventListener: (type: string, listener: EventListenerOrEventListenerObject) => {
+      const registered = listeners.get(type) ?? new Set<EventListenerOrEventListenerObject>()
+      registered.add(listener)
+      listeners.set(type, registered)
+    },
+    removeEventListener: (type: string, listener: EventListenerOrEventListenerObject) => {
+      listeners.get(type)?.delete(listener)
+    },
+    dispatchEvent: (event: Event) => {
+      for (const listener of listeners.get(event.type) ?? []) {
+        if (typeof listener === 'function') {
+          listener(event)
+        } else {
+          listener.handleEvent(event)
+        }
+      }
+      return true
+    },
+    exitPointerLock: () => {},
+  }
+
+  Reflect.set(globalThis, 'window', {})
+  Reflect.set(globalThis, 'document', fakeDocument)
+  Reflect.set(globalThis, 'HTMLCanvasElement', TestCanvasElement)
+
+  return { fakeDocument }
+}
+
+afterEach(() => {
+  restoreDomGlobals()
+})
+
 describe('InputService', () => {
+  describe('pointer lock DOM events', () => {
+    it.effect('should clear fallback lock state when pointerlockchange loses the canvas', () => {
+      const { fakeDocument } = installPointerLockDom()
+
+      return Effect.scoped(Effect.gen(function* () {
+        const input = yield* InputService
+        yield* input.requestPointerLock()
+
+        const locked = yield* input.isPointerLocked()
+        expect(locked).toBe(true)
+
+        fakeDocument.dispatchEvent(new Event('pointerlockchange'))
+
+        const unlocked = yield* input.isPointerLocked()
+        expect(unlocked).toBe(false)
+      }).pipe(Effect.provide(InputService.Default)))
+    })
+  })
+
   describe('PlayerInputServiceLive', () => {
     it.effect('should delegate to the input service implementation', () => {
       const pressedKeys = MutableHashSet.empty<string>()

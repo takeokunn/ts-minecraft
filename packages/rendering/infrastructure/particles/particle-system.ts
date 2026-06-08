@@ -2,7 +2,18 @@
 import { Effect, MutableRef, type Scope } from 'effect'
 import * as THREE from 'three'
 import { ChunkMeshService } from '../meshing/chunk-mesh'
-import { buildParticleGeometry, MAX_PARTICLES, PARTICLE_GRAVITY, PARTICLE_LIFETIME_SECS, SPREAD_DOWN, SPREAD_HORIZONTAL, SPREAD_UP, TILE_FRACTION, ZERO_MATRIX } from './particle-system-factory'
+import {
+  buildParticleGeometry,
+  createParticlePool,
+  MAX_PARTICLES,
+  PARTICLE_GRAVITY,
+  PARTICLE_LIFETIME_SECS,
+  SPREAD_DOWN,
+  SPREAD_HORIZONTAL,
+  SPREAD_UP,
+  TILE_FRACTION,
+  ZERO_MATRIX,
+} from './particle-system-factory'
 export { getParticleUvOffset, MAX_PARTICLES, PARTICLE_LIFETIME_SECS } from './particle-system-factory'
 
 export type ParticleSystemServiceAPI = {
@@ -31,36 +42,8 @@ export class ParticleSystemService extends Effect.Service<ParticleSystemService>
     scoped: Effect.gen(function* () {
       const chunkMeshService = yield* ChunkMeshService
 
-      // Pre-allocated typed-array state buffers. Allocated ONCE; never reallocated.
-      const positions = new Float32Array(MAX_PARTICLES * 3)
-      const velocities = new Float32Array(MAX_PARTICLES * 3)
-      const lifetimes = new Float32Array(MAX_PARTICLES) // 0 = inactive
-      const uvOffsets = new Float32Array(MAX_PARTICLES * 2)
-      // Per-instance "spawn frame" counter used to find the OLDEST active slot
-      // when the pool is full. Wraps every ~136 years at 60fps — irrelevant.
-      // Stored as Float32 because JS Number bitwidth doesn't matter here and
-      // Float32 keeps the state vector homogeneous in cache layout.
-      const ages = new Float32Array(MAX_PARTICLES)
-
-      // Pre-allocated scratch — reused EVERY update / spawn. No per-call alloc.
-      const scratchMatrix = new THREE.Matrix4()
-      const scratchPos = new THREE.Vector3()
-      const scratchScale = new THREE.Vector3(1, 1, 1)
-      const scratchQuat = new THREE.Quaternion()
-
-      // Walking-pointer for next slot to write. When `activeCount === MAX`,
-      // the burst-spawner falls back to "evict oldest" (linear scan over `ages`).
-      const nextSlotRef = MutableRef.make(0)
-      const ageCounterRef = MutableRef.make(0)
-      const activeCountRef = MutableRef.make(0)
-
-      // Build geometry, atlas material, and InstancedMesh once.
+      // Build geometry + atlas material once.
       const geometry = buildParticleGeometry(TILE_FRACTION)
-      // Per-instance UV offset attribute — a custom InstancedBufferAttribute.
-      // Sampled in the vertex shader via onBeforeCompile patch.
-      const uvOffsetAttribute = new THREE.InstancedBufferAttribute(uvOffsets, 2)
-      uvOffsetAttribute.setUsage(THREE.DynamicDrawUsage)
-      geometry.setAttribute('uvOffset', uvOffsetAttribute)
 
       // MeshBasicMaterial keyed off the atlas — no lighting needed (particles
       // are short-lived flecks that look better unlit).
@@ -99,16 +82,14 @@ export class ParticleSystemService extends Effect.Service<ParticleSystemService>
       }
       material.needsUpdate = true
 
-      const mesh = new THREE.InstancedMesh(geometry, material, MAX_PARTICLES)
-      mesh.frustumCulled = false // particles always near player; skip per-frame test
-      mesh.castShadow = false
-      mesh.receiveShadow = false
-      // Initialize all slots as hidden (zero-scale matrix).
-      for (let i = 0; i < MAX_PARTICLES; i++) {
-        mesh.setMatrixAt(i, ZERO_MATRIX)
-      }
-      mesh.instanceMatrix.needsUpdate = true
-      mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage)
+      // Pool owns all typed-array state, the InstancedMesh, and internal helpers.
+      const pool = createParticlePool(geometry, material)
+      const {
+        positions, velocities, lifetimes, uvOffsets, ages,
+        mesh, uvOffsetAttribute,
+        scratchMatrix, scratchPos, scratchScale, scratchQuat,
+        ageCounterRef, activeCountRef, acquireSlot, randInRange,
+      } = pool
 
       // Geometry + material are released at scope close. Scene attachment is
       // managed separately via `attach()` so the scope owner controls lifecycle.
@@ -118,54 +99,6 @@ export class ParticleSystemService extends Effect.Service<ParticleSystemService>
           material.dispose()
         }),
       )
-
-      // ── Internal helpers (no allocation) ───────────────────────────────────
-
-      const findOldestSlot = (): number => {
-        // Linear scan to find slot with smallest `age`. O(N) but N=512 and
-        // this only runs when pool is fully saturated.
-        let oldestIdx = 0
-        let oldestAge = Number.POSITIVE_INFINITY
-        for (let i = 0; i < MAX_PARTICLES; i++) {
-          // Age 0 here means "never used" so we still treat it as a candidate
-          // — but a slot with lifetime>0 has been used and `age` reflects the
-          // spawn count. Lower age = older slot.
-          if (lifetimes[i]! > 0 && ages[i]! < oldestAge) {
-            oldestAge = ages[i]!
-            oldestIdx = i
-          }
-        }
-        return oldestIdx
-      }
-
-      const acquireSlot = (): number => {
-        const active = MutableRef.get(activeCountRef)
-        if (active < MAX_PARTICLES) {
-          // Walk forward looking for an inactive (lifetime=0) slot, starting
-          // from `nextSlot`. Worst case scans all slots — but only happens
-          // when free slots are sparse; the common path finds a free slot
-          // immediately.
-          let slot = MutableRef.get(nextSlotRef)
-          for (let i = 0; i < MAX_PARTICLES; i++) {
-            const candidate = (slot + i) % MAX_PARTICLES
-            if (lifetimes[candidate] === 0) {
-              MutableRef.set(nextSlotRef, (candidate + 1) % MAX_PARTICLES)
-              MutableRef.set(activeCountRef, active + 1)
-              return candidate
-            }
-            /* c8 ignore next 4 */
-          }
-          // Fall through: state is inconsistent (active < MAX but no free slot
-          // found). Treat as a saturated pool and recycle.
-        }
-        // Pool full → evict oldest.
-        return findOldestSlot()
-      }
-
-      // Tiny xorshift PRNG would avoid Math.random's allocator cost, but
-      // Math.random is already non-allocating in modern V8. Stick with it.
-      const randInRange = (min: number, max: number): number =>
-        min + Math.random() * (max - min)
 
       // ── Service API ────────────────────────────────────────────────────────
 

@@ -95,6 +95,8 @@ describe('entity/entity-utils', () => {
       attackCooldownRemaining: 0.5,
       isGrounded: false,
       knockbackTicksRemaining: 0,
+      stuckTicks: 0,
+      fuseSecs: 0,
     })
 
     it('preserves all public Entity fields', () => {
@@ -117,6 +119,8 @@ describe('entity/entity-utils', () => {
       'attackCooldownRemaining',
       'drops',
       'isGrounded',
+      'stuckTicks',
+      'fuseSecs',
     ] as const
 
     it('does not expose AI-internal fields on the result', () => {

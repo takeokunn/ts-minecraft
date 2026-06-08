@@ -29,8 +29,8 @@ describe('KeyMappings', () => {
       expect(KeyMappings.SPRINT).toBe('ControlLeft')
     })
 
-    it('SNEAK maps to ShiftRight', () => {
-      expect(KeyMappings.SNEAK).toBe('ShiftRight')
+    it('SNEAK maps to ShiftLeft', () => {
+      expect(KeyMappings.SNEAK).toBe('ShiftLeft')
     })
   })
 

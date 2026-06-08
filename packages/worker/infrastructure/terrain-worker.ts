@@ -24,6 +24,8 @@ import { Effect, ManagedRuntime } from 'effect'
 import {
   buildTerrainLayer,
   buildTerrainProgram,
+  buildNetherProgram,
+  buildEndProgram,
   toChunkBlocks,
 } from '@ts-minecraft/world'
 import { decodeRequestSync, type TerrainWorkerResponse } from '../domain/terrain-worker-protocol'
@@ -77,7 +79,12 @@ self.onmessage = (e: MessageEvent<unknown>): void => {
     try {
       const req = decodeRequestSync(e.data)
       const runtime = getRuntimeForSeed(req.seed)
-      const chunk = await runtime.runPromise(buildTerrainProgram(req.chunk))
+      const program = req.dimension === 'nether'
+        ? buildNetherProgram(req.chunk)
+        : req.dimension === 'end'
+          ? buildEndProgram(req.chunk)
+          : buildTerrainProgram(req.chunk)
+      const chunk = await runtime.runPromise(program)
       const { blocks, skyLight, blockLight } = toChunkBlocks(chunk)
 
       // Cast Uint8Array<ArrayBufferLike> → Uint8Array<ArrayBuffer>: pure

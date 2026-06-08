@@ -10,6 +10,8 @@ import { LIGHT_BYTE_LENGTH, computeBlockLight, computeSkyLight } from '@ts-minec
 import { BiomeService } from './biome-service'
 import { NoiseServicePort } from '../domain/noise-service-port'
 import { generateTerrain } from '../domain/terrain/generator'
+import { generateNetherTerrain } from '../domain/terrain/nether-generator'
+import { generateEndTerrain } from '../domain/terrain/end-generator'
 import { createNoisePrimitives } from '../domain/noise-primitives'
 import { buildNoisePortFromPrimitives } from './noise-port-factory'
 
@@ -116,6 +118,22 @@ export const buildTerrainProgram = (coord: ChunkCoord) =>
     const biomeService = yield* BiomeService
     const noiseService = yield* NoiseServicePort
     return yield* generateTerrain(chunkService, biomeService, noiseService, coord)
+  })
+
+// Nether terrain program — reuses the same Layer as buildTerrainProgram (BiomeService unused here,
+// but sharing the Layer avoids a second per-seed initialization cost in the worker runtime cache).
+export const buildNetherProgram = (coord: ChunkCoord) =>
+  Effect.gen(function* () {
+    const chunkService = yield* ChunkService
+    const noiseService = yield* NoiseServicePort
+    return yield* generateNetherTerrain(chunkService, noiseService, coord)
+  })
+
+// End terrain program — static island generation, no noise required.
+export const buildEndProgram = (coord: ChunkCoord) =>
+  Effect.gen(function* () {
+    const chunkService = yield* ChunkService
+    return yield* generateEndTerrain(chunkService, coord)
   })
 
 // Light grids are fully BFS-propagated here so main thread adopts them directly — primary cold-start fix.

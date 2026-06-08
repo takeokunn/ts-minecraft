@@ -1,4 +1,5 @@
 import type { Entity, EntityId as EntityIdType } from './entity'
+import type { Position } from '@ts-minecraft/core'
 import type { Vector3 } from '@ts-minecraft/core'
 import type { ManagedEntity } from './entity-internal'
 
@@ -36,3 +37,22 @@ export const toPublicEntity = (entity: ManagedEntity): Entity => ({
   health: entity.health,
   type: entity.type,
 })
+
+
+// ─── Enderman teleport ────────────────────────────────────────────────────────
+// Pure function: computes the deterministic teleport position for an Enderman
+// hit to nextHealth HP. The golden-ratio angle and distance-from-health formula
+// reproduce vanilla Enderman escape behaviour without RNG.
+
+export const computeEndermanTeleportPosition = (
+  currentPosition: Position,
+  nextHealth: number,
+): Position => {
+  const angle = (nextHealth * 1.618) % (Math.PI * 2)
+  const dist = 4 + (Math.floor(nextHealth) % 8)
+  return {
+    x: currentPosition.x + Math.cos(angle) * dist,
+    y: currentPosition.y,
+    z: currentPosition.z + Math.sin(angle) * dist,
+  }
+}

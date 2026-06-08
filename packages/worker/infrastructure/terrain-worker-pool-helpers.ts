@@ -1,7 +1,7 @@
 // @effect-boundary - infrastructure worker helpers that wrap browser Web Worker API boundary operations
 import { Effect, Schema } from 'effect'
 import { CHUNK_HEIGHT, CHUNK_SIZE, type ChunkCoord } from '@ts-minecraft/core'
-import { generateTerrainBlocks, type ChunkBlocks } from '@ts-minecraft/world'
+import { generateTerrainBlocks, buildNetherProgram, buildEndProgram, buildTerrainLayer, toChunkBlocks, type ChunkBlocks } from '@ts-minecraft/world'
 import { TerrainGenerationError, type TerrainGenerationOptions } from '../application/terrain-worker-pool-port'
 import { TerrainWorkerResponseSchema } from '../domain/terrain-worker-protocol'
 
@@ -12,8 +12,34 @@ export const BLOCK_BYTES = CHUNK_SIZE * CHUNK_SIZE * CHUNK_HEIGHT
 export const generateTerrainSync = (
   chunk: ChunkCoord,
   options: TerrainGenerationOptions,
-): Effect.Effect<ChunkBlocks, TerrainGenerationError> =>
-  Effect.try({
+): Effect.Effect<ChunkBlocks, TerrainGenerationError> => {
+  if (options.dimension === 'end') {
+    return Effect.try({
+      try: () => {
+        const layer = buildTerrainLayer(options.seed)
+        const endChunk = Effect.runSync(buildEndProgram(chunk).pipe(Effect.provide(layer)))
+        return toChunkBlocks(endChunk)
+      },
+      catch: (e) => new TerrainGenerationError({
+        reason: e instanceof Error ? e.message : String(e),
+        chunk,
+      }),
+    })
+  }
+  if (options.dimension === 'nether') {
+    return Effect.try({
+      try: () => {
+        const layer = buildTerrainLayer(options.seed)
+        const netherChunk = Effect.runSync(buildNetherProgram(chunk).pipe(Effect.provide(layer)))
+        return toChunkBlocks(netherChunk)
+      },
+      catch: (e) => new TerrainGenerationError({
+        reason: e instanceof Error ? e.message : String(e),
+        chunk,
+      }),
+    })
+  }
+  return Effect.try({
     try: () => generateTerrainBlocks({
       coord: chunk,
       seaLevel: options.seaLevel,
@@ -25,6 +51,7 @@ export const generateTerrainSync = (
       chunk,
     }),
   })
+}
 
 // -----------------------------------------------------------------------------
 // Helpers

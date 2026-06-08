@@ -5,7 +5,7 @@ import { fract, chunkBlockIndexUnchecked } from './math'
 import { type TreeArchetype, AIR_BLOCK_INDEX, WOOD_BLOCK_INDEX, LEAVES_BLOCK_INDEX } from './surface-resolver'
 import {
   type TrunkConfig,
-  ROUND_OAK_TRUNK, TALL_BIRCH_TRUNK, SPRUCE_TRUNK, TALL_CANOPY_TRUNK,
+  ROUND_OAK_TRUNK, TALL_BIRCH_TRUNK, SPRUCE_TRUNK, TALL_CANOPY_TRUNK, ACACIA_TRUNK,
   ROUND_OAK_TIP_RNG_SCALE, ROUND_OAK_TIP_THRESHOLD,
   SPRUCE_LOWER_RADIUS_RNG_SCALE, SPRUCE_LOWER_RADIUS_THRESHOLD,
   TALL_CANOPY_TIP_RNG_SCALE, TALL_CANOPY_TIP_THRESHOLD,
@@ -107,6 +107,17 @@ const placeTallCanopyTree = (blocks: Uint8Array, lx: number, lz: number, surface
   }
 }
 
+const placeAcaciaTree = (blocks: Uint8Array, lx: number, lz: number, surfaceY: number, treeRng: number): void => {
+  const trunkHeight = computeTrunkHeight(ACACIA_TRUNK, treeRng)
+  placeTrunk(blocks, lx, lz, surfaceY, trunkHeight)
+
+  // Signature flat, wide umbrella crown — a broad shallow disk capping the trunk,
+  // wider than it is tall, distinguishing the savanna acacia from round/tall canopies.
+  const canopyBase = surfaceY + trunkHeight
+  placeLeafLayer(blocks, lx, canopyBase, lz, 3)
+  placeLeafLayer(blocks, lx, canopyBase + 1, lz, 2)
+}
+
 export const selectTreeArchetype = (biome: BiomeType, surfaceY: number, treeRng: number): TreeArchetype => {
   const roll = fract(treeRng * ARCHETYPE_ROLL_RNG_SCALE)
   const highland = surfaceY >= SEA_LEVEL + 18
@@ -119,16 +130,19 @@ export const selectTreeArchetype = (biome: BiomeType, surfaceY: number, treeRng:
     case 'MOUNTAINS':
       return 'SPRUCE'
     case 'SAVANNA':
-      return roll < 0.7 ? 'TALL_BIRCH' : 'ROUND_OAK'
+      // Vanilla savanna grows acacia (flat-top umbrella), with the occasional oak — never birch.
+      return roll < 0.7 ? 'ACACIA' : 'ROUND_OAK'
     case 'BEACH':
       return roll < 0.1 ? 'ROUND_OAK' : 'TALL_BIRCH'
     case 'FOREST':
       if (highland && roll > 0.72) return 'SPRUCE'
       return roll < 0.42 ? 'TALL_BIRCH' : 'ROUND_OAK'
     case 'PLAINS':
-      return roll < 0.28 ? 'TALL_BIRCH' : 'ROUND_OAK'
+      // Vanilla plains grow oak (sparse), never birch — birch belongs to forests.
+      return 'ROUND_OAK'
     case 'SWAMP':
-      return roll < 0.18 ? 'TALL_BIRCH' : 'ROUND_OAK'
+      // Vanilla swamp grows oak, never birch.
+      return 'ROUND_OAK'
     default:
       return 'ROUND_OAK'
   }
@@ -174,6 +188,9 @@ export const placeTree = (
       return
     case 'TALL_BIRCH':
       placeTallBirchTree(blocks, lx, lz, surfaceY, treeRng)
+      return
+    case 'ACACIA':
+      placeAcaciaTree(blocks, lx, lz, surfaceY, treeRng)
       return
     default:
       placeRoundOakTree(blocks, lx, lz, surfaceY, treeRng)

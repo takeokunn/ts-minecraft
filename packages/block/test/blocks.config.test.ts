@@ -7,6 +7,7 @@ import { initialBlocks } from '@ts-minecraft/block'
 import { terrainBlocks } from '../domain/blocks.config.terrain'
 import { oreAndMineralBlocks } from '../domain/blocks.config.ores'
 import { craftedAndItemBlocks } from '../domain/blocks.config.crafted'
+import { endBlocks } from '../domain/blocks.config.end'
 
 // ---------------------------------------------------------------------------
 // Structural invariants
@@ -57,6 +58,39 @@ describe('initialBlocks known data correctness', () => {
     expect(stone.properties.solid).toBe(true)
     expect(stone.properties.transparency).toBe(false)
   })
+
+  it('block hardness follows vanilla relative ordering', () => {
+    const hardnessOf = (type: string): number =>
+      Option.getOrThrow(Arr.findFirst(initialBlocks, (b) => b.type === type)).properties.hardness
+
+    // Soft cover blocks are softer than stone (vanilla: dirt/sand/grass ~0.5-0.6 < stone 1.5).
+    expect(hardnessOf('SNOW')).toBeLessThan(hardnessOf('DIRT'))
+    expect(hardnessOf('DIRT')).toBeLessThan(hardnessOf('STONE'))
+    expect(hardnessOf('SAND')).toBeLessThan(hardnessOf('STONE'))
+    expect(hardnessOf('GRASS')).toBeLessThan(hardnessOf('STONE'))
+    // Stone-family share stone's hardness; wood (2.0) and deepslate (3.0) are harder than stone (1.5).
+    expect(hardnessOf('GRANITE')).toBe(hardnessOf('STONE'))
+    expect(hardnessOf('STONE')).toBeLessThan(hardnessOf('WOOD'))
+    expect(hardnessOf('STONE')).toBeLessThan(hardnessOf('DEEPSLATE'))
+    // Obsidian is very hard but breakable, below unbreakable bedrock.
+    expect(hardnessOf('DEEPSLATE')).toBeLessThan(hardnessOf('OBSIDIAN'))
+    expect(hardnessOf('OBSIDIAN')).toBeLessThan(hardnessOf('BEDROCK'))
+    // Regression guard for the old bug: dirt must NOT be harder than wood.
+    expect(hardnessOf('DIRT')).toBeLessThan(hardnessOf('WOOD'))
+
+    // Ores: vanilla stone-tier ore (3.0) = deepslate (3.0); deepslate ore (4.5) is
+    // harder; all are FAR below obsidian (50) — regression guard for the old bug
+    // where ores sat at obsidian-level hardness.
+    expect(hardnessOf('COAL_ORE')).toBe(hardnessOf('DEEPSLATE'))
+    expect(hardnessOf('DEEPSLATE_COAL_ORE')).toBeGreaterThan(hardnessOf('COAL_ORE'))
+    expect(hardnessOf('IRON_ORE')).toBeLessThan(hardnessOf('OBSIDIAN'))
+
+    // Crafted: planks share wood's hardness (both vanilla 2.0); furnace (3.5) sits
+    // between deepslate (3.0) and obsidian (50).
+    expect(hardnessOf('PLANKS')).toBe(hardnessOf('WOOD'))
+    expect(hardnessOf('FURNACE')).toBeGreaterThan(hardnessOf('DEEPSLATE'))
+    expect(hardnessOf('FURNACE')).toBeLessThan(hardnessOf('OBSIDIAN'))
+  })
 })
 
 // ---------------------------------------------------------------------------
@@ -64,8 +98,8 @@ describe('initialBlocks known data correctness', () => {
 // ---------------------------------------------------------------------------
 
 describe('config split correctness', () => {
-  it('terrainBlocks + oreAndMineralBlocks + craftedAndItemBlocks equals initialBlocks length', () => {
-    const sum = terrainBlocks.length + oreAndMineralBlocks.length + craftedAndItemBlocks.length
+  it('terrainBlocks + oreAndMineralBlocks + craftedAndItemBlocks + endBlocks equals initialBlocks length', () => {
+    const sum = terrainBlocks.length + oreAndMineralBlocks.length + craftedAndItemBlocks.length + endBlocks.length
     expect(sum).toBe(initialBlocks.length)
   })
 })

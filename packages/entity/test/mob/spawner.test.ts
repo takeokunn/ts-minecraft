@@ -1,17 +1,12 @@
 import { describe, expect, it } from '@effect/vitest'
 import { Array as Arr, Effect, Layer, Option } from 'effect'
-import { TimeService } from '../../../game'
+import { TimeServicePort } from '../../domain/ports'
 import { HOSTILE_MOBS, PASSIVE_MOBS, type EntityId, EntityManager, EntityManagerLive, MobSpawner, MobSpawnerLive } from '@ts-minecraft/entity'
 
 const makeTimeLayer = (night: boolean) =>
-  Layer.succeed(TimeService, TimeService.of({
-    _tag: '@minecraft/application/TimeService' as const,
-    advanceTick: (_deltaTime: number) => Effect.void,
-    getTimeOfDay: () => Effect.succeed(night ? 0 : 0.5),
+  Layer.succeed(TimeServicePort, TimeServicePort.of({
+    _tag: '@minecraft/entity/domain/TimeServicePort' as const,
     isNight: () => Effect.succeed(night),
-    getDayLength: () => Effect.succeed(400),
-    setDayLength: (_seconds: number) => Effect.void,
-    setTimeOfDay: (_fraction: number) => Effect.void,
   }))
 
 const makeSpawnerLayer = (night: boolean) =>

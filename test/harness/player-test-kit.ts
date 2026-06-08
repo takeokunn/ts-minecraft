@@ -54,7 +54,7 @@ export const makeHungerService = () => ({
   getHunger: () => Effect.succeed({ foodLevel: 20, saturation: 5, exhaustion: 0 }),
   addExhaustion: (_amount: unknown) => Effect.void,
   eat: (_food: unknown, _saturationModifier: unknown) => Effect.void,
-  tick: () => Effect.succeed('none' as const),
+  tick: (_canRegen: unknown) => Effect.succeed('none' as const),
   reset: () => Effect.void,
 }) as unknown as InstanceType<typeof import('@ts-minecraft/entity').HungerService>
 
@@ -63,6 +63,7 @@ export const makeXPService = () => ({
   getXP: () => Effect.succeed({ totalXP: 0, level: 0, xpIntoLevel: 0, xpRequiredForNext: 7 }),
   addXP: (_amount: unknown) => Effect.succeed({ totalXP: 0, level: 0, xpIntoLevel: 0, xpRequiredForNext: 7 }),
   setTotalXP: (_totalXP: unknown) => Effect.void,
+  spendLevels: (_levels: unknown) => Effect.succeed({ totalXP: 0, level: 0, xpIntoLevel: 0, xpRequiredForNext: 7 }),
   reset: () => Effect.void,
 }) as unknown as InstanceType<typeof import('@ts-minecraft/entity').XPService>
 

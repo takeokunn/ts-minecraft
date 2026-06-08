@@ -19,7 +19,7 @@ export class ThirdPersonCameraService extends Effect.Service<ThirdPersonCameraSe
             const offsetY = Math.sin(pitch) * distance + shoulderHeight
 
             yield* Effect.sync(() => {
-              const eyeY = playerPos.y + eyeLevelOffset // eye is ~0.7 blocks above foot position
+              const eyeY = playerPos.y + eyeLevelOffset // eye sits eyeLevelOffset above the AABB center (playerPos.y)
               camera.position.set(playerPos.x - offsetX, eyeY + offsetY, playerPos.z - offsetZ)
               camera.lookAt(playerPos.x, eyeY, playerPos.z)
             })

@@ -7,6 +7,7 @@ import {
   bootProgram,
   sessionProgram,
 } from '@ts-minecraft/app'
+import { TimeServicePort, InventoryServicePort } from '@ts-minecraft/entity'
 import { MainMenuService } from '@ts-minecraft/presentation'
 import type { BootContext } from '@ts-minecraft/app'
 import type { GameMode } from '@ts-minecraft/game'
@@ -61,15 +62,17 @@ const mainMenuLoop = (bootCtx: BootContext) =>
 // PerfHudService.Default and TerrainWorkerPool.Default are provided alongside
 // MainLive — they live in infrastructure/ rather than under the layer groups
 // in layers.ts to keep that file focused on game-logic layers.
-Effect.runFork(
-  bootProgram.pipe(
-    Effect.flatMap(mainMenuLoop),
-    Effect.scoped,
-    Effect.provide(MainLive),
-    Effect.provide(PerfHudService.Default),
-    Effect.provide(TerrainWorkerPool.Default),
-    Effect.catchAllCause((cause): Effect.Effect<void, never, never> =>
-      Effect.logError(`Startup failed: ${Cause.pretty(cause)}`).pipe(Effect.asVoid),
-    ),
+const program = bootProgram.pipe(
+  Effect.flatMap(mainMenuLoop),
+  Effect.scoped,
+  Effect.provide(MainLive),
+  Effect.provide(PerfHudService.Default),
+  Effect.provide(TerrainWorkerPool.Default),
+  Effect.provide(TimeServicePort.Default),
+  Effect.provide(InventoryServicePort.Default),
+  Effect.catchAllCause((cause) =>
+    Effect.logError(`Startup failed: ${Cause.pretty(cause)}`).pipe(Effect.asVoid),
   ),
 )
+
+Effect.runFork(program)

@@ -80,6 +80,9 @@ describe('computeFallDamage', () => {
     ['exact 3-block fall → no damage',            70, 67, true,  true,  0],
     ['4-block fall → 1 damage',                   70, 66, true,  true,  1],
     ['10-block fall → 7 damage',                  70, 60, true,  true,  7],
+    // Fractional falls: vanilla rounds UP (ceil), so these guard against a floor regression.
+    ['fractional 3.5-block fall → ceil = 1 damage', 70, 66.5, true, true, 1],
+    ['fractional 4.5-block fall → ceil = 2 damage', 70, 65.5, true, true, 2],
     ['not grounded → no damage even if falling',  70, 60, true,  false, 0],
     ['was not falling → no damage on landing',    70, 60, false, true,  0],
   ]

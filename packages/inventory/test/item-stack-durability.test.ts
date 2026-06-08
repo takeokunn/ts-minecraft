@@ -10,8 +10,7 @@ import {
   mergeStacks,
   damageStack,
 } from "../domain/item-stack";
-import { getMaxDurability, isDurable, TOOL_MAX_DURABILITY } from "../domain/durability";
-import type { InventoryItem } from "@ts-minecraft/core";
+import { getMaxDurability } from "../domain/durability";
 
 describe("domain/item-stack — durability", () => {
   describe("createStack — durability", () => {

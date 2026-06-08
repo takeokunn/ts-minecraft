@@ -11,7 +11,7 @@ import { makeGameMode, makeGameState, makeMusicManager, makeSettingsService, mak
 import { makeEquipmentService, makeHotbarService, makeInventoryService } from './inventory-test-kit'
 import { makeCameraState, makeFirstPersonCamera, makeFishingService, makeHealthService, makeHungerService, makeThirdPersonCamera, makeXPService } from './player-test-kit'
 import { makeChunkMeshService, makeEntityRenderer, makeParticleSystem, makePerfHud, makeWorldRendererService } from './rendering-test-kit'
-import { makeBlockService, makeChunkManagerService, makeFluidService } from './terrain-test-kit'
+import { makeBlockService, makeChunkManagerService, makeFluidService, makeNetherService, makeWeatherService } from './terrain-test-kit'
 
 export type CameraMode = 'firstPerson' | 'thirdPerson'
 
@@ -92,7 +92,7 @@ export const makeDeps = (paused = false, withComposer = false): Effect.Effect<Fr
       renderer: makeRenderer(),
       scene: new THREE.Scene(),
       camera: makeCamera(),
-      respawnPosition: { x: 0, y: 64, z: 0 },
+      respawnPositionRef: MutableRef.make({ x: 0, y: 64, z: 0 }),
       lights: makeLights(),
       fpsElement: Option.none(),
       healthValueElement: Option.none(),
@@ -164,6 +164,8 @@ export const makeServices = (opts: {
     redstoneService: makeRedstoneService(),
     fluidService: makeFluidService(),
     furnaceService: makeFurnaceService(),
+    netherService: makeNetherService(),
+    weatherService: makeWeatherService(),
     perfHud: makePerfHud(),
     gameMode: makeGameMode(),
     cameraState: cameraState.state,

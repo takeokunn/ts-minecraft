@@ -12,6 +12,7 @@
     "@ts-minecraft/block": "workspace:*",
     "@ts-minecraft/inventory": "workspace:*",
     "@ts-minecraft/world": "workspace:*",
-    "@ts-minecraft/game": "workspace:*"
+    "@ts-minecraft/game": "workspace:*",
+    "effect": "^3.20.0"
   }
 }

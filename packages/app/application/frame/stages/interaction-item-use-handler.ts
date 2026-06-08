@@ -1,6 +1,6 @@
 import { Effect, Option, Schema } from 'effect'
 import { SlotIndex, ItemTypeSchema } from '@ts-minecraft/core'
-import { HOTBAR_START, isArmorItem } from '@ts-minecraft/inventory'
+import { HOTBAR_START, isArmorItem, getArmorSlot } from '@ts-minecraft/inventory'
 import { getFoodProperties, MAX_FOOD_LEVEL } from '@ts-minecraft/entity'
 import type { FrameHandlerServices } from '@ts-minecraft/app/frame/types'
 
@@ -31,13 +31,38 @@ export const handleFoodConsumption = (
           }
 
           if (isArmorItem(item)) {
-            return services.inventoryService
-              .removeBlock(item, 1, SlotIndex.make(HOTBAR_START + selectedSlot))
-              .pipe(
-                Effect.andThen(services.equipmentService.equip(item)),
-                Effect.as(true),
-                Effect.catchAll(() => Effect.succeed(false)),
-              )
+            const slotIndex = SlotIndex.make(HOTBAR_START + selectedSlot)
+            return services.inventoryService.getSlot(slotIndex).pipe(
+              Effect.flatMap((stackOpt) =>
+                Option.match(stackOpt, {
+                  onNone: () => Effect.succeed(false),
+                  onSome: (stack) =>
+                    Option.match(getArmorSlot(stack.itemType), {
+                      onNone: () => Effect.succeed(false),
+                      onSome: (slot) =>
+                        services.equipmentService.getEquippedItem(slot).pipe(
+                          Effect.flatMap((displaced) =>
+                            services.inventoryService
+                              .removeBlock(item, 1, slotIndex)
+                              .pipe(
+                                Effect.andThen(services.equipmentService.equip(stack)),
+                                // Swap: return displaced piece to inventory
+                                Effect.andThen(
+                                  Option.match(displaced, {
+                                    onNone: () => Effect.void,
+                                    onSome: (old) =>
+                                      services.inventoryService.addBlock(old.itemType, 1).pipe(Effect.asVoid),
+                                  }),
+                                ),
+                                Effect.as(true),
+                                Effect.catchAll(() => Effect.succeed(false)),
+                              ),
+                          ),
+                        ),
+                    }),
+                }),
+              ),
+            )
           }
 
           return Option.match(getFoodProperties(item), {
@@ -69,11 +94,13 @@ export const handleUnequipArmor = (
     const slots = ['HELMET', 'CHESTPLATE', 'LEGGINGS', 'BOOTS'] as const
     for (const slot of slots) {
       const removed = yield* services.equipmentService.unequipSlot(slot)
-      if (Option.isSome(removed)) {
-        yield* services.inventoryService
-          .addBlock(removed.value, 1)
-          .pipe(Effect.catchAll(() => services.equipmentService.equip(removed.value).pipe(Effect.asVoid)))
-        return
-      }
+      yield* Option.match(removed, {
+        onNone: () => Effect.void,
+        onSome: (stack) =>
+          services.inventoryService
+            .addBlock(stack.itemType, 1)
+            .pipe(Effect.catchAll(() => services.equipmentService.equip(stack).pipe(Effect.asVoid))),
+      })
+      if (Option.isSome(removed)) return
     }
   })

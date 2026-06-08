@@ -5,7 +5,7 @@ export const KeyMappings = {
   MOVE_RIGHT: 'KeyD',
   JUMP: 'Space',
   SPRINT: 'ControlLeft',
-  SNEAK: 'ShiftRight',
+  SNEAK: 'ShiftLeft',
   CAMERA_TOGGLE: 'F5',
   HOTBAR_SLOT_1: 'Digit1',
   HOTBAR_SLOT_2: 'Digit2',

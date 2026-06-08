@@ -14,12 +14,16 @@ import type { Effect } from 'effect'
 import { Schema } from 'effect'
 import { ChunkCoordSchema } from '@ts-minecraft/core'
 
+export const DimensionSchema = Schema.Literal('overworld', 'nether', 'end')
+export type Dimension = Schema.Schema.Type<typeof DimensionSchema>
+
 export const TerrainWorkerRequestSchema = Schema.Struct({
   id: Schema.Number.pipe(Schema.int(), Schema.nonNegative()),
   chunk: ChunkCoordSchema,
   seaLevel: Schema.Number.pipe(Schema.int()),
   lakeLevel: Schema.Number.pipe(Schema.int()),
   seed: Schema.Number.pipe(Schema.int()),
+  dimension: Schema.optionalWith(DimensionSchema, { default: () => 'overworld' as const }),
 })
 export type TerrainWorkerRequest = Schema.Schema.Type<typeof TerrainWorkerRequestSchema>
 

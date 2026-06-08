@@ -8,19 +8,19 @@ describe('player/health-service — fall damage', () => {
     Effect.gen(function* () {
       const healthService = yield* HealthService
 
-      // Frame 1: player at Y=10 (not grounded, not falling yet — prevY not set)
+      // Frame 1: player at Y=10 (not grounded, prevY not set yet)
       const d0 = yield* healthService.processFallDamage(10, false)
 
-      // Frame 2: player at Y=5 (falling, not grounded) → sets isFallingRef=true
+      // Frame 2: player at Y=5 (falling, not grounded) — descent accumulates
       const d1 = yield* healthService.processFallDamage(5, false)
 
-      // Frame 3: player at Y=0 (grounded after falling from 5→0 = 5 blocks)
-      // wasFalling=true, isGrounded=true → damage = floor(5 - 3) = 2
+      // Frame 3: player lands at Y=0, grounded. The full fall is Y=10 → Y=0 = 10
+      // blocks (accumulated across frames), so damage = ceil(10 - 3) = 7.
       const d2 = yield* healthService.processFallDamage(0, true)
 
       const totalDamage = d0 + d1 + d2
       expect(totalDamage).toBeGreaterThan(0)
-      expect(totalDamage).toBe(2) // floor(5 - 3) = 2
+      expect(totalDamage).toBe(7) // ceil(10 - 3) — the whole fall, not just the last frame
     }).pipe(Effect.provide(HealthService.Default))
   )
 

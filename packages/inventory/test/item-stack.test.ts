@@ -3,16 +3,14 @@ import { expect } from 'vitest'
 import { Array as Arr, Option } from 'effect'
 import {
   MAX_STACK_SIZE,
-  ItemStack,
   createStack,
   addToStack,
   removeFromStack,
   canMerge,
   mergeStacks,
   maxStackFor,
-  damageStack,
 } from '../domain/item-stack'
-import { getMaxDurability, isDurable, TOOL_MAX_DURABILITY } from '../domain/durability'
+import { isDurable, TOOL_MAX_DURABILITY } from '../domain/durability'
 import type { InventoryItem } from '@ts-minecraft/core'
 
 describe('domain/item-stack', () => {

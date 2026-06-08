@@ -7,7 +7,7 @@ export { BlockIdSchema }
 export type { BlockId }
 
 export const BlockPropertiesSchema = Schema.Struct({
-  hardness: Schema.Number.pipe(Schema.int(), Schema.between(0, 100)),
+  hardness: Schema.Number.pipe(Schema.finite(), Schema.between(-1, Number.MAX_SAFE_INTEGER)),
   transparency: Schema.Boolean,
   solid: Schema.Boolean,
   emissive: Schema.Boolean,

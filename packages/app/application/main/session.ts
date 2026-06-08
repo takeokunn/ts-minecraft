@@ -6,8 +6,8 @@ import { StartupError } from '@ts-minecraft/game'
 import { ParticleSystemService } from '@ts-minecraft/rendering/particles/particle-system'
 import { installPerfHudCounters } from '@ts-minecraft/rendering'
 
-import { BiomeService, ChunkManagerService, BlockService, FluidService, setActiveChunkWorldId } from '@ts-minecraft/world'
-import { GameStateService, TimeService, resolvePreset, GameLoopService, GameModeService, type GameMode } from '@ts-minecraft/game'
+import { BiomeService, ChunkManagerService, BlockService, FluidService, NetherService } from '@ts-minecraft/world'
+import { GameStateService, TimeService, WeatherService, resolvePreset, GameLoopService, GameModeService, type GameMode } from '@ts-minecraft/game'
 import { HotbarService, InventoryService, RecipeService, EquipmentService } from '@ts-minecraft/inventory'
 import { FurnaceService } from '@ts-minecraft/inventory'
 import { PlayerCameraStateService, FirstPersonCameraService, ThirdPersonCameraService, HealthService, HungerService, XPService, FishingService } from '@ts-minecraft/entity'
@@ -104,6 +104,8 @@ export const sessionProgram = (
     const redstoneService = yield* RedstoneService
     const fluidService = yield* FluidService
     const furnaceService = yield* FurnaceService
+    const netherService = yield* NetherService
+    const weatherService = yield* WeatherService
     const gameLoopService = yield* GameLoopService
     const gameModeService = yield* GameModeService
 
@@ -165,7 +167,7 @@ export const sessionProgram = (
       () => worldBootstrap.baseSpawnPosition,
     )
 
-    yield* Effect.sync(() => setActiveChunkWorldId(worldId))
+    yield* chunkManagerService.setActiveWorldId(worldId)
     yield* prepareInitialTerrain({
       chunkManagerService,
       worldRendererService,
@@ -209,15 +211,9 @@ export const sessionProgram = (
 
     yield* crosshair.show()
 
-    // Browser event bridge: resize + visibility-save + pointer-lock.
+    // Browser event bridge refs: resize + visibility-save + pointer-lock.
     const pendingResizeRef = MutableRef.make<Option.Option<PendingResize>>(Option.none())
     const pendingSaveDirtyChunksRef = MutableRef.make(false)
-    yield* installBrowserEventBridge({
-      canvas,
-      inputPointerLock: inputService.requestPointerLock(),
-      pendingResizeRef,
-      pendingSaveDirtyChunksRef,
-    })
 
     // FPS + health + hunger + XP + armor DOM elements (resolved once at session start; pre-cached for HUD).
     const { fpsElement, healthValueElement, healthMaxElement, hungerValueElement, hungerMaxElement, xpLevelElement, xpBarElement, armorValueElement } = yield* Effect.sync(() => ({
@@ -251,10 +247,19 @@ export const sessionProgram = (
         inventoryRenderer, inventoryService, equipmentService, fpsCounter, worldRendererService,
         entityRenderer, chunkMeshService, particleSystem, healthService, hungerService, xpService, fishingService,
         soundManager, musicManager, entityManager, mobSpawner, villageService,
-        tradingPresentation, redstoneService, fluidService, furnaceService,
+        tradingPresentation, redstoneService, fluidService, furnaceService, netherService, weatherService,
         perfHud, gameMode: gameModeService,
       },
     )
+
+    yield* installBrowserEventBridge({
+      canvas,
+      inputPointerLock: inputService.requestPointerLock(),
+      pendingResizeRef,
+      pendingSaveDirtyChunksRef,
+      gameLoopService,
+      frameHandler: frameHandlerWithBrowserEvents,
+    })
 
     yield* Effect.log('Game initialized — inventory, day/night cycle, and settings ready')
 

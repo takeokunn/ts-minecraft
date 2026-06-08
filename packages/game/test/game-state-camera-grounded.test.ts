@@ -107,29 +107,32 @@ describe('application/game-state (camera & grounded)', () => {
       }).pipe(Effect.provide(testLayer))
     })
 
-    it.effect('should handle sprint movement', () => {
-      const inputService = createTestInputService({ forward: true, sprint: true })
-      const testLayer = createTestLayer(inputService)
+    it.effect('forward distance ordering matches vanilla: sneak < walk < sprint', () => {
+      const dt = DeltaTimeSecs.make(1 / 60)
+      // Measure ground distance covered in 1s (60 frames) of forward movement for
+      // a given gait. The player first falls onto the bedrock floor (isBlockSolid
+      // returns true for y<0) and settles grounded, then we sample the delta.
+      const measureForwardDistance = (gait: { sprint?: boolean; sneak?: boolean }) =>
+        Effect.gen(function* () {
+          const service = yield* GameStateService
+          yield* service.initialize({ x: 0, y: 5, z: 0 })
+          yield* Effect.forEach(Arr.makeBy(200, () => undefined), () => service.update(dt), { concurrency: 1, discard: true })
+          const z0 = (yield* service.getPlayerPosition(DEFAULT_PLAYER_ID)).z
+          yield* Effect.forEach(Arr.makeBy(60, () => undefined), () => service.update(dt), { concurrency: 1, discard: true })
+          const z1 = (yield* service.getPlayerPosition(DEFAULT_PLAYER_ID)).z
+          return Math.abs(z1 - z0)
+        }).pipe(Effect.provide(createTestLayer(createTestInputService({ forward: true, ...gait }))))
 
       return Effect.gen(function* () {
-        const service = yield* GameStateService
+        const walk = yield* measureForwardDistance({})
+        const sprint = yield* measureForwardDistance({ sprint: true })
+        const sneak = yield* measureForwardDistance({ sneak: true })
 
-        yield* service.initialize({ x: 0, y: 5, z: 0 })
-
-        // Let player land first
-        yield* Effect.forEach(Arr.makeBy(300, () => undefined), () => service.update(DeltaTimeSecs.make(1 / 60)), { concurrency: 1 })
-
-        const initialZ = (yield* service.getPlayerPosition(DEFAULT_PLAYER_ID)).z
-
-        // Sprint forward
-        yield* Effect.forEach(Arr.makeBy(60, () => undefined), () => service.update(DeltaTimeSecs.make(1 / 60)), { concurrency: 1 })
-
-        const finalZ = (yield* service.getPlayerPosition(DEFAULT_PLAYER_ID)).z
-        const distanceTraveled = Math.abs(finalZ - initialZ)
-
-        // Sprint should cover more distance than walk
-        expect(distanceTraveled).toBeGreaterThan(0)
-      }).pipe(Effect.provide(testLayer))
+        // Vanilla speeds: sneak 1.295 < walk 4.317 < sprint 5.612 (b/s).
+        expect(sneak).toBeGreaterThan(0)
+        expect(sneak).toBeLessThan(walk)
+        expect(sprint).toBeGreaterThan(walk)
+      })
     })
   })
 

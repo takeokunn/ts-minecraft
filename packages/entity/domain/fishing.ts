@@ -1,42 +1,22 @@
 import type { ItemType } from '@ts-minecraft/core'
+import {
+  type WeightedEntry,
+  FISH_ENTRIES,
+  TREASURE_ENTRIES,
+  JUNK_ENTRIES,
+  FISHING_MIN_WAIT_SECS,
+  FISHING_MAX_WAIT_SECS,
+} from './fishing.config'
 
-// Fishing loot table — vanilla Java Edition catch categories.
-// Fish: 60%, Treasure: 5%, Junk: 35% (simplified from vanilla).
-//
-// Each category has weighted entries; a deterministic hash seed picks
-// the outcome so the service is pure and testable.
-
-export type FishingCategory = 'fish' | 'treasure' | 'junk'
-
-type WeightedEntry = { readonly item: ItemType; readonly weight: number }
-
-const FISH_ENTRIES: ReadonlyArray<WeightedEntry> = [
-  { item: 'RAW_COD', weight: 60 },
-  { item: 'RAW_SALMON', weight: 25 },
-  { item: 'TROPICAL_FISH', weight: 10 },
-  { item: 'PUFFERFISH', weight: 5 },
-]
-
-const TREASURE_ENTRIES: ReadonlyArray<WeightedEntry> = [
-  { item: 'BOW', weight: 20 },
-  { item: 'FISHING_ROD', weight: 15 },
-  { item: 'EMERALD', weight: 15 },
-  { item: 'DIAMOND', weight: 10 },
-  { item: 'GOLD_INGOT', weight: 20 },
-  { item: 'IRON_INGOT', weight: 20 },
-]
-
-const JUNK_ENTRIES: ReadonlyArray<WeightedEntry> = [
-  { item: 'BONE', weight: 30 },
-  { item: 'STRING', weight: 25 },
-  { item: 'STICKS', weight: 20 },
-  { item: 'LEATHER', weight: 15 },
-  { item: 'COAL', weight: 10 },
-]
-
-// Min and max wait time in seconds before a bite (vanilla: 5-30 s without lure).
-export const FISHING_MIN_WAIT_SECS = 5
-export const FISHING_MAX_WAIT_SECS = 30
+// Re-export config data and types so callers can import from one location.
+export type { FishingCategory, WeightedEntry } from './fishing.config'
+export {
+  FISH_ENTRIES,
+  TREASURE_ENTRIES,
+  JUNK_ENTRIES,
+  FISHING_MIN_WAIT_SECS,
+  FISHING_MAX_WAIT_SECS,
+} from './fishing.config'
 
 const pickWeighted = (entries: ReadonlyArray<WeightedEntry>, seed: number): ItemType => {
   const totalWeight = entries.reduce((sum, e) => sum + e.weight, 0)

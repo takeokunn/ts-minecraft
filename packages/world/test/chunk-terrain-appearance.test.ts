@@ -1,9 +1,8 @@
 import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
-import { Array as Arr, Effect, HashSet, Layer, Option } from 'effect'
+import { Array as Arr, Effect, Layer, Option } from 'effect'
 import { StorageServicePort } from '@ts-minecraft/world'
 import { NoiseServicePort, NoiseServiceLive, BiomeService, type BiomeType, ChunkManagerService, ChunkManagerServiceLive } from '@ts-minecraft/world'
-import { computeColumnY } from '@ts-minecraft/world'
 import type { BiomeProperties } from '@ts-minecraft/world'
 import { ChunkServiceLive } from '@ts-minecraft/world/application/chunk-service'
 import { CHUNK_SIZE, CHUNK_HEIGHT } from '@ts-minecraft/core'
@@ -23,10 +22,6 @@ describe('terrain/chunk-terrain-appearance', () => {
     const WATER = 6
     const LEAVES = 7
     const GRAVEL = 10
-    const GRANITE = 12
-    const DIORITE = 13
-    const ANDESITE = 14
-    const DEEPSLATE = 15
     const DEFAULT_TREE_PV = 0.2
     // Inverse on the ascending PV branch; keeps point-sampled weirdness aligned with terrainChannels.pv.
     const DEFAULT_TREE_WEIRDNESS = (DEFAULT_TREE_PV + 1) / 3

@@ -11,12 +11,21 @@ export const MovementInputSchema = Schema.Struct({
   right: Schema.Boolean,
   jump: Schema.Boolean,
   sprint: Schema.Boolean,
+  sneak: Schema.Boolean,
 })
 export type MovementInput = Schema.Schema.Type<typeof MovementInputSchema>
 
-// Branded type enforces unit at compile time and validates finiteness at runtime.
-export const DEFAULT_WALK_SPEED: MetersPerSec = MetersPerSec.make(8.0)
-export const DEFAULT_SPRINT_SPEED: MetersPerSec = MetersPerSec.make(14.0)
+// ─── Speed constants ──────────────────────────────────────────────────────────
+// Vanilla Minecraft (1.18) ground movement speeds in blocks/second. The branded
+// type enforces the unit at compile time and validates finiteness at runtime.
+//   walk   = 4.317 b/s  (vanilla baseline)
+//   sprint = walk × 1.3  = 5.612 b/s
+//   sneak  = walk × 0.3  = 1.295 b/s
+export const DEFAULT_WALK_SPEED: MetersPerSec = MetersPerSec.make(4.317)
+export const DEFAULT_SPRINT_SPEED: MetersPerSec = MetersPerSec.make(5.612)
+export const DEFAULT_SNEAK_SPEED: MetersPerSec = MetersPerSec.make(1.295)
+// Jump velocity is calibrated against GRAVITY_Y (-9.82 m/s²) so the apex height
+// h = v²/2g = 5²/19.64 ≈ 1.27 blocks matches the vanilla jump height (~1.25).
 export const DEFAULT_JUMP_VELOCITY: MetersPerSec = MetersPerSec.make(5.0)
 
 // Pure math: no side effects — safe to call anywhere without Effect wrapping.
@@ -25,7 +34,11 @@ export const computeVelocity = (
   yaw: number,
   isGrounded: boolean,
 ): { x: number; y: number; z: number } => {
-  const speed = MetersPerSec.toNumber(input.sprint ? DEFAULT_SPRINT_SPEED : DEFAULT_WALK_SPEED)
+  // Speed priority mirrors vanilla: sneaking suppresses sprinting, so it wins
+  // when both keys are held. Sprint otherwise takes precedence over the walk base.
+  const speed = MetersPerSec.toNumber(
+    input.sneak ? DEFAULT_SNEAK_SPEED : input.sprint ? DEFAULT_SPRINT_SPEED : DEFAULT_WALK_SPEED
+  )
 
   // Accumulate movement direction from all pressed keys.
   // Forward direction uses negative Z in most game engines.
@@ -57,17 +70,20 @@ export class MovementService extends Effect.Service<MovementService>()(
     effect: Effect.map(PlayerInputService, (inputService) => {
       const getInput = (): Effect.Effect<MovementInput, never> =>
         Effect.gen(function* () {
-          const [forward, backward, left, right, jump, sprint] = yield* Effect.all([
+          const [forward, backward, left, right, jump, sprint, sneak] = yield* Effect.all([
             inputService.isKeyPressed(KeyMappings.MOVE_FORWARD),
             inputService.isKeyPressed(KeyMappings.MOVE_BACKWARD),
             inputService.isKeyPressed(KeyMappings.MOVE_LEFT),
             inputService.isKeyPressed(KeyMappings.MOVE_RIGHT),
             // Use consumeKeyPress for jump to only trigger once per key press
             inputService.consumeKeyPress(KeyMappings.JUMP),
-            inputService.isKeyPressed(KeyMappings.SPRINT),
+            Effect.all([inputService.isKeyPressed('ControlLeft'), inputService.isKeyPressed('ControlRight')], {concurrency: 'unbounded'}).pipe(
+              Effect.map(([l, r]) => l || r)
+            ),
+            inputService.isKeyPressed(KeyMappings.SNEAK),
           ], { concurrency: 'unbounded' })
 
-          return { forward, backward, left, right, jump, sprint }
+          return { forward, backward, left, right, jump, sprint, sneak }
         })
 
       const calculateVelocity = (

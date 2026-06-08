@@ -1,5 +1,5 @@
 import type { InventoryItem, RecipeId } from '@ts-minecraft/core'
-import { Option } from 'effect'
+import { HashMap, Option } from 'effect'
 
 export type FurnaceItemStack = {
   readonly itemType: InventoryItem
@@ -13,4 +13,9 @@ export type FurnaceBlockState = {
   readonly output: Option.Option<FurnaceItemStack>
   readonly activeRecipeId: Option.Option<RecipeId>
   readonly progressSecs: number
+}
+
+export type FurnaceState = {
+  readonly furnaces: HashMap.HashMap<string, FurnaceBlockState>
+  readonly selectedFurnacePosition: { readonly x: number; readonly y: number; readonly z: number } | null
 }

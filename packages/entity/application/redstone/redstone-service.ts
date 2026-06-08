@@ -13,6 +13,7 @@ import {
   updatePistons,
   decayButtonTimers,
   sortedPowerSnapshot,
+  computeNeedsPropagation,
 } from '../../domain/redstone/redstone-simulation'
 import { DEFAULT_BUTTON_TICKS, MAX_BUTTON_TICKS } from '../../domain/redstone/redstone.config'
 
@@ -32,6 +33,51 @@ const INITIAL_STATE: RedstoneState = {
   pistonKeys: HashSet.empty<PositionKey>(),
   buttonKeys: HashSet.empty<PositionKey>(),
   cachedSnapshot: Option.none(),
+}
+
+
+// ─── Pure tick computation ────────────────────────────────────────────────────
+
+const computeNextRedstoneState = (
+  state: RedstoneState,
+  dirty: boolean,
+): [RedstoneTickSnapshot, RedstoneState] => {
+  const needsPropagation = computeNeedsPropagation(
+    state.components,
+    state.powerByPosition,
+    state.buttonKeys,
+    dirty,
+  )
+
+  const [powered, nextComponents] = needsPropagation
+    ? (() => {
+        const pow = propagatePower(state.components)
+        const withPistons = updatePistons(state.components, pow, state.pistonKeys)
+        return [pow, decayButtonTimers(withPistons, state.buttonKeys)] as const
+      })()
+    : [state.powerByPosition, decayButtonTimers(state.components, state.buttonKeys)] as const
+
+  const cachedSnapshot: Option.Option<RedstoneTickSnapshot['poweredPositions']> =
+    needsPropagation
+      ? Option.some(sortedPowerSnapshot(powered))
+      : Option.match(state.cachedSnapshot, {
+          onNone: () => Option.some(sortedPowerSnapshot(powered)),
+          onSome: () => state.cachedSnapshot,
+        })
+
+  const nextState: RedstoneState = {
+    tick: state.tick + 1,
+    components: nextComponents,
+    powerByPosition: powered,
+    pistonKeys: state.pistonKeys,
+    buttonKeys: state.buttonKeys,
+    cachedSnapshot,
+  }
+
+  return [
+    { tick: nextState.tick, poweredPositions: Option.getOrThrow(cachedSnapshot) },
+    nextState,
+  ]
 }
 
 export class RedstoneService extends Effect.Service<RedstoneService>()(
@@ -173,66 +219,7 @@ export class RedstoneService extends Effect.Service<RedstoneService>()(
         tick: (): Effect.Effect<RedstoneTickSnapshot, never> =>
           Effect.gen(function* () {
             const dirty = yield* Ref.getAndSet(dirtyRef, false)
-
-            return yield* Ref.modify(stateRef, (state): [RedstoneTickSnapshot, RedstoneState] => {
-              // Buttons tick autonomously — always run decay.
-              // Propagation is needed if:
-              // 1. An external event set dirty (lever toggle, button press, component add/remove)
-              // 2. Any button is currently active (ticks > 0): propagation uses pre-decay state,
-              //    and the following tick must re-propagate because decay changes power sources.
-              // 3. Any button was a power source last tick but is now inactive (ticks just hit 0):
-              //    detected by checking if any Button component is powered but no longer active.
-              const buttonKeysArr = Arr.fromIterable(state.buttonKeys)
-              const anyButtonActive = Arr.some(
-                buttonKeysArr,
-                (key) => Option.match(HashMap.get(state.components, key), {
-                  onNone: () => false,
-                  onSome: (c) => c.state.buttonTicksRemaining > 0,
-                })
-              )
-              const anyButtonJustExpired = Arr.some(
-                buttonKeysArr,
-                (key) => Option.match(HashMap.get(state.components, key), {
-                  onNone: () => false,
-                  onSome: (c) =>
-                    c.state.buttonTicksRemaining === 0 &&
-                    HashMap.has(state.powerByPosition, key),
-                })
-              )
-              const needsPropagation = dirty || anyButtonActive || anyButtonJustExpired
-
-              const [powered, nextComponents] = needsPropagation
-                ? (() => {
-                    const pow = propagatePower(state.components)
-                    const withPistons = updatePistons(state.components, pow, state.pistonKeys)
-                    return [pow, decayButtonTimers(withPistons, state.buttonKeys)] as const
-                  })()
-                : [state.powerByPosition, decayButtonTimers(state.components, state.buttonKeys)] as const
-
-              const cachedSnapshot: Option.Option<RedstoneTickSnapshot['poweredPositions']> =
-                needsPropagation
-                  ? Option.some(sortedPowerSnapshot(powered))
-                  : Option.match(state.cachedSnapshot, {
-                      onNone: () => Option.some(sortedPowerSnapshot(powered)),
-                      onSome: () => state.cachedSnapshot,
-                    })
-
-              const nextState: RedstoneState = {
-                tick: state.tick + 1,
-                components: nextComponents,
-                powerByPosition: powered,
-                pistonKeys: state.pistonKeys,
-                buttonKeys: state.buttonKeys,
-                cachedSnapshot,
-              }
-
-              const snapshot: RedstoneTickSnapshot = {
-                tick: nextState.tick,
-                poweredPositions: Option.getOrThrow(cachedSnapshot),
-              }
-
-              return [snapshot, nextState]
-            })
+            return yield* Ref.modify(stateRef, (state) => computeNextRedstoneState(state, dirty))
           }),
     })))
   },

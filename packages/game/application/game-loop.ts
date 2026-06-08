@@ -7,8 +7,51 @@ export const FrameCommandSchema = Schema.TaggedStruct('Tick', {
   timestamp: Schema.Number.pipe(Schema.finite(), Schema.nonNegative()),
 })
 export type FrameCommand = Schema.Schema.Type<typeof FrameCommandSchema>
+export type FrameHandler = (deltaTime: DeltaTimeSecs) => Effect.Effect<void, never>
 
 const QUEUE_CAPACITY = 60
+
+// Stand-alone helper: schedules rAF (or setInterval fallback) frames into the queue.
+// Extracted from start() to reduce nesting depth.
+const buildScheduleFrame = (
+  frameQueue: Queue.Queue<FrameCommand>,
+  isRunningRef: MutableRef.MutableRef<boolean>,
+  animationFrameIdRef: MutableRef.MutableRef<Option.Option<number>>,
+): (() => void) => {
+  const scheduleFrame = (): void => {
+    const hasRequestAnimationFrame = typeof globalThis.requestAnimationFrame === 'function'
+    const rafId = hasRequestAnimationFrame
+      ? globalThis.requestAnimationFrame((timestamp) => {
+          /* c8 ignore next */
+          if (!MutableRef.get(isRunningRef)) return
+
+          Effect.runFork(
+            Queue.offer(frameQueue, { _tag: 'Tick', timestamp }).pipe(
+              Effect.asVoid,
+              Effect.catchAllCause((cause) => Effect.logError(`Frame queue error: ${Cause.pretty(cause)}`)),
+            ),
+          )
+
+          /* c8 ignore next 2 */
+          if (MutableRef.get(isRunningRef)) {
+            scheduleFrame()
+          }
+        })
+      : /* c8 ignore start */ globalThis.setInterval(() => {
+          if (!MutableRef.get(isRunningRef)) return
+
+          Effect.runFork(
+            Queue.offer(frameQueue, { _tag: 'Tick', timestamp: performance.now() }).pipe(
+              Effect.asVoid,
+              Effect.catchAllCause((cause) => Effect.logError(`Frame queue error: ${Cause.pretty(cause)}`)),
+            ),
+          )
+        }, 16) /* c8 ignore stop */
+
+    MutableRef.set(animationFrameIdRef, Option.some(rafId))
+  }
+  return scheduleFrame
+}
 
 // Queue-based bridge: dropping queue prevents rAF fiber pile-up under load; loop recreated on each start() for restart semantics.
 export class GameLoopService extends Effect.Service<GameLoopService>()(
@@ -20,99 +63,106 @@ export class GameLoopService extends Effect.Service<GameLoopService>()(
       // Holds the current processing fiber (None when stopped)
       Ref.make<Option.Option<Fiber.RuntimeFiber<void, never>>>(Option.none()),
       Ref.make<Option.Option<Fiber.RuntimeFiber<void, never>>>(Option.none()),
+      Ref.make<Option.Option<FrameHandler>>(Option.none()),
       Effect.sync(() => MutableRef.make(false)),
       Effect.sync(() => MutableRef.make<Option.Option<number>>(Option.none())),
     ], { concurrency: 'unbounded' }).pipe(
-      Effect.flatMap(([frameQueueRef, processingFiberRef, maintenanceFiberRef, isRunningRef, animationFrameIdRef]) =>
-        Effect.succeed({
-          start: (
-            frameHandler: (deltaTime: DeltaTimeSecs) => Effect.Effect<void, never>
-          ): Effect.Effect<void, GameLoopError> =>
+      Effect.flatMap(([frameQueueRef, processingFiberRef, maintenanceFiberRef, frameHandlerRef, isRunningRef, animationFrameIdRef]) => {
+        const cancelScheduledFrame = (): void => {
+          const animationFrameId = MutableRef.get(animationFrameIdRef)
+          Option.map(animationFrameId, (id) => {
+            if (typeof globalThis.requestAnimationFrame === 'function') {
+              globalThis.cancelAnimationFrame(id)
+            } else {
+              globalThis.clearInterval(id)
+            }
+          })
+          MutableRef.set(animationFrameIdRef, Option.none())
+        }
+
+        const startFrameProcessing = (frameHandler: FrameHandler): Effect.Effect<void, never> =>
+          Effect.gen(function* () {
+            const frameQueue = yield* Queue.dropping<FrameCommand>(QUEUE_CAPACITY)
+            yield* Ref.set(frameQueueRef, Option.some(frameQueue))
+
+            const lastTimestampRef = yield* Ref.make(0)
+            const processFrames: Effect.Effect<void, never> = Queue.take(frameQueue).pipe(
+              Effect.flatMap((cmd) =>
+                Effect.gen(function* () {
+                  const lastTimestamp = yield* Ref.get(lastTimestampRef)
+                  const rawDelta =
+                    lastTimestamp === 0
+                      ? FIRST_FRAME_DELTA_SECS
+                      : (cmd.timestamp - lastTimestamp) / 1000
+                  const deltaTime = DeltaTimeSecs.make(Math.min(Math.max(0.001, rawDelta), 0.05))
+                  yield* Ref.set(lastTimestampRef, cmd.timestamp)
+                  yield* frameHandler(deltaTime).pipe(
+                    Effect.catchAllCause((cause) => Effect.logError(`Frame error: ${Cause.pretty(cause)}`)),
+                  )
+                }),
+              ),
+              Effect.forever,
+            )
+
+            MutableRef.set(isRunningRef, true)
+            const fiber = yield* Effect.forkDaemon(processFrames)
+            yield* Ref.set(processingFiberRef, Option.some(fiber))
+            buildScheduleFrame(frameQueue, isRunningRef, animationFrameIdRef)()
+          })
+
+        return Effect.succeed({
+          start: (frameHandler: FrameHandler): Effect.Effect<void, GameLoopError> =>
             Effect.gen(function* () {
             if (MutableRef.get(isRunningRef)) {
               /* c8 ignore next 2 */
               yield* Effect.fail(new GameLoopError({ reason: 'Game loop is already running' }))
             }
 
-              // Use a dropping queue: when the consumer falls behind, new offers are silently
-              // discarded rather than blocking the rAF bridge. This prevents unbounded fiber
-              // accumulation under load (the alternative — unbounded blocking offers — would
-              // pile up rAF fibers on frame backpressure).
-              const frameQueue = yield* Queue.dropping<FrameCommand>(QUEUE_CAPACITY)
-              yield* Ref.set(frameQueueRef, Option.some(frameQueue))
-
-              // Timestamp accumulator as Ref — reset to 0 on each start(), no mutable let needed
-              const lastTimestampRef = yield* Ref.make(0)
-
-              // Effect.forever drives the take+process loop; fiber interrupt (from stop()) terminates it cleanly.
-              const processFrames: Effect.Effect<void, never> = Queue.take(frameQueue).pipe(
-                Effect.flatMap((cmd) =>
-                  Effect.gen(function* () {
-                    const lastTimestamp = yield* Ref.get(lastTimestampRef)
-                    const rawDelta =
-                      lastTimestamp === 0
-                        ? FIRST_FRAME_DELTA_SECS
-                        : (cmd.timestamp - lastTimestamp) / 1000
-                    const deltaTime = DeltaTimeSecs.make(Math.min(Math.max(0.001, rawDelta), 0.05))
-                    yield* Ref.set(lastTimestampRef, cmd.timestamp)
-                    yield* frameHandler(deltaTime).pipe(
-                      Effect.catchAllCause((cause) => Effect.logError(`Frame error: ${Cause.pretty(cause)}`)),
-                    )
-                  }),
-                ),
-                Effect.forever,
-              )
-
-              MutableRef.set(isRunningRef, true)
-
-              const fiber = yield* Effect.forkDaemon(processFrames)
-              yield* Ref.set(processingFiberRef, Option.some(fiber))
-
-              const scheduleFrame = (): void => {
-                const hasRequestAnimationFrame = typeof globalThis.requestAnimationFrame === 'function'
-                const rafId = hasRequestAnimationFrame
-                  ? globalThis.requestAnimationFrame((timestamp) => {
-                      /* c8 ignore next */
-                      if (!MutableRef.get(isRunningRef)) return
-
-                      Effect.runFork(
-                        Queue.offer(frameQueue, { _tag: 'Tick', timestamp }).pipe(
-                          Effect.asVoid,
-                          Effect.catchAllCause((cause) => Effect.logError(`Frame queue error: ${Cause.pretty(cause)}`)),
-                        ),
-                      )
-
-                      /* c8 ignore next 2 */
-                      if (MutableRef.get(isRunningRef)) {
-                        scheduleFrame()
-                      }
-                    })
-                  : /* c8 ignore start */ globalThis.setInterval(() => {
-                      if (!MutableRef.get(isRunningRef)) return
-
-                      Effect.runFork(
-                        Queue.offer(frameQueue, { _tag: 'Tick', timestamp: performance.now() }).pipe(
-                          Effect.asVoid,
-                          Effect.catchAllCause((cause) => Effect.logError(`Frame queue error: ${Cause.pretty(cause)}`)),
-                        ),
-                      )
-                    }, 16) /* c8 ignore stop */
-
-                MutableRef.set(animationFrameIdRef, Option.some(rafId))
-              }
-
-              scheduleFrame()
-
+              yield* Ref.set(frameHandlerRef, Option.some(frameHandler))
+              yield* startFrameProcessing(frameHandler)
               yield* Effect.log('Game loop started')
+            }),
+
+          pause: (): Effect.Effect<void, never> =>
+            Effect.gen(function* () {
+              MutableRef.set(isRunningRef, false)
+              cancelScheduledFrame()
+
+              const processingFiber = yield* Ref.modify(processingFiberRef, (opt): [Option.Option<Fiber.RuntimeFiber<void, never>>, Option.Option<Fiber.RuntimeFiber<void, never>>] =>
+                [opt, Option.none()]
+              )
+              yield* Option.match(processingFiber, {
+                onNone: () => Effect.void,
+                onSome: (fiber) => Fiber.interrupt(fiber),
+              })
+
+              yield* Effect.log('Game loop paused')
+            }),
+
+          resume: (frameHandler?: FrameHandler): Effect.Effect<void, GameLoopError> =>
+            Effect.gen(function* () {
+              if (MutableRef.get(isRunningRef)) return
+              if (frameHandler) yield* Ref.set(frameHandlerRef, Option.some(frameHandler))
+
+              const storedHandler = yield* Ref.get(frameHandlerRef)
+              yield* Option.match(storedHandler, {
+                onNone: () => Effect.fail(new GameLoopError({ reason: 'No frame handler stored' })),
+                onSome: (handler) => startFrameProcessing(handler),
+              })
+
+              yield* Effect.log('Game loop resumed')
             }),
 
           startMaintenance: (
             maintenanceHandler: () => Effect.Effect<boolean, never>,
           ): Effect.Effect<void, GameLoopError> =>
             Effect.gen(function* () {
-              const existingMaintenanceFiber = yield* Ref.get(maintenanceFiberRef)
+              // Atomically read the current fiber to check if already running
+              const existing = yield* Ref.modify(maintenanceFiberRef, (opt): [Option.Option<Fiber.RuntimeFiber<void, never>>, Option.Option<Fiber.RuntimeFiber<void, never>>] =>
+                [opt, opt]
+              )
               /* c8 ignore next 2 */
-              yield* Option.match(existingMaintenanceFiber, {
+              yield* Option.match(existing, {
                 onSome: () => Effect.fail(new GameLoopError({ reason: 'Maintenance loop is already running' })),
                 onNone: () => Effect.void,
               })
@@ -135,50 +185,41 @@ export class GameLoopService extends Effect.Service<GameLoopService>()(
           stop: (): Effect.Effect<void, never> =>
             Effect.gen(function* () {
             MutableRef.set(isRunningRef, false)
+            cancelScheduledFrame()
 
-            const animationFrameId = MutableRef.get(animationFrameIdRef)
-            Option.map(animationFrameId, (id) => {
-              if (typeof globalThis.requestAnimationFrame === 'function') {
-                globalThis.cancelAnimationFrame(id)
-              } else {
-                globalThis.clearInterval(id)
-              }
-            })
-            MutableRef.set(animationFrameIdRef, Option.none())
-
-              yield* Option.match(yield* Ref.get(processingFiberRef), {
+              // Atomically extract and clear each ref, then act on the extracted value
+              const processingFiber = yield* Ref.modify(processingFiberRef, (opt): [Option.Option<Fiber.RuntimeFiber<void, never>>, Option.Option<Fiber.RuntimeFiber<void, never>>] =>
+                [opt, Option.none()]
+              )
+              yield* Option.match(processingFiber, {
                 onNone: () => Effect.void,
-                onSome: (fiber) =>
-                  Effect.gen(function* () {
-                    yield* Fiber.interrupt(fiber)
-                    yield* Ref.set(processingFiberRef, Option.none())
-                  }),
+                onSome: (fiber) => Fiber.interrupt(fiber),
               })
 
-              yield* Option.match(yield* Ref.get(frameQueueRef), {
+              const frameQueue = yield* Ref.modify(frameQueueRef, (opt): [Option.Option<Queue.Queue<FrameCommand>>, Option.Option<Queue.Queue<FrameCommand>>] =>
+                [opt, Option.none()]
+              )
+              yield* Option.match(frameQueue, {
                 onNone: () => Effect.void,
-                onSome: (queue) =>
-                  Effect.gen(function* () {
-                    yield* Queue.shutdown(queue)
-                    yield* Ref.set(frameQueueRef, Option.none())
-                  }),
+                onSome: (queue) => Queue.shutdown(queue),
               })
 
-              yield* Option.match(yield* Ref.get(maintenanceFiberRef), {
+              yield* Ref.set(frameHandlerRef, Option.none())
+
+              const maintenanceFiber = yield* Ref.modify(maintenanceFiberRef, (opt): [Option.Option<Fiber.RuntimeFiber<void, never>>, Option.Option<Fiber.RuntimeFiber<void, never>>] =>
+                [opt, Option.none()]
+              )
+              yield* Option.match(maintenanceFiber, {
                 onNone: () => Effect.void,
-                onSome: (fiber) =>
-                  Effect.gen(function* () {
-                    yield* Fiber.interrupt(fiber)
-                    yield* Ref.set(maintenanceFiberRef, Option.none())
-                  }),
+                onSome: (fiber) => Fiber.interrupt(fiber),
               })
 
               yield* Effect.log('Game loop stopped')
             }),
 
         isRunning: (): Effect.Effect<boolean, never> => Effect.sync(() => MutableRef.get(isRunningRef)),
+      })
       }),
-      ),
     ),
   }
 ) {}

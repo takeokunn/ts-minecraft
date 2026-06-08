@@ -8,6 +8,7 @@
     "./*": "./*"
   },
   "dependencies": {
-    "@ts-minecraft/core": "workspace:*"
+    "@ts-minecraft/core": "workspace:*",
+    "effect": "^3.20.0"
   }
 }

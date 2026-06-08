@@ -8,8 +8,31 @@ export const EntityId = {
   make: (value: string): EntityId => Schema.decodeUnknownSync(EntityIdSchema)(value),
 }
 
-export const EntityTypeSchema = Schema.Literal('Zombie', 'Cow', 'Pig', 'Sheep', 'Creeper', 'Skeleton', 'Spider', 'Enderman')
-export type EntityType = Schema.Schema.Type<typeof EntityTypeSchema>
+export const EntityTypeSchema = Schema.Literal(
+  'Zombie',
+  'Cow',
+  'Pig',
+  'Sheep',
+  'Creeper',
+  'Skeleton',
+  'Spider',
+  'Enderman',
+  'EnderDragon',
+  'Shulker',
+  'Endermite'
+)
+const ActiveEntityTypeSchema = Schema.Literal(
+  'Zombie',
+  'Cow',
+  'Pig',
+  'Sheep',
+  'Creeper',
+  'Skeleton',
+  'Spider',
+  'Enderman',
+  'EnderDragon'
+)
+export type EntityType = Schema.Schema.Type<typeof ActiveEntityTypeSchema>
 export const EntityType = {
   Zombie: 'Zombie' as const,
   Cow: 'Cow' as const,
@@ -19,6 +42,9 @@ export const EntityType = {
   Skeleton: 'Skeleton' as const,
   Spider: 'Spider' as const,
   Enderman: 'Enderman' as const,
+  EnderDragon: 'EnderDragon' as const,
+  Shulker: 'Shulker' as const,
+  Endermite: 'Endermite' as const,
 }
 
 export const MobBehaviorSchema = Schema.Literal('hostile', 'passive')
@@ -30,7 +56,7 @@ export const EntitySchema = Schema.Struct({
   velocity: Vector3Schema,
   rotation: QuaternionSchema,
   health: Schema.Number.pipe(Schema.finite(), Schema.nonNegative()),
-  type: EntityTypeSchema,
+  type: ActiveEntityTypeSchema,
 })
 export type Entity = Schema.Schema.Type<typeof EntitySchema>
 

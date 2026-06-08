@@ -1,10 +1,17 @@
 import { Deferred, Effect, Option, Ref } from 'effect'
-import { PlayerHealth } from '../domain/player-health'
-import { INVINCIBILITY_TICKS_ON_HIT, PLAYER_MAX_HEALTH, PLAYER_START_HEALTH, FALL_DAMAGE_FREE_BLOCKS } from './health-service.config'
+import { PlayerHealth, applyDamageToHealth, healHealth, tickInvincibility, computeFallDamage } from '../domain/player-health'
+import { PLAYER_MAX_HEALTH, PLAYER_START_HEALTH } from './health-service.config'
+
+// Re-export domain transformers so existing imports from this module continue to work.
+export { applyDamageToHealth, healHealth, tickInvincibility, computeFallDamage } from '../domain/player-health'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type FallState = { readonly prevY: Option.Option<number>; readonly isFalling: boolean }
+// `prevY` is the previous frame's Y; `fallDistance` accumulates total descent since
+// the player last touched ground (reset on landing or any upward motion), so fall
+// damage reflects the WHOLE fall — a single frame's drop is capped at ~1.6 blocks
+// (terminal velocity × dt) and could never reach the 3-block damage threshold alone.
+type FallState = { readonly prevY: Option.Option<number>; readonly fallDistance: number }
 
 type HealthState = {
   readonly health: PlayerHealth
@@ -15,47 +22,8 @@ type HealthState = {
 
 const INITIAL_STATE: HealthState = {
   health: new PlayerHealth({ current: PLAYER_START_HEALTH, max: PLAYER_MAX_HEALTH, invincibilityTicks: 0 }),
-  fallState: { prevY: Option.none(), isFalling: false },
+  fallState: { prevY: Option.none(), fallDistance: 0 },
 }
-
-// ─── Pure health transformers ─────────────────────────────────────────────────
-
-export const applyDamageToHealth = (health: PlayerHealth, amount: number): PlayerHealth => {
-  if (amount <= 0) return health
-  if (health.current <= 0 || health.invincibilityTicks > 0) return health
-  return new PlayerHealth({
-    current: Math.max(0, health.current - amount),
-    max: health.max,
-    invincibilityTicks: INVINCIBILITY_TICKS_ON_HIT,
-  })
-}
-
-export const healHealth = (health: PlayerHealth, amount: number): PlayerHealth => {
-  if (amount <= 0) return health
-  return new PlayerHealth({
-    current: Math.min(health.max, health.current + amount),
-    max: health.max,
-    invincibilityTicks: health.invincibilityTicks,
-  })
-}
-
-export const tickInvincibility = (health: PlayerHealth): PlayerHealth =>
-  health.invincibilityTicks > 0
-    ? new PlayerHealth({
-        current: health.current,
-        max: health.max,
-        invincibilityTicks: health.invincibilityTicks - 1,
-      })
-    : health
-
-// Minecraft formula: damage = fallDistance - FALL_DAMAGE_FREE_BLOCKS (min 3 blocks free).
-export const computeFallDamage = (
-  prevY: number,
-  currentY: number,
-  wasFalling: boolean,
-  isGrounded: boolean,
-): number =>
-  wasFalling && isGrounded ? Math.max(0, Math.floor(prevY - currentY - FALL_DAMAGE_FREE_BLOCKS)) : 0
 
 // ─── Service ─────────────────────────────────────────────────────────────────
 
@@ -122,18 +90,27 @@ export class HealthService extends Effect.Service<HealthService>()(
           /* c8 ignore next -- non-finite Y guard: physics always produces finite positions */
           !Number.isFinite(currentY) ? Effect.succeed(0) :
           Ref.modify(stateRef, (s) => {
-            const { prevY: prevYOpt, isFalling: wasFalling } = s.fallState
+            const { prevY: prevYOpt, fallDistance } = s.fallState
             return Option.match(prevYOpt, {
               onNone: () => [
                 0,
-                { ...s, fallState: { ...s.fallState, prevY: Option.some(currentY) } },
+                { ...s, fallState: { prevY: Option.some(currentY), fallDistance: 0 } },
               ] as const,
               onSome: (prevY) => {
-                const falling = currentY < prevY
-                const damage = computeFallDamage(prevY, currentY, wasFalling, isGrounded)
+                // Accumulate the descent across frames; any upward motion cancels the
+                // running fall (vanilla resets fallDistance on ascent). Damage is
+                // assessed only on the landing frame, from the TOTAL accumulated drop.
+                const frameDrop = prevY - currentY
+                // Descent (or a stationary landing frame) accumulates; only genuine
+                // upward motion cancels the running fall — so reaching the ground a
+                // frame before `isGrounded` registers does not discard the descent.
+                const accumulated = frameDrop < 0 ? 0 : fallDistance + frameDrop
+                // Pass `currentY + accumulated` so computeFallDamage measures the full
+                // fall (prevY − currentY === accumulated) without changing its contract.
+                const damage = computeFallDamage(currentY + accumulated, currentY, accumulated > 0, isGrounded)
                 return [
                   damage,
-                  { ...s, fallState: { prevY: Option.some(currentY), isFalling: falling } },
+                  { ...s, fallState: { prevY: Option.some(currentY), fallDistance: isGrounded ? 0 : accumulated } },
                 ] as const
               },
             })

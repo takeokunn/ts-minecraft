@@ -122,6 +122,24 @@ describe('application/inventory/inventory-service', () => {
         expect(restored).toEqual(snapshot)
       })
     })
+
+    it.effect('REPLACES the inventory: slots absent from the snapshot are cleared (no stale items / duplication)', () => {
+      const testLayer = createTestLayer(createTestBlockRegistry(airOnlyBlocks))
+      return Effect.gen(function* () {
+        const service = yield* InventoryService
+        // Snapshot a state with only slot 0 occupied.
+        yield* service.setSlot(asSlotIndex(0), Option.some(createStack('WOOD', 5)))
+        const snapshot = yield* service.serialize()
+        // Dirty a DIFFERENT slot the snapshot never mentions, then restore the snapshot.
+        yield* service.setSlot(asSlotIndex(10), Option.some(createStack('STONE', 64)))
+        yield* service.deserialize(snapshot)
+
+        // The stale STONE must be CLEARED (a merge would leave it — the root cause of
+        // dismantleFurnace's rollback duplication and load-into-dirty-inventory corruption).
+        expect(Option.getOrThrow(yield* service.getSlot(asSlotIndex(0))).itemType).toBe('WOOD')
+        expect(Option.isNone(yield* service.getSlot(asSlotIndex(10)))).toBe(true)
+      }).pipe(Effect.provide(testLayer))
+    })
   })
 
   // ---------------------------------------------------------------------------

@@ -49,6 +49,15 @@ export const ItemTypeSchema = Schema.Literal(
   'STRING',
   'SPIDER_EYE',
   'ENDER_PEARL',
+  // The End items
+  'CHORUS_FRUIT',
+  'DRAGON_BREATH',
+  'DRAGON_EGG',
+  'ELYTRA',
+  'END_CRYSTAL',
+  'ENDER_EYE',
+  'POPPED_CHORUS_FRUIT',
+  'SHULKER_SHELL',
   // Ranged weapons, tools & defensive items
   'BOW',
   'FISHING_ROD',
@@ -77,6 +86,8 @@ export const ItemTypeSchema = Schema.Literal(
   'DIAMOND_HELMET',
   'DIAMOND_CHESTPLATE',
   'DIAMOND_LEGGINGS',
-  'DIAMOND_BOOTS'
+  'DIAMOND_BOOTS',
+  // Portal ignition tool
+  'FLINT_AND_STEEL'
 )
 export type ItemType = Schema.Schema.Type<typeof ItemTypeSchema>

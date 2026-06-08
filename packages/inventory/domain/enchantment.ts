@@ -1,47 +1,12 @@
 import { Option } from 'effect'
 import type { ItemType } from '@ts-minecraft/core'
+import { MAX_LEVEL, FORTUNE_MULTIPLIERS, APPLICABLE_TO } from './enchantment.config'
+import type { EnchantmentType, EnchantmentLevel, Enchantment } from './enchantment.types'
 
-// ─── Enchantment types (vanilla subset) ────────────────────────────────────
-
-export type EnchantmentType =
-  | 'SHARPNESS'           // +damage to all mobs
-  | 'SMITE'              // +damage to undead (Zombie, Skeleton)
-  | 'BANE_OF_ARTHROPODS' // +damage to spiders
-  | 'PROTECTION'         // reduces incoming damage
-  | 'PROJECTILE_PROTECTION'
-  | 'FIRE_PROTECTION'
-  | 'BLAST_PROTECTION'
-  | 'EFFICIENCY'         // faster block breaking
-  | 'FORTUNE'            // extra drops from ores
-  | 'SILK_TOUCH'         // drops block itself instead of resource
-  | 'UNBREAKING'         // chance to not consume durability
-  | 'LOOTING'            // extra drops from mobs
-  | 'INFINITY'           // bow doesn't consume arrows
-
-export type EnchantmentLevel = 1 | 2 | 3 | 4 | 5
-
-export type Enchantment = {
-  readonly type: EnchantmentType
-  readonly level: EnchantmentLevel
-}
+export type { EnchantmentType, EnchantmentLevel, Enchantment }
+export { EnchantmentTypeSchema, EnchantmentLevelSchema, EnchantmentSchema } from './enchantment.types'
 
 // ─── Validity ────────────────────────────────────────────────────────────────
-
-const MAX_LEVEL: Record<EnchantmentType, EnchantmentLevel> = {
-  SHARPNESS: 5,
-  SMITE: 5,
-  BANE_OF_ARTHROPODS: 5,
-  PROTECTION: 4,
-  PROJECTILE_PROTECTION: 4,
-  FIRE_PROTECTION: 4,
-  BLAST_PROTECTION: 4,
-  EFFICIENCY: 5,
-  FORTUNE: 3,
-  SILK_TOUCH: 1,
-  UNBREAKING: 3,
-  LOOTING: 3,
-  INFINITY: 1,
-}
 
 export const getMaxEnchantmentLevel = (type: EnchantmentType): EnchantmentLevel =>
   MAX_LEVEL[type]
@@ -75,37 +40,52 @@ export const getUnbreakingSkipChance = (level: EnchantmentLevel): number =>
   1 - 1 / (level + 1)
 
 // Fortune: bonus multiplier on ore drops. Level 1 = 1.33×, 2 = 1.75×, 3 = 2.5×.
-const FORTUNE_MULTIPLIERS: Record<EnchantmentLevel, number> = { 1: 1.33, 2: 1.75, 3: 2.5, 4: 2.5, 5: 2.5 }
 export const getFortuneDropMultiplier = (level: EnchantmentLevel): number =>
   FORTUNE_MULTIPLIERS[level]
 
 // ─── Applicable items ────────────────────────────────────────────────────────
-
-// Which item types may carry each enchantment. Used by the enchanting service
-// to validate requests.
-const APPLICABLE_TO: Partial<Record<EnchantmentType, ReadonlySet<ItemType>>> = {
-  SHARPNESS: new Set(['WOODEN_SWORD', 'STONE_SWORD', 'IRON_SWORD', 'DIAMOND_SWORD',
-    'WOODEN_AXE', 'STONE_AXE', 'IRON_AXE', 'DIAMOND_AXE']),
-  SMITE: new Set(['WOODEN_SWORD', 'STONE_SWORD', 'IRON_SWORD', 'DIAMOND_SWORD']),
-  BANE_OF_ARTHROPODS: new Set(['WOODEN_SWORD', 'STONE_SWORD', 'IRON_SWORD', 'DIAMOND_SWORD']),
-  PROTECTION: new Set(['LEATHER_HELMET', 'LEATHER_CHESTPLATE', 'LEATHER_LEGGINGS', 'LEATHER_BOOTS',
-    'IRON_HELMET', 'IRON_CHESTPLATE', 'IRON_LEGGINGS', 'IRON_BOOTS',
-    'DIAMOND_HELMET', 'DIAMOND_CHESTPLATE', 'DIAMOND_LEGGINGS', 'DIAMOND_BOOTS']),
-  EFFICIENCY: new Set(['WOODEN_PICKAXE', 'STONE_PICKAXE', 'IRON_PICKAXE', 'DIAMOND_PICKAXE',
-    'WOODEN_AXE', 'STONE_AXE', 'IRON_AXE', 'DIAMOND_AXE',
-    'WOODEN_HOE', 'STONE_HOE', 'IRON_HOE', 'DIAMOND_HOE']),
-  FORTUNE: new Set(['WOODEN_PICKAXE', 'STONE_PICKAXE', 'IRON_PICKAXE', 'DIAMOND_PICKAXE']),
-  UNBREAKING: new Set(['WOODEN_SWORD', 'STONE_SWORD', 'IRON_SWORD', 'DIAMOND_SWORD',
-    'WOODEN_PICKAXE', 'STONE_PICKAXE', 'IRON_PICKAXE', 'DIAMOND_PICKAXE',
-    'WOODEN_AXE', 'STONE_AXE', 'IRON_AXE', 'DIAMOND_AXE',
-    'LEATHER_HELMET', 'IRON_HELMET', 'DIAMOND_HELMET',
-    'BOW', 'FISHING_ROD', 'SHIELD']),
-  LOOTING: new Set(['WOODEN_SWORD', 'STONE_SWORD', 'IRON_SWORD', 'DIAMOND_SWORD']),
-  INFINITY: new Set(['BOW']),
-}
 
 export const canEnchantItem = (item: ItemType, enchantment: EnchantmentType): boolean =>
   Option.getOrElse(
     Option.map(Option.fromNullable(APPLICABLE_TO[enchantment]), (set) => set.has(item)),
     () => false,
   )
+
+// ─── Enchanting selection ─────────────────────────────────────────────────────
+
+// Reverse map built once at module load: item type → applicable enchantment types.
+const ITEM_ENCHANTMENTS: ReadonlyMap<string, ReadonlyArray<EnchantmentType>> = (() => {
+  const map = new Map<string, EnchantmentType[]>()
+  for (const [etype, items] of Object.entries(APPLICABLE_TO) as Array<[EnchantmentType, ReadonlySet<string>]>) {
+    for (const item of items) {
+      const existing = map.get(item) ?? []
+      existing.push(etype)
+      map.set(item, existing)
+    }
+  }
+  return map
+})()
+
+// Simple deterministic string hash (djb2-style).
+const hashStr = (s: string): number => {
+  let h = 5381
+  for (let i = 0; i < s.length; i++) h = (h * 33 ^ s.charCodeAt(i)) >>> 0
+  return h
+}
+
+// Returns the enchantment to apply to an item given the current XP level.
+// The result is deterministic: same item + same level always picks the same enchantment.
+// XP level controls the maximum enchantment level offered (higher XP → stronger enchantments).
+// Returns Option.none() if no enchantment applies to the item.
+export const selectEnchantment = (itemType: ItemType, xpLevel: number): Option.Option<Enchantment> => {
+  const applicable = ITEM_ENCHANTMENTS.get(itemType)
+  if (!applicable || applicable.length === 0) return Option.none()
+  const enchType = applicable[hashStr(itemType + String(xpLevel)) % applicable.length]!
+  const maxForType = MAX_LEVEL[enchType]
+  // Scale enchantment level with XP: 1 level per 5 XP levels, capped at the enchantment's max.
+  const enchLevel = Math.min(maxForType, Math.max(1, Math.floor(xpLevel / 5))) as EnchantmentLevel
+  return Option.some({ type: enchType, level: enchLevel })
+}
+
+// XP levels consumed when enchanting at a given enchantment level.
+export const enchantXPCost = (enchLevel: EnchantmentLevel): number => enchLevel

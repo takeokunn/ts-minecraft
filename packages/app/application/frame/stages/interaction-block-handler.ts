@@ -1,9 +1,10 @@
-import { Effect, HashMap, Option, Ref, Schema } from 'effect'
+import { Effect, HashMap, HashSet, Option, Ref, Schema } from 'effect'
 import { aabbFromVoxel } from '@ts-minecraft/world'
 import type { FrameHandlerDeps, FrameHandlerServices, FrameStageRefs } from '@ts-minecraft/app/frame/types'
 import { findAttackableEntity } from '@ts-minecraft/app/frame/stages/attack-targeting'
-import { CHUNK_SIZE, CHUNK_HEIGHT, blockTypeToIndex, SlotIndex, ItemTypeSchema } from '@ts-minecraft/core'
-import { HOTBAR_START, isDurable } from '@ts-minecraft/inventory'
+import { CHUNK_SIZE, CHUNK_HEIGHT, blockTypeToIndex, indexToBlockType, SlotIndex, ItemTypeSchema } from '@ts-minecraft/core'
+import { HOTBAR_START, isDurable, getSharpnessDamageBonus, getFortuneDropMultiplier } from '@ts-minecraft/inventory'
+import { FORTUNE_ORE_BLOCKS, PICKAXE_BLOCK_TYPES, getInventoryDropForBlock } from '@ts-minecraft/world'
 import { computeAttackDamage, computeKnockback, computeAttackCharge, computeChargedDamage, DEFAULT_ATTACK_COOLDOWN_SECS, getMobDefinition } from '@ts-minecraft/entity'
 import { getParticleUvOffset } from '@ts-minecraft/rendering/particles/particle-system'
 import {
@@ -18,6 +19,19 @@ import {
   IRON_AXE_ATTACK_DAMAGE,
   DIAMOND_AXE_ATTACK_DAMAGE,
 } from '@ts-minecraft/app/frame-handler.config'
+
+// XP awarded when breaking ore blocks (vanilla Java Edition values).
+// Placed here (not block-service.ts) to avoid a world↔entity circular dep.
+const ORE_XP_DROPS: Readonly<Partial<Record<string, number>>> = {
+  COAL_ORE: 5, DEEPSLATE_COAL_ORE: 5,
+  IRON_ORE: 0, DEEPSLATE_IRON_ORE: 0,    // iron/gold drop raw ore, 0 XP
+  GOLD_ORE: 0, DEEPSLATE_GOLD_ORE: 0,
+  DIAMOND_ORE: 7, DEEPSLATE_DIAMOND_ORE: 7,
+  EMERALD_ORE: 7, DEEPSLATE_EMERALD_ORE: 7,
+  LAPIS_ORE: 5, DEEPSLATE_LAPIS_ORE: 5,
+  REDSTONE_ORE: 5, DEEPSLATE_REDSTONE_ORE: 5,
+  NETHER_QUARTZ_ORE: 5,
+}
 
 // Weapon damage lookup for swords AND axes — both are melee weapons.
 // Items absent from this table use PLAYER_ATTACK_DAMAGE (bare fist).
@@ -133,6 +147,32 @@ export const handleLeftClick = (
                       }),
                     ),
                   ),
+                  // XP from ore breaking (coal, diamond, emerald, lapis, redstone).
+                  Effect.andThen(Effect.gen(function* () {
+                    const blockType = indexToBlockType(blockId)
+                    const xp = ORE_XP_DROPS[blockType] ?? 0
+                    if (xp > 0) yield* services.xpService.addXP(xp)
+                  })),
+                  // Fortune enchantment: add extra drops for applicable ores (pickaxes only).
+                  Effect.andThen(Effect.gen(function* () {
+                    const blockType = indexToBlockType(blockId)
+                    if (!HashSet.has(FORTUNE_ORE_BLOCKS, blockType)) return
+                    const slot = yield* services.hotbarService.getSelectedSlot()
+                    const ws = yield* services.inventoryService.getSlot(SlotIndex.make(HOTBAR_START + slot))
+                    const fortune = Option.match(ws, {
+                      onNone: () => undefined,
+                      onSome: (s) => {
+                        // Fortune only applies when held item is a pickaxe
+                        if (!HashSet.has(PICKAXE_BLOCK_TYPES, s.itemType)) return undefined
+                        return (s.enchantments ?? []).find((e) => e.type === 'FORTUNE')
+                      },
+                    })
+                    if (!fortune) return
+                    const extra = Math.round(getFortuneDropMultiplier(fortune.level)) - 1
+                    if (extra <= 0) return
+                    yield* services.inventoryService.addBlock(getInventoryDropForBlock(blockType), extra)
+                      .pipe(Effect.catchAllCause(() => Effect.void))
+                  })),
                 )
               }),
             )
@@ -143,6 +183,16 @@ export const handleLeftClick = (
           const baseDamage = Option.match(context.selectedHotbarItem, {
             onNone: () => PLAYER_ATTACK_DAMAGE,
             onSome: (item) => SWORD_DAMAGE[item] ?? PLAYER_ATTACK_DAMAGE,
+          })
+          // Sharpness enchantment adds flat damage bonus to the base before crit/charge.
+          const selectedSlot = yield* services.hotbarService.getSelectedSlot()
+          const weaponStack = yield* services.inventoryService.getSlot(SlotIndex.make(HOTBAR_START + selectedSlot))
+          const sharpnessBonus = Option.match(weaponStack, {
+            onNone: () => 0,
+            onSome: (s) => {
+              const e = (s.enchantments ?? []).find((en) => en.type === 'SHARPNESS')
+              return e ? getSharpnessDamageBonus(e.level) : 0
+            },
           })
           // Crit when airborne. Attack cooldown (1.9 charge): a hit before the
           // weapon recharges is weakened. Charge from time since the last attack;
@@ -155,7 +205,7 @@ export const handleLeftClick = (
           )
           const charge = computeAttackCharge(now - lastAttack, DEFAULT_ATTACK_COOLDOWN_SECS)
           yield* Ref.set(refs.lastPlayerAttackTimeRef, now)
-          const damage = computeChargedDamage(computeAttackDamage(baseDamage, !playerGrounded), charge)
+          const damage = computeChargedDamage(computeAttackDamage(baseDamage + sharpnessBonus, !playerGrounded), charge)
 
           // Knock the target away + play the hit sound. Done BEFORE applyDamage
           // since a lethal hit removes the entity. Direction = attacker→target
@@ -195,6 +245,21 @@ export const handleLeftClick = (
             (drop) => services.inventoryService.addBlock(drop.blockType, drop.count),
             { concurrency: 'unbounded', discard: true },
           )
+          // Looting enchantment: add `level` bonus count of each mob drop.
+          if (Option.isSome(drops)) {
+            const looting = Option.match(weaponStack, {
+              onNone: () => undefined,
+              onSome: (s) => (s.enchantments ?? []).find((e) => e.type === 'LOOTING'),
+            })
+            if (looting) {
+              yield* Effect.forEach(
+                Option.getOrElse(drops, () => []),
+                (drop) => services.inventoryService.addBlock(drop.blockType, looting.level)
+                  .pipe(Effect.catchAllCause(() => Effect.void)),
+                { concurrency: 'unbounded', discard: true },
+              )
+            }
+          }
           // Mob killed (drops returned Some) → grant XP from the pre-kill entity snapshot.
           if (Option.isSome(drops) && Option.isSome(entityOpt)) {
             yield* services.xpService.addXP(getMobDefinition(entityOpt.value.type).xpReward)

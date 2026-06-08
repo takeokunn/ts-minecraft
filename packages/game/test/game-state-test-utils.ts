@@ -21,6 +21,8 @@ export const NoOpChunkManagerLayer = Layer.succeed(ChunkManagerService, ChunkMan
   markChunkDirty: () => Effect.void,
   saveDirtyChunks: () => Effect.void,
   unloadChunk: () => Effect.void,
+  setActiveWorldId: (_worldId: unknown) => Effect.void,
+  setActiveDimension: (_dim: unknown) => Effect.void,
 }))
 
 export const NoOpPlayerInputLayer = Layer.succeed(PlayerInputService, PlayerInputService.of({
@@ -61,6 +63,7 @@ export const createTestInputService = (initialState: {
   right?: boolean
   jump?: boolean
   sprint?: boolean
+  sneak?: boolean
 } = {}) => {
   const pressedKeys = MutableHashMap.make(
     ['KeyW', Option.getOrElse(Option.fromNullable(initialState.forward), () => false)],
@@ -68,7 +71,9 @@ export const createTestInputService = (initialState: {
     ['KeyA', Option.getOrElse(Option.fromNullable(initialState.left), () => false)],
     ['KeyD', Option.getOrElse(Option.fromNullable(initialState.right), () => false)],
     ['Space', Option.getOrElse(Option.fromNullable(initialState.jump), () => false)],
-    ['ShiftLeft', Option.getOrElse(Option.fromNullable(initialState.sprint), () => false)],
+    // Sprint = Ctrl (KeyMappings.SPRINT reads ControlLeft/ControlRight); sneak = ShiftLeft.
+    ['ControlLeft', Option.getOrElse(Option.fromNullable(initialState.sprint), () => false)],
+    ['ShiftLeft', Option.getOrElse(Option.fromNullable(initialState.sneak), () => false)],
   )
   // For consumeKeyPress, track "just pressed" keys
   const justPressedKeys = MutableHashSet.empty<string>()

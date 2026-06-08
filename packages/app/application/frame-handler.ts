@@ -54,6 +54,8 @@ const createFrameLoopHandlersInternal = (
     const lastArmorRef = MutableRef.make({ armorPoints: -1 })
     // Far in the past so the first attack of a session is fully charged.
     const lastPlayerAttackTimeRef = yield* Ref.make(-1000)
+    // Nether portal: accumulated seconds in a NETHER_PORTAL block (resets on exit).
+    const portalSecsRef = yield* Ref.make(0)
     const lastLoadedChunksRef = yield* Ref.make<Option.Option<ReadonlyArray<Chunk>>>(Option.none())
     // Skip chunk streaming work until the player changes chunk or render distance changes.
     const lastChunkStreamingRef = MutableRef.make({ cx: NaN, cz: NaN, renderDistance: NaN })
@@ -154,6 +156,7 @@ const createFrameLoopHandlersInternal = (
       lastXPRef,
       lastArmorRef,
       lastPlayerAttackTimeRef,
+      portalSecsRef,
       lastRenderDistanceRef,
       lastEntityStructureVersionRef,
       entityPhysicsChunkCacheRef,

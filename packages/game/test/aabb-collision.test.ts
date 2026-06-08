@@ -170,4 +170,42 @@ describe('resolveBlockCollisions', () => {
       expect(result.velocity.z).toBe(0.5)
     })
   })
+
+  describe('wall collision does not teleport the player vertically (regression: wall-climb)', () => {
+    it('walking into a wall keeps the player on the floor (does NOT climb the wall)', () => {
+      // Ground at by=9 everywhere; a 4-tall wall column at bx=5 standing on it.
+      const FLOOR_BY = 9
+      const WALL_BX = 5
+      const solid = (bx: number, by: number, _bz: number): boolean =>
+        by === FLOOR_BY || (bx === WALL_BX && by > FLOOR_BY && by <= FLOOR_BY + 4)
+      // Grounded on the floor (feet slightly penetrating its top); right edge in the wall.
+      const feetY = FLOOR_BY + 1 - 0.01 // 9.99
+      const pos = { x: 4.75, y: feetY + HALF_H, z: 0 } // right edge x=5.05 penetrates wall [5,6]
+      const vel = { x: 1, y: -0.1, z: 0 } // grounded walk into the wall
+
+      const result = resolveBlockCollisions(pos, vel, HALF_W, HALF_H, solid)
+
+      // Stays on the floor top (10 + halfH = 10.9) — NOT snapped onto the wall top (~14.9).
+      expect(result.position.y).toBeCloseTo(FLOOR_BY + 1 + HALF_H, 5)
+      expect(result.isGrounded).toBe(true)
+      // Pushed out of the wall horizontally (right edge flush with the wall face).
+      expect(result.position.x).toBeCloseTo(WALL_BX - HALF_W, 5)
+      expect(result.velocity.x).toBe(0)
+    })
+
+    it('jumping into a wall is not snapped downward (ceiling guard)', () => {
+      const WALL_BX = 5
+      const solid = (bx: number, _by: number, _bz: number): boolean => bx === WALL_BX
+      const startY = 20
+      const pos = { x: 4.75, y: startY, z: 0 } // right edge penetrates the wall column
+      const vel = { x: 1, y: 3, z: 0 } // jumping up + into the wall
+
+      const result = resolveBlockCollisions(pos, vel, HALF_W, HALF_H, solid)
+
+      // Not snapped down: y unchanged, upward velocity preserved (the X phase stops vx).
+      expect(result.position.y).toBe(startY)
+      expect(result.velocity.y).toBe(3)
+      expect(result.velocity.x).toBe(0)
+    })
+  })
 })

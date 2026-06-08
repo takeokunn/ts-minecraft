@@ -30,6 +30,7 @@ export type TerrainGenerationOptions = Readonly<{
   seaLevel: number
   lakeLevel: number
   seed: number
+  dimension?: 'overworld' | 'nether' | 'end'
 }>
 
 export class TerrainWorkerPoolPort extends Effect.Service<TerrainWorkerPoolPort>()(

@@ -23,7 +23,7 @@ export type SurfaceProfile = {
   surfaceDepth: number
 }
 
-export type TreeArchetype = 'ROUND_OAK' | 'TALL_BIRCH' | 'SPRUCE' | 'TALL_CANOPY'
+export type TreeArchetype = 'ROUND_OAK' | 'TALL_BIRCH' | 'SPRUCE' | 'TALL_CANOPY' | 'ACACIA'
 
 export const resolveSurfaceProfile = (params: {
   biome: BiomeType

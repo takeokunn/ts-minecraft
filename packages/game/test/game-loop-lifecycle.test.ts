@@ -169,6 +169,67 @@ describe('application/game-loop', () => {
       }).pipe(Effect.provide(TestLayer))
     )
 
+    it.live('pause() stops frame processing and resume() restarts it with stored handler', () =>
+      Effect.gen(function* () {
+        const service = yield* GameLoopService
+        const callCountRef = yield* Ref.make(0)
+
+        yield* service.start(() => Ref.update(callCountRef, (n) => n + 1))
+
+        fireRaf(16)
+        yield* Effect.sleep(10)
+        const countBeforePause = yield* Ref.get(callCountRef)
+        expect(countBeforePause).toBeGreaterThan(0)
+
+        yield* service.pause()
+        expect(yield* service.isRunning()).toBe(false)
+        expect(Option.isNone(MutableRef.get(rafCallbackRef))).toBe(true)
+
+        fireRaf(32)
+        yield* Effect.sleep(10)
+        expect(yield* Ref.get(callCountRef)).toBe(countBeforePause)
+
+        yield* service.resume()
+        yield* service.resume()
+        expect(yield* service.isRunning()).toBe(true)
+
+        fireRaf(48)
+        yield* Effect.sleep(10)
+        expect(yield* Ref.get(callCountRef)).toBeGreaterThan(countBeforePause)
+
+        yield* service.stop()
+      }).pipe(Effect.provide(TestLayer))
+    )
+
+    it.live('resume(handler) swaps in a new frame handler and restarts processing', () =>
+      Effect.gen(function* () {
+        const service = yield* GameLoopService
+        const aCountRef = yield* Ref.make(0)
+        const bCountRef = yield* Ref.make(0)
+
+        yield* service.start(() => Ref.update(aCountRef, (n) => n + 1))
+        fireRaf(16)
+        yield* Effect.sleep(10)
+        expect(yield* Ref.get(aCountRef)).toBeGreaterThan(0)
+
+        yield* service.pause()
+
+        // resume WITH an explicit handler replaces the stored one (covers the `if (frameHandler)` branch).
+        yield* service.resume(() => Ref.update(bCountRef, (n) => n + 1))
+        expect(yield* service.isRunning()).toBe(true)
+
+        const aFramesAtResume = yield* Ref.get(aCountRef)
+        fireRaf(32)
+        yield* Effect.sleep(10)
+
+        // The newly supplied handler runs; the original handler no longer advances.
+        expect(yield* Ref.get(bCountRef)).toBeGreaterThan(0)
+        expect(yield* Ref.get(aCountRef)).toBe(aFramesAtResume)
+
+        yield* service.stop()
+      }).pipe(Effect.provide(TestLayer))
+    )
+
     it.live('Fiber.fork on an Effect that uses GameLoopService can be interrupted', () =>
       Effect.gen(function* () {
         const service = yield* GameLoopService

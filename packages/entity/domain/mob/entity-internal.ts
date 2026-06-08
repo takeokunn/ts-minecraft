@@ -21,4 +21,9 @@ export type ManagedEntity = Entity & {
   // > 0 while a combat knockback impulse is active; AI yields horizontal velocity
   // control for this many update ticks so the shove is not immediately overwritten.
   readonly knockbackTicksRemaining: number
+  readonly stuckTicks: number
+  // Seconds a creeper's detonation fuse has burned (0 for non-creepers and for any
+  // creeper not currently within ignition range). At CREEPER_FUSE_SECONDS the
+  // creeper detonates (see getPlayerContactDamage).
+  readonly fuseSecs: number
 }

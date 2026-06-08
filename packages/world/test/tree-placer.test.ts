@@ -90,9 +90,9 @@ describe('selectTreeArchetype', () => {
     })
   })
 
-  it('PLAINS with rng < 0.28 → TALL_BIRCH', () => {
-    // roll = fract(rng * 1.324...) — with rng=0, roll=0 < 0.28 → TALL_BIRCH
-    expect(selectTreeArchetype('PLAINS', LOW_SURFACE, 0)).toBe('TALL_BIRCH')
+  it('PLAINS → ROUND_OAK (vanilla plains grow oak, not birch)', () => {
+    // Oak regardless of roll — birch belongs to forests.
+    expect(selectTreeArchetype('PLAINS', LOW_SURFACE, 0)).toBe('ROUND_OAK')
   })
 
   it('PLAINS with rng producing roll >= 0.28 → ROUND_OAK', () => {
@@ -108,9 +108,8 @@ describe('selectTreeArchetype', () => {
     expect(selectTreeArchetype('FOREST', HIGH_SURFACE, 0.55)).toBe('SPRUCE')
   })
 
-  it('SWAMP with low roll → TALL_BIRCH', () => {
-    // roll < 0.18 → TALL_BIRCH; rng=0 gives roll=0
-    expect(selectTreeArchetype('SWAMP', LOW_SURFACE, 0)).toBe('TALL_BIRCH')
+  it('SWAMP → ROUND_OAK (vanilla swamp grows oak, not birch)', () => {
+    expect(selectTreeArchetype('SWAMP', LOW_SURFACE, 0)).toBe('ROUND_OAK')
   })
 
   it('always returns SPRUCE for TAIGA biome (same case as SNOW/MOUNTAINS)', () => {
@@ -119,9 +118,9 @@ describe('selectTreeArchetype', () => {
     })
   })
 
-  it('SAVANNA with roll < 0.7 → TALL_BIRCH', () => {
+  it('SAVANNA with roll < 0.7 → ACACIA (vanilla savanna grows acacia, not birch)', () => {
     // rng=0 → roll=0 < 0.7
-    expect(selectTreeArchetype('SAVANNA', LOW_SURFACE, 0)).toBe('TALL_BIRCH')
+    expect(selectTreeArchetype('SAVANNA', LOW_SURFACE, 0)).toBe('ACACIA')
   })
 
   it('SAVANNA with roll >= 0.7 → ROUND_OAK', () => {
@@ -211,6 +210,20 @@ describe('placeTree', () => {
       Arr.findFirst(Arr.makeBy(CHUNK_HEIGHT - SURFACE_Y - 1, i => SURFACE_Y + 1 + i), y => getBlock(blocks, LX, y, LZ) === WOOD_BLOCK_INDEX)
     )
     expect(foundWood).toBe(true)
+  })
+
+  it('places SAVANNA tree (ACACIA archetype) with a short trunk under a broad flat crown', () => {
+    const blocks = makeBlocks()
+    // rng=0 → roll < 0.7 → ACACIA; trunkHeight = ACACIA_TRUNK.baseHeight (5) at rng=0.
+    placeTree(blocks, LX, LZ, SURFACE_Y, 'SAVANNA', 0)
+    const LEAVES_INDEX = blockTypeToIndex('LEAVES')
+    const canopyY = SURFACE_Y + 5 // trunk top / crown base
+
+    // Trunk top is wood; the crown reaches radius 3 — wider than any round/oak canopy
+    // (max radius 2), which is acacia's signature flat, wide umbrella silhouette.
+    expect(getBlock(blocks, LX, canopyY, LZ)).toBe(WOOD_BLOCK_INDEX)
+    expect(getBlock(blocks, LX + 3, canopyY, LZ)).toBe(LEAVES_INDEX)
+    expect(getBlock(blocks, LX - 3, canopyY, LZ)).toBe(LEAVES_INDEX)
   })
 
   it('does not write out-of-chunk-bounds (no RangeError thrown)', () => {

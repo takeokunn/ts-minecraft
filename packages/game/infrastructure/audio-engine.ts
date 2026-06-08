@@ -1,49 +1,15 @@
 import { Effect, HashMap, Layer, Option, Ref } from 'effect'
 import { AudioEnginePort } from '../domain/audio-engine-port'
-import { clamp01, clampPan } from '../domain/audio-types'
+import { clamp01, clampPan } from '../domain/audio-utils'
+import { acquireAudioContext, wireMasterGain, safeDisconnect, safeStop } from './audio-context-helpers'
 
 import type { ToneHandle, ToneRequest } from '../domain/audio-types'
 
 type ActiveTone = {
   readonly oscillator: OscillatorNode
   readonly gainNode: GainNode
-  readonly pannerNode: Option.Option<StereoPannerNode>
+  readonly pannerNode: Option.Option<PannerNode>
 }
-
-const acquireAudioContext = (): Effect.Effect<Option.Option<AudioContext>, never> => {
-  if (typeof AudioContext === 'undefined') {
-    return Effect.succeed(Option.none())
-  }
-  return Effect.try({
-    try: () => new AudioContext(),
-    catch: () => new Error('AudioContext creation failed'),
-  }).pipe(
-    Effect.map(Option.some),
-    Effect.catchAllCause(() => Effect.succeed(Option.none())),
-  )
-}
-
-const wireMasterGain = (
-  context: AudioContext,
-  initialGain: number,
-): { masterGain: GainNode } => {
-  const masterGain = context.createGain()
-  masterGain.gain.value = initialGain
-  masterGain.connect(context.destination)
-  return { masterGain }
-}
-
-const safeDisconnect = (node: AudioNode): Effect.Effect<void, never> =>
-  Effect.try({
-    try: () => node.disconnect(),
-    catch: (error) => new Error(error instanceof Error ? error.message : 'AudioNode disconnect failed'),
-  }).pipe(Effect.catchAll(() => Effect.void))
-
-const safeStop = (oscillator: OscillatorNode): Effect.Effect<void, never> =>
-  Effect.try({
-    try: () => oscillator.stop(),
-    catch: (error) => new Error(error instanceof Error ? error.message : 'Oscillator stop failed'),
-  }).pipe(Effect.catchAll(() => Effect.void))
 
 export class AudioEngine extends Effect.Service<AudioEngine>()('@minecraft/audio/AudioEngine', {
   effect: Effect.all([
@@ -101,20 +67,34 @@ export class AudioEngine extends Effect.Service<AudioEngine>()('@minecraft/audio
               const gainNode = context.createGain()
               gainNode.gain.value = clamp01(request.gain)
 
-              const stereoPanner: Option.Option<StereoPannerNode> =
-                'createStereoPanner' in context
-                  ? Option.some(context.createStereoPanner())
+              const panner: Option.Option<PannerNode> =
+                'createPanner' in context
+                  ? Option.some(context.createPanner())
                   : Option.none()
 
               yield* Effect.sync(() => {
                 oscillator.connect(gainNode)
 
-                Option.match(stereoPanner, {
+                Option.match(panner, {
                   onNone: () => {
                     gainNode.connect(masterGain)
                   },
                   onSome: (pannerNode) => {
-                    pannerNode.pan.value = clampPan(request.pan)
+                    if (request.position) {
+                      pannerNode.positionX.value = request.position.x
+                      pannerNode.positionY.value = request.position.y
+                      pannerNode.positionZ.value = request.position.z
+                      pannerNode.panningModel = 'HRTF'
+                      pannerNode.distanceModel = 'inverse'
+                      pannerNode.refDistance = 1
+                      pannerNode.maxDistance = 50
+                      pannerNode.rolloffFactor = 1
+                    } else {
+                      pannerNode.panningModel = 'equalpower'
+                      pannerNode.positionX.value = clampPan(request.pan ?? 0) * 10
+                      pannerNode.positionY.value = 0
+                      pannerNode.positionZ.value = 1
+                    }
                     gainNode.connect(pannerNode)
                     pannerNode.connect(masterGain)
                   },
@@ -126,7 +106,7 @@ export class AudioEngine extends Effect.Service<AudioEngine>()('@minecraft/audio
                       [
                         safeDisconnect(oscillator),
                         safeDisconnect(gainNode),
-                        Option.match(stereoPanner, {
+                        Option.match(panner, {
                           onNone: () => Effect.void,
                           onSome: (pannerNode) => safeDisconnect(pannerNode),
                         }),
@@ -148,7 +128,7 @@ export class AudioEngine extends Effect.Service<AudioEngine>()('@minecraft/audio
                 HashMap.set(state, handle.id, {
                   oscillator,
                   gainNode,
-                  pannerNode: stereoPanner,
+                  pannerNode: panner,
                 }),
               )
 

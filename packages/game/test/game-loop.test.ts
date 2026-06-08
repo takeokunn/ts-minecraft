@@ -126,6 +126,35 @@ describe('application/game-loop', () => {
     )
   })
 
+  describe('resume', () => {
+    it.effect('should fail with GameLoopError when resuming with no stored handler', () =>
+      Effect.gen(function* () {
+        const service = yield* GameLoopService
+
+        // Fresh service: never started, so no handler is stored → onNone failure path.
+        const result = yield* Effect.either(service.resume())
+
+        expect(Either.isLeft(result)).toBe(true)
+        const err = Option.getOrThrow(Either.getLeft(result))
+        expect(err).toBeInstanceOf(GameLoopError)
+        expect((err as GameLoopError).reason).toContain('No frame handler stored')
+      }).pipe(Effect.provide(TestLayer))
+    )
+  })
+
+  describe('pause', () => {
+    it.effect('is a safe no-op when called before the loop has started (no processing fiber)', () =>
+      Effect.gen(function* () {
+        const service = yield* GameLoopService
+
+        // Never started → processingFiber is None → onNone branch (no fiber to interrupt).
+        yield* service.pause()
+
+        expect(yield* service.isRunning()).toBe(false)
+      }).pipe(Effect.provide(TestLayer))
+    )
+  })
+
   describe('stop', () => {
     it.effect('should set isRunning to false after stop is called', () =>
       Effect.gen(function* () {
@@ -272,6 +301,8 @@ describe('application/game-loop', () => {
       Effect.gen(function* () {
         const service = yield* GameLoopService
         expect(typeof service.start).toBe('function')
+        expect(typeof service.pause).toBe('function')
+        expect(typeof service.resume).toBe('function')
         expect(typeof service.startMaintenance).toBe('function')
         expect(typeof service.stop).toBe('function')
         expect(typeof service.isRunning).toBe('function')

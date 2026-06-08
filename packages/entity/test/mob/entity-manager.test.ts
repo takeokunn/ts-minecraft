@@ -182,6 +182,51 @@ describe('entity/entityManager', () => {
         expect(damageAfterCooldown).toBe(0)
       }).pipe(Effect.provide(EntityManagerLive))
     )
+
+    it.effect('creeper detonates after its fuse completes, dealing explosion damage and self-destructing', () =>
+      Effect.gen(function* () {
+        const entityManager = yield* EntityManager
+        yield* entityManager.addEntity(EntityType.Creeper, { x: 0, y: 64, z: 0 })
+        const before = yield* entityManager.getCount()
+        // Player within ignition range; a single large tick completes the 1.5s fuse.
+        yield* entityManager.update(DeltaTimeSecs.make(2), { x: 1, y: 64, z: 0 })
+        const damage = yield* entityManager.getPlayerContactDamage({ x: 1, y: 64, z: 0 })
+        expect(damage).toBe(33) // vanilla explosion damage at distance 1, power 3
+        expect(yield* entityManager.getCount()).toBe(before - 1) // creeper self-destructed
+      }).pipe(Effect.provide(EntityManagerLive))
+    )
+
+    it.effect('creeper explosion damages the player beyond melee range (area effect)', () =>
+      Effect.gen(function* () {
+        const entityManager = yield* EntityManager
+        yield* entityManager.addEntity(EntityType.Creeper, { x: 0, y: 64, z: 0 })
+        yield* entityManager.update(DeltaTimeSecs.make(2), { x: 3, y: 64, z: 0 }) // distance 3 = ignition edge
+        const damage = yield* entityManager.getPlayerContactDamage({ x: 3, y: 64, z: 0 })
+        expect(damage).toBe(16) // explosion AoE at distance 3, well beyond the 1.5 melee range
+      }).pipe(Effect.provide(EntityManagerLive))
+    )
+
+    it.effect('a creeper deals no contact damage before its fuse completes (creepers never melee)', () =>
+      Effect.gen(function* () {
+        const entityManager = yield* EntityManager
+        yield* entityManager.addEntity(EntityType.Creeper, { x: 0, y: 64, z: 0 })
+        // Adjacent player but the fuse has not been advanced → no detonation and no melee.
+        const damage = yield* entityManager.getPlayerContactDamage({ x: 1, y: 64, z: 0 })
+        expect(damage).toBe(0)
+        expect(yield* entityManager.getCount()).toBe(1) // creeper survives
+      }).pipe(Effect.provide(EntityManagerLive))
+    )
+
+    it.effect('a creeper far from the player never ignites its fuse', () =>
+      Effect.gen(function* () {
+        const entityManager = yield* EntityManager
+        yield* entityManager.addEntity(EntityType.Creeper, { x: 0, y: 64, z: 0 })
+        yield* entityManager.update(DeltaTimeSecs.make(2), { x: 100, y: 64, z: 0 }) // far out of ignition range
+        const damage = yield* entityManager.getPlayerContactDamage({ x: 100, y: 64, z: 0 })
+        expect(damage).toBe(0)
+        expect(yield* entityManager.getCount()).toBe(1)
+      }).pipe(Effect.provide(EntityManagerLive))
+    )
   })
 
   describe('getEntityAIState', () => {
@@ -221,6 +266,23 @@ describe('entity/entityManager', () => {
         yield* entityManager.update(DeltaTimeSecs.make(0.016), { x: 0, y: 64, z: 0 })
         const entities = yield* entityManager.getEntities()
         expect(entities.length).toBe(1)
+      }).pipe(Effect.provide(EntityManagerLive))
+    )
+
+    it.effect('a stationary attacking hostile mob still burns in daylight (regression: early-return skipped burn)', () =>
+      Effect.gen(function* () {
+        const entityManager = yield* EntityManager
+        yield* entityManager.addEntity(EntityType.Zombie, { x: 0, y: 64, z: 0 })
+        // Player adjacent → the zombie enters Attack state and stands still (Idle/Attack
+        // velocity is zero), which previously hit an early-return that skipped burn damage.
+        // 60 daytime ticks → burn fires at ticks 20/40/60 → 3 HP lost from 20.
+        const player = { x: 1, y: 64, z: 0 }
+        for (let i = 0; i < 60; i++) {
+          yield* entityManager.update(DeltaTimeSecs.make(0.05), player, false)
+        }
+        const entities = yield* entityManager.getEntities()
+        expect(entities.length).toBe(1)
+        expect(entities[0]!.health).toBe(17)
       }).pipe(Effect.provide(EntityManagerLive))
     )
 

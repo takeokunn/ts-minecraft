@@ -3,7 +3,9 @@ import {
   DEFAULT_TARGET_FPS,
 } from './frame/frame-budget'
 
-// Camera eye level offset: player height minus half body height.
+// Camera eye level offset, measured from the player AABB *center* (playerPos.y).
+// Vanilla eye height is 1.62 blocks above the feet; the AABB center sits
+// PLAYER_HALF_HEIGHT (0.9) above the feet, so the offset is 1.62 − 0.9 = 0.72.
 export const EYE_LEVEL_OFFSET = 0.72
 
 export const TRADE_DISTANCE = 4

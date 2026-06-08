@@ -44,6 +44,12 @@ describe('addExhaustionToHunger', () => {
     expect(addExhaustionToHunger(h, -5)).toBe(h)
   })
 
+  it('non-finite amount is a no-op (guards against an Infinity-exhaustion stack overflow)', () => {
+    const h = full()
+    expect(addExhaustionToHunger(h, Infinity)).toBe(h)
+    expect(addExhaustionToHunger(h, Number.NaN)).toBe(h)
+  })
+
   it('one full threshold drains a saturation point first', () => {
     const r = addExhaustionToHunger(full(), 4)
     expect(r.saturation).toBe(4)
@@ -149,6 +155,13 @@ describe('advanceFoodTimer', () => {
     expect(state.hunger.saturation).toBe(START_SATURATION - 1)
   })
 
+  it('does NOT regen (or charge exhaustion) when canRegen is false, even when well-fed', () => {
+    // Full health → canRegen false → an idle player must not drain food (vanilla).
+    const [effect, state] = advanceFoodTimer({ hunger: full(), tickTimer: FOOD_TICK_INTERVAL - 1 }, FOOD_TICK_INTERVAL, 18, 6, 4, false)
+    expect(effect).toBe('none')
+    expect(state.hunger.saturation).toBe(START_SATURATION) // unchanged — no exhaustion charged
+  })
+
   it('starves when foodLevel is empty at the interval boundary', () => {
     const starving = new PlayerHunger({ foodLevel: 0, saturation: 0, exhaustion: 0 })
     const [effect] = advanceFoodTimer({ hunger: starving, tickTimer: FOOD_TICK_INTERVAL - 1 })
@@ -195,11 +208,27 @@ describe('HungerService.tick', () => {
       Effect.gen(function* () {
         const results = yield* Effect.forEach(
           Arr.makeBy(FOOD_TICK_INTERVAL, () => undefined),
-          () => hs.tick(),
+          () => hs.tick(true),
           { concurrency: 1 },
         )
         expect(Arr.every(Arr.take(results, FOOD_TICK_INTERVAL - 1), (r) => r === 'none')).toBe(true)
         expect(results[FOOD_TICK_INTERVAL - 1]).toBe('regen')
+      })
+    )
+  )
+
+  it.effect('does not regen (or drain food) at the interval when canRegen is false', () =>
+    withHungerService((hs) =>
+      Effect.gen(function* () {
+        const results = yield* Effect.forEach(
+          Arr.makeBy(FOOD_TICK_INTERVAL, () => undefined),
+          () => hs.tick(false), // full health → regen suppressed
+          { concurrency: 1 },
+        )
+        expect(Arr.every(results, (r) => r === 'none')).toBe(true)
+        const h = yield* hs.getHunger()
+        expect(h.foodLevel).toBe(START_FOOD_LEVEL)
+        expect(h.saturation).toBe(START_SATURATION) // no exhaustion charged while full
       })
     )
   )
@@ -210,7 +239,7 @@ describe('HungerService.tick', () => {
         yield* hs.addExhaustion(100) // foodLevel → 0
         const results = yield* Effect.forEach(
           Arr.makeBy(FOOD_TICK_INTERVAL, () => undefined),
-          () => hs.tick(),
+          () => hs.tick(true),
           { concurrency: 1 },
         )
         expect(results[FOOD_TICK_INTERVAL - 1]).toBe('starve')

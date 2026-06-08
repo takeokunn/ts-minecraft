@@ -12,6 +12,8 @@
     "@ts-minecraft/block": "workspace:*",
     "@ts-minecraft/entity": "workspace:*",
     "@ts-minecraft/world": "workspace:*",
-    "@ts-minecraft/worker": "workspace:*"
+    "@ts-minecraft/worker": "workspace:*",
+    "effect": "^3.20.0",
+    "three": "^0.170.0"
   }
 }

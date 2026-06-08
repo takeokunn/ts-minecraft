@@ -132,7 +132,7 @@ describe('player/movement-service (integration)', () => {
           const accRef = yield* Ref.make({ x: 0, z: 0 })
           yield* Effect.forEach(Arr.makeBy(FRAMES, () => undefined), () =>
             movementService.calculateVelocity(
-              { forward: true, backward: false, left: false, right: false, jump: false, sprint: false },
+              { forward: true, backward: false, left: false, right: false, jump: false, sprint: false, sneak: false },
               yaw,
               true
             ).pipe(Effect.flatMap(vel => Ref.update(accRef, acc => ({ x: acc.x + vel.x, z: acc.z + vel.z }))))
@@ -146,7 +146,7 @@ describe('player/movement-service (integration)', () => {
           const accRef = yield* Ref.make({ x: 0, z: 0 })
           yield* Effect.forEach(Arr.makeBy(FRAMES, () => undefined), () =>
             movementService.calculateVelocity(
-              { forward: true, backward: false, left: false, right: false, jump: false, sprint: true },
+              { forward: true, backward: false, left: false, right: false, jump: false, sprint: true, sneak: false },
               yaw,
               true
             ).pipe(Effect.flatMap(vel => Ref.update(accRef, acc => ({ x: acc.x + vel.x, z: acc.z + vel.z }))))
@@ -167,7 +167,7 @@ describe('player/movement-service (integration)', () => {
       return Effect.gen(function* () {
         const movementService = yield* MovementService
         const vel = yield* movementService.calculateVelocity(
-          { forward: true, backward: false, left: false, right: false, jump: false, sprint: true },
+          { forward: true, backward: false, left: false, right: false, jump: false, sprint: true, sneak: false },
           0,
           true
         )
@@ -182,7 +182,7 @@ describe('player/movement-service (integration)', () => {
       return Effect.gen(function* () {
         const movementService = yield* MovementService
         const vel = yield* movementService.calculateVelocity(
-          { forward: true, backward: false, left: false, right: false, jump: false, sprint: false },
+          { forward: true, backward: false, left: false, right: false, jump: false, sprint: false, sneak: false },
           0,
           true
         )

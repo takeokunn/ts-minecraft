@@ -1,6 +1,6 @@
 import { Effect, HashMap, HashSet, Option, Ref } from 'effect'
 import { ChunkService } from './chunk-service'
-import { ChunkCacheKey, ChunkCoord, DEFAULT_WORLD_ID, Position, type WorldId } from '@ts-minecraft/core'
+import { ChunkCacheKey, ChunkCoord, DEFAULT_WORLD_ID, Position, WorldId, type WorldId as WorldIdType } from '@ts-minecraft/core'
 import type { Chunk } from '../domain/chunk'
 import { LightEngineService } from './light-engine-service'
 import type { ChunkAABB } from '../domain/chunk-aabb'
@@ -14,18 +14,11 @@ import type { ChunkCache, ChunkCacheEntry } from './chunk-manager-cache'
 import { type ChunkOpsContext, getChunk, unloadChunk } from './chunk-manager-ops'
 import { drainRenderDirtyChunkEntries, drainRenderDirtyChunks, getLoadedChunks, loadChunksAroundPlayer, markChunkDirty, saveDirtyChunks } from './chunk-manager-service-ops'
 import type { ChunkLoadOptions } from './chunk-manager-service-model'
+import type { Dimension } from '../domain/nether/nether-travel'
 
 export { RENDER_DISTANCE, UNLOAD_DISTANCE, MAX_CACHED_CHUNKS } from './chunk-manager-constants'
 export type { ChunkManagerError } from './chunk-manager-constants'
 export type { ChunkLoadOptions } from './chunk-manager-service-model'
-
-let activeChunkWorldIdRef: WorldId = DEFAULT_WORLD_ID
-let activeChunkWorldServiceUpdater: ((worldId: WorldId) => void) | undefined
-
-export const setActiveChunkWorldId = (worldId: WorldId): void => {
-  activeChunkWorldIdRef = worldId
-  activeChunkWorldServiceUpdater?.(worldId)
-}
 
 const emptyCacheState = (): ChunkCache => ({
   chunks: HashMap.empty<ChunkCacheKey, ChunkCacheEntry>(),
@@ -33,6 +26,26 @@ const emptyCacheState = (): ChunkCache => ({
   renderDirtyChunks: HashSet.empty<ChunkCacheKey>(),
   renderDirtyAABBs: HashMap.empty<ChunkCacheKey, ChunkAABB>(),
 })
+
+// Atomically reset all cache state when switching worlds.
+// Effect.all with concurrency='unbounded' applies all Ref writes without a
+// partial-state window between operations.
+const buildSetActiveWorldId = (
+  worldIdRef: Ref.Ref<WorldIdType>,
+  cache: Ref.Ref<ChunkCache>,
+  cachedLoadedChunksRef: Ref.Ref<Option.Option<ReadonlyArray<Chunk>>>,
+  maxCachedChunksRef: Ref.Ref<number>,
+  lastLoadTimeRef: Ref.Ref<number>,
+  accessCounterRef: Ref.Ref<number>,
+) => (worldId: WorldIdType): Effect.Effect<void, never> =>
+  Effect.all([
+    Ref.set(worldIdRef, worldId),
+    Ref.update(cache, () => emptyCacheState()),
+    Ref.set(cachedLoadedChunksRef, Option.none()),
+    Ref.set(maxCachedChunksRef, MAX_CACHED_CHUNKS),
+    Ref.set(lastLoadTimeRef, -200),
+    Ref.set(accessCounterRef, 0),
+  ], { concurrency: 'unbounded', discard: true })
 
 export class ChunkManagerService extends Effect.Service<ChunkManagerService>()(
   '@minecraft/application/ChunkManagerService',
@@ -48,26 +61,20 @@ export class ChunkManagerService extends Effect.Service<ChunkManagerService>()(
       const cache = yield* Ref.make<ChunkCache>(emptyCacheState())
       const cachedLoadedChunksRef = yield* Ref.make(Option.none<ReadonlyArray<Chunk>>())
       const maxCachedChunksRef = yield* Ref.make(MAX_CACHED_CHUNKS)
-      const worldIdRef = yield* Ref.make<WorldId>(activeChunkWorldIdRef)
+      const worldIdRef = yield* Ref.make<WorldIdType>(DEFAULT_WORLD_ID)
+      const baseWorldIdRef = yield* Ref.make<WorldIdType>(DEFAULT_WORLD_ID)
+      const dimensionRef = yield* Ref.make<Dimension>('overworld')
       const lastLoadTimeRef = yield* Ref.make<number>(-200)
       const accessCounterRef = yield* Ref.make<number>(0)
       const loadSemaphore = yield* Effect.makeSemaphore(4)
 
-      const updateActiveWorldId = (worldId: WorldId): Effect.Effect<void, never> =>
-        Effect.gen(function* () {
-          activeChunkWorldIdRef = worldId
-          yield* Ref.set(worldIdRef, worldId)
-          yield* Ref.set(cache, emptyCacheState())
-          yield* Ref.set(cachedLoadedChunksRef, Option.none())
-          yield* Ref.set(maxCachedChunksRef, MAX_CACHED_CHUNKS)
-          yield* Ref.set(lastLoadTimeRef, -200)
-          yield* Ref.set(accessCounterRef, 0)
-        })
-
-      activeChunkWorldServiceUpdater = (worldId) => Effect.runSync(updateActiveWorldId(worldId))
+      const resetCache = buildSetActiveWorldId(
+        worldIdRef, cache, cachedLoadedChunksRef, maxCachedChunksRef, lastLoadTimeRef, accessCounterRef,
+      )
 
       const ctx: ChunkOpsContext = {
         worldIdRef,
+        dimensionRef,
         cache,
         cachedLoadedChunksRef,
         maxCachedChunksRef,
@@ -79,6 +86,25 @@ export class ChunkManagerService extends Effect.Service<ChunkManagerService>()(
       }
 
       return {
+        /** Switch to a different world ID, atomically resetting all cache state. */
+        setActiveWorldId: (worldId: WorldIdType): Effect.Effect<void, never> =>
+          Effect.all([
+            Ref.set(baseWorldIdRef, worldId),
+            Ref.set(dimensionRef, 'overworld'),
+            resetCache(worldId),
+          ], { concurrency: 'unbounded', discard: true }),
+        /** Switch dimension, clear cache, and re-key storage under a dimension-scoped world ID. */
+        setActiveDimension: (dim: Dimension): Effect.Effect<void, never> =>
+          Effect.gen(function* () {
+            const base = yield* Ref.get(baseWorldIdRef)
+            const newWorldId = dim === 'nether'
+              ? WorldId.make(`${base}-nether`)
+              : dim === 'end'
+                ? WorldId.make(`${base}-end`)
+                : base
+            yield* Ref.set(dimensionRef, dim)
+            yield* resetCache(newWorldId)
+          }),
         getChunk: (coord: ChunkCoord) => getChunk(ctx, coord),
         loadChunksAroundPlayer: (playerPos: Position, renderDistance?: number, options?: ChunkLoadOptions): Effect.Effect<boolean, ChunkManagerError> =>
           loadChunksAroundPlayer(ctx, lastLoadTimeRef, loadSemaphore, playerPos, renderDistance, options),
@@ -96,3 +122,13 @@ export class ChunkManagerService extends Effect.Service<ChunkManagerService>()(
   }
 ) {}
 export const ChunkManagerServiceLive = ChunkManagerService.Default
+
+/**
+ * Effect pipeline entry point for switching the active world ID.
+ * Prefer calling service.setActiveWorldId(worldId) directly when you already
+ * have a service reference. This helper is for callers that only have the tag.
+ */
+export const setActiveChunkWorldId = (worldId: WorldIdType): Effect.Effect<void, never, ChunkManagerService> =>
+  ChunkManagerService.pipe(
+    Effect.flatMap((service) => service.setActiveWorldId(worldId)),
+  )

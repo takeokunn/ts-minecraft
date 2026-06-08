@@ -111,14 +111,14 @@ describe('KeyMappings constants', () => {
       expect(KeyMappings.SPRINT).toBe('ControlLeft')
     })
 
-    it('SNEAK should be ShiftRight', () => {
-      expect(KeyMappings.SNEAK).toBe('ShiftRight')
+    it('SNEAK should be ShiftLeft', () => {
+      expect(KeyMappings.SNEAK).toBe('ShiftLeft')
     })
 
     it('SPRINT and SNEAK use different key bindings', () => {
       expect(KeyMappings.SPRINT).not.toBe(KeyMappings.SNEAK)
       expect(KeyMappings.SPRINT).toBe('ControlLeft')
-      expect(KeyMappings.SNEAK).toBe('ShiftRight')
+      expect(KeyMappings.SNEAK).toBe('ShiftLeft')
     })
 
     it('CAMERA_TOGGLE should be F5', () => {

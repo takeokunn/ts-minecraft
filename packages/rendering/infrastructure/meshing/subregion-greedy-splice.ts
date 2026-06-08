@@ -1,6 +1,4 @@
-import { Schema } from 'effect'
 import type { ChunkWorldOffset, MeshedChunk, RawMeshData } from './greedy-meshing-types'
-import { RawMeshDataSchema } from './greedy-meshing-types'
 import type { DirtyAABB } from './subregion-greedy'
 import type { computeAffectedSlices } from './subregion-greedy'
 
@@ -181,15 +179,17 @@ export const spliceMesh = (
   return { positions, normals, colors, uvs, tileIndexes, indices }
 }
 
-export const decodeRaw = (m: MeshedChunk): RawMeshData =>
-  Schema.decodeUnknownSync(RawMeshDataSchema)({
-    positions: m.positions,
-    normals: m.normals,
-    colors: m.colors,
-    uvs: m.uvs,
-    tileIndexes: m.tileIndexes,
-    indices: m.indices,
-    vertexCount: m.positions.length / 3,
-    indexCount: m.indices.length,
-  })
+// Construct RawMeshData directly from a MeshedChunk's typed arrays.
+// MeshedChunk buffers are produced internally by spliceMesh so Schema validation
+// is redundant overhead that also risks throwing outside Effect's error channel.
+export const decodeRaw = (m: MeshedChunk): RawMeshData => ({
+  positions: m.positions,
+  normals: m.normals,
+  colors: m.colors,
+  uvs: m.uvs,
+  tileIndexes: m.tileIndexes,
+  indices: m.indices,
+  vertexCount: m.positions.length / 3,
+  indexCount: m.indices.length,
+})
 

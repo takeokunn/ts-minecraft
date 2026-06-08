@@ -3,7 +3,7 @@ import { TradeOfferId } from '../../domain/trading/trading-model'
 import { VillagerProfession } from '../../domain/village/village-model'
 import type { InventoryItem } from '@ts-minecraft/core'
 
-export const TRADE_CURRENCY_BLOCK: InventoryItem = 'GRAVEL'
+export const TRADE_CURRENCY_BLOCK: InventoryItem = 'EMERALD'
 
 export const TRADE_OFFERS: ReadonlyArray<TradeOffer> = [
   {

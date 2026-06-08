@@ -1,8 +1,13 @@
 import { Block } from './block'
 import { BlockId } from '@ts-minecraft/core'
 
+// Hardness uses a 0-100 scale; values preserve vanilla Minecraft RELATIVE ordering:
+//   snow(2) < leaves(3) < glass(4) < dirt/sand(8) < grass/gravel(10)
+//   < stone/granite/diorite/andesite(25) < wood/cobblestone(35) < deepslate(50)
+//   < obsidian(90) < bedrock(100, unbreakable). Mirrors vanilla floats
+//   (dirt 0.5 < stone 1.5 < wood 2.0 < deepslate 3.0 < obsidian 50 < bedrock ∞).
 export const defaultBlockProperties = {
-  hardness: 50,
+  hardness: 8, // dirt-soft baseline (vanilla dirt 0.5)
   transparency: false,
   solid: true,
   emissive: false,
@@ -51,7 +56,7 @@ export const terrainBlocks: ReadonlyArray<Block> = [
     type: 'STONE',
     properties: {
       ...defaultBlockProperties,
-      hardness: 100,
+      hardness: 25,
       friction: 0.8,
     },
     faces: defaultBlockFaces,
@@ -61,7 +66,7 @@ export const terrainBlocks: ReadonlyArray<Block> = [
     type: 'WOOD',
     properties: {
       ...defaultBlockProperties,
-      hardness: 30,
+      hardness: 35,
     },
     faces: defaultBlockFaces,
   }),
@@ -70,7 +75,7 @@ export const terrainBlocks: ReadonlyArray<Block> = [
     type: 'GRASS',
     properties: {
       ...defaultBlockProperties,
-      hardness: 20,
+      hardness: 10,
       emissive: false,
     },
     faces: defaultBlockFaces,
@@ -80,7 +85,7 @@ export const terrainBlocks: ReadonlyArray<Block> = [
     type: 'SAND',
     properties: {
       ...defaultBlockProperties,
-      hardness: 10,
+      hardness: 8,
       friction: 0.5,
     },
     faces: defaultBlockFaces,
@@ -102,7 +107,7 @@ export const terrainBlocks: ReadonlyArray<Block> = [
     type: 'LEAVES',
     properties: {
       ...defaultBlockProperties,
-      hardness: 5,
+      hardness: 3,
       transparency: true,
     },
     faces: defaultBlockFaces,
@@ -112,7 +117,7 @@ export const terrainBlocks: ReadonlyArray<Block> = [
     type: 'GLASS',
     properties: {
       ...defaultBlockProperties,
-      hardness: 5,
+      hardness: 4,
       transparency: true,
     },
     faces: defaultBlockFaces,
@@ -120,43 +125,43 @@ export const terrainBlocks: ReadonlyArray<Block> = [
   new Block({
     id: makeBlockId('block:snow'),
     type: 'SNOW',
-    properties: { hardness: 5, transparency: false, solid: true, emissive: false, friction: 0.3 },
+    properties: { hardness: 2, transparency: false, solid: true, emissive: false, friction: 0.3 },
     faces: defaultBlockFaces,
   }),
   new Block({
     id: makeBlockId('block:gravel'),
     type: 'GRAVEL',
-    properties: { hardness: 15, transparency: false, solid: true, emissive: false, friction: 0.5 },
+    properties: { hardness: 10, transparency: false, solid: true, emissive: false, friction: 0.5 },
     faces: defaultBlockFaces,
   }),
   new Block({
     id: makeBlockId('block:cobblestone'),
     type: 'COBBLESTONE',
-    properties: { hardness: 80, transparency: false, solid: true, emissive: false, friction: 0.8 },
+    properties: { hardness: 35, transparency: false, solid: true, emissive: false, friction: 0.8 },
     faces: defaultBlockFaces,
   }),
   new Block({
     id: makeBlockId('block:granite'),
     type: 'GRANITE',
-    properties: { hardness: 90, transparency: false, solid: true, emissive: false, friction: 0.8 },
+    properties: { hardness: 25, transparency: false, solid: true, emissive: false, friction: 0.8 },
     faces: defaultBlockFaces,
   }),
   new Block({
     id: makeBlockId('block:diorite'),
     type: 'DIORITE',
-    properties: { hardness: 90, transparency: false, solid: true, emissive: false, friction: 0.8 },
+    properties: { hardness: 25, transparency: false, solid: true, emissive: false, friction: 0.8 },
     faces: defaultBlockFaces,
   }),
   new Block({
     id: makeBlockId('block:andesite'),
     type: 'ANDESITE',
-    properties: { hardness: 90, transparency: false, solid: true, emissive: false, friction: 0.8 },
+    properties: { hardness: 25, transparency: false, solid: true, emissive: false, friction: 0.8 },
     faces: defaultBlockFaces,
   }),
   new Block({
     id: makeBlockId('block:deepslate'),
     type: 'DEEPSLATE',
-    properties: { hardness: 95, transparency: false, solid: true, emissive: false, friction: 0.8 },
+    properties: { hardness: 50, transparency: false, solid: true, emissive: false, friction: 0.8 },
     faces: defaultBlockFaces,
   }),
   new Block({
@@ -174,7 +179,19 @@ export const terrainBlocks: ReadonlyArray<Block> = [
   new Block({
     id: makeBlockId('block:obsidian'),
     type: 'OBSIDIAN',
-    properties: { hardness: 100, transparency: false, solid: true, emissive: false, friction: 0.8 },
+    properties: { hardness: 90, transparency: false, solid: true, emissive: false, friction: 0.8 },
+    faces: defaultBlockFaces,
+  }),
+  new Block({
+    id: makeBlockId('block:farmland'),
+    type: 'FARMLAND',
+    properties: { hardness: 8, transparency: false, solid: true, emissive: false, friction: 0.6 },
+    faces: defaultBlockFaces,
+  }),
+  new Block({
+    id: makeBlockId('block:wheat_crop'),
+    type: 'WHEAT_CROP',
+    properties: { hardness: 0, transparency: true, solid: false, emissive: false, friction: 0 },
     faces: defaultBlockFaces,
   }),
 ]

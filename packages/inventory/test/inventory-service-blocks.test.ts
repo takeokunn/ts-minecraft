@@ -288,6 +288,27 @@ describe('application/inventory/inventory-service', () => {
       }).pipe(Effect.provide(testLayer))
     })
 
+    it.effect('skips the preferred slot when it holds a different item type, draining matching stacks instead', () => {
+      // Exercises drainPreferredSlot's takeFrom mismatch branch: preferred slot 0 holds STONE,
+      // but we remove DIRT — slot 0 must be left untouched and DIRT taken from slot 1.
+      const testLayer = createTestLayer(createTestBlockRegistry(airOnlyBlocks))
+      return Effect.gen(function* () {
+        const service = yield* InventoryService
+        yield* service.setSlot(asSlotIndex(0), Option.some(createStack('STONE', 5)))
+        yield* service.setSlot(asSlotIndex(1), Option.some(createStack('DIRT', 5)))
+
+        yield* service.removeBlock('DIRT', 3, asSlotIndex(0))
+
+        const slot0 = yield* service.getSlot(asSlotIndex(0))
+        const slot1 = yield* service.getSlot(asSlotIndex(1))
+
+        // Preferred slot (mismatched type) is untouched; DIRT is drained from slot 1.
+        expect(Option.getOrThrow(slot0).itemType).toBe('STONE')
+        expect(Option.getOrThrow(slot0).count).toBe(5)
+        expect(Option.getOrThrow(slot1).count).toBe(2)
+      }).pipe(Effect.provide(testLayer))
+    })
+
     it.effect('falls back to other slots when preferred slot index is out of range (inner onNone path)', () => {
       const testLayer = createTestLayer(createTestBlockRegistry(airOnlyBlocks))
       return Effect.gen(function* () {

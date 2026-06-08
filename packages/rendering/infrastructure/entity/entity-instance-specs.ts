@@ -267,6 +267,30 @@ const ENDERMAN_SPECS: Readonly<Record<PartRole, Option.Option<RoleSpec>>> = {
   legBR: Option.none(),
 }
 
+// EnderDragon — boss entity; body + head only, no limbs. Dark purple palette.
+const DRAGON_SPECS: Readonly<Record<PartRole, Option.Option<RoleSpec>>> = {
+  head: Option.some({
+    size: [1.0, 0.75, 1.5],
+    pivot: 'center',
+    offset: { x: 0, y: 1.5, z: -1.25 },
+    color: 0x0a0020,
+    swingAxis: null,
+  }),
+  body: Option.some({
+    size: [1.25, 1.0, 3.0],
+    pivot: 'center',
+    offset: { x: 0, y: 0.25, z: 0 },
+    color: 0x0a0020,
+    swingAxis: null,
+  }),
+  armL: Option.none(),
+  armR: Option.none(),
+  legFL: Option.none(),
+  legFR: Option.none(),
+  legBL: Option.none(),
+  legBR: Option.none(),
+}
+
 const SPECS_BY_TYPE: Readonly<Record<EntityType, Readonly<Record<PartRole, Option.Option<RoleSpec>>>>> = {
   Zombie: ZOMBIE_SPECS,
   Cow: COW_SPECS,
@@ -276,6 +300,7 @@ const SPECS_BY_TYPE: Readonly<Record<EntityType, Readonly<Record<PartRole, Optio
   Skeleton: SKELETON_SPECS,
   Spider: SPIDER_SPECS,
   Enderman: ENDERMAN_SPECS,
+  EnderDragon: DRAGON_SPECS,
 }
 
 export const getRoleSpec = (type: EntityType, role: PartRole): Option.Option<RoleSpec> =>
@@ -290,4 +315,5 @@ export const ROLES_BY_TYPE: Readonly<Record<EntityType, ReadonlyArray<PartRole>>
   Skeleton: ['head', 'body', 'armL', 'armR', 'legFL', 'legFR'],
   Spider: ['head', 'body', 'legFL', 'legFR', 'legBL', 'legBR'],
   Enderman: ['head', 'body', 'armL', 'armR', 'legFL', 'legFR'],
+  EnderDragon: ['head', 'body'],
 }

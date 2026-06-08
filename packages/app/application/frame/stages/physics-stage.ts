@@ -1,18 +1,22 @@
-import { Effect, MutableRef, Option, Ref } from 'effect'
+import { Effect, HashMap, MutableRef, Option, Ref } from 'effect'
 import { logErrors } from '@ts-minecraft/app/frame/error-logging'
 import type { FrameHandlerDeps, FrameHandlerServices, FrameStageRefs } from '@ts-minecraft/app/frame/types'
 import { applyArmorReduction } from '@ts-minecraft/entity'
-import { DEFAULT_PLAYER_ID } from '@ts-minecraft/core'
+import { DEFAULT_PLAYER_ID, CHUNK_SIZE, CHUNK_HEIGHT, indexToBlockType } from '@ts-minecraft/core'
 import type { DeltaTimeSecs, Position } from '@ts-minecraft/core'
 import { EXHAUSTION_SPRINT_PER_BLOCK, MAX_FOOD_LEVEL } from '@ts-minecraft/entity'
+import { resolveNetherTravel, type Dimension } from '@ts-minecraft/world'
+
+/** Seconds a player must stand in a NETHER_PORTAL block to trigger dimension travel. */
+const PORTAL_ACTIVATION_SECS = 4.0
 
 export const physicsStage = (
-  deps: Pick<FrameHandlerDeps, 'respawnPosition'>,
+  deps: Pick<FrameHandlerDeps, 'respawnPositionRef'>,
   services: Pick<
     FrameHandlerServices,
-    'gameState' | 'healthService' | 'hungerService' | 'xpService' | 'equipmentService' | 'fishingService' | 'inventoryService' | 'soundManager' | 'entityManager' | 'gameMode' | 'debugFeatureFlags'
+    'gameState' | 'healthService' | 'hungerService' | 'xpService' | 'equipmentService' | 'fishingService' | 'inventoryService' | 'soundManager' | 'entityManager' | 'gameMode' | 'debugFeatureFlags' | 'chunkManagerService' | 'netherService' | 'blockService'
   >,
-  refs: Pick<FrameStageRefs, 'lastHealthRef' | 'lastHungerRef' | 'lastXPRef' | 'lastArmorRef'>,
+  refs: Pick<FrameStageRefs, 'lastHealthRef' | 'lastHungerRef' | 'lastXPRef' | 'lastArmorRef' | 'portalSecsRef' | 'dirtyChunksRef'>,
   inputs: {
     readonly deltaTime: DeltaTimeSecs
     readonly initialPlayerPos: Position
@@ -44,6 +48,7 @@ export const physicsStage = (
         // Read total armor points ONCE per frame. Reused below for both incoming
         // hostile-damage mitigation (applyArmorReduction) and the armor HUD.
         const armorPoints = yield* services.equipmentService.getTotalArmorPoints()
+        const protectionReduction = yield* services.equipmentService.getTotalProtectionReduction()
 
         const tryApplyPlayerDamage = (amount: number): Effect.Effect<boolean, never> =>
           amount <= 0
@@ -69,7 +74,10 @@ export const physicsStage = (
         const rawHostileDamage = debugFlags['mobs.enabled'] && debugFlags['mobs.damage']
           ? yield* services.entityManager.getPlayerContactDamage(refreshedPos)
           : 0
-        const hostileDamage = applyArmorReduction(rawHostileDamage, armorPoints)
+        // Armor points reduce damage (4%/point, cap 80%); Protection enchantments
+        // add an additional multiplicative reduction (additive per piece, cap 64%).
+        const afterArmor = applyArmorReduction(rawHostileDamage, armorPoints)
+        const hostileDamage = afterArmor * (1 - protectionReduction)
         const tookHostileDamage = yield* tryApplyPlayerDamage(hostileDamage)
         if (tookHostileDamage) {
           yield* services.soundManager.playEffect('playerHurt', { position: refreshedPos })
@@ -93,8 +101,9 @@ export const physicsStage = (
           const isCreative = yield* services.gameMode.isCreative()
           if (isCreative) {
             yield* services.healthService.reset()
-            yield* services.gameState.respawn(deps.respawnPosition)
-            yield* Ref.set(finalPosRef, deps.respawnPosition)
+            const respawnPos = MutableRef.get(deps.respawnPositionRef)
+            yield* services.gameState.respawn(respawnPos)
+            yield* Ref.set(finalPosRef, respawnPos)
           }
         } else {
           yield* services.healthService.tick()
@@ -110,7 +119,10 @@ export const physicsStage = (
             yield* services.hungerService.addExhaustion(distanceMoved * EXHAUSTION_SPRINT_PER_BLOCK)
           }
 
-          const hungerEffect = yield* services.hungerService.tick()
+          // Regen (and the exhaustion it costs) only when actually below max health,
+          // matching vanilla — otherwise an idle full-health player's food drains.
+          const healthForRegen = yield* services.healthService.getHealth()
+          const hungerEffect = yield* services.hungerService.tick(healthForRegen.current < healthForRegen.max)
           if (hungerEffect === 'regen') {
             yield* services.healthService.heal(1)
           } else if (hungerEffect === 'starve') {
@@ -192,5 +204,129 @@ export const physicsStage = (
     )
 
     const playerPos = yield* Ref.get(finalPosRef)
-    return { playerPos }
+
+    // ---- Nether portal travel detection ----
+    // Check if the player's feet block is NETHER_PORTAL; accumulate time and
+    // teleport after PORTAL_ACTIVATION_SECS (frame-rate independent).
+    yield* logErrors(
+      Effect.gen(function* () {
+        const px = Math.floor(playerPos.x)
+        const py = Math.floor(playerPos.y)
+        const pz = Math.floor(playerPos.z)
+        const chunkCoord = {
+          x: Math.floor(px / CHUNK_SIZE),
+          z: Math.floor(pz / CHUNK_SIZE),
+        }
+        const lx = ((px % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE
+        const lz = ((pz % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE
+        const chunkOpt = yield* services.chunkManagerService.getChunk(chunkCoord).pipe(Effect.option)
+        const inPortal = Option.match(chunkOpt, {
+          onNone: () => false,
+          onSome: (chunk) => {
+            const idx = py + lz * CHUNK_HEIGHT + lx * CHUNK_HEIGHT * CHUNK_SIZE
+            return py >= 0 && py < CHUNK_HEIGHT && indexToBlockType(chunk.blocks[idx] ?? 0) === 'NETHER_PORTAL'
+          },
+        })
+
+        if (inPortal) {
+          const newSecs = yield* Ref.updateAndGet(refs.portalSecsRef, (s) => s + inputs.deltaTime)
+          if (newSecs >= PORTAL_ACTIVATION_SECS) {
+            yield* Ref.set(refs.portalSecsRef, 0)
+            const currentDim = yield* services.netherService.getDimension()
+            const destDimPortals = yield* services.netherService.getPortals(
+              currentDim === 'overworld' ? 'nether' : 'overworld',
+            )
+            const plan = resolveNetherTravel(currentDim, playerPos, destDimPortals)
+            yield* services.netherService.setDimension(plan.toDimension)
+            yield* services.chunkManagerService.setActiveDimension(plan.toDimension)
+            yield* services.gameState.respawn(plan.destination)
+            yield* Ref.set(finalPosRef, plan.destination)
+            yield* Option.match(plan.portalToCreate, {
+              onNone: () => Effect.void,
+              onSome: (layout) =>
+                Effect.gen(function* () {
+                  yield* Effect.forEach(
+                    layout.frame,
+                    (pos) => services.blockService.forceSetBlock(pos, 'OBSIDIAN').pipe(Effect.catchAll(() => Effect.void)),
+                    { concurrency: 'unbounded', discard: true },
+                  )
+                  yield* Effect.forEach(
+                    layout.interior,
+                    (pos) => services.blockService.forceSetBlock(pos, 'NETHER_PORTAL').pipe(Effect.catchAll(() => Effect.void)),
+                    { concurrency: 'unbounded', discard: true },
+                  )
+                  yield* services.netherService.registerPortal(plan.destination, plan.toDimension)
+                  const allPositions = [...layout.frame, ...layout.interior]
+                  const affectedCoordKeys = Array.from(
+                    new Set(allPositions.map((pos) => `${Math.floor(pos.x / CHUNK_SIZE)},${Math.floor(pos.z / CHUNK_SIZE)}`)),
+                  )
+                  yield* Effect.forEach(
+                    affectedCoordKeys,
+                    (coordKey) => {
+                      const parts = coordKey.split(',')
+                      const cx = parseInt(parts[0]!, 10)
+                      const cz = parseInt(parts[1]!, 10)
+                      return services.chunkManagerService.getChunk({ x: cx, z: cz }).pipe(
+                        Effect.flatMap((chunk) =>
+                          Ref.update(refs.dirtyChunksRef, (map) =>
+                            HashMap.set(map, coordKey, { chunk, dirtyAABB: Option.none() }),
+                          ),
+                        ),
+                        Effect.catchAll(() => Effect.void),
+                      )
+                    },
+                    { concurrency: 'unbounded', discard: true },
+                  )
+                }),
+            })
+          }
+        } else {
+          yield* Ref.set(refs.portalSecsRef, 0)
+        }
+      }),
+      'Portal travel error',
+    )
+
+    // ---- End portal travel detection ----
+    // Standing on END_PORTAL triggers instant dimension travel (no charge-up).
+    yield* logErrors(
+      Effect.gen(function* () {
+        const px = Math.floor(playerPos.x)
+        const py = Math.floor(playerPos.y)
+        const pz = Math.floor(playerPos.z)
+        const chunkCoord = { x: Math.floor(px / CHUNK_SIZE), z: Math.floor(pz / CHUNK_SIZE) }
+        const lx = ((px % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE
+        const lz = ((pz % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE
+        const chunkOpt = yield* services.chunkManagerService.getChunk(chunkCoord).pipe(Effect.option)
+        const onEndPortal = Option.match(chunkOpt, {
+          onNone: () => false,
+          onSome: (chunk) => {
+            const idx = py + lz * CHUNK_HEIGHT + lx * CHUNK_HEIGHT * CHUNK_SIZE
+            return py >= 0 && py < CHUNK_HEIGHT && indexToBlockType(chunk.blocks[idx] ?? 0) === 'END_PORTAL'
+          },
+        })
+        if (!onEndPortal) return
+        const currentDim = yield* services.netherService.getDimension()
+        const destDim: Dimension = currentDim === 'end' ? 'overworld' : 'end'
+        const destPos = currentDim === 'end'
+          ? { x: 0, y: 68, z: 0 }          // return to overworld spawn
+          : { x: 0, y: 67, z: 0 }           // The End island center, above surface
+        yield* services.netherService.setDimension(destDim)
+        yield* services.chunkManagerService.setActiveDimension(destDim)
+        yield* services.gameState.respawn(destPos)
+        yield* Ref.set(finalPosRef, destPos)
+        // Spawn the Ender Dragon when entering The End for the first time
+        if (destDim === 'end') {
+          const existingEntities = yield* services.entityManager.getEntities()
+          const hasDragon = existingEntities.some((e) => e.type === 'EnderDragon')
+          if (!hasDragon) {
+            yield* services.entityManager.addEntity('EnderDragon', { x: 0, y: 80, z: 20 })
+              .pipe(Effect.catchAllCause(() => Effect.void))
+          }
+        }
+      }),
+      'End portal travel error',
+    )
+
+    return { playerPos: yield* Ref.get(finalPosRef) }
   })

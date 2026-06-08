@@ -1,5 +1,5 @@
 import { Array as Arr, Effect, Option } from 'effect'
-import { InventoryService } from '@ts-minecraft/inventory/application/inventory-service'
+import { InventoryServicePort } from '../../domain/ports'
 import type { InventoryItem } from '@ts-minecraft/core'
 import { VillageService } from '../village/village-service'
 import type { Villager, VillagerId } from '../../domain/village/village-model'
@@ -37,7 +37,7 @@ const countBlockInInventory = (
 export class TradingService extends Effect.Service<TradingService>()(
   '@minecraft/trading/TradingService',
   {
-    effect: Effect.all([InventoryService, VillageService], { concurrency: 'unbounded' }).pipe(
+    effect: Effect.all([InventoryServicePort, VillageService], { concurrency: 'unbounded' }).pipe(
       Effect.map(([inventoryService, villageService]) => ({
         getCurrencyBlockType: (): Effect.Effect<InventoryItem, never> =>
           Effect.succeed(TRADE_CURRENCY_BLOCK),

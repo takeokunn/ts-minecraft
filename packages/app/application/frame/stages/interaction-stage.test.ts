@@ -735,7 +735,7 @@ describe('step 7 — block interaction', () => {
     })
     // HELMET occupied; the other slots are empty.
     const unequipSlotSpy = vi.fn((slot: string) =>
-      Effect.succeed(slot === 'HELMET' ? Option.some('IRON_HELMET') : Option.none()),
+      Effect.succeed(slot === 'HELMET' ? Option.some({ itemType: 'IRON_HELMET', count: 1 }) : Option.none()),
     )
     ;(services.equipmentService as { unequipSlot: unknown }).unequipSlot = unequipSlotSpy
     const addBlockSpy = vi.fn(() => Effect.succeed(true))
@@ -782,7 +782,7 @@ describe('step 7 — block interaction', () => {
     })
     // HELMET occupied; the slot is cleared by unequip before addBlock is attempted.
     const unequipSlotSpy = vi.fn((slot: string) =>
-      Effect.succeed(slot === 'HELMET' ? Option.some('IRON_HELMET') : Option.none()),
+      Effect.succeed(slot === 'HELMET' ? Option.some({ itemType: 'IRON_HELMET', count: 1 }) : Option.none()),
     )
     ;(services.equipmentService as { unequipSlot: unknown }).unequipSlot = unequipSlotSpy
     // Inventory is full → addBlock fails.
@@ -796,7 +796,7 @@ describe('step 7 — block interaction', () => {
 
     expect(addBlockSpy).toHaveBeenCalledWith('IRON_HELMET', 1)
     // Rollback: the removed piece is re-equipped so it is NOT destroyed.
-    expect(equipSpy).toHaveBeenCalledWith('IRON_HELMET')
+    expect(equipSpy).toHaveBeenCalledWith(expect.objectContaining({ itemType: 'IRON_HELMET' }))
   }))
 
   it.effect('KeyG unequips the first OCCUPIED slot (CHESTPLATE) when HELMET is empty', () => Effect.gen(function* () {
@@ -809,7 +809,7 @@ describe('step 7 — block interaction', () => {
     })
     // HELMET empty, CHESTPLATE occupied → loop stops at the chestplate.
     const unequipSlotSpy = vi.fn((slot: string) =>
-      Effect.succeed(slot === 'CHESTPLATE' ? Option.some('IRON_CHESTPLATE') : Option.none()),
+      Effect.succeed(slot === 'CHESTPLATE' ? Option.some({ itemType: 'IRON_CHESTPLATE', count: 1 }) : Option.none()),
     )
     ;(services.equipmentService as { unequipSlot: unknown }).unequipSlot = unequipSlotSpy
     const addBlockSpy = vi.fn(() => Effect.succeed(true))
@@ -849,11 +849,46 @@ describe('step 7 — block interaction', () => {
     ;(services.equipmentService as { equip: unknown }).equip = equipSpy
     const removeSpy = vi.fn(() => Effect.succeed(true))
     ;(services.inventoryService as { removeBlock: unknown }).removeBlock = removeSpy
+    ;(services.inventoryService as { getSlot: unknown }).getSlot = vi.fn(() =>
+      Effect.succeed(Option.some({ itemType: 'IRON_HELMET', count: 1 }))
+    )
 
     yield* runFrame(deps, services)
 
     expect(removeSpy).toHaveBeenCalledOnce()
     expect(equipSpy).toHaveBeenCalledOnce()
+  }))
+
+  it.effect('right-click with armor over a worn piece swaps it, returning the old armor to the inventory', () => Effect.gen(function* () {
+    const deps = yield* makeDeps(false)
+    const inputService = makeInputService()
+    ;(inputService as { consumeMouseClick: unknown }).consumeMouseClick = (btn: number) =>
+      Effect.succeed(btn === 2)
+    const services = makeServices({
+      inputService,
+      inventoryRenderer: makeInventoryRenderer({ open: false }),
+      settingsOverlay: makeSettingsOverlay({ open: false }),
+    })
+    ;(services.hotbarService as { getSelectedBlockType: unknown }).getSelectedBlockType = vi.fn(() =>
+      Effect.succeed(Option.some('IRON_HELMET'))
+    )
+    ;(services.blockHighlight as { getTargetHit: unknown }).getTargetHit = vi.fn(() => Effect.succeed(Option.none()))
+    ;(services.blockHighlight as { getTargetBlock: unknown }).getTargetBlock = vi.fn(() => Effect.succeed(Option.none()))
+    // A DIAMOND_HELMET is already worn → swapping must return it to the inventory, not destroy it.
+    ;(services.equipmentService as { getEquippedItem: unknown }).getEquippedItem = vi.fn(() =>
+      Effect.succeed(Option.some({ itemType: 'DIAMOND_HELMET', count: 1 }))
+    )
+    ;(services.equipmentService as { equip: unknown }).equip = vi.fn(() => Effect.succeed(true))
+    ;(services.inventoryService as { removeBlock: unknown }).removeBlock = vi.fn(() => Effect.succeed(true))
+    ;(services.inventoryService as { getSlot: unknown }).getSlot = vi.fn(() =>
+      Effect.succeed(Option.some({ itemType: 'IRON_HELMET', count: 1 }))
+    )
+    const addBlockSpy = vi.fn(() => Effect.succeed(undefined))
+    ;(services.inventoryService as { addBlock: unknown }).addBlock = addBlockSpy
+
+    yield* runFrame(deps, services)
+
+    expect(addBlockSpy).toHaveBeenCalledWith('DIAMOND_HELMET', 1)
   }))
 
   it.effect('right-click with armor item returns false when equip fails (catchAll path)', () => Effect.gen(function* () {
@@ -981,5 +1016,28 @@ describe('step 7 — block interaction', () => {
     expect(spawnBurstSpy).not.toHaveBeenCalled()
     expect(applyDamageSpy).toHaveBeenCalledWith('entity-1', 4)
     expect(knockbackSpy).toHaveBeenCalledWith('entity-1', { x: 0, y: 4.2, z: -5 })
+  }))
+
+  it.effect('right-click with FLINT_AND_STEEL and no target hit exercises the handleFlintAndSteel branch', () => Effect.gen(function* () {
+    const deps = yield* makeDeps(false)
+    const inputService = makeInputService()
+    ;(inputService as { consumeMouseClick: unknown }).consumeMouseClick = (btn: number) =>
+      Effect.succeed(btn === 2)
+    const services = makeServices({
+      inputService,
+      inventoryRenderer: makeInventoryRenderer({ open: false }),
+      settingsOverlay: makeSettingsOverlay({ open: false }),
+    })
+    ;(services.hotbarService as { getSelectedBlockType: unknown }).getSelectedBlockType = vi.fn(() =>
+      Effect.succeed(Option.some('FLINT_AND_STEEL')),
+    )
+    ;(services.blockHighlight as { getTargetHit: unknown }).getTargetHit = vi.fn(() =>
+      Effect.succeed(Option.none()),
+    )
+    ;(services.blockHighlight as { getTargetBlock: unknown }).getTargetBlock = vi.fn(() =>
+      Effect.succeed(Option.none()),
+    )
+    // No portal frame around ignitionPos → handleFlintAndSteel returns false → handleRightClick runs (no-op)
+    yield* runFrame(deps, services)
   }))
 })

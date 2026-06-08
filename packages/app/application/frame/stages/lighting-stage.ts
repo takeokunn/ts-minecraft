@@ -1,12 +1,24 @@
 import { Effect, Ref } from 'effect'
 import { logErrors } from '@ts-minecraft/app/frame/error-logging'
 import type { FrameHandlerDeps, FrameHandlerServices, FrameStageRefs } from '@ts-minecraft/app/frame/types'
-import { updateDayNightCycle, type DayNightLights } from '@ts-minecraft/game'
+import { updateDayNightCycle, applyNetherEnvironment, applyEndEnvironment, type DayNightLights, type Weather } from '@ts-minecraft/game'
 import type { DeltaTimeSecs, Position } from '@ts-minecraft/core'
+
+// Apply a grey-blue tint when it is raining or thundering (overrides the daytime sky).
+const applyRainEnvironment = (lights: DayNightLights, weather: Weather): void => {
+  if (weather === 'clear') return
+  // Darken ambient and directional light; shift sky towards overcast grey-blue.
+  const thunderFactor = weather === 'thunder' ? 0.6 : 0.85
+  lights.light.intensity *= thunderFactor
+  lights.ambientLight.intensity *= thunderFactor
+  lights.ambientLight.color.setHSL(0.6, 0.15, 0.4)   // cool grey-blue ambient
+  lights.skyCurrent.setHSL(0.6, 0.08, 0.35 * thunderFactor)  // overcast sky
+  lights.renderer.setClearColor(lights.skyCurrent)
+}
 
 export const lightingStage = (
   deps: Pick<FrameHandlerDeps, 'lights' | 'renderer'>,
-  services: Pick<FrameHandlerServices, 'timeService' | 'musicManager' | 'chunkMeshService'>,
+  services: Pick<FrameHandlerServices, 'timeService' | 'musicManager' | 'chunkMeshService' | 'netherService' | 'weatherService'>,
   refs: Pick<FrameStageRefs, 'shadowUpdateCounterRef'>,
   inputs: {
     readonly deltaTime: DeltaTimeSecs
@@ -20,6 +32,17 @@ export const lightingStage = (
       updateDayNightCycle(inputs.deltaTime, inputs.effectiveLights, services.timeService),
       'Day/night error',
     )
+    // Tick weather transitions and read current state.
+    const weather = yield* services.weatherService.tick(inputs.deltaTime)
+
+    const dimension = yield* services.netherService.getDimension()
+    if (dimension === 'nether') {
+      yield* Effect.sync(() => applyNetherEnvironment(inputs.effectiveLights))
+    } else if (dimension === 'end') {
+      yield* Effect.sync(() => applyEndEnvironment(inputs.effectiveLights))
+    } else {
+      yield* Effect.sync(() => applyRainEnvironment(inputs.effectiveLights, weather))
+    }
     yield* Ref.updateAndGet(refs.shadowUpdateCounterRef, (n) => (n + 1) % 8).pipe(
       Effect.flatMap((shadowFrame) =>
         shadowFrame === 0 && deps.lights.light.castShadow

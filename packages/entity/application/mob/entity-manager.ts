@@ -1,11 +1,12 @@
 import { Array as Arr, Effect, HashMap, Option, Ref } from 'effect'
+import type { Layer } from 'effect'
 import type { EntityDrop } from '../../domain/mob/drop'
 import {
   EntityId,
-  EntityType,
   createEntity as createEntityModel,
   type Entity,
   type EntityId as EntityIdType,
+  type EntityType,
 } from '../../domain/mob/entity'
 import { getMobDefinition } from '../../domain/mob/mobs'
 import type { Position } from '@ts-minecraft/core'
@@ -61,6 +62,8 @@ export class EntityManager extends Effect.Service<EntityManager>()(
               attackCooldownRemaining: 0,
               isGrounded: false,
               knockbackTicksRemaining: 0,
+              stuckTicks: 0,
+              fuseSecs: 0,
             }
 
             yield* Ref.update(entitiesRef, (entities) =>
@@ -126,4 +129,4 @@ export class EntityManager extends Effect.Service<EntityManager>()(
   },
 ) {}
 
-export const EntityManagerLive = EntityManager.Default
+export const EntityManagerLive: Layer.Layer<EntityManager> = EntityManager.Default

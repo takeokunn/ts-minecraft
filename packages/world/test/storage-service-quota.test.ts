@@ -3,7 +3,7 @@ import { expect } from 'vitest'
 import { Array as Arr, Effect, Either, MutableHashMap, MutableRef, Option } from 'effect'
 import { StorageService, WorldMetadata } from '@ts-minecraft/world'
 import { StorageError } from '../domain/errors'
-import { WorldId } from '@ts-minecraft/core'
+import { SlotIndex, WorldId } from '@ts-minecraft/core'
 import { testWorldId, testCoord, chunkStorageBlocks, chunkStorageValue, makeInMemoryStorageService, makeFailingStorageService } from './storage-service-test-utils'
 
 // ---------------------------------------------------------------------------
@@ -172,7 +172,7 @@ expect.fail('immediate failure')
         playerSpawn: { x: 0, y: 64, z: 0 },
         playerState: {
           position: { x: 1, y: 64, z: 2 }, health: 20,
-          inventory: { slots: [Option.some({ slot: 0, itemType: 'WOOD', count: 3 }), Option.none()] },
+          inventory: { slots: [Option.some({ slot: SlotIndex.make(0), itemType: 'WOOD', count: 3 }), Option.none()] },
           timeOfDay: 0.5, hunger: { foodLevel: 20, saturation: 5 }, totalXP: 0, equipment: {},
         },
         furnaceStates: [{
@@ -192,7 +192,7 @@ expect.fail('immediate failure')
         const entry = result.valid[0]!
         expect(entry.worldId).toBe('rich-world')
         expect(entry.metadata.furnaceStates?.[0]?.fuel).toEqual(Option.some({ itemType: 'COAL', count: 1 }))
-        expect(entry.metadata.playerState?.inventory.slots[0]).toEqual(Option.some({ slot: 0, itemType: 'WOOD', count: 3 }))
+        expect(entry.metadata.playerState?.inventory.slots[0]).toEqual(Option.some({ slot: SlotIndex.make(0), itemType: 'WOOD', count: 3 }))
       }).pipe(Effect.provide(TestLayer))
     })
 

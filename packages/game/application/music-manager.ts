@@ -1,27 +1,22 @@
-import { Effect, Option, Ref, Schema } from 'effect'
+import { Effect, Option, Ref } from 'effect'
 import type { Position } from '@ts-minecraft/core'
 import { AudioEnginePort } from '../domain/audio-engine-port'
-import { clamp01, type ToneHandle } from '../domain/audio-types'
+import { clamp01 } from '../domain/audio-utils'
+import type { ToneHandle } from '../domain/audio-types'
 import { TRACKS, DEFAULT_CAVE_THRESHOLD_Y } from './music-manager.config'
+import type { MusicEnvironment, MusicSettings } from './music-manager.types'
+
+export type { MusicEnvironment, MusicSettings }
+export { MusicEnvironmentSchema, MusicSettingsSchema } from './music-manager.types'
 
 const environmentFromContext = (
   isNight: boolean,
   playerPosition: Position,
   caveThresholdY: number,
-): 'day' | 'night' | 'cave' => {
+): MusicEnvironment => {
   if (playerPosition.y < caveThresholdY) return 'cave'
   return isNight ? 'night' : 'day'
 }
-
-export const MusicEnvironmentSchema = Schema.Literal('day', 'night', 'cave')
-export type MusicEnvironment = Schema.Schema.Type<typeof MusicEnvironmentSchema>
-
-export const MusicSettingsSchema = Schema.Struct({
-  enabled: Schema.Boolean,
-  masterVolume: Schema.Number.pipe(Schema.finite(), Schema.between(0, 1)),
-  musicVolume: Schema.Number.pipe(Schema.finite(), Schema.between(0, 1)),
-})
-export type MusicSettings = Schema.Schema.Type<typeof MusicSettingsSchema>
 
 
 type ActiveTrack = {

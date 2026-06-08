@@ -26,16 +26,18 @@ export const makeFurnaceHelpers = (
 
       const x = Math.floor(position.x)
       const z = Math.floor(position.z)
-      const chunk = yield* chunkManagerService.getChunk({
+      const chunkOpt = yield* chunkManagerService.getChunk({
         x: Math.floor(x / CHUNK_SIZE),
         z: Math.floor(z / CHUNK_SIZE),
       }).pipe(Effect.option)
-      if (Option.isNone(chunk)) return false
 
       const lx = positiveModulo(x, CHUNK_SIZE)
       const lz = positiveModulo(z, CHUNK_SIZE)
       const index = y + lz * CHUNK_HEIGHT + lx * CHUNK_HEIGHT * CHUNK_SIZE
-      return chunk.value.blocks[index] === blockTypeToIndex('FURNACE')
+      return Option.match(chunkOpt, {
+        onNone: () => false,
+        onSome: (c) => c.blocks[index] === blockTypeToIndex('FURNACE'),
+      })
     })
 
   const getSelectedFurnacePosition = (): Effect.Effect<Option.Option<{ readonly x: number; readonly y: number; readonly z: number }>, never> =>

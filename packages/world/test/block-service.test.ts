@@ -312,5 +312,59 @@ describe('terrain/application/block-service breakBlock harvest logic', () => {
 })
 
 // ---------------------------------------------------------------------------
+// forceSetBlock (lines 214–233)
+// ---------------------------------------------------------------------------
+
+describe('terrain/application/block-service forceSetBlock', () => {
+  it.effect('places a block at a valid position without inventory or player checks', () => {
+    const layer = buildLayer({ blockAtIdx: 'AIR' })
+    return Effect.gen(function* () {
+      const svc = yield* BlockService
+      const result = yield* Effect.either(svc.forceSetBlock({ x: 0, y: 64, z: 0 }, 'STONE'))
+      expect(Either.isRight(result)).toBe(true)
+    }).pipe(Effect.provide(layer))
+  })
+
+  it.effect('fails with BlockServiceError when getChunk rejects', () => {
+    const failingChunkLayer = Layer.succeed(ChunkManagerService, {
+      _tag: '@minecraft/application/ChunkManagerService' as const,
+      getChunk: () => Effect.fail(new Error('chunk not found')),
+      markChunkDirty: () => Effect.void,
+      getLoadedChunks: () => Effect.succeed([]),
+    } as unknown as ChunkManagerService)
+    const layer = BlockServiceLive.pipe(
+      Layer.provide(failingChunkLayer),
+      Layer.provide(ChunkServiceLive),
+      Layer.provide(noopFluidService),
+      Layer.provide(makePlayerLayer()),
+      Layer.provide(makeInventoryLayer()),
+      Layer.provide(makeHotbarLayer()),
+      Layer.provide(makeFurnaceLayer()),
+    )
+    return Effect.gen(function* () {
+      const svc = yield* BlockService
+      const result = yield* Effect.either(svc.forceSetBlock({ x: 0, y: 64, z: 0 }, 'STONE'))
+      expect(Either.isLeft(result)).toBe(true)
+      const err = Option.getOrThrow(Either.getLeft(result))
+      expect(err.operation).toBe('forceSetBlock')
+      expect(err.reason).toContain('Failed to load chunk')
+    }).pipe(Effect.provide(layer))
+  })
+
+  it.effect('fails with BlockServiceError when y coordinate is out of bounds', () => {
+    const layer = buildLayer({ blockAtIdx: 'AIR' })
+    return Effect.gen(function* () {
+      const svc = yield* BlockService
+      // y=−1 is below the valid range [0, CHUNK_HEIGHT) → setBlockInChunk emits BlockIndexError
+      const result = yield* Effect.either(svc.forceSetBlock({ x: 0, y: -1, z: 0 }, 'STONE'))
+      expect(Either.isLeft(result)).toBe(true)
+      const err = Option.getOrThrow(Either.getLeft(result))
+      expect(err.operation).toBe('forceSetBlock')
+      expect(err.reason).toContain('out of bounds')
+    }).pipe(Effect.provide(layer))
+  })
+})
+
+// ---------------------------------------------------------------------------
 // breakBlock — FURNACE path (lines 137–150)
 // ---------------------------------------------------------------------------

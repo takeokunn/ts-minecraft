@@ -8,11 +8,11 @@ import { HealthService } from '@ts-minecraft/entity'
 // Property tests for HealthService.processFallDamage
 //
 // The Minecraft fall-damage formula is:
-//   damage = max(0, floor(fallDistance - 3))
+//   damage = max(0, ceil(fallDistance - 3))   // vanilla rounds UP (Mth.ceil)
 //
 // Key invariants:
 //   1. Falls of 3 blocks or less always deal 0 damage.
-//   2. Falls greater than 3 blocks deal exactly floor(fallDistance - 3) damage.
+//   2. Falls greater than 3 blocks deal exactly ceil(fallDistance - 3) damage.
 //   3. processFallDamage returns 0 on the first call (prevY not yet set).
 //   4. processFallDamage returns 0 while the player is still falling (not grounded).
 //
@@ -29,7 +29,7 @@ describe('HealthService (property-based)', () => {
             // Math.fround required for fc.float boundary constraints
             fc.float({ min: Math.fround(0.001), max: 3, noNaN: true }),
             (fallDistance) => {
-              const damage = Math.max(0, Math.floor(fallDistance - 3))
+              const damage = Math.max(0, Math.ceil(fallDistance - 3))
               return damage === 0
             }
           )
@@ -37,16 +37,16 @@ describe('HealthService (property-based)', () => {
       }).pipe(Effect.provide(HealthService.Default))
     )
 
-    it.effect('falls of at least 4 blocks deal positive damage equal to floor(fallDistance - 3)', () =>
+    it.effect('falls of at least 4 blocks deal positive damage equal to ceil(fallDistance - 3)', () =>
       Effect.sync(() => {
         fc.assert(
           fc.property(
-            // fallDistance >= 4 guarantees floor(fallDistance - 3) >= 1 (positive damage).
+            // fallDistance >= 4 guarantees ceil(fallDistance - 3) >= 1 (positive damage).
             // Math.fround not needed here since 4 and 100 are exact 32-bit floats.
             fc.float({ min: 4, max: 100, noNaN: true }),
             (fallDistance) => {
-              const expected = Math.floor(fallDistance - 3)
-              return expected >= 1 && expected === Math.max(0, Math.floor(fallDistance - 3))
+              const expected = Math.ceil(fallDistance - 3)
+              return expected >= 1 && expected === Math.max(0, Math.ceil(fallDistance - 3))
             }
           )
         )
@@ -62,8 +62,8 @@ describe('HealthService (property-based)', () => {
             (a, b) => {
               const lo = Math.min(a, b)
               const hi = Math.max(a, b)
-              const damageAtLo = Math.max(0, Math.floor(lo - 3))
-              const damageAtHi = Math.max(0, Math.floor(hi - 3))
+              const damageAtLo = Math.max(0, Math.ceil(lo - 3))
+              const damageAtHi = Math.max(0, Math.ceil(hi - 3))
               return damageAtHi >= damageAtLo
             }
           )

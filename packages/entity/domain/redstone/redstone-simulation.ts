@@ -120,3 +120,41 @@ export const sortedPowerSnapshot = (powerByPosition: HashMap.HashMap<PositionKey
     power: RedstonePowerLevel.make(power),
   }))
 }
+
+/**
+ * Pure helper: determines whether the redstone circuit needs full power-propagation
+ * this tick, based on external dirty flag and button activity.
+ *
+ * Propagation is needed when:
+ * 1. An external event set dirty (lever toggle, button press, component add/remove).
+ * 2. Any button is currently active (ticks > 0): power must re-propagate because the
+ *    button is still providing power.
+ * 3. Any button just expired (ticks hit 0 while still in powerByPosition): the
+ *    previous propagation included it as a source; one more pass clears it.
+ */
+export const computeNeedsPropagation = (
+  components: HashMap.HashMap<PositionKey, RedstoneComponent>,
+  powerByPosition: HashMap.HashMap<PositionKey, number>,
+  buttonKeys: HashSet.HashSet<PositionKey>,
+  dirty: boolean,
+): boolean => {
+  if (dirty) return true
+  const buttonKeysArr = Arr.fromIterable(buttonKeys)
+  const anyButtonActive = Arr.some(
+    buttonKeysArr,
+    (key) => Option.match(HashMap.get(components, key), {
+      onNone: () => false,
+      onSome: (c) => c.state.buttonTicksRemaining > 0,
+    })
+  )
+  if (anyButtonActive) return true
+  return Arr.some(
+    buttonKeysArr,
+    (key) => Option.match(HashMap.get(components, key), {
+      onNone: () => false,
+      onSome: (c) =>
+        c.state.buttonTicksRemaining === 0 &&
+        HashMap.has(powerByPosition, key),
+    })
+  )
+}

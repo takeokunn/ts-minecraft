@@ -12,7 +12,7 @@ import { InventoryService } from '@ts-minecraft/inventory/application/inventory-
 import { HotbarService } from '@ts-minecraft/inventory/application/hotbar-service'
 import type { FurnaceService } from '@ts-minecraft/inventory/application/furnace-service'
 import { BlockTypeSchema } from '@ts-minecraft/core'
-import type { InventoryItem } from '@ts-minecraft/core'
+import type { BlockType, InventoryItem } from '@ts-minecraft/core'
 import { Position, SlotIndex } from '@ts-minecraft/core'
 import {
   NON_PLACEABLE_ITEM_TYPES,
@@ -209,6 +209,27 @@ export class BlockService extends Effect.Service<BlockService>()(
             if (blockType === 'WATER') yield* fluidService.seedWater(position)
             if (blockType === 'LAVA') yield* fluidService.seedLava(position)
             yield* Metric.increment(Metric.counter('blocks_placed'))
+          }),
+
+        forceSetBlock: (position: Position, blockType: BlockType): Effect.Effect<void, BlockServiceError> =>
+          Effect.gen(function* () {
+            const { chunkCoord, lx, lz } = worldToBlockLocal(position)
+            const y = Math.floor(position.y)
+            const chunk = yield* chunkManagerService.getChunk(chunkCoord).pipe(
+              Effect.mapError((e) => new BlockServiceError({
+                operation: 'forceSetBlock',
+                reason: `Failed to load chunk at (${chunkCoord.x}, ${chunkCoord.z}): ${e.message}`,
+                cause: e,
+              }))
+            )
+            yield* setBlockInChunk(chunk, lx, y, lz, blockType).pipe(
+              Effect.mapError((e: BlockIndexError) => new BlockServiceError({
+                operation: 'forceSetBlock',
+                reason: `Block coordinates out of bounds: (${e.x}, ${e.y}, ${e.z})`,
+                cause: e,
+              }))
+            )
+            yield* chunkManagerService.markChunkDirty(chunkCoord, [{ lx, y, lz }])
           }),
       }))
     ),

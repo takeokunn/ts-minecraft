@@ -1,16 +1,20 @@
-import { Effect, Ref, Schema, Clock, Option } from 'effect'
+import { Effect, Ref, Clock, Option } from 'effect'
 import { PlayerError } from '@ts-minecraft/entity/domain/errors'
 import { PlayerService } from '@ts-minecraft/entity/application/player-service'
 import { MovementService } from '@ts-minecraft/entity/application/movement-service'
 import { PlayerCameraStateService } from '@ts-minecraft/entity/application/camera-state'
-import { DeltaTimeSecs, DeltaTimeSecsSchema, PlayerId, Position, PhysicsBodyId, DEFAULT_PLAYER_ID, FIRST_FRAME_DELTA_SECS, PLAYER_HALF_WIDTH, PLAYER_HALF_HEIGHT, CHUNK_SIZE } from '@ts-minecraft/core'
+import { DeltaTimeSecs, PlayerId, Position, PhysicsBodyId, DEFAULT_PLAYER_ID, PLAYER_HALF_WIDTH, PLAYER_HALF_HEIGHT, CHUNK_SIZE } from '@ts-minecraft/core'
 import { PhysicsService } from './physics-service'
 import { resolveBlockCollisions } from '../domain/aabb-collision'
 import { ChunkManagerService } from '@ts-minecraft/world/application/chunk-manager-service'
 import { InventoryService } from '@ts-minecraft/inventory/application/inventory-service'
 import { GameStateError } from '../domain/errors'
 import { GameModeService } from './game-mode-service'
-import { OFFSETS_3x3, isBlockSolid, isInWater } from './game-state-physics'
+import { OFFSETS_3x3, isBlockSolid, isInWater } from '../domain/block-collision-predicates'
+import { TimingState, INITIAL_TIMING_STATE } from './game-state.types'
+
+export type { TimingState }
+export { TimingStateSchema } from './game-state.types'
 
 export const PLAYER_BODY_ID = 'player'
 
@@ -19,12 +23,43 @@ const PLAYER_MASS = 70
 
 const ZERO_VEC3 = Object.freeze({ x: 0, y: 0, z: 0 })
 
-export const TimingStateSchema = Schema.Struct({
-  lastFrameTime: Schema.Number.pipe(Schema.finite(), Schema.nonNegative()),
-  deltaTime: DeltaTimeSecsSchema,
-  frameCount: Schema.Number.pipe(Schema.int(), Schema.nonNegative()),
-})
-export type TimingState = Schema.Schema.Type<typeof TimingStateSchema>
+// Refresh the 9-cell 3×3 chunk neighborhood cache when the player's chunk coord changes.
+// Saves 9 getChunk calls per frame when the player stays in the same chunk.
+const refreshChunkCache = (
+  chunkManagerService: ChunkManagerService,
+  playerCx: number,
+  playerCz: number,
+  chunkCacheRef: Ref.Ref<Array<{ blocks: Uint8Array } | null>>,
+  lastChunkCoordRef: Ref.Ref<{ cx: number; cz: number }>,
+): Effect.Effect<void, never> =>
+  Effect.gen(function* () {
+    const newCache: Array<{ blocks: Uint8Array } | null> = Array.from({ length: 9 }, () => null)
+    yield* Effect.forEach(
+      OFFSETS_3x3,
+      ([dx, dz]) =>
+        chunkManagerService.getChunk({ x: playerCx + dx, z: playerCz + dz }).pipe(
+          Effect.match({
+            onSuccess: (chunk) => { newCache[(dx + 1) * 3 + (dz + 1)] = chunk },
+            onFailure: () => {},
+          })
+        ),
+      { concurrency: 'unbounded', discard: true }
+    )
+    yield* Ref.set(chunkCacheRef, newCache)
+    yield* Ref.set(lastChunkCoordRef, { cx: playerCx, cz: playerCz })
+  })
+
+// Apply water drag: dampens velocity 60% and caps downward terminal velocity at -2 m/s.
+const applyWaterDrag = (
+  physicsService: PhysicsService,
+  playerBodyId: PhysicsBodyId,
+  resolvedVel: { x: number; y: number; z: number },
+): Effect.Effect<void, never> =>
+  physicsService.setVelocity(playerBodyId, {
+    x: resolvedVel.x * 0.4,
+    y: Math.max(resolvedVel.y * 0.4, -2),
+    z: resolvedVel.z * 0.4,
+  }).pipe(Effect.catchTag('PhysicsServiceError', () => Effect.void))
 
 export class GameStateService extends Effect.Service<GameStateService>()(
   '@minecraft/application/GameStateService',
@@ -38,11 +73,7 @@ export class GameStateService extends Effect.Service<GameStateService>()(
       GameModeService,
       InventoryService,
       // Timing state (deltaTime initial value uses a first-frame estimate of 16ms at 60fps)
-      Ref.make<TimingState>({
-        lastFrameTime: 0,
-        deltaTime: DeltaTimeSecs.make(FIRST_FRAME_DELTA_SECS),
-        frameCount: 0,
-      }),
+      Ref.make<TimingState>(INITIAL_TIMING_STATE),
       // Opaque physics body ID for the player (replaces CANNON.Body ref)
       Ref.make<Option.Option<PhysicsBodyId>>(Option.none()),
       // AABB-derived grounded state (updated each frame after block collision resolution)
@@ -90,8 +121,6 @@ export class GameStateService extends Effect.Service<GameStateService>()(
             })
 
             const rotation = yield* cameraState.getRotation()
-            const yaw = rotation.yaw
-
             const isGrounded = yield* Ref.get(isGroundedRef)
 
             /* c8 ignore next 3 */
@@ -103,7 +132,7 @@ export class GameStateService extends Effect.Service<GameStateService>()(
               )
             )
 
-            const velocity = yield* movementService.update(yaw, isGrounded)
+            const velocity = yield* movementService.update(rotation.yaw, isGrounded)
             const jumped = velocity.y > 0
 
             // Air control: only allow horizontal movement input when grounded
@@ -127,31 +156,16 @@ export class GameStateService extends Effect.Service<GameStateService>()(
               Effect.catchTag('PhysicsServiceError', () => Effect.succeed(ZERO_VEC3))
             )
 
-            // Load surrounding chunks for block collision queries.
-            // Refresh the 9-cell cache only when player's chunk coord changes —
-            // saves 9 getChunk calls per frame when player stays in same chunk.
+            // Refresh 3×3 chunk cache only when player chunk coord changes
             const playerCx = Math.floor(physPos.x / CHUNK_SIZE)
             const playerCz = Math.floor(physPos.z / CHUNK_SIZE)
             const lastChunkCoord = yield* Ref.get(lastChunkCoordRef)
             if (lastChunkCoord.cx !== playerCx || lastChunkCoord.cz !== playerCz) {
-              const newCache: Array<{ blocks: Uint8Array } | null> = Array.from({ length: 9 }, () => null)
-              yield* Effect.forEach(
-                OFFSETS_3x3,
-                ([dx, dz]) =>
-                  chunkManagerService.getChunk({ x: playerCx + dx, z: playerCz + dz }).pipe(
-                    Effect.match({
-                      onSuccess: (chunk) => { newCache[(dx + 1) * 3 + (dz + 1)] = chunk },
-                      onFailure: () => {},
-                    })
-                  ),
-                { concurrency: 'unbounded', discard: true }
-              )
-              yield* Ref.set(chunkCacheRef, newCache)
-              yield* Ref.set(lastChunkCoordRef, { cx: playerCx, cz: playerCz })
+              yield* refreshChunkCache(chunkManagerService, playerCx, playerCz, chunkCacheRef, lastChunkCoordRef)
             }
             const chunkCache = yield* Ref.get(chunkCacheRef)
 
-            // AABB block collision resolution — delegates solid-block test to game-state-physics.ts
+            // AABB block collision resolution — delegates solid-block test to block-collision-predicates.ts
             const { position: resolvedPos, velocity: resolvedVel, isGrounded: newIsGrounded } =
               resolveBlockCollisions(
                 physPos, physVel, PLAYER_HALF_WIDTH, PLAYER_HALF_HEIGHT,
@@ -167,13 +181,8 @@ export class GameStateService extends Effect.Service<GameStateService>()(
             yield* Ref.set(isGroundedRef, newIsGrounded)
 
             // Apply water drag when player is inside a water block.
-            // Dampens velocity by 60% and caps downward terminal velocity at -2 m/s.
             if (isInWater(resolvedPos.x, resolvedPos.y, resolvedPos.z, chunkCache, playerCx, playerCz)) {
-              yield* physicsService.setVelocity(playerBodyId, {
-                x: resolvedVel.x * 0.4,
-                y: Math.max(resolvedVel.y * 0.4, -2),
-                z: resolvedVel.z * 0.4,
-              }).pipe(Effect.catchTag('PhysicsServiceError', () => Effect.void))
+              yield* applyWaterDrag(physicsService, playerBodyId, resolvedVel)
             }
 
             yield* playerService.updatePosition(playerId, resolvedPos as Position)

@@ -19,6 +19,25 @@ const SKY_RAYLEIGH_NIGHT = 0.5
 
 export type { DayNightLightsPort as DayNightLights }
 
+// The End: deep void black with faint purple ambient, no sun.
+export const applyEndEnvironment = (lights: DayNightLightsPort): void => {
+  lights.light.intensity = 0
+  lights.ambientLight.intensity = 0.15
+  lights.ambientLight.color.setHSL(0.8, 0.5, 0.25)  // deep purple
+  lights.skyCurrent.setHSL(0.8, 0.3, 0.02)           // near-black void
+  lights.renderer.setClearColor(lights.skyCurrent)
+}
+
+// Fixed nether lighting — called after updateDayNightCycle so time still advances,
+// but the visual result is always dark red regardless of time-of-day.
+export const applyNetherEnvironment = (lights: DayNightLightsPort): void => {
+  lights.light.intensity = 0              // no sun in the nether
+  lights.ambientLight.intensity = 0.2
+  lights.ambientLight.color.setHSL(0.04, 0.8, 0.3)   // dark orange-red ambient
+  lights.skyCurrent.setHSL(0.02, 0.9, 0.04)           // near-black red background
+  lights.renderer.setClearColor(lights.skyCurrent)
+}
+
 export const updateDayNightCycle = (
   deltaTime: DeltaTimeSecs,
   lights: DayNightLightsPort,

@@ -1,59 +1,16 @@
 import { Array as Arr, Effect, Ref, Option } from 'effect'
 import type { InventoryItem } from '@ts-minecraft/core'
 import type { InventorySaveData } from '@ts-minecraft/core'
-import { ItemStack, createStack, mergeStacks, canMerge, addToStack, removeFromStack, maxStackFor, damageStack } from '../domain/item-stack'
+import { ItemStack, mergeStacks, canMerge, removeFromStack, maxStackFor, damageStack } from '../domain/item-stack'
 import { SlotIndex } from '@ts-minecraft/core'
 import { InventoryError } from '../domain/errors'
+import { INVENTORY_SIZE, HOTBAR_START, HOTBAR_SIZE } from './inventory-service.config'
+import { fillExistingStacks, fillEmptySlots, drainPreferredSlot } from './inventory-service.helpers'
 
 export type InventorySlot = Option.Option<ItemStack>
 export type InventorySlots = ReadonlyArray<InventorySlot>
 
-export const INVENTORY_SIZE = 36
-export const HOTBAR_START = 27
-export const HOTBAR_SIZE = 9
-
-// Pure: fills existing partial stacks of the same item type, returns [updatedSlots, remainingCount]
-const fillExistingStacks = (
-  slots: InventorySlots,
-  itemType: InventoryItem,
-  count: number,
-  maxStack: number,
-): readonly [InventorySlots, number] => {
-  const [remaining, updated] = Arr.mapAccum(slots, count, (rem, slot) => {
-    if (rem <= 0) return [rem, slot] as const
-    return Option.match(slot, {
-      onNone: () => [rem, slot] as const,
-      onSome: (stackVal) => {
-        if (stackVal.itemType !== itemType) return [rem, slot] as const
-        const space = maxStack - stackVal.count
-        if (space <= 0) return [rem, slot] as const
-        const add = Math.min(space, rem)
-        return [rem - add, Option.some(addToStack(stackVal, add))] as const
-      },
-    })
-  })
-  return [updated, remaining]
-}
-
-// Pure: fills empty slots with remaining count, returns [updatedSlots, remainingCount]
-const fillEmptySlots = (
-  slots: InventorySlots,
-  itemType: InventoryItem,
-  count: number,
-  maxStack: number,
-): readonly [InventorySlots, number] => {
-  const [remaining, updated] = Arr.mapAccum(slots, count, (rem, slot) => {
-    if (rem <= 0) return [rem, slot] as const
-    return Option.match(slot, {
-      onSome: () => [rem, slot] as const,
-      onNone: () => {
-        const add = Math.min(maxStack, rem)
-        return [rem - add, Option.some(createStack(itemType, add))] as const
-      },
-    })
-  })
-  return [updated, remaining]
-}
+export { INVENTORY_SIZE, HOTBAR_START, HOTBAR_SIZE }
 
 export class InventoryService extends Effect.Service<InventoryService>()(
   '@minecraft/application/InventoryService',
@@ -135,17 +92,7 @@ export class InventoryService extends Effect.Service<InventoryService>()(
             }
 
             // Step 1: drain preferred slot first (if provided)
-            const [rem1, slots1] = Option.match(preferredIdx, {
-              onNone: () => [count, slots] as const,
-              onSome: (idx) =>
-                Option.match(Option.getOrElse(Arr.get(slots, idx), () => Option.none<ItemStack>()), {
-                  onNone: () => [count, slots] as const,
-                  onSome: (stack) => {
-                    const [newRem, newSlot] = takeFrom(count, stack)
-                    return [newRem, Arr.modify(slots, idx, () => newSlot)] as const
-                  },
-                }),
-            })
+            const [rem1, slots1] = drainPreferredSlot(slots, itemType, count, preferredIdx)
 
             // Step 2: drain remaining from all other slots in order
             const preferredIdxNum = Option.getOrElse(preferredIdx, () => -1)
@@ -190,9 +137,14 @@ export class InventoryService extends Effect.Service<InventoryService>()(
         clear: (): Effect.Effect<void, never> =>
           Ref.set(slotsRef, Arr.makeBy(INVENTORY_SIZE, () => Option.none<ItemStack>())),
 
+        // REPLACE (not merge) the entire inventory with the saved snapshot: start from
+        // a fresh empty array so slots absent from the snapshot are CLEARED. A merge
+        // (folding onto the live slots) would leave stale items behind — which both
+        // corrupts a load-into-dirty-inventory and lets dismantleFurnace's rollback
+        // leak the items it had already deposited (item duplication).
         deserialize: (data: InventorySaveData): Effect.Effect<void, never> =>
-          Ref.update(slotsRef, (slots) =>
-            Arr.reduce(data.slots, slots, (acc, entry) =>
+          Ref.set(slotsRef,
+            Arr.reduce(data.slots, Arr.makeBy(INVENTORY_SIZE, () => Option.none<ItemStack>()), (acc, entry) =>
               Option.match(entry, {
                 onNone: () => acc,
                 onSome: (e) => {

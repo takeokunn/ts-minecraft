@@ -150,7 +150,7 @@ describe('player/movement-service (integration)', () => {
       ({ yaw, forward, backward, left, right, isGrounded }) => {
         const inputService = createTestInputService()
         const testLayers = createTestLayers(inputService)
-        const input: MovementInput = { forward, backward, left, right, jump: false, sprint: false }
+        const input: MovementInput = { forward, backward, left, right, jump: false, sprint: false, sneak: false }
         return Effect.gen(function* () {
           const movementService = yield* MovementService
           const velocity = yield* movementService.calculateVelocity(input, yaw, isGrounded)
@@ -174,7 +174,7 @@ describe('player/movement-service (integration)', () => {
       ({ yaw, forward, backward, left, right, jump, isGrounded }) => {
         const inputService = createTestInputService()
         const testLayers = createTestLayers(inputService)
-        const input: MovementInput = { forward, backward, left, right, jump, sprint: false }
+        const input: MovementInput = { forward, backward, left, right, jump, sprint: false, sneak: false }
         return Effect.gen(function* () {
           const movementService = yield* MovementService
           const velocity = yield* movementService.calculateVelocity(input, yaw, isGrounded)

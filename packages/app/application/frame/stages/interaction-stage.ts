@@ -21,9 +21,11 @@ import {
 import { handleHotbarInput, renderHotbarHud } from '@ts-minecraft/app/frame/stages/interaction-hotbar-handler'
 import { handleRedstoneInput, type RedstoneFlags } from '@ts-minecraft/app/frame/stages/interaction-redstone-handler'
 import { handleLeftClick, handleRightClick, handleFoodConsumption, handleUnequipArmor } from '@ts-minecraft/app/frame/stages/interaction-block-handler'
+import { handleFlintAndSteel } from '@ts-minecraft/app/frame/stages/interaction-placement-handler'
+import { handleFarmingInteraction } from '@ts-minecraft/app/frame/stages/interaction-farming-handler'
 
 export const interactionStage = (
-  deps: Pick<FrameHandlerDeps, 'camera' | 'scene' | 'gamePausedRef'>,
+  deps: Pick<FrameHandlerDeps, 'camera' | 'scene' | 'gamePausedRef' | 'respawnPositionRef'>,
   services: Pick<
     FrameHandlerServices,
     | 'debugFeatureFlags'
@@ -41,9 +43,11 @@ export const interactionStage = (
     | 'fishingService'
     | 'redstoneService'
     | 'furnaceService'
+    | 'netherService'
     | 'particleSystem'
     | 'hungerService'
     | 'gameState'
+    | 'timeService'
   >,
   refs: Pick<FrameStageRefs, 'dirtyChunksRef' | 'totalTimeSecsRef' | 'lastPlayerAttackTimeRef'>,
 ): Effect.Effect<void, never> =>
@@ -122,12 +126,19 @@ export const interactionStage = (
           }
 
           if (rightClick) {
-            // Eating takes priority over placing: a right-click holding food
-            // consumes it (independent of any block target). Only fall through
-            // to block placement when nothing was eaten.
+            // Eating takes priority; farming (hoe + seeds) second; portal ignition third;
+            // bed sleep fourth; default block placement last.
             const ate = yield* handleFoodConsumption(services)
             if (!ate) {
-              yield* handleRightClick(services, refs, { targetHit })
+              const farmed = yield* handleFarmingInteraction(services, refs, { targetHit })
+              if (!farmed) {
+                const ignited = selectedHotbarItem._tag === 'Some' && selectedHotbarItem.value === 'FLINT_AND_STEEL'
+                  ? yield* handleFlintAndSteel(services, refs, { targetHit })
+                  : false
+                if (!ignited) {
+                  yield* handleRightClick(services, refs, { targetHit, respawnPositionRef: deps.respawnPositionRef })
+                }
+              }
             }
           }
         }

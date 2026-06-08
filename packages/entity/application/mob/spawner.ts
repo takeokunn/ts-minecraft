@@ -1,5 +1,5 @@
 import { Array as Arr, Effect, Option, Ref } from 'effect'
-import { TimeService } from '@ts-minecraft/game/application/time-service'
+import { TimeServicePort } from '../../domain/ports'
 import { EntityManager } from './entity-manager'
 import { EntityType, type EntityId } from '../../domain/mob/entity'
 import type { Position } from '@ts-minecraft/core'
@@ -35,7 +35,7 @@ export class MobSpawner extends Effect.Service<MobSpawner>()(
   {
     effect: Effect.all([
       EntityManager,
-      TimeService,
+      TimeServicePort,
       Ref.make(0),
       Ref.make(0),
     ], { concurrency: 'unbounded' }).pipe(Effect.map(([entityManager, timeService, spawnFrameRef, spawnCursorRef]) => ({

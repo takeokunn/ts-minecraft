@@ -1,0 +1,15 @@
+{
+  "name": "@ts-minecraft/network",
+  "version": "1.0.0",
+  "type": "module",
+  "private": true,
+  "exports": {
+    ".": "./index.ts",
+    "./*": "./*"
+  },
+  "dependencies": {
+    "@ts-minecraft/core": "workspace:*",
+    "@ts-minecraft/entity": "workspace:*",
+    "effect": "^3.20.0"
+  }
+}

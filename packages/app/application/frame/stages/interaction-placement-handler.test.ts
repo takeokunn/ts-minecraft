@@ -1,0 +1,167 @@
+import { describe, it } from '@effect/vitest'
+import { Effect, HashMap, Option, Ref } from 'effect'
+import { expect, vi } from 'vitest'
+import { CHUNK_SIZE, CHUNK_HEIGHT, blockTypeToIndex } from '@ts-minecraft/core'
+import type { BlockType } from '@ts-minecraft/core'
+import type { Chunk } from '@ts-minecraft/world'
+import { handleFlintAndSteel } from '@ts-minecraft/app/frame/stages/interaction-placement-handler'
+import type { TargetRayHit } from '@ts-minecraft/app/frame/stages/interaction-block-handler'
+
+// ---------------------------------------------------------------------------
+// helpers
+// ---------------------------------------------------------------------------
+
+const makeEmptyChunk = (cx: number, cz: number): Chunk => ({
+  coord: { x: cx, z: cz },
+  blocks: new Uint8Array(CHUNK_SIZE * CHUNK_SIZE * CHUNK_HEIGHT),
+  fluid: Option.none(),
+})
+
+const setChunkBlock = (chunk: Chunk, lx: number, y: number, lz: number, type: BlockType): void => {
+  chunk.blocks[y + lz * CHUNK_HEIGHT + lx * CHUNK_HEIGHT * CHUNK_SIZE] = blockTypeToIndex(type)
+}
+
+// Portal frame: 2-wide × 3-tall, x-axis aligned (fixed z=0).
+// Interior (AIR): x∈{0,1}, y∈{64,65,66}, z=0
+// Frame edges (OBSIDIAN, corners excluded per vanilla):
+//   bottom: (0,63,0),(1,63,0) — chunk (0,0): lx=0,1 y=63 lz=0
+//   top:    (0,67,0),(1,67,0) — chunk (0,0): lx=0,1 y=67 lz=0
+//   right:  (2,64..66,0)       — chunk (0,0): lx=2   y=64-66 lz=0
+//   left:   (−1,64..66,0)      — chunk (−1,0): lx=15 y=64-66 lz=0
+const makePortalChunkMap = (): Map<string, Chunk> => {
+  const c0 = makeEmptyChunk(0, 0)
+  setChunkBlock(c0, 0, 63, 0, 'OBSIDIAN')
+  setChunkBlock(c0, 1, 63, 0, 'OBSIDIAN')
+  setChunkBlock(c0, 0, 67, 0, 'OBSIDIAN')
+  setChunkBlock(c0, 1, 67, 0, 'OBSIDIAN')
+  setChunkBlock(c0, 2, 64, 0, 'OBSIDIAN')
+  setChunkBlock(c0, 2, 65, 0, 'OBSIDIAN')
+  setChunkBlock(c0, 2, 66, 0, 'OBSIDIAN')
+
+  const cNeg1 = makeEmptyChunk(-1, 0)
+  // x=−1 → cx=floor(−1/16)=−1, lx=((−1%16)+16)%16=15
+  setChunkBlock(cNeg1, 15, 64, 0, 'OBSIDIAN')
+  setChunkBlock(cNeg1, 15, 65, 0, 'OBSIDIAN')
+  setChunkBlock(cNeg1, 15, 66, 0, 'OBSIDIAN')
+
+  return new Map([['0,0', c0], ['-1,0', cNeg1]])
+}
+
+// A TargetRayHit on the bottom OBSIDIAN block's top face → ignitionPos = (0,64,0) = interior AIR
+const makePortalHit = (): TargetRayHit => ({
+  blockX: 0,
+  blockY: 63,
+  blockZ: 0,
+  distance: 3,
+  normal: { x: 0, y: 1, z: 0 },
+})
+
+const makeServices = (opts: {
+  forceSetBlockSpy?: ReturnType<typeof vi.fn>
+  registerPortalSpy?: ReturnType<typeof vi.fn>
+  getChunkFn?: (coord: { x: number; z: number }) => Effect.Effect<Chunk, Error>
+} = {}) => {
+  const forceSetBlockSpy = opts.forceSetBlockSpy ?? vi.fn(() => Effect.void)
+  const registerPortalSpy = opts.registerPortalSpy ?? vi.fn(() => Effect.void)
+  return {
+    blockService: { forceSetBlock: forceSetBlockSpy },
+    chunkManagerService: {
+      getChunk: opts.getChunkFn ?? ((_coord) => Effect.succeed(makeEmptyChunk(0, 0))),
+    },
+    netherService: { registerPortal: registerPortalSpy },
+    soundManager: { playEffect: vi.fn(() => Effect.void) },
+    _forceSetBlockSpy: forceSetBlockSpy,
+    _registerPortalSpy: registerPortalSpy,
+  } as unknown as {
+    blockService: { forceSetBlock: ReturnType<typeof vi.fn> }
+    chunkManagerService: { getChunk: (coord: { x: number; z: number }) => Effect.Effect<Chunk, Error> }
+    netherService: { registerPortal: ReturnType<typeof vi.fn> }
+    soundManager: { playEffect: ReturnType<typeof vi.fn> }
+    _forceSetBlockSpy: ReturnType<typeof vi.fn>
+    _registerPortalSpy: ReturnType<typeof vi.fn>
+  }
+}
+
+// ---------------------------------------------------------------------------
+// tests
+// ---------------------------------------------------------------------------
+
+describe('interaction-placement-handler / handleFlintAndSteel', () => {
+  it.effect('returns false immediately when targetHit is none', () =>
+    Effect.gen(function* () {
+      const dirtyChunksRef = yield* Ref.make(HashMap.empty<string, unknown>())
+      const services = makeServices()
+      const result = yield* handleFlintAndSteel(
+        services as never,
+        { dirtyChunksRef } as never,
+        { targetHit: Option.none() },
+      )
+      expect(result).toBe(false)
+    }),
+  )
+
+  it.effect('returns false when target is hit but no valid OBSIDIAN frame surrounds ignition', () =>
+    Effect.gen(function* () {
+      const dirtyChunksRef = yield* Ref.make(HashMap.empty<string, unknown>())
+      const services = makeServices({
+        // All chunks are empty (AIR) — no portal frame
+        getChunkFn: (coord) => Effect.succeed(makeEmptyChunk(coord.x, coord.z)),
+      })
+      const hit: TargetRayHit = { blockX: 10, blockY: 64, blockZ: 10, distance: 3, normal: { x: 0, y: 1, z: 0 } }
+      const result = yield* handleFlintAndSteel(
+        services as never,
+        { dirtyChunksRef } as never,
+        { targetHit: Option.some(hit) },
+      )
+      expect(result).toBe(false)
+    }),
+  )
+
+  it.effect('ignites portal and returns true when a valid 2×3 OBSIDIAN frame is present', () =>
+    Effect.gen(function* () {
+      const dirtyChunksRef = yield* Ref.make(HashMap.empty<string, unknown>())
+      const portalChunks = makePortalChunkMap()
+      const forceSetBlockSpy = vi.fn(() => Effect.void)
+      const registerPortalSpy = vi.fn(() => Effect.void)
+      const services = makeServices({
+        forceSetBlockSpy,
+        registerPortalSpy,
+        getChunkFn: (coord) => {
+          const key = `${coord.x},${coord.z}`
+          const chunk = portalChunks.get(key) ?? makeEmptyChunk(coord.x, coord.z)
+          return Effect.succeed(chunk)
+        },
+      })
+
+      const result = yield* handleFlintAndSteel(
+        services as never,
+        { dirtyChunksRef } as never,
+        { targetHit: Option.some(makePortalHit()) },
+      )
+
+      // 6 interior cells (2 wide × 3 tall) each receive NETHER_PORTAL
+      expect(forceSetBlockSpy).toHaveBeenCalledTimes(6)
+      expect(registerPortalSpy).toHaveBeenCalledOnce()
+      expect(result).toBe(true)
+    }),
+  )
+
+  it.effect('still returns true when forceSetBlock fails (errors are caught per-block)', () =>
+    Effect.gen(function* () {
+      const dirtyChunksRef = yield* Ref.make(HashMap.empty<string, unknown>())
+      const portalChunks = makePortalChunkMap()
+      const services = makeServices({
+        // forceSetBlock always fails — errors are caught individually, should not abort portal
+        forceSetBlockSpy: vi.fn(() => Effect.fail(new Error('chunk error'))),
+        getChunkFn: (coord) => Effect.succeed(portalChunks.get(`${coord.x},${coord.z}`) ?? makeEmptyChunk(coord.x, coord.z)),
+      })
+
+      const result = yield* handleFlintAndSteel(
+        services as never,
+        { dirtyChunksRef } as never,
+        { targetHit: Option.some(makePortalHit()) },
+      )
+      expect(result).toBe(true)
+    }),
+  )
+})

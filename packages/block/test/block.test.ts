@@ -26,16 +26,23 @@ describe('BlockPropertiesSchema', () => {
     expect(result.friction).toBe(0.6)
   })
 
-  it('rejects hardness below 0', () => {
+  it('rejects hardness below -1', () => {
     expect(() =>
-      decode({ hardness: -1, transparency: false, solid: true, emissive: false, friction: 0.5 })
+      decode({ hardness: -2, transparency: false, solid: true, emissive: false, friction: 0.5 })
     ).toThrow()
   })
 
-  it('rejects hardness above 100', () => {
+  it('allows hardness -1 for unbreakable blocks and fractional vanilla hardness', () => {
     expect(() =>
-      decode({ hardness: 101, transparency: false, solid: true, emissive: false, friction: 0.5 })
-    ).toThrow()
+      decode({ hardness: -1, transparency: true, solid: false, emissive: true, friction: 0.0 })
+    ).not.toThrow()
+    expect(decode({ hardness: 0.4, transparency: true, solid: false, emissive: false, friction: 0.6 }).hardness).toBe(0.4)
+  })
+
+  it('allows hardness above 100 (unbreakable blocks like End Portal Frame)', () => {
+    expect(() =>
+      decode({ hardness: 9000, transparency: false, solid: true, emissive: true, friction: 0.6 })
+    ).not.toThrow()
   })
 
   it('rejects friction below 0', () => {

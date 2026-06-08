@@ -151,6 +151,8 @@ export const makeChunkManagerService = (
     markChunkDirty: () => Effect.void,
     saveDirtyChunks: () => Effect.void,
     unloadChunk: () => Effect.void,
+    setActiveWorldId: (_worldId: unknown) => Effect.void,
+    setActiveDimension: (_dim: unknown) => Effect.void,
     ...overrides,
   })
 

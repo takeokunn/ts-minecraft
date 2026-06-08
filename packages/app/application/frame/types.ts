@@ -15,7 +15,7 @@ import { ThirdPersonCameraService } from '@ts-minecraft/entity'
 import { BlockService } from '@ts-minecraft/world'
 import { HotbarService } from '@ts-minecraft/inventory'
 import { ChunkManagerService } from '@ts-minecraft/world'
-import { TimeService } from '@ts-minecraft/game'
+import { TimeService, WeatherService } from '@ts-minecraft/game'
 import {
   SettingsService,
   type ResolvedGraphics,
@@ -39,7 +39,7 @@ import { EntityManager, MobSpawner } from '@ts-minecraft/entity'
 import { VillageService } from '@ts-minecraft/entity'
 import { TradingPresentationService } from '@ts-minecraft/presentation/trading'
 import { RedstoneService } from '@ts-minecraft/entity'
-import { FluidService } from '@ts-minecraft/world'
+import { FluidService, NetherService } from '@ts-minecraft/world'
 import { FurnaceService } from '@ts-minecraft/inventory'
 import type { Chunk } from '@ts-minecraft/world'
 import type { DirtyChunkEntry } from './frame-maintenance'
@@ -53,7 +53,7 @@ export type FrameHandlerDeps = {
   readonly renderer: THREE.WebGLRenderer
   readonly scene: THREE.Scene
   readonly camera: THREE.PerspectiveCamera
-  readonly respawnPosition: Position
+  readonly respawnPositionRef: MutableRef.MutableRef<Position>
   readonly lights: DayNightLights
   readonly fpsElement: Option.Option<HTMLElement>
   readonly healthValueElement: Option.Option<HTMLElement>
@@ -115,6 +115,8 @@ export type FrameHandlerServices = {
   readonly redstoneService: RedstoneService
   readonly fluidService: FluidService
   readonly furnaceService: FurnaceService
+  readonly netherService: NetherService
+  readonly weatherService: WeatherService
   readonly perfHud: PerfHudService
   readonly gameMode: GameModeService
 }
@@ -132,6 +134,10 @@ export type FrameStageRefs = {
   readonly lastArmorRef: MutableRef.MutableRef<{ armorPoints: number }>
   // totalTimeSecs of the player's last melee attack — drives attack-cooldown charge.
   readonly lastPlayerAttackTimeRef: Ref.Ref<number>
+  // Accumulated seconds the player has been standing inside a NETHER_PORTAL block.
+  // Resets to 0 when the player leaves the portal. Dimension travel fires when this
+  // reaches PORTAL_ACTIVATION_SECS (4 seconds — vanilla 80-tick equivalent).
+  readonly portalSecsRef: Ref.Ref<number>
   readonly lastRenderDistanceRef: Ref.Ref<number>
   readonly lastEntityStructureVersionRef: Ref.Ref<number>
   readonly entityPhysicsChunkCacheRef: Ref.Ref<ReadonlyArray<Chunk | null>>

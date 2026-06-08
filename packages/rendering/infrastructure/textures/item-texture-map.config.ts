@@ -60,6 +60,10 @@ export const ITEM_TILE_MAP: Readonly<Record<InventoryItem, number>> = {
   CRAFTING_TABLE: 43,
   FURNACE: 44,
   TORCH: 45,
+  NETHERRACK: 18,     // LAVA tile (reddish — nether placeholder)
+  NETHER_PORTAL: 19,  // OBSIDIAN tile (dark — portal placeholder)
+  FARMLAND: 11,       // GRAVEL tile (earthy placeholder)
+  WHEAT_CROP: 4,      // GRASS_TOP tile (green crop placeholder)
 
   // ItemTypes — dedicated tiles 48+
   STICKS: 48,
@@ -139,4 +143,41 @@ export const ITEM_TILE_MAP: Readonly<Record<InventoryItem, number>> = {
   DIAMOND_CHESTPLATE: 58,
   DIAMOND_LEGGINGS: 58,
   DIAMOND_BOOTS: 58,
+  // Portal ignition tool — IRON_INGOT tile placeholder
+  FLINT_AND_STEEL: 54,
+  // Redstone components — reuse block-side tiles (same as TILE_MAP side face)
+  REDSTONE_WIRE: 38,    // REDSTONE_BLOCK tile (red)
+  REDSTONE_TORCH: 45,   // TORCH tile
+  LEVER: 1,             // STONE tile
+  STONE_BUTTON: 1,      // STONE tile
+  REPEATER: 12,         // COBBLESTONE tile
+  // Furniture
+  BED: 40,              // PLANKS tile (wood-coloured placeholder)
+  // Crafting stations
+  ENCHANTING_TABLE: 39, // EMERALD_BLOCK tile (green/mystical placeholder)
+  // The End dimension
+  END_STONE: 3,         // WOOD tile (pale placeholder)
+  END_PORTAL_FRAME: 39, // EMERALD_BLOCK tile
+  END_PORTAL: 4,        // GRASS_TOP tile (swirling void placeholder)
+  CHORUS_FLOWER: 4,
+  CHORUS_PLANT: 4,
+  DRAGON_EGG: 19,
+  END_CRYSTAL: 39,
+  END_GATEWAY: 4,
+  END_ROD: 45,
+  END_STONE_BRICKS: 1,
+  ENDER_CHEST: 39,
+  PURPUR_BLOCK: 41,
+  PURPUR_PILLAR: 2,
+  PURPUR_SLAB: 41,
+  PURPUR_STAIRS: 41,
+  SHULKER_BOX: 39,
+  CHORUS_FRUIT: 64,
+  DRAGON_BREATH: 61,
+  ELYTRA: 48,
+  ENDER_EYE: 61,
+  POPPED_CHORUS_FRUIT: 65,
+  SHULKER_SHELL: 49,
+  // Explosives
+  TNT: 38,              // REDSTONE_BLOCK tile (red placeholder)
 }

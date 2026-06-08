@@ -1,3 +1,5 @@
+import type { GraphicsQuality, ResolvedGraphics } from './settings.schema'
+
 // Tuning philosophy: typical desktop hardware should hit 60+ FPS at "medium",
 // which is the recommended preset for new users. Bloom and SMAA are full-res
 // post-process passes that compound with shadows; on integrated GPUs they
@@ -48,3 +50,6 @@ export const GRAPHICS_PRESETS = {
     useCompositePass: true, // FR-4.3: bloom + godRays + bokeh merged; ~25MB/frame savings
   },
 } as const
+
+export const resolvePreset = (quality: GraphicsQuality): ResolvedGraphics =>
+  GRAPHICS_PRESETS[quality]

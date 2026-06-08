@@ -216,6 +216,7 @@ export class TerrainWorkerPool extends Effect.Service<TerrainWorkerPool>()(
               seaLevel: options.seaLevel,
               lakeLevel: options.lakeLevel,
               seed: options.seed,
+              dimension: options.dimension ?? 'overworld',
             }
             // No transfer list on the request side — the request payload is
             // tiny structured-cloneable JSON. The worker's response, however,

@@ -40,7 +40,7 @@ describe('application/chunk/chunk-manager-service', () => {
 
       return Effect.gen(function* () {
         const service = yield* ChunkManagerService
-        yield* Effect.sync(() => setActiveChunkWorldId(customWorldId))
+        yield* setActiveChunkWorldId(customWorldId)
 
         yield* service.getChunk({ x: 4, z: 4 })
         yield* service.markChunkDirty({ x: 4, z: 4 })
@@ -51,7 +51,7 @@ describe('application/chunk/chunk-manager-service', () => {
         expect(Option.isSome(customStored)).toBe(true)
         expect(Option.isNone(defaultStored)).toBe(true)
 
-        yield* Effect.sync(() => setActiveChunkWorldId(DEFAULT_WORLD_ID))
+        yield* setActiveChunkWorldId(DEFAULT_WORLD_ID)
       }).pipe(Effect.provide(TestLayer))
     })
     it.effect('is a no-op when chunk is not loaded', () => {

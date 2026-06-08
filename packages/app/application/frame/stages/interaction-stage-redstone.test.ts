@@ -28,10 +28,14 @@ describe('step 7 — redstone dispatch', () => {
     )
     const setComponentSpy = vi.fn(() => Effect.succeed({ type: 'wire', position: { x: 1, y: 64, z: 2 }, state: { active: false, buttonTicksRemaining: 0, pistonExtended: false } }))
     ;(services.redstoneService as { setComponent: unknown }).setComponent = setComponentSpy
+    const forceSetBlockSpy = vi.fn(() => Effect.void)
+    ;(services.blockService as { forceSetBlock: unknown }).forceSetBlock = forceSetBlockSpy
 
     yield* runFrame(deps, services)
 
     expect(setComponentSpy).toHaveBeenCalledWith({ x: 1, y: 64, z: 2 }, 'wire')
+    // Block is now placed in the world so the circuit is visible
+    expect(forceSetBlockSpy).toHaveBeenCalledWith({ x: 1, y: 64, z: 2 }, 'REDSTONE_WIRE')
   }))
 
   it.effect('toggleLever key (KeyY) calls redstoneService.toggleLever', () => Effect.gen(function* () {

@@ -29,7 +29,7 @@ import { GameModeServiceLive } from '@ts-minecraft/game'
 import { InventoryServiceLive } from '@ts-minecraft/inventory'
 import { RecipeServiceLive } from '@ts-minecraft/inventory'
 import { EquipmentServiceLive } from '@ts-minecraft/inventory'
-import { TimeServiceLive } from '@ts-minecraft/game'
+import { TimeServiceLive, WeatherServiceLive } from '@ts-minecraft/game'
 import { AudioEngineLive, AudioEnginePortLive, MusicManagerLive, SoundManagerLive } from '@ts-minecraft/game'
 import { EntityManagerLive, MobSpawnerLive } from '@ts-minecraft/entity'
 
@@ -38,8 +38,9 @@ import { VillageServiceLive } from '@ts-minecraft/entity'
 import { TradingServiceLive } from '@ts-minecraft/entity'
 import { RedstoneServiceLive } from '@ts-minecraft/entity'
 
-// Fluid, furnace, light engine
+// Fluid, furnace, light engine, nether portal
 import { FluidServiceLive } from '@ts-minecraft/world'
+import { NetherService } from '@ts-minecraft/world'
 import { FurnaceServiceLive } from '@ts-minecraft/inventory'
 import { LightEngineLive } from '@ts-minecraft/world'
 
@@ -208,6 +209,12 @@ export const TradingLayer = TradingServiceLive.pipe(
 // Redstone simulation service has no layer dependencies
 export const RedstoneLayer = RedstoneServiceLive
 
+// Nether portal service tracks dimension state and known portal positions
+export const NetherLayer = NetherService.Default
+
+// Weather simulation — tracks clear/rain/thunder transitions
+export const WeatherLayer = WeatherServiceLive
+
 // Top-level bundle re-exported by index.ts
 export const GameLogicLayers = Layer.mergeAll(
   GameLayer,
@@ -222,6 +229,8 @@ export const GameLogicLayers = Layer.mergeAll(
   VillageLayer,
   TradingLayer,
   RedstoneLayer,
+  NetherLayer,
+  WeatherLayer,
   FluidLayer,
   LightEngineLayer,
   MobSpawnerLayer,

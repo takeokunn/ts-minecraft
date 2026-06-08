@@ -18,6 +18,7 @@ export const createTestInputService = (
     ['KeyD', Option.getOrElse(Option.fromNullable(initialState.right), () => false)],
     ['Space', Option.getOrElse(Option.fromNullable(initialState.jump), () => false)],
     ['ControlLeft', Option.getOrElse(Option.fromNullable(initialState.sprint), () => false)],
+    ['ShiftLeft', Option.getOrElse(Option.fromNullable(initialState.sneak), () => false)],
   )
   const justPressedKeys = MutableHashSet.empty<string>()
   if (initialState.jump) {

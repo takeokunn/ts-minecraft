@@ -166,6 +166,8 @@ export const createMockChunkManagerLayer = (overrides: Partial<Pick<ChunkManager
     markChunkDirty: () => Effect.void,
     saveDirtyChunks: () => Effect.void,
     unloadChunk: () => Effect.void,
+    setActiveWorldId: (_worldId: unknown) => Effect.void,
+    setActiveDimension: (_dim: unknown) => Effect.void,
     ...overrides,
   }))
   return { MockChunkManagerLayer }

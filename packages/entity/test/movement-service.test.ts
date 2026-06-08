@@ -8,6 +8,7 @@ import {
   type MovementInput,
   DEFAULT_WALK_SPEED,
   DEFAULT_SPRINT_SPEED,
+  DEFAULT_SNEAK_SPEED,
   DEFAULT_JUMP_VELOCITY,
 } from '@ts-minecraft/entity'
 import { createTestInputService, createTestLayers } from './movement-service-test-utils'
@@ -15,9 +16,10 @@ import { createTestInputService, createTestLayers } from './movement-service-tes
 describe('computeVelocity — pure function', () => {
   const walk = DEFAULT_WALK_SPEED
   const sprint = DEFAULT_SPRINT_SPEED
+  const sneak = DEFAULT_SNEAK_SPEED
   const jump = DEFAULT_JUMP_VELOCITY
 
-  const noInput: MovementInput = { forward: false, backward: false, left: false, right: false, jump: false, sprint: false }
+  const noInput: MovementInput = { forward: false, backward: false, left: false, right: false, jump: false, sprint: false, sneak: false }
 
   const cases: ReadonlyArray<readonly [string, MovementInput, number, boolean, { x: number; y: number; z: number }]> = [
     [
@@ -54,6 +56,20 @@ describe('computeVelocity — pure function', () => {
       0,
       false,
       { x: 0, y: 0, z: -sprint },
+    ],
+    [
+      'sneak forward at yaw=0 → z=-sneakSpeed',
+      { ...noInput, forward: true, sneak: true },
+      0,
+      false,
+      { x: 0, y: 0, z: -sneak },
+    ],
+    [
+      'sneak suppresses sprint → z=-sneakSpeed (vanilla: cannot sprint while sneaking)',
+      { ...noInput, forward: true, sprint: true, sneak: true },
+      0,
+      false,
+      { x: 0, y: 0, z: -sneak },
     ],
     [
       'jump when grounded → y=jumpVelocity',
@@ -107,6 +123,7 @@ describe('MovementService', () => {
         right: false,
         jump: false,
         sprint: false,
+        sneak: false,
       }
       return Effect.gen(function* () {
         const movementService = yield* MovementService
@@ -119,19 +136,24 @@ describe('MovementService', () => {
   })
 
   describe('constants', () => {
-    it('should have default walk speed of 8.0 m/s', () => {
-      expect(DEFAULT_WALK_SPEED).toBe(8.0)
+    it('should have vanilla walk speed of 4.317 b/s', () => {
+      expect(DEFAULT_WALK_SPEED).toBe(4.317)
     })
 
-    it('should have default sprint speed of 14.0 m/s', () => {
-      expect(DEFAULT_SPRINT_SPEED).toBe(14.0)
+    it('should have vanilla sprint speed of 5.612 b/s (walk × 1.3)', () => {
+      expect(DEFAULT_SPRINT_SPEED).toBe(5.612)
+    })
+
+    it('should have vanilla sneak speed of 1.295 b/s (walk × 0.3)', () => {
+      expect(DEFAULT_SNEAK_SPEED).toBe(1.295)
     })
 
     it('should have default jump velocity of 5.0 m/s', () => {
       expect(DEFAULT_JUMP_VELOCITY).toBe(5.0)
     })
 
-    it('sprint speed should be greater than walk speed', () => {
+    it('speed ordering: sneak < walk < sprint', () => {
+      expect(DEFAULT_SNEAK_SPEED).toBeLessThan(DEFAULT_WALK_SPEED)
       expect(DEFAULT_SPRINT_SPEED).toBeGreaterThan(DEFAULT_WALK_SPEED)
     })
   })
@@ -149,6 +171,7 @@ describe('MovementService', () => {
         expect(input.right).toBe(false)
         expect(input.jump).toBe(false)
         expect(input.sprint).toBe(false)
+        expect(input.sneak).toBe(false)
       }).pipe(Effect.provide(MovementServiceLive), Effect.provide(testLayers))
     })
 
@@ -211,6 +234,28 @@ describe('MovementService', () => {
         const movementService = yield* MovementService
         const input = yield* movementService.getInput()
         expect(input.sprint).toBe(true)
+      }).pipe(Effect.provide(MovementServiceLive), Effect.provide(testLayers))
+    })
+
+    it.effect('should return sprint true when ControlRight is pressed', () => {
+      const inputService = createTestInputService()
+      inputService.setKeyPressed('ControlRight', true)
+      const testLayers = createTestLayers(inputService)
+      return Effect.gen(function* () {
+        const movementService = yield* MovementService
+        const input = yield* movementService.getInput()
+        expect(input.sprint).toBe(true)
+      }).pipe(Effect.provide(MovementServiceLive), Effect.provide(testLayers))
+    })
+
+    it.effect('should return sneak true when ShiftLeft is pressed', () => {
+      const inputService = createTestInputService({ sneak: true })
+      const testLayers = createTestLayers(inputService)
+      return Effect.gen(function* () {
+        const movementService = yield* MovementService
+        const input = yield* movementService.getInput()
+        expect(input.sneak).toBe(true)
+        expect(input.sprint).toBe(false)
       }).pipe(Effect.provide(MovementServiceLive), Effect.provide(testLayers))
     })
 

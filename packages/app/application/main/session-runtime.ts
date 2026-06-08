@@ -78,7 +78,7 @@ const assembleFrameHandlerDeps = (p: SessionRuntimeParams): FrameHandlerDeps => 
     renderer: p.renderer,
     scene: p.scene,
     camera: p.camera,
-    respawnPosition: p.defaultRespawnPosition,
+    respawnPositionRef: MutableRef.make(p.defaultRespawnPosition),
     lights: { light, ambientLight, renderer: dayNightRenderer, skyNight, skyDay, skyCurrent, sky: Option.some(skyPort) },
     skyMesh: Option.some(sky),
     fpsElement: Option.fromNullable(p.fpsElement),

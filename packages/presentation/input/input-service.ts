@@ -84,6 +84,17 @@ export class InputService extends Effect.Service<InputService>()(
         e.preventDefault()
       }
 
+      const handlePointerLockChange = () => {
+        if (!(document.pointerLockElement instanceof HTMLCanvasElement)) {
+          MutableRef.set(pointerLockFallbackRef, false)
+        }
+      }
+
+      const handlePointerLockError = () => {
+        MutableRef.set(pointerLockFallbackRef, false)
+        console.warn('Pointer Lock request failed')
+      }
+
         // Register all event listeners and schedule cleanup via finalizer
         const registerListeners = typeof window !== 'undefined' && typeof document !== 'undefined'
           ? Effect.acquireRelease(
@@ -94,6 +105,8 @@ export class InputService extends Effect.Service<InputService>()(
                 document.addEventListener('mousedown', handleMouseDown)
                 document.addEventListener('mouseup', handleMouseUp)
                 document.addEventListener('contextmenu', handleContextMenu)
+                document.addEventListener('pointerlockchange', handlePointerLockChange)
+                document.addEventListener('pointerlockerror', handlePointerLockError)
                 // Wheel event for hotbar cycling; passive:false required to allow preventDefault
                 document.addEventListener('wheel', handleWheel, { passive: false })
               }),
@@ -105,6 +118,8 @@ export class InputService extends Effect.Service<InputService>()(
                   document.removeEventListener('mousedown', handleMouseDown)
                   document.removeEventListener('mouseup', handleMouseUp)
                   document.removeEventListener('contextmenu', handleContextMenu)
+                  document.removeEventListener('pointerlockchange', handlePointerLockChange)
+                  document.removeEventListener('pointerlockerror', handlePointerLockError)
                   document.removeEventListener('wheel', handleWheel)
                 }),
             )

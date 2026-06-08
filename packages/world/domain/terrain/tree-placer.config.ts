@@ -8,6 +8,8 @@ export const ROUND_OAK_TRUNK: TrunkConfig = { baseHeight: 4, heightRange: 3, rng
 export const TALL_BIRCH_TRUNK: TrunkConfig = { baseHeight: 6, heightRange: 3, rngScale: 2.73 }
 export const SPRUCE_TRUNK: TrunkConfig = { baseHeight: 7, heightRange: 4, rngScale: 3.41 }
 export const TALL_CANOPY_TRUNK: TrunkConfig = { baseHeight: 8, heightRange: 3, rngScale: 4.11 }
+// Acacia: short trunk under a broad, flat umbrella crown (savanna signature).
+export const ACACIA_TRUNK: TrunkConfig = { baseHeight: 5, heightRange: 2, rngScale: 2.27 }
 
 // ROUND_OAK: fract(treeRng * scale) > threshold → place single-block tip
 export const ROUND_OAK_TIP_RNG_SCALE = 4.37

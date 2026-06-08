@@ -1,7 +1,7 @@
 import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
 import { Array as Arr, Effect, Either, Layer, MutableRef, Option } from 'effect'
-import { BlockService, BlockServiceLive, BlockServiceError } from '@ts-minecraft/world'
+import { BlockService, BlockServiceLive } from '@ts-minecraft/world'
 import { ChunkManagerService } from '@ts-minecraft/world'
 import { ChunkServiceLive } from '@ts-minecraft/world/application/chunk-service'
 import { FluidService } from '@ts-minecraft/world'

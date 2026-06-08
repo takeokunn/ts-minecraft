@@ -3,9 +3,11 @@ import { DEFAULT_PLAYER_ID } from '@ts-minecraft/core'
 import type { Chunk, ChunkAABB } from '@ts-minecraft/world'
 import { chunkBlockIndexUnchecked } from '@ts-minecraft/world'
 import { DESPAWN_DISTANCE, MOB_HALF_HEIGHT } from '@ts-minecraft/entity'
+import type { Village } from '@ts-minecraft/entity'
 import { CHUNK_HEIGHT, CHUNK_SIZE } from '@ts-minecraft/core'
+import { buildingBlocksForVillage } from './village-builder'
 import { FALLBACK_PLAYER_POS, MAX_DIRTY_CHUNK_UPDATES_PER_FRAME, DIRTY_CHUNK_FLUSH_CONCURRENCY } from '@ts-minecraft/app/frame-handler.config'
-import type { FrameHandlerDeps, FrameHandlerServices } from '@ts-minecraft/app/frame-handler'
+import type { FrameHandlerDeps, FrameHandlerServices } from '@ts-minecraft/app/frame/types'
 import type { DeltaTimeSecs, Position } from '@ts-minecraft/core'
 
 // FR-4.2: dirty chunks queued for re-mesh now carry their accumulated dirty
@@ -23,7 +25,7 @@ type MaintenanceState = {
 
 type MaintenanceServices = Pick<
   FrameHandlerServices,
-  'entityManager' | 'gameState' | 'chunkManagerService' | 'settingsService' | 'worldRendererService' | 'fluidService' | 'blockHighlight' | 'furnaceService' | 'mobSpawner' | 'villageService' | 'timeService' | 'debugFeatureFlags'
+  'entityManager' | 'gameState' | 'chunkManagerService' | 'settingsService' | 'worldRendererService' | 'fluidService' | 'blockHighlight' | 'furnaceService' | 'mobSpawner' | 'villageService' | 'timeService' | 'debugFeatureFlags' | 'blockService'
 >
 
 const resolveTerrainSpawnPosition = (
@@ -91,6 +93,7 @@ export const createMaintenanceHandler = (
         villageService,
         timeService,
         debugFeatureFlags,
+        blockService,
       } = services
 
       const playerPos = yield* gameState.getPlayerPosition(DEFAULT_PLAYER_ID).pipe(
@@ -151,9 +154,29 @@ export const createMaintenanceHandler = (
           )
         : Option.none()
       if (villageEnabled) {
+        const villagesBefore = yield* villageService.getVillages()
+        const villageIdsBefore = new Set(villagesBefore.map((v: Village) => v.villageId))
         yield* villageService.update(playerPos, timeOfDay, maintenanceDeltaTime).pipe(
           Effect.catchAllCause((cause) => Effect.logError(`Village system error: ${Cause.pretty(cause)}`)),
         )
+        const villagesAfter = yield* villageService.getVillages()
+        const newVillages = villagesAfter.filter((v: Village) => !villageIdsBefore.has(v.villageId))
+        if (newVillages.length > 0) {
+          yield* Effect.forEach(
+            newVillages,
+            (village: Village) => {
+              const placements = buildingBlocksForVillage(village.structures)
+              return Effect.forEach(
+                placements,
+                ({ position, blockType }) => blockService.forceSetBlock(position, blockType).pipe(
+                  Effect.catchAll(() => Effect.void),
+                ),
+                { concurrency: 'unbounded', discard: true },
+              )
+            },
+            { concurrency: 'unbounded', discard: true },
+          ).pipe(Effect.catchAllCause(() => Effect.void))
+        }
       }
 
       const chunkSyncPending = MutableRef.get(state.chunkSyncPendingRef)

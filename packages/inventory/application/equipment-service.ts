@@ -1,12 +1,14 @@
-import { Array as Arr, Effect, Option, Ref } from 'effect'
+import { Array as Arr, Effect, Option, Ref, identity } from 'effect'
 import type { InventoryItem } from '@ts-minecraft/core'
 import { isArmorItem, getArmorSlot, computeTotalArmorPoints, type ArmorSlot } from '../domain/armor'
+import { type ItemStack, createStack } from '../domain/item-stack'
+import { getProtectionDamageReduction } from '../domain/enchantment'
 
 type EquipmentSlots = {
-  readonly HELMET: Option.Option<InventoryItem>
-  readonly CHESTPLATE: Option.Option<InventoryItem>
-  readonly LEGGINGS: Option.Option<InventoryItem>
-  readonly BOOTS: Option.Option<InventoryItem>
+  readonly HELMET: Option.Option<ItemStack>
+  readonly CHESTPLATE: Option.Option<ItemStack>
+  readonly LEGGINGS: Option.Option<ItemStack>
+  readonly BOOTS: Option.Option<ItemStack>
 }
 
 const emptySlots = (): EquipmentSlots => ({
@@ -21,23 +23,23 @@ export class EquipmentService extends Effect.Service<EquipmentService>()(
   {
     effect: Ref.make(emptySlots()).pipe(Effect.map((slotsRef) => ({
       // Returns true if the item was armor and was equipped; false otherwise.
-      equip: (item: InventoryItem): Effect.Effect<boolean, never> =>
-        Effect.gen(function* () {
-          const slotOpt = getArmorSlot(item)
-          if (Option.isNone(slotOpt)) return false
-          const slot = slotOpt.value
-          yield* Ref.update(slotsRef, (slots): EquipmentSlots => ({ ...slots, [slot]: Option.some(item) }))
-          return true
+      equip: (stack: ItemStack): Effect.Effect<boolean, never> =>
+        Option.match(getArmorSlot(stack.itemType), {
+          onNone: () => Effect.succeed(false),
+          onSome: (slot) =>
+            Ref.update(slotsRef, (slots): EquipmentSlots => ({ ...slots, [slot]: Option.some(stack) })).pipe(
+              Effect.as(true),
+            ),
         }),
 
-      // Removes and returns the item in the given slot (none if already empty).
-      unequipSlot: (slot: ArmorSlot): Effect.Effect<Option.Option<InventoryItem>, never> =>
-        Ref.modify(slotsRef, (slots): [Option.Option<InventoryItem>, EquipmentSlots] => [
+      // Removes and returns the stack in the given slot (none if already empty).
+      unequipSlot: (slot: ArmorSlot): Effect.Effect<Option.Option<ItemStack>, never> =>
+        Ref.modify(slotsRef, (slots): [Option.Option<ItemStack>, EquipmentSlots] => [
           slots[slot],
-          { ...slots, [slot]: Option.none<InventoryItem>() },
+          { ...slots, [slot]: Option.none<ItemStack>() },
         ]),
 
-      getEquippedItem: (slot: ArmorSlot): Effect.Effect<Option.Option<InventoryItem>, never> =>
+      getEquippedItem: (slot: ArmorSlot): Effect.Effect<Option.Option<ItemStack>, never> =>
         Ref.get(slotsRef).pipe(Effect.map((slots) => slots[slot])),
 
       getAll: (): Effect.Effect<EquipmentSlots, never> =>
@@ -47,23 +49,42 @@ export class EquipmentService extends Effect.Service<EquipmentService>()(
       getTotalArmorPoints: (): Effect.Effect<number, never> =>
         Ref.get(slotsRef).pipe(
           Effect.map((slots) => {
-            const worn = Arr.filter(
+            const worn = Arr.filterMap(
               [slots.HELMET, slots.CHESTPLATE, slots.LEGGINGS, slots.BOOTS],
-              Option.isSome,
-            ).map((s) => s.value)
-            return computeTotalArmorPoints(worn)
+              identity,
+            )
+            return computeTotalArmorPoints(worn.map((s) => s.itemType))
+          }),
+        ),
+
+      // Total damage reduction from Protection enchantments across all worn armor pieces.
+      // Additive per piece, capped at 64% total (vanilla-like simplification).
+      getTotalProtectionReduction: (): Effect.Effect<number, never> =>
+        Ref.get(slotsRef).pipe(
+          Effect.map((slots) => {
+            const worn = Arr.filterMap(
+              [slots.HELMET, slots.CHESTPLATE, slots.LEGGINGS, slots.BOOTS],
+              identity,
+            )
+            const total = worn.reduce((acc, stack) => {
+              const protection = (stack.enchantments ?? []).find((e) => e.type === 'PROTECTION')
+              return acc + (protection ? getProtectionDamageReduction(protection.level) : 0)
+            }, 0)
+            return Math.min(total, 0.64)
           }),
         ),
 
       serialize: (): Effect.Effect<Partial<Record<ArmorSlot, InventoryItem>>, never> =>
         Ref.get(slotsRef).pipe(
           Effect.map((slots): Partial<Record<ArmorSlot, InventoryItem>> => {
-            const result: Partial<Record<ArmorSlot, InventoryItem>> = {}
-            const entries = Object.entries(slots) as Array<[ArmorSlot, Option.Option<InventoryItem>]>
-            for (const [slot, item] of entries) {
-              if (Option.isSome(item)) result[slot] = item.value
-            }
-            return result
+            const entries = Object.entries(slots) as Array<[ArmorSlot, Option.Option<ItemStack>]>
+            return entries.reduce<Partial<Record<ArmorSlot, InventoryItem>>>((result, [slot, stackOpt]) =>
+              Option.match(stackOpt, {
+                onNone: () => result,
+                onSome: (s) => ({ ...result, [slot]: s.itemType }),
+              }),
+              {},
+            )
           }),
         ),
 
@@ -71,7 +92,13 @@ export class EquipmentService extends Effect.Service<EquipmentService>()(
         Ref.update(slotsRef, (slots): EquipmentSlots => ({
           ...slots,
           ...Object.fromEntries(
-            Object.entries(saved).map(([slot, item]) => [slot, Option.fromNullable(item as InventoryItem)]),
+            Object.entries(saved).map(([slot, item]) => [
+              slot,
+              Option.map(
+                Option.fromNullable(item as InventoryItem),
+                (i) => createStack(i, 1),
+              ),
+            ]),
           ),
         })),
 

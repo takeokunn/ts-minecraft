@@ -1,7 +1,8 @@
 import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
 import { Either, Schema } from 'effect'
-import { clamp01, clampPan, OscillatorWaveSchema, ToneHandleSchema } from '../domain/audio-types'
+import { clamp01, clampPan } from '../domain/audio-utils'
+import { OscillatorWaveSchema, ToneHandleSchema, ToneRequestSchema } from '../domain/audio-types'
 
 describe('clamp01', () => {
   it('returns 0 when input is 0', () => {
@@ -92,5 +93,43 @@ describe('ToneHandleSchema', () => {
 
   it('rejects { id: 1.5 } (int constraint)', () => {
     expect(Either.isLeft(decode({ id: 1.5 }))).toBe(true)
+  })
+})
+
+describe('ToneRequestSchema', () => {
+  const decode = Schema.decodeUnknownEither(ToneRequestSchema)
+  const baseRequest = {
+    frequency: 440,
+    durationMs: 100,
+    gain: 0.5,
+    wave: 'sine',
+    loop: false,
+  }
+
+  it('defaults pan to 0 when omitted for backward compatible centered playback', () => {
+    const result = decode(baseRequest)
+    expect(Either.isRight(result)).toBe(true)
+    if (Either.isRight(result)) {
+      expect(result.right.pan).toBe(0)
+    }
+  })
+
+  it('accepts optional 3D position coordinates', () => {
+    const result = decode({
+      ...baseRequest,
+      pan: 0.25,
+      position: { x: 3, y: -2, z: 8 },
+    })
+    expect(Either.isRight(result)).toBe(true)
+    if (Either.isRight(result)) {
+      expect(result.right.position).toEqual({ x: 3, y: -2, z: 8 })
+    }
+  })
+
+  it('rejects non-finite 3D position coordinates', () => {
+    expect(Either.isLeft(decode({
+      ...baseRequest,
+      position: { x: Number.POSITIVE_INFINITY, y: 0, z: 0 },
+    }))).toBe(true)
   })
 })

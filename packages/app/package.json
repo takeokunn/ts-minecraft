@@ -16,6 +16,8 @@
     "@ts-minecraft/game": "workspace:*",
     "@ts-minecraft/rendering": "workspace:*",
     "@ts-minecraft/presentation": "workspace:*",
-    "@ts-minecraft/worker": "workspace:*"
+    "@ts-minecraft/worker": "workspace:*",
+    "effect": "^3.20.0",
+    "three": "^0.170.0"
   }
 }

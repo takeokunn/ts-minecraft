@@ -67,6 +67,31 @@ describe('application/xp-service', () => {
     )
   })
 
+  describe('spendLevels', () => {
+    it.effect('reduces level and resets XP within that level', () =>
+      Effect.gen(function* () {
+        const svc = yield* XPService
+        // Add enough XP to reach level 5 (requires 55 total XP)
+        yield* svc.setTotalXP(55)
+        const after = yield* svc.spendLevels(3)
+        // After spending 3 levels, should be at level 2 (5 - 3)
+        expect(after.level).toBe(2)
+        // Total XP should be the XP at start of level 2
+        expect(after.totalXP).toBe(16)
+      }).pipe(Effect.provide(TestLayer))
+    )
+
+    it.effect('clamps to level 0 when spending more levels than available', () =>
+      Effect.gen(function* () {
+        const svc = yield* XPService
+        yield* svc.addXP(7) // level 1
+        const after = yield* svc.spendLevels(5)
+        expect(after.level).toBe(0)
+        expect(after.totalXP).toBe(0)
+      }).pipe(Effect.provide(TestLayer))
+    )
+  })
+
   describe('reset', () => {
     it.effect('resets XP back to initial state', () =>
       Effect.gen(function* () {

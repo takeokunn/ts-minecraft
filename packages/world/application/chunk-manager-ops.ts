@@ -26,6 +26,7 @@ import { chunkCoordToWorldKey } from '../domain/chunk-coord-utils'
 import type { ChunkManagerError } from './chunk-manager-constants'
 import { storedChunkPayload, type ChunkCacheEntry, type ChunkCache } from './chunk-manager-cache'
 import type { LightEngineService, LightGrids } from './light-engine-service'
+import type { Dimension } from '../domain/nether/nether-travel'
 
 // ---------------------------------------------------------------------------
 // Types shared by helpers
@@ -33,6 +34,7 @@ import type { LightEngineService, LightGrids } from './light-engine-service'
 
 export type ChunkOpsContext = {
   worldIdRef: Ref.Ref<WorldId>
+  dimensionRef: Ref.Ref<Dimension>
   cache: Ref.Ref<ChunkCache>
   cachedLoadedChunksRef: Ref.Ref<Option.Option<ReadonlyArray<Chunk>>>
   maxCachedChunksRef: Ref.Ref<number>
@@ -148,8 +150,9 @@ export const getChunk = (
     const generateAndInsert = (): Effect.Effect<Chunk, ChunkManagerError> =>
       Effect.gen(function* () {
         const seed = yield* ctx.noiseService.getSeed
+        const dimension = yield* Ref.get(ctx.dimensionRef)
         const generated = yield* ctx.terrainPool
-          .generateTerrain(coord, { seaLevel: SEA_LEVEL, lakeLevel: LAKE_LEVEL, seed })
+          .generateTerrain(coord, { seaLevel: SEA_LEVEL, lakeLevel: LAKE_LEVEL, seed, dimension })
           .pipe(
             Effect.mapError(
               (err: TerrainGenerationError) =>

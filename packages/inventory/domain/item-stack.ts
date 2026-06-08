@@ -1,14 +1,27 @@
 import { Option, Schema } from 'effect'
 import { InventoryItem, InventoryItemSchema } from '@ts-minecraft/core'
 import { isDurable, getMaxDurability, damageDurability, isBroken, TOOL_MAX_DURABILITY } from './durability'
+import type { Enchantment } from './enchantment.types'
+import { EnchantmentSchema } from './enchantment.types'
 
 export class ItemStack extends Schema.Class<ItemStack>('ItemStack')({
   itemType: InventoryItemSchema,
   count: Schema.Number.pipe(Schema.int(), Schema.between(1, 64)),
-  // Remaining durability for tool/weapon instances (Phase 12). Optional so non-tools
-  // (and existing `new ItemStack({itemType, count})` call sites) stay valid.
   durability: Schema.optional(Schema.Number.pipe(Schema.int(), Schema.nonNegative())),
+  enchantments: Schema.optional(Schema.Array(EnchantmentSchema)),
 }) {}
+
+// Apply one enchantment to a stack, replacing any existing one of the same type.
+export const enchantItem = (stack: ItemStack, enchantment: Enchantment): ItemStack =>
+  new ItemStack({
+    itemType: stack.itemType,
+    count: stack.count,
+    durability: stack.durability,
+    enchantments: [
+      ...(stack.enchantments ?? []).filter((e) => e.type !== enchantment.type),
+      enchantment,
+    ],
+  })
 
 export const MAX_STACK_SIZE = 64
 
@@ -30,13 +43,13 @@ export const createStack = (itemType: InventoryItem, count = 1): ItemStack => {
 }
 
 export const addToStack = (stack: ItemStack, n: number): ItemStack =>
-  new ItemStack({ itemType: stack.itemType, count: Math.min(maxStackFor(stack.itemType), stack.count + n), durability: stack.durability })
+  new ItemStack({ itemType: stack.itemType, count: Math.min(maxStackFor(stack.itemType), stack.count + n), durability: stack.durability, enchantments: stack.enchantments })
 
 // Returns Option.none() when the stack is depleted.
 export const removeFromStack = (stack: ItemStack, n: number): Option.Option<ItemStack> => {
   const newCount = stack.count - n
   if (newCount <= 0) return Option.none()
-  return Option.some(new ItemStack({ itemType: stack.itemType, count: newCount, durability: stack.durability }))
+  return Option.some(new ItemStack({ itemType: stack.itemType, count: newCount, durability: stack.durability, enchantments: stack.enchantments }))
 }
 
 // Two stacks may only merge when they share an item type AND neither is a durable
@@ -53,9 +66,9 @@ export const mergeStacks = (
   const space = maxStackFor(a.itemType) - a.count
   if (space <= 0) return [a, Option.some(b)]
   const transferred = Math.min(space, b.count)
-  const newA = new ItemStack({ itemType: a.itemType, count: a.count + transferred, durability: a.durability })
+  const newA = new ItemStack({ itemType: a.itemType, count: a.count + transferred, durability: a.durability, enchantments: a.enchantments })
   const remaining = b.count - transferred
-  const newB = remaining > 0 ? Option.some(new ItemStack({ itemType: b.itemType, count: remaining, durability: b.durability })) : Option.none<ItemStack>()
+  const newB = remaining > 0 ? Option.some(new ItemStack({ itemType: b.itemType, count: remaining, durability: b.durability, enchantments: b.enchantments })) : Option.none<ItemStack>()
   return [newA, newB]
 }
 
@@ -66,5 +79,5 @@ export const damageStack = (stack: ItemStack, amount = 1): Option.Option<ItemSta
   if (!isDurable(stack.itemType) || stack.durability === undefined) return Option.some(stack)
   const next = damageDurability(stack.durability, amount)
   if (isBroken(next)) return Option.none()
-  return Option.some(new ItemStack({ itemType: stack.itemType, count: stack.count, durability: next }))
+  return Option.some(new ItemStack({ itemType: stack.itemType, count: stack.count, durability: next, enchantments: stack.enchantments }))
 }

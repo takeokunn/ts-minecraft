@@ -1,4 +1,5 @@
 export { FPSCounterService, FPSCounterStateSchema } from './fps-counter'
+export * from './ending-credits'
 export * from './highlight'
 export * from './hud'
 export * from './input'
