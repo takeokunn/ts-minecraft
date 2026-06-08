@@ -64,7 +64,7 @@ const applyWaterDrag = (
 export class GameStateService extends Effect.Service<GameStateService>()(
   '@minecraft/application/GameStateService',
   {
-    effect: Effect.all([
+    effect: Effect.suspend(() => Effect.all([
       PlayerService,
       PhysicsService,
       MovementService,
@@ -247,7 +247,7 @@ export class GameStateService extends Effect.Service<GameStateService>()(
         isPlayerGrounded: (): Effect.Effect<boolean, never> =>
           Ref.get(isGroundedRef),
       }
-    })),
+    }))),
   }
 ) {}
 export const GameStateServiceLive = GameStateService.Default

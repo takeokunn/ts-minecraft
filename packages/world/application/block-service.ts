@@ -42,7 +42,7 @@ export class BlockServiceError extends Data.TaggedError('BlockServiceError')<{
 export class BlockService extends Effect.Service<BlockService>()(
   '@minecraft/application/BlockService',
   {
-    effect: Effect.all([
+    effect: Effect.suspend(() => Effect.all([
       ChunkManagerService,
       ChunkService,
       FluidService,
@@ -232,7 +232,7 @@ export class BlockService extends Effect.Service<BlockService>()(
             yield* chunkManagerService.markChunkDirty(chunkCoord, [{ lx, y, lz }])
           }),
       }))
-    ),
+    )),
   }
 ) {}
 export const BlockServiceLive = BlockService.Default

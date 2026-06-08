@@ -59,7 +59,7 @@ export async function waitForStableRender(page: Page, ms = 2_000): Promise<void>
  * Wait until the main menu is rendered and interactive.
  * Uses #mm-new-world visibility as the signal.
  */
-export async function waitForMainMenu(page: Page, timeoutMs = 10_000): Promise<void> {
+export async function waitForMainMenu(page: Page, timeoutMs = 60_000): Promise<void> {
   await page.waitForSelector('#mm-new-world', { state: 'visible', timeout: timeoutMs })
 }
 

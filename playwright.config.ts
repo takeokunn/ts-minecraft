@@ -49,7 +49,7 @@ export default defineConfig({
   ],
 
   webServer: {
-    command: 'pnpm dev --port 5180 --strictPort',
+    command: 'npx pnpm dev --port 5180 --strictPort',
     url: 'http://localhost:5180',
     reuseExistingServer: !process.env['CI'],
     timeout: 60_000,

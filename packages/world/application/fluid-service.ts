@@ -22,11 +22,10 @@ export { resolveContact } from '../domain/fluid-contact'
 export class FluidService extends Effect.Service<FluidService>()(
   '@minecraft/application/FluidService',
   {
-    effect: Effect.all([
-      ChunkManagerService,
-      Ref.make<FluidState>(INITIAL_STATE),
-      Ref.make<HashMap.HashMap<ChunkCacheKey, Chunk>>(HashMap.empty()),
-    ], { concurrency: 'unbounded' }).pipe(Effect.map(([chunkManagerService, stateRef, loadedCacheRef]) => {
+    effect: Effect.gen(function* () {
+      const chunkManagerService = yield* ChunkManagerService
+      const stateRef = yield* Ref.make<FluidState>(INITIAL_STATE)
+      const loadedCacheRef = yield* Ref.make<HashMap.HashMap<ChunkCacheKey, Chunk>>(HashMap.empty())
 
       const isAirAt = (loaded: HashMap.HashMap<ChunkCacheKey, Chunk>, position: Position): boolean =>
         Option.match(HashMap.get(loaded, ChunkCacheKey.make(chunkCoordsForPosition(position))), {
@@ -313,7 +312,7 @@ export class FluidService extends Effect.Service<FluidService>()(
             yield* Ref.set(stateRef, yield* Ref.get(tickStateRef))
           }),
       }
-    })),
+    }),
   }
 ) {}
 
