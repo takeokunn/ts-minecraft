@@ -174,4 +174,27 @@ describe('mob definitions', () => {
       }
     })
   })
+
+  describe('speed guard — stationary mobs', () => {
+    // Stationary mobs are legitimately speed=0 (e.g. Shulkers don't walk).
+    // The schema uses nonNegative() to permit this, but non-stationary
+    // mobs MUST have positive speed. This test enforces that invariant.
+    const STATIONARY_MOBS: ReadonlyArray<EntityType> = [EntityType.Shulker]
+
+    it('Shulker (stationary) has speed=0', () => {
+      expect(getMobDefinition(EntityType.Shulker).speed).toBe(0)
+    })
+
+    it('all non-stationary mobs have positive speed', () => {
+      const stationarySet = new Set(STATIONARY_MOBS)
+      for (const type of Object.values(EntityType)) {
+        if (stationarySet.has(type)) continue
+        const def = getMobDefinition(type)
+        expect(
+          def.speed,
+          `${type} is not marked stationary — expected positive speed, got ${def.speed}`,
+        ).toBeGreaterThan(0)
+      }
+    })
+  })
 })

@@ -19,9 +19,9 @@ describe('MobDefinitions — data integrity', () => {
     })
   })
 
-  it('every mob speed is positive', () => {
+  it('every mob speed is non-negative', () => {
     Arr.forEach(allEntityTypes, (type) => {
-      expect(MobDefinitions[type].speed).toBeGreaterThan(0)
+      expect(MobDefinitions[type].speed).toBeGreaterThanOrEqual(0)
     })
   })
 

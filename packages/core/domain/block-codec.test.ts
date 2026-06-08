@@ -26,8 +26,8 @@ describe('block-codec', () => {
       expect(INDEX_TO_BLOCK_TYPE.length).toBe(new Set(INDEX_TO_BLOCK_TYPE).size)
     })
 
-    it('has exactly 44 entries (world-placeable blocks only, no inventory items)', () => {
-      expect(INDEX_TO_BLOCK_TYPE.length).toBe(44)
+    it('has exactly 72 entries (world-placeable blocks including nether, farming, redstone, furniture, crafting stations, End dimension, and End expansion)', () => {
+      expect(INDEX_TO_BLOCK_TYPE.length).toBe(72)
     })
 
     it('PLANKS is at index 40', () => {
@@ -44,6 +44,14 @@ describe('block-codec', () => {
 
     it('TORCH is at index 43', () => {
       expect(INDEX_TO_BLOCK_TYPE[43]).toBe('TORCH')
+    })
+
+    it('REDSTONE_WIRE is at index 48', () => {
+      expect(INDEX_TO_BLOCK_TYPE[48]).toBe('REDSTONE_WIRE')
+    })
+
+    it('REPEATER is at index 52', () => {
+      expect(INDEX_TO_BLOCK_TYPE[52]).toBe('REPEATER')
     })
 
     it('does not contain inventory-only items', () => {

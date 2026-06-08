@@ -13,7 +13,8 @@ export const MobDefinitionSchema = Schema.Struct({
   behavior: MobBehaviorSchema,
   maxHealth: Schema.Number.pipe(Schema.finite(), Schema.positive()),
   attackDamage: Schema.Number.pipe(Schema.finite(), Schema.nonNegative()),
-  speed: Schema.Number.pipe(Schema.finite(), Schema.positive()),
+  // Stationary mobs (e.g. Shulker) legitimately have speed 0.
+  speed: Schema.Number.pipe(Schema.finite(), Schema.nonNegative()),
   detectionRange: Schema.Number.pipe(Schema.finite(), Schema.positive()),
   // Passive mobs do not attack, so attackRange is legitimately 0 (matching
   // attackDamage). nonNegative — not positive — to admit those definitions.
