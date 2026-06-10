@@ -251,3 +251,11 @@ Confirmed new issues (not covered in earlier rounds):
   intermediate variable. _(done 2026-06-10)_
 - [x] R15. `spawn-selection.ts` — **already wired**. `session.ts:166` calls `buildSpawnSelection` which
   delegates to `selectSurfaceSpawn`. Audit agent misread untracked file status as "no call sites". _(verified 2026-06-10, no change needed)_
+- [x] R16. `interaction-placement-handler.ts:42-45` — dead-code TODO stub (`hitBlockType = indexToBlockType(0)`,
+  empty `if` block). The actual TNT/block-type lookup already exists at line 53 via async chunk fetch.
+  Removed the stub. _(done 2026-06-10)_
+- [x] R17. Network package test coverage — **already adequate**. `schemas.test.ts` has `it.each` round-trip
+  tests for all 9 message types; infrastructure layer (browser/Node WebSocket) is intentionally in
+  `.skip` (requires real WebSocket env). 35 tests / 3 files = well-targeted, not a real gap. _(verified 2026-06-10)_
+
+**Round 6 complete.** All 4 commits: typecheck 0 errors, 4475 tests passing.

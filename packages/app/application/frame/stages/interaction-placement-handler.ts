@@ -39,10 +39,6 @@ export const handleFlintAndSteel = (
   Option.match(context.targetHit, {
     onNone: () => Effect.succeed(false),
     onSome: (hit) => {
-      const hitBlockType = indexToBlockType(0) // TODO: resolve actual block type at hit position via chunk lookup
-      if (hitBlockType !== 'AIR') {
-        // FUTURE: TNT ignition logic — check targeted block type via async chunk lookup
-      }
       const tntPos = { x: hit.blockX, y: hit.blockY, z: hit.blockZ }
       const tntChunkCoord = { x: Math.floor(tntPos.x / CHUNK_SIZE), z: Math.floor(tntPos.z / CHUNK_SIZE) }
       return services.chunkManagerService.getChunk(tntChunkCoord).pipe(
