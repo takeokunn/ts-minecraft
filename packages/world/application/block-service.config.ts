@@ -108,13 +108,14 @@ export const INVENTORY_DROP_OVERRIDES: HashMap.HashMap<BlockType, InventoryItem>
   ['DEEPSLATE_LAPIS_ORE', 'LAPIS_LAZULI'],
   ['EMERALD_ORE', 'EMERALD'],
   ['DEEPSLATE_EMERALD_ORE', 'EMERALD'],
+  ['GRASS', 'DIRT'],
   ['FARMLAND', 'DIRT'],
   // Unripe crops drop seeds; ripe crops get a bonus WHEAT added by the interaction handler
   // after querying CropGrowthService.harvest(). Unknown/village crops default to ripe.
   ['WHEAT_CROP', 'WHEAT_SEEDS'],
-  // Redstone components drop REDSTONE_DUST when broken
+  // REDSTONE_WIRE (flat cable on ground) drops REDSTONE_DUST when broken.
+  // REDSTONE_TORCH drops itself (you can place it again) — no override needed.
   ['REDSTONE_WIRE', 'REDSTONE_DUST'],
-  ['REDSTONE_TORCH', 'REDSTONE_DUST'],
 ])
 
 export const getInventoryDropForBlock = (blockType: BlockType): InventoryItem =>
