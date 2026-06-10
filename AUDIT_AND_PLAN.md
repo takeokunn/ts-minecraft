@@ -136,7 +136,12 @@ always-runs hot-path cleanup over dormant-MP wiring.
   - [x] R2b. Physics — spectator forces always-fly + noclip (skip block collision) + ignores water in game-state-service. _(done 2026-06-10)_
   - [x] R2c. Immunity + no-interaction — spectator immune to all damage (tryApplyPlayerDamage gate) + click block (break/place/attack/redstone) disabled. _(done 2026-06-10)_
   - [x] R2d. Menu — 3-way game-mode cycle survival→creative→spectator + `gameModeLabel` helper (button + world badge). _(done 2026-06-10)_
-- [ ] R3. Enchanting-table UI — logic exists (`inventory/domain/enchantment.ts`), no UI. (FR.)
+- [x] R3. Enchanting feedback — added a distinct `enchant` sound cue so the (silent) deterministic
+  enchant gives clear audible confirmation. **Full selection-overlay DESCOPED**: the enchant is
+  deterministic (`selectEnchantment` returns exactly one result, no player choice), so a vanilla
+  3-offer chooser doesn't fit the mechanic — it would require redesigning enchanting. A proper
+  confirmation toast needs a new ToastService threaded through a deep handler (~6-8 files),
+  disproportionate for Round-2 polish. Delivered the contained, pattern-following feedback win instead. _(done 2026-06-10)_
 - [ ] R4. (Low real-world value — MP dormant) Wire `RemotePlayerRenderer` into the frame
   loop so remote players render IF multiplayer is later enabled.
 

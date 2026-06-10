@@ -1,7 +1,7 @@
 import { Schema } from 'effect'
 import { SOUND_LIBRARY } from './sound-manager.config'
 
-export const SoundEffectSchema = Schema.Literal('blockBreak', 'blockPlace', 'playerHurt', 'entityHit', 'mobHurt', 'mobDeath')
+export const SoundEffectSchema = Schema.Literal('blockBreak', 'blockPlace', 'playerHurt', 'entityHit', 'mobHurt', 'mobDeath', 'enchant')
 export type SoundEffect = Schema.Schema.Type<typeof SoundEffectSchema>
 
 // Bidirectional lockstep between the schema union and the synth table. The

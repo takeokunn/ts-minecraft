@@ -19,6 +19,9 @@ export const SOUND_LIBRARY = {
   // "block". Only player-kills vocalize (burn/environmental deaths stay silent).
   mobHurt: { frequency: 200, durationMs: 110, wave: 'sawtooth' as OscillatorWave, baseGain: 0.42 },
   mobDeath: { frequency: 90, durationMs: 220, wave: 'sawtooth' as OscillatorWave, baseGain: 0.5 },
+  // Enchanting confirmation: a bright, longer triangle chime — reads as "magical
+  // success", clearly distinct from the dull blockPlace tick it replaces.
+  enchant: { frequency: 660, durationMs: 200, wave: 'triangle' as OscillatorWave, baseGain: 0.34 },
 } satisfies Record<string, SoundDefinition>
 
 export const DEFAULT_LISTENER_POSITION = { x: 0, y: 64, z: 0 }

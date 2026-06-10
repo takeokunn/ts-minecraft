@@ -202,7 +202,9 @@ const handleEnchantingTable = (
       [
         services.inventoryService.setSlot(slotIndex, Option.some(enchanted)),
         services.xpService.spendLevels(cost),
-        services.soundManager.playEffect('blockPlace', { position: tablePos }),
+        // Distinct enchant chime (R3) so the deterministic enchant gives clear
+        // audible feedback instead of the generic block-place tick.
+        services.soundManager.playEffect('enchant', { position: tablePos }),
       ],
       { concurrency: 'unbounded', discard: true },
     )
