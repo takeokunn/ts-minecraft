@@ -8,15 +8,16 @@
     "./*": "./*"
   },
   "dependencies": {
-    "@ts-minecraft/core": "workspace:*",
     "@ts-minecraft/block": "workspace:*",
+    "@ts-minecraft/core": "workspace:*",
     "@ts-minecraft/entity": "workspace:*",
-    "@ts-minecraft/inventory": "workspace:*",
-    "@ts-minecraft/world": "workspace:*",
     "@ts-minecraft/game": "workspace:*",
-    "@ts-minecraft/rendering": "workspace:*",
+    "@ts-minecraft/inventory": "workspace:*",
+    "@ts-minecraft/network": "workspace:*",
     "@ts-minecraft/presentation": "workspace:*",
+    "@ts-minecraft/rendering": "workspace:*",
     "@ts-minecraft/worker": "workspace:*",
+    "@ts-minecraft/world": "workspace:*",
     "effect": "^3.20.0",
     "three": "^0.170.0"
   }

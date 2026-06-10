@@ -4,9 +4,9 @@ import { ChunkManagerService } from '@ts-minecraft/world'
 import { NoiseService } from '@ts-minecraft/world'
 import { GameModeService, type GameMode } from '@ts-minecraft/game'
 import { StorageService, type WorldMetadata } from '@ts-minecraft/world'
-import { CHUNK_HEIGHT, CHUNK_SIZE, blockIndex, blockTypeToIndex } from '@ts-minecraft/core'
-import { WorldId } from '@ts-minecraft/core'
+import { CHUNK_SIZE, WorldId } from '@ts-minecraft/core'
 import { MAX_SEED_VALUE } from '@ts-minecraft/app/main.config'
+import { selectSurfaceSpawn, type SpawnSelection } from '@ts-minecraft/app/main/spawn-selection'
 
 export type SavedPlayerState = NonNullable<WorldMetadata['playerState']>
 export type SavedFurnaceStates = NonNullable<WorldMetadata['furnaceStates']>
@@ -19,48 +19,9 @@ export type WorldBootstrap = {
   readonly gameMode: GameMode
 }
 
-const SPAWN_HEADROOM_BLOCKS = 3
-const FALLBACK_SURFACE_Y = 64
 const SPAWN_SEARCH_CHUNK_RADIUS = 2
 
-const NON_SPAWN_SURFACE_BLOCKS = new Set([
-  blockTypeToIndex('AIR'),
-  blockTypeToIndex('WATER'),
-  blockTypeToIndex('LAVA'),
-  blockTypeToIndex('WOOD'),
-  blockTypeToIndex('LEAVES'),
-])
-
-type SpawnSurfaceCandidate = {
-  readonly worldX: number
-  readonly worldZ: number
-  readonly surfaceY: number
-  readonly distanceSq: number
-}
-
-const localBlockIndex = (lx: number, y: number, lz: number): number | null =>
-  Option.getOrNull(blockIndex(lx, y, lz))
-
-const isAirAt = (blocks: Readonly<Uint8Array>, lx: number, y: number, lz: number): boolean => {
-  const idx = localBlockIndex(lx, y, lz)
-  return idx !== null && blocks[idx] === blockTypeToIndex('AIR')
-}
-
-const hasSpawnHeadroom = (blocks: Readonly<Uint8Array>, lx: number, surfaceY: number, lz: number): boolean =>
-  Arr.every(Arr.makeBy(SPAWN_HEADROOM_BLOCKS, (i) => i + 1), (offset) =>
-    surfaceY + offset < CHUNK_HEIGHT && isAirAt(blocks, lx, surfaceY + offset, lz)
-  )
-
-const findSpawnSurfaceY = (blocks: Readonly<Uint8Array>, lx: number, lz: number): Option.Option<number> =>
-  Arr.findFirst(
-    Arr.makeBy(CHUNK_HEIGHT - SPAWN_HEADROOM_BLOCKS, (i) => CHUNK_HEIGHT - SPAWN_HEADROOM_BLOCKS - 1 - i),
-    (y) => {
-      const idx = localBlockIndex(lx, y, lz)
-      return idx !== null
-        && !NON_SPAWN_SURFACE_BLOCKS.has(blocks[idx] ?? blockTypeToIndex('AIR'))
-        && hasSpawnHeadroom(blocks, lx, y, lz)
-    },
-  )
+export type { SpawnSelection }
 
 const chunkCoordFromWorld = (coord: number): number => Math.floor(coord / CHUNK_SIZE)
 
@@ -71,42 +32,10 @@ const spawnSearchChunkCoords = (
   const baseChunkZ = chunkCoordFromWorld(baseSpawnPosition.z)
   const diameter = SPAWN_SEARCH_CHUNK_RADIUS * 2 + 1
 
-  return Arr.flatMap(Arr.makeBy(diameter, (xOffset) => baseChunkX - SPAWN_SEARCH_CHUNK_RADIUS + xOffset), (x) =>
-    Arr.map(Arr.makeBy(diameter, (zOffset) => baseChunkZ - SPAWN_SEARCH_CHUNK_RADIUS + zOffset), (z) => ({ x, z }))
+  return Arr.flatMap(Arr.makeBy(diameter, (xOffset: number) => baseChunkX - SPAWN_SEARCH_CHUNK_RADIUS + xOffset), (x: number) =>
+    Arr.map(Arr.makeBy(diameter, (zOffset: number) => baseChunkZ - SPAWN_SEARCH_CHUNK_RADIUS + zOffset), (z: number) => ({ x, z }))
   )
 }
-
-const findNearestSpawnSurface = (
-  blocks: Readonly<Uint8Array>,
-  baseSpawnPosition: { readonly x: number; readonly z: number },
-  chunkCoord: { readonly x: number; readonly z: number },
-): Option.Option<SpawnSurfaceCandidate> =>
-  Arr.reduce(
-    Arr.flatMap(Arr.makeBy(CHUNK_SIZE, (lx) => lx), (lx) =>
-      Arr.filterMap(Arr.makeBy(CHUNK_SIZE, (lz) => lz), (lz) =>
-        Option.map(findSpawnSurfaceY(blocks, lx, lz), (surfaceY) => {
-          const worldX = chunkCoord.x * CHUNK_SIZE + lx
-          const worldZ = chunkCoord.z * CHUNK_SIZE + lz
-          return {
-            worldX,
-            worldZ,
-            surfaceY,
-            distanceSq: (worldX - baseSpawnPosition.x) ** 2 + (worldZ - baseSpawnPosition.z) ** 2,
-          } satisfies SpawnSurfaceCandidate
-        })
-      )
-    ),
-    Option.none<SpawnSurfaceCandidate>(),
-    (best, candidate) =>
-      Option.match(best, {
-        onNone: () => Option.some(candidate),
-        onSome: (current) =>
-          candidate.distanceSq < current.distanceSq
-            || (candidate.distanceSq === current.distanceSq && candidate.surfaceY > current.surfaceY)
-            ? Option.some(candidate)
-            : best,
-      }),
-  )
 
 export const loadOrCreateWorld = (
   worldId: WorldId,
@@ -184,43 +113,19 @@ export const loadOrCreateWorld = (
     ),
   )
 
-export const buildRespawnPosition = (
+export const buildSpawnSelection = (
   baseSpawnPosition: { x: number; y: number; z: number },
   chunkManagerService: ChunkManagerService,
 ) => Effect.gen(function* () {
-  const candidateOptions = yield* Effect.forEach(
+  const chunks = yield* Effect.forEach(
     spawnSearchChunkCoords(baseSpawnPosition),
-    (coord) =>
-      chunkManagerService.getChunk(coord).pipe(
-        Effect.map((chunk) => findNearestSpawnSurface(chunk.blocks, baseSpawnPosition, chunk.coord)),
-      ),
+    (coord) => chunkManagerService.getChunk(coord),
     { concurrency: 4 },
   )
-
-  const bestCandidate = Arr.reduce(
-    candidateOptions,
-    Option.none<SpawnSurfaceCandidate>(),
-    (best, candidateOption) =>
-      Option.match(candidateOption, {
-        onNone: () => best,
-        onSome: (candidate) =>
-          Option.match(best, {
-            onNone: () => Option.some(candidate),
-            onSome: (current) =>
-              candidate.distanceSq < current.distanceSq
-                || (candidate.distanceSq === current.distanceSq && candidate.surfaceY > current.surfaceY)
-                ? Option.some(candidate)
-                : best,
-          }),
-      }),
-  )
-
-  return Option.match(bestCandidate, {
-    onNone: () => ({ ...baseSpawnPosition, y: FALLBACK_SURFACE_Y + 1 + SPAWN_HEADROOM_BLOCKS }),
-    onSome: ({ worldX, worldZ, surfaceY }) => ({
-      x: worldX,
-      y: surfaceY + 1 + SPAWN_HEADROOM_BLOCKS,
-      z: worldZ,
-    }),
-  })
+  return selectSurfaceSpawn(chunks, baseSpawnPosition)
 })
+
+export const buildRespawnPosition = (
+  baseSpawnPosition: { x: number; y: number; z: number },
+  chunkManagerService: ChunkManagerService,
+) => Effect.map(buildSpawnSelection(baseSpawnPosition, chunkManagerService), (spawn) => spawn.position)

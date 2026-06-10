@@ -11,5 +11,9 @@
     "@ts-minecraft/core": "workspace:*",
     "@ts-minecraft/entity": "workspace:*",
     "effect": "^3.20.0"
+  },
+  "devDependencies": {
+    "@types/ws": "^8.18.1",
+    "ws": "^8.21.0"
   }
 }

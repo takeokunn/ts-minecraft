@@ -1,0 +1,56 @@
+import { describe, it } from '@effect/vitest'
+import { Effect } from 'effect'
+import { createServer, type AddressInfo } from 'node:net'
+import { expect } from 'vitest'
+import {
+  BrowserWebSocketClient,
+  ClientServiceImpl,
+  NodeWebSocketServer,
+  PlayerName,
+  ServerServiceImpl,
+  type ServerServiceShape,
+} from '@ts-minecraft/network'
+
+const getAvailablePort = (): Effect.Effect<number, never> =>
+  Effect.async((resume) => {
+    const server = createServer()
+    server.listen(0, '127.0.0.1', () => {
+      const address = server.address() as AddressInfo
+      const port = address.port
+      server.close(() => resume(Effect.succeed(port)))
+    })
+  })
+
+const waitForConnectedPlayers = (
+  server: ServerServiceShape,
+  expected: number,
+  attempts = 20,
+): Effect.Effect<void, never> =>
+  Effect.gen(function* () {
+    for (let attempt = 0; attempt < attempts; attempt += 1) {
+      const players = yield* server.getConnectedPlayers()
+      if (players.size === expected) return
+      yield* Effect.sleep('25 millis')
+    }
+  })
+
+describe('real WebSocket transport', () => {
+  it.effect('server accepts client connection', () =>
+    Effect.gen(function* () {
+      const port = yield* getAvailablePort()
+      const server = yield* ServerServiceImpl(new NodeWebSocketServer())
+      const client = yield* ClientServiceImpl(new BrowserWebSocketClient())
+
+      yield* server.start(port)
+      yield* client.connect(`ws://127.0.0.1:${port}`, PlayerName.make('Alex'))
+      expect(yield* client.getConnectionState()).toBe('connected')
+
+      yield* waitForConnectedPlayers(server, 1)
+      const players = yield* server.getConnectedPlayers()
+      expect(players.size).toBe(1)
+
+      yield* client.disconnect()
+      yield* server.stop()
+    }),
+  )
+})

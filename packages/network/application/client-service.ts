@@ -1,0 +1,162 @@
+import { Context, Duration, Effect, Fiber, Layer, Option, Ref, Stream } from 'effect'
+import { NetworkError } from '../domain/errors'
+import { MessageType, PlayerId, WorldId, type NetworkMessage, type PlayerName } from '../domain/schemas'
+import type { WebSocketClientHandle, WebSocketClientPort } from '../infrastructure/websocket-client'
+import { decodeNetworkMessage, encodeNetworkMessage } from './codec'
+
+export type ConnectionState = 'idle' | 'connecting' | 'connected' | 'reconnecting' | 'disconnected' | 'failed'
+
+export type ClientServiceShape = {
+  readonly connect: (serverUrl: string, playerName: PlayerName) => Effect.Effect<void, NetworkError>
+  readonly disconnect: () => Effect.Effect<void, never>
+  readonly getConnectionState: () => Effect.Effect<ConnectionState, never>
+  readonly sendMessage: (message: NetworkMessage) => Effect.Effect<void, NetworkError>
+  readonly receiveMessages: () => Effect.Effect<Stream.Stream<NetworkMessage, never, never>, never>
+}
+
+export const ClientService = Context.GenericTag<ClientServiceShape>('@minecraft/network/ClientService')
+
+const makeInitialJoin = (playerName: PlayerName): NetworkMessage => ({
+  type: MessageType.PlayerJoin,
+  playerId: PlayerId.make('pending'),
+  playerName,
+  worldId: WorldId.make('overworld'),
+  position: { x: 0, y: 64, z: 0 },
+  timestamp: Date.now(),
+})
+
+const sendRawMessage = (
+  handle: WebSocketClientHandle,
+  message: NetworkMessage,
+): Effect.Effect<void, NetworkError> =>
+  encodeNetworkMessage(message).pipe(Effect.flatMap((encoded) => handle.send(encoded)))
+
+const backoffForAttempt = (attempt: number): Duration.Duration =>
+  Duration.millis(Math.min(1_000, 10 * 2 ** Math.max(0, attempt - 1)))
+
+export const ClientServiceImpl = (
+  port: WebSocketClientPort,
+  options: { readonly maxReconnectAttempts?: number } = {},
+): Effect.Effect<ClientServiceShape, never> =>
+  Effect.gen(function* () {
+    const stateRef = yield* Ref.make<ConnectionState>('idle')
+    const handleRef = yield* Ref.make<Option.Option<WebSocketClientHandle>>(Option.none())
+    const messageStreamRef = yield* Ref.make<Option.Option<Stream.Stream<NetworkMessage, never, never>>>(Option.none())
+    const reconnectFiberRef = yield* Ref.make<Option.Option<Fiber.RuntimeFiber<void, never>>>(Option.none())
+    const serverUrlRef = yield* Ref.make<Option.Option<string>>(Option.none())
+    const playerNameRef = yield* Ref.make<Option.Option<PlayerName>>(Option.none())
+    const intentionallyDisconnectedRef = yield* Ref.make(false)
+    const maxReconnectAttempts = options.maxReconnectAttempts ?? 5
+
+    const installHandle = (handle: WebSocketClientHandle): Effect.Effect<void, never> =>
+      Effect.gen(function* () {
+        yield* Ref.set(handleRef, Option.some(handle))
+        yield* Ref.set(messageStreamRef, Option.some(
+          handle.messages.pipe(
+            // In a real WebSocket binding, invalid messages should be dropped silently.
+            // Effect.orDie is acceptable here because the fake transport uses strictly
+            // typed messages — decode failures are structural errors, not runtime events.
+            Stream.mapEffect((raw) => decodeNetworkMessage(raw).pipe(Effect.orDie)),
+          ),
+        ))
+      })
+
+    const reconnectLoop: Effect.Effect<void, never> = Effect.gen(function* () {
+      for (let attempt = 1; attempt <= maxReconnectAttempts; attempt += 1) {
+        const intentionallyDisconnected = yield* Ref.get(intentionallyDisconnectedRef)
+        if (intentionallyDisconnected) return
+        yield* Ref.set(stateRef, 'reconnecting')
+        yield* Effect.sleep(backoffForAttempt(attempt))
+        const [serverUrl, playerName] = yield* Effect.all([Ref.get(serverUrlRef), Ref.get(playerNameRef)], { concurrency: 'unbounded' })
+        const result = yield* Option.match(serverUrl, {
+          onNone: () => Effect.succeed(false),
+          onSome: (url) =>
+            Option.match(playerName, {
+              onNone: () => Effect.succeed(false),
+              onSome: (name) =>
+                port.connect(url).pipe(
+                  Effect.tap(installHandle),
+                  Effect.tap((handle) => sendRawMessage(handle, makeInitialJoin(name))),
+                  Effect.tap(() => Ref.set(stateRef, 'connected')),
+                  Effect.as(true),
+                  Effect.catchAll(() => Effect.succeed(false)),
+                ),
+            }),
+        })
+        if (result) return
+      }
+      yield* Ref.set(stateRef, 'failed')
+    }).pipe(Effect.annotateLogs({ component: 'network-client', event: 'reconnect' }))
+
+    const watchClose = (handle: WebSocketClientHandle): Effect.Effect<void, never> =>
+      handle.onClose.pipe(
+        Effect.flatMap(() =>
+          Ref.get(intentionallyDisconnectedRef).pipe(
+            Effect.flatMap((intentional) => {
+              if (intentional) return Ref.set(stateRef, 'disconnected')
+              return Effect.forkDaemon(reconnectLoop).pipe(
+                Effect.flatMap((fiber) => Ref.set(reconnectFiberRef, Option.some(fiber))),
+                Effect.asVoid,
+              )
+            }),
+          ),
+        ),
+      )
+
+    const service: ClientServiceShape = {
+      connect: (serverUrl, playerName) =>
+        Effect.gen(function* () {
+          yield* Ref.set(stateRef, 'connecting')
+          yield* Ref.set(intentionallyDisconnectedRef, false)
+          yield* Ref.set(serverUrlRef, Option.some(serverUrl))
+          yield* Ref.set(playerNameRef, Option.some(playerName))
+          const handle = yield* port.connect(serverUrl)
+          yield* installHandle(handle)
+          yield* sendRawMessage(handle, makeInitialJoin(playerName))
+          yield* Ref.set(stateRef, 'connected')
+          yield* Effect.forkDaemon(watchClose(handle))
+        }).pipe(
+          Effect.tapError(() => Ref.set(stateRef, 'failed')),
+          Effect.annotateLogs({ component: 'network-client', event: 'connect' }),
+        ),
+      disconnect: () =>
+        Effect.gen(function* () {
+          yield* Ref.set(intentionallyDisconnectedRef, true)
+          const reconnectFiber = yield* Ref.get(reconnectFiberRef)
+          yield* Option.match(reconnectFiber, {
+            onNone: () => Effect.void,
+            onSome: (fiber) => Fiber.interrupt(fiber).pipe(Effect.asVoid),
+          })
+          yield* Ref.set(reconnectFiberRef, Option.none())
+          const handle = yield* Ref.get(handleRef)
+          yield* Option.match(handle, {
+            onNone: () => Effect.void,
+            onSome: (clientHandle) => clientHandle.close,
+          })
+          yield* Ref.set(handleRef, Option.none())
+          yield* Ref.set(stateRef, 'disconnected')
+        }),
+      getConnectionState: () => Ref.get(stateRef),
+      sendMessage: (message) =>
+        Ref.get(handleRef).pipe(
+          Effect.flatMap((handle) =>
+            Option.match(handle, {
+              onNone: () => Effect.fail(new NetworkError({ operation: 'send', reason: 'client is not connected' })),
+              onSome: (clientHandle) => sendRawMessage(clientHandle, message),
+            }),
+          ),
+        ),
+      receiveMessages: () =>
+        Ref.get(messageStreamRef).pipe(
+          Effect.map((stream) => Option.getOrElse(stream, () => Stream.empty)),
+        ),
+    }
+
+    return service
+  })
+
+export const ClientServiceLive = (
+  port: WebSocketClientPort,
+  options: { readonly maxReconnectAttempts?: number } = {},
+): Layer.Layer<ClientServiceShape> =>
+  Layer.effect(ClientService, ClientServiceImpl(port, options))
