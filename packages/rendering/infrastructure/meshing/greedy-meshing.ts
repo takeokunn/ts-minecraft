@@ -36,6 +36,24 @@ import {
   meshZNegFace,
 } from './greedy-meshing-algorithms'
 
+// ─── Lookup table cache ──────────────────────────────────────────────────────
+// Build a 256-entry Uint8Array lookup for a set of block IDs.  The WeakMap key
+// is the Set *identity*, so callers that pass the same module-level constant
+// Set every call pay the build cost exactly once.  Worker-thread callers that
+// reconstruct a new Set per message will rebuild once per message — acceptable
+// because that work runs off the main thread and the resulting lookup is still
+// faster than iterating a Set in the inner meshing loop.
+const _lookupCache = new WeakMap<ReadonlySet<number>, Uint8Array>()
+const buildLookup = (ids: ReadonlySet<number>): Uint8Array => {
+  let tbl = _lookupCache.get(ids)
+  if (tbl === undefined) {
+    tbl = new Uint8Array(256)
+    for (const id of ids) tbl[id] = 1
+    _lookupCache.set(ids, tbl)
+  }
+  return tbl
+}
+
 // ─── Main meshing function ───────────────────────────────────────────────────
 
 export const greedyMeshChunk = (
@@ -49,10 +67,8 @@ export const greedyMeshChunk = (
   const opaqueAcc = createAccumulator()
   let waterAccStorage: MeshAccumulator | null = null
   let transparentSolidAccStorage: MeshAccumulator | null = null
-  const transparentLookup = new Uint8Array(256)
-  for (const blockId of transparentBlockIds) transparentLookup[blockId] = 1
-  const transparentSolidLookup = new Uint8Array(256)
-  for (const blockId of transparentSolidBlockIds) transparentSolidLookup[blockId] = 1
+  const transparentLookup = buildLookup(transparentBlockIds)
+  const transparentSolidLookup = buildLookup(transparentSolidBlockIds)
 
   const { maskCH, maskSS } = scratch
   const blocks: Readonly<Uint8Array> = chunk.blocks

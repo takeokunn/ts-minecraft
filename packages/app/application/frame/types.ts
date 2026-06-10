@@ -152,7 +152,7 @@ export type FrameStageRefs = {
   readonly lastAirBubblesRef: MutableRef.MutableRef<number>
   readonly lastRenderDistanceRef: Ref.Ref<number>
   readonly lastEntityStructureVersionRef: Ref.Ref<number>
-  readonly entityPhysicsChunkCacheRef: Ref.Ref<ReadonlyArray<Chunk | null>>
+  readonly entityPhysicsChunkCacheRef: Ref.Ref<Array<Chunk | null>>
   readonly lastEntityPhysicsChunkCoordRef: Ref.Ref<{ readonly cx: number; readonly cz: number }>
   readonly lastEntityPhysicsLoadedChunksRef: Ref.Ref<Option.Option<ReadonlyArray<Chunk>>>
   readonly shadowUpdateCounterRef: Ref.Ref<number>

@@ -1,6 +1,5 @@
 import { Effect, Option, Ref } from 'effect'
 import { resolveBlockCollisions } from '@ts-minecraft/game'
-import type { Chunk } from '@ts-minecraft/world'
 import { chunkBlockIndexUnchecked } from '@ts-minecraft/world'
 import { MOB_HALF_HEIGHT, MOB_HALF_WIDTH, BREED_XP_REWARD } from '@ts-minecraft/entity'
 import { logErrors } from '@ts-minecraft/app/frame/error-logging'
@@ -73,19 +72,17 @@ export const entityUpdateStage = (
 
       if (chunkCoordChanged || loadedChunksChanged || hasMissingChunk) {
         const refreshAllChunks = chunkCoordChanged || loadedChunksChanged
-        const nextChunkCache: Array<Chunk | null> = refreshAllChunks
-          ? [
-              null, null, null,
-              null, null, null,
-              null, null, null,
-            ]
-          : [...chunkCache]
+        // Mutate the existing cache array in-place to avoid a 9-element Array
+        // allocation on every chunk-boundary crossing.  fill() resets all slots
+        // when the player moves to a new chunk; individual nulls are filled
+        // below when only a partial cache miss remains.
+        if (refreshAllChunks) chunkCache.fill(null)
 
         yield* Effect.forEach(
           ENTITY_PHYSICS_CHUNK_OFFSETS,
           ([dx, dz, index]) => {
             /* c8 ignore next 3 -- cache-hit path: requires 2nd frame at same chunk coord with partial cache populated */
-            if (!refreshAllChunks && nextChunkCache[index] != null) {
+            if (!refreshAllChunks && chunkCache[index] != null) {
               return Effect.void
             }
 
@@ -94,7 +91,7 @@ export const entityUpdateStage = (
               z: playerCz + dz,
             }).pipe(
               Effect.match({
-                onSuccess: (chunk) => { nextChunkCache[index] = chunk },
+                onSuccess: (chunk) => { chunkCache[index] = chunk },
                 onFailure: () => {},
               }),
             )
@@ -102,8 +99,7 @@ export const entityUpdateStage = (
           { concurrency: 'unbounded', discard: true },
         )
 
-        chunkCache = nextChunkCache
-        yield* Ref.set(refs.entityPhysicsChunkCacheRef, nextChunkCache)
+        yield* Ref.set(refs.entityPhysicsChunkCacheRef, chunkCache)
         yield* Ref.set(refs.lastEntityPhysicsChunkCoordRef, { cx: playerCx, cz: playerCz })
         yield* Ref.set(refs.lastEntityPhysicsLoadedChunksRef, loadedChunks)
       }

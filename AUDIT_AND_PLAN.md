@@ -235,3 +235,19 @@ two contained QoL wins remain. Picking lower-risk, player-visible, contained inc
 - [ ] R11d. (Optional polish, deferred) Visual bald-sheep render while sheared — would project `sheared` onto
   the public Entity (needs cache invalidation on the regrowth transition) + a sheared-sheep texture/scale swap
   in entity-renderer. The mechanic is complete without it; purely cosmetic.
+
+## I. Round 6 (2026-06-10) — fresh parallel audit: per-edit allocs + FR gap
+
+Three independent agents re-audited the hot path, FR completeness, and architecture quality.
+Confirmed new issues (not covered in earlier rounds):
+
+- [x] R12. `greedyMeshChunk` rebuilds two `Uint8Array(256)` transparent-block lookup tables on **every
+  call** (`greedy-meshing.ts:52-55`). Fix: `WeakMap<ReadonlySet<number>, Uint8Array>` cache at module
+  scope — built once per unique Set instance. _(done 2026-06-10)_
+- [x] R13. `frame-maintenance.ts:157-163` double `getVillages()` + temporary `Set+map` array per tick.
+  Fix: cache pre-update count; skip Set/filter entirely when village count hasn't grown. _(done 2026-06-10)_
+- [x] R14. `entity-update-stage.ts:76-82` fresh 9-element `Array<Chunk|null>` on every chunk-boundary
+  crossing. Fix: mutate existing array in-place via `.fill(null)` + slot assignment; remove `nextChunkCache`
+  intermediate variable. _(done 2026-06-10)_
+- [x] R15. `spawn-selection.ts` — **already wired**. `session.ts:166` calls `buildSpawnSelection` which
+  delegates to `selectSurfaceSpawn`. Audit agent misread untracked file status as "no call sites". _(verified 2026-06-10, no change needed)_

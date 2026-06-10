@@ -155,12 +155,20 @@ export const createMaintenanceHandler = (
         : Option.none()
       if (villageEnabled) {
         const villagesBefore = yield* villageService.getVillages()
-        const villageIdsBefore = new Set(villagesBefore.map((v: Village) => v.villageId))
+        const countBefore = villagesBefore.length
         yield* villageService.update(playerPos, timeOfDay, maintenanceDeltaTime).pipe(
           Effect.catchAllCause((cause) => Effect.logError(`Village system error: ${Cause.pretty(cause)}`)),
         )
         const villagesAfter = yield* villageService.getVillages()
-        const newVillages = villagesAfter.filter((v: Village) => !villageIdsBefore.has(v.villageId))
+        // Build the before-ID set only when the count grew to avoid allocating a
+        // Set + temporary array on the common case where no new village was added.
+        const newVillages: Village[] = villagesAfter.length > countBefore
+          ? (() => {
+              const beforeIds = new Set<string>()
+              for (const v of villagesBefore) beforeIds.add(v.villageId)
+              return villagesAfter.filter((v: Village) => !beforeIds.has(v.villageId))
+            })()
+          : []
         if (newVillages.length > 0) {
           yield* Effect.forEach(
             newVillages,
