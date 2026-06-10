@@ -142,6 +142,21 @@ const BLOCK_BASE_DROP_COUNT: HashMap.HashMap<BlockType, number> = HashMap.fromIt
 export const getBlockDropCount = (blockType: BlockType): number =>
   Option.getOrElse(HashMap.get(BLOCK_BASE_DROP_COUNT, blockType), () => 1)
 
+// R69: bonus drops when breaking LEAVES (vanilla Java Edition oak rates). These are the
+// ONLY survival source of APPLE, so without them GOLDEN_APPLE is uncraftable from scratch.
+// Kept as a pure function taking explicit random rolls so it is deterministically testable;
+// the caller supplies Math.random() at the (app-layer) break site.
+export const LEAF_APPLE_DROP_CHANCE = 0.005 // 1/200
+export const LEAF_STICK_DROP_CHANCE = 0.02  // 2%
+
+export const rollLeafDrops = (
+  appleRoll: number,
+  stickRoll: number,
+): { readonly apple: number; readonly sticks: number } => ({
+  apple: appleRoll < LEAF_APPLE_DROP_CHANCE ? 1 : 0,
+  sticks: stickRoll < LEAF_STICK_DROP_CHANCE ? 1 : 0,
+})
+
 export const PICKAXE_BLOCK_TYPES: HashSet.HashSet<ItemType> = HashSet.fromIterable<ItemType>([
   'WOODEN_PICKAXE',
   'STONE_PICKAXE',

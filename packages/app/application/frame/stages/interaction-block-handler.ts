@@ -5,7 +5,7 @@ import { findAttackableEntity } from '@ts-minecraft/app/frame/stages/attack-targ
 import { CHUNK_SIZE, CHUNK_HEIGHT, blockTypeToIndex, indexToBlockType, SlotIndex, ItemTypeSchema } from '@ts-minecraft/core'
 import type { BlockType, InventoryItem } from '@ts-minecraft/core'
 import { HOTBAR_START, isDurable, getSharpnessDamageBonus, getSmiteDamageBonus, getBaneOfArthropodsDamageBonus, getFortuneDropMultiplier, getPowerDamageMultiplier, getUnbreakingSkipChance, getKnockbackHorizontalMultiplier, getPunchKnockbackBonus } from '@ts-minecraft/inventory'
-import { FORTUNE_ORE_BLOCKS, PICKAXE_BLOCK_TYPES, getInventoryDropForBlock, canHarvestBlock } from '@ts-minecraft/world'
+import { FORTUNE_ORE_BLOCKS, PICKAXE_BLOCK_TYPES, getInventoryDropForBlock, canHarvestBlock, rollLeafDrops } from '@ts-minecraft/world'
 import { getBlockHardness, computeBreakTicks } from '@ts-minecraft/block'
 import { computeAttackDamage, computeKnockback, computeAttackCharge, computeChargedDamage, DEFAULT_ATTACK_COOLDOWN_SECS, getMobDefinition, computeBowCharge, computeBowDamage, canFireBow, BOW_MAX_RANGE, EXHAUSTION_ATTACK } from '@ts-minecraft/entity'
 import { getParticleUvOffset } from '@ts-minecraft/rendering/particles/particle-system'
@@ -205,6 +205,19 @@ export const handleBlockBreakProgress = (
         } else {
           // Unripe: only 1 seed (block already removed by breakBlock above)
           yield* services.inventoryService.addBlock('WHEAT_SEEDS', 1).pipe(Effect.catchAll(() => Effect.void))
+        }
+      }
+
+      // R69: breaking LEAVES has a small chance to drop an APPLE (1/200) or STICKS (2%) —
+      // the only survival source of apples (→ golden apple). breakBlock already dropped the
+      // LEAVES block itself; these are bonus rolls on top.
+      if (blockType === 'LEAVES') {
+        const drops = rollLeafDrops(Math.random(), Math.random())
+        if (drops.apple > 0) {
+          yield* services.inventoryService.addBlock('APPLE', drops.apple).pipe(Effect.catchAllCause(() => Effect.void))
+        }
+        if (drops.sticks > 0) {
+          yield* services.inventoryService.addBlock('STICKS', drops.sticks).pipe(Effect.catchAllCause(() => Effect.void))
         }
       }
 
