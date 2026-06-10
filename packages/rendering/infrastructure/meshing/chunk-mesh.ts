@@ -13,9 +13,13 @@ export class ChunkMeshService extends Effect.Service<ChunkMeshService>()(
   '@minecraft/infrastructure/three/ChunkMeshService',
   {
     scoped: Effect.gen(function* () {
-      const [pool, atlasTexture] = yield* Effect.all(
-        [MeshingWorkerPool, Effect.orDie(buildAtlasTexture())],
-        { concurrency: 'unbounded' }
+      const pool = yield* MeshingWorkerPool
+      // The atlas CanvasTexture (mipmaps + anisotropy 8) owns ~2-4MB of GPU VRAM
+      // for the entire session. Register a finalizer so it is released when the
+      // ChunkMeshService scope closes — the shared materials below already do the
+      // same via createChunkMeshMaterials' acquireRelease.
+      const atlasTexture = yield* Effect.acquireRelease(Effect.orDie(buildAtlasTexture()), (tex) =>
+        Effect.sync(() => tex.dispose()),
       )
       const { sharedMaterial, transparentSolidMaterial, setSunIntensity } = yield* createChunkMeshMaterials(atlasTexture)
 

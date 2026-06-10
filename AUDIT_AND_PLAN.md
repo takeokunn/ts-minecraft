@@ -76,7 +76,7 @@ checks are already allocation-free). Only confirmed, impactful items survive bel
 - [ ] T4. `frame-stage-executor.ts`: confirm + eliminate per-frame graphics cache-key string build.
 
 ### Phase 2 — Memory-leak fixes (correctness)
-- [ ] T5. `chunk-mesh.ts`: wrap `atlasTexture` in `Effect.acquireRelease` to `.dispose()` on scope close.
+- [x] T5. `chunk-mesh.ts`: wrap `atlasTexture` in `Effect.acquireRelease` to `.dispose()` on scope close. _(done 2026-06-10; materials were already released)_
 - [ ] T6. Confirm + fix transparent-solid meshes being tracked in `waterMeshesRef` (separate ref + disposal).
 
 ### Phase 3 — Meshing / culling / GPU
