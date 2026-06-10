@@ -102,6 +102,7 @@ export default defineConfig(({ command, mode }) => {
         '@ts-minecraft/block': resolve(process.cwd(), 'packages/block'),
         '@ts-minecraft/entity': resolve(process.cwd(), 'packages/entity'),
         '@ts-minecraft/inventory': resolve(process.cwd(), 'packages/inventory'),
+        '@ts-minecraft/network': resolve(process.cwd(), 'packages/network'),
         '@ts-minecraft/world': resolve(process.cwd(), 'packages/world'),
         '@ts-minecraft/game': resolve(process.cwd(), 'packages/game'),
         '@ts-minecraft/rendering/particles/particle-system': resolve(process.cwd(), 'packages/rendering/infrastructure/particles/particle-system'),
@@ -132,10 +133,13 @@ export default defineConfig(({ command, mode }) => {
         ? ['development', 'module', 'import', 'default']
         : ['production', 'module', 'import', 'default'],
       preserveSymlinks: true,
+      dedupe: ['three'],
     },
     optimizeDeps: {
-      noDiscovery: true,
-      include: undefined,
+      include: ['effect', 'three'],
+    },
+    worker: {
+      format: 'es',
     },
     css: {
       devSourcemap: isDev,
