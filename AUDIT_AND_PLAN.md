@@ -498,6 +498,23 @@ Two data bugs found by audit:
 **Round 25 complete.** R54-R55.
 typecheck 0, **4587 tests passing** (+3 enchant tests).
 
+## AB. Round 26 (2026-06-11) — fishing enchants + furnace multi-fuel + bucket recipe
+
+- [x] R56. LURE + LUCK_OF_THE_SEA enchants — added to schema/config/formulas; `FishingService.cast`
+  now accepts `lureLevel`/`luckLevel` captured at cast time; `resolveFishingWaitSecs` reduces
+  wait by 5s/level; `resolveFishingCatch` shifts treasure probability up by 2%/level.
+  `interaction-item-use-handler` reads rod enchants and passes to cast. +8 tests. _(done 2026-06-11)_
+
+- [x] R57. Furnace accepts STICKS + wooden tools as fuel (not just COAL) — `FURNACE_FUEL_ITEMS`
+  priority list; `validateSmeltingPreconditions` finds any available fuel; error message
+  generalized to "Missing furnace fuel". +1 test; error message assertions updated. _(done 2026-06-11)_
+
+- [x] R58. BUCKET crafting recipe (3 iron ingots → 1 bucket) — critical for water/lava
+  collection in survival. +1 test. _(done 2026-06-11)_
+
+**Round 26 complete.** R56-R58.
+typecheck 0, **4601 tests passing** (+14 new tests).
+
 ## D. Progress log
 - 2026-06-10: Audit complete; plan authored. Beginning Phase 1.
 - 2026-06-10: **ALL TASKS COMPLETE.** Phase 1 (T1-T4 verified hot-path allocs), Phase 2
