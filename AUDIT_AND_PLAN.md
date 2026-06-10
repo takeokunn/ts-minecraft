@@ -189,6 +189,28 @@ two contained QoL wins remain. Picking lower-risk, player-visible, contained inc
   +6 unit tests; game-state + movement tests (111) green. _(done 2026-06-10; the deferred-risk item, implemented conservatively)_
   (then it pairs with the T15 block-sync, also dormant for the same reason).
 
+## O. Round 12 (2026-06-10) — FR: crop growth system
+
+The top deferred FR gap from Round 11: crop growth. Implemented a side-table
+CropGrowthService that tracks planted-crop ages outside the flat Uint8Array block
+array, solving the "no per-block metadata" constraint without new block types.
+
+**Design:** WHEAT_CROP always drops WHEAT_SEEDS (correct unripe behavior); bonus WHEAT
+added only when harvest() returns true (ripe = age ≥ 2, or untracked = village crop
+assumed mature). Two 60-second ticks to full maturity (simpler than vanilla's ~10-35min
+random, playable in a session). Growth wired into frame-maintenance accumulator.
+
+- [x] R27. `crop-growth.ts` domain — pure fns: CROP_MAX_AGE=2, isRipeCrop, advanceCropAge,
+  CROP_GROWTH_INTERVAL_SECS=60. +10 unit tests. _(done 2026-06-10)_
+- [x] R28. `CropGrowthService` — Ref<HashMap<string,number>> side-table; plant/harvest/tickAll;
+  wired in layers/session/FrameHandlerServices/test mocks. _(done 2026-06-10)_
+- [x] R29. `block-service.config.ts` drop override changed WHEAT_CROP→WHEAT_SEEDS; interaction-
+  block-handler adds bonus WHEAT if ripe; interaction-farming-handler calls plant() on seed plant;
+  frame-maintenance ticks crops every 60s. +8 integration tests; typecheck 0; 4495 tests total. _(done 2026-06-10)_
+
+**Round 12 complete.** Crop growth now works end-to-end: plant seeds → wait 2min → harvest ripe
+wheat + seeds. Village crops (untracked) still drop wheat immediately. 4495 tests passing.
+
 ## D. Progress log
 - 2026-06-10: Audit complete; plan authored. Beginning Phase 1.
 - 2026-06-10: **ALL TASKS COMPLETE.** Phase 1 (T1-T4 verified hot-path allocs), Phase 2
