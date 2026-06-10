@@ -179,7 +179,7 @@ two contained QoL wins remain. Picking lower-risk, player-visible, contained inc
   - [x] R6c-4b. Integration — `addEntity` hoisted with optional `ageTicks`; `update` override runs a breeding
     pass after the AI tick (filter in-love adults → `findBreedingPairs` → reset parents + spawn baby ageTicks 0).
     **Mob breeding works end-to-end.** +2 e2e tests (calf spawns; mismatched species don't); all 219 entity tests green. _(done 2026-06-10)_
-  - [ ] R6c. Entity-manager breeding tick — two in-love adults in range → spawn baby + love-cooldown.
+  - [x] R6c. Entity-manager breeding tick — two in-love adults in range → spawn baby + love-cooldown. _(all sub-tasks R6c-1..4b done)_
   - [x] R6d. Baby render scale — optional `isBaby` on public Entity (set from ageTicks in toPublicEntity);
     entity-renderer draws babies at 0.5× via per-entity scratch.scale. Growth (age→adult) already handled by
     R6c-2 tick decay. +2 tests; all 230 entity/render tests green. _(done 2026-06-10)_
