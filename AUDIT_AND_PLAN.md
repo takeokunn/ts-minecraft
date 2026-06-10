@@ -173,7 +173,10 @@ two contained QoL wins remain. Picking lower-risk, player-visible, contained inc
   - [x] R6c-3. Right-click-entity feeding — `handleFeedAnimal` (reuses `findAttackableEntity` for targeting):
     held item === species `breedingItem` → `feedEntity` (gated) → consume 1 + sound; wired as right-click priority
     so feeding a pig with CARROT feeds rather than eats. +4 tests (incl. positive raycast hit). _(done 2026-06-10)_
-  - [ ] R6c-4. Breeding-pair → spawn baby (ageTicks 0) + parents' post-breed cooldown.
+  - [x] R6c-4a. Pure pairing — `findBreedingPairs` (generic over EntityId/EntityType): greedily pairs same-species
+    in-love adults within range (each used once), baby at the midpoint; +5 tests. _(done 2026-06-10)_
+  - [ ] R6c-4b. Integration — entity-manager `update` override runs a breeding pass: filter in-love adults →
+    `findBreedingPairs` → reset parents (`afterBreedingParentState`) + `addEntity(type, mid, ageTicks=0)` baby.
   - [ ] R6c. Entity-manager breeding tick — two in-love adults in range → spawn baby + love-cooldown.
   - [ ] R6d. Baby growth — age ticks → adult; babies smaller (render scale) + not breedable.
 - [ ] R7. (Deferred — higher risk) Sneak edge-protection — modifies the shared collision path; needs careful

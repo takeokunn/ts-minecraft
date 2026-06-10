@@ -78,3 +78,54 @@ export const afterBreedingParentState = (): Pick<BreedingState, 'loveTicksRemain
   loveTicksRemaining: 0,
   breedCooldownRemaining: BREED_COOLDOWN_TICKS,
 })
+
+type Vec3 = { readonly x: number; readonly y: number; readonly z: number }
+
+export type BreedCandidate<Id, T> = { readonly id: Id; readonly type: T; readonly position: Vec3 }
+export type BreedPair<Id, T> = {
+  readonly parentA: Id
+  readonly parentB: Id
+  readonly type: T
+  readonly babyPosition: Vec3
+}
+
+/**
+ * Greedily pair same-type candidates within BREED_RANGE — each used at most once.
+ * Candidates MUST be pre-filtered to willing in-love adults (the caller checks
+ * love/age); this only does the same-species proximity matching. The baby spawns
+ * at the midpoint of its parents. Generic over id/type so the entity-manager keeps
+ * its branded EntityId / EntityType through the call.
+ */
+export const findBreedingPairs = <Id, T>(
+  candidates: ReadonlyArray<BreedCandidate<Id, T>>,
+): ReadonlyArray<BreedPair<Id, T>> => {
+  const paired = new Set<Id>()
+  const pairs: Array<BreedPair<Id, T>> = []
+  for (let i = 0; i < candidates.length; i++) {
+    const a = candidates[i]!
+    if (paired.has(a.id)) continue
+    for (let j = i + 1; j < candidates.length; j++) {
+      const b = candidates[j]!
+      if (paired.has(b.id) || a.type !== b.type) continue
+      const dx = a.position.x - b.position.x
+      const dy = a.position.y - b.position.y
+      const dz = a.position.z - b.position.z
+      if (dx * dx + dy * dy + dz * dz <= BREED_RANGE_SQ) {
+        paired.add(a.id)
+        paired.add(b.id)
+        pairs.push({
+          parentA: a.id,
+          parentB: b.id,
+          type: a.type,
+          babyPosition: {
+            x: (a.position.x + b.position.x) / 2,
+            y: (a.position.y + b.position.y) / 2,
+            z: (a.position.z + b.position.z) / 2,
+          },
+        })
+        break
+      }
+    }
+  }
+  return pairs
+}
