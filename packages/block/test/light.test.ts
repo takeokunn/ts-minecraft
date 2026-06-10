@@ -42,6 +42,19 @@ describe('emissiveLightLevel', () => {
   it('TORCH has emissive level 14, not the default 15 (vanilla correctness)', () => {
     expect(emissiveLightLevel('TORCH')).toBe(14)
   })
+
+  // R67: dimmer light sources — each has a distinct vanilla level below 15.
+  it('REDSTONE_TORCH has emissive level 7 (vanilla), not the default 15', () => {
+    expect(emissiveLightLevel('REDSTONE_TORCH')).toBe(7)
+  })
+
+  it('NETHER_PORTAL has emissive level 11 (vanilla), not the default 15', () => {
+    expect(emissiveLightLevel('NETHER_PORTAL')).toBe(11)
+  })
+
+  it('END_PORTAL_FRAME has emissive level 1 (vanilla), not the default 15', () => {
+    expect(emissiveLightLevel('END_PORTAL_FRAME')).toBe(1)
+  })
 })
 
 // ---------------------------------------------------------------------------
