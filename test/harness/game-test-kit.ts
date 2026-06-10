@@ -7,6 +7,7 @@ export const makeGameMode = () => ({
   set: (_mode: unknown) => Effect.void,
   isCreative: () => Effect.succeed(false),
   isSurvival: () => Effect.succeed(true),
+  isSpectator: () => Effect.succeed(false),
 }) as unknown as InstanceType<typeof import('@ts-minecraft/game').GameModeService>
 
 /** Creates a game state service fake with the player at the default spawn height. */

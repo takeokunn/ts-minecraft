@@ -25,6 +25,17 @@ describe('application/game-mode/game-mode-service', () => {
       expect(yield* svc.isSurvival()).toBe(true)
     }).pipe(Effect.provide(GameModeServiceLive)),
   )
+
+  it.effect('spectator mode: isSpectator true, isCreative/isSurvival false', () =>
+    Effect.gen(function* () {
+      const svc = yield* GameModeService
+      yield* svc.set('spectator')
+      expect(yield* svc.get()).toBe('spectator')
+      expect(yield* svc.isSpectator()).toBe(true)
+      expect(yield* svc.isCreative()).toBe(false)
+      expect(yield* svc.isSurvival()).toBe(false)
+    }).pipe(Effect.provide(GameModeServiceLive)),
+  )
 })
 
 describe('GameModeSchema — validation', () => {
@@ -36,8 +47,8 @@ describe('GameModeSchema — validation', () => {
     expect(Schema.decodeUnknownSync(GameModeSchema)('creative')).toBe('creative')
   })
 
-  it('rejects "spectator"', () => {
-    expect(() => Schema.decodeUnknownSync(GameModeSchema)('spectator')).toThrow()
+  it('accepts "spectator"', () => {
+    expect(Schema.decodeUnknownSync(GameModeSchema)('spectator')).toBe('spectator')
   })
 
   it('rejects "hardcore"', () => {

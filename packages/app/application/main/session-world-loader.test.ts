@@ -68,6 +68,7 @@ const makeGameModeService = (overrides: Partial<GameModeService> = {}): GameMode
     set: (_mode) => Effect.void,
     isCreative: () => Effect.succeed(false),
     isSurvival: () => Effect.succeed(true),
+    isSpectator: () => Effect.succeed(false),
     ...overrides,
   })
 
@@ -390,14 +391,14 @@ describe('buildRespawnPosition', () => {
     })
   }
 
-  it('returns a Y position 4 above the highest safe block (surfaceY + 1 + 3)', async () => {
+  it('returns a Y position above the highest safe block (surface + 1 + PLAYER_HALF_HEIGHT)', async () => {
     const chunk = makeChunkWithSurfaceAt(63)
     const chunkManagerService = makeChunkLookupService([chunk])
     const baseSpawnPosition = { x: 0, y: 100, z: 0 }
 
     const result = await Effect.runPromise(buildRespawnPosition(baseSpawnPosition, chunkManagerService))
 
-    expect(result).toEqual({ x: 0, y: 67, z: 0 })
+    expect(result).toEqual({ x: 0.5, y: 64.9, z: 0.5 })
   })
 
   it('uses the nearest safe column across nearby spawn chunks', async () => {
@@ -407,7 +408,7 @@ describe('buildRespawnPosition', () => {
 
     const result = await Effect.runPromise(buildRespawnPosition(baseSpawnPosition, chunkManagerService))
 
-    expect(result).toEqual({ x: 8, y: 68, z: 16 })
+    expect(result).toEqual({ x: 8.5, y: 65.9, z: 16.5 })
   })
 
   it('uses the highest safe Y when multiple blocks are solid at different heights', async () => {
@@ -421,7 +422,7 @@ describe('buildRespawnPosition', () => {
 
     const result = await Effect.runPromise(buildRespawnPosition(baseSpawnPosition, chunkManagerService))
 
-    expect(result).toEqual({ x: 0, y: 84, z: 0 })
+    expect(result).toEqual({ x: 0.5, y: 81.9, z: 0.5 })
   })
 
   it('ignores water surfaces and picks nearby land instead', async () => {
@@ -432,16 +433,16 @@ describe('buildRespawnPosition', () => {
 
     const result = await Effect.runPromise(buildRespawnPosition(baseSpawnPosition, chunkManagerService))
 
-    expect(result).toEqual({ x: 16, y: 69, z: 0 })
+    expect(result).toEqual({ x: 16.5, y: 66.9, z: 0.5 })
   })
 
-  it('falls back to y=68 (64+1+3) when no nearby chunk has a safe surface', async () => {
+  it('falls back to y=65.9 (64+1+PLAYER_HALF_HEIGHT) when no nearby chunk has a safe surface', async () => {
     const chunkManagerService = makeChunkLookupService([])
     const baseSpawnPosition = { x: 7, y: 100, z: -9 }
 
     const result = await Effect.runPromise(buildRespawnPosition(baseSpawnPosition, chunkManagerService))
 
-    expect(result).toEqual({ x: 7, y: 68, z: -9 })
+    expect(result).toEqual({ x: 7, y: 67.9, z: -9 })
   })
 
   it('requests a bounded square of chunks around the base spawn chunk', async () => {

@@ -19,6 +19,8 @@ export class GameModeService extends Effect.Service<GameModeService>()(
           Ref.get(modeRef).pipe(Effect.map((mode) => mode === 'creative')),
         isSurvival: (): Effect.Effect<boolean, never> =>
           Ref.get(modeRef).pipe(Effect.map((mode) => mode === 'survival')),
+        isSpectator: (): Effect.Effect<boolean, never> =>
+          Ref.get(modeRef).pipe(Effect.map((mode) => mode === 'spectator')),
       })),
     ),
   },
