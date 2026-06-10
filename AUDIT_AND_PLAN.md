@@ -569,8 +569,12 @@ typecheck 0, **4601 tests passing** (+14 new tests).
   END_PORTAL_FRAME=1 to EMISSIVE_LEVEL_OVERRIDES so a redstone torch no longer floods a room like
   lava. +3 tests. _(done 2026-06-11)_
 
-**Round 27 complete.** R59-R67.
-typecheck 0, **4611 tests passing** (+15 new tests, 4 updated assertions).
+- [x] R68. Charcoal crafts torches — CHARCOAL + STICKS → TORCH×4, mirroring the coal variant
+  (recipe matching is exact-itemType so charcoal needs its own recipe). Vanilla parity follow-up
+  to R66. +1 test. _(done 2026-06-11)_
+
+**Round 27 complete.** R59-R68.
+typecheck 0, **4612 tests passing** (+16 new tests, 4 updated assertions).
 
 ## D. Progress log
 - 2026-06-10: Audit complete; plan authored. Beginning Phase 1.
