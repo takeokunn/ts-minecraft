@@ -136,13 +136,14 @@ export class GameStateService extends Effect.Service<GameStateService>()(
             const rotation = yield* cameraState.getRotation()
             const isGrounded = yield* Ref.get(isGroundedRef)
 
-            // ─── Creative-mode flight (FR-1) ──────────────────────────────────
-            // Flight is creative-only; KeyF toggles it. While flying, held JUMP
-            // ascends and SNEAK descends, gravity is bypassed, and horizontal
-            // movement gets full air control.
+            // ─── Flight (FR-1 creative / R2 spectator) ────────────────────────
+            // Creative: KeyF toggles flight. Spectator: ALWAYS flying (noclip
+            // observer). While flying, held JUMP ascends and SNEAK descends,
+            // gravity is bypassed, and horizontal movement gets full air control.
             const isCreative = yield* gameModeService.isCreative()
+            const isSpectator = yield* gameModeService.isSpectator()
             const flightToggled = yield* inputService.consumeKeyPress(KeyMappings.TOGGLE_FLIGHT)
-            const flying = nextFlightState(yield* Ref.get(flyingRef), isCreative, flightToggled)
+            const flying = isSpectator || nextFlightState(yield* Ref.get(flyingRef), isCreative, flightToggled)
             yield* Ref.set(flyingRef, flying)
             let flightVy = 0
             if (flying) {
@@ -210,12 +211,14 @@ export class GameStateService extends Effect.Service<GameStateService>()(
             }
             const chunkCache = yield* Ref.get(chunkCacheRef)
 
-            // AABB block collision resolution — delegates solid-block test to block-collision-predicates.ts
-            const { position: resolvedPos, velocity: resolvedVel, isGrounded: newIsGrounded } =
-              resolveBlockCollisions(
-                effPos, effVel, PLAYER_HALF_WIDTH, PLAYER_HALF_HEIGHT,
-                (wx, wy, wz) => isBlockSolid(wx, wy, wz, chunkCache, playerCx, playerCz)
-              )
+            // AABB block collision resolution — delegates solid-block test to block-collision-predicates.ts.
+            // Spectator is noclip: skip collision entirely so the observer passes through terrain.
+            const { position: resolvedPos, velocity: resolvedVel, isGrounded: newIsGrounded } = isSpectator
+              ? { position: effPos, velocity: effVel, isGrounded: false }
+              : resolveBlockCollisions(
+                  effPos, effVel, PLAYER_HALF_WIDTH, PLAYER_HALF_HEIGHT,
+                  (wx, wy, wz) => isBlockSolid(wx, wy, wz, chunkCache, playerCx, playerCz)
+                )
 
             yield* physicsService.setPosition(playerBodyId, resolvedPos as Position).pipe(
               Effect.catchTag('PhysicsServiceError', () => Effect.void)
@@ -226,8 +229,9 @@ export class GameStateService extends Effect.Service<GameStateService>()(
             yield* Ref.set(isGroundedRef, newIsGrounded)
 
             // Apply water drag when player is inside a water block. Holding JUMP
-            // (and not flying) swims upward (FR-2 swim-up).
-            if (isInWater(resolvedPos.x, resolvedPos.y, resolvedPos.z, chunkCache, playerCx, playerCz)) {
+            // (and not flying) swims upward (FR-2 swim-up). Spectator ignores water
+            // (noclip observer flies freely through it).
+            if (!isSpectator && isInWater(resolvedPos.x, resolvedPos.y, resolvedPos.z, chunkCache, playerCx, playerCz)) {
               const swimUp = !flying && (yield* inputService.isKeyPressed(KeyMappings.JUMP))
               yield* applyWaterDrag(physicsService, playerBodyId, resolvedVel, swimUp)
             }
