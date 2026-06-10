@@ -134,7 +134,7 @@ always-runs hot-path cleanup over dormant-MP wiring.
   interactions; reuses the T12 flight infra. (Player-visible single-player FR.) _(decomposed)_
   - [x] R2a. Domain — add `'spectator'` to `GameModeSchema` + `isSpectator` on the service; update mocks + tests. _(done 2026-06-10)_
   - [x] R2b. Physics — spectator forces always-fly + noclip (skip block collision) + ignores water in game-state-service. _(done 2026-06-10)_
-  - [ ] R2c. Immunity + no-interaction — no damage/death-screen; disable place/break/attack in spectator.
+  - [x] R2c. Immunity + no-interaction — spectator immune to all damage (tryApplyPlayerDamage gate) + click block (break/place/attack/redstone) disabled. _(done 2026-06-10)_
   - [ ] R2d. Menu — main-menu game-mode toggle cycles survival→creative→spectator (badge + label).
 - [ ] R3. Enchanting-table UI — logic exists (`inventory/domain/enchantment.ts`), no UI. (FR.)
 - [ ] R4. (Low real-world value — MP dormant) Wire `RemotePlayerRenderer` into the frame

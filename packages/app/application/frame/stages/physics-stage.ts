@@ -53,8 +53,10 @@ export const physicsStage = (
         const armorPoints = yield* services.equipmentService.getTotalArmorPoints()
         const protectionReduction = yield* services.equipmentService.getTotalProtectionReduction()
 
+        // Spectator is immune to ALL damage (every source routes through here).
+        const isSpectatorMode = yield* services.gameMode.isSpectator()
         const tryApplyPlayerDamage = (amount: number): Effect.Effect<boolean, never> =>
-          amount <= 0
+          amount <= 0 || isSpectatorMode
             ? Effect.succeed(false)
             : services.healthService.getHealth().pipe(
                 Effect.flatMap((health) =>

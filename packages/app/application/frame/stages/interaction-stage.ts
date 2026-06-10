@@ -49,6 +49,7 @@ export const interactionStage = (
     | 'gameState'
     | 'timeService'
     | 'multiplayer'
+    | 'gameMode'
   >,
   refs: Pick<FrameStageRefs, 'dirtyChunksRef' | 'totalTimeSecsRef' | 'lastPlayerAttackTimeRef' | 'attackSwingStateRef'>,
 ): Effect.Effect<void, never> =>
@@ -115,7 +116,9 @@ export const interactionStage = (
         const hasRedstoneInput =
           placeWire || placeLever || placeButton || placeTorch || placePiston || toggleLever || pressButton || toggleTorch
 
-        if (leftClick || rightClick || hasRedstoneInput) {
+        // Spectator cannot interact with the world (no break / place / attack / redstone).
+        const isSpectator = yield* services.gameMode.isSpectator()
+        if (!isSpectator && (leftClick || rightClick || hasRedstoneInput)) {
           const targetBlock = yield* services.blockHighlight.getTargetBlock()
           const targetHit = yield* services.blockHighlight.getTargetHit()
           const selectedHotbarItem = yield* services.hotbarService.getSelectedBlockType()
