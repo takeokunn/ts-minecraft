@@ -586,11 +586,23 @@ typecheck 0, **4601 tests passing** (+14 new tests).
 **Round 27 complete.** R59-R70.
 typecheck 0, **4621 tests passing** (+26 new tests, 4 updated assertions).
 
-**Recurring theme this round (R65/R69/R70):** "orphaned outputs" — blocks/items fully wired
+- [x] R71. Chance-gated mob drops + zombie carrot — systematic "orphaned outputs" sweep
+  (cross-referenced all 81 item types against recipe outputs, mob drops, fishing loot, drop
+  overrides). Found CARROT unobtainable → silently broke **pig breeding** (carrot is the pig's
+  breeding item) and made it inedible. Added optional `chance` field to EntityDrop (absent =
+  always drops, back-compat) + pure `dropPasses(drop, roll)` predicate; zombies drop CARROT at
+  2.5% (vanilla). Kill handler (melee + bow) rolls each chance-gated drop, gating base + looting.
+  +4 tests. Remaining orphans are intentionally-deferred End-game items (CHORUS_FRUIT, DRAGON_*,
+  ELYTRA, ENDER_EYE, END_CRYSTAL). _(done 2026-06-11)_
+
+**Round 27 complete.** R59-R71.
+typecheck 0, **4625 tests passing** (+30 new tests, 4 updated assertions).
+
+**Recurring theme (R65/R69/R70/R71):** "orphaned outputs" — blocks/items fully wired
 into handlers, textures, and drops but unreachable because a single crafting recipe or drop
 source was missing. Invisible to unit tests (each piece passes in isolation) yet they break the
-actual survival progression loop. Worth a periodic sweep: for every craftable/placeable block,
-confirm at least one survival acquisition path exists.
+actual survival progression loop. R71 did the systematic sweep; the FR-acquisition surface is
+now closed except for deliberately-deferred End-game content.
 
 ## D. Progress log
 - 2026-06-10: Audit complete; plan authored. Beginning Phase 1.
