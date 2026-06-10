@@ -22,6 +22,18 @@ export type BreedingState = {
 
 export const isAdult = (ageTicks: number): boolean => ageTicks >= BABY_GROW_TICKS
 
+export const isBaby = (ageTicks: number): boolean => ageTicks < BABY_GROW_TICKS
+
+/**
+ * New age after feeding a baby its breeding item — vanilla reduces the REMAINING
+ * growth time by 10% per feed (so early feeds help most), clamped at adulthood.
+ */
+export const acceleratedBabyAge = (ageTicks: number): number => {
+  if (ageTicks >= BABY_GROW_TICKS) return ageTicks
+  const remaining = BABY_GROW_TICKS - ageTicks
+  return Math.min(BABY_GROW_TICKS, ageTicks + Math.ceil(remaining * 0.1))
+}
+
 export const isInLove = (loveTicksRemaining: number): boolean => loveTicksRemaining > 0
 
 /** Adult, not already in love, and off cooldown → feeding it enters love mode. */

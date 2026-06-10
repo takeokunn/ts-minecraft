@@ -205,3 +205,9 @@ two contained QoL wins remain. Picking lower-risk, player-visible, contained inc
   ill-fitting the deterministic mechanic), R4 (deliberately descoped — `RemotePlayerRenderer`
   wiring would be dead code while the MP stack is gated off). Operational note: per-iteration
   worker reaping added after an OS file-descriptor exhaustion (`ENFILE`) bricked tooling mid-run.
+
+## G. Round 4 (2026-06-10) — breeding follow-up
+
+- [x] R8. Baby-feeding accelerates growth — `acceleratedBabyAge` (−10% remaining/feed, clamped) + `isBaby`;
+  `feedEntity` now: baby → grow, willing adult → love, else decline. Additive vanilla follow-up to R6
+  (previously feeding a baby was a no-op). +5 pure tests + 1 e2e (breed → feed the calf). _(done 2026-06-10)_

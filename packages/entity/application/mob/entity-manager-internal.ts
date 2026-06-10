@@ -9,7 +9,7 @@ import {
 import type { Position, Vector3 } from '@ts-minecraft/core'
 import { HOSTILE_ATTACK_COOLDOWN_SECS, type ManagedEntity } from '../../domain/mob/entity-internal'
 import { KNOCKBACK_DURATION_TICKS } from '../../domain/combat'
-import { LOVE_DURATION_TICKS, canAcceptBreedingFood } from '../../domain/mob/breeding'
+import { LOVE_DURATION_TICKS, canAcceptBreedingFood, isBaby, acceleratedBabyAge } from '../../domain/mob/breeding'
 import { computeExplosionDamageAt, CREEPER_EXPLOSION_POWER } from '../../domain/explosion'
 import { CREEPER_FUSE_SECONDS } from '../../domain/mob/creeper-fuse'
 import { shouldDespawnEntity } from '../../domain/mob/entity-manager-utils'
@@ -200,14 +200,20 @@ export const makeEntityManagerInternal = (
     Ref.modify(entitiesRef, (entities): [boolean, HashMap.HashMap<EntityId, ManagedEntity>] =>
       Option.match(HashMap.get(entities, entityId), {
         onNone: () => [false, entities],
-        onSome: (entity) =>
-          canAcceptBreedingFood({
+        onSome: (entity) => {
+          // Feeding a baby accelerates its growth (vanilla); feeding a willing adult
+          // enters love mode. An in-love / cooling-down adult declines (no consume).
+          if (isBaby(entity.ageTicks)) {
+            return [true, HashMap.set(entities, entityId, { ...entity, ageTicks: acceleratedBabyAge(entity.ageTicks) })]
+          }
+          return canAcceptBreedingFood({
             loveTicksRemaining: entity.loveTicksRemaining,
             breedCooldownRemaining: entity.breedCooldownRemaining,
             ageTicks: entity.ageTicks,
           })
             ? [true, HashMap.set(entities, entityId, { ...entity, loveTicksRemaining: LOVE_DURATION_TICKS })]
-            : [false, entities],
+            : [false, entities]
+        },
       }),
     ).pipe(Effect.tap((fed) => (fed ? Ref.set(cachedEntitiesRef, Option.none()) : Effect.void))),
 })

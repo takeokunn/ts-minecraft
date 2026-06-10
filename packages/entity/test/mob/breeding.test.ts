@@ -9,6 +9,8 @@ import {
   newbornBreedingState,
   afterBreedingParentState,
   findBreedingPairs,
+  isBaby,
+  acceleratedBabyAge,
   BABY_GROW_TICKS,
   LOVE_DURATION_TICKS,
   BREED_COOLDOWN_TICKS,
@@ -72,6 +74,29 @@ describe('breeding domain (R6b)', () => {
   describe('afterBreedingParentState', () => {
     it('clears love and applies the full breed cooldown', () => {
       expect(afterBreedingParentState()).toEqual({ loveTicksRemaining: 0, breedCooldownRemaining: BREED_COOLDOWN_TICKS })
+    })
+  })
+
+  describe('baby growth on feeding (R8)', () => {
+    it('isBaby is true below BABY_GROW_TICKS, false at/above', () => {
+      expect(isBaby(0)).toBe(true)
+      expect(isBaby(BABY_GROW_TICKS - 1)).toBe(true)
+      expect(isBaby(BABY_GROW_TICKS)).toBe(false)
+    })
+
+    it('acceleratedBabyAge advances a newborn by 10% of remaining', () => {
+      expect(acceleratedBabyAge(0)).toBe(Math.ceil(BABY_GROW_TICKS * 0.1))
+    })
+
+    it('acceleratedBabyAge never exceeds BABY_GROW_TICKS', () => {
+      expect(acceleratedBabyAge(BABY_GROW_TICKS - 1)).toBe(BABY_GROW_TICKS)
+      expect(acceleratedBabyAge(BABY_GROW_TICKS)).toBe(BABY_GROW_TICKS) // already adult: unchanged
+    })
+
+    it('repeated feeding eventually matures the baby', () => {
+      let age = 0
+      for (let i = 0; i < 100 && age < BABY_GROW_TICKS; i++) age = acceleratedBabyAge(age)
+      expect(age).toBe(BABY_GROW_TICKS)
     })
   })
 

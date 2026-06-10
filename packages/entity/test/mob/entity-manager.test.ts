@@ -784,6 +784,21 @@ describe('entity/entityManager', () => {
       }).pipe(Effect.provide(EntityManagerLive))
     )
 
+    it.effect('feeding a baby is accepted — accelerates growth (R8)', () =>
+      Effect.gen(function* () {
+        const em = yield* EntityManager
+        const a = yield* em.addEntity(EntityType.Cow, { x: 0, y: 64, z: 0 })
+        const b = yield* em.addEntity(EntityType.Cow, { x: 1, y: 64, z: 0 })
+        yield* em.feedEntity(a)
+        yield* em.feedEntity(b)
+        yield* em.update(DeltaTimeSecs.make(0.05), { x: 1000, y: 64, z: 1000 }) // breeds → baby spawns
+        const baby = (yield* em.getEntities()).find((e) => e.isBaby === true)
+        expect(baby).toBeDefined()
+        // A baby accepts food (old behaviour rejected non-adults).
+        expect(yield* em.feedEntity(baby!.entityId)).toBe(true)
+      }).pipe(Effect.provide(EntityManagerLive))
+    )
+
     it.effect('two in-love animals of DIFFERENT species do not breed', () =>
       Effect.gen(function* () {
         const em = yield* EntityManager
