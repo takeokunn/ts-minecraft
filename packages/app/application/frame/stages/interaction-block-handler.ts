@@ -1,4 +1,4 @@
-import { Effect, HashMap, HashSet, MutableRef, Option, Ref, Schema } from 'effect'
+import { Array as Arr, Effect, HashMap, HashSet, MutableRef, Option, Ref, Schema } from 'effect'
 import { aabbFromVoxel } from '@ts-minecraft/world'
 import type { FrameHandlerDeps, FrameHandlerServices, FrameStageRefs } from '@ts-minecraft/app/frame/types'
 import { findAttackableEntity } from '@ts-minecraft/app/frame/stages/attack-targeting'
@@ -7,7 +7,7 @@ import type { BlockType, InventoryItem } from '@ts-minecraft/core'
 import { HOTBAR_START, isDurable, getSharpnessDamageBonus, getSmiteDamageBonus, getBaneOfArthropodsDamageBonus, getFortuneDropMultiplier, getPowerDamageMultiplier, getUnbreakingSkipChance, getKnockbackHorizontalMultiplier, getPunchKnockbackBonus } from '@ts-minecraft/inventory'
 import { FORTUNE_ORE_BLOCKS, PICKAXE_BLOCK_TYPES, getInventoryDropForBlock, canHarvestBlock, rollLeafDrops } from '@ts-minecraft/world'
 import { getBlockHardness, computeBreakTicks } from '@ts-minecraft/block'
-import { computeAttackDamage, computeKnockback, computeAttackCharge, computeChargedDamage, DEFAULT_ATTACK_COOLDOWN_SECS, getMobDefinition, computeBowCharge, computeBowDamage, canFireBow, BOW_MAX_RANGE, EXHAUSTION_ATTACK } from '@ts-minecraft/entity'
+import { computeAttackDamage, computeKnockback, computeAttackCharge, computeChargedDamage, DEFAULT_ATTACK_COOLDOWN_SECS, getMobDefinition, computeBowCharge, computeBowDamage, canFireBow, BOW_MAX_RANGE, EXHAUSTION_ATTACK, dropPasses } from '@ts-minecraft/entity'
 import { getParticleUvOffset } from '@ts-minecraft/rendering/particles/particle-system'
 import { triggerAttackSwing } from '@ts-minecraft/presentation/hud/attack-swing'
 import {
@@ -367,17 +367,21 @@ export const handleLeftClick = (
           yield* services.hungerService.addExhaustion(EXHAUSTION_ATTACK)
           // Vanilla: baby mobs drop no loot and grant no XP when killed.
           const wasBaby = Option.isSome(entityOpt) && entityOpt.value.isBaby === true
+          // Roll each chance-gated drop once; un-gated drops always pass.
+          const rolledDrops = wasBaby
+            ? []
+            : Arr.filter(Option.getOrElse(drops, () => []), (drop) => dropPasses(drop, Math.random()))
           yield* Effect.forEach(
-            wasBaby ? [] : Option.getOrElse(drops, () => []),
+            rolledDrops,
             (drop) => services.inventoryService.addBlock(drop.blockType, drop.count),
             { concurrency: 'unbounded', discard: true },
           )
-          // Looting enchantment: add `level` bonus count of each mob drop.
-          if (Option.isSome(drops) && !wasBaby) {
+          // Looting enchantment: add `level` bonus count of each (rolled) mob drop.
+          if (rolledDrops.length > 0 && !wasBaby) {
             const looting = weaponEnchantments.find((e) => e.type === 'LOOTING')
             if (looting) {
               yield* Effect.forEach(
-                Option.getOrElse(drops, () => []),
+                rolledDrops,
                 (drop) => services.inventoryService.addBlock(drop.blockType, looting.level)
                   .pipe(Effect.catchAllCause(() => Effect.void)),
                 { concurrency: 'unbounded', discard: true },
@@ -497,15 +501,17 @@ export const handleBowFire = (
             const mult = 1 + punchBonus / 5
             yield* services.entityManager.applyKnockback(entityId, { x: base.x * mult, y: base.y, z: base.z * mult })
           }
+          // Roll each chance-gated drop once; un-gated drops always pass.
+          const rolledBowDrops = Arr.filter(Option.getOrElse(drops, () => []), (drop) => dropPasses(drop, Math.random()))
           yield* Effect.forEach(
-            Option.getOrElse(drops, () => []),
+            rolledBowDrops,
             (drop) => services.inventoryService.addBlock(drop.blockType, drop.count),
             { discard: true },
           )
           // Looting on bow kills: same bonus-drop mechanic as melee.
-          if (Option.isSome(drops) && hasLooting) {
+          if (rolledBowDrops.length > 0 && hasLooting) {
             yield* Effect.forEach(
-              Option.getOrElse(drops, () => []),
+              rolledBowDrops,
               (drop) => services.inventoryService.addBlock(drop.blockType, hasLooting.level)
                 .pipe(Effect.catchAllCause(() => Effect.void)),
               { discard: true },

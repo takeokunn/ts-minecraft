@@ -6,6 +6,9 @@ const EntityDropSchema = Schema.Struct({
   blockType: InventoryItemSchema,
   // Drop counts are always whole, positive stacks (e.g. 1 bone, 2 arrows).
   count: Schema.Number.pipe(Schema.int(), Schema.positive()),
+  // Optional drop probability in [0,1]. Absent → always drops (1.0). Used for
+  // rare drops like a zombie's occasional carrot (vanilla ~2.5%).
+  chance: Schema.optional(Schema.Number.pipe(Schema.greaterThan(0), Schema.lessThanOrEqualTo(1))),
 })
 
 export const MobDefinitionSchema = Schema.Struct({
