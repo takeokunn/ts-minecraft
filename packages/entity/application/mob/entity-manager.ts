@@ -27,7 +27,8 @@ export class EntityManager extends Effect.Service<EntityManager>()(
       Ref.make(0),
       Ref.make<Option.Option<ReadonlyArray<Entity>>>(Option.none()),
       Ref.make(0),
-    ], { concurrency: 'unbounded' }).pipe(Effect.map(([entitiesRef, nextEntityNumberRef, updateTickRef, cachedEntitiesRef, structureVersionRef]) => {
+      Ref.make(0), // R10: births since last drain (for the player breeding-XP reward)
+    ], { concurrency: 'unbounded' }).pipe(Effect.map(([entitiesRef, nextEntityNumberRef, updateTickRef, cachedEntitiesRef, structureVersionRef, birthsRef]) => {
       const internal = makeEntityManagerInternal(entitiesRef, cachedEntitiesRef, structureVersionRef)
       const updateModule = makeEntityManagerUpdate(entitiesRef, updateTickRef, cachedEntitiesRef, structureVersionRef)
 
@@ -132,6 +133,10 @@ export class EntityManager extends Effect.Service<EntityManager>()(
 
         getStructureVersion: (): Effect.Effect<number, never> => Ref.get(structureVersionRef),
 
+        // R10: number of babies born (and cleared) since the last call — the frame
+        // loop drains this each tick to award the player breeding XP.
+        drainBirths: (): Effect.Effect<number, never> => Ref.getAndSet(birthsRef, 0),
+
         ...internal,
         ...updateModule,
 
@@ -161,7 +166,11 @@ export class EntityManager extends Effect.Service<EntityManager>()(
                       onSome: (parent) => HashMap.set(m, pid, { ...parent, ...afterBreedingParentState() }),
                     })
                   return reset(reset(es, pair.parentA), pair.parentB)
-                }).pipe(Effect.andThen(spawnEntity(pair.type, pair.babyPosition, 0))),
+                }).pipe(
+                  Effect.andThen(spawnEntity(pair.type, pair.babyPosition, 0)),
+                  // R10: record the birth so the frame loop can reward the player with XP.
+                  Effect.andThen(Ref.update(birthsRef, (n) => n + 1)),
+                ),
               { discard: true },
             ).pipe(Effect.andThen(Ref.set(cachedEntitiesRef, Option.none())))
           }),

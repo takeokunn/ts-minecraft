@@ -9,6 +9,7 @@ export const makeEntityManager = () => ({
   getEntityAIState: (_entityId: unknown) => Effect.succeed(Option.none()),
   getCount: () => Effect.succeed(0),
   getStructureVersion: () => Effect.succeed(0),
+  drainBirths: () => Effect.succeed(0),
   getPlayerContactDamage: (_playerPosition: unknown) => Effect.succeed(0),
   update: (_deltaTime: unknown, _playerPosition: unknown) => Effect.void,
   applyDamage: (_entityId: unknown, _amount: unknown) => Effect.succeed(Option.none()),

@@ -8,6 +8,7 @@ export const LOVE_DURATION_TICKS = 600 // 30s window to find a mate after feedin
 export const BREED_COOLDOWN_TICKS = 6000 // 5min before an animal can breed again
 export const BABY_GROW_TICKS = 24000 // 20min for a baby to reach adulthood
 export const BREED_RANGE = 3 // blocks between two in-love adults to form a pair
+export const BREED_XP_REWARD = 4 // XP granted to the player per successful breeding (vanilla 1-7)
 
 const BREED_RANGE_SQ = BREED_RANGE * BREED_RANGE
 

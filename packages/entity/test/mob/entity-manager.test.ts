@@ -778,6 +778,9 @@ describe('entity/entityManager', () => {
         yield* em.update(DeltaTimeSecs.make(0.05), { x: 1000, y: 64, z: 1000 })
 
         expect(yield* em.getCount()).toBe(3) // calf spawned
+        // R10: the birth is recorded once for the player breeding-XP reward, then cleared.
+        expect(yield* em.drainBirths()).toBe(1)
+        expect(yield* em.drainBirths()).toBe(0)
         // Parents are now on post-breed cooldown — feeding again is a no-op.
         expect(yield* em.feedEntity(a)).toBe(false)
         expect(yield* em.feedEntity(b)).toBe(false)

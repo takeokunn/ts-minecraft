@@ -214,3 +214,6 @@ two contained QoL wins remain. Picking lower-risk, player-visible, contained inc
 - [x] R9. Baby mobs drop no loot / grant no XP when killed (vanilla correctness) — gate the drop-add,
   looting bonus, and XP grant in handleLeftClick on `!wasBaby` (using `entityOpt.value.isBaby` from R6d).
   Reuses the public-Entity isBaby flag added for render scaling. typecheck 0; 46 interaction tests green. _(done 2026-06-10)_
+- [x] R10. Breeding grants the player XP — entity-manager `birthsRef` incremented per baby in the breeding
+  pass + `drainBirths()`; entity-update-stage drains it each tick and awards `births * BREED_XP_REWARD` (4).
+  Mirrors the drainBlockEdits pattern. +1 e2e assertion; mock + xpService Pick updated. _(done 2026-06-10)_

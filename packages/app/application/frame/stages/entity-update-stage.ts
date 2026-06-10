@@ -2,7 +2,7 @@ import { Effect, Option, Ref } from 'effect'
 import { resolveBlockCollisions } from '@ts-minecraft/game'
 import type { Chunk } from '@ts-minecraft/world'
 import { chunkBlockIndexUnchecked } from '@ts-minecraft/world'
-import { MOB_HALF_HEIGHT, MOB_HALF_WIDTH } from '@ts-minecraft/entity'
+import { MOB_HALF_HEIGHT, MOB_HALF_WIDTH, BREED_XP_REWARD } from '@ts-minecraft/entity'
 import { logErrors } from '@ts-minecraft/app/frame/error-logging'
 import type { FrameHandlerDeps, FrameHandlerServices, FrameStageRefs } from '@ts-minecraft/app/frame/types'
 import { advanceFixedStep } from '@ts-minecraft/app/frame/frame-runtime-logic'
@@ -21,7 +21,7 @@ export const entityUpdateStage = (
   deps: Pick<FrameHandlerDeps, 'scene'>,
   services: Pick<
     FrameHandlerServices,
-    'chunkManagerService' | 'entityManager' | 'entityRenderer' | 'redstoneService' | 'fluidService' | 'particleSystem' | 'debugFeatureFlags'
+    'chunkManagerService' | 'entityManager' | 'entityRenderer' | 'redstoneService' | 'fluidService' | 'particleSystem' | 'debugFeatureFlags' | 'xpService'
   >,
   refs: Pick<
     FrameStageRefs,
@@ -51,6 +51,11 @@ export const entityUpdateStage = (
     // Slower world simulation (furnace/spawn/village) runs on the maintenance lane.
     if (mobsAiEnabled) {
       yield* logErrors(services.entityManager.update(inputs.deltaTime, inputs.playerPos, inputs.isNight), 'Entity system error')
+      // R10: reward the player with XP for each animal born this tick (vanilla breeding XP).
+      const births = yield* services.entityManager.drainBirths()
+      if (births > 0) {
+        yield* logErrors(services.xpService.addXP(births * BREED_XP_REWARD), 'Breeding XP error')
+      }
     }
 
     const applyPhysics = services.entityManager.applyPhysics
