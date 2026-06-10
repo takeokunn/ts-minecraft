@@ -7,7 +7,7 @@ import type { BlockType, InventoryItem } from '@ts-minecraft/core'
 import { HOTBAR_START, isDurable, getSharpnessDamageBonus, getFortuneDropMultiplier } from '@ts-minecraft/inventory'
 import { FORTUNE_ORE_BLOCKS, PICKAXE_BLOCK_TYPES, getInventoryDropForBlock, canHarvestBlock } from '@ts-minecraft/world'
 import { getBlockHardness, computeBreakTicks } from '@ts-minecraft/block'
-import { computeAttackDamage, computeKnockback, computeAttackCharge, computeChargedDamage, DEFAULT_ATTACK_COOLDOWN_SECS, getMobDefinition } from '@ts-minecraft/entity'
+import { computeAttackDamage, computeKnockback, computeAttackCharge, computeChargedDamage, DEFAULT_ATTACK_COOLDOWN_SECS, getMobDefinition, computeBowCharge, computeBowDamage, canFireBow, BOW_MAX_RANGE } from '@ts-minecraft/entity'
 import { getParticleUvOffset } from '@ts-minecraft/rendering/particles/particle-system'
 import { triggerAttackSwing } from '@ts-minecraft/presentation/hud/attack-swing'
 import {
@@ -274,10 +274,9 @@ export const handleLeftClick = (
             },
           })
           // Crit when airborne. Attack cooldown weakens hits before recharge.
-          const [now, lastAttack] = yield* Effect.all(
-            [Ref.get(refs.totalTimeSecsRef), Ref.get(refs.lastPlayerAttackTimeRef)],
-            { concurrency: 'unbounded' },
-          )
+          // Sequential: both are pure synchronous Ref reads; no parallelism benefit.
+          const now = yield* Ref.get(refs.totalTimeSecsRef)
+          const lastAttack = yield* Ref.get(refs.lastPlayerAttackTimeRef)
           const charge = computeAttackCharge(now - lastAttack, DEFAULT_ATTACK_COOLDOWN_SECS)
           yield* Ref.set(refs.lastPlayerAttackTimeRef, now)
           const damage = computeChargedDamage(computeAttackDamage(baseDamage + sharpnessBonus, !playerGrounded), charge)
@@ -363,6 +362,63 @@ export const handleLeftClick = (
                   : Effect.void,
           })
           yield* triggerHeldItemSwing(refs)
+        }),
+    })
+  })
+
+// ── Bow (R31) ─────────────────────────────────────────────────────────────────
+// Called when the player releases right-click while holding a BOW. Fires a
+// hitscan ray up to BOW_MAX_RANGE blocks, consuming 1 ARROW and dealing
+// charge-scaled damage to the first entity in the crosshair.
+export const handleBowFire = (
+  deps: Pick<FrameHandlerDeps, 'camera'>,
+  services: Pick<
+    FrameHandlerServices,
+    'inventoryService' | 'hotbarService' | 'entityManager' | 'soundManager'
+  >,
+  entities: Parameters<typeof findAttackableEntity>[0],
+  context: {
+    readonly chargeStartSecs: number
+    readonly nowSecs: number
+  },
+) =>
+  Effect.gen(function* () {
+    const secsHeld = context.nowSecs - context.chargeStartSecs
+    if (!canFireBow(secsHeld)) return
+
+    const charge = computeBowCharge(secsHeld)
+    const damage = computeBowDamage(charge)
+
+    // Consume 1 ARROW; silent no-op if the player has none.
+    const hasArrow = yield* Effect.match(
+      services.inventoryService.removeBlock('ARROW', 1),
+      { onFailure: () => false, onSuccess: () => true },
+    )
+    if (!hasArrow) return
+
+    // Damage the equipped bow.
+    const selectedSlot = yield* services.hotbarService.getSelectedSlot()
+    yield* services.inventoryService.damageSlot(SlotIndex.make(HOTBAR_START + selectedSlot), 1)
+
+    // Hitscan: find the nearest entity in the crosshair within bow range.
+    // maxDistance = none() (bow ignores block occlusion; it shoots through transparent blocks).
+    const targetId = findAttackableEntity(entities, deps.camera, Option.none(), BOW_MAX_RANGE)
+
+    yield* Option.match(targetId, {
+      onNone: () => Effect.void,
+      onSome: (entityId) =>
+        Effect.gen(function* () {
+          const entityOpt = yield* services.entityManager.getEntity(entityId)
+          const drops = yield* services.entityManager.applyDamage(entityId, damage)
+          yield* Option.match(entityOpt, {
+            onNone: () => Effect.void,
+            onSome: (e) => services.soundManager.playEffect('entityHit', { position: e.position }),
+          })
+          yield* Effect.forEach(
+            Option.getOrElse(drops, () => []),
+            (drop) => services.inventoryService.addBlock(drop.blockType, drop.count),
+            { discard: true },
+          )
         }),
     })
   })
