@@ -303,7 +303,7 @@ sweep) and autosave (forkDaemon, dirty-only chunk saves) re-confirmed **exemplar
 All actioned findings ground-verified against the code first.
 
 **Verified & actioned:**
-- [ ] R22. The entity `update()` runs **three** sequential `HashMap.map` passes per tick
+- [x] R22. The entity `update()` runs **three** sequential `HashMap.map` passes per tick
   (`entity-manager-internal-update.ts`: AI@50, creeper-fuse@176, wool-regrowth@194). Effect's
   `HashMap.map` rebuilds the whole HAMT even when every mapper returns the value unchanged — so the
   creeper and wool passes each cost a full O(N) trie rebuild **every frame even when zero creepers /
@@ -311,11 +311,14 @@ All actioned findings ground-verified against the code first.
   ~5min). Fix: detect creeper/sheared-sheep presence *during* the AI pass (already iterating every
   entity), then **guard** passes 2 & 3 on those flags. Skipping a pure-no-op rebuild is behavior-
   preserving. Low risk (guards only; pass logic untouched).
-- [ ] R23. `findAttackableEntity` (`attack-targeting.ts:12,23`) allocates `1 + N` `THREE.Vector3`
-  per call (`cameraDirection` + one `toEntity` per entity). Click-gated, not per-frame — but fires on
-  every attack/feed/shear click (frequent in combat). `toEntity` is used only for `.dot()`/`.lengthSq()`
-  → pure scalar math, no vector needed. Fix: module-scoped scratch for `getWorldDirection` + scalar
-  dot/lengthSq. Eliminates all per-call vector allocation; matches the project's scratch-vector idiom.
+- [x] R23. `findAttackableEntity` (`attack-targeting.ts:12,23`) allocated `1 + N` `THREE.Vector3`
+  per call (`cameraDirection` + one `toEntity` per entity). Fires on every attack/feed/shear click
+  (frequent in combat). Replaced with a module-scoped scratch for `getWorldDirection` + pure scalar
+  dot/lengthSq math — zero per-call vector allocation. 8 attack-targeting tests confirm identical
+  targeting behavior. _(done 2026-06-10)_
+
+**Round 8 complete.** R22 (skip no-op entity HashMap passes) + R23 (scalar attack targeting).
+typecheck 0 errors, lint 0/0, 4476 tests passing.
 
 **Verified but deferred (recorded, not churned):**
 - Enderman teleport `Array.from({length:32})` (`update.ts:29,123`) — only for an Enderman in Chase
