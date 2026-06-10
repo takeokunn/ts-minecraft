@@ -549,8 +549,13 @@ typecheck 0, **4601 tests passing** (+14 new tests).
   constant in crop-growth domain. Handler branch in `interaction-farming-handler.ts` consumes 1
   BONE_MEAL and calls advanceByBoneMeal. +5 tests (3 service unit, 2 interaction). _(done 2026-06-11)_
 
-**Round 27 complete.** R59-R63.
-typecheck 0, **4608 tests passing** (+10 new tests, 3 updated assertions).
+- [x] R64. Food table correctness: raw WHEAT removed (not edible in vanilla — only BREAD made
+  from wheat is); SPIDER_EYE added (foodLevel=2, saturationModifier=0.1 — matches vanilla drop
+  semantics; Poison effect modelled as low saturation). +2 tests (spider_eye edible,
+  wheat non-edible); existing WHEAT case in getFoodProperties test updated. _(done 2026-06-11)_
+
+**Round 27 complete.** R59-R64.
+typecheck 0, **4608 tests passing** (+12 new tests, 4 updated assertions).
 
 ## D. Progress log
 - 2026-06-10: Audit complete; plan authored. Beginning Phase 1.
