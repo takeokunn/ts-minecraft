@@ -15,7 +15,7 @@ describe('getFoodProperties', () => {
     ['COOKED_BEEF', 8, 0.8],
     ['RAW_BEEF', 3, 0.3],
     ['GOLDEN_APPLE', 4, 1.2],
-    ['WHEAT', 1, 0],
+    ['SPIDER_EYE', 2, 0.1],
     ['ROTTEN_FLESH', 4, 0.1],
   ]
 
@@ -41,11 +41,14 @@ describe('isFood', () => {
     expect(isFood('ROTTEN_FLESH')).toBe(true)
     expect(isFood('COOKED_BEEF')).toBe(true)
     expect(isFood('GOLDEN_APPLE')).toBe(true)
+    expect(isFood('SPIDER_EYE')).toBe(true)
   })
 
   it('is false for non-edible items', () => {
     expect(isFood('STONE_SWORD')).toBe(false)
     expect(isFood('COAL')).toBe(false)
+    // Raw WHEAT is a crafting ingredient in vanilla — not food (only BREAD made from it is).
+    expect(isFood('WHEAT')).toBe(false)
   })
 
   // Consistency: every raw meat/fish that a mob can drop is directly edible,

@@ -28,8 +28,9 @@ export const FOOD_TABLE: Partial<Record<ItemType, FoodProperties>> = {
   RAW_BEEF: { foodLevel: 3, saturationModifier: 0.3 },
   // Best food in the game — full hunger + very high saturation (vanilla Java).
   GOLDEN_APPLE: { foodLevel: 4, saturationModifier: 1.2 },
-  // Farming harvest
-  WHEAT: { foodLevel: 1, saturationModifier: 0 },
+  // Spider drop — edible (restores 2) but also applies Poison in vanilla;
+  // we model the "dangerous food" property as low saturation (like rotten flesh).
+  SPIDER_EYE: { foodLevel: 2, saturationModifier: 0.1 },
   // Zombie drop — edible but barely nourishing (vanilla also applies Hunger).
   ROTTEN_FLESH: { foodLevel: 4, saturationModifier: 0.1 },
 }
