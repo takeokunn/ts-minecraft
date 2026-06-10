@@ -2,6 +2,9 @@ import { Effect, Ref, Clock, Option } from 'effect'
 import { PlayerError } from '@ts-minecraft/entity/domain/errors'
 import { PlayerService } from '@ts-minecraft/entity/application/player-service'
 import { MovementService } from '@ts-minecraft/entity/application/movement-service'
+import { PlayerInputService } from '@ts-minecraft/entity/application/player-input-service'
+import { KeyMappings } from '@ts-minecraft/entity/domain/key-mappings'
+import { computeFlightVerticalVelocity, nextFlightState } from '@ts-minecraft/entity/domain/flight'
 import { PlayerCameraStateService } from '@ts-minecraft/entity/application/camera-state'
 import { DeltaTimeSecs, PlayerId, Position, PhysicsBodyId, DEFAULT_PLAYER_ID, PLAYER_HALF_WIDTH, PLAYER_HALF_HEIGHT, CHUNK_SIZE } from '@ts-minecraft/core'
 import { PhysicsService } from './physics-service'
@@ -72,6 +75,7 @@ export class GameStateService extends Effect.Service<GameStateService>()(
       ChunkManagerService,
       GameModeService,
       InventoryService,
+      PlayerInputService,
       // Timing state (deltaTime initial value uses a first-frame estimate of 16ms at 60fps)
       Ref.make<TimingState>(INITIAL_TIMING_STATE),
       // Opaque physics body ID for the player (replaces CANNON.Body ref)
@@ -84,7 +88,9 @@ export class GameStateService extends Effect.Service<GameStateService>()(
       Ref.make<Array<{ blocks: Uint8Array } | null>>([null, null, null, null, null, null, null, null, null]),
       // Last refreshed player chunk coord. Refresh the 9-cell cache only when this changes.
       Ref.make<{ cx: number; cz: number }>({ cx: Number.NaN, cz: Number.NaN }),
-    ], { concurrency: 'unbounded' }).pipe(Effect.map(([playerService, physicsService, movementService, cameraState, chunkManagerService, gameModeService, inventoryService, timingStateRef, playerBodyIdRef, isGroundedRef, chunkCacheRef, lastChunkCoordRef]) => {
+      // Creative-mode flight toggle state (false outside creative).
+      Ref.make<boolean>(false),
+    ], { concurrency: 'unbounded' }).pipe(Effect.map(([playerService, physicsService, movementService, cameraState, chunkManagerService, gameModeService, inventoryService, inputService, timingStateRef, playerBodyIdRef, isGroundedRef, chunkCacheRef, lastChunkCoordRef, flyingRef]) => {
       const playerId = DEFAULT_PLAYER_ID
 
       return {
@@ -123,6 +129,21 @@ export class GameStateService extends Effect.Service<GameStateService>()(
             const rotation = yield* cameraState.getRotation()
             const isGrounded = yield* Ref.get(isGroundedRef)
 
+            // ─── Creative-mode flight (FR-1) ──────────────────────────────────
+            // Flight is creative-only; KeyF toggles it. While flying, held JUMP
+            // ascends and SNEAK descends, gravity is bypassed, and horizontal
+            // movement gets full air control.
+            const isCreative = yield* gameModeService.isCreative()
+            const flightToggled = yield* inputService.consumeKeyPress(KeyMappings.TOGGLE_FLIGHT)
+            const flying = nextFlightState(yield* Ref.get(flyingRef), isCreative, flightToggled)
+            yield* Ref.set(flyingRef, flying)
+            let flightVy = 0
+            if (flying) {
+              const ascend = yield* inputService.isKeyPressed(KeyMappings.JUMP)
+              const descend = yield* inputService.isKeyPressed(KeyMappings.SNEAK)
+              flightVy = computeFlightVerticalVelocity(ascend, descend)
+            }
+
             /* c8 ignore next 3 */
             const currentVel = yield* physicsService.getVelocity(playerBodyId).pipe(
               Effect.catchTag('PhysicsServiceError', (e) =>
@@ -135,16 +156,26 @@ export class GameStateService extends Effect.Service<GameStateService>()(
             const velocity = yield* movementService.update(rotation.yaw, isGrounded)
             const jumped = velocity.y > 0
 
-            // Air control: only allow horizontal movement input when grounded
+            // Air control: only allow horizontal movement input when grounded.
+            // Flight grants full horizontal air control and replaces the
+            // gravity-driven Y with the controlled flight velocity.
             yield* physicsService.setVelocity(playerBodyId, {
-              x: isGrounded ? velocity.x : currentVel.x,
-              y: jumped ? velocity.y : currentVel.y,
-              z: isGrounded ? velocity.z : currentVel.z,
+              x: flying || isGrounded ? velocity.x : currentVel.x,
+              y: flying ? flightVy : jumped ? velocity.y : currentVel.y,
+              z: flying || isGrounded ? velocity.z : currentVel.z,
             })
 
             if (jumped) {
               yield* Ref.set(isGroundedRef, false)
             }
+
+            // Capture pre-step Y so flight can reconstruct a gravity-free vertical
+            // motion after the step (step() always integrates gravity).
+            const prePosY = flying
+              ? (yield* physicsService.getPosition(playerBodyId).pipe(
+                  Effect.catchTag('PhysicsServiceError', () => Effect.succeed(ZERO_VEC3 as Position)),
+                )).y
+              : 0
 
             yield* physicsService.step(deltaTime)
 
@@ -156,9 +187,16 @@ export class GameStateService extends Effect.Service<GameStateService>()(
               Effect.catchTag('PhysicsServiceError', () => Effect.succeed(ZERO_VEC3))
             )
 
+            // Flight bypasses gravity: overwrite the step's gravity-affected Y with
+            // the controlled flight motion BEFORE collision resolution, so flight
+            // still clamps against solid blocks (no flying through terrain) while
+            // hovering stays perfectly stable (no ½·g·dt² downward drift).
+            const effPos: Position = flying ? ({ ...physPos, y: prePosY + flightVy * deltaTime } as Position) : physPos
+            const effVel = flying ? { x: physVel.x, y: flightVy, z: physVel.z } : physVel
+
             // Refresh 3×3 chunk cache only when player chunk coord changes
-            const playerCx = Math.floor(physPos.x / CHUNK_SIZE)
-            const playerCz = Math.floor(physPos.z / CHUNK_SIZE)
+            const playerCx = Math.floor(effPos.x / CHUNK_SIZE)
+            const playerCz = Math.floor(effPos.z / CHUNK_SIZE)
             const lastChunkCoord = yield* Ref.get(lastChunkCoordRef)
             if (lastChunkCoord.cx !== playerCx || lastChunkCoord.cz !== playerCz) {
               yield* refreshChunkCache(chunkManagerService, playerCx, playerCz, chunkCacheRef, lastChunkCoordRef)
@@ -168,7 +206,7 @@ export class GameStateService extends Effect.Service<GameStateService>()(
             // AABB block collision resolution — delegates solid-block test to block-collision-predicates.ts
             const { position: resolvedPos, velocity: resolvedVel, isGrounded: newIsGrounded } =
               resolveBlockCollisions(
-                physPos, physVel, PLAYER_HALF_WIDTH, PLAYER_HALF_HEIGHT,
+                effPos, effVel, PLAYER_HALF_WIDTH, PLAYER_HALF_HEIGHT,
                 (wx, wy, wz) => isBlockSolid(wx, wy, wz, chunkCache, playerCx, playerCz)
               )
 

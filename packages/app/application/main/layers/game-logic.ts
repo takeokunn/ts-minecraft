@@ -109,11 +109,14 @@ export const InventoryLayer = InventoryServiceLive.pipe(
 
 // Level 4: GameStateService depends on PlayerService, PhysicsService, MovementService,
 // CameraState, ChunkManagerService, GameModeService (mode-aware respawn FR-1.3),
-// and InventoryService (clears on survival death).
+// InventoryService (clears on survival death), and PlayerInputService (creative
+// flight toggle / ascend-descend keys, FR-1). MovementLayer encapsulates its own
+// PlayerInputService, so GameStateService's direct use needs it provided here too.
 export const GameLayer = GameStateServiceLive.pipe(
   Layer.provide(PlayerServiceLive),
   Layer.provide(PhysicsLayer),
   Layer.provide(MovementLayer),
+  Layer.provide(PlayerInputLayer),
   Layer.provide(CameraStateLayer),
   Layer.provide(ChunkManagerLayer),
   Layer.provide(GameModeServiceLive),

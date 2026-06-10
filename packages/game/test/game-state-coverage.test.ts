@@ -56,6 +56,8 @@ describe('application/game-state (coverage)', () => {
       const inventoryLayer = InventoryServiceLive.pipe(Layer.provide(BlockRegistryLive))
       const dependencyLayers = Layer.mergeAll(
         physicsLayer,
+        // GameStateService directly requires PlayerInputService (creative flight, FR-1).
+        inputLayer,
         movementLayer,
         PlayerCameraStateLive,
         PlayerServiceLive,
@@ -126,6 +128,8 @@ describe('application/game-state (coverage)', () => {
       const inventoryLayer = InventoryServiceLive.pipe(Layer.provide(BlockRegistryLive))
       const dependencyLayers = Layer.mergeAll(
         failingPhysicsLayer,
+        // GameStateService directly requires PlayerInputService (creative flight, FR-1).
+        inputLayer,
         movementLayer,
         PlayerCameraStateLive,
         PlayerServiceLive,
@@ -184,6 +188,8 @@ describe('application/game-state (coverage)', () => {
       const inventoryLayer = InventoryServiceLive.pipe(Layer.provide(BlockRegistryLive))
       const dependencyLayers = Layer.mergeAll(
         failingPhysicsLayer,
+        // GameStateService directly requires PlayerInputService (creative flight, FR-1).
+        inputLayer,
         movementLayer,
         PlayerCameraStateLive,
         PlayerServiceLive,
@@ -260,6 +266,8 @@ describe('application/game-state (coverage)', () => {
       )
       const dependencyLayers = Layer.mergeAll(
         physicsLayer,
+        // GameStateService directly requires PlayerInputService (creative flight, FR-1).
+        inputLayer,
         MovementServiceLive.pipe(Layer.provide(inputLayer)),
         PlayerCameraStateLive,
         PlayerServiceLive,

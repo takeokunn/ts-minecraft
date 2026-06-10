@@ -50,6 +50,8 @@ export const TestGameLayer = GameStateServiceLive.pipe(
   Layer.provide(PlayerServiceLive),
   Layer.provide(PhysicsLayer),
   Layer.provide(MovementLayer),
+  // GameStateService now directly requires PlayerInputService (creative flight, FR-1).
+  Layer.provide(NoOpPlayerInputLayer),
   Layer.provide(PlayerCameraStateLive),
   Layer.provide(NoOpChunkManagerLayer),
   Layer.provide(GameModeServiceLive),
@@ -113,6 +115,9 @@ export const createTestLayer = (inputService: ReturnType<typeof createTestInputS
   const dependencyLayers = Layer.mergeAll(
     PhysicsLayer,
     movementLayer,
+    // GameStateService directly consumes PlayerInputService for creative flight
+    // (FR-1) — expose the same test input the movement layer uses.
+    inputLayer,
     PlayerCameraStateLive,
     PlayerServiceLive,
     NoOpChunkManagerLayer,

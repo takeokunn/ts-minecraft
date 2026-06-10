@@ -7,6 +7,8 @@ export const KeyMappings = {
   SPRINT: 'ControlLeft',
   SNEAK: 'ShiftLeft',
   CAMERA_TOGGLE: 'F5',
+  // Creative-mode flight toggle. While flying, held JUMP/SNEAK drive ascend/descend.
+  TOGGLE_FLIGHT: 'KeyF',
   HOTBAR_SLOT_1: 'Digit1',
   HOTBAR_SLOT_2: 'Digit2',
   HOTBAR_SLOT_3: 'Digit3',
