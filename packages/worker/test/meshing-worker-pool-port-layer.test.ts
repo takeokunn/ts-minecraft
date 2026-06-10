@@ -7,7 +7,7 @@ import {
   MeshingWorkerPool,
   MeshingWorkerPoolPort,
   MeshingWorkerPoolPortLayer,
-} from '@ts-minecraft/rendering'
+} from '@ts-minecraft/worker'
 
 // Bridge layer test for MeshingWorkerPoolPortLayer.
 //

@@ -2,7 +2,7 @@ import { describe, expect } from '@effect/vitest'
 import { it } from '@effect/vitest'
 import { vi } from 'vitest'
 import { Effect, Fiber, Option, TestClock, TestContext } from 'effect'
-import { MeshingWorkerPool } from '@ts-minecraft/rendering'
+import { MeshingWorkerPool } from '@ts-minecraft/worker'
 import type { Chunk } from '@ts-minecraft/world'
 import type { ChunkCoord } from '@ts-minecraft/core'
 

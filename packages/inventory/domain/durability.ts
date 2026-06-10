@@ -32,6 +32,7 @@ export const TOOL_MAX_DURABILITY: Partial<Record<InventoryItem, number>> = {
   FISHING_ROD: 64,
   BOW: 384,
   SHIELD: 336,
+  SHEARS: 238, // FR R11 — vanilla Java shears; damaged once per shear (right-click)
   // Armor — each piece has its own durability budget (Minecraft Java Edition)
   LEATHER_HELMET: 55,
   LEATHER_CHESTPLATE: 80,
