@@ -58,11 +58,18 @@ export const createMockDomLayer = () => {
   const renderDistanceInput = createMockControl('INPUT', 'rd-input', '4')
   const sensitivityInput = createMockControl('INPUT', 'ms-input', '0.5')
   const dayLengthInput = createMockControl('INPUT', 'dl-input', '400')
+  const audioEnabledInput = createMockControl('INPUT', 'audio-enabled-input', 'on')
+  const masterVolumeInput = createMockControl('INPUT', 'mv-input', '0.8')
+  const sfxVolumeInput = createMockControl('INPUT', 'sv-input', '1')
+  const musicVolumeInput = createMockControl('INPUT', 'muv-input', '0.55')
   const qualitySelect = createMockControl('SELECT', 'quality-select', 'medium')
   const closeBtn = createMockControl('BUTTON', 'settings-close')
   const rdVal = createMockText('4')
   const msVal = createMockText('0.5')
   const dlVal = createMockText('400')
+  const mvVal = createMockText('0.8')
+  const svVal = createMockText('1')
+  const muvVal = createMockText('0.55')
 
   const createElement = vi.fn(<K extends keyof HTMLElementTagNameMap>(tagName: K): HTMLElementTagNameMap[K] => {
     if (tagName === 'div') return overlay as HTMLElementTagNameMap[K]
@@ -76,12 +83,19 @@ export const createMockDomLayer = () => {
       case '#rd-input': return Option.some(renderDistanceInput)
       case '#ms-input': return Option.some(sensitivityInput)
       case '#dl-input': return Option.some(dayLengthInput)
+      case '#audio-enabled-input': return Option.some(audioEnabledInput)
+      case '#mv-input': return Option.some(masterVolumeInput)
+      case '#sv-input': return Option.some(sfxVolumeInput)
+      case '#muv-input': return Option.some(musicVolumeInput)
       case '#quality-select': return Option.some(qualitySelect)
       case '#settings-close': return Option.some(closeBtn)
       case '#settings-gear-btn': return Option.some(gearBtn)
       case '#rd-val': return Option.some(rdVal)
       case '#ms-val': return Option.some(msVal)
       case '#dl-val': return Option.some(dlVal)
+      case '#mv-val': return Option.some(mvVal)
+      case '#sv-val': return Option.some(svVal)
+      case '#muv-val': return Option.some(muvVal)
       default: return Option.none()
     }
   }) as DomOperationsService['querySelector'])
@@ -107,12 +121,19 @@ export const createMockDomLayer = () => {
       renderDistanceInput,
       sensitivityInput,
       dayLengthInput,
+      audioEnabledInput,
+      masterVolumeInput,
+      sfxVolumeInput,
+      musicVolumeInput,
       qualitySelect,
       closeBtn,
       gearBtn,
       rdVal,
       msVal,
       dlVal,
+      mvVal,
+      svVal,
+      muvVal,
     },
   }
 }

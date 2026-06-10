@@ -7,6 +7,10 @@ export type SettingsOverlayDom = {
   readonly adaptivePerformanceInput: Option.Option<HTMLInputElement>
   readonly sensitivityInput: Option.Option<HTMLInputElement>
   readonly dayLengthInput: Option.Option<HTMLInputElement>
+  readonly audioEnabledInput: Option.Option<HTMLInputElement>
+  readonly masterVolumeInput: Option.Option<HTMLInputElement>
+  readonly sfxVolumeInput: Option.Option<HTMLInputElement>
+  readonly musicVolumeInput: Option.Option<HTMLInputElement>
   readonly qualitySelect: Option.Option<HTMLSelectElement>
   readonly closeBtn: Option.Option<HTMLButtonElement>
   readonly gearBtn: Option.Option<HTMLButtonElement>
@@ -21,6 +25,10 @@ export const buildSettingsOverlayDom = (dom: DomOperationsService): SettingsOver
       adaptivePerformanceInput: Option.none<HTMLInputElement>(),
       sensitivityInput: Option.none<HTMLInputElement>(),
       dayLengthInput: Option.none<HTMLInputElement>(),
+      audioEnabledInput: Option.none<HTMLInputElement>(),
+      masterVolumeInput: Option.none<HTMLInputElement>(),
+      sfxVolumeInput: Option.none<HTMLInputElement>(),
+      musicVolumeInput: Option.none<HTMLInputElement>(),
       qualitySelect: Option.none<HTMLSelectElement>(),
       closeBtn: Option.none<HTMLButtonElement>(),
       gearBtn: Option.none<HTMLButtonElement>(),
@@ -67,6 +75,27 @@ export const buildSettingsOverlayDom = (dom: DomOperationsService): SettingsOver
       <input id="dl-input" type="range" min="120" max="1200" step="60" value="400"
         style="display:block;width:100%;margin-top:4px">
     </label>
+    <hr style="border:1px solid #555;margin:16px 0">
+    <h3 style="margin:0 0 8px;font-size:14px">Audio</h3>
+    <label style="display:flex;align-items:center;gap:8px;margin-bottom:8px;cursor:pointer">
+      <input id="audio-enabled-input" type="checkbox" style="margin:0">
+      <span>Audio Enabled</span>
+    </label>
+    <label style="display:block;margin-bottom:8px">
+      Master Volume: <span id="mv-val">1.0</span>
+      <input id="mv-input" type="range" min="0" max="1" step="0.05" value="1"
+        style="display:block;width:100%;margin-top:4px">
+    </label>
+    <label style="display:block;margin-bottom:8px">
+      SFX Volume: <span id="sv-val">1.0</span>
+      <input id="sv-input" type="range" min="0" max="1" step="0.05" value="1"
+        style="display:block;width:100%;margin-top:4px">
+    </label>
+    <label style="display:block;margin-bottom:12px">
+      Music Volume: <span id="muv-val">1.0</span>
+      <input id="muv-input" type="range" min="0" max="1" step="0.05" value="1"
+        style="display:block;width:100%;margin-top:4px">
+    </label>
     <div style="display:flex;gap:8px">
       <button id="settings-close" style="flex:1;padding:8px;cursor:pointer;background:#555;border:none;color:#fff;border-radius:4px">Close</button>
     </div>
@@ -92,6 +121,10 @@ export const buildSettingsOverlayDom = (dom: DomOperationsService): SettingsOver
     renderDistanceInput: dom.querySelector<HTMLInputElement>(el, '#rd-input'),
     sensitivityInput: dom.querySelector<HTMLInputElement>(el, '#ms-input'),
     dayLengthInput: dom.querySelector<HTMLInputElement>(el, '#dl-input'),
+    audioEnabledInput: dom.querySelector<HTMLInputElement>(el, '#audio-enabled-input'),
+    masterVolumeInput: dom.querySelector<HTMLInputElement>(el, '#mv-input'),
+    sfxVolumeInput: dom.querySelector<HTMLInputElement>(el, '#sv-input'),
+    musicVolumeInput: dom.querySelector<HTMLInputElement>(el, '#muv-input'),
     qualitySelect: dom.querySelector<HTMLSelectElement>(el, '#quality-select'),
     closeBtn: dom.querySelector<HTMLButtonElement>(el, '#settings-close'),
     gearBtn: Option.some(btn),

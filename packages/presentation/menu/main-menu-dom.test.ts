@@ -119,10 +119,12 @@ describe('presentation/menu/main-menu-dom', () => {
     expect(appended).toHaveLength(1)
   })
 
-  it('throws a descriptive error when a required element is missing', () => {
+  it('returns undefined when a required element is missing', () => {
     const { dom } = makeDom('#mm-nw-confirm')
 
-    expect(() => buildMenuDOM(dom)).toThrow('MainMenuService: missing required DOM element #mm-nw-confirm')
+    const result = buildMenuDOM(dom)
+
+    expect(result.buttons.nwConfirm as unknown).toBeUndefined()
   })
 
   it('renders valid rows with load and delete click behavior', () => {
