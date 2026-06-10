@@ -5,7 +5,7 @@ import { PlayerService } from '@ts-minecraft/entity/application/player-service'
 import type { BlockType, InventoryItem } from '@ts-minecraft/core'
 import type { RecipeId, DeltaTimeSecs } from '@ts-minecraft/core'
 import { ChunkManagerService } from '@ts-minecraft/world/application/chunk-manager-service'
-import { FURNACE_SMELT_DURATION_SECS } from './furnace-service.config'
+import { FURNACE_SMELT_DURATION_SECS, FURNACE_FUEL_ITEMS } from './furnace-service.config'
 import { FurnaceError } from '../domain/furnace-errors'
 import type { FurnaceBlockState, FurnaceItemStack } from '../domain/furnace-state'
 import {
@@ -19,7 +19,9 @@ import { makeFurnaceHelpers } from './furnace-service-helpers'
 
 // ── startSmelting helpers ─────────────────────────────────────────────────────
 
-const COAL = 'COAL' as const
+/** Returns the first fuel item available in the player's inventory, or undefined. */
+const findAvailableFuel = (available: HashMap.HashMap<InventoryItem, number>): InventoryItem | undefined =>
+  FURNACE_FUEL_ITEMS.find((item) => Option.getOrElse(HashMap.get(available, item), () => 0) >= 1)
 
 /** Validates recipe, position, furnace slot availability, and inventory counts. */
 const validateSmeltingPreconditions = (
@@ -30,6 +32,7 @@ const validateSmeltingPreconditions = (
   available: HashMap.HashMap<InventoryItem, number>,
 ): Effect.Effect<{
   readonly input: { readonly itemType: InventoryItem; readonly count: number }
+  readonly fuel: InventoryItem
   readonly position: { readonly x: number; readonly y: number; readonly z: number }
 }, FurnaceError> =>
   Effect.gen(function* () {
@@ -54,8 +57,9 @@ const validateSmeltingPreconditions = (
     if (Option.getOrElse(HashMap.get(available, input.itemType), () => 0) < input.count) {
       return yield* Effect.fail(new FurnaceError({ operation: 'startSmelting', cause: `Missing input: ${input.itemType}` }))
     }
-    if (Option.getOrElse(HashMap.get(available, COAL), () => 0) < 1) {
-      return yield* Effect.fail(new FurnaceError({ operation: 'startSmelting', cause: 'Missing furnace fuel: COAL' }))
+    const fuel = findAvailableFuel(available)
+    if (!fuel) {
+      return yield* Effect.fail(new FurnaceError({ operation: 'startSmelting', cause: 'Missing furnace fuel' }))
     }
 
     const state = yield* Ref.get(stateRef)
@@ -72,21 +76,22 @@ const validateSmeltingPreconditions = (
       onSome: () => Effect.fail(new FurnaceError({ operation: 'startSmelting', cause: 'Furnace output slot is occupied' })),
     })
 
-    return { input: { itemType: input.itemType, count: input.count }, position }
+    return { input: { itemType: input.itemType, count: input.count }, fuel, position }
   })
 
 /** Removes fuel then input; refunds fuel if input removal fails. */
 const consumeSmeltingIngredients = (
   inventoryService: InventoryService,
   input: { readonly itemType: InventoryItem; readonly count: number },
+  fuel: InventoryItem,
 ): Effect.Effect<void, FurnaceError> =>
   Effect.gen(function* () {
-    yield* inventoryService.removeBlock(COAL, 1).pipe(
-      Effect.mapError(() => new FurnaceError({ operation: 'startSmelting', cause: 'Missing furnace fuel: COAL' }))
+    yield* inventoryService.removeBlock(fuel, 1).pipe(
+      Effect.mapError(() => new FurnaceError({ operation: 'startSmelting', cause: 'Missing furnace fuel' }))
     )
     yield* inventoryService.removeBlock(input.itemType as BlockType, input.count).pipe(
       Effect.catchTag('InventoryError', () =>
-        inventoryService.addBlock(COAL, 1).pipe(
+        inventoryService.addBlock(fuel, 1).pipe(
           Effect.ignore,
           Effect.andThen(Effect.fail(new FurnaceError({ operation: 'startSmelting', cause: `Missing input: ${input.itemType}` })))
         )
@@ -135,14 +140,14 @@ export class FurnaceService extends Effect.Service<FurnaceService>()(
                     ),
                 }),
               )
-              const { input, position } = yield* validateSmeltingPreconditions(
+              const { input, fuel, position } = yield* validateSmeltingPreconditions(
                 recipeService, helpers, stateRef, recipeId, available,
               )
-              yield* consumeSmeltingIngredients(inventoryService, input)
+              yield* consumeSmeltingIngredients(inventoryService, input, fuel)
               const nextFurnace: FurnaceBlockState = {
                 position,
                 input: Option.some(input),
-                fuel: Option.some({ itemType: COAL, count: 1 }),
+                fuel: Option.some({ itemType: fuel, count: 1 }),
                 output: Option.none(),
                 activeRecipeId: Option.some(recipeId),
                 progressSecs: 0,

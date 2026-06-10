@@ -356,4 +356,52 @@ describe('application/furnace/furnace-service', () => {
       expect(Option.isSome(remaining[0]!.fuel)).toBe(true)
     }).pipe(Effect.provide(layer))
   })
+
+  it.effect('startSmelting accepts STICKS as alternative fuel when COAL is absent (R57)', () => {
+    const items = MutableHashMap.fromIterable<InventoryItem, number>([['RAW_IRON', 1], ['STICKS', 1]])
+    const inventory = {
+      getAllSlots() {
+        return Effect.succeed([
+          Option.some({ itemType: 'RAW_IRON' as InventoryItem, count: 1 }),
+          Option.some({ itemType: 'STICKS' as InventoryItem, count: 1 }),
+        ])
+      },
+      removeBlock(itemType: InventoryItem, count: number) {
+        return Effect.suspend(() => {
+          const current = Option.getOrElse(MutableHashMap.get(items, itemType), () => 0)
+          if (current < count) return Effect.fail(new InventoryError({ operation: 'removeBlock', cause: `Insufficient ${itemType}` }))
+          MutableHashMap.set(items, itemType, current - count)
+          return Effect.void
+        })
+      },
+      addBlock(itemType: InventoryItem, _count: number) {
+        return Effect.sync(() => { MutableHashMap.set(items, itemType, Option.getOrElse(MutableHashMap.get(items, itemType), () => 0) + 1) })
+      },
+    }
+
+    const layer = FurnaceServiceLive.pipe(
+      Layer.provide(Layer.succeed(RecipeService, makeRecipeService({
+        'raw-iron-to-iron-ingot': {
+          station: 'furnace',
+          ingredients: [{ itemType: 'RAW_IRON', count: 1 }],
+          output: { itemType: 'IRON_INGOT', count: 1 },
+        },
+      }))),
+      Layer.provide(Layer.succeed(InventoryService, makeInventoryService(items, {
+        removeBlock: inventory.removeBlock,
+        addBlock: inventory.addBlock,
+      }))),
+      Layer.provide(Layer.succeed(PlayerService, makePlayerService({ x: 0, y: 64, z: 0 }))),
+      Layer.provide(Layer.succeed(ChunkManagerService, makeChunkManagerService(makeChunkWithFurnace()))),
+    )
+
+    return Effect.gen(function* () {
+      const furnace = yield* FurnaceService
+      yield* furnace.setSelectedFurnace({ x: 0, y: 64, z: 0 })
+      yield* furnace.startSmelting(RecipeId.make('raw-iron-to-iron-ingot'))
+      // STICKS were consumed as fuel
+      expect(Option.getOrElse(MutableHashMap.get(items, 'STICKS'), () => 0)).toBe(0)
+      expect(Option.getOrElse(MutableHashMap.get(items, 'RAW_IRON'), () => 0)).toBe(0)
+    }).pipe(Effect.provide(layer))
+  })
 })
