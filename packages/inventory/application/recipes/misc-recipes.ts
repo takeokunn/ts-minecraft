@@ -154,4 +154,15 @@ export const MISC_RECIPES: ReadonlyArray<Recipe> = [
     ingredients: [new RecipeIngredient({ itemType: 'IRON_INGOT', count: 3 })],
     output: { itemType: 'BUCKET', count: 1 },
   }),
+  // R65: Flint + steel — vanilla recipe: FLINT×1 + IRON_INGOT×1 → FLINT_AND_STEEL×1.
+  // Gravel always drops FLINT (deterministic; vanilla is 10% random) so this is obtainable.
+  new Recipe({
+    id: RecipeId.make('flint-and-iron-to-flint-and-steel'),
+    station: 'crafting_table',
+    ingredients: [
+      new RecipeIngredient({ itemType: 'FLINT', count: 1 }),
+      new RecipeIngredient({ itemType: 'IRON_INGOT', count: 1 }),
+    ],
+    output: { itemType: 'FLINT_AND_STEEL', count: 1 },
+  }),
 ]

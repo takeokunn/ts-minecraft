@@ -132,6 +132,7 @@ export const ITEM_TILE_MAP: Readonly<Record<InventoryItem, number>> = {
   DIAMOND_CHESTPLATE: 58,
   DIAMOND_LEGGINGS: 58,
   DIAMOND_BOOTS: 58,
+  FLINT: 53,   // gravel-adjacent tile
   FLINT_AND_STEEL: 54,
   SHEARS: 55, // iron-tool tile (R11)
   // Buckets (R26) — no dedicated sprite; reuse iron-ingot tile for the empty

@@ -48,6 +48,8 @@ export const NON_PLACEABLE_ITEM_TYPES: HashSet.HashSet<InventoryItem> = HashSet.
   'WHEAT',
   'WHEAT_SEEDS',
   'BONE_MEAL',
+  // Gravel drop
+  'FLINT',
   // Ranged weapons, tools & defensive items — not placeable as blocks
   'BOW',
   'FISHING_ROD',
@@ -116,6 +118,8 @@ export const INVENTORY_DROP_OVERRIDES: HashMap.HashMap<BlockType, InventoryItem>
   // REDSTONE_WIRE (flat cable on ground) drops REDSTONE_DUST when broken.
   // REDSTONE_TORCH drops itself (you can place it again) — no override needed.
   ['REDSTONE_WIRE', 'REDSTONE_DUST'],
+  // Gravel drops FLINT (deterministic; vanilla is 10% random but we keep drops pure/replayable).
+  ['GRAVEL', 'FLINT'],
 ])
 
 export const getInventoryDropForBlock = (blockType: BlockType): InventoryItem =>

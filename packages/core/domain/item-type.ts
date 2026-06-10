@@ -87,6 +87,8 @@ export const ItemTypeSchema = Schema.Literal(
   'DIAMOND_CHESTPLATE',
   'DIAMOND_LEGGINGS',
   'DIAMOND_BOOTS',
+  // Gravel drop — used in crafting FLINT_AND_STEEL
+  'FLINT',
   // Portal ignition tool
   'FLINT_AND_STEEL',
   // Sheep-shearing tool (FR R11)
