@@ -397,6 +397,25 @@ all four wired end-to-end.
 **Round 19 complete.** R40–R43 — 4 new enchantments wired end-to-end.
 typecheck 0, lint 0/0, **4563 tests passing** (+11 new).
 
+## V. Round 20 (2026-06-11) — FIRE_PROTECTION lava + UNBREAKING sword/bow
+
+Audit found FIRE_PROTECTION/PROJECTILE_PROTECTION/BLAST_PROTECTION had no APPLICABLE_TO entries
+(so `canEnchantItem` always returned false) and no formula fn. Also UNBREAKING was only wired
+for block-breaking tools; sword hits and bow shots were silently ignoring it.
+
+- [x] R44. FIRE_PROTECTION (lava) — `getFireProtectionReduction(level) = 0.08*level`; added
+  APPLICABLE_TO for all three speciality protection types (all 12 armor pieces). physics-stage
+  lava burn reads `equipmentService.getAll()`, sums FIRE_PROTECTION reduction across 4 slots,
+  caps at 64%, multiplies `LAVA_DAMAGE` before damage application. +5 enchantment tests. _(done 2026-06-11)_
+- [x] R45. UNBREAKING for sword — `handleLeftClick` weapon durability damage now gate by
+  `getUnbreakingSkipChance(level)` (`weaponEnchantments` already in scope). _(done 2026-06-11)_
+- [x] R46. UNBREAKING for bow — `handleBowFire` reads `UNBREAKING` from bow enchantments;
+  `skipBowDurability = Math.random() < getUnbreakingSkipChance(level)`; skips `damageSlot` when true.
+  INFINITY and UNBREAKING stack independently (both vanilla). _(done 2026-06-11)_
+
+**Round 20 complete.** R44–R46 — FIRE_PROTECTION + UNBREAKING wiring completed.
+typecheck 0, lint 0/0, **4575 tests passing** (+5 new).
+
 **Verified as fully wired (no change needed):**
 - Fishing rod: cast/cancel in `handleFoodConsumption` + tick in `physics-stage`. ✓
 - Tool durability on melee: `handleLeftClick.damageSlot`. ✓
