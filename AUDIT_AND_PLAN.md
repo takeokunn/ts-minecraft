@@ -294,3 +294,35 @@ and call sites** before landing (last round had several false positives, so veri
   (2 IRON_INGOT → 1 SHEARS, `crafting_table`) to `misc-recipes.ts` + a focused craft test. _(done 2026-06-10)_
 
 **Round 7 complete.** R18-R20 perf/cleanup + R21 FR gap. typecheck 0 errors, 4476 tests passing (+1 new).
+
+## K. Round 8 (2026-06-10, Opus 4.8) — entity-tick / raycast / particle audit
+
+Three breadth agents audited the entity AI tick, per-frame raycast/targeting, and the
+particle + autosave subsystems. Particle pool (pre-allocated 512-slot, in-place swap-free
+sweep) and autosave (forkDaemon, dirty-only chunk saves) re-confirmed **exemplary, no action**.
+All actioned findings ground-verified against the code first.
+
+**Verified & actioned:**
+- [ ] R22. The entity `update()` runs **three** sequential `HashMap.map` passes per tick
+  (`entity-manager-internal-update.ts`: AI@50, creeper-fuse@176, wool-regrowth@194). Effect's
+  `HashMap.map` rebuilds the whole HAMT even when every mapper returns the value unchanged — so the
+  creeper and wool passes each cost a full O(N) trie rebuild **every frame even when zero creepers /
+  zero sheared sheep exist** (the common case — creepers are dark-only, sheared sheep self-heal in
+  ~5min). Fix: detect creeper/sheared-sheep presence *during* the AI pass (already iterating every
+  entity), then **guard** passes 2 & 3 on those flags. Skipping a pure-no-op rebuild is behavior-
+  preserving. Low risk (guards only; pass logic untouched).
+- [ ] R23. `findAttackableEntity` (`attack-targeting.ts:12,23`) allocates `1 + N` `THREE.Vector3`
+  per call (`cameraDirection` + one `toEntity` per entity). Click-gated, not per-frame — but fires on
+  every attack/feed/shear click (frequent in combat). `toEntity` is used only for `.dot()`/`.lengthSq()`
+  → pure scalar math, no vector needed. Fix: module-scoped scratch for `getWorldDirection` + scalar
+  dot/lengthSq. Eliminates all per-call vector allocation; matches the project's scratch-vector idiom.
+
+**Verified but deferred (recorded, not churned):**
+- Enderman teleport `Array.from({length:32})` (`update.ts:29,123`) — only for an Enderman in Chase
+  state passing a ~5%/tick probability gate; rare. Avoiding it needs a signature change to
+  `computeEndermanTeleportTarget` (closure instead of array). Low real-world impact. DEFER.
+- Per-mob motion `Vector3` allocations (`computeStateVelocity` + `state-machine.ts` normalize/subtract/
+  scale) — one per *active* mob per tick. This is the immutable-vector-math design cost; rewriting to
+  in-place math touches unit-tested pure functions across the domain. Disproportionate risk. DEFER.
+- Per-entity `{...entity}` spreads in the AI loop — the immutable-update pattern, already mitigated by
+  the idle early-return (line 103). Acceptable design cost. DEFER.

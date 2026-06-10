@@ -46,9 +46,18 @@ export const makeEntityManagerUpdate = (
       const tick = yield* Ref.updateAndGet(updateTickRef, (value) => value + 1)
       const dirtyRef = MutableRef.make(false)
       const daytimeBurningActive = !isNight && tick % 20 === 0
+      // R22: track whether any creeper / freshly-sheared sheep exists so the
+      // creeper-fuse and wool-regrowth passes below can be skipped when they
+      // would be pure no-op HashMap rebuilds. Detected during the AI pass we're
+      // already running — neither pass changes entity.type or creates sheared
+      // sheep, so these flags stay valid for the guards below.
+      const hasCreeperRef = MutableRef.make(false)
+      const hasShearedSheepRef = MutableRef.make(false)
 
       yield* Ref.update(entitiesRef, (entities) =>
         HashMap.map(entities, (entity, entityId) => {
+          if (entity.type === EntityType.Creeper) MutableRef.set(hasCreeperRef, true)
+          if (entity.woolRegrowthTicks > 0) MutableRef.set(hasShearedSheepRef, true)
           const hash = hashEntityId(entityId)
           const distSq = distanceToPlayerSq(entity.position, playerPosition)
           const distance = Math.sqrt(distSq)
@@ -173,31 +182,38 @@ export const makeEntityManagerUpdate = (
       // Advance creeper detonation fuses: burn while the player is in ignition
       // range, reset otherwise. Detonation is resolved in getPlayerContactDamage,
       // which runs later this frame (physics stage follows the entity-update stage).
-      yield* Ref.update(entitiesRef, (entities) =>
-        HashMap.map(entities, (entity) => {
-          if (entity.type !== EntityType.Creeper) return entity
-          const nextFuse = tickCreeperFuse(
-            entity.position,
-            playerPosition,
-            { fuseSecs: entity.fuseSecs, ignited: entity.fuseSecs > 0 },
-            deltaTime,
-          ).state.fuseSecs
-          return nextFuse === entity.fuseSecs ? entity : { ...entity, fuseSecs: nextFuse }
-        })
-      )
+      // R22: skipped entirely when no creeper is loaded — otherwise HashMap.map
+      // would rebuild the whole entity trie just to return every value unchanged.
+      if (MutableRef.get(hasCreeperRef)) {
+        yield* Ref.update(entitiesRef, (entities) =>
+          HashMap.map(entities, (entity) => {
+            if (entity.type !== EntityType.Creeper) return entity
+            const nextFuse = tickCreeperFuse(
+              entity.position,
+              playerPosition,
+              { fuseSecs: entity.fuseSecs, ignited: entity.fuseSecs > 0 },
+              deltaTime,
+            ).state.fuseSecs
+            return nextFuse === entity.fuseSecs ? entity : { ...entity, fuseSecs: nextFuse }
+          })
+        )
+      }
 
       // FR R11: regrow sheared sheep's wool — count the regrowth timer down to 0.
       // Returns the entity unchanged once woolly (timer at 0), so a flock of woolly
       // sheep adds no churn; only freshly-sheared sheep mutate. `woolRegrowthTicks`
       // is NOT in the public Entity projection, so this needs no cache invalidation
       // (same reasoning as the creeper-fuse pass above).
-      yield* Ref.update(entitiesRef, (entities) =>
-        HashMap.map(entities, (entity) =>
-          entity.woolRegrowthTicks > 0
-            ? { ...entity, woolRegrowthTicks: tickWoolRegrowth(entity.woolRegrowthTicks) }
-            : entity
+      // R22: skipped entirely when no sheared sheep is loaded (the no-op-rebuild case).
+      if (MutableRef.get(hasShearedSheepRef)) {
+        yield* Ref.update(entitiesRef, (entities) =>
+          HashMap.map(entities, (entity) =>
+            entity.woolRegrowthTicks > 0
+              ? { ...entity, woolRegrowthTicks: tickWoolRegrowth(entity.woolRegrowthTicks) }
+              : entity
+          )
         )
-      )
+      }
 
       if (daytimeBurningActive) {
         yield* Ref.modify(entitiesRef, (entities): [boolean, HashMap.HashMap<EntityId, ManagedEntity>] => {
