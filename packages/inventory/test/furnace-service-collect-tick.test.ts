@@ -81,7 +81,7 @@ describe('application/furnace/furnace-service', () => {
       yield* furnace.startSmelting(RecipeId.make('raw-iron-to-iron-ingot'))
       yield* furnace.tick(DeltaTimeSecs.make(10.0))
       const result = yield* furnace.collectOutput()
-      expect(result).toBe(false)
+      expect(result.collected).toBe(false)
 
       // Safety guarantee: a failed collect (full inventory) must NOT destroy the
       // smelted item — it stays in the furnace output slot so the player can
@@ -197,5 +197,42 @@ describe('application/furnace/furnace-service', () => {
       const progressAfter = Option.map(idleStateAfter, (s) => s.progressSecs)
       expect(progressBefore).toEqual(progressAfter)
     }).pipe(Effect.provide(makeFurnaceLayer())),
+  )
+
+  // R61: smelting grants XP on output collection (vanilla Java Edition).
+  it.effect('collectOutput returns xp > 0 for XP-granting output (iron ingot = 0.7/item → 1 for count 1)', () =>
+    Effect.gen(function* () {
+      const furnace = yield* FurnaceService
+      yield* furnace.setSelectedFurnace({ x: 0, y: 64, z: 0 })
+      yield* furnace.startSmelting(RecipeId.make('raw-iron-to-iron-ingot'))
+      yield* furnace.tick(DeltaTimeSecs.make(10.0))
+      const result = yield* furnace.collectOutput()
+      expect(result.collected).toBe(true)
+      // round(1 * 0.7) = 1, but max(1, 1) = 1
+      expect(result.xp).toBe(1)
+    }).pipe(Effect.provide(makeFurnaceLayer({
+      inventoryItems: MutableHashMap.fromIterable<InventoryItem, number>([['RAW_IRON', 1], ['COAL', 1]]),
+    }))),
+  )
+
+  it.effect('collectOutput returns xp = 0 for output items with no XP (cooked porkchop)', () =>
+    Effect.gen(function* () {
+      const furnace = yield* FurnaceService
+      yield* furnace.setSelectedFurnace({ x: 0, y: 64, z: 0 })
+      yield* furnace.startSmelting(RecipeId.make('raw-pork-to-cooked-porkchop'))
+      yield* furnace.tick(DeltaTimeSecs.make(10.0))
+      const result = yield* furnace.collectOutput()
+      expect(result.collected).toBe(true)
+      expect(result.xp).toBe(0)
+    }).pipe(Effect.provide(makeFurnaceLayer({
+      inventoryItems: MutableHashMap.fromIterable<InventoryItem, number>([['COOKED_PORKCHOP', 1], ['COAL', 1]]),
+      recipeMap: {
+        'raw-pork-to-cooked-porkchop': {
+          station: 'furnace',
+          ingredients: [{ itemType: 'COOKED_PORKCHOP', count: 1 }],
+          output: { itemType: 'COOKED_PORKCHOP', count: 1 },
+        },
+      },
+    }))),
   )
 })

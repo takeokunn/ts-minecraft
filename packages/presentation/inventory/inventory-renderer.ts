@@ -5,6 +5,7 @@ import { RecipeService } from '@ts-minecraft/inventory'
 import { FurnaceService } from '@ts-minecraft/inventory'
 import { GameStateService } from '@ts-minecraft/game'
 import { ChunkManagerService } from '@ts-minecraft/world'
+import { XPService } from '@ts-minecraft/entity'
 import { DEFAULT_PLAYER_ID } from '@ts-minecraft/core'
 import { RecipeId } from '@ts-minecraft/core'
 import { DomOperationsService } from '@ts-minecraft/presentation/hud/crosshair'
@@ -28,13 +29,14 @@ export class InventoryRendererService extends Effect.Service<InventoryRendererSe
       FurnaceService,
       GameStateService,
       ChunkManagerService,
+      XPService,
       DomOperationsService,
       Ref.make(false),
       Ref.make<ReadonlyArray<Recipe>>([]),
       Ref.make(0),
       Ref.make('Click a recipe to craft it.'),
     ], { concurrency: 'unbounded' }).pipe(
-      Effect.flatMap(([inventoryService, hotbarService, recipeService, furnaceService, gameState, chunkManagerService, dom, isVisibleRef, availableRecipesRef, selectedRecipeIndexRef, statusMessageRef]) => {
+      Effect.flatMap(([inventoryService, hotbarService, recipeService, furnaceService, gameState, chunkManagerService, xpService, dom, isVisibleRef, availableRecipesRef, selectedRecipeIndexRef, statusMessageRef]) => {
 
       const getChunkOrNone = (coord: { readonly x: number; readonly z: number }) =>
         chunkManagerService.getChunk(coord).pipe(Effect.option)
@@ -81,7 +83,9 @@ export class InventoryRendererService extends Effect.Service<InventoryRendererSe
                 Effect.flatMap((furnaceOpt) => Option.match(furnaceOpt, {
                   onNone: () => furnaceService.startSmelting(recipeId),
                   onSome: (furnace) => Option.match(furnace.output, {
-                      onSome: () => furnaceService.collectOutput().pipe(Effect.asVoid),
+                      onSome: () => furnaceService.collectOutput().pipe(
+                        Effect.flatMap(({ xp }) => xp > 0 ? xpService.addXP(xp).pipe(Effect.asVoid) : Effect.void),
+                      ),
                       onNone: () => furnaceService.startSmelting(recipeId),
                     }),
                 })),

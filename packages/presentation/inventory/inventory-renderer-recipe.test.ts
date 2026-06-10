@@ -12,6 +12,7 @@ createMockGameStateLayer,
 createMockHotbarLayer,
 createMockInventoryLayer,
 createMockRecipeLayer,
+createMockXPLayer,
 makeFurnaceRecipe,
 makeRecipe,
 } from './inventory-renderer-test-utils'
@@ -61,7 +62,7 @@ describe('presentation/inventory/inventory-renderer (recipe)', () => {
             progressSecs: 0,
           })),
         startSmelting: vi.fn(() => Effect.void),
-        collectOutput: vi.fn(() => Effect.succeed(true)),
+        collectOutput: vi.fn(() => Effect.succeed({ collected: true, xp: 0 })),
       })
 
       const mockDom = createMockDomLayer()
@@ -75,6 +76,7 @@ describe('presentation/inventory/inventory-renderer (recipe)', () => {
         Layer.provide(MockFurnaceWithOutput.MockFurnaceLayer),
         Layer.provide(createMockGameStateLayer().MockGameStateLayer),
         Layer.provide(createMockChunkManagerLayer().MockChunkManagerLayer),
+        Layer.provide(createMockXPLayer().MockXPLayer),
       )
 
       return Effect.gen(function* () {
@@ -102,7 +104,7 @@ describe('presentation/inventory/inventory-renderer (recipe)', () => {
             progressSecs: 0,
           })),
         startSmelting: startSmeltingSpy,
-        collectOutput: vi.fn(() => Effect.succeed(true)),
+        collectOutput: vi.fn(() => Effect.succeed({ collected: true, xp: 0 })),
       })
 
       const mockDom = createMockDomLayer()
@@ -116,6 +118,7 @@ describe('presentation/inventory/inventory-renderer (recipe)', () => {
         Layer.provide(MockFurnaceNoOutput.MockFurnaceLayer),
         Layer.provide(createMockGameStateLayer().MockGameStateLayer),
         Layer.provide(createMockChunkManagerLayer().MockChunkManagerLayer),
+        Layer.provide(createMockXPLayer().MockXPLayer),
       )
 
       return Effect.gen(function* () {

@@ -24,7 +24,7 @@ import { ThirdPersonCameraServiceLive } from '@ts-minecraft/entity'
 
 // Cross-tier deps
 import { StorageServiceLive } from '@ts-minecraft/world'
-import { HealthServiceLive } from '@ts-minecraft/entity'
+import { HealthServiceLive, XPServiceLive } from '@ts-minecraft/entity'
 import { RecipeServiceLive } from '@ts-minecraft/inventory'
 import { GameModeServiceLive } from '@ts-minecraft/game'
 
@@ -119,7 +119,7 @@ export const LoadingScreenLayer = LoadingScreenLive.pipe(
 // Effect dependencies (deps are passed at attach() time).
 export const DebugOverlayLayer = DebugOverlayLive
 
-// InventoryRenderer depends on InventoryService, HotbarService, RecipeService, and DomOperations
+// InventoryRenderer depends on InventoryService, HotbarService, RecipeService, XPService, and DomOperations
 export const InventoryRendererLayer = InventoryRendererLive.pipe(
   Layer.provide(InventoryLayer),
   Layer.provide(HotbarLayer),
@@ -127,6 +127,7 @@ export const InventoryRendererLayer = InventoryRendererLive.pipe(
   Layer.provide(FurnaceLayer),
   Layer.provide(GameLayer),
   Layer.provide(ChunkManagerLayer),
+  Layer.provide(XPServiceLive),
   Layer.provide(DomOperationsLive),
 )
 

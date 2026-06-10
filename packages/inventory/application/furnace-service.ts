@@ -5,7 +5,7 @@ import { PlayerService } from '@ts-minecraft/entity/application/player-service'
 import type { BlockType, InventoryItem } from '@ts-minecraft/core'
 import type { RecipeId, DeltaTimeSecs } from '@ts-minecraft/core'
 import { ChunkManagerService } from '@ts-minecraft/world/application/chunk-manager-service'
-import { FURNACE_SMELT_DURATION_SECS, FURNACE_FUEL_ITEMS } from './furnace-service.config'
+import { FURNACE_SMELT_DURATION_SECS, FURNACE_FUEL_ITEMS, SMELTING_XP_PER_ITEM } from './furnace-service.config'
 import { FurnaceError } from '../domain/furnace-errors'
 import type { FurnaceBlockState, FurnaceItemStack } from '../domain/furnace-state'
 import {
@@ -155,7 +155,7 @@ export class FurnaceService extends Effect.Service<FurnaceService>()(
               yield* Ref.update(stateRef, (current) => setFurnaceState(current, nextFurnace))
             }),
 
-          collectOutput: (): Effect.Effect<boolean, FurnaceError> =>
+          collectOutput: (): Effect.Effect<{ readonly collected: boolean; readonly xp: number }, FurnaceError> =>
             Effect.gen(function* () {
               const furnaceOpt = yield* helpers.getNearestFurnaceState()
               const furnace = yield* Option.match(furnaceOpt, {
@@ -171,7 +171,7 @@ export class FurnaceService extends Effect.Service<FurnaceService>()(
                 Effect.as(true),
                 Effect.catchTag('InventoryError', () => Effect.succeed(false))
               )
-              if (!collected) return false
+              if (!collected) return { collected: false, xp: 0 }
 
               yield* Ref.update(stateRef, (state) =>
                 setFurnaceState(state, {
@@ -182,7 +182,9 @@ export class FurnaceService extends Effect.Service<FurnaceService>()(
                   progressSecs: 0,
                 })
               )
-              return true
+              const xpRate = SMELTING_XP_PER_ITEM[output.itemType as InventoryItem] ?? 0
+              const xp = xpRate > 0 ? Math.max(1, Math.round(output.count * xpRate)) : 0
+              return { collected: true, xp }
             }),
 
           clearFurnace: (position: { readonly x: number; readonly y: number; readonly z: number }): Effect.Effect<ReadonlyArray<FurnaceItemStack>, never> =>

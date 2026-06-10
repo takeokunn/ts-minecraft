@@ -7,6 +7,7 @@ import { RecipeService } from '@ts-minecraft/inventory'
 import { FurnaceService } from '@ts-minecraft/inventory'
 import { GameStateService } from '@ts-minecraft/game'
 import { ChunkManagerService } from '@ts-minecraft/world'
+import { XPService } from '@ts-minecraft/entity'
 import { DomOperationsService } from '@ts-minecraft/presentation/hud/crosshair'
 import { DeltaTimeSecs } from '@ts-minecraft/core'
 import { RecipeId, SlotIndex } from '@ts-minecraft/core'
@@ -120,7 +121,7 @@ export const createMockFurnaceLayer = (overrides: Partial<Pick<FurnaceService,
   'getState' | 'getNearestFurnaceState' | 'hasNearbyFurnace' | 'startSmelting' | 'collectOutput' | 'setSelectedFurnace' | 'clearFurnace' | 'dismantleFurnace' | 'serialize' | 'deserialize' | 'tick'
 >> = {}) => {
   const startSmelting = vi.fn((_id: string) => Effect.void)
-  const collectOutput = vi.fn(() => Effect.succeed(true))
+  const collectOutput = vi.fn(() => Effect.succeed({ collected: true, xp: 0 }))
   const MockFurnaceLayer = Layer.succeed(FurnaceService, FurnaceService.of({
     _tag: '@minecraft/application/FurnaceService' as const,
     getState: () => Effect.succeed({ furnaces: HashMap.empty(), selectedFurnacePosition: Option.none() }),
@@ -137,6 +138,21 @@ export const createMockFurnaceLayer = (overrides: Partial<Pick<FurnaceService,
     ...overrides,
   }))
   return { MockFurnaceLayer, startSmelting, collectOutput }
+}
+
+const MOCK_PLAYER_XP = { totalXP: 0, level: 0, xpIntoLevel: 0, xpRequiredForNext: 7 }
+
+export const createMockXPLayer = () => {
+  const addXP = vi.fn((_xp: number) => Effect.succeed(MOCK_PLAYER_XP))
+  const MockXPLayer = Layer.succeed(XPService, XPService.of({
+    _tag: '@minecraft/application/XPService' as const,
+    getXP: () => Effect.succeed(MOCK_PLAYER_XP),
+    addXP,
+    setTotalXP: (_totalXP: number) => Effect.void,
+    spendLevels: (_levels: number) => Effect.succeed(MOCK_PLAYER_XP),
+    reset: () => Effect.void,
+  }))
+  return { MockXPLayer, addXP }
 }
 
 export const createMockGameStateLayer = () => {
@@ -181,6 +197,7 @@ export const buildTestLayer = (
   mockFurnace = createMockFurnaceLayer(),
   mockGameState = createMockGameStateLayer(),
   mockChunkManager = createMockChunkManagerLayer(),
+  mockXP = createMockXPLayer(),
 ) =>
   InventoryRendererLive.pipe(
     Layer.provide(mockDom.MockDomLayer),
@@ -190,6 +207,7 @@ export const buildTestLayer = (
     Layer.provide(mockFurnace.MockFurnaceLayer),
     Layer.provide(mockGameState.MockGameStateLayer),
     Layer.provide(mockChunkManager.MockChunkManagerLayer),
+    Layer.provide(mockXP.MockXPLayer),
   )
 
 // ---------------------------------------------------------------------------

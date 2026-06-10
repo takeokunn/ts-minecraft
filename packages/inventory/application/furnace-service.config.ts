@@ -9,3 +9,15 @@ export const FURNACE_FUEL_ITEMS: ReadonlyArray<InventoryItem> = [
   'WOODEN_SWORD', 'WOODEN_PICKAXE', 'WOODEN_AXE', 'WOODEN_HOE',
   'BOW', 'FISHING_ROD',
 ]
+
+// XP awarded per output item when collecting from the furnace (vanilla Java Edition
+// fractional XP values, rounded to whole numbers at the point of collection).
+export const SMELTING_XP_PER_ITEM: Partial<Record<InventoryItem, number>> = {
+  IRON_INGOT: 0.7,
+  GOLD_INGOT: 1.0,
+  STONE: 0.1,
+  GLASS: 0.1,
+  COOKED_BEEF: 0.35,
+  COOKED_COD: 0.35,
+  COOKED_SALMON: 0.35,
+}

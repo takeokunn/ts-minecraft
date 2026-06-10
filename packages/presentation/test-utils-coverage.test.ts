@@ -124,7 +124,7 @@ describe('presentation test utilities', () => {
       expect(Option.isNone(yield* furnace.getNearestFurnaceState())).toBe(true)
       expect(yield* furnace.hasNearbyFurnace()).toBe(false)
       yield* furnace.startSmelting(RecipeId.make('test:furnace'))
-      expect(yield* furnace.collectOutput()).toBe(true)
+      expect((yield* furnace.collectOutput()).collected).toBe(true)
       yield* furnace.setSelectedFurnace(position)
       expect(yield* furnace.clearFurnace(position)).toEqual([])
       expect(yield* furnace.dismantleFurnace(position)).toBe(true)
