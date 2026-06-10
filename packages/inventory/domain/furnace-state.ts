@@ -1,5 +1,5 @@
 import type { InventoryItem, RecipeId } from '@ts-minecraft/core'
-import { HashMap, Option } from 'effect'
+import { Option } from 'effect'
 
 export type FurnaceItemStack = {
   readonly itemType: InventoryItem
@@ -15,7 +15,7 @@ export type FurnaceBlockState = {
   readonly progressSecs: number
 }
 
-export type FurnaceState = {
-  readonly furnaces: HashMap.HashMap<string, FurnaceBlockState>
-  readonly selectedFurnacePosition: { readonly x: number; readonly y: number; readonly z: number } | null
-}
+// NOTE: the live FurnaceState type lives in furnace-service-utils.ts and uses
+// Option for selectedFurnacePosition (project-wide idiom). A stale null-based
+// duplicate previously lived here with zero consumers — removed to avoid the
+// two-incompatible-definitions trap.

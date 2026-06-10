@@ -42,7 +42,17 @@ export const worldToBlockIndex = (
   }
 }
 
+// Memoize the offset list per renderDistance. The result is a pure function of
+// renderDistance (an integer in [2, 16]), so the full build — 5 array allocs +
+// a sort over up to ~441 elements — runs at most once per distinct distance
+// instead of on every loadChunksAroundPlayer call (≈5×/sec during movement).
+// Callers treat the returned array as immutable (they map over it to build fresh
+// coord objects), so handing out the shared cached array is safe.
+const _offsetCacheByRenderDistance = new Map<number, ReadonlyArray<readonly [number, number]>>()
+
 export const getChunkLoadOffsets = (renderDistance: number): ReadonlyArray<readonly [number, number]> => {
+  const cached = _offsetCacheByRenderDistance.get(renderDistance)
+  if (cached !== undefined) return cached
   const range = Arr.makeBy(2 * renderDistance + 1, i => i - renderDistance)
   const allPairs = Arr.flatMap(range, dx => Arr.map(range, dz => [dx, dz, dx * dx + dz * dz] as const))
   const inRadius = Arr.filter(allPairs, ([, , dist]) => dist <= renderDistance * renderDistance)
@@ -50,7 +60,9 @@ export const getChunkLoadOffsets = (renderDistance: number): ReadonlyArray<reado
   const byDx = Order.mapInput(N.Order, (t: readonly [number, number, number]) => t[0])
   const byDz = Order.mapInput(N.Order, (t: readonly [number, number, number]) => t[1])
   const sorted = Arr.sort(inRadius, Order.combine(byDist, Order.combine(byDx, byDz)))
-  return Arr.map(sorted, ([dx, dz]) => [dx, dz] as const)
+  const offsets = Arr.map(sorted, ([dx, dz]) => [dx, dz] as const)
+  _offsetCacheByRenderDistance.set(renderDistance, offsets)
+  return offsets
 }
 
 export const countChunksInRadius = (radius: number): number => {

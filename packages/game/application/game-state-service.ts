@@ -36,19 +36,22 @@ const refreshChunkCache = (
   lastChunkCoordRef: Ref.Ref<{ cx: number; cz: number }>,
 ): Effect.Effect<void, never> =>
   Effect.gen(function* () {
-    const newCache: Array<{ blocks: Uint8Array } | null> = Array.from({ length: 9 }, () => null)
+    // Mutate the existing 9-slot cache array in-place rather than allocating a
+    // new one on every chunk-boundary crossing (twin of the entity-update-stage
+    // R14 fix). Reset all slots to null, then refill from getChunk results.
+    const cache = yield* Ref.get(chunkCacheRef)
+    cache.fill(null)
     yield* Effect.forEach(
       OFFSETS_3x3,
       ([dx, dz]) =>
         chunkManagerService.getChunk({ x: playerCx + dx, z: playerCz + dz }).pipe(
           Effect.match({
-            onSuccess: (chunk) => { newCache[(dx + 1) * 3 + (dz + 1)] = chunk },
+            onSuccess: (chunk) => { cache[(dx + 1) * 3 + (dz + 1)] = chunk },
             onFailure: () => {},
           })
         ),
       { concurrency: 'unbounded', discard: true }
     )
-    yield* Ref.set(chunkCacheRef, newCache)
     yield* Ref.set(lastChunkCoordRef, { cx: playerCx, cz: playerCz })
   })
 

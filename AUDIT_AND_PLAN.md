@@ -259,3 +259,31 @@ Confirmed new issues (not covered in earlier rounds):
   `.skip` (requires real WebSocket env). 35 tests / 3 files = well-targeted, not a real gap. _(verified 2026-06-10)_
 
 **Round 6 complete.** All 4 commits: typecheck 0 errors, 4475 tests passing.
+
+## J. Round 7 (2026-06-10, Opus 4.8) — fresh audit of least-examined subsystems
+
+Three breadth agents re-audited rendering frame-stages, inventory/crafting/furnace, and
+terrain/light/fluid hot loops. Every finding below was **re-verified by hand against the code
+and call sites** before landing (last round had several false positives, so verification is mandatory).
+
+**Verified & actioned:**
+- [x] R18. `getChunkLoadOffsets` (`chunk-coord-utils.ts:45-54`) rebuilt the offset list from scratch on
+  every call — 5 array allocations + a sort over up to ~441 elements, ≈5×/sec during movement. Memoized by
+  `renderDistance` in a module-level `Map` (offsets are a pure function of distance ∈ [2,16]). Callers treat
+  the result as immutable, so the shared cached array is safe. _(done 2026-06-10)_
+- [x] R19. `refreshChunkCache` (`game-state-service.ts:39`) allocated a fresh 9-element array via
+  `Array.from({length:9})` on every chunk-boundary crossing (twin of the R14 entity-update fix). Now mutates
+  the existing cache array in-place (`.fill(null)` + slot assignment); dropped the redundant `Ref.set`. _(done 2026-06-10)_
+- [x] R20. Dead `null`-based `FurnaceState` type (`furnace-state.ts:18-21`) had zero consumers and
+  contradicted the project-wide `Option` idiom (the live type is in `furnace-service-utils.ts`). Removed it
+  + the now-unused `HashMap` import; left a pointer comment to the canonical definition. _(done 2026-06-10)_
+
+**Verified but deferred (recorded, not churned):**
+- world-renderer / refraction `currentPose` object literal per frame — only saves an allocation when the
+  camera is *perfectly still* (rare during play); the surrounding change-detection is carefully tuned.
+  Low value, refactor risk. DEFER.
+- Light BFS queue allocation (`block-light-bfs.ts`) — per block-edit, not per-frame, and bounded by
+  `FULL_RECOMPUTE_THRESHOLD=256`. Fluid per-tick `Ref.make` — only when the frontier is non-empty, bounded
+  by `FLUID_TICK_BUDGET=512`. Both are working, bounded code; pooling would add complexity for negligible
+  gain. DEFER (matches Round-3's "subsystems are sound" finding, now re-confirmed with line-cited evidence).
+- Shift-click stacking / recipe book — intentional Phase-12 scope cuts per the prior phase docs. DEFER.
