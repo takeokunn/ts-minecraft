@@ -196,7 +196,15 @@ export const handleBlockBreakProgress = (
       if (blockType === 'WHEAT_CROP') {
         const wasRipe = yield* services.cropGrowthService.harvest(pos)
         if (wasRipe) {
-          yield* services.inventoryService.addBlock('WHEAT', 1).pipe(Effect.catchAll(() => Effect.void))
+          // Ripe wheat: 1 wheat + 1-4 seeds (vanilla: Math.floor(3*random+1) → 1..4)
+          const seedCount = Math.floor(Math.random() * 4) + 1
+          yield* Effect.all([
+            services.inventoryService.addBlock('WHEAT', 1),
+            services.inventoryService.addBlock('WHEAT_SEEDS', seedCount),
+          ], { concurrency: 'unbounded', discard: true }).pipe(Effect.catchAllCause(() => Effect.void))
+        } else {
+          // Unripe: only 1 seed (block already removed by breakBlock above)
+          yield* services.inventoryService.addBlock('WHEAT_SEEDS', 1).pipe(Effect.catchAll(() => Effect.void))
         }
       }
 
