@@ -90,6 +90,10 @@ export const ItemTypeSchema = Schema.Literal(
   // Portal ignition tool
   'FLINT_AND_STEEL',
   // Sheep-shearing tool (FR R11)
-  'SHEARS'
+  'SHEARS',
+  // Buckets (FR R26) — fluid pickup & placement
+  'BUCKET',
+  'WATER_BUCKET',
+  'LAVA_BUCKET'
 )
 export type ItemType = Schema.Schema.Type<typeof ItemTypeSchema>

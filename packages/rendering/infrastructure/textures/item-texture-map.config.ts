@@ -134,6 +134,11 @@ export const ITEM_TILE_MAP: Readonly<Record<InventoryItem, number>> = {
   DIAMOND_BOOTS: 58,
   FLINT_AND_STEEL: 54,
   SHEARS: 55, // iron-tool tile (R11)
+  // Buckets (R26) — no dedicated sprite; reuse iron-ingot tile for the empty
+  // bucket and the fluid tiles for the filled variants so they read distinctly.
+  BUCKET: 54,
+  WATER_BUCKET: 7,
+  LAVA_BUCKET: 18,
   REDSTONE_WIRE: 100,
   REDSTONE_TORCH: 87,
   LEVER: 88,

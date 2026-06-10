@@ -86,6 +86,10 @@ export const NON_PLACEABLE_ITEM_TYPES: HashSet.HashSet<InventoryItem> = HashSet.
   'FLINT_AND_STEEL',
   // Shearing tool (R11) — used on sheep, not placed
   'SHEARS',
+  // Buckets (R26) — fluid carriers; placement is handled by the bucket use-handler, not block placement
+  'BUCKET',
+  'WATER_BUCKET',
+  'LAVA_BUCKET',
 ])
 
 export const INVENTORY_DROP_OVERRIDES: HashMap.HashMap<BlockType, InventoryItem> = HashMap.fromIterable<BlockType, InventoryItem>([

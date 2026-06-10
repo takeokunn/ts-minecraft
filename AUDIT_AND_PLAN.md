@@ -355,6 +355,22 @@ in the maintenance scope).
 **Round 10 complete.** R25 (light-level hostile spawning). One agent finding rejected as a verified false
 positive (`despawnFarEntities` is called). typecheck 0, lint 0/0, 4479 tests passing (+2).
 
+## N. Round 11 (2026-06-10, Opus 4.8) — FR: water/lava buckets
+
+Chose the lowest-risk *complete* feature from the deferred list: water/lava buckets. Self-contained
+(no new service, no per-frame tick) — builds on existing fluid primitives (`seedWater`/`seedLava` create
+source cells, `removeWater`/`removeLava` clear them). Crop growth (the #1-ranked gap) stays deferred: the
+flat block-ID model has no per-block metadata, so it genuinely needs a new side-table service + maintenance
+tick + maturity-aware harvest + persistence — a dedicated multi-commit round, not a "small sure step".
+
+- [x] R26a. Foundation — added `BUCKET`/`WATER_BUCKET`/`LAVA_BUCKET` to `ItemTypeSchema`; satisfied the one
+  tsc-enforced exhaustive Record (`ITEM_TILE_MAP`: empty→iron-ingot tile, water/lava→fluid tiles); added all
+  three to `NON_PLACEABLE_ITEM_TYPES`. typecheck 0. _(done 2026-06-10)_
+- [ ] R26b. Bucket use-handler — fill (right-click a WATER/LAVA source with BUCKET → clear the source,
+  swap to the filled bucket) and empty (right-click with a filled bucket → place the fluid at the adjacent
+  air + seed the source, swap back to empty BUCKET). Wire into the right-click priority chain; consume/grant
+  via inventory. +tests.
+
 **Verified FALSE POSITIVE (recorded):**
 - `despawnFarEntities` was flagged "NOT called automatically in frame loop" — **wrong**, it's called at
   `frame-maintenance.ts:122` every maintenance tick. NO CHANGE.
