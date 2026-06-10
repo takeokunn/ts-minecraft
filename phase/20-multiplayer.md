@@ -8,6 +8,17 @@ difficulty: 'advanced'
 
 # Phase 20 - Multiplayer Features
 
+> **実装状況 (2026-06-09)**: Phase 20 は進行中。基盤は完了（protocol + transport + service）だが、アプリ統合・リモートプレイヤー表示・チャット UI は未実装。
+> - ✅ **ネットワーク基盤**: `packages/network/` — 35 tests、全9メッセージ型、ブラウザ/Node WebSocket アダプター、サーバー/クライアントサービス
+> - ✅ **マルチプレイヤーサービス**: `packages/app/application/multiplayer/multiplayer-service.ts` — Effect Tag + Layer、状態管理、inbound/outbound 委譲
+> - ✅ **フレームステージ**: `packages/app/application/frame/stages/multiplayer-stage.ts` — 位置同期送信
+> - ✅ **接続UI**: `packages/presentation/multiplayer/connection-panel.ts` — 6 tests、DOM ベース
+> - ✅ **リモートプレイヤーレンダラー**: `packages/rendering/infrastructure/player/remote-player-renderer.ts` — 6 tests、Three.js Group 管理
+> - ✅ **フレーム統合点**: `FrameHandlerServices.multiplayer` + `frame-stage-executor.ts` 配線済み。ただし `session.ts` で `Option.none()`（デフォルト無効）。有効化には `Option.some(MultiplayerServiceLive(client))` への変更が必要。
+> - ⏳ **チャット UI**: T キー開閉、メッセージ履歴、送信 UI
+> - ⏳ **他プレイヤー表示**: remote-player-renderer の実 camera/scene への接続
+> - ⏳ **E2E テスト**: 2ブラウザ Playwright マルチプレイヤーシナリオ
+
 ## 目標
 完全なマルチプレイヤー体験を実装する。プレイヤースポーン、チャット、同期、モブ同期を追加する。
 
@@ -171,17 +182,17 @@ difficulty: 'advanced'
 
 ## 🔗 関連ドキュメント
 - [Phase 19](./19-network-architecture.md)
-- [ネットワーク同期](../docs/explanations/game-mechanics/core-features/network-synchronization.md)
+- ネットワーク同期 — 未実装（v1.1 計画中、ドキュメント未作成）
 
 ---
 
-## 🎉 全20フェーズ完了おめでとう！
+## 📈 v1.1 マルチプレイヤー（開発中）
 
-これで全ての開発フェーズが完了しました。
+v1.0 シングルプレイヤーは Phase 1-18 で完了しました。Phase 19-20 は v1.1 マルチプレイヤーとして開発中です。
 
-**総期間: 約120-130日間（約4ヶ月）**
+**総期間: 約95日間（約3ヶ月）で v1.0 シングルプレイヤー完成**
 
-### 達成したマイルストーン
+### v1.0 達成マイルストーン
 
 | フェーズ | 日数 | マイルストーン |
 |---------|------|--------------|
@@ -192,7 +203,12 @@ difficulty: 'advanced'
 | 16 | 80 | **レッドストーン** 🔴 |
 | 17 | 84 | **ネザー次元** 🔥 |
 | 18 | 89 | **エンド次元** 🐉 |
-| 20 | 95 | **完全なマルチプレイヤー** 🌐 |
+
+### v1.1 マイルストーン（開発中）
+
+| フェーズ | 日数 | マイルストーン |
+|---------|------|--------------|
+| 20 | 95 | **マルチプレイヤー基盤**（統合開発中） 🌐 |
 
 ### 実装された機能
 
@@ -217,7 +233,7 @@ difficulty: 'advanced'
 - ✅ レッドストーン回路
 - ✅ ネザー次元
 - ✅ エンド次元
-- ✅ マルチプレイヤー
+- ⏳ マルチプレイヤー（v1.1 開発中、基盤完了・統合未了）
 
 **技術的達成:**
 - ✅ Effect-TSパターン全適用

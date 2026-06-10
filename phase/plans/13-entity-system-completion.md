@@ -42,7 +42,7 @@ Extend the same file: (a) `update(..., isNight=true)` over a span exceeding one 
 New file `packages/rendering/test/entity/walk-cycle.test.ts` (pure fn): zero speed → ~0 swing; moving → oscillating non-zero; arms anti-phase to legs. If `computeLimbAngle` is not separately testable (per Task 2), assert via an entity-renderer pure helper or downgrade to annotation — do not force a refactor. Confirm the dir is collected by vitest include globs.
 
 ### 6. Run guard tests; tick the functional AC block
-Re-purge, run the new files explicitly, confirm they are **collected** and green. Then flip the 9 受け入れ条件 boxes `[ ]`→`[x]` in `phase/13-entity-system.md` (unique old_string with Japanese label text; never `replace_all`). Append an italic evidence line citing the real files.
+Re-purge, run the new files explicitly, confirm they are **collected** and green. Then flip the 9 受け入れ条件 boxes `[x]`→`[x]` in `phase/13-entity-system.md` (unique old_string with Japanese label text; never `replace_all`). Append an italic evidence line citing the real files.
 
 ### 7. Annotate (don't relocate) legacy Day-1..5 task boxes
 Tick mapped boxes and append `→ <real monorepo home>` (e.g. `src/ai/stateMachine.ts → packages/entity/domain/mob/state-machine.ts`; rendering → `packages/rendering/infrastructure/entity/{mob-geometry,walk-cycle,entity-renderer}.ts`). Any task box describing a flag-don't-build behavior is labeled 将来作業/未実装 and **not** ticked. Add a `## 将来作業 (本Phaseの受け入れ条件外)` footer. Do **not** create files at literal `src/` paths.
@@ -55,7 +55,7 @@ Run the full gate (below). Only after the suite is green, flip the 7 最終検�
 - **30 FPS** is satisfied-by-design (caps) + manual QA, not a unit test — annotate the tick accordingly.
 - **Stale-.js gotcha** must precede every vitest run and be re-run after typecheck/build (they re-emit `.js`).
 - **Out of scope**: armor/equipment/durability is shipped but absent from phase/13 — never a blocker; known minor debts (armor durability not decremented; duplicate `MAX_ARMOR_POINTS`) out of scope.
-- **Edit fragility**: 62 identical `[ ]` strings — anchor each Edit by unique surrounding text; line numbers shift; read the doc first.
+- **Edit fragility**: 62 identical `[x]` strings — anchor each Edit by unique surrounding text; line numbers shift; read the doc first.
 - **Guard-test feasibility**: confirm `computeLimbAngle` signature and cooldown time-source in Task 2; use ~`maxHealth×20`/monotonic for burn; use plain `it` + `Effect.runPromise` to avoid the effect-vitest deadlock.
 - **Truthfulness gate**: if any AC is pure-but-unwired, STOP and do not tick.
 

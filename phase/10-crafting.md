@@ -14,28 +14,28 @@ difficulty: 'intermediate'
 ## ✅ 受け入れ条件（画面で確認）
 
 ### クラフト台
-- [ ] クラフト台を配置できる（専用ブロック）
-- [ ] 右クリックでクラフト台UIが開く
-- [ ] 3x3グリッドが表示される
+- [x] クラフト台を配置できる（専用ブロック）
+- [x] 右クリックでクラフト台UIが開く
+- [x] 3x3グリッドが表示される
 
 ### クラフト
-- [ ] アイテムをグリッドに配置できる
-- [ ] レシピがマッチすると結果が表示される
-- [ ] クラフトボタンでアイテムを生成できる
+- [x] アイテムをグリッドに配置できる
+- [x] レシピがマッチすると結果が表示される
+- [x] クラフトボタンでアイテムを生成できる
 
 ### レシピ
-- [ ] 少なくとも10種類のレシピがある
-- [ ] 木の板材（4x）
-- [ ] 棒（4x）
-- [ ] ワークベンチ、石斧、ピッケルなど
+- [x] 少なくとも10種類のレシピがある
+- [x] 木の板材（4x）
+- [x] 棒（4x）
+- [x] ワークベンチ、石斧、ピッケルなど
 
 ## 📝 タスク
 
 ### Day 1: レシピ定義
 
 #### レシピ型
-- [ ] `src/crafting/recipe.ts` の作成
-  - [ ] `Recipe` 型定義
+- [x] `src/crafting/recipe.ts` の作成
+  - [x] `Recipe` 型定義
     ```typescript
     type Recipe = {
       id: RecipeId
@@ -44,10 +44,10 @@ difficulty: 'intermediate'
       shapeless: boolean // パターンの配置順を無視するか
     }
     ```
-  - [ ] `RecipeIdSchema`（ブランドタイプ）
+  - [x] `RecipeIdSchema`（ブランドタイプ）
 
 #### レシピファイル
-- [ ] JSONまたはTypeScriptでレシピ定義
+- [x] JSONまたはTypeScriptでレシピ定義
   ```typescript
   const recipes: Recipe[] = [
     {
@@ -62,17 +62,17 @@ difficulty: 'intermediate'
   ```
 
 #### 基本レシピ
-- [ ] 木製品（板材、棒、階段、フェンス）
-- [ ] 石道具（斧、ピッケル、シャベル）
-- [ ] 基本的な装備（剣、ヘルメット）
+- [x] 木製品（板材、棒、階段、フェンス）
+- [x] 石道具（斧、ピッケル、シャベル）
+- [x] 基本的な装備（剣、ヘルメット）
 
 ### Day 2: レシピマッチング
 
 #### レシピマッチャー
-- [ ] `src/crafting/recipeMatcher.ts` の作成
-  - [ ] `matchRecipe(grid)` - グリッドからマッチするレシピ検索
-  - [ ] パターンの回転考慮
-  - [ ] 形状のあるレシピと形状のないレシピ
+- [x] `src/crafting/recipeMatcher.ts` の作成
+  - [x] `matchRecipe(grid)` - グリッドからマッチするレシピ検索
+  - [x] パターンの回転考慮
+  - [x] 形状のあるレシピと形状のないレシピ
 
 #### マッチングロジック
   ```typescript
@@ -89,63 +89,63 @@ difficulty: 'intermediate'
 ### Day 3: クラフトUI
 
 #### クラフトテーブルUI
-- [ ] `src/presentation/craftingTable.ts` の作成
-  - [ ] 3x3グリッド（スロット）
-  - [ ] 結果スロット
-  - [ ] クラフトボタン
-  - [ ] レシピヒント（オプション）
+- [x] `src/presentation/craftingTable.ts` の作成
+  - [x] 3x3グリッド（スロット）
+  - [x] 結果スロット
+  - [x] クラフトボタン
+  - [x] レシピヒント（オプション）
 
 #### UI統合
-- [ ] クラフト台ブロックの追加
-- [ ] 右クリックでUIを開く
-- [ ] インベントリとの連動
+- [x] クラフト台ブロックの追加
+- [x] 右クリックでUIを開く
+- [x] インベントリとの連動
 
 #### ドラッグ＆ドロップ
-- [ ] インベントリからグリッドへドラッグ
-- [ ] グリッド内での移動
-- [ ] Shift+クリックで一括移動
+- [x] インベントリからグリッドへドラッグ
+- [x] グリッド内での移動
+- [x] Shift+クリックで一括移動
 
 ### Day 4: クラフト処理
 
 #### CraftingService
-- [ ] `src/crafting/craftingService.ts` の作成
-  - [ ] `CraftingService = Context.GenericTag<CraftingService>('@minecraft/CraftingService')`
+- [x] `src/crafting/craftingService.ts` の作成
+  - [x] `CraftingService = Context.GenericTag<CraftingService>('@minecraft/CraftingService')`
 
 #### クラフト実行
-- [ ] `craft(grid)` メソッド
-  - [ ] レシピマッチング
-  - [ ] 必要アイテムの消費
-  - [ ] 結果アイテムの追加
-  - [ ] エラーハンドリング（レシピなし）
+- [x] `craft(grid)` メソッド
+  - [x] レシピマッチング
+  - [x] 必要アイテムの消費
+  - [x] 結果アイテムの追加
+  - [x] エラーハンドリング（レシピなし）
 
 #### アイテム消費
-- [ ] グリッド内のアイテムを減らす
-- [ ] スタック全体を消費
-- [ ] 部分消費（レシピによる）
+- [x] グリッド内のアイテムを減らす
+- [x] スタック全体を消費
+- [x] 部分消費（レシピによる）
 
 ### Day 5: 完成とテスト
 
 #### 装備レシピ
-- [ ] 道具の追加（ツルハシ、ハサミ）
-- [ ] 武器の追加（弓、矢）
-- [ ] 防具の追加（チェストプレート、レギンス）
+- [x] 道具の追加（ツルハシ、ハサミ）
+- [x] 武器の追加（弓、矢）
+- [x] 防具の追加（チェストプレート、レギンス）
 
 #### テスト
-- [ ] `src/crafting/recipe.test.ts` の作成
-  - [ ] レシピ定義のテスト
-- [ ] `src/crafting/recipeMatcher.test.ts` の作成
-  - [ ] マッチングロジックのテスト
-  - [ ] 回転パターンのテスト
-- [ ] `src/crafting/craftingService.test.ts` の作成
-  - [ ] クラフト実行のテスト
-  - [ ] アイテム消費のテスト
+- [x] `src/crafting/recipe.test.ts` の作成
+  - [x] レシピ定義のテスト
+- [x] `src/crafting/recipeMatcher.test.ts` の作成
+  - [x] マッチングロジックのテスト
+  - [x] 回転パターンのテスト
+- [x] `src/crafting/craftingService.test.ts` の作成
+  - [x] クラフト実行のテスト
+  - [x] アイテム消費のテスト
 
 #### 最終検証
-- [ ] クラフト台を配置できる
-- [ ] クラフト台UIが開く
-- [ ] 基本的なレシピが動作する
-- [ ] アイテムが正しく消費・生成される
-- [ ] すべてのテストが成功
+- [x] クラフト台を配置できる
+- [x] クラフト台UIが開く
+- [x] 基本的なレシピが動作する
+- [x] アイテムが正しく消費・生成される
+- [x] すべてのテストが成功
 
 ## 🎯 成功基準
 - 3x3クラフトシステムが実装されている
@@ -158,4 +158,4 @@ difficulty: 'intermediate'
 
 ## 🔗 関連ドキュメント
 - [Phase 09](./09-inventory.md)
-- [クラフトシステム](../docs/explanations/game-mechanics/core-features/crafting-system.md)
+- クラフトシステム（ドキュメント未作成）

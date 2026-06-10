@@ -158,20 +158,16 @@ description: '高速開発フェーズ（全20フェーズ）'
 ### 🌐 ネットワークフェーズ (Phases 19-20) - 11-12日
 
 **[Phase 19 - Network Architecture](./19-network-architecture.md)** - 5日間
-- メッセージプロトコル
-- WebSocketサーバー
-- WebSocketクライアント
-- サーバー/クライアント接続管理
-- シリアライズ/デシリアライズ
-- **達成**: ネットワークアーキテクチャ
+- メッセージプロトコル ✅
+- WebSocketサーバー/クライアント (fake adapters for testing) ✅
+- 35 tests 緑
+- **達成**: ネットワークアーキテクチャ基盤
 
 **[Phase 20 - Multiplayer Features](./20-multiplayer.md)** - 6日間
-- プレイヤースポーン
-- チャットシステム
-- 完全な同期（位置、ブロック、モブ）
-- 補間（クライアント側）
-- サーバー/クライアント完成
-- **達成**: **完全なマルチプレイヤー** 🌐
+- ✅ マルチプレイヤーサービス層 + フレーム統合点
+- ⏳ アプリ統合（接続 UI、リモートプレイヤー、チャット UI）
+- ⏳ E2E テスト
+- **達成**: ⏳ 基盤完了、アプリ統合は次フェーズ
 
 ---
 
@@ -199,8 +195,8 @@ description: '高速開発フェーズ（全20フェーズ）'
 | 16 | 64 | レッドストーン | 信号、回路 |
 | 17 | 68 | ネザー | 異次元 |
 | 18 | 73 | エンド | ドラゴン、エンディング |
-| 19 | 78 | ネットワーク | 接続、通信 |
-| 20 | 84 | マルチプレイ | 他プレイヤー、チャット |
+| 19 | 78 | ネットワーク基盤 | 接続、通信（基盤完了） |
+| 20 | 84 | マルチプレイ（v1.1 開発中） | 他プレイヤー、チャット（統合未了） |
 
 ### 機能マイルストーン
 
@@ -236,12 +232,20 @@ description: '高速開発フェーズ（全20フェーズ）'
   - ✅ ネザー次元
   - ✅ エンド次元
 
-#### v1.0リリース
-- **完了時期**: Phase 19-20完了後（約95日間）
+#### v1.0リリース — シングルプレイヤー完成
+- **完了時期**: Phase 01-18完了後
 - **機能**:
-  - ✅ β + マルチプレイヤー
-  - ✅ ネットワーク同期
-  - ✅ チャットシステム
+  - ✅ 全シングルプレイヤー機能（地形、バイオーム、戦闘、モブ、村、レッドストーン、ネザー、エンド、サウンド、インベントリ/クラフト）
+  - ⚠️ 既知の v1.1 延期項目: 攻撃アニメーション、音量調整 UI スライダー（戦闘・サウンドシステムはこの2項目を除き全実装済み）
+
+#### v1.1 マルチプレイヤー（開発中）
+- **完了時期**: Phase 19-20完了後
+- **機能**:
+  - ✅ ネットワーク基盤（プロトコル + トランスポート、`packages/network/`、35 tests）
+  - ✅ マルチプレイヤーサービス層 + フレーム統合点
+  - ⏳ アプリ統合（接続 UI、リモートプレイヤー表示、チャット UI）
+  - ⏳ ブロック/モブ同期
+  - ⏳ E2E テスト
 
 ---
 
@@ -309,11 +313,19 @@ graph TD
         P19[Phase 19<br/>Network Architecture<br/>5日間]
         P20[Phase 20<br/>Multiplayer Features<br/>6日間]
 
-        V1_Milestone[✅ v1.0リリース<br/>約95日]
+        V1_Milestone[✅ v1.0 シングルプレイヤー<br/>Phase 1-18]
 
-        P18 --> P19
+        P18 -.-> V1_Milestone
+    end
+
+    subgraph Network ["Network (11-12日)"]
+        P19[Phase 19<br/>Network Architecture<br/>5日間]
+        P20[Phase 20<br/>Multiplayer Features<br/>6日間]
+
+        V1_1_Milestone[⏳ v1.1 マルチプレイヤー<br/>開発中]
+
         P19 --> P20
-        P20 -.-> V1_Milestone
+        P20 -.-> V1_1_Milestone
     end
 
     style MVP fill:#e8f5e9
@@ -330,28 +342,28 @@ graph TD
 
 ## 📁 アーカイブされたフェーズ
 
-元のフェーズは以下の目的で `docs/archived/phases/` に保存されています：
+元のフェーズは実装完了のためアーカイブされています（参照用ドキュメントは未作成）：
 
-- [Phase 01 - 環境セットアップ](../docs/archived/phases/01.md)
-- [Phase 02 - ドメインモデル](../docs/archived/phases/02.md)
-- [Phase 03 - Effect-TS統合](../docs/archived/phases/03.md)
-- [Phase 04 - インベントリシステム](../docs/archived/phases/04.md)
-- [Phase 05 - 物理システム](../docs/archived/phases/05.md)
-- [Phase 06 - チャンクシステム](../docs/archived/phases/06.md)
-- [Phase 07 - 地形生成](../docs/archived/phases/07.md)
-- [Phase 08 - プレイヤー操作](../docs/archived/phases/08.md)
-- [Phase 09 - Three.jsレンダリング](../docs/archived/phases/09.md)
-- [Phase 10 - UIとHUD](../docs/archived/phases/10.md)
-- [Phase 11 - クラフトシステム](../docs/archived/phases/11.md)
-- [Phase 12 - 体力・空腹システム](../docs/archived/phases/12.md)
-- [Phase 13 - 戦闘システム](../docs/archived/phases/13.md)
-- [Phase 14 - エンティティシステム](../docs/archived/phases/14.md)
-- [Phase 15 - レッドストーン](../docs/archived/phases/15.md)
-- [Phase 16 - ネザー](../docs/archived/phases/16.md)
-- [Phase 17 - エンド](../docs/archived/phases/17.md)
-- [Phase 18 - サウンドと音楽](../docs/archived/phases/18.md)
-- [Phase 19 - 村と取引](../docs/archived/phases/19.md)
-- [Phase 20 - ネットワーク](../docs/archived/phases/20.md)
+- Phase 01 - 環境セットアップ
+- Phase 02 - ドメインモデル
+- Phase 03 - Effect-TS統合
+- Phase 04 - インベントリシステム
+- Phase 05 - 物理システム
+- Phase 06 - チャンクシステム
+- Phase 07 - 地形生成
+- Phase 08 - プレイヤー操作
+- Phase 09 - Three.jsレンダリング
+- Phase 10 - UIとHUD
+- Phase 11 - クラフトシステム
+- Phase 12 - 体力・空腹システム
+- Phase 13 - 戦闘システム
+- Phase 14 - エンティティシステム
+- Phase 15 - レッドストーン
+- Phase 16 - ネザー
+- Phase 17 - エンド
+- Phase 18 - サウンドと音楽
+- Phase 19 - 村と取引
+- Phase 20 - ネットワーク
 
 これらのドキュメントは実装の参考として使用できます。
 
@@ -436,11 +448,11 @@ pnpm dev
 ## 🔗 関連ドキュメント
 
 - [README](../README.md)
-- [プロジェクトドキュメント](../docs/README.md)
-- [アーカイブされたフェーズ](../docs/archived/phases/)
-- [コア機能概要](../docs/explanations/game-mechanics/core-features/overview.md)
-- [Vite設定](../docs/reference/configuration/vite-config.md)
-- [TypeScript設定](../docs/reference/configuration/typescript-config-practical.md)
+- プロジェクトドキュメント（ドキュメント未作成）
+- アーカイブされたフェーズ（ドキュメント未作成）
+- コア機能概要（ドキュメント未作成）
+- Vite設定（ドキュメント未作成）
+- TypeScript設定（ドキュメント未作成）
 
 ---
 
@@ -474,11 +486,12 @@ MVP (Phase 01-07)
 ├── ネザー次元 ✅
 └── エンド次元 ✅
 
-ネットワーク (Phase 19-20)
-├── WebSocketサーバー ✅
-├── WebSocketクライアント ✅
-├── チャット ✅
-└── 完全な同期 ✅
+ネットワーク (Phase 19-20) — v1.1 開発中
+├── メッセージプロトコル ✅
+├── WebSocketサーバー/クライアント基盤 ✅
+├── フレーム統合点 ✅
+├── チャット UI ⏳
+└── 完全な同期 ⏳
 ```
 
 ---

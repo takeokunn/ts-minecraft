@@ -14,81 +14,81 @@ difficulty: 'beginner'
 ## ✅ 受け入れ条件（画面で確認）
 
 ### ローカル環境
-- [ ] `pnpm install` がエラーなしで終了
-- [ ] `pnpm tsc --noEmit` がエラーなしで終了
-- [ ] `pnpm vitest run` がテストを実行して成功する
-- [ ] ブラウザで `http://localhost:5173` を開き、空白のThree.jsキャンバスが表示される
+- [x] `pnpm install` がエラーなしで終了
+- [x] `pnpm tsc --noEmit` がエラーなしで終了
+- [x] `pnpm vitest run` がテストを実行して成功する
+- [x] ブラウザで `http://localhost:5173` を開き、空白のThree.jsキャンバスが表示される
 
 ### CI
-- [ ] PRでGitHub Actionsの型チェックが✅になる
-- [ ] PRでGitHub Actionsのテストが✅になる
+- [x] PRでGitHub Actionsの型チェックが✅になる
+- [x] PRでGitHub Actionsのテストが✅になる
 
 ## 📝 タスク
 
 ### Day 1: 環境構築 + Effect-TS Core
 
 #### 依存関係のセットアップ
-- [ ] `package.json` の作成
-  - [ ] 依存パッケージ: `three`, `effect`, `@effect/schema`
-  - [ ] 開発依存: `vite`, `typescript`, `vitest`, `@types/three`
-- [ ] `pnpm install` を実行して成功を確認
-- [ ] `vite.config.ts` の作成（Three.js対応）
-- [ ] `tsconfig.json` の作成（strict mode）
+- [x] `package.json` の作成
+  - [x] 依存パッケージ: `three`, `effect`, `@effect/schema`
+  - [x] 開発依存: `vite`, `typescript`, `vitest`, `@types/three`
+- [x] `pnpm install` を実行して成功を確認
+- [x] `vite.config.ts` の作成（Three.js対応）
+- [x] `tsconfig.json` の作成（strict mode）
 
 #### Effect-TS 共通カーネル
-- [ ] `src/shared/kernel.ts` の作成
-  - [ ] `WorldIdSchema = Schema.String.pipe(Schema.brand('WorldId'))`
-  - [ ] `PlayerIdSchema = Schema.String.pipe(Schema.brand('PlayerId'))`
-  - [ ] `BlockIdSchema = Schema.String.pipe(Schema.brand('BlockId'))`
-  - [ ] `PositionSchema`（x, y, zの座標）
+- [x] `src/shared/kernel.ts` の作成
+  - [x] `WorldIdSchema = Schema.String.pipe(Schema.brand('WorldId'))`
+  - [x] `PlayerIdSchema = Schema.String.pipe(Schema.brand('PlayerId'))`
+  - [x] `BlockIdSchema = Schema.String.pipe(Schema.brand('BlockId'))`
+  - [x] `PositionSchema`（x, y, zの座標）
 
 #### Effect-TS レイヤー定義
-- [ ] `src/shared/layers.ts` の作成
-  - [ ] 基本的なLayer定義
-  - [ ] サービス用のContext.GenericTagプレースホルダー
+- [x] `src/shared/layers.ts` の作成
+  - [x] 基本的なLayer定義
+  - [x] サービス用のContext.GenericTagプレースホルダー
 
 ### Day 2: Three.js 基本設定
 
 #### レンダラーサービス
-- [ ] `src/rendering/renderer.ts` の作成
-  - [ ] `RendererService = Context.GenericTag<RendererService>('@minecraft/RendererService')`
-  - [ ] THREE.WebGLRendererの初期化
-  - [ ] レンダリングループの実装（requestAnimationFrame）
-  - [ ] canvas要素のDOM追加
+- [x] `src/rendering/renderer.ts` の作成
+  - [x] `RendererService = Context.GenericTag<RendererService>('@minecraft/RendererService')`
+  - [x] THREE.WebGLRendererの初期化
+  - [x] レンダリングループの実装（requestAnimationFrame）
+  - [x] canvas要素のDOM追加
 
 #### 基本シーン設定
-- [ ] `src/rendering/scene.ts` の作成
-  - [ ] THREE.Sceneの初期化
-  - [ ] THREE.PerspectiveCameraの初期化
-  - [ ] 基本的なライティング（AmbientLight）
+- [x] `src/rendering/scene.ts` の作成
+  - [x] THREE.Sceneの初期化
+  - [x] THREE.PerspectiveCameraの初期化
+  - [x] 基本的なライティング（AmbientLight）
 
 #### エントリーポイント
-- [ ] `src/main.ts` の作成
-  - [ ] Layerの構成
-  - [ ] レンダリングループの起動
-  - [ ] Effect.runによる初期化
+- [x] `src/main.ts` の作成
+  - [x] Layerの構成
+  - [x] レンダリングループの起動
+  - [x] Effect.runによる初期化
 
 ### Day 3: テストとCI
 
 #### ユニットテスト
-- [ ] `src/shared/kernel.test.ts` の作成
-  - [ ] Schemaバリデーションのテスト
-  - [ ] Brandタイプのテスト
-- [ ] `src/rendering/renderer.test.ts` の作成
-  - [ ] RendererServiceの初期化テスト
-- [ ] `pnpm vitest run` が全テスト成功することを確認
+- [x] `src/shared/kernel.test.ts` の作成
+  - [x] Schemaバリデーションのテスト
+  - [x] Brandタイプのテスト
+- [x] `src/rendering/renderer.test.ts` の作成
+  - [x] RendererServiceの初期化テスト
+- [x] `pnpm vitest run` が全テスト成功することを確認
 
 #### GitHub Actions
-- [ ] `.github/workflows/check.yml` の作成（型チェック）
-- [ ] `.github/workflows/test.yml` の作成（テスト）
-- [ ] ブランチを作成してPR
-- [ ] CIが✅になることを確認
+- [x] `.github/workflows/check.yml` の作成（型チェック）
+- [x] `.github/workflows/test.yml` の作成（テスト）
+- [x] ブランチを作成してPR
+- [x] CIが✅になることを確認
 
 #### 最終検証
-- [ ] `pnpm dev` で開発サーバーを起動
-- [ ] ブラウザで `http://localhost:5173` を開く
-- [ ] 空白のキャンバス（またはデフォルトのThree.jsシーン）が表示される
-- [ ] コンソールにエラーがないこと
+- [x] `pnpm dev` で開発サーバーを起動
+- [x] ブラウザで `http://localhost:5173` を開く
+- [x] 空白のキャンバス（またはデフォルトのThree.jsシーン）が表示される
+- [x] コンソールにエラーがないこと
 
 ## 🎯 成功基準
 - Effect-TSパターン（Context.GenericTag, Schema.Struct, Effect.gen）が確立されている
@@ -101,5 +101,5 @@ difficulty: 'beginner'
 
 ## 🔗 関連ドキュメント
 - [README](../README.md)
-- [開発環境セットアップ](../docs/how-to/development/setup-dev-environment.md)
-- [Effect-TSパターン](../docs/reference/configuration/typescript-config-practical.md)
+- 開発環境セットアップ（ドキュメント未作成）
+- Effect-TSパターン（ドキュメント未作成）

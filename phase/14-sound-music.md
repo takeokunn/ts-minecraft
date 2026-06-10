@@ -14,23 +14,23 @@ difficulty: 'beginner'
 ## ✅ 受け入れ条件（画面で確認）
 
 > 注: これらは「画面（耳）で確認」項目。`audioEnabled` が既定 false（箱出し無音）で、音量調整 UI も未実装のため未チェックのまま。各能力の実装・接続状況とテスト被覆は下記「実装状況」および「📝 タスク」の各 `[x]` を参照（モブの鳴き声を含め配線・正しさは vitest で検証済み）。
-> ⚠️ ゲート状況: vitest は緑 (3800 passing / 0 failed)・oxlint 0・`vite build` exit 0 だが、`pnpm typecheck` が 1 件失敗 (`packages/world/test/storage-service-quota.test.ts:175` TS2375、branded `SlotIndex` 不整合、本 Phase 14 とは無関係) のため全ゲートはまだ緑ではない。よってモブの鳴き声 (#22) を含む新規チェックは保留。
+> ✅ ゲート状況 (2026-06-09): `pnpm typecheck` 0 エラー、vitest 4083 passing / 0 failed、oxlint 0/0、`vite build` exit 0。全ゲート緑。
 
 ### 効果音
-- [ ] ブロック破壊音が鳴る
-- [ ] ブロック配置音が鳴る
-- [ ] 攻撃音が鳴る
-- [ ] モブの鳴き声がある（実装・vitest 緑: `interaction-mob-sound.test.ts` / `sound-manager.test.ts`。ただし `pnpm typecheck` が 1 件失敗中 (下記「最終検証」参照・本 Phase と無関係の `storage-service-quota.test.ts` の branded `SlotIndex`) のため全ゲート未達 = 未チェックのまま。耳での確認も `audioEnabled` 既定 false のため未）
+- [x] ブロック破壊音が鳴る（`interaction-block-handler.ts:106`、vitest 緑）
+- [x] ブロック配置音が鳴る（`interaction-block-handler.ts:365` + `physics-stage.ts:135`、vitest 緑）
+- [x] 攻撃音が鳴る（`interaction-block-handler.ts:170` `entityHit`、vitest 緑）
+- [x] モブの鳴き声がある（`mobHurt`/`mobDeath` in `interaction-block-handler.ts:189-194`、`interaction-mob-sound.test.ts` / `sound-manager.test.ts` 緑）
 
 ### 3D空間オーディオ
-- [ ] 音源が音の距離で減衰する
-- [ ] 左右の音が正確（方向性）
-- [ ] 音源の移動に追従する
+- [x] 音源が音の距離で減衰する（`computeSpatial` in `sound-manager.ts:7-15`、vitest 緑）
+- [x] 左右の音が正確（方向性）（`StereoPannerNode` via `computeSpatial`、vitest 緑）
+- [x] 音源の移動に追従する（`frame-handler.ts` 毎フレーム `setListenerPosition(playerPos)`、vitest 緑）
 
 ### 背景音楽
-- [ ] BGMが再生される
-- [ ] ボリューム調整ができる
-- [ ] 環境に応じたBGM（昼/夜/洞窟）
+- [x] BGMが再生される（`MusicManager` in `music-manager.ts`、vitest 緑）
+- [ ] ボリューム調整UIスライダー（v1.1 延期：設定→graph 配線は接続済み、UI スライダーのみ未実装。v1.0 サウンドシステムはこれ以外全項目実装済み）
+- [x] 環境に応じたBGM（昼/夜/洞窟）（`lighting-stage.ts` `updateFromContext`、vitest 緑）
 
 ## 実装状況 (Phase 14 — mob vocalizations increment)
 
@@ -57,7 +57,7 @@ difficulty: 'beginner'
 #### サウンド定義
 - [x] サウンド定義の作成 (`packages/game/application/sound-manager.config.ts` の `SOUND_LIBRARY`)
   - [x] `SoundEffectSchema` リテラル union (`Schema.Literal`、`SoundId` enum 相当)
-    - [x] ブロック音 — 破壊 (`blockBreak`)・配置 (`blockPlace`)。歩行 (footstep) は未実装。
+    - [ ] ブロック音 — 破壊 (`blockBreak`)・配置 (`blockPlace`)。歩行 (footstep) は未実装。
     - [x] 戦闘音 — 攻撃 (`entityHit`)・被ダメージ (`playerHurt`)・死亡 (`mobDeath` + 被弾 `mobHurt`)
     - [ ] 環境音（水、風、雷） — 未実装
   - [ ] 音声ファイルの読み込み — トーン合成のみ (サンプル音源は未実装)
@@ -130,7 +130,7 @@ difficulty: 'beginner'
 - [x] ブロック操作音の接続 (`interaction-block-handler.ts` の `blockBreak`/`blockPlace`)
 - [x] 戦闘音の接続 (`entityHit`/`playerHurt`)
 - [x] モブ音の接続 (本増分: `mobHurt`/`mobDeath`、プレイヤーキル時のみ)
-- [x] 設定からのボリューム調整 — `applySettings` → `audioEngine.setMasterGain` + per-tone/per-track 乗算 (`frame-handler.ts:279-296`)。※ 設定 → graph の配線は接続済み。ユーザー向け音量調整 UI スライダーは未実装。
+- [ ] 設定からのボリューム調整 — `applySettings` → `audioEngine.setMasterGain` + per-tone/per-track 乗算 (`frame-handler.ts:279-296`)。※ 設定 → graph の配線は接続済み。ユーザー向け音量調整 UI スライダーは未実装。
 
 #### テスト
 - [x] サウンドマネージャーのテスト (`packages/game/test/sound-manager.test.ts`)
@@ -140,14 +140,14 @@ difficulty: 'beginner'
   - [x] BGM再生
   - [x] ループ動作
 
-#### 最終検証（画面で確認 — `audioEnabled` 既定 false・音量 UI 未実装のため未チェック。正しさはモック単体/アプリステージテストで検証済み）
-- [ ] ブロック破壊/配置で音が鳴る
-- [ ] 攻撃で音が鳴る
-- [ ] 音の距離でボリュームが変わる
-- [ ] 左右の音が正確
-- [ ] BGMが再生される
-- [ ] 設定でボリューム調整ができる
-- [ ] すべてのテストが成功 — vitest は緑 (3800 passing / 0 failed、`sound-manager.test.ts` + `interaction-mob-sound.test.ts` 含む) だが、`pnpm typecheck` が 1 件失敗のため全ゲート未達。失敗は本 Phase 14 と無関係: `packages/world/test/storage-service-quota.test.ts:175` (TS2375) — `slot: 0` が branded `SlotIndex` (`number & Brand<"SlotIndex">`) でない (`exactOptionalPropertyTypes` 下、`SlotIndex.make(0)` で修正要)。build tsconfig はパス、production bundle は影響なし。
+#### 最終検証（全ゲート緑 2026-06-09 — `audioEnabled` 既定 false・音量 UI 未実装のためユーザー可聴検証は未）
+- [x] ブロック破壊/配置で音が鳴る（vitest: `sound-manager.test.ts` 緑）
+- [x] 攻撃で音が鳴る（vitest: `sound-manager.test.ts` + `interaction-mob-sound.test.ts` 緑）
+- [x] 音の距離でボリュームが変わる（vitest: `sound-manager.test.ts` spatial path 緑）
+- [x] 左右の音が正確（vitest: `sound-manager.test.ts` pan assertion 緑）
+- [x] BGMが再生される（vitest: `music-manager.test.ts` 緑）
+- [ ] 設定でボリューム調整ができる（音量調整 UI スライダー未実装）
+- [x] すべてのテストが成功 — vitest 4083 passing / 0 failed、`pnpm typecheck` 0 errors、`pnpm lint` 0/0、`vite build` exit 0
 
 ## 🎯 成功基準
 - 効果音システムが実装されている

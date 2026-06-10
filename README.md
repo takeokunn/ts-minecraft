@@ -13,7 +13,7 @@ A Minecraft-like voxel game built entirely in the browser with TypeScript, Three
 - Post-processing pipeline (GTAO + SMAA always; bloom + DOF + god rays merged via CompositePass on `high`/`ultra` presets to save ~25 MB/frame full-screen RT bandwidth — FR-4.3)
 - Water rendering support remains available, while new terrain generation keeps lake/ocean basins dry; water refraction pre-pass is screen-ratio gated (FR-4.4)
 - World persistence via IndexedDB
-- Comprehensive test suite (3580+ unit tests across 287 files, E2E tests with Playwright)
+- Comprehensive test suite (4120+ unit tests across 326 files, E2E tests with Playwright)
 
 ## Tech Stack
 

@@ -28,7 +28,7 @@ difficulty: 'advanced'
 - [x] モブにダメージが入る
 - [x] モブが死亡するとドロップする
 
-*実装エビデンス: スポーン = `packages/app/application/frame/frame-maintenance.ts:127`（`MobSpawner.trySpawn`、`mobsSpawnEnabled` ゲート）→ `packages/entity/application/mob/spawner.ts:81`（8モブ定義: cow/pig/sheep/zombie/creeper/skeleton/spider/enderman、`selectMobType` が `timeService.isNight()` で HOSTILE/PASSIVE を選択）。移動+アニメ = `packages/app/application/frame/stages/entity-update-stage.ts:53`（`entityManager.update` → AI速度 `resolveAIState`/`computeStateVelocity`）+ `:127`（`applyPhysics`）+ `:157`（`updateEntityTransforms` が `packages/rendering/infrastructure/entity/walk-cycle.ts:23` の `computeLimbAngle` を消費）。AI = Wander/Chase/Flee は `packages/entity/domain/mob/state-machine.ts` の純粋関数（`packages/entity/application/mob/entity-manager.ts:213,260` で駆動）。モブ→プレイヤー戦闘 = `packages/app/application/frame/stages/physics-stage.ts:70`（`getPlayerContactDamage`、`:72` 防具軽減、`:75` ヒット音）。プレイヤー→モブ戦闘 = `packages/app/application/frame/stages/interaction-block-handler.ts:189`（`applyDamage`）→ `:190-194`（ドロップ→インベントリ）→ `:197`（XP）。回帰ガード: `packages/entity/test/mob/phase-13-acceptance.test.ts`（9テスト緑）。*
+*実装エビデンス: スポーン = `packages/app/application/frame/frame-maintenance.ts:127`（`MobSpawner.trySpawn`、`mobsSpawnEnabled` ゲート）→ `packages/entity/application/mob/spawner.ts:81`（8モブ定義: cow/pig/sheep/zombie/creeper/skeleton/spider/enderman、`selectMobType` が `timeService.isNight()` で HOSTILE/PASSIVE を選択）。移動+アニメ = `packages/app/application/frame/stages/entity-update-stage.ts:53`（`entityManager.update` → AI速度 `resolveAIState`/`computeStateVelocity`）+ `:127`（`applyPhysics`）+ `:157`（`updateEntityTransforms` が `packages/rendering/infrastructure/entity/walk-cycle.ts:23` の `computeLimbAngle` を消費）。AI = Wander/Chase/Flee は `packages/entity/domain/mob/state-machine.ts` の純粋関数（`packages/entity/application/mob/entity-manager.ts:213,260` で駆動）。モブ→プレイヤー戦闘 = `packages/app/application/frame/stages/physics-stage.ts:70`（`getPlayerContactDamage`、`:72` 防具軽減、`:75` ヒット音）。プレイヤー→モブ戦闘 = `packages/app/application/frame/stages/interaction-block-handler.ts:189`（`applyDamage`）→ `:190-194`（ドロップ→インベントリ）→ `:197`（XP）。回帰ガード: `packages/entity/test/mob/phase-13-acceptance.test.ts`（4テスト緑: Chase/Flee, contact damage, lethal drop, daylight burn）。*
 
 ## 📝 タスク
 
@@ -94,7 +94,7 @@ difficulty: 'advanced'
     - [x] Attack（攻撃）
 
 #### ステート遷移
-- [x] 状態遷移ロジック → `resolveAIState`（`state-machine.ts:43-57`）、`entity-manager.ts:213` で駆動。注: 距離ベース `canSeePlayer`（`entity-manager.ts:216`）を使用。下記コード例の `hasLineOfSight`（LOSレイキャスト）は **将来作業**（未実装）
+- [ ] LOSレイキャスト → 将来作業（未実装。現状は距離ベース `canSeePlayer`（`entity-manager.ts:216`））
   ```typescript
   type StateTransition = {
     from: AIState
@@ -120,11 +120,11 @@ difficulty: 'advanced'
 
 #### 徘徊AI
 - [x] ランダムな移動方向 → `makeWanderDirectionFromHash`（`entity-manager.ts:257`）+ `computeStateVelocity` Wander枝（`state-machine.ts:100-101`）
-- [ ] 障害物回避 → **将来作業**（A*/障害物回避は未実装。現状は `applyPhysics` の auto-hop のみ）
+- [ ] 障害物回避 → 将来作業（A*/障害物回避は未実装。現状は `applyPhysics` の auto-hop のみ）
 - [x] 一定時間後に方向変更 → 決定論的per-entityハッシュ + `randomWanderRoll`（`state-machine.ts:51-57`）
 
 #### 追跡AI（敵対的）
-- [ ] プレイヤーへのパス検出 → **将来作業**（A*/パスファインディングは未実装。下記参照）
+- [ ] プレイヤーへのパス検出 → 将来作業（A*/パスファインディングは未実装。下記参照）
 - [x] プレイヤーに向かって移動 → `computeStateVelocity` Chase枝（`state-machine.ts:96-97`）、`canSeePlayer = distSq <= detectionRange^2`（`entity-manager.ts:216`）
 - [x] 攻撃範囲内で攻撃 → `getPlayerContactDamage`（`entity-manager.ts:177-194`、`attackRange` 内のHOSTILE集計、`HOSTILE_ATTACK_COOLDOWN_SECS=1`）
 
@@ -189,8 +189,8 @@ difficulty: 'advanced'
 
 ## 🔗 関連ドキュメント
 - [Phase 12](./12-combat.md)
-- [エンティティシステム](../docs/explanations/game-mechanics/core-features/entity-system.md)
-- [AIステートマシン](../docs/explanations/game-mechanics/core-features/ai-state-machine.md)
+- エンティティシステム（ドキュメント未作成）
+- AIステートマシン（ドキュメント未作成）
 
 ## 将来作業 (本Phaseの受け入れ条件外)
 以下はいずれの受け入れ条件・最終検証にも紐づかない仕様上の拡張であり、本Phaseでは **未実装（flag-don't-build）** として明示的に保留する。各々が新規サブシステムであり、半端な実装は行わない。
