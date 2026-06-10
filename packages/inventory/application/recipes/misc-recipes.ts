@@ -116,6 +116,14 @@ export const MISC_RECIPES: ReadonlyArray<Recipe> = [
     ],
     output: { itemType: 'FISHING_ROD', count: 1 },
   }),
+  // R21: shears (2 iron ingots, vanilla). Closes the Round-5 shearing gap —
+  // sheep shearing shipped (R11) but SHEARS were only obtainable in creative.
+  new Recipe({
+    id: RecipeId.make('iron-ingots-to-shears'),
+    station: 'crafting_table',
+    ingredients: [new RecipeIngredient({ itemType: 'IRON_INGOT', count: 2 })],
+    output: { itemType: 'SHEARS', count: 1 },
+  }),
   new Recipe({
     id: RecipeId.make('bone-to-bone-meal'),
     station: 'inventory',

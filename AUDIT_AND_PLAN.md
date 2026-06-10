@@ -287,3 +287,10 @@ and call sites** before landing (last round had several false positives, so veri
   by `FLUID_TICK_BUDGET=512`. Both are working, bounded code; pooling would add complexity for negligible
   gain. DEFER (matches Round-3's "subsystems are sound" finding, now re-confirmed with line-cited evidence).
 - Shift-click stacking / recipe book — intentional Phase-12 scope cuts per the prior phase docs. DEFER.
+
+**FR gap closed:**
+- [x] R21. SHEARS had **no crafting recipe** — sheep shearing shipped in Round 5 (R11) but shears were
+  obtainable only in creative, breaking the survival loop for that feature. Added a vanilla-accurate recipe
+  (2 IRON_INGOT → 1 SHEARS, `crafting_table`) to `misc-recipes.ts` + a focused craft test. _(done 2026-06-10)_
+
+**Round 7 complete.** R18-R20 perf/cleanup + R21 FR gap. typecheck 0 errors, 4476 tests passing (+1 new).

@@ -224,4 +224,21 @@ describe('application/crafting/recipe-service', () => {
       expect(countBlock(slotsAfter, 'FURNACE')).toBe(1)
     }).pipe(Effect.provide(testLayer))
   )
+
+  // R21: shears must be craftable in survival — sheep shearing (R11) shipped but
+  // SHEARS were previously only obtainable in creative.
+  it.effect('craft produces shears from two iron ingots', () =>
+    Effect.gen(function* () {
+      const rs = yield* RecipeService
+      const inv = yield* InventoryService
+      yield* inv.addBlock('IRON_INGOT', 2)
+      yield* inv.addBlock('CRAFTING_TABLE', 1)
+
+      yield* rs.craft(RecipeId.make('iron-ingots-to-shears'), inv)
+
+      const slotsAfter = yield* inv.getAllSlots()
+      expect(countBlock(slotsAfter, 'IRON_INGOT')).toBe(0)
+      expect(countBlock(slotsAfter, 'SHEARS')).toBe(1)
+    }).pipe(Effect.provide(testLayer))
+  )
 })
