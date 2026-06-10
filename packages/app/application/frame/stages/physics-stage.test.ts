@@ -506,6 +506,29 @@ describe('step 3.5 — fall damage', () => {
     // Sneak = no exhaustion accrued from movement
     expect(addExhaustionSpy).not.toHaveBeenCalled()
   }))
+
+  it.effect('accrues EXHAUSTION_SPRINT_JUMP (0.2) on a sprint-jump, not EXHAUSTION_JUMP (0.05) (R60)', () => Effect.gen(function* () {
+    const deps = yield* makeDeps(false)
+    const pressedKeys = MutableHashSet.fromIterable(['ControlLeft', 'KeyW'])
+    const services = makeServices({
+      inputService: makeInputService(pressedKeys),
+      inventoryRenderer: makeInventoryRenderer({ open: false }),
+      settingsOverlay: makeSettingsOverlay({ open: false }),
+    })
+    // First frame: isGrounded=true → sets wasGroundedRef. Player stationary (no movement exhaust).
+    const addExhaustionSpy = vi.fn(() => Effect.void)
+    ;(services.hungerService as { addExhaustion: unknown }).addExhaustion = addExhaustionSpy
+    yield* runFrame(deps, services)
+    addExhaustionSpy.mockClear()
+
+    // Second frame: isGrounded=false → jump detected (wasGrounded=true, isGrounded=false).
+    // Sprint keys still held → should use EXHAUSTION_SPRINT_JUMP (0.2) not EXHAUSTION_JUMP (0.05).
+    ;(services.gameState as { isPlayerGrounded: unknown }).isPlayerGrounded = vi.fn(() => Effect.succeed(false))
+    yield* runFrame(deps, services)
+
+    expect(addExhaustionSpy).toHaveBeenCalledOnce()
+    expect(addExhaustionSpy.mock.calls[0]?.[0]).toBeCloseTo(0.2, 5)
+  }))
 })
 
 // ---------------------------------------------------------------------------

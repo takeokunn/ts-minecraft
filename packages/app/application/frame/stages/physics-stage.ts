@@ -6,7 +6,7 @@ import { DEFAULT_PLAYER_ID, CHUNK_SIZE, CHUNK_HEIGHT, indexToBlockType, SlotInde
 import { KeyMappings } from '@ts-minecraft/entity'
 import { HOTBAR_START, getFeatherFallingReduction, getFireProtectionReduction, getRespirationBonusSecs } from '@ts-minecraft/inventory'
 import type { DeltaTimeSecs, Position } from '@ts-minecraft/core'
-import { EXHAUSTION_WALK_PER_BLOCK, EXHAUSTION_SPRINT_PER_BLOCK, EXHAUSTION_JUMP, EXHAUSTION_DAMAGE, MAX_FOOD_LEVEL } from '@ts-minecraft/entity'
+import { EXHAUSTION_WALK_PER_BLOCK, EXHAUSTION_SPRINT_PER_BLOCK, EXHAUSTION_SPRINT_JUMP, EXHAUSTION_JUMP, EXHAUSTION_DAMAGE, MAX_FOOD_LEVEL } from '@ts-minecraft/entity'
 import { accrueHazardTicks, nextAirSecs, LAVA_DAMAGE, LAVA_DAMAGE_INTERVAL_SECS, DROWN_DAMAGE, DROWN_DAMAGE_INTERVAL_SECS, MAX_AIR_SECS } from '@ts-minecraft/entity'
 import { EYE_LEVEL_OFFSET } from '@ts-minecraft/app/frame-handler.config'
 import { resolveNetherTravel, type Dimension } from '@ts-minecraft/world'
@@ -181,29 +181,29 @@ export const physicsStage = (
           // deals 1 starvation damage when the food bar is empty.
           const dx = refreshedPos.x - inputs.initialPlayerPos.x
           const dz = refreshedPos.z - inputs.initialPlayerPos.z
+          // Sprint/sneak detection mirrors camera-stage: Ctrl + forward + !sneak.
+          // Read once and share between movement and jump exhaustion branches.
+          const [ctrlL, ctrlR, forward, sneak] = yield* Effect.all([
+            services.inputService.isKeyPressed('ControlLeft'),
+            services.inputService.isKeyPressed('ControlRight'),
+            services.inputService.isKeyPressed(KeyMappings.MOVE_FORWARD),
+            services.inputService.isKeyPressed(KeyMappings.SNEAK),
+          ], { concurrency: 'unbounded' })
+          const isSprinting = (ctrlL || ctrlR) && forward && !sneak
+          const isSneaking = sneak
+
           const distanceMoved = Math.hypot(dx, dz)
-          if (distanceMoved > 0) {
-            // Sprint/sneak detection mirrors camera-stage: Ctrl + forward + !sneak.
-            // Walk = 0.01/block, sprint = 0.1/block (vanilla Java Edition).
-            // Sneaking accrues no exhaustion (vanilla).
-            const [ctrlL, ctrlR, forward, sneak] = yield* Effect.all([
-              services.inputService.isKeyPressed('ControlLeft'),
-              services.inputService.isKeyPressed('ControlRight'),
-              services.inputService.isKeyPressed(KeyMappings.MOVE_FORWARD),
-              services.inputService.isKeyPressed(KeyMappings.SNEAK),
-            ], { concurrency: 'unbounded' })
-            const isSprinting = (ctrlL || ctrlR) && forward && !sneak
-            const isSneaking = sneak
-            if (!isSneaking) {
-              const rate = isSprinting ? EXHAUSTION_SPRINT_PER_BLOCK : EXHAUSTION_WALK_PER_BLOCK
-              yield* services.hungerService.addExhaustion(distanceMoved * rate)
-            }
+          // Walk = 0.01/block, sprint = 0.1/block (vanilla Java Edition).
+          // Sneaking accrues no exhaustion from movement (vanilla).
+          if (distanceMoved > 0 && !isSneaking) {
+            const rate = isSprinting ? EXHAUSTION_SPRINT_PER_BLOCK : EXHAUSTION_WALK_PER_BLOCK
+            yield* services.hungerService.addExhaustion(distanceMoved * rate)
           }
-          // Jump exhaustion: transitioning from grounded to airborne costs EXHAUSTION_JUMP (0.05).
-          // Creative players are immune (vanilla).
+          // Jump exhaustion: transitioning from grounded to airborne.
+          // Sprint-jump = 0.2, normal jump = 0.05 (vanilla). Creative players are immune.
           const wasGrounded = MutableRef.get(refs.wasGroundedRef)
           if (!inCreative && wasGrounded && !isGrounded) {
-            yield* services.hungerService.addExhaustion(EXHAUSTION_JUMP)
+            yield* services.hungerService.addExhaustion(isSprinting ? EXHAUSTION_SPRINT_JUMP : EXHAUSTION_JUMP)
           }
           MutableRef.set(refs.wasGroundedRef, isGrounded)
 

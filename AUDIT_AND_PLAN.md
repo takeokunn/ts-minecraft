@@ -525,8 +525,12 @@ typecheck 0, **4601 tests passing** (+14 new tests).
   +2 new tests (sprint rate, sneak=no exhaustion); existing walk-exhaustion test updated.
   _(done 2026-06-11)_
 
-**Round 27 complete.** R59.
-typecheck 0, **4601 tests passing** (+2 new tests, 1 updated assertion).
+- [x] R60. Sprint-jump exhaustion wired — `EXHAUSTION_SPRINT_JUMP=0.2` (was only defined, never used);
+  physicsStage now reads sprint/sneak state once and shares between movement + jump branches;
+  sprint-jump uses 0.2/jump (4× vanilla normal jump). +1 test. _(done 2026-06-11)_
+
+**Round 27 complete.** R59-R60.
+typecheck 0, **4601 tests passing** (+3 new tests, 1 updated assertion).
 
 ## D. Progress log
 - 2026-06-10: Audit complete; plan authored. Beginning Phase 1.
