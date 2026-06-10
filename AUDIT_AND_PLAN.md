@@ -482,6 +482,22 @@ special effect. In vanilla, it grants Regeneration II → ~4 HP healed over ~5 s
 **Round 24 complete.** R53 — GOLDEN_APPLE restores 4 HP on eat.
 typecheck 0, **4584 tests passing** (+1 GOLDEN_APPLE heal test).
 
+## AA. Round 25 (2026-06-11) — enchant APPLICABLE_TO gaps + wheat seed drops
+
+Two data bugs found by audit:
+
+- [x] R54. SILK_TOUCH missing from `APPLICABLE_TO` — it was wired in mining code but could
+  never be obtained via enchanting table. Added to picks + axes. UNBREAKING missing from
+  all armor except helmets and from hoes — fixed. 4 new `canEnchantItem` tests.
+  _(done 2026-06-11)_
+
+- [x] R55. WHEAT_CROP harvest no seed drops — ripe break now gives 1 WHEAT + 1-4 WHEAT_SEEDS;
+  unripe break gives 1 WHEAT_SEEDS (matching vanilla). Pure production code change
+  (chunk-query path; integration tested via manual play). _(done 2026-06-11)_
+
+**Round 25 complete.** R54-R55.
+typecheck 0, **4587 tests passing** (+3 enchant tests).
+
 ## D. Progress log
 - 2026-06-10: Audit complete; plan authored. Beginning Phase 1.
 - 2026-06-10: **ALL TASKS COMPLETE.** Phase 1 (T1-T4 verified hot-path allocs), Phase 2
