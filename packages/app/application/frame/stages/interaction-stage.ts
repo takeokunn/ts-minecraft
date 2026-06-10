@@ -21,7 +21,7 @@ import {
 import { handleHotbarInput, renderHotbarHud } from '@ts-minecraft/app/frame/stages/interaction-hotbar-handler'
 import { handleRedstoneInput, type RedstoneFlags } from '@ts-minecraft/app/frame/stages/interaction-redstone-handler'
 import { handleLeftClick, handleRightClick, handleFoodConsumption, handleUnequipArmor, handleFeedAnimal, handleShearAnimal } from '@ts-minecraft/app/frame/stages/interaction-block-handler'
-import { handleFlintAndSteel } from '@ts-minecraft/app/frame/stages/interaction-placement-handler'
+import { handleFlintAndSteel, handleBucket } from '@ts-minecraft/app/frame/stages/interaction-placement-handler'
 import { handleFarmingInteraction } from '@ts-minecraft/app/frame/stages/interaction-farming-handler'
 
 export const interactionStage = (
@@ -35,6 +35,7 @@ export const interactionStage = (
     | 'inputService'
     | 'blockService'
     | 'chunkManagerService'
+    | 'fluidService'
     | 'soundManager'
     | 'entityManager'
     | 'inventoryService'
@@ -142,11 +143,15 @@ export const interactionStage = (
             if (!sheared && !fed && !ate) {
               const farmed = yield* handleFarmingInteraction(services, refs, { targetHit })
               if (!farmed) {
-                const ignited = selectedHotbarItem._tag === 'Some' && selectedHotbarItem.value === 'FLINT_AND_STEEL'
-                  ? yield* handleFlintAndSteel(services, refs, { targetHit })
-                  : false
-                if (!ignited) {
-                  yield* handleRightClick(services, refs, { targetHit, respawnPositionRef: deps.respawnPositionRef })
+                // R26: bucket fill/empty before generic placement (held-item action like ignition).
+                const bucketed = yield* handleBucket(services, refs, { targetHit })
+                if (!bucketed) {
+                  const ignited = selectedHotbarItem._tag === 'Some' && selectedHotbarItem.value === 'FLINT_AND_STEEL'
+                    ? yield* handleFlintAndSteel(services, refs, { targetHit })
+                    : false
+                  if (!ignited) {
+                    yield* handleRightClick(services, refs, { targetHit, respawnPositionRef: deps.respawnPositionRef })
+                  }
                 }
               }
             }

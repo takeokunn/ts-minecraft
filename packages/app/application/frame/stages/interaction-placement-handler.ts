@@ -153,6 +153,91 @@ const handlePortalIgnition = (
         }),
       )
     }
+// R26: water/lava buckets. An empty BUCKET fills from a fluid SOURCE block the
+// player is looking at; a filled bucket empties the fluid onto the air cell
+// adjacent to the targeted face. Returns true when the bucket consumed the
+// interaction (so the caller skips default placement). The fluid service's
+// seed*/remove* helpers write the block themselves (writeFluid/writeAir), so we
+// only forceSetBlock on placement to mirror the existing placeBlock flow.
+export const handleBucket = (
+  services: Pick<FrameHandlerServices, 'hotbarService' | 'inventoryService' | 'blockService' | 'chunkManagerService' | 'fluidService' | 'soundManager'>,
+  refs: Pick<FrameStageRefs, 'dirtyChunksRef'>,
+  context: { readonly targetHit: Option.Option<TargetRayHit> },
+): Effect.Effect<boolean> =>
+  Option.match(context.targetHit, {
+    onNone: () => Effect.succeed(false),
+    onSome: (hit) =>
+      Effect.gen(function* () {
+        const [selected, selectedSlot] = yield* Effect.all(
+          [services.hotbarService.getSelectedBlockType(), services.hotbarService.getSelectedSlot()],
+          { concurrency: 'unbounded' },
+        )
+        if (Option.isNone(selected)) return false
+        const item = selected.value
+        if (item !== 'BUCKET' && item !== 'WATER_BUCKET' && item !== 'LAVA_BUCKET') return false
+        const slot = SlotIndex.make(HOTBAR_START + selectedSlot)
+
+        // Re-mesh the chunk containing `pos` by queueing it render-dirty.
+        const markDirty = (pos: { readonly x: number; readonly y: number; readonly z: number }) =>
+          services.chunkManagerService
+            .getChunk({ x: Math.floor(pos.x / CHUNK_SIZE), z: Math.floor(pos.z / CHUNK_SIZE) })
+            .pipe(
+              Effect.flatMap((updated) =>
+                Ref.update(refs.dirtyChunksRef, (map) =>
+                  HashMap.set(map, `${Math.floor(pos.x / CHUNK_SIZE)},${Math.floor(pos.z / CHUNK_SIZE)}`, {
+                    chunk: updated,
+                    dirtyAABB: Option.none(),
+                  }),
+                ),
+              ),
+              Effect.catchAll(() => Effect.void),
+            )
+
+        if (item === 'BUCKET') {
+          // FILL — the looked-at block must be a fluid source.
+          const targetPos = { x: hit.blockX, y: hit.blockY, z: hit.blockZ }
+          const lx = ((targetPos.x % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE
+          const lz = ((targetPos.z % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE
+          const idx = targetPos.y + lz * CHUNK_HEIGHT + lx * CHUNK_HEIGHT * CHUNK_SIZE
+          const blockType = yield* services.chunkManagerService
+            .getChunk({ x: Math.floor(targetPos.x / CHUNK_SIZE), z: Math.floor(targetPos.z / CHUNK_SIZE) })
+            .pipe(
+              Effect.map((chunk) => indexToBlockType(chunk.blocks[idx] ?? 0)),
+              Effect.catchAll(() => Effect.succeed('AIR' as BlockType)),
+            )
+          if (blockType !== 'WATER' && blockType !== 'LAVA') return false
+          const filled = blockType === 'WATER' ? 'WATER_BUCKET' : 'LAVA_BUCKET'
+          yield* (blockType === 'WATER'
+            ? services.fluidService.removeWater(targetPos)
+            : services.fluidService.removeLava(targetPos))
+          yield* services.fluidService.notifyBlockChanged(targetPos)
+          yield* services.inventoryService.removeBlock('BUCKET', 1, slot).pipe(Effect.catchAll(() => Effect.void))
+          yield* services.inventoryService.addBlock(filled, 1).pipe(Effect.catchAll(() => Effect.void))
+          yield* markDirty(targetPos)
+          yield* services.soundManager.playEffect('blockBreak', { position: targetPos })
+          return true
+        }
+
+        // EMPTY — place the fluid at the air cell adjacent to the targeted face.
+        const fluidBlock: BlockType = item === 'WATER_BUCKET' ? 'WATER' : 'LAVA'
+        const placePos = {
+          x: hit.blockX + Math.round(hit.normal.x),
+          y: hit.blockY + Math.round(hit.normal.y),
+          z: hit.blockZ + Math.round(hit.normal.z),
+        }
+        yield* services.blockService.forceSetBlock(placePos, fluidBlock).pipe(Effect.catchAll(() => Effect.void))
+        yield* (fluidBlock === 'WATER'
+          ? services.fluidService.seedWater(placePos)
+          : services.fluidService.seedLava(placePos))
+        yield* services.fluidService.notifyBlockChanged(placePos)
+        yield* services.inventoryService.removeBlock(item, 1, slot).pipe(Effect.catchAll(() => Effect.void))
+        yield* services.inventoryService.addBlock('BUCKET', 1).pipe(Effect.catchAll(() => Effect.void))
+        yield* markDirty(placePos)
+        yield* services.soundManager.playEffect('blockPlace', { position: placePos })
+        return true
+      }),
+  })
+
 // Right-clicking a BED block at night skips to dawn and sets the player's spawn point.
 // In the nether, sleeping causes an explosion in vanilla; here we just do nothing (safe mode).
 export const handleBed = (

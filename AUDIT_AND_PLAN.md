@@ -366,10 +366,17 @@ tick + maturity-aware harvest + persistence — a dedicated multi-commit round, 
 - [x] R26a. Foundation — added `BUCKET`/`WATER_BUCKET`/`LAVA_BUCKET` to `ItemTypeSchema`; satisfied the one
   tsc-enforced exhaustive Record (`ITEM_TILE_MAP`: empty→iron-ingot tile, water/lava→fluid tiles); added all
   three to `NON_PLACEABLE_ITEM_TYPES`. typecheck 0. _(done 2026-06-10)_
-- [ ] R26b. Bucket use-handler — fill (right-click a WATER/LAVA source with BUCKET → clear the source,
-  swap to the filled bucket) and empty (right-click with a filled bucket → place the fluid at the adjacent
-  air + seed the source, swap back to empty BUCKET). Wire into the right-click priority chain; consume/grant
-  via inventory. +tests.
+- [x] R26b. Bucket use-handler — `handleBucket` in interaction-placement-handler: FILL (empty BUCKET aimed
+  at a WATER/LAVA source → `removeWater`/`removeLava` + swap to the filled bucket) and EMPTY (filled bucket →
+  `forceSetBlock` + `seedWater`/`seedLava` at the air cell adjacent to the targeted face + swap to empty
+  BUCKET). Wired into the right-click chain (farm → **bucket** → ignite → place); `fluidService` added to the
+  interaction-stage Pick. The fluid service's seed/remove helpers write the block themselves, so the handler
+  reuses the existing placeBlock fluid flow. +5 tests (empty water/lava, fill from water, non-fluid no-op,
+  non-bucket no-op). _(done 2026-06-10)_
+
+**Round 11 complete.** R26a+R26b — water/lava buckets (fill & place). Crop growth remains the top deferred
+gap (warrants a dedicated round: needs a new side-table service for per-block growth state). typecheck 0,
+lint 0/0, 4484 tests passing (+5).
 
 **Verified FALSE POSITIVE (recorded):**
 - `despawnFarEntities` was flagged "NOT called automatically in frame loop" — **wrong**, it's called at

@@ -4,7 +4,7 @@ import { expect, vi } from 'vitest'
 import { CHUNK_SIZE, CHUNK_HEIGHT, blockTypeToIndex } from '@ts-minecraft/core'
 import type { BlockType } from '@ts-minecraft/core'
 import type { Chunk } from '@ts-minecraft/world'
-import { handleFlintAndSteel } from '@ts-minecraft/app/frame/stages/interaction-placement-handler'
+import { handleFlintAndSteel, handleBucket } from '@ts-minecraft/app/frame/stages/interaction-placement-handler'
 import type { TargetRayHit } from '@ts-minecraft/app/frame/stages/interaction-block-handler'
 
 // ---------------------------------------------------------------------------
@@ -162,6 +162,99 @@ describe('interaction-placement-handler / handleFlintAndSteel', () => {
         { targetHit: Option.some(makePortalHit()) },
       )
       expect(result).toBe(true)
+    }),
+  )
+})
+
+// ---------------------------------------------------------------------------
+// R26: water/lava buckets
+// ---------------------------------------------------------------------------
+
+const makeBucketServices = (heldItem: BlockType | string, targetBlock: BlockType = 'AIR') => {
+  const removeBlock = vi.fn(() => Effect.void)
+  const addBlock = vi.fn(() => Effect.void)
+  const forceSetBlock = vi.fn(() => Effect.void)
+  const seedWater = vi.fn(() => Effect.void)
+  const seedLava = vi.fn(() => Effect.void)
+  const removeWater = vi.fn(() => Effect.void)
+  const removeLava = vi.fn(() => Effect.void)
+  const notifyBlockChanged = vi.fn(() => Effect.void)
+  // A chunk whose voxel (lx=0,y=63,lz=0) carries the target block — this is the
+  // voxel `bucketHit` points AT, which the FILL branch reads to detect a source.
+  const chunk = makeEmptyChunk(0, 0)
+  setChunkBlock(chunk, 0, 63, 0, targetBlock)
+  const services = {
+    hotbarService: {
+      getSelectedBlockType: () => Effect.succeed(Option.some(heldItem)),
+      getSelectedSlot: () => Effect.succeed(0),
+    },
+    inventoryService: { removeBlock, addBlock },
+    blockService: { forceSetBlock },
+    chunkManagerService: { getChunk: () => Effect.succeed(chunk) },
+    fluidService: { seedWater, seedLava, removeWater, removeLava, notifyBlockChanged },
+    soundManager: { playEffect: vi.fn(() => Effect.void) },
+  }
+  return { services, spies: { removeBlock, addBlock, forceSetBlock, seedWater, seedLava, removeWater, removeLava } }
+}
+
+// hit on the top face of block (0,63,0) → adjacent air = (0,64,0); also the
+// FILL target voxel the mock chunk is seeded at.
+const bucketHit: TargetRayHit = { blockX: 0, blockY: 63, blockZ: 0, distance: 3, normal: { x: 0, y: 1, z: 0 } }
+
+describe('interaction-placement-handler / handleBucket', () => {
+  it.effect('returns false for a non-bucket held item', () =>
+    Effect.gen(function* () {
+      const dirtyChunksRef = yield* Ref.make(HashMap.empty<string, unknown>())
+      const { services } = makeBucketServices('STONE')
+      const result = yield* handleBucket(services as never, { dirtyChunksRef } as never, { targetHit: Option.some(bucketHit) })
+      expect(result).toBe(false)
+    }),
+  )
+
+  it.effect('empties a WATER_BUCKET: seeds water at the adjacent cell and swaps to an empty BUCKET', () =>
+    Effect.gen(function* () {
+      const dirtyChunksRef = yield* Ref.make(HashMap.empty<string, unknown>())
+      const { services, spies } = makeBucketServices('WATER_BUCKET')
+      const result = yield* handleBucket(services as never, { dirtyChunksRef } as never, { targetHit: Option.some(bucketHit) })
+      expect(result).toBe(true)
+      expect(spies.seedWater).toHaveBeenCalledOnce()
+      expect(spies.seedLava).not.toHaveBeenCalled()
+      expect(spies.removeBlock).toHaveBeenCalledWith('WATER_BUCKET', 1, expect.anything())
+      expect(spies.addBlock).toHaveBeenCalledWith('BUCKET', 1)
+    }),
+  )
+
+  it.effect('fills an empty BUCKET from a WATER source: removes the water and swaps to WATER_BUCKET', () =>
+    Effect.gen(function* () {
+      const dirtyChunksRef = yield* Ref.make(HashMap.empty<string, unknown>())
+      const { services, spies } = makeBucketServices('BUCKET', 'WATER')
+      const result = yield* handleBucket(services as never, { dirtyChunksRef } as never, { targetHit: Option.some(bucketHit) })
+      expect(result).toBe(true)
+      expect(spies.removeWater).toHaveBeenCalledOnce()
+      expect(spies.removeBlock).toHaveBeenCalledWith('BUCKET', 1, expect.anything())
+      expect(spies.addBlock).toHaveBeenCalledWith('WATER_BUCKET', 1)
+    }),
+  )
+
+  it.effect('an empty BUCKET aimed at a non-fluid block does nothing (returns false)', () =>
+    Effect.gen(function* () {
+      const dirtyChunksRef = yield* Ref.make(HashMap.empty<string, unknown>())
+      const { services, spies } = makeBucketServices('BUCKET', 'STONE')
+      const result = yield* handleBucket(services as never, { dirtyChunksRef } as never, { targetHit: Option.some(bucketHit) })
+      expect(result).toBe(false)
+      expect(spies.removeWater).not.toHaveBeenCalled()
+      expect(spies.addBlock).not.toHaveBeenCalled()
+    }),
+  )
+
+  it.effect('empties a LAVA_BUCKET: seeds lava and swaps to an empty BUCKET', () =>
+    Effect.gen(function* () {
+      const dirtyChunksRef = yield* Ref.make(HashMap.empty<string, unknown>())
+      const { services, spies } = makeBucketServices('LAVA_BUCKET')
+      const result = yield* handleBucket(services as never, { dirtyChunksRef } as never, { targetHit: Option.some(bucketHit) })
+      expect(result).toBe(true)
+      expect(spies.seedLava).toHaveBeenCalledOnce()
+      expect(spies.addBlock).toHaveBeenCalledWith('BUCKET', 1)
     }),
   )
 })
