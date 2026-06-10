@@ -7,6 +7,13 @@ import { CHUNK_SIZE, CHUNK_HEIGHT } from '@ts-minecraft/core'
 import { MAX_SHADOW_HALF_EXTENT } from '@ts-minecraft/core'
 import type { Position } from '@ts-minecraft/core'
 
+// Sprint FOV (R5): the camera widens slightly while sprinting for a subtle
+// "feel of speed", then eases back. Lerped per-frame; the camera object holds
+// the FOV state so no extra ref is needed.
+const BASE_FOV = 75
+const SPRINT_FOV = 82
+const FOV_LERP = 0.18
+
 export const cameraStage = (
   deps: Pick<FrameHandlerDeps, 'camera' | 'lights'>,
   services: Pick<FrameHandlerServices, 'inputService' | 'playerCameraState' | 'thirdPersonCamera'>,
@@ -25,6 +32,25 @@ export const cameraStage = (
       ),
       'Camera toggle error',
     )
+
+    // Sprint FOV: sprinting = Ctrl held + moving forward + not sneaking (mirrors
+    // movement-service's sprint rule). Ease the camera FOV toward the target and
+    // only touch the projection matrix when it actually changes.
+    const [ctrlL, ctrlR, forward, sneak] = yield* Effect.all([
+      services.inputService.isKeyPressed('ControlLeft'),
+      services.inputService.isKeyPressed('ControlRight'),
+      services.inputService.isKeyPressed(KeyMappings.MOVE_FORWARD),
+      services.inputService.isKeyPressed(KeyMappings.SNEAK),
+    ])
+    yield* Effect.sync(() => {
+      const sprinting = (ctrlL || ctrlR) && forward && !sneak
+      const targetFov = sprinting ? SPRINT_FOV : BASE_FOV
+      const nextFov = deps.camera.fov + (targetFov - deps.camera.fov) * FOV_LERP
+      if (Math.abs(nextFov - deps.camera.fov) > 0.05) {
+        deps.camera.fov = nextFov
+        deps.camera.updateProjectionMatrix()
+      }
+    })
 
     // Camera perspective + position sync (use current mode before raycasting)
     // Sequential: both are synchronous Ref reads; unbounded concurrency would

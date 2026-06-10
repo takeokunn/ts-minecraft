@@ -79,4 +79,39 @@ describe('step 8 — camera sync', () => {
     expect(MutableRef.get(shadowDirtyCalledRef)).toBe(true)
     expect(MutableRef.get(lastShadowTargetRef)).toEqual({ x: 5, z: 3 })
   }))
+
+  it.effect('widens FOV while sprinting (Ctrl + forward) and holds base FOV when idle (R5)', () => Effect.gen(function* () {
+    const lights = makeLights()
+    const { service: cameraStateService } = makeCameraState('firstPerson')
+    const thirdPersonCamera: Parameters<typeof cameraStage>[1]['thirdPersonCamera'] = ThirdPersonCameraService.of({
+      _tag: '@minecraft/application/ThirdPersonCameraService' as const,
+      update: () => Effect.void,
+    })
+    const lastShadowTargetRef = MutableRef.make({ x: 5, z: 3 })
+    const lastRenderDistanceRef = yield* Ref.make(8)
+    const runOnce = (camera: ReturnType<typeof makeCamera>, inputService: ReturnType<typeof makeInputService>) =>
+      cameraStage(
+        { camera, lights },
+        { inputService, playerCameraState: cameraStateService, thirdPersonCamera },
+        { lastShadowTargetRef, lastRenderDistanceRef },
+        { playerPos: { x: 5, y: 64, z: 3 }, renderDistance: 8, markShadowMapDirty: () => {} },
+      )
+
+    // Sprinting: Ctrl + W held (not sneaking) → FOV eases above the 75 base.
+    // (The test-kit's isKeyPressed is hardcoded false, so drive it directly.)
+    const sprintInput = makeInputService()
+    Object.assign(sprintInput, {
+      isKeyPressed: (key: string) => Effect.succeed(key === 'ControlLeft' || key === KeyMappings.MOVE_FORWARD),
+    })
+    const sprintCam = makeCamera()
+    sprintCam.fov = 75
+    yield* runOnce(sprintCam, sprintInput)
+    expect(sprintCam.fov).toBeGreaterThan(75)
+
+    // Idle: no movement keys → FOV stays at the base.
+    const idleCam = makeCamera()
+    idleCam.fov = 75
+    yield* runOnce(idleCam, makeInputService())
+    expect(idleCam.fov).toBeCloseTo(75)
+  }))
 })

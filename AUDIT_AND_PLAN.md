@@ -149,6 +149,21 @@ always-runs hot-path cleanup over dormant-MP wiring.
   feature; building dead wiring adds no reachable value. Revisit IF/when MP is turned on
   (then it pairs with the T15 block-sync, also dormant for the same reason).
 
+## F. Round 3 (2026-06-10) — third audit pass
+
+One focused agent audited under-examined subsystems. **NFR finding: the previously-unaudited
+subsystems are all sound** — light-engine BFS (bounded, full-recompute threshold), fluid sim
+(FLUID_TICK_BUDGET cap + carryover), terrain gen (off-thread), worker pools (timeout + finalizer
+cleanup), chunk-manager LRU — no per-tick allocation/unbounded-growth issues. **FR gaps:** mob
+breeding is the top missing core FR but is large (~8-10 files, needs a right-click-entity system);
+two contained QoL wins remain. Picking lower-risk, player-visible, contained increments.
+
+- [x] R5. Sprint FOV — widen camera FOV (75→82, lerped 0.18/frame) while sprinting (Ctrl+W, not sneaking),
+  in camera-stage; updateProjectionMatrix only when FOV actually changes. Visual-only, no new ref. +1 test. _(done 2026-06-10)_
+- [ ] R6. (Deferred — core but higher-risk/larger) Sneak edge-protection (don't walk off ledges) +
+  mob breeding (right-click-entity feed → baby). Revisit after R5; breeding is multi-iteration.
+  (then it pairs with the T15 block-sync, also dormant for the same reason).
+
 ## D. Progress log
 - 2026-06-10: Audit complete; plan authored. Beginning Phase 1.
 - 2026-06-10: **ALL TASKS COMPLETE.** Phase 1 (T1-T4 verified hot-path allocs), Phase 2
