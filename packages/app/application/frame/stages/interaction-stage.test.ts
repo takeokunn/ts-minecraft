@@ -51,11 +51,12 @@ describe('step 7 — block interaction', () => {
     expect(breakSpy).not.toHaveBeenCalled()
   }))
 
-  it.effect('calls blockService.breakBlock on left-click when a target block is available', () => Effect.gen(function* () {
+  it.effect('calls blockService.breakBlock when left mouse button is held and a target block is available', () => Effect.gen(function* () {
     const deps = yield* makeDeps(false)
     const inputService = makeInputService()
-    // Override consumeMouseClick to return true for button 0
-    ;(inputService as { consumeMouseClick: unknown }).consumeMouseClick = (btn: number) =>
+    // Hold-to-break: block breaking now uses isMouseDown (level) not consumeMouseClick (edge).
+    // Blocks with hardness=0 (e.g. AIR from an empty-blocks mock) break instantly on the first frame.
+    ;(inputService as { isMouseDown: unknown }).isMouseDown = (btn: number) =>
       Effect.succeed(btn === 0)
     const services = makeServices({
       inputService,

@@ -144,6 +144,11 @@ describe('step 1 — chunk streaming', () => {
     const maintenanceInjectionDoneRef = MutableRef.make(false)
     const updateCountRef = MutableRef.make(0)
 
+    // Hold-to-break: block breaking now requires isMouseDown=true (level trigger).
+    // The clickCountRef gate in the original consumeMouseClick is preserved for entity-attack
+    // parity; block break gating is now done via getTargetBlock returning None when exhausted.
+    services.inputService.isMouseDown = (button: number) =>
+      Effect.succeed(button === 0)
     services.inputService.consumeMouseClick = (button: number) =>
       Effect.succeed(button === 0 && MutableRef.get(clickCountRef) < queuedTargets.length)
 

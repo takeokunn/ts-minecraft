@@ -103,6 +103,7 @@ export const makeDeps = (paused = false, withComposer = false): Effect.Effect<Fr
       xpBarElement: Option.none(),
       armorValueElement: Option.none(),
       airElement: Option.none(),
+      breakProgressElement: Option.none(),
       skyMesh: Option.none(),
       gamePausedRef,
       // Tests default to "session not paused" — pause-matrix gating is verified

@@ -1,10 +1,11 @@
 // Stage 7: interactionStage — block highlight, then break/place/redstone interactions.
 // Decomposed into 4 helpers to keep the orchestrator at low cyclomatic complexity:
-//   - handleHotbarInput   — keyboard 1-9 / wheel slot selection + HUD update
-//   - handleRedstoneInput — 8-way Match dispatch on redstone key flags
-//   - handleLeftClick     — entity attack / block break / particle burst
-//   - handleRightClick    — furnace select / block place
-import { Effect, Ref } from 'effect'
+//   - handleHotbarInput        — keyboard 1-9 / wheel slot selection + HUD update
+//   - handleRedstoneInput      — 8-way Match dispatch on redstone key flags
+//   - handleLeftClick          — entity attack (edge-trigger; hold-to-break is separate)
+//   - handleBlockBreakProgress — hold-to-break: per-frame timed block mining
+//   - handleRightClick         — furnace select / block place
+import { Effect, MutableRef, Option, Ref } from 'effect'
 import { logErrors } from '@ts-minecraft/app/frame/error-logging'
 import type { FrameHandlerDeps, FrameHandlerServices, FrameStageRefs } from '@ts-minecraft/app/frame/types'
 import {
@@ -20,12 +21,13 @@ import {
 } from '@ts-minecraft/app/frame-handler.config'
 import { handleHotbarInput, renderHotbarHud } from '@ts-minecraft/app/frame/stages/interaction-hotbar-handler'
 import { handleRedstoneInput, type RedstoneFlags } from '@ts-minecraft/app/frame/stages/interaction-redstone-handler'
-import { handleLeftClick, handleRightClick, handleFoodConsumption, handleUnequipArmor, handleFeedAnimal, handleShearAnimal } from '@ts-minecraft/app/frame/stages/interaction-block-handler'
+import { handleLeftClick, handleRightClick, handleFoodConsumption, handleUnequipArmor, handleFeedAnimal, handleShearAnimal, handleBlockBreakProgress } from '@ts-minecraft/app/frame/stages/interaction-block-handler'
 import { handleFlintAndSteel, handleBucket } from '@ts-minecraft/app/frame/stages/interaction-placement-handler'
 import { handleFarmingInteraction } from '@ts-minecraft/app/frame/stages/interaction-farming-handler'
+import { findAttackableEntity } from '@ts-minecraft/app/frame/stages/attack-targeting'
 
 export const interactionStage = (
-  deps: Pick<FrameHandlerDeps, 'camera' | 'scene' | 'gamePausedRef' | 'respawnPositionRef'>,
+  deps: Pick<FrameHandlerDeps, 'camera' | 'scene' | 'gamePausedRef' | 'respawnPositionRef' | 'breakProgressElement'>,
   services: Pick<
     FrameHandlerServices,
     | 'debugFeatureFlags'
@@ -53,7 +55,7 @@ export const interactionStage = (
     | 'multiplayer'
     | 'gameMode'
   >,
-  refs: Pick<FrameStageRefs, 'dirtyChunksRef' | 'totalTimeSecsRef' | 'lastPlayerAttackTimeRef' | 'attackSwingStateRef'>,
+  refs: Pick<FrameStageRefs, 'dirtyChunksRef' | 'totalTimeSecsRef' | 'lastPlayerAttackTimeRef' | 'attackSwingStateRef' | 'breakProgressRef'>,
 ): Effect.Effect<void, never> =>
   Effect.gen(function* () {
     const debugFlags = yield* services.debugFeatureFlags.getFlags()
@@ -72,6 +74,7 @@ export const interactionStage = (
         yield* handleHotbarInput(services)
 
         const leftClick = yield* services.inputService.consumeMouseClick(0)
+        const mouseHeld = yield* services.inputService.isMouseDown(0)
         const rightClick = yield* services.inputService.consumeMouseClick(2)
         const [
           placeWire,
@@ -120,7 +123,13 @@ export const interactionStage = (
 
         // Spectator cannot interact with the world (no break / place / attack / redstone).
         const isSpectator = yield* services.gameMode.isSpectator()
-        if (!isSpectator && (leftClick || rightClick || hasRedstoneInput)) {
+        const breakProgressElementOrNull = Option.getOrNull(deps.breakProgressElement)
+
+        // Reset break progress when mouse is released (mouseHeld=false) so the bar
+        // clears immediately even if the spectator or no-target branch runs.
+        if (!mouseHeld) MutableRef.set(refs.breakProgressRef, null)
+
+        if (!isSpectator && (leftClick || mouseHeld || rightClick || hasRedstoneInput)) {
           const targetBlock = yield* services.blockHighlight.getTargetBlock()
           const targetHit = yield* services.blockHighlight.getTargetHit()
           const selectedHotbarItem = yield* services.hotbarService.getSelectedBlockType()
@@ -131,6 +140,20 @@ export const interactionStage = (
 
           if (leftClick) {
             yield* handleLeftClick(deps, services, refs, { targetBlock, targetHit, selectedHotbarItem })
+          }
+
+          if (mouseHeld) {
+            // Determine whether an entity is in attack range — entity attack takes priority over block mining.
+            const entities = yield* services.entityManager.getEntities()
+            const targetEntityPresent = Option.isSome(
+              findAttackableEntity(entities, deps.camera, Option.map(targetHit, (h) => h.distance))
+            )
+            yield* handleBlockBreakProgress(services, refs, {
+              targetBlock,
+              selectedHotbarItem,
+              targetEntityPresent,
+              breakProgressElementOrNull,
+            })
           }
 
           if (rightClick) {

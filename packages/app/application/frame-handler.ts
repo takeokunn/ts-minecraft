@@ -63,6 +63,7 @@ const createFrameLoopHandlersInternal = (
     // FR-2 liquid hazards: lava-burn timer + air supply (starts full).
     const lavaDamageSecsRef = MutableRef.make(0)
     const airSecsRef = MutableRef.make(MAX_AIR_SECS)
+    const breakProgressRef = MutableRef.make<{ blockKey: string; ticks: number; totalTicks: number } | null>(null)
     const drownDamageSecsRef = MutableRef.make(0)
     // -1 sentinel forces the first air-HUD write.
     const lastAirBubblesRef = MutableRef.make(-1)
@@ -144,6 +145,7 @@ const createFrameLoopHandlersInternal = (
       hungerValueElementOrNull: Option.getOrNull(deps.hungerValueElement),
       hungerMaxElementOrNull: Option.getOrNull(deps.hungerMaxElement),
       airElementOrNull: Option.getOrNull(deps.airElement),
+      breakProgressElementOrNull: Option.getOrNull(deps.breakProgressElement),
       xpLevelElementOrNull: Option.getOrNull(deps.xpLevelElement),
       xpBarElementOrNull: Option.getOrNull(deps.xpBarElement),
       armorValueElementOrNull: Option.getOrNull(deps.armorValueElement),
@@ -172,6 +174,7 @@ const createFrameLoopHandlersInternal = (
       lavaDamageSecsRef,
       airSecsRef,
       drownDamageSecsRef,
+      breakProgressRef,
       lastAirBubblesRef,
       lastRenderDistanceRef,
       lastEntityStructureVersionRef,

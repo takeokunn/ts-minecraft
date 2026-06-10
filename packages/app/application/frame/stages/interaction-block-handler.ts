@@ -1,10 +1,11 @@
-import { Effect, HashMap, HashSet, Option, Ref, Schema } from 'effect'
+import { Effect, HashMap, HashSet, MutableRef, Option, Ref, Schema } from 'effect'
 import { aabbFromVoxel } from '@ts-minecraft/world'
 import type { FrameHandlerDeps, FrameHandlerServices, FrameStageRefs } from '@ts-minecraft/app/frame/types'
 import { findAttackableEntity } from '@ts-minecraft/app/frame/stages/attack-targeting'
 import { CHUNK_SIZE, CHUNK_HEIGHT, blockTypeToIndex, indexToBlockType, SlotIndex, ItemTypeSchema } from '@ts-minecraft/core'
 import { HOTBAR_START, isDurable, getSharpnessDamageBonus, getFortuneDropMultiplier } from '@ts-minecraft/inventory'
 import { FORTUNE_ORE_BLOCKS, PICKAXE_BLOCK_TYPES, getInventoryDropForBlock } from '@ts-minecraft/world'
+import { getBlockHardness, computeBreakTicks } from '@ts-minecraft/block'
 import { computeAttackDamage, computeKnockback, computeAttackCharge, computeChargedDamage, DEFAULT_ATTACK_COOLDOWN_SECS, getMobDefinition } from '@ts-minecraft/entity'
 import { getParticleUvOffset } from '@ts-minecraft/rendering/particles/particle-system'
 import { triggerAttackSwing } from '@ts-minecraft/presentation/hud/attack-swing'
@@ -66,6 +67,140 @@ export type TargetRayHit = {
 export { handleFoodConsumption, handleUnequipArmor, handleFeedAnimal, handleShearAnimal } from '@ts-minecraft/app/frame/stages/interaction-item-use-handler'
 export { handleRightClick } from '@ts-minecraft/app/frame/stages/interaction-placement-handler'
 
+const updateBreakProgressHud = (
+  el: HTMLElement | null,
+  progress: { ticks: number; totalTicks: number } | null,
+): void => {
+  if (el === null) return
+  if (progress === null) {
+    el.style.display = 'none'
+    return
+  }
+  el.setAttribute('value', String(progress.ticks))
+  el.setAttribute('max', String(progress.totalTicks))
+  el.style.display = 'block'
+}
+
+export const handleBlockBreakProgress = (
+  services: Pick<
+    FrameHandlerServices,
+    | 'blockService'
+    | 'chunkManagerService'
+    | 'debugFeatureFlags'
+    | 'soundManager'
+    | 'inventoryService'
+    | 'hotbarService'
+    | 'particleSystem'
+    | 'xpService'
+    | 'multiplayer'
+    | 'cropGrowthService'
+  >,
+  refs: Pick<FrameStageRefs, 'dirtyChunksRef' | 'breakProgressRef'>,
+  context: {
+    readonly targetBlock: Option.Option<TargetBlockHit>
+    readonly selectedHotbarItem: Option.Option<string>
+    readonly targetEntityPresent: boolean
+    readonly breakProgressElementOrNull: HTMLElement | null
+  },
+) =>
+  Effect.gen(function* () {
+    // Entity in range → break progress is cancelled (attack takes priority on click).
+    if (context.targetEntityPresent || Option.isNone(context.targetBlock)) {
+      MutableRef.set(refs.breakProgressRef, null)
+      updateBreakProgressHud(context.breakProgressElementOrNull, null)
+      return
+    }
+
+    const tb = context.targetBlock.value
+    const blockKey = `${tb.x},${tb.y},${tb.z}`
+    const chunkCoord = { x: Math.floor(tb.x / CHUNK_SIZE), z: Math.floor(tb.z / CHUNK_SIZE) }
+    const chunkResult = yield* services.chunkManagerService.getChunk(chunkCoord).pipe(Effect.option)
+    if (Option.isNone(chunkResult)) {
+      MutableRef.set(refs.breakProgressRef, null)
+      updateBreakProgressHud(context.breakProgressElementOrNull, null)
+      return
+    }
+    const preBreakChunk = chunkResult.value
+
+    const lx = ((tb.x % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE
+    const lz = ((tb.z % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE
+    const flatIdx = tb.y + lz * CHUNK_HEIGHT + lx * CHUNK_HEIGHT * CHUNK_SIZE
+    const blockId = preBreakChunk.blocks[flatIdx] ?? 0
+    const blockType = indexToBlockType(blockId)
+    const hardness = getBlockHardness(blockType)
+    const breakTicks = computeBreakTicks(hardness, context.selectedHotbarItem)
+
+    const current = MutableRef.get(refs.breakProgressRef)
+    const currentTicks = current !== null && current.blockKey === blockKey ? current.ticks : 0
+    const newTicks = currentTicks + 1
+
+    if (breakTicks === 0 || newTicks >= breakTicks) {
+      // Threshold reached — execute the break.
+      MutableRef.set(refs.breakProgressRef, null)
+      updateBreakProgressHud(context.breakProgressElementOrNull, null)
+      const pos = { x: tb.x, y: tb.y, z: tb.z }
+      const coordKey = `${chunkCoord.x},${chunkCoord.z}`
+      const debugFlags = yield* services.debugFeatureFlags.getFlags()
+      const uv = getParticleUvOffset(blockId)
+
+      yield* Effect.all(
+        [
+          services.blockService.breakBlock(pos),
+          Option.match(services.multiplayer, {
+            onNone: () => Effect.void,
+            onSome: (mp) => mp.sendBlockBreak(pos),
+          }),
+          services.soundManager.playEffect('blockBreak', { position: pos }),
+          debugFlags['particles.spawn']
+            ? services.particleSystem.spawnBurst(tb.x + 0.5, tb.y + 0.5, tb.z + 0.5, uv.u, uv.v, 6)
+            /* c8 ignore next -- particles.spawn=false during block-break tests */
+            : Effect.void,
+        ],
+        { concurrency: 'unbounded', discard: true },
+      )
+
+      const updatedChunk = yield* services.chunkManagerService.getChunk(chunkCoord)
+      yield* Ref.update(refs.dirtyChunksRef, (map) =>
+        HashMap.set(map, coordKey, {
+          chunk: updatedChunk,
+          dirtyAABB: Option.some(aabbFromVoxel({ lx, y: tb.y, lz })),
+        }),
+      )
+
+      const xp = ORE_XP_DROPS[blockType] ?? 0
+      if (xp > 0) yield* services.xpService.addXP(xp)
+
+      if (blockType === 'WHEAT_CROP') {
+        const wasRipe = yield* services.cropGrowthService.harvest(pos)
+        if (wasRipe) {
+          yield* services.inventoryService.addBlock('WHEAT', 1).pipe(Effect.catchAll(() => Effect.void))
+        }
+      }
+
+      if (HashSet.has(FORTUNE_ORE_BLOCKS, blockType)) {
+        const slot = yield* services.hotbarService.getSelectedSlot()
+        const ws = yield* services.inventoryService.getSlot(SlotIndex.make(HOTBAR_START + slot))
+        const fortune = Option.match(ws, {
+          onNone: () => undefined,
+          onSome: (s) => {
+            if (!HashSet.has(PICKAXE_BLOCK_TYPES, s.itemType)) return undefined
+            return (s.enchantments ?? []).find((e) => e.type === 'FORTUNE')
+          },
+        })
+        if (fortune) {
+          const extra = Math.round(getFortuneDropMultiplier(fortune.level)) - 1
+          if (extra > 0) {
+            yield* services.inventoryService.addBlock(getInventoryDropForBlock(blockType), extra)
+              .pipe(Effect.catchAllCause(() => Effect.void))
+          }
+        }
+      }
+    } else {
+      MutableRef.set(refs.breakProgressRef, { blockKey, ticks: newTicks, totalTicks: breakTicks })
+      updateBreakProgressHud(context.breakProgressElementOrNull, { ticks: newTicks, totalTicks: breakTicks })
+    }
+  })
+
 const triggerHeldItemSwing = (refs: Pick<FrameStageRefs, 'totalTimeSecsRef' | 'attackSwingStateRef'>) =>
   Ref.get(refs.totalTimeSecsRef).pipe(
     Effect.flatMap((nowSecs) =>
@@ -109,96 +244,8 @@ export const handleLeftClick = (
     const playerGrounded = yield* services.gameState.isPlayerGrounded()
 
     yield* Option.match(targetEntity, {
-      onNone: () =>
-        Option.match(context.targetBlock, {
-          onNone: () => Effect.void,
-          onSome: (tb) => {
-            const pos = { x: tb.x, y: tb.y, z: tb.z }
-            const chunkCoord = { x: Math.floor(tb.x / CHUNK_SIZE), z: Math.floor(tb.z / CHUNK_SIZE) }
-            const coordKey = `${chunkCoord.x},${chunkCoord.z}`
-            // Read block type before mutation so particles use the correct atlas tile.
-            const lx = ((tb.x % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE
-            const lz = ((tb.z % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE
-            const flatIdx = tb.y + lz * CHUNK_HEIGHT + lx * CHUNK_HEIGHT * CHUNK_SIZE
-            return services.chunkManagerService.getChunk(chunkCoord).pipe(
-              Effect.flatMap((preBreakChunk) => {
-                const blockId = preBreakChunk.blocks[flatIdx] ?? 0
-                const uv = getParticleUvOffset(blockId)
-                return Effect.all(
-                  [
-                    services.blockService.breakBlock(pos),
-                    // FR-3: broadcast the break to other players (no-op offline).
-                    Option.match(services.multiplayer, {
-                      onNone: () => Effect.void,
-                      onSome: (mp) => mp.sendBlockBreak(pos),
-                    }),
-                    services.soundManager.playEffect('blockBreak', { position: pos }),
-                    debugFlags['particles.spawn']
-                      ? services.particleSystem.spawnBurst(
-                          tb.x + 0.5,
-                          tb.y + 0.5,
-                          tb.z + 0.5,
-                          uv.u,
-                          uv.v,
-                          6,
-                        )
-                      /* c8 ignore next -- particles.spawn=false during block-break; covered by entity attack test */
-                      : Effect.void,
-                  ],
-                  { concurrency: 'unbounded', discard: true },
-                ).pipe(
-                  Effect.andThen(services.chunkManagerService.getChunk(chunkCoord)),
-                  Effect.flatMap((updatedChunk) =>
-                    // FR-4.2: seed AABB is the broken voxel itself — chunk-manager's
-                    // markChunkDirty (called inside breakBlock) records the fuller
-                    // light-affected AABB which the next drainRenderDirtyChunkEntries
-                    // will union in via frame-maintenance.
-                    Ref.update(refs.dirtyChunksRef, (map) =>
-                      HashMap.set(map, coordKey, {
-                        chunk: updatedChunk,
-                        dirtyAABB: Option.some(aabbFromVoxel({ lx, y: tb.y, lz })),
-                      }),
-                    ),
-                  ),
-                  Effect.andThen(Effect.gen(function* () {
-                    const blockType = indexToBlockType(blockId)
-                    const xp = ORE_XP_DROPS[blockType] ?? 0
-                    if (xp > 0) yield* services.xpService.addXP(xp)
-                  })),
-                  // Crop harvest: WHEAT_CROP always drops WHEAT_SEEDS (via INVENTORY_DROP_OVERRIDES).
-                  // Also give WHEAT if the crop was ripe; unripe/village crops handled correctly.
-                  Effect.andThen(Effect.gen(function* () {
-                    if (indexToBlockType(blockId) !== 'WHEAT_CROP') return
-                    const wasRipe = yield* services.cropGrowthService.harvest(pos)
-                    if (wasRipe) {
-                      yield* services.inventoryService.addBlock('WHEAT', 1).pipe(Effect.catchAll(() => Effect.void))
-                    }
-                  })),
-                  Effect.andThen(Effect.gen(function* () {
-                    const blockType = indexToBlockType(blockId)
-                    if (!HashSet.has(FORTUNE_ORE_BLOCKS, blockType)) return
-                    const slot = yield* services.hotbarService.getSelectedSlot()
-                    const ws = yield* services.inventoryService.getSlot(SlotIndex.make(HOTBAR_START + slot))
-                    const fortune = Option.match(ws, {
-                      onNone: () => undefined,
-                      onSome: (s) => {
-                        // Fortune only applies when held item is a pickaxe
-                        if (!HashSet.has(PICKAXE_BLOCK_TYPES, s.itemType)) return undefined
-                        return (s.enchantments ?? []).find((e) => e.type === 'FORTUNE')
-                      },
-                    })
-                    if (!fortune) return
-                    const extra = Math.round(getFortuneDropMultiplier(fortune.level)) - 1
-                    if (extra <= 0) return
-                    yield* services.inventoryService.addBlock(getInventoryDropForBlock(blockType), extra)
-                      .pipe(Effect.catchAllCause(() => Effect.void))
-                  })),
-                  Effect.andThen(triggerHeldItemSwing(refs)),
-                )
-              }),
-            )
-          },
-        }),
+      // Block break is handled by handleBlockBreakProgress (hold-to-break); single click no longer breaks blocks.
+      onNone: () => Effect.void,
       onSome: (entityId) =>
         Effect.gen(function* () {
           const baseDamage = Option.match(context.selectedHotbarItem, {

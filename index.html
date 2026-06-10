@@ -36,6 +36,8 @@
     </div>
     <!-- Air/oxygen (FR-2): hidden until the head is underwater; physics-stage toggles display + bubble count. -->
     <div id="air-display" style="display: none; position: fixed; bottom: 170px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.7); color: #7ec8ff; padding: 5px 12px; font-family: monospace; font-size: 16px; pointer-events: none; z-index: 10;"></div>
+    <!-- Block break progress: hidden until left-click held on a block; interaction-stage updates value/max each frame. -->
+    <progress id="break-progress" value="0" max="100" style="display: none; position: fixed; top: calc(50% + 20px); left: 50%; transform: translateX(-50%); width: 140px; height: 8px; pointer-events: none; z-index: 10; accent-color: #e8c040;"></progress>
     <div id="xp-display" style="position: fixed; bottom: 55px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.7); color: #7dff4f; padding: 4px 12px; font-family: monospace; font-size: 14px; pointer-events: none; z-index: 10;">
       &#11088; Lv <span id="xp-level">0</span> &nbsp; <span id="xp-bar">0</span>/<span id="xp-bar-max">7</span> XP
     </div>
