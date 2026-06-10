@@ -96,6 +96,8 @@ export const ItemTypeSchema = Schema.Literal(
   // Buckets (FR R26) — fluid pickup & placement
   'BUCKET',
   'WATER_BUCKET',
-  'LAVA_BUCKET'
+  'LAVA_BUCKET',
+  // Fuel/crafting — smelted from WOOD logs (vanilla)
+  'CHARCOAL',
 )
 export type ItemType = Schema.Schema.Type<typeof ItemTypeSchema>

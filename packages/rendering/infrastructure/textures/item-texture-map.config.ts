@@ -68,6 +68,7 @@ export const ITEM_TILE_MAP: Readonly<Record<InventoryItem, number>> = {
   // ItemTypes
   STICKS: 48,
   COAL: 49,
+  CHARCOAL: 49, // same tile as COAL — charcoal looks identical in vanilla
   WOODEN_SWORD: 50,
   STONE_SWORD: 50,
   IRON_SWORD: 50,

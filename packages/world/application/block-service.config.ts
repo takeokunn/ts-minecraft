@@ -50,6 +50,8 @@ export const NON_PLACEABLE_ITEM_TYPES: HashSet.HashSet<InventoryItem> = HashSet.
   'BONE_MEAL',
   // Gravel drop
   'FLINT',
+  // Furnace output / fuel
+  'CHARCOAL',
   // Ranged weapons, tools & defensive items — not placeable as blocks
   'BOW',
   'FISHING_ROD',

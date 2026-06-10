@@ -37,6 +37,13 @@ export const MISC_RECIPES: ReadonlyArray<Recipe> = [
     output: { itemType: 'TORCH', count: 4 },
   }),
   // ── Smelting recipes (furnace) ──────────────────────────────────────────────
+  // R66: wood log → charcoal (vanilla bootstrap: burn logs to make charcoal as a coal substitute).
+  new Recipe({
+    id: RecipeId.make('wood-to-charcoal'),
+    station: 'furnace',
+    ingredients: [new RecipeIngredient({ itemType: 'WOOD', count: 1 })],
+    output: { itemType: 'CHARCOAL', count: 1 },
+  }),
   new Recipe({
     id: RecipeId.make('raw-iron-to-iron-ingot'),
     station: 'furnace',
