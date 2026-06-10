@@ -55,7 +55,7 @@ export const interactionStage = (
     | 'multiplayer'
     | 'gameMode'
   >,
-  refs: Pick<FrameStageRefs, 'dirtyChunksRef' | 'totalTimeSecsRef' | 'lastPlayerAttackTimeRef' | 'attackSwingStateRef' | 'breakProgressRef' | 'bowChargeStartRef'>,
+  refs: Pick<FrameStageRefs, 'dirtyChunksRef' | 'totalTimeSecsRef' | 'lastPlayerAttackTimeRef' | 'attackSwingStateRef' | 'breakProgressRef' | 'bowChargeStartRef' | 'isShieldBlockingRef'>,
 ): Effect.Effect<void, never> =>
   Effect.gen(function* () {
     const debugFlags = yield* services.debugFeatureFlags.getFlags()
@@ -129,6 +129,9 @@ export const interactionStage = (
         // Reset break progress when mouse is released (mouseHeld=false) so the bar
         // clears immediately even if the spectator or no-target branch runs.
         if (!mouseHeld) MutableRef.set(refs.breakProgressRef, null)
+        // Clear shield blocking whenever right mouse is released or player is spectator
+        // (before the input gate, so it takes effect even when no other input fires).
+        if (!rightMouseHeld || isSpectator) MutableRef.set(refs.isShieldBlockingRef, false)
 
         // Bow release: fire on the frame right-mouse transitions from held → released.
         // Runs before the input-gated block because on the release frame no other input
@@ -167,6 +170,11 @@ export const interactionStage = (
               breakProgressElementOrNull,
             })
           }
+
+          // Shield blocking: right-mouse-hold with SHIELD equipped → blocking state.
+          // The blocking MutableRef is read by physics-stage to reduce incoming damage.
+          const selectedIsShield = selectedHotbarItem._tag === 'Some' && selectedHotbarItem.value === 'SHIELD'
+          MutableRef.set(refs.isShieldBlockingRef, rightMouseHeld && selectedIsShield)
 
           // Bow charging: right-mouse-hold with BOW equipped starts/continues the draw.
           // Suppress normal right-click placement while drawing the bow.

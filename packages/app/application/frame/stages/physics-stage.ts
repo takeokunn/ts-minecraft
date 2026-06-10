@@ -2,7 +2,8 @@ import { Effect, HashMap, MutableRef, Option, Ref } from 'effect'
 import { logErrors } from '@ts-minecraft/app/frame/error-logging'
 import type { FrameHandlerDeps, FrameHandlerServices, FrameStageRefs } from '@ts-minecraft/app/frame/types'
 import { applyArmorReduction } from '@ts-minecraft/entity'
-import { DEFAULT_PLAYER_ID, CHUNK_SIZE, CHUNK_HEIGHT, indexToBlockType } from '@ts-minecraft/core'
+import { DEFAULT_PLAYER_ID, CHUNK_SIZE, CHUNK_HEIGHT, indexToBlockType, SlotIndex } from '@ts-minecraft/core'
+import { HOTBAR_START } from '@ts-minecraft/inventory'
 import type { DeltaTimeSecs, Position } from '@ts-minecraft/core'
 import { EXHAUSTION_SPRINT_PER_BLOCK, MAX_FOOD_LEVEL } from '@ts-minecraft/entity'
 import { accrueHazardTicks, nextAirSecs, LAVA_DAMAGE, LAVA_DAMAGE_INTERVAL_SECS, DROWN_DAMAGE, DROWN_DAMAGE_INTERVAL_SECS, MAX_AIR_SECS } from '@ts-minecraft/entity'
@@ -16,9 +17,9 @@ export const physicsStage = (
   deps: Pick<FrameHandlerDeps, 'respawnPositionRef'>,
   services: Pick<
     FrameHandlerServices,
-    'gameState' | 'healthService' | 'hungerService' | 'xpService' | 'equipmentService' | 'fishingService' | 'inventoryService' | 'soundManager' | 'entityManager' | 'gameMode' | 'debugFeatureFlags' | 'chunkManagerService' | 'netherService' | 'blockService'
+    'gameState' | 'healthService' | 'hungerService' | 'xpService' | 'equipmentService' | 'fishingService' | 'inventoryService' | 'hotbarService' | 'soundManager' | 'entityManager' | 'gameMode' | 'debugFeatureFlags' | 'chunkManagerService' | 'netherService' | 'blockService'
   >,
-  refs: Pick<FrameStageRefs, 'lastHealthRef' | 'lastHungerRef' | 'lastXPRef' | 'lastArmorRef' | 'portalSecsRef' | 'dirtyChunksRef' | 'lavaDamageSecsRef' | 'airSecsRef' | 'drownDamageSecsRef' | 'lastAirBubblesRef'>,
+  refs: Pick<FrameStageRefs, 'lastHealthRef' | 'lastHungerRef' | 'lastXPRef' | 'lastArmorRef' | 'portalSecsRef' | 'dirtyChunksRef' | 'lavaDamageSecsRef' | 'airSecsRef' | 'drownDamageSecsRef' | 'lastAirBubblesRef' | 'isShieldBlockingRef'>,
   inputs: {
     readonly deltaTime: DeltaTimeSecs
     readonly initialPlayerPos: Position
@@ -109,7 +110,16 @@ export const physicsStage = (
         // Armor points reduce damage (4%/point, cap 80%); Protection enchantments
         // add an additional multiplicative reduction (additive per piece, cap 64%).
         const afterArmor = applyArmorReduction(rawHostileDamage, armorPoints)
-        const hostileDamage = afterArmor * (1 - protectionReduction)
+        const afterProtection = afterArmor * (1 - protectionReduction)
+        // Shield blocking: 66% reduction (vanilla). Damages the shield by 1 durability
+        // point when a hit is absorbed (same as vanilla — shield breaks at 0 durability).
+        const isBlocking = MutableRef.get(refs.isShieldBlockingRef)
+        const hostileDamage = isBlocking ? afterProtection * 0.34 : afterProtection
+        if (isBlocking && rawHostileDamage > 0) {
+          const shieldSlot = yield* services.hotbarService.getSelectedSlot()
+          yield* services.inventoryService.damageSlot(SlotIndex.make(HOTBAR_START + shieldSlot), 1)
+            .pipe(Effect.catchAllCause(() => Effect.void))
+        }
         const tookHostileDamage = yield* tryApplyPlayerDamage(hostileDamage)
         if (tookHostileDamage) {
           yield* services.soundManager.playEffect('playerHurt', { position: refreshedPos })

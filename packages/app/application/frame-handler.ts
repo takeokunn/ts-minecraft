@@ -65,6 +65,7 @@ const createFrameLoopHandlersInternal = (
     const airSecsRef = MutableRef.make(MAX_AIR_SECS)
     const breakProgressRef = MutableRef.make<{ blockKey: string; ticks: number; totalTicks: number } | null>(null)
     const bowChargeStartRef = MutableRef.make<number | null>(null)
+    const isShieldBlockingRef = MutableRef.make(false)
     const drownDamageSecsRef = MutableRef.make(0)
     // -1 sentinel forces the first air-HUD write.
     const lastAirBubblesRef = MutableRef.make(-1)
@@ -177,6 +178,7 @@ const createFrameLoopHandlersInternal = (
       drownDamageSecsRef,
       breakProgressRef,
       bowChargeStartRef,
+      isShieldBlockingRef,
       lastAirBubblesRef,
       lastRenderDistanceRef,
       lastEntityStructureVersionRef,

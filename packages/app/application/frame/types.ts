@@ -153,6 +153,8 @@ export type FrameStageRefs = {
   readonly breakProgressRef: MutableRef.MutableRef<{ blockKey: string; ticks: number; totalTicks: number } | null>
   // Bow charge: timestamp (totalTimeSecs) when the player started drawing the bow. Null = not charging.
   readonly bowChargeStartRef: MutableRef.MutableRef<number | null>
+  // Shield blocking: true while the player is holding right-click with a SHIELD in hand.
+  readonly isShieldBlockingRef: MutableRef.MutableRef<boolean>
   readonly drownDamageSecsRef: MutableRef.MutableRef<number>
   // Last displayed air-bubble count (0-10); change-gates the air HUD DOM write.
   readonly lastAirBubblesRef: MutableRef.MutableRef<number>

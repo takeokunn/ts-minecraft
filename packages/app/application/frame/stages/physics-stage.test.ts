@@ -254,6 +254,62 @@ describe('step 3.5 — fall damage', () => {
     expect(applyDamageSpy.mock.calls[0]?.[0]).toBeCloseTo(2.4)
   }))
 
+  it.effect('shield blocking reduces hostile contact damage by 66% (effective on frame N+1 after input)', () => Effect.gen(function* () {
+    // physicsStage runs before interactionStage in the pipeline, so the shield state
+    // set by interactionStage on frame N takes effect in physicsStage on frame N+1.
+    // Two frames are required: frame 1 sets blocking state, frame 2 applies reduction.
+    const deps = yield* makeDeps(false)
+    const services = makeServices({
+      inputService: makeInputService(),
+      inventoryRenderer: makeInventoryRenderer({ open: false }),
+      settingsOverlay: makeSettingsOverlay({ open: false }),
+    })
+    // Simulate holding right-mouse with SHIELD to activate blocking state.
+    ;(services.inputService as { isMouseDown: unknown }).isMouseDown = vi.fn((btn: number) =>
+      Effect.succeed(btn === 2)
+    )
+    ;(services.hotbarService as { getSelectedBlockType: unknown }).getSelectedBlockType = vi.fn(() =>
+      Effect.succeed({ _tag: 'Some' as const, value: 'SHIELD' })
+    )
+    ;(services.entityManager as { getPlayerContactDamage: unknown }).getPlayerContactDamage = vi.fn(() =>
+      Effect.succeed(10)
+    )
+    const applyDamageSpy = vi.fn(() => Effect.void)
+    ;(services.healthService as { applyDamage: unknown }).applyDamage = applyDamageSpy
+
+    // Frame 1: interactionStage runs → sets isShieldBlockingRef = true.
+    // physicsStage (runs before interaction) still sees the old false state this frame.
+    // Two frames share the same handler so isShieldBlockingRef persists between frames.
+    const { frameHandler } = yield* createFrameHandlers(deps, services)
+    yield* frameHandler(0.016 as DeltaTimeSecs)
+    applyDamageSpy.mockClear()
+
+    // Frame 2: physicsStage now reads isShieldBlockingRef = true → 66% reduction.
+    yield* frameHandler(0.016 as DeltaTimeSecs)
+
+    // 10 damage × 0.34 (66% reduction) = 3.4
+    expect(applyDamageSpy).toHaveBeenCalledTimes(1)
+    expect(applyDamageSpy.mock.calls[0]?.[0]).toBeCloseTo(3.4)
+  }))
+
+  it.effect('shield NOT held: full hostile damage applies', () => Effect.gen(function* () {
+    const deps = yield* makeDeps(false)
+    const services = makeServices({
+      inputService: makeInputService(),
+      inventoryRenderer: makeInventoryRenderer({ open: false }),
+      settingsOverlay: makeSettingsOverlay({ open: false }),
+    })
+    ;(services.entityManager as { getPlayerContactDamage: unknown }).getPlayerContactDamage = vi.fn(() =>
+      Effect.succeed(10)
+    )
+    const applyDamageSpy = vi.fn(() => Effect.void)
+    ;(services.healthService as { applyDamage: unknown }).applyDamage = applyDamageSpy
+
+    yield* runFrame(deps, services)
+
+    expect(applyDamageSpy).toHaveBeenCalledWith(10)
+  }))
+
   it.effect('deposits a resolved fishing catch into the inventory', () => Effect.gen(function* () {
     const deps = yield* makeDeps(false)
     const services = makeServices({
