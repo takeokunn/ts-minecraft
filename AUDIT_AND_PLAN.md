@@ -529,8 +529,16 @@ typecheck 0, **4601 tests passing** (+14 new tests).
   physicsStage now reads sprint/sneak state once and shares between movement + jump branches;
   sprint-jump uses 0.2/jump (4× vanilla normal jump). +1 test. _(done 2026-06-11)_
 
-**Round 27 complete.** R59-R60.
-typecheck 0, **4601 tests passing** (+3 new tests, 1 updated assertion).
+- [x] R61. Smelting grants XP on output collection — `SMELTING_XP_PER_ITEM` lookup in
+  `furnace-service.config.ts` (vanilla Java Edition: IRON_INGOT 0.7, GOLD_INGOT 1.0,
+  STONE/GLASS 0.1, COOKED_BEEF/COD/SALMON 0.35); `collectOutput` return type changed
+  from `boolean` to `{ collected, xp }`; XP granted via `xpService.addXP` in
+  `InventoryRenderer`; `XPServiceLive` wired in `presentation.ts` layer.
+  +2 furnace tests (xp>0 for iron, xp=0 for unlisted item); all presentation mocks updated.
+  _(done 2026-06-11)_
+
+**Round 27 complete.** R59-R61.
+typecheck 0, **4603 tests passing** (+5 new tests, 3 updated assertions).
 
 ## D. Progress log
 - 2026-06-10: Audit complete; plan authored. Beginning Phase 1.
