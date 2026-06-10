@@ -63,6 +63,7 @@ const createFrameLoopHandlersInternal = (
     // FR-2 liquid hazards: lava-burn timer + air supply (starts full).
     const lavaDamageSecsRef = MutableRef.make(0)
     const airSecsRef = MutableRef.make(MAX_AIR_SECS)
+    const drownDamageSecsRef = MutableRef.make(0)
     const lastLoadedChunksRef = yield* Ref.make<Option.Option<ReadonlyArray<Chunk>>>(Option.none())
     // Skip chunk streaming work until the player changes chunk or render distance changes.
     const lastChunkStreamingRef = MutableRef.make({ cx: NaN, cz: NaN, renderDistance: NaN })
@@ -167,6 +168,7 @@ const createFrameLoopHandlersInternal = (
       portalSecsRef,
       lavaDamageSecsRef,
       airSecsRef,
+      drownDamageSecsRef,
       lastRenderDistanceRef,
       lastEntityStructureVersionRef,
       entityPhysicsChunkCacheRef,

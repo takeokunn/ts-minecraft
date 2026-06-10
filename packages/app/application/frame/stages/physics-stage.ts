@@ -5,7 +5,8 @@ import { applyArmorReduction } from '@ts-minecraft/entity'
 import { DEFAULT_PLAYER_ID, CHUNK_SIZE, CHUNK_HEIGHT, indexToBlockType } from '@ts-minecraft/core'
 import type { DeltaTimeSecs, Position } from '@ts-minecraft/core'
 import { EXHAUSTION_SPRINT_PER_BLOCK, MAX_FOOD_LEVEL } from '@ts-minecraft/entity'
-import { accrueHazardTicks, LAVA_DAMAGE, LAVA_DAMAGE_INTERVAL_SECS } from '@ts-minecraft/entity'
+import { accrueHazardTicks, nextAirSecs, LAVA_DAMAGE, LAVA_DAMAGE_INTERVAL_SECS, DROWN_DAMAGE, DROWN_DAMAGE_INTERVAL_SECS } from '@ts-minecraft/entity'
+import { EYE_LEVEL_OFFSET } from '@ts-minecraft/app/frame-handler.config'
 import { resolveNetherTravel, type Dimension } from '@ts-minecraft/world'
 
 /** Seconds a player must stand in a NETHER_PORTAL block to trigger dimension travel. */
@@ -17,7 +18,7 @@ export const physicsStage = (
     FrameHandlerServices,
     'gameState' | 'healthService' | 'hungerService' | 'xpService' | 'equipmentService' | 'fishingService' | 'inventoryService' | 'soundManager' | 'entityManager' | 'gameMode' | 'debugFeatureFlags' | 'chunkManagerService' | 'netherService' | 'blockService'
   >,
-  refs: Pick<FrameStageRefs, 'lastHealthRef' | 'lastHungerRef' | 'lastXPRef' | 'lastArmorRef' | 'portalSecsRef' | 'dirtyChunksRef' | 'lavaDamageSecsRef' | 'airSecsRef'>,
+  refs: Pick<FrameStageRefs, 'lastHealthRef' | 'lastHungerRef' | 'lastXPRef' | 'lastArmorRef' | 'portalSecsRef' | 'dirtyChunksRef' | 'lavaDamageSecsRef' | 'airSecsRef' | 'drownDamageSecsRef'>,
   inputs: {
     readonly deltaTime: DeltaTimeSecs
     readonly initialPlayerPos: Position
@@ -193,6 +194,30 @@ export const physicsStage = (
             }
           } else {
             MutableRef.set(refs.lavaDamageSecsRef, 0)
+          }
+
+          // Drowning (FR-2 / T14b): when the eye-level block is WATER the air supply
+          // drains; once empty it deals DROWN_DAMAGE every DROWN_DAMAGE_INTERVAL_SECS.
+          // Surfacing instantly refills air. Creative players never drown.
+          const eyeBlock = yield* readBlockTypeAt(refreshedPos.x, refreshedPos.y + EYE_LEVEL_OFFSET, refreshedPos.z)
+          const headSubmerged = !inCreative && eyeBlock === 'WATER'
+          const air = nextAirSecs(MutableRef.get(refs.airSecsRef), headSubmerged, inputs.deltaTime)
+          MutableRef.set(refs.airSecsRef, air)
+          if (headSubmerged && air <= 0) {
+            const drown = accrueHazardTicks(
+              MutableRef.get(refs.drownDamageSecsRef),
+              inputs.deltaTime,
+              DROWN_DAMAGE_INTERVAL_SECS,
+            )
+            MutableRef.set(refs.drownDamageSecsRef, drown.acc)
+            if (drown.ticks > 0) {
+              const drowned = yield* tryApplyPlayerDamage(DROWN_DAMAGE * drown.ticks)
+              if (drowned) {
+                yield* services.soundManager.playEffect('playerHurt', { position: refreshedPos })
+              }
+            }
+          } else {
+            MutableRef.set(refs.drownDamageSecsRef, 0)
           }
         }
 

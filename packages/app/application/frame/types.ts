@@ -142,9 +142,11 @@ export type FrameStageRefs = {
   // Resets to 0 when the player leaves the portal. Dimension travel fires when this
   // reaches PORTAL_ACTIVATION_SECS (4 seconds — vanilla 80-tick equivalent).
   readonly portalSecsRef: Ref.Ref<number>
-  // FR-2 liquid hazards: lava-burn damage accumulator + remaining air supply (secs).
+  // FR-2 liquid hazards: lava-burn damage accumulator + remaining air supply (secs)
+  // + out-of-air drown-damage accumulator.
   readonly lavaDamageSecsRef: MutableRef.MutableRef<number>
   readonly airSecsRef: MutableRef.MutableRef<number>
+  readonly drownDamageSecsRef: MutableRef.MutableRef<number>
   readonly lastRenderDistanceRef: Ref.Ref<number>
   readonly lastEntityStructureVersionRef: Ref.Ref<number>
   readonly entityPhysicsChunkCacheRef: Ref.Ref<ReadonlyArray<Chunk | null>>
