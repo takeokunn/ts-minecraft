@@ -102,7 +102,8 @@ const handleTradeKeys = (
         services.inputService.consumeKeyPress(TRADE_PREV_KEY),
         services.inputService.consumeKeyPress(TRADE_EXECUTE_KEY),
       ],
-      { concurrency: 'unbounded' },
+      // Sequential: consumeKeyPress is a synchronous edge read; unbounded
+      // concurrency spawns fibers every frame for no gain.
     )
 
     if (tradePressed) {

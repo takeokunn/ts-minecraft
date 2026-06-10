@@ -135,10 +135,9 @@ export const entityUpdateStage = (
     }
 
     yield* logErrors(
-      Effect.all(
-        [services.entityManager.getEntities(), services.entityManager.getStructureVersion()],
-        { concurrency: 'unbounded' },
-      ).pipe(
+      // Sequential: both are synchronous reads; unbounded concurrency would
+      // spawn fibers every frame for no parallelism gain.
+      Effect.all([services.entityManager.getEntities(), services.entityManager.getStructureVersion()]).pipe(
         Effect.flatMap(([entitiesSnapshot, structureVersion]) =>
           Ref.get(refs.lastEntityStructureVersionRef).pipe(
             Effect.flatMap((lastStructureVersion) => {

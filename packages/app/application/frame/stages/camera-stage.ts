@@ -27,10 +27,9 @@ export const cameraStage = (
     )
 
     // Camera perspective + position sync (use current mode before raycasting)
-    yield* Effect.all(
-      [services.playerCameraState.getRotation(), services.playerCameraState.getMode()],
-      { concurrency: 'unbounded' },
-    ).pipe(
+    // Sequential: both are synchronous Ref reads; unbounded concurrency would
+    // spawn fibers every frame for no parallelism gain.
+    yield* Effect.all([services.playerCameraState.getRotation(), services.playerCameraState.getMode()]).pipe(
       Effect.flatMap(([rotation, cameraMode]) =>
         cameraMode === 'firstPerson'
           ? Effect.sync(() => {

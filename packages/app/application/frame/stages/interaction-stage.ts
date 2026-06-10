@@ -90,7 +90,9 @@ export const interactionStage = (
             services.inputService.consumeKeyPress(REDSTONE_PRESS_BUTTON_KEY),
             services.inputService.consumeKeyPress(REDSTONE_TOGGLE_TORCH_KEY),
           ],
-          { concurrency: 'unbounded' },
+          // Sequential: consumeKeyPress is a synchronous edge read; unbounded
+          // concurrency spawns 8 fibers every frame for no gain (and sequential
+          // is deterministic for the edge-consume order).
         )
         const flags: RedstoneFlags = {
           placeWire,

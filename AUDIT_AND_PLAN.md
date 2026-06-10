@@ -117,6 +117,25 @@ checks are already allocation-free). Only confirmed, impactful items survive bel
 
 ---
 
+## E. Round 2 (2026-06-10) — second audit pass after Round 1 completion
+
+Two fresh fan-out audits (per-frame allocs in the not-yet-optimized stages; Effect-TS
+fiber/layer hygiene + FR gaps). Effect hygiene graded **A−** — no fiber leaks, proper
+`acquireRelease`, `runSync`/`runPromise` only at FFI boundaries. **Key reachability
+finding:** `services.multiplayer` is hardcoded `Option.none()` (session.ts:288), so the
+entire MP stack (T15 sync + the existing-but-unwired `RemotePlayerRenderer`) is dormant
+in actual play. Round-2 priority therefore favors player-visible single-player gaps and
+always-runs hot-path cleanup over dormant-MP wiring.
+
+- [x] R1. Drop `concurrency: 'unbounded'` on 4 per-frame `Effect.all` over **sync** reads
+  (camera-stage getRotation+getMode, entity-update-stage getEntities+structureVersion,
+  interaction-stage 8 redstone keys, input-stage 4 trade keys) → sequential, no fiber spawns. _(done 2026-06-10)_
+- [ ] R2. Spectator game mode — extend `GameModeSchema`, noclip/free-fly, disable
+  interactions; reuses the T12 flight infra. (Player-visible single-player FR.)
+- [ ] R3. Enchanting-table UI — logic exists (`inventory/domain/enchantment.ts`), no UI. (FR.)
+- [ ] R4. (Low real-world value — MP dormant) Wire `RemotePlayerRenderer` into the frame
+  loop so remote players render IF multiplayer is later enabled.
+
 ## D. Progress log
 - 2026-06-10: Audit complete; plan authored. Beginning Phase 1.
 - 2026-06-10: **ALL TASKS COMPLETE.** Phase 1 (T1-T4 verified hot-path allocs), Phase 2
