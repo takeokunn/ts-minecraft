@@ -278,6 +278,36 @@ restored correctly). 10 total new.
 
 typecheck 0 errors; **370 test files, 4518 passing** (+10 new; commit `187fe2f0`). _(done 2026-06-10)_
 
+## R. Round 15 (2026-06-10) — melee perf fix + bow hitscan shooting
+
+Two agents audited remaining hot-path allocations and FR gaps. Key findings:
+- **Per-frame fiber allocation (confirmed)**: `interaction-block-handler.ts:277-280` explicitly used
+  `concurrency: 'unbounded'` for two synchronous `Ref.get` calls (totalTimeSecsRef + lastPlayerAttackTimeRef)
+  on every melee click. Fixed to sequential reads.
+- **False positive verified**: `camera-stage.ts:39` uses `Effect.all` with DEFAULT concurrency (which is
+  sequential in Effect-TS, not unbounded). R5 added this after R1 without `concurrency: 'unbounded'` —
+  no issue. The audit agent misread it. No change made.
+- **BOW/ARROW FR gap**: BOW item, ARROW item, crafting recipe, enchantment support, and durability
+  tracking all existed but the weapon had no shooting mechanic. Implemented hitscan bow:
+
+- [x] R30. `interaction-block-handler.ts:277-280`: sequential Ref.get for melee timing (was
+  `concurrency: 'unbounded'`). _(done 2026-06-10, commit edbac5a9)_
+- [x] R31. Bow hitscan shooting — hold right-click to charge, release to fire.
+  - `entity/domain/bow.ts`: pure domain — `BOW_MAX_DAMAGE=9`, `BOW_FULL_CHARGE_SECS=1.0s`,
+    `BOW_MIN_CHARGE_SECS=0.2s`, `BOW_MAX_RANGE=50` blocks, `computeBowCharge/computeBowDamage/canFireBow`.
+    Quadratic charge scaling (charge²) makes partial draws weak — vanilla-accurate.
+  - `findAttackableEntity`: added optional `maxReach` param (default=`PLAYER_ATTACK_REACH` 3.5m);
+    bow passes `BOW_MAX_RANGE=50`. Backward-compatible; 2 new tests.
+  - `FrameStageRefs.bowChargeStartRef: MutableRef<number|null>`: tracks charge-start time; null = idle.
+    Mirrors `breakProgressRef` pattern (same MutableRef, same frame-handler initialization).
+  - `interactionStage`: reads `isMouseDown(2)` each frame; right-hold + BOW → start charge; release
+    fires `handleBowFire`; non-BOW item clears stale charge. Right-click placement chain suppressed
+    while BOW is drawn (bow charge takes priority over block placement).
+  - `handleBowFire`: charge gate → consume 1 ARROW (silent no-op if empty) → damage bow slot →
+    hitscan entity in crosshair within 50 blocks → apply damage → drop loot → play `entityHit` sound.
+  - 12 new `bow.test.ts` unit tests; typecheck 0 errors; **4532 tests passing** (+14 total).
+    _(done 2026-06-10, commit 816af0ab)_
+
 ## D. Progress log
 - 2026-06-10: Audit complete; plan authored. Beginning Phase 1.
 - 2026-06-10: **ALL TASKS COMPLETE.** Phase 1 (T1-T4 verified hot-path allocs), Phase 2
