@@ -176,6 +176,9 @@ export type FrameStageRefs = {
   readonly lastFrustumCullRef: MutableRef.MutableRef<CameraPoseSnapshot>
   readonly lastRefractionFrameRef: MutableRef.MutableRef<CameraPoseSnapshot>
   readonly lastAudioRef: MutableRef.MutableRef<{ enabled: boolean; master: number; sfx: number; music: number }>
+  // True if the player was grounded on the PREVIOUS frame — detects the jump instant
+  // (wasGrounded && !isGrounded && y-velocity > 0) for jump exhaustion.
+  readonly wasGroundedRef: MutableRef.MutableRef<boolean>
 }
 
 export type ResolvedDeps = {

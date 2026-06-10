@@ -5,7 +5,7 @@ import { applyArmorReduction } from '@ts-minecraft/entity'
 import { DEFAULT_PLAYER_ID, CHUNK_SIZE, CHUNK_HEIGHT, indexToBlockType, SlotIndex } from '@ts-minecraft/core'
 import { HOTBAR_START, getFeatherFallingReduction, getFireProtectionReduction, getRespirationBonusSecs } from '@ts-minecraft/inventory'
 import type { DeltaTimeSecs, Position } from '@ts-minecraft/core'
-import { EXHAUSTION_SPRINT_PER_BLOCK, MAX_FOOD_LEVEL } from '@ts-minecraft/entity'
+import { EXHAUSTION_SPRINT_PER_BLOCK, EXHAUSTION_JUMP, MAX_FOOD_LEVEL } from '@ts-minecraft/entity'
 import { accrueHazardTicks, nextAirSecs, LAVA_DAMAGE, LAVA_DAMAGE_INTERVAL_SECS, DROWN_DAMAGE, DROWN_DAMAGE_INTERVAL_SECS, MAX_AIR_SECS } from '@ts-minecraft/entity'
 import { EYE_LEVEL_OFFSET } from '@ts-minecraft/app/frame-handler.config'
 import { resolveNetherTravel, type Dimension } from '@ts-minecraft/world'
@@ -19,7 +19,7 @@ export const physicsStage = (
     FrameHandlerServices,
     'gameState' | 'healthService' | 'hungerService' | 'xpService' | 'equipmentService' | 'fishingService' | 'inventoryService' | 'hotbarService' | 'soundManager' | 'entityManager' | 'gameMode' | 'debugFeatureFlags' | 'chunkManagerService' | 'netherService' | 'blockService'
   >,
-  refs: Pick<FrameStageRefs, 'lastHealthRef' | 'lastHungerRef' | 'lastXPRef' | 'lastArmorRef' | 'portalSecsRef' | 'dirtyChunksRef' | 'lavaDamageSecsRef' | 'airSecsRef' | 'drownDamageSecsRef' | 'lastAirBubblesRef' | 'isShieldBlockingRef'>,
+  refs: Pick<FrameStageRefs, 'lastHealthRef' | 'lastHungerRef' | 'lastXPRef' | 'lastArmorRef' | 'portalSecsRef' | 'dirtyChunksRef' | 'lavaDamageSecsRef' | 'airSecsRef' | 'drownDamageSecsRef' | 'lastAirBubblesRef' | 'isShieldBlockingRef' | 'wasGroundedRef'>,
   inputs: {
     readonly deltaTime: DeltaTimeSecs
     readonly initialPlayerPos: Position
@@ -160,6 +160,7 @@ export const physicsStage = (
           }
         } else {
           yield* services.healthService.tick()
+          const inCreative = yield* services.gameMode.isCreative()
 
           // Hunger coupling: horizontal distance travelled this frame accrues
           // exhaustion (Minecraft drains the food bar through activity, not idle
@@ -171,6 +172,13 @@ export const physicsStage = (
           if (distanceMoved > 0) {
             yield* services.hungerService.addExhaustion(distanceMoved * EXHAUSTION_SPRINT_PER_BLOCK)
           }
+          // Jump exhaustion: transitioning from grounded to airborne costs EXHAUSTION_JUMP (0.05).
+          // Creative players are immune (vanilla).
+          const wasGrounded = MutableRef.get(refs.wasGroundedRef)
+          if (!inCreative && wasGrounded && !isGrounded) {
+            yield* services.hungerService.addExhaustion(EXHAUSTION_JUMP)
+          }
+          MutableRef.set(refs.wasGroundedRef, isGrounded)
 
           // Regen (and the exhaustion it costs) only when actually below max health,
           // matching vanilla — otherwise an idle full-health player's food drains.
@@ -206,7 +214,6 @@ export const physicsStage = (
           // Lava burn (FR-2 / T14a): standing in LAVA deals LAVA_DAMAGE every
           // LAVA_DAMAGE_INTERVAL_SECS. Creative players are immune (vanilla). The
           // accumulator keeps the cadence frame-rate independent.
-          const inCreative = yield* services.gameMode.isCreative()
           const columnBlockAt = yield* readPlayerColumn(refreshedPos.x, refreshedPos.z)
           const feetBlock = columnBlockAt(refreshedPos.y)
           if (!inCreative && feetBlock === 'LAVA') {
