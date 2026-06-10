@@ -122,9 +122,29 @@ describe('domain/enchantment', () => {
       expect(canEnchantItem('IRON_SWORD', 'INFINITY')).toBe(false)
     })
 
-    it('FORTUNE only applies to pickaxes', () => {
+    it('FORTUNE applies to pickaxes (not swords)', () => {
       expect(canEnchantItem('DIAMOND_PICKAXE', 'FORTUNE')).toBe(true)
       expect(canEnchantItem('DIAMOND_SWORD', 'FORTUNE')).toBe(false)
+    })
+
+    it('EFFICIENCY applies to pickaxes, axes, and hoes', () => {
+      expect(canEnchantItem('IRON_PICKAXE', 'EFFICIENCY')).toBe(true)
+      expect(canEnchantItem('IRON_AXE', 'EFFICIENCY')).toBe(true)
+      expect(canEnchantItem('IRON_HOE', 'EFFICIENCY')).toBe(true)
+      expect(canEnchantItem('IRON_SWORD', 'EFFICIENCY')).toBe(false)
+    })
+
+    it('SILK_TOUCH applies to pickaxes and axes (not swords)', () => {
+      expect(canEnchantItem('DIAMOND_PICKAXE', 'SILK_TOUCH')).toBe(true)
+      expect(canEnchantItem('IRON_AXE', 'SILK_TOUCH')).toBe(true)
+      expect(canEnchantItem('IRON_SWORD', 'SILK_TOUCH')).toBe(false)
+    })
+
+    it('UNBREAKING applies to all armor slots, tools, bow, fishing rod, shield', () => {
+      expect(canEnchantItem('IRON_CHESTPLATE', 'UNBREAKING')).toBe(true)
+      expect(canEnchantItem('DIAMOND_LEGGINGS', 'UNBREAKING')).toBe(true)
+      expect(canEnchantItem('LEATHER_BOOTS', 'UNBREAKING')).toBe(true)
+      expect(canEnchantItem('DIAMOND_HOE', 'UNBREAKING')).toBe(true)
     })
   })
 
