@@ -2,7 +2,7 @@ import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
 import { Array as Arr } from 'effect'
 import { EntityId } from '@ts-minecraft/entity'
-import { hashEntityId, makeWanderDirection, toPublicEntity } from '@ts-minecraft/entity'
+import { hashEntityId, makeWanderDirection, toPublicEntity, BABY_GROW_TICKS } from '@ts-minecraft/entity'
 import { AIState } from '@ts-minecraft/entity'
 import type { ManagedEntity } from '../../domain/mob/entity-internal'
 
@@ -131,11 +131,16 @@ describe('entity/entity-utils', () => {
       })
     })
 
-    it('result has exactly the six Entity keys', () => {
+    it('result has exactly the seven Entity keys (incl. isBaby, R6d)', () => {
       const managed = makeManagedEntity()
       const pub = toPublicEntity(managed)
       const keys = Object.keys(pub).sort()
-      expect(keys).toEqual(['entityId', 'health', 'position', 'rotation', 'type', 'velocity'])
+      expect(keys).toEqual(['entityId', 'health', 'isBaby', 'position', 'rotation', 'type', 'velocity'])
+    })
+
+    it('isBaby reflects ageTicks vs BABY_GROW_TICKS (R6d)', () => {
+      expect(toPublicEntity({ ...makeManagedEntity(), ageTicks: BABY_GROW_TICKS }).isBaby).toBe(false)
+      expect(toPublicEntity({ ...makeManagedEntity(), ageTicks: 0 }).isBaby).toBe(true)
     })
   })
 })

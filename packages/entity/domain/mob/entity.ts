@@ -57,6 +57,9 @@ export const EntitySchema = Schema.Struct({
   rotation: QuaternionSchema,
   health: Schema.Number.pipe(Schema.finite(), Schema.nonNegative()),
   type: ActiveEntityTypeSchema,
+  // R6d: true while the mob is a baby (ageTicks < BABY_GROW_TICKS); the renderer
+  // draws it at reduced scale. Optional for back-compat with non-mob constructions.
+  isBaby: Schema.optional(Schema.Boolean),
 })
 export type Entity = Schema.Schema.Type<typeof EntitySchema>
 

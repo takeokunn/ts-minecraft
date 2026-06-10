@@ -2,6 +2,7 @@ import type { Entity, EntityId as EntityIdType } from './entity'
 import type { Position } from '@ts-minecraft/core'
 import type { Vector3 } from '@ts-minecraft/core'
 import type { ManagedEntity } from './entity-internal'
+import { isAdult } from './breeding'
 
 // prime tick multiplier — avoids axis-aligned movement bias
 const WANDER_ANGLE_TICK_STEP = 29
@@ -36,6 +37,7 @@ export const toPublicEntity = (entity: ManagedEntity): Entity => ({
   rotation: entity.rotation,
   health: entity.health,
   type: entity.type,
+  isBaby: !isAdult(entity.ageTicks),
 })
 
 

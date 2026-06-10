@@ -160,7 +160,8 @@ two contained QoL wins remain. Picking lower-risk, player-visible, contained inc
 
 - [x] R5. Sprint FOV — widen camera FOV (75→82, lerped 0.18/frame) while sprinting (Ctrl+W, not sneaking),
   in camera-stage; updateProjectionMatrix only when FOV actually changes. Visual-only, no new ref. +1 test. _(done 2026-06-10)_
-- [ ] R6. Mob breeding (right-click-entity feed → love → baby → grows up). Multi-iteration; additive/low-risk.
+- [x] R6. **Mob breeding** (right-click-entity feed → love → baby → grows up) — COMPLETE across 7 small commits.
+  Feed two same-species adults their breeding item → calf spawns (half scale) → matures to adult after 20min.
   - [x] R6a. Data foundation — optional `breedingItem` on `MobDefinition` + cow/sheep←WHEAT, pig←CARROT; +3 tests. _(done 2026-06-10)_
   - [x] R6b. Pure breeding domain logic — `breeding.ts`: love/cooldown/age counters, `canAcceptBreedingFood`,
     `isBreedingPair`, `tickBreedingTimers`, adult/newborn states; +12 tests. Additive, zero entity-manager coupling. _(done 2026-06-10)_
@@ -179,7 +180,9 @@ two contained QoL wins remain. Picking lower-risk, player-visible, contained inc
     pass after the AI tick (filter in-love adults → `findBreedingPairs` → reset parents + spawn baby ageTicks 0).
     **Mob breeding works end-to-end.** +2 e2e tests (calf spawns; mismatched species don't); all 219 entity tests green. _(done 2026-06-10)_
   - [ ] R6c. Entity-manager breeding tick — two in-love adults in range → spawn baby + love-cooldown.
-  - [ ] R6d. Baby growth — age ticks → adult; babies smaller (render scale) + not breedable.
+  - [x] R6d. Baby render scale — optional `isBaby` on public Entity (set from ageTicks in toPublicEntity);
+    entity-renderer draws babies at 0.5× via per-entity scratch.scale. Growth (age→adult) already handled by
+    R6c-2 tick decay. +2 tests; all 230 entity/render tests green. _(done 2026-06-10)_
 - [ ] R7. (Deferred — higher risk) Sneak edge-protection — modifies the shared collision path; needs careful
   per-axis AABB-footprint ground detection to avoid trapping the player on stairs/slopes. Not a "certain" step.
   (then it pairs with the T15 block-sync, also dormant for the same reason).

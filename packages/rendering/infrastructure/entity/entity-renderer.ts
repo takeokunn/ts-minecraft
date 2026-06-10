@@ -12,6 +12,8 @@ import {
 } from './entity-instance-pool'
 
 const MOTION_THRESHOLD = 0.05
+// R6d: baby mobs render at half scale (vanilla-ish) until they grow up.
+const BABY_RENDER_SCALE = 0.5
 
 const setLimbRotation = (mesh: THREE.Mesh | null, angle: number): void => {
   if (mesh === null) return
@@ -234,6 +236,10 @@ export class EntityRendererService extends Effect.Service<EntityRendererService>
                     scratch.pos.set(entity.position.x, entity.position.y, entity.position.z)
                     scratch.euler.set(0, group.root.rotation.y, 0)
                     scratch.quat.setFromEuler(scratch.euler)
+                    // R6d: babies are drawn smaller. scratch.scale is shared, so set it every
+                    // iteration (uniform scale propagates to limb offsets via the root matrix).
+                    const renderScale = entity.isBaby === true ? BABY_RENDER_SCALE : 1
+                    scratch.scale.set(renderScale, renderScale, renderScale)
                     scratch.rootMatrix.compose(scratch.pos, scratch.quat, scratch.scale)
 
                     for (const role of ROLES_BY_TYPE[entity.type]) {
