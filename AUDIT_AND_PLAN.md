@@ -211,6 +211,45 @@ random, playable in a session). Growth wired into frame-maintenance accumulator.
 **Round 12 complete.** Crop growth now works end-to-end: plant seeds → wait 2min → harvest ripe
 wheat + seeds. Village crops (untracked) still drop wheat immediately. 4495 tests passing.
 
+## P. Round 13 (2026-06-10) — FR: hold-to-break with hardness-based timing
+
+**Gap**: Blocks broke instantly on a single left-click — a core vanilla mechanic missing. The block
+domain already had `hardness` on every block config; `isMouseDown(button)` already existed on InputService.
+Only the timing logic and per-frame accumulation were absent.
+
+**What was done**:
+- `packages/block/domain/break-speed.ts` — pure `getBlockHardness(blockType)` (static lookup from
+  `initialBlocks` at module load) + `computeBreakTicks(hardness, tool)`: `ceil(hardness*3/speedMult)`.
+  Tool tiers: wooden=×2, stone=×4, iron=×6, diamond=×8. Zero hardness → 0 (instant). 13 unit tests.
+- `FrameStageRefs.breakProgressRef: MutableRef<{blockKey,ticks,totalTicks}|null>` — tracks active break.
+- `handleBlockBreakProgress` (new function in `interaction-block-handler.ts`): per-frame timed break.
+  Accumulates ticks when `isMouseDown(0)=true`; resets when target changes or mouse released; on
+  threshold fires the full break (block removal + sound + particles + XP + WHEAT harvest + Fortune).
+- `handleLeftClick` now handles entity attacks ONLY (edge trigger preserved for attack cooldown). Block
+  break removed from its body.
+- `interaction-stage.ts` reads `isMouseDown(0)` each frame, calls `handleBlockBreakProgress` when held.
+  `breakProgressRef` is reset synchronously when mouse is released.
+- `<progress id="break-progress">` in `index.html` — yellow accent-color bar below the crosshair;
+  `updateBreakProgressHud()` shows/hides it via `setAttribute('value')` / `style.display`.
+
+**Test updates**: 2 existing tests updated to use `isMouseDown` mock (chunk-sync + interaction-stage).
+
+**Example timings** (at 60 fps):
+| Block | Bare hands | Wooden pickaxe | Diamond pickaxe |
+|-------|-----------|---------------|----------------|
+| DIRT (h=8) | 0.4s | 0.2s | 0.05s |
+| STONE (h=25) | 1.25s | 0.63s | 0.16s |
+| COAL_ORE (h=35) | 1.75s | 0.88s | 0.22s |
+| OBSIDIAN (h=90) | 4.5s | 2.25s | 0.56s |
+
+typecheck 0 errors; lint 0/0; **4508 tests passing** (+13 new; commit `0304008b`). _(done 2026-06-10)_
+
+**Remaining deferred**:
+- Item-drop entities + pickup radius — blocks still go directly to inventory (no world item entities).
+- Crack texture overlay during break progress — particle system only uses block-atlas UVs; no per-stage
+  crack animation. Visual feedback is the progress bar only.
+- Baby mob visual differentiation — cosmetic, deferred from R11d.
+
 ## D. Progress log
 - 2026-06-10: Audit complete; plan authored. Beginning Phase 1.
 - 2026-06-10: **ALL TASKS COMPLETE.** Phase 1 (T1-T4 verified hot-path allocs), Phase 2
