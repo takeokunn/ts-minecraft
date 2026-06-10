@@ -243,13 +243,15 @@ export const handleLeftClick = (
           })
 
           const drops = yield* services.entityManager.applyDamage(entityId, damage)
+          // Vanilla: baby mobs drop no loot and grant no XP when killed.
+          const wasBaby = Option.isSome(entityOpt) && entityOpt.value.isBaby === true
           yield* Effect.forEach(
-            Option.getOrElse(drops, () => []),
+            wasBaby ? [] : Option.getOrElse(drops, () => []),
             (drop) => services.inventoryService.addBlock(drop.blockType, drop.count),
             { concurrency: 'unbounded', discard: true },
           )
           // Looting enchantment: add `level` bonus count of each mob drop.
-          if (Option.isSome(drops)) {
+          if (Option.isSome(drops) && !wasBaby) {
             const looting = Option.match(weaponStack, {
               onNone: () => undefined,
               onSome: (s) => (s.enchantments ?? []).find((e) => e.type === 'LOOTING'),
@@ -263,8 +265,9 @@ export const handleLeftClick = (
               )
             }
           }
-          // Mob killed (drops returned Some) → grant XP from the pre-kill entity snapshot.
-          if (Option.isSome(drops) && Option.isSome(entityOpt)) {
+          // Mob killed (drops returned Some) → grant XP from the pre-kill entity snapshot
+          // (babies grant none, matching vanilla).
+          if (Option.isSome(drops) && Option.isSome(entityOpt) && !wasBaby) {
             yield* services.xpService.addXP(getMobDefinition(entityOpt.value.type).xpReward)
           }
 

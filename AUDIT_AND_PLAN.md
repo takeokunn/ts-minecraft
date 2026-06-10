@@ -211,3 +211,6 @@ two contained QoL wins remain. Picking lower-risk, player-visible, contained inc
 - [x] R8. Baby-feeding accelerates growth — `acceleratedBabyAge` (−10% remaining/feed, clamped) + `isBaby`;
   `feedEntity` now: baby → grow, willing adult → love, else decline. Additive vanilla follow-up to R6
   (previously feeding a baby was a no-op). +5 pure tests + 1 e2e (breed → feed the calf). _(done 2026-06-10)_
+- [x] R9. Baby mobs drop no loot / grant no XP when killed (vanilla correctness) — gate the drop-add,
+  looting bonus, and XP grant in handleLeftClick on `!wasBaby` (using `entityOpt.value.isBaby` from R6d).
+  Reuses the public-Entity isBaby flag added for render scaling. typecheck 0; 46 interaction tests green. _(done 2026-06-10)_
