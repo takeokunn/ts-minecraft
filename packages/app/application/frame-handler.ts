@@ -4,6 +4,7 @@
 import { Effect, HashMap, MutableRef, Option, Ref } from 'effect'
 import * as THREE from 'three'
 import { resolvePreset, type ResolvedGraphics } from '@ts-minecraft/game'
+import { MAX_AIR_SECS } from '@ts-minecraft/entity'
 import type { Chunk } from '@ts-minecraft/world'
 import type { DirtyChunkEntry } from './frame/frame-maintenance'
 import { type DayNightLights } from '@ts-minecraft/game'
@@ -59,6 +60,9 @@ const createFrameLoopHandlersInternal = (
     const attackSwingStateRef = yield* Ref.make(createAttackSwingState())
     // Nether portal: accumulated seconds in a NETHER_PORTAL block (resets on exit).
     const portalSecsRef = yield* Ref.make(0)
+    // FR-2 liquid hazards: lava-burn timer + air supply (starts full).
+    const lavaDamageSecsRef = MutableRef.make(0)
+    const airSecsRef = MutableRef.make(MAX_AIR_SECS)
     const lastLoadedChunksRef = yield* Ref.make<Option.Option<ReadonlyArray<Chunk>>>(Option.none())
     // Skip chunk streaming work until the player changes chunk or render distance changes.
     const lastChunkStreamingRef = MutableRef.make({ cx: NaN, cz: NaN, renderDistance: NaN })
@@ -161,6 +165,8 @@ const createFrameLoopHandlersInternal = (
       lastPlayerAttackTimeRef,
       attackSwingStateRef,
       portalSecsRef,
+      lavaDamageSecsRef,
+      airSecsRef,
       lastRenderDistanceRef,
       lastEntityStructureVersionRef,
       entityPhysicsChunkCacheRef,

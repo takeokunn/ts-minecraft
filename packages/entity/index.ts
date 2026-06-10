@@ -64,6 +64,8 @@ export * from './domain/player-health'
 // domain/fishing re-exports fishing.config (loot tables, constants) and adds resolution fns
 export * from './domain/fishing'
 export * from './domain/player-hunger'
+// domain/environment-hazard: lava-burn + drowning constants and frame-rate-independent timing
+export * from './domain/environment-hazard'
 // domain/player-xp re-exports player-xp-calc functions and adds INITIAL_PLAYER_XP
 export * from './domain/player-xp'
 export * from './domain/player-state'

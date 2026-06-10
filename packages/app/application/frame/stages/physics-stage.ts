@@ -5,6 +5,7 @@ import { applyArmorReduction } from '@ts-minecraft/entity'
 import { DEFAULT_PLAYER_ID, CHUNK_SIZE, CHUNK_HEIGHT, indexToBlockType } from '@ts-minecraft/core'
 import type { DeltaTimeSecs, Position } from '@ts-minecraft/core'
 import { EXHAUSTION_SPRINT_PER_BLOCK, MAX_FOOD_LEVEL } from '@ts-minecraft/entity'
+import { accrueHazardTicks, LAVA_DAMAGE, LAVA_DAMAGE_INTERVAL_SECS } from '@ts-minecraft/entity'
 import { resolveNetherTravel, type Dimension } from '@ts-minecraft/world'
 
 /** Seconds a player must stand in a NETHER_PORTAL block to trigger dimension travel. */
@@ -16,7 +17,7 @@ export const physicsStage = (
     FrameHandlerServices,
     'gameState' | 'healthService' | 'hungerService' | 'xpService' | 'equipmentService' | 'fishingService' | 'inventoryService' | 'soundManager' | 'entityManager' | 'gameMode' | 'debugFeatureFlags' | 'chunkManagerService' | 'netherService' | 'blockService'
   >,
-  refs: Pick<FrameStageRefs, 'lastHealthRef' | 'lastHungerRef' | 'lastXPRef' | 'lastArmorRef' | 'portalSecsRef' | 'dirtyChunksRef'>,
+  refs: Pick<FrameStageRefs, 'lastHealthRef' | 'lastHungerRef' | 'lastXPRef' | 'lastArmorRef' | 'portalSecsRef' | 'dirtyChunksRef' | 'lavaDamageSecsRef' | 'airSecsRef'>,
   inputs: {
     readonly deltaTime: DeltaTimeSecs
     readonly initialPlayerPos: Position
@@ -60,6 +61,28 @@ export const physicsStage = (
                     : services.healthService.applyDamage(amount).pipe(Effect.as(true)),
                 ),
               )
+
+        // Reads the block type at a world coordinate (null outside vertical bounds
+        // or for an unloaded chunk). Mirrors the portal-detection lookup pattern.
+        const readBlockTypeAt = (wx: number, wy: number, wz: number): Effect.Effect<ReturnType<typeof indexToBlockType> | null, never> => {
+          const by = Math.floor(wy)
+          if (by < 0 || by >= CHUNK_HEIGHT) return Effect.succeed(null)
+          const bx = Math.floor(wx)
+          const bz = Math.floor(wz)
+          const lx = ((bx % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE
+          const lz = ((bz % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE
+          return services.chunkManagerService
+            .getChunk({ x: Math.floor(bx / CHUNK_SIZE), z: Math.floor(bz / CHUNK_SIZE) })
+            .pipe(
+              Effect.option,
+              Effect.map((chunkOpt) =>
+                Option.match(chunkOpt, {
+                  onNone: () => null,
+                  onSome: (chunk) => indexToBlockType(chunk.blocks[by + lz * CHUNK_HEIGHT + lx * CHUNK_HEIGHT * CHUNK_SIZE] ?? 0),
+                }),
+              ),
+            )
+        }
 
         const isGrounded = yield* services.gameState.isPlayerGrounded()
         const fallDamage = yield* services.healthService.processFallDamage(refreshedPos.y, isGrounded)
@@ -149,6 +172,28 @@ export const physicsStage = (
                 { concurrency: 'unbounded', discard: true },
               ),
           })
+
+          // Lava burn (FR-2 / T14a): standing in LAVA deals LAVA_DAMAGE every
+          // LAVA_DAMAGE_INTERVAL_SECS. Creative players are immune (vanilla). The
+          // accumulator keeps the cadence frame-rate independent.
+          const inCreative = yield* services.gameMode.isCreative()
+          const feetBlock = yield* readBlockTypeAt(refreshedPos.x, refreshedPos.y, refreshedPos.z)
+          if (!inCreative && feetBlock === 'LAVA') {
+            const { acc, ticks } = accrueHazardTicks(
+              MutableRef.get(refs.lavaDamageSecsRef),
+              inputs.deltaTime,
+              LAVA_DAMAGE_INTERVAL_SECS,
+            )
+            MutableRef.set(refs.lavaDamageSecsRef, acc)
+            if (ticks > 0) {
+              const burned = yield* tryApplyPlayerDamage(LAVA_DAMAGE * ticks)
+              if (burned) {
+                yield* services.soundManager.playEffect('playerHurt', { position: refreshedPos })
+              }
+            }
+          } else {
+            MutableRef.set(refs.lavaDamageSecsRef, 0)
+          }
         }
 
         const health = yield* services.healthService.getHealth()

@@ -105,7 +105,10 @@ checks are already allocation-free). Only confirmed, impactful items survive bel
 ### Phase 5 — Missing FRs (largest; each its own mini-project)
 - [x] T12. FR-1 Creative-mode flight (ascend/descend keys, gravity bypass in creative). _(done 2026-06-10; KeyF toggle, held Space/Shift = up/down, drift-free hover via post-step Y override, still collides with blocks; pure domain `flight.ts` + 9 unit tests)_
 - [x] T13. FR-4 Beds: set respawn point on use; respawn there on death. _(done 2026-06-10; handleBed already set the point + creative respawn worked, but found+fixed a real bug — survival death-screen captured the spawn statically at attach, ignoring the bed; now reads the live `respawnPositionRef`. Added cross-session persistence: `respawnPosition` in save schema, hoisted shared ref into session.ts, save+restore.)_
-- [ ] T14. FR-2 Liquid mechanics: swimming + oxygen/drowning + lava damage.
+- [ ] T14. FR-2 Liquid mechanics: swimming + oxygen/drowning + lava damage. _(decomposed below)_
+  - [x] T14a. Lava damage — periodic fire damage while standing in LAVA (survival only). _(done 2026-06-10; 4 dmg / 0.5s, frame-rate-independent accumulator, creative-immune, hurt sound; pure `environment-hazard.ts` + 6 tests)_
+  - [ ] T14b. Drowning — air supply depletes when head submerged in WATER; damage at 0; refills above water. + air HUD.
+  - [ ] T14c. Swim-up — hold JUMP in water to ascend (reduced-gravity swim).
 - [ ] T15. FR-3 Multiplayer block sync: wire `BlockPlace`/`BlockBreak` send + apply.
 
 ---
