@@ -4,7 +4,7 @@ import type { FrameHandlerDeps, FrameHandlerServices, FrameStageRefs } from '@ts
 import { findAttackableEntity } from '@ts-minecraft/app/frame/stages/attack-targeting'
 import { CHUNK_SIZE, CHUNK_HEIGHT, blockTypeToIndex, indexToBlockType, SlotIndex, ItemTypeSchema } from '@ts-minecraft/core'
 import type { BlockType, InventoryItem } from '@ts-minecraft/core'
-import { HOTBAR_START, isDurable, getSharpnessDamageBonus, getFortuneDropMultiplier, getPowerDamageMultiplier, getUnbreakingSkipChance } from '@ts-minecraft/inventory'
+import { HOTBAR_START, isDurable, getSharpnessDamageBonus, getSmiteDamageBonus, getBaneOfArthropodsDamageBonus, getFortuneDropMultiplier, getPowerDamageMultiplier, getUnbreakingSkipChance } from '@ts-minecraft/inventory'
 import { FORTUNE_ORE_BLOCKS, PICKAXE_BLOCK_TYPES, getInventoryDropForBlock, canHarvestBlock } from '@ts-minecraft/world'
 import { getBlockHardness, computeBreakTicks } from '@ts-minecraft/block'
 import { computeAttackDamage, computeKnockback, computeAttackCharge, computeChargedDamage, DEFAULT_ATTACK_COOLDOWN_SECS, getMobDefinition, computeBowCharge, computeBowDamage, canFireBow, BOW_MAX_RANGE } from '@ts-minecraft/entity'
@@ -48,6 +48,10 @@ const SWORD_DAMAGE: Readonly<Record<string, number>> = {
   IRON_AXE: IRON_AXE_ATTACK_DAMAGE,
   DIAMOND_AXE: DIAMOND_AXE_ATTACK_DAMAGE,
 }
+
+// Vanilla mob categories for enchantment targeting. Built once at module load.
+const UNDEAD_MOB_TYPES = new Set(['Zombie', 'Skeleton'])     // SMITE applies
+const ARTHROPOD_MOB_TYPES = new Set(['Spider'])              // BANE_OF_ARTHROPODS applies
 
 // Combat-feedback hit burst: a small fleck of red particles on a landed melee
 // hit. REDSTONE_BLOCK is the red-ish source block; its top-face atlas tile UV is
@@ -279,26 +283,32 @@ export const handleLeftClick = (
             onNone: () => PLAYER_ATTACK_DAMAGE,
             onSome: (item) => SWORD_DAMAGE[item] ?? PLAYER_ATTACK_DAMAGE,
           })
-          // Sharpness enchantment adds flat damage bonus to the base before crit/charge.
+          // Sharpness/Smite/Bane enchantment bonuses: fetched now so entity type is known
+          // before the damage formula runs. entityOpt is reused for knockback below.
           const selectedSlot = yield* services.hotbarService.getSelectedSlot()
           const weaponStack = yield* services.inventoryService.getSlot(SlotIndex.make(HOTBAR_START + selectedSlot))
-          const sharpnessBonus = Option.match(weaponStack, {
-            onNone: () => 0,
-            onSome: (s) => {
-              const e = (s.enchantments ?? []).find((en) => en.type === 'SHARPNESS')
-              return e ? getSharpnessDamageBonus(e.level) : 0
-            },
-          })
+          const weaponEnchantments = Option.match(weaponStack, { onNone: () => [], onSome: (s) => s.enchantments ?? [] })
+          // Fetch entity type BEFORE damage calculation so SMITE/BANE can be applied.
+          const entityOpt = yield* services.entityManager.getEntity(entityId)
+          const entityType = Option.match(entityOpt, { onNone: () => '' as string, onSome: (e) => e.type as string })
+          const enchantBonus = (() => {
+            const sharpness = weaponEnchantments.find((e) => e.type === 'SHARPNESS')
+            if (sharpness) return getSharpnessDamageBonus(sharpness.level)
+            const smite = weaponEnchantments.find((e) => e.type === 'SMITE')
+            if (smite && UNDEAD_MOB_TYPES.has(entityType)) return getSmiteDamageBonus(smite.level)
+            const bane = weaponEnchantments.find((e) => e.type === 'BANE_OF_ARTHROPODS')
+            if (bane && ARTHROPOD_MOB_TYPES.has(entityType)) return getBaneOfArthropodsDamageBonus(bane.level)
+            return 0
+          })()
           // Crit when airborne. Attack cooldown weakens hits before recharge.
           // Sequential: both are pure synchronous Ref reads; no parallelism benefit.
           const now = yield* Ref.get(refs.totalTimeSecsRef)
           const lastAttack = yield* Ref.get(refs.lastPlayerAttackTimeRef)
           const charge = computeAttackCharge(now - lastAttack, DEFAULT_ATTACK_COOLDOWN_SECS)
           yield* Ref.set(refs.lastPlayerAttackTimeRef, now)
-          const damage = computeChargedDamage(computeAttackDamage(baseDamage + sharpnessBonus, !playerGrounded), charge)
+          const damage = computeChargedDamage(computeAttackDamage(baseDamage + enchantBonus, !playerGrounded), charge)
 
           // Knock back and play feedback before lethal hits can remove the entity.
-          const entityOpt = yield* services.entityManager.getEntity(entityId)
           yield* Option.match(entityOpt, {
             onNone: () => Effect.void,
             onSome: (e) =>
@@ -335,10 +345,7 @@ export const handleLeftClick = (
           )
           // Looting enchantment: add `level` bonus count of each mob drop.
           if (Option.isSome(drops) && !wasBaby) {
-            const looting = Option.match(weaponStack, {
-              onNone: () => undefined,
-              onSome: (s) => (s.enchantments ?? []).find((e) => e.type === 'LOOTING'),
-            })
+            const looting = weaponEnchantments.find((e) => e.type === 'LOOTING')
             if (looting) {
               yield* Effect.forEach(
                 Option.getOrElse(drops, () => []),
@@ -411,6 +418,7 @@ export const handleBowFire = (
 
     const hasPower = enchantments.find((e) => e.type === 'POWER')
     const hasInfinity = enchantments.some((e) => e.type === 'INFINITY')
+    const hasLooting = enchantments.find((e) => e.type === 'LOOTING')
 
     // Scale base damage by charge, then apply POWER multiplier.
     const baseDamage = computeBowDamage(charge)
@@ -447,6 +455,15 @@ export const handleBowFire = (
             (drop) => services.inventoryService.addBlock(drop.blockType, drop.count),
             { discard: true },
           )
+          // Looting on bow kills: same bonus-drop mechanic as melee.
+          if (Option.isSome(drops) && hasLooting) {
+            yield* Effect.forEach(
+              Option.getOrElse(drops, () => []),
+              (drop) => services.inventoryService.addBlock(drop.blockType, hasLooting.level)
+                .pipe(Effect.catchAllCause(() => Effect.void)),
+              { discard: true },
+            )
+          }
         }),
     })
   })

@@ -1041,4 +1041,106 @@ describe('step 7 — block interaction', () => {
     // No portal frame around ignitionPos → handleFlintAndSteel returns false → handleRightClick runs (no-op)
     yield* runFrame(deps, services)
   }))
+
+  // ── R36: SMITE / BANE_OF_ARTHROPODS enchantments ──────────────────────────────
+  it.effect('SMITE V on IRON_SWORD adds 12.5 bonus damage when hitting Zombie', () => Effect.gen(function* () {
+    // IRON_SWORD base=12, SMITE V=12.5 bonus, charge=1 (first hit), grounded → no crit.
+    // computeChargedDamage(computeAttackDamage(12+12.5, false), 1) = computeChargedDamage(24.5, 1)
+    // = 24.5 × (0.2 + 0.8 × 1²) = 24.5
+    const deps = yield* makeDeps(false)
+    deps.camera.position.set(0, 0, 0)
+    deps.camera.getWorldDirection = vi.fn((target: THREE.Vector3) => target.set(0, 0, -1))
+    const inputService = makeInputService()
+    ;(inputService as { consumeMouseClick: unknown }).consumeMouseClick = (btn: number) =>
+      Effect.succeed(btn === 0)
+    const services = makeServices({
+      inputService,
+      inventoryRenderer: makeInventoryRenderer({ open: false }),
+      settingsOverlay: makeSettingsOverlay({ open: false }),
+    })
+    ;(services.blockHighlight as { getTargetBlock: unknown }).getTargetBlock = vi.fn(() => Effect.succeed(Option.none()))
+    ;(services.entityManager as { getEntities: unknown }).getEntities = vi.fn(() =>
+      Effect.succeed([{ entityId: 'entity-1', position: { x: 0, y: 64, z: -2 }, velocity: { x: 0, y: 0, z: 0 }, rotation: {} as THREE.Quaternion, health: 20, type: 'Zombie' }])
+    )
+    ;(services.entityManager as { getEntity: unknown }).getEntity = vi.fn(() =>
+      Effect.succeed(Option.some({ entityId: 'entity-1', position: { x: 0, y: 64, z: -2 }, velocity: { x: 0, y: 0, z: 0 }, rotation: {} as THREE.Quaternion, health: 20, type: 'Zombie' }))
+    )
+    ;(services.hotbarService as { getSelectedBlockType: unknown }).getSelectedBlockType = vi.fn(() =>
+      Effect.succeed(Option.some('IRON_SWORD'))
+    )
+    ;(services.inventoryService as { getSlot: unknown }).getSlot = vi.fn(() =>
+      Effect.succeed(Option.some({ itemType: 'IRON_SWORD', count: 1, enchantments: [{ type: 'SMITE', level: 5 }] }))
+    )
+    const applyDamageSpy = vi.fn(() => Effect.succeed(Option.none()))
+    ;(services.entityManager as { applyDamage: unknown }).applyDamage = applyDamageSpy
+    yield* runFrame(deps, services)
+    // IRON_SWORD(12) + SMITE V(12.5) = 24.5, charge 1 → 24.5
+    expect(applyDamageSpy).toHaveBeenCalledTimes(1)
+    expect(applyDamageSpy.mock.calls[0]?.[0]).toBe('entity-1')
+    expect(applyDamageSpy.mock.calls[0]?.[1]).toBeCloseTo(24.5)
+  }))
+
+  it.effect('SMITE does NOT apply bonus when hitting Spider (non-undead)', () => Effect.gen(function* () {
+    const deps = yield* makeDeps(false)
+    deps.camera.position.set(0, 0, 0)
+    deps.camera.getWorldDirection = vi.fn((target: THREE.Vector3) => target.set(0, 0, -1))
+    const inputService = makeInputService()
+    ;(inputService as { consumeMouseClick: unknown }).consumeMouseClick = (btn: number) =>
+      Effect.succeed(btn === 0)
+    const services = makeServices({
+      inputService,
+      inventoryRenderer: makeInventoryRenderer({ open: false }),
+      settingsOverlay: makeSettingsOverlay({ open: false }),
+    })
+    ;(services.blockHighlight as { getTargetBlock: unknown }).getTargetBlock = vi.fn(() => Effect.succeed(Option.none()))
+    ;(services.entityManager as { getEntities: unknown }).getEntities = vi.fn(() =>
+      Effect.succeed([{ entityId: 'entity-1', position: { x: 0, y: 64, z: -2 }, velocity: { x: 0, y: 0, z: 0 }, rotation: {} as THREE.Quaternion, health: 20, type: 'Spider' }])
+    )
+    ;(services.entityManager as { getEntity: unknown }).getEntity = vi.fn(() =>
+      Effect.succeed(Option.some({ entityId: 'entity-1', position: { x: 0, y: 64, z: -2 }, velocity: { x: 0, y: 0, z: 0 }, rotation: {} as THREE.Quaternion, health: 20, type: 'Spider' }))
+    )
+    ;(services.hotbarService as { getSelectedBlockType: unknown }).getSelectedBlockType = vi.fn(() =>
+      Effect.succeed(Option.some('IRON_SWORD'))
+    )
+    ;(services.inventoryService as { getSlot: unknown }).getSlot = vi.fn(() =>
+      Effect.succeed(Option.some({ itemType: 'IRON_SWORD', count: 1, enchantments: [{ type: 'SMITE', level: 5 }] }))
+    )
+    const applyDamageSpy = vi.fn(() => Effect.succeed(Option.none()))
+    ;(services.entityManager as { applyDamage: unknown }).applyDamage = applyDamageSpy
+    yield* runFrame(deps, services)
+    // Spider is not undead → SMITE ignored → IRON_SWORD base 12 only
+    expect(applyDamageSpy.mock.calls[0]?.[1]).toBeCloseTo(12)
+  }))
+
+  it.effect('BANE_OF_ARTHROPODS V applies bonus when hitting Spider', () => Effect.gen(function* () {
+    const deps = yield* makeDeps(false)
+    deps.camera.position.set(0, 0, 0)
+    deps.camera.getWorldDirection = vi.fn((target: THREE.Vector3) => target.set(0, 0, -1))
+    const inputService = makeInputService()
+    ;(inputService as { consumeMouseClick: unknown }).consumeMouseClick = (btn: number) =>
+      Effect.succeed(btn === 0)
+    const services = makeServices({
+      inputService,
+      inventoryRenderer: makeInventoryRenderer({ open: false }),
+      settingsOverlay: makeSettingsOverlay({ open: false }),
+    })
+    ;(services.blockHighlight as { getTargetBlock: unknown }).getTargetBlock = vi.fn(() => Effect.succeed(Option.none()))
+    ;(services.entityManager as { getEntities: unknown }).getEntities = vi.fn(() =>
+      Effect.succeed([{ entityId: 'entity-1', position: { x: 0, y: 64, z: -2 }, velocity: { x: 0, y: 0, z: 0 }, rotation: {} as THREE.Quaternion, health: 20, type: 'Spider' }])
+    )
+    ;(services.entityManager as { getEntity: unknown }).getEntity = vi.fn(() =>
+      Effect.succeed(Option.some({ entityId: 'entity-1', position: { x: 0, y: 64, z: -2 }, velocity: { x: 0, y: 0, z: 0 }, rotation: {} as THREE.Quaternion, health: 20, type: 'Spider' }))
+    )
+    ;(services.hotbarService as { getSelectedBlockType: unknown }).getSelectedBlockType = vi.fn(() =>
+      Effect.succeed(Option.some('IRON_SWORD'))
+    )
+    ;(services.inventoryService as { getSlot: unknown }).getSlot = vi.fn(() =>
+      Effect.succeed(Option.some({ itemType: 'IRON_SWORD', count: 1, enchantments: [{ type: 'BANE_OF_ARTHROPODS', level: 5 }] }))
+    )
+    const applyDamageSpy = vi.fn(() => Effect.succeed(Option.none()))
+    ;(services.entityManager as { applyDamage: unknown }).applyDamage = applyDamageSpy
+    yield* runFrame(deps, services)
+    // IRON_SWORD(12) + BANE_OF_ARTHROPODS V(12.5) = 24.5
+    expect(applyDamageSpy.mock.calls[0]?.[1]).toBeCloseTo(24.5)
+  }))
 })
