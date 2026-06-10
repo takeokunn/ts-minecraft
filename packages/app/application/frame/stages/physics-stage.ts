@@ -30,6 +30,7 @@ export const physicsStage = (
     readonly hungerMaxElementOrNull: HTMLElement | null
     readonly xpLevelElementOrNull: HTMLElement | null
     readonly xpBarElementOrNull: HTMLElement | null
+    readonly xpBarMaxElementOrNull: HTMLElement | null
     readonly armorValueElementOrNull: HTMLElement | null
     readonly airElementOrNull: HTMLElement | null
   },
@@ -357,9 +358,10 @@ export const physicsStage = (
         if (lastXP.level !== xp.level || lastXP.xpIntoLevel !== xp.xpIntoLevel) {
           MutableRef.set(refs.lastXPRef, { level: xp.level, xpIntoLevel: xp.xpIntoLevel, xpRequiredForNext: xp.xpRequiredForNext })
           yield* Effect.sync(() => {
-            /* c8 ignore next 3 */
+            /* c8 ignore next 4 */
             if (inputs.xpLevelElementOrNull) inputs.xpLevelElementOrNull.textContent = String(xp.level)
             if (inputs.xpBarElementOrNull) inputs.xpBarElementOrNull.textContent = String(xp.xpIntoLevel)
+            if (inputs.xpBarMaxElementOrNull) inputs.xpBarMaxElementOrNull.textContent = String(xp.xpRequiredForNext)
           })
         }
 

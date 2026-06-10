@@ -156,6 +156,7 @@ export const runFrameStages = (
           hungerMaxElementOrNull: context.resolved.hungerMaxElementOrNull,
           xpLevelElementOrNull: context.resolved.xpLevelElementOrNull,
           xpBarElementOrNull: context.resolved.xpBarElementOrNull,
+          xpBarMaxElementOrNull: context.resolved.xpBarMaxElementOrNull,
           armorValueElementOrNull: context.resolved.armorValueElementOrNull,
           airElementOrNull: context.resolved.airElementOrNull,
         })

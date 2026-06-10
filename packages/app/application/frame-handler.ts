@@ -151,6 +151,7 @@ const createFrameLoopHandlersInternal = (
       breakProgressElementOrNull: Option.getOrNull(deps.breakProgressElement),
       xpLevelElementOrNull: Option.getOrNull(deps.xpLevelElement),
       xpBarElementOrNull: Option.getOrNull(deps.xpBarElement),
+      xpBarMaxElementOrNull: Option.getOrNull(deps.xpBarMaxElement),
       armorValueElementOrNull: Option.getOrNull(deps.armorValueElement),
       gtaoPassOrNull: Option.getOrNull(deps.gtaoPass),
       bloomPassOrNull: Option.getOrNull(deps.bloomPass),

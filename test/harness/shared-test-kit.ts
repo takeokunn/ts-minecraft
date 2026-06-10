@@ -101,6 +101,7 @@ export const makeDeps = (paused = false, withComposer = false): Effect.Effect<Fr
       hungerMaxElement: Option.none(),
       xpLevelElement: Option.none(),
       xpBarElement: Option.none(),
+      xpBarMaxElement: Option.none(),
       armorValueElement: Option.none(),
       airElement: Option.none(),
       breakProgressElement: Option.none(),

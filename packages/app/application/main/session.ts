@@ -250,7 +250,7 @@ export const sessionProgram = (
     const pendingSaveDirtyChunksRef = MutableRef.make(false)
 
     // FPS + health + hunger + XP + armor DOM elements (resolved once at session start; pre-cached for HUD).
-    const { fpsElement, healthValueElement, healthMaxElement, hungerValueElement, hungerMaxElement, xpLevelElement, xpBarElement, armorValueElement, airElement, breakProgressElement } = yield* Effect.sync(() => ({
+    const { fpsElement, healthValueElement, healthMaxElement, hungerValueElement, hungerMaxElement, xpLevelElement, xpBarElement, xpBarMaxElement, armorValueElement, airElement, breakProgressElement } = yield* Effect.sync(() => ({
       fpsElement: document.getElementById('fps-value'),
       healthValueElement: document.getElementById('health-value'),
       healthMaxElement: document.getElementById('health-max'),
@@ -258,6 +258,7 @@ export const sessionProgram = (
       hungerMaxElement: document.getElementById('hunger-max'),
       xpLevelElement: document.getElementById('xp-level'),
       xpBarElement: document.getElementById('xp-bar'),
+      xpBarMaxElement: document.getElementById('xp-bar-max'),
       armorValueElement: document.getElementById('armor-value'),
       airElement: document.getElementById('air-display'),
       breakProgressElement: document.getElementById('break-progress'),
@@ -271,7 +272,7 @@ export const sessionProgram = (
       {
         renderer, scene, camera, composerRT, composer,
         gtaoPass, bloomPass, bokehPass, godRaysPass, smaaPass,
-        lighting, fpsElement, healthValueElement, healthMaxElement, hungerValueElement, hungerMaxElement, xpLevelElement, xpBarElement, armorValueElement, airElement, breakProgressElement,
+        lighting, fpsElement, healthValueElement, healthMaxElement, hungerValueElement, hungerMaxElement, xpLevelElement, xpBarElement, xpBarMaxElement, armorValueElement, airElement, breakProgressElement,
         control, gamePausedRef, respawnPositionRef,
         pendingResizeRef, pendingSaveDirtyChunksRef, persistSessionState,
         deathScreen, debugOverlay, biomeService, recipeService,

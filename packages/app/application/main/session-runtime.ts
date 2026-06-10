@@ -51,6 +51,7 @@ export type SessionRuntimeParams = {
   readonly hungerMaxElement: HTMLElement | null
   readonly xpLevelElement: HTMLElement | null
   readonly xpBarElement: HTMLElement | null
+  readonly xpBarMaxElement: HTMLElement | null
   readonly armorValueElement: HTMLElement | null
   readonly airElement: HTMLElement | null
   readonly breakProgressElement: HTMLElement | null
@@ -93,6 +94,7 @@ const assembleFrameHandlerDeps = (p: SessionRuntimeParams): FrameHandlerDeps => 
     hungerMaxElement: Option.fromNullable(p.hungerMaxElement),
     xpLevelElement: Option.fromNullable(p.xpLevelElement),
     xpBarElement: Option.fromNullable(p.xpBarElement),
+    xpBarMaxElement: Option.fromNullable(p.xpBarMaxElement),
     armorValueElement: Option.fromNullable(p.armorValueElement),
     airElement: Option.fromNullable(p.airElement),
     breakProgressElement: Option.fromNullable(p.breakProgressElement),

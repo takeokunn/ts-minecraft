@@ -64,6 +64,7 @@ export type FrameHandlerDeps = {
   readonly hungerMaxElement: Option.Option<HTMLElement>
   readonly xpLevelElement: Option.Option<HTMLElement>
   readonly xpBarElement: Option.Option<HTMLElement>
+  readonly xpBarMaxElement: Option.Option<HTMLElement>
   readonly armorValueElement: Option.Option<HTMLElement>
   readonly airElement: Option.Option<HTMLElement>
   readonly breakProgressElement: Option.Option<HTMLElement>
@@ -192,6 +193,7 @@ export type ResolvedDeps = {
   readonly breakProgressElementOrNull: HTMLElement | null
   readonly xpLevelElementOrNull: HTMLElement | null
   readonly xpBarElementOrNull: HTMLElement | null
+  readonly xpBarMaxElementOrNull: HTMLElement | null
   readonly armorValueElementOrNull: HTMLElement | null
   readonly gtaoPassOrNull: GTAOPass | null
   readonly bloomPassOrNull: UnrealBloomPass | null
