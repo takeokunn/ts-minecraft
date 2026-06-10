@@ -250,6 +250,34 @@ typecheck 0 errors; lint 0/0; **4508 tests passing** (+13 new; commit `0304008b`
   crack animation. Visual feedback is the progress bar only.
 - Baby mob visual differentiation — cosmetic, deferred from R11d.
 
+## Q. Round 14 (2026-06-10) — tool pre-check UX fix + crop growth persistence
+
+**Gaps fixed**:
+
+**1. Tool-requirement pre-check before break progress**
+- When a player held left-click on a pickaxe-required block (STONE, ores, OBSIDIAN) without a pickaxe, the
+  progress bar would fill to 100% over 1–4 seconds, then `breakBlock` would fail silently (caught by
+  `logErrors`), the bar would reset, and the block would stay. Confusing UX.
+- `canHarvestBlock` was already correct in `block-utils.ts` but not exported from `@ts-minecraft/world`.
+- Fix: export `canHarvestBlock` from `packages/world/index.ts`; in `handleBlockBreakProgress` call it
+  immediately after resolving `blockType` — if it returns false, reset `breakProgressRef`, hide the HUD
+  bar, and return. The player sees no bar at all (correct: they need a pickaxe first).
+
+**2. Crop growth persistence across world save/load**
+- `CropGrowthService` stored ages in `Ref<HashMap>` (in-memory only). After save/load, all tracked crops
+  reset — freshly-planted seedlings appeared ripe (untracked = treated as mature by `harvest()`).
+- `WorldMetadataSchema.playerState` gains optional `cropAges: Record<string, number>` (back-compat: old
+  saves decode without the field, treated as empty map).
+- `CropGrowthService` gains `serialize(): Effect<Record<string,number>>` (HashMap → plain object via
+  iterable) and `restore(ages): Effect<void>` (plain object → HashMap via `HashMap.fromIterable`).
+- `session-save.ts` saves `cropAges` and restores it; `session.ts` passes `cropGrowthService` to both
+  `buildPersistSessionState` and `restoreSavedState`.
+
+**New tests**: 8 crop-growth-service (serialize/restore round-trips), 2 session-save (cropAges saved and
+restored correctly). 10 total new.
+
+typecheck 0 errors; **370 test files, 4518 passing** (+10 new; commit `187fe2f0`). _(done 2026-06-10)_
+
 ## D. Progress log
 - 2026-06-10: Audit complete; plan authored. Beginning Phase 1.
 - 2026-06-10: **ALL TASKS COMPLETE.** Phase 1 (T1-T4 verified hot-path allocs), Phase 2
