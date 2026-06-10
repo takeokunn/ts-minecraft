@@ -763,4 +763,37 @@ describe('entity/entityManager', () => {
       }).pipe(Effect.provide(EntityManagerLive))
     )
   })
+
+  describe('breeding (R6c-4b)', () => {
+    it.effect('two fed same-species adults breed → a baby spawns; parents go on cooldown', () =>
+      Effect.gen(function* () {
+        const em = yield* EntityManager
+        const a = yield* em.addEntity(EntityType.Cow, { x: 0, y: 64, z: 0 })
+        const b = yield* em.addEntity(EntityType.Cow, { x: 1, y: 64, z: 0 }) // within BREED_RANGE
+        expect(yield* em.feedEntity(a)).toBe(true)
+        expect(yield* em.feedEntity(b)).toBe(true)
+        expect(yield* em.getCount()).toBe(2)
+
+        // One update tick: AI runs, then the breeding pass pairs the two and spawns a baby.
+        yield* em.update(DeltaTimeSecs.make(0.05), { x: 1000, y: 64, z: 1000 })
+
+        expect(yield* em.getCount()).toBe(3) // calf spawned
+        // Parents are now on post-breed cooldown — feeding again is a no-op.
+        expect(yield* em.feedEntity(a)).toBe(false)
+        expect(yield* em.feedEntity(b)).toBe(false)
+      }).pipe(Effect.provide(EntityManagerLive))
+    )
+
+    it.effect('two in-love animals of DIFFERENT species do not breed', () =>
+      Effect.gen(function* () {
+        const em = yield* EntityManager
+        const cow = yield* em.addEntity(EntityType.Cow, { x: 0, y: 64, z: 0 })
+        const pig = yield* em.addEntity(EntityType.Pig, { x: 1, y: 64, z: 0 })
+        yield* em.feedEntity(cow)
+        yield* em.feedEntity(pig)
+        yield* em.update(DeltaTimeSecs.make(0.05), { x: 1000, y: 64, z: 1000 })
+        expect(yield* em.getCount()).toBe(2) // no baby — mismatched species
+      }).pipe(Effect.provide(EntityManagerLive))
+    )
+  })
 })

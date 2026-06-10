@@ -9,10 +9,10 @@ import {
   type EntityType,
 } from '../../domain/mob/entity'
 import { getMobDefinition } from '../../domain/mob/mobs'
-import type { Position } from '@ts-minecraft/core'
+import type { Position, DeltaTimeSecs } from '@ts-minecraft/core'
 import { zero } from '@ts-minecraft/core'
 import { type ManagedEntity } from '../../domain/mob/entity-internal'
-import { BABY_GROW_TICKS } from '../../domain/mob/breeding'
+import { BABY_GROW_TICKS, findBreedingPairs, afterBreedingParentState } from '../../domain/mob/breeding'
 import { AIState } from '../../domain/mob/state-machine'
 import { makeEntityManagerInternal } from './entity-manager-internal'
 import { makeEntityManagerUpdate } from './entity-manager-internal-update'
@@ -31,11 +31,13 @@ export class EntityManager extends Effect.Service<EntityManager>()(
       const internal = makeEntityManagerInternal(entitiesRef, cachedEntitiesRef, structureVersionRef)
       const updateModule = makeEntityManagerUpdate(entitiesRef, updateTickRef, cachedEntitiesRef, structureVersionRef)
 
-      return {
-        addEntity: (
-          type: EntityType,
-          position: Position,
-        ): Effect.Effect<EntityIdType, never> =>
+      // Hoisted so the breeding pass (update override below) can spawn babies.
+      // ageTicks defaults to adult; breeding passes 0 for a newborn.
+      const spawnEntity = (
+        type: EntityType,
+        position: Position,
+        ageTicks: number = BABY_GROW_TICKS,
+      ): Effect.Effect<EntityIdType, never> =>
           Effect.gen(function* () {
             const definition = getMobDefinition(type)
             const entityId = yield* Ref.modify(nextEntityNumberRef, (next): [EntityIdType, number] => [
@@ -68,7 +70,7 @@ export class EntityManager extends Effect.Service<EntityManager>()(
               // Naturally-spawned mobs are adults; breeding spawns babies (ageTicks 0) in R6c-4.
               loveTicksRemaining: 0,
               breedCooldownRemaining: 0,
-              ageTicks: BABY_GROW_TICKS,
+              ageTicks,
             }
 
             yield* Ref.update(entitiesRef, (entities) =>
@@ -78,7 +80,10 @@ export class EntityManager extends Effect.Service<EntityManager>()(
             yield* Ref.update(structureVersionRef, (version) => version + 1)
 
             return entityId
-          }),
+          })
+
+      return {
+        addEntity: spawnEntity,
 
         removeEntity: (entityId: EntityIdType): Effect.Effect<boolean, never> =>
           Ref.modify(entitiesRef, (entities): [boolean, HashMap.HashMap<EntityIdType, ManagedEntity>] =>
@@ -129,6 +134,37 @@ export class EntityManager extends Effect.Service<EntityManager>()(
 
         ...internal,
         ...updateModule,
+
+        // R6c-4b: after the AI tick, breed same-species in-love adult pairs within
+        // range — spawn a baby (ageTicks 0) at the midpoint and put both parents on
+        // post-breed cooldown. Overrides updateModule.update (spread just above).
+        update: (deltaTime: DeltaTimeSecs, playerPosition: Position, isNight: boolean = true): Effect.Effect<void, never> =>
+          Effect.gen(function* () {
+            yield* updateModule.update(deltaTime, playerPosition, isNight)
+
+            const entities = yield* Ref.get(entitiesRef)
+            const candidates: Array<{ id: EntityIdType; type: EntityType; position: Position }> = []
+            for (const [id, e] of entities) {
+              if (e.loveTicksRemaining > 0 && e.ageTicks >= BABY_GROW_TICKS) {
+                candidates.push({ id, type: e.type, position: e.position })
+              }
+            }
+            if (candidates.length < 2) return // common case: no one in love → cheap exit
+
+            yield* Effect.forEach(
+              findBreedingPairs(candidates),
+              (pair) =>
+                Ref.update(entitiesRef, (es) => {
+                  const reset = (m: HashMap.HashMap<EntityIdType, ManagedEntity>, pid: EntityIdType) =>
+                    Option.match(HashMap.get(m, pid), {
+                      onNone: () => m,
+                      onSome: (parent) => HashMap.set(m, pid, { ...parent, ...afterBreedingParentState() }),
+                    })
+                  return reset(reset(es, pair.parentA), pair.parentB)
+                }).pipe(Effect.andThen(spawnEntity(pair.type, pair.babyPosition, 0))),
+              { discard: true },
+            ).pipe(Effect.andThen(Ref.set(cachedEntitiesRef, Option.none())))
+          }),
       }
     })),
   },
