@@ -14,7 +14,7 @@ import { interactionStage } from '@ts-minecraft/app/frame/stages/interaction-sta
 import { refractionPrepassStage, postProcessingSetupStage } from '@ts-minecraft/app/frame/stages/post-processing-stage'
 import { renderStage } from '@ts-minecraft/app/frame/stages/render-stage'
 import { hudStage } from '@ts-minecraft/app/frame/stages/hud-stage'
-import { multiplayerStage } from '@ts-minecraft/app/frame/stages/multiplayer-stage'
+import { multiplayerStage, applyInboundBlockEdits } from '@ts-minecraft/app/frame/stages/multiplayer-stage'
 
 export type FrameStageExecutorContext = {
   readonly resolved: ResolvedDeps
@@ -166,7 +166,7 @@ export const runFrameStages = (
       playerPos,
     })
 
-    // Multiplayer position sync (if service is wired)
+    // Multiplayer position sync + inbound block-edit application (if service is wired)
     yield* Option.match(services.multiplayer, {
       onNone: () => Effect.void,
       onSome: (mp) =>
@@ -174,6 +174,8 @@ export const runFrameStages = (
           Effect.flatMap((rotation) =>
             multiplayerStage(mp, playerPos, rotation.yaw, rotation.pitch),
           ),
+          // FR-3: apply block edits broadcast by other players to the local world.
+          Effect.andThen(applyInboundBlockEdits(mp, services, refs.dirtyChunksRef)),
           Effect.catchAll(() => Effect.void),
         ),
     })
