@@ -52,15 +52,22 @@ const refreshChunkCache = (
     yield* Ref.set(lastChunkCoordRef, { cx: playerCx, cz: playerCz })
   })
 
-// Apply water drag: dampens velocity 60% and caps downward terminal velocity at -2 m/s.
+// Upward velocity while holding JUMP underwater (FR-2 swim-up). Gentle, so the
+// player rises steadily rather than launching out of the water.
+const SWIM_UP_SPEED = 3
+
+// Apply water drag: dampens velocity 60% and caps downward terminal velocity at
+// -2 m/s. When `swimUp` (JUMP held underwater), replace the sinking Y with a
+// steady upward swim instead.
 const applyWaterDrag = (
   physicsService: PhysicsService,
   playerBodyId: PhysicsBodyId,
   resolvedVel: { x: number; y: number; z: number },
+  swimUp: boolean,
 ): Effect.Effect<void, never> =>
   physicsService.setVelocity(playerBodyId, {
     x: resolvedVel.x * 0.4,
-    y: Math.max(resolvedVel.y * 0.4, -2),
+    y: swimUp ? SWIM_UP_SPEED : Math.max(resolvedVel.y * 0.4, -2),
     z: resolvedVel.z * 0.4,
   }).pipe(Effect.catchTag('PhysicsServiceError', () => Effect.void))
 
@@ -218,9 +225,11 @@ export class GameStateService extends Effect.Service<GameStateService>()(
             )
             yield* Ref.set(isGroundedRef, newIsGrounded)
 
-            // Apply water drag when player is inside a water block.
+            // Apply water drag when player is inside a water block. Holding JUMP
+            // (and not flying) swims upward (FR-2 swim-up).
             if (isInWater(resolvedPos.x, resolvedPos.y, resolvedPos.z, chunkCache, playerCx, playerCz)) {
-              yield* applyWaterDrag(physicsService, playerBodyId, resolvedVel)
+              const swimUp = !flying && (yield* inputService.isKeyPressed(KeyMappings.JUMP))
+              yield* applyWaterDrag(physicsService, playerBodyId, resolvedVel, swimUp)
             }
 
             yield* playerService.updatePosition(playerId, resolvedPos as Position)
