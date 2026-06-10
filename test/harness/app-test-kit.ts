@@ -62,7 +62,7 @@ export const makeInputService = (pressedKeys: MutableHashSet.MutableHashSet<stri
     return false
   }),
   consumeMouseClick: (_btn: number) => Effect.succeed(false),
-  isKeyPressed: (_key: string) => Effect.succeed(false),
+  isKeyPressed: (key: string) => Effect.succeed(MutableHashSet.has(pressedKeys, key)),
   getMouseDelta: () => Effect.succeed({ x: 0, y: 0 }),
   isMouseDown: (_btn: number) => Effect.succeed(false),
   requestPointerLock: () => Effect.void,

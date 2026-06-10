@@ -515,6 +515,19 @@ typecheck 0, **4587 tests passing** (+3 enchant tests).
 **Round 26 complete.** R56-R58.
 typecheck 0, **4601 tests passing** (+14 new tests).
 
+## AC. Round 27 (2026-06-11) — sprint vs walk exhaustion differentiation (R59)
+
+- [x] R59. Walking no longer drains hunger at sprint rate — `EXHAUSTION_WALK_PER_BLOCK=0.01`
+  added to `hunger-service.config.ts`; `physicsStage` now reads `inputService.isKeyPressed`
+  for `ControlLeft/Right` + `KeyW` + `ShiftLeft` to detect sprint/sneak; walk=0.01/block,
+  sprint=0.1/block (10×), sneak=0 (no exhaustion) — matching Minecraft Java Edition.
+  `makeInputService.isKeyPressed` fixed to actually check `pressedKeys` set (was always false).
+  +2 new tests (sprint rate, sneak=no exhaustion); existing walk-exhaustion test updated.
+  _(done 2026-06-11)_
+
+**Round 27 complete.** R59.
+typecheck 0, **4601 tests passing** (+2 new tests, 1 updated assertion).
+
 ## D. Progress log
 - 2026-06-10: Audit complete; plan authored. Beginning Phase 1.
 - 2026-06-10: **ALL TASKS COMPLETE.** Phase 1 (T1-T4 verified hot-path allocs), Phase 2

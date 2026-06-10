@@ -3,9 +3,10 @@ import { logErrors } from '@ts-minecraft/app/frame/error-logging'
 import type { FrameHandlerDeps, FrameHandlerServices, FrameStageRefs } from '@ts-minecraft/app/frame/types'
 import { applyArmorReduction } from '@ts-minecraft/entity'
 import { DEFAULT_PLAYER_ID, CHUNK_SIZE, CHUNK_HEIGHT, indexToBlockType, SlotIndex } from '@ts-minecraft/core'
+import { KeyMappings } from '@ts-minecraft/entity'
 import { HOTBAR_START, getFeatherFallingReduction, getFireProtectionReduction, getRespirationBonusSecs } from '@ts-minecraft/inventory'
 import type { DeltaTimeSecs, Position } from '@ts-minecraft/core'
-import { EXHAUSTION_SPRINT_PER_BLOCK, EXHAUSTION_JUMP, EXHAUSTION_DAMAGE, MAX_FOOD_LEVEL } from '@ts-minecraft/entity'
+import { EXHAUSTION_WALK_PER_BLOCK, EXHAUSTION_SPRINT_PER_BLOCK, EXHAUSTION_JUMP, EXHAUSTION_DAMAGE, MAX_FOOD_LEVEL } from '@ts-minecraft/entity'
 import { accrueHazardTicks, nextAirSecs, LAVA_DAMAGE, LAVA_DAMAGE_INTERVAL_SECS, DROWN_DAMAGE, DROWN_DAMAGE_INTERVAL_SECS, MAX_AIR_SECS } from '@ts-minecraft/entity'
 import { EYE_LEVEL_OFFSET } from '@ts-minecraft/app/frame-handler.config'
 import { resolveNetherTravel, type Dimension } from '@ts-minecraft/world'
@@ -17,7 +18,7 @@ export const physicsStage = (
   deps: Pick<FrameHandlerDeps, 'respawnPositionRef'>,
   services: Pick<
     FrameHandlerServices,
-    'gameState' | 'healthService' | 'hungerService' | 'xpService' | 'equipmentService' | 'fishingService' | 'inventoryService' | 'hotbarService' | 'soundManager' | 'entityManager' | 'gameMode' | 'debugFeatureFlags' | 'chunkManagerService' | 'netherService' | 'blockService'
+    'gameState' | 'healthService' | 'hungerService' | 'xpService' | 'equipmentService' | 'fishingService' | 'inventoryService' | 'hotbarService' | 'soundManager' | 'entityManager' | 'gameMode' | 'debugFeatureFlags' | 'chunkManagerService' | 'netherService' | 'blockService' | 'inputService'
   >,
   refs: Pick<FrameStageRefs, 'lastHealthRef' | 'lastHungerRef' | 'lastXPRef' | 'lastArmorRef' | 'portalSecsRef' | 'dirtyChunksRef' | 'lavaDamageSecsRef' | 'airSecsRef' | 'drownDamageSecsRef' | 'lastAirBubblesRef' | 'isShieldBlockingRef' | 'wasGroundedRef'>,
   inputs: {
@@ -182,7 +183,21 @@ export const physicsStage = (
           const dz = refreshedPos.z - inputs.initialPlayerPos.z
           const distanceMoved = Math.hypot(dx, dz)
           if (distanceMoved > 0) {
-            yield* services.hungerService.addExhaustion(distanceMoved * EXHAUSTION_SPRINT_PER_BLOCK)
+            // Sprint/sneak detection mirrors camera-stage: Ctrl + forward + !sneak.
+            // Walk = 0.01/block, sprint = 0.1/block (vanilla Java Edition).
+            // Sneaking accrues no exhaustion (vanilla).
+            const [ctrlL, ctrlR, forward, sneak] = yield* Effect.all([
+              services.inputService.isKeyPressed('ControlLeft'),
+              services.inputService.isKeyPressed('ControlRight'),
+              services.inputService.isKeyPressed(KeyMappings.MOVE_FORWARD),
+              services.inputService.isKeyPressed(KeyMappings.SNEAK),
+            ], { concurrency: 'unbounded' })
+            const isSprinting = (ctrlL || ctrlR) && forward && !sneak
+            const isSneaking = sneak
+            if (!isSneaking) {
+              const rate = isSprinting ? EXHAUSTION_SPRINT_PER_BLOCK : EXHAUSTION_WALK_PER_BLOCK
+              yield* services.hungerService.addExhaustion(distanceMoved * rate)
+            }
           }
           // Jump exhaustion: transitioning from grounded to airborne costs EXHAUSTION_JUMP (0.05).
           // Creative players are immune (vanilla).

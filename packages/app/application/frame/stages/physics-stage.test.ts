@@ -1,6 +1,6 @@
 import { describe, it } from '@effect/vitest'
 import { expect, vi } from 'vitest'
-import { Effect, MutableRef, Option } from 'effect'
+import { Effect, MutableHashSet, MutableRef, Option } from 'effect'
 import { createFrameHandlers } from '@ts-minecraft/app'
 import { CHUNK_SIZE, CHUNK_HEIGHT, blockTypeToIndex } from '@ts-minecraft/core'
 import type { DeltaTimeSecs } from '@ts-minecraft/core'
@@ -455,8 +455,56 @@ describe('step 3.5 — fall damage', () => {
     yield* runFrame(deps, services)
 
     expect(addExhaustionSpy).toHaveBeenCalledOnce()
-    // distance=5, EXHAUSTION_SPRINT_PER_BLOCK=0.1 → 0.5
+    // distance=5, no keys pressed → walk rate 0.01/block → 0.05
+    expect(addExhaustionSpy.mock.calls[0]?.[0]).toBeCloseTo(0.05, 5)
+  }))
+
+  it.effect('accrues hunger exhaustion at sprint rate when sprinting (R59)', () => Effect.gen(function* () {
+    const deps = yield* makeDeps(false)
+    // Ctrl + forward held, no sneak → sprinting
+    const pressedKeys = MutableHashSet.fromIterable(['ControlLeft', 'KeyW'])
+    const services = makeServices({
+      inputService: makeInputService(pressedKeys),
+      inventoryRenderer: makeInventoryRenderer({ open: false }),
+      settingsOverlay: makeSettingsOverlay({ open: false }),
+    })
+    let posCallCount = 0
+    ;(services.gameState as { getPlayerPosition: unknown }).getPlayerPosition = vi.fn(() => {
+      posCallCount++
+      if (posCallCount < 3) return Effect.succeed({ x: 0, y: 64, z: 0 })
+      return Effect.succeed({ x: 3, y: 64, z: 4 })
+    })
+    const addExhaustionSpy = vi.fn(() => Effect.void)
+    ;(services.hungerService as { addExhaustion: unknown }).addExhaustion = addExhaustionSpy
+
+    yield* runFrame(deps, services)
+
+    expect(addExhaustionSpy).toHaveBeenCalledOnce()
+    // distance=5, sprinting → sprint rate 0.1/block → 0.5
     expect(addExhaustionSpy.mock.calls[0]?.[0]).toBeCloseTo(0.5, 5)
+  }))
+
+  it.effect('accrues no hunger exhaustion while sneaking (R59)', () => Effect.gen(function* () {
+    const deps = yield* makeDeps(false)
+    const pressedKeys = MutableHashSet.fromIterable(['ShiftLeft'])
+    const services = makeServices({
+      inputService: makeInputService(pressedKeys),
+      inventoryRenderer: makeInventoryRenderer({ open: false }),
+      settingsOverlay: makeSettingsOverlay({ open: false }),
+    })
+    let posCallCount = 0
+    ;(services.gameState as { getPlayerPosition: unknown }).getPlayerPosition = vi.fn(() => {
+      posCallCount++
+      if (posCallCount < 3) return Effect.succeed({ x: 0, y: 64, z: 0 })
+      return Effect.succeed({ x: 3, y: 64, z: 4 })
+    })
+    const addExhaustionSpy = vi.fn(() => Effect.void)
+    ;(services.hungerService as { addExhaustion: unknown }).addExhaustion = addExhaustionSpy
+
+    yield* runFrame(deps, services)
+
+    // Sneak = no exhaustion accrued from movement
+    expect(addExhaustionSpy).not.toHaveBeenCalled()
   }))
 })
 

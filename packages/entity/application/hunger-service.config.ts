@@ -17,6 +17,7 @@ export const FOOD_TICK_INTERVAL = 80
 export const REGEN_FOOD_THRESHOLD = 18
 
 // Exhaustion costs (Minecraft Java Edition, per action / per block travelled).
+export const EXHAUSTION_WALK_PER_BLOCK = 0.01
 export const EXHAUSTION_SPRINT_PER_BLOCK = 0.1
 export const EXHAUSTION_JUMP = 0.05
 export const EXHAUSTION_SPRINT_JUMP = 0.2
