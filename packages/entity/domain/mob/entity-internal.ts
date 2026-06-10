@@ -31,4 +31,7 @@ export type ManagedEntity = Entity & {
   readonly loveTicksRemaining: number
   readonly breedCooldownRemaining: number
   readonly ageTicks: number
+  // Shearing (FR R11 — see domain/mob/shearing.ts): 0 = woolly/shearable,
+  // > 0 = sheared and counting down to wool regrowth. Sheep-only in practice.
+  readonly woolRegrowthTicks: number
 }

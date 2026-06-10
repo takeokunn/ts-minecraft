@@ -3,6 +3,7 @@ import { AIState, computeStateVelocity, distanceToPlayerSq, resolveAIState } fro
 import { EntityType, type Entity, type EntityId } from '../../domain/mob/entity'
 import { tickCreeperFuse } from '../../domain/mob/creeper-fuse'
 import { tickBreedingTimers } from '../../domain/mob/breeding'
+import { tickWoolRegrowth } from '../../domain/mob/shearing'
 import {
   TELEPORT_ATTEMPTS,
   computeEndermanTeleportTarget,
@@ -183,6 +184,19 @@ export const makeEntityManagerUpdate = (
           ).state.fuseSecs
           return nextFuse === entity.fuseSecs ? entity : { ...entity, fuseSecs: nextFuse }
         })
+      )
+
+      // FR R11: regrow sheared sheep's wool — count the regrowth timer down to 0.
+      // Returns the entity unchanged once woolly (timer at 0), so a flock of woolly
+      // sheep adds no churn; only freshly-sheared sheep mutate. `woolRegrowthTicks`
+      // is NOT in the public Entity projection, so this needs no cache invalidation
+      // (same reasoning as the creeper-fuse pass above).
+      yield* Ref.update(entitiesRef, (entities) =>
+        HashMap.map(entities, (entity) =>
+          entity.woolRegrowthTicks > 0
+            ? { ...entity, woolRegrowthTicks: tickWoolRegrowth(entity.woolRegrowthTicks) }
+            : entity
+        )
       )
 
       if (daytimeBurningActive) {

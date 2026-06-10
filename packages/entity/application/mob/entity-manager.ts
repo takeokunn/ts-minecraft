@@ -72,6 +72,8 @@ export class EntityManager extends Effect.Service<EntityManager>()(
               loveTicksRemaining: 0,
               breedCooldownRemaining: 0,
               ageTicks,
+              // FR R11: freshly spawned mobs are woolly (sheep) / irrelevant (others).
+              woolRegrowthTicks: 0,
             }
 
             yield* Ref.update(entitiesRef, (entities) =>

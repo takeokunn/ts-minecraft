@@ -10,6 +10,7 @@ import type { Position, Vector3 } from '@ts-minecraft/core'
 import { HOSTILE_ATTACK_COOLDOWN_SECS, type ManagedEntity } from '../../domain/mob/entity-internal'
 import { KNOCKBACK_DURATION_TICKS } from '../../domain/combat'
 import { LOVE_DURATION_TICKS, canAcceptBreedingFood, isBaby, acceleratedBabyAge } from '../../domain/mob/breeding'
+import { WOOL_REGROWTH_TICKS, canBeSheared, shearWoolCount } from '../../domain/mob/shearing'
 import { computeExplosionDamageAt, CREEPER_EXPLOSION_POWER } from '../../domain/explosion'
 import { CREEPER_FUSE_SECONDS } from '../../domain/mob/creeper-fuse'
 import { shouldDespawnEntity } from '../../domain/mob/entity-manager-utils'
@@ -216,4 +217,24 @@ export const makeEntityManagerInternal = (
         },
       }),
     ).pipe(Effect.tap((fed) => (fed ? Ref.set(cachedEntitiesRef, Option.none()) : Effect.void))),
+
+  // FR R11: shear a sheep. Returns Some(woolCount) and starts the regrowth timer only
+  // for a woolly sheep (type Sheep, regrowth at 0); None otherwise (wrong species, or
+  // already sheared). The caller checks the held item is SHEARS before invoking this.
+  shearEntity: (entityId: EntityId): Effect.Effect<Option.Option<number>, never> =>
+    Ref.modify(entitiesRef, (entities): [Option.Option<number>, HashMap.HashMap<EntityId, ManagedEntity>] =>
+      Option.match(HashMap.get(entities, entityId), {
+        onNone: () => [Option.none(), entities],
+        onSome: (entity) => {
+          if (entity.type !== EntityType.Sheep || !canBeSheared(entity.woolRegrowthTicks)) {
+            return [Option.none(), entities]
+          }
+          const count = shearWoolCount(hashEntityId(entityId))
+          return [
+            Option.some(count),
+            HashMap.set(entities, entityId, { ...entity, woolRegrowthTicks: WOOL_REGROWTH_TICKS }),
+          ]
+        },
+      }),
+    ).pipe(Effect.tap((res) => (Option.isSome(res) ? Ref.set(cachedEntitiesRef, Option.none()) : Effect.void))),
 })
