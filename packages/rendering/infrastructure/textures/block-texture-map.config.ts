@@ -9,6 +9,7 @@
 //   27-33: deepslate ores (same order)
 //   34-40: blocks (coal, iron, gold, diamond, redstone, lapis, emerald)
 //   41-45: planks, sticks (item-only atlas tile), crafting table, furnace, torch
+//   63-92: end/nether/decorative block texture tiles
 // TILE_MAP is indexed by BlockType storage id only. Inventory-only atlas tiles
 // such as sticks are not valid block ids and must not be inserted here.
 export type TextureFaceDir = 'top' | 'bottom' | 'side'
@@ -58,33 +59,32 @@ export const TILE_MAP: ReadonlyArray<Readonly<Record<TextureFaceDir, number>>> =
   { top: 43, bottom: 43, side: 43 }, // 41: CRAFTING_TABLE
   { top: 44, bottom: 44, side: 44 }, // 42: FURNACE
   { top: 45, bottom: 45, side: 45 }, // 43: TORCH
-  { top: 18, bottom: 18, side: 18 }, // 44: NETHERRACK (LAVA tile — reddish placeholder)
-  { top: 19, bottom: 19, side: 19 }, // 45: NETHER_PORTAL (OBSIDIAN tile — dark placeholder)
-  { top: 11, bottom: 0,  side: 0  }, // 46: FARMLAND (gravel-top to signal tilled dirt)
-  { top: 4,  bottom: 4,  side: 4  }, // 47: WHEAT_CROP (grass_top tile as green crop placeholder)
-  // Redstone components — reuse existing tiles until dedicated sprites are added
-  { top: 38, bottom: 38, side: 38 }, // 48: REDSTONE_WIRE (REDSTONE_BLOCK tile — red indicator)
-  { top: 45, bottom: 45, side: 45 }, // 49: REDSTONE_TORCH (TORCH tile — placeholder)
-  { top: 1,  bottom: 1,  side: 1  }, // 50: LEVER (STONE tile — stone base)
-  { top: 1,  bottom: 1,  side: 1  }, // 51: STONE_BUTTON (STONE tile)
-  { top: 12, bottom: 12, side: 12 }, // 52: REPEATER (COBBLESTONE tile — stone slab placeholder)
-  { top: 41, bottom: 41, side: 41 }, // 53: BED (PLANKS tile — wood-coloured placeholder)
-  { top: 39, bottom: 41, side: 19 }, // 54: ENCHANTING_TABLE (EMERALD_BLOCK top, PLANKS bottom, OBSIDIAN side)
-  { top: 3,  bottom: 3,  side: 3  }, // 55: END_STONE (WOOD tile — pale yellow placeholder)
-  { top: 39, bottom: 39, side: 39 }, // 56: END_PORTAL_FRAME (EMERALD_BLOCK tile — green mystical)
-  { top: 4,  bottom: 4,  side: 4  }, // 57: END_PORTAL (GRASS_TOP tile — will appear as swirling green void)
-  { top: 4,  bottom: 4,  side: 38 }, // 58: TNT (red REDSTONE_BLOCK sides, GRASS_TOP for top/bottom placeholder)
-  { top: 4,  bottom: 4,  side: 4  }, // 59: CHORUS_FLOWER (GRASS_TOP placeholder)
-  { top: 4,  bottom: 4,  side: 4  }, // 60: CHORUS_PLANT (GRASS_TOP placeholder)
-  { top: 19, bottom: 19, side: 19 }, // 61: DRAGON_EGG (OBSIDIAN placeholder)
-  { top: 39, bottom: 39, side: 39 }, // 62: END_CRYSTAL (EMERALD_BLOCK placeholder)
-  { top: 4,  bottom: 4,  side: 4  }, // 63: END_GATEWAY (GRASS_TOP portal placeholder)
-  { top: 45, bottom: 45, side: 45 }, // 64: END_ROD (TORCH placeholder)
-  { top: 1,  bottom: 1,  side: 1  }, // 65: END_STONE_BRICKS (STONE placeholder)
-  { top: 19, bottom: 19, side: 39 }, // 66: ENDER_CHEST (OBSIDIAN/EMERALD placeholder)
-  { top: 41, bottom: 41, side: 41 }, // 67: PURPUR_BLOCK (PLANKS placeholder)
-  { top: 3,  bottom: 3,  side: 2  }, // 68: PURPUR_PILLAR (WOOD placeholder)
-  { top: 41, bottom: 41, side: 41 }, // 69: PURPUR_SLAB (PLANKS placeholder)
-  { top: 41, bottom: 41, side: 41 }, // 70: PURPUR_STAIRS (PLANKS placeholder)
-  { top: 39, bottom: 39, side: 39 }, // 71: SHULKER_BOX (EMERALD_BLOCK placeholder)
+  { top: 63, bottom: 63, side: 63 }, // 44: NETHERRACK
+  { top: 86, bottom: 86, side: 86 }, // 45: NETHER_PORTAL
+  { top: 84, bottom: 0,  side: 0  }, // 46: FARMLAND
+  { top: 85, bottom: 85, side: 85 }, // 47: WHEAT_CROP
+  { top: 100, bottom: 100, side: 100 }, // 48: REDSTONE_WIRE
+  { top: 87, bottom: 87, side: 87 }, // 49: REDSTONE_TORCH
+  { top: 88, bottom: 88, side: 88 }, // 50: LEVER
+  { top: 89, bottom: 89, side: 89 }, // 51: STONE_BUTTON
+  { top: 90, bottom: 90, side: 90 }, // 52: REPEATER
+  { top: 76, bottom: 77, side: 77 }, // 53: BED
+  { top: 82, bottom: 19, side: 83 }, // 54: ENCHANTING_TABLE
+  { top: 64, bottom: 64, side: 64 }, // 55: END_STONE
+  { top: 70, bottom: 70, side: 70 }, // 56: END_PORTAL_FRAME
+  { top: 91, bottom: 91, side: 91 }, // 57: END_PORTAL
+  { top: 78, bottom: 78, side: 79 }, // 58: TNT
+  { top: 80, bottom: 80, side: 80 }, // 59: CHORUS_FLOWER
+  { top: 81, bottom: 81, side: 81 }, // 60: CHORUS_PLANT
+  { top: 71, bottom: 71, side: 71 }, // 61: DRAGON_EGG
+  { top: 72, bottom: 72, side: 72 }, // 62: END_CRYSTAL
+  { top: 92, bottom: 92, side: 92 }, // 63: END_GATEWAY
+  { top: 69, bottom: 69, side: 69 }, // 64: END_ROD
+  { top: 65, bottom: 65, side: 65 }, // 65: END_STONE_BRICKS
+  { top: 73, bottom: 74, side: 74 }, // 66: ENDER_CHEST
+  { top: 66, bottom: 66, side: 66 }, // 67: PURPUR_BLOCK
+  { top: 67, bottom: 67, side: 68 }, // 68: PURPUR_PILLAR
+  { top: 66, bottom: 66, side: 66 }, // 69: PURPUR_SLAB
+  { top: 66, bottom: 66, side: 66 }, // 70: PURPUR_STAIRS
+  { top: 75, bottom: 75, side: 75 }, // 71: SHULKER_BOX
 ]

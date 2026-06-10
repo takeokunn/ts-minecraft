@@ -2,12 +2,12 @@
  * Generates individual tile PNGs and a combined atlas.png into /public/textures/.
  * Run once with: pnpm generate-textures
  *
- * - tile-{00-62}-*.png : individual 32×32 tiles for manual inspection/editing
+ * - tile-{00-92}-*.png : individual 32×32 tiles for manual inspection/editing
  * - atlas.png          : 512×512 combined atlas loaded by chunk-mesh.ts at runtime
  *
  * Drawing logic is the single source of truth for all block and item appearance.
- * Tiles 0-47: block textures (indexed by TILE_MAP in block-texture-map.config.ts)
- * Tiles 48-62: item textures (indexed by ITEM_TILE_MAP in item-texture-map.config.ts)
+ * Tiles 0-45, 63-92: block textures (indexed by TILE_MAP in block-texture-map.config.ts)
+ * Tiles 46-62, 93-99: item textures (indexed by ITEM_TILE_MAP in item-texture-map.config.ts)
  */
 
 import { createCanvas } from '@napi-rs/canvas'
