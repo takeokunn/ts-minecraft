@@ -8,6 +8,7 @@ export const EnchantmentTypeSchema = Schema.Literal(
   'FEATHER_FALLING', 'RESPIRATION',
   'EFFICIENCY', 'FORTUNE', 'SILK_TOUCH', 'UNBREAKING', 'LOOTING',
   'INFINITY', 'POWER', 'PUNCH',
+  'LURE', 'LUCK_OF_THE_SEA',
 )
 export type EnchantmentType = Schema.Schema.Type<typeof EnchantmentTypeSchema>
 

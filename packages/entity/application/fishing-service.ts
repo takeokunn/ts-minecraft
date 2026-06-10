@@ -4,7 +4,7 @@ import { resolveFishingCatch, resolveFishingWaitSecs } from '../domain/fishing'
 
 type FishingState =
   | { readonly _tag: 'idle' }
-  | { readonly _tag: 'casting'; readonly elapsedSecs: number; readonly targetSecs: number; readonly seed: number }
+  | { readonly _tag: 'casting'; readonly elapsedSecs: number; readonly targetSecs: number; readonly seed: number; readonly luckLevel: number }
 
 const IDLE: FishingState = { _tag: 'idle' }
 
@@ -13,13 +13,16 @@ export class FishingService extends Effect.Service<FishingService>()(
   {
     effect: Ref.make<FishingState>(IDLE).pipe(Effect.map((stateRef) => ({
       // Begin a fishing cast. seed should be derived from XP + frame count
-      // (deterministic but unique per cast).
-      cast: (seed: number): Effect.Effect<void, never> =>
+      // (deterministic but unique per cast). lureLevel and luckLevel come from
+      // rod enchantments and are captured at cast time — valid even if the rod
+      // leaves the hotbar before the catch.
+      cast: (seed: number, lureLevel = 0, luckLevel = 0): Effect.Effect<void, never> =>
         Ref.set(stateRef, {
           _tag: 'casting',
           elapsedSecs: 0,
-          targetSecs: resolveFishingWaitSecs(seed),
+          targetSecs: resolveFishingWaitSecs(seed, lureLevel),
           seed,
+          luckLevel,
         }),
 
       // Advance the fishing timer. Returns Some(item) when a catch occurs,
@@ -29,7 +32,7 @@ export class FishingService extends Effect.Service<FishingService>()(
           if (state._tag === 'idle') return [Option.none(), state]
           const nextElapsed = state.elapsedSecs + deltaSecs
           if (nextElapsed >= state.targetSecs) {
-            const caught = resolveFishingCatch(state.seed + Math.floor(nextElapsed * 100))
+            const caught = resolveFishingCatch(state.seed + Math.floor(nextElapsed * 100), state.luckLevel)
             return [Option.some(caught), IDLE]
           }
           return [Option.none(), { ...state, elapsedSecs: nextElapsed }]

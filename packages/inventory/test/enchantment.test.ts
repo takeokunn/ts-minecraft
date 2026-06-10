@@ -12,6 +12,8 @@ import {
   getFeatherFallingReduction,
   getFireProtectionReduction,
   getRespirationBonusSecs,
+  getLureWaitReductionSecs,
+  getLuckTreasureChance,
   canEnchantItem,
   getMaxEnchantmentLevel,
   getBaneOfArthropodsDamageBonus,
@@ -294,6 +296,36 @@ describe('domain/enchantment', () => {
 
     it('FIRE_PROTECTION has max level 4', () => {
       expect(getMaxEnchantmentLevel('FIRE_PROTECTION')).toBe(4)
+    })
+  })
+
+  describe('LURE (fishing wait reduction)', () => {
+    it('LURE I reduces wait by 5 seconds', () => {
+      expect(getLureWaitReductionSecs(1)).toBe(5)
+    })
+
+    it('LURE III reduces wait by 15 seconds', () => {
+      expect(getLureWaitReductionSecs(3)).toBe(15)
+    })
+
+    it('LURE only applies to FISHING_ROD', () => {
+      expect(canEnchantItem('FISHING_ROD', 'LURE')).toBe(true)
+      expect(canEnchantItem('BOW', 'LURE')).toBe(false)
+    })
+  })
+
+  describe('LUCK_OF_THE_SEA (treasure chance bonus)', () => {
+    it('LUCK_OF_THE_SEA I increases base treasure chance by 2%', () => {
+      expect(getLuckTreasureChance(1)).toBeCloseTo(0.07)
+    })
+
+    it('LUCK_OF_THE_SEA III increases treasure chance by 6%', () => {
+      expect(getLuckTreasureChance(3)).toBeCloseTo(0.11)
+    })
+
+    it('LUCK_OF_THE_SEA only applies to FISHING_ROD', () => {
+      expect(canEnchantItem('FISHING_ROD', 'LUCK_OF_THE_SEA')).toBe(true)
+      expect(canEnchantItem('BOW', 'LUCK_OF_THE_SEA')).toBe(false)
     })
   })
 })

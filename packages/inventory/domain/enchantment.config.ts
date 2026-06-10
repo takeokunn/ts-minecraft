@@ -22,6 +22,8 @@ export const MAX_LEVEL: Record<EnchantmentType, EnchantmentLevel> = {
   INFINITY: 1,
   POWER: 5,
   PUNCH: 2,
+  LURE: 3,
+  LUCK_OF_THE_SEA: 3,
 }
 
 // ─── Fortune multipliers ─────────────────────────────────────────────────────
@@ -70,4 +72,6 @@ export const APPLICABLE_TO: Partial<Record<EnchantmentType, ReadonlySet<ItemType
   INFINITY: new Set(['BOW']),
   POWER: new Set(['BOW']),
   PUNCH: new Set(['BOW']),
+  LURE: new Set(['FISHING_ROD']),
+  LUCK_OF_THE_SEA: new Set(['FISHING_ROD']),
 }

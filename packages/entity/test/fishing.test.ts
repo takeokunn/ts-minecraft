@@ -11,7 +11,7 @@ import { FishingService, FishingServiceLive } from '../application/fishing-servi
 
 describe('domain/fishing', () => {
   describe('resolveFishingWaitSecs', () => {
-    it('always returns a wait within the valid range', () => {
+    it('always returns a wait within the valid range (no enchant)', () => {
       for (let seed = 0; seed < 100; seed++) {
         const wait = resolveFishingWaitSecs(seed)
         expect(wait).toBeGreaterThanOrEqual(FISHING_MIN_WAIT_SECS)
@@ -22,6 +22,18 @@ describe('domain/fishing', () => {
     it('is deterministic — same seed → same result', () => {
       expect(resolveFishingWaitSecs(42)).toBe(resolveFishingWaitSecs(42))
       expect(resolveFishingWaitSecs(999)).toBe(resolveFishingWaitSecs(999))
+    })
+
+    it('LURE I reduces wait by 5 seconds (minimum 1s)', () => {
+      const base = resolveFishingWaitSecs(20, 0)
+      const lure1 = resolveFishingWaitSecs(20, 1)
+      expect(lure1).toBe(Math.max(1, base - 5))
+    })
+
+    it('LURE III clamps to at least 1 second', () => {
+      for (let seed = 0; seed < 50; seed++) {
+        expect(resolveFishingWaitSecs(seed, 3)).toBeGreaterThanOrEqual(1)
+      }
     })
   })
 
@@ -46,6 +58,18 @@ describe('domain/fishing', () => {
 
     it('is deterministic — same seed → same result', () => {
       expect(resolveFishingCatch(7)).toBe(resolveFishingCatch(7))
+    })
+
+    it('LUCK_OF_THE_SEA III increases treasure frequency over many trials', () => {
+      const TREASURE_ITEMS = new Set(['BOW', 'FISHING_ROD', 'EMERALD', 'DIAMOND', 'GOLD_INGOT', 'IRON_INGOT'])
+      const TRIALS = 500
+      let noLuck = 0
+      let withLuck = 0
+      for (let i = 0; i < TRIALS; i++) {
+        if (TREASURE_ITEMS.has(resolveFishingCatch(i, 0))) noLuck++
+        if (TREASURE_ITEMS.has(resolveFishingCatch(i, 3))) withLuck++
+      }
+      expect(withLuck).toBeGreaterThan(noLuck)
     })
   })
 })

@@ -60,6 +60,17 @@ export const getFeatherFallingReduction = (level: EnchantmentLevel): number =>
 export const getRespirationBonusSecs = (level: EnchantmentLevel): number =>
   15 * level
 
+// ─── Fishing bonuses ─────────────────────────────────────────────────────────
+
+// LURE: reduces wait time by 5 seconds per level (clamped to minimum 1s in caller).
+export const getLureWaitReductionSecs = (level: EnchantmentLevel): number =>
+  5 * level
+
+// LUCK_OF_THE_SEA: each level shifts 2% from junk to treasure.
+// Returns the adjusted treasure probability as a fraction [0, 1].
+export const getLuckTreasureChance = (level: EnchantmentLevel, baseTreasureChance = 0.05): number =>
+  Math.min(0.65, baseTreasureChance + 0.02 * level)
+
 // ─── Utility bonuses ─────────────────────────────────────────────────────────
 
 // Unbreaking: probability that a durability point is NOT consumed on each use.

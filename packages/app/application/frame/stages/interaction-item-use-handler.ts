@@ -23,8 +23,20 @@ export const handleFoodConsumption = (
               Effect.flatMap((alreadyFishing) =>
                 alreadyFishing
                   ? services.fishingService.cancel().pipe(Effect.as(true))
-                  : services.xpService.getXP().pipe(
-                      Effect.flatMap((xp) => services.fishingService.cast(xp.totalXP + xp.xpIntoLevel)),
+                  : Effect.all(
+                      [services.xpService.getXP(), services.inventoryService.getSlot(SlotIndex.make(HOTBAR_START + selectedSlot))],
+                      { concurrency: 'unbounded' },
+                    ).pipe(
+                      Effect.flatMap(([xp, rodStack]) => {
+                        const enchantments = Option.match(rodStack, { onNone: () => [], onSome: (s) => s.enchantments ?? [] })
+                        const lure = enchantments.find((e) => e.type === 'LURE')
+                        const luck = enchantments.find((e) => e.type === 'LUCK_OF_THE_SEA')
+                        return services.fishingService.cast(
+                          xp.totalXP + xp.xpIntoLevel,
+                          lure?.level ?? 0,
+                          luck?.level ?? 0,
+                        )
+                      }),
                       Effect.as(true),
                     ),
               ),
