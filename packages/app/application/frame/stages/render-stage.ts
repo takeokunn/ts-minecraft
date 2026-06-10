@@ -1,11 +1,23 @@
-import { Effect } from 'effect'
+import { Effect, Ref } from 'effect'
 import * as THREE from 'three'
-import type { FrameHandlerDeps, FrameHandlerServices, ResolvedDeps } from '@ts-minecraft/app/frame/types'
+import type { FrameHandlerDeps, FrameHandlerServices, FrameStageRefs, ResolvedDeps } from '@ts-minecraft/app/frame/types'
 import type { ResolvedGraphics } from '@ts-minecraft/game'
+import { getAttackSwingOffset } from '@ts-minecraft/presentation/hud/attack-swing'
+
+const SWING_CAMERA_X_UNITS = 0.045
+const SWING_CAMERA_Y_UNITS = 0.055
+const SWING_CAMERA_ROLL_RADS = -0.025
+
+// Module-scoped scratch objects for camera pose save/restore. The render stage
+// runs once per frame on a single fiber synchronously, so reusing these avoids
+// allocating a fresh Vector3 + Quaternion (~400B + GC churn) every frame.
+const scratchCameraPosition = new THREE.Vector3()
+const scratchCameraQuaternion = new THREE.Quaternion()
 
 export const renderStage = (
   deps: Pick<FrameHandlerDeps, 'renderer' | 'scene' | 'camera' | 'lights'>,
   services: Pick<FrameHandlerServices, 'perfHud' | 'debugFeatureFlags'>,
+  refs: Pick<FrameStageRefs, 'totalTimeSecsRef' | 'attackSwingStateRef'>,
   resolved: Pick<ResolvedDeps, 'godRaysPassOrNull' | 'composerOrNull'>,
   inputs: {
     readonly resolvedGraphics: ResolvedGraphics
@@ -14,9 +26,28 @@ export const renderStage = (
 ): Effect.Effect<void, never> =>
   Effect.gen(function* () {
     const debugFlags = yield* services.debugFeatureFlags.getFlags()
+    // Sequential reads: both are pure synchronous Ref.get; `Effect.all` with
+    // unbounded concurrency would needlessly spawn fibers every frame.
+    const totalTimeSecs = yield* Ref.get(refs.totalTimeSecsRef)
+    const swingState = yield* Ref.get(refs.attackSwingStateRef)
 
     yield* Effect.sync(() => {
-      if (resolved.godRaysPassOrNull) {
+      const swingOffset = getAttackSwingOffset(swingState, totalTimeSecs * 1000)
+      const originalPosition = scratchCameraPosition.copy(deps.camera.position)
+      const originalQuaternion = scratchCameraQuaternion.copy(deps.camera.quaternion)
+
+      const restoreCamera = () => {
+        deps.camera.position.copy(originalPosition)
+        deps.camera.quaternion.copy(originalQuaternion)
+        deps.camera.updateMatrixWorld(true)
+      }
+
+      try {
+        deps.camera.translateX(swingOffset.x * SWING_CAMERA_X_UNITS)
+        deps.camera.translateY(swingOffset.y * SWING_CAMERA_Y_UNITS)
+        deps.camera.rotateZ(swingOffset.x * SWING_CAMERA_ROLL_RADS)
+
+        if (resolved.godRaysPassOrNull) {
         if (inputs.resolvedGraphics.godRaysEnabled) {
           const lightPos = deps.lights.light.position
           inputs.sunWorldPos.copy(lightPos).normalize().multiplyScalar(100)
@@ -46,6 +77,9 @@ export const renderStage = (
         resolved.composerOrNull.render()
       } else {
         deps.renderer.render(deps.scene, deps.camera)
+      }
+      } finally {
+        restoreCamera()
       }
     })
   }).pipe(Effect.andThen(services.perfHud.setDrawCalls(deps.renderer.info.render.calls)))

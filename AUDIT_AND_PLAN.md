@@ -1,0 +1,100 @@
+# AUDIT_AND_PLAN — ts-minecraft (Effect-TS + Three.js Minecraft clone)
+
+> Living progress tracker for the autonomous NFR/FR audit loop.
+> Generated 2026-06-10. Package layout (verified against `pnpm-workspace.yaml`):
+> `packages/{app, block, core, entity, game, inventory, network, presentation, rendering, worker, world}`,
+> each with `domain/`/`application/`/`infrastructure/`/`presentation/` at the package root (no `src/`).
+> Quality gate: `pnpm verify` = typecheck + lint(oxlint) + check:refactor + test + build.
+> Per-task gate (cheaper): `pnpm typecheck` (build+test tsconfig).
+
+---
+
+## Methodology
+
+Three read-only audits were fanned out (hot-path perf, chunk/meshing/memory, feature completeness),
+then the top findings were **re-verified by hand** before landing in this plan. False positives were
+dropped (e.g. `Effect.void` is a cached singleton — not a per-frame allocation; several `Option._tag`
+checks are already allocation-free). Only confirmed, impactful items survive below.
+
+---
+
+## A. Current Issues — ranked (most critical first)
+
+### A0. Memory leaks (correctness — leak grows unbounded over a session)
+1. **Atlas texture never disposed** — `packages/rendering/infrastructure/meshing/chunk-mesh.ts` builds
+   `atlasTexture` via `buildAtlasTexture()` but never wraps it in `Effect.acquireRelease`; the
+   `CanvasTexture` (mipmaps + anisotropy 8, ~2-4 MB VRAM) lives for the whole session and is never freed.
+2. **Transparent-solid meshes routed into the water mesh list** —
+   `packages/rendering/infrastructure/renderer/world-renderer-chunk-update.ts` updates GLASS/LEAVES
+   (`transparentSolid`) meshes against `waterMeshesRef`, polluting the refraction pre-pass and leaving
+   no dedicated disposal list. (Needs confirm before fix.)
+
+### A1. Per-frame heap allocations in the 60 fps hot path (VERIFIED)
+3. **Camera pose `.clone()` ×2 every frame** — `render-stage.ts:30-31`. New `Vector3` + `Quaternion`
+   allocated each frame purely to restore camera after the attack-swing offset. → reuse module-scoped
+   scratch objects + `.copy()`.
+4. **`Effect.all(..., concurrency: 'unbounded')` for two pure `Ref.get`** — `render-stage.ts:23-25`.
+   Spawns fibers for synchronous reads. → sequential `yield*`.
+5. **`fps.toFixed(1)` allocates a string every frame** — `hud-stage.ts:27`, even though the DOM write is
+   already change-gated. → only stringify when the rounded FPS value actually changes.
+6. **Graphics cache-key string `.join('|')` every frame** — `frame-stage-executor.ts:33-37`. → compare
+   raw fields / numeric key instead of building a string each frame. (Needs confirm.)
+
+### A2. Meshing / culling / GPU (bigger, medium-impact)
+7. **Per-chunk shader recompile** — `chunk-mesh-materials.ts` runs `onBeforeCompile` string-replacement
+   for every chunk material; 100+ identical compiles cause load stutter. → compile once / share program.
+8. **Sub-region meshing not implemented on the worker** — `meshing-worker-pool.ts` forwards `dirtyAABB`
+   but the worker ignores it; every block edit re-meshes the full 16×256×16 chunk.
+9. **Water mesh list rebuilt on every add/remove** — `world-renderer-chunk-update.ts` uses
+   `Arr.append`/`Arr.filter` (whole-array realloc) on chunk load/unload churn.
+10. **`clearScene` allocates a full array via `Arr.fromIterable(HashMap.values(...))`** —
+    `world-renderer.ts:217`; apply the imperative-iteration pattern already used by frustum culling.
+
+### A3. Architecture / robustness
+11. **Subarray-alias lifetime hazard** — `greedy-meshing-types.ts` returns views into a shared
+    accumulator valid only until the next mesh call; safe today (single fiber, synchronous) but a
+    refactor landmine. → document invariant + assert, or return owned slices.
+
+## B. Missing / broken Functional Requirements (FR)
+- **FR-1 Creative-mode flight** — creative mode exists but has zero flight (no ascend/descend, gravity
+  still applies). Highest-impact missing FR.
+- **FR-2 Liquid mechanics** — no swimming state, no oxygen/drowning, no lava damage; water is collision-only.
+- **FR-3 Multiplayer block sync** — `BlockPlace`/`BlockBreak` schemas exist but are never wired; MP is
+  position-only and shows no remote players or block edits.
+- **FR-4 Beds & respawn point** — BED block exists, no interaction/respawn-anchor behavior.
+- **FR-5 Spectator mode / noclip** — only survival+creative in `GameModeSchema`.
+- (Lower priority: enchanting-table UI, full redstone repeater/comparator, structure generation.)
+
+---
+
+## C. Task list (execute top-down, one commit each, typecheck-green between)
+
+### Phase 1 — Verified per-frame allocation fixes (cheap, low-risk)
+- [x] T1. `render-stage.ts`: replace camera `.clone()` ×2 with module-scoped scratch `Vector3`/`Quaternion` + `.copy()`. _(done 2026-06-10)_
+- [x] T2. `render-stage.ts`: replace `Effect.all(unbounded)` of two pure `Ref.get` with sequential reads. _(done 2026-06-10)_
+- [ ] T3. `hud-stage.ts`: only `toFixed` when rounded FPS changes (cache last numeric FPS).
+- [ ] T4. `frame-stage-executor.ts`: confirm + eliminate per-frame graphics cache-key string build.
+
+### Phase 2 — Memory-leak fixes (correctness)
+- [ ] T5. `chunk-mesh.ts`: wrap `atlasTexture` in `Effect.acquireRelease` to `.dispose()` on scope close.
+- [ ] T6. Confirm + fix transparent-solid meshes being tracked in `waterMeshesRef` (separate ref + disposal).
+
+### Phase 3 — Meshing / culling / GPU
+- [ ] T7. `chunk-mesh-materials.ts`: share one compiled program across chunk materials (avoid N recompiles).
+- [ ] T8. `world-renderer.ts` `clearScene`: imperative iteration instead of `Arr.fromIterable(HashMap.values)`.
+- [ ] T9. `world-renderer-chunk-update.ts`: incremental water-mesh tracking (Set) instead of array realloc.
+- [ ] T10. Worker-side sub-region meshing using `dirtyAABB` (LOD 0 single-block edits).
+
+### Phase 4 — Robustness
+- [ ] T11. `greedy-meshing-types.ts`: enforce/​document the subarray-alias lifetime invariant.
+
+### Phase 5 — Missing FRs (largest; each its own mini-project)
+- [ ] T12. FR-1 Creative-mode flight (ascend/descend keys, gravity bypass in creative).
+- [ ] T13. FR-4 Beds: set respawn point on use; respawn there on death.
+- [ ] T14. FR-2 Liquid mechanics: swimming + oxygen/drowning + lava damage.
+- [ ] T15. FR-3 Multiplayer block sync: wire `BlockPlace`/`BlockBreak` send + apply.
+
+---
+
+## D. Progress log
+- 2026-06-10: Audit complete; plan authored. Beginning Phase 1.

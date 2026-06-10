@@ -765,8 +765,593 @@ saveTile(62, 'item-diamond-pickaxe', (ctx) => {
   ctx.fillRect(4, 5, 24, 1)
 })
 
+// ── Additional block tiles (63-85) ───────────────────────────────────────────
+
+// tile 63: netherrack — reddish-brown porous stone
+saveTile(63, 'netherrack', (ctx) => {
+  ctx.fillStyle = '#8B3A3A'
+  ctx.fillRect(0, 0, TILE_PX, TILE_PX)
+  drawNoise(ctx, ['#6B2020', '#9F4A42', '#5A1717', '#7A2B2B'], 0.55)
+  ctx.fillStyle = '#4B1111'
+  for (const [px, py] of [[4, 6], [13, 3], [22, 8], [8, 17], [18, 21], [27, 25], [3, 27]]) {
+    ctx.fillRect(px, py, 3, 2)
+  }
+})
+
+// tile 64: end stone — pale yellow pitted stone
+saveTile(64, 'end-stone', (ctx) => {
+  ctx.fillStyle = '#DDD5A0'
+  ctx.fillRect(0, 0, TILE_PX, TILE_PX)
+  drawNoise(ctx, ['#CFC584', '#EFE7B6', '#BEB575'], 0.45)
+  ctx.fillStyle = '#AFA86F'
+  for (const [px, py] of [[5, 5], [16, 4], [25, 9], [8, 15], [20, 18], [13, 27], [28, 24]]) {
+    ctx.fillRect(px, py, 2, 2)
+  }
+})
+
+// tile 65: end stone bricks — end stone with offset brick seams
+saveTile(65, 'end-stone-bricks', (ctx) => {
+  ctx.fillStyle = '#D8D09A'
+  ctx.fillRect(0, 0, TILE_PX, TILE_PX)
+  drawNoise(ctx, ['#E8DFAC', '#C8BF82', '#B7AE74'], 0.28)
+  ctx.fillStyle = '#9F9666'
+  for (let y = 7; y < TILE_PX; y += 8) ctx.fillRect(0, y, TILE_PX, 1)
+  for (let y = 0; y < TILE_PX; y += 8) {
+    const offset = y % 16 === 0 ? 0 : 8
+    for (let x = offset; x < TILE_PX; x += 16) ctx.fillRect(x, y, 1, 8)
+  }
+  ctx.fillStyle = '#EFE7B6'
+  ctx.fillRect(1, 1, TILE_PX - 2, 1)
+})
+
+// tile 66: purpur block — magenta-purple slab texture
+saveTile(66, 'purpur-block', (ctx) => {
+  ctx.fillStyle = '#A040A0'
+  ctx.fillRect(0, 0, TILE_PX, TILE_PX)
+  drawNoise(ctx, ['#B65AB6', '#873087', '#C06AC0'], 0.35)
+  ctx.fillStyle = '#7A287A'
+  for (let y = 7; y < TILE_PX; y += 8) ctx.fillRect(0, y, TILE_PX, 1)
+  ctx.fillStyle = '#C875C8'
+  for (let y = 2; y < TILE_PX; y += 8) ctx.fillRect(3, y, TILE_PX - 6, 1)
+})
+
+// tile 67: purpur pillar top — circular end grain
+saveTile(67, 'purpur-pillar-top', (ctx) => {
+  ctx.fillStyle = '#A040A0'
+  ctx.fillRect(0, 0, TILE_PX, TILE_PX)
+  drawNoise(ctx, ['#B955B9', '#8C2F8C'], 0.28)
+  ctx.strokeStyle = '#D184D1'
+  ctx.lineWidth = 1
+  for (let r = 5; r < 15; r += 4) {
+    ctx.beginPath()
+    ctx.arc(TILE_PX / 2, TILE_PX / 2, r, 0, Math.PI * 2)
+    ctx.stroke()
+  }
+  ctx.fillStyle = '#6F226F'
+  ctx.fillRect(15, 15, 2, 2)
+})
+
+// tile 68: purpur pillar side — vertical ribbed purple
+saveTile(68, 'purpur-pillar-side', (ctx) => {
+  ctx.fillStyle = '#963896'
+  ctx.fillRect(0, 0, TILE_PX, TILE_PX)
+  drawNoise(ctx, ['#A84AA8', '#802980'], 0.25)
+  for (let x = 3; x < TILE_PX; x += 6) {
+    ctx.fillStyle = x % 12 === 3 ? '#C070C0' : '#762276'
+    ctx.fillRect(x, 0, 2, TILE_PX)
+  }
+  ctx.fillStyle = '#D38AD3'
+  ctx.fillRect(0, 0, TILE_PX, 1)
+  ctx.fillStyle = '#6A1D6A'
+  ctx.fillRect(0, TILE_PX - 1, TILE_PX, 1)
+})
+
+// tile 69: end rod — bright white rod on dark transparent-like backdrop
+saveTile(69, 'end-rod', (ctx) => {
+  ctx.fillStyle = '#171325'
+  ctx.fillRect(0, 0, TILE_PX, TILE_PX)
+  ctx.fillStyle = '#E6E6D8'
+  ctx.fillRect(14, 3, 4, 23)
+  ctx.fillStyle = '#FFFFFF'
+  ctx.fillRect(15, 4, 2, 20)
+  ctx.fillStyle = '#9A8FBE'
+  ctx.fillRect(12, 24, 8, 4)
+  ctx.fillStyle = '#D6CCFF'
+  ctx.fillRect(13, 23, 6, 1)
+})
+
+// tile 70: end portal frame — dark green frame with eye socket
+saveTile(70, 'end-portal-frame', (ctx) => {
+  ctx.fillStyle = '#1A4A1A'
+  ctx.fillRect(0, 0, TILE_PX, TILE_PX)
+  drawNoise(ctx, ['#123512', '#2F6A2F', '#274F20'], 0.3)
+  ctx.fillStyle = '#0B250B'
+  ctx.fillRect(3, 3, TILE_PX - 6, TILE_PX - 6)
+  ctx.fillStyle = '#2E7A2E'
+  ctx.fillRect(5, 5, TILE_PX - 10, TILE_PX - 10)
+  ctx.fillStyle = '#D8D06A'
+  ctx.fillRect(11, 11, 10, 10)
+  ctx.fillStyle = '#3ECF74'
+  ctx.fillRect(13, 13, 6, 6)
+  ctx.fillStyle = '#0B250B'
+  ctx.fillRect(15, 15, 2, 2)
+})
+
+// tile 71: dragon egg — dark purple-black with violet speckles
+saveTile(71, 'dragon-egg', (ctx) => {
+  ctx.fillStyle = '#090610'
+  ctx.fillRect(0, 0, TILE_PX, TILE_PX)
+  ctx.fillStyle = '#1C102A'
+  ctx.fillRect(10, 4, 12, 4)
+  ctx.fillRect(8, 8, 16, 6)
+  ctx.fillRect(6, 14, 20, 8)
+  ctx.fillRect(9, 22, 14, 5)
+  ctx.fillStyle = '#2E1844'
+  ctx.fillRect(11, 6, 3, 16)
+  ctx.fillRect(18, 10, 4, 12)
+  ctx.fillStyle = '#7A45B4'
+  for (const [px, py] of [[13, 8], [21, 14], [10, 19], [17, 24]]) ctx.fillRect(px, py, 2, 1)
+})
+
+// tile 72: end crystal — cyan/purple glowing gem
+saveTile(72, 'end-crystal', (ctx) => {
+  ctx.fillStyle = '#141024'
+  ctx.fillRect(0, 0, TILE_PX, TILE_PX)
+  ctx.fillStyle = '#453070'
+  ctx.fillRect(9, 9, 14, 14)
+  ctx.fillStyle = '#80FFFF'
+  ctx.fillRect(12, 5, 8, 5)
+  ctx.fillRect(10, 10, 12, 8)
+  ctx.fillRect(12, 18, 8, 5)
+  ctx.fillStyle = '#FFFFFF'
+  ctx.fillRect(14, 8, 4, 3)
+  ctx.fillStyle = '#B060FF'
+  ctx.fillRect(11, 14, 3, 5)
+  ctx.fillRect(19, 12, 2, 6)
+})
+
+// tile 73: ender chest top — obsidian lid with emerald eye
+saveTile(73, 'ender-chest-top', (ctx) => {
+  ctx.fillStyle = '#14101C'
+  ctx.fillRect(0, 0, TILE_PX, TILE_PX)
+  drawNoise(ctx, ['#211733', '#08050F', '#302040'], 0.35)
+  ctx.fillStyle = '#2A1B3D'
+  ctx.fillRect(3, 3, TILE_PX - 6, TILE_PX - 6)
+  ctx.fillStyle = '#35C76A'
+  ctx.fillRect(12, 12, 8, 8)
+  ctx.fillStyle = '#A8FFD0'
+  ctx.fillRect(14, 14, 4, 3)
+  ctx.fillStyle = '#0C3A20'
+  ctx.fillRect(15, 16, 2, 2)
+})
+
+// tile 74: ender chest side — dark chest with green latch
+saveTile(74, 'ender-chest-side', (ctx) => {
+  ctx.fillStyle = '#17101F'
+  ctx.fillRect(0, 0, TILE_PX, TILE_PX)
+  drawNoise(ctx, ['#251A36', '#0A0610', '#34224A'], 0.35)
+  ctx.fillStyle = '#08050C'
+  ctx.fillRect(0, 14, TILE_PX, 2)
+  ctx.fillStyle = '#3BD175'
+  ctx.fillRect(13, 12, 6, 6)
+  ctx.fillStyle = '#78FFAA'
+  ctx.fillRect(14, 13, 4, 2)
+  ctx.fillStyle = '#4B3570'
+  ctx.fillRect(2, 2, TILE_PX - 4, 2)
+})
+
+// tile 75: shulker box — purple shell with seam
+saveTile(75, 'shulker-box', (ctx) => {
+  ctx.fillStyle = '#74408C'
+  ctx.fillRect(0, 0, TILE_PX, TILE_PX)
+  ctx.fillStyle = '#9258AA'
+  ctx.fillRect(3, 3, TILE_PX - 6, 11)
+  ctx.fillStyle = '#623074'
+  ctx.fillRect(3, 17, TILE_PX - 6, 11)
+  ctx.fillStyle = '#3D1E4A'
+  ctx.fillRect(2, 14, TILE_PX - 4, 3)
+  ctx.fillStyle = '#B988CC'
+  ctx.fillRect(5, 5, TILE_PX - 10, 2)
+})
+
+// tile 76: bed top — red blanket and white pillow
+saveTile(76, 'bed-top', (ctx) => {
+  ctx.fillStyle = '#6B3F20'
+  ctx.fillRect(0, 0, TILE_PX, TILE_PX)
+  ctx.fillStyle = '#C0B8A8'
+  ctx.fillRect(3, 3, TILE_PX - 6, 8)
+  ctx.fillStyle = '#B82020'
+  ctx.fillRect(3, 11, TILE_PX - 6, 17)
+  ctx.fillStyle = '#E04444'
+  ctx.fillRect(5, 13, TILE_PX - 10, 3)
+  ctx.fillStyle = '#7A1010'
+  ctx.fillRect(3, 26, TILE_PX - 6, 2)
+})
+
+// tile 77: bed side — red side over wooden frame
+saveTile(77, 'bed-side', (ctx) => {
+  ctx.fillStyle = '#8A4F28'
+  ctx.fillRect(0, 0, TILE_PX, TILE_PX)
+  ctx.fillStyle = '#B82020'
+  ctx.fillRect(0, 4, TILE_PX, 15)
+  ctx.fillStyle = '#E04444'
+  ctx.fillRect(0, 5, TILE_PX, 2)
+  ctx.fillStyle = '#5A3218'
+  ctx.fillRect(0, 23, TILE_PX, 5)
+  ctx.fillRect(4, 19, 4, 10)
+  ctx.fillRect(24, 19, 4, 10)
+})
+
+// tile 78: tnt top — red lid with fuse
+saveTile(78, 'tnt-top', (ctx) => {
+  ctx.fillStyle = '#B82020'
+  ctx.fillRect(0, 0, TILE_PX, TILE_PX)
+  drawNoise(ctx, ['#D33A3A', '#8F1414'], 0.25)
+  ctx.fillStyle = '#6A0E0E'
+  ctx.fillRect(3, 3, TILE_PX - 6, TILE_PX - 6)
+  ctx.fillStyle = '#C03939'
+  ctx.fillRect(5, 5, TILE_PX - 10, TILE_PX - 10)
+  ctx.fillStyle = '#2A1A12'
+  ctx.fillRect(15, 7, 2, 18)
+  ctx.fillStyle = '#D8C060'
+  ctx.fillRect(14, 14, 4, 4)
+})
+
+// tile 79: tnt side — red body with white TNT band
+saveTile(79, 'tnt-side', (ctx) => {
+  ctx.fillStyle = '#C02020'
+  ctx.fillRect(0, 0, TILE_PX, TILE_PX)
+  ctx.fillStyle = '#8F1414'
+  for (let x = 4; x < TILE_PX; x += 8) ctx.fillRect(x, 0, 2, TILE_PX)
+  ctx.fillStyle = '#EFE8D0'
+  ctx.fillRect(0, 11, TILE_PX, 10)
+  ctx.fillStyle = '#2B2020'
+  ctx.fillRect(5, 13, 4, 6)
+  ctx.fillRect(14, 13, 4, 6)
+  ctx.fillRect(23, 13, 4, 6)
+})
+
+// tile 80: chorus flower — light purple flower pattern
+saveTile(80, 'chorus-flower', (ctx) => {
+  ctx.fillStyle = '#B48BD0'
+  ctx.fillRect(0, 0, TILE_PX, TILE_PX)
+  drawNoise(ctx, ['#C9A2E0', '#8F62B0', '#D8B7EA'], 0.3)
+  ctx.fillStyle = '#6B3C8C'
+  ctx.fillRect(14, 4, 4, 24)
+  ctx.fillRect(4, 14, 24, 4)
+  ctx.fillStyle = '#E6C8F4'
+  ctx.fillRect(12, 12, 8, 8)
+  ctx.fillStyle = '#7F4AA0'
+  ctx.fillRect(15, 15, 2, 2)
+})
+
+// tile 81: chorus plant — dark purple branching stem
+saveTile(81, 'chorus-plant', (ctx) => {
+  ctx.fillStyle = '#2A1636'
+  ctx.fillRect(0, 0, TILE_PX, TILE_PX)
+  ctx.fillStyle = '#6B3C8C'
+  ctx.fillRect(14, 0, 5, TILE_PX)
+  ctx.fillRect(7, 10, 9, 4)
+  ctx.fillRect(18, 20, 8, 4)
+  ctx.fillStyle = '#9A67B8'
+  ctx.fillRect(15, 0, 2, TILE_PX)
+  ctx.fillRect(8, 10, 6, 1)
+  ctx.fillRect(19, 20, 5, 1)
+})
+
+// tile 82: enchanting table top — obsidian surface with cyan runes
+saveTile(82, 'enchanting-table-top', (ctx) => {
+  ctx.fillStyle = '#17101F'
+  ctx.fillRect(0, 0, TILE_PX, TILE_PX)
+  drawNoise(ctx, ['#261739', '#0A0610', '#32204A'], 0.32)
+  ctx.fillStyle = '#8B1F2F'
+  ctx.fillRect(4, 4, TILE_PX - 8, TILE_PX - 8)
+  ctx.fillStyle = '#50E6E6'
+  ctx.fillRect(8, 8, 3, 3)
+  ctx.fillRect(21, 8, 3, 3)
+  ctx.fillRect(14, 19, 4, 2)
+  ctx.fillRect(11, 14, 10, 1)
+  ctx.fillStyle = '#FFE8A0'
+  ctx.fillRect(13, 12, 6, 5)
+})
+
+// tile 83: enchanting table side — dark block with book trim and runes
+saveTile(83, 'enchanting-table-side', (ctx) => {
+  ctx.fillStyle = '#120B1A'
+  ctx.fillRect(0, 0, TILE_PX, TILE_PX)
+  ctx.fillStyle = '#302040'
+  ctx.fillRect(2, 2, TILE_PX - 4, TILE_PX - 4)
+  ctx.fillStyle = '#8B1F2F'
+  ctx.fillRect(4, 4, TILE_PX - 8, 8)
+  ctx.fillStyle = '#50E6E6'
+  ctx.fillRect(7, 18, 3, 2)
+  ctx.fillRect(15, 22, 4, 2)
+  ctx.fillRect(23, 18, 2, 3)
+  ctx.fillStyle = '#07040A'
+  ctx.fillRect(0, 28, TILE_PX, 4)
+})
+
+// tile 84: farmland — tilled brown soil with grooves
+saveTile(84, 'farmland', (ctx) => {
+  ctx.fillStyle = '#6F3E1F'
+  ctx.fillRect(0, 0, TILE_PX, TILE_PX)
+  drawNoise(ctx, ['#875026', '#4E2812', '#7A421E'], 0.4)
+  for (let y = 4; y < TILE_PX; y += 7) {
+    ctx.fillStyle = '#3E1F0D'
+    ctx.fillRect(0, y, TILE_PX, 2)
+    ctx.fillStyle = '#9A5C2D'
+    ctx.fillRect(0, y + 2, TILE_PX, 1)
+  }
+})
+
+// tile 85: wheat crop — green/yellow wheat stalks on dark soil
+saveTile(85, 'wheat-crop', (ctx) => {
+  ctx.fillStyle = '#3B2414'
+  ctx.fillRect(0, 0, TILE_PX, TILE_PX)
+  ctx.fillStyle = '#2F7A2F'
+  for (const x of [5, 10, 15, 20, 26]) {
+    ctx.fillRect(x, 9, 2, 20)
+    ctx.fillRect(x - 2, 15, 4, 2)
+    ctx.fillRect(x + 1, 20, 4, 2)
+  }
+  ctx.fillStyle = '#D8B34A'
+  ctx.fillRect(6, 6, 2, 5)
+  ctx.fillRect(15, 5, 2, 6)
+  ctx.fillRect(25, 7, 2, 5)
+  ctx.fillStyle = '#A88830'
+  ctx.fillRect(10, 8, 2, 5)
+  ctx.fillRect(20, 7, 2, 5)
+})
+
+// ── Additional block tiles (86-92) ───────────────────────────────────────────
+
+// tile 86: nether_portal — purple shimmering portal
+saveTile(86, 'nether-portal', (ctx) => {
+  ctx.fillStyle = '#4A0A6A'
+  ctx.fillRect(0, 0, TILE_PX, TILE_PX)
+  for (let wy = 0; wy < TILE_PX; wy += 3) {
+    ctx.fillStyle = wy % 6 === 0 ? '#6A1A8A' : '#5A1A7A'
+    ctx.fillRect(0, wy, TILE_PX, 2)
+  }
+  ctx.fillStyle = '#8B4AC8'
+  for (const [px, py] of [[5, 5], [14, 8], [22, 14], [8, 20], [18, 25], [3, 18], [25, 4], [12, 28]]) {
+    ctx.fillRect(px, py, 3, 2)
+  }
+})
+
+// tile 87: redstone_torch — dark stick with bright red flame
+saveTile(87, 'redstone-torch', (ctx) => {
+  ctx.fillStyle = '#3b2a18'
+  ctx.fillRect(0, 0, TILE_PX, TILE_PX)
+  ctx.fillStyle = '#6B4423'
+  ctx.fillRect(14, 9, 4, TILE_PX - 13)
+  ctx.fillStyle = '#FF0000'
+  ctx.fillRect(10, 2, 12, 9)
+  ctx.fillStyle = '#D02020'
+  ctx.fillRect(13, 4, 6, 5)
+  ctx.fillStyle = '#FF5050'
+  ctx.fillRect(12, 3, 4, 3)
+  ctx.fillRect(17, 5, 3, 3)
+})
+
+// tile 88: lever — stone base with brown stick lever
+saveTile(88, 'lever', (ctx) => {
+  ctx.fillStyle = '#7a7a7a'
+  ctx.fillRect(0, 0, TILE_PX, TILE_PX)
+  drawNoise(ctx, ['#8a8a8a', '#6a6a6a'], 0.2)
+  ctx.fillStyle = '#666666'
+  ctx.fillRect(6, 8, 20, 16)
+  ctx.fillStyle = '#8B6914'
+  ctx.fillRect(14, 0, 4, 24)
+  ctx.fillStyle = '#A07924'
+  ctx.fillRect(15, 1, 2, 22)
+  ctx.fillStyle = '#5a4310'
+  ctx.fillRect(14, 22, 4, 3)
+})
+
+// tile 89: stone_button — small centered stone button
+saveTile(89, 'stone-button', (ctx) => {
+  ctx.fillStyle = '#7a7a7a'
+  ctx.fillRect(0, 0, TILE_PX, TILE_PX)
+  ctx.fillStyle = '#888888'
+  ctx.fillRect(8, 8, 16, 16)
+  ctx.fillStyle = '#999999'
+  ctx.fillRect(10, 10, 12, 12)
+  ctx.fillStyle = '#666666'
+  ctx.fillRect(8, 8, 16, 2)
+  ctx.fillRect(8, 8, 2, 16)
+  ctx.fillStyle = '#555555'
+  ctx.fillRect(8, 22, 16, 2)
+  ctx.fillRect(22, 8, 2, 16)
+})
+
+// tile 90: repeater — stone slab with two redstone lines
+saveTile(90, 'repeater', (ctx) => {
+  ctx.fillStyle = '#888888'
+  ctx.fillRect(0, 0, TILE_PX, TILE_PX)
+  drawNoise(ctx, ['#7a7a7a', '#969696'], 0.2)
+  ctx.fillStyle = '#CC4040'
+  ctx.fillRect(4, 10, 4, TILE_PX - 16)
+  ctx.fillRect(14, 10, 4, TILE_PX - 16)
+  ctx.fillStyle = '#FF6666'
+  ctx.fillRect(5, 11, 2, TILE_PX - 18)
+  ctx.fillRect(15, 11, 2, TILE_PX - 18)
+  ctx.fillStyle = '#606060'
+  ctx.fillRect(0, TILE_PX - 2, TILE_PX, 2)
+  ctx.fillStyle = '#6a6a6a'
+  ctx.fillRect(0, 6, TILE_PX, 2)
+})
+
+// tile 91: end_portal — dark void with scattered star dots
+saveTile(91, 'end-portal', (ctx) => {
+  ctx.fillStyle = '#000011'
+  ctx.fillRect(0, 0, TILE_PX, TILE_PX)
+  const stars = [
+    [3, 5], [8, 2], [15, 7], [22, 3], [28, 6],
+    [5, 12], [12, 15], [20, 11], [27, 14], [2, 19],
+    [10, 22], [17, 18], [24, 23], [29, 20], [4, 26],
+    [14, 28], [21, 26], [27, 29], [7, 6], [19, 4],
+  ]
+  for (let i = 0; i < stars.length; i++) {
+    const [sx, sy] = stars[i]
+    ctx.fillStyle = i % 3 === 0 ? '#FFFFFF' : (i % 3 === 1 ? '#FFFFAA' : '#AAAACC')
+    ctx.fillRect(sx, sy, i % 2 === 0 ? 2 : 1, 1)
+  }
+})
+
+// tile 92: end_gateway — dark purple with brighter stars
+saveTile(92, 'end-gateway', (ctx) => {
+  ctx.fillStyle = '#1A0033'
+  ctx.fillRect(0, 0, TILE_PX, TILE_PX)
+  const stars = [
+    [4, 3], [10, 6], [18, 2], [25, 5], [30, 8],
+    [2, 11], [8, 14], [16, 10], [22, 16], [28, 12],
+    [5, 19], [12, 22], [20, 19], [26, 25], [3, 27],
+    [9, 30], [17, 26], [24, 30], [30, 28], [1, 20],
+    [7, 8], [14, 4], [22, 7], [28, 18], [11, 28],
+  ]
+  for (let i = 0; i < stars.length; i++) {
+    const [sx, sy] = stars[i]
+    ctx.fillStyle = i % 3 === 0 ? '#FFEECC' : (i % 3 === 1 ? '#FFDD80' : '#CC99FF')
+    ctx.fillRect(sx, sy, i % 2 === 0 ? 2 : 1, (i % 4 === 0) ? 2 : 1)
+  }
+})
+
+// --- Item-only tiles (93-99) ---
+// These extend the item range beyond 46-62 for food and drops that previously
+// shared the 63-67 block texture range.
+
+// 93: rotten_flesh
+saveTile(93, 'rotten-flesh', (ctx) => {
+  ctx.fillStyle = '#8B5E3C'
+  ctx.fillRect(4, 4, 24, 24)
+  ctx.fillStyle = '#C4956A'
+  ctx.fillRect(6, 6, 20, 20)
+  ctx.fillStyle = '#6B3A2A'
+  for (let i = 0; i < 12; i++) {
+    ctx.fillRect(4 + ((i * 7) % 20), 6 + ((i * 4) % 18), 3, 2)
+  }
+})
+
+// 94: apple
+saveTile(94, 'apple', (ctx) => {
+  ctx.fillStyle = '#CC2200'
+  ctx.beginPath()
+  ctx.arc(16, 18, 10, 0, Math.PI * 2)
+  ctx.fill()
+  ctx.fillStyle = '#FF3300'
+  ctx.beginPath()
+  ctx.arc(14, 16, 4, Math.PI * 0.2, Math.PI * 1.3)
+  ctx.fill()
+  ctx.fillStyle = '#660000'
+  ctx.fillRect(15, 4, 2, 6)
+  ctx.fillStyle = '#336600'
+  ctx.fillRect(14, 5, 3, 3)
+})
+
+// 95: bread
+saveTile(95, 'bread', (ctx) => {
+  ctx.fillStyle = '#D4A044'
+  ctx.fillRect(4, 6, 24, 18)
+  ctx.fillStyle = '#E8C06A'
+  ctx.fillRect(4, 6, 24, 4)
+  ctx.fillStyle = '#C49030'
+  ctx.fillRect(4, 10, 24, 1)
+  ctx.fillRect(4, 14, 24, 1)
+  ctx.fillRect(4, 18, 24, 1)
+  ctx.fillRect(4, 22, 24, 5)
+  ctx.fillStyle = '#B08020'
+  ctx.fillRect(6, 24, 20, 2)
+})
+
+// 96: carrot
+saveTile(96, 'carrot', (ctx) => {
+  ctx.fillStyle = '#FF7700'
+  ctx.fillRect(12, 4, 8, 24)
+  ctx.fillStyle = '#FF9922'
+  ctx.fillRect(13, 5, 6, 22)
+  ctx.fillStyle = '#00AA22'
+  ctx.fillRect(10, 2, 6, 6)
+  ctx.fillRect(16, 2, 6, 6)
+  ctx.fillStyle = '#009900'
+  ctx.fillRect(12, 1, 8, 3)
+})
+
+// 97: cooked_porkchop
+saveTile(97, 'cooked-porkchop', (ctx) => {
+  ctx.fillStyle = '#8B5E3C'
+  ctx.fillRect(3, 6, 26, 18)
+  ctx.fillStyle = '#A07040'
+  ctx.fillRect(4, 6, 24, 2)
+  ctx.fillRect(4, 22, 24, 2)
+  ctx.fillStyle = '#9A683C'
+  ctx.fillRect(5, 8, 22, 14)
+  ctx.fillStyle = '#7B4020'
+  ctx.fillRect(8, 10, 2, 10)
+  ctx.fillRect(14, 10, 2, 10)
+  ctx.fillRect(20, 10, 2, 10)
+})
+
+// 98: golden_apple
+saveTile(98, 'golden-apple', (ctx) => {
+  ctx.fillStyle = '#CC2200'
+  ctx.beginPath()
+  ctx.arc(16, 18, 10, 0, Math.PI * 2)
+  ctx.fill()
+  ctx.fillStyle = '#DAA520'
+  ctx.beginPath()
+  ctx.arc(14, 16, 4, Math.PI * 0.2, Math.PI * 1.3)
+  ctx.fill()
+  ctx.fillStyle = '#FFD700'
+  ctx.fillRect(15, 4, 2, 6)
+  ctx.fillStyle = '#336600'
+  ctx.fillRect(14, 5, 3, 3)
+  ctx.fillStyle = '#FFD700'
+  ctx.fillRect(12, 20, 8, 2)
+  ctx.fillRect(20, 14, 2, 8)
+})
+
+// 99: wheat
+saveTile(99, 'wheat', (ctx) => {
+  ctx.fillStyle = '#DDBB44'
+  ctx.fillRect(10, 6, 12, 20)
+  ctx.fillStyle = '#EECC55'
+  ctx.fillRect(11, 7, 10, 18)
+  for (let i = 0; i < 8; i++) {
+    const y = 8 + i * 2
+    ctx.fillStyle = '#DDA030'
+    ctx.fillRect(14, y, 4, 1)
+  }
+  ctx.fillStyle = '#AA8822'
+  ctx.fillRect(14, 24, 4, 4)
+})
+
+// 100: redstone_wire
+saveTile(100, 'redstone-wire', (ctx) => {
+  ctx.fillStyle = '#440000'
+  ctx.fillRect(0, 13, 32, 6)
+  ctx.fillStyle = '#AA0000'
+  ctx.fillRect(1, 13, 30, 2)
+  ctx.fillStyle = '#FF0000'
+  ctx.fillRect(2, 13, 28, 1)
+  ctx.fillStyle = '#CC0000'
+  ctx.fillRect(3, 14, 26, 1)
+  ctx.fillStyle = '#FF4444'
+  ctx.fillRect(2, 14, 2, 2)
+  ctx.fillStyle = '#FF3333'
+  ctx.fillRect(8, 14, 2, 2)
+  ctx.fillRect(16, 14, 2, 2)
+  ctx.fillRect(24, 14, 2, 2)
+  // restone dust dots
+  ctx.fillStyle = '#FF2200'
+  ctx.fillRect(4, 14, 2, 1)
+  ctx.fillRect(10, 14, 3, 1)
+  ctx.fillRect(18, 14, 3, 1)
+  ctx.fillRect(26, 14, 2, 1)
+})
+
 // Save combined atlas (single file loaded by chunk-mesh.ts at runtime).
 writeFileSync(join(OUTPUT_DIR, 'atlas.png'), atlasCanvas.toBuffer('image/png'))
-console.log(`  ✓ atlas.png (512×512, all 63 tiles combined)`)
+console.log(`  ✓ atlas.png (512×512, all 101 tiles combined)`)
 
-console.log(`\nDone — 63 individual tiles + atlas.png written to ${OUTPUT_DIR}`)
+console.log(`\nDone — 101 individual tiles + atlas.png written to ${OUTPUT_DIR}`)
