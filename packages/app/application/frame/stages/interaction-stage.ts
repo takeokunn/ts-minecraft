@@ -20,7 +20,7 @@ import {
 } from '@ts-minecraft/app/frame-handler.config'
 import { handleHotbarInput, renderHotbarHud } from '@ts-minecraft/app/frame/stages/interaction-hotbar-handler'
 import { handleRedstoneInput, type RedstoneFlags } from '@ts-minecraft/app/frame/stages/interaction-redstone-handler'
-import { handleLeftClick, handleRightClick, handleFoodConsumption, handleUnequipArmor } from '@ts-minecraft/app/frame/stages/interaction-block-handler'
+import { handleLeftClick, handleRightClick, handleFoodConsumption, handleUnequipArmor, handleFeedAnimal } from '@ts-minecraft/app/frame/stages/interaction-block-handler'
 import { handleFlintAndSteel } from '@ts-minecraft/app/frame/stages/interaction-placement-handler'
 import { handleFarmingInteraction } from '@ts-minecraft/app/frame/stages/interaction-farming-handler'
 
@@ -132,10 +132,12 @@ export const interactionStage = (
           }
 
           if (rightClick) {
-            // Eating takes priority; farming (hoe + seeds) second; portal ignition third;
-            // bed sleep fourth; default block placement last.
-            const ate = yield* handleFoodConsumption(services)
-            if (!ate) {
+            // Feeding a breedable animal (R6c-3) takes priority — so e.g. right-clicking
+            // a pig with a CARROT feeds it rather than eating the carrot. Then eating;
+            // farming (hoe + seeds); portal ignition; bed sleep; default block placement.
+            const fed = yield* handleFeedAnimal(deps, services)
+            const ate = fed ? true : yield* handleFoodConsumption(services)
+            if (!fed && !ate) {
               const farmed = yield* handleFarmingInteraction(services, refs, { targetHit })
               if (!farmed) {
                 const ignited = selectedHotbarItem._tag === 'Some' && selectedHotbarItem.value === 'FLINT_AND_STEEL'

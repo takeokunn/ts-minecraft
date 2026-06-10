@@ -170,7 +170,9 @@ two contained QoL wins remain. Picking lower-risk, player-visible, contained inc
   - [x] R6c-2. Tick decay — `tickBreedingTimers` folded into all 4 update-loop return sites; idle early-return
     PRESERVED by clamping `ageTicks` at maturity (idle adult → unchanged state) + guarding the fast path on
     `breedingChanged`. +1 integration test (600-tick love decay); all 201 entity-mob tests green. _(done 2026-06-10)_
-  - [ ] R6c-3. Right-click-entity feeding interaction (held item === breedingItem → feedEntity + consume + sound).
+  - [x] R6c-3. Right-click-entity feeding — `handleFeedAnimal` (reuses `findAttackableEntity` for targeting):
+    held item === species `breedingItem` → `feedEntity` (gated) → consume 1 + sound; wired as right-click priority
+    so feeding a pig with CARROT feeds rather than eats. +4 tests (incl. positive raycast hit). _(done 2026-06-10)_
   - [ ] R6c-4. Breeding-pair → spawn baby (ageTicks 0) + parents' post-breed cooldown.
   - [ ] R6c. Entity-manager breeding tick — two in-love adults in range → spawn baby + love-cooldown.
   - [ ] R6d. Baby growth — age ticks → adult; babies smaller (render scale) + not breedable.

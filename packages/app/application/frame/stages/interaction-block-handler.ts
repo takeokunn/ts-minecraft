@@ -63,7 +63,7 @@ export type TargetRayHit = {
   readonly normal: { readonly x: number; readonly y: number; readonly z: number }
 }
 
-export { handleFoodConsumption, handleUnequipArmor } from '@ts-minecraft/app/frame/stages/interaction-item-use-handler'
+export { handleFoodConsumption, handleUnequipArmor, handleFeedAnimal } from '@ts-minecraft/app/frame/stages/interaction-item-use-handler'
 export { handleRightClick } from '@ts-minecraft/app/frame/stages/interaction-placement-handler'
 
 const triggerHeldItemSwing = (refs: Pick<FrameStageRefs, 'totalTimeSecsRef' | 'attackSwingStateRef'>) =>
