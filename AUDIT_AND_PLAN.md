@@ -142,8 +142,12 @@ always-runs hot-path cleanup over dormant-MP wiring.
   3-offer chooser doesn't fit the mechanic — it would require redesigning enchanting. A proper
   confirmation toast needs a new ToastService threaded through a deep handler (~6-8 files),
   disproportionate for Round-2 polish. Delivered the contained, pattern-following feedback win instead. _(done 2026-06-10)_
-- [ ] R4. (Low real-world value — MP dormant) Wire `RemotePlayerRenderer` into the frame
-  loop so remote players render IF multiplayer is later enabled.
+- [x] R4. ~~Wire `RemotePlayerRenderer` into the frame loop~~ **DESCOPED (deliberate)** — the entire MP
+  stack is gated off at the session level (`services.multiplayer = Option.none()`, session.ts:288;
+  no production server exists). Wiring the renderer would be **dead code** exercised only if MP is
+  enabled. The orphaned-but-tested renderer is the intentional state of an unfinished experimental
+  feature; building dead wiring adds no reachable value. Revisit IF/when MP is turned on
+  (then it pairs with the T15 block-sync, also dormant for the same reason).
 
 ## D. Progress log
 - 2026-06-10: Audit complete; plan authored. Beginning Phase 1.
@@ -155,3 +159,9 @@ always-runs hot-path cleanup over dormant-MP wiring.
   Final gate: `pnpm typecheck` 0 errors, `pnpm lint` 0/0. ~20 commits on branch
   `audit/nfr-fr-improvements`. New unit tests: flight, environment-hazard, multiplayer
   send + apply, bed-respawn persistence.
+- 2026-06-10: **ROUND 2 COMPLETE.** R1 (unbounded-concurrency fiber-spawn cleanup on 4 per-frame
+  sync reads), R2 (full spectator game mode: schema + noclip fly + immunity + no-interaction +
+  reachable via menu 3-way toggle, R2a-d), R3 (distinct enchant sound; full overlay descoped as
+  ill-fitting the deterministic mechanic), R4 (deliberately descoped — `RemotePlayerRenderer`
+  wiring would be dead code while the MP stack is gated off). Operational note: per-iteration
+  worker reaping added after an OS file-descriptor exhaustion (`ENFILE`) bricked tooling mid-run.
