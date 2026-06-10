@@ -7,7 +7,7 @@ import type { DeltaTimeSecs } from '@ts-minecraft/core'
 export const hudStage = (
   deps: Pick<FrameHandlerDeps, 'renderer'>,
   services: Pick<FrameHandlerServices, 'fpsCounter' | 'settingsService' | 'hotbarRenderer' | 'perfHud' | 'debugFeatureFlags'>,
-  refs: Pick<FrameStageRefs, 'frustumThrottleStrideRef' | 'adaptiveQualityCooldownRef' | 'lastFpsTextRef' | 'chunkSyncPendingRef'>,
+  refs: Pick<FrameStageRefs, 'frustumThrottleStrideRef' | 'adaptiveQualityCooldownRef' | 'lastFpsTenthsRef' | 'chunkSyncPendingRef'>,
   inputs: {
     readonly deltaTime: DeltaTimeSecs
     readonly currentSettings: FrameSettingsView
@@ -24,7 +24,9 @@ export const hudStage = (
 
     // Update FPS display — tick first, then update DOM only when displayed value changes
     const fps = yield* services.fpsCounter.tick(inputs.deltaTime).pipe(Effect.andThen(services.fpsCounter.getFPS()))
-    const fpsText = fps.toFixed(1)
+    // Quantize to tenths up front; the displayed value only ever has 1 decimal,
+    // so comparing integers lets us skip the toFixed allocation on unchanged frames.
+    const fpsTenths = Math.round(fps * 10)
     yield* Ref.set(refs.frustumThrottleStrideRef, fps >= 100 ? 1 : fps >= 60 ? 2 : 4)
     const adaptiveCooldown = yield* Ref.get(refs.adaptiveQualityCooldownRef)
     // FR-1.4: suspend adaptive-quality evaluation while paused — pause-menu
@@ -46,10 +48,12 @@ export const hudStage = (
       onNone: () => Effect.void,
       onSome: (patch) => services.settingsService.updateSettings(patch),
     })
-    const fpsChanged = yield* Ref.modify(refs.lastFpsTextRef, (last): [boolean, string] =>
-      last === fpsText ? [false, last] : [true, fpsText],
+    const fpsChanged = yield* Ref.modify(refs.lastFpsTenthsRef, (last): [boolean, number] =>
+      last === fpsTenths ? [false, last] : [true, fpsTenths],
     )
     if (fpsChanged && inputs.fpsElementOrNull && debugFlags['ui.fps']) {
+      // toFixed only runs on an actual change — typically a handful of times/sec.
+      const fpsText = (fpsTenths / 10).toFixed(1)
       yield* Effect.sync(() => {
         inputs.fpsElementOrNull!.textContent = fpsText
       })

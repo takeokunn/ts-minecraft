@@ -29,6 +29,7 @@ import { ParticleSystemService } from '@ts-minecraft/rendering/particles/particl
 import { PerfHudService } from '@ts-minecraft/rendering'
 import { InputService } from '@ts-minecraft/presentation/input/input-service'
 import { SettingsOverlayService } from '@ts-minecraft/presentation/settings/settings-overlay'
+import type { AttackSwingState } from '@ts-minecraft/presentation/hud/attack-swing'
 import { PauseMenuService } from '@ts-minecraft/presentation/menu/pause-menu'
 import { InventoryRendererService } from '@ts-minecraft/presentation/inventory/inventory-renderer'
 import { DebugFeatureFlagsService } from '@ts-minecraft/app/debug-feature-flags'
@@ -41,6 +42,7 @@ import { TradingPresentationService } from '@ts-minecraft/presentation/trading'
 import { RedstoneService } from '@ts-minecraft/entity'
 import { FluidService, NetherService } from '@ts-minecraft/world'
 import { FurnaceService } from '@ts-minecraft/inventory'
+import { MultiplayerService } from '@ts-minecraft/app/application/multiplayer/multiplayer-service'
 import type { Chunk } from '@ts-minecraft/world'
 import type { DirtyChunkEntry } from './frame-maintenance'
 import { type DayNightLights } from '@ts-minecraft/game'
@@ -119,6 +121,7 @@ export type FrameHandlerServices = {
   readonly weatherService: WeatherService
   readonly perfHud: PerfHudService
   readonly gameMode: GameModeService
+  readonly multiplayer: Option.Option<MultiplayerService>
 }
 
 export type FrameStageRefs = {
@@ -127,13 +130,14 @@ export type FrameStageRefs = {
   readonly fluidTickAccumulatorRef: Ref.Ref<number>
   readonly refractionFrameCounterRef: Ref.Ref<number>
   readonly refractionValidRef: Ref.Ref<boolean>
-  readonly lastFpsTextRef: Ref.Ref<string>
+  readonly lastFpsTenthsRef: Ref.Ref<number>
   readonly lastHealthRef: MutableRef.MutableRef<{ current: number; max: number }>
   readonly lastHungerRef: MutableRef.MutableRef<{ foodLevel: number; max: number }>
   readonly lastXPRef: MutableRef.MutableRef<{ level: number; xpIntoLevel: number; xpRequiredForNext: number }>
   readonly lastArmorRef: MutableRef.MutableRef<{ armorPoints: number }>
   // totalTimeSecs of the player's last melee attack — drives attack-cooldown charge.
   readonly lastPlayerAttackTimeRef: Ref.Ref<number>
+  readonly attackSwingStateRef: Ref.Ref<AttackSwingState>
   // Accumulated seconds the player has been standing inside a NETHER_PORTAL block.
   // Resets to 0 when the player leaves the portal. Dimension travel fires when this
   // reaches PORTAL_ACTIVATION_SECS (4 seconds — vanilla 80-tick equivalent).

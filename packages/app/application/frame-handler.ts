@@ -10,6 +10,7 @@ import { type DayNightLights } from '@ts-minecraft/game'
 import { type CameraPoseSnapshot } from '@ts-minecraft/app/frame/frame-runtime-logic'
 import { createMaintenanceHandler } from '@ts-minecraft/app/frame/frame-maintenance'
 import { runFrameStages } from '@ts-minecraft/app/frame/frame-stage-executor'
+import { createAttackSwingState } from '@ts-minecraft/presentation/hud/attack-swing'
 import type {
   FrameHandlerDeps,
   FrameHandlerServices,
@@ -45,8 +46,9 @@ const createFrameLoopHandlersInternal = (
     // Track whether the refraction texture has been rendered at least once —
     // prevents water shader from sampling a black/stale refraction texture on startup.
     const refractionValidRef = yield* Ref.make(false)
-    // FPS display throttle: skip DOM write when displayed value is unchanged
-    const lastFpsTextRef = yield* Ref.make('')
+    // FPS display throttle: store quantized tenths so we skip both the DOM write
+    // and the per-frame toFixed string allocation when the displayed value is unchanged
+    const lastFpsTenthsRef = yield* Ref.make(-1)
     // Health display throttle: skip DOM write when health values are unchanged (FR-006)
     const lastHealthRef = MutableRef.make({ current: -1, max: -1 })
     const lastHungerRef = MutableRef.make({ foodLevel: -1, max: -1 })
@@ -54,6 +56,7 @@ const createFrameLoopHandlersInternal = (
     const lastArmorRef = MutableRef.make({ armorPoints: -1 })
     // Far in the past so the first attack of a session is fully charged.
     const lastPlayerAttackTimeRef = yield* Ref.make(-1000)
+    const attackSwingStateRef = yield* Ref.make(createAttackSwingState())
     // Nether portal: accumulated seconds in a NETHER_PORTAL block (resets on exit).
     const portalSecsRef = yield* Ref.make(0)
     const lastLoadedChunksRef = yield* Ref.make<Option.Option<ReadonlyArray<Chunk>>>(Option.none())
@@ -150,12 +153,13 @@ const createFrameLoopHandlersInternal = (
       fluidTickAccumulatorRef,
       refractionFrameCounterRef,
       refractionValidRef,
-      lastFpsTextRef,
+      lastFpsTenthsRef,
       lastHealthRef,
       lastHungerRef,
       lastXPRef,
       lastArmorRef,
       lastPlayerAttackTimeRef,
+      attackSwingStateRef,
       portalSecsRef,
       lastRenderDistanceRef,
       lastEntityStructureVersionRef,

@@ -72,7 +72,7 @@ checks are already allocation-free). Only confirmed, impactful items survive bel
 ### Phase 1 — Verified per-frame allocation fixes (cheap, low-risk)
 - [x] T1. `render-stage.ts`: replace camera `.clone()` ×2 with module-scoped scratch `Vector3`/`Quaternion` + `.copy()`. _(done 2026-06-10)_
 - [x] T2. `render-stage.ts`: replace `Effect.all(unbounded)` of two pure `Ref.get` with sequential reads. _(done 2026-06-10)_
-- [ ] T3. `hud-stage.ts`: only `toFixed` when rounded FPS changes (cache last numeric FPS).
+- [x] T3. `hud-stage.ts`: only `toFixed` when rounded FPS changes (cache last numeric FPS). _(done 2026-06-10; ref `lastFpsTextRef`→`lastFpsTenthsRef`)_
 - [ ] T4. `frame-stage-executor.ts`: confirm + eliminate per-frame graphics cache-key string build.
 
 ### Phase 2 — Memory-leak fixes (correctness)
