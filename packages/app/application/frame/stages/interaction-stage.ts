@@ -48,8 +48,9 @@ export const interactionStage = (
     | 'hungerService'
     | 'gameState'
     | 'timeService'
+    | 'multiplayer'
   >,
-  refs: Pick<FrameStageRefs, 'dirtyChunksRef' | 'totalTimeSecsRef' | 'lastPlayerAttackTimeRef'>,
+  refs: Pick<FrameStageRefs, 'dirtyChunksRef' | 'totalTimeSecsRef' | 'lastPlayerAttackTimeRef' | 'attackSwingStateRef'>,
 ): Effect.Effect<void, never> =>
   Effect.gen(function* () {
     const debugFlags = yield* services.debugFeatureFlags.getFlags()

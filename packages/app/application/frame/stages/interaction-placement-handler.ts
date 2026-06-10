@@ -211,7 +211,7 @@ const handleEnchantingTable = (
 export const handleRightClick = (
   services: Pick<
     FrameHandlerServices,
-    'blockService' | 'chunkManagerService' | 'soundManager' | 'hotbarService' | 'furnaceService' | 'timeService' | 'netherService' | 'inventoryService' | 'xpService'
+    'blockService' | 'chunkManagerService' | 'soundManager' | 'hotbarService' | 'furnaceService' | 'timeService' | 'netherService' | 'inventoryService' | 'xpService' | 'multiplayer'
   >,
   refs: Pick<FrameStageRefs, 'dirtyChunksRef'>,
   context: { readonly targetHit: Option.Option<TargetRayHit>; readonly respawnPositionRef: MutableRef.MutableRef<Position> },
@@ -263,6 +263,13 @@ export const handleRightClick = (
                     .placeBlock(adjacentPos, item, SlotIndex.make(HOTBAR_START + selectedSlot))
                     .pipe(
                       Effect.flatMap(() => services.soundManager.playEffect('blockPlace', { position: adjacentPos })),
+                      // FR-3: broadcast the placement to other players (no-op offline).
+                      Effect.tap(() =>
+                        Option.match(services.multiplayer, {
+                          onNone: () => Effect.void,
+                          onSome: (mp) => mp.sendBlockPlace(adjacentPos, item),
+                        }),
+                      ),
                       Effect.andThen(services.chunkManagerService.getChunk(chunkCoord)),
                       Effect.flatMap((updatedChunk) =>
                         Ref.update(refs.dirtyChunksRef, (map) =>

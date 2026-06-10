@@ -7,6 +7,7 @@ import { HOTBAR_START, isDurable, getSharpnessDamageBonus, getFortuneDropMultipl
 import { FORTUNE_ORE_BLOCKS, PICKAXE_BLOCK_TYPES, getInventoryDropForBlock } from '@ts-minecraft/world'
 import { computeAttackDamage, computeKnockback, computeAttackCharge, computeChargedDamage, DEFAULT_ATTACK_COOLDOWN_SECS, getMobDefinition } from '@ts-minecraft/entity'
 import { getParticleUvOffset } from '@ts-minecraft/rendering/particles/particle-system'
+import { triggerAttackSwing } from '@ts-minecraft/presentation/hud/attack-swing'
 import {
   ENTITY_CENTER_Y_OFFSET,
   PLAYER_ATTACK_DAMAGE,
@@ -65,6 +66,13 @@ export type TargetRayHit = {
 export { handleFoodConsumption, handleUnequipArmor } from '@ts-minecraft/app/frame/stages/interaction-item-use-handler'
 export { handleRightClick } from '@ts-minecraft/app/frame/stages/interaction-placement-handler'
 
+const triggerHeldItemSwing = (refs: Pick<FrameStageRefs, 'totalTimeSecsRef' | 'attackSwingStateRef'>) =>
+  Ref.get(refs.totalTimeSecsRef).pipe(
+    Effect.flatMap((nowSecs) =>
+      Ref.update(refs.attackSwingStateRef, (state) => triggerAttackSwing({ ...state }, nowSecs * 1000)),
+    ),
+  )
+
 export const handleLeftClick = (
   deps: Pick<FrameHandlerDeps, 'camera'>,
   services: Pick<
@@ -79,8 +87,9 @@ export const handleLeftClick = (
     | 'particleSystem'
     | 'gameState'
     | 'xpService'
+    | 'multiplayer'
   >,
-  refs: Pick<FrameStageRefs, 'dirtyChunksRef' | 'totalTimeSecsRef' | 'lastPlayerAttackTimeRef'>,
+  refs: Pick<FrameStageRefs, 'dirtyChunksRef' | 'totalTimeSecsRef' | 'lastPlayerAttackTimeRef' | 'attackSwingStateRef'>,
   context: {
     readonly targetBlock: Option.Option<TargetBlockHit>
     readonly targetHit: Option.Option<TargetRayHit>
@@ -106,9 +115,7 @@ export const handleLeftClick = (
             const pos = { x: tb.x, y: tb.y, z: tb.z }
             const chunkCoord = { x: Math.floor(tb.x / CHUNK_SIZE), z: Math.floor(tb.z / CHUNK_SIZE) }
             const coordKey = `${chunkCoord.x},${chunkCoord.z}`
-            // FR-1.6 — read block type BEFORE breakBlock mutates it so the
-            // particle UV uses the correct atlas tile. Falls back to dirt
-            // (tile 0) if the local index is out of range.
+            // Read block type before mutation so particles use the correct atlas tile.
             const lx = ((tb.x % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE
             const lz = ((tb.z % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE
             const flatIdx = tb.y + lz * CHUNK_HEIGHT + lx * CHUNK_HEIGHT * CHUNK_SIZE
@@ -119,6 +126,11 @@ export const handleLeftClick = (
                 return Effect.all(
                   [
                     services.blockService.breakBlock(pos),
+                    // FR-3: broadcast the break to other players (no-op offline).
+                    Option.match(services.multiplayer, {
+                      onNone: () => Effect.void,
+                      onSome: (mp) => mp.sendBlockBreak(pos),
+                    }),
                     services.soundManager.playEffect('blockBreak', { position: pos }),
                     debugFlags['particles.spawn']
                       ? services.particleSystem.spawnBurst(
@@ -147,13 +159,11 @@ export const handleLeftClick = (
                       }),
                     ),
                   ),
-                  // XP from ore breaking (coal, diamond, emerald, lapis, redstone).
                   Effect.andThen(Effect.gen(function* () {
                     const blockType = indexToBlockType(blockId)
                     const xp = ORE_XP_DROPS[blockType] ?? 0
                     if (xp > 0) yield* services.xpService.addXP(xp)
                   })),
-                  // Fortune enchantment: add extra drops for applicable ores (pickaxes only).
                   Effect.andThen(Effect.gen(function* () {
                     const blockType = indexToBlockType(blockId)
                     if (!HashSet.has(FORTUNE_ORE_BLOCKS, blockType)) return
@@ -173,6 +183,7 @@ export const handleLeftClick = (
                     yield* services.inventoryService.addBlock(getInventoryDropForBlock(blockType), extra)
                       .pipe(Effect.catchAllCause(() => Effect.void))
                   })),
+                  Effect.andThen(triggerHeldItemSwing(refs)),
                 )
               }),
             )
@@ -194,11 +205,7 @@ export const handleLeftClick = (
               return e ? getSharpnessDamageBonus(e.level) : 0
             },
           })
-          // Crit when airborne. Attack cooldown (1.9 charge): a hit before the
-          // weapon recharges is weakened. Charge from time since the last attack;
-          // record this attack. The mob is the defender and carries no armor, so
-          // the attack uses the default armorPoints=0 — the player's own armor
-          // mitigates INCOMING damage in physics-stage, never their own attacks.
+          // Crit when airborne. Attack cooldown weakens hits before recharge.
           const [now, lastAttack] = yield* Effect.all(
             [Ref.get(refs.totalTimeSecsRef), Ref.get(refs.lastPlayerAttackTimeRef)],
             { concurrency: 'unbounded' },
@@ -207,9 +214,7 @@ export const handleLeftClick = (
           yield* Ref.set(refs.lastPlayerAttackTimeRef, now)
           const damage = computeChargedDamage(computeAttackDamage(baseDamage + sharpnessBonus, !playerGrounded), charge)
 
-          // Knock the target away + play the hit sound. Done BEFORE applyDamage
-          // since a lethal hit removes the entity. Direction = attacker→target
-          // (horizontal), derived from camera vs. entity position (no THREE dep).
+          // Knock back and play feedback before lethal hits can remove the entity.
           const entityOpt = yield* services.entityManager.getEntity(entityId)
           yield* Option.match(entityOpt, {
             onNone: () => Effect.void,
@@ -221,9 +226,7 @@ export const handleLeftClick = (
                     computeKnockback(e.position.x - deps.camera.position.x, e.position.z - deps.camera.position.z),
                   ),
                   services.soundManager.playEffect('entityHit', { position: e.position }),
-                  // Combat-feedback fleck at the entity's bounding-box center. A
-                  // denser burst on the DETERMINISTIC crit (airborne = !playerGrounded,
-                  // the same signal used for crit damage — never a random roll).
+                  // Denser burst on deterministic crit (airborne), never random.
                   debugFlags['particles.spawn']
                     ? services.particleSystem.spawnBurst(
                         e.position.x,
@@ -265,15 +268,7 @@ export const handleLeftClick = (
             yield* services.xpService.addXP(getMobDefinition(entityOpt.value.type).xpReward)
           }
 
-          // Mob vocalization, sequenced AFTER applyDamage (it must NOT join the
-          // parallel entityHit Effect.all above, which is the PLAYER's swing cue
-          // and fires on every landed hit). applyDamage returns Some on a lethal
-          // hit (even with empty drops) and None on a survived/no-op hit, so the
-          // drops Option is the kill discriminator: kill → only mobDeath, survive
-          // → only mobHurt (mutually exclusive — never both). The mob is removed
-          // on a lethal hit, so the position comes from the pre-kill `entityOpt`
-          // snapshot (never a post-kill getEntity); falls back to the camera if
-          // the entity vanished before the swing resolved.
+          // Vocalization runs after damage: kill → mobDeath, survive → mobHurt.
           const vocalizationPos = Option.match(entityOpt, {
             onNone: () => deps.camera.position,
             onSome: (e) => e.position,
@@ -283,9 +278,6 @@ export const handleLeftClick = (
             onSome: () => services.soundManager.playEffect('mobDeath', { position: vocalizationPos }),
           })
 
-          // A landed melee hit wears down a durable weapon (1 point per swing). The
-          // held item type comes from the selected hotbar slot; non-tools (and the
-          // bare fist) take no durability damage.
           yield* Option.match(context.selectedHotbarItem, {
             onNone: () => Effect.void,
             onSome: (item) =>
@@ -297,8 +289,9 @@ export const handleLeftClick = (
                         services.inventoryService.damageSlot(SlotIndex.make(HOTBAR_START + selectedSlot), 1),
                       ),
                     )
-                : Effect.void,
+                  : Effect.void,
           })
+          yield* triggerHeldItemSwing(refs)
         }),
     })
   })

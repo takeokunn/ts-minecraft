@@ -112,7 +112,7 @@ checks are already allocation-free). Only confirmed, impactful items survive bel
   - [x] T14d. Swim-up — hold JUMP in water to ascend (steady upward swim, suppressed while flying). _(done 2026-06-10)_
 - [ ] T15. FR-3 Multiplayer block sync: wire `BlockPlace`/`BlockBreak` send + apply. _(decomposed below)_
   - [ ] T15a. MultiplayerService: `sendBlockPlace`/`sendBlockBreak` + inbound block-edit queue + `drainBlockEdits`.
-  - [ ] T15b. Send on local edit — emit messages from the place/break interaction handlers when MP is connected.
+  - [x] T15b. Send on local edit — place/break handlers emit messages when MP is connected (Option-guarded no-op offline). _(done 2026-06-10)_
   - [ ] T15c. Apply on receive — drain inbound edits each frame, forceSetBlock/break + mark chunk dirty.
 
 ---
