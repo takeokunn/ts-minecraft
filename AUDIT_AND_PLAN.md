@@ -595,8 +595,14 @@ typecheck 0, **4621 tests passing** (+26 new tests, 4 updated assertions).
   +4 tests. Remaining orphans are intentionally-deferred End-game items (CHORUS_FRUIT, DRAGON_*,
   ELYTRA, ENDER_EYE, END_CRYSTAL). _(done 2026-06-11)_
 
-**Round 27 complete.** R59-R71.
-typecheck 0, **4625 tests passing** (+30 new tests, 4 updated assertions).
+- [x] R72. Full-validation sweep of R59-R71 — ran the complete shippability gate (oxlint +
+  production build, not just unit tests). oxlint flagged 2 dead imports (createFrameHandlers,
+  DeltaTimeSecs) in interaction-stage.test.ts left from prior refactors; removed. **Result:
+  lint 0/0, typecheck 0, `pnpm build` exit 0 (fresh dist/ bundle), 4625 tests passing — the
+  entire R59-R72 tree is shippable.** _(done 2026-06-11)_
+
+**Round 27 complete.** R59-R72.
+typecheck 0, lint 0/0, build exit 0, **4625 tests passing** (+30 new tests, 4 updated assertions).
 
 **Recurring theme (R65/R69/R70/R71):** "orphaned outputs" — blocks/items fully wired
 into handlers, textures, and drops but unreachable because a single crafting recipe or drop
