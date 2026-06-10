@@ -1,7 +1,7 @@
 import { Array as Arr, Effect, Option, Ref, identity } from 'effect'
 import type { InventoryItem } from '@ts-minecraft/core'
 import { isArmorItem, getArmorSlot, computeTotalArmorPoints, type ArmorSlot } from '../domain/armor'
-import { type ItemStack, createStack } from '../domain/item-stack'
+import { type ItemStack, createStack, damageStack } from '../domain/item-stack'
 import { getProtectionDamageReduction } from '../domain/enchantment'
 
 type EquipmentSlots = {
@@ -73,6 +73,15 @@ export class EquipmentService extends Effect.Service<EquipmentService>()(
             return Math.min(total, 0.64)
           }),
         ),
+
+      // Damage one armor piece by `amount` durability. If broken, unequips it.
+      damageArmorSlot: (slot: ArmorSlot, amount = 1): Effect.Effect<void, never> =>
+        Ref.modify(slotsRef, (slots): [Option.Option<ItemStack>, EquipmentSlots] => {
+          const current = slots[slot]
+          if (!Option.isSome(current)) return [Option.none(), slots]
+          const next = damageStack(current.value, amount)
+          return [current, { ...slots, [slot]: next }]
+        }).pipe(Effect.asVoid),
 
       serialize: (): Effect.Effect<Partial<Record<ArmorSlot, InventoryItem>>, never> =>
         Ref.get(slotsRef).pipe(

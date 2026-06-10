@@ -30,6 +30,7 @@ export const makeEquipmentService = () => ({
   getAll: () => Effect.succeed({ HELMET: Option.none(), CHESTPLATE: Option.none(), LEGGINGS: Option.none(), BOOTS: Option.none() }),
   getTotalArmorPoints: () => Effect.succeed(0),
   getTotalProtectionReduction: () => Effect.succeed(0),
+  damageArmorSlot: (_slot: unknown, _amount?: unknown) => Effect.void,
   serialize: () => Effect.succeed({}),
   deserialize: (_saved: unknown) => Effect.void,
   reset: () => Effect.void,

@@ -137,6 +137,15 @@ export const physicsStage = (
         const tookHostileDamage = yield* tryApplyPlayerDamage(hostileDamage)
         if (tookHostileDamage) {
           yield* services.soundManager.playEffect('playerHurt', { position: refreshedPos })
+          // Each piece of worn armor loses 1 durability when the player takes a hit.
+          if (rawHostileDamage > 0) {
+            yield* Effect.all([
+              services.equipmentService.damageArmorSlot('HELMET'),
+              services.equipmentService.damageArmorSlot('CHESTPLATE'),
+              services.equipmentService.damageArmorSlot('LEGGINGS'),
+              services.equipmentService.damageArmorSlot('BOOTS'),
+            ], { concurrency: 'unbounded', discard: true }).pipe(Effect.catchAllCause(() => Effect.void))
+          }
         }
 
         const isDead = yield* services.healthService.isDead()
