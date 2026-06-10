@@ -12,4 +12,5 @@ export const PigDefinition: MobDefinition = {
   fleeHealthThreshold: 0.65,
   drops: [{ blockType: 'COOKED_PORKCHOP', count: 1 }],
   xpReward: 2,
+  breedingItem: 'CARROT',
 }

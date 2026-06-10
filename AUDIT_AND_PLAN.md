@@ -160,8 +160,13 @@ two contained QoL wins remain. Picking lower-risk, player-visible, contained inc
 
 - [x] R5. Sprint FOV — widen camera FOV (75→82, lerped 0.18/frame) while sprinting (Ctrl+W, not sneaking),
   in camera-stage; updateProjectionMatrix only when FOV actually changes. Visual-only, no new ref. +1 test. _(done 2026-06-10)_
-- [ ] R6. (Deferred — core but higher-risk/larger) Sneak edge-protection (don't walk off ledges) +
-  mob breeding (right-click-entity feed → baby). Revisit after R5; breeding is multi-iteration.
+- [ ] R6. Mob breeding (right-click-entity feed → love → baby → grows up). Multi-iteration; additive/low-risk.
+  - [x] R6a. Data foundation — optional `breedingItem` on `MobDefinition` + cow/sheep←WHEAT, pig←CARROT; +3 tests. _(done 2026-06-10)_
+  - [ ] R6b. Right-click-entity interaction → feed adult its breedingItem (consume item, enter love mode, sound).
+  - [ ] R6c. Entity-manager breeding tick — two in-love adults in range → spawn baby + love-cooldown.
+  - [ ] R6d. Baby growth — age ticks → adult; babies smaller (render scale) + not breedable.
+- [ ] R7. (Deferred — higher risk) Sneak edge-protection — modifies the shared collision path; needs careful
+  per-axis AABB-footprint ground detection to avoid trapping the player on stairs/slopes. Not a "certain" step.
   (then it pairs with the T15 block-sync, also dormant for the same reason).
 
 ## D. Progress log

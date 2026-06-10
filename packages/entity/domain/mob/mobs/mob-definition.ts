@@ -23,5 +23,8 @@ export const MobDefinitionSchema = Schema.Struct({
   drops: Schema.Array(EntityDropSchema),
   // XP granted to the player when this mob is killed (vanilla Java Edition values).
   xpReward: Schema.Number.pipe(Schema.finite(), Schema.nonNegative()),
+  // Breeding (FR R6): the item that, fed to two adults, triggers breeding
+  // (cow/sheep ← WHEAT, pig ← CARROT). Optional — hostile/non-breedable mobs omit it.
+  breedingItem: Schema.optional(InventoryItemSchema),
 })
 export type MobDefinition = Schema.Schema.Type<typeof MobDefinitionSchema>
