@@ -7,7 +7,7 @@ import type { BlockType, InventoryItem } from '@ts-minecraft/core'
 import { HOTBAR_START, isDurable, getSharpnessDamageBonus, getSmiteDamageBonus, getBaneOfArthropodsDamageBonus, getFortuneDropMultiplier, getPowerDamageMultiplier, getUnbreakingSkipChance, getKnockbackHorizontalMultiplier, getPunchKnockbackBonus } from '@ts-minecraft/inventory'
 import { FORTUNE_ORE_BLOCKS, PICKAXE_BLOCK_TYPES, getInventoryDropForBlock, canHarvestBlock } from '@ts-minecraft/world'
 import { getBlockHardness, computeBreakTicks } from '@ts-minecraft/block'
-import { computeAttackDamage, computeKnockback, computeAttackCharge, computeChargedDamage, DEFAULT_ATTACK_COOLDOWN_SECS, getMobDefinition, computeBowCharge, computeBowDamage, canFireBow, BOW_MAX_RANGE } from '@ts-minecraft/entity'
+import { computeAttackDamage, computeKnockback, computeAttackCharge, computeChargedDamage, DEFAULT_ATTACK_COOLDOWN_SECS, getMobDefinition, computeBowCharge, computeBowDamage, canFireBow, BOW_MAX_RANGE, EXHAUSTION_ATTACK } from '@ts-minecraft/entity'
 import { getParticleUvOffset } from '@ts-minecraft/rendering/particles/particle-system'
 import { triggerAttackSwing } from '@ts-minecraft/presentation/hud/attack-swing'
 import {
@@ -258,6 +258,7 @@ export const handleLeftClick = (
     | 'xpService'
     | 'multiplayer'
     | 'cropGrowthService'
+    | 'hungerService'
   >,
   refs: Pick<FrameStageRefs, 'dirtyChunksRef' | 'totalTimeSecsRef' | 'lastPlayerAttackTimeRef' | 'attackSwingStateRef'>,
   context: {
@@ -341,6 +342,8 @@ export const handleLeftClick = (
           })
 
           const drops = yield* services.entityManager.applyDamage(entityId, damage)
+          // Attacking costs exhaustion (vanilla: 0.1 per hit regardless of kill/miss).
+          yield* services.hungerService.addExhaustion(EXHAUSTION_ATTACK)
           // Vanilla: baby mobs drop no loot and grant no XP when killed.
           const wasBaby = Option.isSome(entityOpt) && entityOpt.value.isBaby === true
           yield* Effect.forEach(

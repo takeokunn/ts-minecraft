@@ -5,7 +5,7 @@ import { applyArmorReduction } from '@ts-minecraft/entity'
 import { DEFAULT_PLAYER_ID, CHUNK_SIZE, CHUNK_HEIGHT, indexToBlockType, SlotIndex } from '@ts-minecraft/core'
 import { HOTBAR_START, getFeatherFallingReduction, getFireProtectionReduction, getRespirationBonusSecs } from '@ts-minecraft/inventory'
 import type { DeltaTimeSecs, Position } from '@ts-minecraft/core'
-import { EXHAUSTION_SPRINT_PER_BLOCK, EXHAUSTION_JUMP, MAX_FOOD_LEVEL } from '@ts-minecraft/entity'
+import { EXHAUSTION_SPRINT_PER_BLOCK, EXHAUSTION_JUMP, EXHAUSTION_DAMAGE, MAX_FOOD_LEVEL } from '@ts-minecraft/entity'
 import { accrueHazardTicks, nextAirSecs, LAVA_DAMAGE, LAVA_DAMAGE_INTERVAL_SECS, DROWN_DAMAGE, DROWN_DAMAGE_INTERVAL_SECS, MAX_AIR_SECS } from '@ts-minecraft/entity'
 import { EYE_LEVEL_OFFSET } from '@ts-minecraft/app/frame-handler.config'
 import { resolveNetherTravel, type Dimension } from '@ts-minecraft/world'
@@ -63,7 +63,10 @@ export const physicsStage = (
                 Effect.flatMap((health) =>
                   health.current <= 0 || health.invincibilityTicks > 0
                     ? Effect.succeed(false)
-                    : services.healthService.applyDamage(amount).pipe(Effect.as(true)),
+                    : services.healthService.applyDamage(amount).pipe(
+                        Effect.flatMap(() => services.hungerService.addExhaustion(EXHAUSTION_DAMAGE)),
+                        Effect.as(true),
+                      ),
                 ),
               )
 
