@@ -217,3 +217,21 @@ two contained QoL wins remain. Picking lower-risk, player-visible, contained inc
 - [x] R10. Breeding grants the player XP — entity-manager `birthsRef` incremented per baby in the breeding
   pass + `drainBirths()`; entity-update-stage drains it each tick and awards `births * BREED_XP_REWARD` (4).
   Mirrors the drainBlockEdits pattern. +1 e2e assertion; mock + xpService Pick updated. _(done 2026-06-10)_
+
+## H. Round 5 (2026-06-10) — sheep shearing (new FR, decomposed into certain steps)
+
+- [x] R11a. SHEARS item data foundation — `'SHEARS'` added to `ItemTypeSchema`, `ITEM_TILE_MAP` (tile 55,
+  iron-tool atlas), and `NON_PLACEABLE_ITEM_TYPES`. tsc's exhaustive `Record<InventoryItem,number>` confirms
+  every ItemType consumer handles it; 70 item-type tests green. _(done 2026-06-10, e7133604)_
+- [x] R11b. Shearing entity-side — pure `shearing.ts` (canBeSheared / shearWoolCount [deterministic 1-3 from
+  id hash, no RNG] / tickWoolRegrowth [clamps at 0, preserves idle early-return]); `ManagedEntity.woolRegrowthTicks`;
+  `EntityManager.shearEntity` (Some(count)+regrowth for a woolly sheep, None otherwise, mirrors feedEntity);
+  self-contained regrowth countdown pass in the update loop (mirrors creeper-fuse pass; unprojected field → no
+  cache invalidation). +9 tests; 74 existing entity tests green; typecheck 0. _(done 2026-06-10, dc09cff0)_
+- [x] R11c. Shearing app-side — `handleShearAnimal` (look at sheep + hold SHEARS → shearEntity → add 1-3 WOOL +
+  cue; shears not consumed); right-click priority shear > feed > eat > farm > ignite > place; test-kit gains
+  shearEntity/feedEntity mocks. +4 tests; interaction suites green; typecheck 0. Sheep shearing end-to-end
+  playable: shear → wool → ~5min regrowth → reshearable. _(done 2026-06-10, 914e0091)_
+- [ ] R11d. (Optional polish, deferred) Visual bald-sheep render while sheared — would project `sheared` onto
+  the public Entity (needs cache invalidation on the regrowth transition) + a sheared-sheep texture/scale swap
+  in entity-renderer. The mechanic is complete without it; purely cosmetic.
