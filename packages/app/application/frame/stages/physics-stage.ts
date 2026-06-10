@@ -141,12 +141,14 @@ export const physicsStage = (
           yield* services.soundManager.playEffect('playerHurt', { position: refreshedPos })
           // Each piece of worn armor loses 1 durability when the player takes a hit.
           if (rawHostileDamage > 0) {
+            // Sequential: damageArmorSlot is a synchronous Ref write; unbounded
+            // concurrency would spawn 4 fibers per hit for no parallelism gain.
             yield* Effect.all([
               services.equipmentService.damageArmorSlot('HELMET'),
               services.equipmentService.damageArmorSlot('CHESTPLATE'),
               services.equipmentService.damageArmorSlot('LEGGINGS'),
               services.equipmentService.damageArmorSlot('BOOTS'),
-            ], { concurrency: 'unbounded', discard: true }).pipe(Effect.catchAllCause(() => Effect.void))
+            ], { discard: true }).pipe(Effect.catchAllCause(() => Effect.void))
           }
         }
 
@@ -184,12 +186,14 @@ export const physicsStage = (
           const dz = refreshedPos.z - inputs.initialPlayerPos.z
           // Sprint/sneak detection mirrors camera-stage: Ctrl + forward + !sneak.
           // Read once and share between movement and jump exhaustion branches.
+          // Sequential: isKeyPressed is a synchronous Set lookup; unbounded
+          // concurrency would spawn 4 fibers every frame for no parallelism gain.
           const [ctrlL, ctrlR, forward, sneak] = yield* Effect.all([
             services.inputService.isKeyPressed('ControlLeft'),
             services.inputService.isKeyPressed('ControlRight'),
             services.inputService.isKeyPressed(KeyMappings.MOVE_FORWARD),
             services.inputService.isKeyPressed(KeyMappings.SNEAK),
-          ], { concurrency: 'unbounded' })
+          ])
           const isSprinting = (ctrlL || ctrlR) && forward && !sneak
           const isSneaking = sneak
 

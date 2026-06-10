@@ -610,6 +610,27 @@ source was missing. Invisible to unit tests (each piece passes in isolation) yet
 actual survival progression loop. R71 did the systematic sweep; the FR-acquisition surface is
 now closed except for deliberately-deferred End-game content.
 
+## AE. Round 28 (2026-06-11) — typecheck mock drift + fiber spawn cleanup
+
+Fresh audit pass found:
+- Two test-utility mocks (`block-cycle-test-utils.ts`, `block-service-test-utils.ts`) had
+  `collectOutput: () => Effect.succeed(true)` but the interface now requires `{ collected, xp }`
+  (changed in R61). vitest passed (esbuild transpiles without structural checking); `pnpm typecheck`
+  caught both as TS2375. Classic GOTCHA documented in MEMORY.md.
+- `physics-stage.ts` had two lingering `concurrency: 'unbounded'` fiber-spawn patterns:
+  - Armor durability damage on hostile hit (4 fibers per hit event)
+  - Sprint/sneak input reads (4 fibers every single frame — worst-case ~240 fiber allocs/sec at 60 fps)
+
+- [x] R73. Fix mock drift — `collectOutput` mock in `block-cycle-test-utils.ts` and
+  `block-service-test-utils.ts` updated from `Effect.succeed(true)` to
+  `Effect.succeed({ collected: true, xp: 0 })`. _(done 2026-06-11)_
+- [x] R74. Remove `concurrency: 'unbounded'` from `physics-stage.ts` armor-damage (4 sync Ref writes
+  per hit) and sprint/sneak reads (4 sync Set lookups per frame). Added explanatory comments
+  mirroring the pattern established in camera-stage and interaction-stage. _(done 2026-06-11)_
+
+**Round 28 complete.** R73–R74.
+typecheck 0, lint 0/0, **4625 tests passing** (no new tests — pure correctness + perf fixes).
+
 ## D. Progress log
 - 2026-06-10: Audit complete; plan authored. Beginning Phase 1.
 - 2026-06-10: **ALL TASKS COMPLETE.** Phase 1 (T1-T4 verified hot-path allocs), Phase 2

@@ -111,7 +111,7 @@ export const buildIntegrationLayer = (playerPos: Position = { x: 100, y: 0, z: 1
     hasNearbyFurnace: () => Effect.succeed(false),
     setSelectedFurnace: () => Effect.void,
     startSmelting: () => Effect.void,
-    collectOutput: () => Effect.succeed(true),
+    collectOutput: () => Effect.succeed({ collected: true, xp: 0 }),
     clearFurnace: () => Effect.succeed([]),
     dismantleFurnace: () => Effect.succeed(true),
     serialize: () => Effect.succeed([]),

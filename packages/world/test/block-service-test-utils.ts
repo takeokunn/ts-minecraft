@@ -158,7 +158,7 @@ export const createMockFurnaceService = (): FurnaceService => FurnaceService.of(
   hasNearbyFurnace: () => Effect.succeed(false),
   setSelectedFurnace: (_position: Position) => Effect.void,
   startSmelting: (_recipeId) => Effect.void,
-  collectOutput: () => Effect.succeed(true),
+  collectOutput: () => Effect.succeed({ collected: true, xp: 0 }),
   clearFurnace: (_position: Position) => Effect.succeed([]),
   dismantleFurnace: (_position: Position) => Effect.succeed(true),
   serialize: () => Effect.succeed([]),
