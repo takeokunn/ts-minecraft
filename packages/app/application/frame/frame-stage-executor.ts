@@ -1,4 +1,4 @@
-import { Effect, MutableRef, Ref } from 'effect'
+import { Effect, MutableRef, Option, Ref } from 'effect'
 import type * as THREE from 'three'
 import { DEFAULT_PLAYER_ID, type DeltaTimeSecs } from '@ts-minecraft/core'
 import { resolvePreset, type DayNightLights, type ResolvedGraphics } from '@ts-minecraft/game'
@@ -14,6 +14,7 @@ import { interactionStage } from '@ts-minecraft/app/frame/stages/interaction-sta
 import { refractionPrepassStage, postProcessingSetupStage } from '@ts-minecraft/app/frame/stages/post-processing-stage'
 import { renderStage } from '@ts-minecraft/app/frame/stages/render-stage'
 import { hudStage } from '@ts-minecraft/app/frame/stages/hud-stage'
+import { multiplayerStage } from '@ts-minecraft/app/frame/stages/multiplayer-stage'
 
 export type FrameStageExecutorContext = {
   readonly resolved: ResolvedDeps
@@ -23,21 +24,27 @@ export type FrameStageExecutorContext = {
   readonly markShadowMapDirty: () => void
 }
 
+// Bit-packed numeric key for the graphics-resolve cache. Building a number
+// instead of a joined string avoids a per-frame array + string allocation in
+// the hot path; the cache changes only when a graphics setting is toggled.
+const GRAPHICS_QUALITY_INDEX: Record<Parameters<typeof resolvePreset>[0], number> = {
+  low: 0,
+  medium: 1,
+  high: 2,
+  ultra: 3,
+}
+
 const resolveGraphicsForFrame = (
   refs: Pick<FrameStageRefs, 'lastGraphicsQualityRef'>,
   graphicsQuality: Parameters<typeof resolvePreset>[0],
   shadowsEnabled: boolean,
   skyEnabled: boolean,
 ): Effect.Effect<readonly [ResolvedGraphics, boolean], never> => {
-  const graphicsCacheKey = [
-    graphicsQuality,
-    shadowsEnabled ? 'shadows:on' : 'shadows:off',
-    skyEnabled ? 'sky:on' : 'sky:off',
-  ].join('|')
+  const graphicsCacheKey = GRAPHICS_QUALITY_INDEX[graphicsQuality] * 4 + (shadowsEnabled ? 2 : 0) + (skyEnabled ? 1 : 0)
 
   return Ref.modify(
     refs.lastGraphicsQualityRef,
-    (last): [[ResolvedGraphics, boolean], { quality: string; resolved: ResolvedGraphics }] => {
+    (last): [[ResolvedGraphics, boolean], { quality: number; resolved: ResolvedGraphics }] => {
       if (last.quality === graphicsCacheKey) return [[last.resolved, false], last]
       const preset = resolvePreset(graphicsQuality)
       const resolvedWithDebugFlags = shadowsEnabled && skyEnabled
@@ -158,6 +165,18 @@ export const runFrameStages = (
       playerPos,
     })
 
+    // Multiplayer position sync (if service is wired)
+    yield* Option.match(services.multiplayer, {
+      onNone: () => Effect.void,
+      onSome: (mp) =>
+        services.playerCameraState.getRotation().pipe(
+          Effect.flatMap((rotation) =>
+            multiplayerStage(mp, playerPos, rotation.yaw, rotation.pitch),
+          ),
+          Effect.catchAll(() => Effect.void),
+        ),
+    })
+
     if (!sessionPaused) {
       yield* cameraStage(deps, services, refs, {
         playerPos,
@@ -174,7 +193,7 @@ export const runFrameStages = (
       pixelRatioChanged,
       markShadowMapDirty: context.markShadowMapDirty,
     })
-    yield* renderStage(deps, services, context.resolved, { resolvedGraphics, sunWorldPos: context.sunWorldPos })
+    yield* renderStage(deps, services, refs, context.resolved, { resolvedGraphics, sunWorldPos: context.sunWorldPos })
     yield* hudStage(deps, services, refs, {
       deltaTime,
       currentSettings,

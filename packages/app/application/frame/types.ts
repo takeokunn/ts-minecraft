@@ -152,7 +152,7 @@ export type FrameStageRefs = {
   readonly frustumThrottleCounterRef: Ref.Ref<number>
   readonly adaptiveQualityCooldownRef: Ref.Ref<number>
   readonly lastAppliedPixelRatioRef: Ref.Ref<number>
-  readonly lastGraphicsQualityRef: Ref.Ref<{ quality: string; resolved: ResolvedGraphics }>
+  readonly lastGraphicsQualityRef: Ref.Ref<{ quality: number; resolved: ResolvedGraphics }>
   readonly dirtyChunksRef: Ref.Ref<HashMap.HashMap<string, DirtyChunkEntry>>
   readonly lastLoadedChunksRef: Ref.Ref<Option.Option<ReadonlyArray<Chunk>>>
   readonly chunkSyncPendingRef: MutableRef.MutableRef<boolean>

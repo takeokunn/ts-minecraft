@@ -80,8 +80,8 @@ const createFrameLoopHandlersInternal = (
     const adaptiveQualityCooldownRef = yield* Ref.make(0)
     const lastAppliedPixelRatioRef = yield* Ref.make(Number.NaN)
     // Track last graphicsQuality + resolved preset to skip resolvePreset and pass enable sync when preset is unchanged
-    const lastGraphicsQualityRef = yield* Ref.make<{ quality: string; resolved: ResolvedGraphics }>({
-      quality: '',
+    const lastGraphicsQualityRef = yield* Ref.make<{ quality: number; resolved: ResolvedGraphics }>({
+      quality: -1,
       resolved: resolvePreset('high'),
     })
     // Dirty chunk accumulator: deduplicates block break/place remesh calls within a single frame
