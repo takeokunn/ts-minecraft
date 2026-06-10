@@ -13,6 +13,7 @@ export const findAttackableEntity = (
   entities: ReadonlyArray<{ readonly entityId: EntityIdType; readonly position: Position }>,
   camera: THREE.PerspectiveCamera,
   maxDistance: Option.Option<number>,
+  maxReach: number = PLAYER_ATTACK_REACH,
 ): Option.Option<EntityIdType> => {
   camera.getWorldDirection(scratchCameraDirection)
   scratchCameraDirection.normalize()
@@ -33,7 +34,7 @@ export const findAttackableEntity = (
       const ey = entity.position.y + ENTITY_CENTER_Y_OFFSET - rayOrigin.y
       const ez = entity.position.z - rayOrigin.z
       const alongRay = ex * dirX + ey * dirY + ez * dirZ
-      if (alongRay < 0 || alongRay > PLAYER_ATTACK_REACH) return acc
+      if (alongRay < 0 || alongRay > maxReach) return acc
       /* c8 ignore next */
       if (Option.match(maxDistance, { onNone: () => false, onSome: (d) => alongRay > d })) return acc
 

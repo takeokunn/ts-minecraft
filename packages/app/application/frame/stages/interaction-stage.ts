@@ -21,7 +21,7 @@ import {
 } from '@ts-minecraft/app/frame-handler.config'
 import { handleHotbarInput, renderHotbarHud } from '@ts-minecraft/app/frame/stages/interaction-hotbar-handler'
 import { handleRedstoneInput, type RedstoneFlags } from '@ts-minecraft/app/frame/stages/interaction-redstone-handler'
-import { handleLeftClick, handleRightClick, handleFoodConsumption, handleUnequipArmor, handleFeedAnimal, handleShearAnimal, handleBlockBreakProgress } from '@ts-minecraft/app/frame/stages/interaction-block-handler'
+import { handleLeftClick, handleRightClick, handleFoodConsumption, handleUnequipArmor, handleFeedAnimal, handleShearAnimal, handleBlockBreakProgress, handleBowFire } from '@ts-minecraft/app/frame/stages/interaction-block-handler'
 import { handleFlintAndSteel, handleBucket } from '@ts-minecraft/app/frame/stages/interaction-placement-handler'
 import { handleFarmingInteraction } from '@ts-minecraft/app/frame/stages/interaction-farming-handler'
 import { findAttackableEntity } from '@ts-minecraft/app/frame/stages/attack-targeting'
@@ -55,7 +55,7 @@ export const interactionStage = (
     | 'multiplayer'
     | 'gameMode'
   >,
-  refs: Pick<FrameStageRefs, 'dirtyChunksRef' | 'totalTimeSecsRef' | 'lastPlayerAttackTimeRef' | 'attackSwingStateRef' | 'breakProgressRef'>,
+  refs: Pick<FrameStageRefs, 'dirtyChunksRef' | 'totalTimeSecsRef' | 'lastPlayerAttackTimeRef' | 'attackSwingStateRef' | 'breakProgressRef' | 'bowChargeStartRef'>,
 ): Effect.Effect<void, never> =>
   Effect.gen(function* () {
     const debugFlags = yield* services.debugFeatureFlags.getFlags()
@@ -76,6 +76,7 @@ export const interactionStage = (
         const leftClick = yield* services.inputService.consumeMouseClick(0)
         const mouseHeld = yield* services.inputService.isMouseDown(0)
         const rightClick = yield* services.inputService.consumeMouseClick(2)
+        const rightMouseHeld = yield* services.inputService.isMouseDown(2)
         const [
           placeWire,
           placeLever,
@@ -129,7 +130,18 @@ export const interactionStage = (
         // clears immediately even if the spectator or no-target branch runs.
         if (!mouseHeld) MutableRef.set(refs.breakProgressRef, null)
 
-        if (!isSpectator && (leftClick || mouseHeld || rightClick || hasRedstoneInput)) {
+        // Bow release: fire on the frame right-mouse transitions from held → released.
+        // Runs before the input-gated block because on the release frame no other input
+        // is necessarily active.
+        const bowChargeStart = MutableRef.get(refs.bowChargeStartRef)
+        if (!isSpectator && !rightMouseHeld && bowChargeStart !== null) {
+          const now = yield* Ref.get(refs.totalTimeSecsRef)
+          const entities = yield* services.entityManager.getEntities()
+          yield* handleBowFire(deps, services, entities, { chargeStartSecs: bowChargeStart, nowSecs: now })
+          MutableRef.set(refs.bowChargeStartRef, null)
+        }
+
+        if (!isSpectator && (leftClick || mouseHeld || rightClick || rightMouseHeld || hasRedstoneInput)) {
           const targetBlock = yield* services.blockHighlight.getTargetBlock()
           const targetHit = yield* services.blockHighlight.getTargetHit()
           const selectedHotbarItem = yield* services.hotbarService.getSelectedBlockType()
@@ -156,7 +168,21 @@ export const interactionStage = (
             })
           }
 
-          if (rightClick) {
+          // Bow charging: right-mouse-hold with BOW equipped starts/continues the draw.
+          // Suppress normal right-click placement while drawing the bow.
+          const selectedIsBow = selectedHotbarItem._tag === 'Some' && selectedHotbarItem.value === 'BOW'
+          if (rightMouseHeld && selectedIsBow) {
+            // Start charge on the first frame the button is held (bowChargeStart is null).
+            if (bowChargeStart === null) {
+              const now = yield* Ref.get(refs.totalTimeSecsRef)
+              MutableRef.set(refs.bowChargeStartRef, now)
+            }
+          } else if (!rightMouseHeld && !selectedIsBow) {
+            // Player switched away from BOW while holding right-mouse — clear stale charge.
+            MutableRef.set(refs.bowChargeStartRef, null)
+          }
+
+          if (rightClick && !selectedIsBow) {
             // Shearing a sheep with SHEARS (R11) takes top priority — then feeding a
             // breedable animal (R6c-3) so e.g. right-clicking a pig with a CARROT feeds
             // it rather than eating the carrot. Then eating; farming (hoe + seeds);

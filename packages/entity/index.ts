@@ -25,6 +25,7 @@ export * from './domain/mob/shulker-behavior'
 
 // domain/combat
 export * from './domain/combat'
+export * from './domain/bow'
 export * from './domain/explosion'
 
 // domain/redstone
