@@ -164,9 +164,13 @@ two contained QoL wins remain. Picking lower-risk, player-visible, contained inc
   - [x] R6a. Data foundation — optional `breedingItem` on `MobDefinition` + cow/sheep←WHEAT, pig←CARROT; +3 tests. _(done 2026-06-10)_
   - [x] R6b. Pure breeding domain logic — `breeding.ts`: love/cooldown/age counters, `canAcceptBreedingFood`,
     `isBreedingPair`, `tickBreedingTimers`, adult/newborn states; +12 tests. Additive, zero entity-manager coupling. _(done 2026-06-10)_
-  - [ ] R6c. Wire into entity-manager + interaction: love-mode state fields on ManagedEntity, `feedEntity`,
-    right-click-entity feed, breeding-pair → spawn baby. **Note:** integrate `tickBreedingTimers` carefully —
-    preserve the per-tick update's early-return (only break it when love/cooldown > 0) to keep the hot-path opt.
+  - [x] R6c-1. Entity love-mode state — `loveTicksRemaining`/`breedCooldownRemaining`/`ageTicks` on ManagedEntity
+    (spawned mobs adult) + `EntityManager.feedEntity(id)` (enters love iff willing adult). Additive, no update-loop
+    change (fields ride the existing `{...entity}` spreads). +2 tests; all 200 entity-mob tests green. _(done 2026-06-10)_
+  - [ ] R6c-2. Tick decay — integrate `tickBreedingTimers` into the per-tick update **preserving the idle
+    early-return** (only break it when love/cooldown > 0) to keep the hot-path optimization.
+  - [ ] R6c-3. Right-click-entity feeding interaction (held item === breedingItem → feedEntity + consume + sound).
+  - [ ] R6c-4. Breeding-pair → spawn baby (ageTicks 0) + parents' post-breed cooldown.
   - [ ] R6c. Entity-manager breeding tick — two in-love adults in range → spawn baby + love-cooldown.
   - [ ] R6d. Baby growth — age ticks → adult; babies smaller (render scale) + not breedable.
 - [ ] R7. (Deferred — higher risk) Sneak edge-protection — modifies the shared collision path; needs careful

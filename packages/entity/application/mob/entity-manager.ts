@@ -12,6 +12,7 @@ import { getMobDefinition } from '../../domain/mob/mobs'
 import type { Position } from '@ts-minecraft/core'
 import { zero } from '@ts-minecraft/core'
 import { type ManagedEntity } from '../../domain/mob/entity-internal'
+import { BABY_GROW_TICKS } from '../../domain/mob/breeding'
 import { AIState } from '../../domain/mob/state-machine'
 import { makeEntityManagerInternal } from './entity-manager-internal'
 import { makeEntityManagerUpdate } from './entity-manager-internal-update'
@@ -64,6 +65,10 @@ export class EntityManager extends Effect.Service<EntityManager>()(
               knockbackTicksRemaining: 0,
               stuckTicks: 0,
               fuseSecs: 0,
+              // Naturally-spawned mobs are adults; breeding spawns babies (ageTicks 0) in R6c-4.
+              loveTicksRemaining: 0,
+              breedCooldownRemaining: 0,
+              ageTicks: BABY_GROW_TICKS,
             }
 
             yield* Ref.update(entitiesRef, (entities) =>

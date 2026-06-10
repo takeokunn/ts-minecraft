@@ -26,4 +26,9 @@ export type ManagedEntity = Entity & {
   // creeper not currently within ignition range). At CREEPER_FUSE_SECONDS the
   // creeper detonates (see getPlayerContactDamage).
   readonly fuseSecs: number
+  // Breeding (FR R6 — see domain/mob/breeding.ts): love window (>0 = in love),
+  // post-breed cooldown, and age (>= BABY_GROW_TICKS = adult). Spawned mobs are adults.
+  readonly loveTicksRemaining: number
+  readonly breedCooldownRemaining: number
+  readonly ageTicks: number
 }

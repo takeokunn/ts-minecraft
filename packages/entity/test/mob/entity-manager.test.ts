@@ -731,4 +731,22 @@ describe('entity/entityManager', () => {
       }).pipe(Effect.provide(EntityManagerLive))
     )
   })
+
+  describe('feedEntity (R6c)', () => {
+    it.effect('feeding a spawned adult enters love mode (true); re-feeding while in love returns false', () =>
+      Effect.gen(function* () {
+        const em = yield* EntityManager
+        const id = yield* em.addEntity(EntityType.Cow, { x: 0, y: 64, z: 0 })
+        expect(yield* em.feedEntity(id)).toBe(true)
+        expect(yield* em.feedEntity(id)).toBe(false)
+      }).pipe(Effect.provide(EntityManagerLive))
+    )
+
+    it.effect('feeding a non-existent entity returns false', () =>
+      Effect.gen(function* () {
+        const em = yield* EntityManager
+        expect(yield* em.feedEntity(EntityId.make('does-not-exist'))).toBe(false)
+      }).pipe(Effect.provide(EntityManagerLive))
+    )
+  })
 })

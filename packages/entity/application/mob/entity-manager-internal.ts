@@ -9,6 +9,7 @@ import {
 import type { Position, Vector3 } from '@ts-minecraft/core'
 import { HOSTILE_ATTACK_COOLDOWN_SECS, type ManagedEntity } from '../../domain/mob/entity-internal'
 import { KNOCKBACK_DURATION_TICKS } from '../../domain/combat'
+import { LOVE_DURATION_TICKS, canAcceptBreedingFood } from '../../domain/mob/breeding'
 import { computeExplosionDamageAt, CREEPER_EXPLOSION_POWER } from '../../domain/explosion'
 import { CREEPER_FUSE_SECONDS } from '../../domain/mob/creeper-fuse'
 import { shouldDespawnEntity } from '../../domain/mob/entity-manager-utils'
@@ -191,4 +192,22 @@ export const makeEntityManagerInternal = (
           }),
       }),
     ).pipe(Effect.andThen(Ref.set(cachedEntitiesRef, Option.none()))),
+
+  // FR R6: feed a breeding item to an entity. Enters love mode (returns true) only
+  // if it is a willing adult (off cooldown, not already in love). The caller checks
+  // the held item matches the mob's breedingItem before invoking this.
+  feedEntity: (entityId: EntityId): Effect.Effect<boolean, never> =>
+    Ref.modify(entitiesRef, (entities): [boolean, HashMap.HashMap<EntityId, ManagedEntity>] =>
+      Option.match(HashMap.get(entities, entityId), {
+        onNone: () => [false, entities],
+        onSome: (entity) =>
+          canAcceptBreedingFood({
+            loveTicksRemaining: entity.loveTicksRemaining,
+            breedCooldownRemaining: entity.breedCooldownRemaining,
+            ageTicks: entity.ageTicks,
+          })
+            ? [true, HashMap.set(entities, entityId, { ...entity, loveTicksRemaining: LOVE_DURATION_TICKS })]
+            : [false, entities],
+      }),
+    ).pipe(Effect.tap((fed) => (fed ? Ref.set(cachedEntitiesRef, Option.none()) : Effect.void))),
 })
