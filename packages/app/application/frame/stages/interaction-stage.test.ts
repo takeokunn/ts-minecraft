@@ -1195,4 +1195,31 @@ describe('step R38 — bow kill grants XP', () => {
     // Zombie xpReward is 5 (from getMobDefinition).
     expect(addXPSpy).toHaveBeenCalledWith(5)
   }))
+
+  it.effect('eating GOLDEN_APPLE also heals 4 HP (R53)', () => Effect.gen(function* () {
+    const deps = yield* makeDeps(false)
+    const inputService = makeInputService()
+    ;(inputService as { consumeMouseClick: unknown }).consumeMouseClick = (btn: number) =>
+      Effect.succeed(btn === 2)
+    const services = makeServices({
+      inputService,
+      inventoryRenderer: makeInventoryRenderer({ open: false }),
+      settingsOverlay: makeSettingsOverlay({ open: false }),
+    })
+    ;(services.blockHighlight as { getTargetHit: unknown }).getTargetHit = vi.fn(() => Effect.succeed(Option.none()))
+    ;(services.hotbarService as { getSelectedBlockType: unknown }).getSelectedBlockType = vi.fn(() =>
+      Effect.succeed(Option.some('GOLDEN_APPLE'))
+    )
+    ;(services.hungerService as { getHunger: unknown }).getHunger = vi.fn(() =>
+      Effect.succeed({ foodLevel: 10, saturation: 0, exhaustion: 0 })
+    )
+    ;(services.hungerService as { eat: unknown }).eat = vi.fn(() => Effect.void)
+    ;(services.inventoryService as { removeBlock: unknown }).removeBlock = vi.fn(() => Effect.succeed(true))
+    const healSpy = vi.fn(() => Effect.void)
+    ;(services.healthService as { heal: unknown }).heal = healSpy
+
+    yield* runFrame(deps, services)
+
+    expect(healSpy).toHaveBeenCalledWith(4)
+  }))
 })

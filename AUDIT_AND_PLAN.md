@@ -469,6 +469,19 @@ typecheck 0, lint 0/0, **4583 tests passing** (no new tests; pure wiring).
 - Fishing rod: cast/cancel in `handleFoodConsumption` + tick in `physics-stage`. ✓
 - Tool durability on melee: `handleLeftClick.damageSlot`. ✓
 
+## Z. Round 24 (2026-06-11) — GOLDEN_APPLE instant health regen
+
+`GOLDEN_APPLE` was in the food table (`foodLevel:4, saturation:1.2`) but eating it had no
+special effect. In vanilla, it grants Regeneration II → ~4 HP healed over ~5 s.
+
+- [x] R53. GOLDEN_APPLE immediate heal — `handleFoodConsumption` services Pick gains
+  `healthService`; after `hungerService.eat(…)` completes, if the item is `'GOLDEN_APPLE'`
+  call `healthService.heal(4)`. `interaction-stage.ts` Pick updated to include `healthService`.
+  New test: eating GOLDEN_APPLE triggers `heal(4)`. _(done 2026-06-11)_
+
+**Round 24 complete.** R53 — GOLDEN_APPLE restores 4 HP on eat.
+typecheck 0, **4584 tests passing** (+1 GOLDEN_APPLE heal test).
+
 ## D. Progress log
 - 2026-06-10: Audit complete; plan authored. Beginning Phase 1.
 - 2026-06-10: **ALL TASKS COMPLETE.** Phase 1 (T1-T4 verified hot-path allocs), Phase 2

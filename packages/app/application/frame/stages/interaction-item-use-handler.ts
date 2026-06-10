@@ -6,7 +6,7 @@ import { findAttackableEntity } from '@ts-minecraft/app/frame/stages/attack-targ
 import type { FrameHandlerDeps, FrameHandlerServices } from '@ts-minecraft/app/frame/types'
 
 export const handleFoodConsumption = (
-  services: Pick<FrameHandlerServices, 'hotbarService' | 'hungerService' | 'inventoryService' | 'equipmentService' | 'fishingService' | 'xpService'>,
+  services: Pick<FrameHandlerServices, 'hotbarService' | 'hungerService' | 'inventoryService' | 'equipmentService' | 'fishingService' | 'xpService' | 'healthService'>,
 ): Effect.Effect<boolean, never> =>
   Effect.all(
     [services.hotbarService.getSelectedBlockType(), services.hotbarService.getSelectedSlot()],
@@ -77,6 +77,11 @@ export const handleFoodConsumption = (
                         .removeBlock(item, 1, SlotIndex.make(HOTBAR_START + selectedSlot))
                         .pipe(
                           Effect.andThen(services.hungerService.eat(food.foodLevel, food.saturationModifier)),
+                          Effect.andThen(
+                            item === 'GOLDEN_APPLE'
+                              ? services.healthService.heal(4)
+                              : Effect.void,
+                          ),
                           Effect.as(true),
                           Effect.catchAll(() => Effect.succeed(false)),
                         ),

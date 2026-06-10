@@ -50,6 +50,7 @@ export const interactionStage = (
     | 'netherService'
     | 'particleSystem'
     | 'hungerService'
+    | 'healthService'
     | 'gameState'
     | 'timeService'
     | 'multiplayer'
