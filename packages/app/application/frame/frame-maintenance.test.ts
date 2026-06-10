@@ -3,6 +3,7 @@ import { expect, vi } from 'vitest'
 import { Effect, MutableRef, Option } from 'effect'
 import { createFrameHandlers } from '@ts-minecraft/app'
 import { DESPAWN_DISTANCE } from '@ts-minecraft/entity'
+import { LIGHT_BYTE_LENGTH, setLightAt } from '@ts-minecraft/block'
 import { CHUNK_HEIGHT, CHUNK_SIZE, type DeltaTimeSecs, type Position } from '@ts-minecraft/core'
 import {
   makeDeps,
@@ -179,6 +180,52 @@ describe('frame-maintenance / resolveTerrainSpawnPosition edge cases', () => {
       yield* maintenanceHandler()
 
       expect(Option.isNone(results[0]!)).toBe(true)
+    })
+  )
+
+  // R25: light-level hostile spawning. At night (hostile spawn), a torch-lit
+  // surface must reject the spawn; a dark surface must allow it.
+  it.effect('rejects a night/hostile spawn on a torch-lit surface (blockLight > threshold)', () =>
+    Effect.gen(function* () {
+      const deps = yield* makeDeps(false)
+      const blocks = new Uint8Array(CHUNK_SIZE * CHUNK_SIZE * CHUNK_HEIGHT)
+      // Solid surface at y=64 (lx=1, lz=2) → bodyBlockY=65, headBlockY=66 (air).
+      blocks[64 + 2 * CHUNK_HEIGHT + 1 * CHUNK_HEIGHT * CHUNK_SIZE] = 1
+      const blockLight = new Uint8Array(LIGHT_BYTE_LENGTH)
+      setLightAt(blockLight, 1, 65, 2, 14) // bright (>7) at the feet voxel
+
+      const results: Option.Option<Position>[] = []
+      const services = makeMaintenanceServices(blocks, (resolver) =>
+        resolver({ x: 1.5, y: 64, z: 2.5 }).pipe(Effect.tap((r) => Effect.sync(() => results.push(r))), Effect.as(Option.none()))
+      )
+      Object.assign(services.chunkManagerService, { getChunk: vi.fn(() => Effect.succeed({ coord: { x: 0, z: 0 }, blocks, blockLight })) })
+      Object.assign(services.timeService, { getTimeOfDay: vi.fn(() => Effect.succeed(0)) }) // midnight → hostile
+
+      const { maintenanceHandler } = yield* createFrameHandlers(deps, services)
+      yield* maintenanceHandler()
+
+      expect(Option.isNone(results[0]!)).toBe(true)
+    })
+  )
+
+  it.effect('allows a night/hostile spawn on a dark surface (blockLight ≤ threshold)', () =>
+    Effect.gen(function* () {
+      const deps = yield* makeDeps(false)
+      const blocks = new Uint8Array(CHUNK_SIZE * CHUNK_SIZE * CHUNK_HEIGHT)
+      blocks[64 + 2 * CHUNK_HEIGHT + 1 * CHUNK_HEIGHT * CHUNK_SIZE] = 1
+      const blockLight = new Uint8Array(LIGHT_BYTE_LENGTH) // all-dark
+
+      const results: Option.Option<Position>[] = []
+      const services = makeMaintenanceServices(blocks, (resolver) =>
+        resolver({ x: 1.5, y: 64, z: 2.5 }).pipe(Effect.tap((r) => Effect.sync(() => results.push(r))), Effect.as(Option.none()))
+      )
+      Object.assign(services.chunkManagerService, { getChunk: vi.fn(() => Effect.succeed({ coord: { x: 0, z: 0 }, blocks, blockLight })) })
+      Object.assign(services.timeService, { getTimeOfDay: vi.fn(() => Effect.succeed(0)) }) // midnight → hostile
+
+      const { maintenanceHandler } = yield* createFrameHandlers(deps, services)
+      yield* maintenanceHandler()
+
+      expect(Option.isSome(results[0]!)).toBe(true)
     })
   )
 })

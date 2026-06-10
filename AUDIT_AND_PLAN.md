@@ -336,6 +336,35 @@ subsystems (sound, redstone, worker protocol). All findings ground-verified.
 **Round 9 complete.** R24 (vanilla ore drop counts). One agent finding rejected as a verified false
 positive (worker `.slice()` — the "fix" would corrupt chunks). typecheck 0, lint 0/0, 4477 tests passing (+1).
 
+## M. Round 10 (2026-06-10, Opus 4.8) — survival FR gap: light-level mob spawning
+
+A survey ranked the remaining survival-FR gaps by impact ÷ size. Top small win: **light-level hostile
+spawning**. Currently hostile mobs spawn anywhere at night regardless of torches — the core
+defend-with-light mechanic is absent. Ground-verified the wiring (spawn resolver has the chunk; chunk
+carries nibble-packed `blockLight`; `getLightAt` reads it; `isNight` derivable from `timeOfDay` already
+in the maintenance scope).
+
+**Verified & actioned:**
+- [x] R25. Light-level hostile spawning — added `HOSTILE_SPAWN_MAX_BLOCK_LIGHT = 7` to spawner-config;
+  extended `resolveTerrainSpawnPosition(chunk, candidate, isHostileSpawn?)` to reject the spawn voxel when
+  `isHostileSpawn && getLightAt(blockLight) > 7`. The maintenance spawn closure derives `isNight` from the
+  already-fetched `timeOfDay` and passes it. blockLight-absent reads as 0 (dark) → only *adds* suppression
+  where light exists, never blocks dark areas. No spawner signature change. +2 tests (lit→reject, dark→allow).
+  Torches now suppress hostile spawns — the "light up your base" mechanic works. _(done 2026-06-10)_
+
+**Round 10 complete.** R25 (light-level hostile spawning). One agent finding rejected as a verified false
+positive (`despawnFarEntities` is called). typecheck 0, lint 0/0, 4479 tests passing (+2).
+
+**Verified FALSE POSITIVE (recorded):**
+- `despawnFarEntities` was flagged "NOT called automatically in frame loop" — **wrong**, it's called at
+  `frame-maintenance.ts:122` every maintenance tick. NO CHANGE.
+
+**Verified but deferred (recorded, not churned):**
+- Crop growth + harvest (no `age` on WHEAT_CROP, no growth tick, no harvest) — genuine gap but needs a new
+  growth service + frame-loop hook + block-state change. Larger; logged for a dedicated future round.
+- Buckets, doors, chests — absent; each is a multi-file feature (new item/block types + handlers + UI for
+  chests). Logged. Sleep lacks a monsters-nearby check (minor vanilla fidelity). All deferred.
+
 **Verified FALSE POSITIVE (recorded — the "fix" would be a bug):**
 - Worker mesh-request `ArrayBuffer.slice()` (`meshing-worker-pool.ts:184-208`) was flagged HIGH ("avoid
   the copy, transfer the original"). **Rejected — acting on it would corrupt every meshed chunk.** The

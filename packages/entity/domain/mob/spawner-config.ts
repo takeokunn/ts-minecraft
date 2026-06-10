@@ -12,3 +12,9 @@ export const MAX_ENTITY_COUNT = 24
 
 // Spawn is attempted every N frames (throttles CPU cost)
 export const SPAWN_INTERVAL_FRAMES = 6
+
+// Hostile mobs only spawn where the block-light level is at or below this
+// threshold (vanilla: light ≤ 7). A torch (light 14) lights a wide radius above
+// this, so placing torches suppresses hostile spawns — the core "light up your
+// base" survival mechanic.
+export const HOSTILE_SPAWN_MAX_BLOCK_LIGHT = 7

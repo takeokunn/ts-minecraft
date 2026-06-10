@@ -2,8 +2,9 @@ import { Array as Arr, Cause, Effect, HashMap, MutableRef, Option, Ref } from 'e
 import { DEFAULT_PLAYER_ID } from '@ts-minecraft/core'
 import type { Chunk, ChunkAABB } from '@ts-minecraft/world'
 import { chunkBlockIndexUnchecked } from '@ts-minecraft/world'
-import { DESPAWN_DISTANCE, MOB_HALF_HEIGHT } from '@ts-minecraft/entity'
+import { DESPAWN_DISTANCE, MOB_HALF_HEIGHT, HOSTILE_SPAWN_MAX_BLOCK_LIGHT } from '@ts-minecraft/entity'
 import type { Village } from '@ts-minecraft/entity'
+import { getLightAt } from '@ts-minecraft/block'
 import { CHUNK_HEIGHT, CHUNK_SIZE } from '@ts-minecraft/core'
 import { buildingBlocksForVillage } from './village-builder'
 import { FALLBACK_PLAYER_POS, MAX_DIRTY_CHUNK_UPDATES_PER_FRAME, DIRTY_CHUNK_FLUSH_CONCURRENCY } from '@ts-minecraft/app/frame-handler.config'
@@ -31,6 +32,9 @@ type MaintenanceServices = Pick<
 const resolveTerrainSpawnPosition = (
   chunk: Chunk,
   candidatePosition: Position,
+  // R25: when true, the resolved surface must be dark enough for hostile mobs
+  // (vanilla light-level rule). Passive (daytime) spawns ignore the light gate.
+  isHostileSpawn: boolean = false,
 ): Option.Option<Position> => {
   const blockX = Math.floor(candidatePosition.x)
   const blockZ = Math.floor(candidatePosition.z)
@@ -56,6 +60,19 @@ const resolveTerrainSpawnPosition = (
       return Option.none()
     }
     /* c8 ignore end */
+
+    // R25: hostile mobs only spawn in the dark. Read the block-light at the
+    // mob's feet voxel; a torch-lit surface (light > threshold) rejects the
+    // spawn. An absent blockLight grid reads as 0 (dark), so this only ever
+    // ADDS suppression where light has been computed — never blocks a dark spot.
+    if (isHostileSpawn) {
+      const light = chunk.blockLight !== undefined
+        ? getLightAt(chunk.blockLight, lx, bodyBlockY, lz)
+        : 0
+      if (light > HOSTILE_SPAWN_MAX_BLOCK_LIGHT) {
+        return Option.none()
+      }
+    }
 
     return Option.some({
       x: candidatePosition.x,
@@ -129,6 +146,10 @@ export const createMaintenanceHandler = (
       if (furnaceEnabled) {
         yield* furnaceService.tick(maintenanceDeltaTime).pipe(Effect.catchAllCause(() => Effect.void))
       }
+      // R25: hostile mobs spawn only at night (per selectMobType); gate their
+      // spawn surfaces on darkness. Derived from the already-fetched timeOfDay to
+      // match TimeService.isNight (timeOfDay < 0.25 || > 0.75) without an extra call.
+      const isNightSpawn = timeOfDay < 0.25 || timeOfDay > 0.75
       const spawnResult = mobsSpawnEnabled
         ? yield* mobSpawner.trySpawn(
             playerPos,
@@ -139,7 +160,7 @@ export const createMaintenanceHandler = (
               }
 
               return chunkManagerService.getChunk(chunkCoord).pipe(
-                Effect.map((chunk) => resolveTerrainSpawnPosition(chunk, candidatePosition)),
+                Effect.map((chunk) => resolveTerrainSpawnPosition(chunk, candidatePosition, isNightSpawn)),
                 Effect.catchAllCause(() => Effect.succeed(Option.none<Position>())),
               )
             },
