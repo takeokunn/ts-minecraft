@@ -1,7 +1,7 @@
 import { describe, it } from '@effect/vitest'
 import { it as plainIt, expect } from 'vitest'
 import { Array as Arr, Effect, MutableRef, Option } from 'effect'
-import { AIState, EntityType, EntityId } from '@ts-minecraft/entity'
+import { AIState, EntityType, EntityId, LOVE_DURATION_TICKS } from '@ts-minecraft/entity'
 import { EntityManager, EntityManagerLive } from '@ts-minecraft/entity'
 import { DeltaTimeSecs } from '@ts-minecraft/core'
 import { makeTestEntity } from './test-utils'
@@ -746,6 +746,20 @@ describe('entity/entityManager', () => {
       Effect.gen(function* () {
         const em = yield* EntityManager
         expect(yield* em.feedEntity(EntityId.make('does-not-exist'))).toBe(false)
+      }).pipe(Effect.provide(EntityManagerLive))
+    )
+
+    it.effect('love mode decays over update ticks (R6c-2) — re-feedable once it expires', () =>
+      Effect.gen(function* () {
+        const em = yield* EntityManager
+        const id = yield* em.addEntity(EntityType.Cow, { x: 0, y: 64, z: 0 })
+        expect(yield* em.feedEntity(id)).toBe(true) // entered love
+        expect(yield* em.feedEntity(id)).toBe(false) // still in love
+        // Run out the love window (player far away so AI just idles/wanders).
+        for (let i = 0; i < LOVE_DURATION_TICKS; i++) {
+          yield* em.update(DeltaTimeSecs.make(0.05), { x: 1000, y: 64, z: 1000 })
+        }
+        expect(yield* em.feedEntity(id)).toBe(true) // love expired → feedable again
       }).pipe(Effect.provide(EntityManagerLive))
     )
   })

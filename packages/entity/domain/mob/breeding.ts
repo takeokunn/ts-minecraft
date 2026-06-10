@@ -47,11 +47,17 @@ export const isBreedingPair = (
   return dx * dx + dy * dy + dz * dz <= BREED_RANGE_SQ
 }
 
-/** One tick of breeding-timer decay: love & cooldown count down, age counts up. */
+/**
+ * One tick of breeding-timer decay: love & cooldown count down; age counts up
+ * but CLAMPS at BABY_GROW_TICKS. The clamp matters for the entity update loop's
+ * idle early-return: an adult at rest (love 0, cooldown 0, age = BABY_GROW_TICKS)
+ * yields an UNCHANGED state, so the per-tick "return entity unchanged" fast path
+ * still fires. Only babies (growing) and in-love/cooldown animals change.
+ */
 export const tickBreedingTimers = (s: BreedingState): BreedingState => ({
   loveTicksRemaining: s.loveTicksRemaining > 0 ? s.loveTicksRemaining - 1 : 0,
   breedCooldownRemaining: s.breedCooldownRemaining > 0 ? s.breedCooldownRemaining - 1 : 0,
-  ageTicks: s.ageTicks + 1,
+  ageTicks: s.ageTicks < BABY_GROW_TICKS ? s.ageTicks + 1 : s.ageTicks,
 })
 
 /** State of a freshly-spawned adult (e.g. world-gen / natural spawn): mature, idle. */

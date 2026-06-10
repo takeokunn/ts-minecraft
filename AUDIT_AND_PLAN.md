@@ -167,8 +167,9 @@ two contained QoL wins remain. Picking lower-risk, player-visible, contained inc
   - [x] R6c-1. Entity love-mode state — `loveTicksRemaining`/`breedCooldownRemaining`/`ageTicks` on ManagedEntity
     (spawned mobs adult) + `EntityManager.feedEntity(id)` (enters love iff willing adult). Additive, no update-loop
     change (fields ride the existing `{...entity}` spreads). +2 tests; all 200 entity-mob tests green. _(done 2026-06-10)_
-  - [ ] R6c-2. Tick decay — integrate `tickBreedingTimers` into the per-tick update **preserving the idle
-    early-return** (only break it when love/cooldown > 0) to keep the hot-path optimization.
+  - [x] R6c-2. Tick decay — `tickBreedingTimers` folded into all 4 update-loop return sites; idle early-return
+    PRESERVED by clamping `ageTicks` at maturity (idle adult → unchanged state) + guarding the fast path on
+    `breedingChanged`. +1 integration test (600-tick love decay); all 201 entity-mob tests green. _(done 2026-06-10)_
   - [ ] R6c-3. Right-click-entity feeding interaction (held item === breedingItem → feedEntity + consume + sound).
   - [ ] R6c-4. Breeding-pair → spawn baby (ageTicks 0) + parents' post-breed cooldown.
   - [ ] R6c. Entity-manager breeding tick — two in-love adults in range → spawn baby + love-cooldown.

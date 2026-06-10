@@ -2,6 +2,7 @@ import { Effect, HashMap, MutableRef, Option, Ref } from 'effect'
 import { AIState, computeStateVelocity, distanceToPlayerSq, resolveAIState } from '../../domain/mob/state-machine'
 import { EntityType, type Entity, type EntityId } from '../../domain/mob/entity'
 import { tickCreeperFuse } from '../../domain/mob/creeper-fuse'
+import { tickBreedingTimers } from '../../domain/mob/breeding'
 import {
   TELEPORT_ATTEMPTS,
   computeEndermanTeleportTarget,
@@ -63,6 +64,21 @@ export const makeEntityManagerUpdate = (
           })
 
           const nextAttackCooldown = Math.max(0, entity.attackCooldownRemaining - deltaTime)
+
+          // FR R6: decay breeding timers (love/cooldown down, baby age up). Clamped
+          // at maturity so an idle adult yields an unchanged state — preserving the
+          // early-return fast path below. `breedingChanged` is folded into every
+          // return so the counters tick regardless of which AI branch fires.
+          const tickedBreeding = tickBreedingTimers({
+            loveTicksRemaining: entity.loveTicksRemaining,
+            breedCooldownRemaining: entity.breedCooldownRemaining,
+            ageTicks: entity.ageTicks,
+          })
+          const breedingChanged =
+            tickedBreeding.loveTicksRemaining !== entity.loveTicksRemaining
+            || tickedBreeding.breedCooldownRemaining !== entity.breedCooldownRemaining
+            || tickedBreeding.ageTicks !== entity.ageTicks
+
           // A hostile mob on a daylight burn tick must take 1 burn damage; it must NOT
           // hit the unchanged-state early-return below (which skips the burn entirely),
           // or stationary idle/attacking hostiles become immune to daylight.
@@ -72,6 +88,7 @@ export const makeEntityManagerUpdate = (
             MutableRef.set(dirtyRef, true)
             return {
               ...entity,
+              ...tickedBreeding,
               attackCooldownRemaining: nextAttackCooldown,
               knockbackTicksRemaining: entity.knockbackTicksRemaining - 1,
             }
@@ -81,12 +98,13 @@ export const makeEntityManagerUpdate = (
             && nextState === entity.aiState
             && (nextState === AIState.Idle || nextState === AIState.Attack)
             && entity.velocity.x === 0 && entity.velocity.z === 0) {
-            if (nextAttackCooldown === entity.attackCooldownRemaining) {
+            if (nextAttackCooldown === entity.attackCooldownRemaining && !breedingChanged) {
               return entity
             }
             MutableRef.set(dirtyRef, true)
             return {
               ...entity,
+              ...tickedBreeding,
               attackCooldownRemaining: nextAttackCooldown,
             }
           }
@@ -106,6 +124,7 @@ export const makeEntityManagerUpdate = (
             if (teleportTarget !== null) {
               return {
                 ...entity,
+                ...tickedBreeding,
                 position: teleportTarget,
                 velocity: { x: 0, y: entity.velocity.y, z: 0 },
                 aiState: nextState,
@@ -139,6 +158,7 @@ export const makeEntityManagerUpdate = (
 
           return {
             ...entity,
+            ...tickedBreeding,
             health: Math.max(0, entity.health - burnDamage),
             aiState: nextState,
             velocity,
