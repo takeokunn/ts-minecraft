@@ -573,8 +573,13 @@ typecheck 0, **4601 tests passing** (+14 new tests).
   (recipe matching is exact-itemType so charcoal needs its own recipe). Vanilla parity follow-up
   to R66. +1 test. _(done 2026-06-11)_
 
-**Round 27 complete.** R59-R68.
-typecheck 0, **4612 tests passing** (+16 new tests, 4 updated assertions).
+- [x] R69. Leaves drop apples + sticks — APPLE was unobtainable in survival (nothing dropped it),
+  making GOLDEN_APPLE uncraftable from scratch. Breaking LEAVES now has a 1/200 apple chance + 2%
+  stick chance (vanilla oak rates). Drop decision extracted to pure `rollLeafDrops(appleRoll,
+  stickRoll)` (deterministically testable); handler supplies Math.random(). +8 tests. _(done 2026-06-11)_
+
+**Round 27 complete.** R59-R69.
+typecheck 0, **4619 tests passing** (+24 new tests, 4 updated assertions).
 
 ## D. Progress log
 - 2026-06-10: Audit complete; plan authored. Beginning Phase 1.
