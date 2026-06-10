@@ -38,4 +38,14 @@ describe('nextAirSecs', () => {
   it('clamps at 0 (never negative)', () => {
     expect(nextAirSecs(0.1, true, 0.5)).toBe(0)
   })
+
+  it('RESPIRATION: refills to effectiveMax when surfacing (larger than default)', () => {
+    const effectiveMax = MAX_AIR_SECS + 15 // RESPIRATION I
+    expect(nextAirSecs(2, false, 0.1, effectiveMax)).toBe(effectiveMax)
+  })
+
+  it('RESPIRATION: drains from extended max at same rate', () => {
+    const effectiveMax = MAX_AIR_SECS + 30 // RESPIRATION II
+    expect(nextAirSecs(effectiveMax, true, 1)).toBeCloseTo(effectiveMax - 1)
+  })
 })

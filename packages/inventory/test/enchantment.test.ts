@@ -7,6 +7,10 @@ import {
   getUnbreakingSkipChance,
   getFortuneDropMultiplier,
   getPowerDamageMultiplier,
+  getKnockbackHorizontalMultiplier,
+  getPunchKnockbackBonus,
+  getFeatherFallingReduction,
+  getRespirationBonusSecs,
   canEnchantItem,
   getMaxEnchantmentLevel,
   getBaneOfArthropodsDamageBonus,
@@ -168,6 +172,82 @@ describe('domain/enchantment', () => {
 
     it('POWER is not applicable to swords', () => {
       expect(canEnchantItem('IRON_SWORD', 'POWER')).toBe(false)
+    })
+  })
+
+  describe('getKnockbackHorizontalMultiplier (R40)', () => {
+    it('KNOCKBACK I scales horizontal impulse by 1.5×', () => {
+      expect(getKnockbackHorizontalMultiplier(1)).toBeCloseTo(1.5)
+    })
+
+    it('KNOCKBACK II scales horizontal impulse by 2.0×', () => {
+      expect(getKnockbackHorizontalMultiplier(2)).toBeCloseTo(2.0)
+    })
+
+    it('KNOCKBACK applies only to swords', () => {
+      expect(canEnchantItem('IRON_SWORD', 'KNOCKBACK')).toBe(true)
+      expect(canEnchantItem('BOW', 'KNOCKBACK')).toBe(false)
+    })
+
+    it('KNOCKBACK has max level 2', () => {
+      expect(getMaxEnchantmentLevel('KNOCKBACK')).toBe(2)
+    })
+  })
+
+  describe('getFeatherFallingReduction (R41)', () => {
+    it('FEATHER_FALLING I reduces fall damage by 12%', () => {
+      expect(getFeatherFallingReduction(1)).toBeCloseTo(0.12)
+    })
+
+    it('FEATHER_FALLING IV reduces fall damage by 48%', () => {
+      expect(getFeatherFallingReduction(4)).toBeCloseTo(0.48)
+    })
+
+    it('FEATHER_FALLING applies only to boots', () => {
+      expect(canEnchantItem('IRON_BOOTS', 'FEATHER_FALLING')).toBe(true)
+      expect(canEnchantItem('IRON_HELMET', 'FEATHER_FALLING')).toBe(false)
+    })
+
+    it('FEATHER_FALLING has max level 4', () => {
+      expect(getMaxEnchantmentLevel('FEATHER_FALLING')).toBe(4)
+    })
+  })
+
+  describe('getRespirationBonusSecs (R42)', () => {
+    it('RESPIRATION I adds 15s of air', () => {
+      expect(getRespirationBonusSecs(1)).toBe(15)
+    })
+
+    it('RESPIRATION III adds 45s of air', () => {
+      expect(getRespirationBonusSecs(3)).toBe(45)
+    })
+
+    it('RESPIRATION applies only to helmets', () => {
+      expect(canEnchantItem('IRON_HELMET', 'RESPIRATION')).toBe(true)
+      expect(canEnchantItem('IRON_BOOTS', 'RESPIRATION')).toBe(false)
+    })
+
+    it('RESPIRATION has max level 3', () => {
+      expect(getMaxEnchantmentLevel('RESPIRATION')).toBe(3)
+    })
+  })
+
+  describe('getPunchKnockbackBonus (R43)', () => {
+    it('PUNCH I adds 3 blocks of horizontal distance', () => {
+      expect(getPunchKnockbackBonus(1)).toBe(3)
+    })
+
+    it('PUNCH II adds 6 blocks of horizontal distance', () => {
+      expect(getPunchKnockbackBonus(2)).toBe(6)
+    })
+
+    it('PUNCH applies only to BOW', () => {
+      expect(canEnchantItem('BOW', 'PUNCH')).toBe(true)
+      expect(canEnchantItem('IRON_SWORD', 'PUNCH')).toBe(false)
+    })
+
+    it('PUNCH has max level 2', () => {
+      expect(getMaxEnchantmentLevel('PUNCH')).toBe(2)
     })
   })
 })

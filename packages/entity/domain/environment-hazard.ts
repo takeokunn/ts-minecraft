@@ -24,10 +24,11 @@ export const accrueHazardTicks = (acc: number, dt: number, intervalSecs: number)
 /**
  * Next air-supply value (seconds of breath remaining).
  * - Head submerged: drain by dt, clamped at 0.
- * - Otherwise: instantly refill to MAX_AIR_SECS (vanilla refills fast on surfacing).
+ * - Otherwise: instantly refill to maxAirSecs (vanilla refills fast on surfacing).
+ * maxAirSecs defaults to MAX_AIR_SECS; pass a larger value for RESPIRATION enchantment.
  */
-export const nextAirSecs = (current: number, headSubmerged: boolean, dt: number): number => {
-  if (!headSubmerged) return MAX_AIR_SECS
+export const nextAirSecs = (current: number, headSubmerged: boolean, dt: number, maxAirSecs = MAX_AIR_SECS): number => {
+  if (!headSubmerged) return maxAirSecs
   const next = current - dt
   return next < 0 ? 0 : next
 }

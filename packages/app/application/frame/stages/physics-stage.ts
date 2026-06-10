@@ -3,7 +3,7 @@ import { logErrors } from '@ts-minecraft/app/frame/error-logging'
 import type { FrameHandlerDeps, FrameHandlerServices, FrameStageRefs } from '@ts-minecraft/app/frame/types'
 import { applyArmorReduction } from '@ts-minecraft/entity'
 import { DEFAULT_PLAYER_ID, CHUNK_SIZE, CHUNK_HEIGHT, indexToBlockType, SlotIndex } from '@ts-minecraft/core'
-import { HOTBAR_START } from '@ts-minecraft/inventory'
+import { HOTBAR_START, getFeatherFallingReduction, getRespirationBonusSecs } from '@ts-minecraft/inventory'
 import type { DeltaTimeSecs, Position } from '@ts-minecraft/core'
 import { EXHAUSTION_SPRINT_PER_BLOCK, MAX_FOOD_LEVEL } from '@ts-minecraft/entity'
 import { accrueHazardTicks, nextAirSecs, LAVA_DAMAGE, LAVA_DAMAGE_INTERVAL_SECS, DROWN_DAMAGE, DROWN_DAMAGE_INTERVAL_SECS, MAX_AIR_SECS } from '@ts-minecraft/entity'
@@ -95,7 +95,18 @@ export const physicsStage = (
         }
 
         const isGrounded = yield* services.gameState.isPlayerGrounded()
-        const fallDamage = yield* services.healthService.processFallDamage(refreshedPos.y, isGrounded)
+        const rawFallDamage = yield* services.healthService.processFallDamage(refreshedPos.y, isGrounded)
+        // FEATHER_FALLING: reduce fall damage by 12% per level.
+        const fallDamage = yield* rawFallDamage > 0
+          ? services.equipmentService.getEquippedItem('BOOTS').pipe(
+              Effect.map((bootsOpt) => {
+                const ff = Option.isSome(bootsOpt)
+                  ? (bootsOpt.value.enchantments ?? []).find((e) => e.type === 'FEATHER_FALLING')
+                  : undefined
+                return ff ? rawFallDamage * (1 - getFeatherFallingReduction(ff.level)) : rawFallDamage
+              }),
+            )
+          : Effect.succeed(rawFallDamage)
         const tookFallDamage = yield* tryApplyPlayerDamage(fallDamage)
         if (tookFallDamage) {
           yield* services.soundManager.playEffect('playerHurt', { position: refreshedPos })
@@ -220,7 +231,15 @@ export const physicsStage = (
           // Surfacing instantly refills air. Creative players never drown.
           const eyeBlock = columnBlockAt(refreshedPos.y + EYE_LEVEL_OFFSET)
           const headSubmerged = !inCreative && eyeBlock === 'WATER'
-          const air = nextAirSecs(MutableRef.get(refs.airSecsRef), headSubmerged, inputs.deltaTime)
+          // RESPIRATION: each level adds 15s to the maximum air supply.
+          const helmetOpt = yield* services.equipmentService.getEquippedItem('HELMET')
+          const respirationEnch = Option.isSome(helmetOpt)
+            ? (helmetOpt.value.enchantments ?? []).find((e) => e.type === 'RESPIRATION')
+            : undefined
+          const effectiveMaxAirSecs = respirationEnch
+            ? MAX_AIR_SECS + getRespirationBonusSecs(respirationEnch.level)
+            : MAX_AIR_SECS
+          const air = nextAirSecs(MutableRef.get(refs.airSecsRef), headSubmerged, inputs.deltaTime, effectiveMaxAirSecs)
           MutableRef.set(refs.airSecsRef, air)
           if (headSubmerged && air <= 0) {
             const drown = accrueHazardTicks(
@@ -241,7 +260,7 @@ export const physicsStage = (
 
           // Air HUD (FR-2 / T14c): bubble count 0-10, shown only while underwater
           // (hidden at full air, like vanilla). Change-gated on the integer count.
-          const airBubbles = headSubmerged ? Math.max(0, Math.ceil((air / MAX_AIR_SECS) * 10)) : 10
+          const airBubbles = headSubmerged ? Math.max(0, Math.ceil((air / effectiveMaxAirSecs) * 10)) : 10
           if (MutableRef.get(refs.lastAirBubblesRef) !== airBubbles) {
             MutableRef.set(refs.lastAirBubblesRef, airBubbles)
             if (inputs.airElementOrNull) {

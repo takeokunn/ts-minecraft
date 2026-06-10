@@ -31,12 +31,29 @@ export const getPowerDamageMultiplier = (level: EnchantmentLevel): number =>
 export const getBaneOfArthropodsDamageBonus = (level: EnchantmentLevel): number =>
   2.5 * level
 
+// KNOCKBACK: each level multiplies the horizontal knockback speed by 1.5.
+// Vanilla: I=3 blocks, II=6 blocks extra. We model as a scale on the base impulse.
+export const getKnockbackHorizontalMultiplier = (level: EnchantmentLevel): number =>
+  1 + 0.5 * level
+
+// PUNCH (bow): each level adds 3 blocks of extra horizontal knockback on arrow impact.
+export const getPunchKnockbackBonus = (level: EnchantmentLevel): number =>
+  3 * level
+
 // ─── Defence bonus ───────────────────────────────────────────────────────────
 
 // Protection reduces damage. Each level reduces by 4% (stacks multiplicatively in vanilla;
 // we simplify to additive, capped at 64% across all pieces).
 export const getProtectionDamageReduction = (level: EnchantmentLevel): number =>
   0.04 * level
+
+// FEATHER_FALLING: each level reduces fall damage by 12% (vanilla value).
+export const getFeatherFallingReduction = (level: EnchantmentLevel): number =>
+  0.12 * level
+
+// RESPIRATION: each level adds 15 extra seconds of air supply (vanilla: +15s per level).
+export const getRespirationBonusSecs = (level: EnchantmentLevel): number =>
+  15 * level
 
 // ─── Utility bonuses ─────────────────────────────────────────────────────────
 

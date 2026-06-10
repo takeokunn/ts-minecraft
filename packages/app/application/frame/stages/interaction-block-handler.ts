@@ -4,7 +4,7 @@ import type { FrameHandlerDeps, FrameHandlerServices, FrameStageRefs } from '@ts
 import { findAttackableEntity } from '@ts-minecraft/app/frame/stages/attack-targeting'
 import { CHUNK_SIZE, CHUNK_HEIGHT, blockTypeToIndex, indexToBlockType, SlotIndex, ItemTypeSchema } from '@ts-minecraft/core'
 import type { BlockType, InventoryItem } from '@ts-minecraft/core'
-import { HOTBAR_START, isDurable, getSharpnessDamageBonus, getSmiteDamageBonus, getBaneOfArthropodsDamageBonus, getFortuneDropMultiplier, getPowerDamageMultiplier, getUnbreakingSkipChance } from '@ts-minecraft/inventory'
+import { HOTBAR_START, isDurable, getSharpnessDamageBonus, getSmiteDamageBonus, getBaneOfArthropodsDamageBonus, getFortuneDropMultiplier, getPowerDamageMultiplier, getUnbreakingSkipChance, getKnockbackHorizontalMultiplier, getPunchKnockbackBonus } from '@ts-minecraft/inventory'
 import { FORTUNE_ORE_BLOCKS, PICKAXE_BLOCK_TYPES, getInventoryDropForBlock, canHarvestBlock } from '@ts-minecraft/world'
 import { getBlockHardness, computeBreakTicks } from '@ts-minecraft/block'
 import { computeAttackDamage, computeKnockback, computeAttackCharge, computeChargedDamage, DEFAULT_ATTACK_COOLDOWN_SECS, getMobDefinition, computeBowCharge, computeBowDamage, canFireBow, BOW_MAX_RANGE } from '@ts-minecraft/entity'
@@ -312,15 +312,16 @@ export const handleLeftClick = (
           const damage = computeChargedDamage(computeAttackDamage(baseDamage + enchantBonus, !playerGrounded), charge)
 
           // Knock back and play feedback before lethal hits can remove the entity.
+          const knockbackEnchant = weaponEnchantments.find((enc) => enc.type === 'KNOCKBACK')
           yield* Option.match(entityOpt, {
             onNone: () => Effect.void,
-            onSome: (e) =>
-              Effect.all(
+            onSome: (e) => {
+              const base = computeKnockback(e.position.x - deps.camera.position.x, e.position.z - deps.camera.position.z)
+              const kbMult = knockbackEnchant ? getKnockbackHorizontalMultiplier(knockbackEnchant.level) : 1
+              const impulse = kbMult === 1 ? base : { x: base.x * kbMult, y: base.y, z: base.z * kbMult }
+              return Effect.all(
                 [
-                  services.entityManager.applyKnockback(
-                    entityId,
-                    computeKnockback(e.position.x - deps.camera.position.x, e.position.z - deps.camera.position.z),
-                  ),
+                  services.entityManager.applyKnockback(entityId, impulse),
                   services.soundManager.playEffect('entityHit', { position: e.position }),
                   // Denser burst on deterministic crit (airborne), never random.
                   debugFlags['particles.spawn']
@@ -335,7 +336,8 @@ export const handleLeftClick = (
                     : Effect.void,
                 ],
                 { concurrency: 'unbounded', discard: true },
-              ),
+              )
+            },
           })
 
           const drops = yield* services.entityManager.applyDamage(entityId, damage)
@@ -422,6 +424,7 @@ export const handleBowFire = (
     const hasPower = enchantments.find((e) => e.type === 'POWER')
     const hasInfinity = enchantments.some((e) => e.type === 'INFINITY')
     const hasLooting = enchantments.find((e) => e.type === 'LOOTING')
+    const hasPunch = enchantments.find((e) => e.type === 'PUNCH')
 
     // Scale base damage by charge, then apply POWER multiplier.
     const baseDamage = computeBowDamage(charge)
@@ -453,6 +456,16 @@ export const handleBowFire = (
             onNone: () => Effect.void,
             onSome: (e) => services.soundManager.playEffect('entityHit', { position: e.position }),
           })
+          // PUNCH: apply horizontal knockback on arrow hit when entity survived.
+          if (hasPunch && Option.isSome(entityOpt) && Option.isNone(drops)) {
+            const base = computeKnockback(
+              entityOpt.value.position.x - deps.camera.position.x,
+              entityOpt.value.position.z - deps.camera.position.z,
+            )
+            const punchBonus = getPunchKnockbackBonus(hasPunch.level)
+            const mult = 1 + punchBonus / 5
+            yield* services.entityManager.applyKnockback(entityId, { x: base.x * mult, y: base.y, z: base.z * mult })
+          }
           yield* Effect.forEach(
             Option.getOrElse(drops, () => []),
             (drop) => services.inventoryService.addBlock(drop.blockType, drop.count),

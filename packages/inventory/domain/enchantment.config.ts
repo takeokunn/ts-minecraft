@@ -7,10 +7,13 @@ export const MAX_LEVEL: Record<EnchantmentType, EnchantmentLevel> = {
   SHARPNESS: 5,
   SMITE: 5,
   BANE_OF_ARTHROPODS: 5,
+  KNOCKBACK: 2,
   PROTECTION: 4,
   PROJECTILE_PROTECTION: 4,
   FIRE_PROTECTION: 4,
   BLAST_PROTECTION: 4,
+  FEATHER_FALLING: 4,
+  RESPIRATION: 3,
   EFFICIENCY: 5,
   FORTUNE: 3,
   SILK_TOUCH: 1,
@@ -18,6 +21,7 @@ export const MAX_LEVEL: Record<EnchantmentType, EnchantmentLevel> = {
   LOOTING: 3,
   INFINITY: 1,
   POWER: 5,
+  PUNCH: 2,
 }
 
 // ─── Fortune multipliers ─────────────────────────────────────────────────────
@@ -33,9 +37,12 @@ export const APPLICABLE_TO: Partial<Record<EnchantmentType, ReadonlySet<ItemType
     'WOODEN_AXE', 'STONE_AXE', 'IRON_AXE', 'DIAMOND_AXE']),
   SMITE: new Set(['WOODEN_SWORD', 'STONE_SWORD', 'IRON_SWORD', 'DIAMOND_SWORD']),
   BANE_OF_ARTHROPODS: new Set(['WOODEN_SWORD', 'STONE_SWORD', 'IRON_SWORD', 'DIAMOND_SWORD']),
+  KNOCKBACK: new Set(['WOODEN_SWORD', 'STONE_SWORD', 'IRON_SWORD', 'DIAMOND_SWORD']),
   PROTECTION: new Set(['LEATHER_HELMET', 'LEATHER_CHESTPLATE', 'LEATHER_LEGGINGS', 'LEATHER_BOOTS',
     'IRON_HELMET', 'IRON_CHESTPLATE', 'IRON_LEGGINGS', 'IRON_BOOTS',
     'DIAMOND_HELMET', 'DIAMOND_CHESTPLATE', 'DIAMOND_LEGGINGS', 'DIAMOND_BOOTS']),
+  FEATHER_FALLING: new Set(['LEATHER_BOOTS', 'IRON_BOOTS', 'DIAMOND_BOOTS']),
+  RESPIRATION: new Set(['LEATHER_HELMET', 'IRON_HELMET', 'DIAMOND_HELMET']),
   EFFICIENCY: new Set(['WOODEN_PICKAXE', 'STONE_PICKAXE', 'IRON_PICKAXE', 'DIAMOND_PICKAXE',
     'WOODEN_AXE', 'STONE_AXE', 'IRON_AXE', 'DIAMOND_AXE',
     'WOODEN_HOE', 'STONE_HOE', 'IRON_HOE', 'DIAMOND_HOE']),
@@ -48,4 +55,5 @@ export const APPLICABLE_TO: Partial<Record<EnchantmentType, ReadonlySet<ItemType
   LOOTING: new Set(['WOODEN_SWORD', 'STONE_SWORD', 'IRON_SWORD', 'DIAMOND_SWORD']),
   INFINITY: new Set(['BOW']),
   POWER: new Set(['BOW']),
+  PUNCH: new Set(['BOW']),
 }
