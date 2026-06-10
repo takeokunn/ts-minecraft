@@ -102,6 +102,7 @@ export const makeDeps = (paused = false, withComposer = false): Effect.Effect<Fr
       xpLevelElement: Option.none(),
       xpBarElement: Option.none(),
       armorValueElement: Option.none(),
+      airElement: Option.none(),
       skyMesh: Option.none(),
       gamePausedRef,
       // Tests default to "session not paused" — pause-matrix gating is verified
@@ -168,6 +169,7 @@ export const makeServices = (opts: {
     weatherService: makeWeatherService(),
     perfHud: makePerfHud(),
     gameMode: makeGameMode(),
+    multiplayer: Option.none(),
     cameraState: cameraState.state,
   }
 }

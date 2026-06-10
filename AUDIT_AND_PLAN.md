@@ -108,7 +108,7 @@ checks are already allocation-free). Only confirmed, impactful items survive bel
 - [ ] T14. FR-2 Liquid mechanics: swimming + oxygen/drowning + lava damage. _(decomposed below)_
   - [x] T14a. Lava damage — periodic fire damage while standing in LAVA (survival only). _(done 2026-06-10; 4 dmg / 0.5s, frame-rate-independent accumulator, creative-immune, hurt sound; pure `environment-hazard.ts` + 6 tests)_
   - [x] T14b. Drowning damage — air supply (15s) depletes when eye-level block is WATER; 2 dmg/s at 0; instant refill on surfacing; creative-immune. _(done 2026-06-10; uses EYE_LEVEL_OFFSET so it matches what the player sees)_
-  - [ ] T14c. Air HUD — bubble/air indicator (6-hop bar pattern: index.html + session + runtime + change-gated write).
+  - [x] T14c. Air HUD — bubble indicator, hidden at full air, shown 0-10 bubbles underwater. _(done 2026-06-10; full 11-hop element wiring + change-gated DOM write via lastAirBubblesRef)_
   - [ ] T14d. Swim-up — hold JUMP in water to ascend (reduced-gravity swim).
 - [ ] T15. FR-3 Multiplayer block sync: wire `BlockPlace`/`BlockBreak` send + apply.
 

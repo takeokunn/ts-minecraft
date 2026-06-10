@@ -65,6 +65,7 @@ export type FrameHandlerDeps = {
   readonly xpLevelElement: Option.Option<HTMLElement>
   readonly xpBarElement: Option.Option<HTMLElement>
   readonly armorValueElement: Option.Option<HTMLElement>
+  readonly airElement: Option.Option<HTMLElement>
   readonly gamePausedRef: Ref.Ref<boolean>
   // FR-1.4: true while pause-menu is open. Distinct from gamePausedRef (transient overlay state).
   // Read synchronously by frame stages to skip simulation while keeping input + render alive.
@@ -147,6 +148,8 @@ export type FrameStageRefs = {
   readonly lavaDamageSecsRef: MutableRef.MutableRef<number>
   readonly airSecsRef: MutableRef.MutableRef<number>
   readonly drownDamageSecsRef: MutableRef.MutableRef<number>
+  // Last displayed air-bubble count (0-10); change-gates the air HUD DOM write.
+  readonly lastAirBubblesRef: MutableRef.MutableRef<number>
   readonly lastRenderDistanceRef: Ref.Ref<number>
   readonly lastEntityStructureVersionRef: Ref.Ref<number>
   readonly entityPhysicsChunkCacheRef: Ref.Ref<ReadonlyArray<Chunk | null>>
@@ -174,6 +177,7 @@ export type ResolvedDeps = {
   readonly healthMaxElementOrNull: HTMLElement | null
   readonly hungerValueElementOrNull: HTMLElement | null
   readonly hungerMaxElementOrNull: HTMLElement | null
+  readonly airElementOrNull: HTMLElement | null
   readonly xpLevelElementOrNull: HTMLElement | null
   readonly xpBarElementOrNull: HTMLElement | null
   readonly armorValueElementOrNull: HTMLElement | null

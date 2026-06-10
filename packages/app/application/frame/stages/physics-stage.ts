@@ -5,7 +5,7 @@ import { applyArmorReduction } from '@ts-minecraft/entity'
 import { DEFAULT_PLAYER_ID, CHUNK_SIZE, CHUNK_HEIGHT, indexToBlockType } from '@ts-minecraft/core'
 import type { DeltaTimeSecs, Position } from '@ts-minecraft/core'
 import { EXHAUSTION_SPRINT_PER_BLOCK, MAX_FOOD_LEVEL } from '@ts-minecraft/entity'
-import { accrueHazardTicks, nextAirSecs, LAVA_DAMAGE, LAVA_DAMAGE_INTERVAL_SECS, DROWN_DAMAGE, DROWN_DAMAGE_INTERVAL_SECS } from '@ts-minecraft/entity'
+import { accrueHazardTicks, nextAirSecs, LAVA_DAMAGE, LAVA_DAMAGE_INTERVAL_SECS, DROWN_DAMAGE, DROWN_DAMAGE_INTERVAL_SECS, MAX_AIR_SECS } from '@ts-minecraft/entity'
 import { EYE_LEVEL_OFFSET } from '@ts-minecraft/app/frame-handler.config'
 import { resolveNetherTravel, type Dimension } from '@ts-minecraft/world'
 
@@ -18,7 +18,7 @@ export const physicsStage = (
     FrameHandlerServices,
     'gameState' | 'healthService' | 'hungerService' | 'xpService' | 'equipmentService' | 'fishingService' | 'inventoryService' | 'soundManager' | 'entityManager' | 'gameMode' | 'debugFeatureFlags' | 'chunkManagerService' | 'netherService' | 'blockService'
   >,
-  refs: Pick<FrameStageRefs, 'lastHealthRef' | 'lastHungerRef' | 'lastXPRef' | 'lastArmorRef' | 'portalSecsRef' | 'dirtyChunksRef' | 'lavaDamageSecsRef' | 'airSecsRef' | 'drownDamageSecsRef'>,
+  refs: Pick<FrameStageRefs, 'lastHealthRef' | 'lastHungerRef' | 'lastXPRef' | 'lastArmorRef' | 'portalSecsRef' | 'dirtyChunksRef' | 'lavaDamageSecsRef' | 'airSecsRef' | 'drownDamageSecsRef' | 'lastAirBubblesRef'>,
   inputs: {
     readonly deltaTime: DeltaTimeSecs
     readonly initialPlayerPos: Position
@@ -29,6 +29,7 @@ export const physicsStage = (
     readonly xpLevelElementOrNull: HTMLElement | null
     readonly xpBarElementOrNull: HTMLElement | null
     readonly armorValueElementOrNull: HTMLElement | null
+    readonly airElementOrNull: HTMLElement | null
   },
 ): Effect.Effect<{ readonly playerPos: Position }, never> =>
   Effect.gen(function* () {
@@ -218,6 +219,24 @@ export const physicsStage = (
             }
           } else {
             MutableRef.set(refs.drownDamageSecsRef, 0)
+          }
+
+          // Air HUD (FR-2 / T14c): bubble count 0-10, shown only while underwater
+          // (hidden at full air, like vanilla). Change-gated on the integer count.
+          const airBubbles = headSubmerged ? Math.max(0, Math.ceil((air / MAX_AIR_SECS) * 10)) : 10
+          if (MutableRef.get(refs.lastAirBubblesRef) !== airBubbles) {
+            MutableRef.set(refs.lastAirBubblesRef, airBubbles)
+            if (inputs.airElementOrNull) {
+              const el = inputs.airElementOrNull
+              yield* Effect.sync(() => {
+                if (airBubbles >= 10) {
+                  el.style.display = 'none'
+                } else {
+                  el.style.display = 'block'
+                  el.textContent = airBubbles > 0 ? '🫧'.repeat(airBubbles) : '💀 Drowning'
+                }
+              })
+            }
           }
         }
 

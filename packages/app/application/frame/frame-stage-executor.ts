@@ -157,6 +157,7 @@ export const runFrameStages = (
           xpLevelElementOrNull: context.resolved.xpLevelElementOrNull,
           xpBarElementOrNull: context.resolved.xpBarElementOrNull,
           armorValueElementOrNull: context.resolved.armorValueElementOrNull,
+          airElementOrNull: context.resolved.airElementOrNull,
         })
 
     yield* inputStage(deps, services, {

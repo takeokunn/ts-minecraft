@@ -248,7 +248,7 @@ export const sessionProgram = (
     const pendingSaveDirtyChunksRef = MutableRef.make(false)
 
     // FPS + health + hunger + XP + armor DOM elements (resolved once at session start; pre-cached for HUD).
-    const { fpsElement, healthValueElement, healthMaxElement, hungerValueElement, hungerMaxElement, xpLevelElement, xpBarElement, armorValueElement } = yield* Effect.sync(() => ({
+    const { fpsElement, healthValueElement, healthMaxElement, hungerValueElement, hungerMaxElement, xpLevelElement, xpBarElement, armorValueElement, airElement } = yield* Effect.sync(() => ({
       fpsElement: document.getElementById('fps-value'),
       healthValueElement: document.getElementById('health-value'),
       healthMaxElement: document.getElementById('health-max'),
@@ -257,6 +257,7 @@ export const sessionProgram = (
       xpLevelElement: document.getElementById('xp-level'),
       xpBarElement: document.getElementById('xp-bar'),
       armorValueElement: document.getElementById('armor-value'),
+      airElement: document.getElementById('air-display'),
     }))
 
     // gamePausedRef tracks transient overlay state (settings/inventory/trading)
@@ -267,7 +268,7 @@ export const sessionProgram = (
       {
         renderer, scene, camera, composerRT, composer,
         gtaoPass, bloomPass, bokehPass, godRaysPass, smaaPass,
-        lighting, fpsElement, healthValueElement, healthMaxElement, hungerValueElement, hungerMaxElement, xpLevelElement, xpBarElement, armorValueElement,
+        lighting, fpsElement, healthValueElement, healthMaxElement, hungerValueElement, hungerMaxElement, xpLevelElement, xpBarElement, armorValueElement, airElement,
         control, gamePausedRef, respawnPositionRef,
         pendingResizeRef, pendingSaveDirtyChunksRef, persistSessionState,
         deathScreen, debugOverlay, biomeService, recipeService,

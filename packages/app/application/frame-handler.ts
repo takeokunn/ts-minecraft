@@ -64,6 +64,8 @@ const createFrameLoopHandlersInternal = (
     const lavaDamageSecsRef = MutableRef.make(0)
     const airSecsRef = MutableRef.make(MAX_AIR_SECS)
     const drownDamageSecsRef = MutableRef.make(0)
+    // -1 sentinel forces the first air-HUD write.
+    const lastAirBubblesRef = MutableRef.make(-1)
     const lastLoadedChunksRef = yield* Ref.make<Option.Option<ReadonlyArray<Chunk>>>(Option.none())
     // Skip chunk streaming work until the player changes chunk or render distance changes.
     const lastChunkStreamingRef = MutableRef.make({ cx: NaN, cz: NaN, renderDistance: NaN })
@@ -141,6 +143,7 @@ const createFrameLoopHandlersInternal = (
       healthMaxElementOrNull: Option.getOrNull(deps.healthMaxElement),
       hungerValueElementOrNull: Option.getOrNull(deps.hungerValueElement),
       hungerMaxElementOrNull: Option.getOrNull(deps.hungerMaxElement),
+      airElementOrNull: Option.getOrNull(deps.airElement),
       xpLevelElementOrNull: Option.getOrNull(deps.xpLevelElement),
       xpBarElementOrNull: Option.getOrNull(deps.xpBarElement),
       armorValueElementOrNull: Option.getOrNull(deps.armorValueElement),
@@ -169,6 +172,7 @@ const createFrameLoopHandlersInternal = (
       lavaDamageSecsRef,
       airSecsRef,
       drownDamageSecsRef,
+      lastAirBubblesRef,
       lastRenderDistanceRef,
       lastEntityStructureVersionRef,
       entityPhysicsChunkCacheRef,

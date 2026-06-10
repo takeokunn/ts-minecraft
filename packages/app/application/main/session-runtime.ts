@@ -52,6 +52,7 @@ export type SessionRuntimeParams = {
   readonly xpLevelElement: HTMLElement | null
   readonly xpBarElement: HTMLElement | null
   readonly armorValueElement: HTMLElement | null
+  readonly airElement: HTMLElement | null
   // --- Session primitives ---
   readonly control: SessionControl
   readonly gamePausedRef: Ref.Ref<boolean>
@@ -92,6 +93,7 @@ const assembleFrameHandlerDeps = (p: SessionRuntimeParams): FrameHandlerDeps => 
     xpLevelElement: Option.fromNullable(p.xpLevelElement),
     xpBarElement: Option.fromNullable(p.xpBarElement),
     armorValueElement: Option.fromNullable(p.armorValueElement),
+    airElement: Option.fromNullable(p.airElement),
     gamePausedRef: p.gamePausedRef,
     sessionPausedRef: p.control.isPausedRef,
     composer: Option.some(p.composer),
