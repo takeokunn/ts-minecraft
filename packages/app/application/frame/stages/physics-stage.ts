@@ -3,7 +3,7 @@ import { logErrors } from '@ts-minecraft/app/frame/error-logging'
 import type { FrameHandlerDeps, FrameHandlerServices, FrameStageRefs } from '@ts-minecraft/app/frame/types'
 import { applyArmorReduction } from '@ts-minecraft/entity'
 import { DEFAULT_PLAYER_ID, CHUNK_SIZE, CHUNK_HEIGHT, indexToBlockType, SlotIndex } from '@ts-minecraft/core'
-import { HOTBAR_START, getFeatherFallingReduction, getRespirationBonusSecs } from '@ts-minecraft/inventory'
+import { HOTBAR_START, getFeatherFallingReduction, getFireProtectionReduction, getRespirationBonusSecs } from '@ts-minecraft/inventory'
 import type { DeltaTimeSecs, Position } from '@ts-minecraft/core'
 import { EXHAUSTION_SPRINT_PER_BLOCK, MAX_FOOD_LEVEL } from '@ts-minecraft/entity'
 import { accrueHazardTicks, nextAirSecs, LAVA_DAMAGE, LAVA_DAMAGE_INTERVAL_SECS, DROWN_DAMAGE, DROWN_DAMAGE_INTERVAL_SECS, MAX_AIR_SECS } from '@ts-minecraft/entity'
@@ -217,7 +217,21 @@ export const physicsStage = (
             )
             MutableRef.set(refs.lavaDamageSecsRef, acc)
             if (ticks > 0) {
-              const burned = yield* tryApplyPlayerDamage(LAVA_DAMAGE * ticks)
+              // FIRE_PROTECTION: sum reduction across all worn armor pieces, cap 64%.
+              const armorSlots = yield* services.equipmentService.getAll()
+              const fireProtTotal = Math.min(
+                0.64,
+                [armorSlots.HELMET, armorSlots.CHESTPLATE, armorSlots.LEGGINGS, armorSlots.BOOTS].reduce(
+                  (acc, slotOpt) => {
+                    if (!Option.isSome(slotOpt)) return acc
+                    const fp = (slotOpt.value.enchantments ?? []).find((e) => e.type === 'FIRE_PROTECTION')
+                    return acc + (fp ? getFireProtectionReduction(fp.level) : 0)
+                  },
+                  0,
+                ),
+              )
+              const lavaDamage = LAVA_DAMAGE * ticks * (1 - fireProtTotal)
+              const burned = yield* tryApplyPlayerDamage(lavaDamage)
               if (burned) {
                 yield* services.soundManager.playEffect('playerHurt', { position: refreshedPos })
               }

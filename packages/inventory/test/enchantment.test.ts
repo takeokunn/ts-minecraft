@@ -10,6 +10,7 @@ import {
   getKnockbackHorizontalMultiplier,
   getPunchKnockbackBonus,
   getFeatherFallingReduction,
+  getFireProtectionReduction,
   getRespirationBonusSecs,
   canEnchantItem,
   getMaxEnchantmentLevel,
@@ -248,6 +249,31 @@ describe('domain/enchantment', () => {
 
     it('PUNCH has max level 2', () => {
       expect(getMaxEnchantmentLevel('PUNCH')).toBe(2)
+    })
+  })
+
+  describe('getFireProtectionReduction (R44)', () => {
+    it('FIRE_PROTECTION I reduces fire damage by 8%', () => {
+      expect(getFireProtectionReduction(1)).toBeCloseTo(0.08)
+    })
+
+    it('FIRE_PROTECTION IV reduces fire damage by 32%', () => {
+      expect(getFireProtectionReduction(4)).toBeCloseTo(0.32)
+    })
+
+    it('FIRE_PROTECTION applies to all armor tiers', () => {
+      expect(canEnchantItem('IRON_HELMET', 'FIRE_PROTECTION')).toBe(true)
+      expect(canEnchantItem('LEATHER_BOOTS', 'FIRE_PROTECTION')).toBe(true)
+      expect(canEnchantItem('DIAMOND_CHESTPLATE', 'FIRE_PROTECTION')).toBe(true)
+    })
+
+    it('FIRE_PROTECTION does not apply to tools', () => {
+      expect(canEnchantItem('IRON_SWORD', 'FIRE_PROTECTION')).toBe(false)
+      expect(canEnchantItem('IRON_PICKAXE', 'FIRE_PROTECTION')).toBe(false)
+    })
+
+    it('FIRE_PROTECTION has max level 4', () => {
+      expect(getMaxEnchantmentLevel('FIRE_PROTECTION')).toBe(4)
     })
   })
 })

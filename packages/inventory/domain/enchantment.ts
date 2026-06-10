@@ -47,6 +47,11 @@ export const getPunchKnockbackBonus = (level: EnchantmentLevel): number =>
 export const getProtectionDamageReduction = (level: EnchantmentLevel): number =>
   0.04 * level
 
+// FIRE_PROTECTION: each level reduces fire/lava damage by 8%. Additive across pieces,
+// capped at 64% total (mirrors PROTECTION cap for simplicity).
+export const getFireProtectionReduction = (level: EnchantmentLevel): number =>
+  0.08 * level
+
 // FEATHER_FALLING: each level reduces fall damage by 12% (vanilla value).
 export const getFeatherFallingReduction = (level: EnchantmentLevel): number =>
   0.12 * level
