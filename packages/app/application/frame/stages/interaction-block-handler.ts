@@ -4,7 +4,7 @@ import type { FrameHandlerDeps, FrameHandlerServices, FrameStageRefs } from '@ts
 import { findAttackableEntity } from '@ts-minecraft/app/frame/stages/attack-targeting'
 import { CHUNK_SIZE, CHUNK_HEIGHT, blockTypeToIndex, indexToBlockType, SlotIndex, ItemTypeSchema } from '@ts-minecraft/core'
 import type { BlockType, InventoryItem } from '@ts-minecraft/core'
-import { HOTBAR_START, isDurable, getSharpnessDamageBonus, getFortuneDropMultiplier, getPowerDamageMultiplier } from '@ts-minecraft/inventory'
+import { HOTBAR_START, isDurable, getSharpnessDamageBonus, getFortuneDropMultiplier, getPowerDamageMultiplier, getUnbreakingSkipChance } from '@ts-minecraft/inventory'
 import { FORTUNE_ORE_BLOCKS, PICKAXE_BLOCK_TYPES, getInventoryDropForBlock, canHarvestBlock } from '@ts-minecraft/world'
 import { getBlockHardness, computeBreakTicks } from '@ts-minecraft/block'
 import { computeAttackDamage, computeKnockback, computeAttackCharge, computeChargedDamage, DEFAULT_ATTACK_COOLDOWN_SECS, getMobDefinition, computeBowCharge, computeBowDamage, canFireBow, BOW_MAX_RANGE } from '@ts-minecraft/entity'
@@ -138,8 +138,15 @@ export const handleBlockBreakProgress = (
       return
     }
 
+    // Read hotbar slot + enchantments once here — used for EFFICIENCY (affects breakTicks)
+    // and for FORTUNE/UNBREAKING/durability on break. Avoids duplicate slot reads.
+    const selectedSlotIdx = yield* services.hotbarService.getSelectedSlot()
+    const toolStack = yield* services.inventoryService.getSlot(SlotIndex.make(HOTBAR_START + selectedSlotIdx))
+    const toolEnchantments = Option.match(toolStack, { onNone: () => [], onSome: (s) => s.enchantments ?? [] })
+    const efficiencyEnchant = toolEnchantments.find((e) => e.type === 'EFFICIENCY')
+
     const hardness = getBlockHardness(blockType)
-    const breakTicks = computeBreakTicks(hardness, context.selectedHotbarItem)
+    const breakTicks = computeBreakTicks(hardness, context.selectedHotbarItem, efficiencyEnchant?.level)
 
     const current = MutableRef.get(refs.breakProgressRef)
     const currentTicks = current !== null && current.blockKey === blockKey ? current.ticks : 0
@@ -189,13 +196,11 @@ export const handleBlockBreakProgress = (
       }
 
       if (HashSet.has(FORTUNE_ORE_BLOCKS, blockType)) {
-        const slot = yield* services.hotbarService.getSelectedSlot()
-        const ws = yield* services.inventoryService.getSlot(SlotIndex.make(HOTBAR_START + slot))
-        const fortune = Option.match(ws, {
+        const fortune = Option.match(toolStack, {
           onNone: () => undefined,
           onSome: (s) => {
             if (!HashSet.has(PICKAXE_BLOCK_TYPES, s.itemType)) return undefined
-            return (s.enchantments ?? []).find((e) => e.type === 'FORTUNE')
+            return toolEnchantments.find((e) => e.type === 'FORTUNE')
           },
         })
         if (fortune) {
@@ -204,6 +209,17 @@ export const handleBlockBreakProgress = (
             yield* services.inventoryService.addBlock(getInventoryDropForBlock(blockType), extra)
               .pipe(Effect.catchAllCause(() => Effect.void))
           }
+        }
+      }
+
+      // Durable tools lose 1 durability per block broken, respecting UNBREAKING skip chance.
+      const heldItem = Option.getOrNull(toolStack)
+      if (heldItem !== null && isDurable(heldItem.itemType)) {
+        const unbreaking = toolEnchantments.find((e) => e.type === 'UNBREAKING')
+        const skip = unbreaking ? Math.random() < getUnbreakingSkipChance(unbreaking.level) : false
+        if (!skip) {
+          yield* services.inventoryService.damageSlot(SlotIndex.make(HOTBAR_START + selectedSlotIdx), 1)
+            .pipe(Effect.catchAllCause(() => Effect.void))
         }
       }
     } else {

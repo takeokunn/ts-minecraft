@@ -17,10 +17,13 @@ const TOOL_SPEED: Readonly<Record<string, number>> = {
 
 // Returns game ticks (at 60 fps) required to break a block by holding left-click.
 // hardness <= 0 → 0 (instant). Result scales linearly with hardness, reduced by tool tier.
+// EFFICIENCY adds level² + 1 to the speed multiplier (vanilla formula).
 // tool accepts Option<string> so it is compatible with the wide hotbar-item Option type.
-export const computeBreakTicks = (hardness: number, tool: Option.Option<string>): number => {
+export const computeBreakTicks = (hardness: number, tool: Option.Option<string>, efficiencyLevel?: number): number => {
   if (hardness <= 0) return 0
   const toolStr = Option.getOrNull(tool)
-  const speedMult = toolStr !== null ? (TOOL_SPEED[toolStr] ?? 1) : 1
+  const baseSpeed = toolStr !== null ? (TOOL_SPEED[toolStr] ?? 1) : 1
+  const effBonus = efficiencyLevel !== undefined ? (efficiencyLevel * efficiencyLevel + 1) : 0
+  const speedMult = baseSpeed + effBonus
   return Math.ceil((hardness * 3) / speedMult)
 }

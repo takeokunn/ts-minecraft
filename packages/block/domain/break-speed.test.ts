@@ -66,4 +66,27 @@ describe('computeBreakTicks', () => {
     expect(computeBreakTicks(1, Option.none())).toBe(3)  // ceil(3/1) = 3
     expect(computeBreakTicks(1, Option.some('STONE_PICKAXE'))).toBe(1)  // ceil(3/4) = 1
   })
+
+  it('EFFICIENCY I adds level²+1=2 to speed multiplier', () => {
+    // iron pickaxe base=6, EFFICIENCY I: 6+2=8 → ceil(75/8) = 10 (same as diamond pickaxe base)
+    expect(computeBreakTicks(25, Option.some('IRON_PICKAXE'), 1)).toBe(10)
+  })
+
+  it('EFFICIENCY V adds level²+1=26 to speed multiplier', () => {
+    // iron pickaxe base=6, EFFICIENCY V: 6+26=32 → ceil(75/32) = 3
+    expect(computeBreakTicks(25, Option.some('IRON_PICKAXE'), 5)).toBe(3)
+    // no tool + EFFICIENCY V: 1+26=27 → ceil(75/27) = 3
+    expect(computeBreakTicks(25, Option.none(), 5)).toBe(3)
+  })
+
+  it('EFFICIENCY without a tool still adds speed bonus', () => {
+    // EFFICIENCY I, no tool: 1+2=3 → ceil(24/3) = 8
+    expect(computeBreakTicks(8, Option.none(), 1)).toBe(8)
+  })
+
+  it('omitting efficiencyLevel behaves same as before', () => {
+    // Backward-compat: undefined efficiencyLevel must match the original formula
+    expect(computeBreakTicks(25, Option.some('DIAMOND_PICKAXE'))).toBe(10)
+    expect(computeBreakTicks(25, Option.none())).toBe(75)
+  })
 })
