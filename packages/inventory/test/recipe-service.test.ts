@@ -71,6 +71,19 @@ describe('application/crafting/recipe-service', () => {
     }).pipe(Effect.provide(testLayer))
   )
 
+  // R68: charcoal makes torches too (vanilla parity with the coal variant).
+  it.effect('findCraftable returns charcoal-and-stick-to-torches when charcoal + sticks are available', () =>
+    Effect.gen(function* () {
+      const service = yield* RecipeService
+      const withCharcoal = service.findCraftable(HashMap.make(['CHARCOAL' as InventoryItem, 1], ['STICKS' as InventoryItem, 1]))
+      const withCoal = service.findCraftable(HashMap.make(['COAL' as InventoryItem, 1], ['STICKS' as InventoryItem, 1]))
+      expect(Arr.map(withCharcoal, (recipe) => recipe.id)).toContain('charcoal-and-stick-to-torches')
+      // Cross-check: charcoal alone does NOT enable the coal recipe (exact-itemType match).
+      expect(Arr.map(withCharcoal, (recipe) => recipe.id)).not.toContain('coal-and-stick-to-torches')
+      expect(Arr.map(withCoal, (recipe) => recipe.id)).toContain('coal-and-stick-to-torches')
+    }).pipe(Effect.provide(testLayer))
+  )
+
   it.effect('craft turns wood into planks', () =>
     Effect.gen(function* () {
       const rs = yield* RecipeService

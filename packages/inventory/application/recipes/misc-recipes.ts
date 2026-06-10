@@ -36,6 +36,17 @@ export const MISC_RECIPES: ReadonlyArray<Recipe> = [
     ],
     output: { itemType: 'TORCH', count: 4 },
   }),
+  // R68: charcoal also makes torches (vanilla parity — recipe matching is exact-itemType,
+  // so charcoal needs its own recipe alongside the coal variant).
+  new Recipe({
+    id: RecipeId.make('charcoal-and-stick-to-torches'),
+    station: 'inventory',
+    ingredients: [
+      new RecipeIngredient({ itemType: 'CHARCOAL', count: 1 }),
+      new RecipeIngredient({ itemType: 'STICKS', count: 1 }),
+    ],
+    output: { itemType: 'TORCH', count: 4 },
+  }),
   // ── Smelting recipes (furnace) ──────────────────────────────────────────────
   // R66: wood log → charcoal (vanilla bootstrap: burn logs to make charcoal as a coal substitute).
   new Recipe({
