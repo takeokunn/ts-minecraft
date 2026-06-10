@@ -537,8 +537,20 @@ typecheck 0, **4601 tests passing** (+14 new tests).
   +2 furnace tests (xp>0 for iron, xp=0 for unlisted item); all presentation mocks updated.
   _(done 2026-06-11)_
 
-**Round 27 complete.** R59-R61.
-typecheck 0, **4603 tests passing** (+5 new tests, 3 updated assertions).
+- [x] R62. XP bar max denominator updates dynamically — `#xp-bar-max` DOM element was hardcoded "7"
+  in HTML and never updated. Wired `xpBarMaxElement` through the full HUD chain (session →
+  session-runtime → frame/types → frame-handler → frame-stage-executor → physics-stage);
+  `xpRequiredForNext` written alongside `xpIntoLevel` on each level/progress change.
+  No new tests (DOM element write follows established `/* c8 ignore */` pattern). _(done 2026-06-11)_
+
+- [x] R63. Bone meal advances crop growth instantly — BONE_MEAL right-clicked on WHEAT_CROP
+  advances growth by 2 stages (deterministic; enough to ripen any crop in one use — vanilla Java
+  Edition behaviour). `CropGrowthService.advanceByBoneMeal()` added; `BONE_MEAL_ADVANCE=2`
+  constant in crop-growth domain. Handler branch in `interaction-farming-handler.ts` consumes 1
+  BONE_MEAL and calls advanceByBoneMeal. +5 tests (3 service unit, 2 interaction). _(done 2026-06-11)_
+
+**Round 27 complete.** R59-R63.
+typecheck 0, **4608 tests passing** (+10 new tests, 3 updated assertions).
 
 ## D. Progress log
 - 2026-06-10: Audit complete; plan authored. Beginning Phase 1.
