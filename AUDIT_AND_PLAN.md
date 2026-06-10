@@ -308,6 +308,50 @@ Two agents audited remaining hot-path allocations and FR gaps. Key findings:
   - 12 new `bow.test.ts` unit tests; typecheck 0 errors; **4532 tests passing** (+14 total).
     _(done 2026-06-10, commit 816af0ab)_
 
+## S. Round 16 (2026-06-10) — bow enchantments + arrow crafting
+
+Arrow recipe and POWER/INFINITY enchantment application for the R31 bow — previously the bow fired but
+POWER was absent from `EnchantmentTypeSchema` and had no formula, and INFINITY was not checked during
+fire. Both gaps left the bow feature incomplete against the enchantment system that already existed.
+
+- [x] R32. Arrow crafting recipe — `BONE×1 + STICKS×2 → ARROW×4` added to `misc-recipes.ts`. Vanilla
+  uses flint+stick+feather, but neither FLINT nor FEATHER exist as item types; BONE (skeleton drop) +
+  STICKS (planks) closes the survival loop without adding new item types. +1 craft test. _(done 2026-06-10)_
+- [x] R33. POWER + INFINITY enchantment application on bow shots — `POWER` added to `EnchantmentTypeSchema`
+  (max L5, BOW-only; `getPowerDamageMultiplier`: vanilla `1.0 + 0.5 × level`); INFINITY (already in schema
+  but undetected) now skips ARROW consumption while still damaging the bow. `handleBowFire` reads the bow's
+  enchantment list before consuming the arrow and applies both effects. +8 tests (max-level, multiplier
+  values, canEnchantItem BOW/sword, INFINITY max-level). _(done 2026-06-10)_
+
+**Round 16 complete.** R32 + R33 — arrow recipe + bow enchantments wired. typecheck 0, lint 0/0,
+**4540 tests passing** (+8).
+
+## T. Round 17 (2026-06-10) — enchantment/tool coverage + shield blocking
+
+Audit verified: fishing is already fully wired (FishingService.tick in physics-stage,
+cast/cancel in interaction-item-use-handler). Identified three real gaps:
+
+- [x] R34. EFFICIENCY enchantment break speed + tool durability on block break —
+  `computeBreakTicks` gains optional `efficiencyLevel?: number` param (vanilla `level² + 1`
+  additive speed bonus). `handleBlockBreakProgress` reads the hotbar ItemStack once at the
+  top (shared by EFFICIENCY, FORTUNE, and the new check): on block break, `isDurable` tools
+  lose 1 durability, with UNBREAKING skip-chance (`Math.random() < 1 - 1/(level+1)`) gate.
+  Previously tools only wore down during melee combat, never mining. +5 break-speed tests.
+  _(done 2026-06-10, commit 3abf4216)_
+- [x] R35. Shield blocking mechanic — `FrameStageRefs.isShieldBlockingRef: MutableRef<boolean>`
+  set by interactionStage on every frame (right-mouse-hold + SHIELD equipped). physicsStage
+  reads it before applying hostile contact damage: 0.34× multiplier (66% reduction, vanilla
+  value); damageSlot(1) wears the shield on each absorbed hit. One-frame lag by design
+  (physicsStage runs before interactionStage; imperceptible at 60fps). +2 physics tests.
+  _(done 2026-06-10, commit 36390077)_
+
+**Round 17 complete.** R34 + R35 — mining durability/EFFICIENCY + shield blocking.
+typecheck 0, lint 0/0, **4546 tests passing** (+2).
+
+**Verified as fully wired (no change needed):**
+- Fishing rod: cast/cancel in `handleFoodConsumption` + tick in `physics-stage`. ✓
+- Tool durability on melee: `handleLeftClick.damageSlot`. ✓
+
 ## D. Progress log
 - 2026-06-10: Audit complete; plan authored. Beginning Phase 1.
 - 2026-06-10: **ALL TASKS COMPLETE.** Phase 1 (T1-T4 verified hot-path allocs), Phase 2
