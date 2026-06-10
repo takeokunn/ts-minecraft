@@ -435,6 +435,36 @@ the sword hit path (line 387).
 **Round 21 complete.** R47–R49 — full exhaustion coverage.
 typecheck 0, lint 0/0, **4575 tests passing** (no new tests; pure wiring).
 
+## X. Round 22 (2026-06-11) — block drop correctness (GRASS, REDSTONE_TORCH)
+
+Audit found two incorrect entries in INVENTORY_DROP_OVERRIDES:
+- GRASS dropped itself (should drop DIRT in vanilla)
+- REDSTONE_TORCH dropped REDSTONE_DUST (should drop itself — it's a placeable item)
+
+- [x] R50. GRASS → DIRT drop — added `['GRASS', 'DIRT']` to INVENTORY_DROP_OVERRIDES.
+  _(done 2026-06-11)_
+- [x] R51. REDSTONE_TORCH drops itself — removed incorrect `['REDSTONE_TORCH', 'REDSTONE_DUST']`
+  override. Comment added clarifying WIRE vs TORCH semantics. _(done 2026-06-11)_
+
++8 tests in `block-service-drop-overrides.test.ts` anchoring all main block→item drop
+correctness expectations.
+
+**Round 22 complete.** R50–R51 — block drop fixes.
+typecheck 0, lint 0/0, **4583 tests passing** (+8 new).
+
+## Y. Round 23 (2026-06-11) — armor durability loss on hit
+
+Audit found that armor durability values were defined in `durability.ts` (e.g. IRON_HELMET=165)
+but EquipmentService had no way to damage armor, and physics-stage never consumed it.
+
+- [x] R52. Armor durability loss — `EquipmentService.damageArmorSlot(slot, amount=1)` added
+  (uses `damageStack` for atomic damage; slot auto-cleared when item breaks). physics-stage
+  after hostile hit: all 4 slots damaged concurrently. Test mock updated.
+  _(done 2026-06-11)_
+
+**Round 23 complete.** R52 — armor wears on hostile contact.
+typecheck 0, lint 0/0, **4583 tests passing** (no new tests; pure wiring).
+
 **Verified as fully wired (no change needed):**
 - Fishing rod: cast/cancel in `handleFoodConsumption` + tick in `physics-stage`. ✓
 - Tool durability on melee: `handleLeftClick.damageSlot`. ✓
