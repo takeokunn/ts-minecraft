@@ -38,10 +38,12 @@ const makeServices = (opts: {
   forceSetBlockSpy?: ReturnType<typeof vi.fn>
   removeBlockSpy?: ReturnType<typeof vi.fn>
   plantSpy?: ReturnType<typeof vi.fn>
+  advanceByBoneMealSpy?: ReturnType<typeof vi.fn>
 } = {}) => {
   const forceSetBlockSpy = opts.forceSetBlockSpy ?? vi.fn(() => Effect.void)
   const removeBlockSpy = opts.removeBlockSpy ?? vi.fn(() => Effect.void)
   const plantSpy = opts.plantSpy ?? vi.fn(() => Effect.void)
+  const advanceByBoneMealSpy = opts.advanceByBoneMealSpy ?? vi.fn(() => Effect.succeed(2))
   return {
     hotbarService: {
       getSelectedBlockType: vi.fn(() =>
@@ -55,20 +57,22 @@ const makeServices = (opts: {
     },
     soundManager: { playEffect: vi.fn(() => Effect.void) },
     inventoryService: { removeBlock: removeBlockSpy },
-    cropGrowthService: { plant: plantSpy, harvest: vi.fn(() => Effect.succeed(true)), tickAll: vi.fn(() => Effect.void) },
+    cropGrowthService: { plant: plantSpy, harvest: vi.fn(() => Effect.succeed(true)), tickAll: vi.fn(() => Effect.void), advanceByBoneMeal: advanceByBoneMealSpy },
     _forceSetBlockSpy: forceSetBlockSpy,
     _removeBlockSpy: removeBlockSpy,
     _plantSpy: plantSpy,
+    _advanceByBoneMealSpy: advanceByBoneMealSpy,
   } as unknown as {
     hotbarService: { getSelectedBlockType: ReturnType<typeof vi.fn>; getSelectedSlot: ReturnType<typeof vi.fn> }
     blockService: { forceSetBlock: ReturnType<typeof vi.fn> }
     chunkManagerService: { getChunk: (coord: { x: number; z: number }) => Effect.Effect<Chunk, Error> }
     soundManager: { playEffect: ReturnType<typeof vi.fn> }
     inventoryService: { removeBlock: ReturnType<typeof vi.fn> }
-    cropGrowthService: { plant: ReturnType<typeof vi.fn>; harvest: ReturnType<typeof vi.fn>; tickAll: ReturnType<typeof vi.fn> }
+    cropGrowthService: { plant: ReturnType<typeof vi.fn>; harvest: ReturnType<typeof vi.fn>; tickAll: ReturnType<typeof vi.fn>; advanceByBoneMeal: ReturnType<typeof vi.fn> }
     _forceSetBlockSpy: ReturnType<typeof vi.fn>
     _removeBlockSpy: ReturnType<typeof vi.fn>
     _plantSpy: ReturnType<typeof vi.fn>
+    _advanceByBoneMealSpy: ReturnType<typeof vi.fn>
   }
 }
 
@@ -279,6 +283,47 @@ describe('handleFarmingInteraction', () => {
       )
       // crop at blockY+1 = y65
       expect(services._plantSpy).toHaveBeenCalledWith({ x: 2, y: 65, z: 3 })
+    }),
+  )
+
+  // R63: BONE_MEAL on WHEAT_CROP advances growth
+  it.effect('applying BONE_MEAL to a WHEAT_CROP calls advanceByBoneMeal and consumes 1 bone meal', () =>
+    Effect.gen(function* () {
+      const dirtyChunksRef = yield* Ref.make(HashMap.empty<string, unknown>())
+      const chunk = makeEmptyChunk(0, 0)
+      setChunkBlock(chunk, 2, 64, 3, 'WHEAT_CROP')
+      const services = makeServices({
+        selectedItem: 'BONE_MEAL',
+        getChunkFn: (_c) => Effect.succeed(chunk),
+      })
+      const result = yield* handleFarmingInteraction(
+        services as never,
+        { dirtyChunksRef } as never,
+        { targetHit: Option.some(makeHit(2, 64, 3)) },
+      )
+      expect(result).toBe(true)
+      expect(services._advanceByBoneMealSpy).toHaveBeenCalledWith({ x: 2, y: 64, z: 3 })
+      expect(services._removeBlockSpy).toHaveBeenCalledWith('BONE_MEAL', 1, SlotIndex.make(HOTBAR_START + 0))
+    }),
+  )
+
+  it.effect('applying BONE_MEAL to a non-crop block returns false and does not consume', () =>
+    Effect.gen(function* () {
+      const dirtyChunksRef = yield* Ref.make(HashMap.empty<string, unknown>())
+      const chunk = makeEmptyChunk(0, 0)
+      setChunkBlock(chunk, 2, 64, 3, 'DIRT')
+      const services = makeServices({
+        selectedItem: 'BONE_MEAL',
+        getChunkFn: (_c) => Effect.succeed(chunk),
+      })
+      const result = yield* handleFarmingInteraction(
+        services as never,
+        { dirtyChunksRef } as never,
+        { targetHit: Option.some(makeHit(2, 64, 3)) },
+      )
+      expect(result).toBe(false)
+      expect(services._advanceByBoneMealSpy).not.toHaveBeenCalled()
+      expect(services._removeBlockSpy).not.toHaveBeenCalled()
     }),
   )
 

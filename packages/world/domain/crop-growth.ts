@@ -10,3 +10,6 @@ export const advanceCropAge = (age: number): number => Math.min(age + 1, CROP_MA
 // Seconds between growth ticks (all tracked crops advance by one stage).
 // Two ticks to full maturity → 2 minutes total growth time.
 export const CROP_GROWTH_INTERVAL_SECS = 60
+
+// Bone meal advances a crop by this many stages (vanilla: 2–5 random; here deterministic 2).
+export const BONE_MEAL_ADVANCE = 2

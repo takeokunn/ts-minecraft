@@ -89,3 +89,37 @@ describe('CropGrowthService.restore', () => {
     expect(result['1,64,1']).toBe(2)
   })
 })
+
+describe('CropGrowthService.advanceByBoneMeal', () => {
+  it('advances a young crop (age 0) by 2 → ripe (age 2)', async () => {
+    const result = await runWith(
+      Effect.gen(function* () {
+        const svc = yield* CropGrowthService
+        yield* svc.plant({ x: 0, y: 64, z: 0 })
+        return yield* svc.advanceByBoneMeal({ x: 0, y: 64, z: 0 })
+      }),
+    )
+    expect(result).toBe(2)
+  })
+
+  it('clamps at CROP_MAX_AGE (already ripe stays at 2)', async () => {
+    const result = await runWith(
+      Effect.gen(function* () {
+        const svc = yield* CropGrowthService
+        yield* svc.restore({ '0,64,0': 2 })
+        return yield* svc.advanceByBoneMeal({ x: 0, y: 64, z: 0 })
+      }),
+    )
+    expect(result).toBe(2)
+  })
+
+  it('untracked crop (world-generated) is treated as max age and stays at 2', async () => {
+    const result = await runWith(
+      Effect.gen(function* () {
+        const svc = yield* CropGrowthService
+        return yield* svc.advanceByBoneMeal({ x: 5, y: 64, z: 5 })
+      }),
+    )
+    expect(result).toBe(2)
+  })
+})

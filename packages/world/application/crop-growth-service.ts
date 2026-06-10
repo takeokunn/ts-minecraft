@@ -1,5 +1,5 @@
 import { Effect, HashMap, Option, Ref } from 'effect'
-import { CROP_MAX_AGE, advanceCropAge } from '../domain/crop-growth'
+import { BONE_MEAL_ADVANCE, CROP_MAX_AGE, advanceCropAge } from '../domain/crop-growth'
 import type { Position } from '@ts-minecraft/core'
 
 const cropKey = (pos: Position): string =>
@@ -29,6 +29,18 @@ export class CropGrowthService extends Effect.Service<CropGrowthService>()(
         // from frame-maintenance. Ripe crops clamp at CROP_MAX_AGE (no-op after maturity).
         tickAll: (): Effect.Effect<void, never> =>
           Ref.update(ageMapRef, (m) => HashMap.map(m, advanceCropAge)),
+
+        // Apply bone meal: advance a single crop by BONE_MEAL_ADVANCE stages (2 — enough to
+        // ripen any planted crop in one use, matching vanilla Java Edition behaviour).
+        // Registers the crop if not yet tracked (world-generated crops default to max age).
+        // Returns the new age (CROP_MAX_AGE when already ripe or just ripened).
+        advanceByBoneMeal: (pos: Position): Effect.Effect<number, never> =>
+          Ref.modify(ageMapRef, (m) => {
+            const key = cropKey(pos)
+            const current = Option.getOrElse(HashMap.get(m, key), () => CROP_MAX_AGE)
+            const next = Math.min(current + BONE_MEAL_ADVANCE, CROP_MAX_AGE)
+            return [next, HashMap.set(m, key, next)] as [number, HashMap.HashMap<string, number>]
+          }),
 
         // Serialize the current crop age map to a plain Record for save persistence.
         serialize: (): Effect.Effect<Record<string, number>, never> =>

@@ -65,6 +65,27 @@ export const handleFarmingInteraction = (
                 )
               }
 
+              if (item === 'BONE_MEAL') {
+                return services.chunkManagerService.getChunk(targetChunkCoord).pipe(
+                  Effect.flatMap((chunk) => {
+                    const idx = hit.blockY + lz * CHUNK_HEIGHT + lx * CHUNK_HEIGHT * CHUNK_SIZE
+                    /* c8 ignore next -- TypedArray never returns undefined for in-bounds idx */
+                    const blockType = indexToBlockType(chunk.blocks[idx] ?? 0)
+                    if (blockType !== 'WHEAT_CROP') return Effect.succeed(false)
+                    const targetPos = { x: hit.blockX, y: hit.blockY, z: hit.blockZ }
+                    return services.inventoryService
+                      .removeBlock('BONE_MEAL', 1, SlotIndex.make(HOTBAR_START + selectedSlot))
+                      .pipe(
+                        Effect.flatMap(() => services.cropGrowthService.advanceByBoneMeal(targetPos)),
+                        Effect.andThen(services.soundManager.playEffect('blockPlace', { position: targetPos })),
+                        Effect.as(true),
+                        Effect.catchAll(() => Effect.succeed(false)),
+                      )
+                  }),
+                  Effect.catchAll(() => Effect.succeed(false)),
+                )
+              }
+
               if (item === 'WHEAT_SEEDS') {
                 return services.chunkManagerService.getChunk(targetChunkCoord).pipe(
                   Effect.flatMap((chunk) => {
