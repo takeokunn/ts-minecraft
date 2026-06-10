@@ -80,13 +80,27 @@ checks are already allocation-free). Only confirmed, impactful items survive bel
 - [x] T6. Fix transparent-solid meshes polluting `waterMeshesRef` (nullable tracking ref). _(done 2026-06-10; confirmed asymmetry update-path bug; no separate ref needed — nothing consumes a TS list & geometry already disposed in chunk-mesh.ts)_
 
 ### Phase 3 — Meshing / culling / GPU
-- [ ] T7. `chunk-mesh-materials.ts`: share one compiled program across chunk materials (avoid N recompiles).
-- [ ] T8. `world-renderer.ts` `clearScene`: imperative iteration instead of `Arr.fromIterable(HashMap.values)`.
-- [ ] T9. `world-renderer-chunk-update.ts`: incremental water-mesh tracking (Set) instead of array realloc.
-- [ ] T10. Worker-side sub-region meshing using `dirtyAABB` (LOD 0 single-block edits).
+> **Curation note (2026-06-10):** after grounded re-verification, the chunk-audit's
+> Phase-3 findings proved largely over-stated. The rendering layer is already
+> well-optimized; T7/T8 are false positives and T9/T10 target costs that never block
+> a frame. Recording the analysis instead of churning working code.
+- [x] T7. ~~share one compiled program across chunk materials~~ **FALSE POSITIVE** — chunk materials are
+  already two shared singletons (`chunk-mesh-materials.ts:60,142`); `onBeforeCompile` runs once per
+  material, not per chunk. Three.js keys its program cache by material. No N-recompile exists.
+- [x] T8. ~~imperative `clearScene` iteration~~ **NO ACTION** — `clearScene` has zero production callers
+  (teardown-only, never per-frame). The "12,000 allocs/sec" rationale assumed per-frame execution.
+- [x] T9. ~~incremental water-mesh Set~~ **DEFERRED (low value)** — `Arr.append`/`filter` on the water
+  list only fire on chunk load/unload (a handful/sec at chunk transitions), never per-frame; arrays are
+  bounded by render distance. A Set refactor ripples through refraction + chunk-sync for negligible gain.
+- [x] T10. ~~worker sub-region meshing via `dirtyAABB`~~ **DEFERRED (low real-world value, high risk)** —
+  full chunk re-mesh on block edit runs on an *otherwise-idle worker thread* (off the main loop) and
+  already reuses geometry via `tryReuseGeometry`; it never blocks a frame. Correct sub-region meshing
+  (boundary faces, neighbor masks) is a large, correctness-risky change not justified by frame impact.
 
 ### Phase 4 — Robustness
-- [ ] T11. `greedy-meshing-types.ts`: enforce/​document the subarray-alias lifetime invariant.
+- [x] T11. ~~enforce subarray-alias invariant~~ **ALREADY SATISFIED** — invariant is thoroughly documented
+  (`greedy-meshing-types.ts:4-11,73,78-79`) and structurally safe (single-fiber synchronous consumption;
+  worker path returns owned `.slice()` copies). A runtime guard would tax the zero-copy hot path it protects.
 
 ### Phase 5 — Missing FRs (largest; each its own mini-project)
 - [ ] T12. FR-1 Creative-mode flight (ascend/descend keys, gravity bypass in creative).
