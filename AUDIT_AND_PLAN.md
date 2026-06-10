@@ -559,8 +559,18 @@ typecheck 0, **4601 tests passing** (+14 new tests).
   FLINT added to ItemTypeSchema, ITEM_TILE_MAP, NON_PLACEABLE_ITEM_TYPES. No new tests needed
   (block drop covered by existing block-service tests via GRAVEL→FLINT override). _(done 2026-06-11)_
 
-**Round 27 complete.** R59-R65.
-typecheck 0, **4608 tests passing** (+12 new tests, 4 updated assertions).
+- [x] R66. CHARCOAL item + WOOD→CHARCOAL furnace recipe + PLANKS/WOOD/CHARCOAL as fuel — closes
+  the early-game bootstrap gap where a new player couldn't light a furnace without finding coal.
+  CHARCOAL added to ItemTypeSchema/ITEM_TILE_MAP/NON_PLACEABLE; SMELTING_XP_PER_ITEM.CHARCOAL=0.15.
+  No new tests (recipe + fuel covered by existing furnace tests). _(done 2026-06-11)_
+
+- [x] R67. Vanilla-correct light emission for dimmer sources — emissive blocks without an explicit
+  override defaulted to 15 (lava brightness). Added REDSTONE_TORCH=7, NETHER_PORTAL=11,
+  END_PORTAL_FRAME=1 to EMISSIVE_LEVEL_OVERRIDES so a redstone torch no longer floods a room like
+  lava. +3 tests. _(done 2026-06-11)_
+
+**Round 27 complete.** R59-R67.
+typecheck 0, **4611 tests passing** (+15 new tests, 4 updated assertions).
 
 ## D. Progress log
 - 2026-06-10: Audit complete; plan authored. Beginning Phase 1.
