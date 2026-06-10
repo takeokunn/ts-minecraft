@@ -77,7 +77,7 @@ checks are already allocation-free). Only confirmed, impactful items survive bel
 
 ### Phase 2 — Memory-leak fixes (correctness)
 - [x] T5. `chunk-mesh.ts`: wrap `atlasTexture` in `Effect.acquireRelease` to `.dispose()` on scope close. _(done 2026-06-10; materials were already released)_
-- [ ] T6. Confirm + fix transparent-solid meshes being tracked in `waterMeshesRef` (separate ref + disposal).
+- [x] T6. Fix transparent-solid meshes polluting `waterMeshesRef` (nullable tracking ref). _(done 2026-06-10; confirmed asymmetry update-path bug; no separate ref needed — nothing consumes a TS list & geometry already disposed in chunk-mesh.ts)_
 
 ### Phase 3 — Meshing / culling / GPU
 - [ ] T7. `chunk-mesh-materials.ts`: share one compiled program across chunk materials (avoid N recompiles).

@@ -16,23 +16,32 @@ export type UpdateChunkContext = {
   readonly invalidateSceneCaches: () => Effect.Effect<void, never>
 }
 
+/**
+ * Adds/removes an optional mesh from the scene, mirroring the change into an
+ * optional tracking list. `trackingRef` is the water-mesh list used by the
+ * refraction pre-pass; pass `null` for meshes that must NOT join that list
+ * (e.g. transparent-solid GLASS/LEAVES, which are not water and whose geometry
+ * is already disposed by ChunkMeshService.updateChunkMesh).
+ */
 const syncOptionalMeshInScene = (
   scene: THREE.Scene,
   sceneService: SceneService,
-  waterMeshesRef: Ref.Ref<ReadonlyArray<THREE.Mesh>>,
+  trackingRef: Ref.Ref<ReadonlyArray<THREE.Mesh>> | null,
   prevMesh: Option.Option<THREE.Mesh>,
   nextMesh: Option.Option<THREE.Mesh>,
-): Effect.Effect<void, never> =>
-  Option.match(prevMesh, {
+): Effect.Effect<void, never> => {
+  const track = (f: (arr: ReadonlyArray<THREE.Mesh>) => ReadonlyArray<THREE.Mesh>): Effect.Effect<void, never> =>
+    trackingRef === null ? Effect.void : Ref.update(trackingRef, f)
+  return Option.match(prevMesh, {
     onNone: () => Option.match(nextMesh, {
       onNone: () => Effect.void,
       onSome: (m) => sceneService.add(scene, m).pipe(
-        Effect.andThen(Ref.update(waterMeshesRef, (arr) => Arr.append(arr, m)))
+        Effect.andThen(track((arr) => Arr.append(arr, m)))
       ),
     }),
     onSome: (oldMesh) => Option.match(nextMesh, {
       onNone: () => sceneService.remove(scene, oldMesh).pipe(
-        Effect.andThen(Ref.update(waterMeshesRef, (arr) => Arr.filter(arr, (mesh) => mesh !== oldMesh)))
+        Effect.andThen(track((arr) => Arr.filter(arr, (mesh) => mesh !== oldMesh)))
       ),
       onSome: (newMesh) => oldMesh === newMesh
         /* c8 ignore next 6 */
@@ -40,10 +49,11 @@ const syncOptionalMeshInScene = (
         : Effect.all([
           sceneService.remove(scene, oldMesh),
           sceneService.add(scene, newMesh),
-          Ref.update(waterMeshesRef, (arr) => Arr.append(Arr.filter(arr, (mesh) => mesh !== oldMesh), newMesh)),
+          track((arr) => Arr.append(Arr.filter(arr, (mesh) => mesh !== oldMesh), newMesh)),
         ], { concurrency: 'unbounded', discard: true }),
     }),
   })
+}
 
 /**
  * Re-meshes a single chunk in place; call after block break/place for the
@@ -68,7 +78,9 @@ export const updateChunkInScene = (
         chunkMeshService.updateChunkMesh(existing.opaque, existing.water, chunk, waterMaterial, undefined, dirtyAABB, existing.transparentSolid).pipe(
           Effect.flatMap(({ waterMesh: nextWaterMesh, transparentSolidMesh: nextTransparentSolidMesh }) => {
             const updateWaterScene = syncOptionalMeshInScene(scene, sceneService, waterMeshesRef, existing.water, nextWaterMesh)
-            const updateTransparentSolidScene = syncOptionalMeshInScene(scene, sceneService, waterMeshesRef, existing.transparentSolid, nextTransparentSolidMesh)
+            // null tracking ref: transparent-solid meshes must not pollute the water
+            // refraction list (they would be wrongly hidden during the pre-pass).
+            const updateTransparentSolidScene = syncOptionalMeshInScene(scene, sceneService, null, existing.transparentSolid, nextTransparentSolidMesh)
 
             return Effect.all([updateWaterScene, updateTransparentSolidScene], { concurrency: 'unbounded', discard: true }).pipe(
               // FR-3.1: preserve the existing chunk's LOD when re-meshing in
