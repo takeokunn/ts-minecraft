@@ -167,3 +167,27 @@ export function resolveBlockCollisions(
 
   return { position: { x, y, z }, velocity: { x: vx, y: vy, z: vz }, isGrounded }
 }
+
+// R7: how far below the feet a block still counts as "support" while sneaking —
+// covers stepping down a single block; a drop of more than this is treated as a fall.
+export const SNEAK_STEP_DOWN = 1.0
+
+/**
+ * Sneak edge-protection: while sneaking on the ground, prevent horizontal movement
+ * from carrying the player off an unsupported edge into a fall. Per-axis (so the
+ * player can still slide ALONG an edge): if moving in X to the new spot has no ground
+ * support there, keep the previous X; likewise for Z. `hasGroundSupport(x, z)` reports
+ * whether solid ground exists below the player's feet at (x, z) within SNEAK_STEP_DOWN.
+ *
+ * Conservative by construction — on flat ground support always exists, so this never
+ * traps the player; it only clamps at genuine edges.
+ */
+export const clampSneakEdge = (
+  prev: { readonly x: number; readonly z: number },
+  next: { readonly x: number; readonly z: number },
+  hasGroundSupport: (x: number, z: number) => boolean,
+): { readonly x: number; readonly z: number } => {
+  const x = next.x !== prev.x && !hasGroundSupport(next.x, prev.z) ? prev.x : next.x
+  const z = next.z !== prev.z && !hasGroundSupport(prev.x, next.z) ? prev.z : next.z
+  return { x, z }
+}

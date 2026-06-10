@@ -8,7 +8,7 @@ import { computeFlightVerticalVelocity, nextFlightState } from '@ts-minecraft/en
 import { PlayerCameraStateService } from '@ts-minecraft/entity/application/camera-state'
 import { DeltaTimeSecs, PlayerId, Position, PhysicsBodyId, DEFAULT_PLAYER_ID, PLAYER_HALF_WIDTH, PLAYER_HALF_HEIGHT, CHUNK_SIZE } from '@ts-minecraft/core'
 import { PhysicsService } from './physics-service'
-import { resolveBlockCollisions } from '../domain/aabb-collision'
+import { resolveBlockCollisions, clampSneakEdge, SNEAK_STEP_DOWN } from '../domain/aabb-collision'
 import { ChunkManagerService } from '@ts-minecraft/world/application/chunk-manager-service'
 import { InventoryService } from '@ts-minecraft/inventory/application/inventory-service'
 import { GameStateError } from '../domain/errors'
@@ -152,6 +152,9 @@ export class GameStateService extends Effect.Service<GameStateService>()(
               flightVy = computeFlightVerticalVelocity(ascend, descend)
             }
 
+            // R7 sneak edge-protection: only relevant when walking on the ground.
+            const sneaking = !flying && (yield* inputService.isKeyPressed(KeyMappings.SNEAK))
+
             /* c8 ignore next 3 */
             const currentVel = yield* physicsService.getVelocity(playerBodyId).pipe(
               Effect.catchTag('PhysicsServiceError', (e) =>
@@ -177,13 +180,15 @@ export class GameStateService extends Effect.Service<GameStateService>()(
               yield* Ref.set(isGroundedRef, false)
             }
 
-            // Capture pre-step Y so flight can reconstruct a gravity-free vertical
-            // motion after the step (step() always integrates gravity).
-            const prePosY = flying
-              ? (yield* physicsService.getPosition(playerBodyId).pipe(
+            // Capture pre-step position: flight needs prePos.y (gravity-free vertical
+            // reconstruction) and sneak edge-protection needs prePos.x/z (to revert a
+            // step that would walk off a ledge). One getPosition, only when needed.
+            const prePos: Position = (flying || (sneaking && isGrounded))
+              ? yield* physicsService.getPosition(playerBodyId).pipe(
                   Effect.catchTag('PhysicsServiceError', () => Effect.succeed(ZERO_VEC3 as Position)),
-                )).y
-              : 0
+                )
+              : (ZERO_VEC3 as Position)
+            const prePosY = prePos.y
 
             yield* physicsService.step(deltaTime)
 
@@ -213,12 +218,37 @@ export class GameStateService extends Effect.Service<GameStateService>()(
 
             // AABB block collision resolution — delegates solid-block test to block-collision-predicates.ts.
             // Spectator is noclip: skip collision entirely so the observer passes through terrain.
-            const { position: resolvedPos, velocity: resolvedVel, isGrounded: newIsGrounded } = isSpectator
+            const { position: collidedPos, velocity: collidedVel, isGrounded: newIsGrounded } = isSpectator
               ? { position: effPos, velocity: effVel, isGrounded: false }
               : resolveBlockCollisions(
                   effPos, effVel, PLAYER_HALF_WIDTH, PLAYER_HALF_HEIGHT,
                   (wx, wy, wz) => isBlockSolid(wx, wy, wz, chunkCache, playerCx, playerCz)
                 )
+
+            // R7 sneak edge-protection: while sneaking on the ground, revert any
+            // per-axis step that would carry the player off an unsupported ledge.
+            // Never traps on flat ground (support always exists there).
+            const sneakClamp = sneaking && isGrounded
+              ? clampSneakEdge(prePos, collidedPos, (x, z) => {
+                  const feetY = collidedPos.y - PLAYER_HALF_HEIGHT
+                  for (const cx of [x - PLAYER_HALF_WIDTH, x + PLAYER_HALF_WIDTH]) {
+                    for (const cz of [z - PLAYER_HALF_WIDTH, z + PLAYER_HALF_WIDTH]) {
+                      // Solid directly below the feet, or one block down (a step-down).
+                      if (isBlockSolid(cx, feetY - 0.1, cz, chunkCache, playerCx, playerCz)
+                        || isBlockSolid(cx, feetY - 0.1 - SNEAK_STEP_DOWN, cz, chunkCache, playerCx, playerCz)) {
+                        return true
+                      }
+                    }
+                  }
+                  return false
+                })
+              : { x: collidedPos.x, z: collidedPos.z }
+            const resolvedPos: Position = { ...collidedPos, x: sneakClamp.x, z: sneakClamp.z } as Position
+            const resolvedVel = {
+              x: sneakClamp.x !== collidedPos.x ? 0 : collidedVel.x,
+              y: collidedVel.y,
+              z: sneakClamp.z !== collidedPos.z ? 0 : collidedVel.z,
+            }
 
             yield* physicsService.setPosition(playerBodyId, resolvedPos as Position).pipe(
               Effect.catchTag('PhysicsServiceError', () => Effect.void)

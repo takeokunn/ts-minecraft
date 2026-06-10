@@ -183,8 +183,10 @@ two contained QoL wins remain. Picking lower-risk, player-visible, contained inc
   - [x] R6d. Baby render scale — optional `isBaby` on public Entity (set from ageTicks in toPublicEntity);
     entity-renderer draws babies at 0.5× via per-entity scratch.scale. Growth (age→adult) already handled by
     R6c-2 tick decay. +2 tests; all 230 entity/render tests green. _(done 2026-06-10)_
-- [ ] R7. (Deferred — higher risk) Sneak edge-protection — modifies the shared collision path; needs careful
-  per-axis AABB-footprint ground detection to avoid trapping the player on stairs/slopes. Not a "certain" step.
+- [x] R7. Sneak edge-protection — pure `clampSneakEdge` (per-axis revert when a step lands on an unsupported
+  ledge; allows step-downs within `SNEAK_STEP_DOWN`, slides along edges) gated on sneaking+grounded in
+  game-state. **Never traps on flat ground** (support always exists), so the core movement path is safe.
+  +6 unit tests; game-state + movement tests (111) green. _(done 2026-06-10; the deferred-risk item, implemented conservatively)_
   (then it pairs with the T15 block-sync, also dormant for the same reason).
 
 ## D. Progress log
