@@ -54,7 +54,7 @@ export class BlockService extends Effect.Service<BlockService>()(
     ], { concurrency: 'unbounded' }).pipe(
       Effect.map(([chunkManagerService, chunkService, fluidService, playerService, inventoryService, hotbarService, furnaceService]) => ({
 
-        breakBlock: (position: Position): Effect.Effect<void, BlockServiceError> =>
+        breakBlock: (position: Position, silkTouch = false): Effect.Effect<void, BlockServiceError> =>
           Effect.gen(function* () {
             const { chunkCoord, lx, lz } = worldToBlockLocal(position)
             const y = Math.floor(position.y)
@@ -116,7 +116,10 @@ export class BlockService extends Effect.Service<BlockService>()(
             yield* fluidService.notifyBlockChanged(position)
             yield* Metric.increment(Metric.counter('blocks_broken'))
             if (shouldDrop) {
-              yield* inventoryService.addBlock(getInventoryDropForBlock(blockType), getBlockDropCount(blockType)).pipe(Effect.catchAllCause(() => Effect.void))
+              // SILK_TOUCH: drop the block itself (count=1) instead of its processed item drop.
+              const dropItem = silkTouch ? (blockType as InventoryItem) : getInventoryDropForBlock(blockType)
+              const dropCount = silkTouch ? 1 : getBlockDropCount(blockType)
+              yield* inventoryService.addBlock(dropItem, dropCount).pipe(Effect.catchAllCause(() => Effect.void))
             }
           }),
 

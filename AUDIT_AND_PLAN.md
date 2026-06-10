@@ -348,6 +348,31 @@ cast/cancel in interaction-item-use-handler). Identified three real gaps:
 **Round 17 complete.** R34 + R35 — mining durability/EFFICIENCY + shield blocking.
 typecheck 0, lint 0/0, **4546 tests passing** (+2).
 
+## T. Round 18 (2026-06-10) — enchantment completeness: SMITE/BANE/SILK_TOUCH + bow XP
+
+Audit verified remaining enchantment gaps: SHARPNESS was wired; SMITE/BANE needed entity-type
+lookup; SILK_TOUCH+FORTUNE mutual exclusion was missing; bow kills never granted XP.
+
+- [x] R36. SMITE/BANE_OF_ARTHROPODS/SHARPNESS mutual exclusion — `handleLeftClick` now
+  fetches `entityOpt` BEFORE the damage calculation and applies a priority-ordered `enchantBonus`
+  IIFE: SHARPNESS first (any mob), then SMITE only for undead (Zombie/Skeleton), then BANE
+  only for arthropods (Spider). Vanilla semantics: only the highest-priority applicable enchant
+  fires. +6 enchant-combat tests. _(done 2026-06-10, commit b03507e6)_
+- [x] R37. LOOTING on bow kills — `handleBowFire` already tracked `hasLooting`; the bonus-drop
+  forEach was added after the kill check, mirroring melee LOOTING logic. _(done 2026-06-10, commit b03507e6)_
+- [x] R38. Bow XP on kill — `handleBowFire` services Pick gains `xpService`; on `Option.isSome(drops)`
+  (entity removed), `getMobDefinition(entityOpt.value.type).xpReward` is awarded via `xpService.addXP`.
+  Guards: xpReward > 0 check. +1 bow-XP unit test (direct `handleBowFire` call at y=63.1/camera y=64
+  for correct perpendicular targeting). _(done 2026-06-10)_
+- [x] R39. SILK_TOUCH + FORTUNE mutual exclusion — `BlockService.breakBlock(pos, silkTouch=false)`:
+  when `silkTouch=true` drops the block itself (count=1) instead of the processed item.
+  `handleBlockBreakProgress` detects `e.type === 'SILK_TOUCH'` in toolEnchantments before block break.
+  The FORTUNE ore-bonus branch is gated `!hasSilkTouch` (vanilla: mutually exclusive).
+  +2 block-service tests (DIAMOND_ORE+SILK_TOUCH → DIAMOND_ORE; without → DIAMOND). _(done 2026-06-10)_
+
+**Round 18 complete.** R36–R39 — enchant priority, bow XP, SILK_TOUCH.
+typecheck 0, lint 0/0, **4552 tests passing** (+3 new).
+
 **Verified as fully wired (no change needed):**
 - Fishing rod: cast/cancel in `handleFoodConsumption` + tick in `physics-stage`. ✓
 - Tool durability on melee: `handleLeftClick.damageSlot`. ✓

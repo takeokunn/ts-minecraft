@@ -148,6 +148,7 @@ export const handleBlockBreakProgress = (
     const toolStack = yield* services.inventoryService.getSlot(SlotIndex.make(HOTBAR_START + selectedSlotIdx))
     const toolEnchantments = Option.match(toolStack, { onNone: () => [], onSome: (s) => s.enchantments ?? [] })
     const efficiencyEnchant = toolEnchantments.find((e) => e.type === 'EFFICIENCY')
+    const hasSilkTouch = toolEnchantments.some((e) => e.type === 'SILK_TOUCH')
 
     const hardness = getBlockHardness(blockType)
     const breakTicks = computeBreakTicks(hardness, context.selectedHotbarItem, efficiencyEnchant?.level)
@@ -167,7 +168,7 @@ export const handleBlockBreakProgress = (
 
       yield* Effect.all(
         [
-          services.blockService.breakBlock(pos),
+          services.blockService.breakBlock(pos, hasSilkTouch),
           Option.match(services.multiplayer, {
             onNone: () => Effect.void,
             onSome: (mp) => mp.sendBlockBreak(pos),
@@ -199,7 +200,9 @@ export const handleBlockBreakProgress = (
         }
       }
 
-      if (HashSet.has(FORTUNE_ORE_BLOCKS, blockType)) {
+      // SILK_TOUCH and FORTUNE are mutually exclusive (vanilla). With SILK_TOUCH the ore
+      // itself drops (handled by breakBlock), so skip the fortune-bonus path entirely.
+      if (!hasSilkTouch && HashSet.has(FORTUNE_ORE_BLOCKS, blockType)) {
         const fortune = Option.match(toolStack, {
           onNone: () => undefined,
           onSome: (s) => {
@@ -397,7 +400,7 @@ export const handleBowFire = (
   deps: Pick<FrameHandlerDeps, 'camera'>,
   services: Pick<
     FrameHandlerServices,
-    'inventoryService' | 'hotbarService' | 'entityManager' | 'soundManager'
+    'inventoryService' | 'hotbarService' | 'entityManager' | 'soundManager' | 'xpService'
   >,
   entities: Parameters<typeof findAttackableEntity>[0],
   context: {
@@ -463,6 +466,11 @@ export const handleBowFire = (
                 .pipe(Effect.catchAllCause(() => Effect.void)),
               { discard: true },
             )
+          }
+          // Award mob XP on kill (drops is Some when the entity was removed).
+          if (Option.isSome(drops) && Option.isSome(entityOpt)) {
+            const xpReward = getMobDefinition(entityOpt.value.type).xpReward
+            if (xpReward > 0) yield* services.xpService.addXP(xpReward)
           }
         }),
     })

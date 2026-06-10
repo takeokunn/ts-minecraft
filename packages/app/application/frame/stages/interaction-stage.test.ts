@@ -11,6 +11,9 @@ import { Effect,MutableHashSet,Option } from 'effect'
 import * as THREE from 'three'
 import { expect,vi } from 'vitest'
 import { getParticleUvOffset } from '@ts-minecraft/rendering/particles/particle-system'
+import { createFrameHandlers } from '@ts-minecraft/app'
+import { handleBowFire } from '@ts-minecraft/app/frame/stages/interaction-block-handler'
+import type { DeltaTimeSecs } from '@ts-minecraft/core'
 
 // ---------------------------------------------------------------------------
 // Step 7: Block interaction
@@ -76,7 +79,7 @@ describe('step 7 — block interaction', () => {
     yield* runFrame(deps, services)
 
     expect(breakSpy).toHaveBeenCalledOnce()
-    expect(breakSpy).toHaveBeenCalledWith({ x: 0, y: 64, z: 0 })
+    expect(breakSpy).toHaveBeenCalledWith({ x: 0, y: 64, z: 0 }, false)
   }))
 
   it.effect('does NOT call blockService.breakBlock when no target block', () => Effect.gen(function* () {
@@ -1142,5 +1145,54 @@ describe('step 7 — block interaction', () => {
     yield* runFrame(deps, services)
     // IRON_SWORD(12) + BANE_OF_ARTHROPODS V(12.5) = 24.5
     expect(applyDamageSpy.mock.calls[0]?.[1]).toBeCloseTo(24.5)
+  }))
+})
+
+// ---------------------------------------------------------------------------
+// R38: Bow kills grant mob XP (direct handleBowFire unit test)
+// ---------------------------------------------------------------------------
+
+describe('step R38 — bow kill grants XP', () => {
+  it.effect('xpService.addXP is called with Zombie xp reward after a lethal bow shot', () => Effect.gen(function* () {
+    // Call handleBowFire directly with a fully-charged shot (secsHeld=1.0 ≥ BOW_MIN_CHARGE_SECS=0.2).
+    const deps = yield* makeDeps(false)
+    deps.camera.position.set(0, 64, 0)
+    deps.camera.getWorldDirection = vi.fn((target: THREE.Vector3) => target.set(0, 0, -1))
+
+    const services = makeServices({
+      inputService: makeInputService(),
+      inventoryRenderer: makeInventoryRenderer({ open: false }),
+      settingsOverlay: makeSettingsOverlay({ open: false }),
+    })
+
+    // Arrow in inventory; BOW slot item (no enchantments).
+    ;(services.inventoryService as { removeBlock: unknown }).removeBlock = vi.fn(() => Effect.succeed(true))
+    ;(services.inventoryService as { getSlot: unknown }).getSlot = vi.fn(() =>
+      Effect.succeed(Option.some({ itemType: 'BOW', count: 1, enchantments: [] }))
+    )
+    ;(services.inventoryService as { damageSlot: unknown }).damageSlot = vi.fn(() => Effect.void)
+
+    // Zombie entity directly in front of camera (same y as camera, no vertical offset issues).
+    // Using camera y=64 and entity y=63.1 → entityCenter y = 63.1+0.9 = 64 = camera y.
+    const entity = { entityId: 'entity-1', position: { x: 0, y: 63.1, z: -2 }, velocity: { x: 0, y: 0, z: 0 }, rotation: {} as THREE.Quaternion, health: 1, type: 'Zombie' }
+    ;(services.entityManager as { getEntity: unknown }).getEntity = vi.fn(() => Effect.succeed(Option.some(entity)))
+    const applyDamageSpy = vi.fn(() =>
+      Effect.succeed(Option.some([{ blockType: 'ROTTEN_FLESH', count: 1 }]))
+    )
+    ;(services.entityManager as { applyDamage: unknown }).applyDamage = applyDamageSpy
+
+    const addXPSpy = vi.fn(() => Effect.succeed({ totalXP: 0, level: 0, xpIntoLevel: 0, xpRequiredForNext: 7 }))
+    ;(services.xpService as { addXP: unknown }).addXP = addXPSpy
+
+    yield* handleBowFire(
+      deps,
+      services,
+      [entity],
+      { chargeStartSecs: 0, nowSecs: 1.0 },  // secsHeld = 1.0 ≥ 0.2
+    )
+
+    expect(applyDamageSpy).toHaveBeenCalled()
+    // Zombie xpReward is 5 (from getMobDefinition).
+    expect(addXPSpy).toHaveBeenCalledWith(5)
   }))
 })
