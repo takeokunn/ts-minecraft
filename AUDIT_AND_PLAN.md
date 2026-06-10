@@ -373,6 +373,30 @@ lookup; SILK_TOUCH+FORTUNE mutual exclusion was missing; bow kills never granted
 **Round 18 complete.** R36–R39 — enchant priority, bow XP, SILK_TOUCH.
 typecheck 0, lint 0/0, **4552 tests passing** (+3 new).
 
+## U. Round 19 (2026-06-10) — KNOCKBACK / FEATHER_FALLING / RESPIRATION / PUNCH enchantments
+
+Audit found four vanilla enchantments in the schema but unimplemented: KNOCKBACK (sword melee extra
+push), FEATHER_FALLING (boots fall-damage reduction), RESPIRATION (helmet extended air supply),
+PUNCH (bow horizontal knockback). Schema types, config max-levels, and formula fns added first;
+all four wired end-to-end.
+
+- [x] R40. KNOCKBACK (sword) — `handleLeftClick` reads `weaponEnchantments.find('KNOCKBACK')`;
+  computes `getKnockbackHorizontalMultiplier(level)` = 1 + 0.5×level and scales the horizontal
+  components of `computeKnockback` result before `applyKnockback`. Level 1 = 1.5× push. _(done 2026-06-10)_
+- [x] R41. FEATHER_FALLING (boots) — `physics-stage` reads `equipmentService.getEquippedItem('BOOTS')`
+  only when `rawFallDamage > 0`; multiplies by `(1 − getFeatherFallingReduction(level))` = 1 − 0.12×level.
+  Armor/starvation still bypass this (vanilla: FEATHER_FALLING is boots-specific). _(done 2026-06-10)_
+- [x] R42. RESPIRATION (helmet) — `nextAirSecs` gains optional `maxAirSecs` param (default MAX_AIR_SECS
+  = 15); `physics-stage` reads `equipmentService.getEquippedItem('HELMET')`, derives
+  `effectiveMaxAirSecs = 15 + getRespirationBonusSecs(level)` (= 15×level), passes it to `nextAirSecs`
+  and uses it for the bubble-count denominator. _(done 2026-06-10)_
+- [x] R43. PUNCH (bow) — `handleBowFire` reads `hasPunch`; after arrow hit (only when entity survived,
+  `Option.isNone(drops)`), applies `applyKnockback` with horizontal scale `1 + getPunchKnockbackBonus(level)/5`.
+  Level 1 = 1.6× horizontal, level 2 = 2.2×. _(done 2026-06-10)_
+
+**Round 19 complete.** R40–R43 — 4 new enchantments wired end-to-end.
+typecheck 0, lint 0/0, **4563 tests passing** (+11 new).
+
 **Verified as fully wired (no change needed):**
 - Fishing rod: cast/cancel in `handleFoodConsumption` + tick in `physics-stage`. ✓
 - Tool durability on melee: `handleLeftClick.damageSlot`. ✓
