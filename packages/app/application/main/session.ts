@@ -188,6 +188,7 @@ export const sessionProgram = (
       furnaceService,
       gameModeService,
       storageService,
+      cropGrowthService,
       worldBootstrap,
       worldId,
       respawnPositionRef,
@@ -207,7 +208,7 @@ export const sessionProgram = (
       yield* playerCameraState.setPitch(0)
     }
 
-    yield* restoreSavedState(worldBootstrap, { inventoryService, equipmentService, healthService, hungerService, xpService, furnaceService })
+    yield* restoreSavedState(worldBootstrap, { inventoryService, equipmentService, healthService, hungerService, xpService, furnaceService, cropGrowthService })
 
     // Give starter hotbar items on new survival worlds so players have a basic
     // tool and building blocks right away. Creative worlds and resumed sessions

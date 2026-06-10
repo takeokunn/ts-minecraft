@@ -7,7 +7,7 @@ import { InventoryService, EquipmentService } from '@ts-minecraft/inventory'
 import { FurnaceService } from '@ts-minecraft/inventory'
 import { HealthService, HungerService, XPService } from '@ts-minecraft/entity'
 import { PlayerError } from '@ts-minecraft/entity'
-import { StorageService } from '@ts-minecraft/world'
+import { StorageService, CropGrowthService } from '@ts-minecraft/world'
 import { StorageError } from '@ts-minecraft/world'
 import { DEFAULT_PLAYER_ID, WorldId, type Position } from '@ts-minecraft/core'
 
@@ -24,13 +24,14 @@ export type PersistSessionStateDeps = {
   readonly furnaceService: FurnaceService
   readonly gameModeService: GameModeService
   readonly storageService: StorageService
+  readonly cropGrowthService: CropGrowthService
   readonly worldBootstrap: WorldBootstrap
   readonly worldId: WorldId
   readonly respawnPositionRef: MutableRef.MutableRef<Position>
 }
 
 export const buildPersistSessionState = (deps: PersistSessionStateDeps) => (): Effect.Effect<void, PlayerError | StorageError> => {
-  const { gameState, inventoryService, equipmentService, healthService, hungerService, xpService, timeService, furnaceService, gameModeService, storageService, worldBootstrap, worldId, respawnPositionRef } = deps
+  const { gameState, inventoryService, equipmentService, healthService, hungerService, xpService, timeService, furnaceService, gameModeService, storageService, cropGrowthService, worldBootstrap, worldId, respawnPositionRef } = deps
   return Effect.gen(function* () {
     const nowMs = yield* Clock.currentTimeMillis
     const playerPosition = yield* gameState.getPlayerPosition(DEFAULT_PLAYER_ID)
@@ -42,6 +43,7 @@ export const buildPersistSessionState = (deps: PersistSessionStateDeps) => (): E
     const timeOfDay = yield* timeService.getTimeOfDay()
     const furnaceStates = yield* furnaceService.serialize()
     const gameMode = yield* gameModeService.get()
+    const cropAges = yield* cropGrowthService.serialize()
     yield* storageService.saveWorldMetadata(worldId, {
       seed: worldBootstrap.seed,
       createdAt: worldBootstrap.createdAt,
@@ -56,6 +58,7 @@ export const buildPersistSessionState = (deps: PersistSessionStateDeps) => (): E
         totalXP: xp.totalXP,
         equipment,
         respawnPosition: MutableRef.get(respawnPositionRef),
+        cropAges,
       },
       furnaceStates,
       gameMode,
@@ -73,9 +76,10 @@ export const restoreSavedState = (
     readonly hungerService: HungerService
     readonly xpService: XPService
     readonly furnaceService: FurnaceService
+    readonly cropGrowthService: CropGrowthService
   },
 ): Effect.Effect<void, never> => {
-  const { inventoryService, equipmentService, healthService, hungerService, xpService, furnaceService } = services
+  const { inventoryService, equipmentService, healthService, hungerService, xpService, furnaceService, cropGrowthService } = services
   return Effect.gen(function* () {
     yield* Option.match(worldBootstrap.savedPlayerState, {
       onNone: () => Effect.void,
@@ -104,6 +108,15 @@ export const restoreSavedState = (
     yield* Option.match(worldBootstrap.savedFurnaceStates, {
       onNone: () => Effect.void,
       onSome: (saved) => furnaceService.deserialize(saved),
+    })
+
+    yield* Option.match(worldBootstrap.savedPlayerState, {
+      onNone: () => Effect.void,
+      onSome: (saved) =>
+        Option.match(Option.fromNullable(saved.cropAges), {
+          onNone: () => Effect.void,
+          onSome: (ages) => cropGrowthService.restore(ages),
+        }),
     })
   })
 }

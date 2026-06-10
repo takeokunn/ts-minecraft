@@ -46,6 +46,9 @@ export const WorldMetadataSchema = Schema.Struct({
       // Bed-set respawn point (FR-4). Optional for back-compat: pre-bed-persistence
       // saves decode without it, and the session falls back to the world spawn.
       respawnPosition: Schema.optional(PositionSchema),
+      // Crop age map: keys are "x,y,z" strings, values 0-2. Optional for back-compat:
+      // pre-crop-persistence saves decode without it (treated as empty map on restore).
+      cropAges: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.Number.pipe(Schema.int(), Schema.between(0, 2)) })),
     }),
   ),
   furnaceStates: Schema.optional(Schema.Array(FurnaceStateSchema)),

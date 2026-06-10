@@ -70,11 +70,15 @@ const makeDeps = (overrides?: {
   const storageService = {
     saveWorldMetadata: saveWorldMetadataSpy,
   }
+  const cropGrowthService = {
+    serialize: vi.fn(() => Effect.succeed({} as Record<string, number>)),
+    restore: vi.fn(() => Effect.void),
+  }
   const worldBootstrap = makeWorldBootstrap()
   const worldId = WorldId.make('world-1')
 
   return {
-    spies: { gameState, inventoryService, healthService, hungerService, xpService, equipmentService, timeService, furnaceService, gameModeService, storageService },
+    spies: { gameState, inventoryService, healthService, hungerService, xpService, equipmentService, timeService, furnaceService, gameModeService, storageService, cropGrowthService },
     deps: {
       gameState,
       inventoryService,
@@ -86,6 +90,7 @@ const makeDeps = (overrides?: {
       furnaceService,
       gameModeService,
       storageService,
+      cropGrowthService,
       worldBootstrap,
       worldId,
       respawnPositionRef: MutableRef.make({ x: 0, y: 64, z: 0 }),
@@ -216,6 +221,19 @@ describe('buildPersistSessionState', () => {
     const [, metadata] = spies.storageService.saveWorldMetadata.mock.calls[0] as [unknown, { playerState: { inventory: typeof fakeInventory } }]
     expect(metadata.playerState?.inventory).toEqual(fakeInventory)
   })
+
+  it('includes cropAges from cropGrowthService.serialize in playerState', async () => {
+    const { deps, spies } = makeDeps()
+    const cropAges = { '5,64,3': 1, '6,64,3': 2 }
+    spies.cropGrowthService.serialize.mockReturnValue(Effect.succeed(cropAges))
+    const persistFn = buildPersistSessionState(deps)
+
+    await Effect.runPromise(persistFn())
+
+    expect(spies.cropGrowthService.serialize).toHaveBeenCalledOnce()
+    const [, metadata] = spies.storageService.saveWorldMetadata.mock.calls[0] as [unknown, { playerState: { cropAges: Record<string, number> } }]
+    expect(metadata.playerState?.cropAges).toEqual(cropAges)
+  })
 })
 
 // ---------------------------------------------------------------------------
@@ -226,6 +244,7 @@ describe('buildPersistSessionState', () => {
 const makeNoopXpService = () => ({ setTotalXP: vi.fn(() => Effect.void), getXP: vi.fn(() => Effect.succeed({ totalXP: 0, level: 0, xpIntoLevel: 0, xpRequiredForNext: 7 })) })
 const makeNoopEquipmentService = () => ({ deserialize: vi.fn(() => Effect.void), serialize: vi.fn(() => Effect.succeed({})) })
 const makeNoopHungerService = () => ({ restore: vi.fn(() => Effect.void), getHunger: vi.fn(() => Effect.succeed({ foodLevel: 20, saturation: 5, exhaustion: 0 })) })
+const makeNoopCropGrowthService = () => ({ serialize: vi.fn(() => Effect.succeed({})), restore: vi.fn(() => Effect.void) })
 
 describe('restoreSavedState', () => {
   it('does NOT call deserialize when savedPlayerState is Option.none()', async () => {
@@ -362,8 +381,57 @@ describe('restoreSavedState', () => {
     const healthService = { reset: vi.fn(), getHealth: vi.fn(), applyDamage: vi.fn() }
     const furnaceService = { deserialize: furnaceDeserializeSpy }
 
-    await Effect.runPromise(restoreSavedState(worldBootstrap as never, { inventoryService, healthService, furnaceService, xpService: makeNoopXpService(), equipmentService: makeNoopEquipmentService(), hungerService: makeNoopHungerService() } as never))
+    await Effect.runPromise(restoreSavedState(worldBootstrap as never, { inventoryService, healthService, furnaceService, xpService: makeNoopXpService(), equipmentService: makeNoopEquipmentService(), hungerService: makeNoopHungerService(), cropGrowthService: makeNoopCropGrowthService() } as never))
 
     expect(furnaceDeserializeSpy).not.toHaveBeenCalled()
+  })
+
+  it('calls cropGrowthService.restore when savedPlayerState includes cropAges', async () => {
+    const cropAges = { '0,64,0': 1, '1,64,0': 2 }
+    const worldBootstrap = makeWorldBootstrap({
+      savedPlayerState: Option.some({
+        position: { x: 0, y: 64, z: 0 },
+        health: 20,
+        inventory: { slots: [] as never[] },
+        timeOfDay: 0.5,
+        cropAges,
+      }),
+    })
+    const cropRestoreSpy = vi.fn(() => Effect.void)
+    const inventoryService = { deserialize: vi.fn(() => Effect.void) }
+    const healthService = {
+      reset: vi.fn(() => Effect.void),
+      getHealth: vi.fn(() => Effect.succeed({ current: 20, max: 20, invincibilityTicks: 0 })),
+      applyDamage: vi.fn(() => Effect.void),
+    }
+    const cropGrowthService = { restore: cropRestoreSpy, serialize: vi.fn(() => Effect.succeed({})) }
+
+    await Effect.runPromise(restoreSavedState(worldBootstrap as never, { inventoryService, healthService, furnaceService: { deserialize: vi.fn(() => Effect.void) }, xpService: makeNoopXpService(), equipmentService: makeNoopEquipmentService(), hungerService: makeNoopHungerService(), cropGrowthService } as never))
+
+    expect(cropRestoreSpy).toHaveBeenCalledOnce()
+    expect(cropRestoreSpy).toHaveBeenCalledWith(cropAges)
+  })
+
+  it('does NOT call cropGrowthService.restore when savedPlayerState has no cropAges', async () => {
+    const worldBootstrap = makeWorldBootstrap({
+      savedPlayerState: Option.some({
+        position: { x: 0, y: 64, z: 0 },
+        health: 20,
+        inventory: { slots: [] as never[] },
+        timeOfDay: 0.5,
+      }),
+    })
+    const cropRestoreSpy = vi.fn(() => Effect.void)
+    const cropGrowthService = { restore: cropRestoreSpy, serialize: vi.fn(() => Effect.succeed({})) }
+    const inventoryService = { deserialize: vi.fn(() => Effect.void) }
+    const healthService = {
+      reset: vi.fn(() => Effect.void),
+      getHealth: vi.fn(() => Effect.succeed({ current: 20, max: 20, invincibilityTicks: 0 })),
+      applyDamage: vi.fn(() => Effect.void),
+    }
+
+    await Effect.runPromise(restoreSavedState(worldBootstrap as never, { inventoryService, healthService, furnaceService: { deserialize: vi.fn(() => Effect.void) }, xpService: makeNoopXpService(), equipmentService: makeNoopEquipmentService(), hungerService: makeNoopHungerService(), cropGrowthService } as never))
+
+    expect(cropRestoreSpy).not.toHaveBeenCalled()
   })
 })

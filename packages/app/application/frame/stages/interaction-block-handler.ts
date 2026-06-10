@@ -3,8 +3,9 @@ import { aabbFromVoxel } from '@ts-minecraft/world'
 import type { FrameHandlerDeps, FrameHandlerServices, FrameStageRefs } from '@ts-minecraft/app/frame/types'
 import { findAttackableEntity } from '@ts-minecraft/app/frame/stages/attack-targeting'
 import { CHUNK_SIZE, CHUNK_HEIGHT, blockTypeToIndex, indexToBlockType, SlotIndex, ItemTypeSchema } from '@ts-minecraft/core'
+import type { BlockType, InventoryItem } from '@ts-minecraft/core'
 import { HOTBAR_START, isDurable, getSharpnessDamageBonus, getFortuneDropMultiplier } from '@ts-minecraft/inventory'
-import { FORTUNE_ORE_BLOCKS, PICKAXE_BLOCK_TYPES, getInventoryDropForBlock } from '@ts-minecraft/world'
+import { FORTUNE_ORE_BLOCKS, PICKAXE_BLOCK_TYPES, getInventoryDropForBlock, canHarvestBlock } from '@ts-minecraft/world'
 import { getBlockHardness, computeBreakTicks } from '@ts-minecraft/block'
 import { computeAttackDamage, computeKnockback, computeAttackCharge, computeChargedDamage, DEFAULT_ATTACK_COOLDOWN_SECS, getMobDefinition } from '@ts-minecraft/entity'
 import { getParticleUvOffset } from '@ts-minecraft/rendering/particles/particle-system'
@@ -127,6 +128,16 @@ export const handleBlockBreakProgress = (
     const flatIdx = tb.y + lz * CHUNK_HEIGHT + lx * CHUNK_HEIGHT * CHUNK_SIZE
     const blockId = preBreakChunk.blocks[flatIdx] ?? 0
     const blockType = indexToBlockType(blockId)
+
+    // Block requires a pickaxe the player doesn't have → never fill the progress bar.
+    // canHarvestBlock returns false only when the block is in DIAMOND_PICKAXE_HARVESTABLE_BLOCKS
+    // and the held item is not a qualifying pickaxe tier.
+    if (!canHarvestBlock(blockType as BlockType, context.selectedHotbarItem as Option.Option<InventoryItem>)) {
+      MutableRef.set(refs.breakProgressRef, null)
+      updateBreakProgressHud(context.breakProgressElementOrNull, null)
+      return
+    }
+
     const hardness = getBlockHardness(blockType)
     const breakTicks = computeBreakTicks(hardness, context.selectedHotbarItem)
 
