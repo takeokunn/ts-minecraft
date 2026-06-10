@@ -289,4 +289,32 @@ describe('application/crafting/recipe-service', () => {
       expect(countBlock(slotsAfter, 'BUCKET')).toBe(1)
     }).pipe(Effect.provide(testLayer))
   )
+
+  // R70: bed crafting — the BED block was wired (respawn + night-skip) but had no recipe.
+  it.effect('craft produces 1 bed from 3 wool + 3 planks (R70)', () =>
+    Effect.gen(function* () {
+      const rs = yield* RecipeService
+      const inv = yield* InventoryService
+      yield* inv.addBlock('WOOL', 3)
+      yield* inv.addBlock('PLANKS', 3)
+      yield* inv.addBlock('CRAFTING_TABLE', 1)
+
+      yield* rs.craft(RecipeId.make('wool-and-planks-to-bed'), inv)
+
+      const slotsAfter = yield* inv.getAllSlots()
+      expect(countBlock(slotsAfter, 'WOOL')).toBe(0)
+      expect(countBlock(slotsAfter, 'PLANKS')).toBe(0)
+      expect(countBlock(slotsAfter, 'BED')).toBe(1)
+    }).pipe(Effect.provide(testLayer))
+  )
+
+  it.effect('findCraftable returns wool-and-planks-to-bed only with sufficient wool + planks', () =>
+    Effect.gen(function* () {
+      const service = yield* RecipeService
+      const withParts = service.findCraftable(HashMap.make(['WOOL' as InventoryItem, 3], ['PLANKS' as InventoryItem, 3], ['CRAFTING_TABLE' as InventoryItem, 1]))
+      const tooLittleWool = service.findCraftable(HashMap.make(['WOOL' as InventoryItem, 2], ['PLANKS' as InventoryItem, 3], ['CRAFTING_TABLE' as InventoryItem, 1]))
+      expect(Arr.map(withParts, (recipe) => recipe.id)).toContain('wool-and-planks-to-bed')
+      expect(Arr.map(tooLittleWool, (recipe) => recipe.id)).not.toContain('wool-and-planks-to-bed')
+    }).pipe(Effect.provide(testLayer))
+  )
 })

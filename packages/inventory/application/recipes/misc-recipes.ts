@@ -125,6 +125,18 @@ export const MISC_RECIPES: ReadonlyArray<Recipe> = [
     ],
     output: { itemType: 'GOLDEN_APPLE', count: 1 },
   }),
+  // R70: bed — 3 WOOL + 3 PLANKS (vanilla). The BED block was fully wired (respawn-point
+  // setting + night-skip in interaction-placement-handler) but had no recipe, so a survival
+  // player with wool and planks couldn't craft one — only village-generated beds existed.
+  new Recipe({
+    id: RecipeId.make('wool-and-planks-to-bed'),
+    station: 'crafting_table',
+    ingredients: [
+      new RecipeIngredient({ itemType: 'WOOL', count: 3 }),
+      new RecipeIngredient({ itemType: 'PLANKS', count: 3 }),
+    ],
+    output: { itemType: 'BED', count: 1 },
+  }),
   new Recipe({
     id: RecipeId.make('sticks-and-string-to-fishing-rod'),
     station: 'crafting_table',
