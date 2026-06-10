@@ -162,7 +162,11 @@ two contained QoL wins remain. Picking lower-risk, player-visible, contained inc
   in camera-stage; updateProjectionMatrix only when FOV actually changes. Visual-only, no new ref. +1 test. _(done 2026-06-10)_
 - [ ] R6. Mob breeding (right-click-entity feed → love → baby → grows up). Multi-iteration; additive/low-risk.
   - [x] R6a. Data foundation — optional `breedingItem` on `MobDefinition` + cow/sheep←WHEAT, pig←CARROT; +3 tests. _(done 2026-06-10)_
-  - [ ] R6b. Right-click-entity interaction → feed adult its breedingItem (consume item, enter love mode, sound).
+  - [x] R6b. Pure breeding domain logic — `breeding.ts`: love/cooldown/age counters, `canAcceptBreedingFood`,
+    `isBreedingPair`, `tickBreedingTimers`, adult/newborn states; +12 tests. Additive, zero entity-manager coupling. _(done 2026-06-10)_
+  - [ ] R6c. Wire into entity-manager + interaction: love-mode state fields on ManagedEntity, `feedEntity`,
+    right-click-entity feed, breeding-pair → spawn baby. **Note:** integrate `tickBreedingTimers` carefully —
+    preserve the per-tick update's early-return (only break it when love/cooldown > 0) to keep the hot-path opt.
   - [ ] R6c. Entity-manager breeding tick — two in-love adults in range → spawn baby + love-cooldown.
   - [ ] R6d. Baby growth — age ticks → adult; babies smaller (render scale) + not breedable.
 - [ ] R7. (Deferred — higher risk) Sneak edge-protection — modifies the shared collision path; needs careful

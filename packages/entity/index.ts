@@ -1,5 +1,6 @@
 // domain/mob
 export * from './domain/mob/drop'
+export * from './domain/mob/breeding'
 export * from './domain/mob/entity-utils'
 export * from './domain/mob/enderman-teleport'
 export * from './domain/mob/entity'
