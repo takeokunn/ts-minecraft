@@ -378,16 +378,18 @@ export const handleLeftClick = (
 
           yield* Option.match(context.selectedHotbarItem, {
             onNone: () => Effect.void,
-            onSome: (item) =>
-              Schema.is(ItemTypeSchema)(item) && isDurable(item)
-                ? services.hotbarService
-                    .getSelectedSlot()
-                    .pipe(
-                      Effect.flatMap((selectedSlot) =>
-                        services.inventoryService.damageSlot(SlotIndex.make(HOTBAR_START + selectedSlot), 1),
-                      ),
-                    )
-                  : Effect.void,
+            onSome: (item) => {
+              if (!(Schema.is(ItemTypeSchema)(item) && isDurable(item))) return Effect.void
+              const unbreaking = weaponEnchantments.find((e) => e.type === 'UNBREAKING')
+              if (unbreaking && Math.random() < getUnbreakingSkipChance(unbreaking.level)) return Effect.void
+              return services.hotbarService
+                .getSelectedSlot()
+                .pipe(
+                  Effect.flatMap((selectedSlot) =>
+                    services.inventoryService.damageSlot(SlotIndex.make(HOTBAR_START + selectedSlot), 1),
+                  ),
+                )
+            },
           })
           yield* triggerHeldItemSwing(refs)
         }),
@@ -440,7 +442,12 @@ export const handleBowFire = (
     }
 
     // Damage the equipped bow (INFINITY still wears the bow down — vanilla behaviour).
-    yield* services.inventoryService.damageSlot(SlotIndex.make(HOTBAR_START + selectedSlot), 1)
+    // UNBREAKING: skip durability loss with probability getUnbreakingSkipChance(level).
+    const bowUnbreaking = enchantments.find((e) => e.type === 'UNBREAKING')
+    const skipBowDurability = bowUnbreaking ? Math.random() < getUnbreakingSkipChance(bowUnbreaking.level) : false
+    if (!skipBowDurability) {
+      yield* services.inventoryService.damageSlot(SlotIndex.make(HOTBAR_START + selectedSlot), 1)
+    }
 
     // Hitscan: find the nearest entity in the crosshair within bow range.
     // maxDistance = none() (bow ignores block occlusion; it shoots through transparent blocks).
