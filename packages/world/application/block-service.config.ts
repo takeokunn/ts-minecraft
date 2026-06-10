@@ -84,6 +84,8 @@ export const NON_PLACEABLE_ITEM_TYPES: HashSet.HashSet<InventoryItem> = HashSet.
   'NETHER_PORTAL',
   // Portal ignition tool — activates portal frames, not placed as blocks
   'FLINT_AND_STEEL',
+  // Shearing tool (R11) — used on sheep, not placed
+  'SHEARS',
 ])
 
 export const INVENTORY_DROP_OVERRIDES: HashMap.HashMap<BlockType, InventoryItem> = HashMap.fromIterable<BlockType, InventoryItem>([

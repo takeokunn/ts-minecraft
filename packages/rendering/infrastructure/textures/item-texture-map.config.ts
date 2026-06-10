@@ -3,19 +3,19 @@ import type { InventoryItem } from '@ts-minecraft/core'
 // Maps every InventoryItem (BlockType | ItemType) to a single atlas tile index
 // for use in inventory/hotbar rendering.
 //
-// BlockTypes reuse their "side" face tile from TILE_MAP.
-// ItemTypes get dedicated tiles starting at index 48 (row 3 of the 16×16 atlas).
+// BlockTypes use their "side" face tile from TILE_MAP.
+// ItemTypes use dedicated tiles starting at index 48.
 //
-// Tile layout for items (row 3+):
-//   48: STICKS          49: COAL            50: WOODEN_SWORD
+// Tile layout for items:
+//   48: STICKS      49: COAL        50: WOODEN_SWORD
 //   51: WOODEN_PICKAXE  52: STONE_PICKAXE   53: RAW_IRON
-//   54: IRON_INGOT      55: IRON_PICKAXE    56: RAW_GOLD
-//   57: GOLD_INGOT      58: DIAMOND         59: REDSTONE_DUST
-//   60: LAPIS_LAZULI    61: EMERALD         62: DIAMOND_PICKAXE
-//   63: ROTTEN_FLESH
+//   54: IRON_INGOT  55: IRON_PICKAXE  56: RAW_GOLD
+//   57: GOLD_INGOT  58: DIAMOND      59: REDSTONE_DUST
+//   60: LAPIS_LAZULI 61: EMERALD     62: DIAMOND_PICKAXE
+//   93: ROTTEN_FLESH 94: APPLE       95: BREAD
+//   96: CARROT      97: COOKED_PORKCHOP 98: GOLDEN_APPLE 99: WHEAT
 export const ITEM_TILE_MAP: Readonly<Record<InventoryItem, number>> = {
-  // BlockTypes — reuse side tile from TILE_MAP
-  // AIR intentionally has no icon; callers should treat negative indices as "no tile".
+  // BlockTypes
   AIR: -1,
   DIRT: 0,
   STONE: 1,
@@ -60,17 +60,15 @@ export const ITEM_TILE_MAP: Readonly<Record<InventoryItem, number>> = {
   CRAFTING_TABLE: 43,
   FURNACE: 44,
   TORCH: 45,
-  NETHERRACK: 18,     // LAVA tile (reddish — nether placeholder)
-  NETHER_PORTAL: 19,  // OBSIDIAN tile (dark — portal placeholder)
-  FARMLAND: 11,       // GRAVEL tile (earthy placeholder)
-  WHEAT_CROP: 4,      // GRASS_TOP tile (green crop placeholder)
+  NETHERRACK: 63,
+  NETHER_PORTAL: 86,
+  FARMLAND: 0,
+  WHEAT_CROP: 85,
 
-  // ItemTypes — dedicated tiles 48+
+  // ItemTypes
   STICKS: 48,
   COAL: 49,
   WOODEN_SWORD: 50,
-  // STONE_SWORD / IRON_SWORD / DIAMOND_SWORD share the WOODEN_SWORD tile until
-  // distinct atlas tiles are added in a future art pass.
   STONE_SWORD: 50,
   IRON_SWORD: 50,
   DIAMOND_SWORD: 50,
@@ -86,98 +84,84 @@ export const ITEM_TILE_MAP: Readonly<Record<InventoryItem, number>> = {
   LAPIS_LAZULI: 60,
   EMERALD: 61,
   DIAMOND_PICKAXE: 62,
-  ROTTEN_FLESH: 63,
-  // Food items — row 4 of the atlas (indices 64+)
-  APPLE: 64,
-  BREAD: 65,
-  CARROT: 66,
-  COOKED_PORKCHOP: 67,
-  COOKED_BEEF: 67,    // same tile as COOKED_PORKCHOP until art pass
-  GOLDEN_APPLE: 64,   // APPLE tile with golden colour (placeholder)
-  // Fish items — share ROTTEN_FLESH tile (organic/raw) and COOKED_PORKCHOP (cooked)
-  RAW_COD: 63,
-  COOKED_COD: 67,
-  RAW_SALMON: 63,
-  COOKED_SALMON: 67,
-  TROPICAL_FISH: 63,
-  PUFFERFISH: 63,
-  // Farming items
-  WHEAT: 65,          // BREAD tile (wheat-yellow)
-  WHEAT_SEEDS: 48,    // STICKS tile (small seeds placeholder)
-  BONE_MEAL: 48,      // STICKS tile (white powder)
-  // Mob drops — share nearby tiles until art pass adds dedicated sprites
-  RAW_BEEF: 63,       // ROTTEN_FLESH tile (raw meat family)
-  LEATHER: 49,        // COAL tile (dark material)
-  WOOL: 48,           // STICKS tile (fluffy placeholder)
-  GUNPOWDER: 49,      // COAL tile (dark powder)
-  BONE: 48,           // STICKS tile (white stick)
-  ARROW: 48,          // STICKS tile (thin shaft)
-  STRING: 48,         // STICKS tile (thin thread)
-  SPIDER_EYE: 63,     // ROTTEN_FLESH tile (organic)
-  ENDER_PEARL: 61,    // EMERALD tile (green-ish gem)
-  BOW: 48,            // STICKS tile (stick shape, placeholder)
-  FISHING_ROD: 48,    // STICKS tile (rod shape)
-  SHIELD: 54,         // IRON_INGOT tile (metal plate placeholder)
-  // Hoe tools — share WOODEN_PICKAXE tile
+  ROTTEN_FLESH: 93,
+  APPLE: 94,
+  BREAD: 95,
+  CARROT: 96,
+  COOKED_PORKCHOP: 97,
+  COOKED_BEEF: 97,
+  GOLDEN_APPLE: 98,
+  RAW_COD: 93,
+  COOKED_COD: 97,
+  RAW_SALMON: 93,
+  COOKED_SALMON: 97,
+  TROPICAL_FISH: 93,
+  PUFFERFISH: 93,
+  WHEAT: 99,
+  WHEAT_SEEDS: 48,
+  BONE_MEAL: 48,
+  RAW_BEEF: 93,
+  LEATHER: 49,
+  WOOL: 48,
+  GUNPOWDER: 49,
+  BONE: 48,
+  ARROW: 48,
+  STRING: 48,
+  SPIDER_EYE: 93,
+  ENDER_PEARL: 61,
+  BOW: 48,
+  FISHING_ROD: 48,
+  SHIELD: 54,
   WOODEN_HOE: 51,
   STONE_HOE: 52,
   IRON_HOE: 55,
   DIAMOND_HOE: 62,
-  // Axe tools — share pickaxe tiles (similar shape)
   WOODEN_AXE: 51,
   STONE_AXE: 52,
   IRON_AXE: 55,
   DIAMOND_AXE: 62,
-  // Armor — leather tier (share COAL tile — tan-ish placeholder)
   LEATHER_HELMET: 49,
   LEATHER_CHESTPLATE: 49,
   LEATHER_LEGGINGS: 49,
   LEATHER_BOOTS: 49,
-  // Armor — iron tier (share IRON_INGOT tile)
   IRON_HELMET: 54,
   IRON_CHESTPLATE: 54,
   IRON_LEGGINGS: 54,
   IRON_BOOTS: 54,
-  // Armor — diamond tier (share DIAMOND tile)
   DIAMOND_HELMET: 58,
   DIAMOND_CHESTPLATE: 58,
   DIAMOND_LEGGINGS: 58,
   DIAMOND_BOOTS: 58,
-  // Portal ignition tool — IRON_INGOT tile placeholder
   FLINT_AND_STEEL: 54,
-  // Redstone components — reuse block-side tiles (same as TILE_MAP side face)
-  REDSTONE_WIRE: 38,    // REDSTONE_BLOCK tile (red)
-  REDSTONE_TORCH: 45,   // TORCH tile
-  LEVER: 1,             // STONE tile
-  STONE_BUTTON: 1,      // STONE tile
-  REPEATER: 12,         // COBBLESTONE tile
-  // Furniture
-  BED: 40,              // PLANKS tile (wood-coloured placeholder)
-  // Crafting stations
-  ENCHANTING_TABLE: 39, // EMERALD_BLOCK tile (green/mystical placeholder)
-  // The End dimension
-  END_STONE: 3,         // WOOD tile (pale placeholder)
-  END_PORTAL_FRAME: 39, // EMERALD_BLOCK tile
-  END_PORTAL: 4,        // GRASS_TOP tile (swirling void placeholder)
-  CHORUS_FLOWER: 4,
-  CHORUS_PLANT: 4,
-  DRAGON_EGG: 19,
-  END_CRYSTAL: 39,
-  END_GATEWAY: 4,
-  END_ROD: 45,
-  END_STONE_BRICKS: 1,
-  ENDER_CHEST: 39,
-  PURPUR_BLOCK: 41,
-  PURPUR_PILLAR: 2,
-  PURPUR_SLAB: 41,
-  PURPUR_STAIRS: 41,
-  SHULKER_BOX: 39,
-  CHORUS_FRUIT: 64,
-  DRAGON_BREATH: 61,
-  ELYTRA: 48,
+  SHEARS: 55, // iron-tool tile (R11)
+  REDSTONE_WIRE: 100,
+  REDSTONE_TORCH: 87,
+  LEVER: 88,
+  STONE_BUTTON: 89,
+  REPEATER: 90,
+  BED: 77,
+  ENCHANTING_TABLE: 83,
+  END_STONE: 64,
+  END_PORTAL_FRAME: 70,
+  END_PORTAL: 91,
+  CHORUS_FLOWER: 80,
+  CHORUS_PLANT: 81,
+  DRAGON_EGG: 71,
+  END_CRYSTAL: 72,
+  END_GATEWAY: 92,
+  END_ROD: 69,
+  END_STONE_BRICKS: 65,
+  ENDER_CHEST: 74,
+  PURPUR_BLOCK: 66,
+  PURPUR_PILLAR: 68,
+  PURPUR_SLAB: 66,
+  PURPUR_STAIRS: 66,
+  SHULKER_BOX: 75,
+  CHORUS_FRUIT: 94,
+  DRAGON_BREATH: 94,
+  ELYTRA: 61,
   ENDER_EYE: 61,
-  POPPED_CHORUS_FRUIT: 65,
-  SHULKER_SHELL: 49,
-  // Explosives
-  TNT: 38,              // REDSTONE_BLOCK tile (red placeholder)
+  POPPED_CHORUS_FRUIT: 95,
+  SHULKER_SHELL: 93,
+  TNT: 79,
 }

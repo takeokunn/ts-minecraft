@@ -88,6 +88,8 @@ export const ItemTypeSchema = Schema.Literal(
   'DIAMOND_LEGGINGS',
   'DIAMOND_BOOTS',
   // Portal ignition tool
-  'FLINT_AND_STEEL'
+  'FLINT_AND_STEEL',
+  // Sheep-shearing tool (FR R11)
+  'SHEARS'
 )
 export type ItemType = Schema.Schema.Type<typeof ItemTypeSchema>
