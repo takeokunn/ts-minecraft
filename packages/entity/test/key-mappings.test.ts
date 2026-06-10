@@ -95,8 +95,8 @@ describe('KeyMappings', () => {
       })
     })
 
-    it('has exactly 19 key bindings', () => {
-      expect(Object.keys(KeyMappings).length).toBe(19)
+    it('has exactly 20 key bindings', () => {
+      expect(Object.keys(KeyMappings).length).toBe(20)
     })
   })
 

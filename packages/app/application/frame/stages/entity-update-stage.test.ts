@@ -133,7 +133,8 @@ describe('step 2.85 — entity renderer wiring', () => {
 
     expect(applyPhysicsSpy).toHaveBeenCalledOnce()
     // 9 chunks for entity physics + 2 for physics-stage portal checks (nether + end)
-    expect(getChunkSpy).toHaveBeenCalledTimes(11)
+    // + 1 for the physics-stage liquid-hazard column read (lava feet / drowning eye, FR-2)
+    expect(getChunkSpy).toHaveBeenCalledTimes(12)
   }))
 
   it.effect('reuses the entity physics chunk cache while the player remains in the same chunk', () => Effect.gen(function* () {
@@ -158,8 +159,8 @@ describe('step 2.85 — entity renderer wiring', () => {
     yield* frameHandler(0.016 as DeltaTimeSecs)
     yield* frameHandler(0.016 as DeltaTimeSecs)
 
-    // frame 1: 9 entity + 2 portals = 11; frame 2: 0 entity (cache hit) + 2 portals = 2 → total 13
-    expect(getChunkSpy).toHaveBeenCalledTimes(13)
+    // frame 1: 9 entity + 2 portals + 1 hazard = 12; frame 2: 0 entity (cache hit) + 2 portals + 1 hazard = 3 → total 15
+    expect(getChunkSpy).toHaveBeenCalledTimes(15)
   }))
 
   it.effect('retries missing entity physics chunks while the player remains in the same chunk', () => Effect.gen(function* () {
@@ -188,8 +189,8 @@ describe('step 2.85 — entity renderer wiring', () => {
     yield* frameHandler(0.016 as DeltaTimeSecs)
     yield* frameHandler(0.016 as DeltaTimeSecs)
 
-    // 9 entity per frame × 2 frames + 2 portal checks per frame × 2 frames = 22
-    expect(getChunkSpy).toHaveBeenCalledTimes(22)
+    // 9 entity ×2 frames + 2 portal checks ×2 + 1 liquid-hazard column read ×2 = 24
+    expect(getChunkSpy).toHaveBeenCalledTimes(24)
   }))
 
   it.effect('refreshes the entity physics chunk cache when the player enters another chunk', () => Effect.gen(function* () {
@@ -221,8 +222,8 @@ describe('step 2.85 — entity renderer wiring', () => {
     yield* frameHandler(0.016 as DeltaTimeSecs)
     yield* frameHandler(0.016 as DeltaTimeSecs)
 
-    // 9 entity per frame × 2 frames + 2 portal checks per frame × 2 frames = 22
-    expect(getChunkSpy).toHaveBeenCalledTimes(22)
+    // 9 entity ×2 frames + 2 portal checks ×2 + 1 liquid-hazard column read ×2 = 24
+    expect(getChunkSpy).toHaveBeenCalledTimes(24)
   }))
 
   it.effect('refreshes the entity physics chunk cache when loaded chunks change', () => Effect.gen(function* () {
@@ -263,8 +264,8 @@ describe('step 2.85 — entity renderer wiring', () => {
     yield* handler(0.016 as DeltaTimeSecs)
     yield* handler(0.016 as DeltaTimeSecs)
 
-    // 9 entity per frame × 2 frames + 2 portal checks per frame × 2 frames = 22
-    expect(getChunkSpy).toHaveBeenCalledTimes(22)
+    // 9 entity ×2 frames + 2 portal checks ×2 + 1 liquid-hazard column read ×2 = 24
+    expect(getChunkSpy).toHaveBeenCalledTimes(24)
   }))
 
   it.effect('redstone and fluid tick are called multiple times when deltaTime covers multiple intervals', () => Effect.gen(function* () {

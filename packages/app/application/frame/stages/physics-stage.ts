@@ -64,11 +64,14 @@ export const physicsStage = (
                 ),
               )
 
-        // Reads the block type at a world coordinate (null outside vertical bounds
-        // or for an unloaded chunk). Mirrors the portal-detection lookup pattern.
-        const readBlockTypeAt = (wx: number, wy: number, wz: number): Effect.Effect<ReturnType<typeof indexToBlockType> | null, never> => {
-          const by = Math.floor(wy)
-          if (by < 0 || by >= CHUNK_HEIGHT) return Effect.succeed(null)
+        // Fetch the player's chunk column ONCE, then read block types at any Y
+        // synchronously. The feet (lava) and eye (drowning) checks share the same
+        // x,z column and chunks span the full height, so a single getChunk serves
+        // both — avoiding a redundant per-frame fetch (the 3×3 cache is collisions-only).
+        const readPlayerColumn = (
+          wx: number,
+          wz: number,
+        ): Effect.Effect<(wy: number) => ReturnType<typeof indexToBlockType> | null, never> => {
           const bx = Math.floor(wx)
           const bz = Math.floor(wz)
           const lx = ((bx % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE
@@ -77,12 +80,14 @@ export const physicsStage = (
             .getChunk({ x: Math.floor(bx / CHUNK_SIZE), z: Math.floor(bz / CHUNK_SIZE) })
             .pipe(
               Effect.option,
-              Effect.map((chunkOpt) =>
-                Option.match(chunkOpt, {
+              Effect.map((chunkOpt) => (wy: number) => {
+                const by = Math.floor(wy)
+                if (by < 0 || by >= CHUNK_HEIGHT) return null
+                return Option.match(chunkOpt, {
                   onNone: () => null,
                   onSome: (chunk) => indexToBlockType(chunk.blocks[by + lz * CHUNK_HEIGHT + lx * CHUNK_HEIGHT * CHUNK_SIZE] ?? 0),
-                }),
-              ),
+                })
+              }),
             )
         }
 
@@ -179,7 +184,8 @@ export const physicsStage = (
           // LAVA_DAMAGE_INTERVAL_SECS. Creative players are immune (vanilla). The
           // accumulator keeps the cadence frame-rate independent.
           const inCreative = yield* services.gameMode.isCreative()
-          const feetBlock = yield* readBlockTypeAt(refreshedPos.x, refreshedPos.y, refreshedPos.z)
+          const columnBlockAt = yield* readPlayerColumn(refreshedPos.x, refreshedPos.z)
+          const feetBlock = columnBlockAt(refreshedPos.y)
           if (!inCreative && feetBlock === 'LAVA') {
             const { acc, ticks } = accrueHazardTicks(
               MutableRef.get(refs.lavaDamageSecsRef),
@@ -200,7 +206,7 @@ export const physicsStage = (
           // Drowning (FR-2 / T14b): when the eye-level block is WATER the air supply
           // drains; once empty it deals DROWN_DAMAGE every DROWN_DAMAGE_INTERVAL_SECS.
           // Surfacing instantly refills air. Creative players never drown.
-          const eyeBlock = yield* readBlockTypeAt(refreshedPos.x, refreshedPos.y + EYE_LEVEL_OFFSET, refreshedPos.z)
+          const eyeBlock = columnBlockAt(refreshedPos.y + EYE_LEVEL_OFFSET)
           const headSubmerged = !inCreative && eyeBlock === 'WATER'
           const air = nextAirSecs(MutableRef.get(refs.airSecsRef), headSubmerged, inputs.deltaTime)
           MutableRef.set(refs.airSecsRef, air)
