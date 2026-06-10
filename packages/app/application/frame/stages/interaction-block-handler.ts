@@ -88,6 +88,7 @@ export const handleLeftClick = (
     | 'gameState'
     | 'xpService'
     | 'multiplayer'
+    | 'cropGrowthService'
   >,
   refs: Pick<FrameStageRefs, 'dirtyChunksRef' | 'totalTimeSecsRef' | 'lastPlayerAttackTimeRef' | 'attackSwingStateRef'>,
   context: {
@@ -163,6 +164,15 @@ export const handleLeftClick = (
                     const blockType = indexToBlockType(blockId)
                     const xp = ORE_XP_DROPS[blockType] ?? 0
                     if (xp > 0) yield* services.xpService.addXP(xp)
+                  })),
+                  // Crop harvest: WHEAT_CROP always drops WHEAT_SEEDS (via INVENTORY_DROP_OVERRIDES).
+                  // Also give WHEAT if the crop was ripe; unripe/village crops handled correctly.
+                  Effect.andThen(Effect.gen(function* () {
+                    if (indexToBlockType(blockId) !== 'WHEAT_CROP') return
+                    const wasRipe = yield* services.cropGrowthService.harvest(pos)
+                    if (wasRipe) {
+                      yield* services.inventoryService.addBlock('WHEAT', 1).pipe(Effect.catchAll(() => Effect.void))
+                    }
                   })),
                   Effect.andThen(Effect.gen(function* () {
                     const blockType = indexToBlockType(blockId)

@@ -15,7 +15,7 @@ const TILLABLE_BLOCKS = new Set(['DIRT', 'GRASS'])
 export const handleFarmingInteraction = (
   services: Pick<
     FrameHandlerServices,
-    'hotbarService' | 'blockService' | 'chunkManagerService' | 'soundManager' | 'inventoryService'
+    'hotbarService' | 'blockService' | 'chunkManagerService' | 'soundManager' | 'inventoryService' | 'cropGrowthService'
   >,
   refs: Pick<FrameStageRefs, 'dirtyChunksRef'>,
   context: { readonly targetHit: Option.Option<TargetRayHit> },
@@ -82,6 +82,8 @@ export const handleFarmingInteraction = (
                       .removeBlock('WHEAT_SEEDS', 1, SlotIndex.make(HOTBAR_START + selectedSlot))
                       .pipe(
                         Effect.flatMap(() => services.blockService.forceSetBlock(cropPos, 'WHEAT_CROP')),
+                        // Register in growth tracker (age 0 = seedling)
+                        Effect.flatMap(() => services.cropGrowthService.plant(cropPos)),
                         Effect.flatMap(() => services.chunkManagerService.getChunk(cropCoord)),
                         Effect.flatMap((updated) =>
                           Ref.update(refs.dirtyChunksRef, (map) =>

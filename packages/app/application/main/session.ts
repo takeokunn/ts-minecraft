@@ -6,7 +6,7 @@ import { StartupError } from '@ts-minecraft/game'
 import { ParticleSystemService } from '@ts-minecraft/rendering/particles/particle-system'
 import { installPerfHudCounters } from '@ts-minecraft/rendering'
 
-import { BiomeService, ChunkManagerService, BlockService, FluidService, NetherService } from '@ts-minecraft/world'
+import { BiomeService, ChunkManagerService, BlockService, CropGrowthService, FluidService, NetherService } from '@ts-minecraft/world'
 import { GameStateService, TimeService, WeatherService, resolvePreset, GameLoopService, GameModeService, type GameMode } from '@ts-minecraft/game'
 import { HotbarService, InventoryService, RecipeService, EquipmentService } from '@ts-minecraft/inventory'
 import { FurnaceService, HOTBAR_START, createStack } from '@ts-minecraft/inventory'
@@ -102,6 +102,7 @@ export const sessionProgram = (
     const villageService = yield* VillageService
     const tradingPresentation = yield* TradingPresentationService
     const redstoneService = yield* RedstoneService
+    const cropGrowthService = yield* CropGrowthService
     const fluidService = yield* FluidService
     const furnaceService = yield* FurnaceService
     const netherService = yield* NetherService
@@ -280,7 +281,7 @@ export const sessionProgram = (
         inventoryRenderer, inventoryService, equipmentService, fpsCounter, worldRendererService,
         entityRenderer, chunkMeshService, particleSystem, healthService, hungerService, xpService, fishingService,
         soundManager, musicManager, entityManager, mobSpawner, villageService,
-        tradingPresentation, redstoneService, fluidService, furnaceService, netherService, weatherService,
+        tradingPresentation, redstoneService, cropGrowthService, fluidService, furnaceService, netherService, weatherService,
         perfHud, gameMode: gameModeService,
         // Multiplayer is intentionally disabled by default (Option.none).
         // To enable: pass Option.some(MultiplayerServiceLive(client)) where

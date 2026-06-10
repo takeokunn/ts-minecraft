@@ -37,9 +37,11 @@ const makeServices = (opts: {
   getChunkFn?: (coord: { x: number; z: number }) => Effect.Effect<Chunk, Error>
   forceSetBlockSpy?: ReturnType<typeof vi.fn>
   removeBlockSpy?: ReturnType<typeof vi.fn>
+  plantSpy?: ReturnType<typeof vi.fn>
 } = {}) => {
   const forceSetBlockSpy = opts.forceSetBlockSpy ?? vi.fn(() => Effect.void)
   const removeBlockSpy = opts.removeBlockSpy ?? vi.fn(() => Effect.void)
+  const plantSpy = opts.plantSpy ?? vi.fn(() => Effect.void)
   return {
     hotbarService: {
       getSelectedBlockType: vi.fn(() =>
@@ -53,16 +55,20 @@ const makeServices = (opts: {
     },
     soundManager: { playEffect: vi.fn(() => Effect.void) },
     inventoryService: { removeBlock: removeBlockSpy },
+    cropGrowthService: { plant: plantSpy, harvest: vi.fn(() => Effect.succeed(true)), tickAll: vi.fn(() => Effect.void) },
     _forceSetBlockSpy: forceSetBlockSpy,
     _removeBlockSpy: removeBlockSpy,
+    _plantSpy: plantSpy,
   } as unknown as {
     hotbarService: { getSelectedBlockType: ReturnType<typeof vi.fn>; getSelectedSlot: ReturnType<typeof vi.fn> }
     blockService: { forceSetBlock: ReturnType<typeof vi.fn> }
     chunkManagerService: { getChunk: (coord: { x: number; z: number }) => Effect.Effect<Chunk, Error> }
     soundManager: { playEffect: ReturnType<typeof vi.fn> }
     inventoryService: { removeBlock: ReturnType<typeof vi.fn> }
+    cropGrowthService: { plant: ReturnType<typeof vi.fn>; harvest: ReturnType<typeof vi.fn>; tickAll: ReturnType<typeof vi.fn> }
     _forceSetBlockSpy: ReturnType<typeof vi.fn>
     _removeBlockSpy: ReturnType<typeof vi.fn>
+    _plantSpy: ReturnType<typeof vi.fn>
   }
 }
 
@@ -252,6 +258,27 @@ describe('handleFarmingInteraction', () => {
         { targetHit: Option.some(makeHit(0, 64, 0)) },
       )
       expect(result).toBe(false)
+    }),
+  )
+
+  it.effect('registers the planted crop in cropGrowthService.plant', () =>
+    Effect.gen(function* () {
+      const dirtyChunksRef = yield* Ref.make(HashMap.empty<string, unknown>())
+      const chunk = makeEmptyChunk(0, 0)
+      setChunkBlock(chunk, 2, 64, 3, 'FARMLAND')
+      const selectedSlot = 0
+      const services = makeServices({
+        selectedItem: 'WHEAT_SEEDS',
+        selectedSlot,
+        getChunkFn: (_c) => Effect.succeed(chunk),
+      })
+      yield* handleFarmingInteraction(
+        services as never,
+        { dirtyChunksRef } as never,
+        { targetHit: Option.some(makeHit(2, 64, 3)) },
+      )
+      // crop at blockY+1 = y65
+      expect(services._plantSpy).toHaveBeenCalledWith({ x: 2, y: 65, z: 3 })
     }),
   )
 

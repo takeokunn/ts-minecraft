@@ -11,7 +11,7 @@ import { makeGameMode, makeGameState, makeMusicManager, makeSettingsService, mak
 import { makeEquipmentService, makeHotbarService, makeInventoryService } from './inventory-test-kit'
 import { makeCameraState, makeFirstPersonCamera, makeFishingService, makeHealthService, makeHungerService, makeThirdPersonCamera, makeXPService } from './player-test-kit'
 import { makeChunkMeshService, makeEntityRenderer, makeParticleSystem, makePerfHud, makeWorldRendererService } from './rendering-test-kit'
-import { makeBlockService, makeChunkManagerService, makeFluidService, makeNetherService, makeWeatherService } from './terrain-test-kit'
+import { makeBlockService, makeChunkManagerService, makeCropGrowthService, makeFluidService, makeNetherService, makeWeatherService } from './terrain-test-kit'
 
 export type CameraMode = 'firstPerson' | 'thirdPerson'
 
@@ -163,6 +163,7 @@ export const makeServices = (opts: {
     villageService: makeVillageService(),
     tradingPresentation,
     redstoneService: makeRedstoneService(),
+    cropGrowthService: makeCropGrowthService(),
     fluidService: makeFluidService(),
     furnaceService: makeFurnaceService(),
     netherService: makeNetherService(),

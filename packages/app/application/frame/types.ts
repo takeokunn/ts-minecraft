@@ -40,7 +40,7 @@ import { EntityManager, MobSpawner } from '@ts-minecraft/entity'
 import { VillageService } from '@ts-minecraft/entity'
 import { TradingPresentationService } from '@ts-minecraft/presentation/trading'
 import { RedstoneService } from '@ts-minecraft/entity'
-import { FluidService, NetherService } from '@ts-minecraft/world'
+import { CropGrowthService, FluidService, NetherService } from '@ts-minecraft/world'
 import { FurnaceService } from '@ts-minecraft/inventory'
 import { MultiplayerService } from '@ts-minecraft/app/application/multiplayer/multiplayer-service'
 import type { Chunk } from '@ts-minecraft/world'
@@ -116,6 +116,7 @@ export type FrameHandlerServices = {
   readonly villageService: VillageService
   readonly tradingPresentation: TradingPresentationService
   readonly redstoneService: RedstoneService
+  readonly cropGrowthService: CropGrowthService
   readonly fluidService: FluidService
   readonly furnaceService: FurnaceService
   readonly netherService: NetherService

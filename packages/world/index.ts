@@ -38,6 +38,8 @@ export * from './application/terrain-generation'
 export * from './infrastructure/perlin'
 export * from './infrastructure/primitives'
 export * from '@ts-minecraft/block'
+export * from './domain/crop-growth'
+export * from './application/crop-growth-service'
 export * from './application/environment-service'
 export * from './application/nether-service'
 export {

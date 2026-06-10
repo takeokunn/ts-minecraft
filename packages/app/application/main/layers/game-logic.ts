@@ -45,7 +45,7 @@ import { FurnaceServiceLive } from '@ts-minecraft/inventory'
 import { LightEngineLive } from '@ts-minecraft/world'
 
 // Chunk management
-import { ChunkManagerServiceLive } from '@ts-minecraft/world'
+import { ChunkManagerServiceLive, CropGrowthServiceLive } from '@ts-minecraft/world'
 
 // Game state, camera state
 import { GameStateServiceLive } from '@ts-minecraft/game'
@@ -218,6 +218,9 @@ export const NetherLayer = NetherService.Default
 // Weather simulation — tracks clear/rain/thunder transitions
 export const WeatherLayer = WeatherServiceLive
 
+// Crop growth tracking: in-memory side-table for planted crops (no layer deps)
+export const CropGrowthLayer = CropGrowthServiceLive
+
 // Top-level bundle re-exported by index.ts
 export const GameLogicLayers = Layer.mergeAll(
   GameLayer,
@@ -253,4 +256,5 @@ export const GameLogicLayers = Layer.mergeAll(
   EntityRendererLayer,
   ParticleSystemLayer,
   GameModeServiceLive,
+  CropGrowthLayer,
 )

@@ -45,3 +45,10 @@ export const makeNetherService = () => ({
   registerPortal: (_pos: unknown, _dim: unknown) => Effect.void,
   getPortals: (_dim: unknown) => Effect.succeed([]),
 }) as unknown as InstanceType<typeof import('@ts-minecraft/world').NetherService>
+
+/** Creates an inert crop growth service fake (all crops unknown → ripe by default). */
+export const makeCropGrowthService = () => ({
+  plant: (_pos: unknown) => Effect.void,
+  harvest: (_pos: unknown) => Effect.succeed(true),
+  tickAll: () => Effect.void,
+}) as unknown as InstanceType<typeof import('@ts-minecraft/world').CropGrowthService>

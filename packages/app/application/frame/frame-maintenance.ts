@@ -8,6 +8,7 @@ import { getLightAt } from '@ts-minecraft/block'
 import { CHUNK_HEIGHT, CHUNK_SIZE } from '@ts-minecraft/core'
 import { buildingBlocksForVillage } from './village-builder'
 import { FALLBACK_PLAYER_POS, MAX_DIRTY_CHUNK_UPDATES_PER_FRAME, DIRTY_CHUNK_FLUSH_CONCURRENCY } from '@ts-minecraft/app/frame-handler.config'
+import { CROP_GROWTH_INTERVAL_SECS } from '@ts-minecraft/world'
 import type { FrameHandlerDeps, FrameHandlerServices } from '@ts-minecraft/app/frame/types'
 import type { DeltaTimeSecs, Position } from '@ts-minecraft/core'
 
@@ -22,11 +23,13 @@ type MaintenanceState = {
   readonly lastChunkStreamingRef: MutableRef.MutableRef<{ readonly cx: number; readonly cz: number; readonly renderDistance: number }>
   readonly chunkSyncPendingRef: MutableRef.MutableRef<boolean>
   readonly dirtyChunksRef: Ref.Ref<HashMap.HashMap<string, DirtyChunkEntry>>
+  // Accumulated maintenance-tick time for crop growth; fires tickAll() every CROP_GROWTH_INTERVAL_SECS.
+  readonly cropTickAccumulatorRef: MutableRef.MutableRef<number>
 }
 
 type MaintenanceServices = Pick<
   FrameHandlerServices,
-  'entityManager' | 'gameState' | 'chunkManagerService' | 'settingsService' | 'worldRendererService' | 'fluidService' | 'blockHighlight' | 'furnaceService' | 'mobSpawner' | 'villageService' | 'timeService' | 'debugFeatureFlags' | 'blockService'
+  'entityManager' | 'gameState' | 'chunkManagerService' | 'settingsService' | 'worldRendererService' | 'fluidService' | 'blockHighlight' | 'furnaceService' | 'mobSpawner' | 'villageService' | 'timeService' | 'debugFeatureFlags' | 'blockService' | 'cropGrowthService'
 >
 
 const resolveTerrainSpawnPosition = (
@@ -146,6 +149,17 @@ export const createMaintenanceHandler = (
       if (furnaceEnabled) {
         yield* furnaceService.tick(maintenanceDeltaTime).pipe(Effect.catchAllCause(() => Effect.void))
       }
+
+      // Crop growth tick — advance all player-planted crops every CROP_GROWTH_INTERVAL_SECS.
+      // Village / world-generated crops are not tracked and default to ripe on break.
+      const newCropAcc = MutableRef.get(state.cropTickAccumulatorRef) + Number(maintenanceDeltaTime)
+      if (newCropAcc >= CROP_GROWTH_INTERVAL_SECS) {
+        MutableRef.set(state.cropTickAccumulatorRef, newCropAcc - CROP_GROWTH_INTERVAL_SECS)
+        yield* services.cropGrowthService.tickAll().pipe(Effect.catchAllCause(() => Effect.void))
+      } else {
+        MutableRef.set(state.cropTickAccumulatorRef, newCropAcc)
+      }
+
       // R25: hostile mobs spawn only at night (per selectMobType); gate their
       // spawn surfaces on darkness. Derived from the already-fetched timeOfDay to
       // match TimeService.isNight (timeOfDay < 0.25 || > 0.75) without an extra call.

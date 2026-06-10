@@ -109,7 +109,9 @@ export const INVENTORY_DROP_OVERRIDES: HashMap.HashMap<BlockType, InventoryItem>
   ['EMERALD_ORE', 'EMERALD'],
   ['DEEPSLATE_EMERALD_ORE', 'EMERALD'],
   ['FARMLAND', 'DIRT'],
-  ['WHEAT_CROP', 'WHEAT'],
+  // Unripe crops drop seeds; ripe crops get a bonus WHEAT added by the interaction handler
+  // after querying CropGrowthService.harvest(). Unknown/village crops default to ripe.
+  ['WHEAT_CROP', 'WHEAT_SEEDS'],
   // Redstone components drop REDSTONE_DUST when broken
   ['REDSTONE_WIRE', 'REDSTONE_DUST'],
   ['REDSTONE_TORCH', 'REDSTONE_DUST'],

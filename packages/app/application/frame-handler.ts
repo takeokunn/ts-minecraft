@@ -225,6 +225,7 @@ const createFrameLoopHandlersInternal = (
       lastChunkStreamingRef,
       chunkSyncPendingRef,
       dirtyChunksRef,
+      cropTickAccumulatorRef: MutableRef.make(0),
     })
 
     const frameHandler = (deltaTime: Parameters<FrameLoopHandlers['frameHandler']>[0]) =>

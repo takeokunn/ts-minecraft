@@ -36,6 +36,7 @@ export const interactionStage = (
     | 'blockService'
     | 'chunkManagerService'
     | 'fluidService'
+    | 'cropGrowthService'
     | 'soundManager'
     | 'entityManager'
     | 'inventoryService'
