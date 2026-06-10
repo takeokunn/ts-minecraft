@@ -28,13 +28,16 @@ describe('cycleGameMode', () => {
     expect(cycleGameMode('survival')).toBe('creative')
   })
 
-  it('cycles creative → survival', () => {
-    expect(cycleGameMode('creative')).toBe('survival')
+  it('cycles creative → spectator', () => {
+    expect(cycleGameMode('creative')).toBe('spectator')
   })
 
-  it('is its own inverse', () => {
-    expect(cycleGameMode(cycleGameMode('survival'))).toBe('survival')
-    expect(cycleGameMode(cycleGameMode('creative'))).toBe('creative')
+  it('cycles spectator → survival (3-way wrap)', () => {
+    expect(cycleGameMode('spectator')).toBe('survival')
+  })
+
+  it('returns to survival after a full 3-step cycle', () => {
+    expect(cycleGameMode(cycleGameMode(cycleGameMode('survival')))).toBe('survival')
   })
 })
 

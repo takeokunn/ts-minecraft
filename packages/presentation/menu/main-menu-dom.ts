@@ -3,7 +3,7 @@ import type { WorldMetadata } from '@ts-minecraft/world'
 import { WorldId } from '@ts-minecraft/core'
 import { DomOperationsService } from '@ts-minecraft/presentation/hud/crosshair'
 import { overlayBaseStyle, cardStyle, buttonStyle, dangerButtonStyle, inputStyle } from './main-menu-styles'
-import { formatLastPlayed } from './main-menu-utils'
+import { formatLastPlayed, gameModeLabel } from './main-menu-utils'
 
 // --- Shared types ---
 
@@ -128,9 +128,9 @@ export const renderValidRow = (
   const badge = dom.createElement('span')
   badge.style.cssText = [
     'padding:2px 8px', 'border-radius:12px', 'font-size:11px',
-    metadata.gameMode === 'creative' ? 'background:#3a5a8a' : 'background:#3a6a3a',
+    metadata.gameMode === 'creative' ? 'background:#3a5a8a' : metadata.gameMode === 'spectator' ? 'background:#5a3a6a' : 'background:#3a6a3a',
   ].join(';')
-  badge.textContent = metadata.gameMode === 'creative' ? 'Creative' : 'Survival'
+  badge.textContent = gameModeLabel(metadata.gameMode)
   const loadBtn = dom.createElement('button')
   loadBtn.type = 'button'
   loadBtn.textContent = 'Load'

@@ -6,7 +6,7 @@ import { WorldId } from '@ts-minecraft/core'
 import type { GameMode } from '@ts-minecraft/game'
 import type { MainMenuChoice } from './main-menu-types'
 import type { SubState } from './main-menu-utils'
-import { cycleGameMode, generateWorldId } from './main-menu-utils'
+import { cycleGameMode, gameModeLabel, generateWorldId } from './main-menu-utils'
 import type { MenuButtons } from './main-menu-dom'
 import { renderValidRow, renderCorruptRow } from './main-menu-dom'
 
@@ -42,7 +42,7 @@ export const makeSetSubState = (
 
 export const makeUpdateModeButton = (refs: MenuRefs, buttons: MenuButtons) => (): void => {
   const mode = MutableRef.get(refs.newWorldModeRef)
-  buttons.nwMode.textContent = mode === 'survival' ? 'Survival' : 'Creative'
+  buttons.nwMode.textContent = gameModeLabel(mode)
 }
 
 export const makeCompleteWith = (refs: MenuRefs) => (choice: MainMenuChoice): void => {

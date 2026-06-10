@@ -130,12 +130,12 @@ always-runs hot-path cleanup over dormant-MP wiring.
 - [x] R1. Drop `concurrency: 'unbounded'` on 4 per-frame `Effect.all` over **sync** reads
   (camera-stage getRotation+getMode, entity-update-stage getEntities+structureVersion,
   interaction-stage 8 redstone keys, input-stage 4 trade keys) → sequential, no fiber spawns. _(done 2026-06-10)_
-- [ ] R2. Spectator game mode — extend `GameModeSchema`, noclip/free-fly, disable
-  interactions; reuses the T12 flight infra. (Player-visible single-player FR.) _(decomposed)_
+- [x] R2. Spectator game mode — extend `GameModeSchema`, noclip/free-fly, disable
+  interactions; reuses the T12 flight infra. (Player-visible single-player FR.) _(ALL sub-tasks done 2026-06-10; reachable via menu 3-way toggle)_
   - [x] R2a. Domain — add `'spectator'` to `GameModeSchema` + `isSpectator` on the service; update mocks + tests. _(done 2026-06-10)_
   - [x] R2b. Physics — spectator forces always-fly + noclip (skip block collision) + ignores water in game-state-service. _(done 2026-06-10)_
   - [x] R2c. Immunity + no-interaction — spectator immune to all damage (tryApplyPlayerDamage gate) + click block (break/place/attack/redstone) disabled. _(done 2026-06-10)_
-  - [ ] R2d. Menu — main-menu game-mode toggle cycles survival→creative→spectator (badge + label).
+  - [x] R2d. Menu — 3-way game-mode cycle survival→creative→spectator + `gameModeLabel` helper (button + world badge). _(done 2026-06-10)_
 - [ ] R3. Enchanting-table UI — logic exists (`inventory/domain/enchantment.ts`), no UI. (FR.)
 - [ ] R4. (Low real-world value — MP dormant) Wire `RemotePlayerRenderer` into the frame
   loop so remote players render IF multiplayer is later enabled.
