@@ -111,7 +111,7 @@ checks are already allocation-free). Only confirmed, impactful items survive bel
   - [x] T14c. Air HUD — bubble indicator, hidden at full air, shown 0-10 bubbles underwater. _(done 2026-06-10; full 11-hop element wiring + change-gated DOM write via lastAirBubblesRef)_
   - [x] T14d. Swim-up — hold JUMP in water to ascend (steady upward swim, suppressed while flying). _(done 2026-06-10)_
 - [x] T15. FR-3 Multiplayer block sync: wire `BlockPlace`/`BlockBreak` send + apply. _(ALL sub-tasks done 2026-06-10)_
-  - [ ] T15a. MultiplayerService: `sendBlockPlace`/`sendBlockBreak` + inbound block-edit queue + `drainBlockEdits`.
+  - [x] T15a. MultiplayerService: `sendBlockPlace`/`sendBlockBreak` + inbound block-edit queue + `drainBlockEdits`. _(done 2026-06-10, commit 1fc22173; +4 tests)_
   - [x] T15b. Send on local edit — place/break handlers emit messages when MP is connected (Option-guarded no-op offline). _(done 2026-06-10)_
   - [x] T15c. Apply on receive — drain inbound edits each frame, forceSetBlock (break→AIR) + mark chunk dirty for remesh; invalid block types skipped. _(done 2026-06-10; +3 tests)_
 
@@ -119,3 +119,11 @@ checks are already allocation-free). Only confirmed, impactful items survive bel
 
 ## D. Progress log
 - 2026-06-10: Audit complete; plan authored. Beginning Phase 1.
+- 2026-06-10: **ALL TASKS COMPLETE.** Phase 1 (T1-T4 verified hot-path allocs), Phase 2
+  (T5 atlas-texture GPU leak, T6 transparent-solid water-list bug), Phase 3/4 curated
+  (T7/T8 false positives, T9/T10 deferred as non-frame-blocking, T11 already satisfied),
+  Phase 5 FRs (T12 creative flight, T13 bed respawn + survival-respawn bug fix + persistence,
+  T14 liquid mechanics [lava/drown/air-HUD/swim-up], T15 multiplayer block sync [send+apply]).
+  Final gate: `pnpm typecheck` 0 errors, `pnpm lint` 0/0. ~20 commits on branch
+  `audit/nfr-fr-improvements`. New unit tests: flight, environment-hazard, multiplayer
+  send + apply, bed-respawn persistence.
