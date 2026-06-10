@@ -88,6 +88,39 @@ export const handleFoodConsumption = (
     ),
   )
 
+/**
+ * Right-click shearing (FR R11): if the player is looking at a sheep while holding
+ * SHEARS, shear it — harvests 1-3 wool into the inventory, starts the sheep's wool
+ * regrowth timer, plays a cue. Returns true (handled) so the caller skips placement.
+ * No-op (false) unless aimed at a woolly sheep with shears in hand. Shears are not
+ * consumed (no durability on SHEARS in this build).
+ */
+export const handleShearAnimal = (
+  deps: Pick<FrameHandlerDeps, 'camera'>,
+  services: Pick<FrameHandlerServices, 'entityManager' | 'hotbarService' | 'inventoryService' | 'soundManager'>,
+): Effect.Effect<boolean, never> =>
+  Effect.gen(function* () {
+    const selected = yield* services.hotbarService.getSelectedBlockType()
+    if (Option.isNone(selected) || selected.value !== 'SHEARS') return false
+
+    const entities = yield* services.entityManager.getEntities()
+    const targetId = findAttackableEntity(entities, deps.camera, Option.none())
+    if (Option.isNone(targetId)) return false
+
+    // shearEntity is gated (sheep + woolly); only harvest on Some(count).
+    const woolOpt = yield* services.entityManager.shearEntity(targetId.value)
+    if (Option.isNone(woolOpt)) return false
+
+    const entityOpt = yield* services.entityManager.getEntity(targetId.value)
+    yield* services.inventoryService.addBlock('WOOL', woolOpt.value).pipe(Effect.catchAll(() => Effect.void))
+    yield* Option.match(entityOpt, {
+      onNone: () => Effect.void,
+      onSome: (target) =>
+        services.soundManager.playEffect('blockBreak', { position: target.position }).pipe(Effect.catchAll(() => Effect.void)),
+    })
+    return true
+  })
+
 export const handleUnequipArmor = (
   services: Pick<FrameHandlerServices, 'equipmentService' | 'inventoryService'>,
 ): Effect.Effect<void, never> =>

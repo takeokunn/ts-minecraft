@@ -14,6 +14,8 @@ export const makeEntityManager = () => ({
   update: (_deltaTime: unknown, _playerPosition: unknown) => Effect.void,
   applyDamage: (_entityId: unknown, _amount: unknown) => Effect.succeed(Option.none()),
   applyKnockback: (_entityId: unknown, _impulse: unknown) => Effect.void,
+  feedEntity: (_entityId: unknown) => Effect.succeed(false),
+  shearEntity: (_entityId: unknown) => Effect.succeed(Option.none()),
   despawnAllEntities: () => Effect.succeed(0),
   // Stub that exercises the collision-resolver callback (so isBlockSolid in entity-update-stage runs)
   applyPhysics: (_dt: unknown, resolver: unknown) => {
