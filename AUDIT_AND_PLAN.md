@@ -320,6 +320,39 @@ All actioned findings ground-verified against the code first.
 **Round 8 complete.** R22 (skip no-op entity HashMap passes) + R23 (scalar attack targeting).
 typecheck 0 errors, lint 0/0, 4476 tests passing.
 
+## L. Round 9 (2026-06-10, Opus 4.8) — FR rebalance + unexamined-NFR sweep
+
+Hot-path NFR is now heavily mined (8 rounds), so this round rebalanced toward FR completeness
+(block-break → drop → pickup loop, tool/mining mechanics) plus an NFR sweep of three never-audited
+subsystems (sound, redstone, worker protocol). All findings ground-verified.
+
+**Verified & actioned:**
+- [x] R24. Ore drop quantities — `block-service.ts:118` hardcoded the base drop to **1** for every block.
+  Vanilla drops **4-5 redstone** and **4-9 lapis** per ore; at a flat 1 those resources were ~4× scarcer
+  than vanilla. Added a deterministic (RNG-free) `getBlockDropCount` returning the vanilla *minimum*
+  (redstone/lapis + deepslate variants → 4, default → 1), wired into `breakBlock`. Fortune bonus still
+  adds on top, unchanged. +1 test (redstone ore → 4 dust). _(done 2026-06-10)_
+
+**Round 9 complete.** R24 (vanilla ore drop counts). One agent finding rejected as a verified false
+positive (worker `.slice()` — the "fix" would corrupt chunks). typecheck 0, lint 0/0, 4477 tests passing (+1).
+
+**Verified FALSE POSITIVE (recorded — the "fix" would be a bug):**
+- Worker mesh-request `ArrayBuffer.slice()` (`meshing-worker-pool.ts:184-208`) was flagged HIGH ("avoid
+  the copy, transfer the original"). **Rejected — acting on it would corrupt every meshed chunk.** The
+  sliced buffers are added to `transferList` and *transferred* (neutered) into the worker; the original
+  `chunk.blocks` must survive on the main thread (still rendered/edited/saved). Slicing a disposable
+  snapshot to transfer is the correct, idiomatic pattern. NO CHANGE.
+
+**Verified but deferred (recorded, not churned):**
+- Item-drop entities + pickup radius, and hold-to-break / hardness mining time — both ABSENT (blocks go
+  straight to inventory, instant break). These are large features (world item-entities + physics + pickup;
+  per-frame break-progress + crack animation), not quick wins. Tool-tier *requirements* ARE fully
+  implemented (`block-utils.ts canHarvestBlock`). Logged as known simplifications, deferred.
+- Sound `computeSpatial` returns a fresh `{x,y,z}` per effect — event-driven, not per-frame; returning a
+  shared mutable scratch from a function is a footgun (caller may retain it). Low value, real risk. DEFER.
+- Redstone button-array alloc in `computeNeedsPropagation` — per-tick but throttled to 20/sec and bounded
+  by button count. Negligible. DEFER. (Tick cadence 50ms + active-component-only propagation confirmed sound.)
+
 **Verified but deferred (recorded, not churned):**
 - Enderman teleport `Array.from({length:32})` (`update.ts:29,123`) — only for an Enderman in Chase
   state passing a ~5%/tick probability gate; rare. Avoiding it needs a signature change to

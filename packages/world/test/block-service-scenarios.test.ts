@@ -154,6 +154,27 @@ describe('BlockService — item-like drops and non-placeable inventory items', (
     }).pipe(Effect.provide(layer))
   })
 
+  // R24: redstone ore drops 4 dust per vanilla (not 1) — keeps the redstone
+  // economy from being ~4x scarcer than expected. Requires an iron pickaxe.
+  it.effect('breaking REDSTONE_ORE with an iron pickaxe drops 4 REDSTONE_DUST into inventory', () => {
+    const pos: Position = { x: 9, y: 9, z: 9 }
+    const handle = createMockChunkManagerService([{ pos, blockType: 'REDSTONE_ORE' }])
+    const inventorySpy = vi.fn(() => Effect.void)
+    const layer = createTestLayer(
+      handle.service,
+      createMockPlayerService({ x: 100, y: 0, z: 100 }),
+      undefined,
+      createMockInventoryService({ addBlock: inventorySpy }),
+      createMockHotbarService(Option.some('IRON_PICKAXE')),
+    )
+
+    return Effect.gen(function* () {
+      const svc = yield* BlockService
+      yield* svc.breakBlock(pos)
+      expect(inventorySpy).toHaveBeenCalledWith('REDSTONE_DUST', 4)
+    }).pipe(Effect.provide(layer))
+  })
+
   it.effect('breaking DIAMOND_ORE with a wooden pickaxe fails instead of yielding free progression', () => {
     const pos: Position = { x: 8, y: 8, z: 8 }
     const handle = createMockChunkManagerService([{ pos, blockType: 'DIAMOND_ORE' }])

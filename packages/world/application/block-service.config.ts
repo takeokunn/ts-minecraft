@@ -114,6 +114,21 @@ export const INVENTORY_DROP_OVERRIDES: HashMap.HashMap<BlockType, InventoryItem>
 export const getInventoryDropForBlock = (blockType: BlockType): InventoryItem =>
   Option.getOrElse(HashMap.get(INVENTORY_DROP_OVERRIDES, blockType), () => blockType)
 
+// R24: base (Fortune-independent) drop count per broken block. Vanilla drops
+// multiple units from redstone (4-5) and lapis (4-9) ores; everything else
+// drops 1. We use the deterministic vanilla *minimum* (4) — no RNG, so the
+// break stays pure/replayable. The Fortune bonus is applied separately on top
+// (interaction-block-handler) and is unchanged by this.
+const BLOCK_BASE_DROP_COUNT: HashMap.HashMap<BlockType, number> = HashMap.fromIterable<BlockType, number>([
+  ['REDSTONE_ORE', 4],
+  ['DEEPSLATE_REDSTONE_ORE', 4],
+  ['LAPIS_ORE', 4],
+  ['DEEPSLATE_LAPIS_ORE', 4],
+])
+
+export const getBlockDropCount = (blockType: BlockType): number =>
+  Option.getOrElse(HashMap.get(BLOCK_BASE_DROP_COUNT, blockType), () => 1)
+
 export const PICKAXE_BLOCK_TYPES: HashSet.HashSet<ItemType> = HashSet.fromIterable<ItemType>([
   'WOODEN_PICKAXE',
   'STONE_PICKAXE',

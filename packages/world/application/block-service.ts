@@ -18,6 +18,7 @@ import {
   NON_PLACEABLE_ITEM_TYPES,
   DIAMOND_PICKAXE_HARVESTABLE_BLOCKS,
   getInventoryDropForBlock,
+  getBlockDropCount,
 } from './block-service.config'
 
 const REQUIRES_PICKAXE_BLOCKS = DIAMOND_PICKAXE_HARVESTABLE_BLOCKS
@@ -115,7 +116,7 @@ export class BlockService extends Effect.Service<BlockService>()(
             yield* fluidService.notifyBlockChanged(position)
             yield* Metric.increment(Metric.counter('blocks_broken'))
             if (shouldDrop) {
-              yield* inventoryService.addBlock(getInventoryDropForBlock(blockType), 1).pipe(Effect.catchAllCause(() => Effect.void))
+              yield* inventoryService.addBlock(getInventoryDropForBlock(blockType), getBlockDropCount(blockType)).pipe(Effect.catchAllCause(() => Effect.void))
             }
           }),
 
