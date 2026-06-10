@@ -578,8 +578,19 @@ typecheck 0, **4601 tests passing** (+14 new tests).
   stick chance (vanilla oak rates). Drop decision extracted to pure `rollLeafDrops(appleRoll,
   stickRoll)` (deterministically testable); handler supplies Math.random(). +8 tests. _(done 2026-06-11)_
 
-**Round 27 complete.** R59-R69.
-typecheck 0, **4619 tests passing** (+24 new tests, 4 updated assertions).
+- [x] R70. Bed crafting recipe — the BED block was fully wired (respawn-point + night-skip in the
+  placement handler) but had NO recipe, so survival players could only get a bed from village
+  generation. Added vanilla recipe: 3 WOOL + 3 PLANKS → 1 BED. Same "orphaned output" class as
+  R65 (flint&steel) and R69 (apple). +2 tests. _(done 2026-06-11)_
+
+**Round 27 complete.** R59-R70.
+typecheck 0, **4621 tests passing** (+26 new tests, 4 updated assertions).
+
+**Recurring theme this round (R65/R69/R70):** "orphaned outputs" — blocks/items fully wired
+into handlers, textures, and drops but unreachable because a single crafting recipe or drop
+source was missing. Invisible to unit tests (each piece passes in isolation) yet they break the
+actual survival progression loop. Worth a periodic sweep: for every craftable/placeable block,
+confirm at least one survival acquisition path exists.
 
 ## D. Progress log
 - 2026-06-10: Audit complete; plan authored. Beginning Phase 1.
