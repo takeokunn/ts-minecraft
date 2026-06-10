@@ -554,7 +554,12 @@ typecheck 0, **4601 tests passing** (+14 new tests).
   semantics; Poison effect modelled as low saturation). +2 tests (spider_eye edible,
   wheat non-edible); existing WHEAT case in getFoodProperties test updated. _(done 2026-06-11)_
 
-**Round 27 complete.** R59-R64.
+- [x] R65. FLINT item + gravel drop + FLINT_AND_STEEL recipe — GRAVEL now drops FLINT when broken
+  (deterministic; vanilla is 10% random); FLINT_AND_STEEL recipe added (FLINT×1 + IRON_INGOT×1).
+  FLINT added to ItemTypeSchema, ITEM_TILE_MAP, NON_PLACEABLE_ITEM_TYPES. No new tests needed
+  (block drop covered by existing block-service tests via GRAVEL→FLINT override). _(done 2026-06-11)_
+
+**Round 27 complete.** R59-R65.
 typecheck 0, **4608 tests passing** (+12 new tests, 4 updated assertions).
 
 ## D. Progress log
