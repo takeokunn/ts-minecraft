@@ -136,4 +136,15 @@ export const MISC_RECIPES: ReadonlyArray<Recipe> = [
     ingredients: [new RecipeIngredient({ itemType: 'WHEAT', count: 3 })],
     output: { itemType: 'BREAD', count: 1 },
   }),
+  // R32: Arrows — BONE×1 + STICKS×2 → ARROW×4 (simplified from vanilla flint+stick+feather;
+  // uses mob-drop materials available in survival without new item types).
+  new Recipe({
+    id: RecipeId.make('bone-and-sticks-to-arrows'),
+    station: 'crafting_table',
+    ingredients: [
+      new RecipeIngredient({ itemType: 'BONE', count: 1 }),
+      new RecipeIngredient({ itemType: 'STICKS', count: 2 }),
+    ],
+    output: { itemType: 'ARROW', count: 4 },
+  }),
 ]

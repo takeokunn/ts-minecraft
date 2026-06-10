@@ -17,6 +17,7 @@ export const MAX_LEVEL: Record<EnchantmentType, EnchantmentLevel> = {
   UNBREAKING: 3,
   LOOTING: 3,
   INFINITY: 1,
+  POWER: 5,
 }
 
 // ─── Fortune multipliers ─────────────────────────────────────────────────────
@@ -46,4 +47,5 @@ export const APPLICABLE_TO: Partial<Record<EnchantmentType, ReadonlySet<ItemType
     'BOW', 'FISHING_ROD', 'SHIELD']),
   LOOTING: new Set(['WOODEN_SWORD', 'STONE_SWORD', 'IRON_SWORD', 'DIAMOND_SWORD']),
   INFINITY: new Set(['BOW']),
+  POWER: new Set(['BOW']),
 }

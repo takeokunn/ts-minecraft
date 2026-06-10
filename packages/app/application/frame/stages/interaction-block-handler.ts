@@ -4,7 +4,7 @@ import type { FrameHandlerDeps, FrameHandlerServices, FrameStageRefs } from '@ts
 import { findAttackableEntity } from '@ts-minecraft/app/frame/stages/attack-targeting'
 import { CHUNK_SIZE, CHUNK_HEIGHT, blockTypeToIndex, indexToBlockType, SlotIndex, ItemTypeSchema } from '@ts-minecraft/core'
 import type { BlockType, InventoryItem } from '@ts-minecraft/core'
-import { HOTBAR_START, isDurable, getSharpnessDamageBonus, getFortuneDropMultiplier } from '@ts-minecraft/inventory'
+import { HOTBAR_START, isDurable, getSharpnessDamageBonus, getFortuneDropMultiplier, getPowerDamageMultiplier } from '@ts-minecraft/inventory'
 import { FORTUNE_ORE_BLOCKS, PICKAXE_BLOCK_TYPES, getInventoryDropForBlock, canHarvestBlock } from '@ts-minecraft/world'
 import { getBlockHardness, computeBreakTicks } from '@ts-minecraft/block'
 import { computeAttackDamage, computeKnockback, computeAttackCharge, computeChargedDamage, DEFAULT_ATTACK_COOLDOWN_SECS, getMobDefinition, computeBowCharge, computeBowDamage, canFireBow, BOW_MAX_RANGE } from '@ts-minecraft/entity'
@@ -387,17 +387,29 @@ export const handleBowFire = (
     if (!canFireBow(secsHeld)) return
 
     const charge = computeBowCharge(secsHeld)
-    const damage = computeBowDamage(charge)
 
-    // Consume 1 ARROW; silent no-op if the player has none.
-    const hasArrow = yield* Effect.match(
-      services.inventoryService.removeBlock('ARROW', 1),
-      { onFailure: () => false, onSuccess: () => true },
-    )
-    if (!hasArrow) return
-
-    // Damage the equipped bow.
+    // Read bow enchantments before consuming the arrow (slot still intact here).
     const selectedSlot = yield* services.hotbarService.getSelectedSlot()
+    const bowStack = yield* services.inventoryService.getSlot(SlotIndex.make(HOTBAR_START + selectedSlot))
+    const enchantments = Option.match(bowStack, { onNone: () => [], onSome: (s) => s.enchantments ?? [] })
+
+    const hasPower = enchantments.find((e) => e.type === 'POWER')
+    const hasInfinity = enchantments.some((e) => e.type === 'INFINITY')
+
+    // Scale base damage by charge, then apply POWER multiplier.
+    const baseDamage = computeBowDamage(charge)
+    const damage = hasPower ? Math.round(baseDamage * getPowerDamageMultiplier(hasPower.level)) : baseDamage
+
+    // INFINITY skips arrow consumption. Without it, consume 1 ARROW (silent abort if empty).
+    if (!hasInfinity) {
+      const hasArrow = yield* Effect.match(
+        services.inventoryService.removeBlock('ARROW', 1),
+        { onFailure: () => false, onSuccess: () => true },
+      )
+      if (!hasArrow) return
+    }
+
+    // Damage the equipped bow (INFINITY still wears the bow down — vanilla behaviour).
     yield* services.inventoryService.damageSlot(SlotIndex.make(HOTBAR_START + selectedSlot), 1)
 
     // Hitscan: find the nearest entity in the crosshair within bow range.

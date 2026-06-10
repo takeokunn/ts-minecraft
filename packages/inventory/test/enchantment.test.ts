@@ -6,6 +6,7 @@ import {
   getProtectionDamageReduction,
   getUnbreakingSkipChance,
   getFortuneDropMultiplier,
+  getPowerDamageMultiplier,
   canEnchantItem,
   getMaxEnchantmentLevel,
   getBaneOfArthropodsDamageBonus,
@@ -137,6 +138,36 @@ describe('domain/enchantment', () => {
 
     it('FORTUNE has max level 3', () => {
       expect(getMaxEnchantmentLevel('FORTUNE')).toBe(3)
+    })
+
+    it('POWER has max level 5', () => {
+      expect(getMaxEnchantmentLevel('POWER')).toBe(5)
+    })
+
+    it('INFINITY has max level 1', () => {
+      expect(getMaxEnchantmentLevel('INFINITY')).toBe(1)
+    })
+  })
+
+  describe('getPowerDamageMultiplier', () => {
+    it('POWER I gives 1.5× multiplier', () => {
+      expect(getPowerDamageMultiplier(1)).toBeCloseTo(1.5)
+    })
+
+    it('POWER II gives 2.0× multiplier', () => {
+      expect(getPowerDamageMultiplier(2)).toBeCloseTo(2.0)
+    })
+
+    it('POWER V gives 3.5× multiplier', () => {
+      expect(getPowerDamageMultiplier(5)).toBeCloseTo(3.5)
+    })
+
+    it('POWER is applicable to BOW', () => {
+      expect(canEnchantItem('BOW', 'POWER')).toBe(true)
+    })
+
+    it('POWER is not applicable to swords', () => {
+      expect(canEnchantItem('IRON_SWORD', 'POWER')).toBe(false)
     })
   })
 })

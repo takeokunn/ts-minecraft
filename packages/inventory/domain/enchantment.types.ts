@@ -5,7 +5,8 @@ import { Schema } from 'effect'
 export const EnchantmentTypeSchema = Schema.Literal(
   'SHARPNESS', 'SMITE', 'BANE_OF_ARTHROPODS',
   'PROTECTION', 'PROJECTILE_PROTECTION', 'FIRE_PROTECTION', 'BLAST_PROTECTION',
-  'EFFICIENCY', 'FORTUNE', 'SILK_TOUCH', 'UNBREAKING', 'LOOTING', 'INFINITY',
+  'EFFICIENCY', 'FORTUNE', 'SILK_TOUCH', 'UNBREAKING', 'LOOTING',
+  'INFINITY', 'POWER',
 )
 export type EnchantmentType = Schema.Schema.Type<typeof EnchantmentTypeSchema>
 
