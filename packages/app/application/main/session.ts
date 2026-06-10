@@ -9,7 +9,7 @@ import { installPerfHudCounters } from '@ts-minecraft/rendering'
 import { BiomeService, ChunkManagerService, BlockService, FluidService, NetherService } from '@ts-minecraft/world'
 import { GameStateService, TimeService, WeatherService, resolvePreset, GameLoopService, GameModeService, type GameMode } from '@ts-minecraft/game'
 import { HotbarService, InventoryService, RecipeService, EquipmentService } from '@ts-minecraft/inventory'
-import { FurnaceService } from '@ts-minecraft/inventory'
+import { FurnaceService, HOTBAR_START, createStack } from '@ts-minecraft/inventory'
 import { PlayerCameraStateService, FirstPersonCameraService, ThirdPersonCameraService, HealthService, HungerService, XPService, FishingService } from '@ts-minecraft/entity'
 import { EntityManager, MobSpawner, VillageService, RedstoneService } from '@ts-minecraft/entity'
 import { CrosshairService } from '@ts-minecraft/presentation/hud/crosshair'
@@ -25,7 +25,7 @@ import { PauseMenuService } from '@ts-minecraft/presentation/menu/pause-menu'
 import { DeathScreenService } from '@ts-minecraft/presentation/menu/death-screen'
 import { InventoryRendererService } from '@ts-minecraft/presentation/inventory/inventory-renderer'
 import { TradingPresentationService } from '@ts-minecraft/presentation/trading'
-import { CHUNK_SIZE, CHUNK_HEIGHT, WorldId } from '@ts-minecraft/core'
+import { CHUNK_SIZE, CHUNK_HEIGHT, WorldId, SlotIndex, type Position } from '@ts-minecraft/core'
 
 import { installBrowserEventBridge, type PendingResize } from '@ts-minecraft/app/main/browser-runtime'
 import {
@@ -33,7 +33,7 @@ import {
   createSessionControl,
 } from '@ts-minecraft/app/main/session-control'
 import { buildPostProcessing } from '@ts-minecraft/app/main/session-post-processing'
-import { loadOrCreateWorld, buildRespawnPosition } from '@ts-minecraft/app/main/session-world-loader'
+import { loadOrCreateWorld, buildSpawnSelection } from '@ts-minecraft/app/main/session-world-loader'
 import { buildLighting } from '@ts-minecraft/app/main/session-lighting'
 import { buildSessionRuntime } from '@ts-minecraft/app/main/session-runtime'
 import { buildPersistSessionState, restoreSavedState } from '@ts-minecraft/app/main/session-save'
@@ -147,21 +147,6 @@ export const sessionProgram = (
 
     const worldBootstrap = yield* loadOrCreateWorld(worldId, initialGameMode, storageService, noiseService, gameModeService)
 
-    const persistSessionState = buildPersistSessionState({
-      gameState,
-      inventoryService,
-      equipmentService,
-      healthService,
-      hungerService,
-      xpService,
-      timeService,
-      furnaceService,
-      gameModeService,
-      storageService,
-      worldBootstrap,
-      worldId,
-    })
-
     const initialChunkLoadAnchor = Option.getOrElse(
       Option.map(worldBootstrap.savedPlayerState, (saved) => saved.position),
       () => worldBootstrap.baseSpawnPosition,
@@ -178,7 +163,34 @@ export const sessionProgram = (
       renderDistance: initialSettings.renderDistance,
     })
 
-    const defaultRespawnPosition = yield* buildRespawnPosition(worldBootstrap.baseSpawnPosition, chunkManagerService)
+    const initialSpawnSelection = yield* buildSpawnSelection(worldBootstrap.baseSpawnPosition, chunkManagerService)
+    const defaultRespawnPosition = initialSpawnSelection.position
+
+    // Bed-aware respawn point (FR-4), shared live across bed handler, physics-stage,
+    // death-screen, and autosave. Seeded from the saved bed spawn if present, else
+    // the world spawn (back-compat: pre-bed-persistence saves have no respawnPosition).
+    const respawnPositionRef = MutableRef.make<Position>(
+      Option.getOrElse(
+        Option.flatMap(worldBootstrap.savedPlayerState, (s) => Option.fromNullable(s.respawnPosition)),
+        () => defaultRespawnPosition,
+      ),
+    )
+
+    const persistSessionState = buildPersistSessionState({
+      gameState,
+      inventoryService,
+      equipmentService,
+      healthService,
+      hungerService,
+      xpService,
+      timeService,
+      furnaceService,
+      gameModeService,
+      storageService,
+      worldBootstrap,
+      worldId,
+      respawnPositionRef,
+    })
 
     const spawnPosition = Option.getOrElse(
       Option.map(worldBootstrap.savedPlayerState, (saved) => saved.position),
@@ -189,8 +201,28 @@ export const sessionProgram = (
     const lighting = yield* buildLighting(scene, sceneService, initialSettings, initialGraphics)
 
     yield* gameState.initialize(spawnPosition)
+    if (Option.isNone(worldBootstrap.savedPlayerState)) {
+      yield* playerCameraState.setYaw(initialSpawnSelection.yaw)
+      yield* playerCameraState.setPitch(0)
+    }
 
     yield* restoreSavedState(worldBootstrap, { inventoryService, equipmentService, healthService, hungerService, xpService, furnaceService })
+
+    // Give starter hotbar items on new survival worlds so players have a basic
+    // tool and building blocks right away. Creative worlds and resumed sessions
+    // (with existing saved player state) skip this entirely.
+    if (Option.isNone(worldBootstrap.savedPlayerState) && initialGameMode === 'survival') {
+      // WOODEN_PICKAXE in slot 1 of the hotbar (index 27).
+      yield* inventoryService.setSlot(
+        SlotIndex.make(HOTBAR_START),
+        Option.some(createStack('WOODEN_PICKAXE', 1)),
+      )
+      // PLANKS ×16 in slot 2 of the hotbar (index 28).
+      yield* inventoryService.setSlot(
+        SlotIndex.make(HOTBAR_START + 1),
+        Option.some(createStack('PLANKS', 16)),
+      )
+    }
 
     // Auto-save daemon: spaced (not fixed) Schedule prevents burst on tab-resume.
     // Lives on its own forkDaemon so it continues regardless of pause-state.
@@ -236,7 +268,7 @@ export const sessionProgram = (
         renderer, scene, camera, composerRT, composer,
         gtaoPass, bloomPass, bokehPass, godRaysPass, smaaPass,
         lighting, fpsElement, healthValueElement, healthMaxElement, hungerValueElement, hungerMaxElement, xpLevelElement, xpBarElement, armorValueElement,
-        control, gamePausedRef, defaultRespawnPosition,
+        control, gamePausedRef, respawnPositionRef,
         pendingResizeRef, pendingSaveDirtyChunksRef, persistSessionState,
         deathScreen, debugOverlay, biomeService, recipeService,
       },
@@ -249,6 +281,10 @@ export const sessionProgram = (
         soundManager, musicManager, entityManager, mobSpawner, villageService,
         tradingPresentation, redstoneService, fluidService, furnaceService, netherService, weatherService,
         perfHud, gameMode: gameModeService,
+        // Multiplayer is intentionally disabled by default (Option.none).
+        // To enable: pass Option.some(MultiplayerServiceLive(client)) where
+        // client is a real WebSocket ClientService instance.
+        multiplayer: Option.none(),
       },
     )
 

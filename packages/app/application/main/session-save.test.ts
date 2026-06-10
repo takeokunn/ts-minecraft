@@ -1,6 +1,6 @@
 import { describe, it } from '@effect/vitest'
 import { expect, vi } from 'vitest'
-import { Effect, Either, Option } from 'effect'
+import { Effect, Either, MutableRef, Option } from 'effect'
 import { buildPersistSessionState, restoreSavedState } from '@ts-minecraft/app/main/session-save'
 import { WorldId } from '@ts-minecraft/core'
 import { StorageError } from '@ts-minecraft/world'
@@ -88,6 +88,7 @@ const makeDeps = (overrides?: {
       storageService,
       worldBootstrap,
       worldId,
+      respawnPositionRef: MutableRef.make({ x: 0, y: 64, z: 0 }),
     } as never,
   }
 }
@@ -165,6 +166,18 @@ describe('buildPersistSessionState', () => {
     expect(savedWorldId).toBe('world-1')
     expect(metadata.seed).toBe(12345)
     expect(metadata.createdAt).toEqual(new Date('2024-01-01'))
+  })
+
+  it('persists the bed-set respawn point from respawnPositionRef (FR-4)', async () => {
+    const { deps, spies } = makeDeps()
+    // Simulate sleeping in a bed: the live ref is updated to the bed spawn.
+    MutableRef.set((deps as { respawnPositionRef: MutableRef.MutableRef<{ x: number; y: number; z: number }> }).respawnPositionRef, { x: 100, y: 70, z: -42 })
+    const persistFn = buildPersistSessionState(deps)
+
+    await Effect.runPromise(persistFn())
+
+    const [, metadata] = spies.storageService.saveWorldMetadata.mock.calls[0] as [string, { playerState: { respawnPosition: { x: number; y: number; z: number } } }]
+    expect(metadata.playerState.respawnPosition).toEqual({ x: 100, y: 70, z: -42 })
   })
 
   it('surfaces StorageError when saveWorldMetadata fails', async () => {

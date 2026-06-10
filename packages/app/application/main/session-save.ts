@@ -1,4 +1,4 @@
-import { Clock, Effect, Option } from 'effect'
+import { Clock, Effect, MutableRef, Option } from 'effect'
 
 import { GameStateService } from '@ts-minecraft/game'
 import { GameModeService } from '@ts-minecraft/game'
@@ -9,7 +9,7 @@ import { HealthService, HungerService, XPService } from '@ts-minecraft/entity'
 import { PlayerError } from '@ts-minecraft/entity'
 import { StorageService } from '@ts-minecraft/world'
 import { StorageError } from '@ts-minecraft/world'
-import { DEFAULT_PLAYER_ID, WorldId } from '@ts-minecraft/core'
+import { DEFAULT_PLAYER_ID, WorldId, type Position } from '@ts-minecraft/core'
 
 import type { WorldBootstrap } from '@ts-minecraft/app/main/session-world-loader'
 
@@ -26,10 +26,11 @@ export type PersistSessionStateDeps = {
   readonly storageService: StorageService
   readonly worldBootstrap: WorldBootstrap
   readonly worldId: WorldId
+  readonly respawnPositionRef: MutableRef.MutableRef<Position>
 }
 
 export const buildPersistSessionState = (deps: PersistSessionStateDeps) => (): Effect.Effect<void, PlayerError | StorageError> => {
-  const { gameState, inventoryService, equipmentService, healthService, hungerService, xpService, timeService, furnaceService, gameModeService, storageService, worldBootstrap, worldId } = deps
+  const { gameState, inventoryService, equipmentService, healthService, hungerService, xpService, timeService, furnaceService, gameModeService, storageService, worldBootstrap, worldId, respawnPositionRef } = deps
   return Effect.gen(function* () {
     const nowMs = yield* Clock.currentTimeMillis
     const playerPosition = yield* gameState.getPlayerPosition(DEFAULT_PLAYER_ID)
@@ -54,6 +55,7 @@ export const buildPersistSessionState = (deps: PersistSessionStateDeps) => (): E
         hunger: { foodLevel: hunger.foodLevel, saturation: hunger.saturation },
         totalXP: xp.totalXP,
         equipment,
+        respawnPosition: MutableRef.get(respawnPositionRef),
       },
       furnaceStates,
       gameMode,

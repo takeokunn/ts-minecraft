@@ -43,6 +43,9 @@ export const WorldMetadataSchema = Schema.Struct({
         LEGGINGS: Schema.optional(InventoryItemSchema),
         BOOTS: Schema.optional(InventoryItemSchema),
       }),
+      // Bed-set respawn point (FR-4). Optional for back-compat: pre-bed-persistence
+      // saves decode without it, and the session falls back to the world spawn.
+      respawnPosition: Schema.optional(PositionSchema),
     }),
   ),
   furnaceStates: Schema.optional(Schema.Array(FurnaceStateSchema)),

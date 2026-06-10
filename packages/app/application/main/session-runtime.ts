@@ -9,7 +9,7 @@ import { PlayerError } from '@ts-minecraft/entity'
 import { StorageError } from '@ts-minecraft/world'
 import { DebugOverlayService } from '@ts-minecraft/presentation/hud/debug-overlay'
 import { DeathScreenService } from '@ts-minecraft/presentation/menu/death-screen'
-import { type ColorPort, type SkyMaterialPort } from '@ts-minecraft/core'
+import { type ColorPort, type SkyMaterialPort, type Position } from '@ts-minecraft/core'
 
 import { createFrameHandlers, type FrameHandlerDeps, type FrameHandlerServices } from '@ts-minecraft/app/frame-handler'
 import { installQaApi } from '@ts-minecraft/app/main/qa-api'
@@ -55,7 +55,10 @@ export type SessionRuntimeParams = {
   // --- Session primitives ---
   readonly control: SessionControl
   readonly gamePausedRef: Ref.Ref<boolean>
-  readonly defaultRespawnPosition: { readonly x: number; readonly y: number; readonly z: number }
+  // Shared bed-aware respawn point (FR-4). Created once in session.ts (seeded from
+  // the saved respawn or the world spawn) so the bed handler, physics-stage,
+  // death-screen, and autosave all read/write the same live ref.
+  readonly respawnPositionRef: MutableRef.MutableRef<Position>
   readonly pendingResizeRef: MutableRef.MutableRef<Option.Option<PendingResize>>
   readonly pendingSaveDirtyChunksRef: MutableRef.MutableRef<boolean>
   readonly persistSessionState: () => Effect.Effect<void, PlayerError | StorageError>
@@ -78,7 +81,7 @@ const assembleFrameHandlerDeps = (p: SessionRuntimeParams): FrameHandlerDeps => 
     renderer: p.renderer,
     scene: p.scene,
     camera: p.camera,
-    respawnPositionRef: MutableRef.make(p.defaultRespawnPosition),
+    respawnPositionRef: p.respawnPositionRef,
     lights: { light, ambientLight, renderer: dayNightRenderer, skyNight, skyDay, skyCurrent, sky: Option.some(skyPort) },
     skyMesh: Option.some(sky),
     fpsElement: Option.fromNullable(p.fpsElement),
@@ -129,7 +132,7 @@ export const buildSessionRuntime = (
       debugOverlay,
       biomeService,
       recipeService,
-      defaultRespawnPosition,
+      respawnPositionRef,
     } = params
 
     const {
@@ -175,7 +178,7 @@ export const buildSessionRuntime = (
       debugFeatureFlags,
     })
 
-    yield* deathScreen.attach(control, defaultRespawnPosition)
+    yield* deathScreen.attach(control, respawnPositionRef)
 
     // FR-1.4: mount the in-session pause menu. Listens for ESC via the
     // frame-handler input stage (which calls `pauseMenu.openIfClosed(control)`)

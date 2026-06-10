@@ -188,7 +188,10 @@ export class DeathScreenService extends Effect.Service<DeathScreenService>()(
               // Scope-managed: fiber is interrupted and DOM torn down when the surrounding session scope closes.
               attach: (
                 control: SessionControl,
-                spawnPosition: Position,
+                // Read the respawn point LIVE on each respawn (not captured once at
+                // attach) so a bed-set spawn (FR-4) is honored in survival, matching
+                // the creative auto-respawn path in physics-stage.
+                respawnPositionRef: MutableRef.MutableRef<Position>,
               ): Effect.Effect<void, never, Scope.Scope> =>
                 Effect.acquireRelease(
                   Effect.gen(function* () {
@@ -199,7 +202,7 @@ export class DeathScreenService extends Effect.Service<DeathScreenService>()(
                       // Unblock the session in case anything paused it
                       // during the death state.
                       setPaused(control, false)
-                      Effect.runFork(performRespawn(spawnPosition))
+                      Effect.runFork(performRespawn(MutableRef.get(respawnPositionRef)))
                     }
 
                     const handleQuitClick = (): void => {
