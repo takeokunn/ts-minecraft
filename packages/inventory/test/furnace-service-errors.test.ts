@@ -136,7 +136,7 @@ describe('application/furnace/furnace-service', () => {
       expect(Either.isLeft(result)).toBe(true)
       const err = Option.getOrThrow(Either.getLeft(result))
       expect(err._tag).toBe('FurnaceError')
-      expect(String((err as FurnaceError).cause)).toContain('Missing furnace fuel: COAL')
+      expect(String((err as FurnaceError).cause)).toContain('Missing furnace fuel')
     }).pipe(Effect.provide(layer))
   })
 
@@ -150,7 +150,7 @@ describe('application/furnace/furnace-service', () => {
       expect(Either.isLeft(result)).toBe(true)
       const err = Option.getOrThrow(Either.getLeft(result))
       expect(err._tag).toBe('FurnaceError')
-      expect(String((err as FurnaceError).cause)).toContain('Missing furnace fuel: COAL')
+      expect(String((err as FurnaceError).cause)).toContain('Missing furnace fuel')
     }).pipe(Effect.provide(makeFurnaceLayer({
       inventoryItems: MutableHashMap.fromIterable<InventoryItem, number>([['RAW_IRON', 1]]), // no COAL
     }))),

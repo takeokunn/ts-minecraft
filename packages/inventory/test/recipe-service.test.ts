@@ -260,4 +260,20 @@ describe('application/crafting/recipe-service', () => {
       expect(countBlock(slotsAfter, 'ARROW')).toBe(4)
     }).pipe(Effect.provide(testLayer))
   )
+
+  // R58: bucket crafting recipe — players need buckets for water/lava collection.
+  it.effect('craft produces 1 bucket from 3 iron ingots (R58)', () =>
+    Effect.gen(function* () {
+      const rs = yield* RecipeService
+      const inv = yield* InventoryService
+      yield* inv.addBlock('IRON_INGOT', 3)
+      yield* inv.addBlock('CRAFTING_TABLE', 1)
+
+      yield* rs.craft(RecipeId.make('iron-ingots-to-bucket'), inv)
+
+      const slotsAfter = yield* inv.getAllSlots()
+      expect(countBlock(slotsAfter, 'IRON_INGOT')).toBe(0)
+      expect(countBlock(slotsAfter, 'BUCKET')).toBe(1)
+    }).pipe(Effect.provide(testLayer))
+  )
 })

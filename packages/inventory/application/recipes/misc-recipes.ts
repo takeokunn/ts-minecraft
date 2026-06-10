@@ -147,4 +147,11 @@ export const MISC_RECIPES: ReadonlyArray<Recipe> = [
     ],
     output: { itemType: 'ARROW', count: 4 },
   }),
+  // R58: Bucket — 3 iron ingots → 1 bucket (vanilla). Allows water/lava collection.
+  new Recipe({
+    id: RecipeId.make('iron-ingots-to-bucket'),
+    station: 'crafting_table',
+    ingredients: [new RecipeIngredient({ itemType: 'IRON_INGOT', count: 3 })],
+    output: { itemType: 'BUCKET', count: 1 },
+  }),
 ]
