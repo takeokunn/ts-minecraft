@@ -64,14 +64,16 @@ export const physicsStage = (
     yield* logErrors(services.gameState.update(inputs.deltaTime), 'Physics update error')
 
     // Health: fall damage processing and HUD update
-    const finalPosRef = yield* Ref.make(inputs.initialPlayerPos)
+    // finalPosRef is hoisted into FrameStageRefs — reset to initialPlayerPos on every
+    // frame entry to avoid allocating a new Ref object on the hot path (R87).
+    yield* Ref.set(refs.finalPosRef, inputs.initialPlayerPos)
 
     yield* logErrors(
       Effect.gen(function* () {
         const refreshedPos = yield* services.gameState.getPlayerPosition(DEFAULT_PLAYER_ID).pipe(
           Effect.catchAllCause(() => Effect.succeed(inputs.initialPlayerPos)),
         )
-        yield* Ref.set(finalPosRef, refreshedPos)
+        yield* Ref.set(refs.finalPosRef, refreshedPos)
 
         // Read total armor points ONCE per frame. Reused below for both incoming
         // hostile-damage mitigation (applyArmorReduction) and the armor HUD.
@@ -167,7 +169,7 @@ export const physicsStage = (
             yield* services.healthService.reset()
             const respawnPos = MutableRef.get(deps.respawnPositionRef)
             yield* services.gameState.respawn(respawnPos)
-            yield* Ref.set(finalPosRef, respawnPos)
+            yield* Ref.set(refs.finalPosRef, respawnPos)
           }
         } else {
           yield* services.healthService.tick()
@@ -388,7 +390,7 @@ export const physicsStage = (
       'Health error',
     )
 
-    const playerPos = yield* Ref.get(finalPosRef)
+    const playerPos = yield* Ref.get(refs.finalPosRef)
 
     // ---- Nether portal travel detection ----
     // Check if the player's feet block is NETHER_PORTAL; accumulate time and
