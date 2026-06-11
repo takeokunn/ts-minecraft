@@ -223,7 +223,10 @@ describe('application/game-state (core)', () => {
 
   describe('Respawn', () => {
     it.effect('should reset the player position and velocity to the respawn point', () => {
-      const inputService = createTestInputService({ forward: true })
+      // No movement input: with air control (the player can now steer mid-air), a
+      // held movement key would legitimately drift the player after respawn. Using
+      // no input isolates the respawn-reset assertion (position + grounded reset).
+      const inputService = createTestInputService()
       const testLayer = createTestLayer(inputService)
       const respawnPosition = { x: 10, y: 20, z: -5 }
 

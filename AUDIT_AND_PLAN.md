@@ -842,6 +842,34 @@ scratch reuse* and *game-state `{x,y,z}` work* are the measurement-gated R-perf-
     but a mechanism change (Effect.Ref→MutableRef access pattern) across the largest stage; pair with the
     measured round.
 
+## AJ. Round 33 (2026-06-11) — LIVE Playwright verification (measurement unblocked)
+
+User re-enabled Playwright MCP. Launched the game in a real browser (network IP, since the MCP browser's
+`localhost` is a different host) with `?debug=perf` and drove the menu → New World → Survival.
+**Verified live:** 0 console errors, WebGL works, stable **60 FPS** (R-perf-3 cap confirmed; p50 16.7ms /
+p99 17.6ms — no stutter), 69 chunk meshes all `textureLoaded:true` + `hasUv` + `hasTileIndex` (textures
+render correctly — corroborates R79 + the graphics audit), frustum culling 27/69 visible, chunk budget
+drains (Queue 0). **Idle JS-heap sawtooth measured = 24.1 MB** (R30's ~23 MB unchanged → R-perf-2/R81
+correctly did not move it; the idle churn is the per-frame `Effect.gen` pipeline = R-perf-1), but BENIGN:
+3 minor GCs / 8s with FPS holding 57–62, no frame stalls. R30's original complaints
+(重い/カクつく/解像度/ジャンプ) are resolved by R76/R77/R-perf-2/R-perf-3. Limitation: synthetic WASD does
+not move the player (movement is pointer-lock-gated; Playwright headless can't grant lock).
+
+## AK. Round 34 (2026-06-11) — control/operability fixes (user playtest feedback)
+
+User reported: "ジャンプしてブロックを飛びこえられない / ESCでフォーカスがはずれない / 操作性が全体的におかしい".
+
+- [x] R82. Air control — "can't jump over blocks" root cause. `game-state-service.ts:177,179` only applied
+  horizontal input velocity when grounded (`x: isGrounded ? velocity.x : currentVel.x`); airborne it was
+  frozen. So walking into a 1-block wall zeroed forward velocity (collision), and jumping could not
+  re-apply it mid-air → the player rose straight up against the wall and fell back. Jump height (1.27
+  blocks) was never the problem. Fix: while airborne, if a movement key is held apply the full input
+  velocity (steer mid-jump → clear the block); with no input, preserve momentum. Grounded + flight keep
+  full control via their own branches. Updated the respawn test (was asserting the old no-air-control
+  behavior with `forward:true`) + added an air-control regression test. typecheck 0; 150 game tests green.
+  _(done 2026-06-11)_
+- [ ] R83. ESC / pointer-lock release + general operability — under investigation (dynamic workflow).
+
 ## D. Progress log
 - 2026-06-10: Audit complete; plan authored. Beginning Phase 1.
 - 2026-06-10: **ALL TASKS COMPLETE.** Phase 1 (T1-T4 verified hot-path allocs), Phase 2

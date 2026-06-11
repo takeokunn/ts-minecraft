@@ -51,6 +51,32 @@ describe('application/game-state (core)', () => {
       }).pipe(Effect.provide(testLayer))
     })
 
+    it.effect('air control: a held movement key steers the player horizontally while airborne (lets you clear 1-block obstacles)', () => {
+      // Regression guard: previously horizontal velocity was frozen on leaving the
+      // ground, so a player who walked into a block and jumped could not move
+      // forward over it. Air control re-applies the input velocity mid-air.
+      const inputService = createTestInputService({ forward: true })
+      const testLayer = createTestLayer(inputService)
+
+      return Effect.gen(function* () {
+        const service = yield* GameStateService
+
+        // Spawn high so the player is airborne (falling), not grounded.
+        yield* service.initialize({ x: 0, y: 80, z: 0 })
+
+        const grounded = yield* service.isPlayerGrounded()
+        const before = yield* service.getPlayerPosition(DEFAULT_PLAYER_ID)
+        yield* service.update(DeltaTimeSecs.make(1 / 60))
+        const after = yield* service.getPlayerPosition(DEFAULT_PLAYER_ID)
+
+        expect(grounded).toBe(false)
+        // With forward held + air control, the player moves horizontally even while
+        // airborne (old buggy behavior: zero horizontal movement in the air).
+        const horizontalMoved = Math.hypot(after.x - before.x, after.z - before.z)
+        expect(horizontalMoved).toBeGreaterThan(0.01)
+      }).pipe(Effect.provide(testLayer))
+    })
+
     it.effect('should not jump when not grounded (in air)', () => {
       const inputService = createTestInputService({ jump: true })
       const testLayer = createTestLayer(inputService)

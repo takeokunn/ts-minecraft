@@ -170,13 +170,20 @@ export class GameStateService extends Effect.Service<GameStateService>()(
             const velocity = yield* movementService.update(rotation.yaw, isGrounded)
             const jumped = velocity.y > 0
 
-            // Air control: only allow horizontal movement input when grounded.
-            // Flight grants full horizontal air control and replaces the
-            // gravity-driven Y with the controlled flight velocity.
+            // Air control: grounded movement and flight use the full input
+            // velocity. While airborne (jumping/falling) the player keeps air
+            // control — holding a movement key applies the full input velocity so
+            // they can steer mid-jump and clear 1-block obstacles; with no input,
+            // momentum is preserved. Previously horizontal velocity was FROZEN on
+            // leaving the ground (`currentVel`), so walking into a block zeroed
+            // forward speed and made it impossible to jump over it (the wall
+            // re-zeroed velocity every frame, and input could not be re-applied).
+            const hasMoveInput = velocity.x !== 0 || velocity.z !== 0
+            const airborneControl = !flying && !isGrounded
             yield* physicsService.setVelocity(playerBodyId, {
-              x: flying || isGrounded ? velocity.x : currentVel.x,
+              x: airborneControl ? (hasMoveInput ? velocity.x : currentVel.x) : velocity.x,
               y: flying ? flightVy : jumped ? velocity.y : currentVel.y,
-              z: flying || isGrounded ? velocity.z : currentVel.z,
+              z: airborneControl ? (hasMoveInput ? velocity.z : currentVel.z) : velocity.z,
             })
 
             if (jumped) {
