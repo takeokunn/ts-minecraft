@@ -95,8 +95,9 @@ describe('KeyMappings', () => {
       })
     })
 
-    it('has exactly 20 key bindings', () => {
-      expect(Object.keys(KeyMappings).length).toBe(20)
+    it('has exactly 24 key bindings', () => {
+      // 20 base bindings + 4 arrow-key movement aliases (MOVE_*_ALT).
+      expect(Object.keys(KeyMappings).length).toBe(24)
     })
   })
 

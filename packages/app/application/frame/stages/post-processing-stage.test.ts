@@ -10,8 +10,14 @@ runFrame,
 } from '@test/frame-handler-test-kit'
 import { createFrameHandlers } from '@ts-minecraft/app'
 import type { DeltaTimeSecs } from '@ts-minecraft/core'
+import { resolvePreset } from '@ts-minecraft/game'
 import { Effect,MutableRef,Option } from 'effect'
 import { expect,vi } from 'vitest'
+
+// Derive from the preset (not hard-coded) so retuning pixelRatioCap doesn't break
+// these tests. The node test env has no `window`, so devicePixelRatio defaults to
+// 1 and min(1, cap) === cap for any sub-native low cap.
+const LOW_PIXEL_RATIO = resolvePreset('low').pixelRatioCap
 
 // ---------------------------------------------------------------------------
 // FR-009: Refraction pre-pass skip on low quality
@@ -183,7 +189,7 @@ describe('FR-008 — graphics quality caching', () => {
     const handler = (deltaTime: DeltaTimeSecs) => maintenanceHandler().pipe(Effect.andThen(frameHandler(deltaTime)))
     yield* handler(0.016 as DeltaTimeSecs)
 
-    expect((deps.renderer.setPixelRatio as ReturnType<typeof vi.fn>)).toHaveBeenCalledWith(0.5)
+    expect((deps.renderer.setPixelRatio as ReturnType<typeof vi.fn>)).toHaveBeenCalledWith(LOW_PIXEL_RATIO)
   }))
 
   it.effect('applies the reduced pixel ratio to composer when present', () => Effect.gen(function* () {
@@ -202,6 +208,6 @@ describe('FR-008 — graphics quality caching', () => {
     yield* handler(0.016 as DeltaTimeSecs)
 
     const composer = Option.getOrNull(deps.composer)
-    expect((composer as { setPixelRatio: ReturnType<typeof vi.fn> }).setPixelRatio).toHaveBeenCalledWith(0.5)
+    expect((composer as { setPixelRatio: ReturnType<typeof vi.fn> }).setPixelRatio).toHaveBeenCalledWith(LOW_PIXEL_RATIO)
   }))
 })
