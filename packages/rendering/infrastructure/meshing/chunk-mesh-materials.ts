@@ -121,7 +121,7 @@ export const createChunkMeshMaterials = (atlasTexture: THREE.Texture): Effect.Ef
                  float skyFactor = vColor.g;
                  float blockFactor = vColor.b;
                  float lightFactor = max(skyFactor * uSunIntensity, blockFactor);
-                  diffuseColor.rgb *= (0.38 + 0.62 * lightFactor) * (0.8 + 0.2 * aoFactor);
+                  diffuseColor.rgb *= (0.45 + 0.55 * lightFactor) * (0.8 + 0.2 * aoFactor);
                #endif`
             )
         }
@@ -202,7 +202,7 @@ export const createChunkMeshMaterials = (atlasTexture: THREE.Texture): Effect.Ef
                  float skyFactor = vColor.g;
                  float blockFactor = vColor.b;
                  float lightFactor = max(skyFactor * uSunIntensity, blockFactor);
-                  diffuseColor.rgb *= (0.38 + 0.62 * lightFactor) * (0.8 + 0.2 * aoFactor);
+                  diffuseColor.rgb *= (0.45 + 0.55 * lightFactor) * (0.8 + 0.2 * aoFactor);
                #endif`
             )
         }
