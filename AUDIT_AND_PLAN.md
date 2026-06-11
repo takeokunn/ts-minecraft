@@ -666,6 +666,58 @@ disposed).
 - `entity-instance-pool.ts:226` (`disposeAll`) — disposes each bucket's geometry+material but not the
   `InstancedMesh`. COLD path (session shutdown), 24 buckets. DEFER.
 
+## AG. Round 30 (2026-06-11) — LIVE PLAYTEST feedback (user ran a real world)
+
+The user actually built a world and reported, in rapid succession: 動作が重すぎる / 解像度が低すぎる
+/ ジャンプできない / メモリ不足でかくつく / 描画のたびにカクカク / 画面が暗くて視認性が悪い / 矢印キーで
+移動したい / CPU・メモリを食いすぎ. I ran the game headlessly (vite + Playwright + the `__TS_MINECRAFT_QA__`
+hooks) and measured ground truth before touching anything, then the user asked to stop using Playwright,
+so the remaining work is code-only.
+
+**Empirical findings (measured in a running session):**
+- **Resolution** — default `medium` preset rendered at `pixelRatioCap: 0.65` (sub-native → permanent
+  blur). Root cause certain. FIXED (R76).
+- **Jump** — WORKS mechanically: a synthetic `Space` keydown on `document` produced a clean 1.25-block
+  jump arc (23.62→24.87→23.62, exactly the vanilla height the code documents). So "can't jump" is an
+  **input-delivery** bug, not game logic: `handleKeyDown` never `preventDefault`s, so Space activates the
+  focused menu button (the one clicked to start the world) instead of jumping. FIXED (R77).
+- **GC stutter (重い/かくつく/CPU・memory)** — confirmed a violent heap **sawtooth**: ~23 MB idle
+  amplitude (72→95→72 with the player standing still, zero input) and ~150 MB swings while walking
+  (80→233→83). `chunkMeshCount` (~74) and `sceneChildren` (~98) stay STABLE → **not a leak; pure
+  transient-allocation churn → frequent major GC → dropped frames**. Disabling mobs/particles/fluid/
+  redstone did NOT reduce the idle churn → the allocator is the **core frame pipeline**, i.e. the
+  per-frame `Effect.gen` execution across ~15 stages (generators + Effect nodes + continuations every
+  frame). This is the architectural cost the brief warns about. NOT yet fixed — needs a measured refactor
+  (see plan below); recorded honestly rather than patched speculatively.
+- **Dark / poor visibility** — at NOON the world is dim grey. Player spawned at y≈23.6 (below SEA_LEVEL
+  48) facing a shadowed cliff; terrain shader floor is `0.38 + 0.62·lightFactor` so unlit faces sit at
+  38% of an already-grey stone texture. Largely a location effect, but the 0.38 min-light floor is low
+  for visibility. Candidate fix logged (R78, not yet done).
+
+- [x] R76. Native-resolution default — `settings-service.config.ts` pixelRatioCap raised
+  low 0.5→0.75, medium 0.65→1.0 (native), high 0.85→1.25, ultra 1.25→2.0. Monotonic ordering preserved;
+  all within schema [0.5,2.0]. Tuning comment rewritten to explain the sub-native blur tradeoff.
+  Settings tests assert ordering (not exact values) → green. _(done 2026-06-11)_
+- [x] R77. Arrow-key movement + game-key preventDefault — `key-mappings.ts` MOVE_*_ALT (Arrow*),
+  `movement-service.getInput` OR-combines WASD|arrow per direction (`isDirPressed`), and
+  `input-service.handleKeyDown` `preventDefault`s Space/arrows/PageUp/Down when no text field is focused
+  (fixes both the Space-eaten-by-button jump bug and arrow-key page-scroll; world-name typing preserved).
+  +5 tests. _(done 2026-06-11)_
+
+**OPEN — CPU/memory churn (the top user complaint; needs a dedicated measured round):**
+- [ ] R-perf-1. Reduce per-frame allocation in the unconditional hot stages (camera/physics/render/hud/
+  lighting + `gameState.update`/`movementService.getInput`). Convert the hottest `Effect.gen` stages to
+  pre-built Effects or plain mutable sync where behavior-preserving; reuse scratch objects for the
+  per-frame `{x,y,z}` returns (getVelocity/getPosition/resolveBlockCollisions). Measure heap-churn
+  amplitude before/after (target: flatten the idle sawtooth). Must be done incrementally with the QA
+  heap-sampling harness as the regression gate.
+- [ ] R-perf-2. New-chunk load+mesh upload spike while moving (150 MB swings). Confirm the worker-pool
+  result→BufferGeometry upload is budgeted per frame like the dirty-chunk flush is; if multiple chunk
+  geometries upload in one frame, add a per-frame upload budget + requeue.
+- [ ] R78. Brightness/visibility — raise the terrain min-light floor (0.38) modestly (e.g. 0.45) and/or
+  verify `setSunIntensity` reaches 1.0 at noon, so caves/shadows are visible without fully abandoning the
+  light-up-with-torches mechanic. Small shader-constant change + a chunk-material test.
+
 ## D. Progress log
 - 2026-06-10: Audit complete; plan authored. Beginning Phase 1.
 - 2026-06-10: **ALL TASKS COMPLETE.** Phase 1 (T1-T4 verified hot-path allocs), Phase 2
