@@ -76,22 +76,23 @@ export class MovementService extends Effect.Service<MovementService>()(
           (a, b) => a || b,
         )
 
+      // R-perf-1: getInput runs EVERY frame (player update). Every key read is a
+      // synchronous HashSet lookup, so the previous `Effect.all([...], {concurrency:
+      // 'unbounded'})` spawned ~9 fibers per frame for zero parallelism gain — pure
+      // scheduler + array allocation churn. Sequential yield* reads eliminate the
+      // fibers and the intermediate arrays/tuple (mirrors camera/render/physics-stage).
       const getInput = (): Effect.Effect<MovementInput, never> =>
         Effect.gen(function* () {
-          const [forward, backward, left, right, jump, sprint, sneak] = yield* Effect.all([
-            isDirPressed(KeyMappings.MOVE_FORWARD, KeyMappings.MOVE_FORWARD_ALT),
-            isDirPressed(KeyMappings.MOVE_BACKWARD, KeyMappings.MOVE_BACKWARD_ALT),
-            isDirPressed(KeyMappings.MOVE_LEFT, KeyMappings.MOVE_LEFT_ALT),
-            isDirPressed(KeyMappings.MOVE_RIGHT, KeyMappings.MOVE_RIGHT_ALT),
-            // Use consumeKeyPress for jump to only trigger once per key press
-            inputService.consumeKeyPress(KeyMappings.JUMP),
-            Effect.all([inputService.isKeyPressed('ControlLeft'), inputService.isKeyPressed('ControlRight')], {concurrency: 'unbounded'}).pipe(
-              Effect.map(([l, r]) => l || r)
-            ),
-            inputService.isKeyPressed(KeyMappings.SNEAK),
-          ], { concurrency: 'unbounded' })
-
-          return { forward, backward, left, right, jump, sprint, sneak }
+          const forward = yield* isDirPressed(KeyMappings.MOVE_FORWARD, KeyMappings.MOVE_FORWARD_ALT)
+          const backward = yield* isDirPressed(KeyMappings.MOVE_BACKWARD, KeyMappings.MOVE_BACKWARD_ALT)
+          const left = yield* isDirPressed(KeyMappings.MOVE_LEFT, KeyMappings.MOVE_LEFT_ALT)
+          const right = yield* isDirPressed(KeyMappings.MOVE_RIGHT, KeyMappings.MOVE_RIGHT_ALT)
+          // consumeKeyPress (not isKeyPressed) so a held jump only fires once per press.
+          const jump = yield* inputService.consumeKeyPress(KeyMappings.JUMP)
+          const ctrlLeft = yield* inputService.isKeyPressed('ControlLeft')
+          const ctrlRight = yield* inputService.isKeyPressed('ControlRight')
+          const sneak = yield* inputService.isKeyPressed(KeyMappings.SNEAK)
+          return { forward, backward, left, right, jump, sprint: ctrlLeft || ctrlRight, sneak }
         })
 
       const calculateVelocity = (
