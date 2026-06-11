@@ -4,7 +4,7 @@
 import { Effect, MutableRef, Ref } from 'effect'
 import { logErrors } from '@ts-minecraft/app/frame/error-logging'
 import type { FrameHandlerDeps, FrameHandlerServices, FrameStageRefs, ResolvedDeps } from '@ts-minecraft/app/frame/types'
-import { captureCameraPose, hasCameraPoseChanged } from '@ts-minecraft/app/frame/frame-runtime-logic'
+import { captureCameraPose, copyCameraPoseInto, hasCameraPoseChanged } from '@ts-minecraft/app/frame/frame-runtime-logic'
 import type { ResolvedGraphics } from '@ts-minecraft/game'
 
 // ---------------------------------------------------------------------------
@@ -16,7 +16,7 @@ export const refractionPrepassStage = (
   services: Pick<FrameHandlerServices, 'worldRendererService'>,
   refs: Pick<
     FrameStageRefs,
-    'refractionFrameCounterRef' | 'refractionValidRef' | 'lastRefractionFrameRef' | 'totalTimeSecsRef'
+    'refractionFrameCounterRef' | 'refractionValidRef' | 'lastRefractionFrameRef' | 'totalTimeSecsRef' | 'currentRefractionPoseScratch'
   >,
   inputs: {
     readonly resolvedGraphics: ResolvedGraphics
@@ -32,9 +32,10 @@ export const refractionPrepassStage = (
       const refractionFrame = yield* Ref.updateAndGet(refs.refractionFrameCounterRef, (n) => n + 1)
       if ((refractionFrame - 1) % inputs.resolvedGraphics.refractionThrottleFrames === 0) {
         const sceneVersionBeforeRefraction = yield* services.worldRendererService.getSceneVersion()
-        const currentRefractionPose = captureCameraPose(deps.camera, sceneVersionBeforeRefraction)
+        // R89: output-parameter pattern — write into pre-allocated scratch, no per-frame allocation
+        captureCameraPose(deps.camera, sceneVersionBeforeRefraction, refs.currentRefractionPoseScratch)
         const lastRefractionFrame = MutableRef.get(refs.lastRefractionFrameRef)
-        const shouldRunRefraction = hasCameraPoseChanged(lastRefractionFrame, currentRefractionPose)
+        const shouldRunRefraction = hasCameraPoseChanged(lastRefractionFrame, refs.currentRefractionPoseScratch)
 
         if (shouldRunRefraction) {
           // FR-4.4: pass preset-resolved threshold so refraction skips when on-screen
@@ -48,7 +49,7 @@ export const refractionPrepassStage = (
             ),
             'Refraction pre-pass error',
           )
-          MutableRef.set(refs.lastRefractionFrameRef, currentRefractionPose)
+          copyCameraPoseInto(refs.currentRefractionPoseScratch, lastRefractionFrame)
           yield* Ref.getAndSet(refs.refractionValidRef, true).pipe(
             Effect.flatMap((wasValid) =>
               /* c8 ignore next */
@@ -60,7 +61,7 @@ export const refractionPrepassStage = (
     }
 
     // Update water uniforms (time + camera position only — resolution is set on resize)
-    yield* services.worldRendererService.updateWaterUniforms(inputs.totalTimeSecs, deps.camera.position, 1.0)
+    yield* services.worldRendererService.updateWaterUniforms(inputs.totalTimeSecs, deps.camera.position, inputs.sunIntensity)
   })
 
 // ---------------------------------------------------------------------------
