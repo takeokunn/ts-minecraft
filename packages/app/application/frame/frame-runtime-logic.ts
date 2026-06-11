@@ -3,18 +3,18 @@ import { Option } from 'effect'
 import { ADAPTIVE_QUALITY_HIGH_FPS_THRESHOLD } from '@ts-minecraft/app/frame-handler.config'
 
 export type CameraPoseSnapshot = {
-  readonly version: number
-  readonly x: number
-  readonly y: number
-  readonly z: number
-  readonly qx: number
-  readonly qy: number
-  readonly qz: number
-  readonly qw: number
-  readonly p0: number
-  readonly p5: number
-  readonly p10: number
-  readonly p14: number
+  version: number
+  x: number
+  y: number
+  z: number
+  qx: number
+  qy: number
+  qz: number
+  qw: number
+  p0: number
+  p5: number
+  p10: number
+  p14: number
 }
 
 export type AdaptiveQualityInput = {
@@ -36,22 +36,43 @@ export type AdaptiveQualityDecision = {
   readonly settingsPatch: Option.Option<SettingsPatch>
 }
 
-export const captureCameraPose = (camera: THREE.PerspectiveCamera, version: number): CameraPoseSnapshot => {
+// Output-parameter pattern: writes camera state into `out` in-place.
+// No object allocation on the hot path — callers pass a pre-allocated CameraPoseSnapshot.
+export const captureCameraPose = (
+  camera: THREE.PerspectiveCamera,
+  version: number,
+  out: CameraPoseSnapshot,
+): void => {
   const projection = camera.projectionMatrix.elements
-  return {
-    version,
-    x: camera.position.x,
-    y: camera.position.y,
-    z: camera.position.z,
-    qx: camera.quaternion.x,
-    qy: camera.quaternion.y,
-    qz: camera.quaternion.z,
-    qw: camera.quaternion.w,
-    p0: projection[0] as number,
-    p5: projection[5] as number,
-    p10: projection[10] as number,
-    p14: projection[14] as number,
-  }
+  out.version = version
+  out.x = camera.position.x
+  out.y = camera.position.y
+  out.z = camera.position.z
+  out.qx = camera.quaternion.x
+  out.qy = camera.quaternion.y
+  out.qz = camera.quaternion.z
+  out.qw = camera.quaternion.w
+  out.p0 = projection[0] as number
+  out.p5 = projection[5] as number
+  out.p10 = projection[10] as number
+  out.p14 = projection[14] as number
+}
+
+// Copy all fields from `src` into `dst` in-place.
+// Used to update the stored "last" snapshot without allocating a new object.
+export const copyCameraPoseInto = (src: CameraPoseSnapshot, dst: CameraPoseSnapshot): void => {
+  dst.version = src.version
+  dst.x = src.x
+  dst.y = src.y
+  dst.z = src.z
+  dst.qx = src.qx
+  dst.qy = src.qy
+  dst.qz = src.qz
+  dst.qw = src.qw
+  dst.p0 = src.p0
+  dst.p5 = src.p5
+  dst.p10 = src.p10
+  dst.p14 = src.p14
 }
 
 export const hasCameraPoseChanged = (

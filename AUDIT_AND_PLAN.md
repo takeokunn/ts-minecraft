@@ -1311,7 +1311,7 @@ A comprehensive multi-lens audit covering: (1) per-frame heap allocation census 
 
 - [x] R87: Hoist `finalPosRef` out of `physicsStage` into `FrameStageRefs`; reset with `Ref.set` on entry — `physics-stage.ts` / `types.ts` (critical)
 - [x] R88: Replace inner `Effect.gen` in `processFrames` with pre-built Effect or `pipe`-chain — `game-loop.ts` (critical)
-- [ ] R89: Change `captureCameraPose` to output-parameter pattern; overwrite existing object in-place — `frame-runtime-logic.ts` (critical)
+- [x] R89: Change `captureCameraPose` to output-parameter pattern; overwrite existing object in-place — `frame-runtime-logic.ts` (critical)
 - [x] R90: Fix auto-save daemon fiber leak: store fiber reference + interrupt via `Effect.addFinalizer` — `session.ts` (critical)
 - [x] R91: Fix LOD re-mesh trigger: after `hasLodChanges`, enqueue affected chunks into dirty-chunk path with new LOD — `world-renderer-chunk-sync.ts` (critical)
 - [x] R92: Thread computed `sunIntensity` from `lightingStage` into `refractionPrepassStage`; replace hardcoded `1.0` — `post-processing-stage.ts` (critical)

@@ -26,27 +26,30 @@ describe('frame-runtime-logic', () => {
 
   it('detects whether a camera pose changed', () => {
     const camera = new THREE.PerspectiveCamera()
-    const previous = captureCameraPose(camera, 1)
-    const same = captureCameraPose(camera, 1)
-    expect(hasCameraPoseChanged(previous, same)).toBe(false)
+    const makeScratch = () => ({ version: 0, x: 0, y: 0, z: 0, qx: 0, qy: 0, qz: 0, qw: 1, p0: 0, p5: 0, p10: 0, p14: 0 })
+    const previous = makeScratch()
+    const current = makeScratch()
+    captureCameraPose(camera, 1, previous)
+    captureCameraPose(camera, 1, current)
+    expect(hasCameraPoseChanged(previous, current)).toBe(false)
 
     camera.position.set(1, 2, 3)
-    const moved = captureCameraPose(camera, 1)
-    expect(hasCameraPoseChanged(previous, moved)).toBe(true)
+    captureCameraPose(camera, 1, current)
+    expect(hasCameraPoseChanged(previous, current)).toBe(true)
 
     camera.position.set(0, 0, 0)
-    const samePoseNewVersion = captureCameraPose(camera, 2)
-    expect(hasCameraPoseChanged(previous, samePoseNewVersion)).toBe(true)
+    captureCameraPose(camera, 2, current)
+    expect(hasCameraPoseChanged(previous, current)).toBe(true)
 
     camera.quaternion.set(0, 0.5, 0, 1)
-    const rotated = captureCameraPose(camera, 1)
-    expect(hasCameraPoseChanged(previous, rotated)).toBe(true)
+    captureCameraPose(camera, 1, current)
+    expect(hasCameraPoseChanged(previous, current)).toBe(true)
 
     camera.quaternion.set(0, 0, 0, 1)
     camera.far = 512
     camera.updateProjectionMatrix()
-    const projectionChanged = captureCameraPose(camera, 1)
-    expect(hasCameraPoseChanged(previous, projectionChanged)).toBe(true)
+    captureCameraPose(camera, 1, current)
+    expect(hasCameraPoseChanged(previous, current)).toBe(true)
   })
 
   it('decides adaptive quality changes in the expected order', () => {
