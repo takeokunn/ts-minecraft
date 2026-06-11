@@ -102,17 +102,6 @@ export const interactionStage = (
           // concurrency spawns 8 fibers every frame for no gain (and sequential
           // is deterministic for the edge-consume order).
         )
-        const flags: RedstoneFlags = {
-          placeWire,
-          placeLever,
-          placeButton,
-          placeTorch,
-          placePiston,
-          toggleLever,
-          pressButton,
-          toggleTorch,
-        }
-
         // Consumed via a SEPARATE statement so the positional redstone tuple
         // above stays untouched. Independent of the click/redstone branch below.
         const unequipArmor = yield* services.inputService.consumeKeyPress(UNEQUIP_ARMOR_KEY)
@@ -151,6 +140,19 @@ export const interactionStage = (
           const selectedHotbarItem = yield* services.hotbarService.getSelectedBlockType()
 
           if (hasRedstoneInput) {
+            // Build the redstone flag object only when redstone input actually fired
+            // (rare). Keeping it off the common path avoids allocating this object on
+            // every frame that has no redstone keypress (the overwhelming majority).
+            const flags: RedstoneFlags = {
+              placeWire,
+              placeLever,
+              placeButton,
+              placeTorch,
+              placePiston,
+              toggleLever,
+              pressButton,
+              toggleTorch,
+            }
             yield* handleRedstoneInput(services, flags, targetBlock)
           }
 

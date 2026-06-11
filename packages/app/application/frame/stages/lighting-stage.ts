@@ -16,6 +16,16 @@ const applyRainEnvironment = (lights: DayNightLights, weather: Weather): void =>
   lights.renderer.setClearColor(lights.skyCurrent)
 }
 
+// Module-scoped scratch for the per-frame music context. Its fields are overwritten
+// every frame before use, so reusing it avoids allocating a fresh
+// `{ isNight, playerPosition }` literal each frame. Safe because
+// `musicManager.updateFromContext` reads the fields synchronously
+// (via `environmentFromContext`) and never retains the object.
+const musicContextScratch: { isNight: boolean; playerPosition: Position } = {
+  isNight: false,
+  playerPosition: { x: 0, y: 0, z: 0 },
+}
+
 export const lightingStage = (
   deps: Pick<FrameHandlerDeps, 'lights' | 'renderer'>,
   services: Pick<FrameHandlerServices, 'timeService' | 'musicManager' | 'chunkMeshService' | 'netherService' | 'weatherService'>,
@@ -55,9 +65,11 @@ export const lightingStage = (
 
     yield* logErrors(
       services.timeService.isNight().pipe(
-        Effect.flatMap((isNight) =>
-          services.musicManager.updateFromContext({ isNight, playerPosition: inputs.playerPos }),
-        ),
+        Effect.flatMap((isNight) => {
+          musicContextScratch.isNight = isNight
+          musicContextScratch.playerPosition = inputs.playerPos
+          return services.musicManager.updateFromContext(musicContextScratch)
+        }),
       ),
       'Music update error',
     )

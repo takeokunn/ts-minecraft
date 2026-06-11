@@ -810,6 +810,38 @@ pre-built changes behavior in ways only heap measurement can regression-gate. **
 high-value NFR work:** re-enable the QA heap-sampling harness (the `?debug=perf` HUD `Mem:` readout already
 exists) so R-perf-1 can proceed increment-by-increment with a measured before/after gate.
 
+## AI. Round 32 (2026-06-11) — deep per-frame allocation census (supersedes the "convergence" note above)
+
+The Round-31 convergence note was **premature**: it relied on a shallow 3-agent audit. A deeper
+**14-agent line-by-line allocation census** (6 inventory agents over every hot stage + adversarial
+verifiers) found **5 genuine per-frame allocations** the shallow pass missed, and correctly rejected 3
+false candidates (one deferred-by-governance, two with factual errors). Filtering the 5 by the plan's OWN
+precedent — *local literals hoistable without measurement* (T1-class) are landable; *function-return
+scratch reuse* and *game-state `{x,y,z}` work* are the measurement-gated R-perf-1 footgun scope — yields
+2 clean wins landed now and 3 deferred.
+
+- [x] R81. Two measurement-free per-frame local-literal eliminations (T1-class):
+  - `interaction-stage.ts` — the 8-field `RedstoneFlags` object was built **unconditionally every frame**
+    but only consumed inside `if (hasRedstoneInput)` (rare). Moved its construction *into* that branch
+    (code motion, not scratch reuse) → **zero allocation on the common path**, no module state added. The
+    8 `consumeKeyPress` edge-reads stay every-frame (they drain the input queue).
+  - `lighting-stage.ts` — the `{ isNight, playerPosition }` music-context literal (allocated every frame,
+    passed to `musicManager.updateFromContext`) → reused a module-scoped scratch (fields overwritten each
+    frame; the service reads them synchronously via `environmentFromContext` and never retains the object).
+  - typecheck 0; interaction-stage(40) + redstone(9) + lighting(6) + music(7) + redstone suites = 136 tests
+    green. _(done 2026-06-11)_
+
+- [ ] R-perf-1 increment candidates (DEFERRED to the measured round — the deep census located them but they
+  fall inside the measurement-gated / footgun scope, so they wait for the heap harness):
+  - `game-state-service.ts:250-254` `resolvedVel` `{x,y,z}` — local temp, technically safe per one verifier,
+    but game-state per-frame `{x,y,z}` work is explicitly measurement-gated under R-perf-1 (a sibling
+    candidate at :210 was rejected on this exact governance ground). Defer for consistency.
+  - `movement-service.ts:95` `getInput` MovementInput **return** object — exactly the shared-mutable-RETURN
+    footgun R-perf-1 defers (a reused return could be retained by a future caller). Defer.
+  - `physics-stage.ts:45` per-frame `Ref.make(initialPlayerPos)` → module `MutableRef` — safe in principle
+    but a mechanism change (Effect.Ref→MutableRef access pattern) across the largest stage; pair with the
+    measured round.
+
 ## D. Progress log
 - 2026-06-10: Audit complete; plan authored. Beginning Phase 1.
 - 2026-06-10: **ALL TASKS COMPLETE.** Phase 1 (T1-T4 verified hot-path allocs), Phase 2
