@@ -127,14 +127,16 @@ export const runFrameStages = (
     yield* services.soundManager.setListenerPosition(initialPlayerPos)
 
     const sessionPaused = MutableRef.get(deps.sessionPausedRef)
+    let sunIntensity = 0
     if (!sessionPaused) {
       yield* chunkSyncStage(deps, services, refs)
-      const { sunIntensity } = yield* lightingStage(deps, services, refs, {
+      const lightingResult = yield* lightingStage(deps, services, refs, {
         deltaTime,
         effectiveLights,
         playerPos: initialPlayerPos,
         markShadowMapDirty: context.markShadowMapDirty,
       })
+      sunIntensity = lightingResult.sunIntensity
 
       const isNight = yield* services.timeService.isNight()
       yield* entityUpdateStage(deps, services, refs, {
@@ -188,7 +190,7 @@ export const runFrameStages = (
         markShadowMapDirty: context.markShadowMapDirty,
       })
       yield* interactionStage(deps, services, refs)
-      yield* refractionPrepassStage(deps, services, refs, { resolvedGraphics, totalTimeSecs })
+      yield* refractionPrepassStage(deps, services, refs, { resolvedGraphics, totalTimeSecs, sunIntensity })
     }
 
     yield* postProcessingSetupStage(deps, context.resolved, {

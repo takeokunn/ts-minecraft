@@ -21,6 +21,7 @@ export const refractionPrepassStage = (
   inputs: {
     readonly resolvedGraphics: ResolvedGraphics
     readonly totalTimeSecs: number
+    readonly sunIntensity: number
   },
 ): Effect.Effect<void, never> =>
   Effect.gen(function* () {
