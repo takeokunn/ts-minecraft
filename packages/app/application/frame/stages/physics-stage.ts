@@ -14,6 +14,28 @@ import { resolveNetherTravel, type Dimension } from '@ts-minecraft/world'
 /** Seconds a player must stand in a NETHER_PORTAL block to trigger dimension travel. */
 const PORTAL_ACTIVATION_SECS = 4.0
 
+/**
+ * Pure column-reader: given a resolved chunkOpt plus the pre-computed local
+ * x/z offsets inside that chunk, return a function that maps a world-Y to the
+ * block type at that position (null when out of bounds or chunk absent).
+ *
+ * Hoisted out of the per-frame Effect.gen body so no new closure is allocated
+ * on every frame — only the single call-site invocation below allocates.
+ */
+const makeColumnReader = (
+  chunkOpt: Option.Option<{ readonly blocks: ArrayLike<number> }>,
+  lx: number,
+  lz: number,
+): ((wy: number) => ReturnType<typeof indexToBlockType> | null) =>
+  (wy: number) => {
+    const by = Math.floor(wy)
+    if (by < 0 || by >= CHUNK_HEIGHT) return null
+    return Option.match(chunkOpt, {
+      onNone: () => null,
+      onSome: (chunk) => indexToBlockType(chunk.blocks[by + lz * CHUNK_HEIGHT + lx * CHUNK_HEIGHT * CHUNK_SIZE] ?? 0),
+    })
+  }
+
 export const physicsStage = (
   deps: Pick<FrameHandlerDeps, 'respawnPositionRef'>,
   services: Pick<
@@ -71,33 +93,6 @@ export const physicsStage = (
                       ),
                 ),
               )
-
-        // Fetch the player's chunk column ONCE, then read block types at any Y
-        // synchronously. The feet (lava) and eye (drowning) checks share the same
-        // x,z column and chunks span the full height, so a single getChunk serves
-        // both — avoiding a redundant per-frame fetch (the 3×3 cache is collisions-only).
-        const readPlayerColumn = (
-          wx: number,
-          wz: number,
-        ): Effect.Effect<(wy: number) => ReturnType<typeof indexToBlockType> | null, never> => {
-          const bx = Math.floor(wx)
-          const bz = Math.floor(wz)
-          const lx = ((bx % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE
-          const lz = ((bz % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE
-          return services.chunkManagerService
-            .getChunk({ x: Math.floor(bx / CHUNK_SIZE), z: Math.floor(bz / CHUNK_SIZE) })
-            .pipe(
-              Effect.option,
-              Effect.map((chunkOpt) => (wy: number) => {
-                const by = Math.floor(wy)
-                if (by < 0 || by >= CHUNK_HEIGHT) return null
-                return Option.match(chunkOpt, {
-                  onNone: () => null,
-                  onSome: (chunk) => indexToBlockType(chunk.blocks[by + lz * CHUNK_HEIGHT + lx * CHUNK_HEIGHT * CHUNK_SIZE] ?? 0),
-                })
-              }),
-            )
-        }
 
         const isGrounded = yield* services.gameState.isPlayerGrounded()
         const rawFallDamage = yield* services.healthService.processFallDamage(refreshedPos.y, isGrounded)
@@ -246,7 +241,17 @@ export const physicsStage = (
           // Lava burn (FR-2 / T14a): standing in LAVA deals LAVA_DAMAGE every
           // LAVA_DAMAGE_INTERVAL_SECS. Creative players are immune (vanilla). The
           // accumulator keeps the cadence frame-rate independent.
-          const columnBlockAt = yield* readPlayerColumn(refreshedPos.x, refreshedPos.z)
+          // Fetch the player's chunk column ONCE, then read block types at any Y
+          // synchronously. The feet (lava) and eye (drowning) checks share the same
+          // x,z column — a single getChunk avoids a redundant per-frame fetch.
+          const _bx = Math.floor(refreshedPos.x)
+          const _bz = Math.floor(refreshedPos.z)
+          const _lx = ((_bx % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE
+          const _lz = ((_bz % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE
+          const _colChunkOpt = yield* services.chunkManagerService
+            .getChunk({ x: Math.floor(_bx / CHUNK_SIZE), z: Math.floor(_bz / CHUNK_SIZE) })
+            .pipe(Effect.option)
+          const columnBlockAt = makeColumnReader(_colChunkOpt, _lx, _lz)
           const feetBlock = columnBlockAt(refreshedPos.y)
           if (!inCreative && feetBlock === 'LAVA') {
             const { acc, ticks } = accrueHazardTicks(

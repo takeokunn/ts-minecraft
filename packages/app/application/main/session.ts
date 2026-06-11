@@ -1,4 +1,4 @@
-import { Deferred, Duration, Effect, MutableRef, Option, Ref, Schedule } from 'effect'
+import { Deferred, Duration, Effect, Fiber, MutableRef, Option, Ref, Schedule } from 'effect'
 import { SceneService, PerspectiveCameraService, WorldRendererService, EntityRendererService, ChunkMeshService } from '@ts-minecraft/rendering'
 
 import { StartupError } from '@ts-minecraft/game'
@@ -228,12 +228,15 @@ export const sessionProgram = (
 
     // Auto-save daemon: spaced (not fixed) Schedule prevents burst on tab-resume.
     // Lives on its own forkDaemon so it continues regardless of pause-state.
-    yield* Effect.forkDaemon(
+    // The fiber is stored and interrupted via addFinalizer so it is cleaned up
+    // when the session scope exits (quit-to-title / error unwind).
+    const autoSaveFiber = yield* Effect.forkDaemon(
       Effect.repeat(
         performAutoSaveTick(chunkManagerService.saveDirtyChunks(), persistSessionState()),
         Schedule.spaced(Duration.seconds(5)),
       ),
     )
+    yield* Effect.addFinalizer(() => Fiber.interrupt(autoSaveFiber).pipe(Effect.ignore))
 
     yield* blockHighlight.initialize(scene)
     yield* hotbarRenderer.initialize(canvas.clientWidth, canvas.clientHeight)

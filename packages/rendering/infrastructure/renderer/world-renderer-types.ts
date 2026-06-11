@@ -21,6 +21,14 @@ const computeChunkSyncBudgetMs = (fps: number): number => 240 / fps
 // Derived from the helper at DEFAULT_TARGET_FPS so the cap scales with the target FPS.
 export const MAX_CHUNK_UPDATES_PER_FRAME = computeMaxChunkUpdatesPerFrame(RENDERING_DEFAULT_TARGET_FPS)
 
+// Per-frame cap on chunk REMOVALS/disposals. geometry.dispose() triggers a
+// synchronous WebGL deleteBuffer on the main thread, so disposing a whole stale
+// chunk row at once (a chunk-boundary crossing while moving) stalls the frame
+// ("移動しまくるとカクつく"). Half the add cap spreads a boundary-crossing burst
+// over a few frames; steady churn (~<1 chunk/frame, load-throttled) is far below
+// it so stale chunks never accumulate. Mirrors the budgeted add path.
+export const MAX_CHUNK_REMOVALS_PER_FRAME = Math.max(2, Math.ceil(MAX_CHUNK_UPDATES_PER_FRAME / 2))
+
 // Mirrors DIRTY_CHUNK_FLUSH_TIME_BUDGET_MS in frame-maintenance — both pipelines target the same per-frame budget.
 // Derived from the helper at DEFAULT_TARGET_FPS so the time budget scales with the target FPS.
 export const WORLD_RENDERER_TIME_BUDGET_MS = computeChunkSyncBudgetMs(RENDERING_DEFAULT_TARGET_FPS)

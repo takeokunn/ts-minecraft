@@ -134,6 +134,9 @@ const createFrameLoopHandlersInternal = (
     // FR-005: Skip audio applySettings when volume/enabled haven't changed
     const lastAudioRef = MutableRef.make({ enabled: false, master: -1, sfx: -1, music: -1 })
     const wasGroundedRef = MutableRef.make(true)
+    // Hoisted final-position ref: reset to initialPlayerPos at the start of physicsStage
+    // each frame, avoiding a per-frame Ref.make allocation on the hot path.
+    const finalPosRef = yield* Ref.make<import('@ts-minecraft/core').Position>({ x: 0, y: 0, z: 0 })
 
     // Pre-computed lights variant with sky disabled — avoids per-frame object spread
     const lightsWithoutSky: DayNightLights = { ...deps.lights, sky: Option.none() }
@@ -201,6 +204,7 @@ const createFrameLoopHandlersInternal = (
       lastRefractionFrameRef,
       lastAudioRef,
       wasGroundedRef,
+      finalPosRef,
     }
 
     const applyPixelRatioCap = (pixelRatioCap: number): Effect.Effect<boolean, never> =>

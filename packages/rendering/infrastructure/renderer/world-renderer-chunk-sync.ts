@@ -7,6 +7,7 @@ import { lodForDistance, type LodLevel } from '../meshing/lod-simplification'
 import { SceneService } from '../scene/scene-service'
 import {
   MAX_CHUNK_UPDATES_PER_FRAME,
+  MAX_CHUNK_REMOVALS_PER_FRAME,
   WORLD_RENDERER_TIME_BUDGET_MS,
   CHUNK_SYNC_CONCURRENCY,
   type ChunkMeshes,
@@ -67,17 +68,15 @@ export const syncChunksToScene = (
     const hasRemovedChunks = !hasNewChunks && loadedChunks.length < HashMap.size(meshes)
 
     // FR-3.1: detect chunks whose LOD band changed since last meshed (player
-    // moved across a band boundary, or render distance changed). These are NOT
-    // re-meshed inside this scene-sync call — re-meshing happens via the
-    // existing dirty-chunk path (updateChunkInScene). This block only forces
-    // syncChunksToScene to keep running so callers can observe `false` from
-    // the return value when the scene state is still settling.
-    const hasLodChanges = Arr.some(loadedChunks, (c) =>
+    // moved across a band boundary, or render distance changed). Collect the
+    // affected chunks so they can be re-meshed below with the new LOD level.
+    const lodChangedChunks = Arr.filter(loadedChunks, (c) =>
       Option.match(HashMap.get(meshes, chunkKey(c.coord)), {
         onNone: () => false,
         onSome: (cm) => cm.lod !== lodForChunk(c),
       })
     )
+    const hasLodChanges = lodChangedChunks.length > 0
 
     if (!hasNewChunks && !hasRemovedChunks && !hasLodChanges) {
       return true
@@ -147,14 +146,22 @@ export const syncChunksToScene = (
       )
     )
 
-    // Remove meshes for chunks no longer loaded (iterate original snapshot)
+    // Remove meshes for chunks no longer loaded (iterate original snapshot).
+    // BUDGETED: dispose at most MAX_CHUNK_REMOVALS_PER_FRAME chunks per frame.
+    // geometry.dispose() runs a synchronous WebGL deleteBuffer on the main thread;
+    // a chunk-boundary crossing stales a whole row at once, so disposing them all in
+    // one frame stutters while moving. Unprocessed stale chunks stay in `meshes` and
+    // are disposed next frame (steady churn ≪ the cap → no accumulation, and they are
+    // just off-screen edge chunks). Mirrors the budgeted ADD path above.
     const removalPairs = Arr.filterMap(
       Arr.fromIterable(meshes),
       ([key, chunkMeshes]) => HashSet.has(loadedKeySet, key) ? Option.none() : Option.some([key, chunkMeshes] as const)
     )
+    const removalsToProcess = Arr.take(removalPairs, MAX_CHUNK_REMOVALS_PER_FRAME)
+    const allStaleRemoved = removalPairs.length <= removalsToProcess.length
 
     const removedKeys = yield* Effect.all(
-      Arr.map(removalPairs, ([key, chunkMeshes]) =>
+      Arr.map(removalsToProcess, ([key, chunkMeshes]) =>
         Effect.all([
           sceneService.remove(scene, chunkMeshes.opaque).pipe(
             Effect.andThen(Effect.sync(() => disposeMesh(chunkMeshes.opaque)))
@@ -202,5 +209,7 @@ export const syncChunksToScene = (
       invalidateSceneCaches(),
     ], { concurrency: 'unbounded', discard: true })
 
-    return allNewChunksMeshed
+    // `false` (→ caller re-fires next frame) while either new chunks remain to mesh
+    // OR stale chunks remain to dispose, so the budgeted removal drains over frames.
+    return allNewChunksMeshed && allStaleRemoved
   })

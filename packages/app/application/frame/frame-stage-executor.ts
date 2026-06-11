@@ -129,7 +129,7 @@ export const runFrameStages = (
     const sessionPaused = MutableRef.get(deps.sessionPausedRef)
     if (!sessionPaused) {
       yield* chunkSyncStage(deps, services, refs)
-      yield* lightingStage(deps, services, refs, {
+      const { sunIntensity } = yield* lightingStage(deps, services, refs, {
         deltaTime,
         effectiveLights,
         playerPos: initialPlayerPos,

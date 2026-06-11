@@ -131,18 +131,22 @@ export class GameLoopService extends Effect.Service<GameLoopService>()(
             const lastTimestampRef = yield* Ref.make(0)
             const processFrames: Effect.Effect<void, never> = Queue.take(frameQueue).pipe(
               Effect.flatMap((cmd) =>
-                Effect.gen(function* () {
-                  const lastTimestamp = yield* Ref.get(lastTimestampRef)
-                  const rawDelta =
-                    lastTimestamp === 0
-                      ? FIRST_FRAME_DELTA_SECS
-                      : (cmd.timestamp - lastTimestamp) / 1000
-                  const deltaTime = DeltaTimeSecs.make(Math.min(Math.max(0.001, rawDelta), 0.05))
-                  yield* Ref.set(lastTimestampRef, cmd.timestamp)
-                  yield* frameHandler(deltaTime).pipe(
-                    Effect.catchAllCause((cause) => Effect.logError(`Frame error: ${Cause.pretty(cause)}`)),
-                  )
-                }),
+                Ref.get(lastTimestampRef).pipe(
+                  Effect.flatMap((lastTimestamp) => {
+                    const rawDelta =
+                      lastTimestamp === 0
+                        ? FIRST_FRAME_DELTA_SECS
+                        : (cmd.timestamp - lastTimestamp) / 1000
+                    const deltaTime = DeltaTimeSecs.make(Math.min(Math.max(0.001, rawDelta), 0.05))
+                    return Ref.set(lastTimestampRef, cmd.timestamp).pipe(
+                      Effect.flatMap(() =>
+                        frameHandler(deltaTime).pipe(
+                          Effect.catchAllCause((cause) => Effect.logError(`Frame error: ${Cause.pretty(cause)}`)),
+                        ),
+                      ),
+                    )
+                  }),
+                ),
               ),
               Effect.forever,
             )

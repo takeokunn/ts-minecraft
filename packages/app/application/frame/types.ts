@@ -180,6 +180,9 @@ export type FrameStageRefs = {
   // True if the player was grounded on the PREVIOUS frame — detects the jump instant
   // (wasGrounded && !isGrounded && y-velocity > 0) for jump exhaustion.
   readonly wasGroundedRef: MutableRef.MutableRef<boolean>
+  // Hoisted out of physicsStage so no new Ref is allocated per frame.
+  // Reset with Ref.set on entry to physicsStage each frame.
+  readonly finalPosRef: Ref.Ref<Position>
 }
 
 export type ResolvedDeps = {

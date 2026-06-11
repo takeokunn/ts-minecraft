@@ -36,7 +36,7 @@ export const lightingStage = (
     readonly playerPos: Position
     readonly markShadowMapDirty: () => void
   },
-): Effect.Effect<{ readonly timeOfDay: number }, never> =>
+): Effect.Effect<{ readonly timeOfDay: number; readonly sunIntensity: number }, never> =>
   Effect.gen(function* () {
     yield* logErrors(
       updateDayNightCycle(inputs.deltaTime, inputs.effectiveLights, services.timeService),
@@ -81,5 +81,5 @@ export const lightingStage = (
     const sunIntensity = Math.max(0, Math.sin((timeOfDay - 0.25) * Math.PI * 2))
     yield* logErrors(services.chunkMeshService.setSunIntensity(sunIntensity), 'Sun intensity sync error')
 
-    return { timeOfDay }
+    return { timeOfDay, sunIntensity }
   })
