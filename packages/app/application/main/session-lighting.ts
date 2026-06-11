@@ -1,4 +1,4 @@
-import { Effect, Option, Schema } from 'effect'
+import { Effect, Schema } from 'effect'
 import * as THREE from 'three'
 import { Sky } from 'three/addons/objects/Sky.js'
 import { SceneService } from '@ts-minecraft/rendering'
@@ -52,8 +52,8 @@ export const buildLighting = (
       return yield* Effect.fail(new StartupError({ reason: 'Sky material is not a ShaderMaterial' }))
     }
     const mat = skyMaterial
-    Option.map(Option.fromNullable(mat.uniforms['mieCoefficient']), (u) => { u.value = 0.005 })
-    Option.map(Option.fromNullable(mat.uniforms['mieDirectionalG']), (u) => { u.value = 0.7 })
+    if (mat.uniforms['mieCoefficient'] != null) mat.uniforms['mieCoefficient'].value = 0.005
+    if (mat.uniforms['mieDirectionalG'] != null) mat.uniforms['mieDirectionalG'].value = 0.7
     return mat
   })
   const skyPort = yield* Schema.decodeUnknown(SkyMaterialPortSchema)({

@@ -1,5 +1,6 @@
 import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
+import { Option } from 'effect'
 import {
   getSharpnessDamageBonus,
   getSmiteDamageBonus,
@@ -17,6 +18,8 @@ import {
   canEnchantItem,
   getMaxEnchantmentLevel,
   getBaneOfArthropodsDamageBonus,
+  selectEnchantment,
+  enchantXPCost,
   type EnchantmentLevel,
 } from '../domain/enchantment'
 
@@ -326,6 +329,67 @@ describe('domain/enchantment', () => {
     it('LUCK_OF_THE_SEA only applies to FISHING_ROD', () => {
       expect(canEnchantItem('FISHING_ROD', 'LUCK_OF_THE_SEA')).toBe(true)
       expect(canEnchantItem('BOW', 'LUCK_OF_THE_SEA')).toBe(false)
+    })
+  })
+
+  describe('selectEnchantment', () => {
+    it('returns None for items with no applicable enchantments', () => {
+      expect(Option.isNone(selectEnchantment('APPLE', 10))).toBe(true)
+      expect(Option.isNone(selectEnchantment('COBBLESTONE', 30))).toBe(true)
+    })
+
+    it('returns Some enchantment for an enchantable item', () => {
+      const result = selectEnchantment('IRON_SWORD', 10)
+      expect(Option.isSome(result)).toBe(true)
+      const ench = Option.getOrThrow(result)
+      expect(typeof ench.type).toBe('string')
+      expect(ench.level).toBeGreaterThanOrEqual(1)
+    })
+
+    it('is deterministic — same item + same XP level always produces the same enchantment', () => {
+      const a = selectEnchantment('DIAMOND_PICKAXE', 20)
+      const b = selectEnchantment('DIAMOND_PICKAXE', 20)
+      expect(a).toEqual(b)
+    })
+
+    it('produces a different enchantment for different XP levels', () => {
+      // Not guaranteed to differ every time (depends on the hash), but across a wide range
+      // at least some pair should differ — confirms XP level influences the selection.
+      const results = new Set(
+        [5, 10, 20, 30, 50].map((xp) => {
+          const r = selectEnchantment('IRON_SWORD', xp)
+          return Option.isSome(r) ? `${r.value.type}:${r.value.level}` : 'none'
+        }),
+      )
+      expect(results.size).toBeGreaterThan(1)
+    })
+
+    it('enchantment level scales with XP (higher XP produces higher or equal level)', () => {
+      const lowXP = selectEnchantment('DIAMOND_SWORD', 1)
+      const highXP = selectEnchantment('DIAMOND_SWORD', 50)
+      if (Option.isSome(lowXP) && Option.isSome(highXP)
+        && lowXP.value.type === highXP.value.type) {
+        expect(highXP.value.level).toBeGreaterThanOrEqual(lowXP.value.level)
+      }
+    })
+
+    it('the selected enchantment is applicable to the given item', () => {
+      const result = selectEnchantment('IRON_PICKAXE', 15)
+      if (Option.isSome(result)) {
+        expect(canEnchantItem('IRON_PICKAXE', result.value.type)).toBe(true)
+      }
+    })
+  })
+
+  describe('enchantXPCost', () => {
+    it('costs 1 XP level for an enchantment at level 1', () => {
+      expect(enchantXPCost(1)).toBe(1)
+    })
+
+    it('costs exactly the enchantment level in XP levels', () => {
+      for (const level of [1, 2, 3] as EnchantmentLevel[]) {
+        expect(enchantXPCost(level)).toBe(level)
+      }
     })
   })
 })

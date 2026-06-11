@@ -5,7 +5,7 @@ import { createFrameHandlers, type FrameHandlerDeps, type FrameHandlerServices }
 import type { DeltaTimeSecs } from '@ts-minecraft/core'
 import type { DayNightLights } from '@ts-minecraft/game'
 import type { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js'
-import { makeInputService, makeInventoryRenderer, makeSettingsOverlay, makeTradingPresentation, makePauseMenu, makeBlockHighlight, makeHotbarRenderer, makeDebugFeatureFlags, makeFPSCounter, makeFurnaceService } from './app-test-kit'
+import { makeInputService, makeClickInputService, makeMouseDownInputService, makeInventoryRenderer, makeSettingsOverlay, makeTradingPresentation, makePauseMenu, makeBlockHighlight, makeHotbarRenderer, makeDebugFeatureFlags, makeFPSCounter, makeFurnaceService } from './app-test-kit'
 import { makeEntityManager, makeMobSpawner, makeRedstoneService, makeVillageService } from './entities-test-kit'
 import { makeGameMode, makeGameState, makeMusicManager, makeSettingsService, makeSoundManager, makeTimeService } from './game-test-kit'
 import { makeEquipmentService, makeHotbarService, makeInventoryService } from './inventory-test-kit'
@@ -190,6 +190,10 @@ export type FrameHarnessOptions = {
   readonly settingsOpen?: boolean
   readonly withComposer?: boolean
   readonly pressedKeys?: MutableHashSet.MutableHashSet<string>
+  /** Simulate a single mouse-button click (0 = left, 2 = right). */
+  readonly mouseClick?: number
+  /** Simulate a mouse button held down (0 = left). */
+  readonly mouseDown?: number
 }
 
 /** Arranges a complete frame-handler test harness with mutable overlay states. */
@@ -199,13 +203,21 @@ export const arrangeFrameHarness = ({
   settingsOpen = false,
   withComposer = false,
   pressedKeys = MutableHashSet.empty<string>(),
+  mouseClick,
+  mouseDown,
 }: FrameHarnessOptions = {}) =>
   Effect.gen(function* () {
     const inventoryState = { open: inventoryOpen }
     const settingsState = { open: settingsOpen }
     const deps = yield* makeDeps(paused, withComposer)
+
+    const inputService =
+      mouseClick !== undefined ? makeClickInputService(mouseClick, pressedKeys)
+      : mouseDown !== undefined ? makeMouseDownInputService(mouseDown, pressedKeys)
+      : makeInputService(pressedKeys)
+
     const services = makeServices({
-      inputService: makeInputService(pressedKeys),
+      inputService,
       inventoryRenderer: makeInventoryRenderer(inventoryState),
       settingsOverlay: makeSettingsOverlay(settingsState),
     })

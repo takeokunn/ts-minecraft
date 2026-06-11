@@ -45,22 +45,21 @@ export class PhysicsService extends Effect.Service<PhysicsService>()(
         Ref.modify(nextBodyIdRef, (n) => [PhysicsBodyId.make(`physics-body-${n}`), n + 1])
 
       const getWorld: Effect.Effect<CustomWorld, PhysicsServiceError> = Ref.get(worldRef).pipe(
-        Effect.flatMap((world) =>
-          Option.match(world, {
-            onNone: () => Effect.fail(new PhysicsServiceError({ operation: 'getWorld', cause: 'Physics world not initialized. Call initialize() first.' })),
-            onSome: (w) => Effect.succeed(w),
-          })
-        )
+        Effect.flatMap((world) => {
+          const w = Option.getOrNull(world)
+          if (w === null) return Effect.fail(new PhysicsServiceError({ operation: 'getWorld', cause: 'Physics world not initialized. Call initialize() first.' }))
+          return Effect.succeed(w)
+        })
       )
 
       const getBody = (bodyId: PhysicsBodyId): Effect.Effect<CustomBody, PhysicsServiceError> =>
         Ref.get(bodyMapRef).pipe(
-          Effect.flatMap((bodyMap) =>
-            Option.match(HashMap.get(bodyMap, bodyId), {
-              onNone: () => Effect.fail(new PhysicsServiceError({ operation: 'getBody', cause: `Body not found: ${bodyId}` })),
-              onSome: Effect.succeed,
-            })
-          )
+          Effect.flatMap((bodyMap) => {
+            const body = Option.getOrNull(HashMap.get(bodyMap, bodyId))
+            return body !== null
+              ? Effect.succeed(body)
+              : Effect.fail(new PhysicsServiceError({ operation: 'getBody', cause: `Body not found: ${bodyId}` }))
+          })
         )
 
       return {
@@ -71,11 +70,8 @@ export class PhysicsService extends Effect.Service<PhysicsService>()(
             )
 
             // Atomic check-and-set: write only if still None
-            const wasAlreadyInit = yield* Ref.modify(worldRef, (current) =>
-              Option.match(current, {
-                onSome: () => [true, current] as const,
-                onNone: () => [false, Option.some(newWorld)] as const,
-              })
+            const wasAlreadyInit = yield* Ref.modify(worldRef, (current): [boolean, Option.Option<CustomWorld>] =>
+              Option.isSome(current) ? [true, current] : [false, Option.some(newWorld)]
             )
 
             if (wasAlreadyInit) return
@@ -87,17 +83,11 @@ export class PhysicsService extends Effect.Service<PhysicsService>()(
               Effect.gen(function* () {
                 const shape: CustomShape = yield* Match.value(config.shape).pipe(
                   Match.when('box', () => {
-                    const halfExtents = Option.getOrElse(
-                      Option.flatMap(Option.fromNullable(config.shapeParams), (s) => Option.fromNullable(s.halfExtents)),
-                      () => ({ x: 0.5, y: 0.5, z: 0.5 })
-                    )
+                    const halfExtents = config.shapeParams?.halfExtents ?? { x: 0.5, y: 0.5, z: 0.5 }
                     return shapePort.createBox({ halfExtents })
                   }),
                   Match.when('sphere', () => {
-                    const radius = Option.getOrElse(
-                      Option.flatMap(Option.fromNullable(config.shapeParams), (s) => Option.fromNullable(s.radius)),
-                      () => 0.5
-                    )
+                    const radius = config.shapeParams?.radius ?? 0.5
                     return shapePort.createSphere({ radius })
                   }),
                   Match.when('plane', () => shapePort.createPlane()),

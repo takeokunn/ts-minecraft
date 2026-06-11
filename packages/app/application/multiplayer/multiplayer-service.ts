@@ -1,9 +1,12 @@
 // App-level multiplayer service: aggregates network state, exposed to frame stages
 // and presentation. Pure state management + network delegation.
 import { Context, Effect, Fiber, Layer, Option, Ref, Stream } from 'effect'
-import type { ConnectionState, NetworkMessage, PlayerId, PlayerName } from '@ts-minecraft/network'
-import { MessageType } from '@ts-minecraft/network'
+import type { ConnectionState, NetworkMessage, PlayerId, PlayerName, Vec3 } from '@ts-minecraft/network'
+import { MessageType, WorldId } from '@ts-minecraft/network'
 import type { ClientServiceShape } from '@ts-minecraft/network'
+import type { BlockType } from '@ts-minecraft/core'
+
+const OVERWORLD_ID = WorldId.make('overworld')
 
 export type RemotePlayerSnapshot = {
   readonly playerId: string
@@ -153,13 +156,24 @@ export const MultiplayerServiceImpl = (
     })
 
     const stopDrain: Effect.Effect<void, never> = Effect.gen(function* () {
-      const fiberOpt = yield* Ref.get(drainFiberRef)
-      yield* Option.match(fiberOpt, {
-        onNone: () => Effect.void,
-        onSome: (f) => Fiber.interrupt(f).pipe(Effect.ignore),
-      })
+      const fiber = Option.getOrNull(yield* Ref.get(drainFiberRef))
+      if (fiber !== null) {
+        yield* Fiber.interrupt(fiber).pipe(Effect.ignore)
+      }
       yield* Ref.set(drainFiberRef, Option.none())
     })
+
+    const sendIfConnected = (msg: NetworkMessage): Effect.Effect<void, never> =>
+      Ref.get(playerNameRef).pipe(
+        Effect.flatMap((nameOpt) =>
+          Option.isNone(nameOpt)
+            ? Effect.void
+            : client.sendMessage(msg).pipe(Effect.catchAll(() => Effect.void)),
+        ),
+      )
+
+    const floorPos = (pos: { readonly x: number; readonly y: number; readonly z: number }): Vec3 =>
+      ({ x: Math.floor(pos.x), y: Math.floor(pos.y), z: Math.floor(pos.z) }) as Vec3
 
     const service: MultiplayerService = {
       connect: (serverUrl, playerName) =>
@@ -188,73 +202,43 @@ export const MultiplayerServiceImpl = (
       getChatMessages: () => Ref.get(chatMessagesRef),
 
       sendChat: (text) =>
-        Effect.gen(function* () {
-          const nameOpt = yield* Ref.get(playerNameRef)
-          yield* Option.match(nameOpt, {
-            onNone: () => Effect.void,
-            onSome: (_name) =>
-              client.sendMessage({
-                type: MessageType.Chat,
-                playerId: '' as PlayerId,
-                playerName: '' as PlayerName,
-                worldId: '' as any,
-                message: text,
-                timestamp: Date.now(),
-              } as NetworkMessage).pipe(Effect.catchAll(() => Effect.void)),
-          })
-        }),
+        sendIfConnected({
+          type: MessageType.Chat,
+          playerId: '' as PlayerId,
+          playerName: '' as PlayerName,
+          worldId: OVERWORLD_ID,
+          message: text,
+          timestamp: Date.now(),
+        } as NetworkMessage),
 
       sendPositionUpdate: (pos, rot) =>
-        Effect.gen(function* () {
-          const nameOpt = yield* Ref.get(playerNameRef)
-          yield* Option.match(nameOpt, {
-            onNone: () => Effect.void,
-            onSome: (_name) =>
-              client.sendMessage({
-                type: MessageType.PlayerMove,
-                playerId: '' as PlayerId,
-                worldId: '' as any,
-                position: pos as any,
-                rotation: rot,
-                timestamp: Date.now(),
-              } as NetworkMessage).pipe(Effect.catchAll(() => Effect.void)),
-          })
-        }),
+        sendIfConnected({
+          type: MessageType.PlayerMove,
+          playerId: '' as PlayerId,
+          worldId: OVERWORLD_ID,
+          position: pos as Vec3,
+          rotation: rot,
+          timestamp: Date.now(),
+        } as NetworkMessage),
 
       sendBlockPlace: (pos, blockType) =>
-        Ref.get(playerNameRef).pipe(
-          Effect.flatMap((nameOpt) =>
-            Option.match(nameOpt, {
-              onNone: () => Effect.void,
-              onSome: () =>
-                client.sendMessage({
-                  type: MessageType.BlockPlace,
-                  playerId: '' as PlayerId,
-                  worldId: '' as any,
-                  position: { x: Math.floor(pos.x), y: Math.floor(pos.y), z: Math.floor(pos.z) } as any,
-                  blockType: blockType as any,
-                  timestamp: Date.now(),
-                } as NetworkMessage).pipe(Effect.catchAll(() => Effect.void)),
-            }),
-          ),
-        ),
+        sendIfConnected({
+          type: MessageType.BlockPlace,
+          playerId: '' as PlayerId,
+          worldId: OVERWORLD_ID,
+          position: floorPos(pos),
+          blockType: blockType as BlockType,
+          timestamp: Date.now(),
+        } as NetworkMessage),
 
       sendBlockBreak: (pos) =>
-        Ref.get(playerNameRef).pipe(
-          Effect.flatMap((nameOpt) =>
-            Option.match(nameOpt, {
-              onNone: () => Effect.void,
-              onSome: () =>
-                client.sendMessage({
-                  type: MessageType.BlockBreak,
-                  playerId: '' as PlayerId,
-                  worldId: '' as any,
-                  position: { x: Math.floor(pos.x), y: Math.floor(pos.y), z: Math.floor(pos.z) } as any,
-                  timestamp: Date.now(),
-                } as NetworkMessage).pipe(Effect.catchAll(() => Effect.void)),
-            }),
-          ),
-        ),
+        sendIfConnected({
+          type: MessageType.BlockBreak,
+          playerId: '' as PlayerId,
+          worldId: OVERWORLD_ID,
+          position: floorPos(pos),
+          timestamp: Date.now(),
+        } as NetworkMessage),
 
       drainBlockEdits: Ref.getAndSet(inboundBlockEditsRef, []),
 

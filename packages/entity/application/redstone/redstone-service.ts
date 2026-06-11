@@ -60,10 +60,7 @@ const computeNextRedstoneState = (
   const cachedSnapshot: Option.Option<RedstoneTickSnapshot['poweredPositions']> =
     needsPropagation
       ? Option.some(sortedPowerSnapshot(powered))
-      : Option.match(state.cachedSnapshot, {
-          onNone: () => Option.some(sortedPowerSnapshot(powered)),
-          onSome: () => state.cachedSnapshot,
-        })
+      : Option.isSome(state.cachedSnapshot) ? state.cachedSnapshot : Option.some(sortedPowerSnapshot(powered))
 
   const nextState: RedstoneState = {
     tick: state.tick + 1,
@@ -75,7 +72,7 @@ const computeNextRedstoneState = (
   }
 
   return [
-    { tick: nextState.tick, poweredPositions: Option.getOrThrow(cachedSnapshot) },
+    { tick: nextState.tick, poweredPositions: Option.getOrElse(cachedSnapshot, () => sortedPowerSnapshot(powered)) },
     nextState,
   ]
 }
@@ -94,13 +91,8 @@ export class RedstoneService extends Effect.Service<RedstoneService>()(
           Ref.modify(stateRef, (state): [RedstoneComponent, RedstoneState] => {
             const normalized = toBlockPosition(position)
             const key = positionKey(normalized)
-            const componentState = Option.match(
-              Option.filter(HashMap.get(state.components, key), (c) => c.type === type),
-              {
-                onNone: () => makeDefaultState(type),
-                onSome: (c) => c.state,
-              },
-            )
+            const existing = Option.getOrNull(Option.filter(HashMap.get(state.components, key), (c) => c.type === type))
+            const componentState = existing !== null ? existing.state : makeDefaultState(type)
             const component: RedstoneComponent = normalizeComponentPosition({
               type,
               position: normalized,
@@ -144,19 +136,10 @@ export class RedstoneService extends Effect.Service<RedstoneService>()(
         toggleLever: (position: Position): Effect.Effect<Option.Option<RedstoneComponent>, never> =>
           Ref.modify(stateRef, (state): [Option.Option<RedstoneComponent>, RedstoneState] => {
             const key = positionKey(position)
-            return Option.match(
-              Option.filter(HashMap.get(state.components, key), (c) => c.type === RedstoneComponentType.Lever),
-              {
-                onNone: () => [Option.none(), state],
-                onSome: (current) => {
-                  const updated: RedstoneComponent = {
-                    ...current,
-                    state: { ...current.state, active: !current.state.active },
-                  }
-                  return [Option.some(updated), { ...state, components: HashMap.set(state.components, key, updated) }]
-                },
-              },
-            )
+            const current = Option.getOrNull(Option.filter(HashMap.get(state.components, key), (c) => c.type === RedstoneComponentType.Lever))
+            if (current === null) return [Option.none(), state]
+            const updated: RedstoneComponent = { ...current, state: { ...current.state, active: !current.state.active } }
+            return [Option.some(updated), { ...state, components: HashMap.set(state.components, key, updated) }]
           }).pipe(Effect.tap(() => Ref.set(dirtyRef, true))),
 
         pressButton: (
@@ -165,42 +148,23 @@ export class RedstoneService extends Effect.Service<RedstoneService>()(
         ): Effect.Effect<Option.Option<RedstoneComponent>, never> =>
           Ref.modify(stateRef, (state): [Option.Option<RedstoneComponent>, RedstoneState] => {
             const key = positionKey(position)
-            return Option.match(
-              Option.filter(HashMap.get(state.components, key), (c) => c.type === RedstoneComponentType.Button),
-              {
-                onNone: () => [Option.none(), state],
-                onSome: (current) => {
-                  const normalizedDuration = Math.min(Math.max(1, Math.floor(durationTicks)), MAX_BUTTON_TICKS)
-                  const updated: RedstoneComponent = {
-                    ...current,
-                    state: {
-                      ...current.state,
-                      active: true,
-                      buttonTicksRemaining: normalizedDuration,
-                    },
-                  }
-                  return [Option.some(updated), { ...state, components: HashMap.set(state.components, key, updated) }]
-                },
-              },
-            )
+            const current = Option.getOrNull(Option.filter(HashMap.get(state.components, key), (c) => c.type === RedstoneComponentType.Button))
+            if (current === null) return [Option.none(), state]
+            const normalizedDuration = Math.min(Math.max(1, Math.floor(durationTicks)), MAX_BUTTON_TICKS)
+            const updated: RedstoneComponent = {
+              ...current,
+              state: { ...current.state, active: true, buttonTicksRemaining: normalizedDuration },
+            }
+            return [Option.some(updated), { ...state, components: HashMap.set(state.components, key, updated) }]
           }).pipe(Effect.tap(() => Ref.set(dirtyRef, true))),
 
         toggleTorch: (position: Position): Effect.Effect<Option.Option<RedstoneComponent>, never> =>
           Ref.modify(stateRef, (state): [Option.Option<RedstoneComponent>, RedstoneState] => {
             const key = positionKey(position)
-            return Option.match(
-              Option.filter(HashMap.get(state.components, key), (c) => c.type === RedstoneComponentType.Torch),
-              {
-                onNone: () => [Option.none(), state],
-                onSome: (current) => {
-                  const updated: RedstoneComponent = {
-                    ...current,
-                    state: { ...current.state, active: !current.state.active },
-                  }
-                  return [Option.some(updated), { ...state, components: HashMap.set(state.components, key, updated) }]
-                },
-              },
-            )
+            const current = Option.getOrNull(Option.filter(HashMap.get(state.components, key), (c) => c.type === RedstoneComponentType.Torch))
+            if (current === null) return [Option.none(), state]
+            const updated: RedstoneComponent = { ...current, state: { ...current.state, active: !current.state.active } }
+            return [Option.some(updated), { ...state, components: HashMap.set(state.components, key, updated) }]
           }).pipe(Effect.tap(() => Ref.set(dirtyRef, true))),
 
         getPowerAt: (position: Position): Effect.Effect<number, never> =>

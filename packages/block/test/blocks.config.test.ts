@@ -5,7 +5,7 @@ import { Schema } from 'effect'
 import { BlockTypeSchema } from '@ts-minecraft/core'
 import { initialBlocks } from '@ts-minecraft/block'
 import { terrainBlocks } from '../domain/blocks.config.terrain'
-import { oreAndMineralBlocks } from '../domain/blocks.config.ores'
+import { oreAndMineralBlocks, getOreXpDrop } from '../domain/blocks.config.ores'
 import { craftedAndItemBlocks } from '../domain/blocks.config.crafted'
 import { endBlocks } from '../domain/blocks.config.end'
 
@@ -101,5 +101,43 @@ describe('config split correctness', () => {
   it('terrainBlocks + oreAndMineralBlocks + craftedAndItemBlocks + endBlocks equals initialBlocks length', () => {
     const sum = terrainBlocks.length + oreAndMineralBlocks.length + craftedAndItemBlocks.length + endBlocks.length
     expect(sum).toBe(initialBlocks.length)
+  })
+})
+
+describe('getOreXpDrop', () => {
+  it('returns 0 for non-ore blocks', () => {
+    expect(getOreXpDrop('STONE')).toBe(0)
+    expect(getOreXpDrop('DIRT')).toBe(0)
+    expect(getOreXpDrop('UNKNOWN_BLOCK')).toBe(0)
+  })
+
+  it('returns 0 for iron and gold ore (XP from smelting, not breaking)', () => {
+    expect(getOreXpDrop('IRON_ORE')).toBe(0)
+    expect(getOreXpDrop('DEEPSLATE_IRON_ORE')).toBe(0)
+    expect(getOreXpDrop('GOLD_ORE')).toBe(0)
+    expect(getOreXpDrop('DEEPSLATE_GOLD_ORE')).toBe(0)
+  })
+
+  it('returns 5 for coal and redstone ore', () => {
+    expect(getOreXpDrop('COAL_ORE')).toBe(5)
+    expect(getOreXpDrop('DEEPSLATE_COAL_ORE')).toBe(5)
+    expect(getOreXpDrop('REDSTONE_ORE')).toBe(5)
+    expect(getOreXpDrop('DEEPSLATE_REDSTONE_ORE')).toBe(5)
+    expect(getOreXpDrop('LAPIS_ORE')).toBe(5)
+    expect(getOreXpDrop('DEEPSLATE_LAPIS_ORE')).toBe(5)
+  })
+
+  it('returns 7 for diamond and emerald ore', () => {
+    expect(getOreXpDrop('DIAMOND_ORE')).toBe(7)
+    expect(getOreXpDrop('DEEPSLATE_DIAMOND_ORE')).toBe(7)
+    expect(getOreXpDrop('EMERALD_ORE')).toBe(7)
+    expect(getOreXpDrop('DEEPSLATE_EMERALD_ORE')).toBe(7)
+  })
+
+  it('deepslate variants match their surface ore XP', () => {
+    const ores = ['COAL', 'DIAMOND', 'EMERALD', 'LAPIS', 'REDSTONE'] as const
+    for (const ore of ores) {
+      expect(getOreXpDrop(`DEEPSLATE_${ore}_ORE`)).toBe(getOreXpDrop(`${ore}_ORE`))
+    }
   })
 })

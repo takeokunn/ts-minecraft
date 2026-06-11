@@ -14,10 +14,7 @@ const testLayer = Layer.mergeAll(RecipeService.Default, inventoryLayer)
 
 const countBlock = (slots: ReadonlyArray<Option.Option<{ readonly itemType: InventoryItem; readonly count: number }>>, itemType: InventoryItem): number =>
   Arr.reduce(slots, 0, (sum, slot) =>
-    sum + Option.match(slot, {
-      onNone: () => 0,
-      onSome: (item) => item.itemType === itemType ? item.count : 0,
-    }),
+    sum + (Option.isSome(slot) && slot.value.itemType === itemType ? slot.value.count : 0),
   )
 
 describe('application/crafting/recipe-service', () => {

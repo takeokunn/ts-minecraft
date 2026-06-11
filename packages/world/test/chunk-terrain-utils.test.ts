@@ -5,6 +5,9 @@ import { CHUNK_SIZE } from '@ts-minecraft/core'
 import {
   chunkDistanceSquared,
   worldToChunkCoord,
+  worldToBlockIndex,
+  chunkCoordToKey,
+  chunkCoordToWorldKey,
   getChunkLoadOffsets,
   countChunksInRadius,
   getChunksInRenderDistance,
@@ -197,5 +200,64 @@ describe('getChunksInRenderDistance', () => {
     Arr.forEach(shiftedOrigin, (expected) => {
       expect(Arr.some(chunks, (c) => c.x === expected.x && c.z === expected.z)).toBe(true)
     })
+  })
+})
+
+describe('chunkCoordToKey', () => {
+  it('serializes to the standard "x,z" string format', () => {
+    expect(chunkCoordToKey({ x: 0, z: 0 })).toBe('0,0')
+    expect(chunkCoordToKey({ x: 5, z: -3 })).toBe('5,-3')
+    expect(chunkCoordToKey({ x: -10, z: 7 })).toBe('-10,7')
+  })
+
+  it('produces a unique key for different coordinates', () => {
+    expect(chunkCoordToKey({ x: 1, z: 2 })).not.toBe(chunkCoordToKey({ x: 2, z: 1 }))
+  })
+
+  it('is deterministic for the same input', () => {
+    const coord = { x: 3, z: -7 }
+    expect(chunkCoordToKey(coord)).toBe(chunkCoordToKey(coord))
+  })
+})
+
+describe('chunkCoordToWorldKey', () => {
+  it('prefixes the world id before the chunk coordinates', () => {
+    expect(chunkCoordToWorldKey({ x: 0, z: 0 }, 'world-1')).toBe('world-1:0,0')
+    expect(chunkCoordToWorldKey({ x: -2, z: 4 }, 'nether')).toBe('nether:-2,4')
+  })
+
+  it('produces different keys for the same coord in different worlds', () => {
+    const coord = { x: 5, z: 5 }
+    expect(chunkCoordToWorldKey(coord, 'world-1')).not.toBe(chunkCoordToWorldKey(coord, 'world-2'))
+  })
+})
+
+describe('worldToBlockIndex', () => {
+  it('maps (0,0,0) to chunk (0,0) with local coords (0,0,0) and flatIdx 0', () => {
+    const r = worldToBlockIndex({ x: 0, y: 0, z: 0 })
+    expect(r.chunkCoord).toEqual({ x: 0, z: 0 })
+    expect(r.lx).toBe(0)
+    expect(r.lz).toBe(0)
+    expect(r.ly).toBe(0)
+    expect(r.flatIdx).toBe(0)
+    expect(r.coordKey).toBe('0,0')
+  })
+
+  it('computes local coords correctly for a positive world position', () => {
+    // World (20, 64, 20): cx=floor(20/16)=1, lx=20%16=4; cz=1, lz=4
+    const r = worldToBlockIndex({ x: 20, y: 64, z: 20 })
+    expect(r.chunkCoord).toEqual({ x: 1, z: 1 })
+    expect(r.lx).toBe(4)
+    expect(r.lz).toBe(4)
+    expect(r.ly).toBe(64)
+  })
+
+  it('wraps negative x/z correctly (no negative local coords)', () => {
+    // World (-1, 0, -1): cx=floor(-1/16)=-1, lx=((-1%16)+16)%16=15; same for z
+    const r = worldToBlockIndex({ x: -1, y: 0, z: -1 })
+    expect(r.chunkCoord).toEqual({ x: -1, z: -1 })
+    expect(r.lx).toBe(15)
+    expect(r.lz).toBe(15)
+    expect(r.coordKey).toBe('-1,-1')
   })
 })

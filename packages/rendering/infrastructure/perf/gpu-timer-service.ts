@@ -181,9 +181,9 @@ export class GpuTimerService extends Effect.Service<GpuTimerService>()(
       // GPU handles are not garbage-collected.
       yield* Effect.addFinalizer(() =>
         Effect.sync(() => {
-          const bindings = MutableRef.get(bindingsRef)
-          if (Option.isNone(bindings)) return
-          const { gl } = bindings.value
+          const bindings = Option.getOrNull(MutableRef.get(bindingsRef))
+          if (bindings === null) return
+          const { gl } = bindings
           const queue = MutableRef.get(inFlightRef)
           Arr.forEach(queue, ({ query }) => {
             gl.deleteQuery(query)
@@ -205,9 +205,9 @@ export class GpuTimerService extends Effect.Service<GpuTimerService>()(
         name: string,
         effect: Effect.Effect<A, E, R>,
       ): Effect.Effect<A, E, R> => {
-        const bindingsOpt = MutableRef.get(bindingsRef)
-        if (Option.isNone(bindingsOpt)) return effect
-        const { gl } = bindingsOpt.value
+        const bindingsOpt = Option.getOrNull(MutableRef.get(bindingsRef))
+        if (bindingsOpt === null) return effect
+        const { gl } = bindingsOpt
 
         return Effect.acquireUseRelease(
           // acquire: create + begin a fresh timer query.
@@ -234,9 +234,9 @@ export class GpuTimerService extends Effect.Service<GpuTimerService>()(
 
       const poll = (): Effect.Effect<void, never> =>
         Effect.sync(() => {
-          const bindingsOpt = MutableRef.get(bindingsRef)
-          if (Option.isNone(bindingsOpt)) return
-          const { gl } = bindingsOpt.value
+          const bindingsOpt = Option.getOrNull(MutableRef.get(bindingsRef))
+          if (bindingsOpt === null) return
+          const { gl } = bindingsOpt
 
           // Drain completed queries from the head of the FIFO. The queue is
           // FIFO: queries finish in the order they were issued, so we stop at

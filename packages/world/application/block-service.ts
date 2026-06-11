@@ -1,4 +1,4 @@
-import { Context, Effect, Data, Either, HashSet, Metric, Option, Schema } from 'effect'
+import { Context, Effect, Data, Either, HashSet, Metric, Schema } from 'effect'
 import { ChunkManagerService } from './chunk-manager-service'
 import { DEFAULT_PLAYER_ID } from '@ts-minecraft/core'
 import { FluidService } from './fluid-service'
@@ -165,7 +165,7 @@ export class BlockService extends Effect.Service<BlockService>()(
                 reason: `${itemType} cannot be placed in the world`,
               }))
             }
-            const blockType = Option.getOrThrow(Either.getRight(decodedBlockType))
+            const blockType = decodedBlockType.right
 
             const playerPos = yield* playerService.getPosition(DEFAULT_PLAYER_ID).pipe(
               Effect.mapError((e) => new BlockServiceError({

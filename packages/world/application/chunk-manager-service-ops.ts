@@ -57,15 +57,13 @@ export const loadChunksAroundPlayer = (
 
 export const getLoadedChunks = (ctx: ChunkOpsContext): Effect.Effect<ReadonlyArray<Chunk>, never> =>
   Effect.gen(function* () {
-    return yield* Option.match(yield* Ref.get(ctx.cachedLoadedChunksRef), {
-      onSome: Effect.succeed,
-      onNone: () => Effect.gen(function* () {
-        const state = yield* Ref.get(ctx.cache)
-        const chunks = Arr.map(Arr.fromIterable(HashMap.values(state.chunks)), (entry) => entry.chunk)
-        yield* Ref.set(ctx.cachedLoadedChunksRef, Option.some(chunks))
-        return chunks
-      }),
-    })
+    const cached = yield* Ref.get(ctx.cachedLoadedChunksRef)
+    const cachedVal = Option.getOrNull(cached)
+    if (cachedVal !== null) return cachedVal
+    const state = yield* Ref.get(ctx.cache)
+    const chunks = Arr.map(Arr.fromIterable(HashMap.values(state.chunks)), (entry) => entry.chunk)
+    yield* Ref.set(ctx.cachedLoadedChunksRef, Option.some(chunks))
+    return chunks
   })
 
 export const drainRenderDirtyChunks = (cache: Ref.Ref<ChunkCache>): Effect.Effect<ReadonlyArray<Chunk>, never> =>
@@ -94,9 +92,10 @@ export const drainRenderDirtyChunkEntries = (cache: Ref.Ref<ChunkCache>): Effect
 
 const dirtyOffsets = (bfsResult: Option.Option<{ boundary: { nx: boolean; px: boolean; nz: boolean; pz: boolean } }>) => {
   const allOffsets: ReadonlyArray<readonly [number, number]> = [[0, 0], [-1, -1], [-1, 0], [-1, 1], [0, -1], [0, 1], [1, -1], [1, 0], [1, 1]]
-  return Option.match(bfsResult, {
-    onNone: () => allOffsets,
-    onSome: ({ boundary: b }) => Arr.filter(allOffsets, ([dx, dz]) => {
+  const bfsResultVal = Option.getOrNull(bfsResult)
+  if (bfsResultVal === null) return allOffsets
+  return Arr.filter(allOffsets, ([dx, dz]) => {
+    const b = bfsResultVal.boundary
       if (dx === 0 && dz === 0) return true
       if (dx === -1 && b.nx) return true
       if (dx === 1 && b.px) return true
@@ -108,8 +107,7 @@ const dirtyOffsets = (bfsResult: Option.Option<{ boundary: { nx: boolean; px: bo
       if (dx === 1 && dz === 1) return b.px && b.pz
       /* c8 ignore next */
       return false
-    }),
-  })
+    })
 }
 
 export const markChunkDirty = (
@@ -121,21 +119,22 @@ export const markChunkDirty = (
     const worldId = yield* Ref.get(ctx.worldIdRef)
     const key = chunkCoordToWorldKey(coord, worldId)
     const state = yield* Ref.get(ctx.cache)
-    const bfsResult = yield* Option.match(HashMap.get(state.chunks, key), {
-      onNone: () => Effect.succeed(Option.none<{ boundary: { nx: boolean; px: boolean; nz: boolean; pz: boolean }; affectedAABB: Option.Option<ChunkAABB> }>()),
-      onSome: (entry) => {
-        const useBfs = entry.chunk.skyLight !== undefined && entry.chunk.blockLight !== undefined && dirtyVoxels !== undefined && dirtyVoxels.length > 0
-        return useBfs
-          ? ctx.lightEngine.propagateLightIncremental(entry.chunk, dirtyVoxels).pipe(
-              Effect.tap((result) => Ref.update(ctx.cache, (s) => updateLitChunk(s, key, result.skyLight, result.blockLight))),
-              Effect.map((r) => Option.some({ boundary: r.boundary, affectedAABB: r.affectedAABB })),
-            )
-          : ctx.lightEngine.updateLight(entry.chunk).pipe(
-              Effect.tap((grids) => Ref.update(ctx.cache, (s) => updateLitChunk(s, key, grids.skyLight, grids.blockLight))),
-              Effect.map(() => Option.none<{ boundary: { nx: boolean; px: boolean; nz: boolean; pz: boolean }; affectedAABB: Option.Option<ChunkAABB> }>()),
-            )
-      },
-    })
+    type BfsResult = Option.Option<{ boundary: { nx: boolean; px: boolean; nz: boolean; pz: boolean }; affectedAABB: Option.Option<ChunkAABB> }>
+    const entry = Option.getOrNull(HashMap.get(state.chunks, key))
+    const bfsResult: BfsResult = yield* entry === null
+      ? Effect.succeed(Option.none())
+      : (() => {
+          const useBfs = entry.chunk.skyLight !== undefined && entry.chunk.blockLight !== undefined && dirtyVoxels !== undefined && dirtyVoxels.length > 0
+          return useBfs
+            ? ctx.lightEngine.propagateLightIncremental(entry.chunk, dirtyVoxels).pipe(
+                Effect.tap((result) => Ref.update(ctx.cache, (s) => updateLitChunk(s, key, result.skyLight, result.blockLight))),
+                Effect.map((r) => Option.some({ boundary: r.boundary, affectedAABB: r.affectedAABB })),
+              )
+            : ctx.lightEngine.updateLight(entry.chunk).pipe(
+                Effect.tap((grids) => Ref.update(ctx.cache, (s) => updateLitChunk(s, key, grids.skyLight, grids.blockLight))),
+                Effect.map(() => Option.none<{ boundary: { nx: boolean; px: boolean; nz: boolean; pz: boolean }; affectedAABB: Option.Option<ChunkAABB> }>()),
+              )
+        })()
 
     const allKeys = Arr.map(dirtyOffsets(bfsResult), ([dx, dz]) => chunkCoordToWorldKey({ x: coord.x + dx, z: coord.z + dz }, worldId))
     const seedAABB = dirtyVoxels === undefined ? Option.none<ChunkAABB>() : aabbFromVoxels(dirtyVoxels)
@@ -149,25 +148,20 @@ export const markChunkDirty = (
       renderDirtyChunks: Arr.reduce(allKeys, s.renderDirtyChunks, (set, k) => HashSet.add(set, k)),
       renderDirtyAABBs: Arr.reduce(allKeys, s.renderDirtyAABBs, (m, k) => {
         const incoming = k === editedKey ? editedChunkAABB : fullChunkAABB
-        return Option.match(HashMap.get(m, k), {
-          onNone: () => HashMap.set(m, k, incoming),
-          onSome: (existing) => HashMap.set(m, k, unionAABB(existing, incoming)),
-        })
+        const existing = Option.getOrNull(HashMap.get(m, k))
+        return existing === null
+          ? HashMap.set(m, k, incoming)
+          : HashMap.set(m, k, unionAABB(existing, incoming))
       }),
     }))
   })
 
 const updateLitChunk = (s: ChunkCache, key: ChunkCacheKey, skyLight: Uint8Array, blockLight: Uint8Array): ChunkCache =>
-  Option.match(HashMap.get(s.chunks, key), {
-    onNone: () => s,
-    onSome: (e) => ({
-      ...s,
-      chunks: HashMap.set(s.chunks, key, {
-        ...e,
-        chunk: { ...e.chunk, skyLight, blockLight, maxY: computeMaxY(e.chunk.blocks) },
-      }),
-    }),
-  })
+  (() => {
+    const e = Option.getOrNull(HashMap.get(s.chunks, key))
+    if (e === null) return s
+    return { ...s, chunks: HashMap.set(s.chunks, key, { ...e, chunk: { ...e.chunk, skyLight, blockLight, maxY: computeMaxY(e.chunk.blocks) } }) }
+  })()
 
 export const saveDirtyChunks = (ctx: ChunkOpsContext): Effect.Effect<void, StorageError> =>
   Effect.gen(function* () {

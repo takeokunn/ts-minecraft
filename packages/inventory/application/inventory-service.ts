@@ -29,10 +29,8 @@ export class InventoryService extends Effect.Service<InventoryService>()(
           Ref.update(slotsRef, (slots) => {
             const i = SlotIndex.toNumber(index)
             const slot = Option.getOrElse(Arr.get(slots, i), () => Option.none<ItemStack>())
-            return Option.match(slot, {
-              onNone: () => slots,
-              onSome: (stack) => Arr.modify(slots, i, () => damageStack(stack, amount)),
-            })
+            const stack = Option.getOrNull(slot)
+            return stack === null ? slots : Arr.modify(slots, i, () => damageStack(stack, amount))
           }),
 
         moveStack: (from: SlotIndex, to: SlotIndex): Effect.Effect<void, never> =>
@@ -45,24 +43,26 @@ export class InventoryService extends Effect.Service<InventoryService>()(
             const fromSlot = Option.getOrElse(Arr.get(slots, fromIdx), () => Option.none<ItemStack>())
             const toSlot = Option.getOrElse(Arr.get(slots, toIdx), () => Option.none<ItemStack>())
 
-            return Option.match(fromSlot, {
-              onNone: () => slots,
-              onSome: (from) => {
-                const [newFromSlot, newToSlot] = Option.match(toSlot, {
-                  onNone: () => [Option.none<ItemStack>(), Option.some(from)] as const,
-                  onSome: (to) => canMerge(from, to)
-                    ? (() => {
-                        // Merge stacks
-                        const [merged, remainder] = mergeStacks(to, from)
-                        return [remainder, Option.some(merged)] as const
-                      })()
-                    // Swap
-                    : [toSlot, fromSlot] as const,
-                })
-                const withFrom = Arr.modify(slots, fromIdx, () => newFromSlot)
-                return Arr.modify(withFrom, toIdx, () => newToSlot)
-              },
-            })
+            const fromStack = Option.getOrNull(fromSlot)
+            if (fromStack === null) return slots
+            const toStack = Option.getOrNull(toSlot)
+            let newFromSlot: InventorySlot
+            let newToSlot: InventorySlot
+            if (toStack === null) {
+              newFromSlot = Option.none()
+              newToSlot = Option.some(fromStack)
+            } else if (canMerge(fromStack, toStack)) {
+              // Merge stacks
+              const [merged, remainder] = mergeStacks(toStack, fromStack)
+              newFromSlot = remainder
+              newToSlot = Option.some(merged)
+            } else {
+              // Swap
+              newFromSlot = toSlot
+              newToSlot = fromSlot
+            }
+            const withFrom = Arr.modify(slots, fromIdx, () => newFromSlot)
+            return Arr.modify(withFrom, toIdx, () => newToSlot)
           }),
 
         addBlock: (itemType: InventoryItem, count: number): Effect.Effect<void, InventoryError> =>
@@ -99,10 +99,8 @@ export class InventoryService extends Effect.Service<InventoryService>()(
             const [rem2, slots2] = Arr.mapAccum(slots1, rem1, (rem, slot, idx) => {
               if (rem <= 0) return [rem, slot] as const
               if (idx === preferredIdxNum) return [rem, slot] as const
-              return Option.match(slot, {
-                onNone: () => [rem, slot] as const,
-                onSome: (stack) => takeFrom(rem, stack),
-              })
+              const stack = Option.getOrNull(slot)
+              return stack === null ? [rem, slot] as const : takeFrom(rem, stack)
             })
 
             const succeeded = rem2 === 0
@@ -144,19 +142,14 @@ export class InventoryService extends Effect.Service<InventoryService>()(
         // leak the items it had already deposited (item duplication).
         deserialize: (data: InventorySaveData): Effect.Effect<void, never> =>
           Ref.set(slotsRef,
-            Arr.reduce(data.slots, Arr.makeBy(INVENTORY_SIZE, () => Option.none<ItemStack>()), (acc, entry) =>
-              Option.match(entry, {
-                onNone: () => acc,
-                onSome: (e) => {
-                  const i = SlotIndex.toNumber(e.slot)
-                  // Restore saved durability (if any) rather than resetting tools to full.
-                  const stack = new ItemStack({ itemType: e.itemType, count: e.count, durability: e.durability })
-                  return i >= 0 && i < INVENTORY_SIZE
-                    ? Arr.modify(acc, i, () => Option.some(stack))
-                    : acc
-                },
-              })
-            )
+            Arr.reduce(data.slots, Arr.makeBy(INVENTORY_SIZE, () => Option.none<ItemStack>()), (acc, entry) => {
+              const e = Option.getOrNull(entry)
+              if (e === null) return acc
+              const i = SlotIndex.toNumber(e.slot)
+              // Restore saved durability (if any) rather than resetting tools to full.
+              const stack = new ItemStack({ itemType: e.itemType, count: e.count, durability: e.durability })
+              return i >= 0 && i < INVENTORY_SIZE ? Arr.modify(acc, i, () => Option.some(stack)) : acc
+            })
           ),
       }))
     ),

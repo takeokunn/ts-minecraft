@@ -90,14 +90,14 @@ export const makeInMemoryStorageService = () => {
       const valid: Array<{ worldId: WorldId; metadata: WorldMetadata }> = []
       const corrupt: Array<WorldId> = []
       Arr.forEach(Arr.fromIterable(MutableHashMap.keys(metaStore)), (worldId) => {
-        const metaOpt = MutableHashMap.get(metaStore, worldId)
-        Option.map(metaOpt, (raw) => {
+        const raw = Option.getOrNull(MutableHashMap.get(metaStore, worldId))
+        if (raw !== null) {
           if (isWorldMetadata(raw)) {
             valid.push({ worldId, metadata: raw })
           } else {
             corrupt.push(worldId)
           }
-        })
+        }
       })
       return {
         valid: valid as ReadonlyArray<{ worldId: WorldId; metadata: WorldMetadata }>,

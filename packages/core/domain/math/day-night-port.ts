@@ -109,10 +109,8 @@ const DayNightLightsPortSchemaBase = Schema.mutable(Schema.Struct({
   sky: Schema.declare((u): u is Option.Option<SkyMaterialPort> => {
   /* c8 ignore start -- Schema.declare validator is invoked by the Effect Schema runtime during decode/is checks; not directly unit testable */
   if (!Option.isOption(u)) return false
-  return Option.match(u, {
-    onNone: () => true,
-    onSome: (value) => Schema.is(SkyMaterialPortSchema)(value),
-  })
+  const val = Option.getOrNull(u)
+  return val === null || Schema.is(SkyMaterialPortSchema)(val)
   /* c8 ignore end */
 }),
 }))

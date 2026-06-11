@@ -39,12 +39,11 @@ export const resolveNetherTravel = (
   // End dimension is handled separately via End portal; nether portals only toggle overworld↔nether.
   const toDimension: Dimension = from === 'overworld' ? 'nether' : 'overworld'
   const destination = from === 'overworld' ? overworldToNether(playerPos) : netherToOverworld(playerPos)
-  return Option.match(findNearestPortal(knownPortals, destination, searchRadius), {
-    onSome: (portal) => ({ toDimension, destination: portal, portalToCreate: Option.none() }),
-    onNone: () => ({
-      toDimension,
-      destination,
-      portalToCreate: Option.some(generatePortalLayout(destination, 'x', DEFAULT_PORTAL_WIDTH, DEFAULT_PORTAL_HEIGHT)),
-    }),
-  })
+  const nearestPortal = Option.getOrNull(findNearestPortal(knownPortals, destination, searchRadius))
+  if (nearestPortal !== null) return { toDimension, destination: nearestPortal, portalToCreate: Option.none() }
+  return {
+    toDimension,
+    destination,
+    portalToCreate: Option.some(generatePortalLayout(destination, 'x', DEFAULT_PORTAL_WIDTH, DEFAULT_PORTAL_HEIGHT)),
+  }
 }

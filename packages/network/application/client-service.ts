@@ -68,21 +68,18 @@ export const ClientServiceImpl = (
         yield* Ref.set(stateRef, 'reconnecting')
         yield* Effect.sleep(backoffForAttempt(attempt))
         const [serverUrl, playerName] = yield* Effect.all([Ref.get(serverUrlRef), Ref.get(playerNameRef)], { concurrency: 'unbounded' })
-        const result = yield* Option.match(serverUrl, {
-          onNone: () => Effect.succeed(false),
-          onSome: (url) =>
-            Option.match(playerName, {
-              onNone: () => Effect.succeed(false),
-              onSome: (name) =>
-                port.connect(url).pipe(
-                  Effect.tap(installHandle),
-                  Effect.tap((handle) => sendRawMessage(handle, makeInitialJoin(name))),
-                  Effect.tap(() => Ref.set(stateRef, 'connected')),
-                  Effect.as(true),
-                  Effect.catchAll(() => Effect.succeed(false)),
-                ),
-            }),
-        })
+        let result = false
+        const serverUrlVal = Option.getOrNull(serverUrl)
+        const playerNameVal = Option.getOrNull(playerName)
+        if (serverUrlVal !== null && playerNameVal !== null) {
+          result = yield* port.connect(serverUrlVal).pipe(
+            Effect.tap(installHandle),
+            Effect.tap((handle) => sendRawMessage(handle, makeInitialJoin(playerNameVal))),
+            Effect.tap(() => Ref.set(stateRef, 'connected')),
+            Effect.as(true),
+            Effect.catchAll(() => Effect.succeed(false)),
+          )
+        }
         if (result) return
       }
       yield* Ref.set(stateRef, 'failed')
@@ -122,29 +119,27 @@ export const ClientServiceImpl = (
       disconnect: () =>
         Effect.gen(function* () {
           yield* Ref.set(intentionallyDisconnectedRef, true)
-          const reconnectFiber = yield* Ref.get(reconnectFiberRef)
-          yield* Option.match(reconnectFiber, {
-            onNone: () => Effect.void,
-            onSome: (fiber) => Fiber.interrupt(fiber).pipe(Effect.asVoid),
-          })
+          const reconnectFiber = Option.getOrNull(yield* Ref.get(reconnectFiberRef))
+          if (reconnectFiber !== null) {
+            yield* Fiber.interrupt(reconnectFiber).pipe(Effect.asVoid)
+          }
           yield* Ref.set(reconnectFiberRef, Option.none())
-          const handle = yield* Ref.get(handleRef)
-          yield* Option.match(handle, {
-            onNone: () => Effect.void,
-            onSome: (clientHandle) => clientHandle.close,
-          })
+          const handle = Option.getOrNull(yield* Ref.get(handleRef))
+          if (handle !== null) {
+            yield* handle.close
+          }
           yield* Ref.set(handleRef, Option.none())
           yield* Ref.set(stateRef, 'disconnected')
         }),
       getConnectionState: () => Ref.get(stateRef),
       sendMessage: (message) =>
         Ref.get(handleRef).pipe(
-          Effect.flatMap((handle) =>
-            Option.match(handle, {
-              onNone: () => Effect.fail(new NetworkError({ operation: 'send', reason: 'client is not connected' })),
-              onSome: (clientHandle) => sendRawMessage(clientHandle, message),
-            }),
-          ),
+          Effect.flatMap((handle) => {
+            const h = Option.getOrNull(handle)
+            return h !== null
+              ? sendRawMessage(h, message)
+              : Effect.fail(new NetworkError({ operation: 'send', reason: 'client is not connected' }))
+          }),
         ),
       receiveMessages: () =>
         Ref.get(messageStreamRef).pipe(

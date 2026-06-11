@@ -11,32 +11,31 @@ export class TextureService extends Effect.Service<TextureService>()(
       const loadEffect = (url: string) => {
         const textureUrl = TextureUrl.make(url)
         return Effect.gen(function* () {
-          return yield* Option.match(HashMap.get(yield* Ref.get(textureCache), textureUrl), {
-            onSome: Effect.succeed,
-            onNone: () => Effect.tryPromise({
-              try: async () => {
-                const loader = new THREE.TextureLoader()
-                const texture = await loader.loadAsync(url)
-                texture.magFilter = THREE.NearestFilter
-                texture.minFilter = THREE.NearestFilter
-                texture.generateMipmaps = false
-                texture.wrapS = THREE.RepeatWrapping
-                texture.wrapT = THREE.RepeatWrapping
-                // The textures loaded here (notably /textures/atlas.png for the hotbar) are
-                // sRGB-encoded color images. With renderer.outputColorSpace = SRGBColorSpace,
-                // an untagged texture is treated as linear and skips the sRGB→linear decode,
-                // so the SAME atlas rendered in the hotbar would mismatch the world blocks
-                // (buildAtlasTexture sets this; this path previously did not). Keep them in sync.
-                texture.colorSpace = THREE.SRGBColorSpace
-                return texture
-              },
-              catch: (cause) => new TextureError({ url, cause }),
-            }).pipe(
-              Effect.tap((texture) =>
-                Ref.update(textureCache, (cache) => HashMap.set(cache, textureUrl, texture))
-              )
-            ),
-          })
+          const cached = Option.getOrNull(HashMap.get(yield* Ref.get(textureCache), textureUrl))
+          if (cached !== null) return cached
+          return yield* Effect.tryPromise({
+            try: async () => {
+              const loader = new THREE.TextureLoader()
+              const texture = await loader.loadAsync(url)
+              texture.magFilter = THREE.NearestFilter
+              texture.minFilter = THREE.NearestFilter
+              texture.generateMipmaps = false
+              texture.wrapS = THREE.RepeatWrapping
+              texture.wrapT = THREE.RepeatWrapping
+              // The textures loaded here (notably /textures/atlas.png for the hotbar) are
+              // sRGB-encoded color images. With renderer.outputColorSpace = SRGBColorSpace,
+              // an untagged texture is treated as linear and skips the sRGB→linear decode,
+              // so the SAME atlas rendered in the hotbar would mismatch the world blocks
+              // (buildAtlasTexture sets this; this path previously did not). Keep them in sync.
+              texture.colorSpace = THREE.SRGBColorSpace
+              return texture
+            },
+            catch: (cause) => new TextureError({ url, cause }),
+          }).pipe(
+            Effect.tap((texture) =>
+              Ref.update(textureCache, (cache) => HashMap.set(cache, textureUrl, texture))
+            )
+          )
         })
       }
 

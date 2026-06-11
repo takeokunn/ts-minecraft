@@ -103,10 +103,8 @@ describe('trading/trading-service', () => {
 
       expect(firstTrade instanceof TradeSuccess).toBe(true)
       expect(secondTrade instanceof TradeSuccess).toBe(true)
-      expect(Option.match(villagerAfter, {
-        onNone: () => 1,
-        onSome: (villager) => villager.level,
-      })).toBeGreaterThanOrEqual(2)
+      const villager = Option.getOrNull(villagerAfter)
+      expect(villager !== null ? villager.level : 1).toBeGreaterThanOrEqual(2)
       expect(Either.isRight(canRemoveOutput)).toBe(true)
     }).pipe(Effect.provide(TradingTestLayer))
   )

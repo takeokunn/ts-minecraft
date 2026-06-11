@@ -84,10 +84,7 @@ export const getFortuneDropMultiplier = (level: EnchantmentLevel): number =>
 // ─── Applicable items ────────────────────────────────────────────────────────
 
 export const canEnchantItem = (item: ItemType, enchantment: EnchantmentType): boolean =>
-  Option.getOrElse(
-    Option.map(Option.fromNullable(APPLICABLE_TO[enchantment]), (set) => set.has(item)),
-    () => false,
-  )
+  APPLICABLE_TO[enchantment]?.has(item) ?? false
 
 // ─── Enchanting selection ─────────────────────────────────────────────────────
 

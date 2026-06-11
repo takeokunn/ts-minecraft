@@ -12,16 +12,13 @@ export const fillExistingStacks = (
 ): readonly [InventorySlots, number] => {
   const [remaining, updated] = Arr.mapAccum(slots, count, (rem, slot) => {
     if (rem <= 0) return [rem, slot] as const
-    return Option.match(slot, {
-      onNone: () => [rem, slot] as const,
-      onSome: (stackVal) => {
-        if (stackVal.itemType !== itemType) return [rem, slot] as const
-        const space = maxStack - stackVal.count
-        if (space <= 0) return [rem, slot] as const
-        const add = Math.min(space, rem)
-        return [rem - add, Option.some(addToStack(stackVal, add))] as const
-      },
-    })
+    const stackVal = Option.getOrNull(slot)
+    if (stackVal === null) return [rem, slot] as const
+    if (stackVal.itemType !== itemType) return [rem, slot] as const
+    const space = maxStack - stackVal.count
+    if (space <= 0) return [rem, slot] as const
+    const add = Math.min(space, rem)
+    return [rem - add, Option.some(addToStack(stackVal, add))] as const
   })
   return [updated, remaining]
 }
@@ -39,17 +36,12 @@ export const drainPreferredSlot = (
     const take = Math.min(stack.count, rem)
     return [rem - take, removeFromStack(stack, take)]
   }
-  return Option.match(preferredIdx, {
-    onNone: () => [count, slots] as const,
-    onSome: (idx) =>
-      Option.match(Option.getOrElse(Arr.get(slots, idx), () => Option.none<ItemStack>()), {
-        onNone: () => [count, slots] as const,
-        onSome: (stack) => {
-          const [newRem, newSlot] = takeFrom(count, stack)
-          return [newRem, Arr.modify(slots, idx, () => newSlot)] as const
-        },
-      }),
-  })
+  const idx = Option.getOrNull(preferredIdx)
+  if (idx === null) return [count, slots]
+  const stack = Option.getOrNull(Option.flatten(Arr.get(slots, idx)))
+  if (stack === null) return [count, slots]
+  const [newRem, newSlot] = takeFrom(count, stack)
+  return [newRem, Arr.modify(slots, idx, () => newSlot)]
 }
 
 // Pure: fills empty slots with remaining count, returns [updatedSlots, remainingCount]
@@ -61,13 +53,9 @@ export const fillEmptySlots = (
 ): readonly [InventorySlots, number] => {
   const [remaining, updated] = Arr.mapAccum(slots, count, (rem, slot) => {
     if (rem <= 0) return [rem, slot] as const
-    return Option.match(slot, {
-      onSome: () => [rem, slot] as const,
-      onNone: () => {
-        const add = Math.min(maxStack, rem)
-        return [rem - add, Option.some(createStack(itemType, add))] as const
-      },
-    })
+    if (Option.isSome(slot)) return [rem, slot] as const
+    const add = Math.min(maxStack, rem)
+    return [rem - add, Option.some(createStack(itemType, add))] as const
   })
   return [updated, remaining]
 }

@@ -186,13 +186,14 @@ describe('infrastructure/three/world-renderer', () => {
         yield* s.syncChunksToScene([makeChunk(0, 0), makeChunk(1, 0)], scene)
         yield* s.applyFrustumCulling(camera)
 
-        Option.match(Option.fromNullable(originalImpl), {
-          onSome: (impl) => FrustumCtor.mockImplementation(impl),
-          onNone: () => FrustumCtor.mockImplementation(() => ({
+        if (originalImpl !== null && originalImpl !== undefined) {
+          FrustumCtor.mockImplementation(originalImpl)
+        } else {
+          FrustumCtor.mockImplementation(() => ({
             setFromProjectionMatrix: vi.fn(),
             intersectsBox: vi.fn(() => true),
-          })),
-        })
+          }))
+        }
 
         Arr.forEach(mockMeshes, (mesh) => {
           expect(mesh.visible).toBe(false)
@@ -262,13 +263,14 @@ describe('infrastructure/three/world-renderer', () => {
         yield* s.syncChunksToScene([makeChunk(0, 0)], scene)
         yield* s.applyFrustumCulling(camera)
 
-        Option.match(Option.fromNullable(originalImpl), {
-          onSome: (impl) => FrustumCtor.mockImplementation(impl),
-          onNone: () => FrustumCtor.mockImplementation(() => ({
+        if (originalImpl !== null && originalImpl !== undefined) {
+          FrustumCtor.mockImplementation(originalImpl)
+        } else {
+          FrustumCtor.mockImplementation(() => ({
             setFromProjectionMatrix: vi.fn(),
             intersectsBox: vi.fn(() => true),
-          })),
-        })
+          }))
+        }
 
         Arr.forEach(mockOpaqueMeshes, (mesh) => {
           expect(mesh.visible).toBe(false)

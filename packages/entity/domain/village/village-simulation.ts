@@ -61,15 +61,13 @@ export const findNearestVillage = (
   villages: ReadonlyArray<Village>,
   position: Position,
 ): Option.Option<Village> =>
-  Arr.reduce(villages, Option.none<Village>(), (closest, village) =>
-    Option.match(closest, {
-      onNone: () => Option.some(village),
-      onSome: (current) =>
-        distanceSq(village.center, position) < distanceSq(current.center, position)
-          ? Option.some(village)
-          : closest,
-    })
-  )
+  Arr.reduce(villages, Option.none<Village>(), (closest, village) => {
+    const c = Option.getOrNull(closest)
+    if (c === null) return Option.some(village)
+    return distanceSq(village.center, position) < distanceSq(c.center, position)
+      ? Option.some(village)
+      : closest
+  })
 
 export const findStructureAnchor = (
   structures: ReadonlyArray<VillageStructure>,

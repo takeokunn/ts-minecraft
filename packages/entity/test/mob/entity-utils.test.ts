@@ -4,6 +4,7 @@ import { Array as Arr } from 'effect'
 import { EntityId } from '@ts-minecraft/entity'
 import { hashEntityId, makeWanderDirection, toPublicEntity, BABY_GROW_TICKS } from '@ts-minecraft/entity'
 import { AIState } from '@ts-minecraft/entity'
+import { makeWanderDirectionFromHash, computeEndermanTeleportPosition } from '../../domain/mob/entity-utils'
 import type { ManagedEntity } from '../../domain/mob/entity-internal'
 
 describe('entity/entity-utils', () => {
@@ -141,6 +142,73 @@ describe('entity/entity-utils', () => {
     it('isBaby reflects ageTicks vs BABY_GROW_TICKS (R6d)', () => {
       expect(toPublicEntity({ ...makeManagedEntity(), ageTicks: BABY_GROW_TICKS }).isBaby).toBe(false)
       expect(toPublicEntity({ ...makeManagedEntity(), ageTicks: 0 }).isBaby).toBe(true)
+    })
+  })
+
+  describe('makeWanderDirectionFromHash', () => {
+    it('returns a unit vector on the horizontal plane', () => {
+      const dir = makeWanderDirectionFromHash(42, 0)
+      const mag = Math.sqrt(dir.x * dir.x + dir.y * dir.y + dir.z * dir.z)
+      expect(mag).toBeCloseTo(1, 5)
+      expect(dir.y).toBe(0)
+    })
+
+    it('is deterministic: same hash + tick → same result', () => {
+      const d1 = makeWanderDirectionFromHash(7, 3)
+      const d2 = makeWanderDirectionFromHash(7, 3)
+      expect(d1.x).toBe(d2.x)
+      expect(d1.z).toBe(d2.z)
+    })
+
+    it('different ticks produce different directions (29-step rotation per tick)', () => {
+      const d0 = makeWanderDirectionFromHash(1, 0)
+      const d1 = makeWanderDirectionFromHash(1, 1)
+      expect(d0.x).not.toBeCloseTo(d1.x, 5)
+    })
+
+    it('produces different results for different hash values', () => {
+      const d0 = makeWanderDirectionFromHash(0, 100)
+      const d1 = makeWanderDirectionFromHash(1, 100)
+      expect(d0.x).not.toBeCloseTo(d1.x, 5)
+    })
+  })
+
+  describe('computeEndermanTeleportPosition', () => {
+    it('preserves Y position (teleport stays at same height)', () => {
+      const origin = { x: 0, y: 64, z: 0 }
+      const result = computeEndermanTeleportPosition(origin, 10)
+      expect(result.y).toBe(origin.y)
+    })
+
+    it('moves some horizontal distance from the origin', () => {
+      const origin = { x: 0, y: 64, z: 0 }
+      const result = computeEndermanTeleportPosition(origin, 10)
+      const dist = Math.hypot(result.x - origin.x, result.z - origin.z)
+      expect(dist).toBeGreaterThan(0)
+    })
+
+    it('is deterministic: same position + health → same result', () => {
+      const origin = { x: 5, y: 70, z: -3 }
+      const r1 = computeEndermanTeleportPosition(origin, 7)
+      const r2 = computeEndermanTeleportPosition(origin, 7)
+      expect(r1.x).toBe(r2.x)
+      expect(r1.z).toBe(r2.z)
+    })
+
+    it('distance is between 4 and 12 (4 + health%8)', () => {
+      for (let health = 0; health <= 20; health++) {
+        const origin = { x: 0, y: 64, z: 0 }
+        const result = computeEndermanTeleportPosition(origin, health)
+        const dist = Math.hypot(result.x - origin.x, result.z - origin.z)
+        const expectedDist = 4 + (Math.floor(health) % 8)
+        expect(dist).toBeCloseTo(expectedDist, 5)
+      }
+    })
+
+    it('preserves the original position object (no mutation)', () => {
+      const origin = { x: 1, y: 64, z: 2 }
+      computeEndermanTeleportPosition(origin, 15)
+      expect(origin).toEqual({ x: 1, y: 64, z: 2 })
     })
   })
 })

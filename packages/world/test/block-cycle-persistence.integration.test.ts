@@ -36,10 +36,11 @@ describe('integration/block-cycle', () => {
               (lx) => Arr.makeBy(CHUNK_HEIGHT - 1, (i) => ({ lx, lz, y: CHUNK_HEIGHT - 1 - i }))
             )
           ),
-          ({ lx, lz, y }) => y >= 1 && Option.match(blockIndex(lx, y, lz), {
-            onNone: () => false,
-            onSome: (idx) => chunk.blocks[idx] !== 0,
-          })
+          ({ lx, lz, y }) => {
+            if (y < 1) return false
+            const idx = Option.getOrNull(blockIndex(lx, y, lz))
+            return idx !== null && chunk.blocks[idx] !== 0
+          }
         )
         const { lx: surfaceLx, lz: surfaceLz, y: surfaceY } = Option.getOrElse(
           surfaceBlockOpt,

@@ -42,15 +42,16 @@ describe('integration/block-cycle', () => {
         // (terrain surface is typically y=48-80 for PLAINS biome)
         const solidPos = Arr.findFirst(
           Arr.makeBy(80, (i) => 80 - i),
-          (y) => Option.match(blockIndex(0, y, 0), {
-            onNone: () => false,
-            onSome: (idx) => chunk.blocks[idx] !== 0,
-          })
+          (y) => {
+            const idx = Option.getOrNull(blockIndex(0, y, 0))
+            return idx !== null && chunk.blocks[idx] !== 0
+          }
         ).pipe(Option.map((y) => ({ x: coord.x * CHUNK_SIZE, y, z: coord.z * CHUNK_SIZE } as Position)))
 
         const effectiveSolidPos: Position = Option.getOrElse(solidPos, () => {
           // Fallback: manually inject a STONE block and break it
-          Option.map(blockIndex(0, 64, 0), (idx) => { chunk.blocks[idx] = blockTypeToIndex('STONE') })
+          const idx = Option.getOrNull(blockIndex(0, 64, 0))
+          if (idx !== null) chunk.blocks[idx] = blockTypeToIndex('STONE')
           return { x: coord.x * CHUNK_SIZE, y: 64, z: coord.z * CHUNK_SIZE }
         })
 
@@ -93,10 +94,11 @@ describe('integration/block-cycle', () => {
               (lx) => Arr.makeBy(CHUNK_HEIGHT - 1, (i) => ({ lx, lz, y: CHUNK_HEIGHT - 1 - i }))
             )
           ),
-          ({ lx, lz, y }) => y >= 1 && Option.match(blockIndex(lx, y, lz), {
-            onNone: () => false,
-            onSome: (idx) => chunk.blocks[idx] !== 0,
-          })
+          ({ lx, lz, y }) => {
+            if (y < 1) return false
+            const idx = Option.getOrNull(blockIndex(lx, y, lz))
+            return idx !== null && chunk.blocks[idx] !== 0
+          }
         )
         const { lx: surfaceLx, lz: surfaceLz, y: surfaceY } = Option.getOrElse(
           surfaceBlockOpt,

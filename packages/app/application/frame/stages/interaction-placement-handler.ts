@@ -4,10 +4,95 @@ import type { Chunk } from '@ts-minecraft/world'
 import { CHUNK_HEIGHT, CHUNK_SIZE, indexToBlockType, BlockTypeSchema, SlotIndex, ItemTypeSchema } from '@ts-minecraft/core'
 import type { BlockType, Position } from '@ts-minecraft/core'
 import { HOTBAR_START, selectEnchantment, enchantXPCost, enchantItem } from '@ts-minecraft/inventory'
+import type { DirtyChunkEntry } from '@ts-minecraft/app/frame/frame-maintenance'
 import type { FrameHandlerServices, FrameStageRefs } from '@ts-minecraft/app/frame/types'
 import type { TargetRayHit } from '@ts-minecraft/app/frame/stages/interaction-block-handler'
+import type { ChunkManagerService } from '@ts-minecraft/world/application/chunk-manager-service'
 
 const TNT_BREAK_RADIUS = 4     // blocks broken within this radius
+
+// ─── Shared pure helpers ──────────────────────────────────────────────────────
+
+// Computes the world position of the block face adjacent to a ray hit
+// (one block beyond the hit surface, in the direction of the surface normal).
+const adjacentToHit = (hit: TargetRayHit): Position => ({
+  x: hit.blockX + Math.round(hit.normal.x),
+  y: hit.blockY + Math.round(hit.normal.y),
+  z: hit.blockZ + Math.round(hit.normal.z),
+})
+
+// Builds a sphere of positions centered at `center` within `radius` blocks
+// (Euclidean), used for the TNT explosion break pattern.
+const buildTntBreakPositions = (center: Position, radius: number): ReadonlyArray<Position> => {
+  const positions: Position[] = []
+  for (let dx = -radius; dx <= radius; dx++) {
+    for (let dy = -radius; dy <= radius; dy++) {
+      for (let dz = -radius; dz <= radius; dz++) {
+        if (dx * dx + dy * dy + dz * dz <= radius * radius) {
+          positions.push({ x: center.x + dx, y: center.y + dy, z: center.z + dz })
+        }
+      }
+    }
+  }
+  return positions
+}
+
+// Flattens chunk-load results into a coord-keyed Map for synchronous access.
+// Used when detectNetherPortal needs to scan block data across chunk boundaries.
+const buildChunkCache = (
+  results: ReadonlyArray<Option.Option<{ readonly coord: { x: number; z: number }; readonly chunk: Chunk }>>,
+): Map<string, Chunk> => {
+  const cache = new Map<string, Chunk>()
+  for (const r of results) {
+    const val = Option.getOrNull(r)
+    if (val !== null) cache.set(`${val.coord.x},${val.coord.z}`, val.chunk)
+  }
+  return cache
+}
+
+// ─── Shared Effect helpers ────────────────────────────────────────────────────
+
+// Reads and decodes the block type at a world position. Returns 'AIR' when the
+// chunk is not loaded — callers can use 'AIR' as a safe fallback that will
+// propagate correctly through block-dispatch chains.
+const readBlockTypeAt = (
+  chunkManagerService: ChunkManagerService,
+  pos: { readonly x: number; readonly y: number; readonly z: number },
+): Effect.Effect<BlockType, never> => {
+  const cx = Math.floor(pos.x / CHUNK_SIZE)
+  const cz = Math.floor(pos.z / CHUNK_SIZE)
+  const lx = ((pos.x % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE
+  const lz = ((pos.z % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE
+  const idx = pos.y + lz * CHUNK_HEIGHT + lx * CHUNK_HEIGHT * CHUNK_SIZE
+  return chunkManagerService
+    .getChunk({ x: cx, z: cz })
+    .pipe(
+      Effect.map((chunk) => indexToBlockType(chunk.blocks[idx] ?? 0)),
+      /* c8 ignore next -- chunk unavailable treated as AIR; only happens on load failure */
+      Effect.catchAll(() => Effect.succeed('AIR' as BlockType)),
+    )
+}
+
+// Queues the chunk containing `pos` for re-meshing by marking it render-dirty.
+// No-ops if the chunk fails to load (the visual state is already inconsistent).
+const markChunkDirtyAt = (
+  chunkManagerService: ChunkManagerService,
+  dirtyChunksRef: Ref.Ref<HashMap.HashMap<string, DirtyChunkEntry>>,
+  pos: { readonly x: number; readonly y: number; readonly z: number },
+): Effect.Effect<void, never> => {
+  const cx = Math.floor(pos.x / CHUNK_SIZE)
+  const cz = Math.floor(pos.z / CHUNK_SIZE)
+  return chunkManagerService
+    .getChunk({ x: cx, z: cz })
+    .pipe(
+      Effect.flatMap((updated) =>
+        Ref.update(dirtyChunksRef, (map) =>
+          HashMap.set(map, `${cx},${cz}`, { chunk: updated, dirtyAABB: Option.none() }),
+        ),
+      ),
+      Effect.catchAll(() => Effect.void),
+    )
+}
 
 // Pre-fetches a 3×3 chunk grid around the ignition point and creates a synchronous
 // blockAt closure for detectNetherPortal (which needs to scan up to 21-block frames
@@ -31,48 +116,30 @@ const buildBlockAtFromCache = (
     return indexToBlockType(chunk.blocks[idx] ?? 0)
   }
 
+// ─── Handlers ────────────────────────────────────────────────────────────────
+
 export const handleFlintAndSteel = (
   services: Pick<FrameHandlerServices, 'blockService' | 'chunkManagerService' | 'netherService' | 'soundManager'>,
   refs: Pick<FrameStageRefs, 'dirtyChunksRef'>,
   context: { readonly targetHit: Option.Option<TargetRayHit> },
 ): Effect.Effect<boolean> =>
-  Option.match(context.targetHit, {
-    onNone: () => Effect.succeed(false),
-    onSome: (hit) => {
-      const tntPos = { x: hit.blockX, y: hit.blockY, z: hit.blockZ }
-      const tntChunkCoord = { x: Math.floor(tntPos.x / CHUNK_SIZE), z: Math.floor(tntPos.z / CHUNK_SIZE) }
-      return services.chunkManagerService.getChunk(tntChunkCoord).pipe(
-        Effect.flatMap((tntChunk) => {
-          const lx = ((tntPos.x % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE
-          const lz = ((tntPos.z % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE
-          const idx = tntPos.y + lz * CHUNK_HEIGHT + lx * CHUNK_HEIGHT * CHUNK_SIZE
-          const targetBlockType = indexToBlockType(tntChunk.blocks[idx] ?? 0)
-          if (targetBlockType !== 'TNT') return handlePortalIgnition(services, refs, hit)
-          // TNT explosion: remove TNT block + break nearby blocks in radius
-          return Effect.gen(function* () {
-            yield* services.blockService.forceSetBlock(tntPos, 'AIR').pipe(Effect.catchAll(() => Effect.void))
-            yield* services.soundManager.playEffect('blockBreak', { position: tntPos })
-            const breakPositions: Position[] = []
-            for (let dx = -TNT_BREAK_RADIUS; dx <= TNT_BREAK_RADIUS; dx++) {
-              for (let dy = -TNT_BREAK_RADIUS; dy <= TNT_BREAK_RADIUS; dy++) {
-                for (let dz = -TNT_BREAK_RADIUS; dz <= TNT_BREAK_RADIUS; dz++) {
-                  if (dx * dx + dy * dy + dz * dz <= TNT_BREAK_RADIUS * TNT_BREAK_RADIUS) {
-                    breakPositions.push({ x: tntPos.x + dx, y: tntPos.y + dy, z: tntPos.z + dz })
-                  }
-                }
-              }
-            }
-            yield* Effect.forEach(
-              breakPositions,
-              (pos) => services.blockService.forceSetBlock(pos, 'AIR').pipe(Effect.catchAll(() => Effect.void)),
-              { concurrency: 'unbounded', discard: true },
-            )
-            return true
-          })
-        }),
-        Effect.catchAll(() => handlePortalIgnition(services, refs, hit)),
-      )
-    },
+  Effect.gen(function* () {
+    const hit = Option.getOrNull(context.targetHit)
+    if (hit === null) return false
+    const tntPos = { x: hit.blockX, y: hit.blockY, z: hit.blockZ }
+    const blockTypeOpt = yield* readBlockTypeAt(services.chunkManagerService, tntPos).pipe(Effect.option)
+    if (Option.getOrNull(blockTypeOpt) !== 'TNT') {
+      return yield* handlePortalIgnition(services, refs, hit)
+    }
+    // TNT explosion: remove the TNT block then break all blocks within the sphere
+    yield* services.blockService.forceSetBlock(tntPos, 'AIR').pipe(Effect.catchAll(() => Effect.void))
+    yield* services.soundManager.playEffect('blockBreak', { position: tntPos })
+    yield* Effect.forEach(
+      buildTntBreakPositions(tntPos, TNT_BREAK_RADIUS),
+      (pos) => services.blockService.forceSetBlock(pos, 'AIR').pipe(Effect.catchAll(() => Effect.void)),
+      { concurrency: 'unbounded', discard: true },
+    )
+    return true
   })
 
 // Extracted portal ignition logic (was the original handleFlintAndSteel body).
@@ -81,78 +148,67 @@ const handlePortalIgnition = (
   refs: Pick<FrameStageRefs, 'dirtyChunksRef'>,
   hit: TargetRayHit,
 ): Effect.Effect<boolean> => {
-      // Flint & steel ignites the air cell adjacent to the face that was right-clicked
-      const ignitionPos = {
-        x: hit.blockX + Math.round(hit.normal.x),
-        y: hit.blockY + Math.round(hit.normal.y),
-        z: hit.blockZ + Math.round(hit.normal.z),
-      }
-      const centerCx = Math.floor(ignitionPos.x / CHUNK_SIZE)
-      const centerCz = Math.floor(ignitionPos.z / CHUNK_SIZE)
-      const chunkCoords: Array<{ x: number; z: number }> = []
-      for (let dx = -1; dx <= 1; dx++) {
-        for (let dz = -1; dz <= 1; dz++) {
-          chunkCoords.push({ x: centerCx + dx, z: centerCz + dz })
-        }
+  // Flint & steel ignites the air cell adjacent to the face that was right-clicked
+  const ignitionPos = adjacentToHit(hit)
+  const centerCx = Math.floor(ignitionPos.x / CHUNK_SIZE)
+  const centerCz = Math.floor(ignitionPos.z / CHUNK_SIZE)
+  const chunkCoords: Array<{ x: number; z: number }> = []
+  for (let dx = -1; dx <= 1; dx++) {
+    for (let dz = -1; dz <= 1; dz++) {
+      chunkCoords.push({ x: centerCx + dx, z: centerCz + dz })
+    }
+  }
+  return Effect.all(
+    chunkCoords.map((coord) =>
+      services.chunkManagerService.getChunk(coord).pipe(
+        Effect.map((chunk) => ({ coord, chunk })),
+        Effect.option,
+      ),
+    ),
+    { concurrency: 'unbounded' },
+  ).pipe(
+    Effect.flatMap((results) => {
+      const chunkCache = buildChunkCache(results)
+      const blockAt = buildBlockAtFromCache(chunkCache)
+      const frame = detectNetherPortal(blockAt, ignitionPos)
+      const portalFrame = Option.getOrNull(frame)
+      if (portalFrame === null) return Effect.succeed(false)
+      // Collect unique affected chunks before mutating so we can update the dirty ref after.
+      // setBlockInChunk mutates blocks in-place so cached chunks reflect portal state.
+      const affectedCoords = new Map<string, { x: number; z: number }>()
+      for (const pos of portalFrame.interior) {
+        const cx = Math.floor(pos.x / CHUNK_SIZE)
+        const cz = Math.floor(pos.z / CHUNK_SIZE)
+        affectedCoords.set(`${cx},${cz}`, { x: cx, z: cz })
       }
       return Effect.all(
-        chunkCoords.map((coord) =>
-          services.chunkManagerService.getChunk(coord).pipe(
-            Effect.map((chunk) => ({ coord, chunk })),
-            Effect.option,
+        portalFrame.interior.map((pos) =>
+          services.blockService.forceSetBlock(pos, 'NETHER_PORTAL').pipe(
+            Effect.catchAll(() => Effect.void),
           ),
         ),
         { concurrency: 'unbounded' },
       ).pipe(
-        Effect.flatMap((results) => {
-          const chunkCache = new Map<string, Chunk>()
-          for (const r of results) {
-            if (r._tag === 'Some') {
-              chunkCache.set(`${r.value.coord.x},${r.value.coord.z}`, r.value.chunk)
-            }
-          }
-          const blockAt = buildBlockAtFromCache(chunkCache)
-          const frame = detectNetherPortal(blockAt, ignitionPos)
-          return Option.match(frame, {
-            onNone: () => Effect.succeed(false),
-            onSome: (portalFrame) => {
-              // Collect unique affected chunks before mutating so we can update the dirty ref after
-              const affectedCoords = new Map<string, { x: number; z: number }>()
-              for (const pos of portalFrame.interior) {
-                const cx = Math.floor(pos.x / CHUNK_SIZE)
-                const cz = Math.floor(pos.z / CHUNK_SIZE)
-                affectedCoords.set(`${cx},${cz}`, { x: cx, z: cz })
+        Effect.andThen(
+          Ref.update(refs.dirtyChunksRef, (map) => {
+            let updated = map
+            for (const [coordKey] of affectedCoords) {
+              const chunk = chunkCache.get(coordKey)
+              if (chunk) {
+                updated = HashMap.set(updated, coordKey, { chunk, dirtyAABB: Option.none() })
               }
-              return Effect.all(
-                portalFrame.interior.map((pos) =>
-                  services.blockService.forceSetBlock(pos, 'NETHER_PORTAL').pipe(
-                    Effect.catchAll(() => Effect.void),
-                  ),
-                ),
-                { concurrency: 'unbounded' },
-              ).pipe(
-                // setBlockInChunk mutates blocks in-place so cached chunks reflect portal state
-                Effect.andThen(
-                  Ref.update(refs.dirtyChunksRef, (map) => {
-                    let updated = map
-                    for (const [coordKey] of affectedCoords) {
-                      const chunk = chunkCache.get(coordKey)
-                      if (chunk) {
-                        updated = HashMap.set(updated, coordKey, { chunk, dirtyAABB: Option.none() })
-                      }
-                    }
-                    return updated
-                  }),
-                ),
-                Effect.andThen(services.netherService.registerPortal(ignitionPos, 'overworld')),
-                Effect.andThen(services.soundManager.playEffect('blockPlace', { position: ignitionPos })),
-                Effect.as(true),
-              )
-            },
-          })
-        }),
+            }
+            return updated
+          }),
+        ),
+        Effect.andThen(services.netherService.registerPortal(ignitionPos, 'overworld')),
+        Effect.andThen(services.soundManager.playEffect('blockPlace', { position: ignitionPos })),
+        Effect.as(true),
       )
-    }
+    }),
+  )
+}
+
 // R26: water/lava buckets. An empty BUCKET fills from a fluid SOURCE block the
 // player is looking at; a filled bucket empties the fluid onto the air cell
 // adjacent to the targeted face. Returns true when the bucket consumed the
@@ -164,78 +220,47 @@ export const handleBucket = (
   refs: Pick<FrameStageRefs, 'dirtyChunksRef'>,
   context: { readonly targetHit: Option.Option<TargetRayHit> },
 ): Effect.Effect<boolean> =>
-  Option.match(context.targetHit, {
-    onNone: () => Effect.succeed(false),
-    onSome: (hit) =>
-      Effect.gen(function* () {
-        const [selected, selectedSlot] = yield* Effect.all(
-          [services.hotbarService.getSelectedBlockType(), services.hotbarService.getSelectedSlot()],
-          { concurrency: 'unbounded' },
-        )
-        if (Option.isNone(selected)) return false
-        const item = selected.value
-        if (item !== 'BUCKET' && item !== 'WATER_BUCKET' && item !== 'LAVA_BUCKET') return false
-        const slot = SlotIndex.make(HOTBAR_START + selectedSlot)
+  Effect.gen(function* () {
+    const hit = Option.getOrNull(context.targetHit)
+    if (hit === null) return false
+    const [selected, selectedSlot] = yield* Effect.all(
+      [services.hotbarService.getSelectedBlockType(), services.hotbarService.getSelectedSlot()],
+      { concurrency: 'unbounded' },
+    )
+    const item = Option.getOrNull(selected)
+    if (item === null || (item !== 'BUCKET' && item !== 'WATER_BUCKET' && item !== 'LAVA_BUCKET')) return false
+    const slot = SlotIndex.make(HOTBAR_START + selectedSlot)
 
-        // Re-mesh the chunk containing `pos` by queueing it render-dirty.
-        const markDirty = (pos: { readonly x: number; readonly y: number; readonly z: number }) =>
-          services.chunkManagerService
-            .getChunk({ x: Math.floor(pos.x / CHUNK_SIZE), z: Math.floor(pos.z / CHUNK_SIZE) })
-            .pipe(
-              Effect.flatMap((updated) =>
-                Ref.update(refs.dirtyChunksRef, (map) =>
-                  HashMap.set(map, `${Math.floor(pos.x / CHUNK_SIZE)},${Math.floor(pos.z / CHUNK_SIZE)}`, {
-                    chunk: updated,
-                    dirtyAABB: Option.none(),
-                  }),
-                ),
-              ),
-              Effect.catchAll(() => Effect.void),
-            )
+    if (item === 'BUCKET') {
+      // FILL — the looked-at block must be a fluid source.
+      const targetPos = { x: hit.blockX, y: hit.blockY, z: hit.blockZ }
+      const blockType = yield* readBlockTypeAt(services.chunkManagerService, targetPos)
+      if (blockType !== 'WATER' && blockType !== 'LAVA') return false
+      const filled = blockType === 'WATER' ? 'WATER_BUCKET' : 'LAVA_BUCKET'
+      yield* (blockType === 'WATER'
+        ? services.fluidService.removeWater(targetPos)
+        : services.fluidService.removeLava(targetPos))
+      yield* services.fluidService.notifyBlockChanged(targetPos)
+      yield* services.inventoryService.removeBlock('BUCKET', 1, slot).pipe(Effect.catchAll(() => Effect.void))
+      yield* services.inventoryService.addBlock(filled, 1).pipe(Effect.catchAll(() => Effect.void))
+      yield* markChunkDirtyAt(services.chunkManagerService, refs.dirtyChunksRef, targetPos)
+      yield* services.soundManager.playEffect('blockBreak', { position: targetPos })
+      return true
+    }
 
-        if (item === 'BUCKET') {
-          // FILL — the looked-at block must be a fluid source.
-          const targetPos = { x: hit.blockX, y: hit.blockY, z: hit.blockZ }
-          const lx = ((targetPos.x % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE
-          const lz = ((targetPos.z % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE
-          const idx = targetPos.y + lz * CHUNK_HEIGHT + lx * CHUNK_HEIGHT * CHUNK_SIZE
-          const blockType = yield* services.chunkManagerService
-            .getChunk({ x: Math.floor(targetPos.x / CHUNK_SIZE), z: Math.floor(targetPos.z / CHUNK_SIZE) })
-            .pipe(
-              Effect.map((chunk) => indexToBlockType(chunk.blocks[idx] ?? 0)),
-              Effect.catchAll(() => Effect.succeed('AIR' as BlockType)),
-            )
-          if (blockType !== 'WATER' && blockType !== 'LAVA') return false
-          const filled = blockType === 'WATER' ? 'WATER_BUCKET' : 'LAVA_BUCKET'
-          yield* (blockType === 'WATER'
-            ? services.fluidService.removeWater(targetPos)
-            : services.fluidService.removeLava(targetPos))
-          yield* services.fluidService.notifyBlockChanged(targetPos)
-          yield* services.inventoryService.removeBlock('BUCKET', 1, slot).pipe(Effect.catchAll(() => Effect.void))
-          yield* services.inventoryService.addBlock(filled, 1).pipe(Effect.catchAll(() => Effect.void))
-          yield* markDirty(targetPos)
-          yield* services.soundManager.playEffect('blockBreak', { position: targetPos })
-          return true
-        }
-
-        // EMPTY — place the fluid at the air cell adjacent to the targeted face.
-        const fluidBlock: BlockType = item === 'WATER_BUCKET' ? 'WATER' : 'LAVA'
-        const placePos = {
-          x: hit.blockX + Math.round(hit.normal.x),
-          y: hit.blockY + Math.round(hit.normal.y),
-          z: hit.blockZ + Math.round(hit.normal.z),
-        }
-        yield* services.blockService.forceSetBlock(placePos, fluidBlock).pipe(Effect.catchAll(() => Effect.void))
-        yield* (fluidBlock === 'WATER'
-          ? services.fluidService.seedWater(placePos)
-          : services.fluidService.seedLava(placePos))
-        yield* services.fluidService.notifyBlockChanged(placePos)
-        yield* services.inventoryService.removeBlock(item, 1, slot).pipe(Effect.catchAll(() => Effect.void))
-        yield* services.inventoryService.addBlock('BUCKET', 1).pipe(Effect.catchAll(() => Effect.void))
-        yield* markDirty(placePos)
-        yield* services.soundManager.playEffect('blockPlace', { position: placePos })
-        return true
-      }),
+    // EMPTY — place the fluid at the air cell adjacent to the targeted face.
+    const fluidBlock: BlockType = item === 'WATER_BUCKET' ? 'WATER' : 'LAVA'
+    const placePos = adjacentToHit(hit)
+    yield* services.blockService.forceSetBlock(placePos, fluidBlock).pipe(Effect.catchAll(() => Effect.void))
+    yield* (fluidBlock === 'WATER'
+      ? services.fluidService.seedWater(placePos)
+      : services.fluidService.seedLava(placePos))
+    yield* services.fluidService.notifyBlockChanged(placePos)
+    yield* services.inventoryService.removeBlock(item, 1, slot).pipe(Effect.catchAll(() => Effect.void))
+    yield* services.inventoryService.addBlock('BUCKET', 1).pipe(Effect.catchAll(() => Effect.void))
+    yield* markChunkDirtyAt(services.chunkManagerService, refs.dirtyChunksRef, placePos)
+    yield* services.soundManager.playEffect('blockPlace', { position: placePos })
+    return true
   })
 
 // Right-clicking a BED block at night skips to dawn and sets the player's spawn point.
@@ -271,12 +296,10 @@ const handleEnchantingTable = (
     if (xp.level < 1) return
     const slotIndex = SlotIndex.make(HOTBAR_START + selectedSlot)
     const slot = yield* services.inventoryService.getSlot(slotIndex)
-    if (Option.isNone(slot)) return
-    const stack = slot.value
-    if (!Schema.is(ItemTypeSchema)(stack.itemType)) return
-    const enchantOpt = selectEnchantment(stack.itemType, xp.level)
-    if (Option.isNone(enchantOpt)) return
-    const enchantment = enchantOpt.value
+    const stack = Option.getOrNull(slot)
+    if (stack === null || !Schema.is(ItemTypeSchema)(stack.itemType)) return
+    const enchantment = Option.getOrNull(selectEnchantment(stack.itemType, xp.level))
+    if (enchantment === null) return
     const cost = enchantXPCost(enchantment.level)
     const enchanted = enchantItem(stack, enchantment)
     yield* Effect.all(
@@ -299,75 +322,50 @@ export const handleRightClick = (
   refs: Pick<FrameStageRefs, 'dirtyChunksRef'>,
   context: { readonly targetHit: Option.Option<TargetRayHit>; readonly respawnPositionRef: MutableRef.MutableRef<Position> },
 ) =>
-  Option.match(context.targetHit, {
-    onNone: () => Effect.void,
-    onSome: (hit) => {
-      const targetPos = { x: hit.blockX, y: hit.blockY, z: hit.blockZ }
-      const targetChunkCoord = {
-        x: Math.floor(targetPos.x / CHUNK_SIZE),
-        z: Math.floor(targetPos.z / CHUNK_SIZE),
-      }
-      return services.chunkManagerService.getChunk(targetChunkCoord).pipe(
-        Effect.flatMap((targetChunk) => {
-          const targetLx = ((targetPos.x % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE
-          const targetLz = ((targetPos.z % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE
-          const targetIdx = targetPos.y + targetLz * CHUNK_HEIGHT + targetLx * CHUNK_HEIGHT * CHUNK_SIZE
-          const targetBlockType = indexToBlockType(targetChunk.blocks[targetIdx] ?? 0)
-          /* c8 ignore next 3 */
-          if (targetBlockType === 'FURNACE') return services.furnaceService.setSelectedFurnace(targetPos)
-          /* c8 ignore next 2 */
-          if (targetBlockType === 'BED') return handleBed(services, context.respawnPositionRef, targetPos)
-          /* c8 ignore next 3 */
-          if (targetBlockType === 'ENCHANTING_TABLE') return handleEnchantingTable(services, targetPos)
+  Effect.gen(function* () {
+    const hit = Option.getOrNull(context.targetHit)
+    if (hit === null) return
+    const targetPos = { x: hit.blockX, y: hit.blockY, z: hit.blockZ }
+    const targetBlockType = yield* readBlockTypeAt(services.chunkManagerService, targetPos)
+    /* c8 ignore next 3 */
+    if (targetBlockType === 'FURNACE') { yield* services.furnaceService.setSelectedFurnace(targetPos); return }
+    /* c8 ignore next 2 */
+    if (targetBlockType === 'BED') { yield* handleBed(services, context.respawnPositionRef, targetPos); return }
+    /* c8 ignore next 3 */
+    if (targetBlockType === 'ENCHANTING_TABLE') { yield* handleEnchantingTable(services, targetPos); return }
 
-          const adjacentPos = {
-            x: hit.blockX + Math.round(hit.normal.x),
-            y: hit.blockY + Math.round(hit.normal.y),
-            z: hit.blockZ + Math.round(hit.normal.z),
-          }
-          return Effect.all(
-            [services.hotbarService.getSelectedBlockType(), services.hotbarService.getSelectedSlot()],
-            { concurrency: 'unbounded' },
-          ).pipe(
-            Effect.flatMap(([selectedBlock, selectedSlot]) =>
-              Option.match(selectedBlock, {
-                onNone: () => Effect.void,
-                onSome: (item) => {
-                  /* c8 ignore next -- non-BlockType item in hotbar during right-click; tools/food handled before reaching here */
-                  if (!Schema.is(BlockTypeSchema)(item)) return Effect.void
-                  const chunkCoord = {
-                    x: Math.floor(adjacentPos.x / CHUNK_SIZE),
-                    z: Math.floor(adjacentPos.z / CHUNK_SIZE),
-                  }
-                  const coordKey = `${chunkCoord.x},${chunkCoord.z}`
-                  const adjLx = ((adjacentPos.x % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE
-                  const adjLz = ((adjacentPos.z % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE
-                  return services.blockService
-                    .placeBlock(adjacentPos, item, SlotIndex.make(HOTBAR_START + selectedSlot))
-                    .pipe(
-                      Effect.flatMap(() => services.soundManager.playEffect('blockPlace', { position: adjacentPos })),
-                      // FR-3: broadcast the placement to other players (no-op offline).
-                      Effect.tap(() =>
-                        Option.match(services.multiplayer, {
-                          onNone: () => Effect.void,
-                          onSome: (mp) => mp.sendBlockPlace(adjacentPos, item),
-                        }),
-                      ),
-                      Effect.andThen(services.chunkManagerService.getChunk(chunkCoord)),
-                      Effect.flatMap((updatedChunk) =>
-                        Ref.update(refs.dirtyChunksRef, (map) =>
-                          HashMap.set(map, coordKey, {
-                            chunk: updatedChunk,
-                            dirtyAABB: Option.some(aabbFromVoxel({ lx: adjLx, y: adjacentPos.y, lz: adjLz })),
-                          }),
-                        ),
-                      ),
-                    )
-                },
-              }),
-            ),
-          )
-        }),
+    const adjacentPos = adjacentToHit(hit)
+    const chunkCoord = {
+      x: Math.floor(adjacentPos.x / CHUNK_SIZE),
+      z: Math.floor(adjacentPos.z / CHUNK_SIZE),
+    }
+    const coordKey = `${chunkCoord.x},${chunkCoord.z}`
+    const adjLx = ((adjacentPos.x % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE
+    const adjLz = ((adjacentPos.z % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE
+    const [selectedBlock, selectedSlot] = yield* Effect.all(
+      [services.hotbarService.getSelectedBlockType(), services.hotbarService.getSelectedSlot()],
+      { concurrency: 'unbounded' },
+    )
+    const item = Option.getOrNull(selectedBlock)
+    if (item === null) return
+    /* c8 ignore next -- non-BlockType item in hotbar during right-click; tools/food handled before reaching here */
+    if (!Schema.is(BlockTypeSchema)(item)) return
+    yield* services.blockService
+      .placeBlock(adjacentPos, item, SlotIndex.make(HOTBAR_START + selectedSlot))
+      .pipe(
+        Effect.flatMap(() => services.soundManager.playEffect('blockPlace', { position: adjacentPos })),
+        // FR-3: broadcast the placement to other players (no-op offline).
+        Effect.tap(() =>
+          (Option.getOrNull(services.multiplayer)?.sendBlockPlace(adjacentPos, item)) ?? Effect.void
+        ),
+        Effect.andThen(services.chunkManagerService.getChunk(chunkCoord)),
+        Effect.flatMap((updatedChunk) =>
+          Ref.update(refs.dirtyChunksRef, (map) =>
+            HashMap.set(map, coordKey, {
+              chunk: updatedChunk,
+              dirtyAABB: Option.some(aabbFromVoxel({ lx: adjLx, y: adjacentPos.y, lz: adjLz })),
+            }),
+          ),
+        ),
       )
-    },
   })

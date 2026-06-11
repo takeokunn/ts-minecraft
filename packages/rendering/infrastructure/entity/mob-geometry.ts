@@ -24,33 +24,29 @@ const getOrCreateGeometry = (
   key: string,
   size: Dim3,
   pivotTop: boolean,
-): THREE.BoxGeometry =>
-  Option.match(MutableHashMap.get(geometryCache, key), {
-    onSome: (cached) => cached,
-    onNone: () => {
-      const [w, h, d] = size
-      const g = new THREE.BoxGeometry(w, h, d)
-      if (pivotTop) {
-        // Pivot at top center: rotation around X swings the limb from the shoulder/hip.
-        g.translate(0, -h / 2, 0)
-      }
-      MutableHashMap.set(geometryCache, key, g)
-      return g
-    },
-  })
+): THREE.BoxGeometry => {
+  const cached = Option.getOrNull(MutableHashMap.get(geometryCache, key))
+  if (cached !== null) return cached
+  const [w, h, d] = size
+  const g = new THREE.BoxGeometry(w, h, d)
+  if (pivotTop) {
+    // Pivot at top center: rotation around X swings the limb from the shoulder/hip.
+    g.translate(0, -h / 2, 0)
+  }
+  MutableHashMap.set(geometryCache, key, g)
+  return g
+}
 
 // Per-type material cache; shared across all mobs of the same type+role. MUST NOT be disposed by the renderer.
 const materialCache = MutableHashMap.empty<string, THREE.MeshStandardMaterial>()
 
-const getOrCreateMaterial = (key: string, color: number): THREE.MeshStandardMaterial =>
-  Option.match(MutableHashMap.get(materialCache, key), {
-    onSome: (cached) => cached,
-    onNone: () => {
-      const m = new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: 0.12, roughness: 0.9, metalness: 0.0 })
-      MutableHashMap.set(materialCache, key, m)
-      return m
-    },
-  })
+const getOrCreateMaterial = (key: string, color: number): THREE.MeshStandardMaterial => {
+  const cached = Option.getOrNull(MutableHashMap.get(materialCache, key))
+  if (cached !== null) return cached
+  const m = new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: 0.12, roughness: 0.9, metalness: 0.0 })
+  MutableHashMap.set(materialCache, key, m)
+  return m
+}
 
 type ZombieParts = Readonly<{
   head: Dim3

@@ -72,12 +72,12 @@ const wireConnection = (
   const closeWatcher = connection.onClose.pipe(
     Effect.flatMap(() =>
       Ref.get(gameServer.playerIdByConnectionId).pipe(
-        Effect.flatMap((playerIds) =>
-          Option.match(Option.fromNullable(playerIds.get(connection.id)), {
-            onNone: () => Effect.void,
-            onSome: (playerId) => handlePlayerLeave({ gameServer, serverService: service }, playerId),
-          }),
-        ),
+        Effect.flatMap((playerIds) => {
+          const playerId = playerIds.get(connection.id) ?? null
+          return playerId !== null
+            ? handlePlayerLeave({ gameServer, serverService: service }, playerId)
+            : Effect.void
+        }),
       ),
     ),
     Effect.catchAll(() => Effect.void),
@@ -117,17 +117,15 @@ export const ServerServiceImpl = (
         ),
       stop: () =>
         Effect.gen(function* () {
-          const fiber = yield* Ref.get(fiberRef)
-          yield* Option.match(fiber, {
-            onNone: () => Effect.void,
-            onSome: (runtimeFiber) => Fiber.interrupt(runtimeFiber).pipe(Effect.asVoid),
-          })
+          const fiber = Option.getOrNull(yield* Ref.get(fiberRef))
+          if (fiber !== null) {
+            yield* Fiber.interrupt(fiber).pipe(Effect.asVoid)
+          }
           yield* Ref.set(fiberRef, Option.none())
-          const handle = yield* Ref.get(handleRef)
-          yield* Option.match(handle, {
-            onNone: () => Effect.void,
-            onSome: (serverHandle) => serverHandle.stop,
-          })
+          const handle = Option.getOrNull(yield* Ref.get(handleRef))
+          if (handle !== null) {
+            yield* handle.stop
+          }
           yield* Ref.set(handleRef, Option.none())
           yield* Ref.set(gameServer.connectedPlayers, new Map())
           yield* Ref.set(gameServer.connectionsByPlayerId, new Map())
@@ -138,12 +136,12 @@ export const ServerServiceImpl = (
       getConnectedPlayers: () => Ref.get(gameServer.connectedPlayers).pipe(Effect.map((players) => new Map(players))),
       sendToPlayer: (playerId, message) =>
         Ref.get(gameServer.connectionsByPlayerId).pipe(
-          Effect.flatMap((connections) =>
-            Option.match(Option.fromNullable(connections.get(playerId)), {
-              onNone: () => Effect.fail(new NetworkError({ operation: 'send', reason: `player ${playerId} is not connected` })),
-              onSome: (connection) => sendEncodedToConnection(connection, message),
-            }),
-          ),
+          Effect.flatMap((connections) => {
+            const connection = connections.get(playerId) ?? null
+            return connection !== null
+              ? sendEncodedToConnection(connection, message)
+              : Effect.fail(new NetworkError({ operation: 'send', reason: `player ${playerId} is not connected` }))
+          }),
         ),
       broadcast: (message, exclude) =>
         Effect.gen(function* () {

@@ -54,9 +54,9 @@ export const handleRedstoneInput = (
   targetBlock: Option.Option<TargetBlockHit>,
 ): Effect.Effect<void, never> =>
   Effect.gen(function* () {
-    yield* Option.match(targetBlock, {
-      onNone: () => Effect.void,
-      onSome: (tb) => dispatchRedstoneAction(services, flags, { x: tb.x, y: tb.y, z: tb.z }),
-    })
+    const tb = Option.getOrNull(targetBlock)
+    if (tb !== null) {
+      yield* dispatchRedstoneAction(services, flags, tb)
+    }
     yield* services.redstoneService.tick()
   })

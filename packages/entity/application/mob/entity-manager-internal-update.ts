@@ -1,4 +1,4 @@
-import { Effect, HashMap, MutableRef, Option, Ref } from 'effect'
+import { Array as Arr, Effect, HashMap, MutableRef, Option, Ref } from 'effect'
 import { AIState, computeStateVelocity, distanceToPlayerSq, resolveAIState } from '../../domain/mob/state-machine'
 import { EntityType, type Entity, type EntityId } from '../../domain/mob/entity'
 import { tickCreeperFuse } from '../../domain/mob/creeper-fuse'
@@ -26,10 +26,144 @@ import {
   toHorizontalTarget,
 } from '../../domain/mob/entity-manager-utils'
 
+type EntityFrameContext = {
+  readonly tick: number
+  readonly deltaTime: DeltaTimeSecs
+  readonly playerPosition: Position
+  readonly daytimeBurningActive: boolean
+}
+
 const makeTeleportAttempts = (hash: number, tick: number): ReadonlyArray<number> =>
-  Array.from({ length: TELEPORT_ATTEMPTS * 2 }, (_, index) =>
+  Arr.makeBy(TELEPORT_ATTEMPTS * 2, (index) =>
     ((hash + tick * 131 + index * 977) % 1000) / 1000
   )
+
+const processEntityAI = (
+  entity: ManagedEntity,
+  entityId: EntityId,
+  ctx: EntityFrameContext,
+  dirtyRef: MutableRef.MutableRef<boolean>,
+  hasCreeperRef: MutableRef.MutableRef<boolean>,
+  hasShearedSheepRef: MutableRef.MutableRef<boolean>,
+): ManagedEntity => {
+  const { tick, deltaTime, playerPosition, daytimeBurningActive } = ctx
+
+  if (entity.type === EntityType.Creeper) MutableRef.set(hasCreeperRef, true)
+  if (entity.woolRegrowthTicks > 0) MutableRef.set(hasShearedSheepRef, true)
+
+  const hash = hashEntityId(entityId)
+  const distSq = distanceToPlayerSq(entity.position, playerPosition)
+  const distance = Math.sqrt(distSq)
+  const randomWanderRoll = ((hash + tick * WANDER_PHASE_TICK_STEP) % 1000) / 1000
+
+  const nextState = resolveAIState(entity.aiState, {
+    behavior: entity.behavior,
+    distanceToPlayer: distance,
+    canSeePlayer: distSq <= entity.detectionRange * entity.detectionRange,
+    healthRatio: entity.health / entity.maxHealth,
+    randomWanderRoll,
+    attackRange: entity.attackRange,
+    detectionRange: entity.detectionRange,
+    fleeHealthThreshold: entity.fleeHealthThreshold,
+  })
+
+  const nextAttackCooldown = Math.max(0, entity.attackCooldownRemaining - deltaTime)
+
+  const tickedBreeding = tickBreedingTimers({
+    loveTicksRemaining: entity.loveTicksRemaining,
+    breedCooldownRemaining: entity.breedCooldownRemaining,
+    ageTicks: entity.ageTicks,
+  })
+  const breedingChanged =
+    tickedBreeding.loveTicksRemaining !== entity.loveTicksRemaining
+    || tickedBreeding.breedCooldownRemaining !== entity.breedCooldownRemaining
+    || tickedBreeding.ageTicks !== entity.ageTicks
+
+  const burning = daytimeBurningActive && entity.behavior === 'hostile'
+
+  if (entity.knockbackTicksRemaining > 0) {
+    MutableRef.set(dirtyRef, true)
+    return {
+      ...entity,
+      ...tickedBreeding,
+      attackCooldownRemaining: nextAttackCooldown,
+      knockbackTicksRemaining: entity.knockbackTicksRemaining - 1,
+    }
+  }
+
+  if (!burning
+    && nextState === entity.aiState
+    && (nextState === AIState.Idle || nextState === AIState.Attack)
+    && entity.velocity.x === 0 && entity.velocity.z === 0) {
+    if (nextAttackCooldown === entity.attackCooldownRemaining && !breedingChanged) {
+      return entity
+    }
+    MutableRef.set(dirtyRef, true)
+    return {
+      ...entity,
+      ...tickedBreeding,
+      attackCooldownRemaining: nextAttackCooldown,
+    }
+  }
+
+  MutableRef.set(dirtyRef, true)
+
+  if (
+    entity.type === EntityType.Enderman
+    && nextState === AIState.Chase
+    && shouldEndermanTeleport(false, entity.stuckTicks ?? 0, randomWanderRoll)
+  ) {
+    const teleportTarget = computeEndermanTeleportTarget(
+      entity.position,
+      playerPosition,
+      makeTeleportAttempts(hash, tick),
+    )
+    if (teleportTarget !== null) {
+      return {
+        ...entity,
+        ...tickedBreeding,
+        position: teleportTarget,
+        velocity: { x: 0, y: entity.velocity.y, z: 0 },
+        aiState: nextState,
+        attackCooldownRemaining: nextAttackCooldown,
+        stuckTicks: 0,
+      }
+    }
+  }
+
+  const wanderDirection =
+    nextState === AIState.Wander
+    && (entity.aiState !== AIState.Wander || randomWanderRoll < WANDER_REDIRECT_PROBABILITY)
+      ? makeWanderDirectionFromHash(hash, tick)
+      : entity.wanderDirection
+
+  const horizontalVelocity = computeStateVelocity({
+    state: nextState,
+    entityPosition: entity.position,
+    playerPosition: toHorizontalTarget(entity.position, playerPosition),
+    speed: entity.speed,
+    wanderDirection,
+  })
+  const velocity: Vector3 = {
+    x: horizontalVelocity.x,
+    y: entity.velocity.y,
+    z: horizontalVelocity.z,
+  }
+
+  const burnDamage = burning ? 1 : 0
+  if (burnDamage > 0) MutableRef.set(dirtyRef, true)
+
+  return {
+    ...entity,
+    ...tickedBreeding,
+    health: Math.max(0, entity.health - burnDamage),
+    aiState: nextState,
+    velocity,
+    wanderDirection,
+    attackCooldownRemaining: nextAttackCooldown,
+    stuckTicks: nextState === AIState.Chase ? entity.stuckTicks : 0,
+  }
+}
 
 export const makeEntityManagerUpdate = (
   entitiesRef: Ref.Ref<HashMap.HashMap<EntityId, ManagedEntity>>,
@@ -46,144 +180,15 @@ export const makeEntityManagerUpdate = (
       const tick = yield* Ref.updateAndGet(updateTickRef, (value) => value + 1)
       const dirtyRef = MutableRef.make(false)
       const daytimeBurningActive = !isNight && tick % 20 === 0
-      // R22: track whether any creeper / freshly-sheared sheep exists so the
-      // creeper-fuse and wool-regrowth passes below can be skipped when they
-      // would be pure no-op HashMap rebuilds. Detected during the AI pass we're
-      // already running — neither pass changes entity.type or creates sheared
-      // sheep, so these flags stay valid for the guards below.
       const hasCreeperRef = MutableRef.make(false)
       const hasShearedSheepRef = MutableRef.make(false)
 
       yield* Ref.update(entitiesRef, (entities) =>
-        HashMap.map(entities, (entity, entityId) => {
-          if (entity.type === EntityType.Creeper) MutableRef.set(hasCreeperRef, true)
-          if (entity.woolRegrowthTicks > 0) MutableRef.set(hasShearedSheepRef, true)
-          const hash = hashEntityId(entityId)
-          const distSq = distanceToPlayerSq(entity.position, playerPosition)
-          const distance = Math.sqrt(distSq)
-          const randomWanderRoll = ((hash + tick * WANDER_PHASE_TICK_STEP) % 1000) / 1000
-          const nextState = resolveAIState(entity.aiState, {
-            behavior: entity.behavior,
-            distanceToPlayer: distance,
-            canSeePlayer: distSq <= entity.detectionRange * entity.detectionRange,
-            healthRatio: entity.health / entity.maxHealth,
-            randomWanderRoll,
-            attackRange: entity.attackRange,
-            detectionRange: entity.detectionRange,
-            fleeHealthThreshold: entity.fleeHealthThreshold,
-          })
-
-          const nextAttackCooldown = Math.max(0, entity.attackCooldownRemaining - deltaTime)
-
-          // FR R6: decay breeding timers (love/cooldown down, baby age up). Clamped
-          // at maturity so an idle adult yields an unchanged state — preserving the
-          // early-return fast path below. `breedingChanged` is folded into every
-          // return so the counters tick regardless of which AI branch fires.
-          const tickedBreeding = tickBreedingTimers({
-            loveTicksRemaining: entity.loveTicksRemaining,
-            breedCooldownRemaining: entity.breedCooldownRemaining,
-            ageTicks: entity.ageTicks,
-          })
-          const breedingChanged =
-            tickedBreeding.loveTicksRemaining !== entity.loveTicksRemaining
-            || tickedBreeding.breedCooldownRemaining !== entity.breedCooldownRemaining
-            || tickedBreeding.ageTicks !== entity.ageTicks
-
-          // A hostile mob on a daylight burn tick must take 1 burn damage; it must NOT
-          // hit the unchanged-state early-return below (which skips the burn entirely),
-          // or stationary idle/attacking hostiles become immune to daylight.
-          const burning = daytimeBurningActive && entity.behavior === 'hostile'
-
-          if (entity.knockbackTicksRemaining > 0) {
-            MutableRef.set(dirtyRef, true)
-            return {
-              ...entity,
-              ...tickedBreeding,
-              attackCooldownRemaining: nextAttackCooldown,
-              knockbackTicksRemaining: entity.knockbackTicksRemaining - 1,
-            }
-          }
-
-          if (!burning
-            && nextState === entity.aiState
-            && (nextState === AIState.Idle || nextState === AIState.Attack)
-            && entity.velocity.x === 0 && entity.velocity.z === 0) {
-            if (nextAttackCooldown === entity.attackCooldownRemaining && !breedingChanged) {
-              return entity
-            }
-            MutableRef.set(dirtyRef, true)
-            return {
-              ...entity,
-              ...tickedBreeding,
-              attackCooldownRemaining: nextAttackCooldown,
-            }
-          }
-
-          MutableRef.set(dirtyRef, true)
-
-          if (
-            entity.type === EntityType.Enderman
-            && nextState === AIState.Chase
-            && shouldEndermanTeleport(false, entity.stuckTicks ?? 0, randomWanderRoll)
-          ) {
-            const teleportTarget = computeEndermanTeleportTarget(
-              entity.position,
-              playerPosition,
-              makeTeleportAttempts(hash, tick),
-            )
-            if (teleportTarget !== null) {
-              return {
-                ...entity,
-                ...tickedBreeding,
-                position: teleportTarget,
-                velocity: { x: 0, y: entity.velocity.y, z: 0 },
-                aiState: nextState,
-                attackCooldownRemaining: nextAttackCooldown,
-                stuckTicks: 0,
-              }
-            }
-          }
-
-          const wanderDirection =
-            nextState === AIState.Wander
-            && (entity.aiState !== AIState.Wander || randomWanderRoll < WANDER_REDIRECT_PROBABILITY)
-              ? makeWanderDirectionFromHash(hash, tick)
-              : entity.wanderDirection
-
-          const horizontalVelocity = computeStateVelocity({
-            state: nextState,
-            entityPosition: entity.position,
-            playerPosition: toHorizontalTarget(entity.position, playerPosition),
-            speed: entity.speed,
-            wanderDirection,
-          })
-          const velocity: Vector3 = {
-            x: horizontalVelocity.x,
-            y: entity.velocity.y,
-            z: horizontalVelocity.z,
-          }
-
-          const burnDamage = burning ? 1 : 0
-          if (burnDamage > 0) MutableRef.set(dirtyRef, true)
-
-          return {
-            ...entity,
-            ...tickedBreeding,
-            health: Math.max(0, entity.health - burnDamage),
-            aiState: nextState,
-            velocity,
-            wanderDirection,
-            attackCooldownRemaining: nextAttackCooldown,
-            stuckTicks: nextState === AIState.Chase ? entity.stuckTicks : 0,
-          }
-        })
+        HashMap.map(entities, (entity, entityId) =>
+          processEntityAI(entity, entityId, { tick, deltaTime, playerPosition, daytimeBurningActive }, dirtyRef, hasCreeperRef, hasShearedSheepRef)
+        )
       )
 
-      // Advance creeper detonation fuses: burn while the player is in ignition
-      // range, reset otherwise. Detonation is resolved in getPlayerContactDamage,
-      // which runs later this frame (physics stage follows the entity-update stage).
-      // R22: skipped entirely when no creeper is loaded — otherwise HashMap.map
-      // would rebuild the whole entity trie just to return every value unchanged.
       if (MutableRef.get(hasCreeperRef)) {
         yield* Ref.update(entitiesRef, (entities) =>
           HashMap.map(entities, (entity) => {
@@ -199,12 +204,6 @@ export const makeEntityManagerUpdate = (
         )
       }
 
-      // FR R11: regrow sheared sheep's wool — count the regrowth timer down to 0.
-      // Returns the entity unchanged once woolly (timer at 0), so a flock of woolly
-      // sheep adds no churn; only freshly-sheared sheep mutate. `woolRegrowthTicks`
-      // is NOT in the public Entity projection, so this needs no cache invalidation
-      // (same reasoning as the creeper-fuse pass above).
-      // R22: skipped entirely when no sheared sheep is loaded (the no-op-rebuild case).
       if (MutableRef.get(hasShearedSheepRef)) {
         yield* Ref.update(entitiesRef, (entities) =>
           HashMap.map(entities, (entity) =>
@@ -217,16 +216,10 @@ export const makeEntityManagerUpdate = (
 
       if (daytimeBurningActive) {
         yield* Ref.modify(entitiesRef, (entities): [boolean, HashMap.HashMap<EntityId, ManagedEntity>] => {
-          let changed = false
-          let updated = entities
-          HashMap.forEach(entities, (entity, id) => {
-            /* c8 ignore start -- daytime burning cleanup; requires tick=20 and hostile entity at 0 health */
-            if (entity.behavior === 'hostile' && entity.health <= 0) {
-              updated = HashMap.remove(updated, id)
-              changed = true
-            }
-            /* c8 ignore end */
-          })
+          /* c8 ignore start -- daytime burning cleanup; requires tick=20 and hostile entity at 0 health */
+          const updated = HashMap.filter(entities, (entity) => entity.behavior !== 'hostile' || entity.health > 0)
+          const changed = HashMap.size(updated) !== HashMap.size(entities)
+          /* c8 ignore end */
           return [changed, updated]
         }).pipe(Effect.flatMap((changed) =>
           /* c8 ignore next 5 -- cache invalidation after burning cleanup; only fires when changed=true */

@@ -1,10 +1,10 @@
 import { describe, it } from '@effect/vitest'
-import { Effect, HashMap, Option, Ref } from 'effect'
+import { Effect, HashMap, MutableRef, Option, Ref } from 'effect'
 import { expect, vi } from 'vitest'
 import { CHUNK_SIZE, CHUNK_HEIGHT, blockTypeToIndex } from '@ts-minecraft/core'
 import type { BlockType } from '@ts-minecraft/core'
 import type { Chunk } from '@ts-minecraft/world'
-import { handleFlintAndSteel, handleBucket } from '@ts-minecraft/app/frame/stages/interaction-placement-handler'
+import { handleFlintAndSteel, handleBucket, handleBed } from '@ts-minecraft/app/frame/stages/interaction-placement-handler'
 import type { TargetRayHit } from '@ts-minecraft/app/frame/stages/interaction-block-handler'
 
 // ---------------------------------------------------------------------------
@@ -255,6 +255,112 @@ describe('interaction-placement-handler / handleBucket', () => {
       expect(result).toBe(true)
       expect(spies.seedLava).toHaveBeenCalledOnce()
       expect(spies.addBlock).toHaveBeenCalledWith('BUCKET', 1)
+    }),
+  )
+})
+
+// ---------------------------------------------------------------------------
+// TNT explosion via handleFlintAndSteel
+// ---------------------------------------------------------------------------
+
+describe('interaction-placement-handler / handleFlintAndSteel (TNT)', () => {
+  const makeTntServices = (forceSetBlockSpy = vi.fn(() => Effect.void)) => {
+    // Chunk containing a TNT block at world position (0, 64, 0): lx=0, y=64, lz=0
+    const chunk = makeEmptyChunk(0, 0)
+    setChunkBlock(chunk, 0, 64, 0, 'TNT')
+    return {
+      services: {
+        blockService: { forceSetBlock: forceSetBlockSpy },
+        chunkManagerService: { getChunk: () => Effect.succeed(chunk) },
+        netherService: { registerPortal: vi.fn(() => Effect.void) },
+        soundManager: { playEffect: vi.fn(() => Effect.void) },
+      },
+      forceSetBlockSpy,
+    }
+  }
+
+  const tntHit: TargetRayHit = { blockX: 0, blockY: 64, blockZ: 0, distance: 2, normal: { x: 0, y: 1, z: 0 } }
+
+  it.effect('explodes TNT: breaks all blocks in radius sphere and returns true', () =>
+    Effect.gen(function* () {
+      const dirtyChunksRef = yield* Ref.make(HashMap.empty<string, unknown>())
+      const { services, forceSetBlockSpy } = makeTntServices()
+      const result = yield* handleFlintAndSteel(
+        services as never,
+        { dirtyChunksRef } as never,
+        { targetHit: Option.some(tntHit) },
+      )
+      expect(result).toBe(true)
+      // TNT block removed (1 call) + explosion sphere positions (many calls)
+      expect(forceSetBlockSpy.mock.calls.length).toBeGreaterThan(1)
+      // First call removes the TNT itself
+      expect(forceSetBlockSpy.mock.calls[0]?.[1]).toBe('AIR')
+    }),
+  )
+
+  it.effect('returns true even when forceSetBlock fails during explosion', () =>
+    Effect.gen(function* () {
+      const dirtyChunksRef = yield* Ref.make(HashMap.empty<string, unknown>())
+      const { services } = makeTntServices(vi.fn(() => Effect.fail(new Error('write error'))))
+      const result = yield* handleFlintAndSteel(
+        services as never,
+        { dirtyChunksRef } as never,
+        { targetHit: Option.some(tntHit) },
+      )
+      expect(result).toBe(true)
+    }),
+  )
+})
+
+// ---------------------------------------------------------------------------
+// handleBed
+// ---------------------------------------------------------------------------
+
+const makeBedServices = (opts: {
+  isNight?: boolean
+  dimension?: string
+}) => ({
+  timeService: {
+    isNight: () => Effect.succeed(opts.isNight ?? true),
+    setTimeOfDay: vi.fn(() => Effect.void),
+  },
+  netherService: {
+    getDimension: () => Effect.succeed(opts.dimension ?? 'overworld'),
+  },
+  soundManager: { playEffect: vi.fn(() => Effect.void) },
+})
+
+describe('interaction-placement-handler / handleBed', () => {
+  const bedPos = { x: 5, y: 64, z: 5 }
+
+  it.effect('skips to dawn and sets spawn when it is night in the overworld', () =>
+    Effect.gen(function* () {
+      const respawnRef = MutableRef.make({ x: 0, y: 64, z: 0 })
+      const services = makeBedServices({ isNight: true, dimension: 'overworld' })
+      const result = yield* handleBed(services as never, respawnRef, bedPos)
+      expect(result).toBe(true)
+      expect((services.timeService.setTimeOfDay as ReturnType<typeof vi.fn>)).toHaveBeenCalledWith(0.25)
+      expect(MutableRef.get(respawnRef).y).toBe(bedPos.y + 1)
+    }),
+  )
+
+  it.effect('returns false and does nothing during daytime', () =>
+    Effect.gen(function* () {
+      const respawnRef = MutableRef.make({ x: 0, y: 64, z: 0 })
+      const services = makeBedServices({ isNight: false, dimension: 'overworld' })
+      const result = yield* handleBed(services as never, respawnRef, bedPos)
+      expect(result).toBe(false)
+      expect((services.timeService.setTimeOfDay as ReturnType<typeof vi.fn>)).not.toHaveBeenCalled()
+    }),
+  )
+
+  it.effect('returns false in the nether without calling setTimeOfDay', () =>
+    Effect.gen(function* () {
+      const respawnRef = MutableRef.make({ x: 0, y: 64, z: 0 })
+      const services = makeBedServices({ isNight: true, dimension: 'nether' })
+      const result = yield* handleBed(services as never, respawnRef, bedPos)
+      expect(result).toBe(false)
+      expect((services.timeService.setTimeOfDay as ReturnType<typeof vi.fn>)).not.toHaveBeenCalled()
     }),
   )
 })

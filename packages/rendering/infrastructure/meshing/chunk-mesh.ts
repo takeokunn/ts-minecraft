@@ -108,30 +108,27 @@ export class ChunkMeshService extends Effect.Service<ChunkMeshService>()(
               if (chunk.maxY !== undefined) opaqueMesh.userData['chunkMaxY'] = chunk.maxY
 
               // Water mesh: update in place when it already exists, or create/remove it when topology changes.
-              const updatedWaterMesh = Option.match(waterMesh, {
-                onNone: () => {
-                  if (water === null || water.positions.length === 0) {
-                    return Option.none<THREE.Mesh>()
-                  }
-                  return Option.match(Option.fromNullable(waterMaterial), {
-                    onNone: () => Option.none<THREE.Mesh>(),
-                    onSome: (mat) => {
-                      const wm = new THREE.Mesh(buildGeometry(water), mat)
-                      wm.frustumCulled = false
-                      wm.castShadow = false
-                      wm.receiveShadow = false
-                      wm.renderOrder = 1
-                      wm.userData['chunkCoord'] = chunk.coord
-                      if (chunk.maxY !== undefined) wm.userData['chunkMaxY'] = chunk.maxY
-                      return Option.some(wm)
-                    },
-                  })
-                },
-                onSome: (wm) => {
-                  if (water === null || water.positions.length === 0) {
-                    wm.geometry.dispose()
-                    return Option.none<THREE.Mesh>()
-                  }
+              const existingWaterMesh = Option.getOrNull(waterMesh)
+              let updatedWaterMesh: Option.Option<THREE.Mesh>
+              if (existingWaterMesh === null) {
+                if (water === null || water.positions.length === 0 || waterMaterial === null) {
+                  updatedWaterMesh = Option.none()
+                } else {
+                  const wm = new THREE.Mesh(buildGeometry(water), waterMaterial)
+                  wm.frustumCulled = false
+                  wm.castShadow = false
+                  wm.receiveShadow = false
+                  wm.renderOrder = 1
+                  wm.userData['chunkCoord'] = chunk.coord
+                  if (chunk.maxY !== undefined) wm.userData['chunkMaxY'] = chunk.maxY
+                  updatedWaterMesh = Option.some(wm)
+                }
+              } else {
+                const wm = existingWaterMesh
+                if (water === null || water.positions.length === 0) {
+                  wm.geometry.dispose()
+                  updatedWaterMesh = Option.none()
+                } else {
                   if (!tryReuseGeometry(wm.geometry, water)) {
                     const oldWaterGeometry = wm.geometry
                     wm.geometry = buildGeometry(water)
@@ -139,17 +136,18 @@ export class ChunkMeshService extends Effect.Service<ChunkMeshService>()(
                   }
                   wm.userData['chunkCoord'] = chunk.coord
                   if (chunk.maxY !== undefined) wm.userData['chunkMaxY'] = chunk.maxY
-                  return waterMesh
-                },
-              })
+                  updatedWaterMesh = waterMesh
+                }
+              }
 
               // Transparent-solid mesh: update in place or create/remove.
               const prevTsMesh = transparentSolidMesh ?? Option.none<THREE.Mesh>()
-              const updatedTransparentSolidMesh = Option.match(prevTsMesh, {
-                onNone: () => {
-                  if (transparentSolid === null || transparentSolid.positions.length === 0) {
-                    return Option.none<THREE.Mesh>()
-                  }
+              const existingTsMesh = Option.getOrNull(prevTsMesh)
+              let updatedTransparentSolidMesh: Option.Option<THREE.Mesh>
+              if (existingTsMesh === null) {
+                if (transparentSolid === null || transparentSolid.positions.length === 0) {
+                  updatedTransparentSolidMesh = Option.none()
+                } else {
                   const tsm = new THREE.Mesh(buildGeometry(transparentSolid), transparentSolidMaterial)
                   tsm.frustumCulled = false
                   tsm.castShadow = false
@@ -157,13 +155,14 @@ export class ChunkMeshService extends Effect.Service<ChunkMeshService>()(
                   tsm.renderOrder = 2
                   tsm.userData['chunkCoord'] = chunk.coord
                   if (chunk.maxY !== undefined) tsm.userData['chunkMaxY'] = chunk.maxY
-                  return Option.some(tsm)
-                },
-                onSome: (tsm) => {
-                  if (transparentSolid === null || transparentSolid.positions.length === 0) {
-                    tsm.geometry.dispose()
-                    return Option.none<THREE.Mesh>()
-                  }
+                  updatedTransparentSolidMesh = Option.some(tsm)
+                }
+              } else {
+                const tsm = existingTsMesh
+                if (transparentSolid === null || transparentSolid.positions.length === 0) {
+                  tsm.geometry.dispose()
+                  updatedTransparentSolidMesh = Option.none()
+                } else {
                   if (!tryReuseGeometry(tsm.geometry, transparentSolid)) {
                     const oldGeom = tsm.geometry
                     tsm.geometry = buildGeometry(transparentSolid)
@@ -171,9 +170,9 @@ export class ChunkMeshService extends Effect.Service<ChunkMeshService>()(
                   }
                   tsm.userData['chunkCoord'] = chunk.coord
                   if (chunk.maxY !== undefined) tsm.userData['chunkMaxY'] = chunk.maxY
-                  return prevTsMesh
-                },
-              })
+                  updatedTransparentSolidMesh = prevTsMesh
+                }
+              }
 
               return { waterMesh: updatedWaterMesh, transparentSolidMesh: updatedTransparentSolidMesh }
             })

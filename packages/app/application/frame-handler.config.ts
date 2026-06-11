@@ -40,18 +40,6 @@ export const UNEQUIP_ARMOR_KEY = 'KeyG'
 
 export const PLAYER_ATTACK_REACH        = 3.5
 export const PLAYER_ATTACK_RADIUS       = 0.9
-export const PLAYER_ATTACK_DAMAGE        = 4
-export const WOODEN_SWORD_ATTACK_DAMAGE  = 8
-export const STONE_SWORD_ATTACK_DAMAGE   = 9
-export const IRON_SWORD_ATTACK_DAMAGE    = 12
-export const DIAMOND_SWORD_ATTACK_DAMAGE = 16
-// Axes deal comparable base damage to swords (vanilla 1.9+: axes have higher
-// base but slower attack speed; our cooldown system handles speed separately).
-export const WOODEN_AXE_ATTACK_DAMAGE   = 9
-export const STONE_AXE_ATTACK_DAMAGE    = 10
-export const IRON_AXE_ATTACK_DAMAGE     = 11
-export const DIAMOND_AXE_ATTACK_DAMAGE  = 13
-
 // Entity bounding box center is 0.9 units above position.y (half hitbox height)
 export const ENTITY_CENTER_Y_OFFSET = 0.9
 

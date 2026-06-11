@@ -149,14 +149,14 @@ export class EntityRendererService extends Effect.Service<EntityRendererService>
               const newEntities = Arr.filter(entities, (e) => !HashMap.has(groups, e.entityId))
               const additions: Array<readonly [EntityIdType, MobLimbGroup]> = []
               for (const entity of newEntities) {
-                const groupOpt = tryAllocateAllRoles(entity, scene)
-                if (Option.isNone(groupOpt)) {
+                const group = Option.getOrNull(tryAllocateAllRoles(entity, scene))
+                if (group === null) {
                   yield* Effect.logWarning(
                     `entity-instance-pool saturated — type=${entity.type} id=${entity.entityId} skipped`,
                   )
                   continue
                 }
-                additions.push([entity.entityId, groupOpt.value] as const)
+                additions.push([entity.entityId, group] as const)
               }
 
               // Removals: entities tracked in groups but absent from liveIds.

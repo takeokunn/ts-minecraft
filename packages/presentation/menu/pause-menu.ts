@@ -7,70 +7,13 @@ import {
   requestQuitToTitle,
   setPaused,
 } from '@ts-minecraft/app/main/session-control'
+import { SAVE_QUIT_CONFIRM_MESSAGE } from './pause-menu-styles'
+import { buildPauseMenuDOM } from './pause-menu-dom'
+import type { PauseMenuDom } from './pause-menu-types'
 
 // FR-1.4/FR-1.10/FR-1.12 — in-session pause menu. ESC from frame-handler input stage calls
 // `openIfClosed`; once open, the keyboard listener owns further ESC presses to avoid racing
 // `consumeKeyPress`. Settings button hides this menu and re-shows it when settings closes.
-const Z_INDEX = 1050
-
-const BACKDROP_STYLE = [
-  'position:fixed',
-  'top:0',
-  'left:0',
-  'width:100vw',
-  'height:100vh',
-  'background:rgba(0,0,0,0.55)',
-  'display:none',
-  'align-items:center',
-  'justify-content:center',
-  `z-index:${Z_INDEX}`,
-  'font-family:monospace',
-].join(';')
-
-const PANEL_STYLE = [
-  'background:rgba(20,20,20,0.92)',
-  'color:#fff',
-  'padding:32px 40px',
-  'border-radius:10px',
-  'min-width:280px',
-  'border:1px solid #4d4d4d',
-  'box-shadow:0 12px 48px rgba(0,0,0,0.6)',
-  'display:flex',
-  'flex-direction:column',
-  'align-items:stretch',
-  'gap:12px',
-].join(';')
-
-const TITLE_STYLE = [
-  'font-size:22px',
-  'font-weight:bold',
-  'text-align:center',
-  'margin-bottom:8px',
-  'letter-spacing:2px',
-].join(';')
-
-const BUTTON_STYLE = [
-  'padding:10px 16px',
-  'background:#3a3a3a',
-  'color:#fff',
-  'border:1px solid #5a5a5a',
-  'border-radius:4px',
-  'cursor:pointer',
-  'font-family:monospace',
-  'font-size:14px',
-  'min-width:200px',
-  'text-align:center',
-].join(';')
-
-const SAVE_QUIT_CONFIRM_MESSAGE =
-  'Save and return to title?\nLast 5s of progress will be flushed first.'
-
-type PauseMenuDom = {
-  readonly backdropEl: Option.Option<HTMLDivElement>
-  readonly resumeBtn: Option.Option<HTMLButtonElement>
-  readonly settingsBtn: Option.Option<HTMLButtonElement>
-  readonly saveQuitBtn: Option.Option<HTMLButtonElement>
-}
 
 export class PauseMenuService extends Effect.Service<PauseMenuService>()(
   '@minecraft/presentation/PauseMenu',
@@ -82,59 +25,7 @@ export class PauseMenuService extends Effect.Service<PauseMenuService>()(
       ),
       ([dom, settingsOverlay, confirmDialog]) =>
         Effect.acquireRelease(
-          Effect.sync((): PauseMenuDom => {
-            if (typeof document === 'undefined') {
-              return {
-                backdropEl: Option.none(),
-                resumeBtn: Option.none(),
-                settingsBtn: Option.none(),
-                saveQuitBtn: Option.none(),
-              }
-            }
-
-            const backdrop = dom.createElement('div')
-            backdrop.id = 'pause-menu-backdrop'
-            backdrop.style.cssText = BACKDROP_STYLE
-
-            const panel = dom.createElement('div')
-            panel.style.cssText = PANEL_STYLE
-            panel.setAttribute('role', 'dialog')
-            panel.setAttribute('aria-modal', 'true')
-            panel.setAttribute('aria-label', 'Pause Menu')
-
-            const title = dom.createElement('div')
-            title.textContent = 'PAUSED'
-            title.style.cssText = TITLE_STYLE
-            dom.appendChildTo(panel, title)
-
-            const resumeBtn = dom.createElement('button')
-            resumeBtn.textContent = 'Resume'
-            resumeBtn.style.cssText = BUTTON_STYLE
-            resumeBtn.dataset['role'] = 'resume'
-            dom.appendChildTo(panel, resumeBtn)
-
-            const settingsBtn = dom.createElement('button')
-            settingsBtn.textContent = 'Settings'
-            settingsBtn.style.cssText = BUTTON_STYLE
-            settingsBtn.dataset['role'] = 'settings'
-            dom.appendChildTo(panel, settingsBtn)
-
-            const saveQuitBtn = dom.createElement('button')
-            saveQuitBtn.textContent = 'Save & Quit to Title'
-            saveQuitBtn.style.cssText = BUTTON_STYLE
-            saveQuitBtn.dataset['role'] = 'save-quit'
-            dom.appendChildTo(panel, saveQuitBtn)
-
-            dom.appendChildTo(backdrop, panel)
-            dom.appendChild(backdrop)
-
-            return {
-              backdropEl: Option.some(backdrop),
-              resumeBtn: Option.some(resumeBtn),
-              settingsBtn: Option.some(settingsBtn),
-              saveQuitBtn: Option.some(saveQuitBtn),
-            }
-          }),
+          Effect.sync((): PauseMenuDom => buildPauseMenuDOM(dom)),
           ({ backdropEl }) =>
             Effect.sync(() => {
               Option.map(backdropEl, (el) => {
@@ -189,12 +80,9 @@ export class PauseMenuService extends Effect.Service<PauseMenuService>()(
 
                     const stopWatchdog = (): Effect.Effect<void, never> =>
                       Effect.gen(function* () {
-                        const fiberOpt = MutableRef.get(watchdogFiberRef)
+                        const fiberOpt = Option.getOrNull(MutableRef.get(watchdogFiberRef))
                         MutableRef.set(watchdogFiberRef, Option.none())
-                        yield* Option.match(fiberOpt, {
-                          onNone: () => Effect.void,
-                          onSome: (fiber) => Fiber.interrupt(fiber),
-                        })
+                        if (fiberOpt !== null) yield* Fiber.interrupt(fiberOpt)
                       })
 
                     const startWatchdog = (): Effect.Effect<void, never> =>
@@ -319,11 +207,8 @@ export class PauseMenuService extends Effect.Service<PauseMenuService>()(
                         document.removeEventListener('keydown', handlers.handleKeyDown, true)
                       }
                       // Interrupt any active watchdog fiber before tearing down.
-                      const fiberOpt = MutableRef.get(handlers.watchdogFiberRef)
-                      yield* Option.match(fiberOpt, {
-                        onNone: () => Effect.void,
-                        onSome: (fiber) => Fiber.interrupt(fiber),
-                      })
+                      const fiberOpt = Option.getOrNull(MutableRef.get(handlers.watchdogFiberRef))
+                      if (fiberOpt !== null) yield* Fiber.interrupt(fiberOpt)
                       // Hide the menu in case the scope closes while it's open
                       // (e.g. the session is torn down by quit-to-title).
                       hideMenu()

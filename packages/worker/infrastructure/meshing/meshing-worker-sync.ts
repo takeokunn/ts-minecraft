@@ -9,17 +9,15 @@ import type { Chunk, ChunkAABB } from '@ts-minecraft/world'
 import type { WorkerMeshResult } from './meshing-worker-pool-protocol'
 import { TRANSPARENT_IDS_SET, TRANSPARENT_SOLID_IDS_SET } from './meshing-worker-config'
 
-const lightGridsFromChunk = (chunk: Chunk): LightGrids | undefined =>
-  Option.match(
-    Option.all([
-      Option.fromNullable(chunk.skyLight),
-      Option.fromNullable(chunk.blockLight),
-    ] as const),
-    {
-      onNone: () => undefined,
-      onSome: ([skyLight, blockLight]) => ({ skyLight, blockLight }),
-    }
-  )
+const lightGridsFromChunk = (chunk: Chunk): LightGrids | undefined => {
+  const grids = Option.getOrNull(Option.all([
+    Option.fromNullable(chunk.skyLight),
+    Option.fromNullable(chunk.blockLight),
+  ] as const))
+  if (grids === null) return undefined
+  const [skyLight, blockLight] = grids
+  return { skyLight, blockLight }
+}
 
 // Per-coord cache key for the previous full GreedyMeshResult — used by the
 // FR-4.1 sub-region splice path. Keying by coord (not by Chunk identity)

@@ -136,41 +136,40 @@ const applyPendingResize = ({
   const pendingResize = MutableRef.get(pendingResizeRef)
   MutableRef.set(pendingResizeRef, Option.none())
 
-  return Option.match(pendingResize, {
-    onNone: () => Effect.void,
-    onSome: ({ width, height }) =>
-      settingsService.getSettings().pipe(
-        Effect.flatMap((settings) => {
-          const pixelRatioCap = resolvePreset(settings.graphicsQuality).pixelRatioCap
-          return Effect.sync(() => {
-            const dpr = Math.min(window.devicePixelRatio, pixelRatioCap)
-            renderer.setPixelRatio(dpr)
-            composer.setPixelRatio(dpr)
-            renderer.setSize(width, height)
-            camera.aspect = width / height
-            camera.updateProjectionMatrix()
-            composerRT.setSize(width, height)
-            composer.setSize(width, height)
-            const rw = Math.max(1, Math.ceil(width * dpr))
-            const rh = Math.max(1, Math.ceil(height * dpr))
-            const gtaoOrNull = Option.getOrNull(gtaoPass)
-            const bloomOrNull = Option.getOrNull(bloomPass)
-            const bokehOrNull = Option.getOrNull(bokehPass)
-            const smaaOrNull = Option.getOrNull(smaaPass)
-            const godRaysOrNull = Option.getOrNull(godRaysPass)
-            if (gtaoOrNull) gtaoOrNull.setSize(gtaoOrNull.enabled ? Math.ceil(rw / 2) : 1, gtaoOrNull.enabled ? Math.ceil(rh / 2) : 1)
-            if (bloomOrNull) bloomOrNull.setSize(bloomOrNull.enabled ? rw : 1, bloomOrNull.enabled ? rh : 1)
-            if (bokehOrNull) bokehOrNull.setSize(bokehOrNull.enabled ? rw : 1, bokehOrNull.enabled ? rh : 1)
-            if (smaaOrNull) smaaOrNull.setSize(smaaOrNull.enabled ? rw : 1, smaaOrNull.enabled ? rh : 1)
-            if (godRaysOrNull) godRaysOrNull.setSize(godRaysOrNull.enabled ? rw : 1, godRaysOrNull.enabled ? rh : 1)
-          }).pipe(
-            Effect.andThen(worldRendererService.updateWaterResolution(width, height)),
-            Effect.andThen(worldRendererService.resizeRefractionRT(width, height)),
-            Effect.andThen(worldRendererService.resizeRefractionCamera(width / height)),
-          )
-        }),
-      ),
-  })
+  const resizeVal = Option.getOrNull(pendingResize)
+  if (resizeVal === null) return Effect.void
+  const { width, height } = resizeVal
+  return settingsService.getSettings().pipe(
+    Effect.flatMap((settings) => {
+      const pixelRatioCap = resolvePreset(settings.graphicsQuality).pixelRatioCap
+      return Effect.sync(() => {
+        const dpr = Math.min(window.devicePixelRatio, pixelRatioCap)
+        renderer.setPixelRatio(dpr)
+        composer.setPixelRatio(dpr)
+        renderer.setSize(width, height)
+        camera.aspect = width / height
+        camera.updateProjectionMatrix()
+        composerRT.setSize(width, height)
+        composer.setSize(width, height)
+        const rw = Math.max(1, Math.ceil(width * dpr))
+        const rh = Math.max(1, Math.ceil(height * dpr))
+        const gtaoOrNull = Option.getOrNull(gtaoPass)
+        const bloomOrNull = Option.getOrNull(bloomPass)
+        const bokehOrNull = Option.getOrNull(bokehPass)
+        const smaaOrNull = Option.getOrNull(smaaPass)
+        const godRaysOrNull = Option.getOrNull(godRaysPass)
+        if (gtaoOrNull) gtaoOrNull.setSize(gtaoOrNull.enabled ? Math.ceil(rw / 2) : 1, gtaoOrNull.enabled ? Math.ceil(rh / 2) : 1)
+        if (bloomOrNull) bloomOrNull.setSize(bloomOrNull.enabled ? rw : 1, bloomOrNull.enabled ? rh : 1)
+        if (bokehOrNull) bokehOrNull.setSize(bokehOrNull.enabled ? rw : 1, bokehOrNull.enabled ? rh : 1)
+        if (smaaOrNull) smaaOrNull.setSize(smaaOrNull.enabled ? rw : 1, smaaOrNull.enabled ? rh : 1)
+        if (godRaysOrNull) godRaysOrNull.setSize(godRaysOrNull.enabled ? rw : 1, godRaysOrNull.enabled ? rh : 1)
+      }).pipe(
+        Effect.andThen(worldRendererService.updateWaterResolution(width, height)),
+        Effect.andThen(worldRendererService.resizeRefractionRT(width, height)),
+        Effect.andThen(worldRendererService.resizeRefractionCamera(width / height)),
+      )
+    }),
+  )
 }
 
 export const wrapFrameHandlerWithBrowserEffects = ({

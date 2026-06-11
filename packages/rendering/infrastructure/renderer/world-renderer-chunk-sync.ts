@@ -70,12 +70,10 @@ export const syncChunksToScene = (
     // FR-3.1: detect chunks whose LOD band changed since last meshed (player
     // moved across a band boundary, or render distance changed). Collect the
     // affected chunks so they can be re-meshed below with the new LOD level.
-    const lodChangedChunks = Arr.filter(loadedChunks, (c) =>
-      Option.match(HashMap.get(meshes, chunkKey(c.coord)), {
-        onNone: () => false,
-        onSome: (cm) => cm.lod !== lodForChunk(c),
-      })
-    )
+    const lodChangedChunks = Arr.filter(loadedChunks, (c) => {
+      const cm = Option.getOrNull(HashMap.get(meshes, chunkKey(c.coord)))
+      return cm !== null && cm.lod !== lodForChunk(c)
+    })
     const hasLodChanges = lodChangedChunks.length > 0
 
     if (!hasNewChunks && !hasRemovedChunks && !hasLodChanges) {
@@ -127,14 +125,8 @@ export const syncChunksToScene = (
       Arr.map(meshedChunks, ([key, { opaqueMesh, waterMesh, transparentSolidMesh, lod }]) =>
         Effect.all([
           sceneService.add(scene, opaqueMesh),
-          Option.match(waterMesh, {
-            onNone: () => Effect.void,
-            onSome: (m) => sceneService.add(scene, m),
-          }),
-          Option.match(transparentSolidMesh, {
-            onNone: () => Effect.void,
-            onSome: (m) => sceneService.add(scene, m),
-          }),
+          Option.match(waterMesh, { onNone: () => Effect.void, onSome: (m) => sceneService.add(scene, m) }),
+          Option.match(transparentSolidMesh, { onNone: () => Effect.void, onSome: (m) => sceneService.add(scene, m) }),
         ], { concurrency: 'unbounded', discard: true }).pipe(
           Effect.as([key, { opaque: opaqueMesh, water: waterMesh, transparentSolid: transparentSolidMesh, lod }] as const)
         )
@@ -204,26 +196,20 @@ export const syncChunksToScene = (
     const allStaleRemoved = removalPairs.length <= removalsToProcess.length
 
     const removedKeys = yield* Effect.all(
-      Arr.map(removalsToProcess, ([key, chunkMeshes]) =>
-        Effect.all([
+      Arr.map(removalsToProcess, ([key, chunkMeshes]) => {
+        const { water, transparentSolid } = chunkMeshes
+        return Effect.all([
           sceneService.remove(scene, chunkMeshes.opaque).pipe(
             Effect.andThen(Effect.sync(() => disposeMesh(chunkMeshes.opaque)))
           ),
-          Option.match(chunkMeshes.water, {
+          Option.match(water, {
             onNone: () => Effect.void,
-            onSome: (m) =>
-              sceneService.remove(scene, m).pipe(
-                Effect.andThen(Effect.sync(() => disposeMesh(m)))
-              ),
+            onSome: (m) => sceneService.remove(scene, m).pipe(Effect.andThen(Effect.sync(() => disposeMesh(m)))),
           }),
-          Option.match(chunkMeshes.transparentSolid, {
+          Option.match(transparentSolid, {
             onNone: () => Effect.void,
-            onSome: (m) =>
-              /* c8 ignore start -- transparentSolid mesh removal on chunk unload; requires full scene setup to hit in tests */
-              sceneService.remove(scene, m).pipe(
-                Effect.andThen(Effect.sync(() => disposeMesh(m)))
-              ),
-              /* c8 ignore end */
+            /* c8 ignore next -- transparentSolid mesh removal on chunk unload; requires full scene setup to hit in tests */
+            onSome: (m) => sceneService.remove(scene, m).pipe(Effect.andThen(Effect.sync(() => disposeMesh(m)))),
           }),
           // SEC-W1: drop the sync-fallback prev mesh cache for this coord so
           // the cache cannot grow unbounded under long sessions on the sync
@@ -231,14 +217,14 @@ export const syncChunksToScene = (
           // Pulled from `userData.chunkCoord` (the same source the renderer
           // already trusts for frustum culling) — only releasing when the
           // value is present preserves correctness if it is somehow missing.
-          Option.match(Option.fromNullable(chunkMeshes.opaque.userData['chunkCoord']), {
-            onNone: () => Effect.void,
-            onSome: (coord) => chunkMeshService.releasePrevCachedMesh(coord),
-          }),
+          (() => {
+            const coord = chunkMeshes.opaque.userData['chunkCoord'] ?? null
+            return coord !== null ? chunkMeshService.releasePrevCachedMesh(coord) : Effect.void
+          })(),
         ], { concurrency: 'unbounded', discard: true }).pipe(
           Effect.as(key)
         )
-      ),
+      }),
       { concurrency: CHUNK_SYNC_CONCURRENCY }
     )
 

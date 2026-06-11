@@ -9,6 +9,8 @@ import {
   canMerge,
   mergeStacks,
   maxStackFor,
+  enchantmentsOf,
+  enchantItem,
 } from '../domain/item-stack'
 import { isDurable, TOOL_MAX_DURABILITY } from '../domain/durability'
 import type { InventoryItem } from '@ts-minecraft/core'
@@ -253,5 +255,31 @@ describe('domain/item-stack', () => {
       expect(Option.getOrThrow(remainderB).count).toBe(1)
       expect(Option.getOrThrow(remainderB).itemType).toBe('WOODEN_SWORD')
     })
+  })
+})
+
+describe('enchantmentsOf', () => {
+  it('returns [] for Option.none (empty slot)', () => {
+    expect(enchantmentsOf(Option.none())).toEqual([])
+  })
+
+  it('returns [] when the stack has no enchantments', () => {
+    const stack = createStack('STONE', 1)
+    expect(enchantmentsOf(Option.some(stack))).toEqual([])
+  })
+
+  it('returns the enchantment list when present', () => {
+    const base = createStack('BOW', 1)
+    const enchanted = enchantItem(base, { type: 'POWER', level: 3 })
+    const result = enchantmentsOf(Option.some(enchanted))
+    expect(result).toHaveLength(1)
+    expect(result[0]).toEqual({ type: 'POWER', level: 3 })
+  })
+
+  it('returns all enchantments when multiple are present', () => {
+    const base = createStack('BOW', 1)
+    const step1 = enchantItem(base, { type: 'POWER', level: 2 })
+    const step2 = enchantItem(step1, { type: 'INFINITY', level: 1 })
+    expect(enchantmentsOf(Option.some(step2))).toHaveLength(2)
   })
 })

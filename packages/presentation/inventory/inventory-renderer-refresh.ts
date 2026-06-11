@@ -18,27 +18,25 @@ export const renderSlotElements = (
   selectedHotbarIdx: number,
 ): void => {
   Arr.forEach(Arr.zip(slotEls, allSlots), ([el, itemOpt], i) => {
-    Option.match(itemOpt, {
-      onSome: (stack) => {
-        const imageStyle = getSlotImageStyle(stack.itemType)
-        if (imageStyle) {
-          el.style.cssText = el.style.cssText.replace(/background:[^;]+;?/, '')
-          el.style.backgroundImage = imageStyle
-          el.style.backgroundSize = 'cover'
-        } else {
-          el.style.backgroundImage = ''
-          el.style.background = getSlotColor(stack.itemType)
-        }
-        el.title = `${stack.itemType} ×${stack.count}`
-        el.textContent = stack.count < 64 ? String(stack.count) : ''
-      },
-      onNone: () => {
+    const stack = Option.getOrNull(itemOpt)
+    if (stack !== null) {
+      const imageStyle = getSlotImageStyle(stack.itemType)
+      if (imageStyle) {
+        el.style.cssText = el.style.cssText.replace(/background:[^;]+;?/, '')
+        el.style.backgroundImage = imageStyle
+        el.style.backgroundSize = 'cover'
+      } else {
         el.style.backgroundImage = ''
-        el.style.background = DEFAULT_SLOT_COLOR
-        el.title = ''
-        el.textContent = ''
-      },
-    })
+        el.style.background = getSlotColor(stack.itemType)
+      }
+      el.title = `${stack.itemType} ×${stack.count}`
+      el.textContent = stack.count < 64 ? String(stack.count) : ''
+    } else {
+      el.style.backgroundImage = ''
+      el.style.background = DEFAULT_SLOT_COLOR
+      el.title = ''
+      el.textContent = ''
+    }
     el.style.border = i >= HOTBAR_START && i === selectedHotbarIdx
       ? SLOT_BORDER_SELECTED
       : SLOT_BORDER_DEFAULT

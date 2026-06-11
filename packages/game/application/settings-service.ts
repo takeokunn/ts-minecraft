@@ -32,14 +32,13 @@ const makeForceAudioOff = (isLocalhost: boolean) => (settings: Settings): Settin
 const loadFromStorage = (forceAudioOff: (settings: Settings) => Settings): Effect.Effect<Settings, never, never> =>
   /* c8 ignore next */
   Effect.sync(() => Option.fromNullable(typeof localStorage !== 'undefined' ? localStorage.getItem(STORAGE_KEY) : null)).pipe(
-    Effect.flatMap((rawOpt) =>
-      Option.match(rawOpt, {
-        onNone: () => Effect.succeed(DEFAULT_SETTINGS),
-        onSome: (rawStr) =>
-          Effect.try({
-            try: () => JSON.parse(rawStr),
-            catch: (e) => new SettingsError({ operation: 'load', cause: e }),
-          }).pipe(
+    Effect.flatMap((rawOpt) => {
+      const rawStr = Option.getOrNull(rawOpt)
+      if (rawStr === null) return Effect.succeed(DEFAULT_SETTINGS)
+      return Effect.try({
+        try: () => JSON.parse(rawStr),
+        catch: (e) => new SettingsError({ operation: 'load', cause: e }),
+      }).pipe(
             // Merge stored values OVER defaults before decoding so a payload
             // written by an older app version (missing fields added since)
             // keeps the user's other settings instead of resetting everything.
@@ -57,9 +56,8 @@ const loadFromStorage = (forceAudioOff: (settings: Settings) => Settings): Effec
               Effect.mapError((e) => new SettingsError({ operation: 'load', cause: e })),
               Effect.map(forceAudioOff),
             ))
-          ),
-      })
-    ),
+          )
+      }),
     Effect.tapError((e) => Effect.logWarning(`Settings load failed, using defaults: ${e.message}`)),
     Effect.catchAllCause(() => Effect.succeed(forceAudioOff(DEFAULT_SETTINGS)))
   )

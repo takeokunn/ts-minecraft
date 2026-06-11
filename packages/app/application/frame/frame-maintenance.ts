@@ -18,6 +18,18 @@ import type { DeltaTimeSecs, Position } from '@ts-minecraft/core'
 // to `worldRendererService.updateChunkInScene`.
 export type DirtyChunkEntry = { readonly chunk: Chunk; readonly dirtyAABB: Option.Option<ChunkAABB> }
 
+// Unions two dirty AABBs. Either side being None means "full chunk" (no AABB),
+// so None propagates through: union(Some, None) = None, union(None, _) = None.
+const unionDirtyAABB = (
+  a: Option.Option<ChunkAABB>,
+  b: Option.Option<ChunkAABB>,
+): Option.Option<ChunkAABB> =>
+  Option.zipWith(a, b, (av, bv) => ({
+    minX: Math.min(av.minX, bv.minX), maxX: Math.max(av.maxX, bv.maxX),
+    minY: Math.min(av.minY, bv.minY), maxY: Math.max(av.maxY, bv.maxY),
+    minZ: Math.min(av.minZ, bv.minZ), maxZ: Math.max(av.maxZ, bv.maxZ),
+  }))
+
 type MaintenanceState = {
   readonly lastLoadedChunksRef: Ref.Ref<Option.Option<ReadonlyArray<Chunk>>>
   readonly lastChunkStreamingRef: MutableRef.MutableRef<{ readonly cx: number; readonly cz: number; readonly renderDistance: number }>
@@ -234,10 +246,8 @@ export const createMaintenanceHandler = (
         if (chunkSceneSyncEnabled) {
           const loadedChunks = yield* chunkManagerService.getLoadedChunks()
           const lastLoadedChunks = yield* Ref.get(state.lastLoadedChunksRef)
-          const chunksChanged = Option.match(lastLoadedChunks, {
-            onNone: () => true,
-            onSome: (previousLoadedChunks) => previousLoadedChunks !== loadedChunks,
-          })
+          const lastLoadedChunksVal = Option.getOrNull(lastLoadedChunks)
+          const chunksChanged = lastLoadedChunksVal === null || lastLoadedChunksVal !== loadedChunks
           const shouldSyncWorld = chunkSyncPending || chunksChanged
 
           if (shouldSyncWorld) {
@@ -278,25 +288,13 @@ export const createMaintenanceHandler = (
             current,
             (acc, entry) => {
               const k = `${entry.chunk.coord.x},${entry.chunk.coord.z}`
-              return HashMap.set(acc, k, Option.match(HashMap.get(acc, k), {
-                onNone: () => ({ chunk: entry.chunk, dirtyAABB: entry.dirtyAABB }),
-                // Union new AABB with whatever was already queued. Either side
-                // being Option.none() ⇒ full-chunk fallback (Option.none()).
-                onSome: (prev) => ({
-                  chunk: entry.chunk,
-                  dirtyAABB: Option.match(prev.dirtyAABB, {
-                    onNone: () => Option.none<ChunkAABB>(),
-                    onSome: (a) => Option.match(entry.dirtyAABB, {
-                      onNone: () => Option.none<ChunkAABB>(),
-                      onSome: (b) => Option.some({
-                        minX: Math.min(a.minX, b.minX), maxX: Math.max(a.maxX, b.maxX),
-                        minY: Math.min(a.minY, b.minY), maxY: Math.max(a.maxY, b.maxY),
-                        minZ: Math.min(a.minZ, b.minZ), maxZ: Math.max(a.maxZ, b.maxZ),
-                      }),
-                    }),
-                  }),
-                }),
-              }))
+              const existing = Option.getOrNull(HashMap.get(acc, k))
+              // Union new AABB with whatever was already queued. Either side
+              // being Option.none() ⇒ full-chunk fallback (Option.none()).
+              const dirtyAABB = existing === null
+                ? entry.dirtyAABB
+                : unionDirtyAABB(existing.dirtyAABB, entry.dirtyAABB)
+              return HashMap.set(acc, k, { chunk: entry.chunk, dirtyAABB })
             },
           ),
         )

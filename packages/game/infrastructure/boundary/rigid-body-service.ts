@@ -1,4 +1,4 @@
-import { Effect, Option } from 'effect'
+import { Effect } from 'effect'
 import type { CustomBody, RigidBodyConfig, CustomShape } from '../../domain/physics-body'
 import type { Vector3 } from '@ts-minecraft/core'
 
@@ -14,7 +14,7 @@ export class RigidBodyService extends Effect.Service<RigidBodyService>()(
           position: { x: config.position.x, y: config.position.y, z: config.position.z },
           velocity: { x: 0, y: 0, z: 0 },
           mass: config.mass,
-          type: Option.getOrElse(Option.fromNullable(config.type), () => 'dynamic' as const),
+          type: config.type ?? ('dynamic' as const),
           shape: PLACEHOLDER_SHAPE,
         }),
       setPosition: (body: CustomBody, position: Vector3): Effect.Effect<void, never> =>

@@ -175,8 +175,7 @@ export const worldToLocal = (pos: Position): { coord: ChunkCoord; lx: number; lz
 
 export const readBlockFromArray = (data: ChunkStorageValue | Uint8Array, lx: number, y: number, lz: number): string => {
   const blocks = data instanceof Uint8Array ? data : data.blocks
-  return Option.match(blockIndex(lx, y, lz), {
-    onNone: () => 'AIR',
-    onSome: (idx) => indexToBlockType(Option.getOrElse(Option.fromNullable(blocks[idx]), () => 0)),
-  })
+  const idx = Option.getOrNull(blockIndex(lx, y, lz))
+  if (idx === null) return 'AIR'
+  return indexToBlockType(blocks[idx] ?? 0)
 }

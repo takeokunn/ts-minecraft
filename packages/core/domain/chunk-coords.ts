@@ -28,8 +28,7 @@ export const blockIndexUnsafe = (x: number, y: number, z: number): number =>
   y + z * CHUNK_HEIGHT + x * CHUNK_HEIGHT * CHUNK_SIZE
 
 // Effect version for user-facing APIs — fails with BlockIndexError for out-of-bounds coords.
-export const toBlockIndex = (x: number, y: number, z: number): Effect.Effect<number, BlockIndexError> =>
-  Option.match(blockIndex(x, y, z), {
-    onNone: () => Effect.fail(new BlockIndexError({ x, y, z })),
-    onSome: (idx) => Effect.succeed(idx),
-  })
+export const toBlockIndex = (x: number, y: number, z: number): Effect.Effect<number, BlockIndexError> => {
+  const idx = Option.getOrNull(blockIndex(x, y, z))
+  return idx !== null ? Effect.succeed(idx) : Effect.fail(new BlockIndexError({ x, y, z }))
+}

@@ -38,7 +38,7 @@ export const maxStackFor = (itemType: InventoryItem): number =>
 export const createStack = (itemType: InventoryItem, count = 1): ItemStack => {
   const max = maxStackFor(itemType)
   // Tools spawn at full durability; non-tools leave the field undefined.
-  const durability = isDurable(itemType) ? Option.getOrThrow(getMaxDurability(itemType)) : undefined
+  const durability = Option.getOrUndefined(getMaxDurability(itemType))
   return new ItemStack({ itemType, count: Math.max(1, Math.min(max, count)), durability })
 }
 
@@ -75,6 +75,11 @@ export const mergeStacks = (
 // Applies `amount` damage to a tool/weapon stack. Non-durable stacks (or durable
 // stacks somehow missing a durability value) pass through unchanged. A durable
 // stack reduced to 0 durability breaks → Option.none().
+// Extracts the enchantment list from an optional stack. Safe to call on any
+// slot-read result — returns [] when the slot is empty or has no enchantments.
+export const enchantmentsOf = (slot: Option.Option<ItemStack>): ReadonlyArray<Enchantment> =>
+  (Option.getOrNull(slot)?.enchantments ?? []) as ReadonlyArray<Enchantment>
+
 export const damageStack = (stack: ItemStack, amount = 1): Option.Option<ItemStack> => {
   if (!isDurable(stack.itemType) || stack.durability === undefined) return Option.some(stack)
   const next = damageDurability(stack.durability, amount)

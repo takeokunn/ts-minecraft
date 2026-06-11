@@ -150,33 +150,27 @@ export const selectSurfaceSpawn = (
     ),
   )
 
-  return Arr.reduce(candidates, Option.none<SpawnCandidate>(), (best, candidate) =>
-    Option.match(best, {
-      onNone: () => Option.some(candidate),
-      onSome: (current) => {
-        // Prefer open-surface spawns: weight openness heavily so distance only
-        // breaks ties. A wide-open plains column 30 blocks away is better than
-        // a cave-adjacent surface right next to the origin.
-        const candidateScore = candidate.openness * 1000 - candidate.distanceSq
-        const currentScore = current.openness * 1000 - current.distanceSq
-        return candidateScore > currentScore ? Option.some(candidate) : best
-      },
-    }),
-  ).pipe(
-    Option.match({
-      onNone: () => {
-        // No valid surface candidate found — scan loaded chunks for any
-        // solid ground as a last-resort fallback before using the fixed height.
-        const fallbackY = FALLBACK_SURFACE_Y + FALLBACK_HEADROOM + PLAYER_HALF_HEIGHT
-        const safetyY = findFallbackSurfaceY(chunkMap, baseSpawnPosition)
-        return {
-          position: { ...baseSpawnPosition, y: safetyY ?? fallbackY },
-          yaw: 0,
-        }
-      },
-      onSome: ({ position, yaw }) => ({ position, yaw }),
-    }),
-  )
+  const best = Arr.reduce(candidates, Option.none<SpawnCandidate>(), (acc, candidate) => {
+    const current = Option.getOrNull(acc)
+    if (current === null) return Option.some(candidate)
+    // Prefer open-surface spawns: weight openness heavily so distance only
+    // breaks ties. A wide-open plains column 30 blocks away is better than
+    // a cave-adjacent surface right next to the origin.
+    const candidateScore = candidate.openness * 1000 - candidate.distanceSq
+    const currentScore = current.openness * 1000 - current.distanceSq
+    return candidateScore > currentScore ? Option.some(candidate) : acc
+  })
+
+  const bestVal = Option.getOrNull(best)
+  if (bestVal !== null) {
+    return { position: bestVal.position, yaw: bestVal.yaw }
+  }
+
+  // No valid surface candidate found — scan loaded chunks for any
+  // solid ground as a last-resort fallback before using the fixed height.
+  const fallbackY = FALLBACK_SURFACE_Y + FALLBACK_HEADROOM + PLAYER_HALF_HEIGHT
+  const safetyY = findFallbackSurfaceY(chunkMap, baseSpawnPosition)
+  return { position: { ...baseSpawnPosition, y: safetyY ?? fallbackY }, yaw: 0 }
 }
 
 // Scan ALL loaded chunks for any solid ground as a last-resort fallback.

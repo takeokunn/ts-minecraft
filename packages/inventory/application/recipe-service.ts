@@ -55,24 +55,15 @@ export class RecipeService extends Effect.Service<RecipeService>()(
         hasFurnaceAccess = true,
       ): Effect.Effect<void, RecipeError> =>
         Effect.gen(function* () {
-          const recipe = yield* Option.match(findById(recipeId), {
-            onNone: () => Effect.fail(new RecipeError({ operation: 'craft', cause: `Recipe not found: ${recipeId}` })),
-            onSome: Effect.succeed,
-          })
+          const recipe = Option.getOrNull(findById(recipeId))
+          if (recipe === null) return yield* Effect.fail(new RecipeError({ operation: 'craft', cause: `Recipe not found: ${recipeId}` }))
 
           const slots = yield* inventoryService.getAllSlots()
-          const available = Arr.reduce(
-            slots,
-            HashMap.empty<InventoryItem, number>(),
-            (map, slot) => Option.match(slot, {
-              onSome: ({ itemType, count }) => HashMap.set(
-                map,
-                itemType,
-                Option.getOrElse(HashMap.get(map, itemType), () => 0) + count
-              ),
-              onNone: () => map,
-            })
-          )
+          const available = Arr.reduce(slots, HashMap.empty<InventoryItem, number>(), (map, slot) => {
+            const stack = Option.getOrNull(slot)
+            if (stack === null) return map
+            return HashMap.set(map, stack.itemType, Option.getOrElse(HashMap.get(map, stack.itemType), () => 0) + stack.count)
+          })
 
           // Pre-check all ingredients before any removal to prevent partial consumption
           const shortageOpt = Arr.findFirst(recipe.ingredients, (ing) =>
@@ -86,13 +77,13 @@ export class RecipeService extends Effect.Service<RecipeService>()(
                 : `Recipe requires a crafting table: ${recipeId}`,
             }))
           }
-          yield* Option.match(shortageOpt, {
-            onNone: () => Effect.void,
-            onSome: (ing) => Effect.fail(new RecipeError({
+          const shortage = Option.getOrNull(shortageOpt)
+          if (shortage !== null) {
+            yield* Effect.fail(new RecipeError({
               operation: 'craft',
-              cause: `Insufficient ${ing.itemType}: need ${ing.count}, have ${Option.getOrElse(HashMap.get(available, ing.itemType), () => 0)}`,
-            })),
-          })
+              cause: `Insufficient ${shortage.itemType}: need ${shortage.count}, have ${Option.getOrElse(HashMap.get(available, shortage.itemType), () => 0)}`,
+            }))
+          }
 
           // Transactional craft: snapshot the inventory, then remove ingredients
           // and add the output. If ANY step fails — a mid-sequence removal error,

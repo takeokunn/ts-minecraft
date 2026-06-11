@@ -15,12 +15,7 @@ const SLOT_OPACITY = 0.78
 const SELECTED_BORDER_COLOR = 0xfff4b0
 
 const buildSlotsKey = (slots: ReadonlyArray<Option.Option<InventoryItem>>): string =>
-  Arr.map(slots, (slot) =>
-    Option.match(slot, {
-      onNone: () => '_',
-      onSome: (itemType) => itemType,
-    })
-  ).join('|')
+  Arr.map(slots, (slot) => Option.getOrElse(slot, () => '_')).join('|')
 
 export class HotbarRendererService extends Effect.Service<HotbarRendererService>()(
   '@minecraft/presentation/HotbarRenderer',
@@ -135,16 +130,20 @@ export class HotbarRendererService extends Effect.Service<HotbarRendererService>
                       /* c8 ignore next */
                       if (!(mesh.material instanceof THREE.MeshBasicMaterial)) return
                       const mat = mesh.material
-                      Option.match(slot, {
-                        onSome: (itemType) => {
-                          const tileIndex = getItemTileIndex(itemType)
-                          if (tileIndex < 0) {
-                            mat.color.setHex(DEFAULT_TILE_COLOR)
-                            mat.opacity = SLOT_OPACITY
-                            mat.map = null
-                            mat.needsUpdate = true
-                            return
-                          }
+                      if (Option.isNone(slot)) {
+                        mat.color.setHex(DEFAULT_TILE_COLOR)
+                        mat.opacity = SLOT_OPACITY
+                        mat.map = null
+                        mat.needsUpdate = true
+                      } else {
+                        const itemType = slot.value
+                        const tileIndex = getItemTileIndex(itemType)
+                        if (tileIndex < 0) {
+                          mat.color.setHex(DEFAULT_TILE_COLOR)
+                          mat.opacity = SLOT_OPACITY
+                          mat.map = null
+                          mat.needsUpdate = true
+                        } else {
                           const { u0, v0, u1, v1 } = getItemTileUVs(tileIndex)
                           const geo = mesh.geometry
                           const uvAttr = geo.attributes['uv']
@@ -161,35 +160,26 @@ export class HotbarRendererService extends Effect.Service<HotbarRendererService>
                           mat.opacity = 1.0
                           mat.map = atlasTexture
                           mat.needsUpdate = true
-                        },
-                        onNone: () => {
-                          mat.color.setHex(DEFAULT_TILE_COLOR)
-                          mat.opacity = SLOT_OPACITY
-                          mat.map = null
-                          mat.needsUpdate = true
-                        },
-                      })
+                        }
+                      }
                       mesh.scale.setScalar(1)
                     },
                   )
 
-                  Option.match(Arr.get(slotMeshes, SlotIndex.toNumber(selectedSlot)), {
-                    onSome: (m) => {
-                      m.scale.setScalar(1.2)
-                      borderMesh.position.x = m.position.x
-                      borderMesh.visible = true
-                    },
-                    onNone: () => {
-                      borderMesh.visible = false
-                    },
-                  })
+                  const selectedMesh = Option.getOrNull(Arr.get(slotMeshes, SlotIndex.toNumber(selectedSlot)))
+                  if (selectedMesh !== null) {
+                    selectedMesh.scale.setScalar(1.2)
+                    borderMesh.position.x = selectedMesh.position.x
+                    borderMesh.visible = true
+                  } else {
+                    borderMesh.visible = false
+                  }
                 }),
 
-              render: (renderer: THREE.WebGLRenderer): Effect.Effect<void, never> =>
-                Option.match(MutableRef.get(hudCameraRef), {
-                  onNone: () => Effect.void,
-                  onSome: (cam) => rendererService.renderOverlay(renderer, hudScene, cam),
-                }),
+              render: (renderer: THREE.WebGLRenderer): Effect.Effect<void, never> => {
+                const hudCamera = Option.getOrNull(MutableRef.get(hudCameraRef))
+                return hudCamera !== null ? rendererService.renderOverlay(renderer, hudScene, hudCamera) : Effect.void
+              },
             }),
           )
         }),

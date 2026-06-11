@@ -8,26 +8,15 @@ import {
   FISHING_MAX_WAIT_SECS,
 } from './fishing.config'
 
-// Re-export config data and types so callers can import from one location.
-export type { FishingCategory, WeightedEntry } from './fishing.config'
-export {
-  FISH_ENTRIES,
-  TREASURE_ENTRIES,
-  JUNK_ENTRIES,
-  FISHING_MIN_WAIT_SECS,
-  FISHING_MAX_WAIT_SECS,
-} from './fishing.config'
-
 const pickWeighted = (entries: ReadonlyArray<WeightedEntry>, seed: number): ItemType => {
   const totalWeight = entries.reduce((sum, e) => sum + e.weight, 0)
   let remaining = seed % totalWeight
-  /* c8 ignore start */
   for (const entry of entries) {
     remaining -= entry.weight
     if (remaining < 0) return entry.item
   }
+  /* c8 ignore next -- unreachable: loop always finds a match when totalWeight > 0 */
   return entries[0]?.item ?? 'RAW_COD'
-  /* c8 ignore end */
 }
 
 // Returns the caught item given a deterministic seed (e.g. totalXP + frameCount).

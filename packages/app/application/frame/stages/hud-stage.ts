@@ -44,10 +44,10 @@ export const hudStage = (
     if (adaptiveQualityDecision.nextCooldown !== adaptiveCooldown) {
       yield* Ref.set(refs.adaptiveQualityCooldownRef, adaptiveQualityDecision.nextCooldown)
     }
-    yield* Option.match(adaptiveQualityDecision.settingsPatch, {
-      onNone: () => Effect.void,
-      onSome: (patch) => services.settingsService.updateSettings(patch),
-    })
+    const settingsPatch = Option.getOrNull(adaptiveQualityDecision.settingsPatch)
+    if (settingsPatch !== null) {
+      yield* services.settingsService.updateSettings(settingsPatch)
+    }
     const fpsChanged = yield* Ref.modify(refs.lastFpsTenthsRef, (last): [boolean, number] =>
       last === fpsTenths ? [false, last] : [true, fpsTenths],
     )

@@ -75,17 +75,14 @@ export const placeSelectedItemInFront = (
   Effect.runPromise(Effect.gen(function* () {
     const selectedItem = yield* hotbarService.getSelectedBlockType()
     const selectedSlot = yield* hotbarService.getSelectedSlot()
-    yield* Option.match(selectedItem, {
-      onNone: () => Effect.void,
-      onSome: (item) => {
-        if (!Schema.is(BlockTypeSchema)(item)) return Effect.void
-        return blockService.placeBlock(
-          projectBlockAhead(camera, 4),
-          item,
-          SlotIndex.make(HOTBAR_START + SlotIndex.toNumber(selectedSlot)),
-        ).pipe(Effect.catchAllCause(() => Effect.void))
-      },
-    })
+    const item = Option.getOrNull(selectedItem)
+    if (item !== null && Schema.is(BlockTypeSchema)(item)) {
+      yield* blockService.placeBlock(
+        projectBlockAhead(camera, 4),
+        item,
+        SlotIndex.make(HOTBAR_START + SlotIndex.toNumber(selectedSlot)),
+      ).pipe(Effect.catchAllCause(() => Effect.void))
+    }
     yield* blockHighlight.invalidateCache()
   }))
 

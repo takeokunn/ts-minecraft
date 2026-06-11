@@ -30,7 +30,7 @@ const countArb = Arbitrary.make(Schema.Number.pipe(Schema.int(), Schema.between(
 // Count total of a given block type across all inventory slots
 const countOf = (slots: ReadonlyArray<Option.Option<{ readonly itemType: InventoryItem; readonly count: number }>>, itemType: InventoryItem): number =>
   Arr.reduce(slots, 0, (sum, slot) =>
-    sum + Option.match(slot, { onNone: () => 0, onSome: (item) => item.itemType === itemType ? item.count : 0 })
+    sum + (Option.isSome(slot) && slot.value.itemType === itemType ? slot.value.count : 0)
   )
 
 // ---------------------------------------------------------------------------

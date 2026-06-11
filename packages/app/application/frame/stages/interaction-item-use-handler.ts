@@ -1,109 +1,102 @@
 import { Effect, Option, Schema } from 'effect'
 import { SlotIndex, ItemTypeSchema } from '@ts-minecraft/core'
-import { HOTBAR_START, isArmorItem, getArmorSlot } from '@ts-minecraft/inventory'
+import type { InventoryItem } from '@ts-minecraft/core'
+import { HOTBAR_START, isArmorItem, getArmorSlot, enchantmentsOf } from '@ts-minecraft/inventory'
 import { getFoodProperties, MAX_FOOD_LEVEL, getMobDefinition } from '@ts-minecraft/entity'
 import { findAttackableEntity } from '@ts-minecraft/app/frame/stages/attack-targeting'
 import type { FrameHandlerDeps, FrameHandlerServices } from '@ts-minecraft/app/frame/types'
 
+// ─── Fishing rod ─────────────────────────────────────────────────────────────
+
+const handleFishingRodActivation = (
+  services: Pick<FrameHandlerServices, 'fishingService' | 'xpService' | 'inventoryService'>,
+  selectedSlot: number,
+): Effect.Effect<boolean, never> =>
+  services.fishingService.isFishing().pipe(
+    Effect.flatMap((alreadyFishing) => {
+      if (alreadyFishing) return services.fishingService.cancel().pipe(Effect.as(true))
+      return Effect.all(
+        [services.xpService.getXP(), services.inventoryService.getSlot(SlotIndex.make(HOTBAR_START + selectedSlot))],
+        { concurrency: 'unbounded' },
+      ).pipe(
+        Effect.flatMap(([xp, rodStack]) => {
+          const enchantments = enchantmentsOf(rodStack)
+          const lure = enchantments.find((e) => e.type === 'LURE')
+          const luck = enchantments.find((e) => e.type === 'LUCK_OF_THE_SEA')
+          return services.fishingService.cast(
+            xp.totalXP + xp.xpIntoLevel,
+            lure?.level ?? 0,
+            luck?.level ?? 0,
+          )
+        }),
+        Effect.as(true),
+      )
+    }),
+  )
+
+// ─── Armor equip ─────────────────────────────────────────────────────────────
+
+const handleArmorEquipFromHotbar = (
+  services: Pick<FrameHandlerServices, 'inventoryService' | 'equipmentService'>,
+  selectedSlot: number,
+  item: InventoryItem,
+): Effect.Effect<boolean, never> =>
+  Effect.gen(function* () {
+    const slotIndex = SlotIndex.make(HOTBAR_START + selectedSlot)
+    const stack = Option.getOrNull(yield* services.inventoryService.getSlot(slotIndex))
+    if (stack === null) return false
+    const armorSlot = Option.getOrNull(getArmorSlot(stack.itemType))
+    if (armorSlot === null) return false
+    const displaced = Option.getOrNull(yield* services.equipmentService.getEquippedItem(armorSlot))
+    yield* services.inventoryService
+      .removeBlock(item, 1, slotIndex)
+      .pipe(
+        Effect.andThen(services.equipmentService.equip(stack)),
+        Effect.andThen(
+          displaced !== null
+            ? services.inventoryService.addBlock(displaced.itemType, 1).pipe(Effect.asVoid)
+            : Effect.void,
+        ),
+        Effect.catchAll(() => Effect.void),
+      )
+    return true
+  }).pipe(Effect.catchAll(() => Effect.succeed(false)))
+
+// ─── Food consumption ─────────────────────────────────────────────────────────
+
 export const handleFoodConsumption = (
   services: Pick<FrameHandlerServices, 'hotbarService' | 'hungerService' | 'inventoryService' | 'equipmentService' | 'fishingService' | 'xpService' | 'healthService'>,
 ): Effect.Effect<boolean, never> =>
-  Effect.all(
-    [services.hotbarService.getSelectedBlockType(), services.hotbarService.getSelectedSlot()],
-    { concurrency: 'unbounded' },
-  ).pipe(
-    Effect.flatMap(([selected, selectedSlot]) =>
-      Option.match(selected, {
-        onNone: () => Effect.succeed(false),
-        onSome: (item) => {
-          if (!Schema.is(ItemTypeSchema)(item)) return Effect.succeed(false)
+  Effect.gen(function* () {
+    const [selected, selectedSlot] = yield* Effect.all(
+      [services.hotbarService.getSelectedBlockType(), services.hotbarService.getSelectedSlot()],
+      { concurrency: 'unbounded' },
+    )
+    const item = Option.getOrNull(selected)
+    if (item === null) return false
+    if (!Schema.is(ItemTypeSchema)(item)) return false
 
-          if (item === 'FISHING_ROD') {
-            return services.fishingService.isFishing().pipe(
-              Effect.flatMap((alreadyFishing) =>
-                alreadyFishing
-                  ? services.fishingService.cancel().pipe(Effect.as(true))
-                  : Effect.all(
-                      [services.xpService.getXP(), services.inventoryService.getSlot(SlotIndex.make(HOTBAR_START + selectedSlot))],
-                      { concurrency: 'unbounded' },
-                    ).pipe(
-                      Effect.flatMap(([xp, rodStack]) => {
-                        const enchantments = Option.match(rodStack, { onNone: () => [], onSome: (s) => s.enchantments ?? [] })
-                        const lure = enchantments.find((e) => e.type === 'LURE')
-                        const luck = enchantments.find((e) => e.type === 'LUCK_OF_THE_SEA')
-                        return services.fishingService.cast(
-                          xp.totalXP + xp.xpIntoLevel,
-                          lure?.level ?? 0,
-                          luck?.level ?? 0,
-                        )
-                      }),
-                      Effect.as(true),
-                    ),
-              ),
-            )
-          }
+    if (item === 'FISHING_ROD') return yield* handleFishingRodActivation(services, selectedSlot)
+    if (isArmorItem(item)) return yield* handleArmorEquipFromHotbar(services, selectedSlot, item)
 
-          if (isArmorItem(item)) {
-            const slotIndex = SlotIndex.make(HOTBAR_START + selectedSlot)
-            return services.inventoryService.getSlot(slotIndex).pipe(
-              Effect.flatMap((stackOpt) =>
-                Option.match(stackOpt, {
-                  onNone: () => Effect.succeed(false),
-                  onSome: (stack) =>
-                    Option.match(getArmorSlot(stack.itemType), {
-                      onNone: () => Effect.succeed(false),
-                      onSome: (slot) =>
-                        services.equipmentService.getEquippedItem(slot).pipe(
-                          Effect.flatMap((displaced) =>
-                            services.inventoryService
-                              .removeBlock(item, 1, slotIndex)
-                              .pipe(
-                                Effect.andThen(services.equipmentService.equip(stack)),
-                                // Swap: return displaced piece to inventory
-                                Effect.andThen(
-                                  Option.match(displaced, {
-                                    onNone: () => Effect.void,
-                                    onSome: (old) =>
-                                      services.inventoryService.addBlock(old.itemType, 1).pipe(Effect.asVoid),
-                                  }),
-                                ),
-                                Effect.as(true),
-                                Effect.catchAll(() => Effect.succeed(false)),
-                              ),
-                          ),
-                        ),
-                    }),
-                }),
-              ),
-            )
-          }
+    const food = Option.getOrNull(getFoodProperties(item))
+    if (food === null) return false
+    const hunger = yield* services.hungerService.getHunger()
+    if (hunger.foodLevel >= MAX_FOOD_LEVEL) return false
 
-          return Option.match(getFoodProperties(item), {
-            onNone: () => Effect.succeed(false),
-            onSome: (food) =>
-              services.hungerService.getHunger().pipe(
-                Effect.flatMap((hunger) =>
-                  hunger.foodLevel >= MAX_FOOD_LEVEL
-                    ? Effect.succeed(false)
-                    : services.inventoryService
-                        .removeBlock(item, 1, SlotIndex.make(HOTBAR_START + selectedSlot))
-                        .pipe(
-                          Effect.andThen(services.hungerService.eat(food.foodLevel, food.saturationModifier)),
-                          Effect.andThen(
-                            item === 'GOLDEN_APPLE'
-                              ? services.healthService.heal(4)
-                              : Effect.void,
-                          ),
-                          Effect.as(true),
-                          Effect.catchAll(() => Effect.succeed(false)),
-                        ),
-                ),
-              ),
-          })
-        },
-      }),
-    ),
-  )
+    yield* services.inventoryService
+      .removeBlock(item, 1, SlotIndex.make(HOTBAR_START + selectedSlot))
+      .pipe(
+        Effect.andThen(services.hungerService.eat(food.foodLevel, food.saturationModifier)),
+        Effect.andThen(
+          item === 'GOLDEN_APPLE'
+            ? services.healthService.heal(4)
+            : Effect.void,
+        ),
+        Effect.catchAll(() => Effect.void),
+      )
+    return true
+  })
 
 /**
  * Right-click shearing (FR R11): if the player is looking at a sheep while holding
@@ -118,23 +111,21 @@ export const handleShearAnimal = (
 ): Effect.Effect<boolean, never> =>
   Effect.gen(function* () {
     const selected = yield* services.hotbarService.getSelectedBlockType()
-    if (Option.isNone(selected) || selected.value !== 'SHEARS') return false
+    if (!Option.exists(selected, (s) => s === 'SHEARS')) return false
 
     const entities = yield* services.entityManager.getEntities()
-    const targetId = findAttackableEntity(entities, deps.camera, Option.none())
-    if (Option.isNone(targetId)) return false
+    const targetIdVal = Option.getOrNull(findAttackableEntity(entities, deps.camera, Option.none()))
+    if (targetIdVal === null) return false
 
     // shearEntity is gated (sheep + woolly); only harvest on Some(count).
-    const woolOpt = yield* services.entityManager.shearEntity(targetId.value)
-    if (Option.isNone(woolOpt)) return false
+    const woolCount = Option.getOrNull(yield* services.entityManager.shearEntity(targetIdVal))
+    if (woolCount === null) return false
 
-    const entityOpt = yield* services.entityManager.getEntity(targetId.value)
-    yield* services.inventoryService.addBlock('WOOL', woolOpt.value).pipe(Effect.catchAll(() => Effect.void))
-    yield* Option.match(entityOpt, {
-      onNone: () => Effect.void,
-      onSome: (target) =>
-        services.soundManager.playEffect('blockBreak', { position: target.position }).pipe(Effect.catchAll(() => Effect.void)),
-    })
+    const entityPos = Option.getOrNull(yield* services.entityManager.getEntity(targetIdVal))?.position
+    yield* services.inventoryService.addBlock('WOOL', woolCount).pipe(Effect.catchAll(() => Effect.void))
+    if (entityPos !== undefined) {
+      yield* services.soundManager.playEffect('blockBreak', { position: entityPos }).pipe(Effect.catchAll(() => Effect.void))
+    }
     return true
   })
 
@@ -144,15 +135,13 @@ export const handleUnequipArmor = (
   Effect.gen(function* () {
     const slots = ['HELMET', 'CHESTPLATE', 'LEGGINGS', 'BOOTS'] as const
     for (const slot of slots) {
-      const removed = yield* services.equipmentService.unequipSlot(slot)
-      yield* Option.match(removed, {
-        onNone: () => Effect.void,
-        onSome: (stack) =>
-          services.inventoryService
-            .addBlock(stack.itemType, 1)
-            .pipe(Effect.catchAll(() => services.equipmentService.equip(stack).pipe(Effect.asVoid))),
-      })
-      if (Option.isSome(removed)) return
+      const removed = Option.getOrNull(yield* services.equipmentService.unequipSlot(slot))
+      if (removed !== null) {
+        yield* services.inventoryService
+          .addBlock(removed.itemType, 1)
+          .pipe(Effect.catchAll(() => services.equipmentService.equip(removed).pipe(Effect.asVoid)))
+        return
+      }
     }
   })
 
@@ -168,22 +157,21 @@ export const handleFeedAnimal = (
 ): Effect.Effect<boolean, never> =>
   Effect.gen(function* () {
     const selected = yield* services.hotbarService.getSelectedBlockType()
-    if (Option.isNone(selected)) return false
-    const heldItem = selected.value
+    const heldItem = Option.getOrNull(selected)
+    if (heldItem === null) return false
 
     const entities = yield* services.entityManager.getEntities()
-    const targetId = findAttackableEntity(entities, deps.camera, Option.none())
-    if (Option.isNone(targetId)) return false
+    const targetIdVal = Option.getOrNull(findAttackableEntity(entities, deps.camera, Option.none()))
+    if (targetIdVal === null) return false
 
-    const entityOpt = yield* services.entityManager.getEntity(targetId.value)
-    if (Option.isNone(entityOpt)) return false
-    const target = entityOpt.value
+    const target = Option.getOrNull(yield* services.entityManager.getEntity(targetIdVal))
+    if (target === null) return false
 
     // Held item must be THIS species' breeding item.
     if (getMobDefinition(target.type).breedingItem !== heldItem) return false
 
     // feedEntity is gated (adult, off cooldown, not already in love); only consume on success.
-    const fed = yield* services.entityManager.feedEntity(targetId.value)
+    const fed = yield* services.entityManager.feedEntity(targetIdVal)
     if (!fed) return false
 
     const selectedSlot = yield* services.hotbarService.getSelectedSlot()

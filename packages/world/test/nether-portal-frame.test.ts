@@ -20,7 +20,7 @@ const makeWorld = (obsidian: ReadonlyArray<Cell>, overrides: ReadonlyArray<Overr
   const map = new Map<string, BlockType>()
   obsidian.forEach(([x, y, z]) => map.set(key(x, y, z), 'OBSIDIAN'))
   overrides.forEach(([x, y, z, b]) => map.set(key(x, y, z), b))
-  return (x, y, z) => Option.getOrElse(Option.fromNullable(map.get(key(x, y, z))), (): BlockType => 'AIR')
+  return (x, y, z) => map.get(key(x, y, z)) ?? 'AIR'
 }
 
 // Obsidian ring (corners excluded, per vanilla) for an X-aligned portal whose

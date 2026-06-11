@@ -85,13 +85,10 @@ expect.fail(`Key collision: (1,10) and (10,1) both produce "${key1}"`)
               const loaded2 = storage.load({ x: x2, z: z2 })
 
               // Each must retain its own data, not the other's
-              return Option.match(
-                Option.all([loaded1, loaded2] as const),
-                {
-                  onNone: () => false,
-                  onSome: ([d1, d2]) => d1.blocks[0] === 1 && d2.blocks[0] === 7,
-                },
-              )
+              const pair = Option.getOrNull(Option.all([loaded1, loaded2] as const))
+              if (pair === null) return false
+              const [d1, d2] = pair
+              return d1.blocks[0] === 1 && d2.blocks[0] === 7
             }
           )
         )
@@ -152,10 +149,8 @@ expect.fail(`Key collision: (1,10) and (10,1) both produce "${key1}"`)
               const data = new Uint8Array([42, 43, 44])
               storage.save({ x, z }, data)
               const result = storage.load({ x, z })
-              return Option.match(result, {
-                onNone: () => false,
-                onSome: (data) => data.blocks[0] === 42 && data.blocks[1] === 43 && data.blocks[2] === 44,
-              })
+              const loaded = Option.getOrNull(result)
+              return loaded !== null && loaded.blocks[0] === 42 && loaded.blocks[1] === 43 && loaded.blocks[2] === 44
             }
           )
         )

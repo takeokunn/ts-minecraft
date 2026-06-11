@@ -12,21 +12,19 @@ export const createTestInputService = (
   initialState: Partial<MovementInput & { mouseDelta?: MouseDelta; pointerLocked?: boolean }> = {}
 ): TestInputService => {
   const pressedKeys = MutableHashMap.make(
-    ['KeyW', Option.getOrElse(Option.fromNullable(initialState.forward), () => false)],
-    ['KeyS', Option.getOrElse(Option.fromNullable(initialState.backward), () => false)],
-    ['KeyA', Option.getOrElse(Option.fromNullable(initialState.left), () => false)],
-    ['KeyD', Option.getOrElse(Option.fromNullable(initialState.right), () => false)],
-    ['Space', Option.getOrElse(Option.fromNullable(initialState.jump), () => false)],
-    ['ControlLeft', Option.getOrElse(Option.fromNullable(initialState.sprint), () => false)],
-    ['ShiftLeft', Option.getOrElse(Option.fromNullable(initialState.sneak), () => false)],
+    ['KeyW', initialState.forward ?? false],
+    ['KeyS', initialState.backward ?? false],
+    ['KeyA', initialState.left ?? false],
+    ['KeyD', initialState.right ?? false],
+    ['Space', initialState.jump ?? false],
+    ['ControlLeft', initialState.sprint ?? false],
+    ['ShiftLeft', initialState.sneak ?? false],
   )
   const justPressedKeys = MutableHashSet.empty<string>()
   if (initialState.jump) {
     MutableHashSet.add(justPressedKeys, 'Space')
   }
-  const mouseDeltaRef = MutableRef.make(
-    Option.getOrElse(Option.fromNullable(initialState.mouseDelta), () => ({ x: 0, y: 0 }))
-  )
+  const mouseDeltaRef = MutableRef.make(initialState.mouseDelta ?? { x: 0, y: 0 })
   const pointerLockedRef = MutableRef.make(initialState.pointerLocked ?? true)
 
   return Object.assign(PlayerInputService.of({

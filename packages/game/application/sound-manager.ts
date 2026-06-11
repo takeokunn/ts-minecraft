@@ -1,4 +1,4 @@
-import { Effect, Option, Ref } from 'effect'
+import { Effect, Ref } from 'effect'
 import type { Position } from '@ts-minecraft/core'
 import { AudioEnginePort } from '../domain/audio-engine-port'
 import { clamp01, clampPan } from '../domain/audio-utils'
@@ -62,10 +62,8 @@ export class SoundManager extends Effect.Service<SoundManager>()(
               { concurrency: 'unbounded' }
             )
 
-            const spatial = Option.match(Option.fromNullable(options?.position), {
-              onNone: () => ({ gain: 1, pan: 0, position: undefined }),
-              onSome: (pos) => computeSpatial(listenerPosition, pos),
-            })
+            const pos = options?.position ?? null
+            const spatial = pos !== null ? computeSpatial(listenerPosition, pos) : { gain: 1, pan: 0, position: undefined }
 
             // NOTE: masterVolume is applied ONCE by the audio engine's master
             // gain node (set via setMasterGain in applySettings) — every tone is
@@ -76,7 +74,7 @@ export class SoundManager extends Effect.Service<SoundManager>()(
               definition.baseGain
               * sfxVolume
               * spatial.gain
-              * clamp01(Option.getOrElse(Option.fromNullable(options?.gainScale), () => 1)),
+              * clamp01(options?.gainScale ?? 1),
             )
 
             yield* audioEngine.playTone({

@@ -11,12 +11,10 @@ import { scanNearbyBlock } from '@ts-minecraft/app/main/qa-spatial'
 export const getInventorySnapshot = (inventoryService: InventoryService) =>
   Effect.runPromise(
     inventoryService.getAllSlots().pipe(
-      Effect.map((slots) => Arr.map(slots, (slot, index) =>
-        Option.match(slot, {
-          onNone: () => null,
-          onSome: (stack) => ({ slot: index, itemType: stack.itemType, count: stack.count }),
-        })
-      )),
+      Effect.map((slots) => Arr.map(slots, (slot, index) => {
+        const s = Option.getOrNull(slot)
+        return s !== null ? { slot: index, itemType: s.itemType, count: s.count } : null
+      })),
     ),
   )
 
@@ -31,9 +29,7 @@ export const moveItemToHotbar = (
 ) =>
   Effect.runPromise(Effect.gen(function* () {
     const slots = yield* inventoryService.getAllSlots()
-    const fromIndexOpt = Arr.findFirstIndex(slots, (slot) =>
-      Option.match(slot, { onNone: () => false, onSome: (stack) => stack.itemType === itemType })
-    )
+    const fromIndexOpt = Arr.findFirstIndex(slots, (slot) => Option.exists(slot, (s) => s.itemType === itemType))
     const fromIndex = Option.getOrElse(fromIndexOpt, () => -1)
     if (fromIndex < 0) return false
     yield* inventoryService.moveStack(SlotIndex.make(fromIndex), SlotIndex.make(HOTBAR_START + hotbarIndex))
@@ -74,18 +70,16 @@ export const craftRecipeForQA = (
     const hasTableAccess = yield* scanNearbyCraftingStation(blockTypeToIndex('CRAFTING_TABLE'))
     const hasFurnaceAccess = yield* scanNearbyCraftingStation(blockTypeToIndex('FURNACE'))
     const recipe = recipeService.findById(RecipeId.make(recipeId))
-    yield* Option.match(recipe, {
-      onNone: () => recipeService.craft(RecipeId.make(recipeId), inventoryService, hasTableAccess, hasFurnaceAccess),
-      onSome: (resolvedRecipe) => resolvedRecipe.station === 'furnace'
-        ? furnaceService.getNearestFurnaceState().pipe(
-            Effect.flatMap((furnaceOpt) => Option.match(furnaceOpt, {
-              onNone: () => furnaceService.startSmelting(RecipeId.make(recipeId)),
-              onSome: (furnace) => Option.match(furnace.output, {
-                onSome: () => furnaceService.collectOutput().pipe(Effect.asVoid),
-                onNone: () => furnaceService.startSmelting(RecipeId.make(recipeId)),
-              }),
-            })),
-          )
-        : recipeService.craft(RecipeId.make(recipeId), inventoryService, hasTableAccess, hasFurnaceAccess),
-    })
+    const isFurnaceRecipe = Option.exists(recipe, (r) => r.station === 'furnace')
+    if (isFurnaceRecipe) {
+      const furnaceOpt = yield* furnaceService.getNearestFurnaceState()
+      const furnaceState = Option.getOrNull(furnaceOpt)
+      if (furnaceState !== null && Option.isSome(furnaceState.output)) {
+        yield* furnaceService.collectOutput().pipe(Effect.asVoid)
+      } else {
+        yield* furnaceService.startSmelting(RecipeId.make(recipeId))
+      }
+    } else {
+      yield* recipeService.craft(RecipeId.make(recipeId), inventoryService, hasTableAccess, hasFurnaceAccess)
+    }
   }))

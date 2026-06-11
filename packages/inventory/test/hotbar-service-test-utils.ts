@@ -1,4 +1,4 @@
-import { Array as Arr, Effect, Layer, MutableHashMap, MutableHashSet, MutableRef, Option } from 'effect'
+import { Array as Arr, Effect, Layer, MutableHashMap, MutableHashSet, MutableRef } from 'effect'
 import { BlockType } from '@ts-minecraft/core'
 import { Block } from '@ts-minecraft/block'
 import { BlockRegistry } from '@ts-minecraft/block'
@@ -13,8 +13,8 @@ export const createTestInputService = (config: {
   justPressedKeys?: ReadonlyArray<string>
   wheelDelta?: number
 } = {}) => {
-  const justPressedKeys = MutableHashSet.fromIterable(Option.getOrElse(Option.fromNullable(config.justPressedKeys), (): ReadonlyArray<string> => []))
-  const pendingWheelDeltaRef = MutableRef.make(Option.getOrElse(Option.fromNullable(config.wheelDelta), () => 0))
+  const justPressedKeys = MutableHashSet.fromIterable(config.justPressedKeys ?? [])
+  const pendingWheelDeltaRef = MutableRef.make(config.wheelDelta ?? 0)
 
   return Object.assign(
     PlayerInputService.of({

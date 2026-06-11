@@ -5,10 +5,7 @@ import type { EntityManager } from '@ts-minecraft/entity'
 import { EntityType } from '@ts-minecraft/entity'
 import type { HotbarService } from '@ts-minecraft/inventory'
 import { getNormalizedLookDirection } from '@ts-minecraft/app/main/qa-spatial'
-import {
-  PLAYER_ATTACK_DAMAGE,
-  WOODEN_SWORD_ATTACK_DAMAGE,
-} from '@ts-minecraft/app/frame-handler.config'
+import { getWeaponBaseDamage } from '@ts-minecraft/entity'
 
 export const spawnLowHealthZombieInFront = (
   camera: THREE.PerspectiveCamera,
@@ -33,19 +30,12 @@ export const attackFirstZombie = (
 ) =>
   Effect.runPromise(Effect.gen(function* () {
     const entities = yield* entityManager.getEntities()
-    const zombieOpt = Arr.findFirst(entities, (entity) => entity.type === 'Zombie')
-    return yield* Option.match(zombieOpt, {
-      onNone: () => Effect.succeed(false),
-      onSome: (zombie) => Effect.gen(function* () {
-        const selectedItem = yield* hotbarService.getSelectedBlockType()
-        const damage = Option.match(selectedItem, {
-          onNone: () => PLAYER_ATTACK_DAMAGE,
-          onSome: (item) => item === 'WOODEN_SWORD' ? WOODEN_SWORD_ATTACK_DAMAGE : PLAYER_ATTACK_DAMAGE,
-        })
-        yield* entityManager.applyDamage(zombie.entityId, damage)
-        return true
-      }),
-    })
+    const zombie = Option.getOrNull(Arr.findFirst(entities, (entity) => entity.type === 'Zombie'))
+    if (zombie === null) return false
+    const selectedItem = yield* hotbarService.getSelectedBlockType()
+    const damage = getWeaponBaseDamage(Option.getOrUndefined(selectedItem))
+    yield* entityManager.applyDamage(zombie.entityId, damage)
+    return true
   }))
 
 export const getMobMovementSnapshot = (entityManager: EntityManager, durationMs: number) =>

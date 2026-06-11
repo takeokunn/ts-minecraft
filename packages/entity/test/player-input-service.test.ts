@@ -1,6 +1,6 @@
 import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
-import { Array as Arr, Effect, HashSet, Option } from 'effect'
+import { Array as Arr, Effect, HashSet } from 'effect'
 import { PlayerInputService, KeyMappings } from '@ts-minecraft/entity'
 
 const TestLayer = PlayerInputService.Default
@@ -185,7 +185,7 @@ describe('KeyMappings constants', () => {
     it('there should be no duplicate key bindings', () => {
       const allValues = Object.values(KeyMappings)
       const counts = Arr.reduce(allValues, {} as Record<string, number>, (acc, v) => {
-        acc[v] = Option.getOrElse(Option.fromNullable(acc[v]), () => 0) + 1
+        acc[v] = (acc[v] ?? 0) + 1
         return acc
       })
       const duplicates = Arr.filter(Object.entries(counts), ([, count]) => count > 1)

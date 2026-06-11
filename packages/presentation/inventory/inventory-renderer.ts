@@ -75,23 +75,19 @@ export class InventoryRendererService extends Effect.Service<InventoryRendererSe
         hasTableAccess: boolean,
         hasFurnaceAccess: boolean,
       ): Effect.Effect<void, Error, never> => {
-        const recipe = recipeService.findById(recipeId)
-        return Option.match(recipe, {
-          onNone: () => recipeService.craft(recipeId, inventoryService, hasTableAccess, hasFurnaceAccess),
-          onSome: (resolvedRecipe) => resolvedRecipe.station === 'furnace'
-            ? furnaceService.getNearestFurnaceState().pipe(
-                Effect.flatMap((furnaceOpt) => Option.match(furnaceOpt, {
-                  onNone: () => furnaceService.startSmelting(recipeId),
-                  onSome: (furnace) => Option.match(furnace.output, {
-                      onSome: () => furnaceService.collectOutput().pipe(
-                        Effect.flatMap(({ xp }) => xp > 0 ? xpService.addXP(xp).pipe(Effect.asVoid) : Effect.void),
-                      ),
-                      onNone: () => furnaceService.startSmelting(recipeId),
-                    }),
-                })),
-              )
-            : recipeService.craft(recipeId, inventoryService, hasTableAccess, hasFurnaceAccess),
-        }) as Effect.Effect<void, Error, never>
+        const recipe = Option.getOrNull(recipeService.findById(recipeId))
+        if (recipe === null) return recipeService.craft(recipeId, inventoryService, hasTableAccess, hasFurnaceAccess)
+        if (recipe.station !== 'furnace') return recipeService.craft(recipeId, inventoryService, hasTableAccess, hasFurnaceAccess)
+        return furnaceService.getNearestFurnaceState().pipe(
+          Effect.flatMap((furnaceOpt) => {
+            const furnace = Option.getOrNull(furnaceOpt)
+            if (furnace === null) return furnaceService.startSmelting(recipeId)
+            if (Option.isNone(furnace.output)) return furnaceService.startSmelting(recipeId)
+            return furnaceService.collectOutput().pipe(
+              Effect.flatMap(({ xp }) => xp > 0 ? xpService.addXP(xp).pipe(Effect.asVoid) : Effect.void),
+            )
+          }),
+        ) as Effect.Effect<void, Error, never>
       }
 
       return Effect.sync(() => buildOverlayDom(dom)).pipe(
@@ -126,16 +122,20 @@ export class InventoryRendererService extends Effect.Service<InventoryRendererSe
 
         return Effect.acquireRelease(
           Effect.sync(() => {
-            Option.map(overlayEl, (el) => el.addEventListener('click', handleDelegatedClick))
+            Option.getOrNull(overlayEl)?.addEventListener('click', handleDelegatedClick)
           }),
           () => Effect.sync(() => {
-            Option.map(overlayEl, (el) => { el.removeEventListener('click', handleDelegatedClick); el.remove() })
+            const el = Option.getOrNull(overlayEl)
+            if (el !== null) { el.removeEventListener('click', handleDelegatedClick); el.remove() }
           })
         ).pipe(Effect.as({
           toggle: (): Effect.Effect<boolean, never> =>
             Effect.gen(function* () {
               const next = yield* Ref.modify(isVisibleRef, (current): [boolean, boolean] => [!current, !current])
-              yield* Effect.sync(() => Option.map(overlayEl, (el) => { el.style.display = next ? 'block' : 'none' }))
+              yield* Effect.sync(() => {
+                const el = Option.getOrNull(overlayEl)
+                if (el !== null) el.style.display = next ? 'block' : 'none'
+              })
               if (next) yield* refreshSlots()
               return next
             }),
@@ -163,7 +163,7 @@ export class InventoryRendererService extends Effect.Service<InventoryRendererSe
             Effect.gen(function* () {
               const recipes = yield* Ref.get(availableRecipesRef)
               const selectedRecipeIndex = yield* Ref.get(selectedRecipeIndexRef)
-              const recipe = Option.getOrElse(Arr.get(recipes, selectedRecipeIndex), () => null)
+              const recipe = Option.getOrNull(Arr.get(recipes, selectedRecipeIndex))
               if (recipe === null) {
                 yield* Ref.set(statusMessageRef, 'No craftable recipe selected.')
                 yield* refreshSlots()

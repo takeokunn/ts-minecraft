@@ -89,12 +89,10 @@ export class EntityManager extends Effect.Service<EntityManager>()(
         addEntity: spawnEntity,
 
         removeEntity: (entityId: EntityIdType): Effect.Effect<boolean, never> =>
-          Ref.modify(entitiesRef, (entities): [boolean, HashMap.HashMap<EntityIdType, ManagedEntity>] =>
-            Option.match(HashMap.get(entities, entityId), {
-              onNone: () => [false, entities],
-              onSome: () => [true, HashMap.remove(entities, entityId)],
-            })
-          ).pipe(Effect.tap((removed) => removed
+          Ref.modify(entitiesRef, (entities): [boolean, HashMap.HashMap<EntityIdType, ManagedEntity>] => {
+            const entity = Option.getOrNull(HashMap.get(entities, entityId))
+            return entity === null ? [false, entities] : [true, HashMap.remove(entities, entityId)]
+          }).pipe(Effect.tap((removed) => removed
             ? Effect.all([
                 Ref.set(cachedEntitiesRef, Option.none()),
                 Ref.update(structureVersionRef, (version) => version + 1),
@@ -108,21 +106,19 @@ export class EntityManager extends Effect.Service<EntityManager>()(
 
         getEntities: (): Effect.Effect<ReadonlyArray<Entity>, never> =>
           Ref.get(cachedEntitiesRef).pipe(
-            Effect.flatMap((cached) =>
-              Option.match(cached, {
-                onSome: Effect.succeed,
-                onNone: () =>
-                  Ref.get(entitiesRef).pipe(
-                    Effect.flatMap((entities) => {
-                      const result = Arr.map(
-                        Arr.fromIterable(HashMap.values(entities)),
-                        toPublicEntity
-                      ) as ReadonlyArray<Entity>
-                      return Ref.set(cachedEntitiesRef, Option.some(result)).pipe(Effect.as(result))
-                    })
-                  ),
-              })
-            )
+            Effect.flatMap((cached) => {
+              const cachedValue = Option.getOrNull(cached)
+              if (cachedValue !== null) return Effect.succeed(cachedValue)
+              return Ref.get(entitiesRef).pipe(
+                Effect.flatMap((entities) => {
+                  const result = Arr.map(
+                    Arr.fromIterable(HashMap.values(entities)),
+                    toPublicEntity
+                  ) as ReadonlyArray<Entity>
+                  return Ref.set(cachedEntitiesRef, Option.some(result)).pipe(Effect.as(result))
+                })
+              )
+            })
           ),
 
         getEntityAIState: (entityId: EntityIdType): Effect.Effect<Option.Option<import('../../domain/mob/state-machine').AIState>, never> =>
@@ -162,11 +158,10 @@ export class EntityManager extends Effect.Service<EntityManager>()(
               findBreedingPairs(candidates),
               (pair) =>
                 Ref.update(entitiesRef, (es) => {
-                  const reset = (m: HashMap.HashMap<EntityIdType, ManagedEntity>, pid: EntityIdType) =>
-                    Option.match(HashMap.get(m, pid), {
-                      onNone: () => m,
-                      onSome: (parent) => HashMap.set(m, pid, { ...parent, ...afterBreedingParentState() }),
-                    })
+                  const reset = (m: HashMap.HashMap<EntityIdType, ManagedEntity>, pid: EntityIdType) => {
+                    const parent = Option.getOrNull(HashMap.get(m, pid))
+                    return parent === null ? m : HashMap.set(m, pid, { ...parent, ...afterBreedingParentState() })
+                  }
                   return reset(reset(es, pair.parentA), pair.parentB)
                 }).pipe(
                   Effect.andThen(spawnEntity(pair.type, pair.babyPosition, 0)),

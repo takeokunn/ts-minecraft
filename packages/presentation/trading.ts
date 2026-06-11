@@ -89,39 +89,33 @@ export class TradingPresentationService extends Effect.Service<TradingPresentati
           )
 
           yield* Effect.sync(() => {
-            Option.map(currencyEl, (el) => {
-              el.textContent = `Currency: ${currencyType}`
-            })
+            const uiState = Option.getOrNull(uiStateOption)
+            const currencyNode = Option.getOrNull(currencyEl)
+            if (currencyNode !== null) currencyNode.textContent = `Currency: ${currencyType}`
 
-            Option.map(titleEl, (el) => {
-              Option.match(uiStateOption, {
-                onNone: () => {
-                  el.textContent = 'Trading'
-                },
-                onSome: (state) => {
-                  el.textContent = `Trading with ${state.villagerId}`
-                },
-              })
-            })
+            const titleNode = Option.getOrNull(titleEl)
+            if (titleNode !== null) {
+              titleNode.textContent = uiState === null
+                ? 'Trading'
+                : `Trading with ${uiState.villagerId}`
+            }
 
-            Option.map(listEl, (container) => {
+            const container = Option.getOrNull(listEl)
+            if (container !== null) {
               container.innerHTML = ''
-              Option.match(uiStateOption, {
-                onNone: () => {
-                  const empty = dom.createElement('div')
-                  empty.textContent = 'No villager selected.'
-                  empty.style.cssText = 'color:#aaa;font-size:12px'
-                  dom.appendChildTo(container, empty)
-                },
-                onSome: (state) => {
-                  if (Arr.isEmptyReadonlyArray(state.offers)) {
-                    const none = dom.createElement('div')
-                    none.textContent = 'No available offers for current villager level.'
-                    none.style.cssText = 'color:#aaa;font-size:12px'
-                    dom.appendChildTo(container, none)
-                    return
-                  }
-
+              if (uiState === null) {
+                const empty = dom.createElement('div')
+                empty.textContent = 'No villager selected.'
+                empty.style.cssText = 'color:#aaa;font-size:12px'
+                dom.appendChildTo(container, empty)
+              } else {
+                const state = uiState
+                if (Arr.isEmptyReadonlyArray(state.offers)) {
+                  const none = dom.createElement('div')
+                  none.textContent = 'No available offers for current villager level.'
+                  none.style.cssText = 'color:#aaa;font-size:12px'
+                  dom.appendChildTo(container, none)
+                } else {
                   Arr.forEach(state.offers, (offer, index) => {
                     const row = dom.createElement('div')
                     const selected = index === state.selectedIndex
@@ -131,50 +125,39 @@ export class TradingPresentationService extends Effect.Service<TradingPresentati
                       selected ? 'background:#2f4f2f' : 'background:#1f1f1f',
                       selected ? 'border:1px solid #8fbc8f' : 'border:1px solid #3d3d3d',
                     ].join(';')
-
                     row.textContent = `${offer.input.count} ${offer.input.itemType} → ${offer.output.count} ${offer.output.itemType} (Lv${offer.levelRequired})`
                     dom.appendChildTo(container, row)
                   })
-                },
-              })
-            })
+                }
+              }
+            }
           })
         })
 
       const refreshForVillager = (villagerId: VillagerId): Effect.Effect<boolean, never> =>
         Effect.gen(function* () {
-          const villagerOption = yield* villageService.getVillager(villagerId)
-          return yield* Option.match(villagerOption, {
-            onNone: () =>
-              Effect.gen(function* () {
-                yield* Ref.set(uiStateRef, Option.none())
-                yield* renderUi()
-                return false
-              }),
-            onSome: (villager) =>
-              Effect.gen(function* () {
-                const [offers, current] = yield* Effect.all(
-                  [tradingService.getOffersForVillager(villager), Ref.get(uiStateRef)],
-                  { concurrency: 'unbounded' },
-                )
-                const selectedIndex = Option.match(current, {
-                  onNone: () => 0,
-                  onSome: (state) => normalizeSelection(offers.length, state.selectedIndex),
-                })
-                yield* Ref.set(uiStateRef, Option.some({ villagerId, offers, selectedIndex }))
-                yield* renderUi()
-                return true
-              }),
-          })
+          const villager = Option.getOrNull(yield* villageService.getVillager(villagerId))
+          if (villager === null) {
+            yield* Ref.set(uiStateRef, Option.none())
+            yield* renderUi()
+            return false
+          }
+          const [offers, current] = yield* Effect.all(
+            [tradingService.getOffersForVillager(villager), Ref.get(uiStateRef)],
+            { concurrency: 'unbounded' },
+          )
+          const currentVal = Option.getOrNull(current)
+          const selectedIndex = currentVal === null ? 0 : normalizeSelection(offers.length, currentVal.selectedIndex)
+          yield* Ref.set(uiStateRef, Option.some({ villagerId, offers, selectedIndex }))
+          yield* renderUi()
+          return true
         })
 
         return Effect.acquireRelease(
           Effect.void,
           () =>
             Effect.sync(() => {
-              Option.map(overlayEl, (el) => {
-                el.remove()
-              })
+              Option.getOrNull(overlayEl)?.remove()
             }),
         ).pipe(Effect.as({
         open: (villagerId: VillagerId): Effect.Effect<boolean, never> =>
@@ -186,9 +169,8 @@ export class TradingPresentationService extends Effect.Service<TradingPresentati
 
             yield* Ref.set(isVisibleRef, true)
             yield* Effect.sync(() => {
-              Option.map(overlayEl, (el) => {
-                el.style.display = 'block'
-              })
+              const el = Option.getOrNull(overlayEl)
+              if (el !== null) el.style.display = 'block'
             })
             return true
           }),
@@ -197,56 +179,48 @@ export class TradingPresentationService extends Effect.Service<TradingPresentati
           Effect.gen(function* () {
             yield* Ref.set(isVisibleRef, false)
             yield* Effect.sync(() => {
-              Option.map(overlayEl, (el) => {
-                el.style.display = 'none'
-              })
+              const el = Option.getOrNull(overlayEl)
+              if (el !== null) el.style.display = 'none'
             })
           }),
 
         isOpen: (): Effect.Effect<boolean, never> => Ref.get(isVisibleRef),
 
         cycleSelection: (delta: number): Effect.Effect<void, never> =>
-          Ref.update(uiStateRef, (uiStateOption) =>
-            Option.match(uiStateOption, {
-              onNone: () => uiStateOption,
-              onSome: (state) =>
-                Option.some({
-                  ...state,
-                  selectedIndex: normalizeSelection(state.offers.length, state.selectedIndex + delta),
-                }),
-            }),
-          ).pipe(Effect.zipRight(renderUi())),
+          Ref.update(uiStateRef, (uiStateOption) => {
+            const state = Option.getOrNull(uiStateOption)
+            if (state === null) return uiStateOption
+            return Option.some({ ...state, selectedIndex: normalizeSelection(state.offers.length, state.selectedIndex + delta) })
+          }).pipe(Effect.zipRight(renderUi())),
 
         refresh: (): Effect.Effect<void, never> =>
           Effect.gen(function* () {
-            const uiStateOption = yield* Ref.get(uiStateRef)
-            yield* Option.match(uiStateOption, {
-              onNone: () => renderUi(),
-              onSome: (state) => refreshForVillager(state.villagerId).pipe(Effect.asVoid),
-            })
+            const uiState = Option.getOrNull(yield* Ref.get(uiStateRef))
+            if (uiState === null) {
+              yield* renderUi()
+            } else {
+              yield* refreshForVillager(uiState.villagerId)
+            }
           }),
 
         executeSelectedTrade: (): Effect.Effect<boolean, never> =>
           Effect.gen(function* () {
             const uiStateOption = yield* Ref.get(uiStateRef)
-            return yield* Option.match(
+            const tradeContext = Option.getOrNull(
               Option.flatMap(uiStateOption, (state) =>
                 Option.map(Arr.get(state.offers, state.selectedIndex), (offer) => ({ state, offer }))
-              ),
-              {
-                onNone: () => Effect.succeed(false),
-                onSome: ({ state, offer }) =>
-                  Effect.gen(function* () {
-                    const result = yield* tradingService.executeTrade(state.villagerId, offer.offerId)
-                    yield* Effect.sync(() => {
-                      Option.map(statusEl, (el) => { el.textContent = tradeResultText(result) })
-                    })
-                    if (result._tag === 'TradeFailure') return false
-                    yield* refreshForVillager(state.villagerId)
-                    return true
-                  }),
-              },
+              )
             )
+            if (tradeContext === null) return false
+            const { state, offer } = tradeContext
+            const result = yield* tradingService.executeTrade(state.villagerId, offer.offerId)
+            yield* Effect.sync(() => {
+              const el = Option.getOrNull(statusEl)
+              if (el !== null) el.textContent = tradeResultText(result)
+            })
+            if (result._tag === 'TradeFailure') return false
+            yield* refreshForVillager(state.villagerId)
+            return true
           }),
         }))
       })

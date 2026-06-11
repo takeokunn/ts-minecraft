@@ -27,12 +27,10 @@ const countBlockInInventory = (
   slots: ReadonlyArray<Option.Option<{ readonly itemType: InventoryItem; readonly count: number }>>,
   itemType: InventoryItem,
 ): number =>
-  Arr.reduce(slots, 0, (total, slot) =>
-    total + Option.match(slot, {
-      onNone: () => 0,
-      onSome: (stack) => stack.itemType === itemType ? stack.count : 0,
-    })
-  )
+  Arr.reduce(slots, 0, (total, slot) => {
+    const stack = Option.getOrNull(slot)
+    return total + (stack !== null && stack.itemType === itemType ? stack.count : 0)
+  })
 
 export class TradingService extends Effect.Service<TradingService>()(
   '@minecraft/trading/TradingService',
@@ -50,10 +48,7 @@ export class TradingService extends Effect.Service<TradingService>()(
           offerId: TradeOfferId,
         ): Effect.Effect<TradeResult, never> => {
           const require = <A>(opt: Option.Option<A>, reason: TradeFailureReason): Effect.Effect<A, TradeFailureReason> =>
-            Option.match(opt, {
-              onNone: () => Effect.fail(reason),
-              onSome: Effect.succeed,
-            })
+            Option.match(opt, { onNone: () => Effect.fail(reason), onSome: (v) => Effect.succeed(v) })
 
           return Effect.gen(function* () {
             const villager = yield* require(

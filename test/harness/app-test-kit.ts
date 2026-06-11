@@ -52,8 +52,13 @@ export const makeTradingPresentation = (state: OverlayState) => ({
   executeSelectedTrade: () => Effect.succeed(false),
 }) as unknown as InstanceType<typeof import('@ts-minecraft/presentation/trading').TradingPresentationService>
 
-/** Creates an input service fake with consumable key presses and inert mouse input. */
-export const makeInputService = (pressedKeys: MutableHashSet.MutableHashSet<string> = MutableHashSet.empty()) => ({
+type InputServiceInstance = InstanceType<typeof import('@ts-minecraft/presentation/input/input-service').InputService>
+
+const buildInputService = (
+  pressedKeys: MutableHashSet.MutableHashSet<string>,
+  consumeMouseClick: (btn: number) => Effect.Effect<boolean>,
+  isMouseDown: (btn: number) => Effect.Effect<boolean>,
+): InputServiceInstance => ({
   consumeKeyPress: (key: string) => Effect.sync(() => {
     if (MutableHashSet.has(pressedKeys, key)) {
       MutableHashSet.remove(pressedKeys, key)
@@ -61,15 +66,33 @@ export const makeInputService = (pressedKeys: MutableHashSet.MutableHashSet<stri
     }
     return false
   }),
-  consumeMouseClick: (_btn: number) => Effect.succeed(false),
+  consumeMouseClick,
   isKeyPressed: (key: string) => Effect.succeed(MutableHashSet.has(pressedKeys, key)),
   getMouseDelta: () => Effect.succeed({ x: 0, y: 0 }),
-  isMouseDown: (_btn: number) => Effect.succeed(false),
+  isMouseDown,
   requestPointerLock: () => Effect.void,
   exitPointerLock: () => Effect.void,
   isPointerLocked: () => Effect.succeed(false),
   consumeWheelDelta: () => Effect.succeed(0),
-}) as unknown as InstanceType<typeof import('@ts-minecraft/presentation/input/input-service').InputService>
+}) as unknown as InputServiceInstance
+
+/** Creates an input service fake with consumable key presses and inert mouse input. */
+export const makeInputService = (pressedKeys: MutableHashSet.MutableHashSet<string> = MutableHashSet.empty()) =>
+  buildInputService(pressedKeys, (_btn) => Effect.succeed(false), (_btn) => Effect.succeed(false))
+
+/** Creates an input service fake that fires a single mouse-button click (0 = left, 2 = right). */
+export const makeClickInputService = (
+  button: number,
+  pressedKeys: MutableHashSet.MutableHashSet<string> = MutableHashSet.empty(),
+) => buildInputService(pressedKeys, (btn) => Effect.succeed(btn === button), (_btn) => Effect.succeed(false))
+
+/** Creates an input service fake that holds a mouse button down (0 = left). */
+export const makeMouseDownInputService = (
+  button: number,
+  pressedKeys: MutableHashSet.MutableHashSet<string> = MutableHashSet.empty(),
+) => buildInputService(pressedKeys, (_btn) => Effect.succeed(false), (btn) => Effect.succeed(btn === button))
+
+type BlockHighlightInstance = InstanceType<typeof import('@ts-minecraft/presentation/highlight/block-highlight').BlockHighlightService>
 
 /** Creates a block highlight fake with no current target. */
 export const makeBlockHighlight = () => ({
@@ -78,7 +101,19 @@ export const makeBlockHighlight = () => ({
   setVisible: (_visible: boolean) => Effect.void,
   getTargetBlock: () => Effect.succeed(Option.none()),
   getTargetHit: () => Effect.succeed(Option.none()),
-}) as unknown as InstanceType<typeof import('@ts-minecraft/presentation/highlight/block-highlight').BlockHighlightService>
+}) as unknown as BlockHighlightInstance
+
+/** Creates a block highlight fake pointing at a specific block position (or no target when null). */
+export const makeTargetBlockHighlight = (
+  target: { x: number; y: number; z: number } | null,
+  hit: { blockX: number; blockY: number; blockZ: number; normal: { x: number; y: number; z: number } } | null = null,
+) => ({
+  update: (_cam: unknown, _scene: unknown) => Effect.void,
+  invalidateCache: () => Effect.void,
+  setVisible: (_visible: boolean) => Effect.void,
+  getTargetBlock: () => Effect.succeed(target ? Option.some(target) : Option.none()),
+  getTargetHit: () => Effect.succeed(hit ? Option.some(hit) : Option.none()),
+}) as unknown as BlockHighlightInstance
 
 /** Creates a hotbar renderer fake with no-op update and render methods. */
 export const makeHotbarRenderer = () => ({
@@ -91,13 +126,12 @@ export const makeDebugFeatureFlags = () => {
   const debugFlagsState = { current: { ...DEBUG_FEATURE_FLAG_DEFAULTS } }
   const resetDebugFeatureGroup = (group: DebugFeatureFlagGroup): Effect.Effect<void, never> =>
     Effect.sync(() => {
-      let nextFlags = { ...debugFlagsState.current }
-      for (const entry of DEBUG_FEATURE_FLAG_CATALOG) {
-        if (entry.group === group) {
-          nextFlags = { ...nextFlags, [entry.id]: DEBUG_FEATURE_FLAG_DEFAULTS[entry.id] }
-        }
-      }
-      debugFlagsState.current = nextFlags
+      const overrides = Object.fromEntries(
+        DEBUG_FEATURE_FLAG_CATALOG
+          .filter((entry) => entry.group === group)
+          .map((entry) => [entry.id, DEBUG_FEATURE_FLAG_DEFAULTS[entry.id]] as const)
+      )
+      debugFlagsState.current = { ...debugFlagsState.current, ...overrides }
     })
 
   return {

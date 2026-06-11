@@ -51,26 +51,27 @@ export const loadOrCreateWorld = (
     ),
   ).pipe(
     Effect.mapError((cause) => new StartupError({ reason: 'Failed to load world metadata', cause })),
-    Effect.flatMap((existingMetadata) =>
-      Option.match(existingMetadata, {
-        onSome: (metadata): Effect.Effect<WorldBootstrap, StartupError, never> =>
-          noiseService.setSeed(metadata.seed).pipe(
-            Effect.andThen(gameModeService.set(metadata.gameMode)),
-            Effect.andThen(
-              Effect.log(
-                `Loaded world '${worldId}' with seed ${metadata.seed} (gameMode=${metadata.gameMode}, saveVersion=${metadata.saveVersion})`,
-              ),
+    Effect.flatMap((existingMetadata): Effect.Effect<WorldBootstrap, StartupError, never> => {
+      const metadata = Option.getOrNull(existingMetadata)
+      if (metadata !== null) {
+        return noiseService.setSeed(metadata.seed).pipe(
+          Effect.andThen(gameModeService.set(metadata.gameMode)),
+          Effect.andThen(
+            Effect.log(
+              `Loaded world '${worldId}' with seed ${metadata.seed} (gameMode=${metadata.gameMode}, saveVersion=${metadata.saveVersion})`,
             ),
-            Effect.as({
-              seed: metadata.seed,
-              createdAt: metadata.createdAt,
-              baseSpawnPosition: Option.getOrElse(Option.fromNullable(metadata.playerSpawn), () => ({ x: 0, y: 100, z: 0 })),
-              savedPlayerState: Option.fromNullable(metadata.playerState),
-              savedFurnaceStates: Option.fromNullable(metadata.furnaceStates),
-              gameMode: metadata.gameMode,
-            }),
           ),
-        onNone: (): Effect.Effect<WorldBootstrap, StartupError, never> =>
+          Effect.as({
+            seed: metadata.seed,
+            createdAt: metadata.createdAt,
+            baseSpawnPosition: metadata.playerSpawn ?? { x: 0, y: 100, z: 0 },
+            savedPlayerState: Option.fromNullable(metadata.playerState),
+            savedFurnaceStates: Option.fromNullable(metadata.furnaceStates),
+            gameMode: metadata.gameMode,
+          }),
+        )
+      }
+      return (
           Effect.all(
             [Random.nextIntBetween(0, MAX_SEED_VALUE), Clock.currentTimeMillis],
             { concurrency: 'unbounded' },
@@ -108,9 +109,9 @@ export const loadOrCreateWorld = (
                 Effect.mapError((cause) => new StartupError({ reason: 'Failed to save fresh world metadata', cause })),
               )
             }),
-          ),
-      }),
-    ),
+          )
+      )
+    }),
   )
 
 export const buildSpawnSelection = (

@@ -60,16 +60,14 @@ export class MobSpawner extends Effect.Service<MobSpawner>()(
             )
 
             const candidateSpawnPosition = getSpawnPosition(playerPosition, cursor)
-            const spawnPositionOption = yield* Option.match(Option.fromNullable(spawnResolver), {
-              onNone: () => Effect.succeed(Option.some(candidateSpawnPosition)),
-              onSome: (resolveSpawnPosition) => resolveSpawnPosition(candidateSpawnPosition),
-            })
+            const spawnPositionOption = yield* (
+              spawnResolver != null ? spawnResolver(candidateSpawnPosition) : Effect.succeed(Option.some(candidateSpawnPosition))
+            )
 
-            if (Option.isNone(spawnPositionOption)) {
+            const spawnPosition = Option.getOrNull(spawnPositionOption)
+            if (spawnPosition === null) {
               return Option.none<EntityId>()
             }
-
-            const spawnPosition = Option.getOrThrow(spawnPositionOption)
             const sdx = spawnPosition.x - playerPosition.x
             const sdz = spawnPosition.z - playerPosition.z
             const spawnDistanceSq = sdx * sdx + sdz * sdz

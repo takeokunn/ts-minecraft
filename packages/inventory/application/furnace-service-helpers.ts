@@ -34,29 +34,20 @@ export const makeFurnaceHelpers = (
       const lx = positiveModulo(x, CHUNK_SIZE)
       const lz = positiveModulo(z, CHUNK_SIZE)
       const index = y + lz * CHUNK_HEIGHT + lx * CHUNK_HEIGHT * CHUNK_SIZE
-      return Option.match(chunkOpt, {
-        onNone: () => false,
-        onSome: (c) => c.blocks[index] === blockTypeToIndex('FURNACE'),
-      })
+      const chunk = Option.getOrNull(chunkOpt)
+      return chunk !== null && chunk.blocks[index] === blockTypeToIndex('FURNACE')
     })
 
   const getSelectedFurnacePosition = (): Effect.Effect<Option.Option<{ readonly x: number; readonly y: number; readonly z: number }>, never> =>
     Effect.gen(function* () {
       const playerPos = yield* playerService.getPosition(DEFAULT_PLAYER_ID).pipe(Effect.catchAll(() => Effect.succeed({ x: 0, y: 0, z: 0 })))
       const state = yield* Ref.get(stateRef)
-      return yield* Option.match(state.selectedFurnacePosition, {
-        onNone: () => Effect.succeed(Option.none<{ readonly x: number; readonly y: number; readonly z: number }>()),
-        onSome: (selected) =>
-          isFurnaceStillValid(playerPos, selected).pipe(
-            Effect.flatMap((isValid) =>
-              isValid
-                ? Effect.succeed(Option.some(selected))
-                : Ref.update(stateRef, (current) => ({ ...current, selectedFurnacePosition: Option.none() })).pipe(
-                    Effect.as(Option.none<{ readonly x: number; readonly y: number; readonly z: number }>()),
-                  ),
-            ),
-          ),
-      })
+      const selected = Option.getOrNull(state.selectedFurnacePosition)
+      if (selected === null) return Option.none<{ readonly x: number; readonly y: number; readonly z: number }>()
+      const isValid = yield* isFurnaceStillValid(playerPos, selected)
+      if (isValid) return Option.some(selected)
+      yield* Ref.update(stateRef, (current) => ({ ...current, selectedFurnacePosition: Option.none() }))
+      return Option.none<{ readonly x: number; readonly y: number; readonly z: number }>()
     })
 
   const getNearestFurnaceState = (): Effect.Effect<Option.Option<FurnaceBlockState>, never> =>

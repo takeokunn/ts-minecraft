@@ -81,42 +81,33 @@ export const restoreSavedState = (
 ): Effect.Effect<void, never> => {
   const { inventoryService, equipmentService, healthService, hungerService, xpService, furnaceService, cropGrowthService } = services
   return Effect.gen(function* () {
-    yield* Option.match(worldBootstrap.savedPlayerState, {
-      onNone: () => Effect.void,
-      onSome: (saved) =>
-        Effect.gen(function* () {
-          yield* inventoryService.deserialize(saved.inventory)
-          yield* healthService.reset()
-          const resetHealth = yield* healthService.getHealth()
-          const damageToApply = Math.max(0, resetHealth.current - saved.health)
-          if (damageToApply > 0) {
-            yield* healthService.applyDamage(damageToApply)
-          }
-          yield* Option.match(Option.fromNullable(saved.hunger), {
-            onNone: () => Effect.void,
-            onSome: (h) => hungerService.restore(h.foodLevel, h.saturation),
-          })
-          // Restore XP (default 0 for pre-XP saves via schema).
-          yield* xpService.setTotalXP(saved.totalXP ?? 0)
-          // Restore equipment (default empty record for pre-equipment saves).
-          yield* equipmentService.deserialize(
-            (saved.equipment ?? {}) as Parameters<typeof equipmentService.deserialize>[0],
-          )
-        }),
-    })
+    const savedPlayerState = Option.getOrNull(worldBootstrap.savedPlayerState)
+    if (savedPlayerState !== null) {
+      const saved = savedPlayerState
+      yield* inventoryService.deserialize(saved.inventory)
+      yield* healthService.reset()
+      const resetHealth = yield* healthService.getHealth()
+      const damageToApply = Math.max(0, resetHealth.current - saved.health)
+      if (damageToApply > 0) {
+        yield* healthService.applyDamage(damageToApply)
+      }
+      if (saved.hunger != null) {
+        yield* hungerService.restore(saved.hunger.foodLevel, saved.hunger.saturation)
+      }
+      // Restore XP (default 0 for pre-XP saves via schema).
+      yield* xpService.setTotalXP(saved.totalXP ?? 0)
+      // Restore equipment (default empty record for pre-equipment saves).
+      yield* equipmentService.deserialize(
+        (saved.equipment ?? {}) as Parameters<typeof equipmentService.deserialize>[0],
+      )
+      if (saved.cropAges != null) {
+        yield* cropGrowthService.restore(saved.cropAges)
+      }
+    }
 
-    yield* Option.match(worldBootstrap.savedFurnaceStates, {
-      onNone: () => Effect.void,
-      onSome: (saved) => furnaceService.deserialize(saved),
-    })
-
-    yield* Option.match(worldBootstrap.savedPlayerState, {
-      onNone: () => Effect.void,
-      onSome: (saved) =>
-        Option.match(Option.fromNullable(saved.cropAges), {
-          onNone: () => Effect.void,
-          onSome: (ages) => cropGrowthService.restore(ages),
-        }),
-    })
+    const savedFurnaceStates = Option.getOrNull(worldBootstrap.savedFurnaceStates)
+    if (savedFurnaceStates !== null) {
+      yield* furnaceService.deserialize(savedFurnaceStates)
+    }
   })
 }

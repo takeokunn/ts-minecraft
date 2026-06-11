@@ -1,4 +1,4 @@
-import { Effect, Option } from 'effect'
+import { Effect } from 'effect'
 import * as THREE from 'three'
 import { StartupError } from '@ts-minecraft/game'
 
@@ -44,17 +44,13 @@ export type BootContext = {
 // scene+camera by reference at construction; pulling them into boot would require
 // rebinding `renderPass.scene = ...` on every session entry.
 export const bootProgram = Effect.gen(function* () {
-  const canvas = yield* Effect.sync(() => Option.fromNullable(document.getElementById('game-canvas'))).pipe(
-    Effect.flatMap(
-      Option.match({
-        onNone: () =>
-          Effect.fail(new StartupError({ reason: 'Canvas element not found' })),
-        onSome: (el) =>
-          el instanceof HTMLCanvasElement
-            ? Effect.succeed(el)
-            : Effect.fail(new StartupError({ reason: 'Canvas element is not an HTMLCanvasElement' })),
-      }),
-    ),
+  const canvas = yield* Effect.sync(() => document.getElementById('game-canvas')).pipe(
+    Effect.flatMap((el) => {
+      if (el === null) return Effect.fail(new StartupError({ reason: 'Canvas element not found' }))
+      return el instanceof HTMLCanvasElement
+        ? Effect.succeed(el)
+        : Effect.fail(new StartupError({ reason: 'Canvas element is not an HTMLCanvasElement' }))
+    }),
   )
 
   const rendererService = yield* RendererService

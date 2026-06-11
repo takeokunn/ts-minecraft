@@ -53,7 +53,7 @@ const fireRaf = (timestamp = 16): void => {
   }
 
   const intervalCb = MutableRef.get(intervalCallbackRef)
-  Option.map(intervalCb, fn => fn())
+  Option.getOrNull(intervalCb)?.()
 }
 
 // ---------------------------------------------------------------------------

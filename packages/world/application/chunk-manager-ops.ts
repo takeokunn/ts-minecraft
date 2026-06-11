@@ -103,7 +103,8 @@ export const insertWithEviction = (
           return [Option.none(), { ...s, chunks: baseChunks }]
         }
 
-        const evictKey = Option.getOrThrow(findLRUKey(baseChunks))
+        const evictKey = Option.getOrNull(findLRUKey(baseChunks))
+        if (evictKey === null) return [Option.none(), { ...s, chunks: baseChunks }]
         const evictEntryOpt = HashMap.get(baseChunks, evictKey)
         const isDirty = HashSet.has(s.dirtyChunks, evictKey)
         const newChunks = HashMap.remove(baseChunks, evictKey)
@@ -114,14 +115,13 @@ export const insertWithEviction = (
       }
     )
 
-    yield* Option.match(evictedDirtyEntry, {
-      onNone: () => Effect.void,
-      onSome: (evicted) =>
-        ctx.storageService.saveChunk(evicted.worldId ?? worldId, evicted.chunk.coord, {
-          blocks: evicted.chunk.blocks,
-          fluid: Option.getOrElse(evicted.chunk.fluid, createFluidBuffer),
-        }),
-    })
+    const evictedDirty = Option.getOrNull(evictedDirtyEntry)
+    if (evictedDirty !== null) {
+      yield* ctx.storageService.saveChunk(evictedDirty.worldId ?? worldId, evictedDirty.chunk.coord, {
+        blocks: evictedDirty.chunk.blocks,
+        fluid: Option.getOrElse(evictedDirty.chunk.fluid, createFluidBuffer),
+      })
+    }
 
     yield* Ref.set(ctx.cachedLoadedChunksRef, Option.none())
   })
@@ -173,38 +173,27 @@ export const getChunk = (
         return newChunk
       })
 
-    return yield* Option.match(HashMap.get(state.chunks, key), {
-      onSome: (cached) =>
-        Effect.gen(function* () {
-          const accessOrder = yield* Ref.modify(ctx.accessCounterRef, (n) => [n + 1, n + 1])
-          cached.lastAccessed = accessOrder
-          return cached.chunk
-        }),
-      onNone: () =>
-        Effect.gen(function* () {
-          const storedData = yield* ctx.storageService.loadChunk(worldId, coord)
-          return yield* Option.match(storedData, {
-            onNone: () => generateAndInsert(),
-            onSome: (stored) =>
-              Effect.gen(function* () {
-                const { blocks, fluid } = storedChunkPayload(stored)
+    const cached = Option.getOrNull(HashMap.get(state.chunks, key))
+    if (cached !== null) {
+      const accessOrder = yield* Ref.modify(ctx.accessCounterRef, (n) => [n + 1, n + 1])
+      cached.lastAccessed = accessOrder
+      return cached.chunk
+    }
 
-                const EXPECTED_LENGTH = CHUNK_SIZE * CHUNK_SIZE * CHUNK_HEIGHT
-                if (blocks.byteLength !== EXPECTED_LENGTH) {
-                  yield* Effect.logWarning(
-                    `Chunk (${coord.x},${coord.z}) has invalid buffer length ${blocks.byteLength} (expected ${EXPECTED_LENGTH}); regenerating`
-                  )
-                  return yield* generateAndInsert()
-                }
-                const baseChunk: Chunk = { coord, blocks, fluid: Option.fromNullable(fluid), maxY: computeMaxY(blocks) }
-                const grids: LightGrids = yield* ctx.lightEngine.updateLight(baseChunk)
-                const chunk: Chunk = { ...baseChunk, skyLight: grids.skyLight, blockLight: grids.blockLight }
-                yield* insertWithEviction(ctx, coord, chunk)
-                return chunk
-              }),
-          })
-        }),
-    })
+    const stored = Option.getOrNull(yield* ctx.storageService.loadChunk(worldId, coord))
+    if (stored === null) return yield* generateAndInsert()
+    const { blocks, fluid } = storedChunkPayload(stored)
+
+    const EXPECTED_LENGTH = CHUNK_SIZE * CHUNK_SIZE * CHUNK_HEIGHT
+    if (blocks.byteLength !== EXPECTED_LENGTH) {
+      yield* Effect.logWarning(`Chunk (${coord.x},${coord.z}) has invalid buffer length ${blocks.byteLength} (expected ${EXPECTED_LENGTH}); regenerating`)
+      return yield* generateAndInsert()
+    }
+    const baseChunk: Chunk = { coord, blocks, fluid: Option.fromNullable(fluid), maxY: computeMaxY(blocks) }
+    const grids: LightGrids = yield* ctx.lightEngine.updateLight(baseChunk)
+    const chunk: Chunk = { ...baseChunk, skyLight: grids.skyLight, blockLight: grids.blockLight }
+    yield* insertWithEviction(ctx, coord, chunk)
+    return chunk
   })
 
 // ---------------------------------------------------------------------------
@@ -222,12 +211,12 @@ export const unloadChunk = (
     const worldId = yield* Ref.get(ctx.worldIdRef)
     const key = chunkCoordToWorldKey(coord, worldId)
     const state = yield* Ref.get(ctx.cache)
-    yield* Option.match(HashMap.get(state.chunks, key), {
-      onNone: () => Effect.void,
-      onSome: (entry) =>
-        Effect.gen(function* () {
-          if (HashSet.has(state.dirtyChunks, key)) {
-            yield* ctx.storageService.saveChunk(entry.worldId ?? worldId, entry.chunk.coord, {
+    const unloadEntry = Option.getOrNull(HashMap.get(state.chunks, key))
+    if (unloadEntry !== null) {
+      yield* Effect.gen(function* () {
+        const entry = unloadEntry
+        if (HashSet.has(state.dirtyChunks, key)) {
+          yield* ctx.storageService.saveChunk(entry.worldId ?? worldId, entry.chunk.coord, {
               blocks: entry.chunk.blocks,
               fluid: Option.getOrElse(entry.chunk.fluid, createFluidBuffer),
             })
@@ -239,6 +228,6 @@ export const unloadChunk = (
             renderDirtyChunks: HashSet.remove(s.renderDirtyChunks, key),
           }))
           yield* Ref.set(ctx.cachedLoadedChunksRef, Option.none())
-        }),
-    })
+        })
+    }
   })

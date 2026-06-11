@@ -50,9 +50,8 @@ export const findNearestPortal = (
   return candidates.reduce<Option.Option<Position>>((best, candidate) => {
     const dSq = distanceSquared(candidate, target)
     if (dSq > maxSq) return best
-    return Option.match(best, {
-      onNone: () => Option.some(candidate),
-      onSome: (b) => (distanceSquared(b, target) <= dSq ? best : Option.some(candidate)),
-    })
+    const b = Option.getOrNull(best)
+    if (b === null) return Option.some(candidate)
+    return distanceSquared(b, target) <= dSq ? best : Option.some(candidate)
   }, Option.none())
 }

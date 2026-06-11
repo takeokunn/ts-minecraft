@@ -215,26 +215,21 @@ export class WorldRendererService extends Effect.Service<WorldRendererService>()
             Effect.flatMap((meshes) =>
               Effect.forEach(
                 Arr.fromIterable(HashMap.values(meshes)),
-                (chunkMeshes) =>
-                  Effect.all([
+                (chunkMeshes) => {
+                  const waterVal = Option.getOrNull(chunkMeshes.water)
+                  const transparentSolidVal = Option.getOrNull(chunkMeshes.transparentSolid)
+                  return Effect.all([
                     sceneService.remove(scene, chunkMeshes.opaque).pipe(
                       Effect.andThen(Effect.sync(() => disposeMesh(chunkMeshes.opaque)))
                     ),
-                    Option.match(chunkMeshes.water, {
-                      onNone: () => Effect.void,
-                      onSome: (m) =>
-                        sceneService.remove(scene, m).pipe(
-                          Effect.andThen(Effect.sync(() => disposeMesh(m)))
-                        ),
-                    }),
-                    Option.match(chunkMeshes.transparentSolid, {
-                      onNone: () => Effect.void,
-                      onSome: (m) =>
-                        sceneService.remove(scene, m).pipe(
-                          Effect.andThen(Effect.sync(() => disposeMesh(m)))
-                        ),
-                    }),
-                  ], { concurrency: 'unbounded', discard: true }),
+                    waterVal !== null
+                      ? sceneService.remove(scene, waterVal).pipe(Effect.andThen(Effect.sync(() => disposeMesh(waterVal))))
+                      : Effect.void,
+                    transparentSolidVal !== null
+                      ? sceneService.remove(scene, transparentSolidVal).pipe(Effect.andThen(Effect.sync(() => disposeMesh(transparentSolidVal))))
+                      : Effect.void,
+                  ], { concurrency: 'unbounded', discard: true })
+                },
                 { concurrency: 1 }
               )
             ),

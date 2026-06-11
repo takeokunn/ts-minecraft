@@ -34,49 +34,48 @@ export const buildHandleDelegatedClick = (deps: ClickHandlerDeps) =>
       Option.filter((target): target is HTMLElement => target instanceof HTMLElement),
     )
 
-    Option.match(recipeTarget, {
-      onSome: (target) => {
-        const recipeId = target.dataset['recipeId']
-        if (!recipeId) return
+    const recipe = Option.getOrNull(recipeTarget)
+    if (recipe !== null) {
+      const recipeId = recipe.dataset['recipeId']
+      if (!recipeId) return
+      Effect.runFork(
+        Effect.all([hasNearbyCraftingTable(), hasNearbyFurnace()], { concurrency: 'unbounded' }).pipe(
+          Effect.flatMap(([hasTableAccess, hasFurnaceAccess]) =>
+            performRecipe(RecipeId.make(recipeId), hasTableAccess, hasFurnaceAccess),
+          ),
+          Effect.andThen(Ref.set(statusMessageRef, 'Crafted successfully.')),
+          Effect.catchAll((error) =>
+            Ref.set(statusMessageRef, error instanceof Error ? error.message : 'Crafting failed.'),
+          ),
+          Effect.andThen(refreshSlots()),
+          Effect.catchAllCause((cause) =>
+            Effect.logError(`Crafting click error: ${Cause.pretty(cause)}`),
+          ),
+        ),
+      )
+    } else {
+      const slotTarget = Option.getOrNull(
+        Option.fromNullable(htmlTarget?.closest('[data-slot]')).pipe(
+          Option.filter((target): target is HTMLElement => target instanceof HTMLElement),
+        )
+      )
+      if (slotTarget !== null) {
+        const index = parseInt(
+          slotTarget.dataset['slot'] ?? '-1',
+          10,
+        )
+        if (index < 0 || index >= INVENTORY_SIZE) return
         Effect.runFork(
-          Effect.all([hasNearbyCraftingTable(), hasNearbyFurnace()], { concurrency: 'unbounded' }).pipe(
-            Effect.flatMap(([hasTableAccess, hasFurnaceAccess]) =>
-              performRecipe(RecipeId.make(recipeId), hasTableAccess, hasFurnaceAccess),
-            ),
-            Effect.andThen(Ref.set(statusMessageRef, 'Crafted successfully.')),
-            Effect.catchAll((error) =>
-              Ref.set(statusMessageRef, error instanceof Error ? error.message : 'Crafting failed.'),
-            ),
-            Effect.andThen(refreshSlots()),
+          Effect.gen(function* () {
+            const selectedSlot = yield* hotbarService.getSelectedSlot()
+            const hotbarInventoryIndex = HOTBAR_START + SlotIndex.toNumber(selectedSlot)
+            yield* inventoryService.moveStack(SlotIndex.make(index), SlotIndex.make(hotbarInventoryIndex))
+          }).pipe(
             Effect.catchAllCause((cause) =>
-              Effect.logError(`Crafting click error: ${Cause.pretty(cause)}`),
+              Effect.logError(`Inventory click error: ${Cause.pretty(cause)}`),
             ),
           ),
         )
-      },
-      onNone: () => {
-        const slotTarget = Option.fromNullable(htmlTarget?.closest('[data-slot]')).pipe(
-          Option.filter((target): target is HTMLElement => target instanceof HTMLElement),
-        )
-
-        Option.map(slotTarget, (target) => {
-          const index = parseInt(
-            Option.getOrElse(Option.fromNullable(target.dataset['slot']), () => '-1'),
-            10,
-          )
-          if (index < 0 || index >= INVENTORY_SIZE) return
-          Effect.runFork(
-            Effect.gen(function* () {
-              const selectedSlot = yield* hotbarService.getSelectedSlot()
-              const hotbarInventoryIndex = HOTBAR_START + SlotIndex.toNumber(selectedSlot)
-              yield* inventoryService.moveStack(SlotIndex.make(index), SlotIndex.make(hotbarInventoryIndex))
-            }).pipe(
-              Effect.catchAllCause((cause) =>
-                Effect.logError(`Inventory click error: ${Cause.pretty(cause)}`),
-              ),
-            ),
-          )
-        })
-      },
-    })
+      }
+    }
   }

@@ -80,10 +80,7 @@ export class CrosshairService extends Effect.Service<CrosshairService>()(
         hide: (): Effect.Effect<void, never> =>
           Ref.modify(visibleRef, (vis) => [vis, false] as const).pipe(
             Effect.flatMap((wasVisible) =>
-              !wasVisible ? Effect.void : Option.match(dom.getParentNode(element), {
-                onSome: () => Effect.sync(() => dom.removeChild(element)),
-                onNone: () => Effect.void,
-              })
+              !wasVisible ? Effect.void : Option.isSome(dom.getParentNode(element)) ? Effect.sync(() => dom.removeChild(element)) : Effect.void
             )
           ),
 

@@ -193,9 +193,9 @@ export const createTreeColumnContextResolver = ({
   blockIndices,
 }: TreeColumnContextResolverDeps) => (wx: number, wz: number): Effect.Effect<TreeColumnContext, never> => {
   const cacheKey = createTreeColumnKey(wx, wz)
-  return Option.match(MutableHashMap.get(treeColumnContextCache, cacheKey), {
-    onSome: Effect.succeed,
-    onNone: () => Effect.gen(function* () {
+  const cached = Option.getOrNull(MutableHashMap.get(treeColumnContextCache, cacheKey))
+  if (cached !== null) return Effect.succeed(cached)
+  return Effect.gen(function* () {
 
     const biome = yield* biomeService.getBiome(wx, wz)
     const [props, continentalness, erosion, weirdness, jaggedness, lakeNoiseVal] = yield* Effect.all([
@@ -238,9 +238,8 @@ export const createTreeColumnContextResolver = ({
       supportsTree: supportsTreeAtSurface(surfaceProfile.surfaceBlockIndex, biome, blockIndices),
     }
 
-      MutableHashMap.set(treeColumnContextCache, cacheKey, context)
-      return context
-    }),
+    MutableHashMap.set(treeColumnContextCache, cacheKey, context)
+    return context
   })
 }
 

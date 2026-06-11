@@ -1,7 +1,6 @@
 // 2D/3D Perlin Noise — Ken Perlin "Improved Noise" (2002)
 // Mirrors infrastructure/perlin.ts exactly. Domain source of truth for noise math.
 
-import { Option } from 'effect'
 import type { RandFn, NoiseFn2D, NoiseFn3D } from './noise-primitives'
 
 // Fisher-Yates shuffle using the provided PRNG
@@ -40,7 +39,7 @@ function dotGrad(perm: Uint8Array, ix: number, iy: number, dx: number, dy: numbe
 const AMPLITUDE_SCALE = Math.SQRT2
 
 export const createPerlinNoise2D = (rand?: RandFn): NoiseFn2D => {
-  const perm = buildPerm(Option.getOrElse(Option.fromNullable(rand), () => Math.random))
+  const perm = buildPerm(rand ?? Math.random)
   return (x: number, y: number): number => {
     x = x + 0.5
     y = y + 0.5
@@ -74,7 +73,7 @@ function dotGrad3(perm: Uint8Array, ix: number, iy: number, iz: number, dx: numb
 }
 
 export const createPerlinNoise3D = (rand?: RandFn): NoiseFn3D => {
-  const perm = buildPerm(Option.getOrElse(Option.fromNullable(rand), () => Math.random))
+  const perm = buildPerm(rand ?? Math.random)
   return (x: number, y: number, z: number): number => {
     x = x + 0.5
     y = y + 0.5

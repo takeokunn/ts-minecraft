@@ -1,9 +1,58 @@
 import { beforeEach, describe, it } from '@effect/vitest'
+import { it as itPlain } from 'vitest'
 import { Effect, Option } from 'effect'
 import { expect } from 'vitest'
 import { TradingPresentationService } from '@ts-minecraft/presentation/trading'
-import { TradeFailure, VillagerId } from '@ts-minecraft/entity'
-import { createTradingTestLayer, installBrowserDocument, makeOffer } from './trading-test-utils'
+import { TradeFailure, TradeSuccess } from '@ts-minecraft/entity'
+import { VillagerId } from '@ts-minecraft/entity'
+import { normalizeSelection, tradeResultText } from './trading.config'
+import { createTradingTestLayer, installBrowserDocument, makeOffer, makeVillager } from './trading-test-utils'
+
+describe('normalizeSelection', () => {
+  itPlain('returns 0 when length is zero or negative', () => {
+    expect(normalizeSelection(0, 5)).toBe(0)
+    expect(normalizeSelection(-3, 2)).toBe(0)
+  })
+
+  itPlain('wraps a positive index within length', () => {
+    expect(normalizeSelection(3, 0)).toBe(0)
+    expect(normalizeSelection(3, 1)).toBe(1)
+    expect(normalizeSelection(3, 2)).toBe(2)
+    expect(normalizeSelection(3, 3)).toBe(0)
+    expect(normalizeSelection(3, 4)).toBe(1)
+  })
+
+  itPlain('wraps a negative index to a positive result (JS modulo correction)', () => {
+    // JS: -1 % 3 === -1; normalizeSelection adds length to get 2
+    expect(normalizeSelection(3, -1)).toBe(2)
+    expect(normalizeSelection(3, -4)).toBe(2)
+    // -3 % 3 is -0 in JS (not +0); both are functionally zero but Object.is distinguishes them
+    expect(Object.is(normalizeSelection(3, -3), -0) || normalizeSelection(3, -3) === 0).toBe(true)
+  })
+})
+
+describe('tradeResultText', () => {
+  itPlain('TradeSuccess without level-up returns "Trade complete."', () => {
+    const result = new TradeSuccess({ offer: makeOffer(), villager: makeVillager(), levelUp: false })
+    expect(tradeResultText(result)).toBe('Trade complete.')
+  })
+
+  itPlain('TradeSuccess with level-up includes profession and new level', () => {
+    const villager = { ...makeVillager(), profession: 'Farmer', level: 2 }
+    const result = new TradeSuccess({ offer: makeOffer(), villager, levelUp: true })
+    expect(tradeResultText(result)).toBe('Trade complete. Farmer reached level 2.')
+  })
+
+  itPlain('TradeFailure replaces underscores with spaces in reason', () => {
+    const result = new TradeFailure({ reason: 'inventory_full' })
+    expect(tradeResultText(result)).toBe('Trade failed: inventory full')
+  })
+
+  itPlain('TradeFailure with multi-underscore reason replaces all occurrences', () => {
+    const result = new TradeFailure({ reason: 'villager_level_too_low' })
+    expect(tradeResultText(result)).toBe('Trade failed: villager level too low')
+  })
+})
 
 describe('TradingPresentationService', () => {
   beforeEach(() => {

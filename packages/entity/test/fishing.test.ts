@@ -1,11 +1,7 @@
 import { describe, it, describe as effectDescribe, it as effectIt } from '@effect/vitest'
 import { expect } from 'vitest'
-import {
-  resolveFishingCatch,
-  resolveFishingWaitSecs,
-  FISHING_MIN_WAIT_SECS,
-  FISHING_MAX_WAIT_SECS,
-} from '../domain/fishing'
+import { resolveFishingCatch, resolveFishingWaitSecs } from '../domain/fishing'
+import { FISHING_MIN_WAIT_SECS, FISHING_MAX_WAIT_SECS } from '../domain/fishing.config'
 import { Effect, Option } from 'effect'
 import { FishingService, FishingServiceLive } from '../application/fishing-service'
 

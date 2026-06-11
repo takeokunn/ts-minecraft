@@ -1,4 +1,4 @@
-import { Effect, HashMap, Option, Ref } from 'effect'
+import { Array as Arr, Effect, HashMap, Option, Ref } from 'effect'
 import type { EntityDrop } from '../../domain/mob/drop'
 import { distanceToPlayerSq } from '../../domain/mob/state-machine'
 import {
@@ -25,7 +25,7 @@ const makeDeterministicRoll = (entity: ManagedEntity, salt: number): number =>
   ((hashEntityId(entity.entityId) + Math.floor(entity.health * 31) + salt * 997) % 1000) / 1000
 
 const makeTeleportAttempts = (entity: ManagedEntity, salt: number): ReadonlyArray<number> =>
-  Array.from({ length: TELEPORT_ATTEMPTS * 2 }, (_, index) => makeDeterministicRoll(entity, salt + index + 1))
+  Arr.makeBy(TELEPORT_ATTEMPTS * 2, (index) => makeDeterministicRoll(entity, salt + index + 1))
 
 // ── Internal method factory ──────────────────────────────────────────────────
 
@@ -137,43 +137,41 @@ export const makeEntityManagerInternal = (
       entitiesRef,
       (
         entities,
-      ): [Option.Option<ReadonlyArray<EntityDrop>>, HashMap.HashMap<EntityId, ManagedEntity>] =>
-        Option.match(HashMap.get(entities, entityId), {
-          onNone: () => [Option.none(), entities],
-          onSome: (entity) => {
-            const nextHealth = entity.health - amount
-            if (nextHealth <= 0) {
-              return [Option.some(entity.drops), HashMap.remove(entities, entityId)]
-            }
+      ): [Option.Option<ReadonlyArray<EntityDrop>>, HashMap.HashMap<EntityId, ManagedEntity>] => {
+        const entity = Option.getOrNull(HashMap.get(entities, entityId))
+        if (!entity) return [Option.none(), entities]
 
-            const shouldTeleport = entity.type === EntityType.Enderman
-              && shouldEndermanTeleport(true, 0, 0)
-            const teleportTarget = shouldTeleport
-              ? computeEndermanTeleportTarget(
-                  entity.position,
-                  entity.position,
-                  makeTeleportAttempts(entity, Math.floor(nextHealth)),
-                )
-              : null
-            const nextPosition: Position = teleportTarget ?? entity.position
+        const nextHealth = entity.health - amount
+        if (nextHealth <= 0) {
+          return [Option.some(entity.drops), HashMap.remove(entities, entityId)]
+        }
 
-            return [
-              Option.none(),
-              HashMap.set(entities, entityId, {
-                ...entity,
-                health: nextHealth,
-                position: nextPosition,
-              }),
-            ]
-          },
-        }),
+        const shouldTeleport = entity.type === EntityType.Enderman
+          && shouldEndermanTeleport(true, 0, 0)
+        const teleportTarget = shouldTeleport
+          ? computeEndermanTeleportTarget(
+              entity.position,
+              entity.position,
+              makeTeleportAttempts(entity, Math.floor(nextHealth)),
+            )
+          : null
+        const nextPosition: Position = teleportTarget ?? entity.position
+
+        return [
+          Option.none(),
+          HashMap.set(entities, entityId, {
+            ...entity,
+            health: nextHealth,
+            position: nextPosition,
+          }),
+        ]
+      },
     ).pipe(Effect.tap((dropsOpt) =>
       Effect.all([
         Ref.set(cachedEntitiesRef, Option.none()),
-        Option.match(dropsOpt, {
-          onSome: () => Ref.update(structureVersionRef, (version) => version + 1),
-          onNone: () => Effect.void,
-        }),
+        Option.isSome(dropsOpt)
+          ? Ref.update(structureVersionRef, (version) => version + 1)
+          : Effect.void,
       ], { concurrency: 'unbounded', discard: true })
     ))
   },
@@ -182,59 +180,51 @@ export const makeEntityManagerInternal = (
     entityId: EntityId,
     impulse: Vector3,
   ): Effect.Effect<void, never> =>
-    Ref.update(entitiesRef, (entities) =>
-      Option.match(HashMap.get(entities, entityId), {
-        onNone: () => entities,
-        onSome: (entity) =>
-          HashMap.set(entities, entityId, {
-            ...entity,
-            velocity: impulse,
-            knockbackTicksRemaining: KNOCKBACK_DURATION_TICKS,
-          }),
-      }),
-    ).pipe(Effect.andThen(Ref.set(cachedEntitiesRef, Option.none()))),
+    Ref.update(entitiesRef, (entities) => {
+      const entity = Option.getOrNull(HashMap.get(entities, entityId))
+      if (!entity) return entities
+      return HashMap.set(entities, entityId, {
+        ...entity,
+        velocity: impulse,
+        knockbackTicksRemaining: KNOCKBACK_DURATION_TICKS,
+      })
+    }).pipe(Effect.andThen(Ref.set(cachedEntitiesRef, Option.none()))),
 
   // FR R6: feed a breeding item to an entity. Enters love mode (returns true) only
   // if it is a willing adult (off cooldown, not already in love). The caller checks
   // the held item matches the mob's breedingItem before invoking this.
   feedEntity: (entityId: EntityId): Effect.Effect<boolean, never> =>
-    Ref.modify(entitiesRef, (entities): [boolean, HashMap.HashMap<EntityId, ManagedEntity>] =>
-      Option.match(HashMap.get(entities, entityId), {
-        onNone: () => [false, entities],
-        onSome: (entity) => {
-          // Feeding a baby accelerates its growth (vanilla); feeding a willing adult
-          // enters love mode. An in-love / cooling-down adult declines (no consume).
-          if (isBaby(entity.ageTicks)) {
-            return [true, HashMap.set(entities, entityId, { ...entity, ageTicks: acceleratedBabyAge(entity.ageTicks) })]
-          }
-          return canAcceptBreedingFood({
-            loveTicksRemaining: entity.loveTicksRemaining,
-            breedCooldownRemaining: entity.breedCooldownRemaining,
-            ageTicks: entity.ageTicks,
-          })
-            ? [true, HashMap.set(entities, entityId, { ...entity, loveTicksRemaining: LOVE_DURATION_TICKS })]
-            : [false, entities]
-        },
-      }),
-    ).pipe(Effect.tap((fed) => (fed ? Ref.set(cachedEntitiesRef, Option.none()) : Effect.void))),
+    Ref.modify(entitiesRef, (entities): [boolean, HashMap.HashMap<EntityId, ManagedEntity>] => {
+      const entity = Option.getOrNull(HashMap.get(entities, entityId))
+      if (!entity) return [false, entities]
+      // Feeding a baby accelerates its growth (vanilla); feeding a willing adult
+      // enters love mode. An in-love / cooling-down adult declines (no consume).
+      if (isBaby(entity.ageTicks)) {
+        return [true, HashMap.set(entities, entityId, { ...entity, ageTicks: acceleratedBabyAge(entity.ageTicks) })]
+      }
+      return canAcceptBreedingFood({
+        loveTicksRemaining: entity.loveTicksRemaining,
+        breedCooldownRemaining: entity.breedCooldownRemaining,
+        ageTicks: entity.ageTicks,
+      })
+        ? [true, HashMap.set(entities, entityId, { ...entity, loveTicksRemaining: LOVE_DURATION_TICKS })]
+        : [false, entities]
+    }).pipe(Effect.tap((fed) => (fed ? Ref.set(cachedEntitiesRef, Option.none()) : Effect.void))),
 
   // FR R11: shear a sheep. Returns Some(woolCount) and starts the regrowth timer only
   // for a woolly sheep (type Sheep, regrowth at 0); None otherwise (wrong species, or
   // already sheared). The caller checks the held item is SHEARS before invoking this.
   shearEntity: (entityId: EntityId): Effect.Effect<Option.Option<number>, never> =>
-    Ref.modify(entitiesRef, (entities): [Option.Option<number>, HashMap.HashMap<EntityId, ManagedEntity>] =>
-      Option.match(HashMap.get(entities, entityId), {
-        onNone: () => [Option.none(), entities],
-        onSome: (entity) => {
-          if (entity.type !== EntityType.Sheep || !canBeSheared(entity.woolRegrowthTicks)) {
-            return [Option.none(), entities]
-          }
-          const count = shearWoolCount(hashEntityId(entityId))
-          return [
-            Option.some(count),
-            HashMap.set(entities, entityId, { ...entity, woolRegrowthTicks: WOOL_REGROWTH_TICKS }),
-          ]
-        },
-      }),
-    ).pipe(Effect.tap((res) => (Option.isSome(res) ? Ref.set(cachedEntitiesRef, Option.none()) : Effect.void))),
+    Ref.modify(entitiesRef, (entities): [Option.Option<number>, HashMap.HashMap<EntityId, ManagedEntity>] => {
+      const entity = Option.getOrNull(HashMap.get(entities, entityId))
+      if (!entity) return [Option.none(), entities]
+      if (entity.type !== EntityType.Sheep || !canBeSheared(entity.woolRegrowthTicks)) {
+        return [Option.none(), entities]
+      }
+      const count = shearWoolCount(hashEntityId(entityId))
+      return [
+        Option.some(count),
+        HashMap.set(entities, entityId, { ...entity, woolRegrowthTicks: WOOL_REGROWTH_TICKS }),
+      ]
+    }).pipe(Effect.tap((res) => (Option.isSome(res) ? Ref.set(cachedEntitiesRef, Option.none()) : Effect.void))),
 })

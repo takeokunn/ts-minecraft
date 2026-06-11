@@ -36,19 +36,14 @@ const validateSmeltingPreconditions = (
   readonly position: { readonly x: number; readonly y: number; readonly z: number }
 }, FurnaceError> =>
   Effect.gen(function* () {
-    const recipe = yield* Option.match(recipeService.findById(recipeId), {
-      onNone: () => Effect.fail(new FurnaceError({ operation: 'startSmelting', cause: `Recipe not found: ${recipeId}` })),
-      onSome: Effect.succeed,
-    })
+    const recipe = Option.getOrNull(recipeService.findById(recipeId))
+    if (recipe === null) return yield* Effect.fail(new FurnaceError({ operation: 'startSmelting', cause: `Recipe not found: ${recipeId}` }))
     if (recipe.station !== 'furnace') {
       return yield* Effect.fail(new FurnaceError({ operation: 'startSmelting', cause: `Recipe is not a furnace recipe: ${recipeId}` }))
     }
 
-    const furnacePosOpt = yield* helpers.getSelectedFurnacePosition()
-    const position = yield* Option.match(furnacePosOpt, {
-      onNone: () => Effect.fail(new FurnaceError({ operation: 'startSmelting', cause: 'No nearby furnace' })),
-      onSome: Effect.succeed,
-    })
+    const position = Option.getOrNull(yield* helpers.getSelectedFurnacePosition())
+    if (position === null) return yield* Effect.fail(new FurnaceError({ operation: 'startSmelting', cause: 'No nearby furnace' }))
 
     const input = recipe.ingredients[0]
     if (!input) {
@@ -67,14 +62,8 @@ const validateSmeltingPreconditions = (
       HashMap.get(state.furnaces, furnaceKey(position)),
       () => emptyFurnaceAtPosition(position),
     )
-    yield* Option.match(furnace.activeRecipeId, {
-      onNone: () => Effect.void,
-      onSome: () => Effect.fail(new FurnaceError({ operation: 'startSmelting', cause: 'Furnace is already smelting' })),
-    })
-    yield* Option.match(furnace.output, {
-      onNone: () => Effect.void,
-      onSome: () => Effect.fail(new FurnaceError({ operation: 'startSmelting', cause: 'Furnace output slot is occupied' })),
-    })
+    if (Option.isSome(furnace.activeRecipeId)) yield* Effect.fail(new FurnaceError({ operation: 'startSmelting', cause: 'Furnace is already smelting' }))
+    if (Option.isSome(furnace.output)) yield* Effect.fail(new FurnaceError({ operation: 'startSmelting', cause: 'Furnace output slot is occupied' }))
 
     return { input: { itemType: input.itemType, count: input.count }, fuel, position }
   })
@@ -129,17 +118,11 @@ export class FurnaceService extends Effect.Service<FurnaceService>()(
           startSmelting: (recipeId: RecipeId): Effect.Effect<void, FurnaceError> =>
             Effect.gen(function* () {
               const slots = yield* inventoryService.getAllSlots()
-              const available = Arr.reduce(slots, HashMap.empty<InventoryItem, number>(), (counts, slot) =>
-                Option.match(slot, {
-                  onNone: () => counts,
-                  onSome: (stack) =>
-                    HashMap.set(
-                      counts,
-                      stack.itemType,
-                      Option.getOrElse(HashMap.get(counts, stack.itemType), () => 0) + stack.count,
-                    ),
-                }),
-              )
+              const available = Arr.reduce(slots, HashMap.empty<InventoryItem, number>(), (counts, slot) => {
+                const stack = Option.getOrNull(slot)
+                if (stack === null) return counts
+                return HashMap.set(counts, stack.itemType, Option.getOrElse(HashMap.get(counts, stack.itemType), () => 0) + stack.count)
+              })
               const { input, fuel, position } = yield* validateSmeltingPreconditions(
                 recipeService, helpers, stateRef, recipeId, available,
               )
@@ -158,14 +141,10 @@ export class FurnaceService extends Effect.Service<FurnaceService>()(
           collectOutput: (): Effect.Effect<{ readonly collected: boolean; readonly xp: number }, FurnaceError> =>
             Effect.gen(function* () {
               const furnaceOpt = yield* helpers.getNearestFurnaceState()
-              const furnace = yield* Option.match(furnaceOpt, {
-                onNone: () => Effect.fail(new FurnaceError({ operation: 'collectOutput', cause: 'No nearby furnace' })),
-                onSome: Effect.succeed,
-              })
-              const output = yield* Option.match(furnace.output, {
-                onNone: () => Effect.fail(new FurnaceError({ operation: 'collectOutput', cause: 'No furnace output to collect' })),
-                onSome: Effect.succeed,
-              })
+              const furnace = Option.getOrNull(furnaceOpt)
+              if (furnace === null) return yield* Effect.fail(new FurnaceError({ operation: 'collectOutput', cause: 'No nearby furnace' }))
+              const output = Option.getOrNull(furnace.output)
+              if (output === null) return yield* Effect.fail(new FurnaceError({ operation: 'collectOutput', cause: 'No furnace output to collect' }))
 
               const collected = yield* inventoryService.addBlock(output.itemType as BlockType, output.count).pipe(
                 Effect.as(true),
@@ -190,54 +169,41 @@ export class FurnaceService extends Effect.Service<FurnaceService>()(
           clearFurnace: (position: { readonly x: number; readonly y: number; readonly z: number }): Effect.Effect<ReadonlyArray<FurnaceItemStack>, never> =>
             Ref.modify(stateRef, (state): [ReadonlyArray<FurnaceItemStack>, FurnaceState] => {
               const key = furnaceKey(position)
-              return Option.match(HashMap.get(state.furnaces, key), {
-                onNone: () => [[], state] as [ReadonlyArray<FurnaceItemStack>, FurnaceState],
-                onSome: (furnace) => {
-                  const dropped = Arr.filterMap(
-                    [furnace.input, furnace.fuel, furnace.output],
-                    (slot) => slot,
-                  )
-                  const nextState: FurnaceState = {
-                    furnaces: HashMap.remove(state.furnaces, key),
-                    selectedFurnacePosition: Option.filter(state.selectedFurnacePosition, (selected) => furnaceKey(selected) !== key),
-                  }
-                  return [dropped, nextState]
-                },
-              })
+              const furnace = Option.getOrNull(HashMap.get(state.furnaces, key))
+              if (furnace === null) return [[], state]
+              const dropped = Arr.filterMap([furnace.input, furnace.fuel, furnace.output], (slot) => slot)
+              const nextState: FurnaceState = {
+                furnaces: HashMap.remove(state.furnaces, key),
+                selectedFurnacePosition: Option.filter(state.selectedFurnacePosition, (selected) => furnaceKey(selected) !== key),
+              }
+              return [dropped, nextState]
             }),
 
           dismantleFurnace: (position: { readonly x: number; readonly y: number; readonly z: number }): Effect.Effect<boolean, never> =>
             Effect.gen(function* () {
               const state = yield* Ref.get(stateRef)
               const key = furnaceKey(position)
-              return yield* Option.match(HashMap.get(state.furnaces, key), {
-                onNone: () => Effect.succeed(true),
-                onSome: (furnace) =>
-                  Effect.gen(function* () {
-                    const dropped = Arr.filterMap(
-                      [furnace.input, furnace.fuel, furnace.output],
-                      (slot) => slot,
-                    )
-                    const snapshot = yield* inventoryService.serialize()
-                    const results = yield* Effect.forEach(
-                      dropped,
-                      (item) => inventoryService.addBlock(item.itemType as BlockType, item.count).pipe(
-                        Effect.as(true as const),
-                        Effect.catchTag('InventoryError', () => Effect.succeed(false as const)),
-                      ),
-                      { concurrency: 1 },
-                    )
-                    if (Arr.every(results, (r) => r)) {
-                      yield* Ref.update(stateRef, (current): FurnaceState => ({
-                        furnaces: HashMap.remove(current.furnaces, key),
-                        selectedFurnacePosition: Option.filter(state.selectedFurnacePosition, (selected) => furnaceKey(selected) !== key),
-                      }))
-                      return true
-                    }
-                    yield* inventoryService.deserialize(snapshot)
-                    return false
-                  }),
-              })
+              const furnace = Option.getOrNull(HashMap.get(state.furnaces, key))
+              if (furnace === null) return true
+              const dropped = Arr.filterMap([furnace.input, furnace.fuel, furnace.output], (slot) => slot)
+              const snapshot = yield* inventoryService.serialize()
+              const results = yield* Effect.forEach(
+                dropped,
+                (item) => inventoryService.addBlock(item.itemType as BlockType, item.count).pipe(
+                  Effect.as(true as const),
+                  Effect.catchTag('InventoryError', () => Effect.succeed(false as const)),
+                ),
+                { concurrency: 1 },
+              )
+              if (Arr.every(results, (r) => r)) {
+                yield* Ref.update(stateRef, (current): FurnaceState => ({
+                  furnaces: HashMap.remove(current.furnaces, key),
+                  selectedFurnacePosition: Option.filter(state.selectedFurnacePosition, (selected) => furnaceKey(selected) !== key),
+                }))
+                return true
+              }
+              yield* inventoryService.deserialize(snapshot)
+              return false
             }),
 
           serialize: (): Effect.Effect<ReadonlyArray<FurnaceBlockState>, never> =>
@@ -257,30 +223,25 @@ export class FurnaceService extends Effect.Service<FurnaceService>()(
 
           tick: (deltaTime: DeltaTimeSecs): Effect.Effect<void, never> =>
             Ref.update(stateRef, (state) =>
-              HashMap.reduce(state.furnaces, state, (acc, furnace) =>
-                Option.match(furnace.activeRecipeId, {
-                  onNone: () => acc,
-                  onSome: (activeRecipeId) =>
-                    Option.match(recipeService.findById(activeRecipeId), {
-                      /* c8 ignore next */
-                      onNone: () => acc,
-                      onSome: (recipe) => {
-                        const nextProgress = furnace.progressSecs + deltaTime
-                        if (nextProgress < FURNACE_SMELT_DURATION_SECS) {
-                          return setFurnaceState(acc, { ...furnace, progressSecs: nextProgress })
-                        }
-                        return setFurnaceState(acc, {
-                          ...furnace,
-                          input: Option.none(),
-                          fuel: Option.none(),
-                          output: Option.some({ itemType: recipe.output.itemType, count: recipe.output.count }),
-                          activeRecipeId: Option.none(),
-                          progressSecs: FURNACE_SMELT_DURATION_SECS,
-                        })
-                      },
-                    }),
-                }),
-              )
+              HashMap.reduce(state.furnaces, state, (acc, furnace) => {
+                const activeRecipeId = Option.getOrNull(furnace.activeRecipeId)
+                if (activeRecipeId === null) return acc
+                const recipe = Option.getOrNull(recipeService.findById(activeRecipeId))
+                /* c8 ignore next */
+                if (recipe === null) return acc
+                const nextProgress = furnace.progressSecs + deltaTime
+                if (nextProgress < FURNACE_SMELT_DURATION_SECS) {
+                  return setFurnaceState(acc, { ...furnace, progressSecs: nextProgress })
+                }
+                return setFurnaceState(acc, {
+                  ...furnace,
+                  input: Option.none(),
+                  fuel: Option.none(),
+                  output: Option.some({ itemType: recipe.output.itemType, count: recipe.output.count }),
+                  activeRecipeId: Option.none(),
+                  progressSecs: FURNACE_SMELT_DURATION_SECS,
+                })
+              })
             ),
         }
       }),

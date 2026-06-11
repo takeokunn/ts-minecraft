@@ -59,12 +59,10 @@ export const fillWaterForColumn = (
   lakeBasinY: Option.Option<number>,
   waterBlockIndex: number,
 ): void => {
-  Option.match(determineWaterLevel(biome, surfaceY, lakeBasinY), {
-    onNone: () => { /* no water to fill */ },
-    onSome: (waterTopY) => {
-      for (let y = surfaceY + 1; y <= waterTopY; y++) {
-        blocks[chunkBlockIndexUnchecked(lx, y, lz)] = waterBlockIndex
-      }
-    },
-  })
+  const waterTopY = Option.getOrNull(determineWaterLevel(biome, surfaceY, lakeBasinY))
+  if (waterTopY !== null) {
+    for (let y = surfaceY + 1; y <= waterTopY; y++) {
+      blocks[chunkBlockIndexUnchecked(lx, y, lz)] = waterBlockIndex
+    }
+  }
 }

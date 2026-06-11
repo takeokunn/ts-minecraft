@@ -75,35 +75,21 @@ export const createVillage = (villageNumber: number, center: Position): Village 
 export const ensureVillageInState = (
   state: VillageState,
   playerPosition: Position,
-): readonly [VillageState, Village] =>
-  Option.match(findNearestVillage(state.villages, playerPosition), {
-    onNone: () => {
-      const village = createVillage(state.nextVillageNumber, snapVillageCenter(playerPosition))
-      return [
-        {
-          ...state,
-          villages: Arr.append(state.villages, village),
-          nextVillageNumber: state.nextVillageNumber + 1,
-        },
-        village,
-      ] as const
+): readonly [VillageState, Village] => {
+  const nearestVillage = Option.getOrNull(findNearestVillage(state.villages, playerPosition))
+  if (nearestVillage !== null && distanceSq(nearestVillage.center, playerPosition) <= VILLAGE_NEAR_DISTANCE * VILLAGE_NEAR_DISTANCE) {
+    return [state, nearestVillage] as const
+  }
+  const village = createVillage(state.nextVillageNumber, snapVillageCenter(playerPosition))
+  return [
+    {
+      ...state,
+      villages: Arr.append(state.villages, village),
+      nextVillageNumber: state.nextVillageNumber + 1,
     },
-    onSome: (nearestVillage) => {
-      if (distanceSq(nearestVillage.center, playerPosition) <= VILLAGE_NEAR_DISTANCE * VILLAGE_NEAR_DISTANCE) {
-        return [state, nearestVillage] as const
-      }
-
-      const village = createVillage(state.nextVillageNumber, snapVillageCenter(playerPosition))
-      return [
-        {
-          ...state,
-          villages: Arr.append(state.villages, village),
-          nextVillageNumber: state.nextVillageNumber + 1,
-        },
-        village,
-      ] as const
-    },
-  })
+    village,
+  ] as const
+}
 
 type ClosestAcc = { readonly villager: Option.Option<Villager>; readonly bestDSq: number }
 

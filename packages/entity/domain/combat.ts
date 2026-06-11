@@ -1,4 +1,6 @@
 import type { Vector3 } from '@ts-minecraft/core'
+import type { Enchantment } from '@ts-minecraft/inventory'
+import { getSharpnessDamageBonus, getSmiteDamageBonus, getBaneOfArthropodsDamageBonus } from '@ts-minecraft/inventory'
 
 // Combat damage model (Phase 12). Pure functions — no Effect, no randomness.
 //
@@ -6,6 +8,14 @@ import type { Vector3 } from '@ts-minecraft/core'
 // the attacker is falling (airborne, moving down, not on a ladder/in water) deals
 // 1.5× damage. Modelling `isCritical` as an input keeps damage computation pure
 // and unit-testable, and matches vanilla behaviour better than a random roll.
+
+// ─── Mob combat categories ────────────────────────────────────────────────────
+// Vanilla enchantment targeting is mob-category based, not mob-type based.
+// Keeping these sets here (entity domain) avoids leaking mob knowledge into
+// the application / presentation layer.
+
+export const UNDEAD_MOB_TYPES = new Set(['Zombie', 'Skeleton'])
+export const ARTHROPOD_MOB_TYPES = new Set(['Spider'])
 
 export const CRITICAL_DAMAGE_MULTIPLIER = 1.5
 
@@ -55,6 +65,48 @@ export const computeAttackCharge = (secsSinceLastAttack: number, cooldownSecs: n
 export const computeChargedDamage = (baseDamage: number, charge: number): number => {
   const c = Math.max(0, Math.min(1, charge))
   return baseDamage * (0.2 + 0.8 * c * c)
+}
+
+// ─── Weapon base damage (vanilla Java Edition 1.9+) ──────────────────────────
+
+export const PLAYER_ATTACK_DAMAGE       = 4
+export const WOODEN_SWORD_ATTACK_DAMAGE  = 8
+export const STONE_SWORD_ATTACK_DAMAGE   = 9
+export const IRON_SWORD_ATTACK_DAMAGE    = 12
+export const DIAMOND_SWORD_ATTACK_DAMAGE = 16
+export const WOODEN_AXE_ATTACK_DAMAGE    = 9
+export const STONE_AXE_ATTACK_DAMAGE     = 10
+export const IRON_AXE_ATTACK_DAMAGE      = 11
+export const DIAMOND_AXE_ATTACK_DAMAGE   = 13
+
+const WEAPON_BASE_DAMAGE: Readonly<Record<string, number>> = {
+  WOODEN_SWORD: WOODEN_SWORD_ATTACK_DAMAGE,
+  STONE_SWORD: STONE_SWORD_ATTACK_DAMAGE,
+  IRON_SWORD: IRON_SWORD_ATTACK_DAMAGE,
+  DIAMOND_SWORD: DIAMOND_SWORD_ATTACK_DAMAGE,
+  WOODEN_AXE: WOODEN_AXE_ATTACK_DAMAGE,
+  STONE_AXE: STONE_AXE_ATTACK_DAMAGE,
+  IRON_AXE: IRON_AXE_ATTACK_DAMAGE,
+  DIAMOND_AXE: DIAMOND_AXE_ATTACK_DAMAGE,
+}
+
+export const getWeaponBaseDamage = (itemType: string | undefined): number =>
+  (itemType !== undefined ? WEAPON_BASE_DAMAGE[itemType] : undefined) ?? PLAYER_ATTACK_DAMAGE
+
+// Returns the total enchantment damage bonus for a melee attack against a given
+// mob type. SHARPNESS applies universally; SMITE targets undead; BANE targets
+// arthropods. Bonuses are mutually exclusive (only the highest-priority applies).
+export const computeWeaponEnchantBonus = (
+  enchantments: ReadonlyArray<Enchantment>,
+  entityType: string,
+): number => {
+  const sharpness = enchantments.find((e) => e.type === 'SHARPNESS')
+  if (sharpness) return getSharpnessDamageBonus(sharpness.level)
+  const smite = enchantments.find((e) => e.type === 'SMITE')
+  if (smite && UNDEAD_MOB_TYPES.has(entityType)) return getSmiteDamageBonus(smite.level)
+  const bane = enchantments.find((e) => e.type === 'BANE_OF_ARTHROPODS')
+  if (bane && ARTHROPOD_MOB_TYPES.has(entityType)) return getBaneOfArthropodsDamageBonus(bane.level)
+  return 0
 }
 
 // ─── Knockback ────────────────────────────────────────────────────────────────

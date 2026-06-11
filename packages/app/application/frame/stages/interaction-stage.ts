@@ -176,12 +176,12 @@ export const interactionStage = (
 
           // Shield blocking: right-mouse-hold with SHIELD equipped → blocking state.
           // The blocking MutableRef is read by physics-stage to reduce incoming damage.
-          const selectedIsShield = selectedHotbarItem._tag === 'Some' && selectedHotbarItem.value === 'SHIELD'
+          const selectedIsShield = Option.exists(selectedHotbarItem, (s) => s === 'SHIELD')
           MutableRef.set(refs.isShieldBlockingRef, rightMouseHeld && selectedIsShield)
 
           // Bow charging: right-mouse-hold with BOW equipped starts/continues the draw.
           // Suppress normal right-click placement while drawing the bow.
-          const selectedIsBow = selectedHotbarItem._tag === 'Some' && selectedHotbarItem.value === 'BOW'
+          const selectedIsBow = Option.exists(selectedHotbarItem, (s) => s === 'BOW')
           if (rightMouseHeld && selectedIsBow) {
             // Start charge on the first frame the button is held (bowChargeStart is null).
             if (bowChargeStart === null) {
@@ -207,7 +207,7 @@ export const interactionStage = (
                 // R26: bucket fill/empty before generic placement (held-item action like ignition).
                 const bucketed = yield* handleBucket(services, refs, { targetHit })
                 if (!bucketed) {
-                  const ignited = selectedHotbarItem._tag === 'Some' && selectedHotbarItem.value === 'FLINT_AND_STEEL'
+                  const ignited = Option.exists(selectedHotbarItem, (s) => s === 'FLINT_AND_STEEL')
                     ? yield* handleFlintAndSteel(services, refs, { targetHit })
                     : false
                   if (!ignited) {

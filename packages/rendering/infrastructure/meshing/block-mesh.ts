@@ -17,16 +17,13 @@ export class BlockMeshService extends Effect.Service<BlockMeshService>()(
           Effect.gen(function* () {
             const cacheKey = MaterialCacheKey.make(colorOrUrl)
 
-            return yield* Option.match(HashMap.get(yield* Ref.get(materialCache), cacheKey), {
-              onSome: Effect.succeed,
-              onNone: () => Effect.gen(function* () {
-                const material = yield* Effect.sync(() => new THREE.MeshLambertMaterial({
-                  color: typeof colorOrUrl === 'string' ? colorOrUrl : colorOrUrl,
-                }))
-                yield* Ref.update(materialCache, (c) => HashMap.set(c, cacheKey, material))
-                return material
-              }),
-            })
+            const cached = Option.getOrNull(HashMap.get(yield* Ref.get(materialCache), cacheKey))
+            if (cached !== null) return cached
+            const material = yield* Effect.sync(() => new THREE.MeshLambertMaterial({
+              color: typeof colorOrUrl === 'string' ? colorOrUrl : colorOrUrl,
+            }))
+            yield* Ref.update(materialCache, (c) => HashMap.set(c, cacheKey, material))
+            return material
           })
 
         return Effect.acquireRelease(
@@ -66,10 +63,7 @@ export class BlockMeshService extends Effect.Service<BlockMeshService>()(
                         Arr.findFirst(Arr.fromIterable(cache), ([, m]) => m === mat),
                         ([k]) => k
                       )
-                      yield* Option.match(cacheKeyOpt, {
-                        onNone: () => Effect.sync(() => mat.dispose()),
-                        onSome: () => Effect.void,
-                      })
+                      if (Option.isNone(cacheKeyOpt)) yield* Effect.sync(() => mat.dispose())
                     }),
                   { concurrency: 1 }
                 )

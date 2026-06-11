@@ -89,27 +89,23 @@ export class MovementService extends Effect.Service<MovementService>()(
           const right = yield* isDirPressed(KeyMappings.MOVE_RIGHT, KeyMappings.MOVE_RIGHT_ALT)
           // consumeKeyPress (not isKeyPressed) so a held jump only fires once per press.
           const jump = yield* inputService.consumeKeyPress(KeyMappings.JUMP)
-          const ctrlLeft = yield* inputService.isKeyPressed('ControlLeft')
-          const ctrlRight = yield* inputService.isKeyPressed('ControlRight')
+          const sprint = yield* Effect.map(
+            Effect.all([inputService.isKeyPressed(KeyMappings.SPRINT), inputService.isKeyPressed(KeyMappings.SPRINT_ALT)], { concurrency: 'unbounded' }),
+            ([ctrlL, ctrlR]) => ctrlL || ctrlR,
+          )
           const sneak = yield* inputService.isKeyPressed(KeyMappings.SNEAK)
-          return { forward, backward, left, right, jump, sprint: ctrlLeft || ctrlRight, sneak }
+          return { forward, backward, left, right, jump, sprint, sneak }
         })
-
-      const calculateVelocity = (
-        input: MovementInput,
-        yaw: number,
-        isGrounded: boolean
-      ): Effect.Effect<Vector3, never> =>
-        Effect.succeed(computeVelocity(input, yaw, isGrounded))
 
       return {
         getInput,
-        calculateVelocity,
+        calculateVelocity: (
+          input: MovementInput,
+          yaw: number,
+          isGrounded: boolean,
+        ): Effect.Effect<Vector3, never> => Effect.succeed(computeVelocity(input, yaw, isGrounded)),
         update: (yaw: number, isGrounded: boolean): Effect.Effect<Vector3, never> =>
-          Effect.gen(function* () {
-            const input = yield* getInput()
-            return yield* calculateVelocity(input, yaw, isGrounded)
-          }),
+          getInput().pipe(Effect.map((input) => computeVelocity(input, yaw, isGrounded))),
       }
     }),
   }

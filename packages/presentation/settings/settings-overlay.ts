@@ -29,10 +29,8 @@ export class SettingsOverlayService extends Effect.Service<SettingsOverlayServic
             gearBtn,
           }) => {
         const updateLabel = (labelId: string, value: string): void => {
-          Option.map(
-            Option.flatMap(overlayEl, (el) => dom.querySelector(el, labelId)),
-            (span) => { span.textContent = value },
-          )
+          const span = Option.getOrNull(Option.flatMap(overlayEl, (el) => dom.querySelector(el, labelId)))
+          if (span !== null) span.textContent = value
         }
 
         const syncInputAndLabel = (
@@ -40,32 +38,34 @@ export class SettingsOverlayService extends Effect.Service<SettingsOverlayServic
           labelId: string,
           value: string,
         ): void => {
-          Option.map(inputOpt, (input) => {
+          const input = Option.getOrNull(inputOpt)
+          if (input !== null) {
             input.value = value
             updateLabel(labelId, value)
-          })
+          }
         }
 
         const commitEffect = (): Effect.Effect<void, never> =>
         settingsService.updateSettings({
-          adaptivePerformanceMode: Option.match(adaptivePerformanceInput, { onNone: () => false, onSome: (el) => el.checked }),
-          renderDistance: Option.match(renderDistanceInput, { onNone: () => 4, onSome: (el) => parseInt(el.value, 10) }),
-          mouseSensitivity: Option.match(sensitivityInput, { onNone: () => 0.5, onSome: (el) => parseFloat(el.value) }),
-          dayLengthSeconds: Option.match(dayLengthInput, { onNone: () => 400, onSome: (el) => parseInt(el.value, 10) }),
-          audioEnabled: Option.match(audioEnabledInput, { onNone: () => false, onSome: (el) => el.checked }),
-          masterVolume: Option.match(masterVolumeInput, { onNone: () => 0.8, onSome: (el) => parseFloat(el.value) }),
-          sfxVolume: Option.match(sfxVolumeInput, { onNone: () => 1, onSome: (el) => parseFloat(el.value) }),
-          musicVolume: Option.match(musicVolumeInput, { onNone: () => 0.55, onSome: (el) => parseFloat(el.value) }),
-          graphicsQuality: Option.match(qualitySelect, {
-            onNone: () => 'medium' as const,
-            onSome: (el) => Match.value(el.value).pipe(
+          adaptivePerformanceMode: Option.getOrNull(adaptivePerformanceInput)?.checked ?? false,
+          renderDistance: parseInt(Option.getOrNull(renderDistanceInput)?.value ?? '4', 10),
+          mouseSensitivity: parseFloat(Option.getOrNull(sensitivityInput)?.value ?? '0.5'),
+          dayLengthSeconds: parseInt(Option.getOrNull(dayLengthInput)?.value ?? '400', 10),
+          audioEnabled: Option.getOrNull(audioEnabledInput)?.checked ?? false,
+          masterVolume: parseFloat(Option.getOrNull(masterVolumeInput)?.value ?? '0.8'),
+          sfxVolume: parseFloat(Option.getOrNull(sfxVolumeInput)?.value ?? '1'),
+          musicVolume: parseFloat(Option.getOrNull(musicVolumeInput)?.value ?? '0.55'),
+          graphicsQuality: (() => {
+            const val = Option.getOrNull(qualitySelect)?.value
+            if (!val) return 'medium' as const
+            return Match.value(val).pipe(
               Match.when('low', () => 'low' as const),
               Match.when('medium', () => 'medium' as const),
               Match.when('high', () => 'high' as const),
               Match.when('ultra', () => 'ultra' as const),
               Match.orElse(() => 'high' as const),
-            ),
-          }),
+            )
+          })(),
         })
 
       const runCommit = () => {
@@ -81,15 +81,18 @@ export class SettingsOverlayService extends Effect.Service<SettingsOverlayServic
       function syncEffect(): Effect.Effect<void, never> {
         return settingsService.getSettings().pipe(
           Effect.flatMap((settings) => Effect.sync(() => {
-            Option.map(adaptivePerformanceInput, (el) => { el.checked = settings.adaptivePerformanceMode })
+            const apInput = Option.getOrNull(adaptivePerformanceInput)
+            if (apInput !== null) apInput.checked = settings.adaptivePerformanceMode
             syncInputAndLabel(renderDistanceInput, '#rd-val', String(settings.renderDistance))
             syncInputAndLabel(sensitivityInput, '#ms-val', String(settings.mouseSensitivity))
             syncInputAndLabel(dayLengthInput, '#dl-val', String(settings.dayLengthSeconds))
-            Option.map(audioEnabledInput, (el) => { el.checked = settings.audioEnabled })
+            const aeInput = Option.getOrNull(audioEnabledInput)
+            if (aeInput !== null) aeInput.checked = settings.audioEnabled
             syncInputAndLabel(masterVolumeInput, '#mv-val', String(settings.masterVolume))
             syncInputAndLabel(sfxVolumeInput, '#sv-val', String(settings.sfxVolume))
             syncInputAndLabel(musicVolumeInput, '#muv-val', String(settings.musicVolume))
-            Option.map(qualitySelect, (el) => { el.value = settings.graphicsQuality })
+            const qSel = Option.getOrNull(qualitySelect)
+            if (qSel !== null) qSel.value = settings.graphicsQuality
           }))
         )
       }
@@ -100,17 +103,20 @@ export class SettingsOverlayService extends Effect.Service<SettingsOverlayServic
       }
 
       const handleRdInput = () => {
-        Option.map(renderDistanceInput, (input) => updateLabel('#rd-val', input.value))
+        const input = Option.getOrNull(renderDistanceInput)
+        if (input !== null) updateLabel('#rd-val', input.value)
         runCommit()
       }
 
       const handleMsInput = () => {
-        Option.map(sensitivityInput, (input) => updateLabel('#ms-val', input.value))
+        const input = Option.getOrNull(sensitivityInput)
+        if (input !== null) updateLabel('#ms-val', input.value)
         runCommit()
       }
 
       const handleDlInput = () => {
-        Option.map(dayLengthInput, (input) => updateLabel('#dl-val', input.value))
+        const input = Option.getOrNull(dayLengthInput)
+        if (input !== null) updateLabel('#dl-val', input.value)
         runCommit()
       }
 
@@ -123,17 +129,20 @@ export class SettingsOverlayService extends Effect.Service<SettingsOverlayServic
       }
 
       const handleMasterVolumeInput = () => {
-        Option.map(masterVolumeInput, (input) => updateLabel('#mv-val', input.value))
+        const input = Option.getOrNull(masterVolumeInput)
+        if (input !== null) updateLabel('#mv-val', input.value)
         runCommit()
       }
 
       const handleSfxVolumeInput = () => {
-        Option.map(sfxVolumeInput, (input) => updateLabel('#sv-val', input.value))
+        const input = Option.getOrNull(sfxVolumeInput)
+        if (input !== null) updateLabel('#sv-val', input.value)
         runCommit()
       }
 
       const handleMusicVolumeInput = () => {
-        Option.map(musicVolumeInput, (input) => updateLabel('#muv-val', input.value))
+        const input = Option.getOrNull(musicVolumeInput)
+        if (input !== null) updateLabel('#muv-val', input.value)
         runCommit()
       }
 
@@ -141,7 +150,8 @@ export class SettingsOverlayService extends Effect.Service<SettingsOverlayServic
         Effect.runFork(
           Ref.set(isVisibleRef, false).pipe(
             Effect.andThen(Effect.sync(() => {
-              Option.map(overlayEl, (el) => { el.style.display = 'none' })
+              const el = Option.getOrNull(overlayEl)
+              if (el !== null) el.style.display = 'none'
             })),
             Effect.catchAllCause(() => Effect.void)
           )
@@ -152,7 +162,8 @@ export class SettingsOverlayService extends Effect.Service<SettingsOverlayServic
         Effect.runFork(
           Ref.modify(isVisibleRef, (current): [boolean, boolean] => [!current, !current]).pipe(
             Effect.tap((next) => Effect.sync(() => {
-              Option.map(overlayEl, (el) => { el.style.display = next ? 'block' : 'none' })
+              const el = Option.getOrNull(overlayEl)
+              if (el !== null) el.style.display = next ? 'block' : 'none'
             })),
             Effect.flatMap((next) => next ? syncEffect() : Effect.void),
             Effect.catchAllCause(() => Effect.void)
@@ -162,17 +173,17 @@ export class SettingsOverlayService extends Effect.Service<SettingsOverlayServic
 
         return Effect.acquireRelease(
           Effect.sync(() => {
-            Option.map(adaptivePerformanceInput, (el) => el.addEventListener('change', handleAdaptivePerformanceChange))
-            Option.map(renderDistanceInput, (el) => el.addEventListener('input', handleRdInput))
-            Option.map(sensitivityInput, (el) => el.addEventListener('input', handleMsInput))
-            Option.map(dayLengthInput, (el) => el.addEventListener('input', handleDlInput))
-            Option.map(audioEnabledInput, (el) => el.addEventListener('change', handleAudioEnabledChange))
-            Option.map(masterVolumeInput, (el) => el.addEventListener('input', handleMasterVolumeInput))
-            Option.map(sfxVolumeInput, (el) => el.addEventListener('input', handleSfxVolumeInput))
-            Option.map(musicVolumeInput, (el) => el.addEventListener('input', handleMusicVolumeInput))
-            Option.map(qualitySelect, (el) => el.addEventListener('change', handleQualityChange))
-            Option.map(closeBtn, (el) => el.addEventListener('click', handleClose))
-            Option.map(gearBtn, (el) => el.addEventListener('click', handleGearClick))
+            Option.getOrNull(adaptivePerformanceInput)?.addEventListener('change', handleAdaptivePerformanceChange)
+            Option.getOrNull(renderDistanceInput)?.addEventListener('input', handleRdInput)
+            Option.getOrNull(sensitivityInput)?.addEventListener('input', handleMsInput)
+            Option.getOrNull(dayLengthInput)?.addEventListener('input', handleDlInput)
+            Option.getOrNull(audioEnabledInput)?.addEventListener('change', handleAudioEnabledChange)
+            Option.getOrNull(masterVolumeInput)?.addEventListener('input', handleMasterVolumeInput)
+            Option.getOrNull(sfxVolumeInput)?.addEventListener('input', handleSfxVolumeInput)
+            Option.getOrNull(musicVolumeInput)?.addEventListener('input', handleMusicVolumeInput)
+            Option.getOrNull(qualitySelect)?.addEventListener('change', handleQualityChange)
+            Option.getOrNull(closeBtn)?.addEventListener('click', handleClose)
+            Option.getOrNull(gearBtn)?.addEventListener('click', handleGearClick)
           }).pipe(
             // FR-1.4: prime DOM inputs from SettingsService on mount so values
             // reflect actual state from frame 1, eliminating the visual flash
@@ -181,24 +192,26 @@ export class SettingsOverlayService extends Effect.Service<SettingsOverlayServic
             Effect.andThen(syncEffect()),
           ),
           () => Effect.sync(() => {
-            Option.map(adaptivePerformanceInput, (el) => el.removeEventListener('change', handleAdaptivePerformanceChange))
-            Option.map(renderDistanceInput, (el) => el.removeEventListener('input', handleRdInput))
-            Option.map(sensitivityInput, (el) => el.removeEventListener('input', handleMsInput))
-            Option.map(dayLengthInput, (el) => el.removeEventListener('input', handleDlInput))
-            Option.map(audioEnabledInput, (el) => el.removeEventListener('change', handleAudioEnabledChange))
-            Option.map(masterVolumeInput, (el) => el.removeEventListener('input', handleMasterVolumeInput))
-            Option.map(sfxVolumeInput, (el) => el.removeEventListener('input', handleSfxVolumeInput))
-            Option.map(musicVolumeInput, (el) => el.removeEventListener('input', handleMusicVolumeInput))
-            Option.map(qualitySelect, (el) => el.removeEventListener('change', handleQualityChange))
-            Option.map(closeBtn, (el) => el.removeEventListener('click', handleClose))
-            Option.map(gearBtn, (el) => { el.removeEventListener('click', handleGearClick); el.remove() })
-            Option.map(overlayEl, (el) => el.remove())
+            Option.getOrNull(adaptivePerformanceInput)?.removeEventListener('change', handleAdaptivePerformanceChange)
+            Option.getOrNull(renderDistanceInput)?.removeEventListener('input', handleRdInput)
+            Option.getOrNull(sensitivityInput)?.removeEventListener('input', handleMsInput)
+            Option.getOrNull(dayLengthInput)?.removeEventListener('input', handleDlInput)
+            Option.getOrNull(audioEnabledInput)?.removeEventListener('change', handleAudioEnabledChange)
+            Option.getOrNull(masterVolumeInput)?.removeEventListener('input', handleMasterVolumeInput)
+            Option.getOrNull(sfxVolumeInput)?.removeEventListener('input', handleSfxVolumeInput)
+            Option.getOrNull(musicVolumeInput)?.removeEventListener('input', handleMusicVolumeInput)
+            Option.getOrNull(qualitySelect)?.removeEventListener('change', handleQualityChange)
+            Option.getOrNull(closeBtn)?.removeEventListener('click', handleClose)
+            const gear = Option.getOrNull(gearBtn)
+            if (gear !== null) { gear.removeEventListener('click', handleGearClick); gear.remove() }
+            Option.getOrNull(overlayEl)?.remove()
           })
         ).pipe(Effect.as({
         toggle: (): Effect.Effect<boolean, never> =>
           Ref.modify(isVisibleRef, (current): [boolean, boolean] => [!current, !current]).pipe(
             Effect.tap((next) => Effect.sync(() => {
-              Option.map(overlayEl, (el) => { el.style.display = next ? 'block' : 'none' })
+              const el = Option.getOrNull(overlayEl)
+              if (el !== null) el.style.display = next ? 'block' : 'none'
             })),
             Effect.tap((next) => next ? syncEffect() : Effect.void),
           ),

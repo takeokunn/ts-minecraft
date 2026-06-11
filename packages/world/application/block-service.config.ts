@@ -164,6 +164,18 @@ export const PICKAXE_BLOCK_TYPES: HashSet.HashSet<ItemType> = HashSet.fromIterab
   'DIAMOND_PICKAXE',
 ])
 
+export const HOE_ITEM_TYPES: HashSet.HashSet<ItemType> = HashSet.fromIterable<ItemType>([
+  'WOODEN_HOE',
+  'STONE_HOE',
+  'IRON_HOE',
+  'DIAMOND_HOE',
+])
+
+export const TILLABLE_BLOCK_TYPES: HashSet.HashSet<BlockType> = HashSet.fromIterable<BlockType>([
+  'DIRT',
+  'GRASS',
+])
+
 // Blocks that benefit from Fortune enchantment (ore drops that can be multiplied).
 export const FORTUNE_ORE_BLOCKS: HashSet.HashSet<BlockType> = HashSet.fromIterable<BlockType>([
   'COAL_ORE', 'DEEPSLATE_COAL_ORE',

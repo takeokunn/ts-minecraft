@@ -37,10 +37,8 @@ export class MusicManager extends Effect.Service<MusicManager>()(
       const stopActiveTrack = (): Effect.Effect<void, never> =>
         Effect.gen(function* () {
           const activeTrackOpt = yield* Ref.getAndSet(activeTrackRef, Option.none())
-          yield* Option.match(activeTrackOpt, {
-            onNone: () => Effect.void,
-            onSome: (activeTrack) => audioEngine.stopTone(activeTrack.handle),
-          })
+          const activeTrack = Option.getOrNull(activeTrackOpt)
+          if (activeTrack !== null) yield* audioEngine.stopTone(activeTrack.handle)
         })
 
       const playEnvironmentTrack = (environment: MusicEnvironment): Effect.Effect<void, never> =>
@@ -100,7 +98,7 @@ export class MusicManager extends Effect.Service<MusicManager>()(
             environmentFromContext(
               context.isNight,
               context.playerPosition,
-              Option.getOrElse(Option.fromNullable(context.caveThresholdY), () => DEFAULT_CAVE_THRESHOLD_Y),
+              context.caveThresholdY ?? DEFAULT_CAVE_THRESHOLD_Y,
             )
           ),
 

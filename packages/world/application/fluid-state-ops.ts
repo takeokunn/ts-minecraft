@@ -15,33 +15,27 @@ export const removeCell = (state: FluidState, position: Position): FluidState =>
   cells: HashMap.remove(state.cells, blockKey(position)),
 })
 
-export const hydrateChunk = (state: FluidState, chunk: Chunk): FluidState =>
-  Option.match(
-    Option.filter(
-      chunk.fluid,
-      (b) => b.byteLength === FLUID_BYTE_LENGTH && b.some((byte) => byte !== 0)
-    ),
-    {
-      onNone: () =>
-        chunk.blocks.reduce((acc: FluidState, blockIdx: number, idx: number): FluidState => {
-          if (blockIdx !== WATER_INDEX && blockIdx !== LAVA_INDEX) return acc
-          const position = positionFromChunk(chunk.coord, idx)
-          const type: FluidType = blockIdx === LAVA_INDEX ? 'lava' : 'water'
-          const next = setCell(acc, position, { level: 0, source: true, type })
-          return { ...next, frontier: enqueue(next.frontier, position) }
-        }, state),
-      onSome: (fluid) =>
-        fluid.reduce((acc: FluidState, byte: number, idx: number): FluidState => {
-          if (byte === 0) return acc
-          return Option.match(decodeFluidByte(byte), {
-            /* c8 ignore next */
-            onNone: () => acc,
-            onSome: (cell) => {
-              const position = positionFromChunk(chunk.coord, idx)
-              const next = setCell(acc, position, cell)
-              return { ...next, frontier: enqueue(next.frontier, position) }
-            },
-          })
-        }, state),
-    }
-  )
+export const hydrateChunk = (state: FluidState, chunk: Chunk): FluidState => {
+  const fluid = Option.getOrNull(Option.filter(
+    chunk.fluid,
+    (b) => b.byteLength === FLUID_BYTE_LENGTH && b.some((byte) => byte !== 0)
+  ))
+  if (fluid === null) {
+    return chunk.blocks.reduce((acc: FluidState, blockIdx: number, idx: number): FluidState => {
+      if (blockIdx !== WATER_INDEX && blockIdx !== LAVA_INDEX) return acc
+      const position = positionFromChunk(chunk.coord, idx)
+      const type: FluidType = blockIdx === LAVA_INDEX ? 'lava' : 'water'
+      const next = setCell(acc, position, { level: 0, source: true, type })
+      return { ...next, frontier: enqueue(next.frontier, position) }
+    }, state)
+  }
+  return fluid.reduce((acc: FluidState, byte: number, idx: number): FluidState => {
+    if (byte === 0) return acc
+    const cell = Option.getOrNull(decodeFluidByte(byte))
+    /* c8 ignore next */
+    if (cell === null) return acc
+    const position = positionFromChunk(chunk.coord, idx)
+    const next = setCell(acc, position, cell)
+    return { ...next, frontier: enqueue(next.frontier, position) }
+  }, state)
+}

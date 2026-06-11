@@ -13,11 +13,10 @@ export const decodeWorldMetadata = (value: unknown, operation: string): Effect.E
     Effect.mapError((e) => new StorageError({ operation, cause: e })),
   )
 
-export const decodeOptionalWorldMetadata = (value: WorldMetadataEncoded | undefined): Effect.Effect<Option.Option<WorldMetadata>, StorageError> =>
-  Option.match(Option.fromNullable(value), {
-    onNone: () => Effect.succeed(Option.none<WorldMetadata>()),
-    onSome: (r) => decodeWorldMetadata(r, 'loadWorldMetadata').pipe(Effect.map(Option.some)),
-  })
+export const decodeOptionalWorldMetadata = (value: WorldMetadataEncoded | undefined): Effect.Effect<Option.Option<WorldMetadata>, StorageError> => {
+  if (value === undefined) return Effect.succeed(Option.none<WorldMetadata>())
+  return decodeWorldMetadata(value, 'loadWorldMetadata').pipe(Effect.map(Option.some))
+}
 
 export const collectDecodedWorldMetadata = (
   rows: ReadonlyArray<{ readonly key: string; readonly value: unknown }>,
@@ -32,14 +31,9 @@ export const collectDecodedWorldMetadata = (
       rows,
       (row) =>
         Schema.decodeUnknown(WorldMetadataSchema)(row.value).pipe(
-          Effect.match({
-            onSuccess: (metadata) => {
-              valid.push({ worldId: row.key as WorldId, metadata })
-            },
-            onFailure: () => {
-              corrupt.push(row.key as WorldId)
-            },
-          }),
+          Effect.tap((metadata) => Effect.sync(() => { valid.push({ worldId: row.key as WorldId, metadata }) })),
+          Effect.tapError(() => Effect.sync(() => { corrupt.push(row.key as WorldId) })),
+          Effect.ignore,
         ),
       { concurrency: 1 },
     )

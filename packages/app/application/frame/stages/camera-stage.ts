@@ -37,8 +37,8 @@ export const cameraStage = (
     // movement-service's sprint rule). Ease the camera FOV toward the target and
     // only touch the projection matrix when it actually changes.
     const [ctrlL, ctrlR, forward, sneak] = yield* Effect.all([
-      services.inputService.isKeyPressed('ControlLeft'),
-      services.inputService.isKeyPressed('ControlRight'),
+      services.inputService.isKeyPressed(KeyMappings.SPRINT),
+      services.inputService.isKeyPressed(KeyMappings.SPRINT_ALT),
       services.inputService.isKeyPressed(KeyMappings.MOVE_FORWARD),
       services.inputService.isKeyPressed(KeyMappings.SNEAK),
     ])

@@ -5,10 +5,16 @@ import {
   computeKnockback,
   computeAttackCharge,
   computeChargedDamage,
+  computeWeaponEnchantBonus,
+  getWeaponBaseDamage,
   CRITICAL_DAMAGE_MULTIPLIER,
   KNOCKBACK_HORIZONTAL_SPEED,
   KNOCKBACK_VERTICAL_SPEED,
+  PLAYER_ATTACK_DAMAGE,
+  UNDEAD_MOB_TYPES,
+  ARTHROPOD_MOB_TYPES,
 } from '@ts-minecraft/entity'
+import { getSharpnessDamageBonus, getSmiteDamageBonus, getBaneOfArthropodsDamageBonus } from '@ts-minecraft/inventory'
 import { Array as Arr } from 'effect'
 import { expect } from 'vitest'
 
@@ -144,5 +150,67 @@ describe('computeChargedDamage', () => {
   it('clamps charge outside [0,1]', () => {
     expect(computeChargedDamage(10, 5)).toBeCloseTo(10)
     expect(computeChargedDamage(10, -1)).toBeCloseTo(2)
+  })
+})
+
+describe('getWeaponBaseDamage', () => {
+  it('returns PLAYER_ATTACK_DAMAGE for undefined (bare hand)', () => {
+    expect(getWeaponBaseDamage(undefined)).toBe(PLAYER_ATTACK_DAMAGE)
+  })
+
+  it('returns PLAYER_ATTACK_DAMAGE for an unknown item type', () => {
+    expect(getWeaponBaseDamage('PLANKS')).toBe(PLAYER_ATTACK_DAMAGE)
+  })
+
+  it('returns the correct damage for each sword tier', () => {
+    expect(getWeaponBaseDamage('WOODEN_SWORD')).toBe(8)
+    expect(getWeaponBaseDamage('STONE_SWORD')).toBe(9)
+    expect(getWeaponBaseDamage('IRON_SWORD')).toBe(12)
+    expect(getWeaponBaseDamage('DIAMOND_SWORD')).toBe(16)
+  })
+
+  it('returns the correct damage for each axe tier', () => {
+    expect(getWeaponBaseDamage('WOODEN_AXE')).toBe(9)
+    expect(getWeaponBaseDamage('STONE_AXE')).toBe(10)
+    expect(getWeaponBaseDamage('IRON_AXE')).toBe(11)
+    expect(getWeaponBaseDamage('DIAMOND_AXE')).toBe(13)
+  })
+})
+
+describe('computeWeaponEnchantBonus', () => {
+  it('returns 0 with no enchantments', () => {
+    expect(computeWeaponEnchantBonus([], 'Zombie')).toBe(0)
+  })
+
+  it('applies SHARPNESS bonus regardless of mob type', () => {
+    const enchants = [{ type: 'SHARPNESS' as const, level: 3 as const }]
+    expect(computeWeaponEnchantBonus(enchants, 'Zombie')).toBeCloseTo(getSharpnessDamageBonus(3))
+    expect(computeWeaponEnchantBonus(enchants, 'Spider')).toBeCloseTo(getSharpnessDamageBonus(3))
+    expect(computeWeaponEnchantBonus(enchants, 'Creeper')).toBeCloseTo(getSharpnessDamageBonus(3))
+  })
+
+  it('applies SMITE only against UNDEAD_MOB_TYPES', () => {
+    const enchants = [{ type: 'SMITE' as const, level: 2 as const }]
+    for (const undead of UNDEAD_MOB_TYPES) {
+      expect(computeWeaponEnchantBonus(enchants, undead)).toBeCloseTo(getSmiteDamageBonus(2))
+    }
+    expect(computeWeaponEnchantBonus(enchants, 'Spider')).toBe(0)
+    expect(computeWeaponEnchantBonus(enchants, 'Creeper')).toBe(0)
+  })
+
+  it('applies BANE_OF_ARTHROPODS only against ARTHROPOD_MOB_TYPES', () => {
+    const enchants = [{ type: 'BANE_OF_ARTHROPODS' as const, level: 4 as const }]
+    for (const arthropod of ARTHROPOD_MOB_TYPES) {
+      expect(computeWeaponEnchantBonus(enchants, arthropod)).toBeCloseTo(getBaneOfArthropodsDamageBonus(4))
+    }
+    expect(computeWeaponEnchantBonus(enchants, 'Zombie')).toBe(0)
+  })
+
+  it('SHARPNESS takes priority over SMITE when both present', () => {
+    const enchants = [
+      { type: 'SHARPNESS' as const, level: 1 as const },
+      { type: 'SMITE' as const, level: 5 as const },
+    ]
+    expect(computeWeaponEnchantBonus(enchants, 'Zombie')).toBeCloseTo(getSharpnessDamageBonus(1))
   })
 })

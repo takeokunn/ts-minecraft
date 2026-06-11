@@ -23,6 +23,8 @@ export const findAttackableEntity = (
 
   const rayOrigin = camera.position
   const radiusSq = PLAYER_ATTACK_RADIUS * PLAYER_ATTACK_RADIUS
+  // Hoist out of reduce so the Option unwrap is O(1) per call, not O(n).
+  const maxDistanceVal = Option.getOrNull(maxDistance)
 
   const closest = Arr.reduce(
     entities,
@@ -36,17 +38,16 @@ export const findAttackableEntity = (
       const alongRay = ex * dirX + ey * dirY + ez * dirZ
       if (alongRay < 0 || alongRay > maxReach) return acc
       /* c8 ignore next */
-      if (Option.match(maxDistance, { onNone: () => false, onSome: (d) => alongRay > d })) return acc
+      if (maxDistanceVal !== null && alongRay > maxDistanceVal) return acc
 
       const perpendicularSq = Math.max(0, (ex * ex + ey * ey + ez * ez) - alongRay * alongRay)
       if (perpendicularSq > radiusSq) return acc
 
-      return Option.match(acc, {
-        onNone: () => Option.some({ id: entity.entityId, dist: alongRay }),
-        onSome: (best) => alongRay < best.dist
-          ? Option.some({ id: entity.entityId, dist: alongRay })
-          : acc,
-      })
+      const accVal = Option.getOrNull(acc)
+      if (accVal === null || alongRay < accVal.dist) {
+        return Option.some({ id: entity.entityId, dist: alongRay })
+      }
+      return acc
     },
   )
 

@@ -85,19 +85,23 @@ export class LoadingScreenService extends Effect.Service<LoadingScreenService>()
           return { overlayEl: Option.some(el), styleEl: Option.some(styleEl) }
         }),
         ({ overlayEl, styleEl }) => Effect.sync(() => {
-          Option.map(overlayEl, (el) => dom.removeChild(el))
-          Option.map(styleEl, (s) => { if (s.parentNode) s.parentNode.removeChild(s) })
+          const el = Option.getOrNull(overlayEl)
+          if (el !== null) dom.removeChild(el)
+          const s = Option.getOrNull(styleEl)
+          if (s !== null && s.parentNode) s.parentNode.removeChild(s)
         })
       ).pipe(
         Effect.map(({ overlayEl }) => ({
           hide: (): Effect.Effect<void, never> => Effect.sync(() => {
-            Option.map(overlayEl, (el) => { el.style.display = 'none' })
+            const el = Option.getOrNull(overlayEl)
+            if (el !== null) el.style.display = 'none'
           }),
           showError: (message: string): Effect.Effect<void, never> => Effect.sync(() => {
-            Option.map(overlayEl, (el) => {
+            const el = Option.getOrNull(overlayEl)
+            if (el !== null) {
               el.style.display = 'flex'
               renderErrorView(dom, el, message)
-            })
+            }
           }),
         }))
       )

@@ -104,41 +104,37 @@ export const createEntityInstancePool = (): EntityInstancePool => {
     type: EntityType,
     role: PartRole,
   ): Option.Option<Bucket> => {
-    const specOpt = getRoleSpec(type, role)
-    if (Option.isNone(specOpt)) return Option.none()
-    const spec = specOpt.value
+    const spec = Option.getOrNull(getRoleSpec(type, role))
+    if (spec === null) return Option.none()
     const key = makeBucketKey(type, role)
-    return Option.match(MutableHashMap.get(buckets, key), {
-      onSome: Option.some,
-      onNone: () => {
-        const geometry = buildBucketGeometry(spec.size, spec.pivot)
-        const material = new THREE.MeshStandardMaterial({
-          color: spec.color,
-          emissive: spec.color,
-          emissiveIntensity: 0.12,
-          roughness: 0.9,
-          metalness: 0.0,
-        })
-        const mesh = new THREE.InstancedMesh(geometry, material, MAX_INSTANCES_PER_TYPE)
-        mesh.castShadow = true
-        mesh.receiveShadow = true
-        mesh.count = 0 // start empty; grows as slots are allocated
-        mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage)
-        mesh.frustumCulled = true // bucket-level culling matches FR-2.5 design
-        scene.add(mesh)
-        const bucket: Bucket = {
-          mesh,
-          geometry,
-          material,
-          spec,
-          slotEntities: Array.from({ length: MAX_INSTANCES_PER_TYPE }, (): string | null => null),
-          count: 0,
-        }
-        MutableHashMap.set(buckets, key, bucket)
-        MutableHashMap.set(slotIndex, key, MutableHashMap.empty<string, number>())
-        return Option.some(bucket)
-      },
+    const cached = Option.getOrNull(MutableHashMap.get(buckets, key))
+    if (cached !== null) return Option.some(cached)
+    const geometry = buildBucketGeometry(spec.size, spec.pivot)
+    const material = new THREE.MeshStandardMaterial({
+      color: spec.color,
+      emissive: spec.color,
+      emissiveIntensity: 0.12,
+      roughness: 0.9,
+      metalness: 0.0,
     })
+    const mesh = new THREE.InstancedMesh(geometry, material, MAX_INSTANCES_PER_TYPE)
+    mesh.castShadow = true
+    mesh.receiveShadow = true
+    mesh.count = 0 // start empty; grows as slots are allocated
+    mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage)
+    mesh.frustumCulled = true // bucket-level culling matches FR-2.5 design
+    scene.add(mesh)
+    const bucket: Bucket = {
+      mesh,
+      geometry,
+      material,
+      spec,
+      slotEntities: Array.from({ length: MAX_INSTANCES_PER_TYPE }, (): string | null => null),
+      count: 0,
+    }
+    MutableHashMap.set(buckets, key, bucket)
+    MutableHashMap.set(slotIndex, key, MutableHashMap.empty<string, number>())
+    return Option.some(bucket)
   }
 
   const allocateSlot = (
@@ -154,16 +150,16 @@ export const createEntityInstancePool = (): EntityInstancePool => {
       bucket.count = slot + 1
       bucket.mesh.count = bucket.count
       const key = makeBucketKey(type, role)
-      Option.match(MutableHashMap.get(slotIndex, key), {
-        onSome: (idx) => MutableHashMap.set(idx, entityId, slot),
-        onNone: () => {
+      const existingIdx = Option.getOrNull(MutableHashMap.get(slotIndex, key))
+      if (existingIdx !== null) {
+        MutableHashMap.set(existingIdx, entityId, slot)
+      } else {
           /* c8 ignore start -- first-time bucket creation for a type/role pair; only runs once per new combination */
           const idx = MutableHashMap.empty<string, number>()
           MutableHashMap.set(idx, entityId, slot)
           MutableHashMap.set(slotIndex, key, idx)
           /* c8 ignore end */
-        },
-      })
+      }
       return Option.some(slot)
     })
 
@@ -173,14 +169,11 @@ export const createEntityInstancePool = (): EntityInstancePool => {
     entityId: string,
   ): void => {
     const key = makeBucketKey(type, role)
-    const bucketOpt = MutableHashMap.get(buckets, key)
-    const idxOpt = MutableHashMap.get(slotIndex, key)
-    if (Option.isNone(bucketOpt) || Option.isNone(idxOpt)) return
-    const bucket = bucketOpt.value
-    const idx = idxOpt.value
-    const slotOpt = MutableHashMap.get(idx, entityId)
-    if (Option.isNone(slotOpt)) return
-    const slot = slotOpt.value
+    const bucket = Option.getOrNull(MutableHashMap.get(buckets, key))
+    const idx = Option.getOrNull(MutableHashMap.get(slotIndex, key))
+    if (bucket === null || idx === null) return
+    const slot = Option.getOrNull(MutableHashMap.get(idx, entityId))
+    if (slot === null) return
     const last = bucket.count - 1
     if (slot !== last) {
       // Swap last → slot: copy matrix from `last`, update bookkeeping.
@@ -205,10 +198,8 @@ export const createEntityInstancePool = (): EntityInstancePool => {
     matrix: THREE.Matrix4,
   ): void => {
     const key = makeBucketKey(type, role)
-    Option.match(MutableHashMap.get(buckets, key), {
-      onSome: (b) => b.mesh.setMatrixAt(slot, matrix),
-      onNone: () => {},
-    })
+    const b = Option.getOrNull(MutableHashMap.get(buckets, key))
+    if (b !== null) b.mesh.setMatrixAt(slot, matrix)
   }
 
   const flushAll = (): void => {

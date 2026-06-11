@@ -4,15 +4,35 @@ import type { FrameHandlerDeps, FrameHandlerServices, FrameStageRefs } from '@ts
 import { applyArmorReduction } from '@ts-minecraft/entity'
 import { DEFAULT_PLAYER_ID, CHUNK_SIZE, CHUNK_HEIGHT, indexToBlockType, SlotIndex } from '@ts-minecraft/core'
 import { KeyMappings } from '@ts-minecraft/entity'
-import { HOTBAR_START, getFeatherFallingReduction, getFireProtectionReduction, getRespirationBonusSecs } from '@ts-minecraft/inventory'
+import { HOTBAR_START, getFeatherFallingReduction, getFireProtectionReduction, getRespirationBonusSecs, enchantmentsOf } from '@ts-minecraft/inventory'
 import type { DeltaTimeSecs, Position } from '@ts-minecraft/core'
 import { EXHAUSTION_WALK_PER_BLOCK, EXHAUSTION_SPRINT_PER_BLOCK, EXHAUSTION_SPRINT_JUMP, EXHAUSTION_JUMP, EXHAUSTION_DAMAGE, MAX_FOOD_LEVEL } from '@ts-minecraft/entity'
 import { accrueHazardTicks, nextAirSecs, LAVA_DAMAGE, LAVA_DAMAGE_INTERVAL_SECS, DROWN_DAMAGE, DROWN_DAMAGE_INTERVAL_SECS, MAX_AIR_SECS } from '@ts-minecraft/entity'
 import { EYE_LEVEL_OFFSET } from '@ts-minecraft/app/frame-handler.config'
-import { resolveNetherTravel, type Dimension } from '@ts-minecraft/world'
+import { resolveNetherTravel, type Dimension, type ChunkManagerService } from '@ts-minecraft/world'
 
 /** Seconds a player must stand in a NETHER_PORTAL block to trigger dimension travel. */
 const PORTAL_ACTIVATION_SECS = 4.0
+
+type DamageServices = Pick<FrameHandlerServices, 'healthService' | 'hungerService'>
+
+const tryApplyPlayerDamage = (
+  amount: number,
+  isSpectatorMode: boolean,
+  services: DamageServices,
+): Effect.Effect<boolean, never> => {
+  if (amount <= 0 || isSpectatorMode) return Effect.succeed(false)
+  return services.healthService.getHealth().pipe(
+    Effect.flatMap((health) =>
+      health.current <= 0 || health.invincibilityTicks > 0
+        ? Effect.succeed(false)
+        : services.healthService.applyDamage(amount).pipe(
+            Effect.flatMap(() => services.hungerService.addExhaustion(EXHAUSTION_DAMAGE)),
+            Effect.as(true),
+          ),
+    ),
+  )
+}
 
 /**
  * Pure column-reader: given a resolved chunkOpt plus the pre-computed local
@@ -26,15 +46,30 @@ const makeColumnReader = (
   chunkOpt: Option.Option<{ readonly blocks: ArrayLike<number> }>,
   lx: number,
   lz: number,
-): ((wy: number) => ReturnType<typeof indexToBlockType> | null) =>
-  (wy: number) => {
+): ((wy: number) => ReturnType<typeof indexToBlockType> | null) => {
+  const chunk = Option.getOrNull(chunkOpt)
+  return (wy: number) => {
     const by = Math.floor(wy)
-    if (by < 0 || by >= CHUNK_HEIGHT) return null
-    return Option.match(chunkOpt, {
-      onNone: () => null,
-      onSome: (chunk) => indexToBlockType(chunk.blocks[by + lz * CHUNK_HEIGHT + lx * CHUNK_HEIGHT * CHUNK_SIZE] ?? 0),
-    })
+    if (by < 0 || by >= CHUNK_HEIGHT || chunk === null) return null
+    return indexToBlockType(chunk.blocks[by + lz * CHUNK_HEIGHT + lx * CHUNK_HEIGHT * CHUNK_SIZE] ?? 0)
   }
+}
+
+const makeColumnReaderAt = (
+  chunkManagerService: ChunkManagerService,
+  pos: Position,
+): Effect.Effect<(wy: number) => ReturnType<typeof indexToBlockType> | null> => {
+  const bx = Math.floor(pos.x)
+  const bz = Math.floor(pos.z)
+  const lx = ((bx % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE
+  const lz = ((bz % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE
+  return chunkManagerService
+    .getChunk({ x: Math.floor(bx / CHUNK_SIZE), z: Math.floor(bz / CHUNK_SIZE) })
+    .pipe(
+      Effect.option,
+      Effect.map((chunkOpt) => makeColumnReader(chunkOpt, lx, lz)),
+    )
+}
 
 export const physicsStage = (
   deps: Pick<FrameHandlerDeps, 'respawnPositionRef'>,
@@ -82,19 +117,7 @@ export const physicsStage = (
 
         // Spectator is immune to ALL damage (every source routes through here).
         const isSpectatorMode = yield* services.gameMode.isSpectator()
-        const tryApplyPlayerDamage = (amount: number): Effect.Effect<boolean, never> =>
-          amount <= 0 || isSpectatorMode
-            ? Effect.succeed(false)
-            : services.healthService.getHealth().pipe(
-                Effect.flatMap((health) =>
-                  health.current <= 0 || health.invincibilityTicks > 0
-                    ? Effect.succeed(false)
-                    : services.healthService.applyDamage(amount).pipe(
-                        Effect.flatMap(() => services.hungerService.addExhaustion(EXHAUSTION_DAMAGE)),
-                        Effect.as(true),
-                      ),
-                ),
-              )
+        const applyDamage = (amount: number) => tryApplyPlayerDamage(amount, isSpectatorMode, services)
 
         const isGrounded = yield* services.gameState.isPlayerGrounded()
         const rawFallDamage = yield* services.healthService.processFallDamage(refreshedPos.y, isGrounded)
@@ -102,14 +125,12 @@ export const physicsStage = (
         const fallDamage = yield* rawFallDamage > 0
           ? services.equipmentService.getEquippedItem('BOOTS').pipe(
               Effect.map((bootsOpt) => {
-                const ff = Option.isSome(bootsOpt)
-                  ? (bootsOpt.value.enchantments ?? []).find((e) => e.type === 'FEATHER_FALLING')
-                  : undefined
+                const ff = enchantmentsOf(bootsOpt).find((e) => e.type === 'FEATHER_FALLING')
                 return ff ? rawFallDamage * (1 - getFeatherFallingReduction(ff.level)) : rawFallDamage
               }),
             )
           : Effect.succeed(rawFallDamage)
-        const tookFallDamage = yield* tryApplyPlayerDamage(fallDamage)
+        const tookFallDamage = yield* applyDamage(fallDamage)
         if (tookFallDamage) {
           yield* services.soundManager.playEffect('playerHurt', { position: refreshedPos })
         }
@@ -133,7 +154,7 @@ export const physicsStage = (
           yield* services.inventoryService.damageSlot(SlotIndex.make(HOTBAR_START + shieldSlot), 1)
             .pipe(Effect.catchAllCause(() => Effect.void))
         }
-        const tookHostileDamage = yield* tryApplyPlayerDamage(hostileDamage)
+        const tookHostileDamage = yield* applyDamage(hostileDamage)
         if (tookHostileDamage) {
           yield* services.soundManager.playEffect('playerHurt', { position: refreshedPos })
           // Each piece of worn armor loses 1 durability when the player takes a hit.
@@ -186,8 +207,8 @@ export const physicsStage = (
           // Sequential: isKeyPressed is a synchronous Set lookup; unbounded
           // concurrency would spawn 4 fibers every frame for no parallelism gain.
           const [ctrlL, ctrlR, forward, sneak] = yield* Effect.all([
-            services.inputService.isKeyPressed('ControlLeft'),
-            services.inputService.isKeyPressed('ControlRight'),
+            services.inputService.isKeyPressed(KeyMappings.SPRINT),
+            services.inputService.isKeyPressed(KeyMappings.SPRINT_ALT),
             services.inputService.isKeyPressed(KeyMappings.MOVE_FORWARD),
             services.inputService.isKeyPressed(KeyMappings.SNEAK),
           ])
@@ -216,7 +237,7 @@ export const physicsStage = (
           if (hungerEffect === 'regen') {
             yield* services.healthService.heal(1)
           } else if (hungerEffect === 'starve') {
-            const starved = yield* tryApplyPlayerDamage(1)
+            const starved = yield* applyDamage(1)
             if (starved) {
               yield* services.soundManager.playEffect('playerHurt', { position: refreshedPos })
             }
@@ -227,18 +248,16 @@ export const physicsStage = (
           // frame. When the bobber resolves it yields the caught item, which we
           // deposit into the inventory with a soft audible cue. A full inventory
           // drops the catch (catchAll) rather than crashing the frame.
-          const caught = yield* services.fishingService.tick(inputs.deltaTime)
-          yield* Option.match(caught, {
-            onNone: () => Effect.void,
-            onSome: (item) =>
-              Effect.all(
-                [
-                  services.inventoryService.addBlock(item, 1).pipe(Effect.catchAll(() => Effect.void)),
-                  services.soundManager.playEffect('blockPlace', { position: refreshedPos }),
-                ],
-                { concurrency: 'unbounded', discard: true },
-              ),
-          })
+          const caught = Option.getOrNull(yield* services.fishingService.tick(inputs.deltaTime))
+          if (caught !== null) {
+            yield* Effect.all(
+              [
+                services.inventoryService.addBlock(caught, 1).pipe(Effect.catchAll(() => Effect.void)),
+                services.soundManager.playEffect('blockPlace', { position: refreshedPos }),
+              ],
+              { concurrency: 'unbounded', discard: true },
+            )
+          }
 
           // Lava burn (FR-2 / T14a): standing in LAVA deals LAVA_DAMAGE every
           // LAVA_DAMAGE_INTERVAL_SECS. Creative players are immune (vanilla). The
@@ -246,14 +265,7 @@ export const physicsStage = (
           // Fetch the player's chunk column ONCE, then read block types at any Y
           // synchronously. The feet (lava) and eye (drowning) checks share the same
           // x,z column — a single getChunk avoids a redundant per-frame fetch.
-          const _bx = Math.floor(refreshedPos.x)
-          const _bz = Math.floor(refreshedPos.z)
-          const _lx = ((_bx % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE
-          const _lz = ((_bz % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE
-          const _colChunkOpt = yield* services.chunkManagerService
-            .getChunk({ x: Math.floor(_bx / CHUNK_SIZE), z: Math.floor(_bz / CHUNK_SIZE) })
-            .pipe(Effect.option)
-          const columnBlockAt = makeColumnReader(_colChunkOpt, _lx, _lz)
+          const columnBlockAt = yield* makeColumnReaderAt(services.chunkManagerService, refreshedPos)
           const feetBlock = columnBlockAt(refreshedPos.y)
           if (!inCreative && feetBlock === 'LAVA') {
             const { acc, ticks } = accrueHazardTicks(
@@ -269,15 +281,14 @@ export const physicsStage = (
                 0.64,
                 [armorSlots.HELMET, armorSlots.CHESTPLATE, armorSlots.LEGGINGS, armorSlots.BOOTS].reduce(
                   (acc, slotOpt) => {
-                    if (!Option.isSome(slotOpt)) return acc
-                    const fp = (slotOpt.value.enchantments ?? []).find((e) => e.type === 'FIRE_PROTECTION')
+                    const fp = enchantmentsOf(slotOpt).find((e) => e.type === 'FIRE_PROTECTION')
                     return acc + (fp ? getFireProtectionReduction(fp.level) : 0)
                   },
                   0,
                 ),
               )
               const lavaDamage = LAVA_DAMAGE * ticks * (1 - fireProtTotal)
-              const burned = yield* tryApplyPlayerDamage(lavaDamage)
+              const burned = yield* applyDamage(lavaDamage)
               if (burned) {
                 yield* services.soundManager.playEffect('playerHurt', { position: refreshedPos })
               }
@@ -293,9 +304,7 @@ export const physicsStage = (
           const headSubmerged = !inCreative && eyeBlock === 'WATER'
           // RESPIRATION: each level adds 15s to the maximum air supply.
           const helmetOpt = yield* services.equipmentService.getEquippedItem('HELMET')
-          const respirationEnch = Option.isSome(helmetOpt)
-            ? (helmetOpt.value.enchantments ?? []).find((e) => e.type === 'RESPIRATION')
-            : undefined
+          const respirationEnch = enchantmentsOf(helmetOpt).find((e) => e.type === 'RESPIRATION')
           const effectiveMaxAirSecs = respirationEnch
             ? MAX_AIR_SECS + getRespirationBonusSecs(respirationEnch.level)
             : MAX_AIR_SECS
@@ -309,7 +318,7 @@ export const physicsStage = (
             )
             MutableRef.set(refs.drownDamageSecsRef, drown.acc)
             if (drown.ticks > 0) {
-              const drowned = yield* tryApplyPlayerDamage(DROWN_DAMAGE * drown.ticks)
+              const drowned = yield* applyDamage(DROWN_DAMAGE * drown.ticks)
               if (drowned) {
                 yield* services.soundManager.playEffect('playerHurt', { position: refreshedPos })
               }
@@ -397,23 +406,9 @@ export const physicsStage = (
     // teleport after PORTAL_ACTIVATION_SECS (frame-rate independent).
     yield* logErrors(
       Effect.gen(function* () {
-        const px = Math.floor(playerPos.x)
         const py = Math.floor(playerPos.y)
-        const pz = Math.floor(playerPos.z)
-        const chunkCoord = {
-          x: Math.floor(px / CHUNK_SIZE),
-          z: Math.floor(pz / CHUNK_SIZE),
-        }
-        const lx = ((px % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE
-        const lz = ((pz % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE
-        const chunkOpt = yield* services.chunkManagerService.getChunk(chunkCoord).pipe(Effect.option)
-        const inPortal = Option.match(chunkOpt, {
-          onNone: () => false,
-          onSome: (chunk) => {
-            const idx = py + lz * CHUNK_HEIGHT + lx * CHUNK_HEIGHT * CHUNK_SIZE
-            return py >= 0 && py < CHUNK_HEIGHT && indexToBlockType(chunk.blocks[idx] ?? 0) === 'NETHER_PORTAL'
-          },
-        })
+        const columnBlockAt = yield* makeColumnReaderAt(services.chunkManagerService, playerPos)
+        const inPortal = columnBlockAt(py) === 'NETHER_PORTAL'
 
         if (inPortal) {
           const newSecs = yield* Ref.updateAndGet(refs.portalSecsRef, (s) => s + inputs.deltaTime)
@@ -428,44 +423,41 @@ export const physicsStage = (
             yield* services.chunkManagerService.setActiveDimension(plan.toDimension)
             yield* services.gameState.respawn(plan.destination)
             yield* Ref.set(refs.finalPosRef, plan.destination)
-            yield* Option.match(plan.portalToCreate, {
-              onNone: () => Effect.void,
-              onSome: (layout) =>
-                Effect.gen(function* () {
-                  yield* Effect.forEach(
-                    layout.frame,
-                    (pos) => services.blockService.forceSetBlock(pos, 'OBSIDIAN').pipe(Effect.catchAll(() => Effect.void)),
-                    { concurrency: 'unbounded', discard: true },
+            const portalLayout = Option.getOrNull(plan.portalToCreate)
+            if (portalLayout !== null) {
+              yield* Effect.forEach(
+                portalLayout.frame,
+                (pos) => services.blockService.forceSetBlock(pos, 'OBSIDIAN').pipe(Effect.catchAll(() => Effect.void)),
+                { concurrency: 'unbounded', discard: true },
+              )
+              yield* Effect.forEach(
+                portalLayout.interior,
+                (pos) => services.blockService.forceSetBlock(pos, 'NETHER_PORTAL').pipe(Effect.catchAll(() => Effect.void)),
+                { concurrency: 'unbounded', discard: true },
+              )
+              yield* services.netherService.registerPortal(plan.destination, plan.toDimension)
+              const allPositions = [...portalLayout.frame, ...portalLayout.interior]
+              const affectedCoordKeys = Array.from(
+                new Set(allPositions.map((pos) => `${Math.floor(pos.x / CHUNK_SIZE)},${Math.floor(pos.z / CHUNK_SIZE)}`)),
+              )
+              yield* Effect.forEach(
+                affectedCoordKeys,
+                (coordKey) => {
+                  const parts = coordKey.split(',')
+                  const cx = parseInt(parts[0]!, 10)
+                  const cz = parseInt(parts[1]!, 10)
+                  return services.chunkManagerService.getChunk({ x: cx, z: cz }).pipe(
+                    Effect.flatMap((chunk) =>
+                      Ref.update(refs.dirtyChunksRef, (map) =>
+                        HashMap.set(map, coordKey, { chunk, dirtyAABB: Option.none() }),
+                      ),
+                    ),
+                    Effect.catchAll(() => Effect.void),
                   )
-                  yield* Effect.forEach(
-                    layout.interior,
-                    (pos) => services.blockService.forceSetBlock(pos, 'NETHER_PORTAL').pipe(Effect.catchAll(() => Effect.void)),
-                    { concurrency: 'unbounded', discard: true },
-                  )
-                  yield* services.netherService.registerPortal(plan.destination, plan.toDimension)
-                  const allPositions = [...layout.frame, ...layout.interior]
-                  const affectedCoordKeys = Array.from(
-                    new Set(allPositions.map((pos) => `${Math.floor(pos.x / CHUNK_SIZE)},${Math.floor(pos.z / CHUNK_SIZE)}`)),
-                  )
-                  yield* Effect.forEach(
-                    affectedCoordKeys,
-                    (coordKey) => {
-                      const parts = coordKey.split(',')
-                      const cx = parseInt(parts[0]!, 10)
-                      const cz = parseInt(parts[1]!, 10)
-                      return services.chunkManagerService.getChunk({ x: cx, z: cz }).pipe(
-                        Effect.flatMap((chunk) =>
-                          Ref.update(refs.dirtyChunksRef, (map) =>
-                            HashMap.set(map, coordKey, { chunk, dirtyAABB: Option.none() }),
-                          ),
-                        ),
-                        Effect.catchAll(() => Effect.void),
-                      )
-                    },
-                    { concurrency: 'unbounded', discard: true },
-                  )
-                }),
-            })
+                },
+                { concurrency: 'unbounded', discard: true },
+              )
+            }
           }
         } else {
           yield* Ref.set(refs.portalSecsRef, 0)
@@ -478,20 +470,9 @@ export const physicsStage = (
     // Standing on END_PORTAL triggers instant dimension travel (no charge-up).
     yield* logErrors(
       Effect.gen(function* () {
-        const px = Math.floor(playerPos.x)
         const py = Math.floor(playerPos.y)
-        const pz = Math.floor(playerPos.z)
-        const chunkCoord = { x: Math.floor(px / CHUNK_SIZE), z: Math.floor(pz / CHUNK_SIZE) }
-        const lx = ((px % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE
-        const lz = ((pz % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE
-        const chunkOpt = yield* services.chunkManagerService.getChunk(chunkCoord).pipe(Effect.option)
-        const onEndPortal = Option.match(chunkOpt, {
-          onNone: () => false,
-          onSome: (chunk) => {
-            const idx = py + lz * CHUNK_HEIGHT + lx * CHUNK_HEIGHT * CHUNK_SIZE
-            return py >= 0 && py < CHUNK_HEIGHT && indexToBlockType(chunk.blocks[idx] ?? 0) === 'END_PORTAL'
-          },
-        })
+        const columnBlockAt = yield* makeColumnReaderAt(services.chunkManagerService, playerPos)
+        const onEndPortal = columnBlockAt(py) === 'END_PORTAL'
         if (!onEndPortal) return
         const currentDim = yield* services.netherService.getDimension()
         const destDim: Dimension = currentDim === 'end' ? 'overworld' : 'end'

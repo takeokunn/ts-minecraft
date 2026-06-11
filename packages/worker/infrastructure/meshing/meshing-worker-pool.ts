@@ -185,13 +185,10 @@ export class MeshingWorkerPool extends Effect.Service<MeshingWorkerPool>()(
               chunk.blocks.byteOffset,
               chunk.blocks.byteOffset + chunk.blocks.byteLength
             ) as ArrayBuffer
-            const fluidBuffer: ArrayBuffer | null = Option.match(chunk.fluid, {
-              onNone: () => null,
-              onSome: (fluid) => fluid.buffer.slice(
-                fluid.byteOffset,
-                fluid.byteOffset + fluid.byteLength
-              ) as ArrayBuffer,
-            })
+            const fluidOpt = Option.getOrNull(chunk.fluid)
+            const fluidBuffer: ArrayBuffer | null = fluidOpt !== null
+              ? fluidOpt.buffer.slice(fluidOpt.byteOffset, fluidOpt.byteOffset + fluidOpt.byteLength) as ArrayBuffer
+              : null
 
             const hasLight = chunk.skyLight !== undefined && chunk.blockLight !== undefined
             const skyBuffer: ArrayBuffer | null = hasLight

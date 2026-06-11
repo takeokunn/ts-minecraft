@@ -4,54 +4,17 @@ import type { FrameHandlerDeps, FrameHandlerServices, FrameStageRefs } from '@ts
 import { findAttackableEntity } from '@ts-minecraft/app/frame/stages/attack-targeting'
 import { CHUNK_SIZE, CHUNK_HEIGHT, blockTypeToIndex, indexToBlockType, SlotIndex, ItemTypeSchema } from '@ts-minecraft/core'
 import type { BlockType, InventoryItem } from '@ts-minecraft/core'
-import { HOTBAR_START, isDurable, getSharpnessDamageBonus, getSmiteDamageBonus, getBaneOfArthropodsDamageBonus, getFortuneDropMultiplier, getPowerDamageMultiplier, getUnbreakingSkipChance, getKnockbackHorizontalMultiplier, getPunchKnockbackBonus } from '@ts-minecraft/inventory'
+import type { EntityId as EntityIdType } from '@ts-minecraft/entity'
+import { HOTBAR_START, isDurable, getFortuneDropMultiplier, getPowerDamageMultiplier, getUnbreakingSkipChance, getKnockbackHorizontalMultiplier, getPunchKnockbackBonus, enchantmentsOf } from '@ts-minecraft/inventory'
+import type { Enchantment } from '@ts-minecraft/inventory'
 import { FORTUNE_ORE_BLOCKS, PICKAXE_BLOCK_TYPES, getInventoryDropForBlock, canHarvestBlock, rollLeafDrops } from '@ts-minecraft/world'
-import { getBlockHardness, computeBreakTicks } from '@ts-minecraft/block'
-import { computeAttackDamage, computeKnockback, computeAttackCharge, computeChargedDamage, DEFAULT_ATTACK_COOLDOWN_SECS, getMobDefinition, computeBowCharge, computeBowDamage, canFireBow, BOW_MAX_RANGE, EXHAUSTION_ATTACK, dropPasses } from '@ts-minecraft/entity'
+import { getBlockHardness, computeBreakTicks, getOreXpDrop } from '@ts-minecraft/block'
+import { computeAttackDamage, computeKnockback, computeAttackCharge, computeChargedDamage, DEFAULT_ATTACK_COOLDOWN_SECS, getMobDefinition, computeBowCharge, computeBowDamage, canFireBow, BOW_MAX_RANGE, EXHAUSTION_ATTACK, dropPasses, getWeaponBaseDamage, computeWeaponEnchantBonus } from '@ts-minecraft/entity'
 import { getParticleUvOffset } from '@ts-minecraft/rendering/particles/particle-system'
 import { triggerAttackSwing } from '@ts-minecraft/presentation/hud/attack-swing'
 import {
   ENTITY_CENTER_Y_OFFSET,
-  PLAYER_ATTACK_DAMAGE,
-  WOODEN_SWORD_ATTACK_DAMAGE,
-  STONE_SWORD_ATTACK_DAMAGE,
-  IRON_SWORD_ATTACK_DAMAGE,
-  DIAMOND_SWORD_ATTACK_DAMAGE,
-  WOODEN_AXE_ATTACK_DAMAGE,
-  STONE_AXE_ATTACK_DAMAGE,
-  IRON_AXE_ATTACK_DAMAGE,
-  DIAMOND_AXE_ATTACK_DAMAGE,
 } from '@ts-minecraft/app/frame-handler.config'
-
-// XP awarded when breaking ore blocks (vanilla Java Edition values).
-// Placed here (not block-service.ts) to avoid a world↔entity circular dep.
-const ORE_XP_DROPS: Readonly<Partial<Record<string, number>>> = {
-  COAL_ORE: 5, DEEPSLATE_COAL_ORE: 5,
-  IRON_ORE: 0, DEEPSLATE_IRON_ORE: 0,    // iron/gold drop raw ore, 0 XP
-  GOLD_ORE: 0, DEEPSLATE_GOLD_ORE: 0,
-  DIAMOND_ORE: 7, DEEPSLATE_DIAMOND_ORE: 7,
-  EMERALD_ORE: 7, DEEPSLATE_EMERALD_ORE: 7,
-  LAPIS_ORE: 5, DEEPSLATE_LAPIS_ORE: 5,
-  REDSTONE_ORE: 5, DEEPSLATE_REDSTONE_ORE: 5,
-  NETHER_QUARTZ_ORE: 5,
-}
-
-// Weapon damage lookup for swords AND axes — both are melee weapons.
-// Items absent from this table use PLAYER_ATTACK_DAMAGE (bare fist).
-const SWORD_DAMAGE: Readonly<Record<string, number>> = {
-  WOODEN_SWORD: WOODEN_SWORD_ATTACK_DAMAGE,
-  STONE_SWORD: STONE_SWORD_ATTACK_DAMAGE,
-  IRON_SWORD: IRON_SWORD_ATTACK_DAMAGE,
-  DIAMOND_SWORD: DIAMOND_SWORD_ATTACK_DAMAGE,
-  WOODEN_AXE: WOODEN_AXE_ATTACK_DAMAGE,
-  STONE_AXE: STONE_AXE_ATTACK_DAMAGE,
-  IRON_AXE: IRON_AXE_ATTACK_DAMAGE,
-  DIAMOND_AXE: DIAMOND_AXE_ATTACK_DAMAGE,
-}
-
-// Vanilla mob categories for enchantment targeting. Built once at module load.
-const UNDEAD_MOB_TYPES = new Set(['Zombie', 'Skeleton'])     // SMITE applies
-const ARTHROPOD_MOB_TYPES = new Set(['Spider'])              // BANE_OF_ARTHROPODS applies
 
 // Combat-feedback hit burst: a small fleck of red particles on a landed melee
 // hit. REDSTONE_BLOCK is the red-ish source block; its top-face atlas tile UV is
@@ -116,16 +79,17 @@ export const handleBlockBreakProgress = (
       return
     }
 
-    const tb = context.targetBlock.value
+    const tb = Option.getOrNull(context.targetBlock)!
     const blockKey = `${tb.x},${tb.y},${tb.z}`
     const chunkCoord = { x: Math.floor(tb.x / CHUNK_SIZE), z: Math.floor(tb.z / CHUNK_SIZE) }
-    const chunkResult = yield* services.chunkManagerService.getChunk(chunkCoord).pipe(Effect.option)
-    if (Option.isNone(chunkResult)) {
+    const preBreakChunk = Option.getOrNull(
+      yield* services.chunkManagerService.getChunk(chunkCoord).pipe(Effect.option),
+    )
+    if (preBreakChunk === null) {
       MutableRef.set(refs.breakProgressRef, null)
       updateBreakProgressHud(context.breakProgressElementOrNull, null)
       return
     }
-    const preBreakChunk = chunkResult.value
 
     const lx = ((tb.x % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE
     const lz = ((tb.z % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE
@@ -146,7 +110,7 @@ export const handleBlockBreakProgress = (
     // and for FORTUNE/UNBREAKING/durability on break. Avoids duplicate slot reads.
     const selectedSlotIdx = yield* services.hotbarService.getSelectedSlot()
     const toolStack = yield* services.inventoryService.getSlot(SlotIndex.make(HOTBAR_START + selectedSlotIdx))
-    const toolEnchantments = Option.match(toolStack, { onNone: () => [], onSome: (s) => s.enchantments ?? [] })
+    const toolEnchantments = enchantmentsOf(toolStack)
     const efficiencyEnchant = toolEnchantments.find((e) => e.type === 'EFFICIENCY')
     const hasSilkTouch = toolEnchantments.some((e) => e.type === 'SILK_TOUCH')
 
@@ -169,10 +133,7 @@ export const handleBlockBreakProgress = (
       yield* Effect.all(
         [
           services.blockService.breakBlock(pos, hasSilkTouch),
-          Option.match(services.multiplayer, {
-            onNone: () => Effect.void,
-            onSome: (mp) => mp.sendBlockBreak(pos),
-          }),
+          (Option.getOrNull(services.multiplayer)?.sendBlockBreak(pos)) ?? Effect.void,
           services.soundManager.playEffect('blockBreak', { position: pos }),
           debugFlags['particles.spawn']
             ? services.particleSystem.spawnBurst(tb.x + 0.5, tb.y + 0.5, tb.z + 0.5, uv.u, uv.v, 6)
@@ -190,7 +151,7 @@ export const handleBlockBreakProgress = (
         }),
       )
 
-      const xp = ORE_XP_DROPS[blockType] ?? 0
+      const xp = getOreXpDrop(blockType)
       if (xp > 0) yield* services.xpService.addXP(xp)
 
       if (blockType === 'WHEAT_CROP') {
@@ -224,13 +185,9 @@ export const handleBlockBreakProgress = (
       // SILK_TOUCH and FORTUNE are mutually exclusive (vanilla). With SILK_TOUCH the ore
       // itself drops (handled by breakBlock), so skip the fortune-bonus path entirely.
       if (!hasSilkTouch && HashSet.has(FORTUNE_ORE_BLOCKS, blockType)) {
-        const fortune = Option.match(toolStack, {
-          onNone: () => undefined,
-          onSome: (s) => {
-            if (!HashSet.has(PICKAXE_BLOCK_TYPES, s.itemType)) return undefined
-            return toolEnchantments.find((e) => e.type === 'FORTUNE')
-          },
-        })
+        const fortune = Option.exists(toolStack, (s) => HashSet.has(PICKAXE_BLOCK_TYPES, s.itemType))
+          ? toolEnchantments.find((e) => e.type === 'FORTUNE')
+          : undefined
         if (fortune) {
           const extra = Math.round(getFortuneDropMultiplier(fortune.level)) - 1
           if (extra > 0) {
@@ -299,32 +256,20 @@ export const handleLeftClick = (
     // deals 1.5× damage. Read grounded state once for use in the attack branch.
     const playerGrounded = yield* services.gameState.isPlayerGrounded()
 
-    yield* Option.match(targetEntity, {
-      // Block break is handled by handleBlockBreakProgress (hold-to-break); single click no longer breaks blocks.
-      onNone: () => Effect.void,
-      onSome: (entityId) =>
-        Effect.gen(function* () {
-          const baseDamage = Option.match(context.selectedHotbarItem, {
-            onNone: () => PLAYER_ATTACK_DAMAGE,
-            onSome: (item) => SWORD_DAMAGE[item] ?? PLAYER_ATTACK_DAMAGE,
-          })
+    // Block break is handled by handleBlockBreakProgress (hold-to-break); single click no longer breaks blocks.
+    const entityId = Option.getOrNull(targetEntity)
+    if (entityId !== null) {
+      yield* Effect.gen(function* () {
+          const baseDamage = getWeaponBaseDamage(Option.getOrUndefined(context.selectedHotbarItem))
           // Sharpness/Smite/Bane enchantment bonuses: fetched now so entity type is known
-          // before the damage formula runs. entityOpt is reused for knockback below.
+          // before the damage formula runs. entity is reused for knockback below.
           const selectedSlot = yield* services.hotbarService.getSelectedSlot()
           const weaponStack = yield* services.inventoryService.getSlot(SlotIndex.make(HOTBAR_START + selectedSlot))
-          const weaponEnchantments = Option.match(weaponStack, { onNone: () => [], onSome: (s) => s.enchantments ?? [] })
-          // Fetch entity type BEFORE damage calculation so SMITE/BANE can be applied.
-          const entityOpt = yield* services.entityManager.getEntity(entityId)
-          const entityType = Option.match(entityOpt, { onNone: () => '' as string, onSome: (e) => e.type as string })
-          const enchantBonus = (() => {
-            const sharpness = weaponEnchantments.find((e) => e.type === 'SHARPNESS')
-            if (sharpness) return getSharpnessDamageBonus(sharpness.level)
-            const smite = weaponEnchantments.find((e) => e.type === 'SMITE')
-            if (smite && UNDEAD_MOB_TYPES.has(entityType)) return getSmiteDamageBonus(smite.level)
-            const bane = weaponEnchantments.find((e) => e.type === 'BANE_OF_ARTHROPODS')
-            if (bane && ARTHROPOD_MOB_TYPES.has(entityType)) return getBaneOfArthropodsDamageBonus(bane.level)
-            return 0
-          })()
+          const weaponEnchantments = enchantmentsOf(weaponStack)
+          // Fetch entity BEFORE damage calculation so SMITE/BANE can be applied.
+          const entity = Option.getOrNull(yield* services.entityManager.getEntity(entityId))
+          const entityType = (entity?.type as string) ?? ''
+          const enchantBonus = computeWeaponEnchantBonus(weaponEnchantments, entityType)
           // Crit when airborne. Attack cooldown weakens hits before recharge.
           // Sequential: both are pure synchronous Ref reads; no parallelism benefit.
           const now = yield* Ref.get(refs.totalTimeSecsRef)
@@ -335,38 +280,35 @@ export const handleLeftClick = (
 
           // Knock back and play feedback before lethal hits can remove the entity.
           const knockbackEnchant = weaponEnchantments.find((enc) => enc.type === 'KNOCKBACK')
-          yield* Option.match(entityOpt, {
-            onNone: () => Effect.void,
-            onSome: (e) => {
-              const base = computeKnockback(e.position.x - deps.camera.position.x, e.position.z - deps.camera.position.z)
-              const kbMult = knockbackEnchant ? getKnockbackHorizontalMultiplier(knockbackEnchant.level) : 1
-              const impulse = kbMult === 1 ? base : { x: base.x * kbMult, y: base.y, z: base.z * kbMult }
-              return Effect.all(
-                [
-                  services.entityManager.applyKnockback(entityId, impulse),
-                  services.soundManager.playEffect('entityHit', { position: e.position }),
-                  // Denser burst on deterministic crit (airborne), never random.
-                  debugFlags['particles.spawn']
-                    ? services.particleSystem.spawnBurst(
-                        e.position.x,
-                        e.position.y + ENTITY_CENTER_Y_OFFSET,
-                        e.position.z,
-                        HIT_PARTICLE_UV.u,
-                        HIT_PARTICLE_UV.v,
-                        playerGrounded ? 6 : 12,
-                      )
-                    : Effect.void,
-                ],
-                { concurrency: 'unbounded', discard: true },
-              )
-            },
-          })
+          if (entity !== null) {
+            const base = computeKnockback(entity.position.x - deps.camera.position.x, entity.position.z - deps.camera.position.z)
+            const kbMult = knockbackEnchant ? getKnockbackHorizontalMultiplier(knockbackEnchant.level) : 1
+            const impulse = kbMult === 1 ? base : { x: base.x * kbMult, y: base.y, z: base.z * kbMult }
+            yield* Effect.all(
+              [
+                services.entityManager.applyKnockback(entityId, impulse),
+                services.soundManager.playEffect('entityHit', { position: entity.position }),
+                // Denser burst on deterministic crit (airborne), never random.
+                debugFlags['particles.spawn']
+                  ? services.particleSystem.spawnBurst(
+                      entity.position.x,
+                      entity.position.y + ENTITY_CENTER_Y_OFFSET,
+                      entity.position.z,
+                      HIT_PARTICLE_UV.u,
+                      HIT_PARTICLE_UV.v,
+                      playerGrounded ? 6 : 12,
+                    )
+                  : Effect.void,
+              ],
+              { concurrency: 'unbounded', discard: true },
+            )
+          }
 
           const drops = yield* services.entityManager.applyDamage(entityId, damage)
           // Attacking costs exhaustion (vanilla: 0.1 per hit regardless of kill/miss).
           yield* services.hungerService.addExhaustion(EXHAUSTION_ATTACK)
           // Vanilla: baby mobs drop no loot and grant no XP when killed.
-          const wasBaby = Option.isSome(entityOpt) && entityOpt.value.isBaby === true
+          const wasBaby = entity?.isBaby === true
           // Roll each chance-gated drop once; un-gated drops always pass.
           const rolledDrops = wasBaby
             ? []
@@ -390,41 +332,86 @@ export const handleLeftClick = (
           }
           // Mob killed (drops returned Some) → grant XP from the pre-kill entity snapshot
           // (babies grant none, matching vanilla).
-          if (Option.isSome(drops) && Option.isSome(entityOpt) && !wasBaby) {
-            yield* services.xpService.addXP(getMobDefinition(entityOpt.value.type).xpReward)
+          if (Option.isSome(drops) && entity !== null && !wasBaby) {
+            yield* services.xpService.addXP(getMobDefinition(entity.type).xpReward)
           }
 
           // Vocalization runs after damage: kill → mobDeath, survive → mobHurt.
-          const vocalizationPos = Option.match(entityOpt, {
-            onNone: () => deps.camera.position,
-            onSome: (e) => e.position,
-          })
-          yield* Option.match(drops, {
-            onNone: () => services.soundManager.playEffect('mobHurt', { position: vocalizationPos }),
-            onSome: () => services.soundManager.playEffect('mobDeath', { position: vocalizationPos }),
-          })
+          const vocalizationPos = entity?.position ?? deps.camera.position
+          yield* Option.isSome(drops)
+            ? services.soundManager.playEffect('mobDeath', { position: vocalizationPos })
+            : services.soundManager.playEffect('mobHurt', { position: vocalizationPos })
 
-          yield* Option.match(context.selectedHotbarItem, {
-            onNone: () => Effect.void,
-            onSome: (item) => {
-              if (!(Schema.is(ItemTypeSchema)(item) && isDurable(item))) return Effect.void
-              const unbreaking = weaponEnchantments.find((e) => e.type === 'UNBREAKING')
-              if (unbreaking && Math.random() < getUnbreakingSkipChance(unbreaking.level)) return Effect.void
-              return services.hotbarService
+          const selectedHotbarItem = Option.getOrNull(context.selectedHotbarItem)
+          if (selectedHotbarItem !== null && Schema.is(ItemTypeSchema)(selectedHotbarItem) && isDurable(selectedHotbarItem)) {
+            const unbreaking = weaponEnchantments.find((e) => e.type === 'UNBREAKING')
+            if (!(unbreaking && Math.random() < getUnbreakingSkipChance(unbreaking.level))) {
+              yield* services.hotbarService
                 .getSelectedSlot()
                 .pipe(
                   Effect.flatMap((selectedSlot) =>
                     services.inventoryService.damageSlot(SlotIndex.make(HOTBAR_START + selectedSlot), 1),
                   ),
                 )
-            },
-          })
+            }
+          }
           yield* triggerHeldItemSwing(refs)
-        }),
-    })
+        })
+    }
   })
 
 // ── Bow (R31) ─────────────────────────────────────────────────────────────────
+
+const applyBowHitToEntity = (
+  entityId: EntityIdType,
+  deps: Pick<FrameHandlerDeps, 'camera'>,
+  services: Pick<FrameHandlerServices, 'entityManager' | 'soundManager' | 'inventoryService' | 'xpService'>,
+  opts: { damage: number; hasLooting: Enchantment | undefined; hasPunch: Enchantment | undefined },
+) =>
+  Effect.gen(function* () {
+    const entity = Option.getOrNull(yield* services.entityManager.getEntity(entityId))
+    const drops = yield* services.entityManager.applyDamage(entityId, opts.damage)
+
+    if (entity !== null) {
+      yield* services.soundManager.playEffect('entityHit', { position: entity.position })
+    }
+
+    // PUNCH: apply horizontal knockback on arrow hit when entity survived.
+    if (opts.hasPunch && entity !== null && Option.isNone(drops)) {
+      const base = computeKnockback(
+        entity.position.x - deps.camera.position.x,
+        entity.position.z - deps.camera.position.z,
+      )
+      const punchBonus = getPunchKnockbackBonus(opts.hasPunch.level)
+      const mult = 1 + punchBonus / 5
+      yield* services.entityManager.applyKnockback(entityId, { x: base.x * mult, y: base.y, z: base.z * mult })
+    }
+
+    // Roll each chance-gated drop once; un-gated drops always pass.
+    const rolledBowDrops = Arr.filter(Option.getOrElse(drops, () => []), (drop) => dropPasses(drop, Math.random()))
+    yield* Effect.forEach(
+      rolledBowDrops,
+      (drop) => services.inventoryService.addBlock(drop.blockType, drop.count),
+      { discard: true },
+    )
+
+    // Looting on bow kills: same bonus-drop mechanic as melee.
+    if (rolledBowDrops.length > 0 && opts.hasLooting) {
+      yield* Effect.forEach(
+        rolledBowDrops,
+        (drop) => services.inventoryService.addBlock(drop.blockType, opts.hasLooting!.level)
+          .pipe(Effect.catchAllCause(() => Effect.void)),
+        { discard: true },
+      )
+    }
+
+    // Award mob XP on kill (drops is Some when the entity was removed).
+    if (Option.isSome(drops) && entity !== null) {
+      const xpReward = getMobDefinition(entity.type).xpReward
+      if (xpReward > 0) yield* services.xpService.addXP(xpReward)
+    }
+  })
+
 // Called when the player releases right-click while holding a BOW. Fires a
 // hitscan ray up to BOW_MAX_RANGE blocks, consuming 1 ARROW and dealing
 // charge-scaled damage to the first entity in the crosshair.
@@ -449,7 +436,7 @@ export const handleBowFire = (
     // Read bow enchantments before consuming the arrow (slot still intact here).
     const selectedSlot = yield* services.hotbarService.getSelectedSlot()
     const bowStack = yield* services.inventoryService.getSlot(SlotIndex.make(HOTBAR_START + selectedSlot))
-    const enchantments = Option.match(bowStack, { onNone: () => [], onSome: (s) => s.enchantments ?? [] })
+    const enchantments = enchantmentsOf(bowStack)
 
     const hasPower = enchantments.find((e) => e.type === 'POWER')
     const hasInfinity = enchantments.some((e) => e.type === 'INFINITY')
@@ -462,11 +449,11 @@ export const handleBowFire = (
 
     // INFINITY skips arrow consumption. Without it, consume 1 ARROW (silent abort if empty).
     if (!hasInfinity) {
-      const hasArrow = yield* Effect.match(
-        services.inventoryService.removeBlock('ARROW', 1),
-        { onFailure: () => false, onSuccess: () => true },
+      const arrowConsumed = yield* services.inventoryService.removeBlock('ARROW', 1).pipe(
+        Effect.as(true),
+        Effect.orElse(() => Effect.succeed(false)),
       )
-      if (!hasArrow) return
+      if (!arrowConsumed) return
     }
 
     // Damage the equipped bow (INFINITY still wears the bow down — vanilla behaviour).
@@ -481,47 +468,8 @@ export const handleBowFire = (
     // maxDistance = none() (bow ignores block occlusion; it shoots through transparent blocks).
     const targetId = findAttackableEntity(entities, deps.camera, Option.none(), BOW_MAX_RANGE)
 
-    yield* Option.match(targetId, {
-      onNone: () => Effect.void,
-      onSome: (entityId) =>
-        Effect.gen(function* () {
-          const entityOpt = yield* services.entityManager.getEntity(entityId)
-          const drops = yield* services.entityManager.applyDamage(entityId, damage)
-          yield* Option.match(entityOpt, {
-            onNone: () => Effect.void,
-            onSome: (e) => services.soundManager.playEffect('entityHit', { position: e.position }),
-          })
-          // PUNCH: apply horizontal knockback on arrow hit when entity survived.
-          if (hasPunch && Option.isSome(entityOpt) && Option.isNone(drops)) {
-            const base = computeKnockback(
-              entityOpt.value.position.x - deps.camera.position.x,
-              entityOpt.value.position.z - deps.camera.position.z,
-            )
-            const punchBonus = getPunchKnockbackBonus(hasPunch.level)
-            const mult = 1 + punchBonus / 5
-            yield* services.entityManager.applyKnockback(entityId, { x: base.x * mult, y: base.y, z: base.z * mult })
-          }
-          // Roll each chance-gated drop once; un-gated drops always pass.
-          const rolledBowDrops = Arr.filter(Option.getOrElse(drops, () => []), (drop) => dropPasses(drop, Math.random()))
-          yield* Effect.forEach(
-            rolledBowDrops,
-            (drop) => services.inventoryService.addBlock(drop.blockType, drop.count),
-            { discard: true },
-          )
-          // Looting on bow kills: same bonus-drop mechanic as melee.
-          if (rolledBowDrops.length > 0 && hasLooting) {
-            yield* Effect.forEach(
-              rolledBowDrops,
-              (drop) => services.inventoryService.addBlock(drop.blockType, hasLooting.level)
-                .pipe(Effect.catchAllCause(() => Effect.void)),
-              { discard: true },
-            )
-          }
-          // Award mob XP on kill (drops is Some when the entity was removed).
-          if (Option.isSome(drops) && Option.isSome(entityOpt)) {
-            const xpReward = getMobDefinition(entityOpt.value.type).xpReward
-            if (xpReward > 0) yield* services.xpService.addXP(xpReward)
-          }
-        }),
-    })
+    const targetIdVal = Option.getOrNull(targetId)
+    if (targetIdVal !== null) {
+      yield* applyBowHitToEntity(targetIdVal, deps, services, { damage, hasLooting, hasPunch })
+    }
   })

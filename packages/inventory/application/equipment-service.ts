@@ -23,14 +23,11 @@ export class EquipmentService extends Effect.Service<EquipmentService>()(
   {
     effect: Ref.make(emptySlots()).pipe(Effect.map((slotsRef) => ({
       // Returns true if the item was armor and was equipped; false otherwise.
-      equip: (stack: ItemStack): Effect.Effect<boolean, never> =>
-        Option.match(getArmorSlot(stack.itemType), {
-          onNone: () => Effect.succeed(false),
-          onSome: (slot) =>
-            Ref.update(slotsRef, (slots): EquipmentSlots => ({ ...slots, [slot]: Option.some(stack) })).pipe(
-              Effect.as(true),
-            ),
-        }),
+      equip: (stack: ItemStack): Effect.Effect<boolean, never> => {
+        const armorSlot = Option.getOrNull(getArmorSlot(stack.itemType))
+        if (armorSlot === null) return Effect.succeed(false)
+        return Ref.update(slotsRef, (slots): EquipmentSlots => ({ ...slots, [armorSlot]: Option.some(stack) })).pipe(Effect.as(true))
+      },
 
       // Removes and returns the stack in the given slot (none if already empty).
       unequipSlot: (slot: ArmorSlot): Effect.Effect<Option.Option<ItemStack>, never> =>
@@ -77,23 +74,20 @@ export class EquipmentService extends Effect.Service<EquipmentService>()(
       // Damage one armor piece by `amount` durability. If broken, unequips it.
       damageArmorSlot: (slot: ArmorSlot, amount = 1): Effect.Effect<void, never> =>
         Ref.modify(slotsRef, (slots): [Option.Option<ItemStack>, EquipmentSlots] => {
-          const current = slots[slot]
-          if (!Option.isSome(current)) return [Option.none(), slots]
-          const next = damageStack(current.value, amount)
-          return [current, { ...slots, [slot]: next }]
+          const currentVal = Option.getOrNull(slots[slot])
+          if (currentVal === null) return [Option.none(), slots]
+          const next = damageStack(currentVal, amount)
+          return [slots[slot], { ...slots, [slot]: next }]
         }).pipe(Effect.asVoid),
 
       serialize: (): Effect.Effect<Partial<Record<ArmorSlot, InventoryItem>>, never> =>
         Ref.get(slotsRef).pipe(
           Effect.map((slots): Partial<Record<ArmorSlot, InventoryItem>> => {
             const entries = Object.entries(slots) as Array<[ArmorSlot, Option.Option<ItemStack>]>
-            return entries.reduce<Partial<Record<ArmorSlot, InventoryItem>>>((result, [slot, stackOpt]) =>
-              Option.match(stackOpt, {
-                onNone: () => result,
-                onSome: (s) => ({ ...result, [slot]: s.itemType }),
-              }),
-              {},
-            )
+            return entries.reduce<Partial<Record<ArmorSlot, InventoryItem>>>((result, [slot, stackOpt]) => {
+              const s = Option.getOrNull(stackOpt)
+              return s === null ? result : { ...result, [slot]: s.itemType }
+            }, {})
           }),
         ),
 

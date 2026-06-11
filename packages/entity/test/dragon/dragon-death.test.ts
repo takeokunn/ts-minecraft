@@ -5,8 +5,26 @@ import {
   DRAGON_EGG_POSITION,
   DragonDeathPhase,
   RETURN_PORTAL_POSITION,
+  dragonDeathPhaseForProgress,
   tickDragonDeath,
 } from '../../domain/mob/ender-dragon/dragon-death'
+
+describe('dragonDeathPhaseForProgress', () => {
+  it('maps progress ranges to the correct DragonDeathPhase', () => {
+    expect(dragonDeathPhaseForProgress(0)).toBe(DragonDeathPhase.Dying)
+    expect(dragonDeathPhaseForProgress(79)).toBe(DragonDeathPhase.Dying)
+    expect(dragonDeathPhaseForProgress(80)).toBe(DragonDeathPhase.Exploding)
+    expect(dragonDeathPhaseForProgress(119)).toBe(DragonDeathPhase.Exploding)
+    expect(dragonDeathPhaseForProgress(120)).toBe(DragonDeathPhase.EggSpawn)
+    expect(dragonDeathPhaseForProgress(139)).toBe(DragonDeathPhase.EggSpawn)
+    expect(dragonDeathPhaseForProgress(140)).toBe(DragonDeathPhase.PortalActivate)
+    expect(dragonDeathPhaseForProgress(159)).toBe(DragonDeathPhase.PortalActivate)
+    expect(dragonDeathPhaseForProgress(160)).toBe(DragonDeathPhase.XPFountain)
+    expect(dragonDeathPhaseForProgress(DEATH_ANIMATION_TICKS - 1)).toBe(DragonDeathPhase.XPFountain)
+    expect(dragonDeathPhaseForProgress(DEATH_ANIMATION_TICKS)).toBe(DragonDeathPhase.Complete)
+    expect(dragonDeathPhaseForProgress(999)).toBe(DragonDeathPhase.Complete)
+  })
+})
 
 describe('tickDragonDeath', () => {
   it('progresses through the complete death phase timeline', () => {

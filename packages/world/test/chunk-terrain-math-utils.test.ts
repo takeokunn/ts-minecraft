@@ -5,7 +5,7 @@ import {
   smoothstep,
   seedFromChunk,
 } from '@ts-minecraft/world'
-import { mulberry32 } from '../domain/terrain/math'
+import { mulberry32, hash3, fract, clamp01, computeRuggedness } from '../domain/terrain/math'
 
 describe('smoothstep', () => {
   it('returns 0 when x <= edge0', () => {
@@ -131,5 +131,87 @@ describe('seedFromChunk', () => {
     const s1 = seedFromChunk(0, 0, 10007, 20011)
     const s2 = seedFromChunk(0, 0, 30013, 40013)
     expect(s1).not.toBe(s2)
+  })
+})
+
+describe('fract', () => {
+  it('returns the fractional part (value - floor)', () => {
+    expect(fract(1.7)).toBeCloseTo(0.7)
+    expect(fract(2.0)).toBeCloseTo(0)
+    expect(fract(0.3)).toBeCloseTo(0.3)
+  })
+
+  it('always returns a value in [0, 1)', () => {
+    for (const v of [0, 0.5, 1, 1.999, -0.1, -1.5, 100.7]) {
+      const r = fract(v)
+      expect(r).toBeGreaterThanOrEqual(0)
+      expect(r).toBeLessThan(1)
+    }
+  })
+
+  it('for negative inputs, result is the complement to the next integer above', () => {
+    // fract(-0.3) = -0.3 - floor(-0.3) = -0.3 - (-1) = 0.7
+    expect(fract(-0.3)).toBeCloseTo(0.7)
+  })
+})
+
+describe('clamp01', () => {
+  it('passes through values already in [0, 1]', () => {
+    expect(clamp01(0)).toBe(0)
+    expect(clamp01(0.5)).toBe(0.5)
+    expect(clamp01(1)).toBe(1)
+  })
+
+  it('clamps negative values to 0', () => {
+    expect(clamp01(-0.001)).toBe(0)
+    expect(clamp01(-100)).toBe(0)
+  })
+
+  it('clamps values above 1 to 1', () => {
+    expect(clamp01(1.001)).toBe(1)
+    expect(clamp01(100)).toBe(1)
+  })
+})
+
+describe('hash3', () => {
+  it('returns a value in [0, 1) for any integer inputs', () => {
+    for (const [x, y, z] of [[0, 0, 0], [1, 2, 3], [100, 64, -50], [-10, 0, 200]] as const) {
+      const h = hash3(x, y, z)
+      expect(h).toBeGreaterThanOrEqual(0)
+      expect(h).toBeLessThan(1)
+    }
+  })
+
+  it('is deterministic — same inputs always produce the same value', () => {
+    expect(hash3(10, 64, 20)).toBe(hash3(10, 64, 20))
+    expect(hash3(-5, 1, 7)).toBe(hash3(-5, 1, 7))
+  })
+
+  it('produces different values for different inputs', () => {
+    const a = hash3(0, 0, 0)
+    const b = hash3(1, 0, 0)
+    const c = hash3(0, 1, 0)
+    expect(a).not.toBe(b)
+    expect(a).not.toBe(c)
+  })
+})
+
+describe('computeRuggedness', () => {
+  it('returns values in [0, 1]', () => {
+    for (const [e, j] of [[-1, 0], [0, 0], [1, 0], [0, -1], [0, 1], [0.5, 0.3]] as const) {
+      const r = computeRuggedness(e, j)
+      expect(r).toBeGreaterThanOrEqual(0)
+      expect(r).toBeLessThanOrEqual(1)
+    }
+  })
+
+  it('high erosion and low jaggedness → low ruggedness', () => {
+    // normalizedErosion≈1 → (1-1)*0.6=0, abs(0)*0.4=0 → ruggedness≈0
+    expect(computeRuggedness(1, 0)).toBeCloseTo(0)
+  })
+
+  it('low erosion and high jaggedness → higher ruggedness', () => {
+    // normalizedErosion≈0 → (1-0)*0.6=0.6, abs(1)*0.4=0.4 → ruggedness≈1
+    expect(computeRuggedness(-1, 1)).toBeCloseTo(1)
   })
 })

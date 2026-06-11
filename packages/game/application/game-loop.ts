@@ -92,6 +92,10 @@ const buildScheduleFrame = (
   return scheduleFrame
 }
 
+// Atomically extracts the current value of a ref and replaces it with none().
+const takeOption = <A>(ref: Ref.Ref<Option.Option<A>>): Effect.Effect<Option.Option<A>, never> =>
+  Ref.getAndSet(ref, Option.none())
+
 // Queue-based bridge: dropping queue prevents rAF fiber pile-up under load; loop recreated on each start() for restart semantics.
 export class GameLoopService extends Effect.Service<GameLoopService>()(
   '@minecraft/application/GameLoopService',
@@ -109,13 +113,14 @@ export class GameLoopService extends Effect.Service<GameLoopService>()(
       Effect.flatMap(([frameQueueRef, processingFiberRef, maintenanceFiberRef, frameHandlerRef, isRunningRef, animationFrameIdRef]) => {
         const cancelScheduledFrame = (): void => {
           const animationFrameId = MutableRef.get(animationFrameIdRef)
-          Option.map(animationFrameId, (id) => {
+          const frameId = Option.getOrNull(animationFrameId)
+          if (frameId !== null) {
             if (typeof globalThis.requestAnimationFrame === 'function') {
-              globalThis.cancelAnimationFrame(id)
+              globalThis.cancelAnimationFrame(frameId)
             } else {
-              globalThis.clearInterval(id)
+              globalThis.clearInterval(frameId)
             }
-          })
+          }
           MutableRef.set(animationFrameIdRef, Option.none())
         }
 
@@ -170,15 +175,8 @@ export class GameLoopService extends Effect.Service<GameLoopService>()(
             Effect.gen(function* () {
               MutableRef.set(isRunningRef, false)
               cancelScheduledFrame()
-
-              const processingFiber = yield* Ref.modify(processingFiberRef, (opt): [Option.Option<Fiber.RuntimeFiber<void, never>>, Option.Option<Fiber.RuntimeFiber<void, never>>] =>
-                [opt, Option.none()]
-              )
-              yield* Option.match(processingFiber, {
-                onNone: () => Effect.void,
-                onSome: (fiber) => Fiber.interrupt(fiber),
-              })
-
+              const processingFiber = Option.getOrNull(yield* takeOption(processingFiberRef))
+              if (processingFiber !== null) yield* Fiber.interrupt(processingFiber)
               yield* Effect.log('Game loop paused')
             }),
 
@@ -187,11 +185,9 @@ export class GameLoopService extends Effect.Service<GameLoopService>()(
               if (MutableRef.get(isRunningRef)) return
               if (frameHandler) yield* Ref.set(frameHandlerRef, Option.some(frameHandler))
 
-              const storedHandler = yield* Ref.get(frameHandlerRef)
-              yield* Option.match(storedHandler, {
-                onNone: () => Effect.fail(new GameLoopError({ reason: 'No frame handler stored' })),
-                onSome: (handler) => startFrameProcessing(handler),
-              })
+              const storedHandler = Option.getOrNull(yield* Ref.get(frameHandlerRef))
+              if (storedHandler === null) yield* Effect.fail(new GameLoopError({ reason: 'No frame handler stored' }))
+              else yield* startFrameProcessing(storedHandler)
 
               yield* Effect.log('Game loop resumed')
             }),
@@ -200,15 +196,9 @@ export class GameLoopService extends Effect.Service<GameLoopService>()(
             maintenanceHandler: () => Effect.Effect<boolean, never>,
           ): Effect.Effect<void, GameLoopError> =>
             Effect.gen(function* () {
-              // Atomically read the current fiber to check if already running
-              const existing = yield* Ref.modify(maintenanceFiberRef, (opt): [Option.Option<Fiber.RuntimeFiber<void, never>>, Option.Option<Fiber.RuntimeFiber<void, never>>] =>
-                [opt, opt]
-              )
+              const existing = yield* Ref.get(maintenanceFiberRef)
               /* c8 ignore next 2 */
-              yield* Option.match(existing, {
-                onSome: () => Effect.fail(new GameLoopError({ reason: 'Maintenance loop is already running' })),
-                onNone: () => Effect.void,
-              })
+              if (Option.isSome(existing)) yield* Effect.fail(new GameLoopError({ reason: 'Maintenance loop is already running' }))
 
               const maintenanceLoop = maintenanceHandler().pipe(
                 Effect.catchAllCause((cause) =>
@@ -227,36 +217,15 @@ export class GameLoopService extends Effect.Service<GameLoopService>()(
 
           stop: (): Effect.Effect<void, never> =>
             Effect.gen(function* () {
-            MutableRef.set(isRunningRef, false)
-            cancelScheduledFrame()
-
-              // Atomically extract and clear each ref, then act on the extracted value
-              const processingFiber = yield* Ref.modify(processingFiberRef, (opt): [Option.Option<Fiber.RuntimeFiber<void, never>>, Option.Option<Fiber.RuntimeFiber<void, never>>] =>
-                [opt, Option.none()]
-              )
-              yield* Option.match(processingFiber, {
-                onNone: () => Effect.void,
-                onSome: (fiber) => Fiber.interrupt(fiber),
-              })
-
-              const frameQueue = yield* Ref.modify(frameQueueRef, (opt): [Option.Option<Queue.Queue<number>>, Option.Option<Queue.Queue<number>>] =>
-                [opt, Option.none()]
-              )
-              yield* Option.match(frameQueue, {
-                onNone: () => Effect.void,
-                onSome: (queue) => Queue.shutdown(queue),
-              })
-
+              MutableRef.set(isRunningRef, false)
+              cancelScheduledFrame()
+              const processingFiber = Option.getOrNull(yield* takeOption(processingFiberRef))
+              if (processingFiber !== null) yield* Fiber.interrupt(processingFiber)
+              const frameQueue = Option.getOrNull(yield* takeOption(frameQueueRef))
+              if (frameQueue !== null) yield* Queue.shutdown(frameQueue)
               yield* Ref.set(frameHandlerRef, Option.none())
-
-              const maintenanceFiber = yield* Ref.modify(maintenanceFiberRef, (opt): [Option.Option<Fiber.RuntimeFiber<void, never>>, Option.Option<Fiber.RuntimeFiber<void, never>>] =>
-                [opt, Option.none()]
-              )
-              yield* Option.match(maintenanceFiber, {
-                onNone: () => Effect.void,
-                onSome: (fiber) => Fiber.interrupt(fiber),
-              })
-
+              const maintenanceFiber = Option.getOrNull(yield* takeOption(maintenanceFiberRef))
+              if (maintenanceFiber !== null) yield* Fiber.interrupt(maintenanceFiber)
               yield* Effect.log('Game loop stopped')
             }),
 

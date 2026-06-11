@@ -8,7 +8,7 @@ export const registerComposerDisposal = (
   Effect.acquireRelease(
     Effect.void,
     () => Effect.sync(() => {
-      Arr.forEach(passes, (pass) => Option.map(pass, (p) => p.dispose()))
+      Arr.forEach(passes, (pass) => { Option.getOrNull(pass)?.dispose() })
       composerRT.dispose()
       composer.dispose()
     }),

@@ -89,31 +89,27 @@ export class HealthService extends Effect.Service<HealthService>()(
         processFallDamage: (currentY: number, isGrounded: boolean): Effect.Effect<number, never> =>
           /* c8 ignore next -- non-finite Y guard: physics always produces finite positions */
           !Number.isFinite(currentY) ? Effect.succeed(0) :
-          Ref.modify(stateRef, (s) => {
+          Ref.modify(stateRef, (s): readonly [number, HealthState] => {
             const { prevY: prevYOpt, fallDistance } = s.fallState
-            return Option.match(prevYOpt, {
-              onNone: () => [
-                0,
-                { ...s, fallState: { prevY: Option.some(currentY), fallDistance: 0 } },
-              ] as const,
-              onSome: (prevY) => {
-                // Accumulate the descent across frames; any upward motion cancels the
-                // running fall (vanilla resets fallDistance on ascent). Damage is
-                // assessed only on the landing frame, from the TOTAL accumulated drop.
-                const frameDrop = prevY - currentY
-                // Descent (or a stationary landing frame) accumulates; only genuine
-                // upward motion cancels the running fall — so reaching the ground a
-                // frame before `isGrounded` registers does not discard the descent.
-                const accumulated = frameDrop < 0 ? 0 : fallDistance + frameDrop
-                // Pass `currentY + accumulated` so computeFallDamage measures the full
-                // fall (prevY − currentY === accumulated) without changing its contract.
-                const damage = computeFallDamage(currentY + accumulated, currentY, accumulated > 0, isGrounded)
-                return [
-                  damage,
-                  { ...s, fallState: { prevY: Option.some(currentY), fallDistance: isGrounded ? 0 : accumulated } },
-                ] as const
-              },
-            })
+            const prevY = Option.getOrNull(prevYOpt)
+            if (prevY === null) {
+              return [0, { ...s, fallState: { prevY: Option.some(currentY), fallDistance: 0 } }]
+            }
+            // Accumulate the descent across frames; any upward motion cancels the
+            // running fall (vanilla resets fallDistance on ascent). Damage is
+            // assessed only on the landing frame, from the TOTAL accumulated drop.
+            const frameDrop = prevY - currentY
+            // Descent (or a stationary landing frame) accumulates; only genuine
+            // upward motion cancels the running fall — so reaching the ground a
+            // frame before `isGrounded` registers does not discard the descent.
+            const accumulated = frameDrop < 0 ? 0 : fallDistance + frameDrop
+            // Pass `currentY + accumulated` so computeFallDamage measures the full
+            // fall (prevY − currentY === accumulated) without changing its contract.
+            const damage = computeFallDamage(currentY + accumulated, currentY, accumulated > 0, isGrounded)
+            return [
+              damage,
+              { ...s, fallState: { prevY: Option.some(currentY), fallDistance: isGrounded ? 0 : accumulated } },
+            ]
           }),
 
         // Atomic reset: restores health/fall state AND swaps in a fresh death

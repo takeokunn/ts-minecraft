@@ -23,10 +23,9 @@ const withDb = <A>(
   f: (db: TypedIDBDatabase<MinecraftWorldsDB>) => Effect.Effect<A, StorageError>,
 ): Effect.Effect<A, StorageError> =>
   Effect.gen(function* () {
-    return yield* Option.match(yield* Ref.get(dbRef), {
-      onNone: () => Effect.fail(uninitialized(operation)),
-      onSome: f,
-    })
+    const dbVal = Option.getOrNull(yield* Ref.get(dbRef))
+    if (dbVal === null) return yield* Effect.fail(uninitialized(operation))
+    return yield* f(dbVal)
   })
 
 const openWorldDatabase = (): Effect.Effect<TypedIDBDatabase<MinecraftWorldsDB>, StorageError> =>
@@ -44,13 +43,11 @@ export class StorageService extends Effect.Service<StorageService>()(
   {
     effect: Ref.make<Option.Option<TypedIDBDatabase<MinecraftWorldsDB>>>(Option.none()).pipe(Effect.map((dbRef) => {
       const initialize: Effect.Effect<void, StorageError> = Effect.gen(function* () {
-        yield* Option.match(yield* Ref.get(dbRef), {
-          onSome: () => Effect.void,
-          onNone: () => Effect.gen(function* () {
-            const newDb = yield* openWorldDatabase()
-            yield* Ref.set(dbRef, Option.some(newDb))
-          }),
-        })
+        const existingDb = yield* Ref.get(dbRef)
+        if (Option.isNone(existingDb)) {
+          const newDb = yield* openWorldDatabase()
+          yield* Ref.set(dbRef, Option.some(newDb))
+        }
       })
 
       const saveChunk = (worldId: WorldId, chunkCoord: ChunkCoord, data: ChunkStorageValue) =>

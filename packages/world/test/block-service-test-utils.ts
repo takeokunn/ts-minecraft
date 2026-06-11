@@ -29,7 +29,7 @@ export const blockIdx = (lx: number, y: number, lz: number): number =>
   y + lz * CHUNK_HEIGHT + lx * CHUNK_HEIGHT * CHUNK_SIZE
 
 export const readBlock = (chunk: Chunk, lx: number, y: number, lz: number): BlockType =>
-  indexToBlockType(Option.getOrElse(Option.fromNullable(chunk.blocks[blockIdx(lx, y, lz)]), () => 0))
+  indexToBlockType(chunk.blocks[blockIdx(lx, y, lz)] ?? 0)
 
 export const writeBlock = (chunk: Chunk, lx: number, y: number, lz: number, blockType: BlockType): void => {
   chunk.blocks[blockIdx(lx, y, lz)] = blockTypeToIndex(blockType)

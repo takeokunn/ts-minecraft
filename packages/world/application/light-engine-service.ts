@@ -81,17 +81,11 @@ export class LightEngineService extends Effect.Service<LightEngineService>()(
       ): Effect.Effect<IncrementalLightResult, never> => Effect.sync(() => propagateIncremental(chunk, dirtyVoxels)),
       getSkyLight: (chunk: Chunk, lx: number, y: number, lz: number): number => {
         if (!inLightBounds(lx, y, lz)) return 0
-        return Option.match(Option.fromNullable(chunk.skyLight), {
-          onNone: () => 15,
-          onSome: (grid) => getLightAt(grid, lx, y, lz),
-        })
+        return chunk.skyLight ? getLightAt(chunk.skyLight, lx, y, lz) : 15
       },
       getBlockLight: (chunk: Chunk, lx: number, y: number, lz: number): number => {
         if (!inLightBounds(lx, y, lz)) return 0
-        return Option.match(Option.fromNullable(chunk.blockLight), {
-          onNone: () => 0,
-          onSome: (grid) => getLightAt(grid, lx, y, lz),
-        })
+        return chunk.blockLight ? getLightAt(chunk.blockLight, lx, y, lz) : 0
       },
     }),
   }

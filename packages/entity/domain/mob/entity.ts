@@ -1,4 +1,4 @@
-import { Option, Schema } from 'effect'
+import { Schema } from 'effect'
 import { PositionSchema, type Position } from '@ts-minecraft/core'
 import { Vector3Schema, QuaternionSchema, identity, zero, type Quaternion, type Vector3 } from '@ts-minecraft/core'
 
@@ -73,8 +73,8 @@ export const createEntity = (params: {
 }): Entity => ({
   entityId: params.entityId,
   position: params.position,
-  velocity: Option.getOrElse(Option.fromNullable(params.velocity), () => zero),
-  rotation: Option.getOrElse(Option.fromNullable(params.rotation), () => identity),
+  velocity: params.velocity ?? zero,
+  rotation: params.rotation ?? identity,
   health: params.health,
   type: params.type,
 })

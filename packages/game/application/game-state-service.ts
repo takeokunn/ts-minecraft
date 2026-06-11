@@ -8,13 +8,18 @@ import { computeFlightVerticalVelocity, nextFlightState } from '@ts-minecraft/en
 import { PlayerCameraStateService } from '@ts-minecraft/entity/application/camera-state'
 import { DeltaTimeSecs, PlayerId, Position, PhysicsBodyId, DEFAULT_PLAYER_ID, PLAYER_HALF_WIDTH, PLAYER_HALF_HEIGHT, CHUNK_SIZE } from '@ts-minecraft/core'
 import { PhysicsService } from './physics-service'
-import { resolveBlockCollisions, clampSneakEdge, SNEAK_STEP_DOWN } from '../domain/aabb-collision'
 import { ChunkManagerService } from '@ts-minecraft/world/application/chunk-manager-service'
 import { InventoryService } from '@ts-minecraft/inventory/application/inventory-service'
 import { GameStateError } from '../domain/errors'
 import { GameModeService } from './game-mode-service'
 import { OFFSETS_3x3, isBlockSolid, isInWater } from '../domain/block-collision-predicates'
 import { TimingState, INITIAL_TIMING_STATE } from './game-state.types'
+import {
+  computeFlightPosition,
+  blendVelocityForInput,
+  resolveCollisionOrNoclip,
+  applySneakEdgeClamp,
+} from './game-state-physics'
 
 export type { TimingState }
 export { TimingStateSchema } from './game-state.types'
@@ -26,8 +31,8 @@ const PLAYER_MASS = 70
 
 const ZERO_VEC3 = Object.freeze({ x: 0, y: 0, z: 0 })
 
-// Refresh the 9-cell 3×3 chunk neighborhood cache when the player's chunk coord changes.
-// Saves 9 getChunk calls per frame when the player stays in the same chunk.
+const SWIM_UP_SPEED = 3
+
 const refreshChunkCache = (
   chunkManagerService: ChunkManagerService,
   playerCx: number,
@@ -36,32 +41,20 @@ const refreshChunkCache = (
   lastChunkCoordRef: Ref.Ref<{ cx: number; cz: number }>,
 ): Effect.Effect<void, never> =>
   Effect.gen(function* () {
-    // Mutate the existing 9-slot cache array in-place rather than allocating a
-    // new one on every chunk-boundary crossing (twin of the entity-update-stage
-    // R14 fix). Reset all slots to null, then refill from getChunk results.
     const cache = yield* Ref.get(chunkCacheRef)
     cache.fill(null)
     yield* Effect.forEach(
       OFFSETS_3x3,
       ([dx, dz]) =>
         chunkManagerService.getChunk({ x: playerCx + dx, z: playerCz + dz }).pipe(
-          Effect.match({
-            onSuccess: (chunk) => { cache[(dx + 1) * 3 + (dz + 1)] = chunk },
-            onFailure: () => {},
-          })
+          Effect.tap((chunk) => Effect.sync(() => { cache[(dx + 1) * 3 + (dz + 1)] = chunk })),
+          Effect.ignore,
         ),
       { concurrency: 'unbounded', discard: true }
     )
     yield* Ref.set(lastChunkCoordRef, { cx: playerCx, cz: playerCz })
   })
 
-// Upward velocity while holding JUMP underwater (FR-2 swim-up). Gentle, so the
-// player rises steadily rather than launching out of the water.
-const SWIM_UP_SPEED = 3
-
-// Apply water drag: dampens velocity 60% and caps downward terminal velocity at
-// -2 m/s. When `swimUp` (JUMP held underwater), replace the sinking Y with a
-// steady upward swim instead.
 const applyWaterDrag = (
   physicsService: PhysicsService,
   playerBodyId: PhysicsBodyId,
@@ -131,74 +124,53 @@ export class GameStateService extends Effect.Service<GameStateService>()(
 
         update: (deltaTime: DeltaTimeSecs): Effect.Effect<void, GameStateError> =>
           Effect.gen(function* () {
-            const playerBodyId = yield* Option.match(yield* Ref.get(playerBodyIdRef), {
-              onNone: () => Effect.fail(new GameStateError({ operation: 'update', reason: 'Physics not initialized. Call initialize() first.' })),
-              onSome: (id) => Effect.succeed(id),
-            })
+            const playerBodyId = Option.getOrNull(yield* Ref.get(playerBodyIdRef))
+            if (playerBodyId === null) return yield* Effect.fail(new GameStateError({ operation: 'update', reason: 'Physics not initialized. Call initialize() first.' }))
 
-            const rotation = yield* cameraState.getRotation()
-            const isGrounded = yield* Ref.get(isGroundedRef)
+            const [rotation, isGrounded, isCreative, isSpectator] = yield* Effect.all([
+              cameraState.getRotation(),
+              Ref.get(isGroundedRef),
+              gameModeService.isCreative(),
+              gameModeService.isSpectator(),
+            ], { concurrency: 'unbounded' })
 
-            // ─── Flight (FR-1 creative / R2 spectator) ────────────────────────
-            // Creative: KeyF toggles flight. Spectator: ALWAYS flying (noclip
-            // observer). While flying, held JUMP ascends and SNEAK descends,
-            // gravity is bypassed, and horizontal movement gets full air control.
-            const isCreative = yield* gameModeService.isCreative()
-            const isSpectator = yield* gameModeService.isSpectator()
             const flightToggled = yield* inputService.consumeKeyPress(KeyMappings.TOGGLE_FLIGHT)
             const flying = isSpectator || nextFlightState(yield* Ref.get(flyingRef), isCreative, flightToggled)
             yield* Ref.set(flyingRef, flying)
-            let flightVy = 0
-            if (flying) {
-              const ascend = yield* inputService.isKeyPressed(KeyMappings.JUMP)
-              const descend = yield* inputService.isKeyPressed(KeyMappings.SNEAK)
-              flightVy = computeFlightVerticalVelocity(ascend, descend)
-            }
 
-            // R7 sneak edge-protection: only relevant when walking on the ground.
+            const flightVy = flying
+              ? yield* Effect.map(
+                  Effect.all([
+                    inputService.isKeyPressed(KeyMappings.JUMP),
+                    inputService.isKeyPressed(KeyMappings.SNEAK),
+                  ], { concurrency: 'unbounded' }),
+                  ([ascend, descend]) => computeFlightVerticalVelocity(ascend, descend),
+                )
+              : 0
+
             const sneaking = !flying && (yield* inputService.isKeyPressed(KeyMappings.SNEAK))
 
             /* c8 ignore next 3 */
             const currentVel = yield* physicsService.getVelocity(playerBodyId).pipe(
               Effect.catchTag('PhysicsServiceError', (e) =>
-                Effect.logWarning(`getVelocity fallback: ${e.message ?? String(e)}`).pipe(
-                  Effect.as(ZERO_VEC3)
-                )
+                Effect.logWarning(`getVelocity fallback: ${e.message ?? String(e)}`).pipe(Effect.as(ZERO_VEC3))
               )
             )
 
-            const velocity = yield* movementService.update(rotation.yaw, isGrounded)
-            const jumped = velocity.y > 0
+            const inputVelocity = yield* movementService.update(rotation.yaw, isGrounded)
+            const jumped = inputVelocity.y > 0
 
-            // Air control: grounded movement and flight use the full input
-            // velocity. While airborne (jumping/falling) the player keeps air
-            // control — holding a movement key applies the full input velocity so
-            // they can steer mid-jump and clear 1-block obstacles; with no input,
-            // momentum is preserved. Previously horizontal velocity was FROZEN on
-            // leaving the ground (`currentVel`), so walking into a block zeroed
-            // forward speed and made it impossible to jump over it (the wall
-            // re-zeroed velocity every frame, and input could not be re-applied).
-            const hasMoveInput = velocity.x !== 0 || velocity.z !== 0
-            const airborneControl = !flying && !isGrounded
-            yield* physicsService.setVelocity(playerBodyId, {
-              x: airborneControl ? (hasMoveInput ? velocity.x : currentVel.x) : velocity.x,
-              y: flying ? flightVy : jumped ? velocity.y : currentVel.y,
-              z: airborneControl ? (hasMoveInput ? velocity.z : currentVel.z) : velocity.z,
-            })
+            yield* physicsService.setVelocity(playerBodyId,
+              blendVelocityForInput(inputVelocity, currentVel, { flying, flightVy, jumped, isGrounded })
+            )
 
-            if (jumped) {
-              yield* Ref.set(isGroundedRef, false)
-            }
+            if (jumped) yield* Ref.set(isGroundedRef, false)
 
-            // Capture pre-step position: flight needs prePos.y (gravity-free vertical
-            // reconstruction) and sneak edge-protection needs prePos.x/z (to revert a
-            // step that would walk off a ledge). One getPosition, only when needed.
             const prePos: Position = (flying || (sneaking && isGrounded))
               ? yield* physicsService.getPosition(playerBodyId).pipe(
                   Effect.catchTag('PhysicsServiceError', () => Effect.succeed(ZERO_VEC3 as Position)),
                 )
               : (ZERO_VEC3 as Position)
-            const prePosY = prePos.y
 
             yield* physicsService.step(deltaTime)
 
@@ -210,14 +182,9 @@ export class GameStateService extends Effect.Service<GameStateService>()(
               Effect.catchTag('PhysicsServiceError', () => Effect.succeed(ZERO_VEC3))
             )
 
-            // Flight bypasses gravity: overwrite the step's gravity-affected Y with
-            // the controlled flight motion BEFORE collision resolution, so flight
-            // still clamps against solid blocks (no flying through terrain) while
-            // hovering stays perfectly stable (no ½·g·dt² downward drift).
-            const effPos: Position = flying ? ({ ...physPos, y: prePosY + flightVy * deltaTime } as Position) : physPos
+            const effPos: Position = flying ? computeFlightPosition(physPos, prePos.y, flightVy, deltaTime) : physPos
             const effVel = flying ? { x: physVel.x, y: flightVy, z: physVel.z } : physVel
 
-            // Refresh 3×3 chunk cache only when player chunk coord changes
             const playerCx = Math.floor(effPos.x / CHUNK_SIZE)
             const playerCz = Math.floor(effPos.z / CHUNK_SIZE)
             const lastChunkCoord = yield* Ref.get(lastChunkCoordRef)
@@ -226,58 +193,30 @@ export class GameStateService extends Effect.Service<GameStateService>()(
             }
             const chunkCache = yield* Ref.get(chunkCacheRef)
 
-            // AABB block collision resolution — delegates solid-block test to block-collision-predicates.ts.
-            // Spectator is noclip: skip collision entirely so the observer passes through terrain.
-            const { position: collidedPos, velocity: collidedVel, isGrounded: newIsGrounded } = isSpectator
-              ? { position: effPos, velocity: effVel, isGrounded: false }
-              : resolveBlockCollisions(
-                  effPos, effVel, PLAYER_HALF_WIDTH, PLAYER_HALF_HEIGHT,
-                  (wx, wy, wz) => isBlockSolid(wx, wy, wz, chunkCache, playerCx, playerCz)
-                )
+            const isSolid = (wx: number, wy: number, wz: number): boolean =>
+              isBlockSolid(wx, wy, wz, chunkCache, playerCx, playerCz)
 
-            // R7 sneak edge-protection: while sneaking on the ground, revert any
-            // per-axis step that would carry the player off an unsupported ledge.
-            // Never traps on flat ground (support always exists there).
-            const sneakClamp = sneaking && isGrounded
-              ? clampSneakEdge(prePos, collidedPos, (x, z) => {
-                  const feetY = collidedPos.y - PLAYER_HALF_HEIGHT
-                  for (const cx of [x - PLAYER_HALF_WIDTH, x + PLAYER_HALF_WIDTH]) {
-                    for (const cz of [z - PLAYER_HALF_WIDTH, z + PLAYER_HALF_WIDTH]) {
-                      // Solid directly below the feet, or one block down (a step-down).
-                      if (isBlockSolid(cx, feetY - 0.1, cz, chunkCache, playerCx, playerCz)
-                        || isBlockSolid(cx, feetY - 0.1 - SNEAK_STEP_DOWN, cz, chunkCache, playerCx, playerCz)) {
-                        return true
-                      }
-                    }
-                  }
-                  return false
-                })
-              : { x: collidedPos.x, z: collidedPos.z }
-            const resolvedPos: Position = { ...collidedPos, x: sneakClamp.x, z: sneakClamp.z } as Position
-            const resolvedVel = {
-              x: sneakClamp.x !== collidedPos.x ? 0 : collidedVel.x,
-              y: collidedVel.y,
-              z: sneakClamp.z !== collidedPos.z ? 0 : collidedVel.z,
-            }
+            const { position: collidedPos, velocity: collidedVel, isGrounded: newIsGrounded } =
+              resolveCollisionOrNoclip(effPos, effVel, isSolid, isSpectator)
 
-            yield* physicsService.setPosition(playerBodyId, resolvedPos as Position).pipe(
-              Effect.catchTag('PhysicsServiceError', () => Effect.void)
-            )
-            yield* physicsService.setVelocity(playerBodyId, resolvedVel).pipe(
-              Effect.catchTag('PhysicsServiceError', () => Effect.void)
-            )
+            const { position: resolvedPos, velocity: resolvedVel } =
+              applySneakEdgeClamp(prePos, collidedPos, collidedVel, isSolid, sneaking, isGrounded)
+
+            yield* Effect.all([
+              physicsService.setPosition(playerBodyId, resolvedPos).pipe(Effect.catchTag('PhysicsServiceError', () => Effect.void)),
+              physicsService.setVelocity(playerBodyId, resolvedVel).pipe(Effect.catchTag('PhysicsServiceError', () => Effect.void)),
+            ], { concurrency: 'unbounded', discard: true })
             yield* Ref.set(isGroundedRef, newIsGrounded)
 
-            // Apply water drag when player is inside a water block. Holding JUMP
-            // (and not flying) swims upward (FR-2 swim-up). Spectator ignores water
-            // (noclip observer flies freely through it).
             if (!isSpectator && isInWater(resolvedPos.x, resolvedPos.y, resolvedPos.z, chunkCache, playerCx, playerCz)) {
               const swimUp = !flying && (yield* inputService.isKeyPressed(KeyMappings.JUMP))
               yield* applyWaterDrag(physicsService, playerBodyId, resolvedVel, swimUp)
             }
 
-            yield* playerService.updatePosition(playerId, resolvedPos as Position)
-            yield* playerService.updateVelocity(playerId, resolvedVel)
+            yield* Effect.all([
+              playerService.updatePosition(playerId, resolvedPos),
+              playerService.updateVelocity(playerId, resolvedVel),
+            ], { concurrency: 'unbounded', discard: true })
 
             const now = yield* Clock.currentTimeMillis
             yield* Ref.update(timingStateRef, (state) => ({
@@ -298,10 +237,8 @@ export class GameStateService extends Effect.Service<GameStateService>()(
 
         respawn: (spawnPosition: Position): Effect.Effect<void, GameStateError> =>
           Effect.gen(function* () {
-            const playerBodyId = yield* Option.match(yield* Ref.get(playerBodyIdRef), {
-              onNone: () => Effect.fail(new GameStateError({ operation: 'respawn', reason: 'Physics not initialized. Call initialize() first.' })),
-              onSome: (id) => Effect.succeed(id),
-            })
+            const playerBodyId = Option.getOrNull(yield* Ref.get(playerBodyIdRef))
+            if (playerBodyId === null) return yield* Effect.fail(new GameStateError({ operation: 'respawn', reason: 'Physics not initialized. Call initialize() first.' }))
 
             // Mode-aware: in survival, clear inventory on death. Creative preserves inventory.
             const isSurvival = yield* gameModeService.isSurvival()

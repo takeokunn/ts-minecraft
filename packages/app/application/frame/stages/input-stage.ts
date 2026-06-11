@@ -116,13 +116,11 @@ const handleTradeKeys = (
         const isSettingsOpen = yield* services.settingsOverlay.isOpen()
         if (!isInvOpen && !isSettingsOpen) {
           const villagerOption = yield* services.villageService.findNearestVillager(inputs.playerPos, TRADE_DISTANCE)
-          yield* Option.match(villagerOption, {
-            onNone: () => Effect.void,
-            onSome: (villager) =>
-              services.tradingPresentation.open(villager.villagerId).pipe(
-                Effect.flatMap((opened) => (opened ? Ref.set(deps.gamePausedRef, true) : Effect.void)),
-              ),
-          })
+          const villager = Option.getOrNull(villagerOption)
+          if (villager !== null) {
+            const opened = yield* services.tradingPresentation.open(villager.villagerId)
+            if (opened) yield* Ref.set(deps.gamePausedRef, true)
+          }
         }
       }
     }

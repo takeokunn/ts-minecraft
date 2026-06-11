@@ -68,14 +68,14 @@ export const createTestInputService = (initialState: {
   sneak?: boolean
 } = {}) => {
   const pressedKeys = MutableHashMap.make(
-    ['KeyW', Option.getOrElse(Option.fromNullable(initialState.forward), () => false)],
-    ['KeyS', Option.getOrElse(Option.fromNullable(initialState.backward), () => false)],
-    ['KeyA', Option.getOrElse(Option.fromNullable(initialState.left), () => false)],
-    ['KeyD', Option.getOrElse(Option.fromNullable(initialState.right), () => false)],
-    ['Space', Option.getOrElse(Option.fromNullable(initialState.jump), () => false)],
+    ['KeyW', initialState.forward ?? false],
+    ['KeyS', initialState.backward ?? false],
+    ['KeyA', initialState.left ?? false],
+    ['KeyD', initialState.right ?? false],
+    ['Space', initialState.jump ?? false],
     // Sprint = Ctrl (KeyMappings.SPRINT reads ControlLeft/ControlRight); sneak = ShiftLeft.
-    ['ControlLeft', Option.getOrElse(Option.fromNullable(initialState.sprint), () => false)],
-    ['ShiftLeft', Option.getOrElse(Option.fromNullable(initialState.sneak), () => false)],
+    ['ControlLeft', initialState.sprint ?? false],
+    ['ShiftLeft', initialState.sneak ?? false],
   )
   // For consumeKeyPress, track "just pressed" keys
   const justPressedKeys = MutableHashSet.empty<string>()

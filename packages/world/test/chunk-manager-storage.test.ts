@@ -68,10 +68,8 @@ describe('application/chunk/chunk-manager-service (storage)', () => {
         // Chunk must load successfully and the blocks must equal what we saved
         expect(chunk.blocks).toEqual(validBlocks)
         // The Option-wrapped fluid (if present) must be a properly-sized buffer
-        Option.match(chunk.fluid, {
-          onNone: () => { /* fluid was discarded entirely — also valid */ },
-          onSome: (f) => { expect(f.byteLength).toBe(FLUID_BYTE_LENGTH) },
-        })
+        const fluid = Option.getOrNull(chunk.fluid)
+        if (fluid !== null) expect(fluid.byteLength).toBe(FLUID_BYTE_LENGTH)
       }).pipe(Effect.provide(TestLayer))
     })
   })
