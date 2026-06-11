@@ -1316,7 +1316,7 @@ A comprehensive multi-lens audit covering: (1) per-frame heap allocation census 
 - [ ] R91: Fix LOD re-mesh trigger: after `hasLodChanges`, enqueue affected chunks into dirty-chunk path with new LOD — `world-renderer-chunk-sync.ts` (critical)
 - [ ] R92: Thread computed `sunIntensity` from `lightingStage` into `refractionPrepassStage`; replace hardcoded `1.0` — `post-processing-stage.ts` (critical)
 - [x] R93: Hoist `readPlayerColumn` out of `Effect.gen` body; accept `chunkOpt, lx, lz` as explicit parameters — `physics-stage.ts` (high)
-- [ ] R94: Replace `FrameCommand { _tag: 'Tick', timestamp }` with bare `Queue<number>` — `game-loop.ts` (high)
+- [x] R94: Replace `FrameCommand { _tag: 'Tick', timestamp }` with bare `Queue<number>` — `game-loop.ts` (high)
 - [ ] R95: Replace 4-element `[armorSlots...]` array literal in lava branch with direct inline sum — `physics-stage.ts` (high)
 - [ ] R96: Add `copyPositionInto` / `copyVelocityInto` to `PhysicsService` to eliminate per-call plain-object allocation — `physics-service.ts` (high)
 - [ ] R97: Change `triggerAttackSwing` to mutate state in-place; remove `{ ...state }` spread — `interaction-block-handler.ts` (high)

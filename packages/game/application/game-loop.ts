@@ -1,12 +1,8 @@
-import { Effect, Option, Queue, Ref, Fiber, Schema, Cause, MutableRef, Duration } from 'effect'
+import { Effect, Option, Queue, Ref, Fiber, Cause, MutableRef, Duration } from 'effect'
 import { GameLoopError } from '../domain/errors'
 import { DeltaTimeSecs } from '@ts-minecraft/core'
 import { FIRST_FRAME_DELTA_SECS } from '../domain/constants'
 
-export const FrameCommandSchema = Schema.TaggedStruct('Tick', {
-  timestamp: Schema.Number.pipe(Schema.finite(), Schema.nonNegative()),
-})
-export type FrameCommand = Schema.Schema.Type<typeof FrameCommandSchema>
 export type FrameHandler = (deltaTime: DeltaTimeSecs) => Effect.Effect<void, never>
 
 const QUEUE_CAPACITY = 60
@@ -43,7 +39,7 @@ export const advanceFramePacing = (
 // Stand-alone helper: schedules rAF (or setInterval fallback) frames into the queue.
 // Extracted from start() to reduce nesting depth.
 const buildScheduleFrame = (
-  frameQueue: Queue.Queue<FrameCommand>,
+  frameQueue: Queue.Queue<number>,
   isRunningRef: MutableRef.MutableRef<boolean>,
   animationFrameIdRef: MutableRef.MutableRef<Option.Option<number>>,
 ): (() => void) => {
@@ -68,7 +64,7 @@ const buildScheduleFrame = (
 
           if (paced.emit) {
             Effect.runFork(
-              Queue.offer(frameQueue, { _tag: 'Tick', timestamp }).pipe(
+              Queue.offer(frameQueue, timestamp).pipe(
                 Effect.asVoid,
                 Effect.catchAllCause((cause) => Effect.logError(`Frame queue error: ${Cause.pretty(cause)}`)),
               ),
@@ -84,7 +80,7 @@ const buildScheduleFrame = (
           if (!MutableRef.get(isRunningRef)) return
 
           Effect.runFork(
-            Queue.offer(frameQueue, { _tag: 'Tick', timestamp: performance.now() }).pipe(
+            Queue.offer(frameQueue, performance.now()).pipe(
               Effect.asVoid,
               Effect.catchAllCause((cause) => Effect.logError(`Frame queue error: ${Cause.pretty(cause)}`)),
             ),
@@ -102,7 +98,7 @@ export class GameLoopService extends Effect.Service<GameLoopService>()(
   {
     effect: Effect.all([
       // Holds the current frame queue (recreated on each start)
-      Ref.make<Option.Option<Queue.Queue<FrameCommand>>>(Option.none()),
+      Ref.make<Option.Option<Queue.Queue<number>>>(Option.none()),
       // Holds the current processing fiber (None when stopped)
       Ref.make<Option.Option<Fiber.RuntimeFiber<void, never>>>(Option.none()),
       Ref.make<Option.Option<Fiber.RuntimeFiber<void, never>>>(Option.none()),
@@ -125,20 +121,20 @@ export class GameLoopService extends Effect.Service<GameLoopService>()(
 
         const startFrameProcessing = (frameHandler: FrameHandler): Effect.Effect<void, never> =>
           Effect.gen(function* () {
-            const frameQueue = yield* Queue.dropping<FrameCommand>(QUEUE_CAPACITY)
+            const frameQueue = yield* Queue.dropping<number>(QUEUE_CAPACITY)
             yield* Ref.set(frameQueueRef, Option.some(frameQueue))
 
             const lastTimestampRef = yield* Ref.make(0)
             const processFrames: Effect.Effect<void, never> = Queue.take(frameQueue).pipe(
-              Effect.flatMap((cmd) =>
+              Effect.flatMap((timestamp) =>
                 Ref.get(lastTimestampRef).pipe(
                   Effect.flatMap((lastTimestamp) => {
                     const rawDelta =
                       lastTimestamp === 0
                         ? FIRST_FRAME_DELTA_SECS
-                        : (cmd.timestamp - lastTimestamp) / 1000
+                        : (timestamp - lastTimestamp) / 1000
                     const deltaTime = DeltaTimeSecs.make(Math.min(Math.max(0.001, rawDelta), 0.05))
-                    return Ref.set(lastTimestampRef, cmd.timestamp).pipe(
+                    return Ref.set(lastTimestampRef, timestamp).pipe(
                       Effect.flatMap(() =>
                         frameHandler(deltaTime).pipe(
                           Effect.catchAllCause((cause) => Effect.logError(`Frame error: ${Cause.pretty(cause)}`)),
@@ -243,7 +239,7 @@ export class GameLoopService extends Effect.Service<GameLoopService>()(
                 onSome: (fiber) => Fiber.interrupt(fiber),
               })
 
-              const frameQueue = yield* Ref.modify(frameQueueRef, (opt): [Option.Option<Queue.Queue<FrameCommand>>, Option.Option<Queue.Queue<FrameCommand>>] =>
+              const frameQueue = yield* Ref.modify(frameQueueRef, (opt): [Option.Option<Queue.Queue<number>>, Option.Option<Queue.Queue<number>>] =>
                 [opt, Option.none()]
               )
               yield* Option.match(frameQueue, {
