@@ -176,6 +176,10 @@ export type FrameStageRefs = {
   readonly lastShadowTargetRef: MutableRef.MutableRef<{ x: number; z: number }>
   readonly lastFrustumCullRef: MutableRef.MutableRef<CameraPoseSnapshot>
   readonly lastRefractionFrameRef: MutableRef.MutableRef<CameraPoseSnapshot>
+  // Pre-allocated scratch buffers for captureCameraPose output-parameter pattern (R89).
+  // Written each frame before comparison; avoids a per-frame CameraPoseSnapshot allocation.
+  readonly currentFrustumPoseScratch: CameraPoseSnapshot
+  readonly currentRefractionPoseScratch: CameraPoseSnapshot
   readonly lastAudioRef: MutableRef.MutableRef<{ enabled: boolean; master: number; sfx: number; music: number }>
   // True if the player was grounded on the PREVIOUS frame — detects the jump instant
   // (wasGrounded && !isGrounded && y-velocity > 0) for jump exhaustion.

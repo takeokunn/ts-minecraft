@@ -427,7 +427,7 @@ export const physicsStage = (
             yield* services.netherService.setDimension(plan.toDimension)
             yield* services.chunkManagerService.setActiveDimension(plan.toDimension)
             yield* services.gameState.respawn(plan.destination)
-            yield* Ref.set(finalPosRef, plan.destination)
+            yield* Ref.set(refs.finalPosRef, plan.destination)
             yield* Option.match(plan.portalToCreate, {
               onNone: () => Effect.void,
               onSome: (layout) =>
@@ -501,7 +501,7 @@ export const physicsStage = (
         yield* services.netherService.setDimension(destDim)
         yield* services.chunkManagerService.setActiveDimension(destDim)
         yield* services.gameState.respawn(destPos)
-        yield* Ref.set(finalPosRef, destPos)
+        yield* Ref.set(refs.finalPosRef, destPos)
         // Spawn the Ender Dragon when entering The End for the first time
         if (destDim === 'end') {
           const existingEntities = yield* services.entityManager.getEntities()
@@ -515,5 +515,5 @@ export const physicsStage = (
       'End portal travel error',
     )
 
-    return { playerPos: yield* Ref.get(finalPosRef) }
+    return { playerPos: yield* Ref.get(refs.finalPosRef) }
   })

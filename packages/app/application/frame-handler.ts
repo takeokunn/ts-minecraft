@@ -131,6 +131,14 @@ const createFrameLoopHandlersInternal = (
       p10: NaN,
       p14: NaN,
     })
+    // Pre-allocated scratch buffers for captureCameraPose output-parameter pattern (R89).
+    // Written into each frame before comparison; never stored long-term.
+    const currentFrustumPoseScratch: CameraPoseSnapshot = {
+      version: -1, x: 0, y: 0, z: 0, qx: 0, qy: 0, qz: 0, qw: 1, p0: 0, p5: 0, p10: 0, p14: 0,
+    }
+    const currentRefractionPoseScratch: CameraPoseSnapshot = {
+      version: -1, x: 0, y: 0, z: 0, qx: 0, qy: 0, qz: 0, qw: 1, p0: 0, p5: 0, p10: 0, p14: 0,
+    }
     // FR-005: Skip audio applySettings when volume/enabled haven't changed
     const lastAudioRef = MutableRef.make({ enabled: false, master: -1, sfx: -1, music: -1 })
     const wasGroundedRef = MutableRef.make(true)
@@ -202,6 +210,8 @@ const createFrameLoopHandlersInternal = (
       lastShadowTargetRef,
       lastFrustumCullRef,
       lastRefractionFrameRef,
+      currentFrustumPoseScratch,
+      currentRefractionPoseScratch,
       lastAudioRef,
       wasGroundedRef,
       finalPosRef,
