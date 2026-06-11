@@ -113,6 +113,17 @@ export class InputService extends Effect.Service<InputService>()(
         console.warn('Pointer Lock request failed')
       }
 
+      // Clear all held input when the window loses focus. The browser does NOT
+      // deliver keyup/mouseup for keys/buttons still held when focus leaves, so
+      // without this a key held during a tab/window switch stays "pressed" forever
+      // and the player keeps walking/acting on return (user report: stuck controls).
+      const handleBlur = () => {
+        MutableRef.set(pressedKeysRef, HashSet.empty<string>())
+        MutableRef.set(justPressedKeysRef, HashSet.empty<string>())
+        MutableRef.set(mouseButtonsRef, HashMap.empty<number, boolean>())
+        MutableRef.set(justClickedButtonsRef, HashSet.empty<number>())
+      }
+
         // Register all event listeners and schedule cleanup via finalizer
         const registerListeners = typeof window !== 'undefined' && typeof document !== 'undefined'
           ? Effect.acquireRelease(
@@ -127,6 +138,9 @@ export class InputService extends Effect.Service<InputService>()(
                 document.addEventListener('pointerlockerror', handlePointerLockError)
                 // Wheel event for hotbar cycling; passive:false required to allow preventDefault
                 document.addEventListener('wheel', handleWheel, { passive: false })
+                // Clear held input when the window loses focus (prevents stuck keys
+                // on tab/window switch — the browser sends no keyup while unfocused).
+                window.addEventListener('blur', handleBlur)
               }),
               () =>
                 Effect.sync(() => {
@@ -139,6 +153,7 @@ export class InputService extends Effect.Service<InputService>()(
                   document.removeEventListener('pointerlockchange', handlePointerLockChange)
                   document.removeEventListener('pointerlockerror', handlePointerLockError)
                   document.removeEventListener('wheel', handleWheel)
+                  window.removeEventListener('blur', handleBlur)
                 }),
             )
           : Effect.void

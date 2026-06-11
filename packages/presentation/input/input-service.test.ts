@@ -44,11 +44,34 @@ const installPointerLockDom = () => {
     exitPointerLock: () => {},
   }
 
-  Reflect.set(globalThis, 'window', {})
+  // window shares the same listener registry as the document mock so a dispatched
+  // 'blur' fires the input-service blur handler (stuck-key clearing).
+  const fakeWindow = {
+    addEventListener: (type: string, listener: EventListenerOrEventListenerObject) => {
+      const registered = listeners.get(type) ?? new Set<EventListenerOrEventListenerObject>()
+      registered.add(listener)
+      listeners.set(type, registered)
+    },
+    removeEventListener: (type: string, listener: EventListenerOrEventListenerObject) => {
+      listeners.get(type)?.delete(listener)
+    },
+    dispatchEvent: (event: Event) => {
+      for (const listener of listeners.get(event.type) ?? []) {
+        if (typeof listener === 'function') {
+          listener(event)
+        } else {
+          listener.handleEvent(event)
+        }
+      }
+      return true
+    },
+  }
+
+  Reflect.set(globalThis, 'window', fakeWindow)
   Reflect.set(globalThis, 'document', fakeDocument)
   Reflect.set(globalThis, 'HTMLCanvasElement', TestCanvasElement)
 
-  return { fakeDocument }
+  return { fakeDocument, fakeWindow }
 }
 
 afterEach(() => {
@@ -71,6 +94,22 @@ describe('InputService', () => {
 
         const unlocked = yield* input.isPointerLocked()
         expect(unlocked).toBe(false)
+      }).pipe(Effect.provide(InputService.Default)))
+    })
+  })
+
+  describe('window blur clears held input', () => {
+    it.effect('clears pressed keys on window blur (prevents stuck keys on tab/window switch)', () => {
+      const { fakeDocument, fakeWindow } = installPointerLockDom()
+      return Effect.scoped(Effect.gen(function* () {
+        const input = yield* InputService
+        // Player holds forward.
+        fakeDocument.dispatchEvent({ type: 'keydown', code: 'KeyW', repeat: false, target: null, preventDefault: () => {} } as unknown as Event)
+        expect(yield* input.isKeyPressed('KeyW')).toBe(true)
+        // Window loses focus (alt-tab / click another window). The browser sends no
+        // keyup, so without the blur handler 'KeyW' would stay pressed forever.
+        fakeWindow.dispatchEvent(new Event('blur'))
+        expect(yield* input.isKeyPressed('KeyW')).toBe(false)
       }).pipe(Effect.provide(InputService.Default)))
     })
   })

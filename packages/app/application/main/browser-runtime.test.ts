@@ -1,6 +1,6 @@
 import { describe, it } from '@effect/vitest'
 import { afterEach, expect, vi } from 'vitest'
-import { Effect, MutableRef, Option } from 'effect'
+import { Effect, MutableRef, Option, Ref } from 'effect'
 import { installBrowserEventBridge, wrapFrameHandlerWithBrowserEffects } from '@ts-minecraft/app/main/browser-runtime'
 
 const restoreGlobals = () => {
@@ -42,6 +42,7 @@ describe('browser-runtime', () => {
       yield* installBrowserEventBridge({
         canvas,
         inputPointerLock: pointerLockSpy(),
+        gamePausedRef: yield* Ref.make(false),
         pendingResizeRef,
         pendingSaveDirtyChunksRef,
       })

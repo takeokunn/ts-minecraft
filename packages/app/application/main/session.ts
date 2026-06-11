@@ -296,6 +296,7 @@ export const sessionProgram = (
     yield* installBrowserEventBridge({
       canvas,
       inputPointerLock: inputService.requestPointerLock(),
+      gamePausedRef,
       pendingResizeRef,
       pendingSaveDirtyChunksRef,
       gameLoopService,
