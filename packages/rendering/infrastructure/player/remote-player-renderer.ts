@@ -108,6 +108,27 @@ const createPlayerParts = (state: RemotePlayerState): PlayerParts => {
   return { root, leftArm, rightArm, leftLeg, rightLeg }
 }
 
+// scene.remove() only detaches from the graph — it does NOT free GPU memory.
+// Every per-player BoxGeometry / MeshBasicMaterial and the name-tag's
+// SpriteMaterial + CanvasTexture are OWNED (built inline in createPlayerParts,
+// never shared/cached), so they must be disposed on despawn or VRAM grows
+// unbounded across multiplayer join/leave churn.
+const disposeMaterial = (material: THREE.Material): void => {
+  const map = (material as THREE.SpriteMaterial).map
+  if (map) map.dispose()
+  material.dispose()
+}
+
+const disposeEntry = (entry: RemotePlayerEntry): void => {
+  entry.group.traverse((object) => {
+    const geometry = (object as Partial<THREE.Mesh>).geometry
+    if (geometry) geometry.dispose()
+    const material = (object as Partial<THREE.Mesh>).material
+    if (Array.isArray(material)) material.forEach(disposeMaterial)
+    else if (material) disposeMaterial(material)
+  })
+}
+
 const applyState = (entry: RemotePlayerEntry, state: RemotePlayerState): void => {
   entry.group.position.set(state.position.x, state.position.y, state.position.z)
   entry.group.rotation.y = state.rotation.yaw
@@ -154,6 +175,7 @@ export const createRemotePlayerRenderer = (
       const entry = players.get(playerId)
       if (entry === undefined) return
       scene.remove(entry.group)
+      disposeEntry(entry)
       players.delete(playerId)
     }),
     updateFromSnapshot: (snapshots) => Effect.sync(() => {
@@ -162,6 +184,7 @@ export const createRemotePlayerRenderer = (
       for (const [playerId, entry] of players) {
         if (liveIds.has(playerId)) continue
         scene.remove(entry.group)
+        disposeEntry(entry)
         players.delete(playerId)
       }
     }),

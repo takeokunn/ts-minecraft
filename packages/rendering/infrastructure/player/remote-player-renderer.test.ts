@@ -10,6 +10,7 @@ type MockObject3D = {
   readonly rotation: { x: number; y: number; z: number }
   readonly scale: MockVector
   readonly add: (object: MockObject3D) => void
+  readonly traverse: (callback: (object: MockObject3D) => void) => void
 }
 
 vi.mock('three', () => {
@@ -32,22 +33,33 @@ vi.mock('three', () => {
     readonly add = vi.fn((object: MockObject3D): void => {
       this.children.push(object)
     })
+    traverse(callback: (object: MockObject3D) => void): void {
+      callback(this)
+      for (const child of this.children) child.traverse(callback)
+    }
   }
 
   class BoxGeometryMock {
     readonly translate = vi.fn()
+    readonly dispose = vi.fn()
     constructor(readonly width: number, readonly height: number, readonly depth: number) {}
   }
 
   class MeshBasicMaterialMock {
+    readonly dispose = vi.fn()
     constructor(readonly options: unknown) {}
   }
 
   class SpriteMaterialMock {
-    constructor(readonly options: unknown) {}
+    readonly dispose = vi.fn()
+    readonly map: unknown
+    constructor(readonly options: { map?: unknown }) {
+      this.map = options?.map
+    }
   }
 
   class CanvasTextureMock {
+    readonly dispose = vi.fn()
     constructor(readonly canvas: unknown) {}
   }
 
@@ -84,6 +96,24 @@ const makeScene = (): Pick<THREE.Scene, 'add' | 'remove'> => ({
 const addedGroup = (scene: Pick<THREE.Scene, 'add' | 'remove'>): MockObject3D => {
   const add = scene.add as ReturnType<typeof vi.fn>
   return add.mock.calls[0]?.[0] as MockObject3D
+}
+
+// Walk a player group and collect every GPU resource that owns a dispose() —
+// geometries, materials, and any texture map hanging off a SpriteMaterial.
+const collectDisposables = (group: MockObject3D): Array<{ dispose: ReturnType<typeof vi.fn> }> => {
+  const disposables: Array<{ dispose: ReturnType<typeof vi.fn> }> = []
+  group.traverse((object) => {
+    const o = object as unknown as {
+      geometry?: { dispose: ReturnType<typeof vi.fn> }
+      material?: { dispose: ReturnType<typeof vi.fn>; map?: { dispose: ReturnType<typeof vi.fn> } }
+    }
+    if (o.geometry) disposables.push(o.geometry)
+    if (o.material) {
+      disposables.push(o.material)
+      if (o.material.map) disposables.push(o.material.map)
+    }
+  })
+  return disposables
 }
 
 describe('infrastructure/player/remote-player-renderer', () => {
@@ -126,6 +156,36 @@ describe('infrastructure/player/remote-player-renderer', () => {
 
     expect(scene.remove).toHaveBeenCalledWith(group)
     expect(Effect.runSync(renderer.getAllPlayerIds).size).toBe(0)
+  })
+
+  it('removePlayer disposes every owned geometry, material, and name-tag texture', () => {
+    const scene = makeScene()
+    const renderer = createRemotePlayerRenderer(scene, new THREE.Camera())
+
+    Effect.runSync(renderer.addPlayer(makeState()))
+    const disposables = collectDisposables(addedGroup(scene))
+    // 6 box geometries + 6 mesh materials + 1 name-tag SpriteMaterial. The node
+    // test env has no `document`, so createNameTag uses the texture-less fallback
+    // sprite; in a browser the SpriteMaterial also carries a CanvasTexture map,
+    // which disposeMaterial() disposes via its `if (map)` guard.
+    expect(disposables.length).toBe(13)
+
+    Effect.runSync(renderer.removePlayer('player-1'))
+
+    for (const resource of disposables) expect(resource.dispose).toHaveBeenCalledTimes(1)
+  })
+
+  it('updateFromSnapshot disposes resources of players that have left', () => {
+    const scene = makeScene()
+    const renderer = createRemotePlayerRenderer(scene, new THREE.Camera())
+
+    Effect.runSync(renderer.addPlayer(makeState({ playerId: 'gone', playerName: 'Gone' })))
+    const disposables = collectDisposables(addedGroup(scene))
+
+    Effect.runSync(renderer.updateFromSnapshot([makeState({ playerId: 'stay', playerName: 'Stay' })]))
+
+    expect(Effect.runSync(renderer.getAllPlayerIds)).toEqual(new Set(['stay']))
+    for (const resource of disposables) expect(resource.dispose).toHaveBeenCalledTimes(1)
   })
 
   it('updateFromSnapshot adds new, updates existing, removes gone players', () => {

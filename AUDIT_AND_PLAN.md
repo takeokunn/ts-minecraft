@@ -631,6 +631,41 @@ Fresh audit pass found:
 **Round 28 complete.** R73–R74.
 typecheck 0, lint 0/0, **4625 tests passing** (no new tests — pure correctness + perf fixes).
 
+## AF. Round 29 (2026-06-11) — GPU resource-disposal audit (Three.js VRAM leak)
+
+Hot-path Effect/fiber allocation is now heavily mined (R22/R23/R74), so this round pivoted to a
+fresh NFR angle never audited before: **Three.js GPU resource disposal**. `scene.remove()` only
+detaches from the scene graph — it does NOT free the WebGL buffers/textures held by
+`BufferGeometry`/`Material`/`Texture`; those survive until `.dispose()` is called, and JS GC cannot
+reach into the GPU driver. An Explore agent swept chunk meshes, entity renderer, particles, and
+post-processing; chunk/entity/particle disposal was confirmed correct (shared caches deliberately
+NOT disposed per-removal — verified ownership before recommending). One genuine leak found and
+ground-verified against the code before acting.
+
+- [x] R75. Remote-player renderer GPU leak — `remote-player-renderer.ts` built per-player OWNED
+  resources inline (6 `BoxGeometry` + 6 `MeshBasicMaterial` + name-tag `SpriteMaterial` +
+  `CanvasTexture`) in `createPlayerParts`, but **both** despawn paths (`removePlayer` AND
+  `updateFromSnapshot`'s stale-player sweep) only called `scene.remove(group)` — no disposal. In
+  multiplayer this is an unbounded VRAM leak on every player join/leave churn. Added a
+  `disposeEntry(entry)` helper (`group.traverse` → dispose each geometry + material, with
+  `disposeMaterial` also disposing a `SpriteMaterial.map` texture when present) wired into both
+  paths. Resources confirmed OWNED (built inline, never shared/cached) so disposal is safe and
+  behavior-preserving. +2 tests (removePlayer disposes all 13 node-env resources; updateFromSnapshot
+  disposes departed players'); extended the THREE test mock with `traverse` + `dispose` stubs.
+  _(done 2026-06-11)_
+
+**Round 29 complete.** R75 (remote-player GPU disposal leak).
+typecheck 0, lint 0/0, **4627 tests passing** (+2). Two other disposal gaps recorded as deferred
+low-priority below (particle InstancedMesh teardown, entity-pool InstancedMesh teardown — both
+session-once cold paths, not unbounded; `InstancedMesh.dispose()` only, geometry/material already
+disposed).
+
+**Verified but deferred (recorded, not churned):**
+- `particle-system.ts:112` — `scene.remove(mesh)` finalizer disposes geometry+material but not the
+  `InstancedMesh` itself. COLD path (once per session teardown), ~200KB, not unbounded. DEFER.
+- `entity-instance-pool.ts:226` (`disposeAll`) — disposes each bucket's geometry+material but not the
+  `InstancedMesh`. COLD path (session shutdown), 24 buckets. DEFER.
+
 ## D. Progress log
 - 2026-06-10: Audit complete; plan authored. Beginning Phase 1.
 - 2026-06-10: **ALL TASKS COMPLETE.** Phase 1 (T1-T4 verified hot-path allocs), Phase 2
