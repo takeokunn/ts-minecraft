@@ -11,6 +11,35 @@ export type FrameHandler = (deltaTime: DeltaTimeSecs) => Effect.Effect<void, nev
 
 const QUEUE_CAPACITY = 60
 
+// FPS cap. requestAnimationFrame fires at the display refresh rate, so on a
+// 120/144/240 Hz monitor the full simulate+render pipeline ran 2-4x more often
+// than needed, burning ~one CPU core continuously (the "CPUを食いすぎ" report).
+// We throttle the simulation/render to TARGET_FRAME_RATE using a carry-over
+// accumulator (NOT `now - lastOffered`, which undershoots on refresh rates that
+// aren't an integer multiple of the target, and can halve a 60 Hz display under
+// jitter). 60 fps is smooth for Minecraft and roughly halves CPU on high-refresh
+// displays; displays at or below 60 Hz are unaffected.
+export const TARGET_FRAME_RATE = 60
+const MIN_FRAME_INTERVAL_MS = 1000 / TARGET_FRAME_RATE
+
+/**
+ * Pure frame-pacing step. Given the accumulated unspent time, the gap since the
+ * last rAF callback, and the target interval, decide whether to emit a frame and
+ * return the new accumulator. The accumulator carries the remainder so the
+ * long-run emit rate converges exactly on the target; it is clamped to one
+ * interval of backlog so a long pause (background tab) can't unleash a burst.
+ */
+export const advanceFramePacing = (
+  accumulatedMs: number,
+  gapMs: number,
+  intervalMs: number,
+): { readonly emit: boolean; readonly accumulatedMs: number } => {
+  const acc = Math.min(accumulatedMs + gapMs, intervalMs * 2)
+  return acc >= intervalMs
+    ? { emit: true, accumulatedMs: acc - intervalMs }
+    : { emit: false, accumulatedMs: acc }
+}
+
 // Stand-alone helper: schedules rAF (or setInterval fallback) frames into the queue.
 // Extracted from start() to reduce nesting depth.
 const buildScheduleFrame = (
@@ -18,6 +47,9 @@ const buildScheduleFrame = (
   isRunningRef: MutableRef.MutableRef<boolean>,
   animationFrameIdRef: MutableRef.MutableRef<Option.Option<number>>,
 ): (() => void) => {
+  // Frame-pacing state for the FPS cap (rAF path only; setInterval already ~60).
+  const pacingAccumulatorRef = MutableRef.make(0)
+  const lastRafTimestampRef = MutableRef.make<number>(Number.NaN)
   const scheduleFrame = (): void => {
     const hasRequestAnimationFrame = typeof globalThis.requestAnimationFrame === 'function'
     const rafId = hasRequestAnimationFrame
@@ -25,12 +57,23 @@ const buildScheduleFrame = (
           /* c8 ignore next */
           if (!MutableRef.get(isRunningRef)) return
 
-          Effect.runFork(
-            Queue.offer(frameQueue, { _tag: 'Tick', timestamp }).pipe(
-              Effect.asVoid,
-              Effect.catchAllCause((cause) => Effect.logError(`Frame queue error: ${Cause.pretty(cause)}`)),
-            ),
-          )
+          // FPS cap: accumulate elapsed time and only emit a frame once a full
+          // target interval has built up. First callback (NaN) seeds one interval
+          // so the very first frame always emits.
+          const lastTs = MutableRef.get(lastRafTimestampRef)
+          MutableRef.set(lastRafTimestampRef, timestamp)
+          const gapMs = Number.isNaN(lastTs) ? MIN_FRAME_INTERVAL_MS : timestamp - lastTs
+          const paced = advanceFramePacing(MutableRef.get(pacingAccumulatorRef), gapMs, MIN_FRAME_INTERVAL_MS)
+          MutableRef.set(pacingAccumulatorRef, paced.accumulatedMs)
+
+          if (paced.emit) {
+            Effect.runFork(
+              Queue.offer(frameQueue, { _tag: 'Tick', timestamp }).pipe(
+                Effect.asVoid,
+                Effect.catchAllCause((cause) => Effect.logError(`Frame queue error: ${Cause.pretty(cause)}`)),
+              ),
+            )
+          }
 
           /* c8 ignore next 2 */
           if (MutableRef.get(isRunningRef)) {

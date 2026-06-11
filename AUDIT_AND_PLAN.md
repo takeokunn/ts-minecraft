@@ -733,12 +733,23 @@ so the remaining work is code-only.
     a blind FPS cap is NOT safe to add without measurement — jitter/tolerance mis-tuning can accidentally
     halve a 120 Hz display, and the cap interacts with the FPS-derived chunk budgets — so it needs a
     settings field + measurement, deferred. The hot paths are otherwise already well-budgeted.
+- [x] R-perf-3. **FPS cap (the deferred cap above, now made safe).** `requestAnimationFrame` fires at the
+  display refresh rate, so on a 120/144/240 Hz monitor the full simulate+render pipeline ran 2-4x more
+  often than needed — burning ~one CPU core continuously (the "CPUを食いすぎ" report). `game-loop.ts` now
+  throttles emission to `TARGET_FRAME_RATE=60` via a pure carry-over accumulator `advanceFramePacing(acc,
+  gap, interval)`: it accumulates the *remainder* each frame so the long-run emit rate converges exactly on
+  60 (this is what makes it safe — `now - lastOffered` would undershoot on non-integer-multiple refresh
+  rates and could halve a 60 Hz display under jitter, the exact failure the prior round flagged). The
+  accumulator is clamped to `interval*2` so a background-tab pause can't unleash a frame burst on resume;
+  the setInterval fallback path (already ~60) is untouched; displays at/below 60 Hz are unaffected.
+  +6 pure unit tests (`game-loop-pacing.test.ts`); 469 game tests + typecheck green. _(done 2026-06-11)_
 - [ ] R-perf-2. New-chunk load+mesh upload spike while moving (150 MB swings). Confirm the worker-pool
   result→BufferGeometry upload is budgeted per frame like the dirty-chunk flush is; if multiple chunk
   geometries upload in one frame, add a per-frame upload budget + requeue.
-- [ ] R78. Brightness/visibility — raise the terrain min-light floor (0.38) modestly (e.g. 0.45) and/or
-  verify `setSunIntensity` reaches 1.0 at noon, so caves/shadows are visible without fully abandoning the
-  light-up-with-torches mechanic. Small shader-constant change + a chunk-material test.
+- [x] R78. Brightness/visibility — raised the terrain min-light floor `0.38 -> 0.45` in BOTH chunk
+  materials (`chunk-mesh-materials.ts:124,205` `diffuseColor.rgb *= (0.45 + 0.55*lightFactor)*...`;
+  greedy-meshing-accumulator.ts comment synced). Full-bright unchanged (0.45+0.55=1.0); caves/shadows now
+  readable without abandoning the light-up-with-torches gradient. _(done 2026-06-11, commit 34533e25)_
 
 ## D. Progress log
 - 2026-06-10: Audit complete; plan authored. Beginning Phase 1.
