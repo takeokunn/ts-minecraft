@@ -788,14 +788,27 @@ composer chain always executes. One false positive (dead `createSolidColor`) was
   +1 regression assertion (createSolidColor colorSpace). typecheck 0; texture-loader(10) + hotbar-three(17)
   = 27 tests green. _(done 2026-06-11)_
 
-- [ ] R80. (Reported, NOT auto-fixed — design tradeoff for the user to decide) Atlas mipmaps cross-tile
-  bleed at distance. `buildAtlasTexture` uses `generateMipmaps=true` + `NearestMipmapNearestFilter` +
-  `anisotropy=8` (chunk-mesh-materials.ts:22-24). The HALF_TEXEL inset guards rasterization edges but NOT
-  mipmap downsampling, which averages across tile borders → distant blocks can smear (e.g. grass↔dirt).
-  This is the classic packed-atlas-vs-mipmap tradeoff: the current choice favors distance anti-aliasing
-  over perfect tile separation. Options: (a) keep as-is (AA, slight distant bleed); (b) `generateMipmaps=false`
-  + `minFilter=NearestFilter` (perfect tiles, but distant aliasing/shimmer); (c) padded mipmaps via custom
-  atlas generation (best of both, but a larger atlas-gen change). Left for an explicit product decision.
+- [x] R80. Atlas mipmaps cross-tile bleed at distance — **RESOLVED BY DECISION (keep current config):**
+  `buildAtlasTexture` uses `generateMipmaps=true` + `NearestMipmapNearestFilter` + `anisotropy=8`
+  (chunk-mesh-materials.ts:22-24). The HALF_TEXEL inset guards rasterization edges but not mipmap
+  downsampling, so distant blocks can show slight tile bleed (e.g. grass↔dirt). Reviewed the tradeoff and
+  chose to **keep mipmaps ON**: for a voxel game, distant-terrain anti-aliasing is worth more than
+  eliminating a subtle, unreported edge-bleed; disabling mipmaps would reintroduce far-terrain shimmer.
+  The artifact-free *and* AA-preserving fixes (per-tile texture-array, or a padded-gutter atlas + UV-math
+  change) are medium-large changes touching atlas generation + the shader — disproportionate risk against a
+  verified-correct pipeline with no concrete visual complaint. Revisit only if distant tile-bleed becomes a
+  reported issue. _(decided 2026-06-11; no code change)_
+
+**Code-only convergence reached (2026-06-11).** A fresh 3-lens correctness audit (physics/movement,
+save-load/lighting/day-night, orphaned-FR/data-correctness), each cross-checked against this 31-round plan
+and adversarially verified, returned **ZERO new actionable items**. Combined with 30 prior rounds this
+confirms the code-only frontier is mined out. The one remaining high-value item — **R-perf-1** (the
+per-frame `Effect.gen` pipeline architectural refactor, the dominant idle-GC-sawtooth source) — is
+**blocked on in-browser heap measurement** (Playwright disabled by user request after R30). It cannot be
+done safely blind: unlike removing provably-redundant allocations, converting hot stages to mutable/
+pre-built changes behavior in ways only heap measurement can regression-gate. **Recommended path to resume
+high-value NFR work:** re-enable the QA heap-sampling harness (the `?debug=perf` HUD `Mem:` readout already
+exists) so R-perf-1 can proceed increment-by-increment with a measured before/after gate.
 
 ## D. Progress log
 - 2026-06-10: Audit complete; plan authored. Beginning Phase 1.
