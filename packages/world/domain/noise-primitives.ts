@@ -1,6 +1,10 @@
 // Pure domain types for noise primitives — no infrastructure dependency.
 // These types mirror the Perlin noise type signatures from infrastructure/perlin.ts.
 
+import { Array as Arr } from 'effect'
+import { CHUNK_SIZE } from '@ts-minecraft/core'
+import { createPerlinNoise2D, createPerlinNoise3D } from './perlin'
+
 export type RandFn = () => number
 export type NoiseFn2D = (x: number, z: number) => number
 export type NoiseFn3D = (x: number, y: number, z: number) => number
@@ -86,8 +90,11 @@ export const computeTerrainChannels = (
   xStart: number,
   zStart: number,
 ): TerrainChannelSamples => {
-  const SPARSE = 9
+  // Sample noise on a coarse grid (every STEP blocks) then bilinearly upsample to
+  // the full chunk column — far cheaper than per-block noise without visible seams.
   const STEP = 2
+  const SPARSE = CHUNK_SIZE / STEP + 1 // grid points needed to span [0, CHUNK_SIZE] inclusive
+  const COLUMN_CELLS = CHUNK_SIZE * CHUNK_SIZE // one value per (x, z) in the chunk column
   const sparseC = new Float64Array(SPARSE * SPARSE)
   const sparseE = new Float64Array(SPARSE * SPARSE)
   const sparseW = new Float64Array(SPARSE * SPARSE)
@@ -105,16 +112,16 @@ export const computeTerrainChannels = (
     }
   }
 
-  const continentalness = new Float64Array(256)
-  const erosion = new Float64Array(256)
-  const pv = new Float64Array(256)
-  const jaggedness = new Float64Array(256)
+  const continentalness = new Float64Array(COLUMN_CELLS)
+  const erosion = new Float64Array(COLUMN_CELLS)
+  const pv = new Float64Array(COLUMN_CELLS)
+  const jaggedness = new Float64Array(COLUMN_CELLS)
 
-  for (let z = 0; z < 16; z++) {
+  for (let z = 0; z < CHUNK_SIZE; z++) {
     const siz = z >> 1
     const fz = (z & 1) / 2
     const inv_fz = 1 - fz
-    for (let x = 0; x < 16; x++) {
+    for (let x = 0; x < CHUNK_SIZE; x++) {
       const six = x >> 1
       const fx = (x & 1) / 2
       const inv_fx = 1 - fx
@@ -134,7 +141,7 @@ export const computeTerrainChannels = (
       const w = w00 * sparseW[i00]! + w10 * sparseW[i10]! + w01 * sparseW[i01]! + w11 * sparseW[i11]!
       const j = w00 * sparseJ[i00]! + w10 * sparseJ[i10]! + w01 * sparseJ[i01]! + w11 * sparseJ[i11]!
 
-      const out = z * 16 + x
+      const out = z * CHUNK_SIZE + x
       continentalness[out] = c
       erosion[out] = e
       pv[out] = toPV(w)
@@ -164,9 +171,6 @@ export type NoisePrimitives = Readonly<{
   jaggednessAt: (x: number, z: number) => number
   sampleTerrainChannels: (xStart: number, zStart: number) => TerrainChannelSamples
 }>
-
-import { Array as Arr } from 'effect'
-import { createPerlinNoise2D, createPerlinNoise3D } from './perlin'
 
 // ---------------------------------------------------------------------------
 // Full noise primitives factory — seeds every Perlin channel from a single seed.
