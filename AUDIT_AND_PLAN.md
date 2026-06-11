@@ -723,6 +723,16 @@ so the remaining work is code-only.
     execution across ~15 stages per frame (generators + Effect nodes). Reducing it = convert hottest
     stages to pre-built/sync — large, must be gated on in-browser heap measurement (deferred while
     Playwright is off). Per-frame `{x,y,z}` scratch reuse is deferred (shared-mutable-return footgun).
+  - [x] Increment 2 (measurement-unblock): the `?debug=perf` HUD (`perf-hud.ts`) tracked FPS/p50/p99/
+    Calls/Chunks/Queue but NOT JS heap — the one number that exposes the GC sawtooth. Added a live
+    `Mem:` line (`performance.memory.usedJSHeapSize` in MB; '--' where the API is absent) + `heapMb`
+    in the snapshot. Read-only, gated behind `?debug=perf` (zero normal-play impact). Lets the user
+    self-report heap/FPS so the architectural refactor can be regression-gated WITHOUT interactive
+    Playwright. _(done 2026-06-11)_
+  - Audit conclusions this round (no change, recorded): shadow map is 2048² (reasonable, not oversized);
+    a blind FPS cap is NOT safe to add without measurement — jitter/tolerance mis-tuning can accidentally
+    halve a 120 Hz display, and the cap interacts with the FPS-derived chunk budgets — so it needs a
+    settings field + measurement, deferred. The hot paths are otherwise already well-budgeted.
 - [ ] R-perf-2. New-chunk load+mesh upload spike while moving (150 MB swings). Confirm the worker-pool
   result→BufferGeometry upload is budgeted per frame like the dirty-chunk flush is; if multiple chunk
   geometries upload in one frame, add a per-frame upload budget + requeue.

@@ -16,6 +16,8 @@ export type PerfHudSnapshot = Readonly<{
   drawCalls: number
   chunkCount: number
   workerQueueDepth: number
+  /** Used JS heap in MB (Chrome only; NaN where performance.memory is absent). */
+  heapMb: number
   samples: ReadonlyArray<number>
 }>
 
@@ -128,6 +130,15 @@ export class PerfHudService extends Effect.Service<PerfHudService>()(
       const fpsRef = MutableRef.make(0)
       const p50MsRef = MutableRef.make(0)
       const p99MsRef = MutableRef.make(0)
+      const heapMbRef = MutableRef.make(0)
+
+      // Chrome-only, non-standard. Returns used JS heap in MB, or NaN where the
+      // API is absent (Firefox/Safari) so the HUD shows '--'. Read-only — purely
+      // diagnostic, surfaced so GC-churn can be observed without a profiler.
+      const readHeapMb = (): number => {
+        const mem = (performance as { memory?: { usedJSHeapSize?: number } }).memory
+        return typeof mem?.usedJSHeapSize === 'number' ? mem.usedJSHeapSize / 1048576 : NaN
+      }
 
       // ---------------------------------------------------------------
       // Build DOM overlay (one-time, write-once) inside an
@@ -170,11 +181,12 @@ export class PerfHudService extends Effect.Service<PerfHudService>()(
             'Calls:  ',
             'Chunks: ',
             'Queue:  ',
+            'Mem:    ',
           ]
-          const initialValues: ReadonlyArray<string> = ['0.0', '0.0ms', '0.0ms', '0', '0', '0']
+          const initialValues: ReadonlyArray<string> = ['0.0', '0.0ms', '0.0ms', '0', '0', '0', '0 MB']
 
           const nodes: Text[] = []
-          for (let i = 0; i < 6; i++) {
+          for (let i = 0; i < labels.length; i++) {
             const line = document.createElement('div')
             // Static label — never rewritten.
             line.appendChild(document.createTextNode(labels[i]!))
@@ -211,6 +223,7 @@ export class PerfHudService extends Effect.Service<PerfHudService>()(
           drawCalls: MutableRef.get(drawCallsRef),
           chunkCount: MutableRef.get(chunkCountRef),
           workerQueueDepth: MutableRef.get(workerQueueDepthRef),
+          heapMb: MutableRef.get(heapMbRef),
           samples,
         }
       }
@@ -249,9 +262,12 @@ export class PerfHudService extends Effect.Service<PerfHudService>()(
           // `#fps-counter` (rolling 0.5s mean) when they need a smoothed value.
           const fps = dtSecs > 0 ? 1 / dtSecs : 0
 
+          const heapMb = readHeapMb()
+
           MutableRef.set(fpsRef, fps)
           MutableRef.set(p50MsRef, p50Ms)
           MutableRef.set(p99MsRef, p99Ms)
+          MutableRef.set(heapMbRef, heapMb)
 
           // Pre-allocated text node mutations — no innerHTML, no textContent.
           textNodes[0]!.nodeValue = formatNumber(fps, 1)
@@ -260,6 +276,7 @@ export class PerfHudService extends Effect.Service<PerfHudService>()(
           textNodes[3]!.nodeValue = String(MutableRef.get(drawCallsRef))
           textNodes[4]!.nodeValue = String(MutableRef.get(chunkCountRef))
           textNodes[5]!.nodeValue = String(MutableRef.get(workerQueueDepthRef))
+          textNodes[6]!.nodeValue = `${formatNumber(heapMb, 0)} MB`
         })
 
       const setWorkerQueueDepth = (n: number): Effect.Effect<void, never> =>
