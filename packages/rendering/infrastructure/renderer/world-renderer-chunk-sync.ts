@@ -146,6 +146,49 @@ export const syncChunksToScene = (
       )
     )
 
+    // FR-3.1: re-mesh LOD-changed chunks in place (geometry buffers updated in
+    // the existing mesh object). Uses the same time-budget + hard-cap as the
+    // new-chunk add path above so LOD transitions spread across frames rather
+    // than spiking in a single frame. Each call to updateChunkMesh overwrites
+    // the geometry buffer in place (or replaces it when capacity is
+    // insufficient) and records the new lod value so the next frame finds
+    // `cm.lod === lodForChunk(c)` and skips the work.
+    const lodStartMs = nowMs()
+    const lodHardCap = Math.min(MAX_CHUNK_UPDATES_PER_FRAME, lodChangedChunks.length)
+    const { meshMap: nextMeshesAfterLod, processedLod } = yield* Effect.iterate(
+      { meshMap: nextMeshesAfterAdd, processedLod: 0 },
+      {
+        while: (s) => s.processedLod < lodHardCap && nowMs() - lodStartMs < WORLD_RENDERER_TIME_BUDGET_MS,
+        body: (s) => {
+          const chunk = lodChangedChunks[s.processedLod]!
+          const key = chunkKey(chunk.coord)
+          const existing = Option.getOrNull(HashMap.get(s.meshMap, key))
+          if (existing === null) {
+            // Chunk was just added above — it already has the correct LOD.
+            return Effect.succeed({ meshMap: s.meshMap, processedLod: s.processedLod + 1 })
+          }
+          const newLod = lodForChunk(chunk)
+          return chunkMeshService
+            .updateChunkMesh(existing.opaque, existing.water, chunk, waterMaterial, newLod, undefined, existing.transparentSolid)
+            .pipe(
+              Effect.map(({ waterMesh: nextWaterMesh, transparentSolidMesh: nextTransparentSolidMesh }) => {
+                const updated: ChunkMeshes = {
+                  opaque: existing.opaque,
+                  water: nextWaterMesh,
+                  transparentSolid: nextTransparentSolidMesh,
+                  lod: newLod,
+                }
+                return {
+                  meshMap: HashMap.set(s.meshMap, key, updated),
+                  processedLod: s.processedLod + 1,
+                }
+              })
+            )
+        },
+      }
+    )
+    const allLodChunksRemeshed = processedLod >= lodChangedChunks.length
+
     // Remove meshes for chunks no longer loaded (iterate original snapshot).
     // BUDGETED: dispose at most MAX_CHUNK_REMOVALS_PER_FRAME chunks per frame.
     // geometry.dispose() runs a synchronous WebGL deleteBuffer on the main thread;
@@ -154,7 +197,7 @@ export const syncChunksToScene = (
     // are disposed next frame (steady churn ≪ the cap → no accumulation, and they are
     // just off-screen edge chunks). Mirrors the budgeted ADD path above.
     const removalPairs = Arr.filterMap(
-      Arr.fromIterable(meshes),
+      Arr.fromIterable(nextMeshesAfterLod),
       ([key, chunkMeshes]) => HashSet.has(loadedKeySet, key) ? Option.none() : Option.some([key, chunkMeshes] as const)
     )
     const removalsToProcess = Arr.take(removalPairs, MAX_CHUNK_REMOVALS_PER_FRAME)
@@ -188,7 +231,7 @@ export const syncChunksToScene = (
           // Pulled from `userData.chunkCoord` (the same source the renderer
           // already trusts for frustum culling) — only releasing when the
           // value is present preserves correctness if it is somehow missing.
-          Option.match(Option.fromNullable(chunkMeshes.opaque.userData.chunkCoord), {
+          Option.match(Option.fromNullable(chunkMeshes.opaque.userData['chunkCoord']), {
             onNone: () => Effect.void,
             onSome: (coord) => chunkMeshService.releasePrevCachedMesh(coord),
           }),
@@ -199,7 +242,7 @@ export const syncChunksToScene = (
       { concurrency: CHUNK_SYNC_CONCURRENCY }
     )
 
-    const nextMeshes = Arr.reduce(removedKeys, nextMeshesAfterAdd, (acc, key) => HashMap.remove(acc, key))
+    const nextMeshes = Arr.reduce(removedKeys, nextMeshesAfterLod, (acc, key) => HashMap.remove(acc, key))
 
     // Rebuild stable water mesh list
     const nextWaterMeshes = Arr.filterMap(Arr.fromIterable(HashMap.values(nextMeshes)), (cm) => cm.water)
@@ -209,7 +252,7 @@ export const syncChunksToScene = (
       invalidateSceneCaches(),
     ], { concurrency: 'unbounded', discard: true })
 
-    // `false` (→ caller re-fires next frame) while either new chunks remain to mesh
-    // OR stale chunks remain to dispose, so the budgeted removal drains over frames.
-    return allNewChunksMeshed && allStaleRemoved
+    // `false` (→ caller re-fires next frame) while new chunks remain to mesh,
+    // stale chunks remain to dispose, OR LOD-changed chunks remain to re-mesh.
+    return allNewChunksMeshed && allStaleRemoved && allLodChunksRemeshed
   })
