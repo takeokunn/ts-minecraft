@@ -68,13 +68,21 @@ export class MovementService extends Effect.Service<MovementService>()(
   '@minecraft/application/MovementService',
   {
     effect: Effect.map(PlayerInputService, (inputService) => {
+      // Each movement direction responds to its WASD key OR its arrow-key alias.
+      const isDirPressed = (primary: string, alt: string): Effect.Effect<boolean, never> =>
+        Effect.zipWith(
+          inputService.isKeyPressed(primary),
+          inputService.isKeyPressed(alt),
+          (a, b) => a || b,
+        )
+
       const getInput = (): Effect.Effect<MovementInput, never> =>
         Effect.gen(function* () {
           const [forward, backward, left, right, jump, sprint, sneak] = yield* Effect.all([
-            inputService.isKeyPressed(KeyMappings.MOVE_FORWARD),
-            inputService.isKeyPressed(KeyMappings.MOVE_BACKWARD),
-            inputService.isKeyPressed(KeyMappings.MOVE_LEFT),
-            inputService.isKeyPressed(KeyMappings.MOVE_RIGHT),
+            isDirPressed(KeyMappings.MOVE_FORWARD, KeyMappings.MOVE_FORWARD_ALT),
+            isDirPressed(KeyMappings.MOVE_BACKWARD, KeyMappings.MOVE_BACKWARD_ALT),
+            isDirPressed(KeyMappings.MOVE_LEFT, KeyMappings.MOVE_LEFT_ALT),
+            isDirPressed(KeyMappings.MOVE_RIGHT, KeyMappings.MOVE_RIGHT_ALT),
             // Use consumeKeyPress for jump to only trigger once per key press
             inputService.consumeKeyPress(KeyMappings.JUMP),
             Effect.all([inputService.isKeyPressed('ControlLeft'), inputService.isKeyPressed('ControlRight')], {concurrency: 'unbounded'}).pipe(

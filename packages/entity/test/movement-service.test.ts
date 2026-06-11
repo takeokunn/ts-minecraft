@@ -217,6 +217,34 @@ describe('MovementService', () => {
       }).pipe(Effect.provide(MovementServiceLive), Effect.provide(testLayers))
     })
 
+    // Arrow keys are aliases for WASD: each direction responds to either.
+    it.effect('arrow keys move the same as WASD (ArrowUp/Down/Left/Right)', () => {
+      const inputService = createTestInputService()
+      inputService.setKeyPressed('ArrowUp', true)
+      inputService.setKeyPressed('ArrowLeft', true)
+      const testLayers = createTestLayers(inputService)
+      return Effect.gen(function* () {
+        const movementService = yield* MovementService
+        const input = yield* movementService.getInput()
+        expect(input.forward).toBe(true)
+        expect(input.left).toBe(true)
+        expect(input.backward).toBe(false)
+        expect(input.right).toBe(false)
+      }).pipe(Effect.provide(MovementServiceLive), Effect.provide(testLayers))
+    })
+
+    it.effect('WASD and arrow keys are OR-combined per direction', () => {
+      const inputService = createTestInputService({ forward: true }) // W down
+      inputService.setKeyPressed('ArrowDown', true) // S-alias down
+      const testLayers = createTestLayers(inputService)
+      return Effect.gen(function* () {
+        const movementService = yield* MovementService
+        const input = yield* movementService.getInput()
+        expect(input.forward).toBe(true)
+        expect(input.backward).toBe(true)
+      }).pipe(Effect.provide(MovementServiceLive), Effect.provide(testLayers))
+    })
+
     it.effect('should return jump true when Space is pressed', () => {
       const inputService = createTestInputService({ jump: true })
       const testLayers = createTestLayers(inputService)

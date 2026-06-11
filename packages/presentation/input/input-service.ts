@@ -33,8 +33,26 @@ export class InputService extends Effect.Service<InputService>()(
       Effect.sync(() => MutableRef.make(false)),
     ], { concurrency: 'unbounded' }).pipe(
       Effect.flatMap(([pressedKeysRef, justPressedKeysRef, mouseDeltaRef, mouseButtonsRef, justClickedButtonsRef, wheelDeltaRef, pointerLockFallbackRef]) => {
+      // Keys whose browser default action interferes with gameplay: arrows and
+      // PageUp/Down scroll the page; Space scrolls AND activates a focused button
+      // (e.g. the menu button just clicked to start the world) — which silently
+      // eats the jump. We preventDefault these during play, but NOT while a text
+      // field is focused (world-name entry still needs space/arrows).
+      const GAME_DEFAULT_BLOCKED = new Set([
+        'Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'PageUp', 'PageDown',
+      ])
+      const isEditableTarget = (target: EventTarget | null): boolean => {
+        const el = target as HTMLElement | null
+        if (el === null) return false
+        const tag = el.tagName
+        return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || el.isContentEditable === true
+      }
+
       // Keyboard event handlers
       const handleKeyDown = (event: KeyboardEvent) => {
+        if (GAME_DEFAULT_BLOCKED.has(event.code) && !isEditableTarget(event.target)) {
+          event.preventDefault()
+        }
         if (!event.repeat) {
           MutableRef.set(pressedKeysRef, HashSet.add(MutableRef.get(pressedKeysRef), event.code))
           // Mark as just pressed (for consumeKeyPress)

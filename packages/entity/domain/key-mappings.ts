@@ -3,6 +3,11 @@ export const KeyMappings = {
   MOVE_BACKWARD: 'KeyS',
   MOVE_LEFT: 'KeyA',
   MOVE_RIGHT: 'KeyD',
+  // Arrow-key aliases for movement (checked in addition to WASD).
+  MOVE_FORWARD_ALT: 'ArrowUp',
+  MOVE_BACKWARD_ALT: 'ArrowDown',
+  MOVE_LEFT_ALT: 'ArrowLeft',
+  MOVE_RIGHT_ALT: 'ArrowRight',
   JUMP: 'Space',
   SPRINT: 'ControlLeft',
   SNEAK: 'ShiftLeft',

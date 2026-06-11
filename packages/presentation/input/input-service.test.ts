@@ -75,6 +75,51 @@ describe('InputService', () => {
     })
   })
 
+  describe('keydown default-action prevention', () => {
+    const dispatchKey = (
+      fakeDocument: { dispatchEvent: (e: Event) => boolean },
+      code: string,
+      target: unknown,
+    ): { prevented: number } => {
+      const counter = { prevented: 0 }
+      const ev = { type: 'keydown', code, repeat: false, target, preventDefault: () => { counter.prevented++ } }
+      fakeDocument.dispatchEvent(ev as unknown as Event)
+      return counter
+    }
+
+    it.effect('preventDefault fires for Space/arrows when no text field is focused (fixes jump + page-scroll)', () => {
+      const { fakeDocument } = installPointerLockDom()
+      return Effect.scoped(Effect.gen(function* () {
+        const input = yield* InputService
+        for (const code of ['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight']) {
+          const { prevented } = dispatchKey(fakeDocument, code, null)
+          expect(prevented).toBe(1)
+          expect(yield* input.isKeyPressed(code)).toBe(true)
+        }
+      }).pipe(Effect.provide(InputService.Default)))
+    })
+
+    it.effect('does NOT preventDefault while a text input is focused (preserves world-name typing)', () => {
+      const { fakeDocument } = installPointerLockDom()
+      return Effect.scoped(Effect.gen(function* () {
+        const input = yield* InputService
+        const { prevented } = dispatchKey(fakeDocument, 'Space', { tagName: 'INPUT', isContentEditable: false })
+        expect(prevented).toBe(0)
+        void input
+      }).pipe(Effect.provide(InputService.Default)))
+    })
+
+    it.effect('does NOT preventDefault for non-blocked keys like WASD', () => {
+      const { fakeDocument } = installPointerLockDom()
+      return Effect.scoped(Effect.gen(function* () {
+        const input = yield* InputService
+        const { prevented } = dispatchKey(fakeDocument, 'KeyW', null)
+        expect(prevented).toBe(0)
+        expect(yield* input.isKeyPressed('KeyW')).toBe(true)
+      }).pipe(Effect.provide(InputService.Default)))
+    })
+  })
+
   describe('PlayerInputServiceLive', () => {
     it.effect('should delegate to the input service implementation', () => {
       const pressedKeys = MutableHashSet.empty<string>()
