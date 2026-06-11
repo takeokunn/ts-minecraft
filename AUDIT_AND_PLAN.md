@@ -705,12 +705,24 @@ so the remaining work is code-only.
   +5 tests. _(done 2026-06-11)_
 
 **OPEN — CPU/memory churn (the top user complaint; needs a dedicated measured round):**
-- [ ] R-perf-1. Reduce per-frame allocation in the unconditional hot stages (camera/physics/render/hud/
+- [~] R-perf-1. Reduce per-frame allocation in the unconditional hot stages (camera/physics/render/hud/
   lighting + `gameState.update`/`movementService.getInput`). Convert the hottest `Effect.gen` stages to
   pre-built Effects or plain mutable sync where behavior-preserving; reuse scratch objects for the
   per-frame `{x,y,z}` returns (getVelocity/getPosition/resolveBlockCollisions). Measure heap-churn
   amplitude before/after (target: flatten the idle sawtooth). Must be done incrementally with the QA
   heap-sampling harness as the regression gate.
+  - [x] Increment 1: `movementService.getInput` (runs every frame in gameState.update) was using
+    `Effect.all([...], {concurrency:'unbounded'})` (outer 7 + inner 2) over synchronous HashSet reads —
+    ~9 fibers/frame for zero parallelism. Converted to sequential `yield*` (no fibers, no intermediate
+    arrays/tuple). 55 movement tests still green. _(done 2026-06-11)_
+  - Verified clean (no action): physics-stage `concurrency:'unbounded'` at lines 242/431/436/458 are all
+    inside event branches (fish caught / block break-place / portal), NOT per-frame; first-person-camera
+    `Effect.all` is one-time construction, its per-frame `update` is already sequential. R74 already
+    cleaned physics-stage's per-frame reads. So `getInput` was the last per-frame fiber-spawner.
+  - Remaining (needs measured/architectural round): the dominant idle churn is the `Effect.gen`
+    execution across ~15 stages per frame (generators + Effect nodes). Reducing it = convert hottest
+    stages to pre-built/sync — large, must be gated on in-browser heap measurement (deferred while
+    Playwright is off). Per-frame `{x,y,z}` scratch reuse is deferred (shared-mutable-return footgun).
 - [ ] R-perf-2. New-chunk load+mesh upload spike while moving (150 MB swings). Confirm the worker-pool
   result→BufferGeometry upload is budgeted per frame like the dirty-chunk flush is; if multiple chunk
   geometries upload in one frame, add a per-frame upload budget + requeue.
