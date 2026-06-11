@@ -766,6 +766,37 @@ so the remaining work is code-only.
   greedy-meshing-accumulator.ts comment synced). Full-bright unchanged (0.45+0.55=1.0); caves/shadows now
   readable without abandoning the light-up-with-torches gradient. _(done 2026-06-11, commit 34533e25)_
 
+## AH. Round 31 (2026-06-11) — texture/graphics rendering-correctness audit (user-requested)
+
+User asked to verify, from the codebase, that textures + graphics render correctly. Ran a 4-inspector
++ adversarial-verify workflow over: (1) atlas load + color space + filtering, (2) UV/tile-index mapping,
+(3) materials/shaders/transparency, (4) renderer config + post-processing output. **Verdict: the pipeline
+is fundamentally CORRECT.** Verified-clean (file-cited): atlas `colorSpace = SRGBColorSpace`,
+`magFilter = NearestFilter` (crisp pixels), per-face textures (grass top/side/bottom), greedy-quad UVs
+repeat per-block (not stretched), HALF_TEXEL bleed inset, lighting clamped to [0,1], GLASS/LEAVES
+alphaTest/depthWrite/DoubleSide, renderOrder opaque<water<transparent, `renderer.outputColorSpace = sRGB`
++ ACESFilmic tone-mapping + a single final `OutputPass` (linear→sRGB exactly once), pixel-ratio caps (R76),
+composer chain always executes. One false positive (dead `createSolidColor`) was dismissed by the verifier.
+
+- [x] R79. Hotbar atlas color-space mismatch — the SAME `/textures/atlas.png` was loaded two ways with
+  inconsistent tagging: the world path (`buildAtlasTexture`, chunk-mesh-materials.ts:28) set
+  `colorSpace = SRGBColorSpace`, but `TextureService.load()` (texture-loader.ts, used by the hotbar at
+  hotbar-three.ts:47) **omitted it** → defaulted to linear. Under `renderer.outputColorSpace = sRGB` the
+  untagged texture skips the sRGB→linear decode, so hotbar item icons rendered at a different brightness
+  than the identical block in the world. Fix: tag `texture.colorSpace = SRGBColorSpace` in both `load()`
+  and `createSolidColor()` (same correctness fix; the latter is currently dead code but kept consistent).
+  +1 regression assertion (createSolidColor colorSpace). typecheck 0; texture-loader(10) + hotbar-three(17)
+  = 27 tests green. _(done 2026-06-11)_
+
+- [ ] R80. (Reported, NOT auto-fixed — design tradeoff for the user to decide) Atlas mipmaps cross-tile
+  bleed at distance. `buildAtlasTexture` uses `generateMipmaps=true` + `NearestMipmapNearestFilter` +
+  `anisotropy=8` (chunk-mesh-materials.ts:22-24). The HALF_TEXEL inset guards rasterization edges but NOT
+  mipmap downsampling, which averages across tile borders → distant blocks can smear (e.g. grass↔dirt).
+  This is the classic packed-atlas-vs-mipmap tradeoff: the current choice favors distance anti-aliasing
+  over perfect tile separation. Options: (a) keep as-is (AA, slight distant bleed); (b) `generateMipmaps=false`
+  + `minFilter=NearestFilter` (perfect tiles, but distant aliasing/shimmer); (c) padded mipmaps via custom
+  atlas generation (best of both, but a larger atlas-gen change). Left for an explicit product decision.
+
 ## D. Progress log
 - 2026-06-10: Audit complete; plan authored. Beginning Phase 1.
 - 2026-06-10: **ALL TASKS COMPLETE.** Phase 1 (T1-T4 verified hot-path allocs), Phase 2

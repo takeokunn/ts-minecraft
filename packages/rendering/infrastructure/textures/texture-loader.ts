@@ -22,6 +22,12 @@ export class TextureService extends Effect.Service<TextureService>()(
                 texture.generateMipmaps = false
                 texture.wrapS = THREE.RepeatWrapping
                 texture.wrapT = THREE.RepeatWrapping
+                // The textures loaded here (notably /textures/atlas.png for the hotbar) are
+                // sRGB-encoded color images. With renderer.outputColorSpace = SRGBColorSpace,
+                // an untagged texture is treated as linear and skips the sRGB→linear decode,
+                // so the SAME atlas rendered in the hotbar would mismatch the world blocks
+                // (buildAtlasTexture sets this; this path previously did not). Keep them in sync.
+                texture.colorSpace = THREE.SRGBColorSpace
                 return texture
               },
               catch: (cause) => new TextureError({ url, cause }),
@@ -60,6 +66,9 @@ export class TextureService extends Effect.Service<TextureService>()(
               texture.magFilter = THREE.NearestFilter
               texture.minFilter = THREE.NearestFilter
               texture.generateMipmaps = false
+              // Canvas holds an sRGB-encoded fill color; tag it so it round-trips correctly
+              // under renderer.outputColorSpace = SRGBColorSpace (consistent with load()).
+              texture.colorSpace = THREE.SRGBColorSpace
               return texture
             })
           }),

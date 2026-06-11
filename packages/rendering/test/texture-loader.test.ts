@@ -51,6 +51,9 @@ expect.fail(`Unexpected element request in texture-loader test: ${tag}`)
           expect(texture).toBeDefined()
           expect(texture.magFilter).toBe(THREE.NearestFilter)
           expect(texture.minFilter).toBe(THREE.NearestFilter)
+          // Regression guard: sRGB color textures must be tagged so they render
+          // consistently with the world atlas under renderer.outputColorSpace = sRGB.
+          expect(texture.colorSpace).toBe(THREE.SRGBColorSpace)
           expect(texture).toBeInstanceOf(THREE.CanvasTexture)
         }).pipe(Effect.provide(TextureServiceLive))
       )
