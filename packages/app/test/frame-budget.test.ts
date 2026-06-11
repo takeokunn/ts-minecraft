@@ -126,8 +126,8 @@ describe('frame-budget — FR-1.1 dynamic frame budgets', () => {
       expect(TargetFps.toNumber(ONE_TWENTY_FPS)).toBe(120)
     })
 
-    it('DEFAULT_TARGET_FPS is 120', () => {
-      expect(TargetFps.toNumber(DEFAULT_TARGET_FPS)).toBe(120)
+    it('DEFAULT_TARGET_FPS is 60 (tracks the game loop TARGET_FRAME_RATE cap; R-perf-2)', () => {
+      expect(TargetFps.toNumber(DEFAULT_TARGET_FPS)).toBe(60)
     })
   })
 })

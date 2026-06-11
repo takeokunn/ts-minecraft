@@ -9,7 +9,10 @@ import type { LodLevel } from '../meshing/lod-simplification'
 // match `packages/app/application/frame/frame-budget.ts` so the two definitions
 // stay in lockstep; if either drifts, the frame-budget tests in
 // `packages/app/test/frame-budget.test.ts` will catch it.
-const RENDERING_DEFAULT_TARGET_FPS = 120
+// MUST equal `DEFAULT_TARGET_FPS` in `packages/app/application/frame/frame-budget.ts`,
+// which since R-perf-3 tracks the game loop's 60 fps emission cap (`TARGET_FRAME_RATE`).
+// The frame-budget lockstep tests fail if this drifts from the app-side default.
+const RENDERING_DEFAULT_TARGET_FPS = 60
 const computeMaxChunkUpdatesPerFrame = (fps: number): number => Math.ceil((8 * fps) / 60)
 const computeChunkSyncBudgetMs = (fps: number): number => 240 / fps
 

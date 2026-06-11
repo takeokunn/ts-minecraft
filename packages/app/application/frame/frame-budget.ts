@@ -63,5 +63,13 @@ export const computeMaxDirtyChunkUpdatesPerFrame = (targetFps: TargetFps | numbe
  * Default target FPS used by the rest of the engine until `SettingsSchema`
  * grows a first-class field for it. Centralised here so a single edit will
  * roll the new value out everywhere when that settings field is added.
+ *
+ * MUST track `TARGET_FRAME_RATE` in `packages/game/application/game-loop.ts`
+ * (kept as a separate constant only because the package dependency graph forbids
+ * `app`→`game` for a bare value). Since R-perf-3 the game loop pins simulate+render
+ * emission to 60 fps via a carry-over accumulator, so the chunk-work budgets must be
+ * derived at 60 — NOT the display refresh rate. Budgeting at 120 while the loop runs
+ * at 60 doubled the per-frame chunk-geometry staging caps (16 new + 8 dirty instead of
+ * the intended 8 + 4), amplifying the new-chunk upload spike (R-perf-2).
  */
-export const DEFAULT_TARGET_FPS: TargetFps = TargetFps.make(120)
+export const DEFAULT_TARGET_FPS: TargetFps = TargetFps.make(60)

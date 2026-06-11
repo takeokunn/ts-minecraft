@@ -743,9 +743,24 @@ so the remaining work is code-only.
   accumulator is clamped to `interval*2` so a background-tab pause can't unleash a frame burst on resume;
   the setInterval fallback path (already ~60) is untouched; displays at/below 60 Hz are unaffected.
   +6 pure unit tests (`game-loop-pacing.test.ts`); 469 game tests + typecheck green. _(done 2026-06-11)_
-- [ ] R-perf-2. New-chunk load+mesh upload spike while moving (150 MB swings). Confirm the worker-pool
-  result→BufferGeometry upload is budgeted per frame like the dirty-chunk flush is; if multiple chunk
-  geometries upload in one frame, add a per-frame upload budget + requeue.
+- [x] R-perf-2. New-chunk load+mesh upload spike while moving (150 MB swings). **Root cause found by a
+  map→adversarial-verify workflow + hand ground-verification: the worker→BufferGeometry→scene path was
+  ALREADY budgeted per frame** (time budget `WORLD_RENDERER_TIME_BUDGET_MS` + hard cap
+  `MAX_CHUNK_UPDATES_PER_FRAME` + requeue in `world-renderer-chunk-sync.ts:103-125`, mirroring the
+  dirty-chunk flush). So "add a budget" was a non-fix (adversarially confirmed). The real bug: both budget
+  mirrors derive their caps from `DEFAULT_TARGET_FPS`/`RENDERING_DEFAULT_TARGET_FPS = 120`, but the most
+  recent commit R-perf-3 pinned the game loop to `TARGET_FRAME_RATE=60`. Budgeting at 120 while running at
+  60 **doubled** the per-frame staging caps (16 new + 8 dirty instead of the intended 8 + 4), amplifying the
+  spike. Fix: retarget both defaults 120→60 (the helpers were explicitly designed so 60fps reproduces the
+  historical 8/4/4ms values; frame-budget.ts:10-11). Halves per-frame chunk-geometry staging (16→8 new,
+  8→4 dirty); time budget 2→4ms is in the forkDaemon maintenance loop (independent of the render frame, so
+  frame-safe). **Throughput unaffected** — adversarially verified: chunk LOADING is capped at ~20/sec
+  (`MAX_CHUNK_LOADS_PER_CALL=4` + 200ms gap), 24× below even the reduced 480/sec mesh budget, so loading
+  stays the bottleneck and pop-in speed is unchanged. NOTE (honest scope): this reduces the per-frame
+  allocation/GPU-upload-batch rate but does NOT fully flatten the 150MB walking swing — the residual is
+  terrain-gen + worker-meshing transients + the per-frame `Effect.gen` pipeline (R-perf-1, measurement-
+  gated). typecheck 0; frame-budget(22)/world-renderer/chunk-sync/frame-maintenance/game-loop — 121 tests
+  green. _(done 2026-06-11)_
 - [x] R78. Brightness/visibility — raised the terrain min-light floor `0.38 -> 0.45` in BOTH chunk
   materials (`chunk-mesh-materials.ts:124,205` `diffuseColor.rgb *= (0.45 + 0.55*lightFactor)*...`;
   greedy-meshing-accumulator.ts comment synced). Full-bright unchanged (0.45+0.55=1.0); caves/shadows now
