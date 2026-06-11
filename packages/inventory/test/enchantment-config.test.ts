@@ -1,0 +1,93 @@
+import { describe, it, expect } from 'vitest'
+import {
+  MAX_LEVEL,
+  FORTUNE_MULTIPLIERS,
+  APPLICABLE_TO,
+} from '../domain/enchantment.config'
+import type { EnchantmentType } from '../domain/enchantment.types'
+
+const ALL_ENCHANTMENTS: EnchantmentType[] = [
+  'SHARPNESS', 'SMITE', 'BANE_OF_ARTHROPODS', 'KNOCKBACK',
+  'PROTECTION', 'PROJECTILE_PROTECTION', 'FIRE_PROTECTION', 'BLAST_PROTECTION',
+  'FEATHER_FALLING', 'RESPIRATION', 'EFFICIENCY', 'FORTUNE',
+  'SILK_TOUCH', 'UNBREAKING', 'LOOTING', 'INFINITY', 'POWER', 'PUNCH',
+  'LURE', 'LUCK_OF_THE_SEA',
+]
+
+describe('MAX_LEVEL', () => {
+  it('has entries for all enchantment types', () => {
+    for (const enchantment of ALL_ENCHANTMENTS) {
+      expect(MAX_LEVEL[enchantment]).toBeDefined()
+    }
+  })
+
+  it('SILK_TOUCH has max level 1 (cannot be leveled up)', () => {
+    expect(MAX_LEVEL['SILK_TOUCH']).toBe(1)
+  })
+
+  it('most sword/tool enchantments have max level >= 2', () => {
+    expect(MAX_LEVEL['SHARPNESS']).toBe(5)
+    expect(MAX_LEVEL['EFFICIENCY']).toBe(5)
+    expect(MAX_LEVEL['PROTECTION']).toBe(4)
+    expect(MAX_LEVEL['UNBREAKING']).toBe(3)
+  })
+
+  it('all max levels are positive integers', () => {
+    for (const [, level] of Object.entries(MAX_LEVEL)) {
+      expect(Number.isInteger(level)).toBe(true)
+      expect(level).toBeGreaterThan(0)
+    }
+  })
+})
+
+describe('FORTUNE_MULTIPLIERS', () => {
+  it('has increasing multipliers for levels 1-3', () => {
+    expect(FORTUNE_MULTIPLIERS[1]).toBeLessThan(FORTUNE_MULTIPLIERS[2])
+    expect(FORTUNE_MULTIPLIERS[2]).toBeLessThan(FORTUNE_MULTIPLIERS[3])
+  })
+
+  it('level 1 multiplier is > 1 (more drops)', () => {
+    expect(FORTUNE_MULTIPLIERS[1]).toBeGreaterThan(1)
+  })
+
+  it('level 3 multiplier is approximately 2.5 (vanilla Java Edition)', () => {
+    expect(FORTUNE_MULTIPLIERS[3]).toBeCloseTo(2.5, 1)
+  })
+})
+
+describe('APPLICABLE_TO', () => {
+  it('SHARPNESS applies to swords', () => {
+    expect(APPLICABLE_TO['SHARPNESS']?.has('IRON_SWORD')).toBe(true)
+    expect(APPLICABLE_TO['SHARPNESS']?.has('DIAMOND_SWORD')).toBe(true)
+  })
+
+  it('FORTUNE applies to pickaxes', () => {
+    expect(APPLICABLE_TO['FORTUNE']?.has('IRON_PICKAXE')).toBe(true)
+    expect(APPLICABLE_TO['FORTUNE']?.has('DIAMOND_PICKAXE')).toBe(true)
+  })
+
+  it('SILK_TOUCH applies to pickaxes', () => {
+    expect(APPLICABLE_TO['SILK_TOUCH']?.has('IRON_PICKAXE')).toBe(true)
+  })
+
+  it('FEATHER_FALLING only applies to boots', () => {
+    const items = Array.from(APPLICABLE_TO['FEATHER_FALLING'] ?? [])
+    expect(items.every(item => item.endsWith('BOOTS'))).toBe(true)
+  })
+
+  it('bow-specific enchantments only apply to bow', () => {
+    expect(APPLICABLE_TO['INFINITY']?.has('BOW')).toBe(true)
+    expect(APPLICABLE_TO['POWER']?.has('BOW')).toBe(true)
+    expect(APPLICABLE_TO['INFINITY']?.has('IRON_SWORD')).toBe(false)
+  })
+
+  it('PROTECTION applies to all armor pieces', () => {
+    const armorItems = [
+      'LEATHER_HELMET', 'IRON_HELMET', 'DIAMOND_HELMET',
+      'LEATHER_CHESTPLATE', 'IRON_CHESTPLATE', 'DIAMOND_CHESTPLATE',
+    ]
+    for (const item of armorItems) {
+      expect(APPLICABLE_TO['PROTECTION']?.has(item as never)).toBe(true)
+    }
+  })
+})
