@@ -32,3 +32,23 @@ export const computeLimbAngle = (
   const amp = LIMB_SWING_AMPLITUDE * Math.min(1, speed / REFERENCE_SPEED)
   return Math.sin((2 * Math.PI * speed * t) / STRIDE_LENGTH + phase) * amp
 }
+
+// Batched limb-angle computation: all 4 limbs with a single Math.sin call.
+// Math.sin(x + π) = -Math.sin(x), so:
+//   legL =  sin(baseAngle) * amp       (phase 0)
+//   legR = -sin(baseAngle) * amp       (phase π)
+//   armL = -sin(baseAngle) * amp       (phase π, same as legR)
+//   armR =  sin(baseAngle) * amp       (phase 0, same as legL)
+// This replaces 4 Math.sin calls per entity per frame with 1.
+export type LimbAngles = { legL: number; legR: number; armL: number; armR: number }
+
+export const computeLimbAngles = (
+  speed: number,
+  t: number,
+): LimbAngles => {
+  if (speed < SPEED_THRESHOLD) return { legL: 0, legR: 0, armL: 0, armR: 0 }
+  const amp = LIMB_SWING_AMPLITUDE * Math.min(1, speed / REFERENCE_SPEED)
+  const base = Math.sin((2 * Math.PI * speed * t) / STRIDE_LENGTH) * amp
+  const neg = -base
+  return { legL: base, legR: neg, armL: neg, armR: base }
+}
