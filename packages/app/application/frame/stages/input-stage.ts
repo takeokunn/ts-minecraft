@@ -92,7 +92,7 @@ const handleInventoryKey = (
 const handleTradeKeys = (
   deps: InputDeps,
   services: Pick<InputServices, 'inputService' | 'inventoryRenderer' | 'settingsOverlay' | 'tradingPresentation' | 'villageService'>,
-  inputs: { readonly playerPos: Position },
+  playerPos: Position,
 ): Effect.Effect<void, never> =>
   Effect.gen(function* () {
     const tradePressed = yield* services.inputService.consumeKeyPress(TRADE_OPEN_KEY)
@@ -109,7 +109,7 @@ const handleTradeKeys = (
         const isInvOpen = yield* services.inventoryRenderer.isOpen()
         const isSettingsOpen = yield* services.settingsOverlay.isOpen()
         if (!isInvOpen && !isSettingsOpen) {
-          const villagerOption = yield* services.villageService.findNearestVillager(inputs.playerPos, TRADE_DISTANCE)
+          const villagerOption = yield* services.villageService.findNearestVillager(playerPos, TRADE_DISTANCE)
           const villager = Option.getOrNull(villagerOption)
           if (villager !== null) {
             const opened = yield* services.tradingPresentation.open(villager.villagerId)
@@ -158,12 +158,12 @@ const handleTradeKeys = (
 
 const syncDayLength = (
   services: Pick<InputServices, 'timeService'>,
-  inputs: { readonly dayLengthSeconds: number },
+  dayLengthSeconds: number,
 ): Effect.Effect<void, never> =>
   services.timeService.getDayLength().pipe(
     Effect.flatMap((currentDayLength) =>
-      currentDayLength !== inputs.dayLengthSeconds
-        ? services.timeService.setDayLength(inputs.dayLengthSeconds)
+      currentDayLength !== dayLengthSeconds
+        ? services.timeService.setDayLength(dayLengthSeconds)
         : Effect.void,
     ),
   )
@@ -199,8 +199,8 @@ export const inputStage = (
             [
               handleEscape(deps, services),
               handleInventoryKey(deps, services),
-              handleTradeKeys(deps, services, { playerPos: inputs.playerPos }),
-              syncDayLength(services, { dayLengthSeconds: inputs.dayLengthSeconds }),
+              handleTradeKeys(deps, services, inputs.playerPos),
+              syncDayLength(services, inputs.dayLengthSeconds),
             ],
             { discard: true },
           ),
