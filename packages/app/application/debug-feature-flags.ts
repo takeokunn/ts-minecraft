@@ -33,11 +33,12 @@ export class DebugFeatureFlagsService extends Effect.Service<DebugFeatureFlagsSe
             const flags = yield* Ref.get(flagsRef)
             return { catalog: DEBUG_FEATURE_FLAG_CATALOG, flags: { ...flags } }
           }),
-        getFlags: (): Effect.Effect<DebugFeatureFlags, never> =>
-          Effect.gen(function* () {
-            const flags = yield* Ref.get(flagsRef)
-            return { ...flags }
-          }),
+        // Hot path: getFlags is called ~9×/frame across the frame stages. Every
+        // mutator below (setEnabled/resetAll/resetGroup) replaces the flags object
+        // wholesale via Ref — it is never mutated in place — so the stored value is
+        // already effectively immutable and safe to expose by reference. Returning
+        // Ref.get directly avoids a defensive 21-field {...flags} copy every call.
+        getFlags: (): Effect.Effect<DebugFeatureFlags, never> => Ref.get(flagsRef),
         isEnabled: (id: DebugFeatureFlagId): Effect.Effect<boolean, never> =>
           Effect.gen(function* () {
             const flags = yield* Ref.get(flagsRef)
