@@ -1680,3 +1680,25 @@ calls / redundant full-scene renders / main-thread stalls. It found a clear top 
 `pnpm typecheck` 0 errors · `pnpm lint` 0 errors / 4 warnings (pre-existing) ·
 `pnpm check:refactor` all OK · `pnpm test` **5680 passing / 1 skipped** (+4 net new tests) ·
 `pnpm build` exit 0 · 3 commits on `main`.
+
+---
+
+## AT. Round 43 (2026-06-13) — macro perf follow-up: LOD flip-flop
+
+Continued the macro-perf work (recurring `/loop`). Tackled the deferred **LOD centroid-drift**
+item, but with a **contained** fix instead of the port-signature change it originally implied
+(which would have churned ~12 `syncChunksToScene` mocks).
+
+- [x] **PERF-4**: **LOD hysteresis** — per-chunk LOD is chosen from a player proxy (the centroid
+  of the loaded-chunk window), which jitters ≤1 chunk as chunks load/unload asymmetrically while
+  walking, making boundary chunks flip-flop LOD and needlessly re-mesh + re-upload to the GPU
+  every frame of movement. Added `lodWithHysteresis(distance, currentLod)`: a chunk holds its LOD
+  until its distance moves a full 1-chunk margin past the band boundary. Fully contained to
+  `world-renderer-chunk-sync.ts` (no port change); the re-mesh path already assigns the natural
+  `lodForChunk`, which equals the hysteresis switch result, so transitions stay idempotent. 4 unit
+  tests pin the dead-zone + idempotency.
+
+### Quality gate (Round 43)
+`pnpm typecheck` 0 errors · `pnpm lint` 0 errors / 4 warnings (pre-existing) ·
+`pnpm check:refactor` all OK · `pnpm test` **5684 passing / 1 skipped** (+4 new tests) ·
+`pnpm build` exit 0 · 2 commits on `main`.
