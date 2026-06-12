@@ -19,11 +19,21 @@ const TOOL_SPEED: Readonly<Record<string, number>> = {
 // hardness <= 0 → 0 (instant). Result scales linearly with hardness, reduced by tool tier.
 // EFFICIENCY adds level² + 1 to the speed multiplier (vanilla formula).
 // tool accepts Option<string> so it is compatible with the wide hotbar-item Option type.
-export const computeBreakTicks = (hardness: number, tool: Option.Option<string>, efficiencyLevel?: number): number => {
+export const computeBreakTicks = (
+  hardness: number,
+  tool: Option.Option<string>,
+  efficiencyLevel?: number,
+  correctTool = true,
+): number => {
   if (hardness <= 0) return 0
-  const toolStr = Option.getOrNull(tool)
+  // A tool only grants its speed multiplier (and Efficiency) when it is the CORRECT
+  // category for the block (pickaxe→stone/ore, axe→wood, shovel→dirt). A wrong-category
+  // tool breaks at bare-hand speed, matching vanilla where getDestroySpeed returns 1 for
+  // an ineffective tool. `correctTool` defaults to true so existing callers (and the
+  // bare-hand case, where there is no tool bonus anyway) are unchanged.
+  const toolStr = correctTool ? Option.getOrNull(tool) : null
   const baseSpeed = toolStr !== null ? (TOOL_SPEED[toolStr] ?? 1) : 1
-  const effBonus = efficiencyLevel !== undefined ? (efficiencyLevel * efficiencyLevel + 1) : 0
+  const effBonus = correctTool && efficiencyLevel !== undefined ? (efficiencyLevel * efficiencyLevel + 1) : 0
   const speedMult = baseSpeed + effBonus
   return Math.ceil((hardness * 3) / speedMult)
 }

@@ -89,4 +89,22 @@ describe('computeBreakTicks', () => {
     expect(computeBreakTicks(25, Option.some('DIAMOND_PICKAXE'))).toBe(10)
     expect(computeBreakTicks(25, Option.none())).toBe(75)
   })
+
+  it('correctTool defaults to true (existing call sites unchanged)', () => {
+    // Omitting the 4th arg must give the same tier bonus as before.
+    expect(computeBreakTicks(25, Option.some('DIAMOND_PICKAXE'))).toBe(10)
+    expect(computeBreakTicks(25, Option.some('DIAMOND_PICKAXE'), undefined, true)).toBe(10)
+  })
+
+  it('correctTool=false withholds the tool speed bonus (wrong-category tool = bare-hand speed)', () => {
+    // A diamond pickaxe used on a shovel block: no ×8 bonus → same as bare hand.
+    expect(computeBreakTicks(25, Option.some('DIAMOND_PICKAXE'), undefined, false)).toBe(75)
+    expect(computeBreakTicks(25, Option.some('DIAMOND_PICKAXE'), undefined, false))
+      .toBe(computeBreakTicks(25, Option.none()))
+  })
+
+  it('correctTool=false also suppresses the EFFICIENCY bonus', () => {
+    // EFFICIENCY V on a wrong-category tool contributes nothing.
+    expect(computeBreakTicks(25, Option.some('IRON_PICKAXE'), 5, false)).toBe(75)
+  })
 })

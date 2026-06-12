@@ -1,5 +1,5 @@
 import { Effect, HashMap, HashSet, MutableRef, Option, Ref } from 'effect'
-import { aabbFromVoxel, FORTUNE_ORE_BLOCKS, PICKAXE_BLOCK_TYPES, getInventoryDropForBlock, canHarvestBlock, rollLeafDrops } from '@ts-minecraft/world'
+import { aabbFromVoxel, FORTUNE_ORE_BLOCKS, PICKAXE_BLOCK_TYPES, getInventoryDropForBlock, canHarvestBlock, isEffectiveTool, rollLeafDrops } from '@ts-minecraft/world'
 import type { FrameHandlerServices, FrameStageRefs } from '@ts-minecraft/app/frame/types'
 import { CHUNK_SIZE, CHUNK_HEIGHT, indexToBlockType, SlotIndex } from '@ts-minecraft/core'
 import type { BlockType, InventoryItem } from '@ts-minecraft/core'
@@ -193,7 +193,9 @@ export const handleBlockBreakProgress = (
     const hasSilkTouch = toolEnchantments.some((e) => e.type === 'SILK_TOUCH')
 
     const hardness = getBlockHardness(blockType)
-    const breakTicks = computeBreakTicks(hardness, context.selectedHotbarItem, efficiencyEnchant?.level)
+    // Wrong-category tools (e.g. a shovel on stone) get no speed bonus → bare-hand break time.
+    const correctTool = isEffectiveTool(blockType, context.selectedHotbarItem as Option.Option<InventoryItem>)
+    const breakTicks = computeBreakTicks(hardness, context.selectedHotbarItem, efficiencyEnchant?.level, correctTool)
 
     const current = MutableRef.get(refs.breakProgressRef)
     const currentTicks = current !== null && current.blockKey === blockKey ? current.ticks : 0

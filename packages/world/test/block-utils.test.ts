@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { Option } from 'effect'
 import type { InventoryItem, Position } from '@ts-minecraft/core'
-import { worldToBlockLocal, canHarvestBlock, blockOverlapsPlayer } from '../application/block-utils'
+import { worldToBlockLocal, canHarvestBlock, isEffectiveTool, blockOverlapsPlayer } from '../application/block-utils'
 
 const pos = (x: number, y: number, z: number): Position => ({ x, y, z })
 
@@ -114,5 +114,35 @@ describe('blockOverlapsPlayer', () => {
     expect(blockOverlapsPlayer(pos(0, -1, 0), feet)).toBe(false)
     // lowering the player feet toward that block brings it into reach
     expect(blockOverlapsPlayer(pos(0, -1, 0), pos(0, -0.1, 0))).toBe(true)
+  })
+})
+
+describe('isEffectiveTool', () => {
+  const noTool = Option.none<InventoryItem>()
+  const tool = (item: InventoryItem) => Option.some(item)
+
+  it('a tool is effective on its own category (keeps the speed bonus)', () => {
+    expect(isEffectiveTool('STONE', tool('WOODEN_PICKAXE'))).toBe(true)
+    expect(isEffectiveTool('IRON_ORE', tool('DIAMOND_PICKAXE'))).toBe(true)
+    expect(isEffectiveTool('WOOD', tool('IRON_AXE'))).toBe(true)
+    expect(isEffectiveTool('DIRT', tool('STONE_SHOVEL'))).toBe(true)
+  })
+
+  it('withholds the bonus on a clear cross-category mismatch', () => {
+    expect(isEffectiveTool('DIRT', tool('DIAMOND_PICKAXE'))).toBe(false) // pickaxe on soft ground
+    expect(isEffectiveTool('STONE', tool('IRON_SHOVEL'))).toBe(false) // shovel on stone
+    expect(isEffectiveTool('STONE', tool('DIAMOND_AXE'))).toBe(false) // axe on stone
+    expect(isEffectiveTool('WOOD', tool('STONE_PICKAXE'))).toBe(false) // pickaxe on wood
+  })
+
+  it('never penalises blocks outside any category (no regression for e.g. cobblestone)', () => {
+    expect(isEffectiveTool('COBBLESTONE', tool('DIAMOND_PICKAXE'))).toBe(true)
+    expect(isEffectiveTool('COBBLESTONE', tool('IRON_SHOVEL'))).toBe(true)
+  })
+
+  it('bare hand and non-mining tools are never penalised', () => {
+    expect(isEffectiveTool('STONE', noTool)).toBe(true)
+    expect(isEffectiveTool('DIRT', noTool)).toBe(true)
+    expect(isEffectiveTool('STONE', tool('WOODEN_SWORD'))).toBe(true)
   })
 })
