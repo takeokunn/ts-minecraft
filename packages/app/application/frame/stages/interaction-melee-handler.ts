@@ -18,7 +18,8 @@ const HIT_PARTICLE_UV = getParticleUvOffset(HIT_PARTICLE_BLOCK_ID)
 const triggerHeldItemSwing = (refs: Pick<FrameStageRefs, 'totalTimeSecsRef' | 'attackSwingStateRef'>) =>
   Effect.gen(function* () {
     const nowSecs = yield* Ref.get(refs.totalTimeSecsRef)
-    yield* Ref.update(refs.attackSwingStateRef, (state) => triggerAttackSwing({ ...state }, nowSecs * 1000))
+    // triggerAttackSwing mutates in-place and returns the same reference — no spread needed.
+    yield* Ref.update(refs.attackSwingStateRef, (state) => triggerAttackSwing(state, nowSecs * 1000))
   })
 
 export const handleLeftClick = (
