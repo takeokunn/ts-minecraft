@@ -1,6 +1,6 @@
 import { Effect, MutableRef, Option, Ref } from 'effect'
 import type * as THREE from 'three'
-import { DEFAULT_PLAYER_ID, type DeltaTimeSecs } from '@ts-minecraft/core'
+import { DEFAULT_PLAYER_ID } from '@ts-minecraft/core'
 import { resolvePreset, type DayNightLights, type ResolvedGraphics } from '@ts-minecraft/game'
 import { FALLBACK_PLAYER_POS } from '@ts-minecraft/app/frame-handler.config'
 import type { FrameHandlerDeps, FrameHandlerServices, FrameStageRefs, ResolvedDeps } from '@ts-minecraft/app/frame/types'
@@ -97,13 +97,13 @@ const applyAudioSettings = (
   })
 
 export const runFrameStages = (
-  deltaTime: DeltaTimeSecs,
   deps: FrameHandlerDeps,
   services: FrameHandlerServices,
   refs: FrameStageRefs,
   context: FrameStageExecutorContext,
 ) =>
   Effect.gen(function* () {
+    const deltaTime = MutableRef.get(refs.deltaTimeRef)
     const totalTimeSecs = yield* Ref.updateAndGet(refs.totalTimeSecsRef, (t) => t + deltaTime)
     const currentSettings = yield* services.settingsService.getSettings()
     const debugFlags = yield* services.debugFeatureFlags.getFlags()

@@ -207,6 +207,7 @@ const createFrameLoopHandlersInternal = (
       lastAudioRef,
       wasGroundedRef,
       finalPosRef,
+      deltaTimeRef: MutableRef.make(0 as import('@ts-minecraft/core').DeltaTimeSecs),
     }
 
     const applyPixelRatioCap = (pixelRatioCap: number): Effect.Effect<boolean, never> =>
@@ -245,14 +246,21 @@ const createFrameLoopHandlersInternal = (
       cropTickAccumulatorRef: MutableRef.make(0),
     })
 
-    const frameHandler = (deltaTime: Parameters<FrameLoopHandlers['frameHandler']>[0]) =>
-      runFrameStages(deltaTime, deps, services, refs, {
-        resolved,
-        lightsWithoutSky,
-        sunWorldPos,
-        applyPixelRatioCap,
-        markShadowMapDirty,
-      })
+    // P4.1: Pre-build the frame pipeline Effect ONCE so the per-frame
+    // frameHandler only sets deltaTime and returns the reused Effect,
+    // avoiding a new Effect.gen generator closure allocation every frame.
+    const framePipeline = runFrameStages(deps, services, refs, {
+      resolved,
+      lightsWithoutSky,
+      sunWorldPos,
+      applyPixelRatioCap,
+      markShadowMapDirty,
+    })
+
+    const frameHandler = (deltaTime: Parameters<FrameLoopHandlers['frameHandler']>[0]) => {
+      MutableRef.set(refs.deltaTimeRef, deltaTime)
+      return framePipeline
+    }
 
     return { frameHandler, maintenanceHandler }
   })

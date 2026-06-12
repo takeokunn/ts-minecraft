@@ -187,6 +187,9 @@ export type FrameStageRefs = {
   // Hoisted out of physicsStage so no new Ref is allocated per frame.
   // Reset with Ref.set on entry to physicsStage each frame.
   readonly finalPosRef: Ref.Ref<Position>
+  // Per-frame deltaTime written by frameHandler before the pre-built frame
+  // pipeline executes. Avoids per-frame Effect.gen closure allocation (P4.1).
+  readonly deltaTimeRef: MutableRef.MutableRef<import('@ts-minecraft/core').DeltaTimeSecs>
 }
 
 export type ResolvedDeps = {
