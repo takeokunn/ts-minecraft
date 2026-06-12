@@ -1584,3 +1584,51 @@ behaviour change and the marginal ones. The audit's most valuable output was the
 `pnpm typecheck` 0 errors · `pnpm lint` 0 errors / 4 warnings (pre-existing) ·
 `pnpm check:refactor` all OK · `pnpm test` **5674 passing / 1 skipped** (+4 new tests) ·
 `pnpm build` exit 0 · 4 commits on `main`.
+
+---
+
+## AR. Round 41 (2026-06-13) — FUNCTIONAL-requirement coverage audit (18 agents)
+
+### Methodology + rationale
+
+After Rounds 38–40 mined the NFR/performance hot paths to exhaustion (15 allocation
+fixes), Round 41 pivots to the user's **FR coverage** mandate. A grounded FR audit of the
+6 core features (movement/collision, block break/place, infinite terrain, inventory,
+day-night/lighting) — 5 finders, each required to VERIFY actual implementation state
+against the repo (the phase docs lag shipped code), + an adversarial verifier per gap
+whose primary job was to prove the gap is NOT already implemented. 18 agents.
+
+**Result: 12 real gaps, 2 implement-now (core + scoped + sound).** The standout: a
+**glaring core defect** that 4 rounds of perf auditing would never surface.
+
+### Landed this round (2 tasks, each its own commit, suite green after each)
+
+- [x] **R143** (HIGH): **Worldgen water was never placed.** `fillWaterForColumn` was fully
+  implemented and unit-tested but NEVER called by the generation pipeline — every ocean,
+  lake, and river generated as a dry air-filled pit (a test even codified this:
+  `blocks.includes(WATER) === false`). The water mesh pass + skylight handling were already
+  waiting for water voxels gen never produced. Wired `fillWaterForColumn` into
+  `buildColumnStates` after the solid fill, before cave-carve (which protects WATER) and
+  overhang/tree passes (which skip non-air). Inverted the no-water test into a water-presence
+  regression guard; determinism + worker-parity property tests still green. — `generator-pipeline.ts`
+- [x] **R144** (MEDIUM): **Shift-click quick-move.** The inventory click handler ignored
+  `event.shiftKey`; no quick-transfer between hotbar (27..35) and main (0..26) existed. Added
+  `InventoryService.quickMove(from)` — slices the target region, reuses `fillExistingStacks`/
+  `fillEmptySlots` (merge-first then empty), splices back, leaves overflow in the source.
+  Wired `shiftKey` in the handler (+ added the missing `refreshSlots()` after a slot move).
+  4 unit tests. — `inventory-service.ts`, `inventory-renderer-click-handler.ts`
+
+### Deferred (large / needs design decision / lower priority) — honest FR backlog
+
+These are genuine core-vanilla gaps but each needs an open design decision or is a large
+feature (not a "small certain step"): **cursor-held item model** (click-to-pick-up/place —
+the base for right-click-split & drag-distribute), **ladder/climbing**, **surface
+vegetation** (flowers/tall-grass/cactus/sugar-cane), **auto step-up** (0.5-block; the AABB
+resolver's MAX_STEP_UP is deliberately floor-vs-wall only), **break crack-overlay**
+animation, **wrong-tool 5× break penalty**, **drop-item (Q)**, and **moon/stars** in the
+night sky. Each warrants its own scoped task.
+
+### Quality gate (Round 41)
+`pnpm typecheck` 0 errors · `pnpm lint` 0 errors / 4 warnings (pre-existing) ·
+`pnpm check:refactor` all OK · `pnpm test` **5678 passing / 1 skipped** (+5 new tests) ·
+`pnpm build` exit 0 · 3 commits on `main`.
