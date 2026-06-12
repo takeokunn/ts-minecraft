@@ -8,7 +8,6 @@ import type { InventoryItem } from '@ts-minecraft/core'
 // If a new material tier is added, this test catches missing entries.
 const TOOL_TYPES = ['SWORD', 'PICKAXE', 'SHOVEL', 'HOE', 'AXE'] as const
 const MATERIAL_TIERS = ['WOODEN', 'STONE', 'IRON', 'DIAMOND'] as const
-const GOLD_DURABILITY = 32 // gold tools have the lowest durability (vanilla)
 
 describe('TOOL_MAX_DURABILITY completeness', () => {
   it('all four tool types exist for every material tier', () => {
