@@ -1381,3 +1381,86 @@ were registered but gameplay behavior was missing. Fixed:
 - [x] tool-completeness.test.ts: added SHOVEL to TOOL_TYPES, gold tier durability test
 
 R100 was confirmed correct by Oracle.
+
+---
+
+## AO. Round 38 (2026-06-13) — grounded re-audit via dynamic workflow (24 agents)
+
+### Methodology
+
+A fresh, **grounded** NFR/FR audit run as a dynamic multi-agent workflow rather than a
+manual pass: 6 parallel expert finders (game-loop/frame, physics/entity, chunk-meshing,
+chunk/world/memory, rendering/culling, FR-coverage), each required to cite real
+`file:line` it had actually read, followed by an **adversarial verifier per finding**
+that opened the cited file and tried to refute it. 24 agents total; every finding that
+survived was re-graded by the verifier (most were downgraded).
+
+**Headline result: the codebase is genuinely mature.** Of 15 verified-real findings,
+the verifiers rated only **2 as "fix-now"** and downgraded the rest to low-severity
+micro-allocations or deferred FR gaps. There were **no critical or unverified-hollow
+performance issues** — strong negative confirmation after the prior 37 rounds. Two prior
+claims were found "claimed-done-but-hollow" (entity collision path; see R121).
+
+### Baseline at audit start
+`pnpm typecheck` 0 errors · `pnpm test` **5669 passing, 1 skipped, 433 files**.
+(41 in-flight perf files — `Effect.all` unbounded→sequential `yield*` conversions — were
+first checkpointed in commit `8a5b47e1` after confirming they pass all gates.)
+
+### Landed this round (5 tasks, each its own commit, suite green after each)
+
+- [x] **R121**: Zero-alloc entity collision. The player path used the allocation-free
+  `resolveBlockCollisionsInto`, but the per-entity mob path still called the allocating
+  `resolveBlockCollisions` every tick (outPos + outVel + transient wrapper object per
+  entity). Changed `CollisionResolver` to the output-parameter form (writes into caller
+  scratch, returns `isGrounded`); moved the non-retained candidate position/velocity
+  *inputs* to a module-scoped scratch pair (safe — `HashMap.map` is sequential). outPos/
+  outVel stay fresh because they are retained as the entity's next pose. **5 → 2 object
+  allocations / entity / tick.** Subsumes the "candidate-object-literals" finding. Behavior
+  identical; test resolvers migrated to the new contract. — `entity-manager-utils.ts`,
+  `entity-manager-internal-update.ts`, `entity-update-stage.ts` (+test kit + 2 test files)
+- [x] **R122**: `getFlags()` returns the `Ref` value directly instead of a defensive
+  21-field `{...flags}` spread. Called ~9×/frame, read-only; mutators replace wholesale,
+  so the stored object is already immutable. — `debug-feature-flags.ts`
+- [x] **R123**: Double-buffer the frustum-cull camera-pose cache. `applyFrustumCulling`
+  allocated a fresh 11-field `CameraPoseCache` literal every camera-moving frame. Added
+  `writeCameraPose()` to fill a reusable scratch in place; on a cache miss the two
+  persistent objects are swapped (scratch↔last). Zero allocation, zero field copy on both
+  paths. — `world-renderer.ts`, `world-renderer-pose-cache.ts`
+- [x] **R124**: Allocation-free refraction pose check. `doRefractionPrePass` built a
+  `currentPose` literal every frame water was on-screen + a spread on each miss. Compare
+  live camera scalars directly against the retained `MutableRef` state's fields; mutate
+  that object in place on a miss. — `world-renderer-refraction.ts`
+- [x] **R125**: Drop `Schema.decodeUnknownSync` from the per-chunk-mesh `toRawMeshData`.
+  Accumulator buffers are produced internally, so runtime schema validation was redundant
+  overhead on the mesh hot path (and risked throwing outside Effect's error channel).
+  Build the literal directly, mirroring `decodeRaw` in the splice path. — `greedy-meshing.ts`
+
+### Deferred (verifier-graded low / blast-radius > value) — honest non-completion
+
+- [ ] **R126**: Drop the redundant `Math.sqrt` in `resolveAIState` distance check. Math is
+  safe (monotonic `d ≤ r ⟺ d² ≤ r²`), but it requires renaming the `distanceToPlayer`
+  **domain-schema** field to squared form + squaring the ranges, churning **15 test
+  assertions** to remove one sqrt/entity/tick under bounded mob counts. Verifier: defer.
+- [ ] **R127**: `computeStateVelocity` allocates ~5 `Vector3` per chasing/fleeing mob/tick.
+  An `-Into` variant would help but touches unit-tested pure domain math; medium effort,
+  low absolute volume (spawn-capped mobs). Defer.
+- [ ] **R128**: Pool `MeshAccumulator` typed arrays (~1.15 MB allocated per chunk mesh).
+  Real, but needs a pool threaded through the meshing-worker entrypoint alongside `scratch`;
+  medium effort, off the 60fps main thread (worker). Defer.
+- [ ] **R129**: A fresh arrow closure is allocated per depth-slice in each face pass to
+  adapt 5-arg→6-arg emit. Small; defer (would extend `EmitQuad` arity).
+- [ ] **R130**: `ChunkCacheKey.make` runs full `Schema.decodeUnknownSync` ~3×/chunk on
+  streaming sync. **Not a per-frame hot path** (fires on chunk-boundary crossing only),
+  so low priority despite ~1089-chunk windows. Defer.
+- [ ] **R131**: `decideAdaptiveQuality` fed a fresh 6-field object literal every unpaused
+  frame. Trivially small; defer (fold into a future positional-args pass). — `hud-stage.ts`
+- [ ] **R132** (FR): Player has no auto step-up (~0.6 block); `MAX_STEP_UP=0.5` only
+  distinguishes floor-vs-wall. A gameplay-feel decision, not a bug — the current AABB
+  resolver is deliberate (see its derivation comment). Defer pending design intent.
+- [ ] **R133** (FR): Inventory has no drag-and-drop / cursor-held item / right-click split
+  (single-click move only). A sizable UX feature (`Ref<Option<ItemStack>>` cursor state +
+  mouse bindings), not a perf/correctness gap. Defer to a dedicated feature task.
+
+### Quality gate (Round 38)
+`pnpm typecheck` 0 errors · `pnpm test` 5669 passing / 1 skipped (unchanged) ·
+6 commits on `main` (1 WIP checkpoint + 5 R-tasks).
