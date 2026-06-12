@@ -1632,3 +1632,51 @@ night sky. Each warrants its own scoped task.
 `pnpm typecheck` 0 errors · `pnpm lint` 0 errors / 4 warnings (pre-existing) ·
 `pnpm check:refactor` all OK · `pnpm test` **5678 passing / 1 skipped** (+5 new tests) ·
 `pnpm build` exit 0 · 3 commits on `main`.
+
+---
+
+## AS. Round 42 (2026-06-13) — MACRO performance (user feedback: "performance too bad")
+
+### Rationale
+
+Direct user feedback: the game still runs badly. Rounds 38–40 eliminated **micro-allocations
+(GC pressure)** but never touched **structural/macro GPU+CPU cost** — so a fresh 21-agent
+macro-perf hunt was run, explicitly told to ignore allocations and quantify per-frame draw
+calls / redundant full-scene renders / main-thread stalls. It found a clear top tier.
+
+### Landed this round (3 fixes, each its own commit, suite green after each)
+
+- [x] **PERF-1** (the #1 cost): **Shadow map re-rendered every walking frame.** `camera-stage`
+  fired `markShadowMapDirty()` on every >0.5-block move, forcing a full second scene geometry
+  pass into the 2048² shadow depth map ~every 5-7 frames while walking (the dominant gameplay
+  state) — *on top of* the lighting-stage mod-8 day/night refresh, defeating `autoUpdate=false`.
+  Keep the cheap target-follow but drop the per-move dirty trigger; the mod-8 counter is now the
+  sole shadow-render cadence (re-rendering with the current target). **~8× fewer shadow passes
+  while moving.** — `camera-stage.ts`
+- [x] **PERF-2**: **Water refraction pre-pass newly hot from R143.** Adding world water switched
+  on `doRefractionPrePass` — a *full second `renderer.render(scene)`* — on the default `medium`
+  preset whenever water is on-screen (previously water meshes were always empty, so it never
+  ran). Set `medium.refractionThrottleFrames 5→0` → the cheap uniforms-only branch (water still
+  renders via its shader, just without the live refraction map; a high/ultra luxury). — `settings-service.config.ts`
+- [x] **PERF-3**: **Worker-pool cliff — one timeout permanently killed all meshing.** A single
+  worker timeout/error called `disableWorkerPool()`, terminating every worker and routing ALL
+  future chunk meshing onto the synchronous main thread *forever* (~1-5 ms × up to 8 chunks/frame
+  of blocking work). Added a consecutive-failure **circuit breaker** (`MESHING_WORKER_FAILURE_THRESHOLD=3`):
+  each failure syncs that chunk only, a success resets the streak, the pool disables only after the
+  threshold (a genuinely broken worker still trips fast via immediate `onerror`). — `meshing-worker-pool.ts`
+
+### Deferred macro items (verifier investigate-more / large)
+
+- [ ] **Region batching** (BatchedMesh / merged geometry per 4×4 chunk block): ~197 chunks × up to
+  3 meshes = hundreds of draw calls; one-draw-call-per-chunk has no cross-chunk merging. Large, the
+  biggest remaining structural lever for high render distances.
+- [ ] **LOD centroid drift** causing spurious whole-ring re-meshes: thread the real player chunk
+  coord into `syncChunksToScene` so LOD bands are stable player-centered rings. Medium.
+- [ ] **Shadow map 2048→1024 on low/medium** (preset-driven `shadowMapSize`): 4× fewer shadow texels;
+  lower value now that PERF-1 cut shadow-pass *frequency* 8×. Small (needs ResolvedGraphics schema field).
+- [ ] **Streaming burst tuning** (raise chunk-load throttle so RD windows fill faster). Small.
+
+### Quality gate (Round 42)
+`pnpm typecheck` 0 errors · `pnpm lint` 0 errors / 4 warnings (pre-existing) ·
+`pnpm check:refactor` all OK · `pnpm test` **5680 passing / 1 skipped** (+4 net new tests) ·
+`pnpm build` exit 0 · 3 commits on `main`.
