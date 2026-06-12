@@ -1464,3 +1464,66 @@ first checkpointed in commit `8a5b47e1` after confirming they pass all gates.)
 ### Quality gate (Round 38)
 `pnpm typecheck` 0 errors · `pnpm test` 5669 passing / 1 skipped (unchanged) ·
 6 commits on `main` (1 WIP checkpoint + 5 R-tasks).
+
+---
+
+## AP. Round 39 (2026-06-13) — targeted re-audit of under-explored hot paths (13 agents)
+
+### Methodology
+
+Rather than repeat the broad Round 38 sweep (which would re-confirm maturity), a
+**targeted** dynamic workflow aimed at subsystems Round 38 covered lightly plus a
+fresh re-scope of the deferred-but-meritorious items: 4 finders (lighting BFS,
+fluid/terrain/noise, worker meshing, entity AI velocity) each producing a concrete
+implementation plan + test-blast-radius estimate, then an adversarial verifier per
+finding that confirmed the plan was sound and behaviour-preserving. 13 agents.
+
+**Result: 9 verified-real, 6 fix-now with a sound plan.** Unlike Round 38, the targeted
+hot paths yielded genuine per-tick/per-edit allocation churn that the broad sweep had
+not reached. All 6 were executed.
+
+### Landed this round (6 tasks + 1 lint follow-up, each its own commit, suite green after each)
+
+- [x] **R127**: `computeStateVelocityInto` added ALONGSIDE the pure `computeStateVelocity`
+  (zero test churn). Eliminates ~5 `Vector3` allocations per Chase/Flee mob per AI tick
+  (+ the `toHorizontalTarget` Position + the `AIMotionContext` literal in the caller) via
+  fused dx/dz math writing into a module scratch (safe: sequential `HashMap.map`). New
+  equivalence test pins byte-identical x/z across all states incl. zero-length direction.
+  — `state-machine.ts`, `entity-manager-internal-update.ts`
+- [x] **R129**: `runGreedyExpansion` now takes the 6-arg `EmitQuadWithDepth` + a trailing
+  `depth`, so each of the 6 face passes hands its stable `emit` directly instead of
+  allocating a fresh adapter closure per depth-slice (~576/chunk). Property-based mesh
+  equivalence tests confirm identical output. — `greedy-meshing-passes.ts`, `-algorithms.ts`
+- [x] **R135**: `trackTouched` grows the light-BFS dirty AABB **in place** via the new
+  `growAABBToVoxel` helper (clamp semantics preserved) instead of allocating a `{lx,y,lz}`
+  literal + an `aabbFromVoxel` box + a `unionAABB` box per touched voxel (thousands per
+  torch). From ~2N+1 allocations per light edit to 1. BFS-vs-full-recompute equivalence
+  (FR-3.4) green. — `chunk-aabb.ts` (+`MutableChunkAABB`), `light-engine-model.ts`, `-utils.ts`
+- [x] **R136**: `resolveNeighborContact` (per processed fluid cell) replaced its
+  `Arr.findFirst` over the 6 `NOTIFY_OFFSETS` — which allocated a `neighborPos` literal per
+  offset + a closure — with an imperative loop reusing one synchronous scratch position.
+  Order-preserving; the cold contact path is unchanged. — `fluid-service.ts`
+- [x] **R137**: `splitBudget` collapsed from ~3 `Arr` filter/filterMap sweeps + `take`/
+  `appendAll` intermediates into one classification pass + direct assembly. Semantics
+  identical (water gets half-budget, lava the remainder when active, lava frontier retained
+  when inactive). — `fluid-tick-budget.ts`
+- [x] **R138**: `setCellAndEnqueueKey` folds the fluid write + frontier enqueue into a
+  single `FluidState` spread (the two flow paths previously spread twice + recomputed
+  `blockKey`). — `fluid-state-ops.ts`, `fluid-service.ts`
+
+### Deferred (verifier-graded low) — carried forward
+
+- [ ] **R128**: Pool `MeshAccumulator` typed arrays (~1.18 MB/chunk). Real but medium
+  effort, off the 60fps main thread (worker) — needs a pool threaded through the worker
+  entrypoint. Defer.
+- [ ] **R131**: `decideAdaptiveQuality` 6-field literal/frame. Verifier flagged the
+  positional-args plan as not cleanly behaviour-equivalent (param-order risk); trivially
+  small impact. Defer.
+- [ ] **R139**: `tick()` rebuilds the frontier via `Arr.fromIterable` + `HashSet.fromIterable`
+  + spread once per fluid tick. Once-per-tick (not per-cell), so low value. Defer.
+
+### Quality gate (Round 39)
+`pnpm typecheck` 0 errors · `pnpm lint` 0 errors / 4 warnings (pre-existing, none in
+changed files) · `pnpm check:refactor` all OK · `pnpm test` **5670 passing / 1 skipped**
+(+1: the new computeStateVelocityInto equivalence test) · `pnpm build` exit 0 ·
+7 commits on `main`.
