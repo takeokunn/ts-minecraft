@@ -1224,9 +1224,18 @@ A comprehensive multi-lens audit covering: (1) per-frame heap allocation census 
     `pass.enabled = false`. GTAOPass allocates full-resolution MRT targets even when disabled; on the `low`
     preset this wastes ~30–60 MB GPU memory unnecessarily.
 
-16. **Light propagation has no cross-chunk seeding, causing sharp light seams at chunk boundaries** —
-    `packages/block/domain/light.ts`: both `computeBlockLight` and `computeSkyLight` stop at chunk edges with no
-    seeding from adjacent chunks. A torch near a chunk edge does not illuminate the neighboring chunk.
+16. **Light propagation has no cross-chunk seeding, causing sharp light seams at chunk boundaries** **DEFERRED** —
+     `packages/block/domain/light.ts`: both `computeBlockLight` and `computeSkyLight` stop at chunk edges with no
+     seeding from adjacent chunks.
+
+     _Deferral rationale (2026-06-12)_: The incremental propagation path (`propagateLightIncremental` →
+     `markChunkDirty` → `dirtyOffsets`) already handles cross-chunk light updates when blocks are
+     placed/broken — BFS boundary flags cause adjacent chunks to be re-lit. The issue only manifests on
+     INITIAL chunk load (fresh chunks have zero light at boundaries from neighbors). This self-corrects
+     after any block interaction near the boundary (which triggers a full recompute with all-boundaries
+     dirty). Fixing the initial load requires architectural changes to `computeBlockLight` (currently a
+     pure function operating on a single chunk's data) to accept neighbor light seeding — non-trivial
+     refactoring with medium ROI compared to other deferred items.
 
 17. **`enchantments` fallback `() => []` allocates a new empty array every call** —
     `interaction-block-handler.ts` lines 149, 315, 452: `onNone: () => []` on every hold-to-break tick, every
