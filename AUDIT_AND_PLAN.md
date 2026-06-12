@@ -1228,14 +1228,17 @@ A comprehensive multi-lens audit covering: (1) per-frame heap allocation census 
      `packages/block/domain/light.ts`: both `computeBlockLight` and `computeSkyLight` stop at chunk edges with no
      seeding from adjacent chunks.
 
-     _Deferral rationale (2026-06-12)_: The incremental propagation path (`propagateLightIncremental` →
-     `markChunkDirty` → `dirtyOffsets`) already handles cross-chunk light updates when blocks are
-     placed/broken — BFS boundary flags cause adjacent chunks to be re-lit. The issue only manifests on
-     INITIAL chunk load (fresh chunks have zero light at boundaries from neighbors). This self-corrects
-     after any block interaction near the boundary (which triggers a full recompute with all-boundaries
-     dirty). Fixing the initial load requires architectural changes to `computeBlockLight` (currently a
-     pure function operating on a single chunk's data) to accept neighbor light seeding — non-trivial
-     refactoring with medium ROI compared to other deferred items.
+     _Deferral rationale (2026-06-12)_: Cross-chunk light propagation is not implemented. The incremental
+     path (`propagateLightIncremental`) detects boundary crossing and marks adjacent chunks dirty/re-render,
+     but does NOT seed light values into neighbor light grids. When those neighbors recompute, they also
+     start from scratch with `grid.fill(0)`, so the seam persists until the player places/breaks a block
+     inside the affected area of the neighbor chunk (which then triggers another full recompute in that
+     neighbor, still without seeding from the original light source across the boundary). 
+
+     Fixing this requires architectural changes: `computeBlockLight` and `computeSkyLight` are pure
+     functions operating on a single chunk's data and would need to accept an optional neighbor-light-seed
+     function to properly bleed light across boundaries. Scope: non-trivial refactoring, medium ROI.
+     Deferred in favor of higher-ROI items in R95-R120.
 
 17. **`enchantments` fallback `() => []` allocates a new empty array every call** —
     `interaction-block-handler.ts` lines 149, 315, 452: `onNone: () => []` on every hold-to-break tick, every
