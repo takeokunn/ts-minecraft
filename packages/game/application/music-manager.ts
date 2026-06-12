@@ -48,8 +48,11 @@ export class MusicManager extends Effect.Service<MusicManager>()(
             return
           }
 
-          const currentTrackOpt = yield* Ref.get(activeTrackRef)
-          if (Option.exists(currentTrackOpt, (track) => track.environment === environment)) {
+          // Steady-state early-return runs every frame; Option.getOrNull + a direct
+          // compare avoids allocating an `environment`-capturing closure per call
+          // (Option.exists would). Equivalent: None → null → no match.
+          const currentTrack = Option.getOrNull(yield* Ref.get(activeTrackRef))
+          if (currentTrack !== null && currentTrack.environment === environment) {
             return
           }
 
