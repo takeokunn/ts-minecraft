@@ -1795,3 +1795,24 @@ faster than a 30Hz one). Fixing one per round per the "small certain steps" rule
 `pnpm typecheck` 0 errors · `pnpm lint` 0 errors / 4 warnings (pre-existing) ·
 `pnpm check:refactor` all OK · `pnpm test` **5695 passing / 1 skipped** (+3 new tests) ·
 `pnpm build` exit 0 · 1 commit on `main`.
+
+---
+
+## AX. Round 47 (2026-06-13) — frames-vs-ticks bug class, fix #2: hunger
+
+- [x] **FIX-B**: **Hunger/food timer counted render frames, not 20Hz game ticks.** `hungerService.tick()`
+  ran once per frame, but `FOOD_TICK_INTERVAL=80` means 4 s @ 20 t/s — so at 60fps the food/regen/starve
+  event fired every ~1.33 s, draining hunger ~3× too fast and making survival pacing frame-rate dependent.
+  Gated it to 20Hz via a `hungerTickAccumulatorRef` + `advanceFixedStep`, applying each fired tick's
+  regen/starve effect in a catch-up loop (the 0.05 s deltaTime cap keeps it 0-or-1 per frame in normal
+  play). Unlike FIX-A's `runTickable` (which can eagerly pass the tick Effect), hunger's `tick()` returns
+  the regen/starve effect, so it must be invoked only when the accumulator fires. Hunger tests updated to
+  drive whole game-ticks, incl. a "no tick across 3 sub-tick frames, one tick on the 4th" guard. — `physics-stage.ts`
+
+Remaining frames-vs-ticks + correctness items (one per round): **FIX-C** knockback duration,
+**FIX-D** Fortune I no-op, **FIX-E** Power V over-scaled, **FIX-F** spawn/despawn distance mismatch.
+
+### Quality gate (Round 47)
+`pnpm typecheck` 0 errors · `pnpm lint` 0 errors / 4 warnings (pre-existing) ·
+`pnpm check:refactor` all OK · `pnpm test` **5695 passing / 1 skipped** (hunger tests reworked) ·
+`pnpm build` exit 0 · 1 commit on `main`.
