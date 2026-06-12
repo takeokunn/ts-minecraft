@@ -62,6 +62,7 @@ export const createMockInventoryLayer = (overrideSlots?: ReadonlyArray<Option.Op
   const setSlot = vi.fn((_: SlotIndex, __: unknown) => Effect.void)
   const damageSlot = vi.fn((_index: SlotIndex, _amount?: number) => Effect.void)
   const moveStack = vi.fn((_from: SlotIndex, _to: SlotIndex) => Effect.void)
+  const quickMove = vi.fn((_from: SlotIndex) => Effect.void)
   const addBlock = vi.fn((_bt: unknown, _count: number) => Effect.succeed(true))
   const removeBlock = vi.fn((_bt: unknown, _count: number) => Effect.succeed(true))
   const getHotbarSlots = vi.fn(() => Effect.succeed(Arr.drop(slots, HOTBAR_START)))
@@ -75,6 +76,7 @@ export const createMockInventoryLayer = (overrideSlots?: ReadonlyArray<Option.Op
     setSlot,
     damageSlot,
     moveStack,
+    quickMove,
     addBlock,
     removeBlock,
     getHotbarSlots,
@@ -83,7 +85,7 @@ export const createMockInventoryLayer = (overrideSlots?: ReadonlyArray<Option.Op
     deserialize,
   }))
 
-  return { MockInventoryLayer, getAllSlots, moveStack }
+  return { MockInventoryLayer, getAllSlots, moveStack, quickMove }
 }
 
 export const createMockHotbarLayer = (selectedSlot = 0) => {

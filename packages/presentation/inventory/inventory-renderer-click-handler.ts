@@ -69,11 +69,18 @@ export const buildHandleDelegatedClick = (deps: ClickHandlerDeps) =>
           10,
         )
         if (index < 0 || index >= INVENTORY_SIZE) return
+        const shiftQuickMove = event.shiftKey
         Effect.runFork(
           Effect.gen(function* () {
-            const selectedSlot = yield* hotbarService.getSelectedSlot()
-            const hotbarInventoryIndex = HOTBAR_START + SlotIndex.toNumber(selectedSlot)
-            yield* inventoryService.moveStack(SlotIndex.make(index), SlotIndex.make(hotbarInventoryIndex))
+            if (shiftQuickMove) {
+              // Vanilla shift-click: quick-transfer the clicked stack to the other region.
+              yield* inventoryService.quickMove(SlotIndex.make(index))
+            } else {
+              const selectedSlot = yield* hotbarService.getSelectedSlot()
+              const hotbarInventoryIndex = HOTBAR_START + SlotIndex.toNumber(selectedSlot)
+              yield* inventoryService.moveStack(SlotIndex.make(index), SlotIndex.make(hotbarInventoryIndex))
+            }
+            yield* refreshSlots()
           }).pipe(
             Effect.catchAllCause((cause) =>
               Effect.logError(`Inventory click error: ${Cause.pretty(cause)}`),

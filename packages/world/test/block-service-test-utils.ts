@@ -135,6 +135,7 @@ export const createMockInventoryService = (options?: {
   setSlot: (_idx: SlotIndex, _slot: InventorySlot) => Effect.void,
   damageSlot: (_idx: SlotIndex, _amount?: number) => Effect.void,
   moveStack: (_from: SlotIndex, _to: SlotIndex) => Effect.void,
+  quickMove: (_from: SlotIndex) => Effect.void,
   getHotbarSlots: () => Effect.succeed([]),
   getAllSlots: () => Effect.succeed([]),
   serialize: () => Effect.succeed({ slots: [] }),

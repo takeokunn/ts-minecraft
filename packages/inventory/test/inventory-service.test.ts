@@ -313,4 +313,70 @@ describe('application/inventory/inventory-service', () => {
       }).pipe(Effect.provide(testLayer))
     })
   })
+
+  describe('quickMove (shift-click)', () => {
+    it.effect('moves a hotbar stack into the first empty main-inventory slot', () => {
+      const testLayer = createTestLayer(createTestBlockRegistry(airOnlyBlocks))
+      return Effect.gen(function* () {
+        const service = yield* InventoryService
+        yield* service.setSlot(asSlotIndex(HOTBAR_START), Option.some(createStack('STONE', 10)))
+        yield* service.quickMove(asSlotIndex(HOTBAR_START))
+
+        // source hotbar slot cleared, lands in main slot 0
+        expect(Option.isNone(yield* service.getSlot(asSlotIndex(HOTBAR_START)))).toBe(true)
+        const dest = Option.getOrThrow(yield* service.getSlot(asSlotIndex(0)))
+        expect(dest.itemType).toBe('STONE')
+        expect(dest.count).toBe(10)
+      }).pipe(Effect.provide(testLayer))
+    })
+
+    it.effect('merges into an existing same-type stack in the target region before using empty slots', () => {
+      const testLayer = createTestLayer(createTestBlockRegistry(airOnlyBlocks))
+      return Effect.gen(function* () {
+        const service = yield* InventoryService
+        // main slot 0 already holds 50 STONE; quick-move 10 → merges in place to 60 (≤ max),
+        // so no empty slot is used (proves merge-first ordering).
+        yield* service.setSlot(asSlotIndex(0), Option.some(createStack('STONE', 50)))
+        yield* service.setSlot(asSlotIndex(HOTBAR_START), Option.some(createStack('STONE', 10)))
+        yield* service.quickMove(asSlotIndex(HOTBAR_START))
+
+        expect(Option.isNone(yield* service.getSlot(asSlotIndex(HOTBAR_START)))).toBe(true)
+        const merged = Option.getOrThrow(yield* service.getSlot(asSlotIndex(0)))
+        expect(merged.count).toBe(60)
+        // slot 1 stays empty — everything merged into the existing stack.
+        expect(Option.isNone(yield* service.getSlot(asSlotIndex(1)))).toBe(true)
+      }).pipe(Effect.provide(testLayer))
+    })
+
+    it.effect('leaves the overflow remainder in the source slot when the target region cannot hold it all', () => {
+      const testLayer = createTestLayer(createTestBlockRegistry(airOnlyBlocks))
+      return Effect.gen(function* () {
+        const service = yield* InventoryService
+        // Fill all 27 main slots so only merge-space remains: put MAX-1 STONE in slot 0,
+        // fill 1..26 with full non-mergeable DIRT stacks → only 1 STONE space in the region.
+        yield* service.setSlot(asSlotIndex(0), Option.some(createStack('STONE', MAX_STACK_SIZE - 1)))
+        yield* Effect.forEach(Arr.makeBy(HOTBAR_START - 1, (i) => i + 1), (i) =>
+          service.setSlot(asSlotIndex(i), Option.some(createStack('DIRT', MAX_STACK_SIZE))),
+        )
+        yield* service.setSlot(asSlotIndex(HOTBAR_START), Option.some(createStack('STONE', 5)))
+        yield* service.quickMove(asSlotIndex(HOTBAR_START))
+
+        // Only 1 STONE fit (merge into slot 0); 4 remain in the source.
+        const dest = Option.getOrThrow(yield* service.getSlot(asSlotIndex(0)))
+        expect(dest.count).toBe(MAX_STACK_SIZE)
+        const src = Option.getOrThrow(yield* service.getSlot(asSlotIndex(HOTBAR_START)))
+        expect(src.count).toBe(4)
+      }).pipe(Effect.provide(testLayer))
+    })
+
+    it.effect('is a no-op for an empty source slot', () => {
+      const testLayer = createTestLayer(createTestBlockRegistry(airOnlyBlocks))
+      return Effect.gen(function* () {
+        const service = yield* InventoryService
+        yield* service.quickMove(asSlotIndex(HOTBAR_START))
+        const all = yield* service.getAllSlots()
+        Arr.forEach(all, (slot) => expect(Option.isNone(slot)).toBe(true))
+      }).pipe(Effect.provide(testLayer))
+    })
+  })
 })

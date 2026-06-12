@@ -69,6 +69,36 @@ export class InventoryService extends Effect.Service<InventoryService>()(
             return Arr.modify(withFrom, toIdx, () => newToSlot)
           }),
 
+        // Vanilla shift-click quick-move: transfer the whole stack at `from` to the OTHER
+        // region (main 0..HOTBAR_START <-> hotbar HOTBAR_START..INVENTORY_SIZE), merging into
+        // existing same-type stacks first then empty slots. A partial fit leaves the
+        // remainder in the source slot; a full target region is a no-op.
+        quickMove: (from: SlotIndex): Effect.Effect<void, never> =>
+          Ref.update(slotsRef, (slots) => {
+            const fromIdx = SlotIndex.toNumber(from)
+            const source = Option.getOrNull(
+              Option.getOrElse(Arr.get(slots, fromIdx), () => Option.none<ItemStack>()),
+            )
+            if (source === null) return slots
+            const { itemType, count } = source
+            const maxStack = maxStackFor(itemType)
+
+            // Target region = the region the source slot is NOT in.
+            const inHotbar = fromIdx >= HOTBAR_START
+            const lo = inHotbar ? 0 : HOTBAR_START
+            const hi = inHotbar ? HOTBAR_START : INVENTORY_SIZE
+
+            const region = slots.slice(lo, hi)
+            const [afterFill, rem1] = fillExistingStacks(region, itemType, count, maxStack)
+            const [afterEmpty, rem2] = fillEmptySlots(afterFill, itemType, rem1, maxStack)
+            const moved = count - rem2
+            if (moved === 0) return slots // target region full → nothing transferred
+
+            // Source slot is outside [lo, hi), so updating it is independent of the region splice.
+            const merged: InventorySlots = [...slots.slice(0, lo), ...afterEmpty, ...slots.slice(hi)]
+            return Arr.modify(merged, fromIdx, () => removeFromStack(source, moved))
+          }),
+
         addBlock: (itemType: InventoryItem, count: number): Effect.Effect<void, InventoryError> =>
           Effect.gen(function* () {
             const succeeded = yield* Ref.modify(slotsRef, (slots) => {
