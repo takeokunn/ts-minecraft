@@ -81,6 +81,18 @@ export const getUnbreakingSkipChance = (level: EnchantmentLevel): number =>
 export const getFortuneDropMultiplier = (level: EnchantmentLevel): number =>
   FORTUNE_MULTIPLIERS[level]
 
+// Extra drops (beyond the base 1) granted by a Fortune enchantment, given a uniform random
+// roll in [0, 1). The configured multiplier is the EXPECTED total drops, so the extra is its
+// fractional expectation realised probabilistically: the integer part is guaranteed and the
+// fractional part is the chance of one more drop. This makes Fortune I (×1.33) actually grant a
+// bonus ~1/3 of the time instead of Math.round-ing 1.33 down to a flat zero-extra no-op, and
+// keeps Fortune II/III stochastic (avg +0.75 / +1.5) rather than a fixed +1 / +2.
+export const rollFortuneExtraDrops = (level: EnchantmentLevel, rng: number): number => {
+  const expectedExtra = FORTUNE_MULTIPLIERS[level] - 1
+  const guaranteed = Math.floor(expectedExtra)
+  return guaranteed + (rng < expectedExtra - guaranteed ? 1 : 0)
+}
+
 // ─── Applicable items ────────────────────────────────────────────────────────
 
 export const canEnchantItem = (item: ItemType, enchantment: EnchantmentType): boolean =>

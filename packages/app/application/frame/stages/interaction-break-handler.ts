@@ -3,7 +3,7 @@ import { aabbFromVoxel, FORTUNE_ORE_BLOCKS, PICKAXE_BLOCK_TYPES, getInventoryDro
 import type { FrameHandlerServices, FrameStageRefs } from '@ts-minecraft/app/frame/types'
 import { CHUNK_SIZE, CHUNK_HEIGHT, indexToBlockType, SlotIndex } from '@ts-minecraft/core'
 import type { BlockType, InventoryItem } from '@ts-minecraft/core'
-import { HOTBAR_START, isDurable, getFortuneDropMultiplier, getUnbreakingSkipChance, enchantmentsOf } from '@ts-minecraft/inventory'
+import { HOTBAR_START, isDurable, rollFortuneExtraDrops, getUnbreakingSkipChance, enchantmentsOf } from '@ts-minecraft/inventory'
 import type { Enchantment } from '@ts-minecraft/inventory'
 import { getBlockHardness, computeBreakTicks, getOreXpDrop } from '@ts-minecraft/block'
 import { getParticleUvOffset } from '@ts-minecraft/rendering/particles/particle-system'
@@ -93,7 +93,7 @@ const executeBlockBreak = (
         ? toolEnchantments.find((e) => e.type === 'FORTUNE')
         : undefined
       if (fortune) {
-        const extra = Math.round(getFortuneDropMultiplier(fortune.level)) - 1
+        const extra = rollFortuneExtraDrops(fortune.level, Math.random())
         if (extra > 0) {
           yield* services.inventoryService.addBlock(getInventoryDropForBlock(blockType), extra)
             .pipe(Effect.catchAllCause(() => Effect.void))

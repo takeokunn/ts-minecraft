@@ -7,6 +7,7 @@ import {
   getProtectionDamageReduction,
   getUnbreakingSkipChance,
   getFortuneDropMultiplier,
+  rollFortuneExtraDrops,
   getPowerDamageMultiplier,
   getKnockbackHorizontalMultiplier,
   getPunchKnockbackBonus,
@@ -97,6 +98,38 @@ describe('domain/enchantment', () => {
 
     it('level 3 gives 2.5× multiplier', () => {
       expect(getFortuneDropMultiplier(3)).toBe(2.5)
+    })
+  })
+
+  describe('rollFortuneExtraDrops', () => {
+    it('Fortune I (×1.33) grants a bonus drop ~1/3 of the time, not a flat zero (regression)', () => {
+      // expectedExtra = 0.33: rng below the fraction → +1, above → 0. (The exact 0.33
+      // boundary is float-fuzzy since 1.33 - 1 ≈ 0.3300000000000001, so test either side.)
+      expect(rollFortuneExtraDrops(1, 0.1)).toBe(1)
+      expect(rollFortuneExtraDrops(1, 0.32)).toBe(1)
+      expect(rollFortuneExtraDrops(1, 0.34)).toBe(0)
+      expect(rollFortuneExtraDrops(1, 0.9)).toBe(0)
+    })
+
+    it('Fortune II (×1.75) extra is stochastic around +0.75 (not a fixed +1)', () => {
+      expect(rollFortuneExtraDrops(2, 0.5)).toBe(1)
+      expect(rollFortuneExtraDrops(2, 0.74)).toBe(1)
+      expect(rollFortuneExtraDrops(2, 0.75)).toBe(0)
+    })
+
+    it('Fortune III (×2.5) guarantees +1 and adds a second with 50% chance', () => {
+      // expectedExtra = 1.5: guaranteed 1, fractional 0.5.
+      expect(rollFortuneExtraDrops(3, 0.49)).toBe(2)
+      expect(rollFortuneExtraDrops(3, 0.5)).toBe(1)
+      expect(rollFortuneExtraDrops(3, 0.0)).toBe(2)
+    })
+
+    it('the long-run average extra matches the expected multiplier minus 1', () => {
+      let total = 0
+      const N = 30000
+      for (let i = 0; i < N; i++) total += rollFortuneExtraDrops(1, (i + 0.5) / N)
+      // Fortune I expectedExtra = 0.33; the deterministic sweep over [0,1) hits it exactly.
+      expect(total / N).toBeCloseTo(0.33, 2)
     })
   })
 
