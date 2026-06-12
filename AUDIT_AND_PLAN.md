@@ -1341,9 +1341,9 @@ A comprehensive multi-lens audit covering: (1) per-frame heap allocation census 
 
 ## AN. Round 37 (2026-06-12) — remaining R95-R120 execution
 
-Executed the highest-value remaining tasks from the Round 36 audit. Deferred
-R99-R100 (GOLD tools, post-processing VRAM) and R103-R113 (medium rendering
-cleanups) as lower ROI relative to the per-frame allocation fixes already landed.
+Executed the highest-value remaining tasks from the Round 36 audit. R99-R100
+were initially deferred but completed in follow-up after Oracle review. R103-R113
+(medium rendering cleanups) remain deferred as lower ROI.
 
 **Landed (8 tasks):**
 - [x] R95: physics-stage.ts — inline lava FIRE_PROTECTION sum, no per-tick array
