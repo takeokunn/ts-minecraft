@@ -151,21 +151,17 @@ export const applySneakEdgeClampInto = (
     return outPos
   }
 
-  // Inline clampSneakEdge logic to avoid its {x,z} return allocation.
-  // clampSneakEdge: next.x !== prev.x && !hasGroundSupport(next.x, prev.z) ? prev.x : next.x
-  const hasSupportXZ = (x: number, z: number): boolean => {
-    const feetY = collidedPos.y - PLAYER_HALF_HEIGHT
-    const xL = x - PLAYER_HALF_WIDTH
-    const xR = x + PLAYER_HALF_WIDTH
-    const zL = z - PLAYER_HALF_WIDTH
-    const zR = z + PLAYER_HALF_WIDTH
-    const d0 = feetY - 0.1
-    const d1 = feetY - 0.1 - SNEAK_STEP_DOWN
-    return isBlockSolid(xL, d0, zL) || isBlockSolid(xL, d1, zL)
-        || isBlockSolid(xL, d0, zR) || isBlockSolid(xL, d1, zR)
-        || isBlockSolid(xR, d0, zL) || isBlockSolid(xR, d1, zL)
-        || isBlockSolid(xR, d0, zR) || isBlockSolid(xR, d1, zR)
-  }
+  // Inline ALL logic — no closure allocation, no clampSneakEdge {x,z} return.
+  const feetY = collidedPos.y - PLAYER_HALF_HEIGHT
+  const xL = collidedPos.x - PLAYER_HALF_WIDTH
+  const xR = collidedPos.x + PLAYER_HALF_WIDTH
+  const zL = collidedPos.z - PLAYER_HALF_WIDTH
+  const zR = collidedPos.z + PLAYER_HALF_WIDTH
+  const d0 = feetY - 0.1
+  const d1 = feetY - 0.1 - SNEAK_STEP_DOWN
+  const solid = (x: number, z: number): boolean =>
+    isBlockSolid(x, d0, z) || isBlockSolid(x, d1, z)
+
   const collidedX = collidedPos.x
   const collidedZ = collidedPos.z
   const collidedVx = collidedVel.x
@@ -173,9 +169,11 @@ export const applySneakEdgeClampInto = (
   const preX = prePos.x
   const preZ = prePos.z
 
-  // Inlined clampSneakEdge: per-axis edge protection without allocation
-  outPos.x = collidedX !== preX && !hasSupportXZ(collidedX, preZ) ? preX : collidedX
-  outPos.z = collidedZ !== preZ && !hasSupportXZ(preX, collidedZ) ? preZ : collidedZ
+  // Per-axis edge protection (inlined clampSneakEdge):
+  // X: revert to preX if moving in X and new spot lacks ground support at (newX, prevZ)
+  outPos.x = collidedX !== preX && !solid(collidedX, preZ) ? preX : collidedX
+  // Z: revert to preZ if moving in Z and new spot lacks ground support at (prevX, newZ)
+  outPos.z = collidedZ !== preZ && !solid(preX, collidedZ) ? preZ : collidedZ
   outPos.y = collidedPos.y  // Y unchanged by sneak clamp
   outVel.x = outPos.x !== collidedX ? 0 : collidedVx
   outVel.y = collidedVel.y

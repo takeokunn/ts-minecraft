@@ -4,6 +4,7 @@ import {
   blendVelocityForInput,
   resolveCollisionOrNoclip,
   applySneakEdgeClamp,
+  applySneakEdgeClampInto,
   type Vec3,
 } from '../application/game-state-physics'
 import type { Position } from '@ts-minecraft/core'
@@ -146,5 +147,24 @@ describe('applySneakEdgeClamp', () => {
     // Velocity clamped to 0 on the reverted axes
     expect(result.velocity.x).toBe(0)
     expect(result.velocity.z).toBe(0)
+  })
+
+  it('applySneakEdgeClampInto zeroes velocity on clamped axis when outPos aliases collidedPos', () => {
+    // Regression: outPos===collidedPos aliasing must snapshot pre-write coords
+    // so the comparison for velocity zeroing compares original (not overwritten) positions.
+    const pre = pos(0, 64, 0)
+    const collided = vec(2, 64, 2)   // moved away from pre
+    const vel = vec(2, 0, 2)         // significant velocity
+    const out = { x: collided.x, y: collided.y, z: collided.z }  // aliased ref
+    const outVel = { x: vel.x, y: vel.y, z: vel.z }              // aliased ref
+    // solid returns false everywhere → no ground support → X and Z clamp back
+    applySneakEdgeClampInto(out, outVel, pre, collided, vel, () => false, true, true)
+    // X and Z should both clamp back to pre position
+    expect(out.x).toBe(pre.x)
+    expect(out.z).toBe(pre.z)
+    // Velocity on clamped axes must be zeroed
+    expect(outVel.x).toBe(0)
+    expect(outVel.z).toBe(0)
+    expect(outVel.y).toBe(vel.y)
   })
 })
