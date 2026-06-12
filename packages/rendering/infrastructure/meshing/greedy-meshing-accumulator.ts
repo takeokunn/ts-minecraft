@@ -36,6 +36,35 @@ export const createAccumulator = (): MeshAccumulator => ({
   indexCount: 0,
 })
 
+// Reset an accumulator for reuse WITHOUT reallocating its buffers. Only vertexCount /
+// indexCount are zeroed: addQuad writes every byte it reads at vertexCount-relative
+// offsets and toRawMeshData only ever reads subarray(0, vertexCount*…), so stale buffer
+// contents past the new (zero) write head are never observed. Any capacity grown by a
+// previous large chunk is retained (desirable — avoids re-growing). Returns the same
+// accumulator for ergonomic `x ??= resetAccumulator(pool.y)` use.
+export const resetAccumulator = (acc: MeshAccumulator): MeshAccumulator => {
+  acc.vertexCount = 0
+  acc.indexCount = 0
+  return acc
+}
+
+// A reusable set of the three accumulators greedyMeshChunk may need (opaque always;
+// water / transparentSolid only when such faces exist). Intended for a SINGLE-THREADED,
+// SERIAL caller that fully copies the mesh out (toMeshed()) before the next call — i.e.
+// the meshing worker. NEVER share a pool with a caller that retains the raw subarray
+// VIEWS across calls (the sync mesher / sub-region splice keep a `prev` mesh).
+export type MeshAccumulatorPool = {
+  readonly opaque: MeshAccumulator
+  readonly water: MeshAccumulator
+  readonly transparentSolid: MeshAccumulator
+}
+
+export const createAccumulatorPool = (): MeshAccumulatorPool => ({
+  opaque: createAccumulator(),
+  water: createAccumulator(),
+  transparentSolid: createAccumulator(),
+})
+
 export const ensureCapacity = (acc: MeshAccumulator, additionalQuads: number): void => {
   const neededVerts = acc.vertexCount + additionalQuads * 4
   const neededIndices = acc.indexCount + additionalQuads * 6

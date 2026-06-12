@@ -20,7 +20,9 @@ import {
 
 import {
   MeshAccumulator,
+  MeshAccumulatorPool,
   createAccumulator,
+  resetAccumulator,
 } from './greedy-meshing-quads'
 
 import type { FacePassState } from './greedy-meshing-passes'
@@ -62,8 +64,17 @@ export const greedyMeshChunk = (
   scratch: GreedyMeshScratch = createGreedyMeshScratch(),
   lightGrids?: LightGrids,
   transparentSolidBlockIds: ReadonlySet<number> = new Set(),
+  // Optional reusable accumulator pool. When provided, the ~1.13 MB typed-array set is
+  // reused instead of allocated per call. SAFE ONLY for a serial caller that fully copies
+  // the mesh out (toMeshed()) before the next call and never retains the raw subarray
+  // views — i.e. the meshing worker. The sync/sub-region callers MUST omit it (they keep
+  // a `prev` mesh whose views alias the accumulator buffers).
+  pool?: MeshAccumulatorPool,
 ): GreedyMeshResult => {
-  const opaqueAcc = createAccumulator()
+  // opaque is always used → reset eagerly. water/transparentSolid stay lazy so the
+  // "null === no such faces" signal (waterRaw/transparentSolidRaw below) is preserved:
+  // the pooled accumulator is taken (and reset) only on the first face that needs it.
+  const opaqueAcc = pool ? resetAccumulator(pool.opaque) : createAccumulator()
   let waterAccStorage: MeshAccumulator | null = null
   let transparentSolidAccStorage: MeshAccumulator | null = null
   const transparentLookup = buildLookup(transparentBlockIds)
@@ -71,8 +82,10 @@ export const greedyMeshChunk = (
 
   const { maskCH, maskSS } = scratch
   const blocks: Readonly<Uint8Array> = chunk.blocks
-  const getWaterAcc = (): MeshAccumulator => (waterAccStorage ??= createAccumulator())
-  const getTransparentSolidAcc = (): MeshAccumulator => (transparentSolidAccStorage ??= createAccumulator())
+  const getWaterAcc = (): MeshAccumulator =>
+    (waterAccStorage ??= pool ? resetAccumulator(pool.water) : createAccumulator())
+  const getTransparentSolidAcc = (): MeshAccumulator =>
+    (transparentSolidAccStorage ??= pool ? resetAccumulator(pool.transparentSolid) : createAccumulator())
 
   const state: FacePassState = {
     blocks,

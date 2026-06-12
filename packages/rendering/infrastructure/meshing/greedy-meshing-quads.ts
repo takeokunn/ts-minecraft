@@ -1,2 +1,2 @@
-export { addQuad, createAccumulator, ensureCapacity } from './greedy-meshing-accumulator'
-export type { MeshAccumulator } from './greedy-meshing-accumulator'
+export { addQuad, createAccumulator, ensureCapacity, resetAccumulator, createAccumulatorPool } from './greedy-meshing-accumulator'
+export type { MeshAccumulator, MeshAccumulatorPool } from './greedy-meshing-accumulator'

@@ -6,6 +6,7 @@ import { LIGHT_BYTE_LENGTH } from '@ts-minecraft/block'
 import type { LightGrids } from '@ts-minecraft/block'
 import { greedyMeshChunk } from '@ts-minecraft/rendering/infrastructure/meshing/greedy-meshing'
 import { createGreedyMeshScratch } from '@ts-minecraft/rendering/infrastructure/meshing/greedy-meshing-types'
+import { createAccumulatorPool } from '@ts-minecraft/rendering/infrastructure/meshing/greedy-meshing-quads'
 import { TRANSPARENT_IDS_SET, TRANSPARENT_SOLID_IDS_SET } from './meshing-worker-config'
 import { LodLevelSchema, simplifyMesh } from '@ts-minecraft/rendering/infrastructure/meshing/lod-simplification'
 
@@ -56,6 +57,12 @@ export const MeshRequestSchema = Schema.Struct({
 export type MeshRequest = Schema.Schema.Type<typeof MeshRequestSchema>
 
 const scratch = createGreedyMeshScratch()
+
+// Worker-local reusable accumulator pool (~1.13 MB × 3). SAFE here because onmessage is
+// serial and we fully copy the mesh out via result.toMeshed() (.slice()) before posting,
+// so no raw subarray view into these buffers outlives the next request. greedyMeshChunk
+// resets the pool internally at the top of each call.
+const accumulatorPool = createAccumulatorPool()
 
 const decodeRequestSync = Schema.decodeUnknownSync(MeshRequestSchema)
 
@@ -113,6 +120,7 @@ self.onmessage = (e: MessageEvent<unknown>): void => {
     scratch,
     lightGrids,
     TRANSPARENT_SOLID_IDS_SET,
+    accumulatorPool,
   )
 
   // toMeshed() calls .slice() on each accumulator subarray, producing owned ArrayBuffers
