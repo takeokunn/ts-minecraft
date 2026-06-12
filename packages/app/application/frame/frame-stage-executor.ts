@@ -69,32 +69,36 @@ const applyAudioSettings = (
     readonly sfxVolume: number
     readonly musicVolume: number
   },
-) =>
-  Effect.gen(function* () {
-    const lastAudio = MutableRef.get(refs.lastAudioRef)
-    const audioChanged =
-      lastAudio.enabled !== settings.audioEnabled ||
-      lastAudio.master !== settings.masterVolume ||
-      lastAudio.sfx !== settings.sfxVolume ||
-      lastAudio.music !== settings.musicVolume
-    if (!audioChanged) return
-    MutableRef.set(refs.lastAudioRef, {
-      enabled: settings.audioEnabled,
-      master: settings.masterVolume,
-      sfx: settings.sfxVolume,
-      music: settings.musicVolume,
-    })
-    yield* services.soundManager.applySettings({
-      enabled: settings.audioEnabled,
-      masterVolume: settings.masterVolume,
-      sfxVolume: settings.sfxVolume,
-    })
-    yield* services.musicManager.applySettings({
-      enabled: settings.audioEnabled,
-      masterVolume: settings.masterVolume,
-      musicVolume: settings.musicVolume,
-    })
+) => {
+  const lastAudio = MutableRef.get(refs.lastAudioRef)
+  const audioChanged =
+    lastAudio.enabled !== settings.audioEnabled ||
+    lastAudio.master !== settings.masterVolume ||
+    lastAudio.sfx !== settings.sfxVolume ||
+    lastAudio.music !== settings.musicVolume
+  if (!audioChanged) return Effect.void
+  MutableRef.set(refs.lastAudioRef, {
+    enabled: settings.audioEnabled,
+    master: settings.masterVolume,
+    sfx: settings.sfxVolume,
+    music: settings.musicVolume,
   })
+  return Effect.all(
+    [
+      services.soundManager.applySettings({
+        enabled: settings.audioEnabled,
+        masterVolume: settings.masterVolume,
+        sfxVolume: settings.sfxVolume,
+      }),
+      services.musicManager.applySettings({
+        enabled: settings.audioEnabled,
+        masterVolume: settings.masterVolume,
+        musicVolume: settings.musicVolume,
+      }),
+    ],
+    { discard: true },
+  )
+}
 
 export const runFrameStages = (
   deps: FrameHandlerDeps,
@@ -172,12 +176,10 @@ export const runFrameStages = (
     // Multiplayer position sync + inbound block-edit application (if service is wired)
     const mp = Option.getOrNull(services.multiplayer)
     if (mp !== null) {
-      yield* Effect.gen(function* () {
-        const rotation = yield* services.playerCameraState.getRotation()
-        yield* multiplayerStage(mp, playerPos, rotation.yaw, rotation.pitch)
-        // FR-3: apply block edits broadcast by other players to the local world.
-        yield* applyInboundBlockEdits(mp, services, refs.dirtyChunksRef)
-      }).pipe(Effect.catchAll(() => Effect.void))
+      yield* services.playerCameraState.getRotation().pipe(
+        Effect.flatMap((rotation) => multiplayerStage(mp, playerPos, rotation.yaw, rotation.pitch)),
+        Effect.flatMap(() => applyInboundBlockEdits(mp, services, refs.dirtyChunksRef)),
+      ).pipe(Effect.catchAll(() => Effect.void))
     }
 
     if (!sessionPaused) {
