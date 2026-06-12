@@ -41,13 +41,14 @@ export const applyInboundBlockEdits = (
         const coordKey = `${chunkCoord.x},${chunkCoord.z}`
         const lx = ((edit.x % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE
         const lz = ((edit.z % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE
-        return Effect.gen(function* () {
-          yield* services.blockService.forceSetBlock(pos, blockType)
-          const chunk = yield* services.chunkManagerService.getChunk(chunkCoord)
-          yield* Ref.update(dirtyChunksRef, (map) =>
-            HashMap.set(map, coordKey, { chunk, dirtyAABB: Option.some(aabbFromVoxel({ lx, y: edit.y, lz })) }),
-          )
-        }).pipe(Effect.catchAll(() => Effect.void))
+        return services.blockService.forceSetBlock(pos, blockType).pipe(
+          Effect.flatMap(() => services.chunkManagerService.getChunk(chunkCoord)),
+          Effect.flatMap((chunk) =>
+            Ref.update(dirtyChunksRef, (map) =>
+              HashMap.set(map, coordKey, { chunk, dirtyAABB: Option.some(aabbFromVoxel({ lx, y: edit.y, lz })) }),
+            ),
+          ),
+        ).pipe(Effect.catchAll(() => Effect.void))
       },
       { discard: true },
       ),

@@ -160,14 +160,13 @@ const syncDayLength = (
   services: Pick<InputServices, 'timeService'>,
   inputs: { readonly dayLengthSeconds: number },
 ): Effect.Effect<void, never> =>
-  Effect.gen(function* () {
-    // Sync day length to TimeService in case user applied settings changes
-    // Guard: only update if the value has actually changed (avoids 60 allocs/sec)
-    const currentDayLength = yield* services.timeService.getDayLength()
-    if (currentDayLength !== inputs.dayLengthSeconds) {
-      yield* services.timeService.setDayLength(inputs.dayLengthSeconds)
-    }
-  })
+  services.timeService.getDayLength().pipe(
+    Effect.flatMap((currentDayLength) =>
+      currentDayLength !== inputs.dayLengthSeconds
+        ? services.timeService.setDayLength(inputs.dayLengthSeconds)
+        : Effect.void,
+    ),
+  )
 
 export const inputStage = (
   deps: Pick<FrameHandlerDeps, 'camera' | 'gamePausedRef'>,

@@ -63,12 +63,13 @@ export const lightingStage = (
     ),
     Effect.flatMap(() =>
       logErrors(
-        Effect.gen(function* () {
-          const isNight = yield* services.timeService.isNight()
-          musicContextScratch.isNight = isNight
-          musicContextScratch.playerPosition = inputs.playerPos
-          yield* services.musicManager.updateFromContext(musicContextScratch)
-        }),
+        services.timeService.isNight().pipe(
+          Effect.flatMap((isNight) => {
+            musicContextScratch.isNight = isNight
+            musicContextScratch.playerPosition = inputs.playerPos
+            return services.musicManager.updateFromContext(musicContextScratch)
+          }),
+        ),
         'Music update error',
       ),
     ),
