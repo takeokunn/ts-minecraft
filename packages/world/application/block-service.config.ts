@@ -177,6 +177,7 @@ export const PICKAXE_BLOCK_TYPES: HashSet.HashSet<ItemType> = HashSet.fromIterab
   'WOODEN_PICKAXE',
   'STONE_PICKAXE',
   'IRON_PICKAXE',
+  'GOLD_PICKAXE',
   'DIAMOND_PICKAXE',
 ])
 
@@ -184,6 +185,7 @@ export const HOE_ITEM_TYPES: HashSet.HashSet<ItemType> = HashSet.fromIterable<It
   'WOODEN_HOE',
   'STONE_HOE',
   'IRON_HOE',
+  'GOLD_HOE',
   'DIAMOND_HOE',
 ])
 

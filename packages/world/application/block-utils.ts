@@ -22,6 +22,7 @@ export const worldToBlockLocal = (
 
 const PICKAXE_HARVEST_SETS = {
   DIAMOND_PICKAXE: DIAMOND_PICKAXE_HARVESTABLE_BLOCKS,
+  GOLD_PICKAXE: WOODEN_PICKAXE_HARVESTABLE_BLOCKS, // R99: gold = wooden tier harvest
   IRON_PICKAXE: IRON_PICKAXE_HARVESTABLE_BLOCKS,
   STONE_PICKAXE: STONE_PICKAXE_HARVESTABLE_BLOCKS,
   WOODEN_PICKAXE: WOODEN_PICKAXE_HARVESTABLE_BLOCKS,
@@ -31,6 +32,7 @@ type PickaxeTool = keyof typeof PICKAXE_HARVEST_SETS
 
 const isPickaxeTool = (item: InventoryItem): item is PickaxeTool =>
   item === 'DIAMOND_PICKAXE' ||
+  item === 'GOLD_PICKAXE' ||
   item === 'IRON_PICKAXE' ||
   item === 'STONE_PICKAXE' ||
   item === 'WOODEN_PICKAXE'

@@ -6,8 +6,9 @@ import type { InventoryItem } from '@ts-minecraft/core'
 
 // Guards: every tool tier should have all four tool types.
 // If a new material tier is added, this test catches missing entries.
-const TOOL_TYPES = ['SWORD', 'PICKAXE', 'HOE', 'AXE'] as const
+const TOOL_TYPES = ['SWORD', 'PICKAXE', 'SHOVEL', 'HOE', 'AXE'] as const
 const MATERIAL_TIERS = ['WOODEN', 'STONE', 'IRON', 'DIAMOND'] as const
+const GOLD_DURABILITY = 32 // gold tools have the lowest durability (vanilla)
 
 describe('TOOL_MAX_DURABILITY completeness', () => {
   it('all four tool types exist for every material tier', () => {
@@ -45,6 +46,13 @@ describe('TOOL_MAX_DURABILITY completeness', () => {
     expect(Option.getOrThrow(getMaxDurability('DIAMOND_SWORD'))).toBe(1561)
     expect(Option.getOrThrow(getMaxDurability('DIAMOND_AXE'))).toBe(1561)
     expect(Option.getOrThrow(getMaxDurability('DIAMOND_HOE'))).toBe(1561)
+  })
+
+  it('gold tier has durability 32 across all tool types (R99)', () => {
+    for (const tool of TOOL_TYPES) {
+      const key = `GOLD_${tool}` as InventoryItem
+      expect(Option.getOrThrow(getMaxDurability(key)), `${key}`).toBe(32)
+    }
   })
 
   it('durability grows monotonically with material tier', () => {
