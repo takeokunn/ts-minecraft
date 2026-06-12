@@ -151,7 +151,9 @@ export const applySneakEdgeClampInto = (
     return outPos
   }
 
-  const sneakClamp = clampSneakEdge(prePos, collidedPos, (x, z) => {
+  // Inline clampSneakEdge logic to avoid its {x,z} return allocation.
+  // clampSneakEdge: next.x !== prev.x && !hasGroundSupport(next.x, prev.z) ? prev.x : next.x
+  const hasSupportXZ = (x: number, z: number): boolean => {
     const feetY = collidedPos.y - PLAYER_HALF_HEIGHT
     const xL = x - PLAYER_HALF_WIDTH
     const xR = x + PLAYER_HALF_WIDTH
@@ -163,20 +165,20 @@ export const applySneakEdgeClampInto = (
         || isBlockSolid(xL, d0, zR) || isBlockSolid(xL, d1, zR)
         || isBlockSolid(xR, d0, zL) || isBlockSolid(xR, d1, zL)
         || isBlockSolid(xR, d0, zR) || isBlockSolid(xR, d1, zR)
-  })
-
-  // Snapshot collidedPos.x/z BEFORE writing to outPos — outPos may alias
-  // collidedPos (the caller in game-state-service reuses physPos for both).
+  }
   const collidedX = collidedPos.x
   const collidedZ = collidedPos.z
   const collidedVx = collidedVel.x
   const collidedVz = collidedVel.z
+  const preX = prePos.x
+  const preZ = prePos.z
 
-  outPos.x = sneakClamp.x
-  outPos.z = sneakClamp.z
+  // Inlined clampSneakEdge: per-axis edge protection without allocation
+  outPos.x = collidedX !== preX && !hasSupportXZ(collidedX, preZ) ? preX : collidedX
+  outPos.z = collidedZ !== preZ && !hasSupportXZ(preX, collidedZ) ? preZ : collidedZ
   outPos.y = collidedPos.y  // Y unchanged by sneak clamp
-  outVel.x = sneakClamp.x !== collidedX ? 0 : collidedVx
+  outVel.x = outPos.x !== collidedX ? 0 : collidedVx
   outVel.y = collidedVel.y
-  outVel.z = sneakClamp.z !== collidedZ ? 0 : collidedVz
+  outVel.z = outPos.z !== collidedZ ? 0 : collidedVz
   return outPos
 }
