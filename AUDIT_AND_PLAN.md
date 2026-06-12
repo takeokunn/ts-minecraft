@@ -1758,3 +1758,40 @@ ready-and-verified FR correctness item.
 `pnpm typecheck` 0 errors · `pnpm lint` 0 errors / 4 warnings (pre-existing) ·
 `pnpm check:refactor` all OK · `pnpm test` **5692 passing / 1 skipped** (+7 new tests) ·
 `pnpm build` exit 0 · 1 commit on `main`.
+
+---
+
+## AW. Round 46 (2026-06-13) — config/constant correctness hunt → frames-vs-ticks bug class
+
+A 14-agent correctness hunt (constants/config/defaults + their consuming logic) found
+**6 real, player-facing bugs**, including a **systemic frames-vs-ticks unit-mismatch class**:
+several per-frame `tick()` calls count render FRAMES, not 20Hz game ticks, so survival/combat
+pacing runs ~3× too fast AND is frame-rate-dependent (a 144Hz player starves/takes hits far
+faster than a 30Hz one). Fixing one per round per the "small certain steps" rule.
+
+- [x] **FIX-A** (this round): **Damage invincibility i-frames.** `healthService.tick()` (decrements
+  the post-hit invincibility counter) ran once per render frame, but the 10-tick window is meant
+  to be 0.5 s @ 20 t/s — at 60fps it collapsed to ~0.167 s, letting mobs re-hit ~3× too fast.
+  Gated it through the existing 20Hz `runTickable` accumulator (extracted from entity-update-stage
+  to the shared `frame-runtime-logic` so both stages use it; added `healthTickAccumulatorRef`).
+  New `runTickable` tests prove 60 frames @ 60fps = 20 ticks. — `physics-stage.ts` + shared helper
+
+### Found, queued for upcoming rounds (one per loop)
+- [ ] **FIX-B** (medium): hunger/food timer (`FOOD_TICK_INTERVAL=80`) counts frames → hunger drains
+  ~3× too fast, frame-rate dependent. Same accumulator fix (but `hunger.tick` returns regen/starve,
+  so the gate must apply the effect per fired tick).
+- [ ] **FIX-C** (medium): mob knockback duration (`KNOCKBACK_DURATION_TICKS=6`) decremented per frame
+  in the entity update → ~3× too brief; knockback barely registers at high fps.
+- [ ] **FIX-D** (medium): Fortune I yields zero extra drops — `Math.round`-then-`floor` makes level 1
+  a no-op; needs an expected-value/probabilistic drop model. — `interaction-break-handler.ts:96`
+- [ ] **FIX-E** (low): Power V over-scaled (×3.5 vs vanilla ×2.5); use `1.0 + 0.25*(level+1)`,
+  fix the mislabeled-"Vanilla" comment + the test asserting ×3.5. — `enchantment.ts:27`
+- [ ] **FIX-F** (low): mob spawn distance is XZ-only but despawn is 3D → mobs spawn then instantly
+  despawn on tall/deep terrain. Make the two consistent. — `spawner.ts:69-74`
+- [ ] (deferred) render-distance constant (8) vs settings default (4) inconsistency — leave (4 is the
+  perf-friendly value; raising it would hurt the perf just improved in Rounds 42-44).
+
+### Quality gate (Round 46)
+`pnpm typecheck` 0 errors · `pnpm lint` 0 errors / 4 warnings (pre-existing) ·
+`pnpm check:refactor` all OK · `pnpm test` **5695 passing / 1 skipped** (+3 new tests) ·
+`pnpm build` exit 0 · 1 commit on `main`.
