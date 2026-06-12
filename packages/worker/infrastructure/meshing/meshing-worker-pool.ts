@@ -6,6 +6,7 @@ import type { LodLevel } from '@ts-minecraft/rendering/infrastructure/meshing/lo
 import { createSyncChunkMesher } from './meshing-worker-sync'
 import {
   MESHING_WORKER_TIMEOUT,
+  MESHING_WORKER_FAILURE_THRESHOLD,
   TRANSPARENT_IDS_ARRAY,
   TRANSPARENT_SOLID_IDS_ARRAY,
 } from './meshing-worker-config'
@@ -106,6 +107,9 @@ export class MeshingWorkerPool extends Effect.Service<MeshingWorkerPool>()(
       const nextIdRef = MutableRef.make(0)
       const nextWorkerIndexRef = MutableRef.make(0)
       const workerPoolDisabledRef = MutableRef.make(false)
+      // Circuit breaker: consecutive worker failures. A success resets it; the pool is
+      // only permanently disabled once failures reach MESHING_WORKER_FAILURE_THRESHOLD.
+      const workerFailureCountRef = MutableRef.make(0)
 
       const makePoolWorker = (): PoolWorker => {
         const pendingRef = MutableRef.make(new Map<number, PendingMesh>())
@@ -246,12 +250,25 @@ export class MeshingWorkerPool extends Effect.Service<MeshingWorkerPool>()(
                 onTimeout: () =>
                   new Error(`Meshing worker response timed out after ${MESHING_WORKER_TIMEOUT}`),
               }),
+              // A successful response means the pool is healthy — reset the failure streak.
+              Effect.tap(() => Effect.sync(() => MutableRef.set(workerFailureCountRef, 0))),
               Effect.catchAll((error) =>
                 Effect.gen(function* () {
-                  yield* Effect.sync(() => disableWorkerPool(error))
-                  yield* Effect.logWarning(
-                    `MeshingWorkerPool disabling workers and falling back to sync meshing for chunk (${chunk.coord.x},${chunk.coord.z}): ${error.message}`,
-                  )
+                  // Circuit breaker: a single transient timeout must NOT permanently route all
+                  // future meshing onto the main thread. Count consecutive failures and only
+                  // disable the pool once a genuinely-broken worker trips the threshold; either
+                  // way this chunk falls back to sync so meshing never stalls.
+                  const failures = MutableRef.updateAndGet(workerFailureCountRef, (n) => n + 1)
+                  if (failures >= MESHING_WORKER_FAILURE_THRESHOLD) {
+                    yield* Effect.sync(() => disableWorkerPool(error))
+                    yield* Effect.logWarning(
+                      `MeshingWorkerPool disabling workers after ${failures} consecutive failures; falling back to sync meshing. Last error on chunk (${chunk.coord.x},${chunk.coord.z}): ${error.message}`,
+                    )
+                  } else {
+                    yield* Effect.logWarning(
+                      `MeshingWorkerPool transient failure ${failures}/${MESHING_WORKER_FAILURE_THRESHOLD} on chunk (${chunk.coord.x},${chunk.coord.z}); sync fallback for this chunk only: ${error.message}`,
+                    )
+                  }
                   return yield* Effect.sync(() => meshChunkSync(chunk, options?.lod ?? 0, options?.dirtyAABB))
                 })
               )

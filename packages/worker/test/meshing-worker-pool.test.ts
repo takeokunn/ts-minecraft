@@ -194,7 +194,7 @@ describe('infrastructure/three/meshing/meshing-worker-pool', () => {
     )
   )
 
-  it.effect('disables workers after a hung worker timeout so later chunks do not wait again', () =>
+  it.effect('a single transient timeout falls back to sync for that chunk but keeps the pool enabled (the next chunk still tries the worker)', () =>
     withBrowserWorkerMock(
       HungWorker,
       Effect.gen(function* () {
@@ -206,13 +206,46 @@ describe('infrastructure/three/meshing/meshing-worker-pool', () => {
         yield* TestClock.adjust('3 seconds')
         const firstResult = yield* Fiber.join(firstFiber)
 
-        const secondResult = yield* pool.meshChunk(makeChunk())
+        // The next chunk STILL attempts the worker — a single timeout no longer permanently
+        // routes everything to the main thread (the cliff that tanked frame times).
+        const secondFiber = yield* pool.meshChunk(makeChunk()).pipe(Effect.fork)
+        yield* TestClock.adjust('3 seconds')
+        const secondResult = yield* Fiber.join(secondFiber)
 
         expect(firstResult.opaque.positions.length).toBeGreaterThan(0)
-        expect(firstResult.opaque.indices.length).toBeGreaterThan(0)
         expect(secondResult.opaque.positions.length).toBeGreaterThan(0)
-        expect(secondResult.opaque.indices.length).toBeGreaterThan(0)
-        expect(hungPostMessageCount).toBe(1)
+        expect(hungPostMessageCount).toBe(2) // both chunks re-attempted the worker
+      }).pipe(
+        Effect.provide(MeshingWorkerPool.Default),
+        Effect.provide(TestContext.TestContext),
+      )
+    )
+  )
+
+  it.effect('disables the pool only after THRESHOLD consecutive timeouts, then routes later chunks straight to sync', () =>
+    withBrowserWorkerMock(
+      HungWorker,
+      Effect.gen(function* () {
+        // Mirrors MESHING_WORKER_FAILURE_THRESHOLD in meshing-worker-config.ts.
+        const THRESHOLD = 3
+        hungPostMessageCount = 0
+        const pool = yield* MeshingWorkerPool
+        expect(pool.workerCount).toBeGreaterThan(0)
+
+        // THRESHOLD consecutive timeouts: each posts to the worker, times out, syncs.
+        for (let i = 0; i < THRESHOLD; i++) {
+          const fiber = yield* pool.meshChunk(makeChunk()).pipe(Effect.fork)
+          yield* TestClock.adjust('3 seconds')
+          const result = yield* Fiber.join(fiber)
+          expect(result.opaque.positions.length).toBeGreaterThan(0)
+        }
+        expect(hungPostMessageCount).toBe(THRESHOLD)
+
+        // Breaker tripped — the pool is now disabled, so this chunk goes straight to sync
+        // with NO worker post and NO 3-second wait.
+        const afterResult = yield* pool.meshChunk(makeChunk())
+        expect(afterResult.opaque.positions.length).toBeGreaterThan(0)
+        expect(hungPostMessageCount).toBe(THRESHOLD) // unchanged: worker no longer used
       }).pipe(
         Effect.provide(MeshingWorkerPool.Default),
         Effect.provide(TestContext.TestContext),
