@@ -94,33 +94,35 @@ export const doRefractionPrePass = (
 
     const currentSceneVersion = yield* Ref.get(sceneVersionRef)
     const projection = camera.projectionMatrix.elements
-    const currentPose = {
-      x: camera.position.x,
-      y: camera.position.y,
-      z: camera.position.z,
-      qx: camera.quaternion.x,
-      qy: camera.quaternion.y,
-      qz: camera.quaternion.z,
-      qw: camera.quaternion.w,
-      p0: projection[0] ?? Number.NaN,
-      p5: projection[5] ?? Number.NaN,
-      p10: projection[10] ?? Number.NaN,
-      p14: projection[14] ?? Number.NaN,
-    }
+    // Read live camera scalars into locals and compare them directly against the
+    // retained state's fields — no per-frame currentPose literal. _lastRefractionState
+    // is a MutableRef whose object we mutate in place on a miss (below), so the whole
+    // pass is allocation-free on both the cache-hit and cache-miss paths.
+    const px = camera.position.x
+    const py = camera.position.y
+    const pz = camera.position.z
+    const qx = camera.quaternion.x
+    const qy = camera.quaternion.y
+    const qz = camera.quaternion.z
+    const qw = camera.quaternion.w
+    const p0 = projection[0] ?? Number.NaN
+    const p5 = projection[5] ?? Number.NaN
+    const p10 = projection[10] ?? Number.NaN
+    const p14 = projection[14] ?? Number.NaN
     const lastRefractionState = MutableRef.get(_lastRefractionState)
     if (
       lastRefractionState.version === currentSceneVersion &&
-      lastRefractionState.x === currentPose.x &&
-      lastRefractionState.y === currentPose.y &&
-      lastRefractionState.z === currentPose.z &&
-      lastRefractionState.qx === currentPose.qx &&
-      lastRefractionState.qy === currentPose.qy &&
-      lastRefractionState.qz === currentPose.qz &&
-      lastRefractionState.qw === currentPose.qw &&
-      lastRefractionState.p0 === currentPose.p0 &&
-      lastRefractionState.p5 === currentPose.p5 &&
-      lastRefractionState.p10 === currentPose.p10 &&
-      lastRefractionState.p14 === currentPose.p14
+      lastRefractionState.x === px &&
+      lastRefractionState.y === py &&
+      lastRefractionState.z === pz &&
+      lastRefractionState.qx === qx &&
+      lastRefractionState.qy === qy &&
+      lastRefractionState.qz === qz &&
+      lastRefractionState.qw === qw &&
+      lastRefractionState.p0 === p0 &&
+      lastRefractionState.p5 === p5 &&
+      lastRefractionState.p10 === p10 &&
+      lastRefractionState.p14 === p14
     ) {
       return
     }
@@ -159,7 +161,20 @@ export const doRefractionPrePass = (
       })
     )
 
-    MutableRef.set(_lastRefractionState, { version: currentSceneVersion, ...currentPose })
+    // Mutate the retained state object in place (same reference held by the MutableRef)
+    // instead of allocating a fresh spread object.
+    lastRefractionState.version = currentSceneVersion
+    lastRefractionState.x = px
+    lastRefractionState.y = py
+    lastRefractionState.z = pz
+    lastRefractionState.qx = qx
+    lastRefractionState.qy = qy
+    lastRefractionState.qz = qz
+    lastRefractionState.qw = qw
+    lastRefractionState.p0 = p0
+    lastRefractionState.p5 = p5
+    lastRefractionState.p10 = p10
+    lastRefractionState.p14 = p14
   })
 
 /** Updates per-frame water shader uniforms. */
