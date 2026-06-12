@@ -19,6 +19,11 @@ import { setCell, removeCell, hydrateChunk } from './fluid-state-ops'
 
 export { resolveContact } from '../domain/fluid-contact'
 
+// Reused scratch position for the per-cell neighbour scan in resolveNeighborContact.
+// The scan loop is fully synchronous (no yield* between writes and reads), so a single
+// shared object is safe and avoids allocating 6 neighborPos literals per fluid cell.
+const _neighborScratch: { x: number; y: number; z: number } = { x: 0, y: 0, z: 0 }
+
 export class FluidService extends Effect.Service<FluidService>()(
   '@minecraft/application/FluidService',
   {
@@ -118,12 +123,21 @@ export class FluidService extends Effect.Service<FluidService>()(
       ): Effect.Effect<boolean, never> =>
         Effect.gen(function* () {
           const state = yield* Ref.get(stateRefLocal)
-          const hit = Arr.findFirst(NOTIFY_OFFSETS, (offset) => {
-            const neighborPos = { x: position.x + offset.x, y: position.y + offset.y, z: position.z + offset.z }
-            const nc = Option.getOrNull(HashMap.get(state.cells, blockKey(neighborPos)))
-            return nc !== null && nc.type !== cell.type
-          })
-          const offset = Option.getOrNull(hit)
+          // Imperative scan over the 6 neighbour offsets reusing one scratch position —
+          // avoids 6 neighborPos literals + the findFirst closure on every processed cell.
+          // Preserves NOTIFY_OFFSETS order (first opposite-type neighbour wins).
+          let offset: (typeof NOTIFY_OFFSETS)[number] | null = null
+          for (let i = 0; i < NOTIFY_OFFSETS.length; i++) {
+            const candidate = NOTIFY_OFFSETS[i]!
+            _neighborScratch.x = position.x + candidate.x
+            _neighborScratch.y = position.y + candidate.y
+            _neighborScratch.z = position.z + candidate.z
+            const nc = Option.getOrNull(HashMap.get(state.cells, blockKey(_neighborScratch)))
+            if (nc !== null && nc.type !== cell.type) {
+              offset = candidate
+              break
+            }
+          }
           if (offset === null) return false
           const neighborPos = { x: position.x + offset.x, y: position.y + offset.y, z: position.z + offset.z }
           const neighborCell = Option.getOrElse(
