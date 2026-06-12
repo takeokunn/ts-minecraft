@@ -151,16 +151,10 @@ export const applySneakEdgeClampInto = (
     return outPos
   }
 
-  // Inline ALL logic — no closure allocation, no clampSneakEdge {x,z} return.
+  // Inline ALL logic — zero closures, zero allocations.
   const feetY = collidedPos.y - PLAYER_HALF_HEIGHT
-  const xL = collidedPos.x - PLAYER_HALF_WIDTH
-  const xR = collidedPos.x + PLAYER_HALF_WIDTH
-  const zL = collidedPos.z - PLAYER_HALF_WIDTH
-  const zR = collidedPos.z + PLAYER_HALF_WIDTH
   const d0 = feetY - 0.1
   const d1 = feetY - 0.1 - SNEAK_STEP_DOWN
-  const solid = (x: number, z: number): boolean =>
-    isBlockSolid(x, d0, z) || isBlockSolid(x, d1, z)
 
   const collidedX = collidedPos.x
   const collidedZ = collidedPos.z
@@ -169,11 +163,33 @@ export const applySneakEdgeClampInto = (
   const preX = prePos.x
   const preZ = prePos.z
 
-  // Per-axis edge protection (inlined clampSneakEdge):
-  // X: revert to preX if moving in X and new spot lacks ground support at (newX, prevZ)
-  outPos.x = collidedX !== preX && !solid(collidedX, preZ) ? preX : collidedX
-  // Z: revert to preZ if moving in Z and new spot lacks ground support at (prevX, newZ)
-  outPos.z = collidedZ !== preZ && !solid(preX, collidedZ) ? preZ : collidedZ
+  // X-axis edge check: ground support at (newX, prevZ) using 4 corners × 2 depths
+  const xL = collidedX - PLAYER_HALF_WIDTH
+  const xR = collidedX + PLAYER_HALF_WIDTH
+  const zSupportX = preZ
+  const zLx = zSupportX - PLAYER_HALF_WIDTH
+  const zRx = zSupportX + PLAYER_HALF_WIDTH
+  const xClamp = collidedX !== preX
+    && !(isBlockSolid(xL, d0, zLx) || isBlockSolid(xL, d1, zLx)
+      || isBlockSolid(xL, d0, zRx) || isBlockSolid(xL, d1, zRx)
+      || isBlockSolid(xR, d0, zLx) || isBlockSolid(xR, d1, zLx)
+      || isBlockSolid(xR, d0, zRx) || isBlockSolid(xR, d1, zRx))
+
+  outPos.x = xClamp ? preX : collidedX
+
+  // Z-axis edge check: ground support at (prevX, newZ)
+  const zL = collidedZ - PLAYER_HALF_WIDTH
+  const zR = collidedZ + PLAYER_HALF_WIDTH
+  const xSupportZ = preX
+  const xLz = xSupportZ - PLAYER_HALF_WIDTH
+  const xRz = xSupportZ + PLAYER_HALF_WIDTH
+  const zClamp = collidedZ !== preZ
+    && !(isBlockSolid(xLz, d0, zL) || isBlockSolid(xLz, d1, zL)
+      || isBlockSolid(xLz, d0, zR) || isBlockSolid(xLz, d1, zR)
+      || isBlockSolid(xRz, d0, zL) || isBlockSolid(xRz, d1, zL)
+      || isBlockSolid(xRz, d0, zR) || isBlockSolid(xRz, d1, zR))
+
+  outPos.z = zClamp ? preZ : collidedZ
   outPos.y = collidedPos.y  // Y unchanged by sneak clamp
   outVel.x = outPos.x !== collidedX ? 0 : collidedVx
   outVel.y = collidedVel.y

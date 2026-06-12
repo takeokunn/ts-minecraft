@@ -153,18 +153,16 @@ describe('applySneakEdgeClamp', () => {
     // Regression: outPos===collidedPos aliasing must snapshot pre-write coords
     // so the comparison for velocity zeroing compares original (not overwritten) positions.
     const pre = pos(0, 64, 0)
-    const collided = vec(2, 64, 2)   // moved away from pre
-    const vel = vec(2, 0, 2)         // significant velocity
-    const out = { x: collided.x, y: collided.y, z: collided.z }  // aliased ref
-    const outVel = { x: vel.x, y: vel.y, z: vel.z }              // aliased ref
-    // solid returns false everywhere → no ground support → X and Z clamp back
-    applySneakEdgeClampInto(out, outVel, pre, collided, vel, () => false, true, true)
-    // X and Z should both clamp back to pre position
-    expect(out.x).toBe(pre.x)
-    expect(out.z).toBe(pre.z)
-    // Velocity on clamped axes must be zeroed
-    expect(outVel.x).toBe(0)
-    expect(outVel.z).toBe(0)
-    expect(outVel.y).toBe(vel.y)
+    const collided = vec(2, 64, 2)    // moved away from pre — will be modified in-place
+    const vel = vec(2, 0, 2)          // significant velocity — will be modified in-place
+    // Pass collided and vel DIRECTLY as both input AND output (reference equality)
+    applySneakEdgeClampInto(collided, vel, pre, collided, vel, () => false, true, true)
+    // X and Z should both clamp back to pre position (collided was mutated in-place)
+    expect(collided.x).toBe(pre.x)
+    expect(collided.z).toBe(pre.z)
+    // Velocity on clamped axes must be zeroed (vel was mutated in-place)
+    expect(vel.x).toBe(0)
+    expect(vel.z).toBe(0)
+    expect(vel.y).toBe(0)  // Y velocity preserved
   })
 })
