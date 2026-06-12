@@ -1876,3 +1876,25 @@ Remaining: **FIX-F** mob spawn (XZ-distance) vs despawn (3D-distance) mismatch.
 `pnpm typecheck` 0 errors · `pnpm lint` 0 errors / 4 warnings (pre-existing) ·
 `pnpm check:refactor` all OK · `pnpm test` **5700 passing / 1 skipped** (2 assertions corrected) ·
 `pnpm build` exit 0 · 1 commit on `main`.
+
+---
+
+## BB. Round 51 (2026-06-13) — correctness fix #6: spawn/despawn distance — queue CLOSED
+
+- [x] **FIX-F**: **Mobs could spawn beyond their own despawn radius.** The spawn gate measured XZ-only
+  distance (16-40 block ring) but `shouldDespawnEntity` measures 3D (includes dy). A spawn resolver
+  that drops a mob to a surface far above/below the player could place it inside the XZ ring yet past
+  the 64-block 3D despawn radius — so on tall/deep terrain the mob spawned and vanished the next tick.
+  Kept the XZ spawn-ring band (the intended "mobs appear around the player" behaviour) and added a 3D
+  guard rejecting a resolved spawn whose 3D distance already exceeds `DESPAWN_DISTANCE`. New test: a
+  resolver dropping every candidate 70 blocks down (3D ≈ 72 > 64) yields no spawn. — `spawner.ts`
+
+### Config/constant correctness hunt — all 6 found bugs now fixed
+FIX-A invincibility i-frames · FIX-B hunger timer · FIX-C knockback duration (all three were
+frames-vs-ticks, now time-based) · FIX-D Fortune I no-op · FIX-E Power V over-scaled · FIX-F
+spawn/despawn distance. The Round 46 hunt's queue is closed.
+
+### Quality gate (Round 51)
+`pnpm typecheck` 0 errors · `pnpm lint` 0 errors / 4 warnings (pre-existing) ·
+`pnpm check:refactor` all OK · `pnpm test` **5701 passing / 1 skipped** (+1 new test) ·
+`pnpm build` exit 0 · 1 commit on `main`.
