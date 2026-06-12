@@ -237,18 +237,19 @@ export const physicsStage = (
             )
             MutableRef.set(refs.lavaDamageSecsRef, acc)
             if (ticks > 0) {
-              // FIRE_PROTECTION: sum reduction across all worn armor pieces, cap 64%.
+              // FIRE_PROTECTION: sum reduction across all worn armor pieces inline (no
+              // per-tick array allocation), cap 64%.
               const armorSlots = yield* services.equipmentService.getAll()
-              const fireProtTotal = Math.min(
-                0.64,
-                [armorSlots.HELMET, armorSlots.CHESTPLATE, armorSlots.LEGGINGS, armorSlots.BOOTS].reduce(
-                  (acc, slotOpt) => {
-                    const fp = enchantmentsOf(slotOpt).find((e) => e.type === 'FIRE_PROTECTION')
-                    return acc + (fp ? getFireProtectionReduction(fp.level) : 0)
-                  },
-                  0,
-                ),
-              )
+              let fireProtTotal = 0
+              const fpHead = enchantmentsOf(armorSlots.HELMET).find((e) => e.type === 'FIRE_PROTECTION')
+              const fpChest = enchantmentsOf(armorSlots.CHESTPLATE).find((e) => e.type === 'FIRE_PROTECTION')
+              const fpLegs = enchantmentsOf(armorSlots.LEGGINGS).find((e) => e.type === 'FIRE_PROTECTION')
+              const fpBoots = enchantmentsOf(armorSlots.BOOTS).find((e) => e.type === 'FIRE_PROTECTION')
+              if (fpHead) fireProtTotal += getFireProtectionReduction(fpHead.level)
+              if (fpChest) fireProtTotal += getFireProtectionReduction(fpChest.level)
+              if (fpLegs) fireProtTotal += getFireProtectionReduction(fpLegs.level)
+              if (fpBoots) fireProtTotal += getFireProtectionReduction(fpBoots.level)
+              fireProtTotal = Math.min(0.64, fireProtTotal)
               const lavaDamage = LAVA_DAMAGE * ticks * (1 - fireProtTotal)
               const burned = yield* applyDamage(lavaDamage)
               if (burned) {
