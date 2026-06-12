@@ -24,42 +24,50 @@ export const refractionPrepassStage = (
     readonly sunIntensity: number
   },
 ): Effect.Effect<void, never> =>
-  Effect.gen(function* () {
-    // Refraction pre-pass for water shader — throttled by quality preset.
-    // low=skip entirely, medium=every 3 frames, high=every 2, ultra=every frame.
-    // Counter uses (n-1) so the first frame always runs (no initial-frame stutter).
-    if (inputs.resolvedGraphics.refractionThrottleFrames > 0) {
-      const refractionFrame = yield* Ref.updateAndGet(refs.refractionFrameCounterRef, (n) => n + 1)
-      if ((refractionFrame - 1) % inputs.resolvedGraphics.refractionThrottleFrames === 0) {
-        const sceneVersionBeforeRefraction = yield* services.worldRendererService.getSceneVersion()
-        // R89: output-parameter pattern — write into pre-allocated scratch, no per-frame allocation
-        captureCameraPose(deps.camera, sceneVersionBeforeRefraction, refs.currentRefractionPoseScratch)
-        const lastRefractionFrame = MutableRef.get(refs.lastRefractionFrameRef)
-        const shouldRunRefraction = hasCameraPoseChanged(lastRefractionFrame, refs.currentRefractionPoseScratch)
-
-        if (shouldRunRefraction) {
-          // FR-4.4: pass preset-resolved threshold so refraction skips when on-screen
-          // water footprint is below the preset's tolerance.
-          yield* logErrors(
-            services.worldRendererService.doRefractionPrePass(
-              deps.renderer,
-              deps.scene,
-              deps.camera,
-              inputs.resolvedGraphics.refractionMinScreenRatio,
-            ),
-            'Refraction pre-pass error',
-          )
-          copyCameraPoseInto(refs.currentRefractionPoseScratch, lastRefractionFrame)
-          const wasValid = yield* Ref.getAndSet(refs.refractionValidRef, true)
-          /* c8 ignore next */
-          if (!wasValid) yield* services.worldRendererService.setRefractionValid(true)
-        }
-      }
-    }
-
-    // Update water uniforms (time + camera position only — resolution is set on resize)
-    yield* services.worldRendererService.updateWaterUniforms(inputs.totalTimeSecs, deps.camera.position, inputs.sunIntensity)
-  })
+  inputs.resolvedGraphics.refractionThrottleFrames > 0
+    ? Ref.updateAndGet(refs.refractionFrameCounterRef, (n) => n + 1).pipe(
+        Effect.flatMap((refractionFrame) =>
+          (refractionFrame - 1) % inputs.resolvedGraphics.refractionThrottleFrames === 0
+            ? services.worldRendererService.getSceneVersion().pipe(
+                Effect.flatMap((sceneVersionBeforeRefraction) =>
+                  Effect.sync(() =>
+                    captureCameraPose(deps.camera, sceneVersionBeforeRefraction, refs.currentRefractionPoseScratch),
+                  ).pipe(
+                    Effect.flatMap(() => {
+                      const lastRefractionFrame = MutableRef.get(refs.lastRefractionFrameRef)
+                      return hasCameraPoseChanged(lastRefractionFrame, refs.currentRefractionPoseScratch)
+                        ? logErrors(
+                            services.worldRendererService.doRefractionPrePass(
+                              deps.renderer, deps.scene, deps.camera,
+                              inputs.resolvedGraphics.refractionMinScreenRatio,
+                            ),
+                            'Refraction pre-pass error',
+                          ).pipe(
+                            Effect.flatMap(() =>
+                              Effect.sync(() =>
+                                copyCameraPoseInto(refs.currentRefractionPoseScratch, lastRefractionFrame),
+                              ),
+                            ),
+                            Effect.flatMap(() =>
+                              Ref.getAndSet(refs.refractionValidRef, true),
+                            ),
+                            Effect.flatMap((wasValid) =>
+                              /* c8 ignore next */
+                              wasValid ? Effect.void : services.worldRendererService.setRefractionValid(true),
+                            ),
+                          )
+                        : Effect.void
+                    }),
+                  ),
+                ),
+              )
+            : Effect.void,
+        ),
+        Effect.flatMap(() =>
+          services.worldRendererService.updateWaterUniforms(inputs.totalTimeSecs, deps.camera.position, inputs.sunIntensity),
+        ),
+      )
+    : services.worldRendererService.updateWaterUniforms(inputs.totalTimeSecs, deps.camera.position, inputs.sunIntensity)
 
 // ---------------------------------------------------------------------------
 // Stage 9: postProcessingSetupStage — sync pass enable/setSize from quality preset.
@@ -78,11 +86,8 @@ export const postProcessingSetupStage = (
     readonly markShadowMapDirty: () => void
   },
 ): Effect.Effect<void, never> =>
-  Effect.gen(function* () {
-    // FR-014: disabled passes still hold full-resolution render targets that waste VRAM.
-    // On transition: disabled→setSize(1,1) shrinks RTs; enabled→setSize(w,h) restores them.
-    if (inputs.graphicsChanged || inputs.pixelRatioChanged) {
-      yield* Effect.sync(() => {
+  (inputs.graphicsChanged || inputs.pixelRatioChanged)
+    ? Effect.sync(() => {
         const w = deps.renderer.domElement.clientWidth || 1
         const h = deps.renderer.domElement.clientHeight || 1
         const pixelRatio = typeof deps.renderer.getPixelRatio === 'function' ? deps.renderer.getPixelRatio() : 1
@@ -95,38 +100,24 @@ export const postProcessingSetupStage = (
         if (resolved.gtaoPassOrNull) {
           const enabled = inputs.resolvedGraphics.ssaoEnabled && deps.renderer.capabilities.isWebGL2
           resolved.gtaoPassOrNull.enabled = enabled
-          // FR-014: Half-resolution GTAO — 75% fill reduction with acceptable quality loss
           resolved.gtaoPassOrNull.setSize(enabled ? Math.ceil(rw / 2) : 1, enabled ? Math.ceil(rh / 2) : 1)
         }
         if (resolved.bloomPassOrNull) {
           resolved.bloomPassOrNull.enabled = inputs.resolvedGraphics.bloomEnabled
           resolved.bloomPassOrNull.strength = inputs.resolvedGraphics.bloomStrength
-          resolved.bloomPassOrNull.setSize(
-            inputs.resolvedGraphics.bloomEnabled ? rw : 1,
-            inputs.resolvedGraphics.bloomEnabled ? rh : 1,
-          )
+          resolved.bloomPassOrNull.setSize(inputs.resolvedGraphics.bloomEnabled ? rw : 1, inputs.resolvedGraphics.bloomEnabled ? rh : 1)
         }
         if (resolved.dofPassOrNull) {
           resolved.dofPassOrNull.enabled = inputs.resolvedGraphics.dofEnabled
-          resolved.dofPassOrNull.setSize(
-            inputs.resolvedGraphics.dofEnabled ? rw : 1,
-            inputs.resolvedGraphics.dofEnabled ? rh : 1,
-          )
+          resolved.dofPassOrNull.setSize(inputs.resolvedGraphics.dofEnabled ? rw : 1, inputs.resolvedGraphics.dofEnabled ? rh : 1)
         }
         if (resolved.smaaPassOrNull) {
           resolved.smaaPassOrNull.enabled = inputs.resolvedGraphics.smaaEnabled
-          resolved.smaaPassOrNull.setSize(
-            inputs.resolvedGraphics.smaaEnabled ? rw : 1,
-            inputs.resolvedGraphics.smaaEnabled ? rh : 1,
-          )
+          resolved.smaaPassOrNull.setSize(inputs.resolvedGraphics.smaaEnabled ? rw : 1, inputs.resolvedGraphics.smaaEnabled ? rh : 1)
         }
         if (resolved.godRaysPassOrNull) {
           resolved.godRaysPassOrNull.setNumSamples(inputs.resolvedGraphics.godRaysSamples)
-          resolved.godRaysPassOrNull.setSize(
-            inputs.resolvedGraphics.godRaysEnabled ? rw : 1,
-            inputs.resolvedGraphics.godRaysEnabled ? rh : 1,
-          )
+          resolved.godRaysPassOrNull.setSize(inputs.resolvedGraphics.godRaysEnabled ? rw : 1, inputs.resolvedGraphics.godRaysEnabled ? rh : 1)
         }
       })
-    }
-  })
+    : Effect.void

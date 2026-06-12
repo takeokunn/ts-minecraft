@@ -37,43 +37,46 @@ export const lightingStage = (
     readonly markShadowMapDirty: () => void
   },
 ): Effect.Effect<{ readonly timeOfDay: number; readonly sunIntensity: number }, never> =>
-  Effect.gen(function* () {
-    yield* logErrors(
-      updateDayNightCycle(inputs.deltaTime, inputs.effectiveLights, services.timeService),
-      'Day/night error',
-    )
-    // Tick weather transitions and read current state.
-    const weather = yield* services.weatherService.tick(inputs.deltaTime)
-
-    const dimension = yield* services.netherService.getDimension()
-    if (dimension === 'nether') {
-      yield* Effect.sync(() => applyNetherEnvironment(inputs.effectiveLights))
-    } else if (dimension === 'end') {
-      yield* Effect.sync(() => applyEndEnvironment(inputs.effectiveLights))
-    } else {
-      yield* Effect.sync(() => applyRainEnvironment(inputs.effectiveLights, weather))
-    }
-    const shadowFrame = yield* Ref.updateAndGet(refs.shadowUpdateCounterRef, (n) => (n + 1) % 8)
-    if (shadowFrame === 0 && deps.lights.light.castShadow) {
-      yield* Effect.sync(() => { inputs.markShadowMapDirty() })
-    }
-
-    yield* logErrors(
-      Effect.gen(function* () {
-        const isNight = yield* services.timeService.isNight()
-        musicContextScratch.isNight = isNight
-        musicContextScratch.playerPosition = inputs.playerPos
-        yield* services.musicManager.updateFromContext(musicContextScratch)
-      }),
-      'Music update error',
-    )
-
-    const timeOfDay = yield* services.timeService.getTimeOfDay()
-
-    // Sun-driven shader uniform — derived from the canonical day-factor formula
-    // (matches `updateDayNightCycle`'s sin curve so chunk lighting tracks the visible sun).
-    const sunIntensity = Math.max(0, Math.sin((timeOfDay - 0.25) * Math.PI * 2))
-    yield* logErrors(services.chunkMeshService.setSunIntensity(sunIntensity), 'Sun intensity sync error')
-
-    return { timeOfDay, sunIntensity }
-  })
+  // Pre-composed flatMap chain — no per-frame generator
+  logErrors(
+    updateDayNightCycle(inputs.deltaTime, inputs.effectiveLights, services.timeService),
+    'Day/night error',
+  ).pipe(
+    Effect.flatMap(() => services.weatherService.tick(inputs.deltaTime)),
+    Effect.flatMap((weather) =>
+      Effect.all([services.netherService.getDimension(), Effect.succeed(weather)]),
+    ),
+    Effect.flatMap(([dimension, weather]) =>
+      dimension === 'nether'
+        ? Effect.sync(() => applyNetherEnvironment(inputs.effectiveLights))
+        : dimension === 'end'
+          ? Effect.sync(() => applyEndEnvironment(inputs.effectiveLights))
+          : Effect.sync(() => applyRainEnvironment(inputs.effectiveLights, weather)),
+    ),
+    Effect.flatMap(() =>
+      Ref.updateAndGet(refs.shadowUpdateCounterRef, (n) => (n + 1) % 8),
+    ),
+    Effect.flatMap((shadowFrame) =>
+      shadowFrame === 0 && deps.lights.light.castShadow
+        ? Effect.sync(() => { inputs.markShadowMapDirty() })
+        : Effect.void,
+    ),
+    Effect.flatMap(() =>
+      logErrors(
+        Effect.gen(function* () {
+          const isNight = yield* services.timeService.isNight()
+          musicContextScratch.isNight = isNight
+          musicContextScratch.playerPosition = inputs.playerPos
+          yield* services.musicManager.updateFromContext(musicContextScratch)
+        }),
+        'Music update error',
+      ),
+    ),
+    Effect.flatMap(() => services.timeService.getTimeOfDay()),
+    Effect.flatMap((timeOfDay) => {
+      const sunIntensity = Math.max(0, Math.sin((timeOfDay - 0.25) * Math.PI * 2))
+      return logErrors(services.chunkMeshService.setSunIntensity(sunIntensity), 'Sun intensity sync error').pipe(
+        Effect.map(() => ({ timeOfDay, sunIntensity })),
+      )
+    }),
+  )
