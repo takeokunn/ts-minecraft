@@ -39,16 +39,14 @@ export const computeLimbAngle = (
 //   legR = -sin(baseAngle) * amp       (phase π)
 //   armL = -sin(baseAngle) * amp       (phase π, same as legR)
 //   armR =  sin(baseAngle) * amp       (phase 0, same as legL)
-// This replaces 4 Math.sin calls per entity per frame with 1.
-export type LimbAngles = { legL: number; legR: number; armL: number; armR: number }
-
-export const computeLimbAngles = (
+//
+// Returns the base scalar: legL=return, legR=-return, armL=-return, armR=return.
+// Zero allocation — no object returned (caller computes signed limbs directly).
+export const computeLimbAngleBase = (
   speed: number,
   t: number,
-): LimbAngles => {
-  if (speed < SPEED_THRESHOLD) return { legL: 0, legR: 0, armL: 0, armR: 0 }
+): number => {
+  if (speed < SPEED_THRESHOLD) return 0
   const amp = LIMB_SWING_AMPLITUDE * Math.min(1, speed / REFERENCE_SPEED)
-  const base = Math.sin((2 * Math.PI * speed * t) / STRIDE_LENGTH) * amp
-  const neg = -base
-  return { legL: base, legR: neg, armL: neg, armR: base }
+  return Math.sin((2 * Math.PI * speed * t) / STRIDE_LENGTH) * amp
 }

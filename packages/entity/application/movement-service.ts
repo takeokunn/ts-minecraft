@@ -42,8 +42,16 @@ export const computeVelocity = (
 
   // Accumulate movement direction from all pressed keys.
   // Forward direction uses negative Z in most game engines.
+  // Early exit: skip trig computation entirely when no horizontal keys are
+  // pressed (idle players are far more common than moving ones over a session).
+  const hasHorizontalInput = input.forward || input.backward || input.left || input.right
+  if (!hasHorizontalInput) {
+    // Y velocity is handled by physics (gravity/jump).
+    const moveY = input.jump && isGrounded ? MetersPerSec.toNumber(DEFAULT_JUMP_VELOCITY) : 0
+    return { x: 0, y: moveY, z: 0 }
+  }
   // Pre-compute trig: yaw only changes on mouse move, but computeVelocity is
-  // called per-frame. 8→2 trig calls/frame.
+  // called per-frame. When keys ARE pressed, 8→2 trig calls/frame.
   const sinYaw = Math.sin(yaw)
   const cosYaw = Math.cos(yaw)
   const rawX =

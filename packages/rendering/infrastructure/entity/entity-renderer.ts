@@ -3,7 +3,7 @@ import * as THREE from 'three'
 import type { Entity, EntityId as EntityIdType, EntityType } from '@ts-minecraft/entity'
 import { SceneService } from '../scene/scene-service'
 import { buildMobGroup, type MobLimbGroup } from './mob-geometry'
-import { computeLimbAngles } from './walk-cycle'
+import { computeLimbAngleBase } from './walk-cycle'
 import {
   createEntityInstancePool,
   ROLES_BY_TYPE,
@@ -208,15 +208,15 @@ export class EntityRendererService extends Effect.Service<EntityRendererService>
                     group.root.position.set(entity.position.x, entity.position.y, entity.position.z)
 
                     const speed = Math.hypot(entity.velocity.x, entity.velocity.z)
-                    // Idle early-out: skip ALL limb math and atan2 when stationary.
-                    // computeLimbAngles already returns zeros below the threshold,
-                    // but avoiding the function call + hypot + atan2 for idle
-                    // mobs saves 4-5 ops per idle entity per frame.
+                    // Idle early-out: skip atan2 and limb math for stationary mobs.
+                    // computeLimbAngleBase returns 0 below SPEED_THRESHOLD anyway,
+                    // but avoiding the function call + atan2 for idle entities
+                    // saves per-frame overhead.
                     let legL: number, legR: number, armLA: number, armRA: number
                     if (speed > MOTION_THRESHOLD) {
                       group.root.rotation.y = Math.atan2(entity.velocity.x, entity.velocity.z)
-                      const angles = computeLimbAngles(speed, totalTimeSecs)
-                      legL = angles.legL; legR = angles.legR; armLA = angles.armL; armRA = angles.armR
+                      const base = computeLimbAngleBase(speed, totalTimeSecs)
+                      legL = base; legR = -base; armLA = -base; armRA = base
                     } else {
                       legL = legR = armLA = armRA = 0
                     }
