@@ -15,7 +15,7 @@ import {
   setSolidBlockIfLoaded,
 } from './fluid-chunk-ops'
 import { type WorkItem, splitBudget } from './fluid-tick-budget'
-import { setCell, removeCell, hydrateChunk } from './fluid-state-ops'
+import { setCell, setCellAndEnqueueKey, removeCell, hydrateChunk } from './fluid-state-ops'
 
 export { resolveContact } from '../domain/fluid-contact'
 
@@ -186,8 +186,7 @@ export class FluidService extends Effect.Service<FluidService>()(
             /* c8 ignore next */
             if (Option.exists(existing, (e) => e.type === cell.type && e.level <= nextLevel)) return [false, s] as const
             const newCell: FluidCell = { level: nextLevel, source: false, type: cell.type }
-            const next = setCell(s, below, newCell)
-            return [true, { ...next, frontier: HashSet.add(next.frontier, targetKey) }] as const
+            return [true, setCellAndEnqueueKey(s, targetKey, newCell)] as const
           })
           /* c8 ignore next */
           if (shouldWrite) yield* writeFluid(loaded, below, { level: nextLevel, source: false, type: cell.type })
@@ -223,8 +222,7 @@ export class FluidService extends Effect.Service<FluidService>()(
             /* c8 ignore next */
             if (Option.exists(existing, (e) => e.type === cell.type && e.level <= nextLevel)) return [false, s] as const
             const newCell: FluidCell = { level: nextLevel, source: false, type: cell.type }
-            const next = setCell(s, target, newCell)
-            return [true, { ...next, frontier: HashSet.add(next.frontier, targetKey) }] as const
+            return [true, setCellAndEnqueueKey(s, targetKey, newCell)] as const
           })
           if (shouldWrite) yield* writeFluid(loaded, target, { level: nextLevel, source: false, type: cell.type })
         }), { concurrency: 1 })
