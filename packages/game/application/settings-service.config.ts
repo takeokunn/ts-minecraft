@@ -36,8 +36,12 @@ export const GRAPHICS_PRESETS = {
   medium: {
     shadowsEnabled: true,  ssaoEnabled: false, bloomEnabled: false,
     smaaEnabled: false, skyEnabled: true,  dofEnabled: false, godRaysEnabled: false,
-    godRaysSamples: 0,  bloomStrength: 0,    refractionThrottleFrames: 5, pixelRatioCap: 1.0,
-    refractionMinScreenRatio: 0.05, // FR-4.4: aggressive — already throttled, drop sub-5% water frames
+    // refractionThrottleFrames: 0 → water uses its shader but SKIPS doRefractionPrePass, the
+    // full second scene render. Since oceans/lakes now generate water everywhere, that prepass
+    // would fire on the default preset whenever water is on-screen; the live refraction texture
+    // is a high/ultra-only luxury, not worth a per-frame extra scene pass on the balanced default.
+    godRaysSamples: 0,  bloomStrength: 0,    refractionThrottleFrames: 0, pixelRatioCap: 1.0,
+    refractionMinScreenRatio: 0.05,
     composerRtType: 1009, // THREE.UnsignedByteType — no HDR pass, save VRAM bandwidth
     useCompositePass: false, // FR-4.3: no HDR effects — CompositePass would no-op
   },

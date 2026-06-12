@@ -59,7 +59,7 @@ describe('FR-009 — refraction pre-pass skip on low quality', () => {
     expect(refractionSpy).toHaveBeenCalledOnce()
   }))
 
-  it.effect('calls doRefractionPrePass when graphicsQuality is medium', () => Effect.gen(function* () {
+  it.effect('does NOT call doRefractionPrePass when graphicsQuality is medium (refraction disabled on the default preset for perf)', () => Effect.gen(function* () {
     const deps = yield* makeDeps(false)
     const services = makeServices({
       inputService: makeInputService(),
@@ -74,7 +74,7 @@ describe('FR-009 — refraction pre-pass skip on low quality', () => {
 
     yield* runFrame(deps, services)
 
-    expect(refractionSpy).toHaveBeenCalledOnce()
+    expect(refractionSpy).not.toHaveBeenCalled()
   }))
 
   it.effect('skips doRefractionPrePass on the second identical ultra-quality frame', () => Effect.gen(function* () {

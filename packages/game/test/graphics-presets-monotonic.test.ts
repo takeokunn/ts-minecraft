@@ -49,16 +49,17 @@ describe('GRAPHICS_PRESETS monotonic quality progression', () => {
   })
 
   // NOTE: refractionThrottleFrames is intentionally NOT monotonic — low=0 is a
-  // sentinel (refraction disabled entirely), so its throttle value is moot. Among
-  // the tiers that actually run refraction, the pre-pass runs more often as quality
-  // rises: medium(5) ≥ high(2) ≥ ultra(1).
-  it('refractionThrottleFrames decreases across the tiers that run refraction (medium→ultra)', () => {
-    expect(GRAPHICS_PRESETS.medium.refractionThrottleFrames).toBeGreaterThanOrEqual(
-      GRAPHICS_PRESETS.high.refractionThrottleFrames,
-    )
+  // sentinel (refraction disabled entirely), so its throttle value is moot. low and
+  // medium both run NO refraction pre-pass (throttle 0 — the full second scene render
+  // is a high/ultra-only luxury). Among the tiers that actually run refraction the
+  // pre-pass runs more often as quality rises: high(2) ≥ ultra(1).
+  it('refraction pre-pass is disabled on low + medium and frequency increases high→ultra', () => {
+    expect(GRAPHICS_PRESETS.low.refractionThrottleFrames).toBe(0)
+    expect(GRAPHICS_PRESETS.medium.refractionThrottleFrames).toBe(0)
     expect(GRAPHICS_PRESETS.high.refractionThrottleFrames).toBeGreaterThanOrEqual(
       GRAPHICS_PRESETS.ultra.refractionThrottleFrames,
     )
+    expect(GRAPHICS_PRESETS.ultra.refractionThrottleFrames).toBeGreaterThan(0)
   })
 })
 
