@@ -7,6 +7,7 @@ export const ItemTypeSchema = Schema.Literal(
   'STONE_SWORD',
   'IRON_SWORD',
   'DIAMOND_SWORD',
+  'GOLD_SWORD',
   'WOODEN_PICKAXE',
   'STONE_PICKAXE',
   'RAW_IRON',
@@ -19,6 +20,7 @@ export const ItemTypeSchema = Schema.Literal(
   'LAPIS_LAZULI',
   'EMERALD',
   'DIAMOND_PICKAXE',
+  'GOLD_PICKAXE',
   'ROTTEN_FLESH',
   // Food items (Phase 11 — hunger restoration)
   'APPLE',
@@ -67,16 +69,19 @@ export const ItemTypeSchema = Schema.Literal(
   'STONE_HOE',
   'IRON_HOE',
   'DIAMOND_HOE',
+  'GOLD_HOE',
   // Shovel tools — dirt/sand/gravel excavation (R98)
   'WOODEN_SHOVEL',
   'STONE_SHOVEL',
   'IRON_SHOVEL',
   'DIAMOND_SHOVEL',
+  'GOLD_SHOVEL',
   // Axe tools — wood chopping + combat
   'WOODEN_AXE',
   'STONE_AXE',
   'IRON_AXE',
   'DIAMOND_AXE',
+  'GOLD_AXE',
   // Armor — leather tier
   'LEATHER_HELMET',
   'LEATHER_CHESTPLATE',

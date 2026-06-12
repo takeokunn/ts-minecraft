@@ -17,7 +17,7 @@ const ingredientTotal = (id: string): number => {
 }
 
 const TOOL_TYPES = ['SWORD', 'PICKAXE', 'SHOVEL', 'HOE', 'AXE'] as const
-const MATERIAL_TIERS = ['WOODEN', 'STONE', 'IRON', 'DIAMOND'] as const
+const MATERIAL_TIERS = ['WOODEN', 'STONE', 'IRON', 'DIAMOND', 'GOLD'] as const
 
 // ---------------------------------------------------------------------------
 // Tests
@@ -51,8 +51,8 @@ describe('application/recipes/tool-recipes', () => {
   })
 
   describe('completeness: all four tool types exist for every material tier', () => {
-    it('has 20 recipes total (5 types × 4 tiers)', () => {
-      expect(TOOL_RECIPES.length).toBe(20)
+    it('has 25 recipes total (5 types × 5 tiers)', () => {
+      expect(TOOL_RECIPES.length).toBe(25)
     })
 
     it('all tier/type combinations have a recipe with correct output itemType', () => {
@@ -143,6 +143,15 @@ describe('application/recipes/tool-recipes', () => {
         const recipe = TOOL_RECIPES.find((r) => r.output.itemType === outputItem)!
         const headIng = recipe.ingredients.find((i) => i.itemType !== 'STICKS')
         expect(headIng?.itemType, `IRON_${toolType} should use IRON_INGOT`).toBe('IRON_INGOT')
+      }
+    })
+
+    it('GOLD tools use GOLD_INGOT as head material', () => {
+      for (const toolType of TOOL_TYPES) {
+        const outputItem = `GOLD_${toolType}` as InventoryItem
+        const recipe = TOOL_RECIPES.find((r) => r.output.itemType === outputItem)!
+        const headIng = recipe.ingredients.find((i) => i.itemType !== 'STICKS')
+        expect(headIng?.itemType, `GOLD_${toolType} should use GOLD_INGOT`).toBe('GOLD_INGOT')
       }
     })
 

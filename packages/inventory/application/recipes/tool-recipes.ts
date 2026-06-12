@@ -39,6 +39,15 @@ export const TOOL_RECIPES: ReadonlyArray<Recipe> = [
     ],
     output: { itemType: 'DIAMOND_SWORD', count: 1 },
   }),
+  new Recipe({
+    id: RecipeId.make('gold-ingots-and-sticks-to-gold-sword'),
+    station: 'crafting_table',
+    ingredients: [
+      new RecipeIngredient({ itemType: 'GOLD_INGOT', count: 2 }),
+      new RecipeIngredient({ itemType: 'STICKS', count: 1 }),
+    ],
+    output: { itemType: 'GOLD_SWORD', count: 1 },
+  }),
   // ── Pickaxes ────────────────────────────────────────────────────────────────
   new Recipe({
     id: RecipeId.make('planks-and-sticks-to-wooden-pickaxe'),
@@ -75,6 +84,15 @@ export const TOOL_RECIPES: ReadonlyArray<Recipe> = [
       new RecipeIngredient({ itemType: 'STICKS', count: 2 }),
     ],
     output: { itemType: 'DIAMOND_PICKAXE', count: 1 },
+  }),
+  new Recipe({
+    id: RecipeId.make('gold-ingots-and-sticks-to-gold-pickaxe'),
+    station: 'crafting_table',
+    ingredients: [
+      new RecipeIngredient({ itemType: 'GOLD_INGOT', count: 3 }),
+      new RecipeIngredient({ itemType: 'STICKS', count: 2 }),
+    ],
+    output: { itemType: 'GOLD_PICKAXE', count: 1 },
   }),
   // ── Shovels (R98) ────────────────────────────────────────────────────────────
   new Recipe({
@@ -113,6 +131,15 @@ export const TOOL_RECIPES: ReadonlyArray<Recipe> = [
     ],
     output: { itemType: 'DIAMOND_SHOVEL', count: 1 },
   }),
+  new Recipe({
+    id: RecipeId.make('gold-ingots-and-sticks-to-gold-shovel'),
+    station: 'crafting_table',
+    ingredients: [
+      new RecipeIngredient({ itemType: 'GOLD_INGOT', count: 1 }),
+      new RecipeIngredient({ itemType: 'STICKS', count: 2 }),
+    ],
+    output: { itemType: 'GOLD_SHOVEL', count: 1 },
+  }),
   // ── Hoes ────────────────────────────────────────────────────────────────────
   new Recipe({
     id: RecipeId.make('planks-and-sticks-to-wooden-hoe'),
@@ -150,6 +177,15 @@ export const TOOL_RECIPES: ReadonlyArray<Recipe> = [
     ],
     output: { itemType: 'DIAMOND_HOE', count: 1 },
   }),
+  new Recipe({
+    id: RecipeId.make('gold-ingots-and-sticks-to-gold-hoe'),
+    station: 'crafting_table',
+    ingredients: [
+      new RecipeIngredient({ itemType: 'GOLD_INGOT', count: 2 }),
+      new RecipeIngredient({ itemType: 'STICKS', count: 2 }),
+    ],
+    output: { itemType: 'GOLD_HOE', count: 1 },
+  }),
   // ── Axes ────────────────────────────────────────────────────────────────────
   new Recipe({
     id: RecipeId.make('planks-and-sticks-to-wooden-axe'),
@@ -186,5 +222,14 @@ export const TOOL_RECIPES: ReadonlyArray<Recipe> = [
       new RecipeIngredient({ itemType: 'STICKS', count: 2 }),
     ],
     output: { itemType: 'DIAMOND_AXE', count: 1 },
+  }),
+  new Recipe({
+    id: RecipeId.make('gold-ingots-and-sticks-to-gold-axe'),
+    station: 'crafting_table',
+    ingredients: [
+      new RecipeIngredient({ itemType: 'GOLD_INGOT', count: 3 }),
+      new RecipeIngredient({ itemType: 'STICKS', count: 2 }),
+    ],
+    output: { itemType: 'GOLD_AXE', count: 1 },
   }),
 ]
