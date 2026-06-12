@@ -1,7 +1,7 @@
 import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
 import { Array as Arr } from 'effect'
-import { AIState, computeStateVelocity, distanceToPlayer, resolveAIState } from '@ts-minecraft/entity'
+import { AIState, computeStateVelocity, computeStateVelocityInto, distanceToPlayer, resolveAIState } from '@ts-minecraft/entity'
 import type { AITransitionContext } from '@ts-minecraft/entity'
 
 describe('ai/stateMachine', () => {
@@ -166,6 +166,50 @@ describe('ai/stateMachine', () => {
       expect(velocity.x).toBeCloseTo(0, 5)
       expect(velocity.y).toBeCloseTo(0, 5)
       expect(velocity.z).toBeCloseTo(3, 5)
+    })
+  })
+
+  describe('computeStateVelocityInto', () => {
+    // The -Into variant must match computeStateVelocity exactly under horizontal targeting
+    // (toHorizontalTarget sets the target y to the entity's y, so chase/flee direction.y = 0).
+    const cases: ReadonlyArray<{
+      readonly state: AIState
+      readonly entity: { x: number; y: number; z: number }
+      readonly player: { x: number; y: number; z: number }
+      readonly speed: number
+      readonly wander: { x: number; y: number; z: number }
+    }> = [
+      { state: AIState.Chase, entity: { x: 0, y: 64, z: 0 }, player: { x: 10, y: 70, z: 0 }, speed: 2, wander: { x: 1, y: 0, z: 0 } },
+      { state: AIState.Flee, entity: { x: 3, y: 64, z: -5 }, player: { x: 10, y: 12, z: 7 }, speed: 1.5, wander: { x: 1, y: 0, z: 0 } },
+      { state: AIState.Wander, entity: { x: 0, y: 64, z: 0 }, player: { x: 10, y: 64, z: 0 }, speed: 3, wander: { x: 0.2, y: 0.4, z: 1 } },
+      { state: AIState.Idle, entity: { x: 0, y: 64, z: 0 }, player: { x: 10, y: 64, z: 0 }, speed: 2, wander: { x: 1, y: 0, z: 0 } },
+      { state: AIState.Attack, entity: { x: 0, y: 64, z: 0 }, player: { x: 10, y: 64, z: 0 }, speed: 2, wander: { x: 1, y: 0, z: 0 } },
+      // zero-length chase direction (entity at player x/z) → zero vector, matching normalize()
+      { state: AIState.Chase, entity: { x: 5, y: 64, z: 5 }, player: { x: 5, y: 99, z: 5 }, speed: 4, wander: { x: 1, y: 0, z: 0 } },
+    ]
+
+    it('writes the same x/z as computeStateVelocity for every state (horizontal targeting)', () => {
+      for (const c of cases) {
+        const expected = computeStateVelocity({
+          state: c.state,
+          entityPosition: c.entity,
+          // toHorizontalTarget: player x/z, entity y
+          playerPosition: { x: c.player.x, y: c.entity.y, z: c.player.z },
+          speed: c.speed,
+          wanderDirection: c.wander,
+        })
+        const out = { x: NaN, y: NaN, z: NaN }
+        computeStateVelocityInto(
+          out,
+          c.state,
+          c.entity.x, c.entity.z,
+          c.player.x, c.player.z,
+          c.speed,
+          c.wander.x, c.wander.y, c.wander.z,
+        )
+        expect(out.x).toBeCloseTo(expected.x, 10)
+        expect(out.z).toBeCloseTo(expected.z, 10)
+      }
     })
   })
 })

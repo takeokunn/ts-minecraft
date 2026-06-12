@@ -1,5 +1,5 @@
 import { Array as Arr, Effect, HashMap, MutableRef, Option, Ref } from 'effect'
-import { AIState, computeStateVelocity, distanceToPlayerSq, resolveAIState } from '../../domain/mob/state-machine'
+import { AIState, computeStateVelocityInto, distanceToPlayerSq, resolveAIState } from '../../domain/mob/state-machine'
 import { EntityType, type Entity, type EntityId } from '../../domain/mob/entity'
 import { tickCreeperFuse } from '../../domain/mob/creeper-fuse'
 import { tickBreedingTimers } from '../../domain/mob/breeding'
@@ -23,7 +23,6 @@ import {
   isHorizontalBlocked,
   isSamePosition,
   isSameVelocity,
-  toHorizontalTarget,
 } from '../../domain/mob/entity-manager-utils'
 
 // Module-scoped scratch for the per-entity collision INPUTS (candidate position/velocity).
@@ -32,6 +31,10 @@ import {
 // object literals per entity per physics tick.
 const _candPos = { x: 0, y: 0, z: 0 }
 const _candVel = { x: 0, y: 0, z: 0 }
+// Module-scoped scratch for the per-entity AI steering velocity. Not retained — the
+// caller reads .x/.z immediately into a fresh velocity object — and processEntityAI runs
+// inside the sequential HashMap.map, so a single shared object is safe.
+const _stateVel = { x: 0, y: 0, z: 0 }
 
 type EntityFrameContext = {
   readonly tick: number
@@ -144,17 +147,20 @@ const processEntityAI = (
       ? makeWanderDirectionFromHash(hash, tick)
       : entity.wanderDirection
 
-  const horizontalVelocity = computeStateVelocity({
-    state: nextState,
-    entityPosition: entity.position,
-    playerPosition: toHorizontalTarget(entity.position, playerPosition),
-    speed: entity.speed,
-    wanderDirection,
-  })
+  // toHorizontalTarget set target.y = entity.y, so the chase/flee direction is purely
+  // horizontal — computeStateVelocityInto bakes that in and writes into shared scratch.
+  computeStateVelocityInto(
+    _stateVel,
+    nextState,
+    entity.position.x, entity.position.z,
+    playerPosition.x, playerPosition.z,
+    entity.speed,
+    wanderDirection.x, wanderDirection.y, wanderDirection.z,
+  )
   const velocity: Vector3 = {
-    x: horizontalVelocity.x,
+    x: _stateVel.x,
     y: entity.velocity.y,
-    z: horizontalVelocity.z,
+    z: _stateVel.z,
   }
 
   const burnDamage = burning ? 1 : 0

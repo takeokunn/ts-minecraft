@@ -104,3 +104,56 @@ export const computeStateVelocity = (context: AIMotionContext): Vector3 => {
       return zero
   }
 }
+
+// Allocation-free variant of computeStateVelocity for the per-entity AI hot path.
+// Writes the steering velocity into `out` instead of allocating ~5 Vector3 per call.
+// Chase/Flee steer on the horizontal plane (out.y = 0, matching the toHorizontalTarget
+// the caller used); Wander normalizes the full wander vector. Behavior mirrors
+// computeStateVelocity exactly — a zero-length direction yields the zero vector
+// (see normalize(): len === 0 → zero).
+const writeHorizontalDir = (
+  out: { x: number; y: number; z: number },
+  dx: number,
+  dz: number,
+  speed: number,
+): void => {
+  const len = Math.sqrt(dx * dx + dz * dz)
+  if (len === 0) {
+    out.x = 0; out.y = 0; out.z = 0
+    return
+  }
+  const inv = speed / len
+  out.x = dx * inv; out.y = 0; out.z = dz * inv
+}
+
+export const computeStateVelocityInto = (
+  out: { x: number; y: number; z: number },
+  state: AIState,
+  entityX: number, entityZ: number,
+  playerX: number, playerZ: number,
+  speed: number,
+  wanderX: number, wanderY: number, wanderZ: number,
+): void => {
+  switch (state) {
+    case AIState.Chase:
+      writeHorizontalDir(out, playerX - entityX, playerZ - entityZ, speed)
+      return
+    case AIState.Flee:
+      writeHorizontalDir(out, entityX - playerX, entityZ - playerZ, speed)
+      return
+    case AIState.Wander: {
+      const len = Math.sqrt(wanderX * wanderX + wanderY * wanderY + wanderZ * wanderZ)
+      if (len === 0) {
+        out.x = 0; out.y = 0; out.z = 0
+        return
+      }
+      const inv = speed / len
+      out.x = wanderX * inv; out.y = wanderY * inv; out.z = wanderZ * inv
+      return
+    }
+    case AIState.Attack:
+    case AIState.Idle:
+      out.x = 0; out.y = 0; out.z = 0
+      return
+  }
+}
