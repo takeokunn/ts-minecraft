@@ -3,7 +3,7 @@ import { TimeServicePort } from '../../domain/ports'
 import { EntityManager } from './entity-manager'
 import { EntityType, type EntityId } from '../../domain/mob/entity'
 import type { Position } from '@ts-minecraft/core'
-import { MIN_SPAWN_DISTANCE, MAX_SPAWN_DISTANCE, MAX_ENTITY_COUNT, SPAWN_INTERVAL_FRAMES } from '../../domain/mob/spawner-config'
+import { MIN_SPAWN_DISTANCE, MAX_SPAWN_DISTANCE, DESPAWN_DISTANCE, MAX_ENTITY_COUNT, SPAWN_INTERVAL_FRAMES } from '../../domain/mob/spawner-config'
 import { PASSIVE_MOBS, HOSTILE_MOBS } from '../../domain/mob/mob-categories'
 
 
@@ -68,9 +68,19 @@ export class MobSpawner extends Effect.Service<MobSpawner>()(
             }
             const sdx = spawnPosition.x - playerPosition.x
             const sdz = spawnPosition.z - playerPosition.z
-            const spawnDistanceSq = sdx * sdx + sdz * sdz
+            const spawnDistanceSqXZ = sdx * sdx + sdz * sdz
 
-            if (spawnDistanceSq < MIN_SPAWN_DISTANCE * MIN_SPAWN_DISTANCE || spawnDistanceSq > MAX_SPAWN_DISTANCE * MAX_SPAWN_DISTANCE) {
+            // Spawn RING is an XZ band (mobs appear around the player at 16-40 blocks).
+            if (spawnDistanceSqXZ < MIN_SPAWN_DISTANCE * MIN_SPAWN_DISTANCE || spawnDistanceSqXZ > MAX_SPAWN_DISTANCE * MAX_SPAWN_DISTANCE) {
+              return Option.none<EntityId>()
+            }
+
+            // Despawn is measured in 3D (shouldDespawnEntity), so a spawn resolver that drops
+            // the mob to a surface far above/below the player could place it beyond the despawn
+            // radius — spawning a mob that vanishes the very next tick. Reject such spawns so the
+            // spawn gate is consistent with the despawn gate's 3D metric.
+            const sdy = spawnPosition.y - playerPosition.y
+            if (spawnDistanceSqXZ + sdy * sdy >= DESPAWN_DISTANCE * DESPAWN_DISTANCE) {
               return Option.none<EntityId>()
             }
 

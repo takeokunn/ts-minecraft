@@ -122,6 +122,27 @@ describe('entity/spawner', () => {
     }).pipe(Effect.provide(makeSpawnerLayer(false)))
   )
 
+  it.effect('rejects a resolved spawn that lands beyond the 3D despawn radius (would instantly despawn)', () =>
+    Effect.gen(function* () {
+      const spawner = yield* MobSpawner
+      const entityManager = yield* EntityManager
+
+      // Resolve every candidate to 70 blocks below the player. Even the closest spawn-ring
+      // candidate (XZ 16) is then sqrt(16² + 70²) ≈ 71.8 blocks away in 3D — past DESPAWN_DISTANCE
+      // (64) — so it must never spawn (a mob there would vanish the next tick).
+      yield* Effect.forEach(
+        Arr.makeBy(60, () => undefined),
+        () => spawner.trySpawn(
+          { x: 0, y: 64, z: 0 },
+          (candidatePosition) => Effect.succeed(Option.some({ x: candidatePosition.x, y: 64 - 70, z: candidatePosition.z })),
+        ),
+        { concurrency: 1, discard: true },
+      )
+
+      expect(yield* entityManager.getCount()).toBe(0)
+    }).pipe(Effect.provide(makeSpawnerLayer(false)))
+  )
+
   it.effect('rejects a spawn attempt when the optional spawn resolver returns none', () =>
     Effect.gen(function* () {
       const spawner = yield* MobSpawner
