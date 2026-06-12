@@ -1,4 +1,3 @@
-import { Array as Arr, Option } from 'effect'
 import type { FluidCell, FluidKey } from '@ts-minecraft/block'
 
 export type WorkItem = { key: FluidKey; cell: FluidCell }
@@ -11,18 +10,31 @@ export const splitBudget = (
   work: ReadonlyArray<WorkItem>
   retainedLavaFrontier: ReadonlyArray<FluidKey>
 } => {
-  const waterWork = Arr.filter(workWithCells, ({ cell }) => cell.type === 'water')
-  const lavaWork = lavaTickActive
-    ? Arr.filter(workWithCells, ({ cell }) => cell.type === 'lava')
-    : []
-  const halfBudget = Math.floor(budget / 2)
-  const waterSlice = Arr.take(waterWork, halfBudget)
-  const lavaSlice = Arr.take(lavaWork, budget - waterSlice.length)
-  const retainedLavaFrontier = lavaTickActive
-    ? []
-    : Arr.filterMap(workWithCells, ({ cell, key }) => cell.type === 'lava' ? Option.some(key) : Option.none())
-  return {
-    work: Arr.appendAll(waterSlice, lavaSlice),
-    retainedLavaFrontier,
+  // Single classification pass instead of separate filter/filter/filterMap sweeps +
+  // take/appendAll intermediates. Semantics are unchanged: water takes up to half the
+  // budget, lava fills the remainder (only when its tick is active), and when lava's
+  // tick is inactive its frontier keys are retained for the next tick.
+  const water: WorkItem[] = []
+  const lava: WorkItem[] = []
+  for (let i = 0; i < workWithCells.length; i++) {
+    const item = workWithCells[i]!
+    if (item.cell.type === 'water') water.push(item)
+    else if (item.cell.type === 'lava') lava.push(item)
   }
+
+  const halfBudget = Math.floor(budget / 2)
+  const waterSliceLen = Math.min(water.length, halfBudget)
+  const lavaAvail = lavaTickActive ? lava.length : 0
+  const lavaSliceLen = Math.min(lavaAvail, budget - waterSliceLen)
+
+  const work: WorkItem[] = new Array(waterSliceLen + lavaSliceLen)
+  for (let i = 0; i < waterSliceLen; i++) work[i] = water[i]!
+  for (let i = 0; i < lavaSliceLen; i++) work[waterSliceLen + i] = lava[i]!
+
+  const retainedLavaFrontier: FluidKey[] = []
+  if (!lavaTickActive) {
+    for (let i = 0; i < lava.length; i++) retainedLavaFrontier.push(lava[i]!.key)
+  }
+
+  return { work, retainedLavaFrontier }
 }
