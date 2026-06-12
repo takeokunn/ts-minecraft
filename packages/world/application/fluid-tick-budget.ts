@@ -27,9 +27,9 @@ export const splitBudget = (
   const lavaAvail = lavaTickActive ? lava.length : 0
   const lavaSliceLen = Math.min(lavaAvail, budget - waterSliceLen)
 
-  const work: WorkItem[] = new Array(waterSliceLen + lavaSliceLen)
-  for (let i = 0; i < waterSliceLen; i++) work[i] = water[i]!
-  for (let i = 0; i < lavaSliceLen; i++) work[waterSliceLen + i] = lava[i]!
+  const work: WorkItem[] = []
+  for (let i = 0; i < waterSliceLen; i++) work.push(water[i]!)
+  for (let i = 0; i < lavaSliceLen; i++) work.push(lava[i]!)
 
   const retainedLavaFrontier: FluidKey[] = []
   if (!lavaTickActive) {
