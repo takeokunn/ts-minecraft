@@ -138,4 +138,30 @@ describe('PlayerCameraStateService', () => {
       }).pipe(Effect.provide(PlayerCameraStateLive))
     )
   })
+
+  describe('addYawPitch', () => {
+    it.effect('matches separate addYaw + addPitch (accumulates both axes)', () =>
+      Effect.gen(function* () {
+        const camera = yield* PlayerCameraStateService
+        yield* camera.addYawPitch(0.01, 0.005)
+        yield* camera.addYawPitch(0.02, 0.01)
+        const rotation = yield* camera.getRotation()
+        expect(rotation.yaw).toBeCloseTo(0.03)
+        expect(rotation.pitch).toBeCloseTo(0.015)
+      }).pipe(Effect.provide(PlayerCameraStateLive))
+    )
+
+    it.effect('clamps pitch to [PITCH_MIN, PITCH_MAX] while yaw is unbounded', () =>
+      Effect.gen(function* () {
+        const camera = yield* PlayerCameraStateService
+        yield* camera.addYawPitch(10, Math.PI) // pitch overshoots up
+        const up = yield* camera.getRotation()
+        expect(up.pitch).toBeCloseTo(PITCH_MAX)
+        expect(up.yaw).toBeCloseTo(10)
+        yield* camera.addYawPitch(0, -Math.PI * 2) // pitch overshoots down
+        const down = yield* camera.getRotation()
+        expect(down.pitch).toBeCloseTo(PITCH_MIN)
+      }).pipe(Effect.provide(PlayerCameraStateLive))
+    )
+  })
 })

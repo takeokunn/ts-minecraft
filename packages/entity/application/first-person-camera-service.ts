@@ -28,8 +28,7 @@ export class FirstPersonCameraService extends Effect.Service<FirstPersonCameraSe
             const yawDelta = -delta.x * radPerPx
             const pitchDelta = -delta.y * radPerPx
 
-            yield* cameraState.addYaw(yawDelta)
-            yield* cameraState.addPitch(pitchDelta)
+            yield* cameraState.addYawPitch(yawDelta, pitchDelta)
 
             const rotation = yield* cameraState.getRotation()
 

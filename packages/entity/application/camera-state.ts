@@ -31,6 +31,15 @@ export class PlayerCameraStateService extends Effect.Service<PlayerCameraStateSe
             pitch: Math.max(PITCH_MIN, Math.min(PITCH_MAX, s.pitch + delta)),
           })),
 
+        // Combined yaw+pitch delta in a single Ref.update — the mouse-look path applies
+        // both every frame, so folding them halves the per-frame CameraRotation allocation
+        // (one object instead of one per axis).
+        addYawPitch: (yawDelta: number, pitchDelta: number): Effect.Effect<void, never> =>
+          Ref.update(stateRef, (s) => ({
+            yaw: s.yaw + yawDelta,
+            pitch: Math.max(PITCH_MIN, Math.min(PITCH_MAX, s.pitch + pitchDelta)),
+          })),
+
         setMode: (mode: CameraMode): Effect.Effect<void, never> => Ref.set(modeRef, mode),
 
         toggleMode: (): Effect.Effect<void, never> =>
