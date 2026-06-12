@@ -101,7 +101,9 @@ export class MovementService extends Effect.Service<MovementService>()(
           const right = yield* isDirPressed(KeyMappings.MOVE_RIGHT, KeyMappings.MOVE_RIGHT_ALT)
           // consumeKeyPress (not isKeyPressed) so a held jump only fires once per press.
           const jump = yield* inputService.consumeKeyPress(KeyMappings.JUMP)
-          const [ctrlL, ctrlR] = yield* Effect.all([inputService.isKeyPressed(KeyMappings.SPRINT), inputService.isKeyPressed(KeyMappings.SPRINT_ALT)], { concurrency: 'unbounded' })
+          // Sequential: isKeyPressed is synchronous Set lookup — no parallelism benefit
+          const ctrlL = yield* inputService.isKeyPressed(KeyMappings.SPRINT)
+          const ctrlR = yield* inputService.isKeyPressed(KeyMappings.SPRINT_ALT)
           const sprint = ctrlL || ctrlR
           const sneak = yield* inputService.isKeyPressed(KeyMappings.SNEAK)
           return { forward, backward, left, right, jump, sprint, sneak }

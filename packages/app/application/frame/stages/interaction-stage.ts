@@ -81,30 +81,17 @@ export const interactionStage = (
         const mouseHeld = yield* services.inputService.isMouseDown(0)
         const rightClick = yield* services.inputService.consumeMouseClick(2)
         const rightMouseHeld = yield* services.inputService.isMouseDown(2)
-        const [
-          placeWire,
-          placeLever,
-          placeButton,
-          placeTorch,
-          placePiston,
-          toggleLever,
-          pressButton,
-          toggleTorch,
-        ] = yield* Effect.all(
-          [
-            services.inputService.consumeKeyPress(REDSTONE_PLACE_WIRE_KEY),
-            services.inputService.consumeKeyPress(REDSTONE_PLACE_LEVER_KEY),
-            services.inputService.consumeKeyPress(REDSTONE_PLACE_BUTTON_KEY),
-            services.inputService.consumeKeyPress(REDSTONE_PLACE_TORCH_KEY),
-            services.inputService.consumeKeyPress(REDSTONE_PLACE_PISTON_KEY),
-            services.inputService.consumeKeyPress(REDSTONE_TOGGLE_LEVER_KEY),
-            services.inputService.consumeKeyPress(REDSTONE_PRESS_BUTTON_KEY),
-            services.inputService.consumeKeyPress(REDSTONE_TOGGLE_TORCH_KEY),
-          ],
-          // Sequential: consumeKeyPress is a synchronous edge read; unbounded
-          // concurrency spawns 8 fibers every frame for no gain (and sequential
-          // is deterministic for the edge-consume order).
-        )
+        // Sequential per-frame key polling: consumeKeyPress is synchronous edge-detect
+        // on a HashSet. Individual yield* avoids the 8-element array + tuple allocation
+        // that Effect.all creates.
+        const placeWire = yield* services.inputService.consumeKeyPress(REDSTONE_PLACE_WIRE_KEY)
+        const placeLever = yield* services.inputService.consumeKeyPress(REDSTONE_PLACE_LEVER_KEY)
+        const placeButton = yield* services.inputService.consumeKeyPress(REDSTONE_PLACE_BUTTON_KEY)
+        const placeTorch = yield* services.inputService.consumeKeyPress(REDSTONE_PLACE_TORCH_KEY)
+        const placePiston = yield* services.inputService.consumeKeyPress(REDSTONE_PLACE_PISTON_KEY)
+        const toggleLever = yield* services.inputService.consumeKeyPress(REDSTONE_TOGGLE_LEVER_KEY)
+        const pressButton = yield* services.inputService.consumeKeyPress(REDSTONE_PRESS_BUTTON_KEY)
+        const toggleTorch = yield* services.inputService.consumeKeyPress(REDSTONE_TOGGLE_TORCH_KEY)
         // Consumed via a SEPARATE statement so the positional redstone tuple
         // above stays untouched. Independent of the click/redstone branch below.
         const unequipArmor = yield* services.inputService.consumeKeyPress(UNEQUIP_ARMOR_KEY)

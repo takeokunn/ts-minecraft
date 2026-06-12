@@ -44,14 +44,15 @@ export const lightingStage = (
   ).pipe(
     Effect.flatMap(() => services.weatherService.tick(inputs.deltaTime)),
     Effect.flatMap((weather) =>
-      Effect.all([services.netherService.getDimension(), Effect.succeed(weather)]),
-    ),
-    Effect.flatMap(([dimension, weather]) =>
-      dimension === 'nether'
-        ? Effect.sync(() => applyNetherEnvironment(inputs.effectiveLights))
-        : dimension === 'end'
-          ? Effect.sync(() => applyEndEnvironment(inputs.effectiveLights))
-          : Effect.sync(() => applyRainEnvironment(inputs.effectiveLights, weather)),
+      // Sequential: getDimension is a read from a Ref. No need for Effect.all([...])
+      // which creates an intermediate 2-element array every frame.
+      Effect.flatMap(services.netherService.getDimension(), (dimension) =>
+        Effect.sync(() => {
+          if (dimension === 'nether') applyNetherEnvironment(inputs.effectiveLights)
+          else if (dimension === 'end') applyEndEnvironment(inputs.effectiveLights)
+          else applyRainEnvironment(inputs.effectiveLights, weather)
+        }),
+      ),
     ),
     Effect.flatMap(() =>
       Ref.updateAndGet(refs.shadowUpdateCounterRef, (n) => (n + 1) % 8),

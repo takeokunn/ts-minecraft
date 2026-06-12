@@ -78,7 +78,11 @@ export class TextureService extends Effect.Service<TextureService>()(
           }),
 
         preload: (urls: ReadonlyArray<string>): Effect.Effect<void, never> =>
-          Effect.forEach(urls, (url) => Effect.ignore(loadEffect(url)), { concurrency: 'unbounded' }),
+          Effect.gen(function* () {
+            for (const url of urls) {
+              yield* Effect.ignore(loadEffect(url))
+            }
+          }),
 
         dispose: (): Effect.Effect<void, never> =>
           Effect.gen(function* () {

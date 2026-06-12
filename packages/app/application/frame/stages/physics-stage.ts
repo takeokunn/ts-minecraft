@@ -123,14 +123,12 @@ export const physicsStage = (
           yield* services.soundManager.playEffect('playerHurt', { position: refreshedPos })
           // Each piece of worn armor loses 1 durability when the player takes a hit.
           if (rawHostileDamage > 0) {
-            // Sequential: damageArmorSlot is a synchronous Ref write; unbounded
-            // concurrency would spawn 4 fibers per hit for no parallelism gain.
-            yield* Effect.all([
-              services.equipmentService.damageArmorSlot('HELMET'),
-              services.equipmentService.damageArmorSlot('CHESTPLATE'),
-              services.equipmentService.damageArmorSlot('LEGGINGS'),
-              services.equipmentService.damageArmorSlot('BOOTS'),
-            ], { discard: true }).pipe(Effect.catchAllCause(() => Effect.void))
+            // Sequential: damageArmorSlot is a synchronous Ref write; per-piece
+            // yield* avoids the 4-element array allocation that Effect.all creates.
+            yield* services.equipmentService.damageArmorSlot('HELMET').pipe(Effect.catchAllCause(() => Effect.void))
+            yield* services.equipmentService.damageArmorSlot('CHESTPLATE').pipe(Effect.catchAllCause(() => Effect.void))
+            yield* services.equipmentService.damageArmorSlot('LEGGINGS').pipe(Effect.catchAllCause(() => Effect.void))
+            yield* services.equipmentService.damageArmorSlot('BOOTS').pipe(Effect.catchAllCause(() => Effect.void))
           }
         }
 
@@ -212,13 +210,10 @@ export const physicsStage = (
           // drops the catch (catchAll) rather than crashing the frame.
           const caught = Option.getOrNull(yield* services.fishingService.tick(inputs.deltaTime))
           if (caught !== null) {
-            yield* Effect.all(
-              [
-                services.inventoryService.addBlock(caught, 1).pipe(Effect.catchAll(() => Effect.void)),
-                services.soundManager.playEffect('blockPlace', { position: refreshedPos }),
-              ],
-              { concurrency: 'unbounded', discard: true },
-            )
+            // Sequential: addBlock + playEffect are synchronous writes on a rare event
+            // (fishing catch, not per-frame). No need for fiber-based parallelism.
+            yield* services.inventoryService.addBlock(caught, 1).pipe(Effect.catchAll(() => Effect.void))
+            yield* services.soundManager.playEffect('blockPlace', { position: refreshedPos })
           }
 
           // Lava burn (FR-2 / T14a): standing in LAVA deals LAVA_DAMAGE every

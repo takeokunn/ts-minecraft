@@ -95,10 +95,8 @@ export class EntityManager extends Effect.Service<EntityManager>()(
               return entity === null ? [false, entities] : [true, HashMap.remove(entities, entityId)]
             })
             if (removed) {
-              yield* Effect.all([
-                Ref.set(cachedEntitiesRef, Option.none()),
-                Ref.update(structureVersionRef, (version) => version + 1),
-              ], { concurrency: 'unbounded', discard: true })
+              yield* Ref.set(cachedEntitiesRef, Option.none())
+              yield* Ref.update(structureVersionRef, (version) => version + 1)
             }
             return removed
           }),
@@ -160,23 +158,18 @@ export class EntityManager extends Effect.Service<EntityManager>()(
             }
             if (candidates.length < 2) return // common case: no one in love → cheap exit
 
-            yield* Effect.forEach(
-              findBreedingPairs(candidates),
-              (pair) =>
-                Effect.gen(function* () {
-                  yield* Ref.update(entitiesRef, (es) => {
-                    const reset = (m: HashMap.HashMap<EntityIdType, ManagedEntity>, pid: EntityIdType) => {
-                      const parent = Option.getOrNull(HashMap.get(m, pid))
-                      return parent === null ? m : HashMap.set(m, pid, { ...parent, ...afterBreedingParentState() })
-                    }
-                    return reset(reset(es, pair.parentA), pair.parentB)
-                  })
-                  yield* spawnEntity(pair.type, pair.babyPosition, 0)
-                  // R10: record the birth so the frame loop can reward the player with XP.
-                  yield* Ref.update(birthsRef, (n) => n + 1)
-                }),
-              { discard: true },
-            )
+            for (const pair of findBreedingPairs(candidates)) {
+              yield* Ref.update(entitiesRef, (es) => {
+                const reset = (m: HashMap.HashMap<EntityIdType, ManagedEntity>, pid: EntityIdType) => {
+                  const parent = Option.getOrNull(HashMap.get(m, pid))
+                  return parent === null ? m : HashMap.set(m, pid, { ...parent, ...afterBreedingParentState() })
+                }
+                return reset(reset(es, pair.parentA), pair.parentB)
+              })
+              yield* spawnEntity(pair.type, pair.babyPosition, 0)
+              // R10: record the birth so the frame loop can reward the player with XP.
+              yield* Ref.update(birthsRef, (n) => n + 1)
+            }
             yield* Ref.set(cachedEntitiesRef, Option.none())
           }),
       }

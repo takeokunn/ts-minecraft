@@ -33,14 +33,12 @@ export class BiomeService extends Effect.Service<BiomeService>()(
 
       const getBiome = (x: number, z: number): Effect.Effect<BiomeType, never> =>
         Effect.gen(function* () {
-          const [temp, hum, continentalness, erosion, weirdness, riverNoise] = yield* Effect.all([
-            getTemperature(x, z),
-            getHumidity(x, z),
-            noiseService.continentalness(x, z),
-            noiseService.erosion(x, z),
-            noiseService.weirdness(x, z),
-            noiseService.noise2D(x * RIVER_NOISE_SCALE + RIVER_WORLD_OFFSET, z * RIVER_NOISE_SCALE + RIVER_WORLD_OFFSET),
-          ], { concurrency: 'unbounded' })
+          const temp = yield* getTemperature(x, z)
+          const hum = yield* getHumidity(x, z)
+          const continentalness = yield* noiseService.continentalness(x, z)
+          const erosion = yield* noiseService.erosion(x, z)
+          const weirdness = yield* noiseService.weirdness(x, z)
+          const riverNoise = yield* noiseService.noise2D(x * RIVER_NOISE_SCALE + RIVER_WORLD_OFFSET, z * RIVER_NOISE_SCALE + RIVER_WORLD_OFFSET)
           return classifyBiomeFromClimate({
             temperature: temp,
             humidity: hum,
@@ -75,25 +73,20 @@ export class BiomeService extends Effect.Service<BiomeService>()(
       ): Effect.Effect<ReadonlyArray<{ biome: BiomeType; props: BiomeProperties }>> =>
         Effect.gen(function* () {
           const coords = buildChunkNoiseInputs(chunkX, chunkZ)
-          const [tempVals, humVals, terrainChannels, riverNoiseVals] = yield* Effect.all(
-            [
-              noiseService.octaveNoise2DBatchXY(
-                Arr.map(coords, (c) => c.tempX),
-                Arr.map(coords, (c) => c.tempZ),
-                4, 0.5, 2.0,
-              ),
-              noiseService.octaveNoise2DBatchXY(
-                Arr.map(coords, (c) => c.humX),
-                Arr.map(coords, (c) => c.humZ),
-                4, 0.5, 2.0,
-              ),
-              noiseService.sampleTerrainChannels(chunkX * CHUNK_SIZE, chunkZ * CHUNK_SIZE),
-              noiseService.noise2DBatchXY(
-                Arr.map(coords, (c) => c.tempX * (RIVER_NOISE_SCALE / BIOME_SCALE) + RIVER_WORLD_OFFSET),
-                Arr.map(coords, (c) => c.tempZ * (RIVER_NOISE_SCALE / BIOME_SCALE) + RIVER_WORLD_OFFSET),
-              ),
-            ],
-            { concurrency: 'unbounded' },
+          const tempVals = yield* noiseService.octaveNoise2DBatchXY(
+            Arr.map(coords, (c) => c.tempX),
+            Arr.map(coords, (c) => c.tempZ),
+            4, 0.5, 2.0,
+          )
+          const humVals = yield* noiseService.octaveNoise2DBatchXY(
+            Arr.map(coords, (c) => c.humX),
+            Arr.map(coords, (c) => c.humZ),
+            4, 0.5, 2.0,
+          )
+          const terrainChannels = yield* noiseService.sampleTerrainChannels(chunkX * CHUNK_SIZE, chunkZ * CHUNK_SIZE)
+          const riverNoiseVals = yield* noiseService.noise2DBatchXY(
+            Arr.map(coords, (c) => c.tempX * (RIVER_NOISE_SCALE / BIOME_SCALE) + RIVER_WORLD_OFFSET),
+            Arr.map(coords, (c) => c.tempZ * (RIVER_NOISE_SCALE / BIOME_SCALE) + RIVER_WORLD_OFFSET),
           )
 
           const baseBiomes = Arr.makeBy(coords.length, (i) => {
@@ -124,11 +117,10 @@ export class BiomeService extends Effect.Service<BiomeService>()(
             }
           }
 
-          const outsideNeighborBiomes = yield* Effect.forEach(
-            outsideNeighborCoords,
-            ({ x, z }) => getBiome(x, z),
-            { concurrency: 'unbounded' },
-          )
+          const outsideNeighborBiomes: Array<BiomeType> = []
+          for (const { x, z } of outsideNeighborCoords) {
+            outsideNeighborBiomes.push(yield* getBiome(x, z))
+          }
 
           return Arr.makeBy(coords.length, (i) => {
             const lx = Math.floor(i / CHUNK_SIZE)

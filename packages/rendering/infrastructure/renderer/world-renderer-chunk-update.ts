@@ -49,11 +49,9 @@ const syncOptionalMeshInScene = (
     }
     /* c8 ignore next 7 */
     if (prevMeshVal === newMesh) return
-    yield* Effect.all([
-      sceneService.remove(scene, prevMeshVal),
-      sceneService.add(scene, newMesh),
-      track((arr) => Arr.append(Arr.filter(arr, (mesh) => mesh !== prevMeshVal), newMesh)),
-    ], { concurrency: 'unbounded', discard: true })
+    yield* sceneService.remove(scene, prevMeshVal)
+    yield* sceneService.add(scene, newMesh)
+    yield* track((arr) => Arr.append(Arr.filter(arr, (mesh) => mesh !== prevMeshVal), newMesh))
   })
 
 /**
@@ -84,7 +82,8 @@ export const updateChunkInScene = (
       // null tracking ref: transparent-solid meshes must not pollute the water
       // refraction list (they would be wrongly hidden during the pre-pass).
       const updateTransparentSolidScene = syncOptionalMeshInScene(scene, sceneService, null, existing.transparentSolid, nextTransparentSolidMesh)
-      yield* Effect.all([updateWaterScene, updateTransparentSolidScene], { concurrency: 'unbounded', discard: true })
+      yield* updateWaterScene
+      yield* updateTransparentSolidScene
       // FR-3.1: preserve the existing chunk's LOD when re-meshing in place.
       yield* Ref.update(meshesRef, (map) => HashMap.set(map, key, { opaque: existing.opaque, water: nextWaterMesh, transparentSolid: nextTransparentSolidMesh, lod: existing.lod }))
     } else {
@@ -101,7 +100,9 @@ export const updateChunkInScene = (
       const addTransparentSolid = transparentSolidMeshVal !== null
         ? sceneService.add(scene, transparentSolidMeshVal)
         : Effect.void
-      yield* Effect.all([sceneService.add(scene, opaqueMesh), addWater, addTransparentSolid], { concurrency: 'unbounded', discard: true })
+      yield* sceneService.add(scene, opaqueMesh)
+      yield* addWater
+      yield* addTransparentSolid
       // FR-3.1: default to LOD 0; sync-loop reconciles on next pass via hasLodChanges.
       yield* Ref.update(meshesRef, (map) => HashMap.set(map, key, { opaque: opaqueMesh, water: waterMesh, transparentSolid: transparentSolidMesh, lod: 0 }))
     }

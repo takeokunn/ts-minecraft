@@ -104,11 +104,11 @@ export class WorldRendererService extends Effect.Service<WorldRendererService>()
 
       const invalidateFrustumCache = () =>
         Ref.set(lastFrustumPoseRef, initialPoseCache())
-      const invalidateSceneCaches = () =>
-        Effect.all([
-          invalidateFrustumCache(),
-          Ref.update(sceneVersionRef, (version) => version + 1),
-        ], { concurrency: 'unbounded', discard: true })
+      const invalidateSceneCaches = (): Effect.Effect<void, never> =>
+        Effect.gen(function* () {
+          yield* invalidateFrustumCache()
+          yield* Ref.update(sceneVersionRef, (version) => version + 1)
+        })
 
       const chunkCtx = { meshesRef, waterMeshesRef, chunkMeshService, sceneService, waterMaterial, invalidateSceneCaches }
       const refractionCtx = { waterMeshesRef, sceneVersionRef, _savedWaterVisibility, _waterMeshCache, _lastRefractionState, refractionCamera, refractionRT, waterMaterial }
@@ -219,19 +219,17 @@ export class WorldRendererService extends Effect.Service<WorldRendererService>()
               (chunkMeshes) => {
                 const waterVal = Option.getOrNull(chunkMeshes.water)
                 const transparentSolidVal = Option.getOrNull(chunkMeshes.transparentSolid)
-                return Effect.all([
-                  removeAndDispose(chunkMeshes.opaque),
-                  waterVal !== null ? removeAndDispose(waterVal) : Effect.void,
-                  transparentSolidVal !== null ? removeAndDispose(transparentSolidVal) : Effect.void,
-                ], { concurrency: 'unbounded', discard: true })
+                return Effect.gen(function* () {
+                  yield* removeAndDispose(chunkMeshes.opaque)
+                  if (waterVal !== null) yield* removeAndDispose(waterVal)
+                  if (transparentSolidVal !== null) yield* removeAndDispose(transparentSolidVal)
+                })
               },
               { concurrency: 1 }
             )
-            yield* Effect.all([
-              Ref.set(meshesRef, HashMap.empty()),
-              Ref.set(waterMeshesRef, []),
-              invalidateSceneCaches(),
-            ], { concurrency: 'unbounded', discard: true })
+            yield* Ref.set(meshesRef, HashMap.empty())
+            yield* Ref.set(waterMeshesRef, [])
+            yield* invalidateSceneCaches()
           }),
 
         doRefractionPrePass: (

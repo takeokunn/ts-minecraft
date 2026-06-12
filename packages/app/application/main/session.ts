@@ -311,12 +311,8 @@ export const sessionProgram = (
     yield* installPerfHudCounters(perfHud, chunkManagerService, () => terrainPool.queueDepth())
 
     yield* Effect.acquireRelease(
-      Effect.all(
-        [
-          gameLoopService.start(frameHandlerWithBrowserEvents),
-          gameLoopService.startMaintenance(maintenanceHandler),
-        ],
-        { concurrency: 'unbounded', discard: true },
+      gameLoopService.start(frameHandlerWithBrowserEvents).pipe(
+        Effect.flatMap(() => gameLoopService.startMaintenance(maintenanceHandler)),
       ),
       () => gameLoopService.stop(),
     ).pipe(

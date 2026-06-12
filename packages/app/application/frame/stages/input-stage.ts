@@ -187,24 +187,19 @@ export const inputStage = (
     readonly playerPos: Position
   },
 ): Effect.Effect<void, never> =>
-  // Update camera rotation from mouse look (suppressed when a modal is open)
+  // Update camera rotation from mouse look (suppressed when a modal is open).
+  // Sequential .pipe chain instead of Effect.all to avoid per-frame array + fiber allocation
+  // (the 4 handlers are synchronous reads/writes — zero parallelism benefit).
   Effect.flatMap(Ref.get(deps.gamePausedRef), (paused) =>
     Effect.flatMap(
       paused
         ? Effect.void
         : services.firstPersonCamera.update(deps.camera, inputs.mouseSensitivity),
       () =>
-        logErrors(
-          Effect.all(
-            [
-              handleEscape(deps, services),
-              handleInventoryKey(deps, services),
-              handleTradeKeys(deps, services, inputs.playerPos),
-              syncDayLength(services, inputs.dayLengthSeconds),
-            ],
-            { discard: true },
-          ),
-          'Overlay error',
+        logErrors(handleEscape(deps, services), 'Overlay error').pipe(
+          Effect.flatMap(() => logErrors(handleInventoryKey(deps, services), 'Overlay error')),
+          Effect.flatMap(() => logErrors(handleTradeKeys(deps, services, inputs.playerPos), 'Overlay error')),
+          Effect.flatMap(() => logErrors(syncDayLength(services, inputs.dayLengthSeconds), 'Overlay error')),
         ),
     )
   )

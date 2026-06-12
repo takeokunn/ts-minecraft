@@ -105,11 +105,9 @@ export const handleFlintAndSteel = (
     // TNT explosion: remove the TNT block then break all blocks within the sphere
     yield* services.blockService.forceSetBlock(tntPos, 'AIR').pipe(Effect.catchAll(() => Effect.void))
     yield* services.soundManager.playEffect('blockBreak', { position: tntPos })
-    yield* Effect.forEach(
-      buildTntBreakPositions(tntPos, TNT_BREAK_RADIUS),
-      (pos) => services.blockService.forceSetBlock(pos, 'AIR').pipe(Effect.catchAll(() => Effect.void)),
-      { concurrency: 'unbounded', discard: true },
-    )
+    for (const pos of buildTntBreakPositions(tntPos, TNT_BREAK_RADIUS)) {
+      yield* services.blockService.forceSetBlock(pos, 'AIR').pipe(Effect.catchAll(() => Effect.void))
+    }
     return true
   })
 
@@ -130,15 +128,15 @@ const handlePortalIgnition = (
         chunkCoords.push({ x: centerCx + dx, z: centerCz + dz })
       }
     }
-    const results = yield* Effect.all(
-      chunkCoords.map((coord) =>
-        Effect.gen(function* () {
+    const results: Array<Option.Option<{ readonly coord: { x: number; z: number }; readonly chunk: Chunk }>> = []
+    for (const coord of chunkCoords) {
+      results.push(
+        yield* Effect.gen(function* () {
           const chunk = yield* services.chunkManagerService.getChunk(coord)
           return { coord, chunk }
         }).pipe(Effect.option),
-      ),
-      { concurrency: 'unbounded' },
-    )
+      )
+    }
     const chunkCache = buildChunkCache(results)
     const blockAt = buildBlockAtFromCache(chunkCache)
     const portalFrame = Option.getOrNull(detectNetherPortal(blockAt, ignitionPos))
@@ -152,12 +150,9 @@ const handlePortalIgnition = (
       const cz = Math.floor(pos.z / CHUNK_SIZE)
       affectedCoords.set(`${cx},${cz}`, { x: cx, z: cz })
     }
-    yield* Effect.all(
-      portalFrame.interior.map((pos) =>
-        services.blockService.forceSetBlock(pos, 'NETHER_PORTAL').pipe(Effect.catchAll(() => Effect.void)),
-      ),
-      { concurrency: 'unbounded', discard: true },
-    )
+    for (const pos of portalFrame.interior) {
+      yield* services.blockService.forceSetBlock(pos, 'NETHER_PORTAL').pipe(Effect.catchAll(() => Effect.void))
+    }
     yield* Ref.update(refs.dirtyChunksRef, (map) => {
       let updated = map
       for (const [coordKey] of affectedCoords) {
@@ -260,16 +255,11 @@ const handleEnchantingTable = (
     if (enchantment === null) return
     const cost = enchantXPCost(enchantment.level)
     const enchanted = enchantItem(stack, enchantment)
-    yield* Effect.all(
-      [
-        services.inventoryService.setSlot(slotIndex, Option.some(enchanted)),
-        services.xpService.spendLevels(cost),
-        // Distinct enchant chime (R3) so the deterministic enchant gives clear
-        // audible feedback instead of the generic block-place tick.
-        services.soundManager.playEffect('enchant', { position: tablePos }),
-      ],
-      { concurrency: 'unbounded', discard: true },
-    )
+    yield* services.inventoryService.setSlot(slotIndex, Option.some(enchanted))
+    yield* services.xpService.spendLevels(cost)
+    // Distinct enchant chime (R3) so the deterministic enchant gives clear
+    // audible feedback instead of the generic block-place tick.
+    yield* services.soundManager.playEffect('enchant', { position: tablePos })
   })
 
 export const handleRightClick = (

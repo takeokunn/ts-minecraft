@@ -68,10 +68,8 @@ export const makeEntityManagerInternal = (
         return [{ damage: totalDamage, removed: entityRemoved }, touched ? updatedEntities : entities]
       })
       if (removed) {
-        yield* Effect.all([
-          Ref.set(cachedEntitiesRef, Option.none()),
-          Ref.update(structureVersionRef, (version) => version + 1),
-        ], { concurrency: 'unbounded', discard: true })
+        yield* Ref.set(cachedEntitiesRef, Option.none())
+        yield* Ref.update(structureVersionRef, (version) => version + 1)
       } else if (damage > 0) {
         yield* Ref.set(cachedEntitiesRef, Option.none())
       }
@@ -99,10 +97,8 @@ export const makeEntityManagerInternal = (
         return [count, count > 0 ? updatedEntities : entities]
       })
       if (removedCount > 0) {
-        yield* Effect.all([
-          Ref.set(cachedEntitiesRef, Option.none()),
-          Ref.update(structureVersionRef, (version) => version + 1),
-        ], { concurrency: 'unbounded', discard: true })
+        yield* Ref.set(cachedEntitiesRef, Option.none())
+        yield* Ref.update(structureVersionRef, (version) => version + 1)
       }
       return removedCount
     }),
@@ -117,10 +113,8 @@ export const makeEntityManagerInternal = (
         },
       )
       if (removedCount > 0) {
-        yield* Effect.all([
-          Ref.set(cachedEntitiesRef, Option.none()),
-          Ref.update(structureVersionRef, (version) => version + 1),
-        ], { concurrency: 'unbounded', discard: true })
+        yield* Ref.set(cachedEntitiesRef, Option.none())
+        yield* Ref.update(structureVersionRef, (version) => version + 1)
       }
       return removedCount
     }),
@@ -168,12 +162,10 @@ export const makeEntityManagerInternal = (
           ]
         },
       )
-      yield* Effect.all([
-        Ref.set(cachedEntitiesRef, Option.none()),
-        Option.isSome(dropsOpt)
-          ? Ref.update(structureVersionRef, (version) => version + 1)
-          : Effect.void,
-      ], { concurrency: 'unbounded', discard: true })
+      yield* Ref.set(cachedEntitiesRef, Option.none())
+      if (Option.isSome(dropsOpt)) {
+        yield* Ref.update(structureVersionRef, (version) => version + 1)
+      }
       return dropsOpt
     })
   },

@@ -40,10 +40,8 @@ export const buildHandleDelegatedClick = (deps: ClickHandlerDeps) =>
       if (!recipeId) return
       Effect.runFork(
         Effect.gen(function* () {
-          const [hasTableAccess, hasFurnaceAccess] = yield* Effect.all(
-            [hasNearbyCraftingTable(), hasNearbyFurnace()],
-            { concurrency: 'unbounded' },
-          )
+          const hasTableAccess = yield* hasNearbyCraftingTable()
+          const hasFurnaceAccess = yield* hasNearbyFurnace()
           yield* Effect.gen(function* () {
             yield* performRecipe(RecipeId.make(recipeId), hasTableAccess, hasFurnaceAccess)
             yield* Ref.set(statusMessageRef, 'Crafted successfully.')

@@ -30,27 +30,25 @@ export const applyInboundBlockEdits = (
 ): Effect.Effect<void, never> =>
   multiplayer.drainBlockEdits.pipe(
     Effect.flatMap((edits) =>
-      Effect.forEach(
-      edits,
-      (edit) => {
-        const blockType = edit.kind === 'place' ? edit.blockType : 'AIR'
-        // Validate against the canonical block-type set before mutating the world.
-        if (!Schema.is(BlockTypeSchema)(blockType)) return Effect.void
-        const pos = { x: edit.x, y: edit.y, z: edit.z } as Position
-        const chunkCoord = { x: Math.floor(edit.x / CHUNK_SIZE), z: Math.floor(edit.z / CHUNK_SIZE) }
-        const coordKey = `${chunkCoord.x},${chunkCoord.z}`
-        const lx = ((edit.x % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE
-        const lz = ((edit.z % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE
-        return services.blockService.forceSetBlock(pos, blockType).pipe(
-          Effect.flatMap(() => services.chunkManagerService.getChunk(chunkCoord)),
-          Effect.flatMap((chunk) =>
-            Ref.update(dirtyChunksRef, (map) =>
-              HashMap.set(map, coordKey, { chunk, dirtyAABB: Option.some(aabbFromVoxel({ lx, y: edit.y, lz })) }),
+      Effect.gen(function* () {
+        for (const edit of edits) {
+          const blockType = edit.kind === 'place' ? edit.blockType : 'AIR'
+          // Validate against the canonical block-type set before mutating the world.
+          if (!Schema.is(BlockTypeSchema)(blockType)) continue
+          const pos = { x: edit.x, y: edit.y, z: edit.z } as Position
+          const chunkCoord = { x: Math.floor(edit.x / CHUNK_SIZE), z: Math.floor(edit.z / CHUNK_SIZE) }
+          const coordKey = `${chunkCoord.x},${chunkCoord.z}`
+          const lx = ((edit.x % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE
+          const lz = ((edit.z % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE
+          yield* services.blockService.forceSetBlock(pos, blockType).pipe(
+            Effect.flatMap(() => services.chunkManagerService.getChunk(chunkCoord)),
+            Effect.flatMap((chunk) =>
+              Ref.update(dirtyChunksRef, (map) =>
+                HashMap.set(map, coordKey, { chunk, dirtyAABB: Option.some(aabbFromVoxel({ lx, y: edit.y, lz })) }),
+              ),
             ),
-          ),
-        ).pipe(Effect.catchAll(() => Effect.void))
-      },
-      { discard: true },
-      ),
+          ).pipe(Effect.catchAll(() => Effect.void))
+        }
+      }),
     ),
   )

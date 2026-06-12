@@ -22,10 +22,10 @@ export class DeathScreenService extends Effect.Service<DeathScreenService>()(
   '@minecraft/presentation/DeathScreen',
   {
     scoped: Effect.gen(function* () {
-      const [dom, gameState, gameMode, healthService] = yield* Effect.all(
-        [DomOperationsService, GameStateService, GameModeService, HealthService],
-        { concurrency: 'unbounded' },
-      )
+      const dom = yield* DomOperationsService
+      const gameState = yield* GameStateService
+      const gameMode = yield* GameModeService
+      const healthService = yield* HealthService
       const { backdropEl, respawnBtn, quitBtn } = yield* Effect.acquireRelease(
         Effect.sync((): DeathScreenDom => buildDeathScreenDOM(dom)),
         ({ backdropEl }) =>

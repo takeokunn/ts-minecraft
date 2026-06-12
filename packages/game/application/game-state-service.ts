@@ -53,15 +53,12 @@ const refreshChunkCache = (
   Effect.gen(function* () {
     const cache = yield* Ref.get(chunkCacheRef)
     cache.fill(null)
-    yield* Effect.forEach(
-      OFFSETS_3x3,
-      ([dx, dz]) =>
-        Effect.gen(function* () {
-          const chunk = yield* chunkManagerService.getChunk({ x: playerCx + dx, z: playerCz + dz })
-          cache[(dx + 1) * 3 + (dz + 1)] = chunk
-        }).pipe(Effect.ignore),
-      { concurrency: 'unbounded', discard: true }
-    )
+    for (const [dx, dz] of OFFSETS_3x3) {
+      yield* Effect.gen(function* () {
+        const chunk = yield* chunkManagerService.getChunk({ x: playerCx + dx, z: playerCz + dz })
+        cache[(dx + 1) * 3 + (dz + 1)] = chunk
+      }).pipe(Effect.ignore)
+    }
     yield* Ref.set(lastChunkCoordRef, { cx: playerCx, cz: playerCz })
   })
 
@@ -148,10 +145,9 @@ export class GameStateService extends Effect.Service<GameStateService>()(
 
             let flightVy = 0
             if (flying) {
-              const [ascend, descend] = yield* Effect.all([
-                inputService.isKeyPressed(KeyMappings.JUMP),
-                inputService.isKeyPressed(KeyMappings.SNEAK),
-              ], { concurrency: 'unbounded' })
+              // Sequential: isKeyPressed is synchronous HashSet lookup — no parallelism benefit
+              const ascend = yield* inputService.isKeyPressed(KeyMappings.JUMP)
+              const descend = yield* inputService.isKeyPressed(KeyMappings.SNEAK)
               flightVy = computeFlightVerticalVelocity(ascend, descend)
             }
 
@@ -226,10 +222,10 @@ export class GameStateService extends Effect.Service<GameStateService>()(
             applySneakEdgeClampInto(physPos, physVel, prePos, physPos, physVel, isSolid, sneaking, isGrounded)
             // physPos now holds resolvedPos, physVel holds resolvedVel
 
-            yield* Effect.all([
-              physicsService.setPosition(playerBodyId, physPos as Position).pipe(Effect.catchTag('PhysicsServiceError', () => Effect.void)),
-              physicsService.setVelocity(playerBodyId, physVel).pipe(Effect.catchTag('PhysicsServiceError', () => Effect.void)),
-            ], { concurrency: 'unbounded', discard: true })
+            // Sequential: setPosition/setVelocity are synchronous state writes —
+            // fiber parallelism adds overhead with no throughput gain.
+            yield* physicsService.setPosition(playerBodyId, physPos as Position).pipe(Effect.catchTag('PhysicsServiceError', () => Effect.void))
+            yield* physicsService.setVelocity(playerBodyId, physVel).pipe(Effect.catchTag('PhysicsServiceError', () => Effect.void))
             yield* Ref.set(isGroundedRef, newIsGrounded)
 
             if (!isSpectator && isInWater(physPos.x, physPos.y, physPos.z, chunkCache, playerCx, playerCz)) {
@@ -237,10 +233,9 @@ export class GameStateService extends Effect.Service<GameStateService>()(
               yield* applyWaterDrag(physicsService, playerBodyId, physVel, swimUp)
             }
 
-            yield* Effect.all([
-              playerService.updatePosition(playerId, physPos as Position),
-              playerService.updateVelocity(playerId, physVel),
-            ], { concurrency: 'unbounded', discard: true })
+            // Sequential: updatePosition/updateVelocity are synchronous state writes
+            yield* playerService.updatePosition(playerId, physPos as Position)
+            yield* playerService.updateVelocity(playerId, physVel)
 
             const now = yield* Clock.currentTimeMillis
             yield* Ref.update(timingStateRef, (state) => ({

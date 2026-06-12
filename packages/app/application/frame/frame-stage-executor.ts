@@ -83,20 +83,16 @@ const applyAudioSettings = (
     sfx: settings.sfxVolume,
     music: settings.musicVolume,
   })
-  return Effect.all(
-    [
-      services.soundManager.applySettings({
-        enabled: settings.audioEnabled,
-        masterVolume: settings.masterVolume,
-        sfxVolume: settings.sfxVolume,
-      }),
-      services.musicManager.applySettings({
-        enabled: settings.audioEnabled,
-        masterVolume: settings.masterVolume,
-        musicVolume: settings.musicVolume,
-      }),
-    ],
-    { discard: true },
+  return services.soundManager.applySettings({
+    enabled: settings.audioEnabled,
+    masterVolume: settings.masterVolume,
+    sfxVolume: settings.sfxVolume,
+  }).pipe(
+    Effect.flatMap(() => services.musicManager.applySettings({
+      enabled: settings.audioEnabled,
+      masterVolume: settings.masterVolume,
+      musicVolume: settings.musicVolume,
+    })),
   )
 }
 

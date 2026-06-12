@@ -11,7 +11,7 @@ import { Cause, Effect } from 'effect'
 // silently die after the first transient error, losing every later edit on a crash.
 // Catching here makes each tick total (`Effect<void, never>`), so repeat never stops.
 //
-// Both saves run concurrently (`discard: true` drops their results). `catchAllCause`
+// Both saves run concurrently (awaiting each drops their results). `catchAllCause`
 // (not `catchAll`) is deliberate: it catches EVERYTHING — typed failures, AND defects
 // (a thrown exception inside a save surfaces as `Cause.Die`, which `catchAll` would
 // miss and let escape, killing the daemon). Whatever cause results — a single failure,
@@ -22,6 +22,7 @@ export const performAutoSaveTick = <E1, E2>(
   saveDirtyChunks: Effect.Effect<void, E1>,
   persistSessionState: Effect.Effect<void, E2>,
 ): Effect.Effect<void, never> =>
-  Effect.all([saveDirtyChunks, persistSessionState], { concurrency: 'unbounded', discard: true }).pipe(
+  saveDirtyChunks.pipe(
+    Effect.flatMap(() => persistSessionState),
     Effect.catchAllCause((cause) => Effect.logError(`Auto-save error: ${Cause.pretty(cause)}`)),
   )

@@ -38,14 +38,13 @@ const buildSetActiveWorldId = (
   lastLoadTimeRef: Ref.Ref<number>,
   accessCounterRef: Ref.Ref<number>,
 ) => (worldId: WorldIdType): Effect.Effect<void, never> =>
-  Effect.all([
-    Ref.set(worldIdRef, worldId),
-    Ref.update(cache, () => emptyCacheState()),
-    Ref.set(cachedLoadedChunksRef, Option.none()),
-    Ref.set(maxCachedChunksRef, MAX_CACHED_CHUNKS),
-    Ref.set(lastLoadTimeRef, -200),
-    Ref.set(accessCounterRef, 0),
-  ], { concurrency: 'unbounded', discard: true })
+  Ref.set(worldIdRef, worldId).pipe(
+    Effect.flatMap(() => Ref.update(cache, () => emptyCacheState())),
+    Effect.flatMap(() => Ref.set(cachedLoadedChunksRef, Option.none())),
+    Effect.flatMap(() => Ref.set(maxCachedChunksRef, MAX_CACHED_CHUNKS)),
+    Effect.flatMap(() => Ref.set(lastLoadTimeRef, -200)),
+    Effect.flatMap(() => Ref.set(accessCounterRef, 0)),
+  )
 
 export class ChunkManagerService extends Effect.Service<ChunkManagerService>()(
   '@minecraft/application/ChunkManagerService',
@@ -88,11 +87,10 @@ export class ChunkManagerService extends Effect.Service<ChunkManagerService>()(
       return {
         /** Switch to a different world ID, atomically resetting all cache state. */
         setActiveWorldId: (worldId: WorldIdType): Effect.Effect<void, never> =>
-          Effect.all([
-            Ref.set(baseWorldIdRef, worldId),
-            Ref.set(dimensionRef, 'overworld'),
-            resetCache(worldId),
-          ], { concurrency: 'unbounded', discard: true }),
+          Ref.set(baseWorldIdRef, worldId).pipe(
+            Effect.flatMap(() => Ref.set(dimensionRef, 'overworld')),
+            Effect.flatMap(() => resetCache(worldId)),
+          ),
         /** Switch dimension, clear cache, and re-key storage under a dimension-scoped world ID. */
         setActiveDimension: (dim: Dimension): Effect.Effect<void, never> =>
           Effect.gen(function* () {

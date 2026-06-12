@@ -37,20 +37,16 @@ const applyBowHitToEntity = (
 
     // Roll each chance-gated drop once; un-gated drops always pass.
     const rolledBowDrops = Arr.filter(Option.getOrElse(drops, () => NO_DROPS), (drop) => dropPasses(drop, Math.random()))
-    yield* Effect.forEach(
-      rolledBowDrops,
-      (drop) => services.inventoryService.addBlock(drop.blockType, drop.count),
-      { discard: true },
-    )
+    for (const drop of rolledBowDrops) {
+      yield* services.inventoryService.addBlock(drop.blockType, drop.count)
+    }
 
     // Looting on bow kills: same bonus-drop mechanic as melee.
     if (rolledBowDrops.length > 0 && opts.hasLooting) {
-      yield* Effect.forEach(
-        rolledBowDrops,
-        (drop) => services.inventoryService.addBlock(drop.blockType, opts.hasLooting!.level)
-          .pipe(Effect.catchAllCause(() => Effect.void)),
-        { discard: true },
-      )
+      for (const drop of rolledBowDrops) {
+        yield* services.inventoryService.addBlock(drop.blockType, opts.hasLooting!.level)
+          .pipe(Effect.catchAllCause(() => Effect.void))
+      }
     }
 
     // Award mob XP on kill (drops is Some when the entity was removed).

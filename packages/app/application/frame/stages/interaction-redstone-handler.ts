@@ -22,13 +22,10 @@ const placeComponentAndBlock = (
   worldBlock: BlockType,
   position: Position,
 ): Effect.Effect<void, never> =>
-  Effect.all(
-    [
-      services.redstoneService.setComponent(position, componentType),
-      services.blockService.forceSetBlock(position, worldBlock).pipe(Effect.catchAll(() => Effect.void)),
-    ],
-    { concurrency: 'unbounded', discard: true },
-  )
+  Effect.gen(function* () {
+    yield* services.redstoneService.setComponent(position, componentType)
+    yield* services.blockService.forceSetBlock(position, worldBlock).pipe(Effect.catchAll(() => Effect.void))
+  })
 
 const dispatchRedstoneAction = (
   services: Pick<FrameHandlerServices, 'redstoneService' | 'blockService'>,

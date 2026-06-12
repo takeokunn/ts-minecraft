@@ -96,21 +96,14 @@ export const entityUpdateStage = (
         // below when only a partial cache miss remains.
         if (refreshAllChunks) chunkCache.fill(null)
 
-        yield* Effect.forEach(
-          ENTITY_PHYSICS_CHUNK_OFFSETS,
-          ([dx, dz, index]) => {
-            /* c8 ignore next 3 -- cache-hit path: requires 2nd frame at same chunk coord with partial cache populated */
-            if (!refreshAllChunks && chunkCache[index] != null) {
-              return Effect.void
-            }
-
-            return Effect.gen(function* () {
-              const chunk = yield* services.chunkManagerService.getChunk({ x: playerCx + dx, z: playerCz + dz })
-              chunkCache[index] = chunk
-            }).pipe(Effect.ignore)
-          },
-          { concurrency: 'unbounded', discard: true },
-        )
+        // Sequential for...of: chunk boundary crossing event (not per-frame).
+        // Individual yield* avoids fiber spawn + Effect.gen callback allocations.
+        for (const [dx, dz, index] of ENTITY_PHYSICS_CHUNK_OFFSETS) {
+          /* c8 ignore next 3 -- cache-hit path: requires 2nd frame at same chunk coord with partial cache populated */
+          if (!refreshAllChunks && chunkCache[index] != null) continue
+          const chunk = yield* services.chunkManagerService.getChunk({ x: playerCx + dx, z: playerCz + dz }).pipe(Effect.catchAll(() => Effect.succeed(null)))
+          if (chunk !== null) chunkCache[index] = chunk
+        }
 
         yield* Ref.set(refs.entityPhysicsChunkCacheRef, chunkCache)
         yield* Ref.set(refs.lastEntityPhysicsChunkCoordRef, { cx: playerCx, cz: playerCz })

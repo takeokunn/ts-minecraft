@@ -39,11 +39,9 @@ export type ServerServiceImplOptions = {
 
 export const makeGameServer = (maxPlayers = 20): Effect.Effect<GameServer, never> =>
   Effect.gen(function* () {
-    const [connectedPlayers, connectionsByPlayerId, playerIdByConnectionId] = yield* Effect.all([
-      Ref.make(new Map<PlayerId, ConnectedPlayer>()),
-      Ref.make(new Map<PlayerId, WebSocketConnection>()),
-      Ref.make(new Map<string, PlayerId>()),
-    ], { concurrency: 'unbounded' })
+    const connectedPlayers = yield* Ref.make(new Map<PlayerId, ConnectedPlayer>())
+    const connectionsByPlayerId = yield* Ref.make(new Map<PlayerId, WebSocketConnection>())
+    const playerIdByConnectionId = yield* Ref.make(new Map<string, PlayerId>())
     return { connectedPlayers, connectionsByPlayerId, playerIdByConnectionId, maxPlayers }
   })
 
@@ -138,10 +136,11 @@ export const ServerServiceImpl = (
       broadcast: (message, exclude) =>
         Effect.gen(function* () {
           const connections = yield* Ref.get(gameServer.connectionsByPlayerId)
-          const sends = [...connections.entries()]
-            .filter(([playerId]) => playerId !== exclude)
-            .map(([, connection]) => sendEncodedToConnection(connection, message))
-          yield* Effect.all(sends, { concurrency: 'unbounded' }).pipe(Effect.asVoid)
+          for (const [playerId, connection] of connections.entries()) {
+            if (playerId !== exclude) {
+              yield* sendEncodedToConnection(connection, message)
+            }
+          }
         }),
     }
 

@@ -19,10 +19,9 @@ export class PauseMenuService extends Effect.Service<PauseMenuService>()(
   '@minecraft/presentation/PauseMenu',
   {
     scoped: Effect.gen(function* () {
-      const [dom, settingsOverlay, confirmDialog] = yield* Effect.all(
-        [DomOperationsService, SettingsOverlayService, ConfirmDialogService],
-        { concurrency: 'unbounded' },
-      )
+      const dom = yield* DomOperationsService
+      const settingsOverlay = yield* SettingsOverlayService
+      const confirmDialog = yield* ConfirmDialogService
       const { backdropEl, resumeBtn, settingsBtn, saveQuitBtn } = yield* Effect.acquireRelease(
         Effect.sync((): PauseMenuDom => buildPauseMenuDOM(dom)),
         ({ backdropEl }) =>

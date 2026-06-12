@@ -122,11 +122,12 @@ export const syncChunksToScene = (
     const added = yield* Effect.all(
       Arr.map(meshedChunks, ([key, { opaqueMesh, waterMesh, transparentSolidMesh, lod }]) =>
         Effect.gen(function* () {
-          yield* Effect.all([
-            sceneService.add(scene, opaqueMesh),
-            Option.match(waterMesh, { onNone: () => Effect.void, onSome: (m) => sceneService.add(scene, m) }),
-            Option.match(transparentSolidMesh, { onNone: () => Effect.void, onSome: (m) => sceneService.add(scene, m) }),
-          ], { concurrency: 'unbounded', discard: true })
+          // Sequential scene.add calls: 3 synchronous operations on a budgeted path
+          // (max CHUNK_SYNC_CONCURRENCY chunks/frame). Fiber parallelism adds overhead
+          // with no throughput gain — scene.add is a sync array push.
+          yield* sceneService.add(scene, opaqueMesh)
+          if (Option.isSome(waterMesh)) yield* sceneService.add(scene, waterMesh.value)
+          if (Option.isSome(transparentSolidMesh)) yield* sceneService.add(scene, transparentSolidMesh.value)
           return [key, { opaque: opaqueMesh, water: waterMesh, transparentSolid: transparentSolidMesh, lod }] as const
         })
       ),
@@ -197,28 +198,13 @@ export const syncChunksToScene = (
               yield* sceneService.remove(scene, m)
               yield* Effect.sync(() => disposeMesh(m))
             })
-          yield* Effect.all([
-            removeAndDispose(chunkMeshes.opaque),
-            Option.match(water, {
-              onNone: () => Effect.void,
-              onSome: removeAndDispose,
-            }),
-            Option.match(transparentSolid, {
-              onNone: () => Effect.void,
-              /* c8 ignore next -- transparentSolid mesh removal on chunk unload; requires full scene setup to hit in tests */
-              onSome: removeAndDispose,
-            }),
-            // SEC-W1: drop the sync-fallback prev mesh cache for this coord so
-            // the cache cannot grow unbounded under long sessions on the sync
-            // fallback path. Worker path is a no-op (no per-coord cache).
-            // Pulled from `userData.chunkCoord` (the same source the renderer
-            // already trusts for frustum culling) — only releasing when the
-            // value is present preserves correctness if it is somehow missing.
-            (() => {
-              const coord = chunkMeshes.opaque.userData['chunkCoord'] ?? null
-              return coord !== null ? chunkMeshService.releasePrevCachedMesh(coord) : Effect.void
-            })(),
-          ], { concurrency: 'unbounded', discard: true })
+          // Sequential: scene.remove + disposeMesh + cache release are sync operations
+          // on a budgeted removal path (max CHUNK_SYNC_CONCURRENCY chunks/frame).
+          yield* removeAndDispose(chunkMeshes.opaque)
+          if (Option.isSome(water)) yield* removeAndDispose(water.value)
+          if (Option.isSome(transparentSolid)) yield* removeAndDispose(transparentSolid.value)
+          const coord = chunkMeshes.opaque.userData['chunkCoord'] ?? null
+          if (coord !== null) yield* chunkMeshService.releasePrevCachedMesh(coord)
           return key
         })
       ),
@@ -229,11 +215,10 @@ export const syncChunksToScene = (
 
     // Rebuild stable water mesh list
     const nextWaterMeshes = Arr.filterMap(Arr.fromIterable(HashMap.values(nextMeshes)), (cm) => cm.water)
-    yield* Effect.all([
-      Ref.set(meshesRef, nextMeshes),
-      Ref.set(waterMeshesRef, nextWaterMeshes),
-      invalidateSceneCaches(),
-    ], { concurrency: 'unbounded', discard: true })
+    // Sequential: Ref.set + invalidateSceneCaches are sync state writes
+    yield* Ref.set(meshesRef, nextMeshes)
+    yield* Ref.set(waterMeshesRef, nextWaterMeshes)
+    yield* invalidateSceneCaches()
 
     // `false` (→ caller re-fires next frame) while new chunks remain to mesh,
     // stale chunks remain to dispose, OR LOD-changed chunks remain to re-mesh.

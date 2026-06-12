@@ -223,10 +223,8 @@ export const makeEntityManagerUpdate = (
           })
           /* c8 ignore next 5 -- cache invalidation after burning cleanup; only fires when changed=true */
           if (changed) {
-            yield* Effect.all([
-              Ref.set(cachedEntitiesRef, Option.none()),
-              Ref.update(structureVersionRef, (v) => v + 1),
-            ], { concurrency: 'unbounded', discard: true })
+            yield* Ref.set(cachedEntitiesRef, Option.none())
+            yield* Ref.update(structureVersionRef, (v) => v + 1)
           }
         } else if (MutableRef.get(dirtyRef)) {
           yield* Ref.set(cachedEntitiesRef, Option.none())

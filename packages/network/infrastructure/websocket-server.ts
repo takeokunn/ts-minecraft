@@ -82,8 +82,9 @@ export class FakeWebSocketServer implements WebSocketServerPort {
         onConnection: Effect.succeed(Stream.fromQueue(connectionQueue)),
         stop: Effect.gen(function* () {
           self.running = false
-          const closeEffects = [...self.connections.values()].map((connection) => connection.close)
-          yield* Effect.all(closeEffects, { concurrency: 'unbounded' }).pipe(Effect.asVoid)
+          for (const connection of self.connections.values()) {
+            yield* connection.close
+          }
           self.connections.clear()
           self.connectionQueue = undefined
         }),

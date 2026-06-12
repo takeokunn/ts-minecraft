@@ -37,9 +37,8 @@ export class PlayerCameraStateService extends Effect.Service<PlayerCameraStateSe
           Ref.update(modeRef, (mode) => (mode === 'firstPerson' ? 'thirdPerson' : 'firstPerson')),
 
         reset: (): Effect.Effect<void, never> =>
-          Effect.all(
-            [Ref.set(stateRef, { yaw: 0, pitch: 0 }), Ref.set(modeRef, 'firstPerson')],
-            { concurrency: 'unbounded', discard: true },
+          Ref.set(stateRef, { yaw: 0, pitch: 0 }).pipe(
+            Effect.flatMap(() => Ref.set(modeRef, 'firstPerson')),
           ),
       }
     }),

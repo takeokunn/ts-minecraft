@@ -72,10 +72,8 @@ export const loadOrCreateWorld = (
       }
     }
 
-    const [seed, nowMs] = yield* Effect.all(
-      [Random.nextIntBetween(0, MAX_SEED_VALUE), Clock.currentTimeMillis],
-      { concurrency: 'unbounded' },
-    )
+    const seed = yield* Random.nextIntBetween(0, MAX_SEED_VALUE)
+    const nowMs = yield* Clock.currentTimeMillis
     const pos = { x: 0, y: 100, z: 0 }
     const now = new Date(nowMs)
     yield* noiseService.setSeed(seed)

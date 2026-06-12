@@ -90,10 +90,11 @@ export class AudioEngine extends Effect.Service<AudioEngine>()('@minecraft/audio
             const pannerNode = Option.getOrNull(panner)
             const pannerDisconnect = pannerNode !== null ? safeDisconnect(pannerNode) : Effect.void
             Effect.runFork(
-              Effect.all(
-                [safeDisconnect(oscillator), safeDisconnect(gainNode), pannerDisconnect, Ref.update(activeTonesRef, (state) => HashMap.remove(state, handle.id))],
-                { concurrency: 'unbounded' },
-              ).pipe(Effect.asVoid),
+              safeDisconnect(oscillator).pipe(
+                Effect.flatMap(() => safeDisconnect(gainNode)),
+                Effect.flatMap(() => pannerDisconnect),
+                Effect.flatMap(() => Ref.update(activeTonesRef, (state) => HashMap.remove(state, handle.id))),
+              ),
             )
           }
 
@@ -123,10 +124,10 @@ export class AudioEngine extends Effect.Service<AudioEngine>()('@minecraft/audio
         if (tone !== null) {
           const pannerNode = Option.getOrNull(tone.pannerNode)
           const pannerDisconnect = pannerNode !== null ? safeDisconnect(pannerNode) : Effect.void
-          yield* Effect.all(
-            [safeStop(tone.oscillator), safeDisconnect(tone.oscillator), safeDisconnect(tone.gainNode), pannerDisconnect],
-            { concurrency: 'unbounded' },
-          ).pipe(Effect.asVoid)
+          yield* safeStop(tone.oscillator)
+          yield* safeDisconnect(tone.oscillator)
+          yield* safeDisconnect(tone.gainNode)
+          yield* pannerDisconnect
         }
       })
 

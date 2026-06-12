@@ -33,36 +33,28 @@ export const applyNetherPortalTravel = (
         yield* Ref.set(refs.finalPosRef, plan.destination)
         const portalLayout = Option.getOrNull(plan.portalToCreate)
         if (portalLayout !== null) {
-          yield* Effect.forEach(
-            portalLayout.frame,
-            (pos) => services.blockService.forceSetBlock(pos, 'OBSIDIAN').pipe(Effect.catchAll(() => Effect.void)),
-            { concurrency: 'unbounded', discard: true },
-          )
-          yield* Effect.forEach(
-            portalLayout.interior,
-            (pos) => services.blockService.forceSetBlock(pos, 'NETHER_PORTAL').pipe(Effect.catchAll(() => Effect.void)),
-            { concurrency: 'unbounded', discard: true },
-          )
+          for (const pos of portalLayout.frame) {
+            yield* services.blockService.forceSetBlock(pos, 'OBSIDIAN').pipe(Effect.catchAll(() => Effect.void))
+          }
+          for (const pos of portalLayout.interior) {
+            yield* services.blockService.forceSetBlock(pos, 'NETHER_PORTAL').pipe(Effect.catchAll(() => Effect.void))
+          }
           yield* services.netherService.registerPortal(plan.destination, plan.toDimension)
           const allPositions = [...portalLayout.frame, ...portalLayout.interior]
           const affectedCoordKeys = Array.from(
             new Set(allPositions.map((pos) => `${Math.floor(pos.x / CHUNK_SIZE)},${Math.floor(pos.z / CHUNK_SIZE)}`)),
           )
-          yield* Effect.forEach(
-            affectedCoordKeys,
-            (coordKey) => {
-              const parts = coordKey.split(',')
-              const cx = parseInt(parts[0]!, 10)
-              const cz = parseInt(parts[1]!, 10)
-              return Effect.gen(function* () {
-                const chunk = yield* services.chunkManagerService.getChunk({ x: cx, z: cz })
-                yield* Ref.update(refs.dirtyChunksRef, (map) =>
-                  HashMap.set(map, coordKey, { chunk, dirtyAABB: Option.none() }),
-                )
-              }).pipe(Effect.catchAll(() => Effect.void))
-            },
-            { concurrency: 'unbounded', discard: true },
-          )
+          for (const coordKey of affectedCoordKeys) {
+            const parts = coordKey.split(',')
+            const cx = parseInt(parts[0]!, 10)
+            const cz = parseInt(parts[1]!, 10)
+            yield* Effect.gen(function* () {
+              const chunk = yield* services.chunkManagerService.getChunk({ x: cx, z: cz })
+              yield* Ref.update(refs.dirtyChunksRef, (map) =>
+                HashMap.set(map, coordKey, { chunk, dirtyAABB: Option.none() }),
+              )
+            }).pipe(Effect.catchAll(() => Effect.void))
+          }
         }
       }
     } else {

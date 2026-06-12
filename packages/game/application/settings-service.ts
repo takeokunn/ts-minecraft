@@ -94,10 +94,8 @@ export class SettingsService extends Effect.Service<SettingsService>()(
                 })
               ),
             )
-            yield* Effect.all([
-              Ref.set(settingsRef, result),
-              saveToStorage(result),
-            ], { concurrency: 'unbounded', discard: true })
+            yield* Ref.set(settingsRef, result)
+            yield* saveToStorage(result)
           }),
 
         resetToDefaults: () =>

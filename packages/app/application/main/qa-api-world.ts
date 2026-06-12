@@ -45,7 +45,9 @@ export const collectStagedResources = (
   stagedResourceBlocksRef: MutableRef.MutableRef<Array<StagedResourceBlock>>,
 ) =>
   Effect.runPromise(Effect.gen(function* () {
-    yield* Effect.forEach(MutableRef.get(stagedResourceBlocksRef), ({ pos }) => blockService.breakBlock(pos), { concurrency: 1, discard: true })
+    for (const { pos } of MutableRef.get(stagedResourceBlocksRef)) {
+      yield* blockService.breakBlock(pos)
+    }
     MutableRef.set(stagedResourceBlocksRef, [])
   }))
 
@@ -92,9 +94,9 @@ export const clearBlocksInFront = (
   blockHighlight: BlockHighlightService,
 ) =>
   Effect.runPromise(Effect.gen(function* () {
-    yield* Effect.forEach([3, 4] as const, (distance) => {
+    for (const distance of [3, 4] as const) {
       const pos = projectBlockAhead(camera, distance)
-      return blockService.breakBlock(pos).pipe(Effect.catchAllCause(() => Effect.void))
-    }, { concurrency: 1, discard: true })
+      yield* blockService.breakBlock(pos).pipe(Effect.catchAllCause(() => Effect.void))
+    }
     yield* blockHighlight.invalidateCache()
   }))

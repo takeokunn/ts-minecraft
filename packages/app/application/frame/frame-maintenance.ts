@@ -5,7 +5,7 @@ import { DESPAWN_DISTANCE, resolveMobSpawnPosition } from '@ts-minecraft/entity'
 import type { Village } from '@ts-minecraft/entity'
 import { CHUNK_SIZE } from '@ts-minecraft/core'
 import { buildingBlocksForVillage } from '@ts-minecraft/entity'
-import { FALLBACK_PLAYER_POS, MAX_DIRTY_CHUNK_UPDATES_PER_FRAME, DIRTY_CHUNK_FLUSH_CONCURRENCY } from '@ts-minecraft/app/frame-handler.config'
+import { FALLBACK_PLAYER_POS, MAX_DIRTY_CHUNK_UPDATES_PER_FRAME } from '@ts-minecraft/app/frame-handler.config'
 import { CROP_GROWTH_INTERVAL_SECS } from '@ts-minecraft/world'
 import type { FrameHandlerDeps, FrameHandlerServices } from '@ts-minecraft/app/frame/types'
 import type { DeltaTimeSecs, Position } from '@ts-minecraft/core'
@@ -162,20 +162,14 @@ export const createMaintenanceHandler = (
             })()
           : []
         if (newVillages.length > 0) {
-          yield* Effect.forEach(
-            newVillages,
-            (village: Village) => {
-              const placements = buildingBlocksForVillage(village.structures)
-              return Effect.forEach(
-                placements,
-                ({ position, blockType }) => blockService.forceSetBlock(position, blockType).pipe(
-                  Effect.catchAll(() => Effect.void),
-                ),
-                { concurrency: 'unbounded', discard: true },
+          for (const village of newVillages) {
+            const placements = buildingBlocksForVillage(village.structures)
+            for (const { position, blockType } of placements) {
+              yield* blockService.forceSetBlock(position, blockType).pipe(
+                Effect.catchAll(() => Effect.void),
               )
-            },
-            { concurrency: 'unbounded', discard: true },
-          ).pipe(Effect.catchAllCause(() => Effect.void))
+            }
+          }
         }
       }
 
@@ -251,13 +245,13 @@ export const createMaintenanceHandler = (
         const dirtyEntries = Arr.fromIterable(dirtyChunks)
         const chunksToUpdate = Arr.take(dirtyEntries, MAX_DIRTY_CHUNK_UPDATES_PER_FRAME)
         const remainingEntries = Arr.drop(dirtyEntries, MAX_DIRTY_CHUNK_UPDATES_PER_FRAME)
-        yield* Effect.forEach(
-          chunksToUpdate,
-          ([, entry]) => worldRendererService.updateChunkInScene(
+        // Sequential: maintenance path with per-frame cap (MAX_DIRTY_CHUNK_UPDATES_PER_FRAME).
+        // Individual yield* avoids fiber overhead on the bounded maintenance loop.
+        for (const [, entry] of chunksToUpdate) {
+          yield* worldRendererService.updateChunkInScene(
             entry.chunk, deps.scene, Option.getOrUndefined(entry.dirtyAABB),
-          ),
-          { concurrency: DIRTY_CHUNK_FLUSH_CONCURRENCY, discard: true },
-        )
+          )
+        }
         /* c8 ignore next 4 -- only fires when dirtyChunks > MAX_DIRTY_CHUNK_UPDATES_PER_FRAME; not tested in unit tests */
         if (remainingEntries.length > 0) {
           yield* Ref.update(state.dirtyChunksRef, (current) =>

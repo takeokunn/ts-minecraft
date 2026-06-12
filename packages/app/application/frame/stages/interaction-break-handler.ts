@@ -46,18 +46,13 @@ const executeBlockBreak = (
     const debugFlags = yield* services.debugFeatureFlags.getFlags()
     const uv = getParticleUvOffset(blockId)
 
-    yield* Effect.all(
-      [
-        services.blockService.breakBlock(pos, hasSilkTouch),
-        (Option.getOrNull(services.multiplayer)?.sendBlockBreak(pos)) ?? Effect.void,
-        services.soundManager.playEffect('blockBreak', { position: pos }),
-        debugFlags['particles.spawn']
-          ? services.particleSystem.spawnBurst(pos.x + 0.5, pos.y + 0.5, pos.z + 0.5, uv.u, uv.v, 6)
-          /* c8 ignore next -- particles.spawn=false during block-break tests */
-          : Effect.void,
-      ],
-      { concurrency: 'unbounded', discard: true },
-    )
+    yield* services.blockService.breakBlock(pos, hasSilkTouch)
+    const mp = Option.getOrNull(services.multiplayer)
+    yield* (mp !== null ? mp.sendBlockBreak(pos) : Effect.void)
+    yield* services.soundManager.playEffect('blockBreak', { position: pos })
+    if (debugFlags['particles.spawn']) {
+      yield* services.particleSystem.spawnBurst(pos.x + 0.5, pos.y + 0.5, pos.z + 0.5, uv.u, uv.v, 6)
+    }
 
     const updatedChunk = yield* services.chunkManagerService.getChunk(chunkCoord)
     yield* Ref.update(refs.dirtyChunksRef, (map) =>
@@ -74,10 +69,8 @@ const executeBlockBreak = (
       const wasRipe = yield* services.cropGrowthService.harvest(pos)
       if (wasRipe) {
         const seedCount = Math.floor(Math.random() * 4) + 1
-        yield* Effect.all([
-          services.inventoryService.addBlock('WHEAT', 1),
-          services.inventoryService.addBlock('WHEAT_SEEDS', seedCount),
-        ], { concurrency: 'unbounded', discard: true }).pipe(Effect.catchAllCause(() => Effect.void))
+        yield* services.inventoryService.addBlock('WHEAT', 1).pipe(Effect.catchAllCause(() => Effect.void))
+        yield* services.inventoryService.addBlock('WHEAT_SEEDS', seedCount).pipe(Effect.catchAllCause(() => Effect.void))
       } else {
         yield* services.inventoryService.addBlock('WHEAT_SEEDS', 1).pipe(Effect.catchAll(() => Effect.void))
       }

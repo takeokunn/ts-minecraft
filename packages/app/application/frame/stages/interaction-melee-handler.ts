@@ -88,24 +88,18 @@ export const handleLeftClick = (
       const base = computeKnockback(entity.position.x - deps.camera.position.x, entity.position.z - deps.camera.position.z)
       const kbMult = knockbackEnchant ? getKnockbackHorizontalMultiplier(knockbackEnchant.level) : 1
       const impulse = kbMult === 1 ? base : { x: base.x * kbMult, y: base.y, z: base.z * kbMult }
-      yield* Effect.all(
-        [
-          services.entityManager.applyKnockback(entityId, impulse),
-          services.soundManager.playEffect('entityHit', { position: entity.position }),
-          // Denser burst on deterministic crit (airborne), never random.
-          debugFlags['particles.spawn']
-            ? services.particleSystem.spawnBurst(
-                entity.position.x,
-                entity.position.y + ENTITY_CENTER_Y_OFFSET,
-                entity.position.z,
-                HIT_PARTICLE_UV.u,
-                HIT_PARTICLE_UV.v,
-                playerGrounded ? 6 : 12,
-              )
-            : Effect.void,
-        ],
-        { concurrency: 'unbounded', discard: true },
-      )
+      yield* services.entityManager.applyKnockback(entityId, impulse)
+      yield* services.soundManager.playEffect('entityHit', { position: entity.position })
+      if (debugFlags['particles.spawn']) {
+        yield* services.particleSystem.spawnBurst(
+          entity.position.x,
+          entity.position.y + ENTITY_CENTER_Y_OFFSET,
+          entity.position.z,
+          HIT_PARTICLE_UV.u,
+          HIT_PARTICLE_UV.v,
+          playerGrounded ? 6 : 12,
+        )
+      }
     }
 
     const drops = yield* services.entityManager.applyDamage(entityId, damage)
@@ -117,21 +111,17 @@ export const handleLeftClick = (
     const rolledDrops = wasBaby
       ? []
       : Arr.filter(Option.getOrElse(drops, () => NO_DROPS), (drop) => dropPasses(drop, Math.random()))
-    yield* Effect.forEach(
-      rolledDrops,
-      (drop) => services.inventoryService.addBlock(drop.blockType, drop.count),
-      { concurrency: 'unbounded', discard: true },
-    )
+    for (const drop of rolledDrops) {
+      yield* services.inventoryService.addBlock(drop.blockType, drop.count)
+    }
     // Looting enchantment: add `level` bonus count of each (rolled) mob drop.
     if (rolledDrops.length > 0 && !wasBaby) {
       const looting = weaponEnchantments.find((e) => e.type === 'LOOTING')
       if (looting) {
-        yield* Effect.forEach(
-          rolledDrops,
-          (drop) => services.inventoryService.addBlock(drop.blockType, looting.level)
-            .pipe(Effect.catchAllCause(() => Effect.void)),
-          { concurrency: 'unbounded', discard: true },
-        )
+        for (const drop of rolledDrops) {
+          yield* services.inventoryService.addBlock(drop.blockType, looting.level)
+            .pipe(Effect.catchAllCause(() => Effect.void))
+        }
       }
     }
     // Mob killed (drops returned Some) → grant XP from the pre-kill entity snapshot

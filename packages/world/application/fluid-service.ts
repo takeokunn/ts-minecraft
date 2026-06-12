@@ -258,10 +258,9 @@ export class FluidService extends Effect.Service<FluidService>()(
         removeLava: removeFluid,
 
         syncLoadedChunks: (chunks: ReadonlyArray<Chunk>): Effect.Effect<void, never> =>
-          Effect.all([
-            Ref.set(stateRef, Arr.reduce(chunks, INITIAL_STATE, hydrateChunk)),
-            Ref.set(loadedCacheRef, HashMap.fromIterable(Arr.map(chunks, (chunk) => [ChunkCacheKey.make(chunk.coord), chunk] as const))),
-          ], { concurrency: 'unbounded', discard: true }),
+          Ref.set(stateRef, Arr.reduce(chunks, INITIAL_STATE, hydrateChunk)).pipe(
+            Effect.flatMap(() => Ref.set(loadedCacheRef, HashMap.fromIterable(Arr.map(chunks, (chunk) => [ChunkCacheKey.make(chunk.coord), chunk] as const)))),
+          ),
 
         tick: (): Effect.Effect<void, never> =>
           Effect.gen(function* () {

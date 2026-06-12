@@ -24,10 +24,9 @@ export class MainMenuService extends Effect.Service<MainMenuService>()(
   '@minecraft/presentation/MainMenu',
   {
     scoped: Effect.gen(function* () {
-      const [storageService, dom, confirmDialog] = yield* Effect.all(
-        [StorageService, DomOperationsService, ConfirmDialogService],
-        { concurrency: 'unbounded' },
-      )
+      const storageService = yield* StorageService
+      const dom = yield* DomOperationsService
+      const confirmDialog = yield* ConfirmDialogService
       if (typeof document === 'undefined') {
         // SSR / non-browser: stub implementation that fails fast on use.
         // Boot-scope tests that don't touch the menu can still load the layer.
