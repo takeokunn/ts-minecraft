@@ -55,7 +55,7 @@ describe('step 8 — camera sync', () => {
     expect(deps.camera.position.z).toBeCloseTo(3 - 4)
   }))
 
-  it.effect('marks shadow map dirty and updates lastShadowTargetRef when player moves > 0.5 blocks', () => Effect.gen(function* () {
+  it.effect('updates the shadow target when the player moves > 0.5 blocks but does NOT force a shadow re-render (perf: mod-8 cadence owns that)', () => Effect.gen(function* () {
     const camera = makeCamera()
     const lights = makeLights()
     const { service: cameraStateService } = makeCameraState('firstPerson')
@@ -66,7 +66,36 @@ describe('step 8 — camera sync', () => {
     })
 
     const lastShadowTargetRef = MutableRef.make({ x: 4.4, z: 3.0 })
-    const lastRenderDistanceRef = yield* Ref.make(0)
+    // Hold render distance constant so the rd-change branch can't trigger the dirty flag —
+    // isolating the per-move behaviour.
+    const lastRenderDistanceRef = yield* Ref.make(8)
+
+    const shadowDirtyCalledRef = MutableRef.make(false)
+    yield* cameraStage(
+      { camera, lights },
+      { inputService, playerCameraState: cameraStateService, thirdPersonCamera },
+      { lastShadowTargetRef, lastRenderDistanceRef },
+      { playerPos: { x: 5, y: 64, z: 3 }, renderDistance: 8, markShadowMapDirty: () => { MutableRef.set(shadowDirtyCalledRef, true) } },
+    )
+
+    // Target follows the player (so the next mod-8 shadow render covers the new area)...
+    expect(MutableRef.get(lastShadowTargetRef)).toEqual({ x: 5, z: 3 })
+    // ...but movement alone no longer forces an extra full shadow-map pass.
+    expect(MutableRef.get(shadowDirtyCalledRef)).toBe(false)
+  }))
+
+  it.effect('marks shadow map dirty when render distance changes (shadow frustum must re-render)', () => Effect.gen(function* () {
+    const camera = makeCamera()
+    const lights = makeLights()
+    const { service: cameraStateService } = makeCameraState('firstPerson')
+    const inputService = makeInputService()
+    const thirdPersonCamera: Parameters<typeof cameraStage>[1]['thirdPersonCamera'] = ThirdPersonCameraService.of({
+      _tag: '@minecraft/application/ThirdPersonCameraService' as const,
+      update: () => Effect.void,
+    })
+
+    const lastShadowTargetRef = MutableRef.make({ x: 5, z: 3 })
+    const lastRenderDistanceRef = yield* Ref.make(0) // differs from input rd → frustum changes
 
     const shadowDirtyCalledRef = MutableRef.make(false)
     yield* cameraStage(
@@ -77,7 +106,6 @@ describe('step 8 — camera sync', () => {
     )
 
     expect(MutableRef.get(shadowDirtyCalledRef)).toBe(true)
-    expect(MutableRef.get(lastShadowTargetRef)).toEqual({ x: 5, z: 3 })
   }))
 
   it.effect('widens FOV while sprinting (Ctrl + forward) and holds base FOV when idle (R5)', () => Effect.gen(function* () {

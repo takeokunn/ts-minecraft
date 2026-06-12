@@ -65,7 +65,14 @@ export const cameraStage = (
     }
 
     // Shadow frustum follows player so terrain around them is always shadow-covered.
-    // FR-009: Only update when player has moved more than 0.5 blocks (avoids per-frame updateMatrixWorld)
+    // The directional light's target is moved to track the player (cheap: one matrix),
+    // but we DELIBERATELY do NOT markShadowMapDirty() here. The shadow map only needs to
+    // re-render (a full second scene geometry pass into the 2048² depth target — the single
+    // largest GPU cost while moving) on the lighting-stage's mod-8 day/night cadence, which
+    // re-renders with the current target. Marking dirty on every >0.5-block move forced an
+    // extra full shadow pass roughly every 5-7 frames while walking (the dominant gameplay
+    // state); relying on the mod-8 trigger alone cuts shadow passes ~8× during movement. The
+    // target lagging the player by ≤8 frames is imperceptible for a sun-direction shadow.
     yield* Effect.sync(() => {
       const lastTarget = MutableRef.get(refs.lastShadowTargetRef)
       const dx = inputs.playerPos.x - lastTarget.x
@@ -74,7 +81,6 @@ export const cameraStage = (
         MutableRef.set(refs.lastShadowTargetRef, { x: inputs.playerPos.x, z: inputs.playerPos.z })
         deps.lights.light.target.position.set(inputs.playerPos.x, 0, inputs.playerPos.z)
         deps.lights.light.target.updateMatrixWorld()
-        inputs.markShadowMapDirty()
       }
     })
 
