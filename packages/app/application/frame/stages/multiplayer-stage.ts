@@ -28,9 +28,9 @@ export const applyInboundBlockEdits = (
   services: Pick<FrameHandlerServices, 'blockService' | 'chunkManagerService'>,
   dirtyChunksRef: FrameStageRefs['dirtyChunksRef'],
 ): Effect.Effect<void, never> =>
-  Effect.gen(function* () {
-    const edits = yield* multiplayer.drainBlockEdits
-    yield* Effect.forEach(
+  multiplayer.drainBlockEdits.pipe(
+    Effect.flatMap((edits) =>
+      Effect.forEach(
       edits,
       (edit) => {
         const blockType = edit.kind === 'place' ? edit.blockType : 'AIR'
@@ -50,5 +50,6 @@ export const applyInboundBlockEdits = (
         }).pipe(Effect.catchAll(() => Effect.void))
       },
       { discard: true },
-    )
-  })
+      ),
+    ),
+  )

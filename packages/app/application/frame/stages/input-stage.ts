@@ -188,21 +188,24 @@ export const inputStage = (
     readonly playerPos: Position
   },
 ): Effect.Effect<void, never> =>
-  Effect.gen(function* () {
-    // Update camera rotation from mouse look (suppressed when a modal is open)
-    const paused = yield* Ref.get(deps.gamePausedRef)
-    if (!paused) yield* services.firstPersonCamera.update(deps.camera, inputs.mouseSensitivity)
-
-    yield* logErrors(
-      Effect.all(
-        [
-          handleEscape(deps, services),
-          handleInventoryKey(deps, services),
-          handleTradeKeys(deps, services, { playerPos: inputs.playerPos }),
-          syncDayLength(services, { dayLengthSeconds: inputs.dayLengthSeconds }),
-        ],
-        { discard: true },
-      ),
-      'Overlay error',
+  // Update camera rotation from mouse look (suppressed when a modal is open)
+  Effect.flatMap(Ref.get(deps.gamePausedRef), (paused) =>
+    Effect.flatMap(
+      paused
+        ? Effect.void
+        : services.firstPersonCamera.update(deps.camera, inputs.mouseSensitivity),
+      () =>
+        logErrors(
+          Effect.all(
+            [
+              handleEscape(deps, services),
+              handleInventoryKey(deps, services),
+              handleTradeKeys(deps, services, { playerPos: inputs.playerPos }),
+              syncDayLength(services, { dayLengthSeconds: inputs.dayLengthSeconds }),
+            ],
+            { discard: true },
+          ),
+          'Overlay error',
+        ),
     )
-  })
+  )

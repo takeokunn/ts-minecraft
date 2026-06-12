@@ -7,18 +7,25 @@ export const chunkSyncStage = (
   services: Pick<FrameHandlerServices, 'worldRendererService'>,
   refs: Pick<FrameStageRefs, 'frustumThrottleStrideRef' | 'frustumThrottleCounterRef' | 'lastFrustumCullRef' | 'currentFrustumPoseScratch'>,
 ): Effect.Effect<void, never> =>
-  Effect.gen(function* () {
-    const sceneVersionBeforeCull = yield* services.worldRendererService.getSceneVersion()
+  Effect.flatMap(services.worldRendererService.getSceneVersion(), (sceneVersionBeforeCull) => {
     // R89: output-parameter pattern — write into pre-allocated scratch, no per-frame allocation
     captureCameraPose(deps.camera, sceneVersionBeforeCull, refs.currentFrustumPoseScratch)
     const lastFrustumCull = MutableRef.get(refs.lastFrustumCullRef)
-    const frustumStride = yield* Ref.get(refs.frustumThrottleStrideRef)
-    const frustumTick = yield* Ref.updateAndGet(
-      refs.frustumThrottleCounterRef,
-      (n) => (n + 1) % Math.max(frustumStride, 1),
+
+    return Effect.flatMap(Ref.get(refs.frustumThrottleStrideRef), (frustumStride) =>
+      Effect.flatMap(
+        Ref.updateAndGet(
+          refs.frustumThrottleCounterRef,
+          (n) => (n + 1) % Math.max(frustumStride, 1),
+        ),
+        (frustumTick) =>
+          frustumTick === 0 && hasCameraPoseChanged(lastFrustumCull, refs.currentFrustumPoseScratch)
+            ? Effect.flatMap(services.worldRendererService.applyFrustumCulling(deps.camera), () =>
+                Effect.sync(() => {
+                  copyCameraPoseInto(refs.currentFrustumPoseScratch, lastFrustumCull)
+                })
+              )
+            : Effect.void,
+      )
     )
-    if (frustumTick === 0 && hasCameraPoseChanged(lastFrustumCull, refs.currentFrustumPoseScratch)) {
-      yield* services.worldRendererService.applyFrustumCulling(deps.camera)
-      copyCameraPoseInto(refs.currentFrustumPoseScratch, lastFrustumCull)
-    }
   })
