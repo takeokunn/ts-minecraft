@@ -33,54 +33,53 @@ export const renderStage = (
 
     yield* Effect.sync(() => {
       const swingOffset = getAttackSwingOffset(swingState, totalTimeSecs * 1000)
-      const originalPosition = scratchCameraPosition.copy(deps.camera.position)
-      const originalQuaternion = scratchCameraQuaternion.copy(deps.camera.quaternion)
+      scratchCameraPosition.copy(deps.camera.position)
+      scratchCameraQuaternion.copy(deps.camera.quaternion)
 
-      const restoreCamera = () => {
-        deps.camera.position.copy(originalPosition)
-        deps.camera.quaternion.copy(originalQuaternion)
-        deps.camera.updateMatrixWorld(true)
-      }
+      deps.camera.translateX(swingOffset.x * SWING_CAMERA_X_UNITS)
+      deps.camera.translateY(swingOffset.y * SWING_CAMERA_Y_UNITS)
+      deps.camera.rotateZ(swingOffset.x * SWING_CAMERA_ROLL_RADS)
 
-      try {
-        deps.camera.translateX(swingOffset.x * SWING_CAMERA_X_UNITS)
-        deps.camera.translateY(swingOffset.y * SWING_CAMERA_Y_UNITS)
-        deps.camera.rotateZ(swingOffset.x * SWING_CAMERA_ROLL_RADS)
-
-        if (resolved.godRaysPassOrNull) {
-        if (inputs.resolvedGraphics.godRaysEnabled) {
-          const lightPos = deps.lights.light.position
-          inputs.sunWorldPos.copy(lightPos).normalize().multiplyScalar(100)
-          inputs.sunWorldPos.project(deps.camera)
-          const sunU = (inputs.sunWorldPos.x + 1) * 0.5
-          const sunV = (inputs.sunWorldPos.y + 1) * 0.5
-          const behindCamera = inputs.sunWorldPos.z > 1
-          const offScreen = sunU < -0.2 || sunU > 1.2 || sunV < -0.2 || sunV > 1.2
-          if (behindCamera || offScreen) {
-            resolved.godRaysPassOrNull.enabled = false
-          } else {
-            resolved.godRaysPassOrNull.sunScreenPos.set(sunU, sunV)
-            // FR-003: Adaptive god-rays sample count — reduce by 50% when
-            // sun is in the outer 40% of the screen where quality loss is imperceptible.
-            const distFromCenter = Math.hypot(sunU - 0.5, sunV - 0.5)
-            const baseSamples = inputs.resolvedGraphics.godRaysSamples
-            const adaptiveSamples = distFromCenter > 0.3 ? Math.max(5, Math.floor(baseSamples * 0.5)) : baseSamples
-            resolved.godRaysPassOrNull.setNumSamples(adaptiveSamples)
-            resolved.godRaysPassOrNull.enabled = true
-          }
-        } else {
+      if (resolved.godRaysPassOrNull) {
+      if (inputs.resolvedGraphics.godRaysEnabled) {
+        const lightPos = deps.lights.light.position
+        inputs.sunWorldPos.copy(lightPos).normalize().multiplyScalar(100)
+        inputs.sunWorldPos.project(deps.camera)
+        const sunU = (inputs.sunWorldPos.x + 1) * 0.5
+        const sunV = (inputs.sunWorldPos.y + 1) * 0.5
+        const behindCamera = inputs.sunWorldPos.z > 1
+        const offScreen = sunU < -0.2 || sunU > 1.2 || sunV < -0.2 || sunV > 1.2
+        if (behindCamera || offScreen) {
           resolved.godRaysPassOrNull.enabled = false
+        } else {
+          resolved.godRaysPassOrNull.sunScreenPos.set(sunU, sunV)
+          // FR-003: Adaptive god-rays sample count — reduce by 50% when
+          // sun is in the outer 40% of the screen where quality loss is imperceptible.
+          const distFromCenter = Math.hypot(sunU - 0.5, sunV - 0.5)
+          const baseSamples = inputs.resolvedGraphics.godRaysSamples
+          const adaptiveSamples = distFromCenter > 0.3 ? Math.max(5, Math.floor(baseSamples * 0.5)) : baseSamples
+          resolved.godRaysPassOrNull.setNumSamples(adaptiveSamples)
+          resolved.godRaysPassOrNull.enabled = true
         }
-      }
-
-      if (resolved.composerOrNull && debugFlags['rendering.postProcessing']) {
-        resolved.composerOrNull.render()
       } else {
-        deps.renderer.render(deps.scene, deps.camera)
+        resolved.godRaysPassOrNull.enabled = false
       }
-      } finally {
-        restoreCamera()
-      }
-    })
+    }
+
+    if (resolved.composerOrNull && debugFlags['rendering.postProcessing']) {
+      resolved.composerOrNull.render()
+    } else {
+      deps.renderer.render(deps.scene, deps.camera)
+    }
+    }).pipe(
+      // Effect.ensuring replaces try/finally: guarantees camera restoration even
+      // if the render block above throws (e.g. WebGL error), matching the previous
+      // try/finally behaviour exactly.
+      Effect.ensuring(Effect.sync(() => {
+        deps.camera.position.copy(scratchCameraPosition)
+        deps.camera.quaternion.copy(scratchCameraQuaternion)
+        deps.camera.updateMatrixWorld(true)
+      })),
+    )
     yield* services.perfHud.setDrawCalls(deps.renderer.info.render.calls)
   })
