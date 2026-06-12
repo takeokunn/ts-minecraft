@@ -174,9 +174,13 @@ export const wrapFrameHandlerWithBrowserEffects = ({
   frameHandler,
   ...deps
 }: BrowserFrameEffectDeps): ((deltaTime: DeltaTimeSecs) => Effect.Effect<void, never>) => {
-  // Pre-compose flushPendingSaves + applyPendingResize into a single Effect
-  // to avoid a per-frame Effect.gen generator closure allocation.
-  const saveAndResize = Effect.flatMap(flushPendingSaves(deps), () => applyPendingResize(deps))
+  // Pre-compose the pipe shape, but wrap each step in Effect.suspend so
+  // MutableRef reads (pending save flag, pending resize) execute per-frame
+  // instead of being eagerly evaluated at wrapper construction time.
+  const saveAndResize = Effect.flatMap(
+    Effect.suspend(() => flushPendingSaves(deps)),
+    () => Effect.suspend(() => applyPendingResize(deps)),
+  )
   
   return (deltaTime) =>
     Effect.flatMap(saveAndResize, () => frameHandler(deltaTime))
