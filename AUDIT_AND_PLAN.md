@@ -1357,3 +1357,15 @@ cleanups) as lower ROI relative to the per-frame allocation fixes already landed
 - [x] R115: chunk-manager-constants.ts — RENDER_DISTANCE 4→8, UNLOAD_DISTANCE 6→10
 
 **Quality gate:** typecheck 0 errors, lint 0 errors/2 warnings (pre-existing), 5663 tests passing (1 pre-existing skip). 9 commits on main.
+
+### Round 37 follow-up (2026-06-12) — Oracle-flagged fixes
+
+Oracle flagged R99 (gold tools) as incomplete because schema/durability/recipes
+were registered but gameplay behavior was missing. Fixed:
+
+- [x] block-utils.ts: `isPickaxeTool` + `PICKAXE_HARVEST_SETS` now include GOLD_PICKAXE (wooden tier harvest)
+- [x] block-service.config.ts: `PICKAXE_BLOCK_TYPES` includes GOLD_PICKAXE; `HOE_ITEM_TYPES` includes GOLD_HOE
+- [x] combat.ts: `WEAPON_BASE_DAMAGE` includes GOLD_SWORD (8) and GOLD_AXE (9) — wooden tier
+- [x] tool-completeness.test.ts: added SHOVEL to TOOL_TYPES, gold tier durability test
+
+R100 was confirmed correct by Oracle.
