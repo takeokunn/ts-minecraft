@@ -127,18 +127,27 @@ export class GameLoopService extends Effect.Service<GameLoopService>()(
           yield* Ref.set(frameQueueRef, Option.some(frameQueue))
 
           const lastTimestampRef = yield* Ref.make(0)
-          const processFrames: Effect.Effect<void, never> = Effect.gen(function* () {
-            const timestamp = yield* Queue.take(frameQueue)
-            const lastTimestamp = yield* Ref.get(lastTimestampRef)
-            const rawDelta = lastTimestamp === 0
-              ? FIRST_FRAME_DELTA_SECS
-              : (timestamp - lastTimestamp) / 1000
-            const deltaTime = DeltaTimeSecs.make(Math.min(Math.max(0.001, rawDelta), 0.05))
-            yield* Ref.set(lastTimestampRef, timestamp)
-            yield* frameHandler(deltaTime).pipe(
-              Effect.catchAllCause((cause) => Effect.logError(`Frame error: ${Cause.pretty(cause)}`)),
-            )
-          }).pipe(Effect.forever)
+          // processFrames: Effect.flatMap chain instead of Effect.gen to avoid
+          // a per-iteration generator allocation under Effect.forever.
+          const processFrames: Effect.Effect<void, never> = Queue.take(frameQueue).pipe(
+            Effect.flatMap((timestamp) =>
+              Ref.get(lastTimestampRef).pipe(
+                Effect.flatMap((lastTimestamp) => {
+                  const rawDelta = lastTimestamp === 0
+                    ? FIRST_FRAME_DELTA_SECS
+                    : (timestamp - lastTimestamp) / 1000
+                  const deltaTime = DeltaTimeSecs.make(Math.min(Math.max(0.001, rawDelta), 0.05))
+                  return Ref.set(lastTimestampRef, timestamp).pipe(
+                    Effect.flatMap(() =>
+                      frameHandler(deltaTime).pipe(
+                        Effect.catchAllCause((cause) => Effect.logError(`Frame error: ${Cause.pretty(cause)}`)),
+                      ),
+                    ),
+                  )
+                }),
+              ),
+            ),
+          ).pipe(Effect.forever)
 
           MutableRef.set(isRunningRef, true)
           const fiber = yield* Effect.forkDaemon(processFrames)
