@@ -24,10 +24,8 @@ export const makeColumnReaderAt = (
   const bz = Math.floor(pos.z)
   const lx = ((bx % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE
   const lz = ((bz % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE
-  return Effect.gen(function* () {
-    const chunkOpt = yield* chunkManagerService
-      .getChunk({ x: Math.floor(bx / CHUNK_SIZE), z: Math.floor(bz / CHUNK_SIZE) })
-      .pipe(Effect.option)
-    return makeColumnReader(chunkOpt, lx, lz)
-  })
+  return chunkManagerService
+    .getChunk({ x: Math.floor(bx / CHUNK_SIZE), z: Math.floor(bz / CHUNK_SIZE) })
+    .pipe(Effect.option)
+    .pipe(Effect.map((chunkOpt) => makeColumnReader(chunkOpt, lx, lz)))
 }
