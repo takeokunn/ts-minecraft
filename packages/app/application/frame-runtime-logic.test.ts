@@ -11,17 +11,17 @@ import {
 
 describe('frame-runtime-logic', () => {
   it('returns ticks and remainder for fixed-step accumulation', () => {
-    const singleTick = advanceFixedStep(0.02, 0.04, 0.05)
-    expect(singleTick.ticks).toBe(1)
-    expect(singleTick.remainder).toBeCloseTo(0.01)
+    const [ticks1, rem1] = advanceFixedStep(0.02, 0.04, 0.05)
+    expect(ticks1).toBe(1)
+    expect(rem1).toBeCloseTo(0.01)
 
-    const belowThreshold = advanceFixedStep(0.01, 0.01, 0.05)
-    expect(belowThreshold.ticks).toBe(0)
-    expect(belowThreshold.remainder).toBeCloseTo(0.02)
+    const [ticks2, rem2] = advanceFixedStep(0.01, 0.01, 0.05)
+    expect(ticks2).toBe(0)
+    expect(rem2).toBeCloseTo(0.02)
 
-    const multiTick = advanceFixedStep(0.01, 0.16, 0.05)
-    expect(multiTick.ticks).toBe(3)
-    expect(multiTick.remainder).toBeCloseTo(0.02)
+    const [ticks3, rem3] = advanceFixedStep(0.01, 0.16, 0.05)
+    expect(ticks3).toBe(3)
+    expect(rem3).toBeCloseTo(0.02)
   })
 
   it('detects whether a camera pose changed', () => {

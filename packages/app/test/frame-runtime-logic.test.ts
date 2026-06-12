@@ -82,33 +82,33 @@ describe('hasCameraPoseChanged', () => {
 
 describe('advanceFixedStep', () => {
   it('returns 0 ticks when accumulated < interval', () => {
-    const result = advanceFixedStep(0, 0.01, 0.05)
-    expect(result.ticks).toBe(0)
-    expect(result.remainder).toBeCloseTo(0.01, 5)
+    const [ticks, rem] = advanceFixedStep(0, 0.01, 0.05)
+    expect(ticks).toBe(0)
+    expect(rem).toBeCloseTo(0.01, 5)
   })
 
   it('returns 1 tick when accumulated crosses interval exactly', () => {
-    const result = advanceFixedStep(0, 0.05, 0.05)
-    expect(result.ticks).toBe(1)
-    expect(result.remainder).toBeCloseTo(0, 5)
+    const [ticks, rem] = advanceFixedStep(0, 0.05, 0.05)
+    expect(ticks).toBe(1)
+    expect(rem).toBeCloseTo(0, 5)
   })
 
   it('returns 2 ticks when accumulated crosses two intervals', () => {
-    const result = advanceFixedStep(0, 0.1, 0.05)
-    expect(result.ticks).toBe(2)
-    expect(result.remainder).toBeCloseTo(0, 5)
+    const [ticks, rem] = advanceFixedStep(0, 0.1, 0.05)
+    expect(ticks).toBe(2)
+    expect(rem).toBeCloseTo(0, 5)
   })
 
   it('preserves leftover sub-interval time as remainder', () => {
-    const result = advanceFixedStep(0, 0.07, 0.05)
-    expect(result.ticks).toBe(1)
-    expect(result.remainder).toBeCloseTo(0.02, 5)
+    const [ticks, rem] = advanceFixedStep(0, 0.07, 0.05)
+    expect(ticks).toBe(1)
+    expect(rem).toBeCloseTo(0.02, 5)
   })
 
   it('accumulated carry-over counts toward next step', () => {
-    const { remainder } = advanceFixedStep(0, 0.04, 0.05)
-    const next = advanceFixedStep(remainder, 0.02, 0.05)
-    expect(next.ticks).toBe(1)
+    const [, remainder] = advanceFixedStep(0, 0.04, 0.05)
+    const [ticks] = advanceFixedStep(remainder, 0.02, 0.05)
+    expect(ticks).toBe(1)
   })
 })
 

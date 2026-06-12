@@ -19,7 +19,7 @@ const runTickable = (
 ): Effect.Effect<void, never> =>
   Effect.gen(function* () {
     const n = yield* Ref.modify(accRef, (accumulated): [number, number] => {
-      const { ticks, remainder } = advanceFixedStep(accumulated, deltaTime, intervalSecs)
+      const [ticks, remainder] = advanceFixedStep(accumulated, deltaTime, intervalSecs)
       return [ticks, remainder]
     })
     if (n > 0) yield* Effect.repeatN(tick, n - 1)

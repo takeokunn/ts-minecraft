@@ -92,18 +92,16 @@ export const hasCameraPoseChanged = (
   || previous.p10 !== current.p10
   || previous.p14 !== current.p14
 
+// Returns [ticks, remainder] as a tuple to avoid per-frame plain-object
+// allocation (R102). Callers destructure via const [ticks, remainder].
 export const advanceFixedStep = (
   accumulated: number,
   deltaTime: number,
   intervalSeconds: number,
-): { readonly ticks: number; readonly remainder: number } => {
+): readonly [ticks: number, remainder: number] => {
   const nextAccumulated = accumulated + deltaTime
   const ticks = Math.floor(nextAccumulated / intervalSeconds)
-
-  return {
-    ticks,
-    remainder: nextAccumulated - ticks * intervalSeconds,
-  }
+  return [ticks, nextAccumulated - ticks * intervalSeconds]
 }
 
 const nextGraphicsQuality = (
