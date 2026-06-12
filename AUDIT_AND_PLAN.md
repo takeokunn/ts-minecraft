@@ -1702,3 +1702,34 @@ item, but with a **contained** fix instead of the port-signature change it origi
 `pnpm typecheck` 0 errors · `pnpm lint` 0 errors / 4 warnings (pre-existing) ·
 `pnpm check:refactor` all OK · `pnpm test` **5684 passing / 1 skipped** (+4 new tests) ·
 `pnpm build` exit 0 · 2 commits on `main`.
+
+---
+
+## AU. Round 44 (2026-06-13) — adaptive-quality threshold bug (likely the biggest "feels bad" cause)
+
+Investigating the perf complaint further surfaced a **logic bug in the default-on adaptive
+quality system** — arguably the single most impactful issue for what users actually experience.
+
+- [x] **PERF-5**: **`ADAPTIVE_QUALITY_HIGH_FPS_THRESHOLD` 110 → 50.** `decideAdaptiveQuality`
+  leaves settings alone only when `fps >= threshold` and otherwise steps quality down
+  (ultra→high→medium→low, then render distance down to 4). The threshold was 110 ("comfortably
+  above 60Hz on a 120Hz display") — but the game loop caps near 60 fps and most displays are
+  60Hz/vsync, so `fps < 110` was true for essentially everyone. With `adaptivePerformanceMode`
+  defaulting to **ON**, the system degraded every player to the quality floor (low + render
+  distance 4) within ~1.3 s and **never upgraded back**, regardless of hardware — so players who
+  could comfortably run medium + RD8 were locked to minimum quality and a tiny view distance.
+  Lowered to 50 (a struggle line, not a 120Hz ceiling): anyone holding a smooth ~50-60 fps keeps
+  full quality; degradation only kicks in on genuine slowdowns. Combined with Round 42-43's actual
+  FPS fixes, the default experience is now both smooth AND at the intended quality. Adaptive tests
+  updated to drive a real low FPS (30) for the degrade path + a 60fps no-degrade regression test.
+  — `frame-handler.config.ts`
+
+Note (deferred): `decideAdaptiveQuality` still has **no upgrade path** — once degraded it never
+restores quality even after the frame rate recovers. With the corrected threshold most users never
+degrade, so this is now low-impact; a future hysteresis-based upgrade (restore above ~58 fps with a
+cooldown) would complete the loop.
+
+### Quality gate (Round 44)
+`pnpm typecheck` 0 errors · `pnpm lint` 0 errors / 4 warnings (pre-existing) ·
+`pnpm check:refactor` all OK · `pnpm test` **5685 passing / 1 skipped** (+1 net new test) ·
+`pnpm build` exit 0 · 1 commit on `main`.
