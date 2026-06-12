@@ -1733,3 +1733,28 @@ cooldown) would complete the loop.
 `pnpm typecheck` 0 errors · `pnpm lint` 0 errors / 4 warnings (pre-existing) ·
 `pnpm check:refactor` all OK · `pnpm test` **5685 passing / 1 skipped** (+1 net new test) ·
 `pnpm build` exit 0 · 1 commit on `main`.
+
+---
+
+## AV. Round 45 (2026-06-13) — FR correctness: wrong-tool mining speed
+
+With the macro-perf bottlenecks addressed and the codebase's tuning verified as already
+sound (the chunk-sync budget is a deliberate 4 ms/frame; default render distance is the
+conservative 4 — `RENDER_DISTANCE=8` is only an unused fallback), this round took a
+ready-and-verified FR correctness item.
+
+- [x] **R145**: **Wrong-category tools no longer get a mining speed bonus.** `computeBreakTicks`
+  applied a tool's tier multiplier (+ Efficiency) to *any* block, so a shovel mined stone as
+  fast as a pickaxe and a pickaxe dug dirt at pickaxe speed — vanilla breaks an ineffective
+  tool at bare-hand speed. Added a `correctTool` param (default `true` → every existing call
+  site/test unchanged) that withholds the tool bonus when false, plus `isEffectiveTool(block,
+  tool)` with a **regression-safe** design: it keeps the bonus by default and only withholds
+  it on a *clear cross-category mismatch* (pickaxe↔dirt, shovel↔stone, axe↔stone). Blocks in
+  no category (e.g. COBBLESTONE), bare hands, and non-mining tools are never penalised, so
+  nothing slows down unexpectedly. +8 unit tests. — `break-speed.ts`, `block-utils.ts`,
+  `interaction-break-handler.ts`
+
+### Quality gate (Round 45)
+`pnpm typecheck` 0 errors · `pnpm lint` 0 errors / 4 warnings (pre-existing) ·
+`pnpm check:refactor` all OK · `pnpm test` **5692 passing / 1 skipped** (+7 new tests) ·
+`pnpm build` exit 0 · 1 commit on `main`.
