@@ -127,10 +127,28 @@ export class PhysicsService extends Effect.Service<PhysicsService>()(
             return { x: body.velocity.x, y: body.velocity.y, z: body.velocity.z }
           }),
 
+        // Copies velocity components into a pre-allocated target object to avoid
+        // per-frame heap allocation in the game loop (R96).
+        copyVelocityInto: <T extends Record<'x' | 'y' | 'z', number>>(bodyId: PhysicsBodyId, out: T): Effect.Effect<T, PhysicsServiceError> =>
+          Effect.gen(function* () {
+            const body = yield* getBody(bodyId)
+            out.x = body.velocity.x; out.y = body.velocity.y; out.z = body.velocity.z
+            return out
+          }),
+
         getPosition: (bodyId: PhysicsBodyId): Effect.Effect<Position, PhysicsServiceError> =>
           Effect.gen(function* () {
             const body = yield* getBody(bodyId)
             return { x: body.position.x, y: body.position.y, z: body.position.z }
+          }),
+
+        // Copies position components into a pre-allocated target object to avoid
+        // per-frame heap allocation in the game loop (R96).
+        copyPositionInto: <T extends Record<'x' | 'y' | 'z', number>>(bodyId: PhysicsBodyId, out: T): Effect.Effect<T, PhysicsServiceError> =>
+          Effect.gen(function* () {
+            const body = yield* getBody(bodyId)
+            out.x = body.position.x; out.y = body.position.y; out.z = body.position.z
+            return out
           }),
 
         setVelocity: (bodyId: PhysicsBodyId, velocity: Vector3): Effect.Effect<void, PhysicsServiceError> =>

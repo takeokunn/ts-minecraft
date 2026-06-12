@@ -31,6 +31,16 @@ const PLAYER_MASS = 70
 
 const ZERO_VEC3 = Object.freeze({ x: 0, y: 0, z: 0 })
 
+// Module-scoped scratch objects reused across frames to avoid per-frame
+// position/velocity allocation (R96). These are only written by
+// copyPositionInto / copyVelocityInto inside a single frame's Effect.gen
+// scope; the values are consumed synchronously in the same generator body,
+// never retained across frames. Two position scratches needed because
+// prePos is captured before physics.step() and physPos after.
+const _scratchPosA = { x: 0, y: 0, z: 0 }
+const _scratchPosB = { x: 0, y: 0, z: 0 }
+const _scratchVel = { x: 0, y: 0, z: 0 }
+
 const SWIM_UP_SPEED = 3
 
 const refreshChunkCache = (
@@ -148,11 +158,12 @@ export class GameStateService extends Effect.Service<GameStateService>()(
             const sneaking = !flying && (yield* inputService.isKeyPressed(KeyMappings.SNEAK))
 
             /* c8 ignore next 3 */
-            const currentVel = yield* physicsService.getVelocity(playerBodyId).pipe(
+            const currentVel = yield* physicsService.copyVelocityInto(playerBodyId, _scratchVel).pipe(
               Effect.catchTag('PhysicsServiceError', (e) =>
                 Effect.gen(function* () {
                   yield* Effect.logWarning(`getVelocity fallback: ${e.message ?? String(e)}`)
-                  return ZERO_VEC3
+                  _scratchVel.x = _scratchVel.y = _scratchVel.z = 0
+                  return _scratchVel
                 })
               )
             )
@@ -167,19 +178,28 @@ export class GameStateService extends Effect.Service<GameStateService>()(
             if (jumped) yield* Ref.set(isGroundedRef, false)
 
             const prePos: Position = (flying || (sneaking && isGrounded))
-              ? yield* physicsService.getPosition(playerBodyId).pipe(
-                  Effect.catchTag('PhysicsServiceError', () => Effect.succeed(ZERO_VEC3 as Position)),
+              ? yield* physicsService.copyPositionInto(playerBodyId, _scratchPosA).pipe(
+                  Effect.catchTag('PhysicsServiceError', () => {
+                    _scratchPosA.x = _scratchPosA.y = _scratchPosA.z = 0
+                    return Effect.succeed(_scratchPosA as Position)
+                  }),
                 )
               : (ZERO_VEC3 as Position)
 
             yield* physicsService.step(deltaTime)
 
             /* c8 ignore next */
-            const physPos = yield* physicsService.getPosition(playerBodyId).pipe(
-              Effect.catchTag('PhysicsServiceError', () => Effect.succeed(ZERO_VEC3 as Position))
+            const physPos = yield* physicsService.copyPositionInto(playerBodyId, _scratchPosB).pipe(
+              Effect.catchTag('PhysicsServiceError', () => {
+                _scratchPosB.x = _scratchPosB.y = _scratchPosB.z = 0
+                return Effect.succeed(_scratchPosB as Position)
+              })
             )
-            const physVel = yield* physicsService.getVelocity(playerBodyId).pipe(
-              Effect.catchTag('PhysicsServiceError', () => Effect.succeed(ZERO_VEC3))
+            const physVel = yield* physicsService.copyVelocityInto(playerBodyId, _scratchVel).pipe(
+              Effect.catchTag('PhysicsServiceError', () => {
+                _scratchVel.x = _scratchVel.y = _scratchVel.z = 0
+                return Effect.succeed(_scratchVel)
+              })
             )
 
             const effPos: Position = flying ? computeFlightPosition(physPos, prePos.y, flightVy, deltaTime) : physPos

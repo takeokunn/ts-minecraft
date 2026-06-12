@@ -116,6 +116,8 @@ describe('application/game-state (coverage)', () => {
         step: (_dt: unknown) => Effect.void,
         getVelocity: (_id: PhysicsBodyId) => Effect.succeed({ x: 0, y: 0, z: 0 }),
         getPosition: (_id: PhysicsBodyId) => Effect.succeed({ x: 0, y: 0, z: 0 }),
+        copyVelocityInto: <T extends Record<'x' | 'y' | 'z', number>>(_id: PhysicsBodyId, out: T) => { out.x = out.y = out.z = 0; return Effect.succeed(out) },
+        copyPositionInto: <T extends Record<'x' | 'y' | 'z', number>>(_id: PhysicsBodyId, out: T) => { out.x = out.y = out.z = 0; return Effect.succeed(out) },
         setVelocity: (_id: PhysicsBodyId, _v: unknown) => Effect.void,
         setPosition: (_id: PhysicsBodyId, _p: unknown) => Effect.void,
       }))
@@ -176,6 +178,9 @@ describe('application/game-state (coverage)', () => {
         getVelocity: (_id: PhysicsBodyId) =>
           Effect.fail(new PhysicsServiceError({ operation: 'getVelocity', cause: 'mock getVelocity failure' })),
         getPosition: (_id: PhysicsBodyId) => Effect.succeed({ x: 0, y: 0, z: 0 }),
+        copyVelocityInto: <T extends Record<'x' | 'y' | 'z', number>>(_id: PhysicsBodyId, _out: T) =>
+          Effect.fail(new PhysicsServiceError({ operation: 'copyVelocityInto', cause: 'mock failure' })),
+        copyPositionInto: <T extends Record<'x' | 'y' | 'z', number>>(_id: PhysicsBodyId, out: T) => { out.x = out.y = out.z = 0; return Effect.succeed(out) },
         setVelocity: (_id: PhysicsBodyId, _v: unknown) => Effect.void,
         setPosition: (_id: PhysicsBodyId, _p: unknown) => Effect.void,
       }))
