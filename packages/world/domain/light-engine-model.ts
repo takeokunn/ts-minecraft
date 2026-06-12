@@ -1,5 +1,5 @@
 import { Option } from 'effect'
-import type { ChunkAABB } from './chunk-aabb'
+import type { ChunkAABB, MutableChunkAABB } from './chunk-aabb'
 
 export type BoundaryDirty = Readonly<{
   readonly nx: boolean
@@ -28,4 +28,6 @@ export type MutableBoundaryDirty = {
   pz: boolean
 }
 
-export type AABBAccumulator = { aabb: ChunkAABB | null }
+// aabb is a MutableChunkAABB so trackTouched can grow it in place (allocation-free
+// per BFS node). MutableChunkAABB is structurally assignable to ChunkAABB for consumers.
+export type AABBAccumulator = { aabb: MutableChunkAABB | null }

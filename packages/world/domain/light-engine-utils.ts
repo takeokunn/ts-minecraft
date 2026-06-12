@@ -1,6 +1,6 @@
 import { CHUNK_HEIGHT, CHUNK_SIZE } from '@ts-minecraft/core'
 import { createLightBuffer, LIGHT_BYTE_LENGTH } from '@ts-minecraft/block'
-import { aabbFromVoxel, unionAABB } from './chunk-aabb'
+import { growAABBToVoxel } from './chunk-aabb'
 import type { AABBAccumulator } from './light-engine-model'
 
 export const FULL_RECOMPUTE_THRESHOLD = 256
@@ -13,8 +13,9 @@ export const lightBufferOrFresh = (buf: Uint8Array<ArrayBufferLike> | undefined)
 }
 
 export const trackTouched = (acc: AABBAccumulator, x: number, y: number, z: number): void => {
-  const v = aabbFromVoxel({ lx: x, y, lz: z })
-  acc.aabb = acc.aabb === null ? v : unionAABB(acc.aabb, v)
+  // Grow the accumulator box in place — allocation-free after the first node. The BFS
+  // calls this once per touched voxel (thousands per light edit).
+  acc.aabb = growAABBToVoxel(acc.aabb, x, y, z)
 }
 
 export const packPosLevel = (x: number, y: number, z: number, lvl: number): number =>

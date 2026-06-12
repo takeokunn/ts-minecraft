@@ -21,8 +21,45 @@ export type DirtyVoxelLike = Readonly<{
   readonly lz: number
 }>
 
+// Mutable twin of ChunkAABB, structurally assignable to ChunkAABB. Used by the
+// light-BFS accumulator so trackTouched can grow the box in place (see growAABBToVoxel)
+// instead of allocating a fresh ChunkAABB per touched voxel.
+export type MutableChunkAABB = {
+  minX: number
+  maxX: number
+  minY: number
+  maxY: number
+  minZ: number
+  maxZ: number
+}
+
 const clampX = (n: number): number => Math.max(0, Math.min(CHUNK_SIZE - 1, n | 0))
 const clampY = (n: number): number => Math.max(0, Math.min(CHUNK_HEIGHT - 1, n | 0))
+
+// Grow `acc` in place to include voxel (lx,y,lz), or build it on the first call.
+// Equivalent to unionAABB(acc, aabbFromVoxel({lx,y,lz})) but allocation-free after the
+// first voxel — the hot path is the light-propagation BFS, which touches thousands of
+// voxels per light edit.
+export const growAABBToVoxel = (
+  acc: MutableChunkAABB | null,
+  lx: number,
+  y: number,
+  lz: number,
+): MutableChunkAABB => {
+  const cx = clampX(lx)
+  const cy = clampY(y)
+  const cz = clampX(lz)
+  if (acc === null) {
+    return { minX: cx, maxX: cx, minY: cy, maxY: cy, minZ: cz, maxZ: cz }
+  }
+  if (cx < acc.minX) acc.minX = cx
+  if (cx > acc.maxX) acc.maxX = cx
+  if (cy < acc.minY) acc.minY = cy
+  if (cy > acc.maxY) acc.maxY = cy
+  if (cz < acc.minZ) acc.minZ = cz
+  if (cz > acc.maxZ) acc.maxZ = cz
+  return acc
+}
 
 export const aabbFromVoxel = (v: DirtyVoxelLike): ChunkAABB => ({
   minX: clampX(v.lx), maxX: clampX(v.lx),
