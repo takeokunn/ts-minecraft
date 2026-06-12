@@ -51,7 +51,7 @@ export const meshXPosFace = (s: FacePassState): void => {
         }
       }
     }
-    runGreedyExpansion(s.maskCH, CHUNK_SIZE, CHUNK_HEIGHT, (u0, v0, du, dv, mv) => emit(u0, v0, du, dv, mv, lx))
+    runGreedyExpansion(s.maskCH, CHUNK_SIZE, CHUNK_HEIGHT, emit, lx)
   }
 }
 
@@ -90,7 +90,7 @@ export const meshXNegFace = (s: FacePassState): void => {
         }
       }
     }
-    runGreedyExpansion(s.maskCH, CHUNK_SIZE, CHUNK_HEIGHT, (u0, v0, du, dv, mv) => emit(u0, v0, du, dv, mv, lx))
+    runGreedyExpansion(s.maskCH, CHUNK_SIZE, CHUNK_HEIGHT, emit, lx)
   }
 }
 
@@ -129,7 +129,7 @@ export const meshYPosFace = (s: FacePassState): void => {
         }
       }
     }
-    runGreedyExpansion(s.maskSS, CHUNK_SIZE, CHUNK_SIZE, (u0, v0, du, dv, mv) => emit(u0, v0, du, dv, mv, y))
+    runGreedyExpansion(s.maskSS, CHUNK_SIZE, CHUNK_SIZE, emit, y)
   }
 }
 
@@ -168,7 +168,7 @@ export const meshYNegFace = (s: FacePassState): void => {
         }
       }
     }
-    runGreedyExpansion(s.maskSS, CHUNK_SIZE, CHUNK_SIZE, (u0, v0, du, dv, mv) => emit(u0, v0, du, dv, mv, y))
+    runGreedyExpansion(s.maskSS, CHUNK_SIZE, CHUNK_SIZE, emit, y)
   }
 }
 
@@ -207,7 +207,7 @@ export const meshZPosFace = (s: FacePassState): void => {
         }
       }
     }
-    runGreedyExpansion(s.maskCH, CHUNK_SIZE, CHUNK_HEIGHT, (u0, v0, du, dv, mv) => emit(u0, v0, du, dv, mv, lz))
+    runGreedyExpansion(s.maskCH, CHUNK_SIZE, CHUNK_HEIGHT, emit, lz)
   }
 }
 
@@ -246,7 +246,7 @@ export const meshZNegFace = (s: FacePassState): void => {
         }
       }
     }
-    runGreedyExpansion(s.maskCH, CHUNK_SIZE, CHUNK_HEIGHT, (u0, v0, du, dv, mv) => emit(u0, v0, du, dv, mv, lz))
+    runGreedyExpansion(s.maskCH, CHUNK_SIZE, CHUNK_HEIGHT, emit, lz)
   }
 }
 

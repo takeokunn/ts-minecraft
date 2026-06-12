@@ -57,19 +57,16 @@ export const dequantLight = (q: number): number => q * 5
 // For each maximal rectangle the callback `emitQuad` is invoked with
 // (u0, v0, du, dv, maskValue) so the caller can unpack all face attributes.
 
-type EmitQuad = (
-  u0: number,
-  v0: number,
-  du: number,
-  dv: number,
-  maskValue: number
-) => void
-
+// emitQuad takes the 6-arg EmitQuadWithDepth (depth = the outer slice index). Callers
+// that don't need the depth simply pass a function with fewer params (JS ignores the
+// extra arg). Threading `depth` through lets per-face passes hand their stable `emit`
+// directly instead of allocating a fresh closure per depth-slice (~576/chunk).
 export const runGreedyExpansion = (
   mask: Uint32Array,
   uSize: number,
   vSize: number,
-  emitQuad: EmitQuad
+  emitQuad: EmitQuadWithDepth,
+  depth = 0
 ): void => {
   for (let u = 0; u < uSize; u++) {
     for (let v = 0; v < vSize; v++) {
@@ -94,7 +91,7 @@ export const runGreedyExpansion = (
         const rowStart = a * vSize + v
         mask.fill(0, rowStart, rowStart + dv)
       }
-      emitQuad(u, v, du, dv, maskValue)
+      emitQuad(u, v, du, dv, maskValue, depth)
     }
   }
 }
