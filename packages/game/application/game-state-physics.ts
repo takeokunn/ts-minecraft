@@ -165,11 +165,18 @@ export const applySneakEdgeClampInto = (
         || isBlockSolid(xR, d0, zR) || isBlockSolid(xR, d1, zR)
   })
 
+  // Snapshot collidedPos.x/z BEFORE writing to outPos — outPos may alias
+  // collidedPos (the caller in game-state-service reuses physPos for both).
+  const collidedX = collidedPos.x
+  const collidedZ = collidedPos.z
+  const collidedVx = collidedVel.x
+  const collidedVz = collidedVel.z
+
   outPos.x = sneakClamp.x
   outPos.z = sneakClamp.z
   outPos.y = collidedPos.y  // Y unchanged by sneak clamp
-  outVel.x = sneakClamp.x !== collidedPos.x ? 0 : collidedVel.x
+  outVel.x = sneakClamp.x !== collidedX ? 0 : collidedVx
   outVel.y = collidedVel.y
-  outVel.z = sneakClamp.z !== collidedPos.z ? 0 : collidedVel.z
+  outVel.z = sneakClamp.z !== collidedZ ? 0 : collidedVz
   return outPos
 }
