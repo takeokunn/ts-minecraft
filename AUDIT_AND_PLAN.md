@@ -1317,29 +1317,43 @@ A comprehensive multi-lens audit covering: (1) per-frame heap allocation census 
 - [x] R92: Thread computed `sunIntensity` from `lightingStage` into `refractionPrepassStage`; replace hardcoded `1.0` — `post-processing-stage.ts` (critical)
 - [x] R93: Hoist `readPlayerColumn` out of `Effect.gen` body; accept `chunkOpt, lx, lz` as explicit parameters — `physics-stage.ts` (high)
 - [x] R94: Replace `FrameCommand { _tag: 'Tick', timestamp }` with bare `Queue<number>` — `game-loop.ts` (high)
-- [ ] R95: Replace 4-element `[armorSlots...]` array literal in lava branch with direct inline sum — `physics-stage.ts` (high)
-- [ ] R96: Add `copyPositionInto` / `copyVelocityInto` to `PhysicsService` to eliminate per-call plain-object allocation — `physics-service.ts` (high)
-- [ ] R97: Change `triggerAttackSwing` to mutate state in-place; remove `{ ...state }` spread — `interaction-block-handler.ts` (high)
-- [ ] R98: Add `WOODEN_SHOVEL`–`DIAMOND_SHOVEL` to `ItemTypeSchema`, `durability.ts`, `tool-recipes.ts`, `break-speed.ts` (high)
-- [ ] R99: Add `GOLD_SWORD` / `GOLD_PICKAXE` / `GOLD_AXE` / `GOLD_HOE` / `GOLD_SHOVEL` to schema, durability (32), recipes, `break-speed.ts` (high)
-- [ ] R100: Gate `GTAOPass` / `BokehPass` construction behind `ssaoEnabled` / `dofEnabled` preset flags — `session-post-processing.ts` (high)
-- [ ] R101: Declare module-level `EMPTY_ENCHANTMENTS = Object.freeze([])` and use in all `onNone: () => []` sites — `interaction-block-handler.ts` (medium)
-- [ ] R102: Return tuple `[ticks, remainder]` from `advanceFixedStep` instead of plain object — `frame-runtime-logic.ts` (medium)
-- [ ] R103: Compute `chunkCoord` once at top of `physicsStage`; remove duplicate allocations in portal checks — `physics-stage.ts` (medium)
-- [ ] R104: Replace `Option.match` at fishing-tick and portal-check sites with `if (Option.isSome(x))` branches — `physics-stage.ts` (medium)
-- [ ] R105: Add explanatory comment to `disposeMesh` and call sites: why `material.dispose()` is deliberately omitted — `world-renderer-utils.ts` (medium)
-- [ ] R106: Replace `Set<string>` + template-literal keys in `simplifyMesh` with numeric hash — `lod-simplification.ts` (medium)
-- [ ] R107: Reuse `MeshAccumulator` arrays across `greedyMeshChunk` calls by resetting counts to 0 instead of reallocating — `greedy-meshing.ts` (medium)
-- [ ] R108: Add block→preferred-tool-category mapping to `computeBreakTicks`; only apply speed bonus on category match — `break-speed.ts` (medium)
-- [ ] R109: Remove `opacity: 0.6` from `transparentSolidMaterial`; rely on atlas alpha; set `alphaTest: 0.3` / `0.01` per type — `chunk-mesh-materials.ts` (medium)
-- [ ] R110: Add 4 corner-voxel checks to each `ao*` function in `greedy-meshing-ao.ts`; update AO tests (medium)
-- [ ] R111: Fix water refraction UV distortion scale to use RT dimensions (`400×300`) not canvas dimensions — `water-material.ts` (medium)
-- [ ] R112: Tie shadow map resolution to preset (`medium=1024`, `high/ultra=2048`); snap shadow camera to player XZ each frame — `session-lighting.ts` (medium)
-- [ ] R113: Add star field (`THREE.Points`, ~1500 positions, opacity = `1 - dayFactor`) to night sky — `day-night-cycle.ts` (medium)
-- [ ] R114: Verify `REGEN_FOOD_THRESHOLD = 18` in `hunger-service.config.ts`; lower from 20 if needed (medium)
-- [ ] R115: Raise default render distance from 4 to 8 chunks in `chunk-manager-constants.ts` (low)
-- [ ] R116: Add `GOLD_HELMET` / `CHESTPLATE` / `LEGGINGS` / `BOOTS` item types and armor recipes — `armor-recipes.ts` (low)
-- [ ] R117: Thread `ChunkCoord` as first-class field of `ChunkMeshes`; remove `userData` nullable extraction — `world-renderer-chunk-sync.ts` / `world-renderer-types.ts` (low)
-- [ ] R118: Replace `Ref.get` + conditional `Ref.set` in `hud-stage.ts` adaptive-quality with `Ref.modify` (low)
-- [ ] R119: Inline `addPlayer` body in `updateFromSnapshot`; remove nested `Effect.runSync` — `remote-player-renderer.ts` (low)
-- [ ] R120: Store debug-overlay daemon fiber; interrupt it in the `attach()` acquireRelease finalizer — `debug-overlay.ts` (low)
+- [x] R95: Replace 4-element `[armorSlots...]` array literal in lava branch with direct inline sum — `physics-stage.ts` (high) _(done 2026-06-12)_
+- [x] R96: Add `copyPositionInto` / `copyVelocityInto` to `PhysicsService` to eliminate per-call plain-object allocation — `physics-service.ts` (high) _(done 2026-06-12)_
+- [x] R97: Change `triggerAttackSwing` to mutate state in-place; remove `{ ...state }` spread — `interaction-melee-handler.ts` (high) _(done 2026-06-12)_
+- [x] R98: Add `WOODEN_SHOVEL`–`DIAMOND_SHOVEL` to `ItemTypeSchema`, `durability.ts`, `tool-recipes.ts`, `break-speed.ts` (high) _(done 2026-06-12)_
+- [ ] R99: Add `GOLD_SWORD` / `GOLD_PICKAXE` / `GOLD_AXE` / `GOLD_HOE` / `GOLD_SHOVEL` to schema, durability (32), recipes, `break-speed.ts` (high) — **DEFERRED** (same pattern as R98; gold tools with 32 durability)
+- [ ] R100: Gate `GTAOPass` / `BokehPass` construction behind `ssaoEnabled` / `dofEnabled` preset flags — `session-post-processing.ts` (high) — **DEFERRED**
+- [x] R101: Declare module-level `EMPTY_ENCHANTMENTS = Object.freeze([])` and use in all `onNone: () => []` sites — `item-stack.ts`, `interaction-melee-handler.ts`, `interaction-bow-handler.ts` (medium) _(done 2026-06-12)_
+- [x] R102: Return tuple `[ticks, remainder]` from `advanceFixedStep` instead of plain object — `frame-runtime-logic.ts` (medium) _(done 2026-06-12)_
+- [ ] R103: Compute `chunkCoord` once at top of `physicsStage`; remove duplicate allocations — **DEFERRED**
+- [ ] R104: Replace `Option.match` at fishing-tick and portal-check sites with `if` branches — **DEFERRED**
+- [x] R105: Add explanatory comment to `disposeMesh` why `material.dispose()` is deliberately omitted — `world-renderer-utils.ts` (medium) _(done 2026-06-12)_
+- [ ] R106: Replace `Set<string>` + template-literal keys in `simplifyMesh` with numeric hash — **DEFERRED**
+- [ ] R107: Reuse `MeshAccumulator` arrays across `greedyMeshChunk` calls — **DEFERRED**
+- [ ] R108: Add block→preferred-tool-category mapping to `computeBreakTicks` — **DEFERRED**
+- [ ] R109: Fix glass/leaves opacity — **DEFERRED**
+- [ ] R110-R113: AO / water refraction / shadow map / star field — **DEFERRED**
+- [x] R114: Verify `REGEN_FOOD_THRESHOLD = 18` in `hunger-service.config.ts` — already correct _(verified 2026-06-12)_
+- [x] R115: Raise default render distance from 4 to 8 chunks + adjust UNLOAD_DISTANCE 6→10 (low) _(done 2026-06-12)_
+- [ ] R116-R120: Gold armor / ChunkCoord refactor / Ref.modify / inline addPlayer / debug-overlay fiber — **DEFERRED** (low priority)
+
+---
+
+## AN. Round 37 (2026-06-12) — remaining R95-R120 execution
+
+Executed the highest-value remaining tasks from the Round 36 audit. Deferred
+R99-R100 (GOLD tools, post-processing VRAM) and R103-R113 (medium rendering
+cleanups) as lower ROI relative to the per-frame allocation fixes already landed.
+
+**Landed (8 tasks):**
+- [x] R95: physics-stage.ts — inline lava FIRE_PROTECTION sum, no per-tick array
+- [x] R97: interaction-melee-handler.ts — remove unnecessary `{ ...state }` spread
+- [x] R96: physics-service.ts + game-state-service.ts — copyPositionInto/copyVelocityInto output-parameter methods + module-scoped scratch objects (4 per-frame allocation sites eliminated)
+- [x] R98: shovels (WOODEN through DIAMOND) — added to ItemTypeSchema, durability, tool-recipes, ITEM_TILE_MAP, enchantment APPLICABLE_TO, NON_PLACEABLE_ITEM_TYPES. Break-speed table already had multipliers.
+- [x] R101: item-stack.ts — EMPTY_ENCHANTMENTS frozen constant + NO_DROPS constants in melee/bow handlers
+- [x] R102: frame-runtime-logic.ts — advanceFixedStep returns tuple [ticks, remainder]
+- [x] R105: world-renderer-utils.ts — strengthened disposeMesh documentation
+- [x] R114: verified REGEN_FOOD_THRESHOLD=18 (already correct)
+- [x] R115: chunk-manager-constants.ts — RENDER_DISTANCE 4→8, UNLOAD_DISTANCE 6→10
+
+**Quality gate:** typecheck 0 errors, lint 0 errors/2 warnings (pre-existing), 5663 tests passing (1 pre-existing skip). 9 commits on main.
