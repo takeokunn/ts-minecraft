@@ -85,7 +85,7 @@ describe('step 3.5 — fall damage', () => {
     expect(spy).toHaveBeenCalledOnce()
   }))
 
-  it.effect('ticks the hunger service each frame while alive', () => Effect.gen(function* () {
+  it.effect('ticks the hunger service once per game-tick (20Hz), not once per render frame', () => Effect.gen(function* () {
     const deps = yield* makeDeps(false)
     const services = makeServices({
       inputService: makeInputService(),
@@ -95,8 +95,15 @@ describe('step 3.5 — fall damage', () => {
     const spy = vi.fn(() => Effect.succeed('none' as const))
     ;(services.hungerService as { tick: unknown }).tick = spy
 
-    yield* runFrame(deps, services)
-
+    const { frameHandler, maintenanceHandler } = yield* createFrameHandlers(deps, services)
+    yield* maintenanceHandler()
+    // Three sub-tick frames (3 × 0.016 = 0.048 < 0.05) → not yet a game-tick → no hunger tick.
+    yield* frameHandler(0.016 as DeltaTimeSecs)
+    yield* frameHandler(0.016 as DeltaTimeSecs)
+    yield* frameHandler(0.016 as DeltaTimeSecs)
+    expect(spy).not.toHaveBeenCalled()
+    // The next frame crosses the 0.05s game-tick boundary → exactly one hunger tick.
+    yield* frameHandler(0.016 as DeltaTimeSecs)
     expect(spy).toHaveBeenCalledOnce()
   }))
 
@@ -128,7 +135,9 @@ describe('step 3.5 — fall damage', () => {
     const healSpy = vi.fn(() => Effect.void)
     ;(services.healthService as { heal: unknown }).heal = healSpy
 
-    yield* runFrame(deps, services)
+    const { frameHandler, maintenanceHandler } = yield* createFrameHandlers(deps, services)
+    yield* maintenanceHandler()
+    yield* frameHandler(0.05 as DeltaTimeSecs) // one 20Hz game-tick fires the food tick
 
     expect(healSpy).toHaveBeenCalledWith(1)
   }))
@@ -144,7 +153,9 @@ describe('step 3.5 — fall damage', () => {
     const applyDamageSpy = vi.fn(() => Effect.void)
     ;(services.healthService as { applyDamage: unknown }).applyDamage = applyDamageSpy
 
-    yield* runFrame(deps, services)
+    const { frameHandler, maintenanceHandler } = yield* createFrameHandlers(deps, services)
+    yield* maintenanceHandler()
+    yield* frameHandler(0.05 as DeltaTimeSecs) // one 20Hz game-tick fires the food tick
 
     // Fall damage + hostile damage both default to 0, so the only applyDamage
     // call comes from starvation.

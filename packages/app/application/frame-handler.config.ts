@@ -28,6 +28,10 @@ export const FLUID_TICK_INTERVAL_SECS = 0.05
 // window collapsed to ~0.167 s at 60fps — gating it here restores the correct, frame-rate
 // -independent duration. Matches REDSTONE/FLUID.
 export const HEALTH_TICK_INTERVAL_SECS = 0.05
+// Hunger/food timer also runs at 20 ticks/s. FOOD_TICK_INTERVAL=80 ticks = 4s at 20 t/s.
+// Previously hunger.tick() ran once per render frame, so the food/regen/starve event fired
+// every ~1.33s at 60fps (frame-rate dependent) — gating it here restores the 4s cadence.
+export const HUNGER_TICK_INTERVAL_SECS = 0.05
 
 export const REDSTONE_PLACE_WIRE_KEY   = 'KeyR'
 export const REDSTONE_PLACE_LEVER_KEY  = 'KeyL'

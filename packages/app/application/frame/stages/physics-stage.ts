@@ -8,8 +8,8 @@ import { HOTBAR_START, getFeatherFallingReduction, getFireProtectionReduction, g
 import type { DeltaTimeSecs, Position } from '@ts-minecraft/core'
 import { EXHAUSTION_WALK_PER_BLOCK, EXHAUSTION_SPRINT_PER_BLOCK, EXHAUSTION_SPRINT_JUMP, EXHAUSTION_JUMP, EXHAUSTION_DAMAGE, MAX_FOOD_LEVEL } from '@ts-minecraft/entity'
 import { accrueHazardTicks, nextAirSecs, LAVA_DAMAGE, LAVA_DAMAGE_INTERVAL_SECS, DROWN_DAMAGE, DROWN_DAMAGE_INTERVAL_SECS, MAX_AIR_SECS } from '@ts-minecraft/entity'
-import { EYE_LEVEL_OFFSET, HEALTH_TICK_INTERVAL_SECS } from '@ts-minecraft/app/frame-handler.config'
-import { runTickable } from '@ts-minecraft/app/frame/frame-runtime-logic'
+import { EYE_LEVEL_OFFSET, HEALTH_TICK_INTERVAL_SECS, HUNGER_TICK_INTERVAL_SECS } from '@ts-minecraft/app/frame-handler.config'
+import { runTickable, advanceFixedStep } from '@ts-minecraft/app/frame/frame-runtime-logic'
 import { makeColumnReaderAt } from './physics-stage-utils'
 import { applyNetherPortalTravel, applyEndPortalTravel } from './physics-stage-portal'
 
@@ -43,7 +43,7 @@ export const physicsStage = (
     FrameHandlerServices,
     'gameState' | 'healthService' | 'hungerService' | 'xpService' | 'equipmentService' | 'fishingService' | 'inventoryService' | 'hotbarService' | 'soundManager' | 'entityManager' | 'gameMode' | 'debugFeatureFlags' | 'chunkManagerService' | 'netherService' | 'blockService' | 'inputService'
   >,
-  refs: Pick<FrameStageRefs, 'lastHealthRef' | 'lastHungerRef' | 'lastXPRef' | 'lastArmorRef' | 'portalSecsRef' | 'dirtyChunksRef' | 'lavaDamageSecsRef' | 'airSecsRef' | 'drownDamageSecsRef' | 'lastAirBubblesRef' | 'isShieldBlockingRef' | 'wasGroundedRef' | 'finalPosRef' | 'healthTickAccumulatorRef'>,
+  refs: Pick<FrameStageRefs, 'lastHealthRef' | 'lastHungerRef' | 'lastXPRef' | 'lastArmorRef' | 'portalSecsRef' | 'dirtyChunksRef' | 'lavaDamageSecsRef' | 'airSecsRef' | 'drownDamageSecsRef' | 'lastAirBubblesRef' | 'isShieldBlockingRef' | 'wasGroundedRef' | 'finalPosRef' | 'healthTickAccumulatorRef' | 'hungerTickAccumulatorRef'>,
   inputs: {
     readonly deltaTime: DeltaTimeSecs
     readonly initialPlayerPos: Position
@@ -197,13 +197,24 @@ export const physicsStage = (
           // Regen (and the exhaustion it costs) only when actually below max health,
           // matching vanilla — otherwise an idle full-health player's food drains.
           const healthForRegen = yield* services.healthService.getHealth()
-          const hungerEffect = yield* services.hungerService.tick(healthForRegen.current < healthForRegen.max)
-          if (hungerEffect === 'regen') {
-            yield* services.healthService.heal(1)
-          } else if (hungerEffect === 'starve') {
-            const starved = yield* applyDamage(1)
-            if (starved) {
-              yield* services.soundManager.playEffect('playerHurt', { position: refreshedPos })
+          const canRegen = healthForRegen.current < healthForRegen.max
+          // Gate the food tick to the 20Hz game-tick rate (not the render frame rate), so the
+          // food/regen/starve cadence is the intended 4s regardless of fps. The deltaTime cap
+          // (0.05s) means hungerTicks is 0 or 1 in normal play; the loop only catches up after
+          // an unusually long frame. Each fired tick applies its own regen/starve effect.
+          const hungerTicks = yield* Ref.modify(refs.hungerTickAccumulatorRef, (acc): [number, number] => {
+            const [ticks, remainder] = advanceFixedStep(acc, inputs.deltaTime, HUNGER_TICK_INTERVAL_SECS)
+            return [ticks, remainder]
+          })
+          for (let i = 0; i < hungerTicks; i++) {
+            const hungerEffect = yield* services.hungerService.tick(canRegen)
+            if (hungerEffect === 'regen') {
+              yield* services.healthService.heal(1)
+            } else if (hungerEffect === 'starve') {
+              const starved = yield* applyDamage(1)
+              if (starved) {
+                yield* services.soundManager.playEffect('playerHurt', { position: refreshedPos })
+              }
             }
           }
 
