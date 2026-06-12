@@ -75,10 +75,17 @@ export const mergeStacks = (
 // Applies `amount` damage to a tool/weapon stack. Non-durable stacks (or durable
 // stacks somehow missing a durability value) pass through unchanged. A durable
 // stack reduced to 0 durability breaks → Option.none().
+// Frozen empty array shared across all enchantmentsOf call sites (R101).
+// Avoids per-frame allocation of a new empty array when a slot has no
+// enchantments — called on every hold-to-break tick, every left-click,
+// and every bow release in the hot path.
+const EMPTY_ENCHANTMENTS: ReadonlyArray<Enchantment> = Object.freeze([])
+
 // Extracts the enchantment list from an optional stack. Safe to call on any
-// slot-read result — returns [] when the slot is empty or has no enchantments.
+// slot-read result — returns EMPTY_ENCHANTMENTS when the slot is empty or has
+// no enchantments (avoids per-call [] allocation, R101).
 export const enchantmentsOf = (slot: Option.Option<ItemStack>): ReadonlyArray<Enchantment> =>
-  (Option.getOrNull(slot)?.enchantments ?? []) as ReadonlyArray<Enchantment>
+  (Option.getOrNull(slot)?.enchantments ?? EMPTY_ENCHANTMENTS) as ReadonlyArray<Enchantment>
 
 export const damageStack = (stack: ItemStack, amount = 1): Option.Option<ItemStack> => {
   if (!isDurable(stack.itemType) || stack.durability === undefined) return Option.some(stack)

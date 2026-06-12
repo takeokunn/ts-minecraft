@@ -3,6 +3,7 @@ import type { FrameHandlerDeps, FrameHandlerServices, FrameStageRefs } from '@ts
 import { findAttackableEntity } from '@ts-minecraft/app/frame/stages/attack-targeting'
 import { blockTypeToIndex, SlotIndex, ItemTypeSchema } from '@ts-minecraft/core'
 import { HOTBAR_START, isDurable, getKnockbackHorizontalMultiplier, getUnbreakingSkipChance, enchantmentsOf } from '@ts-minecraft/inventory'
+import type { EntityDrop } from '@ts-minecraft/entity'
 import { computeAttackDamage, computeKnockback, computeAttackCharge, computeChargedDamage, DEFAULT_ATTACK_COOLDOWN_SECS, getMobDefinition, EXHAUSTION_ATTACK, dropPasses, getWeaponBaseDamage, computeWeaponEnchantBonus } from '@ts-minecraft/entity'
 import { getParticleUvOffset } from '@ts-minecraft/rendering/particles/particle-system'
 import { triggerAttackSwing } from '@ts-minecraft/presentation/hud/attack-swing'
@@ -14,6 +15,9 @@ import type { TargetBlockHit, TargetRayHit } from '@ts-minecraft/app/frame/stage
 // precomputed ONCE at module load (perf policy — no per-frame alloc).
 const HIT_PARTICLE_BLOCK_ID = blockTypeToIndex('REDSTONE_BLOCK')
 const HIT_PARTICLE_UV = getParticleUvOffset(HIT_PARTICLE_BLOCK_ID)
+
+// R101: avoid per-kill [] allocation when entity has no drops.
+const NO_DROPS: ReadonlyArray<EntityDrop> = []
 
 const triggerHeldItemSwing = (refs: Pick<FrameStageRefs, 'totalTimeSecsRef' | 'attackSwingStateRef'>) =>
   Effect.gen(function* () {
@@ -112,7 +116,7 @@ export const handleLeftClick = (
     // Roll each chance-gated drop once; un-gated drops always pass.
     const rolledDrops = wasBaby
       ? []
-      : Arr.filter(Option.getOrElse(drops, () => []), (drop) => dropPasses(drop, Math.random()))
+      : Arr.filter(Option.getOrElse(drops, () => NO_DROPS), (drop) => dropPasses(drop, Math.random()))
     yield* Effect.forEach(
       rolledDrops,
       (drop) => services.inventoryService.addBlock(drop.blockType, drop.count),

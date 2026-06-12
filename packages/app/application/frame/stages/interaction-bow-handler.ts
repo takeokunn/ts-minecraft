@@ -2,10 +2,13 @@ import { Array as Arr, Effect, Option } from 'effect'
 import type { FrameHandlerDeps, FrameHandlerServices } from '@ts-minecraft/app/frame/types'
 import { findAttackableEntity } from '@ts-minecraft/app/frame/stages/attack-targeting'
 import { SlotIndex } from '@ts-minecraft/core'
-import type { EntityId as EntityIdType } from '@ts-minecraft/entity'
+import type { EntityDrop, EntityId as EntityIdType } from '@ts-minecraft/entity'
 import { computeKnockback, computeBowCharge, computeBowDamage, canFireBow, BOW_MAX_RANGE, getMobDefinition, dropPasses } from '@ts-minecraft/entity'
 import { HOTBAR_START, getPowerDamageMultiplier, getUnbreakingSkipChance, getPunchKnockbackBonus, enchantmentsOf } from '@ts-minecraft/inventory'
 import type { Enchantment } from '@ts-minecraft/inventory'
+
+// R101: avoid per-kill [] allocation when entity has no drops.
+const NO_DROPS: ReadonlyArray<EntityDrop> = []
 
 const applyBowHitToEntity = (
   entityId: EntityIdType,
@@ -33,7 +36,7 @@ const applyBowHitToEntity = (
     }
 
     // Roll each chance-gated drop once; un-gated drops always pass.
-    const rolledBowDrops = Arr.filter(Option.getOrElse(drops, () => []), (drop) => dropPasses(drop, Math.random()))
+    const rolledBowDrops = Arr.filter(Option.getOrElse(drops, () => NO_DROPS), (drop) => dropPasses(drop, Math.random()))
     yield* Effect.forEach(
       rolledBowDrops,
       (drop) => services.inventoryService.addBlock(drop.blockType, drop.count),
