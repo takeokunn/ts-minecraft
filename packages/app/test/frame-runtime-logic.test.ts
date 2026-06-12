@@ -127,8 +127,15 @@ describe('decideAdaptiveQuality', () => {
     expect(result.nextCooldown).toBe(4)
   })
 
-  it('returns no patch when fps >= threshold (110)', () => {
+  it('returns no patch when fps is at/above the threshold', () => {
     const result = decideAdaptiveQuality(makeAdaptiveInput({ fps: 120, cooldown: 0 }))
+    expect(Option.isNone(result.settingsPatch)).toBe(true)
+  })
+
+  it('does NOT degrade a smooth ~60fps experience (regression: old 110 threshold forced 60Hz users to the floor)', () => {
+    const result = decideAdaptiveQuality(
+      makeAdaptiveInput({ graphicsQuality: 'medium', renderDistance: 8, fps: 60, cooldown: 0 }),
+    )
     expect(Option.isNone(result.settingsPatch)).toBe(true)
   })
 

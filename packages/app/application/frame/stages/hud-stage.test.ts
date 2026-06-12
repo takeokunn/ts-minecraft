@@ -100,7 +100,7 @@ describe('adaptive performance mode', () => {
     Object.assign(services.settingsService, { getSettings: vi.fn(() => Effect.succeed({ ...DEFAULT_SETTINGS, adaptivePerformanceMode: false, graphicsQuality: 'high' as const })) })
     const updateSpy = vi.fn(() => Effect.void)
     Object.assign(services.settingsService, { updateSettings: updateSpy })
-    Object.assign(services.fpsCounter, { getFPS: vi.fn(() => Effect.succeed(100)) })
+    Object.assign(services.fpsCounter, { getFPS: vi.fn(() => Effect.succeed(30)) })
 
     yield* runFrame(deps, services)
 
@@ -117,7 +117,7 @@ describe('adaptive performance mode', () => {
     Object.assign(services.settingsService, { getSettings: vi.fn(() => Effect.succeed({ ...DEFAULT_SETTINGS, adaptivePerformanceMode: true, graphicsQuality: 'high' as const })) })
     const updateSpy = vi.fn(() => Effect.void)
     Object.assign(services.settingsService, { updateSettings: updateSpy })
-    Object.assign(services.fpsCounter, { getFPS: vi.fn(() => Effect.succeed(100)) })
+    Object.assign(services.fpsCounter, { getFPS: vi.fn(() => Effect.succeed(30)) })
 
     yield* runFrame(deps, services)
 
@@ -134,7 +134,7 @@ describe('adaptive performance mode', () => {
     Object.assign(services.settingsService, { getSettings: vi.fn(() => Effect.succeed({ ...DEFAULT_SETTINGS, adaptivePerformanceMode: true, graphicsQuality: 'low' as const, renderDistance: 8 })) })
     const updateSpy = vi.fn(() => Effect.void)
     Object.assign(services.settingsService, { updateSettings: updateSpy })
-    Object.assign(services.fpsCounter, { getFPS: vi.fn(() => Effect.succeed(100)) })
+    Object.assign(services.fpsCounter, { getFPS: vi.fn(() => Effect.succeed(30)) })
 
     yield* runFrame(deps, services)
 
@@ -151,7 +151,7 @@ describe('adaptive performance mode', () => {
     Object.assign(services.settingsService, { getSettings: vi.fn(() => Effect.succeed({ ...DEFAULT_SETTINGS, adaptivePerformanceMode: true, graphicsQuality: 'low' as const, renderDistance: 8 })) })
     const updateSpy = vi.fn(() => Effect.void)
     Object.assign(services.settingsService, { updateSettings: updateSpy })
-    Object.assign(services.fpsCounter, { getFPS: vi.fn(() => Effect.succeed(100)) })
+    Object.assign(services.fpsCounter, { getFPS: vi.fn(() => Effect.succeed(30)) })
     Object.assign(services.chunkManagerService, {
       loadChunksAroundPlayer: vi.fn(() => Effect.void),
       getLoadedChunks: vi.fn(() => Effect.succeed([{ coord: { x: 0, z: 0 }, blocks: new Uint8Array(0), dirty: false }])),

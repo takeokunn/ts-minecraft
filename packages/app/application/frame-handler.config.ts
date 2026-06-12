@@ -43,8 +43,14 @@ export const PLAYER_ATTACK_RADIUS       = 0.9
 // Entity bounding box center is 0.9 units above position.y (half hitbox height)
 export const ENTITY_CENTER_Y_OFFSET = 0.9
 
-// FPS threshold above which adaptive quality stops degrading (comfortably above 60Hz on 120Hz display)
-export const ADAPTIVE_QUALITY_HIGH_FPS_THRESHOLD = 110
+// FPS at/above which adaptive quality leaves the user's settings alone. This must be a
+// STRUGGLE line, not an aspirational ceiling: the game loop is capped near 60 fps and most
+// displays are 60 Hz / vsync-locked, so a value above ~60 (the old 110) made `fps < threshold`
+// true for essentially everyone — the default-on adaptive mode then degraded every player to
+// the quality floor (low + render distance 4) with no upgrade path, regardless of their
+// hardware. 50 keeps full quality for anyone holding a smooth ~50-60 fps and only sheds
+// quality when the frame rate genuinely drops below that.
+export const ADAPTIVE_QUALITY_HIGH_FPS_THRESHOLD = 50
 
 // Fallback when the physics surface query fails.
 export const FALLBACK_PLAYER_POS = Object.freeze({ x: 0, y: 64, z: 0 } as const)
