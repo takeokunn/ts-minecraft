@@ -36,6 +36,33 @@ const STEP_FOR_LOD: Readonly<Record<LodLevel, number>> = { 0: 1, 1: 2, 2: 4 }
 
 const isHorizontalNormal = (nx: number, nz: number): boolean => nx !== 0 || nz !== 0
 
+// Pack a quad identity (normal + snapped AABB) into a single numeric key.
+// Avoids per-quad template-literal string allocation in the dedup hot loop.
+// Bit layout (44 bits total, fits in 53-bit safe integer):
+//   0-1:  nx+1    2 bits
+//   2-3:  ny+1    2 bits
+//   4-5:  nz+1    2 bits
+//   6-10: p0x     5 bits (chunk-local, 0–31)
+//  11-19: p0y     9 bits (0–511)
+//  20-24: p0z     5 bits
+//  25-29: p2x     5 bits
+//  30-38: p2y     9 bits
+//  39-43: p2z     5 bits
+const packQuadKey = (
+  nx: number, ny: number, nz: number,
+  p0x: number, p0y: number, p0z: number,
+  p2x: number, p2y: number, p2z: number,
+): number =>
+  ((nx + 1) & 0x3) |
+  (((ny + 1) & 0x3) << 2) |
+  (((nz + 1) & 0x3) << 4) |
+  ((Math.round(p0x) & 0x1f) << 6) |
+  ((Math.round(p0y) & 0x1ff) << 11) |
+  ((Math.round(p0z) & 0x1f) << 20) |
+  ((Math.round(p2x) & 0x1f) << 25) |
+  ((Math.round(p2y) & 0x1ff) << 30) |
+  ((Math.round(p2z) & 0x1f) << 39)
+
 // Snap an axis extent (min..min+len) outward to multiples of `step`.
 // Returns the new [snapMin, snapMax] interval.
 const snapInterval = (min: number, len: number, step: number): readonly [number, number] => {
@@ -127,7 +154,7 @@ export const simplifyMesh = (meshed: MeshedChunk, lodLevel: LodLevel): MeshedChu
   // a 2×2 (or 4×4) cluster collapses to a single quad: this is where the actual
   // LOD vertex reduction happens. Removing an exact-coincident quad cannot open
   // a hole — the surviving quad covers the same area.
-  const seenQuads = new Set<string>()
+  const seenQuads = new Set<number>()
 
   for (let q = 0; q < quadCount; q += 1) {
     const indexBase = q * 6
@@ -177,9 +204,9 @@ export const simplifyMesh = (meshed: MeshedChunk, lodLevel: LodLevel): MeshedChu
     const nv3x = pickX(v3[0]!), nv3y = pickY(v3[1]!), nv3z = pickZ(v3[2]!)
 
     // Skip a quad that snaps onto a cell already emitted (same plane + extent).
-    // Keyed on the snapped box corners + normal, which uniquely identify the
-    // coincident rectangle regardless of original vertex order.
-    const key = `${nx},${ny},${nz}|${p0x},${p0y},${p0z}|${p2x},${p2y},${p2z}`
+    // Numeric key (44-bit packed) avoids per-quad template-literal string allocation
+    // in the dedup hot loop while preserving exact dedup behaviour.
+    const key = packQuadKey(nx, ny, nz, p0x, p0y, p0z, p2x, p2y, p2z)
     if (seenQuads.has(key)) continue
     seenQuads.add(key)
 
