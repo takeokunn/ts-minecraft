@@ -15,8 +15,8 @@ import { GameModeService } from './game-mode-service'
 import { OFFSETS_3x3, isBlockSolid, isInWater } from '../domain/block-collision-predicates'
 import { TimingState, INITIAL_TIMING_STATE } from './game-state.types'
 import {
-  computeFlightPosition,
-  blendVelocityForInput,
+  computeFlightPositionInto,
+  blendVelocityInto,
   resolveCollisionOrNoclip,
   applySneakEdgeClamp,
 } from './game-state-physics'
@@ -172,7 +172,7 @@ export class GameStateService extends Effect.Service<GameStateService>()(
             const jumped = inputVelocity.y > 0
 
             yield* physicsService.setVelocity(playerBodyId,
-              blendVelocityForInput(inputVelocity, currentVel, { flying, flightVy, jumped, isGrounded })
+              blendVelocityInto(_scratchVel, inputVelocity, currentVel, { flying, flightVy, jumped, isGrounded })
             )
 
             if (jumped) yield* Ref.set(isGroundedRef, false)
@@ -202,8 +202,11 @@ export class GameStateService extends Effect.Service<GameStateService>()(
               })
             )
 
-            const effPos: Position = flying ? computeFlightPosition(physPos, prePos.y, flightVy, deltaTime) : physPos
-            const effVel = flying ? { x: physVel.x, y: flightVy, z: physVel.z } : physVel
+            const effPos: Position = flying
+              ? computeFlightPositionInto(physPos, prePos.y, flightVy, deltaTime)
+              : physPos
+            if (flying) { (physVel as { y: number }).y = flightVy }
+            const effVel = physVel
 
             const playerCx = Math.floor(effPos.x / CHUNK_SIZE)
             const playerCz = Math.floor(effPos.z / CHUNK_SIZE)

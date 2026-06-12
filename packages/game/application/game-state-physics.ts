@@ -19,6 +19,19 @@ export const computeFlightPosition = (
   deltaTime: number,
 ): Position => ({ ...physPos, y: prePosY + flightVy * deltaTime } as Position)
 
+// Zero-allocation variant for the hot path: mutates `target` in-place instead
+// of creating a new Position via spread. `target` should be the same object
+// that holds the pre-flight position (typically `_scratchPosB`).
+export const computeFlightPositionInto = (
+  target: { x: number; y: number; z: number },
+  prePosY: number,
+  flightVy: number,
+  deltaTime: number,
+): Position => {
+  target.y = prePosY + flightVy * deltaTime
+  return target as unknown as Position
+}
+
 export const blendVelocityForInput = (
   inputVelocity: Vec3,
   currentVelocity: Vec3,
@@ -32,6 +45,23 @@ export const blendVelocityForInput = (
     y: flying ? flightVy : jumped ? inputVelocity.y : currentVelocity.y,
     z: airborneControl ? (hasMoveInput ? inputVelocity.z : currentVelocity.z) : inputVelocity.z,
   }
+}
+
+// Zero-allocation variant: writes result into `target` and returns it (allows
+// chaining while avoiding the per-frame object literal on the hot path).
+export const blendVelocityInto = (
+  target: Vec3,
+  inputVelocity: Vec3,
+  currentVelocity: Vec3,
+  opts: { flying: boolean; flightVy: number; jumped: boolean; isGrounded: boolean },
+): Vec3 => {
+  const { flying, flightVy, jumped, isGrounded } = opts
+  const airborneControl = !flying && !isGrounded
+  const hasMoveInput = inputVelocity.x !== 0 || inputVelocity.z !== 0
+  target.x = airborneControl ? (hasMoveInput ? inputVelocity.x : currentVelocity.x) : inputVelocity.x
+  target.y = flying ? flightVy : jumped ? inputVelocity.y : currentVelocity.y
+  target.z = airborneControl ? (hasMoveInput ? inputVelocity.z : currentVelocity.z) : inputVelocity.z
+  return target
 }
 
 export const resolveCollisionOrNoclip = (
@@ -56,17 +86,20 @@ export const applySneakEdgeClamp = (
     return { position: collidedPos, velocity: collidedVel }
   }
 
+  // Inline 4-corner ground-support check to avoid per-frame array allocations
+  // (previously: for (const cx of [x-W, x+W]) for (const cz of [z-W, z+W])).
   const sneakClamp = clampSneakEdge(prePos, collidedPos, (x, z) => {
     const feetY = collidedPos.y - PLAYER_HALF_HEIGHT
-    for (const cx of [x - PLAYER_HALF_WIDTH, x + PLAYER_HALF_WIDTH]) {
-      for (const cz of [z - PLAYER_HALF_WIDTH, z + PLAYER_HALF_WIDTH]) {
-        if (isBlockSolid(cx, feetY - 0.1, cz)
-          || isBlockSolid(cx, feetY - 0.1 - SNEAK_STEP_DOWN, cz)) {
-          return true
-        }
-      }
-    }
-    return false
+    const xL = x - PLAYER_HALF_WIDTH
+    const xR = x + PLAYER_HALF_WIDTH
+    const zL = z - PLAYER_HALF_WIDTH
+    const zR = z + PLAYER_HALF_WIDTH
+    const d0 = feetY - 0.1
+    const d1 = feetY - 0.1 - SNEAK_STEP_DOWN
+    return isBlockSolid(xL, d0, zL) || isBlockSolid(xL, d1, zL)
+        || isBlockSolid(xL, d0, zR) || isBlockSolid(xL, d1, zR)
+        || isBlockSolid(xR, d0, zL) || isBlockSolid(xR, d1, zL)
+        || isBlockSolid(xR, d0, zR) || isBlockSolid(xR, d1, zR)
   })
 
   return {
