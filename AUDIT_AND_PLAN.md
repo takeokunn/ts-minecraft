@@ -1859,3 +1859,20 @@ Remaining: **FIX-E** Power V over-scaled (×3.5 vs vanilla ×2.5), **FIX-F** spa
 `pnpm typecheck` 0 errors · `pnpm lint` 0 errors / 4 warnings (pre-existing) ·
 `pnpm check:refactor` all OK · `pnpm test` **5700 passing / 1 skipped** (+4 new tests) ·
 `pnpm build` exit 0 · 1 commit on `main`.
+
+---
+
+## BA. Round 50 (2026-06-13) — correctness fix #5: Power enchantment scaling
+
+- [x] **FIX-E**: **Power V dealt ×3.5 instead of vanilla ×2.5.** `getPowerDamageMultiplier` used
+  `1 + 0.5·level` with a comment mislabeling it "Vanilla". Vanilla Power adds 25% × (level + 1) of
+  arrow damage = `1 + 0.25·(level + 1)`: I=×1.5, II=×1.75, III=×2.0, IV=×2.25, V=×2.5. The old
+  formula over-scaled every level above I (V was ~40% too strong). Fixed the formula + comment + the
+  II/V test assertions (Power I = ×1.5 is identical in both). — `enchantment.ts`
+
+Remaining: **FIX-F** mob spawn (XZ-distance) vs despawn (3D-distance) mismatch.
+
+### Quality gate (Round 50)
+`pnpm typecheck` 0 errors · `pnpm lint` 0 errors / 4 warnings (pre-existing) ·
+`pnpm check:refactor` all OK · `pnpm test` **5700 passing / 1 skipped** (2 assertions corrected) ·
+`pnpm build` exit 0 · 1 commit on `main`.
