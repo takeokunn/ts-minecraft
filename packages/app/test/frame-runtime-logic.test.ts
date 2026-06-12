@@ -1,9 +1,11 @@
 import { describe, it, expect } from 'vitest'
-import { Option } from 'effect'
+import { Effect, Option, Ref } from 'effect'
+import { DeltaTimeSecs } from '@ts-minecraft/core'
 import {
   copyCameraPoseInto,
   hasCameraPoseChanged,
   advanceFixedStep,
+  runTickable,
   decideAdaptiveQuality,
   type CameraPoseSnapshot,
   type AdaptiveQualityInput,
@@ -110,6 +112,47 @@ describe('advanceFixedStep', () => {
     const [ticks] = advanceFixedStep(remainder, 0.02, 0.05)
     expect(ticks).toBe(1)
   })
+})
+
+// ─── runTickable ──────────────────────────────────────────────────────────────
+
+describe('runTickable', () => {
+  const run = <A>(eff: Effect.Effect<A, never>) => Effect.runSync(eff)
+
+  it('fires the tick once per fixed interval regardless of frame rate', () =>
+    run(Effect.gen(function* () {
+      const acc = yield* Ref.make(0)
+      const count = yield* Ref.make(0)
+      const tick = Ref.update(count, (n) => n + 1)
+      // Simulate 60 frames at ~60fps (deltaTime 1/60). 1s elapsed at a 0.05s (20Hz)
+      // interval must fire exactly 20 ticks — NOT 60 (which a per-frame count would give).
+      yield* Effect.repeatN(runTickable(acc, tick, DeltaTimeSecs.make(1 / 60), 0.05), 59)
+      expect(yield* Ref.get(count)).toBe(20)
+    })))
+
+  it('catches up multiple ticks when a single frame spans several intervals', () =>
+    run(Effect.gen(function* () {
+      const acc = yield* Ref.make(0)
+      const count = yield* Ref.make(0)
+      const tick = Ref.update(count, (n) => n + 1)
+      // One long 0.16s frame at a 0.05s interval = 3 ticks (floor(0.16/0.05)).
+      yield* runTickable(acc, tick, DeltaTimeSecs.make(0.16), 0.05)
+      expect(yield* Ref.get(count)).toBe(3)
+    })))
+
+  it('does not fire until the interval is reached', () =>
+    run(Effect.gen(function* () {
+      const acc = yield* Ref.make(0)
+      const count = yield* Ref.make(0)
+      const tick = Ref.update(count, (n) => n + 1)
+      // Two sub-interval frames (0.02s each = 0.04s total < 0.05s) → no tick yet.
+      yield* runTickable(acc, tick, DeltaTimeSecs.make(0.02), 0.05)
+      yield* runTickable(acc, tick, DeltaTimeSecs.make(0.02), 0.05)
+      expect(yield* Ref.get(count)).toBe(0)
+      // The third frame crosses 0.05s → exactly one tick.
+      yield* runTickable(acc, tick, DeltaTimeSecs.make(0.02), 0.05)
+      expect(yield* Ref.get(count)).toBe(1)
+    })))
 })
 
 // ─── decideAdaptiveQuality ────────────────────────────────────────────────────

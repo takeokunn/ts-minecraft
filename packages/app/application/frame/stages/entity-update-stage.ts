@@ -4,26 +4,9 @@ import { chunkBlockIndexUnchecked } from '@ts-minecraft/world'
 import { MOB_HALF_HEIGHT, MOB_HALF_WIDTH, BREED_XP_REWARD } from '@ts-minecraft/entity'
 import { logErrors } from '@ts-minecraft/app/frame/error-logging'
 import type { FrameHandlerDeps, FrameHandlerServices, FrameStageRefs } from '@ts-minecraft/app/frame/types'
-import { advanceFixedStep } from '@ts-minecraft/app/frame/frame-runtime-logic'
+import { runTickable } from '@ts-minecraft/app/frame/frame-runtime-logic'
 import { REDSTONE_TICK_INTERVAL_SECS, FLUID_TICK_INTERVAL_SECS } from '@ts-minecraft/app/frame-handler.config'
 import { CHUNK_HEIGHT, CHUNK_SIZE, type DeltaTimeSecs, type Position } from '@ts-minecraft/core'
-
-// Drives a fixed-step simulation service: advances the accumulator by deltaTime,
-// then runs `tick` exactly `ticks` times. Eliminates the duplicated pattern across
-// redstone and fluid simulation.
-const runTickable = (
-  accRef: Ref.Ref<number>,
-  tick: Effect.Effect<unknown, never>,
-  deltaTime: DeltaTimeSecs,
-  intervalSecs: number,
-): Effect.Effect<void, never> =>
-  Effect.gen(function* () {
-    const n = yield* Ref.modify(accRef, (accumulated): [number, number] => {
-      const [ticks, remainder] = advanceFixedStep(accumulated, deltaTime, intervalSecs)
-      return [ticks, remainder]
-    })
-    if (n > 0) yield* Effect.repeatN(tick, n - 1)
-  })
 
 const ENTITY_PHYSICS_CHUNK_OFFSETS = [
   [-1, -1, 0], [-1, 0, 1], [-1, 1, 2],

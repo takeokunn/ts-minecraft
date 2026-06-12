@@ -1,5 +1,6 @@
 import * as THREE from 'three'
-import { Option } from 'effect'
+import { Effect, Option, Ref } from 'effect'
+import type { DeltaTimeSecs } from '@ts-minecraft/core'
 import { ADAPTIVE_QUALITY_HIGH_FPS_THRESHOLD } from '@ts-minecraft/app/frame-handler.config'
 
 export type CameraPoseSnapshot = {
@@ -103,6 +104,25 @@ export const advanceFixedStep = (
   const ticks = Math.floor(nextAccumulated / intervalSeconds)
   return [ticks, nextAccumulated - ticks * intervalSeconds]
 }
+
+// Drives a fixed-step simulation service: advances the accumulator by deltaTime, then
+// runs `tick` exactly `ticks` times. This decouples a 20Hz game-tick simulation from the
+// (variable, ~60fps) render frame rate — without it, counting one tick per frame makes
+// the simulation run at the display refresh rate. Shared by the redstone/fluid (entity
+// stage) and health-invincibility (physics stage) tick paths.
+export const runTickable = (
+  accRef: Ref.Ref<number>,
+  tick: Effect.Effect<unknown, never>,
+  deltaTime: DeltaTimeSecs,
+  intervalSecs: number,
+): Effect.Effect<void, never> =>
+  Effect.gen(function* () {
+    const n = yield* Ref.modify(accRef, (accumulated): [number, number] => {
+      const [ticks, remainder] = advanceFixedStep(accumulated, deltaTime, intervalSecs)
+      return [ticks, remainder]
+    })
+    if (n > 0) yield* Effect.repeatN(tick, n - 1)
+  })
 
 const nextGraphicsQuality = (
   graphicsQuality: AdaptiveQualityInput['graphicsQuality'],

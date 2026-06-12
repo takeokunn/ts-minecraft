@@ -8,7 +8,8 @@ import { HOTBAR_START, getFeatherFallingReduction, getFireProtectionReduction, g
 import type { DeltaTimeSecs, Position } from '@ts-minecraft/core'
 import { EXHAUSTION_WALK_PER_BLOCK, EXHAUSTION_SPRINT_PER_BLOCK, EXHAUSTION_SPRINT_JUMP, EXHAUSTION_JUMP, EXHAUSTION_DAMAGE, MAX_FOOD_LEVEL } from '@ts-minecraft/entity'
 import { accrueHazardTicks, nextAirSecs, LAVA_DAMAGE, LAVA_DAMAGE_INTERVAL_SECS, DROWN_DAMAGE, DROWN_DAMAGE_INTERVAL_SECS, MAX_AIR_SECS } from '@ts-minecraft/entity'
-import { EYE_LEVEL_OFFSET } from '@ts-minecraft/app/frame-handler.config'
+import { EYE_LEVEL_OFFSET, HEALTH_TICK_INTERVAL_SECS } from '@ts-minecraft/app/frame-handler.config'
+import { runTickable } from '@ts-minecraft/app/frame/frame-runtime-logic'
 import { makeColumnReaderAt } from './physics-stage-utils'
 import { applyNetherPortalTravel, applyEndPortalTravel } from './physics-stage-portal'
 
@@ -42,7 +43,7 @@ export const physicsStage = (
     FrameHandlerServices,
     'gameState' | 'healthService' | 'hungerService' | 'xpService' | 'equipmentService' | 'fishingService' | 'inventoryService' | 'hotbarService' | 'soundManager' | 'entityManager' | 'gameMode' | 'debugFeatureFlags' | 'chunkManagerService' | 'netherService' | 'blockService' | 'inputService'
   >,
-  refs: Pick<FrameStageRefs, 'lastHealthRef' | 'lastHungerRef' | 'lastXPRef' | 'lastArmorRef' | 'portalSecsRef' | 'dirtyChunksRef' | 'lavaDamageSecsRef' | 'airSecsRef' | 'drownDamageSecsRef' | 'lastAirBubblesRef' | 'isShieldBlockingRef' | 'wasGroundedRef' | 'finalPosRef'>,
+  refs: Pick<FrameStageRefs, 'lastHealthRef' | 'lastHungerRef' | 'lastXPRef' | 'lastArmorRef' | 'portalSecsRef' | 'dirtyChunksRef' | 'lavaDamageSecsRef' | 'airSecsRef' | 'drownDamageSecsRef' | 'lastAirBubblesRef' | 'isShieldBlockingRef' | 'wasGroundedRef' | 'finalPosRef' | 'healthTickAccumulatorRef'>,
   inputs: {
     readonly deltaTime: DeltaTimeSecs
     readonly initialPlayerPos: Position
@@ -155,7 +156,10 @@ export const physicsStage = (
             yield* Ref.set(refs.finalPosRef, respawnPos)
           }
         } else {
-          yield* services.healthService.tick()
+          // Invincibility counts down at the 20Hz game-tick rate, not per render frame —
+          // otherwise the 0.5s i-frame window after a hit shrinks to ~0.167s at 60fps and
+          // mobs re-hit ~3x too fast. runTickable gates the decrement to a fixed cadence.
+          yield* runTickable(refs.healthTickAccumulatorRef, services.healthService.tick(), inputs.deltaTime, HEALTH_TICK_INTERVAL_SECS)
           const inCreative = yield* services.gameMode.isCreative()
 
           // Hunger coupling: horizontal distance travelled this frame accrues

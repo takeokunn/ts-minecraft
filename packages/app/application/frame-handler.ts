@@ -34,6 +34,7 @@ const createFrameLoopHandlersInternal = (
     const totalTimeSecsRef = yield* Ref.make(0)
     const redstoneTickAccumulatorRef = yield* Ref.make(0)
     const fluidTickAccumulatorRef = yield* Ref.make(0)
+    const healthTickAccumulatorRef = yield* Ref.make(0)
     // Refraction pre-pass frame counter: only render every N frames based on quality preset
     const refractionFrameCounterRef = yield* Ref.make(0)
     // Track whether the refraction texture has been rendered at least once —
@@ -168,6 +169,7 @@ const createFrameLoopHandlersInternal = (
       totalTimeSecsRef,
       redstoneTickAccumulatorRef,
       fluidTickAccumulatorRef,
+      healthTickAccumulatorRef,
       refractionFrameCounterRef,
       refractionValidRef,
       lastFpsTenthsRef,

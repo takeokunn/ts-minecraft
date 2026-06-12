@@ -132,6 +132,7 @@ export type FrameStageRefs = {
   readonly totalTimeSecsRef: Ref.Ref<number>
   readonly redstoneTickAccumulatorRef: Ref.Ref<number>
   readonly fluidTickAccumulatorRef: Ref.Ref<number>
+  readonly healthTickAccumulatorRef: Ref.Ref<number>
   readonly refractionFrameCounterRef: Ref.Ref<number>
   readonly refractionValidRef: Ref.Ref<boolean>
   readonly lastFpsTenthsRef: Ref.Ref<number>

@@ -23,6 +23,11 @@ export const DIRTY_CHUNK_FLUSH_CONCURRENCY = typeof Worker === 'undefined' ? 1 :
 
 export const REDSTONE_TICK_INTERVAL_SECS = 0.05
 export const FLUID_TICK_INTERVAL_SECS = 0.05
+// Health invincibility counts down at the 20 ticks/s game-tick rate (0.05 s/tick). The
+// tick was previously decremented once per RENDER frame, so the 10-tick (0.5 s) i-frame
+// window collapsed to ~0.167 s at 60fps — gating it here restores the correct, frame-rate
+// -independent duration. Matches REDSTONE/FLUID.
+export const HEALTH_TICK_INTERVAL_SECS = 0.05
 
 export const REDSTONE_PLACE_WIRE_KEY   = 'KeyR'
 export const REDSTONE_PLACE_LEVER_KEY  = 'KeyL'
