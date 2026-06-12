@@ -1839,3 +1839,23 @@ time-based and frame-rate-independent. Remaining correctness items: **FIX-D** Fo
 `pnpm typecheck` 0 errors · `pnpm lint` 0 errors / 4 warnings (pre-existing) ·
 `pnpm check:refactor` all OK · `pnpm test` **5696 passing / 1 skipped** (+1 new guard test) ·
 `pnpm build` exit 0 · 1 commit on `main`.
+
+---
+
+## AZ. Round 49 (2026-06-13) — correctness fix #4: Fortune enchantment
+
+- [x] **FIX-D**: **Fortune I yielded zero extra drops (a flat no-op), and II/III were deterministic.**
+  The break handler computed `Math.round(getFortuneDropMultiplier(level)) - 1`, but the multipliers
+  are EXPECTED values (I=1.33, II=1.75, III=2.5) — so `round(1.33)-1 = 0` gave Fortune I nothing, and
+  II/III a fixed +1/+2 instead of vanilla's random bonus. Added `rollFortuneExtraDrops(level, rng)`
+  that realizes the multiplier's fractional expectation probabilistically (integer part guaranteed,
+  fractional part = chance of one more drop): Fortune I now grants a bonus ~1/3 of breaks, II avg
+  +0.75, III guaranteed +1 plus 50% for a second. Pure + rng-injected (handler passes `Math.random()`).
+  +4 unit tests incl. a long-run-average check. — `enchantment.ts`, `interaction-break-handler.ts`
+
+Remaining: **FIX-E** Power V over-scaled (×3.5 vs vanilla ×2.5), **FIX-F** spawn/despawn distance mismatch.
+
+### Quality gate (Round 49)
+`pnpm typecheck` 0 errors · `pnpm lint` 0 errors / 4 warnings (pre-existing) ·
+`pnpm check:refactor` all OK · `pnpm test` **5700 passing / 1 skipped** (+4 new tests) ·
+`pnpm build` exit 0 · 1 commit on `main`.
