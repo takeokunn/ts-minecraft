@@ -1,4 +1,4 @@
-import { Option, Schema } from 'effect'
+import { Option } from 'effect'
 import { Chunk } from '@ts-minecraft/world'
 import {
   type LightGrids,
@@ -10,7 +10,6 @@ export * from './greedy-meshing-quads'
 
 import {
   EMPTY_MESHED_CHUNK,
-  RawMeshDataSchema,
   MeshedChunk,
   RawMeshData,
   ChunkWorldOffset,
@@ -105,17 +104,20 @@ export const greedyMeshChunk = (
     offset,
   )
 
-  const toRawMeshData = (a: MeshAccumulator): RawMeshData =>
-    Schema.decodeUnknownSync(RawMeshDataSchema)({
-      positions: a.positions.subarray(0, a.vertexCount * 3),
-      normals: a.normals.subarray(0, a.vertexCount * 3),
-      colors: a.colors.subarray(0, a.vertexCount * 3),
-      uvs: a.uvs.subarray(0, a.vertexCount * 2),
-      tileIndexes: a.tileIndexes.subarray(0, a.vertexCount),
-      indices: a.indices.subarray(0, a.indexCount),
-      vertexCount: a.vertexCount,
-      indexCount: a.indexCount,
-    })
+  // Construct RawMeshData directly from the accumulator's typed arrays. These buffers
+  // are produced internally by the face passes above, so Schema validation is redundant
+  // overhead on the per-chunk-mesh hot path (and risks throwing outside Effect's error
+  // channel). Mirrors decodeRaw in subregion-greedy-splice.ts.
+  const toRawMeshData = (a: MeshAccumulator): RawMeshData => ({
+    positions: a.positions.subarray(0, a.vertexCount * 3),
+    normals: a.normals.subarray(0, a.vertexCount * 3),
+    colors: a.colors.subarray(0, a.vertexCount * 3),
+    uvs: a.uvs.subarray(0, a.vertexCount * 2),
+    tileIndexes: a.tileIndexes.subarray(0, a.vertexCount),
+    indices: a.indices.subarray(0, a.indexCount),
+    vertexCount: a.vertexCount,
+    indexCount: a.indexCount,
+  })
 
   const toMeshedChunk = (raw: RawMeshData): MeshedChunk => ({
     positions: raw.positions.slice(),
