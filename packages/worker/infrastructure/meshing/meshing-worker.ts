@@ -6,6 +6,7 @@ import { LIGHT_BYTE_LENGTH } from '@ts-minecraft/block'
 import type { LightGrids } from '@ts-minecraft/block'
 import { greedyMeshChunk } from '@ts-minecraft/rendering/infrastructure/meshing/greedy-meshing'
 import { createGreedyMeshScratch } from '@ts-minecraft/rendering/infrastructure/meshing/greedy-meshing-types'
+import { TRANSPARENT_IDS_SET, TRANSPARENT_SOLID_IDS_SET } from './meshing-worker-config'
 import { LodLevelSchema, simplifyMesh } from '@ts-minecraft/rendering/infrastructure/meshing/lod-simplification'
 
 // Message shapes for the meshing worker protocol.
@@ -102,13 +103,16 @@ self.onmessage = (e: MessageEvent<unknown>): void => {
       ? { skyLight: new Uint8Array(skyLight), blockLight: new Uint8Array(blockLight) }
       : undefined
 
+  // Reuse pre-built Sets from meshing-worker-config instead of creating
+  // new Set instances per request. This lets buildLookup's WeakMap cache
+  // hit on every call after the first (same Set identity → same cache key).
   const result = greedyMeshChunk(
     chunk,
     { wx, wz },
-    new Set(transparentBlockIds),
+    TRANSPARENT_IDS_SET,
     scratch,
     lightGrids,
-    new Set(transparentSolidBlockIds),
+    TRANSPARENT_SOLID_IDS_SET,
   )
 
   // toMeshed() calls .slice() on each accumulator subarray, producing owned ArrayBuffers
