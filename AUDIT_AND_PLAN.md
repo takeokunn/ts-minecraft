@@ -1321,8 +1321,8 @@ A comprehensive multi-lens audit covering: (1) per-frame heap allocation census 
 - [x] R96: Add `copyPositionInto` / `copyVelocityInto` to `PhysicsService` to eliminate per-call plain-object allocation — `physics-service.ts` (high) _(done 2026-06-12)_
 - [x] R97: Change `triggerAttackSwing` to mutate state in-place; remove `{ ...state }` spread — `interaction-melee-handler.ts` (high) _(done 2026-06-12)_
 - [x] R98: Add `WOODEN_SHOVEL`–`DIAMOND_SHOVEL` to `ItemTypeSchema`, `durability.ts`, `tool-recipes.ts`, `break-speed.ts` (high) _(done 2026-06-12)_
-- [ ] R99: Add `GOLD_SWORD` / `GOLD_PICKAXE` / `GOLD_AXE` / `GOLD_HOE` / `GOLD_SHOVEL` to schema, durability (32), recipes, `break-speed.ts` (high) — **DEFERRED** (same pattern as R98; gold tools with 32 durability)
-- [ ] R100: Gate `GTAOPass` / `BokehPass` construction behind `ssaoEnabled` / `dofEnabled` preset flags — `session-post-processing.ts` (high) — **DEFERRED**
+- [x] R99: Add `GOLD_SWORD` / `GOLD_PICKAXE` / `GOLD_AXE` / `GOLD_HOE` / `GOLD_SHOVEL` to schema, durability (32), recipes, `break-speed.ts` (high) _(done 2026-06-12)_
+- [x] R100: Gate `GTAOPass` / `BokehPass` construction behind `ssaoEnabled` / `dofEnabled` preset flags — `session-post-processing.ts` (high) _(done 2026-06-12)_
 - [x] R101: Declare module-level `EMPTY_ENCHANTMENTS = Object.freeze([])` and use in all `onNone: () => []` sites — `item-stack.ts`, `interaction-melee-handler.ts`, `interaction-bow-handler.ts` (medium) _(done 2026-06-12)_
 - [x] R102: Return tuple `[ticks, remainder]` from `advanceFixedStep` instead of plain object — `frame-runtime-logic.ts` (medium) _(done 2026-06-12)_
 - [ ] R103: Compute `chunkCoord` once at top of `physicsStage`; remove duplicate allocations — **DEFERRED**
