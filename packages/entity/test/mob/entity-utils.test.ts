@@ -95,7 +95,7 @@ describe('entity/entity-utils', () => {
       wanderDirection: { x: 1, y: 0, z: 0 },
       attackCooldownRemaining: 0.5,
       isGrounded: false,
-      knockbackTicksRemaining: 0,
+      knockbackSecsRemaining: 0,
       stuckTicks: 0,
       fuseSecs: 0,
     })

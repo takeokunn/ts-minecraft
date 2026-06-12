@@ -697,6 +697,23 @@ describe('entity/entityManager', () => {
         expect(e.velocity.x).toBeCloseTo(5)
       }).pipe(Effect.provide(EntityManagerLive))
     )
+
+    it.effect('knockback duration is time-based, not frame-count-based (survives 6 sub-tick frames)', () =>
+      Effect.gen(function* () {
+        const em = yield* EntityManager
+        const id = yield* em.addEntity(EntityType.Zombie, { x: 0, y: 64, z: 0 })
+        yield* em.applyKnockback(id, { x: 5, y: 0, z: 0 })
+        // 6 frames × 0.016s = 0.096s, well under the 0.3s knockback window. A per-frame
+        // counter (the old bug) would have expired after exactly 6 decrements and let AI
+        // clobber the impulse; the seconds-based timer keeps the shove intact.
+        yield* Effect.forEach(Arr.makeBy(6, (i) => i), () =>
+          em.update(DeltaTimeSecs.make(0.016), { x: 1000, y: 64, z: 1000 }),
+          { concurrency: 1 },
+        )
+        const e = Option.getOrThrow(yield* em.getEntity(id))
+        expect(e.velocity.x).toBeCloseTo(5)
+      }).pipe(Effect.provide(EntityManagerLive))
+    )
   })
 
   describe('despawnAllEntities', () => {

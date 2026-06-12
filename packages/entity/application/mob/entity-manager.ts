@@ -65,7 +65,7 @@ export class EntityManager extends Effect.Service<EntityManager>()(
               wanderDirection: zero,
               attackCooldownRemaining: 0,
               isGrounded: false,
-              knockbackTicksRemaining: 0,
+              knockbackSecsRemaining: 0,
               stuckTicks: 0,
               fuseSecs: 0,
               // Naturally-spawned mobs are adults; breeding spawns babies (ageTicks 0) in R6c-4.

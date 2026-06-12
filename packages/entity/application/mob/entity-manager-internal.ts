@@ -8,7 +8,7 @@ import {
 } from '../../domain/mob/entity'
 import type { Position, Vector3 } from '@ts-minecraft/core'
 import { HOSTILE_ATTACK_COOLDOWN_SECS, type ManagedEntity } from '../../domain/mob/entity-internal'
-import { KNOCKBACK_DURATION_TICKS } from '../../domain/combat'
+import { KNOCKBACK_DURATION_SECS } from '../../domain/combat'
 import { LOVE_DURATION_TICKS, canAcceptBreedingFood, isBaby, acceleratedBabyAge } from '../../domain/mob/breeding'
 import { WOOL_REGROWTH_TICKS, canBeSheared, shearWoolCount } from '../../domain/mob/shearing'
 import { computeExplosionDamageAt, CREEPER_EXPLOSION_POWER } from '../../domain/explosion'
@@ -181,7 +181,7 @@ export const makeEntityManagerInternal = (
         return HashMap.set(entities, entityId, {
           ...entity,
           velocity: impulse,
-          knockbackTicksRemaining: KNOCKBACK_DURATION_TICKS,
+          knockbackSecsRemaining: KNOCKBACK_DURATION_SECS,
         })
       })
       yield* Ref.set(cachedEntitiesRef, Option.none())

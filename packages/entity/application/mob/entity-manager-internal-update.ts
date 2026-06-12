@@ -91,13 +91,15 @@ const processEntityAI = (
 
   const burning = daytimeBurningActive && entity.behavior === 'hostile'
 
-  if (entity.knockbackTicksRemaining > 0) {
+  if (entity.knockbackSecsRemaining > 0) {
     MutableRef.set(dirtyRef, true)
     return {
       ...entity,
       ...tickedBreeding,
       attackCooldownRemaining: nextAttackCooldown,
-      knockbackTicksRemaining: entity.knockbackTicksRemaining - 1,
+      // Decrement by real elapsed time (like attackCooldownRemaining above), not by 1 per
+      // frame — so the shove lasts its intended 0.3s at any frame rate.
+      knockbackSecsRemaining: Math.max(0, entity.knockbackSecsRemaining - deltaTime),
     }
   }
 

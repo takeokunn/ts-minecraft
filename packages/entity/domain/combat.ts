@@ -116,12 +116,15 @@ export const computeWeaponEnchantBonus = (
 // ─── Knockback ────────────────────────────────────────────────────────────────
 // A hit shoves the target away from the attacker (horizontal) and pops it up a
 // little (vertical). Velocities are in blocks/sec, comparable to mob speed (~1)
-// and jump velocity (~4.2). The impulse rides for KNOCKBACK_DURATION_TICKS AI
-// ticks before mob AI reclaims horizontal velocity (see EntityManager.update).
+// and jump velocity (~4.2). The impulse rides for KNOCKBACK_DURATION_SECS before
+// mob AI reclaims horizontal velocity (see EntityManager.update).
 
 export const KNOCKBACK_HORIZONTAL_SPEED = 5
 export const KNOCKBACK_VERTICAL_SPEED = 4.2
-export const KNOCKBACK_DURATION_TICKS = 6
+// 6 game ticks @ 20 ticks/s. Stored in SECONDS (not a frame count) and decremented by
+// deltaTime so the knockback lasts the same real 0.3s regardless of frame rate — counting
+// it down once per render frame made it ~3x too brief at 60fps (knockback barely registered).
+export const KNOCKBACK_DURATION_SECS = 0.3
 
 // Builds the knockback impulse from the attacker→target horizontal direction.
 // Degenerate (zero-length) direction yields a straight-up pop so a point-blank
