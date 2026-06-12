@@ -17,8 +17,8 @@ import { TimingState, INITIAL_TIMING_STATE } from './game-state.types'
 import {
   computeFlightPositionInto,
   blendVelocityInto,
-  resolveCollisionOrNoclip,
-  applySneakEdgeClamp,
+  resolveCollisionOrNoclipInto,
+  applySneakEdgeClampInto,
 } from './game-state-physics'
 
 export type { TimingState }
@@ -219,26 +219,27 @@ export class GameStateService extends Effect.Service<GameStateService>()(
             const isSolid = (wx: number, wy: number, wz: number): boolean =>
               isBlockSolid(wx, wy, wz, chunkCache, playerCx, playerCz)
 
-            const { position: collidedPos, velocity: collidedVel, isGrounded: newIsGrounded } =
-              resolveCollisionOrNoclip(effPos, effVel, isSolid, isSpectator)
+            const newIsGrounded = resolveCollisionOrNoclipInto(
+              physPos, physVel, effPos, effVel, isSolid, isSpectator,
+            )
 
-            const { position: resolvedPos, velocity: resolvedVel } =
-              applySneakEdgeClamp(prePos, collidedPos, collidedVel, isSolid, sneaking, isGrounded)
+            applySneakEdgeClampInto(physPos, physVel, prePos, physPos, physVel, isSolid, sneaking, isGrounded)
+            // physPos now holds resolvedPos, physVel holds resolvedVel
 
             yield* Effect.all([
-              physicsService.setPosition(playerBodyId, resolvedPos).pipe(Effect.catchTag('PhysicsServiceError', () => Effect.void)),
-              physicsService.setVelocity(playerBodyId, resolvedVel).pipe(Effect.catchTag('PhysicsServiceError', () => Effect.void)),
+              physicsService.setPosition(playerBodyId, physPos as Position).pipe(Effect.catchTag('PhysicsServiceError', () => Effect.void)),
+              physicsService.setVelocity(playerBodyId, physVel).pipe(Effect.catchTag('PhysicsServiceError', () => Effect.void)),
             ], { concurrency: 'unbounded', discard: true })
             yield* Ref.set(isGroundedRef, newIsGrounded)
 
-            if (!isSpectator && isInWater(resolvedPos.x, resolvedPos.y, resolvedPos.z, chunkCache, playerCx, playerCz)) {
+            if (!isSpectator && isInWater(physPos.x, physPos.y, physPos.z, chunkCache, playerCx, playerCz)) {
               const swimUp = !flying && (yield* inputService.isKeyPressed(KeyMappings.JUMP))
-              yield* applyWaterDrag(physicsService, playerBodyId, resolvedVel, swimUp)
+              yield* applyWaterDrag(physicsService, playerBodyId, physVel, swimUp)
             }
 
             yield* Effect.all([
-              playerService.updatePosition(playerId, resolvedPos),
-              playerService.updateVelocity(playerId, resolvedVel),
+              playerService.updatePosition(playerId, physPos as Position),
+              playerService.updateVelocity(playerId, physVel),
             ], { concurrency: 'unbounded', discard: true })
 
             const now = yield* Clock.currentTimeMillis

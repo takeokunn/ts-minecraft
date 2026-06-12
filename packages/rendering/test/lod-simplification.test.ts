@@ -191,10 +191,10 @@ describe('packQuadKey collision safety', () => {
     for (let ny = -1; ny <= 1; ny++) {
     for (let nz = -1; nz <= 1; nz++) {
     for (const p0x of [0, 8, 16]) {
-    for (const p0y of [0, 128, 255]) {
+    for (const p0y of [0, 128, 256]) {
     for (const p0z of [0, 8, 16]) {
     for (const p2x of [0, 8, 16]) {
-    for (const p2y of [0, 128, 255]) {
+    for (const p2y of [0, 128, 256]) {
     for (const p2z of [0, 8, 16]) {
       const key = packQuadKey(nx, ny, nz, p0x, p0y, p0z, p2x, p2y, p2z)
       expect(seen.has(key), `collision for (${nx},${ny},${nz}, ${p0x},${p0y},${p0z}, ${p2x},${p2y},${p2z})`).toBe(false)
@@ -202,6 +202,14 @@ describe('packQuadKey collision safety', () => {
     }}}}}}}}}
     // 3^3 × 3^4 × 3^2 = 27 × 81 × 9 = 19683
     expect(seen.size).toBe(19683)
+  })
+
+  it('handles y=256 boundary (top-face quads at chunk ceiling)', () => {
+    const k256 = packQuadKey(0, 1, 0, 0, 256, 0, 16, 256, 16)
+    const k255 = packQuadKey(0, 1, 0, 0, 255, 0, 16, 255, 16)
+    expect(k256).not.toBe(k255)
+    expect(k256).toBeGreaterThan(0)
+    expect(k255).toBeGreaterThan(0)
   })
 
   it('distinguishes swapped p0/p2 corners', () => {

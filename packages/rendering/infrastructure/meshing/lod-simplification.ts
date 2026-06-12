@@ -41,9 +41,10 @@ const isHorizontalNormal = (nx: number, nz: number): boolean => nx !== 0 || nz !
 //
 // Encoding: variable-base positional (NOT bitwise — JS bitwise ops truncate to
 // 32-bit signed int). All input components are small non-negative integers:
-//   nx+1,ny+1,nz+1 ∈ [0,2]   p0x,p0z,p2x,p2z ∈ [0,16]   p0y,p2y ∈ [0,255]
-// Bases: 17 for x/z coords (max 16+1), 256 for y (max 255+1), 3 for normals (max 2+1).
-// Max key ≈ 1.48e11, well within 2^53 = 9e15 IEEE-754 exact integer range.
+//   nx+1,ny+1,nz+1 ∈ [0,2]   p0x,p0z,p2x,p2z ∈ [0,16]   p0y,p2y ∈ [0,256]
+// Bases: 17 for x/z coords (max 16+1), 257 for y (max 256+1 — top-face quads
+// at y=CHUNK_HEIGHT=256), 3 for normals (max 2+1).
+// Max key = 148944920282 ≈ 1.49e11, well within 2^53 = 9e15 exact integer range.
 //
 // Components packed right-to-left as: p2z | p2y | p2x | p0z | p0y | p0x | nz+1 | ny+1 | nx+1
 export const packQuadKey = (
@@ -55,21 +56,21 @@ export const packQuadKey = (
   const b = Math.round(ny) + 1 // 0-2
   const c = Math.round(nz) + 1 // 0-2
   const d = Math.round(p0x)    // 0-16
-  const e = Math.round(p0y)    // 0-255
+  const e = Math.round(p0y)    // 0-256
   const f = Math.round(p0z)    // 0-16
   const g = Math.round(p2x)    // 0-16
-  const h = Math.round(p2y)    // 0-255
+  const h = Math.round(p2y)    // 0-256
   const i = Math.round(p2z)    // 0-16
   // JS engines constant-fold numeric-literal-only arithmetic; no runtime cost.
   return i
     + h * 17
-    + g * (17 * 256)                // 4352
-    + f * (17 * 256 * 17)           // 73984
-    + e * (17 * 256 * 17 * 17)      // 1257728
-    + d * (17 * 256 * 17 * 17 * 256)    // 321978368
-    + c * (17 * 256 * 17 * 17 * 256 * 17)       // 5473632256
-    + b * (17 * 256 * 17 * 17 * 256 * 17 * 3)   // 16420896768
-    + a * (17 * 256 * 17 * 17 * 256 * 17 * 3 * 3) // 49262690304
+    + g * (17 * 257)                     // 4369
+    + f * (17 * 257 * 17)                // 74273
+    + e * (17 * 257 * 17 * 17)           // 1262641
+    + d * (17 * 257 * 17 * 17 * 257)     // 324498737
+    + c * (17 * 257 * 17 * 17 * 257 * 17)         // 5516478529
+    + b * (17 * 257 * 17 * 17 * 257 * 17 * 3)     // 16549435587
+    + a * (17 * 257 * 17 * 17 * 257 * 17 * 3 * 3) // 49648306761
 }
 
 // Snap an axis extent (min..min+len) outward to multiples of `step`.

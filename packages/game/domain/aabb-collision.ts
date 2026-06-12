@@ -31,13 +31,15 @@ const bMin = (center: number, half: number): number =>
 const bMax = (center: number, half: number): number =>
   Math.floor(center + half - EPSILON)
 
-export const resolveBlockCollisions = (
+export const resolveBlockCollisionsInto = (
+  outPos: { x: number; y: number; z: number },
+  outVel: { x: number; y: number; z: number },
   pos: { x: number; y: number; z: number },
   velocity: { x: number; y: number; z: number },
   halfW: number,   // PLAYER_HALF_WIDTH = 0.3
   halfH: number,   // PLAYER_HALF_HEIGHT = 0.9
   isBlockSolid: (bx: number, by: number, bz: number) => boolean
-): CollisionResult => {
+): boolean => {
   let x = pos.x, y = pos.y, z = pos.z
   let vx = velocity.x, vy = velocity.y, vz = velocity.z
   let isGrounded = false
@@ -48,13 +50,8 @@ export const resolveBlockCollisions = (
     const headY = y + halfH
     const bxMin = bMin(x, halfW); const bxMax = bMax(x, halfW)
     const bzMin = bMin(z, halfW); const bzMax = bMax(z, halfW)
-    // Scan all Y levels in the player's bounding box (handles multi-block tunneling)
     const byLow = Math.floor(feetY)
     const byHigh = Math.floor(headY)
-    // The block column directly under the player's centre. A genuine vertical collision —
-    // floor, ceiling, or being embedded in a block placed on the player (anti-stuck) — is
-    // over/under the centre; a wall the player merely walked INTO is BESIDE the centre (the
-    // X/Z phase keeps the centre off it). This is what distinguishes them.
     const centerBx = Math.floor(x)
     const centerBz = Math.floor(z)
 
@@ -67,20 +64,14 @@ export const resolveBlockCollisions = (
           if (isBlockSolid(bx, by, bz)) {
             const blockTop = by + 1
             const blockBot = by
-            // Player Y range overlaps this block?
             if (headY > blockBot && feetY < blockTop) {
               const overCenter = bx === centerBx && bz === centerBz
               if (vy <= 0) {
-                // Floor — a block the feet land on/near, a fast fall sweeping past it, or a
-                // block under the player's centre (landing / anti-stuck). NOT a wall beside
-                // the player (the X/Z phase resolves that) — treating a beside-wall as a
-                // floor is what made walls climbable.
                 if ((blockTop - feetY <= MAX_STEP_UP || vy <= -FALL_VELOCITY_THRESHOLD || overCenter)
                   && blockTop > maxFloorY) {
                   maxFloorY = blockTop
                 }
               } else {
-                // Ceiling — a block just above the head, a fast rise, or a block over the centre.
                 if ((headY - blockBot <= MAX_STEP_UP || vy >= FALL_VELOCITY_THRESHOLD || overCenter)
                   && blockBot < minCeilY) {
                   minCeilY = blockBot
@@ -163,7 +154,22 @@ export const resolveBlockCollisions = (
     }
   }
 
-  return { position: { x, y, z }, velocity: { x: vx, y: vy, z: vz }, isGrounded }
+  outPos.x = x; outPos.y = y; outPos.z = z
+  outVel.x = vx; outVel.y = vy; outVel.z = vz
+  return isGrounded
+}
+
+export const resolveBlockCollisions = (
+  pos: { x: number; y: number; z: number },
+  velocity: { x: number; y: number; z: number },
+  halfW: number,
+  halfH: number,
+  isBlockSolid: (bx: number, by: number, bz: number) => boolean
+): CollisionResult => {
+  const outPos = { x: 0, y: 0, z: 0 }
+  const outVel = { x: 0, y: 0, z: 0 }
+  const isGrounded = resolveBlockCollisionsInto(outPos, outVel, pos, velocity, halfW, halfH, isBlockSolid)
+  return { position: outPos, velocity: outVel, isGrounded }
 }
 
 // R7: how far below the feet a block still counts as "support" while sneaking —
