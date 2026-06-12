@@ -12,7 +12,7 @@ import {
   OVERHANG_THRESHOLD,
 } from './constants'
 import { computeRuggedness, chunkBlockIndexUnchecked } from './math'
-import { computeLakeBasin, resolveSurfaceY } from './lake-generator'
+import { computeLakeBasin, resolveSurfaceY, fillWaterForColumn } from './lake-generator'
 import { resolveSurfaceProfile, fillColumn } from './surface-resolver'
 import { TREE_CANOPY_MARGIN, shouldPlaceTree, placeTree } from './tree-placer'
 import { createTreeColumnKey, supportsTreeAtSurface } from './generator-coordinates'
@@ -88,6 +88,11 @@ export const buildColumnStates = ({
         dioriteFlag,
         andesiteFlag,
       })
+
+      // Flood oceans, lakes, and rivers with WATER from surfaceY+1 up to the water level.
+      // Runs after the solid fill but before cave carving / overhangs / trees: cave-carver
+      // protects WATER, overhang/tree passes skip non-air blocks, so water is preserved.
+      fillWaterForColumn(blocks, lx, lz, biome, surfaceY, lakeBasinY, blockIndices.waterBlockIndex)
 
       /* c8 ignore next */
       const surfaceBlock = blocks[chunkBlockIndexUnchecked(lx, surfaceY, lz)] ?? blockIndices.airBlockIndex

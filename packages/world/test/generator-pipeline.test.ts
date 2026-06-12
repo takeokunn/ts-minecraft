@@ -1,7 +1,8 @@
 import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
 import { Effect, MutableHashMap } from 'effect'
-import { CHUNK_HEIGHT, CHUNK_SIZE, blockTypeToIndex } from '@ts-minecraft/core'
+import { CHUNK_HEIGHT, CHUNK_SIZE, SEA_LEVEL, blockTypeToIndex } from '@ts-minecraft/core'
+import { chunkBlockIndexUnchecked } from '../domain/terrain/math'
 import type { BiomeGeneratorPort } from '../domain/biome-generator-port'
 import { computeColumnYFromValues } from '../domain/density-function'
 import { peaksAndValleysFromWeirdness } from '../domain/biome-classifier'
@@ -74,7 +75,7 @@ describe('terrain/generator-pipeline', () => {
     })
   )
 
-  it('does not place generated water blocks for ocean or lake basins', () => {
+  it('fills ocean columns below sea level with WATER up to SEA_LEVEL', () => {
     const blockIndices = createBlockIndices()
     const columnCount = CHUNK_SIZE * CHUNK_SIZE
     const props: BiomeProperties = {
@@ -86,10 +87,7 @@ describe('terrain/generator-pipeline', () => {
     }
     const biomeColumns: ColumnStateBuildArgs['biomeColumns'] = Array.from(
       { length: columnCount },
-      (_, index) => ({
-        biome: index % 2 === 0 ? 'OCEAN' : 'PLAINS',
-        props,
-      }),
+      () => ({ biome: 'OCEAN' as const, props }),
     )
     const terrainChannels = {
       continentalness: new Float64Array(columnCount).fill(0.5),
@@ -98,6 +96,8 @@ describe('terrain/generator-pipeline', () => {
       jaggedness: new Float64Array(columnCount).fill(0.5),
     }
     const blocks = new Uint8Array(CHUNK_SIZE * CHUNK_HEIGHT * CHUNK_SIZE)
+    // Ocean floor below sea level → determineWaterLevel floods up to SEA_LEVEL.
+    const oceanFloorY = SEA_LEVEL - 5
 
     buildColumnStates({
       blocks,
@@ -105,7 +105,7 @@ describe('terrain/generator-pipeline', () => {
       baseWorldZ: 0,
       biomeColumns,
       terrainChannels,
-      initialSurfaceYs: new Int32Array(columnCount).fill(64),
+      initialSurfaceYs: new Int32Array(columnCount).fill(oceanFloorY),
       lakeNoiseVals: Array.from({ length: columnCount }, () => 1),
       graniteNoiseVals: Array.from({ length: columnCount }, () => 0),
       dioriteNoiseVals: Array.from({ length: columnCount }, () => 0),
@@ -114,6 +114,13 @@ describe('terrain/generator-pipeline', () => {
       blockIndices,
     })
 
-    expect(blocks.includes(blockTypeToIndex('WATER'))).toBe(false)
+    const waterIndex = blockTypeToIndex('WATER')
+    // Water is now generated (regression guard: this used to be entirely absent).
+    expect(blocks.includes(waterIndex)).toBe(true)
+    // Column (0,0): solid floor at oceanFloorY, water from floor+1 up to SEA_LEVEL, air above.
+    expect(blocks[chunkBlockIndexUnchecked(0, oceanFloorY, 0)]).not.toBe(waterIndex)
+    expect(blocks[chunkBlockIndexUnchecked(0, oceanFloorY + 1, 0)]).toBe(waterIndex)
+    expect(blocks[chunkBlockIndexUnchecked(0, SEA_LEVEL, 0)]).toBe(waterIndex)
+    expect(blocks[chunkBlockIndexUnchecked(0, SEA_LEVEL + 1, 0)]).not.toBe(waterIndex)
   })
 })
