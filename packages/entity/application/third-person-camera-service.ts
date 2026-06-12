@@ -14,8 +14,9 @@ export class ThirdPersonCameraService extends Effect.Service<ThirdPersonCameraSe
             const shoulderHeight = 1.5 // vertical offset above player eye level
             const yaw = rotation.yaw
             const pitch = rotation.pitch
-            const offsetX = Math.sin(yaw) * Math.cos(pitch) * distance
-            const offsetZ = Math.cos(yaw) * Math.cos(pitch) * distance
+            const cosPitch = Math.cos(pitch)
+            const offsetX = Math.sin(yaw) * cosPitch * distance
+            const offsetZ = Math.cos(yaw) * cosPitch * distance
             const offsetY = Math.sin(pitch) * distance + shoulderHeight
 
             yield* Effect.sync(() => {

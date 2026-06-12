@@ -47,10 +47,6 @@ export const updateDayNightCycle = (
     yield* timeService.advanceTick(deltaTime)
     const timeOfDay = yield* timeService.getTimeOfDay()
 
-    // Sun arc: 0.25=dawn, 0.5=noon, 0.75=dusk, 0.0/1.0=midnight
-    // sin peaks at noon (0.5), zero at dawn/dusk, negative at night → clamp to 0
-    const dayFactor = Math.max(0, Math.sin((timeOfDay - DAWN_PHASE_OFFSET) * Math.PI * 2))
-
     // Directional light follows a semicircular arc east→zenith→west across the
     // day. sunAngle spans 0 (dawn, east horizon) → π/2 (noon, overhead) → π
     // (dusk, west horizon), and goes negative / past π at night (sun below the
@@ -58,10 +54,16 @@ export const updateDayNightCycle = (
     // exactly at noon — not at dusk, as the prior ×π (only reaching π/2 at dusk)
     // incorrectly did.
     const sunAngle = (timeOfDay - DAWN_PHASE_OFFSET) * Math.PI * 2  // 0 at dawn, π/2 at noon, π at dusk
+    // Pre-compute trig for sunAngle — reused 3× below (light position + sky sunPos).
+    const cosSun = Math.cos(sunAngle)
+    const sinSun = Math.sin(sunAngle)
+    // Sun arc: 0.25=dawn, 0.5=noon, 0.75=dusk, 0.0/1.0=midnight
+    // sin peaks at noon (0.5), zero at dawn/dusk, negative at night → clamp to 0
+    const dayFactor = Math.max(0, sinSun)
 
     yield* Effect.sync(() => {
       lights.light.intensity = DIRECT_LIGHT_MIN + dayFactor * DIRECT_LIGHT_RANGE
-      lights.light.position.set(Math.cos(sunAngle) * SUN_DISTANCE, Math.sin(sunAngle) * SUN_HEIGHT, 0)
+      lights.light.position.set(cosSun * SUN_DISTANCE, sinSun * SUN_HEIGHT, 0)
 
       // Ambient light dims at night
       lights.ambientLight.intensity = AMBIENT_LIGHT_MIN + dayFactor * AMBIENT_LIGHT_RANGE
@@ -89,9 +91,7 @@ export const updateDayNightCycle = (
 
       const sky = Option.getOrNull(lights.sky)
       if (sky !== null) {
-        const sunX = Math.cos(sunAngle) * SUN_DISTANCE
-        const sunY = Math.sin(sunAngle) * SUN_HEIGHT
-        sky.uniforms.sunPosition.value.set(sunX, sunY, 0)
+        sky.uniforms.sunPosition.value.set(cosSun * SUN_DISTANCE, sinSun * SUN_HEIGHT, 0)
         // Turbidity increases near horizon (hazy at dawn/dusk)
         sky.uniforms.turbidity.value = SKY_TURBIDITY_DAY + (1 - dayFactor) * (SKY_TURBIDITY_HORIZON - SKY_TURBIDITY_DAY)
         sky.uniforms.rayleigh.value = SKY_RAYLEIGH_NIGHT + dayFactor * (SKY_RAYLEIGH_DAY - SKY_RAYLEIGH_NIGHT)

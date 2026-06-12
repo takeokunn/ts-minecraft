@@ -42,16 +42,20 @@ export const computeVelocity = (
 
   // Accumulate movement direction from all pressed keys.
   // Forward direction uses negative Z in most game engines.
+  // Pre-compute trig: yaw only changes on mouse move, but computeVelocity is
+  // called per-frame. 8→2 trig calls/frame.
+  const sinYaw = Math.sin(yaw)
+  const cosYaw = Math.cos(yaw)
   const rawX =
-    (input.forward ? -Math.sin(yaw) : 0) +
-    (input.backward ? Math.sin(yaw) : 0) +
-    (input.left ? -Math.cos(yaw) : 0) +
-    (input.right ? Math.cos(yaw) : 0)
+    (input.forward ? -sinYaw : 0) +
+    (input.backward ? sinYaw : 0) +
+    (input.left ? -cosYaw : 0) +
+    (input.right ? cosYaw : 0)
   const rawZ =
-    (input.forward ? -Math.cos(yaw) : 0) +
-    (input.backward ? Math.cos(yaw) : 0) +
-    (input.left ? Math.sin(yaw) : 0) +
-    (input.right ? -Math.sin(yaw) : 0)
+    (input.forward ? -cosYaw : 0) +
+    (input.backward ? cosYaw : 0) +
+    (input.left ? sinYaw : 0) +
+    (input.right ? -sinYaw : 0)
 
   // Normalize diagonal movement to prevent faster diagonal speeds.
   const length = Math.sqrt(rawX * rawX + rawZ * rawZ)
