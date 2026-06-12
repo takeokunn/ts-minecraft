@@ -76,6 +76,43 @@ export const TOOL_RECIPES: ReadonlyArray<Recipe> = [
     ],
     output: { itemType: 'DIAMOND_PICKAXE', count: 1 },
   }),
+  // ── Shovels (R98) ────────────────────────────────────────────────────────────
+  new Recipe({
+    id: RecipeId.make('planks-and-sticks-to-wooden-shovel'),
+    station: 'crafting_table',
+    ingredients: [
+      new RecipeIngredient({ itemType: 'PLANKS', count: 1 }),
+      new RecipeIngredient({ itemType: 'STICKS', count: 2 }),
+    ],
+    output: { itemType: 'WOODEN_SHOVEL', count: 1 },
+  }),
+  new Recipe({
+    id: RecipeId.make('cobblestone-and-sticks-to-stone-shovel'),
+    station: 'crafting_table',
+    ingredients: [
+      new RecipeIngredient({ itemType: 'COBBLESTONE', count: 1 }),
+      new RecipeIngredient({ itemType: 'STICKS', count: 2 }),
+    ],
+    output: { itemType: 'STONE_SHOVEL', count: 1 },
+  }),
+  new Recipe({
+    id: RecipeId.make('iron-ingots-and-sticks-to-iron-shovel'),
+    station: 'crafting_table',
+    ingredients: [
+      new RecipeIngredient({ itemType: 'IRON_INGOT', count: 1 }),
+      new RecipeIngredient({ itemType: 'STICKS', count: 2 }),
+    ],
+    output: { itemType: 'IRON_SHOVEL', count: 1 },
+  }),
+  new Recipe({
+    id: RecipeId.make('diamonds-and-sticks-to-diamond-shovel'),
+    station: 'crafting_table',
+    ingredients: [
+      new RecipeIngredient({ itemType: 'DIAMOND', count: 1 }),
+      new RecipeIngredient({ itemType: 'STICKS', count: 2 }),
+    ],
+    output: { itemType: 'DIAMOND_SHOVEL', count: 1 },
+  }),
   // ── Hoes ────────────────────────────────────────────────────────────────────
   new Recipe({
     id: RecipeId.make('planks-and-sticks-to-wooden-hoe'),

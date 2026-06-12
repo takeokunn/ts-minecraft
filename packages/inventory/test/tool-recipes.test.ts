@@ -16,7 +16,7 @@ const ingredientTotal = (id: string): number => {
   return Arr.reduce(recipe.ingredients, 0, (sum, ing) => sum + ing.count)
 }
 
-const TOOL_TYPES = ['SWORD', 'PICKAXE', 'HOE', 'AXE'] as const
+const TOOL_TYPES = ['SWORD', 'PICKAXE', 'SHOVEL', 'HOE', 'AXE'] as const
 const MATERIAL_TIERS = ['WOODEN', 'STONE', 'IRON', 'DIAMOND'] as const
 
 // ---------------------------------------------------------------------------
@@ -51,8 +51,8 @@ describe('application/recipes/tool-recipes', () => {
   })
 
   describe('completeness: all four tool types exist for every material tier', () => {
-    it('has 16 recipes total (4 types × 4 tiers)', () => {
-      expect(TOOL_RECIPES.length).toBe(16)
+    it('has 20 recipes total (5 types × 4 tiers)', () => {
+      expect(TOOL_RECIPES.length).toBe(20)
     })
 
     it('all tier/type combinations have a recipe with correct output itemType', () => {
@@ -92,6 +92,16 @@ describe('application/recipes/tool-recipes', () => {
         const outputItem = `${mat}_AXE` as InventoryItem
         const recipe = TOOL_RECIPES.find((r) => r.output.itemType === outputItem)!
         expect(ingredientTotal(recipe.id), `${outputItem} ingredient total`).toBe(5)
+        const stickIng = recipe.ingredients.find((i) => i.itemType === 'STICKS')
+        expect(stickIng?.count, `${outputItem} should need 2 sticks`).toBe(2)
+      }
+    })
+
+    it('shovels require 1 head material + 2 sticks (total 3)', () => {
+      for (const mat of MATERIAL_TIERS) {
+        const outputItem = `${mat}_SHOVEL` as InventoryItem
+        const recipe = TOOL_RECIPES.find((r) => r.output.itemType === outputItem)!
+        expect(ingredientTotal(recipe.id), `${outputItem} ingredient total`).toBe(3)
         const stickIng = recipe.ingredients.find((i) => i.itemType === 'STICKS')
         expect(stickIng?.count, `${outputItem} should need 2 sticks`).toBe(2)
       }

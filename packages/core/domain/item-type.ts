@@ -67,6 +67,11 @@ export const ItemTypeSchema = Schema.Literal(
   'STONE_HOE',
   'IRON_HOE',
   'DIAMOND_HOE',
+  // Shovel tools — dirt/sand/gravel excavation (R98)
+  'WOODEN_SHOVEL',
+  'STONE_SHOVEL',
+  'IRON_SHOVEL',
+  'DIAMOND_SHOVEL',
   // Axe tools — wood chopping + combat
   'WOODEN_AXE',
   'STONE_AXE',
