@@ -38,30 +38,39 @@ const isHorizontalNormal = (nx: number, nz: number): boolean => nx !== 0 || nz !
 
 // Pack a quad identity (normal + snapped AABB) into a single numeric key.
 // Avoids per-quad template-literal string allocation in the dedup hot loop.
-// Bit layout (44 bits total, fits in 53-bit safe integer):
-//   0-1:  nx+1    2 bits
-//   2-3:  ny+1    2 bits
-//   4-5:  nz+1    2 bits
-//   6-10: p0x     5 bits (chunk-local, 0–31)
-//  11-19: p0y     9 bits (0–511)
-//  20-24: p0z     5 bits
-//  25-29: p2x     5 bits
-//  30-38: p2y     9 bits
-//  39-43: p2z     5 bits
-const packQuadKey = (
+//
+// Encoding: variable-base positional (NOT bitwise — JS bitwise ops truncate to
+// 32-bit signed int). All input components are small non-negative integers:
+//   nx+1,ny+1,nz+1 ∈ [0,2]   p0x,p0z,p2x,p2z ∈ [0,16]   p0y,p2y ∈ [0,255]
+// Bases: 17 for x/z coords (max 16+1), 256 for y (max 255+1), 3 for normals (max 2+1).
+// Max key ≈ 1.48e11, well within 2^53 = 9e15 IEEE-754 exact integer range.
+//
+// Components packed right-to-left as: p2z | p2y | p2x | p0z | p0y | p0x | nz+1 | ny+1 | nx+1
+export const packQuadKey = (
   nx: number, ny: number, nz: number,
   p0x: number, p0y: number, p0z: number,
   p2x: number, p2y: number, p2z: number,
-): number =>
-  ((nx + 1) & 0x3) |
-  (((ny + 1) & 0x3) << 2) |
-  (((nz + 1) & 0x3) << 4) |
-  ((Math.round(p0x) & 0x1f) << 6) |
-  ((Math.round(p0y) & 0x1ff) << 11) |
-  ((Math.round(p0z) & 0x1f) << 20) |
-  ((Math.round(p2x) & 0x1f) << 25) |
-  ((Math.round(p2y) & 0x1ff) << 30) |
-  ((Math.round(p2z) & 0x1f) << 39)
+): number => {
+  const a = Math.round(nx) + 1 // 0-2
+  const b = Math.round(ny) + 1 // 0-2
+  const c = Math.round(nz) + 1 // 0-2
+  const d = Math.round(p0x)    // 0-16
+  const e = Math.round(p0y)    // 0-255
+  const f = Math.round(p0z)    // 0-16
+  const g = Math.round(p2x)    // 0-16
+  const h = Math.round(p2y)    // 0-255
+  const i = Math.round(p2z)    // 0-16
+  // JS engines constant-fold numeric-literal-only arithmetic; no runtime cost.
+  return i
+    + h * 17
+    + g * (17 * 256)                // 4352
+    + f * (17 * 256 * 17)           // 73984
+    + e * (17 * 256 * 17 * 17)      // 1257728
+    + d * (17 * 256 * 17 * 17 * 256)    // 321978368
+    + c * (17 * 256 * 17 * 17 * 256 * 17)       // 5473632256
+    + b * (17 * 256 * 17 * 17 * 256 * 17 * 3)   // 16420896768
+    + a * (17 * 256 * 17 * 17 * 256 * 17 * 3 * 3) // 49262690304
+}
 
 // Snap an axis extent (min..min+len) outward to multiples of `step`.
 // Returns the new [snapMin, snapMax] interval.

@@ -6,6 +6,7 @@ import {
   greedyMeshChunk,
   simplifyMesh,
   lodForDistance,
+  packQuadKey,
   LOD1_DISTANCE_CHUNKS,
   LOD2_DISTANCE_CHUNKS,
   type MeshedChunk,
@@ -179,4 +180,44 @@ describe('simplifyMesh', () => {
       expect(simplified.indices.length).toBeLessThanOrEqual(meshed.indices.length)
     }
   )
+})
+
+describe('packQuadKey collision safety', () => {
+  it('produces distinct keys for distinct inputs', () => {
+    // Verify no collision across the full input range for normals
+    // and boundary values for positions. Uses Set to detect duplicates.
+    const seen = new Set<number>()
+    for (let nx = -1; nx <= 1; nx++) {
+    for (let ny = -1; ny <= 1; ny++) {
+    for (let nz = -1; nz <= 1; nz++) {
+    for (const p0x of [0, 8, 16]) {
+    for (const p0y of [0, 128, 255]) {
+    for (const p0z of [0, 8, 16]) {
+    for (const p2x of [0, 8, 16]) {
+    for (const p2y of [0, 128, 255]) {
+    for (const p2z of [0, 8, 16]) {
+      const key = packQuadKey(nx, ny, nz, p0x, p0y, p0z, p2x, p2y, p2z)
+      expect(seen.has(key), `collision for (${nx},${ny},${nz}, ${p0x},${p0y},${p0z}, ${p2x},${p2y},${p2z})`).toBe(false)
+      seen.add(key)
+    }}}}}}}}}
+    // 3^3 × 3^4 × 3^2 = 27 × 81 × 9 = 19683
+    expect(seen.size).toBe(19683)
+  })
+
+  it('distinguishes swapped p0/p2 corners', () => {
+    const k1 = packQuadKey(0, 1, 0, 0, 0, 0, 16, 16, 16)
+    const k2 = packQuadKey(0, 1, 0, 16, 16, 16, 0, 0, 0)
+    expect(k1).not.toBe(k2)
+  })
+
+  it('distinguishes normal directions', () => {
+    const up    = packQuadKey(0,  1, 0, 0, 0, 0, 1, 0, 1)
+    const north = packQuadKey(0,  0,-1, 0, 0, 0, 1, 0, 1)
+    const east  = packQuadKey(1,  0, 0, 0, 0, 0, 1, 0, 1)
+    const down  = packQuadKey(0, -1, 0, 0, 0, 0, 1, 0, 1)
+    const south = packQuadKey(0,  0, 1, 0, 0, 0, 1, 0, 1)
+    const west  = packQuadKey(-1, 0, 0, 0, 0, 0, 1, 0, 1)
+    const keys = [up, north, east, down, south, west]
+    expect(new Set(keys).size).toBe(6)
+  })
 })
