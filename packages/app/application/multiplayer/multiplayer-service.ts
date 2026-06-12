@@ -139,20 +139,15 @@ export const MultiplayerServiceImpl = (
     )
 
     const startDrain: Effect.Effect<void, never> = Effect.gen(function* () {
-      yield* Effect.forkDaemon(
-        client.receiveMessages().pipe(
-          Effect.flatMap((stream) =>
-            Stream.runForEach(stream, (msg: NetworkMessage) =>
-              processInbound(msg, remotePlayersRef, chatMessagesRef, inboundBlockEditsRef),
-            ),
-          ),
-          Effect.catchAll(() => Effect.void),
-        ),
-      ).pipe(
-        Effect.flatMap((fiber) =>
-          Ref.set(drainFiberRef, Option.some(fiber)),
-        ),
+      const fiber = yield* Effect.forkDaemon(
+        Effect.gen(function* () {
+          const stream = yield* client.receiveMessages()
+          yield* Stream.runForEach(stream, (msg: NetworkMessage) =>
+            processInbound(msg, remotePlayersRef, chatMessagesRef, inboundBlockEditsRef),
+          )
+        }).pipe(Effect.catchAll(() => Effect.void)),
       )
+      yield* Ref.set(drainFiberRef, Option.some(fiber))
     })
 
     const stopDrain: Effect.Effect<void, never> = Effect.gen(function* () {
@@ -164,13 +159,11 @@ export const MultiplayerServiceImpl = (
     })
 
     const sendIfConnected = (msg: NetworkMessage): Effect.Effect<void, never> =>
-      Ref.get(playerNameRef).pipe(
-        Effect.flatMap((nameOpt) =>
-          Option.isNone(nameOpt)
-            ? Effect.void
-            : client.sendMessage(msg).pipe(Effect.catchAll(() => Effect.void)),
-        ),
-      )
+      Effect.gen(function* () {
+        const nameOpt = yield* Ref.get(playerNameRef)
+        if (Option.isNone(nameOpt)) return
+        yield* client.sendMessage(msg).pipe(Effect.catchAll(() => Effect.void))
+      })
 
     const floorPos = (pos: { readonly x: number; readonly y: number; readonly z: number }): Vec3 =>
       ({ x: Math.floor(pos.x), y: Math.floor(pos.y), z: Math.floor(pos.z) }) as Vec3

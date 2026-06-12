@@ -27,10 +27,16 @@ const joinMessage = (name: string): PlayerJoinMessage => ({
 })
 
 const sendMessage = (send: (data: ArrayBuffer) => Effect.Effect<void, unknown>, message: NetworkMessage) =>
-  encodeNetworkMessage(message).pipe(Effect.flatMap(send))
+  Effect.gen(function* () {
+    const data = yield* encodeNetworkMessage(message)
+    yield* send(data)
+  })
 
 const takeMessage = (take: Effect.Effect<ArrayBuffer, never>): Effect.Effect<NetworkMessage, never> =>
-  take.pipe(Effect.flatMap((raw) => decodeNetworkMessage(raw).pipe(Effect.orDie)))
+  Effect.gen(function* () {
+    const raw = yield* take
+    return yield* decodeNetworkMessage(raw).pipe(Effect.orDie)
+  })
 
 describe('network/server-service', () => {
   it.effect('server starts and stops successfully', () => {

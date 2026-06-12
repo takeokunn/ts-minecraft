@@ -12,27 +12,20 @@ const handleFishingRodActivation = (
   services: Pick<FrameHandlerServices, 'fishingService' | 'xpService' | 'inventoryService'>,
   selectedSlot: number,
 ): Effect.Effect<boolean, never> =>
-  services.fishingService.isFishing().pipe(
-    Effect.flatMap((alreadyFishing) => {
-      if (alreadyFishing) return services.fishingService.cancel().pipe(Effect.as(true))
-      return Effect.all(
-        [services.xpService.getXP(), services.inventoryService.getSlot(SlotIndex.make(HOTBAR_START + selectedSlot))],
-        { concurrency: 'unbounded' },
-      ).pipe(
-        Effect.flatMap(([xp, rodStack]) => {
-          const enchantments = enchantmentsOf(rodStack)
-          const lure = enchantments.find((e) => e.type === 'LURE')
-          const luck = enchantments.find((e) => e.type === 'LUCK_OF_THE_SEA')
-          return services.fishingService.cast(
-            xp.totalXP + xp.xpIntoLevel,
-            lure?.level ?? 0,
-            luck?.level ?? 0,
-          )
-        }),
-        Effect.as(true),
-      )
-    }),
-  )
+  Effect.gen(function* () {
+    const alreadyFishing = yield* services.fishingService.isFishing()
+    if (alreadyFishing) {
+      yield* services.fishingService.cancel()
+      return true
+    }
+    const xp = yield* services.xpService.getXP()
+    const rodStack = yield* services.inventoryService.getSlot(SlotIndex.make(HOTBAR_START + selectedSlot))
+    const enchantments = enchantmentsOf(rodStack)
+    const lure = enchantments.find((e) => e.type === 'LURE')
+    const luck = enchantments.find((e) => e.type === 'LUCK_OF_THE_SEA')
+    yield* services.fishingService.cast(xp.totalXP + xp.xpIntoLevel, lure?.level ?? 0, luck?.level ?? 0)
+    return true
+  })
 
 // ─── Armor equip ─────────────────────────────────────────────────────────────
 
@@ -48,17 +41,11 @@ const handleArmorEquipFromHotbar = (
     const armorSlot = Option.getOrNull(getArmorSlot(stack.itemType))
     if (armorSlot === null) return false
     const displaced = Option.getOrNull(yield* services.equipmentService.getEquippedItem(armorSlot))
-    yield* services.inventoryService
-      .removeBlock(item, 1, slotIndex)
-      .pipe(
-        Effect.andThen(services.equipmentService.equip(stack)),
-        Effect.andThen(
-          displaced !== null
-            ? services.inventoryService.addBlock(displaced.itemType, 1).pipe(Effect.asVoid)
-            : Effect.void,
-        ),
-        Effect.catchAll(() => Effect.void),
-      )
+    yield* Effect.gen(function* () {
+      yield* services.inventoryService.removeBlock(item, 1, slotIndex)
+      yield* services.equipmentService.equip(stack)
+      if (displaced !== null) yield* services.inventoryService.addBlock(displaced.itemType, 1)
+    }).pipe(Effect.catchAll(() => Effect.void))
     return true
   }).pipe(Effect.catchAll(() => Effect.succeed(false)))
 
@@ -68,10 +55,8 @@ export const handleFoodConsumption = (
   services: Pick<FrameHandlerServices, 'hotbarService' | 'hungerService' | 'inventoryService' | 'equipmentService' | 'fishingService' | 'xpService' | 'healthService'>,
 ): Effect.Effect<boolean, never> =>
   Effect.gen(function* () {
-    const [selected, selectedSlot] = yield* Effect.all(
-      [services.hotbarService.getSelectedBlockType(), services.hotbarService.getSelectedSlot()],
-      { concurrency: 'unbounded' },
-    )
+    const selected = yield* services.hotbarService.getSelectedBlockType()
+    const selectedSlot = yield* services.hotbarService.getSelectedSlot()
     const item = Option.getOrNull(selected)
     if (item === null) return false
     if (!Schema.is(ItemTypeSchema)(item)) return false
@@ -84,17 +69,11 @@ export const handleFoodConsumption = (
     const hunger = yield* services.hungerService.getHunger()
     if (hunger.foodLevel >= MAX_FOOD_LEVEL) return false
 
-    yield* services.inventoryService
-      .removeBlock(item, 1, SlotIndex.make(HOTBAR_START + selectedSlot))
-      .pipe(
-        Effect.andThen(services.hungerService.eat(food.foodLevel, food.saturationModifier)),
-        Effect.andThen(
-          item === 'GOLDEN_APPLE'
-            ? services.healthService.heal(4)
-            : Effect.void,
-        ),
-        Effect.catchAll(() => Effect.void),
-      )
+    yield* Effect.gen(function* () {
+      yield* services.inventoryService.removeBlock(item, 1, SlotIndex.make(HOTBAR_START + selectedSlot))
+      yield* services.hungerService.eat(food.foodLevel, food.saturationModifier)
+      if (item === 'GOLDEN_APPLE') yield* services.healthService.heal(4)
+    }).pipe(Effect.catchAll(() => Effect.void))
     return true
   })
 
@@ -139,7 +118,7 @@ export const handleUnequipArmor = (
       if (removed !== null) {
         yield* services.inventoryService
           .addBlock(removed.itemType, 1)
-          .pipe(Effect.catchAll(() => services.equipmentService.equip(removed).pipe(Effect.asVoid)))
+          .pipe(Effect.catchAll(() => Effect.gen(function* () { yield* services.equipmentService.equip(removed) })))
         return
       }
     }

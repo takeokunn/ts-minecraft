@@ -4,7 +4,7 @@
 import type { RandFn, NoiseFn2D, NoiseFn3D } from './noise-primitives'
 
 // Fisher-Yates shuffle using the provided PRNG
-function buildPerm(rand: RandFn): Uint8Array {
+const buildPerm = (rand: RandFn): Uint8Array => {
   const p = new Uint8Array(256)
   for (let i = 0; i < 256; i++) p[i] = i
   for (let i = 255; i > 0; i--) {
@@ -21,7 +21,7 @@ const lerp = (a: number, b: number, t: number): number => a + t * (b - a)
 
 // 2D Perlin — switch-based dot product with 8 gradients at 45-degree intervals
 const INV_SQRT2 = 1 / Math.SQRT2
-function dotGrad(perm: Uint8Array, ix: number, iy: number, dx: number, dy: number): number {
+const dotGrad = (perm: Uint8Array, ix: number, iy: number, dx: number, dy: number): number => {
   const inner = perm[ix & 255]!
   const h = perm[(inner + iy) & 255]! & 7
   switch (h) {
@@ -65,7 +65,7 @@ const GRAD3_Z: ReadonlyArray<number> = [0, 0, 0, 0, 1, 1, -1, -1, 1, 1, -1, -1, 
 
 const AMPLITUDE_SCALE_3D = Math.sqrt(3)
 
-function dotGrad3(perm: Uint8Array, ix: number, iy: number, iz: number, dx: number, dy: number, dz: number): number {
+const dotGrad3 = (perm: Uint8Array, ix: number, iy: number, iz: number, dx: number, dy: number, dz: number): number => {
   const a = perm[ix & 255]!
   const b = perm[(a + iy) & 255]!
   const h = perm[(b + iz) & 255]! & 15

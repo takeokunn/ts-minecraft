@@ -1,8 +1,11 @@
 import { describe, it, expect } from 'vitest'
 import { CHUNK_HEIGHT, CHUNK_SIZE } from '@ts-minecraft/core'
+import { LIGHT_BYTE_LENGTH } from '@ts-minecraft/world'
 import {
   FULL_RECOMPUTE_THRESHOLD,
   inLightBounds,
+  lightBufferOrFresh,
+  trackTouched,
   packPosLevel,
   unpackX,
   unpackY,
@@ -87,6 +90,64 @@ describe('packPosLevel / unpack round-trip', () => {
     expect(unpackLevel(p1)).toBe(unpackLevel(p2))
     expect(unpackX(p1)).toBe(0)
     expect(unpackX(p2)).toBe(5)
+  })
+})
+
+describe('lightBufferOrFresh', () => {
+  it('returns a fresh zero-filled buffer when given undefined', () => {
+    const buf = lightBufferOrFresh(undefined)
+    expect(buf).toBeInstanceOf(Uint8Array)
+    expect(buf.byteLength).toBe(LIGHT_BYTE_LENGTH)
+    expect(buf.every((v) => v === 0)).toBe(true)
+  })
+
+  it('returns the same buffer reference when given a valid-length buffer', () => {
+    const existing = new Uint8Array(LIGHT_BYTE_LENGTH)
+    existing[0] = 42
+    const result = lightBufferOrFresh(existing)
+    expect(result).toBe(existing)
+    expect(result[0]).toBe(42)
+  })
+
+  it('returns a new buffer when given a buffer with the wrong length', () => {
+    const wrongLength = new Uint8Array(4)
+    const result = lightBufferOrFresh(wrongLength)
+    expect(result).not.toBe(wrongLength)
+    expect(result.byteLength).toBe(LIGHT_BYTE_LENGTH)
+  })
+})
+
+describe('trackTouched', () => {
+  it('sets acc.aabb from null to the single-voxel AABB on first call', () => {
+    const acc = { aabb: null }
+    trackTouched(acc, 4, 64, 8)
+    expect(acc.aabb).not.toBeNull()
+    expect(acc.aabb!.minX).toBe(4)
+    expect(acc.aabb!.maxX).toBe(4)
+    expect(acc.aabb!.minY).toBe(64)
+    expect(acc.aabb!.maxY).toBe(64)
+    expect(acc.aabb!.minZ).toBe(8)
+    expect(acc.aabb!.maxZ).toBe(8)
+  })
+
+  it('expands the AABB to encompass a second voxel on subsequent calls', () => {
+    const acc = { aabb: null }
+    trackTouched(acc, 4, 64, 8)
+    trackTouched(acc, 10, 70, 2)
+    expect(acc.aabb!.minX).toBe(4)
+    expect(acc.aabb!.maxX).toBe(10)
+    expect(acc.aabb!.minY).toBe(64)
+    expect(acc.aabb!.maxY).toBe(70)
+    expect(acc.aabb!.minZ).toBe(2)
+    expect(acc.aabb!.maxZ).toBe(8)
+  })
+
+  it('single-voxel call leaves minX === maxX (point AABB)', () => {
+    const acc = { aabb: null }
+    trackTouched(acc, 7, 100, 7)
+    expect(acc.aabb!.minX).toBe(acc.aabb!.maxX)
+    expect(acc.aabb!.minY).toBe(acc.aabb!.maxY)
+    expect(acc.aabb!.minZ).toBe(acc.aabb!.maxZ)
   })
 })
 

@@ -66,7 +66,9 @@ export default defineConfig({
         'src/main.ts',
         'packages/app/application/main/**',
         'packages/app/application/frame/frame-maintenance.ts',
-        'packages/app/application/frame/stages/interaction-block-handler.ts',
+        'packages/app/application/frame/stages/interaction-break-handler.ts',
+        'packages/app/application/frame/stages/interaction-melee-handler.ts',
+        'packages/app/application/frame/stages/interaction-bow-handler.ts',
         'packages/app/application/frame/stages/interaction-item-use-handler.ts',
 
         // WORKER: Web Worker runtime APIs; contract marker in e2e/contracts/browser-api-contracts.e2e.ts.

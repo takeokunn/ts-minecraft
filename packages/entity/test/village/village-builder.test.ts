@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { VillageStructureId } from '@ts-minecraft/entity'
 import type { VillageStructure } from '@ts-minecraft/entity'
-import { buildingBlocksForStructure, buildingBlocksForVillage } from './village-builder'
+import { buildingBlocksForStructure, buildingBlocksForVillage } from '@ts-minecraft/entity'
 
 const makeStructure = (overrides: Partial<VillageStructure> & Pick<VillageStructure, 'type' | 'size'>): VillageStructure => ({
   structureId: VillageStructureId.make('test-structure'),

@@ -252,7 +252,7 @@ describe('concatQuads', () => {
 
     // write at vertex offset 4 (second quad slot)
     concatQuads(src, [0], outPos, outNormal, outColor, outUv, outTile, outIdx, 4, 6)
-    expect([...outIdx.slice(6, 12)]).toEqual([4, 5, 6, 4, 6, 7])
+    expect(Array.from(outIdx.slice(6, 12))).toEqual([4, 5, 6, 4, 6, 7])
   })
 })
 

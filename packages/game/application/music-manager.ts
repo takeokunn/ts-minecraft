@@ -27,13 +27,12 @@ type ActiveTrack = {
 export class MusicManager extends Effect.Service<MusicManager>()(
   '@minecraft/audio/MusicManager',
   {
-    effect: Effect.all([
-      AudioEnginePort,
-      Ref.make(true),
-      Ref.make(0.8),
-      Ref.make(0.55),
-      Ref.make<Option.Option<ActiveTrack>>(Option.none()),
-    ], { concurrency: 'unbounded' }).pipe(Effect.map(([audioEngine, enabledRef, masterVolumeRef, musicVolumeRef, activeTrackRef]) => {
+    effect: Effect.gen(function* () {
+      const audioEngine = yield* AudioEnginePort
+      const enabledRef = yield* Ref.make(true)
+      const masterVolumeRef = yield* Ref.make(0.8)
+      const musicVolumeRef = yield* Ref.make(0.55)
+      const activeTrackRef = yield* Ref.make<Option.Option<ActiveTrack>>(Option.none())
       const stopActiveTrack = (): Effect.Effect<void, never> =>
         Effect.gen(function* () {
           const activeTrackOpt = yield* Ref.getAndSet(activeTrackRef, Option.none())
@@ -106,9 +105,10 @@ export class MusicManager extends Effect.Service<MusicManager>()(
           stopActiveTrack(),
 
         getCurrentEnvironment: (): Effect.Effect<Option.Option<MusicEnvironment>, never> =>
-          Ref.get(activeTrackRef).pipe(
-            Effect.map((trackOpt) => Option.map(trackOpt, (track) => track.environment))
-          ),
+          Effect.gen(function* () {
+            const trackOpt = yield* Ref.get(activeTrackRef)
+            return Option.map(trackOpt, (track) => track.environment)
+          }),
 
         getState: (): Effect.Effect<{
           enabled: boolean
@@ -116,11 +116,9 @@ export class MusicManager extends Effect.Service<MusicManager>()(
           musicVolume: number
         }, never> =>
           Effect.gen(function* () {
-            const [enabled, masterVolume, musicVolume] = yield* Effect.all([
-              Ref.get(enabledRef),
-              Ref.get(masterVolumeRef),
-              Ref.get(musicVolumeRef),
-            ], { concurrency: 'unbounded' })
+            const enabled = yield* Ref.get(enabledRef)
+            const masterVolume = yield* Ref.get(masterVolumeRef)
+            const musicVolume = yield* Ref.get(musicVolumeRef)
 
             return {
               enabled,
@@ -129,7 +127,7 @@ export class MusicManager extends Effect.Service<MusicManager>()(
             }
           }),
       }
-    }))
+    }),
   },
 ) {}
 

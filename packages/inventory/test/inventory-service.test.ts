@@ -41,7 +41,10 @@ describe('application/inventory/inventory-service', () => {
       return Effect.gen(function* () {
         const service = yield* InventoryService
         yield* Effect.forEach(Arr.makeBy(HOTBAR_START, (i) => i), (i) =>
-          service.getSlot(asSlotIndex(i)).pipe(Effect.map((slot) => expect(Option.isNone(slot)).toBe(true)))
+          Effect.gen(function* () {
+            const slot = yield* service.getSlot(asSlotIndex(i))
+            expect(Option.isNone(slot)).toBe(true)
+          })
         , { concurrency: 1 })
       }).pipe(Effect.provide(testLayer))
     })
@@ -51,9 +54,10 @@ describe('application/inventory/inventory-service', () => {
       return Effect.gen(function* () {
         const service = yield* InventoryService
         yield* Effect.forEach(Arr.makeBy(HOTBAR_SIZE, (i) => i), (i) =>
-          service.getSlot(asSlotIndex(HOTBAR_START + i)).pipe(Effect.map((slot) => {
+          Effect.gen(function* () {
+            const slot = yield* service.getSlot(asSlotIndex(HOTBAR_START + i))
             expect(Option.isNone(slot)).toBe(true)
-          }))
+          })
         , { concurrency: 1 })
       }).pipe(Effect.provide(testLayer))
     })

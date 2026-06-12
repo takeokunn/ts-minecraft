@@ -1,5 +1,4 @@
 // Pure domain types for noise primitives — no infrastructure dependency.
-// These types mirror the Perlin noise type signatures from infrastructure/perlin.ts.
 
 import { Array as Arr } from 'effect'
 import { CHUNK_SIZE } from '@ts-minecraft/core'

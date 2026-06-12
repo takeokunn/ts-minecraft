@@ -44,9 +44,8 @@ export const updateDayNightCycle = (
   timeService: TimeService,
 ): Effect.Effect<void, never, never> =>
   Effect.gen(function* () {
-    const timeOfDay = yield* timeService.advanceTick(deltaTime).pipe(
-      Effect.andThen(timeService.getTimeOfDay()),
-    )
+    yield* timeService.advanceTick(deltaTime)
+    const timeOfDay = yield* timeService.getTimeOfDay()
 
     // Sun arc: 0.25=dawn, 0.5=noon, 0.75=dusk, 0.0/1.0=midnight
     // sin peaks at noon (0.5), zero at dawn/dusk, negative at night → clamp to 0

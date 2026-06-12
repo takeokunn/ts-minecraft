@@ -81,10 +81,10 @@ describe('storage/WorldMetadata encode↔decode round-trip (real persistence pat
     // is gone. This is what made saved worlds with items unloadable.
     const storedWithoutEncode = structuredClone(metadata)
     const result = await Effect.runPromise(
-      Schema.decodeUnknown(WorldMetadataSchema)(storedWithoutEncode).pipe(
-        Effect.map(() => 'OK' as const),
-        Effect.catchAll(() => Effect.succeed('FAILED' as const)),
-      ),
+      Effect.gen(function* () {
+        yield* Schema.decodeUnknown(WorldMetadataSchema)(storedWithoutEncode)
+        return 'OK' as const
+      }).pipe(Effect.catchAll(() => Effect.succeed('FAILED' as const))),
     )
     expect(result).toBe('FAILED')
   })

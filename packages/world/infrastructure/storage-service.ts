@@ -41,7 +41,8 @@ const openWorldDatabase = (): Effect.Effect<TypedIDBDatabase<MinecraftWorldsDB>,
 export class StorageService extends Effect.Service<StorageService>()(
   '@minecraft/infrastructure/storage/StorageService',
   {
-    effect: Ref.make<Option.Option<TypedIDBDatabase<MinecraftWorldsDB>>>(Option.none()).pipe(Effect.map((dbRef) => {
+    effect: Effect.gen(function* () {
+      const dbRef = yield* Ref.make<Option.Option<TypedIDBDatabase<MinecraftWorldsDB>>>(Option.none())
       const initialize: Effect.Effect<void, StorageError> = Effect.gen(function* () {
         const existingDb = yield* Ref.get(dbRef)
         if (Option.isNone(existingDb)) {
@@ -62,9 +63,10 @@ export class StorageService extends Effect.Service<StorageService>()(
         Effect.gen(function* () {
           yield* initialize
           return yield* withDb(dbRef, 'loadChunk', (db) =>
-            tryCatchStorageWithRetry('loadChunk', db.get(STORE_CHUNKS, chunkKey(worldId, chunkCoord))).pipe(
-              Effect.map(Option.fromNullable),
-            )
+            Effect.gen(function* () {
+              const raw = yield* tryCatchStorageWithRetry('loadChunk', db.get(STORE_CHUNKS, chunkKey(worldId, chunkCoord)))
+              return Option.fromNullable(raw)
+            })
           )
         })
 
@@ -81,9 +83,10 @@ export class StorageService extends Effect.Service<StorageService>()(
         Effect.gen(function* () {
           yield* initialize
           return yield* withDb(dbRef, 'loadWorldMetadata', (db) =>
-            tryCatchStorageWithRetry('loadWorldMetadata', db.get(STORE_METADATA, worldId)).pipe(
-              Effect.flatMap(decodeOptionalWorldMetadata),
-            )
+            Effect.gen(function* () {
+              const raw = yield* tryCatchStorageWithRetry('loadWorldMetadata', db.get(STORE_METADATA, worldId))
+              return yield* decodeOptionalWorldMetadata(raw)
+            })
           )
         })
 
@@ -124,7 +127,7 @@ export class StorageService extends Effect.Service<StorageService>()(
       })
 
       return { initialize, saveChunk, loadChunk, saveWorldMetadata, loadWorldMetadata, listWorldMetadata, deleteWorld }
-    })),
+    }),
   }
 ) {}
 export const StorageServiceLive = StorageService.Default

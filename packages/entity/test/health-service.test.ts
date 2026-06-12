@@ -15,7 +15,10 @@ import { INVINCIBILITY_TICKS_ON_HIT } from '../application/health-service.config
 const withHealthService = <A>(
   f: (hs: HealthService) => Effect.Effect<A, never>,
 ): Effect.Effect<A, never> =>
-  Effect.flatMap(HealthService, f).pipe(Effect.provide(HealthService.Default))
+  Effect.gen(function* () {
+    const hs = yield* HealthService
+    return yield* f(hs)
+  }).pipe(Effect.provide(HealthService.Default))
 
 // ─── applyDamageToHealth — pure ───────────────────────────────────────────────
 
@@ -99,11 +102,12 @@ describe('computeFallDamage', () => {
 describe('HealthService initial state', () => {
   it.effect('starts at full health (20/20)', () =>
     withHealthService((hs) =>
-      hs.getHealth().pipe(Effect.map((h) => {
+      Effect.gen(function* () {
+        const h = yield* hs.getHealth()
         expect(h.current).toBe(20)
         expect(h.max).toBe(20)
         expect(h.invincibilityTicks).toBe(0)
-      }))
+      })
     )
   )
 })
@@ -111,49 +115,52 @@ describe('HealthService initial state', () => {
 describe('HealthService.applyDamage', () => {
   it.effect('reduces health', () =>
     withHealthService((hs) =>
-      hs.applyDamage(5).pipe(
-        Effect.andThen(hs.getHealth()),
-        Effect.map((h) => expect(h.current).toBe(15)),
-      )
+      Effect.gen(function* () {
+        yield* hs.applyDamage(5)
+        const h = yield* hs.getHealth()
+        expect(h.current).toBe(15)
+      })
     )
   )
 
   it.effect('cannot go below 0', () =>
     withHealthService((hs) =>
-      hs.applyDamage(100).pipe(
-        Effect.andThen(hs.getHealth()),
-        Effect.map((h) => expect(h.current).toBe(0)),
-      )
+      Effect.gen(function* () {
+        yield* hs.applyDamage(100)
+        const h = yield* hs.getHealth()
+        expect(h.current).toBe(0)
+      })
     )
   )
 
   it.effect('sets invincibility ticks on hit', () =>
     withHealthService((hs) =>
-      hs.applyDamage(3).pipe(
-        Effect.andThen(hs.getHealth()),
-        Effect.map((h) => expect(h.invincibilityTicks).toBe(INVINCIBILITY_TICKS_ON_HIT)),
-      )
+      Effect.gen(function* () {
+        yield* hs.applyDamage(3)
+        const h = yield* hs.getHealth()
+        expect(h.invincibilityTicks).toBe(INVINCIBILITY_TICKS_ON_HIT)
+      })
     )
   )
 
   it.effect('zero amount is no-op', () =>
     withHealthService((hs) =>
-      hs.applyDamage(0).pipe(
-        Effect.andThen(hs.getHealth()),
-        Effect.map((h) => {
-          expect(h.current).toBe(20)
-          expect(h.invincibilityTicks).toBe(0)
-        }),
-      )
+      Effect.gen(function* () {
+        yield* hs.applyDamage(0)
+        const h = yield* hs.getHealth()
+        expect(h.current).toBe(20)
+        expect(h.invincibilityTicks).toBe(0)
+      })
     )
   )
 
   it.effect('negative amount is no-op', () =>
     withHealthService((hs) =>
-      hs.applyDamage(-5).pipe(
-        Effect.andThen(hs.getHealth()),
-        Effect.map((h) => expect(h.current).toBe(20)),
-      )
+      Effect.gen(function* () {
+        yield* hs.applyDamage(-5)
+        const h = yield* hs.getHealth()
+        expect(h.current).toBe(20)
+      })
     )
   )
 
@@ -184,10 +191,11 @@ describe('HealthService.heal', () => {
 
   it.effect('cannot exceed max', () =>
     withHealthService((hs) =>
-      hs.heal(50).pipe(
-        Effect.andThen(hs.getHealth()),
-        Effect.map((h) => expect(h.current).toBe(20)),
-      )
+      Effect.gen(function* () {
+        yield* hs.heal(50)
+        const h = yield* hs.getHealth()
+        expect(h.current).toBe(20)
+      })
     )
   )
 
@@ -207,19 +215,19 @@ describe('HealthService.heal', () => {
 describe('HealthService.isDead', () => {
   it.effect('true when health reaches 0', () =>
     withHealthService((hs) =>
-      hs.applyDamage(20).pipe(
-        Effect.andThen(hs.isDead()),
-        Effect.map((dead) => expect(dead).toBe(true)),
-      )
+      Effect.gen(function* () {
+        yield* hs.applyDamage(20)
+        expect(yield* hs.isDead()).toBe(true)
+      })
     )
   )
 
   it.effect('false when health is above 0', () =>
     withHealthService((hs) =>
-      hs.applyDamage(5).pipe(
-        Effect.andThen(hs.isDead()),
-        Effect.map((dead) => expect(dead).toBe(false)),
-      )
+      Effect.gen(function* () {
+        yield* hs.applyDamage(5)
+        expect(yield* hs.isDead()).toBe(false)
+      })
     )
   )
 })

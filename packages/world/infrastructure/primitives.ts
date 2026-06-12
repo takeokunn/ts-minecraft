@@ -31,4 +31,4 @@ export {
   octaveNoise2DBatch,
 } from '../domain/noise-primitives'
 
-export { createPerlinNoise2D, createPerlinNoise3D } from './perlin'
+export { createPerlinNoise2D, createPerlinNoise3D } from '../domain/perlin'

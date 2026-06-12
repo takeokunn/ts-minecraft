@@ -53,7 +53,10 @@ describe('step 2.85 — entity renderer wiring', () => {
     Object.assign(services.entityRenderer, { syncEntities: syncSpy })
 
     const { frameHandler, maintenanceHandler } = yield* createFrameHandlers(deps, services)
-    const handler = (deltaTime: DeltaTimeSecs) => maintenanceHandler().pipe(Effect.andThen(frameHandler(deltaTime)))
+    const handler = (deltaTime: DeltaTimeSecs) => Effect.gen(function* () {
+      yield* maintenanceHandler()
+      yield* frameHandler(deltaTime)
+    })
     yield* handler(0.016 as DeltaTimeSecs)
     yield* handler(0.016 as DeltaTimeSecs)
 
@@ -89,7 +92,10 @@ describe('step 2.85 — entity renderer wiring', () => {
     Object.assign(services.entityRenderer, { updateEntityTransforms: updateSpy })
 
     const { frameHandler, maintenanceHandler } = yield* createFrameHandlers(deps, services)
-    const handler = (deltaTime: DeltaTimeSecs) => maintenanceHandler().pipe(Effect.andThen(frameHandler(deltaTime)))
+    const handler = (deltaTime: DeltaTimeSecs) => Effect.gen(function* () {
+      yield* maintenanceHandler()
+      yield* frameHandler(deltaTime)
+    })
     yield* handler(0.016 as DeltaTimeSecs)
     yield* handler(0.016 as DeltaTimeSecs)
 
@@ -260,7 +266,10 @@ describe('step 2.85 — entity renderer wiring', () => {
     })
 
     const { frameHandler, maintenanceHandler } = yield* createFrameHandlers(deps, services)
-    const handler = (deltaTime: DeltaTimeSecs) => maintenanceHandler().pipe(Effect.andThen(frameHandler(deltaTime)))
+    const handler = (deltaTime: DeltaTimeSecs) => Effect.gen(function* () {
+      yield* maintenanceHandler()
+      yield* frameHandler(deltaTime)
+    })
     yield* handler(0.016 as DeltaTimeSecs)
     yield* handler(0.016 as DeltaTimeSecs)
 
@@ -288,7 +297,10 @@ describe('step 2.85 — entity renderer wiring', () => {
     })
 
     const { frameHandler, maintenanceHandler } = yield* createFrameHandlers(deps, services)
-    const handler = (deltaTime: DeltaTimeSecs) => maintenanceHandler().pipe(Effect.andThen(frameHandler(deltaTime)))
+    const handler = (deltaTime: DeltaTimeSecs) => Effect.gen(function* () {
+      yield* maintenanceHandler()
+      yield* frameHandler(deltaTime)
+    })
     yield* handler(0.12 as DeltaTimeSecs)
 
     expect(MutableRef.get(redstoneCountRef)).toBeGreaterThan(1)

@@ -102,16 +102,15 @@ describe('frame-maintenance / session-pause gate', () => {
     }))
     const despawnSpy = vi.fn((_playerPosition: Position, _maxDistance: number) => Effect.succeed(0))
     const mobSpawnSpy = vi.fn((_playerPosition: Position, resolveSpawn: (candidatePosition: Position) => Effect.Effect<Option.Option<Position>, never>) =>
-      resolveSpawn({ x: 1.5, y: 64, z: 2.5 }).pipe(
-        Effect.map((resolvedPosition) => {
-          expect(Option.isSome(resolvedPosition)).toBe(true)
-          const position = Option.getOrThrow(resolvedPosition)
-          expect(position.x).toBe(1.5)
-          expect(position.z).toBe(2.5)
-          expect(position.y).toBeCloseTo(11.9)
-          return Option.none()
-        }),
-      ),
+      Effect.gen(function* () {
+        const resolvedPosition = yield* resolveSpawn({ x: 1.5, y: 64, z: 2.5 })
+        expect(Option.isSome(resolvedPosition)).toBe(true)
+        const position = Option.getOrThrow(resolvedPosition)
+        expect(position.x).toBe(1.5)
+        expect(position.z).toBe(2.5)
+        expect(position.y).toBeCloseTo(11.9)
+        return Option.none()
+      }),
     )
 
     Object.assign(services.chunkManagerService, { getChunk: getChunkSpy })
@@ -156,7 +155,11 @@ describe('frame-maintenance / resolveTerrainSpawnPosition edge cases', () => {
 
       const results: Option.Option<Position>[] = []
       const services = makeMaintenanceServices(blocks, (resolver) =>
-        resolver({ x: 1.5, y: 64, z: 2.5 }).pipe(Effect.tap((r) => Effect.sync(() => results.push(r))), Effect.as(Option.none()))
+        Effect.gen(function* () {
+          const r = yield* resolver({ x: 1.5, y: 64, z: 2.5 })
+          results.push(r)
+          return Option.none<Position>()
+        })
       )
 
       const { maintenanceHandler } = yield* createFrameHandlers(deps, services)
@@ -173,7 +176,11 @@ describe('frame-maintenance / resolveTerrainSpawnPosition edge cases', () => {
 
       const results: Option.Option<Position>[] = []
       const services = makeMaintenanceServices(blocks, (resolver) =>
-        resolver({ x: 1.5, y: 64, z: 2.5 }).pipe(Effect.tap((r) => Effect.sync(() => results.push(r))), Effect.as(Option.none()))
+        Effect.gen(function* () {
+          const r = yield* resolver({ x: 1.5, y: 64, z: 2.5 })
+          results.push(r)
+          return Option.none<Position>()
+        })
       )
 
       const { maintenanceHandler } = yield* createFrameHandlers(deps, services)
@@ -196,7 +203,11 @@ describe('frame-maintenance / resolveTerrainSpawnPosition edge cases', () => {
 
       const results: Option.Option<Position>[] = []
       const services = makeMaintenanceServices(blocks, (resolver) =>
-        resolver({ x: 1.5, y: 64, z: 2.5 }).pipe(Effect.tap((r) => Effect.sync(() => results.push(r))), Effect.as(Option.none()))
+        Effect.gen(function* () {
+          const r = yield* resolver({ x: 1.5, y: 64, z: 2.5 })
+          results.push(r)
+          return Option.none<Position>()
+        })
       )
       Object.assign(services.chunkManagerService, { getChunk: vi.fn(() => Effect.succeed({ coord: { x: 0, z: 0 }, blocks, blockLight })) })
       Object.assign(services.timeService, { getTimeOfDay: vi.fn(() => Effect.succeed(0)) }) // midnight → hostile
@@ -217,7 +228,11 @@ describe('frame-maintenance / resolveTerrainSpawnPosition edge cases', () => {
 
       const results: Option.Option<Position>[] = []
       const services = makeMaintenanceServices(blocks, (resolver) =>
-        resolver({ x: 1.5, y: 64, z: 2.5 }).pipe(Effect.tap((r) => Effect.sync(() => results.push(r))), Effect.as(Option.none()))
+        Effect.gen(function* () {
+          const r = yield* resolver({ x: 1.5, y: 64, z: 2.5 })
+          results.push(r)
+          return Option.none<Position>()
+        })
       )
       Object.assign(services.chunkManagerService, { getChunk: vi.fn(() => Effect.succeed({ coord: { x: 0, z: 0 }, blocks, blockLight })) })
       Object.assign(services.timeService, { getTimeOfDay: vi.fn(() => Effect.succeed(0)) }) // midnight → hostile

@@ -71,22 +71,24 @@ describe('BiomeService — getBiomeProperties property tests', () => {
   it.effect('treeDensity is always in [0, 1] for all biome types', () =>
     Effect.gen(function* () {
       const service = yield* BiomeService
-      yield* Effect.forEach(ALL_BIOME_TYPES, (biome) => service.getBiomeProperties(biome).pipe(Effect.map((props) => {
+      yield* Effect.forEach(ALL_BIOME_TYPES, (biome) => Effect.gen(function* () {
+        const props = yield* service.getBiomeProperties(biome)
         expect(props.treeDensity).toBeGreaterThanOrEqual(0)
         expect(props.treeDensity).toBeLessThanOrEqual(1)
-      })), { concurrency: 1 })
+      }), { concurrency: 1 })
     }).pipe(Effect.provide(makeTestLayer(0.5, 0.5))),
   )
 
   it.effect('temperature and humidity properties are numeric for all biome types', () =>
     Effect.gen(function* () {
       const service = yield* BiomeService
-      yield* Effect.forEach(ALL_BIOME_TYPES, (biome) => service.getBiomeProperties(biome).pipe(Effect.map((props) => {
+      yield* Effect.forEach(ALL_BIOME_TYPES, (biome) => Effect.gen(function* () {
+        const props = yield* service.getBiomeProperties(biome)
         expect(typeof props.temperature).toBe('number')
         expect(typeof props.humidity).toBe('number')
         expect(Number.isFinite(props.temperature)).toBe(true)
         expect(Number.isFinite(props.humidity)).toBe(true)
-      })), { concurrency: 1 })
+      }), { concurrency: 1 })
     }).pipe(Effect.provide(makeTestLayer(0.5, 0.5))),
   )
 

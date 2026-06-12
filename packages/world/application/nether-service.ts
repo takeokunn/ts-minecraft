@@ -24,7 +24,10 @@ export class NetherService extends Effect.Service<NetherService>()('@ts-minecraf
     const stateRef = yield* Ref.make(INITIAL_STATE)
 
     const getDimension = (): Effect.Effect<Dimension> =>
-      Ref.get(stateRef).pipe(Effect.map((s) => s.dimension))
+      Effect.gen(function* () {
+        const s = yield* Ref.get(stateRef)
+        return s.dimension
+      })
 
     const setDimension = (dim: Dimension): Effect.Effect<void> =>
       Ref.update(stateRef, (s) => ({ ...s, dimension: dim }))
@@ -38,9 +41,10 @@ export class NetherService extends Effect.Service<NetherService>()('@ts-minecraf
       })
 
     const getPortals = (dim: Dimension): Effect.Effect<ReadonlyArray<Position>> =>
-      Ref.get(stateRef).pipe(
-        Effect.map((s) => Option.getOrElse(HashMap.get(s.portals, dim), () => [] as ReadonlyArray<Position>)),
-      )
+      Effect.gen(function* () {
+        const s = yield* Ref.get(stateRef)
+        return Option.getOrElse(HashMap.get(s.portals, dim), () => [] as ReadonlyArray<Position>)
+      })
 
     return { getDimension, setDimension, registerPortal, getPortals } satisfies NetherServiceImpl
   }),

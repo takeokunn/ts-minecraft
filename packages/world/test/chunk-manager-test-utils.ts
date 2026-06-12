@@ -75,13 +75,14 @@ export const buildInlineTerrainPoolLayer = (
       return TerrainWorkerPoolPort.of({
         _tag: '@minecraft/application/terrain/TerrainWorkerPoolPort' as const,
         generateTerrain: (coord: { readonly x: number; readonly z: number }, _options: { seaLevel: number; lakeLevel: number; seed: number }) =>
-          generateChunkTerrain(chunkService, biomeService, noiseService, coord).pipe(
-            Effect.map((chunk) => ({
+          Effect.gen(function* () {
+            const chunk = yield* generateChunkTerrain(chunkService, biomeService, noiseService, coord)
+            return {
               blocks: chunk.blocks,
               skyLight: new Uint8Array(LIGHT_BYTE_LENGTH),
               blockLight: new Uint8Array(LIGHT_BYTE_LENGTH),
-            })),
-          ),
+            }
+          }),
       })
     }),
   ).pipe(Layer.provide(deps))

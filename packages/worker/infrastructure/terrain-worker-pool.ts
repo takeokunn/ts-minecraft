@@ -33,7 +33,7 @@ import {
   type TerrainWorkerResponse,
 } from '../domain/terrain-worker-protocol'
 
-import { BLOCK_BYTES, computeWorkerCount, decodeResponseSync, formatWorkerErrorDetails, generateTerrainSync, isDevBuild, terminateWorkerSafely } from './terrain-worker-pool-helpers'
+import { computeWorkerCount, decodeResponseSync, formatWorkerErrorDetails, generateTerrainSync, terminateWorkerSafely } from './terrain-worker-pool-helpers'
 
 // Pending: `Effect.async` resume callbacks indexed by request id.
 type Pending = Readonly<{
@@ -248,9 +248,12 @@ export class TerrainWorkerPool extends Effect.Service<TerrainWorkerPool>()(
               }),
             }),
             Effect.catchAll((err) =>
-              Effect.logWarning(
-                `TerrainWorkerPool falling back to sync generation for chunk (${chunk.x},${chunk.z}): ${err.reason}`,
-              ).pipe(Effect.zipRight(generateTerrainSync(chunk, options)))
+              Effect.gen(function* () {
+                yield* Effect.logWarning(
+                  `TerrainWorkerPool falling back to sync generation for chunk (${chunk.x},${chunk.z}): ${err.reason}`,
+                )
+                return yield* generateTerrainSync(chunk, options)
+              })
             ),
           )
         },
@@ -270,8 +273,3 @@ export class TerrainWorkerPool extends Effect.Service<TerrainWorkerPool>()(
 export const TerrainWorkerPoolLive = TerrainWorkerPool.Default
 
 export { LIGHT_BYTE_LENGTH } from '@ts-minecraft/block'
-
-// Re-exports — kept here so integration agents can pull both the service and
-// the value-level helpers (BLOCK_BYTES, LIGHT_BYTE_LENGTH) from a single
-// import site.
-export { BLOCK_BYTES, isDevBuild }

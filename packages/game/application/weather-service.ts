@@ -32,7 +32,10 @@ export class WeatherService extends Effect.Service<WeatherService>()(
 
       return {
         getWeather: (): Effect.Effect<Weather, never> =>
-          Ref.get(stateRef).pipe(Effect.map((s) => s.weather)),
+          Effect.gen(function* () {
+            const s = yield* Ref.get(stateRef)
+            return s.weather
+          }),
 
         setWeather: (weather: Weather): Effect.Effect<void, never> =>
           Ref.update(stateRef, (s) => ({

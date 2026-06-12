@@ -139,7 +139,7 @@ describe('addQuad', () => {
       [0, 0, 0, 0], [15, 15, 15, 15], [0, 0, 0, 0],
       'side', 1, 1,
     )
-    expect([...acc.indices.slice(0, 6)]).toEqual([0, 1, 2, 0, 2, 3])
+    expect(Array.from(acc.indices.slice(0, 6))).toEqual([0, 1, 2, 0, 2, 3])
   })
 
   it('second addQuad shifts vertex indices by 4', () => {
@@ -155,6 +155,6 @@ describe('addQuad', () => {
       )
     q()
     q()
-    expect([...acc.indices.slice(6, 12)]).toEqual([4, 5, 6, 4, 6, 7])
+    expect(Array.from(acc.indices.slice(6, 12))).toEqual([4, 5, 6, 4, 6, 7])
   })
 })

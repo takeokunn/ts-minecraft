@@ -89,7 +89,10 @@ describe('step 1 — chunk streaming', () => {
     ;(services.worldRendererService as { syncChunksToScene: unknown }).syncChunksToScene = syncSpy
 
     const { frameHandler, maintenanceHandler } = yield* createFrameHandlers(deps, services)
-    const handler = (deltaTime: DeltaTimeSecs) => maintenanceHandler().pipe(Effect.andThen(frameHandler(deltaTime)))
+    const handler = (deltaTime: DeltaTimeSecs) => Effect.gen(function* () {
+      yield* maintenanceHandler()
+      yield* frameHandler(deltaTime)
+    })
     yield* handler(0.016 as DeltaTimeSecs)
     yield* handler(0.016 as DeltaTimeSecs)
 
@@ -123,7 +126,10 @@ describe('step 1 — chunk streaming', () => {
     ;(services.worldRendererService as { applyFrustumCulling: unknown }).applyFrustumCulling = spy
 
     const { frameHandler, maintenanceHandler } = yield* createFrameHandlers(deps, services)
-    const handler = (deltaTime: DeltaTimeSecs) => maintenanceHandler().pipe(Effect.andThen(frameHandler(deltaTime)))
+    const handler = (deltaTime: DeltaTimeSecs) => Effect.gen(function* () {
+      yield* maintenanceHandler()
+      yield* frameHandler(deltaTime)
+    })
     yield* handler(0.016 as DeltaTimeSecs)
     yield* handler(0.016 as DeltaTimeSecs)
     yield* handler(0.016 as DeltaTimeSecs)

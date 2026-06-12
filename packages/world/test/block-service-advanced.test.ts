@@ -65,7 +65,8 @@ describe('BlockService — catchTag', () => {
     const pos: Position = { x: 0, y: 0, z: 0 }
     const layer = createTestLayer(createMockChunkManagerService().service, createMockPlayerService({ x: 100, y: 0, z: 100 }))
     return Effect.gen(function* () {
-      const result = yield* BlockService.pipe(Effect.flatMap((svc) => svc.breakBlock(pos)), Effect.either)
+      const svc = yield* BlockService
+      const result = yield* svc.breakBlock(pos).pipe(Effect.either)
       const tag = Either.match(result, {
         onLeft: (error) => error._tag,
         onRight: () => 'unexpected-success',
@@ -79,7 +80,8 @@ describe('BlockService — catchTag', () => {
     const handle = createMockChunkManagerService([{ pos, blockType: 'GRASS' }])
     const layer = createTestLayer(handle.service, createMockPlayerService({ x: 100, y: 0, z: 100 }))
     return Effect.gen(function* () {
-      const result = yield* BlockService.pipe(Effect.flatMap((svc) => svc.placeBlock(pos, 'DIRT')), Effect.either)
+      const svc = yield* BlockService
+      const result = yield* svc.placeBlock(pos, 'DIRT').pipe(Effect.either)
       const tag = Either.match(result, {
         onLeft: (error) => error._tag,
         onRight: () => 'unexpected-success',
@@ -92,7 +94,8 @@ describe('BlockService — catchTag', () => {
     const pos: Position = { x: 0, y: 0, z: 0 }
     const layer = createTestLayer(createMockChunkManagerService().service, createMockPlayerService({ x: 100, y: 0, z: 100 }))
     return Effect.gen(function* () {
-      const result = yield* BlockService.pipe(Effect.flatMap((svc) => svc.breakBlock(pos)), Effect.either)
+      const svc = yield* BlockService
+      const result = yield* svc.breakBlock(pos).pipe(Effect.either)
       const msg = Either.match(result, {
         onLeft: (error) => error.message,
         onRight: () => '',

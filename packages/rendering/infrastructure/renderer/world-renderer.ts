@@ -127,118 +127,112 @@ export class WorldRendererService extends Effect.Service<WorldRendererService>()
           // frame pipeline, so the camera world matrix may be stale (camera.position was
           // just updated in step 8). Without this call, frustum culling would use last
           // frame's matrix, causing one-frame-behind popping artifacts.
-          Ref.get(meshesRef).pipe(
-            Effect.flatMap((meshes) =>
-              Ref.get(lastFrustumPoseRef).pipe(
-                Effect.flatMap((lastPose) => Effect.gen(function* () {
-                  // Compare camera state against lastPose inline first; only allocate
-                  // a new pose object when something actually changed. The hot-path
-                  // (camera idle / sub-tolerance jitter) returns immediately with zero allocations.
-                  const cx = camera.position.x
-                  const cy = camera.position.y
-                  const cz = camera.position.z
-                  const qx = camera.quaternion.x
-                  const qy = camera.quaternion.y
-                  const qz = camera.quaternion.z
-                  const qw = camera.quaternion.w
-                  const p0 = camera.projectionMatrix.elements[0]
-                  const p5 = camera.projectionMatrix.elements[5]
-                  const p10 = camera.projectionMatrix.elements[10]
-                  const p14 = camera.projectionMatrix.elements[14]
+          Effect.gen(function* () {
+            const meshes = yield* Ref.get(meshesRef)
+            const lastPose = yield* Ref.get(lastFrustumPoseRef)
+            // Compare camera state against lastPose inline first; only allocate
+            // a new pose object when something actually changed. The hot-path
+            // (camera idle / sub-tolerance jitter) returns immediately with zero allocations.
+            const cx = camera.position.x
+            const cy = camera.position.y
+            const cz = camera.position.z
+            const qx = camera.quaternion.x
+            const qy = camera.quaternion.y
+            const qz = camera.quaternion.z
+            const qw = camera.quaternion.w
+            const p0 = camera.projectionMatrix.elements[0]
+            const p5 = camera.projectionMatrix.elements[5]
+            const p10 = camera.projectionMatrix.elements[10]
+            const p14 = camera.projectionMatrix.elements[14]
 
-                  // FR-3.6: tolerance-based pose comparison — sub-pixel jitter is treated as cache hit
-                  // (movement of <1 mm or rotation of <0.011° cannot affect chunk-level visibility).
-                  const currentPose: CameraPoseCache = {
-                    x: cx, y: cy, z: cz,
-                    qx, qy, qz, qw,
-                    p0: p0 ?? Number.NaN,
-                    p5: p5 ?? Number.NaN,
-                    p10: p10 ?? Number.NaN,
-                    p14: p14 ?? Number.NaN,
-                  }
-                  if (isCameraPoseSimilar(lastPose, currentPose)) {
-                    return
-                  }
+            // FR-3.6: tolerance-based pose comparison — sub-pixel jitter is treated as cache hit
+            // (movement of <1 mm or rotation of <0.011° cannot affect chunk-level visibility).
+            const currentPose: CameraPoseCache = {
+              x: cx, y: cy, z: cz,
+              qx, qy, qz, qw,
+              p0: p0 ?? Number.NaN,
+              p5: p5 ?? Number.NaN,
+              p10: p10 ?? Number.NaN,
+              p14: p14 ?? Number.NaN,
+            }
+            if (isCameraPoseSimilar(lastPose, currentPose)) {
+              return
+            }
 
-                  camera.updateMatrixWorld()
-                  _projMatrix.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse)
-                  _frustum.setFromProjectionMatrix(_projMatrix)
+            camera.updateMatrixWorld()
+            _projMatrix.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse)
+            _frustum.setFromProjectionMatrix(_projMatrix)
 
-                  // Performance boundary: imperative loop avoids ~500-900 allocations/frame
-                  // from Arr.fromIterable + Option.fromNullable + Option.match per chunk
-                  for (const chunkMeshes of HashMap.values(meshes)) {
-                    const coord = chunkMeshes.opaque.userData.chunkCoord
-                    /* c8 ignore next */
-                    if (coord == null) continue
+            // Performance boundary: imperative loop avoids ~500-900 allocations/frame
+            // from Arr.fromIterable + Option.fromNullable + Option.match per chunk
+            for (const chunkMeshes of HashMap.values(meshes)) {
+              const coord = chunkMeshes.opaque.userData.chunkCoord
+              /* c8 ignore next */
+              if (coord == null) continue
 
-                    // FR-3.3: tighten AABB max-Y to actual chunk content. Empty chunks (maxY = -1)
-                    // collapse to a near-zero-height box so they're never spuriously included; chunks
-                    // missing maxY use full CHUNK_HEIGHT for safety.
-                    const chunkMaxY = chunkMeshes.opaque.userData.chunkMaxY
-                    /* c8 ignore start -- meshes without chunkMaxY use CHUNK_HEIGHT; not produced in unit tests */
-                    const maxYBound = chunkMaxY === undefined
-                      ? CHUNK_HEIGHT
-                      : chunkMaxY < 0 ? 0 : chunkMaxY + 1
-                    /* c8 ignore end */
+              // FR-3.3: tighten AABB max-Y to actual chunk content. Empty chunks (maxY = -1)
+              // collapse to a near-zero-height box so they're never spuriously included; chunks
+              // missing maxY use full CHUNK_HEIGHT for safety.
+              const chunkMaxY = chunkMeshes.opaque.userData.chunkMaxY
+              /* c8 ignore start -- meshes without chunkMaxY use CHUNK_HEIGHT; not produced in unit tests */
+              const maxYBound = chunkMaxY === undefined
+                ? CHUNK_HEIGHT
+                : chunkMaxY < 0 ? 0 : chunkMaxY + 1
+              /* c8 ignore end */
 
-                    _minVec.set(coord.x * CHUNK_SIZE, 0, coord.z * CHUNK_SIZE)
-                    _maxVec.set(coord.x * CHUNK_SIZE + CHUNK_SIZE, maxYBound, coord.z * CHUNK_SIZE + CHUNK_SIZE)
-                    _box.set(_minVec, _maxVec)
+              _minVec.set(coord.x * CHUNK_SIZE, 0, coord.z * CHUNK_SIZE)
+              _maxVec.set(coord.x * CHUNK_SIZE + CHUNK_SIZE, maxYBound, coord.z * CHUNK_SIZE + CHUNK_SIZE)
+              _box.set(_minVec, _maxVec)
 
-                    const visible = _frustum.intersectsBox(_box)
-                    chunkMeshes.opaque.visible = visible
-                    // Shadow distance culling: disable castShadow for chunks beyond shadow reach.
-                    // Shadow map has finite resolution — distant shadows are sub-texel and waste GPU fill.
-                    const SHADOW_CULL_DIST_SQ = MAX_SHADOW_HALF_EXTENT * MAX_SHADOW_HALF_EXTENT
-                    const dx = coord.x * CHUNK_SIZE + CHUNK_SIZE * 0.5 - camera.position.x
-                    const dz = coord.z * CHUNK_SIZE + CHUNK_SIZE * 0.5 - camera.position.z
-                    chunkMeshes.opaque.castShadow = visible && (dx * dx + dz * dz) < SHADOW_CULL_DIST_SQ
-                    // Performance boundary: direct _tag check avoids Option.match closure allocation per chunk
-                    /* c8 ignore start -- water and transparentSolid meshes require chunk generation with water/glass blocks to exercise */
-                    if (chunkMeshes.water._tag === 'Some') {
-                      chunkMeshes.water.value.visible = visible
-                    }
-                    if (chunkMeshes.transparentSolid._tag === 'Some') {
-                      chunkMeshes.transparentSolid.value.visible = visible
-                    }
-                    /* c8 ignore end */
-                  }
+              const visible = _frustum.intersectsBox(_box)
+              chunkMeshes.opaque.visible = visible
+              // Shadow distance culling: disable castShadow for chunks beyond shadow reach.
+              // Shadow map has finite resolution — distant shadows are sub-texel and waste GPU fill.
+              const SHADOW_CULL_DIST_SQ = MAX_SHADOW_HALF_EXTENT * MAX_SHADOW_HALF_EXTENT
+              const dx = coord.x * CHUNK_SIZE + CHUNK_SIZE * 0.5 - camera.position.x
+              const dz = coord.z * CHUNK_SIZE + CHUNK_SIZE * 0.5 - camera.position.z
+              chunkMeshes.opaque.castShadow = visible && (dx * dx + dz * dz) < SHADOW_CULL_DIST_SQ
+              // Performance boundary: direct _tag check avoids Option.match closure allocation per chunk
+              /* c8 ignore start -- water and transparentSolid meshes require chunk generation with water/glass blocks to exercise */
+              if (chunkMeshes.water._tag === 'Some') {
+                chunkMeshes.water.value.visible = visible
+              }
+              if (chunkMeshes.transparentSolid._tag === 'Some') {
+                chunkMeshes.transparentSolid.value.visible = visible
+              }
+              /* c8 ignore end */
+            }
 
-                  yield* Ref.set(lastFrustumPoseRef, currentPose)
-                }))
-              )
-            )
-          ),
+            yield* Ref.set(lastFrustumPoseRef, currentPose)
+          }),
 
         clearScene: (scene: THREE.Scene): Effect.Effect<void, never> =>
-          Ref.get(meshesRef).pipe(
-            Effect.flatMap((meshes) =>
-              Effect.forEach(
-                Arr.fromIterable(HashMap.values(meshes)),
-                (chunkMeshes) => {
-                  const waterVal = Option.getOrNull(chunkMeshes.water)
-                  const transparentSolidVal = Option.getOrNull(chunkMeshes.transparentSolid)
-                  return Effect.all([
-                    sceneService.remove(scene, chunkMeshes.opaque).pipe(
-                      Effect.andThen(Effect.sync(() => disposeMesh(chunkMeshes.opaque)))
-                    ),
-                    waterVal !== null
-                      ? sceneService.remove(scene, waterVal).pipe(Effect.andThen(Effect.sync(() => disposeMesh(waterVal))))
-                      : Effect.void,
-                    transparentSolidVal !== null
-                      ? sceneService.remove(scene, transparentSolidVal).pipe(Effect.andThen(Effect.sync(() => disposeMesh(transparentSolidVal))))
-                      : Effect.void,
-                  ], { concurrency: 'unbounded', discard: true })
-                },
-                { concurrency: 1 }
-              )
-            ),
-            Effect.andThen(Effect.all([
+          Effect.gen(function* () {
+            const removeAndDispose = (m: THREE.Mesh): Effect.Effect<void, never> =>
+              Effect.gen(function* () {
+                yield* sceneService.remove(scene, m)
+                yield* Effect.sync(() => disposeMesh(m))
+              })
+            const meshes = yield* Ref.get(meshesRef)
+            yield* Effect.forEach(
+              Arr.fromIterable(HashMap.values(meshes)),
+              (chunkMeshes) => {
+                const waterVal = Option.getOrNull(chunkMeshes.water)
+                const transparentSolidVal = Option.getOrNull(chunkMeshes.transparentSolid)
+                return Effect.all([
+                  removeAndDispose(chunkMeshes.opaque),
+                  waterVal !== null ? removeAndDispose(waterVal) : Effect.void,
+                  transparentSolidVal !== null ? removeAndDispose(transparentSolidVal) : Effect.void,
+                ], { concurrency: 'unbounded', discard: true })
+              },
+              { concurrency: 1 }
+            )
+            yield* Effect.all([
               Ref.set(meshesRef, HashMap.empty()),
               Ref.set(waterMeshesRef, []),
               invalidateSceneCaches(),
-            ], { concurrency: 'unbounded', discard: true }))
-          ),
+            ], { concurrency: 'unbounded', discard: true })
+          }),
 
         doRefractionPrePass: (
           renderer: THREE.WebGLRenderer,

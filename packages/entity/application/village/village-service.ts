@@ -58,7 +58,9 @@ const tickVillager = (
 export class VillageService extends Effect.Service<VillageService>()(
   '@minecraft/village/VillageService',
   {
-    effect: Ref.make<VillageState>(INITIAL_VILLAGE_STATE).pipe(Effect.map((stateRef) => ({
+    effect: Effect.gen(function* () {
+      const stateRef = yield* Ref.make<VillageState>(INITIAL_VILLAGE_STATE)
+      return {
         ensureVillageNear: (playerPosition: Position): Effect.Effect<Village, never> =>
           Ref.modify(stateRef, (state): [Village, VillageState] => {
             const [nextState, village] = ensureVillageInState(state, playerPosition)
@@ -66,25 +68,31 @@ export class VillageService extends Effect.Service<VillageService>()(
           }),
 
         getVillages: (): Effect.Effect<ReadonlyArray<Village>, never> =>
-          Ref.get(stateRef).pipe(Effect.map((state) => state.villages)),
+          Effect.gen(function* () {
+            const state = yield* Ref.get(stateRef)
+            return state.villages
+          }),
 
         getVillagers: (): Effect.Effect<ReadonlyArray<Villager>, never> =>
-          Ref.get(stateRef).pipe(Effect.map((state) => flattenVillagers(state.villages))),
+          Effect.gen(function* () {
+            const state = yield* Ref.get(stateRef)
+            return flattenVillagers(state.villages)
+          }),
 
         getVillager: (villagerId: VillagerId): Effect.Effect<Option.Option<Villager>, never> =>
-          Ref.get(stateRef).pipe(
-            Effect.map((state) => Arr.findFirst(flattenVillagers(state.villages), (villager) => villager.villagerId === villagerId))
-          ),
+          Effect.gen(function* () {
+            const state = yield* Ref.get(stateRef)
+            return Arr.findFirst(flattenVillagers(state.villages), (villager) => villager.villagerId === villagerId)
+          }),
 
         findNearestVillager: (
           position: Position,
           maxDistance: number,
         ): Effect.Effect<Option.Option<Villager>, never> =>
-          Ref.get(stateRef).pipe(
-            Effect.map((state) =>
-              findClosestVillagerInRange(flattenVillagers(state.villages), position, maxDistance * maxDistance)
-            )
-          ),
+          Effect.gen(function* () {
+            const state = yield* Ref.get(stateRef)
+            return findClosestVillagerInRange(flattenVillagers(state.villages), position, maxDistance * maxDistance)
+          }),
 
         addVillagerExperience: (
           villagerId: VillagerId,
@@ -147,7 +155,8 @@ export class VillageService extends Effect.Service<VillageService>()(
               updateTick: tick,
             }
           }),
-    })))
+      }
+    }),
   },
 ) {}
 

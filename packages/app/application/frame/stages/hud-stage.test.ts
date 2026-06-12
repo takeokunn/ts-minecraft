@@ -159,7 +159,8 @@ describe('adaptive performance mode', () => {
     Object.assign(services.worldRendererService, { syncChunksToScene: vi.fn(() => Effect.succeed(false)) })
 
     const { frameHandler, maintenanceHandler } = yield* createFrameHandlers(deps, services)
-    yield* maintenanceHandler().pipe(Effect.andThen(frameHandler(0.016 as DeltaTimeSecs)))
+    yield* maintenanceHandler()
+    yield* frameHandler(0.016 as DeltaTimeSecs)
 
     expect(updateSpy).toHaveBeenCalledWith({ renderDistance: 7 })
   }))

@@ -44,13 +44,12 @@ export class CropGrowthService extends Effect.Service<CropGrowthService>()(
 
         // Serialize the current crop age map to a plain Record for save persistence.
         serialize: (): Effect.Effect<Record<string, number>, never> =>
-          Ref.get(ageMapRef).pipe(
-            Effect.map((m) => {
-              const result: Record<string, number> = {}
-              for (const [k, v] of m) result[k] = v
-              return result
-            }),
-          ),
+          Effect.gen(function* () {
+            const m = yield* Ref.get(ageMapRef)
+            const result: Record<string, number> = {}
+            for (const [k, v] of m) result[k] = v
+            return result
+          }),
 
         // Restore from a previously serialized Record (called on world load).
         restore: (ages: Record<string, number>): Effect.Effect<void, never> =>

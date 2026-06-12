@@ -14,11 +14,13 @@ const fpsGauge = Metric.gauge('fps')
 export class FPSCounterService extends Effect.Service<FPSCounterService>()(
   '@minecraft/presentation/FPSCounter',
   {
-    effect: Ref.make<FPSCounterState>({
-      frameCount: 0,
-      fps: 0,
-      accumulatedTime: 0,
-    }).pipe(Effect.map((state) => ({
+    effect: Effect.gen(function* () {
+      const state = yield* Ref.make<FPSCounterState>({
+        frameCount: 0,
+        fps: 0,
+        accumulatedTime: 0,
+      })
+      return {
         tick: (deltaTime: DeltaTimeSecs): Effect.Effect<void, never> =>
           Effect.gen(function* () {
             const maybeNewFPS = yield* Ref.modify(state, (s) => {
@@ -38,14 +40,17 @@ export class FPSCounterService extends Effect.Service<FPSCounterService>()(
           }),
 
         getFPS: (): Effect.Effect<number, never> =>
-          Ref.get(state).pipe(
-            Effect.map((s) => s.fps)
-          ),
+          Effect.gen(function* () {
+            const s = yield* Ref.get(state)
+            return s.fps
+          }),
 
         getFrameCount: (): Effect.Effect<number, never> =>
-          Ref.get(state).pipe(
-            Effect.map((s) => s.frameCount)
-          ),
-    })))
+          Effect.gen(function* () {
+            const s = yield* Ref.get(state)
+            return s.frameCount
+          }),
+      }
+    })
   }
 ) {}

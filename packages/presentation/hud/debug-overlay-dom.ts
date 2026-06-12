@@ -66,7 +66,10 @@ export const buildDebugOverlayDom = (
   }
 
   panelNodes.resetAllButton.addEventListener('click', () => {
-    runPanelEffect(dom, deps.debugFeatureFlags.resetAll().pipe(Effect.andThen(refreshTogglePanel(dom, deps, 'All debug toggles reset'))))
+    runPanelEffect(dom, Effect.gen(function* () {
+      yield* deps.debugFeatureFlags.resetAll()
+      yield* refreshTogglePanel(dom, deps, 'All debug toggles reset')
+    }))
   })
   panelNodes.searchInput.addEventListener('input', () => filterToggleRows(dom))
   panelNodes.searchInput.addEventListener('keydown', (event) => {

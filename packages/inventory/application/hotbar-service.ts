@@ -10,11 +10,10 @@ export { HOTBAR_SIZE }
 export class HotbarService extends Effect.Service<HotbarService>()(
   '@minecraft/application/HotbarService',
   {
-    effect: Effect.all([
-      PlayerInputService,
-      InventoryService,
-      Ref.make<SlotIndex>(SlotIndex.make(0)),
-    ], { concurrency: 'unbounded' }).pipe(Effect.map(([inputService, inventoryService, selectedSlotRef]) => {
+    effect: Effect.gen(function* () {
+      const inputService = yield* PlayerInputService
+      const inventoryService = yield* InventoryService
+      const selectedSlotRef = yield* Ref.make<SlotIndex>(SlotIndex.make(0))
       const hotbarKeys: ReadonlyArray<string> = [
         KeyMappings.HOTBAR_SLOT_1,
         KeyMappings.HOTBAR_SLOT_2,
@@ -55,13 +54,12 @@ export class HotbarService extends Effect.Service<HotbarService>()(
               (found, [i, key]) =>
                 found
                   ? Effect.succeed(true)
-                  : inputService.consumeKeyPress(key).pipe(
-                      Effect.flatMap((pressed) =>
-                        pressed
-                          ? Ref.set(selectedSlotRef, SlotIndex.make(i)).pipe(Effect.as(true))
-                          : Effect.succeed(false)
-                      )
-                    )
+                  : Effect.gen(function* () {
+                      const pressed = yield* inputService.consumeKeyPress(key)
+                      if (!pressed) return false
+                      yield* Ref.set(selectedSlotRef, SlotIndex.make(i))
+                      return true
+                    })
             )
 
             if (keyFound) return
@@ -75,7 +73,7 @@ export class HotbarService extends Effect.Service<HotbarService>()(
             }
           }),
       }
-    }))
+    }),
   }
 ) {}
 

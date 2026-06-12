@@ -16,13 +16,16 @@ export interface WebSocketClientHandle {
 export class FakeWebSocketClient implements WebSocketClientPort {
   constructor(private readonly server: FakeWebSocketServer) {}
 
-  connect = (_url: string): Effect.Effect<WebSocketClientHandle, NetworkError> =>
-    this.server.connectClient().pipe(
-      Effect.map((pair) => ({
+  connect = (_url: string): Effect.Effect<WebSocketClientHandle, NetworkError> => {
+    const { server } = this
+    return Effect.gen(function* () {
+      const pair = yield* server.connectClient()
+      return {
         messages: pair.clientMessages,
         send: pair.clientSend,
         onClose: pair.clientOnClose,
         close: pair.clientClose,
-      })),
-    )
+      }
+    })
+  }
 }

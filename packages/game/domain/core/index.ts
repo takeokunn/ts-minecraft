@@ -1,2 +1,2 @@
-export * from './vector3'
-export * from './quaternion'
+export { QuaternionSchema, identity } from '@ts-minecraft/core'
+export type { Quaternion } from '@ts-minecraft/core'

@@ -114,7 +114,7 @@ describe('TradingPresentationService', () => {
       yield* presentation.open(VillagerId.make('villager-1'))
       yield* presentation.cycleSelection(1)
 
-      const list = createdElements.find((element) => element.style.cssText.includes('display:flex'))!
+      const list = createdElements.find((el) => el.id === 'trading-list')!
       expect(list.children[1]!.style.cssText).toContain('background:#2f4f2f')
 
       yield* presentation.cycleSelection(1)
@@ -131,7 +131,7 @@ describe('TradingPresentationService', () => {
       yield* setOffers([makeOffer({ output: { itemType: 'GLASS', count: 1 } })])
       yield* presentation.refresh()
 
-      const list = createdElements.find((element) => element.style.cssText.includes('display:flex'))!
+      const list = createdElements.find((el) => el.id === 'trading-list')!
       expect(list.children).toHaveLength(1)
       expect(list.children[0]!.textContent).toContain('GLASS')
     }).pipe(Effect.provide(TestLayer))
@@ -146,7 +146,7 @@ describe('TradingPresentationService', () => {
       const executed = yield* presentation.executeSelectedTrade()
 
       expect(executed).toBe(true)
-      const status = createdElements.find((element) => element.style.cssText.includes('font-size:12px;color:#b0b0b0'))!
+      const status = createdElements.find((el) => el.id === 'trading-status')!
       expect(status.textContent).toBe('Trade complete.')
     }).pipe(Effect.provide(TestLayer))
   })
@@ -161,7 +161,7 @@ describe('TradingPresentationService', () => {
       const executed = yield* presentation.executeSelectedTrade()
 
       expect(executed).toBe(false)
-      const status = createdElements.find((element) => element.style.cssText.includes('font-size:12px;color:#b0b0b0'))!
+      const status = createdElements.find((el) => el.id === 'trading-status')!
       expect(status.textContent).toBe('Trade failed: inventory full')
     }).pipe(Effect.provide(TestLayer))
   })

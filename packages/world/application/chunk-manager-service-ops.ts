@@ -126,14 +126,16 @@ export const markChunkDirty = (
       : (() => {
           const useBfs = entry.chunk.skyLight !== undefined && entry.chunk.blockLight !== undefined && dirtyVoxels !== undefined && dirtyVoxels.length > 0
           return useBfs
-            ? ctx.lightEngine.propagateLightIncremental(entry.chunk, dirtyVoxels).pipe(
-                Effect.tap((result) => Ref.update(ctx.cache, (s) => updateLitChunk(s, key, result.skyLight, result.blockLight))),
-                Effect.map((r) => Option.some({ boundary: r.boundary, affectedAABB: r.affectedAABB })),
-              )
-            : ctx.lightEngine.updateLight(entry.chunk).pipe(
-                Effect.tap((grids) => Ref.update(ctx.cache, (s) => updateLitChunk(s, key, grids.skyLight, grids.blockLight))),
-                Effect.map(() => Option.none<{ boundary: { nx: boolean; px: boolean; nz: boolean; pz: boolean }; affectedAABB: Option.Option<ChunkAABB> }>()),
-              )
+            ? Effect.gen(function* () {
+                const result = yield* ctx.lightEngine.propagateLightIncremental(entry.chunk, dirtyVoxels)
+                yield* Ref.update(ctx.cache, (s) => updateLitChunk(s, key, result.skyLight, result.blockLight))
+                return Option.some({ boundary: result.boundary, affectedAABB: result.affectedAABB })
+              })
+            : Effect.gen(function* () {
+                const grids = yield* ctx.lightEngine.updateLight(entry.chunk)
+                yield* Ref.update(ctx.cache, (s) => updateLitChunk(s, key, grids.skyLight, grids.blockLight))
+                return Option.none<{ boundary: { nx: boolean; px: boolean; nz: boolean; pz: boolean }; affectedAABB: Option.Option<ChunkAABB> }>()
+              })
         })()
 
     const allKeys = Arr.map(dirtyOffsets(bfsResult), ([dx, dz]) => chunkCoordToWorldKey({ x: coord.x + dx, z: coord.z + dz }, worldId))

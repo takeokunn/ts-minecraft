@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest'
-import { getInventoryDropForBlock, rollLeafDrops, LEAF_APPLE_DROP_CHANCE, LEAF_STICK_DROP_CHANCE } from '../application/block-service.config'
+import { HashSet, Schema } from 'effect'
+import { BlockTypeSchema, ItemTypeSchema } from '@ts-minecraft/core'
+import { getInventoryDropForBlock, rollLeafDrops, LEAF_APPLE_DROP_CHANCE, LEAF_STICK_DROP_CHANCE, NON_PLACEABLE_ITEM_TYPES } from '../application/block-service.config'
 
 describe('getInventoryDropForBlock — vanilla drop correctness', () => {
   it('GRASS drops DIRT (not GRASS)', () => {
@@ -71,5 +73,24 @@ describe('rollLeafDrops — vanilla oak leaf bonus drops', () => {
   it('vanilla rates: apple 1/200 = 0.005, stick 2% = 0.02', () => {
     expect(LEAF_APPLE_DROP_CHANCE).toBe(0.005)
     expect(LEAF_STICK_DROP_CHANCE).toBe(0.02)
+  })
+})
+
+// Completeness guard: every ItemType that is NOT also a BlockType must be listed in
+// NON_PLACEABLE_ITEM_TYPES. Without this, new items added to ItemTypeSchema silently fall
+// through to the Schema.decodeUnknownEither(BlockTypeSchema) gate in placeBlock, producing
+// a weaker error message and unclear placement intent.
+describe('NON_PLACEABLE_ITEM_TYPES completeness guard', () => {
+  it('every pure ItemType (not a BlockType) is explicitly listed as non-placeable', () => {
+    const allItemTypes = ItemTypeSchema.literals as ReadonlyArray<string>
+    const allBlockTypes = new Set(BlockTypeSchema.literals as ReadonlyArray<string>)
+    for (const itemType of allItemTypes) {
+      if (!allBlockTypes.has(itemType)) {
+        expect(
+          HashSet.has(NON_PLACEABLE_ITEM_TYPES, itemType as Schema.Schema.Type<typeof ItemTypeSchema>),
+          `ItemType '${itemType}' is not a BlockType and must appear in NON_PLACEABLE_ITEM_TYPES`,
+        ).toBe(true)
+      }
+    }
   })
 })

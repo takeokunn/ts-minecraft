@@ -11,18 +11,13 @@ export { debugFeatureGroupLabels, debugFeatureSearchMatches, facingFromYaw } fro
 
 const updateMetrics = (dom: DebugOverlayDomNodes, deps: DebugOverlayDeps): Effect.Effect<void, never> =>
   Effect.gen(function* () {
-    const [position, rotation, fps, loadedChunks, timeOfDay] = yield* Effect.all(
-      [
-        deps.gameState.getPlayerPosition(DEFAULT_PLAYER_ID).pipe(
-          Effect.catchAll(() => Effect.succeed({ x: 0, y: 0, z: 0 })),
-        ),
-        deps.cameraState.getRotation(),
-        deps.fpsCounter.getFPS(),
-        deps.chunkManager.getLoadedChunks(),
-        deps.timeService.getTimeOfDay(),
-      ],
-      { concurrency: 'unbounded' },
+    const position = yield* deps.gameState.getPlayerPosition(DEFAULT_PLAYER_ID).pipe(
+      Effect.catchAll(() => Effect.succeed({ x: 0, y: 0, z: 0 })),
     )
+    const rotation = yield* deps.cameraState.getRotation()
+    const fps = yield* deps.fpsCounter.getFPS()
+    const loadedChunks = yield* deps.chunkManager.getLoadedChunks()
+    const timeOfDay = yield* deps.timeService.getTimeOfDay()
     const biome = yield* deps.biomeService.getBiome(Math.floor(position.x), Math.floor(position.z))
     const facing = facingFromYaw(rotation.yaw)
 

@@ -39,15 +39,21 @@ export const buildHandleDelegatedClick = (deps: ClickHandlerDeps) =>
       const recipeId = recipe.dataset['recipeId']
       if (!recipeId) return
       Effect.runFork(
-        Effect.all([hasNearbyCraftingTable(), hasNearbyFurnace()], { concurrency: 'unbounded' }).pipe(
-          Effect.flatMap(([hasTableAccess, hasFurnaceAccess]) =>
-            performRecipe(RecipeId.make(recipeId), hasTableAccess, hasFurnaceAccess),
-          ),
-          Effect.andThen(Ref.set(statusMessageRef, 'Crafted successfully.')),
-          Effect.catchAll((error) =>
-            Ref.set(statusMessageRef, error instanceof Error ? error.message : 'Crafting failed.'),
-          ),
-          Effect.andThen(refreshSlots()),
+        Effect.gen(function* () {
+          const [hasTableAccess, hasFurnaceAccess] = yield* Effect.all(
+            [hasNearbyCraftingTable(), hasNearbyFurnace()],
+            { concurrency: 'unbounded' },
+          )
+          yield* Effect.gen(function* () {
+            yield* performRecipe(RecipeId.make(recipeId), hasTableAccess, hasFurnaceAccess)
+            yield* Ref.set(statusMessageRef, 'Crafted successfully.')
+          }).pipe(
+            Effect.catchAll((error) =>
+              Ref.set(statusMessageRef, error instanceof Error ? error.message : 'Crafting failed.'),
+            ),
+          )
+          yield* refreshSlots()
+        }).pipe(
           Effect.catchAllCause((cause) =>
             Effect.logError(`Crafting click error: ${Cause.pretty(cause)}`),
           ),

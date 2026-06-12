@@ -25,9 +25,10 @@ describe('infrastructure/noise/noise-service', () => {
         const values = MutableHashSet.empty<number>()
         yield* Effect.forEach(Arr.makeBy(10, x => x), x =>
           Effect.forEach(Arr.makeBy(10, z => z), z =>
-            service.noise2D(x, z).pipe(
-              Effect.map(v => MutableHashSet.add(values, Math.round(v * 100) / 100))
-            ), { concurrency: 1 }
+            Effect.gen(function* () {
+              const v = yield* service.noise2D(x, z)
+              MutableHashSet.add(values, Math.round(v * 100) / 100)
+            }), { concurrency: 1 }
           ), { concurrency: 1 }
         )
         // 100 samples should produce more than just a few unique values

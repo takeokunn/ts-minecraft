@@ -23,7 +23,8 @@ export const hudStage = (
     yield* services.perfHud.recordFrame(inputs.deltaTime)
 
     // Update FPS display — tick first, then update DOM only when displayed value changes
-    const fps = yield* services.fpsCounter.tick(inputs.deltaTime).pipe(Effect.andThen(services.fpsCounter.getFPS()))
+    yield* services.fpsCounter.tick(inputs.deltaTime)
+    const fps = yield* services.fpsCounter.getFPS()
     // Quantize to tenths up front; the displayed value only ever has 1 decimal,
     // so comparing integers lets us skip the toFixed allocation on unchanged frames.
     const fpsTenths = Math.round(fps * 10)
@@ -62,16 +63,11 @@ export const hudStage = (
     // Render HUD hotbar overlay (second pass; autoClear=false prevents erasing the main scene)
     if (debugFlags['ui.hotbar']) {
       yield* logErrors(
-        Effect.sync(() => {
-          deps.renderer.autoClear = false
-        }).pipe(
-          Effect.andThen(services.hotbarRenderer.render(deps.renderer)),
-          Effect.andThen(
-            Effect.sync(() => {
-              deps.renderer.autoClear = true
-            }),
-          ),
-        ),
+        Effect.gen(function* () {
+          yield* Effect.sync(() => { deps.renderer.autoClear = false })
+          yield* services.hotbarRenderer.render(deps.renderer)
+          yield* Effect.sync(() => { deps.renderer.autoClear = true })
+        }),
         'HUD render error',
       )
     }

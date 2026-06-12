@@ -11,7 +11,7 @@ import { Effect,MutableHashSet,Option } from 'effect'
 import * as THREE from 'three'
 import { expect,vi } from 'vitest'
 import { getParticleUvOffset } from '@ts-minecraft/rendering/particles/particle-system'
-import { handleBowFire } from '@ts-minecraft/app/frame/stages/interaction-block-handler'
+import { handleBowFire } from '@ts-minecraft/app/frame/stages/interaction-bow-handler'
 
 // ---------------------------------------------------------------------------
 // Step 7: Block interaction

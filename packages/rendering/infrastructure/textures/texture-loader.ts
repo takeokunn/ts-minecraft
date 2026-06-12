@@ -7,35 +7,34 @@ import { TextureUrl } from '@ts-minecraft/core'
 export class TextureService extends Effect.Service<TextureService>()(
   '@minecraft/infrastructure/three/TextureService',
   {
-    effect: Ref.make(HashMap.empty<TextureUrl, THREE.Texture>()).pipe(Effect.map((textureCache) => {
+    effect: Effect.gen(function* () {
+      const textureCache = yield* Ref.make(HashMap.empty<TextureUrl, THREE.Texture>())
       const loadEffect = (url: string) => {
         const textureUrl = TextureUrl.make(url)
         return Effect.gen(function* () {
           const cached = Option.getOrNull(HashMap.get(yield* Ref.get(textureCache), textureUrl))
           if (cached !== null) return cached
-          return yield* Effect.tryPromise({
+          const texture = yield* Effect.tryPromise({
             try: async () => {
               const loader = new THREE.TextureLoader()
-              const texture = await loader.loadAsync(url)
-              texture.magFilter = THREE.NearestFilter
-              texture.minFilter = THREE.NearestFilter
-              texture.generateMipmaps = false
-              texture.wrapS = THREE.RepeatWrapping
-              texture.wrapT = THREE.RepeatWrapping
+              const loaded = await loader.loadAsync(url)
+              loaded.magFilter = THREE.NearestFilter
+              loaded.minFilter = THREE.NearestFilter
+              loaded.generateMipmaps = false
+              loaded.wrapS = THREE.RepeatWrapping
+              loaded.wrapT = THREE.RepeatWrapping
               // The textures loaded here (notably /textures/atlas.png for the hotbar) are
               // sRGB-encoded color images. With renderer.outputColorSpace = SRGBColorSpace,
               // an untagged texture is treated as linear and skips the sRGB→linear decode,
               // so the SAME atlas rendered in the hotbar would mismatch the world blocks
               // (buildAtlasTexture sets this; this path previously did not). Keep them in sync.
-              texture.colorSpace = THREE.SRGBColorSpace
-              return texture
+              loaded.colorSpace = THREE.SRGBColorSpace
+              return loaded
             },
             catch: (cause) => new TextureError({ url, cause }),
-          }).pipe(
-            Effect.tap((texture) =>
-              Ref.update(textureCache, (cache) => HashMap.set(cache, textureUrl, texture))
-            )
-          )
+          })
+          yield* Ref.update(textureCache, (cache) => HashMap.set(cache, textureUrl, texture))
+          return texture
         })
       }
 
@@ -73,7 +72,10 @@ export class TextureService extends Effect.Service<TextureService>()(
           }),
 
         getCached: (url: string): Effect.Effect<Option.Option<THREE.Texture>, never> =>
-          Ref.get(textureCache).pipe(Effect.map((cache) => HashMap.get(cache, TextureUrl.make(url)))),
+          Effect.gen(function* () {
+            const cache = yield* Ref.get(textureCache)
+            return HashMap.get(cache, TextureUrl.make(url))
+          }),
 
         preload: (urls: ReadonlyArray<string>): Effect.Effect<void, never> =>
           Effect.forEach(urls, (url) => Effect.ignore(loadEffect(url)), { concurrency: 'unbounded' }),
@@ -87,7 +89,7 @@ export class TextureService extends Effect.Service<TextureService>()(
             yield* Ref.set(textureCache, HashMap.empty())
           }),
       }
-    })),
+    }),
   }
 ) {}
 export const TextureServiceLive = TextureService.Default

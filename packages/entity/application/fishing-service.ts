@@ -11,7 +11,9 @@ const IDLE: FishingState = { _tag: 'idle' }
 export class FishingService extends Effect.Service<FishingService>()(
   '@minecraft/application/FishingService',
   {
-    effect: Ref.make<FishingState>(IDLE).pipe(Effect.map((stateRef) => ({
+    effect: Effect.gen(function* () {
+      const stateRef = yield* Ref.make<FishingState>(IDLE)
+      return {
       // Begin a fishing cast. seed should be derived from XP + frame count
       // (deterministic but unique per cast). lureLevel and luckLevel come from
       // rod enchantments and are captured at cast time — valid even if the rod
@@ -43,19 +45,22 @@ export class FishingService extends Effect.Service<FishingService>()(
         Ref.set(stateRef, IDLE),
 
       isFishing: (): Effect.Effect<boolean, never> =>
-        Ref.get(stateRef).pipe(Effect.map((s) => s._tag === 'casting')),
+        Effect.gen(function* () {
+          const s = yield* Ref.get(stateRef)
+          return s._tag === 'casting'
+        }),
 
       // Progress fraction [0, 1] for HUD display.
       getProgress: (): Effect.Effect<number, never> =>
-        Ref.get(stateRef).pipe(
-          Effect.map((s) =>
-            s._tag === 'casting' ? Math.min(1, s.elapsedSecs / s.targetSecs) : 0
-          ),
-        ),
+        Effect.gen(function* () {
+          const s = yield* Ref.get(stateRef)
+          return s._tag === 'casting' ? Math.min(1, s.elapsedSecs / s.targetSecs) : 0
+        }),
 
       reset: (): Effect.Effect<void, never> =>
         Ref.set(stateRef, IDLE),
-    }))),
+      }
+    }),
   },
 ) {}
 

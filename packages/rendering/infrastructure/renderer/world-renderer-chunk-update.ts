@@ -29,29 +29,32 @@ const syncOptionalMeshInScene = (
   trackingRef: Ref.Ref<ReadonlyArray<THREE.Mesh>> | null,
   prevMesh: Option.Option<THREE.Mesh>,
   nextMesh: Option.Option<THREE.Mesh>,
-): Effect.Effect<void, never> => {
-  const track = (f: (arr: ReadonlyArray<THREE.Mesh>) => ReadonlyArray<THREE.Mesh>): Effect.Effect<void, never> =>
-    trackingRef === null ? Effect.void : Ref.update(trackingRef, f)
-  const prevMeshVal = Option.getOrNull(prevMesh)
-  if (prevMeshVal === null) {
-    const m = Option.getOrNull(nextMesh)
-    if (m === null) return Effect.void
-    return sceneService.add(scene, m).pipe(Effect.andThen(track((arr) => Arr.append(arr, m))))
-  }
-  const newMesh = Option.getOrNull(nextMesh)
-  if (newMesh === null) {
-    return sceneService.remove(scene, prevMeshVal).pipe(
-      Effect.andThen(track((arr) => Arr.filter(arr, (mesh) => mesh !== prevMeshVal)))
-    )
-  }
-  /* c8 ignore next 6 */
-  if (prevMeshVal === newMesh) return Effect.void
-  return Effect.all([
-    sceneService.remove(scene, prevMeshVal),
-    sceneService.add(scene, newMesh),
-    track((arr) => Arr.append(Arr.filter(arr, (mesh) => mesh !== prevMeshVal), newMesh)),
-  ], { concurrency: 'unbounded', discard: true })
-}
+): Effect.Effect<void, never> =>
+  Effect.gen(function* () {
+    const track = (f: (arr: ReadonlyArray<THREE.Mesh>) => ReadonlyArray<THREE.Mesh>): Effect.Effect<void, never> =>
+      trackingRef === null ? Effect.void : Ref.update(trackingRef, f)
+    const prevMeshVal = Option.getOrNull(prevMesh)
+    if (prevMeshVal === null) {
+      const m = Option.getOrNull(nextMesh)
+      if (m === null) return
+      yield* sceneService.add(scene, m)
+      yield* track((arr) => Arr.append(arr, m))
+      return
+    }
+    const newMesh = Option.getOrNull(nextMesh)
+    if (newMesh === null) {
+      yield* sceneService.remove(scene, prevMeshVal)
+      yield* track((arr) => Arr.filter(arr, (mesh) => mesh !== prevMeshVal))
+      return
+    }
+    /* c8 ignore next 7 */
+    if (prevMeshVal === newMesh) return
+    yield* Effect.all([
+      sceneService.remove(scene, prevMeshVal),
+      sceneService.add(scene, newMesh),
+      track((arr) => Arr.append(Arr.filter(arr, (mesh) => mesh !== prevMeshVal), newMesh)),
+    ], { concurrency: 'unbounded', discard: true })
+  })
 
 /**
  * Re-meshes a single chunk in place; call after block break/place for the
@@ -89,7 +92,10 @@ export const updateChunkInScene = (
       const { opaqueMesh, waterMesh, transparentSolidMesh } = yield* chunkMeshService.createChunkMesh(chunk, waterMaterial)
       const waterMeshVal = Option.getOrNull(waterMesh)
       const addWater = waterMeshVal !== null
-        ? sceneService.add(scene, waterMeshVal).pipe(Effect.andThen(Ref.update(waterMeshesRef, (arr) => Arr.append(arr, waterMeshVal))))
+        ? Effect.gen(function* () {
+            yield* sceneService.add(scene, waterMeshVal)
+            yield* Ref.update(waterMeshesRef, (arr) => Arr.append(arr, waterMeshVal))
+          })
         : Effect.void
       const transparentSolidMeshVal = Option.getOrNull(transparentSolidMesh)
       const addTransparentSolid = transparentSolidMeshVal !== null

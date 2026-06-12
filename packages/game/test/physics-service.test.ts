@@ -279,12 +279,9 @@ describe('application/physics/physics-service', () => {
     it.effect('should chain initialize and step without error', () =>
       Effect.gen(function* () {
         const service = yield* PhysicsService
-        const outcome = yield* service
-          .initialize({ gravity: DEFAULT_GRAVITY })
-          .pipe(
-            Effect.flatMap(() => service.step(DeltaTimeSecs.make(1 / 60))),
-            Effect.map(() => 'success' as const)
-          )
+        yield* service.initialize({ gravity: DEFAULT_GRAVITY })
+        yield* service.step(DeltaTimeSecs.make(1 / 60))
+        const outcome = 'success' as const
         expect(outcome).toBe('success')
       }).pipe(Effect.provide(TestLayer))
     )

@@ -56,8 +56,9 @@ const renderErrorView = (dom: DomOperationsService, overlayEl: HTMLDivElement, m
 export class LoadingScreenService extends Effect.Service<LoadingScreenService>()(
   '@minecraft/presentation/LoadingScreen',
   {
-    scoped: Effect.flatMap(DomOperationsService, (dom) =>
-      Effect.acquireRelease(
+    scoped: Effect.gen(function* () {
+      const dom = yield* DomOperationsService
+      const { overlayEl } = yield* Effect.acquireRelease(
         Effect.sync(() => {
           if (typeof document === 'undefined') {
             return { overlayEl: Option.none<HTMLDivElement>(), styleEl: Option.none<HTMLStyleElement>() }
@@ -90,22 +91,21 @@ export class LoadingScreenService extends Effect.Service<LoadingScreenService>()
           const s = Option.getOrNull(styleEl)
           if (s !== null && s.parentNode) s.parentNode.removeChild(s)
         })
-      ).pipe(
-        Effect.map(({ overlayEl }) => ({
-          hide: (): Effect.Effect<void, never> => Effect.sync(() => {
-            const el = Option.getOrNull(overlayEl)
-            if (el !== null) el.style.display = 'none'
-          }),
-          showError: (message: string): Effect.Effect<void, never> => Effect.sync(() => {
-            const el = Option.getOrNull(overlayEl)
-            if (el !== null) {
-              el.style.display = 'flex'
-              renderErrorView(dom, el, message)
-            }
-          }),
-        }))
       )
-    ),
+      return {
+        hide: (): Effect.Effect<void, never> => Effect.sync(() => {
+          const el = Option.getOrNull(overlayEl)
+          if (el !== null) el.style.display = 'none'
+        }),
+        showError: (message: string): Effect.Effect<void, never> => Effect.sync(() => {
+          const el = Option.getOrNull(overlayEl)
+          if (el !== null) {
+            el.style.display = 'flex'
+            renderErrorView(dom, el, message)
+          }
+        }),
+      }
+    }),
   }
 ) {}
 

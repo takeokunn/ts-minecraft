@@ -89,10 +89,8 @@ export class MovementService extends Effect.Service<MovementService>()(
           const right = yield* isDirPressed(KeyMappings.MOVE_RIGHT, KeyMappings.MOVE_RIGHT_ALT)
           // consumeKeyPress (not isKeyPressed) so a held jump only fires once per press.
           const jump = yield* inputService.consumeKeyPress(KeyMappings.JUMP)
-          const sprint = yield* Effect.map(
-            Effect.all([inputService.isKeyPressed(KeyMappings.SPRINT), inputService.isKeyPressed(KeyMappings.SPRINT_ALT)], { concurrency: 'unbounded' }),
-            ([ctrlL, ctrlR]) => ctrlL || ctrlR,
-          )
+          const [ctrlL, ctrlR] = yield* Effect.all([inputService.isKeyPressed(KeyMappings.SPRINT), inputService.isKeyPressed(KeyMappings.SPRINT_ALT)], { concurrency: 'unbounded' })
+          const sprint = ctrlL || ctrlR
           const sneak = yield* inputService.isKeyPressed(KeyMappings.SNEAK)
           return { forward, backward, left, right, jump, sprint, sneak }
         })
@@ -105,7 +103,10 @@ export class MovementService extends Effect.Service<MovementService>()(
           isGrounded: boolean,
         ): Effect.Effect<Vector3, never> => Effect.succeed(computeVelocity(input, yaw, isGrounded)),
         update: (yaw: number, isGrounded: boolean): Effect.Effect<Vector3, never> =>
-          getInput().pipe(Effect.map((input) => computeVelocity(input, yaw, isGrounded))),
+          Effect.gen(function* () {
+            const input = yield* getInput()
+            return computeVelocity(input, yaw, isGrounded)
+          }),
       }
     }),
   }

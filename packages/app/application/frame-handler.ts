@@ -20,14 +20,6 @@ import type {
   ResolvedDeps,
 } from '@ts-minecraft/app/frame/types'
 
-// Re-export shared types so callers (tests, layers, presentation) keep importing
-// from `@/frame-handler` without needing to reach into `@/frame/types`.
-export type {
-  FrameHandlerDeps,
-  FrameHandlerServices,
-  FrameLoopHandlers,
-} from '@ts-minecraft/app/frame/types'
-
 // ---------------------------------------------------------------------------
 // Internal factory — wires refs, derived deps, and the per-frame orchestrator.
 // ---------------------------------------------------------------------------
@@ -218,25 +210,26 @@ const createFrameLoopHandlersInternal = (
     }
 
     const applyPixelRatioCap = (pixelRatioCap: number): Effect.Effect<boolean, never> =>
-      Ref.get(lastAppliedPixelRatioRef).pipe(
-        Effect.flatMap((lastAppliedPixelRatio) => {
-          /* c8 ignore next */
-          const devicePixelRatio = typeof window !== 'undefined' ? window.devicePixelRatio : 1
-          const nextPixelRatio = Math.min(devicePixelRatio, pixelRatioCap)
-          if (Math.abs(lastAppliedPixelRatio - nextPixelRatio) < 0.01) {
-            return Effect.succeed(false)
-          }
-          return Effect.sync(() => {
-            /* c8 ignore next 2 */
-            const width = deps.renderer.domElement.clientWidth || 1
-            const height = deps.renderer.domElement.clientHeight || 1
-            deps.renderer.setPixelRatio(nextPixelRatio)
-            resolved.composerOrNull?.setPixelRatio(nextPixelRatio)
-            deps.renderer.setSize(width, height)
-            resolved.composerOrNull?.setSize(width, height)
-          }).pipe(Effect.andThen(Ref.set(lastAppliedPixelRatioRef, nextPixelRatio)), Effect.as(true))
-        }),
-      )
+      Effect.gen(function* () {
+        const lastAppliedPixelRatio = yield* Ref.get(lastAppliedPixelRatioRef)
+        /* c8 ignore next */
+        const devicePixelRatio = typeof window !== 'undefined' ? window.devicePixelRatio : 1
+        const nextPixelRatio = Math.min(devicePixelRatio, pixelRatioCap)
+        if (Math.abs(lastAppliedPixelRatio - nextPixelRatio) < 0.01) {
+          return false
+        }
+        yield* Effect.sync(() => {
+          /* c8 ignore next 2 */
+          const width = deps.renderer.domElement.clientWidth || 1
+          const height = deps.renderer.domElement.clientHeight || 1
+          deps.renderer.setPixelRatio(nextPixelRatio)
+          resolved.composerOrNull?.setPixelRatio(nextPixelRatio)
+          deps.renderer.setSize(width, height)
+          resolved.composerOrNull?.setSize(width, height)
+        })
+        yield* Ref.set(lastAppliedPixelRatioRef, nextPixelRatio)
+        return true
+      })
 
     const markShadowMapDirty = (): void => {
       if (deps.renderer.shadowMap) {

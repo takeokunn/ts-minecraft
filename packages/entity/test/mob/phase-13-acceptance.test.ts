@@ -9,9 +9,10 @@ const runWithEntityManager = <A>(program: Effect.Effect<A, never, EntityManager>
   Effect.runPromise(Effect.provide(program, serviceLive))
 
 const getHealth = (entityManager: EntityManager, entityId: Effect.Effect.Success<ReturnType<EntityManager['addEntity']>>) =>
-  entityManager.getEntity(entityId).pipe(
-    Effect.map((entityOption) => Option.getOrThrow(entityOption).health),
-  )
+  Effect.gen(function* () {
+    const entityOption = yield* entityManager.getEntity(entityId)
+    return Option.getOrThrow(entityOption).health
+  })
 
 describe('Phase 13 entity-system acceptance guard', () => {
   it('drives hostile zombies toward the player and passive cows away from the player', async () => {

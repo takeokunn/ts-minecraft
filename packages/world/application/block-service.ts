@@ -27,13 +27,16 @@ const FurnaceServiceTag = Context.GenericTag<FurnaceService>('@minecraft/applica
 
 // ─── Error type ───────────────────────────────────────────────────────────────
 
+const formatCause = (cause?: unknown): string =>
+  cause instanceof Error ? cause.message : cause ? String(cause) : ''
+
 export class BlockServiceError extends Data.TaggedError('BlockServiceError')<{
   readonly operation: string
   readonly reason: string
   readonly cause?: unknown
 }> {
   override get message(): string {
-    const causeStr = this.cause instanceof Error ? this.cause.message : this.cause ? String(this.cause) : ''
+    const causeStr = formatCause(this.cause)
     return `BlockService error during ${this.operation}: ${this.reason}${causeStr ? `: ${causeStr}` : ''}`
   }
 }
@@ -43,16 +46,15 @@ export class BlockServiceError extends Data.TaggedError('BlockServiceError')<{
 export class BlockService extends Effect.Service<BlockService>()(
   '@minecraft/application/BlockService',
   {
-    effect: Effect.suspend(() => Effect.all([
-      ChunkManagerService,
-      ChunkService,
-      FluidService,
-      PlayerService,
-      InventoryService,
-      HotbarService,
-      FurnaceServiceTag,
-    ], { concurrency: 'unbounded' }).pipe(
-      Effect.map(([chunkManagerService, chunkService, fluidService, playerService, inventoryService, hotbarService, furnaceService]) => ({
+    effect: Effect.gen(function* () {
+      const chunkManagerService = yield* ChunkManagerService
+      const chunkService = yield* ChunkService
+      const fluidService = yield* FluidService
+      const playerService = yield* PlayerService
+      const inventoryService = yield* InventoryService
+      const hotbarService = yield* HotbarService
+      const furnaceService = yield* FurnaceServiceTag
+      return {
 
         breakBlock: (position: Position, silkTouch = false): Effect.Effect<void, BlockServiceError> =>
           Effect.gen(function* () {
@@ -193,18 +195,20 @@ export class BlockService extends Effect.Service<BlockService>()(
 
             yield* inventoryService.removeBlock(blockType, 1, preferredInventorySlot).pipe(
               Effect.catchTag('InventoryError', () =>
-                setBlockInChunk(chunk, lx, y, lz, 'AIR').pipe(
+                Effect.gen(function* () {
                   /* c8 ignore next 4 */
-                  Effect.mapError((e: BlockIndexError) => new BlockServiceError({
-                    operation: 'placeBlock',
-                    reason: `Failed to restore block after inventory rollback: (${e.x}, ${e.y}, ${e.z})`,
-                    cause: e,
-                  })),
-                  Effect.andThen(Effect.fail(new BlockServiceError({
+                  yield* setBlockInChunk(chunk, lx, y, lz, 'AIR').pipe(
+                    Effect.mapError((e: BlockIndexError) => new BlockServiceError({
+                      operation: 'placeBlock',
+                      reason: `Failed to restore block after inventory rollback: (${e.x}, ${e.y}, ${e.z})`,
+                      cause: e,
+                    }))
+                  )
+                  yield* Effect.fail(new BlockServiceError({
                     operation: 'placeBlock',
                     reason: `No ${blockType} available in inventory`,
-                  })))
-                )
+                  }))
+                })
               )
             )
 
@@ -235,8 +239,8 @@ export class BlockService extends Effect.Service<BlockService>()(
             )
             yield* chunkManagerService.markChunkDirty(chunkCoord, [{ lx, y, lz }])
           }),
-      }))
-    )),
+      }
+    }),
   }
 ) {}
 export const BlockServiceLive = BlockService.Default

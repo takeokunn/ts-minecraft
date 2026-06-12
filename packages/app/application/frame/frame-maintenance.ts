@@ -1,12 +1,10 @@
 import { Array as Arr, Cause, Effect, HashMap, MutableRef, Option, Ref } from 'effect'
 import { DEFAULT_PLAYER_ID } from '@ts-minecraft/core'
 import type { Chunk, ChunkAABB } from '@ts-minecraft/world'
-import { chunkBlockIndexUnchecked } from '@ts-minecraft/world'
-import { DESPAWN_DISTANCE, MOB_HALF_HEIGHT, HOSTILE_SPAWN_MAX_BLOCK_LIGHT } from '@ts-minecraft/entity'
+import { DESPAWN_DISTANCE, resolveMobSpawnPosition } from '@ts-minecraft/entity'
 import type { Village } from '@ts-minecraft/entity'
-import { getLightAt } from '@ts-minecraft/block'
-import { CHUNK_HEIGHT, CHUNK_SIZE } from '@ts-minecraft/core'
-import { buildingBlocksForVillage } from './village-builder'
+import { CHUNK_SIZE } from '@ts-minecraft/core'
+import { buildingBlocksForVillage } from '@ts-minecraft/entity'
 import { FALLBACK_PLAYER_POS, MAX_DIRTY_CHUNK_UPDATES_PER_FRAME, DIRTY_CHUNK_FLUSH_CONCURRENCY } from '@ts-minecraft/app/frame-handler.config'
 import { CROP_GROWTH_INTERVAL_SECS } from '@ts-minecraft/world'
 import type { FrameHandlerDeps, FrameHandlerServices } from '@ts-minecraft/app/frame/types'
@@ -44,60 +42,6 @@ type MaintenanceServices = Pick<
   'entityManager' | 'gameState' | 'chunkManagerService' | 'settingsService' | 'worldRendererService' | 'fluidService' | 'blockHighlight' | 'furnaceService' | 'mobSpawner' | 'villageService' | 'timeService' | 'debugFeatureFlags' | 'blockService' | 'cropGrowthService'
 >
 
-const resolveTerrainSpawnPosition = (
-  chunk: Chunk,
-  candidatePosition: Position,
-  // R25: when true, the resolved surface must be dark enough for hostile mobs
-  // (vanilla light-level rule). Passive (daytime) spawns ignore the light gate.
-  isHostileSpawn: boolean = false,
-): Option.Option<Position> => {
-  const blockX = Math.floor(candidatePosition.x)
-  const blockZ = Math.floor(candidatePosition.z)
-  const lx = ((blockX % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE
-  const lz = ((blockZ % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE
-
-  for (let y = CHUNK_HEIGHT - 1; y >= 0; y -= 1) {
-    const blockIndex = chunkBlockIndexUnchecked(lx, y, lz)
-    if ((chunk.blocks[blockIndex] ?? 0) === 0) {
-      continue
-    }
-
-    const bodyBlockY = y + 1
-    const headBlockY = y + 2
-    if (headBlockY >= CHUNK_HEIGHT) {
-      return Option.none()
-    }
-
-    const bodyBlockIndex = chunkBlockIndexUnchecked(lx, bodyBlockY, lz)
-    const headBlockIndex = chunkBlockIndexUnchecked(lx, headBlockY, lz)
-    /* c8 ignore start */
-    if ((chunk.blocks[bodyBlockIndex] ?? 0) !== 0 || (chunk.blocks[headBlockIndex] ?? 0) !== 0) {
-      return Option.none()
-    }
-    /* c8 ignore end */
-
-    // R25: hostile mobs only spawn in the dark. Read the block-light at the
-    // mob's feet voxel; a torch-lit surface (light > threshold) rejects the
-    // spawn. An absent blockLight grid reads as 0 (dark), so this only ever
-    // ADDS suppression where light has been computed — never blocks a dark spot.
-    if (isHostileSpawn) {
-      const light = chunk.blockLight !== undefined
-        ? getLightAt(chunk.blockLight, lx, bodyBlockY, lz)
-        : 0
-      if (light > HOSTILE_SPAWN_MAX_BLOCK_LIGHT) {
-        return Option.none()
-      }
-    }
-
-    return Option.some({
-      x: candidatePosition.x,
-      y: bodyBlockY + MOB_HALF_HEIGHT,
-      z: candidatePosition.z,
-    })
-  }
-
-  return Option.none()
-}
 
 export const createMaintenanceHandler = (
   deps: Pick<FrameHandlerDeps, 'scene' | 'sessionPausedRef'>,
@@ -185,17 +129,18 @@ export const createMaintenanceHandler = (
                 z: Math.floor(Math.floor(candidatePosition.z) / CHUNK_SIZE),
               }
 
-              return chunkManagerService.getChunk(chunkCoord).pipe(
-                Effect.map((chunk) => resolveTerrainSpawnPosition(chunk, candidatePosition, isNightSpawn)),
-                Effect.catchAllCause(() => Effect.succeed(Option.none<Position>())),
-              )
+              return Effect.gen(function* () {
+                const chunk = yield* chunkManagerService.getChunk(chunkCoord)
+                return resolveMobSpawnPosition(chunk, candidatePosition, isNightSpawn)
+              }).pipe(Effect.catchAllCause(() => Effect.succeed(Option.none<Position>())))
             },
           ).pipe(
             /* c8 ignore start */
             Effect.catchAllCause((cause) =>
-              Effect.logError(`Mob spawn error: ${Cause.pretty(cause)}`).pipe(
-                Effect.as(Option.none()),
-              ),
+              Effect.gen(function* () {
+                yield* Effect.logError(`Mob spawn error: ${Cause.pretty(cause)}`)
+                return Option.none()
+              }),
             ),
             /* c8 ignore end */
           )
@@ -300,37 +245,37 @@ export const createMaintenanceHandler = (
         )
       }
 
-      const flushedDirtyChunkCount = dirtyChunkFlushEnabled
-        ? yield* Ref.getAndSet(state.dirtyChunksRef, HashMap.empty()).pipe(
-            Effect.flatMap((dirtyChunks) => {
-              const dirtyEntries = Arr.fromIterable(dirtyChunks)
-              const chunksToUpdate = Arr.take(dirtyEntries, MAX_DIRTY_CHUNK_UPDATES_PER_FRAME)
-              const remainingEntries = Arr.drop(dirtyEntries, MAX_DIRTY_CHUNK_UPDATES_PER_FRAME)
-
-              const flushUpdates = Effect.forEach(
-                chunksToUpdate,
-                ([, entry]) => worldRendererService.updateChunkInScene(
-                  entry.chunk, deps.scene, Option.getOrUndefined(entry.dirtyAABB),
-                ),
-                { concurrency: DIRTY_CHUNK_FLUSH_CONCURRENCY, discard: true },
-              )
-
-              /* c8 ignore next 4 -- requeueRemaining only fires when dirtyChunks > MAX_DIRTY_CHUNK_UPDATES_PER_FRAME; not tested in unit tests */
-              const requeueRemaining = remainingEntries.length > 0
-                ? Ref.update(state.dirtyChunksRef, (current) => Arr.reduce(remainingEntries, current, (acc, [key, entry]) => HashMap.set(acc, key, entry)))
-                : Effect.void
-
-              return flushUpdates.pipe(
-                Effect.andThen(requeueRemaining),
-                Effect.andThen(dirtyEntries.length > 0 ? blockHighlight.invalidateCache() : Effect.void),
-                Effect.as(dirtyEntries.length),
-              )
-            }),
+      let flushedDirtyChunkCount = 0
+      if (dirtyChunkFlushEnabled) {
+        const dirtyChunks = yield* Ref.getAndSet(state.dirtyChunksRef, HashMap.empty())
+        const dirtyEntries = Arr.fromIterable(dirtyChunks)
+        const chunksToUpdate = Arr.take(dirtyEntries, MAX_DIRTY_CHUNK_UPDATES_PER_FRAME)
+        const remainingEntries = Arr.drop(dirtyEntries, MAX_DIRTY_CHUNK_UPDATES_PER_FRAME)
+        yield* Effect.forEach(
+          chunksToUpdate,
+          ([, entry]) => worldRendererService.updateChunkInScene(
+            entry.chunk, deps.scene, Option.getOrUndefined(entry.dirtyAABB),
+          ),
+          { concurrency: DIRTY_CHUNK_FLUSH_CONCURRENCY, discard: true },
+        )
+        /* c8 ignore next 4 -- only fires when dirtyChunks > MAX_DIRTY_CHUNK_UPDATES_PER_FRAME; not tested in unit tests */
+        if (remainingEntries.length > 0) {
+          yield* Ref.update(state.dirtyChunksRef, (current) =>
+            Arr.reduce(remainingEntries, current, (acc, [key, entry]) => HashMap.set(acc, key, entry))
           )
-        : 0
+        }
+        if (dirtyEntries.length > 0) yield* blockHighlight.invalidateCache()
+        flushedDirtyChunkCount = dirtyEntries.length
+      }
 
       /* c8 ignore next */
       return shouldRefreshChunks || chunkSyncPending || flushedDirtyChunkCount > 0 || despawnedCount > 0 || Option.isSome(spawnResult)
     }).pipe(
-      Effect.catchAllCause((cause) => Effect.logError(`Chunk maintenance error: ${Cause.pretty(cause)}`).pipe(Effect.as(true))),
+      Effect.catchAllCause((cause) =>
+        Effect.gen(function* () {
+          /* c8 ignore next */
+          yield* Effect.logError(`Chunk maintenance error: ${Cause.pretty(cause)}`)
+          return true
+        })
+      ),
     )

@@ -315,9 +315,8 @@ describe('application/game-loop', () => {
       Effect.gen(function* () {
         const service = yield* GameLoopService
 
-        const running = yield* service
-          .start(() => Effect.void)
-          .pipe(Effect.flatMap(() => service.isRunning()))
+        yield* service.start(() => Effect.void)
+        const running = yield* service.isRunning()
 
         expect(running).toBe(true)
 

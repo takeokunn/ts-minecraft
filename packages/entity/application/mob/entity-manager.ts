@@ -21,14 +21,14 @@ import { toPublicEntity } from '../../domain/mob/entity-utils'
 export class EntityManager extends Effect.Service<EntityManager>()(
   '@minecraft/entity/EntityManager',
   {
-    effect: Effect.all([
-      Ref.make(HashMap.empty<EntityIdType, ManagedEntity>()),
-      Ref.make(1),
-      Ref.make(0),
-      Ref.make<Option.Option<ReadonlyArray<Entity>>>(Option.none()),
-      Ref.make(0),
-      Ref.make(0), // R10: births since last drain (for the player breeding-XP reward)
-    ], { concurrency: 'unbounded' }).pipe(Effect.map(([entitiesRef, nextEntityNumberRef, updateTickRef, cachedEntitiesRef, structureVersionRef, birthsRef]) => {
+    effect: Effect.gen(function* () {
+      const entitiesRef = yield* Ref.make(HashMap.empty<EntityIdType, ManagedEntity>())
+      const nextEntityNumberRef = yield* Ref.make(1)
+      const updateTickRef = yield* Ref.make(0)
+      const cachedEntitiesRef = yield* Ref.make<Option.Option<ReadonlyArray<Entity>>>(Option.none())
+      const structureVersionRef = yield* Ref.make(0)
+      // R10: births since last drain (for the player breeding-XP reward)
+      const birthsRef = yield* Ref.make(0)
       const internal = makeEntityManagerInternal(entitiesRef, cachedEntitiesRef, structureVersionRef)
       const updateModule = makeEntityManagerUpdate(entitiesRef, updateTickRef, cachedEntitiesRef, structureVersionRef)
 
@@ -89,45 +89,51 @@ export class EntityManager extends Effect.Service<EntityManager>()(
         addEntity: spawnEntity,
 
         removeEntity: (entityId: EntityIdType): Effect.Effect<boolean, never> =>
-          Ref.modify(entitiesRef, (entities): [boolean, HashMap.HashMap<EntityIdType, ManagedEntity>] => {
-            const entity = Option.getOrNull(HashMap.get(entities, entityId))
-            return entity === null ? [false, entities] : [true, HashMap.remove(entities, entityId)]
-          }).pipe(Effect.tap((removed) => removed
-            ? Effect.all([
+          Effect.gen(function* () {
+            const removed = yield* Ref.modify(entitiesRef, (entities): [boolean, HashMap.HashMap<EntityIdType, ManagedEntity>] => {
+              const entity = Option.getOrNull(HashMap.get(entities, entityId))
+              return entity === null ? [false, entities] : [true, HashMap.remove(entities, entityId)]
+            })
+            if (removed) {
+              yield* Effect.all([
                 Ref.set(cachedEntitiesRef, Option.none()),
                 Ref.update(structureVersionRef, (version) => version + 1),
               ], { concurrency: 'unbounded', discard: true })
-            : Effect.void)),
+            }
+            return removed
+          }),
 
         getEntity: (entityId: EntityIdType): Effect.Effect<Option.Option<Entity>, never> =>
-          Ref.get(entitiesRef).pipe(
-            Effect.map((entities) => Option.map(HashMap.get(entities, entityId), toPublicEntity))
-          ),
+          Effect.gen(function* () {
+            const entities = yield* Ref.get(entitiesRef)
+            return Option.map(HashMap.get(entities, entityId), toPublicEntity)
+          }),
 
         getEntities: (): Effect.Effect<ReadonlyArray<Entity>, never> =>
-          Ref.get(cachedEntitiesRef).pipe(
-            Effect.flatMap((cached) => {
-              const cachedValue = Option.getOrNull(cached)
-              if (cachedValue !== null) return Effect.succeed(cachedValue)
-              return Ref.get(entitiesRef).pipe(
-                Effect.flatMap((entities) => {
-                  const result = Arr.map(
-                    Arr.fromIterable(HashMap.values(entities)),
-                    toPublicEntity
-                  ) as ReadonlyArray<Entity>
-                  return Ref.set(cachedEntitiesRef, Option.some(result)).pipe(Effect.as(result))
-                })
-              )
-            })
-          ),
+          Effect.gen(function* () {
+            const cached = yield* Ref.get(cachedEntitiesRef)
+            const cachedValue = Option.getOrNull(cached)
+            if (cachedValue !== null) return cachedValue
+            const entities = yield* Ref.get(entitiesRef)
+            const result = Arr.map(
+              Arr.fromIterable(HashMap.values(entities)),
+              toPublicEntity
+            ) as ReadonlyArray<Entity>
+            yield* Ref.set(cachedEntitiesRef, Option.some(result))
+            return result
+          }),
 
         getEntityAIState: (entityId: EntityIdType): Effect.Effect<Option.Option<import('../../domain/mob/state-machine').AIState>, never> =>
-          Ref.get(entitiesRef).pipe(
-            Effect.map((entities) => Option.map(HashMap.get(entities, entityId), (entity) => entity.aiState))
-          ),
+          Effect.gen(function* () {
+            const entities = yield* Ref.get(entitiesRef)
+            return Option.map(HashMap.get(entities, entityId), (entity) => entity.aiState)
+          }),
 
         getCount: (): Effect.Effect<number, never> =>
-          Ref.get(entitiesRef).pipe(Effect.map(HashMap.size)),
+          Effect.gen(function* () {
+            const entities = yield* Ref.get(entitiesRef)
+            return HashMap.size(entities)
+          }),
 
         getStructureVersion: (): Effect.Effect<number, never> => Ref.get(structureVersionRef),
 
@@ -157,22 +163,24 @@ export class EntityManager extends Effect.Service<EntityManager>()(
             yield* Effect.forEach(
               findBreedingPairs(candidates),
               (pair) =>
-                Ref.update(entitiesRef, (es) => {
-                  const reset = (m: HashMap.HashMap<EntityIdType, ManagedEntity>, pid: EntityIdType) => {
-                    const parent = Option.getOrNull(HashMap.get(m, pid))
-                    return parent === null ? m : HashMap.set(m, pid, { ...parent, ...afterBreedingParentState() })
-                  }
-                  return reset(reset(es, pair.parentA), pair.parentB)
-                }).pipe(
-                  Effect.andThen(spawnEntity(pair.type, pair.babyPosition, 0)),
+                Effect.gen(function* () {
+                  yield* Ref.update(entitiesRef, (es) => {
+                    const reset = (m: HashMap.HashMap<EntityIdType, ManagedEntity>, pid: EntityIdType) => {
+                      const parent = Option.getOrNull(HashMap.get(m, pid))
+                      return parent === null ? m : HashMap.set(m, pid, { ...parent, ...afterBreedingParentState() })
+                    }
+                    return reset(reset(es, pair.parentA), pair.parentB)
+                  })
+                  yield* spawnEntity(pair.type, pair.babyPosition, 0)
                   // R10: record the birth so the frame loop can reward the player with XP.
-                  Effect.andThen(Ref.update(birthsRef, (n) => n + 1)),
-                ),
+                  yield* Ref.update(birthsRef, (n) => n + 1)
+                }),
               { discard: true },
-            ).pipe(Effect.andThen(Ref.set(cachedEntitiesRef, Option.none())))
+            )
+            yield* Ref.set(cachedEntitiesRef, Option.none())
           }),
       }
-    })),
+    }),
   },
 ) {}
 

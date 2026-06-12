@@ -38,18 +38,14 @@ export type ServerServiceImplOptions = {
 }
 
 export const makeGameServer = (maxPlayers = 20): Effect.Effect<GameServer, never> =>
-  Effect.all([
-    Ref.make(new Map<PlayerId, ConnectedPlayer>()),
-    Ref.make(new Map<PlayerId, WebSocketConnection>()),
-    Ref.make(new Map<string, PlayerId>()),
-  ], { concurrency: 'unbounded' }).pipe(
-    Effect.map(([connectedPlayers, connectionsByPlayerId, playerIdByConnectionId]) => ({
-      connectedPlayers,
-      connectionsByPlayerId,
-      playerIdByConnectionId,
-      maxPlayers,
-    })),
-  )
+  Effect.gen(function* () {
+    const [connectedPlayers, connectionsByPlayerId, playerIdByConnectionId] = yield* Effect.all([
+      Ref.make(new Map<PlayerId, ConnectedPlayer>()),
+      Ref.make(new Map<PlayerId, WebSocketConnection>()),
+      Ref.make(new Map<string, PlayerId>()),
+    ], { concurrency: 'unbounded' })
+    return { connectedPlayers, connectionsByPlayerId, playerIdByConnectionId, maxPlayers }
+  })
 
 const wireConnection = (
   gameServer: GameServer,
@@ -69,24 +65,17 @@ const wireConnection = (
     ),
   )
 
-  const closeWatcher = connection.onClose.pipe(
-    Effect.flatMap(() =>
-      Ref.get(gameServer.playerIdByConnectionId).pipe(
-        Effect.flatMap((playerIds) => {
-          const playerId = playerIds.get(connection.id) ?? null
-          return playerId !== null
-            ? handlePlayerLeave({ gameServer, serverService: service }, playerId)
-            : Effect.void
-        }),
-      ),
-    ),
-    Effect.catchAll(() => Effect.void),
-  )
+  const closeWatcher = Effect.gen(function* () {
+    yield* connection.onClose
+    const playerIds = yield* Ref.get(gameServer.playerIdByConnectionId)
+    const playerId = playerIds.get(connection.id) ?? null
+    if (playerId !== null) yield* handlePlayerLeave({ gameServer, serverService: service }, playerId)
+  }).pipe(Effect.catchAll(() => Effect.void))
 
-  return Effect.forkDaemon(readMessages).pipe(
-    Effect.zipRight(Effect.forkDaemon(closeWatcher)),
-    Effect.asVoid,
-  )
+  return Effect.gen(function* () {
+    yield* Effect.forkDaemon(readMessages)
+    yield* Effect.forkDaemon(closeWatcher)
+  })
 }
 
 const startConnectionLoop = (
@@ -94,10 +83,10 @@ const startConnectionLoop = (
   gameServer: GameServer,
   service: ServerServiceShape,
 ): Effect.Effect<Fiber.RuntimeFiber<void, never>, never> =>
-  handle.onConnection.pipe(
-    Effect.flatMap((connections) => Stream.runForEach(connections, (connection) => wireConnection(gameServer, service, connection))),
-    Effect.forkDaemon,
-  )
+  Effect.forkDaemon(Effect.gen(function* () {
+    const connections = yield* handle.onConnection
+    yield* Stream.runForEach(connections, (connection) => wireConnection(gameServer, service, connection))
+  }))
 
 export const ServerServiceImpl = (
   port: WebSocketServerPort,
@@ -110,11 +99,13 @@ export const ServerServiceImpl = (
 
     const service: ServerServiceShape = {
       start: (serverPort) =>
-        port.start(serverPort).pipe(
-          Effect.tap((handle) => Ref.set(handleRef, Option.some(handle))),
-          Effect.tap((handle) => startConnectionLoop(handle, gameServer, service).pipe(Effect.flatMap((fiber) => Ref.set(fiberRef, Option.some(fiber))))),
-          Effect.as(serverPort),
-        ),
+        Effect.gen(function* () {
+          const handle = yield* port.start(serverPort)
+          yield* Ref.set(handleRef, Option.some(handle))
+          const fiber = yield* startConnectionLoop(handle, gameServer, service)
+          yield* Ref.set(fiberRef, Option.some(fiber))
+          return serverPort
+        }),
       stop: () =>
         Effect.gen(function* () {
           const fiber = Option.getOrNull(yield* Ref.get(fiberRef))
@@ -133,16 +124,17 @@ export const ServerServiceImpl = (
         }).pipe(
           Effect.mapError((cause) => new NetworkError({ operation: 'stop', reason: 'failed to stop server', cause })),
         ),
-      getConnectedPlayers: () => Ref.get(gameServer.connectedPlayers).pipe(Effect.map((players) => new Map(players))),
+      getConnectedPlayers: () => Effect.gen(function* () {
+        const players = yield* Ref.get(gameServer.connectedPlayers)
+        return new Map(players)
+      }),
       sendToPlayer: (playerId, message) =>
-        Ref.get(gameServer.connectionsByPlayerId).pipe(
-          Effect.flatMap((connections) => {
-            const connection = connections.get(playerId) ?? null
-            return connection !== null
-              ? sendEncodedToConnection(connection, message)
-              : Effect.fail(new NetworkError({ operation: 'send', reason: `player ${playerId} is not connected` }))
-          }),
-        ),
+        Effect.gen(function* () {
+          const connections = yield* Ref.get(gameServer.connectionsByPlayerId)
+          const connection = connections.get(playerId) ?? null
+          if (connection === null) yield* Effect.fail(new NetworkError({ operation: 'send', reason: `player ${playerId} is not connected` }))
+          else yield* sendEncodedToConnection(connection, message)
+        }),
       broadcast: (message, exclude) =>
         Effect.gen(function* () {
           const connections = yield* Ref.get(gameServer.connectionsByPlayerId)

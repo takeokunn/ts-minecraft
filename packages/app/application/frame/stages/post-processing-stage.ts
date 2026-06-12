@@ -50,12 +50,9 @@ export const refractionPrepassStage = (
             'Refraction pre-pass error',
           )
           copyCameraPoseInto(refs.currentRefractionPoseScratch, lastRefractionFrame)
-          yield* Ref.getAndSet(refs.refractionValidRef, true).pipe(
-            Effect.flatMap((wasValid) =>
-              /* c8 ignore next */
-              wasValid ? Effect.void : services.worldRendererService.setRefractionValid(true),
-            ),
-          )
+          const wasValid = yield* Ref.getAndSet(refs.refractionValidRef, true)
+          /* c8 ignore next */
+          if (!wasValid) yield* services.worldRendererService.setRefractionValid(true)
         }
       }
     }

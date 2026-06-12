@@ -53,24 +53,18 @@ export const lightingStage = (
     } else {
       yield* Effect.sync(() => applyRainEnvironment(inputs.effectiveLights, weather))
     }
-    yield* Ref.updateAndGet(refs.shadowUpdateCounterRef, (n) => (n + 1) % 8).pipe(
-      Effect.flatMap((shadowFrame) =>
-        shadowFrame === 0 && deps.lights.light.castShadow
-          ? Effect.sync(() => {
-              inputs.markShadowMapDirty()
-            })
-          : Effect.void,
-      ),
-    )
+    const shadowFrame = yield* Ref.updateAndGet(refs.shadowUpdateCounterRef, (n) => (n + 1) % 8)
+    if (shadowFrame === 0 && deps.lights.light.castShadow) {
+      yield* Effect.sync(() => { inputs.markShadowMapDirty() })
+    }
 
     yield* logErrors(
-      services.timeService.isNight().pipe(
-        Effect.flatMap((isNight) => {
-          musicContextScratch.isNight = isNight
-          musicContextScratch.playerPosition = inputs.playerPos
-          return services.musicManager.updateFromContext(musicContextScratch)
-        }),
-      ),
+      Effect.gen(function* () {
+        const isNight = yield* services.timeService.isNight()
+        musicContextScratch.isNight = isNight
+        musicContextScratch.playerPosition = inputs.playerPos
+        yield* services.musicManager.updateFromContext(musicContextScratch)
+      }),
       'Music update error',
     )
 

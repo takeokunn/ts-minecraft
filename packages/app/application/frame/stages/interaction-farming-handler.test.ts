@@ -5,7 +5,7 @@ import { CHUNK_SIZE, CHUNK_HEIGHT, blockTypeToIndex, SlotIndex } from '@ts-minec
 import type { BlockType } from '@ts-minecraft/core'
 import type { Chunk } from '@ts-minecraft/world'
 import { handleFarmingInteraction } from '@ts-minecraft/app/frame/stages/interaction-farming-handler'
-import type { TargetRayHit } from '@ts-minecraft/app/frame/stages/interaction-block-handler'
+import type { TargetRayHit } from '@ts-minecraft/app/frame/stages/interaction-types'
 import { HOTBAR_START } from '@ts-minecraft/inventory'
 
 // ---------------------------------------------------------------------------

@@ -15,10 +15,14 @@ export { INVENTORY_SIZE, HOTBAR_START, HOTBAR_SIZE }
 export class InventoryService extends Effect.Service<InventoryService>()(
   '@minecraft/application/InventoryService',
   {
-    effect: Ref.make<InventorySlots>(Arr.makeBy(INVENTORY_SIZE, () => Option.none())).pipe(
-      Effect.map((slotsRef) => ({
+    effect: Effect.gen(function* () {
+      const slotsRef = yield* Ref.make<InventorySlots>(Arr.makeBy(INVENTORY_SIZE, () => Option.none()))
+      return {
         getSlot: (index: SlotIndex): Effect.Effect<InventorySlot, never> =>
-          Ref.get(slotsRef).pipe(Effect.map((slots) => Option.getOrElse(Arr.get(slots, SlotIndex.toNumber(index)), () => Option.none<ItemStack>()))),
+          Effect.gen(function* () {
+            const slots = yield* Ref.get(slotsRef)
+            return Option.getOrElse(Arr.get(slots, SlotIndex.toNumber(index)), () => Option.none<ItemStack>())
+          }),
 
         setSlot: (index: SlotIndex, stack: InventorySlot): Effect.Effect<void, never> =>
           Ref.update(slotsRef, Arr.modify(SlotIndex.toNumber(index), () => stack)),
@@ -66,68 +70,66 @@ export class InventoryService extends Effect.Service<InventoryService>()(
           }),
 
         addBlock: (itemType: InventoryItem, count: number): Effect.Effect<void, InventoryError> =>
-          Ref.modify(slotsRef, (slots) => {
-            const maxStack = maxStackFor(itemType)
-            const [afterFill, rem1] = fillExistingStacks(slots, itemType, count, maxStack)
-            const [afterEmpty, rem2] = fillEmptySlots(afterFill, itemType, rem1, maxStack)
-            const succeeded = rem2 === 0
-            // Atomicity: only write new state if ALL items fit; otherwise roll back to original
-            return [succeeded, succeeded ? afterEmpty : slots] as const
-          }).pipe(
-            Effect.flatMap((succeeded) =>
-              succeeded
-                ? Effect.void
-                : Effect.fail(new InventoryError({ operation: 'addBlock', cause: `No space for ${count}x ${itemType}` }))
-            )
-          ),
+          Effect.gen(function* () {
+            const succeeded = yield* Ref.modify(slotsRef, (slots) => {
+              const maxStack = maxStackFor(itemType)
+              const [afterFill, rem1] = fillExistingStacks(slots, itemType, count, maxStack)
+              const [afterEmpty, rem2] = fillEmptySlots(afterFill, itemType, rem1, maxStack)
+              const ok = rem2 === 0
+              // Atomicity: only write new state if ALL items fit; otherwise roll back to original
+              return [ok, ok ? afterEmpty : slots] as const
+            })
+            if (!succeeded) yield* Effect.fail(new InventoryError({ operation: 'addBlock', cause: `No space for ${count}x ${itemType}` }))
+          }),
 
         removeBlock: (itemType: InventoryItem, count: number, preferredSlot?: SlotIndex): Effect.Effect<void, InventoryError> =>
-          Ref.modify(slotsRef, (slots) => {
-            const preferredIdx = Option.map(Option.fromNullable(preferredSlot), SlotIndex.toNumber)
+          Effect.gen(function* () {
+            const succeeded = yield* Ref.modify(slotsRef, (slots) => {
+              const preferredIdx = Option.map(Option.fromNullable(preferredSlot), SlotIndex.toNumber)
 
-            const takeFrom = (rem: number, stack: ItemStack): readonly [number, InventorySlot] => {
-              if (stack.itemType !== itemType) return [rem, Option.some(stack)]
-              const take = Math.min(stack.count, rem)
-              return [rem - take, removeFromStack(stack, take)]
-            }
+              const takeFrom = (rem: number, stack: ItemStack): readonly [number, InventorySlot] => {
+                if (stack.itemType !== itemType) return [rem, Option.some(stack)]
+                const take = Math.min(stack.count, rem)
+                return [rem - take, removeFromStack(stack, take)]
+              }
 
-            // Step 1: drain preferred slot first (if provided)
-            const [rem1, slots1] = drainPreferredSlot(slots, itemType, count, preferredIdx)
+              // Step 1: drain preferred slot first (if provided)
+              const [rem1, slots1] = drainPreferredSlot(slots, itemType, count, preferredIdx)
 
-            // Step 2: drain remaining from all other slots in order
-            const preferredIdxNum = Option.getOrElse(preferredIdx, () => -1)
-            const [rem2, slots2] = Arr.mapAccum(slots1, rem1, (rem, slot, idx) => {
-              if (rem <= 0) return [rem, slot] as const
-              if (idx === preferredIdxNum) return [rem, slot] as const
-              const stack = Option.getOrNull(slot)
-              return stack === null ? [rem, slot] as const : takeFrom(rem, stack)
+              // Step 2: drain remaining from all other slots in order
+              const preferredIdxNum = Option.getOrElse(preferredIdx, () => -1)
+              const [rem2, slots2] = Arr.mapAccum(slots1, rem1, (rem, slot, idx) => {
+                if (rem <= 0) return [rem, slot] as const
+                if (idx === preferredIdxNum) return [rem, slot] as const
+                const stack = Option.getOrNull(slot)
+                return stack === null ? [rem, slot] as const : takeFrom(rem, stack)
+              })
+
+              const ok = rem2 === 0
+              // Atomicity: only write new state if ALL items were removed; otherwise roll back
+              return [ok, ok ? slots2 : slots] as const
             })
-
-            const succeeded = rem2 === 0
-            // Atomicity: only write new state if ALL items were removed; otherwise roll back
-            return [succeeded, succeeded ? slots2 : slots] as const
-          }).pipe(
-            Effect.flatMap((succeeded) =>
-              succeeded
-                ? Effect.void
-                : Effect.fail(new InventoryError({ operation: 'removeBlock', cause: `Insufficient ${itemType}: need ${count}` }))
-            )
-          ),
+            if (!succeeded) yield* Effect.fail(new InventoryError({ operation: 'removeBlock', cause: `Insufficient ${itemType}: need ${count}` }))
+          }),
 
         getHotbarSlots: (): Effect.Effect<ReadonlyArray<InventorySlot>, never> =>
-          Ref.get(slotsRef).pipe(Effect.map((slots) => Arr.take(Arr.drop(slots, HOTBAR_START), HOTBAR_SIZE))),
+          Effect.gen(function* () {
+            const slots = yield* Ref.get(slotsRef)
+            return Arr.take(Arr.drop(slots, HOTBAR_START), HOTBAR_SIZE)
+          }),
 
         getAllSlots: (): Effect.Effect<InventorySlots, never> =>
           Ref.get(slotsRef),
 
         serialize: (): Effect.Effect<InventorySaveData, never> =>
-          Ref.get(slotsRef).pipe(
-            Effect.map((slots) => ({
+          Effect.gen(function* () {
+            const slots = yield* Ref.get(slotsRef)
+            return {
               slots: Arr.map(slots, (slot, i) =>
                 Option.map(slot, (stack) => ({ slot: SlotIndex.make(i), itemType: stack.itemType, count: stack.count, durability: stack.durability }))
               ),
-            }))
-          ),
+            }
+          }),
 
         // Used by the death flow in survival mode (FR-1.3): inventory is dropped at the
         // death position. Phase-1 semantics treat "drop" as "clear" — Phase-3 will
@@ -151,8 +153,8 @@ export class InventoryService extends Effect.Service<InventoryService>()(
               return i >= 0 && i < INVENTORY_SIZE ? Arr.modify(acc, i, () => Option.some(stack)) : acc
             })
           ),
-      }))
-    ),
+      }
+    }),
   }
 ) {}
 

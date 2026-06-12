@@ -6,14 +6,18 @@ import { HealthService } from '@ts-minecraft/entity'
 const withHealthService = <A>(
   f: (hs: HealthService) => Effect.Effect<A, never>,
 ): Effect.Effect<A, never> =>
-  Effect.flatMap(HealthService, f).pipe(Effect.provide(HealthService.Default))
+  Effect.gen(function* () {
+    const hs = yield* HealthService
+    return yield* f(hs)
+  }).pipe(Effect.provide(HealthService.Default))
 
 describe('HealthService.processFallDamage', () => {
   it.effect('first call initializes state and returns 0', () =>
     withHealthService((hs) =>
-      hs.processFallDamage(70, true).pipe(
-        Effect.map((damage) => expect(damage).toBe(0)),
-      )
+      Effect.gen(function* () {
+        const damage = yield* hs.processFallDamage(70, true)
+        expect(damage).toBe(0)
+      })
     )
   )
 

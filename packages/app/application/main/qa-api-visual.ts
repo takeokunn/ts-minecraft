@@ -24,10 +24,9 @@ const makeSetAimForQA = (
       camera.updateMatrixWorld(true)
       scene.updateMatrixWorld(true)
     })
-  }).pipe(
-    Effect.zipRight(blockHighlight.invalidateCache()),
-    Effect.zipRight(blockHighlight.update(camera, scene)),
-  )
+    yield* blockHighlight.invalidateCache()
+    yield* blockHighlight.update(camera, scene)
+  })
 
 export const aimAtStagedResource = (
   camera: THREE.PerspectiveCamera,

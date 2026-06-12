@@ -144,13 +144,10 @@ describe('application/game-state (camera & grounded)', () => {
       return Effect.gen(function* () {
         const service = yield* GameStateService
 
-        const result = service.initialize({ x: 0, y: 5, z: 0 }).pipe(
-          Effect.flatMap(() => service.update(DeltaTimeSecs.make(1 / 60))),
-          Effect.flatMap(() => service.getTiming()),
-          Effect.map((timing) => timing.frameCount)
-        )
-
-        const frameCount = yield* result
+        yield* service.initialize({ x: 0, y: 5, z: 0 })
+        yield* service.update(DeltaTimeSecs.make(1 / 60))
+        const timing = yield* service.getTiming()
+        const frameCount = timing.frameCount
         expect(frameCount).toBe(1)
       }).pipe(Effect.provide(testLayer))
     })

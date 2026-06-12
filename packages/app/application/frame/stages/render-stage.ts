@@ -82,4 +82,5 @@ export const renderStage = (
         restoreCamera()
       }
     })
-  }).pipe(Effect.andThen(services.perfHud.setDrawCalls(deps.renderer.info.render.calls)))
+    yield* services.perfHud.setDrawCalls(deps.renderer.info.render.calls)
+  })

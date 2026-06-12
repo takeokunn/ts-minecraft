@@ -4,7 +4,9 @@ import { buildPlayerXP, addXPToPlayer, xpAtLevelStart, INITIAL_PLAYER_XP, type P
 export class XPService extends Effect.Service<XPService>()(
   '@minecraft/application/XPService',
   {
-    effect: Ref.make(INITIAL_PLAYER_XP).pipe(Effect.map((xpRef) => ({
+    effect: Effect.gen(function* () {
+      const xpRef = yield* Ref.make(INITIAL_PLAYER_XP)
+      return {
       getXP: (): Effect.Effect<PlayerXP, never> =>
         Ref.get(xpRef),
 
@@ -29,7 +31,8 @@ export class XPService extends Effect.Service<XPService>()(
 
       reset: (): Effect.Effect<void, never> =>
         Ref.set(xpRef, INITIAL_PLAYER_XP),
-    }))),
+      }
+    }),
   },
 ) {}
 

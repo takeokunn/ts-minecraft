@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import {
   makeVector3, zero, one, up, down, left, right, forward, backward,
   add, subtract, scale, dot, cross, length, lengthSquared, normalize, distance,
-} from '../domain/core/vector3'
+} from '@ts-minecraft/core'
 
 describe('vector3 constants', () => {
   it('zero is (0,0,0)', () => { expect(zero).toEqual({ x: 0, y: 0, z: 0 }) })

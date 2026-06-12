@@ -80,10 +80,10 @@ const consumeSmeltingIngredients = (
     )
     yield* inventoryService.removeBlock(input.itemType as BlockType, input.count).pipe(
       Effect.catchTag('InventoryError', () =>
-        inventoryService.addBlock(fuel, 1).pipe(
-          Effect.ignore,
-          Effect.andThen(Effect.fail(new FurnaceError({ operation: 'startSmelting', cause: `Missing input: ${input.itemType}` })))
-        )
+        Effect.gen(function* () {
+          yield* inventoryService.addBlock(fuel, 1).pipe(Effect.ignore)
+          yield* Effect.fail(new FurnaceError({ operation: 'startSmelting', cause: `Missing input: ${input.itemType}` }))
+        })
       )
     )
   })
@@ -91,23 +91,23 @@ const consumeSmeltingIngredients = (
 export class FurnaceService extends Effect.Service<FurnaceService>()(
   '@minecraft/application/FurnaceService',
   {
-    effect: Effect.all([
-      RecipeService,
-      InventoryService,
-      PlayerService,
-      ChunkManagerService,
-      Ref.make<FurnaceState>(INITIAL_STATE),
-    ], { concurrency: 'unbounded' }).pipe(
-      Effect.map(([recipeService, inventoryService, playerService, chunkManagerService, stateRef]) => {
-        const helpers = makeFurnaceHelpers(playerService, chunkManagerService, stateRef)
-
-        return {
+    effect: Effect.gen(function* () {
+      const recipeService = yield* RecipeService
+      const inventoryService = yield* InventoryService
+      const playerService = yield* PlayerService
+      const chunkManagerService = yield* ChunkManagerService
+      const stateRef = yield* Ref.make<FurnaceState>(INITIAL_STATE)
+      const helpers = makeFurnaceHelpers(playerService, chunkManagerService, stateRef)
+      return {
           getState: (): Effect.Effect<FurnaceState, never> => Ref.get(stateRef),
 
           getNearestFurnaceState: helpers.getNearestFurnaceState,
 
           hasNearbyFurnace: (): Effect.Effect<boolean, never> =>
-            helpers.getSelectedFurnacePosition().pipe(Effect.map(Option.isSome)),
+            Effect.gen(function* () {
+              const pos = yield* helpers.getSelectedFurnacePosition()
+              return Option.isSome(pos)
+            }),
 
           setSelectedFurnace: (position: { readonly x: number; readonly y: number; readonly z: number }): Effect.Effect<void, never> =>
             Ref.update(stateRef, (state) => ({
@@ -146,10 +146,10 @@ export class FurnaceService extends Effect.Service<FurnaceService>()(
               const output = Option.getOrNull(furnace.output)
               if (output === null) return yield* Effect.fail(new FurnaceError({ operation: 'collectOutput', cause: 'No furnace output to collect' }))
 
-              const collected = yield* inventoryService.addBlock(output.itemType as BlockType, output.count).pipe(
-                Effect.as(true),
-                Effect.catchTag('InventoryError', () => Effect.succeed(false))
-              )
+              const collected = yield* Effect.gen(function* () {
+                yield* inventoryService.addBlock(output.itemType as BlockType, output.count)
+                return true
+              }).pipe(Effect.catchTag('InventoryError', () => Effect.succeed(false)))
               if (!collected) return { collected: false, xp: 0 }
 
               yield* Ref.update(stateRef, (state) =>
@@ -189,10 +189,10 @@ export class FurnaceService extends Effect.Service<FurnaceService>()(
               const snapshot = yield* inventoryService.serialize()
               const results = yield* Effect.forEach(
                 dropped,
-                (item) => inventoryService.addBlock(item.itemType as BlockType, item.count).pipe(
-                  Effect.as(true as const),
-                  Effect.catchTag('InventoryError', () => Effect.succeed(false as const)),
-                ),
+                (item) => Effect.gen(function* () {
+                  yield* inventoryService.addBlock(item.itemType as BlockType, item.count)
+                  return true as const
+                }).pipe(Effect.catchTag('InventoryError', () => Effect.succeed(false as const))),
                 { concurrency: 1 },
               )
               if (Arr.every(results, (r) => r)) {
@@ -207,11 +207,10 @@ export class FurnaceService extends Effect.Service<FurnaceService>()(
             }),
 
           serialize: (): Effect.Effect<ReadonlyArray<FurnaceBlockState>, never> =>
-            Ref.get(stateRef).pipe(
-              Effect.map((state) =>
-                Arr.fromIterable(HashMap.values(state.furnaces)),
-              ),
-            ),
+            Effect.gen(function* () {
+              const state = yield* Ref.get(stateRef)
+              return Arr.fromIterable(HashMap.values(state.furnaces))
+            }),
 
           deserialize: (serialized: ReadonlyArray<FurnaceBlockState>): Effect.Effect<void, never> =>
             Ref.set(stateRef, {
@@ -244,8 +243,7 @@ export class FurnaceService extends Effect.Service<FurnaceService>()(
               })
             ),
         }
-      }),
-    ),
+    }),
   },
 ) {}
 

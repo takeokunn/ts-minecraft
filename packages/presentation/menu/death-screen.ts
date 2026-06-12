@@ -21,22 +21,21 @@ import type { DeathScreenDom } from './death-screen-types'
 export class DeathScreenService extends Effect.Service<DeathScreenService>()(
   '@minecraft/presentation/DeathScreen',
   {
-    scoped: Effect.flatMap(
-      Effect.all(
+    scoped: Effect.gen(function* () {
+      const [dom, gameState, gameMode, healthService] = yield* Effect.all(
         [DomOperationsService, GameStateService, GameModeService, HealthService],
         { concurrency: 'unbounded' },
-      ),
-      ([dom, gameState, gameMode, healthService]) =>
-        Effect.acquireRelease(
-          Effect.sync((): DeathScreenDom => buildDeathScreenDOM(dom)),
-          ({ backdropEl }) =>
-            Effect.sync(() => {
-              const el = Option.getOrNull(backdropEl)
-              if (el !== null && Option.isSome(dom.getParentNode(el))) dom.removeChild(el)
-            }),
-        ).pipe(
-          Effect.map(({ backdropEl, respawnBtn, quitBtn }) => {
-            const isOpenRef = MutableRef.make(false)
+      )
+      const { backdropEl, respawnBtn, quitBtn } = yield* Effect.acquireRelease(
+        Effect.sync((): DeathScreenDom => buildDeathScreenDOM(dom)),
+        ({ backdropEl }) =>
+          Effect.sync(() => {
+            const el = Option.getOrNull(backdropEl)
+            if (el !== null && Option.isSome(dom.getParentNode(el))) dom.removeChild(el)
+          }),
+      )
+      {
+        const isOpenRef = MutableRef.make(false)
 
             const showOverlay = (): void => {
               const el = Option.getOrNull(backdropEl)
@@ -57,8 +56,10 @@ export class DeathScreenService extends Effect.Service<DeathScreenService>()(
               { readonly deathPos: Position },
               never
             > =>
-              gameState.getPlayerPosition(DEFAULT_PLAYER_ID).pipe(
-                Effect.map((deathPos) => ({ deathPos })),
+              Effect.gen(function* () {
+                const deathPos = yield* gameState.getPlayerPosition(DEFAULT_PLAYER_ID)
+                return { deathPos }
+              }).pipe(
                 Effect.catchAllCause(() =>
                   Effect.succeed({ deathPos: { x: 0, y: 64, z: 0 } as Position }),
                 ),
@@ -67,22 +68,18 @@ export class DeathScreenService extends Effect.Service<DeathScreenService>()(
             const performRespawn = (
               spawnPosition: Position,
             ): Effect.Effect<void, never> =>
-              captureDeathContext().pipe(
-                Effect.flatMap(({ deathPos }) =>
-                  Effect.log(`Player died at (${deathPos.x}, ${deathPos.y}, ${deathPos.z}); respawning at (${spawnPosition.x}, ${spawnPosition.y}, ${spawnPosition.z})`),
-                ),
-                Effect.andThen(healthService.reset()),
+              Effect.gen(function* () {
+                const { deathPos } = yield* captureDeathContext()
+                yield* Effect.log(`Player died at (${deathPos.x}, ${deathPos.y}, ${deathPos.z}); respawning at (${spawnPosition.x}, ${spawnPosition.y}, ${spawnPosition.z})`)
+                yield* healthService.reset()
                 // `gameState.respawn` is mode-aware: clears inventory in
                 // survival, preserves it in creative.
-                Effect.andThen(
-                  gameState.respawn(spawnPosition).pipe(
-                    Effect.catchAllCause((cause) =>
-                      Effect.logError(`Death-screen respawn error: ${Cause.pretty(cause)}`),
-                    ),
+                yield* gameState.respawn(spawnPosition).pipe(
+                  Effect.catchAllCause((cause) =>
+                    Effect.logError(`Death-screen respawn error: ${Cause.pretty(cause)}`),
                   ),
-                ),
-                Effect.asVoid,
-              )
+                )
+              })
 
             return {
               // Scope-managed: fiber is interrupted and DOM torn down when the surrounding session scope closes.
@@ -192,9 +189,8 @@ export class DeathScreenService extends Effect.Service<DeathScreenService>()(
               isOpen: (): Effect.Effect<boolean, never> =>
                 Effect.sync(() => MutableRef.get(isOpenRef)),
             }
-          }),
-        ),
-    ),
+          }
+        }),
   },
 ) {}
 

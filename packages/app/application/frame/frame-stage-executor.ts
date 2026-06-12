@@ -172,14 +172,12 @@ export const runFrameStages = (
     // Multiplayer position sync + inbound block-edit application (if service is wired)
     const mp = Option.getOrNull(services.multiplayer)
     if (mp !== null) {
-      yield* services.playerCameraState.getRotation().pipe(
-        Effect.flatMap((rotation) =>
-          multiplayerStage(mp, playerPos, rotation.yaw, rotation.pitch),
-        ),
+      yield* Effect.gen(function* () {
+        const rotation = yield* services.playerCameraState.getRotation()
+        yield* multiplayerStage(mp, playerPos, rotation.yaw, rotation.pitch)
         // FR-3: apply block edits broadcast by other players to the local world.
-        Effect.andThen(applyInboundBlockEdits(mp, services, refs.dirtyChunksRef)),
-        Effect.catchAll(() => Effect.void),
-      )
+        yield* applyInboundBlockEdits(mp, services, refs.dirtyChunksRef)
+      }).pipe(Effect.catchAll(() => Effect.void))
     }
 
     if (!sessionPaused) {

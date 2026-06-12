@@ -43,7 +43,10 @@ export class BrowserWebSocketClient implements WebSocketClientPort {
         socket.binaryType = 'arraybuffer'
 
         const signalClosed = (): void => {
-          runDetached(Deferred.succeed(closed, undefined).pipe(Effect.zipRight(Queue.shutdown(messageQueue))))
+          runDetached(Effect.gen(function* () {
+            yield* Deferred.succeed(closed, undefined)
+            yield* Queue.shutdown(messageQueue)
+          }))
         }
 
         const handle: WebSocketClientHandle = {
@@ -80,7 +83,10 @@ export class BrowserWebSocketClient implements WebSocketClientPort {
         }
 
         socket.onmessage = (event) => {
-          runDetached(toArrayBuffer(event.data).pipe(Effect.flatMap((message) => Queue.offer(messageQueue, message))))
+          runDetached(Effect.gen(function* () {
+            const message = yield* toArrayBuffer(event.data)
+            yield* Queue.offer(messageQueue, message)
+          }))
         }
 
         socket.onerror = (event) => {

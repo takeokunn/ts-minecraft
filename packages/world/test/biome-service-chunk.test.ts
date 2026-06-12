@@ -12,46 +12,44 @@ import { withBiomeService } from './biome-service-test-utils'
 describe('BiomeService.getBiomesAndPropertiesForChunk', () => {
   it.effect('returns CHUNK_SIZE² entries', () =>
     withBiomeService(0.5, 0.45, (service) =>
-      service.getBiomesAndPropertiesForChunk(0, 0).pipe(
-        Effect.map((results) => expect(results).toHaveLength(CHUNK_SIZE * CHUNK_SIZE))
-      )
+      Effect.gen(function* () {
+        const results = yield* service.getBiomesAndPropertiesForChunk(0, 0)
+        expect(results).toHaveLength(CHUNK_SIZE * CHUNK_SIZE)
+      })
     )
   )
 
   it.effect('all entries have a valid biome and matching properties', () =>
     withBiomeService(0.5, 0.45, (service) =>
-      service.getBiomesAndPropertiesForChunk(0, 0).pipe(
-        Effect.map((results) => {
-          Arr.forEach(results, ({ biome, props }) => {
-            expect(typeof biome).toBe('string')
-            expect(typeof props.surfaceBlock).toBe('string')
-            expect(props.treeDensity).toBeGreaterThanOrEqual(0)
-            expect(props.treeDensity).toBeLessThanOrEqual(1)
-          })
+      Effect.gen(function* () {
+        const results = yield* service.getBiomesAndPropertiesForChunk(0, 0)
+        Arr.forEach(results, ({ biome, props }) => {
+          expect(typeof biome).toBe('string')
+          expect(typeof props.surfaceBlock).toBe('string')
+          expect(props.treeDensity).toBeGreaterThanOrEqual(0)
+          expect(props.treeDensity).toBeLessThanOrEqual(1)
         })
-      )
+      })
     )
   )
 
   it.effect('all entries classify to PLAINS when noise returns temperate/moderate values', () =>
     withBiomeService(0.5, 0.45, (service) =>
-      service.getBiomesAndPropertiesForChunk(0, 0).pipe(
-        Effect.map((results) => {
-          const biomes = Arr.map(results, (r) => r.biome)
-          expect(Arr.every(biomes, (b) => b === 'PLAINS')).toBe(true)
-        })
-      )
+      Effect.gen(function* () {
+        const results = yield* service.getBiomesAndPropertiesForChunk(0, 0)
+        const biomes = Arr.map(results, (r) => r.biome)
+        expect(Arr.every(biomes, (b) => b === 'PLAINS')).toBe(true)
+      })
     )
   )
 
   it.effect('classifies DESERT when noise returns hot/dry values', () =>
     withBiomeService(0.8, 0.15, (service) =>
-      service.getBiomesAndPropertiesForChunk(0, 0).pipe(
-        Effect.map((results) => {
-          const biomes = Arr.map(results, (r) => r.biome)
-          expect(Arr.every(biomes, (b) => b === 'DESERT')).toBe(true)
-        })
-      )
+      Effect.gen(function* () {
+        const results = yield* service.getBiomesAndPropertiesForChunk(0, 0)
+        const biomes = Arr.map(results, (r) => r.biome)
+        expect(Arr.every(biomes, (b) => b === 'DESERT')).toBe(true)
+      })
     )
   )
 
@@ -96,13 +94,12 @@ describe('BiomeService.getBiomesAndPropertiesForChunk', () => {
 
     const layer = BiomeServiceLive.pipe(Layer.provide(coastlineNoise))
     return Effect.flatMap(BiomeService, (service) =>
-      service.getBiomesAndPropertiesForChunk(0, 0).pipe(
-        Effect.map((results) => {
-          expect(results[0]!.biome).toBe('OCEAN')
-          expect(results[CHUNK_SIZE]!.biome).toBe('BEACH')
-          expect(results[CHUNK_SIZE * 2]!.biome).toBe('PLAINS')
-        })
-      )
+      Effect.gen(function* () {
+        const results = yield* service.getBiomesAndPropertiesForChunk(0, 0)
+        expect(results[0]!.biome).toBe('OCEAN')
+        expect(results[CHUNK_SIZE]!.biome).toBe('BEACH')
+        expect(results[CHUNK_SIZE * 2]!.biome).toBe('PLAINS')
+      })
     ).pipe(Effect.provide(layer))
   })
 
@@ -148,26 +145,24 @@ describe('BiomeService.getBiomesAndPropertiesForChunk', () => {
 
     const layer = BiomeServiceLive.pipe(Layer.provide(crossChunkCoastNoise))
     return Effect.flatMap(BiomeService, (service) =>
-      service.getBiomesAndPropertiesForChunk(0, 0).pipe(
-        Effect.map((results) => {
-          const edgeIndex = (CHUNK_SIZE - 1) * CHUNK_SIZE
-          expect(results[edgeIndex]!.biome).toBe('BEACH')
-        })
-      )
+      Effect.gen(function* () {
+        const results = yield* service.getBiomesAndPropertiesForChunk(0, 0)
+        const edgeIndex = (CHUNK_SIZE - 1) * CHUNK_SIZE
+        expect(results[edgeIndex]!.biome).toBe('BEACH')
+      })
     ).pipe(Effect.provide(layer))
   })
 
   it.effect('results for chunk (0,0) and chunk (1,0) use different world coordinates', () =>
     withBiomeService(0.5, 0.45, (service) =>
-      Effect.all([
-        service.getBiomesAndPropertiesForChunk(0, 0),
-        service.getBiomesAndPropertiesForChunk(1, 0),
-      ]).pipe(
-        Effect.map(([chunk0, chunk1]) => {
-          expect(chunk0).toHaveLength(CHUNK_SIZE * CHUNK_SIZE)
-          expect(chunk1).toHaveLength(CHUNK_SIZE * CHUNK_SIZE)
-        })
-      )
+      Effect.gen(function* () {
+        const [chunk0, chunk1] = yield* Effect.all([
+          service.getBiomesAndPropertiesForChunk(0, 0),
+          service.getBiomesAndPropertiesForChunk(1, 0),
+        ])
+        expect(chunk0).toHaveLength(CHUNK_SIZE * CHUNK_SIZE)
+        expect(chunk1).toHaveLength(CHUNK_SIZE * CHUNK_SIZE)
+      })
     )
   )
 
@@ -232,11 +227,10 @@ describe('BiomeService.getBiomesAndPropertiesForChunk', () => {
         yield* Effect.forEach(Arr.makeBy(CHUNK_SIZE * CHUNK_SIZE, (i) => i), (i) => {
           const lx = Math.floor(i / CHUNK_SIZE)
           const lz = i % CHUNK_SIZE
-          return service.getBiome(lx, lz).pipe(
-            Effect.map((scalarBiome) => {
-              expect(batched[i]!.biome).toBe(scalarBiome)
-            }),
-          )
+          return Effect.gen(function* () {
+            const scalarBiome = yield* service.getBiome(lx, lz)
+            expect(batched[i]!.biome).toBe(scalarBiome)
+          })
         }, { concurrency: 'unbounded', discard: true })
       })
     ).pipe(Effect.provide(layer))

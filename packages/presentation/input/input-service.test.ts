@@ -439,9 +439,8 @@ describe('InputService', () => {
 
       return Effect.gen(function* () {
         const input = yield* InputService
-        const result = yield* input.isMouseDown(MouseButton.LEFT).pipe(
-          Effect.map((pressed) => (pressed ? 'LEFT_PRESSED' : 'LEFT_NOT_PRESSED'))
-        )
+        const pressed = yield* input.isMouseDown(MouseButton.LEFT)
+        const result = pressed ? 'LEFT_PRESSED' : 'LEFT_NOT_PRESSED'
         expect(result).toBe('LEFT_PRESSED')
       }).pipe(Effect.provide(layer))
     })

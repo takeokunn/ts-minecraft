@@ -88,14 +88,12 @@ const swingAngleForRole = (
 export class EntityRendererService extends Effect.Service<EntityRendererService>()(
   '@minecraft/infrastructure/three/EntityRendererService',
   {
-    effect: Effect.all([
-      SceneService,
-      Ref.make(HashMap.empty<EntityIdType, MobLimbGroup>()),
-    ], { concurrency: 'unbounded' }).pipe(
-      Effect.map(([sceneService, groupsRef]) => {
-        void sceneService // bucket scene-add is owned by the pool; service kept for layer wiring + future use
-        const pool = createEntityInstancePool()
-        const scratch = makeScratch()
+    effect: Effect.gen(function* () {
+      const sceneService = yield* SceneService
+      void sceneService // bucket scene-add is owned by the pool; service kept for layer wiring + future use
+      const groupsRef = yield* Ref.make(HashMap.empty<EntityIdType, MobLimbGroup>())
+      const pool = createEntityInstancePool()
+      const scratch = makeScratch()
 
         // Tries to allocate every role for `entity`. Returns Some(group) on
         // success, None on saturation (with all partial allocations rolled back).
@@ -194,11 +192,11 @@ export class EntityRendererService extends Effect.Service<EntityRendererService>
             entities: ReadonlyArray<Entity>,
             totalTimeSecs: number,
             deltaTimeSecs: number,
-          ): Effect.Effect<void, never> => {
-            void deltaTimeSecs
-            return Ref.get(groupsRef).pipe(
-              Effect.flatMap((groups) =>
-                Effect.sync(() => {
+          ): Effect.Effect<void, never> =>
+            Effect.gen(function* () {
+              void deltaTimeSecs
+              const groups = yield* Ref.get(groupsRef)
+              yield* Effect.sync(() => {
                   for (const entity of entities) {
                     const groupOpt = HashMap.get(groups, entity.entityId)
                     // Performance boundary: per-frame per-entity hot path; Option.match closure
@@ -271,22 +269,24 @@ export class EntityRendererService extends Effect.Service<EntityRendererService>
                     }
                   }
                   pool.flushAll()
-                }),
-              ),
-            )
-          },
+                })
+              }),
 
           // FR-2.5: dispose all pool buckets (removes their InstancedMesh from
           // the scene + releases GPU resources). MobLimbGroup carriers are
           // never in the scene so they need no scene.remove — just clear the
           // tracking ref.
           clearScene: (scene: THREE.Scene): Effect.Effect<void, never> =>
-            Effect.sync(() => pool.disposeAll(scene)).pipe(
-              Effect.andThen(Ref.set(groupsRef, HashMap.empty())),
-            ),
+            Effect.gen(function* () {
+              yield* Effect.sync(() => pool.disposeAll(scene))
+              yield* Ref.set(groupsRef, HashMap.empty())
+            }),
 
           _getTrackedGroup: (id: EntityIdType): Effect.Effect<Option.Option<MobLimbGroup>, never> =>
-            Ref.get(groupsRef).pipe(Effect.map((g) => HashMap.get(g, id))),
+            Effect.gen(function* () {
+              const g = yield* Ref.get(groupsRef)
+              return HashMap.get(g, id)
+            }),
 
           // Test accessor for assertions around saturation, bucket counts, and
           // slot allocation. The pool is now fully wired into the mob lifecycle.
@@ -297,8 +297,7 @@ export class EntityRendererService extends Effect.Service<EntityRendererService>
           // teardown can match clearScene semantics. Kept private for now.
           _releaseAllRoles: releaseAllRoles,
         }
-      }),
-    ),
+    }),
     dependencies: [SceneService.Default],
   },
 ) {}

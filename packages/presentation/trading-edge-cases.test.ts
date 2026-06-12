@@ -19,7 +19,7 @@ describe('TradingPresentationService', () => {
       const opened = yield* presentation.open(VillagerId.make('villager-1'))
       expect(opened).toBe(true)
 
-      const list = createdElements.find((el) => el.style.cssText.includes('display:flex'))!
+      const list = createdElements.find((el) => el.id === 'trading-list')!
       expect(list.children).toHaveLength(1)
       expect(list.children[0]!.textContent).toContain('No available offers')
     }).pipe(Effect.provide(TestLayer))
@@ -53,7 +53,7 @@ describe('TradingPresentationService', () => {
       const executed = yield* presentation.executeSelectedTrade()
 
       expect(executed).toBe(true)
-      const status = createdElements.find((el) => el.style.cssText.includes('font-size:12px;color:#b0b0b0'))!
+      const status = createdElements.find((el) => el.id === 'trading-status')!
       expect(status.textContent).toContain('reached level')
       expect(status.textContent).toContain('Farmer')
     }).pipe(Effect.provide(TestLayer))

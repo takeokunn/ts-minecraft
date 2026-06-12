@@ -10,12 +10,13 @@ import { scanNearbyBlock } from '@ts-minecraft/app/main/qa-spatial'
 
 export const getInventorySnapshot = (inventoryService: InventoryService) =>
   Effect.runPromise(
-    inventoryService.getAllSlots().pipe(
-      Effect.map((slots) => Arr.map(slots, (slot, index) => {
+    Effect.gen(function* () {
+      const slots = yield* inventoryService.getAllSlots()
+      return Arr.map(slots, (slot, index) => {
         const s = Option.getOrNull(slot)
         return s !== null ? { slot: index, itemType: s.itemType, count: s.count } : null
-      })),
-    ),
+      })
+    }),
   )
 
 export const openInventoryForQA = (inventoryRenderer: InventoryRendererService) =>
@@ -59,14 +60,12 @@ export const craftRecipeForQA = (
       gameState.getPlayerPosition(DEFAULT_PLAYER_ID).pipe(
         Effect.catchAllCause((_cause: Cause.Cause<unknown>) => Effect.succeed({ x: 0, y: 0, z: 0 })),
       )
-    const scanNearbyCraftingStation = (targetBlockIndex: number) =>
-      inventoryRenderer.isOpen().pipe(
-        Effect.flatMap(() =>
-          getPlayerPositionForQa().pipe(
-            Effect.flatMap((playerPos) => scanNearbyBlock(playerPos, 5, targetBlockIndex, getChunkOrNone)),
-          )
-        ),
-      )
+    const scanNearbyCraftingStation = (targetBlockIndex: number): Effect.Effect<boolean, never> =>
+      Effect.gen(function* () {
+        yield* inventoryRenderer.isOpen()
+        const playerPos = yield* getPlayerPositionForQa()
+        return yield* scanNearbyBlock(playerPos, 5, targetBlockIndex, getChunkOrNone)
+      })
     const hasTableAccess = yield* scanNearbyCraftingStation(blockTypeToIndex('CRAFTING_TABLE'))
     const hasFurnaceAccess = yield* scanNearbyCraftingStation(blockTypeToIndex('FURNACE'))
     const recipe = recipeService.findById(RecipeId.make(recipeId))

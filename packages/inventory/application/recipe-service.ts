@@ -113,7 +113,10 @@ export class RecipeService extends Effect.Service<RecipeService>()(
             )
           }).pipe(
             Effect.catchAll((err) =>
-              inventoryService.deserialize(snapshot).pipe(Effect.andThen(Effect.fail(err))),
+              Effect.gen(function* () {
+                yield* inventoryService.deserialize(snapshot)
+                yield* Effect.fail(err)
+              }),
             ),
           )
         })

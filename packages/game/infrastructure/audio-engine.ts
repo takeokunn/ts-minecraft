@@ -12,19 +12,17 @@ type ActiveTone = {
 }
 
 export class AudioEngine extends Effect.Service<AudioEngine>()('@minecraft/audio/AudioEngine', {
-  effect: Effect.all([
-    Ref.make<Option.Option<AudioContext>>(Option.none()),
-    Ref.make<Option.Option<GainNode>>(Option.none()),
-    Ref.make(0.8),
-    Ref.make(HashMap.empty<number, ActiveTone>()),
-    Ref.make(1),
-  ], { concurrency: 'unbounded' }).pipe(Effect.map(([contextRef, masterGainRef, masterGainValueRef, activeTonesRef, nextToneIdRef]) => {
+  effect: Effect.gen(function* () {
+    const contextRef = yield* Ref.make<Option.Option<AudioContext>>(Option.none())
+    const masterGainRef = yield* Ref.make<Option.Option<GainNode>>(Option.none())
+    const masterGainValueRef = yield* Ref.make(0.8)
+    const activeTonesRef = yield* Ref.make(HashMap.empty<number, ActiveTone>())
+    const nextToneIdRef = yield* Ref.make(1)
+
     const ensureContext = (): Effect.Effect<Option.Option<{ context: AudioContext; masterGain: GainNode }>, never> =>
       Effect.gen(function* () {
-        const [contextOpt, masterOpt] = yield* Effect.all(
-          [Ref.get(contextRef), Ref.get(masterGainRef)],
-          { concurrency: 'unbounded' },
-        )
+        const contextOpt = yield* Ref.get(contextRef)
+        const masterOpt = yield* Ref.get(masterGainRef)
 
         const cached = Option.zipWith(contextOpt, masterOpt, (context, masterGain) => ({ context, masterGain }))
         if (Option.isSome(cached)) return cached
@@ -148,16 +146,19 @@ export class AudioEngine extends Effect.Service<AudioEngine>()('@minecraft/audio
       stopTone,
       setMasterGain,
     }
-  }))
+  })
 }) {}
 
 export const AudioEngineLive = AudioEngine.Default
 
 export const AudioEnginePortLive: Layer.Layer<AudioEnginePort, never, AudioEngine> = Layer.effect(
   AudioEnginePort,
-  AudioEngine.pipe(Effect.map((engine) => ({
-    playTone: engine.playTone,
-    stopTone: engine.stopTone,
-    setMasterGain: engine.setMasterGain,
-  })))
+  Effect.gen(function* () {
+    const engine = yield* AudioEngine
+    return {
+      playTone: engine.playTone,
+      stopTone: engine.stopTone,
+      setMasterGain: engine.setMasterGain,
+    }
+  })
 )

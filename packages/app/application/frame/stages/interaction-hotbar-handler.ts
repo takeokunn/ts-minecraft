@@ -10,7 +10,8 @@ export const handleHotbarInput = (
 export const renderHotbarHud = (
   services: Pick<FrameHandlerServices, 'hotbarService' | 'hotbarRenderer'>,
 ): Effect.Effect<void, never> =>
-  Effect.all(
-    [services.hotbarService.getSlots(), services.hotbarService.getSelectedSlot()],
-    { concurrency: 'unbounded' },
-  ).pipe(Effect.flatMap(([slots, selectedSlot]) => services.hotbarRenderer.update(slots, selectedSlot)))
+  Effect.gen(function* () {
+    const slots = yield* services.hotbarService.getSlots()
+    const selectedSlot = yield* services.hotbarService.getSelectedSlot()
+    yield* services.hotbarRenderer.update(slots, selectedSlot)
+  })

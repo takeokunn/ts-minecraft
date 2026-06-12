@@ -1,4 +1,4 @@
-import { Array as Arr, Option } from 'effect'
+import { Option } from 'effect'
 import type { WorldMetadata } from '@ts-minecraft/world'
 import { WorldId } from '@ts-minecraft/core'
 import { DomOperationsService } from '@ts-minecraft/presentation/hud/crosshair'
@@ -175,6 +175,3 @@ export const renderCorruptRow = (
   row.appendChild(deleteBtn)
   dom.appendChildTo(lwList, row)
 }
-
-// Re-export Arr for consumers that only need sort utilities
-export { Arr }

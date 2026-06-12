@@ -18,13 +18,15 @@ export class BlockRegistry extends Effect.Service<BlockRegistry>()(
         register: (block: Block): Effect.Effect<void, never> =>
           Ref.update(registryRef, (registry) => HashMap.set(registry, block.type, block)),
         get: (blockType: BlockType): Effect.Effect<Option.Option<Block>, never> =>
-          Ref.get(registryRef).pipe(
-            Effect.map((registry) => HashMap.get(registry, blockType))
-          ),
+          Effect.gen(function* () {
+            const registry = yield* Ref.get(registryRef)
+            return HashMap.get(registry, blockType)
+          }),
         getAll: (): Effect.Effect<ReadonlyArray<Block>, never> =>
-          Ref.get(registryRef).pipe(
-            Effect.map((registry) => Arr.fromIterable(HashMap.values(registry)))
-          ),
+          Effect.gen(function* () {
+            const registry = yield* Ref.get(registryRef)
+            return Arr.fromIterable(HashMap.values(registry))
+          }),
         dispose: (): Effect.Effect<void, never> =>
           Ref.set(registryRef, HashMap.empty<BlockType, Block>()),
       }

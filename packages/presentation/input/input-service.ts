@@ -17,22 +17,21 @@ export const MouseButton = {
 export class InputService extends Effect.Service<InputService>()(
   '@minecraft/presentation/InputService',
   {
-    scoped: Effect.all([
+    scoped: Effect.gen(function* () {
       // Refs for all mutable input state — DOM handlers use Effect.runSync for synchronous access
-      Effect.sync(() => MutableRef.make(HashSet.empty<string>())),
+      const pressedKeysRef = yield* Effect.sync(() => MutableRef.make(HashSet.empty<string>()))
       // Track keys that were just pressed this frame (for consumeKeyPress)
-      Effect.sync(() => MutableRef.make(HashSet.empty<string>())),
-      Effect.sync(() => MutableRef.make({ x: 0, y: 0 })),
+      const justPressedKeysRef = yield* Effect.sync(() => MutableRef.make(HashSet.empty<string>()))
+      const mouseDeltaRef = yield* Effect.sync(() => MutableRef.make({ x: 0, y: 0 }))
       // Track mouse button state (0=left, 1=middle, 2=right)
-      Effect.sync(() => MutableRef.make(HashMap.empty<number, boolean>())),
+      const mouseButtonsRef = yield* Effect.sync(() => MutableRef.make(HashMap.empty<number, boolean>()))
       // Track mouse buttons that were just clicked this frame (for consumeMouseClick)
-      Effect.sync(() => MutableRef.make(HashSet.empty<number>())),
+      const justClickedButtonsRef = yield* Effect.sync(() => MutableRef.make(HashSet.empty<number>()))
       // Accumulated mouse wheel delta (positive = scroll down)
-      Effect.sync(() => MutableRef.make(0)),
+      const wheelDeltaRef = yield* Effect.sync(() => MutableRef.make(0))
       // Fallback pointer-lock state for environments that deny the browser API (eg. MCP)
-      Effect.sync(() => MutableRef.make(false)),
-    ], { concurrency: 'unbounded' }).pipe(
-      Effect.flatMap(([pressedKeysRef, justPressedKeysRef, mouseDeltaRef, mouseButtonsRef, justClickedButtonsRef, wheelDeltaRef, pointerLockFallbackRef]) => {
+      const pointerLockFallbackRef = yield* Effect.sync(() => MutableRef.make(false))
+
       // Keys whose browser default action interferes with gameplay: arrows and
       // PageUp/Down scroll the page; Space scrolls AND activates a focused button
       // (e.g. the menu button just clicked to start the world) — which silently
@@ -124,41 +123,38 @@ export class InputService extends Effect.Service<InputService>()(
         MutableRef.set(justClickedButtonsRef, HashSet.empty<number>())
       }
 
-        // Register all event listeners and schedule cleanup via finalizer
-        const registerListeners = typeof window !== 'undefined' && typeof document !== 'undefined'
-          ? Effect.acquireRelease(
-              Effect.sync(() => {
-                document.addEventListener('keydown', handleKeyDown)
-                document.addEventListener('keyup', handleKeyUp)
-                document.addEventListener('mousemove', handleMouseMove)
-                document.addEventListener('mousedown', handleMouseDown)
-                document.addEventListener('mouseup', handleMouseUp)
-                document.addEventListener('contextmenu', handleContextMenu)
-                document.addEventListener('pointerlockchange', handlePointerLockChange)
-                document.addEventListener('pointerlockerror', handlePointerLockError)
-                // Wheel event for hotbar cycling; passive:false required to allow preventDefault
-                document.addEventListener('wheel', handleWheel, { passive: false })
-                // Clear held input when the window loses focus (prevents stuck keys
-                // on tab/window switch — the browser sends no keyup while unfocused).
-                window.addEventListener('blur', handleBlur)
-              }),
-              () =>
-                Effect.sync(() => {
-                  document.removeEventListener('keydown', handleKeyDown)
-                  document.removeEventListener('keyup', handleKeyUp)
-                  document.removeEventListener('mousemove', handleMouseMove)
-                  document.removeEventListener('mousedown', handleMouseDown)
-                  document.removeEventListener('mouseup', handleMouseUp)
-                  document.removeEventListener('contextmenu', handleContextMenu)
-                  document.removeEventListener('pointerlockchange', handlePointerLockChange)
-                  document.removeEventListener('pointerlockerror', handlePointerLockError)
-                  document.removeEventListener('wheel', handleWheel)
-                  window.removeEventListener('blur', handleBlur)
-                }),
-            )
-          : Effect.void
+      // Register all event listeners and schedule cleanup via finalizer
+      if (typeof window !== 'undefined' && typeof document !== 'undefined') {
+        yield* Effect.sync(() => {
+          document.addEventListener('keydown', handleKeyDown)
+          document.addEventListener('keyup', handleKeyUp)
+          document.addEventListener('mousemove', handleMouseMove)
+          document.addEventListener('mousedown', handleMouseDown)
+          document.addEventListener('mouseup', handleMouseUp)
+          document.addEventListener('contextmenu', handleContextMenu)
+          document.addEventListener('pointerlockchange', handlePointerLockChange)
+          document.addEventListener('pointerlockerror', handlePointerLockError)
+          // Wheel event for hotbar cycling; passive:false required to allow preventDefault
+          document.addEventListener('wheel', handleWheel, { passive: false })
+          // Clear held input when the window loses focus (prevents stuck keys
+          // on tab/window switch — the browser sends no keyup while unfocused).
+          window.addEventListener('blur', handleBlur)
+        })
+        yield* Effect.addFinalizer(() => Effect.sync(() => {
+          document.removeEventListener('keydown', handleKeyDown)
+          document.removeEventListener('keyup', handleKeyUp)
+          document.removeEventListener('mousemove', handleMouseMove)
+          document.removeEventListener('mousedown', handleMouseDown)
+          document.removeEventListener('mouseup', handleMouseUp)
+          document.removeEventListener('contextmenu', handleContextMenu)
+          document.removeEventListener('pointerlockchange', handlePointerLockChange)
+          document.removeEventListener('pointerlockerror', handlePointerLockError)
+          document.removeEventListener('wheel', handleWheel)
+          window.removeEventListener('blur', handleBlur)
+        }))
+      }
 
-        return registerListeners.pipe(Effect.as({
+      return {
         isKeyPressed: (key: string): Effect.Effect<boolean, never> =>
           Effect.sync(() => HashSet.has(MutableRef.get(pressedKeysRef), key)),
 
@@ -227,9 +223,8 @@ export class InputService extends Effect.Service<InputService>()(
             MutableRef.set(wheelDeltaRef, 0)
             return delta
           }),
-        }))
-      })
-    ),
+      }
+    }),
   }
 ) {}
 export const InputServiceLive = InputService.Default

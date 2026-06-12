@@ -131,11 +131,14 @@ describe('player/movement-service (integration)', () => {
           const movementService = yield* MovementService
           const accRef = yield* Ref.make({ x: 0, z: 0 })
           yield* Effect.forEach(Arr.makeBy(FRAMES, () => undefined), () =>
-            movementService.calculateVelocity(
-              { forward: true, backward: false, left: false, right: false, jump: false, sprint: false, sneak: false },
-              yaw,
-              true
-            ).pipe(Effect.flatMap(vel => Ref.update(accRef, acc => ({ x: acc.x + vel.x, z: acc.z + vel.z }))))
+            Effect.gen(function* () {
+              const vel = yield* movementService.calculateVelocity(
+                { forward: true, backward: false, left: false, right: false, jump: false, sprint: false, sneak: false },
+                yaw,
+                true
+              )
+              yield* Ref.update(accRef, acc => ({ x: acc.x + vel.x, z: acc.z + vel.z }))
+            })
           , { concurrency: 1 })
           const { x: totalX, z: totalZ } = yield* Ref.get(accRef)
           yield* Ref.set(walkDistRef, Math.sqrt(totalX * totalX + totalZ * totalZ))
@@ -145,11 +148,14 @@ describe('player/movement-service (integration)', () => {
           const movementService = yield* MovementService
           const accRef = yield* Ref.make({ x: 0, z: 0 })
           yield* Effect.forEach(Arr.makeBy(FRAMES, () => undefined), () =>
-            movementService.calculateVelocity(
-              { forward: true, backward: false, left: false, right: false, jump: false, sprint: true, sneak: false },
-              yaw,
-              true
-            ).pipe(Effect.flatMap(vel => Ref.update(accRef, acc => ({ x: acc.x + vel.x, z: acc.z + vel.z }))))
+            Effect.gen(function* () {
+              const vel = yield* movementService.calculateVelocity(
+                { forward: true, backward: false, left: false, right: false, jump: false, sprint: true, sneak: false },
+                yaw,
+                true
+              )
+              yield* Ref.update(accRef, acc => ({ x: acc.x + vel.x, z: acc.z + vel.z }))
+            })
           , { concurrency: 1 })
           const { x: totalX, z: totalZ } = yield* Ref.get(accRef)
           yield* Ref.set(sprintDistRef, Math.sqrt(totalX * totalX + totalZ * totalZ))

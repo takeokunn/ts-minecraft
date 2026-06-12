@@ -57,18 +57,25 @@ export const prepareInitialTerrain = ({
       Effect.iterate(false, {
         while: (settled) => !settled,
         body: () =>
-          worldRendererService.syncChunksToScene(initialChunks, scene).pipe(
-            Effect.flatMap((settled) => settled ? Effect.succeed(true) : Effect.sleep(Duration.millis(50)).pipe(Effect.as(false))),
-          ),
+          Effect.gen(function* () {
+            const settled = yield* worldRendererService.syncChunksToScene(initialChunks, scene)
+            if (settled) return true
+            yield* Effect.sleep(Duration.millis(50))
+            return false
+          }),
       }),
-      Effect.sleep(Duration.seconds(30)).pipe(Effect.flatMap(() => Effect.fail(new Error('Timed out while syncing initial chunk meshes')))),
+      Effect.gen(function* () {
+        yield* Effect.sleep(Duration.seconds(30))
+        yield* Effect.fail(new Error('Timed out while syncing initial chunk meshes'))
+      }),
     ).pipe(
       Effect.catchAll((cause) =>
-        loadingScreen.showError('Failed to prepare initial terrain meshes.').pipe(
-          Effect.zipRight(Effect.logError(`Loading gate failed: ${String(cause)}`)),
-          Effect.zipRight(Effect.sleep(Duration.seconds(3))),
-          Effect.zipRight(Effect.fail(new StartupError({ reason: 'Failed to prepare initial chunk meshes', cause }))),
-        ),
+        Effect.gen(function* () {
+          yield* loadingScreen.showError('Failed to prepare initial terrain meshes.')
+          yield* Effect.logError(`Loading gate failed: ${String(cause)}`)
+          yield* Effect.sleep(Duration.seconds(3))
+          yield* Effect.fail(new StartupError({ reason: 'Failed to prepare initial chunk meshes', cause }))
+        }),
       ),
     )
 
@@ -76,18 +83,25 @@ export const prepareInitialTerrain = ({
       Effect.iterate(false, {
         while: (queueDrained) => !queueDrained,
         body: () =>
-          Effect.sync(() => terrainPool.queueDepth() === 0).pipe(
-            Effect.flatMap((queueDrained) => queueDrained ? Effect.succeed(true) : Effect.sleep(Duration.millis(25)).pipe(Effect.as(false))),
-          ),
+          Effect.gen(function* () {
+            const queueDrained = yield* Effect.sync(() => terrainPool.queueDepth() === 0)
+            if (queueDrained) return true
+            yield* Effect.sleep(Duration.millis(25))
+            return false
+          }),
       }),
-      Effect.sleep(Duration.seconds(30)).pipe(Effect.flatMap(() => Effect.fail(new Error('Timed out while draining terrain worker queue')))),
+      Effect.gen(function* () {
+        yield* Effect.sleep(Duration.seconds(30))
+        yield* Effect.fail(new Error('Timed out while draining terrain worker queue'))
+      }),
     ).pipe(
       Effect.catchAll((cause) =>
-        loadingScreen.showError('Terrain generation took too long and was aborted.').pipe(
-          Effect.zipRight(Effect.logError(`Terrain queue drain failed: ${String(cause)}`)),
-          Effect.zipRight(Effect.sleep(Duration.seconds(3))),
-          Effect.zipRight(Effect.fail(new StartupError({ reason: 'Timed out while draining terrain worker queue', cause }))),
-        ),
+        Effect.gen(function* () {
+          yield* loadingScreen.showError('Terrain generation took too long and was aborted.')
+          yield* Effect.logError(`Terrain queue drain failed: ${String(cause)}`)
+          yield* Effect.sleep(Duration.seconds(3))
+          yield* Effect.fail(new StartupError({ reason: 'Timed out while draining terrain worker queue', cause }))
+        }),
       ),
     )
 

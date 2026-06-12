@@ -10,12 +10,11 @@ const decoder = new TextDecoder()
 export const encodeNetworkMessage = (
   message: NetworkMessage,
 ): Effect.Effect<ArrayBuffer, NetworkError> =>
-  serializeNetworkMessage(message).pipe(
-    Effect.map((serialized) => {
-      const bytes = encoder.encode(serialized)
-      return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength)
-    }),
-  )
+  Effect.gen(function* () {
+    const serialized = yield* serializeNetworkMessage(message)
+    const bytes = encoder.encode(serialized)
+    return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength)
+  })
 
 export const decodeNetworkMessage = (
   raw: ArrayBuffer,
@@ -26,4 +25,7 @@ export const sendEncodedToConnection = (
   connection: WebSocketConnection,
   message: NetworkMessage,
 ): Effect.Effect<void, NetworkError> =>
-  encodeNetworkMessage(message).pipe(Effect.flatMap((encoded) => connection.send(encoded)))
+  Effect.gen(function* () {
+    const encoded = yield* encodeNetworkMessage(message)
+    yield* connection.send(encoded)
+  })

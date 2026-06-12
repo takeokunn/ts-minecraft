@@ -26,64 +26,30 @@ export type RoleSpec = Readonly<{
 }>
 
 // ---------------------------------------------------------------------------
-// Per-type role specs — derived from mob-geometry.ts. Kept as plain literals so
-// the layout cost is paid once at module load.
+// Per-type role specs — derived from mob-geometry.ts. Built via factory helpers
+// at module load; cost is paid once.
 // ---------------------------------------------------------------------------
 
-// Biped layout (Zombie):
-//   parts: head=[0.5,0.5,0.5], body=[0.5,0.75,0.25], arm=[0.25,0.75,0.25], leg=[0.25,0.75,0.25]
-//   palette: head=0x5a8a3a, body=0x3f5e7a, arm=0x5a8a3a, leg=0x5a8a3a
-const ZOMBIE_LEG_H = 0.75
-const ZOMBIE_BODY_W = 0.5
-const ZOMBIE_BODY_H = 0.75
-const ZOMBIE_HEAD_H = 0.5
-const ZOMBIE_ARM_W = 0.25
-
-const ZOMBIE_SPECS: Readonly<Record<PartRole, Option.Option<RoleSpec>>> = {
-  head: Option.some({
-    size: [0.5, 0.5, 0.5],
-    pivot: 'center',
-    offset: { x: 0, y: ZOMBIE_LEG_H + ZOMBIE_BODY_H + ZOMBIE_HEAD_H / 2, z: 0 },
-    color: 0x5a8a3a,
-    swingAxis: null,
-  }),
-  body: Option.some({
-    size: [0.5, 0.75, 0.25],
-    pivot: 'center',
-    offset: { x: 0, y: ZOMBIE_LEG_H + ZOMBIE_BODY_H / 2, z: 0 },
-    color: 0x3f5e7a,
-    swingAxis: null,
-  }),
-  armL: Option.some({
-    size: [0.25, 0.75, 0.25],
-    pivot: 'top',
-    offset: { x: +(ZOMBIE_BODY_W / 2 + ZOMBIE_ARM_W / 2), y: ZOMBIE_LEG_H + ZOMBIE_BODY_H, z: 0 },
-    color: 0x5a8a3a,
-    swingAxis: 'x',
-  }),
-  armR: Option.some({
-    size: [0.25, 0.75, 0.25],
-    pivot: 'top',
-    offset: { x: -(ZOMBIE_BODY_W / 2 + ZOMBIE_ARM_W / 2), y: ZOMBIE_LEG_H + ZOMBIE_BODY_H, z: 0 },
-    color: 0x5a8a3a,
-    swingAxis: 'x',
-  }),
-  legFL: Option.some({
-    size: [0.25, 0.75, 0.25],
-    pivot: 'top',
-    offset: { x: +0.125, y: ZOMBIE_LEG_H, z: 0 },
-    color: 0x5a8a3a,
-    swingAxis: 'x',
-  }),
-  legFR: Option.some({
-    size: [0.25, 0.75, 0.25],
-    pivot: 'top',
-    offset: { x: -0.125, y: ZOMBIE_LEG_H, z: 0 },
-    color: 0x5a8a3a,
-    swingAxis: 'x',
-  }),
-  legBL: Option.none(),
-  legBR: Option.none(),
+// Biped layout helper (head + body + 2 arms + 2 front legs; back legs absent).
+const buildBipedSpecs = (
+  parts: { head: Dim3; body: Dim3; arm: Dim3; leg: Dim3; legXOff?: number },
+  palette: { head: number; body: number; arm: number; leg: number },
+): Readonly<Record<PartRole, Option.Option<RoleSpec>>> => {
+  const [bodyW, bodyH] = parts.body
+  const [, headH] = parts.head
+  const [armW] = parts.arm
+  const [legW, legH] = parts.leg
+  const legXOff = parts.legXOff ?? legW / 2
+  return {
+    head: Option.some({ size: parts.head, pivot: 'center', offset: { x: 0, y: legH + bodyH + headH / 2, z: 0 }, color: palette.head, swingAxis: null }),
+    body: Option.some({ size: parts.body, pivot: 'center', offset: { x: 0, y: legH + bodyH / 2, z: 0 }, color: palette.body, swingAxis: null }),
+    armL: Option.some({ size: parts.arm, pivot: 'top', offset: { x: +(bodyW / 2 + armW / 2), y: legH + bodyH, z: 0 }, color: palette.arm, swingAxis: 'x' }),
+    armR: Option.some({ size: parts.arm, pivot: 'top', offset: { x: -(bodyW / 2 + armW / 2), y: legH + bodyH, z: 0 }, color: palette.arm, swingAxis: 'x' }),
+    legFL: Option.some({ size: parts.leg, pivot: 'top', offset: { x: +legXOff, y: legH, z: 0 }, color: palette.leg, swingAxis: 'x' }),
+    legFR: Option.some({ size: parts.leg, pivot: 'top', offset: { x: -legXOff, y: legH, z: 0 }, color: palette.leg, swingAxis: 'x' }),
+    legBL: Option.none(),
+    legBR: Option.none(),
+  }
 }
 
 // Quadruped layout helper.
@@ -153,59 +119,16 @@ const CREEPER_SPECS = buildQuadrupedSpecs(
   { head: 0x2d5c1e, body: 0x2d5c1e, leg: 0x2d5c1e },
 )
 
-// Skeleton: biped like Zombie but thinner arms and bone-white palette.
-const SKELETON_LEG_H = 0.75
-const SKELETON_BODY_W = 0.5
-const SKELETON_BODY_H = 0.75
-const SKELETON_HEAD_H = 0.5
-const SKELETON_ARM_W = 0.125
+const ZOMBIE_SPECS = buildBipedSpecs(
+  { head: [0.5, 0.5, 0.5], body: [0.5, 0.75, 0.25], arm: [0.25, 0.75, 0.25], leg: [0.25, 0.75, 0.25] },
+  { head: 0x5a8a3a, body: 0x3f5e7a, arm: 0x5a8a3a, leg: 0x5a8a3a },
+)
 
-const SKELETON_SPECS: Readonly<Record<PartRole, Option.Option<RoleSpec>>> = {
-  head: Option.some({
-    size: [0.5, 0.5, 0.5],
-    pivot: 'center',
-    offset: { x: 0, y: SKELETON_LEG_H + SKELETON_BODY_H + SKELETON_HEAD_H / 2, z: 0 },
-    color: 0xf0f0f0,
-    swingAxis: null,
-  }),
-  body: Option.some({
-    size: [0.5, 0.75, 0.125],
-    pivot: 'center',
-    offset: { x: 0, y: SKELETON_LEG_H + SKELETON_BODY_H / 2, z: 0 },
-    color: 0xf0f0f0,
-    swingAxis: null,
-  }),
-  armL: Option.some({
-    size: [0.125, 0.75, 0.125],
-    pivot: 'top',
-    offset: { x: +(SKELETON_BODY_W / 2 + SKELETON_ARM_W / 2), y: SKELETON_LEG_H + SKELETON_BODY_H, z: 0 },
-    color: 0xf0f0f0,
-    swingAxis: 'x',
-  }),
-  armR: Option.some({
-    size: [0.125, 0.75, 0.125],
-    pivot: 'top',
-    offset: { x: -(SKELETON_BODY_W / 2 + SKELETON_ARM_W / 2), y: SKELETON_LEG_H + SKELETON_BODY_H, z: 0 },
-    color: 0xf0f0f0,
-    swingAxis: 'x',
-  }),
-  legFL: Option.some({
-    size: [0.25, 0.75, 0.25],
-    pivot: 'top',
-    offset: { x: +0.125, y: SKELETON_LEG_H, z: 0 },
-    color: 0xf0f0f0,
-    swingAxis: 'x',
-  }),
-  legFR: Option.some({
-    size: [0.25, 0.75, 0.25],
-    pivot: 'top',
-    offset: { x: -0.125, y: SKELETON_LEG_H, z: 0 },
-    color: 0xf0f0f0,
-    swingAxis: 'x',
-  }),
-  legBL: Option.none(),
-  legBR: Option.none(),
-}
+// Skeleton: biped like Zombie but thinner arms and bone-white palette.
+const SKELETON_SPECS = buildBipedSpecs(
+  { head: [0.5, 0.5, 0.5], body: [0.5, 0.75, 0.125], arm: [0.125, 0.75, 0.125], leg: [0.25, 0.75, 0.25] },
+  { head: 0xf0f0f0, body: 0xf0f0f0, arm: 0xf0f0f0, leg: 0xf0f0f0 },
+)
 
 // Spider: dark low quadruped (sits close to ground), 8-legged simplified as 4.
 const SPIDER_SPECS = buildQuadrupedSpecs(
@@ -213,59 +136,11 @@ const SPIDER_SPECS = buildQuadrupedSpecs(
   { head: 0x2a2a2a, body: 0x2a2a2a, leg: 0x2a2a2a },
 )
 
-// Enderman: extremely tall biped — 3-block-high legs, purple-eye black body.
-const ENDERMAN_LEG_H = 3.0
-const ENDERMAN_BODY_W = 0.375
-const ENDERMAN_BODY_H = 0.875
-const ENDERMAN_HEAD_H = 0.5
-const ENDERMAN_ARM_W = 0.125
-
-const ENDERMAN_SPECS: Readonly<Record<PartRole, Option.Option<RoleSpec>>> = {
-  head: Option.some({
-    size: [0.5, 0.5, 0.5],
-    pivot: 'center',
-    offset: { x: 0, y: ENDERMAN_LEG_H + ENDERMAN_BODY_H + ENDERMAN_HEAD_H / 2, z: 0 },
-    color: 0x1a0d2e,
-    swingAxis: null,
-  }),
-  body: Option.some({
-    size: [0.375, 0.875, 0.25],
-    pivot: 'center',
-    offset: { x: 0, y: ENDERMAN_LEG_H + ENDERMAN_BODY_H / 2, z: 0 },
-    color: 0x111111,
-    swingAxis: null,
-  }),
-  armL: Option.some({
-    size: [0.125, 1.5, 0.125],
-    pivot: 'top',
-    offset: { x: +(ENDERMAN_BODY_W / 2 + ENDERMAN_ARM_W / 2), y: ENDERMAN_LEG_H + ENDERMAN_BODY_H, z: 0 },
-    color: 0x111111,
-    swingAxis: 'x',
-  }),
-  armR: Option.some({
-    size: [0.125, 1.5, 0.125],
-    pivot: 'top',
-    offset: { x: -(ENDERMAN_BODY_W / 2 + ENDERMAN_ARM_W / 2), y: ENDERMAN_LEG_H + ENDERMAN_BODY_H, z: 0 },
-    color: 0x111111,
-    swingAxis: 'x',
-  }),
-  legFL: Option.some({
-    size: [0.125, 3.0, 0.125],
-    pivot: 'top',
-    offset: { x: +0.125, y: ENDERMAN_LEG_H, z: 0 },
-    color: 0x111111,
-    swingAxis: 'x',
-  }),
-  legFR: Option.some({
-    size: [0.125, 3.0, 0.125],
-    pivot: 'top',
-    offset: { x: -0.125, y: ENDERMAN_LEG_H, z: 0 },
-    color: 0x111111,
-    swingAxis: 'x',
-  }),
-  legBL: Option.none(),
-  legBR: Option.none(),
-}
+// Enderman: extremely tall biped — 3-block-high legs, legXOff wider than legW/2 gives natural stride.
+const ENDERMAN_SPECS = buildBipedSpecs(
+  { head: [0.5, 0.5, 0.5], body: [0.375, 0.875, 0.25], arm: [0.125, 1.5, 0.125], leg: [0.125, 3.0, 0.125], legXOff: 0.125 },
+  { head: 0x1a0d2e, body: 0x111111, arm: 0x111111, leg: 0x111111 },
+)
 
 // EnderDragon — boss entity; body + head only, no limbs. Dark purple palette.
 const DRAGON_SPECS: Readonly<Record<PartRole, Option.Option<RoleSpec>>> = {

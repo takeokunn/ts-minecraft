@@ -99,20 +99,20 @@ describe('BiomeService interface', () => {
 describe('BiomeService.getBiome', () => {
   it.effect('returns a valid BiomeType', () =>
     withBiomeService(0.5, 0.45, (service) =>
-      service.getBiome(0, 0).pipe(
-        Effect.map((biome) => expect(['PLAINS', 'RIVER']).toContain(biome))
-      )
+      Effect.gen(function* () {
+        const biome = yield* service.getBiome(0, 0)
+        expect(['PLAINS', 'RIVER']).toContain(biome)
+      })
     )
   )
 
   it.effect('is deterministic for repeated calls', () =>
     withBiomeService(0.4, 0.7, (service) =>
-      Effect.all([service.getBiome(42, 42), service.getBiome(42, 42), service.getBiome(42, 42)]).pipe(
-        Effect.map(([a, b, c]) => {
-          expect(a).toBe(b)
-          expect(b).toBe(c)
-        })
-      )
+      Effect.gen(function* () {
+        const [a, b, c] = yield* Effect.all([service.getBiome(42, 42), service.getBiome(42, 42), service.getBiome(42, 42)])
+        expect(a).toBe(b)
+        expect(b).toBe(c)
+      })
     )
   )
 })
@@ -120,17 +120,19 @@ describe('BiomeService.getBiome', () => {
 describe('BiomeService.getTemperature and getHumidity', () => {
   it.effect('getTemperature returns the noise value at scaled coordinates', () =>
     withBiomeService(0.6, 0.3, (service) =>
-      service.getTemperature(0, 0).pipe(
-        Effect.map((temp) => expect(temp).toBe(0.6))
-      )
+      Effect.gen(function* () {
+        const temp = yield* service.getTemperature(0, 0)
+        expect(temp).toBe(0.6)
+      })
     )
   )
 
   it.effect('getHumidity returns the noise value at humidity-offset coordinates', () =>
     withBiomeService(0.6, 0.8, (service) =>
-      service.getHumidity(0, 0).pipe(
-        Effect.map((hum) => expect(hum).toBe(0.8))
-      )
+      Effect.gen(function* () {
+        const hum = yield* service.getHumidity(0, 0)
+        expect(hum).toBe(0.8)
+      })
     )
   )
 })
@@ -161,15 +163,14 @@ describe('BiomeService.getBiomeProperties', () => {
   Arr.forEach(propertyExpectations, ({ biome, surfaceBlock, subSurfaceBlock, minTreeDensity }) => {
     it.effect(`${biome}: correct surface blocks and tree density`, () =>
       withBiomeService(0.5, 0.45, (service) =>
-        service.getBiomeProperties(biome).pipe(
-          Effect.map((props) => {
-            expect(props.surfaceBlock).toBe(surfaceBlock)
-            expect(props.subSurfaceBlock).toBe(subSurfaceBlock)
-            expect(props.treeDensity).toBeGreaterThanOrEqual(minTreeDensity)
-            expect(props.treeDensity).toBeGreaterThanOrEqual(0)
-            expect(props.treeDensity).toBeLessThanOrEqual(1)
-          })
-        )
+        Effect.gen(function* () {
+          const props = yield* service.getBiomeProperties(biome)
+          expect(props.surfaceBlock).toBe(surfaceBlock)
+          expect(props.subSurfaceBlock).toBe(subSurfaceBlock)
+          expect(props.treeDensity).toBeGreaterThanOrEqual(minTreeDensity)
+          expect(props.treeDensity).toBeGreaterThanOrEqual(0)
+          expect(props.treeDensity).toBeLessThanOrEqual(1)
+        })
       )
     )
   })

@@ -17,12 +17,13 @@ const runTickable = (
   deltaTime: DeltaTimeSecs,
   intervalSecs: number,
 ): Effect.Effect<void, never> =>
-  Ref.modify(accRef, (accumulated): [number, number] => {
-    const { ticks, remainder } = advanceFixedStep(accumulated, deltaTime, intervalSecs)
-    return [ticks, remainder]
-  }).pipe(
-    Effect.flatMap((n) => (n > 0 ? Effect.repeatN(tick, n - 1).pipe(Effect.asVoid) : Effect.void)),
-  )
+  Effect.gen(function* () {
+    const n = yield* Ref.modify(accRef, (accumulated): [number, number] => {
+      const { ticks, remainder } = advanceFixedStep(accumulated, deltaTime, intervalSecs)
+      return [ticks, remainder]
+    })
+    if (n > 0) yield* Effect.repeatN(tick, n - 1)
+  })
 
 const ENTITY_PHYSICS_CHUNK_OFFSETS = [
   [-1, -1, 0], [-1, 0, 1], [-1, 1, 2],
@@ -103,13 +104,10 @@ export const entityUpdateStage = (
               return Effect.void
             }
 
-            return services.chunkManagerService.getChunk({
-              x: playerCx + dx,
-              z: playerCz + dz,
-            }).pipe(
-              Effect.tap((chunk) => Effect.sync(() => { chunkCache[index] = chunk })),
-              Effect.ignore,
-            )
+            return Effect.gen(function* () {
+              const chunk = yield* services.chunkManagerService.getChunk({ x: playerCx + dx, z: playerCz + dz })
+              chunkCache[index] = chunk
+            }).pipe(Effect.ignore)
           },
           { concurrency: 'unbounded', discard: true },
         )
@@ -153,38 +151,29 @@ export const entityUpdateStage = (
     yield* logErrors(
       // Sequential: both are synchronous reads; unbounded concurrency would
       // spawn fibers every frame for no parallelism gain.
-      Effect.all([services.entityManager.getEntities(), services.entityManager.getStructureVersion()]).pipe(
-        Effect.flatMap(([entitiesSnapshot, structureVersion]) =>
-          Ref.get(refs.lastEntityStructureVersionRef).pipe(
-            Effect.flatMap((lastStructureVersion) => {
-              if (!mobsRenderEnabled) {
-                /* c8 ignore start -- mobs-disabled render path; idempotent and hard to trigger in frame tests */
-                return lastStructureVersion === RENDER_DISABLED_STRUCTURE_VERSION
-                  ? Effect.void
-                  : services.entityRenderer.syncEntities([], deps.scene).pipe(
-                      Effect.andThen(Ref.set(refs.lastEntityStructureVersionRef, RENDER_DISABLED_STRUCTURE_VERSION)),
-                    )
-                /* c8 ignore end */
-              }
-
-              return (lastStructureVersion === structureVersion
-                ? Effect.void
-                : services.entityRenderer.syncEntities(entitiesSnapshot, deps.scene).pipe(
-                    Effect.andThen(Ref.set(refs.lastEntityStructureVersionRef, structureVersion)),
-                  )
-              ).pipe(
-                Effect.andThen(
-                  services.entityRenderer.updateEntityTransforms(
-                    entitiesSnapshot,
-                    inputs.totalTimeSecs,
-                    inputs.deltaTime,
-                  ),
-                ),
-              )
-            }),
-          ),
-        ),
-      ),
+      Effect.gen(function* () {
+        const entitiesSnapshot = yield* services.entityManager.getEntities()
+        const structureVersion = yield* services.entityManager.getStructureVersion()
+        const lastStructureVersion = yield* Ref.get(refs.lastEntityStructureVersionRef)
+        if (!mobsRenderEnabled) {
+          /* c8 ignore start -- mobs-disabled render path; idempotent and hard to trigger in frame tests */
+          if (lastStructureVersion !== RENDER_DISABLED_STRUCTURE_VERSION) {
+            yield* services.entityRenderer.syncEntities([], deps.scene)
+            yield* Ref.set(refs.lastEntityStructureVersionRef, RENDER_DISABLED_STRUCTURE_VERSION)
+          }
+          /* c8 ignore end */
+          return
+        }
+        if (lastStructureVersion !== structureVersion) {
+          yield* services.entityRenderer.syncEntities(entitiesSnapshot, deps.scene)
+          yield* Ref.set(refs.lastEntityStructureVersionRef, structureVersion)
+        }
+        yield* services.entityRenderer.updateEntityTransforms(
+          entitiesSnapshot,
+          inputs.totalTimeSecs,
+          inputs.deltaTime,
+        )
+      }),
       'Entity render error',
     )
 

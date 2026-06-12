@@ -17,11 +17,14 @@ export class PlayerError extends Data.TaggedError('PlayerError')<{
   }
 }
 
+const formatCause = (cause?: unknown): string =>
+  cause instanceof Error ? cause.message : cause ? String(cause) : ''
+
 export class CameraError extends Data.TaggedError('CameraError')<{
   readonly cause?: unknown
 }> {
   override get message(): string {
-    const causeMessage = this.cause instanceof Error ? this.cause.message : this.cause ? String(this.cause) : ''
-    return `Camera creation failed${causeMessage ? `: ${causeMessage}` : ''}`
+    const causeMessage = formatCause(this.cause)
+    return causeMessage ? `Camera creation failed: ${causeMessage}` : 'Camera creation failed'
   }
 }

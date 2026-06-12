@@ -33,12 +33,12 @@ type SpawnPositionResolver = (
 export class MobSpawner extends Effect.Service<MobSpawner>()(
   '@minecraft/entity/MobSpawner',
   {
-    effect: Effect.all([
-      EntityManager,
-      TimeServicePort,
-      Ref.make(0),
-      Ref.make(0),
-    ], { concurrency: 'unbounded' }).pipe(Effect.map(([entityManager, timeService, spawnFrameRef, spawnCursorRef]) => ({
+    effect: Effect.gen(function* () {
+      const entityManager = yield* EntityManager
+      const timeService = yield* TimeServicePort
+      const spawnFrameRef = yield* Ref.make(0)
+      const spawnCursorRef = yield* Ref.make(0)
+      return {
         trySpawn: (
           playerPosition: Position,
           spawnResolver?: SpawnPositionResolver,
@@ -54,10 +54,8 @@ export class MobSpawner extends Effect.Service<MobSpawner>()(
               return Option.none<EntityId>()
             }
 
-            const [isNight, cursor] = yield* Effect.all(
-              [timeService.isNight(), Ref.updateAndGet(spawnCursorRef, (value) => value + 1)],
-              { concurrency: 'unbounded' },
-            )
+            const isNight = yield* timeService.isNight()
+            const cursor = yield* Ref.updateAndGet(spawnCursorRef, (value) => value + 1)
 
             const candidateSpawnPosition = getSpawnPosition(playerPosition, cursor)
             const spawnPositionOption = yield* (
@@ -92,7 +90,8 @@ export class MobSpawner extends Effect.Service<MobSpawner>()(
 
         getMaxPopulation: (): Effect.Effect<number, never> =>
           Effect.succeed(MAX_ENTITY_COUNT),
-    })))
+      }
+    }),
   },
 ) {}
 

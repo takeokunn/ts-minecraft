@@ -2,6 +2,7 @@ import { Effect, Match, Option } from 'effect'
 import { RedstoneComponentType } from '@ts-minecraft/entity'
 import type { BlockType, Position } from '@ts-minecraft/core'
 import type { FrameHandlerServices } from '@ts-minecraft/app/frame/types'
+import type { TargetBlockHit } from '@ts-minecraft/app/frame/stages/interaction-types'
 
 export type RedstoneFlags = {
   readonly placeWire: boolean
@@ -13,8 +14,6 @@ export type RedstoneFlags = {
   readonly pressButton: boolean
   readonly toggleTorch: boolean
 }
-
-type TargetBlockHit = { readonly x: number; readonly y: number; readonly z: number }
 
 
 const placeComponentAndBlock = (

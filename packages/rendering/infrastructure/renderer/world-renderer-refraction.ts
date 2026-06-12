@@ -223,16 +223,12 @@ export const getWaterMeshes = (
   waterMeshesRef: Ref.Ref<ReadonlyArray<THREE.Mesh>>,
   _waterMeshCache: MutableRef.MutableRef<ReadonlyArray<THREE.Mesh>>,
 ): Effect.Effect<ReadonlyArray<THREE.Mesh>, never> =>
-  Ref.get(waterMeshesRef).pipe(
-    Effect.map((current) => {
-      const cached = MutableRef.get(_waterMeshCache)
-      if (
-        current.length === cached.length &&
-        Arr.every(current, (mesh, i) => mesh === cached[i])
-      ) {
-        return cached
-      }
-      MutableRef.set(_waterMeshCache, current)
-      return current
-    })
-  )
+  Effect.gen(function* () {
+    const current = yield* Ref.get(waterMeshesRef)
+    const cached = MutableRef.get(_waterMeshCache)
+    if (current.length === cached.length && Arr.every(current, (mesh, i) => mesh === cached[i])) {
+      return cached
+    }
+    MutableRef.set(_waterMeshCache, current)
+    return current
+  })

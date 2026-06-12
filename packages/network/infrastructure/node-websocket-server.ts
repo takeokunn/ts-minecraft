@@ -34,7 +34,10 @@ const makeConnection = (socket: WebSocket): Effect.Effect<WebSocketConnection, n
     const id = `node-${nextNodeConnectionId++}`
 
     const signalClosed = (): void => {
-      runDetached(Deferred.succeed(closed, undefined).pipe(Effect.zipRight(Queue.shutdown(messages))))
+      runDetached(Effect.gen(function* () {
+        yield* Deferred.succeed(closed, undefined)
+        yield* Queue.shutdown(messages)
+      }))
     }
 
     socket.on('message', (data) => {
@@ -80,7 +83,10 @@ export class NodeWebSocketServer implements WebSocketServerPort {
         let settled = false
 
         server.on('connection', (socket) => {
-          runDetached(makeConnection(socket).pipe(Effect.flatMap((connection) => Queue.offer(connectionQueue, connection))))
+          runDetached(Effect.gen(function* () {
+            const connection = yield* makeConnection(socket)
+            yield* Queue.offer(connectionQueue, connection)
+          }))
         })
 
         server.once('listening', () => {

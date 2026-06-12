@@ -35,8 +35,10 @@ const countBlockInInventory = (
 export class TradingService extends Effect.Service<TradingService>()(
   '@minecraft/trading/TradingService',
   {
-    effect: Effect.all([InventoryServicePort, VillageService], { concurrency: 'unbounded' }).pipe(
-      Effect.map(([inventoryService, villageService]) => ({
+    effect: Effect.gen(function* () {
+      const inventoryService = yield* InventoryServicePort
+      const villageService = yield* VillageService
+      return {
         getCurrencyBlockType: (): Effect.Effect<InventoryItem, never> =>
           Effect.succeed(TRADE_CURRENCY_BLOCK),
 
@@ -70,10 +72,10 @@ export class TradingService extends Effect.Service<TradingService>()(
 
             yield* inventoryService.addBlock(offer.output.itemType, offer.output.count).pipe(
               Effect.catchTag('InventoryError', () =>
-                inventoryService.addBlock(offer.input.itemType, offer.input.count).pipe(
-                  Effect.ignore,
-                  Effect.andThen(Effect.fail<TradeFailureReason>('inventory_full'))
-                )
+                Effect.gen(function* () {
+                  yield* inventoryService.addBlock(offer.input.itemType, offer.input.count).pipe(Effect.ignore)
+                  yield* Effect.fail<TradeFailureReason>('inventory_full')
+                })
               )
             )
 
@@ -91,8 +93,8 @@ export class TradingService extends Effect.Service<TradingService>()(
             Effect.catchAll((reason) => Effect.succeed<TradeResult>(new TradeFailure({ reason }))),
           )
         },
-      }))
-    ),
+      }
+    }),
   },
 ) {}
 

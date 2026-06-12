@@ -17,10 +17,6 @@ import {
   EXHAUSTION_PER_REGEN,
 } from './hunger-service.config'
 
-// Re-export domain transformers and types so existing imports from this module continue to work.
-export type { HungerTickEffect } from '../domain/player-hunger'
-export { applyExhaustionCascade, addExhaustionToHunger, eatFood, advanceFoodTimer } from '../domain/player-hunger'
-
 // ─── Initial state ────────────────────────────────────────────────────────────
 
 const INITIAL_STATE: HungerState = {
@@ -35,9 +31,14 @@ export class HungerService extends Effect.Service<HungerService>()(
   {
     // Single Ref for all hunger state — reset() is atomic, and tick() reads the
     // timer and produces its effect in one Ref.modify (no read-then-write TOCTOU).
-    effect: Ref.make<HungerState>(INITIAL_STATE).pipe(Effect.map((stateRef) => ({
+    effect: Effect.gen(function* () {
+      const stateRef = yield* Ref.make<HungerState>(INITIAL_STATE)
+      return {
       getHunger: (): Effect.Effect<PlayerHunger, never> =>
-        Ref.get(stateRef).pipe(Effect.map((s) => s.hunger)),
+        Effect.gen(function* () {
+          const s = yield* Ref.get(stateRef)
+          return s.hunger
+        }),
 
       // Accumulate exhaustion from an action (sprinting, jumping, attacking, …).
       addExhaustion: (amount: number): Effect.Effect<void, never> =>
@@ -76,7 +77,8 @@ export class HungerService extends Effect.Service<HungerService>()(
           tickTimer: 0,
         })
       },
-    })))
+      }
+    }),
   }
 ) {}
 export const HungerServiceLive = HungerService.Default

@@ -5,7 +5,7 @@ import { CHUNK_SIZE, CHUNK_HEIGHT, blockTypeToIndex } from '@ts-minecraft/core'
 import type { BlockType } from '@ts-minecraft/core'
 import type { Chunk } from '@ts-minecraft/world'
 import { handleFlintAndSteel, handleBucket, handleBed } from '@ts-minecraft/app/frame/stages/interaction-placement-handler'
-import type { TargetRayHit } from '@ts-minecraft/app/frame/stages/interaction-block-handler'
+import type { TargetRayHit } from '@ts-minecraft/app/frame/stages/interaction-types'
 
 // ---------------------------------------------------------------------------
 // helpers

@@ -198,14 +198,12 @@ export const createTreeColumnContextResolver = ({
   return Effect.gen(function* () {
 
     const biome = yield* biomeService.getBiome(wx, wz)
-    const [props, continentalness, erosion, weirdness, jaggedness, lakeNoiseVal] = yield* Effect.all([
-      biomeService.getBiomeProperties(biome),
-      noiseService.continentalness(wx, wz),
-      noiseService.erosion(wx, wz),
-      noiseService.weirdness(wx, wz),
-      noiseService.jaggedness(wx, wz),
-      noiseService.noise2D(wx * LAKE_NOISE_SCALE + 5000, wz * LAKE_NOISE_SCALE + 5000),
-    ], { concurrency: 'unbounded' })
+    const props = yield* biomeService.getBiomeProperties(biome)
+    const continentalness = yield* noiseService.continentalness(wx, wz)
+    const erosion = yield* noiseService.erosion(wx, wz)
+    const weirdness = yield* noiseService.weirdness(wx, wz)
+    const jaggedness = yield* noiseService.jaggedness(wx, wz)
+    const lakeNoiseVal = yield* noiseService.noise2D(wx * LAKE_NOISE_SCALE + 5000, wz * LAKE_NOISE_SCALE + 5000)
 
     // computeColumnYFromValues expects Minecraft's peaks-and-valleys channel, not raw weirdness.
     const pv = peaksAndValleysFromWeirdness(weirdness)

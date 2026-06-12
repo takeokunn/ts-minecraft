@@ -20,7 +20,10 @@ import {
 const withHungerService = <A>(
   f: (hs: HungerService) => Effect.Effect<A, never>,
 ): Effect.Effect<A, never> =>
-  Effect.flatMap(HungerService, f).pipe(Effect.provide(HungerService.Default))
+  Effect.gen(function* () {
+    const hs = yield* HungerService
+    return yield* f(hs)
+  }).pipe(Effect.provide(HungerService.Default))
 
 const full = () => new PlayerHunger({ foodLevel: 20, saturation: 5, exhaustion: 0 })
 
@@ -180,11 +183,12 @@ describe('advanceFoodTimer', () => {
 describe('HungerService initial state', () => {
   it.effect('starts full with the spawn saturation reserve', () =>
     withHungerService((hs) =>
-      hs.getHunger().pipe(Effect.map((h) => {
+      Effect.gen(function* () {
+        const h = yield* hs.getHunger()
         expect(h.foodLevel).toBe(START_FOOD_LEVEL)
         expect(h.saturation).toBe(START_SATURATION)
         expect(h.exhaustion).toBe(0)
-      }))
+      })
     )
   )
 })

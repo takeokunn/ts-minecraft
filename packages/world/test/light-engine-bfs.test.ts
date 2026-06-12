@@ -17,10 +17,11 @@ interface MutableChunk {
 const withLightService = <A>(
   f: (cs: ChunkServiceType, ls: LightEngineService) => Effect.Effect<A, never>,
 ): Effect.Effect<A, never> =>
-  Effect.all([ChunkService, LightEngineService]).pipe(
-    Effect.flatMap(([cs, ls]) => f(cs, ls)),
-    Effect.provide(Layer.mergeAll(ChunkServiceLive, LightEngineLive)),
-  )
+  Effect.gen(function* () {
+    const cs = yield* ChunkService
+    const ls = yield* LightEngineService
+    return yield* f(cs, ls)
+  }).pipe(Effect.provide(Layer.mergeAll(ChunkServiceLive, LightEngineLive)))
 
 describe('application/light/light-engine-bfs (FR-3.4)', () => {
   it.effect('first call (no prior light) falls back to full compute and reports all-boundary dirty', () =>

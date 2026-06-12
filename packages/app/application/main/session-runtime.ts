@@ -11,7 +11,8 @@ import { DebugOverlayService } from '@ts-minecraft/presentation/hud/debug-overla
 import { DeathScreenService } from '@ts-minecraft/presentation/menu/death-screen'
 import { type ColorPort, type SkyMaterialPort, type Position } from '@ts-minecraft/core'
 
-import { createFrameHandlers, type FrameHandlerDeps, type FrameHandlerServices } from '@ts-minecraft/app/frame-handler'
+import { createFrameHandlers } from '@ts-minecraft/app/frame-handler'
+import type { FrameHandlerDeps, FrameHandlerServices } from '@ts-minecraft/app/frame/types'
 import { installQaApi } from '@ts-minecraft/app/main/qa-api'
 import { wrapFrameHandlerWithBrowserEffects, type PendingResize } from '@ts-minecraft/app/main/browser-runtime'
 import type { SessionControl } from '@ts-minecraft/app/main/session-control'

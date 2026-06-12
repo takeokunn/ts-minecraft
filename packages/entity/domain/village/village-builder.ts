@@ -1,5 +1,5 @@
 import type { BlockType, Position } from '@ts-minecraft/core'
-import type { VillageStructure } from '@ts-minecraft/entity'
+import type { VillageStructure } from './village-model'
 
 export type BlockPlacement = { readonly position: Position; readonly blockType: BlockType }
 

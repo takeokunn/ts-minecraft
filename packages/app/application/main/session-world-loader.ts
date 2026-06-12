@@ -44,75 +44,67 @@ export const loadOrCreateWorld = (
   noiseService: NoiseService,
   gameModeService: GameModeService,
 ): Effect.Effect<WorldBootstrap, StartupError> =>
-  Effect.raceFirst(
-    storageService.loadWorldMetadata(worldId),
-    Effect.sleep(Duration.seconds(10)).pipe(
-      Effect.flatMap(() => Effect.fail(new Error('Timed out while loading world metadata'))),
-    ),
-  ).pipe(
-    Effect.mapError((cause) => new StartupError({ reason: 'Failed to load world metadata', cause })),
-    Effect.flatMap((existingMetadata): Effect.Effect<WorldBootstrap, StartupError, never> => {
-      const metadata = Option.getOrNull(existingMetadata)
-      if (metadata !== null) {
-        return noiseService.setSeed(metadata.seed).pipe(
-          Effect.andThen(gameModeService.set(metadata.gameMode)),
-          Effect.andThen(
-            Effect.log(
-              `Loaded world '${worldId}' with seed ${metadata.seed} (gameMode=${metadata.gameMode}, saveVersion=${metadata.saveVersion})`,
-            ),
-          ),
-          Effect.as({
-            seed: metadata.seed,
-            createdAt: metadata.createdAt,
-            baseSpawnPosition: metadata.playerSpawn ?? { x: 0, y: 100, z: 0 },
-            savedPlayerState: Option.fromNullable(metadata.playerState),
-            savedFurnaceStates: Option.fromNullable(metadata.furnaceStates),
-            gameMode: metadata.gameMode,
-          }),
-        )
-      }
-      return (
-          Effect.all(
-            [Random.nextIntBetween(0, MAX_SEED_VALUE), Clock.currentTimeMillis],
-            { concurrency: 'unbounded' },
-          ).pipe(
-            Effect.flatMap(([seed, nowMs]) => {
-              const pos = { x: 0, y: 100, z: 0 }
-              const now = new Date(nowMs)
-              return noiseService.setSeed(seed).pipe(
-                Effect.andThen(
-                  Effect.raceFirst(
-                    storageService.saveWorldMetadata(worldId, {
-                      seed,
-                      createdAt: now,
-                      lastPlayed: now,
-                      playerSpawn: pos,
-                      gameMode: initialGameMode,
-                      saveVersion: 1,
-                    }),
-                    Effect.sleep(Duration.seconds(10)).pipe(
-                      Effect.flatMap(() => Effect.fail(new Error('Timed out while saving world metadata'))),
-                    ),
-                  ),
-                ),
-                Effect.andThen(
-                  Effect.log(`Created new world '${worldId}' with seed ${seed} (gameMode=${initialGameMode})`),
-                ),
-                Effect.as({
-                  seed,
-                  createdAt: now,
-                  baseSpawnPosition: pos,
-                  savedPlayerState: Option.none(),
-                  savedFurnaceStates: Option.none(),
-                  gameMode: initialGameMode,
-                }),
-                Effect.mapError((cause) => new StartupError({ reason: 'Failed to save fresh world metadata', cause })),
-              )
-            }),
-          )
+  Effect.gen(function* () {
+    const existingMetadata = yield* Effect.raceFirst(
+      storageService.loadWorldMetadata(worldId),
+      Effect.delay(
+        Effect.fail(new Error('Timed out while loading world metadata')),
+        Duration.seconds(10),
+      ),
+    ).pipe(
+      Effect.mapError((cause) => new StartupError({ reason: 'Failed to load world metadata', cause })),
+    )
+
+    const metadata = Option.getOrNull(existingMetadata)
+    if (metadata !== null) {
+      yield* noiseService.setSeed(metadata.seed)
+      yield* gameModeService.set(metadata.gameMode)
+      yield* Effect.log(
+        `Loaded world '${worldId}' with seed ${metadata.seed} (gameMode=${metadata.gameMode}, saveVersion=${metadata.saveVersion})`,
       )
-    }),
-  )
+      return {
+        seed: metadata.seed,
+        createdAt: metadata.createdAt,
+        baseSpawnPosition: metadata.playerSpawn ?? { x: 0, y: 100, z: 0 },
+        savedPlayerState: Option.fromNullable(metadata.playerState),
+        savedFurnaceStates: Option.fromNullable(metadata.furnaceStates),
+        gameMode: metadata.gameMode,
+      }
+    }
+
+    const [seed, nowMs] = yield* Effect.all(
+      [Random.nextIntBetween(0, MAX_SEED_VALUE), Clock.currentTimeMillis],
+      { concurrency: 'unbounded' },
+    )
+    const pos = { x: 0, y: 100, z: 0 }
+    const now = new Date(nowMs)
+    yield* noiseService.setSeed(seed)
+    yield* Effect.raceFirst(
+      storageService.saveWorldMetadata(worldId, {
+        seed,
+        createdAt: now,
+        lastPlayed: now,
+        playerSpawn: pos,
+        gameMode: initialGameMode,
+        saveVersion: 1,
+      }),
+      Effect.delay(
+        Effect.fail(new Error('Timed out while saving world metadata')),
+        Duration.seconds(10),
+      ),
+    ).pipe(
+      Effect.mapError((cause) => new StartupError({ reason: 'Failed to save fresh world metadata', cause })),
+    )
+    yield* Effect.log(`Created new world '${worldId}' with seed ${seed} (gameMode=${initialGameMode})`)
+    return {
+      seed,
+      createdAt: now,
+      baseSpawnPosition: pos,
+      savedPlayerState: Option.none<SavedPlayerState>(),
+      savedFurnaceStates: Option.none<SavedFurnaceStates>(),
+      gameMode: initialGameMode,
+    }
+  })
 
 export const buildSpawnSelection = (
   baseSpawnPosition: { x: number; y: number; z: number },
@@ -129,4 +121,8 @@ export const buildSpawnSelection = (
 export const buildRespawnPosition = (
   baseSpawnPosition: { x: number; y: number; z: number },
   chunkManagerService: ChunkManagerService,
-) => Effect.map(buildSpawnSelection(baseSpawnPosition, chunkManagerService), (spawn) => spawn.position)
+) =>
+  Effect.gen(function* () {
+    const spawn = yield* buildSpawnSelection(baseSpawnPosition, chunkManagerService)
+    return spawn.position
+  })

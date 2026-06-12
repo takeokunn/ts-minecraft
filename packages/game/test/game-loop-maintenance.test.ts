@@ -58,7 +58,10 @@ describe('application/game-loop', () => {
 
         yield* service.start(() => Effect.void)
         yield* service.startMaintenance(() =>
-          Ref.update(callCountRef, (n) => n + 1).pipe(Effect.as(true))
+          Effect.gen(function* () {
+            yield* Ref.update(callCountRef, (n) => n + 1)
+            return true
+          })
         )
 
         yield* Effect.sleep(60)

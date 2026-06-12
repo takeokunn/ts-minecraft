@@ -11,18 +11,19 @@ export type { GameMode }
 export class GameModeService extends Effect.Service<GameModeService>()(
   '@minecraft/application/GameModeService',
   {
-    effect: Ref.make<GameMode>(DEFAULT_GAME_MODE).pipe(
-      Effect.map((modeRef) => ({
+    effect: Effect.gen(function* () {
+      const modeRef = yield* Ref.make<GameMode>(DEFAULT_GAME_MODE)
+      return {
         get: (): Effect.Effect<GameMode, never> => Ref.get(modeRef),
         set: (mode: GameMode): Effect.Effect<void, never> => Ref.set(modeRef, mode),
         isCreative: (): Effect.Effect<boolean, never> =>
-          Ref.get(modeRef).pipe(Effect.map((mode) => mode === 'creative')),
+          Effect.gen(function* () { const mode = yield* Ref.get(modeRef); return mode === 'creative' }),
         isSurvival: (): Effect.Effect<boolean, never> =>
-          Ref.get(modeRef).pipe(Effect.map((mode) => mode === 'survival')),
+          Effect.gen(function* () { const mode = yield* Ref.get(modeRef); return mode === 'survival' }),
         isSpectator: (): Effect.Effect<boolean, never> =>
-          Ref.get(modeRef).pipe(Effect.map((mode) => mode === 'spectator')),
-      })),
-    ),
+          Effect.gen(function* () { const mode = yield* Ref.get(modeRef); return mode === 'spectator' }),
+      }
+    }),
   },
 ) {}
 

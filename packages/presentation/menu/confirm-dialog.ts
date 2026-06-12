@@ -59,8 +59,9 @@ const BUTTON_CONFIRM_STYLE = `${BUTTON_BASE_STYLE};background:#a04040;color:#fff
 export class ConfirmDialogService extends Effect.Service<ConfirmDialogService>()(
   '@minecraft/presentation/ConfirmDialog',
   {
-    effect: Effect.flatMap(DomOperationsService, (dom) =>
-      Effect.succeed({
+    effect: Effect.gen(function* () {
+      const dom = yield* DomOperationsService
+      return {
         // Short-circuits to false in SSR / non-DOM environments.
         show: (
           message: string,
@@ -151,7 +152,7 @@ export class ConfirmDialogService extends Effect.Service<ConfirmDialogService>()
 
             // Acquire/release pairs listener+DOM lifecycle with the await —
             // finalizer runs even if the awaiter is interrupted.
-            return yield* Effect.acquireRelease(
+            yield* Effect.acquireRelease(
               Effect.sync(() => {
                 confirmBtn.addEventListener('click', handleConfirmClick)
                 cancelBtn.addEventListener('click', handleCancelClick)
@@ -166,13 +167,11 @@ export class ConfirmDialogService extends Effect.Service<ConfirmDialogService>()
                   document.removeEventListener('keydown', handleKeyDown, true)
                   Option.map(dom.getParentNode(backdrop), () => dom.removeChild(backdrop))
                 }),
-            ).pipe(
-              Effect.andThen(Deferred.await(result)),
-              Effect.scoped,
             )
-          }),
-      }),
-    ),
+            return yield* Deferred.await(result)
+          }).pipe(Effect.scoped),
+      }
+    }),
   },
 ) {}
 

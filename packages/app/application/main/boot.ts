@@ -44,14 +44,10 @@ export type BootContext = {
 // scene+camera by reference at construction; pulling them into boot would require
 // rebinding `renderPass.scene = ...` on every session entry.
 export const bootProgram = Effect.gen(function* () {
-  const canvas = yield* Effect.sync(() => document.getElementById('game-canvas')).pipe(
-    Effect.flatMap((el) => {
-      if (el === null) return Effect.fail(new StartupError({ reason: 'Canvas element not found' }))
-      return el instanceof HTMLCanvasElement
-        ? Effect.succeed(el)
-        : Effect.fail(new StartupError({ reason: 'Canvas element is not an HTMLCanvasElement' }))
-    }),
-  )
+  const el = yield* Effect.sync(() => document.getElementById('game-canvas'))
+  if (el === null) return yield* Effect.fail(new StartupError({ reason: 'Canvas element not found' }))
+  if (!(el instanceof HTMLCanvasElement)) return yield* Effect.fail(new StartupError({ reason: 'Canvas element is not an HTMLCanvasElement' }))
+  const canvas = el
 
   const rendererService = yield* RendererService
   const perfHud = yield* PerfHudService

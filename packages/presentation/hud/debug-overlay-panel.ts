@@ -55,13 +55,12 @@ export const refreshTogglePanel = (
   deps: DebugOverlayDeps,
   statusMessage?: string,
 ): Effect.Effect<void, never> =>
-  deps.debugFeatureFlags.getSnapshot().pipe(
-    Effect.map((snapshot) => {
-      updateToggleRowsFromFlags(dom, snapshot.flags)
-      filterToggleRows(dom)
-      if (statusMessage !== undefined) setStatus(dom, statusMessage)
-    }),
-  )
+  Effect.gen(function* () {
+    const snapshot = yield* deps.debugFeatureFlags.getSnapshot()
+    updateToggleRowsFromFlags(dom, snapshot.flags)
+    filterToggleRows(dom)
+    if (statusMessage !== undefined) setStatus(dom, statusMessage)
+  })
 
 export const runPanelEffect = (dom: DebugOverlayDomNodes, effect: Effect.Effect<void, never>): void => {
   void Effect.runPromise(
@@ -132,10 +131,11 @@ const createToggleRow = (
     if (dom === null) return
     runPanelEffect(
       dom,
-      deps.debugFeatureFlags.isEnabled(entry.id).pipe(
-        Effect.flatMap((enabled) => deps.debugFeatureFlags.setEnabled(entry.id, !enabled)),
-        Effect.flatMap((changed) => refreshTogglePanel(dom, deps, changed ? `${entry.label} toggled` : `${entry.label} unchanged`)),
-      ),
+      Effect.gen(function* () {
+        const enabled = yield* deps.debugFeatureFlags.isEnabled(entry.id)
+        const changed = yield* deps.debugFeatureFlags.setEnabled(entry.id, !enabled)
+        yield* refreshTogglePanel(dom, deps, changed ? `${entry.label} toggled` : `${entry.label} unchanged`)
+      }),
     )
   }
   button.addEventListener('click', activate)
@@ -208,7 +208,10 @@ export const buildTogglePanel = (
     resetGroupButton.addEventListener('click', () => {
       const dom = getDom()
       if (dom === null) return
-      runPanelEffect(dom, deps.debugFeatureFlags.resetGroup(group).pipe(Effect.andThen(refreshTogglePanel(dom, deps, `${debugFeatureGroupLabels[group]} reset`))))
+      runPanelEffect(dom, Effect.gen(function* () {
+        yield* deps.debugFeatureFlags.resetGroup(group)
+        yield* refreshTogglePanel(dom, deps, `${debugFeatureGroupLabels[group]} reset`)
+      }))
     })
     groupHeader.appendChild(groupTitle)
     groupHeader.appendChild(resetGroupButton)

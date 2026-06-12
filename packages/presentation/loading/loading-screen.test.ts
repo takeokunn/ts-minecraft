@@ -195,7 +195,7 @@ describe('presentation/loading/loading-screen', () => {
       const TestLayer = buildTestLayer()
       return Effect.gen(function* () {
         const loading = yield* LoadingScreenService
-        yield* loading.hide().pipe(Effect.andThen(Effect.void))
+        yield* loading.hide()
       }).pipe(Effect.provide(TestLayer))
     })
 

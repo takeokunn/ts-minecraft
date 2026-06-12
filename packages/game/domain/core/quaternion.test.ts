@@ -1,7 +1,7 @@
 import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
 import { Schema } from 'effect'
-import { identity, QuaternionSchema } from './quaternion'
+import { identity, QuaternionSchema } from '@ts-minecraft/core'
 
 describe('domain/core/quaternion', () => {
   describe('identity', () => {

@@ -21,15 +21,13 @@ const verifyPlayerOwnership = (
   connectionId: string,
   playerId: PlayerId,
 ): Effect.Effect<void, NetworkError> =>
-  Ref.get(services.gameServer.playerIdByConnectionId).pipe(
-    Effect.flatMap((playerIds) => {
-      const ownerId = playerIds.get(connectionId)
-      if (!ownerId || ownerId !== playerId) {
-        return Effect.fail(new NetworkError({ operation: 'dispatch', reason: `playerId ${playerId} does not belong to connection ${connectionId}` }))
-      }
-      return Effect.void
-    }),
-  )
+  Effect.gen(function* () {
+    const playerIds = yield* Ref.get(services.gameServer.playerIdByConnectionId)
+    const ownerId = playerIds.get(connectionId)
+    if (!ownerId || ownerId !== playerId) {
+      return yield* Effect.fail(new NetworkError({ operation: 'dispatch', reason: `playerId ${playerId} does not belong to connection ${connectionId}` }))
+    }
+  })
 
 export const handlePlayerJoin = (
   services: ServerHandlerServices,
@@ -155,39 +153,40 @@ export const dispatchMessage = (
   connection: WebSocketConnection,
   raw: ArrayBuffer,
 ): Effect.Effect<void, NetworkError> =>
-  decodeNetworkMessage(raw).pipe(
-    Effect.flatMap((message) => {
-      switch (message.type) {
-        case MessageType.PlayerJoin:
-          return handlePlayerJoin(services, message, connection).pipe(Effect.asVoid)
-        case MessageType.PlayerLeave:
-          return verifyPlayerOwnership(services, connection.id, message.playerId).pipe(
-            Effect.zipRight(handlePlayerLeave(services, message.playerId)),
-          )
-        case MessageType.PlayerMove:
-          return verifyPlayerOwnership(services, connection.id, message.playerId).pipe(
-            Effect.zipRight(handlePlayerMove(services, message)),
-          )
-        case MessageType.BlockPlace:
-          return verifyPlayerOwnership(services, connection.id, message.playerId).pipe(
-            Effect.zipRight(handleBlockPlace(services, message)),
-          )
-        case MessageType.BlockBreak:
-          return verifyPlayerOwnership(services, connection.id, message.playerId).pipe(
-            Effect.zipRight(handleBlockBreak(services, message)),
-          )
-        case MessageType.Chat:
-          return verifyPlayerOwnership(services, connection.id, message.playerId).pipe(
-            Effect.zipRight(handleChat(services, message)),
-          )
-        case MessageType.Ping:
-          return handlePing(connection, message)
-        case MessageType.Pong:
-        case MessageType.Error:
-          return Effect.void
-      }
-    }),
-  )
+  Effect.gen(function* () {
+    const message = yield* decodeNetworkMessage(raw)
+    switch (message.type) {
+      case MessageType.PlayerJoin:
+        yield* handlePlayerJoin(services, message, connection)
+        return
+      case MessageType.PlayerLeave:
+        yield* verifyPlayerOwnership(services, connection.id, message.playerId)
+        yield* handlePlayerLeave(services, message.playerId)
+        return
+      case MessageType.PlayerMove:
+        yield* verifyPlayerOwnership(services, connection.id, message.playerId)
+        yield* handlePlayerMove(services, message)
+        return
+      case MessageType.BlockPlace:
+        yield* verifyPlayerOwnership(services, connection.id, message.playerId)
+        yield* handleBlockPlace(services, message)
+        return
+      case MessageType.BlockBreak:
+        yield* verifyPlayerOwnership(services, connection.id, message.playerId)
+        yield* handleBlockBreak(services, message)
+        return
+      case MessageType.Chat:
+        yield* verifyPlayerOwnership(services, connection.id, message.playerId)
+        yield* handleChat(services, message)
+        return
+      case MessageType.Ping:
+        yield* handlePing(connection, message)
+        return
+      case MessageType.Pong:
+      case MessageType.Error:
+        return
+    }
+  })
 
 export const makeJoinMessage = (
   playerName: PlayerJoinMessage['playerName'],

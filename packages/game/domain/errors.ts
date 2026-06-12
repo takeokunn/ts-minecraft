@@ -1,8 +1,12 @@
-// Domain error types — all extend Data.TaggedError for typed Effect.catchTag handling.
 import { Data } from 'effect'
 
 const formatCause = (cause?: unknown): string =>
   cause instanceof Error ? cause.message : cause ? String(cause) : ''
+
+const withCause = (base: string, cause?: unknown): string => {
+  const causeMessage = formatCause(cause)
+  return causeMessage ? `${base}: ${causeMessage}` : base
+}
 
 export class WorldError extends Data.TaggedError('WorldError')<{
   readonly worldId: string
@@ -22,8 +26,7 @@ export class GameLoopError extends Data.TaggedError('GameLoopError')<{
   readonly cause?: unknown
 }> {
   override get message(): string {
-    const causeMessage = formatCause(this.cause)
-    return `Game loop error: ${this.reason}${causeMessage ? `: ${causeMessage}` : ''}`
+    return withCause(`Game loop error: ${this.reason}`, this.cause)
   }
 }
 
@@ -32,8 +35,7 @@ export class SettingsError extends Data.TaggedError('SettingsError')<{
   readonly cause?: unknown
 }> {
   override get message(): string {
-    const causeMessage = formatCause(this.cause)
-    return `Settings ${this.operation} failed${causeMessage ? `: ${causeMessage}` : ''}`
+    return withCause(`Settings ${this.operation} failed`, this.cause)
   }
 }
 
@@ -42,8 +44,7 @@ export class StartupError extends Data.TaggedError('StartupError')<{
   readonly cause?: unknown
 }> {
   override get message(): string {
-    const causeMessage = formatCause(this.cause)
-    return `${this.reason}${causeMessage ? `: ${causeMessage}` : ''}`
+    return withCause(this.reason, this.cause)
   }
 }
 
@@ -53,7 +54,6 @@ export class GameStateError extends Data.TaggedError('GameStateError')<{
   readonly cause?: unknown
 }> {
   override get message(): string {
-    const causeMessage = formatCause(this.cause)
-    return `GameState error during ${this.operation}: ${this.reason}${causeMessage ? `: ${causeMessage}` : ''}`
+    return withCause(`GameState error during ${this.operation}: ${this.reason}`, this.cause)
   }
 }

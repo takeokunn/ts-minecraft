@@ -25,13 +25,14 @@ const computeSpatial = (
 export class SoundManager extends Effect.Service<SoundManager>()(
   '@minecraft/audio/SoundManager',
   {
-    effect: Effect.all([
-      AudioEnginePort,
-      Ref.make(true),
-      Ref.make(0.8),
-      Ref.make(1.0),
-      Ref.make<Position>(DEFAULT_LISTENER_POSITION),
-    ], { concurrency: 'unbounded' }).pipe(Effect.map(([audioEngine, enabledRef, masterVolumeRef, sfxVolumeRef, listenerPositionRef]) => ({
+    effect: Effect.gen(function* () {
+      const audioEngine = yield* AudioEnginePort
+      const enabledRef = yield* Ref.make(true)
+      const masterVolumeRef = yield* Ref.make(0.8)
+      const sfxVolumeRef = yield* Ref.make(1.0)
+      const listenerPositionRef = yield* Ref.make<Position>(DEFAULT_LISTENER_POSITION)
+
+      return {
         applySettings: (settings: SoundSettings): Effect.Effect<void, never> =>
           Effect.gen(function* () {
             yield* Ref.set(enabledRef, settings.enabled)
@@ -57,10 +58,8 @@ export class SoundManager extends Effect.Service<SoundManager>()(
             }
 
             const definition = SOUND_LIBRARY[effect]
-            const [listenerPosition, sfxVolume] = yield* Effect.all(
-              [Ref.get(listenerPositionRef), Ref.get(sfxVolumeRef)],
-              { concurrency: 'unbounded' }
-            )
+            const listenerPosition = yield* Ref.get(listenerPositionRef)
+            const sfxVolume = yield* Ref.get(sfxVolumeRef)
 
             const pos = options?.position ?? null
             const spatial = pos !== null ? computeSpatial(listenerPosition, pos) : { gain: 1, pan: 0, position: undefined }
@@ -95,12 +94,10 @@ export class SoundManager extends Effect.Service<SoundManager>()(
           listenerPosition: Position
         }, never> =>
           Effect.gen(function* () {
-            const [enabled, masterVolume, sfxVolume, listenerPosition] = yield* Effect.all([
-              Ref.get(enabledRef),
-              Ref.get(masterVolumeRef),
-              Ref.get(sfxVolumeRef),
-              Ref.get(listenerPositionRef),
-            ], { concurrency: 'unbounded' })
+            const enabled = yield* Ref.get(enabledRef)
+            const masterVolume = yield* Ref.get(masterVolumeRef)
+            const sfxVolume = yield* Ref.get(sfxVolumeRef)
+            const listenerPosition = yield* Ref.get(listenerPositionRef)
 
             return {
               enabled,
@@ -109,7 +106,8 @@ export class SoundManager extends Effect.Service<SoundManager>()(
               listenerPosition,
             }
           }),
-    })))
+      }
+    }),
   },
 ) {}
 

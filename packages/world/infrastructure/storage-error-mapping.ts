@@ -6,12 +6,7 @@ export const isQuotaExceeded = (error: unknown): boolean =>
 
 export const tryCatchStorage = <A>(operation: string, effect: Effect.Effect<A, unknown>): Effect.Effect<A, StorageError> =>
   effect.pipe(
-    Effect.mapError((cause) => {
-      if (isQuotaExceeded(cause)) {
-        return new StorageError({ operation, cause: 'Storage quota exceeded. Please clear some data.' })
-      }
-      return new StorageError({ operation, cause })
-    })
+    Effect.mapError((cause) => new StorageError({ operation, cause }))
   )
 
 export const tryCatchStorageWithRetry = <A>(operation: string, effect: Effect.Effect<A, unknown>): Effect.Effect<A, StorageError> =>

@@ -170,28 +170,30 @@ export const makeEntityManagerUpdate = (
   updateTickRef: Ref.Ref<number>,
   cachedEntitiesRef: Ref.Ref<Option.Option<ReadonlyArray<Entity>>>,
   structureVersionRef: Ref.Ref<number>,
-) => ({
-  update: (
-    deltaTime: DeltaTimeSecs,
-    playerPosition: Position,
-    isNight: boolean = true,
-  ): Effect.Effect<void, never> =>
-    Effect.gen(function* () {
-      const tick = yield* Ref.updateAndGet(updateTickRef, (value) => value + 1)
-      const dirtyRef = MutableRef.make(false)
-      const daytimeBurningActive = !isNight && tick % 20 === 0
-      const hasCreeperRef = MutableRef.make(false)
-      const hasShearedSheepRef = MutableRef.make(false)
+) => {
+  const updateAllEntities = (f: (entity: ManagedEntity, id: EntityId) => ManagedEntity) =>
+    Ref.update(entitiesRef, (entities) => HashMap.map(entities, f))
 
-      yield* Ref.update(entitiesRef, (entities) =>
-        HashMap.map(entities, (entity, entityId) =>
-          processEntityAI(entity, entityId, { tick, deltaTime, playerPosition, daytimeBurningActive }, dirtyRef, hasCreeperRef, hasShearedSheepRef)
+  return {
+    update: (
+      deltaTime: DeltaTimeSecs,
+      playerPosition: Position,
+      isNight: boolean = true,
+    ): Effect.Effect<void, never> =>
+      Effect.gen(function* () {
+        const tick = yield* Ref.updateAndGet(updateTickRef, (value) => value + 1)
+        const dirtyRef = MutableRef.make(false)
+        const daytimeBurningActive = !isNight && tick % 20 === 0
+        const hasCreeperRef = MutableRef.make(false)
+        const hasShearedSheepRef = MutableRef.make(false)
+        const ctx = { tick, deltaTime, playerPosition, daytimeBurningActive }
+
+        yield* updateAllEntities((entity, entityId) =>
+          processEntityAI(entity, entityId, ctx, dirtyRef, hasCreeperRef, hasShearedSheepRef)
         )
-      )
 
-      if (MutableRef.get(hasCreeperRef)) {
-        yield* Ref.update(entitiesRef, (entities) =>
-          HashMap.map(entities, (entity) => {
+        if (MutableRef.get(hasCreeperRef)) {
+          yield* updateAllEntities((entity) => {
             if (entity.type !== EntityType.Creeper) return entity
             const nextFuse = tickCreeperFuse(
               entity.position,
@@ -201,50 +203,45 @@ export const makeEntityManagerUpdate = (
             ).state.fuseSecs
             return nextFuse === entity.fuseSecs ? entity : { ...entity, fuseSecs: nextFuse }
           })
-        )
-      }
+        }
 
-      if (MutableRef.get(hasShearedSheepRef)) {
-        yield* Ref.update(entitiesRef, (entities) =>
-          HashMap.map(entities, (entity) =>
+        if (MutableRef.get(hasShearedSheepRef)) {
+          yield* updateAllEntities((entity) =>
             entity.woolRegrowthTicks > 0
               ? { ...entity, woolRegrowthTicks: tickWoolRegrowth(entity.woolRegrowthTicks) }
               : entity
           )
-        )
-      }
+        }
 
-      if (daytimeBurningActive) {
-        yield* Ref.modify(entitiesRef, (entities): [boolean, HashMap.HashMap<EntityId, ManagedEntity>] => {
-          /* c8 ignore start -- daytime burning cleanup; requires tick=20 and hostile entity at 0 health */
-          const updated = HashMap.filter(entities, (entity) => entity.behavior !== 'hostile' || entity.health > 0)
-          const changed = HashMap.size(updated) !== HashMap.size(entities)
-          /* c8 ignore end */
-          return [changed, updated]
-        }).pipe(Effect.flatMap((changed) =>
+        if (daytimeBurningActive) {
+          const changed = yield* Ref.modify(entitiesRef, (entities): [boolean, HashMap.HashMap<EntityId, ManagedEntity>] => {
+            /* c8 ignore start -- daytime burning cleanup; requires tick=20 and hostile entity at 0 health */
+            const updated = HashMap.filter(entities, (entity) => entity.behavior !== 'hostile' || entity.health > 0)
+            const changedFlag = HashMap.size(updated) !== HashMap.size(entities)
+            /* c8 ignore end */
+            return [changedFlag, updated]
+          })
           /* c8 ignore next 5 -- cache invalidation after burning cleanup; only fires when changed=true */
-          changed
-            ? Effect.all([
-                Ref.set(cachedEntitiesRef, Option.none()),
-                Ref.update(structureVersionRef, (v) => v + 1),
-              ], { concurrency: 'unbounded', discard: true })
-            : Effect.void,
-        ))
-      } else if (MutableRef.get(dirtyRef)) {
-        yield* Ref.set(cachedEntitiesRef, Option.none())
-      }
-    }),
+          if (changed) {
+            yield* Effect.all([
+              Ref.set(cachedEntitiesRef, Option.none()),
+              Ref.update(structureVersionRef, (v) => v + 1),
+            ], { concurrency: 'unbounded', discard: true })
+          }
+        } else if (MutableRef.get(dirtyRef)) {
+          yield* Ref.set(cachedEntitiesRef, Option.none())
+        }
+      }),
 
-  applyPhysics: (
-    deltaTime: DeltaTimeSecs,
-    resolveCollision: CollisionResolver,
-  ): Effect.Effect<void, never> =>
-    Effect.gen(function* () {
-      const dirtyRef = MutableRef.make(false)
-      const tick = yield* Ref.get(updateTickRef)
+    applyPhysics: (
+      deltaTime: DeltaTimeSecs,
+      resolveCollision: CollisionResolver,
+    ): Effect.Effect<void, never> =>
+      Effect.gen(function* () {
+        const dirtyRef = MutableRef.make(false)
+        const tick = yield* Ref.get(updateTickRef)
 
-      yield* Ref.update(entitiesRef, (entities) =>
-        HashMap.map(entities, (entity, entityId) => {
+        yield* updateAllEntities((entity, entityId) => {
           const isFlyingType = entity.type === 'EnderDragon'
           const candidateVelocity: Vector3 = {
             x: entity.velocity.x,
@@ -297,10 +294,10 @@ export const makeEntityManagerUpdate = (
             stuckTicks,
           }
         })
-      )
 
-      if (MutableRef.get(dirtyRef)) {
-        yield* Ref.set(cachedEntitiesRef, Option.none())
-      }
-    }),
-})
+        if (MutableRef.get(dirtyRef)) {
+          yield* Ref.set(cachedEntitiesRef, Option.none())
+        }
+      }),
+  }
+}

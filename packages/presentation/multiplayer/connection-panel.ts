@@ -90,13 +90,14 @@ export const makeConnectionPanel = (dom: DomOperationsService) =>
     dom.appendChildTo(element, status)
 
     const handleClick = () => {
-      Effect.runFork(Ref.get(connectedRef).pipe(
-        Effect.flatMap((connected) => connected
-          ? Queue.offer(disconnectQueue, undefined).pipe(Effect.asVoid)
-          : Queue.offer(connectQueue, {
-            serverUrl: serverInput.value.trim(),
-            playerName: playerInput.value.trim(),
-          }).pipe(Effect.asVoid)),
+      Effect.runFork(Effect.gen(function* () {
+        const connected = yield* Ref.get(connectedRef)
+        if (connected) yield* Queue.offer(disconnectQueue, undefined)
+        else yield* Queue.offer(connectQueue, {
+          serverUrl: serverInput.value.trim(),
+          playerName: playerInput.value.trim(),
+        })
+      }).pipe(
         Effect.catchAllCause((cause) => Effect.logError(`Connection panel click error: ${Cause.pretty(cause)}`)),
       ))
     }
@@ -108,9 +109,10 @@ export const makeConnectionPanel = (dom: DomOperationsService) =>
       onDisconnect: Stream.fromQueue(disconnectQueue),
       show: Effect.sync(() => { element.style.display = 'flex' }),
       hide: Effect.sync(() => { element.style.display = 'none' }),
-      setConnected: (connected) => Ref.set(connectedRef, connected).pipe(
-        Effect.andThen(Effect.sync(() => { button.textContent = connected ? 'Disconnect' : 'Connect' })),
-      ),
+      setConnected: (connected) => Effect.gen(function* () {
+        yield* Ref.set(connectedRef, connected)
+        yield* Effect.sync(() => { button.textContent = connected ? 'Disconnect' : 'Connect' })
+      }),
     }
 
     yield* Effect.sync(() => {
@@ -122,7 +124,12 @@ export const makeConnectionPanel = (dom: DomOperationsService) =>
 
 export class ConnectionPanelService extends Effect.Service<ConnectionPanelService>()(
   '@minecraft/presentation/ConnectionPanel',
-  { scoped: Effect.flatMap(DomOperationsService, makeConnectionPanel) },
+  {
+    scoped: Effect.gen(function* () {
+      const dom = yield* DomOperationsService
+      return yield* makeConnectionPanel(dom)
+    }),
+  },
 ) {}
 
 export const ConnectionPanelLive = ConnectionPanelService.Default

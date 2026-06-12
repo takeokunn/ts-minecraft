@@ -46,10 +46,10 @@ const refreshChunkCache = (
     yield* Effect.forEach(
       OFFSETS_3x3,
       ([dx, dz]) =>
-        chunkManagerService.getChunk({ x: playerCx + dx, z: playerCz + dz }).pipe(
-          Effect.tap((chunk) => Effect.sync(() => { cache[(dx + 1) * 3 + (dz + 1)] = chunk })),
-          Effect.ignore,
-        ),
+        Effect.gen(function* () {
+          const chunk = yield* chunkManagerService.getChunk({ x: playerCx + dx, z: playerCz + dz })
+          cache[(dx + 1) * 3 + (dz + 1)] = chunk
+        }).pipe(Effect.ignore),
       { concurrency: 'unbounded', discard: true }
     )
     yield* Ref.set(lastChunkCoordRef, { cx: playerCx, cz: playerCz })
@@ -70,30 +70,30 @@ const applyWaterDrag = (
 export class GameStateService extends Effect.Service<GameStateService>()(
   '@minecraft/application/GameStateService',
   {
-    effect: Effect.suspend(() => Effect.all([
-      PlayerService,
-      PhysicsService,
-      MovementService,
-      PlayerCameraStateService,
-      ChunkManagerService,
-      GameModeService,
-      InventoryService,
-      PlayerInputService,
-      // Timing state (deltaTime initial value uses a first-frame estimate of 16ms at 60fps)
-      Ref.make<TimingState>(INITIAL_TIMING_STATE),
+    effect: Effect.gen(function* () {
+      const playerService = yield* PlayerService
+      const physicsService = yield* PhysicsService
+      const movementService = yield* MovementService
+      const cameraState = yield* PlayerCameraStateService
+      const chunkManagerService = yield* ChunkManagerService
+      const gameModeService = yield* GameModeService
+      const inventoryService = yield* InventoryService
+      const inputService = yield* PlayerInputService
+      // deltaTime initial value uses a first-frame estimate of 16ms at 60fps
+      const timingStateRef = yield* Ref.make<TimingState>(INITIAL_TIMING_STATE)
       // Opaque physics body ID for the player (replaces CANNON.Body ref)
-      Ref.make<Option.Option<PhysicsBodyId>>(Option.none()),
+      const playerBodyIdRef = yield* Ref.make<Option.Option<PhysicsBodyId>>(Option.none())
       // AABB-derived grounded state (updated each frame after block collision resolution)
-      Ref.make<boolean>(false),
+      const isGroundedRef = yield* Ref.make(false)
       // Fixed-size 9-slot 3×3 chunk neighborhood cache. Indexed by
       // (dx + 1) * 3 + (dz + 1) where (dx, dz) ∈ [-1, 1]². `null` = not loaded.
       // Eliminates per-frame Map allocation, .clear(), and string key construction.
-      Ref.make<Array<{ blocks: Uint8Array } | null>>([null, null, null, null, null, null, null, null, null]),
+      const chunkCacheRef = yield* Ref.make<Array<{ blocks: Uint8Array } | null>>([null, null, null, null, null, null, null, null, null])
       // Last refreshed player chunk coord. Refresh the 9-cell cache only when this changes.
-      Ref.make<{ cx: number; cz: number }>({ cx: Number.NaN, cz: Number.NaN }),
+      const lastChunkCoordRef = yield* Ref.make<{ cx: number; cz: number }>({ cx: Number.NaN, cz: Number.NaN })
       // Creative-mode flight toggle state (false outside creative).
-      Ref.make<boolean>(false),
-    ], { concurrency: 'unbounded' }).pipe(Effect.map(([playerService, physicsService, movementService, cameraState, chunkManagerService, gameModeService, inventoryService, inputService, timingStateRef, playerBodyIdRef, isGroundedRef, chunkCacheRef, lastChunkCoordRef, flyingRef]) => {
+      const flyingRef = yield* Ref.make(false)
+
       const playerId = DEFAULT_PLAYER_ID
 
       return {
@@ -127,33 +127,33 @@ export class GameStateService extends Effect.Service<GameStateService>()(
             const playerBodyId = Option.getOrNull(yield* Ref.get(playerBodyIdRef))
             if (playerBodyId === null) return yield* Effect.fail(new GameStateError({ operation: 'update', reason: 'Physics not initialized. Call initialize() first.' }))
 
-            const [rotation, isGrounded, isCreative, isSpectator] = yield* Effect.all([
-              cameraState.getRotation(),
-              Ref.get(isGroundedRef),
-              gameModeService.isCreative(),
-              gameModeService.isSpectator(),
-            ], { concurrency: 'unbounded' })
+            const rotation = yield* cameraState.getRotation()
+            const isGrounded = yield* Ref.get(isGroundedRef)
+            const isCreative = yield* gameModeService.isCreative()
+            const isSpectator = yield* gameModeService.isSpectator()
 
             const flightToggled = yield* inputService.consumeKeyPress(KeyMappings.TOGGLE_FLIGHT)
             const flying = isSpectator || nextFlightState(yield* Ref.get(flyingRef), isCreative, flightToggled)
             yield* Ref.set(flyingRef, flying)
 
-            const flightVy = flying
-              ? yield* Effect.map(
-                  Effect.all([
-                    inputService.isKeyPressed(KeyMappings.JUMP),
-                    inputService.isKeyPressed(KeyMappings.SNEAK),
-                  ], { concurrency: 'unbounded' }),
-                  ([ascend, descend]) => computeFlightVerticalVelocity(ascend, descend),
-                )
-              : 0
+            let flightVy = 0
+            if (flying) {
+              const [ascend, descend] = yield* Effect.all([
+                inputService.isKeyPressed(KeyMappings.JUMP),
+                inputService.isKeyPressed(KeyMappings.SNEAK),
+              ], { concurrency: 'unbounded' })
+              flightVy = computeFlightVerticalVelocity(ascend, descend)
+            }
 
             const sneaking = !flying && (yield* inputService.isKeyPressed(KeyMappings.SNEAK))
 
             /* c8 ignore next 3 */
             const currentVel = yield* physicsService.getVelocity(playerBodyId).pipe(
               Effect.catchTag('PhysicsServiceError', (e) =>
-                Effect.logWarning(`getVelocity fallback: ${e.message ?? String(e)}`).pipe(Effect.as(ZERO_VEC3))
+                Effect.gen(function* () {
+                  yield* Effect.logWarning(`getVelocity fallback: ${e.message ?? String(e)}`)
+                  return ZERO_VEC3
+                })
               )
             )
 
@@ -275,7 +275,7 @@ export class GameStateService extends Effect.Service<GameStateService>()(
         isPlayerGrounded: (): Effect.Effect<boolean, never> =>
           Ref.get(isGroundedRef),
       }
-    }))),
+    }),
   }
 ) {}
 export const GameStateServiceLive = GameStateService.Default

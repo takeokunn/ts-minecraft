@@ -1,20 +1,25 @@
-import { Effect, HashMap, MutableRef, Option, Ref } from 'effect'
+import { Effect, MutableRef, Option, Ref } from 'effect'
 import { logErrors } from '@ts-minecraft/app/frame/error-logging'
 import type { FrameHandlerDeps, FrameHandlerServices, FrameStageRefs } from '@ts-minecraft/app/frame/types'
 import { applyArmorReduction } from '@ts-minecraft/entity'
-import { DEFAULT_PLAYER_ID, CHUNK_SIZE, CHUNK_HEIGHT, indexToBlockType, SlotIndex } from '@ts-minecraft/core'
+import { DEFAULT_PLAYER_ID, SlotIndex } from '@ts-minecraft/core'
 import { KeyMappings } from '@ts-minecraft/entity'
 import { HOTBAR_START, getFeatherFallingReduction, getFireProtectionReduction, getRespirationBonusSecs, enchantmentsOf } from '@ts-minecraft/inventory'
 import type { DeltaTimeSecs, Position } from '@ts-minecraft/core'
 import { EXHAUSTION_WALK_PER_BLOCK, EXHAUSTION_SPRINT_PER_BLOCK, EXHAUSTION_SPRINT_JUMP, EXHAUSTION_JUMP, EXHAUSTION_DAMAGE, MAX_FOOD_LEVEL } from '@ts-minecraft/entity'
 import { accrueHazardTicks, nextAirSecs, LAVA_DAMAGE, LAVA_DAMAGE_INTERVAL_SECS, DROWN_DAMAGE, DROWN_DAMAGE_INTERVAL_SECS, MAX_AIR_SECS } from '@ts-minecraft/entity'
 import { EYE_LEVEL_OFFSET } from '@ts-minecraft/app/frame-handler.config'
-import { resolveNetherTravel, type Dimension, type ChunkManagerService } from '@ts-minecraft/world'
-
-/** Seconds a player must stand in a NETHER_PORTAL block to trigger dimension travel. */
-const PORTAL_ACTIVATION_SECS = 4.0
+import { makeColumnReaderAt } from './physics-stage-utils'
+import { applyNetherPortalTravel, applyEndPortalTravel } from './physics-stage-portal'
 
 type DamageServices = Pick<FrameHandlerServices, 'healthService' | 'hungerService'>
+
+// Writes `text` into an optional HUD element's textContent. No-op when el is null.
+// Called inside Effect.sync — pure imperative assignment, no Effect wrapping needed here.
+const writeHudText = (el: HTMLElement | null, value: string | number): void => {
+  /* c8 ignore next */
+  if (el !== null) el.textContent = String(value)
+}
 
 const tryApplyPlayerDamage = (
   amount: number,
@@ -22,53 +27,13 @@ const tryApplyPlayerDamage = (
   services: DamageServices,
 ): Effect.Effect<boolean, never> => {
   if (amount <= 0 || isSpectatorMode) return Effect.succeed(false)
-  return services.healthService.getHealth().pipe(
-    Effect.flatMap((health) =>
-      health.current <= 0 || health.invincibilityTicks > 0
-        ? Effect.succeed(false)
-        : services.healthService.applyDamage(amount).pipe(
-            Effect.flatMap(() => services.hungerService.addExhaustion(EXHAUSTION_DAMAGE)),
-            Effect.as(true),
-          ),
-    ),
-  )
-}
-
-/**
- * Pure column-reader: given a resolved chunkOpt plus the pre-computed local
- * x/z offsets inside that chunk, return a function that maps a world-Y to the
- * block type at that position (null when out of bounds or chunk absent).
- *
- * Hoisted out of the per-frame Effect.gen body so no new closure is allocated
- * on every frame — only the single call-site invocation below allocates.
- */
-const makeColumnReader = (
-  chunkOpt: Option.Option<{ readonly blocks: ArrayLike<number> }>,
-  lx: number,
-  lz: number,
-): ((wy: number) => ReturnType<typeof indexToBlockType> | null) => {
-  const chunk = Option.getOrNull(chunkOpt)
-  return (wy: number) => {
-    const by = Math.floor(wy)
-    if (by < 0 || by >= CHUNK_HEIGHT || chunk === null) return null
-    return indexToBlockType(chunk.blocks[by + lz * CHUNK_HEIGHT + lx * CHUNK_HEIGHT * CHUNK_SIZE] ?? 0)
-  }
-}
-
-const makeColumnReaderAt = (
-  chunkManagerService: ChunkManagerService,
-  pos: Position,
-): Effect.Effect<(wy: number) => ReturnType<typeof indexToBlockType> | null> => {
-  const bx = Math.floor(pos.x)
-  const bz = Math.floor(pos.z)
-  const lx = ((bx % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE
-  const lz = ((bz % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE
-  return chunkManagerService
-    .getChunk({ x: Math.floor(bx / CHUNK_SIZE), z: Math.floor(bz / CHUNK_SIZE) })
-    .pipe(
-      Effect.option,
-      Effect.map((chunkOpt) => makeColumnReader(chunkOpt, lx, lz)),
-    )
+  return Effect.gen(function* () {
+    const health = yield* services.healthService.getHealth()
+    if (health.current <= 0 || health.invincibilityTicks > 0) return false
+    yield* services.healthService.applyDamage(amount)
+    yield* services.hungerService.addExhaustion(EXHAUSTION_DAMAGE)
+    return true
+  })
 }
 
 export const physicsStage = (
@@ -122,14 +87,13 @@ export const physicsStage = (
         const isGrounded = yield* services.gameState.isPlayerGrounded()
         const rawFallDamage = yield* services.healthService.processFallDamage(refreshedPos.y, isGrounded)
         // FEATHER_FALLING: reduce fall damage by 12% per level.
-        const fallDamage = yield* rawFallDamage > 0
-          ? services.equipmentService.getEquippedItem('BOOTS').pipe(
-              Effect.map((bootsOpt) => {
-                const ff = enchantmentsOf(bootsOpt).find((e) => e.type === 'FEATHER_FALLING')
-                return ff ? rawFallDamage * (1 - getFeatherFallingReduction(ff.level)) : rawFallDamage
-              }),
-            )
-          : Effect.succeed(rawFallDamage)
+        const fallDamage = rawFallDamage > 0
+          ? yield* Effect.gen(function* () {
+              const bootsOpt = yield* services.equipmentService.getEquippedItem('BOOTS')
+              const ff = enchantmentsOf(bootsOpt).find((e) => e.type === 'FEATHER_FALLING')
+              return ff ? rawFallDamage * (1 - getFeatherFallingReduction(ff.level)) : rawFallDamage
+            })
+          : rawFallDamage
         const tookFallDamage = yield* applyDamage(fallDamage)
         if (tookFallDamage) {
           yield* services.soundManager.playEffect('playerHurt', { position: refreshedPos })
@@ -206,12 +170,10 @@ export const physicsStage = (
           // Read once and share between movement and jump exhaustion branches.
           // Sequential: isKeyPressed is a synchronous Set lookup; unbounded
           // concurrency would spawn 4 fibers every frame for no parallelism gain.
-          const [ctrlL, ctrlR, forward, sneak] = yield* Effect.all([
-            services.inputService.isKeyPressed(KeyMappings.SPRINT),
-            services.inputService.isKeyPressed(KeyMappings.SPRINT_ALT),
-            services.inputService.isKeyPressed(KeyMappings.MOVE_FORWARD),
-            services.inputService.isKeyPressed(KeyMappings.SNEAK),
-          ])
+          const ctrlL = yield* services.inputService.isKeyPressed(KeyMappings.SPRINT)
+          const ctrlR = yield* services.inputService.isKeyPressed(KeyMappings.SPRINT_ALT)
+          const forward = yield* services.inputService.isKeyPressed(KeyMappings.MOVE_FORWARD)
+          const sneak = yield* services.inputService.isKeyPressed(KeyMappings.SNEAK)
           const isSprinting = (ctrlL || ctrlR) && forward && !sneak
           const isSneaking = sneak
 
@@ -346,53 +308,44 @@ export const physicsStage = (
           }
         }
 
+        // FR-006: Write DOM only when values change (change-gated pattern for all HUD bars).
         const health = yield* services.healthService.getHealth()
-        // Pre-cached element refs (resolved once at startup in FrameHandlerDeps)
-        // FR-006: Only write DOM when health values actually change
         const lastHealth = MutableRef.get(refs.lastHealthRef)
         if (lastHealth.current !== health.current || lastHealth.max !== health.max) {
           MutableRef.set(refs.lastHealthRef, { current: health.current, max: health.max })
           yield* Effect.sync(() => {
-            /* c8 ignore next 2 */
-            if (inputs.healthValueElementOrNull) inputs.healthValueElementOrNull.textContent = String(health.current)
-            if (inputs.healthMaxElementOrNull) inputs.healthMaxElementOrNull.textContent = String(health.max)
+            writeHudText(inputs.healthValueElementOrNull, health.current)
+            writeHudText(inputs.healthMaxElementOrNull, health.max)
           })
         }
 
-        // Hunger HUD — same change-gated write pattern as health (FR-006).
-        // foodLevel is the only varying value; max is the fixed MAX_FOOD_LEVEL.
         const hunger = yield* services.hungerService.getHunger()
         const lastHunger = MutableRef.get(refs.lastHungerRef)
         if (lastHunger.foodLevel !== hunger.foodLevel || lastHunger.max !== MAX_FOOD_LEVEL) {
           MutableRef.set(refs.lastHungerRef, { foodLevel: hunger.foodLevel, max: MAX_FOOD_LEVEL })
           yield* Effect.sync(() => {
-            /* c8 ignore next 2 */
-            if (inputs.hungerValueElementOrNull) inputs.hungerValueElementOrNull.textContent = String(hunger.foodLevel)
-            if (inputs.hungerMaxElementOrNull) inputs.hungerMaxElementOrNull.textContent = String(MAX_FOOD_LEVEL)
+            writeHudText(inputs.hungerValueElementOrNull, hunger.foodLevel)
+            writeHudText(inputs.hungerMaxElementOrNull, MAX_FOOD_LEVEL)
           })
         }
 
-        // XP HUD — change-gated level and bar progress display.
         const xp = yield* services.xpService.getXP()
         const lastXP = MutableRef.get(refs.lastXPRef)
         if (lastXP.level !== xp.level || lastXP.xpIntoLevel !== xp.xpIntoLevel) {
           MutableRef.set(refs.lastXPRef, { level: xp.level, xpIntoLevel: xp.xpIntoLevel, xpRequiredForNext: xp.xpRequiredForNext })
           yield* Effect.sync(() => {
-            /* c8 ignore next 4 */
-            if (inputs.xpLevelElementOrNull) inputs.xpLevelElementOrNull.textContent = String(xp.level)
-            if (inputs.xpBarElementOrNull) inputs.xpBarElementOrNull.textContent = String(xp.xpIntoLevel)
-            if (inputs.xpBarMaxElementOrNull) inputs.xpBarMaxElementOrNull.textContent = String(xp.xpRequiredForNext)
+            writeHudText(inputs.xpLevelElementOrNull, xp.level)
+            writeHudText(inputs.xpBarElementOrNull, xp.xpIntoLevel)
+            writeHudText(inputs.xpBarMaxElementOrNull, xp.xpRequiredForNext)
           })
         }
 
-        // Armor HUD — change-gated write reusing the single armorPoints read
-        // hoisted above (no second getTotalArmorPoints call).
+        // Armor HUD reuses the armorPoints read hoisted above — no second service call.
         const lastArmor = MutableRef.get(refs.lastArmorRef)
         if (lastArmor.armorPoints !== armorPoints) {
           MutableRef.set(refs.lastArmorRef, { armorPoints })
           yield* Effect.sync(() => {
-            /* c8 ignore next */
-            if (inputs.armorValueElementOrNull) inputs.armorValueElementOrNull.textContent = String(armorPoints)
+            writeHudText(inputs.armorValueElementOrNull, armorPoints)
           })
         }
       }),
@@ -402,99 +355,10 @@ export const physicsStage = (
     const playerPos = yield* Ref.get(refs.finalPosRef)
 
     // ---- Nether portal travel detection ----
-    // Check if the player's feet block is NETHER_PORTAL; accumulate time and
-    // teleport after PORTAL_ACTIVATION_SECS (frame-rate independent).
-    yield* logErrors(
-      Effect.gen(function* () {
-        const py = Math.floor(playerPos.y)
-        const columnBlockAt = yield* makeColumnReaderAt(services.chunkManagerService, playerPos)
-        const inPortal = columnBlockAt(py) === 'NETHER_PORTAL'
-
-        if (inPortal) {
-          const newSecs = yield* Ref.updateAndGet(refs.portalSecsRef, (s) => s + inputs.deltaTime)
-          if (newSecs >= PORTAL_ACTIVATION_SECS) {
-            yield* Ref.set(refs.portalSecsRef, 0)
-            const currentDim = yield* services.netherService.getDimension()
-            const destDimPortals = yield* services.netherService.getPortals(
-              currentDim === 'overworld' ? 'nether' : 'overworld',
-            )
-            const plan = resolveNetherTravel(currentDim, playerPos, destDimPortals)
-            yield* services.netherService.setDimension(plan.toDimension)
-            yield* services.chunkManagerService.setActiveDimension(plan.toDimension)
-            yield* services.gameState.respawn(plan.destination)
-            yield* Ref.set(refs.finalPosRef, plan.destination)
-            const portalLayout = Option.getOrNull(plan.portalToCreate)
-            if (portalLayout !== null) {
-              yield* Effect.forEach(
-                portalLayout.frame,
-                (pos) => services.blockService.forceSetBlock(pos, 'OBSIDIAN').pipe(Effect.catchAll(() => Effect.void)),
-                { concurrency: 'unbounded', discard: true },
-              )
-              yield* Effect.forEach(
-                portalLayout.interior,
-                (pos) => services.blockService.forceSetBlock(pos, 'NETHER_PORTAL').pipe(Effect.catchAll(() => Effect.void)),
-                { concurrency: 'unbounded', discard: true },
-              )
-              yield* services.netherService.registerPortal(plan.destination, plan.toDimension)
-              const allPositions = [...portalLayout.frame, ...portalLayout.interior]
-              const affectedCoordKeys = Array.from(
-                new Set(allPositions.map((pos) => `${Math.floor(pos.x / CHUNK_SIZE)},${Math.floor(pos.z / CHUNK_SIZE)}`)),
-              )
-              yield* Effect.forEach(
-                affectedCoordKeys,
-                (coordKey) => {
-                  const parts = coordKey.split(',')
-                  const cx = parseInt(parts[0]!, 10)
-                  const cz = parseInt(parts[1]!, 10)
-                  return services.chunkManagerService.getChunk({ x: cx, z: cz }).pipe(
-                    Effect.flatMap((chunk) =>
-                      Ref.update(refs.dirtyChunksRef, (map) =>
-                        HashMap.set(map, coordKey, { chunk, dirtyAABB: Option.none() }),
-                      ),
-                    ),
-                    Effect.catchAll(() => Effect.void),
-                  )
-                },
-                { concurrency: 'unbounded', discard: true },
-              )
-            }
-          }
-        } else {
-          yield* Ref.set(refs.portalSecsRef, 0)
-        }
-      }),
-      'Portal travel error',
-    )
+    yield* logErrors(applyNetherPortalTravel(services, refs, inputs, playerPos), 'Portal travel error')
 
     // ---- End portal travel detection ----
-    // Standing on END_PORTAL triggers instant dimension travel (no charge-up).
-    yield* logErrors(
-      Effect.gen(function* () {
-        const py = Math.floor(playerPos.y)
-        const columnBlockAt = yield* makeColumnReaderAt(services.chunkManagerService, playerPos)
-        const onEndPortal = columnBlockAt(py) === 'END_PORTAL'
-        if (!onEndPortal) return
-        const currentDim = yield* services.netherService.getDimension()
-        const destDim: Dimension = currentDim === 'end' ? 'overworld' : 'end'
-        const destPos = currentDim === 'end'
-          ? { x: 0, y: 68, z: 0 }          // return to overworld spawn
-          : { x: 0, y: 67, z: 0 }           // The End island center, above surface
-        yield* services.netherService.setDimension(destDim)
-        yield* services.chunkManagerService.setActiveDimension(destDim)
-        yield* services.gameState.respawn(destPos)
-        yield* Ref.set(refs.finalPosRef, destPos)
-        // Spawn the Ender Dragon when entering The End for the first time
-        if (destDim === 'end') {
-          const existingEntities = yield* services.entityManager.getEntities()
-          const hasDragon = existingEntities.some((e) => e.type === 'EnderDragon')
-          if (!hasDragon) {
-            yield* services.entityManager.addEntity('EnderDragon', { x: 0, y: 80, z: 20 })
-              .pipe(Effect.catchAllCause(() => Effect.void))
-          }
-        }
-      }),
-      'End portal travel error',
-    )
+    yield* logErrors(applyEndPortalTravel(services, refs, playerPos), 'End portal travel error')
 
     return { playerPos: yield* Ref.get(refs.finalPosRef) }
   })

@@ -29,7 +29,10 @@ const sendRawMessage = (
   handle: WebSocketClientHandle,
   message: NetworkMessage,
 ): Effect.Effect<void, NetworkError> =>
-  encodeNetworkMessage(message).pipe(Effect.flatMap((encoded) => handle.send(encoded)))
+  Effect.gen(function* () {
+    const encoded = yield* encodeNetworkMessage(message)
+    yield* handle.send(encoded)
+  })
 
 const backoffForAttempt = (attempt: number): Duration.Duration =>
   Duration.millis(Math.min(1_000, 10 * 2 ** Math.max(0, attempt - 1)))
@@ -67,18 +70,19 @@ export const ClientServiceImpl = (
         if (intentionallyDisconnected) return
         yield* Ref.set(stateRef, 'reconnecting')
         yield* Effect.sleep(backoffForAttempt(attempt))
-        const [serverUrl, playerName] = yield* Effect.all([Ref.get(serverUrlRef), Ref.get(playerNameRef)], { concurrency: 'unbounded' })
+        const serverUrl = yield* Ref.get(serverUrlRef)
+        const playerName = yield* Ref.get(playerNameRef)
         let result = false
         const serverUrlVal = Option.getOrNull(serverUrl)
         const playerNameVal = Option.getOrNull(playerName)
         if (serverUrlVal !== null && playerNameVal !== null) {
-          result = yield* port.connect(serverUrlVal).pipe(
-            Effect.tap(installHandle),
-            Effect.tap((handle) => sendRawMessage(handle, makeInitialJoin(playerNameVal))),
-            Effect.tap(() => Ref.set(stateRef, 'connected')),
-            Effect.as(true),
-            Effect.catchAll(() => Effect.succeed(false)),
-          )
+          result = yield* Effect.gen(function* () {
+            const handle = yield* port.connect(serverUrlVal)
+            yield* installHandle(handle)
+            yield* sendRawMessage(handle, makeInitialJoin(playerNameVal))
+            yield* Ref.set(stateRef, 'connected')
+            return true
+          }).pipe(Effect.catchAll(() => Effect.succeed(false)))
         }
         if (result) return
       }
@@ -86,19 +90,16 @@ export const ClientServiceImpl = (
     }).pipe(Effect.annotateLogs({ component: 'network-client', event: 'reconnect' }))
 
     const watchClose = (handle: WebSocketClientHandle): Effect.Effect<void, never> =>
-      handle.onClose.pipe(
-        Effect.flatMap(() =>
-          Ref.get(intentionallyDisconnectedRef).pipe(
-            Effect.flatMap((intentional) => {
-              if (intentional) return Ref.set(stateRef, 'disconnected')
-              return Effect.forkDaemon(reconnectLoop).pipe(
-                Effect.flatMap((fiber) => Ref.set(reconnectFiberRef, Option.some(fiber))),
-                Effect.asVoid,
-              )
-            }),
-          ),
-        ),
-      )
+      Effect.gen(function* () {
+        yield* handle.onClose
+        const intentional = yield* Ref.get(intentionallyDisconnectedRef)
+        if (intentional) {
+          yield* Ref.set(stateRef, 'disconnected')
+        } else {
+          const fiber = yield* Effect.forkDaemon(reconnectLoop)
+          yield* Ref.set(reconnectFiberRef, Option.some(fiber))
+        }
+      })
 
     const service: ClientServiceShape = {
       connect: (serverUrl, playerName) =>
@@ -133,18 +134,17 @@ export const ClientServiceImpl = (
         }),
       getConnectionState: () => Ref.get(stateRef),
       sendMessage: (message) =>
-        Ref.get(handleRef).pipe(
-          Effect.flatMap((handle) => {
-            const h = Option.getOrNull(handle)
-            return h !== null
-              ? sendRawMessage(h, message)
-              : Effect.fail(new NetworkError({ operation: 'send', reason: 'client is not connected' }))
-          }),
-        ),
+        Effect.gen(function* () {
+          const handle = yield* Ref.get(handleRef)
+          const h = Option.getOrNull(handle)
+          if (h === null) return yield* Effect.fail(new NetworkError({ operation: 'send', reason: 'client is not connected' }))
+          yield* sendRawMessage(h, message)
+        }),
       receiveMessages: () =>
-        Ref.get(messageStreamRef).pipe(
-          Effect.map((stream) => Option.getOrElse(stream, () => Stream.empty)),
-        ),
+        Effect.gen(function* () {
+          const stream = yield* Ref.get(messageStreamRef)
+          return Option.getOrElse(stream, () => Stream.empty)
+        }),
     }
 
     return service

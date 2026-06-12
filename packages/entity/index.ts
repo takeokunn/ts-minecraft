@@ -17,6 +17,7 @@ export * from './domain/mob/mobs/enderman'
 export * from './domain/mob/mobs/shulker'
 export * from './domain/mob/mobs/index'
 export * from './domain/mob/spawner-config'
+export * from './domain/mob/terrain-spawn'
 export * from './domain/mob/mob-categories'
 export * from './domain/mob/state-machine'
 export * from './domain/mob/creeper-fuse'
@@ -36,6 +37,7 @@ export * from './domain/redstone/redstone.config'
 
 // domain/village
 export * from './domain/village/village-model'
+export * from './domain/village/village-builder'
 export * from './domain/village/village-simulation.config'
 export * from './domain/village/village-simulation'
 

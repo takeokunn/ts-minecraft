@@ -27,7 +27,10 @@ describe('encode → decode round-trip', () => {
   for (const { label, msg } of MESSAGES) {
     it(`round-trips a ${label} message unchanged`, async () => {
       const decoded = await Effect.runPromise(
-        encodeNetworkMessage(msg).pipe(Effect.flatMap(decodeNetworkMessage)),
+        Effect.gen(function* () {
+          const encoded = yield* encodeNetworkMessage(msg)
+          return yield* decodeNetworkMessage(encoded)
+        }),
       )
       expect(decoded).toEqual(msg)
     })

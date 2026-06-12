@@ -31,16 +31,10 @@ export type LocalStorageMock = {
   removeItemSpy: ReturnType<typeof vi.fn>
 }
 
-export function makeLocalStorageMock(): LocalStorageMock {
+export const makeLocalStorageMock = (): LocalStorageMock => {
   const store = MutableHashMap.empty<string, string>()
-
   const getItemSpy = vi.fn((key: string) => Option.getOrNull(MutableHashMap.get(store, key)))
-  const setItemSpy = vi.fn((key: string, value: string) => {
-    MutableHashMap.set(store, key, value)
-  })
-  const removeItemSpy = vi.fn((key: string) => {
-    MutableHashMap.remove(store, key)
-  })
-
+  const setItemSpy = vi.fn((key: string, value: string) => { MutableHashMap.set(store, key, value) })
+  const removeItemSpy = vi.fn((key: string) => { MutableHashMap.remove(store, key) })
   return { store, getItemSpy, setItemSpy, removeItemSpy }
 }

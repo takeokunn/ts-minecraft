@@ -26,20 +26,18 @@ const MAX_STEP_UP = 0.5
 const FALL_VELOCITY_THRESHOLD = 8
 
 // Integer block range for a player extent (with epsilon to avoid edge ambiguity)
-function bMin(center: number, half: number): number {
-  return Math.floor(center - half + EPSILON)
-}
-function bMax(center: number, half: number): number {
-  return Math.floor(center + half - EPSILON)
-}
+const bMin = (center: number, half: number): number =>
+  Math.floor(center - half + EPSILON)
+const bMax = (center: number, half: number): number =>
+  Math.floor(center + half - EPSILON)
 
-export function resolveBlockCollisions(
+export const resolveBlockCollisions = (
   pos: { x: number; y: number; z: number },
   velocity: { x: number; y: number; z: number },
   halfW: number,   // PLAYER_HALF_WIDTH = 0.3
   halfH: number,   // PLAYER_HALF_HEIGHT = 0.9
   isBlockSolid: (bx: number, by: number, bz: number) => boolean
-): CollisionResult {
+): CollisionResult => {
   let x = pos.x, y = pos.y, z = pos.z
   let vx = velocity.x, vy = velocity.y, vz = velocity.z
   let isGrounded = false

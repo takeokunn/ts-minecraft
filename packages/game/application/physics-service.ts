@@ -33,34 +33,31 @@ export type AddBodyConfig = Schema.Schema.Type<typeof AddBodyConfigSchema>
 export class PhysicsService extends Effect.Service<PhysicsService>()(
   '@minecraft/application/PhysicsService',
   {
-    effect: Effect.all([
-      RigidBodyPort,
-      PhysicsWorldPort,
-      ShapePort,
-      Ref.make<Option.Option<CustomWorld>>(Option.none()),
-      Ref.make(HashMap.empty<PhysicsBodyId, CustomBody>()),
-      Ref.make(0),
-    ], { concurrency: 'unbounded' }).pipe(Effect.map(([rigidBodyPort, physicsWorldPort, shapePort, worldRef, bodyMapRef, nextBodyIdRef]) => {
+    effect: Effect.gen(function* () {
+      const rigidBodyPort = yield* RigidBodyPort
+      const physicsWorldPort = yield* PhysicsWorldPort
+      const shapePort = yield* ShapePort
+      const worldRef = yield* Ref.make<Option.Option<CustomWorld>>(Option.none())
+      const bodyMapRef = yield* Ref.make(HashMap.empty<PhysicsBodyId, CustomBody>())
+      const nextBodyIdRef = yield* Ref.make(0)
       const makeBodyId: Effect.Effect<PhysicsBodyId, never> =
         Ref.modify(nextBodyIdRef, (n) => [PhysicsBodyId.make(`physics-body-${n}`), n + 1])
 
-      const getWorld: Effect.Effect<CustomWorld, PhysicsServiceError> = Ref.get(worldRef).pipe(
-        Effect.flatMap((world) => {
+      const getWorld: Effect.Effect<CustomWorld, PhysicsServiceError> =
+        Effect.gen(function* () {
+          const world = yield* Ref.get(worldRef)
           const w = Option.getOrNull(world)
-          if (w === null) return Effect.fail(new PhysicsServiceError({ operation: 'getWorld', cause: 'Physics world not initialized. Call initialize() first.' }))
-          return Effect.succeed(w)
+          if (w === null) return yield* Effect.fail(new PhysicsServiceError({ operation: 'getWorld', cause: 'Physics world not initialized. Call initialize() first.' }))
+          return w
         })
-      )
 
       const getBody = (bodyId: PhysicsBodyId): Effect.Effect<CustomBody, PhysicsServiceError> =>
-        Ref.get(bodyMapRef).pipe(
-          Effect.flatMap((bodyMap) => {
-            const body = Option.getOrNull(HashMap.get(bodyMap, bodyId))
-            return body !== null
-              ? Effect.succeed(body)
-              : Effect.fail(new PhysicsServiceError({ operation: 'getBody', cause: `Body not found: ${bodyId}` }))
-          })
-        )
+        Effect.gen(function* () {
+          const bodyMap = yield* Ref.get(bodyMapRef)
+          const body = Option.getOrNull(HashMap.get(bodyMap, bodyId))
+          if (body === null) return yield* Effect.fail(new PhysicsServiceError({ operation: 'getBody', cause: `Body not found: ${bodyId}` }))
+          return body
+        })
 
       return {
         initialize: (config: WorldConfig): Effect.Effect<void, PhysicsServiceError> =>
@@ -78,39 +75,32 @@ export class PhysicsService extends Effect.Service<PhysicsService>()(
           }),
 
         addBody: (config: AddBodyConfig): Effect.Effect<PhysicsBodyId, PhysicsServiceError> =>
-          getWorld.pipe(
-            Effect.flatMap((world) =>
-              Effect.gen(function* () {
-                const shape: CustomShape = yield* Match.value(config.shape).pipe(
-                  Match.when('box', () => {
-                    const halfExtents = config.shapeParams?.halfExtents ?? { x: 0.5, y: 0.5, z: 0.5 }
-                    return shapePort.createBox({ halfExtents })
-                  }),
-                  Match.when('sphere', () => {
-                    const radius = config.shapeParams?.radius ?? 0.5
-                    return shapePort.createSphere({ radius })
-                  }),
-                  Match.when('plane', () => shapePort.createPlane()),
-                  Match.exhaustive,
-                )
-
-                const body = yield* rigidBodyPort.create({
-                  mass: config.mass,
-                  position: config.position,
-                  type: config.type,
-                })
-                yield* rigidBodyPort.addShape(body, shape)
-
-                const bodyId = yield* makeBodyId
-
-                yield* physicsWorldPort.addBody(world, body)
-                yield* Ref.update(bodyMapRef, (m) => HashMap.set(m, bodyId, body))
-
-                return bodyId
-              }).pipe(
-                Effect.mapError((e) => new PhysicsServiceError({ operation: 'addBody', cause: e }))
-              )
+          Effect.gen(function* () {
+            const world = yield* getWorld
+            const shape: CustomShape = yield* Match.value(config.shape).pipe(
+              Match.when('box', () => {
+                const halfExtents = config.shapeParams?.halfExtents ?? { x: 0.5, y: 0.5, z: 0.5 }
+                return shapePort.createBox({ halfExtents })
+              }),
+              Match.when('sphere', () => {
+                const radius = config.shapeParams?.radius ?? 0.5
+                return shapePort.createSphere({ radius })
+              }),
+              Match.when('plane', () => shapePort.createPlane()),
+              Match.exhaustive,
             )
+            const body = yield* rigidBodyPort.create({
+              mass: config.mass,
+              position: config.position,
+              type: config.type,
+            })
+            yield* rigidBodyPort.addShape(body, shape)
+            const bodyId = yield* makeBodyId
+            yield* physicsWorldPort.addBody(world, body)
+            yield* Ref.update(bodyMapRef, (m) => HashMap.set(m, bodyId, body))
+            return bodyId
+          }).pipe(
+            Effect.mapError((e) => new PhysicsServiceError({ operation: 'addBody', cause: e }))
           ),
 
         removeBody: (bodyId: PhysicsBodyId): Effect.Effect<void, PhysicsServiceError> =>
@@ -132,42 +122,34 @@ export class PhysicsService extends Effect.Service<PhysicsService>()(
           }),
 
         getVelocity: (bodyId: PhysicsBodyId): Effect.Effect<Vector3, PhysicsServiceError> =>
-          getBody(bodyId).pipe(
-            Effect.map((body) => ({
-              x: body.velocity.x,
-              y: body.velocity.y,
-              z: body.velocity.z,
-            }))
-          ),
+          Effect.gen(function* () {
+            const body = yield* getBody(bodyId)
+            return { x: body.velocity.x, y: body.velocity.y, z: body.velocity.z }
+          }),
 
         getPosition: (bodyId: PhysicsBodyId): Effect.Effect<Position, PhysicsServiceError> =>
-          getBody(bodyId).pipe(
-            Effect.map((body) => ({
-              x: body.position.x,
-              y: body.position.y,
-              z: body.position.z,
-            }))
-          ),
+          Effect.gen(function* () {
+            const body = yield* getBody(bodyId)
+            return { x: body.position.x, y: body.position.y, z: body.position.z }
+          }),
 
         setVelocity: (bodyId: PhysicsBodyId, velocity: Vector3): Effect.Effect<void, PhysicsServiceError> =>
-          getBody(bodyId).pipe(
-            Effect.flatMap((body) =>
-              rigidBodyPort.setVelocity(body, velocity).pipe(
-                Effect.mapError((e) => new PhysicsServiceError({ operation: 'setVelocity', cause: e }))
-              )
+          Effect.gen(function* () {
+            const body = yield* getBody(bodyId)
+            yield* rigidBodyPort.setVelocity(body, velocity).pipe(
+              Effect.mapError((e) => new PhysicsServiceError({ operation: 'setVelocity', cause: e }))
             )
-          ),
+          }),
 
         setPosition: (bodyId: PhysicsBodyId, position: Position): Effect.Effect<void, PhysicsServiceError> =>
-          getBody(bodyId).pipe(
-            Effect.flatMap((body) =>
-              rigidBodyPort.setPosition(body, position).pipe(
-                Effect.mapError((e) => new PhysicsServiceError({ operation: 'setPosition', cause: e }))
-              )
+          Effect.gen(function* () {
+            const body = yield* getBody(bodyId)
+            yield* rigidBodyPort.setPosition(body, position).pipe(
+              Effect.mapError((e) => new PhysicsServiceError({ operation: 'setPosition', cause: e }))
             )
-          ),
+          }),
       }
-    })),
+    }),
   }
 ) {}
 export const PhysicsServiceLive = PhysicsService.Default

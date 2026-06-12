@@ -36,10 +36,9 @@ describe('BlockService — break then place (chaining)', () => {
     const layer = createTestLayer(handle.service, createMockPlayerService({ x: 100, y: 0, z: 100 }))
     return Effect.gen(function* () {
       const svc = yield* BlockService
-      const outcome = yield* svc.breakBlock(pos).pipe(
-        Effect.flatMap(() => svc.placeBlock(pos, 'GLASS')),
-        Effect.map(() => ({ placed: true })),
-      )
+      yield* svc.breakBlock(pos)
+      yield* svc.placeBlock(pos, 'GLASS')
+      const outcome = { placed: true }
       expect(outcome.placed).toBe(true)
       expect(readBlock(chunk, lx, y, lz)).toBe('GLASS')
     }).pipe(Effect.provide(layer))

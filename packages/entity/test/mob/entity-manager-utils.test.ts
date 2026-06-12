@@ -8,6 +8,7 @@ import {
   isSameVelocity,
   isFinitePosition,
   isFiniteVelocity,
+  shouldDespawnEntity,
   MOB_STUCK_EPSILON,
 } from '../../domain/mob/entity-manager-utils'
 import { computeEndermanTeleportPosition, makeWanderDirectionFromHash } from '@ts-minecraft/entity'
@@ -211,5 +212,45 @@ describe('entity/state-machine (additional coverage)', () => {
     it('always returns a non-negative value', () => {
       expect(distanceToPlayerSq({ x: -5, y: 0, z: -3 }, { x: 2, y: 128, z: 7 })).toBeGreaterThanOrEqual(0)
     })
+  })
+})
+
+// ── shouldDespawnEntity ───────────────────────────────────────────────────────
+
+const makeEntity = (position: { x: number; y: number; z: number }, velocity = { x: 0, y: 0, z: 0 }) =>
+  ({ position, velocity }) as never
+
+describe('shouldDespawnEntity', () => {
+  const player = { x: 0, y: 64, z: 0 }
+
+  it('returns false when entity is within max distance', () => {
+    const entity = makeEntity({ x: 10, y: 64, z: 0 })
+    expect(shouldDespawnEntity(entity, player, 20)).toBe(false)
+  })
+
+  it('returns true when entity is beyond max distance (strictly greater)', () => {
+    const entity = makeEntity({ x: 0, y: 64, z: 25 })
+    expect(shouldDespawnEntity(entity, player, 20)).toBe(true)
+  })
+
+  it('returns false when entity is exactly at max distance boundary', () => {
+    // distanceSq = 400 = 20², strict > so at boundary is false
+    const entity = makeEntity({ x: 20, y: 64, z: 0 })
+    expect(shouldDespawnEntity(entity, player, 20)).toBe(false)
+  })
+
+  it('returns true when entity has non-finite position (NaN)', () => {
+    const entity = makeEntity({ x: NaN, y: 64, z: 0 })
+    expect(shouldDespawnEntity(entity, player, 100)).toBe(true)
+  })
+
+  it('returns true when entity has non-finite position (Infinity)', () => {
+    const entity = makeEntity({ x: Infinity, y: 64, z: 0 })
+    expect(shouldDespawnEntity(entity, player, 100)).toBe(true)
+  })
+
+  it('returns true when entity velocity is non-finite', () => {
+    const entity = makeEntity({ x: 5, y: 64, z: 0 }, { x: NaN, y: 0, z: 0 })
+    expect(shouldDespawnEntity(entity, player, 100)).toBe(true)
   })
 })

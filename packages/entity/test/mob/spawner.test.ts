@@ -28,7 +28,10 @@ describe('entity/spawner', () => {
         { found: Option.none<EntityId>(), i: 0 },
         {
           while: (s) => Option.isNone(s.found) && s.i < 60,
-          body: (s) => spawner.trySpawn({ x: 0, y: 64, z: 0 }).pipe(Effect.map(found => ({ found, i: s.i + 1 }))),
+          body: (s) => Effect.gen(function* () {
+            const found = yield* spawner.trySpawn({ x: 0, y: 64, z: 0 })
+            return { found, i: s.i + 1 }
+          }),
         }
       )
 
@@ -50,7 +53,10 @@ describe('entity/spawner', () => {
         { found: Option.none<EntityId>(), i: 0 },
         {
           while: (s) => Option.isNone(s.found) && s.i < 60,
-          body: (s) => spawner.trySpawn({ x: 0, y: 64, z: 0 }).pipe(Effect.map(found => ({ found, i: s.i + 1 }))),
+          body: (s) => Effect.gen(function* () {
+            const found = yield* spawner.trySpawn({ x: 0, y: 64, z: 0 })
+            return { found, i: s.i + 1 }
+          }),
         }
       )
 
@@ -94,15 +100,17 @@ describe('entity/spawner', () => {
         { found: Option.none<EntityId>(), i: 0 },
         {
           while: (current) => Option.isNone(current.found) && current.i < 60,
-          body: (current) =>
-            spawner.trySpawn(
+          body: (current) => Effect.gen(function* () {
+            const found = yield* spawner.trySpawn(
               { x: 0, y: 64, z: 0 },
               (candidatePosition) => Effect.succeed(Option.some({
                 x: candidatePosition.x,
                 y: 12.5,
                 z: candidatePosition.z,
               })),
-            ).pipe(Effect.map((found) => ({ found, i: current.i + 1 }))),
+            )
+            return { found, i: current.i + 1 }
+          }),
         },
       )
 

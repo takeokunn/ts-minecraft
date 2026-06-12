@@ -95,16 +95,10 @@ const handleTradeKeys = (
   inputs: { readonly playerPos: Position },
 ): Effect.Effect<void, never> =>
   Effect.gen(function* () {
-    const [tradePressed, tradeNextPressed, tradePrevPressed, tradeExecutePressed] = yield* Effect.all(
-      [
-        services.inputService.consumeKeyPress(TRADE_OPEN_KEY),
-        services.inputService.consumeKeyPress(TRADE_NEXT_KEY),
-        services.inputService.consumeKeyPress(TRADE_PREV_KEY),
-        services.inputService.consumeKeyPress(TRADE_EXECUTE_KEY),
-      ],
-      // Sequential: consumeKeyPress is a synchronous edge read; unbounded
-      // concurrency spawns fibers every frame for no gain.
-    )
+    const tradePressed = yield* services.inputService.consumeKeyPress(TRADE_OPEN_KEY)
+    const tradeNextPressed = yield* services.inputService.consumeKeyPress(TRADE_NEXT_KEY)
+    const tradePrevPressed = yield* services.inputService.consumeKeyPress(TRADE_PREV_KEY)
+    const tradeExecutePressed = yield* services.inputService.consumeKeyPress(TRADE_EXECUTE_KEY)
 
     if (tradePressed) {
       const tradeOpen = yield* services.tradingPresentation.isOpen()
@@ -196,11 +190,8 @@ export const inputStage = (
 ): Effect.Effect<void, never> =>
   Effect.gen(function* () {
     // Update camera rotation from mouse look (suppressed when a modal is open)
-    yield* Ref.get(deps.gamePausedRef).pipe(
-      Effect.flatMap((paused) =>
-        paused ? Effect.void : services.firstPersonCamera.update(deps.camera, inputs.mouseSensitivity),
-      ),
-    )
+    const paused = yield* Ref.get(deps.gamePausedRef)
+    if (!paused) yield* services.firstPersonCamera.update(deps.camera, inputs.mouseSensitivity)
 
     yield* logErrors(
       Effect.all(

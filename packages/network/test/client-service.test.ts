@@ -17,7 +17,10 @@ import {
 } from '@ts-minecraft/network'
 
 const takeFromClient = (stream: Stream.Stream<NetworkMessage, never, never>): Effect.Effect<NetworkMessage, never> =>
-  Stream.runHead(stream).pipe(Effect.map((message) => Option.getOrThrow(message)))
+  Effect.gen(function* () {
+    const message = yield* Stream.runHead(stream)
+    return Option.getOrThrow(message)
+  })
 
 describe('network/client-service', () => {
   it.effect('client connects and receives welcome message', () => {
@@ -76,14 +79,15 @@ describe('network/client-service', () => {
       yield* takeFromClient(firstMessages)
 
       const second = yield* fakeServer.connectClient()
-      yield* encodeNetworkMessage({
+      const encoded = yield* encodeNetworkMessage({
         type: MessageType.PlayerJoin,
         playerId: PlayerId.make('pending'),
         playerName: PlayerName.make('Steve'),
         worldId: WorldId.make('overworld'),
         position: { x: 0, y: 64, z: 0 },
         timestamp: 2,
-      }).pipe(Effect.flatMap(second.clientSend))
+      })
+      yield* second.clientSend(encoded)
       const broadcast = yield* takeFromClient(firstMessages)
       expect(broadcast.type).toBe(MessageType.PlayerJoin)
       if (broadcast.type === MessageType.PlayerJoin) expect(broadcast.playerName).toBe(PlayerName.make('Steve'))

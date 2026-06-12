@@ -66,13 +66,12 @@ export const makeRefreshLoadList = (
     storageService.listWorldMetadata.pipe(
       Effect.matchEffect({
         onFailure: (err) =>
-          Effect.logWarning(`MainMenu: listWorldMetadata failed: ${String(err)}`).pipe(
-            Effect.andThen(
-              Effect.sync(() => {
-                dom.setInnerHTML(buttons.lwList, '<div style="opacity:0.7">Failed to load worlds</div>')
-              }),
-            ),
-          ),
+          Effect.gen(function* () {
+            yield* Effect.logWarning(`MainMenu: listWorldMetadata failed: ${String(err)}`)
+            yield* Effect.sync(() => {
+              dom.setInnerHTML(buttons.lwList, '<div style="opacity:0.7">Failed to load worlds</div>')
+            })
+          }),
         onSuccess: ({ valid, corrupt }) =>
           Effect.sync(() => {
             if (valid.length === 0 && corrupt.length === 0) {
@@ -122,20 +121,16 @@ export const makeOpenDeleteConfirm = (
   refreshLoadList: () => Effect.Effect<void, never>,
 ) => (worldId: WorldId, label: string): void => {
   Effect.runFork(
-    confirmDialog
-      .show(`Delete '${label}'? This cannot be undone.`, 'Delete', 'Cancel')
-      .pipe(
-        Effect.flatMap((confirmed) =>
-          confirmed
-            ? storageService.deleteWorld(worldId).pipe(
-                Effect.catchAllCause((cause) =>
-                  Effect.logError(`MainMenu: deleteWorld failed: ${Cause.pretty(cause)}`),
-                ),
-                Effect.andThen(refreshLoadList()),
-              )
-            : Effect.void,
+    Effect.gen(function* () {
+      const confirmed = yield* confirmDialog.show(`Delete '${label}'? This cannot be undone.`, 'Delete', 'Cancel')
+      if (!confirmed) return
+      yield* storageService.deleteWorld(worldId).pipe(
+        Effect.catchAllCause((cause) =>
+          Effect.logError(`MainMenu: deleteWorld failed: ${Cause.pretty(cause)}`),
         ),
-      ),
+      )
+      yield* refreshLoadList()
+    })
   )
 }
 

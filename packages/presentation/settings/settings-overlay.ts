@@ -6,46 +6,44 @@ import { buildSettingsOverlayDom } from './settings-overlay-dom'
 export class SettingsOverlayService extends Effect.Service<SettingsOverlayService>()(
   '@minecraft/presentation/SettingsOverlay',
   {
-    scoped: Effect.all([
-      SettingsService,
-      DomOperationsService,
-      Ref.make(false),
-    ], { concurrency: 'unbounded' }).pipe(
-      Effect.flatMap(([settingsService, dom, isVisibleRef]) =>
-        // Build DOM once — yields const bindings, eliminates mutable let declarations
-        Effect.sync(() => buildSettingsOverlayDom(dom)).pipe(
-          Effect.flatMap(({
-            overlayEl,
-            renderDistanceInput,
-            adaptivePerformanceInput,
-            sensitivityInput,
-            dayLengthInput,
-            audioEnabledInput,
-            masterVolumeInput,
-            sfxVolumeInput,
-            musicVolumeInput,
-            qualitySelect,
-            closeBtn,
-            gearBtn,
-          }) => {
-        const updateLabel = (labelId: string, value: string): void => {
-          const span = Option.getOrNull(Option.flatMap(overlayEl, (el) => dom.querySelector(el, labelId)))
-          if (span !== null) span.textContent = value
-        }
+    scoped: Effect.gen(function* () {
+      const settingsService = yield* SettingsService
+      const dom = yield* DomOperationsService
+      const isVisibleRef = yield* Ref.make(false)
+      // Build DOM once — yields const bindings, eliminates mutable let declarations
+      const {
+        overlayEl,
+        renderDistanceInput,
+        adaptivePerformanceInput,
+        sensitivityInput,
+        dayLengthInput,
+        audioEnabledInput,
+        masterVolumeInput,
+        sfxVolumeInput,
+        musicVolumeInput,
+        qualitySelect,
+        closeBtn,
+        gearBtn,
+      } = yield* Effect.sync(() => buildSettingsOverlayDom(dom))
 
-        const syncInputAndLabel = (
-          inputOpt: Option.Option<HTMLElement & { value: string }>,
-          labelId: string,
-          value: string,
-        ): void => {
-          const input = Option.getOrNull(inputOpt)
-          if (input !== null) {
-            input.value = value
-            updateLabel(labelId, value)
-          }
-        }
+      const updateLabel = (labelId: string, value: string): void => {
+        const span = Option.getOrNull(Option.flatMap(overlayEl, (el) => dom.querySelector(el, labelId)))
+        if (span !== null) span.textContent = value
+      }
 
-        const commitEffect = (): Effect.Effect<void, never> =>
+      const syncInputAndLabel = (
+        inputOpt: Option.Option<HTMLElement & { value: string }>,
+        labelId: string,
+        value: string,
+      ): void => {
+        const input = Option.getOrNull(inputOpt)
+        if (input !== null) {
+          input.value = value
+          updateLabel(labelId, value)
+        }
+      }
+
+      const commitEffect = (): Effect.Effect<void, never> =>
         settingsService.updateSettings({
           adaptivePerformanceMode: Option.getOrNull(adaptivePerformanceInput)?.checked ?? false,
           renderDistance: parseInt(Option.getOrNull(renderDistanceInput)?.value ?? '4', 10),
@@ -78,9 +76,10 @@ export class SettingsOverlayService extends Effect.Service<SettingsOverlayServic
         )
       }
 
-      function syncEffect(): Effect.Effect<void, never> {
-        return settingsService.getSettings().pipe(
-          Effect.flatMap((settings) => Effect.sync(() => {
+      const syncEffect = (): Effect.Effect<void, never> =>
+        Effect.gen(function* () {
+          const settings = yield* settingsService.getSettings()
+          yield* Effect.sync(() => {
             const apInput = Option.getOrNull(adaptivePerformanceInput)
             if (apInput !== null) apInput.checked = settings.adaptivePerformanceMode
             syncInputAndLabel(renderDistanceInput, '#rd-val', String(settings.renderDistance))
@@ -93,9 +92,8 @@ export class SettingsOverlayService extends Effect.Service<SettingsOverlayServic
             syncInputAndLabel(musicVolumeInput, '#muv-val', String(settings.musicVolume))
             const qSel = Option.getOrNull(qualitySelect)
             if (qSel !== null) qSel.value = settings.graphicsQuality
-          }))
-        )
-      }
+          })
+        })
 
       // Named event handler functions for proper cleanup via removeEventListener
       const handleAdaptivePerformanceChange = () => {
@@ -148,84 +146,81 @@ export class SettingsOverlayService extends Effect.Service<SettingsOverlayServic
 
       const handleClose = () => {
         Effect.runFork(
-          Ref.set(isVisibleRef, false).pipe(
-            Effect.andThen(Effect.sync(() => {
+          Effect.gen(function* () {
+            yield* Ref.set(isVisibleRef, false)
+            yield* Effect.sync(() => {
               const el = Option.getOrNull(overlayEl)
               if (el !== null) el.style.display = 'none'
-            })),
-            Effect.catchAllCause(() => Effect.void)
-          )
+            })
+          }).pipe(Effect.catchAllCause(() => Effect.void))
         )
       }
 
       const handleGearClick = () => {
         Effect.runFork(
-          Ref.modify(isVisibleRef, (current): [boolean, boolean] => [!current, !current]).pipe(
-            Effect.tap((next) => Effect.sync(() => {
+          Effect.gen(function* () {
+            const next = yield* Ref.modify(isVisibleRef, (current): [boolean, boolean] => [!current, !current])
+            yield* Effect.sync(() => {
               const el = Option.getOrNull(overlayEl)
               if (el !== null) el.style.display = next ? 'block' : 'none'
-            })),
-            Effect.flatMap((next) => next ? syncEffect() : Effect.void),
-            Effect.catchAllCause(() => Effect.void)
-          )
+            })
+            if (next) yield* syncEffect()
+          }).pipe(Effect.catchAllCause(() => Effect.void))
         )
       }
 
-        return Effect.acquireRelease(
-          Effect.sync(() => {
-            Option.getOrNull(adaptivePerformanceInput)?.addEventListener('change', handleAdaptivePerformanceChange)
-            Option.getOrNull(renderDistanceInput)?.addEventListener('input', handleRdInput)
-            Option.getOrNull(sensitivityInput)?.addEventListener('input', handleMsInput)
-            Option.getOrNull(dayLengthInput)?.addEventListener('input', handleDlInput)
-            Option.getOrNull(audioEnabledInput)?.addEventListener('change', handleAudioEnabledChange)
-            Option.getOrNull(masterVolumeInput)?.addEventListener('input', handleMasterVolumeInput)
-            Option.getOrNull(sfxVolumeInput)?.addEventListener('input', handleSfxVolumeInput)
-            Option.getOrNull(musicVolumeInput)?.addEventListener('input', handleMusicVolumeInput)
-            Option.getOrNull(qualitySelect)?.addEventListener('change', handleQualityChange)
-            Option.getOrNull(closeBtn)?.addEventListener('click', handleClose)
-            Option.getOrNull(gearBtn)?.addEventListener('click', handleGearClick)
-          }).pipe(
-            // FR-1.4: prime DOM inputs from SettingsService on mount so values
-            // reflect actual state from frame 1, eliminating the visual flash
-            // (HTML template defaults quality=medium, rd=4) that appears when the
-            // overlay first opens before sync runs.
-            Effect.andThen(syncEffect()),
-          ),
-          () => Effect.sync(() => {
-            Option.getOrNull(adaptivePerformanceInput)?.removeEventListener('change', handleAdaptivePerformanceChange)
-            Option.getOrNull(renderDistanceInput)?.removeEventListener('input', handleRdInput)
-            Option.getOrNull(sensitivityInput)?.removeEventListener('input', handleMsInput)
-            Option.getOrNull(dayLengthInput)?.removeEventListener('input', handleDlInput)
-            Option.getOrNull(audioEnabledInput)?.removeEventListener('change', handleAudioEnabledChange)
-            Option.getOrNull(masterVolumeInput)?.removeEventListener('input', handleMasterVolumeInput)
-            Option.getOrNull(sfxVolumeInput)?.removeEventListener('input', handleSfxVolumeInput)
-            Option.getOrNull(musicVolumeInput)?.removeEventListener('input', handleMusicVolumeInput)
-            Option.getOrNull(qualitySelect)?.removeEventListener('change', handleQualityChange)
-            Option.getOrNull(closeBtn)?.removeEventListener('click', handleClose)
-            const gear = Option.getOrNull(gearBtn)
-            if (gear !== null) { gear.removeEventListener('click', handleGearClick); gear.remove() }
-            Option.getOrNull(overlayEl)?.remove()
-          })
-        ).pipe(Effect.as({
+      // Register event listeners + prime DOM inputs from SettingsService on mount (FR-1.4)
+      yield* Effect.sync(() => {
+        Option.getOrNull(adaptivePerformanceInput)?.addEventListener('change', handleAdaptivePerformanceChange)
+        Option.getOrNull(renderDistanceInput)?.addEventListener('input', handleRdInput)
+        Option.getOrNull(sensitivityInput)?.addEventListener('input', handleMsInput)
+        Option.getOrNull(dayLengthInput)?.addEventListener('input', handleDlInput)
+        Option.getOrNull(audioEnabledInput)?.addEventListener('change', handleAudioEnabledChange)
+        Option.getOrNull(masterVolumeInput)?.addEventListener('input', handleMasterVolumeInput)
+        Option.getOrNull(sfxVolumeInput)?.addEventListener('input', handleSfxVolumeInput)
+        Option.getOrNull(musicVolumeInput)?.addEventListener('input', handleMusicVolumeInput)
+        Option.getOrNull(qualitySelect)?.addEventListener('change', handleQualityChange)
+        Option.getOrNull(closeBtn)?.addEventListener('click', handleClose)
+        Option.getOrNull(gearBtn)?.addEventListener('click', handleGearClick)
+      })
+      yield* syncEffect()
+
+      // Cleanup event listeners + DOM on scope close
+      yield* Effect.addFinalizer(() => Effect.sync(() => {
+        Option.getOrNull(adaptivePerformanceInput)?.removeEventListener('change', handleAdaptivePerformanceChange)
+        Option.getOrNull(renderDistanceInput)?.removeEventListener('input', handleRdInput)
+        Option.getOrNull(sensitivityInput)?.removeEventListener('input', handleMsInput)
+        Option.getOrNull(dayLengthInput)?.removeEventListener('input', handleDlInput)
+        Option.getOrNull(audioEnabledInput)?.removeEventListener('change', handleAudioEnabledChange)
+        Option.getOrNull(masterVolumeInput)?.removeEventListener('input', handleMasterVolumeInput)
+        Option.getOrNull(sfxVolumeInput)?.removeEventListener('input', handleSfxVolumeInput)
+        Option.getOrNull(musicVolumeInput)?.removeEventListener('input', handleMusicVolumeInput)
+        Option.getOrNull(qualitySelect)?.removeEventListener('change', handleQualityChange)
+        Option.getOrNull(closeBtn)?.removeEventListener('click', handleClose)
+        const gear = Option.getOrNull(gearBtn)
+        if (gear !== null) { gear.removeEventListener('click', handleGearClick); gear.remove() }
+        Option.getOrNull(overlayEl)?.remove()
+      }))
+
+      return {
         toggle: (): Effect.Effect<boolean, never> =>
-          Ref.modify(isVisibleRef, (current): [boolean, boolean] => [!current, !current]).pipe(
-            Effect.tap((next) => Effect.sync(() => {
+          Effect.gen(function* () {
+            const next = yield* Ref.modify(isVisibleRef, (current): [boolean, boolean] => [!current, !current])
+            yield* Effect.sync(() => {
               const el = Option.getOrNull(overlayEl)
               if (el !== null) el.style.display = next ? 'block' : 'none'
-            })),
-            Effect.tap((next) => next ? syncEffect() : Effect.void),
-          ),
+            })
+            if (next) yield* syncEffect()
+            return next
+          }),
 
         isOpen: (): Effect.Effect<boolean, never> => Ref.get(isVisibleRef),
 
         syncFromSettings: (): Effect.Effect<void, never> => syncEffect(),
 
         applyToSettings: (): Effect.Effect<void, never> => commitEffect(),
-        }))
-      })
-        )
-      )
-    ),
+      }
+    }),
   }
 ) {}
 export const SettingsOverlayLive = SettingsOverlayService.Default

@@ -46,9 +46,11 @@ describe('village/village-service', () => {
       // Establish a mid-journey state: villagers step toward their workplaces.
       yield* villageService.update(near, 0.5, ONE_SECOND)
       const established = yield* villageService.getVillagers()
-      const positionOf = (id: VillagerId) => villageService.getVillager(id).pipe(
-        Effect.map((o) => Option.getOrThrow(o).position),
-      )
+      const positionOf = (id: VillagerId) =>
+        Effect.gen(function* () {
+          const o = yield* villageService.getVillager(id)
+          return Option.getOrThrow(o).position
+        })
 
       // Player travels far (> VILLAGE_SIMULATION_DISTANCE): the original village
       // is frozen — its villagers must not move (a new village spawns near the

@@ -31,54 +31,53 @@ export class ChunkMeshService extends Effect.Service<ChunkMeshService>()(
           waterMaterial?: THREE.ShaderMaterial,
           lod?: LodLevel
         ): Effect.Effect<{ opaqueMesh: THREE.Mesh; waterMesh: Option.Option<THREE.Mesh>; transparentSolidMesh: Option.Option<THREE.Mesh> }, never> =>
-          pool.meshChunk(chunk, lod === undefined ? undefined : { lod }).pipe(
-            Effect.map(({ opaque, water, transparentSolid }) => {
-              const opaqueGeometry = buildGeometry(opaque)
-              // All opaque chunks share ONE material instance (sharedMaterial above) —
-              // this lets Three.js batch state changes and avoids GPU material switches.
-              const opaqueMesh = new THREE.Mesh(opaqueGeometry, sharedMaterial)
-              // Disable Three.js per-object bounding-sphere frustum culling;
-              // WorldRendererService.applyFrustumCulling does chunk-level AABB culling
-              // which is more efficient (known fixed-size boxes, no bounding-sphere compute).
-              opaqueMesh.frustumCulled = false
-              opaqueMesh.castShadow = true
-              opaqueMesh.receiveShadow = true
-              opaqueMesh.userData['chunkCoord'] = chunk.coord
-              // FR-3.3: propagate chunk-level maxY for tighter frustum AABB. Optional —
-              // older chunks (pre-FR-3.3) leave it undefined; renderer falls back to CHUNK_HEIGHT.
-              if (chunk.maxY !== undefined) opaqueMesh.userData['chunkMaxY'] = chunk.maxY
+          Effect.gen(function* () {
+            const { opaque, water, transparentSolid } = yield* pool.meshChunk(chunk, lod === undefined ? undefined : { lod })
+            const opaqueGeometry = buildGeometry(opaque)
+            // All opaque chunks share ONE material instance (sharedMaterial above) —
+            // this lets Three.js batch state changes and avoids GPU material switches.
+            const opaqueMesh = new THREE.Mesh(opaqueGeometry, sharedMaterial)
+            // Disable Three.js per-object bounding-sphere frustum culling;
+            // WorldRendererService.applyFrustumCulling does chunk-level AABB culling
+            // which is more efficient (known fixed-size boxes, no bounding-sphere compute).
+            opaqueMesh.frustumCulled = false
+            opaqueMesh.castShadow = true
+            opaqueMesh.receiveShadow = true
+            opaqueMesh.userData['chunkCoord'] = chunk.coord
+            // FR-3.3: propagate chunk-level maxY for tighter frustum AABB. Optional —
+            // older chunks (pre-FR-3.3) leave it undefined; renderer falls back to CHUNK_HEIGHT.
+            if (chunk.maxY !== undefined) opaqueMesh.userData['chunkMaxY'] = chunk.maxY
 
-              const waterMesh: Option.Option<THREE.Mesh> = water === null || water.positions.length === 0
-                ? Option.none()
-                // All water chunks share ONE ShaderMaterial instance (waterMaterial from WorldRendererService)
-                : Option.map(Option.fromNullable(waterMaterial), (mat) => {
-                    const wm = new THREE.Mesh(buildGeometry(water), mat)
-                    wm.frustumCulled = false  // manual AABB culling in WorldRendererService
-                    wm.castShadow = false
-                    wm.receiveShadow = false
-                    wm.renderOrder = 1
-                    wm.userData['chunkCoord'] = chunk.coord
-                    if (chunk.maxY !== undefined) wm.userData['chunkMaxY'] = chunk.maxY
-                    return wm
-                  })
+            const waterMesh: Option.Option<THREE.Mesh> = water === null || water.positions.length === 0
+              ? Option.none()
+              // All water chunks share ONE ShaderMaterial instance (waterMaterial from WorldRendererService)
+              : Option.map(Option.fromNullable(waterMaterial), (mat) => {
+                  const wm = new THREE.Mesh(buildGeometry(water), mat)
+                  wm.frustumCulled = false  // manual AABB culling in WorldRendererService
+                  wm.castShadow = false
+                  wm.receiveShadow = false
+                  wm.renderOrder = 1
+                  wm.userData['chunkCoord'] = chunk.coord
+                  if (chunk.maxY !== undefined) wm.userData['chunkMaxY'] = chunk.maxY
+                  return wm
+                })
 
-              // Transparent-solid mesh (GLASS, LEAVES): atlas material + alpha blending.
-              const transparentSolidMeshOpt: Option.Option<THREE.Mesh> = transparentSolid === null || transparentSolid.positions.length === 0
-                ? Option.none()
-                : Option.some((() => {
-                    const tsm = new THREE.Mesh(buildGeometry(transparentSolid), transparentSolidMaterial)
-                    tsm.frustumCulled = false
-                    tsm.castShadow = false
-                    tsm.receiveShadow = false
-                    tsm.renderOrder = 2
-                    tsm.userData['chunkCoord'] = chunk.coord
-                    if (chunk.maxY !== undefined) tsm.userData['chunkMaxY'] = chunk.maxY
-                    return tsm
-                  })())
+            // Transparent-solid mesh (GLASS, LEAVES): atlas material + alpha blending.
+            const transparentSolidMeshOpt: Option.Option<THREE.Mesh> = transparentSolid === null || transparentSolid.positions.length === 0
+              ? Option.none()
+              : Option.some((() => {
+                  const tsm = new THREE.Mesh(buildGeometry(transparentSolid), transparentSolidMaterial)
+                  tsm.frustumCulled = false
+                  tsm.castShadow = false
+                  tsm.receiveShadow = false
+                  tsm.renderOrder = 2
+                  tsm.userData['chunkCoord'] = chunk.coord
+                  if (chunk.maxY !== undefined) tsm.userData['chunkMaxY'] = chunk.maxY
+                  return tsm
+                })())
 
-              return { opaqueMesh, waterMesh, transparentSolidMesh: transparentSolidMeshOpt }
-            })
-          ),
+            return { opaqueMesh, waterMesh, transparentSolidMesh: transparentSolidMeshOpt }
+          }),
 
         updateChunkMesh: (
           opaqueMesh: THREE.Mesh,
@@ -93,90 +92,89 @@ export class ChunkMeshService extends Effect.Service<ChunkMeshService>()(
           dirtyAABB?: DirtyAABB,
           transparentSolidMesh?: Option.Option<THREE.Mesh>,
         ): Effect.Effect<{ waterMesh: Option.Option<THREE.Mesh>; transparentSolidMesh: Option.Option<THREE.Mesh> }, never> =>
-          pool.meshChunk(chunk, buildMeshChunkOptions(lod, dirtyAABB)).pipe(
-            Effect.map(({ opaque, water, transparentSolid }) => {
-              // Opaque mesh: in-place update using owned arrays from worker transfer.
-              // Falls back to full geometry rebuild only when buffer capacity is insufficient.
-              if (!tryReuseGeometry(opaqueMesh.geometry, opaque)) {
-                const oldGeom = opaqueMesh.geometry
-                opaqueMesh.geometry = buildGeometry(opaque)
-                oldGeom.dispose()
-              }
+          Effect.gen(function* () {
+            const { opaque, water, transparentSolid } = yield* pool.meshChunk(chunk, buildMeshChunkOptions(lod, dirtyAABB))
+            // Opaque mesh: in-place update using owned arrays from worker transfer.
+            // Falls back to full geometry rebuild only when buffer capacity is insufficient.
+            if (!tryReuseGeometry(opaqueMesh.geometry, opaque)) {
+              const oldGeom = opaqueMesh.geometry
+              opaqueMesh.geometry = buildGeometry(opaque)
+              oldGeom.dispose()
+            }
 
-              opaqueMesh.userData['chunkCoord'] = { x: chunk.coord.x, z: chunk.coord.z }
-              // FR-3.3: refresh maxY whenever chunk geometry is rebuilt (block edits can change it).
-              if (chunk.maxY !== undefined) opaqueMesh.userData['chunkMaxY'] = chunk.maxY
+            opaqueMesh.userData['chunkCoord'] = { x: chunk.coord.x, z: chunk.coord.z }
+            // FR-3.3: refresh maxY whenever chunk geometry is rebuilt (block edits can change it).
+            if (chunk.maxY !== undefined) opaqueMesh.userData['chunkMaxY'] = chunk.maxY
 
-              // Water mesh: update in place when it already exists, or create/remove it when topology changes.
-              const existingWaterMesh = Option.getOrNull(waterMesh)
-              let updatedWaterMesh: Option.Option<THREE.Mesh>
-              if (existingWaterMesh === null) {
-                if (water === null || water.positions.length === 0 || waterMaterial === null) {
-                  updatedWaterMesh = Option.none()
-                } else {
-                  const wm = new THREE.Mesh(buildGeometry(water), waterMaterial)
-                  wm.frustumCulled = false
-                  wm.castShadow = false
-                  wm.receiveShadow = false
-                  wm.renderOrder = 1
-                  wm.userData['chunkCoord'] = chunk.coord
-                  if (chunk.maxY !== undefined) wm.userData['chunkMaxY'] = chunk.maxY
-                  updatedWaterMesh = Option.some(wm)
-                }
+            // Water mesh: update in place when it already exists, or create/remove it when topology changes.
+            const existingWaterMesh = Option.getOrNull(waterMesh)
+            let updatedWaterMesh: Option.Option<THREE.Mesh>
+            if (existingWaterMesh === null) {
+              if (water === null || water.positions.length === 0 || waterMaterial === null) {
+                updatedWaterMesh = Option.none()
               } else {
-                const wm = existingWaterMesh
-                if (water === null || water.positions.length === 0) {
-                  wm.geometry.dispose()
-                  updatedWaterMesh = Option.none()
-                } else {
-                  if (!tryReuseGeometry(wm.geometry, water)) {
-                    const oldWaterGeometry = wm.geometry
-                    wm.geometry = buildGeometry(water)
-                    oldWaterGeometry.dispose()
-                  }
-                  wm.userData['chunkCoord'] = chunk.coord
-                  if (chunk.maxY !== undefined) wm.userData['chunkMaxY'] = chunk.maxY
-                  updatedWaterMesh = waterMesh
-                }
+                const wm = new THREE.Mesh(buildGeometry(water), waterMaterial)
+                wm.frustumCulled = false
+                wm.castShadow = false
+                wm.receiveShadow = false
+                wm.renderOrder = 1
+                wm.userData['chunkCoord'] = chunk.coord
+                if (chunk.maxY !== undefined) wm.userData['chunkMaxY'] = chunk.maxY
+                updatedWaterMesh = Option.some(wm)
               }
-
-              // Transparent-solid mesh: update in place or create/remove.
-              const prevTsMesh = transparentSolidMesh ?? Option.none<THREE.Mesh>()
-              const existingTsMesh = Option.getOrNull(prevTsMesh)
-              let updatedTransparentSolidMesh: Option.Option<THREE.Mesh>
-              if (existingTsMesh === null) {
-                if (transparentSolid === null || transparentSolid.positions.length === 0) {
-                  updatedTransparentSolidMesh = Option.none()
-                } else {
-                  const tsm = new THREE.Mesh(buildGeometry(transparentSolid), transparentSolidMaterial)
-                  tsm.frustumCulled = false
-                  tsm.castShadow = false
-                  tsm.receiveShadow = false
-                  tsm.renderOrder = 2
-                  tsm.userData['chunkCoord'] = chunk.coord
-                  if (chunk.maxY !== undefined) tsm.userData['chunkMaxY'] = chunk.maxY
-                  updatedTransparentSolidMesh = Option.some(tsm)
-                }
+            } else {
+              const wm = existingWaterMesh
+              if (water === null || water.positions.length === 0) {
+                wm.geometry.dispose()
+                updatedWaterMesh = Option.none()
               } else {
-                const tsm = existingTsMesh
-                if (transparentSolid === null || transparentSolid.positions.length === 0) {
-                  tsm.geometry.dispose()
-                  updatedTransparentSolidMesh = Option.none()
-                } else {
-                  if (!tryReuseGeometry(tsm.geometry, transparentSolid)) {
-                    const oldGeom = tsm.geometry
-                    tsm.geometry = buildGeometry(transparentSolid)
-                    oldGeom.dispose()
-                  }
-                  tsm.userData['chunkCoord'] = chunk.coord
-                  if (chunk.maxY !== undefined) tsm.userData['chunkMaxY'] = chunk.maxY
-                  updatedTransparentSolidMesh = prevTsMesh
+                if (!tryReuseGeometry(wm.geometry, water)) {
+                  const oldWaterGeometry = wm.geometry
+                  wm.geometry = buildGeometry(water)
+                  oldWaterGeometry.dispose()
                 }
+                wm.userData['chunkCoord'] = chunk.coord
+                if (chunk.maxY !== undefined) wm.userData['chunkMaxY'] = chunk.maxY
+                updatedWaterMesh = waterMesh
               }
+            }
 
-              return { waterMesh: updatedWaterMesh, transparentSolidMesh: updatedTransparentSolidMesh }
-            })
-          ),
+            // Transparent-solid mesh: update in place or create/remove.
+            const prevTsMesh = transparentSolidMesh ?? Option.none<THREE.Mesh>()
+            const existingTsMesh = Option.getOrNull(prevTsMesh)
+            let updatedTransparentSolidMesh: Option.Option<THREE.Mesh>
+            if (existingTsMesh === null) {
+              if (transparentSolid === null || transparentSolid.positions.length === 0) {
+                updatedTransparentSolidMesh = Option.none()
+              } else {
+                const tsm = new THREE.Mesh(buildGeometry(transparentSolid), transparentSolidMaterial)
+                tsm.frustumCulled = false
+                tsm.castShadow = false
+                tsm.receiveShadow = false
+                tsm.renderOrder = 2
+                tsm.userData['chunkCoord'] = chunk.coord
+                if (chunk.maxY !== undefined) tsm.userData['chunkMaxY'] = chunk.maxY
+                updatedTransparentSolidMesh = Option.some(tsm)
+              }
+            } else {
+              const tsm = existingTsMesh
+              if (transparentSolid === null || transparentSolid.positions.length === 0) {
+                tsm.geometry.dispose()
+                updatedTransparentSolidMesh = Option.none()
+              } else {
+                if (!tryReuseGeometry(tsm.geometry, transparentSolid)) {
+                  const oldGeom = tsm.geometry
+                  tsm.geometry = buildGeometry(transparentSolid)
+                  oldGeom.dispose()
+                }
+                tsm.userData['chunkCoord'] = chunk.coord
+                if (chunk.maxY !== undefined) tsm.userData['chunkMaxY'] = chunk.maxY
+                updatedTransparentSolidMesh = prevTsMesh
+              }
+            }
+
+            return { waterMesh: updatedWaterMesh, transparentSolidMesh: updatedTransparentSolidMesh }
+          }),
 
         disposeMesh: (mesh: THREE.Mesh): Effect.Effect<void, never> =>
           Effect.sync(() => {

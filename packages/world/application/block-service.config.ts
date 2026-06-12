@@ -94,6 +94,13 @@ export const NON_PLACEABLE_ITEM_TYPES: HashSet.HashSet<InventoryItem> = HashSet.
   'BUCKET',
   'WATER_BUCKET',
   'LAVA_BUCKET',
+  // The End items — consumables, equipment, or crafting ingredients; never placed as world blocks
+  'CHORUS_FRUIT',
+  'DRAGON_BREATH',
+  'ELYTRA',
+  'ENDER_EYE',
+  'POPPED_CHORUS_FRUIT',
+  'SHULKER_SHELL',
 ])
 
 export const INVENTORY_DROP_OVERRIDES: HashMap.HashMap<BlockType, InventoryItem> = HashMap.fromIterable<BlockType, InventoryItem>([

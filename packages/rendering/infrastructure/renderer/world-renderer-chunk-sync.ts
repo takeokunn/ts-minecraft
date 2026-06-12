@@ -103,40 +103,36 @@ export const syncChunksToScene = (
       { chunks: [] as Array<readonly [ChunkCacheKey, { opaqueMesh: THREE.Mesh; waterMesh: Option.Option<THREE.Mesh>; transparentSolidMesh: Option.Option<THREE.Mesh>; lod: LodLevel }]>, processed: 0 },
       {
         while: (s) => s.processed < hardCap && nowMs() - startMs < WORLD_RENDERER_TIME_BUDGET_MS,
-        body: (s) => {
-          const chunk = newChunks[s.processed]!
-          const lod = lodForChunk(chunk)
-          return chunkMeshService
-            .createChunkMesh(chunk, waterMaterial, lod)
-            .pipe(
-              Effect.map(({ opaqueMesh, waterMesh, transparentSolidMesh }) => ({
-                chunks: [...s.chunks, [chunkKey(chunk.coord), { opaqueMesh, waterMesh, transparentSolidMesh, lod }] as const],
-                processed: s.processed + 1,
-              }))
-            )
-        },
+        body: (s) =>
+          Effect.gen(function* () {
+            const chunk = newChunks[s.processed]!
+            const lod = lodForChunk(chunk)
+            const { opaqueMesh, waterMesh, transparentSolidMesh } = yield* chunkMeshService.createChunkMesh(chunk, waterMaterial, lod)
+            return {
+              chunks: [...s.chunks, [chunkKey(chunk.coord), { opaqueMesh, waterMesh, transparentSolidMesh, lod }] as const],
+              processed: s.processed + 1,
+            }
+          }),
       }
     )
     // allNewChunksMeshed is `false` if either the time budget OR the hard
     // cap stopped us short of draining the entire newChunks queue.
     const allNewChunksMeshed = processed >= newChunks.length
 
-    const nextMeshesAfterAdd = yield* Effect.all(
+    const added = yield* Effect.all(
       Arr.map(meshedChunks, ([key, { opaqueMesh, waterMesh, transparentSolidMesh, lod }]) =>
-        Effect.all([
-          sceneService.add(scene, opaqueMesh),
-          Option.match(waterMesh, { onNone: () => Effect.void, onSome: (m) => sceneService.add(scene, m) }),
-          Option.match(transparentSolidMesh, { onNone: () => Effect.void, onSome: (m) => sceneService.add(scene, m) }),
-        ], { concurrency: 'unbounded', discard: true }).pipe(
-          Effect.as([key, { opaque: opaqueMesh, water: waterMesh, transparentSolid: transparentSolidMesh, lod }] as const)
-        )
+        Effect.gen(function* () {
+          yield* Effect.all([
+            sceneService.add(scene, opaqueMesh),
+            Option.match(waterMesh, { onNone: () => Effect.void, onSome: (m) => sceneService.add(scene, m) }),
+            Option.match(transparentSolidMesh, { onNone: () => Effect.void, onSome: (m) => sceneService.add(scene, m) }),
+          ], { concurrency: 'unbounded', discard: true })
+          return [key, { opaque: opaqueMesh, water: waterMesh, transparentSolid: transparentSolidMesh, lod }] as const
+        })
       ),
       { concurrency: CHUNK_SYNC_CONCURRENCY }
-    ).pipe(
-      Effect.map((added) =>
-        Arr.reduce(added, meshes, (acc, [key, chunkMeshes]) => HashMap.set(acc, key, chunkMeshes))
-      )
     )
+    const nextMeshesAfterAdd = Arr.reduce(added, meshes, (acc, [key, chunkMeshes]) => HashMap.set(acc, key, chunkMeshes))
 
     // FR-3.1: re-mesh LOD-changed chunks in place (geometry buffers updated in
     // the existing mesh object). Uses the same time-budget + hard-cap as the
@@ -151,32 +147,29 @@ export const syncChunksToScene = (
       { meshMap: nextMeshesAfterAdd, processedLod: 0 },
       {
         while: (s) => s.processedLod < lodHardCap && nowMs() - lodStartMs < WORLD_RENDERER_TIME_BUDGET_MS,
-        body: (s) => {
-          const chunk = lodChangedChunks[s.processedLod]!
-          const key = chunkKey(chunk.coord)
-          const existing = Option.getOrNull(HashMap.get(s.meshMap, key))
-          if (existing === null) {
-            // Chunk was just added above — it already has the correct LOD.
-            return Effect.succeed({ meshMap: s.meshMap, processedLod: s.processedLod + 1 })
-          }
-          const newLod = lodForChunk(chunk)
-          return chunkMeshService
-            .updateChunkMesh(existing.opaque, existing.water, chunk, waterMaterial, newLod, undefined, existing.transparentSolid)
-            .pipe(
-              Effect.map(({ waterMesh: nextWaterMesh, transparentSolidMesh: nextTransparentSolidMesh }) => {
-                const updated: ChunkMeshes = {
-                  opaque: existing.opaque,
-                  water: nextWaterMesh,
-                  transparentSolid: nextTransparentSolidMesh,
-                  lod: newLod,
-                }
-                return {
-                  meshMap: HashMap.set(s.meshMap, key, updated),
-                  processedLod: s.processedLod + 1,
-                }
-              })
-            )
-        },
+        body: (s) =>
+          Effect.gen(function* () {
+            const chunk = lodChangedChunks[s.processedLod]!
+            const key = chunkKey(chunk.coord)
+            const existing = Option.getOrNull(HashMap.get(s.meshMap, key))
+            if (existing === null) {
+              // Chunk was just added above — it already has the correct LOD.
+              return { meshMap: s.meshMap, processedLod: s.processedLod + 1 }
+            }
+            const newLod = lodForChunk(chunk)
+            const { waterMesh: nextWaterMesh, transparentSolidMesh: nextTransparentSolidMesh } = yield* chunkMeshService
+              .updateChunkMesh(existing.opaque, existing.water, chunk, waterMaterial, newLod, undefined, existing.transparentSolid)
+            const updated: ChunkMeshes = {
+              opaque: existing.opaque,
+              water: nextWaterMesh,
+              transparentSolid: nextTransparentSolidMesh,
+              lod: newLod,
+            }
+            return {
+              meshMap: HashMap.set(s.meshMap, key, updated),
+              processedLod: s.processedLod + 1,
+            }
+          }),
       }
     )
     const allLodChunksRemeshed = processedLod >= lodChangedChunks.length
@@ -196,35 +189,39 @@ export const syncChunksToScene = (
     const allStaleRemoved = removalPairs.length <= removalsToProcess.length
 
     const removedKeys = yield* Effect.all(
-      Arr.map(removalsToProcess, ([key, chunkMeshes]) => {
-        const { water, transparentSolid } = chunkMeshes
-        return Effect.all([
-          sceneService.remove(scene, chunkMeshes.opaque).pipe(
-            Effect.andThen(Effect.sync(() => disposeMesh(chunkMeshes.opaque)))
-          ),
-          Option.match(water, {
-            onNone: () => Effect.void,
-            onSome: (m) => sceneService.remove(scene, m).pipe(Effect.andThen(Effect.sync(() => disposeMesh(m)))),
-          }),
-          Option.match(transparentSolid, {
-            onNone: () => Effect.void,
-            /* c8 ignore next -- transparentSolid mesh removal on chunk unload; requires full scene setup to hit in tests */
-            onSome: (m) => sceneService.remove(scene, m).pipe(Effect.andThen(Effect.sync(() => disposeMesh(m)))),
-          }),
-          // SEC-W1: drop the sync-fallback prev mesh cache for this coord so
-          // the cache cannot grow unbounded under long sessions on the sync
-          // fallback path. Worker path is a no-op (no per-coord cache).
-          // Pulled from `userData.chunkCoord` (the same source the renderer
-          // already trusts for frustum culling) — only releasing when the
-          // value is present preserves correctness if it is somehow missing.
-          (() => {
-            const coord = chunkMeshes.opaque.userData['chunkCoord'] ?? null
-            return coord !== null ? chunkMeshService.releasePrevCachedMesh(coord) : Effect.void
-          })(),
-        ], { concurrency: 'unbounded', discard: true }).pipe(
-          Effect.as(key)
-        )
-      }),
+      Arr.map(removalsToProcess, ([key, chunkMeshes]) =>
+        Effect.gen(function* () {
+          const { water, transparentSolid } = chunkMeshes
+          const removeAndDispose = (m: THREE.Mesh): Effect.Effect<void, never> =>
+            Effect.gen(function* () {
+              yield* sceneService.remove(scene, m)
+              yield* Effect.sync(() => disposeMesh(m))
+            })
+          yield* Effect.all([
+            removeAndDispose(chunkMeshes.opaque),
+            Option.match(water, {
+              onNone: () => Effect.void,
+              onSome: removeAndDispose,
+            }),
+            Option.match(transparentSolid, {
+              onNone: () => Effect.void,
+              /* c8 ignore next -- transparentSolid mesh removal on chunk unload; requires full scene setup to hit in tests */
+              onSome: removeAndDispose,
+            }),
+            // SEC-W1: drop the sync-fallback prev mesh cache for this coord so
+            // the cache cannot grow unbounded under long sessions on the sync
+            // fallback path. Worker path is a no-op (no per-coord cache).
+            // Pulled from `userData.chunkCoord` (the same source the renderer
+            // already trusts for frustum culling) — only releasing when the
+            // value is present preserves correctness if it is somehow missing.
+            (() => {
+              const coord = chunkMeshes.opaque.userData['chunkCoord'] ?? null
+              return coord !== null ? chunkMeshService.releasePrevCachedMesh(coord) : Effect.void
+            })(),
+          ], { concurrency: 'unbounded', discard: true })
+          return key
+        })
+      ),
       { concurrency: CHUNK_SYNC_CONCURRENCY }
     )
 

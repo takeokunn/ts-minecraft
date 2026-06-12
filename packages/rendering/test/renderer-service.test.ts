@@ -84,15 +84,11 @@ describe('three/renderer/renderer-service', () => {
       }).pipe(Effect.provide(RendererServiceLive))
     )
 
-    it.effect('should support Effect.map on service methods', () =>
+    it.effect('should support Effect composition on service methods', () =>
       Effect.gen(function* () {
         const service = yield* RendererService
-
-        const result = service.resize(makeRenderer(), 100, 100).pipe(
-          Effect.map(() => 'resized')
-        )
-
-        expect(typeof result.pipe).toBe('function')
+        const resizeEffect = service.resize(makeRenderer(), 100, 100)
+        expect(typeof resizeEffect.pipe).toBe('function')
       }).pipe(Effect.provide(RendererServiceLive))
     )
 

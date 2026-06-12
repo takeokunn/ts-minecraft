@@ -21,8 +21,11 @@ import {
 } from '@ts-minecraft/app/frame-handler.config'
 import { handleHotbarInput, renderHotbarHud } from '@ts-minecraft/app/frame/stages/interaction-hotbar-handler'
 import { handleRedstoneInput, type RedstoneFlags } from '@ts-minecraft/app/frame/stages/interaction-redstone-handler'
-import { handleLeftClick, handleRightClick, handleFoodConsumption, handleUnequipArmor, handleFeedAnimal, handleShearAnimal, handleBlockBreakProgress, handleBowFire } from '@ts-minecraft/app/frame/stages/interaction-block-handler'
-import { handleFlintAndSteel, handleBucket } from '@ts-minecraft/app/frame/stages/interaction-placement-handler'
+import { handleBlockBreakProgress } from '@ts-minecraft/app/frame/stages/interaction-break-handler'
+import { handleLeftClick } from '@ts-minecraft/app/frame/stages/interaction-melee-handler'
+import { handleBowFire } from '@ts-minecraft/app/frame/stages/interaction-bow-handler'
+import { handleRightClick, handleFlintAndSteel, handleBucket } from '@ts-minecraft/app/frame/stages/interaction-placement-handler'
+import { handleFoodConsumption, handleUnequipArmor, handleFeedAnimal, handleShearAnimal } from '@ts-minecraft/app/frame/stages/interaction-item-use-handler'
 import { handleFarmingInteraction } from '@ts-minecraft/app/frame/stages/interaction-farming-handler'
 import { findAttackableEntity } from '@ts-minecraft/app/frame/stages/attack-targeting'
 

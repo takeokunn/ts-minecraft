@@ -168,43 +168,44 @@ export type NetworkMessage = Schema.Schema.Type<typeof NetworkMessageSchema>
 export const serializeNetworkMessage = (
   message: NetworkMessage,
 ): Effect.Effect<string, NetworkError> =>
-  Schema.encode(NetworkMessageSchema)(message).pipe(
-    Effect.map((encoded) => JSON.stringify(encoded)),
-    Effect.mapError(
-      (cause) =>
-        new NetworkError({
-          operation: 'serialize',
-          reason: 'message does not conform to the network protocol',
-          cause,
-        }),
-    ),
-  )
+  Effect.gen(function* () {
+    const encoded = yield* Schema.encode(NetworkMessageSchema)(message).pipe(
+      Effect.mapError(
+        (cause) =>
+          new NetworkError({
+            operation: 'serialize',
+            reason: 'message does not conform to the network protocol',
+            cause,
+          }),
+      ),
+    )
+    return JSON.stringify(encoded)
+  })
 
 export const deserializeNetworkMessage = (
   serialized: string,
 ): Effect.Effect<NetworkMessage, NetworkError> =>
-  Effect.try({
-    try: () => JSON.parse(serialized) as unknown,
-    catch: (cause) =>
-      new NetworkError({
-        operation: 'deserialize',
-        reason: 'payload is not valid JSON',
-        cause,
-      }),
-  }).pipe(
-    Effect.flatMap((json) =>
-      Schema.decodeUnknown(NetworkMessageSchema)(json).pipe(
-        Effect.mapError(
-          (cause) =>
-            new NetworkError({
-              operation: 'deserialize',
-              reason: 'payload does not conform to the network protocol',
-              cause,
-            }),
-        ),
+  Effect.gen(function* () {
+    const json = yield* Effect.try({
+      try: () => JSON.parse(serialized) as unknown,
+      catch: (cause) =>
+        new NetworkError({
+          operation: 'deserialize',
+          reason: 'payload is not valid JSON',
+          cause,
+        }),
+    })
+    return yield* Schema.decodeUnknown(NetworkMessageSchema)(json).pipe(
+      Effect.mapError(
+        (cause) =>
+          new NetworkError({
+            operation: 'deserialize',
+            reason: 'payload does not conform to the network protocol',
+            cause,
+          }),
       ),
-    ),
-  )
+    )
+  })
 
 export const NetworkPositionSchema = Vec3Schema
 export type NetworkPosition = Vec3

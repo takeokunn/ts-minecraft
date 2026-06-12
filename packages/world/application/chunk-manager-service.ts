@@ -129,6 +129,7 @@ export const ChunkManagerServiceLive = ChunkManagerService.Default
  * have a service reference. This helper is for callers that only have the tag.
  */
 export const setActiveChunkWorldId = (worldId: WorldIdType): Effect.Effect<void, never, ChunkManagerService> =>
-  ChunkManagerService.pipe(
-    Effect.flatMap((service) => service.setActiveWorldId(worldId)),
-  )
+  Effect.gen(function* () {
+    const service = yield* ChunkManagerService
+    yield* service.setActiveWorldId(worldId)
+  })

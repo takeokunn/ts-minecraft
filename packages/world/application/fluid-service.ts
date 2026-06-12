@@ -65,15 +65,12 @@ export class FluidService extends Effect.Service<FluidService>()(
         )
 
       const getLoaded: Effect.Effect<HashMap.HashMap<ChunkCacheKey, Chunk>, never> =
-        Ref.get(loadedCacheRef).pipe(
-          Effect.flatMap((cached) =>
-            HashMap.size(cached) > 0
-              ? Effect.succeed(cached)
-              : chunkManagerService.getLoadedChunks().pipe(
-                  Effect.map((chunks) => HashMap.fromIterable(Arr.map(chunks, (chunk) => [ChunkCacheKey.make(chunk.coord), chunk] as const)))
-                )
-          )
-        )
+        Effect.gen(function* () {
+          const cached = yield* Ref.get(loadedCacheRef)
+          if (HashMap.size(cached) > 0) return cached
+          const chunks = yield* chunkManagerService.getLoadedChunks()
+          return HashMap.fromIterable(Arr.map(chunks, (chunk) => [ChunkCacheKey.make(chunk.coord), chunk] as const))
+        })
 
       const seedFluid = (type: FluidType) => (position: Position): Effect.Effect<void, never> =>
         Effect.gen(function* () {
@@ -165,25 +162,23 @@ export class FluidService extends Effect.Service<FluidService>()(
         position: Position,
         cell: FluidCell,
         nextLevel: number,
-      ): Effect.Effect<boolean, never> => {
-        const below = { x: position.x, y: position.y - 1, z: position.z }
-        if (!isAirAt(loaded, below)) return Effect.succeed(false)
-        const targetKey = blockKey(below)
-        return Ref.modify(tickStateRef, (s) => {
-          const existing = HashMap.get(s.cells, targetKey)
-          /* c8 ignore next */
-          if (Option.exists(existing, (e) => e.type === cell.type && e.level <= nextLevel)) return [false, s] as const
-          const newCell: FluidCell = { level: nextLevel, source: false, type: cell.type }
-          const next = setCell(s, below, newCell)
-          return [true, { ...next, frontier: HashSet.add(next.frontier, targetKey) }] as const
-        }).pipe(
-          Effect.flatMap((shouldWrite) =>
+      ): Effect.Effect<boolean, never> =>
+        Effect.gen(function* () {
+          const below = { x: position.x, y: position.y - 1, z: position.z }
+          if (!isAirAt(loaded, below)) return false
+          const targetKey = blockKey(below)
+          const shouldWrite = yield* Ref.modify(tickStateRef, (s) => {
+            const existing = HashMap.get(s.cells, targetKey)
             /* c8 ignore next */
-            shouldWrite ? writeFluid(loaded, below, { level: nextLevel, source: false, type: cell.type }) : Effect.void,
-          ),
-          Effect.as(true),
-        )
-      }
+            if (Option.exists(existing, (e) => e.type === cell.type && e.level <= nextLevel)) return [false, s] as const
+            const newCell: FluidCell = { level: nextLevel, source: false, type: cell.type }
+            const next = setCell(s, below, newCell)
+            return [true, { ...next, frontier: HashSet.add(next.frontier, targetKey) }] as const
+          })
+          /* c8 ignore next */
+          if (shouldWrite) yield* writeFluid(loaded, below, { level: nextLevel, source: false, type: cell.type })
+          return true
+        })
 
       const flowLaterally = (
         loaded: HashMap.HashMap<ChunkCacheKey, Chunk>,

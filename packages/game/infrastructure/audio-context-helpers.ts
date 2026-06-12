@@ -4,13 +4,13 @@ export const acquireAudioContext = (): Effect.Effect<Option.Option<AudioContext>
   if (typeof AudioContext === 'undefined') {
     return Effect.succeed(Option.none())
   }
-  return Effect.try({
-    try: () => new AudioContext(),
-    catch: () => new Error('AudioContext creation failed'),
-  }).pipe(
-    Effect.map(Option.some),
-    Effect.catchAllCause(() => Effect.succeed(Option.none())),
-  )
+  return Effect.gen(function* () {
+    const ctx = yield* Effect.try({
+      try: () => new AudioContext(),
+      catch: () => new Error('AudioContext creation failed'),
+    })
+    return Option.some(ctx)
+  }).pipe(Effect.catchAllCause(() => Effect.succeed(Option.none())))
 }
 
 export const wireMasterGain = (

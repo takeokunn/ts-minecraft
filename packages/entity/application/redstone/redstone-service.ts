@@ -80,112 +80,134 @@ const computeNextRedstoneState = (
 export class RedstoneService extends Effect.Service<RedstoneService>()(
   '@minecraft/redstone/RedstoneService',
   {
-    effect: Effect.all([
-      Ref.make<RedstoneState>(INITIAL_STATE),
-      Ref.make(false),
-    ], { concurrency: 'unbounded' }).pipe(Effect.map(([stateRef, dirtyRef]) => ({
+    effect: Effect.gen(function* () {
+      const stateRef = yield* Ref.make<RedstoneState>(INITIAL_STATE)
+      const dirtyRef = yield* Ref.make(false)
+      return {
         setComponent: (
           position: Position,
           type: RedstoneComponentType,
         ): Effect.Effect<RedstoneComponent, never> =>
-          Ref.modify(stateRef, (state): [RedstoneComponent, RedstoneState] => {
-            const normalized = toBlockPosition(position)
-            const key = positionKey(normalized)
-            const existing = Option.getOrNull(Option.filter(HashMap.get(state.components, key), (c) => c.type === type))
-            const componentState = existing !== null ? existing.state : makeDefaultState(type)
-            const component: RedstoneComponent = normalizeComponentPosition({
-              type,
-              position: normalized,
-              state: componentState,
+          Effect.gen(function* () {
+            const component = yield* Ref.modify(stateRef, (state): [RedstoneComponent, RedstoneState] => {
+              const normalized = toBlockPosition(position)
+              const key = positionKey(normalized)
+              const existing = Option.getOrNull(Option.filter(HashMap.get(state.components, key), (c) => c.type === type))
+              const componentState = existing !== null ? existing.state : makeDefaultState(type)
+              const comp: RedstoneComponent = normalizeComponentPosition({
+                type,
+                position: normalized,
+                state: componentState,
+              })
+              const components = HashMap.set(state.components, key, comp)
+              const pistonKeys = type === RedstoneComponentType.Piston
+                ? HashSet.add(state.pistonKeys, key)
+                : state.pistonKeys
+              const buttonKeys = type === RedstoneComponentType.Button
+                ? HashSet.add(state.buttonKeys, key)
+                : state.buttonKeys
+              return [comp, { ...state, components, pistonKeys, buttonKeys }]
             })
-            const components = HashMap.set(state.components, key, component)
-            const pistonKeys = type === RedstoneComponentType.Piston
-              ? HashSet.add(state.pistonKeys, key)
-              : state.pistonKeys
-            const buttonKeys = type === RedstoneComponentType.Button
-              ? HashSet.add(state.buttonKeys, key)
-              : state.buttonKeys
-            return [component, { ...state, components, pistonKeys, buttonKeys }]
-          }).pipe(Effect.tap(() => Ref.set(dirtyRef, true))),
+            yield* Ref.set(dirtyRef, true)
+            return component
+          }),
 
         removeComponent: (position: Position): Effect.Effect<void, never> =>
-          Ref.update(stateRef, (state) => {
-            const key = positionKey(position)
-            return {
-              ...state,
-              components: HashMap.remove(state.components, key),
-              powerByPosition: HashMap.remove(state.powerByPosition, key),
-              pistonKeys: HashSet.remove(state.pistonKeys, key),
-              buttonKeys: HashSet.remove(state.buttonKeys, key),
-            }
-          }).pipe(Effect.tap(() => Ref.set(dirtyRef, true))),
+          Effect.gen(function* () {
+            yield* Ref.update(stateRef, (state) => {
+              const key = positionKey(position)
+              return {
+                ...state,
+                components: HashMap.remove(state.components, key),
+                powerByPosition: HashMap.remove(state.powerByPosition, key),
+                pistonKeys: HashSet.remove(state.pistonKeys, key),
+                buttonKeys: HashSet.remove(state.buttonKeys, key),
+              }
+            })
+            yield* Ref.set(dirtyRef, true)
+          }),
 
         getComponent: (position: Position): Effect.Effect<Option.Option<RedstoneComponent>, never> =>
-          Ref.get(stateRef).pipe(
-            Effect.map((state) => HashMap.get(state.components, positionKey(position))),
-          ),
+          Effect.gen(function* () {
+            const state = yield* Ref.get(stateRef)
+            return HashMap.get(state.components, positionKey(position))
+          }),
 
         getComponents: (): Effect.Effect<ReadonlyArray<RedstoneComponent>, never> =>
-          Ref.get(stateRef).pipe(
-            Effect.map((state) => {
-              const components: Array<RedstoneComponent> = Arr.fromIterable(HashMap.values(state.components))
-              return Arr.sort(components, Order.mapInput(Order.number, (a: RedstoneComponent) => positionKey(a.position)))
-            }),
-          ),
+          Effect.gen(function* () {
+            const state = yield* Ref.get(stateRef)
+            const components: Array<RedstoneComponent> = Arr.fromIterable(HashMap.values(state.components))
+            return Arr.sort(components, Order.mapInput(Order.number, (a: RedstoneComponent) => positionKey(a.position)))
+          }),
 
         toggleLever: (position: Position): Effect.Effect<Option.Option<RedstoneComponent>, never> =>
-          Ref.modify(stateRef, (state): [Option.Option<RedstoneComponent>, RedstoneState] => {
-            const key = positionKey(position)
-            const current = Option.getOrNull(Option.filter(HashMap.get(state.components, key), (c) => c.type === RedstoneComponentType.Lever))
-            if (current === null) return [Option.none(), state]
-            const updated: RedstoneComponent = { ...current, state: { ...current.state, active: !current.state.active } }
-            return [Option.some(updated), { ...state, components: HashMap.set(state.components, key, updated) }]
-          }).pipe(Effect.tap(() => Ref.set(dirtyRef, true))),
+          Effect.gen(function* () {
+            const result = yield* Ref.modify(stateRef, (state): [Option.Option<RedstoneComponent>, RedstoneState] => {
+              const key = positionKey(position)
+              const current = Option.getOrNull(Option.filter(HashMap.get(state.components, key), (c) => c.type === RedstoneComponentType.Lever))
+              if (current === null) return [Option.none(), state]
+              const updated: RedstoneComponent = { ...current, state: { ...current.state, active: !current.state.active } }
+              return [Option.some(updated), { ...state, components: HashMap.set(state.components, key, updated) }]
+            })
+            yield* Ref.set(dirtyRef, true)
+            return result
+          }),
 
         pressButton: (
           position: Position,
           durationTicks = DEFAULT_BUTTON_TICKS,
         ): Effect.Effect<Option.Option<RedstoneComponent>, never> =>
-          Ref.modify(stateRef, (state): [Option.Option<RedstoneComponent>, RedstoneState] => {
-            const key = positionKey(position)
-            const current = Option.getOrNull(Option.filter(HashMap.get(state.components, key), (c) => c.type === RedstoneComponentType.Button))
-            if (current === null) return [Option.none(), state]
-            const normalizedDuration = Math.min(Math.max(1, Math.floor(durationTicks)), MAX_BUTTON_TICKS)
-            const updated: RedstoneComponent = {
-              ...current,
-              state: { ...current.state, active: true, buttonTicksRemaining: normalizedDuration },
-            }
-            return [Option.some(updated), { ...state, components: HashMap.set(state.components, key, updated) }]
-          }).pipe(Effect.tap(() => Ref.set(dirtyRef, true))),
+          Effect.gen(function* () {
+            const result = yield* Ref.modify(stateRef, (state): [Option.Option<RedstoneComponent>, RedstoneState] => {
+              const key = positionKey(position)
+              const current = Option.getOrNull(Option.filter(HashMap.get(state.components, key), (c) => c.type === RedstoneComponentType.Button))
+              if (current === null) return [Option.none(), state]
+              const normalizedDuration = Math.min(Math.max(1, Math.floor(durationTicks)), MAX_BUTTON_TICKS)
+              const updated: RedstoneComponent = {
+                ...current,
+                state: { ...current.state, active: true, buttonTicksRemaining: normalizedDuration },
+              }
+              return [Option.some(updated), { ...state, components: HashMap.set(state.components, key, updated) }]
+            })
+            yield* Ref.set(dirtyRef, true)
+            return result
+          }),
 
         toggleTorch: (position: Position): Effect.Effect<Option.Option<RedstoneComponent>, never> =>
-          Ref.modify(stateRef, (state): [Option.Option<RedstoneComponent>, RedstoneState] => {
-            const key = positionKey(position)
-            const current = Option.getOrNull(Option.filter(HashMap.get(state.components, key), (c) => c.type === RedstoneComponentType.Torch))
-            if (current === null) return [Option.none(), state]
-            const updated: RedstoneComponent = { ...current, state: { ...current.state, active: !current.state.active } }
-            return [Option.some(updated), { ...state, components: HashMap.set(state.components, key, updated) }]
-          }).pipe(Effect.tap(() => Ref.set(dirtyRef, true))),
+          Effect.gen(function* () {
+            const result = yield* Ref.modify(stateRef, (state): [Option.Option<RedstoneComponent>, RedstoneState] => {
+              const key = positionKey(position)
+              const current = Option.getOrNull(Option.filter(HashMap.get(state.components, key), (c) => c.type === RedstoneComponentType.Torch))
+              if (current === null) return [Option.none(), state]
+              const updated: RedstoneComponent = { ...current, state: { ...current.state, active: !current.state.active } }
+              return [Option.some(updated), { ...state, components: HashMap.set(state.components, key, updated) }]
+            })
+            yield* Ref.set(dirtyRef, true)
+            return result
+          }),
 
         getPowerAt: (position: Position): Effect.Effect<number, never> =>
-          Ref.get(stateRef).pipe(
-            Effect.map((state) => Option.getOrElse(HashMap.get(state.powerByPosition, positionKey(position)), () => 0)),
-          ),
+          Effect.gen(function* () {
+            const state = yield* Ref.get(stateRef)
+            return Option.getOrElse(HashMap.get(state.powerByPosition, positionKey(position)), () => 0)
+          }),
 
         getPowerSnapshot: (): Effect.Effect<RedstoneTickSnapshot, never> =>
-          Ref.get(stateRef).pipe(
-            Effect.map((state) => ({
+          Effect.gen(function* () {
+            const state = yield* Ref.get(stateRef)
+            return {
               tick: state.tick,
               poweredPositions: sortedPowerSnapshot(state.powerByPosition),
-            })),
-          ),
+            }
+          }),
 
         tick: (): Effect.Effect<RedstoneTickSnapshot, never> =>
           Effect.gen(function* () {
             const dirty = yield* Ref.getAndSet(dirtyRef, false)
             return yield* Ref.modify(stateRef, (state) => computeNextRedstoneState(state, dirty))
           }),
-    })))
+      }
+    }),
   },
 ) {}
 

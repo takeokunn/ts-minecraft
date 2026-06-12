@@ -27,11 +27,9 @@ export type CollisionResolver = (
 
 // ── Pure Helper Functions ────────────────────────────────────────────────────
 
-/* c8 ignore start -- stuck detection branches: X/Z velocity drops require specific collision scenarios */
 export const isHorizontalBlocked = (before: Vector3, after: Vector3): boolean =>
   (Math.abs(before.x) > MOB_STUCK_EPSILON && Math.abs(after.x) <= MOB_STUCK_EPSILON)
   || (Math.abs(before.z) > MOB_STUCK_EPSILON && Math.abs(after.z) <= MOB_STUCK_EPSILON)
-/* c8 ignore end */
 
 export const toHorizontalTarget = (entityPosition: Position, playerPosition: Position): Position => ({
   x: playerPosition.x,
@@ -42,7 +40,6 @@ export const toHorizontalTarget = (entityPosition: Position, playerPosition: Pos
 export const isSamePosition = (left: Position, right: Position): boolean =>
   left.x === right.x && left.y === right.y && left.z === right.z
 
-/* c8 ignore next 2 -- velocity comparison branches: all combinations of x/y/z equality not always tested */
 export const isSameVelocity = (left: Vector3, right: Vector3): boolean =>
   left.x === right.x && left.y === right.y && left.z === right.z
 

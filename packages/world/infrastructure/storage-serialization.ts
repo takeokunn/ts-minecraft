@@ -1,4 +1,4 @@
-import { Effect, Option, Schema } from 'effect'
+import { Effect, Either, Option, Schema } from 'effect'
 import type { WorldId } from '@ts-minecraft/core'
 import { StorageError } from '../domain/errors'
 import { WorldMetadataSchema, type WorldMetadata, type WorldMetadataEncoded } from '../domain/world-metadata-model'
@@ -15,7 +15,10 @@ export const decodeWorldMetadata = (value: unknown, operation: string): Effect.E
 
 export const decodeOptionalWorldMetadata = (value: WorldMetadataEncoded | undefined): Effect.Effect<Option.Option<WorldMetadata>, StorageError> => {
   if (value === undefined) return Effect.succeed(Option.none<WorldMetadata>())
-  return decodeWorldMetadata(value, 'loadWorldMetadata').pipe(Effect.map(Option.some))
+  return Effect.gen(function* () {
+    const metadata = yield* decodeWorldMetadata(value, 'loadWorldMetadata')
+    return Option.some(metadata)
+  })
 }
 
 export const collectDecodedWorldMetadata = (
@@ -30,11 +33,14 @@ export const collectDecodedWorldMetadata = (
     yield* Effect.forEach(
       rows,
       (row) =>
-        Schema.decodeUnknown(WorldMetadataSchema)(row.value).pipe(
-          Effect.tap((metadata) => Effect.sync(() => { valid.push({ worldId: row.key as WorldId, metadata }) })),
-          Effect.tapError(() => Effect.sync(() => { corrupt.push(row.key as WorldId) })),
-          Effect.ignore,
-        ),
+        Effect.gen(function* () {
+          const result = yield* Schema.decodeUnknown(WorldMetadataSchema)(row.value).pipe(Effect.either)
+          if (Either.isRight(result)) {
+            valid.push({ worldId: row.key as WorldId, metadata: result.right })
+          } else {
+            corrupt.push(row.key as WorldId)
+          }
+        }),
       { concurrency: 1 },
     )
     return { valid, corrupt }

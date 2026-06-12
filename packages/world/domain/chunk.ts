@@ -60,9 +60,7 @@ export const setBlockInChunk = (
   localZ: number,
   blockType: BlockType
 ): Effect.Effect<void, BlockIndexError> =>
-  Effect.flatMap(
-    toBlockIndex(localX, y, localZ),
-    (idx) => Effect.sync(() => {
-      chunk.blocks[idx] = blockTypeToIndex(blockType)
-    })
-  )
+  Effect.gen(function* () {
+    const idx = yield* toBlockIndex(localX, y, localZ)
+    yield* Effect.sync(() => { chunk.blocks[idx] = blockTypeToIndex(blockType) })
+  })

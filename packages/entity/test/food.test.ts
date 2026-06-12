@@ -1,5 +1,5 @@
 import { describe, it } from '@effect/vitest'
-import { getFoodProperties, isFood } from '@ts-minecraft/entity'
+import { getFoodProperties, isFood, FOOD_TABLE } from '@ts-minecraft/entity'
 import type { ItemType } from '@ts-minecraft/core'
 import { Array as Arr, Option } from 'effect'
 import { expect } from 'vitest'
@@ -30,6 +30,39 @@ describe('getFoodProperties', () => {
   it('returns none for a non-food item', () => {
     expect(Option.isNone(getFoodProperties('DIAMOND_PICKAXE'))).toBe(true)
     expect(Option.isNone(getFoodProperties('IRON_INGOT'))).toBe(true)
+  })
+})
+
+// ─── FOOD_TABLE completeness ─────────────────────────────────────────────────
+
+describe('FOOD_TABLE completeness', () => {
+  const allFoodItems = Object.keys(FOOD_TABLE) as ReadonlyArray<ItemType>
+
+  it('every key in FOOD_TABLE is recognized by isFood', () => {
+    for (const item of allFoodItems) {
+      expect(isFood(item), `${item} is in FOOD_TABLE but isFood returns false`).toBe(true)
+    }
+  })
+
+  it('every key in FOOD_TABLE yields Some from getFoodProperties', () => {
+    for (const item of allFoodItems) {
+      expect(
+        Option.isSome(getFoodProperties(item)),
+        `${item} is in FOOD_TABLE but getFoodProperties returns None`,
+      ).toBe(true)
+    }
+  })
+
+  it('every food entry has positive foodLevel and saturationModifier', () => {
+    for (const item of allFoodItems) {
+      const props = Option.getOrThrow(getFoodProperties(item))
+      expect(props.foodLevel, `${item}.foodLevel must be > 0`).toBeGreaterThan(0)
+      expect(props.saturationModifier, `${item}.saturationModifier must be > 0`).toBeGreaterThan(0)
+    }
+  })
+
+  it('covers all 15 registered food items (prevents silent omissions)', () => {
+    expect(allFoodItems.length).toBe(15)
   })
 })
 

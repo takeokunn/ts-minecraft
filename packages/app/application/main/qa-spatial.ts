@@ -51,31 +51,33 @@ export const scanNearbyBlock = <TChunk extends { readonly blocks: Uint8Array }>(
     )
   )
 
-  return Effect.iterate(
-    { found: false, i: 0 },
-    {
-      while: (s) => !s.found && s.i < searchCoords.length,
-      body: (s) => {
-        const { dx, dy, dz } = searchCoords[s.i]!
-        const worldPos = {
-          x: Math.floor(playerPos.x + dx),
-          y: Math.floor(playerPos.y + dy),
-          z: Math.floor(playerPos.z + dz),
-        }
-        if (worldPos.y < 0 || worldPos.y >= CHUNK_HEIGHT) {
-          return Effect.succeed({ found: false, i: s.i + 1 })
-        }
-        const { chunkCoord, lx, lz } = getChunkAccessForWorldPosition(worldPos)
-        return getChunk(chunkCoord).pipe(
-          Effect.map((chunkOpt) => {
+  return Effect.gen(function* () {
+    const s = yield* Effect.iterate(
+      { found: false, i: 0 },
+      {
+        while: (s) => !s.found && s.i < searchCoords.length,
+        body: (s) => {
+          const { dx, dy, dz } = searchCoords[s.i]!
+          const worldPos = {
+            x: Math.floor(playerPos.x + dx),
+            y: Math.floor(playerPos.y + dy),
+            z: Math.floor(playerPos.z + dz),
+          }
+          if (worldPos.y < 0 || worldPos.y >= CHUNK_HEIGHT) {
+            return Effect.succeed({ found: false, i: s.i + 1 })
+          }
+          const { chunkCoord, lx, lz } = getChunkAccessForWorldPosition(worldPos)
+          return Effect.gen(function* () {
+            const chunkOpt = yield* getChunk(chunkCoord)
             const chunk = Option.getOrNull(chunkOpt)
             if (chunk === null) return { found: false, i: s.i + 1 }
             const idx = worldPos.y + lz * CHUNK_HEIGHT + lx * CHUNK_HEIGHT * CHUNK_SIZE
             return { found: chunk.blocks[idx] === targetBlockIndex, i: s.i + 1 }
           })
-        )
+        },
       },
-    }
-  ).pipe(Effect.map((s) => s.found))
+    )
+    return s.found
+  })
 }
 

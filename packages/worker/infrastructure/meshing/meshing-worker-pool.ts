@@ -247,12 +247,13 @@ export class MeshingWorkerPool extends Effect.Service<MeshingWorkerPool>()(
                   new Error(`Meshing worker response timed out after ${MESHING_WORKER_TIMEOUT}`),
               }),
               Effect.catchAll((error) =>
-                Effect.sync(() => disableWorkerPool(error)).pipe(
-                  Effect.zipRight(Effect.logWarning(
+                Effect.gen(function* () {
+                  yield* Effect.sync(() => disableWorkerPool(error))
+                  yield* Effect.logWarning(
                     `MeshingWorkerPool disabling workers and falling back to sync meshing for chunk (${chunk.coord.x},${chunk.coord.z}): ${error.message}`,
-                  )),
-                  Effect.zipRight(Effect.sync(() => meshChunkSync(chunk, options?.lod ?? 0, options?.dirtyAABB)))
-                )
+                  )
+                  return yield* Effect.sync(() => meshChunkSync(chunk, options?.lod ?? 0, options?.dirtyAABB))
+                })
               )
             ),
         releasePrevCachedMesh,
