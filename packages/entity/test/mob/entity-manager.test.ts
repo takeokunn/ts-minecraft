@@ -6,6 +6,18 @@ import { EntityManager, EntityManagerLive } from '@ts-minecraft/entity'
 import { DeltaTimeSecs } from '@ts-minecraft/core'
 import { makeTestEntity } from './test-utils'
 
+// CollisionResolver is the output-parameter form: it writes the corrected pose into
+// outPos/outVel and returns isGrounded. A pass-through resolver leaves the candidate
+// pose unchanged (copies inputs verbatim).
+type Vec = { x: number; y: number; z: number }
+const passThroughResolver =
+  (isGrounded: boolean) =>
+  (outPos: Vec, outVel: Vec, position: Vec, velocity: Vec): boolean => {
+    outPos.x = position.x; outPos.y = position.y; outPos.z = position.z
+    outVel.x = velocity.x; outVel.y = velocity.y; outVel.z = velocity.z
+    return isGrounded
+  }
+
 describe('entity/entityManager', () => {
   describe('addEntity', () => {
     it.effect('returns a valid entityId string', () =>
@@ -309,7 +321,7 @@ describe('entity/entityManager', () => {
             Effect.andThen(
               entityManager.applyPhysics(
                 DeltaTimeSecs.make(0.016),
-                (position, velocity) => ({ position, velocity, isGrounded: false }),
+                passThroughResolver(false),
               ),
             ),
           ),
@@ -336,12 +348,12 @@ describe('entity/entityManager', () => {
         // Pure free fall: applyPhysics only (no AI update), resolver never grounds
         // it, so gravity accrues every tick. Step well past terminal (~65 ticks).
         yield* Effect.forEach(Arr.makeBy(100, (i) => i), () =>
-          entityManager.applyPhysics(DeltaTimeSecs.make(0.05), (position, velocity) => ({ position, velocity, isGrounded: false })),
+          entityManager.applyPhysics(DeltaTimeSecs.make(0.05), passThroughResolver(false)),
           { concurrency: 1 },
         )
 
         const v1 = Option.getOrThrow(yield* entityManager.getEntity(entityId)).velocity.y
-        yield* entityManager.applyPhysics(DeltaTimeSecs.make(0.05), (position, velocity) => ({ position, velocity, isGrounded: false }))
+        yield* entityManager.applyPhysics(DeltaTimeSecs.make(0.05), passThroughResolver(false))
         const v2 = Option.getOrThrow(yield* entityManager.getEntity(entityId)).velocity.y
 
         // Terminal reached: velocity stops growing (would keep decreasing if
@@ -446,7 +458,7 @@ describe('entity/entityManager', () => {
 
         yield* entityManager.applyPhysics(
           DeltaTimeSecs.make(1),
-          (position, velocity) => ({ position, velocity, isGrounded: false }),
+          passThroughResolver(false),
         )
 
         const beforeUpdate = yield* entityManager.getEntity(entityId)
@@ -479,15 +491,11 @@ describe('entity/entityManager', () => {
         yield* entityManager.update(DeltaTimeSecs.make(1), { x: 6, y: 10, z: 0 })
         yield* entityManager.applyPhysics(
           DeltaTimeSecs.make(1),
-          (position, velocity) => ({
-            position: { x: 2, y: 2, z: position.z },
-            velocity: {
-              x: 0,
-              y: 0,
-              z: velocity.z,
-            },
-            isGrounded: true,
-          }),
+          (outPos: Vec, outVel: Vec, position: Vec, velocity: Vec): boolean => {
+            outPos.x = 2; outPos.y = 2; outPos.z = position.z
+            outVel.x = 0; outVel.y = 0; outVel.z = velocity.z
+            return true
+          },
         )
 
         const entityOpt = yield* entityManager.getEntity(entityId)
@@ -518,7 +526,7 @@ describe('entity/entityManager', () => {
 
         yield* entityManager.applyPhysics(
           DeltaTimeSecs.make(0.001),
-          (position, velocity) => ({ position, velocity, isGrounded: true }),
+          passThroughResolver(true),
         )
 
         const beforeBlockOpt = yield* entityManager.getEntity(entityId)
@@ -528,11 +536,11 @@ describe('entity/entityManager', () => {
 
         yield* entityManager.applyPhysics(
           DeltaTimeSecs.make(0.016),
-          () => ({
-            position: { x: beforeBlock.position.x, y: beforeBlock.position.y, z: beforeBlock.position.z },
-            velocity: { x: 0, y: 0, z: 0 },
-            isGrounded: true,
-          }),
+          (outPos: Vec, outVel: Vec): boolean => {
+            outPos.x = beforeBlock.position.x; outPos.y = beforeBlock.position.y; outPos.z = beforeBlock.position.z
+            outVel.x = 0; outVel.y = 0; outVel.z = 0
+            return true
+          },
         )
 
         const hoppedOpt = yield* entityManager.getEntity(entityId)

@@ -26,6 +26,13 @@ import {
   toHorizontalTarget,
 } from '../../domain/mob/entity-manager-utils'
 
+// Module-scoped scratch for the per-entity collision INPUTS (candidate position/velocity).
+// These are never retained — the resolver only reads them — and updateAllEntities maps
+// entities sequentially (HashMap.map), so a single shared pair is safe and avoids two
+// object literals per entity per physics tick.
+const _candPos = { x: 0, y: 0, z: 0 }
+const _candVel = { x: 0, y: 0, z: 0 }
+
 type EntityFrameContext = {
   readonly tick: number
   readonly deltaTime: DeltaTimeSecs
@@ -241,25 +248,27 @@ export const makeEntityManagerUpdate = (
 
         yield* updateAllEntities((entity, entityId) => {
           const isFlyingType = entity.type === 'EnderDragon'
-          const candidateVelocity: Vector3 = {
-            x: entity.velocity.x,
-            y: isFlyingType
-              ? entity.velocity.y
-              : Math.max(entity.velocity.y + MOB_GRAVITY_Y * deltaTime, MOB_TERMINAL_VELOCITY_Y),
-            z: entity.velocity.z,
-          }
-          const candidatePosition: Position = {
-            x: entity.position.x + candidateVelocity.x * deltaTime,
-            y: entity.position.y + candidateVelocity.y * deltaTime,
-            z: entity.position.z + candidateVelocity.z * deltaTime,
-          }
-          const resolved = resolveCollision(candidatePosition, candidateVelocity)
+          // Transient collision inputs — written into shared module scratch (not retained).
+          _candVel.x = entity.velocity.x
+          _candVel.y = isFlyingType
+            ? entity.velocity.y
+            : Math.max(entity.velocity.y + MOB_GRAVITY_Y * deltaTime, MOB_TERMINAL_VELOCITY_Y)
+          _candVel.z = entity.velocity.z
+          _candPos.x = entity.position.x + _candVel.x * deltaTime
+          _candPos.y = entity.position.y + _candVel.y * deltaTime
+          _candPos.z = entity.position.z + _candVel.z * deltaTime
+          // outPos/outVel ARE retained (they become the entity's next position/velocity),
+          // so they must be freshly allocated per entity; the resolver writes into them and
+          // returns isGrounded — no transient wrapper object is allocated.
+          const resolvedPosition = { x: 0, y: 0, z: 0 }
+          const resolvedVelocity = { x: 0, y: 0, z: 0 }
+          const resolvedGrounded = resolveCollision(resolvedPosition, resolvedVelocity, _candPos, _candVel)
           const shouldHop = entity.isGrounded
-            && resolved.isGrounded
-            && isHorizontalBlocked(candidateVelocity, resolved.velocity)
+            && resolvedGrounded
+            && isHorizontalBlocked(_candVel, resolvedVelocity)
           const velocity = shouldHop
-            ? { ...resolved.velocity, y: MOB_JUMP_VELOCITY_Y }
-            : resolved.velocity
+            ? { x: resolvedVelocity.x, y: MOB_JUMP_VELOCITY_Y, z: resolvedVelocity.z }
+            : resolvedVelocity
           const wanderDirection = shouldHop
             ? makeWanderDirectionFromHash(
                 hashEntityId(entityId),
@@ -272,10 +281,10 @@ export const makeEntityManagerUpdate = (
 
           /* c8 ignore start -- early-return when entity state is identical after physics; requires exact position/velocity match */
           if (
-            isSamePosition(entity.position, resolved.position)
+            isSamePosition(entity.position, resolvedPosition)
             && isSameVelocity(entity.velocity, velocity)
             && isSameVelocity(entity.wanderDirection, wanderDirection)
-            && entity.isGrounded === resolved.isGrounded
+            && entity.isGrounded === resolvedGrounded
             && entity.stuckTicks === stuckTicks
           ) {
             return entity
@@ -285,10 +294,10 @@ export const makeEntityManagerUpdate = (
           MutableRef.set(dirtyRef, true)
           return {
             ...entity,
-            position: resolved.position,
+            position: resolvedPosition,
             velocity,
             wanderDirection,
-            isGrounded: resolved.isGrounded,
+            isGrounded: resolvedGrounded,
             stuckTicks,
           }
         })

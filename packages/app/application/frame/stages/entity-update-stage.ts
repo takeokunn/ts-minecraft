@@ -1,5 +1,5 @@
 import { Effect, Option, Ref } from 'effect'
-import { resolveBlockCollisions } from '@ts-minecraft/game'
+import { resolveBlockCollisionsInto } from '@ts-minecraft/game'
 import { chunkBlockIndexUnchecked } from '@ts-minecraft/world'
 import { MOB_HALF_HEIGHT, MOB_HALF_WIDTH, BREED_XP_REWARD } from '@ts-minecraft/entity'
 import { logErrors } from '@ts-minecraft/app/frame/error-logging'
@@ -134,8 +134,14 @@ export const entityUpdateStage = (
       }
 
       yield* logErrors(
-        applyPhysics(inputs.deltaTime, (position: Position, velocity: { x: number; y: number; z: number }) =>
-          resolveBlockCollisions(position, velocity, MOB_HALF_WIDTH, MOB_HALF_HEIGHT, isBlockSolid)
+        applyPhysics(
+          inputs.deltaTime,
+          (
+            outPos: { x: number; y: number; z: number },
+            outVel: { x: number; y: number; z: number },
+            position: Position,
+            velocity: { x: number; y: number; z: number },
+          ) => resolveBlockCollisionsInto(outPos, outVel, position, velocity, MOB_HALF_WIDTH, MOB_HALF_HEIGHT, isBlockSolid),
         ),
         'Entity physics error',
       )

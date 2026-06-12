@@ -17,10 +17,16 @@ export const makeEntityManager = () => ({
   feedEntity: (_entityId: unknown) => Effect.succeed(false),
   shearEntity: (_entityId: unknown) => Effect.succeed(Option.none()),
   despawnAllEntities: () => Effect.succeed(0),
-  // Stub that exercises the collision-resolver callback (so isBlockSolid in entity-update-stage runs)
+  // Stub that exercises the collision-resolver callback (so isBlockSolid in entity-update-stage runs).
+  // The resolver is the output-parameter form: (outPos, outVel, pos, vel) => isGrounded.
   applyPhysics: (_dt: unknown, resolver: unknown) => {
-    const resolve = resolver as (pos: { x: number; y: number; z: number }, vel: { x: number; y: number; z: number }) => unknown
-    resolve({ x: 0, y: 64, z: 0 }, { x: 0, y: 0, z: 0 })
+    const resolve = resolver as (
+      outPos: { x: number; y: number; z: number },
+      outVel: { x: number; y: number; z: number },
+      pos: { x: number; y: number; z: number },
+      vel: { x: number; y: number; z: number },
+    ) => unknown
+    resolve({ x: 0, y: 0, z: 0 }, { x: 0, y: 0, z: 0 }, { x: 0, y: 64, z: 0 }, { x: 0, y: 0, z: 0 })
     return Effect.void
   },
 }) as unknown as InstanceType<typeof import('@ts-minecraft/entity').EntityManager>

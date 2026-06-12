@@ -14,16 +14,18 @@ export const WANDER_STUCK_REDIRECT_TICK_OFFSET = 11
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
-export type CollisionResolution = {
-  readonly position: Position
-  readonly velocity: Vector3
-  readonly isGrounded: boolean
-}
-
+// Output-parameter resolver: writes the corrected position/velocity into the
+// caller-provided scratch objects and returns isGrounded. This lets the per-entity
+// physics loop control allocation of the *retained* result objects (which become the
+// entity's new position/velocity) while reusing scratch for the transient inputs —
+// the wrapper {position,velocity,isGrounded} object the old shape allocated per call
+// is eliminated entirely.
 export type CollisionResolver = (
+  outPos: { x: number; y: number; z: number },
+  outVel: { x: number; y: number; z: number },
   position: Position,
   velocity: Vector3,
-) => CollisionResolution
+) => boolean
 
 // ── Pure Helper Functions ────────────────────────────────────────────────────
 

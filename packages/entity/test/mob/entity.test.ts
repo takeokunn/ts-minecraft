@@ -4,6 +4,17 @@ import { AIState } from '@ts-minecraft/entity'
 import { EntityType, EntityManager, EntityManagerLive } from '@ts-minecraft/entity'
 import { DeltaTimeSecs } from '@ts-minecraft/core'
 
+// Output-parameter CollisionResolver: writes the corrected pose into outPos/outVel and
+// returns isGrounded. Pass-through copies the candidate pose verbatim.
+type Vec = { x: number; y: number; z: number }
+const passThroughResolver =
+  (isGrounded: boolean) =>
+  (outPos: Vec, outVel: Vec, position: Vec, velocity: Vec): boolean => {
+    outPos.x = position.x; outPos.y = position.y; outPos.z = position.z
+    outVel.x = velocity.x; outVel.y = velocity.y; outVel.z = velocity.z
+    return isGrounded
+  }
+
 describe('entity/entityManager', () => {
   it.effect('adds, retrieves, and removes entities', () =>
     Effect.gen(function* () {
@@ -36,7 +47,7 @@ describe('entity/entityManager', () => {
       yield* entityManager.update(DeltaTimeSecs.make(1), { x: 6, y: 64, z: 0 })
       yield* entityManager.applyPhysics(
         DeltaTimeSecs.make(1),
-        (position, velocity) => ({ position, velocity, isGrounded: false }),
+        passThroughResolver(false),
       )
 
       const stateOpt = yield* entityManager.getEntityAIState(entityId)
@@ -57,7 +68,7 @@ describe('entity/entityManager', () => {
       yield* entityManager.update(DeltaTimeSecs.make(1), { x: 2, y: 64, z: 0 })
       yield* entityManager.applyPhysics(
         DeltaTimeSecs.make(1),
-        (position, velocity) => ({ position, velocity, isGrounded: false }),
+        passThroughResolver(false),
       )
 
       const stateOpt = yield* entityManager.getEntityAIState(entityId)
