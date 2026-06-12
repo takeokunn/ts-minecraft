@@ -1816,3 +1816,26 @@ Remaining frames-vs-ticks + correctness items (one per round): **FIX-C** knockba
 `pnpm typecheck` 0 errors · `pnpm lint` 0 errors / 4 warnings (pre-existing) ·
 `pnpm check:refactor` all OK · `pnpm test` **5695 passing / 1 skipped** (hunger tests reworked) ·
 `pnpm build` exit 0 · 1 commit on `main`.
+
+---
+
+## AY. Round 48 (2026-06-13) — frames-vs-ticks bug class, fix #3: knockback
+
+- [x] **FIX-C**: **Mob knockback duration was frame-count-based.** `knockbackTicksRemaining` was
+  decremented by 1 per entity update (= per render frame), but `KNOCKBACK_DURATION_TICKS=6` means
+  0.3 s @ 20 t/s. At 60fps the shove expired in ~0.1 s, so mobs reclaimed pursuit velocity almost
+  instantly and player knockback barely registered — and it was inconsistent with the sibling
+  `attackCooldownRemaining`, which already decrements by `deltaTime`. Converted to seconds: renamed
+  the field to `knockbackSecsRemaining`, added `KNOCKBACK_DURATION_SECS=0.3`, and decremented it by
+  `deltaTime` like the attack cooldown (entities are transient → no save-fixture impact). New guard:
+  knockback survives 6 sub-tick frames (0.096 s < 0.3 s) which the old per-frame counter would have
+  expired. — `combat.ts`, `entity-internal.ts`, `entity-manager*.ts`
+
+The three frames-vs-ticks survival/combat bugs (invincibility, hunger, knockback) are now all
+time-based and frame-rate-independent. Remaining correctness items: **FIX-D** Fortune I no-op,
+**FIX-E** Power V over-scaled, **FIX-F** spawn/despawn distance mismatch.
+
+### Quality gate (Round 48)
+`pnpm typecheck` 0 errors · `pnpm lint` 0 errors / 4 warnings (pre-existing) ·
+`pnpm check:refactor` all OK · `pnpm test` **5696 passing / 1 skipped** (+1 new guard test) ·
+`pnpm build` exit 0 · 1 commit on `main`.
