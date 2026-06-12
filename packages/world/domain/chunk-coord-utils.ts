@@ -110,10 +110,12 @@ export const computeChunkPriority = (
   if (vMagSq < STATIC_VELOCITY_EPSILON_SQUARED) return distSquared
   const dx = chunkCoord.x - playerCoord.x
   const dz = chunkCoord.z - playerCoord.z
-  const dist = Math.sqrt(distSquared)
-  if (dist === 0) return 0
+  // Eliminate double sqrt: dist * sqrt(vMagSq) = sqrt(distSquared * vMagSq).
+  // dist === 0 check is equivalent to distSquared === 0 (both non-negative).
+  if (distSquared === 0) return 0
+  const combinedSqrt = Math.sqrt(distSquared * vMagSq)
   // dotProduct ∈ [-1, 1]: +1 = chunk dead ahead, -1 = behind, 0 = perpendicular.
-  const dotProduct = (dx * velocity.vx + dz * velocity.vz) / (dist * Math.sqrt(vMagSq))
+  const dotProduct = (dx * velocity.vx + dz * velocity.vz) / combinedSqrt
   // Scale d² by (1 + alpha·(1 - dot)): ahead → 1·d², behind → (1+2α)·d².
   return distSquared * (1 + alpha * (1 - dotProduct))
 }
