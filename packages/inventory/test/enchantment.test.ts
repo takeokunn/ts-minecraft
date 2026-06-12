@@ -217,12 +217,12 @@ describe('domain/enchantment', () => {
       expect(getPowerDamageMultiplier(1)).toBeCloseTo(1.5)
     })
 
-    it('POWER II gives 2.0× multiplier', () => {
-      expect(getPowerDamageMultiplier(2)).toBeCloseTo(2.0)
+    it('POWER II gives 1.75× multiplier (vanilla 1 + 0.25·(level+1))', () => {
+      expect(getPowerDamageMultiplier(2)).toBeCloseTo(1.75)
     })
 
-    it('POWER V gives 3.5× multiplier', () => {
-      expect(getPowerDamageMultiplier(5)).toBeCloseTo(3.5)
+    it('POWER V gives 2.5× multiplier (vanilla — was over-scaled to 3.5)', () => {
+      expect(getPowerDamageMultiplier(5)).toBeCloseTo(2.5)
     })
 
     it('POWER is applicable to BOW', () => {

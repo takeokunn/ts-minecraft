@@ -22,10 +22,11 @@ export const getSharpnessDamageBonus = (level: EnchantmentLevel): number =>
 export const getSmiteDamageBonus = (level: EnchantmentLevel): number =>
   2.5 * level
 
-// Power enchantment multiplier for bows. Vanilla: damage × (1 + 0.5·level).
-// POWER I = ×1.5, II = ×2.0, III = ×2.5, IV = ×3.0, V = ×3.5.
+// Power enchantment multiplier for bows. Vanilla adds 25% × (level + 1) of the arrow's
+// damage, i.e. damage × (1 + 0.25·(level + 1)).
+// POWER I = ×1.5, II = ×1.75, III = ×2.0, IV = ×2.25, V = ×2.5.
 export const getPowerDamageMultiplier = (level: EnchantmentLevel): number =>
-  1.0 + 0.5 * level
+  1.0 + 0.25 * (level + 1)
 
 // BaneOfArthropods applies to Spider. +2.5 per level.
 export const getBaneOfArthropodsDamageBonus = (level: EnchantmentLevel): number =>
