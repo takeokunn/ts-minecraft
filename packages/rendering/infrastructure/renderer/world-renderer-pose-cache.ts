@@ -45,6 +45,20 @@ export const initialPoseCache = (): CameraPoseCache => ({
   p0: NaN, p5: NaN, p10: NaN, p14: NaN,
 })
 
+// Overwrite an existing CameraPoseCache's fields in place. Used by the frustum-culling
+// hot path to fill a reusable scratch object every frame instead of allocating a fresh
+// 11-field literal (which churns the nursery whenever the camera moves).
+export const writeCameraPose = (
+  out: CameraPoseCache,
+  x: number, y: number, z: number,
+  qx: number, qy: number, qz: number, qw: number,
+  p0: number, p5: number, p10: number, p14: number,
+): void => {
+  out.x = x; out.y = y; out.z = z
+  out.qx = qx; out.qy = qy; out.qz = qz; out.qw = qw
+  out.p0 = p0; out.p5 = p5; out.p10 = p10; out.p14 = p14
+}
+
 // NaN-safe: NaN-anything returns false (>=, <=), which is what we want — any
 // finite delta against a NaN sentinel triggers a cache miss. Conversely, a NaN
 // in the *current* pose (Infinity/NaN ingress from a misconfigured camera)

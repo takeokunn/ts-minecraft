@@ -17,6 +17,7 @@ import { updateChunkInScene } from './world-renderer-chunk-update'
 import {
   initialPoseCache,
   isCameraPoseSimilar,
+  writeCameraPose,
   type CameraPoseCache,
 } from './world-renderer-pose-cache'
 import {
@@ -44,6 +45,11 @@ export class WorldRendererService extends Effect.Service<WorldRendererService>()
       // Cache key for frustum culling — invalidated whenever chunk meshes change.
       // FR-3.6: tolerance-based comparison (not strict equality) — see world-renderer-pose-cache.ts.
       const lastFrustumPoseRef = yield* Ref.make<CameraPoseCache>(initialPoseCache())
+      // Double-buffer partner for lastFrustumPoseRef. Each cull writes the live camera
+      // pose into this reusable scratch (no allocation); on a cache miss the two objects
+      // are swapped so the scratch becomes the new "last" and the old "last" is recycled
+      // as the next scratch — zero allocation, zero field copy on either path.
+      let frustumPoseScratch: CameraPoseCache = initialPoseCache()
       const sceneVersionRef = yield* Ref.make(0)
 
       // Pre-allocated objects for frustum culling and refraction pre-pass — reused every frame to avoid GC pressure
@@ -147,15 +153,13 @@ export class WorldRendererService extends Effect.Service<WorldRendererService>()
 
             // FR-3.6: tolerance-based pose comparison — sub-pixel jitter is treated as cache hit
             // (movement of <1 mm or rotation of <0.011° cannot affect chunk-level visibility).
-            const currentPose: CameraPoseCache = {
-              x: cx, y: cy, z: cz,
-              qx, qy, qz, qw,
-              p0: p0 ?? Number.NaN,
-              p5: p5 ?? Number.NaN,
-              p10: p10 ?? Number.NaN,
-              p14: p14 ?? Number.NaN,
-            }
-            if (isCameraPoseSimilar(lastPose, currentPose)) {
+            // Write into the reusable scratch instead of allocating a fresh pose literal.
+            writeCameraPose(
+              frustumPoseScratch,
+              cx, cy, cz, qx, qy, qz, qw,
+              p0 ?? Number.NaN, p5 ?? Number.NaN, p10 ?? Number.NaN, p14 ?? Number.NaN,
+            )
+            if (isCameraPoseSimilar(lastPose, frustumPoseScratch)) {
               return
             }
 
@@ -203,7 +207,10 @@ export class WorldRendererService extends Effect.Service<WorldRendererService>()
               /* c8 ignore end */
             }
 
-            yield* Ref.set(lastFrustumPoseRef, currentPose)
+            // Swap: the scratch we just filled becomes the new "last"; recycle the old
+            // "last" object as the next scratch. No allocation, no field copy.
+            yield* Ref.set(lastFrustumPoseRef, frustumPoseScratch)
+            frustumPoseScratch = lastPose
           }),
 
         clearScene: (scene: THREE.Scene): Effect.Effect<void, never> =>
