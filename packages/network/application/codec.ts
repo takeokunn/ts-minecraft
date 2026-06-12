@@ -13,7 +13,10 @@ export const encodeNetworkMessage = (
   Effect.gen(function* () {
     const serialized = yield* serializeNetworkMessage(message)
     const bytes = encoder.encode(serialized)
-    return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength)
+    // TextEncoder.encode returns a fresh, exactly-sized Uint8Array (byteOffset 0,
+    // byteLength === buffer.byteLength per the Encoding spec), so its buffer is already
+    // a standalone ArrayBuffer — the previous .slice() was a redundant full copy.
+    return bytes.buffer as ArrayBuffer
   })
 
 export const decodeNetworkMessage = (
