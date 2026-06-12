@@ -1527,3 +1527,60 @@ not reached. All 6 were executed.
 changed files) · `pnpm check:refactor` all OK · `pnpm test` **5670 passing / 1 skipped**
 (+1: the new computeStateVelocityInto equivalence test) · `pnpm build` exit 0 ·
 7 commits on `main`.
+
+---
+
+## AQ. Round 40 (2026-06-13) — unexplored-subsystem audit + R128 pooling (13 agents)
+
+### Methodology
+
+Targeted workflow on the subsystems **neither Round 38 nor 39 reached**: network /
+multiplayer, audio, the worker meshing pool, and remaining post-processing/input/session
+per-frame paths — plus a dedicated deep-scope of R128 (accumulator pooling) with the
+verifier specifically tasked to find buffer-**aliasing** hazards. 4 finders + adversarial
+verifiers, 13 agents.
+
+**Result: 6 verified-real, 0 passing the strict auto-filter** (which excluded behaviour
+changes + any aliasing hazard). Manual judgement then selected the **4 genuinely safe,
+behaviour-preserving** items (3 small + R128), deferring the multiplayer-throttle
+behaviour change and the marginal ones. The audit's most valuable output was the
+**adversarial safety proof for R128**: pooling is sound *only* inside the worker.
+
+### Landed this round (4 tasks, each its own commit, suite green after each)
+
+- [x] **R140**: `addYawPitch(yawDelta, pitchDelta)` combines the adjacent per-frame
+  `addYaw`+`addPitch` mouse-look updates into one `Ref.update` — one `CameraRotation`
+  allocation/frame instead of two, in the **primary single-player path**. New tests pin
+  axis accumulation + pitch clamping. — `camera-state.ts`, `first-person-camera-service.ts`
+- [x] **R141**: `playEnvironmentTrack` (per-frame) replaced its `Option.exists(opt, t => …)`
+  steady-state check — which allocated an `environment`-capturing closure every call —
+  with `Option.getOrNull` + a direct field compare. — `music-manager.ts`
+- [x] **R142**: `encodeNetworkMessage` returns the `TextEncoder.encode` buffer directly;
+  the per-message `ArrayBuffer.slice` was a redundant full copy (encode returns a fresh,
+  exactly-sized array). Codec round-trip tests confirm integrity. — `codec.ts`
+- [x] **R128**: **Worker-scoped accumulator pool** — reuses the ~1.13 MB×3 typed-array set
+  across mesh requests instead of allocating per chunk. Threaded as an OPT-IN `pool` param
+  through `greedyMeshChunk` (`resetAccumulator` zeroes only vertex/index counts); wired
+  ONLY from `meshing-worker.ts`. **Safety (adversarially verified):** sound exclusively for
+  the worker because onmessage is serial, `toMeshed()` `.slice()`-copies every buffer into
+  owned arrays before transfer (so no raw subarray VIEW outlives the next request), and the
+  worker holds no `prev` cache. The sync / sub-region meshers retain `prev` views and so
+  keep the default fresh-allocation path (opt-in param → safe by construction). New
+  regression test proves back-to-back pooled calls equal the non-pooled output and that an
+  earlier copy is not mutated by reuse. — `greedy-meshing-accumulator.ts`, `-quads.ts`,
+  `greedy-meshing.ts`, `meshing-worker.ts` (+ `greedy-meshing-pool.test.ts`)
+
+### Deferred (behaviour change / multiplayer-only / marginal)
+
+- [ ] **net-2**: Position update is serialized + sent every frame (60 Hz) with no throttle/
+  dedupe. Real, but throttling to ~20 Hz + stationary-skip is a **protocol/behaviour change**
+  (remote receivers update slower), not a mechanical edit; multiplayer-only (single-player,
+  the primary mode, never hits it). Defer to a deliberate multiplayer task.
+- [ ] **net-1**: `processInbound` clones the whole `remotePlayers` Map per `PlayerMove` +
+  computes `String(playerId)` twice. Per-message, multiplayer-only; the Map clone is
+  inherent to the immutable update. Marginal. Defer.
+
+### Quality gate (Round 40)
+`pnpm typecheck` 0 errors · `pnpm lint` 0 errors / 4 warnings (pre-existing) ·
+`pnpm check:refactor` all OK · `pnpm test` **5674 passing / 1 skipped** (+4 new tests) ·
+`pnpm build` exit 0 · 4 commits on `main`.
