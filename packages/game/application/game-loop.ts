@@ -64,7 +64,7 @@ const buildScheduleFrame = (
 
           if (paced.emit) {
             Effect.runFork(
-              Effect.gen(function* () { yield* Queue.offer(frameQueue, timestamp) }).pipe(
+              Queue.offer(frameQueue, timestamp).pipe(
                 Effect.catchAllCause((cause) => Effect.logError(`Frame queue error: ${Cause.pretty(cause)}`)),
               ),
             )
@@ -79,7 +79,7 @@ const buildScheduleFrame = (
           if (!MutableRef.get(isRunningRef)) return
 
           Effect.runFork(
-            Effect.gen(function* () { yield* Queue.offer(frameQueue, performance.now()) }).pipe(
+            Queue.offer(frameQueue, performance.now()).pipe(
               Effect.catchAllCause((cause) => Effect.logError(`Frame queue error: ${Cause.pretty(cause)}`)),
             ),
           )

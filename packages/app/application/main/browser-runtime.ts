@@ -173,10 +173,11 @@ const applyPendingResize = ({
 export const wrapFrameHandlerWithBrowserEffects = ({
   frameHandler,
   ...deps
-}: BrowserFrameEffectDeps): ((deltaTime: DeltaTimeSecs) => Effect.Effect<void, never>) =>
-  (deltaTime) =>
-    Effect.gen(function* () {
-      yield* flushPendingSaves(deps)
-      yield* applyPendingResize(deps)
-      yield* frameHandler(deltaTime)
-    })
+}: BrowserFrameEffectDeps): ((deltaTime: DeltaTimeSecs) => Effect.Effect<void, never>) => {
+  // Pre-compose flushPendingSaves + applyPendingResize into a single Effect
+  // to avoid a per-frame Effect.gen generator closure allocation.
+  const saveAndResize = Effect.flatMap(flushPendingSaves(deps), () => applyPendingResize(deps))
+  
+  return (deltaTime) =>
+    Effect.flatMap(saveAndResize, () => frameHandler(deltaTime))
+}
