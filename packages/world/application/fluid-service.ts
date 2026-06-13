@@ -282,25 +282,44 @@ export class FluidService extends Effect.Service<FluidService>()(
             const tickCounter = state.tickCounter + 1
             const lavaTickActive = tickCounter % LAVA_TICK_INTERVAL === 0
 
-            const queued = Arr.fromIterable(state.frontier)
-            if (queued.length === 0) {
+            // Collect this tick's work by LAZILY iterating the frontier (water up to half
+            // the budget; lava fills the rest only on its tick). This is the critical hot
+            // path: a body of settled water (sea level) leaves TENS OF THOUSANDS of cells in
+            // the frontier, and the previous `Arr.fromIterable(frontier)` + carry-rebuild +
+            // `HashSet.fromIterable([...carry])` was O(frontier) EVERY tick — ~37 MB of garbage
+            // and ~700 ms/frame in a watery world. Stopping once the budget caps are hit makes
+            // it O(budget). `splitBudget` only ever takes prefixes (≤halfBudget water,
+            // ≤budget lava), so collecting those prefixes yields the SAME selection.
+            const halfBudget = Math.floor(FLUID_TICK_BUDGET / 2)
+            const lavaCap = lavaTickActive ? FLUID_TICK_BUDGET : 0
+            const collected: WorkItem[] = []
+            let waterCollected = 0
+            let lavaCollected = 0
+            for (const key of state.frontier) {
+              const cellOpt = HashMap.get(state.cells, key)
+              if (Option.isNone(cellOpt)) continue // stale frontier key (cell already removed)
+              const cell = cellOpt.value
+              if (cell.type === 'water') {
+                if (waterCollected < halfBudget) { collected.push({ key, cell }); waterCollected++ }
+              } else if (cell.type === 'lava') {
+                if (lavaCollected < lavaCap) { collected.push({ key, cell }); lavaCollected++ }
+              }
+              if (waterCollected >= halfBudget && lavaCollected >= lavaCap) break
+            }
+
+            const { work } = splitBudget(collected, lavaTickActive, FLUID_TICK_BUDGET)
+            if (work.length === 0) {
               yield* Ref.update(stateRef, (s) => ({ ...s, tickCounter }))
               return
             }
 
-            const workWithCells: ReadonlyArray<WorkItem> = Arr.filterMap(queued, (key) =>
-              Option.map(HashMap.get(state.cells, key), (cell) => ({ key, cell }))
-            )
+            // Drop only the keys we will process from the frontier (O(budget)). Unexamined
+            // cells and (on a non-lava tick) all lava stay — matching the old carry/retain
+            // semantics, but without rebuilding the whole HashSet.
+            let nextFrontier = state.frontier
+            for (let i = 0; i < work.length; i++) nextFrontier = HashSet.remove(nextFrontier, work[i]!.key)
 
-            const { work, retainedLavaFrontier } = splitBudget(workWithCells, lavaTickActive, FLUID_TICK_BUDGET)
-            const processedKeys = HashSet.fromIterable(Arr.map(work, (w) => w.key))
-            const carry = Arr.filter(queued, (k) => !HashSet.has(processedKeys, k))
-
-            const tickStateRef = yield* Ref.make<FluidState>({
-              ...state,
-              tickCounter,
-              frontier: HashSet.fromIterable([...carry, ...retainedLavaFrontier]),
-            })
+            const tickStateRef = yield* Ref.make<FluidState>({ ...state, tickCounter, frontier: nextFrontier })
 
             yield* Effect.forEach(work, ({ key, cell }) =>
               processFluidCell(loaded, tickStateRef, parseKey(key), cell),
