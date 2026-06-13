@@ -2272,3 +2272,32 @@ path #1 only with explicit sign-off on world-gen output changes.
 
 ### Quality gate (Round 64)
 No source change (profiling only) · prior gates hold · temp benches removed · 1 docs commit on `main`.
+
+---
+
+## BP. Round 65 (2026-06-13) — VERIFIED path #1: it's already implemented via caching (no change)
+
+User chose the "overall / big win" (path #1: stop the 256 in-chunk columns being recomputed). I committed to
+**verifying before implementing** — and the verification overturned the Round-64 hypothesis:
+
+- `computeTerrainChannels` (main path) samples noise on a **coarse STEP=2 grid + bilinear upsample**;
+  `resolveTreeColumnContext` reads **exact per-column** noise. So the two surfaceY paths genuinely differ
+  (0–1 block on ~75% of columns) — path #1 *would* have changed tree placement. **BUT:**
+- **`buildColumnStates` already pre-populates the shared `treeColumnContextCache`** for every in-chunk
+  column (generator-pipeline.ts:99-105, using the coarse surfaceY + the real filled `surfaceBlock`), and
+  `resolveTreeColumnContext` checks that cache first (line 201-202). `generator.ts:37` builds ONE cache and
+  passes it to BOTH. So the 256 in-chunk columns are **cache HITS** — the expensive resolver path runs only
+  for the ~144 margin columns. **Path #1 is already done.**
+
+So the Round-64 "256 redundant recomputations" hypothesis was **wrong** — the redundancy is already cached
+away, and trees already use the coarse (terrain-matching) surfaceY in-chunk. **No change made** (the verify
+step correctly prevented a redundant, output-changing edit).
+
+Residual terrain cost (2.67 ms) is genuine distributed work: `buildColumnStates` block-fill (plain JS,
+256 cols × ~64 writes) + ~144 margin resolver calls + carveCaves (0.34 ms) + light (0.28 ms) + the batched
+noise. The only remaining lever is a **persistent bounded cross-chunk cache** for margin columns (they're
+in-chunk columns of already-generated neighbours during streaming) — modest, streaming-only, adds LRU
+complexity; not pursued. **Terrain gen is already reasonably optimized.**
+
+### Quality gate (Round 65)
+No source change (verification only — prevented a redundant edit) · all prior gates hold · 1 docs commit.
