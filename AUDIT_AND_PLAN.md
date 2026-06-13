@@ -2507,3 +2507,25 @@ play-affecting bugs that Node profiling can't.
 ### Quality gate (Round 72)
 `pnpm typecheck` 0 · `pnpm lint` 0 errors / 4 warnings · `pnpm check:refactor` OK · `pnpm test`
 **5716 / 1 skipped** · `pnpm build` exit 0 · in-browser verified · 2 commits on `main`.
+
+---
+
+## BX. Round 73 (2026-06-13) — water buoyancy: player floats to the surface (the "水色" fix completed)
+
+- [x] **FIX-W**: the water physics already had drag + swim-up-on-JUMP, but **no buoyancy** — idle in water
+  = slow sink (`Math.max(vel.y*0.4, -2)`), so a player spawned over ocean sank to the seabed and was stuck
+  underwater. Added `WATER_BUOYANCY_SPEED = 1.5`: submerged + idle → float UP toward the surface; SNEAK
+  dives, JUMP swims up faster. — `game-state-service.ts` (`applyWaterDrag`).
+  **Verified in-browser: an ocean spawn now holds steady at y~64.8 (water surface, bobbing) with a clear
+  view of the ocean + horizon, instead of sinking 64→50.** Screenshot confirmed proper ocean view, FPS 64.6.
+
+Together with FIX-V (spawn above water) and FIX-U (no streaming stall), the user's "目の前が水色で
+rendering できてない" + "チャンク読み込みが重い / FPS 低い" play reports are addressed: ocean spawns are now
+a normal floating-on-the-surface experience at 60 fps, and walking no longer stalls.
+
+**Remaining:** ocean-origin frequency / terrain-gen variety (the player still often spawns on ocean — a
+terrain-bias question rather than a crash); the fluid drain-period micro-hitch.
+
+### Quality gate (Round 73)
+`pnpm typecheck` 0 · `pnpm lint` 0 errors / 4 warnings · `pnpm check:refactor` OK · `pnpm test`
+**5716 / 1 skipped** · `pnpm build` exit 0 · in-browser verified · 1 commit on `main`.
