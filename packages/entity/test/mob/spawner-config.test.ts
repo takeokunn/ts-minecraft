@@ -7,7 +7,7 @@ import {
   MAX_ENTITY_COUNT,
   MOB_HALF_HEIGHT,
   MOB_HALF_WIDTH,
-  SPAWN_INTERVAL_FRAMES,
+  SPAWN_INTERVAL_SECS,
 } from '../../domain/mob/spawner-config'
 
 describe('spawner-config — constants', () => {
@@ -40,12 +40,12 @@ describe('spawner-config — constants', () => {
     expect(MAX_ENTITY_COUNT).toBeGreaterThan(0)
   })
 
-  it('SPAWN_INTERVAL_FRAMES is 6', () => {
-    expect(SPAWN_INTERVAL_FRAMES).toBe(6)
+  it('SPAWN_INTERVAL_SECS is 0.3 (6 × the old 0.05s cadence)', () => {
+    expect(SPAWN_INTERVAL_SECS).toBe(0.3)
   })
 
-  it('SPAWN_INTERVAL_FRAMES is positive', () => {
-    expect(SPAWN_INTERVAL_FRAMES).toBeGreaterThan(0)
+  it('SPAWN_INTERVAL_SECS is positive', () => {
+    expect(SPAWN_INTERVAL_SECS).toBeGreaterThan(0)
   })
 
   it('spawn distance band is at least 8 blocks wide', () => {

@@ -3,7 +3,7 @@ import { TimeServicePort } from '../../domain/ports'
 import { EntityManager } from './entity-manager'
 import { EntityType, type EntityId } from '../../domain/mob/entity'
 import type { Position } from '@ts-minecraft/core'
-import { MIN_SPAWN_DISTANCE, MAX_SPAWN_DISTANCE, DESPAWN_DISTANCE, MAX_ENTITY_COUNT, SPAWN_INTERVAL_FRAMES } from '../../domain/mob/spawner-config'
+import { MIN_SPAWN_DISTANCE, MAX_SPAWN_DISTANCE, DESPAWN_DISTANCE, MAX_ENTITY_COUNT, SPAWN_INTERVAL_SECS } from '../../domain/mob/spawner-config'
 import { PASSIVE_MOBS, HOSTILE_MOBS } from '../../domain/mob/mob-categories'
 
 
@@ -36,16 +36,27 @@ export class MobSpawner extends Effect.Service<MobSpawner>()(
     effect: Effect.gen(function* () {
       const entityManager = yield* EntityManager
       const timeService = yield* TimeServicePort
-      const spawnFrameRef = yield* Ref.make(0)
+      // Accumulates real seconds across calls; a spawn is attempted once the
+      // accumulator reaches SPAWN_INTERVAL_SECS (frame-rate / load independent).
+      const spawnAccumulatorRef = yield* Ref.make(0)
       const spawnCursorRef = yield* Ref.make(0)
       return {
+        // deltaSecs is the real elapsed time since the previous call (threaded from
+        // the maintenance lane). It defaults to a full interval so callers that don't
+        // thread time (tests / ad-hoc use) attempt a spawn on every call.
         trySpawn: (
           playerPosition: Position,
           spawnResolver?: SpawnPositionResolver,
+          deltaSecs: number = SPAWN_INTERVAL_SECS,
         ): Effect.Effect<Option.Option<EntityId>, never> =>
           Effect.gen(function* () {
-            const frame = yield* Ref.updateAndGet(spawnFrameRef, (value) => value + 1)
-            if (frame % SPAWN_INTERVAL_FRAMES !== 0) {
+            // Drain one interval when the accumulator crosses the threshold; carry the
+            // remainder so sub-interval deltas still sum correctly over time.
+            const fires = yield* Ref.modify(spawnAccumulatorRef, (acc): [boolean, number] => {
+              const next = acc + deltaSecs
+              return next >= SPAWN_INTERVAL_SECS ? [true, next - SPAWN_INTERVAL_SECS] : [false, next]
+            })
+            if (!fires) {
               return Option.none<EntityId>()
             }
 

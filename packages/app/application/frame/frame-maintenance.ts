@@ -149,6 +149,8 @@ export const createMaintenanceHandler = (
                 return resolveMobSpawnPosition(chunk, candidatePosition, isNightSpawn)
               }).pipe(Effect.catchAllCause(() => Effect.succeed(Option.none<Position>())))
             },
+            // Real elapsed time gates the spawn cadence (frame-rate / load independent).
+            maintenanceDeltaTime,
           ).pipe(
             /* c8 ignore start */
             Effect.catchAllCause((cause) =>

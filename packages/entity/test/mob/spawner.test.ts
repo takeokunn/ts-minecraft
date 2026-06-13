@@ -1,7 +1,7 @@
 import { describe, expect, it } from '@effect/vitest'
 import { Array as Arr, Effect, Layer, Option } from 'effect'
 import { TimeServicePort } from '../../domain/ports'
-import { HOSTILE_MOBS, PASSIVE_MOBS, type EntityId, EntityManager, EntityManagerLive, MobSpawner, MobSpawnerLive } from '@ts-minecraft/entity'
+import { HOSTILE_MOBS, PASSIVE_MOBS, SPAWN_INTERVAL_SECS, type EntityId, EntityManager, EntityManagerLive, MobSpawner, MobSpawnerLive } from '@ts-minecraft/entity'
 
 const makeTimeLayer = (night: boolean) =>
   Layer.succeed(TimeServicePort, TimeServicePort.of({
@@ -157,5 +157,34 @@ describe('entity/spawner', () => {
       const count = yield* entityManager.getCount()
       expect(count).toBe(0)
     }).pipe(Effect.provide(makeSpawnerLayer(false)))
+  )
+
+  it.effect('spawn rate tracks elapsed time, not call count (frame-rate independent)', () =>
+    Effect.gen(function* () {
+      const TOTAL = 6 * SPAWN_INTERVAL_SECS // 1.8s of simulated wall-clock
+
+      // Runs `calls` spawn attempts, each advancing the clock by `deltaSecs`, in a
+      // fresh spawner instance, and returns how many mobs actually spawned.
+      const countSpawns = (calls: number, deltaSecs: number) =>
+        Effect.gen(function* () {
+          const spawner = yield* MobSpawner
+          const entityManager = yield* EntityManager
+          yield* Effect.forEach(
+            Arr.makeBy(calls, () => undefined),
+            () => spawner.trySpawn({ x: 0, y: 64, z: 0 }, undefined, deltaSecs),
+            { concurrency: 1, discard: true },
+          )
+          return yield* entityManager.getCount()
+        }).pipe(Effect.provide(makeSpawnerLayer(false)))
+
+      // Same TOTAL elapsed time, split coarsely (low fps) vs finely (high fps).
+      // The old frame-count gate would have spawned 3x more in the high-fps run.
+      const highFps = yield* countSpawns(18, TOTAL / 18) // 0.1s steps
+      const lowFps = yield* countSpawns(6, TOTAL / 6) // 0.3s steps
+
+      expect(lowFps).toBe(6)
+      expect(highFps).toBe(6)
+      expect(highFps).toBe(lowFps)
+    })
   )
 })
