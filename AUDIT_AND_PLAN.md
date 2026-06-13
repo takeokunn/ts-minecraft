@@ -2121,3 +2121,30 @@ Effect/three (duplication) — a chunking-strategy change for a future round.
 `pnpm typecheck` 0 errors · `pnpm lint` 0 errors / 4 warnings (pre-existing) ·
 `pnpm check:refactor` all OK · `pnpm test` **5709 passing / 1 skipped** ·
 `pnpm build` exit 0 · 1 commit on `main` (+ `scripts/bench-meshing.ts` measurement harness).
+
+---
+
+## BK. Round 60 (2026-06-13) — MEASURED: sky-light seeded ~50k redundant BFS sources (5–9× win)
+
+Continued measurement-driven optimization. New harness `scripts/bench-light.ts`.
+
+**Microbenchmark** (`computeFreshLight` = sky + block light, runs ~81× on load alongside meshing):
+- `computeSkyLight`: **1.42 ms/chunk** (flat) / 1.41 ms (rolling) — dominant, flat across terrain = fixed-overhead.
+- `computeBlockLight`: 0.13 ms — already cheap (empty BFS when no emissive sources).
+
+- [x] **FIX-O**: `computeSkyLight` seeded **every** sky-lit cell (~50k for flat terrain) into the BFS
+  queue, then propagated all of them. But cells above the highest opaque block are open sky (15)
+  uniformly surrounded by 15 — they can never lower a neighbour, so they're **never useful BFS sources**
+  (for flat terrain with no overhangs the entire BFS was wasted no-ops). Find the highest opaque block
+  once (`y = i & 255`), set the open sky above it lit WITHOUT enqueueing; only cells at/below the terrain
+  line (shadow boundaries) seed the BFS. — `light.ts`. **Light values unchanged** — guaranteed by the
+  existing BFS-vs-full-recompute **property test** (random edit sequences) + 1489 block/world tests.
+  **Benchmark: flat 1.43→0.15 ms (9.3×), rolling 1.41→0.26 ms (5.4×).**
+
+Combined Rounds 59+60: per-chunk load CPU (meshing ~2→1 ms + sky-light ~1.4→0.2 ms) roughly halved —
+faster initial load and faster relight/re-mesh on every block edit.
+
+### Quality gate (Round 60)
+`pnpm typecheck` 0 errors · `pnpm lint` 0 errors / 4 warnings (pre-existing) ·
+`pnpm check:refactor` all OK · `pnpm test` **5709 passing / 1 skipped** ·
+`pnpm build` exit 0 · 1 commit on `main` (+ `scripts/bench-light.ts`).
