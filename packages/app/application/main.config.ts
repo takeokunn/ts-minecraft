@@ -6,7 +6,7 @@ export const MAX_SEED_VALUE = 0xFFFFFFFF
 
 export const SUN_COLOR         = 0xffffff
 export const AMBIENT_COLOR     = 0x404040
-export const SKY_COLOR_NIGHT   = 0x0a0a1a  // dark blue
+export const SKY_COLOR_NIGHT   = 0x15182e  // dark moonlit blue (lightened from 0x0a0a1a so the night horizon/fog isn't pitch-black)
 export const SKY_COLOR_DAY     = 0x87ceeb  // sky blue
 
 // ─── Bloom pass parameters ───────────────────────────────────────────────────

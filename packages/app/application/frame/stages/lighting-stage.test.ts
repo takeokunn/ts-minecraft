@@ -79,7 +79,7 @@ describe('step 2.8 — sun intensity wiring', () => {
     expect(arg).toBeCloseTo(1, 5)
   }))
 
-  it.effect('reports zero sun intensity at midnight (timeOfDay=0)', () => Effect.gen(function* () {
+  it.effect('reports the moonlight floor sun intensity at midnight (timeOfDay=0)', () => Effect.gen(function* () {
     const deps = yield* makeDeps(false)
     const services = makeServices({
       inputService: makeInputService(),
@@ -94,9 +94,13 @@ describe('step 2.8 — sun intensity wiring', () => {
 
     yield* runFrame(deps, services)
 
-    // sin((0-0.25)*2π) = sin(-π/2) = -1, clamped to 0
+    // At midnight the daylight factor is 0, but the terrain sun-intensity floors at
+    // TERRAIN_NIGHT_LIGHT_FLOOR (0.30) so the world stays readable (moonlight) — it must
+    // NOT be 0 (that made night pitch-black), and must stay below the noon value.
     const arg = spy.mock.calls[0]?.[0] as number
-    expect(arg).toBe(0)
+    expect(arg).toBeCloseTo(0.30, 5)
+    expect(arg).toBeGreaterThan(0)
+    expect(arg).toBeLessThan(1)
   }))
 })
 

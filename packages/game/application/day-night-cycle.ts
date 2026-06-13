@@ -6,16 +6,41 @@ import type { DayNightLightsPort } from '@ts-minecraft/core'
 const DAWN_PHASE_OFFSET = 0.25   // 0=midnight, 0.25=dawn, 0.5=noon, 0.75=dusk
 const DIRECT_LIGHT_MIN = 0.3
 const DIRECT_LIGHT_RANGE = 0.7
-const AMBIENT_LIGHT_MIN = 0.28
+// Night ambient floor raised (0.28 → 0.42): combined with the terrain moonlight floor
+// below, this keeps the night readable instead of pitch-black ('夜がくらすぎる').
+const AMBIENT_LIGHT_MIN = 0.42
 const AMBIENT_LIGHT_RANGE = 0.42
 const SUN_DISTANCE = 50
 const SUN_HEIGHT = 80
-// Half-width (in sun-elevation units, sinSun ∈ [-1,1]) of the dawn/dusk twilight
-// band over which daylight ramps between night and full day. ~0.18 ≈ the sun
-// within ~10° of the horizon — a short, natural-looking sunset/sunrise.
-const TWILIGHT_BAND = 0.18
+// Half-width (in sun-elevation units, sinSun ∈ [-1,1]) of the dawn/dusk twilight band
+// over which daylight ramps between night and full day. Widened 0.18 → 0.30 (sun within
+// ~17° of the horizon) so dusk/dawn last longer and night arrives gradually instead of
+// snapping dark ('急に夜になる').
+const TWILIGHT_BAND = 0.30
 
 const clamp01 = (v: number): number => (v < 0 ? 0 : v > 1 ? 1 : v)
+const smoothstep01 = (t: number): number => {
+  const c = clamp01(t)
+  return c * c * (3 - 2 * c)
+}
+
+// Daylight factor 0..1 from the sun's elevation (sinSun): 0 deep night, 1 full day,
+// smooth eased ramp through the twilight band. The SINGLE source of the day/night
+// brightness curve — shared by the scene light intensities (below) AND the terrain/water
+// shader sun-intensity (lighting-stage). Previously the terrain used its own raw
+// `max(0, sin)` which dropped to 0 at night, so terrain darkened suddenly at dusk and
+// went black at night regardless of this curve.
+const daylightFromElevation = (sinSun: number): number =>
+  smoothstep01((sinSun + TWILIGHT_BAND) / (2 * TWILIGHT_BAND))
+
+export const computeDaylightFactor = (timeOfDay: number): number =>
+  daylightFromElevation(Math.sin((timeOfDay - DAWN_PHASE_OFFSET) * Math.PI * 2))
+
+// Moonlight floor for the terrain/water shader: at night the sun-intensity never reaches
+// 0, so block faces stay dimly lit (readable) rather than black. 0 → full day = [floor, 1].
+export const TERRAIN_NIGHT_LIGHT_FLOOR = 0.30
+export const computeTerrainSunIntensity = (timeOfDay: number): number =>
+  TERRAIN_NIGHT_LIGHT_FLOOR + (1 - TERRAIN_NIGHT_LIGHT_FLOOR) * computeDaylightFactor(timeOfDay)
 
 // Sky turbidity and rayleigh: tuned for natural appearance (lower = cleaner/less hazy)
 const SKY_TURBIDITY_DAY = 2
@@ -64,19 +89,10 @@ export const updateDayNightCycle = (
     const cosSun = Math.cos(sunAngle)
     const sinSun = Math.sin(sunAngle)
     // sinSun is the sun's elevation above the horizon: -1 at midnight, 0 at
-    // dawn/dusk, +1 at noon.
-    //
-    // The old model used `dayFactor = max(0, sinSun)` directly — a raw sine that
-    // is only ~1 right at noon and collapses to 0 at BOTH dawn and dusk, giving
-    // no twilight and a world that is fully black the instant the sun touches the
-    // horizon (the "dusk looks pitch-black" bug). Real daylight instead PLATEAUS:
-    // it is at full brightness for most of the day and ramps smoothly through a
-    // short dawn/dusk twilight band. Model that with a smoothstep over the sun's
-    // elevation: dark below -TWILIGHT_BAND, full day above +TWILIGHT_BAND, an
-    // eased transition across the band. Light still ARCS via cos/sin below; only
-    // the brightness/colour mix uses this plateaued factor.
-    const twilightT = clamp01((sinSun + TWILIGHT_BAND) / (2 * TWILIGHT_BAND))
-    const dayFactor = twilightT * twilightT * (3 - 2 * twilightT)  // smoothstep
+    // dawn/dusk, +1 at noon. dayFactor plateaus through the day and eases through
+    // the twilight band (see daylightFromElevation) — the SAME curve the terrain
+    // shader uses, so scene lighting and terrain brightness stay in lockstep.
+    const dayFactor = daylightFromElevation(sinSun)
 
     yield* Effect.sync(() => {
       lights.light.intensity = DIRECT_LIGHT_MIN + dayFactor * DIRECT_LIGHT_RANGE

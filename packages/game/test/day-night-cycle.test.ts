@@ -3,7 +3,7 @@ import { expect } from 'vitest'
 import { Effect, MutableRef, Option } from 'effect'
 import * as THREE from 'three'
 import { TimeService, TimeServiceLive } from '@ts-minecraft/game'
-import { updateDayNightCycle, type DayNightLights } from '@ts-minecraft/game'
+import { updateDayNightCycle, computeDaylightFactor, computeTerrainSunIntensity, TERRAIN_NIGHT_LIGHT_FLOOR, type DayNightLights } from '@ts-minecraft/game'
 import type { DeltaTimeSecs, ColorPort } from '@ts-minecraft/core'
 import type { SkyMaterialPort } from '@ts-minecraft/core'
 
@@ -31,10 +31,44 @@ const makeFakeLights = (): DayNightLights & {
 
 const DIRECT_LIGHT_MIN = 0.3
 const DIRECT_LIGHT_RANGE = 0.7
-const AMBIENT_LIGHT_MIN = 0.28
+const AMBIENT_LIGHT_MIN = 0.42
 const AMBIENT_LIGHT_RANGE = 0.42
 
 describe('application/time/day-night-cycle', () => {
+  // The shared brightness curve used by BOTH the scene lights and the terrain shader.
+  describe('computeDaylightFactor / computeTerrainSunIntensity (shared curve)', () => {
+    it('is 1 at noon and 0 deep at night, 0.5 at dawn/dusk', () => {
+      expect(computeDaylightFactor(0.5)).toBeCloseTo(1, 5)   // noon
+      expect(computeDaylightFactor(0.0)).toBeCloseTo(0, 5)   // midnight
+      expect(computeDaylightFactor(0.25)).toBeCloseTo(0.5, 5) // dawn
+      expect(computeDaylightFactor(0.75)).toBeCloseTo(0.5, 5) // dusk
+    })
+
+    it('PLATEAUS through the day — bright well before and after noon (not a sharp sine peak)', () => {
+      // mid-morning / mid-afternoon should already be (near) full daylight
+      expect(computeDaylightFactor(0.40)).toBeGreaterThan(0.95)
+      expect(computeDaylightFactor(0.60)).toBeGreaterThan(0.95)
+    })
+
+    it('terrain sun-intensity never drops below the moonlight floor (night stays readable)', () => {
+      for (const t of [0, 0.1, 0.25, 0.5, 0.75, 0.9]) {
+        expect(computeTerrainSunIntensity(t)).toBeGreaterThanOrEqual(TERRAIN_NIGHT_LIGHT_FLOOR - 1e-9)
+      }
+      expect(computeTerrainSunIntensity(0.0)).toBeCloseTo(TERRAIN_NIGHT_LIGHT_FLOOR, 5) // midnight = floor
+      expect(computeTerrainSunIntensity(0.5)).toBeCloseTo(1, 5)                          // noon = full
+    })
+
+    it('day→night transition is gradual (monotonic through dusk, no instant snap)', () => {
+      // Sampling dusk→night, brightness must decrease monotonically (no sudden cliff to 0).
+      const samples = [0.70, 0.74, 0.78, 0.82, 0.86, 0.90].map(computeTerrainSunIntensity)
+      for (let i = 1; i < samples.length; i++) {
+        expect(samples[i]!).toBeLessThanOrEqual(samples[i - 1]! + 1e-9)
+      }
+      // And it bottoms out at the floor, not 0.
+      expect(samples[samples.length - 1]!).toBeGreaterThanOrEqual(TERRAIN_NIGHT_LIGHT_FLOOR - 1e-9)
+    })
+  })
+
   describe('updateDayNightCycle — noon (timeOfDay=0.5)', () => {
     it.effect('should give maximum direct light intensity at noon', () =>
       // dayFactor = sin((0.5 - 0.25) * π * 2) = sin(π/2) = 1.0

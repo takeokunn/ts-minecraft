@@ -1,7 +1,7 @@
 import { Effect, Ref } from 'effect'
 import { logErrors } from '@ts-minecraft/app/frame/error-logging'
 import type { FrameHandlerDeps, FrameHandlerServices, FrameStageRefs } from '@ts-minecraft/app/frame/types'
-import { updateDayNightCycle, applyNetherEnvironment, applyEndEnvironment, type DayNightLights, type Weather } from '@ts-minecraft/game'
+import { updateDayNightCycle, computeTerrainSunIntensity, applyNetherEnvironment, applyEndEnvironment, type DayNightLights, type Weather } from '@ts-minecraft/game'
 import type { DeltaTimeSecs, Position } from '@ts-minecraft/core'
 
 // Apply a grey-blue tint when it is raining or thundering (overrides the daytime sky).
@@ -76,7 +76,10 @@ export const lightingStage = (
     ),
     Effect.flatMap(() => services.timeService.getTimeOfDay()),
     Effect.flatMap((timeOfDay) => {
-      const sunIntensity = Math.max(0, Math.sin((timeOfDay - 0.25) * Math.PI * 2))
+      // Shared day/night curve WITH a moonlight floor — was a standalone raw
+      // `max(0, sin)` that dropped terrain brightness to 0 at night (sudden dusk +
+      // pitch-black night). Now in lockstep with the scene light intensities.
+      const sunIntensity = computeTerrainSunIntensity(timeOfDay)
       return logErrors(services.chunkMeshService.setSunIntensity(sunIntensity), 'Sun intensity sync error').pipe(
         Effect.map(() => ({ timeOfDay, sunIntensity })),
       )
