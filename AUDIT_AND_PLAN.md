@@ -1975,3 +1975,28 @@ only the rate of random jitter, not a correctness-bearing timer).
 `pnpm typecheck` 0 errors · `pnpm lint` 0 errors / 4 warnings (pre-existing) ·
 `pnpm check:refactor` all OK · `pnpm test` **5707 passing / 1 skipped** (+2 new tests) ·
 `pnpm build` exit 0 · 1 commit on `main`.
+
+---
+
+## BF. Round 55 (2026-06-13) — mob spawn cadence was frame-count-based (load-dependent spawn rate)
+
+- [x] **FIX-J**: **Mob spawn rate depended on load.** `MobSpawner.trySpawn` gated attempts on
+  `frame % SPAWN_INTERVAL_FRAMES` (6), where `frame` increments once per call — and `trySpawn` is called
+  once per maintenance-lane iteration. After Round 54 made that lane's cadence a real-variable 16–48ms,
+  the spawn rate became load-dependent: under load (16ms iterations) mobs spawned up to ~3× faster than
+  when idle. Same frames-vs-ticks class, surfaced by the Round 54 fix. Replaced the frame-count gate with
+  a **real-time accumulator**: `trySpawn(playerPosition, spawnResolver?, deltaSecs = SPAWN_INTERVAL_SECS)`
+  fires every `SPAWN_INTERVAL_SECS` (0.3s = 6 × the old assumed 0.05s cadence), carrying the remainder so
+  sub-interval deltas still sum correctly. The maintenance handler threads its real `maintenanceDeltaTime`.
+  `SPAWN_INTERVAL_FRAMES` → `SPAWN_INTERVAL_SECS`. — `spawner.ts`, `spawner-config.ts`, `frame-maintenance.ts`
+  (+1 frame-rate-independence test: 18×0.1s and 6×0.3s both spawn exactly 6 over the same 1.8s).
+
+This was the maintenance lane's *second-order* victim: the hardcoded-0.05 fix (Round 54) didn't just
+mis-scale the consumers that took a delta — it also de-stabilized the one consumer that counted
+iterations instead of time. Both are now real-time gated. Sweep status: entity-AI lane ✅, maintenance
+lane ✅, spawn cadence ✅.
+
+### Quality gate (Round 55)
+`pnpm typecheck` 0 errors · `pnpm lint` 0 errors / 4 warnings (pre-existing) ·
+`pnpm check:refactor` all OK · `pnpm test` **5708 passing / 1 skipped** (+1 net new test) ·
+`pnpm build` exit 0 · 1 commit on `main`.
