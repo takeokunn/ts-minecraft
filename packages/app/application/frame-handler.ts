@@ -248,6 +248,7 @@ const createFrameLoopHandlersInternal = (
       chunkSyncPendingRef,
       dirtyChunksRef,
       cropTickAccumulatorRef: MutableRef.make(0),
+      lastMaintenanceTimeMsRef: MutableRef.make(-1),
     })
 
     // P4.1: Pre-build the frame pipeline Effect ONCE so the per-frame

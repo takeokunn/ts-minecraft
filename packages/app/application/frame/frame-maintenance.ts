@@ -1,4 +1,4 @@
-import { Array as Arr, Cause, Effect, HashMap, MutableRef, Option, Ref } from 'effect'
+import { Array as Arr, Cause, Clock, Effect, HashMap, MutableRef, Option, Ref } from 'effect'
 import { DEFAULT_PLAYER_ID } from '@ts-minecraft/core'
 import type { Chunk, ChunkAABB } from '@ts-minecraft/world'
 import { DESPAWN_DISTANCE, resolveMobSpawnPosition } from '@ts-minecraft/entity'
@@ -35,6 +35,11 @@ type MaintenanceState = {
   readonly dirtyChunksRef: Ref.Ref<HashMap.HashMap<string, DirtyChunkEntry>>
   // Accumulated maintenance-tick time for crop growth; fires tickAll() every CROP_GROWTH_INTERVAL_SECS.
   readonly cropTickAccumulatorRef: MutableRef.MutableRef<number>
+  // Wall-clock ms of the previous maintenance iteration, so the real elapsed delta
+  // (not a hardcoded constant) drives furnace/crop/village simulation. Sentinel < 0
+  // means "first call". The maintenance loop sleeps 16ms (busy) or 48ms (idle) plus
+  // its own execution time, so the true cadence is variable and must be measured.
+  readonly lastMaintenanceTimeMsRef: MutableRef.MutableRef<number>
 }
 
 type MaintenanceServices = Pick<
@@ -89,7 +94,17 @@ export const createMaintenanceHandler = (
       const dirtyChunkFlushEnabled = chunkSceneSyncEnabled && debugFlags['world.dirtyChunkFlush']
       const cx = Math.floor(playerPos.x / CHUNK_SIZE)
       const cz = Math.floor(playerPos.z / CHUNK_SIZE)
-      const maintenanceDeltaTime = 0.05 as DeltaTimeSecs
+      // Real elapsed time since the previous maintenance iteration. The loop's sleep
+      // is 16ms (busy) or 48ms (idle) + handler execution, so a fixed 0.05 made
+      // furnace/crop/village run faster under load and frame-rate dependently. First
+      // call falls back to ~0.05 (the idle cadence). Clamp: floor avoids a divide-by-
+      // tiny spike; the 0.25 cap stops a background-tab pause from dumping a huge
+      // backlog into the simulation on resume.
+      const nowMs = yield* Clock.currentTimeMillis
+      const lastMaintenanceMs = MutableRef.get(state.lastMaintenanceTimeMsRef)
+      MutableRef.set(state.lastMaintenanceTimeMsRef, nowMs)
+      const rawMaintenanceDelta = lastMaintenanceMs < 0 ? 0.05 : (nowMs - lastMaintenanceMs) / 1000
+      const maintenanceDeltaTime = Math.min(Math.max(rawMaintenanceDelta, 0.001), 0.25) as DeltaTimeSecs
       const despawnFarEntities = entityManager.despawnFarEntities
       const despawnAllEntities = entityManager.despawnAllEntities
 

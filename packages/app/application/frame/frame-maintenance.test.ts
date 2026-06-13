@@ -1,6 +1,6 @@
 import { describe, it } from '@effect/vitest'
 import { expect, vi } from 'vitest'
-import { Effect, MutableRef, Option } from 'effect'
+import { Duration, Effect, MutableRef, Option, TestClock } from 'effect'
 import { createFrameHandlers } from '@ts-minecraft/app'
 import { DESPAWN_DISTANCE } from '@ts-minecraft/entity'
 import { LIGHT_BYTE_LENGTH, setLightAt } from '@ts-minecraft/block'
@@ -342,6 +342,73 @@ describe('frame-maintenance / dirty chunk flush disabled', () => {
 
       // dirtyChunkFlushEnabled = false → drainRenderDirtyChunkEntries not called
       expect(drainSpy).not.toHaveBeenCalled()
+    })
+  )
+})
+
+// ---------------------------------------------------------------------------
+// frame-maintenance — real-time delta (frame-rate / load independent)
+// The maintenance loop sleeps 16ms (busy) or 48ms (idle) + its own execution
+// time, so the cadence is variable. Furnace / crop / village simulation must
+// advance by the REAL elapsed time, not a hardcoded 0.05 — otherwise they run
+// up to ~3x too fast under load.
+// ---------------------------------------------------------------------------
+describe('frame-maintenance / real-time delta', () => {
+  it.effect('feeds furnace tick the real elapsed seconds, not a fixed 0.05', () =>
+    Effect.gen(function* () {
+      const deps = yield* makeDeps(false)
+      const services = makeServices({
+        inputService: makeInputService(),
+        inventoryRenderer: makeInventoryRenderer({ open: false }),
+        settingsOverlay: makeSettingsOverlay({ open: false }),
+      })
+
+      const furnaceDeltas: number[] = []
+      Object.assign(services.furnaceService, {
+        tick: vi.fn((dt: DeltaTimeSecs) => {
+          furnaceDeltas.push(Number(dt))
+          return Effect.void
+        }),
+      })
+
+      const { maintenanceHandler } = yield* createFrameHandlers(deps, services)
+
+      // First iteration: no prior timestamp → falls back to the idle cadence (~0.05).
+      yield* maintenanceHandler()
+      // 120ms of real wall-clock elapses before the next maintenance iteration.
+      yield* TestClock.adjust(Duration.millis(120))
+      yield* maintenanceHandler()
+
+      expect(furnaceDeltas).toHaveLength(2)
+      expect(furnaceDeltas[0]).toBeCloseTo(0.05, 5) // first-call fallback
+      expect(furnaceDeltas[1]).toBeCloseTo(0.12, 5) // 120ms real → 0.12s, NOT the old constant
+    })
+  )
+
+  it.effect('clamps an extreme gap (background-tab resume) to 0.25s', () =>
+    Effect.gen(function* () {
+      const deps = yield* makeDeps(false)
+      const services = makeServices({
+        inputService: makeInputService(),
+        inventoryRenderer: makeInventoryRenderer({ open: false }),
+        settingsOverlay: makeSettingsOverlay({ open: false }),
+      })
+
+      const furnaceDeltas: number[] = []
+      Object.assign(services.furnaceService, {
+        tick: vi.fn((dt: DeltaTimeSecs) => {
+          furnaceDeltas.push(Number(dt))
+          return Effect.void
+        }),
+      })
+
+      const { maintenanceHandler } = yield* createFrameHandlers(deps, services)
+      yield* maintenanceHandler()
+      // 30 real seconds (a long background-tab pause) must not dump 30s into the furnace.
+      yield* TestClock.adjust(Duration.seconds(30))
+      yield* maintenanceHandler()
+
+      expect(furnaceDeltas[1]).toBeCloseTo(0.25, 5)
     })
   )
 })
