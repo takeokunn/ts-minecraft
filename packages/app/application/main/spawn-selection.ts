@@ -173,32 +173,52 @@ export const selectSurfaceSpawn = (
   return { position: { ...baseSpawnPosition, y: safetyY ?? fallbackY }, yaw: 0 }
 }
 
-// Scan ALL loaded chunks for any solid ground as a last-resort fallback.
-// Returns the best safe player Y found, or undefined if no solid ground exists.
+// Scan ALL loaded chunks for solid ground as a last-resort fallback (e.g. the origin
+// sits in a large ocean and no clear-sky land candidate exists). The previous version
+// counted WATER/LAVA as "ground" (blocks !== AIR), so on an ocean origin it spawned the
+// player at/under the water surface — they then sank underwater with nothing to see.
+// Now: find the topmost SOLID block per column; PREFER dry columns; and for a submerged
+// column spawn ABOVE the water surface so the player is at least visible above water.
 const findFallbackSurfaceY = (
   chunkMap: ReadonlyMap<string, Chunk>,
   base: { readonly x: number; readonly z: number },
 ): number | undefined => {
-  type Candidate = { readonly y: number; readonly distSq: number }
+  const WATER = blockTypeToIndex('WATER')
+  const LAVA = blockTypeToIndex('LAVA')
+  type Candidate = { readonly y: number; readonly distSq: number; readonly dry: boolean }
   let best: Candidate | undefined
+  // A dry column always beats a wet one; among equals, the nearest to origin wins.
+  const isBetter = (c: Candidate): boolean =>
+    best === undefined || (c.dry !== best.dry ? c.dry : c.distSq < best.distSq)
 
   for (const chunk of chunkMap.values()) {
     const cx = chunk.coord.x
     const cz = chunk.coord.z
     for (let lx = 0; lx < CHUNK_SIZE; lx++) {
       for (let lz = 0; lz < CHUNK_SIZE; lz++) {
-        const wx = cx * CHUNK_SIZE + lx
-        const wz = cz * CHUNK_SIZE + lz
+        let fluidTop = -1
+        let solidTop = -1
         for (let y = FALLBACK_SURFACE_Y + FALLBACK_HEADROOM; y > 0; y--) {
           const idx = localBlockIndex(lx, y, lz)
-          if (idx !== null && chunk.blocks[idx] !== undefined && chunk.blocks[idx] !== AIR) {
-            const distSq = (wx + 0.5 - base.x) ** 2 + (wz + 0.5 - base.z) ** 2
-            if (best === undefined || distSq < best.distSq) {
-              best = { y: y + 1 + PLAYER_HALF_HEIGHT, distSq }
-            }
-            break // move to next column
-          }
+          if (idx === null) continue
+          const b = chunk.blocks[idx]
+          if (b === undefined || b === AIR) continue
+          if (b === WATER || b === LAVA) { if (fluidTop < 0) fluidTop = y; continue }
+          solidTop = y
+          break // topmost solid block in this column
         }
+        if (solidTop < 0) continue // no solid ground here
+        const wx = cx * CHUNK_SIZE + lx
+        const wz = cz * CHUNK_SIZE + lz
+        const dry = fluidTop < 0
+        // Submerged ground → spawn above the water surface, not on the seabed.
+        const topY = dry ? solidTop : Math.max(solidTop, fluidTop)
+        const candidate: Candidate = {
+          y: topY + 1 + PLAYER_HALF_HEIGHT,
+          distSq: (wx + 0.5 - base.x) ** 2 + (wz + 0.5 - base.z) ** 2,
+          dry,
+        }
+        if (isBetter(candidate)) best = candidate
       }
     }
   }
