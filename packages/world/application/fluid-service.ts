@@ -315,9 +315,12 @@ export class FluidService extends Effect.Service<FluidService>()(
 
             // Drop only the keys we will process from the frontier (O(budget)). Unexamined
             // cells and (on a non-lava tick) all lava stay — matching the old carry/retain
-            // semantics, but without rebuilding the whole HashSet.
-            let nextFrontier = state.frontier
-            for (let i = 0; i < work.length; i++) nextFrontier = HashSet.remove(nextFrontier, work[i]!.key)
+            // semantics, but without rebuilding the whole HashSet. HashSet.mutate batches the
+            // removes (one in-place edit pass) instead of N sequential immutable path-copies —
+            // matters while a large settled body of water drains out of the frontier.
+            const nextFrontier = HashSet.mutate(state.frontier, (s) => {
+              for (let i = 0; i < work.length; i++) HashSet.remove(s, work[i]!.key)
+            })
 
             const tickStateRef = yield* Ref.make<FluidState>({ ...state, tickCounter, frontier: nextFrontier })
 
