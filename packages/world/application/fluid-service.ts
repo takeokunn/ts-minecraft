@@ -346,14 +346,12 @@ export class FluidService extends Effect.Service<FluidService>()(
               return
             }
 
-            // Drop only the keys we will process from the frontier (O(budget)). Unexamined
-            // cells and (on a non-lava tick) all lava stay — matching the old carry/retain
-            // semantics, but without rebuilding the whole HashSet. HashSet.mutate batches the
-            // removes (one in-place edit pass) instead of N sequential immutable path-copies —
-            // matters while a large settled body of water drains out of the frontier.
-            const nextFrontier = HashSet.mutate(state.frontier, (s) => {
-              for (let i = 0; i < work.length; i++) HashSet.remove(s, work[i]!.key)
-            })
+            // Drop only the keys we will process from the frontier (O(budget) — work is capped
+            // at FLUID_TICK_BUDGET). Immutable reduce: N path-copies, but N ≤ budget so it stays
+            // cheap. (Was HashSet.mutate, which under load threw 'Cannot read properties of
+            // undefined (reading modify)' from Effect's HAMT every fluid tick — a transient-set
+            // corruption; the immutable removes are correct and the bounded cost is negligible.)
+            const nextFrontier = work.reduce((acc, w) => HashSet.remove(acc, w.key), state.frontier)
 
             const tickStateRef = yield* Ref.make<FluidState>({ ...state, tickCounter, frontier: nextFrontier })
 
