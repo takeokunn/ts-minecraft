@@ -95,10 +95,10 @@ describe('step 2.8 — sun intensity wiring', () => {
     yield* runFrame(deps, services)
 
     // At midnight the daylight factor is 0, but the terrain sun-intensity floors at
-    // TERRAIN_NIGHT_LIGHT_FLOOR (0.30) so the world stays readable (moonlight) — it must
+    // TERRAIN_NIGHT_LIGHT_FLOOR (0.45) so the world stays readable (moonlight) — it must
     // NOT be 0 (that made night pitch-black), and must stay below the noon value.
     const arg = spy.mock.calls[0]?.[0] as number
-    expect(arg).toBeCloseTo(0.30, 5)
+    expect(arg).toBeCloseTo(0.45, 5)
     expect(arg).toBeGreaterThan(0)
     expect(arg).toBeLessThan(1)
   }))

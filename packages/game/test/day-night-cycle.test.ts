@@ -31,7 +31,7 @@ const makeFakeLights = (): DayNightLights & {
 
 const DIRECT_LIGHT_MIN = 0.3
 const DIRECT_LIGHT_RANGE = 0.7
-const AMBIENT_LIGHT_MIN = 0.42
+const AMBIENT_LIGHT_MIN = 0.56
 const AMBIENT_LIGHT_RANGE = 0.42
 
 describe('application/time/day-night-cycle', () => {

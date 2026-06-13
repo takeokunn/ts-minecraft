@@ -20,6 +20,12 @@ export const ResolvedGraphicsSchema = Schema.Struct({
   // 0 disables the gate; low/medium use 0.05 (aggressive skip), high/ultra 0.005 (conservative).
   refractionMinScreenRatio: Schema.Number.pipe(Schema.finite(), Schema.between(0, 1)),
   pixelRatioCap: Schema.Number.pipe(Schema.finite(), Schema.between(0.5, 2)),
+  // Shadow quality (the "影Mod" lever). shadowMapSize = the directional light's depth-map
+  // resolution per axis (higher = crisper shadow edges, more VRAM: 2048²×4B ≈ 16MB, 4096² ≈ 64MB);
+  // shadowRadius = PCF soft-shadow blur kernel (higher = softer penumbra). Scaled by preset so
+  // high/ultra get a shader-pack-like soft directional shadow while low (shadows off) stays lean.
+  shadowMapSize: Schema.Number.pipe(Schema.int(), Schema.between(512, 4096)),
+  shadowRadius: Schema.Number.pipe(Schema.finite(), Schema.between(0, 16)),
   // EffectComposer intermediate RT pixel type. 1009 = THREE.UnsignedByteType (8-bit unorm,
   // halves VRAM bandwidth on low/medium where no HDR pass exists). 1016 = THREE.HalfFloatType
   // (16-bit float, required when bloom/god-rays produce values >1.0). Numeric literals avoid

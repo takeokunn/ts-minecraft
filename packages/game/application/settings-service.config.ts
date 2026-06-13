@@ -32,6 +32,7 @@ export const GRAPHICS_PRESETS = {
     refractionMinScreenRatio: 0.05, // FR-4.4: aggressive skip on low — refraction is throttled to 0 anyway
     composerRtType: 1009, // THREE.UnsignedByteType — no HDR pass, save VRAM bandwidth
     useCompositePass: false, // FR-4.3: no HDR effects — CompositePass would no-op
+    shadowMapSize: 1024, shadowRadius: 2, // shadows OFF on low; minimal values for the unused buffer
   },
   medium: {
     shadowsEnabled: true,  ssaoEnabled: false, bloomEnabled: false,
@@ -44,6 +45,7 @@ export const GRAPHICS_PRESETS = {
     refractionMinScreenRatio: 0.05,
     composerRtType: 1009, // THREE.UnsignedByteType — no HDR pass, save VRAM bandwidth
     useCompositePass: false, // FR-4.3: no HDR effects — CompositePass would no-op
+    shadowMapSize: 2048, shadowRadius: 3, // balanced soft shadow (~16MB depth map)
   },
   high: {
     shadowsEnabled: true,  ssaoEnabled: true,  bloomEnabled: true,
@@ -52,6 +54,7 @@ export const GRAPHICS_PRESETS = {
     refractionMinScreenRatio: 0.005, // FR-4.4: conservative — only drop frames where water is <0.5% of screen
     composerRtType: 1016, // THREE.HalfFloatType — bloom needs HDR
     useCompositePass: true, // FR-4.3: bloom merged into CompositePass; standalone bloomPass disabled
+    shadowMapSize: 3072, shadowRadius: 5, // crisper + softer penumbra (~36MB depth map)
   },
   ultra: {
     shadowsEnabled: true,  ssaoEnabled: true,  bloomEnabled: true,
@@ -60,6 +63,7 @@ export const GRAPHICS_PRESETS = {
     refractionMinScreenRatio: 0.005, // FR-4.4: conservative — preserve quality
     composerRtType: 1016, // THREE.HalfFloatType — bloom + god rays need HDR
     useCompositePass: true, // FR-4.3: bloom + godRays + bokeh merged; ~25MB/frame savings
+    shadowMapSize: 4096, shadowRadius: 7, // shader-pack-grade soft directional shadow (~64MB depth map)
   },
 } as const
 

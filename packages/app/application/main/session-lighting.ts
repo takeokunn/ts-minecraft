@@ -18,9 +18,11 @@ export const buildLighting = (
 ) => Effect.gen(function* () {
   const light = yield* Effect.sync(() => {
     const l = new THREE.DirectionalLight(SUN_COLOR, 1)
-    l.shadow.mapSize.width = 2048
-    l.shadow.mapSize.height = 2048
-    l.shadow.radius = 3
+    // Shadow map resolution + PCF soft-shadow radius are preset-scaled (the "影Mod" lever):
+    // low/medium 1024–2048, high 3072, ultra 4096 with a wider soft penumbra.
+    l.shadow.mapSize.width = initialGraphics.shadowMapSize
+    l.shadow.mapSize.height = initialGraphics.shadowMapSize
+    l.shadow.radius = initialGraphics.shadowRadius
     l.shadow.camera.near = 0.5
     l.shadow.camera.far = Math.max(initialSettings.renderDistance * CHUNK_SIZE * 1.5 + CHUNK_HEIGHT, 300)
     const shadowHalfExtent = Math.min(Math.ceil(initialSettings.renderDistance * CHUNK_SIZE * 0.5), MAX_SHADOW_HALF_EXTENT)

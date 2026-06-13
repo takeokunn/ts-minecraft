@@ -6,9 +6,10 @@ import type { DayNightLightsPort } from '@ts-minecraft/core'
 const DAWN_PHASE_OFFSET = 0.25   // 0=midnight, 0.25=dawn, 0.5=noon, 0.75=dusk
 const DIRECT_LIGHT_MIN = 0.3
 const DIRECT_LIGHT_RANGE = 0.7
-// Night ambient floor raised (0.28 → 0.42): combined with the terrain moonlight floor
-// below, this keeps the night readable instead of pitch-black ('夜がくらすぎる').
-const AMBIENT_LIGHT_MIN = 0.42
+// Night ambient floor (raised again 0.42 → 0.56 on '夜が暗すぎる' feedback): combined with
+// the terrain moonlight floor below this lifts the whole night closer to a bright-moonlit
+// look while the cool-blue night tint + reduced directional light keep it reading as night.
+const AMBIENT_LIGHT_MIN = 0.56
 const AMBIENT_LIGHT_RANGE = 0.42
 const SUN_DISTANCE = 50
 const SUN_HEIGHT = 80
@@ -36,9 +37,10 @@ const daylightFromElevation = (sinSun: number): number =>
 export const computeDaylightFactor = (timeOfDay: number): number =>
   daylightFromElevation(Math.sin((timeOfDay - DAWN_PHASE_OFFSET) * Math.PI * 2))
 
-// Moonlight floor for the terrain/water shader: at night the sun-intensity never reaches
-// 0, so block faces stay dimly lit (readable) rather than black. 0 → full day = [floor, 1].
-export const TERRAIN_NIGHT_LIGHT_FLOOR = 0.30
+// Moonlight floor for the terrain/water shader: at night the sun-intensity never reaches 0,
+// so block faces stay lit (readable) rather than black. Raised 0.30 → 0.45 on '夜が暗すぎる'
+// feedback — a bright-moonlit night. 0 → full day maps to [floor, 1].
+export const TERRAIN_NIGHT_LIGHT_FLOOR = 0.45
 export const computeTerrainSunIntensity = (timeOfDay: number): number =>
   TERRAIN_NIGHT_LIGHT_FLOOR + (1 - TERRAIN_NIGHT_LIGHT_FLOOR) * computeDaylightFactor(timeOfDay)
 
