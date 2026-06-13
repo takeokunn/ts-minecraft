@@ -200,32 +200,39 @@ export class FluidService extends Effect.Service<FluidService>()(
         cell: FluidCell,
         nextLevel: number,
       ): Effect.Effect<void, never> =>
-        Effect.forEach(FLOW_OFFSETS, (offset) => Effect.gen(function* () {
-          const target = {
-            x: position.x + offset.x,
-            y: position.y + offset.y,
-            z: position.z + offset.z,
-          }
-          if (!isAirAt(loaded, target)) {
-            const otherIdx = blockAt(loaded, target)
-            const otherIdxVal = Option.getOrNull(otherIdx)
-            const isOpposite = otherIdxVal !== null &&
+        // Plain sequential loop instead of Effect.forEach(FLOW_OFFSETS, ...) — only 4 offsets,
+        // run sequentially anyway, so the forEach's result-array + per-element Effect.gen were
+        // pure per-cell allocation. Matters while a large settled body drains (×512 cells/tick).
+        // Behaviour identical: same order, the per-element `return` becomes `continue`.
+        Effect.gen(function* () {
+          for (let i = 0; i < FLOW_OFFSETS.length; i++) {
+            const offset = FLOW_OFFSETS[i]!
+            const target = {
+              x: position.x + offset.x,
+              y: position.y + offset.y,
+              z: position.z + offset.z,
+            }
+            if (!isAirAt(loaded, target)) {
+              const otherIdx = blockAt(loaded, target)
+              const otherIdxVal = Option.getOrNull(otherIdx)
+              const isOpposite = otherIdxVal !== null &&
+                /* c8 ignore next */
+                (cell.type === 'lava' ? otherIdxVal === WATER_INDEX : otherIdxVal === LAVA_INDEX)
+              /* c8 ignore next 3 */
+              if (isOpposite) yield* resolveNeighborContact(loaded, tickStateRef, position, cell)
+              continue
+            }
+            const targetKey = blockKey(target)
+            const shouldWrite = yield* Ref.modify(tickStateRef, (s) => {
+              const existing = HashMap.get(s.cells, targetKey)
               /* c8 ignore next */
-              (cell.type === 'lava' ? otherIdxVal === WATER_INDEX : otherIdxVal === LAVA_INDEX)
-            /* c8 ignore next 3 */
-            if (isOpposite) yield* resolveNeighborContact(loaded, tickStateRef, position, cell)
-            return
+              if (Option.exists(existing, (e) => e.type === cell.type && e.level <= nextLevel)) return [false, s] as const
+              const newCell: FluidCell = { level: nextLevel, source: false, type: cell.type }
+              return [true, setCellAndEnqueueKey(s, targetKey, newCell)] as const
+            })
+            if (shouldWrite) yield* writeFluid(loaded, target, { level: nextLevel, source: false, type: cell.type })
           }
-          const targetKey = blockKey(target)
-          const shouldWrite = yield* Ref.modify(tickStateRef, (s) => {
-            const existing = HashMap.get(s.cells, targetKey)
-            /* c8 ignore next */
-            if (Option.exists(existing, (e) => e.type === cell.type && e.level <= nextLevel)) return [false, s] as const
-            const newCell: FluidCell = { level: nextLevel, source: false, type: cell.type }
-            return [true, setCellAndEnqueueKey(s, targetKey, newCell)] as const
-          })
-          if (shouldWrite) yield* writeFluid(loaded, target, { level: nextLevel, source: false, type: cell.type })
-        }), { concurrency: 1 })
+        })
 
       const processFluidCell = (
         loaded: HashMap.HashMap<ChunkCacheKey, Chunk>,
