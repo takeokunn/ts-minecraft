@@ -1925,3 +1925,25 @@ per-frame counters in the entity AI path — a follow-up sweep should confirm or
 `pnpm typecheck` 0 errors · `pnpm lint` 0 errors / 4 warnings (pre-existing) ·
 `pnpm check:refactor` all OK · `pnpm test` **5704 passing / 1 skipped** (+5 new tests) ·
 `pnpm build` exit 0 · 1 commit on `main`.
+
+---
+
+## BD. Round 53 (2026-06-13) — daylight burn frames-vs-ticks + a latent cache bug it exposed
+
+- [x] **FIX-H**: **Daylight mob burn was frame-count-based** AND exposed a **stale-cache bug**.
+  (1) `daytimeBurningActive` used `tick % 20` on the per-frame AI counter → hostile mobs burned every
+  20 *render frames* (~3×/sec at 60fps) instead of ~1×/sec. Replaced with a real-time accumulator
+  (`burnAccumulatorRef` + `DAYTIME_BURN_INTERVAL_SECS=1.0`), frame-rate independent. (2) Writing the
+  frame-rate-independence test surfaced a latent bug: on a burning frame the entity-snapshot cache was
+  invalidated ONLY if a hostile mob *died* — the `else if (dirtyRef)` was skipped — so a burn that
+  *damaged but didn't kill* left `getEntities()` returning stale health until the next non-burning
+  frame. Fixed to always invalidate on `dirtyRef || hostileDied`. — `entity-manager-internal-update.ts`
+
+The frames-vs-ticks sweep of the entity-AI path is now complete: invincibility, hunger, knockback,
+breeding, wool regrowth, daylight burn — all time-based. (Creeper fuse already used `dtSecs`; the
+`tick`-based wander/teleport randomness affects only RATE of pseudo-random variation, left as-is.)
+
+### Quality gate (Round 53)
+`pnpm typecheck` 0 errors · `pnpm lint` 0 errors / 4 warnings (pre-existing) ·
+`pnpm check:refactor` all OK · `pnpm test` **5705 passing / 1 skipped** (+1 new test) ·
+`pnpm build` exit 0 · 1 commit on `main`.
