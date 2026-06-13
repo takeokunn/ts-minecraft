@@ -15,6 +15,7 @@ import {
   TRADE_NEXT_KEY,
   TRADE_PREV_KEY,
   TRADE_EXECUTE_KEY,
+  OPEN_MENU_KEY,
 } from '@ts-minecraft/app/frame-handler.config'
 import type { Position } from '@ts-minecraft/core'
 
@@ -59,12 +60,31 @@ const handleEscape = (
     } else if (isPauseMenuOpen) {
       // Pause menu has its own keydown handler that consumes Esc to
       // resume; nothing more to do here.
-    } else {
-      // FR-1.4: ESC during play opens the in-session pause menu (formerly
-      // toggled the settings overlay; settings is now reachable via the
-      // pause menu's "Settings" button).
-      yield* services.pauseMenu.openIfClosed()
     }
+    // else: nothing open → ESC just releases the pointer lock (handled natively by
+    // the browser; mouse-look gates on isPointerLocked so the view stops rotating).
+    // Opening the pause menu is now a SEPARATE key (OPEN_MENU_KEY) — see handleMenuKey —
+    // so freeing the cursor no longer forces a pause. (User: 'ESCは視点解除にして
+    // メニューを開くのは別keyに'.)
+  })
+
+const handleMenuKey = (
+  deps: InputDeps,
+  services: Pick<InputServices, 'inputService' | 'inventoryRenderer' | 'settingsOverlay' | 'pauseMenu' | 'tradingPresentation'>,
+): Effect.Effect<void, never> =>
+  Effect.gen(function* () {
+    const pressed = yield* services.inputService.consumeKeyPress(OPEN_MENU_KEY)
+    if (!pressed) return
+    // Only open the pause menu from clean gameplay — never on top of another modal
+    // (inventory/trade/settings/pause), so the menu key can't stack overlays.
+    const anyModalOpen =
+      (yield* services.inventoryRenderer.isOpen()) ||
+      (yield* services.tradingPresentation.isOpen()) ||
+      (yield* services.settingsOverlay.isOpen()) ||
+      (yield* services.pauseMenu.isOpen())
+    if (anyModalOpen) return
+    yield* services.pauseMenu.openIfClosed()
+    yield* Ref.set(deps.gamePausedRef, true)
   })
 
 const handleInventoryKey = (
@@ -218,6 +238,7 @@ export const inputStage = (
         : services.firstPersonCamera.update(deps.camera, inputs.mouseSensitivity),
       () =>
         logErrors(handleEscape(deps, services), 'Overlay error').pipe(
+          Effect.flatMap(() => logErrors(handleMenuKey(deps, services), 'Overlay error')),
           Effect.flatMap(() => logErrors(handleInventoryKey(deps, services), 'Overlay error')),
           Effect.flatMap(() => logErrors(handleTradeKeys(deps, services, inputs.playerPos), 'Overlay error')),
           Effect.flatMap(() => logErrors(syncDayLength(services, inputs.dayLengthSeconds), 'Overlay error')),

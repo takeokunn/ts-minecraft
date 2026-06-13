@@ -2,6 +2,7 @@ import { describe, it } from '@effect/vitest'
 import { expect, vi } from 'vitest'
 import { Effect, MutableHashSet, Ref } from 'effect'
 import { KeyMappings } from '@ts-minecraft/entity'
+import { OPEN_MENU_KEY } from '@ts-minecraft/app/frame-handler.config'
 import {
   DEFAULT_SETTINGS,
   arrangeFrameHarness,
@@ -45,9 +46,10 @@ describe('Escape key handling', () => {
     expect(paused).toBe(false)
   }))
 
-  // FR-1.4: ESC during play opens the pause menu (not the settings overlay).
-  // Settings is now reachable via the pause menu's "Settings" button.
-  it.effect('opens the pause menu (NOT settings) when Escape is pressed while nothing is open', () => Effect.gen(function* () {
+  // ESC is decoupled from the menu: pressing Escape with nothing open must NOT open the
+  // pause menu — it only releases the pointer lock (browser-native; mouse-look gates on
+  // isPointerLocked). Opening the menu is OPEN_MENU_KEY now. (User: 'ESCは視点解除に'.)
+  it.effect('does NOT open the pause menu when Escape is pressed (Escape only releases the cursor)', () => Effect.gen(function* () {
     const pressedKeys = MutableHashSet.make(KeyMappings.ESCAPE)
     const { deps, services, settingsState } = yield* arrangeFrameHarness({ pressedKeys })
     const openIfClosedSpy = vi.fn(() => Effect.void)
@@ -55,21 +57,15 @@ describe('Escape key handling', () => {
 
     yield* runFrame(deps, services)
 
-    // Pause menu must have been opened
-    expect(openIfClosedSpy).toHaveBeenCalledOnce()
-    // Settings overlay must NOT have been opened by ESC alone
+    // ESC must NOT open the pause menu (or settings), and must not pause the game.
+    expect(openIfClosedSpy).not.toHaveBeenCalled()
     expect(settingsState.open).toBe(false)
-    // The openIfClosed spy is a no-op, so no modal actually opened; the end-of-frame
-    // reconcile derives gamePausedRef from the live (still-closed) modal state → false.
-    const paused = yield* Ref.get(deps.gamePausedRef)
-    expect(paused).toBe(false)
+    expect(yield* Ref.get(deps.gamePausedRef)).toBe(false)
   }))
 
-  // Regression ("ESCでフォーカスがはずれない"): when ESC actually opens the pause menu,
-  // gamePausedRef must become true so the canvas-click pointer-lock re-acquire is
-  // suppressed. Uses the default openIfClosed, which flips the menu's open state.
-  it.effect('sets gamePausedRef to true when Escape opens the pause menu', () => Effect.gen(function* () {
-    const pressedKeys = MutableHashSet.make(KeyMappings.ESCAPE)
+  // OPEN_MENU_KEY (the decoupled menu key) opens the pause menu and pauses the game.
+  it.effect('opens the pause menu and pauses when OPEN_MENU_KEY is pressed', () => Effect.gen(function* () {
+    const pressedKeys = MutableHashSet.make(OPEN_MENU_KEY)
     const { deps, services } = yield* arrangeFrameHarness({ pressedKeys })
 
     // gamePausedRef starts false (nothing open)
@@ -77,9 +73,20 @@ describe('Escape key handling', () => {
 
     yield* runFrame(deps, services)
 
-    // Pause menu is now open → reconcile must have paused the game
+    // Menu is now open → reconcile keeps the game paused
     expect(yield* services.pauseMenu.isOpen()).toBe(true)
     expect(yield* Ref.get(deps.gamePausedRef)).toBe(true)
+  }))
+
+  it.effect('OPEN_MENU_KEY does NOT open the pause menu while another overlay (inventory) is open', () => Effect.gen(function* () {
+    const pressedKeys = MutableHashSet.make(OPEN_MENU_KEY)
+    const { deps, services } = yield* arrangeFrameHarness({ inventoryOpen: true, pressedKeys })
+    const openIfClosedSpy = vi.fn(() => Effect.void)
+    Object.assign(services.pauseMenu, { openIfClosed: openIfClosedSpy })
+
+    yield* runFrame(deps, services)
+
+    expect(openIfClosedSpy).not.toHaveBeenCalled()
   }))
 
   it.effect('does not change overlay states when Escape is not pressed', () => Effect.gen(function* () {

@@ -15,6 +15,11 @@ export const TRADE_NEXT_KEY = 'ArrowDown'
 export const TRADE_PREV_KEY = 'ArrowUp'
 export const TRADE_EXECUTE_KEY = 'Enter'
 
+// Opens the in-session pause menu. Decoupled from Escape: ESC only releases the pointer
+// lock / view (the browser does this natively, and mouse-look gates on isPointerLocked),
+// while opening the menu is its own key so freeing the cursor no longer forces a pause.
+export const OPEN_MENU_KEY = 'KeyM'
+
 // Derived from the helper at DEFAULT_TARGET_FPS so the frame cap scales with the target FPS.
 export const MAX_DIRTY_CHUNK_UPDATES_PER_FRAME = computeMaxDirtyChunkUpdatesPerFrame(DEFAULT_TARGET_FPS)
 

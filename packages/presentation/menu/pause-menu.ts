@@ -11,9 +11,11 @@ import { SAVE_QUIT_CONFIRM_MESSAGE } from './pause-menu-styles'
 import { buildPauseMenuDOM } from './pause-menu-dom'
 import type { PauseMenuDom } from './pause-menu-types'
 
-// FR-1.4/FR-1.10/FR-1.12 — in-session pause menu. ESC from frame-handler input stage calls
-// `openIfClosed`; once open, the keyboard listener owns further ESC presses to avoid racing
-// `consumeKeyPress`. Settings button hides this menu and re-shows it when settings closes.
+// FR-1.4/FR-1.10/FR-1.12 — in-session pause menu. Opened by OPEN_MENU_KEY (the frame-handler
+// input stage calls `openIfClosed`); ESC is decoupled and only releases the pointer lock during
+// play. Once the menu IS open, the keyboard listener owns ESC presses (ESC resumes/backs out)
+// to avoid racing `consumeKeyPress`. Settings button hides this menu and re-shows it when
+// settings closes.
 
 export class PauseMenuService extends Effect.Service<PauseMenuService>()(
   '@minecraft/presentation/PauseMenu',
