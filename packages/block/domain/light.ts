@@ -158,14 +158,39 @@ export const computeBlockLight = (blocks: Uint8Array, lightGrid: Uint8Array): vo
   propagateLightBFS(blocks, lightGrid, queue)
 }
 
+// Highest opaque block anywhere in the chunk (-1 if none). CHUNK_HEIGHT is a power of
+// two so `i & (CHUNK_HEIGHT - 1)` extracts the y of flat index i for free.
+const highestOpaqueY = (blocks: Uint8Array): number => {
+  let maxY = -1
+  for (let i = 0; i < blocks.length; i++) {
+    const blockIdx = blocks[i]!
+    if (blockIdx !== 0 && (TRANSPARENCY_BY_INDEX[blockIdx] ?? 0) === 0) {
+      const y = i & (CHUNK_HEIGHT - 1)
+      if (y > maxY) maxY = y
+    }
+  }
+  return maxY
+}
+
 export const computeSkyLight = (blocks: Uint8Array, lightGrid: Uint8Array): void => {
   lightGrid.fill(0)
   const queue: number[] = []
 
+  // Cells above the highest opaque block are open sky (15) and uniformly surrounded by
+  // 15 — they can never lower a neighbour, so they are NEVER useful BFS sources. Seeding
+  // them just makes the BFS churn ~50k no-op cells (the dominant cost; for flat terrain
+  // with no overhangs the entire BFS was wasted). Set them lit but skip the queue; only
+  // cells at/below the terrain line (possible shadow boundaries) seed the BFS.
+  const maxOpaqueY = highestOpaqueY(blocks)
+
   // Column-wise sky seeding: each column receives level 15 from top down until hitting opaque.
   for (let x = 0; x < CHUNK_SIZE; x++) {
     for (let z = 0; z < CHUNK_SIZE; z++) {
-      for (let y = CHUNK_HEIGHT - 1; y >= 0; y--) {
+      let y = CHUNK_HEIGHT - 1
+      // Open sky above all terrain: lit, but not a BFS source.
+      for (; y > maxOpaqueY; y--) setLightAt(lightGrid, x, y, z, LIGHT_LEVEL_MAX)
+      // From the terrain line down: lit + enqueued (shadow boundary) until opaque.
+      for (; y >= 0; y--) {
         const vi = voxelIndex(x, y, z)
         /* c8 ignore next */
         const blockIdx = blocks[vi] ?? 0
