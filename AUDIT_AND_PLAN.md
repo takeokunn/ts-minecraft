@@ -2400,3 +2400,32 @@ with a clear plan.** See memory `perf-fluid-bottleneck.md`.
 ### Quality gate (Round 68)
 No source change (in-browser verification + characterization). All Round-67 gates hold. Dev server +
 browser cleaned up. 1 docs commit.
+
+---
+
+## BT. Round 69 (2026-06-13) — deeper fluid analysis + safe per-tick remove batch (FIX-S)
+
+Investigated the complete residual fix. Two important clarifications:
+1. **The residual hitch is TRANSIENT, not perpetual.** FIX-R removes processed keys from the frontier and
+   settled cells don't re-enqueue, so the frontier *drains* (~N/512 ticks). For a sea-level world's
+   ~hundreds-of-thousands of water cells that's a ~30 s hitchy drain after load / chunk-set change, then
+   ticks go cheap. (Pre-FIX-R it was the same drain but O(N)/tick = the 37 MB catastrophe.)
+2. **The complete fix is genuinely risky.** Eliminating the drain means NOT enqueuing settled water — which
+   requires `notifyBlockChanged` to also enqueue the 6 NEIGHBOURS (today disturbance only works because all
+   water sits in the frontier) AND cross-chunk-aware flow-capable detection. Conservative (in-chunk-only)
+   bounding does NOT help — the tick would still process 512 settled perimeter cells. The subtle
+   disturbance-after-drain semantics can't be fully verified without extensive runtime testing, and a fluid
+   regression (water not flowing) would be worse than the transient hitch. **Deferred** to a focused round
+   with browser verification.
+
+- [x] **FIX-S** (safe, in scope): the tick removed processed keys via N sequential immutable
+  `HashSet.remove` (N path-copies). Replaced with one `HashSet.mutate` batched in-place edit — cuts
+  allocation while a large settled body drains. Behaviour identical (1304 world tests green). — `fluid-service.ts`.
+
+**Status: the user-facing perf catastrophe (20→56 FPS, 850→8 ms, no more 232↔578 MB sawtooth) is fixed and
+verified.** Residual = a transient ~30 s drain-period micro-hitch on load/streaming; complete elimination is
+a scoped, browser-verified follow-up (frontier bounding + neighbour-enqueue).
+
+### Quality gate (Round 69)
+`pnpm typecheck` 0 · `pnpm lint` 0 errors / 4 warnings · `pnpm check:refactor` OK · `pnpm test`
+**5709 / 1 skipped** · `pnpm build` exit 0 · 1 commit on `main`.
