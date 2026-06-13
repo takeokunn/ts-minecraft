@@ -2429,3 +2429,28 @@ a scoped, browser-verified follow-up (frontier bounding + neighbour-enqueue).
 ### Quality gate (Round 69)
 `pnpm typecheck` 0 · `pnpm lint` 0 errors / 4 warnings · `pnpm check:refactor` OK · `pnpm test`
 **5709 / 1 skipped** · `pnpm build` exit 0 · 1 commit on `main`.
+
+---
+
+## BU. Round 70 (2026-06-13) — verified the deferred fluid disturbance concern is a NON-issue
+
+Started to implement the deferred "complete fluid fix" prerequisite (`notifyBlockChanged` should enqueue
+the 6 neighbours so settled water re-flows after the frontier drains). Wrote a regression test, then
+**verified before trusting** — and the test passed with AND without the change.
+
+**Root cause: `enqueue` (fluid-position-utils.ts) ALREADY adds the position + all 6 NOTIFY_OFFSETS
+neighbours.** So `notifyBlockChanged`'s single `enqueue(frontier, pos)` already re-activates adjacent
+settled water. The disturbance-after-drain concern flagged in Rounds 68–69 was **never a bug** — the
+"complete fix" is therefore simpler than thought (only the frontier-bounding half remains, still deferred
+as it needs cross-chunk flow-capable detection + browser verification).
+
+(Also re-confirmed the stale-`.js`-artifact gotcha mid-round: a 481 s esbuild hang left artifacts that made
+the reverted test still pass until a thorough purge.)
+
+- [x] Discarded the redundant `notifyBlockChanged` change (restored committed code).
+- [x] Kept a **regression test** locking in disturbance-after-drain (boxed source drains on tick 1; break
+  below + `notifyBlockChanged` re-flows on tick 2). — `fluid-service-tick.test.ts` (+1 test).
+
+### Quality gate (Round 70)
+`pnpm typecheck` 0 · `pnpm lint` 0 errors / 4 warnings · `pnpm check:refactor` OK · `pnpm test`
+**5710 / 1 skipped** (+1) · `pnpm build` exit 0 · 1 commit on `main`.
