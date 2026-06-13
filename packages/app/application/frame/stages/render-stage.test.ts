@@ -119,6 +119,23 @@ describe('render-stage', () => {
         expect(renderer.wasRenderCalled()).toBe(true)
       })
     )
+
+    it.effect('bypasses the composer on the medium preset (no post-fx active) — direct render, no wasted RT pass', () =>
+      Effect.gen(function* () {
+        const renderer = makeRendererMock()
+        const composer = makeComposerMock()
+        const deps = makeDeps(renderer)
+        const resolved = { godRaysPassOrNull: null, composerOrNull: composer as never }
+        // medium = shadows + sky only; ssao/bloom/smaa/dof/godRays/composite all off.
+        const inputs = { resolvedGraphics: resolvePreset('medium'), sunWorldPos: new THREE.Vector3() }
+
+        yield* renderStage(deps, makeServices() as never, makeRefs() as never, resolved, inputs)
+
+        // No active post-pass → skip the composer entirely and render straight to the framebuffer.
+        expect(composer.wasRenderCalled()).toBe(false)
+        expect(renderer.wasRenderCalled()).toBe(true)
+      })
+    )
   })
 
   describe('godRays pass present + godRaysEnabled=true', () => {

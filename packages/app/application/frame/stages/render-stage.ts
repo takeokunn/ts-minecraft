@@ -66,7 +66,19 @@ export const renderStage = (
           }
         }
 
-        if (resolved.composerOrNull && debugFlags['rendering.postProcessing']) {
+        // Only pay for the EffectComposer (offscreen RT + a redundant full-screen
+        // OutputPass blit) when a post-process pass is actually active. On the default
+        // 'medium' preset every post-effect is off, so the composer chain reduces to
+        // RenderPass→(disabled SMAA)→OutputPass — one wasted full-screen pass + an ~8MB
+        // RT every frame that produces the SAME image as a direct render (the renderer
+        // already applies ACESFilmic tonemapping + sRGB, exactly what OutputPass does;
+        // see renderer-service.ts). Bypass it and render straight to the framebuffer.
+        // `anyPostActive` is recomputed each frame from resolvedGraphics, so it follows
+        // runtime preset changes (adaptive quality) automatically.
+        const g = inputs.resolvedGraphics
+        const anyPostActive =
+          g.ssaoEnabled || g.bloomEnabled || g.smaaEnabled || g.dofEnabled || g.godRaysEnabled || g.useCompositePass
+        if (resolved.composerOrNull && debugFlags['rendering.postProcessing'] && anyPostActive) {
           resolved.composerOrNull.render()
         } else {
           deps.renderer.render(deps.scene, deps.camera)
