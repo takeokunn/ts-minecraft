@@ -57,10 +57,14 @@ describe('application/terrain/density-function', () => {
     expect(fullJag).toBe(noJag)
   })
 
-  it('jagged mountain (E=-0.8) amplifies jaggedness — J=1 noticeably > J=0 (diff >= 10)', () => {
+  it('jagged mountain (E=-0.8) adds SUBTLE jaggedness — J=1 > J=0 but not extreme', () => {
     const noJag = computeColumnY(makeSamples(0.8, -0.8, 0.5, 0), 0, 0)
     const fullJag = computeColumnY(makeSamples(0.8, -0.8, 0.5, 1), 0, 0)
-    expect(fullJag - noJag).toBeGreaterThanOrEqual(10)
+    const diff = fullJag - noJag
+    // Jaggedness still roughens mountains, but the amplitude was cut (15→5) so it no longer
+    // spikes/pits the terrain by ~20 blocks ('自然じゃない'). Expect a few blocks, not a cliff.
+    expect(diff).toBeGreaterThanOrEqual(3)
+    expect(diff).toBeLessThan(10)
   })
 
   it('clamps Y to [1, 250] for extreme inputs', () => {
@@ -99,11 +103,11 @@ describe('application/terrain/density-function', () => {
 // ---------------------------------------------------------------------------
 
 describe('application/terrain/density-function — computeColumnYFromValues', () => {
-  it('extreme inputs produce high but bounded Y (within 200–250)', () => {
-    // max raw: OFFSET(1)=140 + FACTOR(-1)=1.3 * (PV_OFFSET(1)=40 + JAGGED_AMP(-1)=15) = 211.5
-    // stays below the MAX_Y=250 clamp; verify it is high and within valid range
+  it('extreme inputs produce high but bounded Y', () => {
+    // max raw: OFFSET(1)=140 + FACTOR(-1)=1.3 * (PV_OFFSET(1)=40 + JAGGED_AMP(-1)=5) = 198.5
+    // (JAGGED_AMP cut 15→5 for natural terrain); stays well below the MAX_Y=250 clamp.
     const y = computeColumnYFromValues(1, -1, 1, 1)
-    expect(y).toBeGreaterThanOrEqual(200)
+    expect(y).toBeGreaterThanOrEqual(190)
     expect(y).toBeLessThanOrEqual(250)
   })
 

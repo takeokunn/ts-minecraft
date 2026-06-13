@@ -33,9 +33,14 @@ export const PV_OFFSET: Spline = [
 ]
 
 // Erosion E -> jaggedness amplitude multiplier. Suppressed when erosion > 0 (flat terrain).
+// Cut hard (15→5, 5→2) because the old amplitude × FACTOR_SPLINE (1.3) gave ±~20 blocks of
+// HIGH-FREQUENCY roughness even in mountains: positive jaggedness spiked the surface, negative
+// jaggedness dug ~20-block pits that exposed stone — the terrain read as unnatural/spiky
+// ('地形生成がおかしい 自然じゃない'). At 5 it still roughens peaks (×1.3 ≈ ±6.5) without
+// shredding the landscape; the smooth large-scale shape comes from continentalness/erosion/PV.
 export const JAGGED_AMP: Spline = [
-  [-1.0, 15],
-  [-0.3,  5],
-  [0.0,   0],   // suppressed from here on
-  [1.0,   0],
+  [-1.0, 5],
+  [-0.3, 2],
+  [0.0,  0],   // suppressed from here on
+  [1.0,  0],
 ]
