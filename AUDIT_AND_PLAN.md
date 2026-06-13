@@ -2334,3 +2334,37 @@ Decision: did NOT force a marginal/sprawling change. Awaiting direction on which
 
 ### Quality gate (Round 66)
 No source change (checkpoint + profiling) · all gates re-verified green · 1 docs commit.
+
+---
+
+## BR. Round 67 (2026-06-13) — 🎯 IN-BROWSER MEASUREMENT found THE bottleneck: fluid sim (37× / 55×)
+
+User chose "GPU/描画をbrowser計測". Drove the running game via Playwright on a **real GPU** (ANGLE Metal,
+M4 Max). The result reframed the whole campaign:
+
+**Baseline (fresh Survival world, default settings):**
+- HUD 20 FPS; rAF **~850 ms/frame** (~1.2 real fps); **42 MB allocated/frame**; heap sawtoothing **232↔578 MB**.
+
+**Bisected via `__TS_MINECRAFT_QA__.setDebugFeatureEnabled` (toggle subsystems, measure alloc/frame):**
+disable all sim → 8 ms/frame, 0.07 MB/frame. Re-enable one group at a time → culprit isolated to
+**`simulation.fluid` ALONE: 691 ms/frame, 37 MB/frame.**
+
+- [x] **FIX-R**: the fluid tick was **O(frontier), not O(budget)**. `hydrateChunk` enqueues EVERY water
+  cell, so a sea-level world leaves tens of thousands of settled cells in the frontier; the tick then did
+  `Arr.fromIterable(frontier)` + `Arr.filterMap` + carry-rebuild `HashSet.fromIterable([...carry,...])` —
+  all O(frontier) — every tick, while only processing `FLUID_TICK_BUDGET=512`. Fix: collect work by
+  **lazily iterating** the frontier (stop at the budget caps — `splitBudget` only takes prefixes, so the
+  selection is identical) and **`HashSet.remove` only the processed keys** instead of rebuilding. Now
+  O(budget) regardless of frontier size. — `fluid-service.ts`. Behaviour identical (1304 world tests green,
+  all fluid suites).
+  **Measured after (M4 Max, fluid ON): 23 ms/frame, 0.76 MB/frame, HUD 64.6 FPS, heap stable ~123 MB —
+  37× faster, 55× less GC.**
+
+**This is the answer to the original "とにかくパフォーマンスが悪すぎる" + "メモリが足りなさすぎる".** All the
+Rounds 56–65 Node/micro work was real but secondary; the actual catastrophe was a single O(N)-per-tick
+fluid loop that only manifests with a loaded world full of water — invisible to unit benchmarks, obvious
+the instant the game ran in a browser. **Lesson: measure the running system, not just isolated functions.**
+
+### Quality gate (Round 67)
+`pnpm typecheck` 0 · `pnpm lint` 0 errors / 4 warnings · `pnpm check:refactor` OK · `pnpm test`
+**5709 / 1 skipped** · `pnpm build` exit 0 · in-browser verified · 1 commit on `main`.
