@@ -2000,3 +2000,39 @@ lane ✅, spawn cadence ✅.
 `pnpm typecheck` 0 errors · `pnpm lint` 0 errors / 4 warnings (pre-existing) ·
 `pnpm check:refactor` all OK · `pnpm test` **5708 passing / 1 skipped** (+1 net new test) ·
 `pnpm build` exit 0 · 1 commit on `main`.
+
+---
+
+## BG. Round 56 (2026-06-13) — memory: stop rebuilding the entity HashMap every frame
+
+User report: "メモリが足りなさすぎる" (memory is way too low) + "パフォーマンスが悪すぎる". Ran an
+adversarial perf workflow (6 grounded finders → per-finding adversarial verify; 22 agents, 16 candidates,
+**3 verifier-confirmed**). Confirmed findings (ranked):
+1. **[medium, DONE this round]** mob `updateAllEntities` did `HashMap.map(entities, f)` → Effect's
+   `HashMap.map` rebuilds a fresh persistent HAMT **from empty()** (N path-copy `set`s of pure garbage),
+   run **2+ times/frame** (AI + physics passes, plus creeper/sheep) whenever mobs exist — even when every
+   mob is idle, defeating the mappers' reference-stable no-op guards. This is the dominant per-frame heap
+   churn in the mob path = the GC-pressure side of "memory too low".
+2. **[medium, TODO]** default `medium` preset renders through EffectComposer (offscreen RT + redundant
+   OutputPass blit) despite ZERO active post-fx → ~8MB RT VRAM + 1 wasted full-screen pass/frame.
+   Fix: bypass composer when no post-pass is active (`renderer.render` direct; renderer already has the
+   same ACESFilmic+sRGB the OutputPass applies). `render-stage.ts:69`.
+3. **[medium, TODO]** new-chunk mesh drain serializes worker round-trips (concurrency:1) and counts
+   await-latency against the 4ms main-thread budget → 3 of 4 worker cores idle on load/streaming.
+   `world-renderer-chunk-sync.ts:126`.
+
+- [x] **FIX-K**: replaced `HashMap.map` with a single pass that applies `f` once per entity and only
+  `HashMap.set`s the entries that ACTUALLY changed (`next !== entity`), returning the **original map
+  untouched on an all-idle frame (zero allocation)**. `f` invoked exactly once → MutableRef dirty-flag
+  side effects preserved; behaviour identical (verified by the full mob suite, 298 tests).
+  — `entity-manager-internal-update.ts`.
+
+Memory-leak scan (separate from the workflow): chunk-mesh geometries ARE disposed on chunk removal
+(budgeted, `world-renderer-chunk-sync.ts`), and the chunk-data store IS evicted beyond `unloadDistance`
+(`chunk-manager-service-ops.ts:47-53`) — **no unbounded growth** in the two largest consumers. So the
+memory pressure is allocation/GC churn (this fix) + the composer RT (finding #2), not a leak.
+
+### Quality gate (Round 56)
+`pnpm typecheck` 0 errors · `pnpm lint` 0 errors / 4 warnings (pre-existing) ·
+`pnpm check:refactor` all OK · `pnpm test` **5708 passing / 1 skipped** ·
+`pnpm build` exit 0 · 1 commit on `main`.
