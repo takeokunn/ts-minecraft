@@ -107,41 +107,30 @@ export const syncChunksToScene = (
     // Allocate loadedKeys Set only after confirming work is needed
     const loadedKeySet = HashSet.fromIterable(Arr.map(loadedChunks, (c) => chunkKey(c.coord)))
 
-    // Add meshes for newly loaded chunks not yet in scene.
-    // Throttle: drain one chunk at a time, checking elapsed wall-clock
-    // time after each. Stop when WORLD_RENDERER_TIME_BUDGET_MS is reached
-    // OR MAX_CHUNK_UPDATES_PER_FRAME (hard safety cap) is hit. Remaining
-    // chunks are picked up next frame. Mirrors the dirty-chunk drain in
-    // frame-maintenance.ts (same time-budget pattern).
-    //
-    // CHUNK_SYNC_CONCURRENCY is preserved as concurrency: 1 here for
-    // correctness — we need to check the time budget AFTER each
-    // createChunkMesh, which only works if the inner pipeline is
-    // sequential. The previous concurrency: CHUNK_SYNC_CONCURRENCY (=2)
-    // batched the work and would overshoot the budget by up to one full
-    // mesh build. Per-frame impact is negligible because meshing is
-    // mostly main-thread sync work anyway.
-    const startMs = nowMs()
-    const hardCap = Math.min(MAX_CHUNK_UPDATES_PER_FRAME, newChunks.length)
-    const { chunks: meshedChunks, processed } = yield* Effect.iterate(
-      { chunks: [] as Array<readonly [ChunkCacheKey, { opaqueMesh: THREE.Mesh; waterMesh: Option.Option<THREE.Mesh>; transparentSolidMesh: Option.Option<THREE.Mesh>; lod: LodLevel }]>, processed: 0 },
-      {
-        while: (s) => s.processed < hardCap && nowMs() - startMs < WORLD_RENDERER_TIME_BUDGET_MS,
-        body: (s) =>
-          Effect.gen(function* () {
-            const chunk = newChunks[s.processed]!
-            const lod = lodForChunk(chunk)
-            const { opaqueMesh, waterMesh, transparentSolidMesh } = yield* chunkMeshService.createChunkMesh(chunk, waterMaterial, lod)
-            return {
-              chunks: [...s.chunks, [chunkKey(chunk.coord), { opaqueMesh, waterMesh, transparentSolidMesh, lod }] as const],
-              processed: s.processed + 1,
-            }
-          }),
-      }
+    // Add meshes for newly loaded chunks not yet in scene. Meshing is a Web Worker
+    // round-trip (greedy meshing runs off-thread), so we dispatch up to
+    // MAX_CHUNK_UPDATES_PER_FRAME of them IN PARALLEL to keep the whole worker pool
+    // busy. The previous concurrency:1 + wall-clock budget left 3 of 4 worker cores
+    // idle AND counted worker-await latency against a main-thread budget — the budget
+    // was guarding the wrong thing (the old comment's "meshing is mostly main-thread
+    // sync work" is false on the worker path). This sync runs on the maintenance fiber,
+    // not the render loop, so the parallel await never blocks rendering. The per-frame
+    // hard cap bounds the sync geometry-build + GPU-upload cost; Effect.all preserves
+    // input order, so scene-add order is unchanged. Any chunks beyond the cap drain
+    // next frame (the caller re-fires while chunkSyncPending is set).
+    const batch = Arr.take(newChunks, MAX_CHUNK_UPDATES_PER_FRAME)
+    const meshedChunks = yield* Effect.all(
+      Arr.map(batch, (chunk) => {
+        const lod = lodForChunk(chunk)
+        return chunkMeshService.createChunkMesh(chunk, waterMaterial, lod).pipe(
+          Effect.map(({ opaqueMesh, waterMesh, transparentSolidMesh }) =>
+            [chunkKey(chunk.coord), { opaqueMesh, waterMesh, transparentSolidMesh, lod }] as const,
+          ),
+        )
+      }),
+      { concurrency: MAX_CHUNK_UPDATES_PER_FRAME },
     )
-    // allNewChunksMeshed is `false` if either the time budget OR the hard
-    // cap stopped us short of draining the entire newChunks queue.
-    const allNewChunksMeshed = processed >= newChunks.length
+    const allNewChunksMeshed = batch.length >= newChunks.length
 
     const added = yield* Effect.all(
       Arr.map(meshedChunks, ([key, { opaqueMesh, waterMesh, transparentSolidMesh, lod }]) =>
