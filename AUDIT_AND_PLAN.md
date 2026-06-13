@@ -2036,3 +2036,28 @@ memory pressure is allocation/GC churn (this fix) + the composer RT (finding #2)
 `pnpm typecheck` 0 errors · `pnpm lint` 0 errors / 4 warnings (pre-existing) ·
 `pnpm check:refactor` all OK · `pnpm test` **5708 passing / 1 skipped** ·
 `pnpm build` exit 0 · 1 commit on `main`.
+
+---
+
+## BH. Round 57 (2026-06-13) — memory/GPU: bypass EffectComposer when no post-fx is active
+
+- [x] **FIX-L** (perf-workflow finding #2): on the default `medium` preset every post-effect is off, so the
+  EffectComposer chain reduced to `RenderPass → (disabled SMAA) → OutputPass` — an offscreen **~8MB render
+  target** + a redundant full-screen OutputPass blit **every frame**, producing the SAME image as a direct
+  render (the WebGLRenderer already applies ACESFilmic tonemapping + sRGB = exactly what OutputPass does;
+  verified `renderer-service.ts:21-23`). Gated `composer.render()` behind `anyPostActive`
+  (`ssaoEnabled || bloomEnabled || smaaEnabled || dofEnabled || godRaysEnabled || useCompositePass`);
+  else render straight to the framebuffer. Reclaims the RT's VRAM + one full-screen GPU pass/frame on the
+  out-of-box config. Recomputed each frame from `resolvedGraphics` → follows adaptive-quality changes.
+  No visual change on any preset (high/ultra still composite). — `render-stage.ts` (+1 test: medium preset
+  bypasses composer).
+
+Two memory wins landed back-to-back for the "メモリが足りなさすぎる" report: FIX-K (kill per-frame entity
+HAMT garbage = GC pressure) + FIX-L (reclaim the ~8MB composer RT = VRAM). Remaining verified follow-up:
+finding #3 (parallelize the serialized worker mesh drain, `world-renderer-chunk-sync.ts:126`) — load
+latency / worker under-utilisation, medium effort, deferred to a future round.
+
+### Quality gate (Round 57)
+`pnpm typecheck` 0 errors · `pnpm lint` 0 errors / 4 warnings (pre-existing) ·
+`pnpm check:refactor` all OK · `pnpm test` **5709 passing / 1 skipped** (+1 new test) ·
+`pnpm build` exit 0 · 1 commit on `main`.
