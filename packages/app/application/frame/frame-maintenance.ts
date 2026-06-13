@@ -1,9 +1,10 @@
 import { Array as Arr, Cause, Clock, Effect, HashMap, MutableRef, Option, Ref } from 'effect'
 import { DEFAULT_PLAYER_ID } from '@ts-minecraft/core'
 import type { Chunk, ChunkAABB } from '@ts-minecraft/world'
+import { chunkBlockIndexUnchecked } from '@ts-minecraft/world'
 import { DESPAWN_DISTANCE, resolveMobSpawnPosition } from '@ts-minecraft/entity'
-import type { Village } from '@ts-minecraft/entity'
-import { CHUNK_SIZE } from '@ts-minecraft/core'
+import type { Village, VillageStructure } from '@ts-minecraft/entity'
+import { CHUNK_SIZE, CHUNK_HEIGHT, blockTypeToIndex } from '@ts-minecraft/core'
 import { buildingBlocksForVillage } from '@ts-minecraft/entity'
 import { FALLBACK_PLAYER_POS, MAX_DIRTY_CHUNK_UPDATES_PER_FRAME } from '@ts-minecraft/app/frame-handler.config'
 import { CROP_GROWTH_INTERVAL_SECS } from '@ts-minecraft/world'
@@ -15,6 +16,23 @@ import type { DeltaTimeSecs, Position } from '@ts-minecraft/core'
 // chunk-manager drain) supply both fields; the flush step forwards the AABB
 // to `worldRendererService.updateChunkInScene`.
 export type DirtyChunkEntry = { readonly chunk: Chunk; readonly dirtyAABB: Option.Option<ChunkAABB> }
+
+// Blocks that are NOT the terrain surface when grounding a village structure: air,
+// fluids, and the tree canopy/trunk (a house should sit on the ground, not on a tree).
+const VILLAGE_NON_GROUND_IDS: ReadonlySet<number> = new Set([
+  blockTypeToIndex('AIR'), blockTypeToIndex('WATER'), blockTypeToIndex('LAVA'),
+  blockTypeToIndex('LEAVES'), blockTypeToIndex('WOOD'),
+])
+const AIR_BLOCK_IDX = blockTypeToIndex('AIR')
+
+// Topmost terrain (ground) block Y in a chunk column, or -1 if the column has none.
+const topGroundY = (blocks: Uint8Array, lx: number, lz: number): number => {
+  for (let y = CHUNK_HEIGHT - 1; y >= 0; y--) {
+    const b = blocks[chunkBlockIndexUnchecked(lx, y, lz)] ?? AIR_BLOCK_IDX
+    if (!VILLAGE_NON_GROUND_IDS.has(b)) return y
+  }
+  return -1
+}
 
 // Unions two dirty AABBs. Either side being None means "full chunk" (no AABB),
 // so None propagates through: union(Some, None) = None, union(None, _) = None.
@@ -180,7 +198,32 @@ export const createMaintenanceHandler = (
           : []
         if (newVillages.length > 0) {
           for (const village of newVillages) {
-            const placements = buildingBlocksForVillage(village.structures)
+            // Ground each structure to the TERRAIN surface of its own anchor column. The
+            // village's stored Y comes from the player's body position (snapVillageCenter),
+            // not the terrain, and every structure shared that one Y — so houses generated
+            // floating in the air ('家が宙に浮いて生成される') and slope houses never
+            // re-grounded. Resolve the topmost ground block per structure column from the
+            // (on-demand generated) chunk and set the floor at surfaceY+1, offsetting the
+            // whole structure so it stays intact.
+            const groundedStructures: VillageStructure[] = []
+            for (const s of village.structures) {
+              const scx = Math.floor(s.anchor.x / CHUNK_SIZE)
+              const scz = Math.floor(s.anchor.z / CHUNK_SIZE)
+              const chunk = yield* chunkManagerService.getChunk({ x: scx, z: scz }).pipe(
+                Effect.catchAll(() => Effect.succeed(null)),
+              )
+              if (chunk === null) {
+                groundedStructures.push(s)
+                continue
+              }
+              const lx = ((s.anchor.x % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE
+              const lz = ((s.anchor.z % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE
+              const groundY = topGroundY(chunk.blocks, lx, lz)
+              groundedStructures.push(
+                groundY < 0 ? s : { ...s, anchor: { ...s.anchor, y: groundY + 1 } },
+              )
+            }
+            const placements = buildingBlocksForVillage(groundedStructures)
             for (const { position, blockType } of placements) {
               yield* blockService.forceSetBlock(position, blockType).pipe(
                 Effect.catchAll(() => Effect.void),

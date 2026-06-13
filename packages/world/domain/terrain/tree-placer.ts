@@ -16,7 +16,10 @@ import {
 
 export { type TreeArchetype }
 export { type TrunkConfig }
-export const TREE_CANOPY_MARGIN = 2
+// Must cover the widest canopy radius so cross-chunk crowns aren't clipped at chunk seams.
+// The acacia umbrella reaches radius 3, so the per-chunk tree-origin re-evaluation must
+// extend 3 blocks beyond the chunk (was 2 → the acacia outer ring was truncated at borders).
+export const TREE_CANOPY_MARGIN = 3
 
 const computeTrunkHeight = (config: TrunkConfig, treeRng: number): number =>
   config.baseHeight + Math.floor(fract(treeRng * config.rngScale) * config.heightRange)
@@ -113,7 +116,11 @@ const placeAcaciaTree = (blocks: Uint8Array, lx: number, lz: number, surfaceY: n
 
   // Signature flat, wide umbrella crown — a broad shallow disk capping the trunk,
   // wider than it is tall, distinguishing the savanna acacia from round/tall canopies.
-  const canopyBase = surfaceY + trunkHeight
+  // canopyBase starts one block BELOW the trunk top so the disk's ring wraps the top two
+  // trunk blocks (leaves only fill AIR, so the centre column stays wood). The old base of
+  // surfaceY+trunkHeight left the crown attached only one block ABOVE the trunk tip, so it
+  // read as a flat plate hovering over the trunk ('木の生成がおかしい').
+  const canopyBase = surfaceY + trunkHeight - 1
   placeLeafLayer(blocks, lx, canopyBase, lz, 3)
   placeLeafLayer(blocks, lx, canopyBase + 1, lz, 2)
 }

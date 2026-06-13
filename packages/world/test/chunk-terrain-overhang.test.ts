@@ -73,6 +73,13 @@ describe('terrain/chunk-terrain-overhang', () => {
     terrainChannels.erosion[terrainIndex(3, 10)] = -0.8
     terrainChannels.pv[terrainIndex(3, 10)] = 0.9
     terrainChannels.jaggedness[terrainIndex(3, 10)] = 1.0
+    // A taller cliff neighbour at (4,10): overhang voxels above (3,10) now have solid
+    // horizontal support, so the connectivity guard (anti-floating) keeps them — this is a
+    // real cliff overhang, not an isolated floating block.
+    terrainChannels.continentalness[terrainIndex(4, 10)] = 0.95
+    terrainChannels.erosion[terrainIndex(4, 10)] = -0.95
+    terrainChannels.pv[terrainIndex(4, 10)] = 1.0
+    terrainChannels.jaggedness[terrainIndex(4, 10)] = 1.0
     terrainChannels.continentalness[terrainIndex(10, 3)] = 0.8
     terrainChannels.erosion[terrainIndex(10, 3)] = 0.9
     terrainChannels.pv[terrainIndex(10, 3)] = 0.5

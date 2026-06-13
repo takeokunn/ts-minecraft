@@ -185,7 +185,24 @@ export const applyOverhangNoise = (
     const heightFactor = 1 - (y - surfaceY) / OVERHANG_BAND_HEIGHT
     const baseThreshold = biome === 'MOUNTAINS' ? OVERHANG_THRESHOLD - 0.08 : OVERHANG_THRESHOLD
     const threshold = baseThreshold - heightFactor * 0.14
-    if (overhangNoiseVals[index]! > threshold) {
+    if (overhangNoiseVals[index]! <= threshold) return
+
+    // Connectivity guard: only place an overhang voxel if it is anchored to existing
+    // solid terrain — a solid block directly below OR a solid horizontal neighbor.
+    // Without this, the noise filled isolated single voxels in mid-air (the band starts
+    // at surfaceY+2, so surfaceY+1 below is always air) → 'floating blocks'. Targets are
+    // iterated bottom-up within a column, so a voxel placed at y becomes the support for
+    // y+1 (connected overhang columns still grow); the base anchor is the taller cliff
+    // neighbor's solid terrain. Chunk edges count as supported to avoid cross-chunk seams.
+    const solidAt = (sx: number, sy: number, sz: number): boolean => {
+      if (sx < 0 || sx >= CHUNK_SIZE || sz < 0 || sz >= CHUNK_SIZE || sy < 0 || sy >= CHUNK_HEIGHT) return true
+      return blocks[chunkBlockIndexUnchecked(sx, sy, sz)] !== airBlockIndex
+    }
+    const supported =
+      solidAt(lx, y - 1, lz) ||
+      solidAt(lx - 1, y, lz) || solidAt(lx + 1, y, lz) ||
+      solidAt(lx, y, lz - 1) || solidAt(lx, y, lz + 1)
+    if (supported) {
       blocks[blockIndex] = stoneBlockIndex
     }
   })

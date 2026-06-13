@@ -100,15 +100,27 @@ describe('collectOverhangTargets', () => {
 describe('applyOverhangNoise', () => {
   const makeTarget = (lx: number, lz: number, y: number) => ({ lx, lz, y })
 
-  it('fills an air block with stone when noise value exceeds threshold', () => {
+  it('fills an air block with stone when noise value exceeds threshold (and it is supported)', () => {
     const blocks = makeBlocks()
     const columnStates = makeColumnStates()
     const target = makeTarget(2, 3, 70)
+    // A connectivity guard requires solid terrain below/beside the voxel; seed the block
+    // directly below so this test isolates the threshold logic.
+    blocks[chunkBlockIndexUnchecked(2, 69, 3)] = STONE
     // threshold at y=70 for PLAINS (surfaceY=64): heightFactor = 1-(70-64)/14 = 1-6/14 ≈ 0.571
     // threshold = 0.62 - 0.571*0.14 ≈ 0.62 - 0.08 = 0.54
     // Use noise = 0.99 (well above threshold)
     applyOverhangNoise(blocks, [target], [0.99], columnStates, STONE, AIR)
     expect(blocks[chunkBlockIndexUnchecked(2, 70, 3)]).toBe(STONE)
+  })
+
+  it('does NOT fill an isolated voxel with no solid support, even above threshold (anti-floating)', () => {
+    const blocks = makeBlocks()
+    const columnStates = makeColumnStates()
+    // Target floats in all-air: no block below, no horizontal neighbor. Must stay air.
+    const target = makeTarget(2, 3, 70)
+    applyOverhangNoise(blocks, [target], [0.99], columnStates, STONE, AIR)
+    expect(blocks[chunkBlockIndexUnchecked(2, 70, 3)]).toBe(AIR)
   })
 
   it('leaves an air block unchanged when noise value is at or below threshold', () => {
@@ -128,6 +140,9 @@ describe('applyOverhangNoise', () => {
 
     const plainsStates = makeColumnStates({ 0: { biome: 'PLAINS', surfaceY } })
     const mountainStates = makeColumnStates({ 0: { biome: 'MOUNTAINS', surfaceY } })
+    // Seed support below the target so the connectivity guard passes and the threshold is isolated.
+    blocks1[chunkBlockIndexUnchecked(0, 67, 0)] = STONE
+    blocks2[chunkBlockIndexUnchecked(0, 67, 0)] = STONE
 
     // heightFactor = 1 - (68-64)/14 ≈ 0.714
     // PLAINS threshold = 0.62 - 0.714*0.14 ≈ 0.52
@@ -149,10 +164,12 @@ describe('applyOverhangNoise', () => {
     const y = surfaceY + OVERHANG_BAND_HEIGHT
     const columnStates = makeColumnStates({ 0: { biome: 'PLAINS', surfaceY } })
     const target = makeTarget(0, 0, y)
+    blocks[chunkBlockIndexUnchecked(0, y - 1, 0)] = STONE // support below (isolate threshold)
     applyOverhangNoise(blocks, [target], [OVERHANG_THRESHOLD + 0.001], columnStates, STONE, AIR)
     expect(blocks[chunkBlockIndexUnchecked(0, y, 0)]).toBe(STONE)
 
     const blocks2 = makeBlocks()
+    blocks2[chunkBlockIndexUnchecked(0, y - 1, 0)] = STONE
     applyOverhangNoise(blocks2, [target], [OVERHANG_THRESHOLD], columnStates, STONE, AIR)
     expect(blocks2[chunkBlockIndexUnchecked(0, y, 0)]).toBe(AIR)
   })

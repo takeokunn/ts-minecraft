@@ -230,13 +230,17 @@ describe('placeTree', () => {
     // rng=0 → roll < 0.7 → ACACIA; trunkHeight = ACACIA_TRUNK.baseHeight (5) at rng=0.
     placeTree(blocks, LX, LZ, SURFACE_Y, 'SAVANNA', 0)
     const LEAVES_INDEX = blockTypeToIndex('LEAVES')
-    const canopyY = SURFACE_Y + 5 // trunk top / crown base
+    // canopyBase = surfaceY + trunkHeight - 1 = SURFACE_Y+4: the radius-3 ring now WRAPS the
+    // top trunk blocks (the crown attaches to the trunk instead of hovering a block above it).
+    const ringY = SURFACE_Y + 4
 
-    // Trunk top is wood; the crown reaches radius 3 — wider than any round/oak canopy
-    // (max radius 2), which is acacia's signature flat, wide umbrella silhouette.
-    expect(getBlock(blocks, LX, canopyY, LZ)).toBe(WOOD_BLOCK_INDEX)
-    expect(getBlock(blocks, LX + 3, canopyY, LZ)).toBe(LEAVES_INDEX)
-    expect(getBlock(blocks, LX - 3, canopyY, LZ)).toBe(LEAVES_INDEX)
+    // Centre column at the ring height is the trunk (wood; leaves only fill air); the crown
+    // reaches radius 3 — wider than any round/oak canopy (max radius 2) — acacia's signature
+    // flat, wide umbrella, and it is connected to the trunk (not floating above it).
+    expect(getBlock(blocks, LX, ringY, LZ)).toBe(WOOD_BLOCK_INDEX)
+    expect(getBlock(blocks, LX, SURFACE_Y + 5, LZ)).toBe(WOOD_BLOCK_INDEX) // trunk top
+    expect(getBlock(blocks, LX + 3, ringY, LZ)).toBe(LEAVES_INDEX)
+    expect(getBlock(blocks, LX - 3, ringY, LZ)).toBe(LEAVES_INDEX)
   })
 
   it('does not write out-of-chunk-bounds (no RangeError thrown)', () => {
