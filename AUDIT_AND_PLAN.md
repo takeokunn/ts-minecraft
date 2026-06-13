@@ -2368,3 +2368,35 @@ the instant the game ran in a browser. **Lesson: measure the running system, not
 ### Quality gate (Round 67)
 `pnpm typecheck` 0 · `pnpm lint` 0 errors / 4 warnings · `pnpm check:refactor` OK · `pnpm test`
 **5709 / 1 skipped** · `pnpm build` exit 0 · in-browser verified · 1 commit on `main`.
+
+---
+
+## BS. Round 68 (2026-06-13) — in-browser verify of FIX-R + characterize residual fluid hitch
+
+Re-measured the fixed build in-browser (M4 Max), bisecting via the QA debug flags:
+- **STATIC baseline (all default, FIX-R live):** median **8.4 ms** / p95 25.3 / max 26.6 ms, HUD **56 FPS**,
+  heap stable ~111 MB. (Was: 850 ms / 42 MB / 20 FPS / 232↔578 MB.) **Catastrophe confirmed fixed.**
+- **sims OFF:** median 8.3 / p95 9.1 / max 9.3 ms, 0.24 MB/frame — perfectly smooth, ~110 FPS headroom.
+- **fluid ONLY (FIX-R):** median 8.4 but **p95 25.5 / max 26 ms, 1.32 MB/frame** — a periodic ~17 ms hitch
+  every ~50 ms (the 20 Hz fluid tick), pulling 60→56 FPS.
+
+**Residual root cause (NOT yet fixed):** FIX-R made the tick O(budget), but the `cells` HashMap + frontier
+still hold the ENTIRE settled ocean (`hydrateChunk` enqueues every water cell). Processing 512 cells/tick
+still does HashMap/HashSet ops against a ~tens-of-thousands-entry structure (O(log N) path-copies). The
+**complete fix** (scoped, medium-risk, deferred to a focused round — NOT bolted onto this session on top of
+the verified win):
+1. `hydrateChunk`: keep all water in `cells` (flow reads need it) but enqueue into the **frontier** only
+   *flow-capable* cells (air below or lateral). A settled ocean then has ≈0 frontier cells → ~free tick.
+2. `notifyBlockChanged`: enqueue the changed position **+ its 6 neighbours**. REQUIRED — today disturbance
+   (break/place) only works because all water sits in the frontier; bounding it would otherwise stop
+   adjacent settled water from reacting. Traced the disturbance callers: `block-service.ts`,
+   `interaction-placement-handler.ts` → both go through `notifyBlockChanged`.
+Also deferred: `syncLoadedChunks` rebuilds the whole fluid state O(all-water) on every chunk-set change
+(streaming hitch while walking) — incremental add/remove of changed chunks would fix it.
+
+**Net: the 20→56 FPS / 850→8 ms median win is real and verified. The residual is a 56-vs-60 polish hitch
+with a clear plan.** See memory `perf-fluid-bottleneck.md`.
+
+### Quality gate (Round 68)
+No source change (in-browser verification + characterization). All Round-67 gates hold. Dev server +
+browser cleaned up. 1 docs commit.
