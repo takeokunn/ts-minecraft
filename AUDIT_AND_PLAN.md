@@ -2622,3 +2622,45 @@ and the FPS/stutter addressed by the perf rounds. Mouse-look code inspected — 
 ### Quality gate (Round 76)
 `pnpm typecheck` 0 · `pnpm lint` 0 errors / 4 warnings · `pnpm check:refactor` OK · `pnpm test`
 **5723 passed / 1 skipped** · `pnpm build` exit 0 · in-browser verified (day/night) · 6 commits on `main`.
+
+---
+
+## CB. Round 77 (2026-06-13) — in-browser QA pass + "everything floats" sweep
+
+Driven by an explicit request to drive the game via Playwright MCP and verify all operations,
+plus a cascade of playtest reports. Confirmed working in-browser (real GPU): world-gen +
+land spawn, day/night, terrain/trees/fog, **movement** (walk 4.317 b/s exactly, forward=−Z),
+**jump** (apex +1.23 ≈ vanilla 1.25, clean parabola), **block break→drop→inventory** pickup,
+**inventory/crafting** (62 recipes; wood→planks→sticks consume/produce correctly), **combat**
+(spawn→aim→hit→cooldown→entity removal), 24 ambient mobs. Pointer-lock/precise-aim not
+testable in MCP (no pointer lock); covered by unit tests.
+
+Fixes:
+- [x] **FIX-AD (night too dark + sudden)** — terrain brightness used a SEPARATE stale raw-sine
+  sun-intensity in lighting-stage (`max(0,sin)`), dropping to 0 at dusk and all night. Unified
+  to a shared smoothstep `computeDaylightFactor`/`computeTerrainSunIntensity` with a
+  **moonlight floor 0.30**; widened TWILIGHT_BAND 0.18→0.30, raised AMBIENT_LIGHT_MIN
+  0.28→0.42, lightened SKY_COLOR_NIGHT. In-browser: midnight now readable. Commit `015af218`.
+- [x] **FIX-AE (leaves no collision)** — LEAVES was in PASSABLE_BLOCK_IDS → player fell through
+  canopies. Made leaves solid (MC-correct). Commit `99c18ad2`.
+- [x] **FIX-AF (mobs float)** — mob model is feet-at-origin but entity.position.y is the AABB
+  CENTRE; renderer placed the model straight at position.y → feet 0.9 above ground. Subtract
+  MOB_HALF_HEIGHT at both render sites. (Confirmed mob AI+physics already work when unpaused.)
+  Commit `16b320d6`.
+- [x] **FIX-AG (floating things sweep — 3 root causes, via 3 parallel investigation agents)**:
+  (a) **terrain floating blocks** — overhang noise filled air voxels with no connectivity
+  check; added below-OR-horizontal solid-support guard (preserves cliff overhangs).
+  (b) **floating village houses** — village Y came from the player body, shared by all
+  structures; frame-maintenance now grounds each structure to its column's terrain surface
+  (topmost ground block +1). (c) **acacia crown detached** — canopyBase lowered to wrap the
+  trunk; TREE_CANOPY_MARGIN 2→3 for radius-3 crowns at chunk seams. Commit `babb8828`.
+
+Diagnosed-not-fixed: **movement "super slow"** is FPS-coupled time dilation (the 0.05s
+deltaTime cap = 20fps floor; below that the sim runs in slow-motion). In an open area with
+focus, walk measured the correct 4.317 b/s. The fix is the FPS/perf work, not a movement
+change — did not speculatively alter physics. Latent: remote-player-renderer has the same
+feet-vs-centre risk (multiplayer unwired — defer).
+
+### Quality gate (Round 77)
+`pnpm typecheck` 0 · `pnpm lint` 0 errors / 4 warnings · `pnpm check:refactor` OK · `pnpm test`
+**5728 passed / 1 skipped** · `pnpm build` exit 0 · in-browser QA verified · 4 commits on `main`.
