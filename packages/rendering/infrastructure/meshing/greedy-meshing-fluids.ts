@@ -1,4 +1,4 @@
-import { CHUNK_SIZE, CHUNK_HEIGHT } from '@ts-minecraft/core'
+import { CHUNK_SIZE } from '@ts-minecraft/core'
 import type { LightGrids } from '@ts-minecraft/block'
 import type { ChunkWorldOffset } from './greedy-meshing-types'
 import { addQuad, type MeshAccumulator } from './greedy-meshing-accumulator'
@@ -21,6 +21,10 @@ export const meshFluidFaces = (
   transparentLookup: Uint8Array,
   transparentSolidLookup: Uint8Array,
   offset: ChunkWorldOffset,
+  // Exclusive Y bound = highest non-air block + 1. Fluid is non-air, so none exists above
+  // it — capping the scan here skips the empty air column (the common no-fluid chunk
+  // otherwise scanned all 65536 cells calling resolveFluidState for nothing).
+  yLimit: number,
 ): void => {
   const emitFluidQuad = (
     blockId: number,
@@ -56,7 +60,7 @@ export const meshFluidFaces = (
   }
 
   for (let lx = 0; lx < CHUNK_SIZE; lx++) {
-    for (let y = 0; y < CHUNK_HEIGHT; y++) {
+    for (let y = 0; y < yLimit; y++) {
       for (let lz = 0; lz < CHUNK_SIZE; lz++) {
         const current = resolveFluidState(blocks, fluid, lx, y, lz)
         if (current === null) continue

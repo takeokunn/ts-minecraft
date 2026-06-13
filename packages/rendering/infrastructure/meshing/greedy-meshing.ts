@@ -134,6 +134,7 @@ export const greedyMeshChunk = (
     transparentLookup,
     transparentSolidLookup,
     offset,
+    yLimit,
   )
 
   // Construct RawMeshData directly from the accumulator's typed arrays. These buffers
