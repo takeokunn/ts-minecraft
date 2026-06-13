@@ -2476,3 +2476,34 @@ contact for never-disturbed terrain fluids).
 ### Quality gate (Round 71)
 `pnpm typecheck` 0 · `pnpm lint` 0 errors / 4 warnings · `pnpm check:refactor` OK · `pnpm test`
 **5710 / 1 skipped** · `pnpm build` exit 0 · 1 commit on `main`.
+
+---
+
+## BW. Round 72 (2026-06-13) — USER PLAY FEEDBACK: fixed streaming stall + underwater spawn
+
+User actually played and reported: terrain looks wrong, chunk loading heavy, keybindings weird, "目の前が
+水色で rendering できてない", FPS too low, "初期地形生成ロジックは絶対よくない". Reproduced all via the
+browser (real GPU, M4 Max). Findings:
+- **Keybindings**: FINE — W/A/S/D move correctly & symmetrically (~4.3 m/s); earlier asymmetry was momentum
+  carryover. The "weird" feel is likely mouse-look (untestable without pointer lock).
+- **"水色 / can't see"**: the player **spawned over ocean at origin** (sea level 63) and **sank underwater**
+  (steady ~0.2 blk/s — water has NO buoyancy). The dark-blue view = underwater.
+- **Low FPS while walking**: median is fine (8.3 ms / 120 fps) but a **1100 ms STALL on every chunk-boundary
+  crossing** (streaming) — the felt "low FPS" + "heavy chunk loading."
+
+- [x] **FIX-U** (fluid): `syncLoadedChunks` rebuilt the WHOLE fluid state (`Arr.reduce` over all 65536 blocks
+  of EVERY loaded chunk) on each chunk-set change → ~1 s stall in a watery world. Made it **incremental**:
+  hydrate only newly-appeared chunks, drop departed chunks' cells/frontier. **Measured: max frame while
+  moving 1100 → 24.8 ms (44×), alloc 1.47 → 0.89 MB.** — `fluid-service.ts`.
+- [x] **FIX-V** (spawn): `findFallbackSurfaceY` counted WATER/LAVA as ground → spawned the player at/under
+  the ocean surface. Now finds the topmost SOLID block, prefers dry columns, and spawns ABOVE water for
+  submerged columns. **Verified: spawn y~64 (above water 63), not under it.** — `spawn-selection.ts`.
+
+**Still open (follow-ups):** (1) **water buoyancy** — even spawned above water the player sinks (no float);
+this is the real remaining cause of "underwater". (2) ocean-origin frequency / terrain-gen quality. (3) the
+fluid drain-period micro-hitch (Rounds 68–71). The browser-measurement workflow keeps finding the real,
+play-affecting bugs that Node profiling can't.
+
+### Quality gate (Round 72)
+`pnpm typecheck` 0 · `pnpm lint` 0 errors / 4 warnings · `pnpm check:refactor` OK · `pnpm test`
+**5716 / 1 skipped** · `pnpm build` exit 0 · in-browser verified · 2 commits on `main`.
