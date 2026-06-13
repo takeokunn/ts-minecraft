@@ -2693,3 +2693,34 @@ skydome inside the far plane would add a proper horizon→zenith gradient + suns
 ### Quality gate (Round 78)
 `pnpm typecheck` 0 · `pnpm lint` 0 errors / 4 warnings · `pnpm check:refactor` OK · `pnpm test`
 **5728 passed / 1 skipped** · `pnpm build` exit 0 · in-browser verified (night + ultra) · 1 commit on `main`.
+
+---
+
+## CD. Round 79 (2026-06-13) — controls, water, village foundations
+
+- [x] **FIX-AJ (ESC ⟂ menu)** — 'ESCは視点解除にしてメニューを開くのは別keyに'. ESC no longer
+  opens the pause menu; it only releases the pointer lock (browser-native; mouse-look gates on
+  isPointerLocked so the view stops). Added `OPEN_MENU_KEY = 'KeyM'` + `handleMenuKey`
+  (opens only from clean gameplay, never stacking on a modal). ESC still closes overlays /
+  resumes an open menu. `input-stage.ts` + tests. Commit `ff84df27`.
+- [x] **FIX-AK (water — can't submerge)** — '水って入れないの? minecraftの水の扱いを参考に'. The
+  default water motion was UPWARD buoyancy (+1.5), a stale band-aid for the old ocean-spawn bug
+  (now fixed by land-spawn), so the player bobbed on the surface and couldn't dive. Flipped to a
+  gentle constant SINK (WATER_SINK_SPEED -1.2); JUMP swims up (SWIM_UP_SPEED), SNEAK dives.
+  **In-browser verified: player sinks at constant rate in water, rises on held JUMP** — vanilla
+  feel, never stuck. `game-state-service.ts`. Commit `cd60fe00`.
+- [x] **FIX-AL (houses need ground)** — '生成する家は地面がかならずある状態で'. The grounded floor
+  was flat at the anchor column's surface, so slope/edge columns floated. Now fills a solid
+  COBBLESTONE foundation under EVERY footprint column from its own terrain surface up to the
+  floor (depth-capped 12), via a per-village chunk-cached surface resolver. `frame-maintenance.ts`.
+  Commit `593e3b9a`.
+
+Deferred-architectural: **'急に家が表れる' (houses pop in)** — villages are generated LAZILY in
+the maintenance loop at the player's own grid cell (`ensureVillageInState` → `snapVillageCenter`),
+then blocks forceSetBlock + re-mesh over throttled frames. Fully fixing the pop-in needs villages
+BAKED INTO terrain generation (mesh with the chunk on first load) — a larger change, flagged not
+rushed. The grounding + foundation fixes at least make houses look CORRECT when they do appear.
+
+### Quality gate (Round 79)
+`pnpm typecheck` 0 · `pnpm lint` 0 errors / 4 warnings · `pnpm check:refactor` OK · `pnpm test`
+**5729 passed / 1 skipped** · `pnpm build` exit 0 · in-browser verified (water) · 3 commits on `main`.
