@@ -2454,3 +2454,25 @@ the reverted test still pass until a thorough purge.)
 ### Quality gate (Round 70)
 `pnpm typecheck` 0 · `pnpm lint` 0 errors / 4 warnings · `pnpm check:refactor` OK · `pnpm test`
 **5710 / 1 skipped** (+1) · `pnpm build` exit 0 · 1 commit on `main`.
+
+---
+
+## BV. Round 71 (2026-06-13) — safe per-cell allocation cut in the fluid drain path (FIX-T)
+
+Chose the safe, behaviour-identical reduction over the risky settled-cell skip (which would duplicate
+processFluidCell's flow conditions and risk a flow regression).
+
+- [x] **FIX-T**: `flowLaterally` ran the 4 lateral offsets via `Effect.forEach(FLOW_OFFSETS, ..., {concurrency:1})`.
+  Sequential anyway, so the result-array + a per-element `Effect.gen` were pure per-cell allocation — paid for
+  EVERY processed fluid cell (×512/tick while a large settled body drains out of the frontier). Replaced with
+  a plain sequential for-loop inside one `Effect.gen` (per-element `return` → `continue`). Behaviour identical
+  — 1305 world tests green incl. all fluid + the Round-70 disturbance regression test. — `fluid-service.ts`.
+
+Reduces the drain-period per-tick allocation (part of the residual transient hitch). The full elimination
+(don't enqueue settled water at hydrate time, or skip settled cells in the tick) remains deferred — it
+duplicates/changes flow conditions and needs browser verification of edge cases (cross-chunk flow, water+lava
+contact for never-disturbed terrain fluids).
+
+### Quality gate (Round 71)
+`pnpm typecheck` 0 · `pnpm lint` 0 errors / 4 warnings · `pnpm check:refactor` OK · `pnpm test`
+**5710 / 1 skipped** · `pnpm build` exit 0 · 1 commit on `main`.
