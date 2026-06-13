@@ -2086,3 +2086,38 @@ agents, 16 candidates → 3 confirmed) is fully discharged.
 `pnpm typecheck` 0 errors · `pnpm lint` 0 errors / 4 warnings (pre-existing) ·
 `pnpm check:refactor` all OK · `pnpm test` **5709 passing / 1 skipped** ·
 `pnpm build` exit 0 · 1 commit on `main`.
+
+---
+
+## BJ. Round 59 (2026-06-13) — MEASURED: greedy meshing was fixed-overhead-bound (~2× win)
+
+User: "pref計測して改善の余地を探ってほしい" (measure perf, find improvement room). Did empirical
+measurement, not static audit.
+
+**Bundle (dist):** Effect **1.87 MB**, terrain-worker 1.30 MB, meshing-worker 678 KB, three 602 KB,
+main 430 KB = 4.6 MB JS. Effect is the largest single chunk (no namespace-import tree-shaking defect
+found; it's Effect's inherent multi-module footprint — reducing it is a big risky change, deferred).
+
+**Microbenchmark (`scripts/bench-meshing.ts`, new):** `greedyMeshChunk` median of 7 runs —
+- flat terrain (40 verts): **1.95 ms** · rolling (3840 verts): **2.05 ms** · checkerboard (49k verts): **2.65 ms**.
+- The near-constant time across a 1200× vertex range proved meshing is **FIXED-overhead-bound**: the six
+  solid face passes scanned the full 16×256×16 volume regardless of geometry. Typical terrain fills only
+  ~70 of the 256-tall column → ~70% of the per-cell AO/light work was over empty air.
+
+- [x] **FIX-N**: cap each solid face pass's Y scan at the highest solid block (+1). No solid face can
+  exist above it (air-air emits nothing), so it's **geometry-preserving**. `greedyMeshChunk` finds the
+  highest non-air block in one cheap linear scan (`CHUNK_HEIGHT` is a power of two → `y = i & 255` is
+  free; the worker rebuilds chunks WITHOUT `chunk.maxY`, so compute don't trust). Threaded `yLimit`
+  through `FacePassState` as the loop bound AND the `maskCH` row stride (X/Z) / outer bound (Y), plus a
+  bounded `maskCH.fill`. — `greedy-meshing.ts`, `greedy-meshing-passes.ts`, `greedy-meshing-algorithms.ts`.
+  **After: flat 0.92 / rolling 1.05 / checker 1.22 ms — ~2×, vertex counts IDENTICAL** (40/3840/49152).
+  538 rendering tests green. Speeds up initial load + every block-edit re-mesh; cuts main-thread time
+  directly on the sync-fallback path.
+
+Deferred (measured but not done): Effect bundle 1.87 MB (large risky refactor); the workers re-bundle
+Effect/three (duplication) — a chunking-strategy change for a future round.
+
+### Quality gate (Round 59)
+`pnpm typecheck` 0 errors · `pnpm lint` 0 errors / 4 warnings (pre-existing) ·
+`pnpm check:refactor` all OK · `pnpm test` **5709 passing / 1 skipped** ·
+`pnpm build` exit 0 · 1 commit on `main` (+ `scripts/bench-meshing.ts` measurement harness).
