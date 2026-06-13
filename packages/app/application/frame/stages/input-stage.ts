@@ -156,6 +156,27 @@ const handleTradeKeys = (
     }
   })
 
+// Reconcile gamePausedRef to the ACTUAL modal state every frame. gamePausedRef is
+// "is any modal open?" — it gates mouse-look (above), block interaction, and most
+// importantly the canvas-click pointer-lock re-acquire (browser-runtime). The
+// inventory/trade branches set it explicitly, but the pause menu was omitted AND it
+// can open/close through paths inputStage never observes (its own document-level ESC
+// handler, the Resume button click, the settings watchdog). Result: ESC opened the
+// pause menu but left gamePausedRef=false, so the next canvas click re-grabbed the
+// cursor — "ESCでフォーカスがはずれない". Deriving the flag from the live isOpen() of
+// every modal makes it self-correcting regardless of which path opened or closed one.
+const reconcileModalPause = (
+  deps: InputDeps,
+  services: Pick<InputServices, 'inventoryRenderer' | 'settingsOverlay' | 'pauseMenu' | 'tradingPresentation'>,
+): Effect.Effect<void, never> =>
+  Effect.gen(function* () {
+    const invOpen = yield* services.inventoryRenderer.isOpen()
+    const tradeOpen = yield* services.tradingPresentation.isOpen()
+    const settingsOpen = yield* services.settingsOverlay.isOpen()
+    const pauseOpen = yield* services.pauseMenu.isOpen()
+    yield* Ref.set(deps.gamePausedRef, invOpen || tradeOpen || settingsOpen || pauseOpen)
+  })
+
 const syncDayLength = (
   services: Pick<InputServices, 'timeService'>,
   dayLengthSeconds: number,
@@ -200,6 +221,9 @@ export const inputStage = (
           Effect.flatMap(() => logErrors(handleInventoryKey(deps, services), 'Overlay error')),
           Effect.flatMap(() => logErrors(handleTradeKeys(deps, services, inputs.playerPos), 'Overlay error')),
           Effect.flatMap(() => logErrors(syncDayLength(services, inputs.dayLengthSeconds), 'Overlay error')),
+          // Derive gamePausedRef from the live modal state AFTER all the handlers
+          // (incl. the pause menu's own out-of-band open/close) have settled.
+          Effect.flatMap(() => logErrors(reconcileModalPause(deps, services), 'Overlay error')),
         ),
     )
   )

@@ -59,10 +59,27 @@ describe('Escape key handling', () => {
     expect(openIfClosedSpy).toHaveBeenCalledOnce()
     // Settings overlay must NOT have been opened by ESC alone
     expect(settingsState.open).toBe(false)
-    // gamePausedRef is unchanged here — pauseMenu owns its own pause state
-    // (via the watchdog/attach mechanism), so the inputStage doesn't toggle it.
+    // The openIfClosed spy is a no-op, so no modal actually opened; the end-of-frame
+    // reconcile derives gamePausedRef from the live (still-closed) modal state → false.
     const paused = yield* Ref.get(deps.gamePausedRef)
     expect(paused).toBe(false)
+  }))
+
+  // Regression ("ESCでフォーカスがはずれない"): when ESC actually opens the pause menu,
+  // gamePausedRef must become true so the canvas-click pointer-lock re-acquire is
+  // suppressed. Uses the default openIfClosed, which flips the menu's open state.
+  it.effect('sets gamePausedRef to true when Escape opens the pause menu', () => Effect.gen(function* () {
+    const pressedKeys = MutableHashSet.make(KeyMappings.ESCAPE)
+    const { deps, services } = yield* arrangeFrameHarness({ pressedKeys })
+
+    // gamePausedRef starts false (nothing open)
+    expect(yield* Ref.get(deps.gamePausedRef)).toBe(false)
+
+    yield* runFrame(deps, services)
+
+    // Pause menu is now open → reconcile must have paused the game
+    expect(yield* services.pauseMenu.isOpen()).toBe(true)
+    expect(yield* Ref.get(deps.gamePausedRef)).toBe(true)
   }))
 
   it.effect('does not change overlay states when Escape is not pressed', () => Effect.gen(function* () {
