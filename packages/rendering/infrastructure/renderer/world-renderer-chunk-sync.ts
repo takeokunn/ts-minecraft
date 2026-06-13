@@ -118,35 +118,48 @@ export const syncChunksToScene = (
     // hard cap bounds the sync geometry-build + GPU-upload cost; Effect.all preserves
     // input order, so scene-add order is unchanged. Any chunks beyond the cap drain
     // next frame (the caller re-fires while chunkSyncPending is set).
-    const batch = Arr.take(newChunks, MAX_CHUNK_UPDATES_PER_FRAME)
-    const meshedChunks = yield* Effect.all(
-      Arr.map(batch, (chunk) => {
-        const lod = lodForChunk(chunk)
-        return chunkMeshService.createChunkMesh(chunk, waterMaterial, lod).pipe(
-          Effect.map(({ opaqueMesh, waterMesh, transparentSolidMesh }) =>
-            [chunkKey(chunk.coord), { opaqueMesh, waterMesh, transparentSolidMesh, lod }] as const,
-          ),
-        )
-      }),
-      { concurrency: MAX_CHUNK_UPDATES_PER_FRAME },
+    // Mesh + add newly-streamed chunks within a WALL-CLOCK budget. Each createChunkMesh
+    // builds 3 BufferGeometries on the main thread (~3 ms), so meshing the full
+    // MAX_CHUNK_UPDATES_PER_FRAME (8) in one go spiked a single frame to ~28 ms (the p90/p99
+    // stutter while walking) even though the worker meshing itself is off-thread. Process in
+    // small parallel sub-batches (CHUNK_SYNC_CONCURRENCY keeps the worker pool busy) and STOP
+    // once WORLD_RENDERER_TIME_BUDGET_MS is exceeded — the remainder drains next frame
+    // (chunkSyncPending re-fires the caller). At least one sub-batch always runs (progress
+    // guarantee). Mirrors the LOD path's budget below.
+    const addStartMs = nowMs()
+    const newChunkHardCap = Math.min(newChunks.length, MAX_CHUNK_UPDATES_PER_FRAME)
+    const { meshMap: nextMeshesAfterAdd, processed: newProcessed } = yield* Effect.iterate(
+      { meshMap: meshes, processed: 0 },
+      {
+        while: (s) =>
+          s.processed < newChunkHardCap &&
+          (s.processed === 0 || nowMs() - addStartMs < WORLD_RENDERER_TIME_BUDGET_MS),
+        body: (s) =>
+          Effect.gen(function* () {
+            const sub = newChunks.slice(s.processed, Math.min(s.processed + CHUNK_SYNC_CONCURRENCY, newChunkHardCap))
+            const meshed = yield* Effect.all(
+              Arr.map(sub, (chunk) => {
+                const lod = lodForChunk(chunk)
+                return chunkMeshService.createChunkMesh(chunk, waterMaterial, lod).pipe(
+                  Effect.map(({ opaqueMesh, waterMesh, transparentSolidMesh }) =>
+                    [chunkKey(chunk.coord), { opaqueMesh, waterMesh, transparentSolidMesh, lod }] as const,
+                  ),
+                )
+              }),
+              { concurrency: CHUNK_SYNC_CONCURRENCY },
+            )
+            let m = s.meshMap
+            for (const [key, { opaqueMesh, waterMesh, transparentSolidMesh, lod }] of meshed) {
+              yield* sceneService.add(scene, opaqueMesh)
+              if (Option.isSome(waterMesh)) yield* sceneService.add(scene, waterMesh.value)
+              if (Option.isSome(transparentSolidMesh)) yield* sceneService.add(scene, transparentSolidMesh.value)
+              m = HashMap.set(m, key, { opaque: opaqueMesh, water: waterMesh, transparentSolid: transparentSolidMesh, lod })
+            }
+            return { meshMap: m, processed: s.processed + sub.length }
+          }),
+      },
     )
-    const allNewChunksMeshed = batch.length >= newChunks.length
-
-    const added = yield* Effect.all(
-      Arr.map(meshedChunks, ([key, { opaqueMesh, waterMesh, transparentSolidMesh, lod }]) =>
-        Effect.gen(function* () {
-          // Sequential scene.add calls: 3 synchronous operations on a budgeted path
-          // (max CHUNK_SYNC_CONCURRENCY chunks/frame). Fiber parallelism adds overhead
-          // with no throughput gain — scene.add is a sync array push.
-          yield* sceneService.add(scene, opaqueMesh)
-          if (Option.isSome(waterMesh)) yield* sceneService.add(scene, waterMesh.value)
-          if (Option.isSome(transparentSolidMesh)) yield* sceneService.add(scene, transparentSolidMesh.value)
-          return [key, { opaque: opaqueMesh, water: waterMesh, transparentSolid: transparentSolidMesh, lod }] as const
-        })
-      ),
-      { concurrency: CHUNK_SYNC_CONCURRENCY }
-    )
-    const nextMeshesAfterAdd = Arr.reduce(added, meshes, (acc, [key, chunkMeshes]) => HashMap.set(acc, key, chunkMeshes))
+    const allNewChunksMeshed = newProcessed >= newChunks.length
 
     // FR-3.1: re-mesh LOD-changed chunks in place (geometry buffers updated in
     // the existing mesh object). Uses the same time-budget + hard-cap as the
