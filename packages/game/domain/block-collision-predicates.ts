@@ -5,10 +5,13 @@ const CHUNK_LOCAL_MASK = CHUNK_SIZE - 1
 
 // Blocks that should not collide with the player (transparent/passable).
 // Uses a native Set per codebase policy for hot-path collision checks.
+// NOTE: LEAVES are intentionally NOT here — in Minecraft leaves are SOLID (you can
+// stand on them and they block movement). Listing them let the player fall straight
+// through tree canopies ('木の葉にあたり判定がないのですり抜ける'). Only genuinely
+// non-colliding blocks (fluids, torches) belong here.
 const PASSABLE_BLOCK_IDS: ReadonlySet<number> = new Set([
   blockTypeToIndex('WATER'),
   blockTypeToIndex('LAVA'),
-  blockTypeToIndex('LEAVES'),
   blockTypeToIndex('TORCH'),
 ])
 

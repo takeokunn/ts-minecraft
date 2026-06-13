@@ -67,6 +67,12 @@ describe('isBlockSolid', () => {
       const cache = makeAirChunkCache()
       expect(isBlockSolid(0, 64, 0, cache, PLAYER_CX, PLAYER_CZ)).toBe(false)
     })
+
+    it('returns true for LEAVES — leaves are SOLID, the player stands on / collides with them (vanilla)', () => {
+      // Regression: leaves used to be passable, so the player fell straight through canopies.
+      const cache = makeSingleBlockCache(BLOCK_IDS.LEAVES, 0, 64, 0)
+      expect(isBlockSolid(0, 64, 0, cache, PLAYER_CX, PLAYER_CZ)).toBe(true)
+    })
   })
 
   describe('passable blocks are not solid', () => {
@@ -77,11 +83,6 @@ describe('isBlockSolid', () => {
 
     it('LAVA block is NOT solid (player passes through)', () => {
       const cache = makeSingleBlockCache(BLOCK_IDS.LAVA, 0, 60, 0)
-      expect(isBlockSolid(0, 60, 0, cache, PLAYER_CX, PLAYER_CZ)).toBe(false)
-    })
-
-    it('LEAVES block is NOT solid (player can walk through leaves)', () => {
-      const cache = makeSingleBlockCache(BLOCK_IDS.LEAVES, 0, 60, 0)
       expect(isBlockSolid(0, 60, 0, cache, PLAYER_CX, PLAYER_CZ)).toBe(false)
     })
 
