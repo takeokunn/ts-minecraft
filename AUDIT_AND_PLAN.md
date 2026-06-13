@@ -2664,3 +2664,32 @@ feet-vs-centre risk (multiplayer unwired — defer).
 ### Quality gate (Round 77)
 `pnpm typecheck` 0 · `pnpm lint` 0 errors / 4 warnings · `pnpm check:refactor` OK · `pnpm test`
 **5728 passed / 1 skipped** · `pnpm build` exit 0 · in-browser QA verified · 4 commits on `main`.
+
+---
+
+## CC. Round 78 (2026-06-13) — graphics polish: brighter night + scalable "影Mod" shadows
+
+User asks: 拘りぬいた graphics / 夜が暗すぎる / 影Mod-like / 省メモリ低スペック — the
+quality-vs-low-spec tension is resolved by the existing preset LADDER (gorgeous ultra, lean low).
+
+- [x] **FIX-AH (night still too dark)** — raised the floors again: TERRAIN_NIGHT_LIGHT_FLOOR
+  0.30→0.45, AMBIENT_LIGHT_MIN 0.42→0.56, SKY_COLOR_NIGHT 0x15182e→0x232a45. In-browser:
+  midnight is now a clearly-lit bright-moonlit scene (terrain well lit, dim-blue sky) while the
+  cool tint keeps it reading as night; day is NOT overexposed. Commit `7c89dafd`.
+- [x] **FIX-AI (影Mod — scalable shadow quality)** — added `shadowMapSize` + `shadowRadius` to
+  ResolvedGraphics and scaled by preset: low 1024 (shadows off — lean), medium 2048/r3
+  (balanced default, unchanged), high 3072/r5, ultra 4096/r7 (shader-pack-grade soft directional
+  shadow). session-lighting reads these instead of hardcoded 2048/3. Renderer already uses
+  PCFSoftShadowMap + ACESFilmic. **No memory regression** for default/low — the extra shadow
+  VRAM is opt-in on high/ultra only. In-browser: switched to ultra (bloom/godrays/DOF/SSAO +
+  the soft shadow) — renders richly, no errors; a grounded village structure was visible
+  (confirms FIX-AG). Commit `7c89dafd`.
+
+省メモリ低スペック: already served by the `low` preset (no post/sky/shadows, DPR 0.75) +
+the Round 75 chunk-set memory bound. Next "拘りぬいた" lever (not done): the atmospheric Sky
+dome is clipped by the 352 far plane → flat clear-colour sky; a camera-following gradient
+skydome inside the far plane would add a proper horizon→zenith gradient + sunset colours.
+
+### Quality gate (Round 78)
+`pnpm typecheck` 0 · `pnpm lint` 0 errors / 4 warnings · `pnpm check:refactor` OK · `pnpm test`
+**5728 passed / 1 skipped** · `pnpm build` exit 0 · in-browser verified (night + ultra) · 1 commit on `main`.
