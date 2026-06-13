@@ -2061,3 +2061,28 @@ latency / worker under-utilisation, medium effort, deferred to a future round.
 `pnpm typecheck` 0 errors · `pnpm lint` 0 errors / 4 warnings (pre-existing) ·
 `pnpm check:refactor` all OK · `pnpm test` **5709 passing / 1 skipped** (+1 new test) ·
 `pnpm build` exit 0 · 1 commit on `main`.
+
+---
+
+## BI. Round 58 (2026-06-13) — perf: parallelize the new-chunk mesh drain (closes perf-workflow finding #3)
+
+- [x] **FIX-M**: `syncChunksToScene` meshed new chunks with `concurrency:1` + a wall-clock budget.
+  But meshing is a **Web Worker round-trip** (greedy meshing runs off-thread), so (1) only 1 of up to 4
+  worker cores was ever busy, and (2) the budget counted idle worker-await latency against a main-thread
+  limit — the prior comment's premise ("meshing is mostly main-thread sync work") is false on the worker
+  path. Replaced the sequential `Effect.iterate` with a parallel `Effect.all` of the per-frame batch
+  (`Arr.take(newChunks, MAX_CHUNK_UPDATES_PER_FRAME)`, `concurrency: MAX_CHUNK_UPDATES_PER_FRAME`). The
+  hard cap still bounds the sync geometry-build + GPU-upload cost; this runs on the maintenance fiber so
+  the parallel await never blocks the render loop; `Effect.all` preserves input order (scene-add order
+  unchanged); over-cap chunks drain next frame via the existing `chunkSyncPending` re-fire. Also removed
+  an O(n²) accumulator-spread in the old loop. Cuts initial load time + chunk-edge-lag-while-walking by
+  keeping the whole worker pool busy. — `world-renderer-chunk-sync.ts` (545 rendering tests green).
+
+**All 3 verifier-confirmed perf-workflow findings are now landed**: FIX-K (entity HAMT garbage / GC),
+FIX-L (composer RT VRAM + wasted pass), FIX-M (worker-pool under-utilisation). The perf workflow (22
+agents, 16 candidates → 3 confirmed) is fully discharged.
+
+### Quality gate (Round 58)
+`pnpm typecheck` 0 errors · `pnpm lint` 0 errors / 4 warnings (pre-existing) ·
+`pnpm check:refactor` all OK · `pnpm test` **5709 passing / 1 skipped** ·
+`pnpm build` exit 0 · 1 commit on `main`.
