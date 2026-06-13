@@ -60,7 +60,10 @@ describe('frame-handler', () => {
     }))
 
     it.effect('suppresses hotbarService.update when gamePausedRef is true', () => Effect.gen(function* () {
-      const { deps, services } = yield* arrangeFrameHarness({ paused: true })
+      // gamePausedRef is now DERIVED from live modal state each frame (input-stage
+      // reconcile), so "paused" must be represented by an actually-open modal rather
+      // than a bare flag — otherwise the reconcile correctly clears it to false.
+      const { deps, services } = yield* arrangeFrameHarness({ paused: true, inventoryOpen: true })
       const hotbarUpdateSpy = vi.fn(() => Effect.void)
       ;(services.hotbarService as { update: unknown }).update = hotbarUpdateSpy
 
