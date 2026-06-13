@@ -197,8 +197,23 @@ export const makeEntityManagerUpdate = (
   structureVersionRef: Ref.Ref<number>,
   burnAccumulatorRef: Ref.Ref<number>,
 ) => {
+  // Apply `f` to every entity exactly once, but only path-copy the entries that
+  // ACTUALLY changed. The mappers (processEntityAI / creeper-fuse / wool-regrowth /
+  // physics) are reference-stable: they return the SAME object when nothing changed.
+  // HashMap.map ignores that and rebuilds the whole HAMT from empty() — N path-copy
+  // `set`s of pure garbage every call, 2+ calls/frame, even when all mobs are idle.
+  // This single pass returns the ORIGINAL map untouched on an all-idle frame (zero
+  // allocation) and sets only the changed entries otherwise. `f` is invoked once per
+  // entity, so mapper side effects (the MutableRef dirty flags) are preserved exactly.
   const updateAllEntities = (f: (entity: ManagedEntity, id: EntityId) => ManagedEntity) =>
-    Ref.update(entitiesRef, (entities) => HashMap.map(entities, f))
+    Ref.update(entitiesRef, (entities) => {
+      let result = entities
+      for (const [id, entity] of entities) {
+        const next = f(entity, id)
+        if (next !== entity) result = HashMap.set(result, id, next)
+      }
+      return result
+    })
 
   return {
     update: (
