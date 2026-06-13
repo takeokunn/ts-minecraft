@@ -2552,3 +2552,25 @@ trees render fine from the surface.)
 ### Quality gate (Round 74)
 `pnpm typecheck` 0 · `pnpm lint` 0 errors / 4 warnings · `pnpm check:refactor` OK · `pnpm test`
 **5716 / 1 skipped** · `pnpm build` exit 0 · in-browser verified · 1 commit on `main`.
+
+---
+
+## BZ. Round 75 (2026-06-13) — memory: bound the loaded/meshed chunk set ("省メモリ")
+
+In-browser extended-walk leak check (the "高速省メモリ" requirement): walking ~40s grew chunk meshes
+133→273 and heap 112→195 MB. Diagnosed via `getRenderingSnapshot().chunks`: meshes extended to **chunk
+dist 10** while only **dist ≤4 was ever visible** (fog-culled past that) — ~100+ chunks meshed for nothing.
+
+- [x] **FIX-Y**: `unloadDistance = Math.max(renderDistance + 2, UNLOAD_DISTANCE=10)` kept (and the renderer
+  meshed) chunks out to dist 10 even at the default renderDistance 4 (~400 loaded/meshed vs ~81 needed).
+  Dropped the fixed floor → `unloadDistance = renderDistance + 2`, scaling with the actual render distance
+  (rd4 → dist 6, rd8 → dist 10 unchanged). — `chunk-manager-service-ops.ts`.
+  **Verified in-browser after walking: max chunk dist 10→6, meshes 273→132 (½), heap 195→134 MB and
+  GC-reclaimed (no unbounded growth).** 51 chunk-manager tests green.
+
+Mouse-look code inspected (`first-person-camera-service.ts`): standard non-inverted, 0.002 rad/px at the
+0.5 default — looks correct; the "keybindings weird" feel is most likely subjective/pointer-lock, not a bug.
+
+### Quality gate (Round 75)
+`pnpm typecheck` 0 · `pnpm lint` 0 errors / 4 warnings · `pnpm check:refactor` OK · `pnpm test`
+**5716 / 1 skipped** · `pnpm build` exit 0 · in-browser verified · 1 commit on `main`.
