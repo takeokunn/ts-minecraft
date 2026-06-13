@@ -43,6 +43,11 @@ export const CAVE_DEPTH_MAX = 40
 // Avoids surface holes (MC 1.18-aligned)
 export const CAVE_CEILING = 80
 export const CAVE_FLOOR = BEDROCK_LAYER_TOP + 1 // y=5 (y<=4 is bedrock)
+// Number of Y sample levels in the cave noise grid. carveCaves only carves
+// [CAVE_FLOOR, CAVE_CEILING], reading grid rows up to sy=floor(CAVE_CEILING/STRIDE)+1,
+// so generating samples for the full 256-tall column wasted ~68% of the (expensive)
+// 3D-noise evaluations on a region never read. +2 keeps the top interpolation row.
+export const CAVE_SAMPLE_SY_COUNT = Math.floor(CAVE_CEILING / CAVE_SAMPLE_STRIDE) + 2
 
 // Ore veins placed AFTER cave carving — cave-exposed ore walls appear. Only replaces STONE/DEEPSLATE.
 export type OreConfig = {

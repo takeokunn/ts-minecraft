@@ -1,5 +1,5 @@
 import { Array as Arr } from 'effect'
-import { blockTypeToIndex, CHUNK_SIZE, CHUNK_HEIGHT } from '@ts-minecraft/core'
+import { blockTypeToIndex, CHUNK_SIZE } from '@ts-minecraft/core'
 import {
   LAKE_NOISE_SCALE,
   VARIANT_NOISE_SCALE,
@@ -11,6 +11,7 @@ import {
   ANDESITE_OFFSET_Z,
   CAVE_NOISE_SCALE,
   CAVE_SAMPLE_STRIDE,
+  CAVE_SAMPLE_SY_COUNT,
 } from './constants'
 import { AIR_BLOCK_INDEX } from './surface-resolver'
 import type { ColumnNoiseCoordinates, CaveGridPoint, BlockIndices } from './generator-types'
@@ -94,7 +95,7 @@ export const createColumnNoiseCoordinateArrays = (
 export const createCaveGridPoints = (baseWorldX: number, baseWorldZ: number): ReadonlyArray<CaveGridPoint> => {
   const caveSX = Math.floor(CHUNK_SIZE / CAVE_SAMPLE_STRIDE) + 1
   const caveSZ = Math.floor(CHUNK_SIZE / CAVE_SAMPLE_STRIDE) + 1
-  const caveSY = Math.floor(CHUNK_HEIGHT / CAVE_SAMPLE_STRIDE) + 1
+  const caveSY = CAVE_SAMPLE_SY_COUNT
 
   return Arr.flatMap(Arr.makeBy(caveSY, (sy) => sy), (sy) =>
     Arr.flatMap(Arr.makeBy(caveSZ, (sz) => sz), (sz) =>
@@ -119,7 +120,7 @@ export const createCaveGridCoordinateArrays = (
 ): CaveGridCoordinateArrays => {
   const caveSX = Math.floor(CHUNK_SIZE / CAVE_SAMPLE_STRIDE) + 1
   const caveSZ = Math.floor(CHUNK_SIZE / CAVE_SAMPLE_STRIDE) + 1
-  const caveSY = Math.floor(CHUNK_HEIGHT / CAVE_SAMPLE_STRIDE) + 1
+  const caveSY = CAVE_SAMPLE_SY_COUNT
   const pointCount = caveSX * caveSZ * caveSY
   const caveXs = createNumberArray(pointCount)
   const caveYs = createNumberArray(pointCount)
