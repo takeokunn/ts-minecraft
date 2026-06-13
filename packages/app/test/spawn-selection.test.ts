@@ -49,14 +49,16 @@ describe('selectSurfaceSpawn', () => {
 
   it('rejects columns with a block canopy above the headroom', () => {
     const chunk = emptyChunk()
-    fillColumn(chunk, 8, 8, 0, 64, DIRT)
-    setBlock(chunk, 8, 70, 8, LEAVES)
-    fillColumn(chunk, 9, 8, 0, 62, DIRT)
+    fillColumn(chunk, 8, 8, 0, 66, DIRT)
+    setBlock(chunk, 8, 72, 8, LEAVES)
+    // Surface above SEA_LEVEL (65 ≥ 63) so the anti-drowning clamp doesn't apply — this test
+    // isolates canopy rejection: column 8 (canopy in headroom) is rejected, column 9 selected.
+    fillColumn(chunk, 9, 8, 0, 65, DIRT)
 
     const spawn = selectSurfaceSpawn([chunk], { x: 8.5, y: 100, z: 8.5 })
 
     expect(spawn.position.x).toBe(9.5)
-    expect(spawn.position.y).toBe(63.9)
+    expect(spawn.position.y).toBe(66.9)
   })
 
   it('returns a valid yaw for the selected spawn position', () => {

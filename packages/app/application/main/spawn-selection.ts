@@ -1,5 +1,5 @@
 import { Array as Arr, Option } from 'effect'
-import { CHUNK_HEIGHT, CHUNK_SIZE, PLAYER_HALF_HEIGHT, blockIndex, blockTypeToIndex } from '@ts-minecraft/core'
+import { CHUNK_HEIGHT, CHUNK_SIZE, PLAYER_HALF_HEIGHT, SEA_LEVEL, blockIndex, blockTypeToIndex } from '@ts-minecraft/core'
 import type { Chunk } from '@ts-minecraft/world/domain/chunk'
 
 export type SpawnSelection = {
@@ -163,15 +163,27 @@ export const selectSurfaceSpawn = (
 
   const bestVal = Option.getOrNull(best)
   if (bestVal !== null) {
-    return { position: bestVal.position, yaw: bestVal.yaw }
+    return clampAboveWater({ position: bestVal.position, yaw: bestVal.yaw })
   }
 
   // No valid surface candidate found — scan loaded chunks for any
   // solid ground as a last-resort fallback before using the fixed height.
   const fallbackY = FALLBACK_SURFACE_Y + FALLBACK_HEADROOM + PLAYER_HALF_HEIGHT
   const safetyY = findFallbackSurfaceY(chunkMap, baseSpawnPosition)
-  return { position: { ...baseSpawnPosition, y: safetyY ?? fallbackY }, yaw: 0 }
+  return clampAboveWater({ position: { ...baseSpawnPosition, y: safetyY ?? fallbackY }, yaw: 0 })
 }
+
+// Any column whose surface dips below SEA_LEVEL is water-filled, so a spawn body Y below the
+// water surface means the player spawns SUBMERGED — they take drowning damage and die before
+// they can react (observed: 'YOU DIED / Drowning' on a fresh ocean-fallback world). Final
+// safety net: never spawn below the water line. The water surface top is SEA_LEVEL+1, so the
+// body centre must be at least SEA_LEVEL+1+PLAYER_HALF_HEIGHT (feet on the surface). No-op for
+// normal land spawns (already above sea level); lifts only submerged spawns onto the surface.
+const MIN_SPAWN_BODY_Y = SEA_LEVEL + 1 + PLAYER_HALF_HEIGHT
+const clampAboveWater = (sel: SpawnSelection): SpawnSelection =>
+  sel.position.y >= MIN_SPAWN_BODY_Y
+    ? sel
+    : { ...sel, position: { ...sel.position, y: MIN_SPAWN_BODY_Y } }
 
 // Scan ALL loaded chunks for solid ground as a last-resort fallback (e.g. the origin
 // sits in a large ocean and no clear-sky land candidate exists). The previous version
