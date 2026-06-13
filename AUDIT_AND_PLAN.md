@@ -1898,3 +1898,30 @@ spawn/despawn distance. The Round 46 hunt's queue is closed.
 `pnpm typecheck` 0 errors · `pnpm lint` 0 errors / 4 warnings (pre-existing) ·
 `pnpm check:refactor` all OK · `pnpm test` **5701 passing / 1 skipped** (+1 new test) ·
 `pnpm build` exit 0 · 1 commit on `main`.
+
+---
+
+## BC. Round 52 (2026-06-13) — frames-vs-ticks sweep found 2 more: breeding + wool regrowth
+
+The frames-vs-ticks class wasn't fully closed: sweeping the per-frame entity-AI timers turned up
+two more counters decremented by 1 per render frame (while `entityManager.update()` runs every
+frame, ungated), inconsistent with the sibling `attackCooldownRemaining`/`knockbackSecsRemaining`
+which use `deltaTime`.
+
+- [x] **FIX-G**: **Breeding + wool-regrowth timers were frame-count-based.** `tickBreedingTimers`
+  (love / breed-cooldown / baby-age) and `tickWoolRegrowth` advanced by 1 per frame → at 60fps
+  animals bred / babies matured / sheep regrew wool ~3× too fast and frame-rate-dependently. Both
+  pure fns now take a `ticksElapsed` arg; the caller passes `deltaTime × GAME_TICKS_PER_SEC` (new
+  `core` constant = 20). Calling with `1` reproduces the old per-tick behaviour, so game-tick-
+  granularity semantics are unchanged; `Math.max/min` clamps make the now-fractional timers robust.
+  +frame-rate-independence tests. — `breeding.ts`, `shearing.ts`, `entity-manager-internal-update.ts`,
+  `core/constants.ts`
+
+Frames-vs-ticks fixed so far: invincibility, hunger, knockback, breeding, wool regrowth.
+NOT yet re-verified this round: creeper fuse, crop growth, attack-swing/stuckTicks, and other
+per-frame counters in the entity AI path — a follow-up sweep should confirm or fix each.
+
+### Quality gate (Round 52)
+`pnpm typecheck` 0 errors · `pnpm lint` 0 errors / 4 warnings (pre-existing) ·
+`pnpm check:refactor` all OK · `pnpm test` **5704 passing / 1 skipped** (+5 new tests) ·
+`pnpm build` exit 0 · 1 commit on `main`.
