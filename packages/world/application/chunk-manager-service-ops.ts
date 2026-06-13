@@ -4,7 +4,7 @@ import { computeMaxY, type Chunk } from '../domain/chunk'
 import { StorageError } from '../domain/errors'
 import { aabbFromVoxels, fullChunkAABB, unionAABB, type ChunkAABB } from '../domain/chunk-aabb'
 import { chunkCoordToWorldKey, chunkDistanceSquared, countChunksInRadius, getChunksInRenderDistance, worldToChunkCoord } from '../domain/chunk-coord-utils'
-import { MAX_CACHED_CHUNKS, RENDER_DISTANCE, UNLOAD_DISTANCE, type ChunkManagerError } from './chunk-manager-constants'
+import { MAX_CACHED_CHUNKS, RENDER_DISTANCE, type ChunkManagerError } from './chunk-manager-constants'
 import type { ChunkCache } from './chunk-manager-cache'
 import { type ChunkOpsContext, getChunk, unloadChunk } from './chunk-manager-ops'
 import { CHUNK_LOAD_BATCHING_MIN_RENDER_DISTANCE, MAX_CHUNK_LOADS_PER_CALL, type ChunkLoadOptions } from './chunk-manager-service-model'
@@ -44,7 +44,13 @@ export const loadChunksAroundPlayer = (
     yield* Effect.forEach(chunkLoadBatch, (coord) => loadSemaphore.withPermits(1)(getChunk(ctx, coord)), { concurrency: 4 })
 
     const state = yield* Ref.get(ctx.cache)
-    const unloadDistance = Math.max(renderDistance + 2, UNLOAD_DISTANCE)
+    // Unload (and stop meshing) chunks beyond a 2-chunk hysteresis ring around the render
+    // distance. The old `Math.max(renderDistance + 2, UNLOAD_DISTANCE=10)` floor kept chunks
+    // out to dist 10 even at the default renderDistance 4 — ~400 chunks loaded & MESHED when
+    // only ~81 are ever visible (chunks past dist ~4 are fog-culled), the memory growth seen
+    // while walking. Scaling with the actual render distance bounds the loaded/meshed set
+    // (rd4 → dist 6 ≈ 169 chunks vs 441; rd8 → dist 10, unchanged).
+    const unloadDistance = renderDistance + 2
     const maxDistance = unloadDistance * unloadDistance
     yield* Effect.forEach(
       Arr.filter(Arr.fromIterable(HashMap.values(state.chunks)), (entry) => chunkDistanceSquared(entry.chunk.coord, centerChunk) > maxDistance),
