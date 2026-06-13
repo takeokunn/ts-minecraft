@@ -2148,3 +2148,28 @@ faster initial load and faster relight/re-mesh on every block edit.
 `pnpm typecheck` 0 errors · `pnpm lint` 0 errors / 4 warnings (pre-existing) ·
 `pnpm check:refactor` all OK · `pnpm test` **5709 passing / 1 skipped** ·
 `pnpm build` exit 0 · 1 commit on `main` (+ `scripts/bench-light.ts`).
+
+---
+
+## BL. Round 61 (2026-06-13) — MEASURED: cave noise grid sampled the full column (3× fewer samples)
+
+Continued measurement-driven sweep of per-chunk gen (load + streaming) costs. Same fixed-overhead
+pattern as Rounds 59/60.
+
+- [x] **FIX-P**: the cave 3D-noise grid sampled the full 256-tall column (`caveSY = floor(256/4)+1 = 65`),
+  but `carveCaves` only carves `[CAVE_FLOOR=5, CAVE_CEILING=80]` and reads grid rows up to `sy=21` — so
+  ~68% of the (expensive) 3D-noise evaluations were computed for a region **never read**. `carveCaves`'s
+  flat-index `sy` stride is `sxCount*szCount` (independent of `caveSY`), so capping `caveSY` changes NO
+  indexing. New `CAVE_SAMPLE_SY_COUNT = floor(CAVE_CEILING/STRIDE)+2 = 22` → grid **1625→550 points**
+  (exactly covers `carveCaves`'s max access index 549). — `constants.ts`, `generator-coordinates.ts`.
+  **Carved terrain byte-identical** (1304 world tests green, incl. generator-coordinates + property tests).
+  Benchmark: cave-grid noise **0.048→0.016 ms/chunk (2.9×)** + 3× smaller per-chunk coord-array allocs.
+
+A smaller absolute win than meshing/sky-light (cave noise is ~0.05 ms/chunk) but zero-risk and removes
+per-chunk allocation churn. The "compute only what's read" pattern now covers meshing (FIX-N), sky-light
+(FIX-O), and cave gen (FIX-P).
+
+### Quality gate (Round 61)
+`pnpm typecheck` 0 errors · `pnpm lint` 0 errors / 4 warnings (pre-existing) ·
+`pnpm check:refactor` all OK · `pnpm test` **5709 passing / 1 skipped** ·
+`pnpm build` exit 0 · 1 commit on `main`.
