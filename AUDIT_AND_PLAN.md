@@ -2173,3 +2173,30 @@ per-chunk allocation churn. The "compute only what's read" pattern now covers me
 `pnpm typecheck` 0 errors · `pnpm lint` 0 errors / 4 warnings (pre-existing) ·
 `pnpm check:refactor` all OK · `pnpm test` **5709 passing / 1 skipped** ·
 `pnpm build` exit 0 · 1 commit on `main`.
+
+---
+
+## BM. Round 62 (2026-06-13) — MEASURED: per-frame CPU negligible; capped the last full-height meshing scan
+
+User: "pref計測して改善の余地を探ってほしい". Measured the **per-frame** (steady-state fps) path this time.
+
+**Per-frame microbenchmark** (`resolveBlockCollisionsInto`, the player+mob collision resolver):
+**68 ns/call** → at 25 calls/frame (player + 24 mobs) ≈ **1.7 µs of a 16,666 µs frame = negligible**.
+Conclusion: per-frame CPU (collision, and similarly-bounded AI) is NOT the bottleneck — the fixed-overhead
+waste lived in the per-chunk path, and the remaining felt cost is GPU/render (not measurable in Node;
+the composer waste was already fixed in FIX-L).
+
+- [x] **FIX-Q**: FIX-N capped the 6 solid face passes but left `meshFluidFaces` scanning the full
+  16×256×16 volume, calling `resolveFluidState` per cell even for the common **no-fluid** chunk
+  (~0.15 ms/chunk of pure waste). Fluid is non-air → none above the highest non-air block; threaded the
+  same `yLimit` and capped it. — `greedy-meshing-fluids.ts`, `greedy-meshing.ts`. Water meshing unchanged
+  (538 rendering tests incl. **water property tests**). Benchmark: flat 0.92→0.75, rolling 1.05→0.92 ms.
+
+**Cumulative meshing (FIX-N + FIX-Q): flat 1.95→0.75 ms (2.6×), rolling 2.05→0.92 ms (2.2×).** Together
+with sky-light (FIX-O, 5–9×) and cave noise (FIX-P, 3×), the per-chunk load/stream CPU is roughly a third
+of its original cost.
+
+### Quality gate (Round 62)
+`pnpm typecheck` 0 errors · `pnpm lint` 0 errors / 4 warnings (pre-existing) ·
+`pnpm check:refactor` all OK · `pnpm test` **5709 passing / 1 skipped** ·
+`pnpm build` exit 0 · 1 commit on `main`.
