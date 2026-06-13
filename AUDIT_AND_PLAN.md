@@ -1947,3 +1947,31 @@ breeding, wool regrowth, daylight burn — all time-based. (Creeper fuse already
 `pnpm typecheck` 0 errors · `pnpm lint` 0 errors / 4 warnings (pre-existing) ·
 `pnpm check:refactor` all OK · `pnpm test` **5705 passing / 1 skipped** (+1 new test) ·
 `pnpm build` exit 0 · 1 commit on `main`.
+
+---
+
+## BE. Round 54 (2026-06-13) — maintenance lane ran on a hardcoded 0.05 delta (load-dependent sim speed)
+
+- [x] **FIX-I**: **Furnace smelting, crop growth, and village simulation ran up to ~3× too fast under
+  load.** The maintenance loop (`game-loop.ts startMaintenance`) is `Effect.forever` with
+  `Effect.sleep(wasBusy ? 16 : 48)` ms between iterations — so its real cadence is *variable* (16ms
+  when busy + handler execution time, 48ms+ when idle). But `frame-maintenance.ts` passed a **hardcoded
+  `maintenanceDeltaTime = 0.05`** to `furnaceService.tick`, the crop-growth accumulator, and
+  `villageService.update`. Under load the loop iterates ~3× more often (16ms sleeps) yet still claimed
+  50ms elapsed each time → simulation sped up and became frame-rate / load dependent. Replaced with the
+  **real wall-clock delta** measured via `Clock.currentTimeMillis` between iterations (new
+  `lastMaintenanceTimeMsRef` in `MaintenanceState`), clamped to `[0.001, 0.25]` — floor avoids a
+  divide-by-tiny spike, the 0.25 cap stops a backgrounded-tab pause from dumping a huge backlog into the
+  simulation on resume. At idle (~48ms cadence) the measured delta is ≈0.05, so steady-state behavior is
+  unchanged; only the under-load speedup is removed. — `frame-maintenance.ts`, `frame-handler.ts`
+  (+2 tests: 120ms real → 0.12 delta, 30s pause → clamped 0.25).
+
+This closes the frames-vs-ticks class on BOTH simulation lanes: the per-frame entity-AI lane (Rounds
+46–53) **and** the variable-cadence maintenance lane (this round). The `tick`-based wander/teleport
+pseudo-random variation remains the only known frame-coupled value, intentionally left as-is (it affects
+only the rate of random jitter, not a correctness-bearing timer).
+
+### Quality gate (Round 54)
+`pnpm typecheck` 0 errors · `pnpm lint` 0 errors / 4 warnings (pre-existing) ·
+`pnpm check:refactor` all OK · `pnpm test` **5707 passing / 1 skipped** (+2 new tests) ·
+`pnpm build` exit 0 · 1 commit on `main`.
