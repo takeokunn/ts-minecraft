@@ -2529,3 +2529,26 @@ terrain-bias question rather than a crash); the fluid drain-period micro-hitch.
 ### Quality gate (Round 73)
 `pnpm typecheck` 0 · `pnpm lint` 0 errors / 4 warnings · `pnpm check:refactor` OK · `pnpm test`
 **5716 / 1 skipped** · `pnpm build` exit 0 · in-browser verified · 1 commit on `main`.
+
+---
+
+## BY. Round 74 (2026-06-13) — spawn on dry land, not the ocean origin ("地形生成がよくない" addressed)
+
+**Measured** (script over 60 seeds): **~60% put OCEAN at world origin** (median surface y=56 < SEA_LEVEL 63)
+— a real bias, the recurring spawn-over-ocean. But land is reliably within a few chunks (40/40 sampled
+directions found land within 160 blocks for seed 1000).
+
+- [x] **FIX-X**: new worlds now scan **expanding rings of terrain-channel grids** (`sampleTerrainChannels`
+  + `computeColumnY` — the same channels the generator uses) outward from origin and spawn at the nearest
+  column whose surface is clearly above sea level (dry land); falls back to origin only if none within 10
+  chunks. — `session-world-loader.ts`. **Verified in-browser: fresh world spawns on dry grassland at
+  (11,−1) y=79.6, resting solidly with a proper forest view** — instead of sinking in ocean at (0,0).
+
+**The user's full play-feedback set is now addressed:** spawn-on-land (FIX-X) + float-not-sink (FIX-W) +
+spawn-above-water (FIX-V) + no-streaming-stall (FIX-U) + the fluid catastrophe (FIX-R). New worlds now load,
+spawn on land, and play at 60 fps. (The earlier "giant cube trees" were just the underwater viewing angle —
+trees render fine from the surface.)
+
+### Quality gate (Round 74)
+`pnpm typecheck` 0 · `pnpm lint` 0 errors / 4 warnings · `pnpm check:refactor` OK · `pnpm test`
+**5716 / 1 skipped** · `pnpm build` exit 0 · in-browser verified · 1 commit on `main`.
