@@ -27,10 +27,12 @@ export class EntityManager extends Effect.Service<EntityManager>()(
       const updateTickRef = yield* Ref.make(0)
       const cachedEntitiesRef = yield* Ref.make<Option.Option<ReadonlyArray<Entity>>>(Option.none())
       const structureVersionRef = yield* Ref.make(0)
+      // Accumulates real seconds for the daylight-burn cadence (frame-rate independent).
+      const burnAccumulatorRef = yield* Ref.make(0)
       // R10: births since last drain (for the player breeding-XP reward)
       const birthsRef = yield* Ref.make(0)
       const internal = makeEntityManagerInternal(entitiesRef, cachedEntitiesRef, structureVersionRef)
-      const updateModule = makeEntityManagerUpdate(entitiesRef, updateTickRef, cachedEntitiesRef, structureVersionRef)
+      const updateModule = makeEntityManagerUpdate(entitiesRef, updateTickRef, cachedEntitiesRef, structureVersionRef, burnAccumulatorRef)
 
       // Hoisted so the breeding pass (update override below) can spawn babies.
       // ageTicks defaults to adult; breeding passes 0 for a newborn.

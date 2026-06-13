@@ -298,6 +298,24 @@ describe('entity/entityManager', () => {
       }).pipe(Effect.provide(EntityManagerLive))
     )
 
+    it.effect('daylight burn is time-based, not frame-count-based (frame-rate independent)', () =>
+      Effect.gen(function* () {
+        const entityManager = yield* EntityManager
+        yield* entityManager.addEntity(EntityType.Zombie, { x: 0, y: 64, z: 0 })
+        const player = { x: 1, y: 64, z: 0 }
+        // 0.9s of daylight is under the 1s burn cadence → no burn yet. The old per-frame
+        // `tick % 20` tied the burn rate to the render refresh; the time accumulator does not.
+        yield* entityManager.update(DeltaTimeSecs.make(0.9), player, false)
+        expect((yield* entityManager.getEntities())[0]!.health).toBe(20)
+        // Crossing the 1s boundary (0.9 + 0.2 = 1.1s) fires exactly one burn.
+        yield* entityManager.update(DeltaTimeSecs.make(0.2), player, false)
+        expect((yield* entityManager.getEntities())[0]!.health).toBe(19)
+        // Another 0.9s (total 2.0s) → the second burn.
+        yield* entityManager.update(DeltaTimeSecs.make(0.9), player, false)
+        expect((yield* entityManager.getEntities())[0]!.health).toBe(18)
+      }).pipe(Effect.provide(EntityManagerLive))
+    )
+
     it.effect('entity in attack range transitions to attack state (non-wander wanderDirection path)', () =>
       Effect.gen(function* () {
         const entityManager = yield* EntityManager

@@ -186,11 +186,16 @@ const processEntityAI = (
   }
 }
 
+// Hostile mobs take 1 daylight-burn damage on this real-time cadence (the legacy `tick % 20`
+// intended 20 game ticks = 1 s, but counted RENDER frames, so mobs burned ~3x too fast at 60fps).
+const DAYTIME_BURN_INTERVAL_SECS = 1.0
+
 export const makeEntityManagerUpdate = (
   entitiesRef: Ref.Ref<HashMap.HashMap<EntityId, ManagedEntity>>,
   updateTickRef: Ref.Ref<number>,
   cachedEntitiesRef: Ref.Ref<Option.Option<ReadonlyArray<Entity>>>,
   structureVersionRef: Ref.Ref<number>,
+  burnAccumulatorRef: Ref.Ref<number>,
 ) => {
   const updateAllEntities = (f: (entity: ManagedEntity, id: EntityId) => ManagedEntity) =>
     Ref.update(entitiesRef, (entities) => HashMap.map(entities, f))
@@ -204,7 +209,14 @@ export const makeEntityManagerUpdate = (
       Effect.gen(function* () {
         const tick = yield* Ref.updateAndGet(updateTickRef, (value) => value + 1)
         const dirtyRef = MutableRef.make(false)
-        const daytimeBurningActive = !isNight && tick % 20 === 0
+        // Fire the daylight burn on a real-time 1s cadence (frame-rate independent) instead of
+        // every 20 render frames. The accumulator cycles regardless of day/night; isNight gates
+        // whether a fired interval actually burns.
+        const burnFires = yield* Ref.modify(burnAccumulatorRef, (acc): [boolean, number] => {
+          const next = acc + deltaTime
+          return next >= DAYTIME_BURN_INTERVAL_SECS ? [true, next - DAYTIME_BURN_INTERVAL_SECS] : [false, next]
+        })
+        const daytimeBurningActive = !isNight && burnFires
         const hasCreeperRef = MutableRef.make(false)
         const hasShearedSheepRef = MutableRef.make(false)
         const ctx = { tick, deltaTime, playerPosition, daytimeBurningActive }
@@ -235,20 +247,20 @@ export const makeEntityManagerUpdate = (
           )
         }
 
+        let hostileDied = false
         if (daytimeBurningActive) {
-          const changed = yield* Ref.modify(entitiesRef, (entities): [boolean, HashMap.HashMap<EntityId, ManagedEntity>] => {
-            /* c8 ignore start -- daytime burning cleanup; requires tick=20 and hostile entity at 0 health */
+          hostileDied = yield* Ref.modify(entitiesRef, (entities): [boolean, HashMap.HashMap<EntityId, ManagedEntity>] => {
             const updated = HashMap.filter(entities, (entity) => entity.behavior !== 'hostile' || entity.health > 0)
             const changedFlag = HashMap.size(updated) !== HashMap.size(entities)
-            /* c8 ignore end */
             return [changedFlag, updated]
           })
-          /* c8 ignore next 5 -- cache invalidation after burning cleanup; only fires when changed=true */
-          if (changed) {
-            yield* Ref.set(cachedEntitiesRef, Option.none())
-            yield* Ref.update(structureVersionRef, (v) => v + 1)
-          }
-        } else if (MutableRef.get(dirtyRef)) {
+          if (hostileDied) yield* Ref.update(structureVersionRef, (v) => v + 1)
+        }
+        // Invalidate the entity-snapshot cache whenever any entity changed this frame — INCLUDING
+        // a daylight burn that damaged a mob without killing it. The previous `else if` skipped the
+        // dirty check on burning frames, so getEntities() could return stale health until the next
+        // non-burning frame happened to invalidate the cache.
+        if (MutableRef.get(dirtyRef) || hostileDied) {
           yield* Ref.set(cachedEntitiesRef, Option.none())
         }
       }),
