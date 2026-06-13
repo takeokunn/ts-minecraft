@@ -277,9 +277,35 @@ export class FluidService extends Effect.Service<FluidService>()(
         removeLava: removeFluid,
 
         syncLoadedChunks: (chunks: ReadonlyArray<Chunk>): Effect.Effect<void, never> =>
-          Ref.set(stateRef, Arr.reduce(chunks, INITIAL_STATE, hydrateChunk)).pipe(
-            Effect.flatMap(() => Ref.set(loadedCacheRef, HashMap.fromIterable(Arr.map(chunks, (chunk) => [ChunkCacheKey.make(chunk.coord), chunk] as const)))),
-          ),
+          // INCREMENTAL diff against the previously-loaded set. The old code rebuilt the ENTIRE
+          // fluid state from INITIAL_STATE on EVERY chunk-set change — `Arr.reduce(chunks, ...,
+          // hydrateChunk)` iterates all 65536 blocks of EVERY loaded chunk. In a watery world that
+          // was a ~1 s STALL each time the player crossed a chunk boundary (the "chunk loading is
+          // heavy" / low-FPS-while-walking report). Now: hydrate only the chunks that just appeared
+          // and drop the cells of chunks that just departed (keeps the state from growing unbounded
+          // while exploring — the "省メモリ" requirement).
+          Effect.gen(function* () {
+            const prevCache = yield* Ref.get(loadedCacheRef)
+            const nextCache = HashMap.fromIterable(Arr.map(chunks, (chunk) => [ChunkCacheKey.make(chunk.coord), chunk] as const))
+            const newChunks = Arr.filter(chunks, (c) => !HashMap.has(prevCache, ChunkCacheKey.make(c.coord)))
+            let departed = HashSet.empty<ChunkCacheKey>()
+            for (const [key] of prevCache) {
+              if (!HashMap.has(nextCache, key)) departed = HashSet.add(departed, key)
+            }
+            const hasDeparted = HashSet.size(departed) > 0
+            yield* Ref.update(stateRef, (s) => {
+              const hydrated = Arr.reduce(newChunks, s, hydrateChunk)
+              if (!hasDeparted) return hydrated
+              return {
+                ...hydrated,
+                cells: HashMap.filter(hydrated.cells, (_cell, key) =>
+                  !HashSet.has(departed, ChunkCacheKey.make(chunkCoordsForPosition(parseKey(key))))),
+                frontier: HashSet.filter(hydrated.frontier, (key) =>
+                  !HashSet.has(departed, ChunkCacheKey.make(chunkCoordsForPosition(parseKey(key))))),
+              }
+            })
+            yield* Ref.set(loadedCacheRef, nextCache)
+          }),
 
         tick: (): Effect.Effect<void, never> =>
           Effect.gen(function* () {
