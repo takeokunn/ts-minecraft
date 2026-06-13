@@ -160,6 +160,14 @@ export const shouldPlaceTree = (
     treeDensity <= 0
     || surfaceY <= TREE_MIN_SURFACE_Y
     || surfaceY >= CHUNK_HEIGHT - TREE_SURFACE_Y_HEADROOM
+    // Reject submerged columns. determineWaterLevel fills water up to SEA_LEVEL for
+    // ANY column whose surface dips below it — not only noise-defined lake basins —
+    // so a forest/plains column that happens to sit under the waterline keeps its
+    // GRASS surface block (supportsTree stays true) and is NOT flagged hasLakeBasin.
+    // Without this guard a trunk gets planted on the seabed and grows up through the
+    // surface: the "tree growing on the ocean / floating blocks over water" bug. A
+    // column is dry exactly when surfaceY >= SEA_LEVEL (water only fills surfaceY+1…).
+    || surfaceY < SEA_LEVEL
   ) {
     return { place: false, treeRng: 0 }
   }

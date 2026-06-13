@@ -46,6 +46,19 @@ describe('shouldPlaceTree', () => {
     expect(result.place).toBe(false)
   })
 
+  it('returns { place: false } for submerged columns (surfaceY < SEA_LEVEL) — no trees on/under water', () => {
+    // Regression: a forest column dipping below the waterline used to plant a trunk
+    // on the seabed that grew up through the surface ("tree growing on the ocean").
+    expect(shouldPlaceTree(1.0, SEA_LEVEL - 1, 100, 200).place).toBe(false)
+    expect(shouldPlaceTree(1.0, SEA_LEVEL - 5, 33, 77).place).toBe(false)
+  })
+
+  it('allows trees exactly at the waterline (surfaceY === SEA_LEVEL, dry land)', () => {
+    // surfaceY === SEA_LEVEL is dry: water only fills surfaceY+1…SEA_LEVEL, which is empty here.
+    const result = shouldPlaceTree(1.0, SEA_LEVEL, 12, 90)
+    expect(result.place).toBe(true)
+  })
+
   it('is deterministic — same inputs produce the same result', () => {
     const r1 = shouldPlaceTree(0.5, SURFACE_Y, 32, 64)
     const r2 = shouldPlaceTree(0.5, SURFACE_Y, 32, 64)
