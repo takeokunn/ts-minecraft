@@ -2200,3 +2200,35 @@ of its original cost.
 `pnpm typecheck` 0 errors · `pnpm lint` 0 errors / 4 warnings (pre-existing) ·
 `pnpm check:refactor` all OK · `pnpm test` **5709 passing / 1 skipped** ·
 `pnpm build` exit 0 · 1 commit on `main`.
+
+---
+
+## BN. Round 63 (2026-06-13) — MEASURED: terrain generation is the dominant per-chunk cost (2.67 ms)
+
+User: "pref計測して改善の余地を探ってほしい". New harness `scripts/bench-terrain.ts`.
+
+**Per-chunk breakdown (median of 9, warm):**
+| stage | ms/chunk | ×81 on load | note |
+|---|---|---|---|
+| **terrain gen + light** (`generateTerrainBlocks`) | **2.67** | 216 ms | dominant |
+| meshing (`greedyMeshChunk`, post FIX-N/Q) | 0.75 | 61 ms | |
+| sky-light (post FIX-O) | 0.15 | 12 ms | (subset of terrain gen's light) |
+| `buildTerrainLayer` | 0.011 | — | one-time per seed, NOT per-chunk |
+
+- Terrain gen is **~3.5× meshing** and the single biggest per-chunk cost (load + every chunk streamed
+  while walking). The worker builds the layer once (`ManagedRuntime`) so layer-init is not per-chunk.
+- **Key finding:** unlike meshing/sky-light/cave-noise (FIX-N/O/P — all removable *full-height
+  fixed-overhead*), terrain cost is **distributed real work**: per-column MC-1.18 noise channels
+  (continentalness/erosion/weirdness/jaggedness, each multi-octave, computed per the 256 columns) +
+  column fill (`surface-resolver`) + cave carve (trilinear interp over [5,80]). All the per-Y loops are
+  already surface-bounded; the noise itself is cheap (~tens of µs). **No single quick fixed-overhead fix.**
+
+Decision: measurement-only round (no risky change forced). The improvement room is now concentrated in
+terrain gen, which needs a profiling-guided algorithmic pass (batch the channel noise through one port
+call instead of 256× individual `yield* noiseService.X`; pool the per-chunk coord/column-state allocs to
+cut GC churn) — a larger effort scoped for a future round, not a small certain step. Harness committed so
+it can be driven by `npx tsx scripts/bench-terrain.ts`.
+
+### Quality gate (Round 63)
+`pnpm typecheck` 0 errors (unchanged) · `pnpm lint` 0 errors / 4 warnings · no source change (bench
+harness only) · prior gates from Round 62 hold · 1 commit on `main` (`scripts/bench-terrain.ts`).
