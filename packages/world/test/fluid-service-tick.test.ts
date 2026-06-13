@@ -266,4 +266,53 @@ describe('terrain/application/fluid-service', () => {
       expect(MutableRef.get(markDirtyCountRef)).toBe(0)
     }).pipe(Effect.provide(layer))
   })
+
+  // ─── disturbance after the frontier drains (notifyBlockChanged enqueues neighbours) ──
+
+  it.effect('re-flows settled water after an adjacent block is broken', () => {
+    // A water source boxed in by STONE on all 4 sides + below settles and DRAINS out of the
+    // frontier on the first tick (FIX-R removes processed keys; a boxed cell never re-enqueues).
+    // Then break the block below and notifyBlockChanged the broken position. `enqueue` adds the
+    // changed position AND its 6 neighbours (fluid-position-utils), so the drained water above is
+    // re-activated and flows into the new air — i.e. disturbance still works after the drain.
+    const chunk = makeChunkWith([
+      { lx: 5, y: 64, lz: 5, blockType: 'WATER' },
+      { lx: 5, y: 63, lz: 5, blockType: 'STONE' },
+      { lx: 6, y: 64, lz: 5, blockType: 'STONE' },
+      { lx: 4, y: 64, lz: 5, blockType: 'STONE' },
+      { lx: 5, y: 64, lz: 6, blockType: 'STONE' },
+      { lx: 5, y: 64, lz: 4, blockType: 'STONE' },
+    ])
+    const fluidBuffer = createFluidBuffer()
+    fluidBuffer[blockIndexAt(5, 64, 5)] = encodeFluidCell({ level: 0, source: true, type: 'water' })
+    ;(chunk as { fluid: Option.Option<Uint8Array<ArrayBufferLike>> }).fluid = Option.some(fluidBuffer)
+
+    const chunkMgrLayer = Layer.succeed(ChunkManagerService, ChunkManagerService.of({
+      _tag: '@minecraft/application/ChunkManagerService' as const,
+      getChunk: () => Effect.succeed(chunk),
+      markChunkDirty: () => Effect.void,
+      getLoadedChunks: () => Effect.succeed([chunk]),
+      drainRenderDirtyChunks: () => Effect.succeed([]),
+      drainRenderDirtyChunkEntries: () => Effect.succeed([]),
+      loadChunksAroundPlayer: () => Effect.succeed(false),
+      saveDirtyChunks: () => Effect.void,
+      unloadChunk: () => Effect.void,
+    }))
+    const layer = FluidServiceLive.pipe(Layer.provide(chunkMgrLayer))
+    return Effect.gen(function* () {
+      const svc = yield* FluidService
+      yield* svc.syncLoadedChunks([chunk])
+      // First tick: water is boxed in → settles, processed, removed from frontier (drained).
+      yield* svc.tick()
+      expect(chunk.blocks[blockIndexAt(5, 63, 5)]).toBe(blockTypeToIndex('STONE'))
+
+      // Disturbance: break the block below the (now-drained) water source.
+      chunk.blocks[blockIndexAt(5, 63, 5)] = blockTypeToIndex('AIR')
+      yield* svc.notifyBlockChanged({ x: 5, y: 63, z: 5 })
+
+      // Next tick: the neighbour enqueue re-activated the water above → it flows down.
+      yield* svc.tick()
+      expect(chunk.blocks[blockIndexAt(5, 63, 5)]).toBe(blockTypeToIndex('WATER'))
+    }).pipe(Effect.provide(layer))
+  })
 })
