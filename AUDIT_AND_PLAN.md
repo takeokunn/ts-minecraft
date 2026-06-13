@@ -2756,3 +2756,29 @@ streaming-spike tail, partially smoothed here; full fix (async GPU geometry uplo
 ### Quality gate (Round 80)
 `pnpm typecheck` 0 · `pnpm lint` 0 errors / 4 warnings · `pnpm check:refactor` OK · `pnpm test`
 **5729 passed / 1 skipped** · `pnpm build` exit 0 · in-browser verified (terrain + spawn) · 3 commits on `main`.
+
+---
+
+## CF. Round 81 (2026-06-13) — comprehensive in-browser QA sweep (found + fixed a fluid crash)
+
+Exhaustive subsystem check beyond core gameplay. Verified working: **persistence** (reload →
+exact inventory + position restored from IndexedDB), **settings** (graphics-quality presets +
+render-distance 4→8 apply live: 119→224 meshes, no errors), **crafting variety** (wood→planks→
+sticks→crafting-table chain with correct consumption; furnace recipe correctly rejected for
+missing materials), **mob variety** (Sheep/Cow/Pig/Zombie), **debug-flag catalog + toggles**
+(rendering.shadows / mobs.ai / simulation.fluid toggle cleanly).
+
+- [x] **FIX-AP (fluid tick crash under load)** — comprehensive QA at render-distance 8 surfaced
+  a 'Fluid system error: TypeError: Cannot read properties of undefined (reading modify)' firing
+  ~48×/session from Effect's HAMT (logged as ERROR, swallowed by catchAllCause → fluid sim
+  silently broke but the game kept running). Root cause: the frontier batch-remove used
+  `HashSet.mutate` with `HashSet.remove` inside, corrupting the transient set's node structure
+  under load. Replaced with a bounded immutable reduce (work ≤ FLUID_TICK_BUDGET=512). In-browser
+  verified: **0 fluid errors over 75s+ at rd=8 with active terrain disturbance (was 48)**.
+  `fluid-service.ts`. Commit `c80bc769`.
+
+Final console scan: **0 ERROR-level messages** after the fix.
+
+### Quality gate (Round 81)
+`pnpm typecheck` 0 · `pnpm lint` 0 errors / 4 warnings · `pnpm check:refactor` OK · `pnpm test`
+**5729 passed / 1 skipped** · `pnpm build` exit 0 · in-browser verified (no fluid errors) · 1 commit on `main`.
