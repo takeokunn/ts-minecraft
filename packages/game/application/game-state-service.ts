@@ -42,6 +42,11 @@ const _scratchPosB = { x: 0, y: 0, z: 0 }
 const _scratchVel = { x: 0, y: 0, z: 0 }
 
 const SWIM_UP_SPEED = 3
+// Gentle upward buoyancy applied while submerged and idle, so the player floats UP toward
+// the water surface instead of sinking to the seabed. Slower than SWIM_UP_SPEED (active swim);
+// once the player's centre clears the surface, isInWater flips off → gravity → they bob with
+// their head above water. Fixes the "spawned over ocean → stuck underwater, can't see" report.
+const WATER_BUOYANCY_SPEED = 1.5
 
 const refreshChunkCache = (
   chunkManagerService: ChunkManagerService,
@@ -67,10 +72,15 @@ const applyWaterDrag = (
   playerBodyId: PhysicsBodyId,
   resolvedVel: { x: number; y: number; z: number },
   swimUp: boolean,
+  sneaking: boolean,
 ): Effect.Effect<void, never> =>
   physicsService.setVelocity(playerBodyId, {
     x: resolvedVel.x * 0.4,
-    y: swimUp ? SWIM_UP_SPEED : Math.max(resolvedVel.y * 0.4, -2),
+    // JUMP swims up; SNEAK dives down (drag-limited); otherwise gentle buoyancy floats the
+    // player toward the surface so they never get stuck sinking on the seabed.
+    y: swimUp ? SWIM_UP_SPEED
+      : sneaking ? Math.max(resolvedVel.y * 0.4, -2)
+      : WATER_BUOYANCY_SPEED,
     z: resolvedVel.z * 0.4,
   }).pipe(Effect.catchTag('PhysicsServiceError', () => Effect.void))
 
@@ -230,7 +240,7 @@ export class GameStateService extends Effect.Service<GameStateService>()(
 
             if (!isSpectator && isInWater(physPos.x, physPos.y, physPos.z, chunkCache, playerCx, playerCz)) {
               const swimUp = !flying && (yield* inputService.isKeyPressed(KeyMappings.JUMP))
-              yield* applyWaterDrag(physicsService, playerBodyId, physVel, swimUp)
+              yield* applyWaterDrag(physicsService, playerBodyId, physVel, swimUp, sneaking)
             }
 
             // Sequential: updatePosition/updateVelocity are synchronous state writes
