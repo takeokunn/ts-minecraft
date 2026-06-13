@@ -1,10 +1,10 @@
 import { Array as Arr, Clock, Duration, Effect, Option, Random } from 'effect'
 import { StartupError } from '@ts-minecraft/game'
 import { ChunkManagerService } from '@ts-minecraft/world'
-import { NoiseService } from '@ts-minecraft/world'
+import { NoiseService, computeColumnY } from '@ts-minecraft/world'
 import { GameModeService, type GameMode } from '@ts-minecraft/game'
 import { StorageService, type WorldMetadata } from '@ts-minecraft/world'
-import { CHUNK_SIZE, WorldId } from '@ts-minecraft/core'
+import { CHUNK_SIZE, SEA_LEVEL, WorldId } from '@ts-minecraft/core'
 import { MAX_SEED_VALUE } from '@ts-minecraft/app/main.config'
 import { selectSurfaceSpawn, type SpawnSelection } from '@ts-minecraft/app/main/spawn-selection'
 
@@ -20,6 +20,39 @@ export type WorldBootstrap = {
 }
 
 const SPAWN_SEARCH_CHUNK_RADIUS = 2
+
+// New worlds: ~60% of seeds put OCEAN at the world origin (median surface y≈56 < SEA_LEVEL),
+// so spawning at (0,0) drops the player into open water. Land is almost always within a few
+// chunks, though — search expanding rings of terrain-channel grids outward from origin and
+// return the nearest column whose surface is clearly above sea level (dry land).
+const SPAWN_LAND_MARGIN = 4
+const SPAWN_LAND_SEARCH_CHUNK_RADIUS = 10
+
+const findLandSpawnXZ = (
+  noiseService: NoiseService,
+): Effect.Effect<{ readonly x: number; readonly z: number }, never> =>
+  Effect.gen(function* () {
+    let best: { x: number; z: number; distSq: number } | null = null
+    for (let ring = 0; ring <= SPAWN_LAND_SEARCH_CHUNK_RADIUS && best === null; ring++) {
+      for (let cx = -ring; cx <= ring; cx++) {
+        for (let cz = -ring; cz <= ring; cz++) {
+          // Only the perimeter of each ring (inner rings were already scanned).
+          if (Math.max(Math.abs(cx), Math.abs(cz)) !== ring) continue
+          const channels = yield* noiseService.sampleTerrainChannels(cx * CHUNK_SIZE, cz * CHUNK_SIZE)
+          for (let lx = 0; lx < CHUNK_SIZE; lx++) {
+            for (let lz = 0; lz < CHUNK_SIZE; lz++) {
+              if (computeColumnY(channels, lx, lz) < SEA_LEVEL + SPAWN_LAND_MARGIN) continue
+              const wx = cx * CHUNK_SIZE + lx
+              const wz = cz * CHUNK_SIZE + lz
+              const distSq = wx * wx + wz * wz
+              if (best === null || distSq < best.distSq) best = { x: wx, z: wz, distSq }
+            }
+          }
+        }
+      }
+    }
+    return best === null ? { x: 0, z: 0 } : { x: best.x, z: best.z }
+  })
 
 export type { SpawnSelection }
 
@@ -74,9 +107,11 @@ export const loadOrCreateWorld = (
 
     const seed = yield* Random.nextIntBetween(0, MAX_SEED_VALUE)
     const nowMs = yield* Clock.currentTimeMillis
-    const pos = { x: 0, y: 100, z: 0 }
     const now = new Date(nowMs)
     yield* noiseService.setSeed(seed)
+    // Pick a dry-land spawn column instead of the fixed origin (often open ocean).
+    const land = yield* findLandSpawnXZ(noiseService)
+    const pos = { x: land.x, y: 100, z: land.z }
     yield* Effect.raceFirst(
       storageService.saveWorldMetadata(worldId, {
         seed,
