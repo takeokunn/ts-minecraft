@@ -48,17 +48,17 @@ describe('shearWoolCount', () => {
 })
 
 describe('tickWoolRegrowth', () => {
-  it('decrements positive regrowth timer by 1', () => {
-    expect(tickWoolRegrowth(5)).toBe(4)
-    expect(tickWoolRegrowth(1)).toBe(0)
+  it('decrements by the elapsed game-ticks', () => {
+    expect(tickWoolRegrowth(5, 1)).toBe(4)
+    expect(tickWoolRegrowth(1, 1)).toBe(0)
   })
   it('clamps at 0 (does not go negative)', () => {
-    expect(tickWoolRegrowth(0)).toBe(0)
+    expect(tickWoolRegrowth(0, 1)).toBe(0)
   })
-  it('after WOOL_REGROWTH_TICKS ticks from freshly-sheared, returns 0', () => {
+  it('after WOOL_REGROWTH_TICKS game-ticks from freshly-sheared, returns 0', () => {
     let ticks = WOOL_REGROWTH_TICKS
     for (let i = 0; i < WOOL_REGROWTH_TICKS; i++) {
-      ticks = tickWoolRegrowth(ticks)
+      ticks = tickWoolRegrowth(ticks, 1)
     }
     expect(ticks).toBe(0)
   })

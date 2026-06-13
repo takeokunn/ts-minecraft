@@ -9,6 +9,7 @@ import {
   computeEndermanTeleportTarget,
   shouldEndermanTeleport,
 } from '../../domain/mob/enderman-teleport'
+import { GAME_TICKS_PER_SEC } from '@ts-minecraft/core'
 import type { DeltaTimeSecs, Position, Vector3 } from '@ts-minecraft/core'
 import { type ManagedEntity } from '../../domain/mob/entity-internal'
 import { hashEntityId, makeWanderDirectionFromHash } from '../../domain/mob/entity-utils'
@@ -79,11 +80,16 @@ const processEntityAI = (
 
   const nextAttackCooldown = Math.max(0, entity.attackCooldownRemaining - deltaTime)
 
+  // Game-ticks elapsed this render frame (deltaTime is in seconds; the sim runs at 20Hz).
+  // Tick-counted timers (breeding, wool) advance by this — not by 1 per frame — so they
+  // are frame-rate independent, matching attackCooldown/knockback above.
+  const ticksElapsed = deltaTime * GAME_TICKS_PER_SEC
+
   const tickedBreeding = tickBreedingTimers({
     loveTicksRemaining: entity.loveTicksRemaining,
     breedCooldownRemaining: entity.breedCooldownRemaining,
     ageTicks: entity.ageTicks,
-  })
+  }, ticksElapsed)
   const breedingChanged =
     tickedBreeding.loveTicksRemaining !== entity.loveTicksRemaining
     || tickedBreeding.breedCooldownRemaining !== entity.breedCooldownRemaining
@@ -221,9 +227,10 @@ export const makeEntityManagerUpdate = (
         }
 
         if (MutableRef.get(hasShearedSheepRef)) {
+          const woolTicksElapsed = deltaTime * GAME_TICKS_PER_SEC
           yield* updateAllEntities((entity) =>
             entity.woolRegrowthTicks > 0
-              ? { ...entity, woolRegrowthTicks: tickWoolRegrowth(entity.woolRegrowthTicks) }
+              ? { ...entity, woolRegrowthTicks: tickWoolRegrowth(entity.woolRegrowthTicks, woolTicksElapsed) }
               : entity
           )
         }

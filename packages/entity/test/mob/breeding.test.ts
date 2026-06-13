@@ -51,9 +51,17 @@ describe('breeding domain (R6b)', () => {
   })
 
   describe('tickBreedingTimers', () => {
-    it('counts love & cooldown down (clamped at 0) and age up', () => {
-      const next = tickBreedingTimers({ loveTicksRemaining: 1, breedCooldownRemaining: 0, ageTicks: 5 })
+    it('counts love & cooldown down (clamped at 0) and age up by the elapsed game-ticks', () => {
+      const next = tickBreedingTimers({ loveTicksRemaining: 1, breedCooldownRemaining: 0, ageTicks: 5 }, 1)
       expect(next).toEqual({ loveTicksRemaining: 0, breedCooldownRemaining: 0, ageTicks: 6 })
+    })
+    it('is frame-rate independent: a fractional game-tick advances proportionally', () => {
+      const next = tickBreedingTimers({ loveTicksRemaining: 10, breedCooldownRemaining: 4, ageTicks: 5 }, 0.5)
+      expect(next).toEqual({ loveTicksRemaining: 9.5, breedCooldownRemaining: 3.5, ageTicks: 5.5 })
+    })
+    it('clamps age at BABY_GROW_TICKS even with a large elapsed (no overshoot)', () => {
+      const next = tickBreedingTimers({ loveTicksRemaining: 0, breedCooldownRemaining: 0, ageTicks: BABY_GROW_TICKS - 1 }, 100)
+      expect(next.ageTicks).toBe(BABY_GROW_TICKS)
     })
   })
 
@@ -66,7 +74,7 @@ describe('breeding domain (R6b)', () => {
     })
     it('a newborn matures to adult after BABY_GROW_TICKS ticks', () => {
       let s = newbornBreedingState()
-      for (let i = 0; i < BABY_GROW_TICKS; i++) s = tickBreedingTimers(s)
+      for (let i = 0; i < BABY_GROW_TICKS; i++) s = tickBreedingTimers(s, 1)
       expect(isAdult(s.ageTicks)).toBe(true)
     })
   })

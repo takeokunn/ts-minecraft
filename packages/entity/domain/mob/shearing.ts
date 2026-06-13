@@ -25,5 +25,5 @@ export const shearWoolCount = (hash: number): number =>
  * keeps the entity update loop's idle early-return intact — a woolly sheep at rest
  * (regrowth 0) yields an unchanged value, so only freshly-sheared sheep churn.
  */
-export const tickWoolRegrowth = (woolRegrowthTicks: number): number =>
-  woolRegrowthTicks > 0 ? woolRegrowthTicks - 1 : 0
+export const tickWoolRegrowth = (woolRegrowthTicks: number, ticksElapsed: number): number =>
+  Math.max(0, woolRegrowthTicks - ticksElapsed)

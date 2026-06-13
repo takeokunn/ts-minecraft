@@ -36,12 +36,20 @@ describe('shearing domain (R11)', () => {
   })
 
   describe('tickWoolRegrowth', () => {
-    it('counts down toward 0', () => {
-      expect(tickWoolRegrowth(WOOL_REGROWTH_TICKS)).toBe(WOOL_REGROWTH_TICKS - 1)
+    it('counts down by the elapsed game-ticks', () => {
+      expect(tickWoolRegrowth(WOOL_REGROWTH_TICKS, 1)).toBe(WOOL_REGROWTH_TICKS - 1)
+      expect(tickWoolRegrowth(WOOL_REGROWTH_TICKS, 3)).toBe(WOOL_REGROWTH_TICKS - 3)
     })
     it('clamps at 0 (idle early-return safe)', () => {
-      expect(tickWoolRegrowth(0)).toBe(0)
-      expect(tickWoolRegrowth(-5)).toBe(0)
+      expect(tickWoolRegrowth(0, 1)).toBe(0)
+      expect(tickWoolRegrowth(-5, 1)).toBe(0)
+      expect(tickWoolRegrowth(2, 5)).toBe(0)
+    })
+    it('is frame-rate independent: a half-tick frame advances by 0.5, not 1', () => {
+      // At 40fps a 0.025s frame = 0.5 game-ticks; two such frames = one tick.
+      const afterOne = tickWoolRegrowth(WOOL_REGROWTH_TICKS, 0.5)
+      expect(afterOne).toBe(WOOL_REGROWTH_TICKS - 0.5)
+      expect(tickWoolRegrowth(afterOne, 0.5)).toBe(WOOL_REGROWTH_TICKS - 1)
     })
   })
 })

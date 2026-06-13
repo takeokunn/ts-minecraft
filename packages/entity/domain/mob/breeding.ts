@@ -67,10 +67,10 @@ export const isBreedingPair = (
  * yields an UNCHANGED state, so the per-tick "return entity unchanged" fast path
  * still fires. Only babies (growing) and in-love/cooldown animals change.
  */
-export const tickBreedingTimers = (s: BreedingState): BreedingState => ({
-  loveTicksRemaining: s.loveTicksRemaining > 0 ? s.loveTicksRemaining - 1 : 0,
-  breedCooldownRemaining: s.breedCooldownRemaining > 0 ? s.breedCooldownRemaining - 1 : 0,
-  ageTicks: s.ageTicks < BABY_GROW_TICKS ? s.ageTicks + 1 : s.ageTicks,
+export const tickBreedingTimers = (s: BreedingState, ticksElapsed: number): BreedingState => ({
+  loveTicksRemaining: Math.max(0, s.loveTicksRemaining - ticksElapsed),
+  breedCooldownRemaining: Math.max(0, s.breedCooldownRemaining - ticksElapsed),
+  ageTicks: s.ageTicks < BABY_GROW_TICKS ? Math.min(BABY_GROW_TICKS, s.ageTicks + ticksElapsed) : s.ageTicks,
 })
 
 /** State of a freshly-spawned adult (e.g. world-gen / natural spawn): mature, idle. */
