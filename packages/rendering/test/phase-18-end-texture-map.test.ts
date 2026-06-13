@@ -41,4 +41,19 @@ describe('Phase 18 The End texture maps', () => {
       expect(ITEM_TILE_MAP[type]).toBeGreaterThanOrEqual(0)
     })
   })
+
+  // Cross-validate the two maps: a block's inventory icon (ITEM_TILE_MAP) is, by design, its
+  // SIDE face tile from TILE_MAP. This catches a TILE_MAP that drifts out of BlockTypeSchema's
+  // storage order (which would render blocks with the WRONG texture) — the count-only check
+  // above can't see a same-length re-ordering.
+  it('TILE_MAP[storageIndex].side equals the block inventory icon for every block', () => {
+    const mismatches: string[] = []
+    INDEX_TO_BLOCK_TYPE.forEach((blockType, idx) => {
+      if (blockType === 'AIR') return
+      const side = TILE_MAP[idx]?.side
+      const icon = (ITEM_TILE_MAP as Record<string, number>)[blockType]
+      if (side !== icon) mismatches.push(`${idx} ${blockType}: TILE_MAP.side=${side} ITEM_TILE_MAP=${icon}`)
+    })
+    expect(mismatches).toEqual([])
+  })
 })
