@@ -1,4 +1,4 @@
-import { CHUNK_SIZE, CHUNK_HEIGHT } from '@ts-minecraft/core'
+import { CHUNK_SIZE } from '@ts-minecraft/core'
 import type { FacePassState, EmitQuadWithDepth } from './greedy-meshing-passes'
 import { makeEmitQuad, packMask, runGreedyExpansion } from './greedy-meshing-passes'
 import {
@@ -32,9 +32,9 @@ export const meshXPosFace = (s: FacePassState): void => {
     s.getTransparentSolidAcc, s.transparentSolidLookup,
   )
   for (let lx = 0; lx < CHUNK_SIZE; lx++) {
-    s.maskCH.fill(0)
+    s.maskCH.fill(0, 0, CHUNK_SIZE * s.yLimit)
     for (let lz = 0; lz < CHUNK_SIZE; lz++) {
-      for (let y = 0; y < CHUNK_HEIGHT; y++) {
+      for (let y = 0; y < s.yLimit; y++) {
         const blockId = getBlock(s.blocks, lx, y, lz)
         if (blockId !== AIR && !isFluidBlockId(blockId) && isSolidFaceExposed(s.blocks, blockId, s.transparentSolidLookup, lx + 1, y, lz)) {
           const ao = aoXPos(s.blocks, lx, y, lz)
@@ -43,7 +43,7 @@ export const meshXPosFace = (s: FacePassState): void => {
           const c1 = sampleCornerLight(s.lightGrids, lx + 1, y, lz, 0, 0, 1, 0, 1, 0, 0, 1)
           const c2 = sampleCornerLight(s.lightGrids, lx + 1, y, lz, 0, 0, 1, 0, 1, 0, 1, 1)
           const c3 = sampleCornerLight(s.lightGrids, lx + 1, y, lz, 0, 0, 1, 0, 1, 0, 1, 0)
-          s.maskCH[lz * CHUNK_HEIGHT + y] = packMask(
+          s.maskCH[lz * s.yLimit + y] = packMask(
             blockId, ao,
             (c0 >> 6) & 0x3, (c1 >> 6) & 0x3, (c2 >> 6) & 0x3, (c3 >> 6) & 0x3,
             (c0 >> 2) & 0x3, (c1 >> 2) & 0x3, (c2 >> 2) & 0x3, (c3 >> 2) & 0x3,
@@ -51,7 +51,7 @@ export const meshXPosFace = (s: FacePassState): void => {
         }
       }
     }
-    runGreedyExpansion(s.maskCH, CHUNK_SIZE, CHUNK_HEIGHT, emit, lx)
+    runGreedyExpansion(s.maskCH, CHUNK_SIZE, s.yLimit, emit, lx)
   }
 }
 
@@ -71,9 +71,9 @@ export const meshXNegFace = (s: FacePassState): void => {
     s.getTransparentSolidAcc, s.transparentSolidLookup,
   )
   for (let lx = 0; lx < CHUNK_SIZE; lx++) {
-    s.maskCH.fill(0)
+    s.maskCH.fill(0, 0, CHUNK_SIZE * s.yLimit)
     for (let lz = 0; lz < CHUNK_SIZE; lz++) {
-      for (let y = 0; y < CHUNK_HEIGHT; y++) {
+      for (let y = 0; y < s.yLimit; y++) {
         const blockId = getBlock(s.blocks, lx, y, lz)
         if (blockId !== AIR && !isFluidBlockId(blockId) && isSolidFaceExposed(s.blocks, blockId, s.transparentSolidLookup, lx - 1, y, lz)) {
           const ao = aoXNeg(s.blocks, lx, y, lz)
@@ -82,7 +82,7 @@ export const meshXNegFace = (s: FacePassState): void => {
           const c1 = sampleCornerLight(s.lightGrids, lx - 1, y, lz, 0, 0, 1, 0, 1, 0, 1, 1)
           const c2 = sampleCornerLight(s.lightGrids, lx - 1, y, lz, 0, 0, 1, 0, 1, 0, 0, 1)
           const c3 = sampleCornerLight(s.lightGrids, lx - 1, y, lz, 0, 0, 1, 0, 1, 0, 0, 0)
-          s.maskCH[lz * CHUNK_HEIGHT + y] = packMask(
+          s.maskCH[lz * s.yLimit + y] = packMask(
             blockId, ao,
             (c0 >> 6) & 0x3, (c1 >> 6) & 0x3, (c2 >> 6) & 0x3, (c3 >> 6) & 0x3,
             (c0 >> 2) & 0x3, (c1 >> 2) & 0x3, (c2 >> 2) & 0x3, (c3 >> 2) & 0x3,
@@ -90,7 +90,7 @@ export const meshXNegFace = (s: FacePassState): void => {
         }
       }
     }
-    runGreedyExpansion(s.maskCH, CHUNK_SIZE, CHUNK_HEIGHT, emit, lx)
+    runGreedyExpansion(s.maskCH, CHUNK_SIZE, s.yLimit, emit, lx)
   }
 }
 
@@ -109,7 +109,7 @@ export const meshYPosFace = (s: FacePassState): void => {
     s.opaqueAcc, s.getWaterAcc, s.transparentLookup,
     s.getTransparentSolidAcc, s.transparentSolidLookup,
   )
-  for (let y = 0; y < CHUNK_HEIGHT; y++) {
+  for (let y = 0; y < s.yLimit; y++) {
     s.maskSS.fill(0)
     for (let lx = 0; lx < CHUNK_SIZE; lx++) {
       for (let lz = 0; lz < CHUNK_SIZE; lz++) {
@@ -148,7 +148,7 @@ export const meshYNegFace = (s: FacePassState): void => {
     s.opaqueAcc, s.getWaterAcc, s.transparentLookup,
     s.getTransparentSolidAcc, s.transparentSolidLookup,
   )
-  for (let y = 0; y < CHUNK_HEIGHT; y++) {
+  for (let y = 0; y < s.yLimit; y++) {
     s.maskSS.fill(0)
     for (let lx = 0; lx < CHUNK_SIZE; lx++) {
       for (let lz = 0; lz < CHUNK_SIZE; lz++) {
@@ -188,9 +188,9 @@ export const meshZPosFace = (s: FacePassState): void => {
     s.getTransparentSolidAcc, s.transparentSolidLookup,
   )
   for (let lz = 0; lz < CHUNK_SIZE; lz++) {
-    s.maskCH.fill(0)
+    s.maskCH.fill(0, 0, CHUNK_SIZE * s.yLimit)
     for (let lx = 0; lx < CHUNK_SIZE; lx++) {
-      for (let y = 0; y < CHUNK_HEIGHT; y++) {
+      for (let y = 0; y < s.yLimit; y++) {
         const blockId = getBlock(s.blocks, lx, y, lz)
         if (blockId !== AIR && !isFluidBlockId(blockId) && isSolidFaceExposed(s.blocks, blockId, s.transparentSolidLookup, lx, y, lz + 1)) {
           const ao = aoZPos(s.blocks, lx, y, lz)
@@ -199,7 +199,7 @@ export const meshZPosFace = (s: FacePassState): void => {
           const c1 = sampleCornerLight(s.lightGrids, lx, y, lz + 1, 1, 0, 0, 0, 1, 0, 1, 1)
           const c2 = sampleCornerLight(s.lightGrids, lx, y, lz + 1, 1, 0, 0, 0, 1, 0, 0, 1)
           const c3 = sampleCornerLight(s.lightGrids, lx, y, lz + 1, 1, 0, 0, 0, 1, 0, 0, 0)
-          s.maskCH[lx * CHUNK_HEIGHT + y] = packMask(
+          s.maskCH[lx * s.yLimit + y] = packMask(
             blockId, ao,
             (c0 >> 6) & 0x3, (c1 >> 6) & 0x3, (c2 >> 6) & 0x3, (c3 >> 6) & 0x3,
             (c0 >> 2) & 0x3, (c1 >> 2) & 0x3, (c2 >> 2) & 0x3, (c3 >> 2) & 0x3,
@@ -207,7 +207,7 @@ export const meshZPosFace = (s: FacePassState): void => {
         }
       }
     }
-    runGreedyExpansion(s.maskCH, CHUNK_SIZE, CHUNK_HEIGHT, emit, lz)
+    runGreedyExpansion(s.maskCH, CHUNK_SIZE, s.yLimit, emit, lz)
   }
 }
 
@@ -227,9 +227,9 @@ export const meshZNegFace = (s: FacePassState): void => {
     s.getTransparentSolidAcc, s.transparentSolidLookup,
   )
   for (let lz = 0; lz < CHUNK_SIZE; lz++) {
-    s.maskCH.fill(0)
+    s.maskCH.fill(0, 0, CHUNK_SIZE * s.yLimit)
     for (let lx = 0; lx < CHUNK_SIZE; lx++) {
-      for (let y = 0; y < CHUNK_HEIGHT; y++) {
+      for (let y = 0; y < s.yLimit; y++) {
         const blockId = getBlock(s.blocks, lx, y, lz)
         if (blockId !== AIR && !isFluidBlockId(blockId) && isSolidFaceExposed(s.blocks, blockId, s.transparentSolidLookup, lx, y, lz - 1)) {
           const ao = aoZNeg(s.blocks, lx, y, lz)
@@ -238,7 +238,7 @@ export const meshZNegFace = (s: FacePassState): void => {
           const c1 = sampleCornerLight(s.lightGrids, lx, y, lz - 1, 1, 0, 0, 0, 1, 0, 0, 1)
           const c2 = sampleCornerLight(s.lightGrids, lx, y, lz - 1, 1, 0, 0, 0, 1, 0, 1, 1)
           const c3 = sampleCornerLight(s.lightGrids, lx, y, lz - 1, 1, 0, 0, 0, 1, 0, 1, 0)
-          s.maskCH[lx * CHUNK_HEIGHT + y] = packMask(
+          s.maskCH[lx * s.yLimit + y] = packMask(
             blockId, ao,
             (c0 >> 6) & 0x3, (c1 >> 6) & 0x3, (c2 >> 6) & 0x3, (c3 >> 6) & 0x3,
             (c0 >> 2) & 0x3, (c1 >> 2) & 0x3, (c2 >> 2) & 0x3, (c3 >> 2) & 0x3,
@@ -246,7 +246,7 @@ export const meshZNegFace = (s: FacePassState): void => {
         }
       }
     }
-    runGreedyExpansion(s.maskCH, CHUNK_SIZE, CHUNK_HEIGHT, emit, lz)
+    runGreedyExpansion(s.maskCH, CHUNK_SIZE, s.yLimit, emit, lz)
   }
 }
 

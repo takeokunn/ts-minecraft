@@ -171,6 +171,11 @@ export type FacePassState = {
   readonly lightGrids: LightGrids | undefined
   readonly maskCH: Uint32Array
   readonly maskSS: Uint32Array
+  // Exclusive upper bound on the Y scan: `highest solid block + 1` (clamped to CHUNK_HEIGHT).
+  // No solid face can exist above the highest solid block (air-air emits nothing), so the
+  // six solid face passes skip the empty air column above it. Doubles as the maskCH row
+  // STRIDE for the X/Z passes (must match their fill stride + runGreedyExpansion vSize).
+  readonly yLimit: number
   readonly opaqueAcc: MeshAccumulator
   readonly getWaterAcc: () => MeshAccumulator
   readonly transparentLookup: Uint8Array

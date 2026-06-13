@@ -1,4 +1,5 @@
 import { Option } from 'effect'
+import { CHUNK_HEIGHT } from '@ts-minecraft/core'
 import { Chunk } from '@ts-minecraft/world'
 import {
   type LightGrids,
@@ -82,6 +83,23 @@ export const greedyMeshChunk = (
 
   const { maskCH, maskSS } = scratch
   const blocks: Readonly<Uint8Array> = chunk.blocks
+
+  // Effective chunk height: scan for the highest non-air block once (cheap linear pass,
+  // memory-bandwidth bound) and cap the six solid face passes at it. Typical terrain only
+  // fills ~70 of the 256-tall column, so this skips ~70% of the per-cell AO/light meshing
+  // work — the meshing cost is otherwise FIXED per chunk regardless of geometry (a flat
+  // chunk costs nearly as much as a checkerboard). The worker reconstructs chunks WITHOUT
+  // chunk.maxY, so we compute it here rather than trust the field. CHUNK_HEIGHT is a power
+  // of two, so `i & (CHUNK_HEIGHT - 1)` extracts the y of flat index i for free.
+  let highestSolidY = 0
+  for (let i = 0; i < blocks.length; i++) {
+    if (blocks[i] !== 0) {
+      const y = i & (CHUNK_HEIGHT - 1)
+      if (y > highestSolidY) highestSolidY = y
+    }
+  }
+  const yLimit = Math.min(CHUNK_HEIGHT, highestSolidY + 1)
+
   const getWaterAcc = (): MeshAccumulator =>
     (waterAccStorage ??= pool ? resetAccumulator(pool.water) : createAccumulator())
   const getTransparentSolidAcc = (): MeshAccumulator =>
@@ -98,6 +116,7 @@ export const greedyMeshChunk = (
     getTransparentSolidAcc,
     transparentSolidLookup,
     offset,
+    yLimit,
   }
 
   meshXPosFace(state)
