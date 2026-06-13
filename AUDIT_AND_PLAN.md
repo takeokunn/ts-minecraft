@@ -2232,3 +2232,43 @@ it can be driven by `npx tsx scripts/bench-terrain.ts`.
 ### Quality gate (Round 63)
 `pnpm typecheck` 0 errors (unchanged) · `pnpm lint` 0 errors / 4 warnings · no source change (bench
 harness only) · prior gates from Round 62 hold · 1 commit on `main` (`scripts/bench-terrain.ts`).
+
+---
+
+## BO. Round 64 (2026-06-13) — PROFILED terrain gen: it's Effect-overhead-bound, not noise-bound
+
+Drilled into the Round 63 finding (terrain gen = 2.67 ms = dominant). Sub-component measurement:
+- `carveCaves` (pure, isolated): **0.34 ms** (~13%) — not dominant.
+- Light (sky+block): ~0.28 ms.
+- **The ~2 ms bulk = per-column work in `placeChunkTrees` → `resolveTreeColumnContext`**, which runs for
+  **~400 columns/chunk** (`(16 + 2·TREE_CANOPY_MARGIN)²`), each doing biome + 4 noise channels + lake
+  noise via individual `yield* noiseService.X`.
+
+**Key measured insight** — the noise is nearly free; the **Effect.sync wrapping is the cost**:
+| per-column channel reads (N=324) | ms/chunk |
+|---|---|
+| direct `primitives.*At()` (4/col) | **0.012** |
+| `Effect.sync` 4 runSync/col (current shape) | **0.531** |
+| `Effect.sync` 1 runSync/col (batched) | 0.133 |
+
+So terrain gen is **Effect-overhead-bound in a per-column hot loop**, not compute-bound. (runSync over-states
+vs the generator's `yield*`, but the ratio holds.)
+
+**Two optimization paths (neither a safe one-step — deferred for a decision):**
+1. **In-chunk reuse (~75% of the cost):** the 256 in-chunk columns are *already* computed by
+   `buildColumnStates` (batched noise); `resolveTreeColumnContext` redundantly recomputes them un-batched.
+   Reusing the column state for in-chunk columns (resolver only for the margin) removes that — BUT the two
+   surfaceY paths (`computeColumnY` batched vs `computeColumnYFromValues` per-column) aren't *proven*
+   identical, so it could **shift tree placement = change world-gen output for existing seeds**. A product
+   decision, not a refactor.
+2. **Batch the 4 channel reads into one `Effect.sync` (port method):** output-identical (bit-identical
+   values → tree placement unchanged), but ~4% and touches ~5 files (port interface default + factory +
+   `NoiseService` + `NoisePortLayer` wiring + caller).
+
+Decision: measurement/characterization round — did NOT rush a 5-file or output-changing change at the end of
+a long analysis. The bottleneck is now precisely located (`resolveTreeColumnContext`, ~400 cols/chunk,
+Effect-overhead-bound). Recommend path #2 as a focused next-round change if the modest win is wanted, or
+path #1 only with explicit sign-off on world-gen output changes.
+
+### Quality gate (Round 64)
+No source change (profiling only) · prior gates hold · temp benches removed · 1 docs commit on `main`.
