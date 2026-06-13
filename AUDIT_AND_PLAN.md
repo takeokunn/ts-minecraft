@@ -2724,3 +2724,35 @@ rushed. The grounding + foundation fixes at least make houses look CORRECT when 
 ### Quality gate (Round 79)
 `pnpm typecheck` 0 · `pnpm lint` 0 errors / 4 warnings · `pnpm check:refactor` OK · `pnpm test`
 **5729 passed / 1 skipped** · `pnpm build` exit 0 · in-browser verified (water) · 3 commits on `main`.
+
+---
+
+## CE. Round 80 (2026-06-13) — perf smoothing, natural terrain, anti-drown spawn
+
+Driven by 'FPSも低すぎる…高速省メモリ' + an in-game screenshot of unnatural spiky terrain.
+
+- [x] **FIX-AM (FPS stutter while streaming)** — profiled walking: median frame ~6ms but
+  p90/p99 spikes 28-40ms. The new-chunk mesh+add path meshed up to 8 chunks/frame (each
+  ~3ms BufferGeometry build on the main thread) with NO time budget, unlike the LOD path.
+  Added the same WORLD_RENDERER_TIME_BUDGET_MS wall-clock budget: small parallel sub-batches
+  until the budget, rest drains next frame. `world-renderer-chunk-sync.ts`. Commit `17cdfd7f`.
+  (Incremental — remaining spikes are render-thread GPU upload of new geometry, deeper.)
+- [x] **FIX-AN (unnatural terrain)** — '地形生成がおかしい 自然じゃない'. JAGGED_AMP reached 15
+  and ×FACTOR_SPLINE(1.3) gave ±~20 blocks of high-frequency roughness: positive spiked the
+  surface, negative dug ~20-block pits exposing stone. Cut to 5 (×1.3 ≈ ±6.5). The MC-1.18
+  multi-noise model is unchanged; only the jaggedness amplitude was too hot. In-browser:
+  natural rolling grassy hills + scattered trees (was spiky/pitted). `terrain-splines.ts` +
+  2 density tests. Commit `f7603ff2`.
+- [x] **FIX-AO (spawn underwater → drowning)** — observed 'YOU DIED / Drowning' on a fresh
+  ocean-fallback world: player spawned on the seabed (Y~51, below SEA_LEVEL). Added a clamp in
+  selectSurfaceSpawn — any below-sea-level column is water-filled, so spawn body Y must be
+  >= SEA_LEVEL+1+PLAYER_HALF_HEIGHT (feet on the water surface). No-op for land spawns; lifts
+  submerged spawns onto the surface. `spawn-selection.ts` + test. Commit `c8359da2`.
+
+省メモリ: heap measured 166-209MB while walking, GC-reclaimed (no leak) — bounded since
+Round 75. FPS median is high (~180fps idle, ~100fps streaming); the felt 'low FPS' is the
+streaming-spike tail, partially smoothed here; full fix (async GPU geometry upload) is deeper.
+
+### Quality gate (Round 80)
+`pnpm typecheck` 0 · `pnpm lint` 0 errors / 4 warnings · `pnpm check:refactor` OK · `pnpm test`
+**5729 passed / 1 skipped** · `pnpm build` exit 0 · in-browser verified (terrain + spawn) · 3 commits on `main`.
