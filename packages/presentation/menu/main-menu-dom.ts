@@ -66,10 +66,10 @@ export const buildMenuDOM = (dom: DomOperationsService): MenuDomElements => {
   // LOAD_WORLD card
   const loadWorldCard = dom.createElement('div') as HTMLDivElement
   loadWorldCard.id = 'main-menu-load-world'
-  loadWorldCard.style.cssText = `${cardStyle};min-width:480px;max-height:80vh;display:none;overflow:auto`
+  loadWorldCard.style.cssText = `${cardStyle};min-width:480px;max-height:80vh;display:none`
   dom.setInnerHTML(loadWorldCard, `
     <h2 style="margin:0 0 8px;font-size:20px">Load World</h2>
-    <div id="mm-lw-list" style="display:flex;flex-direction:column;gap:8px;min-height:60px"></div>
+    <div id="mm-lw-list" style="display:flex;flex-direction:column;gap:8px;min-height:60px;flex:1;overflow-y:auto"></div>
     <div style="display:flex;gap:8px;margin-top:8px">
       <button type="button" id="mm-lw-back" style="${buttonStyle};flex:1">Back</button>
     </div>

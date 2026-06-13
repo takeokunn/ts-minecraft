@@ -9,6 +9,7 @@ import {
 } from '@ts-minecraft/app'
 import { TimeServicePort, InventoryServicePort } from '@ts-minecraft/entity'
 import { MainMenuService } from '@ts-minecraft/presentation'
+import { WorldId, parseWorldParam, setWorldParam, clearWorldParam } from '@ts-minecraft/core'
 import type { BootContext } from '@ts-minecraft/app'
 import type { GameMode } from '@ts-minecraft/game'
 
@@ -31,6 +32,33 @@ const mainMenuLoop = (bootCtx: BootContext) =>
     const menu = yield* MainMenuService
     const storageService = yield* StorageService
 
+    const loadGameModeForWorld = (worldId: WorldId) =>
+      storageService.loadWorldMetadata(worldId).pipe(
+        Effect.matchEffect({
+          onFailure: (e) =>
+            Effect.logWarning(`Could not read world metadata, defaulting to survival: ${e}`).pipe(
+              Effect.as('survival' as GameMode),
+            ),
+          onSuccess: (metaOpt) =>
+            Effect.succeed<GameMode>(
+              Option.isSome(metaOpt) ? metaOpt.value.gameMode : 'survival',
+            ),
+        }),
+      )
+
+    // Dev shortcut: ?world=<worldId> skips the menu and loads directly.
+    const urlWorldParam = parseWorldParam(window.location.search)
+    if (urlWorldParam !== null) {
+      const worldId = WorldId.make(urlWorldParam)
+      const urlGameMode = yield* loadGameModeForWorld(worldId)
+      yield* sessionProgram(bootCtx, worldId, urlGameMode).pipe(
+        Effect.scoped,
+        Effect.catchAllCause((cause) => Effect.logError(`Session error: ${Cause.pretty(cause)}`)),
+        Effect.asVoid,
+      )
+      yield* Effect.sync(() => clearWorldParam())
+    }
+
     const iteration = Effect.gen(function* () {
       const choice = yield* menu.show()
 
@@ -38,21 +66,15 @@ const mainMenuLoop = (bootCtx: BootContext) =>
 
       const gameMode: GameMode = choice.action === 'newWorld'
         ? choice.gameMode
-        : yield* storageService.loadWorldMetadata(choice.worldId).pipe(
-            Effect.matchEffect({
-              onFailure: () => Effect.succeed<GameMode>('survival'),
-              onSuccess: (metaOpt) =>
-                Effect.succeed<GameMode>(
-                  Option.isSome(metaOpt) ? metaOpt.value.gameMode : 'survival',
-                ),
-            }),
-          )
+        : yield* loadGameModeForWorld(choice.worldId)
 
+      yield* Effect.sync(() => setWorldParam(choice.worldId))
       yield* sessionProgram(bootCtx, choice.worldId, gameMode).pipe(
         Effect.scoped,
         Effect.catchAllCause((cause) => Effect.logError(`Session error: ${Cause.pretty(cause)}`)),
         Effect.asVoid,
       )
+      yield* Effect.sync(() => clearWorldParam())
     })
 
     return yield* Effect.forever(iteration)
