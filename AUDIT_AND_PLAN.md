@@ -2574,3 +2574,51 @@ Mouse-look code inspected (`first-person-camera-service.ts`): standard non-inver
 ### Quality gate (Round 75)
 `pnpm typecheck` 0 · `pnpm lint` 0 errors / 4 warnings · `pnpm check:refactor` OK · `pnpm test`
 **5716 / 1 skipped** · `pnpm build` exit 0 · in-browser verified · 1 commit on `main`.
+
+---
+
+## CA. Round 76 (2026-06-13) — playtest bug sweep (visuals, terrain, input, movement)
+
+Live-play feedback surfaced four concrete play-quality bugs. Each fixed in a small step with
+its own regression tests and commit.
+
+- [x] **FIX-Z (day/night visuals)** — `dayFactor = max(0, sin(sunAngle))` was a raw sine: bright
+  only AT noon, collapsing to 0 at BOTH dawn and dusk → world went pitch-black the instant the
+  sun touched the horizon, no twilight. Replaced with a **smoothstep over the sun's elevation**
+  (`sinSun`): dark below `-TWILIGHT_BAND`, full day above `+TWILIGHT_BAND`, eased transition →
+  daylight plateaus and ramps through a short warm dawn/dusk. Also added the **missing scene fog**
+  (`THREE.Fog`) — `fog.color` shares the same `skyCurrent` Color the cycle mutates each frame, so
+  it tracks noon-blue→night-black for free; fades terrain into the horizon (hides chunk pop-in,
+  adds depth). `day-night-cycle.ts` + `session-lighting.ts`; updated 3 tests that had ENCODED the
+  dusk-is-black bug. In-browser verified (dusk now lit twilight; water fades to horizon). Commit
+  `6dc41811`. Known follow-up: atmospheric `Sky` dome (scale 10000) is clipped by the 352 far
+  plane → flat clear-colour sky (acceptable, Minecraft-like).
+- [x] **FIX-AA (trees on the ocean / floating blocks)** — `determineWaterLevel` fills water up to
+  `SEA_LEVEL` for ANY column below it, not only noise lake basins, so a forest/plains column under
+  the waterline kept its solid GRASS surface (`supportsTree` true) and was NOT `hasLakeBasin` →
+  a trunk planted on the seabed grew up through the surface. Added a sea-level guard to
+  `shouldPlaceTree`: reject `surfaceY < SEA_LEVEL` (a column is dry exactly when surface ≥ sea
+  level). `tree-placer.ts` + regression tests. 1096 world tests green. Commit `518510f8`.
+- [x] **FIX-AB (ESC won't release the cursor)** — `gamePausedRef` ("any modal open?") gates the
+  canvas-click pointer-lock re-acquire, but `handleEscape`'s pause-menu branch never set it, and
+  the pause menu also opens/closes via paths inputStage can't observe (its own document ESC
+  handler, Resume button, settings watchdog). So ESC freed the cursor (browser-native) but the
+  next click re-grabbed it. Fix: **derive `gamePausedRef` from the live `isOpen()` of every modal**
+  (inventory/trade/settings/pause) at the end of inputStage each frame — self-correcting. Runs
+  before interactionStage so it propagates same-frame. `input-stage.ts` + regression test; updated
+  the pause-gate frame-handler test to represent "paused" via an open modal (the flag is now
+  derived, not poked). Commits `b7cae886`, `cae21b78`.
+- [x] **FIX-AC (movement UX — jump)** — jump read via `consumeKeyPress` required a fresh press per
+  jump; holding space did nothing after the first bounce (un-Minecraft, felt unresponsive).
+  Switched to `isKeyPressed` (held) → auto-bounce on each landing. No mid-air double-jump (impulse
+  only while grounded; game-state clears `isGrounded` the same frame). Creative flight unaffected
+  (separate `TOGGLE_FLIGHT` key). `movement-service.ts`; updated 2 scenario tests encoding the old
+  consume-once semantics. Commit `16eb5c58`.
+
+Movement model itself (instant ground velocity + airborne momentum preservation) is already
+responsive; the remaining "movement UX" feel was largely the ESC/pointer-lock breakage (FIX-AB)
+and the FPS/stutter addressed by the perf rounds. Mouse-look code inspected — standard.
+
+### Quality gate (Round 76)
+`pnpm typecheck` 0 · `pnpm lint` 0 errors / 4 warnings · `pnpm check:refactor` OK · `pnpm test`
+**5723 passed / 1 skipped** · `pnpm build` exit 0 · in-browser verified (day/night) · 6 commits on `main`.
