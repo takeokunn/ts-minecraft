@@ -2301,3 +2301,36 @@ complexity; not pursued. **Terrain gen is already reasonably optimized.**
 
 ### Quality gate (Round 65)
 No source change (verification only — prevented a redundant edit) · all prior gates hold · 1 docs commit.
+
+---
+
+## BQ. Round 66 (2026-06-13) — CHECKPOINT: perf campaign at diminishing returns
+
+Full re-verification of Rounds 56–65 (11 perf/fix commits): `pnpm typecheck` 0 · `pnpm test` **5709 / 1
+skipped** · `pnpm lint` 0 errors · `pnpm check:refactor` OK. The campaign holds together.
+
+**This round profiled the last unexamined hot paths and found them already optimal:**
+- Per-frame stages (physics/camera/input/hud/render): **no per-frame allocations** (module scratch +
+  change-gated refs only).
+- Per-frame collision (Round 62): 68 ns/call → negligible.
+- Worker mesh-reply `Schema.decodeUnknownSync`: **2.05 µs/chunk** (instanceOf-based schema → O(1)/field).
+- Terrain gen (Round 65): in-chunk redundancy already eliminated by the shared `treeColumnContextCache`.
+
+**Cumulative campaign result (per-chunk load/stream CPU):** meshing 2.6× (FIX-N/Q), sky-light 5–9×
+(FIX-O), cave noise 3× (FIX-P); GC: entity HAMT rebuild removed (FIX-K); VRAM: composer RT bypass (FIX-L);
+worker pool parallelized (FIX-M); 6 frames-vs-ticks correctness fixes (FIX-A…J). Per-chunk CPU ≈ 1/3 of
+original; per-frame CPU confirmed negligible.
+
+**Remaining frontiers all have real tradeoffs (need a direction):**
+1. **Bundle/worker Effect footprint** (Effect 1.87 MB; terrain-worker 1.30 MB, meshing-worker 678 KB
+   re-bundle Effect/Schema). Affects load + parse memory, NOT runtime fps/heap. Large, risky.
+2. **Terrain transient-alloc pooling** (cave/coord arrays, ~13 KB/chunk GC during streaming). Modest;
+   needs module-scratch (serial-worker-safe) or opt-in threading.
+3. **GPU/render** (draw-call count, 2048² shadow map). The likely real felt-perf cost, but **not
+   measurable in Node** — needs in-browser profiling.
+4. **FR features** (phases 18–20: end/network/multiplayer — original mandate's other half).
+
+Decision: did NOT force a marginal/sprawling change. Awaiting direction on which frontier to pursue.
+
+### Quality gate (Round 66)
+No source change (checkpoint + profiling) · all gates re-verified green · 1 docs commit.
