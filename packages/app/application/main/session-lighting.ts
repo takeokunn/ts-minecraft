@@ -70,5 +70,20 @@ export const buildLighting = (
     skyCurrent: new THREE.Color(),
   }))
 
+  // Atmospheric distance fog. Without it the world read as flat cardboard: a hard
+  // chunk boundary against an untextured sky and no aerial perspective. Linear fog
+  // fades terrain into the horizon just inside the visible (render-distance) ring,
+  // which both hides chunk pop-in and gives depth. Crucially we point fog.color at
+  // the SAME skyCurrent Color instance the day/night cycle mutates in place every
+  // frame (lerpColors), so the fog tracks the sky from noon-blue to night-black for
+  // free — no per-frame plumbing, no port change. MeshLambertMaterial (chunk + water
+  // meshes) honours scene.fog by default; the terrain shader injection only touches
+  // the map/color chunks, leaving the fog chunks intact.
+  yield* Effect.sync(() => {
+    const visible = initialSettings.renderDistance * CHUNK_SIZE
+    scene.fog = new THREE.Fog(skyCurrent.getHex(), visible * 0.55, visible * 1.08)
+    scene.fog.color = skyCurrent // share the reference so it tracks the day/night sky
+  })
+
   return { light, ambientLight, sky, skyPort, skyNight, skyDay, skyCurrent }
 })

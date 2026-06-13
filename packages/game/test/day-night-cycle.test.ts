@@ -147,41 +147,52 @@ describe('application/time/day-night-cycle', () => {
   })
 
   describe('updateDayNightCycle — dawn (timeOfDay=0.25)', () => {
-    it.effect('should give minimum direct light intensity at dawn', () =>
-      // dayFactor = max(0, sin((0.25 - 0.25) * π * 2)) = max(0, sin(0)) = 0
-      // direct intensity = 0.3
+    // Dawn/dusk sit at the CENTRE of the twilight band (sinSun = 0), so the
+    // smoothstep daylight curve yields exactly dayFactor = 0.5 — a half-lit
+    // twilight, NOT the full darkness the old raw-sine model produced. This is the
+    // "dusk looked pitch-black" regression guard: the light must be strictly
+    // between night-minimum and noon-maximum.
+    const TWILIGHT_DAY_FACTOR = 0.5
+
+    it.effect('should give twilight (half) direct light intensity at dawn', () =>
       Effect.gen(function* () {
         const timeService = yield* TimeService
         yield* timeService.setDayLength(400)
         yield* timeService.setTimeOfDay(0.25)
         const lights = makeFakeLights()
         yield* updateDayNightCycle(0 as DeltaTimeSecs, lights, timeService)
-        expect(lights.light.intensity).toBeCloseTo(DIRECT_LIGHT_MIN, 5)
+        expect(lights.light.intensity).toBeCloseTo(DIRECT_LIGHT_MIN + TWILIGHT_DAY_FACTOR * DIRECT_LIGHT_RANGE, 5)
+        expect(lights.light.intensity).toBeGreaterThan(DIRECT_LIGHT_MIN)
+        expect(lights.light.intensity).toBeLessThan(DIRECT_LIGHT_MIN + DIRECT_LIGHT_RANGE)
       }).pipe(Effect.provide(TimeServiceLive))
     )
 
-    it.effect('should give minimum ambient light intensity at dawn', () =>
+    it.effect('should give twilight (half) ambient light intensity at dawn', () =>
       Effect.gen(function* () {
         const timeService = yield* TimeService
         yield* timeService.setDayLength(400)
         yield* timeService.setTimeOfDay(0.25)
         const lights = makeFakeLights()
         yield* updateDayNightCycle(0 as DeltaTimeSecs, lights, timeService)
-        expect(lights.ambientLight.intensity).toBeCloseTo(AMBIENT_LIGHT_MIN, 5)
+        expect(lights.ambientLight.intensity).toBeCloseTo(AMBIENT_LIGHT_MIN + TWILIGHT_DAY_FACTOR * AMBIENT_LIGHT_RANGE, 5)
+        expect(lights.ambientLight.intensity).toBeGreaterThan(AMBIENT_LIGHT_MIN)
       }).pipe(Effect.provide(TimeServiceLive))
     )
   })
 
   describe('updateDayNightCycle — dusk (timeOfDay=0.75)', () => {
-    it.effect('should give minimum direct light intensity at dusk', () =>
-      // dayFactor = max(0, sin((0.75 - 0.25) * π * 2)) = max(0, sin(π)) = max(0, ~0) = 0
+    const TWILIGHT_DAY_FACTOR = 0.5
+
+    it.effect('should give twilight (half) direct light intensity at dusk, not darkness', () =>
       Effect.gen(function* () {
         const timeService = yield* TimeService
         yield* timeService.setDayLength(400)
         yield* timeService.setTimeOfDay(0.75)
         const lights = makeFakeLights()
         yield* updateDayNightCycle(0 as DeltaTimeSecs, lights, timeService)
-        expect(lights.light.intensity).toBeCloseTo(DIRECT_LIGHT_MIN, 4)
+        expect(lights.light.intensity).toBeCloseTo(DIRECT_LIGHT_MIN + TWILIGHT_DAY_FACTOR * DIRECT_LIGHT_RANGE, 4)
+        // Regression: the old model collapsed dusk to DIRECT_LIGHT_MIN (pitch black).
+        expect(lights.light.intensity).toBeGreaterThan(DIRECT_LIGHT_MIN + 0.2)
       }).pipe(Effect.provide(TimeServiceLive))
     )
   })

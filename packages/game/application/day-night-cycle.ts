@@ -10,6 +10,12 @@ const AMBIENT_LIGHT_MIN = 0.28
 const AMBIENT_LIGHT_RANGE = 0.42
 const SUN_DISTANCE = 50
 const SUN_HEIGHT = 80
+// Half-width (in sun-elevation units, sinSun ∈ [-1,1]) of the dawn/dusk twilight
+// band over which daylight ramps between night and full day. ~0.18 ≈ the sun
+// within ~10° of the horizon — a short, natural-looking sunset/sunrise.
+const TWILIGHT_BAND = 0.18
+
+const clamp01 = (v: number): number => (v < 0 ? 0 : v > 1 ? 1 : v)
 
 // Sky turbidity and rayleigh: tuned for natural appearance (lower = cleaner/less hazy)
 const SKY_TURBIDITY_DAY = 2
@@ -57,9 +63,20 @@ export const updateDayNightCycle = (
     // Pre-compute trig for sunAngle — reused 3× below (light position + sky sunPos).
     const cosSun = Math.cos(sunAngle)
     const sinSun = Math.sin(sunAngle)
-    // Sun arc: 0.25=dawn, 0.5=noon, 0.75=dusk, 0.0/1.0=midnight
-    // sin peaks at noon (0.5), zero at dawn/dusk, negative at night → clamp to 0
-    const dayFactor = Math.max(0, sinSun)
+    // sinSun is the sun's elevation above the horizon: -1 at midnight, 0 at
+    // dawn/dusk, +1 at noon.
+    //
+    // The old model used `dayFactor = max(0, sinSun)` directly — a raw sine that
+    // is only ~1 right at noon and collapses to 0 at BOTH dawn and dusk, giving
+    // no twilight and a world that is fully black the instant the sun touches the
+    // horizon (the "dusk looks pitch-black" bug). Real daylight instead PLATEAUS:
+    // it is at full brightness for most of the day and ramps smoothly through a
+    // short dawn/dusk twilight band. Model that with a smoothstep over the sun's
+    // elevation: dark below -TWILIGHT_BAND, full day above +TWILIGHT_BAND, an
+    // eased transition across the band. Light still ARCS via cos/sin below; only
+    // the brightness/colour mix uses this plateaued factor.
+    const twilightT = clamp01((sinSun + TWILIGHT_BAND) / (2 * TWILIGHT_BAND))
+    const dayFactor = twilightT * twilightT * (3 - 2 * twilightT)  // smoothstep
 
     yield* Effect.sync(() => {
       lights.light.intensity = DIRECT_LIGHT_MIN + dayFactor * DIRECT_LIGHT_RANGE
