@@ -185,11 +185,14 @@ describe('player/movement-service (integration)', () => {
   })
 
   // ---------------------------------------------------------------------------
-  // Task 5: consumeKeyPress one-shot — jump key is consumed on first read
+  // Jump is a HELD key (isKeyPressed), not consumed: holding the jump key keeps
+  // jump=true every frame so the player auto-bounces on each landing (vanilla).
+  // Anti-double-jump is enforced downstream (game-state only jumps while grounded),
+  // not by consuming the key here.
   // ---------------------------------------------------------------------------
 
-  describe('consumeKeyPress one-shot behavior', () => {
-    it.effect('jump key is consumed: second getInput() in same frame returns jump=false', () => {
+  describe('held-jump behavior', () => {
+    it.effect('jump is held: jump stays true across repeated getInput() while the key is down', () => {
       const inputService = createTestInputService({ jump: true })
       const testLayers = createTestLayers(inputService)
       return Effect.gen(function* () {
@@ -197,11 +200,11 @@ describe('player/movement-service (integration)', () => {
         const first = yield* movementService.getInput()
         const second = yield* movementService.getInput()
         expect(first.jump).toBe(true)
-        expect(second.jump).toBe(false)
+        expect(second.jump).toBe(true)
       }).pipe(Effect.provide(MovementServiceLive), Effect.provide(testLayers))
     })
 
-    it.effect('non-jump keys are not consumed: forward remains true on second getInput()', () => {
+    it.effect('held forward and jump both remain true on the second getInput()', () => {
       const inputService = createTestInputService({ forward: true, jump: true })
       const testLayers = createTestLayers(inputService)
       return Effect.gen(function* () {
@@ -211,7 +214,7 @@ describe('player/movement-service (integration)', () => {
         expect(first.forward).toBe(true)
         expect(second.forward).toBe(true)
         expect(first.jump).toBe(true)
-        expect(second.jump).toBe(false)
+        expect(second.jump).toBe(true)
       }).pipe(Effect.provide(MovementServiceLive), Effect.provide(testLayers))
     })
 

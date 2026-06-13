@@ -99,8 +99,14 @@ export class MovementService extends Effect.Service<MovementService>()(
           const backward = yield* isDirPressed(KeyMappings.MOVE_BACKWARD, KeyMappings.MOVE_BACKWARD_ALT)
           const left = yield* isDirPressed(KeyMappings.MOVE_LEFT, KeyMappings.MOVE_LEFT_ALT)
           const right = yield* isDirPressed(KeyMappings.MOVE_RIGHT, KeyMappings.MOVE_RIGHT_ALT)
-          // consumeKeyPress (not isKeyPressed) so a held jump only fires once per press.
-          const jump = yield* inputService.consumeKeyPress(KeyMappings.JUMP)
+          // isKeyPressed (held), not consumeKeyPress: matches vanilla — holding the
+          // jump key auto-bounces on every landing instead of requiring a re-tap per
+          // jump (which felt unresponsive). A held jump can't double-jump mid-air: the
+          // jump only applies while grounded, and game-state clears isGrounded the same
+          // frame it jumps, so the next airborne frame sees jump=true but isGrounded=false
+          // → no impulse until the player lands again. Flight toggle uses its own
+          // TOGGLE_FLIGHT key, so this does not affect creative flight.
+          const jump = yield* inputService.isKeyPressed(KeyMappings.JUMP)
           // Sequential: isKeyPressed is synchronous Set lookup — no parallelism benefit
           const ctrlL = yield* inputService.isKeyPressed(KeyMappings.SPRINT)
           const ctrlR = yield* inputService.isKeyPressed(KeyMappings.SPRINT_ALT)
