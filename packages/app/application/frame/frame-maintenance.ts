@@ -34,6 +34,11 @@ const topGroundY = (blocks: Uint8Array, lx: number, lz: number): number => {
   return -1
 }
 
+// Foundation cap: deepest a village foundation pillar will fill below the floor. Footprint
+// columns sit within a few blocks of the anchor on normal terrain, so this only matters at
+// steep edges — it bounds the fill so a house at a ravine lip can't drop a 100-block pillar.
+const VILLAGE_FOUNDATION_MAX_DEPTH = 12
+
 // Unions two dirty AABBs. Either side being None means "full chunk" (no AABB),
 // so None propagates through: union(Some, None) = None, union(None, _) = None.
 const unionDirtyAABB = (
@@ -198,31 +203,60 @@ export const createMaintenanceHandler = (
           : []
         if (newVillages.length > 0) {
           for (const village of newVillages) {
-            // Ground each structure to the TERRAIN surface of its own anchor column. The
-            // village's stored Y comes from the player's body position (snapVillageCenter),
-            // not the terrain, and every structure shared that one Y — so houses generated
-            // floating in the air ('家が宙に浮いて生成される') and slope houses never
-            // re-grounded. Resolve the topmost ground block per structure column from the
-            // (on-demand generated) chunk and set the floor at surfaceY+1, offsetting the
-            // whole structure so it stays intact.
+            // Per-column terrain-surface resolver with a small chunk cache (footprints can
+            // straddle chunk borders). getChunk returns the already-loaded chunk, so this is
+            // cheap; village creation is a rare maintenance event.
+            const chunkByKey = new Map<string, Chunk | null>()
+            const surfaceAt = (wx: number, wz: number): Effect.Effect<number, never> =>
+              Effect.gen(function* () {
+                const ccx = Math.floor(wx / CHUNK_SIZE)
+                const ccz = Math.floor(wz / CHUNK_SIZE)
+                const key = `${ccx},${ccz}`
+                let chunk = chunkByKey.get(key)
+                if (chunk === undefined) {
+                  chunk = yield* chunkManagerService.getChunk({ x: ccx, z: ccz }).pipe(
+                    Effect.catchAll(() => Effect.succeed(null)),
+                  )
+                  chunkByKey.set(key, chunk)
+                }
+                if (chunk === null) return -1
+                const lx = ((wx % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE
+                const lz = ((wz % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE
+                return topGroundY(chunk.blocks, lx, lz)
+              })
+
+            // Ground each structure to the TERRAIN surface of its own anchor column (its stored
+            // Y came from the player body, not terrain → houses floated). Floor = surfaceY+1.
             const groundedStructures: VillageStructure[] = []
             for (const s of village.structures) {
-              const scx = Math.floor(s.anchor.x / CHUNK_SIZE)
-              const scz = Math.floor(s.anchor.z / CHUNK_SIZE)
-              const chunk = yield* chunkManagerService.getChunk({ x: scx, z: scz }).pipe(
-                Effect.catchAll(() => Effect.succeed(null)),
-              )
-              if (chunk === null) {
-                groundedStructures.push(s)
-                continue
-              }
-              const lx = ((s.anchor.x % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE
-              const lz = ((s.anchor.z % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE
-              const groundY = topGroundY(chunk.blocks, lx, lz)
+              const groundY = yield* surfaceAt(s.anchor.x, s.anchor.z)
               groundedStructures.push(
                 groundY < 0 ? s : { ...s, anchor: { ...s.anchor, y: groundY + 1 } },
               )
             }
+
+            // Foundation: under EVERY footprint column, fill solid (COBBLESTONE) from that
+            // column's terrain surface up to just below the floor, so a house on a slope/edge
+            // always has ground beneath it instead of a floating floor ('生成する家は地面が
+            // かならずある状態で'). Depth-capped to avoid ravine-lip pillars.
+            for (const s of groundedStructures) {
+              const floorY = s.anchor.y
+              for (let dx = 0; dx < s.size.x; dx++) {
+                for (let dz = 0; dz < s.size.z; dz++) {
+                  const wx = s.anchor.x + dx
+                  const wz = s.anchor.z + dz
+                  const colSurface = yield* surfaceAt(wx, wz)
+                  if (colSurface < 0) continue
+                  const fillBottom = Math.max(colSurface + 1, floorY - VILLAGE_FOUNDATION_MAX_DEPTH)
+                  for (let y = fillBottom; y < floorY; y++) {
+                    yield* blockService.forceSetBlock({ x: wx, y, z: wz }, 'COBBLESTONE').pipe(
+                      Effect.catchAll(() => Effect.void),
+                    )
+                  }
+                }
+              }
+            }
+
             const placements = buildingBlocksForVillage(groundedStructures)
             for (const { position, blockType } of placements) {
               yield* blockService.forceSetBlock(position, blockType).pipe(
