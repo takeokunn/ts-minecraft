@@ -1,6 +1,7 @@
 import { Array as Arr, Effect, HashMap, HashSet, Option, Ref } from 'effect'
 import * as THREE from 'three'
 import type { Entity, EntityId as EntityIdType, EntityType } from '@ts-minecraft/entity'
+import { MOB_HALF_HEIGHT } from '@ts-minecraft/entity'
 import { SceneService } from '../scene/scene-service'
 import { buildMobGroup, type MobLimbGroup } from './mob-geometry'
 import { computeLimbAngleBase } from './walk-cycle'
@@ -14,6 +15,12 @@ import {
 const MOTION_THRESHOLD = 0.05
 // R6d: baby mobs render at half scale (vanilla-ish) until they grow up.
 const BABY_RENDER_SCALE = 0.5
+// Mob models are built FEET-at-origin (legs hang from the hip down to local y=0), but
+// entity.position.y is the AABB CENTER (physics rests the center at ground + MOB_HALF_HEIGHT,
+// feet on the ground). Rendering the feet-origin model straight at position.y therefore
+// floated every mob MOB_HALF_HEIGHT (0.9) blocks above the ground ('モブが宙に浮いてる').
+// Lower the render origin by the half-height so the feet sit on the surface.
+const MOB_RENDER_Y_OFFSET = MOB_HALF_HEIGHT
 
 const setLimbRotation = (mesh: THREE.Mesh | null, angle: number): void => {
   if (mesh === null) return
@@ -205,7 +212,7 @@ export class EntityRendererService extends Effect.Service<EntityRendererService>
                     if (groupOpt._tag === 'None') continue
                     const group = groupOpt.value
 
-                    group.root.position.set(entity.position.x, entity.position.y, entity.position.z)
+                    group.root.position.set(entity.position.x, entity.position.y - MOB_RENDER_Y_OFFSET, entity.position.z)
 
                     const speed = Math.hypot(entity.velocity.x, entity.velocity.z)
                     // Idle early-out: skip atan2 and limb math for stationary mobs.
@@ -235,7 +242,7 @@ export class EntityRendererService extends Effect.Service<EntityRendererService>
                     // Compose per-role world matrix and write to the bucket.
                     // World = T(rootPos) · R_y(yaw) · T(offset) · R_swing
                     // We reuse `scratch` slots across iterations (no GC).
-                    scratch.pos.set(entity.position.x, entity.position.y, entity.position.z)
+                    scratch.pos.set(entity.position.x, entity.position.y - MOB_RENDER_Y_OFFSET, entity.position.z)
                     scratch.euler.set(0, group.root.rotation.y, 0)
                     scratch.quat.setFromEuler(scratch.euler)
                     // R6d: babies are drawn smaller. scratch.scale is shared, so set it every

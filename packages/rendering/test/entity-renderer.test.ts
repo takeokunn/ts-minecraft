@@ -8,7 +8,7 @@ import {
   SceneService,
   LIMB_SWING_AMPLITUDE,
 } from '@ts-minecraft/rendering'
-import { EntityId, type Entity, type EntityType } from '@ts-minecraft/entity'
+import { EntityId, MOB_HALF_HEIGHT, type Entity, type EntityType } from '@ts-minecraft/entity'
 import { identity } from '@ts-minecraft/core'
 
 // FR-2.5: pool→syncEntities full wire. `scene.add` is now called once per
@@ -138,7 +138,9 @@ describe('infrastructure/three/entity-renderer', () => {
         const opt = yield* r._getTrackedGroup(e.entityId)
         const group = Option.getOrThrow(opt)
         expect(group.root.position.x).toBe(12)
-        expect(group.root.position.y).toBe(70)
+        // The feet-at-origin model is lowered by MOB_HALF_HEIGHT (0.9) so the feet rest on
+        // the ground (entity.position.y is the AABB centre, not the feet) — prevents floating mobs.
+        expect(group.root.position.y).toBeCloseTo(70 - MOB_HALF_HEIGHT, 6)
         expect(group.root.position.z).toBe(-3)
       }).pipe(Effect.provide(TestLayer))
     })
