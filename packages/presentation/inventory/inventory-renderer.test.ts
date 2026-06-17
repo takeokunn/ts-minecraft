@@ -1,7 +1,7 @@
 import { describe, it } from '@effect/vitest'
 import { Array as Arr, Effect, Option } from 'effect'
 import { expect } from 'vitest'
-import { InventoryRendererService, InventoryRendererLive } from '@ts-minecraft/presentation/inventory/inventory-renderer'
+import { InventoryRendererService } from '@ts-minecraft/presentation/inventory/inventory-renderer'
 import { INVENTORY_SIZE } from '@ts-minecraft/inventory'
 import {
   buildTestLayer,
@@ -16,9 +16,9 @@ import {
 // ---------------------------------------------------------------------------
 
 describe('presentation/inventory/inventory-renderer', () => {
-  describe('InventoryRendererLive — layer provision', () => {
+  describe('InventoryRendererService — layer provision', () => {
     it('should be defined', () => {
-      expect(InventoryRendererLive).toBeDefined()
+      expect(InventoryRendererService.Default).toBeDefined()
     })
 
     it.scoped('should provide InventoryRenderer with all required methods', () => {

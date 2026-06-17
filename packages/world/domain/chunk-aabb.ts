@@ -1,4 +1,4 @@
-import { Array as Arr, Option } from 'effect'
+import { Option } from 'effect'
 import { CHUNK_HEIGHT, CHUNK_SIZE } from '@ts-minecraft/core'
 
 // FR-4.2 — Per-chunk dirty AABB for sub-region re-meshing. Coordinates are
@@ -68,16 +68,17 @@ export const aabbFromVoxel = (v: DirtyVoxelLike): ChunkAABB => ({
 })
 
 // Bounding box of a non-empty voxel array. Returns Option.none() for [].
-export const aabbFromVoxels = (voxels: ReadonlyArray<DirtyVoxelLike>): Option.Option<ChunkAABB> =>
-  Arr.match(voxels, {
-    onEmpty: () => Option.none(),
-    onNonEmpty: (vs) => {
-      const head = aabbFromVoxel(vs[0])
-      return Option.some(
-        Arr.reduce(Arr.drop(vs, 1), head, (acc, v) => unionAABB(acc, aabbFromVoxel(v))),
-      )
-    },
-  })
+export const aabbFromVoxels = (voxels: ReadonlyArray<DirtyVoxelLike>): Option.Option<ChunkAABB> => {
+  const [firstVoxel, ...remainingVoxels] = voxels
+  if (firstVoxel === undefined) return Option.none()
+
+  return Option.some(
+    remainingVoxels.reduce(
+      (aabb, voxel) => unionAABB(aabb, aabbFromVoxel(voxel)),
+      aabbFromVoxel(firstVoxel),
+    ),
+  )
+}
 
 export const unionAABB = (a: ChunkAABB, b: ChunkAABB): ChunkAABB => ({
   minX: Math.min(a.minX, b.minX), maxX: Math.max(a.maxX, b.maxX),

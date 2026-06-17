@@ -4,7 +4,6 @@ import { Effect, Layer, Logger, LogLevel, Option } from 'effect'
 import * as THREE from 'three'
 import {
   EntityRendererService,
-  EntityRendererLive,
   SceneService,
   MAX_INSTANCES_PER_TYPE,
   createEntityInstancePool,
@@ -39,7 +38,7 @@ const buildSceneLayer = () =>
     remove: (scene: THREE.Scene, object: THREE.Object3D) => Effect.sync(() => { scene.remove(object) }),
   }))
 
-const buildTestLayer = () => Layer.provide(EntityRendererLive, buildSceneLayer())
+const buildTestLayer = () => Layer.provide(EntityRendererService.Default, buildSceneLayer())
 
 // Logger that captures every Warning/Error message into an in-memory array.
 // Returns the layer + a getter to read captured messages after the Effect runs.
@@ -214,6 +213,7 @@ describe('infrastructure/three/entity-instance-pool — releaseSlot swap-with-la
   it('moves the last entity into a freed middle slot, preserving its matrix', () => {
     const pool = createEntityInstancePool()
     const scene = new THREE.Scene()
+    const color = new THREE.Color()
 
     // Allocate A, B, C → slots 0, 1, 2; give each a distinct translation.
     expect(Option.getOrThrow(pool.allocateSlot(scene, type, role, 'A'))).toBe(0)
@@ -222,6 +222,9 @@ describe('infrastructure/three/entity-instance-pool — releaseSlot swap-with-la
     pool.setMatrixAt(type, role, 0, new THREE.Matrix4().makeTranslation(10, 0, 0))
     pool.setMatrixAt(type, role, 1, new THREE.Matrix4().makeTranslation(20, 0, 0))
     pool.setMatrixAt(type, role, 2, new THREE.Matrix4().makeTranslation(30, 0, 0))
+    pool.setColorAt(type, role, 0, 0x111111)
+    pool.setColorAt(type, role, 1, 0x222222)
+    pool.setColorAt(type, role, 2, 0xeeeeee)
 
     // Free the MIDDLE entity. C (the last) must swap down into slot 1.
     pool.releaseSlot(type, role, 'B')
@@ -238,6 +241,22 @@ describe('infrastructure/three/entity-instance-pool — releaseSlot swap-with-la
     const got = new THREE.Matrix4()
     cSlot.bucket.mesh.getMatrixAt(1, got)
     expect(translationX(got)).toBe(30)
+
+    // The per-instance tint must follow the moved entity as well.
+    cSlot.bucket.mesh.getColorAt(1, color)
+    expect(color.getHex()).toBe(0xeeeeee)
+  })
+
+  it('initializes a new slot to the bucket base color', () => {
+    const pool = createEntityInstancePool()
+    const scene = new THREE.Scene()
+    const slot = Option.getOrThrow(pool.allocateSlot(scene, type, role, 'A'))
+    const slotInfo = Option.getOrThrow(pool.getSlot(type, role, 'A'))
+    const color = new THREE.Color()
+
+    expect(slot).toBe(0)
+    slotInfo.bucket.mesh.getColorAt(slot, color)
+    expect(color.getHex()).toBe(slotInfo.bucket.spec.color)
   })
 
   it('releasing the last slot needs no swap and just shrinks the count', () => {

@@ -83,9 +83,12 @@ export const generateNetherTerrain = (
     const caveYTop = Math.floor(NETHER_HABITABLE_TOP / CAVE_SAMPLE_STRIDE) + 1
     const pointCount = caveSX * caveSZ * caveYTop
 
-    const caveXs: number[] = Array.from({ length: pointCount }) as number[]
-    const caveYs: number[] = Array.from({ length: pointCount }) as number[]
-    const caveZs: number[] = Array.from({ length: pointCount }) as number[]
+    const caveXs: number[] = []
+    const caveYs: number[] = []
+    const caveZs: number[] = []
+    caveXs.length = pointCount
+    caveYs.length = pointCount
+    caveZs.length = pointCount
 
     let idx = 0
     for (let sy = 0; sy < caveYTop; sy++) {

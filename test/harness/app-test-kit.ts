@@ -1,4 +1,4 @@
-import { Effect, MutableHashSet, Option } from 'effect'
+import { Effect, HashMap, MutableHashSet, Option } from 'effect'
 import {
   DEBUG_FEATURE_FLAG_CATALOG,
   DEBUG_FEATURE_FLAG_DEFAULTS,
@@ -17,7 +17,7 @@ export const makeInventoryRenderer = (state: OverlayState) => ({
   update: () => Effect.void,
   cycleRecipes: (_delta: number) => Effect.void,
   craftSelectedRecipe: () => Effect.succeed(false),
-}) as unknown as InstanceType<typeof import('@ts-minecraft/presentation/inventory/inventory-renderer').InventoryRendererService>
+}) as unknown as InstanceType<typeof import('@ts-minecraft/presentation').InventoryRendererService>
 
 /** Creates a settings overlay fake backed by mutable overlay state. */
 export const makeSettingsOverlay = (state: OverlayState) => ({
@@ -28,14 +28,14 @@ export const makeSettingsOverlay = (state: OverlayState) => ({
   }),
   syncFromSettings: () => Effect.void,
   applyToSettings: () => Effect.void,
-}) as unknown as InstanceType<typeof import('@ts-minecraft/presentation/settings/settings-overlay').SettingsOverlayService>
+}) as unknown as InstanceType<typeof import('@ts-minecraft/presentation').SettingsOverlayService>
 
 /** Creates a pause menu fake with mutable open state. */
 export const makePauseMenu = (state: OverlayState = { open: false }) => ({
   isOpen: () => Effect.sync(() => state.open),
   openIfClosed: () => Effect.sync(() => { state.open = true }),
   attach: (_control: unknown, _persist: unknown) => Effect.void,
-}) as unknown as InstanceType<typeof import('@ts-minecraft/presentation/menu/pause-menu').PauseMenuService>
+}) as unknown as InstanceType<typeof import('@ts-minecraft/presentation').PauseMenuService>
 
 /** Creates a trading presentation fake backed by mutable overlay state. */
 export const makeTradingPresentation = (state: OverlayState) => ({
@@ -50,9 +50,9 @@ export const makeTradingPresentation = (state: OverlayState) => ({
   cycleSelection: (_delta: number) => Effect.void,
   refresh: () => Effect.void,
   executeSelectedTrade: () => Effect.succeed(false),
-}) as unknown as InstanceType<typeof import('@ts-minecraft/presentation/trading').TradingPresentationService>
+}) as unknown as InstanceType<typeof import('@ts-minecraft/presentation').TradingPresentationService>
 
-type InputServiceInstance = InstanceType<typeof import('@ts-minecraft/presentation/input/input-service').InputService>
+type InputServiceInstance = InstanceType<typeof import('@ts-minecraft/presentation').InputService>
 
 const buildInputService = (
   pressedKeys: MutableHashSet.MutableHashSet<string>,
@@ -92,7 +92,7 @@ export const makeMouseDownInputService = (
   pressedKeys: MutableHashSet.MutableHashSet<string> = MutableHashSet.empty(),
 ) => buildInputService(pressedKeys, (_btn) => Effect.succeed(false), (btn) => Effect.succeed(btn === button))
 
-type BlockHighlightInstance = InstanceType<typeof import('@ts-minecraft/presentation/highlight/block-highlight').BlockHighlightService>
+type BlockHighlightInstance = InstanceType<typeof import('@ts-minecraft/presentation').BlockHighlightService>
 
 /** Creates a block highlight fake with no current target. */
 export const makeBlockHighlight = () => ({
@@ -119,7 +119,7 @@ export const makeTargetBlockHighlight = (
 export const makeHotbarRenderer = () => ({
   update: (_slots: unknown, _sel: unknown) => Effect.void,
   render: (_renderer: unknown) => Effect.void,
-}) as unknown as InstanceType<typeof import('@ts-minecraft/presentation/hud/hotbar-three').HotbarRendererService>
+}) as unknown as InstanceType<typeof import('@ts-minecraft/presentation').HotbarRendererService>
 
 /** Creates a debug feature flag service fake backed by mutable in-memory flags. */
 export const makeDebugFeatureFlags = () => {
@@ -161,7 +161,7 @@ export const makeFPSCounter = () => ({
   getFPS: () => Effect.succeed(60),
   getFrameCount: () => Effect.succeed(0),
   reset: () => Effect.void,
-}) as unknown as InstanceType<typeof import('@ts-minecraft/presentation/fps-counter').FPSCounterService>
+}) as unknown as InstanceType<typeof import('@ts-minecraft/presentation').FPSCounterService>
 
 /** Creates a furnace service fake with no active or nearby furnace state. */
 export const makeFurnaceService = () => ({
@@ -177,3 +177,18 @@ export const makeFurnaceService = () => ({
   deserialize: (_serialized: unknown) => Effect.void,
   tick: (_deltaTime: unknown) => Effect.void,
 }) as unknown as InstanceType<typeof import('@ts-minecraft/inventory').FurnaceService>
+
+export const makeChestService = () => ({
+  getState: () => Effect.succeed({ chests: HashMap.empty(), selectedChestPosition: Option.none() }),
+  getNearestChestState: () => Effect.succeed(Option.none()),
+  hasNearbyChest: () => Effect.succeed(false),
+  setSelectedChest: (_position: unknown) => Effect.void,
+  moveInventoryStackToChestSlot: (_inventoryIndex: unknown, _chestIndex: unknown) => Effect.void,
+  moveChestStackToInventorySlot: (_chestIndex: unknown, _inventoryIndex: unknown) => Effect.void,
+  quickMoveInventoryToChest: (_inventoryIndex: unknown) => Effect.void,
+  quickMoveChestToInventory: (_chestIndex: unknown) => Effect.void,
+  clearChest: (_position: unknown) => Effect.succeed([]),
+  dismantleChest: (_position: unknown) => Effect.succeed(true),
+  serialize: () => Effect.succeed([]),
+  deserialize: (_serialized: unknown) => Effect.void,
+}) as unknown as InstanceType<typeof import('@ts-minecraft/inventory').ChestService>

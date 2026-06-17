@@ -3,9 +3,10 @@ import { expect } from 'vitest'
 import { Arbitrary, Effect, Layer, Schema } from 'effect'
 import * as fc from 'effect/FastCheck'
 import { CHUNK_HEIGHT, CHUNK_SIZE, blockIndexUnsafe, blockTypeToIndex } from '@ts-minecraft/core'
-import { ChunkService, ChunkServiceLive, LightEngineLive, LightEngineService } from '@ts-minecraft/world'
+import { ChunkService, LightEngineService } from '@ts-minecraft/world'
 import type { ChunkService as ChunkServiceType } from '@ts-minecraft/world'
 import { LIGHT_BYTE_LENGTH } from '@ts-minecraft/world'
+import { makeChunkBlockBuffer } from './chunk-buffer-test-utils'
 
 interface MutableChunk {
   skyLight?: Uint8Array
@@ -28,7 +29,7 @@ const withLightService = <A>(
 ): Effect.Effect<A, never> =>
   Effect.all([ChunkService, LightEngineService]).pipe(
     Effect.flatMap(([cs, ls]) => f(cs, ls)),
-    Effect.provide(Layer.mergeAll(ChunkServiceLive, LightEngineLive)),
+    Effect.provide(Layer.mergeAll(ChunkService.Default, LightEngineService.Default)),
   )
 
 // Coordinate arbitraries — bound the search space to a small region to keep
@@ -44,16 +45,16 @@ const ArbEditList = fc.array(ArbEdit, { minLength: 1, maxLength: 4 })
 
 const ArbInitialFill = fc.constantFrom(
   // empty chunk
-  () => new Uint8Array(CHUNK_SIZE * CHUNK_SIZE * CHUNK_HEIGHT),
+  () => makeChunkBlockBuffer(),
   // single LAVA at center
   () => {
-    const b = new Uint8Array(CHUNK_SIZE * CHUNK_SIZE * CHUNK_HEIGHT)
+    const b = makeChunkBlockBuffer()
     b[blockIndexUnsafe(8, 100, 8)] = LAVA
     return b
   },
   // STONE pillar at (8, 8) full-height — column has 0 sky exposure
   () => {
-    const b = new Uint8Array(CHUNK_SIZE * CHUNK_SIZE * CHUNK_HEIGHT)
+    const b = makeChunkBlockBuffer()
     for (let y = 0; y < CHUNK_HEIGHT; y++) b[blockIndexUnsafe(8, y, 8)] = STONE
     return b
   },

@@ -3,7 +3,7 @@
 // Production: every method returns Effect.void immediately (zero runtime cost when disabled).
 // e2e contract (test W3): window.__perfHud__.snapshot() → { fps, p50Ms, p99Ms, drawCalls, chunkCount, workerQueueDepth, samples }
 // Performance: pre-allocated DOM Text nodes (nodeValue mutation) + Float64Array(120) ring buffer (no allocations on hot path).
-import { Array as Arr, Effect, MutableRef } from 'effect'
+import { Effect, MutableRef } from 'effect'
 
 // -----------------------------------------------------------------------------
 // Snapshot type — stable contract for window.__perfHud__.snapshot()
@@ -44,6 +44,18 @@ const isPerfDebugEnabled = (): boolean => {
 const formatNumber = (n: number, decimals: number): string =>
   Number.isFinite(n) ? n.toFixed(decimals) : '--'
 
+const sortPrefixAscending = (values: Float64Array, length: number): void => {
+  for (let i = 1; i < length; i++) {
+    const value = values[i]!
+    let j = i - 1
+    while (j >= 0 && values[j]! > value) {
+      values[j + 1] = values[j]!
+      j--
+    }
+    values[j + 1] = value
+  }
+}
+
 // Compute p50/p99 (in milliseconds) from a populated ring buffer of frame
 // durations (seconds). `validLength` is min(filled, capacity) — accounts for
 // the warm-up window before the ring has wrapped. Percentiles are
@@ -57,17 +69,16 @@ export const computePercentiles = (
   validLength: number,
 ): { p50Ms: number; p99Ms: number } => {
   if (validLength === 0) return { p50Ms: 0, p99Ms: 0 }
-  // Copy valid portion to scratch and sort in place.
+  // Copy valid portion to scratch and sort the populated prefix in place.
+  // SAMPLE_BUFFER_SIZE is fixed at 120, so the tiny insertion sort avoids
+  // allocating a typed-array view for every debug HUD refresh.
   for (let i = 0; i < validLength; i++) scratch[i] = ring[i]!
-  // Native typed-array sort is in-place and faster than Array.prototype.sort
-  // for numeric data — but we must restrict to the populated prefix.
-  const view = scratch.subarray(0, validLength)
-  view.sort()
+  sortPrefixAscending(scratch, validLength)
   const p50Idx = Math.floor((validLength - 1) * 0.5)
   const p99Idx = Math.floor((validLength - 1) * 0.99)
   return {
-    p50Ms: (view[p50Idx] ?? 0) * 1000,
-    p99Ms: (view[p99Idx] ?? 0) * 1000,
+    p50Ms: (scratch[p50Idx] ?? 0) * 1000,
+    p99Ms: (scratch[p99Idx] ?? 0) * 1000,
   }
 }
 
@@ -89,7 +100,7 @@ export class PerfHudService extends Effect.Service<PerfHudService>()(
     // `Effect.acquireRelease` — the finalizer removes the `<div id="perf-hud">`
     // and the `window.__perfHud__` global on scope teardown (Vite HMR, test
     // teardown, or main scope close). Switching from `effect:` to `scoped:`
-    // surfaces the `Scope.Scope` requirement to consumers (handled by `MainLive`).
+    // surfaces the `Scope.Scope` requirement to consumers (handled by `MainLayers`).
     scoped: Effect.gen(function* () {
       const enabled = isPerfDebugEnabled()
 
@@ -215,7 +226,8 @@ export class PerfHudService extends Effect.Service<PerfHudService>()(
       const buildSnapshot = (): PerfHudSnapshot => {
         const filled = MutableRef.get(filledCountRef)
         const validLength = Math.min(filled, SAMPLE_BUFFER_SIZE)
-        const samples: number[] = Arr.makeBy(validLength, (i) => ring[i]!)
+        const samples = Array<number>(validLength)
+        for (let i = 0; i < validLength; i++) samples[i] = ring[i]!
         return {
           fps: MutableRef.get(fpsRef),
           p50Ms: MutableRef.get(p50MsRef),
@@ -245,7 +257,7 @@ export class PerfHudService extends Effect.Service<PerfHudService>()(
           const idx = MutableRef.get(writeIndexRef)
           ring[idx] = dtSecs
           MutableRef.set(writeIndexRef, (idx + 1) % SAMPLE_BUFFER_SIZE)
-          MutableRef.update(filledCountRef, (n) => n + 1)
+          MutableRef.set(filledCountRef, MutableRef.get(filledCountRef) + 1)
 
           // Throttle: only recompute percentiles + rewrite DOM at <= 4 Hz.
           const nowMs = typeof performance !== 'undefined' ? performance.now() : Date.now()

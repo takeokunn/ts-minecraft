@@ -1,27 +1,11 @@
 // @effect-boundary — raw WebSocket interop, Effect-safe wrapper over ws library
 import { Deferred, Effect, Queue, Stream } from 'effect'
-import { Buffer } from 'node:buffer'
-import { WebSocket, WebSocketServer as WsServer, type RawData } from 'ws'
+import { WebSocket, WebSocketServer as WsServer } from 'ws'
 import { NetworkError } from '../domain/errors'
-import type { WebSocketConnection, WebSocketServerHandle, WebSocketServerPort } from './websocket-server'
+import { rawDataToArrayBuffer } from './node-websocket-data'
+import type { WebSocketConnection, WebSocketServerHandle, WebSocketServerPort } from '../domain/websocket-ports'
 
 let nextNodeConnectionId = 1
-
-const copyBytes = (data: Uint8Array): ArrayBuffer => {
-  const buffer = new ArrayBuffer(data.byteLength)
-  new Uint8Array(buffer).set(data)
-  return buffer
-}
-
-const rawDataToArrayBuffer = (data: RawData): ArrayBuffer => {
-  if (data instanceof ArrayBuffer) {
-    return data.slice(0)
-  }
-  if (Array.isArray(data)) {
-    return copyBytes(Buffer.concat(data))
-  }
-  return copyBytes(data)
-}
 
 const runDetached = <A, E>(effect: Effect.Effect<A, E>): void => {
   Effect.runFork(effect.pipe(Effect.catchAll(() => Effect.void)))
@@ -52,10 +36,10 @@ const makeConnection = (socket: WebSocket): Effect.Effect<WebSocketConnection, n
       send: (data) =>
         Effect.try({
           try: () => {
-          if (socket.readyState !== WebSocket.OPEN) {
-            throw new NetworkError({ operation: 'send', reason: `connection ${id} is not open` })
-          }
-          socket.send(data)
+            if (socket.readyState !== WebSocket.OPEN) {
+              throw new NetworkError({ operation: 'send', reason: `connection ${id} is not open` })
+            }
+            socket.send(data)
           },
           catch: (cause) =>
             cause instanceof NetworkError

@@ -1,13 +1,9 @@
 import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
 import * as THREE from 'three'
-import { Option } from 'effect'
-import {
-  advanceFixedStep,
-  captureCameraPose,
-  decideAdaptiveQuality,
-  hasCameraPoseChanged,
-} from '@ts-minecraft/app/frame/frame-runtime-logic'
+import { captureCameraPose, hasCameraPoseChanged } from '@ts-minecraft/app/frame/frame-camera-pose'
+import { advanceFixedStep } from '@ts-minecraft/app/frame/frame-fixed-step'
+import { decideAdaptiveQuality } from '@ts-minecraft/app/frame/frame-adaptive-quality'
 
 describe('frame-runtime-logic', () => {
   it('returns ticks and remainder for fixed-step accumulation', () => {
@@ -59,7 +55,7 @@ describe('frame-runtime-logic', () => {
       renderDistance: 8,
       fps: 40,
       cooldown: 0,
-    })).toEqual({ nextCooldown: 0, settingsPatch: Option.none() })
+    })).toBe(0)
 
     expect(decideAdaptiveQuality({
       adaptivePerformanceMode: true,
@@ -67,7 +63,7 @@ describe('frame-runtime-logic', () => {
       renderDistance: 8,
       fps: 40,
       cooldown: 0,
-    })).toEqual({ nextCooldown: 20, settingsPatch: Option.some({ graphicsQuality: 'high' }) })
+    })).toEqual({ nextCooldown: 20, settingsPatch: { graphicsQuality: 'high' } })
 
     expect(decideAdaptiveQuality({
       adaptivePerformanceMode: true,
@@ -75,7 +71,7 @@ describe('frame-runtime-logic', () => {
       renderDistance: 8,
       fps: 40,
       cooldown: 0,
-    })).toEqual({ nextCooldown: 20, settingsPatch: Option.some({ renderDistance: 7 }) })
+    })).toEqual({ nextCooldown: 20, settingsPatch: { renderDistance: 7 } })
 
     expect(decideAdaptiveQuality({
       adaptivePerformanceMode: true,
@@ -83,7 +79,7 @@ describe('frame-runtime-logic', () => {
       renderDistance: 8,
       fps: 40,
       cooldown: 3,
-    })).toEqual({ nextCooldown: 2, settingsPatch: Option.none() })
+    })).toBe(2)
 
     expect(decideAdaptiveQuality({
       adaptivePerformanceMode: true,
@@ -91,7 +87,7 @@ describe('frame-runtime-logic', () => {
       renderDistance: 8,
       fps: 120,
       cooldown: 0,
-    })).toEqual({ nextCooldown: 0, settingsPatch: Option.none() })
+    })).toBe(0)
 
     expect(decideAdaptiveQuality({
       adaptivePerformanceMode: true,
@@ -99,7 +95,7 @@ describe('frame-runtime-logic', () => {
       renderDistance: 8,
       fps: 40,
       cooldown: 0,
-    })).toEqual({ nextCooldown: 20, settingsPatch: Option.some({ graphicsQuality: 'low' }) })
+    })).toEqual({ nextCooldown: 20, settingsPatch: { graphicsQuality: 'low' } })
 
     expect(decideAdaptiveQuality({
       adaptivePerformanceMode: true,
@@ -107,7 +103,7 @@ describe('frame-runtime-logic', () => {
       renderDistance: 4,
       fps: 40,
       cooldown: 0,
-    })).toEqual({ nextCooldown: 0, settingsPatch: Option.none() })
+    })).toBe(0)
 
     expect(decideAdaptiveQuality({
       adaptivePerformanceMode: true,
@@ -116,6 +112,6 @@ describe('frame-runtime-logic', () => {
       fps: 40,
       cooldown: 0,
       chunkSyncPending: true,
-    })).toEqual({ nextCooldown: 20, settingsPatch: Option.some({ renderDistance: 7 }) })
+    })).toEqual({ nextCooldown: 20, settingsPatch: { renderDistance: 7 } })
   })
 })

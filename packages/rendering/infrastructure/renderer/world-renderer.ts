@@ -1,4 +1,4 @@
-import { Array as Arr, Effect, HashMap, MutableRef, Option, Ref } from 'effect'
+import { Effect, HashMap, MutableRef, Option, Ref } from 'effect'
 import * as THREE from 'three'
 import { CHUNK_SIZE, CHUNK_HEIGHT, ChunkCacheKey } from '@ts-minecraft/core'
 import { Chunk, type ChunkAABB } from '@ts-minecraft/world'
@@ -31,6 +31,9 @@ import {
 } from './world-renderer-refraction'
 
 export { MAX_CHUNK_UPDATES_PER_FRAME, WORLD_RENDERER_TIME_BUDGET_MS } from './world-renderer-types'
+
+const CHUNK_HALF_SIZE = CHUNK_SIZE * 0.5
+const SHADOW_CULL_DIST_SQ = MAX_SHADOW_HALF_EXTENT * MAX_SHADOW_HALF_EXTENT
 
 export class WorldRendererService extends Effect.Service<WorldRendererService>()(
   '@minecraft/infrastructure/three/WorldRendererService',
@@ -113,7 +116,8 @@ export class WorldRendererService extends Effect.Service<WorldRendererService>()
       const invalidateSceneCaches = (): Effect.Effect<void, never> =>
         Effect.gen(function* () {
           yield* invalidateFrustumCache()
-          yield* Ref.update(sceneVersionRef, (version) => version + 1)
+          const sceneVersion = yield* Ref.get(sceneVersionRef)
+          yield* Ref.set(sceneVersionRef, sceneVersion + 1)
         })
 
       const chunkCtx = { meshesRef, waterMeshesRef, chunkMeshService, sceneService, waterMaterial, invalidateSceneCaches }
@@ -184,17 +188,20 @@ export class WorldRendererService extends Effect.Service<WorldRendererService>()
                 : chunkMaxY < 0 ? 0 : chunkMaxY + 1
               /* c8 ignore end */
 
-              _minVec.set(coord.x * CHUNK_SIZE, 0, coord.z * CHUNK_SIZE)
-              _maxVec.set(coord.x * CHUNK_SIZE + CHUNK_SIZE, maxYBound, coord.z * CHUNK_SIZE + CHUNK_SIZE)
+              const chunkMinX = coord.x * CHUNK_SIZE
+              const chunkMinZ = coord.z * CHUNK_SIZE
+              const chunkMaxX = chunkMinX + CHUNK_SIZE
+              const chunkMaxZ = chunkMinZ + CHUNK_SIZE
+              _minVec.set(chunkMinX, 0, chunkMinZ)
+              _maxVec.set(chunkMaxX, maxYBound, chunkMaxZ)
               _box.set(_minVec, _maxVec)
 
               const visible = _frustum.intersectsBox(_box)
               chunkMeshes.opaque.visible = visible
               // Shadow distance culling: disable castShadow for chunks beyond shadow reach.
               // Shadow map has finite resolution — distant shadows are sub-texel and waste GPU fill.
-              const SHADOW_CULL_DIST_SQ = MAX_SHADOW_HALF_EXTENT * MAX_SHADOW_HALF_EXTENT
-              const dx = coord.x * CHUNK_SIZE + CHUNK_SIZE * 0.5 - camera.position.x
-              const dz = coord.z * CHUNK_SIZE + CHUNK_SIZE * 0.5 - camera.position.z
+              const dx = chunkMinX + CHUNK_HALF_SIZE - cx
+              const dz = chunkMinZ + CHUNK_HALF_SIZE - cz
               chunkMeshes.opaque.castShadow = visible && (dx * dx + dz * dz) < SHADOW_CULL_DIST_SQ
               // Performance boundary: direct _tag check avoids Option.match closure allocation per chunk
               /* c8 ignore start -- water and transparentSolid meshes require chunk generation with water/glass blocks to exercise */
@@ -221,19 +228,13 @@ export class WorldRendererService extends Effect.Service<WorldRendererService>()
                 yield* Effect.sync(() => disposeMesh(m))
               })
             const meshes = yield* Ref.get(meshesRef)
-            yield* Effect.forEach(
-              Arr.fromIterable(HashMap.values(meshes)),
-              (chunkMeshes) => {
-                const waterVal = Option.getOrNull(chunkMeshes.water)
-                const transparentSolidVal = Option.getOrNull(chunkMeshes.transparentSolid)
-                return Effect.gen(function* () {
-                  yield* removeAndDispose(chunkMeshes.opaque)
-                  if (waterVal !== null) yield* removeAndDispose(waterVal)
-                  if (transparentSolidVal !== null) yield* removeAndDispose(transparentSolidVal)
-                })
-              },
-              { concurrency: 1 }
-            )
+            for (const chunkMeshes of HashMap.values(meshes)) {
+              const waterVal = Option.getOrNull(chunkMeshes.water)
+              const transparentSolidVal = Option.getOrNull(chunkMeshes.transparentSolid)
+              yield* removeAndDispose(chunkMeshes.opaque)
+              if (waterVal !== null) yield* removeAndDispose(waterVal)
+              if (transparentSolidVal !== null) yield* removeAndDispose(transparentSolidVal)
+            }
             yield* Ref.set(meshesRef, HashMap.empty())
             yield* Ref.set(waterMeshesRef, [])
             yield* invalidateSceneCaches()
@@ -277,4 +278,3 @@ export class WorldRendererService extends Effect.Service<WorldRendererService>()
     dependencies: [ChunkMeshService.Default, SceneService.Default],
   }
 ) {}
-export const WorldRendererServiceLive = WorldRendererService.Default

@@ -38,9 +38,9 @@ export const buildMenuDOM = (dom: DomOperationsService): MenuDomElements => {
   rootCard.id = 'main-menu-root'
   rootCard.style.cssText = cardStyle
   dom.setInnerHTML(rootCard, `
-    <h1 style="margin:0 0 16px;text-align:center;font-size:28px">ts-minecraft</h1>
-    <button type="button" id="mm-new-world" style="${buttonStyle}">New World</button>
-    <button type="button" id="mm-load-world" style="${buttonStyle}">Load World</button>
+    <h1 style="margin:0 0 16px;text-align:center;font-size:28px;color:#fff;text-shadow:2px 2px #222">ts-minecraft</h1>
+    <button type="button" id="mm-new-world" style="${buttonStyle}">Create New World</button>
+    <button type="button" id="mm-load-world" style="${buttonStyle}">Select World</button>
   `)
 
   // NEW_WORLD card
@@ -59,14 +59,14 @@ export const buildMenuDOM = (dom: DomOperationsService): MenuDomElements => {
     </label>
     <div style="display:flex;gap:8px;margin-top:8px">
       <button type="button" id="mm-nw-cancel" style="${buttonStyle};flex:1">Cancel</button>
-      <button type="button" id="mm-nw-confirm" style="${buttonStyle};flex:1;background:#3a6a3a">Confirm</button>
+      <button type="button" id="mm-nw-confirm" style="${buttonStyle};flex:1">Confirm</button>
     </div>
   `)
 
   // LOAD_WORLD card
   const loadWorldCard = dom.createElement('div') as HTMLDivElement
   loadWorldCard.id = 'main-menu-load-world'
-  loadWorldCard.style.cssText = `${cardStyle};min-width:480px;max-height:80vh;display:none`
+  loadWorldCard.style.cssText = `${cardStyle};width:min(560px,calc(100vw - 32px));max-height:80vh;display:none`
   dom.setInnerHTML(loadWorldCard, `
     <h2 style="margin:0 0 8px;font-size:20px">Load World</h2>
     <div id="mm-lw-list" style="display:flex;flex-direction:column;gap:8px;min-height:60px;flex:1;overflow-y:auto"></div>
@@ -102,7 +102,9 @@ export const buildMenuDOM = (dom: DomOperationsService): MenuDomElements => {
 export const rowBaseStyle = [
   'display:flex', 'align-items:center', 'gap:8px',
   'padding:8px 12px',
-  'background:rgba(255,255,255,0.05)', 'border-radius:4px',
+  'background:#8b8b8b', 'border:2px solid #111',
+  'box-shadow:inset 2px 2px #d8d8d8,inset -2px -2px #3a3a3a',
+  'color:#fff', 'text-shadow:1px 1px #222',
 ].join(';')
 
 export const renderValidRow = (
@@ -127,7 +129,8 @@ export const renderValidRow = (
   info.appendChild(meta)
   const badge = dom.createElement('span')
   badge.style.cssText = [
-    'padding:2px 8px', 'border-radius:12px', 'font-size:11px',
+    'padding:2px 8px', 'border:2px solid #111', 'font-size:11px',
+    'box-shadow:inset 1px 1px rgba(255,255,255,0.45),inset -1px -1px rgba(0,0,0,0.45)',
     metadata.gameMode === 'creative' ? 'background:#3a5a8a' : metadata.gameMode === 'spectator' ? 'background:#5a3a6a' : 'background:#3a6a3a',
   ].join(';')
   badge.textContent = gameModeLabel(metadata.gameMode)
@@ -155,11 +158,11 @@ export const renderCorruptRow = (
   onDelete: () => void,
 ): void => {
   const row = dom.createElement('div')
-  row.style.cssText = `${rowBaseStyle};background:rgba(140,40,40,0.25)`
+  row.style.cssText = `${rowBaseStyle};background:#7a4545`
   const info = dom.createElement('div')
   info.style.cssText = 'flex:1;display:flex;flex-direction:column;gap:2px;min-width:0'
   const name = dom.createElement('div')
-  name.style.cssText = 'font-size:15px;font-weight:bold;color:#f99'
+  name.style.cssText = 'font-size:15px;font-weight:bold;color:#ffd0d0'
   name.textContent = `Corrupt: ${String(worldId)}`
   const meta = dom.createElement('div')
   meta.style.cssText = 'font-size:12px;opacity:0.8'

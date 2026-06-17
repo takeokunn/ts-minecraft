@@ -1,4 +1,4 @@
-import { Array as Arr, Option } from 'effect'
+import { Option } from 'effect'
 import * as THREE from 'three'
 import type { EntityId as EntityIdType } from '@ts-minecraft/entity'
 import type { Position } from '@ts-minecraft/core'
@@ -12,7 +12,7 @@ const scratchCameraDirection = new THREE.Vector3()
 export const findAttackableEntity = (
   entities: ReadonlyArray<{ readonly entityId: EntityIdType; readonly position: Position }>,
   camera: THREE.PerspectiveCamera,
-  maxDistance: Option.Option<number>,
+  maxDistance: number | null,
   maxReach: number = PLAYER_ATTACK_REACH,
 ): Option.Option<EntityIdType> => {
   camera.getWorldDirection(scratchCameraDirection)
@@ -23,33 +23,27 @@ export const findAttackableEntity = (
 
   const rayOrigin = camera.position
   const radiusSq = PLAYER_ATTACK_RADIUS * PLAYER_ATTACK_RADIUS
-  // Hoist out of reduce so the Option unwrap is O(1) per call, not O(n).
-  const maxDistanceVal = Option.getOrNull(maxDistance)
 
-  const closest = Arr.reduce(
-    entities,
-    Option.none<{ readonly id: EntityIdType; readonly dist: number }>(),
-    (acc, entity) => {
-      // Scalar form of (entity - origin) · dir and |entity - origin|² — avoids
-      // allocating a THREE.Vector3 per entity (this fires on every attack click).
-      const ex = entity.position.x - rayOrigin.x
-      const ey = entity.position.y + ENTITY_CENTER_Y_OFFSET - rayOrigin.y
-      const ez = entity.position.z - rayOrigin.z
-      const alongRay = ex * dirX + ey * dirY + ez * dirZ
-      if (alongRay < 0 || alongRay > maxReach) return acc
-      /* c8 ignore next */
-      if (maxDistanceVal !== null && alongRay > maxDistanceVal) return acc
+  let closestId: EntityIdType | null = null
+  let closestDist = Number.POSITIVE_INFINITY
+  for (const entity of entities) {
+    // Scalar form of (entity - origin) dot dir and |entity - origin|^2 avoids
+    // allocating a THREE.Vector3 per entity (this fires on every attack click).
+    const ex = entity.position.x - rayOrigin.x
+    const ey = entity.position.y + ENTITY_CENTER_Y_OFFSET - rayOrigin.y
+    const ez = entity.position.z - rayOrigin.z
+    const alongRay = ex * dirX + ey * dirY + ez * dirZ
+    if (alongRay < 0 || alongRay > maxReach) continue
+    if (maxDistance !== null && alongRay > maxDistance) continue
 
-      const perpendicularSq = Math.max(0, (ex * ex + ey * ey + ez * ez) - alongRay * alongRay)
-      if (perpendicularSq > radiusSq) return acc
+    const perpendicularSq = Math.max(0, (ex * ex + ey * ey + ez * ez) - alongRay * alongRay)
+    if (perpendicularSq > radiusSq) continue
 
-      const accVal = Option.getOrNull(acc)
-      if (accVal === null || alongRay < accVal.dist) {
-        return Option.some({ id: entity.entityId, dist: alongRay })
-      }
-      return acc
-    },
-  )
+    if (alongRay < closestDist) {
+      closestId = entity.entityId
+      closestDist = alongRay
+    }
+  }
 
-  return Option.map(closest, (c) => c.id)
+  return closestId === null ? Option.none() : Option.some(closestId)
 }

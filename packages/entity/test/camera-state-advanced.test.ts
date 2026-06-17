@@ -3,7 +3,6 @@ import { Array as Arr, Effect } from 'effect'
 import { expect } from 'vitest'
 import {
   PlayerCameraStateService,
-  PlayerCameraStateLive,
   PITCH_MIN,
   PITCH_MAX,
   type CameraRotation,
@@ -22,7 +21,7 @@ describe('PlayerCameraStateService', () => {
 
         expect(rotation.yaw).toBe(0)
         expect(rotation.pitch).toBe(0)
-      }).pipe(Effect.provide(PlayerCameraStateLive))
+      }).pipe(Effect.provide(PlayerCameraStateService.Default))
     )
 
     it.effect('should reset mode to first-person', () =>
@@ -34,7 +33,7 @@ describe('PlayerCameraStateService', () => {
         const mode = yield* camera.getMode()
 
         expect(mode).toBe('firstPerson')
-      }).pipe(Effect.provide(PlayerCameraStateLive))
+      }).pipe(Effect.provide(PlayerCameraStateService.Default))
     )
   })
 
@@ -47,7 +46,7 @@ describe('PlayerCameraStateService', () => {
         const mode = yield* camera.getMode()
 
         expect(mode).toBe('thirdPerson')
-      }).pipe(Effect.provide(PlayerCameraStateLive))
+      }).pipe(Effect.provide(PlayerCameraStateService.Default))
     )
 
     it.effect('should toggle back from third-person to first-person', () =>
@@ -59,7 +58,7 @@ describe('PlayerCameraStateService', () => {
         const mode = yield* camera.getMode()
 
         expect(mode).toBe('firstPerson')
-      }).pipe(Effect.provide(PlayerCameraStateLive))
+      }).pipe(Effect.provide(PlayerCameraStateService.Default))
     )
   })
 
@@ -109,7 +108,7 @@ describe('PlayerCameraStateService', () => {
 
         expect(rotation.yaw).toBeCloseTo(0.03)
         expect(rotation.pitch).toBeCloseTo(0.015)
-      }).pipe(Effect.provide(PlayerCameraStateLive))
+      }).pipe(Effect.provide(PlayerCameraStateService.Default))
     )
 
     it.effect('should handle looking straight up and down with clamping', () =>
@@ -123,7 +122,7 @@ describe('PlayerCameraStateService', () => {
         yield* camera.setPitch(-Math.PI / 2)
         const downRotation = yield* camera.getRotation()
         expect(downRotation.pitch).toBeCloseTo(PITCH_MIN)
-      }).pipe(Effect.provide(PlayerCameraStateLive))
+      }).pipe(Effect.provide(PlayerCameraStateService.Default))
     )
 
     it.effect('should handle full 360 degree horizontal rotation', () =>
@@ -135,7 +134,7 @@ describe('PlayerCameraStateService', () => {
         const rotation = yield* camera.getRotation()
 
         expect(rotation.yaw).toBeCloseTo(2 * Math.PI)
-      }).pipe(Effect.provide(PlayerCameraStateLive))
+      }).pipe(Effect.provide(PlayerCameraStateService.Default))
     )
   })
 
@@ -148,7 +147,7 @@ describe('PlayerCameraStateService', () => {
         const rotation = yield* camera.getRotation()
         expect(rotation.yaw).toBeCloseTo(0.03)
         expect(rotation.pitch).toBeCloseTo(0.015)
-      }).pipe(Effect.provide(PlayerCameraStateLive))
+      }).pipe(Effect.provide(PlayerCameraStateService.Default))
     )
 
     it.effect('clamps pitch to [PITCH_MIN, PITCH_MAX] while yaw is unbounded', () =>
@@ -161,7 +160,7 @@ describe('PlayerCameraStateService', () => {
         yield* camera.addYawPitch(0, -Math.PI * 2) // pitch overshoots down
         const down = yield* camera.getRotation()
         expect(down.pitch).toBeCloseTo(PITCH_MIN)
-      }).pipe(Effect.provide(PlayerCameraStateLive))
+      }).pipe(Effect.provide(PlayerCameraStateService.Default))
     )
   })
 })

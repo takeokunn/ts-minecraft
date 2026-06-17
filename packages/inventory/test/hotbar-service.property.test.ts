@@ -4,8 +4,7 @@ import { Array as Arr, Effect, Layer } from 'effect'
 import * as fc from 'effect/FastCheck'
 import { BlockRegistry } from '@ts-minecraft/block'
 import { PlayerInputService } from '@ts-minecraft/entity'
-import { InventoryServiceLive } from '@ts-minecraft/inventory'
-import { HotbarService, HotbarServiceLive, HOTBAR_SIZE } from '@ts-minecraft/inventory'
+import { InventoryService, HotbarService, HOTBAR_SIZE } from '@ts-minecraft/inventory'
 import type { SlotIndex } from '@ts-minecraft/core'
 import { createTestBlockRegistry, createTestInputService } from './hotbar-service-test-utils'
 
@@ -18,9 +17,9 @@ const asSlotIndex = (n: number): SlotIndex => n as SlotIndex
 const createTestLayer = (inputService: ReturnType<typeof createTestInputService>) => {
   const inputLayer = Layer.succeed(PlayerInputService, inputService)
   const blockRegistryLayer = Layer.succeed(BlockRegistry, createTestBlockRegistry())
-  const inventoryLayer = InventoryServiceLive.pipe(Layer.provide(blockRegistryLayer))
+  const inventoryLayer = InventoryService.Default.pipe(Layer.provide(blockRegistryLayer))
 
-  return HotbarServiceLive.pipe(
+  return HotbarService.Default.pipe(
     Layer.provide(inputLayer),
     Layer.provide(inventoryLayer),
   )

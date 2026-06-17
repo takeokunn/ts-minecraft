@@ -1,17 +1,18 @@
 import { describe, it } from '@effect/vitest'
 import { it as plainIt, expect } from 'vitest'
 import { Array as Arr, Effect, Either, Layer, Match, Option } from 'effect'
-import { InventoryService, InventoryServiceLive } from '@ts-minecraft/inventory'
-import { BlockRegistryLive } from '@ts-minecraft/block'
-import { TradingService, TradingServiceLive, TRADE_CURRENCY_BLOCK, TradeFailure, TradeSuccess, TradeOfferId, VillagerProfession } from '@ts-minecraft/entity'
-import { VillageService, VillageServiceLive } from '@ts-minecraft/entity'
+import { InventoryService } from '@ts-minecraft/inventory'
+import { BlockRegistry } from '@ts-minecraft/block'
+import { TradingService, TRADE_CURRENCY_BLOCK, TradeFailure, TradeSuccess, TradeOfferId, VillagerProfession } from '@ts-minecraft/entity'
+import { VillageService } from '@ts-minecraft/entity'
 import { InventoryServicePort } from '../../domain/ports'
 import { InventoryError } from '../../domain/errors'
 import type { InventoryItem } from '@ts-minecraft/core'
+import { expectSome } from '../test-utils'
 import { makeTestTradeOffer } from './test-utils'
 
-const InventoryLayer = InventoryServiceLive.pipe(
-  Layer.provide(BlockRegistryLive),
+const InventoryLayer = InventoryService.Default.pipe(
+  Layer.provide(BlockRegistry.Default),
 )
 
 // Adapter layer: bridges the concrete InventoryService (used for test setup assertions)
@@ -30,11 +31,11 @@ const makeInventoryPortLayer = (base: Layer.Layer<InventoryService>): Layer.Laye
 const InventoryPortLayer = makeInventoryPortLayer(InventoryLayer)
 
 const TradingTestLayer = Layer.mergeAll(
-  VillageServiceLive,
+  VillageService.Default,
   InventoryLayer,
   InventoryPortLayer,
-  TradingServiceLive.pipe(
-    Layer.provide(VillageServiceLive),
+  TradingService.Default.pipe(
+    Layer.provide(VillageService.Default),
     Layer.provide(InventoryPortLayer),
   ),
 )
@@ -60,7 +61,7 @@ describe('trading/trading-service', () => {
         expect.fail('No Farmer villager found')
         return
       }
-      const offers = yield* tradingService.getOffersForVillager(Option.getOrThrow(farmerOpt))
+      const offers = yield* tradingService.getOffersForVillager(expectSome(farmerOpt))
       const offerIds = Arr.map(offers, (offer) => offer.offerId)
 
       expect(offerIds.length).toBeGreaterThan(0)
@@ -81,14 +82,14 @@ describe('trading/trading-service', () => {
         expect.fail('No Farmer villager found')
         return
       }
-      const farmer = Option.getOrThrow(farmerOpt)
+      const farmer = expectSome(farmerOpt)
       const offers = yield* tradingService.getOffersForVillager(farmer)
       const offerOpt = Arr.get(offers, 0)
       if (Option.isNone(offerOpt)) {
         expect.fail('No trade offer found')
         return
       }
-      const offer = Option.getOrThrow(offerOpt)
+      const offer = expectSome(offerOpt)
 
       yield* inventoryService.addBlock(TRADE_CURRENCY_BLOCK, 2)
 
@@ -122,13 +123,13 @@ describe('trading/trading-service', () => {
         expect.fail('No Farmer villager found')
         return
       }
-      const farmer = Option.getOrThrow(farmerOpt)
+      const farmer = expectSome(farmerOpt)
       const updatedFarmerOpt = yield* villageService.addVillagerExperience(farmer.villagerId, 6)
       if (Option.isNone(updatedFarmerOpt)) {
         expect.fail('Farmer villager could not be leveled up for the regression test')
         return
       }
-      const updatedFarmer = Option.getOrThrow(updatedFarmerOpt)
+      const updatedFarmer = expectSome(updatedFarmerOpt)
 
       const offers = yield* tradingService.getOffersForVillager(updatedFarmer)
       const expensiveOfferOpt = Arr.findFirst(offers, (offer) => offer.input.count > 1)
@@ -136,7 +137,7 @@ describe('trading/trading-service', () => {
         expect.fail('No expensive trade offer found')
         return
       }
-      const expensiveOffer = Option.getOrThrow(expensiveOfferOpt)
+      const expensiveOffer = expectSome(expensiveOfferOpt)
 
       yield* inventoryService.addBlock(TRADE_CURRENCY_BLOCK, expensiveOffer.input.count - 1)
 
@@ -180,10 +181,10 @@ describe('trading/trading-service', () => {
     const MockInvPortLayer = Layer.succeed(InventoryServicePort, mockInv)
 
     const TestLayer = Layer.mergeAll(
-      VillageServiceLive,
+      VillageService.Default,
       MockInvPortLayer,
-      TradingServiceLive.pipe(
-        Layer.provide(VillageServiceLive),
+      TradingService.Default.pipe(
+        Layer.provide(VillageService.Default),
         Layer.provide(MockInvPortLayer),
       ),
     )
@@ -199,14 +200,14 @@ describe('trading/trading-service', () => {
         expect.fail('No Farmer villager found')
         return
       }
-      const farmer = Option.getOrThrow(farmerOpt)
+      const farmer = expectSome(farmerOpt)
       const offers = yield* tradingService.getOffersForVillager(farmer)
       const offerOpt = Arr.get(offers, 0)
       if (Option.isNone(offerOpt)) {
         expect.fail('No trade offer found')
         return
       }
-      const offer = Option.getOrThrow(offerOpt)
+      const offer = expectSome(offerOpt)
 
       const result = yield* tradingService.executeTrade(farmer.villagerId, offer.offerId)
 
@@ -231,7 +232,7 @@ describe('trading/trading-service', () => {
         expect.fail('No Farmer villager found')
         return
       }
-      const farmer = Option.getOrThrow(farmerOpt)
+      const farmer = expectSome(farmerOpt)
       // farmer starts at level 1; farmer:sand-bundle requires level 2.
       // findOfferForVillager gates on levelRequired <= level, so the offer is not
       // found and the trade fails with 'offer_not_found' before reaching line 66.
@@ -268,9 +269,9 @@ describe('trading/trading-service', () => {
     const MockInvPortLayer = Layer.succeed(InventoryServicePort, mockInv)
 
     const TestLayer = Layer.mergeAll(
-      VillageServiceLive,
-      TradingServiceLive.pipe(
-        Layer.provide(VillageServiceLive),
+      VillageService.Default,
+      TradingService.Default.pipe(
+        Layer.provide(VillageService.Default),
         Layer.provide(MockInvPortLayer),
       ),
     )
@@ -286,14 +287,14 @@ describe('trading/trading-service', () => {
         expect.fail('No Farmer villager found')
         return
       }
-      const farmer = Option.getOrThrow(farmerOpt)
+      const farmer = expectSome(farmerOpt)
       const offers = yield* tradingService.getOffersForVillager(farmer)
       const offerOpt = Arr.get(offers, 0)
       if (Option.isNone(offerOpt)) {
         expect.fail('No trade offer found')
         return
       }
-      const offer = Option.getOrThrow(offerOpt)
+      const offer = expectSome(offerOpt)
 
       const result = yield* tradingService.executeTrade(farmer.villagerId, offer.offerId)
 
@@ -307,8 +308,8 @@ describe('trading/trading-service', () => {
 
       // The rollback addBlock(input.itemType) must have fired to restore what was removed.
       const rollbackCall = Arr.findFirst(addBlockCalls, (c) => c.itemType === offer.input.itemType)
-      expect(Option.isSome(rollbackCall)).toBe(true)
-      expect(Option.getOrThrow(rollbackCall).count).toBe(offer.input.count)
+      expectSome(rollbackCall)
+      expect(expectSome(rollbackCall).count).toBe(offer.input.count)
     }).pipe(Effect.provide(TestLayer))
   })
 

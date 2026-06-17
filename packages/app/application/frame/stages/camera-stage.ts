@@ -1,6 +1,7 @@
-import { Effect, MutableRef, Ref } from 'effect'
+import { Effect, MutableRef } from 'effect'
 import { logErrors } from '@ts-minecraft/app/frame/error-logging'
-import type { FrameHandlerDeps, FrameHandlerServices, FrameStageRefs } from '@ts-minecraft/app/frame/types'
+import type { FrameHandlerDeps, FrameStageRefs } from '@ts-minecraft/app/frame/types'
+import type { FrameCameraServices } from '@ts-minecraft/app/frame/frame-service-types'
 import { KeyMappings } from '@ts-minecraft/entity'
 import { EYE_LEVEL_OFFSET } from '@ts-minecraft/app/frame-handler.config'
 import { CHUNK_SIZE, CHUNK_HEIGHT } from '@ts-minecraft/core'
@@ -16,7 +17,7 @@ const FOV_LERP = 0.18
 
 export const cameraStage = (
   deps: Pick<FrameHandlerDeps, 'camera' | 'lights'>,
-  services: Pick<FrameHandlerServices, 'inputService' | 'playerCameraState' | 'thirdPersonCamera'>,
+  services: FrameCameraServices,
   refs: Pick<FrameStageRefs, 'lastShadowTargetRef' | 'lastRenderDistanceRef'>,
   inputs: {
     readonly playerPos: Position
@@ -86,9 +87,9 @@ export const cameraStage = (
 
     // Dynamic shadow frustum: tighten bounds to renderDistance for higher texel density.
     // Only update when renderDistance changes (avoids per-frame updateProjectionMatrix).
-    const renderDistanceChanged = yield* Ref.modify(refs.lastRenderDistanceRef, (lastRd): [boolean, number] =>
-      lastRd === inputs.renderDistance ? [false, lastRd] : [true, inputs.renderDistance],
-    )
+    const lastRenderDistance = MutableRef.get(refs.lastRenderDistanceRef)
+    const renderDistanceChanged = lastRenderDistance !== inputs.renderDistance
+    if (renderDistanceChanged) MutableRef.set(refs.lastRenderDistanceRef, inputs.renderDistance)
     if (!renderDistanceChanged) return
     yield* Effect.sync(() => {
       // Dynamic camera far plane: keep Z-buffer precision tight to visible range

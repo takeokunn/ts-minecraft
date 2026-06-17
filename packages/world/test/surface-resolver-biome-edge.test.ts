@@ -32,7 +32,7 @@ describe('resolveSurfaceProfile — biome edge cases', () => {
     expect(profile.surfaceDepth).toBe(1)
   })
 
-  it('OCEAN → defaultProfile regardless of ruggedness', () => {
+  it('OCEAN → sand surface with sand sub-surface', () => {
     const profile = resolveSurfaceProfile({
       ...BASE_PARAMS,
       biome: 'OCEAN',
@@ -41,11 +41,12 @@ describe('resolveSurfaceProfile — biome edge cases', () => {
       hasLakeBasin: false,
       isShore: false,
     })
-    expect(profile.surfaceBlockIndex).toBe(GRASS)
-    expect(profile.surfaceDepth).toBe(3)
+    expect(profile.surfaceBlockIndex).toBe(SAND)
+    expect(profile.subSurfaceBlockIndex).toBe(SAND)
+    expect(profile.surfaceDepth).toBe(2)
   })
 
-  it('BEACH → defaultProfile regardless of ruggedness', () => {
+  it('BEACH → sand surface with sand sub-surface', () => {
     const profile = resolveSurfaceProfile({
       ...BASE_PARAMS,
       biome: 'BEACH',
@@ -54,8 +55,9 @@ describe('resolveSurfaceProfile — biome edge cases', () => {
       hasLakeBasin: false,
       isShore: false,
     })
-    expect(profile.surfaceBlockIndex).toBe(GRASS)
-    expect(profile.surfaceDepth).toBe(3)
+    expect(profile.surfaceBlockIndex).toBe(SAND)
+    expect(profile.subSurfaceBlockIndex).toBe(SAND)
+    expect(profile.surfaceDepth).toBe(2)
   })
 
   it('SNOW with non-alpine, non-ruggedOutcrop → defaultProfile', () => {

@@ -1,9 +1,10 @@
-import { Effect, MutableRef, Option, Ref } from 'effect'
+import { Effect, MutableRef, Option } from 'effect'
 import type * as THREE from 'three'
 import { DEFAULT_PLAYER_ID } from '@ts-minecraft/core'
 import { resolvePreset, type DayNightLights, type ResolvedGraphics } from '@ts-minecraft/game'
 import { FALLBACK_PLAYER_POS } from '@ts-minecraft/app/frame-handler.config'
 import type { FrameHandlerDeps, FrameHandlerServices, FrameStageRefs, ResolvedDeps } from '@ts-minecraft/app/frame/types'
+import type { FrameAudioServices } from '@ts-minecraft/app/frame/frame-service-types'
 import { lightingStage } from '@ts-minecraft/app/frame/stages/lighting-stage'
 import { entityUpdateStage } from '@ts-minecraft/app/frame/stages/entity-update-stage'
 import { chunkSyncStage } from '@ts-minecraft/app/frame/stages/chunk-sync-stage'
@@ -39,29 +40,26 @@ const resolveGraphicsForFrame = (
   graphicsQuality: Parameters<typeof resolvePreset>[0],
   shadowsEnabled: boolean,
   skyEnabled: boolean,
-): Effect.Effect<readonly [ResolvedGraphics, boolean], never> => {
+): readonly [ResolvedGraphics, boolean] => {
   const graphicsCacheKey = GRAPHICS_QUALITY_INDEX[graphicsQuality] * 4 + (shadowsEnabled ? 2 : 0) + (skyEnabled ? 1 : 0)
+  const last = MutableRef.get(refs.lastGraphicsQualityRef)
+  if (last.quality === graphicsCacheKey) return [last.resolved, false]
 
-  return Ref.modify(
-    refs.lastGraphicsQualityRef,
-    (last): [[ResolvedGraphics, boolean], { quality: number; resolved: ResolvedGraphics }] => {
-      if (last.quality === graphicsCacheKey) return [[last.resolved, false], last]
-      const preset = resolvePreset(graphicsQuality)
-      const resolvedWithDebugFlags = shadowsEnabled && skyEnabled
-        ? preset
-        : {
-            ...preset,
-            shadowsEnabled: preset.shadowsEnabled && shadowsEnabled,
-            skyEnabled: preset.skyEnabled && skyEnabled,
-          }
-      const next = { quality: graphicsCacheKey, resolved: resolvedWithDebugFlags }
-      return [[next.resolved, true], next]
-    },
-  )
+  const preset = resolvePreset(graphicsQuality)
+  const resolvedWithDebugFlags = shadowsEnabled && skyEnabled
+    ? preset
+    : {
+        ...preset,
+        shadowsEnabled: preset.shadowsEnabled && shadowsEnabled,
+        skyEnabled: preset.skyEnabled && skyEnabled,
+      }
+  const next = { quality: graphicsCacheKey, resolved: resolvedWithDebugFlags }
+  MutableRef.set(refs.lastGraphicsQualityRef, next)
+  return [next.resolved, true]
 }
 
 const applyAudioSettings = (
-  services: Pick<FrameHandlerServices, 'soundManager' | 'musicManager'>,
+  services: FrameAudioServices,
   refs: Pick<FrameStageRefs, 'lastAudioRef'>,
   settings: {
     readonly audioEnabled: boolean
@@ -104,10 +102,11 @@ export const runFrameStages = (
 ) =>
   Effect.gen(function* () {
     const deltaTime = MutableRef.get(refs.deltaTimeRef)
-    const totalTimeSecs = yield* Ref.updateAndGet(refs.totalTimeSecsRef, (t) => t + deltaTime)
+    const totalTimeSecs = MutableRef.get(refs.totalTimeSecsRef) + deltaTime
+    MutableRef.set(refs.totalTimeSecsRef, totalTimeSecs)
     const currentSettings = yield* services.settingsService.getSettings()
     const debugFlags = yield* services.debugFeatureFlags.getFlags()
-    const [resolvedGraphics, graphicsChanged] = yield* resolveGraphicsForFrame(
+    const [resolvedGraphics, graphicsChanged] = resolveGraphicsForFrame(
       refs,
       currentSettings.graphicsQuality,
       debugFlags['rendering.shadows'],
@@ -141,29 +140,33 @@ export const runFrameStages = (
       const isNight = yield* services.timeService.isNight()
       yield* entityUpdateStage(deps, services, refs, {
         deltaTime,
+        debugFlags,
         playerPos: initialPlayerPos,
         totalTimeSecs,
         isNight,
       })
     }
 
-    const { playerPos } = sessionPaused
-      ? { playerPos: initialPlayerPos }
-      : yield* physicsStage(deps, services, refs, {
-          deltaTime,
-          initialPlayerPos,
-          healthValueElementOrNull: context.resolved.healthValueElementOrNull,
-          healthMaxElementOrNull: context.resolved.healthMaxElementOrNull,
-          hungerValueElementOrNull: context.resolved.hungerValueElementOrNull,
-          hungerMaxElementOrNull: context.resolved.hungerMaxElementOrNull,
-          xpLevelElementOrNull: context.resolved.xpLevelElementOrNull,
-          xpBarElementOrNull: context.resolved.xpBarElementOrNull,
-          xpBarMaxElementOrNull: context.resolved.xpBarMaxElementOrNull,
-          armorValueElementOrNull: context.resolved.armorValueElementOrNull,
-          airElementOrNull: context.resolved.airElementOrNull,
-        })
+    let playerPos = initialPlayerPos
+    if (!sessionPaused) {
+      playerPos = yield* physicsStage(deps, services, refs, {
+        deltaTime,
+        initialPlayerPos,
+        healthValueElementOrNull: context.resolved.healthValueElementOrNull,
+        healthMaxElementOrNull: context.resolved.healthMaxElementOrNull,
+        hungerValueElementOrNull: context.resolved.hungerValueElementOrNull,
+        hungerMaxElementOrNull: context.resolved.hungerMaxElementOrNull,
+        xpLevelElementOrNull: context.resolved.xpLevelElementOrNull,
+        xpBarElementOrNull: context.resolved.xpBarElementOrNull,
+        xpBarMaxElementOrNull: context.resolved.xpBarMaxElementOrNull,
+        armorValueElementOrNull: context.resolved.armorValueElementOrNull,
+        airElementOrNull: context.resolved.airElementOrNull,
+        debugFlags,
+        difficulty: currentSettings.difficulty,
+      })
+    }
 
-    yield* inputStage(deps, services, {
+    yield* inputStage(deps, services, refs, {
       mouseSensitivity: currentSettings.mouseSensitivity,
       dayLengthSeconds: currentSettings.dayLengthSeconds,
       playerPos,
@@ -184,7 +187,7 @@ export const runFrameStages = (
         renderDistance: currentSettings.renderDistance,
         markShadowMapDirty: context.markShadowMapDirty,
       })
-      yield* interactionStage(deps, services, refs)
+      yield* interactionStage(deps, services, refs, { debugFlags })
       yield* refractionPrepassStage(deps, services, refs, { resolvedGraphics, totalTimeSecs, sunIntensity })
     }
 
@@ -194,9 +197,10 @@ export const runFrameStages = (
       pixelRatioChanged,
       markShadowMapDirty: context.markShadowMapDirty,
     })
-    yield* renderStage(deps, services, refs, context.resolved, { resolvedGraphics, sunWorldPos: context.sunWorldPos })
+    yield* renderStage(deps, services, refs, context.resolved, { resolvedGraphics, sunWorldPos: context.sunWorldPos, debugFlags })
     yield* hudStage(deps, services, refs, {
       deltaTime,
+      debugFlags,
       currentSettings,
       fpsElementOrNull: context.resolved.fpsElementOrNull,
       paused: sessionPaused,

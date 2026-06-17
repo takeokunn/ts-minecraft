@@ -1,1 +1,1 @@
-export * from './harness/index'
+export * from './harness'

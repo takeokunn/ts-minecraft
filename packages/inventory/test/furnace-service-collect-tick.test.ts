@@ -1,13 +1,27 @@
 import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
-import { Effect, Either, HashMap, Layer, MutableHashMap, MutableRef, Option } from 'effect'
-import { FurnaceService, FurnaceServiceLive, FurnaceError } from '@ts-minecraft/inventory'
+import { Effect, Either, HashMap, Layer, MutableHashMap, MutableRef, Option, Ref } from 'effect'
+import { FurnaceService, FurnaceError } from '@ts-minecraft/inventory'
 import { RecipeService, InventoryError } from '@ts-minecraft/inventory'
 import { InventoryService } from '@ts-minecraft/inventory'
-import { PlayerService } from '@ts-minecraft/entity'
-import { ChunkManagerService } from '@ts-minecraft/world'
+import { PlayerServicePort, WorldBlockQueryPort } from '@ts-minecraft/world'
 import { RecipeId, DeltaTimeSecs } from '@ts-minecraft/core'
 import type { InventoryItem } from '@ts-minecraft/core'
+import {
+  advanceFurnace,
+  consumeSmeltingIngredients,
+  getAvailableInventoryCounts,
+  getFuelBurnDurationSecs,
+  validateSmeltingPreconditions,
+} from '../application/furnace-service-smelting'
+import {
+  FURNACE_FUEL_BURN_DURATION_SECS,
+  FURNACE_FUEL_ITEMS,
+  SMELTING_XP_ITEMS,
+  SMELTING_XP_PER_ITEM,
+} from '../application/furnace-service.config'
+import { calculateSmeltingXp, getSmeltingXpRate } from '../application/furnace-service-xp'
+import { emptyFurnaceAtPosition, INITIAL_STATE, setFurnaceState } from '../domain/furnace-service-utils'
 import {
   makeChunkManagerService,
   makeFurnaceLayer,
@@ -59,7 +73,7 @@ describe('application/furnace/furnace-service', () => {
       },
     }
 
-    const layer = FurnaceServiceLive.pipe(
+    const layer = FurnaceService.Default.pipe(
       Layer.provide(Layer.succeed(RecipeService, makeRecipeService({
         'raw-iron-to-iron-ingot': {
           station: 'furnace',
@@ -71,8 +85,8 @@ describe('application/furnace/furnace-service', () => {
         removeBlock: customInventory.removeBlock,
         addBlock: customInventory.addBlock,
       }))),
-      Layer.provide(Layer.succeed(PlayerService, makePlayerService({ x: 0, y: 64, z: 0 }))),
-      Layer.provide(Layer.succeed(ChunkManagerService, makeChunkManagerService(makeChunkWithFurnace()))),
+      Layer.provide(Layer.succeed(PlayerServicePort, makePlayerService({ x: 0, y: 64, z: 0 }))),
+      Layer.provide(Layer.succeed(WorldBlockQueryPort, makeChunkManagerService(makeChunkWithFurnace()))),
     )
 
     return Effect.gen(function* () {
@@ -124,7 +138,7 @@ describe('application/furnace/furnace-service', () => {
       },
     }
 
-    const layer = FurnaceServiceLive.pipe(
+    const layer = FurnaceService.Default.pipe(
       Layer.provide(Layer.succeed(RecipeService, makeRecipeService({
         'raw-iron-to-iron-ingot': {
           station: 'furnace',
@@ -136,8 +150,8 @@ describe('application/furnace/furnace-service', () => {
         removeBlock: refundInventory.removeBlock,
         addBlock: refundInventory.addBlock,
       }))),
-      Layer.provide(Layer.succeed(PlayerService, makePlayerService({ x: 0, y: 64, z: 0 }))),
-      Layer.provide(Layer.succeed(ChunkManagerService, makeChunkManagerService(makeChunkWithFurnace()))),
+      Layer.provide(Layer.succeed(PlayerServicePort, makePlayerService({ x: 0, y: 64, z: 0 }))),
+      Layer.provide(Layer.succeed(WorldBlockQueryPort, makeChunkManagerService(makeChunkWithFurnace()))),
     )
 
     return Effect.gen(function* () {
@@ -234,5 +248,241 @@ describe('application/furnace/furnace-service', () => {
         },
       },
     }))),
+  )
+
+  it('returns configured burn duration for every furnace fuel item', () => {
+    for (const fuel of FURNACE_FUEL_ITEMS) {
+      expect(getFuelBurnDurationSecs(fuel)).toBe(FURNACE_FUEL_BURN_DURATION_SECS[fuel])
+      expect(getFuelBurnDurationSecs(fuel)).toBeGreaterThan(0)
+    }
+  })
+
+  it('returns configured XP rate for every smelting XP item', () => {
+    for (const item of SMELTING_XP_ITEMS) {
+      const rate = Option.getOrThrow(getSmeltingXpRate(item))
+      expect(rate).toBe(SMELTING_XP_PER_ITEM[item])
+      expect(rate).toBeGreaterThan(0)
+    }
+  })
+
+  it('calculates whole-number smelting XP at the collection boundary', () => {
+    expect(calculateSmeltingXp({ itemType: 'IRON_INGOT', count: 1 })).toBe(1)
+    expect(calculateSmeltingXp({ itemType: 'IRON_INGOT', count: 3 })).toBe(2)
+    expect(calculateSmeltingXp({ itemType: 'COOKED_PORKCHOP', count: 1 })).toBe(0)
+    expect(calculateSmeltingXp({ itemType: 'IRON_INGOT', count: 0 })).toBe(0)
+  })
+
+  it.effect('getAvailableInventoryCounts ignores empty and non-positive slots', () =>
+    Effect.gen(function* () {
+      const inventoryService = InventoryService.of({
+        _tag: '@minecraft/application/InventoryService' as const,
+        getAllSlots: () => Effect.succeed([
+          Option.none(),
+          Option.some({ itemType: 'STONE' as InventoryItem, count: 0 }),
+          Option.some({ itemType: 'STONE' as InventoryItem, count: -1 }),
+          Option.some({ itemType: 'STONE' as InventoryItem, count: 2 }),
+          Option.some({ itemType: 'DIRT' as InventoryItem, count: 3 }),
+        ]),
+        removeBlock: () => Effect.void,
+        addBlock: () => Effect.void,
+        getSlot: () => Effect.succeed(Option.none()),
+        setSlot: () => Effect.void,
+        damageSlot: () => Effect.void,
+        repairMendingItemsWithXP: (amount) => Effect.succeed(amount),
+        moveStack: () => Effect.void,
+        quickMove: () => Effect.void,
+        getHotbarSlots: () => Effect.succeed([]),
+        clear: () => Effect.void,
+        serialize: () => Effect.succeed([]),
+        deserialize: () => Effect.void,
+      })
+
+      const counts = yield* getAvailableInventoryCounts(inventoryService)
+
+      expect(Option.getOrElse(HashMap.get(counts, 'STONE' as InventoryItem), () => 0)).toBe(2)
+      expect(Option.getOrElse(HashMap.get(counts, 'DIRT' as InventoryItem), () => 0)).toBe(3)
+      expect(Option.isNone(HashMap.get(counts, 'COAL' as InventoryItem))).toBe(true)
+    }),
+  )
+
+  it.effect('validateSmeltingPreconditions reuses existing burn without requiring fuel', () =>
+    Effect.gen(function* () {
+      const position = { x: 0, y: 64, z: 0 }
+      const furnace = {
+        ...emptyFurnaceAtPosition(position),
+        burnRemainingSecs: 3,
+        burnTotalSecs: 80,
+      }
+      const stateRef = yield* Ref.make(setFurnaceState({
+        ...INITIAL_STATE,
+        selectedFurnacePosition: Option.some(position),
+      }, furnace))
+      const recipeService = makeRecipeService({
+        'raw-iron-to-iron-ingot': {
+          station: 'furnace',
+          ingredients: [{ itemType: 'RAW_IRON' as InventoryItem, count: 1 }],
+          output: { itemType: 'IRON_INGOT' as InventoryItem, count: 1 },
+        },
+      })
+      const helpers = {
+        getSelectedFurnacePosition: () => Effect.succeed(Option.some(position)),
+      }
+      const available = HashMap.set(
+        HashMap.empty<InventoryItem, number>(),
+        'RAW_IRON' as InventoryItem,
+        1,
+      )
+
+      const result = yield* validateSmeltingPreconditions(
+        recipeService,
+        helpers,
+        stateRef,
+        RecipeId.make('raw-iron-to-iron-ingot'),
+        available,
+      )
+
+      expect(result.burnRemainingSecs).toBe(3)
+      expect(Option.isNone(result.fuel)).toBe(true)
+    }),
+  )
+
+  it.effect('consumeSmeltingIngredients does not refund fuel when no fuel was consumed', () =>
+    Effect.gen(function* () {
+      const addBlockCalled = MutableRef.make(false)
+      const inventoryService = InventoryService.of({
+        _tag: '@minecraft/application/InventoryService' as const,
+        getAllSlots: () => Effect.succeed([]),
+        removeBlock: () =>
+          Effect.fail(new InventoryError({ operation: 'removeBlock', cause: 'missing input' })),
+        addBlock: () =>
+          Effect.sync(() => {
+            MutableRef.set(addBlockCalled, true)
+          }),
+        getSlot: () => Effect.succeed(Option.none()),
+        setSlot: () => Effect.void,
+        damageSlot: () => Effect.void,
+        repairMendingItemsWithXP: (amount) => Effect.succeed(amount),
+        moveStack: () => Effect.void,
+        quickMove: () => Effect.void,
+        getHotbarSlots: () => Effect.succeed([]),
+        clear: () => Effect.void,
+        serialize: () => Effect.succeed([]),
+        deserialize: () => Effect.void,
+      })
+
+      const result = yield* Effect.either(consumeSmeltingIngredients(
+        inventoryService,
+        { itemType: 'RAW_IRON' as InventoryItem, count: 1 },
+        Option.none(),
+      ))
+
+      expect(Either.isLeft(result)).toBe(true)
+      expect(MutableRef.get(addBlockCalled)).toBe(false)
+    }),
+  )
+
+  it.effect('advanceFurnace stalls when reported fuel cannot be removed', () =>
+    Effect.gen(function* () {
+      const inventoryService = makeInventoryService(
+        MutableHashMap.fromIterable<InventoryItem, number>([['COAL', 1]]),
+        {
+          removeBlock: () =>
+            Effect.fail(new InventoryError({ operation: 'removeBlock', cause: 'fuel already gone' })),
+        },
+      )
+      const recipeService = makeRecipeService({
+        'raw-iron-to-iron-ingot': {
+          station: 'furnace',
+          ingredients: [{ itemType: 'RAW_IRON' as InventoryItem, count: 1 }],
+          output: { itemType: 'IRON_INGOT' as InventoryItem, count: 1 },
+        },
+      })
+      const furnace = {
+        ...emptyFurnaceAtPosition({ x: 0, y: 64, z: 0 }),
+        activeRecipeId: Option.some(RecipeId.make('raw-iron-to-iron-ingot')),
+      }
+
+      const next = yield* advanceFurnace(furnace, recipeService, inventoryService, DeltaTimeSecs.make(1))
+
+      expect(next.progressSecs).toBe(0)
+      expect(next.burnRemainingSecs).toBe(0)
+      expect(Option.isNone(next.fuel)).toBe(true)
+    }),
+  )
+
+  it.effect('advanceFurnace consumes fresh fuel before advancing incomplete progress', () =>
+    Effect.gen(function* () {
+      const inventoryItems = MutableHashMap.fromIterable<InventoryItem, number>([['COAL', 1]])
+      const inventoryService = makeInventoryService(inventoryItems)
+      const recipeService = makeRecipeService({
+        'raw-iron-to-iron-ingot': {
+          station: 'furnace',
+          ingredients: [{ itemType: 'RAW_IRON' as InventoryItem, count: 1 }],
+          output: { itemType: 'IRON_INGOT' as InventoryItem, count: 1 },
+        },
+      })
+      const furnace = {
+        ...emptyFurnaceAtPosition({ x: 0, y: 64, z: 0 }),
+        activeRecipeId: Option.some(RecipeId.make('raw-iron-to-iron-ingot')),
+      }
+
+      const next = yield* advanceFurnace(furnace, recipeService, inventoryService, DeltaTimeSecs.make(0.5))
+
+      expect(next.progressSecs).toBe(0.5)
+      expect(next.burnRemainingSecs).toBe(79.5)
+      expect(next.burnTotalSecs).toBe(80)
+      expect(Option.getOrThrow(next.fuel).itemType).toBe('COAL')
+      expect(Option.getOrElse(MutableHashMap.get(inventoryItems, 'COAL' as InventoryItem), () => 0)).toBe(0)
+    }),
+  )
+
+  it.effect('advanceFurnace preserves incomplete progress without an active fuel item', () =>
+    Effect.gen(function* () {
+      const inventoryService = makeInventoryService(MutableHashMap.empty<InventoryItem, number>())
+      const recipeService = makeRecipeService({
+        'raw-iron-to-iron-ingot': {
+          station: 'furnace',
+          ingredients: [{ itemType: 'RAW_IRON' as InventoryItem, count: 1 }],
+          output: { itemType: 'IRON_INGOT' as InventoryItem, count: 1 },
+        },
+      })
+      const furnace = {
+        ...emptyFurnaceAtPosition({ x: 0, y: 64, z: 0 }),
+        activeRecipeId: Option.some(RecipeId.make('raw-iron-to-iron-ingot')),
+        progressSecs: 1,
+        burnRemainingSecs: 0.5,
+        burnTotalSecs: 80,
+      }
+
+      const next = yield* advanceFurnace(furnace, recipeService, inventoryService, DeltaTimeSecs.make(0.25))
+
+      expect(next.progressSecs).toBe(1.25)
+      expect(next.burnRemainingSecs).toBe(0.25)
+      expect(Option.isNone(next.fuel)).toBe(true)
+    }),
+  )
+
+  it.effect('advanceFurnace waits when no replacement fuel is available', () =>
+    Effect.gen(function* () {
+      const inventoryService = makeInventoryService(MutableHashMap.empty<InventoryItem, number>())
+      const recipeService = makeRecipeService({
+        'raw-iron-to-iron-ingot': {
+          station: 'furnace',
+          ingredients: [{ itemType: 'RAW_IRON' as InventoryItem, count: 1 }],
+          output: { itemType: 'IRON_INGOT' as InventoryItem, count: 1 },
+        },
+      })
+      const furnace = {
+        ...emptyFurnaceAtPosition({ x: 0, y: 64, z: 0 }),
+        activeRecipeId: Option.some(RecipeId.make('raw-iron-to-iron-ingot')),
+        progressSecs: 2,
+      }
+
+      const next = yield* advanceFurnace(furnace, recipeService, inventoryService, DeltaTimeSecs.make(1))
+
+      expect(next.progressSecs).toBe(2)
+      expect(next.burnRemainingSecs).toBe(0)
+      expect(Option.isNone(next.fuel)).toBe(true)
+    }),
   )
 })

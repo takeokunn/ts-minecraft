@@ -1,7 +1,7 @@
 import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
 import { Array as Arr, Effect, Layer, Option } from 'effect'
-import { MainMenuLive, MainMenuService } from '@ts-minecraft/presentation/menu/main-menu'
+import { MainMenuService } from '@ts-minecraft/presentation/menu/main-menu'
 import { ConfirmDialogService } from '@ts-minecraft/presentation/menu/confirm-dialog'
 import { DomOperationsService } from '@ts-minecraft/presentation/hud/crosshair'
 import { StorageService, type WorldMetadata } from '@ts-minecraft/world'
@@ -55,14 +55,14 @@ const stubStorage = {
 
 const StubStorageLayer = Layer.succeed(StorageService, StorageService.of(stubStorage))
 
-const TestLayer = MainMenuLive.pipe(
+const TestLayer = MainMenuService.Default.pipe(
   Layer.provide(StubStorageLayer),
   Layer.provide(StubDomLayer),
   Layer.provide(StubConfirmLayer),
 )
 
 describe('presentation/menu/main-menu', () => {
-  describe('MainMenuLive — layer provision', () => {
+  describe('MainMenuService.Default — layer provision', () => {
     it.scoped('exposes show / hide methods on the service', () =>
       Effect.gen(function* () {
         const menu = yield* MainMenuService

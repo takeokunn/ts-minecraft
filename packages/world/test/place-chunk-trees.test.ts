@@ -1,14 +1,14 @@
 import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
 import { Effect } from 'effect'
-import { CHUNK_SIZE, CHUNK_HEIGHT, blockTypeToIndex } from '@ts-minecraft/core'
+import { CHUNK_SIZE, blockTypeToIndex } from '@ts-minecraft/core'
 import { placeChunkTrees } from '../domain/terrain/generator-pipeline'
 import { TREE_CANOPY_MARGIN } from '../domain/terrain/tree-placer'
 import type { TreeColumnContext } from '../domain/terrain/generator-types'
 import type { BiomeProperties } from '../domain/biome'
+import { makeChunkBlockBuffer } from './chunk-buffer-test-utils'
 
 const WOOD = blockTypeToIndex('WOOD')
-const AIR = blockTypeToIndex('AIR')
 
 const MINIMAL_PROPS: BiomeProperties = {
   surfaceBlock: 'GRASS',
@@ -27,7 +27,7 @@ const makeContext = (overrides: Partial<TreeColumnContext> = {}): TreeColumnCont
   ...overrides,
 })
 
-const makeBlocks = (): Uint8Array => new Uint8Array(CHUNK_SIZE * CHUNK_HEIGHT * CHUNK_SIZE)
+const makeBlocks = (): Uint8Array<ArrayBufferLike> => makeChunkBlockBuffer()
 
 describe('placeChunkTrees', () => {
   it.effect('places wood trunk blocks when context supports trees and treeDensity=1', () =>

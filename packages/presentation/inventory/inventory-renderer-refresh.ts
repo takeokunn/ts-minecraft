@@ -1,6 +1,7 @@
 import { Array as Arr, Option } from 'effect'
 import { HOTBAR_START } from '@ts-minecraft/inventory'
-import type { InventorySlot, Recipe } from '@ts-minecraft/inventory'
+import type { InventoryItem } from '@ts-minecraft/core'
+import type { Recipe } from '@ts-minecraft/inventory'
 import { DomOperationsService } from '@ts-minecraft/presentation/hud/crosshair'
 import { getSlotColor, getSlotImageStyle } from './inventory-renderer-helpers'
 import {
@@ -11,10 +12,15 @@ import {
   SLOT_BORDER_SELECTED, SLOT_BORDER_DEFAULT,
 } from './inventory-renderer.config'
 
+type RenderableSlot = Option.Option<{
+  readonly itemType: InventoryItem
+  readonly count: number
+}>
+
 /* c8 ignore start */
 export const renderSlotElements = (
   slotEls: HTMLDivElement[],
-  allSlots: ReadonlyArray<InventorySlot>,
+  allSlots: ReadonlyArray<RenderableSlot>,
   selectedHotbarIdx: number,
 ): void => {
   Arr.forEach(Arr.zip(slotEls, allSlots), ([el, itemOpt], i) => {

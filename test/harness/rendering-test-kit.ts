@@ -36,7 +36,7 @@ export const makeParticleSystem = () => ({
   spawnBurst: (_x: number, _y: number, _z: number, _u: number, _v: number, _count?: number) => Effect.void,
   update: (_dtSecs: number) => Effect.void,
   getActiveCount: () => Effect.succeed(0),
-}) as unknown as InstanceType<typeof import('@ts-minecraft/rendering/particles/particle-system').ParticleSystemService>
+}) as unknown as InstanceType<typeof import('@ts-minecraft/rendering').ParticleSystemService>
 
 /** Creates a no-op performance HUD fake. */
 export const makePerfHud = () => ({

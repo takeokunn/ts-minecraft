@@ -1,24 +1,17 @@
 import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
-import { Array as Arr } from 'effect'
-import { CHUNK_SIZE, CHUNK_HEIGHT, blockTypeToIndex, blockIndexUnsafe } from '@ts-minecraft/core'
+import { CHUNK_HEIGHT, CHUNK_SIZE, blockTypeToIndex } from '@ts-minecraft/core'
 import {
   LIGHT_LEVEL_MAX,
   createLightBuffer,
   getLightAt,
   computeSkyLight,
 } from '../domain/light'
-
-const makeAirBlocks = (): Uint8Array =>
-  new Uint8Array(CHUNK_SIZE * CHUNK_SIZE * CHUNK_HEIGHT)
-
-const placeBlock = (blocks: Uint8Array, x: number, y: number, z: number, type: string): void => {
-  blocks[blockIndexUnsafe(x, y, z)] = blockTypeToIndex(type as Parameters<typeof blockTypeToIndex>[0])
-}
+import { makeChunkBlocks, setChunkBlock } from './chunk-block-test-utils'
 
 describe('computeSkyLight', () => {
   it('all-AIR chunk: every voxel in every column receives level 15', () => {
-    const blocks = makeAirBlocks()
+    const blocks = makeChunkBlocks()
     const lightGrid = createLightBuffer()
     computeSkyLight(blocks, lightGrid)
     expect(getLightAt(lightGrid, 0, CHUNK_HEIGHT - 1, 0)).toBe(LIGHT_LEVEL_MAX)
@@ -28,8 +21,8 @@ describe('computeSkyLight', () => {
   })
 
   it('single STONE at y=128 in column (8,z=8): above is lit, stone itself is 0', () => {
-    const blocks = makeAirBlocks()
-    placeBlock(blocks, 8, 128, 8, 'STONE')
+    const blocks = makeChunkBlocks()
+    setChunkBlock(blocks, { lx: 8, y: 128, lz: 8, blockType: 'STONE' })
     const lightGrid = createLightBuffer()
     computeSkyLight(blocks, lightGrid)
     expect(getLightAt(lightGrid, 8, 255, 8)).toBe(LIGHT_LEVEL_MAX)
@@ -40,8 +33,10 @@ describe('computeSkyLight', () => {
   })
 
   it('full stone column spanning all y in (8,z=8): below-stone cells receive 0 sky light', () => {
-    const blocks = makeAirBlocks()
-    Arr.forEach(Arr.makeBy(CHUNK_HEIGHT, (y) => y), (y) => placeBlock(blocks, 8, y, 8, 'STONE'))
+    const blocks = makeChunkBlocks()
+    for (let y = 0; y < CHUNK_HEIGHT; y++) {
+      setChunkBlock(blocks, { lx: 8, y, lz: 8, blockType: 'STONE' })
+    }
     const lightGrid = createLightBuffer()
     computeSkyLight(blocks, lightGrid)
     expect(getLightAt(lightGrid, 8, 255, 8)).toBe(0)
@@ -52,8 +47,8 @@ describe('computeSkyLight', () => {
   })
 
   it('adjacent column is unaffected by a stone block in a different column', () => {
-    const blocks = makeAirBlocks()
-    placeBlock(blocks, 8, 128, 8, 'STONE')
+    const blocks = makeChunkBlocks()
+    setChunkBlock(blocks, { lx: 8, y: 128, lz: 8, blockType: 'STONE' })
     const lightGrid = createLightBuffer()
     computeSkyLight(blocks, lightGrid)
     expect(getLightAt(lightGrid, 9, 255, 8)).toBe(LIGHT_LEVEL_MAX)
@@ -62,8 +57,7 @@ describe('computeSkyLight', () => {
   })
 
   it('all-STONE chunk: all sky light stays 0', () => {
-    const blocks = makeAirBlocks()
-    blocks.fill(blockTypeToIndex('STONE'))
+    const blocks = makeChunkBlocks('STONE')
     const lightGrid = createLightBuffer()
     computeSkyLight(blocks, lightGrid)
     expect(getLightAt(lightGrid, 0, 255, 0)).toBe(0)
@@ -76,10 +70,10 @@ describe('computeSkyLight', () => {
     // columns. Sunlight fills the open columns to 15 at every y; under the roof
     // the only light path is horizontal from x=1, so it attenuates 1/block.
     // This is the cave-mouth / overhang lighting case.
-    const blocks = makeAirBlocks()
+    const blocks = makeChunkBlocks()
     for (let z = 0; z < CHUNK_SIZE; z++) {
       for (let x = 2; x < CHUNK_SIZE; x++) {
-        placeBlock(blocks, x, 100, z, 'STONE')
+        setChunkBlock(blocks, { lx: x, y: 100, lz: z, blockType: 'STONE' })
       }
     }
     const lightGrid = createLightBuffer()
@@ -99,8 +93,7 @@ describe('computeSkyLight', () => {
   })
 
   it('computeSkyLight zeroes the grid before computing (stale buffer is reset)', () => {
-    const blocks = makeAirBlocks()
-    blocks.fill(blockTypeToIndex('STONE'))
+    const blocks = makeChunkBlocks('STONE')
     const lightGrid = createLightBuffer()
     lightGrid.fill(0xff)
     computeSkyLight(blocks, lightGrid)

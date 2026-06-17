@@ -1,7 +1,8 @@
 import { describe, expect, it } from '@effect/vitest'
 import { Array as Arr, Effect, Layer, Option } from 'effect'
 import { TimeServicePort } from '../../domain/ports'
-import { HOSTILE_MOBS, PASSIVE_MOBS, SPAWN_INTERVAL_SECS, type EntityId, EntityManager, EntityManagerLive, MobSpawner, MobSpawnerLive } from '@ts-minecraft/entity'
+import { HOSTILE_MOBS, PASSIVE_MOBS, SPAWN_INTERVAL_SECS, type EntityId, EntityManager, MobSpawner } from '@ts-minecraft/entity'
+import { expectSome } from './test-utils'
 
 const makeTimeLayer = (night: boolean) =>
   Layer.succeed(TimeServicePort, TimeServicePort.of({
@@ -11,9 +12,9 @@ const makeTimeLayer = (night: boolean) =>
 
 const makeSpawnerLayer = (night: boolean) =>
   Layer.mergeAll(
-    EntityManagerLive,
-    MobSpawnerLive.pipe(
-      Layer.provide(EntityManagerLive),
+    EntityManager.Default,
+    MobSpawner.Default.pipe(
+      Layer.provide(EntityManager.Default),
       Layer.provide(makeTimeLayer(night)),
     ),
   )
@@ -35,7 +36,7 @@ describe('entity/spawner', () => {
         }
       )
 
-      expect(Option.isSome(state.found)).toBe(true)
+      expectSome(state.found)
 
       const entities = yield* entityManager.getEntities()
       expect(entities.length).toBe(1)
@@ -60,7 +61,7 @@ describe('entity/spawner', () => {
         }
       )
 
-      expect(Option.isSome(state.found)).toBe(true)
+      expectSome(state.found)
 
       const entities = yield* entityManager.getEntities()
       expect(entities.length).toBe(1)
@@ -114,7 +115,7 @@ describe('entity/spawner', () => {
         },
       )
 
-      expect(Option.isSome(state.found)).toBe(true)
+      expectSome(state.found)
 
       const entities = yield* entityManager.getEntities()
       expect(entities).toHaveLength(1)

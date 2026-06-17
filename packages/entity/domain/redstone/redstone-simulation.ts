@@ -1,4 +1,4 @@
-import { Array as Arr, HashMap, MutableHashMap, Option, Order } from 'effect'
+import { HashMap, MutableHashMap, Option } from 'effect'
 import type { HashSet } from 'effect'
 import type { Position } from '@ts-minecraft/core'
 import {
@@ -8,7 +8,7 @@ import {
   type RedstoneTickSnapshot,
 } from './redstone-model'
 import { type PositionKey, toBlockPosition, positionKey, positionFromKey } from './redstone-position-utils'
-import { MAX_REDSTONE_POWER, POSITION_DIRECTIONS } from './redstone.config'
+import { MAX_REDSTONE_POWER } from './redstone.config'
 
 export const normalizeComponentPosition = (component: RedstoneComponent): RedstoneComponent => ({
   ...component,
@@ -33,12 +33,14 @@ export const isPowerSource = (component: RedstoneComponent): boolean =>
   (component.type === RedstoneComponentType.Button && component.state.buttonTicksRemaining > 0) ||
   (component.type === RedstoneComponentType.Torch && component.state.active)
 
-export const neighborsOf = (position: Position): ReadonlyArray<Position> =>
-  Arr.map(POSITION_DIRECTIONS, (delta) => ({
-    x: position.x + delta.x,
-    y: position.y + delta.y,
-    z: position.z + delta.z,
-  }))
+export const neighborsOf = (position: Position): ReadonlyArray<Position> => [
+  { x: position.x + 1, y: position.y, z: position.z },
+  { x: position.x - 1, y: position.y, z: position.z },
+  { x: position.x, y: position.y + 1, z: position.z },
+  { x: position.x, y: position.y - 1, z: position.z },
+  { x: position.x, y: position.y, z: position.z + 1 },
+  { x: position.x, y: position.y, z: position.z - 1 },
+]
 
 export const propagatePower = (
   components: HashMap.HashMap<PositionKey, RedstoneComponent>,
@@ -62,13 +64,14 @@ export const propagatePower = (
     if (current.power <= 1) continue
 
     const position = positionFromKey(current.key)
-    Arr.forEach(neighborsOf(position), (neighbor) => {
-      const neighborKey = positionKey(neighbor)
+    for (const neighborPosition of neighborsOf(position)) {
+      const neighborKey = positionKey(neighborPosition)
       const neighborOpt = HashMap.get(components, neighborKey)
-      if (Option.exists(neighborOpt, (n) => canConduct(n.type))) {
+      const neighborComponent = Option.getOrNull(neighborOpt)
+      if (neighborComponent !== null && canConduct(neighborComponent.type)) {
         queue.push({ key: neighborKey, power: current.power - 1 })
       }
-    })
+    }
   }
 
   return HashMap.fromIterable(powered)
@@ -78,37 +81,85 @@ export const updatePistons = (
   components: HashMap.HashMap<PositionKey, RedstoneComponent>,
   powered: HashMap.HashMap<PositionKey, number>,
   pistonKeys: HashSet.HashSet<PositionKey>,
-): HashMap.HashMap<PositionKey, RedstoneComponent> =>
-  Arr.reduce(Arr.fromIterable(pistonKeys), components, (acc, key) => {
+): HashMap.HashMap<PositionKey, RedstoneComponent> => {
+  let nextComponents = components
+  for (const key of pistonKeys) {
     const component = Option.getOrNull(HashMap.get(components, key))
-    if (!component) return acc
+    if (!component) continue
     const nextExtended = Option.getOrElse(HashMap.get(powered, key), () => 0) > 0
-    return nextExtended === component.state.pistonExtended
-      ? acc
-      : HashMap.set(acc, key, { ...component, state: { ...component.state, pistonExtended: nextExtended } })
-  })
+    if (nextExtended !== component.state.pistonExtended) {
+      nextComponents = HashMap.set(nextComponents, key, {
+        ...component,
+        state: { ...component.state, pistonExtended: nextExtended },
+      })
+    }
+  }
+  return nextComponents
+}
 
 export const decayButtonTimers = (
   components: HashMap.HashMap<PositionKey, RedstoneComponent>,
   buttonKeys: HashSet.HashSet<PositionKey>,
-): HashMap.HashMap<PositionKey, RedstoneComponent> =>
-  Arr.reduce(Arr.fromIterable(buttonKeys), components, (acc, key) => {
+): HashMap.HashMap<PositionKey, RedstoneComponent> => {
+  let nextComponents = components
+  for (const key of buttonKeys) {
     const component = Option.getOrNull(HashMap.get(components, key))
-    if (!component) return acc
+    if (!component) continue
     const nextTicks = Math.max(0, component.state.buttonTicksRemaining - 1)
-    return HashMap.set(acc, key, {
+    nextComponents = HashMap.set(nextComponents, key, {
       ...component,
       state: { ...component.state, buttonTicksRemaining: nextTicks, active: nextTicks > 0 },
     })
-  })
+  }
+  return nextComponents
+}
 
 export const sortedPowerSnapshot = (powerByPosition: HashMap.HashMap<PositionKey, number>): RedstoneTickSnapshot['poweredPositions'] => {
-  const entries: Array<[PositionKey, number]> = Arr.fromIterable(powerByPosition)
-  const sorted = Arr.sort(entries, Order.mapInput(Order.number, (e: readonly [PositionKey, number]) => e[0]))
-  return Arr.map(sorted, ([key, power]) => ({
-    position: positionFromKey(key),
-    power: RedstonePowerLevel.make(power),
-  }))
+  const entries: Array<readonly [PositionKey, number]> = []
+  for (const entry of powerByPosition) {
+    entries.push(entry)
+  }
+  entries.sort((a, b) => a[0] - b[0])
+
+  const poweredPositions: Array<RedstoneTickSnapshot['poweredPositions'][number]> = []
+  for (let i = 0; i < entries.length; i++) {
+    const [key, power] = entries[i]!
+    poweredPositions.push({
+      position: positionFromKey(key),
+      power: RedstonePowerLevel.make(power),
+    })
+  }
+  return poweredPositions
+}
+
+const getButtonComponent = (
+  components: HashMap.HashMap<PositionKey, RedstoneComponent>,
+  key: PositionKey,
+): RedstoneComponent | null => Option.getOrNull(HashMap.get(components, key))
+
+const hasActiveButton = (
+  components: HashMap.HashMap<PositionKey, RedstoneComponent>,
+  buttonKeys: HashSet.HashSet<PositionKey>,
+): boolean => {
+  for (const key of buttonKeys) {
+    const component = getButtonComponent(components, key)
+    if (component !== null && component.state.buttonTicksRemaining > 0) return true
+  }
+  return false
+}
+
+const hasExpiredButtonThatStillHasPower = (
+  components: HashMap.HashMap<PositionKey, RedstoneComponent>,
+  powerByPosition: HashMap.HashMap<PositionKey, number>,
+  buttonKeys: HashSet.HashSet<PositionKey>,
+): boolean => {
+  for (const key of buttonKeys) {
+    const component = getButtonComponent(components, key)
+    if (component !== null && component.state.buttonTicksRemaining === 0 && HashMap.has(powerByPosition, key)) {
+      return true
+    }
+  }
+  return false
 }
 
 /**
@@ -129,20 +180,5 @@ export const computeNeedsPropagation = (
   dirty: boolean,
 ): boolean => {
   if (dirty) return true
-  const buttonKeysArr = Arr.fromIterable(buttonKeys)
-  const anyButtonActive = Arr.some(
-    buttonKeysArr,
-    (key) => {
-      const c = Option.getOrNull(HashMap.get(components, key))
-      return c !== null && c.state.buttonTicksRemaining > 0
-    },
-  )
-  if (anyButtonActive) return true
-  return Arr.some(
-    buttonKeysArr,
-    (key) => {
-      const c = Option.getOrNull(HashMap.get(components, key))
-      return c !== null && c.state.buttonTicksRemaining === 0 && HashMap.has(powerByPosition, key)
-    },
-  )
+  return hasActiveButton(components, buttonKeys) || hasExpiredButtonThatStillHasPower(components, powerByPosition, buttonKeys)
 }

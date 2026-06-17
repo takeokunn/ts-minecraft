@@ -28,7 +28,13 @@ export class CropGrowthService extends Effect.Service<CropGrowthService>()(
         // Advance all tracked crops by one growth stage. Called every CROP_GROWTH_INTERVAL_SECS
         // from frame-maintenance. Ripe crops clamp at CROP_MAX_AGE (no-op after maturity).
         tickAll: (): Effect.Effect<void, never> =>
-          Ref.update(ageMapRef, (m) => HashMap.map(m, advanceCropAge)),
+          Ref.update(ageMapRef, (m) => {
+            let next = HashMap.empty<string, number>()
+            for (const [key, age] of m) {
+              next = HashMap.set(next, key, advanceCropAge(age))
+            }
+            return next
+          }),
 
         // Apply bone meal: advance a single crop by BONE_MEAL_ADVANCE stages (2 — enough to
         // ripen any planted crop in one use, matching vanilla Java Edition behaviour).
@@ -58,5 +64,3 @@ export class CropGrowthService extends Effect.Service<CropGrowthService>()(
     }),
   }
 ) {}
-
-export const CropGrowthServiceLive = CropGrowthService.Default

@@ -1,7 +1,7 @@
 import { describe, it } from '@effect/vitest'
 import { Effect } from 'effect'
 import { expect } from 'vitest'
-import { PlayerService, PlayerServiceLive } from '../application/player-service'
+import { PlayerService } from '../application/player-service'
 import { PlayerId, DEFAULT_PLAYER_ID } from '@ts-minecraft/core'
 import type { Position } from '@ts-minecraft/core'
 
@@ -13,7 +13,7 @@ const withPlayerService = <A>(
   Effect.gen(function* () {
     const ps = yield* PlayerService
     return yield* f(ps)
-  }).pipe(Effect.provide(PlayerServiceLive))
+  }).pipe(Effect.provide(PlayerService.Default))
 
 const P1 = DEFAULT_PLAYER_ID
 const P2 = PlayerId.make('player-2')

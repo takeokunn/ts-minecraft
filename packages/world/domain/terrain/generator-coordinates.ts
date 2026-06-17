@@ -1,4 +1,3 @@
-import { Array as Arr } from 'effect'
 import { blockTypeToIndex, CHUNK_SIZE } from '@ts-minecraft/core'
 import {
   LAKE_NOISE_SCALE,
@@ -25,23 +24,33 @@ const createNumberArray = (length: number): number[] => {
 
 export const createTreeColumnKey = (wx: number, wz: number): string => `${wx},${wz}`
 
-export const createColumnNoiseCoordinates = (baseWorldX: number, baseWorldZ: number): ReadonlyArray<ColumnNoiseCoordinates> =>
-  Arr.flatMap(Arr.makeBy(CHUNK_SIZE, (lx) => lx), (lx) =>
-    Arr.makeBy(CHUNK_SIZE, (lz) => {
-      const x = baseWorldX + lx
+export const createColumnNoiseCoordinates = (baseWorldX: number, baseWorldZ: number): ReadonlyArray<ColumnNoiseCoordinates> => {
+  const coords: ColumnNoiseCoordinates[] = []
+  coords.length = CHUNK_SIZE * CHUNK_SIZE
+  let index = 0
+  for (let lx = 0; lx < CHUNK_SIZE; lx++) {
+    const x = baseWorldX + lx
+    const lakeX = x * LAKE_NOISE_SCALE + 5000
+    const graniteX = x * VARIANT_NOISE_SCALE + GRANITE_OFFSET_X
+    const dioriteX = x * VARIANT_NOISE_SCALE + DIORITE_OFFSET_X
+    const andesiteX = x * VARIANT_NOISE_SCALE + ANDESITE_OFFSET_X
+    for (let lz = 0; lz < CHUNK_SIZE; lz++) {
       const z = baseWorldZ + lz
-      return {
-        lakeX: x * LAKE_NOISE_SCALE + 5000,
+      coords[index] = {
+        lakeX,
         lakeZ: z * LAKE_NOISE_SCALE + 5000,
-        graniteX: x * VARIANT_NOISE_SCALE + GRANITE_OFFSET_X,
+        graniteX,
         graniteZ: z * VARIANT_NOISE_SCALE + GRANITE_OFFSET_Z,
-        dioriteX: x * VARIANT_NOISE_SCALE + DIORITE_OFFSET_X,
+        dioriteX,
         dioriteZ: z * VARIANT_NOISE_SCALE + DIORITE_OFFSET_Z,
-        andesiteX: x * VARIANT_NOISE_SCALE + ANDESITE_OFFSET_X,
+        andesiteX,
         andesiteZ: z * VARIANT_NOISE_SCALE + ANDESITE_OFFSET_Z,
       }
-    })
-  )
+      index++
+    }
+  }
+  return coords
+}
 
 export type ColumnNoiseCoordinateArrays = Readonly<{
   readonly lakeXs: ReadonlyArray<number>
@@ -97,15 +106,24 @@ export const createCaveGridPoints = (baseWorldX: number, baseWorldZ: number): Re
   const caveSZ = Math.floor(CHUNK_SIZE / CAVE_SAMPLE_STRIDE) + 1
   const caveSY = CAVE_SAMPLE_SY_COUNT
 
-  return Arr.flatMap(Arr.makeBy(caveSY, (sy) => sy), (sy) =>
-    Arr.flatMap(Arr.makeBy(caveSZ, (sz) => sz), (sz) =>
-      Arr.makeBy(caveSX, (sx) => ({
-        x: (baseWorldX + sx * CAVE_SAMPLE_STRIDE) * CAVE_NOISE_SCALE,
-        y: sy * CAVE_SAMPLE_STRIDE * CAVE_NOISE_SCALE,
-        z: (baseWorldZ + sz * CAVE_SAMPLE_STRIDE) * CAVE_NOISE_SCALE,
-      }))
-    )
-  )
+  const points: CaveGridPoint[] = []
+  points.length = caveSX * caveSZ * caveSY
+  let index = 0
+  for (let sy = 0; sy < caveSY; sy++) {
+    const y = sy * CAVE_SAMPLE_STRIDE * CAVE_NOISE_SCALE
+    for (let sz = 0; sz < caveSZ; sz++) {
+      const z = (baseWorldZ + sz * CAVE_SAMPLE_STRIDE) * CAVE_NOISE_SCALE
+      for (let sx = 0; sx < caveSX; sx++) {
+        points[index] = {
+          x: (baseWorldX + sx * CAVE_SAMPLE_STRIDE) * CAVE_NOISE_SCALE,
+          y,
+          z,
+        }
+        index++
+      }
+    }
+  }
+  return points
 }
 
 export type CaveGridCoordinateArrays = Readonly<{
@@ -146,6 +164,7 @@ export const createCaveGridCoordinateArrays = (
 export const createBlockIndices = (): BlockIndices => ({
   stoneBlockIndex: blockTypeToIndex('STONE'),
   waterBlockIndex: blockTypeToIndex('WATER'),
+  iceBlockIndex: blockTypeToIndex('ICE'),
   lavaBlockIndex: blockTypeToIndex('LAVA'),
   sandBlockIndex: blockTypeToIndex('SAND'),
   gravelBlockIndex: blockTypeToIndex('GRAVEL'),
@@ -164,6 +183,7 @@ export const supportsTreeAtSurface = (
 ): boolean =>
   surfaceBlock !== blockIndices.airBlockIndex
   && surfaceBlock !== blockIndices.waterBlockIndex
+  && surfaceBlock !== blockIndices.iceBlockIndex
   && surfaceBlock !== blockIndices.sandBlockIndex
   && surfaceBlock !== blockIndices.gravelBlockIndex
   && (surfaceBlock !== blockIndices.stoneBlockIndex || biome === 'MOUNTAINS' || biome === 'SNOW')

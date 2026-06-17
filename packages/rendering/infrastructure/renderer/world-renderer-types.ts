@@ -13,12 +13,13 @@ import type { LodLevel } from '../meshing/lod-simplification'
 // which since R-perf-3 tracks the game loop's 60 fps emission cap (`TARGET_FRAME_RATE`).
 // The frame-budget lockstep tests fail if this drifts from the app-side default.
 const RENDERING_DEFAULT_TARGET_FPS = 60
-const computeMaxChunkUpdatesPerFrame = (fps: number): number => Math.ceil((8 * fps) / 60)
+const computeMaxChunkUpdatesPerFrame = (fps: number): number => Math.max(1, Math.ceil(240 / fps))
 const computeChunkSyncBudgetMs = (fps: number): number => 240 / fps
 
-// Safety cap: time budget is the real throttle; this prevents an infinite loop if one mesh takes 100ms.
-// Only throttles creation — removal of stale chunks is always immediate.
-// Derived from the helper at DEFAULT_TARGET_FPS so the cap scales with the target FPS.
+// Safety cap: the time budget is the real throttle; this prevents an
+// unbounded sync pass if one mesh takes a long time. The 60 FPS cap is lower
+// than the historical 8-chunk value to reduce GPU upload spikes on low-spec
+// machines.
 export const MAX_CHUNK_UPDATES_PER_FRAME = computeMaxChunkUpdatesPerFrame(RENDERING_DEFAULT_TARGET_FPS)
 
 // Per-frame cap on chunk REMOVALS/disposals. geometry.dispose() triggers a

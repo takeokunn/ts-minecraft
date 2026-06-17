@@ -1,41 +1,29 @@
 import { Effect, HashMap, Option, Ref } from 'effect'
-import type { PlayerService } from '@ts-minecraft/entity/application/player-service'
-import { CHUNK_HEIGHT, CHUNK_SIZE, DEFAULT_PLAYER_ID, blockTypeToIndex } from '@ts-minecraft/core'
-import type { ChunkManagerService } from '@ts-minecraft/world/application/chunk-manager-service'
+import { DEFAULT_PLAYER_ID, blockTypeToIndex, type BlockType } from '@ts-minecraft/core'
+import type { PlayerServicePortShape, WorldBlockQueryPortShape } from '@ts-minecraft/world'
 import type { FurnaceBlockState } from '../domain/furnace-state'
 import {
   type FurnaceState,
   emptyFurnaceAtPosition,
   furnaceKey,
-  positiveModulo,
 } from '../domain/furnace-service-utils'
+import type { InventoryService } from './inventory-service'
+import type { FurnaceItemStack } from '../domain/furnace-state'
+import { tryInventoryRollbackTransaction } from './inventory-rollback'
 
 export const makeFurnaceHelpers = (
-  playerService: PlayerService,
-  chunkManagerService: ChunkManagerService,
+  playerService: PlayerServicePortShape,
+  worldBlockQueryPort: WorldBlockQueryPortShape,
   stateRef: Ref.Ref<FurnaceState>,
 ) => {
-  const isFurnaceStillValid = (playerPos: { readonly x: number; readonly y: number; readonly z: number }, position: { readonly x: number; readonly y: number; readonly z: number }): Effect.Effect<boolean, never> =>
+  const isFurnaceStillValid = (playerPos: { readonly x: number; readonly y: number; readonly z: number }, position: { readonly x: number; readonly y: number; readonly z: number }): Effect.Effect<boolean, never, never> =>
     Effect.gen(function* () {
       const dx = position.x - playerPos.x
       const dy = position.y - playerPos.y
       const dz = position.z - playerPos.z
       if (Math.abs(dx) > 5 || Math.abs(dy) > 2 || Math.abs(dz) > 5) return false
-      const y = Math.floor(position.y)
-      if (y < 0 || y >= CHUNK_HEIGHT) return false
-
-      const x = Math.floor(position.x)
-      const z = Math.floor(position.z)
-      const chunkOpt = yield* chunkManagerService.getChunk({
-        x: Math.floor(x / CHUNK_SIZE),
-        z: Math.floor(z / CHUNK_SIZE),
-      }).pipe(Effect.option)
-
-      const lx = positiveModulo(x, CHUNK_SIZE)
-      const lz = positiveModulo(z, CHUNK_SIZE)
-      const index = y + lz * CHUNK_HEIGHT + lx * CHUNK_HEIGHT * CHUNK_SIZE
-      const chunk = Option.getOrNull(chunkOpt)
-      return chunk !== null && chunk.blocks[index] === blockTypeToIndex('FURNACE')
+      const blockIndexOpt = yield* worldBlockQueryPort.getBlockIndexAt(position)
+      return Option.isSome(blockIndexOpt) && blockIndexOpt.value === blockTypeToIndex('FURNACE')
     })
 
   const getSelectedFurnacePosition = (): Effect.Effect<Option.Option<{ readonly x: number; readonly y: number; readonly z: number }>, never> =>
@@ -64,3 +52,18 @@ export const makeFurnaceHelpers = (
     getNearestFurnaceState,
   }
 }
+
+export const tryDismantleFurnaceItems = (
+  inventoryService: Pick<InventoryService, 'serialize' | 'deserialize' | 'addBlock'>,
+  dropped: ReadonlyArray<FurnaceItemStack>,
+): Effect.Effect<boolean, never> =>
+  tryInventoryRollbackTransaction(
+    inventoryService,
+    Effect.forEach(
+      dropped,
+      (item) =>
+        inventoryService.addBlock(item.itemType as BlockType, item.count),
+      { concurrency: 1 },
+    )
+      .pipe(Effect.map(() => undefined)),
+  ).pipe(Effect.map(Option.isNone))

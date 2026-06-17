@@ -35,5 +35,3 @@ export class XPService extends Effect.Service<XPService>()(
     }),
   },
 ) {}
-
-export const XPServiceLive = XPService.Default

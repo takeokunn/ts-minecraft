@@ -1,8 +1,10 @@
-import { Effect, Ref } from 'effect'
+import { Effect, MutableRef } from 'effect'
 import { logErrors } from '@ts-minecraft/app/frame/error-logging'
-import type { FrameHandlerDeps, FrameHandlerServices, FrameStageRefs } from '@ts-minecraft/app/frame/types'
-import { updateDayNightCycle, computeTerrainSunIntensity, applyNetherEnvironment, applyEndEnvironment, type DayNightLights, type Weather } from '@ts-minecraft/game'
+import type { FrameHandlerDeps, FrameStageRefs } from '@ts-minecraft/app/frame/types'
+import type { FrameAudioServices, FrameWorldServices } from '@ts-minecraft/app/frame/frame-service-types'
+import { updateDayNightCycle, computeTerrainSunIntensity, applyNetherEnvironment, applyEndEnvironment, type DayNightLights } from '@ts-minecraft/game'
 import type { DeltaTimeSecs, Position } from '@ts-minecraft/core'
+import type { Weather } from '@ts-minecraft/game'
 
 // Apply a grey-blue tint when it is raining or thundering (overrides the daytime sky).
 const applyRainEnvironment = (lights: DayNightLights, weather: Weather): void => {
@@ -28,7 +30,7 @@ const musicContextScratch: { isNight: boolean; playerPosition: Position } = {
 
 export const lightingStage = (
   deps: Pick<FrameHandlerDeps, 'lights' | 'renderer'>,
-  services: Pick<FrameHandlerServices, 'timeService' | 'musicManager' | 'chunkMeshService' | 'netherService' | 'weatherService'>,
+  services: FrameWorldServices & FrameAudioServices,
   refs: Pick<FrameStageRefs, 'shadowUpdateCounterRef'>,
   inputs: {
     readonly deltaTime: DeltaTimeSecs
@@ -55,7 +57,11 @@ export const lightingStage = (
       ),
     ),
     Effect.flatMap(() =>
-      Ref.updateAndGet(refs.shadowUpdateCounterRef, (n) => (n + 1) % 8),
+      Effect.sync(() => {
+        const shadowFrame = (MutableRef.get(refs.shadowUpdateCounterRef) + 1) & 7
+        MutableRef.set(refs.shadowUpdateCounterRef, shadowFrame)
+        return shadowFrame
+      }),
     ),
     Effect.flatMap((shadowFrame) =>
       shadowFrame === 0 && deps.lights.light.castShadow
@@ -81,7 +87,7 @@ export const lightingStage = (
       // pitch-black night). Now in lockstep with the scene light intensities.
       const sunIntensity = computeTerrainSunIntensity(timeOfDay)
       return logErrors(services.chunkMeshService.setSunIntensity(sunIntensity), 'Sun intensity sync error').pipe(
-        Effect.map(() => ({ timeOfDay, sunIntensity })),
+        Effect.as({ timeOfDay, sunIntensity }),
       )
     }),
   )

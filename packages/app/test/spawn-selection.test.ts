@@ -2,13 +2,19 @@ import { describe, expect, it } from 'vitest'
 import { Option } from 'effect'
 import { CHUNK_HEIGHT, CHUNK_SIZE, blockIndex, blockTypeToIndex } from '@ts-minecraft/core'
 import type { Chunk } from '@ts-minecraft/world/domain/chunk'
-import { selectSurfaceSpawn } from '@ts-minecraft/app/main/spawn-selection'
+import { selectSurfaceSpawn, SpawnSelectionChunkError } from '@ts-minecraft/app/main/spawn-selection'
 
 const AIR = blockTypeToIndex('AIR')
 const DIRT = blockTypeToIndex('DIRT')
 const STONE = blockTypeToIndex('STONE')
 const WATER = blockTypeToIndex('WATER')
 const LEAVES = blockTypeToIndex('LEAVES')
+const SAPLING = blockTypeToIndex('SAPLING')
+const DANDELION = blockTypeToIndex('DANDELION')
+const TALL_GRASS = blockTypeToIndex('TALL_GRASS')
+const SUGAR_CANE = blockTypeToIndex('SUGAR_CANE')
+const CACTUS = blockTypeToIndex('CACTUS')
+const LILY_PAD = blockTypeToIndex('LILY_PAD')
 
 const emptyChunk = (x = 0, z = 0): Chunk => ({
   coord: { x, z },
@@ -41,6 +47,62 @@ describe('selectSurfaceSpawn', () => {
     fillColumn(chunk, 9, 8, 0, 66, STONE)
 
     const spawn = selectSurfaceSpawn([chunk], { x: 8, y: 100, z: 8 })
+
+    expect(spawn.position.x).toBe(9.5)
+    expect(spawn.position.z).toBe(8.5)
+    expect(spawn.position.y).toBe(67.9)
+  })
+
+  it('rejects sapling surfaces and chooses nearby solid dry ground', () => {
+    const chunk = emptyChunk()
+    fillColumn(chunk, 8, 8, 0, 64, DIRT)
+    setBlock(chunk, 8, 65, 8, SAPLING)
+    fillColumn(chunk, 9, 8, 0, 66, STONE)
+
+    const spawn = selectSurfaceSpawn([chunk], { x: 8.5, y: 100, z: 8.5 })
+
+    expect(spawn.position.x).toBe(9.5)
+    expect(spawn.position.z).toBe(8.5)
+    expect(spawn.position.y).toBe(67.9)
+  })
+
+  it('rejects flower surfaces and chooses nearby solid dry ground', () => {
+    const chunk = emptyChunk()
+    fillColumn(chunk, 8, 8, 0, 64, DIRT)
+    setBlock(chunk, 8, 65, 8, DANDELION)
+    fillColumn(chunk, 9, 8, 0, 66, STONE)
+
+    const spawn = selectSurfaceSpawn([chunk], { x: 8.5, y: 100, z: 8.5 })
+
+    expect(spawn.position.x).toBe(9.5)
+    expect(spawn.position.z).toBe(8.5)
+    expect(spawn.position.y).toBe(67.9)
+  })
+
+  it('rejects tall grass surfaces and chooses nearby solid dry ground', () => {
+    const chunk = emptyChunk()
+    fillColumn(chunk, 8, 8, 0, 64, DIRT)
+    setBlock(chunk, 8, 65, 8, TALL_GRASS)
+    fillColumn(chunk, 9, 8, 0, 66, STONE)
+
+    const spawn = selectSurfaceSpawn([chunk], { x: 8.5, y: 100, z: 8.5 })
+
+    expect(spawn.position.x).toBe(9.5)
+    expect(spawn.position.z).toBe(8.5)
+    expect(spawn.position.y).toBe(67.9)
+  })
+
+  it.each([
+    ['sugar cane', SUGAR_CANE],
+    ['cactus', CACTUS],
+    ['lily pad', LILY_PAD],
+  ])('rejects %s surfaces and chooses nearby solid dry ground', (_label, blockType) => {
+    const chunk = emptyChunk()
+    fillColumn(chunk, 8, 8, 0, 64, DIRT)
+    setBlock(chunk, 8, 65, 8, blockType)
+    fillColumn(chunk, 9, 8, 0, 66, STONE)
+
+    const spawn = selectSurfaceSpawn([chunk], { x: 8.5, y: 100, z: 8.5 })
 
     expect(spawn.position.x).toBe(9.5)
     expect(spawn.position.z).toBe(8.5)
@@ -81,6 +143,22 @@ describe('selectSurfaceSpawn', () => {
 
     expect(spawn.position).toEqual({ x: 1, y: 67.9, z: 2 })
     expect(spawn.yaw).toBe(0)
+  })
+
+  it('rejects loaded chunks with truncated block storage instead of treating missing cells as air', () => {
+    const chunk: Chunk = {
+      ...emptyChunk(),
+      blocks: new Uint8Array(CHUNK_SIZE * CHUNK_SIZE * CHUNK_HEIGHT - 1),
+    }
+
+    expect(() => selectSurfaceSpawn([chunk], { x: 1, y: 100, z: 2 })).toThrowError(SpawnSelectionChunkError)
+  })
+
+  it('rejects loaded chunks with sparse block storage instead of treating missing ids as air', () => {
+    const sparseBlocks = { length: CHUNK_SIZE * CHUNK_SIZE * CHUNK_HEIGHT } as ArrayLike<number>
+    const chunk = { ...emptyChunk(), blocks: sparseBlocks } as Chunk
+
+    expect(() => selectSurfaceSpawn([chunk], { x: 1, y: 100, z: 2 })).toThrowError(SpawnSelectionChunkError)
   })
 
   it('rejects enclosed cave-surface positions when an open-surface candidate exists', () => {

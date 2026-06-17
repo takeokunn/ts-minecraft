@@ -1,7 +1,14 @@
 import { HashMap, HashSet, Option } from 'effect'
 import type { Chunk } from '../domain/chunk'
-import { FLUID_BYTE_LENGTH, LAVA_INDEX, WATER_INDEX,
-blockKey, decodeFluidByte, enqueue, positionFromChunk, } from '@ts-minecraft/block'
+import {
+  FLUID_BYTE_LENGTH,
+  LAVA_INDEX,
+  WATER_INDEX,
+  blockKey,
+  blockKeyFromChunkIndex,
+  decodeFluidByte,
+  enqueueKey,
+} from '@ts-minecraft/block'
 import type { FluidCell, FluidKey, FluidState, FluidType } from '@ts-minecraft/block'
 import type { Position } from '@ts-minecraft/core'
 
@@ -30,26 +37,32 @@ export const removeCell = (state: FluidState, position: Position): FluidState =>
 })
 
 export const hydrateChunk = (state: FluidState, chunk: Chunk): FluidState => {
-  const fluid = Option.getOrNull(Option.filter(
-    chunk.fluid,
-    (b) => b.byteLength === FLUID_BYTE_LENGTH && b.some((byte) => byte !== 0)
-  ))
-  if (fluid === null) {
-    return chunk.blocks.reduce((acc: FluidState, blockIdx: number, idx: number): FluidState => {
-      if (blockIdx !== WATER_INDEX && blockIdx !== LAVA_INDEX) return acc
-      const position = positionFromChunk(chunk.coord, idx)
+  const fluid = Option.getOrNull(chunk.fluid)
+  const hasFluid = fluid !== null && fluid.byteLength === FLUID_BYTE_LENGTH && fluid.some((byte) => byte !== 0)
+  let cells = state.cells
+  let frontier = state.frontier
+  let changed = false
+
+  if (!hasFluid) {
+    for (let idx = 0; idx < chunk.blocks.length; idx++) {
+      const blockIdx = chunk.blocks[idx]
+      if (blockIdx !== WATER_INDEX && blockIdx !== LAVA_INDEX) continue
+      const key = blockKeyFromChunkIndex(chunk.coord, idx)
       const type: FluidType = blockIdx === LAVA_INDEX ? 'lava' : 'water'
-      const next = setCell(acc, position, { level: 0, source: true, type })
-      return { ...next, frontier: enqueue(next.frontier, position) }
-    }, state)
+      cells = HashMap.set(cells, key, { level: 0, source: true, type })
+      frontier = enqueueKey(frontier, key)
+      changed = true
+    }
+    return changed ? { ...state, cells, frontier } : state
   }
-  return fluid.reduce((acc: FluidState, byte: number, idx: number): FluidState => {
-    if (byte === 0) return acc
-    const cell = Option.getOrNull(decodeFluidByte(byte))
-    /* c8 ignore next */
-    if (cell === null) return acc
-    const position = positionFromChunk(chunk.coord, idx)
-    const next = setCell(acc, position, cell)
-    return { ...next, frontier: enqueue(next.frontier, position) }
-  }, state)
+
+  for (let idx = 0; idx < fluid.length; idx++) {
+    const byte = fluid[idx]!
+    if (byte === 0) continue
+    const cell = Option.getOrThrow(decodeFluidByte(byte))
+    const key = blockKeyFromChunkIndex(chunk.coord, idx)
+    cells = HashMap.set(cells, key, cell)
+    frontier = enqueueKey(frontier, key)
+  }
+  return { ...state, cells, frontier }
 }

@@ -1,19 +1,22 @@
 import { describe, it } from '@effect/vitest'
 import { expect, vi } from 'vitest'
 import { Array as Arr, Effect, Layer, Option } from 'effect'
-import { BlockService, BlockServiceLive } from '@ts-minecraft/world'
+import { BlockService } from '@ts-minecraft/world'
 import { ChunkManagerService } from '@ts-minecraft/world'
-import { ChunkServiceLive } from '@ts-minecraft/world/application/chunk-service'
+import { ChunkService } from '@ts-minecraft/world/application/chunk-service'
 import { FluidService } from '@ts-minecraft/world'
 import { PlayerService } from '@ts-minecraft/entity'
 import { InventoryService } from '@ts-minecraft/inventory'
 import { HotbarService } from '@ts-minecraft/inventory'
 import { FurnaceService } from '@ts-minecraft/inventory'
-import { CHUNK_SIZE, CHUNK_HEIGHT, blockTypeToIndex, SlotIndex } from '@ts-minecraft/core'
+import { ChestService } from '@ts-minecraft/inventory'
+import { blockTypeToIndex, SlotIndex } from '@ts-minecraft/core'
 import type { BlockType } from '@ts-minecraft/core'
+import { createMockChestService } from './block-service-test-utils'
+import { makeChunkBlockBuffer } from './chunk-buffer-test-utils'
 
 const makeBlocks = (overrides: Array<{ idx: number; type: BlockType }> = []): Uint8Array<ArrayBufferLike> => {
-  const blocks = new Uint8Array(CHUNK_SIZE * CHUNK_SIZE * CHUNK_HEIGHT)
+  const blocks = makeChunkBlockBuffer()
   Arr.forEach(overrides, ({ idx, type }) => { blocks[idx] = blockTypeToIndex(type) })
   return blocks
 }
@@ -69,6 +72,9 @@ const makeFurnaceLayer = () =>
     tick: () => Effect.void,
   } as unknown as FurnaceService)
 
+const makeChestLayer = () =>
+  Layer.succeed(ChestService, createMockChestService())
+
 // ---------------------------------------------------------------------------
 // SILK_TOUCH drop override
 // ---------------------------------------------------------------------------
@@ -89,14 +95,15 @@ describe('BlockService.breakBlock — SILK_TOUCH', () => {
       damageSlot: () => Effect.void,
       canMerge: () => false,
     } as unknown as InventoryService)
-    const layer = BlockServiceLive.pipe(
+    const layer = BlockService.Default.pipe(
       Layer.provide(makeChunkManagerLayer(chunk)),
-      Layer.provide(ChunkServiceLive),
+      Layer.provide(ChunkService.Default),
       Layer.provide(noopFluidService),
       Layer.provide(makePlayerLayer()),
       Layer.provide(inventoryLayer),
       Layer.provide(makeHotbarLayer(Option.some('DIAMOND_PICKAXE' as BlockType))),
       Layer.provide(makeFurnaceLayer()),
+      Layer.provide(makeChestLayer()),
     )
     return Effect.gen(function* () {
       const svc = yield* BlockService
@@ -121,14 +128,15 @@ describe('BlockService.breakBlock — SILK_TOUCH', () => {
       damageSlot: () => Effect.void,
       canMerge: () => false,
     } as unknown as InventoryService)
-    const layer = BlockServiceLive.pipe(
+    const layer = BlockService.Default.pipe(
       Layer.provide(makeChunkManagerLayer(chunk)),
-      Layer.provide(ChunkServiceLive),
+      Layer.provide(ChunkService.Default),
       Layer.provide(noopFluidService),
       Layer.provide(makePlayerLayer()),
       Layer.provide(inventoryLayer),
       Layer.provide(makeHotbarLayer(Option.some('DIAMOND_PICKAXE' as BlockType))),
       Layer.provide(makeFurnaceLayer()),
+      Layer.provide(makeChestLayer()),
     )
     return Effect.gen(function* () {
       const svc = yield* BlockService

@@ -2,8 +2,9 @@ import { describe, it, describe as effectDescribe, it as effectIt } from '@effec
 import { expect } from 'vitest'
 import { resolveFishingCatch, resolveFishingWaitSecs } from '../domain/fishing'
 import { FISHING_MIN_WAIT_SECS, FISHING_MAX_WAIT_SECS } from '../domain/fishing.config'
-import { Effect, Option } from 'effect'
-import { FishingService, FishingServiceLive } from '../application/fishing-service'
+import { Effect } from 'effect'
+import { FishingService } from '../application/fishing-service'
+import { expectSome } from './test-utils'
 
 describe('domain/fishing', () => {
   describe('resolveFishingWaitSecs', () => {
@@ -56,6 +57,12 @@ describe('domain/fishing', () => {
       expect(resolveFishingCatch(7)).toBe(resolveFishingCatch(7))
     })
 
+    it('resolves the final weighted bucket in each catch category', () => {
+      expect(resolveFishingCatch(9500)).toBe('PUFFERFISH')
+      expect(resolveFishingCatch(8060)).toBe('IRON_INGOT')
+      expect(resolveFishingCatch(9065)).toBe('COAL')
+    })
+
     it('LUCK_OF_THE_SEA III increases treasure frequency over many trials', () => {
       const TREASURE_ITEMS = new Set(['BOW', 'FISHING_ROD', 'EMERALD', 'DIAMOND', 'GOLD_INGOT', 'IRON_INGOT'])
       const TRIALS = 500
@@ -71,7 +78,7 @@ describe('domain/fishing', () => {
 })
 
 effectDescribe('application/fishing-service', () => {
-  const testLayer = FishingServiceLive
+  const testLayer = FishingService.Default
 
   effectIt.effect('starts idle — isFishing returns false', () =>
     Effect.gen(function* () {
@@ -115,7 +122,7 @@ effectDescribe('application/fishing-service', () => {
       yield* svc.cast(42)
       // Advance 40 seconds — always past the maximum wait
       const result = yield* svc.tick(40)
-      expect(Option.isSome(result)).toBe(true)
+      expectSome(result)
       // After catching, fishing resets to idle
       expect(yield* svc.isFishing()).toBe(false)
     }).pipe(Effect.provide(testLayer))

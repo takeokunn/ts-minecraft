@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { HashSet, Schema } from 'effect'
 import { BlockTypeSchema, ItemTypeSchema } from '@ts-minecraft/core'
-import { getInventoryDropForBlock, rollLeafDrops, LEAF_APPLE_DROP_CHANCE, LEAF_STICK_DROP_CHANCE, NON_PLACEABLE_ITEM_TYPES } from '../application/block-service.config'
+import { getBlockDropCount, getInventoryDropForBlock, rollLeafDrops, LEAF_APPLE_DROP_CHANCE, LEAF_STICK_DROP_CHANCE, LEAF_SAPLING_DROP_CHANCE, GRASS_SEED_DROP_CHANCE, isGrassSeedDropBlock, rollGrassSeedDrop, NON_PLACEABLE_ITEM_TYPES } from '../application/block-service.config'
 
 describe('getInventoryDropForBlock — vanilla drop correctness', () => {
   it('GRASS drops DIRT (not GRASS)', () => {
@@ -39,6 +39,35 @@ describe('getInventoryDropForBlock — vanilla drop correctness', () => {
   it('GRAVEL drops FLINT (R65)', () => {
     expect(getInventoryDropForBlock('GRAVEL')).toBe('FLINT')
   })
+
+  it('DOOR_OPEN drops the closed DOOR item', () => {
+    expect(getInventoryDropForBlock('DOOR_OPEN')).toBe('DOOR')
+  })
+
+  it('GLOWSTONE drops four GLOWSTONE_DUST items', () => {
+    expect(getInventoryDropForBlock('GLOWSTONE')).toBe('GLOWSTONE_DUST')
+    expect(getBlockDropCount('GLOWSTONE')).toBe(4)
+  })
+
+  it('COBWEB drops STRING', () => {
+    expect(getInventoryDropForBlock('COBWEB')).toBe('STRING')
+  })
+
+  it('SAPLING drops itself (no override)', () => {
+    expect(getInventoryDropForBlock('SAPLING')).toBe('SAPLING')
+  })
+
+  it.each(['DANDELION', 'POPPY', 'BROWN_MUSHROOM', 'RED_MUSHROOM'] as const)(
+    '%s drops itself (no override)',
+    (blockType) => {
+      expect(getInventoryDropForBlock(blockType)).toBe(blockType)
+    },
+  )
+
+  it('SNOW drops four SNOWBALL items', () => {
+    expect(getInventoryDropForBlock('SNOW')).toBe('SNOWBALL')
+    expect(getBlockDropCount('SNOW')).toBe(4)
+  })
 })
 
 // R69: leaf bonus drops — the only survival source of APPLE.
@@ -47,6 +76,7 @@ describe('rollLeafDrops — vanilla oak leaf bonus drops', () => {
     const drops = rollLeafDrops(LEAF_APPLE_DROP_CHANCE - 0.0001, 1)
     expect(drops.apple).toBe(1)
     expect(drops.sticks).toBe(0)
+    expect(drops.saplings).toBe(0)
   })
 
   it('drops no apple when the roll is at or above the apple chance', () => {
@@ -58,21 +88,57 @@ describe('rollLeafDrops — vanilla oak leaf bonus drops', () => {
     const drops = rollLeafDrops(1, LEAF_STICK_DROP_CHANCE - 0.0001)
     expect(drops.sticks).toBe(1)
     expect(drops.apple).toBe(0)
+    expect(drops.saplings).toBe(0)
   })
 
   it('drops no sticks when the stick roll is at or above the stick chance', () => {
     expect(rollLeafDrops(1, LEAF_STICK_DROP_CHANCE).sticks).toBe(0)
   })
 
-  it('can drop both apple and sticks when both rolls succeed', () => {
-    const drops = rollLeafDrops(0, 0)
-    expect(drops.apple).toBe(1)
-    expect(drops.sticks).toBe(1)
+  it('drops saplings when the sapling roll is below the sapling chance (5%)', () => {
+    const drops = rollLeafDrops(1, 1, LEAF_SAPLING_DROP_CHANCE - 0.0001)
+    expect(drops.saplings).toBe(1)
+    expect(drops.apple).toBe(0)
+    expect(drops.sticks).toBe(0)
   })
 
-  it('vanilla rates: apple 1/200 = 0.005, stick 2% = 0.02', () => {
+  it('drops no saplings when the sapling roll is at or above the sapling chance', () => {
+    expect(rollLeafDrops(1, 1, LEAF_SAPLING_DROP_CHANCE).saplings).toBe(0)
+  })
+
+  it('can drop apple, sticks, and sapling when all rolls succeed', () => {
+    const drops = rollLeafDrops(0, 0, 0)
+    expect(drops.apple).toBe(1)
+    expect(drops.sticks).toBe(1)
+    expect(drops.saplings).toBe(1)
+  })
+
+  it('vanilla-style rates: apple 1/200 = 0.005, stick 2% = 0.02, sapling 5% = 0.05', () => {
     expect(LEAF_APPLE_DROP_CHANCE).toBe(0.005)
     expect(LEAF_STICK_DROP_CHANCE).toBe(0.02)
+    expect(LEAF_SAPLING_DROP_CHANCE).toBe(0.05)
+  })
+})
+
+describe('rollGrassSeedDrop — tall grass/fern wheat seed drop', () => {
+  it('identifies tall grass and fern as seed-drop plants', () => {
+    expect(isGrassSeedDropBlock('TALL_GRASS')).toBe(true)
+    expect(isGrassSeedDropBlock('FERN')).toBe(true)
+    expect(isGrassSeedDropBlock('DANDELION')).toBe(false)
+  })
+
+  it('drops one seed when the roll is below 1/8', () => {
+    expect(rollGrassSeedDrop(GRASS_SEED_DROP_CHANCE - 0.0001)).toBe(1)
+    expect(rollGrassSeedDrop(0)).toBe(1)
+  })
+
+  it('drops no seed when the roll is at or above 1/8', () => {
+    expect(rollGrassSeedDrop(GRASS_SEED_DROP_CHANCE)).toBe(0)
+    expect(rollGrassSeedDrop(0.5)).toBe(0)
+  })
+
+  it('uses the vanilla 1/8 chance', () => {
+    expect(GRASS_SEED_DROP_CHANCE).toBe(0.125)
   })
 })
 

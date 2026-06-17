@@ -21,6 +21,37 @@ if (typeof globalThis.window === 'undefined') {
   })
 }
 
+const mockCanvasContext = {
+  clearRect: vi.fn(),
+  save: vi.fn(),
+  restore: vi.fn(),
+  strokeText: vi.fn(),
+  fillText: vi.fn(),
+  font: '',
+  textAlign: 'start',
+  textBaseline: 'alphabetic',
+  lineWidth: 1,
+  strokeStyle: '',
+  fillStyle: '',
+}
+
+const mockCanvas = {
+  width: 0,
+  height: 0,
+  getContext: vi.fn(() => mockCanvasContext),
+}
+
+Object.defineProperty(globalThis, 'document', {
+  value: {
+    createElement: vi.fn((tagName: string) => {
+      if (tagName === 'canvas') return mockCanvas
+      return {}
+    }),
+  },
+  configurable: true,
+  writable: true,
+})
+
 // ---------------------------------------------------------------------------
 // THREE.js mock — must be at top level, before any imports that touch 'three'
 // ---------------------------------------------------------------------------
@@ -31,20 +62,26 @@ vi.mock('three', () => {
   class MockMeshBasicMaterial {
     private currentHex = 0
     readonly transparent: boolean
-    readonly opacity: number
+    opacity: number
+    map: unknown
+    needsUpdate = false
+    readonly side: unknown
+    readonly dispose = vi.fn()
     readonly color = {
       setHex: vi.fn((hex: number) => { this.currentHex = hex }),
       getHex: vi.fn(() => this.currentHex),
     }
 
-    constructor(options: { color?: number; transparent?: boolean; opacity?: number } = {}) {
+    constructor(options: { color?: number; transparent?: boolean; opacity?: number; map?: unknown; side?: unknown } = {}) {
       this.currentHex = options.color ?? 0
       this.transparent = options.transparent ?? false
       this.opacity = options.opacity ?? 1
+      this.map = options.map ?? null
+      this.side = options.side ?? null
     }
   }
 
-  const makeMesh = (material?: MockMeshBasicMaterial) => ({
+  const makeMesh = (geometry?: unknown, material?: MockMeshBasicMaterial) => ({
     position: {
       x: 0, y: 0, z: 0,
       set: vi.fn(function (this: { x: number; y: number; z: number }, x: number, y: number, z: number) {
@@ -55,21 +92,21 @@ vi.mock('three', () => {
       _val: 1,
       setScalar: vi.fn(function (this: { _val: number }, v: number) { this._val = v }),
     },
-    material: material ?? new MockMeshBasicMaterial(),
-    geometry: {
-      attributes: {
-        uv: {
-          setXY: vi.fn(),
-          needsUpdate: false,
-        },
-      },
+    rotation: {
+      x: 0, y: 0, z: 0,
+      set: vi.fn(function (this: { x: number; y: number; z: number }, x: number, y: number, z: number) {
+        this.x = x; this.y = y; this.z = z
+      }),
     },
+    material: material ?? new MockMeshBasicMaterial(),
+    geometry: geometry ?? makeGeometry(),
     visible: false,
   })
 
   const makeCamera = () => ({
     position: { x: 0, y: 0, z: 0 },
     left: 0, right: 0, top: 0, bottom: 0,
+    aspect: 1,
     updateProjectionMatrix: vi.fn(),
   })
 
@@ -78,19 +115,51 @@ vi.mock('three', () => {
     remove: vi.fn(),
   })
 
-  const makeGeometry = () => ({})
+  const makeGroup = () => ({
+    position: {
+      x: 0, y: 0, z: 0,
+      set: vi.fn(function (this: { x: number; y: number; z: number }, x: number, y: number, z: number) {
+        this.x = x; this.y = y; this.z = z
+      }),
+    },
+    rotation: {
+      x: 0, y: 0, z: 0,
+      set: vi.fn(function (this: { x: number; y: number; z: number }, x: number, y: number, z: number) {
+        this.x = x; this.y = y; this.z = z
+      }),
+    },
+    visible: true,
+    add: vi.fn(),
+    remove: vi.fn(),
+  })
+
+  const makeGeometry = (uvCount = 4) => ({
+    attributes: {
+      uv: {
+        count: uvCount,
+        setXY: vi.fn(),
+        needsUpdate: false,
+      },
+    },
+    dispose: vi.fn(),
+  })
 
   return {
     Scene: vi.fn(() => makeScene()),
     OrthographicCamera: vi.fn(() => makeCamera()),
-    PlaneGeometry: vi.fn(() => makeGeometry()),
+    PerspectiveCamera: vi.fn(() => makeCamera()),
+    PlaneGeometry: vi.fn(() => makeGeometry(4)),
+    BoxGeometry: vi.fn(() => makeGeometry(24)),
+    Group: vi.fn(() => makeGroup()),
     MeshBasicMaterial: MockMeshBasicMaterial,
-    Mesh: vi.fn((_geo: unknown, material?: MockMeshBasicMaterial) => makeMesh(material)),
+    Mesh: vi.fn((geo: unknown, material?: MockMeshBasicMaterial) => makeMesh(geo, material)),
+    CanvasTexture: vi.fn((image: unknown) => ({ image, needsUpdate: false })),
     WebGLRenderer: vi.fn(() => ({
       clearDepth: vi.fn(),
       render: vi.fn(),
       setSize: vi.fn(),
     })),
+    DoubleSide: 'DoubleSide',
     // Stubs needed by transient world-renderer-refraction.ts module-level allocations
     Matrix4: vi.fn(() => ({ multiplyMatrices: vi.fn(), elements: Array.from({ length: 16 }, () => 0) })),
     Vector4: vi.fn(() => ({ set: vi.fn(), applyMatrix4: vi.fn(), x: 0, y: 0, z: 0, w: 1 })),
@@ -101,9 +170,9 @@ vi.mock('three', () => {
 // Import the service under test and dependencies *after* the mock declaration
 // ---------------------------------------------------------------------------
 import * as THREE from 'three'
-import { HotbarRendererService, HotbarRendererLive } from '@ts-minecraft/presentation/hud/hotbar-three'
+import { HotbarRendererService } from '@ts-minecraft/presentation/hud/hotbar-three'
 import { RendererService, TextureService } from '@ts-minecraft/rendering'
-import type { BlockType } from '@ts-minecraft/core'
+import type { BlockType, InventoryItem } from '@ts-minecraft/core'
 import { SlotIndex } from '@ts-minecraft/core'
 
 // ---------------------------------------------------------------------------
@@ -130,7 +199,7 @@ const createMockTextureService = () =>
 const buildTestLayer = (rendererService: RendererService = createMockRendererService()) => {
   const MockRendererLayer = Layer.succeed(RendererService, rendererService)
   const MockTextureLayer = Layer.succeed(TextureService, createMockTextureService())
-  return HotbarRendererLive.pipe(
+  return HotbarRendererService.Default.pipe(
     Layer.provide(MockRendererLayer),
     Layer.provide(MockTextureLayer),
   )
@@ -138,7 +207,7 @@ const buildTestLayer = (rendererService: RendererService = createMockRendererSer
 
 type MockedMaterial = {
   readonly transparent: boolean
-  readonly opacity: number
+  opacity: number
   readonly color: { readonly getHex: () => number }
 }
 
@@ -322,6 +391,117 @@ describe('HotbarRendererService', () => {
         expect(afterCount).toBe(beforeCount)
       }).pipe(Effect.provide(TestLayer))
     })
+
+
+    it.scoped('should skip icon material updates when only selection changes', () => {
+      vi.clearAllMocks()
+      const TestLayer = buildTestLayer()
+
+      const slots: ReadonlyArray<Option.Option<BlockType>> = [
+        Option.some('GRASS' as BlockType),
+        Option.some('STONE' as BlockType),
+        ...Arr.makeBy(7, () => Option.none<BlockType>()),
+      ]
+
+      return Effect.gen(function* () {
+        const renderer = yield* HotbarRendererService
+        yield* renderer.initialize(800, 600)
+        yield* renderer.update(slots, SlotIndex.make(0))
+
+        const meshCalls = vi.mocked(THREE.Mesh).mock.calls
+        const firstSlotMesh = meshCalls[1]?.[0] ? vi.mocked(THREE.Mesh).mock.results[1]?.value : null
+        const secondSlotMesh = meshCalls[2]?.[0] ? vi.mocked(THREE.Mesh).mock.results[2]?.value : null
+        const firstUvSetXY = firstSlotMesh?.geometry?.attributes?.uv?.setXY
+        const secondUvSetXY = secondSlotMesh?.geometry?.attributes?.uv?.setXY
+        const beforeFirstCount = firstUvSetXY?.mock?.calls?.length ?? 0
+        const beforeSecondCount = secondUvSetXY?.mock?.calls?.length ?? 0
+
+        yield* renderer.update(slots, SlotIndex.make(1))
+
+        expect(firstUvSetXY?.mock?.calls?.length ?? 0).toBe(beforeFirstCount)
+        expect(secondUvSetXY?.mock?.calls?.length ?? 0).toBe(beforeSecondCount)
+      }).pipe(Effect.provide(TestLayer))
+    })
+
+    it.scoped('shows the selected item name when the selected slot changes', () => {
+      vi.clearAllMocks()
+      const TestLayer = buildTestLayer()
+      const slots: ReadonlyArray<Option.Option<BlockType>> = [
+        Option.some('GRASS' as BlockType),
+        Option.some('DIRT' as BlockType),
+        ...Arr.makeBy(7, () => Option.none<BlockType>()),
+      ]
+
+      return Effect.gen(function* () {
+        const renderer = yield* HotbarRendererService
+        yield* renderer.initialize(800, 600)
+        yield* renderer.update(slots, SlotIndex.make(0))
+        yield* renderer.update(slots, SlotIndex.make(1))
+
+        const labelMesh = vi.mocked(THREE.Mesh).mock.results[10]?.value as { visible: boolean; material: MockedMaterial } | undefined
+        expect(labelMesh?.visible).toBe(true)
+        expect(labelMesh?.material.opacity).toBe(1)
+        expect(mockCanvasContext.fillText).toHaveBeenCalledWith('Dirt', 360, 48)
+      }).pipe(Effect.provide(TestLayer))
+    })
+
+    it.scoped('hides the selected item name label for an empty selected slot', () => {
+      vi.clearAllMocks()
+      const TestLayer = buildTestLayer()
+      const slots: ReadonlyArray<Option.Option<BlockType>> = [
+        Option.some('GRASS' as BlockType),
+        ...Arr.makeBy(8, () => Option.none<BlockType>()),
+      ]
+
+      return Effect.gen(function* () {
+        const renderer = yield* HotbarRendererService
+        yield* renderer.initialize(800, 600)
+        yield* renderer.update(slots, SlotIndex.make(0))
+        yield* renderer.update(slots, SlotIndex.make(1))
+
+        const labelMesh = vi.mocked(THREE.Mesh).mock.results[10]?.value as { visible: boolean; material: MockedMaterial } | undefined
+        expect(labelMesh?.visible).toBe(false)
+        expect(labelMesh?.material.opacity).toBe(0)
+        expect(mockCanvasContext.fillText).not.toHaveBeenCalled()
+      }).pipe(Effect.provide(TestLayer))
+    })
+
+    it.scoped('creates a first-person cube model for the selected block item', () => {
+      vi.clearAllMocks()
+      const TestLayer = buildTestLayer()
+      const slots: ReadonlyArray<Option.Option<InventoryItem>> = [
+        Option.some('GRASS' as InventoryItem),
+        ...Arr.makeBy(8, () => Option.none<InventoryItem>()),
+      ]
+
+      return Effect.gen(function* () {
+        const renderer = yield* HotbarRendererService
+        yield* renderer.initialize(800, 600)
+        yield* renderer.update(slots, SlotIndex.make(0))
+
+        expect(THREE.Group).toHaveBeenCalledTimes(1)
+        expect(THREE.BoxGeometry).toHaveBeenCalledWith(1, 1, 1)
+      }).pipe(Effect.provide(TestLayer))
+    })
+
+    it.scoped('creates a first-person flat model for the selected non-block item', () => {
+      vi.clearAllMocks()
+      const TestLayer = buildTestLayer()
+      const slots: ReadonlyArray<Option.Option<InventoryItem>> = [
+        Option.some('DIAMOND_SWORD' as InventoryItem),
+        ...Arr.makeBy(8, () => Option.none<InventoryItem>()),
+      ]
+
+      return Effect.gen(function* () {
+        const renderer = yield* HotbarRendererService
+        yield* renderer.initialize(800, 600)
+        yield* renderer.update(slots, SlotIndex.make(0))
+
+        expect(THREE.Group).toHaveBeenCalledTimes(1)
+        expect(THREE.BoxGeometry).not.toHaveBeenCalled()
+        expect(THREE.PlaneGeometry).toHaveBeenCalledWith(0.72, 0.72)
+      }).pipe(Effect.provide(TestLayer))
+    })
   })
 
   describe('render', () => {
@@ -369,6 +549,81 @@ describe('HotbarRendererService', () => {
 
         const [calledRenderer] = (mockRenderer.renderOverlay as ReturnType<typeof vi.fn>).mock.calls[0] as [unknown, ...unknown[]]
         expect(calledRenderer).toBe(fakeWebGLRenderer)
+      }).pipe(Effect.provide(TestLayer))
+    })
+
+    it.scoped('fades out the selected item name label during render', () => {
+      vi.clearAllMocks()
+      const nowSpy = vi.spyOn(Date, 'now').mockReturnValue(1_000)
+      const mockRenderer = createMockRendererService()
+      const TestLayer = buildTestLayer(mockRenderer)
+      const fakeWebGLRenderer = {} as import('three').WebGLRenderer
+      const slots: ReadonlyArray<Option.Option<BlockType>> = [
+        Option.some('GRASS' as BlockType),
+        Option.some('DIRT' as BlockType),
+        ...Arr.makeBy(7, () => Option.none<BlockType>()),
+      ]
+
+      return Effect.gen(function* () {
+        const renderer = yield* HotbarRendererService
+        yield* renderer.initialize(800, 600)
+        yield* renderer.update(slots, SlotIndex.make(0))
+        yield* renderer.update(slots, SlotIndex.make(1))
+
+        nowSpy.mockReturnValue(2_601)
+        yield* renderer.render(fakeWebGLRenderer)
+
+        const labelMesh = vi.mocked(THREE.Mesh).mock.results[10]?.value as { visible: boolean; material: MockedMaterial } | undefined
+        expect(labelMesh?.visible).toBe(false)
+        expect(labelMesh?.material.opacity).toBe(0)
+        nowSpy.mockRestore()
+      }).pipe(Effect.provide(TestLayer))
+    })
+
+    it.scoped('renders the first-person held item before the hotbar overlay when a selected item exists', () => {
+      vi.clearAllMocks()
+      const mockRenderer = createMockRendererService()
+      const TestLayer = buildTestLayer(mockRenderer)
+      const fakeWebGLRenderer = {} as import('three').WebGLRenderer
+      const slots: ReadonlyArray<Option.Option<InventoryItem>> = [
+        Option.some('GRASS' as InventoryItem),
+        ...Arr.makeBy(8, () => Option.none<InventoryItem>()),
+      ]
+
+      return Effect.gen(function* () {
+        const renderer = yield* HotbarRendererService
+        yield* renderer.initialize(800, 600)
+        yield* renderer.update(slots, SlotIndex.make(0))
+        yield* renderer.render(fakeWebGLRenderer)
+
+        expect(mockRenderer.renderOverlay).toHaveBeenCalledTimes(2)
+        const firstCamera = (mockRenderer.renderOverlay as ReturnType<typeof vi.fn>).mock.calls[0]?.[2]
+        const secondCamera = (mockRenderer.renderOverlay as ReturnType<typeof vi.fn>).mock.calls[1]?.[2]
+        expect(firstCamera).toBe(vi.mocked(THREE.PerspectiveCamera).mock.results[0]?.value)
+        expect(secondCamera).toBe(vi.mocked(THREE.OrthographicCamera).mock.results[0]?.value)
+      }).pipe(Effect.provide(TestLayer))
+    })
+
+    it.scoped('removes the first-person held item when the selected slot becomes empty', () => {
+      vi.clearAllMocks()
+      const mockRenderer = createMockRendererService()
+      const TestLayer = buildTestLayer(mockRenderer)
+      const fakeWebGLRenderer = {} as import('three').WebGLRenderer
+      const populatedSlots: ReadonlyArray<Option.Option<InventoryItem>> = [
+        Option.some('GRASS' as InventoryItem),
+        ...Arr.makeBy(8, () => Option.none<InventoryItem>()),
+      ]
+      const emptySlots: ReadonlyArray<Option.Option<InventoryItem>> = Arr.makeBy(9, () => Option.none())
+
+      return Effect.gen(function* () {
+        const renderer = yield* HotbarRendererService
+        yield* renderer.initialize(800, 600)
+        yield* renderer.update(populatedSlots, SlotIndex.make(0))
+        yield* renderer.update(emptySlots, SlotIndex.make(0))
+        yield* renderer.render(fakeWebGLRenderer)
+
+        expect(mockRenderer.renderOverlay).toHaveBeenCalledTimes(1)
+        expect(vi.mocked(THREE.Scene).mock.results[1]?.value.remove).toHaveBeenCalled()
       }).pipe(Effect.provide(TestLayer))
     })
   })

@@ -1,7 +1,7 @@
 import { Effect, Option } from 'effect'
 import { WorldId } from '../../packages/core/domain/ids'
 import { deleteDatabase } from '../../packages/world/infrastructure/idb-utils'
-import { StorageService, StorageServiceLive } from '../../packages/world/infrastructure/storage-service'
+import { StorageService } from '../../packages/world/infrastructure/storage-service'
 import { DB_NAME } from '../../packages/world/infrastructure/storage-idb-model'
 
 export type StorageServiceContractResult = Readonly<{
@@ -31,6 +31,6 @@ export const runStorageServiceIndexedDbRoundtrip = (): Promise<StorageServiceCon
           loadedFluid: value.fluid === undefined ? null : Array.from(value.fluid),
         }),
       })
-    }).pipe(Effect.provide(StorageServiceLive)),
+    }).pipe(Effect.provide(StorageService.Default)),
   )
 }

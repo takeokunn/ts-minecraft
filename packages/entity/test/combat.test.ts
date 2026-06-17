@@ -3,6 +3,7 @@ import {
   applyArmorReduction,
   computeAttackDamage,
   computeKnockback,
+  computeAttackKnockbackHorizontalMultiplier,
   computeAttackCharge,
   computeChargedDamage,
   computeWeaponEnchantBonus,
@@ -10,6 +11,7 @@ import {
   CRITICAL_DAMAGE_MULTIPLIER,
   KNOCKBACK_HORIZONTAL_SPEED,
   KNOCKBACK_VERTICAL_SPEED,
+  SPRINT_ATTACK_KNOCKBACK_MULTIPLIER_BONUS,
   PLAYER_ATTACK_DAMAGE,
   UNDEAD_MOB_TYPES,
   ARTHROPOD_MOB_TYPES,
@@ -112,6 +114,20 @@ describe('computeKnockback', () => {
   })
 })
 
+describe('computeAttackKnockbackHorizontalMultiplier', () => {
+  it('leaves normal attacks at the enchantment multiplier', () => {
+    expect(computeAttackKnockbackHorizontalMultiplier(1, false)).toBe(1)
+    expect(computeAttackKnockbackHorizontalMultiplier(1.5, false)).toBe(1.5)
+  })
+
+  it('adds one sprint-hit bonus level to horizontal knockback', () => {
+    expect(computeAttackKnockbackHorizontalMultiplier(1, true))
+      .toBe(1 + SPRINT_ATTACK_KNOCKBACK_MULTIPLIER_BONUS)
+    expect(computeAttackKnockbackHorizontalMultiplier(1.5, true))
+      .toBe(1.5 + SPRINT_ATTACK_KNOCKBACK_MULTIPLIER_BONUS)
+  })
+})
+
 describe('computeAttackCharge', () => {
   it('is 0 immediately after an attack', () => {
     expect(computeAttackCharge(0, 0.625)).toBe(0)
@@ -191,6 +207,8 @@ describe('computeWeaponEnchantBonus', () => {
 
   it('applies SMITE only against UNDEAD_MOB_TYPES', () => {
     const enchants = [{ type: 'SMITE' as const, level: 2 as const }]
+    expect(UNDEAD_MOB_TYPES.has('Drowned')).toBe(true)
+    expect(UNDEAD_MOB_TYPES.has('ZombieVillager')).toBe(true)
     for (const undead of UNDEAD_MOB_TYPES) {
       expect(computeWeaponEnchantBonus(enchants, undead)).toBeCloseTo(getSmiteDamageBonus(2))
     }

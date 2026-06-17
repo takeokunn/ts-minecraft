@@ -1,6 +1,6 @@
 // Frame stage: syncs the local player's position to the multiplayer server and
 // applies inbound block edits from remote players to the local world.
-import { Effect, HashMap, Option, Ref, Schema } from 'effect'
+import { Effect, HashMap, MutableRef, Option, Schema } from 'effect'
 import { BlockTypeSchema, CHUNK_SIZE, type Position } from '@ts-minecraft/core'
 import { aabbFromVoxel } from '@ts-minecraft/world'
 import type { MultiplayerService } from '@ts-minecraft/app/application/multiplayer/multiplayer-service'
@@ -43,9 +43,15 @@ export const applyInboundBlockEdits = (
           yield* services.blockService.forceSetBlock(pos, blockType).pipe(
             Effect.flatMap(() => services.chunkManagerService.getChunk(chunkCoord)),
             Effect.flatMap((chunk) =>
-              Ref.update(dirtyChunksRef, (map) =>
-                HashMap.set(map, coordKey, { chunk, dirtyAABB: Option.some(aabbFromVoxel({ lx, y: edit.y, lz })) }),
-              ),
+              Effect.sync(() => {
+                MutableRef.set(
+                  dirtyChunksRef,
+                  HashMap.set(MutableRef.get(dirtyChunksRef), coordKey, {
+                    chunk,
+                    dirtyAABB: Option.some(aabbFromVoxel({ lx, y: edit.y, lz })),
+                  }),
+                )
+              }),
             ),
           ).pipe(Effect.catchAll(() => Effect.void))
         }

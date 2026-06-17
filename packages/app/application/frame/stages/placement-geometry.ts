@@ -10,8 +10,8 @@ export const adjacentToHit = (hit: TargetRayHit): Position => ({
 })
 
 // Builds a sphere of positions centered at `center` within `radius` blocks
-// (Euclidean). Used for the TNT explosion break pattern.
-export const buildTntBreakPositions = (center: Position, radius: number): ReadonlyArray<Position> => {
+// (Euclidean). Used for explosion block break patterns.
+export const buildExplosionBreakPositions = (center: Position, radius: number): ReadonlyArray<Position> => {
   const positions: Position[] = []
   for (let dx = -radius; dx <= radius; dx++) {
     for (let dy = -radius; dy <= radius; dy++) {
@@ -24,3 +24,5 @@ export const buildTntBreakPositions = (center: Position, radius: number): Readon
   }
   return positions
 }
+
+export const buildTntBreakPositions = buildExplosionBreakPositions

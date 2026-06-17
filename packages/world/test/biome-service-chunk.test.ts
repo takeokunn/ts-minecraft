@@ -3,18 +3,27 @@ import { expect } from 'vitest'
 import { Array as Arr, Effect, Layer } from 'effect'
 import {
   BiomeService,
-  BiomeServiceLive,
+  type BiomeType,
+  CHUNK_COLUMN_SAMPLE_COUNT,
   NoiseServicePort,
 } from '@ts-minecraft/world'
 import { CHUNK_SIZE } from '@ts-minecraft/core'
 import { withBiomeService } from './biome-service-test-utils'
+
+type BiomeChunkEntry = Readonly<{ readonly biome: BiomeType }>
+
+const readBiomeChunkEntry = (
+  entries: ReadonlyArray<BiomeChunkEntry>,
+  index: number,
+): BiomeChunkEntry =>
+  entries[index] ?? { biome: 'PLAINS' }
 
 describe('BiomeService.getBiomesAndPropertiesForChunk', () => {
   it.effect('returns CHUNK_SIZE² entries', () =>
     withBiomeService(0.5, 0.45, (service) =>
       Effect.gen(function* () {
         const results = yield* service.getBiomesAndPropertiesForChunk(0, 0)
-        expect(results).toHaveLength(CHUNK_SIZE * CHUNK_SIZE)
+        expect(results).toHaveLength(CHUNK_COLUMN_SAMPLE_COUNT)
       })
     )
   )
@@ -56,7 +65,7 @@ describe('BiomeService.getBiomesAndPropertiesForChunk', () => {
   it.effect('promotes shoreline-adjacent inland columns to BEACH only when next to OCEAN', () => {
     const coastlineNoise = Layer.succeed(NoiseServicePort, NoiseServicePort.of({
       _tag: '@minecraft/application/noise/NoiseServicePort' as const,
-      noise2D: (_x: number, _z: number) => Effect.succeed(0.5),
+      noise2D: (_x: number, _z: number) => Effect.succeed(0.9),
       octaveNoise2D: (x: number, _z: number) => {
         const isHumidity = x > 25.0
         const worldX = Math.round((x - (isHumidity ? 50 : 0)) / 0.005)
@@ -85,20 +94,20 @@ describe('BiomeService.getBiomesAndPropertiesForChunk', () => {
       noise3DBatchXYZ: (xs: ReadonlyArray<number>) =>
         Effect.succeed(Arr.makeBy(xs.length, () => 0)),
       sampleTerrainChannels: (_x: number, _z: number) => Effect.succeed({
-        continentalness: new Float64Array(Arr.makeBy(CHUNK_SIZE * CHUNK_SIZE, (i) => (i % CHUNK_SIZE) === 0 ? -0.65 : -0.05)),
-        erosion: new Float64Array(Arr.makeBy(CHUNK_SIZE * CHUNK_SIZE, () => 0.7)),
-        pv: new Float64Array(Arr.makeBy(CHUNK_SIZE * CHUNK_SIZE, () => 0)),
-        jaggedness: new Float64Array(Arr.makeBy(CHUNK_SIZE * CHUNK_SIZE, () => 0)),
+        continentalness: new Float64Array(Arr.makeBy(CHUNK_COLUMN_SAMPLE_COUNT, (i) => (i % CHUNK_SIZE) === 0 ? -0.65 : -0.05)),
+        erosion: new Float64Array(Arr.makeBy(CHUNK_COLUMN_SAMPLE_COUNT, () => 0.7)),
+        pv: new Float64Array(Arr.makeBy(CHUNK_COLUMN_SAMPLE_COUNT, () => 0)),
+        jaggedness: new Float64Array(Arr.makeBy(CHUNK_COLUMN_SAMPLE_COUNT, () => 0)),
       }),
     }))
 
-    const layer = BiomeServiceLive.pipe(Layer.provide(coastlineNoise))
+      const layer = BiomeService.Default.pipe(Layer.provide(coastlineNoise))
     return Effect.flatMap(BiomeService, (service) =>
       Effect.gen(function* () {
         const results = yield* service.getBiomesAndPropertiesForChunk(0, 0)
-        expect(results[0]!.biome).toBe('OCEAN')
-        expect(results[CHUNK_SIZE]!.biome).toBe('BEACH')
-        expect(results[CHUNK_SIZE * 2]!.biome).toBe('PLAINS')
+        expect(readBiomeChunkEntry(results, 0).biome).toBe('OCEAN')
+        expect(readBiomeChunkEntry(results, CHUNK_SIZE).biome).toBe('BEACH')
+        expect(readBiomeChunkEntry(results, CHUNK_SIZE * 2).biome).toBe('PLAINS')
       })
     ).pipe(Effect.provide(layer))
   })
@@ -106,7 +115,7 @@ describe('BiomeService.getBiomesAndPropertiesForChunk', () => {
   it.effect('promotes shoreline columns to BEACH even when the adjacent OCEAN lies in the neighboring chunk', () => {
     const crossChunkCoastNoise = Layer.succeed(NoiseServicePort, NoiseServicePort.of({
       _tag: '@minecraft/application/noise/NoiseServicePort' as const,
-      noise2D: (_x: number, _z: number) => Effect.succeed(0.5),
+      noise2D: (_x: number, _z: number) => Effect.succeed(0.9),
       octaveNoise2D: (x: number, _z: number) => {
         const isHumidity = x > 25.0
         const worldX = Math.round((x - (isHumidity ? 50 : 0)) / 0.005)
@@ -136,19 +145,21 @@ describe('BiomeService.getBiomesAndPropertiesForChunk', () => {
       noise3DBatchXYZ: (xs: ReadonlyArray<number>) =>
         Effect.succeed(Arr.makeBy(xs.length, () => 0)),
       sampleTerrainChannels: (_x: number, _z: number) => Effect.succeed({
-        continentalness: new Float64Array(Arr.makeBy(CHUNK_SIZE * CHUNK_SIZE, () => -0.05)),
-        erosion: new Float64Array(Arr.makeBy(CHUNK_SIZE * CHUNK_SIZE, () => 0.7)),
-        pv: new Float64Array(Arr.makeBy(CHUNK_SIZE * CHUNK_SIZE, () => 0)),
-        jaggedness: new Float64Array(Arr.makeBy(CHUNK_SIZE * CHUNK_SIZE, () => 0)),
+        continentalness: new Float64Array(Arr.makeBy(CHUNK_COLUMN_SAMPLE_COUNT, () => -0.05)),
+        erosion: new Float64Array(Arr.makeBy(CHUNK_COLUMN_SAMPLE_COUNT, () => 0.7)),
+        pv: new Float64Array(Arr.makeBy(CHUNK_COLUMN_SAMPLE_COUNT, () => 0)),
+        jaggedness: new Float64Array(Arr.makeBy(CHUNK_COLUMN_SAMPLE_COUNT, () => 0)),
       }),
     }))
 
-    const layer = BiomeServiceLive.pipe(Layer.provide(crossChunkCoastNoise))
+      const layer = BiomeService.Default.pipe(Layer.provide(crossChunkCoastNoise))
     return Effect.flatMap(BiomeService, (service) =>
       Effect.gen(function* () {
         const results = yield* service.getBiomesAndPropertiesForChunk(0, 0)
         const edgeIndex = (CHUNK_SIZE - 1) * CHUNK_SIZE
-        expect(results[edgeIndex]!.biome).toBe('BEACH')
+        expect(readBiomeChunkEntry(results, edgeIndex).biome).toBe('BEACH')
+        const scalarBiome = yield* service.getBiome(CHUNK_SIZE - 1, 0)
+        expect(scalarBiome).toBe('BEACH')
       })
     ).pipe(Effect.provide(layer))
   })
@@ -160,8 +171,8 @@ describe('BiomeService.getBiomesAndPropertiesForChunk', () => {
           service.getBiomesAndPropertiesForChunk(0, 0),
           service.getBiomesAndPropertiesForChunk(1, 0),
         ])
-        expect(chunk0).toHaveLength(CHUNK_SIZE * CHUNK_SIZE)
-        expect(chunk1).toHaveLength(CHUNK_SIZE * CHUNK_SIZE)
+        expect(chunk0).toHaveLength(CHUNK_COLUMN_SAMPLE_COUNT)
+        expect(chunk1).toHaveLength(CHUNK_COLUMN_SAMPLE_COUNT)
       })
     )
   )
@@ -207,29 +218,29 @@ describe('BiomeService.getBiomesAndPropertiesForChunk', () => {
       noise3DBatchXYZ: (xs: ReadonlyArray<number>) =>
         Effect.succeed(Arr.makeBy(xs.length, () => 0)),
       sampleTerrainChannels: (xStart: number, zStart: number) => Effect.succeed({
-        continentalness: new Float64Array(Arr.makeBy(CHUNK_SIZE * CHUNK_SIZE, (i) => {
+        continentalness: new Float64Array(Arr.makeBy(CHUNK_COLUMN_SAMPLE_COUNT, (i) => {
           const x = xStart + (i % CHUNK_SIZE)
           return (x % CHUNK_SIZE) < CHUNK_SIZE / 2 ? -0.2 : 0.55
         })),
-        erosion: new Float64Array(Arr.makeBy(CHUNK_SIZE * CHUNK_SIZE, (i) => {
+        erosion: new Float64Array(Arr.makeBy(CHUNK_COLUMN_SAMPLE_COUNT, (i) => {
           const z = zStart + Math.floor(i / CHUNK_SIZE)
           return (z % CHUNK_SIZE) < CHUNK_SIZE / 2 ? 0.7 : 0.2
         })),
-        pv: new Float64Array(Arr.makeBy(CHUNK_SIZE * CHUNK_SIZE, (i) => pvFromWeirdness(((i % CHUNK_SIZE) + Math.floor(i / CHUNK_SIZE)) % 2 === 0 ? 0.85 : -0.15))),
-        jaggedness: new Float64Array(Arr.makeBy(CHUNK_SIZE * CHUNK_SIZE, () => 0.3)),
+        pv: new Float64Array(Arr.makeBy(CHUNK_COLUMN_SAMPLE_COUNT, (i) => pvFromWeirdness(((i % CHUNK_SIZE) + Math.floor(i / CHUNK_SIZE)) % 2 === 0 ? 0.85 : -0.15))),
+        jaggedness: new Float64Array(Arr.makeBy(CHUNK_COLUMN_SAMPLE_COUNT, () => 0.3)),
       }),
     }))
 
-    const layer = BiomeServiceLive.pipe(Layer.provide(perCellClimateNoise))
+      const layer = BiomeService.Default.pipe(Layer.provide(perCellClimateNoise))
     return Effect.flatMap(BiomeService, (service) =>
       Effect.gen(function* () {
         const batched = yield* service.getBiomesAndPropertiesForChunk(0, 0)
-        yield* Effect.forEach(Arr.makeBy(CHUNK_SIZE * CHUNK_SIZE, (i) => i), (i) => {
+        yield* Effect.forEach(Arr.makeBy(CHUNK_COLUMN_SAMPLE_COUNT, (i) => i), (i) => {
           const lx = Math.floor(i / CHUNK_SIZE)
           const lz = i % CHUNK_SIZE
           return Effect.gen(function* () {
             const scalarBiome = yield* service.getBiome(lx, lz)
-            expect(batched[i]!.biome).toBe(scalarBiome)
+            expect(readBiomeChunkEntry(batched, i).biome).toBe(scalarBiome)
           })
         }, { concurrency: 'unbounded', discard: true })
       })

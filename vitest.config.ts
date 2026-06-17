@@ -42,9 +42,6 @@ export default defineConfig({
         '**/*.property.test.{js,ts}',
         '**/*-test-utils.ts',
         '**/*test-utils.ts',
-        // TEST_UTILS: test-data builders (validated by their consuming tests).
-        'packages/core/domain/builders.ts',
-
         // BARREL: package or feature entry points that only aggregate/re-export covered modules.
         '**/index.ts',
         '**/*schemas.ts',
@@ -52,24 +49,19 @@ export default defineConfig({
         'packages/core/domain/errors.ts',
 
         // PURE_TYPE: declarations only; no executable source behavior to cover in Vitest.
-        'packages/entity/domain/mob/drop.ts',
         'packages/inventory/domain/furnace-state.ts',
         'packages/world/domain/terrain/generator-types.ts',
         'packages/world/domain/biome-generator-port.ts',
+        'packages/world/domain/light-engine-model.ts',
         'packages/rendering/application/chunk-count-port.ts',
         'packages/app/application/frame/types.ts',
-        'packages/inventory/domain/enchantment.types.ts',
+        'packages/app/application/frame/stages/interaction-types.ts',
         'packages/app/application/debug-feature-flags.types.ts',
         'packages/worker/domain/meshing-worker-pool-types.ts',
 
         // BROWSER_ONLY: browser entry-point wiring; contract marker in e2e/contracts/browser-api-contracts.e2e.ts.
         'src/main.ts',
         'packages/app/application/main/**',
-        'packages/app/application/frame/frame-maintenance.ts',
-        'packages/app/application/frame/stages/interaction-break-handler.ts',
-        'packages/app/application/frame/stages/interaction-melee-handler.ts',
-        'packages/app/application/frame/stages/interaction-bow-handler.ts',
-        'packages/app/application/frame/stages/interaction-item-use-handler.ts',
 
         // WORKER: Web Worker runtime APIs; contract marker in e2e/contracts/browser-api-contracts.e2e.ts.
         '**/workers/**',
@@ -107,15 +99,10 @@ export default defineConfig({
         'packages/game/infrastructure/audio-context-helpers.ts',
         'packages/game/application/settings-service.ts',
         'packages/entity/application/redstone/redstone-service.ts',
-        'packages/block/domain/light.ts',
         'packages/world/application/biome-service.ts',
         'packages/world/application/chunk-manager-ops.ts',
         'packages/world/application/chunk-manager-service-ops.ts',
         'packages/world/application/light-engine-service.ts',
-        'packages/world/domain/block-light-bfs.ts',
-        'packages/world/domain/chunk-coord-utils.ts',
-        'packages/world/domain/light-engine-model.ts',
-        'packages/world/domain/sky-light-bfs.ts',
         'packages/world/domain/terrain/generator-pipeline.ts',
         'packages/core/domain/math/camera-port.ts',
         'packages/presentation/inventory/inventory-renderer-click-handler.ts',

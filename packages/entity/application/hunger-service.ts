@@ -81,4 +81,3 @@ export class HungerService extends Effect.Service<HungerService>()(
     }),
   }
 ) {}
-export const HungerServiceLive = HungerService.Default

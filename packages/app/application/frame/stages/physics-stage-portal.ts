@@ -1,11 +1,24 @@
-import { Effect, HashMap, Option, Ref } from 'effect'
+import { Effect, HashMap, MutableRef, Option, Ref } from 'effect'
 import type { FrameHandlerServices, FrameStageRefs } from '@ts-minecraft/app/frame/types'
 import { resolveNetherTravel, type Dimension } from '@ts-minecraft/world'
-import { CHUNK_SIZE } from '@ts-minecraft/core'
 import type { DeltaTimeSecs, Position } from '@ts-minecraft/core'
+import { worldToChunkCoord } from '@ts-minecraft/world/domain/chunk-coord-utils'
 import { makeColumnReaderAt } from './physics-stage-utils'
 
 const PORTAL_ACTIVATION_SECS = 4.0
+
+const hasEntityType = (
+  entities: ReadonlyArray<{ readonly type: string }>,
+  type: string,
+): boolean => {
+  for (const entity of entities) {
+    if (entity.type === type) {
+      return true
+    }
+  }
+
+  return false
+}
 
 export const applyNetherPortalTravel = (
   services: Pick<FrameHandlerServices, 'netherService' | 'chunkManagerService' | 'gameState' | 'blockService'>,
@@ -19,7 +32,9 @@ export const applyNetherPortalTravel = (
     const inPortal = columnBlockAt(py) === 'NETHER_PORTAL'
 
     if (inPortal) {
-      const newSecs = yield* Ref.updateAndGet(refs.portalSecsRef, (s) => s + inputs.deltaTime)
+      const currentSecs = yield* Ref.get(refs.portalSecsRef)
+      const newSecs = currentSecs + inputs.deltaTime
+      yield* Ref.set(refs.portalSecsRef, newSecs)
       if (newSecs >= PORTAL_ACTIVATION_SECS) {
         yield* Ref.set(refs.portalSecsRef, 0)
         const currentDim = yield* services.netherService.getDimension()
@@ -40,20 +55,28 @@ export const applyNetherPortalTravel = (
             yield* services.blockService.forceSetBlock(pos, 'NETHER_PORTAL').pipe(Effect.catchAll(() => Effect.void))
           }
           yield* services.netherService.registerPortal(plan.destination, plan.toDimension)
-          const allPositions = [...portalLayout.frame, ...portalLayout.interior]
-          const affectedCoordKeys = Array.from(
-            new Set(allPositions.map((pos) => `${Math.floor(pos.x / CHUNK_SIZE)},${Math.floor(pos.z / CHUNK_SIZE)}`)),
-          )
-          for (const coordKey of affectedCoordKeys) {
-            const parts = coordKey.split(',')
-            const cx = parseInt(parts[0]!, 10)
-            const cz = parseInt(parts[1]!, 10)
-            yield* Effect.gen(function* () {
-              const chunk = yield* services.chunkManagerService.getChunk({ x: cx, z: cz })
-              yield* Ref.update(refs.dirtyChunksRef, (map) =>
-                HashMap.set(map, coordKey, { chunk, dirtyAABB: Option.none() }),
-              )
-            }).pipe(Effect.catchAll(() => Effect.void))
+          const affectedCoords = new Map<string, { readonly x: number; readonly z: number }>()
+          const trackAffectedCoord = (pos: Position): void => {
+            const coord = worldToChunkCoord(pos)
+            const coordKey = `${coord.x},${coord.z}`
+            if (!affectedCoords.has(coordKey)) {
+              affectedCoords.set(coordKey, coord)
+            }
+          }
+          for (const pos of portalLayout.frame) trackAffectedCoord(pos)
+          for (const pos of portalLayout.interior) trackAffectedCoord(pos)
+          for (const [coordKey, coord] of affectedCoords) {
+            yield* services.chunkManagerService.getChunk(coord).pipe(
+              Effect.tap((chunk) =>
+                Effect.sync(() => {
+                  MutableRef.set(
+                    refs.dirtyChunksRef,
+                    HashMap.set(MutableRef.get(refs.dirtyChunksRef), coordKey, { chunk, dirtyAABB: Option.none() }),
+                  )
+                }),
+              ),
+              Effect.catchAll(() => Effect.void),
+            )
           }
         }
       }
@@ -83,7 +106,7 @@ export const applyEndPortalTravel = (
     yield* Ref.set(refs.finalPosRef, destPos)
     if (destDim === 'end') {
       const existingEntities = yield* services.entityManager.getEntities()
-      const hasDragon = existingEntities.some((e) => e.type === 'EnderDragon')
+      const hasDragon = hasEntityType(existingEntities, 'EnderDragon')
       if (!hasDragon) {
         yield* services.entityManager.addEntity('EnderDragon', { x: 0, y: 80, z: 20 })
           .pipe(Effect.catchAllCause(() => Effect.void))

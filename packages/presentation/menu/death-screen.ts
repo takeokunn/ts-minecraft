@@ -1,4 +1,4 @@
-import { Cause, Effect, Fiber, MutableRef, Option, Scope } from 'effect'
+import { Cause, Duration, Effect, Fiber, MutableRef, Option, Scope } from 'effect'
 import { DomOperationsService } from '@ts-minecraft/presentation/hud/crosshair'
 import { GameStateService } from '@ts-minecraft/game'
 import { GameModeService } from '@ts-minecraft/game'
@@ -182,7 +182,13 @@ export class DeathScreenService extends Effect.Service<DeathScreenService>()(
                       }
                       hideOverlay()
                       MutableRef.set(isOpenRef, false)
-                      yield* Fiber.interrupt(handlers.fiber)
+                      yield* Effect.raceFirst(
+                        Fiber.interrupt(handlers.fiber).pipe(
+                          Effect.asVoid,
+                          Effect.catchAllCause(() => Effect.void),
+                        ),
+                        Effect.sleep(Duration.millis(250)),
+                      )
                     }),
                 ).pipe(Effect.asVoid),
 
@@ -193,5 +199,3 @@ export class DeathScreenService extends Effect.Service<DeathScreenService>()(
         }),
   },
 ) {}
-
-export const DeathScreenLive = DeathScreenService.Default

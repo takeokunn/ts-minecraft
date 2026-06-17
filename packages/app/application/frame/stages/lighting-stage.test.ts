@@ -6,11 +6,11 @@ makeInventoryRenderer,
 makeServices,
 makeSettingsOverlay,
 runFrame,
-} from '@test/frame-handler-test-kit'
+} from '../../../test/frame-handler-test-kit'
 import { lightingStage } from '@ts-minecraft/app/frame/stages/lighting-stage'
 import type { DeltaTimeSecs } from '@ts-minecraft/core'
 import type { DayNightLights } from '@ts-minecraft/game'
-import { Array as Arr,Effect,Option,Ref } from 'effect'
+import { Array as Arr,Effect,MutableRef,Option } from 'effect'
 import * as THREE from 'three'
 import { expect,vi } from 'vitest'
 
@@ -131,6 +131,7 @@ const makeFakeEffectiveLights = (): DayNightLights => {
     skyDay: new THREE.Color(0x88ccff),
     skyCurrent: new THREE.Color(),
     sky: Option.none(),
+    moon: Option.none(),
   }
 }
 
@@ -138,6 +139,7 @@ const makeLightingServices = () => ({
   timeService: {
     advanceTick: () => Effect.void,
     getTimeOfDay: () => Effect.succeed(0.5),
+    getMoonPhase: () => Effect.succeed(0),
     isNight: () => Effect.succeed(false),
     setDayLength: () => Effect.void,
     setTimeOfDay: () => Effect.void,
@@ -156,7 +158,7 @@ const makeLightingServices = () => ({
 describe('step 2.5 — shadow map dirty flag', () => {
   it.effect('marks shadowMap.needsUpdate=true on the 8th frame when castShadow=true', () =>
     Effect.gen(function* () {
-      const shadowUpdateCounterRef = yield* Ref.make(0)
+      const shadowUpdateCounterRef = MutableRef.make(0)
       const state = { needsUpdate: false }
       const markShadowMapDirty = () => { state.needsUpdate = true }
       const deps = {
@@ -182,7 +184,7 @@ describe('step 2.5 — shadow map dirty flag', () => {
 
   it.effect('does NOT mark shadowMap.needsUpdate when castShadow=false', () =>
     Effect.gen(function* () {
-      const shadowUpdateCounterRef = yield* Ref.make(0)
+      const shadowUpdateCounterRef = MutableRef.make(0)
       const state = { needsUpdate: false }
       const markShadowMapDirty = () => { state.needsUpdate = true }
       const deps = {

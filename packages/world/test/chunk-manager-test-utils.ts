@@ -1,11 +1,11 @@
 // Shared test utilities for chunk-manager-service tests
-import { TerrainWorkerPoolPortLayer } from '@ts-minecraft/world'
-import { CHUNK_HEIGHT,CHUNK_SIZE,DEFAULT_WORLD_ID,type WorldId } from '@ts-minecraft/core'
+import { CHUNK_HEIGHT, CHUNK_SIZE, DEFAULT_WORLD_ID, type WorldId } from '@ts-minecraft/core'
+import { BiomeService, ChunkManagerService, ChunkService, generateTerrain as generateChunkTerrain, LightEngineService, NoiseService, NoiseServicePort, StorageServicePort } from '@ts-minecraft/world'
+import { TerrainWorkerPoolPortLayer } from '@ts-minecraft/worker'
 import type { ChunkStorageValue } from '@ts-minecraft/world'
-import { BiomeService,BiomeServiceLive,ChunkManagerServiceLive,generateTerrain as generateChunkTerrain,LightEngineService,NoiseServiceLive,NoiseServicePort,StorageServicePort,TerrainWorkerPoolPort } from '@ts-minecraft/world'
-import { LIGHT_BYTE_LENGTH,StorageError } from '@ts-minecraft/world'
-import { Brand,Effect,Layer,MutableHashMap,Option } from 'effect'
-import { ChunkService,ChunkServiceLive } from '@ts-minecraft/world/application/chunk-service'
+import { TerrainWorkerPoolPort } from '@ts-minecraft/worker'
+import { LIGHT_BYTE_LENGTH, StorageError } from '@ts-minecraft/world'
+import { Brand, Effect, Layer, MutableHashMap, Option } from 'effect'
 import type { Chunk } from '../domain/chunk'
 
 // ---------------------------------------------------------------------------
@@ -45,7 +45,7 @@ export const makeInMemoryStorage = () => {
 const noopLightGrids = () => ({ skyLight: new Uint8Array(LIGHT_BYTE_LENGTH), blockLight: new Uint8Array(LIGHT_BYTE_LENGTH) })
 const noopBoundary = { nx: true, px: true, nz: true, pz: true } as const
 
-export const LightEngineNoopLive = Layer.succeed(LightEngineService, {
+export const LightEngineNoopLayer = Layer.succeed(LightEngineService, {
   _tag: '@minecraft/application/LightEngineService' as const,
   computeLight: (_chunk: Chunk) => Effect.sync(noopLightGrids),
   updateLight: (_chunk: Chunk) => Effect.sync(noopLightGrids),
@@ -65,6 +65,7 @@ export const LightEngineNoopLive = Layer.succeed(LightEngineService, {
 
 export const buildInlineTerrainPoolLayer = (
   deps: Layer.Layer<ChunkService | BiomeService | NoiseServicePort>,
+  onGenerate?: (options: { readonly seaLevel: number; readonly lakeLevel: number; readonly seed: number; readonly dimension?: 'overworld' | 'nether' | 'end' }) => void,
 ): Layer.Layer<TerrainWorkerPoolPort> =>
   Layer.effect(
     TerrainWorkerPoolPort,
@@ -74,9 +75,13 @@ export const buildInlineTerrainPoolLayer = (
       const noiseService = yield* NoiseServicePort
       return TerrainWorkerPoolPort.of({
         _tag: '@minecraft/application/terrain/TerrainWorkerPoolPort' as const,
-        generateTerrain: (coord: { readonly x: number; readonly z: number }, _options: { seaLevel: number; lakeLevel: number; seed: number }) =>
+        generateTerrain: (coord: { readonly x: number; readonly z: number }, options: { seaLevel: number; lakeLevel: number; seed: number; dimension?: 'overworld' | 'nether' | 'end' }) =>
           Effect.gen(function* () {
-            const chunk = yield* generateChunkTerrain(chunkService, biomeService, noiseService, coord)
+            onGenerate?.(options)
+            const chunk = yield* generateChunkTerrain(chunkService, biomeService, noiseService, coord, {
+              seaLevel: options.seaLevel,
+              lakeLevel: options.lakeLevel,
+            })
             return {
               blocks: chunk.blocks,
               skyLight: new Uint8Array(LIGHT_BYTE_LENGTH),
@@ -92,19 +97,25 @@ export const buildInlineTerrainPoolLayer = (
 // ---------------------------------------------------------------------------
 
 export const buildTestLayer = () => {
+  const terrainPoolLayer = TerrainWorkerPoolPortLayer
+  return buildTestLayerWithTerrainPoolLayer({ terrainPoolLayer })
+}
+
+export const buildTestLayerWithTerrainPoolLayer = (options: { readonly terrainPoolLayer?: Layer.Layer<TerrainWorkerPoolPort> } = {}) => {
   const storage = makeInMemoryStorage()
   const StorageTestLayer = Layer.succeed(StorageServicePort, storage)
   const NoiseLayer = NoiseServicePort.Default
-  const BiomeTestLayer = BiomeServiceLive.pipe(Layer.provide(NoiseLayer))
+  const BiomeTestLayer = BiomeService.Default.pipe(Layer.provide(NoiseLayer))
+  const terrainPoolLayer = options.terrainPoolLayer ?? TerrainWorkerPoolPortLayer
 
-  const TestLayer = ChunkManagerServiceLive.pipe(
-    Layer.provide(ChunkServiceLive),
+  const TestLayer = ChunkManagerService.Default.pipe(
+    Layer.provide(ChunkService.Default),
     Layer.provide(StorageTestLayer),
     Layer.provide(BiomeTestLayer),
     Layer.provide(NoiseLayer),
-    Layer.provide(NoiseServiceLive),
-    Layer.provide(TerrainWorkerPoolPortLayer),
-    Layer.provide(LightEngineNoopLive),
+    Layer.provide(NoiseService.Default),
+    Layer.provide(terrainPoolLayer),
+    Layer.provide(LightEngineNoopLayer),
   )
 
   return { TestLayer, storage }
@@ -117,6 +128,13 @@ export const buildTestLayer = () => {
 export const EXPECTED_BLOCKS_LENGTH = CHUNK_SIZE * CHUNK_SIZE * CHUNK_HEIGHT
 
 export const buildTestLayerWithStoredChunks = (coords: ReadonlyArray<{ readonly x: number; readonly z: number }>) => {
+  return buildTestLayerWithStoredChunksAndTerrainPool(coords)
+}
+
+export const buildTestLayerWithStoredChunksAndTerrainPool = (
+  coords: ReadonlyArray<{ readonly x: number; readonly z: number }>,
+  options: { readonly terrainPoolLayer?: Layer.Layer<TerrainWorkerPoolPort> } = {},
+) => {
   const storage = makeInMemoryStorage()
   const minimalBlocks = new Uint8Array(EXPECTED_BLOCKS_LENGTH)
 
@@ -128,16 +146,17 @@ export const buildTestLayerWithStoredChunks = (coords: ReadonlyArray<{ readonly 
 
   const StorageTestLayer = Layer.succeed(StorageServicePort, storage)
   const NoiseLayer = NoiseServicePort.Default
-  const BiomeTestLayer = BiomeServiceLive.pipe(Layer.provide(NoiseLayer))
+  const BiomeTestLayer = BiomeService.Default.pipe(Layer.provide(NoiseLayer))
+  const terrainPoolLayer = options.terrainPoolLayer ?? TerrainWorkerPoolPortLayer
 
-  const TestLayer = ChunkManagerServiceLive.pipe(
-    Layer.provide(ChunkServiceLive),
+  const TestLayer = ChunkManagerService.Default.pipe(
+    Layer.provide(ChunkService.Default),
     Layer.provide(StorageTestLayer),
     Layer.provide(BiomeTestLayer),
     Layer.provide(NoiseLayer),
-    Layer.provide(NoiseServiceLive),
-    Layer.provide(TerrainWorkerPoolPortLayer),
-    Layer.provide(LightEngineNoopLive),
+    Layer.provide(NoiseService.Default),
+    Layer.provide(terrainPoolLayer),
+    Layer.provide(LightEngineNoopLayer),
   )
 
   return { TestLayer, storage, seedStorage }

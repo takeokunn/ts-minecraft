@@ -1,7 +1,6 @@
 import { Cause, Effect } from 'effect'
 import {
   DEBUG_FEATURE_FLAG_CATALOG,
-  type DebugFeatureFlags,
 } from '@ts-minecraft/app/debug-feature-flags'
 import type { DebugOverlayDeps, DebugOverlayDomNodes, GroupSectionNodes, TogglePanelNodes, ToggleRowNodes } from '@ts-minecraft/presentation/hud/debug-overlay-types'
 import {
@@ -9,45 +8,14 @@ import {
   DEBUG_FEATURE_GROUP_ORDER,
   debugFeatureBadges,
   debugFeatureGroupLabels,
-  debugFeatureSearchMatches,
 } from '@ts-minecraft/presentation/hud/debug-overlay-utils'
+import {
+  applyDebugOverlayPanelState,
+  resolveDebugOverlayPanelState,
+} from '@ts-minecraft/presentation/hud/debug-overlay-panel-state'
 
 export const setStatus = (dom: Pick<DebugOverlayDomNodes, 'statusText'>, message: string): void => {
   dom.statusText.nodeValue = message
-}
-
-export const updateToggleRowsFromFlags = (
-  dom: Pick<DebugOverlayDomNodes, 'toggleRows' | 'enabledCountText'>,
-  flags: DebugFeatureFlags,
-): void => {
-  let enabledCount = 0
-  for (const row of dom.toggleRows) {
-    const enabled = flags[row.id]
-    if (enabled) enabledCount += 1
-    row.button.setAttribute('aria-checked', enabled ? 'true' : 'false')
-    row.button.style.background = enabled ? 'rgba(34,197,94,0.22)' : 'rgba(148,163,184,0.12)'
-    row.button.style.borderColor = enabled ? '#22c55e' : '#64748b'
-    row.button.style.color = enabled ? '#dcfce7' : '#cbd5e1'
-    row.stateText.nodeValue = enabled ? 'ON' : 'OFF'
-    row.row.style.opacity = enabled ? '1' : '0.56'
-  }
-  dom.enabledCountText.nodeValue = `${enabledCount}/${dom.toggleRows.length} enabled`
-}
-
-export const filterToggleRows = (
-  dom: Pick<DebugOverlayDomNodes, 'searchInput' | 'groupSections' | 'toggleRows'>,
-): void => {
-  const query = dom.searchInput.value
-  for (const groupSection of dom.groupSections) {
-    let visibleRows = 0
-    for (const row of dom.toggleRows) {
-      if (row.entry.group !== groupSection.group) continue
-      const visible = debugFeatureSearchMatches(row.entry, query)
-      row.row.style.display = visible ? 'flex' : 'none'
-      if (visible) visibleRows += 1
-    }
-    groupSection.section.style.display = visibleRows > 0 ? 'block' : 'none'
-  }
 }
 
 export const refreshTogglePanel = (
@@ -57,8 +25,8 @@ export const refreshTogglePanel = (
 ): Effect.Effect<void, never> =>
   Effect.gen(function* () {
     const snapshot = yield* deps.debugFeatureFlags.getSnapshot()
-    updateToggleRowsFromFlags(dom, snapshot.flags)
-    filterToggleRows(dom)
+    const state = resolveDebugOverlayPanelState(snapshot, dom.searchInput.value)
+    applyDebugOverlayPanelState(dom, state)
     if (statusMessage !== undefined) setStatus(dom, statusMessage)
   })
 

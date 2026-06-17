@@ -1,9 +1,9 @@
 import { describe, it, expect } from '@effect/vitest'
 import { Array as Arr, Effect } from 'effect'
-import { TimeService, TimeServiceLive } from '@ts-minecraft/game'
+import { TimeService } from '@ts-minecraft/game'
 import { DeltaTimeSecs } from '@ts-minecraft/core'
 
-// TimeService has no external dependencies, so we use TimeService.Default (= TimeServiceLive)
+// TimeService has no external dependencies, so we use TimeService.Default.
 // directly for every test.
 //
 // MEMORY note: Always call setTimeOfDay AFTER setDayLength so that ticks are
@@ -16,10 +16,11 @@ describe('application/time/time-service', () => {
         const service = yield* TimeService
         expect(typeof service.advanceTick).toBe('function')
         expect(typeof service.getTimeOfDay).toBe('function')
+        expect(typeof service.getMoonPhase).toBe('function')
         expect(typeof service.isNight).toBe('function')
         expect(typeof service.setDayLength).toBe('function')
         expect(typeof service.setTimeOfDay).toBe('function')
-      }).pipe(Effect.provide(TimeServiceLive))
+      }).pipe(Effect.provide(TimeService.Default))
     )
   })
 
@@ -29,7 +30,7 @@ describe('application/time/time-service', () => {
         const service = yield* TimeService
         const timeOfDay = yield* service.getTimeOfDay()
         expect(timeOfDay).toBe(0)
-      }).pipe(Effect.provide(TimeServiceLive))
+      }).pipe(Effect.provide(TimeService.Default))
     )
 
     it.effect('should report isNight true at midnight (timeOfDay=0)', () =>
@@ -37,7 +38,15 @@ describe('application/time/time-service', () => {
         const service = yield* TimeService
         const night = yield* service.isNight()
         expect(night).toBe(true)
-      }).pipe(Effect.provide(TimeServiceLive))
+      }).pipe(Effect.provide(TimeService.Default))
+    )
+
+    it.effect('should start at moon phase 0', () =>
+      Effect.gen(function* () {
+        const service = yield* TimeService
+        const phase = yield* service.getMoonPhase()
+        expect(phase).toBe(0)
+      }).pipe(Effect.provide(TimeService.Default))
     )
   })
 
@@ -52,7 +61,7 @@ describe('application/time/time-service', () => {
         const timeOfDay = yield* service.getTimeOfDay()
         // setTimeOfDay clamps to 0.9999, so 0.5 is stored as-is and should return 0.5
         expect(timeOfDay).toBeCloseTo(0.5, 5)
-      }).pipe(Effect.provide(TimeServiceLive))
+      }).pipe(Effect.provide(TimeService.Default))
     )
 
     it.effect('regression: setTimeOfDay(0.5) BEFORE setDayLength changes effective timeOfDay', () =>
@@ -70,7 +79,7 @@ describe('application/time/time-service', () => {
         // ticks = 0.5 * 24000 = 12000; new dayLengthTicks = 36000 → timeOfDay = 12000/36000 ≈ 0.333
         expect(timeOfDay).toBeCloseTo(12000 / 36000, 5)
         expect(timeOfDay).not.toBeCloseTo(0.5, 1)
-      }).pipe(Effect.provide(TimeServiceLive))
+      }).pipe(Effect.provide(TimeService.Default))
     )
 
     it.effect('should correctly set noon when setDayLength is called first', () =>
@@ -80,7 +89,7 @@ describe('application/time/time-service', () => {
         yield* service.setTimeOfDay(0.5)
         const timeOfDay = yield* service.getTimeOfDay()
         expect(timeOfDay).toBeCloseTo(0.5, 5)
-      }).pipe(Effect.provide(TimeServiceLive))
+      }).pipe(Effect.provide(TimeService.Default))
     )
   })
 
@@ -97,7 +106,7 @@ describe('application/time/time-service', () => {
         const after = yield* service.getTimeOfDay()
 
         expect(after).toBeGreaterThan(before)
-      }).pipe(Effect.provide(TimeServiceLive))
+      }).pipe(Effect.provide(TimeService.Default))
     )
 
     it.effect('should advance time by the correct fractional amount', () =>
@@ -111,7 +120,7 @@ describe('application/time/time-service', () => {
         yield* service.advanceTick(DeltaTimeSecs.make(1.0))  // 1 second = 60 ticks
         const timeOfDay = yield* service.getTimeOfDay()
         expect(timeOfDay).toBeCloseTo(60 / 7200, 5)
-      }).pipe(Effect.provide(TimeServiceLive))
+      }).pipe(Effect.provide(TimeService.Default))
     )
 
     it.effect('should accumulate multiple ticks correctly', () =>
@@ -125,7 +134,25 @@ describe('application/time/time-service', () => {
 
         const timeOfDay = yield* service.getTimeOfDay()
         expect(timeOfDay).toBeCloseTo(300 / 7200, 5)
-      }).pipe(Effect.provide(TimeServiceLive))
+      }).pipe(Effect.provide(TimeService.Default))
+    )
+  })
+
+  describe('moon phase', () => {
+    it.effect('advances by full days and wraps modulo 8', () =>
+      Effect.gen(function* () {
+        const service = yield* TimeService
+        yield* service.setDayLength(120)
+        yield* service.setTimeOfDay(0)
+
+        expect(yield* service.getMoonPhase()).toBe(0)
+
+        yield* service.advanceTick(DeltaTimeSecs.make(120 * 3))
+        expect(yield* service.getMoonPhase()).toBe(3)
+
+        yield* service.advanceTick(DeltaTimeSecs.make(120 * 5))
+        expect(yield* service.getMoonPhase()).toBe(0)
+      }).pipe(Effect.provide(TimeService.Default))
     )
   })
 
@@ -137,7 +164,7 @@ describe('application/time/time-service', () => {
         yield* service.setTimeOfDay(0.5)
         const night = yield* service.isNight()
         expect(night).toBe(false)
-      }).pipe(Effect.provide(TimeServiceLive))
+      }).pipe(Effect.provide(TimeService.Default))
     )
 
     it.effect('should return true (nighttime) near midnight (timeOfDay near 0)', () =>
@@ -146,7 +173,7 @@ describe('application/time/time-service', () => {
         // Leave at default state: ticks=0, timeOfDay=0 → midnight
         const night = yield* service.isNight()
         expect(night).toBe(true)
-      }).pipe(Effect.provide(TimeServiceLive))
+      }).pipe(Effect.provide(TimeService.Default))
     )
 
     it.effect('should return true (nighttime) near midnight (timeOfDay=0.9999)', () =>
@@ -156,7 +183,7 @@ describe('application/time/time-service', () => {
         yield* service.setTimeOfDay(0.9999)  // clamps to 0.9999 → near midnight
         const night = yield* service.isNight()
         expect(night).toBe(true)  // 0.9999 > 0.75 → night
-      }).pipe(Effect.provide(TimeServiceLive))
+      }).pipe(Effect.provide(TimeService.Default))
     )
 
     it.effect('should return false at dawn threshold (timeOfDay=0.25)', () =>
@@ -168,7 +195,7 @@ describe('application/time/time-service', () => {
         yield* service.setTimeOfDay(0.25)
         const night = yield* service.isNight()
         expect(night).toBe(false)
-      }).pipe(Effect.provide(TimeServiceLive))
+      }).pipe(Effect.provide(TimeService.Default))
     )
 
     it.effect('should return true just before dawn (timeOfDay=0.24)', () =>
@@ -178,7 +205,7 @@ describe('application/time/time-service', () => {
         yield* service.setTimeOfDay(0.24)
         const night = yield* service.isNight()
         expect(night).toBe(true)  // 0.24 < 0.25 → night
-      }).pipe(Effect.provide(TimeServiceLive))
+      }).pipe(Effect.provide(TimeService.Default))
     )
 
     it.effect('should return false at dusk threshold (timeOfDay=0.75)', () =>
@@ -190,7 +217,7 @@ describe('application/time/time-service', () => {
         yield* service.setTimeOfDay(0.75)
         const night = yield* service.isNight()
         expect(night).toBe(false)
-      }).pipe(Effect.provide(TimeServiceLive))
+      }).pipe(Effect.provide(TimeService.Default))
     )
 
     it.effect('should return true just after dusk (timeOfDay=0.76)', () =>
@@ -200,7 +227,7 @@ describe('application/time/time-service', () => {
         yield* service.setTimeOfDay(0.76)
         const night = yield* service.isNight()
         expect(night).toBe(true)  // 0.76 > 0.75 → night
-      }).pipe(Effect.provide(TimeServiceLive))
+      }).pipe(Effect.provide(TimeService.Default))
     )
   })
 
@@ -218,7 +245,7 @@ describe('application/time/time-service', () => {
         const timeOfDay = yield* service.getTimeOfDay()
         expect(timeOfDay).toBeLessThan(0.2)
         expect(timeOfDay).toBeGreaterThanOrEqual(0)
-      }).pipe(Effect.provide(TimeServiceLive))
+      }).pipe(Effect.provide(TimeService.Default))
     )
 
     it.effect('should wrap correctly: ticks modulo dayLengthTicks', () =>
@@ -231,7 +258,7 @@ describe('application/time/time-service', () => {
         const timeOfDay = yield* service.getTimeOfDay()
         // 9000 % 7200 = 1800; 1800/7200 = 0.25
         expect(timeOfDay).toBeCloseTo(0.25, 4)
-      }).pipe(Effect.provide(TimeServiceLive))
+      }).pipe(Effect.provide(TimeService.Default))
     )
   })
 })

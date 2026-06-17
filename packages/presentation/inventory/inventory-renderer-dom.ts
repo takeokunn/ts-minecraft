@@ -1,15 +1,18 @@
 import { Array as Arr, Option } from 'effect'
-import { INVENTORY_SIZE, HOTBAR_START } from '@ts-minecraft/inventory'
+import { CHEST_SIZE, INVENTORY_SIZE, HOTBAR_START } from '@ts-minecraft/inventory'
 import { DomOperationsService } from '@ts-minecraft/presentation/hud/crosshair'
 import {
   DEFAULT_SLOT_COLOR, SLOT_EL_STYLE,
   OVERLAY_STYLE, OVERLAY_TITLE_STYLE,
+  CHEST_GRID_STYLE, CHEST_SECTION_STYLE, CHEST_TITLE_STYLE,
   MAIN_GRID_STYLE, HOTBAR_GRID_STYLE, SEPARATOR_STYLE,
   CRAFTING_TITLE_STYLE, CRAFTING_LIST_STYLE, STATUS_STYLE,
 } from './inventory-renderer.config'
 
 export type OverlayDom = {
   readonly overlayEl: Option.Option<HTMLDivElement>
+  readonly chestContainerEl: Option.Option<HTMLDivElement>
+  readonly chestSlotEls: HTMLDivElement[]
   readonly slotEls: HTMLDivElement[]
   readonly craftingListEl: Option.Option<HTMLDivElement>
   readonly statusEl: Option.Option<HTMLDivElement>
@@ -23,11 +26,21 @@ export const createSlotEl = (dom: DomOperationsService, index: number): HTMLDivE
   return el
 }
 
+/* c8 ignore next 5 */
+export const createChestSlotEl = (dom: DomOperationsService, index: number): HTMLDivElement => {
+  const el = dom.createElement('div')
+  el.dataset['chestSlot'] = String(index)
+  el.style.cssText = `${SLOT_EL_STYLE};background:${DEFAULT_SLOT_COLOR}`
+  return el
+}
+
 /* c8 ignore next 2 */
 export const buildOverlayDom = (dom: DomOperationsService): OverlayDom => {
   if (typeof document === 'undefined') {
     return {
       overlayEl: Option.none(),
+      chestContainerEl: Option.none(),
+      chestSlotEls: [],
       slotEls: [],
       craftingListEl: Option.none(),
       statusEl: Option.none(),
@@ -43,6 +56,19 @@ export const buildOverlayDom = (dom: DomOperationsService): OverlayDom => {
   title.textContent = 'Inventory'
   title.style.cssText = OVERLAY_TITLE_STYLE
   dom.appendChildTo(el, title)
+
+  const chestContainer = dom.createElement('div')
+  chestContainer.style.cssText = CHEST_SECTION_STYLE
+  const chestTitle = dom.createElement('div')
+  chestTitle.textContent = 'Chest'
+  chestTitle.style.cssText = CHEST_TITLE_STYLE
+  dom.appendChildTo(chestContainer, chestTitle)
+  const chestGrid = dom.createElement('div')
+  chestGrid.style.cssText = CHEST_GRID_STYLE
+  const chestSlots = Arr.makeBy(CHEST_SIZE, (i) => createChestSlotEl(dom, i))
+  Arr.forEach(chestSlots, (slotEl) => dom.appendChildTo(chestGrid, slotEl))
+  dom.appendChildTo(chestContainer, chestGrid)
+  dom.appendChildTo(el, chestContainer)
 
   // Main grid (3 rows × 9 = slots 0-26)
   const mainGrid = dom.createElement('div')
@@ -81,6 +107,8 @@ export const buildOverlayDom = (dom: DomOperationsService): OverlayDom => {
 
   return {
     overlayEl: Option.some(el),
+    chestContainerEl: Option.some(chestContainer),
+    chestSlotEls: chestSlots,
     slotEls: Arr.appendAll(mainSlots, hotbarSlots),
     craftingListEl: Option.some(craftingList),
     statusEl: Option.some(status),

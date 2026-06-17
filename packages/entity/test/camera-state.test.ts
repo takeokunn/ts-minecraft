@@ -2,7 +2,6 @@ import { describe,it } from '@effect/vitest'
 import {
 PITCH_MAX,
 PITCH_MIN,
-PlayerCameraStateLive,
 PlayerCameraStateService
 } from '@ts-minecraft/entity'
 import { Effect } from 'effect'
@@ -16,7 +15,7 @@ describe('PlayerCameraStateService', () => {
         const rotation = yield* camera.getRotation()
 
         expect(rotation).toEqual({ yaw: 0, pitch: 0 })
-      }).pipe(Effect.provide(PlayerCameraStateLive))
+      }).pipe(Effect.provide(PlayerCameraStateService.Default))
     )
 
     it.effect('should return the current rotation state', () =>
@@ -30,7 +29,7 @@ describe('PlayerCameraStateService', () => {
 
         expect(rotation.yaw).toBeCloseTo(Math.PI / 4)
         expect(rotation.pitch).toBeCloseTo(Math.PI / 6)
-      }).pipe(Effect.provide(PlayerCameraStateLive))
+      }).pipe(Effect.provide(PlayerCameraStateService.Default))
     )
   })
 
@@ -40,7 +39,7 @@ describe('PlayerCameraStateService', () => {
         const camera = yield* PlayerCameraStateService
         const mode = yield* camera.getMode()
         expect(mode).toBe('firstPerson')
-      }).pipe(Effect.provide(PlayerCameraStateLive))
+      }).pipe(Effect.provide(PlayerCameraStateService.Default))
     )
   })
 
@@ -54,7 +53,7 @@ describe('PlayerCameraStateService', () => {
 
         expect(rotation.yaw).toBeCloseTo(Math.PI / 2)
         expect(rotation.pitch).toBe(0)
-      }).pipe(Effect.provide(PlayerCameraStateLive))
+      }).pipe(Effect.provide(PlayerCameraStateService.Default))
     )
 
     it.effect('should set yaw to a negative value', () =>
@@ -66,7 +65,7 @@ describe('PlayerCameraStateService', () => {
 
         expect(rotation.yaw).toBeCloseTo(-Math.PI)
         expect(rotation.pitch).toBe(0)
-      }).pipe(Effect.provide(PlayerCameraStateLive))
+      }).pipe(Effect.provide(PlayerCameraStateService.Default))
     )
 
     it.effect('should set yaw to zero', () =>
@@ -78,7 +77,7 @@ describe('PlayerCameraStateService', () => {
         const rotation = yield* camera.getRotation()
 
         expect(rotation.yaw).toBe(0)
-      }).pipe(Effect.provide(PlayerCameraStateLive))
+      }).pipe(Effect.provide(PlayerCameraStateService.Default))
     )
 
     it.effect('should allow full rotation (2*PI)', () =>
@@ -89,7 +88,7 @@ describe('PlayerCameraStateService', () => {
         const rotation = yield* camera.getRotation()
 
         expect(rotation.yaw).toBeCloseTo(2 * Math.PI)
-      }).pipe(Effect.provide(PlayerCameraStateLive))
+      }).pipe(Effect.provide(PlayerCameraStateService.Default))
     )
   })
 
@@ -103,7 +102,7 @@ describe('PlayerCameraStateService', () => {
 
         expect(rotation.pitch).toBeCloseTo(Math.PI / 4)
         expect(rotation.yaw).toBe(0)
-      }).pipe(Effect.provide(PlayerCameraStateLive))
+      }).pipe(Effect.provide(PlayerCameraStateService.Default))
     )
 
     it.effect('should set pitch to a negative value', () =>
@@ -115,7 +114,7 @@ describe('PlayerCameraStateService', () => {
 
         expect(rotation.pitch).toBeCloseTo(-Math.PI / 4)
         expect(rotation.yaw).toBe(0)
-      }).pipe(Effect.provide(PlayerCameraStateLive))
+      }).pipe(Effect.provide(PlayerCameraStateService.Default))
     )
 
     it.effect('should clamp pitch to PITCH_MAX when exceeding upper limit', () =>
@@ -126,7 +125,7 @@ describe('PlayerCameraStateService', () => {
         const rotation = yield* camera.getRotation()
 
         expect(rotation.pitch).toBeCloseTo(PITCH_MAX)
-      }).pipe(Effect.provide(PlayerCameraStateLive))
+      }).pipe(Effect.provide(PlayerCameraStateService.Default))
     )
 
     it.effect('should clamp pitch to PITCH_MIN when exceeding lower limit', () =>
@@ -137,7 +136,7 @@ describe('PlayerCameraStateService', () => {
         const rotation = yield* camera.getRotation()
 
         expect(rotation.pitch).toBeCloseTo(PITCH_MIN)
-      }).pipe(Effect.provide(PlayerCameraStateLive))
+      }).pipe(Effect.provide(PlayerCameraStateService.Default))
     )
 
     it.effect('should accept pitch at PITCH_MAX boundary', () =>
@@ -148,7 +147,7 @@ describe('PlayerCameraStateService', () => {
         const rotation = yield* camera.getRotation()
 
         expect(rotation.pitch).toBeCloseTo(PITCH_MAX)
-      }).pipe(Effect.provide(PlayerCameraStateLive))
+      }).pipe(Effect.provide(PlayerCameraStateService.Default))
     )
 
     it.effect('should accept pitch at PITCH_MIN boundary', () =>
@@ -159,7 +158,7 @@ describe('PlayerCameraStateService', () => {
         const rotation = yield* camera.getRotation()
 
         expect(rotation.pitch).toBeCloseTo(PITCH_MIN)
-      }).pipe(Effect.provide(PlayerCameraStateLive))
+      }).pipe(Effect.provide(PlayerCameraStateService.Default))
     )
   })
 
@@ -173,7 +172,7 @@ describe('PlayerCameraStateService', () => {
         const rotation = yield* camera.getRotation()
 
         expect(rotation.yaw).toBeCloseTo(Math.PI / 4)
-      }).pipe(Effect.provide(PlayerCameraStateLive))
+      }).pipe(Effect.provide(PlayerCameraStateService.Default))
     )
 
     it.effect('should add negative delta to yaw', () =>
@@ -185,7 +184,7 @@ describe('PlayerCameraStateService', () => {
         const rotation = yield* camera.getRotation()
 
         expect(rotation.yaw).toBeCloseTo(-Math.PI / 4)
-      }).pipe(Effect.provide(PlayerCameraStateLive))
+      }).pipe(Effect.provide(PlayerCameraStateService.Default))
     )
 
     it.effect('should accumulate multiple additions', () =>
@@ -199,7 +198,7 @@ describe('PlayerCameraStateService', () => {
         const rotation = yield* camera.getRotation()
 
         expect(rotation.yaw).toBeCloseTo((3 * Math.PI) / 4)
-      }).pipe(Effect.provide(PlayerCameraStateLive))
+      }).pipe(Effect.provide(PlayerCameraStateService.Default))
     )
 
     it.effect('should not affect pitch when adding yaw', () =>
@@ -212,7 +211,7 @@ describe('PlayerCameraStateService', () => {
 
         expect(rotation.pitch).toBeCloseTo(Math.PI / 6)
         expect(rotation.yaw).toBeCloseTo(Math.PI / 4)
-      }).pipe(Effect.provide(PlayerCameraStateLive))
+      }).pipe(Effect.provide(PlayerCameraStateService.Default))
     )
   })
 
@@ -226,7 +225,7 @@ describe('PlayerCameraStateService', () => {
         const rotation = yield* camera.getRotation()
 
         expect(rotation.pitch).toBeCloseTo(Math.PI / 4)
-      }).pipe(Effect.provide(PlayerCameraStateLive))
+      }).pipe(Effect.provide(PlayerCameraStateService.Default))
     )
 
     it.effect('should add negative delta to pitch with clamping', () =>
@@ -238,7 +237,7 @@ describe('PlayerCameraStateService', () => {
         const rotation = yield* camera.getRotation()
 
         expect(rotation.pitch).toBeCloseTo(-Math.PI / 4)
-      }).pipe(Effect.provide(PlayerCameraStateLive))
+      }).pipe(Effect.provide(PlayerCameraStateService.Default))
     )
 
     it.effect('should clamp to PITCH_MAX when adding exceeds limit', () =>
@@ -250,7 +249,7 @@ describe('PlayerCameraStateService', () => {
         const rotation = yield* camera.getRotation()
 
         expect(rotation.pitch).toBeCloseTo(PITCH_MAX)
-      }).pipe(Effect.provide(PlayerCameraStateLive))
+      }).pipe(Effect.provide(PlayerCameraStateService.Default))
     )
 
     it.effect('should clamp to PITCH_MIN when adding exceeds limit', () =>
@@ -262,7 +261,7 @@ describe('PlayerCameraStateService', () => {
         const rotation = yield* camera.getRotation()
 
         expect(rotation.pitch).toBeCloseTo(PITCH_MIN)
-      }).pipe(Effect.provide(PlayerCameraStateLive))
+      }).pipe(Effect.provide(PlayerCameraStateService.Default))
     )
 
     it.effect('should not affect yaw when adding pitch', () =>
@@ -275,7 +274,7 @@ describe('PlayerCameraStateService', () => {
 
         expect(rotation.yaw).toBeCloseTo(Math.PI / 3)
         expect(rotation.pitch).toBeCloseTo(Math.PI / 6)
-      }).pipe(Effect.provide(PlayerCameraStateLive))
+      }).pipe(Effect.provide(PlayerCameraStateService.Default))
     )
   })
 
@@ -292,7 +291,7 @@ describe('PlayerCameraStateService', () => {
 
         expect(thirdPersonMode).toBe('thirdPerson')
         expect(firstPersonMode).toBe('firstPerson')
-      }).pipe(Effect.provide(PlayerCameraStateLive))
+      }).pipe(Effect.provide(PlayerCameraStateService.Default))
     )
   })
 

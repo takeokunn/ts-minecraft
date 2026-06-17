@@ -24,11 +24,14 @@ export default defineConfig(({ command, mode }) => {
         origin: ['http://localhost:5173', 'http://127.0.0.1:5173'],
         credentials: true,
       },
-      hmr: {
-        port: env.VITE_HMR_PORT ? Number(env.VITE_HMR_PORT) : 5174,
-        overlay: true,
-        clientPort: env.VITE_HMR_CLIENT_PORT ? Number(env.VITE_HMR_CLIENT_PORT) : 5174,
-      },
+      hmr:
+        env.VITE_E2E_DISABLE_HMR === '1'
+          ? false
+          : {
+              port: env.VITE_HMR_PORT ? Number(env.VITE_HMR_PORT) : 5174,
+              overlay: true,
+              clientPort: env.VITE_HMR_CLIENT_PORT ? Number(env.VITE_HMR_CLIENT_PORT) : 5174,
+            },
       proxy: isDev
         ? {
             '/api': {

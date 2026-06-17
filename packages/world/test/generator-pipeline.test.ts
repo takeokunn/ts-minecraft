@@ -1,7 +1,7 @@
 import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
 import { Effect, MutableHashMap } from 'effect'
-import { CHUNK_HEIGHT, CHUNK_SIZE, SEA_LEVEL, blockTypeToIndex } from '@ts-minecraft/core'
+import { CHUNK_SIZE, SEA_LEVEL, blockTypeToIndex } from '@ts-minecraft/core'
 import { chunkBlockIndexUnchecked } from '../domain/terrain/math'
 import type { BiomeGeneratorPort } from '../domain/biome-generator-port'
 import { computeColumnYFromValues } from '../domain/density-function'
@@ -9,8 +9,13 @@ import { peaksAndValleysFromWeirdness } from '../domain/biome-classifier'
 import { createBlockIndices } from '../domain/terrain/generator-coordinates'
 import { buildColumnStates, createTreeColumnContextResolver } from '../domain/terrain/generator-pipeline'
 import type { BiomeProperties } from '../domain/biome'
-import type { ColumnStateBuildArgs } from '../domain/terrain/generator-types'
+import type { ColumnState, ColumnStateBuildArgs } from '../domain/terrain/generator-types'
 import { NoiseServicePort } from '../domain/noise-service-port'
+import { makeChunkBlockBuffer } from './chunk-buffer-test-utils'
+import { makeChunkColumnArray, makeTerrainChannelSamples } from './terrain-channel-test-utils'
+
+const columnStateAt = (columnStates: ReadonlyArray<ColumnState>, index: number): ColumnState =>
+  columnStates[index] as ColumnState
 
 describe('terrain/generator-pipeline', () => {
   it.effect('tree column context uses peaks-and-valleys semantics instead of raw weirdness for surface height', () =>
@@ -51,12 +56,7 @@ describe('terrain/generator-pipeline', () => {
         erosion: () => Effect.succeed(erosion),
         weirdness: () => Effect.succeed(rawWeirdness),
         jaggedness: () => Effect.succeed(jaggedness),
-        sampleTerrainChannels: () => Effect.succeed({
-          continentalness: new Float64Array(256).fill(continentalness),
-          erosion: new Float64Array(256).fill(erosion),
-          pv: new Float64Array(256).fill(pv),
-          jaggedness: new Float64Array(256).fill(jaggedness),
-        }),
+        sampleTerrainChannels: () => Effect.succeed(makeTerrainChannelSamples({ continentalness, erosion, pv, jaggedness })),
       })
 
       const resolveTreeColumnContext = createTreeColumnContextResolver({
@@ -75,9 +75,60 @@ describe('terrain/generator-pipeline', () => {
     })
   )
 
+  it('promotes rocky outcrops on continental peak columns while flat inland columns stay grassy', () => {
+    const blockIndices = createBlockIndices()
+    const terrainIndex = (lx: number, lz: number): number => lz * CHUNK_SIZE + lx
+    const elevatedSurfaceY = SEA_LEVEL + 16
+
+    const props: BiomeProperties = {
+      surfaceBlock: 'GRASS',
+      subSurfaceBlock: 'DIRT',
+      treeDensity: 0,
+      temperature: 0.5,
+      humidity: 0.6,
+    }
+
+    const biomeColumns: ColumnStateBuildArgs['biomeColumns'] = makeChunkColumnArray(() => ({ biome: 'FOREST' as const, props }))
+    const terrainChannels = makeTerrainChannelSamples({ continentalness: 0.1, erosion: 0.2, pv: 0, jaggedness: 0.1 })
+
+    const lowColumn = terrainIndex(3, 3)
+    const highColumn = terrainIndex(12, 12)
+    terrainChannels.continentalness[lowColumn] = -0.4
+    terrainChannels.pv[lowColumn] = 0
+    terrainChannels.continentalness[highColumn] = 0.9
+    terrainChannels.pv[highColumn] = 1
+
+    const blocks = makeChunkBlockBuffer()
+    const columnStates = buildColumnStates({
+      blocks,
+      baseWorldX: 0,
+      baseWorldZ: 0,
+      biomeColumns,
+      terrainChannels,
+      initialSurfaceYs: Int32Array.from(makeChunkColumnArray(() => elevatedSurfaceY)),
+      lakeNoiseVals: makeChunkColumnArray(() => 0),
+      graniteNoiseVals: makeChunkColumnArray(() => 0),
+      dioriteNoiseVals: makeChunkColumnArray(() => 0),
+      andesiteNoiseVals: makeChunkColumnArray(() => 0),
+      treeColumnContextCache: MutableHashMap.empty(),
+      blockIndices,
+    })
+
+    const grassIndex = blockTypeToIndex('GRASS')
+    const dirtIndex = blockTypeToIndex('DIRT')
+    const gravelIndex = blockTypeToIndex('GRAVEL')
+    const stoneIndex = blockTypeToIndex('STONE')
+
+    expect(columnStateAt(columnStates, lowColumn).ruggedness).toBeLessThan(0.4)
+    expect(columnStateAt(columnStates, highColumn).ruggedness).toBeGreaterThan(0.56)
+    expect(blocks[chunkBlockIndexUnchecked(3, elevatedSurfaceY, 3)]).toBe(grassIndex)
+    expect(blocks[chunkBlockIndexUnchecked(3, elevatedSurfaceY - 1, 3)]).toBe(dirtIndex)
+    expect(blocks[chunkBlockIndexUnchecked(12, elevatedSurfaceY, 12)]).toBe(gravelIndex)
+    expect(blocks[chunkBlockIndexUnchecked(12, elevatedSurfaceY - 1, 12)]).toBe(stoneIndex)
+  })
+
   it('fills ocean columns below sea level with WATER up to SEA_LEVEL', () => {
     const blockIndices = createBlockIndices()
-    const columnCount = CHUNK_SIZE * CHUNK_SIZE
     const props: BiomeProperties = {
       surfaceBlock: 'SAND',
       subSurfaceBlock: 'SAND',
@@ -85,17 +136,9 @@ describe('terrain/generator-pipeline', () => {
       temperature: 0.5,
       humidity: 0.5,
     }
-    const biomeColumns: ColumnStateBuildArgs['biomeColumns'] = Array.from(
-      { length: columnCount },
-      () => ({ biome: 'OCEAN' as const, props }),
-    )
-    const terrainChannels = {
-      continentalness: new Float64Array(columnCount).fill(0.5),
-      erosion: new Float64Array(columnCount).fill(0.5),
-      pv: new Float64Array(columnCount).fill(0.5),
-      jaggedness: new Float64Array(columnCount).fill(0.5),
-    }
-    const blocks = new Uint8Array(CHUNK_SIZE * CHUNK_HEIGHT * CHUNK_SIZE)
+    const biomeColumns: ColumnStateBuildArgs['biomeColumns'] = makeChunkColumnArray(() => ({ biome: 'OCEAN' as const, props }))
+    const terrainChannels = makeTerrainChannelSamples({ continentalness: 0.5, erosion: 0.5, pv: 0.5, jaggedness: 0.5 })
+    const blocks = makeChunkBlockBuffer()
     // Ocean floor below sea level → determineWaterLevel floods up to SEA_LEVEL.
     const oceanFloorY = SEA_LEVEL - 5
 
@@ -105,11 +148,11 @@ describe('terrain/generator-pipeline', () => {
       baseWorldZ: 0,
       biomeColumns,
       terrainChannels,
-      initialSurfaceYs: new Int32Array(columnCount).fill(oceanFloorY),
-      lakeNoiseVals: Array.from({ length: columnCount }, () => 1),
-      graniteNoiseVals: Array.from({ length: columnCount }, () => 0),
-      dioriteNoiseVals: Array.from({ length: columnCount }, () => 0),
-      andesiteNoiseVals: Array.from({ length: columnCount }, () => 0),
+      initialSurfaceYs: Int32Array.from(makeChunkColumnArray(() => oceanFloorY)),
+      lakeNoiseVals: makeChunkColumnArray(() => 1),
+      graniteNoiseVals: makeChunkColumnArray(() => 0),
+      dioriteNoiseVals: makeChunkColumnArray(() => 0),
+      andesiteNoiseVals: makeChunkColumnArray(() => 0),
       treeColumnContextCache: MutableHashMap.empty(),
       blockIndices,
     })
@@ -122,5 +165,43 @@ describe('terrain/generator-pipeline', () => {
     expect(blocks[chunkBlockIndexUnchecked(0, oceanFloorY + 1, 0)]).toBe(waterIndex)
     expect(blocks[chunkBlockIndexUnchecked(0, SEA_LEVEL, 0)]).toBe(waterIndex)
     expect(blocks[chunkBlockIndexUnchecked(0, SEA_LEVEL + 1, 0)]).not.toBe(waterIndex)
+  })
+
+  it('freezes the top water block in cold biome columns', () => {
+    const blockIndices = createBlockIndices()
+    const props: BiomeProperties = {
+      surfaceBlock: 'SNOW',
+      subSurfaceBlock: 'DIRT',
+      treeDensity: 0,
+      temperature: 0.05,
+      humidity: 0.5,
+    }
+    const biomeColumns: ColumnStateBuildArgs['biomeColumns'] = makeChunkColumnArray(() => ({ biome: 'SNOW' as const, props }))
+    const terrainChannels = makeTerrainChannelSamples({ continentalness: 0.5, erosion: 0.5, pv: 0.5, jaggedness: 0.5 })
+    const blocks = makeChunkBlockBuffer()
+    const frozenFloorY = SEA_LEVEL - 4
+
+    buildColumnStates({
+      blocks,
+      baseWorldX: 0,
+      baseWorldZ: 0,
+      biomeColumns,
+      terrainChannels,
+      initialSurfaceYs: Int32Array.from(makeChunkColumnArray(() => frozenFloorY)),
+      lakeNoiseVals: makeChunkColumnArray(() => 1),
+      graniteNoiseVals: makeChunkColumnArray(() => 0),
+      dioriteNoiseVals: makeChunkColumnArray(() => 0),
+      andesiteNoiseVals: makeChunkColumnArray(() => 0),
+      treeColumnContextCache: MutableHashMap.empty(),
+      blockIndices,
+    })
+
+    const waterIndex = blockTypeToIndex('WATER')
+    const iceIndex = blockTypeToIndex('ICE')
+
+    expect(blocks[chunkBlockIndexUnchecked(0, frozenFloorY + 1, 0)]).toBe(waterIndex)
+    expect(blocks[chunkBlockIndexUnchecked(0, SEA_LEVEL - 1, 0)]).toBe(waterIndex)
+    expect(blocks[chunkBlockIndexUnchecked(0, SEA_LEVEL, 0)]).toBe(iceIndex)
+    expect(blocks[chunkBlockIndexUnchecked(0, SEA_LEVEL + 1, 0)]).not.toBe(iceIndex)
   })
 })

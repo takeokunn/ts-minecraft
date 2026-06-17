@@ -131,5 +131,3 @@ export class ConnectionPanelService extends Effect.Service<ConnectionPanelServic
     }),
   },
 ) {}
-
-export const ConnectionPanelLive = ConnectionPanelService.Default

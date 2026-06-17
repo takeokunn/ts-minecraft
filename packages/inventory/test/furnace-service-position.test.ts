@@ -1,11 +1,10 @@
 import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
 import { Effect, Either, HashMap, Layer, MutableHashMap, Option } from 'effect'
-import { FurnaceService, FurnaceServiceLive } from '../application/furnace-service'
+import { FurnaceService } from '../application/furnace-service'
 import { RecipeService } from '../application/recipe-service'
 import { InventoryService } from '../application/inventory-service'
-import { PlayerService } from '@ts-minecraft/entity/application/player-service'
-import { ChunkManagerService } from '@ts-minecraft/world/application/chunk-manager-service'
+import { PlayerServicePort, WorldBlockQueryPort } from '@ts-minecraft/world'
 import { RecipeId } from '@ts-minecraft/core'
 import { CHUNK_HEIGHT } from '@ts-minecraft/core'
 import type { InventoryItem } from '@ts-minecraft/core'
@@ -83,7 +82,7 @@ describe('application/furnace/furnace-service', () => {
   it.effect('startSmelting counts only non-empty slots (onNone path in slot reduction)', () => {
     const inventoryItems = MutableHashMap.fromIterable<InventoryItem, number>([['RAW_IRON', 1], ['COAL', 1]])
 
-    const layer = FurnaceServiceLive.pipe(
+    const layer = FurnaceService.Default.pipe(
       Layer.provide(Layer.succeed(RecipeService, makeRecipeService({
         'raw-iron-to-iron-ingot': {
           station: 'furnace',
@@ -101,8 +100,8 @@ describe('application/furnace/furnace-service', () => {
         removeBlock: () => Effect.void,
         addBlock: () => Effect.void,
       }))),
-      Layer.provide(Layer.succeed(PlayerService, makePlayerService({ x: 0, y: 64, z: 0 }))),
-      Layer.provide(Layer.succeed(ChunkManagerService, makeChunkManagerService(makeChunkWithFurnace()))),
+      Layer.provide(Layer.succeed(PlayerServicePort, makePlayerService({ x: 0, y: 64, z: 0 }))),
+      Layer.provide(Layer.succeed(WorldBlockQueryPort, makeChunkManagerService(makeChunkWithFurnace()))),
     )
 
     return Effect.gen(function* () {

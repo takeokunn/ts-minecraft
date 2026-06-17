@@ -19,9 +19,11 @@ const UnsignedByteType = 1009
 // vi.mock factory is hoisted above all module-level state, so we can't close
 // over a regular `const` here — we read/write through globalThis instead.
 type CaptureBag = Array<{ type: number }>
-declare const globalThis: { __capturedRtOptions__?: CaptureBag } & typeof global
+declare const globalThis: { __capturedRtOptions__?: CaptureBag; __smaaConstructCount__?: number } & typeof global
 globalThis.__capturedRtOptions__ = []
+globalThis.__smaaConstructCount__ = 0
 const captured = (): CaptureBag => globalThis.__capturedRtOptions__ ?? []
+const smaaConstructCount = (): number => globalThis.__smaaConstructCount__ ?? 0
 
 vi.mock('three', () => {
   // Hardcoded inline because vi.mock is hoisted above all top-level vars.
@@ -77,9 +79,11 @@ vi.mock('three/addons/postprocessing/BokehPass.js', () => ({
   })),
 }))
 vi.mock('three/addons/postprocessing/SMAAPass.js', () => ({
-  SMAAPass: vi.fn().mockImplementation(() => ({
-    enabled: true, strength: 0, setSize: vi.fn(), dispose: vi.fn(),
-  })),
+  SMAAPass: vi.fn().mockImplementation(() => {
+    const g = globalThis as { __smaaConstructCount__?: number }
+    g.__smaaConstructCount__ = (g.__smaaConstructCount__ ?? 0) + 1
+    return { enabled: true, strength: 0, setSize: vi.fn(), dispose: vi.fn() }
+  }),
 }))
 vi.mock('three/addons/postprocessing/OutputPass.js', () => ({
   OutputPass: vi.fn().mockImplementation(() => ({
@@ -142,5 +146,25 @@ describe('FR-1.6 — buildPostProcessing composer RT type', () => {
       const t = resolvePreset(quality).composerRtType
       expect([UnsignedByteType, HalfFloatType]).toContain(t)
     })
+  })
+})
+
+describe('buildPostProcessing SMAA allocation', () => {
+  it('skips SMAAPass construction for presets with SMAA disabled', async () => {
+    globalThis.__smaaConstructCount__ = 0
+
+    await Effect.runPromise(buildPostProcessing(stubRenderer, stubScene, stubCamera, canvas, resolvePreset('low')))
+    await Effect.runPromise(buildPostProcessing(stubRenderer, stubScene, stubCamera, canvas, resolvePreset('medium')))
+
+    expect(smaaConstructCount()).toBe(0)
+  })
+
+  it('constructs SMAAPass only for presets with SMAA enabled', async () => {
+    globalThis.__smaaConstructCount__ = 0
+
+    await Effect.runPromise(buildPostProcessing(stubRenderer, stubScene, stubCamera, canvas, resolvePreset('high')))
+    await Effect.runPromise(buildPostProcessing(stubRenderer, stubScene, stubCamera, canvas, resolvePreset('ultra')))
+
+    expect(smaaConstructCount()).toBe(2)
   })
 })

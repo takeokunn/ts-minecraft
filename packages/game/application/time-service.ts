@@ -1,11 +1,16 @@
-import { Effect, Ref, Schema } from 'effect'
+import { Effect, Ref } from 'effect'
 import { DeltaTimeSecs } from '@ts-minecraft/core'
-
-const TimeStateSchema = Schema.Struct({
-  ticks: Schema.Number.pipe(Schema.nonNegative()),
-  dayLengthTicks: Schema.Number.pipe(Schema.positive()),
-})
-type TimeState = Schema.Schema.Type<typeof TimeStateSchema>
+import {
+  advanceTimeState,
+  getDayLengthFromState,
+  getMoonPhaseFromState,
+  getTimeOfDayFromState,
+  INITIAL_TIME_STATE,
+  isNightFromState,
+  setDayLengthOnState,
+  setTimeOfDayOnState,
+  type TimeState,
+} from './time-service-state'
 
 // Time-of-day: 0.0=midnight, 0.25=dawn, 0.5=noon, 0.75=dusk. One tick = one frame ≈ 16ms at 60fps.
 export class TimeService extends Effect.Service<TimeService>()(
@@ -13,49 +18,42 @@ export class TimeService extends Effect.Service<TimeService>()(
   {
     effect: Effect.gen(function* () {
       const stateRef = yield* Ref.make<TimeState>({
-        ticks: 0,
-        dayLengthTicks: 24000,  // 400 seconds at 60fps
+        ...INITIAL_TIME_STATE,
       })
       return {
         advanceTick: (deltaTime: DeltaTimeSecs): Effect.Effect<void, never> =>
-          Ref.update(stateRef, (state) => ({
-            ...state,
-            ticks: state.ticks + deltaTime * 60,
-          })),
+          Ref.update(stateRef, advanceTimeState(deltaTime)),
 
         getTimeOfDay: (): Effect.Effect<number, never> =>
           Effect.gen(function* () {
             const state = yield* Ref.get(stateRef)
-            return (state.ticks % state.dayLengthTicks) / state.dayLengthTicks
+            return getTimeOfDayFromState(state)
+          }),
+
+        getMoonPhase: (): Effect.Effect<number, never> =>
+          Effect.gen(function* () {
+            const state = yield* Ref.get(stateRef)
+            return getMoonPhaseFromState(state)
           }),
 
         isNight: (): Effect.Effect<boolean, never> =>
           Effect.gen(function* () {
             const state = yield* Ref.get(stateRef)
-            const timeOfDay = (state.ticks % state.dayLengthTicks) / state.dayLengthTicks
-            return timeOfDay < 0.25 || timeOfDay > 0.75
+            return isNightFromState(state)
           }),
 
         getDayLength: (): Effect.Effect<number, never> =>
           Effect.gen(function* () {
             const state = yield* Ref.get(stateRef)
-            return state.dayLengthTicks / 60
+            return getDayLengthFromState(state)
           }),
 
         setDayLength: (seconds: number): Effect.Effect<void, never> =>
-          Ref.update(stateRef, (state) => ({
-            ...state,
-            dayLengthTicks: Math.max(120, Math.min(1200, seconds)) * 60, // clamps to 120-1200s range
-          })),
+          Ref.update(stateRef, setDayLengthOnState(seconds)),
 
         setTimeOfDay: (fraction: number): Effect.Effect<void, never> =>
-          Ref.update(stateRef, (state) => ({
-            ...state,
-            ticks: Math.max(0, Math.min(0.9999, fraction)) * state.dayLengthTicks, // 0.9999 avoids exact midnight wrap
-          })),
+          Ref.update(stateRef, setTimeOfDayOnState(fraction)),
       }
     }),
   }
 ) {}
-
-export const TimeServiceLive = TimeService.Default

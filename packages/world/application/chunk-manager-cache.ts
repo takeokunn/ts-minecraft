@@ -5,6 +5,8 @@ import { FLUID_BYTE_LENGTH, createFluidBuffer } from '@ts-minecraft/block'
 import type { ChunkStorageValue } from '../domain/storage-service-port'
 import type { ChunkCacheKey, WorldId } from '@ts-minecraft/core'
 
+export type { ChunkCacheKey } from '@ts-minecraft/core'
+
 export const storedFluidBuffer = (value: unknown): Uint8Array<ArrayBufferLike> =>
   value instanceof Uint8Array && value.byteLength === FLUID_BYTE_LENGTH ? value : createFluidBuffer()
 
@@ -38,3 +40,15 @@ export type ChunkCache = {
   renderDirtyChunks: HashSet.HashSet<ChunkCacheKey>
   renderDirtyAABBs: HashMap.HashMap<ChunkCacheKey, ChunkAABB>
 }
+
+export const removeChunkFromCacheState = (
+  state: ChunkCache,
+  key: ChunkCacheKey,
+  chunks: HashMap.HashMap<ChunkCacheKey, ChunkCacheEntry> = state.chunks,
+): ChunkCache => ({
+  ...state,
+  chunks: HashMap.remove(chunks, key),
+  dirtyChunks: HashSet.remove(state.dirtyChunks, key),
+  renderDirtyChunks: HashSet.remove(state.renderDirtyChunks, key),
+  renderDirtyAABBs: HashMap.remove(state.renderDirtyAABBs, key),
+})

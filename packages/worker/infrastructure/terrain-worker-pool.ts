@@ -3,7 +3,7 @@
 //
 // Mirrors the architecture of infrastructure/three/meshing/MeshingWorkerPool:
 //   - Effect.Service / scoped layer
-//   - Round-robin dispatch over Math.max(2, Math.min(8, hardwareConcurrency-1)) workers
+//   - Round-robin dispatch over a small hardware-adaptive worker pool
 //   - Per-worker MutableHashMap<id, deferred> for pending requests
 //   - Finalizer terminates all workers
 //   - Synchronous fallback when Worker is unavailable (Vitest / Node.js)
@@ -45,6 +45,18 @@ type PoolWorker = Readonly<{
   worker: Worker
   pending: MutableHashMap.MutableHashMap<number, Pending>
 }>
+
+const rejectPendingRequests = (
+  pending: MutableHashMap.MutableHashMap<number, Pending>,
+  reason: string,
+): void => {
+  for (const request of MutableHashMap.values(pending)) {
+    request.resume(Effect.fail(new TerrainGenerationError({
+      reason,
+      chunk: request.chunk,
+    })))
+  }
+}
 
 
 // -----------------------------------------------------------------------------
@@ -92,15 +104,7 @@ export class TerrainWorkerPool extends Effect.Service<TerrainWorkerPool>()(
         MutableRef.set(poolWorkersRef, [])
 
         Arr.forEach(activeWorkers, ({ pending, worker }) => {
-          const stranded = Arr.fromIterable(MutableHashMap.values(pending))
-
-          Arr.forEach(stranded, (request) => {
-            request.resume(Effect.fail(new TerrainGenerationError({
-              reason,
-              chunk: request.chunk,
-            })))
-          })
-
+          rejectPendingRequests(pending, reason)
           terminateWorkerSafely(worker)
         })
       }
@@ -169,12 +173,7 @@ export class TerrainWorkerPool extends Effect.Service<TerrainWorkerPool>()(
           // Reject every pending request so dependent fibers don't hang on
           // tear-down.
           Arr.forEach(MutableRef.get(poolWorkersRef), ({ pending, worker }) => {
-            Arr.forEach(Arr.fromIterable(MutableHashMap.values(pending)), (p) => {
-              p.resume(Effect.fail(new TerrainGenerationError({
-                reason: 'TerrainWorkerPool finalized while request was in flight',
-                chunk: p.chunk,
-              })))
-            })
+            rejectPendingRequests(pending, 'TerrainWorkerPool finalized while request was in flight')
             try {
               worker.terminate()
             } catch {
@@ -269,7 +268,5 @@ export class TerrainWorkerPool extends Effect.Service<TerrainWorkerPool>()(
     }),
   },
 ) {}
-
-export const TerrainWorkerPoolLive = TerrainWorkerPool.Default
 
 export { LIGHT_BYTE_LENGTH } from '@ts-minecraft/block'

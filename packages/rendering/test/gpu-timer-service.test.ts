@@ -91,10 +91,10 @@ describe('GpuTimerService — disabled path (node env)', () => {
     expect(result).toBeUndefined()
   })
 
-  it('exports GpuTimerServiceLive from the package barrel', async () => {
+  it('exports GpuTimerService.Default from the package barrel', async () => {
     const mod = await import('@ts-minecraft/rendering')
-    expect(mod.GpuTimerServiceLive).toBeDefined()
-    expect(typeof mod.GpuTimerServiceLive).toBe('object')
+    expect(mod.GpuTimerService.Default).toBeDefined()
+    expect(typeof mod.GpuTimerService.Default).toBe('object')
   })
 })
 

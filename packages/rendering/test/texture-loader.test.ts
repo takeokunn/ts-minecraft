@@ -2,11 +2,11 @@ import { describe, it } from '@effect/vitest'
 import { expect, beforeEach, afterEach, vi } from 'vitest'
 import { Effect } from 'effect'
 import * as THREE from 'three'
-import { TextureService, TextureServiceLive } from '@ts-minecraft/rendering'
+import { TextureService } from '@ts-minecraft/rendering'
 import { mockCanvasElement } from '@test/helpers/three-mocks'
 
 describe('three/textures/texture-loader', () => {
-  describe('TextureServiceLive', () => {
+  describe('TextureService.Default', () => {
     beforeEach(() => {
       vi.stubGlobal('document', {
         createElement: vi.fn((tag: string) => {
@@ -23,7 +23,7 @@ expect.fail(`Unexpected element request in texture-loader test: ${tag}`)
     })
 
     it('should provide TextureService as Layer', () => {
-      const layer = TextureServiceLive
+      const layer = TextureService.Default
 
       expect(layer).toBeDefined()
       expect(typeof layer).toBe('object')
@@ -38,7 +38,7 @@ expect.fail(`Unexpected element request in texture-loader test: ${tag}`)
         expect(typeof service.getCached).toBe('function')
         expect(typeof service.preload).toBe('function')
         expect(typeof service.dispose).toBe('function')
-      }).pipe(Effect.provide(TextureServiceLive))
+      }).pipe(Effect.provide(TextureService.Default))
     )
 
     describe('createSolidColor', () => {
@@ -55,7 +55,7 @@ expect.fail(`Unexpected element request in texture-loader test: ${tag}`)
           // consistently with the world atlas under renderer.outputColorSpace = sRGB.
           expect(texture.colorSpace).toBe(THREE.SRGBColorSpace)
           expect(texture).toBeInstanceOf(THREE.CanvasTexture)
-        }).pipe(Effect.provide(TextureServiceLive))
+        }).pipe(Effect.provide(TextureService.Default))
       )
 
       it.effect('should create texture with different colors', () =>
@@ -72,7 +72,7 @@ expect.fail(`Unexpected element request in texture-loader test: ${tag}`)
 
           expect(redTexture.uuid).not.toBe(blueTexture.uuid)
           expect(blueTexture.uuid).not.toBe(greenTexture.uuid)
-        }).pipe(Effect.provide(TextureServiceLive))
+        }).pipe(Effect.provide(TextureService.Default))
       )
 
       it.effect('should create texture from number color', () =>
@@ -83,7 +83,7 @@ expect.fail(`Unexpected element request in texture-loader test: ${tag}`)
 
           expect(texture).toBeDefined()
           expect(texture.magFilter).toBe(THREE.NearestFilter)
-        }).pipe(Effect.provide(TextureServiceLive))
+        }).pipe(Effect.provide(TextureService.Default))
       )
     })
 
@@ -95,7 +95,7 @@ expect.fail(`Unexpected element request in texture-loader test: ${tag}`)
           const cached = yield* service.getCached('non-existent-url')
 
           expect(cached._tag).toBe('None')
-        }).pipe(Effect.provide(TextureServiceLive))
+        }).pipe(Effect.provide(TextureService.Default))
       )
     })
 
@@ -111,7 +111,7 @@ expect.fail(`Unexpected element request in texture-loader test: ${tag}`)
           expect(cached1._tag).toBe('None')
 
           yield* service.dispose()
-        }).pipe(Effect.provide(TextureServiceLive))
+        }).pipe(Effect.provide(TextureService.Default))
       )
     })
 
@@ -121,7 +121,7 @@ expect.fail(`Unexpected element request in texture-loader test: ${tag}`)
           const service = yield* TextureService
 
           yield* service.preload(['url1', 'url2', 'url3'])
-        }).pipe(Effect.provide(TextureServiceLive))
+        }).pipe(Effect.provide(TextureService.Default))
       )
 
       it.effect('should handle empty array', () =>
@@ -129,7 +129,7 @@ expect.fail(`Unexpected element request in texture-loader test: ${tag}`)
           const service = yield* TextureService
 
           yield* service.preload([])
-        }).pipe(Effect.provide(TextureServiceLive))
+        }).pipe(Effect.provide(TextureService.Default))
       )
     })
 
@@ -141,7 +141,7 @@ expect.fail(`Unexpected element request in texture-loader test: ${tag}`)
           const loadEffect = service.load('test-url')
           expect(typeof loadEffect.pipe).toBe('function')
           expect(typeof loadEffect).toBe('object')
-        }).pipe(Effect.provide(TextureServiceLive))
+        }).pipe(Effect.provide(TextureService.Default))
       )
     })
   })

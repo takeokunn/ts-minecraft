@@ -12,6 +12,110 @@ export const MouseButton = {
   RIGHT: 2,
 } as const
 
+const GAMEPAD_STICK_DEADZONE = 0.15
+const GAMEPAD_TRIGGER_DEADZONE = 0.1
+const GAMEPAD_LOOK_SENSITIVITY = 14
+const GAMEPAD_WHEEL_STEP = 120
+
+const GAMEPAD_KEY_BINDINGS = {
+  forward: 'KeyW',
+  backward: 'KeyS',
+  left: 'KeyA',
+  right: 'KeyD',
+  jump: 'Space',
+  sneak: 'ShiftLeft',
+  sprint: 'ControlLeft',
+  inventory: 'KeyE',
+  drop: 'KeyQ',
+  menu: 'Escape',
+  hud: 'F1',
+  camera: 'F5',
+} as const
+
+const normalizeAxis = (value: number, deadzone: number): number => {
+  const magnitude = Math.abs(value)
+  if (magnitude < deadzone) return 0
+  const scaled = (magnitude - deadzone) / (1 - deadzone)
+  return Math.sign(value) * scaled
+}
+
+const isButtonPressed = (button: GamepadButton | undefined, deadzone = 0.5): boolean =>
+  button !== undefined && (button.pressed || button.value >= deadzone)
+
+const cloneSet = <T>(values: Set<T>): Set<T> => new Set(values)
+const cloneMap = <K, V>(values: Map<K, V>): Map<K, V> => new Map(values)
+
+const readConnectedGamepads = (): Gamepad[] => {
+  if (typeof navigator === 'undefined' || typeof navigator.getGamepads !== 'function') {
+    return []
+  }
+
+  const gamepads = navigator.getGamepads()
+  const connectedGamepads: Gamepad[] = []
+
+  for (let index = 0; index < gamepads.length; index += 1) {
+    const gamepad = gamepads[index]
+    if (gamepad !== null && gamepad !== undefined && gamepad.connected) {
+      connectedGamepads.push(gamepad)
+    }
+  }
+
+  return connectedGamepads
+}
+
+const collectGamepadState = () => {
+  const pressedKeys = new Set<string>()
+  const mouseButtons = new Map<number, boolean>()
+  const wheelButtons = new Set<number>()
+  let mouseDeltaX = 0
+  let mouseDeltaY = 0
+
+  for (const gamepad of readConnectedGamepads()) {
+    const leftX = normalizeAxis(gamepad.axes[0] ?? 0, GAMEPAD_STICK_DEADZONE)
+    const leftY = normalizeAxis(gamepad.axes[1] ?? 0, GAMEPAD_STICK_DEADZONE)
+    const rightX = normalizeAxis(gamepad.axes[2] ?? 0, GAMEPAD_STICK_DEADZONE)
+    const rightY = normalizeAxis(gamepad.axes[3] ?? 0, GAMEPAD_STICK_DEADZONE)
+
+    if (leftY < 0) pressedKeys.add(GAMEPAD_KEY_BINDINGS.forward)
+    if (leftY > 0) pressedKeys.add(GAMEPAD_KEY_BINDINGS.backward)
+    if (leftX < 0) pressedKeys.add(GAMEPAD_KEY_BINDINGS.left)
+    if (leftX > 0) pressedKeys.add(GAMEPAD_KEY_BINDINGS.right)
+    if (isButtonPressed(gamepad.buttons[12])) pressedKeys.add(GAMEPAD_KEY_BINDINGS.forward)
+    if (isButtonPressed(gamepad.buttons[13])) pressedKeys.add(GAMEPAD_KEY_BINDINGS.backward)
+    if (isButtonPressed(gamepad.buttons[14])) pressedKeys.add(GAMEPAD_KEY_BINDINGS.left)
+    if (isButtonPressed(gamepad.buttons[15])) pressedKeys.add(GAMEPAD_KEY_BINDINGS.right)
+
+    if (isButtonPressed(gamepad.buttons[0])) pressedKeys.add(GAMEPAD_KEY_BINDINGS.jump)
+    if (isButtonPressed(gamepad.buttons[1])) pressedKeys.add(GAMEPAD_KEY_BINDINGS.sneak)
+    if (isButtonPressed(gamepad.buttons[10])) pressedKeys.add(GAMEPAD_KEY_BINDINGS.sprint)
+    if (isButtonPressed(gamepad.buttons[2])) pressedKeys.add(GAMEPAD_KEY_BINDINGS.drop)
+    if (isButtonPressed(gamepad.buttons[3])) pressedKeys.add(GAMEPAD_KEY_BINDINGS.inventory)
+    if (isButtonPressed(gamepad.buttons[8])) pressedKeys.add(GAMEPAD_KEY_BINDINGS.hud)
+    if (isButtonPressed(gamepad.buttons[9])) pressedKeys.add(GAMEPAD_KEY_BINDINGS.menu)
+    if (isButtonPressed(gamepad.buttons[11])) pressedKeys.add(GAMEPAD_KEY_BINDINGS.camera)
+
+    if (isButtonPressed(gamepad.buttons[6], GAMEPAD_TRIGGER_DEADZONE)) {
+      mouseButtons.set(MouseButton.RIGHT, true)
+    }
+
+    if (isButtonPressed(gamepad.buttons[7], GAMEPAD_TRIGGER_DEADZONE)) {
+      mouseButtons.set(MouseButton.LEFT, true)
+    }
+
+    if (isButtonPressed(gamepad.buttons[4])) {
+      wheelButtons.add(4)
+    }
+
+    if (isButtonPressed(gamepad.buttons[5])) {
+      wheelButtons.add(5)
+    }
+
+    mouseDeltaX += rightX * GAMEPAD_LOOK_SENSITIVITY
+    mouseDeltaY += rightY * GAMEPAD_LOOK_SENSITIVITY
+  }
+
+  return { pressedKeys, mouseButtons, wheelButtons, mouseDelta: { x: mouseDeltaX, y: mouseDeltaY } }
+}
 
 // Scoped: DOM event listeners removed when the scope closes (HMR, test teardown).
 export class InputService extends Effect.Service<InputService>()(
@@ -31,6 +135,51 @@ export class InputService extends Effect.Service<InputService>()(
       const wheelDeltaRef = yield* Effect.sync(() => MutableRef.make(0))
       // Fallback pointer-lock state for environments that deny the browser API (eg. MCP)
       const pointerLockFallbackRef = yield* Effect.sync(() => MutableRef.make(false))
+      const gamepadPressedKeysRef = yield* Effect.sync(() => MutableRef.make(new Set<string>()))
+      const gamepadJustPressedKeysRef = yield* Effect.sync(() => MutableRef.make(new Set<string>()))
+      const gamepadMouseButtonsRef = yield* Effect.sync(() => MutableRef.make(new Map<number, boolean>()))
+      const gamepadJustClickedButtonsRef = yield* Effect.sync(() => MutableRef.make(new Set<number>()))
+      const gamepadPreviousPressedKeysRef = yield* Effect.sync(() => MutableRef.make(new Set<string>()))
+      const gamepadPreviousMouseButtonsRef = yield* Effect.sync(() => MutableRef.make(new Map<number, boolean>()))
+      const gamepadPreviousWheelButtonsRef = yield* Effect.sync(() => MutableRef.make(new Set<number>()))
+
+      const syncGamepadState = () => {
+        const { pressedKeys, mouseButtons, wheelButtons } = collectGamepadState()
+        const previousPressedKeys = MutableRef.get(gamepadPreviousPressedKeysRef)
+        const previousMouseButtons = MutableRef.get(gamepadPreviousMouseButtonsRef)
+        const previousWheelButtons = MutableRef.get(gamepadPreviousWheelButtonsRef)
+
+        const nextJustPressedKeys = cloneSet(MutableRef.get(gamepadJustPressedKeysRef))
+        for (const key of pressedKeys) {
+          if (!previousPressedKeys.has(key)) {
+            nextJustPressedKeys.add(key)
+          }
+        }
+
+        const nextJustClickedButtons = cloneSet(MutableRef.get(gamepadJustClickedButtonsRef))
+        for (const [button, pressed] of mouseButtons.entries()) {
+          if (pressed && previousMouseButtons.get(button) !== true) {
+            nextJustClickedButtons.add(button)
+          }
+        }
+
+        for (const wheelButton of wheelButtons) {
+          if (!previousWheelButtons.has(wheelButton)) {
+            MutableRef.set(
+              wheelDeltaRef,
+              MutableRef.get(wheelDeltaRef) + (wheelButton === 4 ? -GAMEPAD_WHEEL_STEP : GAMEPAD_WHEEL_STEP),
+            )
+          }
+        }
+
+        MutableRef.set(gamepadPressedKeysRef, cloneSet(pressedKeys))
+        MutableRef.set(gamepadJustPressedKeysRef, nextJustPressedKeys)
+        MutableRef.set(gamepadMouseButtonsRef, cloneMap(mouseButtons))
+        MutableRef.set(gamepadJustClickedButtonsRef, nextJustClickedButtons)
+        MutableRef.set(gamepadPreviousPressedKeysRef, cloneSet(pressedKeys))
+        MutableRef.set(gamepadPreviousMouseButtonsRef, cloneMap(mouseButtons))
+        MutableRef.set(gamepadPreviousWheelButtonsRef, cloneSet(wheelButtons))
+      }
 
       // Keys whose browser default action interferes with gameplay: arrows and
       // PageUp/Down scroll the page; Space scrolls AND activates a focused button
@@ -121,6 +270,14 @@ export class InputService extends Effect.Service<InputService>()(
         MutableRef.set(justPressedKeysRef, HashSet.empty<string>())
         MutableRef.set(mouseButtonsRef, HashMap.empty<number, boolean>())
         MutableRef.set(justClickedButtonsRef, HashSet.empty<number>())
+        MutableRef.set(gamepadPressedKeysRef, new Set<string>())
+        MutableRef.set(gamepadJustPressedKeysRef, new Set<string>())
+        MutableRef.set(gamepadMouseButtonsRef, new Map<number, boolean>())
+        MutableRef.set(gamepadJustClickedButtonsRef, new Set<number>())
+        MutableRef.set(gamepadPreviousPressedKeysRef, new Set<string>())
+        MutableRef.set(gamepadPreviousMouseButtonsRef, new Map<number, boolean>())
+        MutableRef.set(gamepadPreviousWheelButtonsRef, new Set<number>())
+        MutableRef.set(wheelDeltaRef, 0)
       }
 
       // Register all event listeners and schedule cleanup via finalizer
@@ -156,25 +313,44 @@ export class InputService extends Effect.Service<InputService>()(
 
       return {
         isKeyPressed: (key: string): Effect.Effect<boolean, never> =>
-          Effect.sync(() => HashSet.has(MutableRef.get(pressedKeysRef), key)),
+          Effect.sync(() => {
+            syncGamepadState()
+            return HashSet.has(MutableRef.get(pressedKeysRef), key) || MutableRef.get(gamepadPressedKeysRef).has(key)
+          }),
 
         consumeKeyPress: (key: string): Effect.Effect<boolean, never> =>
           Effect.sync(() => {
+            syncGamepadState()
             const state = MutableRef.get(justPressedKeysRef)
             const next = HashSet.remove(state, key)
             MutableRef.set(justPressedKeysRef, next)
-            return HashSet.has(state, key)
+            const gamepadState = cloneSet(MutableRef.get(gamepadJustPressedKeysRef))
+            const gamepadConsumed = gamepadState.has(key)
+            if (gamepadConsumed) {
+              gamepadState.delete(key)
+              MutableRef.set(gamepadJustPressedKeysRef, gamepadState)
+            }
+            return HashSet.has(state, key) || gamepadConsumed
           }),
 
         getMouseDelta: (): Effect.Effect<MouseDelta, never> =>
           Effect.sync(() => {
+            const { mouseDelta } = collectGamepadState()
+            if (mouseDelta.x !== 0 || mouseDelta.y !== 0) {
+              const delta = MutableRef.get(mouseDeltaRef)
+              MutableRef.set(mouseDeltaRef, { x: delta.x + mouseDelta.x, y: delta.y + mouseDelta.y })
+            }
             const delta = MutableRef.get(mouseDeltaRef)
             MutableRef.set(mouseDeltaRef, { x: 0, y: 0 })
             return delta
           }),
 
         isMouseDown: (button: number): Effect.Effect<boolean, never> =>
-          Effect.sync(() => Option.getOrElse(HashMap.get(MutableRef.get(mouseButtonsRef), button), () => false)),
+          Effect.sync(() => {
+            syncGamepadState()
+            return Option.getOrElse(HashMap.get(MutableRef.get(mouseButtonsRef), button), () => false) ||
+              MutableRef.get(gamepadMouseButtonsRef).get(button) === true
+          }),
 
         requestPointerLock: (): Effect.Effect<void, never> =>
           Effect.sync(() => {
@@ -211,14 +387,22 @@ export class InputService extends Effect.Service<InputService>()(
 
         consumeMouseClick: (button: number): Effect.Effect<boolean, never> =>
           Effect.sync(() => {
+            syncGamepadState()
             const state = MutableRef.get(justClickedButtonsRef)
             const next = HashSet.remove(state, button)
             MutableRef.set(justClickedButtonsRef, next)
-            return HashSet.has(state, button)
+            const gamepadState = cloneSet(MutableRef.get(gamepadJustClickedButtonsRef))
+            const gamepadConsumed = gamepadState.has(button)
+            if (gamepadConsumed) {
+              gamepadState.delete(button)
+              MutableRef.set(gamepadJustClickedButtonsRef, gamepadState)
+            }
+            return HashSet.has(state, button) || gamepadConsumed
           }),
 
         consumeWheelDelta: (): Effect.Effect<number, never> =>
           Effect.sync(() => {
+            syncGamepadState()
             const delta = MutableRef.get(wheelDeltaRef)
             MutableRef.set(wheelDeltaRef, 0)
             return delta
@@ -227,9 +411,7 @@ export class InputService extends Effect.Service<InputService>()(
     }),
   }
 ) {}
-export const InputServiceLive = InputService.Default
-
-export const PlayerInputServiceLive: Layer.Layer<PlayerInputService, never, InputService> =
+export const PlayerInputServiceLayer: Layer.Layer<PlayerInputService, never, InputService> =
   Layer.effect(
     PlayerInputService,
     Effect.map(InputService, (input) => ({

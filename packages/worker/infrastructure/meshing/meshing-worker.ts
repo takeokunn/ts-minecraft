@@ -66,21 +66,22 @@ const accumulatorPool = createAccumulatorPool()
 
 const decodeRequestSync = Schema.decodeUnknownSync(MeshRequestSchema)
 
-self.onmessage = (e: MessageEvent<unknown>): void => {
-  // Pull `id` from the raw payload first so a malformed request still gets
-  // routed back to the correct caller as a `failure`. We treat anything that
-  // isn't a plain object with a numeric `id` as id=-1 — the pool ignores
-  // unrecognized ids, which is the right behaviour for a structurally-broken
-  // message.
-  const raw = e.data as { id?: unknown } | null | undefined
-  const fallbackId = typeof raw?.id === 'number' && Number.isFinite(raw.id) ? raw.id : -1
+const extractRequestId = (data: unknown): number | null => {
+  if (typeof data !== 'object' || data === null) return null
+  const id = (data as { readonly id?: unknown }).id
+  return typeof id === 'number' && Number.isInteger(id) && id >= 0 ? id : null
+}
 
+self.onmessage = (e: MessageEvent<unknown>): void => {
   let req: MeshRequest
   try {
     req = decodeRequestSync(e.data)
   } catch (err) {
+    const id = extractRequestId(e.data)
+    if (id === null) return
+
     self.postMessage({
-      id: fallbackId,
+      id,
       kind: 'failure',
       error: String(err),
     })
@@ -90,7 +91,7 @@ self.onmessage = (e: MessageEvent<unknown>): void => {
   // dirtyAABB is accepted but currently unused — the worker always returns a
   // full re-mesh; sub-region splicing is performed on the main thread (only
   // the main thread has access to the previous WorkerMeshResult).
-  const { id, blocks, fluid, skyLight, blockLight, wx, wz, transparentBlockIds, transparentSolidBlockIds, lod } = req
+  const { id, blocks, fluid, skyLight, blockLight, wx, wz, lod } = req
 
   // Reconstruct a minimal Chunk — greedyMeshChunk only reads chunk.blocks; coord
   // is required by the type but unused inside the meshing algorithm (offset carries

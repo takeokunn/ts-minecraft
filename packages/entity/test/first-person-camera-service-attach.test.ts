@@ -3,17 +3,16 @@ import { expect } from 'vitest'
 import { Arbitrary, Array as Arr, Effect, Layer, MutableRef, Option, Schema } from 'effect'
 import * as THREE from 'three'
 import { PlayerInputService } from '@ts-minecraft/entity'
-import { PlayerCameraStateService, PlayerCameraStateLive, PITCH_MIN, PITCH_MAX } from '@ts-minecraft/entity'
+import { PlayerCameraStateService, PITCH_MIN, PITCH_MAX } from '@ts-minecraft/entity'
 import {
   FirstPersonCameraService,
-  FirstPersonCameraServiceLive,
 } from '@ts-minecraft/entity'
 import { createTestInputService } from './movement-service-test-utils'
 
 const createTestLayers = (inputService: PlayerInputService) =>
   Layer.merge(
     Layer.succeed(PlayerInputService, inputService),
-    PlayerCameraStateLive
+    PlayerCameraStateService.Default
   )
 
 describe('FirstPersonCameraService', () => {
@@ -39,7 +38,7 @@ describe('FirstPersonCameraService', () => {
         expect(camera.rotation.y).toBeCloseTo(rotation.yaw)
         expect(camera.rotation.z).toBe(0)
         expect(camera.rotation.order).toBe('YXZ')
-      }).pipe(Effect.provide(FirstPersonCameraServiceLive), Effect.provide(testLayers))
+      }).pipe(Effect.provide(FirstPersonCameraService.Default), Effect.provide(testLayers))
     })
 
     it.effect('should use YXZ rotation order', () => {
@@ -53,7 +52,7 @@ describe('FirstPersonCameraService', () => {
         yield* cameraService.attachToPlayer(camera)
 
         expect(camera.rotation.order).toBe('YXZ')
-      }).pipe(Effect.provide(FirstPersonCameraServiceLive), Effect.provide(testLayers))
+      }).pipe(Effect.provide(FirstPersonCameraService.Default), Effect.provide(testLayers))
     })
 
     it.effect('should not change the camera state values', () => {
@@ -75,7 +74,7 @@ describe('FirstPersonCameraService', () => {
 
         expect(afterRotation.yaw).toBeCloseTo(beforeRotation.yaw)
         expect(afterRotation.pitch).toBeCloseTo(beforeRotation.pitch)
-      }).pipe(Effect.provide(FirstPersonCameraServiceLive), Effect.provide(testLayers))
+      }).pipe(Effect.provide(FirstPersonCameraService.Default), Effect.provide(testLayers))
     })
   })
 
@@ -118,7 +117,7 @@ describe('FirstPersonCameraService', () => {
 
           expect(pitch).toBeGreaterThanOrEqual(PITCH_MIN - 0.001)
           expect(pitch).toBeLessThanOrEqual(PITCH_MAX + 0.001)
-        }).pipe(Effect.provide(FirstPersonCameraServiceLive), Effect.provide(testLayers))
+        }).pipe(Effect.provide(FirstPersonCameraService.Default), Effect.provide(testLayers))
       }
     )
   })

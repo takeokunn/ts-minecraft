@@ -1,10 +1,10 @@
 import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
-import { Effect, Ref } from 'effect'
+import { Effect, MutableRef } from 'effect'
 import * as THREE from 'three'
 import { DEBUG_FEATURE_FLAG_DEFAULTS, type DebugFeatureFlags } from '@ts-minecraft/app/debug-feature-flags'
 import { renderStage } from '@ts-minecraft/app/frame/stages/render-stage'
-import { createAttackSwingState } from '@ts-minecraft/presentation/hud/attack-swing'
+import { createAttackSwingState } from '@ts-minecraft/presentation'
 import { resolvePreset } from '@ts-minecraft/game'
 
 // ---------------------------------------------------------------------------
@@ -64,8 +64,8 @@ const makeServices = (flags: DebugFeatureFlags = DEBUG_FEATURE_FLAG_DEFAULTS) =>
 })
 
 const makeRefs = () => ({
-  totalTimeSecsRef: Ref.unsafeMake(0),
-  attackSwingStateRef: Ref.unsafeMake(createAttackSwingState()),
+  totalTimeSecsRef: MutableRef.make(0),
+  attackSwingStateRef: MutableRef.make(createAttackSwingState()),
 })
 
 // ---------------------------------------------------------------------------
@@ -79,7 +79,11 @@ describe('render-stage', () => {
         const renderer = makeRendererMock()
         const deps = makeDeps(renderer)
         const resolved = { godRaysPassOrNull: null, composerOrNull: null }
-        const inputs = { resolvedGraphics: resolvePreset('low'), sunWorldPos: new THREE.Vector3() }
+        const inputs = {
+          resolvedGraphics: resolvePreset('low'),
+          sunWorldPos: new THREE.Vector3(),
+          debugFlags: DEBUG_FEATURE_FLAG_DEFAULTS,
+        }
 
         yield* renderStage(deps, makeServices() as never, makeRefs() as never, resolved, inputs)
 
@@ -95,7 +99,11 @@ describe('render-stage', () => {
         const composer = makeComposerMock()
         const deps = makeDeps(renderer)
         const resolved = { godRaysPassOrNull: null, composerOrNull: composer as never }
-        const inputs = { resolvedGraphics: resolvePreset('ultra'), sunWorldPos: new THREE.Vector3() }
+        const inputs = {
+          resolvedGraphics: resolvePreset('ultra'),
+          sunWorldPos: new THREE.Vector3(),
+          debugFlags: DEBUG_FEATURE_FLAG_DEFAULTS,
+        }
 
         yield* renderStage(deps, makeServices() as never, makeRefs() as never, resolved, inputs)
 
@@ -110,10 +118,13 @@ describe('render-stage', () => {
         const composer = makeComposerMock()
         const deps = makeDeps(renderer)
         const resolved = { godRaysPassOrNull: null, composerOrNull: composer as never }
-        const inputs = { resolvedGraphics: resolvePreset('ultra'), sunWorldPos: new THREE.Vector3() }
-        const services = makeServices({ ...DEBUG_FEATURE_FLAG_DEFAULTS, 'rendering.postProcessing': false })
+        const inputs = {
+          resolvedGraphics: resolvePreset('ultra'),
+          sunWorldPos: new THREE.Vector3(),
+          debugFlags: { ...DEBUG_FEATURE_FLAG_DEFAULTS, 'rendering.postProcessing': false },
+        }
 
-        yield* renderStage(deps, services as never, makeRefs() as never, resolved, inputs)
+        yield* renderStage(deps, makeServices() as never, makeRefs() as never, resolved, inputs)
 
         expect(composer.wasRenderCalled()).toBe(false)
         expect(renderer.wasRenderCalled()).toBe(true)
@@ -127,7 +138,11 @@ describe('render-stage', () => {
         const deps = makeDeps(renderer)
         const resolved = { godRaysPassOrNull: null, composerOrNull: composer as never }
         // medium = shadows + sky only; ssao/bloom/smaa/dof/godRays/composite all off.
-        const inputs = { resolvedGraphics: resolvePreset('medium'), sunWorldPos: new THREE.Vector3() }
+        const inputs = {
+          resolvedGraphics: resolvePreset('medium'),
+          sunWorldPos: new THREE.Vector3(),
+          debugFlags: DEBUG_FEATURE_FLAG_DEFAULTS,
+        }
 
         yield* renderStage(deps, makeServices() as never, makeRefs() as never, resolved, inputs)
 
@@ -147,7 +162,7 @@ describe('render-stage', () => {
         // sunWorldPos.project() → NDC (0,0,0): sunU=0.5, sunV=0.5, z=0 (in front)
         const resolved = { godRaysPassOrNull: godRaysPass as never, composerOrNull: null }
         const resolvedGraphics = { ...resolvePreset('ultra'), godRaysEnabled: true, godRaysSamples: 40 }
-        const inputs = { resolvedGraphics, sunWorldPos: makeControlledSunPos(0, 0, 0) }
+        const inputs = { resolvedGraphics, sunWorldPos: makeControlledSunPos(0, 0, 0), debugFlags: DEBUG_FEATURE_FLAG_DEFAULTS }
 
         yield* renderStage(deps, makeServices() as never, makeRefs() as never, resolved, inputs)
 
@@ -163,7 +178,7 @@ describe('render-stage', () => {
         const deps = makeDeps(renderer)
         const resolved = { godRaysPassOrNull: godRaysPass as never, composerOrNull: null }
         const resolvedGraphics = { ...resolvePreset('ultra'), godRaysEnabled: true, godRaysSamples: 40 }
-        const inputs = { resolvedGraphics, sunWorldPos: makeControlledSunPos(0, 0, 1.5) }
+        const inputs = { resolvedGraphics, sunWorldPos: makeControlledSunPos(0, 0, 1.5), debugFlags: DEBUG_FEATURE_FLAG_DEFAULTS }
 
         yield* renderStage(deps, makeServices() as never, makeRefs() as never, resolved, inputs)
 
@@ -180,7 +195,7 @@ describe('render-stage', () => {
         const resolved = { godRaysPassOrNull: godRaysPass as never, composerOrNull: null }
         const resolvedGraphics = { ...resolvePreset('ultra'), godRaysEnabled: true, godRaysSamples: 40 }
         // NDC (2, 2, 0): sunU = (2+1)*0.5 = 1.5, sunV = 1.5 → off-screen (> 1.2)
-        const inputs = { resolvedGraphics, sunWorldPos: makeControlledSunPos(2, 2, 0) }
+        const inputs = { resolvedGraphics, sunWorldPos: makeControlledSunPos(2, 2, 0), debugFlags: DEBUG_FEATURE_FLAG_DEFAULTS }
 
         yield* renderStage(deps, makeServices() as never, makeRefs() as never, resolved, inputs)
 
@@ -198,7 +213,7 @@ describe('render-stage', () => {
         const resolvedGraphics = { ...resolvePreset('ultra'), godRaysEnabled: true, godRaysSamples: 40 }
         // NDC (0.8, 0, 0): sunU = (0.8+1)*0.5 = 0.9, sunV = 0.5
         // distFromCenter = sqrt((0.9-0.5)² + 0²) = 0.4 > 0.3 → half samples
-        const inputs = { resolvedGraphics, sunWorldPos: makeControlledSunPos(0.8, 0, 0) }
+        const inputs = { resolvedGraphics, sunWorldPos: makeControlledSunPos(0.8, 0, 0), debugFlags: DEBUG_FEATURE_FLAG_DEFAULTS }
 
         yield* renderStage(deps, makeServices() as never, makeRefs() as never, resolved, inputs)
 
@@ -216,7 +231,7 @@ describe('render-stage', () => {
         const resolved = { godRaysPassOrNull: godRaysPass as never, composerOrNull: null }
         const resolvedGraphics = { ...resolvePreset('ultra'), godRaysEnabled: true, godRaysSamples: 40 }
         // NDC (0, 0, 0): sunU=0.5, sunV=0.5, distFromCenter=0 ≤ 0.3 → full samples
-        const inputs = { resolvedGraphics, sunWorldPos: makeControlledSunPos(0, 0, 0) }
+        const inputs = { resolvedGraphics, sunWorldPos: makeControlledSunPos(0, 0, 0), debugFlags: DEBUG_FEATURE_FLAG_DEFAULTS }
 
         yield* renderStage(deps, makeServices() as never, makeRefs() as never, resolved, inputs)
 
@@ -234,7 +249,7 @@ describe('render-stage', () => {
         const deps = makeDeps(renderer)
         const resolved = { godRaysPassOrNull: godRaysPass as never, composerOrNull: null }
         const resolvedGraphics = { ...resolvePreset('ultra'), godRaysEnabled: false }
-        const inputs = { resolvedGraphics, sunWorldPos: new THREE.Vector3() }
+        const inputs = { resolvedGraphics, sunWorldPos: new THREE.Vector3(), debugFlags: DEBUG_FEATURE_FLAG_DEFAULTS }
 
         yield* renderStage(deps, makeServices() as never, makeRefs() as never, resolved, inputs)
 

@@ -1,4 +1,7 @@
 import { Effect } from 'effect'
+import { CHUNK_HEIGHT, CHUNK_SIZE } from '@ts-minecraft/core'
+
+const EMPTY_CHUNK_BLOCKS = new Uint8Array(CHUNK_SIZE * CHUNK_SIZE * CHUNK_HEIGHT)
 
 /** Creates a terrain block service fake for break/place operations. */
 export const makeBlockService = () => ({
@@ -14,7 +17,7 @@ export const makeChunkManagerService = () => ({
   drainRenderDirtyChunks: () => Effect.succeed([]),
   // FR-4.2: AABB-aware drain — defaults to empty so existing tests behave unchanged.
   drainRenderDirtyChunkEntries: () => Effect.succeed([]),
-  getChunk: (_coord: unknown) => Effect.succeed({ coord: { x: 0, z: 0 }, blocks: new Uint8Array(0), dirty: false }),
+  getChunk: (_coord: unknown) => Effect.succeed({ coord: { x: 0, z: 0 }, blocks: EMPTY_CHUNK_BLOCKS, dirty: false }),
   setActiveWorldId: (_worldId: unknown) => Effect.void,
   setActiveDimension: (_dim: unknown) => Effect.void,
   markChunkDirty: (_coord: unknown) => Effect.void,

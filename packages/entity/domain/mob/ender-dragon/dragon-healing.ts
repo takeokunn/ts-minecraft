@@ -9,9 +9,12 @@ export const computeCrystalHealing = (
   dragonPosition: Position,
   currentHealth: number,
 ): { readonly newHealth: number; readonly crystalsUsed: number } => {
-  const crystalsUsed = crystalPositions.filter((crystal) =>
-    distance(crystal, dragonPosition) <= CRYSTAL_HEAL_RANGE
-  ).length
+  let crystalsUsed = 0
+  for (const crystal of crystalPositions) {
+    if (distance(crystal, dragonPosition) <= CRYSTAL_HEAL_RANGE) {
+      crystalsUsed++
+    }
+  }
   const newHealth = Math.min(MAX_DRAGON_HEALTH, currentHealth + crystalsUsed * DRAGON_HEAL_RATE)
   return { newHealth, crystalsUsed }
 }

@@ -14,6 +14,7 @@ describe('BlockTypeSchema', () => {
       'SAND',
       'GRAVEL',
       'SNOW',
+      'ICE',
     ] as const
 
     it['each'](NATURAL_BLOCKS)('accepts natural block "%s"', (block: (typeof NATURAL_BLOCKS)[number]) => {
@@ -28,7 +29,7 @@ describe('BlockTypeSchema', () => {
       expect(Either.isRight(result)).toBe(true)
     })
 
-    const TRANSPARENT_BLOCKS = ['LEAVES', 'GLASS'] as const
+    const TRANSPARENT_BLOCKS = ['LEAVES', 'GLASS', 'ICE', 'SAPLING', 'DANDELION', 'POPPY', 'BROWN_MUSHROOM', 'RED_MUSHROOM', 'TALL_GRASS', 'FERN', 'SUGAR_CANE', 'CACTUS', 'LILY_PAD'] as const
 
     it['each'](TRANSPARENT_BLOCKS)('accepts transparent block "%s"', (block: (typeof TRANSPARENT_BLOCKS)[number]) => {
       const result = Schema.decodeUnknownEither(BlockTypeSchema)(block)
@@ -56,9 +57,16 @@ describe('BlockTypeSchema', () => {
       expect(Either.isRight(result)).toBe(true)
     })
 
-    const CRAFTING_BLOCKS = ['PLANKS', 'CRAFTING_TABLE', 'FURNACE', 'TORCH'] as const
+    const CRAFTING_BLOCKS = ['PLANKS', 'CRAFTING_TABLE', 'FURNACE', 'TORCH', 'CHEST', 'DOOR', 'DOOR_OPEN', 'GLOWSTONE', 'LADDER', 'COBWEB'] as const
 
     it['each'](CRAFTING_BLOCKS)('accepts crafting/utility block "%s"', (block: (typeof CRAFTING_BLOCKS)[number]) => {
+      const result = Schema.decodeUnknownEither(BlockTypeSchema)(block)
+      expect(Either.isRight(result)).toBe(true)
+    })
+
+    const PLANT_BLOCKS = ['SAPLING', 'DANDELION', 'POPPY', 'BROWN_MUSHROOM', 'RED_MUSHROOM', 'TALL_GRASS', 'FERN', 'SUGAR_CANE', 'CACTUS', 'LILY_PAD'] as const
+
+    it['each'](PLANT_BLOCKS)('accepts plant block "%s"', (block: (typeof PLANT_BLOCKS)[number]) => {
       const result = Schema.decodeUnknownEither(BlockTypeSchema)(block)
       expect(Either.isRight(result)).toBe(true)
     })

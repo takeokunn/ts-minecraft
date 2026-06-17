@@ -1,7 +1,8 @@
 import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
-import { Either, Option, Schema } from 'effect'
+import { Either, Schema } from 'effect'
 import { PlayerHealth, PlayerHealthInvariant } from '../domain/player-health'
+import { expectSome } from './test-utils'
 
 describe('PlayerHealth schema', () => {
   describe('valid construction', () => {
@@ -12,7 +13,7 @@ describe('PlayerHealth schema', () => {
         invincibilityTicks: 0,
       })
       expect(Either.isRight(result)).toBe(true)
-      const h = Option.getOrThrow(Either.getRight(result))
+      const h = expectSome(Either.getRight(result))
       expect(h.current).toBe(20)
       expect(h.max).toBe(20)
       expect(h.invincibilityTicks).toBe(0)
@@ -133,7 +134,7 @@ describe('PlayerHealthInvariant', () => {
       invincibilityTicks: 0,
     })
     expect(Either.isLeft(result)).toBe(true)
-    const err = Option.getOrThrow(Either.getLeft(result))
+    const err = expectSome(Either.getLeft(result))
     expect(String(err)).toContain('must not exceed')
   })
 })

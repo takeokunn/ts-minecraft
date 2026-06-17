@@ -1,26 +1,13 @@
 import { Effect, Ref } from 'effect'
+import * as Option from 'effect/Option'
 import type { Position } from '@ts-minecraft/core'
 import { AudioEnginePort } from '../domain/audio-engine-port'
-import { clamp01, clampPan } from '../domain/audio-utils'
-import { SOUND_LIBRARY, DEFAULT_LISTENER_POSITION } from './sound-manager.config'
+import { DEFAULT_LISTENER_POSITION } from './sound-manager.config'
+import { resolveSoundEffectPlaybackRequest } from './sound-manager-playback'
 import type { SoundEffect, SoundSettings } from './sound-manager.types'
 
 export type { SoundEffect, SoundSettings }
 export { SoundEffectSchema, SoundSettingsSchema } from './sound-manager.types'
-
-const computeSpatial = (
-  listener: { x: number; y: number; z: number },
-  source: { x: number; y: number; z: number },
-): { gain: number; pan: number; position: { x: number; y: number; z: number } } => {
-  const dx = source.x - listener.x
-  const dy = source.y - listener.y
-  const dz = source.z - listener.z
-  const distance = Math.sqrt(dx * dx + dy * dy + dz * dz)
-  const attenuation = 1 / (1 + distance / 12)
-  const pan = clampPan(dx / 12)
-  return { gain: attenuation, pan, position: { x: dx, y: dy, z: dz } }
-}
-
 
 export class SoundManager extends Effect.Service<SoundManager>()(
   '@minecraft/audio/SoundManager',
@@ -53,38 +40,27 @@ export class SoundManager extends Effect.Service<SoundManager>()(
         ): Effect.Effect<void, never> =>
           Effect.gen(function* () {
             const enabled = yield* Ref.get(enabledRef)
-            if (!enabled) {
-              return
-            }
-
-            const definition = SOUND_LIBRARY[effect]
             const listenerPosition = yield* Ref.get(listenerPositionRef)
             const sfxVolume = yield* Ref.get(sfxVolumeRef)
-
-            const pos = options?.position ?? null
-            const spatial = pos !== null ? computeSpatial(listenerPosition, pos) : { gain: 1, pan: 0, position: undefined }
+            const toneRequest = resolveSoundEffectPlaybackRequest({
+              effect,
+              enabled,
+              listenerPosition,
+              sfxVolume,
+              ...(options?.position !== undefined ? { position: options.position } : {}),
+              ...(options?.gainScale !== undefined ? { gainScale: options.gainScale } : {}),
+            })
+            const request = Option.getOrNull(toneRequest)
+            if (request === null) {
+              return
+            }
 
             // NOTE: masterVolume is applied ONCE by the audio engine's master
             // gain node (set via setMasterGain in applySettings) — every tone is
             // routed through it. Multiplying by masterVolume here too would apply
             // it twice (masterVolume²), making sounds far too quiet at non-max
             // master. So finalGain carries only the per-effect/sfx factors.
-            const finalGain = clamp01(
-              definition.baseGain
-              * sfxVolume
-              * spatial.gain
-              * clamp01(options?.gainScale ?? 1),
-            )
-
-            yield* audioEngine.playTone({
-              frequency: definition.frequency,
-              durationMs: definition.durationMs,
-              gain: finalGain,
-              pan: spatial.pan,
-              wave: definition.wave,
-              loop: false,
-              ...(spatial.position ? { position: spatial.position } : {}),
-            })
+            yield* audioEngine.playTone(request)
           }),
 
         getState: (): Effect.Effect<{
@@ -110,5 +86,3 @@ export class SoundManager extends Effect.Service<SoundManager>()(
     }),
   },
 ) {}
-
-export const SoundManagerLive = SoundManager.Default

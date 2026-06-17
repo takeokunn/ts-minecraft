@@ -55,4 +55,3 @@ export class PhysicsWorldService extends Effect.Service<PhysicsWorldService>()(
     },
   }
 ) {}
-export const PhysicsWorldServiceLive = PhysicsWorldService.Default

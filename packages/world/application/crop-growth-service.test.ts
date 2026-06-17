@@ -1,9 +1,9 @@
 import { describe, it, expect } from 'vitest'
 import { Effect } from 'effect'
-import { CropGrowthServiceLive, CropGrowthService } from './crop-growth-service'
+import { CropGrowthService } from './crop-growth-service'
 
 const runWith = <A>(eff: Effect.Effect<A, never, CropGrowthService>) =>
-  Effect.runPromise(Effect.provide(eff, CropGrowthServiceLive))
+  Effect.runPromise(Effect.provide(eff, CropGrowthService.Default))
 
 describe('CropGrowthService.serialize', () => {
   it('returns an empty Record when nothing has been planted', async () => {

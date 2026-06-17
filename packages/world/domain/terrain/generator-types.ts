@@ -1,10 +1,21 @@
 import type { Effect, MutableHashMap, Option } from 'effect'
 import type { ChunkCoord } from '@ts-minecraft/core'
+import { LAKE_LEVEL, SEA_LEVEL } from '@ts-minecraft/core'
 import type { BiomeGeneratorPort } from '../biome-generator-port'
 import type { BiomeType, BiomeProperties } from '../biome'
 import type { Chunk } from '../chunk'
 import type { NoiseServicePort } from '../noise-service-port'
 import type { computeColumnY } from '../density-function'
+
+export type TerrainLevels = Readonly<{
+  readonly seaLevel: number
+  readonly lakeLevel: number
+}>
+
+export const DEFAULT_TERRAIN_LEVELS: TerrainLevels = {
+  seaLevel: SEA_LEVEL,
+  lakeLevel: LAKE_LEVEL,
+}
 
 export type TreeColumnContext = {
   readonly biome: BiomeType
@@ -38,6 +49,7 @@ export type CaveGridPoint = {
 export type BlockIndices = {
   readonly stoneBlockIndex: number
   readonly waterBlockIndex: number
+  readonly iceBlockIndex: number
   readonly lavaBlockIndex: number
   readonly sandBlockIndex: number
   readonly gravelBlockIndex: number
@@ -75,6 +87,7 @@ export type TreeColumnContextResolverDeps = {
   readonly noiseService: NoiseServicePort
   readonly treeColumnContextCache: MutableHashMap.MutableHashMap<string, TreeColumnContext>
   readonly blockIndices: BlockIndices
+  readonly terrainLevels?: TerrainLevels
 }
 
 export type ColumnStateBuildArgs = {
@@ -90,4 +103,5 @@ export type ColumnStateBuildArgs = {
   readonly andesiteNoiseVals: ReadonlyArray<number>
   readonly treeColumnContextCache: MutableHashMap.MutableHashMap<string, TreeColumnContext>
   readonly blockIndices: BlockIndices
+  readonly terrainLevels?: TerrainLevels
 }

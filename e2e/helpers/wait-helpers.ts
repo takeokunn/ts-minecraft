@@ -21,8 +21,9 @@ export async function waitForGameReady(page: Page, timeoutMs = 45_000): Promise<
 
   // Wait for dynamically-created elements injected after game initialization.
   // Use state:'attached' because #settings-overlay is intentionally display:none at startup.
-  await page.waitForSelector('#crosshair', { state: 'attached', timeout: 8_000 })
-  await page.waitForSelector('#settings-overlay', { state: 'attached', timeout: 8_000 })
+  const uiTimeoutMs = Math.min(timeoutMs, 30_000)
+  await page.waitForSelector('#crosshair', { state: 'attached', timeout: uiTimeoutMs })
+  await page.waitForSelector('#settings-overlay', { state: 'attached', timeout: uiTimeoutMs })
 
   // The loading screen can remain attached while fading out; wait until it no longer
   // intercepts pointer events before tests click in-session controls such as Settings.
@@ -34,7 +35,7 @@ export async function waitForGameReady(page: Page, timeoutMs = 45_000): Promise<
       return style.display === 'none' || style.visibility === 'hidden' || style.pointerEvents === 'none'
     },
     undefined,
-    { timeout: 8_000, polling: 100 }
+    { timeout: uiTimeoutMs, polling: 100 }
   )
 }
 
@@ -66,6 +67,17 @@ export async function waitForMainMenu(page: Page, timeoutMs = 60_000): Promise<v
 /**
  * Wait until the in-session pause menu backdrop is visible.
  */
-export async function waitForPauseMenu(page: Page, timeoutMs = 5_000): Promise<void> {
-  await page.waitForSelector('#pause-menu-backdrop', { state: 'visible', timeout: timeoutMs })
+export async function waitForPauseMenu(page: Page, timeoutMs = 10_000): Promise<void> {
+  await page.getByRole('dialog', { name: 'Pause Menu' }).waitFor({ state: 'visible', timeout: timeoutMs })
+  await page.locator('[data-role="resume"]').waitFor({ state: 'visible', timeout: timeoutMs })
+}
+
+/**
+ * Focus the game surface before sending Escape so the app-level input stage
+ * receives the key even after a previous test left focus on a menu control.
+ */
+export async function openPauseMenu(page: Page, timeoutMs = 10_000): Promise<void> {
+  await page.locator('#game-canvas').click({ position: { x: 320, y: 240 }, timeout: 2_000 }).catch(() => undefined)
+  await page.keyboard.press('Escape')
+  await waitForPauseMenu(page, timeoutMs)
 }

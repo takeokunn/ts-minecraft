@@ -13,6 +13,12 @@ export const EntityTypeSchema = Schema.Literal(
   'Cow',
   'Pig',
   'Sheep',
+  'Chicken',
+  'Bat',
+  'Squid',
+  'Witch',
+  'Drowned',
+  'ZombieVillager',
   'Creeper',
   'Skeleton',
   'Spider',
@@ -26,6 +32,12 @@ const ActiveEntityTypeSchema = Schema.Literal(
   'Cow',
   'Pig',
   'Sheep',
+  'Chicken',
+  'Bat',
+  'Squid',
+  'Witch',
+  'Drowned',
+  'ZombieVillager',
   'Creeper',
   'Skeleton',
   'Spider',
@@ -38,6 +50,12 @@ export const EntityType = {
   Cow: 'Cow' as const,
   Pig: 'Pig' as const,
   Sheep: 'Sheep' as const,
+  Chicken: 'Chicken' as const,
+  Bat: 'Bat' as const,
+  Squid: 'Squid' as const,
+  Witch: 'Witch' as const,
+  Drowned: 'Drowned' as const,
+  ZombieVillager: 'ZombieVillager' as const,
   Creeper: 'Creeper' as const,
   Skeleton: 'Skeleton' as const,
   Spider: 'Spider' as const,
@@ -58,8 +76,13 @@ export const EntitySchema = Schema.Struct({
   health: Schema.Number.pipe(Schema.finite(), Schema.nonNegative()),
   type: ActiveEntityTypeSchema,
   // R6d: true while the mob is a baby (ageTicks < BABY_GROW_TICKS); the renderer
-  // draws it at reduced scale. Optional for back-compat with non-mob constructions.
+  // draws it at reduced scale. Optional because non-mob entities do not age.
   isBaby: Schema.optional(Schema.Boolean),
+  // Creeper-only public fuse progress for the renderer flash. Optional keeps
+  // non-creeper/test entity construction compact.
+  fuseSecs: Schema.optional(Schema.Number.pipe(Schema.finite(), Schema.nonNegative())),
+  // Public burning duration used by renderers/UI that need to show fire effects.
+  fireSecs: Schema.optional(Schema.Number.pipe(Schema.finite(), Schema.nonNegative())),
 })
 export type Entity = Schema.Schema.Type<typeof EntitySchema>
 

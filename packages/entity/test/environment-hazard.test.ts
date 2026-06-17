@@ -1,9 +1,11 @@
 import { describe, it, expect } from 'vitest'
 import {
   accrueHazardTicks,
+  isSuffocatingBlock,
   nextAirSecs,
   MAX_AIR_SECS,
   LAVA_DAMAGE_INTERVAL_SECS,
+  VOID_DAMAGE_Y,
 } from '@ts-minecraft/entity'
 
 describe('accrueHazardTicks', () => {
@@ -47,5 +49,40 @@ describe('nextAirSecs', () => {
   it('RESPIRATION: drains from extended max at same rate', () => {
     const effectiveMax = MAX_AIR_SECS + 30 // RESPIRATION II
     expect(nextAirSecs(effectiveMax, true, 1)).toBeCloseTo(effectiveMax - 1)
+  })
+})
+
+describe('isSuffocatingBlock', () => {
+  it('treats null, air, liquids, and known non-solid utility blocks as non-suffocating', () => {
+    expect(isSuffocatingBlock(null)).toBe(false)
+    expect(isSuffocatingBlock('AIR')).toBe(false)
+    expect(isSuffocatingBlock('WATER')).toBe(false)
+    expect(isSuffocatingBlock('LAVA')).toBe(false)
+    expect(isSuffocatingBlock('TORCH')).toBe(false)
+    expect(isSuffocatingBlock('GLASS')).toBe(false)
+    expect(isSuffocatingBlock('LEAVES')).toBe(false)
+    expect(isSuffocatingBlock('DOOR')).toBe(false)
+    expect(isSuffocatingBlock('DOOR_OPEN')).toBe(false)
+    expect(isSuffocatingBlock('LADDER')).toBe(false)
+    expect(isSuffocatingBlock('COBWEB')).toBe(false)
+    expect(isSuffocatingBlock('SAPLING')).toBe(false)
+    expect(isSuffocatingBlock('DANDELION')).toBe(false)
+    expect(isSuffocatingBlock('POPPY')).toBe(false)
+    expect(isSuffocatingBlock('BROWN_MUSHROOM')).toBe(false)
+    expect(isSuffocatingBlock('RED_MUSHROOM')).toBe(false)
+    expect(isSuffocatingBlock('TALL_GRASS')).toBe(false)
+    expect(isSuffocatingBlock('FERN')).toBe(false)
+  })
+
+  it('treats full solid blocks as suffocating', () => {
+    expect(isSuffocatingBlock('STONE')).toBe(true)
+    expect(isSuffocatingBlock('DIRT')).toBe(true)
+    expect(isSuffocatingBlock('OBSIDIAN')).toBe(true)
+  })
+})
+
+describe('void damage constants', () => {
+  it('uses the vanilla-style below-world threshold', () => {
+    expect(VOID_DAMAGE_Y).toBe(-64)
   })
 })

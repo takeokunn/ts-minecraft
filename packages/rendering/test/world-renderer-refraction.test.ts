@@ -161,6 +161,22 @@ describe('infrastructure/renderer/world-renderer-refraction', () => {
       })
     )
 
+    it.effect('returns early without rendering when every water mesh is hidden', () =>
+      Effect.gen(function* () {
+        const waterMesh = makeMockMesh({ x: 0, z: 0 }) as THREE.Mesh
+        waterMesh.visible = false
+        const ctx = yield* makeRefractionContext([waterMesh])
+        const renderer = makeRenderer()
+        const scene = makeScene()
+        const camera = new THREE.PerspectiveCamera()
+
+        yield* doRefractionPrePass(ctx, renderer, scene, camera)
+
+        expect(renderer.render).not.toHaveBeenCalled()
+        expect(renderer.setRenderTarget).not.toHaveBeenCalled()
+      })
+    )
+
     it.effect('renders on cache miss, skips unchanged pose, and renders again after camera movement', () =>
       Effect.gen(function* () {
         const waterMesh = makeMockMesh({ x: 0, z: 0 }) as THREE.Mesh

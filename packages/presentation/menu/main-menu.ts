@@ -131,5 +131,3 @@ export class MainMenuService extends Effect.Service<MainMenuService>()(
     }),
   },
 ) {}
-
-export const MainMenuLive = MainMenuService.Default

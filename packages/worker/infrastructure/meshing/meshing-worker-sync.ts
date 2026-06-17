@@ -25,6 +25,21 @@ const lightGridsFromChunk = (chunk: Chunk): LightGrids | undefined => {
 // chunk coord at a time.
 const coordCacheKey = (coord: ChunkCoord): string => `${coord.x},${coord.z}`
 
+// Bound the sync fallback prev-mesh cache. Each cached full mesh result owns
+// typed-array buffers, so a missing release call should not be able to retain
+// unbounded chunk-sized allocations on low-memory devices.
+export const MAX_SYNC_PREV_MESH_CACHE_ENTRIES = 32
+
+const cachePrevMesh = (prevByCoord: Map<string, GreedyMeshResult>, cacheKey: string, result: GreedyMeshResult): void => {
+  prevByCoord.delete(cacheKey)
+  prevByCoord.set(cacheKey, result)
+
+  if (prevByCoord.size <= MAX_SYNC_PREV_MESH_CACHE_ENTRIES) return
+
+  const oldestKey = prevByCoord.keys().next().value
+  if (oldestKey !== undefined) prevByCoord.delete(oldestKey)
+}
+
 // SEC-W1: surface returned by `createSyncChunkMesher` — the mesh function and
 // an explicit `releasePrev` to evict a coord's cached LOD-0 prev when the
 // chunk is removed from the scene. Without `releasePrev`, the inner
@@ -43,7 +58,8 @@ export const createSyncChunkMesher = (): SyncChunkMesher => {
   // The result's raw arrays are owned by per-call accumulators (NOT the
   // shared scratch), so caching across calls is safe — see
   // greedy-meshing.ts toRawMeshData where each call allocates new
-  // accumulator buffers.
+  // accumulator buffers. The map is bounded because the sync path runs on the
+  // main thread in no-Worker environments where memory pressure is most likely.
   const prevByCoord = new Map<string, GreedyMeshResult>()
 
   const mesh = (chunk: Chunk, lod: LodLevel, dirtyAABB?: ChunkAABB): WorkerMeshResult => {
@@ -73,7 +89,7 @@ export const createSyncChunkMesher = (): SyncChunkMesher => {
     // we cannot use as a future splice prev). Cache is updated regardless of
     // whether THIS call used the splice path — the splice output is itself a
     // valid prev for the next edit.
-    if (lod === 0) prevByCoord.set(cacheKey, result)
+    if (lod === 0) cachePrevMesh(prevByCoord, cacheKey, result)
 
     const meshed = result.toMeshed()
     // FR-3.1: simplify the opaque pass per the requested LOD. Water meshes

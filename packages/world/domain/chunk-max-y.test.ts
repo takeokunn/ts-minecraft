@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { CHUNK_HEIGHT, CHUNK_SIZE } from '@ts-minecraft/core'
+import { makeChunkBlockBuffer } from '../test/chunk-buffer-test-utils'
 import { computeMaxY } from './chunk'
 
 const writeBlockUnsafe = (
@@ -14,18 +15,18 @@ const writeBlockUnsafe = (
 
 describe('FR-3.3 computeMaxY', () => {
   it('returns -1 for an entirely AIR chunk', () => {
-    const blocks = new Uint8Array(CHUNK_SIZE * CHUNK_SIZE * CHUNK_HEIGHT)
+    const blocks = makeChunkBlockBuffer()
     expect(computeMaxY(blocks)).toBe(-1)
   })
 
   it('returns 0 when only y=0 has a non-AIR block', () => {
-    const blocks = new Uint8Array(CHUNK_SIZE * CHUNK_SIZE * CHUNK_HEIGHT)
+    const blocks = makeChunkBlockBuffer()
     writeBlockUnsafe(blocks, 0, 0, 0, 1)
     expect(computeMaxY(blocks)).toBe(0)
   })
 
   it('returns the highest Y when multiple blocks exist at different heights', () => {
-    const blocks = new Uint8Array(CHUNK_SIZE * CHUNK_SIZE * CHUNK_HEIGHT)
+    const blocks = makeChunkBlockBuffer()
     writeBlockUnsafe(blocks, 0, 5, 0, 1)
     writeBlockUnsafe(blocks, 5, 80, 5, 2)
     writeBlockUnsafe(blocks, 0, 30, 0, 1)
@@ -33,11 +34,11 @@ describe('FR-3.3 computeMaxY', () => {
   })
 
   it('finds maxY at boundaries and mountain-like profiles', () => {
-    const top = new Uint8Array(CHUNK_SIZE * CHUNK_SIZE * CHUNK_HEIGHT)
+    const top = makeChunkBlockBuffer()
     writeBlockUnsafe(top, CHUNK_SIZE - 1, CHUNK_HEIGHT - 1, CHUNK_SIZE - 1, 1)
     expect(computeMaxY(top)).toBe(CHUNK_HEIGHT - 1)
 
-    const mountain = new Uint8Array(CHUNK_SIZE * CHUNK_SIZE * CHUNK_HEIGHT)
+    const mountain = makeChunkBlockBuffer()
     for (let x = 0; x < CHUNK_SIZE; x++) {
       for (let z = 0; z < CHUNK_SIZE; z++) {
         for (let y = 0; y <= 110; y++) writeBlockUnsafe(mountain, x, y, z, 2)

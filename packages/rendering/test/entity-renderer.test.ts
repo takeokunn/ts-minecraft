@@ -4,7 +4,6 @@ import { Effect, Layer, Option } from 'effect'
 import * as THREE from 'three'
 import {
   EntityRendererService,
-  EntityRendererLive,
   SceneService,
   LIMB_SWING_AMPLITUDE,
 } from '@ts-minecraft/rendering'
@@ -27,6 +26,7 @@ const makeEntity = (params: {
   type?: EntityType
   position?: { x: number; y: number; z: number }
   velocity?: { x: number; y: number; z: number }
+  fuseSecs?: number
 }): Entity => ({
   entityId: EntityId.make(params.id),
   type: Option.getOrElse(Option.fromNullable(params.type), (): EntityType => 'Zombie'),
@@ -34,6 +34,7 @@ const makeEntity = (params: {
   velocity: Option.getOrElse(Option.fromNullable(params.velocity), () => ({ x: 0, y: 0, z: 0 })),
   rotation: identity,
   health: 20,
+  ...(params.fuseSecs === undefined ? {} : { fuseSecs: params.fuseSecs }),
 })
 
 const buildTestLayer = () => {
@@ -45,7 +46,7 @@ const buildTestLayer = () => {
     add: (scene: THREE.Scene, object: THREE.Object3D) => Effect.sync(() => { scene.add(object) }),
     remove: (scene: THREE.Scene, object: THREE.Object3D) => Effect.sync(() => { scene.remove(object) }),
   }))
-  return Layer.provide(EntityRendererLive, sceneLayer)
+  return Layer.provide(EntityRendererService.Default, sceneLayer)
 }
 
 const makeScene = (): THREE.Scene => {
@@ -220,6 +221,27 @@ describe('infrastructure/three/entity-renderer', () => {
         // Should not throw even though the entity was never sync'd.
         yield* r.updateEntityTransforms([e], 0.2, 0.016)
         expect(true).toBe(true)
+      }).pipe(Effect.provide(TestLayer))
+    })
+
+    it.effect('flashes creeper instances toward white while their fuse is burning', () => {
+      const TestLayer = buildTestLayer()
+      const scene = makeScene()
+      return Effect.gen(function* () {
+        const r = yield* EntityRendererService
+        const e = makeEntity({ id: 'creeper-flash', type: 'Creeper', fuseSecs: 1.2 })
+        yield* r.syncEntities([e], scene)
+        yield* r.updateEntityTransforms([e], 0.03125, 0.016)
+
+        const slotInfo = Option.getOrThrow(r._getInstancePool().getSlot('Creeper', 'body', e.entityId))
+        const color = new THREE.Color()
+        slotInfo.bucket.mesh.getColorAt(slotInfo.slot, color)
+
+        const base = new THREE.Color(slotInfo.bucket.spec.color)
+        expect(color.getHex()).not.toBe(base.getHex())
+        expect(color.r).toBeGreaterThan(base.r)
+        expect(color.g).toBeGreaterThan(base.g)
+        expect(color.b).toBeGreaterThan(base.b)
       }).pipe(Effect.provide(TestLayer))
     })
   })

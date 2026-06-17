@@ -8,9 +8,34 @@ export type FoodProperties = {
   readonly saturationModifier: number
 }
 
+export const FOOD_ITEMS = [
+  'APPLE',
+  'RAW_COD',
+  'COOKED_COD',
+  'RAW_SALMON',
+  'COOKED_SALMON',
+  'TROPICAL_FISH',
+  'PUFFERFISH',
+  'BREAD',
+  'CARROT',
+  'RAW_PORKCHOP',
+  'COOKED_PORKCHOP',
+  'RAW_MUTTON',
+  'COOKED_MUTTON',
+  'RAW_CHICKEN',
+  'COOKED_CHICKEN',
+  'COOKED_BEEF',
+  'RAW_BEEF',
+  'GOLDEN_APPLE',
+  'SPIDER_EYE',
+  'ROTTEN_FLESH',
+] as const satisfies ReadonlyArray<ItemType>
+
+export type FoodItem = (typeof FOOD_ITEMS)[number]
+
 // Edible items and their Minecraft Java Edition restoration values. Items absent
 // from this table are not food (getFoodProperties → none, isFood → false).
-export const FOOD_TABLE: Partial<Record<ItemType, FoodProperties>> = {
+export const FOOD_TABLE = {
   APPLE: { foodLevel: 4, saturationModifier: 0.3 },
   // Fish — raw restores 2, cooked restores 5 (vanilla Java)
   RAW_COD: { foodLevel: 2, saturationModifier: 0.1 },
@@ -21,7 +46,12 @@ export const FOOD_TABLE: Partial<Record<ItemType, FoodProperties>> = {
   PUFFERFISH: { foodLevel: 1, saturationModifier: 0.1 },
   BREAD: { foodLevel: 5, saturationModifier: 0.6 },
   CARROT: { foodLevel: 3, saturationModifier: 0.6 },
+  RAW_PORKCHOP: { foodLevel: 3, saturationModifier: 0.3 },
   COOKED_PORKCHOP: { foodLevel: 8, saturationModifier: 0.8 },
+  RAW_MUTTON: { foodLevel: 2, saturationModifier: 0.3 },
+  COOKED_MUTTON: { foodLevel: 6, saturationModifier: 0.8 },
+  RAW_CHICKEN: { foodLevel: 2, saturationModifier: 0.3 },
+  COOKED_CHICKEN: { foodLevel: 6, saturationModifier: 0.6 },
   COOKED_BEEF: { foodLevel: 8, saturationModifier: 0.8 },
   // Raw beef (cow drop) is edible like the raw fish above — vanilla restores 3
   // hunger / 1.8 saturation. Smelting it into COOKED_BEEF is still better value.
@@ -33,4 +63,4 @@ export const FOOD_TABLE: Partial<Record<ItemType, FoodProperties>> = {
   SPIDER_EYE: { foodLevel: 2, saturationModifier: 0.1 },
   // Zombie drop — edible but barely nourishing (vanilla also applies Hunger).
   ROTTEN_FLESH: { foodLevel: 4, saturationModifier: 0.1 },
-}
+} satisfies Record<FoodItem, FoodProperties>

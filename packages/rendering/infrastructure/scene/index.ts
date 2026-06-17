@@ -1,1 +1,1 @@
-export { SceneService, SceneServiceLive } from './scene-service'
+export { SceneService } from './scene-service'

@@ -3,8 +3,7 @@ import { BlockType } from '@ts-minecraft/core'
 import { Block } from '@ts-minecraft/block'
 import { BlockRegistry } from '@ts-minecraft/block'
 import { PlayerInputService } from '@ts-minecraft/entity'
-import { InventoryServiceLive } from '@ts-minecraft/inventory'
-import { HotbarServiceLive } from '@ts-minecraft/inventory'
+import { InventoryService, HotbarService } from '@ts-minecraft/inventory'
 import type { SlotIndex } from '@ts-minecraft/core'
 
 export const asSlotIndex = (n: number): SlotIndex => n as SlotIndex
@@ -108,13 +107,13 @@ export const createTestLayer = (
 ) => {
   const inputLayer = Layer.succeed(PlayerInputService, inputService)
   const blockRegistryLayer = Layer.succeed(BlockRegistry, blockRegistry)
-  const inventoryLayer = InventoryServiceLive.pipe(
+  const inventoryLayer = InventoryService.Default.pipe(
     Layer.provide(blockRegistryLayer)
   )
 
   return Layer.mergeAll(
     inventoryLayer,
-    HotbarServiceLive.pipe(
+    HotbarService.Default.pipe(
       Layer.provide(inputLayer),
       Layer.provide(inventoryLayer)
     )

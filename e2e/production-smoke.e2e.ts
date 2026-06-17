@@ -37,7 +37,8 @@ test('built app boots without runtime ReferenceError', async ({ page }) => {
 
   await expect(page).toHaveTitle('ts-minecraft')
   await expect(page.locator('#fps-counter')).toContainText('FPS:')
-  await expect(page.locator('#health-display')).toContainText('20/20')
+  await expect(page.locator('#health-value')).toHaveText('20')
+  await expect(page.locator('#health-max')).toHaveText('20')
 
   const runtimeErrors = consoleErrors.filter((message) =>
     message.includes('ReferenceError: Cannot access') ||

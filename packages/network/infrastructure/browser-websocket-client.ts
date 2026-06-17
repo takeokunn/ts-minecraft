@@ -1,7 +1,7 @@
 // @effect-boundary — raw WebSocket interop, Effect-safe wrapper over browser API
 import { Deferred, Effect, Queue, Stream } from 'effect'
 import { NetworkError } from '../domain/errors'
-import type { WebSocketClientHandle, WebSocketClientPort } from './websocket-client'
+import type { WebSocketClientHandle, WebSocketClientPort } from '../domain/websocket-ports'
 
 const toArrayBuffer = (data: MessageEvent['data']): Effect.Effect<ArrayBuffer, NetworkError> => {
   if (data instanceof ArrayBuffer) {
@@ -37,8 +37,13 @@ export class BrowserWebSocketClient implements WebSocketClientPort {
         let settled = false
         let socket: WebSocket
 
-        // WebSocket constructor can throw — wrap it in a try
-        socket = new WebSocket(url) as WebSocket
+        try {
+          socket = new WebSocket(url) as WebSocket
+        } catch (cause) {
+          settled = true
+          resume(Effect.fail(new NetworkError({ operation: 'connect', reason: `failed to create websocket for ${url}`, cause })))
+          return
+        }
 
         socket.binaryType = 'arraybuffer'
 
@@ -54,10 +59,10 @@ export class BrowserWebSocketClient implements WebSocketClientPort {
           send: (data) =>
             Effect.try({
               try: () => {
-              if (socket.readyState !== WebSocket.OPEN) {
-                throw new NetworkError({ operation: 'send', reason: 'websocket is not open' })
-              }
-              socket.send(data)
+                if (socket.readyState !== WebSocket.OPEN) {
+                  throw new NetworkError({ operation: 'send', reason: 'websocket is not open' })
+                }
+                socket.send(data)
               },
               catch: (cause) =>
                 cause instanceof NetworkError

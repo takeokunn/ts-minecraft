@@ -10,6 +10,7 @@ import {
   EntityManager,
   EntityType,
 } from '@ts-minecraft/entity'
+import { expectSome, runWithEntityManager } from './test-utils'
 
 describe('shearing domain (R11)', () => {
   describe('canBeSheared', () => {
@@ -61,15 +62,14 @@ describe('EntityManager.shearEntity (R11)', () => {
       const sheepId = yield* manager.addEntity(EntityType.Sheep, { x: 0, y: 64, z: 0 })
 
       const first = yield* manager.shearEntity(sheepId)
-      expect(Option.isSome(first)).toBe(true)
-      const count = Option.getOrThrow(first)
+      const count = expectSome(first)
       expect(count).toBeGreaterThanOrEqual(SHEAR_WOOL_MIN)
       expect(count).toBeLessThanOrEqual(SHEAR_WOOL_MAX)
 
       // Already sheared → no second harvest.
       const second = yield* manager.shearEntity(sheepId)
       expect(Option.isNone(second)).toBe(true)
-    }).pipe(Effect.provide(EntityManager.Default), Effect.runPromise))
+    }).pipe(runWithEntityManager))
 
   it('refuses to shear a non-sheep mob', () =>
     Effect.gen(function* () {
@@ -77,12 +77,12 @@ describe('EntityManager.shearEntity (R11)', () => {
       const pigId = yield* manager.addEntity(EntityType.Pig, { x: 0, y: 64, z: 0 })
       const result = yield* manager.shearEntity(pigId)
       expect(Option.isNone(result)).toBe(true)
-    }).pipe(Effect.provide(EntityManager.Default), Effect.runPromise))
+    }).pipe(runWithEntityManager))
 
   it('returns None for an unknown entity id', () =>
     Effect.gen(function* () {
       const manager = yield* EntityManager
       const result = yield* manager.shearEntity('entity-does-not-exist' as never)
       expect(Option.isNone(result)).toBe(true)
-    }).pipe(Effect.provide(EntityManager.Default), Effect.runPromise))
+    }).pipe(runWithEntityManager))
 })

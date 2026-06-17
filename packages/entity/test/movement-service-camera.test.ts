@@ -3,7 +3,6 @@ import { expect } from 'vitest'
 import { Effect } from 'effect'
 import {
   MovementService,
-  MovementServiceLive,
   type MovementInput,
   DEFAULT_WALK_SPEED,
 } from '@ts-minecraft/entity'
@@ -34,7 +33,7 @@ describe('MovementService', () => {
               expect(velocity.z).toBeCloseTo(-Math.cos(yaw) * DEFAULT_WALK_SPEED)
             })
           , { concurrency: 1 })
-        }).pipe(Effect.provide(MovementServiceLive), Effect.provide(testLayers))
+        }).pipe(Effect.provide(MovementService.Default), Effect.provide(testLayers))
       })
 
       it.effect('should handle 180-degree rotation correctly', () => {
@@ -55,7 +54,7 @@ describe('MovementService', () => {
           // Forward: x -= 0, z -= (-1) => z = walkSpeed
           expect(velocity.x).toBeCloseTo(0)
           expect(velocity.z).toBeCloseTo(DEFAULT_WALK_SPEED)
-        }).pipe(Effect.provide(MovementServiceLive), Effect.provide(testLayers))
+        }).pipe(Effect.provide(MovementService.Default), Effect.provide(testLayers))
       })
     })
   })

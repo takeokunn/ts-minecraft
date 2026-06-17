@@ -1,22 +1,20 @@
 import { describe,it } from '@effect/vitest'
 import { DEFAULT_WORLD_ID, blockIndexUnsafe, blockTypeToIndex } from '@ts-minecraft/core'
 import {
-BiomeServiceLive,
-ChunkManagerService,
-  ChunkManagerServiceLive,
+  BiomeService,
+  ChunkManagerService,
   ChunkError,
-  ChunkServiceLive,
-NoiseServiceLive,
-NoiseServicePort,
-StorageServicePort,
-TerrainGenerationError,
-TerrainWorkerPoolPort,
+  ChunkService,
+  NoiseService,
+  NoiseServicePort,
+  StorageServicePort,
 } from '@ts-minecraft/world'
+import { TerrainGenerationError, TerrainWorkerPoolPort } from '@ts-minecraft/worker'
 import { Array as Arr,Effect,Either,Layer,Option } from 'effect'
 import { expect } from 'vitest'
 import {
 EXPECTED_BLOCKS_LENGTH,
-LightEngineNoopLive,
+LightEngineNoopLayer,
 buildTestLayer,
 chunkStorageBlocks
 } from './chunk-manager-test-utils'
@@ -25,7 +23,7 @@ const buildTerrainFailureLayer = () => {
   const storage = buildTestLayer().storage
   const StorageTestLayer = Layer.succeed(StorageServicePort, storage)
   const NoiseLayer = NoiseServicePort.Default
-  const BiomeTestLayer = BiomeServiceLive.pipe(Layer.provide(NoiseLayer))
+  const BiomeTestLayer = BiomeService.Default.pipe(Layer.provide(NoiseLayer))
   const FailingTerrainPoolLayer = Layer.succeed(
     TerrainWorkerPoolPort,
     TerrainWorkerPoolPort.of({
@@ -38,14 +36,14 @@ const buildTerrainFailureLayer = () => {
     })
   )
 
-  return ChunkManagerServiceLive.pipe(
-    Layer.provide(ChunkServiceLive),
+  return ChunkManagerService.Default.pipe(
+    Layer.provide(ChunkService.Default),
     Layer.provide(StorageTestLayer),
     Layer.provide(BiomeTestLayer),
     Layer.provide(NoiseLayer),
-    Layer.provide(NoiseServiceLive),
+    Layer.provide(NoiseService.Default),
     Layer.provide(FailingTerrainPoolLayer),
-    Layer.provide(LightEngineNoopLive),
+    Layer.provide(LightEngineNoopLayer),
   )
 }
 

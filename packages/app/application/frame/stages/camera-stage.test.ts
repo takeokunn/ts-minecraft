@@ -1,18 +1,19 @@
 import { describe, it } from '@effect/vitest'
 import { expect, vi } from 'vitest'
-import { Effect, MutableHashSet, MutableRef, Ref } from 'effect'
+import { Effect, MutableHashSet, MutableRef } from 'effect'
 import { KeyMappings, ThirdPersonCameraService } from '@ts-minecraft/entity'
 import {
   makeDeps,
   makeCamera,
   makeLights,
   makeCameraState,
+  makeFirstPersonCamera,
   makeInputService,
   makeInventoryRenderer,
   makeServices,
   makeSettingsOverlay,
   runFrame,
-} from '@test/frame-handler-test-kit'
+} from '../../../test/frame-handler-test-kit'
 import { cameraStage } from '@ts-minecraft/app/frame/stages/camera-stage'
 
 // ---------------------------------------------------------------------------
@@ -68,12 +69,12 @@ describe('step 8 — camera sync', () => {
     const lastShadowTargetRef = MutableRef.make({ x: 4.4, z: 3.0 })
     // Hold render distance constant so the rd-change branch can't trigger the dirty flag —
     // isolating the per-move behaviour.
-    const lastRenderDistanceRef = yield* Ref.make(8)
+    const lastRenderDistanceRef = MutableRef.make(8)
 
     const shadowDirtyCalledRef = MutableRef.make(false)
     yield* cameraStage(
       { camera, lights },
-      { inputService, playerCameraState: cameraStateService, thirdPersonCamera },
+      { inputService, playerCameraState: cameraStateService, firstPersonCamera: makeFirstPersonCamera(), thirdPersonCamera },
       { lastShadowTargetRef, lastRenderDistanceRef },
       { playerPos: { x: 5, y: 64, z: 3 }, renderDistance: 8, markShadowMapDirty: () => { MutableRef.set(shadowDirtyCalledRef, true) } },
     )
@@ -95,12 +96,12 @@ describe('step 8 — camera sync', () => {
     })
 
     const lastShadowTargetRef = MutableRef.make({ x: 5, z: 3 })
-    const lastRenderDistanceRef = yield* Ref.make(0) // differs from input rd → frustum changes
+    const lastRenderDistanceRef = MutableRef.make(0) // differs from input rd → frustum changes
 
     const shadowDirtyCalledRef = MutableRef.make(false)
     yield* cameraStage(
       { camera, lights },
-      { inputService, playerCameraState: cameraStateService, thirdPersonCamera },
+      { inputService, playerCameraState: cameraStateService, firstPersonCamera: makeFirstPersonCamera(), thirdPersonCamera },
       { lastShadowTargetRef, lastRenderDistanceRef },
       { playerPos: { x: 5, y: 64, z: 3 }, renderDistance: 8, markShadowMapDirty: () => { MutableRef.set(shadowDirtyCalledRef, true) } },
     )
@@ -116,11 +117,11 @@ describe('step 8 — camera sync', () => {
       update: () => Effect.void,
     })
     const lastShadowTargetRef = MutableRef.make({ x: 5, z: 3 })
-    const lastRenderDistanceRef = yield* Ref.make(8)
+    const lastRenderDistanceRef = MutableRef.make(8)
     const runOnce = (camera: ReturnType<typeof makeCamera>, inputService: ReturnType<typeof makeInputService>) =>
       cameraStage(
         { camera, lights },
-        { inputService, playerCameraState: cameraStateService, thirdPersonCamera },
+        { inputService, playerCameraState: cameraStateService, firstPersonCamera: makeFirstPersonCamera(), thirdPersonCamera },
         { lastShadowTargetRef, lastRenderDistanceRef },
         { playerPos: { x: 5, y: 64, z: 3 }, renderDistance: 8, markShadowMapDirty: () => {} },
       )

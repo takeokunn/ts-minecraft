@@ -22,6 +22,7 @@ export const makeGameState = () => ({
 export const makeTimeService = () => ({
   advanceTick: (_dt: unknown) => Effect.void,
   getTimeOfDay: () => Effect.succeed(0.5),
+  getMoonPhase: () => Effect.succeed(0),
   isNight: () => Effect.succeed(false),
   getDayLength: () => Effect.succeed(DEFAULT_SETTINGS.dayLengthSeconds),
   setDayLength: (_seconds: unknown) => Effect.void,

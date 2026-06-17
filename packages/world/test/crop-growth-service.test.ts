@@ -1,7 +1,7 @@
 import { describe, it } from '@effect/vitest'
 import { Effect } from 'effect'
 import { expect } from 'vitest'
-import { CropGrowthService, CropGrowthServiceLive } from '@ts-minecraft/world'
+import { CropGrowthService } from '@ts-minecraft/world'
 import { CROP_MAX_AGE, BONE_MEAL_ADVANCE } from '@ts-minecraft/world'
 
 // ─── Test helpers ─────────────────────────────────────────────────────────────
@@ -12,7 +12,7 @@ const withCropService = <A>(
   Effect.gen(function* () {
     const cs = yield* CropGrowthService
     return yield* f(cs)
-  }).pipe(Effect.provide(CropGrowthServiceLive))
+  }).pipe(Effect.provide(CropGrowthService.Default))
 
 const at = (x: number, y: number, z: number) => ({ x, y, z })
 

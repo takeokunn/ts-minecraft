@@ -1,10 +1,11 @@
 import { Array as Arr, Effect, HashMap, Layer, Option } from 'effect'
 import { vi } from 'vitest'
-import { InventoryRendererLive } from '@ts-minecraft/presentation/inventory/inventory-renderer'
+import { InventoryRendererService } from '@ts-minecraft/presentation/inventory/inventory-renderer'
 import { InventoryService, INVENTORY_SIZE, HOTBAR_START } from '@ts-minecraft/inventory'
 import { HotbarService } from '@ts-minecraft/inventory'
 import { RecipeService } from '@ts-minecraft/inventory'
 import { FurnaceService } from '@ts-minecraft/inventory'
+import { ChestService } from '@ts-minecraft/inventory'
 import { GameStateService } from '@ts-minecraft/game'
 import { ChunkManagerService } from '@ts-minecraft/world'
 import { XPService } from '@ts-minecraft/entity'
@@ -61,6 +62,7 @@ export const createMockInventoryLayer = (overrideSlots?: ReadonlyArray<Option.Op
   const getSlot = vi.fn((_: SlotIndex) => Effect.succeed(Option.none()))
   const setSlot = vi.fn((_: SlotIndex, __: unknown) => Effect.void)
   const damageSlot = vi.fn((_index: SlotIndex, _amount?: number) => Effect.void)
+  const repairMendingItemsWithXP = vi.fn((amount: number) => Effect.succeed(amount))
   const moveStack = vi.fn((_from: SlotIndex, _to: SlotIndex) => Effect.void)
   const quickMove = vi.fn((_from: SlotIndex) => Effect.void)
   const addBlock = vi.fn((_bt: unknown, _count: number) => Effect.succeed(true))
@@ -75,6 +77,7 @@ export const createMockInventoryLayer = (overrideSlots?: ReadonlyArray<Option.Op
     getSlot,
     setSlot,
     damageSlot,
+    repairMendingItemsWithXP,
     moveStack,
     quickMove,
     addBlock,
@@ -142,6 +145,28 @@ export const createMockFurnaceLayer = (overrides: Partial<Pick<FurnaceService,
   return { MockFurnaceLayer, startSmelting, collectOutput }
 }
 
+export const createMockChestLayer = (overrides: Partial<Pick<ChestService,
+  'getState' | 'getNearestChestState' | 'hasNearbyChest' | 'setSelectedChest' | 'moveInventoryStackToChestSlot' | 'moveChestStackToInventorySlot' | 'quickMoveInventoryToChest' | 'quickMoveChestToInventory' | 'clearChest' | 'dismantleChest' | 'serialize' | 'deserialize'
+>> = {}) => {
+  const MockChestLayer = Layer.succeed(ChestService, ChestService.of({
+    _tag: '@minecraft/application/ChestService' as const,
+    getState: () => Effect.succeed({ chests: HashMap.empty(), selectedChestPosition: Option.none() }),
+    getNearestChestState: () => Effect.succeed(Option.none()),
+    hasNearbyChest: () => Effect.succeed(false),
+    setSelectedChest: () => Effect.void,
+    moveInventoryStackToChestSlot: () => Effect.void,
+    moveChestStackToInventorySlot: () => Effect.void,
+    quickMoveInventoryToChest: () => Effect.void,
+    quickMoveChestToInventory: () => Effect.void,
+    clearChest: () => Effect.succeed([]),
+    dismantleChest: () => Effect.succeed(true),
+    serialize: () => Effect.succeed([]),
+    deserialize: () => Effect.void,
+    ...overrides,
+  }))
+  return { MockChestLayer }
+}
+
 const MOCK_PLAYER_XP = { totalXP: 0, level: 0, xpIntoLevel: 0, xpRequiredForNext: 7 }
 
 export const createMockXPLayer = () => {
@@ -163,6 +188,7 @@ export const createMockGameStateLayer = () => {
     initialize: () => Effect.void,
     update: (_deltaTime: DeltaTimeSecs) => Effect.void,
     respawn: () => Effect.void,
+    setPlayerPosition: () => Effect.void,
     getTiming: () => Effect.succeed({ lastFrameTime: 0, deltaTime: DeltaTimeSecs.make(0.016), frameCount: 0 }),
     getPlayerPosition: () => Effect.succeed({ x: 0, y: 0, z: 0 }),
     getCameraRotation: () => Effect.succeed({ yaw: 0, pitch: 0 }),
@@ -200,13 +226,15 @@ export const buildTestLayer = (
   mockGameState = createMockGameStateLayer(),
   mockChunkManager = createMockChunkManagerLayer(),
   mockXP = createMockXPLayer(),
+  mockChest = createMockChestLayer(),
 ) =>
-  InventoryRendererLive.pipe(
+  InventoryRendererService.Default.pipe(
     Layer.provide(mockDom.MockDomLayer),
     Layer.provide(mockInventory.MockInventoryLayer),
     Layer.provide(mockHotbar.MockHotbarLayer),
     Layer.provide(mockRecipe.MockRecipeLayer),
     Layer.provide(mockFurnace.MockFurnaceLayer),
+    Layer.provide(mockChest.MockChestLayer),
     Layer.provide(mockGameState.MockGameStateLayer),
     Layer.provide(mockChunkManager.MockChunkManagerLayer),
     Layer.provide(mockXP.MockXPLayer),

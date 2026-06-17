@@ -26,10 +26,11 @@ type PlayerParts = Readonly<{
   rightLeg: THREE.Mesh
 }>
 
-type RemotePlayerEntry = Readonly<{
+type RemotePlayerEntry = {
   group: THREE.Group
   parts: PlayerParts
-}>
+  seenSnapshotSeq: number
+}
 
 const PLAYER_HEIGHT = 1.8
 const NAME_TAG_Y = 2.15
@@ -147,6 +148,16 @@ export const createRemotePlayerRenderer = (
 ): RemotePlayerRenderer => {
   void camera
   const players = new Map<string, RemotePlayerEntry>()
+  let snapshotSeq = 0
+
+  const createEntry = (state: RemotePlayerState, seenSnapshotSeq: number): RemotePlayerEntry => {
+    const parts = createPlayerParts(state)
+    const group = new THREE.Group()
+    group.add(parts.root)
+    const entry: RemotePlayerEntry = { group, parts, seenSnapshotSeq }
+    applyState(entry, state)
+    return entry
+  }
 
   const addPlayer = (state: RemotePlayerState): Effect.Effect<void, never> =>
     Effect.sync(() => {
@@ -155,13 +166,9 @@ export const createRemotePlayerRenderer = (
         applyState(existing, state)
         return
       }
-      const parts = createPlayerParts(state)
-      const group = new THREE.Group()
-      group.add(parts.root)
-      const entry = { group, parts }
-      applyState(entry, state)
+      const entry = createEntry(state, snapshotSeq)
       players.set(state.playerId, entry)
-      scene.add(group)
+      scene.add(entry.group)
     })
 
   return {
@@ -179,10 +186,20 @@ export const createRemotePlayerRenderer = (
       players.delete(playerId)
     }),
     updateFromSnapshot: (snapshots) => Effect.sync(() => {
-      const liveIds = new Set(snapshots.map((snapshot) => snapshot.playerId))
-      for (const snapshot of snapshots) Effect.runSync(addPlayer(snapshot))
+      const seq = ++snapshotSeq
+      for (const snapshot of snapshots) {
+        const existing = players.get(snapshot.playerId)
+        if (existing !== undefined) {
+          existing.seenSnapshotSeq = seq
+          applyState(existing, snapshot)
+          continue
+        }
+        const entry = createEntry(snapshot, seq)
+        players.set(snapshot.playerId, entry)
+        scene.add(entry.group)
+      }
       for (const [playerId, entry] of players) {
-        if (liveIds.has(playerId)) continue
+        if (entry.seenSnapshotSeq === seq) continue
         scene.remove(entry.group)
         disposeEntry(entry)
         players.delete(playerId)

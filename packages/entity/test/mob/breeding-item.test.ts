@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { getMobDefinition, EntityType } from '@ts-minecraft/entity'
+import { EntityType } from '@ts-minecraft/entity'
+import { getMobDefinition } from '@ts-minecraft/entity/domain/mob/mobs'
 
 // R6a: breedingItem data foundation for mob breeding.
 describe('mob breeding item (R6a)', () => {
@@ -10,6 +11,10 @@ describe('mob breeding item (R6a)', () => {
 
   it('pig breeds with CARROT', () => {
     expect(getMobDefinition(EntityType.Pig).breedingItem).toBe('CARROT')
+  })
+
+  it('chicken breeds with WHEAT_SEEDS', () => {
+    expect(getMobDefinition(EntityType.Chicken).breedingItem).toBe('WHEAT_SEEDS')
   })
 
   it('hostile mobs are not breedable (no breedingItem)', () => {

@@ -13,6 +13,7 @@ const BASE = {
   masterVolume: 0.8,
   sfxVolume: 1.0,
   musicVolume: 0.55,
+  difficulty: 'normal' as const,
 } as const
 
 const decode = Schema.decodeUnknownSync(SettingsSchema)

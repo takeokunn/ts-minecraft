@@ -62,7 +62,10 @@ const runMainThread = (
       const chunkService = yield* ChunkService
       const biome = yield* BiomeService
       const port = yield* NoiseServicePort
-      const chunk = yield* generateTerrain(chunkService, biome, port, coord)
+      const chunk = yield* generateTerrain(chunkService, biome, port, coord, {
+        seaLevel: 48,
+        lakeLevel: 62,
+      })
       return chunk.blocks
     }).pipe(Effect.provide(MainThreadLayer)),
   )

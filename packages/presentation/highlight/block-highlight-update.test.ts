@@ -4,7 +4,6 @@ import { expect, vi } from 'vitest'
 import * as THREE from 'three'
 import {
   BlockHighlightService,
-  BlockHighlightLive,
 } from '@ts-minecraft/presentation/highlight/block-highlight'
 import { RaycastingService, type RaycastHit } from '@ts-minecraft/rendering'
 import {
@@ -26,7 +25,7 @@ describe('BlockHighlightService (update & integration)', () => {
       }
       const mockRaycastingService = createMockRaycastingService(Option.some(hitResult))
       const MockLayer = Layer.succeed(RaycastingService, mockRaycastingService)
-      const TestLayer = BlockHighlightLive.pipe(Layer.provide(MockLayer))
+      const TestLayer = BlockHighlightService.Default.pipe(Layer.provide(MockLayer))
 
       const { scene, getChildren } = createMockScene()
       const camera = createMockCamera()
@@ -55,7 +54,7 @@ describe('BlockHighlightService (update & integration)', () => {
       }
       const mockRaycastingService = createMockRaycastingService(Option.some(hitResult))
       const MockLayer = Layer.succeed(RaycastingService, mockRaycastingService)
-      const TestLayer = BlockHighlightLive.pipe(Layer.provide(MockLayer))
+      const TestLayer = BlockHighlightService.Default.pipe(Layer.provide(MockLayer))
 
       const { scene, getChildren } = createMockScene()
       const camera = createMockCamera()
@@ -73,7 +72,7 @@ describe('BlockHighlightService (update & integration)', () => {
     it.effect('should hide mesh when no hit', () => {
       const mockRaycastingService = createMockRaycastingService()
       const MockLayer = Layer.succeed(RaycastingService, mockRaycastingService)
-      const TestLayer = BlockHighlightLive.pipe(Layer.provide(MockLayer))
+      const TestLayer = BlockHighlightService.Default.pipe(Layer.provide(MockLayer))
 
       const { scene, getChildren } = createMockScene()
       const camera = createMockCamera()
@@ -99,7 +98,7 @@ describe('BlockHighlightService (update & integration)', () => {
       }
       const mockRaycastingService = createMockRaycastingService(Option.some(hitResult))
       const MockLayer = Layer.succeed(RaycastingService, mockRaycastingService)
-      const TestLayer = BlockHighlightLive.pipe(Layer.provide(MockLayer))
+      const TestLayer = BlockHighlightService.Default.pipe(Layer.provide(MockLayer))
 
       const { scene } = createMockScene()
       const camera = createMockCamera()
@@ -142,7 +141,7 @@ describe('BlockHighlightService (update & integration)', () => {
       })
 
       const MockLayer = Layer.succeed(RaycastingService, mockRaycastingService)
-      const TestLayer = BlockHighlightLive.pipe(Layer.provide(MockLayer))
+      const TestLayer = BlockHighlightService.Default.pipe(Layer.provide(MockLayer))
 
       const { scene } = createMockScene()
       const camera = createMockCamera()
@@ -176,7 +175,7 @@ describe('BlockHighlightService (update & integration)', () => {
       }
       const mockRaycastingService = createMockRaycastingService(Option.some(hitResult))
       const MockLayer = Layer.succeed(RaycastingService, mockRaycastingService)
-      const TestLayer = BlockHighlightLive.pipe(Layer.provide(MockLayer))
+      const TestLayer = BlockHighlightService.Default.pipe(Layer.provide(MockLayer))
 
       const { scene } = createMockScene()
       const camera = createMockCamera()
@@ -194,7 +193,7 @@ describe('BlockHighlightService (update & integration)', () => {
     it.effect('should do nothing when mesh is not initialized', () => {
       const mockRaycastingService = createMockRaycastingService()
       const MockLayer = Layer.succeed(RaycastingService, mockRaycastingService)
-      const TestLayer = BlockHighlightLive.pipe(Layer.provide(MockLayer))
+      const TestLayer = BlockHighlightService.Default.pipe(Layer.provide(MockLayer))
 
       const { scene } = createMockScene()
       const camera = createMockCamera()

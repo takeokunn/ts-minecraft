@@ -1,10 +1,10 @@
 import { describe, expect, it } from '@effect/vitest'
 import { Effect, Layer } from 'effect'
 import { CHUNK_HEIGHT, CHUNK_SIZE, blockIndexUnsafe, blockTypeToIndex } from '@ts-minecraft/core'
-import { ChunkService, ChunkServiceLive } from '@ts-minecraft/world'
+import { ChunkService } from '@ts-minecraft/world'
 import type { ChunkService as ChunkServiceType } from '@ts-minecraft/world'
 import { getLightAt, LIGHT_LEVEL_MAX } from '@ts-minecraft/world'
-import { FULL_RECOMPUTE_THRESHOLD, LightEngineLive, LightEngineService } from '@ts-minecraft/world'
+import { FULL_RECOMPUTE_THRESHOLD, LightEngineService } from '@ts-minecraft/world'
 
 const STONE = blockTypeToIndex('STONE')
 const LAVA = blockTypeToIndex('LAVA')
@@ -21,7 +21,7 @@ const withLightService = <A>(
     const cs = yield* ChunkService
     const ls = yield* LightEngineService
     return yield* f(cs, ls)
-  }).pipe(Effect.provide(Layer.mergeAll(ChunkServiceLive, LightEngineLive)))
+  }).pipe(Effect.provide(Layer.mergeAll(ChunkService.Default, LightEngineService.Default)))
 
 describe('application/light/light-engine-bfs (FR-3.4)', () => {
   it.effect('first call (no prior light) falls back to full compute and reports all-boundary dirty', () =>

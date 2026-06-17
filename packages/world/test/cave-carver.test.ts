@@ -9,6 +9,7 @@ import {
   BEDROCK_LAYER_TOP,
   carveCaves,
 } from '@ts-minecraft/world'
+import { makeChunkBlockBuffer } from './chunk-buffer-test-utils'
 
 // ---------------------------------------------------------------------------
 // Shared constants
@@ -20,7 +21,7 @@ const STONE   = blockTypeToIndex('STONE')
 const WATER   = blockTypeToIndex('WATER')
 const BEDROCK = blockTypeToIndex('BEDROCK')
 
-const makeBlocks = (): Uint8Array => new Uint8Array(CHUNK_SIZE * CHUNK_SIZE * CHUNK_HEIGHT)
+const makeBlocks = (): Uint8Array<ArrayBufferLike> => makeChunkBlockBuffer()
 
 const getBlock = (blocks: Uint8Array, lx: number, y: number, lz: number): number =>
   blocks[y + lz * CHUNK_HEIGHT + lx * CHUNK_HEIGHT * CHUNK_SIZE]!

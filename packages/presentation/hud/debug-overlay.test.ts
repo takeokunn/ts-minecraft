@@ -5,7 +5,6 @@ import { Effect } from 'effect'
 import { DEBUG_FEATURE_FLAG_CATALOG } from '@ts-minecraft/app/debug-feature-flags'
 import {
   DebugOverlayService,
-  DebugOverlayLive,
   debugFeatureGroupLabels,
   debugFeatureSearchMatches,
   facingFromYaw,
@@ -72,7 +71,7 @@ describe('presentation/hud/debug-overlay', () => {
         const overlay = yield* DebugOverlayService
         const visible = yield* overlay.isVisible()
         expect(visible).toBe(false)
-      }).pipe(Effect.provide(DebugOverlayLive)),
+      }).pipe(Effect.provide(DebugOverlayService.Default)),
     )
 
     it.scoped('toggle flips visibility once', () =>
@@ -84,7 +83,7 @@ describe('presentation/hud/debug-overlay', () => {
         yield* overlay.toggle()
         const visible2 = yield* overlay.isVisible()
         expect(visible2).toBe(false)
-      }).pipe(Effect.provide(DebugOverlayLive)),
+      }).pipe(Effect.provide(DebugOverlayService.Default)),
     )
 
     it.scoped('show / hide drive visibility flag', () =>
@@ -94,11 +93,11 @@ describe('presentation/hud/debug-overlay', () => {
         expect(yield* overlay.isVisible()).toBe(true)
         yield* overlay.hide()
         expect(yield* overlay.isVisible()).toBe(false)
-      }).pipe(Effect.provide(DebugOverlayLive)),
+      }).pipe(Effect.provide(DebugOverlayService.Default)),
     )
 
     it('Live layer is defined', () => {
-      expect(DebugOverlayLive).toBeDefined()
+      expect(DebugOverlayService.Default).toBeDefined()
     })
   })
 })

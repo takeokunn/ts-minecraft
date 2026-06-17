@@ -6,7 +6,7 @@ const LOCALHOST_HOSTNAMES = HashSet.make('localhost', '127.0.0.1', '0.0.0.0', ':
 // Browser-backed implementation of EnvironmentPort.
 // Reads window.location.hostname to detect local development.
 // When window is unavailable (e.g. SSR, Node test runtime) returns false.
-export const EnvironmentLive = Layer.succeed(
+export const EnvironmentLayer = Layer.succeed(
   EnvironmentPort,
   {
     isLocalhost: Effect.sync(() => {

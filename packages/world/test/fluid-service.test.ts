@@ -1,56 +1,24 @@
 import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
-import { Array as Arr, Effect, Layer, MutableRef, Option } from 'effect'
-import { FluidService, FluidServiceLive, resolveContact } from '@ts-minecraft/world'
-import { ChunkManagerService } from '@ts-minecraft/world'
-import { CHUNK_SIZE, CHUNK_HEIGHT, blockTypeToIndex } from '@ts-minecraft/core'
-import type { Chunk } from '../domain/chunk'
+import { Effect, Layer, MutableRef, Option } from 'effect'
+import { FluidService, resolveContact } from '@ts-minecraft/world'
+import { blockTypeToIndex } from '@ts-minecraft/core'
 import {
   FLUID_BYTE_LENGTH,
   createFluidBuffer,
   encodeFluidCell,
 } from '@ts-minecraft/world'
-import { blockIndex } from '@ts-minecraft/core'
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-const makeEmptyChunk = (coord: { x: number; z: number } = { x: 0, z: 0 }): Chunk => ({
-  coord,
-  blocks: new Uint8Array(CHUNK_SIZE * CHUNK_SIZE * CHUNK_HEIGHT),
-  fluid: Option.none(),
-})
-
-// blockIndex(lx=0, y=64, lz=0) = 64 (y + z*CHUNK_HEIGHT + x*CHUNK_HEIGHT*CHUNK_SIZE)
-const blockIndexAt = (lx: number, y: number, lz: number): number =>
-  Option.getOrElse(blockIndex(lx, y, lz), () => -1)
-
-const makeChunkWith = (
-  blockTypes: Array<{ lx: number; y: number; lz: number; blockType: 'WATER' | 'LAVA' | 'AIR' | 'STONE' | 'DIRT' }>,
-  coord: { x: number; z: number } = { x: 0, z: 0 },
-): Chunk => {
-  const blocks = new Uint8Array(CHUNK_SIZE * CHUNK_SIZE * CHUNK_HEIGHT)
-  Arr.forEach(blockTypes, ({ lx, y, lz, blockType }) => {
-    const idx = blockIndexAt(lx, y, lz)
-    if (idx >= 0) blocks[idx] = blockTypeToIndex(blockType)
-  })
-  return { coord, blocks, fluid: Option.none() }
-}
-
-const makeChunkManagerLayer = (chunks: Chunk[]) =>
-  Layer.succeed(ChunkManagerService, ChunkManagerService.of({
-    _tag: '@minecraft/application/ChunkManagerService' as const,
-    getChunk: (_coord: { x: number; z: number }) =>
-      Effect.succeed(chunks[0] ?? makeEmptyChunk()),
-    markChunkDirty: (_coord: { x: number; z: number }) => Effect.void,
-    getLoadedChunks: () => Effect.succeed(chunks),
-    drainRenderDirtyChunks: () => Effect.succeed([]),
-        drainRenderDirtyChunkEntries: () => Effect.succeed([]),
-    loadChunksAroundPlayer: () => Effect.succeed(false),
-    saveDirtyChunks: () => Effect.void,
-    unloadChunk: () => Effect.void,
-  }))
+import {
+  blockAt as fluidBlockAt,
+  cacheFromChunks,
+  canFluidReplaceAt,
+} from '../application/fluid-service-helpers'
+import {
+  makeEmptyTestChunk as makeEmptyChunk,
+  makeTestChunkWithBlocks as makeChunkWith,
+  testBlockIndexAt as blockIndexAt,
+} from './chunk-buffer-test-utils'
+import { makeChunkManagerLayer } from './fluid-test-utils'
 
 // ---------------------------------------------------------------------------
 // resolveContact (pure function, exported)
@@ -99,6 +67,47 @@ describe('terrain/application/fluid-service resolveContact', () => {
 })
 
 // ---------------------------------------------------------------------------
+// Fluid cache helpers
+// ---------------------------------------------------------------------------
+
+describe('terrain/application/fluid-service helpers', () => {
+  it('canFluidReplaceAt keeps AIR and water-breakable block semantics on complete buffers', () => {
+    const chunk = makeChunkWith([
+      { lx: 1, y: 64, lz: 1, blockType: 'TORCH' },
+      { lx: 2, y: 64, lz: 2, blockType: 'STONE' },
+    ])
+    const loaded = cacheFromChunks([chunk])
+
+    expect(canFluidReplaceAt(loaded, { x: 0, y: 64, z: 0 }, 'water')).toBe(true)
+    expect(canFluidReplaceAt(loaded, { x: 1, y: 64, z: 1 }, 'water')).toBe(true)
+    expect(canFluidReplaceAt(loaded, { x: 1, y: 64, z: 1 }, 'lava')).toBe(false)
+    expect(canFluidReplaceAt(loaded, { x: 2, y: 64, z: 2 }, 'water')).toBe(false)
+  })
+
+  it('canFluidReplaceAt rejects unloaded chunks, vertical bounds, and incomplete block buffers', () => {
+    const shortChunk: Chunk = {
+      coord: { x: 0, z: 0 },
+      blocks: new Uint8Array(0),
+      fluid: Option.none(),
+    }
+    const loaded = cacheFromChunks([shortChunk])
+
+    expect(canFluidReplaceAt(cacheFromChunks([]), { x: 0, y: 64, z: 0 }, 'water')).toBe(false)
+    expect(canFluidReplaceAt(loaded, { x: 0, y: -1, z: 0 }, 'water')).toBe(false)
+    expect(canFluidReplaceAt(loaded, { x: 0, y: 64, z: 0 }, 'water')).toBe(false)
+  })
+
+  it('blockAt returns block indices only for loaded chunks inside vertical bounds', () => {
+    const chunk = makeChunkWith([{ lx: 4, y: 65, lz: 4, blockType: 'DIRT' }])
+    const loaded = cacheFromChunks([chunk])
+
+    expect(Option.getOrNull(fluidBlockAt(loaded, { x: 4, y: 65, z: 4 }))).toBe(blockTypeToIndex('DIRT'))
+    expect(Option.getOrNull(fluidBlockAt(loaded, { x: 4, y: -1, z: 4 }))).toBeNull()
+    expect(Option.getOrNull(fluidBlockAt(cacheFromChunks([]), { x: 4, y: 65, z: 4 }))).toBeNull()
+  })
+})
+
+// ---------------------------------------------------------------------------
 // FluidService unit tests
 // ---------------------------------------------------------------------------
 
@@ -106,7 +115,7 @@ describe('terrain/application/fluid-service', () => {
   // ─── notifyBlockChanged ──────────────────────────────────────────────────
 
   it.effect('notifyBlockChanged enqueues a position to frontier', () => {
-    const layer = FluidServiceLive.pipe(
+    const layer = FluidService.Default.pipe(
       Layer.provide(makeChunkManagerLayer([])),
     )
     return Effect.gen(function* () {
@@ -121,18 +130,10 @@ describe('terrain/application/fluid-service', () => {
   it.effect('seedWater seeds a water cell and writes to the chunk fluid buffer', () => {
     const markDirtyCalledRef = MutableRef.make(false)
     const chunk = makeEmptyChunk({ x: 0, z: 0 })
-    const chunkMgrLayer = Layer.succeed(ChunkManagerService, ChunkManagerService.of({
-      _tag: '@minecraft/application/ChunkManagerService' as const,
-      getChunk: () => Effect.succeed(chunk),
+    const chunkMgrLayer = makeChunkManagerLayer([chunk], {
       markChunkDirty: () => Effect.sync(() => { MutableRef.set(markDirtyCalledRef, true) }),
-      getLoadedChunks: () => Effect.succeed([chunk]),
-      drainRenderDirtyChunks: () => Effect.succeed([]),
-        drainRenderDirtyChunkEntries: () => Effect.succeed([]),
-      loadChunksAroundPlayer: () => Effect.succeed(false),
-      saveDirtyChunks: () => Effect.void,
-      unloadChunk: () => Effect.void,
-    }))
-    const layer = FluidServiceLive.pipe(Layer.provide(chunkMgrLayer))
+    })
+    const layer = FluidService.Default.pipe(Layer.provide(chunkMgrLayer))
     return Effect.gen(function* () {
       const svc = yield* FluidService
       // syncLoadedChunks to populate the loaded cache
@@ -143,21 +144,30 @@ describe('terrain/application/fluid-service', () => {
     }).pipe(Effect.provide(layer))
   })
 
+  it.effect('seedWater loads the chunk cache lazily when syncLoadedChunks has not run', () => {
+    const getLoadedChunksCalledRef = MutableRef.make(false)
+    const chunk = makeEmptyChunk({ x: 0, z: 0 })
+    const chunkMgrLayer = makeChunkManagerLayer([chunk], {
+      getLoadedChunks: () => Effect.sync(() => {
+        MutableRef.set(getLoadedChunksCalledRef, true)
+        return [chunk]
+      }),
+    })
+    const layer = FluidService.Default.pipe(Layer.provide(chunkMgrLayer))
+    return Effect.gen(function* () {
+      const svc = yield* FluidService
+      yield* svc.seedWater({ x: 0, y: 64, z: 0 })
+      expect(MutableRef.get(getLoadedChunksCalledRef)).toBe(true)
+    }).pipe(Effect.provide(layer))
+  })
+
   it.effect('removeWater removes the fluid cell and writes air to chunk', () => {
     const markDirtyCalledRef = MutableRef.make(false)
     const chunk = makeChunkWith([{ lx: 0, y: 64, lz: 0, blockType: 'WATER' }])
-    const chunkMgrLayer = Layer.succeed(ChunkManagerService, ChunkManagerService.of({
-      _tag: '@minecraft/application/ChunkManagerService' as const,
-      getChunk: () => Effect.succeed(chunk),
+    const chunkMgrLayer = makeChunkManagerLayer([chunk], {
       markChunkDirty: () => Effect.sync(() => { MutableRef.set(markDirtyCalledRef, true) }),
-      getLoadedChunks: () => Effect.succeed([chunk]),
-      drainRenderDirtyChunks: () => Effect.succeed([]),
-        drainRenderDirtyChunkEntries: () => Effect.succeed([]),
-      loadChunksAroundPlayer: () => Effect.succeed(false),
-      saveDirtyChunks: () => Effect.void,
-      unloadChunk: () => Effect.void,
-    }))
-    const layer = FluidServiceLive.pipe(Layer.provide(chunkMgrLayer))
+    })
+    const layer = FluidService.Default.pipe(Layer.provide(chunkMgrLayer))
     return Effect.gen(function* () {
       const svc = yield* FluidService
       yield* svc.syncLoadedChunks([chunk])
@@ -178,18 +188,10 @@ describe('terrain/application/fluid-service', () => {
     ;(chunk as { fluid: Option.Option<Uint8Array<ArrayBufferLike>> }).fluid = Option.none()
 
     const markDirtyCalledRef = MutableRef.make(false)
-    const chunkMgrLayer = Layer.succeed(ChunkManagerService, ChunkManagerService.of({
-      _tag: '@minecraft/application/ChunkManagerService' as const,
-      getChunk: () => Effect.succeed(chunk),
+    const chunkMgrLayer = makeChunkManagerLayer([chunk], {
       markChunkDirty: () => Effect.sync(() => { MutableRef.set(markDirtyCalledRef, true) }),
-      getLoadedChunks: () => Effect.succeed([chunk]),
-      drainRenderDirtyChunks: () => Effect.succeed([]),
-        drainRenderDirtyChunkEntries: () => Effect.succeed([]),
-      loadChunksAroundPlayer: () => Effect.succeed(false),
-      saveDirtyChunks: () => Effect.void,
-      unloadChunk: () => Effect.void,
-    }))
-    const layer = FluidServiceLive.pipe(Layer.provide(chunkMgrLayer))
+    })
+    const layer = FluidService.Default.pipe(Layer.provide(chunkMgrLayer))
     return Effect.gen(function* () {
       const svc = yield* FluidService
       // syncLoadedChunks calls hydrateChunk which processes the WATER block
@@ -208,18 +210,10 @@ describe('terrain/application/fluid-service', () => {
     ;(chunk as { fluid: Option.Option<Uint8Array<ArrayBufferLike>> }).fluid = Option.some(new Uint8Array(10))
 
     const markDirtyCalledRef = MutableRef.make(false)
-    const chunkMgrLayer = Layer.succeed(ChunkManagerService, ChunkManagerService.of({
-      _tag: '@minecraft/application/ChunkManagerService' as const,
-      getChunk: () => Effect.succeed(chunk),
+    const chunkMgrLayer = makeChunkManagerLayer([chunk], {
       markChunkDirty: () => Effect.sync(() => { MutableRef.set(markDirtyCalledRef, true) }),
-      getLoadedChunks: () => Effect.succeed([chunk]),
-      drainRenderDirtyChunks: () => Effect.succeed([]),
-        drainRenderDirtyChunkEntries: () => Effect.succeed([]),
-      loadChunksAroundPlayer: () => Effect.succeed(false),
-      saveDirtyChunks: () => Effect.void,
-      unloadChunk: () => Effect.void,
-    }))
-    const layer = FluidServiceLive.pipe(Layer.provide(chunkMgrLayer))
+    })
+    const layer = FluidService.Default.pipe(Layer.provide(chunkMgrLayer))
     return Effect.gen(function* () {
       const svc = yield* FluidService
       yield* svc.syncLoadedChunks([chunk])
@@ -242,12 +236,29 @@ expect.fail('Expected chunk fluid to be a Uint8Array')
     fluidBuffer[idx] = encodeFluidCell({ level: 0, source: true, type: 'water' })
     ;(chunk as { fluid: Option.Option<Uint8Array<ArrayBufferLike>> }).fluid = Option.some(fluidBuffer)
 
-    const layer = FluidServiceLive.pipe(Layer.provide(makeChunkManagerLayer([chunk])))
+    const layer = FluidService.Default.pipe(Layer.provide(makeChunkManagerLayer([chunk])))
     return Effect.gen(function* () {
       const svc = yield* FluidService
       // syncLoadedChunks should hydrate state from the existing fluid buffer
       yield* svc.syncLoadedChunks([chunk])
       // Sync completed without error, state was hydrated from existing buffer
+    }).pipe(Effect.provide(layer))
+  })
+
+  it.effect('syncLoadedChunks removes fluid cells and frontier entries for unloaded chunks', () => {
+    const chunk = makeChunkWith([{ lx: 0, y: 64, lz: 0, blockType: 'WATER' }])
+    const fluidBuffer = createFluidBuffer()
+    const idx = blockIndexAt(0, 64, 0)
+    fluidBuffer[idx] = encodeFluidCell({ level: 0, source: true, type: 'water' })
+    ;(chunk as { fluid: Option.Option<Uint8Array<ArrayBufferLike>> }).fluid = Option.some(fluidBuffer)
+
+    const layer = FluidService.Default.pipe(Layer.provide(makeChunkManagerLayer([])))
+    return Effect.gen(function* () {
+      const svc = yield* FluidService
+      yield* svc.syncLoadedChunks([chunk])
+      yield* svc.notifyBlockChanged({ x: 0, y: 64, z: 0 })
+      yield* svc.syncLoadedChunks([])
+      yield* svc.tick()
     }).pipe(Effect.provide(layer))
   })
 })

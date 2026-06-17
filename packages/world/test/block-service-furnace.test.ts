@@ -1,23 +1,26 @@
 import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
 import { Array as Arr, Effect, Either, Layer, Option } from 'effect'
-import { BlockService, BlockServiceLive } from '@ts-minecraft/world'
+import { BlockService } from '@ts-minecraft/world'
 import { ChunkManagerService } from '@ts-minecraft/world'
-import { ChunkServiceLive } from '@ts-minecraft/world/application/chunk-service'
+import { ChunkService } from '@ts-minecraft/world/application/chunk-service'
 import { FluidService } from '@ts-minecraft/world'
 import { PlayerService } from '@ts-minecraft/entity'
 import { InventoryService } from '@ts-minecraft/inventory'
 import { HotbarService } from '@ts-minecraft/inventory'
 import { FurnaceService } from '@ts-minecraft/inventory'
-import { CHUNK_SIZE, CHUNK_HEIGHT, blockTypeToIndex, Position, SlotIndex } from '@ts-minecraft/core'
+import { ChestService } from '@ts-minecraft/inventory'
+import { blockTypeToIndex, Position, SlotIndex } from '@ts-minecraft/core'
 import type { BlockType } from '@ts-minecraft/core'
+import { createMockChestService } from './block-service-test-utils'
+import { makeChunkBlockBuffer } from './chunk-buffer-test-utils'
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
 const makeBlocks = (overrides: Array<{ idx: number; type: BlockType }> = []): Uint8Array<ArrayBufferLike> => {
-  const blocks = new Uint8Array(CHUNK_SIZE * CHUNK_SIZE * CHUNK_HEIGHT)
+  const blocks = makeChunkBlockBuffer()
   Arr.forEach(overrides, ({ idx, type }) => {
     blocks[idx] = blockTypeToIndex(type)
   })
@@ -106,6 +109,9 @@ const makeFurnaceLayer = (opts: {
     deserialize: () => Effect.void,
   } as unknown as FurnaceService)
 
+const makeChestLayer = () =>
+  Layer.succeed(ChestService, createMockChestService())
+
 // ---------------------------------------------------------------------------
 // breakBlock — FURNACE path
 // ---------------------------------------------------------------------------
@@ -113,14 +119,15 @@ const makeFurnaceLayer = (opts: {
 describe('terrain/application/block-service breakBlock furnace', () => {
   it.effect('breakBlock on FURNACE succeeds when dismantleFurnace returns true', () => {
     const chunk = makeChunk('FURNACE', BLOCK_IDX_64)
-    const layer = BlockServiceLive.pipe(
+    const layer = BlockService.Default.pipe(
       Layer.provide(makeChunkManagerLayer({ chunk })),
-      Layer.provide(ChunkServiceLive),
+      Layer.provide(ChunkService.Default),
       Layer.provide(noopFluidService),
       Layer.provide(makePlayerLayer()),
       Layer.provide(makeInventoryLayer()),
       Layer.provide(makeHotbarLayer()),
       Layer.provide(makeFurnaceLayer({ dismantleResult: true })),
+      Layer.provide(makeChestLayer()),
     )
     return Effect.gen(function* () {
       const svc = yield* BlockService
@@ -131,14 +138,15 @@ describe('terrain/application/block-service breakBlock furnace', () => {
 
   it.effect('breakBlock on FURNACE fails when dismantleFurnace returns false', () => {
     const chunk = makeChunk('FURNACE', BLOCK_IDX_64)
-    const layer = BlockServiceLive.pipe(
+    const layer = BlockService.Default.pipe(
       Layer.provide(makeChunkManagerLayer({ chunk })),
-      Layer.provide(ChunkServiceLive),
+      Layer.provide(ChunkService.Default),
       Layer.provide(noopFluidService),
       Layer.provide(makePlayerLayer()),
       Layer.provide(makeInventoryLayer()),
       Layer.provide(makeHotbarLayer()),
       Layer.provide(makeFurnaceLayer({ dismantleResult: false })),
+      Layer.provide(makeChestLayer()),
     )
     return Effect.gen(function* () {
       const svc = yield* BlockService

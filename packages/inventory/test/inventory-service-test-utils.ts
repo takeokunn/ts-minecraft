@@ -2,7 +2,7 @@ import { Array as Arr, Effect, Layer, MutableHashMap, MutableRef } from 'effect'
 import type { BlockType } from '@ts-minecraft/core'
 import type { Block } from '@ts-minecraft/block'
 import { BlockRegistry } from '@ts-minecraft/block'
-import { InventoryServiceLive } from '@ts-minecraft/inventory'
+import { InventoryService } from '@ts-minecraft/inventory'
 
 export const asSlotIndex = (n: number): import('@ts-minecraft/core').SlotIndex => n as import('@ts-minecraft/core').SlotIndex
 
@@ -49,7 +49,7 @@ export const createTestBlockRegistry = (blocks: ReadonlyArray<Block> = []) => {
 }
 
 export const createTestLayer = (blockRegistry: ReturnType<typeof createTestBlockRegistry>) =>
-  InventoryServiceLive.pipe(
+  InventoryService.Default.pipe(
     Layer.provide(Layer.succeed(BlockRegistry, blockRegistry))
   )
 

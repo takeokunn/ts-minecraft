@@ -17,10 +17,14 @@ export const createSessionControl: Effect.Effect<SessionControl, never> = Effect
   return { isPausedRef, quitToTitleSignal }
 })
 
-// Caller must flush saves BEFORE calling so the session fiber unwinds with persisted state on disk.
-// Idempotent: Deferred only fulfills once.
+// Idempotent: Deferred only fulfills once. The session fiber flushes saves after
+// this signal. `unsafeDone` is intentional here: this signal is commonly sent
+// from DOM event handlers, and quit-to-title must wake the session fiber before
+// the UI handler's fork can be lost behind browser scheduling.
 export const requestQuitToTitle = (control: SessionControl): Effect.Effect<void, never> =>
-  Deferred.succeed(control.quitToTitleSignal, undefined).pipe(Effect.asVoid)
+  Effect.sync(() => {
+    Deferred.unsafeDone(control.quitToTitleSignal, Effect.void)
+  })
 
 // Synchronous helpers — allow overlays/menus to pause without holding a reference to the original Ref.
 export const setPaused = (control: SessionControl, paused: boolean): void => {

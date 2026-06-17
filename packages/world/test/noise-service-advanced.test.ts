@@ -3,6 +3,8 @@ import { expect } from 'vitest'
 import { Array as Arr, Effect, MutableHashSet } from 'effect'
 import { NoiseService } from '@ts-minecraft/world'
 
+const readNumber = (values: ReadonlyArray<number>, index: number): number => values[index] ?? Number.NaN
+
 describe('infrastructure/noise/noise-service', () => {
   // ---------------------------------------------------------------------------
   // Group 5: noise spatial continuity
@@ -124,7 +126,7 @@ describe('infrastructure/noise/noise-service', () => {
         const batch = yield* service.noise3DBatchXYZ(xs, ys, zs)
         const scalar = yield* Effect.forEach(
           Arr.makeBy(xs.length, (i) => i),
-          (i) => service.noise3D(xs[i]!, ys[i]!, zs[i]!),
+          (i) => service.noise3D(readNumber(xs, i), readNumber(ys, i), readNumber(zs, i)),
           { concurrency: 1 },
         )
         expect(batch).toEqual(scalar)

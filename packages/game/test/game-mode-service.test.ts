@@ -1,7 +1,7 @@
 import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
 import { Effect, Schema } from 'effect'
-import { GameModeService, GameModeServiceLive, DEFAULT_GAME_MODE, GameModeSchema } from '@ts-minecraft/game'
+import { GameModeService, DEFAULT_GAME_MODE, GameModeSchema } from '@ts-minecraft/game'
 
 describe('application/game-mode/game-mode-service', () => {
   it.effect('defaults to survival', () =>
@@ -9,7 +9,7 @@ describe('application/game-mode/game-mode-service', () => {
       const svc = yield* GameModeService
       expect(yield* svc.get()).toBe('survival')
       expect(DEFAULT_GAME_MODE).toBe('survival')
-    }).pipe(Effect.provide(GameModeServiceLive)),
+    }).pipe(Effect.provide(GameModeService.Default)),
   )
 
   it.effect('set switches mode and isCreative/isSurvival reflect it', () =>
@@ -23,7 +23,7 @@ describe('application/game-mode/game-mode-service', () => {
       expect(yield* svc.isSurvival()).toBe(false)
       yield* svc.set('survival')
       expect(yield* svc.isSurvival()).toBe(true)
-    }).pipe(Effect.provide(GameModeServiceLive)),
+    }).pipe(Effect.provide(GameModeService.Default)),
   )
 
   it.effect('spectator mode: isSpectator true, isCreative/isSurvival false', () =>
@@ -34,7 +34,7 @@ describe('application/game-mode/game-mode-service', () => {
       expect(yield* svc.isSpectator()).toBe(true)
       expect(yield* svc.isCreative()).toBe(false)
       expect(yield* svc.isSurvival()).toBe(false)
-    }).pipe(Effect.provide(GameModeServiceLive)),
+    }).pipe(Effect.provide(GameModeService.Default)),
   )
 })
 

@@ -1,7 +1,7 @@
 import { Effect, Match, Option } from 'effect'
 import { RedstoneComponentType } from '@ts-minecraft/entity'
 import type { BlockType, Position } from '@ts-minecraft/core'
-import type { FrameHandlerServices } from '@ts-minecraft/app/frame/types'
+import type { FrameRedstoneInteractionServices } from '@ts-minecraft/app/frame/frame-interaction-service-types'
 import type { TargetBlockHit } from '@ts-minecraft/app/frame/stages/interaction-types'
 
 export type RedstoneFlags = {
@@ -17,7 +17,7 @@ export type RedstoneFlags = {
 
 
 const placeComponentAndBlock = (
-  services: Pick<FrameHandlerServices, 'redstoneService' | 'blockService'>,
+  services: FrameRedstoneInteractionServices,
   componentType: RedstoneComponentType,
   worldBlock: BlockType,
   position: Position,
@@ -28,7 +28,7 @@ const placeComponentAndBlock = (
   })
 
 const dispatchRedstoneAction = (
-  services: Pick<FrameHandlerServices, 'redstoneService' | 'blockService'>,
+  services: FrameRedstoneInteractionServices,
   flags: RedstoneFlags,
   position: Position,
 ): Effect.Effect<void, never> =>
@@ -45,14 +45,11 @@ const dispatchRedstoneAction = (
   )
 
 export const handleRedstoneInput = (
-  services: Pick<FrameHandlerServices, 'redstoneService' | 'blockService'>,
+  services: FrameRedstoneInteractionServices,
   flags: RedstoneFlags,
   targetBlock: Option.Option<TargetBlockHit>,
 ): Effect.Effect<void, never> =>
-  Effect.gen(function* () {
-    const tb = Option.getOrNull(targetBlock)
-    if (tb !== null) {
-      yield* dispatchRedstoneAction(services, flags, tb)
-    }
-    yield* services.redstoneService.tick()
-  })
+  Effect.succeed(Option.getOrNull(targetBlock)).pipe(
+    Effect.flatMap((tb) => (tb === null ? Effect.void : dispatchRedstoneAction(services, flags, tb))),
+    Effect.flatMap(() => services.redstoneService.tick()),
+  )

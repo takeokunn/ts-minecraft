@@ -1,6 +1,6 @@
 import { Effect, Layer } from 'effect'
 import { TerrainWorkerPoolPort, TerrainGenerationError } from '../application/terrain-worker-pool-port'
-import { TerrainWorkerPool, TerrainWorkerPoolLive } from './terrain-worker-pool'
+import { TerrainWorkerPool } from './terrain-worker-pool'
 
 export const TerrainWorkerPoolPortLayer = Layer.effect(
   TerrainWorkerPoolPort,
@@ -13,4 +13,4 @@ export const TerrainWorkerPoolPortLayer = Layer.effect(
         ),
     })
   })
-).pipe(Layer.provide(TerrainWorkerPoolLive))
+).pipe(Layer.provide(TerrainWorkerPool.Default))

@@ -1,18 +1,21 @@
 // Application layer composition — wires all services into a single Effect Layer graph.
-// Re-exports per-tier bundles (Infrastructure, GameLogic, Presentation) and aggregates
-// them into `MainLive`. Dependency order: Infrastructure → Game-Logic → Presentation.
+// Re-exports per-tier bundles (Infrastructure, GameLogic, Presentation) and composes
+// them in dependency order. `Layer.mergeAll` is parallel; use `Layer.provideMerge`
+// when the provided layer's output must remain in scope for downstream consumers.
 import { Layer } from 'effect'
 
-import { InfrastructureLayers } from './infrastructure'
-import { GameLogicLayers } from './game-logic'
-import { PresentationLayers } from './presentation'
+import { InfrastructureLayers } from './infrastructure-bundles'
+import { GameLogicLayers } from './game-logic-bundles'
+import { PresentationLayers } from './presentation-bundles'
 
-export * from './infrastructure'
-export * from './game-logic'
-export * from './presentation'
+export * from './infrastructure-bundles'
+export * from './game-logic-bundles'
+export * from './presentation-bundles'
 
-export const MainLive = Layer.mergeAll(
-  InfrastructureLayers,
-  GameLogicLayers,
-  PresentationLayers,
+const GameLogicProvided = GameLogicLayers.pipe(
+  Layer.provideMerge(InfrastructureLayers),
+)
+
+export const MainLayers = PresentationLayers.pipe(
+  Layer.provideMerge(GameLogicProvided),
 )

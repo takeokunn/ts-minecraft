@@ -1,8 +1,9 @@
 import { describe, it } from '@effect/vitest'
-import { Effect, Option } from 'effect'
+import { Effect } from 'effect'
 import { expect } from 'vitest'
-import { FishingService, FishingServiceLive } from '@ts-minecraft/entity'
+import { FishingService } from '@ts-minecraft/entity'
 import { resolveFishingWaitSecs } from '../domain/fishing'
+import { expectSome } from './test-utils'
 
 // ─── Test helpers ─────────────────────────────────────────────────────────────
 
@@ -12,7 +13,7 @@ const withFishingService = <A>(
   Effect.gen(function* () {
     const fs = yield* FishingService
     return yield* f(fs)
-  }).pipe(Effect.provide(FishingServiceLive))
+  }).pipe(Effect.provide(FishingService.Default))
 
 // Deterministic seed — produces a known wait time for precise tick tests.
 const TEST_SEED = 42
@@ -117,8 +118,7 @@ describe('FishingService — catch', () => {
         const targetSecs = resolveFishingWaitSecs(TEST_SEED)
         yield* fs.cast(TEST_SEED)
         const result = yield* fs.tick(targetSecs + 0.001)
-        expect(Option.isSome(result)).toBe(true)
-        const item = Option.getOrThrow(result)
+        const item = expectSome(result)
         expect(typeof item).toBe('string')
       })
     )
@@ -161,7 +161,7 @@ describe('FishingService — catch', () => {
         expect(Option.isNone(earlyResult)).toBe(true)
         // final tick pushes past the threshold
         const catchResult = yield* fs.tick(0.2)
-        expect(Option.isSome(catchResult)).toBe(true)
+        expectSome(catchResult)
       })
     )
   )
@@ -244,7 +244,7 @@ describe('FishingService — lure level reduces wait time', () => {
         // Cast with lure and tick at exactly lureWait seconds
         yield* fs.cast(TEST_SEED, 1)
         const result = yield* fs.tick(lureWait + 0.001)
-        expect(Option.isSome(result)).toBe(true)
+        expectSome(result)
       })
     )
   )

@@ -1,31 +1,25 @@
-import { Effect, MutableRef, Ref } from 'effect'
+import { Effect, MutableRef } from 'effect'
 import type { FrameHandlerDeps, FrameHandlerServices, FrameStageRefs } from '@ts-minecraft/app/frame/types'
-import { captureCameraPose, copyCameraPoseInto, hasCameraPoseChanged } from '@ts-minecraft/app/frame/frame-runtime-logic'
+import { captureCameraPose, copyCameraPoseInto, hasCameraPoseChanged } from '@ts-minecraft/app/frame/frame-camera-pose'
 
 export const chunkSyncStage = (
   deps: Pick<FrameHandlerDeps, 'camera'>,
   services: Pick<FrameHandlerServices, 'worldRendererService'>,
   refs: Pick<FrameStageRefs, 'frustumThrottleStrideRef' | 'frustumThrottleCounterRef' | 'lastFrustumCullRef' | 'currentFrustumPoseScratch'>,
 ): Effect.Effect<void, never> =>
-  Effect.flatMap(services.worldRendererService.getSceneVersion(), (sceneVersionBeforeCull) => {
+  Effect.gen(function* () {
+    const sceneVersionBeforeCull = yield* services.worldRendererService.getSceneVersion()
     // R89: output-parameter pattern — write into pre-allocated scratch, no per-frame allocation
     captureCameraPose(deps.camera, sceneVersionBeforeCull, refs.currentFrustumPoseScratch)
     const lastFrustumCull = MutableRef.get(refs.lastFrustumCullRef)
+    const frustumStride = Math.max(MutableRef.get(refs.frustumThrottleStrideRef), 1)
+    const frustumTick = (MutableRef.get(refs.frustumThrottleCounterRef) + 1) % frustumStride
+    MutableRef.set(refs.frustumThrottleCounterRef, frustumTick)
 
-    return Effect.flatMap(Ref.get(refs.frustumThrottleStrideRef), (frustumStride) =>
-      Effect.flatMap(
-        Ref.updateAndGet(
-          refs.frustumThrottleCounterRef,
-          (n) => (n + 1) % Math.max(frustumStride, 1),
-        ),
-        (frustumTick) =>
-          frustumTick === 0 && hasCameraPoseChanged(lastFrustumCull, refs.currentFrustumPoseScratch)
-            ? Effect.flatMap(services.worldRendererService.applyFrustumCulling(deps.camera), () =>
-                Effect.sync(() => {
-                  copyCameraPoseInto(refs.currentFrustumPoseScratch, lastFrustumCull)
-                })
-              )
-            : Effect.void,
-      )
-    )
+    if (frustumTick === 0 && hasCameraPoseChanged(lastFrustumCull, refs.currentFrustumPoseScratch)) {
+      yield* services.worldRendererService.applyFrustumCulling(deps.camera)
+      yield* Effect.sync(() => {
+        copyCameraPoseInto(refs.currentFrustumPoseScratch, lastFrustumCull)
+      })
+    }
   })

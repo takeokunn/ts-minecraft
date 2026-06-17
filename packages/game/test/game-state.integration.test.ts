@@ -108,6 +108,33 @@ describe('application/game-state (integration)', () => {
     )
   })
 
+  describe('setPlayerPosition', () => {
+    it.effect('updates the stored player position after initialize', () =>
+      Effect.gen(function* () {
+        const gameState = yield* GameStateService
+        yield* gameState.initialize({ x: 0, y: 5, z: 0 })
+
+        const nextPosition = { x: 4, y: 7, z: -2 }
+        yield* gameState.setPlayerPosition(nextPosition)
+        const position = yield* gameState.getPlayerPosition(DEFAULT_PLAYER_ID)
+
+        expect(position.x).toBeCloseTo(nextPosition.x, 3)
+        expect(position.y).toBeCloseTo(nextPosition.y, 3)
+        expect(position.z).toBeCloseTo(nextPosition.z, 3)
+      }).pipe(Effect.provide(TestGameLayer))
+    )
+
+    it.effect('returns Left before initialize() is called', () =>
+      Effect.gen(function* () {
+        const gameState = yield* GameStateService
+        const result = yield* Effect.either(gameState.setPlayerPosition({ x: 1, y: 2, z: 3 }))
+
+        expect(Either.isLeft(result)).toBe(true)
+        expect(Option.getOrThrow(Either.getLeft(result))._tag).toBe('GameStateError')
+      }).pipe(Effect.provide(TestGameLayer))
+    )
+  })
+
   describe('getPlayerPosition', () => {
     it.effect('returns Left (PlayerError) for an unknown PlayerId', () =>
       Effect.gen(function* () {

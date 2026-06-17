@@ -157,7 +157,7 @@ describe('presentation/menu/main-menu-dom', () => {
     renderCorruptRow(dom, list, WorldId.make('broken'), onDelete)
 
     const row = asTestElement(list).childrenList[0]
-    expect(row?.style.cssText).toContain('background:rgba(140,40,40,0.25)')
+    expect(row?.style.cssText).toContain('background:#7a4545')
     const deleteButton = row?.childrenList.find((child) => child.textContent === 'Delete')
     expect(deleteButton).toBeDefined()
 

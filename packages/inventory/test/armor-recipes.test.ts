@@ -3,6 +3,7 @@ import { expect } from 'vitest'
 import { Array as Arr } from 'effect'
 import { ARMOR_RECIPES } from '../application/recipes/armor-recipes'
 import type { InventoryItem } from '@ts-minecraft/core'
+import { ARMOR_SLOTS } from '../domain/armor'
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -16,8 +17,7 @@ const ingredientTotal = (id: string): number => {
   return Arr.reduce(recipe.ingredients, 0, (sum, ing) => sum + ing.count)
 }
 
-const ARMOR_SLOTS = ['HELMET', 'CHESTPLATE', 'LEGGINGS', 'BOOTS'] as const
-const ARMOR_TIERS = ['LEATHER', 'IRON', 'DIAMOND'] as const
+const ARMOR_TIERS = ['LEATHER', 'IRON', 'GOLD', 'DIAMOND'] as const
 
 // Vanilla material counts per slot (matches standard Minecraft)
 const VANILLA_MATERIAL_COUNTS: Record<string, number> = {
@@ -58,9 +58,9 @@ describe('application/recipes/armor-recipes', () => {
     })
   })
 
-  describe('completeness: 3 tiers × 4 slots = 12 recipes', () => {
-    it('has exactly 12 recipes', () => {
-      expect(ARMOR_RECIPES.length).toBe(12)
+  describe('completeness: 4 tiers × 4 slots = 16 recipes', () => {
+    it('has exactly 16 recipes', () => {
+      expect(ARMOR_RECIPES.length).toBe(16)
     })
 
     it('all tier/slot combinations produce a correctly named armor piece', () => {
@@ -135,6 +135,14 @@ describe('application/recipes/armor-recipes', () => {
         const outputItem = `IRON_${slot}` as InventoryItem
         const recipe = ARMOR_RECIPES.find((r) => r.output.itemType === outputItem)!
         expect(recipe.ingredients[0]!.itemType, `IRON_${slot} should use IRON_INGOT`).toBe('IRON_INGOT')
+      }
+    })
+
+    it('GOLD armor uses GOLD_INGOT as material', () => {
+      for (const slot of ARMOR_SLOTS) {
+        const outputItem = `GOLD_${slot}` as InventoryItem
+        const recipe = ARMOR_RECIPES.find((r) => r.output.itemType === outputItem)!
+        expect(recipe.ingredients[0]!.itemType, `GOLD_${slot} should use GOLD_INGOT`).toBe('GOLD_INGOT')
       }
     })
 

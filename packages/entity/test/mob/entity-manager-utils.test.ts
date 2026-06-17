@@ -13,8 +13,37 @@ import {
 } from '../../domain/mob/entity-manager-utils'
 import { computeEndermanTeleportPosition, makeWanderDirectionFromHash } from '@ts-minecraft/entity'
 import { distanceToPlayerSq } from '@ts-minecraft/entity'
+import { EntityType } from '@ts-minecraft/entity'
+import { makeTestEntity } from './test-utils'
 
 describe('entity/entity-manager-utils', () => {
+  describe('makeTestEntity', () => {
+    it('returns a valid entity with sensible defaults', () => {
+      const entity = makeTestEntity()
+      expect(typeof entity.entityId).toBe('string')
+      expect(entity.entityId.length).toBeGreaterThan(0)
+      expect(entity.type).toBe(EntityType.Zombie)
+      expect(entity.health).toBe(20)
+      expect(entity.position).toEqual({ x: 0, y: 0, z: 0 })
+    })
+
+    it('allows overriding the entity type', () => {
+      const entity = makeTestEntity({ type: EntityType.Cow })
+      expect(entity.type).toBe(EntityType.Cow)
+    })
+
+    it('allows overriding the position', () => {
+      const entity = makeTestEntity({ position: { x: 5, y: 64, z: -3 } })
+      expect(entity.position).toEqual({ x: 5, y: 64, z: -3 })
+    })
+
+    it('creates a unique entityId on each call', () => {
+      const a = makeTestEntity()
+      const b = makeTestEntity()
+      expect(a.entityId).not.toBe(b.entityId)
+    })
+  })
+
   describe('isSamePosition', () => {
     it('returns true when all three coordinates match exactly', () => {
       const pos = { x: 1.5, y: 64, z: -3 }

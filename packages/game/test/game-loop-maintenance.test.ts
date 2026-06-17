@@ -1,7 +1,7 @@
 import { describe, it } from '@effect/vitest'
 import { expect, vi, beforeEach, afterEach } from 'vitest'
 import { Effect, Either, MutableRef, Option, Ref } from 'effect'
-import { GameLoopService, GameLoopServiceLive } from '@ts-minecraft/game'
+import { GameLoopService } from '@ts-minecraft/game'
 import { GameLoopError } from '../domain/errors'
 
 // ---------------------------------------------------------------------------
@@ -45,7 +45,7 @@ afterEach(() => {
 // ---------------------------------------------------------------------------
 // Test layer — GameLoopService has no external dependencies beyond globals.
 // ---------------------------------------------------------------------------
-const TestLayer = GameLoopServiceLive
+const TestLayer = GameLoopService.Default
 
 // ---------------------------------------------------------------------------
 

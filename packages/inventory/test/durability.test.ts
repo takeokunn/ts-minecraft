@@ -10,7 +10,10 @@ describe('getMaxDurability', () => {
     ['WOODEN_PICKAXE', 59],
     ['STONE_SWORD', 131],
     ['IRON_PICKAXE', 250],
+    ['GOLD_SWORD', 32],
+    ['GOLD_PICKAXE', 32],
     ['DIAMOND_SWORD', 1561],
+    ['SHEARS', 238],
   ]
 
   Arr.forEach(cases, ([item, max]) => {
@@ -30,6 +33,7 @@ describe('isDurable', () => {
   it('is true for tools and weapons', () => {
     expect(isDurable('IRON_SWORD')).toBe(true)
     expect(isDurable('STONE_PICKAXE')).toBe(true)
+    expect(isDurable('SHEARS')).toBe(true)
   })
 
   it('is false for blocks, food, and ingredients', () => {

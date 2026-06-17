@@ -1,4 +1,4 @@
-import { Array as Arr, Effect, MutableRef, Ref } from 'effect'
+import { Effect, MutableRef, Ref } from 'effect'
 import * as THREE from 'three'
 import { type WaterMaterial } from '../post-processing/water-material'
 
@@ -28,6 +28,25 @@ export type RefractionContext = {
 
 import { estimateWaterScreenRatio } from './world-renderer-refraction-ratio'
 
+
+const hasVisibleWaterMesh = (waterMeshes: ReadonlyArray<THREE.Mesh>): boolean => {
+  for (let i = 0; i < waterMeshes.length; i++) {
+    const mesh = waterMeshes[i]
+    if (mesh?.visible === true) return true
+  }
+  return false
+}
+
+const isSameMeshArray = (
+  current: ReadonlyArray<THREE.Mesh>,
+  cached: ReadonlyArray<THREE.Mesh>,
+): boolean => {
+  if (current.length !== cached.length) return false
+  for (let i = 0; i < current.length; i++) {
+    if (current[i] !== cached[i]) return false
+  }
+  return true
+}
 
 const syncRefractionProjection = (
   refractionCamera: THREE.PerspectiveCamera,
@@ -81,7 +100,7 @@ export const doRefractionPrePass = (
     if (waterMeshes.length === 0) return
     // Skip refraction render when no water meshes are visible (all frustum-culled)
     /* c8 ignore next */
-    if (!Arr.some(waterMeshes, (m) => m.visible)) return
+    if (!hasVisibleWaterMesh(waterMeshes)) return
 
     // FR-4.4: skip when on-screen water footprint is below the configured threshold.
     // Reuses the same matrixWorldInverse as the main camera; we compute it once here
@@ -130,10 +149,13 @@ export const doRefractionPrePass = (
     const savedWaterVisibility = MutableRef.get(_savedWaterVisibility)
     yield* Effect.sync(() => {
       savedWaterVisibility.clear()
-      Arr.forEach(waterMeshes, (mesh) => {
+      for (let i = 0; i < waterMeshes.length; i++) {
+        const mesh = waterMeshes[i]
+        /* c8 ignore next -- water mesh arrays are dense in production */
+        if (mesh === undefined) continue
         savedWaterVisibility.set(mesh, mesh.visible)
         mesh.visible = false
-      })
+      }
 
       // Sync refraction camera with the main camera's pose and projection.
       syncRefractionProjection(refractionCamera, camera)
@@ -241,7 +263,7 @@ export const getWaterMeshes = (
   Effect.gen(function* () {
     const current = yield* Ref.get(waterMeshesRef)
     const cached = MutableRef.get(_waterMeshCache)
-    if (current.length === cached.length && Arr.every(current, (mesh, i) => mesh === cached[i])) {
+    if (isSameMeshArray(current, cached)) {
       return cached
     }
     MutableRef.set(_waterMeshCache, current)

@@ -1,6 +1,9 @@
 import { Array as Arr, Effect, Layer } from 'effect'
-import { BiomeService, BiomeServiceLive, NoiseServicePort } from '@ts-minecraft/world'
-import { CHUNK_SIZE } from '@ts-minecraft/core'
+import {
+  BiomeService,
+  CHUNK_COLUMN_SAMPLE_COUNT,
+  NoiseServicePort,
+} from '@ts-minecraft/world'
 
 export const makeMockNoiseLayer = (tempValue: number, humidityValue: number) =>
   Layer.succeed(NoiseServicePort, NoiseServicePort.of({
@@ -25,20 +28,20 @@ export const makeMockNoiseLayer = (tempValue: number, humidityValue: number) =>
     weirdness: (_x: number, _z: number) => Effect.succeed(0),
     jaggedness: (_x: number, _z: number) => Effect.succeed(0),
     sampleTerrainChannels: (_x: number, _z: number) => Effect.succeed({
-      continentalness: new Float64Array(Arr.makeBy(CHUNK_SIZE * CHUNK_SIZE, () => 0.35)),
-      erosion: new Float64Array(Arr.makeBy(CHUNK_SIZE * CHUNK_SIZE, () => 0.6)),
-      pv: new Float64Array(Arr.makeBy(CHUNK_SIZE * CHUNK_SIZE, () => 0)),
-      jaggedness: new Float64Array(Arr.makeBy(CHUNK_SIZE * CHUNK_SIZE, () => 0)),
+      continentalness: new Float64Array(Arr.makeBy(CHUNK_COLUMN_SAMPLE_COUNT, () => 0.35)),
+      erosion: new Float64Array(Arr.makeBy(CHUNK_COLUMN_SAMPLE_COUNT, () => 0.6)),
+      pv: new Float64Array(Arr.makeBy(CHUNK_COLUMN_SAMPLE_COUNT, () => 0)),
+      jaggedness: new Float64Array(Arr.makeBy(CHUNK_COLUMN_SAMPLE_COUNT, () => 0)),
     }),
     setSeed: (_seed: number) => Effect.void,
   }))
 
-export const makeTestLayer = (temp: number, hum: number) =>
-  BiomeServiceLive.pipe(Layer.provide(makeMockNoiseLayer(temp, hum)))
+export const makeTestLayer = (temp: number, hum: number): Layer.Layer<BiomeService, never, never> =>
+  BiomeService.Default.pipe(Layer.provide(makeMockNoiseLayer(temp, hum)))
 
 export const withBiomeService = <A>(
   temp: number,
   hum: number,
-  f: (service: BiomeService) => Effect.Effect<A, never>,
-): Effect.Effect<A, never> =>
+  f: (service: BiomeService) => Effect.Effect<A, never, never>,
+): Effect.Effect<A, never, never> =>
   Effect.flatMap(BiomeService, f).pipe(Effect.provide(makeTestLayer(temp, hum)))

@@ -22,6 +22,11 @@ export const SOUND_LIBRARY = {
   // Enchanting confirmation: a bright, longer triangle chime — reads as "magical
   // success", clearly distinct from the dull blockPlace tick it replaces.
   enchant: { frequency: 660, durationMs: 200, wave: 'triangle' as OscillatorWave, baseGain: 0.34 },
+  inventoryOpen: { frequency: 520, durationMs: 85, wave: 'triangle' as OscillatorWave, baseGain: 0.28 },
+  inventoryClose: { frequency: 360, durationMs: 75, wave: 'triangle' as OscillatorWave, baseGain: 0.24 },
+  footstepGrass: { frequency: 170, durationMs: 45, wave: 'triangle' as OscillatorWave, baseGain: 0.18 },
+  footstepStone: { frequency: 260, durationMs: 38, wave: 'square' as OscillatorWave, baseGain: 0.16 },
+  footstepWood: { frequency: 210, durationMs: 48, wave: 'triangle' as OscillatorWave, baseGain: 0.2 },
 } satisfies Record<string, SoundDefinition>
 
 export const DEFAULT_LISTENER_POSITION = { x: 0, y: 64, z: 0 }

@@ -2,7 +2,7 @@ import { it } from '@effect/vitest'
 import { BlockIndexError,CHUNK_HEIGHT,CHUNK_SIZE } from '@ts-minecraft/core'
 import { Effect,Either,Option } from 'effect'
 import { describe,expect } from 'vitest'
-import { ChunkService,ChunkServiceLive } from '@ts-minecraft/world/application/chunk-service'
+import { ChunkService } from '@ts-minecraft/world/application/chunk-service'
 import { getBlocksBatch,setBlockInChunk } from './chunk'
 import { ChunkError } from './errors'
 
@@ -13,7 +13,7 @@ const makeEmptyChunk = () =>
   Effect.gen(function* () {
     const cs = yield* ChunkService
     return yield* cs.createChunk({ x: 0, z: 0 })
-  }).pipe(Effect.provide(ChunkServiceLive))
+  }).pipe(Effect.provide(ChunkService.Default))
 
 // ---------------------------------------------------------------------------
 // getBlocksBatch
@@ -113,7 +113,7 @@ describe('ChunkService.createChunk', () => {
       const cs = yield* ChunkService
       const chunk = yield* cs.createChunk({ x: 3, z: -2 })
       expect(chunk.coord).toEqual({ x: 3, z: -2 })
-    }).pipe(Effect.provide(ChunkServiceLive))
+    }).pipe(Effect.provide(ChunkService.Default))
   )
 
   it.effect('creates a chunk with a zero-filled blocks buffer of the correct size', () =>
@@ -123,7 +123,7 @@ describe('ChunkService.createChunk', () => {
       expect(chunk.blocks).toBeInstanceOf(Uint8Array)
       expect(chunk.blocks.length).toBe(CHUNK_SIZE * CHUNK_SIZE * CHUNK_HEIGHT)
       expect(chunk.blocks.every(b => b === 0)).toBe(true)
-    }).pipe(Effect.provide(ChunkServiceLive))
+    }).pipe(Effect.provide(ChunkService.Default))
   )
 
   it.effect('creates a chunk with a fluid buffer wrapped in Option.some', () =>
@@ -134,7 +134,7 @@ describe('ChunkService.createChunk', () => {
       const fluid = Option.getOrThrow(chunk.fluid)
       expect(fluid).toBeInstanceOf(Uint8Array)
       expect(fluid.length).toBe(CHUNK_SIZE * CHUNK_SIZE * CHUNK_HEIGHT)
-    }).pipe(Effect.provide(ChunkServiceLive))
+    }).pipe(Effect.provide(ChunkService.Default))
   )
 })
 
@@ -149,7 +149,7 @@ describe('ChunkService.getBlock', () => {
       const chunk = yield* cs.createChunk({ x: 0, z: 0 })
       const blockType = yield* cs.getBlock(chunk, 0, 0, 0)
       expect(blockType).toBe('AIR')
-    }).pipe(Effect.provide(ChunkServiceLive))
+    }).pipe(Effect.provide(ChunkService.Default))
   )
 
   it.effect('returns the block type that was set via setBlockInChunk', () =>
@@ -159,7 +159,7 @@ describe('ChunkService.getBlock', () => {
       yield* setBlockInChunk(chunk, 2, 10, 3, 'STONE')
       const blockType = yield* cs.getBlock(chunk, 2, 10, 3)
       expect(blockType).toBe('STONE')
-    }).pipe(Effect.provide(ChunkServiceLive))
+    }).pipe(Effect.provide(ChunkService.Default))
   )
 
   it.effect('succeeds at the maximum valid coordinate boundary', () =>
@@ -170,7 +170,7 @@ describe('ChunkService.getBlock', () => {
         cs.getBlock(chunk, CHUNK_SIZE - 1, CHUNK_HEIGHT - 1, CHUNK_SIZE - 1)
       )
       expect(Either.isRight(result)).toBe(true)
-    }).pipe(Effect.provide(ChunkServiceLive))
+    }).pipe(Effect.provide(ChunkService.Default))
   )
 
   it.effect('fails with ChunkError for out-of-range x', () =>
@@ -181,7 +181,7 @@ describe('ChunkService.getBlock', () => {
       expect(Either.isLeft(result)).toBe(true)
       const err = Option.getOrThrow(Either.getLeft(result))
       expect(err).toBeInstanceOf(ChunkError)
-    }).pipe(Effect.provide(ChunkServiceLive))
+    }).pipe(Effect.provide(ChunkService.Default))
   )
 
   it.effect('fails with ChunkError for out-of-range y', () =>
@@ -192,7 +192,7 @@ describe('ChunkService.getBlock', () => {
       expect(Either.isLeft(result)).toBe(true)
       const err = Option.getOrThrow(Either.getLeft(result))
       expect(err).toBeInstanceOf(ChunkError)
-    }).pipe(Effect.provide(ChunkServiceLive))
+    }).pipe(Effect.provide(ChunkService.Default))
   )
 
   it.effect('fails with ChunkError for out-of-range z', () =>
@@ -203,7 +203,7 @@ describe('ChunkService.getBlock', () => {
       expect(Either.isLeft(result)).toBe(true)
       const err = Option.getOrThrow(Either.getLeft(result))
       expect(err).toBeInstanceOf(ChunkError)
-    }).pipe(Effect.provide(ChunkServiceLive))
+    }).pipe(Effect.provide(ChunkService.Default))
   )
 
   it.effect('error message includes invalid coordinates', () =>
@@ -215,7 +215,7 @@ describe('ChunkService.getBlock', () => {
       const err = Option.getOrThrow(Either.getLeft(result))
       expect(err).toBeInstanceOf(ChunkError)
       expect(err.reason).toContain('-1')
-    }).pipe(Effect.provide(ChunkServiceLive))
+    }).pipe(Effect.provide(ChunkService.Default))
   )
 })
 
@@ -234,7 +234,7 @@ describe('ChunkService.setBlock', () => {
       // updated chunk has the new block
       const blockType = yield* cs.getBlock(updated, 1, 5, 2)
       expect(blockType).toBe('GRASS')
-    }).pipe(Effect.provide(ChunkServiceLive))
+    }).pipe(Effect.provide(ChunkService.Default))
   )
 
   it.effect('does not mutate the original chunk blocks buffer', () =>
@@ -245,7 +245,7 @@ describe('ChunkService.setBlock', () => {
       yield* cs.setBlock(original, 0, 0, 0, 'STONE')
       // original.blocks should still equal the snapshot
       expect(Array.from(original.blocks)).toEqual(Array.from(originalSnapshot))
-    }).pipe(Effect.provide(ChunkServiceLive))
+    }).pipe(Effect.provide(ChunkService.Default))
   )
 
   it.effect('preserves all other chunk properties (coord, fluid)', () =>
@@ -255,7 +255,7 @@ describe('ChunkService.setBlock', () => {
       const updated = yield* cs.setBlock(original, 0, 0, 0, 'STONE')
       expect(updated.coord).toEqual({ x: 7, z: -3 })
       expect(Option.isSome(updated.fluid)).toBe(true)
-    }).pipe(Effect.provide(ChunkServiceLive))
+    }).pipe(Effect.provide(ChunkService.Default))
   )
 
   it.effect('succeeds at the maximum valid coordinate boundary', () =>
@@ -266,7 +266,7 @@ describe('ChunkService.setBlock', () => {
         cs.setBlock(chunk, CHUNK_SIZE - 1, CHUNK_HEIGHT - 1, CHUNK_SIZE - 1, 'STONE')
       )
       expect(Either.isRight(result)).toBe(true)
-    }).pipe(Effect.provide(ChunkServiceLive))
+    }).pipe(Effect.provide(ChunkService.Default))
   )
 
   it.effect('fails with ChunkError for out-of-range x', () =>
@@ -277,7 +277,7 @@ describe('ChunkService.setBlock', () => {
       expect(Either.isLeft(result)).toBe(true)
       const err = Option.getOrThrow(Either.getLeft(result))
       expect(err).toBeInstanceOf(ChunkError)
-    }).pipe(Effect.provide(ChunkServiceLive))
+    }).pipe(Effect.provide(ChunkService.Default))
   )
 
   it.effect('fails with ChunkError for out-of-range y', () =>
@@ -288,7 +288,7 @@ describe('ChunkService.setBlock', () => {
       expect(Either.isLeft(result)).toBe(true)
       const err = Option.getOrThrow(Either.getLeft(result))
       expect(err).toBeInstanceOf(ChunkError)
-    }).pipe(Effect.provide(ChunkServiceLive))
+    }).pipe(Effect.provide(ChunkService.Default))
   )
 
   it.effect('fails with ChunkError for out-of-range z', () =>
@@ -299,7 +299,7 @@ describe('ChunkService.setBlock', () => {
       expect(Either.isLeft(result)).toBe(true)
       const err = Option.getOrThrow(Either.getLeft(result))
       expect(err).toBeInstanceOf(ChunkError)
-    }).pipe(Effect.provide(ChunkServiceLive))
+    }).pipe(Effect.provide(ChunkService.Default))
   )
 
   it.effect('error message includes invalid coordinates and valid range hint', () =>
@@ -311,7 +311,6 @@ describe('ChunkService.setBlock', () => {
       const err = Option.getOrThrow(Either.getLeft(result))
       expect(err).toBeInstanceOf(ChunkError)
       expect(err.reason).toContain('-1')
-    }).pipe(Effect.provide(ChunkServiceLive))
+    }).pipe(Effect.provide(ChunkService.Default))
   )
 })
-

@@ -61,4 +61,3 @@ export class PerspectiveCameraService extends Effect.Service<PerspectiveCameraSe
     },
   }
 ) {}
-export const PerspectiveCameraServiceLive = PerspectiveCameraService.Default

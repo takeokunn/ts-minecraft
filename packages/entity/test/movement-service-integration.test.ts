@@ -1,10 +1,10 @@
 import { describe,it } from '@effect/vitest'
 import {
-DEFAULT_JUMP_VELOCITY,
-DEFAULT_SPRINT_SPEED,
-DEFAULT_WALK_SPEED,
-MovementService,
-MovementServiceLive
+  DEFAULT_JUMP_VELOCITY,
+  DEFAULT_SPRINT_SPEED,
+  DEFAULT_WALK_SPEED,
+  MovementService,
+  SPRINT_JUMP_HORIZONTAL_MULTIPLIER
 } from '@ts-minecraft/entity'
 import { Array as Arr,Effect,Ref } from 'effect'
 import { expect } from 'vitest'
@@ -21,7 +21,7 @@ describe('player/movement-service (integration)', () => {
         // Should move forward
         expect(velocity.x).toBeCloseTo(0)
         expect(velocity.z).toBeCloseTo(-DEFAULT_WALK_SPEED)
-      }).pipe(Effect.provide(MovementServiceLive), Effect.provide(testLayers))
+      }).pipe(Effect.provide(MovementService.Default), Effect.provide(testLayers))
     })
 
     it.effect('should return zero Y velocity when not jumping', () => {
@@ -32,7 +32,7 @@ describe('player/movement-service (integration)', () => {
         const velocity = yield* movementService.update(0, true)
         // Y velocity should be zero when not jumping
         expect(velocity.y).toBe(0)
-      }).pipe(Effect.provide(MovementServiceLive), Effect.provide(testLayers))
+      }).pipe(Effect.provide(MovementService.Default), Effect.provide(testLayers))
     })
 
     it.effect('should return jump velocity when jumping', () => {
@@ -43,7 +43,7 @@ describe('player/movement-service (integration)', () => {
         const velocity = yield* movementService.update(0, true)
         // Y velocity should be jump velocity when jumping
         expect(velocity.y).toBe(DEFAULT_JUMP_VELOCITY)
-      }).pipe(Effect.provide(MovementServiceLive), Effect.provide(testLayers))
+      }).pipe(Effect.provide(MovementService.Default), Effect.provide(testLayers))
     })
 
     it.effect('should not jump when not grounded', () => {
@@ -54,7 +54,7 @@ describe('player/movement-service (integration)', () => {
         const velocity = yield* movementService.update(0, false)
         // Y velocity should be zero (no jump in air)
         expect(velocity.y).toBe(0)
-      }).pipe(Effect.provide(MovementServiceLive), Effect.provide(testLayers))
+      }).pipe(Effect.provide(MovementService.Default), Effect.provide(testLayers))
     })
 
     it.effect('should handle sprint in update', () => {
@@ -64,7 +64,28 @@ describe('player/movement-service (integration)', () => {
         const movementService = yield* MovementService
         const velocity = yield* movementService.update(0, true)
         expect(Math.abs(velocity.z)).toBeCloseTo(DEFAULT_SPRINT_SPEED)
-      }).pipe(Effect.provide(MovementServiceLive), Effect.provide(testLayers))
+      }).pipe(Effect.provide(MovementService.Default), Effect.provide(testLayers))
+    })
+
+    it.effect('should add horizontal boost when sprint-jumping from the ground', () => {
+      const inputService = createTestInputService({ forward: true, jump: true, sprint: true })
+      const testLayers = createTestLayers(inputService)
+      return Effect.gen(function* () {
+        const movementService = yield* MovementService
+        const velocity = yield* movementService.update(0, true)
+        expect(Math.abs(velocity.z)).toBeCloseTo(DEFAULT_SPRINT_SPEED * SPRINT_JUMP_HORIZONTAL_MULTIPLIER)
+        expect(velocity.y).toBe(DEFAULT_JUMP_VELOCITY)
+      }).pipe(Effect.provide(MovementService.Default), Effect.provide(testLayers))
+    })
+
+    it.effect('should fall back to walk speed when food level is too low to sprint', () => {
+      const inputService = createTestInputService({ forward: true, sprint: true })
+      const testLayers = createTestLayers(inputService, { foodLevel: 6, saturation: 0 })
+      return Effect.gen(function* () {
+        const movementService = yield* MovementService
+        const velocity = yield* movementService.update(0, true)
+        expect(Math.abs(velocity.z)).toBeCloseTo(DEFAULT_WALK_SPEED)
+      }).pipe(Effect.provide(MovementService.Default), Effect.provide(testLayers))
     })
 
     it.effect('should handle complex input combinations', () => {
@@ -80,7 +101,7 @@ describe('player/movement-service (integration)', () => {
         // Should have diagonal movement normalized to sprint speed
         const magnitude = Math.sqrt(velocity.x ** 2 + velocity.z ** 2)
         expect(magnitude).toBeCloseTo(DEFAULT_SPRINT_SPEED, 5)
-      }).pipe(Effect.provide(MovementServiceLive), Effect.provide(testLayers))
+      }).pipe(Effect.provide(MovementService.Default), Effect.provide(testLayers))
     })
 
     it.effect('should handle zero current Y velocity', () => {
@@ -90,7 +111,7 @@ describe('player/movement-service (integration)', () => {
         const movementService = yield* MovementService
         const velocity = yield* movementService.update(0, true)
         expect(velocity.y).toBe(0)
-      }).pipe(Effect.provide(MovementServiceLive), Effect.provide(testLayers))
+      }).pipe(Effect.provide(MovementService.Default), Effect.provide(testLayers))
     })
 
     it.effect('should apply camera-relative movement in update', () => {
@@ -103,7 +124,7 @@ describe('player/movement-service (integration)', () => {
         // Verify movement is relative to yaw angle
         expect(velocity.x).toBeCloseTo(-Math.sin(yaw) * DEFAULT_WALK_SPEED)
         expect(velocity.z).toBeCloseTo(-Math.cos(yaw) * DEFAULT_WALK_SPEED)
-      }).pipe(Effect.provide(MovementServiceLive), Effect.provide(testLayers))
+      }).pipe(Effect.provide(MovementService.Default), Effect.provide(testLayers))
     })
   })
 
@@ -142,7 +163,7 @@ describe('player/movement-service (integration)', () => {
           , { concurrency: 1 })
           const { x: totalX, z: totalZ } = yield* Ref.get(accRef)
           yield* Ref.set(walkDistRef, Math.sqrt(totalX * totalX + totalZ * totalZ))
-        }).pipe(Effect.provide(MovementServiceLive), Effect.provide(walkLayers))
+        }).pipe(Effect.provide(MovementService.Default), Effect.provide(walkLayers))
 
         yield* Effect.gen(function* () {
           const movementService = yield* MovementService
@@ -159,7 +180,7 @@ describe('player/movement-service (integration)', () => {
           , { concurrency: 1 })
           const { x: totalX, z: totalZ } = yield* Ref.get(accRef)
           yield* Ref.set(sprintDistRef, Math.sqrt(totalX * totalX + totalZ * totalZ))
-        }).pipe(Effect.provide(MovementServiceLive), Effect.provide(sprintLayers))
+        }).pipe(Effect.provide(MovementService.Default), Effect.provide(sprintLayers))
 
         const walkDist = yield* Ref.get(walkDistRef)
         const sprintDist = yield* Ref.get(sprintDistRef)
@@ -179,7 +200,7 @@ describe('player/movement-service (integration)', () => {
         )
         const speed = Math.sqrt(vel.x * vel.x + vel.z * vel.z)
         expect(speed).toBeCloseTo(DEFAULT_SPRINT_SPEED)
-      }).pipe(Effect.provide(MovementServiceLive), Effect.provide(testLayers))
+      }).pipe(Effect.provide(MovementService.Default), Effect.provide(testLayers))
     })
 
     it.effect('walk displacement per frame equals DEFAULT_WALK_SPEED (no diagonal)', () => {
@@ -194,7 +215,7 @@ describe('player/movement-service (integration)', () => {
         )
         const speed = Math.sqrt(vel.x * vel.x + vel.z * vel.z)
         expect(speed).toBeCloseTo(DEFAULT_WALK_SPEED)
-      }).pipe(Effect.provide(MovementServiceLive), Effect.provide(testLayers))
+      }).pipe(Effect.provide(MovementService.Default), Effect.provide(testLayers))
     })
   })
 })

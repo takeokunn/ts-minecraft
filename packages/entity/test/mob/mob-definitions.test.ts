@@ -2,9 +2,20 @@ import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
 import { Schema } from 'effect'
 import { EntityType } from '../../domain/mob/entity'
-import { getMobDefinition, MobDefinitions } from '../../domain/mob/mobs'
-import { MobDefinitionSchema } from '../../domain/mob/mobs/mob-definition'
+import { getMobDefinition, MobDefinitions, MobDefinitionSchema } from '../../domain/mob/mobs'
 import { HOSTILE_MOBS, PASSIVE_MOBS } from '../../domain/mob/mob-categories'
+
+type MobDefinition = ReturnType<typeof getMobDefinition>
+type DropBlockType = MobDefinition['drops'][number]['blockType']
+
+const zombieDef = getMobDefinition(EntityType.Zombie)
+
+const expectDrops = (definition: MobDefinition, ...blockTypes: ReadonlyArray<DropBlockType>) => {
+  const dropTypes = definition.drops.map((drop) => drop.blockType)
+  for (const blockType of blockTypes) {
+    expect(dropTypes).toContain(blockType)
+  }
+}
 
 describe('mob definitions', () => {
   it('every EntityType has a definition in MobDefinitions', () => {
@@ -22,12 +33,11 @@ describe('mob definitions', () => {
     })
 
     it('has higher attack damage than Zombie (represents explosion)', () => {
-      const zombieDef = getMobDefinition(EntityType.Zombie)
       expect(def.attackDamage).toBeGreaterThan(zombieDef.attackDamage)
     })
 
     it('drops GUNPOWDER', () => {
-      expect(def.drops.some((d) => d.blockType === 'GUNPOWDER')).toBe(true)
+      expectDrops(def, 'GUNPOWDER')
     })
 
     it('never flees (fleeHealthThreshold = 0)', () => {
@@ -43,38 +53,63 @@ describe('mob definitions', () => {
     })
 
     it('has a long detection range (ranged attacker)', () => {
-      const zombieDef = getMobDefinition(EntityType.Zombie)
       expect(def.detectionRange).toBeGreaterThanOrEqual(zombieDef.detectionRange)
     })
 
     it('drops BONE', () => {
-      expect(def.drops.some((d) => d.blockType === 'BONE')).toBe(true)
+      expectDrops(def, 'BONE')
     })
 
     it('drops ARROW', () => {
-      expect(def.drops.some((d) => d.blockType === 'ARROW')).toBe(true)
+      expectDrops(def, 'ARROW')
     })
   })
 
   describe('passive mobs correct drops', () => {
-    it('pig drops COOKED_PORKCHOP', () => {
+    it('pig drops RAW_PORKCHOP', () => {
       const def = getMobDefinition(EntityType.Pig)
-      expect(def.drops.some((d) => d.blockType === 'COOKED_PORKCHOP')).toBe(true)
+      expectDrops(def, 'RAW_PORKCHOP')
     })
 
     it('sheep drops WOOL', () => {
       const def = getMobDefinition(EntityType.Sheep)
-      expect(def.drops.some((d) => d.blockType === 'WOOL')).toBe(true)
+      expectDrops(def, 'WOOL')
+    })
+
+    it('sheep drops RAW_MUTTON', () => {
+      const def = getMobDefinition(EntityType.Sheep)
+      expectDrops(def, 'RAW_MUTTON')
     })
 
     it('cow drops RAW_BEEF', () => {
       const def = getMobDefinition(EntityType.Cow)
-      expect(def.drops.some((d) => d.blockType === 'RAW_BEEF')).toBe(true)
+      expectDrops(def, 'RAW_BEEF')
     })
 
     it('cow drops LEATHER', () => {
       const def = getMobDefinition(EntityType.Cow)
-      expect(def.drops.some((d) => d.blockType === 'LEATHER')).toBe(true)
+      expectDrops(def, 'LEATHER')
+    })
+
+    it('chicken drops FEATHER', () => {
+      const def = getMobDefinition(EntityType.Chicken)
+      expectDrops(def, 'FEATHER')
+    })
+
+    it('chicken drops RAW_CHICKEN', () => {
+      const def = getMobDefinition(EntityType.Chicken)
+      expectDrops(def, 'RAW_CHICKEN')
+    })
+
+    it('bat drops nothing and grants no XP', () => {
+      const def = getMobDefinition(EntityType.Bat)
+      expect(def.drops).toHaveLength(0)
+      expect(def.xpReward).toBe(0)
+    })
+
+    it('squid drops INK_SAC', () => {
+      const def = getMobDefinition(EntityType.Squid)
+      expectDrops(def, 'INK_SAC')
     })
   })
 
@@ -86,11 +121,11 @@ describe('mob definitions', () => {
     })
 
     it('drops STRING', () => {
-      expect(def.drops.some((d) => d.blockType === 'STRING')).toBe(true)
+      expectDrops(def, 'STRING')
     })
 
     it('drops SPIDER_EYE', () => {
-      expect(def.drops.some((d) => d.blockType === 'SPIDER_EYE')).toBe(true)
+      expectDrops(def, 'SPIDER_EYE')
     })
 
     it('is faster than a zombie', () => {
@@ -106,13 +141,20 @@ describe('mob definitions', () => {
     })
 
     it('has the highest HP of all hostile mobs', () => {
-      const hostileHPs = [EntityType.Zombie, EntityType.Creeper, EntityType.Skeleton, EntityType.Spider]
-        .map((t) => getMobDefinition(t).maxHealth)
+      const hostileHPs = [
+        EntityType.Zombie,
+        EntityType.Creeper,
+        EntityType.Skeleton,
+        EntityType.Spider,
+        EntityType.Witch,
+        EntityType.Drowned,
+        EntityType.ZombieVillager,
+      ].map((t) => getMobDefinition(t).maxHealth)
       expect(def.maxHealth).toBeGreaterThan(Math.max(...hostileHPs))
     })
 
     it('drops ENDER_PEARL', () => {
-      expect(def.drops.some((d) => d.blockType === 'ENDER_PEARL')).toBe(true)
+      expectDrops(def, 'ENDER_PEARL')
     })
 
     it('has a longer attack range than melee mobs', () => {
@@ -120,14 +162,72 @@ describe('mob definitions', () => {
     })
   })
 
+  describe('Witch', () => {
+    const def = getMobDefinition(EntityType.Witch)
+
+    it('is hostile', () => {
+      expect(def.behavior).toBe('hostile')
+    })
+
+    it('has more health than a zombie', () => {
+      expect(def.maxHealth).toBeGreaterThan(getMobDefinition(EntityType.Zombie).maxHealth)
+    })
+
+    it('uses melee range until potion throwing is implemented', () => {
+      expect(def.attackRange).toBe(getMobDefinition(EntityType.Zombie).attackRange)
+    })
+
+    it('drops existing potion ingredient items', () => {
+      expectDrops(def, 'REDSTONE_DUST', 'GLOWSTONE_DUST', 'SPIDER_EYE', 'STICKS')
+    })
+  })
+
+  describe('Drowned', () => {
+    const def = getMobDefinition(EntityType.Drowned)
+
+    it('is hostile', () => {
+      expect(def.behavior).toBe('hostile')
+    })
+
+    it('matches zombie health and melee range', () => {
+      const zombieDef = getMobDefinition(EntityType.Zombie)
+      expect(def.maxHealth).toBe(zombieDef.maxHealth)
+      expect(def.attackDamage).toBe(zombieDef.attackDamage)
+      expect(def.attackRange).toBe(zombieDef.attackRange)
+    })
+
+    it('drops existing drowned loot placeholders', () => {
+      expectDrops(def, 'ROTTEN_FLESH', 'RAW_COD')
+    })
+  })
+
+  describe('ZombieVillager', () => {
+    const def = getMobDefinition(EntityType.ZombieVillager)
+
+    it('is hostile', () => {
+      expect(def.behavior).toBe('hostile')
+    })
+
+    it('matches zombie combat stats until villager conversion is implemented', () => {
+      const zombieDef = getMobDefinition(EntityType.Zombie)
+      expect(def.maxHealth).toBe(zombieDef.maxHealth)
+      expect(def.attackDamage).toBe(zombieDef.attackDamage)
+      expect(def.attackRange).toBe(zombieDef.attackRange)
+    })
+
+    it('drops zombie loot placeholders', () => {
+      expectDrops(def, 'ROTTEN_FLESH', 'CARROT')
+    })
+  })
+
   // The MobDefinitionSchema constraints (positive HP, non-negative ranges,
   // whole positive drop counts, flee threshold in [0,1]) are only meaningful if
   // the shipped definitions actually satisfy them. Decoding every definition
   // here turns the otherwise type-only schema into an enforced invariant, so a
-  // future definition with e.g. negative health or a fractional drop count
-  // fails this test instead of silently shipping.
-  describe('schema validation', () => {
-    const decode = Schema.decodeUnknownSync(MobDefinitionSchema)
+    // future definition with e.g. negative health or a fractional drop count
+    // fails this test instead of silently shipping.
+    describe('schema validation', () => {
+      const decode = Schema.decodeUnknownSync(MobDefinitionSchema)
 
     for (const [type, definition] of Object.entries(MobDefinitions)) {
       it(`${type} definition satisfies MobDefinitionSchema`, () => {
@@ -142,18 +242,24 @@ describe('mob definitions', () => {
   })
 
   describe('mob categories', () => {
-    it('HOSTILE_MOBS contains Zombie, Creeper, Skeleton, Spider, and Enderman', () => {
+    it('HOSTILE_MOBS contains Zombie, Creeper, Skeleton, Spider, Enderman, Witch, Drowned, and ZombieVillager', () => {
       expect(HOSTILE_MOBS).toContain(EntityType.Zombie)
       expect(HOSTILE_MOBS).toContain(EntityType.Creeper)
       expect(HOSTILE_MOBS).toContain(EntityType.Skeleton)
       expect(HOSTILE_MOBS).toContain(EntityType.Spider)
       expect(HOSTILE_MOBS).toContain(EntityType.Enderman)
+      expect(HOSTILE_MOBS).toContain(EntityType.Witch)
+      expect(HOSTILE_MOBS).toContain(EntityType.Drowned)
+      expect(HOSTILE_MOBS).toContain(EntityType.ZombieVillager)
     })
 
-    it('PASSIVE_MOBS contains Cow, Pig, and Sheep', () => {
+    it('PASSIVE_MOBS contains Cow, Pig, Sheep, Chicken, Bat, and Squid', () => {
       expect(PASSIVE_MOBS).toContain(EntityType.Cow)
       expect(PASSIVE_MOBS).toContain(EntityType.Pig)
       expect(PASSIVE_MOBS).toContain(EntityType.Sheep)
+      expect(PASSIVE_MOBS).toContain(EntityType.Chicken)
+      expect(PASSIVE_MOBS).toContain(EntityType.Bat)
+      expect(PASSIVE_MOBS).toContain(EntityType.Squid)
     })
 
     it('no mob appears in both hostile and passive categories', () => {

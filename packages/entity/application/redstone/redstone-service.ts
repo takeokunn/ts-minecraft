@@ -1,12 +1,12 @@
-import { Array as Arr, Effect, HashMap, HashSet, Option, Order, Ref } from 'effect'
+import { Effect, HashMap, HashSet, Option, Ref } from 'effect'
 import type { Position } from '@ts-minecraft/core'
 import {
   RedstoneComponentType,
   type RedstoneComponent,
   type RedstoneTickSnapshot,
-} from '../../domain/redstone/redstone-model'
-import { type PositionKey, positionKey, toBlockPosition } from '../../domain/redstone/redstone-position-utils'
-import {
+  type PositionKey,
+  positionKey,
+  toBlockPosition,
   normalizeComponentPosition,
   makeDefaultState,
   propagatePower,
@@ -14,8 +14,9 @@ import {
   decayButtonTimers,
   sortedPowerSnapshot,
   computeNeedsPropagation,
-} from '../../domain/redstone/redstone-simulation'
-import { DEFAULT_BUTTON_TICKS, MAX_BUTTON_TICKS } from '../../domain/redstone/redstone.config'
+  DEFAULT_BUTTON_TICKS,
+  MAX_BUTTON_TICKS,
+} from '../../domain/redstone'
 
 type RedstoneState = {
   readonly tick: number
@@ -92,7 +93,8 @@ export class RedstoneService extends Effect.Service<RedstoneService>()(
             const component = yield* Ref.modify(stateRef, (state): [RedstoneComponent, RedstoneState] => {
               const normalized = toBlockPosition(position)
               const key = positionKey(normalized)
-              const existing = Option.getOrNull(Option.filter(HashMap.get(state.components, key), (c) => c.type === type))
+              const existingValue = Option.getOrNull(HashMap.get(state.components, key))
+              const existing = existingValue !== null && existingValue.type === type ? existingValue : null
               const componentState = existing !== null ? existing.state : makeDefaultState(type)
               const comp: RedstoneComponent = normalizeComponentPosition({
                 type,
@@ -136,15 +138,20 @@ export class RedstoneService extends Effect.Service<RedstoneService>()(
         getComponents: (): Effect.Effect<ReadonlyArray<RedstoneComponent>, never> =>
           Effect.gen(function* () {
             const state = yield* Ref.get(stateRef)
-            const components: Array<RedstoneComponent> = Arr.fromIterable(HashMap.values(state.components))
-            return Arr.sort(components, Order.mapInput(Order.number, (a: RedstoneComponent) => positionKey(a.position)))
+            const components: Array<RedstoneComponent> = []
+            for (const component of HashMap.values(state.components)) {
+              components.push(component)
+            }
+            components.sort((a, b) => positionKey(a.position) - positionKey(b.position))
+            return components
           }),
 
         toggleLever: (position: Position): Effect.Effect<Option.Option<RedstoneComponent>, never> =>
           Effect.gen(function* () {
             const result = yield* Ref.modify(stateRef, (state): [Option.Option<RedstoneComponent>, RedstoneState] => {
               const key = positionKey(position)
-              const current = Option.getOrNull(Option.filter(HashMap.get(state.components, key), (c) => c.type === RedstoneComponentType.Lever))
+              const currentValue = Option.getOrNull(HashMap.get(state.components, key))
+              const current = currentValue !== null && currentValue.type === RedstoneComponentType.Lever ? currentValue : null
               if (current === null) return [Option.none(), state]
               const updated: RedstoneComponent = { ...current, state: { ...current.state, active: !current.state.active } }
               return [Option.some(updated), { ...state, components: HashMap.set(state.components, key, updated) }]
@@ -160,7 +167,8 @@ export class RedstoneService extends Effect.Service<RedstoneService>()(
           Effect.gen(function* () {
             const result = yield* Ref.modify(stateRef, (state): [Option.Option<RedstoneComponent>, RedstoneState] => {
               const key = positionKey(position)
-              const current = Option.getOrNull(Option.filter(HashMap.get(state.components, key), (c) => c.type === RedstoneComponentType.Button))
+              const currentValue = Option.getOrNull(HashMap.get(state.components, key))
+              const current = currentValue !== null && currentValue.type === RedstoneComponentType.Button ? currentValue : null
               if (current === null) return [Option.none(), state]
               const normalizedDuration = Math.min(Math.max(1, Math.floor(durationTicks)), MAX_BUTTON_TICKS)
               const updated: RedstoneComponent = {
@@ -177,7 +185,8 @@ export class RedstoneService extends Effect.Service<RedstoneService>()(
           Effect.gen(function* () {
             const result = yield* Ref.modify(stateRef, (state): [Option.Option<RedstoneComponent>, RedstoneState] => {
               const key = positionKey(position)
-              const current = Option.getOrNull(Option.filter(HashMap.get(state.components, key), (c) => c.type === RedstoneComponentType.Torch))
+              const currentValue = Option.getOrNull(HashMap.get(state.components, key))
+              const current = currentValue !== null && currentValue.type === RedstoneComponentType.Torch ? currentValue : null
               if (current === null) return [Option.none(), state]
               const updated: RedstoneComponent = { ...current, state: { ...current.state, active: !current.state.active } }
               return [Option.some(updated), { ...state, components: HashMap.set(state.components, key, updated) }]
@@ -210,5 +219,3 @@ export class RedstoneService extends Effect.Service<RedstoneService>()(
     }),
   },
 ) {}
-
-export const RedstoneServiceLive = RedstoneService.Default

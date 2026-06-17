@@ -10,7 +10,10 @@ export const SheepDefinition: MobDefinition = {
   detectionRange: 10,
   attackRange: 0,
   fleeHealthThreshold: 0.7,
-  drops: [{ blockType: 'WOOL', count: 1 }],
+  drops: [
+    { blockType: 'WOOL', count: 1 },
+    { blockType: 'RAW_MUTTON', count: 1 },
+  ],
   xpReward: 2,
   breedingItem: 'WHEAT',
 }

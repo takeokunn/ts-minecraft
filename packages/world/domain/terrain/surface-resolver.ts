@@ -1,7 +1,7 @@
 import { blockTypeToIndex } from '@ts-minecraft/core'
 import type { BiomeType } from '../biome'
-import { SEA_LEVEL } from '@ts-minecraft/core'
 import { BEDROCK_LAYER_TOP, DEEPSLATE_CEILING, BEDROCK_PROBABILITY } from './constants'
+import { DEFAULT_TERRAIN_LEVELS, type TerrainLevels } from './generator-types'
 import { hash3, chunkBlockIndexUnchecked } from './math'
 import {
   ALPINE_HEIGHT_OFFSET,
@@ -36,7 +36,11 @@ export const resolveSurfaceProfile = (params: {
   sandBlockIndex: number
   gravelBlockIndex: number
   stoneBlockIndex: number
+  terrainLevels?: TerrainLevels
 }): SurfaceProfile => {
+  const terrainLevels = params.terrainLevels ?? DEFAULT_TERRAIN_LEVELS
+  const { seaLevel } = terrainLevels
+
   if (params.hasLakeBasin) {
     return {
       surfaceBlockIndex: params.sandBlockIndex,
@@ -59,11 +63,19 @@ export const resolveSurfaceProfile = (params: {
     surfaceDepth: 3,
   }
 
-  const alpine       = params.surfaceY >= SEA_LEVEL + ALPINE_HEIGHT_OFFSET
-  const ruggedOutcrop = params.surfaceY >= SEA_LEVEL + OUTCROP_HEIGHT_OFFSET && params.ruggedness >= RUGGEDNESS_OUTCROP
+  const alpine       = params.surfaceY >= seaLevel + ALPINE_HEIGHT_OFFSET
+  const ruggedOutcrop = params.surfaceY >= seaLevel + OUTCROP_HEIGHT_OFFSET && params.ruggedness >= RUGGEDNESS_OUTCROP
 
-  if (params.biome === 'DESERT' || params.biome === 'OCEAN' || params.biome === 'BEACH') {
+  if (params.biome === 'DESERT') {
     return defaultProfile
+  }
+
+  if (params.biome === 'BEACH' || params.biome === 'OCEAN') {
+    return {
+      surfaceBlockIndex: params.sandBlockIndex,
+      subSurfaceBlockIndex: params.sandBlockIndex,
+      surfaceDepth: 2,
+    }
   }
 
   if (params.biome === 'SAVANNA') {

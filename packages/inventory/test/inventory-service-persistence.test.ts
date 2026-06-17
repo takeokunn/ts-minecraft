@@ -39,6 +39,7 @@ describe('application/inventory/inventory-service', () => {
         expect(unwrapped1.slot).toBe(1)
         expect(unwrapped1.itemType).toBe('STONE')
         expect(unwrapped1.count).toBe(8)
+        expect(unwrapped1.durability).toBeNull()
 
         const entry35 = getAt(data.slots, 35)
         expect(Option.isSome(entry35)).toBe(true)
@@ -46,6 +47,7 @@ describe('application/inventory/inventory-service', () => {
         expect(unwrapped35.slot).toBe(35)
         expect(unwrapped35.itemType).toBe('DIRT')
         expect(unwrapped35.count).toBe(1)
+        expect(unwrapped35.durability).toBeNull()
       }).pipe(Effect.provide(testLayer))
     })
 
@@ -83,10 +85,10 @@ describe('application/inventory/inventory-service', () => {
         const service = yield* InventoryService
         const data = {
           slots: [
-            Option.none<{ slot: SlotIndex; itemType: 'STONE' | 'WOOD' | 'DIRT'; count: number }>(),
-            Option.some({ slot: asSlotIndex(-1), itemType: 'STONE' as const, count: 9 }),
-            Option.some({ slot: asSlotIndex(5), itemType: 'WOOD' as const, count: 4 }),
-            Option.some({ slot: asSlotIndex(99), itemType: 'DIRT' as const, count: 2 }),
+            Option.none<{ slot: SlotIndex; itemType: 'STONE' | 'WOOD' | 'DIRT'; count: number; durability: null }>(),
+            Option.some({ slot: asSlotIndex(-1), itemType: 'STONE' as const, count: 9, durability: null }),
+            Option.some({ slot: asSlotIndex(5), itemType: 'WOOD' as const, count: 4, durability: null }),
+            Option.some({ slot: asSlotIndex(99), itemType: 'DIRT' as const, count: 2, durability: null }),
           ],
         }
 
@@ -204,7 +206,7 @@ describe('application/inventory/inventory-service', () => {
         const stack = Option.getOrThrow(slot)
         expect(stack.itemType).toBe('DIRT')
         expect(stack.count).toBe(8)
-        expect(stack.durability).toBeUndefined()
+        expect(stack.durability).toBeNull()
       }).pipe(Effect.provide(testLayer))
     })
 
@@ -334,9 +336,9 @@ describe('application/inventory/inventory-service', () => {
     it('encodes and decodes a valid InventorySaveData object correctly', () => {
       const original = {
         slots: [
-          Option.some({ slot: asSlotIndex(0), itemType: 'DIRT' as const, count: 12 }),
+          Option.some({ slot: asSlotIndex(0), itemType: 'DIRT' as const, count: 12, durability: null }),
           Option.none(),
-          Option.some({ slot: asSlotIndex(2), itemType: 'STONE' as const, count: 64 }),
+          Option.some({ slot: asSlotIndex(2), itemType: 'STONE' as const, count: 64, durability: null }),
         ],
       }
 
@@ -366,9 +368,9 @@ describe('application/inventory/inventory-service', () => {
       const original = {
         slots: [
           Option.none(),
-          Option.some({ slot: asSlotIndex(5), itemType: 'WOOD' as const, count: 1 }),
+          Option.some({ slot: asSlotIndex(5), itemType: 'WOOD' as const, count: 1, durability: null }),
           Option.none(),
-          Option.some({ slot: asSlotIndex(27), itemType: 'GLASS' as const, count: 64 }),
+          Option.some({ slot: asSlotIndex(27), itemType: 'GLASS' as const, count: 64, durability: null }),
         ],
       }
 

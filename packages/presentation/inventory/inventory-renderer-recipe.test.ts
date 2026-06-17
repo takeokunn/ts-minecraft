@@ -1,10 +1,11 @@
 import { describe,it } from '@effect/vitest'
-import { InventoryRendererLive,InventoryRendererService } from '@ts-minecraft/presentation/inventory/inventory-renderer'
+import { InventoryRendererService } from '@ts-minecraft/presentation/inventory/inventory-renderer'
 import { RecipeId } from '@ts-minecraft/core'
 import { Effect,Layer,Option } from 'effect'
 import { expect,vi } from 'vitest'
 import {
 buildTestLayer,
+createMockChestLayer,
 createMockChunkManagerLayer,
 createMockDomLayer,
 createMockFurnaceLayer,
@@ -68,12 +69,13 @@ describe('presentation/inventory/inventory-renderer (recipe)', () => {
       const mockDom = createMockDomLayer()
       const mockInventory = createMockInventoryLayer()
       const mockHotbar = createMockHotbarLayer()
-      const TestLayer = InventoryRendererLive.pipe(
+      const TestLayer = InventoryRendererService.Default.pipe(
         Layer.provide(mockDom.MockDomLayer),
         Layer.provide(mockInventory.MockInventoryLayer),
         Layer.provide(mockHotbar.MockHotbarLayer),
         Layer.provide(mockRecipe.MockRecipeLayer),
         Layer.provide(MockFurnaceWithOutput.MockFurnaceLayer),
+        Layer.provide(createMockChestLayer().MockChestLayer),
         Layer.provide(createMockGameStateLayer().MockGameStateLayer),
         Layer.provide(createMockChunkManagerLayer().MockChunkManagerLayer),
         Layer.provide(createMockXPLayer().MockXPLayer),
@@ -110,12 +112,13 @@ describe('presentation/inventory/inventory-renderer (recipe)', () => {
       const mockDom = createMockDomLayer()
       const mockInventory = createMockInventoryLayer()
       const mockHotbar = createMockHotbarLayer()
-      const TestLayer = InventoryRendererLive.pipe(
+      const TestLayer = InventoryRendererService.Default.pipe(
         Layer.provide(mockDom.MockDomLayer),
         Layer.provide(mockInventory.MockInventoryLayer),
         Layer.provide(mockHotbar.MockHotbarLayer),
         Layer.provide(mockRecipe.MockRecipeLayer),
         Layer.provide(MockFurnaceNoOutput.MockFurnaceLayer),
+        Layer.provide(createMockChestLayer().MockChestLayer),
         Layer.provide(createMockGameStateLayer().MockGameStateLayer),
         Layer.provide(createMockChunkManagerLayer().MockChunkManagerLayer),
         Layer.provide(createMockXPLayer().MockXPLayer),

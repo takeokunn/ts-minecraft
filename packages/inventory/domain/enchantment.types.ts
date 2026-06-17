@@ -2,13 +2,18 @@ import { Schema } from 'effect'
 
 // ─── Enchantment types (vanilla subset) ────────────────────────────────────
 
-export const EnchantmentTypeSchema = Schema.Literal(
-  'SHARPNESS', 'SMITE', 'BANE_OF_ARTHROPODS', 'KNOCKBACK',
+export const ENCHANTMENT_TYPES = [
+  'SHARPNESS', 'SMITE', 'BANE_OF_ARTHROPODS', 'KNOCKBACK', 'FIRE_ASPECT',
   'PROTECTION', 'PROJECTILE_PROTECTION', 'FIRE_PROTECTION', 'BLAST_PROTECTION',
-  'FEATHER_FALLING', 'RESPIRATION',
-  'EFFICIENCY', 'FORTUNE', 'SILK_TOUCH', 'UNBREAKING', 'LOOTING',
+  'FEATHER_FALLING', 'RESPIRATION', 'AQUA_AFFINITY', 'DEPTH_STRIDER',
+  'EFFICIENCY', 'FORTUNE', 'SILK_TOUCH', 'UNBREAKING', 'MENDING',
+  'LOOTING',
   'INFINITY', 'POWER', 'PUNCH',
   'LURE', 'LUCK_OF_THE_SEA',
+] as const
+
+export const EnchantmentTypeSchema = Schema.Literal(
+  ...ENCHANTMENT_TYPES,
 )
 export type EnchantmentType = Schema.Schema.Type<typeof EnchantmentTypeSchema>
 

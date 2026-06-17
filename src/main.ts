@@ -1,5 +1,5 @@
-import { Cause, Effect, Option } from 'effect'
-import { MainLive } from '@ts-minecraft/app'
+import { Cause, Effect, Exit, Layer, Option, Scope } from 'effect'
+import { MainLayers } from '@ts-minecraft/app'
 import { PerfHudService } from '@ts-minecraft/rendering'
 import { TerrainWorkerPool } from '@ts-minecraft/worker'
 import { StorageService } from '@ts-minecraft/world'
@@ -7,11 +7,37 @@ import {
   bootProgram,
   sessionProgram,
 } from '@ts-minecraft/app'
-import { TimeServicePort, InventoryServicePort } from '@ts-minecraft/entity'
-import { MainMenuService } from '@ts-minecraft/presentation'
-import { WorldId, parseWorldParam, setWorldParam, clearWorldParam } from '@ts-minecraft/core'
+import { HungerService, TimeServicePort, InventoryServicePort } from '@ts-minecraft/entity'
+import { LoadingScreenService, MainMenuService, setGameplayHudHidden } from '@ts-minecraft/presentation'
+import { WorldId, parseWorldParam, clearWorldParam } from '@ts-minecraft/core'
 import type { BootContext } from '@ts-minecraft/app'
 import type { GameMode } from '@ts-minecraft/game'
+
+const runSessionToTitle = (
+  bootCtx: BootContext,
+  worldId: WorldId,
+  gameMode: GameMode,
+) =>
+  Effect.gen(function* () {
+    const scope = yield* Scope.make()
+    const exit = yield* sessionProgram(bootCtx, worldId, gameMode).pipe(
+      Scope.extend(scope),
+      Effect.exit,
+    )
+
+    yield* Effect.forkDaemon(
+      Scope.close(scope, Exit.asVoid(exit)).pipe(
+        Effect.catchAllCause((cause) =>
+          Effect.logWarning(`Session cleanup failed: ${Cause.pretty(cause)}`),
+        ),
+      ),
+    )
+
+    return yield* Exit.matchEffect(exit, {
+      onFailure: (cause) => Effect.failCause(cause),
+      onSuccess: () => Effect.void,
+    })
+  })
 
 /**
  * `mainMenuLoop` — outer loop that owns world-selection + session lifecycle.
@@ -29,6 +55,7 @@ import type { GameMode } from '@ts-minecraft/game'
  */
 const mainMenuLoop = (bootCtx: BootContext) =>
   Effect.gen(function* () {
+    const loadingScreen = yield* LoadingScreenService
     const menu = yield* MainMenuService
     const storageService = yield* StorageService
 
@@ -51,26 +78,31 @@ const mainMenuLoop = (bootCtx: BootContext) =>
     if (urlWorldParam !== null) {
       const worldId = WorldId.make(urlWorldParam)
       const urlGameMode = yield* loadGameModeForWorld(worldId)
-      yield* sessionProgram(bootCtx, worldId, urlGameMode).pipe(
-        Effect.scoped,
+      yield* loadingScreen.show()
+      // Consume the shortcut immediately so a browser reload during play returns
+      // to the normal title flow instead of auto-restarting the same session.
+      yield* Effect.sync(() => clearWorldParam())
+      yield* Effect.sync(() => setGameplayHudHidden(false))
+      yield* runSessionToTitle(bootCtx, worldId, urlGameMode).pipe(
         Effect.catchAllCause((cause) => Effect.logError(`Session error: ${Cause.pretty(cause)}`)),
         Effect.asVoid,
       )
-      yield* Effect.sync(() => clearWorldParam())
     }
 
     const iteration = Effect.gen(function* () {
+      yield* Effect.sync(() => setGameplayHudHidden(true))
+      yield* loadingScreen.hide()
       const choice = yield* menu.show()
 
       yield* menu.hide()
+      yield* loadingScreen.show()
+      yield* Effect.sync(() => setGameplayHudHidden(false))
 
       const gameMode: GameMode = choice.action === 'newWorld'
         ? choice.gameMode
         : yield* loadGameModeForWorld(choice.worldId)
 
-      yield* Effect.sync(() => setWorldParam(choice.worldId))
-      yield* sessionProgram(bootCtx, choice.worldId, gameMode).pipe(
-        Effect.scoped,
+      yield* runSessionToTitle(bootCtx, choice.worldId, gameMode).pipe(
         Effect.catchAllCause((cause) => Effect.logError(`Session error: ${Cause.pretty(cause)}`)),
         Effect.asVoid,
       )
@@ -80,21 +112,24 @@ const mainMenuLoop = (bootCtx: BootContext) =>
     return yield* Effect.forever(iteration)
   })
 
-// Run program with all layers provided.
-// PerfHudService.Default and TerrainWorkerPool.Default are provided alongside
-// MainLive — they live in infrastructure/ rather than under the layer groups
-// in layers.ts to keep that file focused on game-logic layers.
+const StartupLayers = Layer.mergeAll(
+  HungerService.Default,
+  PerfHudService.Default,
+  TerrainWorkerPool.Default,
+  TimeServicePort.Default,
+  InventoryServicePort.Default,
+)
+
+const AppLayers = MainLayers.pipe(
+  Layer.provideMerge(StartupLayers),
+)
+
 const program = bootProgram.pipe(
   Effect.flatMap(mainMenuLoop),
-  Effect.scoped,
-  Effect.provide(MainLive),
-  Effect.provide(PerfHudService.Default),
-  Effect.provide(TerrainWorkerPool.Default),
-  Effect.provide(TimeServicePort.Default),
-  Effect.provide(InventoryServicePort.Default),
   Effect.catchAllCause((cause) =>
     Effect.logError(`Startup failed: ${Cause.pretty(cause)}`).pipe(Effect.asVoid),
   ),
+  Effect.provide(AppLayers),
 )
 
 Effect.runFork(program)

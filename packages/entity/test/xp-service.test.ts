@@ -1,9 +1,9 @@
 import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
 import { Effect, Layer } from 'effect'
-import { XPService, XPServiceLive } from '../application/xp-service'
+import { XPService } from '../application/xp-service'
 
-const TestLayer = Layer.provide(XPServiceLive, Layer.empty)
+const TestLayer = Layer.provide(XPService.Default, Layer.empty)
 
 describe('application/xp-service', () => {
   describe('getXP', () => {

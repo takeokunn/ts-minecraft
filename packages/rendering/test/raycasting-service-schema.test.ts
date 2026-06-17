@@ -3,7 +3,6 @@ import { expect } from 'vitest'
 import { Effect, Either, Schema } from 'effect'
 import {
   RaycastingService,
-  RaycastingServiceLive,
   RaycastHitSchema,
 } from '@ts-minecraft/rendering'
 
@@ -106,14 +105,14 @@ describe('RaycastingService', () => {
       Effect.gen(function* () {
         const svc = yield* RaycastingService
         expect(typeof svc.raycastFromCamera).toBe('function')
-      }).pipe(Effect.provide(RaycastingServiceLive))
+      }).pipe(Effect.provide(RaycastingService.Default))
     )
 
     it.effect('exposes worldToBlock method', () =>
       Effect.gen(function* () {
         const svc = yield* RaycastingService
         expect(typeof svc.worldToBlock).toBe('function')
-      }).pipe(Effect.provide(RaycastingServiceLive))
+      }).pipe(Effect.provide(RaycastingService.Default))
     )
 
     it.effect('worldToBlock converts a fractional world position', () =>
@@ -123,7 +122,7 @@ describe('RaycastingService', () => {
         expect(block.x).toBe(1)
         expect(block.y).toBe(2)
         expect(block.z).toBe(-1)
-      }).pipe(Effect.provide(RaycastingServiceLive))
+      }).pipe(Effect.provide(RaycastingService.Default))
     )
   })
 })

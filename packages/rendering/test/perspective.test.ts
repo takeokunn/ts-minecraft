@@ -3,7 +3,6 @@ import { expect } from 'vitest'
 import { Array as Arr, Effect, MutableRef } from 'effect'
 import {
   PerspectiveCameraService,
-  PerspectiveCameraServiceLive,
   PerspectiveCameraParamsSchema,
   DEFAULT_CAMERA_OFFSET,
   DEFAULT_LERP_FACTOR,
@@ -75,7 +74,7 @@ describe('infrastructure/three/camera/perspective', () => {
         expect(typeof service.setPosition).toBe('function')
         expect(typeof service.lookAt).toBe('function')
         expect(typeof service.smoothFollow).toBe('function')
-      }).pipe(Effect.provide(PerspectiveCameraServiceLive))
+      }).pipe(Effect.provide(PerspectiveCameraService.Default))
     )
 
     it.effect('create should return a PerspectiveCamera from valid params', () =>
@@ -84,7 +83,7 @@ describe('infrastructure/three/camera/perspective', () => {
         const result = yield* service.create({ fov: 75, aspect: 1.6, near: 0.1, far: 1000 })
         expect(typeof result).toBe('object')
         expect(result).not.toBeNull()
-      }).pipe(Effect.provide(PerspectiveCameraServiceLive))
+      }).pipe(Effect.provide(PerspectiveCameraService.Default))
     )
 
     it.effect('updateAspect should update camera.aspect', () => {
@@ -93,7 +92,7 @@ describe('infrastructure/three/camera/perspective', () => {
         const service = yield* PerspectiveCameraService
         yield* service.updateAspect(camera as never, 2.0)
         expect(camera.aspect).toBe(2.0)
-      }).pipe(Effect.provide(PerspectiveCameraServiceLive))
+      }).pipe(Effect.provide(PerspectiveCameraService.Default))
     })
 
     it.effect('updateProjectionMatrix should call camera.updateProjectionMatrix', () => {
@@ -106,7 +105,7 @@ describe('infrastructure/three/camera/perspective', () => {
         const service = yield* PerspectiveCameraService
         yield* service.updateProjectionMatrix(mockCam as never)
         expect(MutableRef.get(calledRef)).toBe(true)
-      }).pipe(Effect.provide(PerspectiveCameraServiceLive))
+      }).pipe(Effect.provide(PerspectiveCameraService.Default))
     })
 
     it.effect('lookAt should call camera.lookAt with given target coordinates', () => {
@@ -120,7 +119,7 @@ describe('infrastructure/three/camera/perspective', () => {
         yield* service.lookAt(mockCam as never, { x: 1, y: 2, z: 3 })
         expect(calls).toHaveLength(1)
         expect(calls[0]).toEqual({ x: 1, y: 2, z: 3 })
-      }).pipe(Effect.provide(PerspectiveCameraServiceLive))
+      }).pipe(Effect.provide(PerspectiveCameraService.Default))
     })
 
     it.effect('setPosition should update camera.position', () => {
@@ -131,7 +130,7 @@ describe('infrastructure/three/camera/perspective', () => {
         expect(camera.position.x).toBe(5)
         expect(camera.position.y).toBe(10)
         expect(camera.position.z).toBe(15)
-      }).pipe(Effect.provide(PerspectiveCameraServiceLive))
+      }).pipe(Effect.provide(PerspectiveCameraService.Default))
     })
 
     it.effect('smoothFollow should move camera toward target', () => {
@@ -151,7 +150,7 @@ describe('infrastructure/three/camera/perspective', () => {
         expect(camera.position.x).toBeCloseTo(10)
         expect(camera.position.y).toBeCloseTo(15)
         expect(camera.position.z).toBeCloseTo(20)
-      }).pipe(Effect.provide(PerspectiveCameraServiceLive))
+      }).pipe(Effect.provide(PerspectiveCameraService.Default))
     })
   })
 })

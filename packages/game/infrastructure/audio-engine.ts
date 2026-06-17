@@ -150,9 +150,7 @@ export class AudioEngine extends Effect.Service<AudioEngine>()('@minecraft/audio
   })
 }) {}
 
-export const AudioEngineLive = AudioEngine.Default
-
-export const AudioEnginePortLive: Layer.Layer<AudioEnginePort, never, AudioEngine> = Layer.effect(
+export const AudioEnginePortLayer: Layer.Layer<AudioEnginePort, never, AudioEngine> = Layer.effect(
   AudioEnginePort,
   Effect.gen(function* () {
     const engine = yield* AudioEngine

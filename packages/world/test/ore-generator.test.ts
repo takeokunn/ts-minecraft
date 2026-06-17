@@ -11,6 +11,7 @@ import {
   growVein,
   placeOres,
 } from '@ts-minecraft/world'
+import { makeChunkBlockBuffer } from './chunk-buffer-test-utils'
 
 // ---------------------------------------------------------------------------
 // Shared block indices
@@ -22,7 +23,7 @@ const DEEPSLATE = blockTypeToIndex('DEEPSLATE')
 const COAL_ORE  = blockTypeToIndex('COAL_ORE')
 const DS_COAL   = blockTypeToIndex('DEEPSLATE_COAL_ORE')
 
-const makeBlocks = (): Uint8Array => new Uint8Array(CHUNK_SIZE * CHUNK_SIZE * CHUNK_HEIGHT)
+const makeBlocks = (): Uint8Array<ArrayBufferLike> => makeChunkBlockBuffer()
 
 const setBlock = (blocks: Uint8Array, lx: number, y: number, lz: number, val: number): void => {
   blocks[y + lz * CHUNK_HEIGHT + lx * CHUNK_HEIGHT * CHUNK_SIZE] = val

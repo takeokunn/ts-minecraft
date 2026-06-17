@@ -314,6 +314,86 @@ describe('application/inventory/inventory-service', () => {
     })
   })
 
+  describe('repairMendingItemsWithXP', () => {
+    it.effect('repairs a MENDING stack at two durability per XP', () => {
+      const testLayer = createTestLayer(createTestBlockRegistry(airOnlyBlocks))
+      return Effect.gen(function* () {
+        const service = yield* InventoryService
+        const damaged = new ItemStack({
+          itemType: 'DIAMOND_PICKAXE',
+          count: 1,
+          durability: 1551,
+          enchantments: [{ type: 'MENDING', level: 1 }],
+        })
+        yield* service.setSlot(asSlotIndex(0), Option.some(damaged))
+
+        const remaining = yield* service.repairMendingItemsWithXP(3)
+        const repaired = Option.getOrThrow(yield* service.getSlot(asSlotIndex(0)))
+
+        expect(remaining).toBe(0)
+        expect(repaired.durability).toBe(1557)
+      }).pipe(Effect.provide(testLayer))
+    })
+
+    it.effect('returns unused XP once a MENDING item reaches max durability', () => {
+      const testLayer = createTestLayer(createTestBlockRegistry(airOnlyBlocks))
+      return Effect.gen(function* () {
+        const service = yield* InventoryService
+        const nearlyFull = new ItemStack({
+          itemType: 'DIAMOND_PICKAXE',
+          count: 1,
+          durability: 1558,
+          enchantments: [{ type: 'MENDING', level: 1 }],
+        })
+        yield* service.setSlot(asSlotIndex(0), Option.some(nearlyFull))
+
+        const remaining = yield* service.repairMendingItemsWithXP(10)
+        const repaired = Option.getOrThrow(yield* service.getSlot(asSlotIndex(0)))
+
+        expect(remaining).toBe(8)
+        expect(repaired.durability).toBe(1561)
+      }).pipe(Effect.provide(testLayer))
+    })
+
+    it.effect('leaves non-MENDING stacks and XP unchanged', () => {
+      const testLayer = createTestLayer(createTestBlockRegistry(airOnlyBlocks))
+      return Effect.gen(function* () {
+        const service = yield* InventoryService
+        const damaged = new ItemStack({
+          itemType: 'DIAMOND_PICKAXE',
+          count: 1,
+          durability: 1551,
+        })
+        yield* service.setSlot(asSlotIndex(0), Option.some(damaged))
+
+        const remaining = yield* service.repairMendingItemsWithXP(3)
+        const unchanged = Option.getOrThrow(yield* service.getSlot(asSlotIndex(0)))
+
+        expect(remaining).toBe(3)
+        expect(unchanged.durability).toBe(1551)
+      }).pipe(Effect.provide(testLayer))
+    })
+
+    it.effect('returns non-positive XP unchanged without scanning slots', () => {
+      const testLayer = createTestLayer(createTestBlockRegistry(airOnlyBlocks))
+      return Effect.gen(function* () {
+        const service = yield* InventoryService
+        yield* service.setSlot(asSlotIndex(0), Option.some(new ItemStack({
+          itemType: 'DIAMOND_PICKAXE',
+          count: 1,
+          durability: 1551,
+          enchantments: [{ type: 'MENDING', level: 1 }],
+        })))
+
+        expect(yield* service.repairMendingItemsWithXP(0)).toBe(0)
+        expect(yield* service.repairMendingItemsWithXP(-2)).toBe(-2)
+
+        const unchanged = Option.getOrThrow(yield* service.getSlot(asSlotIndex(0)))
+        expect(unchanged.durability).toBe(1551)
+      }).pipe(Effect.provide(testLayer))
+    })
+  })
+
   describe('quickMove (shift-click)', () => {
     it.effect('moves a hotbar stack into the first empty main-inventory slot', () => {
       const testLayer = createTestLayer(createTestBlockRegistry(airOnlyBlocks))
@@ -376,6 +456,45 @@ describe('application/inventory/inventory-service', () => {
         yield* service.quickMove(asSlotIndex(HOTBAR_START))
         const all = yield* service.getAllSlots()
         Arr.forEach(all, (slot) => expect(Option.isNone(slot)).toBe(true))
+      }).pipe(Effect.provide(testLayer))
+    })
+
+    it.effect('moves a main-inventory stack into the first empty hotbar slot', () => {
+      const testLayer = createTestLayer(createTestBlockRegistry(airOnlyBlocks))
+      return Effect.gen(function* () {
+        const service = yield* InventoryService
+        yield* service.setSlot(asSlotIndex(0), Option.some(createStack('STONE', 10)))
+
+        yield* service.quickMove(asSlotIndex(0))
+
+        expect(Option.isNone(yield* service.getSlot(asSlotIndex(0)))).toBe(true)
+        const dest = Option.getOrThrow(yield* service.getSlot(asSlotIndex(HOTBAR_START)))
+        expect(dest.itemType).toBe('STONE')
+        expect(dest.count).toBe(10)
+      }).pipe(Effect.provide(testLayer))
+    })
+
+    it.effect('is a no-op when the opposite region has no merge space or empty slot', () => {
+      const testLayer = createTestLayer(createTestBlockRegistry(airOnlyBlocks))
+      return Effect.gen(function* () {
+        const service = yield* InventoryService
+        yield* service.setSlot(asSlotIndex(0), Option.some(createStack('STONE', 10)))
+        yield* Effect.forEach(Arr.makeBy(HOTBAR_SIZE, (i) => HOTBAR_START + i), (i) =>
+          service.setSlot(asSlotIndex(i), Option.some(createStack('DIRT', MAX_STACK_SIZE))),
+        )
+
+        yield* service.quickMove(asSlotIndex(0))
+
+        const source = Option.getOrThrow(yield* service.getSlot(asSlotIndex(0)))
+        expect(source.itemType).toBe('STONE')
+        expect(source.count).toBe(10)
+        yield* Effect.forEach(Arr.makeBy(HOTBAR_SIZE, (i) => HOTBAR_START + i), (i) =>
+          Effect.gen(function* () {
+            const slot = Option.getOrThrow(yield* service.getSlot(asSlotIndex(i)))
+            expect(slot.itemType).toBe('DIRT')
+            expect(slot.count).toBe(MAX_STACK_SIZE)
+          }),
+        )
       }).pipe(Effect.provide(testLayer))
     })
   })

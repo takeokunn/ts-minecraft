@@ -1,12 +1,12 @@
 // Pure domain types for noise primitives — no infrastructure dependency.
 
-import { Array as Arr } from 'effect'
 import { CHUNK_SIZE } from '@ts-minecraft/core'
 import { createPerlinNoise2D, createPerlinNoise3D } from './perlin'
 
 export type RandFn = () => number
 export type NoiseFn2D = (x: number, z: number) => number
 export type NoiseFn3D = (x: number, y: number, z: number) => number
+type TerrainBatchPoint2D = readonly [number, number]
 
 // ---------------------------------------------------------------------------
 // PRNG
@@ -28,6 +28,7 @@ export const mulberry32 = (seed: number): RandFn => {
 
 // Map 2D Perlin output from [-1, 1] to [0, 1].
 export const normalizeNoise = (value: number): number => (value + 1) / 2
+export const CHUNK_COLUMN_SAMPLE_COUNT = CHUNK_SIZE * CHUNK_SIZE
 
 // Weyl-constant XORs decorrelate per-channel Perlin seeds while keeping every
 // derived seed inside uint32 range.
@@ -45,6 +46,27 @@ export const SCALE_J = 0.02
 
 // pv = 1 - |3|w| - 2|
 export const toPV = (w: number): number => 1 - Math.abs(3 * Math.abs(w) - 2)
+
+const readCoordinate = (values: ReadonlyArray<number>, index: number): number => values[index] ?? Number.NaN
+const readChannelSample = (values: Float64Array, index: number): number => values[index] ?? Number.NaN
+const readBatchPoint2D = (points: ReadonlyArray<TerrainBatchPoint2D>, index: number): TerrainBatchPoint2D =>
+  points[index] ?? [Number.NaN, Number.NaN]
+
+const blendSparseChannelSample = (
+  values: Float64Array,
+  i00: number,
+  i10: number,
+  i01: number,
+  i11: number,
+  w00: number,
+  w10: number,
+  w01: number,
+  w11: number,
+): number =>
+  w00 * readChannelSample(values, i00) +
+  w10 * readChannelSample(values, i10) +
+  w01 * readChannelSample(values, i01) +
+  w11 * readChannelSample(values, i11)
 
 // ---------------------------------------------------------------------------
 // Octave-noise core.
@@ -93,7 +115,6 @@ export const computeTerrainChannels = (
   // the full chunk column — far cheaper than per-block noise without visible seams.
   const STEP = 2
   const SPARSE = CHUNK_SIZE / STEP + 1 // grid points needed to span [0, CHUNK_SIZE] inclusive
-  const COLUMN_CELLS = CHUNK_SIZE * CHUNK_SIZE // one value per (x, z) in the chunk column
   const sparseC = new Float64Array(SPARSE * SPARSE)
   const sparseE = new Float64Array(SPARSE * SPARSE)
   const sparseW = new Float64Array(SPARSE * SPARSE)
@@ -111,10 +132,10 @@ export const computeTerrainChannels = (
     }
   }
 
-  const continentalness = new Float64Array(COLUMN_CELLS)
-  const erosion = new Float64Array(COLUMN_CELLS)
-  const pv = new Float64Array(COLUMN_CELLS)
-  const jaggedness = new Float64Array(COLUMN_CELLS)
+  const continentalness = new Float64Array(CHUNK_COLUMN_SAMPLE_COUNT)
+  const erosion = new Float64Array(CHUNK_COLUMN_SAMPLE_COUNT)
+  const pv = new Float64Array(CHUNK_COLUMN_SAMPLE_COUNT)
+  const jaggedness = new Float64Array(CHUNK_COLUMN_SAMPLE_COUNT)
 
   for (let z = 0; z < CHUNK_SIZE; z++) {
     const siz = z >> 1
@@ -135,10 +156,10 @@ export const computeTerrainChannels = (
       const w01 = inv_fx * fz
       const w11 = fx * fz
 
-      const c = w00 * sparseC[i00]! + w10 * sparseC[i10]! + w01 * sparseC[i01]! + w11 * sparseC[i11]!
-      const e = w00 * sparseE[i00]! + w10 * sparseE[i10]! + w01 * sparseE[i01]! + w11 * sparseE[i11]!
-      const w = w00 * sparseW[i00]! + w10 * sparseW[i10]! + w01 * sparseW[i01]! + w11 * sparseW[i11]!
-      const j = w00 * sparseJ[i00]! + w10 * sparseJ[i10]! + w01 * sparseJ[i01]! + w11 * sparseJ[i11]!
+      const c = blendSparseChannelSample(sparseC, i00, i10, i01, i11, w00, w10, w01, w11)
+      const e = blendSparseChannelSample(sparseE, i00, i10, i01, i11, w00, w10, w01, w11)
+      const w = blendSparseChannelSample(sparseW, i00, i10, i01, i11, w00, w10, w01, w11)
+      const j = blendSparseChannelSample(sparseJ, i00, i10, i01, i11, w00, w10, w01, w11)
 
       const out = z * CHUNK_SIZE + x
       continentalness[out] = c
@@ -209,16 +230,26 @@ export const noise2DBatchXY = (
   primitives: NoisePrimitives,
   xs: ReadonlyArray<number>,
   zs: ReadonlyArray<number>,
-): ReadonlyArray<number> =>
-  Arr.makeBy(xs.length, (i) => primitives.noise2D(xs[i]!, zs[i]!))
+): ReadonlyArray<number> => {
+  const out = Array<number>(xs.length)
+  for (let i = 0; i < xs.length; i++) {
+    out[i] = primitives.noise2D(readCoordinate(xs, i), readCoordinate(zs, i))
+  }
+  return out
+}
 
 export const noise3DBatchXYZ = (
   primitives: NoisePrimitives,
   xs: ReadonlyArray<number>,
   ys: ReadonlyArray<number>,
   zs: ReadonlyArray<number>,
-): ReadonlyArray<number> =>
-  Arr.makeBy(xs.length, (i) => primitives.noise3D(xs[i]!, ys[i]!, zs[i]!))
+): ReadonlyArray<number> => {
+  const out = Array<number>(xs.length)
+  for (let i = 0; i < xs.length; i++) {
+    out[i] = primitives.noise3D(readCoordinate(xs, i), readCoordinate(ys, i), readCoordinate(zs, i))
+  }
+  return out
+}
 
 export const octaveNoise2DBatchXY = (
   primitives: NoisePrimitives,
@@ -227,24 +258,37 @@ export const octaveNoise2DBatchXY = (
   octaves: number,
   persistence: number,
   lacunarity: number,
-): ReadonlyArray<number> =>
-  Arr.makeBy(xs.length, (i) =>
-    primitives.octaveNoise2D(xs[i]!, zs[i]!, octaves, persistence, lacunarity),
-  )
+): ReadonlyArray<number> => {
+  const out = Array<number>(xs.length)
+  for (let i = 0; i < xs.length; i++) {
+    out[i] = primitives.octaveNoise2D(readCoordinate(xs, i), readCoordinate(zs, i), octaves, persistence, lacunarity)
+  }
+  return out
+}
 
 export const noise2DBatch = (
   primitives: NoisePrimitives,
-  points: ReadonlyArray<readonly [number, number]>,
-): ReadonlyArray<number> =>
-  Arr.map(points, ([x, z]) => primitives.noise2D(x, z))
+  points: ReadonlyArray<TerrainBatchPoint2D>,
+): ReadonlyArray<number> => {
+  const out = Array<number>(points.length)
+  for (let i = 0; i < points.length; i++) {
+    const [x, z] = readBatchPoint2D(points, i)
+    out[i] = primitives.noise2D(x, z)
+  }
+  return out
+}
 
 export const octaveNoise2DBatch = (
   primitives: NoisePrimitives,
-  points: ReadonlyArray<readonly [number, number]>,
+  points: ReadonlyArray<TerrainBatchPoint2D>,
   octaves: number,
   persistence: number,
   lacunarity: number,
-): ReadonlyArray<number> =>
-  Arr.map(points, ([x, z]) =>
-    primitives.octaveNoise2D(x, z, octaves, persistence, lacunarity),
-  )
+): ReadonlyArray<number> => {
+  const out = Array<number>(points.length)
+  for (let i = 0; i < points.length; i++) {
+    const [x, z] = readBatchPoint2D(points, i)
+    out[i] = primitives.octaveNoise2D(x, z, octaves, persistence, lacunarity)
+  }
+  return out
+}

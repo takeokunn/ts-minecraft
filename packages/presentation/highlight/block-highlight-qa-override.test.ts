@@ -4,7 +4,6 @@ import { expect } from 'vitest'
 import * as THREE from 'three'
 import {
   BlockHighlightService,
-  BlockHighlightLive,
 } from '@ts-minecraft/presentation/highlight/block-highlight'
 import { RaycastingService, type RaycastHit } from '@ts-minecraft/rendering'
 import {
@@ -27,7 +26,7 @@ describe('BlockHighlightService (setTargetForQA / clearTargetForQA / override up
   it.effect('setTargetForQA: getTargetBlock() returns the forced target', () => {
     const mockRaycastingService = createMockRaycastingService()
     const MockLayer = Layer.succeed(RaycastingService, mockRaycastingService)
-    const TestLayer = BlockHighlightLive.pipe(Layer.provide(MockLayer))
+    const TestLayer = BlockHighlightService.Default.pipe(Layer.provide(MockLayer))
 
     const { scene } = createMockScene()
 
@@ -44,7 +43,7 @@ describe('BlockHighlightService (setTargetForQA / clearTargetForQA / override up
   it.effect('setTargetForQA: getTargetHit() returns the forced hit', () => {
     const mockRaycastingService = createMockRaycastingService()
     const MockLayer = Layer.succeed(RaycastingService, mockRaycastingService)
-    const TestLayer = BlockHighlightLive.pipe(Layer.provide(MockLayer))
+    const TestLayer = BlockHighlightService.Default.pipe(Layer.provide(MockLayer))
 
     const { scene } = createMockScene()
 
@@ -67,7 +66,7 @@ describe('BlockHighlightService (setTargetForQA / clearTargetForQA / override up
   it.effect('setTargetForQA: mesh is visible and positioned at target center', () => {
     const mockRaycastingService = createMockRaycastingService()
     const MockLayer = Layer.succeed(RaycastingService, mockRaycastingService)
-    const TestLayer = BlockHighlightLive.pipe(Layer.provide(MockLayer))
+    const TestLayer = BlockHighlightService.Default.pipe(Layer.provide(MockLayer))
 
     const { scene, getChildren } = createMockScene()
 
@@ -87,7 +86,7 @@ describe('BlockHighlightService (setTargetForQA / clearTargetForQA / override up
   it.effect('setTargetForQA: does not crash when mesh is not initialized', () => {
     const mockRaycastingService = createMockRaycastingService()
     const MockLayer = Layer.succeed(RaycastingService, mockRaycastingService)
-    const TestLayer = BlockHighlightLive.pipe(Layer.provide(MockLayer))
+    const TestLayer = BlockHighlightService.Default.pipe(Layer.provide(MockLayer))
 
     return Effect.gen(function* () {
       const blockHighlight = yield* BlockHighlightService
@@ -103,7 +102,7 @@ describe('BlockHighlightService (setTargetForQA / clearTargetForQA / override up
   it.effect('clearTargetForQA: getTargetBlock() returns Option.none() after clear', () => {
     const mockRaycastingService = createMockRaycastingService()
     const MockLayer = Layer.succeed(RaycastingService, mockRaycastingService)
-    const TestLayer = BlockHighlightLive.pipe(Layer.provide(MockLayer))
+    const TestLayer = BlockHighlightService.Default.pipe(Layer.provide(MockLayer))
 
     const { scene } = createMockScene()
 
@@ -121,7 +120,7 @@ describe('BlockHighlightService (setTargetForQA / clearTargetForQA / override up
   it.effect('clearTargetForQA: mesh is hidden after clear', () => {
     const mockRaycastingService = createMockRaycastingService()
     const MockLayer = Layer.succeed(RaycastingService, mockRaycastingService)
-    const TestLayer = BlockHighlightLive.pipe(Layer.provide(MockLayer))
+    const TestLayer = BlockHighlightService.Default.pipe(Layer.provide(MockLayer))
 
     const { scene, getChildren } = createMockScene()
 
@@ -139,7 +138,7 @@ describe('BlockHighlightService (setTargetForQA / clearTargetForQA / override up
   it.effect('clearTargetForQA: does not crash when mesh is not initialized', () => {
     const mockRaycastingService = createMockRaycastingService()
     const MockLayer = Layer.succeed(RaycastingService, mockRaycastingService)
-    const TestLayer = BlockHighlightLive.pipe(Layer.provide(MockLayer))
+    const TestLayer = BlockHighlightService.Default.pipe(Layer.provide(MockLayer))
 
     return Effect.gen(function* () {
       const blockHighlight = yield* BlockHighlightService
@@ -154,7 +153,7 @@ describe('BlockHighlightService (setTargetForQA / clearTargetForQA / override up
   it.effect('update override branch: does not call raycastFromCamera when override is set', () => {
     const mockRaycastingService = createMockRaycastingService()
     const MockLayer = Layer.succeed(RaycastingService, mockRaycastingService)
-    const TestLayer = BlockHighlightLive.pipe(Layer.provide(MockLayer))
+    const TestLayer = BlockHighlightService.Default.pipe(Layer.provide(MockLayer))
 
     const { scene } = createMockScene()
     const camera = createMockCamera()
@@ -176,7 +175,7 @@ describe('BlockHighlightService (setTargetForQA / clearTargetForQA / override up
   it.effect('update override branch: keeps forced target after invalidateCache + update', () => {
     const mockRaycastingService = createMockRaycastingService()
     const MockLayer = Layer.succeed(RaycastingService, mockRaycastingService)
-    const TestLayer = BlockHighlightLive.pipe(Layer.provide(MockLayer))
+    const TestLayer = BlockHighlightService.Default.pipe(Layer.provide(MockLayer))
 
     const { scene, getChildren } = createMockScene()
     const camera = createMockCamera()

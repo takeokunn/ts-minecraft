@@ -1,7 +1,7 @@
 import { Context, Duration, Effect, Fiber, Layer, Option, Ref, Stream } from 'effect'
 import { NetworkError } from '../domain/errors'
 import { MessageType, PlayerId, WorldId, type NetworkMessage, type PlayerName } from '../domain/schemas'
-import type { WebSocketClientHandle, WebSocketClientPort } from '../infrastructure/websocket-client'
+import type { WebSocketClientHandle, WebSocketClientPort } from '../domain/websocket-ports'
 import { decodeNetworkMessage, encodeNetworkMessage } from './codec'
 
 export type ConnectionState = 'idle' | 'connecting' | 'connected' | 'reconnecting' | 'disconnected' | 'failed'
@@ -48,7 +48,6 @@ export const ClientServiceImpl = (
     const reconnectFiberRef = yield* Ref.make<Option.Option<Fiber.RuntimeFiber<void, never>>>(Option.none())
     const serverUrlRef = yield* Ref.make<Option.Option<string>>(Option.none())
     const playerNameRef = yield* Ref.make<Option.Option<PlayerName>>(Option.none())
-    const intentionallyDisconnectedRef = yield* Ref.make(false)
     const maxReconnectAttempts = options.maxReconnectAttempts ?? 5
 
     const installHandle = (handle: WebSocketClientHandle): Effect.Effect<void, never> =>
@@ -66,8 +65,6 @@ export const ClientServiceImpl = (
 
     const reconnectLoop: Effect.Effect<void, never> = Effect.gen(function* () {
       for (let attempt = 1; attempt <= maxReconnectAttempts; attempt += 1) {
-        const intentionallyDisconnected = yield* Ref.get(intentionallyDisconnectedRef)
-        if (intentionallyDisconnected) return
         yield* Ref.set(stateRef, 'reconnecting')
         yield* Effect.sleep(backoffForAttempt(attempt))
         const serverUrl = yield* Ref.get(serverUrlRef)
@@ -81,6 +78,7 @@ export const ClientServiceImpl = (
             yield* installHandle(handle)
             yield* sendRawMessage(handle, makeInitialJoin(playerNameVal))
             yield* Ref.set(stateRef, 'connected')
+            yield* installWatcher(handle)
             return true
           }).pipe(Effect.catchAll(() => Effect.succeed(false)))
         }
@@ -92,34 +90,32 @@ export const ClientServiceImpl = (
     const watchClose = (handle: WebSocketClientHandle): Effect.Effect<void, never> =>
       Effect.gen(function* () {
         yield* handle.onClose
-        const intentional = yield* Ref.get(intentionallyDisconnectedRef)
-        if (intentional) {
-          yield* Ref.set(stateRef, 'disconnected')
-        } else {
-          const fiber = yield* Effect.forkDaemon(reconnectLoop)
-          yield* Ref.set(reconnectFiberRef, Option.some(fiber))
-        }
+        yield* reconnectLoop
+      })
+
+    const installWatcher = (handle: WebSocketClientHandle): Effect.Effect<void, never> =>
+      Effect.gen(function* () {
+        const fiber = yield* Effect.forkDaemon(watchClose(handle))
+        yield* Ref.set(reconnectFiberRef, Option.some(fiber))
       })
 
     const service: ClientServiceShape = {
       connect: (serverUrl, playerName) =>
         Effect.gen(function* () {
           yield* Ref.set(stateRef, 'connecting')
-          yield* Ref.set(intentionallyDisconnectedRef, false)
           yield* Ref.set(serverUrlRef, Option.some(serverUrl))
           yield* Ref.set(playerNameRef, Option.some(playerName))
           const handle = yield* port.connect(serverUrl)
           yield* installHandle(handle)
           yield* sendRawMessage(handle, makeInitialJoin(playerName))
           yield* Ref.set(stateRef, 'connected')
-          yield* Effect.forkDaemon(watchClose(handle))
+          yield* installWatcher(handle)
         }).pipe(
           Effect.tapError(() => Ref.set(stateRef, 'failed')),
           Effect.annotateLogs({ component: 'network-client', event: 'connect' }),
         ),
       disconnect: () =>
         Effect.gen(function* () {
-          yield* Ref.set(intentionallyDisconnectedRef, true)
           const reconnectFiber = Option.getOrNull(yield* Ref.get(reconnectFiberRef))
           if (reconnectFiber !== null) {
             yield* Fiber.interrupt(reconnectFiber).pipe(Effect.asVoid)
@@ -150,7 +146,7 @@ export const ClientServiceImpl = (
     return service
   })
 
-export const ClientServiceLive = (
+export const ClientServiceDefault = (
   port: WebSocketClientPort,
   options: { readonly maxReconnectAttempts?: number } = {},
 ): Layer.Layer<ClientServiceShape> =>

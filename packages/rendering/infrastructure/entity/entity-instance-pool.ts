@@ -31,8 +31,8 @@ type Bucket = {
   readonly geometry: THREE.BoxGeometry
   readonly material: THREE.MeshStandardMaterial
   readonly spec: RoleSpec
-  // entityId at each slot index; null = free (only valid for slots >= count).
-  readonly slotEntities: Array<string | null>
+  // entityId at each active slot index. The active prefix is always packed.
+  readonly slotEntities: string[]
   count: number
 }
 
@@ -76,6 +76,13 @@ export type EntityInstancePool = {
     slot: number,
     matrix: THREE.Matrix4,
   ) => void
+  // Writes the per-instance tint at `slot`.
+  readonly setColorAt: (
+    type: EntityType,
+    role: PartRole,
+    slot: number,
+    color: number,
+  ) => void
   // Marks every bucket's instanceMatrix as needing GPU upload. Call once per
   // frame after all setMatrixAt writes.
   readonly flushAll: () => void
@@ -98,6 +105,9 @@ export const createEntityInstancePool = (): EntityInstancePool => {
   const buckets = MutableHashMap.empty<BucketKey, Bucket>()
   // Per-bucket entityId → slot index. Lookup avoids scanning slotEntities.
   const slotIndex = MutableHashMap.empty<BucketKey, MutableHashMap.MutableHashMap<string, number>>()
+  const swapMatrix = new THREE.Matrix4()
+  const scratchColor = new THREE.Color()
+  const swapColor = new THREE.Color()
 
   const ensureBucket = (
     scene: THREE.Scene,
@@ -129,7 +139,7 @@ export const createEntityInstancePool = (): EntityInstancePool => {
       geometry,
       material,
       spec,
-      slotEntities: Array.from({ length: MAX_INSTANCES_PER_TYPE }, (): string | null => null),
+      slotEntities: [],
       count: 0,
     }
     MutableHashMap.set(buckets, key, bucket)
@@ -142,26 +152,29 @@ export const createEntityInstancePool = (): EntityInstancePool => {
     type: EntityType,
     role: PartRole,
     entityId: string,
-  ): Option.Option<number> =>
-    Option.flatMap(ensureBucket(scene, type, role), (bucket) => {
-      if (bucket.count >= MAX_INSTANCES_PER_TYPE) return Option.none()
-      const slot = bucket.count
-      bucket.slotEntities[slot] = entityId
-      bucket.count = slot + 1
-      bucket.mesh.count = bucket.count
-      const key = makeBucketKey(type, role)
-      const existingIdx = Option.getOrNull(MutableHashMap.get(slotIndex, key))
-      if (existingIdx !== null) {
-        MutableHashMap.set(existingIdx, entityId, slot)
-      } else {
-          /* c8 ignore start -- first-time bucket creation for a type/role pair; only runs once per new combination */
-          const idx = MutableHashMap.empty<string, number>()
-          MutableHashMap.set(idx, entityId, slot)
-          MutableHashMap.set(slotIndex, key, idx)
-          /* c8 ignore end */
-      }
-      return Option.some(slot)
-    })
+  ): Option.Option<number> => {
+    const bucket = Option.getOrNull(ensureBucket(scene, type, role))
+    if (bucket === null) return Option.none()
+    if (bucket.count >= MAX_INSTANCES_PER_TYPE) return Option.none()
+    const slot = bucket.count
+    bucket.slotEntities[slot] = entityId
+    bucket.count = slot + 1
+    bucket.mesh.count = bucket.count
+    bucket.mesh.setColorAt(slot, scratchColor.setHex(bucket.spec.color))
+    if (bucket.mesh.instanceColor !== null) bucket.mesh.instanceColor.needsUpdate = true
+    const key = makeBucketKey(type, role)
+    const existingIdx = Option.getOrNull(MutableHashMap.get(slotIndex, key))
+    if (existingIdx !== null) {
+      MutableHashMap.set(existingIdx, entityId, slot)
+    } else {
+      /* c8 ignore start -- first-time bucket creation for a type/role pair; only runs once per new combination */
+      const idx = MutableHashMap.empty<string, number>()
+      MutableHashMap.set(idx, entityId, slot)
+      MutableHashMap.set(slotIndex, key, idx)
+      /* c8 ignore end */
+    }
+    return Option.some(slot)
+  }
 
   const releaseSlot = (
     type: EntityType,
@@ -177,14 +190,18 @@ export const createEntityInstancePool = (): EntityInstancePool => {
     const last = bucket.count - 1
     if (slot !== last) {
       // Swap last → slot: copy matrix from `last`, update bookkeeping.
-      const movedEntity = bucket.slotEntities[last] ?? null
-      const tmp = new THREE.Matrix4()
-      bucket.mesh.getMatrixAt(last, tmp)
-      bucket.mesh.setMatrixAt(slot, tmp)
-      bucket.slotEntities[slot] = movedEntity
-      if (movedEntity !== null) MutableHashMap.set(idx, movedEntity, slot)
+      const movedEntity = bucket.slotEntities[last]
+      bucket.mesh.getMatrixAt(last, swapMatrix)
+      bucket.mesh.setMatrixAt(slot, swapMatrix)
+      if (bucket.mesh.instanceColor !== null) {
+        bucket.mesh.getColorAt(last, swapColor)
+        bucket.mesh.setColorAt(slot, swapColor)
+        bucket.mesh.instanceColor.needsUpdate = true
+      }
+      bucket.slotEntities[slot] = movedEntity!
+      MutableHashMap.set(idx, movedEntity!, slot)
     }
-    bucket.slotEntities[last] = null
+    bucket.slotEntities.length = last
     bucket.count = last
     bucket.mesh.count = last
     MutableHashMap.remove(idx, entityId)
@@ -202,8 +219,22 @@ export const createEntityInstancePool = (): EntityInstancePool => {
     if (b !== null) b.mesh.setMatrixAt(slot, matrix)
   }
 
+  const setColorAt = (
+    type: EntityType,
+    role: PartRole,
+    slot: number,
+    color: number,
+  ): void => {
+    const key = makeBucketKey(type, role)
+    const b = Option.getOrNull(MutableHashMap.get(buckets, key))
+    if (b !== null) b.mesh.setColorAt(slot, scratchColor.setHex(color))
+  }
+
   const flushAll = (): void => {
-    for (const [, bucket] of buckets) bucket.mesh.instanceMatrix.needsUpdate = true
+    for (const [, bucket] of buckets) {
+      bucket.mesh.instanceMatrix.needsUpdate = true
+      if (bucket.mesh.instanceColor !== null) bucket.mesh.instanceColor.needsUpdate = true
+    }
   }
 
   const getBuckets = (): ReadonlyArray<Bucket> => {
@@ -218,8 +249,8 @@ export const createEntityInstancePool = (): EntityInstancePool => {
       b.geometry.dispose()
       b.material.dispose()
     }
-    for (const k of Array.from(MutableHashMap.keys(buckets))) MutableHashMap.remove(buckets, k)
-    for (const k of Array.from(MutableHashMap.keys(slotIndex))) MutableHashMap.remove(slotIndex, k)
+    MutableHashMap.clear(buckets)
+    MutableHashMap.clear(slotIndex)
   }
 
   const getSlot = (
@@ -228,11 +259,12 @@ export const createEntityInstancePool = (): EntityInstancePool => {
     entityId: string,
   ): Option.Option<{ readonly slot: number; readonly bucket: Bucket }> => {
     const key = makeBucketKey(type, role)
-    return Option.flatMap(MutableHashMap.get(buckets, key), (bucket) =>
-      Option.flatMap(MutableHashMap.get(slotIndex, key), (idx) =>
-        Option.map(MutableHashMap.get(idx, entityId), (slot) => ({ slot, bucket })),
-      ),
-    )
+    const bucket = Option.getOrNull(MutableHashMap.get(buckets, key))
+    if (bucket === null) return Option.none()
+    const idx = Option.getOrNull(MutableHashMap.get(slotIndex, key))
+    if (idx === null) return Option.none()
+    const slot = Option.getOrNull(MutableHashMap.get(idx, entityId))
+    return slot === null ? Option.none() : Option.some({ slot, bucket })
   }
 
   return {
@@ -240,6 +272,7 @@ export const createEntityInstancePool = (): EntityInstancePool => {
     allocateSlot,
     releaseSlot,
     setMatrixAt,
+    setColorAt,
     flushAll,
     getBuckets,
     disposeAll,

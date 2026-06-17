@@ -1,4 +1,4 @@
-import { Array as Arr, Effect, HashMap, HashSet, Option, Ref } from 'effect'
+import { Effect, HashMap, Option, Ref } from 'effect'
 import * as THREE from 'three'
 import { ChunkCacheKey } from '@ts-minecraft/core'
 import { Chunk } from '@ts-minecraft/world'
@@ -36,6 +36,112 @@ export const lodWithHysteresis = (distance: number, currentLod: LodLevel): LodLe
   return withinLower && withinUpper ? currentLod : lodForDistance(distance)
 }
 
+export type LoadedChunkSyncWork = {
+  readonly newChunks: ReadonlyArray<Chunk>
+  readonly lodChangedChunks: ReadonlyArray<Chunk>
+}
+
+export const collectLoadedChunkSyncWork = (
+  loadedChunks: ReadonlyArray<Chunk>,
+  meshes: HashMap.HashMap<ChunkCacheKey, ChunkMeshes>,
+  centerX: number,
+  centerZ: number,
+): LoadedChunkSyncWork => {
+  const newChunks: Array<Chunk> = []
+  const lodChangedChunks: Array<Chunk> = []
+  for (const chunk of loadedChunks) {
+    const key = chunkKey(chunk.coord)
+    const existing = Option.getOrNull(HashMap.get(meshes, key))
+    if (existing === null) {
+      newChunks.push(chunk)
+      continue
+    }
+    const dx = Math.abs(chunk.coord.x - centerX)
+    const dz = Math.abs(chunk.coord.z - centerZ)
+    if (existing.lod !== lodWithHysteresis(Math.max(dx, dz), existing.lod)) {
+      lodChangedChunks.push(chunk)
+    }
+  }
+  return { newChunks, lodChangedChunks }
+}
+
+export const makeLoadedChunkKeySet = (loadedChunks: ReadonlyArray<Chunk>): Set<ChunkCacheKey> => {
+  const loadedKeySet = new Set<ChunkCacheKey>()
+  for (const chunk of loadedChunks) {
+    loadedKeySet.add(chunkKey(chunk.coord))
+  }
+  return loadedKeySet
+}
+
+export const hasPotentialStaleChunkMeshes = (
+  loadedChunkCount: number,
+  meshCount: number,
+  missingLoadedChunkCount: number,
+): boolean => meshCount + missingLoadedChunkCount > loadedChunkCount
+
+export type ChunkRemovalBatch = {
+  readonly removalsToProcess: ReadonlyArray<readonly [ChunkCacheKey, ChunkMeshes]>
+  readonly allStaleRemoved: boolean
+}
+
+export const collectChunkRemovalBatch = (
+  meshes: HashMap.HashMap<ChunkCacheKey, ChunkMeshes>,
+  loadedKeySet: Set<ChunkCacheKey>,
+  maxRemovals: number,
+): ChunkRemovalBatch => {
+  const removalsToProcess: Array<readonly [ChunkCacheKey, ChunkMeshes]> = []
+  let staleCount = 0
+  for (const [key, chunkMeshes] of meshes) {
+    if (loadedKeySet.has(key)) continue
+    staleCount += 1
+    if (removalsToProcess.length < maxRemovals) {
+      removalsToProcess.push([key, chunkMeshes])
+    }
+  }
+  return { removalsToProcess, allStaleRemoved: staleCount <= removalsToProcess.length }
+}
+
+type TrackedMeshes = ReadonlyArray<THREE.Mesh>
+
+const appendTrackedMesh = (
+  meshes: TrackedMeshes,
+  mesh: THREE.Mesh,
+): TrackedMeshes => {
+  const nextMeshes = meshes.slice()
+  nextMeshes.push(mesh)
+  return nextMeshes
+}
+
+const removeTrackedMesh = (
+  meshes: TrackedMeshes,
+  mesh: THREE.Mesh,
+): TrackedMeshes => {
+  const index = meshes.indexOf(mesh)
+  if (index === -1) return meshes
+  const nextMeshes = meshes.slice()
+  nextMeshes.splice(index, 1)
+  return nextMeshes
+}
+
+const replaceTrackedMesh = (
+  meshes: TrackedMeshes,
+  prevMesh: THREE.Mesh,
+  nextMesh: THREE.Mesh,
+): TrackedMeshes => {
+  const index = meshes.indexOf(prevMesh)
+  if (index === -1) return appendTrackedMesh(meshes, nextMesh)
+  const nextMeshes = meshes.slice()
+  nextMeshes[index] = nextMesh
+  return nextMeshes
+}
+
+export const shouldContinueBudgetedChunkSync = (
+  processed: number,
+  hardCap: number,
+  elapsedMs: number,
+  budgetMs: number = WORLD_RENDERER_TIME_BUDGET_MS,
+): boolean => processed < hardCap && (processed === 0 || elapsedMs < budgetMs)
+
 export type SyncChunksContext = {
   readonly meshesRef: Ref.Ref<HashMap.HashMap<ChunkCacheKey, ChunkMeshes>>
   readonly waterMeshesRef: Ref.Ref<ReadonlyArray<THREE.Mesh>>
@@ -61,51 +167,51 @@ export const syncChunksToScene = (
   Effect.gen(function* () {
     const { meshesRef, waterMeshesRef, chunkMeshService, sceneService, waterMaterial, invalidateSceneCaches } = ctx
     const meshes = yield* Ref.get(meshesRef)
+    let nextWaterMeshes = yield* Ref.get(waterMeshesRef)
 
     // FR-3.1: derive a player-chunk proxy from the centroid of all loaded
     // chunks. `loadedChunks` is the engine's render-distance window which
     // always clusters tightly around the player, so the centroid tracks the
     // player to within one chunk. Used here purely for LOD distance-band
     // selection (no player position threaded through the layer for this).
-    const centerX = loadedChunks.length > 0
-      ? loadedChunks.reduce((acc, c) => acc + c.coord.x, 0) / loadedChunks.length
-      : 0
-    const centerZ = loadedChunks.length > 0
-      ? loadedChunks.reduce((acc, c) => acc + c.coord.z, 0) / loadedChunks.length
-      : 0
+    let centerX = 0
+    let centerZ = 0
+    if (loadedChunks.length > 0) {
+      for (const chunk of loadedChunks) {
+        centerX += chunk.coord.x
+        centerZ += chunk.coord.z
+      }
+      centerX /= loadedChunks.length
+      centerZ /= loadedChunks.length
+    }
     // Chebyshev (L∞) distance produces square LOD rings around the player,
     // matching the square render-distance window typical of voxel renderers.
-    const lodDistanceFromCenter = (chunk: Chunk): number => {
+    const lodForChunk = (chunk: Chunk): LodLevel => {
       const dx = Math.abs(chunk.coord.x - centerX)
       const dz = Math.abs(chunk.coord.z - centerZ)
-      return Math.max(dx, dz)
+      return lodForDistance(Math.max(dx, dz))
     }
-    const lodForChunk = (chunk: Chunk): LodLevel => lodForDistance(lodDistanceFromCenter(chunk))
 
-    // Early-exit phase 1: check for new chunks — no Set allocation needed.
-    const newChunks = Arr.filter(loadedChunks, (c) => !HashMap.has(meshes, chunkKey(c.coord)))
+    // Early-exit work scan: classify new chunks and LOD changes together without
+    // allocating intermediate key arrays. The loaded-key set is still deferred until
+    // stale removals are possible, preserving the cheap steady-state path.
+    const { newChunks, lodChangedChunks } = collectLoadedChunkSyncWork(loadedChunks, meshes, centerX, centerZ)
     const hasNewChunks = newChunks.length > 0
 
-    // Early-exit phase 2: detect removals cheaply.
-    const hasRemovedChunks = !hasNewChunks && loadedChunks.length < HashMap.size(meshes)
+    // If existing meshes plus currently-missing loaded chunks exceed the loaded window,
+    // at least one mesh must be stale. This avoids building a loaded-key Set and scanning
+    // all meshes on pure add / pure LOD frames, which are common while walking.
+    const hasPotentialStaleMeshes = hasPotentialStaleChunkMeshes(
+      loadedChunks.length,
+      HashMap.size(meshes),
+      newChunks.length,
+    )
 
-    // FR-3.1: detect chunks whose LOD band changed since last meshed (player
-    // moved across a band boundary, or render distance changed). Collect the
-    // affected chunks so they can be re-meshed below with the new LOD level.
-    const lodChangedChunks = Arr.filter(loadedChunks, (c) => {
-      const cm = Option.getOrNull(HashMap.get(meshes, chunkKey(c.coord)))
-      // Hysteresis on the chunk's CURRENT lod absorbs centroid jitter so boundary chunks
-      // don't flip-flop LOD (and needlessly re-mesh) every frame the player moves.
-      return cm !== null && cm.lod !== lodWithHysteresis(lodDistanceFromCenter(c), cm.lod)
-    })
     const hasLodChanges = lodChangedChunks.length > 0
 
-    if (!hasNewChunks && !hasRemovedChunks && !hasLodChanges) {
+    if (!hasNewChunks && !hasPotentialStaleMeshes && !hasLodChanges) {
       return true
     }
-
-    // Allocate loadedKeys Set only after confirming work is needed
-    const loadedKeySet = HashSet.fromIterable(Arr.map(loadedChunks, (c) => chunkKey(c.coord)))
 
     // Add meshes for newly loaded chunks not yet in scene. Meshing is a Web Worker
     // round-trip (greedy meshing runs off-thread), so we dispatch up to
@@ -115,12 +221,12 @@ export const syncChunksToScene = (
     // was guarding the wrong thing (the old comment's "meshing is mostly main-thread
     // sync work" is false on the worker path). This sync runs on the maintenance fiber,
     // not the render loop, so the parallel await never blocks rendering. The per-frame
-    // hard cap bounds the sync geometry-build + GPU-upload cost; Effect.all preserves
-    // input order, so scene-add order is unchanged. Any chunks beyond the cap drain
-    // next frame (the caller re-fires while chunkSyncPending is set).
+    // hard cap bounds the sync geometry-build + GPU-upload cost; chunk order is keyed
+    // by cache identity, so any chunks beyond the cap drain next frame (the caller
+    // re-fires while chunkSyncPending is set).
     // Mesh + add newly-streamed chunks within a WALL-CLOCK budget. Each createChunkMesh
     // builds 3 BufferGeometries on the main thread (~3 ms), so meshing the full
-    // MAX_CHUNK_UPDATES_PER_FRAME (8) in one go spiked a single frame to ~28 ms (the p90/p99
+    // the previous 8-chunk hard cap in one go spiked a single frame to ~28 ms (the p90/p99
     // stutter while walking) even though the worker meshing itself is off-thread. Process in
     // small parallel sub-batches (CHUNK_SYNC_CONCURRENCY keeps the worker pool busy) and STOP
     // once WORLD_RENDERER_TIME_BUDGET_MS is exceeded — the remainder drains next frame
@@ -128,37 +234,37 @@ export const syncChunksToScene = (
     // guarantee). Mirrors the LOD path's budget below.
     const addStartMs = nowMs()
     const newChunkHardCap = Math.min(newChunks.length, MAX_CHUNK_UPDATES_PER_FRAME)
-    const { meshMap: nextMeshesAfterAdd, processed: newProcessed } = yield* Effect.iterate(
-      { meshMap: meshes, processed: 0 },
-      {
-        while: (s) =>
-          s.processed < newChunkHardCap &&
-          (s.processed === 0 || nowMs() - addStartMs < WORLD_RENDERER_TIME_BUDGET_MS),
-        body: (s) =>
+    let nextMeshesAfterAdd = meshes
+    let newProcessed = 0
+    while (shouldContinueBudgetedChunkSync(newProcessed, newChunkHardCap, nowMs() - addStartMs)) {
+      const batchEnd = Math.min(newProcessed + CHUNK_SYNC_CONCURRENCY, newChunkHardCap)
+      const batchChunks: Array<Chunk> = []
+      for (let i = newProcessed; i < batchEnd; i++) {
+        batchChunks.push(newChunks[i]!)
+      }
+      const meshed = yield* Effect.forEach(
+        batchChunks,
+        (chunk) =>
           Effect.gen(function* () {
-            const sub = newChunks.slice(s.processed, Math.min(s.processed + CHUNK_SYNC_CONCURRENCY, newChunkHardCap))
-            const meshed = yield* Effect.all(
-              Arr.map(sub, (chunk) => {
-                const lod = lodForChunk(chunk)
-                return chunkMeshService.createChunkMesh(chunk, waterMaterial, lod).pipe(
-                  Effect.map(({ opaqueMesh, waterMesh, transparentSolidMesh }) =>
-                    [chunkKey(chunk.coord), { opaqueMesh, waterMesh, transparentSolidMesh, lod }] as const,
-                  ),
-                )
-              }),
-              { concurrency: CHUNK_SYNC_CONCURRENCY },
-            )
-            let m = s.meshMap
-            for (const [key, { opaqueMesh, waterMesh, transparentSolidMesh, lod }] of meshed) {
-              yield* sceneService.add(scene, opaqueMesh)
-              if (Option.isSome(waterMesh)) yield* sceneService.add(scene, waterMesh.value)
-              if (Option.isSome(transparentSolidMesh)) yield* sceneService.add(scene, transparentSolidMesh.value)
-              m = HashMap.set(m, key, { opaque: opaqueMesh, water: waterMesh, transparentSolid: transparentSolidMesh, lod })
-            }
-            return { meshMap: m, processed: s.processed + sub.length }
+            const lod = lodForChunk(chunk)
+            const { opaqueMesh, waterMesh, transparentSolidMesh } = yield* chunkMeshService.createChunkMesh(chunk, waterMaterial, lod)
+            return [chunkKey(chunk.coord), { opaque: opaqueMesh, water: waterMesh, transparentSolid: transparentSolidMesh, lod }] as const
           }),
-      },
-    )
+        { concurrency: CHUNK_SYNC_CONCURRENCY },
+      )
+      for (const [key, chunkMeshes] of meshed) {
+        yield* sceneService.add(scene, chunkMeshes.opaque)
+        const waterMesh = Option.getOrNull(chunkMeshes.water)
+        if (waterMesh !== null) {
+          yield* sceneService.add(scene, waterMesh)
+          nextWaterMeshes = appendTrackedMesh(nextWaterMeshes, waterMesh)
+        }
+        const transparentSolidMesh = Option.getOrNull(chunkMeshes.transparentSolid)
+        if (transparentSolidMesh !== null) yield* sceneService.add(scene, transparentSolidMesh)
+        nextMeshesAfterAdd = HashMap.set(nextMeshesAfterAdd, key, chunkMeshes)
+      }
+      newProcessed = batchEnd
+    }
     const allNewChunksMeshed = newProcessed >= newChunks.length
 
     // FR-3.1: re-mesh LOD-changed chunks in place (geometry buffers updated in
@@ -170,35 +276,38 @@ export const syncChunksToScene = (
     // frame's hysteresis check is satisfied (cm.lod is within its band) and skips the work.
     const lodStartMs = nowMs()
     const lodHardCap = Math.min(MAX_CHUNK_UPDATES_PER_FRAME, lodChangedChunks.length)
-    const { meshMap: nextMeshesAfterLod, processedLod } = yield* Effect.iterate(
-      { meshMap: nextMeshesAfterAdd, processedLod: 0 },
-      {
-        while: (s) => s.processedLod < lodHardCap && nowMs() - lodStartMs < WORLD_RENDERER_TIME_BUDGET_MS,
-        body: (s) =>
-          Effect.gen(function* () {
-            const chunk = lodChangedChunks[s.processedLod]!
-            const key = chunkKey(chunk.coord)
-            const existing = Option.getOrNull(HashMap.get(s.meshMap, key))
-            if (existing === null) {
-              // Chunk was just added above — it already has the correct LOD.
-              return { meshMap: s.meshMap, processedLod: s.processedLod + 1 }
-            }
-            const newLod = lodForChunk(chunk)
-            const { waterMesh: nextWaterMesh, transparentSolidMesh: nextTransparentSolidMesh } = yield* chunkMeshService
-              .updateChunkMesh(existing.opaque, existing.water, chunk, waterMaterial, newLod, undefined, existing.transparentSolid)
-            const updated: ChunkMeshes = {
-              opaque: existing.opaque,
-              water: nextWaterMesh,
-              transparentSolid: nextTransparentSolidMesh,
-              lod: newLod,
-            }
-            return {
-              meshMap: HashMap.set(s.meshMap, key, updated),
-              processedLod: s.processedLod + 1,
-            }
-          }),
+    let nextMeshesAfterLod = nextMeshesAfterAdd
+    let processedLod = 0
+    while (shouldContinueBudgetedChunkSync(processedLod, lodHardCap, nowMs() - lodStartMs)) {
+      const chunk = lodChangedChunks[processedLod]!
+      const key = chunkKey(chunk.coord)
+      const existing = Option.getOrNull(HashMap.get(nextMeshesAfterLod, key))
+      if (existing === null) {
+        // Chunk was just added above — it already has the correct LOD.
+        processedLod += 1
+        continue
       }
-    )
+      const newLod = lodForChunk(chunk)
+      const { waterMesh: nextWaterMesh, transparentSolidMesh: nextTransparentSolidMesh } = yield* chunkMeshService
+        .updateChunkMesh(existing.opaque, existing.water, chunk, waterMaterial, newLod, undefined, existing.transparentSolid)
+      const prevWaterMesh = Option.getOrNull(existing.water)
+      const nextWaterMeshVal = Option.getOrNull(nextWaterMesh)
+      if (prevWaterMesh === null) {
+        if (nextWaterMeshVal !== null) nextWaterMeshes = appendTrackedMesh(nextWaterMeshes, nextWaterMeshVal)
+      } else if (nextWaterMeshVal === null) {
+        nextWaterMeshes = removeTrackedMesh(nextWaterMeshes, prevWaterMesh)
+      } else if (prevWaterMesh !== nextWaterMeshVal) {
+        nextWaterMeshes = replaceTrackedMesh(nextWaterMeshes, prevWaterMesh, nextWaterMeshVal)
+      }
+      const updated: ChunkMeshes = {
+        opaque: existing.opaque,
+        water: nextWaterMesh,
+        transparentSolid: nextTransparentSolidMesh,
+        lod: newLod,
+      }
+      nextMeshesAfterLod = HashMap.set(nextMeshesAfterLod, key, updated)
+      processedLod += 1
+    }
     const allLodChunksRemeshed = processedLod >= lodChangedChunks.length
 
     // Remove meshes for chunks no longer loaded (iterate original snapshot).
@@ -208,39 +317,36 @@ export const syncChunksToScene = (
     // one frame stutters while moving. Unprocessed stale chunks stay in `meshes` and
     // are disposed next frame (steady churn ≪ the cap → no accumulation, and they are
     // just off-screen edge chunks). Mirrors the budgeted ADD path above.
-    const removalPairs = Arr.filterMap(
-      Arr.fromIterable(nextMeshesAfterLod),
-      ([key, chunkMeshes]) => HashSet.has(loadedKeySet, key) ? Option.none() : Option.some([key, chunkMeshes] as const)
-    )
-    const removalsToProcess = Arr.take(removalPairs, MAX_CHUNK_REMOVALS_PER_FRAME)
-    const allStaleRemoved = removalPairs.length <= removalsToProcess.length
+    const { removalsToProcess, allStaleRemoved } = hasPotentialStaleMeshes
+      ? collectChunkRemovalBatch(
+        nextMeshesAfterLod,
+        makeLoadedChunkKeySet(loadedChunks),
+        MAX_CHUNK_REMOVALS_PER_FRAME,
+      )
+      : { removalsToProcess: [], allStaleRemoved: true }
 
-    const removedKeys = yield* Effect.all(
-      Arr.map(removalsToProcess, ([key, chunkMeshes]) =>
-        Effect.gen(function* () {
-          const { water, transparentSolid } = chunkMeshes
-          const removeAndDispose = (m: THREE.Mesh): Effect.Effect<void, never> =>
-            Effect.gen(function* () {
-              yield* sceneService.remove(scene, m)
-              yield* Effect.sync(() => disposeMesh(m))
-            })
-          // Sequential: scene.remove + disposeMesh + cache release are sync operations
-          // on a budgeted removal path (max CHUNK_SYNC_CONCURRENCY chunks/frame).
-          yield* removeAndDispose(chunkMeshes.opaque)
-          if (Option.isSome(water)) yield* removeAndDispose(water.value)
-          if (Option.isSome(transparentSolid)) yield* removeAndDispose(transparentSolid.value)
-          const coord = chunkMeshes.opaque.userData['chunkCoord'] ?? null
-          if (coord !== null) yield* chunkMeshService.releasePrevCachedMesh(coord)
-          return key
-        })
-      ),
-      { concurrency: CHUNK_SYNC_CONCURRENCY }
-    )
+    let nextMeshes = nextMeshesAfterLod
+    for (const [key, chunkMeshes] of removalsToProcess) {
+      // Sequential: scene.remove + disposeMesh + cache release are sync operations
+      // on a budgeted removal path (max CHUNK_SYNC_CONCURRENCY chunks/frame).
+      yield* sceneService.remove(scene, chunkMeshes.opaque)
+      yield* Effect.sync(() => disposeMesh(chunkMeshes.opaque))
+      const waterMesh = Option.getOrNull(chunkMeshes.water)
+      if (waterMesh !== null) {
+        yield* sceneService.remove(scene, waterMesh)
+        yield* Effect.sync(() => disposeMesh(waterMesh))
+        nextWaterMeshes = removeTrackedMesh(nextWaterMeshes, waterMesh)
+      }
+      const transparentSolidMesh = Option.getOrNull(chunkMeshes.transparentSolid)
+      if (transparentSolidMesh !== null) {
+        yield* sceneService.remove(scene, transparentSolidMesh)
+        yield* Effect.sync(() => disposeMesh(transparentSolidMesh))
+      }
+      const coord = chunkMeshes.opaque.userData['chunkCoord'] ?? null
+      if (coord !== null) yield* chunkMeshService.releasePrevCachedMesh(coord)
+      nextMeshes = HashMap.remove(nextMeshes, key)
+    }
 
-    const nextMeshes = Arr.reduce(removedKeys, nextMeshesAfterLod, (acc, key) => HashMap.remove(acc, key))
-
-    // Rebuild stable water mesh list
-    const nextWaterMeshes = Arr.filterMap(Arr.fromIterable(HashMap.values(nextMeshes)), (cm) => cm.water)
     // Sequential: Ref.set + invalidateSceneCaches are sync state writes
     yield* Ref.set(meshesRef, nextMeshes)
     yield* Ref.set(waterMeshesRef, nextWaterMeshes)

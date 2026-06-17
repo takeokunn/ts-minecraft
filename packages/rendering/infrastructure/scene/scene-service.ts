@@ -14,4 +14,3 @@ export class SceneService extends Effect.Service<SceneService>()(
     },
   }
 ) {}
-export const SceneServiceLive = SceneService.Default

@@ -1,9 +1,13 @@
 export * from './domain/biome'
 export * from './domain/biome-classifier'
+export * from './domain/biome-chunk'
+export * from './domain/biome-service-helpers'
 export * from './domain/biome-generator-port'
 export * from './domain/chunk'
 export * from './domain/chunk-aabb'
 export * from './domain/errors'
+export * from './domain/block-service-ports'
+export * from './domain/block-support'
 export * from './domain/noise-service-port'
 export * from './domain/storage-service-port'
 export * from './domain/world-metadata-model'
@@ -11,6 +15,7 @@ export * from './domain/chunk-coord-utils'
 export * from './domain/spline'
 export * from './domain/terrain-splines'
 export * from './domain/density-function'
+export * from './domain/light-engine-helpers'
 export * from './domain/terrain/cave-carver'
 export * from './domain/terrain/constants'
 export * from './domain/terrain/generator'
@@ -28,9 +33,10 @@ export * from './domain/terrain/tree-placer'
 export * from './application/chunk-service'
 export * from './application/biome-service.config'
 export * from './application/biome-service'
+export * from './application/biome-service-ops'
 export * from './application/block-service.config'
 export * from './application/block-service'
-export { canHarvestBlock, isEffectiveTool } from './application/block-utils'
+export { canHarvestBlock, isEffectiveTool, worldToBlockLocal, blockOverlapsPlayer } from './domain/block-utils'
 export * from './application/chunk-manager-service'
 export * from './application/fluid-service'
 export * from './application/light-engine-service'
@@ -39,7 +45,9 @@ export * from './application/terrain-generation'
 export * from './infrastructure/primitives'
 export * from '@ts-minecraft/block'
 export * from './domain/crop-growth'
+export * from './domain/grass-spread'
 export * from './application/crop-growth-service'
+export * from './application/crop-growth-maintenance'
 export * from './application/environment-service'
 export * from './application/nether-service'
 export {
@@ -47,11 +55,5 @@ export {
   WorldMetadataSchema,
   ChunkStorageKey,
   StorageService,
-  StorageServiceLive,
   type WorldMetadata,
 } from './infrastructure/storage-service'
-export {
-  TerrainGenerationError,
-  TerrainWorkerPoolPort,
-  TerrainWorkerPoolPortLayer,
-} from '@ts-minecraft/worker'

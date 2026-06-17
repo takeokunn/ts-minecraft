@@ -1,5 +1,5 @@
 // @effect-boundary - infrastructure worker protocol boundary operations
-import { Array as Arr, MutableRef, Schema } from "effect";
+import { MutableRef, Schema } from "effect";
 import { MeshedChunkSchema, type MeshedChunk } from '@ts-minecraft/rendering/infrastructure/meshing/greedy-meshing-types'
 
 export const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -100,9 +100,9 @@ export const rejectAllPendingRequests = (
   error: unknown,
 ): void => {
   const pending = MutableRef.get(pendingRef)
-  Arr.forEach(Arr.fromIterable(pending.values()), (req) => {
+  for (const req of pending.values()) {
     req.reject(error)
-  })
+  }
   pending.clear()
 }
 

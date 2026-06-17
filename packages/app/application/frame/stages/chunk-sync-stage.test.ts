@@ -2,6 +2,7 @@ import { describe, it } from '@effect/vitest'
 import { expect, vi } from 'vitest'
 import { Array as Arr, Effect, MutableRef, Option } from 'effect'
 import { createFrameHandlers } from '@ts-minecraft/app'
+import { MAX_DIRTY_CHUNK_UPDATES_PER_FRAME } from '@ts-minecraft/app/frame-handler.config'
 import type { DeltaTimeSecs } from '@ts-minecraft/core'
 import {
   makeDeps,
@@ -10,7 +11,7 @@ import {
   makeServices,
   makeSettingsOverlay,
   runFrame,
-} from '@test/frame-handler-test-kit'
+} from '../../../test/frame-handler-test-kit'
 
 // ---------------------------------------------------------------------------
 // Step 1: Chunk streaming
@@ -134,7 +135,7 @@ describe('step 1 — chunk streaming', () => {
     yield* handler(0.016 as DeltaTimeSecs)
     yield* handler(0.016 as DeltaTimeSecs)
 
-    expect(spy).toHaveBeenCalledTimes(2)
+    expect(spy).toHaveBeenCalledOnce()
   }))
 
   it.effect('preserves dirty chunk updates added while maintenance requeues remaining work', () => Effect.gen(function* () {
@@ -191,7 +192,7 @@ describe('step 1 — chunk streaming', () => {
     yield* maintenanceHandler()
     yield* maintenanceHandler()
 
-    expect(MutableRef.get(updateCountRef)).toBe(6)
+    expect(MutableRef.get(updateCountRef)).toBe(Math.min(queuedTargets.length + 1, MAX_DIRTY_CHUNK_UPDATES_PER_FRAME * 2))
   }))
 
 })

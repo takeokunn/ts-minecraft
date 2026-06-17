@@ -1,7 +1,7 @@
 import { Array as Arr, Option } from 'effect'
 import type { InventoryItem } from '@ts-minecraft/core'
 import { ItemStack, createStack, addToStack, removeFromStack } from '../domain/item-stack'
-import type { InventorySlot, InventorySlots } from './inventory-service'
+import type { InventorySlot, InventorySlots } from './inventory-service-types'
 
 // Pure: fills existing partial stacks of the same item type, returns [updatedSlots, remainingCount]
 export const fillExistingStacks = (

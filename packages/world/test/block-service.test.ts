@@ -1,23 +1,24 @@
 import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
-import { Array as Arr, Effect, Either, Layer, Option } from 'effect'
-import { BlockService, BlockServiceLive, blockOverlapsPlayer, worldToBlockLocal } from '@ts-minecraft/world'
+import { Array as Arr, Effect, Either, HashMap, Layer, Option } from 'effect'
+import { BlockService, blockOverlapsPlayer, worldToBlockLocal } from '@ts-minecraft/world'
 import { ChunkManagerService } from '@ts-minecraft/world'
-import { ChunkServiceLive } from '@ts-minecraft/world/application/chunk-service'
+import { ChunkService } from '@ts-minecraft/world/application/chunk-service'
 import { FluidService } from '@ts-minecraft/world'
 import { PlayerService } from '@ts-minecraft/entity'
 import { InventoryService, InventoryError } from '@ts-minecraft/inventory'
 import { HotbarService } from '@ts-minecraft/inventory'
-import { FurnaceService } from '@ts-minecraft/inventory'
-import { CHUNK_SIZE, CHUNK_HEIGHT, blockTypeToIndex, Position, SlotIndex } from '@ts-minecraft/core'
-import type { BlockType } from '@ts-minecraft/core'
+import { ChestService, FurnaceService } from '@ts-minecraft/inventory'
+import { blockTypeToIndex, indexToBlockType, isValidBlockIndex, Position, SlotIndex } from '@ts-minecraft/core'
+import type { BlockType, InventoryItem } from '@ts-minecraft/core'
+import { makeChunkBlockBuffer } from './chunk-buffer-test-utils'
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
 const makeBlocks = (overrides: Array<{ idx: number; type: BlockType }> = []): Uint8Array<ArrayBufferLike> => {
-  const blocks = new Uint8Array(CHUNK_SIZE * CHUNK_SIZE * CHUNK_HEIGHT)
+  const blocks = makeChunkBlockBuffer()
   Arr.forEach(overrides, ({ idx, type }) => {
     blocks[idx] = blockTypeToIndex(type)
   })
@@ -26,6 +27,7 @@ const makeBlocks = (overrides: Array<{ idx: number; type: BlockType }> = []): Ui
 
 // Block index for local (lx=0, y=64, lz=0): y + z*CHUNK_HEIGHT + x*CHUNK_HEIGHT*CHUNK_SIZE = 64
 const BLOCK_IDX_64 = 64
+const BLOCK_IDX_65 = 65
 
 const makeChunk = (blockType: BlockType = 'AIR', localIdx = BLOCK_IDX_64) =>
   ({
@@ -33,6 +35,12 @@ const makeChunk = (blockType: BlockType = 'AIR', localIdx = BLOCK_IDX_64) =>
     blocks: makeBlocks(blockType !== 'AIR' ? [{ idx: localIdx, type: blockType }] : []),
     fluid: Option.none(),
   })
+
+const blockAt = (chunk: ReturnType<typeof makeChunk>, idx: number): BlockType => {
+  const blockId = chunk.blocks[idx]
+  if (!isValidBlockIndex(blockId)) throw new Error(`Invalid test block id: ${String(blockId)}`)
+  return indexToBlockType(blockId)
+}
 
 const noopFluidService = Layer.succeed(FluidService, {
   _tag: '@minecraft/application/FluidService' as const,
@@ -68,11 +76,13 @@ const makePlayerLayer = (pos: Position = { x: 100, y: 100, z: 100 }) =>
   } as unknown as PlayerService)
 
 const makeInventoryLayer = (opts: {
+  addBlock?: (itemType: InventoryItem, count: number) => Effect.Effect<void, InventoryError>
   removeBlockFails?: boolean
 } = {}) =>
   Layer.succeed(InventoryService, {
     _tag: '@minecraft/application/InventoryService' as const,
-    addBlock: () => Effect.void,
+    addBlock: (itemType: InventoryItem, count: number) =>
+      opts.addBlock ? opts.addBlock(itemType, count) : Effect.void,
     removeBlock: (_blockType: BlockType) => opts.removeBlockFails
       ? Effect.fail(new InventoryError({ operation: 'removeBlock', cause: `No ${_blockType} available` }))
       : Effect.void,
@@ -111,21 +121,52 @@ const makeFurnaceLayer = (opts: {
     deserialize: () => Effect.void,
   } as unknown as FurnaceService)
 
-const buildLayer = (opts: {
-  blockAtIdx?: BlockType
-  selectedTool?: Option.Option<BlockType>
-  playerPos?: Position
-  removeBlockFails?: boolean
+
+const makeChestLayer = (opts: {
   dismantleResult?: boolean
 } = {}) =>
-  BlockServiceLive.pipe(
-    Layer.provide(makeChunkManagerLayer({ chunk: makeChunk(opts.blockAtIdx ?? 'STONE') })),
-    Layer.provide(ChunkServiceLive),
+  Layer.succeed(ChestService, ChestService.of({
+    _tag: '@minecraft/application/ChestService' as const,
+    getState: () => Effect.succeed({ chests: HashMap.empty(), selectedChestPosition: Option.none() }),
+    getNearestChestState: () => Effect.succeed(Option.none()),
+    hasNearbyChest: () => Effect.succeed(false),
+    setSelectedChest: () => Effect.void,
+    moveInventoryStackToChestSlot: () => Effect.void,
+    moveChestStackToInventorySlot: () => Effect.void,
+    quickMoveInventoryToChest: () => Effect.void,
+    quickMoveChestToInventory: () => Effect.void,
+    clearChest: () => Effect.succeed([]),
+    dismantleChest: () => Effect.succeed(opts.dismantleResult ?? true),
+    serialize: () => Effect.succeed([]),
+    deserialize: () => Effect.void,
+  }))
+
+const buildLayer = (opts: {
+  blockAtIdx?: BlockType
+  chunk?: ReturnType<typeof makeChunk>
+  selectedTool?: Option.Option<BlockType>
+  playerPos?: Position
+  addBlock?: (itemType: InventoryItem, count: number) => Effect.Effect<void, InventoryError>
+  removeBlockFails?: boolean
+  dismantleResult?: boolean
+  chestDismantleResult?: boolean
+} = {}) =>
+  BlockService.Default.pipe(
+    Layer.provide(makeChunkManagerLayer({ chunk: opts.chunk ?? makeChunk(opts.blockAtIdx ?? 'STONE') })),
+    Layer.provide(ChunkService.Default),
     Layer.provide(noopFluidService),
     Layer.provide(makePlayerLayer(opts.playerPos)),
-    Layer.provide(makeInventoryLayer(opts.removeBlockFails === undefined ? {} : { removeBlockFails: opts.removeBlockFails })),
+    Layer.provide(makeInventoryLayer({
+      ...(opts.addBlock === undefined ? {} : { addBlock: opts.addBlock }),
+      ...(opts.removeBlockFails === undefined ? {} : { removeBlockFails: opts.removeBlockFails }),
+    })),
     Layer.provide(makeHotbarLayer(opts.selectedTool)),
     Layer.provide(makeFurnaceLayer(opts.dismantleResult === undefined ? {} : { dismantleResult: opts.dismantleResult })),
+    Layer.provide(
+      makeChestLayer(
+        opts.chestDismantleResult === undefined ? {} : { dismantleResult: opts.chestDismantleResult },
+      ),
+    ),
   )
 
 // ---------------------------------------------------------------------------
@@ -172,15 +213,16 @@ describe('terrain/application/block-service breakBlock harvest logic', () => {
     // DIRT is NOT in IRON set → returns true → shouldDrop = true
     // DIRT is NOT in REQUIRES_PICKAXE_BLOCKS → breakBlock proceeds.
     const chunk = makeChunk('DIRT', BLOCK_IDX_64)
-    const layer = BlockServiceLive.pipe(
+    const layer = BlockService.Default.pipe(
       Layer.provide(makeChunkManagerLayer({ chunk })),
-      Layer.provide(ChunkServiceLive),
+      Layer.provide(ChunkService.Default),
       Layer.provide(noopFluidService),
       Layer.provide(makePlayerLayer()),
       Layer.provide(makeInventoryLayer()),
       // 'DIRT' is not a pickaxe so it falls through to line 40
       Layer.provide(makeHotbarLayer(Option.some('DIRT' as BlockType))),
       Layer.provide(makeFurnaceLayer()),
+      Layer.provide(makeChestLayer()),
     )
     return Effect.gen(function* () {
       const svc = yield* BlockService
@@ -193,14 +235,15 @@ describe('terrain/application/block-service breakBlock harvest logic', () => {
     // IRON_ORE ∈ REQUIRES_PICKAXE_BLOCKS, and a non-pickaxe tool ('DIRT') gives
     // shouldDrop = false → breakBlock rejects with "requires a stronger pickaxe".
     const chunk = makeChunk('IRON_ORE', BLOCK_IDX_64)
-    const layer = BlockServiceLive.pipe(
+    const layer = BlockService.Default.pipe(
       Layer.provide(makeChunkManagerLayer({ chunk })),
-      Layer.provide(ChunkServiceLive),
+      Layer.provide(ChunkService.Default),
       Layer.provide(noopFluidService),
       Layer.provide(makePlayerLayer()),
       Layer.provide(makeInventoryLayer()),
       Layer.provide(makeHotbarLayer(Option.some('DIRT' as BlockType))),
       Layer.provide(makeFurnaceLayer()),
+      Layer.provide(makeChestLayer()),
     )
     return Effect.gen(function* () {
       const svc = yield* BlockService
@@ -272,6 +315,36 @@ describe('terrain/application/block-service breakBlock harvest logic', () => {
     }).pipe(Effect.provide(layer))
   })
 
+  it.effect('breakBlock does not drop tall grass itself on a normal break', () => {
+    const added: Array<{ readonly itemType: InventoryItem; readonly count: number }> = []
+    const layer = buildLayer({
+      blockAtIdx: 'TALL_GRASS',
+      addBlock: (itemType, count) => Effect.sync(() => {
+        added.push({ itemType, count })
+      }),
+    })
+    return Effect.gen(function* () {
+      const result = yield* Effect.either((yield* BlockService).breakBlock({ x: 0, y: 64, z: 0 }))
+      expect(Either.isRight(result)).toBe(true)
+      expect(added).toEqual([])
+    }).pipe(Effect.provide(layer))
+  })
+
+  it.effect('breakBlock drops fern itself when silkTouch is true', () => {
+    const added: Array<{ readonly itemType: InventoryItem; readonly count: number }> = []
+    const layer = buildLayer({
+      blockAtIdx: 'FERN',
+      addBlock: (itemType, count) => Effect.sync(() => {
+        added.push({ itemType, count })
+      }),
+    })
+    return Effect.gen(function* () {
+      const result = yield* Effect.either((yield* BlockService).breakBlock({ x: 0, y: 64, z: 0 }, true))
+      expect(Either.isRight(result)).toBe(true)
+      expect(added).toEqual([{ itemType: 'FERN', count: 1 }])
+    }).pipe(Effect.provide(layer))
+  })
+
   // OBSIDIAN is the only DIAMOND-tier-exclusive block (in the diamond set but not
   // the iron set). It must require a DIAMOND pickaxe: bare hand, a non-pickaxe
   // tool, and even an IRON pickaxe must all be rejected. (Regression: the
@@ -309,6 +382,476 @@ describe('terrain/application/block-service breakBlock harvest logic', () => {
       expect(Either.isRight(result)).toBe(true)
     }).pipe(Effect.provide(layer))
   })
+
+  it.effect('breakBlock can bypass harvest checks and drops for creative-style breaks', () => {
+    const added: Array<{ readonly itemType: InventoryItem; readonly count: number }> = []
+    const chunk = makeChunk('OBSIDIAN', BLOCK_IDX_64)
+    const layer = buildLayer({
+      chunk,
+      selectedTool: Option.none(),
+      addBlock: (itemType, count) => Effect.sync(() => {
+        added.push({ itemType, count })
+      }),
+    })
+    return Effect.gen(function* () {
+      const result = yield* Effect.either((yield* BlockService).breakBlock(
+        { x: 0, y: 64, z: 0 },
+        false,
+        { requireHarvest: false, dropItems: false },
+      ))
+      expect(Either.isRight(result)).toBe(true)
+      expect(blockAt(chunk, BLOCK_IDX_64)).toBe('AIR')
+      expect(added).toEqual([])
+    }).pipe(Effect.provide(layer))
+  })
+})
+
+// ---------------------------------------------------------------------------
+// placeBlock / breakBlock — vertical DOOR handling
+// ---------------------------------------------------------------------------
+
+describe('terrain/application/block-service vertical DOOR handling', () => {
+  it.effect('placeBlock creates lower and upper DOOR blocks while consuming one item', () => {
+    const chunk = makeChunk('AIR')
+    const layer = buildLayer({ chunk })
+    return Effect.gen(function* () {
+      const svc = yield* BlockService
+      const result = yield* Effect.either(svc.placeBlock({ x: 0, y: 64, z: 0 }, 'DOOR'))
+
+      expect(Either.isRight(result)).toBe(true)
+      expect(blockAt(chunk, BLOCK_IDX_64)).toBe('DOOR')
+      expect(blockAt(chunk, BLOCK_IDX_65)).toBe('DOOR')
+    }).pipe(Effect.provide(layer))
+  })
+
+  it.effect('placeBlock refuses a DOOR when the upper block is occupied', () => {
+    const chunk = { ...makeChunk('AIR'), blocks: makeBlocks([{ idx: BLOCK_IDX_65, type: 'STONE' }]) }
+    const layer = buildLayer({ chunk })
+    return Effect.gen(function* () {
+      const svc = yield* BlockService
+      const result = yield* Effect.either(svc.placeBlock({ x: 0, y: 64, z: 0 }, 'DOOR'))
+
+      expect(Either.isLeft(result)).toBe(true)
+      expect(blockAt(chunk, BLOCK_IDX_64)).toBe('AIR')
+      expect(blockAt(chunk, BLOCK_IDX_65)).toBe('STONE')
+    }).pipe(Effect.provide(layer))
+  })
+
+  it.effect('placeBlock rolls back both DOOR blocks when inventory removal fails', () => {
+    const chunk = makeChunk('AIR')
+    const layer = buildLayer({ chunk, removeBlockFails: true })
+    return Effect.gen(function* () {
+      const svc = yield* BlockService
+      const result = yield* Effect.either(svc.placeBlock({ x: 0, y: 64, z: 0 }, 'DOOR'))
+
+      expect(Either.isLeft(result)).toBe(true)
+      expect(blockAt(chunk, BLOCK_IDX_64)).toBe('AIR')
+      expect(blockAt(chunk, BLOCK_IDX_65)).toBe('AIR')
+    }).pipe(Effect.provide(layer))
+  })
+
+  it.effect('breakBlock removes both halves of a matching DOOR', () => {
+    const chunk = { ...makeChunk('AIR'), blocks: makeBlocks([{ idx: BLOCK_IDX_64, type: 'DOOR' }, { idx: BLOCK_IDX_65, type: 'DOOR' }]) }
+    const layer = buildLayer({ chunk })
+    return Effect.gen(function* () {
+      const svc = yield* BlockService
+      const result = yield* Effect.either(svc.breakBlock({ x: 0, y: 64, z: 0 }))
+
+      expect(Either.isRight(result)).toBe(true)
+      expect(blockAt(chunk, BLOCK_IDX_64)).toBe('AIR')
+      expect(blockAt(chunk, BLOCK_IDX_65)).toBe('AIR')
+    }).pipe(Effect.provide(layer))
+  })
+})
+
+// ---------------------------------------------------------------------------
+// support-sensitive blocks
+// ---------------------------------------------------------------------------
+
+describe('terrain/application/block-service support updates', () => {
+  it.effect('breakBlock removes a torch when its support block is broken', () => {
+    const chunk = {
+      ...makeChunk('AIR'),
+      blocks: makeBlocks([
+        { idx: BLOCK_IDX_64, type: 'DIRT' },
+        { idx: BLOCK_IDX_65, type: 'TORCH' },
+      ]),
+    }
+    const layer = buildLayer({ chunk })
+    return Effect.gen(function* () {
+      const svc = yield* BlockService
+      const result = yield* Effect.either(svc.breakBlock({ x: 0, y: 64, z: 0 }))
+
+      expect(Either.isRight(result)).toBe(true)
+      expect(blockAt(chunk, BLOCK_IDX_64)).toBe('AIR')
+      expect(blockAt(chunk, BLOCK_IDX_65)).toBe('AIR')
+    }).pipe(Effect.provide(layer))
+  })
+
+  it.effect('breakBlock removes wheat crop when farmland support is broken', () => {
+    const chunk = {
+      ...makeChunk('AIR'),
+      blocks: makeBlocks([
+        { idx: BLOCK_IDX_64, type: 'FARMLAND' },
+        { idx: BLOCK_IDX_65, type: 'WHEAT_CROP' },
+      ]),
+    }
+    const layer = buildLayer({ chunk })
+    return Effect.gen(function* () {
+      const svc = yield* BlockService
+      const result = yield* Effect.either(svc.breakBlock({ x: 0, y: 64, z: 0 }))
+
+      expect(Either.isRight(result)).toBe(true)
+      expect(blockAt(chunk, BLOCK_IDX_64)).toBe('AIR')
+      expect(blockAt(chunk, BLOCK_IDX_65)).toBe('AIR')
+    }).pipe(Effect.provide(layer))
+  })
+
+  it.effect('breakBlock removes sapling when dirt support is broken', () => {
+    const chunk = {
+      ...makeChunk('AIR'),
+      blocks: makeBlocks([
+        { idx: BLOCK_IDX_64, type: 'DIRT' },
+        { idx: BLOCK_IDX_65, type: 'SAPLING' },
+      ]),
+    }
+    const layer = buildLayer({ chunk })
+    return Effect.gen(function* () {
+      const svc = yield* BlockService
+      const result = yield* Effect.either(svc.breakBlock({ x: 0, y: 64, z: 0 }))
+
+      expect(Either.isRight(result)).toBe(true)
+      expect(blockAt(chunk, BLOCK_IDX_64)).toBe('AIR')
+      expect(blockAt(chunk, BLOCK_IDX_65)).toBe('AIR')
+    }).pipe(Effect.provide(layer))
+  })
+
+  it.effect('breakBlock removes flower when dirt support is broken', () => {
+    const chunk = {
+      ...makeChunk('AIR'),
+      blocks: makeBlocks([
+        { idx: BLOCK_IDX_64, type: 'DIRT' },
+        { idx: BLOCK_IDX_65, type: 'DANDELION' },
+      ]),
+    }
+    const layer = buildLayer({ chunk })
+    return Effect.gen(function* () {
+      const svc = yield* BlockService
+      const result = yield* Effect.either(svc.breakBlock({ x: 0, y: 64, z: 0 }))
+
+      expect(Either.isRight(result)).toBe(true)
+      expect(blockAt(chunk, BLOCK_IDX_64)).toBe('AIR')
+      expect(blockAt(chunk, BLOCK_IDX_65)).toBe('AIR')
+    }).pipe(Effect.provide(layer))
+  })
+
+  it.effect('breakBlock removes tall grass when dirt support is broken', () => {
+    const chunk = {
+      ...makeChunk('AIR'),
+      blocks: makeBlocks([
+        { idx: BLOCK_IDX_64, type: 'DIRT' },
+        { idx: BLOCK_IDX_65, type: 'TALL_GRASS' },
+      ]),
+    }
+    const layer = buildLayer({ chunk })
+    return Effect.gen(function* () {
+      const svc = yield* BlockService
+      const result = yield* Effect.either(svc.breakBlock({ x: 0, y: 64, z: 0 }))
+
+      expect(Either.isRight(result)).toBe(true)
+      expect(blockAt(chunk, BLOCK_IDX_64)).toBe('AIR')
+      expect(blockAt(chunk, BLOCK_IDX_65)).toBe('AIR')
+    }).pipe(Effect.provide(layer))
+  })
+
+  it.effect('placeBlock rejects torch placement without support below', () => {
+    const chunk = makeChunk('AIR')
+    const layer = buildLayer({ chunk })
+    return Effect.gen(function* () {
+      const svc = yield* BlockService
+      const result = yield* Effect.either(svc.placeBlock({ x: 0, y: 64, z: 0 }, 'TORCH'))
+
+      expect(Either.isLeft(result)).toBe(true)
+      expect(blockAt(chunk, BLOCK_IDX_64)).toBe('AIR')
+    }).pipe(Effect.provide(layer))
+  })
+
+  it.effect('placeBlock allows torch placement on a solid support block', () => {
+    const chunk = {
+      ...makeChunk('AIR'),
+      blocks: makeBlocks([{ idx: 63, type: 'DIRT' }]),
+    }
+    const layer = buildLayer({ chunk })
+    return Effect.gen(function* () {
+      const svc = yield* BlockService
+      const result = yield* Effect.either(svc.placeBlock({ x: 0, y: 64, z: 0 }, 'TORCH'))
+
+      expect(Either.isRight(result)).toBe(true)
+      expect(blockAt(chunk, BLOCK_IDX_64)).toBe('TORCH')
+    }).pipe(Effect.provide(layer))
+  })
+
+  it.effect('placeBlock rejects sapling placement without plantable support below', () => {
+    const chunk = makeChunk('AIR')
+    const layer = buildLayer({ chunk })
+    return Effect.gen(function* () {
+      const svc = yield* BlockService
+      const result = yield* Effect.either(svc.placeBlock({ x: 0, y: 64, z: 0 }, 'SAPLING'))
+
+      expect(Either.isLeft(result)).toBe(true)
+      expect(blockAt(chunk, BLOCK_IDX_64)).toBe('AIR')
+    }).pipe(Effect.provide(layer))
+  })
+
+  it.effect('placeBlock rejects mushroom placement without plantable support below', () => {
+    const chunk = makeChunk('AIR')
+    const layer = buildLayer({ chunk })
+    return Effect.gen(function* () {
+      const svc = yield* BlockService
+      const result = yield* Effect.either(svc.placeBlock({ x: 0, y: 64, z: 0 }, 'BROWN_MUSHROOM'))
+
+      expect(Either.isLeft(result)).toBe(true)
+      expect(blockAt(chunk, BLOCK_IDX_64)).toBe('AIR')
+    }).pipe(Effect.provide(layer))
+  })
+
+  it.effect('placeBlock allows sapling placement on a dirt support block', () => {
+    const chunk = {
+      ...makeChunk('AIR'),
+      blocks: makeBlocks([{ idx: 63, type: 'DIRT' }]),
+    }
+    const layer = buildLayer({ chunk })
+    return Effect.gen(function* () {
+      const svc = yield* BlockService
+      const result = yield* Effect.either(svc.placeBlock({ x: 0, y: 64, z: 0 }, 'SAPLING'))
+
+      expect(Either.isRight(result)).toBe(true)
+      expect(blockAt(chunk, BLOCK_IDX_64)).toBe('SAPLING')
+    }).pipe(Effect.provide(layer))
+  })
+
+  it.effect('placeBlock allows flower placement on a dirt support block', () => {
+    const chunk = {
+      ...makeChunk('AIR'),
+      blocks: makeBlocks([{ idx: 63, type: 'DIRT' }]),
+    }
+    const layer = buildLayer({ chunk })
+    return Effect.gen(function* () {
+      const svc = yield* BlockService
+      const result = yield* Effect.either(svc.placeBlock({ x: 0, y: 64, z: 0 }, 'POPPY'))
+
+      expect(Either.isRight(result)).toBe(true)
+      expect(blockAt(chunk, BLOCK_IDX_64)).toBe('POPPY')
+    }).pipe(Effect.provide(layer))
+  })
+
+  it.effect('placeBlock allows fern placement on a dirt support block', () => {
+    const chunk = {
+      ...makeChunk('AIR'),
+      blocks: makeBlocks([{ idx: 63, type: 'DIRT' }]),
+    }
+    const layer = buildLayer({ chunk })
+    return Effect.gen(function* () {
+      const svc = yield* BlockService
+      const result = yield* Effect.either(svc.placeBlock({ x: 0, y: 64, z: 0 }, 'FERN'))
+
+      expect(Either.isRight(result)).toBe(true)
+      expect(blockAt(chunk, BLOCK_IDX_64)).toBe('FERN')
+    }).pipe(Effect.provide(layer))
+  })
+
+  it.effect('placeBlock allows sugar cane on sand support', () => {
+    const chunk = {
+      ...makeChunk('AIR'),
+      blocks: makeBlocks([{ idx: 63, type: 'SAND' }]),
+    }
+    const layer = buildLayer({ chunk })
+    return Effect.gen(function* () {
+      const svc = yield* BlockService
+      const result = yield* Effect.either(svc.placeBlock({ x: 0, y: 64, z: 0 }, 'SUGAR_CANE'))
+
+      expect(Either.isRight(result)).toBe(true)
+      expect(blockAt(chunk, BLOCK_IDX_64)).toBe('SUGAR_CANE')
+    }).pipe(Effect.provide(layer))
+  })
+
+  it.effect('placeBlock allows stacked sugar cane support', () => {
+    const chunk = {
+      ...makeChunk('AIR'),
+      blocks: makeBlocks([{ idx: 63, type: 'SUGAR_CANE' }]),
+    }
+    const layer = buildLayer({ chunk })
+    return Effect.gen(function* () {
+      const svc = yield* BlockService
+      const result = yield* Effect.either(svc.placeBlock({ x: 0, y: 64, z: 0 }, 'SUGAR_CANE'))
+
+      expect(Either.isRight(result)).toBe(true)
+      expect(blockAt(chunk, BLOCK_IDX_64)).toBe('SUGAR_CANE')
+    }).pipe(Effect.provide(layer))
+  })
+
+  it.effect('placeBlock rejects sugar cane placement without support below', () => {
+    const chunk = makeChunk('AIR')
+    const layer = buildLayer({ chunk })
+    return Effect.gen(function* () {
+      const svc = yield* BlockService
+      const result = yield* Effect.either(svc.placeBlock({ x: 0, y: 64, z: 0 }, 'SUGAR_CANE'))
+
+      expect(Either.isLeft(result)).toBe(true)
+      expect(blockAt(chunk, BLOCK_IDX_64)).toBe('AIR')
+    }).pipe(Effect.provide(layer))
+  })
+
+  it.effect('placeBlock allows cactus on sand support', () => {
+    const chunk = {
+      ...makeChunk('AIR'),
+      blocks: makeBlocks([{ idx: 63, type: 'SAND' }]),
+    }
+    const layer = buildLayer({ chunk })
+    return Effect.gen(function* () {
+      const svc = yield* BlockService
+      const result = yield* Effect.either(svc.placeBlock({ x: 0, y: 64, z: 0 }, 'CACTUS'))
+
+      expect(Either.isRight(result)).toBe(true)
+      expect(blockAt(chunk, BLOCK_IDX_64)).toBe('CACTUS')
+    }).pipe(Effect.provide(layer))
+  })
+
+  it.effect('placeBlock allows stacked cactus support', () => {
+    const chunk = {
+      ...makeChunk('AIR'),
+      blocks: makeBlocks([{ idx: 63, type: 'CACTUS' }]),
+    }
+    const layer = buildLayer({ chunk })
+    return Effect.gen(function* () {
+      const svc = yield* BlockService
+      const result = yield* Effect.either(svc.placeBlock({ x: 0, y: 64, z: 0 }, 'CACTUS'))
+
+      expect(Either.isRight(result)).toBe(true)
+      expect(blockAt(chunk, BLOCK_IDX_64)).toBe('CACTUS')
+    }).pipe(Effect.provide(layer))
+  })
+
+  it.effect('placeBlock rejects cactus placement on dirt support', () => {
+    const chunk = {
+      ...makeChunk('AIR'),
+      blocks: makeBlocks([{ idx: 63, type: 'DIRT' }]),
+    }
+    const layer = buildLayer({ chunk })
+    return Effect.gen(function* () {
+      const svc = yield* BlockService
+      const result = yield* Effect.either(svc.placeBlock({ x: 0, y: 64, z: 0 }, 'CACTUS'))
+
+      expect(Either.isLeft(result)).toBe(true)
+      expect(blockAt(chunk, BLOCK_IDX_64)).toBe('AIR')
+    }).pipe(Effect.provide(layer))
+  })
+
+  it.effect('placeBlock allows lily pad on water support', () => {
+    const chunk = {
+      ...makeChunk('AIR'),
+      blocks: makeBlocks([{ idx: 63, type: 'WATER' }]),
+    }
+    const layer = buildLayer({ chunk })
+    return Effect.gen(function* () {
+      const svc = yield* BlockService
+      const result = yield* Effect.either(svc.placeBlock({ x: 0, y: 64, z: 0 }, 'LILY_PAD'))
+
+      expect(Either.isRight(result)).toBe(true)
+      expect(blockAt(chunk, BLOCK_IDX_64)).toBe('LILY_PAD')
+    }).pipe(Effect.provide(layer))
+  })
+
+  it.effect('placeBlock rejects lily pad placement without water support', () => {
+    const chunk = {
+      ...makeChunk('AIR'),
+      blocks: makeBlocks([{ idx: 63, type: 'DIRT' }]),
+    }
+    const layer = buildLayer({ chunk })
+    return Effect.gen(function* () {
+      const svc = yield* BlockService
+      const result = yield* Effect.either(svc.placeBlock({ x: 0, y: 64, z: 0 }, 'LILY_PAD'))
+
+      expect(Either.isLeft(result)).toBe(true)
+      expect(blockAt(chunk, BLOCK_IDX_64)).toBe('AIR')
+    }).pipe(Effect.provide(layer))
+  })
+
+  it.effect('breakBlock removes sugar cane when sand support is broken', () => {
+    const chunk = {
+      ...makeChunk('AIR'),
+      blocks: makeBlocks([
+        { idx: BLOCK_IDX_64, type: 'SAND' },
+        { idx: BLOCK_IDX_65, type: 'SUGAR_CANE' },
+      ]),
+    }
+    const layer = buildLayer({ chunk })
+    return Effect.gen(function* () {
+      const svc = yield* BlockService
+      const result = yield* Effect.either(svc.breakBlock({ x: 0, y: 64, z: 0 }))
+
+      expect(Either.isRight(result)).toBe(true)
+      expect(blockAt(chunk, BLOCK_IDX_64)).toBe('AIR')
+      expect(blockAt(chunk, BLOCK_IDX_65)).toBe('AIR')
+    }).pipe(Effect.provide(layer))
+  })
+
+  it.effect('breakBlock removes cactus when sand support is broken', () => {
+    const chunk = {
+      ...makeChunk('AIR'),
+      blocks: makeBlocks([
+        { idx: BLOCK_IDX_64, type: 'SAND' },
+        { idx: BLOCK_IDX_65, type: 'CACTUS' },
+      ]),
+    }
+    const layer = buildLayer({ chunk })
+    return Effect.gen(function* () {
+      const svc = yield* BlockService
+      const result = yield* Effect.either(svc.breakBlock({ x: 0, y: 64, z: 0 }))
+
+      expect(Either.isRight(result)).toBe(true)
+      expect(blockAt(chunk, BLOCK_IDX_64)).toBe('AIR')
+      expect(blockAt(chunk, BLOCK_IDX_65)).toBe('AIR')
+    }).pipe(Effect.provide(layer))
+  })
+
+  it.effect('forceSetBlock clears lily pad after water support is removed', () => {
+    const chunk = {
+      ...makeChunk('AIR'),
+      blocks: makeBlocks([
+        { idx: BLOCK_IDX_64, type: 'WATER' },
+        { idx: BLOCK_IDX_65, type: 'LILY_PAD' },
+      ]),
+    }
+    const layer = buildLayer({ chunk })
+    return Effect.gen(function* () {
+      const svc = yield* BlockService
+      const result = yield* Effect.either(svc.forceSetBlock({ x: 0, y: 64, z: 0 }, 'AIR'))
+
+      expect(Either.isRight(result)).toBe(true)
+      expect(blockAt(chunk, BLOCK_IDX_64)).toBe('AIR')
+      expect(blockAt(chunk, BLOCK_IDX_65)).toBe('AIR')
+    }).pipe(Effect.provide(layer))
+  })
+
+  it.effect('forceSetBlock clears unsupported torch after removing its support', () => {
+    const chunk = {
+      ...makeChunk('AIR'),
+      blocks: makeBlocks([
+        { idx: BLOCK_IDX_64, type: 'DIRT' },
+        { idx: BLOCK_IDX_65, type: 'TORCH' },
+      ]),
+    }
+    const layer = buildLayer({ chunk })
+    return Effect.gen(function* () {
+      const svc = yield* BlockService
+      const result = yield* Effect.either(svc.forceSetBlock({ x: 0, y: 64, z: 0 }, 'AIR'))
+
+      expect(Either.isRight(result)).toBe(true)
+      expect(blockAt(chunk, BLOCK_IDX_64)).toBe('AIR')
+      expect(blockAt(chunk, BLOCK_IDX_65)).toBe('AIR')
+    }).pipe(Effect.provide(layer))
+  })
 })
 
 // ---------------------------------------------------------------------------
@@ -332,14 +875,15 @@ describe('terrain/application/block-service forceSetBlock', () => {
       markChunkDirty: () => Effect.void,
       getLoadedChunks: () => Effect.succeed([]),
     } as unknown as ChunkManagerService)
-    const layer = BlockServiceLive.pipe(
+    const layer = BlockService.Default.pipe(
       Layer.provide(failingChunkLayer),
-      Layer.provide(ChunkServiceLive),
+      Layer.provide(ChunkService.Default),
       Layer.provide(noopFluidService),
       Layer.provide(makePlayerLayer()),
       Layer.provide(makeInventoryLayer()),
       Layer.provide(makeHotbarLayer()),
       Layer.provide(makeFurnaceLayer()),
+      Layer.provide(makeChestLayer()),
     )
     return Effect.gen(function* () {
       const svc = yield* BlockService
@@ -366,5 +910,34 @@ describe('terrain/application/block-service forceSetBlock', () => {
 })
 
 // ---------------------------------------------------------------------------
-// breakBlock — FURNACE path (lines 137–150)
+// breakBlock — container dismantle paths
 // ---------------------------------------------------------------------------
+
+describe('terrain/application/block-service breakBlock container dismantle paths', () => {
+  it.effect('breakBlock refuses to remove a chest when its contents cannot fit in inventory', () => {
+    const layer = buildLayer({ blockAtIdx: 'CHEST', chestDismantleResult: false })
+    return Effect.gen(function* () {
+      const result = yield* Effect.either((yield* BlockService).breakBlock({ x: 0, y: 64, z: 0 }))
+      expect(Either.isLeft(result)).toBe(true)
+      const err = Option.getOrThrow(Either.getLeft(result))
+      expect(err.operation).toBe('breakBlock')
+      expect(err.reason).toContain('Cannot break chest while its contents cannot fit in inventory')
+    }).pipe(Effect.provide(layer))
+  })
+
+  it.effect('breakBlock removes a chest after its contents are returned to inventory', () => {
+    const layer = buildLayer({ blockAtIdx: 'CHEST', chestDismantleResult: true })
+    return Effect.gen(function* () {
+      const result = yield* Effect.either((yield* BlockService).breakBlock({ x: 0, y: 64, z: 0 }))
+      expect(Either.isRight(result)).toBe(true)
+    }).pipe(Effect.provide(layer))
+  })
+
+  it.effect('breakBlock refuses to remove a furnace when its contents cannot fit in inventory', () => {
+    const layer = buildLayer({ blockAtIdx: 'FURNACE', dismantleResult: false })
+    return Effect.gen(function* () {
+      const result = yield* Effect.either((yield* BlockService).breakBlock({ x: 0, y: 64, z: 0 }))
+      expect(Either.isLeft(result)).toBe(true)
+    }).pipe(Effect.provide(layer))
+  })
+})

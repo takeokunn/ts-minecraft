@@ -48,35 +48,33 @@ export class ChunkMeshService extends Effect.Service<ChunkMeshService>()(
             // older chunks (pre-FR-3.3) leave it undefined; renderer falls back to CHUNK_HEIGHT.
             if (chunk.maxY !== undefined) opaqueMesh.userData['chunkMaxY'] = chunk.maxY
 
-            const waterMesh: Option.Option<THREE.Mesh> = water === null || water.positions.length === 0
-              ? Option.none()
-              // All water chunks share ONE ShaderMaterial instance (waterMaterial from WorldRendererService)
-              : Option.map(Option.fromNullable(waterMaterial), (mat) => {
-                  const wm = new THREE.Mesh(buildGeometry(water), mat)
-                  wm.frustumCulled = false  // manual AABB culling in WorldRendererService
-                  wm.castShadow = false
-                  wm.receiveShadow = false
-                  wm.renderOrder = 1
-                  wm.userData['chunkCoord'] = chunk.coord
-                  if (chunk.maxY !== undefined) wm.userData['chunkMaxY'] = chunk.maxY
-                  return wm
-                })
+            let waterMesh: Option.Option<THREE.Mesh> = Option.none()
+            // All water chunks share ONE ShaderMaterial instance (waterMaterial from WorldRendererService)
+            if (water !== null && water.positions.length > 0 && waterMaterial !== undefined) {
+              const wm = new THREE.Mesh(buildGeometry(water), waterMaterial)
+              wm.frustumCulled = false  // manual AABB culling in WorldRendererService
+              wm.castShadow = false
+              wm.receiveShadow = false
+              wm.renderOrder = 1
+              wm.userData['chunkCoord'] = chunk.coord
+              if (chunk.maxY !== undefined) wm.userData['chunkMaxY'] = chunk.maxY
+              waterMesh = Option.some(wm)
+            }
 
             // Transparent-solid mesh (GLASS, LEAVES): atlas material + alpha blending.
-            const transparentSolidMeshOpt: Option.Option<THREE.Mesh> = transparentSolid === null || transparentSolid.positions.length === 0
-              ? Option.none()
-              : Option.some((() => {
-                  const tsm = new THREE.Mesh(buildGeometry(transparentSolid), transparentSolidMaterial)
-                  tsm.frustumCulled = false
-                  tsm.castShadow = false
-                  tsm.receiveShadow = false
-                  tsm.renderOrder = 2
-                  tsm.userData['chunkCoord'] = chunk.coord
-                  if (chunk.maxY !== undefined) tsm.userData['chunkMaxY'] = chunk.maxY
-                  return tsm
-                })())
+            let transparentSolidMesh: Option.Option<THREE.Mesh> = Option.none()
+            if (transparentSolid !== null && transparentSolid.positions.length > 0) {
+              const tsm = new THREE.Mesh(buildGeometry(transparentSolid), transparentSolidMaterial)
+              tsm.frustumCulled = false
+              tsm.castShadow = false
+              tsm.receiveShadow = false
+              tsm.renderOrder = 2
+              tsm.userData['chunkCoord'] = chunk.coord
+              if (chunk.maxY !== undefined) tsm.userData['chunkMaxY'] = chunk.maxY
+              transparentSolidMesh = Option.some(tsm)
+            }
 
-            return { opaqueMesh, waterMesh, transparentSolidMesh: transparentSolidMeshOpt }
+            return { opaqueMesh, waterMesh, transparentSolidMesh }
           }),
 
         updateChunkMesh: (
@@ -110,7 +108,7 @@ export class ChunkMeshService extends Effect.Service<ChunkMeshService>()(
             const existingWaterMesh = Option.getOrNull(waterMesh)
             let updatedWaterMesh: Option.Option<THREE.Mesh>
             if (existingWaterMesh === null) {
-              if (water === null || water.positions.length === 0 || waterMaterial === null) {
+              if (water === null || water.positions.length === 0 || waterMaterial == null) {
                 updatedWaterMesh = Option.none()
               } else {
                 const wm = new THREE.Mesh(buildGeometry(water), waterMaterial)
@@ -196,4 +194,3 @@ export class ChunkMeshService extends Effect.Service<ChunkMeshService>()(
     dependencies: [MeshingWorkerPool.Default],
   }
 ) {}
-export const ChunkMeshServiceLive = ChunkMeshService.Default

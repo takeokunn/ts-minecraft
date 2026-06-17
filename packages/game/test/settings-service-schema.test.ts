@@ -16,6 +16,7 @@ describe('application/settings/settings-service', () => {
       renderDistance: 4,
       mouseSensitivity: 0.5,
       dayLengthSeconds: 400,
+      difficulty: 'normal' as const,
       graphicsQuality: 'medium' as const,
       adaptivePerformanceMode: true,
       audioEnabled: false,
@@ -30,6 +31,7 @@ describe('application/settings/settings-service', () => {
       expect(result.renderDistance).toBe(4)
       expect(result.mouseSensitivity).toBe(0.5)
       expect(result.dayLengthSeconds).toBe(400)
+      expect(result.difficulty).toBe('normal')
       expect(result.graphicsQuality).toBe('medium')
       expect(result.adaptivePerformanceMode).toBe(true)
     })
@@ -47,6 +49,7 @@ describe('application/settings/settings-service', () => {
         renderDistance: 4,
         mouseSensitivity: 0.1,
         dayLengthSeconds: 120,
+        difficulty: 'normal',
         graphicsQuality: 'medium',
         adaptivePerformanceMode: false,
         audioEnabled: false,
@@ -62,6 +65,7 @@ describe('application/settings/settings-service', () => {
         renderDistance: 16,
         mouseSensitivity: 3,
         dayLengthSeconds: 1200,
+        difficulty: 'hard',
         graphicsQuality: 'ultra',
         adaptivePerformanceMode: false,
       })
@@ -70,6 +74,7 @@ describe('application/settings/settings-service', () => {
         renderDistance: 16,
         mouseSensitivity: 3,
         dayLengthSeconds: 1200,
+        difficulty: 'hard',
         graphicsQuality: 'ultra',
         adaptivePerformanceMode: false,
         audioEnabled: false,
@@ -128,7 +133,16 @@ describe('application/settings/settings-service', () => {
       expect(() =>
         decode({
           ...validSettingsInput,
-          dayLengthSeconds: 1201,
+        dayLengthSeconds: 1201,
+      })
+      ).toThrow()
+    })
+
+    it('rejects invalid difficulty string', () => {
+      expect(() =>
+        decode({
+          ...validSettingsInput,
+          difficulty: 'creative',
         })
       ).toThrow()
     })

@@ -1,4 +1,3 @@
-import { Array as Arr, Order, Number as N } from 'effect'
 import { Position, ChunkCacheKey } from '@ts-minecraft/core'
 import { ChunkCoord, CHUNK_SIZE } from '@ts-minecraft/core'
 import { chunkBlockIndexUnchecked } from './terrain/math'
@@ -13,6 +12,23 @@ export const worldToChunkCoord = (pos: Position): ChunkCoord => ({
   x: Math.floor(pos.x / CHUNK_SIZE),
   z: Math.floor(pos.z / CHUNK_SIZE),
 })
+
+export type LocalBlock = {
+  readonly lx: number
+  readonly y: number
+  readonly lz: number
+}
+
+export function worldPositionFor(
+  chunkCoord: ChunkCoord,
+  block: LocalBlock,
+): Position {
+  return {
+    x: chunkCoord.x * CHUNK_SIZE + block.lx,
+    y: block.y,
+    z: chunkCoord.z * CHUNK_SIZE + block.lz,
+  }
+}
 
 // Caller must guard ly against [0, CHUNK_HEIGHT) — Y is not bounds-checked here.
 export const worldToBlockIndex = (
@@ -53,26 +69,47 @@ const _offsetCacheByRenderDistance = new Map<number, ReadonlyArray<readonly [num
 export const getChunkLoadOffsets = (renderDistance: number): ReadonlyArray<readonly [number, number]> => {
   const cached = _offsetCacheByRenderDistance.get(renderDistance)
   if (cached !== undefined) return cached
-  const range = Arr.makeBy(2 * renderDistance + 1, i => i - renderDistance)
-  const allPairs = Arr.flatMap(range, dx => Arr.map(range, dz => [dx, dz, dx * dx + dz * dz] as const))
-  const inRadius = Arr.filter(allPairs, ([, , dist]) => dist <= renderDistance * renderDistance)
-  const byDist = Order.mapInput(N.Order, (t: readonly [number, number, number]) => t[2])
-  const byDx = Order.mapInput(N.Order, (t: readonly [number, number, number]) => t[0])
-  const byDz = Order.mapInput(N.Order, (t: readonly [number, number, number]) => t[1])
-  const sorted = Arr.sort(inRadius, Order.combine(byDist, Order.combine(byDx, byDz)))
-  const offsets = Arr.map(sorted, ([dx, dz]) => [dx, dz] as const)
+  const radiusSquared = renderDistance * renderDistance
+  const minOffset = renderDistance === 0 ? 0 : -renderDistance
+  const offsetsWithDistance: Array<readonly [number, number, number]> = []
+  for (let dx = minOffset; dx <= renderDistance; dx += 1) {
+    for (let dz = minOffset; dz <= renderDistance; dz += 1) {
+      const distSquared = dx * dx + dz * dz
+      if (distSquared <= radiusSquared) {
+        offsetsWithDistance.push([dx, dz, distSquared] as const)
+      }
+    }
+  }
+  offsetsWithDistance.sort((a, b) => a[2] - b[2] || a[0] - b[0] || a[1] - b[1])
+  const offsets: Array<readonly [number, number]> = []
+  for (let i = 0; i < offsetsWithDistance.length; i += 1) {
+    const [dx, dz] = offsetsWithDistance[i]!
+    offsets.push([dx, dz] as const)
+  }
   _offsetCacheByRenderDistance.set(renderDistance, offsets)
   return offsets
 }
 
 export const countChunksInRadius = (radius: number): number => {
-  const range = Arr.makeBy(2 * radius + 1, i => i - radius)
-  const allPairs = Arr.flatMap(range, dx => Arr.map(range, dz => dx * dx + dz * dz))
-  return Arr.filter(allPairs, dist => dist <= radius * radius).length
+  const radiusSquared = radius * radius
+  const minOffset = radius === 0 ? 0 : -radius
+  let count = 0
+  for (let dx = minOffset; dx <= radius; dx += 1) {
+    for (let dz = minOffset; dz <= radius; dz += 1) {
+      if (dx * dx + dz * dz <= radiusSquared) count += 1
+    }
+  }
+  return count
 }
 
 export const getChunksInRenderDistance = (center: ChunkCoord, renderDistance: number): ReadonlyArray<ChunkCoord> => {
-  return Arr.map(getChunkLoadOffsets(renderDistance), ([dx, dz]) => ({ x: center.x + dx, z: center.z + dz }))
+  const offsets = getChunkLoadOffsets(renderDistance)
+  const chunks: Array<ChunkCoord> = []
+  for (let i = 0; i < offsets.length; i += 1) {
+    const [dx, dz] = offsets[i]!
+    chunks.push({ x: center.x + dx, z: center.z + dz })
+  }
+  return chunks
 }
 
 export const chunkCoordToKey = (coord: ChunkCoord): ChunkCacheKey => ChunkCacheKey.make(coord)

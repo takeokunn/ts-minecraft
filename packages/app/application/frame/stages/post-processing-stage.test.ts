@@ -7,7 +7,7 @@ makeInventoryRenderer,
 makeServices,
 makeSettingsOverlay,
 runFrame,
-} from '@test/frame-handler-test-kit'
+} from '../../../test/frame-handler-test-kit'
 import { createFrameHandlers } from '@ts-minecraft/app'
 import type { DeltaTimeSecs } from '@ts-minecraft/core'
 import { resolvePreset } from '@ts-minecraft/game'

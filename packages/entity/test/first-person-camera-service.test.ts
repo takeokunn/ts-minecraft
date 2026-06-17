@@ -2,7 +2,7 @@ import { describe,it } from '@effect/vitest'
 import type { MouseDelta } from '@ts-minecraft/entity'
 import {
   BASE_MOUSE_SENSITIVITY,FirstPersonCameraService,
-  FirstPersonCameraServiceLive,PlayerCameraStateLive,PlayerCameraStateService,PlayerInputService
+  PlayerCameraStateService,PlayerInputService
 } from '@ts-minecraft/entity'
 import { Effect,Layer,MutableRef } from 'effect'
 import * as THREE from 'three'
@@ -12,7 +12,7 @@ import { createTestInputService } from './movement-service-test-utils'
 const createTestLayers = (inputService: PlayerInputService) =>
   Layer.merge(
     Layer.succeed(PlayerInputService, inputService),
-    PlayerCameraStateLive
+    PlayerCameraStateService.Default
   )
 
 describe('FirstPersonCameraService', () => {
@@ -44,7 +44,7 @@ describe('FirstPersonCameraService', () => {
         expect(camera.rotation.x).toBe(initialRotation.x)
         expect(camera.rotation.y).toBe(initialRotation.y)
         expect(camera.rotation.z).toBe(initialRotation.z)
-      }).pipe(Effect.provide(FirstPersonCameraServiceLive), Effect.provide(testLayers))
+      }).pipe(Effect.provide(FirstPersonCameraService.Default), Effect.provide(testLayers))
     })
 
     it.effect('should update camera rotation when pointer is locked', () => {
@@ -74,7 +74,7 @@ describe('FirstPersonCameraService', () => {
         expect(camera.rotation.x).toBeCloseTo(expectedPitch)
         expect(camera.rotation.y).toBeCloseTo(expectedYaw)
         expect(camera.rotation.z).toBe(0)
-      }).pipe(Effect.provide(FirstPersonCameraServiceLive), Effect.provide(testLayers))
+      }).pipe(Effect.provide(FirstPersonCameraService.Default), Effect.provide(testLayers))
     })
 
     it.effect('should use YXZ rotation order', () => {
@@ -91,7 +91,7 @@ describe('FirstPersonCameraService', () => {
         yield* cameraService.update(camera)
 
         expect(camera.rotation.order).toBe('YXZ')
-      }).pipe(Effect.provide(FirstPersonCameraServiceLive), Effect.provide(testLayers))
+      }).pipe(Effect.provide(FirstPersonCameraService.Default), Effect.provide(testLayers))
     })
 
     it.effect('should not update when mouse delta is zero', () => {
@@ -118,7 +118,7 @@ describe('FirstPersonCameraService', () => {
 
         expect(afterRotation.yaw).toBeCloseTo(beforeRotation.yaw)
         expect(afterRotation.pitch).toBeCloseTo(beforeRotation.pitch)
-      }).pipe(Effect.provide(FirstPersonCameraServiceLive), Effect.provide(testLayers))
+      }).pipe(Effect.provide(FirstPersonCameraService.Default), Effect.provide(testLayers))
     })
 
     it.effect('should apply negative multiplier for intuitive rotation (mouse right = look right)', () => {
@@ -139,7 +139,7 @@ describe('FirstPersonCameraService', () => {
 
         // Negative delta.x * sensitivity = positive yaw (looking right)
         expect(rotation.yaw).toBeCloseTo(-100 * BASE_MOUSE_SENSITIVITY * 0.5)
-      }).pipe(Effect.provide(FirstPersonCameraServiceLive), Effect.provide(testLayers))
+      }).pipe(Effect.provide(FirstPersonCameraService.Default), Effect.provide(testLayers))
     })
 
     it.effect('should accumulate multiple updates', () => {
@@ -178,7 +178,7 @@ describe('FirstPersonCameraService', () => {
 
         expect(rotation.yaw).toBeCloseTo(expectedYaw)
         expect(rotation.pitch).toBeCloseTo(expectedPitch)
-      }).pipe(Effect.provide(FirstPersonCameraServiceLive), Effect.provide(testLayers))
+      }).pipe(Effect.provide(FirstPersonCameraService.Default), Effect.provide(testLayers))
     })
   })
 
@@ -202,7 +202,7 @@ describe('FirstPersonCameraService', () => {
         // Pitch should be clamped to near PI/2
         expect(rotation.pitch).toBeLessThan(Math.PI / 2)
         expect(rotation.pitch).toBeGreaterThan(1.5) // Close to PI/2
-      }).pipe(Effect.provide(FirstPersonCameraServiceLive), Effect.provide(testLayers))
+      }).pipe(Effect.provide(FirstPersonCameraService.Default), Effect.provide(testLayers))
     })
 
     it.effect('should clamp pitch to PITCH_MIN when looking too far down', () => {
@@ -224,7 +224,7 @@ describe('FirstPersonCameraService', () => {
         // Pitch should be clamped to near -PI/2
         expect(rotation.pitch).toBeGreaterThan(-Math.PI / 2)
         expect(rotation.pitch).toBeLessThan(-1.5) // Close to -PI/2
-      }).pipe(Effect.provide(FirstPersonCameraServiceLive), Effect.provide(testLayers))
+      }).pipe(Effect.provide(FirstPersonCameraService.Default), Effect.provide(testLayers))
     })
   })
 

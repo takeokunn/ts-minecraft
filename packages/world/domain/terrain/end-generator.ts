@@ -4,7 +4,7 @@ import type { ChunkCoord } from '@ts-minecraft/core'
 import { blockTypeToIndex } from '@ts-minecraft/core'
 import type { Chunk } from '../chunk'
 import type { ChunkFactory } from './generator-types'
-import { shouldGenerateEndCity, generateEndCity } from './end-city-generator'
+import { applyEndCityStructure, shouldGenerateEndCity } from './end-city-generator'
 import { chunkBlockIndexUnchecked } from './math'
 
 // The End main island: a roughly circular END_STONE plateau at y=63-64.
@@ -73,10 +73,7 @@ export const generateEndTerrain = (
       }
     }
 
-    if (shouldGenerateEndCity(coord)) {
-      const cityChunk = yield* generateEndCity({ createChunk: () => Effect.succeed({ ...chunk, blocks }) }, coord)
-      return cityChunk
-    }
+    if (shouldGenerateEndCity(coord)) applyEndCityStructure(blocks, coord)
 
     return { ...chunk, blocks }
   })

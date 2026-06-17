@@ -92,7 +92,12 @@ export const shouldShulkerTeleport = (
   }
 
   const radiusSquared = SHULKER_TELEPORT_RADIUS * SHULKER_TELEPORT_RADIUS
-  const candidates = neighbors.filter((pos) => distanceSquared(shulkerPos, pos) <= radiusSquared)
+  const candidates: Array<Position> = []
+  for (const pos of neighbors) {
+    if (distanceSquared(shulkerPos, pos) <= radiusSquared) {
+      candidates.push(pos)
+    }
+  }
   if (candidates.length === 0) return null
   return candidates[deterministicIndex(shulkerPos, damageTaken, candidates.length)] ?? null
 }

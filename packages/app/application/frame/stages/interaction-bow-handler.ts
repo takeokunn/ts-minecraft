@@ -1,11 +1,14 @@
-import { Array as Arr, Effect, Option } from 'effect'
-import type { FrameHandlerDeps, FrameHandlerServices } from '@ts-minecraft/app/frame/types'
+import { Effect, Option } from 'effect'
+import type { FrameHandlerDeps } from '@ts-minecraft/app/frame/types'
 import { findAttackableEntity } from '@ts-minecraft/app/frame/stages/attack-targeting'
 import { SlotIndex } from '@ts-minecraft/core'
 import type { EntityDrop, EntityId as EntityIdType } from '@ts-minecraft/entity'
-import { computeKnockback, computeBowCharge, computeBowDamage, canFireBow, BOW_MAX_RANGE, getMobDefinition, dropPasses } from '@ts-minecraft/entity'
+import { computeKnockback, computeBowCharge, computeBowDamage, canFireBow, BOW_MAX_RANGE, dropPasses } from '@ts-minecraft/entity'
+import { getMobDefinition } from '@ts-minecraft/entity/domain/mob/mobs'
 import { HOTBAR_START, getPowerDamageMultiplier, getUnbreakingSkipChance, getPunchKnockbackBonus, enchantmentsOf } from '@ts-minecraft/inventory'
 import type { Enchantment } from '@ts-minecraft/inventory'
+import { addExperienceWithMending } from '@ts-minecraft/app/application/frame/stages/xp-mending'
+import type { FrameBowInteractionServices } from '@ts-minecraft/app/frame/frame-interaction-service-types'
 
 // R101: avoid per-kill [] allocation when entity has no drops.
 const NO_DROPS: ReadonlyArray<EntityDrop> = []
@@ -13,7 +16,7 @@ const NO_DROPS: ReadonlyArray<EntityDrop> = []
 const applyBowHitToEntity = (
   entityId: EntityIdType,
   deps: Pick<FrameHandlerDeps, 'camera'>,
-  services: Pick<FrameHandlerServices, 'entityManager' | 'soundManager' | 'inventoryService' | 'xpService'>,
+  services: FrameBowInteractionServices,
   opts: { damage: number; hasLooting: Enchantment | undefined; hasPunch: Enchantment | undefined },
 ) =>
   Effect.gen(function* () {
@@ -36,13 +39,17 @@ const applyBowHitToEntity = (
     }
 
     // Roll each chance-gated drop once; un-gated drops always pass.
-    const rolledBowDrops = Arr.filter(Option.getOrElse(drops, () => NO_DROPS), (drop) => dropPasses(drop, Math.random()))
-    for (const drop of rolledBowDrops) {
+    const sourceDrops = Option.isNone(drops) ? NO_DROPS : drops.value
+    let rolledBowDrops: EntityDrop[] | null = null
+    for (const drop of sourceDrops) {
+      if (!dropPasses(drop, Math.random())) continue
+      if (rolledBowDrops === null) rolledBowDrops = []
+      rolledBowDrops.push(drop)
       yield* services.inventoryService.addBlock(drop.blockType, drop.count)
     }
 
     // Looting on bow kills: same bonus-drop mechanic as melee.
-    if (rolledBowDrops.length > 0 && opts.hasLooting) {
+    if (rolledBowDrops !== null && opts.hasLooting) {
       for (const drop of rolledBowDrops) {
         yield* services.inventoryService.addBlock(drop.blockType, opts.hasLooting!.level)
           .pipe(Effect.catchAllCause(() => Effect.void))
@@ -52,7 +59,7 @@ const applyBowHitToEntity = (
     // Award mob XP on kill (drops is Some when the entity was removed).
     if (Option.isSome(drops) && entity !== null) {
       const xpReward = getMobDefinition(entity.type).xpReward
-      if (xpReward > 0) yield* services.xpService.addXP(xpReward)
+      if (xpReward > 0) yield* addExperienceWithMending(xpReward, services)
     }
   })
 
@@ -61,10 +68,7 @@ const applyBowHitToEntity = (
 // charge-scaled damage to the first entity in the crosshair.
 export const handleBowFire = (
   deps: Pick<FrameHandlerDeps, 'camera'>,
-  services: Pick<
-    FrameHandlerServices,
-    'inventoryService' | 'hotbarService' | 'entityManager' | 'soundManager' | 'xpService'
-  >,
+  services: FrameBowInteractionServices,
   entities: Parameters<typeof findAttackableEntity>[0],
   context: {
     readonly chargeStartSecs: number
@@ -82,10 +86,30 @@ export const handleBowFire = (
     const bowStack = yield* services.inventoryService.getSlot(SlotIndex.make(HOTBAR_START + selectedSlot))
     const enchantments = enchantmentsOf(bowStack)
 
-    const hasPower = enchantments.find((e) => e.type === 'POWER')
-    const hasInfinity = enchantments.some((e) => e.type === 'INFINITY')
-    const hasLooting = enchantments.find((e) => e.type === 'LOOTING')
-    const hasPunch = enchantments.find((e) => e.type === 'PUNCH')
+    let hasPower: Enchantment | undefined
+    let hasInfinity = false
+    let hasLooting: Enchantment | undefined
+    let hasPunch: Enchantment | undefined
+    let bowUnbreaking: Enchantment | undefined
+    for (const enchantment of enchantments) {
+      switch (enchantment.type) {
+        case 'POWER':
+          hasPower = enchantment
+          break
+        case 'INFINITY':
+          hasInfinity = true
+          break
+        case 'LOOTING':
+          hasLooting = enchantment
+          break
+        case 'PUNCH':
+          hasPunch = enchantment
+          break
+        case 'UNBREAKING':
+          bowUnbreaking = enchantment
+          break
+      }
+    }
 
     // Scale base damage by charge, then apply POWER multiplier.
     const baseDamage = computeBowDamage(charge)
@@ -102,7 +126,6 @@ export const handleBowFire = (
 
     // Damage the equipped bow (INFINITY still wears the bow down — vanilla behaviour).
     // UNBREAKING: skip durability loss with probability getUnbreakingSkipChance(level).
-    const bowUnbreaking = enchantments.find((e) => e.type === 'UNBREAKING')
     const skipBowDurability = bowUnbreaking ? Math.random() < getUnbreakingSkipChance(bowUnbreaking.level) : false
     if (!skipBowDurability) {
       yield* services.inventoryService.damageSlot(SlotIndex.make(HOTBAR_START + selectedSlot), 1)
@@ -110,7 +133,7 @@ export const handleBowFire = (
 
     // Hitscan: find the nearest entity in the crosshair within bow range.
     // maxDistance = none() (bow ignores block occlusion; it shoots through transparent blocks).
-    const targetId = findAttackableEntity(entities, deps.camera, Option.none(), BOW_MAX_RANGE)
+    const targetId = findAttackableEntity(entities, deps.camera, null, BOW_MAX_RANGE)
 
     const targetIdVal = Option.getOrNull(targetId)
     if (targetIdVal !== null) {

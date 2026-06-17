@@ -3,14 +3,14 @@ import { expect } from 'vitest'
 import { Array as Arr, Effect, Either, HashMap, Layer, Option } from 'effect'
 import type { InventoryItem } from '@ts-minecraft/core'
 import { RecipeService } from '@ts-minecraft/inventory'
-import { InventoryError, InventoryService, InventoryServiceLive } from '@ts-minecraft/inventory'
+import { InventoryError, InventoryService } from '@ts-minecraft/inventory'
 import { RecipeId } from '@ts-minecraft/core'
 import { BlockRegistry } from '@ts-minecraft/block'
 import { createTestBlockRegistry } from './inventory-service-test-utils'
 
 const registryLayer = Layer.succeed(BlockRegistry, createTestBlockRegistry())
 
-const inventoryLayer = InventoryServiceLive.pipe(Layer.provide(registryLayer))
+const inventoryLayer = InventoryService.Default.pipe(Layer.provide(registryLayer))
 const testLayer = Layer.mergeAll(RecipeService.Default, inventoryLayer)
 
 const countBlock = (slots: ReadonlyArray<Option.Option<{ readonly itemType: InventoryItem; readonly count: number }>>, itemType: InventoryItem): number =>
@@ -213,6 +213,7 @@ describe('application/crafting/recipe-service — access control and errors', ()
         getSlot: (_idx: unknown) => Effect.succeed(Option.none()),
         setSlot: (_idx: unknown, _slot: unknown) => Effect.void,
         damageSlot: (_idx: unknown, _amount?: number) => Effect.void,
+        repairMendingItemsWithXP: (amount: number) => Effect.succeed(amount),
         moveStack: (_from: unknown, _to: unknown) => Effect.void,
         getHotbarSlots: () => Effect.succeed([]),
         clear: () => Effect.void,

@@ -15,4 +15,3 @@ export class ShapeService extends Effect.Service<ShapeService>()(
     },
   }
 ) {}
-export const ShapeServiceLive = ShapeService.Default

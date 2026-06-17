@@ -2,9 +2,9 @@ import { describe, expect, it } from '@effect/vitest'
 import { Array as Arr, Effect, Layer, Option } from 'effect'
 import { ChunkManagerService } from '@ts-minecraft/world'
 import { blockIndex, blockTypeToIndex } from '@ts-minecraft/core'
-import { ChunkService, ChunkServiceLive, setBlockInChunk } from '@ts-minecraft/world'
+import { ChunkService, setBlockInChunk } from '@ts-minecraft/world'
 import { encodeFluidCell } from '@ts-minecraft/world'
-import { FluidService, FluidServiceLive, resolveContact } from '@ts-minecraft/world'
+import { FluidService, resolveContact } from '@ts-minecraft/world'
 
 const makeChunkManager = (loadedChunks: ReadonlyArray<{ coord: { x: number; z: number }; blocks: Uint8Array; fluid: Option.Option<Uint8Array> }>) => {
   const dirtyCalls: Array<{ x: number; z: number }> = []
@@ -29,12 +29,12 @@ describe('application/fluid/fluid-service', () => {
         const fluid = yield* FluidService
         yield* fluid.seedWater({ x: 4, y: 10, z: 4 })
         return Option.getOrElse(blockIndex(4, 10, 4), () => -1)
-      }).pipe(Effect.provide(FluidServiceLive.pipe(Layer.provide(chunkManagerLayer))))
+      }).pipe(Effect.provide(FluidService.Default.pipe(Layer.provide(chunkManagerLayer))))
 
       expect(chunk.blocks[blockIdx]).toBe(blockTypeToIndex('WATER'))
       expect(dirtyCalls).toHaveLength(1)
       expect(dirtyCalls[0]).toEqual({ x: 0, z: 0 })
-    }).pipe(Effect.provide(ChunkServiceLive))
+    }).pipe(Effect.provide(ChunkService.Default))
   )
 
   it.effect('spreads a source downward on tick', () =>
@@ -55,11 +55,11 @@ describe('application/fluid/fluid-service', () => {
         yield* fluid.syncLoadedChunks([chunk])
         yield* fluid.tick()
         return Option.getOrElse(blockIndex(4, 9, 4), () => -1)
-      }).pipe(Effect.provide(FluidServiceLive.pipe(Layer.provide(chunkManagerLayer))))
+      }).pipe(Effect.provide(FluidService.Default.pipe(Layer.provide(chunkManagerLayer))))
 
       expect(chunk.blocks[blockIdx]).toBe(blockTypeToIndex('WATER'))
       expect(dirtyCalls.length).toBeGreaterThan(0)
-    }).pipe(Effect.provide(ChunkServiceLive))
+    }).pipe(Effect.provide(ChunkService.Default))
   )
 
   it.effect('seeds lava blocks into loaded chunks', () =>
@@ -72,11 +72,11 @@ describe('application/fluid/fluid-service', () => {
         const fluid = yield* FluidService
         yield* fluid.seedLava({ x: 4, y: 10, z: 4 })
         return Option.getOrElse(blockIndex(4, 10, 4), () => -1)
-      }).pipe(Effect.provide(FluidServiceLive.pipe(Layer.provide(chunkManagerLayer))))
+      }).pipe(Effect.provide(FluidService.Default.pipe(Layer.provide(chunkManagerLayer))))
 
       expect(chunk.blocks[blockIdx]).toBe(blockTypeToIndex('LAVA'))
       expect(dirtyCalls).toHaveLength(1)
-    }).pipe(Effect.provide(ChunkServiceLive))
+    }).pipe(Effect.provide(ChunkService.Default))
   )
 
   it.effect('lava propagates slower than water (water reaches farther in 1 tick)', () =>
@@ -106,7 +106,7 @@ describe('application/fluid/fluid-service', () => {
         // After a single tick: water should flow horizontally because below is STONE.
         // Lava ticks only on every 3rd tick — so after 1 tick, lava should not have moved yet.
         yield* fluid.tick()
-      }).pipe(Effect.provide(FluidServiceLive.pipe(Layer.provide(chunkManagerLayer))))
+      }).pipe(Effect.provide(FluidService.Default.pipe(Layer.provide(chunkManagerLayer))))
 
       // Water source was at world x=4 in chunk {0,0}: local (4,6,4). Neighbor at local (5,6,4) in same chunk.
       const waterNeighborIdx = Option.getOrElse(blockIndex(5, 6, 4), () => -1)
@@ -118,7 +118,7 @@ describe('application/fluid/fluid-service', () => {
       expect(lavaChunk.blocks[lavaSourceIdx]).toBe(blockTypeToIndex('LAVA'))
       // Lava should NOT yet have spread to its neighbor on the first tick
       expect(lavaChunk.blocks[lavaNeighborIdx]).not.toBe(blockTypeToIndex('LAVA'))
-    }).pipe(Effect.provide(ChunkServiceLive))
+    }).pipe(Effect.provide(ChunkService.Default))
   )
 
   const resolveContactCases: ReadonlyArray<[string, Parameters<typeof resolveContact>, Option.Option<string>]> = [
@@ -159,7 +159,7 @@ describe('application/fluid/fluid-service', () => {
         // Need to tick several times so lava propagates to a flowing state before touching water
         // (on tick 3, lava is active). Also run many ticks so contact eventually triggers.
         yield* Effect.forEach(Arr.makeBy(6, (i) => i), () => fluid.tick(), { concurrency: 1, discard: true })
-      }).pipe(Effect.provide(FluidServiceLive.pipe(Layer.provide(chunkManagerLayer))))
+      }).pipe(Effect.provide(FluidService.Default.pipe(Layer.provide(chunkManagerLayer))))
 
       // Either the contact produced OBSIDIAN (source lava) or COBBLESTONE (flowing lava)
       const indices = Arr.makeBy(16, (i) => i)
@@ -171,7 +171,7 @@ describe('application/fluid/fluid-service', () => {
         })
       )
       expect(hasConversion).toBe(true)
-    }).pipe(Effect.provide(ChunkServiceLive))
+    }).pipe(Effect.provide(ChunkService.Default))
   )
 
   it.effect('lava and water coexist at non-adjacent positions', () =>
@@ -189,13 +189,13 @@ describe('application/fluid/fluid-service', () => {
         yield* fluid.seedWater({ x: 2, y: 10, z: 2 })
         yield* fluid.seedLava({ x: 12, y: 10, z: 12 })
         yield* Effect.forEach(Arr.makeBy(5, (i) => i), () => fluid.tick(), { concurrency: 1, discard: true })
-      }).pipe(Effect.provide(FluidServiceLive.pipe(Layer.provide(chunkManagerLayer))))
+      }).pipe(Effect.provide(FluidService.Default.pipe(Layer.provide(chunkManagerLayer))))
 
       const waterIdx = Option.getOrElse(blockIndex(2, 10, 2), () => -1)
       const lavaIdx = Option.getOrElse(blockIndex(12, 10, 12), () => -1)
       expect(chunk.blocks[waterIdx]).toBe(blockTypeToIndex('WATER'))
       expect(chunk.blocks[lavaIdx]).toBe(blockTypeToIndex('LAVA'))
-    }).pipe(Effect.provide(ChunkServiceLive))
+    }).pipe(Effect.provide(ChunkService.Default))
   )
 
   it.effect('removeWater replaces a seeded water block with AIR', () =>
@@ -210,12 +210,12 @@ describe('application/fluid/fluid-service', () => {
         const fluid = yield* FluidService
         yield* fluid.seedWater({ x: 4, y: 10, z: 4 })
         yield* fluid.removeWater({ x: 4, y: 10, z: 4 })
-      }).pipe(Effect.provide(FluidServiceLive.pipe(Layer.provide(chunkManagerLayer))))
+      }).pipe(Effect.provide(FluidService.Default.pipe(Layer.provide(chunkManagerLayer))))
 
       expect(chunk.blocks[blockIdx]).toBe(blockTypeToIndex('AIR'))
       // Both seed and remove mark dirty
       expect(dirtyCalls.length).toBeGreaterThanOrEqual(2)
-    }).pipe(Effect.provide(ChunkServiceLive))
+    }).pipe(Effect.provide(ChunkService.Default))
   )
 
   it.effect('removeLava replaces a seeded lava block with AIR', () =>
@@ -230,10 +230,10 @@ describe('application/fluid/fluid-service', () => {
         const fluid = yield* FluidService
         yield* fluid.seedLava({ x: 5, y: 8, z: 5 })
         yield* fluid.removeLava({ x: 5, y: 8, z: 5 })
-      }).pipe(Effect.provide(FluidServiceLive.pipe(Layer.provide(chunkManagerLayer))))
+      }).pipe(Effect.provide(FluidService.Default.pipe(Layer.provide(chunkManagerLayer))))
 
       expect(chunk.blocks[blockIdx]).toBe(blockTypeToIndex('AIR'))
-    }).pipe(Effect.provide(ChunkServiceLive))
+    }).pipe(Effect.provide(ChunkService.Default))
   )
 
   it.effect('notifyBlockChanged adds the position to the frontier so next tick processes it', () =>
@@ -251,10 +251,10 @@ describe('application/fluid/fluid-service', () => {
         // Notify about an existing water block — tick should pick it up
         yield* fluid.notifyBlockChanged({ x: 4, y: 10, z: 4 })
         yield* fluid.tick()
-      }).pipe(Effect.provide(FluidServiceLive.pipe(Layer.provide(chunkManagerLayer))))
+      }).pipe(Effect.provide(FluidService.Default.pipe(Layer.provide(chunkManagerLayer))))
 
       // The tick should have processed the block (dirty calls from propagation)
       expect(dirtyCalls.length).toBeGreaterThanOrEqual(0)
-    }).pipe(Effect.provide(ChunkServiceLive))
+    }).pipe(Effect.provide(ChunkService.Default))
   )
 })

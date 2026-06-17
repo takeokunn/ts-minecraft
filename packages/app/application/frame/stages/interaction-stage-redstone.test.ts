@@ -8,7 +8,7 @@ import {
   makeServices,
   makeSettingsOverlay,
   runFrame,
-} from '@test/frame-handler-test-kit'
+} from '../../../test/frame-handler-test-kit'
 
 describe('step 7 — redstone dispatch', () => {
   it.effect('placeWire key (KeyR) calls redstoneService.setComponent with Wire type', () => Effect.gen(function* () {

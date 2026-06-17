@@ -1,4 +1,4 @@
-import { EnvironmentLive } from '@ts-minecraft/world'
+import { EnvironmentLayer } from '@ts-minecraft/world'
 import { EnvironmentPort } from '@ts-minecraft/core'
 import { Effect } from 'effect'
 import { describe, it } from '@effect/vitest'
@@ -6,7 +6,7 @@ import { afterEach,beforeEach,expect } from 'vitest'
 
 const runIsLocalhost = Effect.provide(
   Effect.flatMap(EnvironmentPort, (env) => env.isLocalhost),
-  EnvironmentLive,
+  EnvironmentLayer,
 )
 
 const setWindow = (hostname: string): void => {
@@ -17,7 +17,7 @@ const clearWindow = (): void => {
   Reflect.deleteProperty(globalThis as object, 'window')
 }
 
-describe('EnvironmentLive / isLocalhost', () => {
+describe('EnvironmentLayer / isLocalhost', () => {
   afterEach(() => {
     clearWindow()
   })

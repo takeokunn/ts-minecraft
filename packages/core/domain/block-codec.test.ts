@@ -1,9 +1,12 @@
 import { describe, it } from '@effect/vitest'
+import { Option } from 'effect'
 import { expect } from 'vitest'
 import {
   INDEX_TO_BLOCK_TYPE,
   BLOCK_TYPE_TO_INDEX,
   blockTypeToIndex,
+  decodeBlockType,
+  isValidBlockIndex,
   indexToBlockType,
 } from './block-codec'
 import type { BlockType } from './block-type'
@@ -26,8 +29,8 @@ describe('block-codec', () => {
       expect(INDEX_TO_BLOCK_TYPE.length).toBe(new Set(INDEX_TO_BLOCK_TYPE).size)
     })
 
-    it('has exactly 72 entries (world-placeable blocks including nether, farming, redstone, furniture, crafting stations, End dimension, and End expansion)', () => {
-      expect(INDEX_TO_BLOCK_TYPE.length).toBe(72)
+    it('has exactly 89 entries (world-placeable blocks including nether, farming, redstone, furniture, crafting stations, End dimension, End expansion, storage, doors, glowstone, ladder, cobweb, sapling, flowers, mushrooms, grasses, waterside plants, and ice)', () => {
+      expect(INDEX_TO_BLOCK_TYPE.length).toBe(89)
     })
 
     it('PLANKS is at index 40', () => {
@@ -52,6 +55,49 @@ describe('block-codec', () => {
 
     it('REPEATER is at index 52', () => {
       expect(INDEX_TO_BLOCK_TYPE[52]).toBe('REPEATER')
+    })
+
+    it('CHEST is appended at index 72', () => {
+      expect(INDEX_TO_BLOCK_TYPE[72]).toBe('CHEST')
+      expect(blockTypeToIndex('CHEST')).toBe(72)
+    })
+
+    it('DOOR block states are appended at indices 73-74', () => {
+      expect(INDEX_TO_BLOCK_TYPE[73]).toBe('DOOR')
+      expect(INDEX_TO_BLOCK_TYPE[74]).toBe('DOOR_OPEN')
+      expect(blockTypeToIndex('DOOR')).toBe(73)
+      expect(blockTypeToIndex('DOOR_OPEN')).toBe(74)
+    })
+
+    it('GLOWSTONE, LADDER, COBWEB, SAPLING, flowers, mushrooms, grasses, waterside plants, and ice are appended at indices 75-88', () => {
+      expect(INDEX_TO_BLOCK_TYPE[75]).toBe('GLOWSTONE')
+      expect(INDEX_TO_BLOCK_TYPE[76]).toBe('LADDER')
+      expect(INDEX_TO_BLOCK_TYPE[77]).toBe('COBWEB')
+      expect(INDEX_TO_BLOCK_TYPE[78]).toBe('SAPLING')
+      expect(INDEX_TO_BLOCK_TYPE[79]).toBe('DANDELION')
+      expect(INDEX_TO_BLOCK_TYPE[80]).toBe('POPPY')
+      expect(INDEX_TO_BLOCK_TYPE[81]).toBe('BROWN_MUSHROOM')
+      expect(INDEX_TO_BLOCK_TYPE[82]).toBe('RED_MUSHROOM')
+      expect(INDEX_TO_BLOCK_TYPE[83]).toBe('TALL_GRASS')
+      expect(INDEX_TO_BLOCK_TYPE[84]).toBe('FERN')
+      expect(INDEX_TO_BLOCK_TYPE[85]).toBe('SUGAR_CANE')
+      expect(INDEX_TO_BLOCK_TYPE[86]).toBe('CACTUS')
+      expect(INDEX_TO_BLOCK_TYPE[87]).toBe('LILY_PAD')
+      expect(INDEX_TO_BLOCK_TYPE[88]).toBe('ICE')
+      expect(blockTypeToIndex('GLOWSTONE')).toBe(75)
+      expect(blockTypeToIndex('LADDER')).toBe(76)
+      expect(blockTypeToIndex('COBWEB')).toBe(77)
+      expect(blockTypeToIndex('SAPLING')).toBe(78)
+      expect(blockTypeToIndex('DANDELION')).toBe(79)
+      expect(blockTypeToIndex('POPPY')).toBe(80)
+      expect(blockTypeToIndex('BROWN_MUSHROOM')).toBe(81)
+      expect(blockTypeToIndex('RED_MUSHROOM')).toBe(82)
+      expect(blockTypeToIndex('TALL_GRASS')).toBe(83)
+      expect(blockTypeToIndex('FERN')).toBe(84)
+      expect(blockTypeToIndex('SUGAR_CANE')).toBe(85)
+      expect(blockTypeToIndex('CACTUS')).toBe(86)
+      expect(blockTypeToIndex('LILY_PAD')).toBe(87)
+      expect(blockTypeToIndex('ICE')).toBe(88)
     })
 
     it('does not contain inventory-only items', () => {
@@ -96,25 +142,38 @@ describe('block-codec', () => {
 
   describe('indexToBlockType', () => {
     it('0 → AIR', () => {
-      expect(indexToBlockType(0)).toBe('AIR')
+      expect(indexToBlockType(blockTypeToIndex('AIR'))).toBe('AIR')
     })
 
     it('1 → DIRT', () => {
-      expect(indexToBlockType(1)).toBe('DIRT')
+      expect(indexToBlockType(blockTypeToIndex('DIRT'))).toBe('DIRT')
     })
 
-    it('-1 (out-of-bounds) → AIR fallback', () => {
-      expect(indexToBlockType(-1)).toBe('AIR')
+    it('does not decode negative out-of-bounds indices', () => {
+      expect(Option.isNone(decodeBlockType(-1))).toBe(true)
     })
 
-    it('9999 (out-of-bounds) → AIR fallback', () => {
-      expect(indexToBlockType(9999)).toBe('AIR')
+    it('does not decode high out-of-bounds indices', () => {
+      expect(Option.isNone(decodeBlockType(9999))).toBe(true)
+    })
+
+    it('does not decode fractional indices', () => {
+      expect(Option.isNone(decodeBlockType(1.5))).toBe(true)
+    })
+
+    it('exposes a predicate for storage-boundary checks', () => {
+      expect(isValidBlockIndex(0)).toBe(true)
+      expect(isValidBlockIndex(INDEX_TO_BLOCK_TYPE.length - 1)).toBe(true)
+      expect(isValidBlockIndex(-1)).toBe(false)
+      expect(isValidBlockIndex(INDEX_TO_BLOCK_TYPE.length)).toBe(false)
+      expect(isValidBlockIndex(1.5)).toBe(false)
     })
   })
 
   describe('round-trip invariants', () => {
     it('blockTypeToIndex(indexToBlockType(i)) === i for all valid indices', () => {
       INDEX_TO_BLOCK_TYPE.forEach((_type, idx) => {
+        if (!isValidBlockIndex(idx)) expect.fail(`Expected valid block index ${idx}`)
         expect(blockTypeToIndex(indexToBlockType(idx))).toBe(idx)
       })
     })

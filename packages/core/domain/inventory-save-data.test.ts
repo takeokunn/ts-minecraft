@@ -20,13 +20,13 @@ describe('InventorySaveDataSchema', () => {
   })
 
   it('accepts a valid slot entry with itemType and count 1 (minimum)', () => {
-    const entry = { slot: 0, itemType: 'STONE', count: 1 }
+    const entry = { slot: 0, itemType: 'STONE', count: 1, durability: null }
     const result = Schema.decodeUnknownEither(InventorySaveDataSchema)({ slots: [entry] })
     expect(Either.isRight(result)).toBe(true)
   })
 
   it('accepts count 64 (maximum)', () => {
-    const entry = { slot: 0, itemType: 'COAL', count: 64 }
+    const entry = { slot: 0, itemType: 'COAL', count: 64, durability: null }
     const result = Schema.decodeUnknownEither(InventorySaveDataSchema)({ slots: [entry] })
     expect(Either.isRight(result)).toBe(true)
   })
@@ -44,7 +44,7 @@ describe('InventorySaveDataSchema', () => {
   })
 
   it('round-trips encode/decode', () => {
-    const entry = { slot: 2, itemType: 'DIAMOND_PICKAXE', count: 1 }
+    const entry = { slot: 2, itemType: 'DIAMOND_PICKAXE', count: 1, durability: null }
     const decodeResult = Schema.decodeUnknownEither(InventorySaveDataSchema)({ slots: [entry] })
     expect(Either.isRight(decodeResult)).toBe(true)
     if (Either.isRight(decodeResult)) {
@@ -53,7 +53,7 @@ describe('InventorySaveDataSchema', () => {
     }
   })
 
-  it('accepts a slot entry with optional durability field (tool with remaining wear)', () => {
+  it('accepts a slot entry with explicit durability field (tool with remaining wear)', () => {
     const REMAINING_DURABILITY = 250
     const entry = { slot: 0, itemType: 'IRON_SWORD', count: 1, durability: REMAINING_DURABILITY }
     const result = Schema.decodeUnknownEither(InventorySaveDataSchema)({ slots: [entry] })
@@ -89,20 +89,15 @@ describe('InventorySaveDataSchema', () => {
     expect(Either.isLeft(result)).toBe(true)
   })
 
-  it('omitting durability is backward-compatible (slot without durability decodes with undefined)', () => {
+  it('rejects omitting durability (slot without durability no longer decodes)', () => {
     const entry = { slot: 0, itemType: 'DIRT', count: 32 }
     const result = Schema.decodeUnknownEither(InventorySaveDataSchema)({ slots: [entry] })
-    expect(Either.isRight(result)).toBe(true)
-    if (Either.isRight(result)) {
-      const decoded = result.right.slots[0]
-      expect(Option.isSome(decoded!)).toBe(true)
-      expect(Option.getOrThrow(decoded!).durability).toBeUndefined()
-    }
+    expect(Either.isLeft(result)).toBe(true)
   })
 
   it('multiple slots with mixed none/some/durability round-trip correctly', () => {
     const durable = { slot: 0, itemType: 'DIAMOND_SWORD', count: 1, durability: DIAMOND_MAX_DURABILITY }
-    const plain = { slot: 1, itemType: 'STONE', count: 64 }
+    const plain = { slot: 1, itemType: 'STONE', count: 64, durability: null }
     const result = Schema.decodeUnknownEither(InventorySaveDataSchema)({ slots: [durable, null, plain] })
     expect(Either.isRight(result)).toBe(true)
     if (Either.isRight(result)) {

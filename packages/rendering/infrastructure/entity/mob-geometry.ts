@@ -93,6 +93,51 @@ const SHEEP_PARTS: QuadrupedParts = {
 }
 const SHEEP_PALETTE: QuadrupedPalette = { head: 0xf0d8b0, body: 0xf5f5f5, leg: 0xf0d8b0 }
 
+const CHICKEN_PARTS: QuadrupedParts = {
+  head: [0.35, 0.35, 0.35],
+  body: [0.45, 0.45, 0.55],
+  leg: [0.08, 0.35, 0.08],
+}
+const CHICKEN_PALETTE: QuadrupedPalette = { head: 0xf5f5f5, body: 0xf5f5f5, leg: 0xe0a020 }
+
+const BAT_PARTS: QuadrupedParts = {
+  head: [0.3, 0.25, 0.25],
+  body: [0.45, 0.22, 0.3],
+  leg: [0.06, 0.14, 0.06],
+}
+const BAT_PALETTE: QuadrupedPalette = { head: 0x2b2420, body: 0x1f1a17, leg: 0x2b2420 }
+
+const SQUID_PARTS: QuadrupedParts = {
+  head: [0.5, 0.35, 0.5],
+  body: [0.55, 0.5, 0.55],
+  leg: [0.08, 0.55, 0.08],
+}
+const SQUID_PALETTE: QuadrupedPalette = { head: 0x315f8f, body: 0x2f78b7, leg: 0x1f4f7a }
+
+const WITCH_PARTS: ZombieParts = {
+  head: [0.5, 0.55, 0.5],
+  body: [0.5, 0.75, 0.25],
+  arm: [0.18, 0.75, 0.18],
+  leg: [0.25, 0.75, 0.25],
+}
+const WITCH_PALETTE: ZombiePalette = { head: 0x6b8f4e, body: 0x4b2a63, arm: 0x3a214f, leg: 0x2a1a36 }
+
+const DROWNED_PARTS: ZombieParts = {
+  head: [0.5, 0.5, 0.5],
+  body: [0.5, 0.75, 0.25],
+  arm: [0.25, 0.75, 0.25],
+  leg: [0.25, 0.75, 0.25],
+}
+const DROWNED_PALETTE: ZombiePalette = { head: 0x3f8f83, body: 0x274f68, arm: 0x2f7f77, leg: 0x1f4f5f }
+
+const ZOMBIE_VILLAGER_PARTS: ZombieParts = {
+  head: [0.55, 0.55, 0.55],
+  body: [0.5, 0.75, 0.25],
+  arm: [0.25, 0.75, 0.25],
+  leg: [0.25, 0.75, 0.25],
+}
+const ZOMBIE_VILLAGER_PALETTE: ZombiePalette = { head: 0x6f9b4c, body: 0x6b4a2f, arm: 0x6f9b4c, leg: 0x3f4f7a }
+
 const buildBiped = (
   typeKey: string,
   parts: ZombieParts,
@@ -242,6 +287,18 @@ export const buildMobGroup = (type: EntityType): MobLimbGroup => {
       return buildQuadruped('Pig', PIG_PARTS, PIG_PALETTE)
     case 'Sheep':
       return buildQuadruped('Sheep', SHEEP_PARTS, SHEEP_PALETTE)
+    case 'Chicken':
+      return buildQuadruped('Chicken', CHICKEN_PARTS, CHICKEN_PALETTE)
+    case 'Bat':
+      return buildQuadruped('Bat', BAT_PARTS, BAT_PALETTE)
+    case 'Squid':
+      return buildQuadruped('Squid', SQUID_PARTS, SQUID_PALETTE)
+    case 'Witch':
+      return buildBiped('Witch', WITCH_PARTS, WITCH_PALETTE)
+    case 'Drowned':
+      return buildBiped('Drowned', DROWNED_PARTS, DROWNED_PALETTE)
+    case 'ZombieVillager':
+      return buildBiped('ZombieVillager', ZOMBIE_VILLAGER_PARTS, ZOMBIE_VILLAGER_PALETTE)
     case 'Creeper':
       return buildQuadruped('Creeper', CREEPER_PARTS, CREEPER_PALETTE)
     case 'Skeleton':

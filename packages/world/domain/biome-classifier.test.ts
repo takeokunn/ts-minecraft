@@ -1,8 +1,65 @@
+import { CHUNK_SIZE } from '@ts-minecraft/core'
 import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
-import { CHUNK_SIZE } from '@ts-minecraft/core'
-import { batchTerrainIndexFor, peaksAndValleysFromWeirdness, refineBeachBiome } from './biome-classifier'
+import {
+  batchTerrainIndexFor,
+  classifyBiome,
+  classifyBiomeFromClimate,
+  peaksAndValleysFromWeirdness,
+  refineBeachBiome,
+} from './biome-classifier'
 import { toPV } from '../infrastructure/primitives'
+
+const classifyBiomeCases = [
+  [0.1, 0.1, 'SNOW'],
+  [0.5, 0.1, 'DESERT'],
+  [0.8, 0.8, 'JUNGLE'],
+  [0.2, 0.9, 'TAIGA'],
+  [0.2, 0.6, 'TAIGA'],
+  [0.2, 0.45, 'MOUNTAINS'],
+  [0.2, 0.2, 'SNOW'],
+  [0.2, 0.65, 'TAIGA'],
+  [0.8, 0.55, 'SAVANNA'],
+  [0.8, 0.3, 'SAVANNA'],
+  [0.8, 0.1, 'DESERT'],
+  [0.1, 0.6, 'TAIGA'],
+  [0.1, 0.45, 'MOUNTAINS'],
+  [0.1, 0.2, 'SNOW'],
+] as const
+
+const classifyBiomeFromClimateCases = [
+  [{ temperature: 0.5, humidity: 0.5, continentalness: 0, erosion: 0.5, pv: 0, riverNoise: 0.5 }, 'RIVER'],
+  [{ temperature: 0.5, humidity: 0.5, continentalness: -0.5, erosion: 0.5, pv: 0, riverNoise: 0.8 }, 'OCEAN'],
+  [{ temperature: 0.2, humidity: 0.9, continentalness: 0.6, erosion: 0.1, pv: 1, riverNoise: 0.8 }, 'SNOW'],
+  [{ temperature: 0.8, humidity: 0.8, continentalness: 0.6, erosion: 0.1, pv: 1, riverNoise: 0.8 }, 'MOUNTAINS'],
+  [{ temperature: 0.8, humidity: 0.8, continentalness: 0.2, erosion: 0.2, pv: 0, riverNoise: 0.8 }, 'JUNGLE'],
+  [{ temperature: 0.2, humidity: 0.41, continentalness: 0.2, erosion: 0.2, pv: 0.2, riverNoise: 0.8 }, 'TAIGA'],
+  [{ temperature: 0.8, humidity: 0.9, continentalness: 0.2, erosion: 0.2, pv: 0, riverNoise: 0.8 }, 'JUNGLE'],
+  [{ temperature: 0.5, humidity: 0.4, continentalness: 0.2, erosion: 0.5, pv: 0, riverNoise: 0.8 }, 'PLAINS'],
+] as const
+
+const refineBeachBiomeCases = [
+  ['OCEAN', ['OCEAN'], -0.5, 'OCEAN'],
+  ['OCEAN', ['PLAINS'], 0.0, 'OCEAN'],
+  ['DESERT', ['OCEAN'], 0.0, 'DESERT'],
+  ['SWAMP', ['OCEAN'], 0.0, 'SWAMP'],
+  ['PLAINS', ['FOREST', 'OCEAN', 'PLAINS', 'PLAINS'], 0.05, 'BEACH'],
+  ['PLAINS', ['OCEAN'], 0.15, 'PLAINS'],
+  ['PLAINS', ['FOREST', 'MOUNTAINS'], 0.0, 'PLAINS'],
+  ['FOREST', ['OCEAN'], 0.05, 'BEACH'],
+] as const
+
+describe('classifyBiome', () => {
+  it.each(classifyBiomeCases)('temperature=%s humidity=%s → %s', (temperature, humidity, expected) => {
+    expect(classifyBiome(temperature, humidity)).toBe(expected)
+  })
+})
+
+describe('classifyBiomeFromClimate', () => {
+  it.each(classifyBiomeFromClimateCases)('classifies %o as %s', (climate, expected) => {
+    expect(classifyBiomeFromClimate(climate)).toBe(expected)
+  })
+})
 
 describe('batchTerrainIndexFor', () => {
   it('i=0 (lx=0, lz=0) maps to output index 0', () => {
@@ -23,7 +80,7 @@ describe('batchTerrainIndexFor', () => {
 
   it('transposes: lx=3, lz=5 (i=53) maps to 5*16+3=83', () => {
     // buildChunkNoiseInputs i = lx*CHUNK_SIZE + lz = 3*16+5=53
-    // batchTerrainIndexFor: lz*CHUNK_SIZE + lx = 5*16+3 = 83
+    // batchTerrainIndexFor: lz*CHUNK_SIZE + lx = 5*16 + 3 = 83
     expect(batchTerrainIndexFor(53)).toBe(83)
   })
 
@@ -59,32 +116,7 @@ describe('peaksAndValleysFromWeirdness', () => {
 })
 
 describe('refineBeachBiome', () => {
-  it('OCEAN always returns OCEAN', () => {
-    expect(refineBeachBiome('OCEAN', ['OCEAN'], -0.5)).toBe('OCEAN')
-    expect(refineBeachBiome('OCEAN', ['PLAINS'], 0.0)).toBe('OCEAN')
-  })
-
-  it('DESERT always returns DESERT', () => {
-    expect(refineBeachBiome('DESERT', ['OCEAN'], 0.0)).toBe('DESERT')
-  })
-
-  it('SWAMP always returns SWAMP', () => {
-    expect(refineBeachBiome('SWAMP', ['OCEAN'], 0.0)).toBe('SWAMP')
-  })
-
-  it('PLAINS adjacent to OCEAN with low continentalness → BEACH', () => {
-    expect(refineBeachBiome('PLAINS', ['FOREST', 'OCEAN', 'PLAINS', 'PLAINS'], 0.05)).toBe('BEACH')
-  })
-
-  it('PLAINS adjacent to OCEAN but high continentalness → stays PLAINS', () => {
-    expect(refineBeachBiome('PLAINS', ['OCEAN'], 0.15)).toBe('PLAINS')
-  })
-
-  it('PLAINS with no adjacent OCEAN → stays PLAINS regardless of continentalness', () => {
-    expect(refineBeachBiome('PLAINS', ['FOREST', 'MOUNTAINS'], 0.0)).toBe('PLAINS')
-  })
-
-  it('FOREST adjacent to OCEAN with low continentalness → BEACH', () => {
-    expect(refineBeachBiome('FOREST', ['OCEAN'], 0.05)).toBe('BEACH')
+  it.each(refineBeachBiomeCases)('%s with adjacency %o and continentalness %s → %s', (biome, neighboringBiomes, continentalness, expected) => {
+    expect(refineBeachBiome(biome, neighboringBiomes, continentalness)).toBe(expected)
   })
 })

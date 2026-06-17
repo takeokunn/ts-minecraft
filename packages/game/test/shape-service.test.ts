@@ -2,7 +2,7 @@ import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
 import { Effect, Schema } from 'effect'
 import { BoxShapeConfigSchema, SphereShapeConfigSchema } from '@ts-minecraft/game'
-import { ShapeService, ShapeServiceLive } from '../infrastructure/boundary/shape-service'
+import { ShapeService } from '../infrastructure/boundary/shape-service'
 
 describe('physics/boundary/shape-service', () => {
   describe('Schema validation', () => {
@@ -31,14 +31,14 @@ describe('physics/boundary/shape-service', () => {
     })
   })
 
-  describe('ShapeServiceLive', () => {
+  describe('ShapeService.Default', () => {
     it.effect('should expose createBox, createSphere, createPlane methods', () =>
       Effect.gen(function* () {
         const service = yield* ShapeService
         expect(typeof service.createBox).toBe('function')
         expect(typeof service.createSphere).toBe('function')
         expect(typeof service.createPlane).toBe('function')
-      }).pipe(Effect.provide(ShapeServiceLive))
+      }).pipe(Effect.provide(ShapeService.Default))
     )
 
     it.effect('createBox should create a descriptor with correct half extents', () =>
@@ -51,7 +51,7 @@ describe('physics/boundary/shape-service', () => {
           expect(box.halfExtents.y).toBe(2)
           expect(box.halfExtents.z).toBe(3)
         }
-      }).pipe(Effect.provide(ShapeServiceLive))
+      }).pipe(Effect.provide(ShapeService.Default))
     )
 
     it.effect('createSphere should create a descriptor with correct radius', () =>
@@ -62,7 +62,7 @@ describe('physics/boundary/shape-service', () => {
         if (sphere.kind === 'sphere') {
           expect(sphere.radius).toBe(2.5)
         }
-      }).pipe(Effect.provide(ShapeServiceLive))
+      }).pipe(Effect.provide(ShapeService.Default))
     )
 
     it.effect('createPlane should create a plane descriptor', () =>
@@ -70,7 +70,7 @@ describe('physics/boundary/shape-service', () => {
         const service = yield* ShapeService
         const plane = yield* service.createPlane()
         expect(plane.kind).toBe('plane')
-      }).pipe(Effect.provide(ShapeServiceLive))
+      }).pipe(Effect.provide(ShapeService.Default))
     )
 
     it.effect('should support Effect.flatMap chaining for multiple shapes', () =>
@@ -82,7 +82,7 @@ describe('physics/boundary/shape-service', () => {
         expect(box.kind).toBe('box')
         expect(sphere.kind).toBe('sphere')
         expect(plane.kind).toBe('plane')
-      }).pipe(Effect.provide(ShapeServiceLive))
+      }).pipe(Effect.provide(ShapeService.Default))
     )
   })
 })

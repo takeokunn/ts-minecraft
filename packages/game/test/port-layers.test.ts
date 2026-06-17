@@ -10,7 +10,6 @@ import {
   RigidBodyPortLayer,
   ShapePortLayer,
   PhysicsService,
-  PhysicsServiceLive,
 } from '@ts-minecraft/game'
 
 describe('infrastructure/port-layers', () => {
@@ -83,7 +82,7 @@ describe('infrastructure/port-layers', () => {
   })
 
   describe('Full layer composition', () => {
-    const FullTestLayer = PhysicsServiceLive.pipe(
+const FullTestLayer = PhysicsService.Default.pipe(
       Layer.provide(PhysicsWorldPortLayer),
       Layer.provide(RigidBodyPortLayer),
       Layer.provide(ShapePortLayer)

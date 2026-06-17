@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest'
+import * as chunkCoordUtils from './chunk-coord-utils'
 import {
   chunkDistanceSquared,
   worldToChunkCoord,
@@ -44,6 +45,22 @@ describe('worldToChunkCoord', () => {
   })
   it('negative position just inside chunk (-1, 0)', () => {
     expect(worldToChunkCoord({ x: -(CHUNK_SIZE), y: 64, z: 0 })).toEqual({ x: -1, z: 0 })
+  })
+})
+
+describe('worldPositionFor', () => {
+  it('reconstructs world coordinates from chunk and local block position', () => {
+    expect(chunkCoordUtils.worldPositionFor({ x: -2, z: 3 }, { lx: 5, y: 12, lz: 7 })).toEqual({
+      x: -27,
+      y: 12,
+      z: 55,
+    })
+  })
+
+  it('matches worldToBlockIndex for block-aligned positions', () => {
+    const position = { x: 31, y: 64, z: -17 }
+    const { chunkCoord, lx, ly, lz } = worldToBlockIndex(position)
+    expect(chunkCoordUtils.worldPositionFor(chunkCoord, { lx, y: ly, lz })).toEqual(position)
   })
 })
 

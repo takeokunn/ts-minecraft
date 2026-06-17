@@ -1,22 +1,6 @@
 import { Deferred, Effect, Queue, Stream } from 'effect'
 import { NetworkError } from '../domain/errors'
-
-export interface WebSocketServerPort {
-  readonly start: (port: number) => Effect.Effect<WebSocketServerHandle, NetworkError>
-}
-
-export interface WebSocketServerHandle {
-  readonly onConnection: Effect.Effect<Stream.Stream<WebSocketConnection, never, never>, never>
-  readonly stop: Effect.Effect<void, never>
-}
-
-export interface WebSocketConnection {
-  readonly id: string
-  readonly messages: Stream.Stream<ArrayBuffer, never, never>
-  readonly send: (data: ArrayBuffer) => Effect.Effect<void, NetworkError>
-  readonly close: Effect.Effect<void, never>
-  readonly onClose: Effect.Effect<void, never>
-}
+import type { WebSocketConnection, WebSocketServerHandle, WebSocketServerPort } from '../domain/websocket-ports'
 
 export interface FakeSocketPair {
   readonly connection: FakeWebSocketConnection
@@ -73,7 +57,7 @@ export class FakeWebSocketServer implements WebSocketServerPort {
     const self = this
     return Effect.gen(function* () {
       if (self.running) {
-        yield* Effect.fail(new NetworkError({ operation: 'start', reason: 'fake server already started' }))
+        return yield* Effect.fail(new NetworkError({ operation: 'start', reason: 'fake server already started' }))
       }
       const connectionQueue = yield* Queue.unbounded<WebSocketConnection>()
       self.connectionQueue = connectionQueue
@@ -98,7 +82,7 @@ export class FakeWebSocketServer implements WebSocketServerPort {
     return Effect.gen(function* () {
       const connectionQueue = self.connectionQueue
       if (!self.running || !connectionQueue) {
-        yield* Effect.fail(new NetworkError({ operation: 'connect', reason: 'fake server is not running' }))
+        return yield* Effect.fail(new NetworkError({ operation: 'connect', reason: 'fake server is not running' }))
       }
 
       const serverInbound = yield* Queue.unbounded<ArrayBuffer>()

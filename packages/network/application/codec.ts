@@ -2,7 +2,7 @@ import { Effect } from 'effect'
 import { NetworkError } from '../domain/errors'
 import { deserializeNetworkMessage, serializeNetworkMessage } from '../domain/schemas'
 import type { NetworkMessage } from '../domain/schemas'
-import type { WebSocketConnection } from '../infrastructure/websocket-server'
+import type { WebSocketConnection } from '../domain/websocket-ports'
 
 const encoder = new TextEncoder()
 const decoder = new TextDecoder()

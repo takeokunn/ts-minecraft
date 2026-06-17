@@ -3,13 +3,13 @@ import { Effect } from 'effect'
 import { createServer, type AddressInfo } from 'node:net'
 import { expect } from 'vitest'
 import {
-  BrowserWebSocketClient,
   ClientServiceImpl,
-  NodeWebSocketServer,
   PlayerName,
   ServerServiceImpl,
   type ServerServiceShape,
 } from '@ts-minecraft/network'
+import { BrowserWebSocketClient } from '../infrastructure/browser-websocket-client'
+import { NodeWebSocketServer } from '../infrastructure/node-websocket-server'
 
 const getAvailablePort = (): Effect.Effect<number, never> =>
   Effect.async((resume) => {

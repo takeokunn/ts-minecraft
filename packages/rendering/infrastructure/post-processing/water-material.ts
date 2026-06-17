@@ -70,7 +70,7 @@ void main() {
   );
 
   vec3 viewDir = normalize(uCameraPosition - vWorldPos);
-  vec3 n = normalize(vNormal);
+  vec3 n = normalize(gl_FrontFacing ? vNormal : -vNormal);
   // Schlick Fresnel (F0 = 0.02 for water) — F0 + (1 - F0) * (1 - cosθ)^5,
   // computed via squared/quartic terms to avoid a GPU pow() transcendental.
   float NdotV = 1.0 - max(dot(viewDir, n), 0.0);
@@ -128,6 +128,6 @@ export const createWaterMaterial = (
     fragmentShader: WATER_FRAG,
     transparent: true,
     depthWrite: false,
-    side: THREE.FrontSide,
+    side: THREE.DoubleSide,
   }), { uniforms })
 }

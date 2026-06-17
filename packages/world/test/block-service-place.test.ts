@@ -1,23 +1,26 @@
 import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
 import { Array as Arr, Effect, Either, Layer, MutableRef, Option } from 'effect'
-import { BlockService, BlockServiceLive } from '@ts-minecraft/world'
+import { BlockService } from '@ts-minecraft/world'
 import { ChunkManagerService } from '@ts-minecraft/world'
-import { ChunkServiceLive } from '@ts-minecraft/world/application/chunk-service'
+import { ChunkService } from '@ts-minecraft/world/application/chunk-service'
 import { FluidService } from '@ts-minecraft/world'
 import { PlayerService } from '@ts-minecraft/entity'
 import { InventoryService, InventoryError } from '@ts-minecraft/inventory'
 import { HotbarService } from '@ts-minecraft/inventory'
 import { FurnaceService } from '@ts-minecraft/inventory'
-import { CHUNK_SIZE, CHUNK_HEIGHT, blockTypeToIndex, Position, SlotIndex } from '@ts-minecraft/core'
+import { blockTypeToIndex, Position, SlotIndex } from '@ts-minecraft/core'
 import type { BlockType } from '@ts-minecraft/core'
+import { ChestService } from '@ts-minecraft/inventory'
+import { createMockChestService } from './block-service-test-utils'
+import { makeChunkBlockBuffer } from './chunk-buffer-test-utils'
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
 const makeBlocks = (overrides: Array<{ idx: number; type: BlockType }> = []): Uint8Array<ArrayBufferLike> => {
-  const blocks = new Uint8Array(CHUNK_SIZE * CHUNK_SIZE * CHUNK_HEIGHT)
+  const blocks = makeChunkBlockBuffer()
   Arr.forEach(overrides, ({ idx, type }) => {
     blocks[idx] = blockTypeToIndex(type)
   })
@@ -117,6 +120,9 @@ const makeFurnaceLayer = (opts: {
     deserialize: () => Effect.void,
   } as unknown as FurnaceService)
 
+const makeChestLayer = () =>
+  Layer.succeed(ChestService, createMockChestService())
+
 const buildLayer = (opts: {
   blockAtIdx?: BlockType
   selectedTool?: Option.Option<BlockType>
@@ -124,28 +130,30 @@ const buildLayer = (opts: {
   removeBlockFails?: boolean
   dismantleResult?: boolean
 } = {}) =>
-  BlockServiceLive.pipe(
+  BlockService.Default.pipe(
     Layer.provide(makeChunkManagerLayer({ chunk: makeChunk(opts.blockAtIdx ?? 'STONE') })),
-    Layer.provide(ChunkServiceLive),
+    Layer.provide(ChunkService.Default),
     Layer.provide(noopFluidService),
     Layer.provide(makePlayerLayer(opts.playerPos)),
     Layer.provide(makeInventoryLayer(opts.removeBlockFails === undefined ? {} : { removeBlockFails: opts.removeBlockFails })),
     Layer.provide(makeHotbarLayer(opts.selectedTool)),
     Layer.provide(makeFurnaceLayer(opts.dismantleResult === undefined ? {} : { dismantleResult: opts.dismantleResult })),
+    Layer.provide(makeChestLayer()),
   )
 
 describe('terrain/application/block-service placeBlock inventory rollback', () => {
   it.effect('placeBlock fails and rolls back when removeBlock fails', () => {
     // Position far from player so blockOverlapsPlayer is false
     const chunk = makeChunk('AIR', BLOCK_IDX_64)
-    const layer = BlockServiceLive.pipe(
+    const layer = BlockService.Default.pipe(
       Layer.provide(makeChunkManagerLayer({ chunk })),
-      Layer.provide(ChunkServiceLive),
+      Layer.provide(ChunkService.Default),
       Layer.provide(noopFluidService),
       Layer.provide(makePlayerLayer({ x: 100, y: 100, z: 100 })),
       Layer.provide(makeInventoryLayer({ removeBlockFails: true })),
       Layer.provide(makeHotbarLayer()),
       Layer.provide(makeFurnaceLayer()),
+      Layer.provide(makeChestLayer()),
     )
     return Effect.gen(function* () {
       const svc = yield* BlockService
@@ -170,14 +178,15 @@ describe('terrain/application/block-service placeBlock inventory rollback', () =
 
   it.effect('placeBlock with NON_PLACEABLE_BLOCK_TYPES fails', () => {
     const chunk = makeChunk('AIR')
-    const layer = BlockServiceLive.pipe(
+    const layer = BlockService.Default.pipe(
       Layer.provide(makeChunkManagerLayer({ chunk })),
-      Layer.provide(ChunkServiceLive),
+      Layer.provide(ChunkService.Default),
       Layer.provide(noopFluidService),
       Layer.provide(makePlayerLayer({ x: 100, y: 100, z: 100 })),
       Layer.provide(makeInventoryLayer()),
       Layer.provide(makeHotbarLayer()),
       Layer.provide(makeFurnaceLayer()),
+      Layer.provide(makeChestLayer()),
     )
     return Effect.gen(function* () {
       const svc = yield* BlockService
@@ -190,15 +199,16 @@ describe('terrain/application/block-service placeBlock inventory rollback', () =
 
   it.effect('placeBlock fails when block overlaps player position', () => {
     const chunk = makeChunk('AIR')
-    const layer = BlockServiceLive.pipe(
+    const layer = BlockService.Default.pipe(
       Layer.provide(makeChunkManagerLayer({ chunk })),
-      Layer.provide(ChunkServiceLive),
+      Layer.provide(ChunkService.Default),
       Layer.provide(noopFluidService),
       // Player at (0, 64, 0) → block at (0, 64, 0) will overlap
       Layer.provide(makePlayerLayer({ x: 0, y: 64, z: 0 })),
       Layer.provide(makeInventoryLayer()),
       Layer.provide(makeHotbarLayer()),
       Layer.provide(makeFurnaceLayer()),
+      Layer.provide(makeChestLayer()),
     )
     return Effect.gen(function* () {
       const svc = yield* BlockService
@@ -222,14 +232,15 @@ describe('terrain/application/block-service placeBlock inventory rollback', () =
       syncLoadedChunks: () => Effect.void,
       tick: () => Effect.void,
     } as unknown as FluidService)
-    const layer = BlockServiceLive.pipe(
+    const layer = BlockService.Default.pipe(
       Layer.provide(makeChunkManagerLayer({ chunk })),
-      Layer.provide(ChunkServiceLive),
+      Layer.provide(ChunkService.Default),
       Layer.provide(fluidSvc),
       Layer.provide(makePlayerLayer({ x: 100, y: 100, z: 100 })),
       Layer.provide(makeInventoryLayer()),
       Layer.provide(makeHotbarLayer()),
       Layer.provide(makeFurnaceLayer()),
+      Layer.provide(makeChestLayer()),
     )
     return Effect.gen(function* () {
       const svc = yield* BlockService

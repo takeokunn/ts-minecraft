@@ -1,24 +1,29 @@
 import { describe, it } from '@effect/vitest'
-import { HashSet, Option } from 'effect'
+import { HashSet } from 'effect'
 import { expect } from 'vitest'
 import { CHUNK_HEIGHT, CHUNK_SIZE } from '@ts-minecraft/core'
-import { blockKey,
-blockTypeFor,
-blockIndexFor,
-chunkCoordsForPosition,
-enqueue,
-floorMod,
-getBlockIndex,
-localX,
-localY,
-localZ,
-maxLevelFor,
-parseKey,
-positionFromChunk,
-LAVA_INDEX,
-LAVA_MAX_LEVEL,
-WATER_INDEX,
-WATER_MAX_LEVEL, } from '@ts-minecraft/block'
+import {
+  LAVA_INDEX,
+  LAVA_MAX_LEVEL,
+  WATER_INDEX,
+  WATER_MAX_LEVEL,
+  blockIndexFor,
+  blockKey,
+  blockKeyFromChunkIndex,
+  blockTypeFor,
+  chunkCoordsForPosition,
+  enqueue,
+  enqueueKey,
+  floorMod,
+  getBlockIndex,
+  localX,
+  localY,
+  localZ,
+  maxLevelFor,
+  parseKey,
+  positionFromChunk,
+} from '@ts-minecraft/block'
+import { makeMinimalBlockChunk } from './chunk-block-test-utils'
 
 describe('floorMod', () => {
   it('positive value, positive modulo', () => {
@@ -107,6 +112,15 @@ describe('enqueue', () => {
     const twice = enqueue(once, pos)
     expect(HashSet.size(twice)).toBe(HashSet.size(once))
   })
+
+  it('enqueueKey matches enqueue for the same position', () => {
+    const pos = { x: 5, y: 10, z: 5 }
+    const viaPosition = enqueue(HashSet.empty(), pos)
+    const viaKey = enqueueKey(HashSet.empty(), blockKey(pos))
+
+    expect(HashSet.size(viaKey)).toBe(HashSet.size(viaPosition))
+    for (const key of viaPosition) expect(HashSet.has(viaKey, key)).toBe(true)
+  })
 })
 
 describe('chunkCoordsForPosition', () => {
@@ -124,11 +138,7 @@ describe('chunkCoordsForPosition', () => {
 })
 
 describe('positionFromChunk', () => {
-  const makeChunk = (cx: number, cz: number) => ({
-    coord: { x: cx, z: cz },
-    blocks: new Uint8Array(CHUNK_SIZE * CHUNK_SIZE * CHUNK_HEIGHT),
-    fluid: Option.none<Uint8Array>(),
-  })
+  const makeChunk = (cx: number, cz: number) => makeMinimalBlockChunk({ x: cx, z: cz })
 
   it('idx=0 maps to {x: chunkX*16, y:0, z: chunkZ*16}', () => {
     const chunk = makeChunk(2, 3)
@@ -162,6 +172,12 @@ describe('positionFromChunk', () => {
     const lz = localZ(pos)
     const recomputed = ly + lz * CHUNK_HEIGHT + lx * CHUNK_HEIGHT * CHUNK_SIZE
     expect(recomputed).toBe(testIdx)
+  })
+
+  it('blockKeyFromChunkIndex matches positionFromChunk + blockKey', () => {
+    const chunk = makeChunk(-2, 3)
+    const testIdx = 5 + 3 * CHUNK_HEIGHT + 2 * CHUNK_HEIGHT * CHUNK_SIZE
+    expect(blockKeyFromChunkIndex(chunk.coord, testIdx)).toBe(blockKey(positionFromChunk(chunk.coord, testIdx)))
   })
 })
 

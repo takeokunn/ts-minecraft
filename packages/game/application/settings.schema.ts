@@ -4,6 +4,9 @@ import { Schema } from 'effect'
 export const GraphicsQuality = Schema.Literal('low', 'medium', 'high', 'ultra')
 export type GraphicsQuality = Schema.Schema.Type<typeof GraphicsQuality>
 
+export const GameDifficulty = Schema.Literal('peaceful', 'easy', 'normal', 'hard')
+export type GameDifficulty = Schema.Schema.Type<typeof GameDifficulty>
+
 export const ResolvedGraphicsSchema = Schema.Struct({
   shadowsEnabled: Schema.Boolean,
   ssaoEnabled: Schema.Boolean,
@@ -42,6 +45,7 @@ export const SettingsSchema = Schema.Struct({
   renderDistance: Schema.Number.pipe(Schema.finite(), Schema.between(2, 16)),
   mouseSensitivity: Schema.Number.pipe(Schema.finite(), Schema.between(0.1, 3.0)),
   dayLengthSeconds: Schema.Number.pipe(Schema.finite(), Schema.between(120, 1200)),
+  difficulty: GameDifficulty,
   graphicsQuality: GraphicsQuality,
   adaptivePerformanceMode: Schema.Boolean,
   // NOTE: audioEnabled defaults to false intentionally — do NOT change this to true.

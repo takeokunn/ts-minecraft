@@ -126,4 +126,3 @@ export class HealthService extends Effect.Service<HealthService>()(
     }),
   }
 ) {}
-export const HealthServiceLive = HealthService.Default

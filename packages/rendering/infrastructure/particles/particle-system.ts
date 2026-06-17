@@ -141,7 +141,9 @@ export class ParticleSystemService extends Effect.Service<ParticleSystemService>
             uvOffsets[u2 + 1] = uvV
 
             lifetimes[slot] = PARTICLE_LIFETIME_SECS
-            ages[slot] = MutableRef.updateAndGet(ageCounterRef, (n) => n + 1)
+            const nextAge = MutableRef.get(ageCounterRef) + 1
+            MutableRef.set(ageCounterRef, nextAge)
+            ages[slot] = nextAge
 
             // Make the particle visible THIS frame even if `update()` hasn't run yet.
             scratchPos.set(x, y, z)
@@ -212,5 +214,3 @@ export class ParticleSystemService extends Effect.Service<ParticleSystemService>
     }),
   },
 ) {}
-
-export const ParticleSystemServiceLive = ParticleSystemService.Default

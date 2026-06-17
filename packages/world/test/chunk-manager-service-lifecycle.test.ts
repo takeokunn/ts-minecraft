@@ -6,13 +6,18 @@ import {
   RENDER_DISTANCE,
   MAX_CACHED_CHUNKS,
   getChunksInRenderDistance,
+  ChunkService,
+  NoiseServicePort,
 } from '@ts-minecraft/world'
 import { CHUNK_SIZE, DEFAULT_WORLD_ID, WorldId } from '@ts-minecraft/core'
-import { setActiveChunkWorldId } from '../application/chunk-manager-service'
 import {
+  EXPECTED_BLOCKS_LENGTH,
   buildTestLayer,
   buildTestLayerWithStoredChunks,
+  buildTestLayerWithStoredChunksAndTerrainPool,
 } from './chunk-manager-test-utils'
+import { Layer } from 'effect'
+import { TerrainWorkerPoolPort } from '@ts-minecraft/worker'
 
 describe('application/chunk/chunk-manager-service', () => {
   describe('unloadChunk', () => {
@@ -40,7 +45,7 @@ describe('application/chunk/chunk-manager-service', () => {
 
       return Effect.gen(function* () {
         const service = yield* ChunkManagerService
-        yield* setActiveChunkWorldId(customWorldId)
+        yield* service.setActiveWorldId(customWorldId)
 
         yield* service.getChunk({ x: 4, z: 4 })
         yield* service.markChunkDirty({ x: 4, z: 4 })
@@ -51,7 +56,7 @@ describe('application/chunk/chunk-manager-service', () => {
         expect(Option.isSome(customStored)).toBe(true)
         expect(Option.isNone(defaultStored)).toBe(true)
 
-        yield* setActiveChunkWorldId(DEFAULT_WORLD_ID)
+        yield* service.setActiveWorldId(DEFAULT_WORLD_ID)
       }).pipe(Effect.provide(TestLayer))
     })
     it.effect('is a no-op when chunk is not loaded', () => {
@@ -240,6 +245,44 @@ describe('application/chunk/chunk-manager-service', () => {
         Effect.provide(TestLayer),
         Effect.provide(TestContext.TestContext),
       )
+    }, 20_000)
+
+    it.effect('forwards custom terrain levels to terrain generation when eager loading', () => {
+      const seenOptions: Array<{ readonly seaLevel: number; readonly lakeLevel: number; readonly seed: number; readonly dimension?: 'overworld' | 'nether' | 'end' }> = []
+      const terrainPoolLayer = Layer.succeed(
+        TerrainWorkerPoolPort,
+        TerrainWorkerPoolPort.of({
+          _tag: '@minecraft/application/terrain/TerrainWorkerPoolPort' as const,
+          generateTerrain: (_coord, options) =>
+            Effect.sync(() => {
+              seenOptions.push(options)
+              return {
+                blocks: new Uint8Array(EXPECTED_BLOCKS_LENGTH),
+                skyLight: new Uint8Array(EXPECTED_BLOCKS_LENGTH),
+                blockLight: new Uint8Array(EXPECTED_BLOCKS_LENGTH),
+              }
+            }),
+        }),
+      )
+      const { TestLayer } = buildTestLayerWithStoredChunksAndTerrainPool([], { terrainPoolLayer })
+      const terrainLevels = { seaLevel: 61, lakeLevel: 31 }
+
+      return Effect.gen(function* () {
+        const service = yield* ChunkManagerService
+
+        const completed = yield* service.loadChunksAroundPlayer(
+          { x: 0, y: 64, z: 0 },
+          0,
+          { eager: true, terrainLevels },
+        )
+
+        expect(completed).toBe(true)
+        expect(seenOptions).toHaveLength(1)
+        expect(seenOptions[0].seaLevel).toBe(61)
+        expect(seenOptions[0].lakeLevel).toBe(31)
+        const loaded = yield* service.getLoadedChunks()
+        expect(loaded).toHaveLength(1)
+      }).pipe(Effect.provide(TestLayer))
     }, 20_000)
   })
 

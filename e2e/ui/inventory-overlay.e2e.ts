@@ -30,14 +30,7 @@ test.describe('Inventory overlay', () => {
 
     // Press E to open
     await page.keyboard.press('e')
-    await page.waitForFunction(
-      () => {
-        const overlay = document.getElementById('inventory-overlay')
-        return overlay instanceof HTMLDivElement && getComputedStyle(overlay).display !== 'none'
-      },
-      undefined,
-      { timeout: 2_000, polling: 100 }
-    )
+    await expect(page.locator('#inventory-overlay')).toBeVisible()
 
     const isOpen = await game.isOverlayOpen('inventory-overlay')
     expect(isOpen).toBe(true)
@@ -49,14 +42,7 @@ test.describe('Inventory overlay', () => {
 
     // Open inventory
     await page.keyboard.press('e')
-    await page.waitForFunction(
-      () => {
-        const overlay = document.getElementById('inventory-overlay')
-        return overlay instanceof HTMLDivElement && getComputedStyle(overlay).display !== 'none'
-      },
-      undefined,
-      { timeout: 2_000, polling: 100 }
-    )
+    await expect(page.locator('#inventory-overlay')).toBeVisible()
 
     // Verify slot elements are rendered (27 main inventory + 9 hotbar = 36 total)
     const slotCount = await page.evaluate(() => {
@@ -73,14 +59,7 @@ test.describe('Inventory overlay', () => {
 
     // Open inventory
     await page.keyboard.press('e')
-    await page.waitForFunction(
-      () => {
-        const overlay = document.getElementById('inventory-overlay')
-        return overlay instanceof HTMLDivElement && getComputedStyle(overlay).display !== 'none'
-      },
-      undefined,
-      { timeout: 2_000, polling: 100 }
-    )
+    await expect(page.locator('#inventory-overlay')).toBeVisible()
 
     const game = new GamePage(page)
     const isOpen = await game.isOverlayOpen('inventory-overlay')
@@ -88,14 +67,7 @@ test.describe('Inventory overlay', () => {
 
     // Press E again to close
     await page.keyboard.press('e')
-    await page.waitForFunction(
-      () => {
-        const overlay = document.getElementById('inventory-overlay')
-        return overlay instanceof HTMLDivElement && getComputedStyle(overlay).display === 'none'
-      },
-      undefined,
-      { timeout: 2_000, polling: 100 }
-    )
+    await expect(page.locator('#inventory-overlay')).toBeHidden()
 
     const isClosed = await game.isOverlayOpen('inventory-overlay')
     expect(isClosed).toBe(false)
@@ -107,14 +79,7 @@ test.describe('Inventory overlay', () => {
 
     // Open inventory with E
     await page.keyboard.press('e')
-    await page.waitForFunction(
-      () => {
-        const overlay = document.getElementById('inventory-overlay')
-        return overlay instanceof HTMLDivElement && getComputedStyle(overlay).display !== 'none'
-      },
-      undefined,
-      { timeout: 2_000, polling: 100 }
-    )
+    await expect(page.locator('#inventory-overlay')).toBeVisible()
 
     // Close with Escape
     await page.keyboard.press('Escape')

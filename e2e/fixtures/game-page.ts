@@ -1,31 +1,27 @@
 import type { PlaywrightTestArgs } from '@playwright/test'
-import { waitForGameReady, getFpsValue, waitForMainMenu } from '../helpers/wait-helpers'
+import { waitForGameReady, getFpsValue, waitForMainMenu, openPauseMenu } from '../helpers/wait-helpers'
 
 type Page = PlaywrightTestArgs['page']
+const E2E_ORIGIN = 'http://localhost:5180'
 
 export class GamePage {
   constructor(readonly page: Page) {}
 
   async resetBrowserStorage(): Promise<void> {
-    await this.page.goto('/e2e-cleanup.html')
-    await this.page.evaluate(async () => {
-      const deleteIndexedDatabase = (name: string): Promise<void> =>
-        new Promise((resolve, reject) => {
-          const request = indexedDB.deleteDatabase(name)
+    if (this.page.url() !== 'about:blank') {
+      await this.page.goto('about:blank').catch(() => undefined)
+    }
 
-          request.onsuccess = () => resolve()
-          request.onerror = () => reject(request.error ?? new Error(`Failed to delete IndexedDB database: ${name}`))
-          request.onblocked = () => undefined
-        })
+    const client = await this.page.context().newCDPSession(this.page)
 
-      window.localStorage.clear()
-      window.sessionStorage.clear()
-
-      const databases = await indexedDB.databases?.() ?? []
-      await Promise.all(
-        databases.map((database) => database.name ? deleteIndexedDatabase(database.name) : Promise.resolve())
-      )
-    })
+    try {
+      await client.send('Storage.clearDataForOrigin', {
+        origin: E2E_ORIGIN,
+        storageTypes: 'all',
+      })
+    } finally {
+      await client.detach()
+    }
   }
 
   async goto(url = '/') {
@@ -49,8 +45,7 @@ export class GamePage {
   }
 
   async openSettings() {
-    await this.page.keyboard.press('Escape')
-    await this.page.waitForSelector('#pause-menu-backdrop', { state: 'visible', timeout: 5_000 })
+    await openPauseMenu(this.page)
     await this.page.click('[data-role="settings"]')
   }
 

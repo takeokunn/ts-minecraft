@@ -1,12 +1,25 @@
-import { describe, it, expect } from 'vitest'
+import { afterEach, describe, it, expect } from 'vitest'
 import { blockTypeToIndex } from '@ts-minecraft/core'
 import {
+  computeMeshingWorkerCount,
+  computeMeshingWorkerCountFromHardwareConcurrency,
   TRANSPARENT_IDS_ARRAY,
   TRANSPARENT_IDS_SET,
   TRANSPARENT_SOLID_IDS_ARRAY,
   TRANSPARENT_SOLID_IDS_SET,
   MESHING_WORKER_TIMEOUT,
 } from '../infrastructure/meshing/meshing-worker-config'
+
+const originalNavigator = Object.getOwnPropertyDescriptor(globalThis, 'navigator')
+
+afterEach(() => {
+  if (originalNavigator === undefined) {
+    Reflect.deleteProperty(globalThis, 'navigator')
+    return
+  }
+
+  Object.defineProperty(globalThis, 'navigator', originalNavigator)
+})
 
 describe('TRANSPARENT_IDS', () => {
   it('array contains WATER block id', () => {
@@ -62,5 +75,48 @@ describe('MESHING_WORKER_TIMEOUT', () => {
   it('is a non-empty string', () => {
     expect(typeof MESHING_WORKER_TIMEOUT).toBe('string')
     expect(MESHING_WORKER_TIMEOUT.length).toBeGreaterThan(0)
+  })
+})
+
+describe('computeMeshingWorkerCount', () => {
+  it('returns a number between 1 and 3 inclusive', () => {
+    const count = computeMeshingWorkerCount()
+    expect(count).toBeGreaterThanOrEqual(1)
+    expect(count).toBeLessThanOrEqual(3)
+  })
+
+  it('returns an integer', () => {
+    expect(Number.isInteger(computeMeshingWorkerCount())).toBe(true)
+  })
+
+  it('uses navigator.hardwareConcurrency when available', () => {
+    Object.defineProperty(globalThis, 'navigator', {
+      configurable: true,
+      value: { hardwareConcurrency: 8 },
+    })
+
+    expect(computeMeshingWorkerCount()).toBe(3)
+  })
+
+  it('falls back to two hardware threads when navigator is unavailable', () => {
+    Object.defineProperty(globalThis, 'navigator', {
+      configurable: true,
+      value: undefined,
+    })
+
+    expect(computeMeshingWorkerCount()).toBe(1)
+  })
+
+  it.each([
+    [1, 1],
+    [2, 1],
+    [3, 1],
+    [4, 2],
+    [6, 3],
+    [8, 3],
+    [16, 3],
+    [Number.NaN, 1],
+  ])('returns %i worker(s) for %i hardware thread(s)', (hardwareConcurrency, expected) => {
+    expect(computeMeshingWorkerCountFromHardwareConcurrency(hardwareConcurrency)).toBe(expected)
   })
 })

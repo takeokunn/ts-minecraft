@@ -1,8 +1,9 @@
 import { describe,it } from '@effect/vitest'
 import type { PlayerId,Position } from '@ts-minecraft/core'
 import { PlayerService } from '@ts-minecraft/entity'
-import { Effect,Either,Option } from 'effect'
+import { Effect,Either } from 'effect'
 import { expect } from 'vitest'
+import { expectSome } from './test-utils'
 
 const testPlayerId = 'player-1' as PlayerId
 const testPosition: Position = { x: 0, y: 64, z: 0 }
@@ -36,7 +37,7 @@ describe('PlayerService', () => {
         yield* service.create(testPlayerId, testPosition)
         const result = yield* Effect.either(service.create(testPlayerId, testPosition))
         expect(Either.isLeft(result)).toBe(true)
-        const errCreate = Option.getOrThrow(Either.getLeft(result))
+        const errCreate = expectSome(Either.getLeft(result))
         expect(errCreate._tag).toBe('PlayerError')
         expect(errCreate.reason).toContain('already exists')
       }).pipe(Effect.provide(TestLayer))
@@ -68,7 +69,7 @@ describe('PlayerService', () => {
         const service = yield* PlayerService
         const result = yield* Effect.either(service.getPosition('nonexistent' as PlayerId))
         expect(Either.isLeft(result)).toBe(true)
-        const err1 = Option.getOrThrow(Either.getLeft(result))
+        const err1 = expectSome(Either.getLeft(result))
         expect(err1._tag).toBe('PlayerError')
         expect(err1.reason).toContain('not found')
       }).pipe(Effect.provide(TestLayer))
@@ -107,7 +108,7 @@ describe('PlayerService', () => {
           service.updatePosition('ghost' as PlayerId, { x: 1, y: 2, z: 3 })
         )
         expect(Either.isLeft(result)).toBe(true)
-        expect(Option.getOrThrow(Either.getLeft(result))._tag).toBe('PlayerError')
+        expect(expectSome(Either.getLeft(result))._tag).toBe('PlayerError')
       }).pipe(Effect.provide(TestLayer))
     )
 
@@ -158,7 +159,7 @@ describe('PlayerService', () => {
           service.updateVelocity('ghost-velocity' as PlayerId, { x: 0, y: 0, z: 0 })
         )
         expect(Either.isLeft(result)).toBe(true)
-        const err = Option.getOrThrow(Either.getLeft(result))
+        const err = expectSome(Either.getLeft(result))
         expect(err._tag).toBe('PlayerError')
         expect(err.reason).toBe('Player not found')
       }).pipe(Effect.provide(TestLayer))
@@ -190,7 +191,7 @@ describe('PlayerService', () => {
         const service = yield* PlayerService
         const result = yield* Effect.either(service.getVelocity('nonexistent' as PlayerId))
         expect(Either.isLeft(result)).toBe(true)
-        const err2 = Option.getOrThrow(Either.getLeft(result))
+        const err2 = expectSome(Either.getLeft(result))
         expect(err2._tag).toBe('PlayerError')
         expect(err2.reason).toContain('not found')
       }).pipe(Effect.provide(TestLayer))
@@ -245,7 +246,7 @@ describe('PlayerService', () => {
         const service = yield* PlayerService
         const result = yield* Effect.either(service.getState('ghost' as PlayerId))
         expect(Either.isLeft(result)).toBe(true)
-        const err3 = Option.getOrThrow(Either.getLeft(result))
+        const err3 = expectSome(Either.getLeft(result))
         expect(err3._tag).toBe('PlayerError')
         expect(err3.reason).toContain('not found')
       }).pipe(Effect.provide(TestLayer))

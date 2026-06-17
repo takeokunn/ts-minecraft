@@ -39,7 +39,21 @@ export const fract = (value: number): number => value - Math.floor(value)
 
 export const clamp01 = (value: number): number => Math.max(0, Math.min(1, value))
 
-export const computeRuggedness = (erosion: number, jaggedness: number): number => {
+export const computeRuggedness = (
+  erosion: number,
+  jaggedness: number,
+  continentalness?: number,
+  pv?: number,
+): number => {
   const normalizedErosion = clamp01((erosion + 1) * 0.5)
-  return clamp01((1 - normalizedErosion) * 0.6 + Math.abs(jaggedness) * 0.4)
+  const baseRuggedness = clamp01((1 - normalizedErosion) * 0.6 + Math.abs(jaggedness) * 0.4)
+
+  if (continentalness === undefined || pv === undefined) {
+    return baseRuggedness
+  }
+
+  const normalizedContinentalness = clamp01((continentalness + 1) * 0.5)
+  // Only let the bonus kick in once the column is firmly on the continental/peak side.
+  const peaksBonus = smoothstep(0.55, 1, normalizedContinentalness) * clamp01(Math.max(0, pv))
+  return clamp01(baseRuggedness + peaksBonus * 0.3)
 }

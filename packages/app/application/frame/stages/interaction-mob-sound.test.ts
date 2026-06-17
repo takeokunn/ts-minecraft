@@ -6,7 +6,7 @@ import {
   makeServices,
   makeSettingsOverlay,
   runFrame,
-} from '@test/frame-handler-test-kit'
+} from '../../../test/frame-handler-test-kit'
 import { Effect, Option } from 'effect'
 import * as THREE from 'three'
 import { expect, vi } from 'vitest'

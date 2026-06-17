@@ -1,16 +1,17 @@
 import { describe, it } from '@effect/vitest'
-import { Effect, Option, Stream } from 'effect'
+import { Effect, Option, Stream, TestClock, TestContext } from 'effect'
 import { expect } from 'vitest'
+import { FakeWebSocketClient } from '../infrastructure/websocket-client'
+import { FakeWebSocketServer } from '../infrastructure/websocket-server'
 import {
   ClientService,
-  ClientServiceLive,
-  PlayerId,
-  FakeWebSocketClient,
-  FakeWebSocketServer,
+  ClientServiceDefault,
   MessageType,
+  NetworkError,
+  PlayerId,
   PlayerName,
   ServerService,
-  ServerServiceLive,
+  ServerServiceDefault,
   WorldId,
   encodeNetworkMessage,
   type NetworkMessage,
@@ -22,7 +23,50 @@ const takeFromClient = (stream: Stream.Stream<NetworkMessage, never, never>): Ef
     return Option.getOrThrow(message)
   })
 
+const newestConnection = (server: FakeWebSocketServer) => {
+  const connection = Array.from(server.getConnections().values()).at(-1)
+  if (connection === undefined) throw new Error('expected an active fake socket connection')
+  return connection
+}
+
 describe('network/client-service', () => {
+  it.effect('receiveMessages is empty before a connection is opened', () => {
+    const fakeServer = new FakeWebSocketServer()
+    return Effect.gen(function* () {
+      const client = yield* ClientService
+      const messages = yield* client.receiveMessages()
+      const collected = yield* Stream.runCollect(messages)
+      expect(Array.from(collected)).toEqual([])
+    }).pipe(Effect.provide(ClientServiceDefault(new FakeWebSocketClient(fakeServer))))
+  })
+
+  it.effect('sendMessage fails before a connection is opened', () => {
+    const fakeServer = new FakeWebSocketServer()
+    return Effect.gen(function* () {
+      const client = yield* ClientService
+      const error = yield* client.sendMessage({
+        type: MessageType.Chat,
+        playerId: PlayerId.make('alex'),
+        worldId: WorldId.make('overworld'),
+        message: 'hello',
+        timestamp: 1,
+      }).pipe(Effect.flip)
+      expect(error).toBeInstanceOf(NetworkError)
+      expect(error.operation).toBe('send')
+    }).pipe(Effect.provide(ClientServiceDefault(new FakeWebSocketClient(fakeServer))))
+  })
+
+  it.effect('connect failure marks the client as failed', () => {
+    const fakeServer = new FakeWebSocketServer()
+    return Effect.gen(function* () {
+      const client = yield* ClientService
+      const error = yield* client.connect('ws://localhost:25565', PlayerName.make('Alex')).pipe(Effect.flip)
+      expect(error).toBeInstanceOf(NetworkError)
+      expect(error.operation).toBe('connect')
+      expect(yield* client.getConnectionState()).toBe('failed')
+    }).pipe(Effect.provide(ClientServiceDefault(new FakeWebSocketClient(fakeServer))))
+  })
+
   it.effect('client connects and receives welcome message', () => {
     const fakeServer = new FakeWebSocketServer()
     return Effect.gen(function* () {
@@ -33,7 +77,7 @@ describe('network/client-service', () => {
       const messages = yield* client.receiveMessages()
       const welcome = yield* takeFromClient(messages)
       expect(welcome.type).toBe(MessageType.PlayerJoin)
-    }).pipe(Effect.provide(ServerServiceLive(fakeServer)), Effect.provide(ClientServiceLive(new FakeWebSocketClient(fakeServer))))
+    }).pipe(Effect.provide(ServerServiceDefault(fakeServer)), Effect.provide(ClientServiceDefault(new FakeWebSocketClient(fakeServer))))
   })
 
   it.effect('client connection state transitions from idle to connecting to connected', () => {
@@ -45,28 +89,32 @@ describe('network/client-service', () => {
       expect(yield* client.getConnectionState()).toBe('idle')
       yield* client.connect('ws://localhost:25565', PlayerName.make('Alex'))
       expect(yield* client.getConnectionState()).toBe('connected')
-    }).pipe(Effect.provide(ServerServiceLive(fakeServer)), Effect.provide(ClientServiceLive(new FakeWebSocketClient(fakeServer))))
+    }).pipe(Effect.provide(ServerServiceDefault(fakeServer)), Effect.provide(ClientServiceDefault(new FakeWebSocketClient(fakeServer))))
   })
 
-  it.effect.skip('client reconnects on connection loss', () => {
+  it.effect('client sends messages through the active connection', () => {
     const fakeServer = new FakeWebSocketServer()
     return Effect.gen(function* () {
       const server = yield* ServerService
       yield* server.start(25565)
       const client = yield* ClientService
       yield* client.connect('ws://localhost:25565', PlayerName.make('Alex'))
-      const firstConnection = [...fakeServer.getConnections().values()][0]
-      expect(firstConnection).toBeDefined()
-      // Close the connection and verify state transitions
-      yield* firstConnection!.close
-      // Reconnection is async and depends on backoff timing.
-      // This test verifies the disconnect is detected and state changes.
-      yield* Effect.sleep('100 millis')
-      const state = yield* client.getConnectionState()
-      expect(state === 'reconnecting' || state === 'connected' || state === 'failed')
-        .toBeTruthy()
-    }).pipe(Effect.provide(ServerServiceLive(fakeServer)), Effect.provide(ClientServiceLive(new FakeWebSocketClient(fakeServer))))
-  }, { timeout: 15000 })
+      const messages = yield* client.receiveMessages()
+      const welcome = yield* takeFromClient(messages)
+      if (welcome.type !== MessageType.PlayerJoin) return
+
+      yield* client.sendMessage({
+        type: MessageType.Chat,
+        playerId: welcome.playerId,
+        worldId: welcome.worldId,
+        message: 'hello',
+        timestamp: 2,
+      })
+      const chat = yield* takeFromClient(messages)
+      expect(chat.type).toBe(MessageType.Chat)
+      if (chat.type === MessageType.Chat) expect(chat.message).toBe('hello')
+    }).pipe(Effect.provide(ServerServiceDefault(fakeServer)), Effect.provide(ClientServiceDefault(new FakeWebSocketClient(fakeServer))))
+  })
 
   it.effect('client receives broadcast messages', () => {
     const fakeServer = new FakeWebSocketServer()
@@ -91,7 +139,7 @@ describe('network/client-service', () => {
       const broadcast = yield* takeFromClient(firstMessages)
       expect(broadcast.type).toBe(MessageType.PlayerJoin)
       if (broadcast.type === MessageType.PlayerJoin) expect(broadcast.playerName).toBe(PlayerName.make('Steve'))
-    }).pipe(Effect.provide(ServerServiceLive(fakeServer)), Effect.provide(ClientServiceLive(new FakeWebSocketClient(fakeServer))))
+    }).pipe(Effect.provide(ServerServiceDefault(fakeServer)), Effect.provide(ClientServiceDefault(new FakeWebSocketClient(fakeServer))))
   })
 
   it.effect('client disconnects cleanly', () => {
@@ -102,7 +150,78 @@ describe('network/client-service', () => {
       const client = yield* ClientService
       yield* client.connect('ws://localhost:25565', PlayerName.make('Alex'))
       yield* client.disconnect()
+      yield* Effect.yieldNow()
       expect(yield* client.getConnectionState()).toBe('disconnected')
-    }).pipe(Effect.provide(ServerServiceLive(fakeServer)), Effect.provide(ClientServiceLive(new FakeWebSocketClient(fakeServer))))
+    }).pipe(Effect.provide(ServerServiceDefault(fakeServer)), Effect.provide(ClientServiceDefault(new FakeWebSocketClient(fakeServer))))
+  })
+
+  it.effect('client reconnects after an unexpected transport close', () => {
+    const fakeServer = new FakeWebSocketServer()
+    return Effect.gen(function* () {
+      const server = yield* ServerService
+      yield* server.start(25565)
+      const client = yield* ClientService
+      yield* client.connect('ws://localhost:25565', PlayerName.make('Alex'))
+      yield* takeFromClient(yield* client.receiveMessages())
+
+      const originalConnection = newestConnection(fakeServer)
+      yield* originalConnection.close
+      yield* Effect.yieldNow()
+      yield* TestClock.adjust('10 millis')
+      yield* Effect.yieldNow()
+
+      expect(yield* client.getConnectionState()).toBe('connected')
+      expect(newestConnection(fakeServer)).not.toBe(originalConnection)
+
+      const messages = yield* client.receiveMessages()
+      const welcome = yield* takeFromClient(messages)
+      expect(welcome.type).toBe(MessageType.PlayerJoin)
+    }).pipe(
+      Effect.provide(ServerServiceDefault(fakeServer)),
+      Effect.provide(ClientServiceDefault(new FakeWebSocketClient(fakeServer))),
+      Effect.provide(TestContext.TestContext),
+    )
+  })
+
+  it.effect('client marks the connection failed when reconnect attempts are exhausted', () => {
+    const fakeServer = new FakeWebSocketServer()
+    return Effect.gen(function* () {
+      const server = yield* ServerService
+      yield* server.start(25565)
+      const client = yield* ClientService
+      yield* client.connect('ws://localhost:25565', PlayerName.make('Alex'))
+
+      yield* server.stop()
+      yield* Effect.yieldNow()
+      yield* TestClock.adjust('10 millis')
+      yield* Effect.yieldNow()
+
+      expect(yield* client.getConnectionState()).toBe('failed')
+    }).pipe(
+      Effect.provide(ServerServiceDefault(fakeServer)),
+      Effect.provide(ClientServiceDefault(new FakeWebSocketClient(fakeServer), { maxReconnectAttempts: 1 })),
+      Effect.provide(TestContext.TestContext),
+    )
+  })
+
+  it.effect('client disconnect interrupts an active reconnect attempt', () => {
+    const fakeServer = new FakeWebSocketServer()
+    return Effect.gen(function* () {
+      const server = yield* ServerService
+      yield* server.start(25565)
+      const client = yield* ClientService
+      yield* client.connect('ws://localhost:25565', PlayerName.make('Alex'))
+
+      yield* newestConnection(fakeServer).close
+      yield* client.disconnect()
+      yield* TestClock.adjust('10 millis')
+      yield* Effect.yieldNow()
+
+      expect(yield* client.getConnectionState()).toBe('disconnected')
+    }).pipe(
+      Effect.provide(ServerServiceDefault(fakeServer)),
+      Effect.provide(ClientServiceDefault(new FakeWebSocketClient(fakeServer))),
+      Effect.provide(TestContext.TestContext),
+    )
   })
 })

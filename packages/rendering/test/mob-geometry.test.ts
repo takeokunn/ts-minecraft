@@ -72,6 +72,51 @@ describe('mob-geometry', () => {
     })
   })
 
+  describe('buildMobGroup(Chicken)', () => {
+    it('returns a small quadruped with white body and orange legs', () => {
+      const g = buildMobGroup('Chicken')
+      const body = (g.body.material as THREE.MeshStandardMaterial).color.getHex()
+      const leg = (g.legFL.material as THREE.MeshStandardMaterial).color.getHex()
+      expect(g.root.children.length).toBe(6)
+      expect(g.armL).toBeNull()
+      expect(g.armR).toBeNull()
+      expect(g.legBL).not.toBeNull()
+      expect(g.legBR).not.toBeNull()
+      expect(body).toBe(0xf5f5f5)
+      expect(leg).toBe(0xe0a020)
+    })
+  })
+
+  describe('buildMobGroup(Bat)', () => {
+    it('returns a small dark quadruped placeholder', () => {
+      const g = buildMobGroup('Bat')
+      const head = (g.head.material as THREE.MeshStandardMaterial).color.getHex()
+      const body = (g.body.material as THREE.MeshStandardMaterial).color.getHex()
+      expect(g.root.children.length).toBe(6)
+      expect(g.armL).toBeNull()
+      expect(g.armR).toBeNull()
+      expect(g.legBL).not.toBeNull()
+      expect(g.legBR).not.toBeNull()
+      expect(head).toBe(0x2b2420)
+      expect(body).toBe(0x1f1a17)
+    })
+  })
+
+  describe('buildMobGroup(Squid)', () => {
+    it('returns a blue quadruped placeholder with tentacle roles', () => {
+      const g = buildMobGroup('Squid')
+      const body = (g.body.material as THREE.MeshStandardMaterial).color.getHex()
+      const leg = (g.legFL.material as THREE.MeshStandardMaterial).color.getHex()
+      expect(g.root.children.length).toBe(6)
+      expect(g.armL).toBeNull()
+      expect(g.armR).toBeNull()
+      expect(g.legBL).not.toBeNull()
+      expect(g.legBR).not.toBeNull()
+      expect(body).toBe(0x2f78b7)
+      expect(leg).toBe(0x1f4f7a)
+    })
+  })
+
   describe('shared geometry / materials', () => {
     it('reuses the SAME BoxGeometry instances across mobs of the same type', () => {
       const a = buildMobGroup('Zombie')
@@ -129,6 +174,30 @@ describe('buildMobGroup — additional mob types', () => {
 
   it('builds an Enderman (biped) without error', () => {
     const g = buildMobGroup('Enderman')
+    expect(g.head).toBeDefined()
+    expect(g.body).toBeDefined()
+    expect(g.legFL).toBeDefined()
+    expect(g.armL).toBeDefined()
+  })
+
+  it('builds a Witch (biped) without error', () => {
+    const g = buildMobGroup('Witch')
+    expect(g.head).toBeDefined()
+    expect(g.body).toBeDefined()
+    expect(g.legFL).toBeDefined()
+    expect(g.armL).toBeDefined()
+  })
+
+  it('builds a Drowned (biped) without error', () => {
+    const g = buildMobGroup('Drowned')
+    expect(g.head).toBeDefined()
+    expect(g.body).toBeDefined()
+    expect(g.legFL).toBeDefined()
+    expect(g.armL).toBeDefined()
+  })
+
+  it('builds a Zombie Villager (biped) without error', () => {
+    const g = buildMobGroup('ZombieVillager')
     expect(g.head).toBeDefined()
     expect(g.body).toBeDefined()
     expect(g.legFL).toBeDefined()

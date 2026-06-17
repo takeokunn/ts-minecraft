@@ -25,12 +25,6 @@ const fluidTypeForBlockId = (blockId: number): FluidType => blockId === LAVA_BLO
 const fluidArrayIndex = (lx: number, y: number, lz: number): number =>
   y + lz * CHUNK_HEIGHT + lx * CHUNK_HEIGHT * CHUNK_SIZE
 
-const fallbackFluidCellForBlock = (blockId: number): FluidCell => ({
-  level: 0,
-  source: true,
-  type: fluidTypeForBlockId(blockId),
-})
-
 const fluidHeightForCell = (cell: FluidCell): number => {
   if (cell.source) return 1
   const maxLevel = maxLevelFor(cell.type)
@@ -39,7 +33,7 @@ const fluidHeightForCell = (cell: FluidCell): number => {
 
 export const resolveFluidState = (
   blocks: Readonly<Uint8Array>,
-  fluid: Readonly<Uint8Array<ArrayBufferLike>> | undefined,
+  fluid: Readonly<Uint8Array<ArrayBufferLike>>,
   lx: number,
   y: number,
   lz: number,
@@ -53,14 +47,11 @@ export const resolveFluidState = (
     return null
   }
 
-  const fallback = fallbackFluidCellForBlock(blockId)
-  const decoded = fluid === undefined
-    ? fallback
-    /* c8 ignore next -- fluid array access ?? 0 fallback: Uint8Array always returns number for valid index */
-    : Option.getOrElse(decodeFluidByte(fluid[fluidArrayIndex(lx, y, lz)] as number), () => fallback)
   const type = fluidTypeForBlockId(blockId)
-  /* c8 ignore next -- type mismatch branch: decoded.type always matches blockId's type in practice */
-  const cell = decoded.type === type ? decoded : { ...decoded, type }
+  const cell = Option.getOrNull(decodeFluidByte(fluid[fluidArrayIndex(lx, y, lz)] as number))
+  if (cell === null || cell.type !== type) {
+    return null
+  }
 
   return {
     blockId,
@@ -71,7 +62,7 @@ export const resolveFluidState = (
 
 const fluidSurfaceHeightForColumn = (
   blocks: Readonly<Uint8Array>,
-  fluid: Readonly<Uint8Array<ArrayBufferLike>> | undefined,
+  fluid: Readonly<Uint8Array<ArrayBufferLike>>,
   type: FluidType,
   lx: number,
   y: number,
@@ -86,7 +77,7 @@ const fluidSurfaceHeightForColumn = (
 
 const fluidCornerHeightForCell = (
   blocks: Readonly<Uint8Array>,
-  fluid: Readonly<Uint8Array<ArrayBufferLike>> | undefined,
+  fluid: Readonly<Uint8Array<ArrayBufferLike>>,
   current: FluidRenderState,
   lx: number,
   y: number,
@@ -107,13 +98,12 @@ const fluidCornerHeightForCell = (
     }
   }
 
-  /* c8 ignore next -- sampleCount=0 fallback: all neighbors are non-fluid, rare in water-adjacent tests */
-  return sampleCount > 0 ? heightSum / sampleCount : current.height
+  return heightSum / sampleCount
 }
 
 export const fluidTopCornerYsForCell = (
   blocks: Readonly<Uint8Array>,
-  fluid: Readonly<Uint8Array<ArrayBufferLike>> | undefined,
+  fluid: Readonly<Uint8Array<ArrayBufferLike>>,
   current: FluidRenderState,
   lx: number,
   y: number,

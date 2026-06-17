@@ -46,4 +46,3 @@ export class FirstPersonCameraService extends Effect.Service<FirstPersonCameraSe
     }),
   }
 ) {}
-export const FirstPersonCameraServiceLive = FirstPersonCameraService.Default

@@ -26,5 +26,3 @@ export class GameModeService extends Effect.Service<GameModeService>()(
     }),
   },
 ) {}
-
-export const GameModeServiceLive = GameModeService.Default

@@ -2,7 +2,7 @@ import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
 import { Effect, Layer, MutableRef } from 'effect'
 import { AudioEnginePort, type AudioEnginePortShape, type ToneRequest } from '@ts-minecraft/game'
-import { SoundManager, SoundManagerLive } from '@ts-minecraft/game'
+import { SoundManager } from '@ts-minecraft/game'
 import { SOUND_LIBRARY } from '../application/sound-manager.config'
 
 const makeFakeAudioEngine = () => {
@@ -33,7 +33,7 @@ const makeFakeAudioEngine = () => {
 }
 
 const makeSoundLayer = (engine: AudioEnginePortShape) =>
-  SoundManagerLive.pipe(
+  SoundManager.Default.pipe(
     Layer.provide(Layer.succeed(AudioEnginePort, engine)),
   )
 
@@ -125,6 +125,67 @@ describe('audio/sound-manager', () => {
       expect(death!.gain).toBeCloseTo(SOUND_LIBRARY.mobDeath.baseGain / 3, 4)
       expect(death!.pan).toBeCloseTo(1, 5)
       expect(death!.position).toEqual({ x: 24, y: 0, z: 0 })
+    }).pipe(Effect.provide(makeSoundLayer(fake.engine)))
+  })
+
+  it.effect('routes inventory open/close effects through the configured UI synth cues', () => {
+    const fake = makeFakeAudioEngine()
+    return Effect.gen(function* () {
+      const soundManager = yield* SoundManager
+      yield* soundManager.applySettings({ enabled: true, masterVolume: 1, sfxVolume: 0.5 })
+
+      yield* soundManager.playEffect('inventoryOpen')
+      yield* soundManager.playEffect('inventoryClose')
+
+      const open = fake.playRequests[0]
+      const close = fake.playRequests[1]
+      expect(fake.playRequests).toHaveLength(2)
+      expect(open).toBeDefined()
+      expect(close).toBeDefined()
+
+      expect(open!.frequency).toBe(SOUND_LIBRARY.inventoryOpen.frequency)
+      expect(open!.wave).toBe(SOUND_LIBRARY.inventoryOpen.wave)
+      expect(open!.gain).toBeCloseTo(SOUND_LIBRARY.inventoryOpen.baseGain * 0.5, 4)
+      expect(open!.pan).toBeCloseTo(0, 5)
+      expect(open!.position).toBeUndefined()
+
+      expect(close!.frequency).toBe(SOUND_LIBRARY.inventoryClose.frequency)
+      expect(close!.wave).toBe(SOUND_LIBRARY.inventoryClose.wave)
+      expect(close!.gain).toBeCloseTo(SOUND_LIBRARY.inventoryClose.baseGain * 0.5, 4)
+      expect(close!.pan).toBeCloseTo(0, 5)
+      expect(close!.position).toBeUndefined()
+    }).pipe(Effect.provide(makeSoundLayer(fake.engine)))
+  })
+
+  it.effect('routes footstep material effects through the configured synth cues', () => {
+    const fake = makeFakeAudioEngine()
+    return Effect.gen(function* () {
+      const soundManager = yield* SoundManager
+      yield* soundManager.applySettings({ enabled: true, masterVolume: 1, sfxVolume: 0.75 })
+
+      yield* soundManager.playEffect('footstepGrass')
+      yield* soundManager.playEffect('footstepStone')
+      yield* soundManager.playEffect('footstepWood', { gainScale: 1.15 })
+
+      const grass = fake.playRequests[0]
+      const stone = fake.playRequests[1]
+      const wood = fake.playRequests[2]
+      expect(fake.playRequests).toHaveLength(3)
+      expect(grass).toBeDefined()
+      expect(stone).toBeDefined()
+      expect(wood).toBeDefined()
+
+      expect(grass!.frequency).toBe(SOUND_LIBRARY.footstepGrass.frequency)
+      expect(grass!.wave).toBe(SOUND_LIBRARY.footstepGrass.wave)
+      expect(grass!.gain).toBeCloseTo(SOUND_LIBRARY.footstepGrass.baseGain * 0.75, 4)
+
+      expect(stone!.frequency).toBe(SOUND_LIBRARY.footstepStone.frequency)
+      expect(stone!.wave).toBe(SOUND_LIBRARY.footstepStone.wave)
+      expect(stone!.gain).toBeCloseTo(SOUND_LIBRARY.footstepStone.baseGain * 0.75, 4)
+
+      expect(wood!.frequency).toBe(SOUND_LIBRARY.footstepWood.frequency)
+      expect(wood!.wave).toBe(SOUND_LIBRARY.footstepWood.wave)
+      expect(wood!.gain).toBeCloseTo(SOUND_LIBRARY.footstepWood.baseGain * 0.75 * 1.15, 4)
     }).pipe(Effect.provide(makeSoundLayer(fake.engine)))
   })
 

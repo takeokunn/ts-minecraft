@@ -9,12 +9,13 @@ import {
   placeTree,
   WOOD_BLOCK_INDEX,
 } from '@ts-minecraft/world'
+import { makeChunkBlockBuffer } from './chunk-buffer-test-utils'
 
 // ---------------------------------------------------------------------------
 // Shared helpers
 // ---------------------------------------------------------------------------
 
-const makeBlocks = (): Uint8Array => new Uint8Array(CHUNK_SIZE * CHUNK_SIZE * CHUNK_HEIGHT)
+const makeBlocks = (): Uint8Array<ArrayBufferLike> => makeChunkBlockBuffer()
 
 const getBlock = (blocks: Uint8Array, lx: number, y: number, lz: number): number =>
   blocks[y + lz * CHUNK_HEIGHT + lx * CHUNK_HEIGHT * CHUNK_SIZE]!
@@ -57,6 +58,13 @@ describe('shouldPlaceTree', () => {
     // surfaceY === SEA_LEVEL is dry: water only fills surfaceY+1…SEA_LEVEL, which is empty here.
     const result = shouldPlaceTree(1.0, SEA_LEVEL, 12, 90)
     expect(result.place).toBe(true)
+  })
+
+  it('respects a custom seaLevel when deciding whether a column is submerged', () => {
+    const terrainLevels = { seaLevel: 40, lakeLevel: 62 }
+
+    expect(shouldPlaceTree(1.0, terrainLevels.seaLevel - 1, 100, 200, terrainLevels).place).toBe(false)
+    expect(shouldPlaceTree(1.0, terrainLevels.seaLevel, 100, 200, terrainLevels).place).toBe(true)
   })
 
   it('is deterministic — same inputs produce the same result', () => {
@@ -119,6 +127,13 @@ describe('selectTreeArchetype', () => {
     // Need a rng where fract(rng * 1.32471) > 0.72
     // rng=0.55 → fract(0.55 * 1.32471) ≈ fract(0.72859) ≈ 0.72859 > 0.72
     expect(selectTreeArchetype('FOREST', HIGH_SURFACE, 0.55)).toBe('SPRUCE')
+  })
+
+  it('uses a custom seaLevel for the highland threshold', () => {
+    const terrainLevels = { seaLevel: 40, lakeLevel: 62 }
+
+    expect(selectTreeArchetype('FOREST', terrainLevels.seaLevel + 17, 0.55, terrainLevels)).toBe('ROUND_OAK')
+    expect(selectTreeArchetype('FOREST', terrainLevels.seaLevel + 18, 0.55, terrainLevels)).toBe('SPRUCE')
   })
 
   it('SWAMP → ROUND_OAK (vanilla swamp grows oak, not birch)', () => {

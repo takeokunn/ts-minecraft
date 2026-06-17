@@ -3,17 +3,16 @@ import { expect } from 'vitest'
 import { Effect, Layer, MutableRef } from 'effect'
 import * as THREE from 'three'
 import { PlayerInputService } from '@ts-minecraft/entity'
-import { PlayerCameraStateService, PlayerCameraStateLive } from '@ts-minecraft/entity'
+import { PlayerCameraStateService } from '@ts-minecraft/entity'
 import {
   FirstPersonCameraService,
-  FirstPersonCameraServiceLive,
   BASE_MOUSE_SENSITIVITY,
 } from '@ts-minecraft/entity'
 
 const createTestLayers = (inputService: PlayerInputService) =>
   Layer.merge(
     Layer.succeed(PlayerInputService, inputService),
-    PlayerCameraStateLive
+    PlayerCameraStateService.Default
   )
 
 
@@ -61,7 +60,7 @@ describe('FirstPersonCameraService', () => {
         // Net movement: pitch = -(-100 + 50) * 0.002 = 0.1
         expect(rotation.yaw).toBeCloseTo(-100 * BASE_MOUSE_SENSITIVITY * 0.5)
         expect(rotation.pitch).toBeCloseTo(50 * BASE_MOUSE_SENSITIVITY * 0.5)
-      }).pipe(Effect.provide(FirstPersonCameraServiceLive), Effect.provide(testLayers))
+      }).pipe(Effect.provide(FirstPersonCameraService.Default), Effect.provide(testLayers))
     })
 
     it.effect('should handle pointer lock/unlock during gameplay', () => {
@@ -104,7 +103,7 @@ describe('FirstPersonCameraService', () => {
         // Second update should not have changed rotation
         expect(rotation2.yaw).toBeCloseTo(rotation1.yaw)
         expect(rotation2.pitch).toBeCloseTo(rotation1.pitch)
-      }).pipe(Effect.provide(FirstPersonCameraServiceLive), Effect.provide(testLayers))
+      }).pipe(Effect.provide(FirstPersonCameraService.Default), Effect.provide(testLayers))
     })
   })
 })

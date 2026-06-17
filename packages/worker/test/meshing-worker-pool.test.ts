@@ -1,10 +1,11 @@
 import { describe, expect } from '@effect/vitest'
 import { it } from '@effect/vitest'
 import { vi } from 'vitest'
-import { Effect, Fiber, Option, TestClock, TestContext } from 'effect'
-import { MeshingWorkerPool } from '@ts-minecraft/worker'
+import { Effect, Fiber, MutableRef, Option, TestClock, TestContext } from 'effect'
+import { MeshingWorkerPool, selectLeastLoadedWorkerIndex } from '@ts-minecraft/worker'
 import type { Chunk } from '@ts-minecraft/world'
 import type { ChunkCoord } from '@ts-minecraft/core'
+import { MAX_SYNC_PREV_MESH_CACHE_ENTRIES } from '../infrastructure/meshing/meshing-worker-sync'
 
 // SEC-W1: spy on greedyMeshChunkSubregion so we can detect when
 // MeshingWorkerPool's sync fallback path takes the splice branch (cache hit)
@@ -108,6 +109,21 @@ class CapturingWorker extends HungWorker {
   }
 }
 
+const makePoolWorkerWithPendingCount = (pendingCount: number) => ({
+  worker: new HungWorker(new URL('http://localhost/worker.js')) as unknown as Worker,
+  pending: MutableRef.make(
+    new Map(
+      Array.from({ length: pendingCount }, (_, index) => [
+        index,
+        {
+          resolve: () => undefined,
+          reject: () => undefined,
+        },
+      ])
+    )
+  ),
+})
+
 const withBrowserWorkerMock = <A, E, R>(
   WorkerCtor: WorkerConstructorMock,
   effect: Effect.Effect<A, E, R>,
@@ -155,6 +171,28 @@ const withBrowserWorkerMock = <A, E, R>(
   )
 
 describe('infrastructure/three/meshing/meshing-worker-pool', () => {
+  it('selects the least-loaded worker from the round-robin start point', () => {
+    const workers = [
+      makePoolWorkerWithPendingCount(4),
+      makePoolWorkerWithPendingCount(3),
+      makePoolWorkerWithPendingCount(1),
+    ]
+
+    expect(selectLeastLoadedWorkerIndex(workers, 0)).toBe(2)
+    expect(selectLeastLoadedWorkerIndex(workers, 1)).toBe(2)
+  })
+
+  it('keeps the round-robin start worker when pending queue sizes are tied', () => {
+    const workers = [
+      makePoolWorkerWithPendingCount(2),
+      makePoolWorkerWithPendingCount(2),
+      makePoolWorkerWithPendingCount(2),
+    ]
+
+    expect(selectLeastLoadedWorkerIndex(workers, 0)).toBe(0)
+    expect(selectLeastLoadedWorkerIndex(workers, 2)).toBe(2)
+  })
+
   it.effect('falls back to synchronous meshing when Worker is unavailable', () =>
     Effect.gen(function* () {
       const pool = yield* MeshingWorkerPool
@@ -281,6 +319,32 @@ describe('infrastructure/three/meshing/meshing-worker-pool', () => {
       expect(subregionSpy).toHaveBeenCalledTimes(1)
       expect(result.opaque.positions.length).toBeGreaterThan(0)
       expect(result.opaque.indices.length).toBeGreaterThan(0)
+    }).pipe(Effect.provide(MeshingWorkerPool.Default))
+  )
+
+  it.effect('bounds the sync mesher prev cache and keeps recent entries spliceable', () =>
+    Effect.gen(function* () {
+      subregionSpy.mockClear()
+      const pool = yield* MeshingWorkerPool
+      expect(pool.workerCount).toBe(0)
+
+      const dirtyAABB = { minX: 0, maxX: 0, minY: 0, maxY: 0, minZ: 0, maxZ: 0 }
+      const chunks = Array.from({ length: MAX_SYNC_PREV_MESH_CACHE_ENTRIES + 1 }, (_, index) => makeChunk({ x: 1000 + index, z: 0 }))
+
+      for (const chunk of chunks) {
+        yield* pool.meshChunk(chunk)
+      }
+
+      // The first chunk is the oldest cache entry and should have been
+      // evicted, so a dirty update for it must fall back to a full re-mesh.
+      const evictedResult = yield* pool.meshChunk(chunks[0]!, { dirtyAABB })
+      expect(subregionSpy).toHaveBeenCalledTimes(0)
+      expect(evictedResult.opaque.positions.length).toBeGreaterThan(0)
+
+      // A recent chunk should still be cached and use the sub-region splice.
+      const cachedResult = yield* pool.meshChunk(chunks[chunks.length - 1]!, { dirtyAABB })
+      expect(subregionSpy).toHaveBeenCalledTimes(1)
+      expect(cachedResult.opaque.positions.length).toBeGreaterThan(0)
     }).pipe(Effect.provide(MeshingWorkerPool.Default))
   )
 

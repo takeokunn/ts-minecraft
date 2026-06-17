@@ -5,6 +5,7 @@ import * as fc from 'effect/FastCheck'
 import { BiomeService, BiomeTypeSchema } from '@ts-minecraft/world'
 import { CHUNK_SIZE, CHUNK_HEIGHT } from '@ts-minecraft/core'
 import { makeTestLayer } from './biome-service-test-utils'
+import { CHUNK_BLOCK_SAMPLE_COUNT, makeChunkBlockBuffer } from './chunk-buffer-test-utils'
 
 // Valid block type indices stored in Uint8Array (0=AIR through 11=COBBLESTONE)
 const MAX_BLOCK_INDEX = 11
@@ -119,8 +120,8 @@ describe('BiomeService — block type index bounds', () => {
     'block index values in generated terrain are within valid Uint8Array range [0, MAX_BLOCK_INDEX]',
     {
       rawBlocks: fc.uint8Array({
-        minLength: CHUNK_SIZE * CHUNK_SIZE * CHUNK_HEIGHT,
-        maxLength: CHUNK_SIZE * CHUNK_SIZE * CHUNK_HEIGHT,
+        minLength: CHUNK_BLOCK_SAMPLE_COUNT,
+        maxLength: CHUNK_BLOCK_SAMPLE_COUNT,
       }),
     },
     ({ rawBlocks }) => {
@@ -132,7 +133,7 @@ describe('BiomeService — block type index bounds', () => {
   )
 
   it('Uint8Array of CHUNK_SIZE * CHUNK_SIZE * CHUNK_HEIGHT has the correct length', () => {
-    const blocks = new Uint8Array(CHUNK_SIZE * CHUNK_SIZE * CHUNK_HEIGHT)
+    const blocks = makeChunkBlockBuffer()
     expect(blocks.length).toBe(CHUNK_SIZE * CHUNK_SIZE * CHUNK_HEIGHT)
     expect(blocks.length).toBe(65536)
   })

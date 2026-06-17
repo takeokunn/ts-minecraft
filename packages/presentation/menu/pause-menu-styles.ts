@@ -6,22 +6,21 @@ export const BACKDROP_STYLE = [
   'left:0',
   'width:100vw',
   'height:100vh',
-  'background:rgba(0,0,0,0.55)',
+  'background:rgba(0,0,0,0.58)',
   'display:none',
   'align-items:center',
   'justify-content:center',
   `z-index:${Z_INDEX}`,
-  'font-family:monospace',
+  'font-family:"Courier New",monospace',
 ].join(';')
 
 export const PANEL_STYLE = [
-  'background:rgba(20,20,20,0.92)',
-  'color:#fff',
-  'padding:32px 40px',
-  'border-radius:10px',
+  'background:#c6c6c6',
+  'color:#202020',
+  'padding:22px 28px',
   'min-width:280px',
-  'border:1px solid #4d4d4d',
-  'box-shadow:0 12px 48px rgba(0,0,0,0.6)',
+  'border:2px solid #111',
+  'box-shadow:inset 3px 3px #fff,inset -3px -3px #555,0 12px 0 rgba(0,0,0,0.45)',
   'display:flex',
   'flex-direction:column',
   'align-items:stretch',
@@ -33,20 +32,21 @@ export const TITLE_STYLE = [
   'font-weight:bold',
   'text-align:center',
   'margin-bottom:8px',
-  'letter-spacing:2px',
+  'letter-spacing:0',
 ].join(';')
 
 export const BUTTON_STYLE = [
   'padding:10px 16px',
-  'background:#3a3a3a',
+  'background:#737373',
   'color:#fff',
-  'border:1px solid #5a5a5a',
-  'border-radius:4px',
+  'border:2px solid #111',
+  'box-shadow:inset 2px 2px #bcbcbc,inset -2px -2px #2d2d2d',
   'cursor:pointer',
-  'font-family:monospace',
+  'font-family:"Courier New",monospace',
   'font-size:14px',
   'min-width:200px',
   'text-align:center',
+  'text-shadow:2px 2px #222',
 ].join(';')
 
 export const SAVE_QUIT_CONFIRM_MESSAGE =

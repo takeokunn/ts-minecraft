@@ -2,8 +2,9 @@ import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
 import { Array as Arr, Effect, HashSet, Option } from 'effect'
 import type { DeltaTimeSecs } from '@ts-minecraft/core'
-import { VillagerActivity, VillagerId } from '@ts-minecraft/entity'
-import { VillageService, VillageServiceLive } from '@ts-minecraft/entity'
+import { VillageStructureId, VillagerActivity, VillagerId } from '@ts-minecraft/entity'
+import { VillageService } from '@ts-minecraft/entity'
+import { expectSome } from '../test-utils'
 
 const ONE_SECOND = 1 as DeltaTimeSecs
 
@@ -34,7 +35,7 @@ describe('village/village-service', () => {
             HashSet.has(structureIds, villager.workplaceStructureId),
         ),
       ).toBe(true)
-    }).pipe(Effect.provide(VillageServiceLive))
+    }).pipe(Effect.provide(VillageService.Default))
   )
 
   it.effect('freezes villager AI for villages far from the player, and resumes when near (bounded simulation)', () =>
@@ -49,7 +50,7 @@ describe('village/village-service', () => {
       const positionOf = (id: VillagerId) =>
         Effect.gen(function* () {
           const o = yield* villageService.getVillager(id)
-          return Option.getOrThrow(o).position
+          return expectSome(o).position
         })
 
       // Player travels far (> VILLAGE_SIMULATION_DISTANCE): the original village
@@ -67,11 +68,11 @@ describe('village/village-service', () => {
       yield* villageService.update(near, 0.5, ONE_SECOND)
       const resumed = yield* Effect.forEach(established, (v) => positionOf(v.villagerId))
       const anyMoved = Arr.some(resumed, (pos, i) => {
-        const before = Option.getOrThrow(Arr.get(established, i)).position
+        const before = expectSome(Arr.get(established, i)).position
         return pos.x !== before.x || pos.z !== before.z
       })
       expect(anyMoved).toBe(true)
-    }).pipe(Effect.provide(VillageServiceLive))
+    }).pipe(Effect.provide(VillageService.Default))
   )
 
   it.effect('updates villager activities based on time and player proximity', () =>
@@ -84,7 +85,7 @@ describe('village/village-service', () => {
       yield* villageService.update(playerPosition, 0.5, ONE_SECOND)
       const nearVillagers = yield* villageService.getVillagers()
 
-      const firstVillager = Option.getOrThrow(Arr.get(nearVillagers, 0))
+      const firstVillager = expectSome(Arr.get(nearVillagers, 0))
 
       yield* villageService.update(firstVillager.position, 0.5, ONE_SECOND)
       const tradingSnapshot = yield* villageService.getVillagers()
@@ -94,7 +95,26 @@ describe('village/village-service', () => {
 
       expect(Arr.some(tradingSnapshot, (villager) => villager.activity === VillagerActivity.Trade)).toBe(true)
       expect(Arr.every(nightSnapshot, (villager) => villager.activity === VillagerActivity.Rest)).toBe(true)
-    }).pipe(Effect.provide(VillageServiceLive))
+    }).pipe(Effect.provide(VillageService.Default))
+  )
+
+  it.effect('keeps the villager in place when a work target is missing', () =>
+    Effect.gen(function* () {
+      const villageService = yield* VillageService
+      const origin = { x: 0, y: 64, z: 0 }
+
+      const village = yield* villageService.ensureVillageNear(origin)
+      const villager = expectSome(Arr.get(village.villagers, 0))
+      const originalPosition = villager.position
+      villager.workplaceStructureId = VillageStructureId.make(`${village.villageId}:missing-workplace`)
+
+      yield* villageService.update({ x: 100, y: 64, z: 100 }, 0.5, ONE_SECOND)
+
+      const updated = yield* villageService.getVillager(villager.villagerId)
+      expectSome(updated)
+      expect(expectSome(updated).activity).toBe(VillagerActivity.Work)
+      expect(expectSome(updated).position).toEqual(originalPosition)
+    }).pipe(Effect.provide(VillageService.Default))
   )
 
   it.effect('second update at same Trade position short-circuits via no-change path', () =>
@@ -107,25 +127,21 @@ describe('village/village-service', () => {
       // First update: moves villagers toward their targets
       yield* villageService.update(origin, 0.5, ONE_SECOND)
       const afterFirst = yield* villageService.getVillagers()
-      const firstVillager = Option.getOrThrow(Arr.get(afterFirst, 0))
+      const firstVillager = expectSome(Arr.get(afterFirst, 0))
 
       // Second update: player at villager position triggers Trade
       yield* villageService.update(firstVillager.position, 0.5, ONE_SECOND)
       const afterTrade = yield* villageService.getVillagers()
-      const tradingVillager = Option.getOrThrow(
-        Arr.findFirst(afterTrade, (v) => v.activity === VillagerActivity.Trade),
-      )
+      const tradingVillager = expectSome(Arr.findFirst(afterTrade, (v) => v.activity === VillagerActivity.Trade))
 
       // Third update: same player position, same Trade activity → no-change branch
       // (nextActivity === villager.activity && nextPosition === villager.position)
       yield* villageService.update(tradingVillager.position, 0.5, ONE_SECOND)
       const afterNoChange = yield* villageService.getVillagers()
-      const sameVillager = Option.getOrThrow(
-        Arr.findFirst(afterNoChange, (v) => v.villagerId === tradingVillager.villagerId),
-      )
+      const sameVillager = expectSome(Arr.findFirst(afterNoChange, (v) => v.villagerId === tradingVillager.villagerId))
 
       expect(sameVillager.activity).toBe(VillagerActivity.Trade)
-    }).pipe(Effect.provide(VillageServiceLive))
+    }).pipe(Effect.provide(VillageService.Default))
   )
 
   describe('getVillager', () => {
@@ -138,9 +154,9 @@ describe('village/village-service', () => {
         const knownId = VillagerId.make('village-1:villager-farmer')
         const result = yield* villageService.getVillager(knownId)
 
-        expect(Option.isSome(result)).toBe(true)
-        expect(Option.getOrThrow(result).villagerId).toBe(knownId)
-      }).pipe(Effect.provide(VillageServiceLive))
+        expectSome(result)
+        expect(expectSome(result).villagerId).toBe(knownId)
+      }).pipe(Effect.provide(VillageService.Default))
     )
 
     it.effect('returns Option.none for an unknown villager ID', () =>
@@ -153,7 +169,7 @@ describe('village/village-service', () => {
         const result = yield* villageService.getVillager(unknownId)
 
         expect(Option.isNone(result)).toBe(true)
-      }).pipe(Effect.provide(VillageServiceLive))
+      }).pipe(Effect.provide(VillageService.Default))
     )
   })
 
@@ -169,7 +185,7 @@ describe('village/village-service', () => {
         const result = yield* villageService.findNearestVillager({ x: 10000, y: 64, z: 10000 }, 1)
 
         expect(Option.isNone(result)).toBe(true)
-      }).pipe(Effect.provide(VillageServiceLive))
+      }).pipe(Effect.provide(VillageService.Default))
     )
 
     it.effect('returns the villager when one is within maxDistance', () =>
@@ -177,13 +193,13 @@ describe('village/village-service', () => {
         const villageService = yield* VillageService
 
         const village = yield* villageService.ensureVillageNear({ x: 0, y: 64, z: 0 })
-        const firstVillager = Option.getOrThrow(Arr.get(village.villagers, 0))
+        const firstVillager = expectSome(Arr.get(village.villagers, 0))
 
         // Search from the villager's exact position with a generous range
         const result = yield* villageService.findNearestVillager(firstVillager.position, 1000)
 
-        expect(Option.isSome(result)).toBe(true)
-      }).pipe(Effect.provide(VillageServiceLive))
+        expectSome(result)
+      }).pipe(Effect.provide(VillageService.Default))
     )
 
     it.effect('returns the closer of two villagers when multiple are in range', () =>
@@ -195,17 +211,17 @@ describe('village/village-service', () => {
 
         expect(allVillagers.length).toBeGreaterThanOrEqual(2)
 
-        const firstVillager = Option.getOrThrow(Arr.get(allVillagers, 0))
+        const firstVillager = expectSome(Arr.get(allVillagers, 0))
 
         // Search from first villager's exact position — it must be picked over the others
         const result = yield* villageService.findNearestVillager(firstVillager.position, 1000)
 
-        expect(Option.isSome(result)).toBe(true)
-        expect(Option.getOrThrow(result).villagerId).toBe(firstVillager.villagerId)
+        expectSome(result)
+        expect(expectSome(result).villagerId).toBe(firstVillager.villagerId)
 
         // Verify that village has multiple villagers so this test is meaningful
         expect(village.villagers.length).toBeGreaterThanOrEqual(2)
-      }).pipe(Effect.provide(VillageServiceLive))
+    }).pipe(Effect.provide(VillageService.Default))
     )
 
     it.effect('second villager closer to search point wins over first villager already in closest slot', () =>
@@ -223,28 +239,28 @@ describe('village/village-service', () => {
         // (onSome branch). The last villager is at distance=0 from the search point,
         // which is strictly less than any other villager's distance, so the onSome
         // branch must pick it as the new winner.
-        const lastVillager = Option.getOrThrow(Arr.get(allVillagers, allVillagers.length - 1))
+        const lastVillager = expectSome(Arr.get(allVillagers, allVillagers.length - 1))
 
         // Confirm the last villager is at a different position than the first
-        const firstVillager = Option.getOrThrow(Arr.get(allVillagers, 0))
+        const firstVillager = expectSome(Arr.get(allVillagers, 0))
         const isSamePosition =
           firstVillager.position.x === lastVillager.position.x &&
           firstVillager.position.z === lastVillager.position.z
 
         if (isSamePosition) {
           // Structure layout produced identical anchors; test is vacuously satisfied
-          expect(Option.isSome(yield* villageService.findNearestVillager(lastVillager.position, 1000))).toBe(true)
+          expectSome(yield* villageService.findNearestVillager(lastVillager.position, 1000))
           return
         }
 
         const result = yield* villageService.findNearestVillager(lastVillager.position, 1000)
 
-        expect(Option.isSome(result)).toBe(true)
-        expect(Option.getOrThrow(result).villagerId).toBe(lastVillager.villagerId)
+        expectSome(result)
+        expect(expectSome(result).villagerId).toBe(lastVillager.villagerId)
 
         // Sanity: village has at least two villagers so the onSome comparison ran
         expect(village.villagers.length).toBeGreaterThanOrEqual(2)
-      }).pipe(Effect.provide(VillageServiceLive))
+    }).pipe(Effect.provide(VillageService.Default))
     )
   })
 
@@ -265,8 +281,8 @@ describe('village/village-service', () => {
 
         // Confirm state was not mutated — experience remains 0
         const unchanged = yield* villageService.getVillager(knownId)
-        expect(Option.getOrThrow(unchanged).experience).toBe(0)
-      }).pipe(Effect.provide(VillageServiceLive))
+        expect(expectSome(unchanged).experience).toBe(0)
+    }).pipe(Effect.provide(VillageService.Default))
     )
 
     it.effect('increases experience and advances level when amount is positive', () =>
@@ -280,21 +296,21 @@ describe('village/village-service', () => {
         // Level 1 → 2 threshold is 6 XP
         const result = yield* villageService.addVillagerExperience(knownId, 6)
 
-        expect(Option.isSome(result)).toBe(true)
-        const updated = Option.getOrThrow(result)
+        expectSome(result)
+        const updated = expectSome(result)
         expect(updated.experience).toBe(6)
         expect(updated.level).toBe(2)
 
         // Subsequent call accumulates — 6 + 8 = 14 → level 3
         const result2 = yield* villageService.addVillagerExperience(knownId, 8)
-        const updated2 = Option.getOrThrow(result2)
+        const updated2 = expectSome(result2)
         expect(updated2.experience).toBe(14)
         expect(updated2.level).toBe(3)
 
         // State is persisted
         const persisted = yield* villageService.getVillager(knownId)
-        expect(Option.getOrThrow(persisted).experience).toBe(14)
-      }).pipe(Effect.provide(VillageServiceLive))
+        expect(expectSome(persisted).experience).toBe(14)
+    }).pipe(Effect.provide(VillageService.Default))
     )
 
     it.effect('returns Option.none for an unknown villager ID', () =>
@@ -307,7 +323,7 @@ describe('village/village-service', () => {
         const result = yield* villageService.addVillagerExperience(unknownId, 10)
 
         expect(Option.isNone(result)).toBe(true)
-      }).pipe(Effect.provide(VillageServiceLive))
+    }).pipe(Effect.provide(VillageService.Default))
     )
   })
 
@@ -326,7 +342,7 @@ describe('village/village-service', () => {
 
         expect(villages).toHaveLength(2)
         expect(village1.villageId).not.toBe(village2.villageId)
-      }).pipe(Effect.provide(VillageServiceLive))
+    }).pipe(Effect.provide(VillageService.Default))
     )
   })
 
@@ -349,7 +365,7 @@ describe('village/village-service', () => {
         expect(
           Arr.every(allVillagers, (v) => HashSet.has(village1Ids, v.villagerId) || HashSet.has(village2Ids, v.villagerId)),
         ).toBe(true)
-      }).pipe(Effect.provide(VillageServiceLive))
+      }).pipe(Effect.provide(VillageService.Default))
     )
   })
 })

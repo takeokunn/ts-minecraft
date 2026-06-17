@@ -13,6 +13,7 @@ export {
   AmbientLightPortSchema,
   RendererPortSchema,
   SkyMaterialPortSchema,
+  MoonPhasePortSchema,
   DayNightLightsPortSchema,
 } from './math/day-night-port'
 
@@ -23,5 +24,6 @@ export type {
   AmbientLightPort,
   RendererPort,
   SkyMaterialPort,
+  MoonPhasePort,
   DayNightLightsPort,
 } from './math/day-night-port'

@@ -1,4 +1,12 @@
-import { Array as Arr, Effect } from 'effect'
+import { CHUNK_SIZE } from '@ts-minecraft/core'
+import { Effect } from 'effect'
+
+const TERRAIN_CHANNEL_SAMPLE_COUNT = CHUNK_SIZE * CHUNK_SIZE
+
+const makeDefaultBatch = (length: number, value: number): ReadonlyArray<number> =>
+  Array.from({ length }, () => value)
+
+const makeDefaultTerrainChannel = (): Float64Array => new Float64Array(TERRAIN_CHANNEL_SAMPLE_COUNT)
 
 // Application-layer port for noise generation.
 // Decouples application services from the infrastructure Perlin-noise implementation.
@@ -26,7 +34,7 @@ export class NoiseServicePort extends Effect.Service<NoiseServicePort>()(
         _octaves: number,
         _persistence: number,
         _lacunarity: number,
-      ): Effect.Effect<ReadonlyArray<number>> => Effect.succeed(Arr.makeBy(points.length, () => 0.5)),
+      ): Effect.Effect<ReadonlyArray<number>> => Effect.succeed(makeDefaultBatch(points.length, 0.5)),
       /* c8 ignore next 7 */
       octaveNoise2DBatchXY: (
         xs: ReadonlyArray<number>,
@@ -34,16 +42,16 @@ export class NoiseServicePort extends Effect.Service<NoiseServicePort>()(
         _octaves: number,
         _persistence: number,
         _lacunarity: number,
-      ): Effect.Effect<ReadonlyArray<number>> => Effect.succeed(Arr.makeBy(xs.length, () => 0.5)),
+      ): Effect.Effect<ReadonlyArray<number>> => Effect.succeed(makeDefaultBatch(xs.length, 0.5)),
       /* c8 ignore next 3 */
       noise2DBatch: (
         points: ReadonlyArray<readonly [number, number]>,
-      ): Effect.Effect<ReadonlyArray<number>> => Effect.succeed(Arr.makeBy(points.length, () => 0.5)),
+      ): Effect.Effect<ReadonlyArray<number>> => Effect.succeed(makeDefaultBatch(points.length, 0.5)),
       /* c8 ignore next 4 */
       noise2DBatchXY: (
         xs: ReadonlyArray<number>,
         _zs: ReadonlyArray<number>,
-      ): Effect.Effect<ReadonlyArray<number>> => Effect.succeed(Arr.makeBy(xs.length, () => 0.5)),
+      ): Effect.Effect<ReadonlyArray<number>> => Effect.succeed(makeDefaultBatch(xs.length, 0.5)),
       /* c8 ignore next 5 */
       noise3D: (
         _x: number,
@@ -55,7 +63,7 @@ export class NoiseServicePort extends Effect.Service<NoiseServicePort>()(
         xs: ReadonlyArray<number>,
         _ys: ReadonlyArray<number>,
         _zs: ReadonlyArray<number>,
-      ): Effect.Effect<ReadonlyArray<number>> => Effect.succeed(Arr.makeBy(xs.length, () => 0)),
+      ): Effect.Effect<ReadonlyArray<number>> => Effect.succeed(makeDefaultBatch(xs.length, 0)),
       /* c8 ignore next 4 */
       continentalness: (_x: number, _z: number): Effect.Effect<number, never> => Effect.succeed(0),
       erosion: (_x: number, _z: number): Effect.Effect<number, never> => Effect.succeed(0),
@@ -75,10 +83,10 @@ export class NoiseServicePort extends Effect.Service<NoiseServicePort>()(
         never
       > =>
         Effect.succeed({
-          continentalness: new Float64Array(256),
-          erosion: new Float64Array(256),
-          pv: new Float64Array(256),
-          jaggedness: new Float64Array(256),
+          continentalness: makeDefaultTerrainChannel(),
+          erosion: makeDefaultTerrainChannel(),
+          pv: makeDefaultTerrainChannel(),
+          jaggedness: makeDefaultTerrainChannel(),
         }),
     },
   }

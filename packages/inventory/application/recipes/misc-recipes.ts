@@ -28,6 +28,30 @@ export const MISC_RECIPES: ReadonlyArray<Recipe> = [
     output: { itemType: 'FURNACE', count: 1 },
   }),
   new Recipe({
+    id: RecipeId.make('planks-to-chest'),
+    station: 'crafting_table',
+    ingredients: [new RecipeIngredient({ itemType: 'PLANKS', count: 8 })],
+    output: { itemType: 'CHEST', count: 1 },
+  }),
+  new Recipe({
+    id: RecipeId.make('planks-to-door'),
+    station: 'crafting_table',
+    ingredients: [new RecipeIngredient({ itemType: 'PLANKS', count: 6 })],
+    output: { itemType: 'DOOR', count: 3 },
+  }),
+  new Recipe({
+    id: RecipeId.make('sticks-to-ladder'),
+    station: 'crafting_table',
+    ingredients: [new RecipeIngredient({ itemType: 'STICKS', count: 7 })],
+    output: { itemType: 'LADDER', count: 3 },
+  }),
+  new Recipe({
+    id: RecipeId.make('glowstone-dust-to-glowstone'),
+    station: 'inventory',
+    ingredients: [new RecipeIngredient({ itemType: 'GLOWSTONE_DUST', count: 4 })],
+    output: { itemType: 'GLOWSTONE', count: 1 },
+  }),
+  new Recipe({
     id: RecipeId.make('coal-and-stick-to-torches'),
     station: 'inventory',
     ingredients: [
@@ -84,6 +108,24 @@ export const MISC_RECIPES: ReadonlyArray<Recipe> = [
     station: 'furnace',
     ingredients: [new RecipeIngredient({ itemType: 'RAW_BEEF', count: 1 })],
     output: { itemType: 'COOKED_BEEF', count: 1 },
+  }),
+  new Recipe({
+    id: RecipeId.make('raw-pork-to-cooked-porkchop'),
+    station: 'furnace',
+    ingredients: [new RecipeIngredient({ itemType: 'RAW_PORKCHOP', count: 1 })],
+    output: { itemType: 'COOKED_PORKCHOP', count: 1 },
+  }),
+  new Recipe({
+    id: RecipeId.make('raw-mutton-to-cooked-mutton'),
+    station: 'furnace',
+    ingredients: [new RecipeIngredient({ itemType: 'RAW_MUTTON', count: 1 })],
+    output: { itemType: 'COOKED_MUTTON', count: 1 },
+  }),
+  new Recipe({
+    id: RecipeId.make('raw-chicken-to-cooked-chicken'),
+    station: 'furnace',
+    ingredients: [new RecipeIngredient({ itemType: 'RAW_CHICKEN', count: 1 })],
+    output: { itemType: 'COOKED_CHICKEN', count: 1 },
   }),
   new Recipe({
     id: RecipeId.make('raw-cod-to-cooked-cod'),
@@ -166,14 +208,14 @@ export const MISC_RECIPES: ReadonlyArray<Recipe> = [
     ingredients: [new RecipeIngredient({ itemType: 'WHEAT', count: 3 })],
     output: { itemType: 'BREAD', count: 1 },
   }),
-  // R32: Arrows — BONE×1 + STICKS×2 → ARROW×4 (simplified from vanilla flint+stick+feather;
-  // uses mob-drop materials available in survival without new item types).
+  // R32: Arrows — vanilla ingredients: FLINT×1 + STICKS×1 + FEATHER×1 → ARROW×4.
   new Recipe({
-    id: RecipeId.make('bone-and-sticks-to-arrows'),
+    id: RecipeId.make('flint-stick-feather-to-arrows'),
     station: 'crafting_table',
     ingredients: [
-      new RecipeIngredient({ itemType: 'BONE', count: 1 }),
-      new RecipeIngredient({ itemType: 'STICKS', count: 2 }),
+      new RecipeIngredient({ itemType: 'FLINT', count: 1 }),
+      new RecipeIngredient({ itemType: 'STICKS', count: 1 }),
+      new RecipeIngredient({ itemType: 'FEATHER', count: 1 }),
     ],
     output: { itemType: 'ARROW', count: 4 },
   }),

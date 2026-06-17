@@ -3,13 +3,13 @@ import { expect } from 'vitest'
 import { Array as Arr, Effect } from 'effect'
 import {
   MovementService,
-  MovementServiceLive,
   computeVelocity,
   type MovementInput,
   DEFAULT_WALK_SPEED,
   DEFAULT_SPRINT_SPEED,
   DEFAULT_SNEAK_SPEED,
   DEFAULT_JUMP_VELOCITY,
+  SPRINT_JUMP_HORIZONTAL_MULTIPLIER,
 } from '@ts-minecraft/entity'
 import { createTestInputService, createTestLayers } from './movement-service-test-utils'
 
@@ -56,6 +56,13 @@ describe('computeVelocity — pure function', () => {
       0,
       false,
       { x: 0, y: 0, z: -sprint },
+    ],
+    [
+      'sprint jump when grounded → horizontal sprint-jump boost and jump velocity',
+      { ...noInput, forward: true, sprint: true, jump: true },
+      0,
+      true,
+      { x: 0, y: jump, z: -sprint * SPRINT_JUMP_HORIZONTAL_MULTIPLIER },
     ],
     [
       'sneak forward at yaw=0 → z=-sneakSpeed',
@@ -131,7 +138,7 @@ describe('MovementService', () => {
         expect(velocity.x).toBe(0)
         expect(velocity.y).toBe(0)
         expect(velocity.z).toBe(0)
-      }).pipe(Effect.provide(MovementServiceLive), Effect.provide(testLayers))
+      }).pipe(Effect.provide(MovementService.Default), Effect.provide(testLayers))
     })
   })
 
@@ -150,6 +157,10 @@ describe('MovementService', () => {
 
     it('should have default jump velocity of 5.0 m/s', () => {
       expect(DEFAULT_JUMP_VELOCITY).toBe(5.0)
+    })
+
+    it('should have vanilla sprint-jump horizontal boost multiplier of 1.2', () => {
+      expect(SPRINT_JUMP_HORIZONTAL_MULTIPLIER).toBe(1.2)
     })
 
     it('speed ordering: sneak < walk < sprint', () => {
@@ -172,7 +183,7 @@ describe('MovementService', () => {
         expect(input.jump).toBe(false)
         expect(input.sprint).toBe(false)
         expect(input.sneak).toBe(false)
-      }).pipe(Effect.provide(MovementServiceLive), Effect.provide(testLayers))
+      }).pipe(Effect.provide(MovementService.Default), Effect.provide(testLayers))
     })
 
     it.effect('should return forward true when W is pressed', () => {
@@ -183,7 +194,7 @@ describe('MovementService', () => {
         const input = yield* movementService.getInput()
         expect(input.forward).toBe(true)
         expect(input.backward).toBe(false)
-      }).pipe(Effect.provide(MovementServiceLive), Effect.provide(testLayers))
+      }).pipe(Effect.provide(MovementService.Default), Effect.provide(testLayers))
     })
 
     it.effect('should return backward true when S is pressed', () => {
@@ -194,7 +205,7 @@ describe('MovementService', () => {
         const input = yield* movementService.getInput()
         expect(input.backward).toBe(true)
         expect(input.forward).toBe(false)
-      }).pipe(Effect.provide(MovementServiceLive), Effect.provide(testLayers))
+      }).pipe(Effect.provide(MovementService.Default), Effect.provide(testLayers))
     })
 
     it.effect('should return left true when A is pressed', () => {
@@ -204,7 +215,7 @@ describe('MovementService', () => {
         const movementService = yield* MovementService
         const input = yield* movementService.getInput()
         expect(input.left).toBe(true)
-      }).pipe(Effect.provide(MovementServiceLive), Effect.provide(testLayers))
+      }).pipe(Effect.provide(MovementService.Default), Effect.provide(testLayers))
     })
 
     it.effect('should return right true when D is pressed', () => {
@@ -214,7 +225,7 @@ describe('MovementService', () => {
         const movementService = yield* MovementService
         const input = yield* movementService.getInput()
         expect(input.right).toBe(true)
-      }).pipe(Effect.provide(MovementServiceLive), Effect.provide(testLayers))
+      }).pipe(Effect.provide(MovementService.Default), Effect.provide(testLayers))
     })
 
     // Arrow keys are aliases for WASD: each direction responds to either.
@@ -230,7 +241,7 @@ describe('MovementService', () => {
         expect(input.left).toBe(true)
         expect(input.backward).toBe(false)
         expect(input.right).toBe(false)
-      }).pipe(Effect.provide(MovementServiceLive), Effect.provide(testLayers))
+      }).pipe(Effect.provide(MovementService.Default), Effect.provide(testLayers))
     })
 
     it.effect('WASD and arrow keys are OR-combined per direction', () => {
@@ -242,7 +253,7 @@ describe('MovementService', () => {
         const input = yield* movementService.getInput()
         expect(input.forward).toBe(true)
         expect(input.backward).toBe(true)
-      }).pipe(Effect.provide(MovementServiceLive), Effect.provide(testLayers))
+      }).pipe(Effect.provide(MovementService.Default), Effect.provide(testLayers))
     })
 
     it.effect('should return jump true when Space is pressed', () => {
@@ -252,7 +263,7 @@ describe('MovementService', () => {
         const movementService = yield* MovementService
         const input = yield* movementService.getInput()
         expect(input.jump).toBe(true)
-      }).pipe(Effect.provide(MovementServiceLive), Effect.provide(testLayers))
+      }).pipe(Effect.provide(MovementService.Default), Effect.provide(testLayers))
     })
 
     it.effect('should return sprint true when ControlLeft is pressed', () => {
@@ -262,7 +273,7 @@ describe('MovementService', () => {
         const movementService = yield* MovementService
         const input = yield* movementService.getInput()
         expect(input.sprint).toBe(true)
-      }).pipe(Effect.provide(MovementServiceLive), Effect.provide(testLayers))
+      }).pipe(Effect.provide(MovementService.Default), Effect.provide(testLayers))
     })
 
     it.effect('should return sprint true when ControlRight is pressed', () => {
@@ -273,7 +284,7 @@ describe('MovementService', () => {
         const movementService = yield* MovementService
         const input = yield* movementService.getInput()
         expect(input.sprint).toBe(true)
-      }).pipe(Effect.provide(MovementServiceLive), Effect.provide(testLayers))
+      }).pipe(Effect.provide(MovementService.Default), Effect.provide(testLayers))
     })
 
     it.effect('should return sneak true when ShiftLeft is pressed', () => {
@@ -284,7 +295,7 @@ describe('MovementService', () => {
         const input = yield* movementService.getInput()
         expect(input.sneak).toBe(true)
         expect(input.sprint).toBe(false)
-      }).pipe(Effect.provide(MovementServiceLive), Effect.provide(testLayers))
+      }).pipe(Effect.provide(MovementService.Default), Effect.provide(testLayers))
     })
 
     it.effect('should handle multiple keys pressed simultaneously', () => {
@@ -303,7 +314,7 @@ describe('MovementService', () => {
         expect(input.right).toBe(false)
         expect(input.jump).toBe(false)
         expect(input.sprint).toBe(true)
-      }).pipe(Effect.provide(MovementServiceLive), Effect.provide(testLayers))
+      }).pipe(Effect.provide(MovementService.Default), Effect.provide(testLayers))
     })
   })
 
@@ -317,7 +328,7 @@ describe('MovementService', () => {
         expect(velocity.z).toBeCloseTo(-DEFAULT_WALK_SPEED)
         expect(velocity.x).toBeCloseTo(0)
         expect(velocity.y).toBe(0)
-      }).pipe(Effect.provide(MovementServiceLive), Effect.provide(testLayers))
+      }).pipe(Effect.provide(MovementService.Default), Effect.provide(testLayers))
     })
 
     it.effect('should return jump velocity when Space is pressed while grounded', () => {
@@ -327,7 +338,7 @@ describe('MovementService', () => {
         const movementService = yield* MovementService
         const velocity = yield* movementService.update(0, true)
         expect(velocity.y).toBe(DEFAULT_JUMP_VELOCITY)
-      }).pipe(Effect.provide(MovementServiceLive), Effect.provide(testLayers))
+      }).pipe(Effect.provide(MovementService.Default), Effect.provide(testLayers))
     })
 
     it.effect('should not jump when not grounded', () => {
@@ -337,7 +348,7 @@ describe('MovementService', () => {
         const movementService = yield* MovementService
         const velocity = yield* movementService.update(0, false)
         expect(velocity.y).toBe(0)
-      }).pipe(Effect.provide(MovementServiceLive), Effect.provide(testLayers))
+      }).pipe(Effect.provide(MovementService.Default), Effect.provide(testLayers))
     })
   })
 })

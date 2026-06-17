@@ -1,16 +1,26 @@
-import { blockTypeToIndex } from '@ts-minecraft/core'
+import {
+  BLOCK_COUNT,
+  blockIndexUnsafe,
+  blockTypeToIndex,
+} from '@ts-minecraft/core'
 import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
 import {
-LIGHT_BYTE_LENGTH,
-createLightBuffer,
-emissiveLevelByIndex,
-emissiveLightLevel,
-getLightAt,
-isTransparent,
-isTransparentIndex,
-setLightAt
+  LIGHT_BYTE_LENGTH,
+  LIGHT_LEVEL_MAX,
+  LIGHT_LEVEL_MIN,
+  NEIGHBOR_OFFSETS,
+  computeBlockLight,
+  computeSkyLight,
+  createLightBuffer,
+  emissiveLevelByIndex,
+  emissiveLightLevel,
+  getLightAt,
+  isTransparent,
+  isTransparentIndex,
+  setLightAt,
 } from '../domain/light'
+import { makeChunkBlocks, setChunkBlock } from './chunk-block-test-utils'
 
 // ---------------------------------------------------------------------------
 // isTransparent / emissiveLightLevel
@@ -43,6 +53,10 @@ describe('emissiveLightLevel', () => {
     expect(emissiveLightLevel('TORCH')).toBe(14)
   })
 
+  it('GLOWSTONE has emissive level 15', () => {
+    expect(emissiveLightLevel('GLOWSTONE')).toBe(15)
+  })
+
   // R67: dimmer light sources — each has a distinct vanilla level below 15.
   it('REDSTONE_TORCH has emissive level 7 (vanilla), not the default 15', () => {
     expect(emissiveLightLevel('REDSTONE_TORCH')).toBe(7)
@@ -72,12 +86,17 @@ describe('isTransparentIndex', () => {
     expect(isTransparentIndex(2)).toBe(false)
   })
 
-  it('out-of-bounds index 200 returns false (hits ?? 0 fallback)', () => {
+  it('out-of-bounds index 200 returns false', () => {
     expect(isTransparentIndex(200)).toBe(false)
   })
 
-  it('out-of-bounds index 64 returns false (exactly at table size boundary)', () => {
-    expect(isTransparentIndex(64)).toBe(false)
+  it('out-of-bounds index BLOCK_COUNT returns false (exactly at table size boundary)', () => {
+    expect(isTransparentIndex(BLOCK_COUNT)).toBe(false)
+  })
+
+  it('negative and fractional indexes return false', () => {
+    expect(isTransparentIndex(-1)).toBe(false)
+    expect(isTransparentIndex(1.5)).toBe(false)
   })
 })
 
@@ -92,12 +111,21 @@ describe('emissiveLevelByIndex', () => {
     expect(emissiveLevelByIndex(lavaIdx)).toBe(15)
   })
 
-  it('out-of-bounds index 200 returns 0 (hits ?? 0 fallback)', () => {
+  it('GLOWSTONE index returns 15', () => {
+    expect(emissiveLevelByIndex(blockTypeToIndex('GLOWSTONE'))).toBe(15)
+  })
+
+  it('out-of-bounds index 200 returns 0', () => {
     expect(emissiveLevelByIndex(200)).toBe(0)
   })
 
-  it('out-of-bounds index 64 returns 0 (exactly at table size boundary)', () => {
-    expect(emissiveLevelByIndex(64)).toBe(0)
+  it('out-of-bounds index BLOCK_COUNT returns 0 (exactly at table size boundary)', () => {
+    expect(emissiveLevelByIndex(BLOCK_COUNT)).toBe(0)
+  })
+
+  it('negative and fractional indexes return 0', () => {
+    expect(emissiveLevelByIndex(-1)).toBe(0)
+    expect(emissiveLevelByIndex(1.5)).toBe(0)
   })
 })
 
@@ -221,3 +249,129 @@ describe('setLightAt clamping', () => {
 // ---------------------------------------------------------------------------
 // computeBlockLight
 // ---------------------------------------------------------------------------
+
+describe('light constants', () => {
+  it('exports the 4-bit light range and six cardinal neighbor offsets', () => {
+    expect(LIGHT_LEVEL_MIN).toBe(0)
+    expect(LIGHT_LEVEL_MAX).toBe(15)
+    expect(NEIGHBOR_OFFSETS).toEqual([
+      [1, 0, 0], [-1, 0, 0],
+      [0, 1, 0], [0, -1, 0],
+      [0, 0, 1], [0, 0, -1],
+    ])
+  })
+})
+
+describe('computeBlockLight', () => {
+  it('clears stale light when the chunk has no emitters', () => {
+    const blocks = createChunkBlocks()
+    const grid = createLightBuffer()
+    setLightAt(grid, 8, 64, 8, LIGHT_LEVEL_MAX)
+
+    computeBlockLight(blocks, grid)
+
+    expect(getLightAt(grid, 8, 64, 8)).toBe(0)
+  })
+
+  it('seeds emissive blocks and propagates through transparent neighbors', () => {
+    const blocks = createChunkBlocks()
+    const grid = createLightBuffer()
+    setChunkBlock(blocks, 8, 64, 8, 'TORCH')
+
+    computeBlockLight(blocks, grid)
+
+    expect(getLightAt(grid, 8, 64, 8)).toBe(14)
+    expect(getLightAt(grid, 7, 64, 8)).toBe(13)
+    expect(getLightAt(grid, 8, 65, 8)).toBe(13)
+    expect(getLightAt(grid, 8, 64, 7)).toBe(13)
+  })
+
+  it('does not write propagated light into opaque blocks', () => {
+    const blocks = createChunkBlocks()
+    const grid = createLightBuffer()
+    setChunkBlock(blocks, 8, 64, 8, 'TORCH')
+    setChunkBlock(blocks, 9, 64, 8, 'STONE')
+
+    computeBlockLight(blocks, grid)
+
+    expect(getLightAt(grid, 8, 64, 8)).toBe(14)
+    expect(getLightAt(grid, 9, 64, 8)).toBe(0)
+    expect(getLightAt(grid, 8, 64, 9)).toBe(13)
+  })
+
+  it('stops propagation at chunk boundaries while lighting inward neighbors', () => {
+    const blocks = createChunkBlocks()
+    const grid = createLightBuffer()
+    setChunkBlock(blocks, 15, 0, 15, 'TORCH')
+
+    computeBlockLight(blocks, grid)
+
+    expect(getLightAt(grid, 15, 0, 15)).toBe(14)
+    expect(getLightAt(grid, 14, 0, 15)).toBe(13)
+    expect(getLightAt(grid, 15, 1, 15)).toBe(13)
+    expect(getLightAt(grid, 15, 0, 14)).toBe(13)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// computeSkyLight
+// ---------------------------------------------------------------------------
+
+describe('computeSkyLight', () => {
+  it('fills an all-air chunk with full sky light', () => {
+    const blocks = createChunkBlocks()
+    const grid = createLightBuffer()
+
+    computeSkyLight(blocks, grid)
+
+    expect(getLightAt(grid, 0, 0, 0)).toBe(LIGHT_LEVEL_MAX)
+    expect(getLightAt(grid, 8, 128, 8)).toBe(LIGHT_LEVEL_MAX)
+    expect(getLightAt(grid, 15, 255, 15)).toBe(LIGHT_LEVEL_MAX)
+  })
+
+  it('leaves an all-opaque chunk dark', () => {
+    const blocks = createChunkBlocks('STONE')
+    const grid = createLightBuffer()
+    setLightAt(grid, 8, 64, 8, LIGHT_LEVEL_MAX)
+
+    computeSkyLight(blocks, grid)
+
+    expect(getLightAt(grid, 8, 64, 8)).toBe(0)
+    expect(getLightAt(grid, 8, 255, 8)).toBe(0)
+  })
+
+  it('does not treat transparent non-air blocks as the highest opaque surface', () => {
+    const blocks = createChunkBlocks()
+    const grid = createLightBuffer()
+    setChunkBlock(blocks, 8, 200, 8, 'WATER')
+
+    computeSkyLight(blocks, grid)
+
+    expect(getLightAt(grid, 8, 200, 8)).toBe(LIGHT_LEVEL_MAX)
+    expect(getLightAt(grid, 8, 0, 8)).toBe(LIGHT_LEVEL_MAX)
+  })
+
+  it('treats an unknown block index as opaque when finding the sky surface', () => {
+    const blocks = createChunkBlocks()
+    const grid = createLightBuffer()
+    blocks[blockIndexUnsafe(8, 200, 8)] = BLOCK_COUNT
+
+    computeSkyLight(blocks, grid)
+
+    expect(getLightAt(grid, 8, 201, 8)).toBe(LIGHT_LEVEL_MAX)
+    expect(getLightAt(grid, 8, 200, 8)).toBe(0)
+  })
+
+  it('seeds open columns below the highest opaque y and keeps opaque cells dark', () => {
+    const blocks = createChunkBlocks()
+    const grid = createLightBuffer()
+    setChunkBlock(blocks, 8, 200, 8, 'STONE')
+
+    computeSkyLight(blocks, grid)
+
+    expect(getLightAt(grid, 8, 201, 8)).toBe(LIGHT_LEVEL_MAX)
+    expect(getLightAt(grid, 8, 200, 8)).toBe(0)
+    expect(getLightAt(grid, 7, 200, 8)).toBe(LIGHT_LEVEL_MAX)
+    expect(getLightAt(grid, 8, 199, 8)).toBe(14)
+  })
+})

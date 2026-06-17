@@ -68,38 +68,53 @@ const processInbound = (
 ): Effect.Effect<void, never> => {
   switch (msg.type) {
     case MessageType.BlockPlace:
-      return Ref.update(inboundBlockEditsRef, (edits) => [
-        ...edits,
-        { kind: 'place' as const, x: msg.position.x, y: msg.position.y, z: msg.position.z, blockType: String(msg.blockType) },
-      ])
+      return Effect.gen(function* () {
+        const edits = yield* Ref.get(inboundBlockEditsRef)
+        const next = [
+          ...edits,
+          { kind: 'place' as const, x: msg.position.x, y: msg.position.y, z: msg.position.z, blockType: String(msg.blockType) },
+        ]
+        yield* Ref.set(inboundBlockEditsRef, next)
+      })
     case MessageType.BlockBreak:
-      return Ref.update(inboundBlockEditsRef, (edits) => [
-        ...edits,
-        { kind: 'break' as const, x: msg.position.x, y: msg.position.y, z: msg.position.z },
-      ])
-    case MessageType.PlayerJoin: {
-      const snap: RemotePlayerSnapshot = {
-        playerId: String(msg.playerId),
-        playerName: String(msg.playerName),
-        x: msg.position.x,
-        y: msg.position.y,
-        z: msg.position.z,
-        yaw: 0,
-        pitch: 0,
-      }
-      return Ref.update(remotePlayersRef, (m) => new Map(m).set(snap.playerId, snap))
-    }
+      return Effect.gen(function* () {
+        const edits = yield* Ref.get(inboundBlockEditsRef)
+        const next = [
+          ...edits,
+          { kind: 'break' as const, x: msg.position.x, y: msg.position.y, z: msg.position.z },
+        ]
+        yield* Ref.set(inboundBlockEditsRef, next)
+      })
+    case MessageType.PlayerJoin:
+      return Effect.gen(function* () {
+        const snap: RemotePlayerSnapshot = {
+          playerId: String(msg.playerId),
+          playerName: String(msg.playerName),
+          x: msg.position.x,
+          y: msg.position.y,
+          z: msg.position.z,
+          yaw: 0,
+          pitch: 0,
+        }
+        const players = yield* Ref.get(remotePlayersRef)
+        const next = new Map(players)
+        next.set(snap.playerId, snap)
+        yield* Ref.set(remotePlayersRef, next)
+      })
     case MessageType.PlayerLeave:
-      return Ref.update(remotePlayersRef, (m) => {
-        const next = new Map(m)
+      return Effect.gen(function* () {
+        const players = yield* Ref.get(remotePlayersRef)
+        const next = new Map(players)
         next.delete(String(msg.playerId))
-        return next
+        yield* Ref.set(remotePlayersRef, next)
       })
     case MessageType.PlayerMove:
-      return Ref.update(remotePlayersRef, (m) => {
-        const existing = m.get(String(msg.playerId))
-        if (!existing) return m
-        return new Map(m).set(String(msg.playerId), {
+      return Effect.gen(function* () {
+        const players = yield* Ref.get(remotePlayersRef)
+        const existing = players.get(String(msg.playerId))
+        if (!existing) return
+        const next = new Map(players)
+        next.set(String(msg.playerId), {
           ...existing,
           x: msg.position.x,
           y: msg.position.y,
@@ -107,16 +122,21 @@ const processInbound = (
           yaw: msg.rotation.yaw,
           pitch: msg.rotation.pitch,
         })
+        yield* Ref.set(remotePlayersRef, next)
       })
     case MessageType.Chat: {
-      const entry: ChatEntry = {
-        player: String(msg.playerId),
-        text: msg.message,
-        timestamp: msg.timestamp,
-      }
-      return Ref.update(chatMessagesRef, (entries) => {
+      return Effect.gen(function* () {
+        const entry: ChatEntry = {
+          player: String(msg.playerId),
+          text: msg.message,
+          timestamp: msg.timestamp,
+        }
+        const entries = yield* Ref.get(chatMessagesRef)
         const next = [...entries, entry]
-        return next.length > MAX_CHAT_ENTRIES ? next.slice(next.length - MAX_CHAT_ENTRIES) : next
+        yield* Ref.set(
+          chatMessagesRef,
+          next.length > MAX_CHAT_ENTRIES ? next.slice(next.length - MAX_CHAT_ENTRIES) : next,
+        )
       })
     }
     default:
@@ -241,7 +261,7 @@ export const MultiplayerServiceImpl = (
     return service
   })
 
-export const MultiplayerServiceLive = (
+export const MultiplayerServiceDefault = (
   client: ClientServiceShape,
 ): Layer.Layer<MultiplayerService, never, never> =>
   Layer.effect(MultiplayerService, MultiplayerServiceImpl(client))

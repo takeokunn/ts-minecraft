@@ -13,6 +13,7 @@ import type {
   VillagerActivity as VillagerActivityT,
 } from '@ts-minecraft/entity'
 import type { Position } from '@ts-minecraft/core'
+import type { Chunk } from '@ts-minecraft/world'
 
 type VillageStructureOverrides = Partial<{
   structureId: VillageStructure['structureId']
@@ -78,3 +79,12 @@ export const makeTestVillage = (overrides: VillageOverrides = {}): Village => {
   const villagers = overrides.villagers ?? [makeTestVillager({ villageId })]
   return { villageId, center, structures, villagers }
 }
+
+/**
+ * Returns a valid Chunk with sensible defaults.
+ */
+export const makeTestChunk = (blocks: Chunk['blocks']): Chunk => ({
+  coord: { x: 0, z: 0 },
+  blocks,
+  dirty: false,
+})

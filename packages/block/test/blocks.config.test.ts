@@ -5,7 +5,7 @@ import { Schema } from 'effect'
 import { BlockTypeSchema } from '@ts-minecraft/core'
 import { initialBlocks } from '@ts-minecraft/block'
 import { terrainBlocks } from '../domain/blocks.config.terrain'
-import { oreAndMineralBlocks, getOreXpDrop } from '../domain/blocks.config.ores'
+import { oreAndMineralBlocks, getOreXpDrop, getOreXpDropOption, isOreXpBlock } from '../domain/blocks.config.ores'
 import { craftedAndItemBlocks } from '../domain/blocks.config.crafted'
 import { endBlocks } from '../domain/blocks.config.end'
 
@@ -53,6 +53,51 @@ describe('initialBlocks known data correctness', () => {
     expect(lava.properties.emissive).toBe(true)
   })
 
+  it('GLOWSTONE block exists as a solid maximum-light source', () => {
+    const glowstone = Option.getOrThrow(Arr.findFirst(initialBlocks, (b) => b.type === 'GLOWSTONE'))
+    expect(glowstone.properties.solid).toBe(true)
+    expect(glowstone.properties.transparency).toBe(false)
+    expect(glowstone.properties.emissive).toBe(true)
+  })
+
+  it('COBWEB block exists as a transparent non-solid slowing utility block', () => {
+    const cobweb = Option.getOrThrow(Arr.findFirst(initialBlocks, (b) => b.type === 'COBWEB'))
+    expect(cobweb.properties.solid).toBe(false)
+    expect(cobweb.properties.transparency).toBe(true)
+    expect(cobweb.properties.emissive).toBe(false)
+    expect(cobweb.properties.friction).toBeLessThan(0.6)
+  })
+
+  it['each'](['SAPLING', 'DANDELION', 'POPPY', 'BROWN_MUSHROOM', 'RED_MUSHROOM', 'TALL_GRASS', 'FERN', 'SUGAR_CANE', 'LILY_PAD'] as const)(
+    '%s block exists as a transparent non-solid plant block',
+    (blockType) => {
+      const plant = Option.getOrThrow(Arr.findFirst(initialBlocks, (b) => b.type === blockType))
+      expect(plant.properties.solid).toBe(false)
+      expect(plant.properties.transparency).toBe(true)
+      expect(plant.properties.emissive).toBe(false)
+      expect(plant.properties.hardness).toBe(0)
+      expect(plant.properties.friction).toBe(0)
+    },
+  )
+
+  it('CACTUS block exists as a transparent solid desert plant block', () => {
+    const cactus = Option.getOrThrow(Arr.findFirst(initialBlocks, (b) => b.type === 'CACTUS'))
+    expect(cactus.properties.solid).toBe(true)
+    expect(cactus.properties.transparency).toBe(true)
+    expect(cactus.properties.emissive).toBe(false)
+    expect(cactus.properties.hardness).toBe(8)
+    expect(cactus.properties.friction).toBe(0.6)
+  })
+
+  it('ICE block exists as a transparent solid slippery block', () => {
+    const ice = Option.getOrThrow(Arr.findFirst(initialBlocks, (b) => b.type === 'ICE'))
+    expect(ice.properties.solid).toBe(true)
+    expect(ice.properties.transparency).toBe(true)
+    expect(ice.properties.emissive).toBe(false)
+    expect(ice.properties.hardness).toBe(3)
+    expect(ice.properties.friction).toBeGreaterThan(0.8)
+  })
+
   it('STONE block exists with solid: true and transparency: false', () => {
     const stone = Option.getOrThrow(Arr.findFirst(initialBlocks, (b) => b.type === 'STONE'))
     expect(stone.properties.solid).toBe(true)
@@ -65,6 +110,8 @@ describe('initialBlocks known data correctness', () => {
 
     // Soft cover blocks are softer than stone (vanilla: dirt/sand/grass ~0.5-0.6 < stone 1.5).
     expect(hardnessOf('SNOW')).toBeLessThan(hardnessOf('DIRT'))
+    expect(hardnessOf('SNOW')).toBeLessThan(hardnessOf('ICE'))
+    expect(hardnessOf('ICE')).toBeLessThan(hardnessOf('DIRT'))
     expect(hardnessOf('DIRT')).toBeLessThan(hardnessOf('STONE'))
     expect(hardnessOf('SAND')).toBeLessThan(hardnessOf('STONE'))
     expect(hardnessOf('GRASS')).toBeLessThan(hardnessOf('STONE'))
@@ -105,10 +152,11 @@ describe('config split correctness', () => {
 })
 
 describe('getOreXpDrop', () => {
-  it('returns 0 for non-ore blocks', () => {
-    expect(getOreXpDrop('STONE')).toBe(0)
-    expect(getOreXpDrop('DIRT')).toBe(0)
-    expect(getOreXpDrop('UNKNOWN_BLOCK')).toBe(0)
+  it('does not classify non-ore blocks as ore XP blocks', () => {
+    expect(isOreXpBlock('STONE')).toBe(false)
+    expect(isOreXpBlock('DIRT')).toBe(false)
+    expect(Option.isNone(getOreXpDropOption('STONE'))).toBe(true)
+    expect(Option.isNone(getOreXpDropOption('DIRT'))).toBe(true)
   })
 
   it('returns 0 for iron and gold ore (XP from smelting, not breaking)', () => {
@@ -135,9 +183,15 @@ describe('getOreXpDrop', () => {
   })
 
   it('deepslate variants match their surface ore XP', () => {
-    const ores = ['COAL', 'DIAMOND', 'EMERALD', 'LAPIS', 'REDSTONE'] as const
-    for (const ore of ores) {
-      expect(getOreXpDrop(`DEEPSLATE_${ore}_ORE`)).toBe(getOreXpDrop(`${ore}_ORE`))
+    const orePairs = [
+      ['DEEPSLATE_COAL_ORE', 'COAL_ORE'],
+      ['DEEPSLATE_DIAMOND_ORE', 'DIAMOND_ORE'],
+      ['DEEPSLATE_EMERALD_ORE', 'EMERALD_ORE'],
+      ['DEEPSLATE_LAPIS_ORE', 'LAPIS_ORE'],
+      ['DEEPSLATE_REDSTONE_ORE', 'REDSTONE_ORE'],
+    ] as const
+    for (const [deepslateOre, surfaceOre] of orePairs) {
+      expect(getOreXpDrop(deepslateOre)).toBe(getOreXpDrop(surfaceOre))
     }
   })
 })

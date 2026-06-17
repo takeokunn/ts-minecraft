@@ -78,6 +78,10 @@ const makeDeps = () => {
   const breakBlock = vi.fn(() => Effect.void)
   const placeBlock = vi.fn(() => Effect.void)
   const setYaw = vi.fn(() => Effect.void)
+  const playerPosition = { current: { x: 0, y: 64, z: 0 } }
+  const setPlayerPosition = vi.fn((position: { readonly x: number; readonly y: number; readonly z: number }) => Effect.sync(() => {
+    playerPosition.current = position
+  }))
   const setPitch = vi.fn(() => Effect.void)
   const invalidateCache = vi.fn(() => Effect.void)
   const updateHighlight = vi.fn(() => Effect.void)
@@ -89,6 +93,7 @@ const makeDeps = () => {
   const setSelectedSlot = vi.fn((slot: SlotIndex) => Effect.sync(() => { selectedSlot.current = slot }))
   const addEntity: QaInstallDeps['entityManager']['addEntity'] = vi.fn(() => Effect.succeed(qaEntity.entityId))
   const applyDamage: QaInstallDeps['entityManager']['applyDamage'] = vi.fn(() => Effect.succeed(Option.none()))
+  const igniteEntity: QaInstallDeps['entityManager']['igniteEntity'] = vi.fn(() => Effect.succeed(false))
   const recipeFindByIdImpl: QaInstallDeps['recipeService']['findById'] = (recipeId: RecipeId) =>
     Option.isSome(recipeOverride.current)
       ? recipeOverride.current
@@ -139,6 +144,7 @@ const makeDeps = () => {
       getChunk,
       markChunkDirty,
       updateChunkInScene,
+      setPlayerPosition,
       breakBlock,
       placeBlock,
       setYaw,
@@ -151,6 +157,7 @@ const makeDeps = () => {
       setSelectedSlot,
       addEntity,
       applyDamage,
+      igniteEntity,
       recipeFindById,
       recipeCraft,
       getNearestFurnaceState,
@@ -229,14 +236,16 @@ const makeDeps = () => {
         initialize: () => Effect.void,
         update: () => Effect.void,
         respawn: () => Effect.void,
+        setPlayerPosition,
         getTiming: () => Effect.succeed({ lastFrameTime: 0, deltaTime: DeltaTimeSecs.make(0.016), frameCount: 0 }),
-        getPlayerPosition: () => Effect.succeed({ x: 0, y: 64, z: 0 }),
+        getPlayerPosition: () => Effect.succeed(playerPosition.current),
         getCameraRotation: () => Effect.succeed({ yaw: 0, pitch: 0 }),
         isPlayerGrounded: () => Effect.succeed(true),
         _tag: '@minecraft/application/GameStateService',
       },
       timeService: {
         getTimeOfDay: () => Effect.succeed(0.5),
+        getMoonPhase: () => Effect.succeed(0),
         getDayLength: () => Effect.succeed(20 * 60),
         setTimeOfDay: (_fraction: number) => Effect.void,
         isNight: () => Effect.succeed(false),
@@ -312,11 +321,15 @@ const makeDeps = () => {
         getEntityAIState: (_entityId) => Effect.succeed(Option.none()),
         getCount: () => Effect.succeed(1),
         getStructureVersion: () => Effect.succeed(0),
+        drainBirths: () => Effect.succeed(0),
+        drainExplosions: () => Effect.succeed([]),
         getPlayerContactDamage: (_playerPosition) => Effect.succeed(0),
+        getPlayerRangedDamage: (_playerPosition, _isProjectileBlocked) => Effect.succeed(0),
         update: (_deltaTime, _playerPosition) => Effect.void,
         applyPhysics: (_deltaTime, _resolveCollision) => Effect.void,
         despawnFarEntities: (_playerPosition, _maxDistance) => Effect.succeed(0),
         applyDamage,
+        igniteEntity,
         applyKnockback: (_entityId, _impulse) => Effect.void,
         despawnAllEntities: () => Effect.succeed(0),
         _tag: '@minecraft/entity/EntityManager',
@@ -449,6 +462,17 @@ describe('installQaApi', () => {
 
     expect(result).toBe(true)
     expect(spies.consumeMouseClick).toHaveBeenCalledWith(2)
+  })
+
+  it('moves the player through GameStateService for persistence QA', async () => {
+    installWindow()
+    const { deps, spies } = makeDeps()
+    await Effect.runPromise(installQaApi(deps))
+
+    const moved = await getQaApi().movePlayerForQA({ x: 2, z: -3 })
+
+    expect(moved).toEqual({ x: 2, y: 64, z: -3 })
+    expect(spies.setPlayerPosition).toHaveBeenCalledWith({ x: 2, y: 64, z: -3 })
   })
 
   it('delegates getEntitySnapshot to entityManager.getEntities', async () => {

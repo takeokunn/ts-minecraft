@@ -1,4 +1,4 @@
-import { Array as Arr, Option } from 'effect'
+import { Option } from 'effect'
 import type { Position, BlockType } from '@ts-minecraft/core'
 
 /**
@@ -94,23 +94,31 @@ const detectInPlane = (
   if (height < MIN_PORTAL_HEIGHT) return Option.none()
   if (height > MAX_PORTAL_HEIGHT) return Option.none()
 
-  const hs = Arr.makeBy(width, (i) => leftH + i)
-  const ys = Arr.makeBy(height, (i) => bottomY + i)
-
   // Interior must be entirely AIR — rejects a stray block inside the rectangle.
-  const interior = hs.flatMap((h) => ys.map((y) => at(h, y)))
-  const interiorClear = interior.every((p) => blockAt(p.x, p.y, p.z) === AIR)
-  if (!interiorClear) return Option.none()
+  for (let h = leftH; h < leftH + width; h++) {
+    for (let y = bottomY; y < bottomY + height; y++) {
+      if (blockInPlane(blockAt, at, h, y) !== AIR) return Option.none()
+    }
+  }
 
   // Obsidian ring on all four edges (corners excluded, per vanilla).
-  const ring: ReadonlyArray<Position> = [
-    ...hs.map((h) => at(h, bottomY - 1)),
-    ...hs.map((h) => at(h, bottomY + height)),
-    ...ys.map((y) => at(leftH - 1, y)),
-    ...ys.map((y) => at(leftH + width, y)),
-  ]
-  const ringComplete = ring.every((p) => blockAt(p.x, p.y, p.z) === OBSIDIAN)
-  if (!ringComplete) return Option.none()
+  for (let h = leftH; h < leftH + width; h++) {
+    if (blockInPlane(blockAt, at, h, bottomY - 1) !== OBSIDIAN) return Option.none()
+    if (blockInPlane(blockAt, at, h, bottomY + height) !== OBSIDIAN) return Option.none()
+  }
+  for (let y = bottomY; y < bottomY + height; y++) {
+    if (blockInPlane(blockAt, at, leftH - 1, y) !== OBSIDIAN) return Option.none()
+    if (blockInPlane(blockAt, at, leftH + width, y) !== OBSIDIAN) return Option.none()
+  }
+
+  const interior: Position[] = []
+  interior.length = width * height
+  let index = 0
+  for (let h = leftH; h < leftH + width; h++) {
+    for (let y = bottomY; y < bottomY + height; y++) {
+      interior[index++] = at(h, y)
+    }
+  }
 
   return Option.some({ axis, width, height, interior })
 }
@@ -156,19 +164,25 @@ export const generatePortalLayout = (
   const bottomY = origin.y
   const at = planeMapFor(axis, fixed)
 
-  const interior = Arr.makeBy(width, (i) => leftH + i).flatMap((h) =>
-    Arr.makeBy(height, (j) => at(h, bottomY + j)),
-  )
+  const interior: Position[] = []
+  interior.length = width * height
+  let interiorIndex = 0
+  for (let h = leftH; h < leftH + width; h++) {
+    for (let y = bottomY; y < bottomY + height; y++) {
+      interior[interiorIndex++] = at(h, y)
+    }
+  }
 
   // Bounding rectangle one block larger on every side; a cell belongs to the ring
   // when it lies on the outer row or column (interior cells are excluded).
-  const ringHs = Arr.makeBy(width + 2, (i) => leftH - 1 + i)
-  const ringYs = Arr.makeBy(height + 2, (j) => bottomY - 1 + j)
-  const frame = ringHs.flatMap((h) =>
-    ringYs
-      .filter((y) => h === leftH - 1 || h === leftH + width || y === bottomY - 1 || y === bottomY + height)
-      .map((y) => at(h, y)),
-  )
+  const frame: Position[] = []
+  for (let h = leftH - 1; h <= leftH + width; h++) {
+    for (let y = bottomY - 1; y <= bottomY + height; y++) {
+      if (h === leftH - 1 || h === leftH + width || y === bottomY - 1 || y === bottomY + height) {
+        frame.push(at(h, y))
+      }
+    }
+  }
 
   return { frame, interior }
 }

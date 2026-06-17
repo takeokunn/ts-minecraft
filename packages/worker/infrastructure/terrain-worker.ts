@@ -62,15 +62,13 @@ const getRuntimeForSeed = (seed: number): ManagedRuntime.ManagedRuntime<TerrainC
   return runtime
 }
 
-self.onmessage = (e: MessageEvent<unknown>): void => {
-  // Pull `id` from the raw payload first so a malformed request still gets
-  // routed back to the correct caller as a `failure`. We treat anything that
-  // isn't a plain object with a numeric `id` as id=-1 — the pool ignores
-  // unrecognized ids, which is the right behaviour for a structurally-broken
-  // message.
-  const raw = e.data as { id?: unknown } | null | undefined
-  const fallbackId = typeof raw?.id === 'number' && Number.isFinite(raw.id) ? raw.id : -1
+const extractRequestId = (data: unknown): number | null => {
+  if (typeof data !== 'object' || data === null) return null
+  const id = (data as { readonly id?: unknown }).id
+  return typeof id === 'number' && Number.isInteger(id) && id >= 0 ? id : null
+}
 
+self.onmessage = (e: MessageEvent<unknown>): void => {
   // Decode synchronously (Schema.decodeUnknownSync throws on malformed input),
   // then run the terrain program asynchronously via runPromise.
   // The void IIFE keeps onmessage typed as (e) => void while letting the
@@ -83,7 +81,7 @@ self.onmessage = (e: MessageEvent<unknown>): void => {
         ? buildNetherProgram(req.chunk)
         : req.dimension === 'end'
           ? buildEndProgram(req.chunk)
-          : buildTerrainProgram(req.chunk)
+          : buildTerrainProgram(req.chunk, { seaLevel: req.seaLevel, lakeLevel: req.lakeLevel })
       const chunk = await runtime.runPromise(program)
       const { blocks, skyLight, blockLight } = toChunkBlocks(chunk)
 
@@ -108,8 +106,11 @@ self.onmessage = (e: MessageEvent<unknown>): void => {
         blockLight.buffer as ArrayBuffer,
       ])
     } catch (err) {
+      const id = extractRequestId(e.data)
+      if (id === null) return
+
       const failure: TerrainWorkerResponse = {
-        id: fallbackId,
+        id,
         kind: 'failure',
         error: err instanceof Error ? err.message : String(err),
       }

@@ -36,6 +36,7 @@ export * from './infrastructure/textures/item-texture-map.config'
 export * from './infrastructure/textures/item-texture-map'
 export * from './infrastructure/textures/texture-loader'
 export * from './infrastructure/post-processing/water-material'
+export * from './infrastructure/particles/particle-system'
 export * from './presentation/perf-hud'
 // Worker re-exports removed to break circular dependency (rendering ↔ worker).
 // Import directly from @ts-minecraft/worker instead.

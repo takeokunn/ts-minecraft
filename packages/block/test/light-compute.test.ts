@@ -1,23 +1,12 @@
 import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
-import { Array as Arr } from 'effect'
-import { CHUNK_SIZE, CHUNK_HEIGHT, blockTypeToIndex, blockIndexUnsafe } from '@ts-minecraft/core'
+import { CHUNK_HEIGHT, CHUNK_SIZE } from '@ts-minecraft/core'
 import {
   createLightBuffer,
   getLightAt,
   computeBlockLight,
 } from '../domain/light'
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-const makeAirBlocks = (): Uint8Array =>
-  new Uint8Array(CHUNK_SIZE * CHUNK_SIZE * CHUNK_HEIGHT)
-
-const placeBlock = (blocks: Uint8Array, x: number, y: number, z: number, type: string): void => {
-  blocks[blockIndexUnsafe(x, y, z)] = blockTypeToIndex(type as Parameters<typeof blockTypeToIndex>[0])
-}
+import { makeChunkBlocks, setChunkBlock } from './chunk-block-test-utils'
 
 // ---------------------------------------------------------------------------
 // computeBlockLight
@@ -25,7 +14,7 @@ const placeBlock = (blocks: Uint8Array, x: number, y: number, z: number, type: s
 
 describe('computeBlockLight', () => {
   it('all-AIR chunk with no emissive blocks: all light stays 0', () => {
-    const blocks = makeAirBlocks()
+    const blocks = makeChunkBlocks()
     const lightGrid = createLightBuffer()
     computeBlockLight(blocks, lightGrid)
     expect(getLightAt(lightGrid, 0, 0, 0)).toBe(0)
@@ -34,16 +23,16 @@ describe('computeBlockLight', () => {
   })
 
   it('LAVA at (8,100,8) emits level 15 at its own position', () => {
-    const blocks = makeAirBlocks()
-    placeBlock(blocks, 8, 100, 8, 'LAVA')
+    const blocks = makeChunkBlocks()
+    setChunkBlock(blocks, { lx: 8, y: 100, lz: 8, blockType: 'LAVA' })
     const lightGrid = createLightBuffer()
     computeBlockLight(blocks, lightGrid)
     expect(getLightAt(lightGrid, 8, 100, 8)).toBe(15)
   })
 
   it('LAVA light propagates: 1 step away gets level 14', () => {
-    const blocks = makeAirBlocks()
-    placeBlock(blocks, 8, 100, 8, 'LAVA')
+    const blocks = makeChunkBlocks()
+    setChunkBlock(blocks, { lx: 8, y: 100, lz: 8, blockType: 'LAVA' })
     const lightGrid = createLightBuffer()
     computeBlockLight(blocks, lightGrid)
     expect(getLightAt(lightGrid, 9, 100, 8)).toBe(14)
@@ -55,8 +44,8 @@ describe('computeBlockLight', () => {
   })
 
   it('LAVA light attenuates with distance: level decreases by 1 per step', () => {
-    const blocks = makeAirBlocks()
-    placeBlock(blocks, 8, 100, 8, 'LAVA')
+    const blocks = makeChunkBlocks()
+    setChunkBlock(blocks, { lx: 8, y: 100, lz: 8, blockType: 'LAVA' })
     const lightGrid = createLightBuffer()
     computeBlockLight(blocks, lightGrid)
     expect(getLightAt(lightGrid, 8, 100, 8)).toBe(15)
@@ -67,31 +56,31 @@ describe('computeBlockLight', () => {
   })
 
   it('light does not enter an opaque block (STONE receives 0)', () => {
-    const blocks = makeAirBlocks()
-    placeBlock(blocks, 8, 100, 8, 'LAVA')
-    placeBlock(blocks, 9, 100, 8, 'STONE')
+    const blocks = makeChunkBlocks()
+    setChunkBlock(blocks, { lx: 8, y: 100, lz: 8, blockType: 'LAVA' })
+    setChunkBlock(blocks, { lx: 9, y: 100, lz: 8, blockType: 'STONE' })
     const lightGrid = createLightBuffer()
     computeBlockLight(blocks, lightGrid)
     expect(getLightAt(lightGrid, 9, 100, 8)).toBe(0)
   })
 
   it('light propagates around a single STONE block to reach the far side', () => {
-    const blocks = makeAirBlocks()
-    placeBlock(blocks, 8, 100, 8, 'LAVA')
-    placeBlock(blocks, 9, 100, 8, 'STONE')
+    const blocks = makeChunkBlocks()
+    setChunkBlock(blocks, { lx: 8, y: 100, lz: 8, blockType: 'LAVA' })
+    setChunkBlock(blocks, { lx: 9, y: 100, lz: 8, blockType: 'STONE' })
     const lightGrid = createLightBuffer()
     computeBlockLight(blocks, lightGrid)
     expect(getLightAt(lightGrid, 10, 100, 8)).toBeGreaterThan(0)
   })
 
   it('STONE wall spanning the full x-range blocks all light to the other side', () => {
-    const blocks = makeAirBlocks()
-    placeBlock(blocks, 2, 100, 8, 'LAVA')
-    Arr.forEach(Arr.makeBy(CHUNK_SIZE, z => z), (z) =>
-      Arr.forEach(Arr.makeBy(CHUNK_HEIGHT, y => y), (y) => {
-        placeBlock(blocks, 8, y, z, 'STONE')
-      })
-    )
+    const blocks = makeChunkBlocks()
+    setChunkBlock(blocks, { lx: 2, y: 100, lz: 8, blockType: 'LAVA' })
+    for (let z = 0; z < CHUNK_SIZE; z++) {
+      for (let y = 0; y < CHUNK_HEIGHT; y++) {
+        setChunkBlock(blocks, { lx: 8, y, lz: z, blockType: 'STONE' })
+      }
+    }
     const lightGrid = createLightBuffer()
     computeBlockLight(blocks, lightGrid)
     expect(getLightAt(lightGrid, 8, 100, 8)).toBe(0)
@@ -100,15 +89,15 @@ describe('computeBlockLight', () => {
   })
 
   it('REDSTONE_ORE emits level 9 at its own position', () => {
-    const blocks = makeAirBlocks()
-    placeBlock(blocks, 4, 64, 4, 'REDSTONE_ORE')
+    const blocks = makeChunkBlocks()
+    setChunkBlock(blocks, { lx: 4, y: 64, lz: 4, blockType: 'REDSTONE_ORE' })
     const lightGrid = createLightBuffer()
     computeBlockLight(blocks, lightGrid)
     expect(getLightAt(lightGrid, 4, 64, 4)).toBe(9)
   })
 
   it('computeBlockLight zeroes the grid before computing (stale buffer is reset)', () => {
-    const blocks = makeAirBlocks()
+    const blocks = makeChunkBlocks()
     const lightGrid = createLightBuffer()
     lightGrid.fill(0xff)
     computeBlockLight(blocks, lightGrid)

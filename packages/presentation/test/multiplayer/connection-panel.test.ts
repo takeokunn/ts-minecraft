@@ -1,7 +1,7 @@
 import { describe, it } from '@effect/vitest'
 import { afterEach, expect } from 'vitest'
 import { Effect, Layer, Option, Stream } from 'effect'
-import { ConnectionPanelService, ConnectionPanelLive } from '../../multiplayer/connection-panel'
+import { ConnectionPanelService } from '../../multiplayer/connection-panel'
 import { DomOperationsService } from '../../hud/crosshair'
 
 type Listener = (event: Event) => void
@@ -79,7 +79,7 @@ const installDom = () => {
   return { root }
 }
 
-const makeLayer = () => ConnectionPanelLive.pipe(
+const makeLayer = () => ConnectionPanelService.Default.pipe(
   Layer.provide(Layer.succeed(DomOperationsService, {
     createElement: (tagName) => document.createElement(tagName),
     appendChild: (element) => { document.body.appendChild(element) },

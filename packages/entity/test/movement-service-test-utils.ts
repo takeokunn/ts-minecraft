@@ -1,5 +1,5 @@
 import { Effect, Layer, MutableHashMap, MutableHashSet, MutableRef, Option } from 'effect'
-import { PlayerInputService } from '@ts-minecraft/entity'
+import { HungerService, PlayerHunger, PlayerInputService } from '@ts-minecraft/entity'
 import type { MouseDelta, MovementInput } from '@ts-minecraft/entity'
 
 type TestInputService = PlayerInputService & {
@@ -59,5 +59,25 @@ export const createTestInputService = (
   })
 }
 
-export const createTestLayers = (inputService: PlayerInputService) =>
-  Layer.succeed(PlayerInputService, inputService)
+export const createTestLayers = (
+  inputService: PlayerInputService,
+  hunger: Partial<PlayerHunger> = {},
+) => {
+  const testHunger = new PlayerHunger({
+    foodLevel: hunger.foodLevel ?? 20,
+    saturation: hunger.saturation ?? 5,
+    exhaustion: hunger.exhaustion ?? 0,
+  })
+  return Layer.mergeAll(
+    Layer.succeed(PlayerInputService, inputService),
+    Layer.succeed(HungerService, HungerService.of({
+      _tag: '@minecraft/application/HungerService' as const,
+      getHunger: () => Effect.succeed(testHunger),
+      addExhaustion: () => Effect.void,
+      eat: () => Effect.void,
+      tick: () => Effect.succeed('none' as const),
+      reset: () => Effect.void,
+      restore: () => Effect.void,
+    })),
+  )
+}

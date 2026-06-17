@@ -9,8 +9,10 @@ import type { BlockType } from '@ts-minecraft/core'
 import type { ChunkManagerService } from './chunk-manager-service'
 
 export const ensureFluidBuffer = (chunk: Chunk): Effect.Effect<Uint8Array<ArrayBufferLike>> => {
-  const existing = Option.getOrNull(Option.filter(chunk.fluid, (b) => b.byteLength === FLUID_BYTE_LENGTH))
-  if (existing) return Effect.succeed(existing)
+  const existing = Option.getOrNull(chunk.fluid)
+  if (existing !== null && existing.byteLength === FLUID_BYTE_LENGTH) {
+    return Effect.succeed(existing)
+  }
   return Effect.sync(() => {
     const fluid = createFluidBuffer()
     ;(chunk as { fluid: Option.Option<Uint8Array<ArrayBufferLike>> }).fluid = Option.some(fluid)

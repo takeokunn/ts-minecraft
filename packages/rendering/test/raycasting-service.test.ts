@@ -2,7 +2,6 @@ import { describe,it } from '@effect/vitest'
 import {
 DEFAULT_RAY_DISTANCE,
 RaycastingService,
-RaycastingServiceLive
 } from '@ts-minecraft/rendering'
 import { Array as Arr,Effect,Option } from 'effect'
 import * as THREE from 'three'
@@ -50,7 +49,7 @@ describe('RaycastingService', () => {
         expect(blockPos.x).toBe(5)
         expect(blockPos.y).toBe(3)
         expect(blockPos.z).toBe(10)
-      }).pipe(Effect.provide(RaycastingServiceLive))
+      }).pipe(Effect.provide(RaycastingService.Default))
     )
 
     it.effect('should convert negative world coordinates to block coordinates', () =>
@@ -61,7 +60,7 @@ describe('RaycastingService', () => {
         expect(blockPos.x).toBe(-6)
         expect(blockPos.y).toBe(-4)
         expect(blockPos.z).toBe(-11)
-      }).pipe(Effect.provide(RaycastingServiceLive))
+      }).pipe(Effect.provide(RaycastingService.Default))
     )
 
     it.effect('should handle zero coordinates', () =>
@@ -72,7 +71,7 @@ describe('RaycastingService', () => {
         expect(blockPos.x).toBe(0)
         expect(blockPos.y).toBe(0)
         expect(blockPos.z).toBe(0)
-      }).pipe(Effect.provide(RaycastingServiceLive))
+      }).pipe(Effect.provide(RaycastingService.Default))
     )
 
     it.effect('should handle exact integer coordinates', () =>
@@ -83,7 +82,7 @@ describe('RaycastingService', () => {
         expect(blockPos.x).toBe(5)
         expect(blockPos.y).toBe(10)
         expect(blockPos.z).toBe(15)
-      }).pipe(Effect.provide(RaycastingServiceLive))
+      }).pipe(Effect.provide(RaycastingService.Default))
     )
   })
 
@@ -102,7 +101,7 @@ describe('RaycastingService', () => {
         const hit = yield* service.raycastFromCamera(camera, scene)
 
         expect(Option.isNone(hit)).toBe(true)
-      }).pipe(Effect.provide(RaycastingServiceLive))
+      }).pipe(Effect.provide(RaycastingService.Default))
     )
 
     it.effect('should return hit info when hitting an object', () =>
@@ -132,7 +131,7 @@ describe('RaycastingService', () => {
         expect(typeof hit.blockX).toBe('number')
         expect(typeof hit.blockY).toBe('number')
         expect(typeof hit.blockZ).toBe('number')
-      }).pipe(Effect.provide(RaycastingServiceLive))
+      }).pipe(Effect.provide(RaycastingService.Default))
     )
 
     it.effect('should respect maxDistance parameter', () =>
@@ -158,7 +157,7 @@ describe('RaycastingService', () => {
         // Should hit with extended distance (15)
         const hitExtended = yield* service.raycastFromCamera(camera, scene, 15)
         expect(Option.isSome(hitExtended)).toBe(true)
-      }).pipe(Effect.provide(RaycastingServiceLive))
+      }).pipe(Effect.provide(RaycastingService.Default))
     )
 
     it.effect('should return correct point coordinates on hit', () =>
@@ -184,7 +183,7 @@ describe('RaycastingService', () => {
         // Hit should be near the front face of the box (around z = -1.5)
         expect(hit.point.z).toBeLessThan(-1)
         expect(hit.point.z).toBeGreaterThan(-3)
-      }).pipe(Effect.provide(RaycastingServiceLive))
+      }).pipe(Effect.provide(RaycastingService.Default))
     )
 
     it.effect('should return surface normal on hit', () =>
@@ -212,7 +211,7 @@ describe('RaycastingService', () => {
           hit.normal.x ** 2 + hit.normal.y ** 2 + hit.normal.z ** 2
         )
         expect(normalLength).toBeCloseTo(1, 5)
-      }).pipe(Effect.provide(RaycastingServiceLive))
+      }).pipe(Effect.provide(RaycastingService.Default))
     )
 
     it.effect('should calculate block coordinates from hit point', () =>
@@ -239,7 +238,7 @@ describe('RaycastingService', () => {
         expect(hit.blockX).toBe(5)
         expect(hit.blockY).toBe(10)
         expect(hit.blockZ).toBe(-6)
-      }).pipe(Effect.provide(RaycastingServiceLive))
+      }).pipe(Effect.provide(RaycastingService.Default))
     )
 
     it.effect('should hit the closest object when multiple objects are in range', () =>
@@ -270,7 +269,7 @@ describe('RaycastingService', () => {
         const hit = Option.getOrThrow(hitOption)
         // Should hit the closer box
         expect(hit.distance).toBeLessThan(3)
-      }).pipe(Effect.provide(RaycastingServiceLive))
+      }).pipe(Effect.provide(RaycastingService.Default))
     )
 
     it.effect('should use default distance when maxDistance is not provided', () =>
@@ -293,7 +292,7 @@ describe('RaycastingService', () => {
         const hit = yield* service.raycastFromCamera(camera, scene)
 
         expect(Option.isSome(hit)).toBe(true)
-      }).pipe(Effect.provide(RaycastingServiceLive))
+      }).pipe(Effect.provide(RaycastingService.Default))
     )
   })
 

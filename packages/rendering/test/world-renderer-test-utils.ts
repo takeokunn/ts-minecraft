@@ -1,6 +1,8 @@
 import { vi } from 'vitest'
-import { Array as Arr, Effect, Layer, Option } from 'effect'
+import { Effect, Layer, Option } from 'effect'
 import * as THREE from 'three'
+import { createFluidBuffer, encodeFluidCell } from '@ts-minecraft/block'
+import { blockTypeToIndex } from '@ts-minecraft/core'
 
 const makeAtlasTexture = (): THREE.Texture =>
   new THREE.CanvasTexture({ width: 1, height: 1 } as unknown as HTMLCanvasElement)
@@ -48,7 +50,7 @@ if (typeof globalThis.Image === 'undefined') {
   Object.defineProperty(globalThis, 'Image', { value: MockImage, writable: true })
 }
 
-import { WorldRendererService, WorldRendererServiceLive, ChunkMeshService, SceneService } from '@ts-minecraft/rendering'
+import { WorldRendererService, ChunkMeshService, SceneService } from '@ts-minecraft/rendering'
 import type { Chunk } from '@ts-minecraft/world'
 
 // ---------------------------------------------------------------------------
@@ -57,8 +59,7 @@ import type { Chunk } from '@ts-minecraft/world'
 
 export const makeChunk = (x: number, z: number): Chunk => ({
   coord: { x, z },
-  blocks: new Uint8Array(16 * 256 * 16),
-  fluid: Option.none(),
+  ...makeChunkData(),
 })
 
 export const makeMockMesh = (coord: { x: number; z: number }): THREE.Mesh => {
@@ -68,17 +69,78 @@ export const makeMockMesh = (coord: { x: number; z: number }): THREE.Mesh => {
   return mesh
 }
 
-// Build a test-specific Layer that bypasses WorldRendererServiceLive's bundled dependencies.
+const WATER_BLOCK_TYPE = blockTypeToIndex('WATER')
+const WATER_SOURCE_BYTE = encodeFluidCell({ level: 0, source: true, type: 'water' })
+
+const isBlockArrayIndex = (property: string | symbol): property is string => {
+  if (typeof property !== 'string') return false
+  const index = Number(property)
+  return Number.isInteger(index) && index >= 0
+}
+
+const makeWaterAwareBlocks = (fluid: Uint8Array<ArrayBufferLike>): Uint8Array =>
+  new Proxy(new Uint8Array(fluid.byteLength), {
+    get: (target, property) => {
+      const value = Reflect.get(target, property, target)
+      return typeof value === 'function' ? value.bind(target) : value
+    },
+    set: (target, property, value, receiver) => {
+      const didSet = Reflect.set(target, property, value, receiver)
+      if (didSet && isBlockArrayIndex(property)) {
+        const index = Number(property)
+        if (index < fluid.byteLength) {
+          fluid[index] = value === WATER_BLOCK_TYPE ? WATER_SOURCE_BYTE : 0
+        }
+      }
+      return didSet
+    },
+  })
+
+const makeChunkData = (): Pick<Chunk, 'blocks' | 'fluid'> => {
+  const fluid = createFluidBuffer()
+  return {
+    blocks: makeWaterAwareBlocks(fluid),
+    fluid: Option.some(fluid),
+  }
+}
+
+const chunkHasWater = (chunk: Chunk): boolean => chunk.blocks.includes(WATER_BLOCK_TYPE)
+
+const makeDefaultWaterMesh = (
+  chunk: Chunk,
+  existingWaterMesh: Option.Option<THREE.Mesh>,
+): Option.Option<THREE.Mesh> => {
+  if (!chunkHasWater(chunk)) return Option.none()
+  return Option.isSome(existingWaterMesh)
+    ? existingWaterMesh
+    : Option.some(makeMockMesh(chunk.coord))
+}
+
+const makeDefaultChunkMeshes = (chunk: Chunk) => ({
+  opaqueMesh: makeMockMesh(chunk.coord),
+  waterMesh: makeDefaultWaterMesh(chunk, Option.none()),
+  transparentSolidMesh: Option.none<THREE.Mesh>(),
+})
+
+// Build a test-specific Layer that bypasses WorldRendererService.Default's bundled dependencies.
 // We use Layer.effect to construct WorldRendererService with injected mocks.
 export const buildTestLayer = (
   createChunkMesh: ReturnType<typeof vi.fn> = vi.fn((chunk: Chunk) =>
-    Effect.succeed({ opaqueMesh: makeMockMesh(chunk.coord), waterMesh: Option.none<THREE.Mesh>(), transparentSolidMesh: Option.none<THREE.Mesh>() })
+    Effect.succeed(makeDefaultChunkMeshes(chunk))
   ),
-  updateChunkMesh: ReturnType<typeof vi.fn> = vi.fn((_m: THREE.Mesh, w: Option.Option<THREE.Mesh>) =>
-    Effect.succeed({ waterMesh: w, transparentSolidMesh: Option.none<THREE.Mesh>() })
+  updateChunkMesh: ReturnType<typeof vi.fn> = vi.fn((
+    _mesh: THREE.Mesh,
+    waterMesh: Option.Option<THREE.Mesh>,
+    chunk: Chunk,
+  ) =>
+    Effect.succeed({ waterMesh: makeDefaultWaterMesh(chunk, waterMesh), transparentSolidMesh: Option.none<THREE.Mesh>() })
   ),
-  sceneAdd: ReturnType<typeof vi.fn> = vi.fn((_s: unknown, _m: unknown) => Effect.void),
-  sceneRemove: ReturnType<typeof vi.fn> = vi.fn((_s: unknown, _m: unknown) => Effect.void)
+  sceneAdd: ReturnType<typeof vi.fn> = vi.fn((scene: THREE.Scene, mesh: THREE.Object3D) =>
+    Effect.sync(() => scene.add(mesh))
+  ),
+  sceneRemove: ReturnType<typeof vi.fn> = vi.fn((scene: THREE.Scene, mesh: THREE.Object3D) =>
+    Effect.sync(() => scene.remove(mesh))
+  )
 ) => {
   const chunkMeshLayer = Layer.succeed(ChunkMeshService, ChunkMeshService.of({
     _tag: '@minecraft/infrastructure/three/ChunkMeshService' as const,
@@ -97,7 +159,7 @@ export const buildTestLayer = (
     remove: sceneRemove,
   }))
 
-  return Layer.provide(WorldRendererServiceLive, Layer.mergeAll(chunkMeshLayer, sceneLayer))
+  return Layer.provide(WorldRendererService.Default, Layer.mergeAll(chunkMeshLayer, sceneLayer))
 }
 
 export const makeScene = (): THREE.Scene => new THREE.Scene()
@@ -128,6 +190,6 @@ export const drainSync = (
     }),
   }).pipe(Effect.asVoid)
 
-export { WorldRendererService, WorldRendererServiceLive, ChunkMeshService, SceneService }
+export { WorldRendererService, ChunkMeshService, SceneService }
 export type { Chunk }
-export { Arr, Effect, Layer, Option }
+export { Effect, Layer, Option }

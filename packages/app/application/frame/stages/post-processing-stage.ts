@@ -1,11 +1,12 @@
 // Stages 8 + 9 — water refraction pre-pass and post-processing pass enable/setSize sync.
 // Both stages live in the same file because they share the post-processing
 // concern (water shader uniforms feed into the composer's render flow).
-import { Effect, MutableRef, Ref } from 'effect'
+import { Effect, MutableRef } from 'effect'
 import { logErrors } from '@ts-minecraft/app/frame/error-logging'
 import type { FrameHandlerDeps, FrameHandlerServices, FrameStageRefs, ResolvedDeps } from '@ts-minecraft/app/frame/types'
-import { captureCameraPose, copyCameraPoseInto, hasCameraPoseChanged } from '@ts-minecraft/app/frame/frame-runtime-logic'
+import { captureCameraPose, copyCameraPoseInto, hasCameraPoseChanged } from '@ts-minecraft/app/frame/frame-camera-pose'
 import type { ResolvedGraphics } from '@ts-minecraft/game'
+import { resolvePostProcessingSetupLayout } from './post-processing-layout'
 
 // ---------------------------------------------------------------------------
 // Stage 8: refractionPrepassStage — water refraction RT (throttled by quality preset)
@@ -25,7 +26,11 @@ export const refractionPrepassStage = (
   },
 ): Effect.Effect<void, never> =>
   inputs.resolvedGraphics.refractionThrottleFrames > 0
-    ? Ref.updateAndGet(refs.refractionFrameCounterRef, (n) => n + 1).pipe(
+    ? Effect.sync(() => {
+        const refractionFrame = MutableRef.get(refs.refractionFrameCounterRef) + 1
+        MutableRef.set(refs.refractionFrameCounterRef, refractionFrame)
+        return refractionFrame
+      }).pipe(
         Effect.flatMap((refractionFrame) =>
           (refractionFrame - 1) % inputs.resolvedGraphics.refractionThrottleFrames === 0
             ? services.worldRendererService.getSceneVersion().pipe(
@@ -48,9 +53,11 @@ export const refractionPrepassStage = (
                                 copyCameraPoseInto(refs.currentRefractionPoseScratch, lastRefractionFrame),
                               ),
                             ),
-                            Effect.flatMap(() =>
-                              Ref.getAndSet(refs.refractionValidRef, true),
-                            ),
+                            Effect.flatMap(() => Effect.sync(() => {
+                              const wasValid = MutableRef.get(refs.refractionValidRef)
+                              MutableRef.set(refs.refractionValidRef, true)
+                              return wasValid
+                            })),
                             Effect.flatMap((wasValid) =>
                               /* c8 ignore next */
                               wasValid ? Effect.void : services.worldRendererService.setRefractionValid(true),
@@ -88,36 +95,37 @@ export const postProcessingSetupStage = (
 ): Effect.Effect<void, never> =>
   (inputs.graphicsChanged || inputs.pixelRatioChanged)
     ? Effect.sync(() => {
-        const w = deps.renderer.domElement.clientWidth || 1
-        const h = deps.renderer.domElement.clientHeight || 1
-        const pixelRatio = typeof deps.renderer.getPixelRatio === 'function' ? deps.renderer.getPixelRatio() : 1
-        const rw = Math.max(1, Math.ceil(w * pixelRatio))
-        const rh = Math.max(1, Math.ceil(h * pixelRatio))
-        if (deps.lights.light.castShadow !== inputs.resolvedGraphics.shadowsEnabled) {
-          deps.lights.light.castShadow = inputs.resolvedGraphics.shadowsEnabled
+        const layout = resolvePostProcessingSetupLayout({
+          width: deps.renderer.domElement.clientWidth || 1,
+          height: deps.renderer.domElement.clientHeight || 1,
+          pixelRatio: typeof deps.renderer.getPixelRatio === 'function' ? deps.renderer.getPixelRatio() : 1,
+          isWebGL2: deps.renderer.capabilities.isWebGL2,
+          resolvedGraphics: inputs.resolvedGraphics,
+        })
+        if (deps.lights.light.castShadow !== layout.shadowCastEnabled) {
+          deps.lights.light.castShadow = layout.shadowCastEnabled
           inputs.markShadowMapDirty()
         }
         if (resolved.gtaoPassOrNull) {
-          const enabled = inputs.resolvedGraphics.ssaoEnabled && deps.renderer.capabilities.isWebGL2
-          resolved.gtaoPassOrNull.enabled = enabled
-          resolved.gtaoPassOrNull.setSize(enabled ? Math.ceil(rw / 2) : 1, enabled ? Math.ceil(rh / 2) : 1)
+          resolved.gtaoPassOrNull.enabled = layout.gtao.enabled
+          resolved.gtaoPassOrNull.setSize(layout.gtao.size.width, layout.gtao.size.height)
         }
         if (resolved.bloomPassOrNull) {
-          resolved.bloomPassOrNull.enabled = inputs.resolvedGraphics.bloomEnabled
-          resolved.bloomPassOrNull.strength = inputs.resolvedGraphics.bloomStrength
-          resolved.bloomPassOrNull.setSize(inputs.resolvedGraphics.bloomEnabled ? rw : 1, inputs.resolvedGraphics.bloomEnabled ? rh : 1)
+          resolved.bloomPassOrNull.enabled = layout.bloom.enabled
+          resolved.bloomPassOrNull.strength = layout.bloom.strength
+          resolved.bloomPassOrNull.setSize(layout.bloom.size.width, layout.bloom.size.height)
         }
         if (resolved.dofPassOrNull) {
-          resolved.dofPassOrNull.enabled = inputs.resolvedGraphics.dofEnabled
-          resolved.dofPassOrNull.setSize(inputs.resolvedGraphics.dofEnabled ? rw : 1, inputs.resolvedGraphics.dofEnabled ? rh : 1)
+          resolved.dofPassOrNull.enabled = layout.dof.enabled
+          resolved.dofPassOrNull.setSize(layout.dof.size.width, layout.dof.size.height)
         }
         if (resolved.smaaPassOrNull) {
-          resolved.smaaPassOrNull.enabled = inputs.resolvedGraphics.smaaEnabled
-          resolved.smaaPassOrNull.setSize(inputs.resolvedGraphics.smaaEnabled ? rw : 1, inputs.resolvedGraphics.smaaEnabled ? rh : 1)
+          resolved.smaaPassOrNull.enabled = layout.smaa.enabled
+          resolved.smaaPassOrNull.setSize(layout.smaa.size.width, layout.smaa.size.height)
         }
         if (resolved.godRaysPassOrNull) {
-          resolved.godRaysPassOrNull.setNumSamples(inputs.resolvedGraphics.godRaysSamples)
-          resolved.godRaysPassOrNull.setSize(inputs.resolvedGraphics.godRaysEnabled ? rw : 1, inputs.resolvedGraphics.godRaysEnabled ? rh : 1)
+          resolved.godRaysPassOrNull.setNumSamples(layout.godRays.samples)
+          resolved.godRaysPassOrNull.setSize(layout.godRays.size.width, layout.godRays.size.height)
         }
       })
     : Effect.void

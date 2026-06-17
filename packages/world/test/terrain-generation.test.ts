@@ -1,89 +1,12 @@
 import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
-import { Array as Arr, Effect, Option, Schema } from 'effect'
-import { CHUNK_SIZE, CHUNK_HEIGHT } from '@ts-minecraft/core'
+import { Effect, Schema } from 'effect'
+import { CHUNK_HEIGHT } from '@ts-minecraft/core'
 import {
-  createTerrainNoiseCoordinates,
   TerrainGenerationInputSchema,
   NoiseServicePort,
   buildTerrainLayer,
 } from '@ts-minecraft/world'
-
-// ---------------------------------------------------------------------------
-// createTerrainNoiseCoordinates
-// ---------------------------------------------------------------------------
-
-describe('application/terrain/terrain-generation — createTerrainNoiseCoordinates', () => {
-  it('returns exactly CHUNK_SIZE * CHUNK_SIZE (256) coordinate pairs', () => {
-    const coords = createTerrainNoiseCoordinates({ x: 0, z: 0 })
-    expect(coords.length).toBe(CHUNK_SIZE * CHUNK_SIZE)
-  })
-
-  it('origin chunk: wx starts at 0 and wz starts at 0', () => {
-    const coords = createTerrainNoiseCoordinates({ x: 0, z: 0 })
-    const first = Option.getOrThrow(Arr.get(coords, 0))
-    expect(first.wx).toBe(0)
-    expect(first.wz).toBe(0)
-  })
-
-  it('chunk at (1, 0): wx starts at CHUNK_SIZE, wz starts at 0', () => {
-    const coords = createTerrainNoiseCoordinates({ x: 1, z: 0 })
-    const first = Option.getOrThrow(Arr.get(coords, 0))
-    expect(first.wx).toBe(CHUNK_SIZE)
-    expect(first.wz).toBe(0)
-  })
-
-  it('chunk at (0, 1): wx starts at 0, wz starts at CHUNK_SIZE', () => {
-    const coords = createTerrainNoiseCoordinates({ x: 0, z: 1 })
-    const first = Option.getOrThrow(Arr.get(coords, 0))
-    expect(first.wx).toBe(0)
-    expect(first.wz).toBe(CHUNK_SIZE)
-  })
-
-  it('all wx values are in [baseX, baseX + CHUNK_SIZE - 1]', () => {
-    const cx = 3
-    const baseX = cx * CHUNK_SIZE
-    const coords = createTerrainNoiseCoordinates({ x: cx, z: 0 })
-    Arr.forEach(coords, ({ wx }) => {
-      expect(wx).toBeGreaterThanOrEqual(baseX)
-      expect(wx).toBeLessThan(baseX + CHUNK_SIZE)
-    })
-  })
-
-  it('all wz values are in [baseZ, baseZ + CHUNK_SIZE - 1]', () => {
-    const cz = 5
-    const baseZ = cz * CHUNK_SIZE
-    const coords = createTerrainNoiseCoordinates({ x: 0, z: cz })
-    Arr.forEach(coords, ({ wz }) => {
-      expect(wz).toBeGreaterThanOrEqual(baseZ)
-      expect(wz).toBeLessThan(baseZ + CHUNK_SIZE)
-    })
-  })
-
-  it('all CHUNK_SIZE wx offsets are represented in the result', () => {
-    const coords = createTerrainNoiseCoordinates({ x: 0, z: 0 })
-    const wxValues = Arr.map(coords, ({ wx }) => wx)
-    // Each lx in [0..CHUNK_SIZE-1] must appear exactly CHUNK_SIZE times
-    Arr.forEach(Arr.makeBy(CHUNK_SIZE, i => i), (lx) => {
-      const count = wxValues.filter(wx => wx === lx).length
-      expect(count).toBe(CHUNK_SIZE)
-    })
-  })
-
-  it('is deterministic — same coord produces the same array', () => {
-    const a = createTerrainNoiseCoordinates({ x: 2, z: -3 })
-    const b = createTerrainNoiseCoordinates({ x: 2, z: -3 })
-    expect(a).toEqual(b)
-  })
-
-  it('negative chunk coords produce negative world coords', () => {
-    const coords = createTerrainNoiseCoordinates({ x: -1, z: -1 })
-    Arr.forEach(coords, ({ wx, wz }) => {
-      expect(wx).toBeLessThan(0)
-      expect(wz).toBeLessThan(0)
-    })
-  })
-})
 
 // ---------------------------------------------------------------------------
 // TerrainGenerationInputSchema — validation

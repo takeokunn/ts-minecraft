@@ -1,17 +1,25 @@
 import { describe, it } from '@effect/vitest'
 import { expect, vi } from 'vitest'
-import { Duration, Effect, MutableRef, Option, TestClock } from 'effect'
+import { Effect, HashMap, MutableRef, Option } from 'effect'
 import { createFrameHandlers } from '@ts-minecraft/app'
 import { DESPAWN_DISTANCE } from '@ts-minecraft/entity'
+import { computeMaintenanceDeltaTime } from './frame-maintenance'
+import { splitDirtyChunksForFlush, type DirtyChunkEntry } from './frame-maintenance-dirty'
+import { runMaintenanceSync } from './frame-maintenance-sync'
 import { LIGHT_BYTE_LENGTH, setLightAt } from '@ts-minecraft/block'
 import { CHUNK_HEIGHT, CHUNK_SIZE, type DeltaTimeSecs, type Position } from '@ts-minecraft/core'
+import type { Chunk } from '@ts-minecraft/world'
 import {
-  makeDeps,
-  makeInputService,
-  makeInventoryRenderer,
-  makeServices,
-  makeSettingsOverlay,
-} from '@test/frame-handler-test-kit'
+  DEFAULT_SETTINGS,
+  arrangeFrameHarness,
+} from '../../test/frame-handler-test-kit'
+
+const makeMaintenanceSyncState = () => ({
+  lastLoadedChunksRef: MutableRef.make<Option.Option<ReadonlyArray<Chunk>>>(Option.none()),
+  lastChunkStreamingRef: MutableRef.make({ cx: NaN, cz: NaN, renderDistance: NaN }),
+  chunkSyncPendingRef: MutableRef.make(false),
+  dirtyChunksRef: MutableRef.make(HashMap.empty<string, DirtyChunkEntry>()),
+})
 
 // ---------------------------------------------------------------------------
 // frame-maintenance — session-pause gate
@@ -21,16 +29,9 @@ import {
 
 describe('frame-maintenance / session-pause gate', () => {
   it.effect('returns false and skips ALL maintenance work when sessionPausedRef is true', () => Effect.gen(function* () {
-    const deps = yield* makeDeps(false)
-
+    const { deps, services } = yield* arrangeFrameHarness()
     // Set sessionPausedRef to true — simulates the tab being backgrounded / session paused.
     MutableRef.set(deps.sessionPausedRef, true)
-
-    const services = makeServices({
-      inputService: makeInputService(),
-      inventoryRenderer: makeInventoryRenderer({ open: false }),
-      settingsOverlay: makeSettingsOverlay({ open: false }),
-    })
 
     const loadSpy = vi.fn(() => Effect.succeed(true as boolean))
     const syncSpy = vi.fn(() => Effect.succeed(true as boolean))
@@ -59,34 +60,28 @@ describe('frame-maintenance / session-pause gate', () => {
     expect(mobSpawnSpy).not.toHaveBeenCalled()
   }))
 
-  it.effect('returns a truthy result and calls loadChunksAroundPlayer when sessionPausedRef is false', () => Effect.gen(function* () {
-    const deps = yield* makeDeps(false)
-    // sessionPausedRef defaults to false in makeDeps — maintenance should proceed.
-
-    const services = makeServices({
-      inputService: makeInputService(),
-      inventoryRenderer: makeInventoryRenderer({ open: false }),
-      settingsOverlay: makeSettingsOverlay({ open: false }),
-    })
+  it.effect('calls loadChunksAroundPlayer when chunk streaming state changes', () => Effect.gen(function* () {
+    const { deps, services } = yield* arrangeFrameHarness()
 
     const loadSpy = vi.fn(() => Effect.succeed(true as boolean))
     Object.assign(services.chunkManagerService, { loadChunksAroundPlayer: loadSpy })
 
-    const { maintenanceHandler } = yield* createFrameHandlers(deps, services)
+    const result = yield* runMaintenanceSync(deps, services, makeMaintenanceSyncState(), {
+      chunkStreamingEnabled: true,
+      chunkSceneSyncEnabled: false,
+      dirtyChunkFlushEnabled: false,
+      cx: 0,
+      cz: 0,
+      playerPos: { x: 0, y: 64, z: 0 },
+      renderDistance: DEFAULT_SETTINGS.renderDistance,
+    })
 
-    yield* maintenanceHandler()
-
-    // Maintenance work must have run.
+    expect(result.didLoadChunks).toBe(true)
     expect(loadSpy).toHaveBeenCalledOnce()
   }))
 
   it.effect('passes a terrain-aware spawn resolver and runs entity cleanup before spawning', () => Effect.gen(function* () {
-    const deps = yield* makeDeps(false)
-    const services = makeServices({
-      inputService: makeInputService(),
-      inventoryRenderer: makeInventoryRenderer({ open: false }),
-      settingsOverlay: makeSettingsOverlay({ open: false }),
-    })
+    const { deps, services } = yield* arrangeFrameHarness()
 
     const blocks = new Uint8Array(CHUNK_SIZE * CHUNK_SIZE * CHUNK_HEIGHT)
     const surfaceY = 10
@@ -125,36 +120,69 @@ describe('frame-maintenance / session-pause gate', () => {
     expect(mobSpawnSpy).toHaveBeenCalledOnce()
     expect(getChunkSpy).toHaveBeenCalledWith({ x: 0, z: 0 })
   }))
+
+  it.effect('skips hostile mob spawning on peaceful difficulty', () => Effect.gen(function* () {
+    const { deps, services } = yield* arrangeFrameHarness()
+
+    Object.assign(services.settingsService, {
+      getSettings: vi.fn(() => Effect.succeed({ ...DEFAULT_SETTINGS, difficulty: 'peaceful' as const })),
+    })
+    const mobSpawnSpy = vi.fn(() => Effect.succeed(Option.none<Position>()))
+    Object.assign(services.mobSpawner, { trySpawn: mobSpawnSpy })
+
+    const { maintenanceHandler } = yield* createFrameHandlers(deps, services)
+    yield* maintenanceHandler()
+
+    expect(mobSpawnSpy).not.toHaveBeenCalled()
+  }))
+
+  it.effect('does not read world time when mob spawning and villages are disabled', () => Effect.gen(function* () {
+    const { deps, services } = yield* arrangeFrameHarness()
+    yield* services.debugFeatureFlags.setEnabled('mobs.spawn', false)
+    yield* services.debugFeatureFlags.setEnabled('simulation.village', false)
+
+    const getTimeOfDaySpy = vi.fn(() => Effect.succeed(0))
+    const mobSpawnSpy = vi.fn(() => Effect.succeed(Option.none<Position>()))
+    Object.assign(services.timeService, { getTimeOfDay: getTimeOfDaySpy })
+    Object.assign(services.mobSpawner, { trySpawn: mobSpawnSpy })
+
+    const { maintenanceHandler } = yield* createFrameHandlers(deps, services)
+    yield* maintenanceHandler()
+
+    expect(getTimeOfDaySpy).not.toHaveBeenCalled()
+    expect(mobSpawnSpy).not.toHaveBeenCalled()
+  }))
+
 })
 
 describe('frame-maintenance / resolveTerrainSpawnPosition edge cases', () => {
   // Helper: creates a maintenance-capable service set with custom chunk data and spawn spy
-  const makeMaintenanceServices = (blocks: Uint8Array, spawnCallback: (resolver: (p: Position) => Effect.Effect<Option.Option<Position>, never>) => Effect.Effect<Option.Option<Position>, never>) => {
-    const services = makeServices({
-      inputService: makeInputService(),
-      inventoryRenderer: makeInventoryRenderer({ open: false }),
-      settingsOverlay: makeSettingsOverlay({ open: false }),
+  const makeMaintenanceServices = (
+    blocks: Uint8Array,
+    spawnCallback: (resolver: (p: Position) => Effect.Effect<Option.Option<Position>, never>) => Effect.Effect<Option.Option<Position>, never>,
+  ) =>
+    Effect.gen(function* () {
+      const { services } = yield* arrangeFrameHarness()
+      Object.assign(services.chunkManagerService, { getChunk: vi.fn(() => Effect.succeed({ coord: { x: 0, z: 0 }, blocks })) })
+      Object.assign(services.entityManager, { despawnFarEntities: vi.fn((_p: Position, _d: number) => Effect.succeed(0)) })
+      Object.assign(services.mobSpawner, {
+        trySpawn: vi.fn((_pos: Position, resolver: (p: Position) => Effect.Effect<Option.Option<Position>, never>) =>
+          spawnCallback(resolver),
+        ),
+      })
+      return services
     })
-    Object.assign(services.chunkManagerService, { getChunk: vi.fn(() => Effect.succeed({ coord: { x: 0, z: 0 }, blocks })) })
-    Object.assign(services.entityManager, { despawnFarEntities: vi.fn((_p: Position, _d: number) => Effect.succeed(0)) })
-    Object.assign(services.mobSpawner, {
-      trySpawn: vi.fn((_pos: Position, resolver: (p: Position) => Effect.Effect<Option.Option<Position>, never>) =>
-        spawnCallback(resolver),
-      ),
-    })
-    return services
-  }
 
   it.effect('rejects a candidate where headBlockY would exceed CHUNK_HEIGHT (top-of-chunk guard)', () =>
     Effect.gen(function* () {
-      const deps = yield* makeDeps(false)
+      const { deps } = yield* arrangeFrameHarness()
       const blocks = new Uint8Array(CHUNK_SIZE * CHUNK_SIZE * CHUNK_HEIGHT)
       // Solid at y = CHUNK_HEIGHT - 2 → bodyBlockY = CHUNK_HEIGHT - 1, headBlockY = CHUNK_HEIGHT ≥ limit
       // blockIndex = y + lz * CHUNK_HEIGHT + lx * CHUNK_HEIGHT * CHUNK_SIZE
       blocks[(CHUNK_HEIGHT - 2) + 2 * CHUNK_HEIGHT + 1 * CHUNK_HEIGHT * CHUNK_SIZE] = 1
 
       const results: Option.Option<Position>[] = []
-      const services = makeMaintenanceServices(blocks, (resolver) =>
+      const services = yield* makeMaintenanceServices(blocks, (resolver) =>
         Effect.gen(function* () {
           const r = yield* resolver({ x: 1.5, y: 64, z: 2.5 })
           results.push(r)
@@ -171,11 +199,11 @@ describe('frame-maintenance / resolveTerrainSpawnPosition edge cases', () => {
 
   it.effect('rejects a candidate in an all-air column (no surface found)', () =>
     Effect.gen(function* () {
-      const deps = yield* makeDeps(false)
+      const { deps } = yield* arrangeFrameHarness()
       const blocks = new Uint8Array(CHUNK_SIZE * CHUNK_SIZE * CHUNK_HEIGHT) // all zeros = all AIR
 
       const results: Option.Option<Position>[] = []
-      const services = makeMaintenanceServices(blocks, (resolver) =>
+      const services = yield* makeMaintenanceServices(blocks, (resolver) =>
         Effect.gen(function* () {
           const r = yield* resolver({ x: 1.5, y: 64, z: 2.5 })
           results.push(r)
@@ -194,7 +222,7 @@ describe('frame-maintenance / resolveTerrainSpawnPosition edge cases', () => {
   // surface must reject the spawn; a dark surface must allow it.
   it.effect('rejects a night/hostile spawn on a torch-lit surface (blockLight > threshold)', () =>
     Effect.gen(function* () {
-      const deps = yield* makeDeps(false)
+      const { deps } = yield* arrangeFrameHarness()
       const blocks = new Uint8Array(CHUNK_SIZE * CHUNK_SIZE * CHUNK_HEIGHT)
       // Solid surface at y=64 (lx=1, lz=2) → bodyBlockY=65, headBlockY=66 (air).
       blocks[64 + 2 * CHUNK_HEIGHT + 1 * CHUNK_HEIGHT * CHUNK_SIZE] = 1
@@ -202,7 +230,7 @@ describe('frame-maintenance / resolveTerrainSpawnPosition edge cases', () => {
       setLightAt(blockLight, 1, 65, 2, 14) // bright (>7) at the feet voxel
 
       const results: Option.Option<Position>[] = []
-      const services = makeMaintenanceServices(blocks, (resolver) =>
+      const services = yield* makeMaintenanceServices(blocks, (resolver) =>
         Effect.gen(function* () {
           const r = yield* resolver({ x: 1.5, y: 64, z: 2.5 })
           results.push(r)
@@ -221,13 +249,13 @@ describe('frame-maintenance / resolveTerrainSpawnPosition edge cases', () => {
 
   it.effect('allows a night/hostile spawn on a dark surface (blockLight ≤ threshold)', () =>
     Effect.gen(function* () {
-      const deps = yield* makeDeps(false)
+      const { deps } = yield* arrangeFrameHarness()
       const blocks = new Uint8Array(CHUNK_SIZE * CHUNK_SIZE * CHUNK_HEIGHT)
       blocks[64 + 2 * CHUNK_HEIGHT + 1 * CHUNK_HEIGHT * CHUNK_SIZE] = 1
       const blockLight = new Uint8Array(LIGHT_BYTE_LENGTH) // all-dark
 
       const results: Option.Option<Position>[] = []
-      const services = makeMaintenanceServices(blocks, (resolver) =>
+      const services = yield* makeMaintenanceServices(blocks, (resolver) =>
         Effect.gen(function* () {
           const r = yield* resolver({ x: 1.5, y: 64, z: 2.5 })
           results.push(r)
@@ -246,14 +274,27 @@ describe('frame-maintenance / resolveTerrainSpawnPosition edge cases', () => {
 })
 
 describe('frame-maintenance / dirty chunk queue processing', () => {
+  it('splits dirty chunks without materializing the entire queue as an array', () => {
+    const blocks = new Uint8Array(CHUNK_SIZE * CHUNK_SIZE * CHUNK_HEIGHT)
+    let dirtyChunks = HashMap.empty<string, DirtyChunkEntry>()
+
+    for (let i = 0; i < 5; i++) {
+      dirtyChunks = HashMap.set(dirtyChunks, `${i},0`, {
+        chunk: { coord: { x: i, z: 0 }, blocks, fluid: Option.none() },
+        dirtyAABB: Option.none(),
+      })
+    }
+
+    const batch = splitDirtyChunksForFlush(dirtyChunks, 2)
+
+    expect(batch.totalCount).toBe(5)
+    expect(batch.chunksToUpdate).toHaveLength(2)
+    expect(HashMap.size(batch.remainingEntries)).toBe(3)
+  })
+
   it.effect('queues render-dirty entries when drainRenderDirtyChunkEntries returns non-empty list', () =>
     Effect.gen(function* () {
-      const deps = yield* makeDeps(false)
-      const services = makeServices({
-        inputService: makeInputService(),
-        inventoryRenderer: makeInventoryRenderer({ open: false }),
-        settingsOverlay: makeSettingsOverlay({ open: false }),
-      })
+      const { deps, services } = yield* arrangeFrameHarness()
       const blocks = new Uint8Array(CHUNK_SIZE * CHUNK_SIZE * CHUNK_HEIGHT)
       const fakeChunk = { coord: { x: 0, z: 0 }, blocks, fluid: Option.none() }
       const fakeEntry = { chunk: fakeChunk, dirtyAABB: Option.none() }
@@ -265,22 +306,24 @@ describe('frame-maintenance / dirty chunk queue processing', () => {
       const updateSpy = vi.fn(() => Effect.void)
       Object.assign(services.worldRendererService, { updateChunkInScene: updateSpy })
 
-      const { maintenanceHandler } = yield* createFrameHandlers(deps, services)
-      yield* maintenanceHandler()
+      const result = yield* runMaintenanceSync(deps, services, makeMaintenanceSyncState(), {
+        chunkStreamingEnabled: false,
+        chunkSceneSyncEnabled: false,
+        dirtyChunkFlushEnabled: true,
+        cx: 0,
+        cz: 0,
+        playerPos: { x: 0, y: 64, z: 0 },
+        renderDistance: DEFAULT_SETTINGS.renderDistance,
+      })
 
-      // The dirty entry was queued and then flushed via updateChunkInScene
-      expect(updateSpy).toHaveBeenCalled()
+      expect(result.flushedDirtyChunkCount).toBe(1)
+      expect(updateSpy).toHaveBeenCalledOnce()
     })
   )
 
   it.effect('unions AABB when the same chunk appears twice in dirty entries (onSome merge path)', () =>
     Effect.gen(function* () {
-      const deps = yield* makeDeps(false)
-      const services = makeServices({
-        inputService: makeInputService(),
-        inventoryRenderer: makeInventoryRenderer({ open: false }),
-        settingsOverlay: makeSettingsOverlay({ open: false }),
-      })
+      const { deps, services } = yield* arrangeFrameHarness()
       const blocks = new Uint8Array(CHUNK_SIZE * CHUNK_SIZE * CHUNK_HEIGHT)
       const fakeChunk = { coord: { x: 0, z: 0 }, blocks, fluid: Option.none() }
       const entry1 = { chunk: fakeChunk, dirtyAABB: Option.some({ minX: 0, maxX: 5, minY: 0, maxY: 5, minZ: 0, maxZ: 5 }) }
@@ -293,10 +336,19 @@ describe('frame-maintenance / dirty chunk queue processing', () => {
       const updateSpy = vi.fn(() => Effect.void)
       Object.assign(services.worldRendererService, { updateChunkInScene: updateSpy })
 
-      const { maintenanceHandler } = yield* createFrameHandlers(deps, services)
-      yield* maintenanceHandler()
+      const result = yield* runMaintenanceSync(deps, services, makeMaintenanceSyncState(), {
+        chunkStreamingEnabled: false,
+        chunkSceneSyncEnabled: false,
+        dirtyChunkFlushEnabled: true,
+        cx: 0,
+        cz: 0,
+        playerPos: { x: 0, y: 64, z: 0 },
+        renderDistance: DEFAULT_SETTINGS.renderDistance,
+      })
 
-      expect(updateSpy).toHaveBeenCalled()
+      expect(result.flushedDirtyChunkCount).toBe(1)
+      expect(updateSpy).toHaveBeenCalledOnce()
+      expect(updateSpy.mock.calls[0]?.[2]).toEqual({ minX: 0, maxX: 10, minY: 0, maxY: 10, minZ: 0, maxZ: 10 })
     })
   )
 })
@@ -304,12 +356,7 @@ describe('frame-maintenance / dirty chunk queue processing', () => {
 describe('frame-maintenance / mobs disabled path', () => {
   it.effect('calls despawnAllEntities instead of despawnFarEntities when mobs.enabled is false', () =>
     Effect.gen(function* () {
-      const deps = yield* makeDeps(false)
-      const services = makeServices({
-        inputService: makeInputService(),
-        inventoryRenderer: makeInventoryRenderer({ open: false }),
-        settingsOverlay: makeSettingsOverlay({ open: false }),
-      })
+      const { deps, services } = yield* arrangeFrameHarness()
       yield* services.debugFeatureFlags.setEnabled('mobs.enabled', false)
       const despawnAllSpy = vi.fn(() => Effect.succeed(2))
       const despawnFarSpy = vi.fn((_p: Position, _d: number) => Effect.succeed(0))
@@ -327,12 +374,7 @@ describe('frame-maintenance / mobs disabled path', () => {
 describe('frame-maintenance / dirty chunk flush disabled', () => {
   it.effect('skips dirty chunk flush when world.dirtyChunkFlush is disabled', () =>
     Effect.gen(function* () {
-      const deps = yield* makeDeps(false)
-      const services = makeServices({
-        inputService: makeInputService(),
-        inventoryRenderer: makeInventoryRenderer({ open: false }),
-        settingsOverlay: makeSettingsOverlay({ open: false }),
-      })
+      const { deps, services } = yield* arrangeFrameHarness()
       yield* services.debugFeatureFlags.setEnabled('world.dirtyChunkFlush', false)
       const drainSpy = vi.fn(() => Effect.succeed([]))
       Object.assign(services.chunkManagerService, { drainRenderDirtyChunkEntries: drainSpy })
@@ -354,61 +396,12 @@ describe('frame-maintenance / dirty chunk flush disabled', () => {
 // up to ~3x too fast under load.
 // ---------------------------------------------------------------------------
 describe('frame-maintenance / real-time delta', () => {
-  it.effect('feeds furnace tick the real elapsed seconds, not a fixed 0.05', () =>
-    Effect.gen(function* () {
-      const deps = yield* makeDeps(false)
-      const services = makeServices({
-        inputService: makeInputService(),
-        inventoryRenderer: makeInventoryRenderer({ open: false }),
-        settingsOverlay: makeSettingsOverlay({ open: false }),
-      })
+  it('falls back to the idle cadence on the first tick and then uses real elapsed milliseconds', () => {
+    expect(computeMaintenanceDeltaTime(-1, 1_000)).toBeCloseTo(0.05, 5)
+    expect(computeMaintenanceDeltaTime(1_000, 1_120)).toBeCloseTo(0.12, 5)
+  })
 
-      const furnaceDeltas: number[] = []
-      Object.assign(services.furnaceService, {
-        tick: vi.fn((dt: DeltaTimeSecs) => {
-          furnaceDeltas.push(Number(dt))
-          return Effect.void
-        }),
-      })
-
-      const { maintenanceHandler } = yield* createFrameHandlers(deps, services)
-
-      // First iteration: no prior timestamp → falls back to the idle cadence (~0.05).
-      yield* maintenanceHandler()
-      // 120ms of real wall-clock elapses before the next maintenance iteration.
-      yield* TestClock.adjust(Duration.millis(120))
-      yield* maintenanceHandler()
-
-      expect(furnaceDeltas).toHaveLength(2)
-      expect(furnaceDeltas[0]).toBeCloseTo(0.05, 5) // first-call fallback
-      expect(furnaceDeltas[1]).toBeCloseTo(0.12, 5) // 120ms real → 0.12s, NOT the old constant
-    })
-  )
-
-  it.effect('clamps an extreme gap (background-tab resume) to 0.25s', () =>
-    Effect.gen(function* () {
-      const deps = yield* makeDeps(false)
-      const services = makeServices({
-        inputService: makeInputService(),
-        inventoryRenderer: makeInventoryRenderer({ open: false }),
-        settingsOverlay: makeSettingsOverlay({ open: false }),
-      })
-
-      const furnaceDeltas: number[] = []
-      Object.assign(services.furnaceService, {
-        tick: vi.fn((dt: DeltaTimeSecs) => {
-          furnaceDeltas.push(Number(dt))
-          return Effect.void
-        }),
-      })
-
-      const { maintenanceHandler } = yield* createFrameHandlers(deps, services)
-      yield* maintenanceHandler()
-      // 30 real seconds (a long background-tab pause) must not dump 30s into the furnace.
-      yield* TestClock.adjust(Duration.seconds(30))
-      yield* maintenanceHandler()
-
-      expect(furnaceDeltas[1]).toBeCloseTo(0.25, 5)
-    })
-  )
+  it('clamps an extreme gap (background-tab resume) to 0.25s', () => {
+    expect(computeMaintenanceDeltaTime(1_000, 31_000)).toBeCloseTo(0.25, 5)
+  })
 })

@@ -8,6 +8,7 @@ import {
   shouldActivateGateway,
 } from '@ts-minecraft/world'
 import type { ChunkFactory } from '../domain/terrain/generator-types'
+import { makeChunkBlockBuffer } from './chunk-buffer-test-utils'
 
 const blockAt = (blocks: Uint8Array, lx: number, y: number, lz: number): number =>
   blocks[y + lz * CHUNK_HEIGHT + lx * CHUNK_HEIGHT * CHUNK_SIZE]!
@@ -15,8 +16,8 @@ const blockAt = (blocks: Uint8Array, lx: number, y: number, lz: number): number 
 const chunkFactory: ChunkFactory = {
   createChunk: (coord) => Effect.succeed({
     coord,
-    blocks: new Uint8Array(CHUNK_SIZE * CHUNK_SIZE * CHUNK_HEIGHT),
-    fluid: Option.some(new Uint8Array(CHUNK_SIZE * CHUNK_SIZE * CHUNK_HEIGHT)),
+    blocks: makeChunkBlockBuffer(),
+    fluid: Option.some(makeChunkBlockBuffer()),
   }),
 }
 

@@ -1,7 +1,7 @@
 import { describe, it, expect } from '@effect/vitest'
 import { Effect, Layer, MutableHashMap, MutableHashSet } from 'effect'
 import { afterEach } from 'vitest'
-import { MouseButton, PlayerInputServiceLive } from '@ts-minecraft/presentation/input/input-service'
+import { MouseButton, PlayerInputServiceLayer } from '@ts-minecraft/presentation/input/input-service'
 import { InputService } from '@ts-minecraft/presentation/input/input-service'
 import { PlayerInputService } from '@ts-minecraft/entity'
 import { createTestInputService, createTestLayer } from '@ts-minecraft/presentation/input/input-service-test-utils'
@@ -10,6 +10,7 @@ const restoreDomGlobals = () => {
   Reflect.deleteProperty(globalThis, 'window')
   Reflect.deleteProperty(globalThis, 'document')
   Reflect.deleteProperty(globalThis, 'HTMLCanvasElement')
+  Reflect.deleteProperty(globalThis, 'navigator')
 }
 
 const installPointerLockDom = () => {
@@ -74,6 +75,31 @@ const installPointerLockDom = () => {
   return { fakeDocument, fakeWindow }
 }
 
+const installGamepadNavigator = (gamepads: Array<Gamepad | null>) => {
+  const fakeNavigator = {
+    getGamepads: () => gamepads,
+  }
+
+  Reflect.set(globalThis, 'navigator', fakeNavigator)
+  return { fakeNavigator }
+}
+
+const createGamepadButton = (pressed: boolean, value = pressed ? 1 : 0) =>
+  ({ pressed, value } as GamepadButton)
+
+const createGamepad = (overrides: Partial<Gamepad>): Gamepad =>
+  ({
+    axes: [0, 0, 0, 0],
+    buttons: [],
+    connected: true,
+    id: 'test-gamepad',
+    index: 0,
+    mapping: 'standard',
+    timestamp: 0,
+    vibrationActuator: undefined,
+    ...overrides,
+  } as Gamepad)
+
 afterEach(() => {
   restoreDomGlobals()
 })
@@ -110,6 +136,86 @@ describe('InputService', () => {
         // keyup, so without the blur handler 'KeyW' would stay pressed forever.
         fakeWindow.dispatchEvent(new Event('blur'))
         expect(yield* input.isKeyPressed('KeyW')).toBe(false)
+      }).pipe(Effect.provide(InputService.Default)))
+    })
+  })
+
+  describe('gamepad input normalization', () => {
+    it.effect('maps left stick and d-pad to movement keys', () => {
+      installGamepadNavigator([
+        createGamepad({
+          axes: [-0.9, 0.9, 0, 0],
+          buttons: [],
+        }),
+        createGamepad({
+          axes: [0, 0, 0, 0],
+          buttons: Object.assign([], {
+            12: createGamepadButton(true),
+            15: createGamepadButton(true),
+          }) as GamepadButton[],
+        }),
+      ])
+
+      return Effect.scoped(Effect.gen(function* () {
+        const input = yield* InputService
+        expect(yield* input.isKeyPressed('KeyW')).toBe(true)
+        expect(yield* input.isKeyPressed('KeyA')).toBe(true)
+        expect(yield* input.isKeyPressed('KeyS')).toBe(true)
+        expect(yield* input.isKeyPressed('KeyD')).toBe(true)
+        expect(yield* input.consumeKeyPress('KeyW')).toBe(true)
+        expect(yield* input.consumeKeyPress('KeyS')).toBe(true)
+        expect(yield* input.consumeKeyPress('KeyA')).toBe(true)
+        expect(yield* input.consumeKeyPress('KeyD')).toBe(true)
+      }).pipe(Effect.provide(InputService.Default)))
+    })
+
+    it.effect('maps triggers to mouse buttons and preserves click semantics', () => {
+      installGamepadNavigator([
+        createGamepad({
+          buttons: [
+            createGamepadButton(false),
+            createGamepadButton(false),
+            createGamepadButton(false),
+            createGamepadButton(false),
+            createGamepadButton(false),
+            createGamepadButton(false),
+            createGamepadButton(true, 1),
+            createGamepadButton(true, 1),
+          ],
+        }),
+      ])
+
+      return Effect.scoped(Effect.gen(function* () {
+        const input = yield* InputService
+        expect(yield* input.isMouseDown(MouseButton.LEFT)).toBe(true)
+        expect(yield* input.isMouseDown(MouseButton.RIGHT)).toBe(true)
+        expect(yield* input.consumeMouseClick(MouseButton.LEFT)).toBe(true)
+        expect(yield* input.consumeMouseClick(MouseButton.RIGHT)).toBe(true)
+        expect(yield* input.consumeMouseClick(MouseButton.LEFT)).toBe(false)
+        expect(yield* input.consumeMouseClick(MouseButton.RIGHT)).toBe(false)
+      }).pipe(Effect.provide(InputService.Default)))
+    })
+
+    it.effect('uses the right stick for live mouse delta and bumpers for wheel delta', () => {
+      installGamepadNavigator([
+        createGamepad({
+          axes: [0, 0, 1, -1],
+          buttons: [
+            createGamepadButton(false),
+            createGamepadButton(false),
+            createGamepadButton(false),
+            createGamepadButton(false),
+            createGamepadButton(true),
+            createGamepadButton(false),
+          ],
+        }),
+      ])
+
+      return Effect.scoped(Effect.gen(function* () {
+        const input = yield* InputService
+        expect(yield* input.getMouseDelta()).toEqual({ x: 14, y: -14 })
+        expect(yield* input.consumeWheelDelta()).toBe(-120)
+        expect(yield* input.consumeWheelDelta()).toBe(0)
       }).pipe(Effect.provide(InputService.Default)))
     })
   })
@@ -159,7 +265,7 @@ describe('InputService', () => {
     })
   })
 
-  describe('PlayerInputServiceLive', () => {
+  describe('PlayerInputServiceLayer', () => {
     it.effect('should delegate to the input service implementation', () => {
       const pressedKeys = MutableHashSet.empty<string>()
       MutableHashSet.add(pressedKeys, 'KeyW')
@@ -168,7 +274,7 @@ describe('InputService', () => {
       const mouseButtons = MutableHashMap.empty<number, boolean>()
       MutableHashMap.set(mouseButtons, MouseButton.LEFT, true)
       const inputLayer = createTestLayer(createTestInputService({ pressedKeys, justPressedKeys, mouseButtons, pointerLocked: true }))
-      const testLayer = PlayerInputServiceLive.pipe(Layer.provide(inputLayer))
+      const testLayer = PlayerInputServiceLayer.pipe(Layer.provide(inputLayer))
 
       return Effect.gen(function* () {
         const playerInput = yield* PlayerInputService

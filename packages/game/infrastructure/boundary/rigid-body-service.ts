@@ -36,4 +36,3 @@ export class RigidBodyService extends Effect.Service<RigidBodyService>()(
     },
   }
 ) {}
-export const RigidBodyServiceLive = RigidBodyService.Default

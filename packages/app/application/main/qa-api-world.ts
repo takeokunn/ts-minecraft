@@ -6,7 +6,7 @@ import type { BlockService, ChunkManagerService } from '@ts-minecraft/world'
 import { setBlockInChunk } from '@ts-minecraft/world'
 import type { HotbarService } from '@ts-minecraft/inventory'
 import type { WorldRendererService } from '@ts-minecraft/rendering'
-import type { BlockHighlightService } from '@ts-minecraft/presentation/highlight/block-highlight'
+import type { BlockHighlightService } from '@ts-minecraft/presentation'
 import { getChunkAccessForWorldPosition, projectBlockAhead } from '@ts-minecraft/app/main/qa-spatial'
 import type { StagedResourceBlock, StagedZombiePosition } from '@ts-minecraft/app/main/qa-api-types'
 
@@ -23,20 +23,21 @@ export const stageProgressionScenario = (
     MutableRef.set(stagedResourceBlocksRef, [])
     MutableRef.set(stagedZombiePositionRef, null)
 
-    const placeBlockAhead = (distance: number) =>
-      Effect.gen(function* () {
-        const worldPos = projectBlockAhead(camera, distance)
-        const { chunkCoord, lx, lz } = getChunkAccessForWorldPosition(worldPos)
-        const chunk = yield* chunkManagerService.getChunk(chunkCoord)
-        yield* setBlockInChunk(chunk, lx, worldPos.y, lz, 'WOOD')
-        yield* chunkManagerService.markChunkDirty(chunkCoord, [{ lx, y: worldPos.y, lz }])
-        yield* worldRendererService.updateChunkInScene(chunk, scene).pipe(Effect.catchAllCause(() => Effect.void))
-        MutableRef.set(stagedResourceBlocksRef, [...MutableRef.get(stagedResourceBlocksRef), { pos: worldPos, blockType: 'WOOD' }])
-      })
+    const baseBlock = projectBlockAhead(camera, 4)
+    const resourceBlocks = [
+      baseBlock,
+      { ...baseBlock, x: baseBlock.x + 1 },
+      { ...baseBlock, x: baseBlock.x + 2 },
+    ] as const
 
-    yield* placeBlockAhead(4)
-    yield* placeBlockAhead(5)
-    yield* placeBlockAhead(6)
+    for (const worldPos of resourceBlocks) {
+      const { chunkCoord, lx, lz } = getChunkAccessForWorldPosition(worldPos)
+      const chunk = yield* chunkManagerService.getChunk(chunkCoord)
+      yield* setBlockInChunk(chunk, lx, worldPos.y, lz, 'WOOD')
+      yield* chunkManagerService.markChunkDirty(chunkCoord, [{ lx, y: worldPos.y, lz }])
+      yield* worldRendererService.updateChunkInScene(chunk, scene).pipe(Effect.catchAllCause(() => Effect.void))
+      MutableRef.set(stagedResourceBlocksRef, [...MutableRef.get(stagedResourceBlocksRef), { pos: worldPos, blockType: 'WOOD' }])
+    }
     yield* blockHighlight.invalidateCache()
   }))
 

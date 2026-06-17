@@ -11,11 +11,10 @@ import { SAVE_QUIT_CONFIRM_MESSAGE } from './pause-menu-styles'
 import { buildPauseMenuDOM } from './pause-menu-dom'
 import type { PauseMenuDom } from './pause-menu-types'
 
-// FR-1.4/FR-1.10/FR-1.12 — in-session pause menu. Opened by OPEN_MENU_KEY (the frame-handler
-// input stage calls `openIfClosed`); ESC is decoupled and only releases the pointer lock during
-// play. Once the menu IS open, the keyboard listener owns ESC presses (ESC resumes/backs out)
-// to avoid racing `consumeKeyPress`. Settings button hides this menu and re-shows it when
-// settings closes.
+// FR-1.4/FR-1.10/FR-1.12 — in-session pause menu. Opened by Escape or
+// OPEN_MENU_KEY through the frame-handler input stage. Once the menu is open,
+// this keyboard listener owns Esc presses (resume/back out) to avoid racing
+// `consumeKeyPress`. Settings hides this menu and re-shows it when settings closes.
 
 export class PauseMenuService extends Effect.Service<PauseMenuService>()(
   '@minecraft/presentation/PauseMenu',
@@ -138,16 +137,24 @@ export class PauseMenuService extends Effect.Service<PauseMenuService>()(
                   // owns the visible focus. We keep isOpenRef true so a
                   // stray Esc routes through the dialog's own handler.
                   hideMenu()
+                  const signalQuitToTitle = (): void => {
+                    if (!MutableRef.get(isOpenRef)) return
+                    MutableRef.set(isOpenRef, false)
+                    Effect.runSync(requestQuitToTitle(control))
+                  }
                   Effect.runFork(
                     Effect.gen(function* () {
-                      const confirmed = yield* confirmDialog.show(SAVE_QUIT_CONFIRM_MESSAGE, 'Save & Quit', 'Cancel')
+                      const confirmed = yield* confirmDialog.show(
+                        SAVE_QUIT_CONFIRM_MESSAGE,
+                        'Save & Quit',
+                        'Cancel',
+                        signalQuitToTitle,
+                      )
                       if (confirmed) {
-                        yield* Effect.sync(() => { MutableRef.set(isOpenRef, false) })
-                        // Session teardown already performs the authoritative
-                        // save flush after the quit signal is observed. Signaling
-                        // first avoids blocking the title transition on a redundant
-                        // pre-quit save path here.
-                        yield* requestQuitToTitle(control)
+                        // The dialog callback already sent the quit signal from
+                        // the DOM event handler. Keep this branch idempotent for
+                        // non-browser tests and future dialog implementations.
+                        yield* Effect.sync(signalQuitToTitle)
                       } else {
                         yield* Effect.sync(() => { if (MutableRef.get(isOpenRef)) showMenu() })
                       }
@@ -233,5 +240,3 @@ export class PauseMenuService extends Effect.Service<PauseMenuService>()(
     }),
   },
 ) {}
-
-export const PauseMenuLive = PauseMenuService.Default

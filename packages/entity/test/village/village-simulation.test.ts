@@ -6,6 +6,7 @@ import {
   VillageStructureId,
   VillagerId,
   VillagerActivity,
+  type VillageState,
   TRADE_DISTANCE,
   WANDER_RADIUS,
   distanceSq,
@@ -17,20 +18,23 @@ import {
   nextActivityForVillager,
   getTargetPosition,
   flattenVillagers,
+  advanceVillageState,
 } from '@ts-minecraft/entity'
-import type { Village, Villager, VillageStructure } from '@ts-minecraft/entity'
-import { makeTestVillager, makeTestVillageStructure } from '../village/test-utils'
+import type { Villager, VillageStructure } from '@ts-minecraft/entity'
+import {
+  makeTestVillager,
+  makeTestVillage,
+  makeTestVillageStructure,
+} from '../village/test-utils'
+import { expectSome } from '../test-utils'
 
-// makeVillage creates empty villages (no structures/villagers) intentionally for
-// unit-testing pure simulation functions that need a minimal Village shape.
-// makeTestVillage from test-utils always populates structures+villagers and is
-// therefore too heavy for these pure-function tests.
-const makeVillage = (id: string, cx: number, cy: number, cz: number): Village => ({
-  villageId: VillageId.make(id),
-  center: { x: cx, y: cy, z: cz },
-  structures: [],
-  villagers: [],
-})
+const makeVillage = (id: string, cx: number, cy: number, cz: number) =>
+  makeTestVillage({
+    villageId: VillageId.make(id),
+    center: { x: cx, y: cy, z: cz },
+    structures: [],
+    villagers: [],
+  })
 
 const makeVillager = (id: string, px: number, py: number, pz: number): Villager =>
   makeTestVillager({
@@ -39,6 +43,13 @@ const makeVillager = (id: string, px: number, py: number, pz: number): Villager 
     homeStructureId: VillageStructureId.make('village-1:house-a'),
     workplaceStructureId: VillageStructureId.make('village-1:farm'),
     position: { x: px, y: py, z: pz },
+  })
+
+const makeStructure = (id: string, ax: number, ay: number, az: number): VillageStructure =>
+  makeTestVillageStructure({
+    structureId: VillageStructureId.make(id),
+    anchor: { x: ax, y: ay, z: az },
+    size: { x: 1, y: 1, z: 1 },
   })
 
 describe('village/village-simulation', () => {
@@ -119,8 +130,8 @@ describe('village/village-simulation', () => {
     it('single village returns that village', () => {
       const village = makeVillage('village-1', 0, 64, 0)
       const result = findNearestVillage([village], { x: 5, y: 64, z: 5 })
-      expect(Option.isSome(result)).toBe(true)
-      expect(Option.getOrThrow(result).villageId).toBe(village.villageId)
+      expectSome(result)
+      expect(expectSome(result).villageId).toBe(village.villageId)
     })
 
     it('multiple villages returns the closest one', () => {
@@ -128,7 +139,7 @@ describe('village/village-simulation', () => {
       const far = makeVillage('village-2', 500, 64, 0)
       const query = { x: 0, y: 64, z: 0 }
       const result = findNearestVillage([near, far], query)
-      expect(Option.getOrThrow(result).villageId).toBe(near.villageId)
+      expect(expectSome(result).villageId).toBe(near.villageId)
     })
   })
 
@@ -190,6 +201,30 @@ describe('village/village-simulation', () => {
     })
   })
 
+  describe('advanceVillageState', () => {
+    it('increments updateTick and leaves distant villages untouched', () => {
+      const playerPosition = { x: 0, y: 64, z: 0 }
+      const nearVillage = makeTestVillage({
+        villageId: VillageId.make('village-near'),
+        center: { x: 0, y: 64, z: 0 },
+      })
+      const farVillage = makeTestVillage({
+        villageId: VillageId.make('village-far'),
+        center: { x: 1000, y: 64, z: 0 },
+      })
+      const state: VillageState = {
+        villages: [nearVillage, farVillage],
+        updateTick: 7,
+      }
+
+      const next = advanceVillageState(state, playerPosition, 0.5, 1 / 60)
+
+      expect(next.updateTick).toBe(8)
+      expect(next.villages[1]).toBe(farVillage)
+      expect(next.villages[0]).not.toBe(nearVillage)
+    })
+  })
+
   describe('findNearestVillage (onSome branch coverage)', () => {
     it('keeps the closer village when a farther one is encountered later', () => {
       // onSome branch: new village is NOT closer → return existing closest
@@ -197,7 +232,7 @@ describe('village/village-simulation', () => {
       const far = makeVillage('village-far', 500, 64, 0)
       const query = { x: 0, y: 64, z: 0 }
       const result = findNearestVillage([near, far], query)
-      expect(Option.getOrThrow(result).villageId).toBe(near.villageId)
+      expect(expectSome(result).villageId).toBe(near.villageId)
     })
 
     it('replaces closest when a nearer village is encountered later', () => {
@@ -207,14 +242,11 @@ describe('village/village-simulation', () => {
       const query = { x: 0, y: 64, z: 0 }
       // far is processed first (becomes initial closest), then near replaces it
       const result = findNearestVillage([far, near], query)
-      expect(Option.getOrThrow(result).villageId).toBe(near.villageId)
+      expect(expectSome(result).villageId).toBe(near.villageId)
     })
   })
 
   describe('findStructureAnchor', () => {
-    const makeStructure = (id: string, ax: number, ay: number, az: number): VillageStructure =>
-      makeTestVillageStructure({ structureId: VillageStructureId.make(id), anchor: { x: ax, y: ay, z: az }, size: { x: 1, y: 1, z: 1 } })
-
     it('returns anchor of matching structure', () => {
       const structures = [
         makeStructure('village-1:house-a', 10, 64, 20),
@@ -223,39 +255,31 @@ describe('village/village-simulation', () => {
       const result = findStructureAnchor(
         structures,
         VillageStructureId.make('village-1:farm'),
-        { x: 0, y: 64, z: 0 },
       )
-      expect(result).toEqual({ x: 30, y: 64, z: 40 })
+      expect(expectSome(result)).toEqual({ x: 30, y: 64, z: 40 })
     })
 
-    it('returns fallback position when structureId is not found', () => {
+    it('returns none when structureId is not found', () => {
       const structures = [makeStructure('village-1:house-a', 10, 64, 20)]
-      const fallback = { x: 99, y: 64, z: 99 }
       const result = findStructureAnchor(
         structures,
         VillageStructureId.make('village-1:nonexistent'),
-        fallback,
       )
-      expect(result).toEqual(fallback)
+      expect(Option.isNone(result)).toBe(true)
     })
 
-    it('returns fallback when structures array is empty', () => {
-      const fallback = { x: 5, y: 64, z: 5 }
+    it('returns none when structures array is empty', () => {
       const result = findStructureAnchor(
         [],
         VillageStructureId.make('village-1:house-a'),
-        fallback,
       )
-      expect(result).toEqual(fallback)
+      expect(Option.isNone(result)).toBe(true)
     })
   })
 
   describe('getTargetPosition', () => {
     const workplaceId = VillageStructureId.make('village-1:farm')
     const homeId = VillageStructureId.make('village-1:house-a')
-
-    const makeStructure = (id: string, ax: number, ay: number, az: number): VillageStructure =>
-      makeTestVillageStructure({ structureId: VillageStructureId.make(id), anchor: { x: ax, y: ay, z: az }, size: { x: 1, y: 1, z: 1 } })
 
     const village: Village = {
       ...makeVillage('village-1', 0, 64, 0),
@@ -272,16 +296,16 @@ describe('village/village-simulation', () => {
 
     it('Work activity returns workplace structure anchor', () => {
       const result = getTargetPosition(village, villager, VillagerActivity.Work, 0)
-      expect(result).toEqual({ x: 50, y: 64, z: 50 })
+      expect(expectSome(result)).toEqual({ x: 50, y: 64, z: 50 })
     })
 
     it('Rest activity returns home structure anchor', () => {
       const result = getTargetPosition(village, villager, VillagerActivity.Rest, 0)
-      expect(result).toEqual({ x: 10, y: 64, z: 10 })
+      expect(expectSome(result)).toEqual({ x: 10, y: 64, z: 10 })
     })
 
     it('Wander activity returns orbiting position within WANDER_RADIUS of home', () => {
-      const result = getTargetPosition(village, villager, VillagerActivity.Wander, 0)
+      const result = expectSome(getTargetPosition(village, villager, VillagerActivity.Wander, 0))
       const home = { x: 10, y: 64, z: 10 }
       expect(result.y).toBe(home.y)
       const dist = Math.sqrt(
@@ -292,12 +316,32 @@ describe('village/village-simulation', () => {
 
     it('Trade activity (fallthrough) returns villager current position', () => {
       const result = getTargetPosition(village, villager, VillagerActivity.Trade, 0)
-      expect(result).toEqual(villager.position)
+      expect(expectSome(result)).toEqual(villager.position)
     })
 
     it('Idle activity (fallthrough) returns villager current position', () => {
       const result = getTargetPosition(village, villager, VillagerActivity.Idle, 0)
-      expect(result).toEqual(villager.position)
+      expect(expectSome(result)).toEqual(villager.position)
+    })
+
+    it('Work activity returns none when workplace structure is missing', () => {
+      const result = getTargetPosition(
+        { ...village, structures: [makeStructure('village-1:house-a', 10, 64, 10)] },
+        villager,
+        VillagerActivity.Work,
+        0,
+      )
+      expect(Option.isNone(result)).toBe(true)
+    })
+
+    it('Wander activity returns none when home structure is missing', () => {
+      const result = getTargetPosition(
+        { ...village, structures: [makeStructure('village-1:farm', 50, 64, 50)] },
+        villager,
+        VillagerActivity.Wander,
+        0,
+      )
+      expect(Option.isNone(result)).toBe(true)
     })
   })
 

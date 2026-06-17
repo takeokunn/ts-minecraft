@@ -2,7 +2,7 @@ import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
 import { Effect } from 'effect'
 import * as THREE from 'three'
-import { RendererService, RendererServiceLive } from '@ts-minecraft/rendering'
+import { RendererService } from '@ts-minecraft/rendering'
 
 const makeCanvas = (): HTMLCanvasElement =>
   ({
@@ -17,9 +17,9 @@ const makeRenderer = (): THREE.WebGLRenderer =>
   Object.create(THREE.WebGLRenderer.prototype) as THREE.WebGLRenderer
 
 describe('three/renderer/renderer-service', () => {
-  describe('RendererServiceLive', () => {
+  describe('RendererService.Default', () => {
     it('should provide RendererService as Layer', () => {
-      const layer = RendererServiceLive
+      const layer = RendererService.Default
 
       expect(layer).toBeDefined()
       expect(typeof layer).toBe('object')
@@ -32,7 +32,7 @@ describe('three/renderer/renderer-service', () => {
         expect(typeof service.create).toBe('function')
         expect(typeof service.render).toBe('function')
         expect(typeof service.resize).toBe('function')
-      }).pipe(Effect.provide(RendererServiceLive))
+      }).pipe(Effect.provide(RendererService.Default))
     )
 
     it.effect('should create Effect for renderer creation', () =>
@@ -43,7 +43,7 @@ describe('three/renderer/renderer-service', () => {
         const createEffect = service.create(makeCanvas())
         expect(typeof createEffect.pipe).toBe('function')
         expect(typeof createEffect).toBe('object')
-      }).pipe(Effect.provide(RendererServiceLive))
+      }).pipe(Effect.provide(RendererService.Default))
     )
 
     it.effect('should create Effect for render operation', () =>
@@ -54,7 +54,7 @@ describe('three/renderer/renderer-service', () => {
         const renderEffect = service.render(makeRenderer(), new THREE.Scene(), new THREE.PerspectiveCamera())
         expect(typeof renderEffect.pipe).toBe('function')
         expect(typeof renderEffect).toBe('object')
-      }).pipe(Effect.provide(RendererServiceLive))
+      }).pipe(Effect.provide(RendererService.Default))
     )
 
     it.effect('should create Effect for resize operation', () =>
@@ -65,7 +65,7 @@ describe('three/renderer/renderer-service', () => {
         const resizeEffect = service.resize(makeRenderer(), 100, 100)
         expect(typeof resizeEffect.pipe).toBe('function')
         expect(typeof resizeEffect).toBe('object')
-      }).pipe(Effect.provide(RendererServiceLive))
+      }).pipe(Effect.provide(RendererService.Default))
     )
 
     it.effect('should support multiple Effect compositions', () =>
@@ -81,7 +81,7 @@ describe('three/renderer/renderer-service', () => {
         expect(typeof createEffect.pipe).toBe('function')
         expect(typeof resizeEffect.pipe).toBe('function')
         expect(typeof renderEffect.pipe).toBe('function')
-      }).pipe(Effect.provide(RendererServiceLive))
+      }).pipe(Effect.provide(RendererService.Default))
     )
 
     it.effect('should support Effect composition on service methods', () =>
@@ -89,7 +89,7 @@ describe('three/renderer/renderer-service', () => {
         const service = yield* RendererService
         const resizeEffect = service.resize(makeRenderer(), 100, 100)
         expect(typeof resizeEffect.pipe).toBe('function')
-      }).pipe(Effect.provide(RendererServiceLive))
+      }).pipe(Effect.provide(RendererService.Default))
     )
 
     it.effect('should support Effect.flatMap on service methods', () =>
@@ -101,7 +101,7 @@ describe('three/renderer/renderer-service', () => {
         )
 
         expect(typeof result.pipe).toBe('function')
-      }).pipe(Effect.provide(RendererServiceLive))
+      }).pipe(Effect.provide(RendererService.Default))
     )
   })
 })

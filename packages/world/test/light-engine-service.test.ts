@@ -1,10 +1,10 @@
 import { describe, expect, it } from '@effect/vitest'
 import { Array as Arr, Effect, Layer } from 'effect'
 import { blockIndexUnsafe, blockTypeToIndex } from '@ts-minecraft/core'
-import { ChunkService, ChunkServiceLive } from '@ts-minecraft/world'
+import { ChunkService } from '@ts-minecraft/world'
 import type { ChunkService as ChunkServiceType } from '@ts-minecraft/world'
 import { LIGHT_LEVEL_MAX, getLightAt } from '@ts-minecraft/world'
-import { LightEngineLive, LightEngineService } from '@ts-minecraft/world'
+import { LightEngineService } from '@ts-minecraft/world'
 
 // Explicit interfaces for test-time chunk mutations
 interface ChunkWithSkyLight {
@@ -25,7 +25,7 @@ const withLightService = <A>(
 ): Effect.Effect<A, never> =>
   Effect.all([ChunkService, LightEngineService]).pipe(
     Effect.flatMap(([cs, ls]) => f(cs, ls)),
-    Effect.provide(Layer.mergeAll(ChunkServiceLive, LightEngineLive)),
+    Effect.provide(Layer.mergeAll(ChunkService.Default, LightEngineService.Default)),
   )
 
 describe('application/light/light-engine-service', () => {

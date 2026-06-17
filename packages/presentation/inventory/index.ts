@@ -1,1 +1,1 @@
-export { InventoryRendererService, InventoryRendererLive } from './inventory-renderer'
+export { InventoryRendererService } from './inventory-renderer'

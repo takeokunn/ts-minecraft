@@ -1,27 +1,30 @@
 import { Effect, HashMap, Layer, Array as Arr, MutableHashMap, Option, Either } from 'effect'
 import { ChunkError } from '../domain/errors'
 import { ChunkManagerService } from '../application/chunk-manager-service'
-import { ChunkCoord, CHUNK_SIZE, CHUNK_HEIGHT, blockTypeToIndex, indexToBlockType } from '@ts-minecraft/core'
-import { ChunkServiceLive } from '../application/chunk-service'
+import { ChunkCoord, CHUNK_SIZE, CHUNK_HEIGHT, blockTypeToIndex, indexToBlockType, isValidBlockIndex } from '@ts-minecraft/core'
+import { ChunkService } from '../application/chunk-service'
 import type { Chunk } from '../domain/chunk'
 import { PlayerService } from '@ts-minecraft/entity'
 import type { BlockType, InventoryItem } from '@ts-minecraft/core'
 import { ChunkCacheKey, Position, PlayerId, SlotIndex } from '@ts-minecraft/core'
 import { PlayerError } from '@ts-minecraft/entity'
-import { BlockServiceLive, worldToBlockLocal } from '../application/block-service'
+import { BlockService } from '../application/block-service'
+import { worldToBlockLocal } from '../domain/block-utils'
 import { InventoryService, type InventorySlot } from '@ts-minecraft/inventory/application/inventory-service'
 import { InventoryError } from '@ts-minecraft/inventory/domain/errors'
 import { HotbarService } from '@ts-minecraft/inventory/application/hotbar-service'
 import { FurnaceService } from '@ts-minecraft/inventory/application/furnace-service'
+import { ChestService } from '@ts-minecraft/inventory/application/chest-service'
 import { DEFAULT_PLAYER_ID } from '@ts-minecraft/core'
 import { FluidService } from '../application/fluid-service'
 import { expect } from 'vitest'
+import { makeChunkBlockBuffer } from './chunk-buffer-test-utils'
 
 // ─── Chunk test utilities ─────────────────────────────────────────────────────
 
 export const makeEmptyChunk = (coord: ChunkCoord): Chunk => ({
   coord,
-  blocks: new Uint8Array(CHUNK_SIZE * CHUNK_SIZE * CHUNK_HEIGHT),
+  blocks: makeChunkBlockBuffer(),
   fluid: Option.none(),
 })
 
@@ -29,7 +32,12 @@ export const blockIdx = (lx: number, y: number, lz: number): number =>
   y + lz * CHUNK_HEIGHT + lx * CHUNK_HEIGHT * CHUNK_SIZE
 
 export const readBlock = (chunk: Chunk, lx: number, y: number, lz: number): BlockType =>
-  indexToBlockType(chunk.blocks[blockIdx(lx, y, lz)] ?? 0)
+  indexToBlockType(validBlockIndex(chunk.blocks[blockIdx(lx, y, lz)]))
+
+const validBlockIndex = (blockId: number | undefined) => {
+  if (!isValidBlockIndex(blockId)) throw new Error(`Invalid test block id: ${String(blockId)}`)
+  return blockId
+}
 
 export const writeBlock = (chunk: Chunk, lx: number, y: number, lz: number, blockType: BlockType): void => {
   chunk.blocks[blockIdx(lx, y, lz)] = blockTypeToIndex(blockType)
@@ -134,6 +142,7 @@ export const createMockInventoryService = (options?: {
   getSlot: (_idx: SlotIndex) => Effect.succeed(Option.none<InventorySlot extends Option.Option<infer T> ? T : never>()),
   setSlot: (_idx: SlotIndex, _slot: InventorySlot) => Effect.void,
   damageSlot: (_idx: SlotIndex, _amount?: number) => Effect.void,
+  repairMendingItemsWithXP: (amount: number) => Effect.succeed(amount),
   moveStack: (_from: SlotIndex, _to: SlotIndex) => Effect.void,
   quickMove: (_from: SlotIndex) => Effect.void,
   getHotbarSlots: () => Effect.succeed([]),
@@ -167,6 +176,22 @@ export const createMockFurnaceService = (): FurnaceService => FurnaceService.of(
   tick: (_deltaTime) => Effect.void,
 })
 
+export const createMockChestService = (): ChestService => ChestService.of({
+  _tag: '@minecraft/application/ChestService' as const,
+  getState: () => Effect.succeed({ chests: HashMap.empty(), selectedChestPosition: Option.none() }),
+  getNearestChestState: () => Effect.succeed(Option.none()),
+  hasNearbyChest: () => Effect.succeed(false),
+  setSelectedChest: (_position: Position) => Effect.void,
+  moveInventoryStackToChestSlot: (_inventoryIndex, _chestIndex) => Effect.void,
+  moveChestStackToInventorySlot: (_chestIndex, _inventoryIndex) => Effect.void,
+  quickMoveInventoryToChest: (_inventoryIndex) => Effect.void,
+  quickMoveChestToInventory: (_chestIndex) => Effect.void,
+  clearChest: (_position: Position) => Effect.succeed([]),
+  dismantleChest: (_position: Position) => Effect.succeed(true),
+  serialize: () => Effect.succeed([]),
+  deserialize: (_serialized) => Effect.void,
+})
+
 export const createFluidRecorder = () => {
   const calls = { notify: [] as Position[], seed: [] as Position[], remove: [] as Position[] }
   const service = FluidService.of({
@@ -198,16 +223,18 @@ export const createTestLayer = (
   inventoryService: InventoryService = createMockInventoryService(),
   hotbarService: HotbarService = createMockHotbarService(),
   furnaceService: FurnaceService = createMockFurnaceService(),
+  chestService: ChestService = createMockChestService(),
 ) =>
-  BlockServiceLive.pipe(
+  BlockService.Default.pipe(
     Layer.provide(Layer.mergeAll(
       Layer.succeed(ChunkManagerService, chunkManagerService),
       Layer.succeed(PlayerService, playerService),
       Layer.succeed(InventoryService, inventoryService),
       Layer.succeed(HotbarService, hotbarService),
       Layer.succeed(FurnaceService, furnaceService),
+      Layer.succeed(ChestService, chestService),
       Layer.succeed(FluidService, fluidService),
-      ChunkServiceLive,
+      ChunkService.Default,
     ))
   )
 

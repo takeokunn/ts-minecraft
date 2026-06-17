@@ -2,7 +2,7 @@ import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
 import { Effect } from 'effect'
 import * as THREE from 'three'
-import { SceneService, SceneServiceLive } from '@ts-minecraft/rendering'
+import { SceneService } from '@ts-minecraft/rendering'
 
 // THREE.Scene, THREE.Object3D, and THREE.Mesh work without WebGL in Node.js,
 // so no mocking is needed for this service.
@@ -14,7 +14,7 @@ describe('infrastructure/three/scene/SceneService', () => {
       expect(typeof service.create).toBe('function')
       expect(typeof service.add).toBe('function')
       expect(typeof service.remove).toBe('function')
-    }).pipe(Effect.provide(SceneServiceLive))
+    }).pipe(Effect.provide(SceneService.Default))
   )
 
   it.effect('create() returns a THREE.Scene instance', () =>
@@ -22,7 +22,7 @@ describe('infrastructure/three/scene/SceneService', () => {
       const service = yield* SceneService
       const scene = yield* service.create()
       expect(scene).toBeInstanceOf(THREE.Scene)
-    }).pipe(Effect.provide(SceneServiceLive))
+    }).pipe(Effect.provide(SceneService.Default))
   )
 
   it.effect('add() adds an object to the scene children', () =>
@@ -33,7 +33,7 @@ describe('infrastructure/three/scene/SceneService', () => {
       yield* service.add(scene, object)
       expect(scene.children.length).toBe(1)
       expect(scene.children.includes(object)).toBe(true)
-    }).pipe(Effect.provide(SceneServiceLive))
+    }).pipe(Effect.provide(SceneService.Default))
   )
 
   it.effect('remove() removes a previously added object from the scene', () =>
@@ -46,7 +46,7 @@ describe('infrastructure/three/scene/SceneService', () => {
       yield* service.remove(scene, object)
       expect(scene.children.length).toBe(0)
       expect(scene.children.includes(object)).toBe(false)
-    }).pipe(Effect.provide(SceneServiceLive))
+    }).pipe(Effect.provide(SceneService.Default))
   )
 
   it.effect('create() returns a distinct scene on each call', () =>
@@ -55,7 +55,7 @@ describe('infrastructure/three/scene/SceneService', () => {
       const sceneA = yield* service.create()
       const sceneB = yield* service.create()
       expect(sceneA === sceneB).toBe(false)
-    }).pipe(Effect.provide(SceneServiceLive))
+    }).pipe(Effect.provide(SceneService.Default))
   )
 
   it.effect('add() with a Mesh object works correctly', () =>
@@ -66,7 +66,7 @@ describe('infrastructure/three/scene/SceneService', () => {
       yield* service.add(scene, mesh)
       expect(scene.children.length).toBe(1)
       expect(scene.children.includes(mesh)).toBe(true)
-    }).pipe(Effect.provide(SceneServiceLive))
+    }).pipe(Effect.provide(SceneService.Default))
   )
 
   it.effect('remove() is safe to call on an object not in the scene', () =>
@@ -76,6 +76,6 @@ describe('infrastructure/three/scene/SceneService', () => {
       const object = new THREE.Object3D()
       yield* service.remove(scene, object)
       expect(scene.children.length).toBe(0)
-    }).pipe(Effect.provide(SceneServiceLive))
+    }).pipe(Effect.provide(SceneService.Default))
   )
 })

@@ -3,6 +3,7 @@ import { expect, vi } from 'vitest'
 import { Effect, MutableRef } from 'effect'
 import { createFrameHandlers } from '@ts-minecraft/app'
 import type { DeltaTimeSecs, Position, Vector3 } from '@ts-minecraft/core'
+import { BREED_XP_REWARD } from '@ts-minecraft/entity'
 import {
   makeDeps,
   makeInputService,
@@ -10,7 +11,7 @@ import {
   makeServices,
   makeSettingsOverlay,
   runFrame,
-} from '@test/frame-handler-test-kit'
+} from '../../../test/frame-handler-test-kit'
 
 // ---------------------------------------------------------------------------
 // Step 2.85: Entity renderer wiring
@@ -273,8 +274,65 @@ describe('step 2.85 — entity renderer wiring', () => {
     yield* handler(0.016 as DeltaTimeSecs)
     yield* handler(0.016 as DeltaTimeSecs)
 
-    // 9 entity ×2 frames + 2 portal checks ×2 + 1 liquid-hazard column read ×2 = 24
-    expect(getChunkSpy).toHaveBeenCalledTimes(24)
+    // This fixture never enters the maintenance loaded-chunks sync path, so the
+    // cache refreshes only on the first frame and then reuses the same result.
+    expect(getChunkSpy).toHaveBeenCalledTimes(15)
+  }))
+
+  it.effect('skips the entity physics chunk cache when physics has no applyPhysics hook', () => Effect.gen(function* () {
+    const deps = yield* makeDeps(false)
+    const services = makeServices({
+      inputService: makeInputService(),
+      inventoryRenderer: makeInventoryRenderer({ open: false }),
+      settingsOverlay: makeSettingsOverlay({ open: false }),
+    })
+    const getChunkSpy = vi.fn(() => Effect.succeed({
+      coord: { x: 0, z: 0 },
+      blocks: new Uint8Array(16 * 16 * 256),
+      dirty: false,
+    }))
+
+    yield* services.debugFeatureFlags.setEnabled('mobs.ai', false)
+    yield* services.debugFeatureFlags.setEnabled('mobs.damage', false)
+    yield* services.debugFeatureFlags.setEnabled('mobs.physics', true)
+    Object.assign(services.chunkManagerService, { getChunk: getChunkSpy })
+    Object.assign(services.entityManager, { applyPhysics: undefined })
+
+    yield* runFrame(deps, services)
+
+    // No 9-chunk entity physics cache refresh; only portal checks and liquid-hazard column read remain.
+    expect(getChunkSpy).toHaveBeenCalledTimes(3)
+  }))
+
+  it.effect('adds remaining breeding XP after inventory and equipment mending', () => Effect.gen(function* () {
+    const deps = yield* makeDeps(false)
+    const services = makeServices({
+      inputService: makeInputService(),
+      inventoryRenderer: makeInventoryRenderer({ open: false }),
+      settingsOverlay: makeSettingsOverlay({ open: false }),
+    })
+    const addXPSpy = vi.fn(() => Effect.succeed({ totalXP: 3, level: 0, xpIntoLevel: 3, xpRequiredForNext: 7 }))
+    const inventoryMendingSpy = vi.fn(() => Effect.succeed(BREED_XP_REWARD + 1))
+    const equipmentMendingSpy = vi.fn(() => Effect.succeed(3))
+
+    Object.assign(services.entityManager, {
+      drainBirths: vi.fn(() => Effect.succeed(2)),
+    })
+    Object.assign(services.inventoryService, {
+      repairMendingItemsWithXP: inventoryMendingSpy,
+    })
+    Object.assign(services.equipmentService, {
+      repairMendingItemsWithXP: equipmentMendingSpy,
+    })
+    Object.assign(services.xpService, {
+      addXP: addXPSpy,
+    })
+
+    yield* runFrame(deps, services)
+
+    expect(inventoryMendingSpy).toHaveBeenCalledWith(2 * BREED_XP_REWARD)
+    expect(equipmentMendingSpy).toHaveBeenCalledWith(BREED_XP_REWARD + 1)
+    expect(addXPSpy).toHaveBeenCalledWith(3)
   }))
 
   it.effect('redstone and fluid tick are called multiple times when deltaTime covers multiple intervals', () => Effect.gen(function* () {

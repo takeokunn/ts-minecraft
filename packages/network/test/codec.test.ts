@@ -86,3 +86,31 @@ describe('decodeNetworkMessage error paths', () => {
     expect(failure.reason).toContain('does not conform')
   })
 })
+
+describe('NetworkError', () => {
+  it('formats a message without a cause', () => {
+    const error = new NetworkError({ operation: 'send', reason: 'socket closed' })
+
+    expect(error.message).toBe('Network send failed: socket closed')
+  })
+
+  it('formats an Error cause with its message', () => {
+    const error = new NetworkError({
+      operation: 'connect',
+      reason: 'handshake failed',
+      cause: new Error('ECONNRESET'),
+    })
+
+    expect(error.message).toBe('Network connect failed: handshake failed: ECONNRESET')
+  })
+
+  it('formats a non-Error cause as a string', () => {
+    const error = new NetworkError({
+      operation: 'receive',
+      reason: 'bad payload',
+      cause: 'invalid opcode',
+    })
+
+    expect(error.message).toBe('Network receive failed: bad payload: invalid opcode')
+  })
+})

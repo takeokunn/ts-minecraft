@@ -22,9 +22,9 @@ describe('createWaterMaterial', () => {
     expect(mat.depthWrite).toBe(false)
   })
 
-  it('has side === THREE.FrontSide', () => {
+  it('has side === THREE.DoubleSide', () => {
     const mat = createWaterMaterial(fakeTexture, 800, 600)
-    expect(mat.side).toBe(THREE.FrontSide)
+    expect(mat.side).toBe(THREE.DoubleSide)
   })
 
   it('uniform uTime is initialized to 0.0', () => {

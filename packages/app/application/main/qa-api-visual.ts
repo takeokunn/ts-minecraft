@@ -2,7 +2,7 @@ import { Effect, MutableRef } from 'effect'
 import * as THREE from 'three'
 import type { Position } from '@ts-minecraft/core'
 import type { PlayerCameraStateService } from '@ts-minecraft/entity'
-import type { BlockHighlightService } from '@ts-minecraft/presentation/highlight/block-highlight'
+import type { BlockHighlightService } from '@ts-minecraft/presentation'
 import type { StagedResourceBlock } from '@ts-minecraft/app/main/qa-api-types'
 
 const makeSetAimForQA = (
@@ -97,7 +97,7 @@ export const aimAtStagedZombie = (
     yield* blockHighlight.clearTargetForQA()
   }))
 
-export const dispatchMouseClick = (button: 0 | 2) =>
+export const dispatchMouseClick = (button: 0 | 1 | 2) =>
   Effect.runPromise(Effect.sync(() => {
     document.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, button }))
     document.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, button }))

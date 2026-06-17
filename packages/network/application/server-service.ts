@@ -1,7 +1,7 @@
 import { Context, Effect, Fiber, Layer, Option, Queue, Ref, Stream } from 'effect'
 import { NetworkError } from '../domain/errors'
 import { MessageType, PlayerId, type NetworkMessage, type NetworkRotation, type PlayerName, type Vec3, type WorldId } from '../domain/schemas'
-import type { WebSocketConnection, WebSocketServerHandle, WebSocketServerPort } from '../infrastructure/websocket-server'
+import type { WebSocketConnection, WebSocketServerHandle, WebSocketServerPort } from '../domain/websocket-ports'
 import { sendEncodedToConnection } from './codec'
 import { dispatchMessage, handlePlayerLeave } from './server-handlers'
 
@@ -147,7 +147,7 @@ export const ServerServiceImpl = (
     return service
   })
 
-export const ServerServiceLive = (
+export const ServerServiceDefault = (
   port: WebSocketServerPort,
   options: ServerServiceImplOptions = {},
 ): Layer.Layer<ServerServiceShape> =>

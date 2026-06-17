@@ -1,7 +1,7 @@
 import { describe, it } from '@effect/vitest'
 import { afterEach, expect, vi } from 'vitest'
 import { Effect } from 'effect'
-import { SettingsOverlayLive, SettingsOverlayService } from '@ts-minecraft/presentation/settings/settings-overlay'
+import { SettingsOverlayService } from '@ts-minecraft/presentation/settings/settings-overlay'
 import { buildTestLayer } from './settings-overlay-test-utils'
 
 afterEach(() => {
@@ -13,7 +13,7 @@ afterEach(() => {
 // ---------------------------------------------------------------------------
 
 describe('presentation/settings/settings-overlay', () => {
-  describe('SettingsOverlayLive — layer provision', () => {
+  describe('SettingsOverlayService — layer provision', () => {
     it.scoped('should provide SettingsOverlay as a Layer without error', () => {
       const TestLayer = buildTestLayer()
       return Effect.gen(function* () {
@@ -26,7 +26,7 @@ describe('presentation/settings/settings-overlay', () => {
     })
 
     it('should be defined', () => {
-      expect(SettingsOverlayLive).toBeDefined()
+      expect(SettingsOverlayService.Default).toBeDefined()
     })
   })
 

@@ -2,7 +2,8 @@ import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
 import { Array as Arr, Effect, Option } from 'effect'
 import { RedstoneComponentType } from '@ts-minecraft/entity'
-import { RedstoneService, RedstoneServiceLive } from '@ts-minecraft/entity'
+import { RedstoneService } from '@ts-minecraft/entity'
+import { expectSome } from '../test-utils'
 
 describe('redstone/redstone-service', () => {
   it.effect('propagates signal with 1-step attenuation up to power distance limit', () =>
@@ -25,7 +26,7 @@ describe('redstone/redstone-service', () => {
       expect(nearPower).toBe(14)
       expect(edgePower).toBe(1)
       expect(outOfRangePower).toBe(0)
-    }).pipe(Effect.provide(RedstoneServiceLive))
+    }).pipe(Effect.provide(RedstoneService.Default))
   )
 
   it.effect('button emits temporary power and decays deterministically by ticks', () =>
@@ -48,7 +49,7 @@ describe('redstone/redstone-service', () => {
       expect(firstTickPower).toBe(14)
       expect(secondTickPower).toBe(14)
       expect(thirdTickPower).toBe(0)
-    }).pipe(Effect.provide(RedstoneServiceLive))
+    }).pipe(Effect.provide(RedstoneService.Default))
   )
 
   it.effect('piston abstraction extends when powered and retracts when unpowered', () =>
@@ -66,9 +67,9 @@ describe('redstone/redstone-service', () => {
       yield* redstone.tick()
       const afterOff = yield* redstone.getComponent({ x: 1, y: 64, z: 0 })
 
-      expect(Option.getOrThrow(afterOn).state.pistonExtended).toBe(true)
-      expect(Option.getOrThrow(afterOff).state.pistonExtended).toBe(false)
-    }).pipe(Effect.provide(RedstoneServiceLive))
+      expect(expectSome(afterOn).state.pistonExtended).toBe(true)
+      expect(expectSome(afterOff).state.pistonExtended).toBe(false)
+    }).pipe(Effect.provide(RedstoneService.Default))
   )
 
   // --- removeComponent ---
@@ -83,9 +84,9 @@ describe('redstone/redstone-service', () => {
       yield* redstone.removeComponent({ x: 0, y: 64, z: 0 })
       const afterRemoval = yield* redstone.getComponent({ x: 0, y: 64, z: 0 })
 
-      expect(Option.isSome(beforeRemoval)).toBe(true)
+      expectSome(beforeRemoval)
       expect(Option.isNone(afterRemoval)).toBe(true)
-    }).pipe(Effect.provide(RedstoneServiceLive))
+    }).pipe(Effect.provide(RedstoneService.Default))
   )
 
   it.effect('removeComponent: removing a non-existent position is a no-op', () =>
@@ -97,7 +98,7 @@ describe('redstone/redstone-service', () => {
 
       const result = yield* redstone.getComponent({ x: 99, y: 64, z: 99 })
       expect(Option.isNone(result)).toBe(true)
-    }).pipe(Effect.provide(RedstoneServiceLive))
+    }).pipe(Effect.provide(RedstoneService.Default))
   )
 
   // --- getComponents ---
@@ -108,7 +109,7 @@ describe('redstone/redstone-service', () => {
 
       const components = yield* redstone.getComponents()
       expect(components).toHaveLength(0)
-    }).pipe(Effect.provide(RedstoneServiceLive))
+    }).pipe(Effect.provide(RedstoneService.Default))
   )
 
   it.effect('getComponents: returns all components sorted by position key', () =>
@@ -125,7 +126,7 @@ describe('redstone/redstone-service', () => {
       // Sorted by position key — x=0 < x=2 < x=5 at same y/z
       const types = Arr.map(components, c => c.type)
       expect(types).toEqual([RedstoneComponentType.Lever, RedstoneComponentType.Button, RedstoneComponentType.Wire])
-    }).pipe(Effect.provide(RedstoneServiceLive))
+    }).pipe(Effect.provide(RedstoneService.Default))
   )
 
   // --- toggleTorch ---
@@ -136,7 +137,7 @@ describe('redstone/redstone-service', () => {
 
       const result = yield* redstone.toggleTorch({ x: 0, y: 64, z: 0 })
       expect(Option.isNone(result)).toBe(true)
-    }).pipe(Effect.provide(RedstoneServiceLive))
+    }).pipe(Effect.provide(RedstoneService.Default))
   )
 
   it.effect('toggleTorch: returns none when a non-Torch component exists at position', () =>
@@ -146,7 +147,7 @@ describe('redstone/redstone-service', () => {
       yield* redstone.setComponent({ x: 0, y: 64, z: 0 }, RedstoneComponentType.Lever)
       const result = yield* redstone.toggleTorch({ x: 0, y: 64, z: 0 })
       expect(Option.isNone(result)).toBe(true)
-    }).pipe(Effect.provide(RedstoneServiceLive))
+    }).pipe(Effect.provide(RedstoneService.Default))
   )
 
   it.effect('toggleTorch: toggles Torch active from true to false and back', () =>
@@ -156,18 +157,18 @@ describe('redstone/redstone-service', () => {
       // Torch defaults to active=true (matches makeDefaultState)
       yield* redstone.setComponent({ x: 0, y: 64, z: 0 }, RedstoneComponentType.Torch)
       const initialComp = yield* redstone.getComponent({ x: 0, y: 64, z: 0 })
-      expect(Option.getOrThrow(initialComp).state.active).toBe(true)
+      expect(expectSome(initialComp).state.active).toBe(true)
 
       // Toggle off
       const afterFirstToggle = yield* redstone.toggleTorch({ x: 0, y: 64, z: 0 })
-      expect(Option.isSome(afterFirstToggle)).toBe(true)
-      expect(Option.getOrThrow(afterFirstToggle).state.active).toBe(false)
+      expectSome(afterFirstToggle)
+      expect(expectSome(afterFirstToggle).state.active).toBe(false)
 
       // Toggle back on
       const afterSecondToggle = yield* redstone.toggleTorch({ x: 0, y: 64, z: 0 })
-      expect(Option.isSome(afterSecondToggle)).toBe(true)
-      expect(Option.getOrThrow(afterSecondToggle).state.active).toBe(true)
-    }).pipe(Effect.provide(RedstoneServiceLive))
+      expectSome(afterSecondToggle)
+      expect(expectSome(afterSecondToggle).state.active).toBe(true)
+    }).pipe(Effect.provide(RedstoneService.Default))
   )
 
   // --- toggleLever: non-existent position ---
@@ -178,7 +179,7 @@ describe('redstone/redstone-service', () => {
 
       const result = yield* redstone.toggleLever({ x: 0, y: 64, z: 0 })
       expect(Option.isNone(result)).toBe(true)
-    }).pipe(Effect.provide(RedstoneServiceLive))
+    }).pipe(Effect.provide(RedstoneService.Default))
   )
 
   it.effect('toggleLever: returns none when a non-Lever component exists at position', () =>
@@ -188,7 +189,7 @@ describe('redstone/redstone-service', () => {
       yield* redstone.setComponent({ x: 0, y: 64, z: 0 }, RedstoneComponentType.Wire)
       const result = yield* redstone.toggleLever({ x: 0, y: 64, z: 0 })
       expect(Option.isNone(result)).toBe(true)
-    }).pipe(Effect.provide(RedstoneServiceLive))
+    }).pipe(Effect.provide(RedstoneService.Default))
   )
 
   // --- pressButton: non-existent position ---
@@ -199,7 +200,7 @@ describe('redstone/redstone-service', () => {
 
       const result = yield* redstone.pressButton({ x: 0, y: 64, z: 0 })
       expect(Option.isNone(result)).toBe(true)
-    }).pipe(Effect.provide(RedstoneServiceLive))
+    }).pipe(Effect.provide(RedstoneService.Default))
   )
 
   it.effect('pressButton: returns none when a non-Button component exists at position', () =>
@@ -209,7 +210,7 @@ describe('redstone/redstone-service', () => {
       yield* redstone.setComponent({ x: 0, y: 64, z: 0 }, RedstoneComponentType.Lever)
       const result = yield* redstone.pressButton({ x: 0, y: 64, z: 0 })
       expect(Option.isNone(result)).toBe(true)
-    }).pipe(Effect.provide(RedstoneServiceLive))
+    }).pipe(Effect.provide(RedstoneService.Default))
   )
 
   // --- tick: stale buttonKey (key in buttonKeys but absent from components) ---
@@ -234,7 +235,7 @@ describe('redstone/redstone-service', () => {
       // No components → no powered positions.
       expect(snapshot.poweredPositions).toHaveLength(0)
       expect(snapshot.tick).toBe(1)
-    }).pipe(Effect.provide(RedstoneServiceLive))
+    }).pipe(Effect.provide(RedstoneService.Default))
   )
 
   it.effect('tick anyButtonActive/anyButtonJustExpired evaluate to false when buttonKey is stale', () =>
@@ -257,6 +258,6 @@ describe('redstone/redstone-service', () => {
 
       expect(snapshot.poweredPositions).toHaveLength(0)
       expect(snapshot.tick).toBe(2)
-    }).pipe(Effect.provide(RedstoneServiceLive))
+    }).pipe(Effect.provide(RedstoneService.Default))
   )
 })

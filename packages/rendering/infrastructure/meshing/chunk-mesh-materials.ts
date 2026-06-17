@@ -133,10 +133,10 @@ export const createChunkMeshMaterials = (atlasTexture: THREE.Texture): Effect.Ef
       (mat) => Effect.sync(() => mat.dispose())
     )
     
-    // Transparent-solid material: atlas texture + alpha blending + depth-write off.
+    // Transparent-solid material: atlas texture alpha + depth-write off.
     // Shared across all GLASS/LEAVES chunks — same atlas, so atlas-UVs and tileIndex work identically.
-    // alphaTest:0.1 cuts out fully-transparent atlas texels (leaves silhouette); opacity:0.85
-    // balances glass clarity (near-transparent) with leaves translucency.
+    // Keep material opacity at 1 so opaque leaves texels stay solid; glass/ice translucency comes from PNG alpha.
+    // alphaTest:0.1 cuts out fully-transparent atlas texels for plant silhouettes.
     // depthWrite:false prevents z-fighting with overlapping faces.
     const transparentSolidMaterial = yield* Effect.acquireRelease(
       Effect.sync(() => {
@@ -147,7 +147,7 @@ export const createChunkMeshMaterials = (atlasTexture: THREE.Texture): Effect.Ef
           map: atlasTexture,
           vertexColors: true,
           transparent: true,
-          opacity: 0.85,
+          opacity: 1,
           alphaTest: 0.1,
           depthWrite: false,
           side: THREE.DoubleSide,

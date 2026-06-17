@@ -5,7 +5,7 @@ export {
   IRON_PICKAXE_HARVESTABLE_BLOCKS,
   STONE_PICKAXE_HARVESTABLE_BLOCKS,
   WOODEN_PICKAXE_HARVESTABLE_BLOCKS,
-} from './harvestable-blocks'
+} from '../domain/harvestable-blocks'
 
 export const NON_PLACEABLE_ITEM_TYPES: HashSet.HashSet<InventoryItem> = HashSet.fromIterable<InventoryItem>([
   'STICKS',
@@ -24,6 +24,7 @@ export const NON_PLACEABLE_ITEM_TYPES: HashSet.HashSet<InventoryItem> = HashSet.
   'GOLD_INGOT',
   'DIAMOND',
   'REDSTONE_DUST',
+  'GLOWSTONE_DUST',
   'LAPIS_LAZULI',
   'EMERALD',
   'DIAMOND_PICKAXE',
@@ -38,7 +39,12 @@ export const NON_PLACEABLE_ITEM_TYPES: HashSet.HashSet<InventoryItem> = HashSet.
   'PUFFERFISH',
   'BREAD',
   'CARROT',
+  'RAW_PORKCHOP',
   'COOKED_PORKCHOP',
+  'RAW_MUTTON',
+  'COOKED_MUTTON',
+  'RAW_CHICKEN',
+  'COOKED_CHICKEN',
   'COOKED_BEEF',
   'GOLDEN_APPLE',
   // New mob drops — not placeable
@@ -80,6 +86,9 @@ export const NON_PLACEABLE_ITEM_TYPES: HashSet.HashSet<InventoryItem> = HashSet.
   'GUNPOWDER',
   'BONE',
   'ARROW',
+  'SNOWBALL',
+  'FEATHER',
+  'INK_SAC',
   // Armor — worn, not placed
   'LEATHER_HELMET',
   'LEATHER_CHESTPLATE',
@@ -89,6 +98,10 @@ export const NON_PLACEABLE_ITEM_TYPES: HashSet.HashSet<InventoryItem> = HashSet.
   'IRON_CHESTPLATE',
   'IRON_LEGGINGS',
   'IRON_BOOTS',
+  'GOLD_HELMET',
+  'GOLD_CHESTPLATE',
+  'GOLD_LEGGINGS',
+  'GOLD_BOOTS',
   'DIAMOND_HELMET',
   'DIAMOND_CHESTPLATE',
   'DIAMOND_LEGGINGS',
@@ -128,6 +141,8 @@ export const INVENTORY_DROP_OVERRIDES: HashMap.HashMap<BlockType, InventoryItem>
   ['DEEPSLATE_LAPIS_ORE', 'LAPIS_LAZULI'],
   ['EMERALD_ORE', 'EMERALD'],
   ['DEEPSLATE_EMERALD_ORE', 'EMERALD'],
+  ['GLOWSTONE', 'GLOWSTONE_DUST'],
+  ['COBWEB', 'STRING'],
   ['GRASS', 'DIRT'],
   ['FARMLAND', 'DIRT'],
   // Unripe crops drop seeds; ripe crops get a bonus WHEAT added by the interaction handler
@@ -138,6 +153,8 @@ export const INVENTORY_DROP_OVERRIDES: HashMap.HashMap<BlockType, InventoryItem>
   ['REDSTONE_WIRE', 'REDSTONE_DUST'],
   // Gravel drops FLINT (deterministic; vanilla is 10% random but we keep drops pure/replayable).
   ['GRAVEL', 'FLINT'],
+  ['SNOW', 'SNOWBALL'],
+  ['DOOR_OPEN', 'DOOR'],
 ])
 
 export const getInventoryDropForBlock = (blockType: BlockType): InventoryItem =>
@@ -153,6 +170,8 @@ const BLOCK_BASE_DROP_COUNT: HashMap.HashMap<BlockType, number> = HashMap.fromIt
   ['DEEPSLATE_REDSTONE_ORE', 4],
   ['LAPIS_ORE', 4],
   ['DEEPSLATE_LAPIS_ORE', 4],
+  ['GLOWSTONE', 4],
+  ['SNOW', 4],
 ])
 
 export const getBlockDropCount = (blockType: BlockType): number =>
@@ -164,14 +183,30 @@ export const getBlockDropCount = (blockType: BlockType): number =>
 // the caller supplies Math.random() at the (app-layer) break site.
 export const LEAF_APPLE_DROP_CHANCE = 0.005 // 1/200
 export const LEAF_STICK_DROP_CHANCE = 0.02  // 2%
+export const LEAF_SAPLING_DROP_CHANCE = 0.05 // 5%
 
 export const rollLeafDrops = (
   appleRoll: number,
   stickRoll: number,
-): { readonly apple: number; readonly sticks: number } => ({
+  saplingRoll: number = 1,
+): { readonly apple: number; readonly sticks: number; readonly saplings: number } => ({
   apple: appleRoll < LEAF_APPLE_DROP_CHANCE ? 1 : 0,
   sticks: stickRoll < LEAF_STICK_DROP_CHANCE ? 1 : 0,
+  saplings: saplingRoll < LEAF_SAPLING_DROP_CHANCE ? 1 : 0,
 })
+
+export const GRASS_SEED_DROP_CHANCE = 0.125 // 1/8
+
+export const GRASS_SEED_DROP_BLOCK_TYPES: HashSet.HashSet<BlockType> = HashSet.fromIterable<BlockType>([
+  'TALL_GRASS',
+  'FERN',
+])
+
+export const isGrassSeedDropBlock = (blockType: BlockType): boolean =>
+  HashSet.has(GRASS_SEED_DROP_BLOCK_TYPES, blockType)
+
+export const rollGrassSeedDrop = (roll: number): number =>
+  roll < GRASS_SEED_DROP_CHANCE ? 1 : 0
 
 export const PICKAXE_BLOCK_TYPES: HashSet.HashSet<ItemType> = HashSet.fromIterable<ItemType>([
   'WOODEN_PICKAXE',

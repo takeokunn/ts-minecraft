@@ -3,10 +3,26 @@ import { expect } from 'vitest'
 import { Array as Arr, Option } from 'effect'
 import { greedyMeshChunk } from '@ts-minecraft/rendering'
 import { CHUNK_SIZE, CHUNK_HEIGHT, blockTypeToIndex } from '@ts-minecraft/core'
-import { createLightBuffer, setLightAt, LIGHT_LEVEL_MAX, computeBlockLight } from '@ts-minecraft/world'
+import {
+  createFluidBuffer,
+  createLightBuffer,
+  encodeFluidCell,
+  setLightAt,
+  LIGHT_LEVEL_MAX,
+  computeBlockLight,
+} from '@ts-minecraft/world'
 import type { LightGrids } from '@ts-minecraft/world'
 import type { Chunk } from '@ts-minecraft/world'
 import { makeChunkWithBlock, makeChunkWithBlocks, ZERO_COORD, ZERO_OFFSET } from './greedy-meshing-test-utils'
+
+const fluidIndex = (lx: number, y: number, lz: number): number =>
+  y + lz * CHUNK_HEIGHT + lx * CHUNK_HEIGHT * CHUNK_SIZE
+
+const withSourceWaterCell = (chunk: Chunk, lx: number, y: number, lz: number): Chunk => {
+  const fluid = createFluidBuffer()
+  fluid[fluidIndex(lx, y, lz)] = encodeFluidCell({ level: 0, source: true, type: 'water' })
+  return { ...chunk, fluid: Option.some(fluid) }
+}
 
 // ─── Tests ─────────────────────────────────────────────────────────────────
 
@@ -15,7 +31,7 @@ describe('greedyMeshChunk (advanced)', () => {
     const TRANSPARENT_BLOCK_IDS = new Set([blockTypeToIndex('WATER')])
 
     it('a chunk with a single WATER block routes geometry to result.water, not result.opaque, when transparentBlockIds is passed', () => {
-      const chunk = makeChunkWithBlock(ZERO_COORD, 4, 10, 4, 'WATER')
+      const chunk = withSourceWaterCell(makeChunkWithBlock(ZERO_COORD, 4, 10, 4, 'WATER'), 4, 10, 4)
       const result = greedyMeshChunk(chunk, ZERO_OFFSET, TRANSPARENT_BLOCK_IDS)
 
       // Water geometry must be non-empty
@@ -25,10 +41,10 @@ describe('greedyMeshChunk (advanced)', () => {
     })
 
     it('a chunk with DIRT and WATER produces separate geometry in result.opaque (DIRT) and result.water (WATER)', () => {
-      const chunk = makeChunkWithBlocks(ZERO_COORD, [
+      const chunk = withSourceWaterCell(makeChunkWithBlocks(ZERO_COORD, [
         { lx: 0, y: 0, lz: 0, blockType: 'DIRT' },
         { lx: 2, y: 0, lz: 0, blockType: 'WATER' },
-      ])
+      ]), 2, 0, 0)
       const result = greedyMeshChunk(chunk, ZERO_OFFSET, TRANSPARENT_BLOCK_IDS)
 
       // Both accumulators should have geometry
@@ -41,19 +57,19 @@ describe('greedyMeshChunk (advanced)', () => {
 
       // Water next to GLASS — a transparent-solid neighbour does NOT occlude, so
       // the water's +X side face is exposed (you see the water through the glass).
-      const glassChunk = makeChunkWithBlocks(ZERO_COORD, [
+      const glassChunk = withSourceWaterCell(makeChunkWithBlocks(ZERO_COORD, [
         { lx: 0, y: 0, lz: 0, blockType: 'WATER' },
         { lx: 1, y: 0, lz: 0, blockType: 'GLASS' },
-      ])
+      ]), 0, 0, 0)
       const glassWater = greedyMeshChunk(glassChunk, ZERO_OFFSET, TRANSPARENT_BLOCK_IDS, undefined, undefined, GLASS)
         .toMeshed().water.positions.length
 
       // Water next to STONE — an opaque neighbour occludes, so the +X face is
       // culled. Control case: identical except for the neighbour block type.
-      const stoneChunk = makeChunkWithBlocks(ZERO_COORD, [
+      const stoneChunk = withSourceWaterCell(makeChunkWithBlocks(ZERO_COORD, [
         { lx: 0, y: 0, lz: 0, blockType: 'WATER' },
         { lx: 1, y: 0, lz: 0, blockType: 'STONE' },
-      ])
+      ]), 0, 0, 0)
       const stoneWater = greedyMeshChunk(stoneChunk, ZERO_OFFSET, TRANSPARENT_BLOCK_IDS, undefined, undefined, GLASS)
         .toMeshed().water.positions.length
 
@@ -62,7 +78,7 @@ describe('greedyMeshChunk (advanced)', () => {
     })
 
     it('a chunk with WATER but no transparentBlockIds passed routes WATER to result.opaque', () => {
-      const chunk = makeChunkWithBlock(ZERO_COORD, 4, 10, 4, 'WATER')
+      const chunk = withSourceWaterCell(makeChunkWithBlock(ZERO_COORD, 4, 10, 4, 'WATER'), 4, 10, 4)
       // No transparentBlockIds argument — uses default empty Set
       const result = greedyMeshChunk(chunk, ZERO_OFFSET)
 

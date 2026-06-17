@@ -1,12 +1,11 @@
 import { describe, it } from '@effect/vitest'
+import { CHUNK_SIZE } from '@ts-minecraft/core'
 import { expect } from 'vitest'
 import { computeColumnY, computeColumnYFromValues, type ChannelSamples } from '@ts-minecraft/world'
+import { makeTerrainChannelSamples } from './terrain-channel-test-utils'
 
 const makeSamples = (c: number, e: number, p: number, j: number): ChannelSamples => {
-  const continentalness = new Float64Array(256)
-  const erosion = new Float64Array(256)
-  const pv = new Float64Array(256)
-  const jaggedness = new Float64Array(256)
+  const { continentalness, erosion, pv, jaggedness } = makeTerrainChannelSamples()
   continentalness[0] = c
   erosion[0] = e
   pv[0] = p
@@ -77,14 +76,11 @@ describe('application/terrain/density-function', () => {
     expect(tooLow).toBeLessThanOrEqual(250)
   })
 
-  it('reads the correct index i = z * 16 + x from the Float64Array channels', () => {
-    const continentalness = new Float64Array(256)
-    const erosion = new Float64Array(256)
-    const pv = new Float64Array(256)
-    const jaggedness = new Float64Array(256)
+  it('reads the correct index i = z * CHUNK_SIZE + x from the Float64Array channels', () => {
+    const { continentalness, erosion, pv, jaggedness } = makeTerrainChannelSamples()
     const targetX = 5
     const targetZ = 7
-    const i = targetZ * 16 + targetX
+    const i = targetZ * CHUNK_SIZE + targetX
     continentalness[i] = 0.8
     erosion[i] = -0.5
     pv[i] = 0.9
@@ -119,16 +115,11 @@ describe('application/terrain/density-function — computeColumnYFromValues', ()
 
   it('matches computeColumnY at the same channel values', () => {
     // Both functions should produce identical output for the same (C, E, PV, J) values.
-    // computeColumnY reads from a Float64Array at index z*16+x; computeColumnYFromValues
+    // computeColumnY reads from a Float64Array at index z * CHUNK_SIZE + x; computeColumnYFromValues
     // takes values directly — should be byte-identical.
     const c = 0.3, e = 0.5, p = 0.2, j = 0.0
     const direct = computeColumnYFromValues(c, e, p, j)
-    const channelSamples: ChannelSamples = {
-      continentalness: new Float64Array(256).fill(0),
-      erosion: new Float64Array(256).fill(0),
-      pv: new Float64Array(256).fill(0),
-      jaggedness: new Float64Array(256).fill(0),
-    }
+    const channelSamples = makeTerrainChannelSamples({ continentalness: 0, erosion: 0, pv: 0, jaggedness: 0 })
     channelSamples.continentalness[0] = c
     channelSamples.erosion[0] = e
     channelSamples.pv[0] = p

@@ -5,7 +5,7 @@ import type { InventoryItem } from '@ts-minecraft/core'
 import { BlockRegistry } from '@ts-minecraft/block'
 import { createStack, MAX_STACK_SIZE } from '../domain/item-stack'
 import type { SlotIndex } from '@ts-minecraft/core'
-import { InventoryService, InventoryServiceLive, INVENTORY_SIZE } from '@ts-minecraft/inventory'
+import { InventoryService, INVENTORY_SIZE } from '@ts-minecraft/inventory'
 import { createTestBlockRegistry } from './inventory-service-test-utils'
 
 // ---------------------------------------------------------------------------
@@ -16,7 +16,7 @@ const asSlotIndex = (n: number): SlotIndex => n as SlotIndex
 
 const emptyRegistryLayer = Layer.succeed(BlockRegistry, createTestBlockRegistry())
 
-const TestLayer = InventoryServiceLive.pipe(Layer.provide(emptyRegistryLayer))
+const TestLayer = InventoryService.Default.pipe(Layer.provide(emptyRegistryLayer))
 
 // Arbitrary for valid slot indices (0 – INVENTORY_SIZE-1)
 const slotIndexArb = Arbitrary.make(Schema.Number.pipe(Schema.int(), Schema.between(0, INVENTORY_SIZE - 1)))

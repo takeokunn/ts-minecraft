@@ -33,5 +33,3 @@ export class BlockRegistry extends Effect.Service<BlockRegistry>()(
     }),
   }
 ) {}
-
-export const BlockRegistryLive = BlockRegistry.Default

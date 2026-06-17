@@ -1,16 +1,17 @@
 import { describe, it, expect } from 'vitest'
 import { Option } from 'effect'
 import type { InventoryItem, Position } from '@ts-minecraft/core'
-import { worldToBlockLocal, canHarvestBlock, isEffectiveTool, blockOverlapsPlayer } from '../application/block-utils'
+import { worldToBlockLocal, canHarvestBlock, isEffectiveTool, blockOverlapsPlayer } from '../domain/block-utils'
 
 const pos = (x: number, y: number, z: number): Position => ({ x, y, z })
 
 describe('worldToBlockLocal', () => {
   it('maps positive coordinates to the chunk at the origin', () => {
-    const { chunkCoord, lx, lz } = worldToBlockLocal(pos(5, 0, 9))
+    const { chunkCoord, lx, lz, y } = worldToBlockLocal(pos(5, 12.8, 9))
     expect(chunkCoord).toEqual({ x: 0, z: 0 })
     expect(lx).toBe(5)
     expect(lz).toBe(9)
+    expect(y).toBe(12)
   })
 
   it('maps coordinates at a chunk boundary to the next chunk', () => {
@@ -37,9 +38,10 @@ describe('worldToBlockLocal', () => {
   })
 
   it('floors fractional coordinates before computing the block index', () => {
-    const { lx, lz } = worldToBlockLocal(pos(3.9, 0, 7.2))
+    const { lx, lz, y } = worldToBlockLocal(pos(3.9, 4.99, 7.2))
     expect(lx).toBe(3)
     expect(lz).toBe(7)
+    expect(y).toBe(4)
   })
 })
 

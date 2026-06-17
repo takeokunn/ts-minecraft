@@ -1,5 +1,6 @@
 import type { ItemType } from '@ts-minecraft/core'
 import {
+  type WeightedLootTable,
   type WeightedEntry,
   FISH_ENTRIES,
   TREASURE_ENTRIES,
@@ -8,28 +9,57 @@ import {
   FISHING_MAX_WAIT_SECS,
 } from './fishing.config'
 
-const pickWeighted = (entries: ReadonlyArray<WeightedEntry>, seed: number): ItemType => {
-  const totalWeight = entries.reduce((sum, e) => sum + e.weight, 0)
-  let remaining = seed % totalWeight
-  for (const entry of entries) {
-    remaining -= entry.weight
-    if (remaining < 0) return entry.item
-  }
-  /* c8 ignore next -- unreachable: loop always finds a match when totalWeight > 0 */
-  return entries[0]?.item ?? 'RAW_COD'
+const FIXED_JUNK_CHANCE = 0.35
+const BASE_TREASURE_CHANCE = 0.05
+const TREASURE_CHANCE_PER_LUCK_LEVEL = 0.02
+const MAX_TREASURE_CHANCE = 0.65
+const PERCENT_SCALE = 100
+
+const normalizeWeightedRoll = (seed: number, totalWeight: number): number =>
+  ((seed % totalWeight) + totalWeight) % totalWeight
+
+const hasWeightedEntries = (
+  entries: ReadonlyArray<WeightedEntry>,
+): entries is WeightedLootTable =>
+  entries.length > 0
+
+const pickWeightedEntry = (
+  entries: WeightedLootTable,
+  roll: number,
+  scannedWeight = 0,
+): ItemType => {
+  const [entry, ...remainingEntries] = entries
+  const nextScannedWeight = scannedWeight + entry.weight
+
+  if (roll < nextScannedWeight) return entry.item
+  if (!hasWeightedEntries(remainingEntries)) return entry.item
+
+  return pickWeightedEntry(remainingEntries, roll, nextScannedWeight)
+}
+
+const pickWeighted = (entries: WeightedLootTable, seed: number): ItemType => {
+  const totalWeight = entries.reduce((sum, entry) => sum + entry.weight, 0)
+  const roll = normalizeWeightedRoll(seed, totalWeight)
+  return pickWeightedEntry(entries, roll)
 }
 
 // Returns the caught item given a deterministic seed (e.g. totalXP + frameCount).
 // Category probabilities: fish 60%, treasure 5%, junk 35% (LUCK_OF_THE_SEA shifts treasure up by 2%/level).
 export const resolveFishingCatch = (seed: number, luckLevel = 0): ItemType => {
-  const treasureChance = Math.min(0.65, 0.05 + 0.02 * luckLevel)
+  const treasureChance = Math.min(
+    MAX_TREASURE_CHANCE,
+    BASE_TREASURE_CHANCE + TREASURE_CHANCE_PER_LUCK_LEVEL * luckLevel,
+  )
   // fish takes the remaining probability after treasure and junk (35% junk is fixed).
-  const junkThreshold = Math.round((1 - 0.35 - treasureChance) * 100)
-  const treasureThreshold = junkThreshold + Math.round(treasureChance * 100)
-  const categoryRoll = seed % 100
-  if (categoryRoll < junkThreshold) return pickWeighted(FISH_ENTRIES, Math.floor(seed / 100))
-  if (categoryRoll < treasureThreshold) return pickWeighted(TREASURE_ENTRIES, Math.floor(seed / 100))
-  return pickWeighted(JUNK_ENTRIES, Math.floor(seed / 100))
+  const fishChance = 1 - FIXED_JUNK_CHANCE - treasureChance
+  const fishThreshold = Math.round(fishChance * PERCENT_SCALE)
+  const treasureThreshold = fishThreshold + Math.round(treasureChance * PERCENT_SCALE)
+  const categoryRoll = seed % PERCENT_SCALE
+  const lootSeed = Math.floor(seed / PERCENT_SCALE)
+
+  if (categoryRoll < fishThreshold) return pickWeighted(FISH_ENTRIES, lootSeed)
+  if (categoryRoll < treasureThreshold) return pickWeighted(TREASURE_ENTRIES, lootSeed)
+  return pickWeighted(JUNK_ENTRIES, lootSeed)
 }
 
 // Resolves the wait time for a cast given a seed.

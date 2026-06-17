@@ -1,21 +1,52 @@
 import { describe, it } from '@effect/vitest'
 import { expect, vi } from 'vitest'
-import { Effect, MutableHashSet, MutableRef, Option } from 'effect'
+import { Effect, HashMap, MutableHashSet, MutableRef, Option, Ref } from 'effect'
 import { createFrameHandlers } from '@ts-minecraft/app'
+import { DEBUG_FEATURE_FLAG_DEFAULTS } from '@ts-minecraft/app/debug-feature-flags'
 import { CHUNK_SIZE, CHUNK_HEIGHT, blockTypeToIndex } from '@ts-minecraft/core'
 import type { DeltaTimeSecs } from '@ts-minecraft/core'
+import type { BlockType } from '@ts-minecraft/core'
+import type { SoundEffect } from '@ts-minecraft/game'
+import { computeExplosionDamageAt } from '@ts-minecraft/entity'
 import {
+  DEFAULT_SETTINGS,
   makeDeps,
   makeInputService,
   makeInventoryRenderer,
   makeServices,
   makeSettingsOverlay,
   runFrame,
-} from '@test/frame-handler-test-kit'
+} from '../../../test/frame-handler-test-kit'
+import { physicsStage } from './physics-stage'
 
-// ---------------------------------------------------------------------------
-// Step 3.5: Fall damage
-// ---------------------------------------------------------------------------
+type ColumnBlockType = Parameters<typeof blockTypeToIndex>[0]
+type PhysicsStageRefsForTest = Parameters<typeof physicsStage>[2]
+
+const makePhysicsStageRefs = (): Effect.Effect<PhysicsStageRefsForTest, never> =>
+  Effect.gen(function* () {
+    return {
+      lastHealthRef: MutableRef.make({ current: -1, max: -1 }),
+      lastHungerRef: MutableRef.make({ foodLevel: -1, max: -1 }),
+      lastXPRef: MutableRef.make({ level: -1, xpIntoLevel: -1, xpRequiredForNext: -1 }),
+      lastArmorRef: MutableRef.make({ armorPoints: -1 }),
+      portalSecsRef: yield* Ref.make(0),
+      dirtyChunksRef: MutableRef.make(HashMap.empty<string, unknown>()) as PhysicsStageRefsForTest['dirtyChunksRef'],
+      lavaDamageSecsRef: MutableRef.make(0),
+      airSecsRef: MutableRef.make(15),
+      drownDamageSecsRef: MutableRef.make(0),
+      suffocationDamageSecsRef: MutableRef.make(0),
+      voidDamageSecsRef: MutableRef.make(0),
+      lastAirBubblesRef: MutableRef.make(-1),
+      isShieldBlockingRef: MutableRef.make(false),
+      wasGroundedRef: MutableRef.make(true),
+      footstepDistanceAccumulatorRef: MutableRef.make(0),
+      finalPosRef: yield* Ref.make({ x: 0, y: 0, z: 0 }),
+      healthTickAccumulatorRef: MutableRef.make(0),
+      hungerTickAccumulatorRef: MutableRef.make(0),
+      entityPhysicsChunkCacheRef: yield* Ref.make([null, null, null, null, null, null, null, null, null]),
+      lastEntityPhysicsChunkCoordRef: yield* Ref.make({ cx: Number.NaN, cz: Number.NaN }),
+    }
+  })
 
 describe('step 3.5 — fall damage', () => {
   it.effect('calls healthService.processFallDamage each frame', () => Effect.gen(function* () {
@@ -50,6 +81,33 @@ describe('step 3.5 — fall damage', () => {
 
     expect(applyDamageSpy).toHaveBeenCalledOnce()
     expect(applyDamageSpy).toHaveBeenCalledWith(5)
+  }))
+
+  it.effect('reduces fall damage with Feather Falling boots', () => Effect.gen(function* () {
+    const deps = yield* makeDeps(false)
+    const services = makeServices({
+      inputService: makeInputService(),
+      inventoryRenderer: makeInventoryRenderer({ open: false }),
+      settingsOverlay: makeSettingsOverlay({ open: false }),
+    })
+    ;(services.healthService as { processFallDamage: unknown }).processFallDamage = vi.fn(() =>
+      Effect.succeed(10)
+    )
+    ;(services.equipmentService as { getEquippedItem: unknown }).getEquippedItem = vi.fn((slot: string) =>
+      Effect.succeed(slot === 'BOOTS'
+        ? Option.some({
+            itemType: 'IRON_BOOTS',
+            count: 1,
+            enchantments: [{ type: 'FEATHER_FALLING', level: 4 }],
+          })
+        : Option.none())
+    )
+    const applyDamageSpy = vi.fn(() => Effect.void)
+    ;(services.healthService as { applyDamage: unknown }).applyDamage = applyDamageSpy
+
+    yield* runFrame(deps, services)
+
+    expect(applyDamageSpy).toHaveBeenCalledWith(5.2)
   }))
 
   it.effect('does NOT call healthService.applyDamage when processFallDamage returns 0', () => Effect.gen(function* () {
@@ -162,6 +220,54 @@ describe('step 3.5 — fall damage', () => {
     expect(applyDamageSpy).toHaveBeenCalledWith(1)
   }))
 
+  it.effect('does not starve below half health on easy difficulty', () => Effect.gen(function* () {
+    const deps = yield* makeDeps(false)
+    const services = makeServices({
+      inputService: makeInputService(),
+      inventoryRenderer: makeInventoryRenderer({ open: false }),
+      settingsOverlay: makeSettingsOverlay({ open: false }),
+    })
+    Object.assign(services.settingsService, {
+      getSettings: vi.fn(() => Effect.succeed({ ...DEFAULT_SETTINGS, difficulty: 'easy' as const })),
+    })
+    ;(services.hungerService as { tick: unknown }).tick = vi.fn(() => Effect.succeed('starve' as const))
+    ;(services.healthService as { getHealth: unknown }).getHealth = vi.fn(() =>
+      Effect.succeed({ current: 10, max: 20, invincibilityTicks: 0 })
+    )
+    const applyDamageSpy = vi.fn(() => Effect.void)
+    ;(services.healthService as { applyDamage: unknown }).applyDamage = applyDamageSpy
+
+    const { frameHandler, maintenanceHandler } = yield* createFrameHandlers(deps, services)
+    yield* maintenanceHandler()
+    yield* frameHandler(0.05 as DeltaTimeSecs)
+
+    expect(applyDamageSpy).not.toHaveBeenCalled()
+  }))
+
+  it.effect('allows starvation to damage at one health on hard difficulty', () => Effect.gen(function* () {
+    const deps = yield* makeDeps(false)
+    const services = makeServices({
+      inputService: makeInputService(),
+      inventoryRenderer: makeInventoryRenderer({ open: false }),
+      settingsOverlay: makeSettingsOverlay({ open: false }),
+    })
+    Object.assign(services.settingsService, {
+      getSettings: vi.fn(() => Effect.succeed({ ...DEFAULT_SETTINGS, difficulty: 'hard' as const })),
+    })
+    ;(services.hungerService as { tick: unknown }).tick = vi.fn(() => Effect.succeed('starve' as const))
+    ;(services.healthService as { getHealth: unknown }).getHealth = vi.fn(() =>
+      Effect.succeed({ current: 1, max: 20, invincibilityTicks: 0 })
+    )
+    const applyDamageSpy = vi.fn(() => Effect.void)
+    ;(services.healthService as { applyDamage: unknown }).applyDamage = applyDamageSpy
+
+    const { frameHandler, maintenanceHandler } = yield* createFrameHandlers(deps, services)
+    yield* maintenanceHandler()
+    yield* frameHandler(0.05 as DeltaTimeSecs)
+
+    expect(applyDamageSpy).toHaveBeenCalledWith(1)
+  }))
+
   it.effect('writes the current foodLevel to the hunger HUD element', () => Effect.gen(function* () {
     const deps = yield* makeDeps(false)
     const fakeEl = { textContent: '' } as unknown as HTMLElement
@@ -178,6 +284,134 @@ describe('step 3.5 — fall damage', () => {
     yield* runFrame(deps, services)
 
     expect(fakeEl.textContent).toBe('17')
+  }))
+
+  it.effect('updates pixel HUD icon fill states from the current health', () => Effect.gen(function* () {
+    const deps = yield* makeDeps(false)
+    const iconSpies = Array.from({ length: 10 }, () => vi.fn())
+    const container = {
+      querySelectorAll: vi.fn(() => iconSpies.map((setAttribute) => ({ setAttribute }))),
+    }
+    const fakeEl = {
+      textContent: '',
+      closest: vi.fn(() => container),
+    } as unknown as HTMLElement
+    ;(deps as { healthValueElement: unknown }).healthValueElement = Option.some(fakeEl)
+    const services = makeServices({
+      inputService: makeInputService(),
+      inventoryRenderer: makeInventoryRenderer({ open: false }),
+      settingsOverlay: makeSettingsOverlay({ open: false }),
+    })
+    ;(services.healthService as { getHealth: unknown }).getHealth = vi.fn(() =>
+      Effect.succeed({ current: 9, max: 20, invincibilityTicks: 0 })
+    )
+
+    yield* runFrame(deps, services)
+
+    expect(iconSpies[0]).toHaveBeenCalledWith('data-fill', 'full')
+    expect(iconSpies[3]).toHaveBeenCalledWith('data-fill', 'full')
+    expect(iconSpies[4]).toHaveBeenCalledWith('data-fill', 'half')
+    expect(iconSpies[5]).toHaveBeenCalledWith('data-fill', 'empty')
+  }))
+
+  it.effect('leaves health icon fill unchanged when the max health is zero', () => Effect.gen(function* () {
+    const deps = yield* makeDeps(false)
+    const setAttributeSpy = vi.fn()
+    const container = {
+      querySelectorAll: vi.fn(() => [{ setAttribute: setAttributeSpy }]),
+    }
+    const fakeEl = {
+      textContent: '',
+      closest: vi.fn(() => container),
+    } as unknown as HTMLElement
+    ;(deps as { healthValueElement: unknown }).healthValueElement = Option.some(fakeEl)
+    const services = makeServices({
+      inputService: makeInputService(),
+      inventoryRenderer: makeInventoryRenderer({ open: false }),
+      settingsOverlay: makeSettingsOverlay({ open: false }),
+    })
+    ;(services.healthService as { getHealth: unknown }).getHealth = vi.fn(() =>
+      Effect.succeed({ current: 0, max: 0, invincibilityTicks: 0 })
+    )
+
+    yield* runFrame(deps, services)
+
+    expect(container.querySelectorAll).toHaveBeenCalledWith('[data-hud-icon]')
+    expect(setAttributeSpy).not.toHaveBeenCalled()
+  }))
+
+  it.effect('updates the XP bar fill width from XP progress', () => Effect.gen(function* () {
+    const deps = yield* makeDeps(false)
+    const fillElement = { style: { width: '' } }
+    const container = {
+      querySelector: vi.fn(() => fillElement),
+    }
+    const fakeEl = {
+      textContent: '',
+      closest: vi.fn(() => container),
+    } as unknown as HTMLElement
+    ;(deps as { xpBarElement: unknown }).xpBarElement = Option.some(fakeEl)
+    const services = makeServices({
+      inputService: makeInputService(),
+      inventoryRenderer: makeInventoryRenderer({ open: false }),
+      settingsOverlay: makeSettingsOverlay({ open: false }),
+    })
+    ;(services.xpService as { getXP: unknown }).getXP = vi.fn(() =>
+      Effect.succeed({ level: 2, totalXP: 23, xpIntoLevel: 5, xpRequiredForNext: 10 })
+    )
+
+    yield* runFrame(deps, services)
+
+    expect(fillElement.style.width).toBe('50%')
+  }))
+
+  it.effect('skips the XP bar fill when the fill node is absent', () => Effect.gen(function* () {
+    const deps = yield* makeDeps(false)
+    const container = {
+      querySelector: vi.fn(() => null),
+    }
+    const fakeEl = {
+      textContent: '',
+      closest: vi.fn(() => container),
+    } as unknown as HTMLElement
+    ;(deps as { xpBarElement: unknown }).xpBarElement = Option.some(fakeEl)
+    const services = makeServices({
+      inputService: makeInputService(),
+      inventoryRenderer: makeInventoryRenderer({ open: false }),
+      settingsOverlay: makeSettingsOverlay({ open: false }),
+    })
+    ;(services.xpService as { getXP: unknown }).getXP = vi.fn(() =>
+      Effect.succeed({ level: 2, totalXP: 23, xpIntoLevel: 5, xpRequiredForNext: 10 })
+    )
+
+    yield* runFrame(deps, services)
+
+    expect(container.querySelector).toHaveBeenCalledWith('#xp-progress-fill')
+  }))
+
+  it.effect('sets the XP bar fill to zero when no next-level requirement exists', () => Effect.gen(function* () {
+    const deps = yield* makeDeps(false)
+    const fillElement = { style: { width: '' } }
+    const container = {
+      querySelector: vi.fn(() => fillElement),
+    }
+    const fakeEl = {
+      textContent: '',
+      closest: vi.fn(() => container),
+    } as unknown as HTMLElement
+    ;(deps as { xpBarElement: unknown }).xpBarElement = Option.some(fakeEl)
+    const services = makeServices({
+      inputService: makeInputService(),
+      inventoryRenderer: makeInventoryRenderer({ open: false }),
+      settingsOverlay: makeSettingsOverlay({ open: false }),
+    })
+    ;(services.xpService as { getXP: unknown }).getXP = vi.fn(() =>
+      Effect.succeed({ level: 1, totalXP: 23, xpIntoLevel: 5, xpRequiredForNext: 0 })
+    )
+
+    yield* runFrame(deps, services)
+
+    expect(fillElement.style.width).toBe('0%')
   }))
 
   it.effect('writes the total armor points to the armor HUD element', () => Effect.gen(function* () {
@@ -240,6 +474,200 @@ describe('step 3.5 — fall damage', () => {
     yield* runFrame(deps, services)
 
     expect(applyDamageSpy).toHaveBeenCalledWith(3)
+  }))
+
+  it.effect('applies hostile ranged damage when the entity manager reports a shot', () => Effect.gen(function* () {
+    const deps = yield* makeDeps(false)
+    const services = makeServices({
+      inputService: makeInputService(),
+      inventoryRenderer: makeInventoryRenderer({ open: false }),
+      settingsOverlay: makeSettingsOverlay({ open: false }),
+    })
+    ;(services.entityManager as { getPlayerRangedDamage: unknown }).getPlayerRangedDamage = vi.fn(() =>
+      Effect.succeed(2)
+    )
+    const applyDamageSpy = vi.fn(() => Effect.void)
+    ;(services.healthService as { applyDamage: unknown }).applyDamage = applyDamageSpy
+
+    yield* runFrame(deps, services)
+
+    expect(applyDamageSpy).toHaveBeenCalledWith(2)
+  }))
+
+  it.effect('mitigates hostile ranged damage with Projectile Protection', () => Effect.gen(function* () {
+    const deps = yield* makeDeps(false)
+    const services = makeServices({
+      inputService: makeInputService(),
+      inventoryRenderer: makeInventoryRenderer({ open: false }),
+      settingsOverlay: makeSettingsOverlay({ open: false }),
+    })
+    ;(services.entityManager as { getPlayerContactDamage: unknown }).getPlayerContactDamage = vi.fn(() =>
+      Effect.succeed(0)
+    )
+    ;(services.entityManager as { getPlayerRangedDamage: unknown }).getPlayerRangedDamage = vi.fn(() =>
+      Effect.succeed(10)
+    )
+    ;(services.equipmentService as { getTotalProjectileProtectionReduction: unknown }).getTotalProjectileProtectionReduction = vi.fn(() =>
+      Effect.succeed(0.32)
+    )
+    const applyDamageSpy = vi.fn(() => Effect.void)
+    ;(services.healthService as { applyDamage: unknown }).applyDamage = applyDamageSpy
+
+    yield* runFrame(deps, services)
+
+    expect(applyDamageSpy).toHaveBeenCalledTimes(1)
+    expect(applyDamageSpy.mock.calls[0]?.[0]).toBeCloseTo(6.8)
+  }))
+
+  it.effect('breaks blocks from drained creeper explosions', () => Effect.gen(function* () {
+    const deps = yield* makeDeps(false)
+    const services = makeServices({
+      inputService: makeInputService(),
+      inventoryRenderer: makeInventoryRenderer({ open: false }),
+      settingsOverlay: makeSettingsOverlay({ open: false }),
+    })
+    const center = { x: 2, y: 64, z: 3 }
+    ;(services.entityManager as { getPlayerContactDamage: unknown }).getPlayerContactDamage = vi.fn(() =>
+      Effect.succeed(0)
+    )
+    ;(services.entityManager as { drainExplosions: unknown }).drainExplosions = vi.fn(() =>
+      Effect.succeed([{ source: 'creeper' as const, position: center, power: 3 }])
+    )
+    const forceSetBlockSpy = vi.fn(() => Effect.void)
+    ;(services.blockService as { forceSetBlock: unknown }).forceSetBlock = forceSetBlockSpy
+    const playEffectSpy = vi.fn(() => Effect.void)
+    ;(services.soundManager as { playEffect: unknown }).playEffect = playEffectSpy
+
+    yield* runFrame(deps, services)
+
+    const airCalls = forceSetBlockSpy.mock.calls.filter(([, block]) => block === 'AIR')
+    expect(airCalls.length).toBeGreaterThan(1)
+    expect(airCalls.some(([pos]) => pos.x === center.x && pos.y === center.y && pos.z === center.z)).toBe(true)
+    expect(playEffectSpy).toHaveBeenCalledWith('blockBreak', { position: center })
+  }))
+
+  it.effect('classifies creeper explosion damage for Blast Protection without double-counting', () => Effect.gen(function* () {
+    const deps = yield* makeDeps(false)
+    const services = makeServices({
+      inputService: makeInputService(),
+      inventoryRenderer: makeInventoryRenderer({ open: false }),
+      settingsOverlay: makeSettingsOverlay({ open: false }),
+    })
+    const center = { x: 0, y: 64, z: 0 }
+    const rawDamage = computeExplosionDamageAt(center, 3, center)
+    ;(services.entityManager as { getPlayerContactDamage: unknown }).getPlayerContactDamage = vi.fn(() =>
+      Effect.succeed(rawDamage)
+    )
+    ;(services.entityManager as { getPlayerRangedDamage: unknown }).getPlayerRangedDamage = vi.fn(() =>
+      Effect.succeed(0)
+    )
+    ;(services.entityManager as { drainExplosions: unknown }).drainExplosions = vi.fn(() =>
+      Effect.succeed([{ source: 'creeper' as const, position: center, power: 3 }])
+    )
+    ;(services.equipmentService as { getTotalBlastProtectionReduction: unknown }).getTotalBlastProtectionReduction = vi.fn(() =>
+      Effect.succeed(0.32)
+    )
+    const applyDamageSpy = vi.fn(() => Effect.void)
+    ;(services.healthService as { applyDamage: unknown }).applyDamage = applyDamageSpy
+
+    yield* runFrame(deps, services)
+
+    expect(applyDamageSpy).toHaveBeenCalledTimes(1)
+    expect(applyDamageSpy.mock.calls[0]?.[0]).toBeCloseTo(rawDamage * 0.68)
+  }))
+
+  it.effect('passes cached solid blocks as the hostile ranged projectile blocker', () => Effect.gen(function* () {
+    const deps = yield* makeDeps(false)
+    const services = makeServices({
+      inputService: makeInputService(),
+      inventoryRenderer: makeInventoryRenderer({ open: false }),
+      settingsOverlay: makeSettingsOverlay({ open: false }),
+    })
+    const blocks = new Uint8Array(CHUNK_SIZE * CHUNK_SIZE * CHUNK_HEIGHT)
+    blocks[64 + CHUNK_HEIGHT * CHUNK_SIZE] = blockTypeToIndex('STONE')
+    ;(services.chunkManagerService as { getChunk: unknown }).getChunk = vi.fn((coord: { readonly x: number; readonly z: number }) =>
+      Effect.succeed({ coord, blocks })
+    )
+    ;(services.entityManager as { getPlayerContactDamage: unknown }).getPlayerContactDamage = vi.fn(() =>
+      Effect.succeed(0)
+    )
+    const rangedDamageSpy = vi.fn((
+      _playerPos: { readonly x: number; readonly y: number; readonly z: number },
+      isProjectileBlocked?: (position: { readonly x: number; readonly y: number; readonly z: number }) => boolean,
+    ) => Effect.succeed(isProjectileBlocked?.({ x: 1, y: 64, z: 0 }) === true ? 2 : 0))
+    ;(services.entityManager as { getPlayerRangedDamage: unknown }).getPlayerRangedDamage = rangedDamageSpy
+    const applyDamageSpy = vi.fn(() => Effect.void)
+    ;(services.healthService as { applyDamage: unknown }).applyDamage = applyDamageSpy
+
+    yield* runFrame(deps, services)
+
+    expect(rangedDamageSpy.mock.calls[0]?.[1]).toEqual(expect.any(Function))
+    expect(applyDamageSpy).toHaveBeenCalledWith(2)
+  }))
+
+  it.effect('uses player chunk coordinates for hostile projectile blocking before cache coordinates are finite', () => Effect.gen(function* () {
+    const deps = yield* makeDeps(false)
+    const services = makeServices({
+      inputService: makeInputService(),
+      inventoryRenderer: makeInventoryRenderer({ open: false }),
+      settingsOverlay: makeSettingsOverlay({ open: false }),
+    })
+    const refs = yield* makePhysicsStageRefs()
+    const playerPos = { x: CHUNK_SIZE + 1, y: 64, z: CHUNK_SIZE + 1 }
+    const blocks = new Uint8Array(CHUNK_SIZE * CHUNK_SIZE * CHUNK_HEIGHT)
+    blocks[64 + CHUNK_HEIGHT * (1 + CHUNK_SIZE)] = blockTypeToIndex('STONE')
+    yield* Ref.set(refs.entityPhysicsChunkCacheRef, [
+      null,
+      null,
+      null,
+      null,
+      { coord: { x: 1, z: 1 }, blocks },
+      null,
+      null,
+      null,
+      null,
+    ])
+    ;(services.gameState as { update: unknown }).update = vi.fn(() => Effect.void)
+    ;(services.gameState as { getPlayerPosition: unknown }).getPlayerPosition = vi.fn(() =>
+      Effect.succeed(playerPos)
+    )
+    ;(services.healthService as { processFallDamage: unknown }).processFallDamage = vi.fn(() =>
+      Effect.succeed(0)
+    )
+    ;(services.entityManager as { getPlayerContactDamage: unknown }).getPlayerContactDamage = vi.fn(() =>
+      Effect.succeed(0)
+    )
+    ;(services.entityManager as { drainExplosions: unknown }).drainExplosions = vi.fn(() =>
+      Effect.succeed([])
+    )
+    let blockerResult: boolean | undefined
+    const rangedDamageSpy = vi.fn((
+      _playerPos: { readonly x: number; readonly y: number; readonly z: number },
+      isProjectileBlocked?: (position: { readonly x: number; readonly y: number; readonly z: number }) => boolean,
+    ) => {
+      blockerResult = isProjectileBlocked?.(playerPos)
+      return Effect.succeed(0)
+    })
+    ;(services.entityManager as { getPlayerRangedDamage: unknown }).getPlayerRangedDamage = rangedDamageSpy
+
+    yield* physicsStage(deps, services, refs, {
+      deltaTime: 0.016 as DeltaTimeSecs,
+      initialPlayerPos: playerPos,
+      healthValueElementOrNull: null,
+      healthMaxElementOrNull: null,
+      hungerValueElementOrNull: null,
+      hungerMaxElementOrNull: null,
+      xpLevelElementOrNull: null,
+      xpBarElementOrNull: null,
+      xpBarMaxElementOrNull: null,
+      armorValueElementOrNull: null,
+      airElementOrNull: null,
+      debugFlags: DEBUG_FEATURE_FLAG_DEFAULTS,
+      difficulty: DEFAULT_SETTINGS.difficulty,
+    })
+
+    expect(rangedDamageSpy.mock.calls[0]?.[1]).toEqual(expect.any(Function))
+    expect(blockerResult).toBe(true)
   }))
 
   it.effect('mitigates hostile contact damage by the player\'s equipped armor (4%/point)', () => Effect.gen(function* () {
@@ -426,7 +854,7 @@ describe('step 3.5 — fall damage', () => {
     expect(respawnSpy).toHaveBeenCalledWith(MutableRef.get(deps.respawnPositionRef))
   }))
 
-  it.effect('skips getPlayerContactDamage when mobs.enabled debug flag is false', () => Effect.gen(function* () {
+  it.effect('skips hostile damage queries when mobs.enabled debug flag is false', () => Effect.gen(function* () {
     const deps = yield* makeDeps(false)
     const services = makeServices({
       inputService: makeInputService(),
@@ -436,10 +864,58 @@ describe('step 3.5 — fall damage', () => {
     yield* services.debugFeatureFlags.setEnabled('mobs.enabled', false)
     const contactDamageSpy = vi.fn(() => Effect.succeed(0))
     ;(services.entityManager as { getPlayerContactDamage: unknown }).getPlayerContactDamage = contactDamageSpy
+    const rangedDamageSpy = vi.fn(() => Effect.succeed(0))
+    ;(services.entityManager as { getPlayerRangedDamage: unknown }).getPlayerRangedDamage = rangedDamageSpy
+    const drainExplosionsSpy = vi.fn(() => Effect.succeed([]))
+    ;(services.entityManager as { drainExplosions: unknown }).drainExplosions = drainExplosionsSpy
 
     yield* runFrame(deps, services)
 
     expect(contactDamageSpy).not.toHaveBeenCalled()
+    expect(rangedDamageSpy).not.toHaveBeenCalled()
+    expect(drainExplosionsSpy).not.toHaveBeenCalled()
+  }))
+
+  it.effect('scales hostile contact damage on hard difficulty', () => Effect.gen(function* () {
+    const deps = yield* makeDeps(false)
+    const services = makeServices({
+      inputService: makeInputService(),
+      inventoryRenderer: makeInventoryRenderer({ open: false }),
+      settingsOverlay: makeSettingsOverlay({ open: false }),
+    })
+    Object.assign(services.settingsService, {
+      getSettings: vi.fn(() => Effect.succeed({ ...DEFAULT_SETTINGS, difficulty: 'hard' as const })),
+    })
+    ;(services.entityManager as { getPlayerContactDamage: unknown }).getPlayerContactDamage = vi.fn(() =>
+      Effect.succeed(4)
+    )
+    const applyDamageSpy = vi.fn(() => Effect.void)
+    ;(services.healthService as { applyDamage: unknown }).applyDamage = applyDamageSpy
+
+    yield* runFrame(deps, services)
+
+    expect(applyDamageSpy).toHaveBeenCalledWith(6)
+  }))
+
+  it.effect('prevents hostile contact damage on peaceful difficulty', () => Effect.gen(function* () {
+    const deps = yield* makeDeps(false)
+    const services = makeServices({
+      inputService: makeInputService(),
+      inventoryRenderer: makeInventoryRenderer({ open: false }),
+      settingsOverlay: makeSettingsOverlay({ open: false }),
+    })
+    Object.assign(services.settingsService, {
+      getSettings: vi.fn(() => Effect.succeed({ ...DEFAULT_SETTINGS, difficulty: 'peaceful' as const })),
+    })
+    ;(services.entityManager as { getPlayerContactDamage: unknown }).getPlayerContactDamage = vi.fn(() =>
+      Effect.succeed(4)
+    )
+    const applyDamageSpy = vi.fn(() => Effect.void)
+    ;(services.healthService as { applyDamage: unknown }).applyDamage = applyDamageSpy
+
+    yield* runFrame(deps, services)
+
+    expect(applyDamageSpy).not.toHaveBeenCalled()
   }))
 
   it.effect('accrues hunger exhaustion proportional to horizontal distance moved', () => Effect.gen(function* () {
@@ -495,6 +971,33 @@ describe('step 3.5 — fall damage', () => {
     expect(addExhaustionSpy.mock.calls[0]?.[0]).toBeCloseTo(0.5, 5)
   }))
 
+  it.effect('uses walk exhaustion when sprint keys are held but food level is too low', () => Effect.gen(function* () {
+    const deps = yield* makeDeps(false)
+    const pressedKeys = MutableHashSet.fromIterable(['ControlLeft', 'KeyW'])
+    const services = makeServices({
+      inputService: makeInputService(pressedKeys),
+      inventoryRenderer: makeInventoryRenderer({ open: false }),
+      settingsOverlay: makeSettingsOverlay({ open: false }),
+    })
+    let posCallCount = 0
+    ;(services.gameState as { getPlayerPosition: unknown }).getPlayerPosition = vi.fn(() => {
+      posCallCount++
+      if (posCallCount < 3) return Effect.succeed({ x: 0, y: 64, z: 0 })
+      return Effect.succeed({ x: 3, y: 64, z: 4 })
+    })
+    ;(services.hungerService as { getHunger: unknown }).getHunger = vi.fn(() =>
+      Effect.succeed({ foodLevel: 6, saturation: 0, exhaustion: 0 })
+    )
+    const addExhaustionSpy = vi.fn(() => Effect.void)
+    ;(services.hungerService as { addExhaustion: unknown }).addExhaustion = addExhaustionSpy
+
+    yield* runFrame(deps, services)
+
+    expect(addExhaustionSpy).toHaveBeenCalledOnce()
+    // foodLevel=6 blocks sprinting, so distance=5 uses walk rate 0.01/block → 0.05
+    expect(addExhaustionSpy.mock.calls[0]?.[0]).toBeCloseTo(0.05, 5)
+  }))
+
   it.effect('accrues no hunger exhaustion while sneaking (R59)', () => Effect.gen(function* () {
     const deps = yield* makeDeps(false)
     const pressedKeys = MutableHashSet.fromIterable(['ShiftLeft'])
@@ -518,6 +1021,119 @@ describe('step 3.5 — fall damage', () => {
     expect(addExhaustionSpy).not.toHaveBeenCalled()
   }))
 
+  it.effect('plays a grass footstep when grounded movement crosses the walk interval', () => Effect.gen(function* () {
+    const deps = yield* makeDeps(false)
+    const services = makeServices({
+      inputService: makeInputService(),
+      inventoryRenderer: makeInventoryRenderer({ open: false }),
+      settingsOverlay: makeSettingsOverlay({ open: false }),
+    })
+    let posCallCount = 0
+    ;(services.gameState as { getPlayerPosition: unknown }).getPlayerPosition = vi.fn(() => {
+      posCallCount++
+      if (posCallCount < 3) return Effect.succeed({ x: 0, y: 64, z: 0 })
+      return Effect.succeed({ x: 0.8, y: 64, z: 0 })
+    })
+    ;(services.chunkManagerService as { getChunk: unknown }).getChunk = vi.fn(() =>
+      Effect.succeed(makeSingleBlockChunk(63, 'GRASS')),
+    )
+    const playEffectSpy = vi.fn(() => Effect.void)
+    ;(services.soundManager as { playEffect: unknown }).playEffect = playEffectSpy
+
+    yield* runFrame(deps, services)
+
+    expect(playEffectSpy).toHaveBeenCalledWith('footstepGrass', {
+      position: { x: 0.8, y: 64, z: 0 },
+      gainScale: 1,
+    })
+  }))
+
+  it.effect('stores sub-interval footstep distance until the next step', () => Effect.gen(function* () {
+    const deps = yield* makeDeps(false)
+    const services = makeServices({
+      inputService: makeInputService(),
+      inventoryRenderer: makeInventoryRenderer({ open: false }),
+      settingsOverlay: makeSettingsOverlay({ open: false }),
+    })
+    let posCallCount = 0
+    ;(services.gameState as { getPlayerPosition: unknown }).getPlayerPosition = vi.fn(() => {
+      posCallCount++
+      if (posCallCount < 3) return Effect.succeed({ x: 0, y: 64, z: 0 })
+      return Effect.succeed({ x: 0.25, y: 64, z: 0 })
+    })
+    ;(services.chunkManagerService as { getChunk: unknown }).getChunk = vi.fn(() =>
+      Effect.succeed(makeSingleBlockChunk(63, 'GRASS')),
+    )
+    const playEffectSpy = vi.fn(() => Effect.void)
+    ;(services.soundManager as { playEffect: unknown }).playEffect = playEffectSpy
+
+    yield* runFrame(deps, services)
+
+    expect(playEffectSpy).not.toHaveBeenCalled()
+  }))
+
+  it.effect('maps stone and wood ground blocks to their footstep variants', () => Effect.gen(function* () {
+    const cases: ReadonlyArray<readonly [BlockType, SoundEffect]> = [
+      ['STONE', 'footstepStone'],
+      ['PLANKS', 'footstepWood'],
+    ]
+
+    for (const [blockType, expectedEffect] of cases) {
+      const deps = yield* makeDeps(false)
+      const services = makeServices({
+        inputService: makeInputService(),
+        inventoryRenderer: makeInventoryRenderer({ open: false }),
+        settingsOverlay: makeSettingsOverlay({ open: false }),
+      })
+      let posCallCount = 0
+      ;(services.gameState as { getPlayerPosition: unknown }).getPlayerPosition = vi.fn(() => {
+        posCallCount++
+        if (posCallCount < 3) return Effect.succeed({ x: 0, y: 64, z: 0 })
+        return Effect.succeed({ x: 0.8, y: 64, z: 0 })
+      })
+      ;(services.chunkManagerService as { getChunk: unknown }).getChunk = vi.fn(() =>
+        Effect.succeed(makeSingleBlockChunk(63, blockType)),
+      )
+      const playEffectSpy = vi.fn(() => Effect.void)
+      ;(services.soundManager as { playEffect: unknown }).playEffect = playEffectSpy
+
+      yield* runFrame(deps, services)
+
+      expect(playEffectSpy).toHaveBeenCalledWith(expectedEffect, {
+        position: { x: 0.8, y: 64, z: 0 },
+        gainScale: 1,
+      })
+    }
+  }))
+
+  it.effect('uses the sprint footstep interval and gain while sprinting', () => Effect.gen(function* () {
+    const deps = yield* makeDeps(false)
+    const pressedKeys = MutableHashSet.fromIterable(['ControlLeft', 'KeyW'])
+    const services = makeServices({
+      inputService: makeInputService(pressedKeys),
+      inventoryRenderer: makeInventoryRenderer({ open: false }),
+      settingsOverlay: makeSettingsOverlay({ open: false }),
+    })
+    let posCallCount = 0
+    ;(services.gameState as { getPlayerPosition: unknown }).getPlayerPosition = vi.fn(() => {
+      posCallCount++
+      if (posCallCount < 3) return Effect.succeed({ x: 0, y: 64, z: 0 })
+      return Effect.succeed({ x: 0.56, y: 64, z: 0 })
+    })
+    ;(services.chunkManagerService as { getChunk: unknown }).getChunk = vi.fn(() =>
+      Effect.succeed(makeSingleBlockChunk(63, 'STONE')),
+    )
+    const playEffectSpy = vi.fn(() => Effect.void)
+    ;(services.soundManager as { playEffect: unknown }).playEffect = playEffectSpy
+
+    yield* runFrame(deps, services)
+
+    expect(playEffectSpy).toHaveBeenCalledWith('footstepStone', {
+      position: { x: 0.56, y: 64, z: 0 },
+      gainScale: 1.15,
+    })
+  }))
+
   it.effect('accrues EXHAUSTION_SPRINT_JUMP (0.2) on a sprint-jump, not EXHAUSTION_JUMP (0.05) (R60)', () => Effect.gen(function* () {
     const deps = yield* makeDeps(false)
     const pressedKeys = MutableHashSet.fromIterable(['ControlLeft', 'KeyW'])
@@ -539,6 +1155,220 @@ describe('step 3.5 — fall damage', () => {
 
     expect(addExhaustionSpy).toHaveBeenCalledOnce()
     expect(addExhaustionSpy.mock.calls[0]?.[0]).toBeCloseTo(0.2, 5)
+  }))
+
+  it.effect('uses normal jump exhaustion when sprint keys are held but food level is too low', () => Effect.gen(function* () {
+    const deps = yield* makeDeps(false)
+    const pressedKeys = MutableHashSet.fromIterable(['ControlLeft', 'KeyW'])
+    const services = makeServices({
+      inputService: makeInputService(pressedKeys),
+      inventoryRenderer: makeInventoryRenderer({ open: false }),
+      settingsOverlay: makeSettingsOverlay({ open: false }),
+    })
+    ;(services.hungerService as { getHunger: unknown }).getHunger = vi.fn(() =>
+      Effect.succeed({ foodLevel: 6, saturation: 0, exhaustion: 0 })
+    )
+    const addExhaustionSpy = vi.fn(() => Effect.void)
+    ;(services.hungerService as { addExhaustion: unknown }).addExhaustion = addExhaustionSpy
+    yield* runFrame(deps, services)
+    addExhaustionSpy.mockClear()
+
+    ;(services.gameState as { isPlayerGrounded: unknown }).isPlayerGrounded = vi.fn(() => Effect.succeed(false))
+    yield* runFrame(deps, services)
+
+    expect(addExhaustionSpy).toHaveBeenCalledOnce()
+    expect(addExhaustionSpy.mock.calls[0]?.[0]).toBeCloseTo(0.05, 5)
+  }))
+})
+
+// ---------------------------------------------------------------------------
+// Environmental hazards
+// ---------------------------------------------------------------------------
+
+const makeColumnChunk = (
+  blocksAtY: ReadonlyArray<{ readonly y: number; readonly blockType: ColumnBlockType }>,
+) => {
+  const blocks = new Uint8Array(CHUNK_SIZE * CHUNK_SIZE * CHUNK_HEIGHT)
+  for (const { y, blockType } of blocksAtY) {
+    blocks[y] = blockTypeToIndex(blockType)
+  }
+  return { coord: { x: 0, z: 0 }, blocks, fluid: Option.none() }
+}
+
+const makeSingleBlockChunk = (blockY: number, blockType: ColumnBlockType) =>
+  makeColumnChunk([{ y: blockY, blockType }])
+
+const makeFilledChunk = (blockType: ColumnBlockType) => {
+  const blocks = new Uint8Array(CHUNK_SIZE * CHUNK_SIZE * CHUNK_HEIGHT)
+  blocks.fill(blockTypeToIndex(blockType))
+  return { coord: { x: 0, z: 0 }, blocks, fluid: Option.none() }
+}
+
+describe('physics-stage — environmental hazards', () => {
+  it.effect('applies suffocation damage when the player head is inside a solid block', () => Effect.gen(function* () {
+    const deps = yield* makeDeps(false)
+    const services = makeServices({
+      inputService: makeInputService(),
+      inventoryRenderer: makeInventoryRenderer({ open: false }),
+      settingsOverlay: makeSettingsOverlay({ open: false }),
+    })
+    ;(services.chunkManagerService as { getChunk: unknown }).getChunk = vi.fn(() =>
+      Effect.succeed(makeSingleBlockChunk(64, 'STONE')),
+    )
+    const applyDamageSpy = vi.fn(() => Effect.void)
+    ;(services.healthService as { applyDamage: unknown }).applyDamage = applyDamageSpy
+
+    const { frameHandler, maintenanceHandler } = yield* createFrameHandlers(deps, services)
+    yield* maintenanceHandler()
+    yield* frameHandler(0.5 as DeltaTimeSecs)
+
+    expect(applyDamageSpy).toHaveBeenCalledWith(1)
+  }))
+
+  it.effect('applies void damage when the player is below y=-64', () => Effect.gen(function* () {
+    const deps = yield* makeDeps(false)
+    const services = makeServices({
+      inputService: makeInputService(),
+      inventoryRenderer: makeInventoryRenderer({ open: false }),
+      settingsOverlay: makeSettingsOverlay({ open: false }),
+    })
+    ;(services.gameState as { getPlayerPosition: unknown }).getPlayerPosition = vi.fn(() =>
+      Effect.succeed({ x: 0, y: -65, z: 0 }),
+    )
+    const applyDamageSpy = vi.fn(() => Effect.void)
+    ;(services.healthService as { applyDamage: unknown }).applyDamage = applyDamageSpy
+
+    const { frameHandler, maintenanceHandler } = yield* createFrameHandlers(deps, services)
+    yield* maintenanceHandler()
+    yield* frameHandler(0.5 as DeltaTimeSecs)
+
+    expect(applyDamageSpy).toHaveBeenCalledWith(4)
+  }))
+
+  it.effect('does not apply void damage at exactly y=-64', () => Effect.gen(function* () {
+    const deps = yield* makeDeps(false)
+    const services = makeServices({
+      inputService: makeInputService(),
+      inventoryRenderer: makeInventoryRenderer({ open: false }),
+      settingsOverlay: makeSettingsOverlay({ open: false }),
+    })
+    ;(services.gameState as { getPlayerPosition: unknown }).getPlayerPosition = vi.fn(() =>
+      Effect.succeed({ x: 0, y: -64, z: 0 }),
+    )
+    const applyDamageSpy = vi.fn(() => Effect.void)
+    ;(services.healthService as { applyDamage: unknown }).applyDamage = applyDamageSpy
+
+    const { frameHandler, maintenanceHandler } = yield* createFrameHandlers(deps, services)
+    yield* maintenanceHandler()
+    yield* frameHandler(0.5 as DeltaTimeSecs)
+
+    expect(applyDamageSpy).not.toHaveBeenCalled()
+  }))
+
+  it.effect('reduces lava damage with Fire Protection armor', () => Effect.gen(function* () {
+    const deps = yield* makeDeps(false)
+    const services = makeServices({
+      inputService: makeInputService(),
+      inventoryRenderer: makeInventoryRenderer({ open: false }),
+      settingsOverlay: makeSettingsOverlay({ open: false }),
+    })
+    ;(services.chunkManagerService as { getChunk: unknown }).getChunk = vi.fn(() =>
+      Effect.succeed(makeSingleBlockChunk(64, 'LAVA')),
+    )
+    const fireArmor = (itemType: 'IRON_HELMET' | 'IRON_CHESTPLATE' | 'IRON_LEGGINGS' | 'IRON_BOOTS') =>
+      Option.some({
+        itemType,
+        count: 1,
+        enchantments: [{ type: 'FIRE_PROTECTION' as const, level: 4 }],
+      })
+    ;(services.equipmentService as { getAll: unknown }).getAll = vi.fn(() =>
+      Effect.succeed({
+        HELMET: fireArmor('IRON_HELMET'),
+        CHESTPLATE: fireArmor('IRON_CHESTPLATE'),
+        LEGGINGS: fireArmor('IRON_LEGGINGS'),
+        BOOTS: fireArmor('IRON_BOOTS'),
+      })
+    )
+    const applyDamageSpy = vi.fn(() => Effect.void)
+    ;(services.healthService as { applyDamage: unknown }).applyDamage = applyDamageSpy
+
+    const { frameHandler, maintenanceHandler } = yield* createFrameHandlers(deps, services)
+    yield* maintenanceHandler()
+    yield* frameHandler(1 as DeltaTimeSecs)
+
+    expect(applyDamageSpy).toHaveBeenCalled()
+    expect(applyDamageSpy.mock.calls[0]?.[0]).toBeGreaterThan(0)
+    expect(applyDamageSpy.mock.calls[0]?.[0]).toBeLessThan(4)
+  }))
+
+  it.effect('updates air display and applies drowning damage while submerged', () => Effect.gen(function* () {
+    const airElement = { style: { display: '' }, textContent: '' } as unknown as HTMLElement
+    const deps = {
+      ...(yield* makeDeps(false)),
+      airElement: Option.some(airElement),
+    }
+    const services = makeServices({
+      inputService: makeInputService(),
+      inventoryRenderer: makeInventoryRenderer({ open: false }),
+      settingsOverlay: makeSettingsOverlay({ open: false }),
+    })
+    const applyDamageSpy = vi.fn(() => Effect.void)
+    ;(services.healthService as { applyDamage: unknown }).applyDamage = applyDamageSpy
+    const waterColumn = makeFilledChunk('WATER')
+    const airColumn = makeColumnChunk([])
+    const getChunkSpy = vi.fn(() => Effect.succeed(waterColumn))
+    ;(services.chunkManagerService as { getChunk: unknown }).getChunk = getChunkSpy
+    const { frameHandler, maintenanceHandler } = yield* createFrameHandlers(deps, services)
+    yield* maintenanceHandler()
+
+    yield* frameHandler(2 as DeltaTimeSecs)
+    expect(airElement.style.display).toBe('block')
+    expect(airElement.textContent).not.toContain('Drowning')
+
+    yield* frameHandler(30 as DeltaTimeSecs)
+    expect(airElement.style.display).toBe('block')
+    expect(airElement.textContent).toContain('Drowning')
+    expect(applyDamageSpy).toHaveBeenCalled()
+
+    getChunkSpy.mockReturnValue(Effect.succeed(airColumn))
+    yield* frameHandler(1 as DeltaTimeSecs)
+
+    expect(airElement.style.display).toBe('none')
+  }))
+
+  it.effect('refills underwater air to the Respiration maximum after surfacing', () => Effect.gen(function* () {
+    const airElement = { style: { display: '' }, textContent: '' } as unknown as HTMLElement
+    const deps = {
+      ...(yield* makeDeps(false)),
+      airElement: Option.some(airElement),
+    }
+    const services = makeServices({
+      inputService: makeInputService(),
+      inventoryRenderer: makeInventoryRenderer({ open: false }),
+      settingsOverlay: makeSettingsOverlay({ open: false }),
+    })
+    const waterColumn = makeFilledChunk('WATER')
+    const airColumn = makeColumnChunk([])
+    const getChunkSpy = vi.fn(() => Effect.succeed(waterColumn))
+    ;(services.chunkManagerService as { getChunk: unknown }).getChunk = getChunkSpy
+    ;(services.equipmentService as { getEquippedItem: unknown }).getEquippedItem = vi.fn(() =>
+      Effect.succeed(Option.some({
+        itemType: 'IRON_HELMET',
+        count: 1,
+        enchantments: [{ type: 'RESPIRATION', level: 1 }],
+      }))
+    )
+
+    const { frameHandler, maintenanceHandler } = yield* createFrameHandlers(deps, services)
+    yield* maintenanceHandler()
+    yield* frameHandler(1 as DeltaTimeSecs)
+
+    expect(airElement.style.display).toBe('block')
+
+    getChunkSpy.mockReturnValue(Effect.succeed(airColumn))
+    yield* frameHandler(1 as DeltaTimeSecs)
+
+    expect(airElement.style.display).toBe('none')
   }))
 })
 

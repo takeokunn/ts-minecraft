@@ -2,6 +2,7 @@ import { Effect, Schema } from 'effect'
 import type { Vector3 } from '@ts-minecraft/core'
 import { MetersPerSec } from '@ts-minecraft/core'
 import { PlayerInputService } from './player-input-service'
+import { HungerService } from './hunger-service'
 import { KeyMappings } from '../domain/key-mappings'
 
 export const MovementInputSchema = Schema.Struct({
@@ -27,6 +28,19 @@ export const DEFAULT_SNEAK_SPEED: MetersPerSec = MetersPerSec.make(1.295)
 // Jump velocity is calibrated against GRAVITY_Y (-9.82 m/s²) so the apex height
 // h = v²/2g = 5²/19.64 ≈ 1.27 blocks matches the vanilla jump height (~1.25).
 export const DEFAULT_JUMP_VELOCITY: MetersPerSec = MetersPerSec.make(5.0)
+export const SPRINT_JUMP_HORIZONTAL_MULTIPLIER = 1.2
+export const SPRINT_MIN_FOOD_LEVEL = 7
+
+export const canSprintWithFood = (foodLevel: number): boolean =>
+  foodLevel >= SPRINT_MIN_FOOD_LEVEL
+
+export const applySprintHungerGate = (
+  input: MovementInput,
+  foodLevel: number,
+): MovementInput =>
+  input.sprint && !canSprintWithFood(foodLevel)
+    ? { ...input, sprint: false }
+    : input
 
 // Pure math: no side effects — safe to call anywhere without Effect wrapping.
 export const computeVelocity = (
@@ -67,11 +81,14 @@ export const computeVelocity = (
 
   // Normalize diagonal movement to prevent faster diagonal speeds.
   const length = Math.sqrt(rawX * rawX + rawZ * rawZ)
-  const moveX = length > 0 ? (rawX / length) * speed : 0
-  const moveZ = length > 0 ? (rawZ / length) * speed : 0
-
   // Y velocity is handled by physics (gravity/jump).
   const moveY = input.jump && isGrounded ? MetersPerSec.toNumber(DEFAULT_JUMP_VELOCITY) : 0
+  const horizontalMultiplier =
+    input.sprint && !input.sneak && input.jump && isGrounded
+      ? SPRINT_JUMP_HORIZONTAL_MULTIPLIER
+      : 1
+  const moveX = length > 0 ? (rawX / length) * speed * horizontalMultiplier : 0
+  const moveZ = length > 0 ? (rawZ / length) * speed * horizontalMultiplier : 0
 
   return { x: moveX, y: moveY, z: moveZ }
 }
@@ -79,7 +96,9 @@ export const computeVelocity = (
 export class MovementService extends Effect.Service<MovementService>()(
   '@minecraft/application/MovementService',
   {
-    effect: Effect.map(PlayerInputService, (inputService) => {
+    effect: Effect.gen(function* () {
+      const inputService = yield* PlayerInputService
+      const hungerService = yield* HungerService
       // Each movement direction responds to its WASD key OR its arrow-key alias.
       const isDirPressed = (primary: string, alt: string): Effect.Effect<boolean, never> =>
         Effect.zipWith(
@@ -112,7 +131,8 @@ export class MovementService extends Effect.Service<MovementService>()(
           const ctrlR = yield* inputService.isKeyPressed(KeyMappings.SPRINT_ALT)
           const sprint = ctrlL || ctrlR
           const sneak = yield* inputService.isKeyPressed(KeyMappings.SNEAK)
-          return { forward, backward, left, right, jump, sprint, sneak }
+          const hunger = yield* hungerService.getHunger()
+          return applySprintHungerGate({ forward, backward, left, right, jump, sprint, sneak }, hunger.foodLevel)
         })
 
       return {
@@ -131,4 +151,3 @@ export class MovementService extends Effect.Service<MovementService>()(
     }),
   }
 ) {}
-export const MovementServiceLive = MovementService.Default

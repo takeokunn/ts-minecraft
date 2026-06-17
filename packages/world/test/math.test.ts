@@ -12,6 +12,7 @@ import {
   smoothstep,
 } from '@ts-minecraft/world'
 import { mulberry32 } from '../domain/terrain/math'
+import { RUGGEDNESS_SAVANNA_GRAVEL } from '../domain/terrain/surface-resolver.config'
 
 // ---------------------------------------------------------------------------
 // chunkBlockIndexUnchecked
@@ -272,5 +273,14 @@ describe('computeRuggedness', () => {
     const withoutJag = computeRuggedness(0, 0)
     const withJag = computeRuggedness(0, 1)
     expect(withJag).toBeGreaterThan(withoutJag)
+  })
+
+  it('only gives the peaks bonus to clearly continental columns', () => {
+    const gentleInland = computeRuggedness(0.1, 0.2, 0, 1)
+    const peakColumn = computeRuggedness(0.1, 0.2, 0.8, 1)
+
+    expect(gentleInland).toBeLessThan(RUGGEDNESS_SAVANNA_GRAVEL)
+    expect(peakColumn).toBeGreaterThan(gentleInland)
+    expect(peakColumn).toBeGreaterThan(RUGGEDNESS_SAVANNA_GRAVEL)
   })
 })

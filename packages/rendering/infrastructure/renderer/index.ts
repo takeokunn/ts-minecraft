@@ -1,1 +1,1 @@
-export { RendererService, RendererServiceLive } from './renderer-service'
+export { RendererService } from './renderer-service'

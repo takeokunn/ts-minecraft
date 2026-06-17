@@ -28,5 +28,3 @@ export class ThirdPersonCameraService extends Effect.Service<ThirdPersonCameraSe
     })),
   }
 ) {}
-
-export const ThirdPersonCameraServiceLive = ThirdPersonCameraService.Default

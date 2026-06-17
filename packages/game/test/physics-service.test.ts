@@ -4,12 +4,11 @@ import { DeltaTimeSecs } from '@ts-minecraft/core'
 import {
   PhysicsService,
   PhysicsServiceError,
-  PhysicsServiceLive,
 } from '@ts-minecraft/game'
 import { Array as Arr, Effect, Either, Layer, Option } from 'effect'
 import { expect } from 'vitest'
 
-const TestLayer = PhysicsServiceLive.pipe(
+const TestLayer = PhysicsService.Default.pipe(
   Layer.provide(PhysicsWorldPortLayer),
   Layer.provide(RigidBodyPortLayer),
   Layer.provide(ShapePortLayer)
@@ -37,10 +36,10 @@ describe('application/physics/physics-service', () => {
     })
   })
 
-  describe('PhysicsServiceLive', () => {
+  describe('PhysicsService.Default', () => {
     it('should provide PhysicsService as Layer', () => {
-      expect(PhysicsServiceLive).toBeDefined()
-      expect(typeof PhysicsServiceLive).toBe('object')
+      expect(PhysicsService.Default).toBeDefined()
+      expect(typeof PhysicsService.Default).toBe('object')
     })
   })
 

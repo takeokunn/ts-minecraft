@@ -1,5 +1,5 @@
 import { describe,it } from '@effect/vitest'
-import { InventoryService,InventoryServiceLive,RecipeService } from '@ts-minecraft/inventory'
+import { InventoryService, RecipeService } from '@ts-minecraft/inventory'
 import type { InventoryItem } from '@ts-minecraft/core'
 import { RecipeId } from '@ts-minecraft/core'
 import { BlockRegistry } from '@ts-minecraft/block'
@@ -9,7 +9,7 @@ import { createTestBlockRegistry } from './inventory-service-test-utils'
 
 const registryLayer = Layer.succeed(BlockRegistry, createTestBlockRegistry())
 
-const inventoryLayer = InventoryServiceLive.pipe(Layer.provide(registryLayer))
+const inventoryLayer = InventoryService.Default.pipe(Layer.provide(registryLayer))
 const testLayer = Layer.mergeAll(RecipeService.Default, inventoryLayer)
 
 const countBlock = (slots: ReadonlyArray<Option.Option<{ readonly itemType: InventoryItem; readonly count: number }>>, itemType: InventoryItem): number =>
@@ -252,21 +252,22 @@ describe('application/crafting/recipe-service', () => {
     }).pipe(Effect.provide(testLayer))
   )
 
-  // R32: arrows must be craftable from mob drops — bows (R31) shipped but arrows
-  // had no recipe, making survival bow usage impossible once skeleton drops ran out.
-  it.effect('craft produces 4 arrows from bone + 2 sticks', () =>
+  // R32: arrows must be craftable with vanilla ingredients.
+  it.effect('craft produces 4 arrows from flint + stick + feather', () =>
     Effect.gen(function* () {
       const rs = yield* RecipeService
       const inv = yield* InventoryService
-      yield* inv.addBlock('BONE', 1)
-      yield* inv.addBlock('STICKS', 2)
+      yield* inv.addBlock('FLINT', 1)
+      yield* inv.addBlock('STICKS', 1)
+      yield* inv.addBlock('FEATHER', 1)
       yield* inv.addBlock('CRAFTING_TABLE', 1)
 
-      yield* rs.craft(RecipeId.make('bone-and-sticks-to-arrows'), inv)
+      yield* rs.craft(RecipeId.make('flint-stick-feather-to-arrows'), inv)
 
       const slotsAfter = yield* inv.getAllSlots()
-      expect(countBlock(slotsAfter, 'BONE')).toBe(0)
+      expect(countBlock(slotsAfter, 'FLINT')).toBe(0)
       expect(countBlock(slotsAfter, 'STICKS')).toBe(0)
+      expect(countBlock(slotsAfter, 'FEATHER')).toBe(0)
       expect(countBlock(slotsAfter, 'ARROW')).toBe(4)
     }).pipe(Effect.provide(testLayer))
   )

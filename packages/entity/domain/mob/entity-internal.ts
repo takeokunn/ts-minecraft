@@ -17,11 +17,14 @@ export type ManagedEntity = Entity & {
   readonly aiState: AIState
   readonly wanderDirection: Vector3
   readonly attackCooldownRemaining: number
+  readonly isProvoked: boolean
   readonly isGrounded: boolean
   // Seconds remaining while a combat knockback impulse is active; AI yields horizontal
   // velocity control until this reaches 0 so the shove is not immediately overwritten.
   // Stored in seconds (decremented by deltaTime) so it is frame-rate independent.
   readonly knockbackSecsRemaining: number
+  readonly fireSecsRemaining: number
+  readonly fireDamageAccumulatorSecs: number
   readonly stuckTicks: number
   // Seconds a creeper's detonation fuse has burned (0 for non-creepers and for any
   // creeper not currently within ignition range). At CREEPER_FUSE_SECONDS the

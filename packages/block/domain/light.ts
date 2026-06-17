@@ -1,7 +1,5 @@
-import { Array as Arr } from 'effect'
-import { BlockType } from '@ts-minecraft/core'
+import { BLOCK_COUNT, BlockType, CHUNK_HEIGHT, CHUNK_SIZE, blockIndexUnsafe, blockTypeToIndex } from '@ts-minecraft/core'
 import { initialBlocks } from './blocks.config'
-import { CHUNK_HEIGHT, CHUNK_SIZE, blockIndexUnsafe, blockTypeToIndex } from '@ts-minecraft/core'
 
 // 4-bit-per-voxel light grids. Storage: Uint8Array of LIGHT_BYTE_LENGTH bytes; 2 voxels per byte (low/high nibbles).
 export const LIGHT_LEVEL_MAX = 15
@@ -15,9 +13,7 @@ export type LightGrids = Readonly<{
 
 const TRANSPARENCY_TABLE: Record<BlockType, boolean> = (() => {
   const table = {} as Record<BlockType, boolean>
-  Arr.forEach(initialBlocks, (b) => {
-    table[b.type] = b.properties.transparency
-  })
+  for (const block of initialBlocks) table[block.type] = block.properties.transparency
   return table
 })()
 
@@ -38,26 +34,24 @@ const EMISSIVE_LEVEL_OVERRIDES: Partial<Record<BlockType, number>> = {
 
 const EMISSIVE_TABLE: Record<BlockType, number> = (() => {
   const table = {} as Record<BlockType, number>
-  Arr.forEach(initialBlocks, (b) => {
-    table[b.type] = b.properties.emissive ? (EMISSIVE_LEVEL_OVERRIDES[b.type] ?? LIGHT_LEVEL_MAX) : 0
-  })
+  for (const block of initialBlocks) {
+    table[block.type] = block.properties.emissive
+      ? (EMISSIVE_LEVEL_OVERRIDES[block.type] ?? LIGHT_LEVEL_MAX)
+      : LIGHT_LEVEL_MIN
+  }
   return table
 })()
 
 // Uint8Array for tight BFS inner-loop access (avoid object property lookup overhead).
 const TRANSPARENCY_BY_INDEX: Uint8Array = (() => {
-  const arr = new Uint8Array(64)
-  Arr.forEach(initialBlocks, (b) => {
-    arr[blockTypeToIndex(b.type)] = b.properties.transparency ? 1 : 0
-  })
+  const arr = new Uint8Array(BLOCK_COUNT)
+  for (const block of initialBlocks) arr[blockTypeToIndex(block.type)] = block.properties.transparency ? 1 : 0
   return arr
 })()
 
 const EMISSIVE_BY_INDEX: Uint8Array = (() => {
-  const arr = new Uint8Array(64)
-  Arr.forEach(initialBlocks, (b) => {
-    arr[blockTypeToIndex(b.type)] = EMISSIVE_TABLE[b.type]
-  })
+  const arr = new Uint8Array(BLOCK_COUNT)
+  for (const block of initialBlocks) arr[blockTypeToIndex(block.type)] = EMISSIVE_TABLE[block.type]
   return arr
 })()
 
@@ -65,22 +59,38 @@ export const isTransparent = (blockType: BlockType): boolean => TRANSPARENCY_TAB
 
 export const emissiveLightLevel = (blockType: BlockType): number => EMISSIVE_TABLE[blockType]
 
+const isBlockIndexInTable = (blockIdx: number): boolean =>
+  Number.isInteger(blockIdx) && blockIdx >= 0 && blockIdx < BLOCK_COUNT
+
+const transparencyByIndex = (blockIdx: number): 0 | 1 => {
+  if (!isBlockIndexInTable(blockIdx)) return 0
+  return TRANSPARENCY_BY_INDEX[blockIdx] === 1 ? 1 : 0
+}
+
+const emissiveByIndex = (blockIdx: number): number => {
+  if (!isBlockIndexInTable(blockIdx)) return LIGHT_LEVEL_MIN
+  return EMISSIVE_BY_INDEX[blockIdx] ?? LIGHT_LEVEL_MIN
+}
+
 export const isTransparentIndex = (blockIdx: number): boolean =>
-  (TRANSPARENCY_BY_INDEX[blockIdx] ?? 0) === 1
+  transparencyByIndex(blockIdx) === 1
 
 export const emissiveLevelByIndex = (blockIdx: number): number =>
-  EMISSIVE_BY_INDEX[blockIdx] ?? 0
+  emissiveByIndex(blockIdx)
 
 export const createLightBuffer = (): Uint8Array<ArrayBufferLike> => new Uint8Array(LIGHT_BYTE_LENGTH)
 
 const voxelIndex = (lx: number, y: number, lz: number): number => blockIndexUnsafe(lx, y, lz)
 
+const lightByteAt = (grid: Uint8Array, byteIdx: number): number => grid[byteIdx] ?? 0
+
+const blockIndexAt = (blocks: Uint8Array, voxelIdx: number): number => blocks[voxelIdx] ?? 0
+
 // Caller must ensure 0 ≤ lx < CHUNK_SIZE, 0 ≤ y < CHUNK_HEIGHT, 0 ≤ lz < CHUNK_SIZE.
 export const getLightAt = (grid: Uint8Array, lx: number, y: number, lz: number): number => {
   const vi = voxelIndex(lx, y, lz)
   const byteIdx = vi >> 1
-  /* c8 ignore next */
-  const byte = grid[byteIdx] ?? 0
+  const byte = lightByteAt(grid, byteIdx)
   return (vi & 1) === 0 ? byte & 0x0f : (byte >> 4) & 0x0f
 }
 
@@ -88,8 +98,7 @@ export const setLightAt = (grid: Uint8Array, lx: number, y: number, lz: number, 
   const v = value < 0 ? 0 : value > 15 ? 15 : value
   const vi = voxelIndex(lx, y, lz)
   const byteIdx = vi >> 1
-  /* c8 ignore next */
-  const byte = grid[byteIdx] ?? 0
+  const byte = lightByteAt(grid, byteIdx)
   grid[byteIdx] = (vi & 1) === 0
     ? (byte & 0xf0) | v
     : (byte & 0x0f) | (v << 4)
@@ -108,25 +117,22 @@ const packCoord = (x: number, y: number, z: number): number => (x << 13) | (z <<
 const propagateLightBFS = (blocks: Uint8Array, lightGrid: Uint8Array, queue: number[]): void => {
   let head = 0
   while (head < queue.length) {
-    /* c8 ignore next */
-    const packed = queue[head++] ?? 0
+    const packed = queue[head] ?? 0
+    head += 1
     const x = (packed >> 13) & 0x0f
     const z = (packed >> 9) & 0x0f
     const y = packed & 0x1ff
     const currentLevel = getLightAt(lightGrid, x, y, z)
     if (currentLevel <= 1) continue
     const nextLevel = currentLevel - 1
-    for (let i = 0; i < NEIGHBOR_OFFSETS.length; i++) {
-      const offset = NEIGHBOR_OFFSETS[i]!
-      const nx = x + offset[0]
-      const ny = y + offset[1]
-      const nz = z + offset[2]
+    for (const [dx, dy, dz] of NEIGHBOR_OFFSETS) {
+      const nx = x + dx
+      const ny = y + dy
+      const nz = z + dz
       if (nx < 0 || nx >= CHUNK_SIZE || ny < 0 || ny >= CHUNK_HEIGHT || nz < 0 || nz >= CHUNK_SIZE) continue
       const nvi = voxelIndex(nx, ny, nz)
-      /* c8 ignore next */
-      const nBlock = blocks[nvi] ?? 0
-      /* c8 ignore next */
-      if ((TRANSPARENCY_BY_INDEX[nBlock] ?? 0) === 0) continue
+      const nBlock = blockIndexAt(blocks, nvi)
+      if (transparencyByIndex(nBlock) === 0) continue
       const existing = getLightAt(lightGrid, nx, ny, nz)
       if (existing >= nextLevel) continue
       setLightAt(lightGrid, nx, ny, nz, nextLevel)
@@ -143,10 +149,8 @@ export const computeBlockLight = (blocks: Uint8Array, lightGrid: Uint8Array): vo
     for (let z = 0; z < CHUNK_SIZE; z++) {
       for (let y = 0; y < CHUNK_HEIGHT; y++) {
         const vi = voxelIndex(x, y, z)
-        /* c8 ignore next */
-        const blockIdx = blocks[vi] ?? 0
-        /* c8 ignore next */
-        const emit = EMISSIVE_BY_INDEX[blockIdx] ?? 0
+        const blockIdx = blockIndexAt(blocks, vi)
+        const emit = emissiveByIndex(blockIdx)
         if (emit > 0) {
           setLightAt(lightGrid, x, y, z, emit)
           queue.push(packCoord(x, y, z))
@@ -163,8 +167,8 @@ export const computeBlockLight = (blocks: Uint8Array, lightGrid: Uint8Array): vo
 const highestOpaqueY = (blocks: Uint8Array): number => {
   let maxY = -1
   for (let i = 0; i < blocks.length; i++) {
-    const blockIdx = blocks[i]!
-    if (blockIdx !== 0 && (TRANSPARENCY_BY_INDEX[blockIdx] ?? 0) === 0) {
+    const blockIdx = blockIndexAt(blocks, i)
+    if (blockIdx !== 0 && transparencyByIndex(blockIdx) === 0) {
       const y = i & (CHUNK_HEIGHT - 1)
       if (y > maxY) maxY = y
     }
@@ -192,10 +196,8 @@ export const computeSkyLight = (blocks: Uint8Array, lightGrid: Uint8Array): void
       // From the terrain line down: lit + enqueued (shadow boundary) until opaque.
       for (; y >= 0; y--) {
         const vi = voxelIndex(x, y, z)
-        /* c8 ignore next */
-        const blockIdx = blocks[vi] ?? 0
-        /* c8 ignore next */
-        if ((TRANSPARENCY_BY_INDEX[blockIdx] ?? 0) === 0) break
+        const blockIdx = blockIndexAt(blocks, vi)
+        if (transparencyByIndex(blockIdx) === 0) break
         setLightAt(lightGrid, x, y, z, LIGHT_LEVEL_MAX)
         queue.push(packCoord(x, y, z))
       }

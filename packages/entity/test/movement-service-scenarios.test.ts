@@ -1,10 +1,10 @@
 import { describe,it } from '@effect/vitest'
 import {
 DEFAULT_JUMP_VELOCITY,DEFAULT_SPRINT_SPEED,DEFAULT_WALK_SPEED,MovementService,
-MovementServiceLive,PlayerInputService,
+PlayerInputService,SPRINT_JUMP_HORIZONTAL_MULTIPLIER,
 type MovementInput
 } from '@ts-minecraft/entity'
-import { Arbitrary,Effect,Layer,MutableHashMap,MutableHashSet,Option,Schema } from 'effect'
+import { Arbitrary,Effect,MutableHashMap,MutableHashSet,Option,Schema } from 'effect'
 import { expect } from 'vitest'
 import { createTestInputService,createTestLayers } from './movement-service-test-utils'
 
@@ -36,7 +36,7 @@ describe('player/movement-service (integration)', () => {
         isPointerLocked: () => Effect.sync(() => true),
         consumeWheelDelta: () => Effect.sync(() => 0),
       })
-      const testLayers = Layer.succeed(PlayerInputService, inputService)
+      const testLayers = createTestLayers(inputService)
 
       return Effect.gen(function* () {
         const movementService = yield* MovementService
@@ -59,12 +59,12 @@ describe('player/movement-service (integration)', () => {
         expect(velocity2.z).toBeCloseTo(-DEFAULT_SPRINT_SPEED)
         expect(velocity2.y).toBe(0)
 
-        expect(velocity3.z).toBeCloseTo(-DEFAULT_SPRINT_SPEED)
+        expect(velocity3.z).toBeCloseTo(-DEFAULT_SPRINT_SPEED * SPRINT_JUMP_HORIZONTAL_MULTIPLIER)
         expect(velocity3.y).toBe(DEFAULT_JUMP_VELOCITY)
 
         expect(velocity4.z).toBeCloseTo(-DEFAULT_SPRINT_SPEED)
         expect(velocity4.y).toBe(0)
-      }).pipe(Effect.provide(MovementServiceLive), Effect.provide(testLayers))
+      }).pipe(Effect.provide(MovementService.Default), Effect.provide(testLayers))
     })
 
     it.effect('should handle strafing while moving forward', () => {
@@ -77,7 +77,7 @@ describe('player/movement-service (integration)', () => {
         expect(magnitude).toBeCloseTo(DEFAULT_WALK_SPEED, 5)
         expect(velocity.x).toBeGreaterThan(0)
         expect(velocity.z).toBeLessThan(0)
-      }).pipe(Effect.provide(MovementServiceLive), Effect.provide(testLayers))
+      }).pipe(Effect.provide(MovementService.Default), Effect.provide(testLayers))
     })
 
     it.effect('should handle opposite keys cancelling out', () => {
@@ -88,7 +88,7 @@ describe('player/movement-service (integration)', () => {
         const velocity = yield* movementService.update(0, true)
         expect(velocity.x).toBe(0)
         expect(velocity.z).toBe(0)
-      }).pipe(Effect.provide(MovementServiceLive), Effect.provide(testLayers))
+      }).pipe(Effect.provide(MovementService.Default), Effect.provide(testLayers))
     })
 
     it.effect('should handle all movement keys pressed', () => {
@@ -104,36 +104,40 @@ describe('player/movement-service (integration)', () => {
         const velocity = yield* movementService.update(0, true)
         expect(velocity.x).toBe(0)
         expect(velocity.z).toBe(0)
-      }).pipe(Effect.provide(MovementServiceLive), Effect.provide(testLayers))
+      }).pipe(Effect.provide(MovementService.Default), Effect.provide(testLayers))
     })
   })
 
   // ---------------------------------------------------------------------------
-  // D6: Property-based test — velocity magnitude never exceeds sprint speed
+  // D6: Property-based test — velocity magnitude never exceeds sprint-jump speed
   // ---------------------------------------------------------------------------
 
   describe('velocity magnitude invariant (property test)', () => {
     it.effect.prop(
-      '|velocity| ≤ sprintSpeed for any combination of movement inputs and yaw angle',
+      '|velocity| ≤ sprintJumpSpeed for any combination of movement inputs and yaw angle',
       {
         yaw: Arbitrary.make(Schema.Number.pipe(Schema.between(0, Math.PI * 2))),
         forward: Arbitrary.make(Schema.Boolean),
         backward: Arbitrary.make(Schema.Boolean),
         left: Arbitrary.make(Schema.Boolean),
         right: Arbitrary.make(Schema.Boolean),
+        jump: Arbitrary.make(Schema.Boolean),
         sprint: Arbitrary.make(Schema.Boolean),
+        sneak: Arbitrary.make(Schema.Boolean),
         isGrounded: Arbitrary.make(Schema.Boolean),
       },
-      ({ yaw, forward, backward, left, right, sprint, isGrounded }) => {
+      ({ yaw, forward, backward, left, right, jump, sprint, sneak, isGrounded }) => {
         const inputService = createTestInputService()
         const testLayers = createTestLayers(inputService)
-        const input: MovementInput = { forward, backward, left, right, jump: false, sprint }
+        const input: MovementInput = { forward, backward, left, right, jump, sprint, sneak }
         return Effect.gen(function* () {
           const movementService = yield* MovementService
           const velocity = yield* movementService.calculateVelocity(input, yaw, isGrounded)
           const magnitude = Math.sqrt(velocity.x ** 2 + velocity.z ** 2)
-          expect(magnitude).toBeLessThanOrEqual(DEFAULT_SPRINT_SPEED + 0.001)
-        }).pipe(Effect.provide(MovementServiceLive), Effect.provide(testLayers))
+          expect(magnitude).toBeLessThanOrEqual(
+            DEFAULT_SPRINT_SPEED * SPRINT_JUMP_HORIZONTAL_MULTIPLIER + 0.001
+          )
+        }).pipe(Effect.provide(MovementService.Default), Effect.provide(testLayers))
       }
     )
 
@@ -156,7 +160,7 @@ describe('player/movement-service (integration)', () => {
           const velocity = yield* movementService.calculateVelocity(input, yaw, isGrounded)
           const magnitude = Math.sqrt(velocity.x ** 2 + velocity.z ** 2)
           expect(magnitude).toBeLessThanOrEqual(DEFAULT_WALK_SPEED + 0.001)
-        }).pipe(Effect.provide(MovementServiceLive), Effect.provide(testLayers))
+        }).pipe(Effect.provide(MovementService.Default), Effect.provide(testLayers))
       }
     )
 
@@ -179,7 +183,7 @@ describe('player/movement-service (integration)', () => {
           const movementService = yield* MovementService
           const velocity = yield* movementService.calculateVelocity(input, yaw, isGrounded)
           expect(velocity.y === 0 || velocity.y === DEFAULT_JUMP_VELOCITY).toBe(true)
-        }).pipe(Effect.provide(MovementServiceLive), Effect.provide(testLayers))
+        }).pipe(Effect.provide(MovementService.Default), Effect.provide(testLayers))
       }
     )
   })
@@ -201,7 +205,7 @@ describe('player/movement-service (integration)', () => {
         const second = yield* movementService.getInput()
         expect(first.jump).toBe(true)
         expect(second.jump).toBe(true)
-      }).pipe(Effect.provide(MovementServiceLive), Effect.provide(testLayers))
+      }).pipe(Effect.provide(MovementService.Default), Effect.provide(testLayers))
     })
 
     it.effect('held forward and jump both remain true on the second getInput()', () => {
@@ -215,7 +219,7 @@ describe('player/movement-service (integration)', () => {
         expect(second.forward).toBe(true)
         expect(first.jump).toBe(true)
         expect(second.jump).toBe(true)
-      }).pipe(Effect.provide(MovementServiceLive), Effect.provide(testLayers))
+      }).pipe(Effect.provide(MovementService.Default), Effect.provide(testLayers))
     })
 
     it.effect('jump=false from the start: getInput() returns jump=false on both calls', () => {
@@ -227,7 +231,7 @@ describe('player/movement-service (integration)', () => {
         const second = yield* movementService.getInput()
         expect(first.jump).toBe(false)
         expect(second.jump).toBe(false)
-      }).pipe(Effect.provide(MovementServiceLive), Effect.provide(testLayers))
+      }).pipe(Effect.provide(MovementService.Default), Effect.provide(testLayers))
     })
   })
 })

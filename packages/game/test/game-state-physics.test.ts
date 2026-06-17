@@ -2,11 +2,21 @@ import { describe, it, expect } from 'vitest'
 import {
   computeFlightPosition,
   blendVelocityForInput,
+  applyLadderVelocityInto,
+  applyCobwebSlowdownInto,
+  LADDER_CLIMB_SPEED,
+  LADDER_DESCEND_SPEED,
+  LADDER_HOLD_SPEED,
+  COBWEB_HORIZONTAL_MULTIPLIER,
+  COBWEB_VERTICAL_MULTIPLIER,
+  DEFAULT_WATER_HORIZONTAL_DRAG,
+  SLIPPERY_SURFACE_DAMPING,
+  getDepthStriderWaterDrag,
   resolveCollisionOrNoclip,
   applySneakEdgeClamp,
   applySneakEdgeClampInto,
   type Vec3,
-} from '../application/game-state-physics'
+} from '../domain/player-physics'
 import type { Position } from '@ts-minecraft/core'
 
 const pos = (x: number, y: number, z: number): Position => ({ x, y, z } as Position)
@@ -52,6 +62,38 @@ describe('blendVelocityForInput', () => {
     expect(result.y).toBe(-5)
   })
 
+  it('on normal ground with no move input: input x/z still stop horizontal motion', () => {
+    const result = blendVelocityForInput(
+      vec(0, 0, 0),
+      vec(5, -5, 3),
+      { flying: false, flightVy: 0, jumped: false, isGrounded: true, surfaceFriction: 0.6 },
+    )
+    expect(result.x).toBe(0)
+    expect(result.z).toBe(0)
+    expect(result.y).toBe(-5)
+  })
+
+  it('on slippery ground with no move input: keeps horizontal momentum with surface friction', () => {
+    const result = blendVelocityForInput(
+      vec(0, 0, 0),
+      vec(5, -5, 3),
+      { flying: false, flightVy: 0, jumped: false, isGrounded: true, surfaceFriction: 0.98 },
+    )
+    expect(result.x).toBeCloseTo(5 * 0.98 * SLIPPERY_SURFACE_DAMPING)
+    expect(result.z).toBeCloseTo(3 * 0.98 * SLIPPERY_SURFACE_DAMPING)
+    expect(result.y).toBe(-5)
+  })
+
+  it('on slippery ground with move input: input x/z still drive movement', () => {
+    const result = blendVelocityForInput(
+      vec(2, 0, -1),
+      vec(5, -5, 3),
+      { flying: false, flightVy: 0, jumped: false, isGrounded: true, surfaceFriction: 0.98 },
+    )
+    expect(result.x).toBe(2)
+    expect(result.z).toBe(-1)
+  })
+
   it('airborne with move input: uses input x/z (player can steer in the air)', () => {
     const result = blendVelocityForInput(
       vec(2, 0, 3),
@@ -88,6 +130,70 @@ describe('blendVelocityForInput', () => {
       { flying: false, flightVy: 0, jumped: true, isGrounded: true },
     )
     expect(result.y).toBe(7)
+  })
+})
+
+describe('applyLadderVelocityInto', () => {
+  it('preserves horizontal velocity and climbs when jump is held', () => {
+    const target = vec(0, 0, 0)
+    const result = applyLadderVelocityInto(target, vec(1.5, -8, -2), { climbUp: true, climbDown: false })
+    expect(result).toBe(target)
+    expect(target).toEqual(vec(1.5, LADDER_CLIMB_SPEED, -2))
+  })
+
+  it('descends when sneak is held without jump', () => {
+    const target = vec(0, 0, 0)
+    applyLadderVelocityInto(target, vec(1, 4, 2), { climbUp: false, climbDown: true })
+    expect(target).toEqual(vec(1, LADDER_DESCEND_SPEED, 2))
+  })
+
+  it('holds vertical velocity when neither climb nor descend is requested', () => {
+    const target = vec(0, 0, 0)
+    applyLadderVelocityInto(target, vec(1, -4, 2), { climbUp: false, climbDown: false })
+    expect(target).toEqual(vec(1, LADDER_HOLD_SPEED, 2))
+  })
+})
+
+describe('applyCobwebSlowdownInto', () => {
+  it('slows horizontal and vertical velocity in-place', () => {
+    const target = vec(0, 0, 0)
+    const result = applyCobwebSlowdownInto(target, vec(4, -10, -2))
+
+    expect(result).toBe(target)
+    expect(target).toEqual(vec(
+      4 * COBWEB_HORIZONTAL_MULTIPLIER,
+      -10 * COBWEB_VERTICAL_MULTIPLIER,
+      -2 * COBWEB_HORIZONTAL_MULTIPLIER,
+    ))
+  })
+
+  it('supports target aliasing resolvedVelocity', () => {
+    const velocity = vec(4, 8, -4)
+    applyCobwebSlowdownInto(velocity, velocity)
+
+    expect(velocity).toEqual(vec(
+      4 * COBWEB_HORIZONTAL_MULTIPLIER,
+      8 * COBWEB_VERTICAL_MULTIPLIER,
+      -4 * COBWEB_HORIZONTAL_MULTIPLIER,
+    ))
+  })
+})
+
+describe('getDepthStriderWaterDrag', () => {
+  it('keeps the default water drag at level 0', () => {
+    expect(getDepthStriderWaterDrag(0)).toBe(DEFAULT_WATER_HORIZONTAL_DRAG)
+  })
+
+  it('scales horizontal water movement up through level 3', () => {
+    expect(getDepthStriderWaterDrag(1)).toBeCloseTo(0.6)
+    expect(getDepthStriderWaterDrag(2)).toBeCloseTo(0.8)
+    expect(getDepthStriderWaterDrag(3)).toBeCloseTo(1)
+  })
+
+  it('clamps invalid and out-of-range levels', () => {
+    expect(getDepthStriderWaterDrag(-1)).toBe(DEFAULT_WATER_HORIZONTAL_DRAG)
+    expect(getDepthStriderWaterDrag(4)).toBe(1)
+    expect(getDepthStriderWaterDrag(Number.NaN)).toBe(DEFAULT_WATER_HORIZONTAL_DRAG)
   })
 })
 

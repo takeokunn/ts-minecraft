@@ -8,7 +8,7 @@ const InventorySlotSaveEntrySchema = Schema.Struct({
   slot: SlotIndexSchema,
   itemType: InventoryItemSchema,
   count: Schema.Number.pipe(Schema.int(), Schema.between(1, 64)),
-  durability: Schema.optional(Schema.Number.pipe(Schema.int(), Schema.nonNegative())),
+  durability: Schema.NullOr(Schema.Number.pipe(Schema.int(), Schema.nonNegative())),
 })
 
 export type InventorySlotSaveEntry = Schema.Schema.Type<typeof InventorySlotSaveEntrySchema>

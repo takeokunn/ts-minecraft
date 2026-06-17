@@ -1,10 +1,10 @@
 import { describe, it } from '@effect/vitest'
-import { expect } from 'vitest'
+import { expect, vi } from 'vitest'
 import { Effect, MutableRef, Option } from 'effect'
 import * as THREE from 'three'
-import { TimeService, TimeServiceLive } from '@ts-minecraft/game'
-import { updateDayNightCycle, computeDaylightFactor, computeTerrainSunIntensity, TERRAIN_NIGHT_LIGHT_FLOOR, type DayNightLights } from '@ts-minecraft/game'
-import type { DeltaTimeSecs, ColorPort } from '@ts-minecraft/core'
+import { TimeService } from '@ts-minecraft/game'
+import { updateDayNightCycle, computeDaylightFactor, computeTerrainSunIntensity, resolveDayNightCycleState, TERRAIN_NIGHT_LIGHT_FLOOR, type DayNightLights } from '@ts-minecraft/game'
+import { DeltaTimeSecs, type ColorPort, type MoonPhasePort } from '@ts-minecraft/core'
 import type { SkyMaterialPort } from '@ts-minecraft/core'
 
 // Lightweight stub for DayNightLights.
@@ -25,8 +25,30 @@ const makeFakeLights = (): DayNightLights & {
     skyDay: new THREE.Color(0xffffff),
     skyCurrent: new THREE.Color(),
     sky: Option.none(),
+    moon: Option.none(),
     capturedClearColor: capturedColorRef,
   }
+}
+
+const makeFakeMoon = () => {
+  const state = { x: 0, y: 0, z: 0, phase: -1, visible: false, opacity: -1 }
+  const port: MoonPhasePort = {
+    setPosition: vi.fn((x: number, y: number, z: number) => {
+      state.x = x
+      state.y = y
+      state.z = z
+    }),
+    setPhase: vi.fn((phase: number) => {
+      state.phase = phase
+    }),
+    setVisible: vi.fn((visible: boolean) => {
+      state.visible = visible
+    }),
+    setOpacity: vi.fn((opacity: number) => {
+      state.opacity = opacity
+    }),
+  }
+  return { state, port }
 }
 
 const DIRECT_LIGHT_MIN = 0.3
@@ -69,6 +91,28 @@ describe('application/time/day-night-cycle', () => {
     })
   })
 
+  describe('resolveDayNightCycleState', () => {
+    it('derives the sun arc and moon state from the same time-of-day input', () => {
+      const noon = resolveDayNightCycleState(0.5)
+      expect(noon.sunAngle).toBeCloseTo(Math.PI / 2, 5)
+      expect(noon.cosSun).toBeCloseTo(0, 5)
+      expect(noon.sinSun).toBeCloseTo(1, 5)
+      expect(noon.dayFactor).toBeCloseTo(1, 5)
+      expect(noon.horizonBlend).toBeCloseTo(0, 5)
+      expect(noon.moonElevation).toBeCloseTo(-1, 5)
+      expect(noon.moonOpacity).toBeCloseTo(0, 5)
+
+      const dawn = resolveDayNightCycleState(0.25)
+      expect(dawn.sunAngle).toBeCloseTo(0, 5)
+      expect(dawn.cosSun).toBeCloseTo(1, 5)
+      expect(dawn.sinSun).toBeCloseTo(0, 5)
+      expect(dawn.dayFactor).toBeCloseTo(0.5, 5)
+      expect(dawn.horizonBlend).toBeCloseTo(0.5, 5)
+      expect(dawn.moonElevation).toBeCloseTo(0, 5)
+      expect(dawn.moonOpacity).toBeCloseTo(0, 5)
+    })
+  })
+
   describe('updateDayNightCycle — noon (timeOfDay=0.5)', () => {
     it.effect('should give maximum direct light intensity at noon', () =>
       // dayFactor = sin((0.5 - 0.25) * π * 2) = sin(π/2) = 1.0
@@ -80,7 +124,7 @@ describe('application/time/day-night-cycle', () => {
         const lights = makeFakeLights()
         yield* updateDayNightCycle(0 as DeltaTimeSecs, lights, timeService)
         expect(lights.light.intensity).toBeCloseTo(DIRECT_LIGHT_MIN + DIRECT_LIGHT_RANGE, 5)
-      }).pipe(Effect.provide(TimeServiceLive))
+      }).pipe(Effect.provide(TimeService.Default))
     )
 
     it.effect('should give maximum ambient light intensity at noon', () =>
@@ -93,7 +137,7 @@ describe('application/time/day-night-cycle', () => {
         const lights = makeFakeLights()
         yield* updateDayNightCycle(0 as DeltaTimeSecs, lights, timeService)
         expect(lights.ambientLight.intensity).toBeCloseTo(AMBIENT_LIGHT_MIN + AMBIENT_LIGHT_RANGE, 5)
-      }).pipe(Effect.provide(TimeServiceLive))
+      }).pipe(Effect.provide(TimeService.Default))
     )
   })
 
@@ -108,7 +152,7 @@ describe('application/time/day-night-cycle', () => {
         const lights = makeFakeLights()
         yield* updateDayNightCycle(0 as DeltaTimeSecs, lights, timeService)
         return lights.light.position
-      }).pipe(Effect.provide(TimeServiceLive))
+      }).pipe(Effect.provide(TimeService.Default))
 
     it.effect('sun is directly overhead at noon (x≈0, above horizon)', () =>
       Effect.gen(function* () {
@@ -164,7 +208,7 @@ describe('application/time/day-night-cycle', () => {
         const lights = makeFakeLights()
         yield* updateDayNightCycle(0 as DeltaTimeSecs, lights, timeService)
         expect(lights.light.intensity).toBeCloseTo(DIRECT_LIGHT_MIN, 5)
-      }).pipe(Effect.provide(TimeServiceLive))
+      }).pipe(Effect.provide(TimeService.Default))
     )
 
     it.effect('should give minimum ambient light intensity at midnight', () =>
@@ -176,7 +220,7 @@ describe('application/time/day-night-cycle', () => {
         const lights = makeFakeLights()
         yield* updateDayNightCycle(0 as DeltaTimeSecs, lights, timeService)
         expect(lights.ambientLight.intensity).toBeCloseTo(AMBIENT_LIGHT_MIN, 5)
-      }).pipe(Effect.provide(TimeServiceLive))
+      }).pipe(Effect.provide(TimeService.Default))
     )
   })
 
@@ -198,7 +242,7 @@ describe('application/time/day-night-cycle', () => {
         expect(lights.light.intensity).toBeCloseTo(DIRECT_LIGHT_MIN + TWILIGHT_DAY_FACTOR * DIRECT_LIGHT_RANGE, 5)
         expect(lights.light.intensity).toBeGreaterThan(DIRECT_LIGHT_MIN)
         expect(lights.light.intensity).toBeLessThan(DIRECT_LIGHT_MIN + DIRECT_LIGHT_RANGE)
-      }).pipe(Effect.provide(TimeServiceLive))
+      }).pipe(Effect.provide(TimeService.Default))
     )
 
     it.effect('should give twilight (half) ambient light intensity at dawn', () =>
@@ -210,7 +254,7 @@ describe('application/time/day-night-cycle', () => {
         yield* updateDayNightCycle(0 as DeltaTimeSecs, lights, timeService)
         expect(lights.ambientLight.intensity).toBeCloseTo(AMBIENT_LIGHT_MIN + TWILIGHT_DAY_FACTOR * AMBIENT_LIGHT_RANGE, 5)
         expect(lights.ambientLight.intensity).toBeGreaterThan(AMBIENT_LIGHT_MIN)
-      }).pipe(Effect.provide(TimeServiceLive))
+      }).pipe(Effect.provide(TimeService.Default))
     )
   })
 
@@ -227,7 +271,7 @@ describe('application/time/day-night-cycle', () => {
         expect(lights.light.intensity).toBeCloseTo(DIRECT_LIGHT_MIN + TWILIGHT_DAY_FACTOR * DIRECT_LIGHT_RANGE, 4)
         // Regression: the old model collapsed dusk to DIRECT_LIGHT_MIN (pitch black).
         expect(lights.light.intensity).toBeGreaterThan(DIRECT_LIGHT_MIN + 0.2)
-      }).pipe(Effect.provide(TimeServiceLive))
+      }).pipe(Effect.provide(TimeService.Default))
     )
   })
 
@@ -247,7 +291,7 @@ describe('application/time/day-night-cycle', () => {
         const after = yield* timeService.getTimeOfDay()
 
         expect(after).toBeGreaterThan(before)
-      }).pipe(Effect.provide(TimeServiceLive))
+      }).pipe(Effect.provide(TimeService.Default))
     )
 
     it.effect('should not advance time when deltaTime is 0', () =>
@@ -262,7 +306,43 @@ describe('application/time/day-night-cycle', () => {
         const after = yield* timeService.getTimeOfDay()
 
         expect(after).toBeCloseTo(before, 10)
-      }).pipe(Effect.provide(TimeServiceLive))
+      }).pipe(Effect.provide(TimeService.Default))
+    )
+  })
+
+  describe('updateDayNightCycle — moon phase', () => {
+    it.effect('sets the phase and shows the moon at midnight', () =>
+      Effect.gen(function* () {
+        const timeService = yield* TimeService
+        yield* timeService.setDayLength(120)
+        yield* timeService.setTimeOfDay(0)
+        yield* timeService.advanceTick(DeltaTimeSecs.make(120 * 3))
+        const moon = makeFakeMoon()
+        const lights = { ...makeFakeLights(), moon: Option.some(moon.port) }
+
+        yield* updateDayNightCycle(0 as DeltaTimeSecs, lights, timeService)
+
+        expect(moon.state.phase).toBe(3)
+        expect(moon.state.visible).toBe(true)
+        expect(moon.state.opacity).toBeCloseTo(1, 5)
+        expect(moon.state.y).toBeGreaterThan(0)
+      }).pipe(Effect.provide(TimeService.Default))
+    )
+
+    it.effect('hides the moon at noon', () =>
+      Effect.gen(function* () {
+        const timeService = yield* TimeService
+        yield* timeService.setDayLength(120)
+        yield* timeService.setTimeOfDay(0.5)
+        const moon = makeFakeMoon()
+        const lights = { ...makeFakeLights(), moon: Option.some(moon.port) }
+
+        yield* updateDayNightCycle(0 as DeltaTimeSecs, lights, timeService)
+
+        expect(moon.state.visible).toBe(false)
+        expect(moon.state.opacity).toBeCloseTo(0, 5)
+        expect(moon.state.y).toBeLessThan(0)
+      }).pipe(Effect.provide(TimeService.Default))
     )
   })
 
@@ -280,7 +360,7 @@ describe('application/time/day-night-cycle', () => {
         expect(lights.skyCurrent.r).toBeCloseTo(0, 3)
         expect(lights.skyCurrent.g).toBeCloseTo(0, 3)
         expect(lights.skyCurrent.b).toBeCloseTo(0, 3)
-      }).pipe(Effect.provide(TimeServiceLive))
+      }).pipe(Effect.provide(TimeService.Default))
     )
 
     it.effect('should call setClearColor at noon (sky near white)', () =>
@@ -295,7 +375,7 @@ describe('application/time/day-night-cycle', () => {
         expect(lights.skyCurrent.r).toBeCloseTo(1, 3)
         expect(lights.skyCurrent.g).toBeCloseTo(1, 3)
         expect(lights.skyCurrent.b).toBeCloseTo(1, 3)
-      }).pipe(Effect.provide(TimeServiceLive))
+      }).pipe(Effect.provide(TimeService.Default))
     )
 
     it.effect('should also set clearColor when the physical sky is enabled', () =>
@@ -321,7 +401,7 @@ describe('application/time/day-night-cycle', () => {
         expect(Option.isSome(MutableRef.get(lights.capturedClearColor))).toBe(true)
         expect(fakeSky.uniforms.turbidity.value).toBeGreaterThan(0)
         expect(fakeSky.uniforms.rayleigh.value).toBeGreaterThan(0)
-      }).pipe(Effect.provide(TimeServiceLive))
+      }).pipe(Effect.provide(TimeService.Default))
     )
   })
 
@@ -342,7 +422,7 @@ describe('application/time/day-night-cycle', () => {
             expect(lights.ambientLight.intensity).toBeGreaterThanOrEqual(AMBIENT_LIGHT_MIN)
           })
         , { concurrency: 1 })
-      }).pipe(Effect.provide(TimeServiceLive))
+      }).pipe(Effect.provide(TimeService.Default))
     })
 
     it.effect('should produce intensities no greater than max (DIRECT_LIGHT_MIN + DIRECT_LIGHT_RANGE)', () => {
@@ -364,7 +444,7 @@ describe('application/time/day-night-cycle', () => {
             )
           })
         , { concurrency: 1 })
-      }).pipe(Effect.provide(TimeServiceLive))
+      }).pipe(Effect.provide(TimeService.Default))
     })
   })
 })

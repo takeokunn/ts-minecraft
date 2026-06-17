@@ -1,10 +1,25 @@
 // Mob schemas and branded constructors
-export { EntityIdSchema, EntityId, EntityTypeSchema, MobBehaviorSchema, EntitySchema } from './mob/entity'
-export type { EntityId as EntityIdType, EntityType, MobBehavior, Entity } from './mob/entity'
-export { MobDefinitionSchema } from './mob/mobs/mob-definition'
-export type { MobDefinition } from './mob/mobs/mob-definition'
-export { AIStateSchema, AITransitionContextSchema, AIMotionContextSchema } from './mob/state-machine'
-export type { AIState, AITransitionContext, AIMotionContext } from './mob/state-machine'
+export {
+  EntityIdSchema,
+  EntityId,
+  EntityTypeSchema,
+  MobBehaviorSchema,
+  EntitySchema,
+  MobDefinitionSchema,
+  AIStateSchema,
+  AITransitionContextSchema,
+  AIMotionContextSchema,
+} from './mob'
+export type {
+  EntityId as EntityIdType,
+  EntityType,
+  MobBehavior,
+  Entity,
+  MobDefinition,
+  AIState,
+  AITransitionContext,
+  AIMotionContext,
+} from './mob'
 
 // Player schemas
 export { CameraRotationSchema, CameraModeSchema } from './camera-state'
@@ -22,14 +37,14 @@ export {
   RedstoneComponentStateSchema,
   RedstoneComponentSchema,
   RedstoneTickSnapshotSchema,
-} from './redstone/redstone-model'
+} from './redstone'
 export type {
   RedstonePowerLevel as RedstonePowerLevelType,
   RedstoneComponentType,
   RedstoneComponentState,
   RedstoneComponent,
   RedstoneTickSnapshot,
-} from './redstone/redstone-model'
+} from './redstone'
 
 // Village schemas and branded constructors
 export {
@@ -45,7 +60,7 @@ export {
   VillagerActivitySchema,
   VillagerSchema,
   VillageSchema,
-} from './village/village-model'
+} from './village'
 export type {
   VillageId as VillageIdType,
   VillageStructureId as VillageStructureIdType,
@@ -56,7 +71,7 @@ export type {
   VillagerActivity,
   Villager,
   Village,
-} from './village/village-model'
+} from './village'
 
 // Trading schemas and branded constructors
 export {
@@ -65,10 +80,10 @@ export {
   TradeStackSchema,
   TradeOfferSchema,
   TradeFailureReasonSchema,
-} from './trading/trading-model'
+} from './trading'
 export type {
   TradeOfferId as TradeOfferIdType,
   TradeStack,
   TradeOffer,
   TradeFailureReason,
-} from './trading/trading-model'
+} from './trading'

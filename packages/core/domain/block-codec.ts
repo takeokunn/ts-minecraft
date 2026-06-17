@@ -1,5 +1,8 @@
-import { Array as Arr, Option } from 'effect'
+import { Option } from 'effect'
 import { BlockType } from './block-type'
+
+declare const BlockTypeIndexBrand: unique symbol
+export type BlockTypeIndex = number & { readonly [BlockTypeIndexBrand]: true }
 
 // Single source of truth for storage indices. Array position = storage index (0=AIR, 1=DIRT, …).
 export const INDEX_TO_BLOCK_TYPE: ReadonlyArray<BlockType> = [
@@ -26,6 +29,15 @@ export const INDEX_TO_BLOCK_TYPE: ReadonlyArray<BlockType> = [
   'CHORUS_FLOWER', 'CHORUS_PLANT', 'DRAGON_EGG', 'END_CRYSTAL', 'END_GATEWAY', 'END_ROD',
   'END_STONE_BRICKS', 'ENDER_CHEST', 'PURPUR_BLOCK', 'PURPUR_PILLAR', 'PURPUR_SLAB',
   'PURPUR_STAIRS', 'SHULKER_BOX',
+  // Storage - index 72
+  'CHEST',
+  // Doors - indices 73-74
+  'DOOR', 'DOOR_OPEN',
+  // Nether / passable utility / plants / ice - indices 75-88
+  'GLOWSTONE', 'LADDER', 'COBWEB', 'SAPLING',
+  'DANDELION', 'POPPY', 'BROWN_MUSHROOM', 'RED_MUSHROOM',
+  'TALL_GRASS', 'FERN', 'SUGAR_CANE', 'CACTUS',
+  'LILY_PAD', 'ICE',
 ]
 
 export const BLOCK_COUNT = INDEX_TO_BLOCK_TYPE.length
@@ -36,10 +48,18 @@ export const BLOCK_TYPE_TO_INDEX: Readonly<Record<BlockType, number>> = Object.f
   INDEX_TO_BLOCK_TYPE.map((type, idx) => [type, idx])
 ) as Readonly<Record<BlockType, number>>
 
-export const blockTypeToIndex = (blockType: BlockType): number => BLOCK_TYPE_TO_INDEX[blockType]
+export const blockTypeToIndex = (blockType: BlockType): BlockTypeIndex => BLOCK_TYPE_TO_INDEX[blockType] as BlockTypeIndex
 
 export const isValidBlockType = (value: string): value is BlockType =>
   Object.hasOwn(BLOCK_TYPE_TO_INDEX, value)
 
-export const indexToBlockType = (index: number): BlockType =>
-  Option.getOrElse(Arr.get(INDEX_TO_BLOCK_TYPE, index), () => 'AIR' as const)
+export const isValidBlockIndex = (index: unknown): index is BlockTypeIndex =>
+  typeof index === 'number' && Number.isInteger(index) && index >= 0 && index < BLOCK_COUNT
+
+export const decodeBlockIndex = (index: unknown): Option.Option<BlockTypeIndex> =>
+  isValidBlockIndex(index) ? Option.some(index) : Option.none()
+
+export const decodeBlockType = (index: unknown): Option.Option<BlockType> =>
+  Option.map(decodeBlockIndex(index), indexToBlockType)
+
+export const indexToBlockType = (index: BlockTypeIndex): BlockType => INDEX_TO_BLOCK_TYPE[index]!

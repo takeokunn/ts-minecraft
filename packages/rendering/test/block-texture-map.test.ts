@@ -75,6 +75,22 @@ describe('infrastructure/three/textures/block-texture-map', () => {
         { blockType: 'CRAFTING_TABLE', expectedTileIndex: 43 },
         { blockType: 'FURNACE', expectedTileIndex: 44 },
         { blockType: 'TORCH', expectedTileIndex: 45 },
+        { blockType: 'DOOR', expectedTileIndex: 41 },
+        { blockType: 'DOOR_OPEN', expectedTileIndex: 41 },
+        { blockType: 'GLOWSTONE', expectedTileIndex: 113 },
+        { blockType: 'LADDER', expectedTileIndex: 41 },
+        { blockType: 'COBWEB', expectedTileIndex: 101 },
+        { blockType: 'SAPLING', expectedTileIndex: 102 },
+        { blockType: 'DANDELION', expectedTileIndex: 103 },
+        { blockType: 'POPPY', expectedTileIndex: 104 },
+        { blockType: 'BROWN_MUSHROOM', expectedTileIndex: 105 },
+        { blockType: 'RED_MUSHROOM', expectedTileIndex: 106 },
+        { blockType: 'TALL_GRASS', expectedTileIndex: 107 },
+        { blockType: 'FERN', expectedTileIndex: 108 },
+        { blockType: 'SUGAR_CANE', expectedTileIndex: 109 },
+        { blockType: 'CACTUS', expectedTileIndex: 110 },
+        { blockType: 'LILY_PAD', expectedTileIndex: 111 },
+        { blockType: 'ICE', expectedTileIndex: 112 },
       ]
 
       Arr.forEach(cases, ({ blockType, expectedTileIndex }) => {
@@ -83,6 +99,13 @@ describe('infrastructure/three/textures/block-texture-map', () => {
           expect(getTileIndex(blockId, face)).toBe(expectedTileIndex)
         })
       })
+    })
+
+    it('should map CHEST to chest-like atlas tiles', () => {
+      const blockId = blockTypeToIndex('CHEST')
+      expect(getTileIndex(blockId, 'top')).toBe(73)
+      expect(getTileIndex(blockId, 'bottom')).toBe(74)
+      expect(getTileIndex(blockId, 'side')).toBe(74)
     })
   })
 

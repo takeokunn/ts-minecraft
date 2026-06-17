@@ -54,7 +54,7 @@ describe('Phase 18 The End type schemas', () => {
 describe('Phase 18 The End block storage and config', () => {
   it('appends new End block indices after existing storage indices', () => {
     expect(INDEX_TO_BLOCK_TYPE[58]).toBe('TNT')
-    expect(INDEX_TO_BLOCK_TYPE.slice(59)).toEqual([...endBlockTypes])
+    expect(INDEX_TO_BLOCK_TYPE.slice(59, 59 + endBlockTypes.length)).toEqual([...endBlockTypes])
     Arr.forEach(endBlockTypes, (type) => {
       expect(indexToBlockType(blockTypeToIndex(type))).toBe(type)
       expect(isValidBlockType(type)).toBe(true)

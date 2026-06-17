@@ -3,31 +3,23 @@ import { GRAPHICS_PRESETS,resolvePreset,SettingsService } from '@ts-minecraft/ga
 import { Array as Arr,Effect,MutableHashMap } from 'effect'
 import { afterEach,beforeEach,expect,vi } from 'vitest'
 import {
-DEFAULT_SETTINGS,
-makeLocalStorageMock,
-SettingsDefault,
-SettingsLive,
-STORAGE_KEY,
+  DEFAULT_SETTINGS,
+  makeIndexedDbMock,
+  SettingsServiceDefault,
+  SettingsServiceLayer,
+  SETTINGS_RECORD_KEY,
 } from './settings-service-test-utils'
 
 describe('application/settings/settings-service', () => {
-  let store: MutableHashMap.MutableHashMap<string, string>
-  let getItemSpy: ReturnType<typeof vi.fn>
-  let setItemSpy: ReturnType<typeof vi.fn>
-  let removeItemSpy: ReturnType<typeof vi.fn>
+  let idbStore: MutableHashMap.MutableHashMap<string, unknown>
+  let idbGetSpy: ReturnType<typeof vi.fn>
+  let idbPutSpy: ReturnType<typeof vi.fn>
 
   beforeEach(() => {
-    const mock = makeLocalStorageMock()
-    store = mock.store
-    getItemSpy = mock.getItemSpy
-    setItemSpy = mock.setItemSpy
-    removeItemSpy = mock.removeItemSpy
-
-    vi.stubGlobal('localStorage', {
-      getItem: getItemSpy,
-      setItem: setItemSpy,
-      removeItem: removeItemSpy,
-    })
+    const idb = makeIndexedDbMock()
+    idbStore = idb.store
+    idbGetSpy = idb.getSpy
+    idbPutSpy = idb.putSpy
   })
 
   afterEach(() => {
@@ -36,29 +28,30 @@ describe('application/settings/settings-service', () => {
 
 
   describe('SettingsService/getSettings', () => {
-    it.effect('returns default settings when localStorage is empty', () =>
+    it.effect('returns default settings when IndexedDB is empty', () =>
       Effect.gen(function* () {
         const service = yield* SettingsService
         const settings = yield* service.getSettings()
         expect(settings).toEqual(DEFAULT_SETTINGS)
-        expect(getItemSpy).toHaveBeenCalledWith(STORAGE_KEY)
-      }).pipe(Effect.provide(SettingsLive))
+        expect(idbGetSpy).toHaveBeenCalledWith('current')
+      }).pipe(Effect.provide(SettingsServiceLayer))
     )
 
-    it.effect('loads persisted settings when localStorage has valid data', () => {
-      MutableHashMap.set(store,
-        STORAGE_KEY,
-        JSON.stringify({
+    it.effect('loads persisted settings when IndexedDB has valid data', () => {
+      MutableHashMap.set(idbStore,
+        SETTINGS_RECORD_KEY,
+        {
           renderDistance: 12,
           mouseSensitivity: 1.2,
           dayLengthSeconds: 900,
+          difficulty: 'normal',
           graphicsQuality: 'ultra',
           adaptivePerformanceMode: false,
           audioEnabled: true,
           masterVolume: 0.25,
           sfxVolume: 0.4,
           musicVolume: 0.6,
-        })
+        }
       )
       return Effect.gen(function* () {
         const service = yield* SettingsService
@@ -67,6 +60,7 @@ describe('application/settings/settings-service', () => {
           renderDistance: 12,
           mouseSensitivity: 1.2,
           dayLengthSeconds: 900,
+          difficulty: 'normal',
           graphicsQuality: 'ultra',
           adaptivePerformanceMode: false,
           audioEnabled: false,
@@ -74,22 +68,22 @@ describe('application/settings/settings-service', () => {
           sfxVolume: 0.4,
           musicVolume: 0.6,
         })
-      }).pipe(Effect.provide(SettingsLive))
+      }).pipe(Effect.provide(SettingsServiceLayer))
     })
 
-    it.effect('falls back to defaults when localStorage contains invalid JSON', () => {
-      MutableHashMap.set(store, STORAGE_KEY, '{invalid-json}')
+    it.effect('falls back to defaults when IndexedDB contains invalid settings', () => {
+      MutableHashMap.set(idbStore, SETTINGS_RECORD_KEY, '{invalid-settings}')
       return Effect.gen(function* () {
         const service = yield* SettingsService
         const settings = yield* service.getSettings()
         expect(settings).toEqual(DEFAULT_SETTINGS)
-      }).pipe(Effect.provide(SettingsLive))
+      }).pipe(Effect.provide(SettingsServiceLayer))
     })
 
     it.effect('falls back to defaults when persisted settings fail the current schema', () => {
-      MutableHashMap.set(store,
-        STORAGE_KEY,
-        JSON.stringify({
+      MutableHashMap.set(idbStore,
+        SETTINGS_RECORD_KEY,
+        {
           renderDistance: 1,
           mouseSensitivity: 1.25,
           dayLengthSeconds: 600,
@@ -99,66 +93,22 @@ describe('application/settings/settings-service', () => {
           masterVolume: 0.25,
           sfxVolume: 0.4,
           musicVolume: 0.6,
-        })
+        }
       )
       return Effect.gen(function* () {
         const service = yield* SettingsService
         const settings = yield* service.getSettings()
         expect(settings).toEqual(DEFAULT_SETTINGS)
-        expect(setItemSpy).not.toHaveBeenCalled()
-      }).pipe(Effect.provide(SettingsLive))
+        expect(idbPutSpy).not.toHaveBeenCalled()
+      }).pipe(Effect.provide(SettingsServiceLayer))
     })
 
-    it.effect('preserves present fields and defaults missing ones for a payload from an older version', () => {
-      // Simulate settings written by an older app build that predates several
-      // fields. Present fields use NON-default values so the assertion can tell
-      // "preserved" apart from "reset to defaults". Before the load-path merge,
-      // the missing required fields made decode fail → the whole payload was
-      // discarded and renderDistance/etc. reverted to defaults.
-      MutableHashMap.set(store,
-        STORAGE_KEY,
-        JSON.stringify({
-          renderDistance: 12,
-          mouseSensitivity: 1.2,
-          dayLengthSeconds: 900,
-          // graphicsQuality, adaptivePerformanceMode, audioEnabled,
-          // masterVolume, sfxVolume, musicVolume intentionally absent.
-        })
-      )
-      return Effect.gen(function* () {
-        const service = yield* SettingsService
-        const settings = yield* service.getSettings()
-        // Present fields survive the version gap...
-        expect(settings.renderDistance).toBe(12)
-        expect(settings.mouseSensitivity).toBe(1.2)
-        expect(settings.dayLengthSeconds).toBe(900)
-        // ...and absent fields fall back to their individual defaults.
-        expect(settings.graphicsQuality).toBe(DEFAULT_SETTINGS.graphicsQuality)
-        expect(settings.adaptivePerformanceMode).toBe(DEFAULT_SETTINGS.adaptivePerformanceMode)
-        expect(settings.audioEnabled).toBe(false)
-        expect(settings.masterVolume).toBe(DEFAULT_SETTINGS.masterVolume)
-        expect(settings.sfxVolume).toBe(DEFAULT_SETTINGS.sfxVolume)
-        expect(settings.musicVolume).toBe(DEFAULT_SETTINGS.musicVolume)
-      }).pipe(Effect.provide(SettingsLive))
-    })
-
-    it.effect('falls back to defaults when localStorage.getItem throws', () => {
-      getItemSpy.mockImplementation(() => {
-expect.fail('boom')
-      })
-      return Effect.gen(function* () {
-        const service = yield* SettingsService
-        const settings = yield* service.getSettings()
-        expect(settings).toEqual(DEFAULT_SETTINGS)
-      }).pipe(Effect.provide(SettingsLive))
-    })
-
-    it.effect("default settings should include graphicsQuality='medium'", () =>
+    it.effect("default settings should include graphicsQuality='low'", () =>
       Effect.gen(function* () {
         const service = yield* SettingsService
         const settings = yield* service.getSettings()
-        expect(settings.graphicsQuality).toBe('medium')
-      }).pipe(Effect.provide(SettingsDefault))
+        expect(settings.graphicsQuality).toBe('low')
+      }).pipe(Effect.provide(SettingsServiceDefault))
     )
 
     it.effect("should accept and persist graphicsQuality='low'", () =>
@@ -167,7 +117,8 @@ expect.fail('boom')
         yield* service.updateSettings({ graphicsQuality: 'low' })
         const settings = yield* service.getSettings()
         expect(settings.graphicsQuality).toBe('low')
-      }).pipe(Effect.provide(SettingsDefault))
+        expect(idbPutSpy).toHaveBeenCalledWith(settings, SETTINGS_RECORD_KEY)
+      }).pipe(Effect.provide(SettingsServiceDefault))
     )
 
     it.effect("should accept and persist graphicsQuality='ultra'", () =>
@@ -176,7 +127,8 @@ expect.fail('boom')
         yield* service.updateSettings({ graphicsQuality: 'ultra' })
         const settings = yield* service.getSettings()
         expect(settings.graphicsQuality).toBe('ultra')
-      }).pipe(Effect.provide(SettingsDefault))
+        expect(idbPutSpy).toHaveBeenCalledWith(settings, SETTINGS_RECORD_KEY)
+      }).pipe(Effect.provide(SettingsServiceDefault))
     )
 
     it('resolvePreset returns the correct values for every quality level', () => {

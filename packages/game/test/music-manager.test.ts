@@ -2,7 +2,7 @@ import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
 import { Effect, Layer, MutableRef, Option } from 'effect'
 import { AudioEnginePort, type AudioEnginePortShape, type ToneRequest } from '@ts-minecraft/game'
-import { MusicManager, MusicManagerLive } from '@ts-minecraft/game'
+import { MusicManager } from '@ts-minecraft/game'
 
 const makeFakeAudioEngine = () => {
   const playRequests: ToneRequest[] = []
@@ -32,7 +32,7 @@ const makeFakeAudioEngine = () => {
 }
 
 const makeMusicLayer = (engine: AudioEnginePortShape) =>
-  MusicManagerLive.pipe(
+  MusicManager.Default.pipe(
     Layer.provide(Layer.succeed(AudioEnginePort, engine)),
   )
 

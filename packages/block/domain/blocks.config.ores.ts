@@ -1,10 +1,32 @@
+import { Option } from 'effect'
 import { Block } from './block'
-import { BlockId } from '@ts-minecraft/core'
+import { BlockId, type BlockType } from '@ts-minecraft/core'
 import { defaultBlockFaces } from './blocks.config.terrain'
 
 // XP awarded when a player breaks an ore block (vanilla Java Edition values).
 // Iron and gold drop raw ore items (no XP at break time; XP comes from smelting).
-const ORE_XP_TABLE: Readonly<Partial<Record<string, number>>> = {
+const ORE_XP_BLOCK_TYPES = [
+  'COAL_ORE',
+  'DEEPSLATE_COAL_ORE',
+  'IRON_ORE',
+  'DEEPSLATE_IRON_ORE',
+  'GOLD_ORE',
+  'DEEPSLATE_GOLD_ORE',
+  'DIAMOND_ORE',
+  'DEEPSLATE_DIAMOND_ORE',
+  'EMERALD_ORE',
+  'DEEPSLATE_EMERALD_ORE',
+  'LAPIS_ORE',
+  'DEEPSLATE_LAPIS_ORE',
+  'REDSTONE_ORE',
+  'DEEPSLATE_REDSTONE_ORE',
+] as const satisfies ReadonlyArray<BlockType>
+
+export type OreXpBlockType = typeof ORE_XP_BLOCK_TYPES[number]
+
+const ORE_XP_BLOCK_TYPE_SET: ReadonlySet<BlockType> = new Set<BlockType>(ORE_XP_BLOCK_TYPES)
+
+const ORE_XP_TABLE = {
   COAL_ORE: 5, DEEPSLATE_COAL_ORE: 5,
   IRON_ORE: 0, DEEPSLATE_IRON_ORE: 0,
   GOLD_ORE: 0, DEEPSLATE_GOLD_ORE: 0,
@@ -12,10 +34,15 @@ const ORE_XP_TABLE: Readonly<Partial<Record<string, number>>> = {
   EMERALD_ORE: 7, DEEPSLATE_EMERALD_ORE: 7,
   LAPIS_ORE: 5, DEEPSLATE_LAPIS_ORE: 5,
   REDSTONE_ORE: 5, DEEPSLATE_REDSTONE_ORE: 5,
-  NETHER_QUARTZ_ORE: 5,
-}
+} as const satisfies Readonly<Record<OreXpBlockType, number>>
 
-export const getOreXpDrop = (blockType: string): number => ORE_XP_TABLE[blockType] ?? 0
+export const isOreXpBlock = (blockType: BlockType): blockType is OreXpBlockType =>
+  ORE_XP_BLOCK_TYPE_SET.has(blockType)
+
+export const getOreXpDrop = (blockType: OreXpBlockType): number => ORE_XP_TABLE[blockType]
+
+export const getOreXpDropOption = (blockType: BlockType): Option.Option<number> =>
+  isOreXpBlock(blockType) ? Option.some(getOreXpDrop(blockType)) : Option.none()
 
 // Hardness on the shared 0-100 scale (see blocks.config.terrain.ts), preserving
 // vanilla relative ordering: stone-tier ore(50, vanilla 3.0 = deepslate) <

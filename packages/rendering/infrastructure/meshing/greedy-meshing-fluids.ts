@@ -14,7 +14,7 @@ const ZERO_AO = [0, 0, 0, 0] as const satisfies readonly [number, number, number
 
 export const meshFluidFaces = (
   blocks: Readonly<Uint8Array>,
-  fluid: Readonly<Uint8Array<ArrayBufferLike>> | undefined,
+  fluid: Readonly<Uint8Array<ArrayBufferLike>>,
   lightGrids: LightGrids | undefined,
   opaqueAcc: MeshAccumulator,
   getWaterAcc: () => MeshAccumulator,
@@ -22,8 +22,7 @@ export const meshFluidFaces = (
   transparentSolidLookup: Uint8Array,
   offset: ChunkWorldOffset,
   // Exclusive Y bound = highest non-air block + 1. Fluid is non-air, so none exists above
-  // it — capping the scan here skips the empty air column (the common no-fluid chunk
-  // otherwise scanned all 65536 cells calling resolveFluidState for nothing).
+  // it; capping the scan here skips the empty air column.
   yLimit: number,
 ): void => {
   const emitFluidQuad = (

@@ -1,4 +1,4 @@
-import { Array as Arr, Effect, Ref, HashMap, Option } from 'effect'
+import { Effect, Ref, HashMap, Option } from 'effect'
 import * as THREE from 'three'
 import { MaterialCacheKey } from '@ts-minecraft/core'
 
@@ -21,14 +21,15 @@ export class BlockMeshService extends Effect.Service<BlockMeshService>()(
           const material = yield* Effect.sync(() => new THREE.MeshLambertMaterial({
             color: typeof colorOrUrl === 'string' ? colorOrUrl : colorOrUrl,
           }))
-          yield* Ref.update(materialCache, (c) => HashMap.set(c, cacheKey, material))
+          const cache = yield* Ref.get(materialCache)
+          yield* Ref.set(materialCache, HashMap.set(cache, cacheKey, material))
           return material
         })
 
       yield* Effect.addFinalizer(() => Effect.gen(function* () {
         const cache = yield* Ref.get(materialCache)
         yield* Effect.sync(() => {
-          Arr.forEach(Arr.fromIterable(HashMap.values(cache)), (mat) => mat.dispose())
+          for (const mat of HashMap.values(cache)) mat.dispose()
         })
       }))
 
@@ -57,11 +58,13 @@ export class BlockMeshService extends Effect.Service<BlockMeshService>()(
                 (mat) =>
                   Effect.gen(function* () {
                     const cache = yield* Ref.get(materialCache)
-                    const cacheKeyOpt = Option.map(
-                      Arr.findFirst(Arr.fromIterable(cache), ([, m]) => m === mat),
-                      ([k]) => k
-                    )
-                    if (Option.isNone(cacheKeyOpt)) yield* Effect.sync(() => mat.dispose())
+                    let cached = false
+                    for (const [, cachedMaterial] of cache) {
+                      if (cachedMaterial !== mat) continue
+                      cached = true
+                      break
+                    }
+                    if (!cached) yield* Effect.sync(() => mat.dispose())
                   }),
                 { concurrency: 1 }
               )
@@ -72,7 +75,7 @@ export class BlockMeshService extends Effect.Service<BlockMeshService>()(
           Effect.gen(function* () {
             const cache = yield* Ref.get(materialCache)
             yield* Effect.sync(() => {
-              Arr.forEach(Arr.fromIterable(HashMap.values(cache)), (material) => material.dispose())
+              for (const material of HashMap.values(cache)) material.dispose()
             })
             yield* Ref.set(materialCache, HashMap.empty())
           }),
@@ -80,4 +83,3 @@ export class BlockMeshService extends Effect.Service<BlockMeshService>()(
     }),
   }
 ) {}
-export const BlockMeshServiceLive = BlockMeshService.Default

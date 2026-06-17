@@ -1,5 +1,5 @@
 import { Effect } from 'effect'
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import * as THREE from 'three'
 import { createRemotePlayerRenderer, type RemotePlayerState } from './remote-player-renderer'
 
@@ -98,6 +98,20 @@ const addedGroup = (scene: Pick<THREE.Scene, 'add' | 'remove'>): MockObject3D =>
   return add.mock.calls[0]?.[0] as MockObject3D
 }
 
+const makeCanvasDocument = (context: object | null) => ({
+  createElement: vi.fn((tagName: string) => {
+    expect(tagName).toBe('canvas')
+    return {
+      width: 0,
+      height: 0,
+      getContext: vi.fn((type: string) => {
+        expect(type).toBe('2d')
+        return context
+      }),
+    }
+  }),
+})
+
 // Walk a player group and collect every GPU resource that owns a dispose() —
 // geometries, materials, and any texture map hanging off a SpriteMaterial.
 const collectDisposables = (group: MockObject3D): Array<{ dispose: ReturnType<typeof vi.fn> }> => {
@@ -117,6 +131,10 @@ const collectDisposables = (group: MockObject3D): Array<{ dispose: ReturnType<ty
 }
 
 describe('infrastructure/player/remote-player-renderer', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
   it('addPlayer creates a THREE.Group and adds it to the scene', () => {
     const scene = makeScene()
     const renderer = createRemotePlayerRenderer(scene, new THREE.Camera())
@@ -146,6 +164,31 @@ describe('infrastructure/player/remote-player-renderer', () => {
     expect(addedGroup(scene).position).toMatchObject({ x: 9, y: 65, z: 3 })
   })
 
+  it('addPlayer updates an existing player instead of adding another scene node', () => {
+    const scene = makeScene()
+    const renderer = createRemotePlayerRenderer(scene, new THREE.Camera())
+
+    Effect.runSync(renderer.addPlayer(makeState()))
+    Effect.runSync(renderer.addPlayer(makeState({ position: { x: -3, y: 72, z: 11 }, rotation: { yaw: 1.2, pitch: -0.2 } })))
+
+    expect(scene.add).toHaveBeenCalledTimes(1)
+    expect(addedGroup(scene).position).toMatchObject({ x: -3, y: 72, z: 11 })
+    expect(addedGroup(scene).rotation.y).toBe(1.2)
+    expect(addedGroup(scene).children[0]?.rotation.x).toBe(-0.2)
+  })
+
+  it('updatePlayer and removePlayer ignore unknown player IDs', () => {
+    const scene = makeScene()
+    const renderer = createRemotePlayerRenderer(scene, new THREE.Camera())
+
+    Effect.runSync(renderer.updatePlayer('missing', makeState()))
+    Effect.runSync(renderer.removePlayer('missing'))
+
+    expect(scene.add).not.toHaveBeenCalled()
+    expect(scene.remove).not.toHaveBeenCalled()
+    expect(Effect.runSync(renderer.getAllPlayerIds)).toEqual(new Set())
+  })
+
   it('removePlayer removes from scene and internal map', () => {
     const scene = makeScene()
     const renderer = createRemotePlayerRenderer(scene, new THREE.Camera())
@@ -173,6 +216,60 @@ describe('infrastructure/player/remote-player-renderer', () => {
     Effect.runSync(renderer.removePlayer('player-1'))
 
     for (const resource of disposables) expect(resource.dispose).toHaveBeenCalledTimes(1)
+  })
+
+  it('removePlayer disposes mesh material arrays', () => {
+    const scene = makeScene()
+    const renderer = createRemotePlayerRenderer(scene, new THREE.Camera())
+
+    Effect.runSync(renderer.addPlayer(makeState()))
+    const materialA = { dispose: vi.fn() }
+    const materialB = { dispose: vi.fn() }
+    const multiMaterialNode = Object.assign(new THREE.Group(), {
+      material: [materialA, materialB],
+    }) as unknown as MockObject3D
+    addedGroup(scene).add(multiMaterialNode)
+
+    Effect.runSync(renderer.removePlayer('player-1'))
+
+    expect(materialA.dispose).toHaveBeenCalledTimes(1)
+    expect(materialB.dispose).toHaveBeenCalledTimes(1)
+  })
+
+  it('creates and disposes the canvas-backed name-tag texture when document is available', () => {
+    const context = {
+      fillStyle: '',
+      font: '',
+      textAlign: '',
+      textBaseline: '',
+      fillRect: vi.fn(),
+      fillText: vi.fn(),
+    }
+    vi.stubGlobal('document', makeCanvasDocument(context))
+    const scene = makeScene()
+    const renderer = createRemotePlayerRenderer(scene, new THREE.Camera())
+
+    Effect.runSync(renderer.addPlayer(makeState({ playerName: 'Alex' })))
+    const disposables = collectDisposables(addedGroup(scene))
+
+    expect(context.fillRect).toHaveBeenCalledWith(0, 0, 256, 64)
+    expect(context.fillText).toHaveBeenCalledWith('Alex', 128, 32)
+    expect(disposables.length).toBe(14)
+
+    Effect.runSync(renderer.removePlayer('player-1'))
+
+    for (const resource of disposables) expect(resource.dispose).toHaveBeenCalledTimes(1)
+  })
+
+  it('creates a canvas-backed name tag even when a 2d context is unavailable', () => {
+    vi.stubGlobal('document', makeCanvasDocument(null))
+    const scene = makeScene()
+    const renderer = createRemotePlayerRenderer(scene, new THREE.Camera())
+
+    Effect.runSync(renderer.addPlayer(makeState()))
+
+    expect(scene.add).toHaveBeenCalledTimes(1)
+    expect(collectDisposables(addedGroup(scene)).length).toBe(14)
   })
 
   it('updateFromSnapshot disposes resources of players that have left', () => {

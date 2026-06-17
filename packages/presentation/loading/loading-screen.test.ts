@@ -1,7 +1,7 @@
 import { describe, it } from '@effect/vitest'
 import { expect, vi } from 'vitest'
 import { Effect, Layer, Option } from 'effect'
-import { LoadingScreenService, LoadingScreenLive } from '@ts-minecraft/presentation/loading/loading-screen'
+import { LoadingScreenService } from '@ts-minecraft/presentation/loading/loading-screen'
 import { DomOperationsService } from '@ts-minecraft/presentation/hud/crosshair'
 
 // ---------------------------------------------------------------------------
@@ -64,7 +64,7 @@ const createMockDomLayer = () => {
 }
 
 const buildTestLayer = (mockDom = createMockDomLayer()) =>
-  LoadingScreenLive.pipe(
+  LoadingScreenService.Default.pipe(
     Layer.provide(mockDom.MockDomLayer),
   )
 
@@ -92,13 +92,14 @@ describe('presentation/loading/loading-screen', () => {
     return Effect.gen(function* () {
       const loading = yield* LoadingScreenService
       yield* loading.hide()
+      yield* loading.show()
 
       expect(mockDom.createElement).toHaveBeenCalledWith('style')
       expect(mockDom.createElement).toHaveBeenCalledWith('div')
       expect(appendToHead).toHaveBeenCalledTimes(1)
       expect(mockDom.overlayEl.id).toBe('loading-screen')
       expect(mockDom.overlayEl.style.cssText).toContain('position:fixed')
-      expect(mockDom.overlayEl.style.display).toBe('none')
+      expect(mockDom.overlayEl.style.display).toBe('flex')
       expect(mockDom.overlayEl.children).toHaveLength(3)
     }).pipe(Effect.provide(TestLayer), Effect.ensuring(Effect.sync(() => {
       Reflect.deleteProperty(globalThis as object, 'document')
@@ -130,17 +131,44 @@ describe('presentation/loading/loading-screen', () => {
     })))
   })
 
-  describe('LoadingScreenLive — layer provision', () => {
+  it.scoped('show should restore the loading view after an error', () => {
+    const mockDom = createMockDomLayer()
+    const appendToHead = vi.fn((element: unknown) => {
+      ;(element as { parentNode?: unknown }).parentNode = { removeChild: vi.fn() }
+    })
+
+    Reflect.set(globalThis as object, 'document', {
+      head: { appendChild: appendToHead },
+    })
+
+    const TestLayer = buildTestLayer(mockDom)
+
+    return Effect.gen(function* () {
+      const loading = yield* LoadingScreenService
+      yield* loading.showError('broken')
+      yield* loading.show()
+
+      expect(mockDom.overlayEl.style.display).toBe('flex')
+      expect(mockDom.overlayEl.children).toHaveLength(3)
+      const loadingTextNode = mockDom.overlayEl.children[2] as { textContent: string }
+      expect(loadingTextNode.textContent).toBe('Loading...')
+    }).pipe(Effect.provide(TestLayer), Effect.ensuring(Effect.sync(() => {
+      Reflect.deleteProperty(globalThis as object, 'document')
+    })))
+  })
+
+  describe('LoadingScreenService.Default — layer provision', () => {
     it.scoped('should provide LoadingScreen as a Layer without error', () => {
       const TestLayer = buildTestLayer()
       return Effect.gen(function* () {
         const loading = yield* LoadingScreenService
         expect(typeof loading.hide).toBe('function')
+        expect(typeof loading.show).toBe('function')
       }).pipe(Effect.provide(TestLayer))
     })
 
     it('should be defined', () => {
-      expect(LoadingScreenLive).toBeDefined()
+      expect(LoadingScreenService.Default).toBeDefined()
     })
   })
 

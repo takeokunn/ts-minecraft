@@ -2,7 +2,7 @@ import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
 import { Array as Arr, HashMap, Option } from 'effect'
 import { ChunkCacheKey } from '@ts-minecraft/core'
-import { findLRUKey } from '../application/chunk-manager-ops'
+import { findLRUKey } from '../application/chunk-manager-ops-selection'
 
 const key = (x: number, z: number): ChunkCacheKey => ChunkCacheKey.make({ x, z })
 

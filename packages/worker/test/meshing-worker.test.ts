@@ -112,19 +112,14 @@ describe('infrastructure/meshing/meshing-worker', () => {
     )
   })
 
-  it('uses the fallback id for malformed requests without a finite numeric id', async () => {
+  it('drops malformed requests that do not carry a valid request id', async () => {
     const selfMock = installWorkerSelf()
 
     await import('../infrastructure/meshing/meshing-worker')
 
     selfMock.onmessage?.({ data: null } as MessageEvent<unknown>)
 
-    expect(selfMock.postMessage).toHaveBeenCalledWith(
-      expect.objectContaining({
-        id: -1,
-        kind: 'failure',
-      })
-    )
+    expect(selfMock.postMessage).not.toHaveBeenCalled()
   })
 
   it('uses valid light buffers and transfers water geometry buffers when water is meshed', async () => {

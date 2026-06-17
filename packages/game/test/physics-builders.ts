@@ -8,7 +8,6 @@ import { DeltaTimeSecs } from '@ts-minecraft/core'
 import type { WorldConfig } from '@ts-minecraft/game'
 import {
   PhysicsService,
-  PhysicsServiceLive,
   PhysicsWorldPortLayer,
   RigidBodyPortLayer,
   ShapePortLayer,
@@ -42,7 +41,7 @@ export const MAX_FRAME_DT = DeltaTimeSecs.make(0.05)
 // ---------------------------------------------------------------------------
 
 /** Layer that wires all physics port implementations into PhysicsService. */
-export const PhysicsTestLayer = PhysicsServiceLive.pipe(
+export const PhysicsTestLayer = PhysicsService.Default.pipe(
   Layer.provide(PhysicsWorldPortLayer),
   Layer.provide(RigidBodyPortLayer),
   Layer.provide(ShapePortLayer),
@@ -128,6 +127,19 @@ export const BLOCK_IDS = {
   LEAVES: 7,
   LAVA: 17,
   TORCH: 43,
+  LADDER: 76,
+  COBWEB: 77,
+  SAPLING: 78,
+  DANDELION: 79,
+  POPPY: 80,
+  BROWN_MUSHROOM: 81,
+  RED_MUSHROOM: 82,
+  TALL_GRASS: 83,
+  FERN: 84,
+  SUGAR_CANE: 85,
+  CACTUS: 86,
+  LILY_PAD: 87,
+  ICE: 88,
 } as const
 
 /**

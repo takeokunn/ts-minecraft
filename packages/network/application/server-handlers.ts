@@ -2,7 +2,7 @@ import { Effect, Queue, Ref } from 'effect'
 import { NetworkError } from '../domain/errors'
 import { MessageType, PlayerId, WorldId } from '../domain/schemas'
 import type { BlockBreakMessage, BlockPlaceMessage, ChatMessage, NetworkMessage, PlayerJoinMessage, PlayerMoveMessage } from '../domain/schemas'
-import type { WebSocketConnection } from '../infrastructure/websocket-server'
+import type { WebSocketConnection } from '../domain/websocket-ports'
 import { decodeNetworkMessage, sendEncodedToConnection } from './codec'
 import type { ConnectedPlayer, GameServer, ServerServiceShape } from './server-service'
 
@@ -43,7 +43,7 @@ export const handlePlayerJoin = (
         message: 'Server is full',
         timestamp: Date.now(),
       })
-      yield* Effect.fail(new NetworkError({ operation: 'capacity', reason: 'server is full' }))
+      return yield* Effect.fail(new NetworkError({ operation: 'capacity', reason: 'server is full' }))
     }
 
     const playerId = nextPlayerId()
@@ -139,14 +139,12 @@ export const handleChat = (
   message: ChatMessage,
 ): Effect.Effect<void, NetworkError> => services.serverService.broadcast(message)
 
-const handlePing = (connection: WebSocketConnection, message: NetworkMessage): Effect.Effect<void, NetworkError> => {
-  if (message.type !== MessageType.Ping) return Effect.void
-  return sendEncodedToConnection(connection, {
+const handlePing = (connection: WebSocketConnection, message: Extract<NetworkMessage, { type: typeof MessageType.Ping }>): Effect.Effect<void, NetworkError> =>
+  sendEncodedToConnection(connection, {
     type: MessageType.Pong,
     nonce: message.nonce,
     timestamp: Date.now(),
   })
-}
 
 export const dispatchMessage = (
   services: ServerHandlerServices,

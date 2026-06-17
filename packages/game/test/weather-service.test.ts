@@ -39,6 +39,25 @@ describe('WeatherService', () => {
     }).pipe(Effect.provide(WeatherService.Default))
   )
 
+  it.effect('serializes current weather and remaining duration', () =>
+    Effect.gen(function* () {
+      const svc = yield* WeatherService
+      yield* svc.tick(10)
+      const state = yield* svc.serialize()
+      expect(state).toEqual({ weather: 'clear', remainingSecs: 590 })
+    }).pipe(Effect.provide(WeatherService.Default))
+  )
+
+  it.effect('restores weather state and continues the saved cycle', () =>
+    Effect.gen(function* () {
+      const svc = yield* WeatherService
+      yield* svc.restore({ weather: 'rain', remainingSecs: 1 })
+      expect(yield* svc.getWeather()).toBe('rain')
+      expect(yield* svc.tick(0.5)).toBe('rain')
+      expect(yield* svc.tick(0.6)).toBe('thunder')
+    }).pipe(Effect.provide(WeatherService.Default))
+  )
+
   it.effect('transitions: clear → rain → thunder → clear', () =>
     Effect.gen(function* () {
       const svc = yield* WeatherService

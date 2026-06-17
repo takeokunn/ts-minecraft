@@ -1,6 +1,6 @@
 import { Effect, Layer, Option } from 'effect'
 import { vi } from 'vitest'
-import { SettingsOverlayLive } from '@ts-minecraft/presentation/settings/settings-overlay'
+import { SettingsOverlayService } from '@ts-minecraft/presentation/settings/settings-overlay'
 import { SettingsService } from '@ts-minecraft/game'
 import { DomOperationsService } from '@ts-minecraft/presentation/hud/crosshair'
 
@@ -157,7 +157,7 @@ export const buildTestLayer = (
   mockDom = createMockDomLayer(),
   mockSettings = createMockSettingsLayer(),
 ) =>
-  SettingsOverlayLive.pipe(
+  SettingsOverlayService.Default.pipe(
     Layer.provide(mockDom.MockDomLayer),
     Layer.provide(mockSettings.MockSettingsLayer),
   )

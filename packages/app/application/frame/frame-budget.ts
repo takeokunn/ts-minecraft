@@ -7,8 +7,8 @@
 // pipeline. These pure helpers derive the same values from the active target
 // FPS so that callers can stay framerate-agnostic.
 //
-// The constants below are chosen so that `targetFps = 60` reproduces the
-// previous hard-coded values exactly (4 ms / 8 chunks / 4 dirty chunks).
+// The constants below keep the 60 FPS chunk-sync time budget at 4 ms while
+// lowering per-frame chunk upload/remesh hard caps for low-spec hardware.
 
 import { Schema } from 'effect'
 
@@ -45,19 +45,20 @@ export const computeChunkSyncBudgetMs = (targetFps: TargetFps | number): number 
 
 /**
  * Hard-cap on chunk meshes added to the scene per frame.
- * 60 FPS → 8, 120 FPS → 16, 240 FPS → 32. Higher refresh rates can absorb
- * more chunk work because each frame is shorter and we want roughly the same
- * wall-clock throughput regardless of FPS.
+ * 60 FPS → 4, 120 FPS → 2, 240 FPS → 1. Higher refresh rates get smaller
+ * per-frame chunks of work because each frame has less wall-clock budget.
+ * Lower FPS targets can drain more work per frame while preserving roughly
+ * the same wall-clock throughput.
  */
 export const computeMaxChunkUpdatesPerFrame = (targetFps: TargetFps | number): number =>
-  Math.ceil((8 * fpsValue(targetFps)) / 60)
+  Math.max(1, Math.ceil(240 / fpsValue(targetFps)))
 
 /**
  * Hard-cap on dirty chunk remeshes flushed per frame.
- * 60 FPS → 4, 120 FPS → 8, 240 FPS → 16.
+ * 60 FPS → 2, 120 FPS → 1, 240 FPS → 1.
  */
 export const computeMaxDirtyChunkUpdatesPerFrame = (targetFps: TargetFps | number): number =>
-  Math.ceil((4 * fpsValue(targetFps)) / 60)
+  Math.max(1, Math.ceil(computeMaxChunkUpdatesPerFrame(targetFps) / 2))
 
 /**
  * Default target FPS used by the rest of the engine until `SettingsSchema`
@@ -69,7 +70,7 @@ export const computeMaxDirtyChunkUpdatesPerFrame = (targetFps: TargetFps | numbe
  * `app`→`game` for a bare value). Since R-perf-3 the game loop pins simulate+render
  * emission to 60 fps via a carry-over accumulator, so the chunk-work budgets must be
  * derived at 60 — NOT the display refresh rate. Budgeting at 120 while the loop runs
- * at 60 doubled the per-frame chunk-geometry staging caps (16 new + 8 dirty instead of
- * the intended 8 + 4), amplifying the new-chunk upload spike (R-perf-2).
+ * at 60 would change the per-frame chunk-geometry staging caps and amplify new-chunk
+ * upload/remesh spikes (R-perf-2).
  */
 export const DEFAULT_TARGET_FPS: TargetFps = TargetFps.make(60)

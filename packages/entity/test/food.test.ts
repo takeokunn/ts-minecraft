@@ -1,8 +1,9 @@
 import { describe, it } from '@effect/vitest'
-import { getFoodProperties, isFood, FOOD_TABLE } from '@ts-minecraft/entity'
+import { getFoodProperties, isFood, FOOD_ITEMS } from '@ts-minecraft/entity'
 import type { ItemType } from '@ts-minecraft/core'
-import { Array as Arr, Option } from 'effect'
+import { Array as Arr } from 'effect'
 import { expect } from 'vitest'
+import { expectSome } from './test-utils'
 
 // ─── getFoodProperties ──────────────────────────────────────────────────────
 
@@ -11,7 +12,12 @@ describe('getFoodProperties', () => {
     ['APPLE', 4, 0.3],
     ['BREAD', 5, 0.6],
     ['CARROT', 3, 0.6],
+    ['RAW_PORKCHOP', 3, 0.3],
     ['COOKED_PORKCHOP', 8, 0.8],
+    ['RAW_MUTTON', 2, 0.3],
+    ['COOKED_MUTTON', 6, 0.8],
+    ['RAW_CHICKEN', 2, 0.3],
+    ['COOKED_CHICKEN', 6, 0.6],
     ['COOKED_BEEF', 8, 0.8],
     ['RAW_BEEF', 3, 0.3],
     ['GOLDEN_APPLE', 4, 1.2],
@@ -21,7 +27,7 @@ describe('getFoodProperties', () => {
 
   Arr.forEach(cases, ([item, foodLevel, saturationModifier]) => {
     it(`returns the restoration values for ${item}`, () => {
-      const props = Option.getOrThrow(getFoodProperties(item))
+      const props = expectSome(getFoodProperties(item))
       expect(props.foodLevel).toBe(foodLevel)
       expect(props.saturationModifier).toBe(saturationModifier)
     })
@@ -36,33 +42,31 @@ describe('getFoodProperties', () => {
 // ─── FOOD_TABLE completeness ─────────────────────────────────────────────────
 
 describe('FOOD_TABLE completeness', () => {
-  const allFoodItems = Object.keys(FOOD_TABLE) as ReadonlyArray<ItemType>
-
   it('every key in FOOD_TABLE is recognized by isFood', () => {
-    for (const item of allFoodItems) {
+    for (const item of FOOD_ITEMS) {
       expect(isFood(item), `${item} is in FOOD_TABLE but isFood returns false`).toBe(true)
     }
   })
 
   it('every key in FOOD_TABLE yields Some from getFoodProperties', () => {
-    for (const item of allFoodItems) {
+    for (const item of FOOD_ITEMS) {
       expect(
-        Option.isSome(getFoodProperties(item)),
+        expectSome(getFoodProperties(item)),
         `${item} is in FOOD_TABLE but getFoodProperties returns None`,
       ).toBe(true)
     }
   })
 
   it('every food entry has positive foodLevel and saturationModifier', () => {
-    for (const item of allFoodItems) {
-      const props = Option.getOrThrow(getFoodProperties(item))
+    for (const item of FOOD_ITEMS) {
+      const props = expectSome(getFoodProperties(item))
       expect(props.foodLevel, `${item}.foodLevel must be > 0`).toBeGreaterThan(0)
       expect(props.saturationModifier, `${item}.saturationModifier must be > 0`).toBeGreaterThan(0)
     }
   })
 
-  it('covers all 15 registered food items (prevents silent omissions)', () => {
-    expect(allFoodItems.length).toBe(15)
+  it('covers all 20 registered food items (prevents silent omissions)', () => {
+    expect(FOOD_ITEMS.length).toBe(20)
   })
 })
 
@@ -88,6 +92,9 @@ describe('isFood', () => {
   // matching vanilla. (Cooking them is still better value.) Guards against the
   // earlier gap where raw fish were edible but RAW_BEEF — a cow drop — was not.
   it('treats all raw mob-drop foods as edible', () => {
+    expect(isFood('RAW_PORKCHOP')).toBe(true)
+    expect(isFood('RAW_MUTTON')).toBe(true)
+    expect(isFood('RAW_CHICKEN')).toBe(true)
     expect(isFood('RAW_BEEF')).toBe(true)
     expect(isFood('RAW_COD')).toBe(true)
     expect(isFood('RAW_SALMON')).toBe(true)

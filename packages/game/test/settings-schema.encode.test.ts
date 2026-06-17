@@ -8,6 +8,7 @@ describe('SettingsSchema encode round-trip', () => {
     renderDistance: 8,
     mouseSensitivity: 0.5,
     dayLengthSeconds: 400,
+    difficulty: 'normal',
     graphicsQuality: 'high',
     adaptivePerformanceMode: false,
     audioEnabled: false, // NOTE: false intentionally — matches DEFAULT_SETTINGS in settings-service.ts
@@ -21,6 +22,7 @@ describe('SettingsSchema encode round-trip', () => {
     expect(encoded.renderDistance).toBe(8)
     expect(encoded.mouseSensitivity).toBe(0.5)
     expect(encoded.dayLengthSeconds).toBe(400)
+    expect(encoded.difficulty).toBe('normal')
     expect(encoded.graphicsQuality).toBe('high')
     expect(encoded.adaptivePerformanceMode).toBe(false)
   })
@@ -31,6 +33,7 @@ describe('SettingsSchema encode round-trip', () => {
     expect(decoded.renderDistance).toBe(validSettings.renderDistance)
     expect(decoded.mouseSensitivity).toBe(validSettings.mouseSensitivity)
     expect(decoded.dayLengthSeconds).toBe(validSettings.dayLengthSeconds)
+    expect(decoded.difficulty).toBe(validSettings.difficulty)
     expect(decoded.graphicsQuality).toBe(validSettings.graphicsQuality)
     expect(decoded.adaptivePerformanceMode).toBe(validSettings.adaptivePerformanceMode)
   })
@@ -82,6 +85,20 @@ describe('SettingsSchema encode round-trip', () => {
     const encoded = Schema.encodeSync(SettingsSchema)(settings)
     const decoded = Schema.decodeUnknownSync(SettingsSchema)(encoded)
     expect(decoded.graphicsQuality).toBe('low')
+  })
+
+  it('decode accepts valid difficulty values', () => {
+    Arr.forEach(['peaceful', 'easy', 'normal', 'hard'] as const, (difficulty) => {
+      expect(() =>
+        Schema.decodeUnknownSync(SettingsSchema)({ ...validSettings, difficulty })
+      ).not.toThrow()
+    })
+  })
+
+  it('decode rejects invalid difficulty string', () => {
+    expect(() =>
+      Schema.decodeUnknownSync(SettingsSchema)({ ...validSettings, difficulty: 'creative' })
+    ).toThrow()
   })
 
   it('round-trips with adaptivePerformanceMode=true', () => {

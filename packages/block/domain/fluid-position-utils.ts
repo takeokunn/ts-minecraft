@@ -1,4 +1,4 @@
-import { Array as Arr, HashSet, Option } from 'effect'
+import { HashSet, Option } from 'effect'
 import { CHUNK_HEIGHT, CHUNK_SIZE, blockIndex } from '@ts-minecraft/core'
 import type { ChunkCoord } from '@ts-minecraft/core'
 import type { FluidType } from './fluid'
@@ -9,7 +9,6 @@ import {
   FluidKey,
   LAVA_INDEX,
   LAVA_MAX_LEVEL,
-  NOTIFY_OFFSETS,
   WATER_INDEX,
   WATER_MAX_LEVEL,
   XZ_STRIDE,
@@ -19,6 +18,26 @@ import {
 
 export const blockKey = (position: Position): FluidKeyType =>
   FluidKey((Math.floor(position.x) + BIAS) * XZ_STRIDE + Math.floor(position.y) * Y_STRIDE + (Math.floor(position.z) + BIAS))
+
+
+export const blockKeyFromChunkIndex = (chunkCoord: ChunkCoord, idx: number): FluidKeyType => {
+  const y = idx % CHUNK_HEIGHT
+  const column = Math.floor(idx / CHUNK_HEIGHT)
+  const z = column % CHUNK_SIZE
+  const x = Math.floor(column / CHUNK_SIZE)
+  return FluidKey((chunkCoord.x * CHUNK_SIZE + x + BIAS) * XZ_STRIDE + y * Y_STRIDE + (chunkCoord.z * CHUNK_SIZE + z + BIAS))
+}
+
+export const enqueueKey = (frontier: HashSet.HashSet<FluidKeyType>, key: FluidKeyType): HashSet.HashSet<FluidKeyType> => {
+  let next = HashSet.add(frontier, key)
+  next = HashSet.add(next, FluidKey(key + Y_STRIDE))
+  next = HashSet.add(next, FluidKey(key - Y_STRIDE))
+  next = HashSet.add(next, FluidKey(key + XZ_STRIDE))
+  next = HashSet.add(next, FluidKey(key - XZ_STRIDE))
+  next = HashSet.add(next, FluidKey(key + 1))
+  next = HashSet.add(next, FluidKey(key - 1))
+  return next
+}
 
 export const parseKey = (key: FluidKeyType): Position => {
   const biasedX = Math.floor(key / XZ_STRIDE)
@@ -39,15 +58,7 @@ export const localY = (position: Position): number => Math.floor(position.y)
 export const localZ = (position: Position): number => floorMod(Math.floor(position.z), CHUNK_SIZE)
 
 export const enqueue = (frontier: HashSet.HashSet<FluidKeyType>, position: Position): HashSet.HashSet<FluidKeyType> =>
-  Arr.reduce(
-    NOTIFY_OFFSETS,
-    HashSet.add(frontier, blockKey(position)),
-    (acc, offset) => HashSet.add(acc, blockKey({
-      x: position.x + offset.x,
-      y: position.y + offset.y,
-      z: position.z + offset.z,
-    }))
-  )
+  enqueueKey(frontier, blockKey(position))
 
 export const chunkCoordsForPosition = (position: Position): ChunkCoord => ({
   x: Math.floor(position.x / CHUNK_SIZE),

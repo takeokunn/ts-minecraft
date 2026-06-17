@@ -5,17 +5,17 @@ import { StorageServicePort } from '@ts-minecraft/world'
 import { FLUID_BYTE_LENGTH } from '@ts-minecraft/world'
 import {
   NoiseServicePort,
-  NoiseServiceLive,
-  BiomeServiceLive,
+  NoiseService,
+  BiomeService,
   ChunkManagerService,
-  ChunkManagerServiceLive,
+  ChunkManagerService,
 } from '@ts-minecraft/world'
 import { TerrainWorkerPoolPortLayer } from '@ts-minecraft/worker'
-import { ChunkServiceLive } from '@ts-minecraft/world/application/chunk-service'
+import { ChunkService } from '@ts-minecraft/world/application/chunk-service'
 import { DEFAULT_WORLD_ID } from '@ts-minecraft/core'
 import {
   makeInMemoryStorage,
-  LightEngineNoopLive,
+  LightEngineNoopLayer,
   EXPECTED_BLOCKS_LENGTH,
 } from './chunk-manager-test-utils'
 import { storedChunkPayload } from '../application/chunk-manager-cache'
@@ -46,16 +46,16 @@ describe('application/chunk/chunk-manager-service (storage)', () => {
 
       const StorageTestLayer = Layer.succeed(StorageServicePort, storage)
       const NoiseLayer = NoiseServicePort.Default
-      const BiomeTestLayer = BiomeServiceLive.pipe(Layer.provide(NoiseLayer))
+      const BiomeTestLayer = BiomeService.Default.pipe(Layer.provide(NoiseLayer))
 
-      const TestLayer = ChunkManagerServiceLive.pipe(
-        Layer.provide(ChunkServiceLive),
+      const TestLayer = ChunkManagerService.Default.pipe(
+        Layer.provide(ChunkService.Default),
         Layer.provide(StorageTestLayer),
         Layer.provide(BiomeTestLayer),
         Layer.provide(NoiseLayer),
-        Layer.provide(NoiseServiceLive),
+        Layer.provide(NoiseService.Default),
         Layer.provide(TerrainWorkerPoolPortLayer),
-        Layer.provide(LightEngineNoopLive),
+        Layer.provide(LightEngineNoopLayer),
       )
 
       return Effect.gen(function* () {
@@ -92,16 +92,16 @@ describe('application/chunk/chunk-manager-service (storage)', () => {
 
       const StorageTestLayer = Layer.succeed(StorageServicePort, storage)
       const NoiseLayer = NoiseServicePort.Default
-      const BiomeTestLayer = BiomeServiceLive.pipe(Layer.provide(NoiseLayer))
+      const BiomeTestLayer = BiomeService.Default.pipe(Layer.provide(NoiseLayer))
 
-      const TestLayer = ChunkManagerServiceLive.pipe(
-        Layer.provide(ChunkServiceLive),
+      const TestLayer = ChunkManagerService.Default.pipe(
+        Layer.provide(ChunkService.Default),
         Layer.provide(StorageTestLayer),
         Layer.provide(BiomeTestLayer),
         Layer.provide(NoiseLayer),
-        Layer.provide(NoiseServiceLive),
+        Layer.provide(NoiseService.Default),
         Layer.provide(TerrainWorkerPoolPortLayer),
-        Layer.provide(LightEngineNoopLive),
+        Layer.provide(LightEngineNoopLayer),
       )
 
       return Effect.gen(function* () {

@@ -1,11 +1,10 @@
 import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
 import { Effect, Either, Layer, MutableHashMap, Option } from 'effect'
-import { FurnaceService, FurnaceServiceLive, FurnaceError } from '@ts-minecraft/inventory'
+import { FurnaceService, FurnaceError } from '@ts-minecraft/inventory'
 import { RecipeService, InventoryError } from '@ts-minecraft/inventory'
 import { InventoryService } from '@ts-minecraft/inventory'
-import { PlayerService } from '@ts-minecraft/entity'
-import { ChunkManagerService } from '@ts-minecraft/world'
+import { PlayerServicePort, WorldBlockQueryPort } from '@ts-minecraft/world'
 import { RecipeId, DeltaTimeSecs } from '@ts-minecraft/core'
 import type { InventoryItem } from '@ts-minecraft/core'
 import {
@@ -111,7 +110,7 @@ describe('application/furnace/furnace-service', () => {
     // getAllSlots reports COAL present, but removeBlock('COAL') fails (simulated concurrent removal)
     const inventoryItems = MutableHashMap.fromIterable<InventoryItem, number>([['RAW_IRON', 1], ['COAL', 1]])
 
-    const layer = FurnaceServiceLive.pipe(
+    const layer = FurnaceService.Default.pipe(
       Layer.provide(Layer.succeed(RecipeService, makeRecipeService({
         'raw-iron-to-iron-ingot': {
           station: 'furnace',
@@ -123,8 +122,8 @@ describe('application/furnace/furnace-service', () => {
         removeBlock: () => Effect.fail(new InventoryError({ operation: 'removeBlock', cause: 'simulated failure' })),
         addBlock: () => Effect.void,
       }))),
-      Layer.provide(Layer.succeed(PlayerService, makePlayerService({ x: 0, y: 64, z: 0 }))),
-      Layer.provide(Layer.succeed(ChunkManagerService, makeChunkManagerService(makeChunkWithFurnace()))),
+      Layer.provide(Layer.succeed(PlayerServicePort, makePlayerService({ x: 0, y: 64, z: 0 }))),
+      Layer.provide(Layer.succeed(WorldBlockQueryPort, makeChunkManagerService(makeChunkWithFurnace()))),
     )
 
     return Effect.gen(function* () {

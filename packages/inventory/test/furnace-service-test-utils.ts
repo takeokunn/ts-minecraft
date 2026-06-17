@@ -1,11 +1,11 @@
 import { Array as Arr, Effect, Layer, MutableHashMap, Option } from 'effect'
-import { FurnaceServiceLive } from '@ts-minecraft/inventory/application/furnace-service'
+import { FurnaceService } from '@ts-minecraft/inventory/application/furnace-service'
 import { RecipeService } from '@ts-minecraft/inventory/application/recipe-service'
 import { InventoryService } from '@ts-minecraft/inventory/application/inventory-service'
 import { InventoryError } from '@ts-minecraft/inventory/domain/errors'
-import { PlayerError, PlayerService } from '@ts-minecraft/entity'
-import { ChunkError, ChunkManagerService } from '@ts-minecraft/world'
-import { blockTypeToIndex, CHUNK_HEIGHT, CHUNK_SIZE, DEFAULT_PLAYER_ID } from '@ts-minecraft/core'
+import { PlayerServicePort, WorldBlockQueryPort, worldToBlockIndex } from '@ts-minecraft/world'
+import type { PlayerServicePortShape, WorldBlockQueryPortShape } from '@ts-minecraft/world'
+import { blockTypeToIndex, CHUNK_HEIGHT, CHUNK_SIZE } from '@ts-minecraft/core'
 import type { InventoryItem, PlayerId, Position } from '@ts-minecraft/core'
 import type { Chunk } from '@ts-minecraft/world'
 
@@ -33,6 +33,7 @@ type InventoryMockOverrides = Partial<{
   getSlot: InventoryService['getSlot']
   setSlot: InventoryService['setSlot']
   damageSlot: InventoryService['damageSlot']
+  repairMendingItemsWithXP: InventoryService['repairMendingItemsWithXP']
   moveStack: InventoryService['moveStack']
   quickMove: InventoryService['quickMove']
   getHotbarSlots: InventoryService['getHotbarSlots']
@@ -49,23 +50,11 @@ type RecipeMockOverrides = Partial<{
 }>
 
 type ChunkManagerMockOverrides = Partial<{
-  getChunk: ChunkManagerService['getChunk']
-  getLoadedChunks: ChunkManagerService['getLoadedChunks']
-  drainRenderDirtyChunks: ChunkManagerService['drainRenderDirtyChunks']
-  drainRenderDirtyChunkEntries: ChunkManagerService['drainRenderDirtyChunkEntries']
-  loadChunksAroundPlayer: ChunkManagerService['loadChunksAroundPlayer']
-  markChunkDirty: ChunkManagerService['markChunkDirty']
-  saveDirtyChunks: ChunkManagerService['saveDirtyChunks']
-  unloadChunk: ChunkManagerService['unloadChunk']
+  getBlockIndexAt: WorldBlockQueryPortShape['getBlockIndexAt']
 }>
 
 type PlayerMockOverrides = Partial<{
-  create: PlayerService['create']
-  updatePosition: PlayerService['updatePosition']
-  updateVelocity: PlayerService['updateVelocity']
-  getPosition: PlayerService['getPosition']
-  getVelocity: PlayerService['getVelocity']
-  getState: PlayerService['getState']
+  getPosition: PlayerServicePortShape['getPosition']
 }>
 
 export const makeRecipeService = (
@@ -93,7 +82,7 @@ export const makeInventoryService = (
     getAllSlots: (): ReturnType<InventoryService['getAllSlots']> =>
       Effect.succeed(
         Arr.fromIterable(MutableHashMap.keys(items)).map((itemType) =>
-          Option.some({ itemType, count: Option.getOrElse(MutableHashMap.get(items, itemType), () => 0) }),
+          Option.some({ itemType, count: Option.getOrElse(MutableHashMap.get(items, itemType), () => 0), durability: null }),
         ),
       ),
     removeBlock: (itemType: InventoryItem, count: number) =>
@@ -111,6 +100,7 @@ export const makeInventoryService = (
     getSlot: () => Effect.succeed(Option.none()),
     setSlot: () => Effect.void,
     damageSlot: () => Effect.void,
+    repairMendingItemsWithXP: (amount) => Effect.succeed(amount),
     moveStack: () => Effect.void,
     quickMove: () => Effect.void,
     getHotbarSlots: () => Effect.succeed([]),
@@ -127,15 +117,8 @@ export const makePlayerService = (
   playerPosition: Position,
   overrides: PlayerMockOverrides = {},
 ) =>
-  PlayerService.of({
-    _tag: '@minecraft/application/PlayerService' as const,
-    create: (_id: PlayerId, _position: Position) => Effect.void,
-    updatePosition: (_id: PlayerId, _position: Position) => Effect.void,
-    updateVelocity: (_id: PlayerId, _velocity: { x: number; y: number; z: number }) => Effect.void,
+  PlayerServicePort.of({
     getPosition: (_id: PlayerId) => Effect.succeed(playerPosition),
-    getVelocity: (_id: PlayerId) => Effect.succeed({ x: 0, y: 0, z: 0 }),
-    getState: (_id: PlayerId) =>
-      Effect.fail(new PlayerError({ playerId: DEFAULT_PLAYER_ID, reason: 'not implemented' })),
     ...overrides,
   })
 
@@ -143,18 +126,17 @@ export const makeChunkManagerService = (
   chunk: Chunk,
   overrides: ChunkManagerMockOverrides = {},
 ) =>
-  ChunkManagerService.of({
-    _tag: '@minecraft/application/ChunkManagerService' as const,
-    getChunk: () => Effect.succeed(chunk),
-    getLoadedChunks: () => Effect.succeed([]),
-    drainRenderDirtyChunks: () => Effect.succeed([]),
-        drainRenderDirtyChunkEntries: () => Effect.succeed([]),
-    loadChunksAroundPlayer: () => Effect.succeed(false),
-    markChunkDirty: () => Effect.void,
-    saveDirtyChunks: () => Effect.void,
-    unloadChunk: () => Effect.void,
-    setActiveWorldId: (_worldId: unknown) => Effect.void,
-    setActiveDimension: (_dim: unknown) => Effect.void,
+  WorldBlockQueryPort.of({
+    getBlockIndexAt: (position) =>
+      Effect.gen(function* () {
+        const { chunkCoord, ly, flatIdx } = worldToBlockIndex(position)
+        if (ly < 0 || ly >= CHUNK_HEIGHT) return Option.none()
+        if (chunk.coord.x !== chunkCoord.x || chunk.coord.z !== chunkCoord.z) return Option.none()
+        const blockIndex = chunk.blocks[flatIdx]
+        if (blockIndex === undefined) return Option.none()
+        if (blockIndex === blockTypeToIndex('AIR')) return Option.none()
+        return Option.some(blockIndex)
+      }),
     ...overrides,
   })
 
@@ -189,17 +171,17 @@ export const makeFurnaceLayer = (opts: MakeFurnaceLayerOpts = {}) => {
 
   const chunk: Chunk = { coord: { x: 0, z: 0 }, blocks, fluid: Option.none() }
 
-  return FurnaceServiceLive.pipe(
+  return FurnaceService.Default.pipe(
     Layer.provide(Layer.succeed(RecipeService, makeRecipeService(recipeMap))),
     Layer.provide(Layer.succeed(InventoryService, makeInventoryService(inventoryItems))),
-    Layer.provide(Layer.succeed(PlayerService, makePlayerService(playerPosition))),
+    Layer.provide(Layer.succeed(PlayerServicePort, makePlayerService(playerPosition))),
     Layer.provide(Layer.succeed(
-      ChunkManagerService,
+      WorldBlockQueryPort,
       makeChunkManagerService(
         chunk,
         getChunkFails
           ? {
-              getChunk: (coord: Chunk['coord']) => Effect.fail(new ChunkError({ chunkCoord: coord, reason: 'chunk unavailable' })),
+              getBlockIndexAt: () => Effect.succeed(Option.none()),
             }
           : {},
       ),

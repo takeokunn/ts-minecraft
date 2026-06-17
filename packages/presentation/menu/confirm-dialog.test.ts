@@ -1,7 +1,7 @@
 import { describe, it, it as itEffect } from '@effect/vitest'
 import { expect, vi } from 'vitest'
 import { Effect, Fiber, Layer, Option } from 'effect'
-import { ConfirmDialogLive, ConfirmDialogService } from '@ts-minecraft/presentation/menu/confirm-dialog'
+import { ConfirmDialogService } from '@ts-minecraft/presentation/menu/confirm-dialog'
 import { DomOperationsService } from '@ts-minecraft/presentation/hud/crosshair'
 
 // vitest.config.ts uses `environment: 'node'`, so `document` is undefined by
@@ -80,7 +80,7 @@ describe('presentation/menu/confirm-dialog', () => {
         // In Node test env, document is undefined → short-circuits to false.
         const result = yield* dialog.show('Are you sure?', 'Yes')
         expect(result).toBe(false)
-      }).pipe(Effect.provide(ConfirmDialogLive.pipe(Layer.provide(createMockDom().layer))))
+      }).pipe(Effect.provide(ConfirmDialogService.Default.pipe(Layer.provide(createMockDom().layer))))
     )
   })
 
@@ -148,7 +148,7 @@ describe('presentation/menu/confirm-dialog', () => {
         }
         yield* Fiber.interrupt(fiber)
         return snapshot
-      }).pipe(Effect.provide(ConfirmDialogLive.pipe(Layer.provide(mockDom.layer))))
+      }).pipe(Effect.provide(ConfirmDialogService.Default.pipe(Layer.provide(mockDom.layer))))
       return Effect.runPromise(program).finally(() => stub.cleanup())
     }
 
@@ -205,7 +205,7 @@ describe('presentation/menu/confirm-dialog', () => {
       return Effect.gen(function* () {
         const dialog = yield* ConfirmDialogService
         expect(typeof dialog.show).toBe('function')
-      }).pipe(Effect.provide(ConfirmDialogLive.pipe(Layer.provide(mockDom.layer))))
+      }).pipe(Effect.provide(ConfirmDialogService.Default.pipe(Layer.provide(mockDom.layer))))
     })
   })
 })

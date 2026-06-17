@@ -2,20 +2,16 @@ import { Brand, Effect, HashMap, Layer, MutableHashMap, Option } from 'effect'
 import { StorageServicePort } from '@ts-minecraft/world'
 import type { ChunkStorageValue } from '@ts-minecraft/world'
 import { NoiseServicePort } from '@ts-minecraft/world'
-import { NoiseServiceLive } from '@ts-minecraft/world'
-import { TerrainWorkerPoolPortLayer } from '@ts-minecraft/world'
-import { BiomeServiceLive } from '@ts-minecraft/world'
-import { CHUNK_SIZE, indexToBlockType, blockIndex, SlotIndex, ChunkCoord } from '@ts-minecraft/core'
-import { ChunkServiceLive } from '@ts-minecraft/world'
+import { TerrainWorkerPoolPortLayer } from '@ts-minecraft/worker'
+import { BiomeService, BlockService, ChunkManagerService as WorldChunkManagerService, ChunkService, LightEngineService, NoiseService } from '@ts-minecraft/world'
+import { CHUNK_SIZE, indexToBlockType, isValidBlockIndex, blockIndex, SlotIndex, ChunkCoord } from '@ts-minecraft/core'
 import { PlayerService } from '@ts-minecraft/entity'
 import { Position, PlayerId, WorldId } from '@ts-minecraft/core'
 import { PlayerError } from '@ts-minecraft/entity'
-import { ChunkManagerServiceLive } from '@ts-minecraft/world'
-import { LightEngineLive } from '@ts-minecraft/world'
-import { BlockServiceLive } from '@ts-minecraft/world'
 import { InventoryService } from '@ts-minecraft/inventory'
 import { HotbarService } from '@ts-minecraft/inventory'
 import { FurnaceService } from '@ts-minecraft/inventory'
+import { ChestService } from '@ts-minecraft/inventory'
 import type { InventorySlots } from '@ts-minecraft/inventory'
 import { FluidService } from '@ts-minecraft/world'
 import { DEFAULT_PLAYER_ID } from '@ts-minecraft/core'
@@ -64,16 +60,16 @@ export const buildIntegrationLayer = (playerPos: Position = { x: 100, y: 0, z: 1
   const storage = makeInMemoryStorage()
   const StorageTestLayer = Layer.succeed(StorageServicePort, storage)
   const NoiseLayer = NoiseServicePort.Default
-  const BiomeTestLayer = BiomeServiceLive.pipe(Layer.provide(NoiseLayer))
+  const BiomeTestLayer = BiomeService.Default.pipe(Layer.provide(NoiseLayer))
 
-  const ChunkManagerTestLayer = ChunkManagerServiceLive.pipe(
-    Layer.provide(ChunkServiceLive),
+  const ChunkManagerTestLayer = WorldChunkManagerService.Default.pipe(
+    Layer.provide(ChunkService.Default),
     Layer.provide(StorageTestLayer),
     Layer.provide(BiomeTestLayer),
     Layer.provide(NoiseLayer),
-    Layer.provide(NoiseServiceLive),
+    Layer.provide(NoiseService.Default),
     Layer.provide(TerrainWorkerPoolPortLayer),
-    Layer.provide(LightEngineLive),
+    Layer.provide(LightEngineService.Default),
   )
 
   const PlayerTestLayer = Layer.succeed(PlayerService, createMockPlayerService(playerPos))
@@ -87,6 +83,7 @@ export const buildIntegrationLayer = (playerPos: Position = { x: 100, y: 0, z: 1
     getSlot: (_idx) => Effect.succeed(Option.none()),
     setSlot: (_idx, _slot) => Effect.void,
     damageSlot: (_idx, _amount) => Effect.void,
+    repairMendingItemsWithXP: (amount) => Effect.succeed(amount),
     moveStack: (_from, _to) => Effect.void,
     quickMove: (_from) => Effect.void,
     getHotbarSlots: () => Effect.succeed([]),
@@ -120,6 +117,22 @@ export const buildIntegrationLayer = (playerPos: Position = { x: 100, y: 0, z: 1
     tick: () => Effect.void,
   }))
 
+  const MockChestLayer = Layer.succeed(ChestService, ChestService.of({
+    _tag: '@minecraft/application/ChestService' as const,
+    getState: () => Effect.succeed({ chests: HashMap.empty(), selectedChestPosition: Option.none() }),
+    getNearestChestState: () => Effect.succeed(Option.none()),
+    hasNearbyChest: () => Effect.succeed(false),
+    setSelectedChest: () => Effect.void,
+    moveInventoryStackToChestSlot: () => Effect.void,
+    moveChestStackToInventorySlot: () => Effect.void,
+    quickMoveInventoryToChest: () => Effect.void,
+    quickMoveChestToInventory: () => Effect.void,
+    clearChest: () => Effect.succeed([]),
+    dismantleChest: () => Effect.succeed(true),
+    serialize: () => Effect.succeed([]),
+    deserialize: () => Effect.void,
+  }))
+
   const MockFluidLayer = Layer.succeed(FluidService, FluidService.of({
     _tag: '@minecraft/application/FluidService' as const,
     notifyBlockChanged: (_position) => Effect.void,
@@ -131,10 +144,11 @@ export const buildIntegrationLayer = (playerPos: Position = { x: 100, y: 0, z: 1
     tick: () => Effect.void,
   }))
 
-  const BlockTestLayer = BlockServiceLive.pipe(
+  const BlockTestLayer = BlockService.Default.pipe(
     Layer.provide(
-      Layer.mergeAll(ChunkManagerTestLayer, PlayerTestLayer, ChunkServiceLive, MockInventoryLayer, MockHotbarLayer, MockFluidLayer)
+      Layer.mergeAll(ChunkManagerTestLayer, PlayerTestLayer, ChunkService.Default, MockInventoryLayer, MockHotbarLayer, MockFluidLayer)
         .pipe(Layer.provideMerge(MockFurnaceLayer))
+        .pipe(Layer.provideMerge(MockChestLayer))
     )
   )
 
@@ -149,16 +163,16 @@ export const buildIntegrationLayer = (playerPos: Position = { x: 100, y: 0, z: 1
 export const buildSecondSessionLayer = (storage: ReturnType<typeof makeInMemoryStorage>) => {
   const StorageTestLayer = Layer.succeed(StorageServicePort, storage)
   const NoiseLayer = NoiseServicePort.Default
-  const BiomeTestLayer = BiomeServiceLive.pipe(Layer.provide(NoiseLayer))
+  const BiomeTestLayer = BiomeService.Default.pipe(Layer.provide(NoiseLayer))
 
-  return ChunkManagerServiceLive.pipe(
-    Layer.provide(ChunkServiceLive),
+  return WorldChunkManagerService.Default.pipe(
+    Layer.provide(ChunkService.Default),
     Layer.provide(StorageTestLayer),
     Layer.provide(BiomeTestLayer),
     Layer.provide(NoiseLayer),
-    Layer.provide(NoiseServiceLive),
+    Layer.provide(NoiseService.Default),
     Layer.provide(TerrainWorkerPoolPortLayer),
-    Layer.provide(LightEngineLive),
+    Layer.provide(LightEngineService.Default),
   )
 }
 
@@ -178,5 +192,7 @@ export const readBlockFromArray = (data: ChunkStorageValue | Uint8Array, lx: num
   const blocks = data instanceof Uint8Array ? data : data.blocks
   const idx = Option.getOrNull(blockIndex(lx, y, lz))
   if (idx === null) return 'AIR'
-  return indexToBlockType(blocks[idx] ?? 0)
+  const blockId = blocks[idx]
+  if (!isValidBlockIndex(blockId)) throw new Error(`Invalid test block id: ${String(blockId)}`)
+  return indexToBlockType(blockId)
 }

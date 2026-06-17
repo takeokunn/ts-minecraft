@@ -4,12 +4,11 @@ import { Effect, Layer, Schema } from 'effect'
 import { DeltaTimeSecs } from '@ts-minecraft/core'
 import {
   PhysicsService,
-  PhysicsServiceLive,
   AddBodyConfigSchema,
 } from '@ts-minecraft/game'
 import { PhysicsWorldPortLayer, RigidBodyPortLayer, ShapePortLayer } from '@ts-minecraft/game'
 
-const TestLayer = PhysicsServiceLive.pipe(
+const TestLayer = PhysicsService.Default.pipe(
   Layer.provide(PhysicsWorldPortLayer),
   Layer.provide(RigidBodyPortLayer),
   Layer.provide(ShapePortLayer)

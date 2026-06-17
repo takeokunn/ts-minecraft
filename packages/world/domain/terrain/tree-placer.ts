@@ -1,8 +1,8 @@
 import { CHUNK_SIZE, CHUNK_HEIGHT } from '@ts-minecraft/core'
 import type { BiomeType } from '../biome'
-import { SEA_LEVEL } from '@ts-minecraft/core'
 import { fract, chunkBlockIndexUnchecked } from './math'
 import { type TreeArchetype, AIR_BLOCK_INDEX, WOOD_BLOCK_INDEX, LEAVES_BLOCK_INDEX } from './surface-resolver'
+import { DEFAULT_TERRAIN_LEVELS, type TerrainLevels } from './generator-types'
 import {
   type TrunkConfig,
   ROUND_OAK_TRUNK, TALL_BIRCH_TRUNK, SPRUCE_TRUNK, TALL_CANOPY_TRUNK, ACACIA_TRUNK,
@@ -125,9 +125,14 @@ const placeAcaciaTree = (blocks: Uint8Array, lx: number, lz: number, surfaceY: n
   placeLeafLayer(blocks, lx, canopyBase + 1, lz, 2)
 }
 
-export const selectTreeArchetype = (biome: BiomeType, surfaceY: number, treeRng: number): TreeArchetype => {
+export const selectTreeArchetype = (
+  biome: BiomeType,
+  surfaceY: number,
+  treeRng: number,
+  terrainLevels: TerrainLevels = DEFAULT_TERRAIN_LEVELS,
+): TreeArchetype => {
   const roll = fract(treeRng * ARCHETYPE_ROLL_RNG_SCALE)
-  const highland = surfaceY >= SEA_LEVEL + 18
+  const highland = surfaceY >= terrainLevels.seaLevel + 18
 
   switch (biome) {
     case 'JUNGLE':
@@ -161,7 +166,8 @@ export const shouldPlaceTree = (
   treeDensity: number,
   surfaceY: number,
   wx: number,
-  wz: number
+  wz: number,
+  terrainLevels: TerrainLevels = DEFAULT_TERRAIN_LEVELS,
 ): { place: boolean; treeRng: number } => {
   if (
     treeDensity <= 0
@@ -174,7 +180,7 @@ export const shouldPlaceTree = (
     // Without this guard a trunk gets planted on the seabed and grows up through the
     // surface: the "tree growing on the ocean / floating blocks over water" bug. A
     // column is dry exactly when surfaceY >= SEA_LEVEL (water only fills surfaceY+1…).
-    || surfaceY < SEA_LEVEL
+    || surfaceY < terrainLevels.seaLevel
   ) {
     return { place: false, treeRng: 0 }
   }
@@ -192,9 +198,10 @@ export const placeTree = (
   lz: number,
   surfaceY: number,
   biome: BiomeType,
-  treeRng: number
+  treeRng: number,
+  terrainLevels: TerrainLevels = DEFAULT_TERRAIN_LEVELS,
 ): void => {
-  switch (selectTreeArchetype(biome, surfaceY, treeRng)) {
+  switch (selectTreeArchetype(biome, surfaceY, treeRng, terrainLevels)) {
     case 'TALL_CANOPY':
       placeTallCanopyTree(blocks, lx, lz, surfaceY, treeRng)
       return

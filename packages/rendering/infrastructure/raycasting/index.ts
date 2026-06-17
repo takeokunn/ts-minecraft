@@ -1,1 +1,1 @@
-export { RaycastingService, RaycastingServiceLive } from './raycasting-service'
+export { RaycastingService } from './raycasting-service'

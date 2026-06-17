@@ -1,17 +1,13 @@
 import { describe, expect, it } from 'vitest'
-import { Effect, Option } from 'effect'
-import { AIState, EntityManager, EntityManagerLive, EntityType } from '@ts-minecraft/entity'
+import { Effect } from 'effect'
+import { AIState, EntityManager, EntityType } from '@ts-minecraft/entity'
 import { DeltaTimeSecs } from '@ts-minecraft/core'
-
-const serviceLive = EntityManagerLive
-
-const runWithEntityManager = <A>(program: Effect.Effect<A, never, EntityManager>): Promise<A> =>
-  Effect.runPromise(Effect.provide(program, serviceLive))
+import { expectSome, runWithEntityManager } from './test-utils'
 
 const getHealth = (entityManager: EntityManager, entityId: Effect.Effect.Success<ReturnType<EntityManager['addEntity']>>) =>
   Effect.gen(function* () {
     const entityOption = yield* entityManager.getEntity(entityId)
-    return Option.getOrThrow(entityOption).health
+    return expectSome(entityOption).health
   })
 
 describe('Phase 13 entity-system acceptance guard', () => {
@@ -22,8 +18,8 @@ describe('Phase 13 entity-system acceptance guard', () => {
 
       const zombieId = yield* entityManager.addEntity(EntityType.Zombie, { x: 0, y: 64, z: 0 })
       yield* entityManager.update(DeltaTimeSecs.make(0.05), playerPosition)
-      const zombie = Option.getOrThrow(yield* entityManager.getEntity(zombieId))
-      const zombieState = Option.getOrThrow(yield* entityManager.getEntityAIState(zombieId))
+      const zombie = expectSome(yield* entityManager.getEntity(zombieId))
+      const zombieState = expectSome(yield* entityManager.getEntityAIState(zombieId))
 
       expect(zombieState).toBe(AIState.Chase)
       expect(zombie.velocity.x).toBeGreaterThan(0)
@@ -31,8 +27,8 @@ describe('Phase 13 entity-system acceptance guard', () => {
 
       const cowId = yield* entityManager.addEntity(EntityType.Cow, { x: 0, y: 64, z: 0 })
       yield* entityManager.update(DeltaTimeSecs.make(0.05), playerPosition)
-      const cow = Option.getOrThrow(yield* entityManager.getEntity(cowId))
-      const cowState = Option.getOrThrow(yield* entityManager.getEntityAIState(cowId))
+      const cow = expectSome(yield* entityManager.getEntity(cowId))
+      const cowState = expectSome(yield* entityManager.getEntityAIState(cowId))
 
       expect(cowState).toBe(AIState.Flee)
       expect(cow.velocity.x).toBeLessThan(0)
@@ -62,8 +58,7 @@ describe('Phase 13 entity-system acceptance guard', () => {
 
       const dropsOption = yield* entityManager.applyDamage(zombieId, 20)
 
-      expect(Option.isSome(dropsOption)).toBe(true)
-      const drops = Option.getOrThrow(dropsOption)
+      const drops = expectSome(dropsOption)
       expect(drops).toContainEqual({ blockType: 'ROTTEN_FLESH', count: 1 })
       expect(yield* entityManager.getCount()).toBe(0)
     }))

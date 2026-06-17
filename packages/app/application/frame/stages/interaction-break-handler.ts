@@ -1,21 +1,25 @@
-import { Effect, HashMap, HashSet, MutableRef, Option, Ref } from 'effect'
-import { aabbFromVoxel, FORTUNE_ORE_BLOCKS, PICKAXE_BLOCK_TYPES, getInventoryDropForBlock, canHarvestBlock, isEffectiveTool, rollLeafDrops } from '@ts-minecraft/world'
+import { Effect, HashMap, HashSet, MutableRef, Option, Schema } from 'effect'
+import { aabbFromVoxel, FORTUNE_ORE_BLOCKS, getInventoryDropForBlock, canHarvestBlock, isEffectiveTool, rollGrassSeedDrop, isGrassSeedDropBlock, rollLeafDrops } from '@ts-minecraft/world'
 import type { FrameHandlerServices, FrameStageRefs } from '@ts-minecraft/app/frame/types'
-import { CHUNK_SIZE, CHUNK_HEIGHT, indexToBlockType, SlotIndex } from '@ts-minecraft/core'
+import { CHUNK_SIZE, indexToBlockType, InventoryItemSchema, SlotIndex } from '@ts-minecraft/core'
 import type { BlockType, InventoryItem } from '@ts-minecraft/core'
 import { HOTBAR_START, isDurable, rollFortuneExtraDrops, getUnbreakingSkipChance, enchantmentsOf } from '@ts-minecraft/inventory'
 import type { Enchantment } from '@ts-minecraft/inventory'
-import { getBlockHardness, computeBreakTicks, getOreXpDrop } from '@ts-minecraft/block'
-import { getParticleUvOffset } from '@ts-minecraft/rendering/particles/particle-system'
+import { getBlockHardness, computeBreakTicks, getOreXpDropOption } from '@ts-minecraft/block'
+import { getParticleUvOffset } from '@ts-minecraft/rendering'
 import type { TargetBlockHit } from '@ts-minecraft/app/frame/stages/interaction-types'
+import type { DebugFeatureFlags } from '@ts-minecraft/app/debug-feature-flags'
+import { addExperienceWithMending } from '@ts-minecraft/app/application/frame/stages/xp-mending'
+import { blockIndexForWorldPosition, readChunkBlockId } from '@ts-minecraft/app/frame/stages/interaction-block-access'
+import { advanceBreakProgress, type BreakProgressState } from '@ts-minecraft/app/frame/stages/interaction-break-progress'
 
 type BreakExecutionServices = Pick<
   FrameHandlerServices,
   | 'blockService'
   | 'chunkManagerService'
-  | 'debugFeatureFlags'
   | 'soundManager'
   | 'inventoryService'
+  | 'equipmentService'
   | 'particleSystem'
   | 'xpService'
   | 'multiplayer'
@@ -33,6 +37,8 @@ type BreakExecutionContext = {
   readonly toolEnchantments: ReadonlyArray<Enchantment>
   readonly toolStack: Option.Option<{ readonly itemType: InventoryItem; readonly count: number }>
   readonly selectedSlotIdx: number
+  readonly creative: boolean
+  readonly debugFlags: DebugFeatureFlags
 }
 
 const executeBlockBreak = (
@@ -41,12 +47,17 @@ const executeBlockBreak = (
   ctx: BreakExecutionContext,
 ) =>
   Effect.gen(function* () {
-    const { pos, blockId, blockType, lx, lz, chunkCoord, hasSilkTouch, toolEnchantments, toolStack, selectedSlotIdx } = ctx
+    const { pos, blockId, blockType, lx, lz, chunkCoord, hasSilkTouch, toolEnchantments, toolStack, selectedSlotIdx, creative, debugFlags } = ctx
     const coordKey = `${chunkCoord.x},${chunkCoord.z}`
-    const debugFlags = yield* services.debugFeatureFlags.getFlags()
     const uv = getParticleUvOffset(blockId)
+    const heldItem = Option.getOrNull(toolStack)
+    const shearsHarvestsGrass = isGrassSeedDropBlock(blockType) && heldItem?.itemType === 'SHEARS'
 
-    yield* services.blockService.breakBlock(pos, hasSilkTouch)
+    if (creative) {
+      yield* services.blockService.breakBlock(pos, false, { requireHarvest: false, dropItems: false })
+    } else {
+      yield* services.blockService.breakBlock(pos, hasSilkTouch || shearsHarvestsGrass)
+    }
     const mp = Option.getOrNull(services.multiplayer)
     yield* (mp !== null ? mp.sendBlockBreak(pos) : Effect.void)
     yield* services.soundManager.playEffect('blockBreak', { position: pos })
@@ -55,15 +66,20 @@ const executeBlockBreak = (
     }
 
     const updatedChunk = yield* services.chunkManagerService.getChunk(chunkCoord)
-    yield* Ref.update(refs.dirtyChunksRef, (map) =>
-      HashMap.set(map, coordKey, {
+    MutableRef.set(
+      refs.dirtyChunksRef,
+      HashMap.set(MutableRef.get(refs.dirtyChunksRef), coordKey, {
         chunk: updatedChunk,
         dirtyAABB: Option.some(aabbFromVoxel({ lx, y: pos.y, lz })),
       }),
     )
 
-    const xp = getOreXpDrop(blockType)
-    if (xp > 0) yield* services.xpService.addXP(xp)
+    if (creative) return
+
+    const oreXp = Option.getOrNull(getOreXpDropOption(blockType))
+    if (oreXp !== null && oreXp > 0) {
+      yield* addExperienceWithMending(oreXp, services)
+    }
 
     if (blockType === 'WHEAT_CROP') {
       const wasRipe = yield* services.cropGrowthService.harvest(pos)
@@ -76,22 +92,41 @@ const executeBlockBreak = (
       }
     }
 
+    if (!hasSilkTouch && !shearsHarvestsGrass && isGrassSeedDropBlock(blockType)) {
+      const seedCount = rollGrassSeedDrop(Math.random())
+      if (seedCount > 0) {
+        yield* services.inventoryService.addBlock('WHEAT_SEEDS', seedCount).pipe(Effect.catchAllCause(() => Effect.void))
+      }
+    }
+
     // R69: LEAVES bonus drops on top of the LEAVES block itself (already removed by breakBlock).
     if (blockType === 'LEAVES') {
-      const drops = rollLeafDrops(Math.random(), Math.random())
+      const drops = rollLeafDrops(Math.random(), Math.random(), Math.random())
       if (drops.apple > 0) {
         yield* services.inventoryService.addBlock('APPLE', drops.apple).pipe(Effect.catchAllCause(() => Effect.void))
       }
       if (drops.sticks > 0) {
         yield* services.inventoryService.addBlock('STICKS', drops.sticks).pipe(Effect.catchAllCause(() => Effect.void))
       }
+      if (drops.saplings > 0) {
+        yield* services.inventoryService.addBlock('SAPLING', drops.saplings).pipe(Effect.catchAllCause(() => Effect.void))
+      }
     }
 
     // SILK_TOUCH and FORTUNE are mutually exclusive (vanilla).
+    let unbreaking: Enchantment | undefined
     if (!hasSilkTouch && HashSet.has(FORTUNE_ORE_BLOCKS, blockType)) {
-      const fortune = Option.exists(toolStack, (s) => HashSet.has(PICKAXE_BLOCK_TYPES, s.itemType))
-        ? toolEnchantments.find((e) => e.type === 'FORTUNE')
-        : undefined
+      let fortune: Enchantment | undefined
+      for (const enchantment of toolEnchantments) {
+        switch (enchantment.type) {
+          case 'FORTUNE':
+            fortune = enchantment
+            break
+          case 'UNBREAKING':
+            unbreaking = enchantment
+            break
+        }
+      }
       if (fortune) {
         const extra = rollFortuneExtraDrops(fortune.level, Math.random())
         if (extra > 0) {
@@ -102,9 +137,7 @@ const executeBlockBreak = (
     }
 
     // Durable tools lose 1 durability per block broken, respecting UNBREAKING skip chance.
-    const heldItem = Option.getOrNull(toolStack)
     if (heldItem !== null && isDurable(heldItem.itemType)) {
-      const unbreaking = toolEnchantments.find((e) => e.type === 'UNBREAKING')
       const skip = unbreaking ? Math.random() < getUnbreakingSkipChance(unbreaking.level) : false
       if (!skip) {
         yield* services.inventoryService.damageSlot(SlotIndex.make(HOTBAR_START + selectedSlotIdx), 1)
@@ -115,7 +148,7 @@ const executeBlockBreak = (
 
 const updateBreakProgressHud = (
   el: HTMLElement | null,
-  progress: { ticks: number; totalTicks: number } | null,
+  progress: BreakProgressState | null,
 ): void => {
   if (el === null) return
   if (progress === null) {
@@ -127,14 +160,21 @@ const updateBreakProgressHud = (
   el.style.display = 'block'
 }
 
+const toSelectedInventoryItem = (item: Option.Option<string>): Option.Option<InventoryItem> =>
+  Option.isNone(item)
+    ? Option.none()
+    : Schema.is(InventoryItemSchema)(item.value)
+      ? Option.some(item.value as InventoryItem)
+      : Option.none()
+
 export const handleBlockBreakProgress = (
   services: Pick<
     FrameHandlerServices,
     | 'blockService'
     | 'chunkManagerService'
-    | 'debugFeatureFlags'
     | 'soundManager'
     | 'inventoryService'
+    | 'equipmentService'
     | 'hotbarService'
     | 'particleSystem'
     | 'xpService'
@@ -147,6 +187,9 @@ export const handleBlockBreakProgress = (
     readonly selectedHotbarItem: Option.Option<string>
     readonly targetEntityPresent: boolean
     readonly breakProgressElementOrNull: HTMLElement | null
+    readonly creative: boolean
+    readonly underwater: boolean
+    readonly debugFlags: DebugFeatureFlags
   },
 ) =>
   Effect.gen(function* () {
@@ -160,8 +203,8 @@ export const handleBlockBreakProgress = (
     const tb = Option.getOrNull(context.targetBlock)!
     const blockKey = `${tb.x},${tb.y},${tb.z}`
     const chunkCoord = { x: Math.floor(tb.x / CHUNK_SIZE), z: Math.floor(tb.z / CHUNK_SIZE) }
-    const preBreakChunk = Option.getOrNull(
-      yield* services.chunkManagerService.getChunk(chunkCoord).pipe(Effect.option),
+    const preBreakChunk = yield* services.chunkManagerService.getChunk(chunkCoord).pipe(
+      Effect.catchAll(() => Effect.succeed(null)),
     )
     if (preBreakChunk === null) {
       MutableRef.set(refs.breakProgressRef, null)
@@ -171,14 +214,35 @@ export const handleBlockBreakProgress = (
 
     const lx = ((tb.x % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE
     const lz = ((tb.z % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE
-    const flatIdx = tb.y + lz * CHUNK_HEIGHT + lx * CHUNK_HEIGHT * CHUNK_SIZE
-    const blockId = preBreakChunk.blocks[flatIdx] ?? 0
+    const blockId = yield* readChunkBlockId(preBreakChunk.blocks, blockIndexForWorldPosition(tb))
     const blockType = indexToBlockType(blockId)
+
+    if (context.creative) {
+      MutableRef.set(refs.breakProgressRef, null)
+      updateBreakProgressHud(context.breakProgressElementOrNull, null)
+      yield* executeBlockBreak(services, refs, {
+        pos: { x: tb.x, y: tb.y, z: tb.z },
+        blockId,
+        blockType,
+        lx,
+        lz,
+        chunkCoord,
+        hasSilkTouch: false,
+        toolEnchantments: [],
+        toolStack: Option.none(),
+        selectedSlotIdx: 0,
+        creative: true,
+        debugFlags: context.debugFlags,
+      })
+      return
+    }
 
     // Block requires a pickaxe the player doesn't have → never fill the progress bar.
     // canHarvestBlock returns false only when the block is in DIAMOND_PICKAXE_HARVESTABLE_BLOCKS
     // and the held item is not a qualifying pickaxe tier.
-    if (!canHarvestBlock(blockType, context.selectedHotbarItem as Option.Option<InventoryItem>)) {
+    const selectedInventoryItem = toSelectedInventoryItem(context.selectedHotbarItem)
+
+    if (!canHarvestBlock(blockType, selectedInventoryItem)) {
       MutableRef.set(refs.breakProgressRef, null)
       updateBreakProgressHud(context.breakProgressElementOrNull, null)
       return
@@ -189,19 +253,46 @@ export const handleBlockBreakProgress = (
     const selectedSlotIdx = yield* services.hotbarService.getSelectedSlot()
     const toolStack = yield* services.inventoryService.getSlot(SlotIndex.make(HOTBAR_START + selectedSlotIdx))
     const toolEnchantments = enchantmentsOf(toolStack)
-    const efficiencyEnchant = toolEnchantments.find((e) => e.type === 'EFFICIENCY')
-    const hasSilkTouch = toolEnchantments.some((e) => e.type === 'SILK_TOUCH')
+    let efficiencyEnchant: Enchantment | undefined
+    let hasSilkTouch = false
+    for (const enchantment of toolEnchantments) {
+      switch (enchantment.type) {
+        case 'EFFICIENCY':
+          efficiencyEnchant = enchantment
+          break
+        case 'SILK_TOUCH':
+          hasSilkTouch = true
+          break
+      }
+    }
+    const helmetStack = yield* services.equipmentService.getEquippedItem('HELMET')
+    let hasAquaAffinity = false
+    for (const enchantment of enchantmentsOf(helmetStack)) {
+      if (enchantment.type === 'AQUA_AFFINITY') {
+        hasAquaAffinity = true
+        break
+      }
+    }
 
     const hardness = getBlockHardness(blockType)
     // Wrong-category tools (e.g. a shovel on stone) get no speed bonus → bare-hand break time.
-    const correctTool = isEffectiveTool(blockType, context.selectedHotbarItem as Option.Option<InventoryItem>)
-    const breakTicks = computeBreakTicks(hardness, context.selectedHotbarItem, efficiencyEnchant?.level, correctTool)
+    const correctTool = isEffectiveTool(blockType, selectedInventoryItem)
+    const baseBreakTicks = computeBreakTicks({
+      hardness,
+      tool: selectedInventoryItem,
+      efficiencyLevel: efficiencyEnchant?.level,
+      correctTool,
+    })
+    const breakTicks = context.underwater && !hasAquaAffinity ? baseBreakTicks * 5 : baseBreakTicks
 
     const current = MutableRef.get(refs.breakProgressRef)
-    const currentTicks = current !== null && current.blockKey === blockKey ? current.ticks : 0
-    const newTicks = currentTicks + 1
+    const progress = advanceBreakProgress({
+      current,
+      blockKey,
+      breakTicks,
+    })
 
-    if (breakTicks === 0 || newTicks >= breakTicks) {
+    if (progress.shouldBreak) {
       MutableRef.set(refs.breakProgressRef, null)
       updateBreakProgressHud(context.breakProgressElementOrNull, null)
       yield* executeBlockBreak(services, refs, {
@@ -215,9 +306,11 @@ export const handleBlockBreakProgress = (
         toolEnchantments,
         toolStack,
         selectedSlotIdx,
+        creative: false,
+        debugFlags: context.debugFlags,
       })
     } else {
-      MutableRef.set(refs.breakProgressRef, { blockKey, ticks: newTicks, totalTicks: breakTicks })
-      updateBreakProgressHud(context.breakProgressElementOrNull, { ticks: newTicks, totalTicks: breakTicks })
+      MutableRef.set(refs.breakProgressRef, progress.nextProgress)
+      updateBreakProgressHud(context.breakProgressElementOrNull, progress.nextProgress)
     }
   })

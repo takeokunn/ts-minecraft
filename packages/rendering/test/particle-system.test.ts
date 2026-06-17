@@ -3,14 +3,13 @@ import { expect } from 'vitest'
 import { Array as Arr, Effect, Layer, Option } from 'effect'
 import * as THREE from 'three'
 
-import { ChunkMeshService } from '@ts-minecraft/rendering'
 import {
+  ChunkMeshService,
   ParticleSystemService,
-  ParticleSystemServiceLive,
   MAX_PARTICLES,
   PARTICLE_LIFETIME_SECS,
   getParticleUvOffset,
-} from '@ts-minecraft/rendering/particles/particle-system'
+} from '@ts-minecraft/rendering'
 
 // Test-only ChunkMeshService stub: provides a no-op atlas texture so the
 // particle system can build its material without DOM/canvas. We only ever
@@ -30,7 +29,7 @@ const ChunkMeshServiceTest = Layer.succeed(
   }),
 )
 
-const TestLayer = ParticleSystemServiceLive.pipe(Layer.provide(ChunkMeshServiceTest))
+const TestLayer = ParticleSystemService.Default.pipe(Layer.provide(ChunkMeshServiceTest))
 
 describe('ParticleSystemService', () => {
   describe('module constants', () => {

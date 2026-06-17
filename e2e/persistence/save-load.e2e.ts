@@ -1,7 +1,7 @@
 import { test, expect, type PlaywrightTestArgs } from '@playwright/test'
 import { GamePage } from '../fixtures/game-page'
 import { getMinecraftWorldsDbSnapshot } from '../helpers/db-helpers'
-import { waitForMainMenu, waitForPauseMenu, waitForStableRender } from '../helpers/wait-helpers'
+import { openPauseMenu, waitForMainMenu, waitForStableRender } from '../helpers/wait-helpers'
 
 type Page = PlaywrightTestArgs['page']
 
@@ -63,7 +63,7 @@ test.describe('World persistence (save/load)', () => {
     expect(afterReload.metadataCount).toBe(beforeReload.metadataCount)
   })
 
-  test('save & quit to title loads the same world with restored inventory state', async ({ page }) => {
+  test('save & quit to title loads the same world with restored player position', async ({ page }) => {
     test.setTimeout(120_000)
     const game = new GamePage(page)
 
@@ -75,21 +75,18 @@ test.describe('World persistence (save/load)', () => {
     const startPosition = await getCameraPosition(page)
     expect(startPosition !== null).toBe(true)
 
-    await page.keyboard.down('w')
-    await page.waitForTimeout(1_000)
-    await page.keyboard.up('w')
-    await page.waitForTimeout(250)
-
-    const beforeSavePosition = await getCameraPosition(page)
+    const beforeSavePosition = await page.evaluate<Promise<CameraPosition | null>>(async () =>
+      window.__TS_MINECRAFT_QA__?.movePlayerForQA({ x: 2 }) ?? null
+    )
     expect(beforeSavePosition !== null).toBe(true)
     const movedDistance = Math.hypot(
       (beforeSavePosition?.x ?? 0) - (startPosition?.x ?? 0),
       (beforeSavePosition?.z ?? 0) - (startPosition?.z ?? 0),
     )
     expect(movedDistance > 0.5).toBe(true)
+    await waitForStableRender(page, 500)
 
-    await page.keyboard.press('Escape')
-    await waitForPauseMenu(page)
+    await openPauseMenu(page)
     await page.click('[data-role="save-quit"]')
     await expect(page.locator('[data-role="confirm"]')).toBeVisible()
     await page.click('[data-role="confirm"]')

@@ -1,5 +1,5 @@
 // @effect-boundary Three.js TextureLoader exposes Promise/callback APIs; this adapter wraps them in Effect.
-import { Effect, Ref, Option, HashMap, Array as Arr } from 'effect'
+import { Effect, Ref, Option, HashMap } from 'effect'
 import * as THREE from 'three'
 import { TextureError } from '../../domain/errors'
 import { TextureUrl } from '@ts-minecraft/core'
@@ -33,7 +33,8 @@ export class TextureService extends Effect.Service<TextureService>()(
             },
             catch: (cause) => new TextureError({ url, cause }),
           })
-          yield* Ref.update(textureCache, (cache) => HashMap.set(cache, textureUrl, texture))
+          const cache = yield* Ref.get(textureCache)
+          yield* Ref.set(textureCache, HashMap.set(cache, textureUrl, texture))
           return texture
         })
       }
@@ -88,7 +89,7 @@ export class TextureService extends Effect.Service<TextureService>()(
           Effect.gen(function* () {
             const cache = yield* Ref.get(textureCache)
             yield* Effect.sync(() => {
-              Arr.forEach(Arr.fromIterable(HashMap.values(cache)), (texture) => texture.dispose())
+              for (const texture of HashMap.values(cache)) texture.dispose()
             })
             yield* Ref.set(textureCache, HashMap.empty())
           }),
@@ -96,4 +97,3 @@ export class TextureService extends Effect.Service<TextureService>()(
     }),
   }
 ) {}
-export const TextureServiceLive = TextureService.Default

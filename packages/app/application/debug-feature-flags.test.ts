@@ -6,7 +6,6 @@ import {
   DEBUG_FEATURE_FLAG_CATALOG,
   DEBUG_FEATURE_FLAG_DEFAULTS,
   DebugFeatureFlagsService,
-  DebugFeatureFlagsServiceLive,
 } from '@ts-minecraft/app/debug-feature-flags'
 
 describe('application/debug-feature-flags', () => {
@@ -29,7 +28,7 @@ describe('application/debug-feature-flags', () => {
       expect(afterDisable['mobs.spawn']).toBe(false)
       expect(afterGroupReset['mobs.spawn']).toBe(true)
       expect(afterResetAll).toEqual(DEBUG_FEATURE_FLAG_DEFAULTS)
-    }).pipe(Effect.provide(DebugFeatureFlagsServiceLive)),
+    }).pipe(Effect.provide(DebugFeatureFlagsService.Default)),
   )
 
   it.effect('isEnabled returns the current flag value', () =>
@@ -37,7 +36,7 @@ describe('application/debug-feature-flags', () => {
       const svc = yield* DebugFeatureFlagsService
       const enabled = yield* svc.isEnabled('mobs.enabled')
       expect(enabled).toBe(DEBUG_FEATURE_FLAG_DEFAULTS['mobs.enabled'])
-    }).pipe(Effect.provide(DebugFeatureFlagsServiceLive)),
+    }).pipe(Effect.provide(DebugFeatureFlagsService.Default)),
   )
 
   it.effect('setEnabled returns false (no-op) when the value is already set to the same state', () =>
@@ -46,6 +45,6 @@ describe('application/debug-feature-flags', () => {
       // mobs.enabled defaults to true → setting it to true again returns false
       const changed = yield* svc.setEnabled('mobs.enabled', true)
       expect(changed).toBe(false)
-    }).pipe(Effect.provide(DebugFeatureFlagsServiceLive)),
+    }).pipe(Effect.provide(DebugFeatureFlagsService.Default)),
   )
 })

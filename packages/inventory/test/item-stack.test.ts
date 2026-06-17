@@ -9,11 +9,12 @@ import {
   canMerge,
   mergeStacks,
   maxStackFor,
+  getStackEnchantments,
+  findStackEnchantment,
   enchantmentsOf,
   enchantItem,
 } from '../domain/item-stack'
-import { isDurable, TOOL_MAX_DURABILITY } from '../domain/durability'
-import type { InventoryItem } from '@ts-minecraft/core'
+import { isDurable, DURABLE_ITEMS } from '../domain/durability'
 
 describe('domain/item-stack', () => {
   describe('maxStackFor', () => {
@@ -21,10 +22,10 @@ describe('domain/item-stack', () => {
       expect(maxStackFor('DIRT')).toBe(64)
     })
 
-    // Guards the single-source-of-truth: TOOL_BLOCK_TYPES is derived from the
-    // durability table, so every durable tool must be non-stackable and vice versa.
+    // Guards the single-source-of-truth: non-stackable durable items are derived
+    // from the durability item tuple, so every durable item must be non-stackable.
     it('treats exactly the durable tools as non-stackable (no drift)', () => {
-      Arr.forEach(Object.keys(TOOL_MAX_DURABILITY) as ReadonlyArray<InventoryItem>, (tool) => {
+      Arr.forEach(DURABLE_ITEMS, (tool) => {
         expect(maxStackFor(tool)).toBe(1)
         expect(isDurable(tool)).toBe(true)
       })
@@ -255,6 +256,35 @@ describe('domain/item-stack', () => {
       expect(Option.getOrThrow(remainderB).count).toBe(1)
       expect(Option.getOrThrow(remainderB).itemType).toBe('WOODEN_SWORD')
     })
+  })
+})
+
+describe('getStackEnchantments', () => {
+  it('returns the shared empty enchantment list for an unenchanted stack', () => {
+    const stack = createStack('STONE', 1)
+
+    expect(getStackEnchantments(stack)).toEqual([])
+    expect(getStackEnchantments(stack)).toBe(getStackEnchantments(createStack('DIRT', 1)))
+  })
+
+  it('returns the stack enchantment list when present', () => {
+    const enchanted = enchantItem(createStack('BOW', 1), { type: 'POWER', level: 3 })
+
+    expect(getStackEnchantments(enchanted)).toEqual([{ type: 'POWER', level: 3 }])
+  })
+})
+
+describe('findStackEnchantment', () => {
+  it('returns none when the stack has no matching enchantment', () => {
+    const stack = enchantItem(createStack('BOW', 1), { type: 'POWER', level: 3 })
+
+    expect(Option.isNone(findStackEnchantment(stack, 'INFINITY'))).toBe(true)
+  })
+
+  it('returns the matching enchantment', () => {
+    const stack = enchantItem(createStack('BOW', 1), { type: 'POWER', level: 3 })
+
+    expect(Option.getOrThrow(findStackEnchantment(stack, 'POWER'))).toEqual({ type: 'POWER', level: 3 })
   })
 })
 

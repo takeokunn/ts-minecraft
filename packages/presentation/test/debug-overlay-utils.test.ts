@@ -9,7 +9,7 @@ import {
   DEBUG_FEATURE_GROUP_ORDER,
 } from '../hud/debug-overlay-utils'
 
-// Minimal catalog entry shapes for testing (type-safe via structural compatibility)
+// Minimal catalog entry shapes for testing, validated through structural typing.
 const makeEntry = (overrides: Record<string, unknown> = {}) => ({
   id: 'test-flag',
   label: 'Test Flag',

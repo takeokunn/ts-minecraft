@@ -13,7 +13,7 @@
 //
 // The service is `scoped:` because allocated `WebGLQuery` objects must be released
 // via `gl.deleteQuery()` on scope teardown to avoid leaking GPU resources.
-import { Array as Arr, Effect, MutableRef, Option } from 'effect'
+import { Effect, MutableRef, Option } from 'effect'
 import type * as THREE from 'three'
 import { isPerfEnabled } from '../../application/perf-flags'
 
@@ -43,7 +43,12 @@ type InFlightQuery = Readonly<{
 }>
 
 // Per-name rolling window of recent samples (ms). Capped at ROLLING_SAMPLE_COUNT.
-type SampleWindow = ReadonlyArray<number>
+type SampleWindow = {
+  readonly values: Float64Array
+  count: number
+  cursor: number
+  sum: number
+}
 
 // Active GL bindings, populated by `attach()` once the WebGLRenderer is created.
 type GlBindings = Readonly<{
@@ -120,18 +125,30 @@ const resolveGlBindings = (renderer: THREE.WebGLRenderer): Option.Option<GlBindi
 // Helper: append sample with rolling cap
 // -----------------------------------------------------------------------------
 
-const appendSample = (existing: SampleWindow, sample: number): SampleWindow => {
-  const next = [...existing, sample]
-  return next.length <= ROLLING_SAMPLE_COUNT
-    ? next
-    : Arr.drop(next, next.length - ROLLING_SAMPLE_COUNT)
+const makeSampleWindow = (): SampleWindow => ({
+  values: new Float64Array(ROLLING_SAMPLE_COUNT),
+  count: 0,
+  cursor: 0,
+  sum: 0,
+})
+
+const appendSample = (window: SampleWindow, sample: number): void => {
+  if (window.count < ROLLING_SAMPLE_COUNT) {
+    window.values[window.cursor] = sample
+    window.sum += sample
+    window.cursor = (window.cursor + 1) % ROLLING_SAMPLE_COUNT
+    window.count += 1
+    return
+  }
+
+  const previous = window.values[window.cursor]!
+  window.values[window.cursor] = sample
+  window.sum += sample - previous
+  window.cursor = (window.cursor + 1) % ROLLING_SAMPLE_COUNT
 }
 
-const computeAverage = (samples: SampleWindow): number => {
-  if (samples.length === 0) return 0
-  const sum = Arr.reduce(samples, 0, (acc, x) => acc + x)
-  return sum / samples.length
-}
+const computeAverage = (window: SampleWindow): number =>
+  window.count === 0 ? 0 : window.sum / window.count
 
 // -----------------------------------------------------------------------------
 // Service
@@ -171,9 +188,9 @@ export class GpuTimerService extends Effect.Service<GpuTimerService>()(
       // -------------------------------------------------------------------
 
       const bindingsRef = MutableRef.make<Option.Option<GlBindings>>(Option.none())
-      const inFlightRef = MutableRef.make<ReadonlyArray<InFlightQuery>>([])
-      // Per-name rolling-window averages (in ms).
-      const samplesRef = MutableRef.make<ReadonlyMap<string, SampleWindow>>(
+      const inFlightRef = MutableRef.make<InFlightQuery[]>([])
+      // Per-name fixed rolling windows (in ms).
+      const samplesRef = MutableRef.make<Map<string, SampleWindow>>(
         new Map<string, SampleWindow>(),
       )
 
@@ -185,9 +202,9 @@ export class GpuTimerService extends Effect.Service<GpuTimerService>()(
           if (bindings === null) return
           const { gl } = bindings
           const queue = MutableRef.get(inFlightRef)
-          Arr.forEach(queue, ({ query }) => {
+          for (const { query } of queue) {
             gl.deleteQuery(query)
-          })
+          }
           MutableRef.set(inFlightRef, [])
         }),
       )
@@ -227,7 +244,7 @@ export class GpuTimerService extends Effect.Service<GpuTimerService>()(
             Effect.sync(() => {
               if (!query) return
               gl.endQuery(TIME_ELAPSED_EXT)
-              MutableRef.update(inFlightRef, (queue) => [...queue, { name, query }])
+              MutableRef.get(inFlightRef).push({ name, query })
             }),
         )
       }
@@ -248,7 +265,7 @@ export class GpuTimerService extends Effect.Service<GpuTimerService>()(
           const disjoint = gl.getParameter(GPU_DISJOINT_EXT) as boolean | number
 
           let consumedCount = 0
-          const nextSamples = new Map<string, SampleWindow>(MutableRef.get(samplesRef))
+          const samples = MutableRef.get(samplesRef)
 
           for (const entry of queue) {
             const available = gl.getQueryParameter(entry.query, QUERY_RESULT_AVAILABLE_EXT) as boolean
@@ -262,17 +279,22 @@ export class GpuTimerService extends Effect.Service<GpuTimerService>()(
 
             if (!disjoint) {
               const ms = ns / NS_PER_MS
-              const window = Option.getOrElse(
-                Option.fromNullable(nextSamples.get(entry.name)),
-                () => [] as SampleWindow,
-              )
-              nextSamples.set(entry.name, appendSample(window, ms))
+              let window = samples.get(entry.name)
+              if (window === undefined) {
+                window = makeSampleWindow()
+                samples.set(entry.name, window)
+              }
+              appendSample(window, ms)
             }
           }
 
           if (consumedCount > 0) {
-            MutableRef.set(inFlightRef, queue.slice(consumedCount))
-            MutableRef.set(samplesRef, nextSamples)
+            if (consumedCount === queue.length) {
+              queue.length = 0
+            } else {
+              queue.copyWithin(0, consumedCount)
+              queue.length -= consumedCount
+            }
           }
         })
 
@@ -280,9 +302,9 @@ export class GpuTimerService extends Effect.Service<GpuTimerService>()(
         Effect.sync(() => {
           const samples = MutableRef.get(samplesRef)
           const out = new Map<string, number>()
-          samples.forEach((window, name) => {
+          for (const [name, window] of samples) {
             out.set(name, computeAverage(window))
-          })
+          }
           return out
         })
 
@@ -296,5 +318,3 @@ export class GpuTimerService extends Effect.Service<GpuTimerService>()(
     }),
   },
 ) {}
-
-export const GpuTimerServiceLive = GpuTimerService.Default

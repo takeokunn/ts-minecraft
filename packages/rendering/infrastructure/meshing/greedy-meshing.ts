@@ -125,17 +125,20 @@ export const greedyMeshChunk = (
   meshYNegFace(state)
   meshZPosFace(state)
   meshZNegFace(state)
-  meshFluidFaces(
-    blocks,
-    Option.getOrUndefined(chunk.fluid),
-    lightGrids,
-    opaqueAcc,
-    getWaterAcc,
-    transparentLookup,
-    transparentSolidLookup,
-    offset,
-    yLimit,
-  )
+  const fluid = Option.getOrNull(chunk.fluid)
+  if (fluid !== null) {
+    meshFluidFaces(
+      blocks,
+      fluid,
+      lightGrids,
+      opaqueAcc,
+      getWaterAcc,
+      transparentLookup,
+      transparentSolidLookup,
+      offset,
+      yLimit,
+    )
+  }
 
   // Construct RawMeshData directly from the accumulator's typed arrays. These buffers
   // are produced internally by the face passes above, so Schema validation is redundant

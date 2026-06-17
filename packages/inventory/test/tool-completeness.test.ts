@@ -1,16 +1,16 @@
 import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
-import { TOOL_MAX_DURABILITY, isDurable, getMaxDurability } from '../domain/durability'
+import { DURABLE_ITEMS, isDurable, getMaxDurability } from '../domain/durability'
 import { Option } from 'effect'
 import type { InventoryItem } from '@ts-minecraft/core'
 
-// Guards: every tool tier should have all four tool types.
+// Guards: every tool tier should have all five tool types.
 // If a new material tier is added, this test catches missing entries.
 const TOOL_TYPES = ['SWORD', 'PICKAXE', 'SHOVEL', 'HOE', 'AXE'] as const
-const MATERIAL_TIERS = ['WOODEN', 'STONE', 'IRON', 'DIAMOND'] as const
+const MATERIAL_TIERS = ['WOODEN', 'STONE', 'IRON', 'GOLD', 'DIAMOND'] as const
 
 describe('TOOL_MAX_DURABILITY completeness', () => {
-  it('all four tool types exist for every material tier', () => {
+  it('all five tool types exist for every material tier', () => {
     for (const mat of MATERIAL_TIERS) {
       for (const tool of TOOL_TYPES) {
         const key = `${mat}_${tool}` as InventoryItem
@@ -64,8 +64,8 @@ describe('TOOL_MAX_DURABILITY completeness', () => {
     expect(ironSword).toBeLessThan(diamondSword)
   })
 
-  it('every item in TOOL_MAX_DURABILITY is non-stackable (maxStackFor = 1)', () => {
-    for (const item of Object.keys(TOOL_MAX_DURABILITY) as InventoryItem[]) {
+  it('every durable item is recognized by the durability logic', () => {
+    for (const item of DURABLE_ITEMS) {
       expect(isDurable(item), `${item} should be durable`).toBe(true)
     }
   })

@@ -17,6 +17,7 @@ describe('ItemTypeSchema', () => {
     'GOLD_INGOT',
     'DIAMOND',
     'REDSTONE_DUST',
+    'GLOWSTONE_DUST',
     'LAPIS_LAZULI',
     'EMERALD',
     'DIAMOND_PICKAXE',
@@ -58,7 +59,12 @@ describe('ItemTypeSchema — food items (Phase 11)', () => {
     'APPLE',
     'BREAD',
     'CARROT',
+    'RAW_PORKCHOP',
     'COOKED_PORKCHOP',
+    'RAW_MUTTON',
+    'COOKED_MUTTON',
+    'RAW_CHICKEN',
+    'COOKED_CHICKEN',
     'COOKED_BEEF',
     'GOLDEN_APPLE',
     'ROTTEN_FLESH',
@@ -94,6 +100,9 @@ describe('ItemTypeSchema — mob drops', () => {
     'GUNPOWDER',
     'BONE',
     'ARROW',
+    'SNOWBALL',
+    'FEATHER',
+    'INK_SAC',
     'STRING',
     'SPIDER_EYE',
     'ENDER_PEARL',
@@ -120,6 +129,13 @@ describe('ItemTypeSchema — armor items', () => {
     'IRON_BOOTS',
   ] as const
 
+  const GOLD_ARMOR = [
+    'GOLD_HELMET',
+    'GOLD_CHESTPLATE',
+    'GOLD_LEGGINGS',
+    'GOLD_BOOTS',
+  ] as const
+
   const DIAMOND_ARMOR = [
     'DIAMOND_HELMET',
     'DIAMOND_CHESTPLATE',
@@ -133,6 +149,11 @@ describe('ItemTypeSchema — armor items', () => {
   })
 
   it['each'](IRON_ARMOR)('accepts iron armor "%s"', (item: (typeof IRON_ARMOR)[number]) => {
+    const result = Schema.decodeUnknownEither(ItemTypeSchema)(item)
+    expect(Either.isRight(result)).toBe(true)
+  })
+
+  it['each'](GOLD_ARMOR)('accepts gold armor "%s"', (item: (typeof GOLD_ARMOR)[number]) => {
     const result = Schema.decodeUnknownEither(ItemTypeSchema)(item)
     expect(Either.isRight(result)).toBe(true)
   })

@@ -2,7 +2,7 @@ import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
 import { Array as Arr, Effect, Option } from 'effect'
 import { BlockId } from '@ts-minecraft/core'
-import { Block, BlockRegistry, BlockRegistryLive } from '@ts-minecraft/block'
+import { Block, BlockRegistry } from '@ts-minecraft/block'
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -44,7 +44,7 @@ describe('application/block-registry', () => {
       const result = yield* registry.get('STONE')
       expect(Option.isSome(result)).toBe(true)
       expect(Option.getOrThrow(result).type).toBe('STONE')
-    }).pipe(Effect.provide(BlockRegistryLive))
+    }).pipe(Effect.provide(BlockRegistry.Default))
   )
 
   it.effect('get returns Option.some for a registered block type', () =>
@@ -57,7 +57,7 @@ describe('application/block-registry', () => {
       const result = yield* registry.get('DIRT')
       expect(Option.isSome(result)).toBe(true)
       expect(Option.getOrThrow(result).id).toBe(block.id)
-    }).pipe(Effect.provide(BlockRegistryLive))
+    }).pipe(Effect.provide(BlockRegistry.Default))
   )
 
   it.effect('get returns Option.none for an unregistered block type', () =>
@@ -70,7 +70,7 @@ describe('application/block-registry', () => {
 
       const result = yield* registry.get('BEDROCK')
       expect(Option.isNone(result)).toBe(true)
-    }).pipe(Effect.provide(BlockRegistryLive))
+    }).pipe(Effect.provide(BlockRegistry.Default))
   )
 
   it.effect('getAll returns all registered blocks', () =>
@@ -90,7 +90,7 @@ describe('application/block-registry', () => {
       const types = Arr.map(all, (b) => b.type)
       expect(types).toContain('SAND')
       expect(types).toContain('GRAVEL')
-    }).pipe(Effect.provide(BlockRegistryLive))
+    }).pipe(Effect.provide(BlockRegistry.Default))
   )
 
   it.effect('dispose clears all registered blocks', () =>
@@ -103,7 +103,7 @@ describe('application/block-registry', () => {
 
       const all = yield* registry.getAll()
       expect(all.length).toBe(0)
-    }).pipe(Effect.provide(BlockRegistryLive))
+    }).pipe(Effect.provide(BlockRegistry.Default))
   )
 
   it.effect('register overwrites an existing block with the same type', () =>
@@ -139,6 +139,6 @@ describe('application/block-registry', () => {
       const result = yield* registry.get('IRON_ORE')
       expect(Option.isSome(result)).toBe(true)
       expect(Option.getOrThrow(result).id).toBe(updated.id)
-    }).pipe(Effect.provide(BlockRegistryLive))
+    }).pipe(Effect.provide(BlockRegistry.Default))
   )
 })

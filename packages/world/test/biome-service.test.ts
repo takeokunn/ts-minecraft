@@ -1,20 +1,23 @@
 import { describe,it } from '@effect/vitest'
-import { CHUNK_SIZE } from '@ts-minecraft/core'
 import {
 BiomeType,
 buildChunkNoiseInputs,
+CHUNK_COLUMN_SAMPLE_COUNT,
 classifyBiome
 } from '@ts-minecraft/world'
 import { Array as Arr,Effect } from 'effect'
 import { expect } from 'vitest'
+import { readChunkNoiseInput } from '../domain/biome-service-helpers'
 import { withBiomeService } from './biome-service-test-utils'
+
+type ChunkNoiseInput = ReturnType<typeof buildChunkNoiseInputs>[number]
 
 describe('classifyBiome — biome classification', () => {
   const cases: ReadonlyArray<readonly [number, number, BiomeType]> = [
     [0.5, 0.45, 'PLAINS'],    // temperate, moderate humidity
     [0.8, 0.15, 'DESERT'],    // hot, low humidity (not below extreme threshold)
     [0.5, 0.70, 'FOREST'],    // temperate, wet
-    [0.2, 0.90, 'OCEAN'],     // cold, very wet
+    [0.2, 0.90, 'TAIGA'],     // cold, very wet
     [0.1, 0.50, 'MOUNTAINS'], // cold, humid
     [0.1, 0.30, 'SNOW'],      // cold, low humidity
     [0.71, 0.90, 'SWAMP'],    // hot, very wet
@@ -38,7 +41,7 @@ describe('classifyBiome — threshold boundary conditions', () => {
     [0.5, 0.45, 'PLAINS',    'temperate, middle humidity (no-zone default)'],
     [0.5, 0.61, 'FOREST',    'temperate, just above wet boundary (0.6)'],
     [0.71, 0.86, 'SWAMP',    'just above very-wet threshold, temp > TEMP_HOT'],
-    [0.70, 0.86, 'OCEAN',    'just above very-wet threshold, temp ≤ TEMP_HOT'],
+    [0.70, 0.86, 'FOREST',   'just above very-wet threshold, temperate climate'],
     [0.29, 0.50, 'MOUNTAINS','just below cold threshold (0.3), humid'],
     [0.71, 0.50, 'SAVANNA',  'just above hot threshold (0.7), semi-arid'],
     [0.22, 0.56, 'TAIGA',    'cold and wetter than mountains threshold'],
@@ -55,22 +58,24 @@ describe('classifyBiome — threshold boundary conditions', () => {
 describe('buildChunkNoiseInputs', () => {
   it('returns CHUNK_SIZE² entries for any chunk', () => {
     const result = buildChunkNoiseInputs(0, 0)
-    expect(result).toHaveLength(CHUNK_SIZE * CHUNK_SIZE)
+    expect(result).toHaveLength(CHUNK_COLUMN_SAMPLE_COUNT)
   })
 
   it('first entry corresponds to (lx=0, lz=0) of the chunk', () => {
     const result = buildChunkNoiseInputs(0, 0)
+    const firstInput = readChunkNoiseInput(result, 0)
     // x=0, z=0 → tempX = 0 * 0.005 = 0
-    expect(result[0]!.tempX).toBeCloseTo(0)
-    expect(result[0]!.tempZ).toBeCloseTo(0)
+    expect(firstInput.tempX).toBeCloseTo(0)
+    expect(firstInput.tempZ).toBeCloseTo(0)
     // humidity offset: (0+10000)*0.005 = 50
-    expect(result[0]!.humX).toBeCloseTo(50)
+    expect(firstInput.humX).toBeCloseTo(50)
   })
 
   it('entries are offset correctly for non-zero chunks', () => {
     const result = buildChunkNoiseInputs(1, 0)
+    const firstInput = readChunkNoiseInput(result, 0)
     // first column: lx=0, x = 1*16 + 0 = 16 → tempX = 16*0.005 = 0.08
-    expect(result[0]!.tempX).toBeCloseTo(16 * 0.005)
+    expect(firstInput.tempX).toBeCloseTo(16 * 0.005)
   })
 
   it('humidity x-coordinates are always offset by 10000*BIOME_SCALE from temperature', () => {

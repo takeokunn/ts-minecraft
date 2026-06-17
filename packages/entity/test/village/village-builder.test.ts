@@ -1,17 +1,10 @@
 import { describe, it, expect } from 'vitest'
-import { VillageStructureId } from '@ts-minecraft/entity'
-import type { VillageStructure } from '@ts-minecraft/entity'
 import { buildingBlocksForStructure, buildingBlocksForVillage } from '@ts-minecraft/entity'
-
-const makeStructure = (overrides: Partial<VillageStructure> & Pick<VillageStructure, 'type' | 'size'>): VillageStructure => ({
-  structureId: VillageStructureId.make('test-structure'),
-  anchor: { x: 0, y: 64, z: 0 },
-  ...overrides,
-})
+import { makeTestVillageStructure } from './test-utils'
 
 describe('village-builder / well', () => {
   it('places STONE ring at y=anchor.y and anchor.y+1, WATER at center+1, STONE cap at anchor.y+2', () => {
-    const structure = makeStructure({ type: 'well', size: { x: 3, y: 4, z: 3 } })
+    const structure = makeTestVillageStructure({ type: 'well', size: { x: 3, y: 4, z: 3 } })
     const placements = buildingBlocksForStructure(structure)
 
     const stoneAtY64 = placements.filter(p => p.blockType === 'STONE' && p.position.y === 64)
@@ -38,7 +31,7 @@ describe('village-builder / well', () => {
   })
 
   it('places blocks only with STONE and WATER block types', () => {
-    const structure = makeStructure({ type: 'well', size: { x: 3, y: 4, z: 3 } })
+    const structure = makeTestVillageStructure({ type: 'well', size: { x: 3, y: 4, z: 3 } })
     const placements = buildingBlocksForStructure(structure)
 
     const blockTypes = new Set(placements.map(p => p.blockType))
@@ -46,7 +39,7 @@ describe('village-builder / well', () => {
   })
 
   it('respects a non-zero anchor position', () => {
-    const structure = makeStructure({ type: 'well', size: { x: 3, y: 4, z: 3 }, anchor: { x: 10, y: 70, z: 20 } })
+    const structure = makeTestVillageStructure({ type: 'well', size: { x: 3, y: 4, z: 3 }, anchor: { x: 10, y: 70, z: 20 } })
     const placements = buildingBlocksForStructure(structure)
 
     const water = placements.find(p => p.blockType === 'WATER')
@@ -60,7 +53,7 @@ describe('village-builder / well', () => {
 
 describe('village-builder / house', () => {
   it('places PLANKS floor at anchor.y for all sizeX×sizeZ tiles', () => {
-    const structure = makeStructure({ type: 'house', size: { x: 6, y: 5, z: 6 } })
+    const structure = makeTestVillageStructure({ type: 'house', size: { x: 6, y: 5, z: 6 } })
     const placements = buildingBlocksForStructure(structure)
 
     const floor = placements.filter(p => p.blockType === 'PLANKS' && p.position.y === 64)
@@ -68,7 +61,7 @@ describe('village-builder / house', () => {
   })
 
   it('places WOOD roof at anchor.y+sizeY-1 for all sizeX×sizeZ tiles', () => {
-    const structure = makeStructure({ type: 'house', size: { x: 6, y: 5, z: 6 } })
+    const structure = makeTestVillageStructure({ type: 'house', size: { x: 6, y: 5, z: 6 } })
     const placements = buildingBlocksForStructure(structure)
 
     const roof = placements.filter(p => p.blockType === 'WOOD' && p.position.y === 64 + 5 - 1)
@@ -76,7 +69,7 @@ describe('village-builder / house', () => {
   })
 
   it('places COBBLESTONE walls only on perimeter from anchor.y+1 to anchor.y+sizeY-2', () => {
-    const structure = makeStructure({ type: 'house', size: { x: 6, y: 5, z: 6 } })
+    const structure = makeTestVillageStructure({ type: 'house', size: { x: 6, y: 5, z: 6 } })
     const placements = buildingBlocksForStructure(structure)
 
     const walls = placements.filter(p => p.blockType === 'COBBLESTONE')
@@ -91,7 +84,7 @@ describe('village-builder / house', () => {
   })
 
   it('leaves door gap in south wall (dz===0) at doorX, y=anchor.y+1 and anchor.y+2', () => {
-    const structure = makeStructure({ type: 'house', size: { x: 6, y: 5, z: 6 } })
+    const structure = makeTestVillageStructure({ type: 'house', size: { x: 6, y: 5, z: 6 } })
     const placements = buildingBlocksForStructure(structure)
 
     const doorX = Math.floor(6 / 2) // 3
@@ -103,7 +96,7 @@ describe('village-builder / house', () => {
   })
 
   it('does not place AIR blocks (interior is left implicit)', () => {
-    const structure = makeStructure({ type: 'house', size: { x: 6, y: 5, z: 6 } })
+    const structure = makeTestVillageStructure({ type: 'house', size: { x: 6, y: 5, z: 6 } })
     const placements = buildingBlocksForStructure(structure)
 
     const airBlocks = placements.filter(p => p.blockType === 'AIR')
@@ -111,7 +104,7 @@ describe('village-builder / house', () => {
   })
 
   it('places exactly PLANKS, COBBLESTONE, and WOOD block types', () => {
-    const structure = makeStructure({ type: 'house', size: { x: 6, y: 5, z: 6 } })
+    const structure = makeTestVillageStructure({ type: 'house', size: { x: 6, y: 5, z: 6 } })
     const placements = buildingBlocksForStructure(structure)
 
     const blockTypes = new Set(placements.map(p => p.blockType))
@@ -121,7 +114,7 @@ describe('village-builder / house', () => {
 
 describe('village-builder / farm', () => {
   it('places FARMLAND at anchor.y for all sizeX×sizeZ tiles', () => {
-    const structure = makeStructure({ type: 'farm', size: { x: 8, y: 1, z: 8 } })
+    const structure = makeTestVillageStructure({ type: 'farm', size: { x: 8, y: 1, z: 8 } })
     const placements = buildingBlocksForStructure(structure)
 
     const farmland = placements.filter(p => p.blockType === 'FARMLAND' && p.position.y === 64)
@@ -129,7 +122,7 @@ describe('village-builder / farm', () => {
   })
 
   it('places WHEAT_CROP at anchor.y+1 for rows where dz % 2 === 0', () => {
-    const structure = makeStructure({ type: 'farm', size: { x: 8, y: 1, z: 8 } })
+    const structure = makeTestVillageStructure({ type: 'farm', size: { x: 8, y: 1, z: 8 } })
     const placements = buildingBlocksForStructure(structure)
 
     const wheat = placements.filter(p => p.blockType === 'WHEAT_CROP')
@@ -149,7 +142,7 @@ describe('village-builder / farm', () => {
   })
 
   it('places only FARMLAND and WHEAT_CROP block types', () => {
-    const structure = makeStructure({ type: 'farm', size: { x: 8, y: 1, z: 8 } })
+    const structure = makeTestVillageStructure({ type: 'farm', size: { x: 8, y: 1, z: 8 } })
     const placements = buildingBlocksForStructure(structure)
 
     const blockTypes = new Set(placements.map(p => p.blockType))
@@ -159,7 +152,7 @@ describe('village-builder / farm', () => {
 
 describe('village-builder / road', () => {
   it('places GRAVEL at anchor.y for all sizeX×sizeZ tiles', () => {
-    const structure = makeStructure({ type: 'road', size: { x: 24, y: 1, z: 3 } })
+    const structure = makeTestVillageStructure({ type: 'road', size: { x: 24, y: 1, z: 3 } })
     const placements = buildingBlocksForStructure(structure)
 
     expect(placements).toHaveLength(24 * 3) // 72
@@ -170,7 +163,7 @@ describe('village-builder / road', () => {
   })
 
   it('places only GRAVEL block type', () => {
-    const structure = makeStructure({ type: 'road', size: { x: 24, y: 1, z: 3 } })
+    const structure = makeTestVillageStructure({ type: 'road', size: { x: 24, y: 1, z: 3 } })
     const placements = buildingBlocksForStructure(structure)
 
     const blockTypes = new Set(placements.map(p => p.blockType))
@@ -180,8 +173,8 @@ describe('village-builder / road', () => {
 
 describe('village-builder / buildingBlocksForVillage', () => {
   it('flattens blocks from multiple structures', () => {
-    const well = makeStructure({ type: 'well', size: { x: 3, y: 4, z: 3 } })
-    const road = makeStructure({ type: 'road', size: { x: 24, y: 1, z: 3 }, anchor: { x: 0, y: 64, z: 10 } })
+    const well = makeTestVillageStructure({ type: 'well', size: { x: 3, y: 4, z: 3 } })
+    const road = makeTestVillageStructure({ type: 'road', size: { x: 24, y: 1, z: 3 }, anchor: { x: 0, y: 64, z: 10 } })
 
     const wellBlocks = buildingBlocksForStructure(well)
     const roadBlocks = buildingBlocksForStructure(road)

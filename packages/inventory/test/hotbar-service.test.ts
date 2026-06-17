@@ -21,7 +21,7 @@ describe('application/hotbar/hotbar-service', () => {
     })
   })
 
-  describe('HotbarServiceLive', () => {
+  describe('HotbarService.Default', () => {
     it('should provide HotbarService as Layer', () => {
       const inputService = createTestInputService()
       const blockRegistry = createTestBlockRegistry(defaultTestBlocks)

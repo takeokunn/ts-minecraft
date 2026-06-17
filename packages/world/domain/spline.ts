@@ -6,29 +6,37 @@
 export type ControlPoint = readonly [t: number, value: number]
 export type Spline = ReadonlyArray<ControlPoint>
 
+type NonEmptySpline = readonly [ControlPoint, ...ReadonlyArray<ControlPoint>]
+
+const isNonEmptySpline = (spline: Spline): spline is NonEmptySpline =>
+  spline.length > 0
+
+const lastControlPoint = (spline: NonEmptySpline): ControlPoint =>
+  spline.slice(-1)[0] ?? spline[0]
+
+const interpolateSegment = (
+  [t0, v0]: ControlPoint,
+  [t1, v1]: ControlPoint,
+  t: number,
+): number => {
+  const span = t1 - t0
+  return v0 + (v1 - v0) * (t - t0) / span
+}
+
 // Returns the endpoint value when t is outside the spline range (clamped, not extrapolated).
 export const evaluateSpline = (spline: Spline, t: number): number => {
-  const n = spline.length
-  if (n === 0) return 0
-  const first = spline[0]!
+  if (!isNonEmptySpline(spline)) return 0
+  const first = spline[0]
   if (t <= first[0]) return first[1]
-  const last = spline[n - 1]!
-  if (t >= last[0]) return last[1]
-  // Linear scan for the bracket. Splines here have <= 8 control points,
-  // so the branch-predictor-friendly linear scan beats a binary search.
-  for (let i = 1; i < n; i++) {
-    const [t1, v1] = spline[i]!
-    if (t <= t1) {
-      const [t0, v0] = spline[i - 1]!
-      const span = t1 - t0
-      // Guard against zero-width segments (duplicate t values).
-      /* c8 ignore next */
-      if (span === 0) return v1
-      return v0 + (v1 - v0) * (t - t0) / span
+  const last = lastControlPoint(spline)
+
+  if (t < last[0]) {
+    let start = first
+    for (const end of spline.slice(1)) {
+      if (t <= end[0]) return interpolateSegment(start, end, t)
+      start = end
     }
-    /* c8 ignore next */
   }
-  /* c8 ignore next 3 */
-  // Unreachable given the upper-bound clamp above, but satisfies the type system.
+
   return last[1]
 }

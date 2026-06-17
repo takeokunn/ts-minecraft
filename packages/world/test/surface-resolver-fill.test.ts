@@ -3,6 +3,7 @@ import { expect } from 'vitest'
 import { Array as Arr } from 'effect'
 import { blockTypeToIndex, CHUNK_HEIGHT, CHUNK_SIZE } from '@ts-minecraft/core'
 import { BEDROCK_LAYER_TOP, fillColumn } from '@ts-minecraft/world'
+import { makeChunkBlockBuffer } from './chunk-buffer-test-utils'
 
 const GRASS     = blockTypeToIndex('GRASS')
 const DIRT      = blockTypeToIndex('DIRT')
@@ -28,7 +29,7 @@ const FILL_PROPS = {
 const getBlock = (blocks: Uint8Array, lx: number, y: number, lz: number): number =>
   blocks[y + lz * CHUNK_HEIGHT + lx * CHUNK_HEIGHT * CHUNK_SIZE]!
 
-const makeBlocks = (): Uint8Array => new Uint8Array(CHUNK_SIZE * CHUNK_SIZE * CHUNK_HEIGHT)
+const makeBlocks = (): Uint8Array<ArrayBufferLike> => makeChunkBlockBuffer()
 
 
 describe('fillColumn', () => {

@@ -1,5 +1,6 @@
 import { Effect, MutableRef } from 'effect'
 import type { DebugFeatureFlagGroup, DebugFeatureFlagId } from '@ts-minecraft/app/debug-feature-flags'
+import { DEFAULT_PLAYER_ID } from '@ts-minecraft/core'
 import type { InventoryItem } from '@ts-minecraft/core'
 import type { QaApi, QaApiDeps, StagedResourceBlock, StagedZombiePosition } from '@ts-minecraft/app/main/qa-api-types'
 import { isQaApiEnabled } from '@ts-minecraft/app/main/qa-api-env'
@@ -60,8 +61,8 @@ const makeQaApi = (
   clearBlocksInFront: () => clearBlocksInFront(deps.camera, deps.blockService, deps.blockHighlight),
   stageBuildSupportBlock: () =>
     stageBuildSupportBlock(deps.camera, deps.scene, deps.chunkManagerService, deps.worldRendererService, deps.blockHighlight),
-  dispatchMouseClick: (button: 0 | 2) => dispatchMouseClick(button),
-  consumeMouseClickForQA: (button: 0 | 2) => Effect.runPromise(deps.inputService.consumeMouseClick(button)),
+  dispatchMouseClick: (button: 0 | 1 | 2) => dispatchMouseClick(button),
+  consumeMouseClickForQA: (button: 0 | 1 | 2) => Effect.runPromise(deps.inputService.consumeMouseClick(button)),
   getCurrentTargetForQA: () => Effect.runPromise(deps.blockHighlight.getTargetBlock()),
   attackFirstZombie: () => attackFirstZombie(deps.hotbarService, deps.entityManager),
   placeSelectedItemInFront: () => placeSelectedItemInFront(deps.camera, deps.hotbarService, deps.blockService, deps.blockHighlight),
@@ -73,6 +74,17 @@ const makeQaApi = (
   getLoadedWaterBlockCount: () => getLoadedWaterBlockCount(deps.chunkManagerService),
   getMobMovementSnapshot: (durationMs: number) => getMobMovementSnapshot(deps.entityManager, durationMs),
   setTimeOfDayForQA: (timeOfDay: number) => setTimeOfDayForQA(deps.timeService, timeOfDay),
+  movePlayerForQA: (offset) =>
+    Effect.runPromise(Effect.gen(function* () {
+      const current = yield* deps.gameState.getPlayerPosition(DEFAULT_PLAYER_ID)
+      const next = {
+        x: current.x + (offset.x ?? 0),
+        y: current.y + (offset.y ?? 0),
+        z: current.z + (offset.z ?? 0),
+      }
+      yield* deps.gameState.setPlayerPosition(next)
+      return next
+    })),
   getRenderingSnapshot: () => getRenderingSnapshot(deps.camera, deps.scene),
   getDebugFeatureSnapshot: () => Effect.runPromise(deps.debugFeatureFlags.getSnapshot()),
   setDebugFeatureEnabled: (id: DebugFeatureFlagId, enabled: boolean) =>

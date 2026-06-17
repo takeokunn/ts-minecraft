@@ -93,6 +93,13 @@ export class LoadingScreenService extends Effect.Service<LoadingScreenService>()
         })
       )
       return {
+        show: (): Effect.Effect<void, never> => Effect.sync(() => {
+          const el = Option.getOrNull(overlayEl)
+          if (el !== null) {
+            el.style.display = 'flex'
+            renderLoadingView(dom, el)
+          }
+        }),
         hide: (): Effect.Effect<void, never> => Effect.sync(() => {
           const el = Option.getOrNull(overlayEl)
           if (el !== null) el.style.display = 'none'
@@ -108,5 +115,3 @@ export class LoadingScreenService extends Effect.Service<LoadingScreenService>()
     }),
   }
 ) {}
-
-export const LoadingScreenLive = LoadingScreenService.Default

@@ -1,17 +1,14 @@
-import { Array as Arr, Option } from 'effect'
-import type { Position } from '@ts-minecraft/core'
+import { Option } from 'effect'
+import type { DeltaTimeSecs, Position } from '@ts-minecraft/core'
 import {
   VillagerActivity,
   type Village,
   type Villager,
-  type VillageStructure,
-  VillageStructureId,
 } from './village-model'
-import {
-  ACTIVITY_REST_START, ACTIVITY_REST_END,
-  ACTIVITY_WORK_START, ACTIVITY_WORK_END,
-  WANDER_RADIUS, WANDER_PHASE_TICK_STEP,
-} from './village-simulation.config'
+import { ensureVillageInState } from './village-creation'
+import type { VillageState } from './village-state'
+import { distanceSq, moveTowards } from './village-position'
+import { getTargetPosition, nextActivityForVillager } from './village-simulation-activity'
 
 export const VILLAGE_GRID_SIZE = 96
 export const VILLAGE_NEAR_DISTANCE = 80
@@ -24,13 +21,6 @@ export const TRADE_DISTANCE = 4
 // near-distance so the player's current village is always simulated.
 export const VILLAGE_SIMULATION_DISTANCE = 192
 
-export const distanceSq = (a: Position, b: Position): number => {
-  const dx = b.x - a.x
-  const dy = b.y - a.y
-  const dz = b.z - a.z
-  return dx * dx + dy * dy + dz * dz
-}
-
 // Performance boundary: plain for-loop avoids Arr.fromIterable array allocation per villager per tick
 export const hashString = (source: string): number => {
   let hash = 0
@@ -40,120 +30,88 @@ export const hashString = (source: string): number => {
   return Math.abs(hash)
 }
 
-export const moveTowards = (from: Position, to: Position, maxDelta: number): Position => {
-  const dx = to.x - from.x
-  const dy = to.y - from.y
-  const dz = to.z - from.z
-  const distance = Math.sqrt(dx * dx + dy * dy + dz * dz)
+const VILLAGER_MOVE_SPEED = 0.045
+const VILLAGE_SIMULATION_DISTANCE_SQ = VILLAGE_SIMULATION_DISTANCE * VILLAGE_SIMULATION_DISTANCE
 
-  if (distance === 0 || distance <= maxDelta) {
-    return to
-  }
-
-  return {
-    x: from.x + (dx / distance) * maxDelta,
-    y: from.y + (dy / distance) * maxDelta,
-    z: from.z + (dz / distance) * maxDelta,
-  }
-}
-
-export const findNearestVillage = (
-  villages: ReadonlyArray<Village>,
-  position: Position,
-): Option.Option<Village> =>
-  Arr.reduce(villages, Option.none<Village>(), (closest, village) => {
-    const c = Option.getOrNull(closest)
-    if (c === null) return Option.some(village)
-    return distanceSq(village.center, position) < distanceSq(c.center, position)
-      ? Option.some(village)
-      : closest
-  })
-
-export const findStructureAnchor = (
-  structures: ReadonlyArray<VillageStructure>,
-  structureId: VillageStructureId,
-  fallback: Position,
-): Position =>
-  Option.getOrElse(
-    Arr.findFirst(structures, (s) => s.structureId === structureId).pipe(
-      Option.map((s) => s.anchor),
-    ),
-    () => fallback,
-  )
-
-export const snapVillageCenter = (position: Position): Position => ({
-  x: Math.floor(position.x / VILLAGE_GRID_SIZE) * VILLAGE_GRID_SIZE + VILLAGE_GRID_SIZE / 2,
-  y: Math.max(64, Math.round(position.y)),
-  z: Math.floor(position.z / VILLAGE_GRID_SIZE) * VILLAGE_GRID_SIZE + VILLAGE_GRID_SIZE / 2,
-})
-
-export const nextActivityForVillager = (
-  villager: Villager,
+const tickVillage = (
+  village: Village,
   playerPosition: Position,
   timeOfDay: number,
-): VillagerActivity => {
-  if (distanceSq(villager.position, playerPosition) <= TRADE_DISTANCE * TRADE_DISTANCE) {
-    return VillagerActivity.Trade
-  }
-
-  if (timeOfDay < ACTIVITY_REST_END || timeOfDay > ACTIVITY_REST_START) {
-    return VillagerActivity.Rest
-  }
-  return timeOfDay >= ACTIVITY_WORK_START && timeOfDay <= ACTIVITY_WORK_END
-    ? VillagerActivity.Work
-    : VillagerActivity.Wander
-}
-
-export const getTargetPosition = (
-  village: Village,
-  villager: Villager,
-  nextActivity: VillagerActivity,
   tick: number,
-): Position => {
-  const findStructurePosition = (structureId: VillageStructureId): Position =>
-    findStructureAnchor(village.structures, structureId, villager.position)
-
-  if (nextActivity === VillagerActivity.Work) {
-    return findStructurePosition(villager.workplaceStructureId)
+  maxMoveDelta: number,
+): Village => {
+  if (distanceSq(village.center, playerPosition) > VILLAGE_SIMULATION_DISTANCE_SQ) {
+    return village
   }
 
-  const homePosition = findStructurePosition(villager.homeStructureId)
-  if (nextActivity === VillagerActivity.Rest) {
-    return homePosition
-  }
-
-  if (nextActivity === VillagerActivity.Wander) {
-    const phase = (hashString(villager.villagerId) + tick * WANDER_PHASE_TICK_STEP) % 360
-    const angle = phase * (Math.PI / 180)
-    return {
-      x: homePosition.x + Math.cos(angle) * WANDER_RADIUS,
-      y: homePosition.y,
-      z: homePosition.z + Math.sin(angle) * WANDER_RADIUS,
+  const villagers: Array<Villager> = new Array(village.villagers.length)
+  let anyUpdated = false
+  for (let i = 0; i < village.villagers.length; i++) {
+    const villager = village.villagers[i]!
+    const nextVillager = tickVillager(villager, village, playerPosition, timeOfDay, tick, maxMoveDelta)
+    villagers[i] = nextVillager
+    if (nextVillager !== villager) {
+      anyUpdated = true
     }
   }
 
-  return villager.position
+  if (!anyUpdated) {
+    return village
+  }
+
+  return {
+    ...village,
+    villagers,
+  }
 }
 
-export const flattenVillagers = (villages: ReadonlyArray<Village>): ReadonlyArray<Villager> =>
-  Arr.flatMap(villages, (village) => village.villagers)
+const tickVillager = (
+  villager: Villager,
+  village: Village,
+  playerPosition: Position,
+  timeOfDay: number,
+  tick: number,
+  maxMoveDelta: number,
+): Villager => {
+  const nextActivity = nextActivityForVillager(villager, playerPosition, timeOfDay)
+  const targetPosition = nextActivity === VillagerActivity.Trade ? null : Option.getOrNull(getTargetPosition(village, villager, nextActivity, tick))
+  const nextPosition = targetPosition === null ? villager.position : moveTowards(villager.position, targetPosition, maxMoveDelta)
 
-const LEVEL_2_XP_THRESHOLD = 6
-const LEVEL_3_XP_THRESHOLD = 14
-const LEVEL_4_XP_THRESHOLD = 28
-
-export const villagerLevelFromExperience = (experience: number): number => {
-  if (experience >= LEVEL_4_XP_THRESHOLD) {
-    return 4
+  if (nextActivity === villager.activity && nextPosition === villager.position) {
+    return villager
   }
 
-  if (experience >= LEVEL_3_XP_THRESHOLD) {
-    return 3
+  return {
+    ...villager,
+    activity: nextActivity,
+    position: nextPosition,
+  }
+}
+
+export const advanceVillageState = (
+  state: VillageState,
+  playerPosition: Position,
+  timeOfDay: number,
+  deltaTime: DeltaTimeSecs,
+): VillageState => {
+  const [ensuredState] = ensureVillageInState(state, playerPosition)
+  const tick = ensuredState.updateTick + 1
+  const maxMoveDelta = Math.max(0, VILLAGER_MOVE_SPEED * deltaTime * 60)
+
+  const villages: Array<Village> = new Array(ensuredState.villages.length)
+  let anyUpdated = false
+  for (let i = 0; i < ensuredState.villages.length; i++) {
+    const village = ensuredState.villages[i]!
+    const nextVillage = tickVillage(village, playerPosition, timeOfDay, tick, maxMoveDelta)
+    villages[i] = nextVillage
+    if (nextVillage !== village) {
+      anyUpdated = true
+    }
   }
 
-  if (experience >= LEVEL_2_XP_THRESHOLD) {
-    return 2
+  return {
+    ...ensuredState,
+    villages: anyUpdated ? villages : ensuredState.villages,
+    updateTick: tick,
   }
-
-  return 1
 }

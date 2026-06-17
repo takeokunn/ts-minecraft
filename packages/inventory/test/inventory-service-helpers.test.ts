@@ -7,7 +7,7 @@ import {
   drainPreferredSlot,
   fillEmptySlots,
 } from '../application/inventory-service.helpers'
-import type { InventorySlot } from '../application/inventory-service'
+import type { InventorySlot } from '../application/inventory-service-types'
 
 // ─── Test helpers ─────────────────────────────────────────────────────────────
 

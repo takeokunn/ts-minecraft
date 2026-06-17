@@ -5,7 +5,7 @@ import type { ChunkManagerService } from '@ts-minecraft/world'
 import type { GameStateService } from '@ts-minecraft/game'
 import type { FurnaceService, HotbarService, InventoryService, RecipeService } from '@ts-minecraft/inventory'
 import type { InventoryItem } from '@ts-minecraft/core'
-import type { InventoryRendererService } from '@ts-minecraft/presentation/inventory/inventory-renderer'
+import type { InventoryRendererService } from '@ts-minecraft/presentation'
 import { scanNearbyBlock } from '@ts-minecraft/app/main/qa-spatial'
 
 export const getInventorySnapshot = (inventoryService: InventoryService) =>

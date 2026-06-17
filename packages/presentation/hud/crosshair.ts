@@ -1,4 +1,5 @@
-import { Effect, Option, Ref } from 'effect'
+import { Effect, Option } from 'effect'
+import { MutableRef } from 'effect'
 
 // DOM abstraction for testability
 export class DomOperationsService extends Effect.Service<DomOperationsService>()(
@@ -68,35 +69,32 @@ export class CrosshairService extends Effect.Service<CrosshairService>()(
       element.appendChild(createLine(true))  // Vertical
       element.appendChild(createLine(false)) // Horizontal
 
-      const visibleRef = yield* Ref.make(false)
+      const visibleRef = MutableRef.make(false)
       return {
-        // Ref.modify returns the OLD state atomically, then the side-effect runs on that old value.
-        // This eliminates the Ref.get → Ref.set TOCTOU window.
         show: (): Effect.Effect<void, never> =>
-          Effect.gen(function* () {
-            const wasVisible = yield* Ref.modify(visibleRef, (vis) => [vis, true] as const)
-            if (!wasVisible) yield* Effect.sync(() => dom.appendChild(element))
+          Effect.sync(() => {
+            if (MutableRef.get(visibleRef)) return
+            MutableRef.set(visibleRef, true)
+            dom.appendChild(element)
           }),
 
         hide: (): Effect.Effect<void, never> =>
-          Effect.gen(function* () {
-            const wasVisible = yield* Ref.modify(visibleRef, (vis) => [vis, false] as const)
-            if (wasVisible && Option.isSome(dom.getParentNode(element))) yield* Effect.sync(() => dom.removeChild(element))
+          Effect.sync(() => {
+            if (!MutableRef.get(visibleRef)) return
+            MutableRef.set(visibleRef, false)
+            if (Option.isSome(dom.getParentNode(element))) dom.removeChild(element)
           }),
 
         toggle: (): Effect.Effect<void, never> =>
-          Effect.gen(function* () {
-            const wasVisible = yield* Ref.modify(visibleRef, (vis) => [vis, !vis] as const)
-            yield* Effect.sync(() => {
-              if (wasVisible) dom.removeChild(element)
-              else dom.appendChild(element)
-            })
+          Effect.sync(() => {
+            const wasVisible = MutableRef.get(visibleRef)
+            MutableRef.set(visibleRef, !wasVisible)
+            if (wasVisible) dom.removeChild(element)
+            else dom.appendChild(element)
           }),
 
-        isVisible: (): Effect.Effect<boolean, never> => Ref.get(visibleRef),
+        isVisible: (): Effect.Effect<boolean, never> => Effect.sync(() => MutableRef.get(visibleRef)),
       }
     }),
   }
 ) {}
-export const CrosshairLive = CrosshairService.Default
-export const DomOperationsLive = DomOperationsService.Default

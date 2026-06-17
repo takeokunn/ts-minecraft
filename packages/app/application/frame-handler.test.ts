@@ -12,7 +12,7 @@ import {
   makeServices,
   makeSettingsOverlay,
   runFrame,
-} from '@test/frame-handler-test-kit'
+} from '../test/frame-handler-test-kit'
 
 const FRAME_DELTA = 0.016 as DeltaTimeSecs
 

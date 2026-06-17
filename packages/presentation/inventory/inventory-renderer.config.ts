@@ -24,6 +24,20 @@ const TILE_NAMES: Record<number, string> = {
   33: 'deepslate-emerald-ore', 34: 'coal-block', 35: 'iron-block', 36: 'gold-block',
   37: 'diamond-block', 38: 'redstone-block', 39: 'lapis-block', 40: 'emerald-block',
   41: 'planks', 43: 'crafting-table', 44: 'furnace', 45: 'torch',
+  63: 'netherrack', 64: 'end-stone', 65: 'end-stone-bricks', 66: 'purpur-block',
+  67: 'purpur-pillar-top', 68: 'purpur-pillar-side', 69: 'end-rod', 70: 'end-portal-frame',
+  71: 'dragon-egg', 72: 'end-crystal', 73: 'ender-chest-top', 74: 'ender-chest-side',
+  75: 'shulker-box', 76: 'bed-top', 77: 'bed-side', 78: 'tnt-top', 79: 'tnt-side',
+  80: 'chorus-flower', 81: 'chorus-plant', 82: 'enchanting-table-top',
+  83: 'enchanting-table-side', 84: 'farmland', 85: 'wheat-crop', 86: 'nether-portal',
+  87: 'redstone-torch', 88: 'lever', 89: 'stone-button', 90: 'repeater',
+  91: 'end-portal', 92: 'end-gateway',
+  93: 'rotten-flesh', 94: 'apple', 95: 'bread', 96: 'carrot',
+  97: 'cooked-porkchop', 98: 'golden-apple', 99: 'wheat',
+  100: 'redstone-wire', 101: 'cobweb', 102: 'sapling', 103: 'dandelion',
+  104: 'poppy', 105: 'brown-mushroom', 106: 'red-mushroom', 107: 'tall-grass',
+  108: 'fern', 109: 'sugar-cane', 110: 'cactus', 111: 'lily-pad', 112: 'ice',
+  113: 'glowstone',
   48: 'item-sticks', 49: 'item-coal', 50: 'item-wooden-sword', 51: 'item-wooden-pickaxe',
   52: 'item-stone-pickaxe', 53: 'item-raw-iron', 54: 'item-iron-ingot', 55: 'item-iron-pickaxe',
   56: 'item-raw-gold', 57: 'item-gold-ingot', 58: 'item-diamond', 59: 'item-redstone-dust',
@@ -39,32 +53,42 @@ export const getTileImageUrl = (item: InventoryItem): string | null => {
 }
 
 export const SLOT_EL_STYLE = [
-  'width:48px', 'height:48px', 'border:2px solid #666',
+  'width:48px', 'height:48px', 'border:2px solid #111',
+  'background:#8b8b8b',
+  'box-shadow:inset 2px 2px #f3f3f3,inset -2px -2px #373737',
   'cursor:pointer', 'position:relative', 'display:flex',
   'align-items:center', 'justify-content:center',
-  'font-size:10px', 'color:#fff', 'user-select:none',
+  'font-family:"Courier New",monospace', 'font-size:10px', 'color:#fff',
+  'text-shadow:1px 1px #111', 'user-select:none',
+  'image-rendering:pixelated',
 ].join(';')
 
 export const OVERLAY_STYLE = [
   'position:fixed', 'top:50%', 'left:50%',
   'transform:translate(-50%,-50%)',
-  'background:rgba(0,0,0,0.85)', 'padding:16px',
-  'border-radius:8px', 'z-index:999', 'display:none',
-  'font-family:monospace',
+  'background:#c6c6c6', 'padding:14px',
+  'border:2px solid #111',
+  'box-shadow:inset 3px 3px #fff,inset -3px -3px #555,0 12px 0 rgba(0,0,0,0.35)',
+  'z-index:999', 'display:none',
+  'font-family:"Courier New",monospace', 'color:#202020',
+  'image-rendering:pixelated',
 ].join(';')
 
-export const OVERLAY_TITLE_STYLE = 'color:#fff;margin-bottom:10px;font-size:14px;text-align:center'
-export const MAIN_GRID_STYLE = 'display:grid;grid-template-columns:repeat(9,50px);gap:4px;margin-bottom:8px'
-export const HOTBAR_GRID_STYLE = 'display:grid;grid-template-columns:repeat(9,50px);gap:4px'
+export const OVERLAY_TITLE_STYLE = 'color:#202020;margin-bottom:10px;font-size:14px;text-align:center;font-weight:bold'
+export const CHEST_SECTION_STYLE = 'display:none;margin-bottom:12px'
+export const CHEST_TITLE_STYLE = 'color:#202020;margin-bottom:8px;font-size:13px;text-align:center;font-weight:bold'
+export const CHEST_GRID_STYLE = 'display:grid;grid-template-columns:repeat(9,50px);gap:2px'
+export const MAIN_GRID_STYLE = 'display:grid;grid-template-columns:repeat(9,50px);gap:2px;margin-bottom:8px'
+export const HOTBAR_GRID_STYLE = 'display:grid;grid-template-columns:repeat(9,50px);gap:2px'
 export const SEPARATOR_STYLE = 'border-color:#555;margin:8px 0'
-export const CRAFTING_TITLE_STYLE = 'color:#fff;margin:12px 0 6px;font-size:13px'
-export const CRAFTING_LIST_STYLE = 'display:flex;flex-direction:column;gap:4px;max-height:180px;overflow:auto'
-export const STATUS_STYLE = 'font-size:12px;color:#b0b0b0;margin-top:8px'
-export const EMPTY_RECIPE_STYLE = 'color:#aaa;font-size:12px'
-export const RECIPE_ROW_BASE_STYLE = 'padding:6px 8px;border-radius:4px;color:#fff;text-align:left;cursor:pointer'
-export const RECIPE_ROW_SELECTED_BG = '#2f4f2f'
-export const RECIPE_ROW_SELECTED_BORDER = '#8fbc8f'
-export const RECIPE_ROW_DEFAULT_BG = '#1f1f1f'
-export const RECIPE_ROW_DEFAULT_BORDER = '#3d3d3d'
-export const SLOT_BORDER_SELECTED = '2px solid #fff'
-export const SLOT_BORDER_DEFAULT = '2px solid #666'
+export const CRAFTING_TITLE_STYLE = 'color:#202020;margin:12px 0 6px;font-size:13px;font-weight:bold'
+export const CRAFTING_LIST_STYLE = 'display:flex;flex-direction:column;gap:3px;max-height:180px;overflow:auto'
+export const STATUS_STYLE = 'font-size:12px;color:#333;margin-top:8px'
+export const EMPTY_RECIPE_STYLE = 'color:#4a4a4a;font-size:12px'
+export const RECIPE_ROW_BASE_STYLE = 'padding:6px 8px;color:#202020;text-align:left;cursor:pointer;border:2px solid #111;box-shadow:inset 2px 2px #eee,inset -2px -2px #555'
+export const RECIPE_ROW_SELECTED_BG = '#b7d48a'
+export const RECIPE_ROW_SELECTED_BORDER = '#ffffff'
+export const RECIPE_ROW_DEFAULT_BG = '#9b9b9b'
+export const RECIPE_ROW_DEFAULT_BORDER = '#111111'
+export const SLOT_BORDER_SELECTED = '2px solid #ffffff'
+export const SLOT_BORDER_DEFAULT = '2px solid #111'

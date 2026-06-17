@@ -112,4 +112,28 @@ describe('getMobDefinition', () => {
   it('Sheep is passive', () => {
     expect(getMobDefinition(EntityType.Sheep).behavior).toBe('passive')
   })
+
+  it('Chicken is passive', () => {
+    expect(getMobDefinition(EntityType.Chicken).behavior).toBe('passive')
+  })
+
+  it('Bat is passive', () => {
+    expect(getMobDefinition(EntityType.Bat).behavior).toBe('passive')
+  })
+
+  it('Squid is passive', () => {
+    expect(getMobDefinition(EntityType.Squid).behavior).toBe('passive')
+  })
+
+  it('Witch is hostile', () => {
+    expect(getMobDefinition(EntityType.Witch).behavior).toBe('hostile')
+  })
+
+  it('Drowned is hostile', () => {
+    expect(getMobDefinition(EntityType.Drowned).behavior).toBe('hostile')
+  })
+
+  it('ZombieVillager is hostile', () => {
+    expect(getMobDefinition(EntityType.ZombieVillager).behavior).toBe('hostile')
+  })
 })

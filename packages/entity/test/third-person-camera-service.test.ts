@@ -1,8 +1,8 @@
 import { describe, it } from '@effect/vitest'
 import { Effect, Layer } from 'effect'
 import { expect } from 'vitest'
-import { PlayerCameraStateService, PlayerCameraStateLive } from '@ts-minecraft/entity'
-import { ThirdPersonCameraService, ThirdPersonCameraServiceLive } from '../application/third-person-camera-service'
+import { PlayerCameraStateService } from '@ts-minecraft/entity'
+import { ThirdPersonCameraService } from '../application/third-person-camera-service'
 import type { CameraTransformPort } from '@ts-minecraft/core'
 
 // ─── Test helpers ─────────────────────────────────────────────────────────────
@@ -22,10 +22,10 @@ const makeMockCamera = (): CameraTransformPort & { positionCalls: CapturedCall[]
 }
 
 // provideMerge(dep) piped on the consumer keeps dep's output in scope for tests.
-// ThirdPersonCameraServiceLive requires PlayerCameraStateService; the merged
+// ThirdPersonCameraService.Default requires PlayerCameraStateService; the merged
 // layer exposes both so tests can call cameraState.setYaw / setPitch directly.
-const TestLayer = ThirdPersonCameraServiceLive.pipe(
-  Layer.provideMerge(PlayerCameraStateLive),
+const TestLayer = ThirdPersonCameraService.Default.pipe(
+  Layer.provideMerge(PlayerCameraStateService.Default),
 )
 
 const withServices = <A>(

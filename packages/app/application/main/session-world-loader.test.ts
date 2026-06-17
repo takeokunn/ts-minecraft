@@ -4,14 +4,14 @@ import { Effect, Either, Option } from 'effect'
 import {
   buildRespawnPosition,
   loadOrCreateWorld,
-  type SavedFurnaceStates,
-  type SavedPlayerState,
 } from './session-world-loader'
+import { type SavedFurnaceStates, type SavedPlayerState, type SavedWeatherState } from './session-world-loader-metadata'
 import { GameModeService, type GameMode } from '../../../game'
-import { WorldId, CHUNK_HEIGHT } from '@ts-minecraft/core'
+import { WorldId, CHUNK_HEIGHT, CHUNK_SIZE } from '@ts-minecraft/core'
 import { ChunkManagerService } from '@ts-minecraft/world/application/chunk-manager-service'
 import { NoiseService } from '@ts-minecraft/world/application/noise-service'
 import { StorageError } from '@ts-minecraft/world/domain/errors'
+import { CHUNK_COLUMN_SAMPLE_COUNT, CURRENT_WORLD_SAVE_VERSION } from '@ts-minecraft/world'
 import {
   StorageService,
   type WorldMetadata,
@@ -61,6 +61,37 @@ const makeNoiseService = (overrides: Partial<NoiseService> = {}): NoiseService =
     ...overrides,
   })
 
+type TerrainChannelTestSamples = Readonly<{
+  readonly continentalness: Float64Array
+  readonly erosion: Float64Array
+  readonly pv: Float64Array
+  readonly jaggedness: Float64Array
+}>
+
+const makeTerrainChannelSamples = (
+  defaults: Partial<{
+    readonly continentalness: number
+    readonly erosion: number
+    readonly pv: number
+    readonly jaggedness: number
+  }> = {},
+): TerrainChannelTestSamples => {
+  const makeChannel = (value: number | undefined): Float64Array => {
+    const channel = new Float64Array(CHUNK_COLUMN_SAMPLE_COUNT)
+    if (value !== undefined) {
+      channel.fill(value)
+    }
+    return channel
+  }
+
+  return {
+    continentalness: makeChannel(defaults.continentalness),
+    erosion: makeChannel(defaults.erosion),
+    pv: makeChannel(defaults.pv),
+    jaggedness: makeChannel(defaults.jaggedness),
+  }
+}
+
 const makeGameModeService = (overrides: Partial<GameModeService> = {}): GameModeService =>
   GameModeService.of({
     _tag: '@minecraft/application/GameModeService' as const,
@@ -93,12 +124,14 @@ const WATER_BLOCK_ID = 6
 const makeChunkManagerService = (overrides: Partial<ChunkManagerService> = {}): ChunkManagerService =>
   ChunkManagerService.of({
     _tag: '@minecraft/application/ChunkManagerService' as const,
+    setActiveWorldId: (_worldId) => Effect.void,
+    setActiveDimension: (_dimension) => Effect.void,
     getChunk: (_coord): Effect.Effect<ReturnType<typeof makeChunkWithSurfaceAt>, never> =>
       Effect.succeed(makeChunkWithSurfaceAt(64)),
     loadChunksAroundPlayer: (_playerPos, _renderDistance) => Effect.succeed(false),
     getLoadedChunks: () => Effect.succeed([]),
     drainRenderDirtyChunks: () => Effect.succeed([]),
-        drainRenderDirtyChunkEntries: () => Effect.succeed([]),
+    drainRenderDirtyChunkEntries: () => Effect.succeed([]),
     markChunkDirty: (_coord) => Effect.void,
     saveDirtyChunks: () => Effect.void,
     unloadChunk: (_coord) => Effect.void,
@@ -111,7 +144,7 @@ const makeMetadata = (overrides: Partial<WorldMetadata> = {}): WorldMetadata => 
   lastPlayed: new Date('2024-06-01'),
   playerSpawn: { x: 5, y: 64, z: 5 },
   gameMode: 'survival' as const,
-  saveVersion: 1,
+  saveVersion: CURRENT_WORLD_SAVE_VERSION,
   ...overrides,
 })
 
@@ -251,6 +284,23 @@ describe('loadOrCreateWorld', () => {
       expect(Option.getOrThrow(bootstrap.savedFurnaceStates)).toEqual(furnaceStates)
     })
 
+    it('returns savedWeatherState as some when metadata has a weatherState value', async () => {
+      const weatherState: SavedWeatherState = { weather: 'thunder', remainingSecs: 12 }
+      const metadata = { ...makeMetadata(), weatherState }
+      const storageService = makeStorageService({
+        loadWorldMetadata: vi.fn(() => Effect.succeed(Option.some(metadata))),
+      })
+      const noiseService = makeNoiseService()
+      const gameModeService = makeGameModeService()
+      const worldId = WorldId.make('world-1')
+
+      const result = await runLoad(worldId, 'survival', storageService, noiseService, gameModeService)
+
+      const bootstrap = Option.getOrThrow(Either.getRight(result))
+      expect(Option.isSome(bootstrap.savedWeatherState)).toBe(true)
+      expect(Option.getOrThrow(bootstrap.savedWeatherState)).toEqual(weatherState)
+    })
+
   })
 
   describe('when world does NOT exist in storage (onNone path)', () => {
@@ -283,6 +333,7 @@ describe('loadOrCreateWorld', () => {
       const bootstrap = Option.getOrThrow(Either.getRight(result))
       expect(Option.isNone(bootstrap.savedPlayerState)).toBe(true)
       expect(Option.isNone(bootstrap.savedFurnaceStates)).toBe(true)
+      expect(Option.isNone(bootstrap.savedWeatherState)).toBe(true)
     })
 
     it('uses the initialGameMode for the new world', async () => {
@@ -300,19 +351,26 @@ describe('loadOrCreateWorld', () => {
       expect(bootstrap.gameMode).toBe('creative')
     })
 
-    it('uses default spawn { x:0, y:100, z:0 } for a new world', async () => {
+    it('prefers inland land over a nearer shoreline column for a new world', async () => {
+      const terrainByChunk = new Map<string, ReturnType<typeof makeTerrainChannelSamples>>([
+        ['0:0', makeTerrainChannelSamples({ continentalness: 0.11, erosion: 0.9, pv: 1, jaggedness: 1 })],
+        [`${CHUNK_SIZE}:0`, makeTerrainChannelSamples({ continentalness: 0.35, erosion: 0.8, pv: 0.8, jaggedness: 0.4 })],
+      ])
       const storageService = makeStorageService({
         loadWorldMetadata: vi.fn(() => Effect.succeed(Option.none())),
         saveWorldMetadata: vi.fn(() => Effect.void),
       })
-      const noiseService = makeNoiseService()
+      const noiseService = makeNoiseService({
+        sampleTerrainChannels: (xStart: number, zStart: number) =>
+          Effect.succeed(terrainByChunk.get(`${xStart}:${zStart}`) ?? makeTerrainChannelSamples()),
+      })
       const gameModeService = makeGameModeService()
       const worldId = WorldId.make('world-new')
 
       const result = await runLoad(worldId, 'survival', storageService, noiseService, gameModeService)
 
       const bootstrap = Option.getOrThrow(Either.getRight(result))
-      expect(bootstrap.baseSpawnPosition).toEqual({ x: 0, y: 100, z: 0 })
+      expect(bootstrap.baseSpawnPosition).toEqual({ x: CHUNK_SIZE, y: 100, z: 0 })
     })
 
     it('calls noiseService.setSeed with the newly generated seed', async () => {

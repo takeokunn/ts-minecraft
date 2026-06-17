@@ -1,5 +1,5 @@
 import { describe,expect,it } from '@effect/vitest'
-import { TimeService,TimeServiceLive } from '@ts-minecraft/game'
+import { TimeService } from '@ts-minecraft/game'
 import { DeltaTimeSecs } from '@ts-minecraft/core'
 import { Effect } from 'effect'
 
@@ -17,7 +17,7 @@ describe('application/time/time-service', () => {
           expect(t).toBeGreaterThanOrEqual(0)
           expect(t).toBeLessThan(1)
         }), { concurrency: 1 })
-      }).pipe(Effect.provide(TimeServiceLive))
+      }).pipe(Effect.provide(TimeService.Default))
     )
 
     it.effect('should clamp setTimeOfDay(1.0) to 0.9999 to avoid exact midnight wrap', () =>
@@ -27,7 +27,7 @@ describe('application/time/time-service', () => {
         yield* service.setTimeOfDay(1.0)
         const timeOfDay = yield* service.getTimeOfDay()
         expect(timeOfDay).toBeCloseTo(0.9999, 4)
-      }).pipe(Effect.provide(TimeServiceLive))
+      }).pipe(Effect.provide(TimeService.Default))
     )
 
     it.effect('should clamp setTimeOfDay(-0.1) to 0 (floor at 0)', () =>
@@ -37,7 +37,7 @@ describe('application/time/time-service', () => {
         yield* service.setTimeOfDay(-0.1)
         const timeOfDay = yield* service.getTimeOfDay()
         expect(timeOfDay).toBe(0)
-      }).pipe(Effect.provide(TimeServiceLive))
+      }).pipe(Effect.provide(TimeService.Default))
     )
   })
 
@@ -50,7 +50,7 @@ describe('application/time/time-service', () => {
         yield* service.advanceTick(DeltaTimeSecs.make(60))
         const timeOfDay = yield* service.getTimeOfDay()
         expect(timeOfDay).toBeCloseTo(0, 4)
-      }).pipe(Effect.provide(TimeServiceLive))
+      }).pipe(Effect.provide(TimeService.Default))
     )
 
     it.effect('should clamp dayLength above maximum (1200s) when given a larger value', () =>
@@ -60,7 +60,7 @@ describe('application/time/time-service', () => {
         yield* service.setTimeOfDay(0.5)
         const timeOfDay = yield* service.getTimeOfDay()
         expect(timeOfDay).toBeCloseTo(0.5, 5)
-      }).pipe(Effect.provide(TimeServiceLive))
+      }).pipe(Effect.provide(TimeService.Default))
     )
   })
 
@@ -75,7 +75,7 @@ describe('application/time/time-service', () => {
         const midnightNight = yield* service.isNight()
         expect(noonNight).toBe(false)
         expect(midnightNight).toBe(true)
-      }).pipe(Effect.provide(TimeServiceLive))
+      }).pipe(Effect.provide(TimeService.Default))
     )
   })
 
@@ -91,7 +91,7 @@ describe('application/time/time-service', () => {
         yield* service.advanceTick(DeltaTimeSecs.make(3.6))
         const afterNight = yield* service.isNight()
         expect(afterNight).toBe(true)
-      }).pipe(Effect.provide(TimeServiceLive))
+      }).pipe(Effect.provide(TimeService.Default))
     )
 
     it.effect('should transition from night to day when advancing past dawn (0.25)', () =>
@@ -105,7 +105,7 @@ describe('application/time/time-service', () => {
         yield* service.advanceTick(DeltaTimeSecs.make(3.6))
         const afterDay = yield* service.isNight()
         expect(afterDay).toBe(false)
-      }).pipe(Effect.provide(TimeServiceLive))
+      }).pipe(Effect.provide(TimeService.Default))
     )
 
     it.effect('should transition from night back to night when wrapping past midnight', () =>
@@ -119,7 +119,7 @@ describe('application/time/time-service', () => {
         yield* service.advanceTick(DeltaTimeSecs.make(18))
         const afterWrap = yield* service.isNight()
         expect(afterWrap).toBe(true)
-      }).pipe(Effect.provide(TimeServiceLive))
+      }).pipe(Effect.provide(TimeService.Default))
     )
   })
 })

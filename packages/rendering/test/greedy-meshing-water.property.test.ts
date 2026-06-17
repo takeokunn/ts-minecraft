@@ -5,7 +5,8 @@ import * as fc from 'effect/FastCheck'
 import { greedyMeshChunk } from '@ts-minecraft/rendering'
 import { CHUNK_SIZE, CHUNK_HEIGHT } from '@ts-minecraft/core'
 import type { ChunkCoord } from '@ts-minecraft/core'
-import type { Chunk } from '@ts-minecraft/world'
+import { createFluidBuffer, encodeFluidCell } from '@ts-minecraft/world'
+import type { Chunk, FluidCell } from '@ts-minecraft/world'
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -16,6 +17,19 @@ const makeChunkFromBlocks = (blocks: Uint8Array, coord: ChunkCoord = { x: 0, z: 
   blocks,
   fluid: Option.none(),
 })
+
+const fluidIndex = (lx: number, y: number, lz: number): number =>
+  y + lz * CHUNK_HEIGHT + lx * CHUNK_HEIGHT * CHUNK_SIZE
+
+const makeFluidLayer = (cell: FluidCell): Uint8Array => {
+  const fluid = createFluidBuffer()
+  Arr.forEach(Arr.makeBy(CHUNK_SIZE, lx => lx), lx => {
+    Arr.forEach(Arr.makeBy(CHUNK_SIZE, lz => lz), lz => {
+      fluid[fluidIndex(lx, 0, lz)] = encodeFluidCell(cell)
+    })
+  })
+  return fluid
+}
 
 const makeSolidChunk = (coord: ChunkCoord = { x: 0, z: 0 }): Chunk => {
   const blocks = new Uint8Array(TOTAL_BLOCKS)
@@ -67,7 +81,10 @@ describe('water/opaque mesh split', () => {
         blocks[idx] = WATER_BLOCK_ID
       })
     })
-    const chunk = makeChunkFromBlocks(blocks)
+    const chunk = {
+      ...makeChunkFromBlocks(blocks),
+      fluid: Option.some(makeFluidLayer({ level: 0, source: true, type: 'water' })),
+    }
     const meshed = greedyMeshChunk(chunk, ZERO_OFFSET, TRANSPARENT_IDS).toMeshed()
     expect(meshed.opaque.positions.length).toBe(0)
     expect(meshed.water.positions.length).toBeGreaterThan(0)
@@ -81,7 +98,10 @@ describe('water/opaque mesh split', () => {
         blocks[idx] = WATER_BLOCK_ID
       })
     })
-    const chunk = makeChunkFromBlocks(blocks)
+    const chunk = {
+      ...makeChunkFromBlocks(blocks),
+      fluid: Option.some(makeFluidLayer({ level: 0, source: true, type: 'water' })),
+    }
     // No transparent IDs — water treated as opaque
     const meshed = greedyMeshChunk(chunk, ZERO_OFFSET, new Set()).toMeshed()
     expect(meshed.opaque.positions.length).toBeGreaterThan(0)

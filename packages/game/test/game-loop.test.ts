@@ -1,5 +1,5 @@
 import { describe, it } from '@effect/vitest'
-import { GameLoopService,GameLoopServiceLive } from '@ts-minecraft/game'
+import { GameLoopService } from '@ts-minecraft/game'
 import { Effect,Either,MutableRef,Option,Ref } from 'effect'
 import { afterEach,beforeEach,expect,vi } from 'vitest'
 import { GameLoopError } from '../domain/errors'
@@ -59,7 +59,7 @@ const fireRaf = (timestamp = 16): void => {
 // ---------------------------------------------------------------------------
 // Test layer — GameLoopService has no external dependencies beyond globals.
 // ---------------------------------------------------------------------------
-const TestLayer = GameLoopServiceLive
+const TestLayer = GameLoopService.Default
 
 // ---------------------------------------------------------------------------
 // Tests
@@ -291,10 +291,10 @@ describe('application/game-loop', () => {
     )
   })
 
-  describe('GameLoopServiceLive', () => {
+  describe('GameLoopService.Default', () => {
     it('should provide GameLoopService as a Layer', () => {
-      expect(GameLoopServiceLive).toBeDefined()
-      expect(typeof GameLoopServiceLive).toBe('object')
+      expect(GameLoopService.Default).toBeDefined()
+      expect(typeof GameLoopService.Default).toBe('object')
     })
 
     it.effect('should expose all required methods', () =>

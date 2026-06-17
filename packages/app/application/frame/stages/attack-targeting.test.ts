@@ -1,6 +1,6 @@
+import { Option } from 'effect'
 import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
-import { Option } from 'effect'
 import * as THREE from 'three'
 import { EntityId } from '@ts-minecraft/entity'
 import { findAttackableEntity } from './attack-targeting'
@@ -18,14 +18,14 @@ const makeCamera = (px: number, py: number, pz: number, dirX: number, dirY: numb
 describe('findAttackableEntity', () => {
   it('returns none when entity list is empty', () => {
     const cam = makeCamera(0, 65, 0, 0, 0, -1)
-    const result = findAttackableEntity([], cam, Option.none())
+    const result = findAttackableEntity([], cam, null)
     expect(Option.isNone(result)).toBe(true)
   })
 
   it('returns the entity id when one entity is in range', () => {
     const cam = makeCamera(0, 65, 0, 0, 0, -1)
     const entity = { entityId: EntityId.make('e1'), position: { x: 0, y: 64.1, z: -2 } }
-    const result = findAttackableEntity([entity], cam, Option.none())
+    const result = findAttackableEntity([entity], cam, null)
     expect(Option.isSome(result)).toBe(true)
     expect(Option.getOrThrow(result)).toBe(entity.entityId)
   })
@@ -34,7 +34,7 @@ describe('findAttackableEntity', () => {
     const cam = makeCamera(0, 65, 0, 0, 0, -1)
     // behind camera: positive z
     const entity = { entityId: EntityId.make('e1'), position: { x: 0, y: 64.1, z: 2 } }
-    const result = findAttackableEntity([entity], cam, Option.none())
+    const result = findAttackableEntity([entity], cam, null)
     expect(Option.isNone(result)).toBe(true)
   })
 
@@ -45,7 +45,7 @@ describe('findAttackableEntity', () => {
     // Closer entity along ray: z = -1.5 → alongRay ≈ 1.5
     const close = { entityId: EntityId.make('close'), position: { x: 0, y: 64.1, z: -1.5 } }
     // Pass far first so the first iteration sets best={far}, then second iteration triggers the replacement
-    const result = findAttackableEntity([far, close], cam, Option.none())
+    const result = findAttackableEntity([far, close], cam, null)
     expect(Option.isSome(result)).toBe(true)
     expect(Option.getOrThrow(result)).toBe(close.entityId)
   })
@@ -54,7 +54,7 @@ describe('findAttackableEntity', () => {
     const cam = makeCamera(0, 65, 0, 0, 0, -1)
     // entity at z=-5, alongRay≈5 > maxDistance=3
     const entity = { entityId: EntityId.make('e1'), position: { x: 0, y: 64.1, z: -5 } }
-    const result = findAttackableEntity([entity], cam, Option.some(3))
+    const result = findAttackableEntity([entity], cam, 3)
     expect(Option.isNone(result)).toBe(true)
   })
 
@@ -64,7 +64,7 @@ describe('findAttackableEntity', () => {
     const close = { entityId: EntityId.make('close'), position: { x: 0, y: 64.1, z: -1.5 } }
     // far entity along ray: z = -3 → alongRay ≈ 3 (NOT closer than best → `: acc` branch)
     const far = { entityId: EntityId.make('far'), position: { x: 0, y: 64.1, z: -3 } }
-    const result = findAttackableEntity([close, far], cam, Option.none())
+    const result = findAttackableEntity([close, far], cam, null)
     expect(Option.isSome(result)).toBe(true)
     expect(Option.getOrThrow(result)).toBe(close.entityId)
   })
@@ -73,7 +73,7 @@ describe('findAttackableEntity', () => {
     const cam = makeCamera(0, 65, 0, 0, 0, -1)
     // entity at z=-2, alongRay≈2 — within maxDistance=3 → onSome returns false → proceeds
     const entity = { entityId: EntityId.make('inRange'), position: { x: 0, y: 64.1, z: -2 } }
-    const result = findAttackableEntity([entity], cam, Option.some(3))
+    const result = findAttackableEntity([entity], cam, 3)
     expect(Option.isSome(result)).toBe(true)
     expect(Option.getOrThrow(result)).toBe(entity.entityId)
   })
@@ -83,7 +83,7 @@ describe('findAttackableEntity', () => {
     // entity at x=5 is 5 units sideways; along-ray distance is 2 (within reach),
     // but perpendicular distance ≈ 5 >> PLAYER_ATTACK_RADIUS (0.9) → filtered out
     const entity = { entityId: EntityId.make('sideways'), position: { x: 5, y: 64.1, z: -2 } }
-    const result = findAttackableEntity([entity], cam, Option.none())
+    const result = findAttackableEntity([entity], cam, null)
     expect(Option.isNone(result)).toBe(true)
   })
 
@@ -91,7 +91,7 @@ describe('findAttackableEntity', () => {
     const cam = makeCamera(0, 65, 0, 0, 0, -1)
     // entity at z=-10, alongRay≈10 — beyond default PLAYER_ATTACK_REACH (3.5) but within maxReach=50
     const entity = { entityId: EntityId.make('distant'), position: { x: 0, y: 64.1, z: -10 } }
-    const result = findAttackableEntity([entity], cam, Option.none(), 50)
+    const result = findAttackableEntity([entity], cam, null, 50)
     expect(Option.isSome(result)).toBe(true)
     expect(Option.getOrThrow(result)).toBe(entity.entityId)
   })
@@ -100,7 +100,7 @@ describe('findAttackableEntity', () => {
     const cam = makeCamera(0, 65, 0, 0, 0, -1)
     // entity at z=-60, beyondmaxReach=50
     const entity = { entityId: EntityId.make('tooFar'), position: { x: 0, y: 64.1, z: -60 } }
-    const result = findAttackableEntity([entity], cam, Option.none(), 50)
+    const result = findAttackableEntity([entity], cam, null, 50)
     expect(Option.isNone(result)).toBe(true)
   })
 })

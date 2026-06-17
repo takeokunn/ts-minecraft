@@ -1,5 +1,10 @@
 import { describe, it, expect } from 'vitest'
-import { BLOCK_BYTES, computeWorkerCount, formatWorkerErrorDetails } from '../infrastructure/terrain-worker-pool-helpers'
+import {
+  BLOCK_BYTES,
+  computeWorkerCount,
+  computeWorkerCountFromHardwareConcurrency,
+  formatWorkerErrorDetails,
+} from '../infrastructure/terrain-worker-pool-helpers'
 import { CHUNK_SIZE, CHUNK_HEIGHT } from '@ts-minecraft/core'
 
 describe('BLOCK_BYTES', () => {
@@ -9,14 +14,27 @@ describe('BLOCK_BYTES', () => {
 })
 
 describe('computeWorkerCount', () => {
-  it('returns a number between 2 and 8 inclusive', () => {
+  it('returns a number between 1 and 3 inclusive', () => {
     const count = computeWorkerCount()
-    expect(count).toBeGreaterThanOrEqual(2)
-    expect(count).toBeLessThanOrEqual(8)
+    expect(count).toBeGreaterThanOrEqual(1)
+    expect(count).toBeLessThanOrEqual(3)
   })
 
   it('returns an integer', () => {
     expect(Number.isInteger(computeWorkerCount())).toBe(true)
+  })
+
+  it.each([
+    [1, 1],
+    [2, 1],
+    [3, 1],
+    [4, 2],
+    [6, 3],
+    [8, 3],
+    [16, 3],
+    [Number.NaN, 1],
+  ])('returns %i worker(s) for %i hardware thread(s)', (hardwareConcurrency, expected) => {
+    expect(computeWorkerCountFromHardwareConcurrency(hardwareConcurrency)).toBe(expected)
   })
 })
 

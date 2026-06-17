@@ -3,10 +3,7 @@ import { expect } from 'vitest'
 import { Effect, Layer, MutableRef } from 'effect'
 import { PlayerCameraStateService } from '@ts-minecraft/entity'
 import type { CameraTransformPort } from '@ts-minecraft/core'
-import {
-  ThirdPersonCameraService,
-  ThirdPersonCameraServiceLive,
-} from '@ts-minecraft/entity'
+import { ThirdPersonCameraService } from '@ts-minecraft/entity'
 
 // ---------------------------------------------------------------------------
 // Mock PlayerCameraStateService
@@ -79,7 +76,7 @@ describe('ThirdPersonCameraService', () => {
       expect(wasLookAtCalled()).toBe(true)
     }).pipe(
       Effect.provide(
-        ThirdPersonCameraServiceLive.pipe(
+        ThirdPersonCameraService.Default.pipe(
           Layer.provide(makeMockCameraStateLayer(0, 0)),
         ),
       ),
@@ -100,7 +97,7 @@ describe('ThirdPersonCameraService', () => {
       expect(lookAtArgs()[2]).toBeCloseTo(10)
     }).pipe(
       Effect.provide(
-        ThirdPersonCameraServiceLive.pipe(
+        ThirdPersonCameraService.Default.pipe(
           Layer.provide(makeMockCameraStateLayer(0, 0)),
         ),
       ),
@@ -122,7 +119,7 @@ describe('ThirdPersonCameraService', () => {
       expect(positionSet.called).toBe(true)
     }).pipe(
       Effect.provide(
-        ThirdPersonCameraServiceLive.pipe(
+        ThirdPersonCameraService.Default.pipe(
           Layer.provide(makeMockCameraStateLayer(Math.PI / 2, 0)),
         ),
       ),
@@ -137,7 +134,7 @@ describe('ThirdPersonCameraService', () => {
         const svc = yield* ThirdPersonCameraService
         yield* svc.update(flatCam, { x: 0, y: 64, z: 0 }, 0.7)
       }).pipe(
-        Effect.provide(ThirdPersonCameraServiceLive.pipe(Layer.provide(makeMockCameraStateLayer(0, 0)))),
+        Effect.provide(ThirdPersonCameraService.Default.pipe(Layer.provide(makeMockCameraStateLayer(0, 0)))),
       )
       const flatY = flatSet.args[1]
 
@@ -147,7 +144,7 @@ describe('ThirdPersonCameraService', () => {
         const svc = yield* ThirdPersonCameraService
         yield* svc.update(upCam, { x: 0, y: 64, z: 0 }, 0.7)
       }).pipe(
-        Effect.provide(ThirdPersonCameraServiceLive.pipe(Layer.provide(makeMockCameraStateLayer(0, Math.PI / 4)))),
+        Effect.provide(ThirdPersonCameraService.Default.pipe(Layer.provide(makeMockCameraStateLayer(0, Math.PI / 4)))),
       )
       const upY = upSet.args[1]
 
@@ -170,7 +167,7 @@ describe('ThirdPersonCameraService', () => {
       expect(set1.args[2]).toBeCloseTo(set2.args[2])
     }).pipe(
       Effect.provide(
-        ThirdPersonCameraServiceLive.pipe(
+        ThirdPersonCameraService.Default.pipe(
           Layer.provide(makeMockCameraStateLayer(0, 0)),
         ),
       ),

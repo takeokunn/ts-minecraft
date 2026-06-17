@@ -1,0 +1,72 @@
+import * as THREE from 'three'
+
+export type CameraPoseSnapshot = {
+  version: number
+  x: number
+  y: number
+  z: number
+  qx: number
+  qy: number
+  qz: number
+  qw: number
+  p0: number
+  p5: number
+  p10: number
+  p14: number
+}
+
+// Output-parameter pattern: writes camera state into `out` in-place.
+// No object allocation on the hot path — callers pass a pre-allocated CameraPoseSnapshot.
+export const captureCameraPose = (
+  camera: THREE.PerspectiveCamera,
+  version: number,
+  out: CameraPoseSnapshot,
+): void => {
+  const projection = camera.projectionMatrix.elements
+  out.version = version
+  out.x = camera.position.x
+  out.y = camera.position.y
+  out.z = camera.position.z
+  out.qx = camera.quaternion.x
+  out.qy = camera.quaternion.y
+  out.qz = camera.quaternion.z
+  out.qw = camera.quaternion.w
+  out.p0 = projection[0] as number
+  out.p5 = projection[5] as number
+  out.p10 = projection[10] as number
+  out.p14 = projection[14] as number
+}
+
+// Copy all fields from `src` into `dst` in-place.
+// Used to update the stored "last" snapshot without allocating a new object.
+export const copyCameraPoseInto = (src: CameraPoseSnapshot, dst: CameraPoseSnapshot): void => {
+  dst.version = src.version
+  dst.x = src.x
+  dst.y = src.y
+  dst.z = src.z
+  dst.qx = src.qx
+  dst.qy = src.qy
+  dst.qz = src.qz
+  dst.qw = src.qw
+  dst.p0 = src.p0
+  dst.p5 = src.p5
+  dst.p10 = src.p10
+  dst.p14 = src.p14
+}
+
+export const hasCameraPoseChanged = (
+  previous: CameraPoseSnapshot,
+  current: CameraPoseSnapshot,
+): boolean =>
+  previous.version !== current.version
+  || previous.x !== current.x
+  || previous.y !== current.y
+  || previous.z !== current.z
+  || previous.qx !== current.qx
+  || previous.qy !== current.qy
+  || previous.qz !== current.qz
+  || previous.qw !== current.qw
+  || previous.p0 !== current.p0
+  || previous.p5 !== current.p5
+  || previous.p10 !== current.p10
+  || previous.p14 !== current.p14

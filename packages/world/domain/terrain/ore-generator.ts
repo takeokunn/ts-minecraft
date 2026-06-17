@@ -1,4 +1,3 @@
-import { Array as Arr } from 'effect'
 import { blockTypeToIndex, CHUNK_SIZE, CHUNK_HEIGHT } from '@ts-minecraft/core'
 import { ORE_CONFIGS, ORE_MIN_Y_FLOOR, DEEPSLATE_CEILING } from './constants'
 import { mulberry32, seedFromChunk, chunkBlockIndexUnchecked } from './math'
@@ -33,8 +32,20 @@ const sampleOreY = (
 }
 
 // Parallel to ORE_CONFIGS; resolved once at module load to avoid per-chunk blockTypeToIndex calls.
-export const ORE_REGULAR_INDICES: ReadonlyArray<number> = Arr.map(ORE_CONFIGS, (cfg) => blockTypeToIndex(`${cfg.name}_ORE`))
-export const ORE_DEEPSLATE_INDICES: ReadonlyArray<number> = Arr.map(ORE_CONFIGS, (cfg) => blockTypeToIndex(`DEEPSLATE_${cfg.name}_ORE`))
+export const ORE_REGULAR_INDICES: ReadonlyArray<number> = (() => {
+  const indices = new Array<number>(ORE_CONFIGS.length)
+  for (let i = 0; i < ORE_CONFIGS.length; i++) {
+    indices[i] = blockTypeToIndex(`${ORE_CONFIGS[i]!.name}_ORE`)
+  }
+  return indices
+})()
+export const ORE_DEEPSLATE_INDICES: ReadonlyArray<number> = (() => {
+  const indices = new Array<number>(ORE_CONFIGS.length)
+  for (let i = 0; i < ORE_CONFIGS.length; i++) {
+    indices[i] = blockTypeToIndex(`DEEPSLATE_${ORE_CONFIGS[i]!.name}_ORE`)
+  }
+  return indices
+})()
 
 // Stack-based random-walk vein growth. Replaces only STONE/DEEPSLATE; threads rngState for deterministic output.
 export const growVein = (

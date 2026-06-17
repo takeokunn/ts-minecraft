@@ -1,5 +1,5 @@
 import { Cause, Effect, Option, Ref } from 'effect'
-import { type HotbarService, type InventoryService, INVENTORY_SIZE, HOTBAR_START } from '@ts-minecraft/inventory'
+import { type ChestService, type HotbarService, type InventoryService, INVENTORY_SIZE, HOTBAR_START } from '@ts-minecraft/inventory'
 import { RecipeId, SlotIndex } from '@ts-minecraft/core'
 
 export type ClickHandlerDeps = {
@@ -12,6 +12,7 @@ export type ClickHandlerDeps = {
   ) => Effect.Effect<void, Error, never>
   readonly hotbarService: HotbarService
   readonly inventoryService: InventoryService
+  readonly chestService: ChestService
   readonly statusMessageRef: Ref.Ref<string>
   readonly refreshSlots: () => Effect.Effect<void, never>
 }
@@ -25,6 +26,7 @@ export const buildHandleDelegatedClick = (deps: ClickHandlerDeps) =>
       performRecipe,
       hotbarService,
       inventoryService,
+      chestService,
       statusMessageRef,
       refreshSlots,
     } = deps
@@ -33,6 +35,37 @@ export const buildHandleDelegatedClick = (deps: ClickHandlerDeps) =>
     const recipeTarget = Option.fromNullable(htmlTarget?.closest('[data-recipe-id]')).pipe(
       Option.filter((target): target is HTMLElement => target instanceof HTMLElement),
     )
+
+    const chestSlotTarget = Option.getOrNull(
+      Option.fromNullable(htmlTarget?.closest('[data-chest-slot]')).pipe(
+        Option.filter((target): target is HTMLElement => target instanceof HTMLElement),
+      )
+    )
+    if (chestSlotTarget !== null) {
+      const index = parseInt(
+        chestSlotTarget.dataset['chestSlot'] ?? '-1',
+        10,
+      )
+      if (index < 0) return
+      const shiftQuickMove = event.shiftKey
+      Effect.runFork(
+        Effect.gen(function* () {
+          if (shiftQuickMove) {
+            yield* chestService.quickMoveChestToInventory(index)
+          } else {
+            const selectedSlot = yield* hotbarService.getSelectedSlot()
+            const hotbarInventoryIndex = HOTBAR_START + SlotIndex.toNumber(selectedSlot)
+            yield* chestService.moveChestStackToInventorySlot(index, SlotIndex.make(hotbarInventoryIndex))
+          }
+          yield* refreshSlots()
+        }).pipe(
+          Effect.catchAllCause((cause) =>
+            Effect.logError(`Chest click error: ${Cause.pretty(cause)}`),
+          ),
+        ),
+      )
+      return
+    }
 
     const recipe = Option.getOrNull(recipeTarget)
     if (recipe !== null) {
@@ -73,8 +106,13 @@ export const buildHandleDelegatedClick = (deps: ClickHandlerDeps) =>
         Effect.runFork(
           Effect.gen(function* () {
             if (shiftQuickMove) {
-              // Vanilla shift-click: quick-transfer the clicked stack to the other region.
-              yield* inventoryService.quickMove(SlotIndex.make(index))
+              const hasChestAccess = yield* chestService.hasNearbyChest()
+              if (hasChestAccess) {
+                yield* chestService.quickMoveInventoryToChest(SlotIndex.make(index))
+              } else {
+                // Vanilla shift-click: quick-transfer the clicked stack to the other region.
+                yield* inventoryService.quickMove(SlotIndex.make(index))
+              }
             } else {
               const selectedSlot = yield* hotbarService.getSelectedSlot()
               const hotbarInventoryIndex = HOTBAR_START + SlotIndex.toNumber(selectedSlot)

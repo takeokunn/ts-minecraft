@@ -67,6 +67,7 @@ export class ConfirmDialogService extends Effect.Service<ConfirmDialogService>()
           message: string,
           confirmLabel: string,
           cancelLabel: string = 'Cancel',
+          onConfirm?: () => void,
         ): Effect.Effect<boolean, never> =>
           Effect.gen(function* () {
             if (typeof document === 'undefined') {
@@ -112,14 +113,12 @@ export class ConfirmDialogService extends Effect.Service<ConfirmDialogService>()
             // Focus the confirm button by default (Enter activates it).
             confirmBtn.focus()
 
-            // Handlers — close over `result` Deferred. Idempotent (Deferred only
-            // fulfills once), so if user clicks then presses Esc the second
-            // signal is silently dropped. `unsafeDone` synchronously wakes any
-            // awaiter — necessary inside DOM event listeners, where running
-            // an Effect via `runFork` would defer completion past the awaiter
-            // expecting an immediate resolution.
+            // Handlers close over `result` Deferred. Completion is idempotent, so
+            // duplicate click/key signals are ignored after the first value wins.
+            // Use the Effect runtime to resume the fiber waiting on `Deferred.await`.
             const settle = (value: boolean): void => {
-              Deferred.unsafeDone(result, Effect.succeed(value))
+              if (value) onConfirm?.()
+              Effect.runFork(Deferred.succeed(result, value).pipe(Effect.asVoid))
             }
 
             const handleConfirmClick = () => settle(true)
@@ -174,5 +173,3 @@ export class ConfirmDialogService extends Effect.Service<ConfirmDialogService>()
     }),
   },
 ) {}
-
-export const ConfirmDialogLive = ConfirmDialogService.Default

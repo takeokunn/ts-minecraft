@@ -2,8 +2,7 @@
  * chunk-manager-ops.ts
  *
  * Low-level cache operations for ChunkManagerService:
- *  - findLRUKey        — O(n) LRU key scan
- *  - insertWithEviction — atomic insert + evict + dirty-save
+ *  - insertChunkWithEviction — atomic insert + evict + dirty-save
  *  - getChunk          — cache, then storage, then generation
  *  - unloadChunk       — save-if-dirty + remove from cache
  *
@@ -12,21 +11,25 @@
  */
 
 import { Duration, Effect, HashMap, HashSet, Metric, Option, Ref } from 'effect'
-import { computeMaxY, type Chunk } from '../domain/chunk'
-import { ChunkCoord, CHUNK_SIZE, CHUNK_HEIGHT, type WorldId } from '@ts-minecraft/core'
 import { createFluidBuffer } from '@ts-minecraft/block'
+import { computeMaxY, type Chunk } from '../domain/chunk'
+import { ChunkCoord, type WorldId } from '@ts-minecraft/core'
 import { StorageError } from '../domain/errors'
 import type { StorageServicePort } from '../domain/storage-service-port'
-import { ChunkCacheKey, SEA_LEVEL, LAKE_LEVEL } from '@ts-minecraft/core'
+import { ChunkCacheKey } from '@ts-minecraft/core'
 import { ChunkError } from '../domain/errors'
 import type { NoiseServicePort } from '../domain/noise-service-port'
 import type { TerrainWorkerPoolPort, TerrainGenerationError } from '@ts-minecraft/worker'
 import { chunkLoadHistogram } from './terrain-generation'
+import type { ChunkBlocks } from '@ts-minecraft/world'
 import { chunkCoordToWorldKey } from '../domain/chunk-coord-utils'
 import type { ChunkManagerError } from './chunk-manager-constants'
-import { storedChunkPayload, type ChunkCacheEntry, type ChunkCache } from './chunk-manager-cache'
-import type { LightEngineService, LightGrids } from './light-engine-service'
+import { removeChunkFromCacheState, type ChunkCache, type ChunkCacheEntry } from './chunk-manager-cache'
+import type { LightEngineService } from './light-engine-service'
 import type { Dimension } from '../domain/nether/nether-travel'
+import { DEFAULT_TERRAIN_LEVELS, type TerrainLevels } from '../domain/terrain/generator-types'
+import { insertChunkWithEviction } from './chunk-manager-ops-selection'
+import { loadStoredChunk, saveChunkToStorage } from './chunk-manager-ops-storage'
 
 // ---------------------------------------------------------------------------
 // Types shared by helpers
@@ -45,45 +48,15 @@ export type ChunkOpsContext = {
   lightEngine: LightEngineService
 }
 
-// ---------------------------------------------------------------------------
-// findLRUKey
-// ---------------------------------------------------------------------------
+const removeChunkFromCache = (
+  ctx: ChunkOpsContext,
+  key: ChunkCacheKey
+): Effect.Effect<void, never> =>
+  Ref.update(ctx.cache, (s) => removeChunkFromCacheState(s, key)).pipe(
+    Effect.flatMap(() => Ref.set(ctx.cachedLoadedChunksRef, Option.none()))
+  )
 
-/**
- * Find the LRU key in a chunks map (O(n) scan, fine at ≤400 items).
- * Uses a monotonically incrementing counter (not wall-clock) to guarantee
- * strict uniqueness per access — HashMap iteration is hash-ordered (not
- * insertion-ordered) so ties in lastAccessed produce non-deterministic eviction.
- */
-export const findLRUKey = (
-  chunks: HashMap.HashMap<ChunkCacheKey, ChunkCacheEntry>
-): Option.Option<ChunkCacheKey> => {
-  let keyOpt: Option.Option<ChunkCacheKey> = Option.none()
-  let time = Infinity
-
-  for (const [key, entry] of chunks) {
-    if (entry.lastAccessed < time) {
-      keyOpt = Option.some(key)
-      time = entry.lastAccessed
-    }
-  }
-
-  return keyOpt
-}
-
-// ---------------------------------------------------------------------------
-// insertWithEviction
-// ---------------------------------------------------------------------------
-
-/**
- * Atomically insert a chunk into the cache, evicting the LRU entry when at
- * capacity, then saving the evicted entry if it was dirty.
- *
- * The Ref.modify step combines insert + evict atomically so that concurrent
- * fibers cannot race on different LRU keys.  I/O (the save) happens outside
- * the modify callback.
- */
-export const insertWithEviction = (
+const insertWithEviction = (
   ctx: ChunkOpsContext,
   coord: ChunkCoord,
   chunk: Chunk
@@ -96,34 +69,53 @@ export const insertWithEviction = (
 
     const evictedDirtyEntry = yield* Ref.modify(
       ctx.cache,
-      (s): [Option.Option<ChunkCacheEntry>, ChunkCache] => {
-        const baseChunks = HashMap.set(s.chunks, key, { chunk, lastAccessed: accessOrder, worldId })
-
-        if (HashMap.size(baseChunks) <= maxCachedChunks) {
-          return [Option.none(), { ...s, chunks: baseChunks }]
-        }
-
-        const evictKey = Option.getOrNull(findLRUKey(baseChunks))
-        if (evictKey === null) return [Option.none(), { ...s, chunks: baseChunks }]
-        const evictEntryOpt = HashMap.get(baseChunks, evictKey)
-        const isDirty = HashSet.has(s.dirtyChunks, evictKey)
-        const newChunks = HashMap.remove(baseChunks, evictKey)
-        const newDirty = HashSet.remove(s.dirtyChunks, evictKey)
-        const newRenderDirty = HashSet.remove(s.renderDirtyChunks, evictKey)
-        const evictedDirty = Option.filter(evictEntryOpt, () => isDirty)
-        return [evictedDirty, { ...s, chunks: newChunks, dirtyChunks: newDirty, renderDirtyChunks: newRenderDirty }]
+      (state): [Option.Option<ChunkCacheEntry>, ChunkCache] => {
+        const result = insertChunkWithEviction(state, key, chunk, worldId, accessOrder, maxCachedChunks)
+        return [result.evictedDirtyEntry, result.cache]
       }
     )
 
-    const evictedDirty = Option.getOrNull(evictedDirtyEntry)
-    if (evictedDirty !== null) {
-      yield* ctx.storageService.saveChunk(evictedDirty.worldId ?? worldId, evictedDirty.chunk.coord, {
-        blocks: evictedDirty.chunk.blocks,
-        fluid: Option.getOrElse(evictedDirty.chunk.fluid, createFluidBuffer),
+    const dirtyEntry = Option.getOrNull(evictedDirtyEntry)
+    if (dirtyEntry !== null) {
+      yield* ctx.storageService.saveChunk(dirtyEntry.worldId ?? worldId, dirtyEntry.chunk.coord, {
+        blocks: dirtyEntry.chunk.blocks,
+        fluid: Option.getOrElse(dirtyEntry.chunk.fluid, createFluidBuffer),
       })
     }
 
     yield* Ref.set(ctx.cachedLoadedChunksRef, Option.none())
+  })
+
+const generateChunk = (
+  ctx: ChunkOpsContext,
+  coord: ChunkCoord,
+  terrainLevels: TerrainLevels,
+  insert: (coord: ChunkCoord, chunk: Chunk) => Effect.Effect<void, StorageError>
+): Effect.Effect<Chunk, ChunkManagerError> =>
+  Effect.gen(function* () {
+    const seed = yield* ctx.noiseService.getSeed
+    const dimension = yield* Ref.get(ctx.dimensionRef)
+    const generatedEffect = ctx.terrainPool
+      .generateTerrain(coord, { ...terrainLevels, seed, dimension })
+      .pipe(
+        Effect.mapError(
+          (err: TerrainGenerationError) =>
+            new ChunkError({ chunkCoord: coord, reason: err.reason }),
+        ),
+        Metric.trackDurationWith(chunkLoadHistogram, (d) => Duration.toMillis(d)),
+      ) as Effect.Effect<ChunkBlocks, ChunkManagerError>
+    const generated = yield* generatedEffect
+    const chunk: Chunk = {
+      coord,
+      blocks: generated.blocks,
+      skyLight: generated.skyLight,
+      blockLight: generated.blockLight,
+      fluid: Option.none(),
+      // FR-3.3: derived metadata for tighter frustum AABB; computed once at gen time.
+      maxY: computeMaxY(generated.blocks),
+    }
+    yield* insert(coord, chunk)
+    return chunk
   })
 
 // ---------------------------------------------------------------------------
@@ -140,61 +132,32 @@ export const insertWithEviction = (
  */
 export const getChunk = (
   ctx: ChunkOpsContext,
-  coord: ChunkCoord
+  coord: ChunkCoord,
+  terrainLevels: TerrainLevels = DEFAULT_TERRAIN_LEVELS,
 ): Effect.Effect<Chunk, ChunkManagerError> =>
   Effect.gen(function* () {
     const worldId = yield* Ref.get(ctx.worldIdRef)
     const key = chunkCoordToWorldKey(coord, worldId)
     const state = yield* Ref.get(ctx.cache)
 
-    const generateAndInsert = (): Effect.Effect<Chunk, ChunkManagerError> =>
-      Effect.gen(function* () {
-        const seed = yield* ctx.noiseService.getSeed
-        const dimension = yield* Ref.get(ctx.dimensionRef)
-        const generated = yield* ctx.terrainPool
-          .generateTerrain(coord, { seaLevel: SEA_LEVEL, lakeLevel: LAKE_LEVEL, seed, dimension })
-          .pipe(
-            Effect.mapError(
-              (err: TerrainGenerationError) =>
-                new ChunkError({ chunkCoord: coord, reason: err.reason })
-            ),
-            Metric.trackDurationWith(chunkLoadHistogram, (d) => Duration.toMillis(d))
-          )
-        const newChunk: Chunk = {
-          coord,
-          blocks: generated.blocks,
-          skyLight: generated.skyLight,
-          blockLight: generated.blockLight,
-          fluid: Option.none(),
-          // FR-3.3: derived metadata for tighter frustum AABB; computed once at gen time.
-          maxY: computeMaxY(generated.blocks),
-        }
-        yield* insertWithEviction(ctx, coord, newChunk)
-        return newChunk
-      })
+      const cached = Option.getOrNull(HashMap.get(state.chunks, key))
+      if (cached !== null) {
+        const accessOrder = yield* Ref.modify(ctx.accessCounterRef, (n) => [n + 1, n + 1])
+        cached.lastAccessed = accessOrder
+        return cached.chunk
+      }
 
-    const cached = Option.getOrNull(HashMap.get(state.chunks, key))
-    if (cached !== null) {
-      const accessOrder = yield* Ref.modify(ctx.accessCounterRef, (n) => [n + 1, n + 1])
-      cached.lastAccessed = accessOrder
-      return cached.chunk
-    }
+      const storedChunk = yield* loadStoredChunk(ctx, worldId, coord)
+      if (Option.isSome(storedChunk)) {
+        const chunk = storedChunk.value
+        yield* insertWithEviction(ctx, coord, chunk)
+        return chunk
+      }
 
-    const stored = Option.getOrNull(yield* ctx.storageService.loadChunk(worldId, coord))
-    if (stored === null) return yield* generateAndInsert()
-    const { blocks, fluid } = storedChunkPayload(stored)
-
-    const EXPECTED_LENGTH = CHUNK_SIZE * CHUNK_SIZE * CHUNK_HEIGHT
-    if (blocks.byteLength !== EXPECTED_LENGTH) {
-      yield* Effect.logWarning(`Chunk (${coord.x},${coord.z}) has invalid buffer length ${blocks.byteLength} (expected ${EXPECTED_LENGTH}); regenerating`)
-      return yield* generateAndInsert()
-    }
-    const baseChunk: Chunk = { coord, blocks, fluid: Option.fromNullable(fluid), maxY: computeMaxY(blocks) }
-    const grids: LightGrids = yield* ctx.lightEngine.updateLight(baseChunk)
-    const chunk: Chunk = { ...baseChunk, skyLight: grids.skyLight, blockLight: grids.blockLight }
-    yield* insertWithEviction(ctx, coord, chunk)
-    return chunk
-  })
+      return yield* generateChunk(ctx, coord, terrainLevels, (coord, chunk) =>
+        insertWithEviction(ctx, coord, chunk)
+      )
+    })
 
 // ---------------------------------------------------------------------------
 // unloadChunk
@@ -212,22 +175,10 @@ export const unloadChunk = (
     const key = chunkCoordToWorldKey(coord, worldId)
     const state = yield* Ref.get(ctx.cache)
     const unloadEntry = Option.getOrNull(HashMap.get(state.chunks, key))
-    if (unloadEntry !== null) {
-      yield* Effect.gen(function* () {
-        const entry = unloadEntry
-        if (HashSet.has(state.dirtyChunks, key)) {
-          yield* ctx.storageService.saveChunk(entry.worldId ?? worldId, entry.chunk.coord, {
-              blocks: entry.chunk.blocks,
-              fluid: Option.getOrElse(entry.chunk.fluid, createFluidBuffer),
-            })
-          }
-          yield* Ref.update(ctx.cache, (s) => ({
-            ...s,
-            chunks: HashMap.remove(s.chunks, key),
-            dirtyChunks: HashSet.remove(s.dirtyChunks, key),
-            renderDirtyChunks: HashSet.remove(s.renderDirtyChunks, key),
-          }))
-          yield* Ref.set(ctx.cachedLoadedChunksRef, Option.none())
-        })
+    if (unloadEntry === null) return
+
+    if (HashSet.has(state.dirtyChunks, key)) {
+      yield* saveChunkToStorage(ctx, worldId, unloadEntry)
     }
+    yield* removeChunkFromCache(ctx, key)
   })

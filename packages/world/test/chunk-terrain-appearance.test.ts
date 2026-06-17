@@ -2,15 +2,16 @@ import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
 import { Array as Arr, Effect, Layer, Option } from 'effect'
 import { StorageServicePort } from '@ts-minecraft/world'
-import { NoiseServicePort, NoiseServiceLive, BiomeService, type BiomeType, ChunkManagerService, ChunkManagerServiceLive } from '@ts-minecraft/world'
+import { NoiseServicePort, NoiseService, BiomeService, type BiomeType, ChunkManagerService } from '@ts-minecraft/world'
 import type { BiomeProperties } from '@ts-minecraft/world'
-import { ChunkServiceLive } from '@ts-minecraft/world/application/chunk-service'
+import { ChunkService } from '@ts-minecraft/world/application/chunk-service'
 import { CHUNK_SIZE, CHUNK_HEIGHT } from '@ts-minecraft/core'
 import {
   makeInMemoryStorage,
-  LightEngineNoopLive,
+  LightEngineNoopLayer,
   buildInlineTerrainPoolLayer,
 } from './chunk-manager-test-utils'
+import { makeChunkColumnArray, makeTerrainChannelSamples } from './terrain-channel-test-utils'
 
 describe('terrain/chunk-terrain-appearance', () => {
   describe('terrain appearance polish', () => {
@@ -19,6 +20,7 @@ describe('terrain/chunk-terrain-appearance', () => {
     const STONE = 2
     const WOOD = 3
     const GRASS = 4
+    const SAND = 5
     const WATER = 6
     const LEAVES = 7
     const GRAVEL = 10
@@ -48,6 +50,16 @@ describe('terrain/chunk-terrain-appearance', () => {
             biome,
             props: { surfaceBlock: 'GRASS', subSurfaceBlock: 'DIRT', treeDensity, temperature: 0.5, humidity: 0.6 },
           } as const
+        case 'BEACH':
+          return {
+            biome,
+            props: { surfaceBlock: 'SAND', subSurfaceBlock: 'SAND', treeDensity, temperature: 0.7, humidity: 0.55 },
+          } as const
+        case 'OCEAN':
+          return {
+            biome,
+            props: { surfaceBlock: 'SAND', subSurfaceBlock: 'SAND', treeDensity, temperature: 0.5, humidity: 0.9 },
+          } as const
         default:
           return {
             biome,
@@ -56,12 +68,15 @@ describe('terrain/chunk-terrain-appearance', () => {
       }
     }
 
-    const makeTerrainChannels = () => ({
-      continentalness: new Float64Array(256).fill(0.7),
-      erosion: new Float64Array(256).fill(0.8),
-      pv: new Float64Array(256).fill(DEFAULT_TREE_PV),
-      jaggedness: new Float64Array(256),
-    })
+    const makeBiomeColumns = (biome: BiomeType, treeDensity = 0): Array<ReturnType<typeof makeBiomeColumn>> =>
+      makeChunkColumnArray(() => makeBiomeColumn(biome, treeDensity))
+
+    const makeTerrainChannels = () =>
+      makeTerrainChannelSamples({
+        continentalness: 0.7,
+        erosion: 0.8,
+        pv: DEFAULT_TREE_PV,
+      })
 
     const buildCustomTerrainLayer = (
       biomeColumns: ReadonlyArray<{
@@ -112,16 +127,16 @@ describe('terrain/chunk-terrain-appearance', () => {
         }),
       )
 
-      const TestLayer = ChunkManagerServiceLive.pipe(
-        Layer.provide(ChunkServiceLive),
+      const TestLayer = ChunkManagerService.Default.pipe(
+        Layer.provide(ChunkService.Default),
         Layer.provide(StorageTestLayer),
         Layer.provide(CustomBiomeLayer),
         Layer.provide(CustomNoise),
-        Layer.provide(NoiseServiceLive),
+        Layer.provide(NoiseService.Default),
         Layer.provide(buildInlineTerrainPoolLayer(
-          Layer.mergeAll(ChunkServiceLive, CustomBiomeLayer, CustomNoise),
+          Layer.mergeAll(ChunkService.Default, CustomBiomeLayer, CustomNoise),
         )),
-        Layer.provide(LightEngineNoopLive),
+        Layer.provide(LightEngineNoopLayer),
       )
 
       return { TestLayer, storage }
@@ -180,7 +195,7 @@ describe('terrain/chunk-terrain-appearance', () => {
       )
 
     it('uses biome-driven tree archetypes deterministically', () => {
-      const biomeColumns = Arr.makeBy(CHUNK_SIZE * CHUNK_SIZE, () => makeBiomeColumn('PLAINS', 0))
+      const biomeColumns = makeBiomeColumns('PLAINS', 0)
       biomeColumns[columnIndex(3, 3)] = makeBiomeColumn('PLAINS', 1)
       biomeColumns[columnIndex(8, 8)] = makeBiomeColumn('SNOW', 1)
       biomeColumns[columnIndex(12, 12)] = makeBiomeColumn('JUNGLE', 1)
@@ -209,7 +224,7 @@ describe('terrain/chunk-terrain-appearance', () => {
     })
 
     it('generates seamless tree canopies across chunk borders instead of suppressing edge trees', () => {
-      const biomeColumns = Arr.makeBy(CHUNK_SIZE * CHUNK_SIZE, () => makeBiomeColumn('DESERT', 0))
+      const biomeColumns = makeBiomeColumns('DESERT', 0)
       biomeColumns[columnIndex(15, 8)] = makeBiomeColumn('FOREST', 1)
       const terrainChannels = makeTerrainChannels()
       const storage = makeInMemoryStorage()
@@ -223,7 +238,7 @@ describe('terrain/chunk-terrain-appearance', () => {
           getTemperature: (_x: number, _z: number) => Effect.succeed(0.5),
           getHumidity: (_x: number, _z: number) => Effect.succeed(0.5),
           getBiomesAndPropertiesForChunk: (chunkX: number, _chunkZ: number) =>
-            Effect.succeed(chunkX === 0 ? biomeColumns : Arr.makeBy(CHUNK_SIZE * CHUNK_SIZE, () => makeBiomeColumn('DESERT', 0))),
+            Effect.succeed(chunkX === 0 ? biomeColumns : makeBiomeColumns('DESERT', 0)),
         }),
       )
       const SeamNoise = Layer.succeed(
@@ -247,16 +262,16 @@ describe('terrain/chunk-terrain-appearance', () => {
           sampleTerrainChannels: (_cx: number, _cz: number) => Effect.succeed(terrainChannels),
         }),
       )
-      const TestLayer = ChunkManagerServiceLive.pipe(
-        Layer.provide(ChunkServiceLive),
+      const TestLayer = ChunkManagerService.Default.pipe(
+        Layer.provide(ChunkService.Default),
         Layer.provide(StorageTestLayer),
         Layer.provide(SeamBiomeLayer),
         Layer.provide(SeamNoise),
-        Layer.provide(NoiseServiceLive),
+        Layer.provide(NoiseService.Default),
         Layer.provide(buildInlineTerrainPoolLayer(
-          Layer.mergeAll(ChunkServiceLive, SeamBiomeLayer, SeamNoise),
+          Layer.mergeAll(ChunkService.Default, SeamBiomeLayer, SeamNoise),
         )),
-        Layer.provide(LightEngineNoopLive),
+        Layer.provide(LightEngineNoopLayer),
       )
 
       return Effect.runPromise(Effect.gen(function* () {
@@ -273,7 +288,7 @@ describe('terrain/chunk-terrain-appearance', () => {
     })
 
     it('adds rocky surface variation on rugged highland columns while gentle forest stays grassy', () => {
-      const biomeColumns = Arr.makeBy(CHUNK_SIZE * CHUNK_SIZE, () => makeBiomeColumn('FOREST', 0))
+      const biomeColumns = makeBiomeColumns('FOREST', 0)
       const terrainChannels = makeTerrainChannels()
 
       terrainChannels.continentalness[terrainIndex(6, 6)] = 0.8
@@ -299,6 +314,38 @@ describe('terrain/chunk-terrain-appearance', () => {
         expect([STONE, GRAVEL]).toContain(roughSurface.block)
         expect(gentleSurface.block).toBe(GRASS)
         expect(chunk.blocks[idx(9, gentleSurface.y - 1, 9)]).toBe(DIRT)
+      }))
+    })
+
+    it('renders BEACH columns with sand surface and sand sub-surface', () => {
+      const biomeColumns = makeBiomeColumns('BEACH', 0)
+      const terrainChannels = makeTerrainChannels()
+      const { TestLayer } = buildCustomTerrainLayer(biomeColumns, terrainChannels)
+
+      return Effect.runPromise(Effect.gen(function* () {
+        const chunk = yield* loadChunk.pipe(Effect.provide(TestLayer))
+
+        const beachSurface = getSurfaceBlock(chunk.blocks, 7, 7)
+
+        expect(beachSurface.y).toBeGreaterThan(0)
+        expect(beachSurface.block).toBe(SAND)
+        expect(chunk.blocks[idx(7, beachSurface.y - 1, 7)]).toBe(SAND)
+      }))
+    })
+
+    it('renders OCEAN columns with sand surface and sand sub-surface', () => {
+      const biomeColumns = makeBiomeColumns('OCEAN', 0)
+      const terrainChannels = makeTerrainChannels()
+      const { TestLayer } = buildCustomTerrainLayer(biomeColumns, terrainChannels)
+
+      return Effect.runPromise(Effect.gen(function* () {
+        const chunk = yield* loadChunk.pipe(Effect.provide(TestLayer))
+
+        const oceanSurface = getSurfaceBlock(chunk.blocks, 7, 7)
+
+        expect(oceanSurface.y).toBeGreaterThan(0)
+        expect(oceanSurface.block).toBe(SAND)
+        expect(chunk.blocks[idx(7, oceanSurface.y - 1, 7)]).toBe(SAND)
       }))
     })
 

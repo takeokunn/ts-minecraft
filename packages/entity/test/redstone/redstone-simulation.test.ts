@@ -1,6 +1,6 @@
 import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
-import { Array as Arr, HashMap, HashSet, Option } from 'effect'
+import { Array as Arr, HashMap, HashSet } from 'effect'
 import {
   RedstonePowerLevel,
   RedstoneComponentType,
@@ -18,6 +18,7 @@ import {
 } from '@ts-minecraft/entity'
 import type { RedstoneComponent, PositionKey } from '@ts-minecraft/entity'
 import { makeTestRedstoneComponent } from '../redstone/test-utils'
+import { expectSome } from '../test-utils'
 
 // --- Helpers ---
 
@@ -197,7 +198,7 @@ describe('updatePistons', () => {
     const pistonKeys = HashSet.fromIterable([key])
 
     const result = updatePistons(components, powered, pistonKeys)
-    const updated = Option.getOrThrow(HashMap.get(result, key))
+    const updated = expectSome(HashMap.get(result, key))
     expect(updated.state.pistonExtended).toBe(true)
   })
 
@@ -209,7 +210,7 @@ describe('updatePistons', () => {
     const pistonKeys = HashSet.fromIterable([key])
 
     const result = updatePistons(components, powered, pistonKeys)
-    const updated = Option.getOrThrow(HashMap.get(result, key))
+    const updated = expectSome(HashMap.get(result, key))
     expect(updated.state.pistonExtended).toBe(false)
   })
 
@@ -221,7 +222,7 @@ describe('updatePistons', () => {
     const pistonKeys = HashSet.fromIterable([key])
 
     const result = updatePistons(components, powered, pistonKeys)
-    const updated = Option.getOrThrow(HashMap.get(result, key))
+    const updated = expectSome(HashMap.get(result, key))
     expect(updated.state.pistonExtended).toBe(true)
     // result should be the same HashMap reference (acc returned unchanged)
     expect(HashMap.size(result)).toBe(1)
@@ -257,7 +258,7 @@ describe('decayButtonTimers', () => {
       const buttonKeys = HashSet.fromIterable([key])
 
       const result = decayButtonTimers(components, buttonKeys)
-      const updated = Option.getOrThrow(HashMap.get(result, key))
+      const updated = expectSome(HashMap.get(result, key))
       expect(updated.state.buttonTicksRemaining).toBe(expectedTicks)
       expect(updated.state.active).toBe(expectedActive)
     })
@@ -277,7 +278,7 @@ describe('decayButtonTimers', () => {
 
     // The real button at x=0 must be untouched because the stale key did not match anything
     expect(HashMap.size(result)).toBe(1)
-    const realBtn = Option.getOrThrow(HashMap.get(result, positionKey({ x: 0, y: 64, z: 0 })))
+    const realBtn = expectSome(HashMap.get(result, positionKey({ x: 0, y: 64, z: 0 })))
     expect(realBtn.state.buttonTicksRemaining).toBe(3)
   })
 })

@@ -76,6 +76,26 @@ export const BlockTypeSchema = Schema.Literal(
   'PURPUR_STAIRS',
   'SHULKER_BOX',
   // Explosives
-  'TNT'
+  'TNT',
+  // Storage
+  'CHEST',
+  // Doors
+  'DOOR',
+  'DOOR_OPEN',
+  // Nether / passable utility / plants
+  'GLOWSTONE',
+  'LADDER',
+  'COBWEB',
+  'SAPLING',
+  'DANDELION',
+  'POPPY',
+  'BROWN_MUSHROOM',
+  'RED_MUSHROOM',
+  'TALL_GRASS',
+  'FERN',
+  'SUGAR_CANE',
+  'CACTUS',
+  'LILY_PAD',
+  'ICE'
 )
 export type BlockType = Schema.Schema.Type<typeof BlockTypeSchema>

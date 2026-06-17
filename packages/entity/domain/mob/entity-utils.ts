@@ -38,6 +38,8 @@ export const toPublicEntity = (entity: ManagedEntity): Entity => ({
   health: entity.health,
   type: entity.type,
   isBaby: !isAdult(entity.ageTicks),
+  ...(entity.type === 'Creeper' && entity.fuseSecs > 0 ? { fuseSecs: entity.fuseSecs } : {}),
+  ...(entity.fireSecsRemaining > 0 ? { fireSecs: entity.fireSecsRemaining } : {}),
 })
 
 

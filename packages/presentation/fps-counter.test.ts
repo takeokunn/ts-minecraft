@@ -10,9 +10,10 @@ describe('FPSCounterService', () => {
       Effect.gen(function* () {
         const counter = yield* FPSCounterService
 
-        yield* counter.tick(DeltaTimeSecs.make(0.016)) // ~60 FPS frame time
+        const fps = yield* counter.tick(DeltaTimeSecs.make(0.016)) // ~60 FPS frame time
         const frameCount = yield* counter.getFrameCount()
 
+        expect(fps).toBe(0)
         expect(frameCount).toBe(1)
       }).pipe(Effect.provide(FPSCounterService.Default))
     )
@@ -27,6 +28,23 @@ describe('FPSCounterService', () => {
         const frameCount = yield* counter.getFrameCount()
 
         expect(frameCount).toBe(3)
+      }).pipe(Effect.provide(FPSCounterService.Default))
+    )
+
+    it.effect('should return calculated FPS when sample interval is reached', () =>
+      Effect.gen(function* () {
+        const counter = yield* FPSCounterService
+
+        const deltaTime = 0.5 / 30
+        let fps = 0
+        yield* Effect.forEach(
+          Arr.makeBy(31, () => undefined),
+          () => counter.tick(DeltaTimeSecs.make(deltaTime)).pipe(Effect.tap((value) => Effect.sync(() => { fps = value }))),
+          { concurrency: 1 },
+        )
+
+        expect(fps).toBeGreaterThan(59)
+        expect(fps).toBeLessThan(61)
       }).pipe(Effect.provide(FPSCounterService.Default))
     )
   })

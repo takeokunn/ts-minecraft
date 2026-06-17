@@ -112,6 +112,35 @@ const SHEEP_SPECS = buildQuadrupedSpecs(
   { head: [0.375, 0.375, 0.5], body: [0.5, 0.5, 0.875], leg: [0.25, 0.75, 0.25] },
   { head: 0xf0d8b0, body: 0xf5f5f5, leg: 0xf0d8b0 },
 )
+const CHICKEN_SPECS = buildQuadrupedSpecs(
+  { head: [0.35, 0.35, 0.35], body: [0.45, 0.45, 0.55], leg: [0.08, 0.35, 0.08] },
+  { head: 0xf5f5f5, body: 0xf5f5f5, leg: 0xe0a020 },
+)
+
+const BAT_SPECS = buildQuadrupedSpecs(
+  { head: [0.3, 0.25, 0.25], body: [0.45, 0.22, 0.3], leg: [0.06, 0.14, 0.06] },
+  { head: 0x2b2420, body: 0x1f1a17, leg: 0x2b2420 },
+)
+
+const SQUID_SPECS = buildQuadrupedSpecs(
+  { head: [0.5, 0.35, 0.5], body: [0.55, 0.5, 0.55], leg: [0.08, 0.55, 0.08] },
+  { head: 0x315f8f, body: 0x2f78b7, leg: 0x1f4f7a },
+)
+
+const WITCH_SPECS = buildBipedSpecs(
+  { head: [0.5, 0.55, 0.5], body: [0.5, 0.75, 0.25], arm: [0.18, 0.75, 0.18], leg: [0.25, 0.75, 0.25] },
+  { head: 0x6b8f4e, body: 0x4b2a63, arm: 0x3a214f, leg: 0x2a1a36 },
+)
+
+const DROWNED_SPECS = buildBipedSpecs(
+  { head: [0.5, 0.5, 0.5], body: [0.5, 0.75, 0.25], arm: [0.25, 0.75, 0.25], leg: [0.25, 0.75, 0.25] },
+  { head: 0x3f8f83, body: 0x274f68, arm: 0x2f7f77, leg: 0x1f4f5f },
+)
+
+const ZOMBIE_VILLAGER_SPECS = buildBipedSpecs(
+  { head: [0.55, 0.55, 0.55], body: [0.5, 0.75, 0.25], arm: [0.25, 0.75, 0.25], leg: [0.25, 0.75, 0.25] },
+  { head: 0x6f9b4c, body: 0x6b4a2f, arm: 0x6f9b4c, leg: 0x3f4f7a },
+)
 
 // Creeper: quadruped (4 stubby legs), no arms, dark-green all over.
 const CREEPER_SPECS = buildQuadrupedSpecs(
@@ -171,6 +200,12 @@ const SPECS_BY_TYPE: Readonly<Record<EntityType, Readonly<Record<PartRole, Optio
   Cow: COW_SPECS,
   Pig: PIG_SPECS,
   Sheep: SHEEP_SPECS,
+  Chicken: CHICKEN_SPECS,
+  Bat: BAT_SPECS,
+  Squid: SQUID_SPECS,
+  Witch: WITCH_SPECS,
+  Drowned: DROWNED_SPECS,
+  ZombieVillager: ZOMBIE_VILLAGER_SPECS,
   Creeper: CREEPER_SPECS,
   Skeleton: SKELETON_SPECS,
   Spider: SPIDER_SPECS,
@@ -186,6 +221,12 @@ export const ROLES_BY_TYPE: Readonly<Record<EntityType, ReadonlyArray<PartRole>>
   Cow: ['head', 'body', 'legFL', 'legFR', 'legBL', 'legBR'],
   Pig: ['head', 'body', 'legFL', 'legFR', 'legBL', 'legBR'],
   Sheep: ['head', 'body', 'legFL', 'legFR', 'legBL', 'legBR'],
+  Chicken: ['head', 'body', 'legFL', 'legFR', 'legBL', 'legBR'],
+  Bat: ['head', 'body', 'legFL', 'legFR', 'legBL', 'legBR'],
+  Squid: ['head', 'body', 'legFL', 'legFR', 'legBL', 'legBR'],
+  Witch: ['head', 'body', 'armL', 'armR', 'legFL', 'legFR'],
+  Drowned: ['head', 'body', 'armL', 'armR', 'legFL', 'legFR'],
+  ZombieVillager: ['head', 'body', 'armL', 'armR', 'legFL', 'legFR'],
   Creeper: ['head', 'body', 'legFL', 'legFR', 'legBL', 'legBR'],
   Skeleton: ['head', 'body', 'armL', 'armR', 'legFL', 'legFR'],
   Spider: ['head', 'body', 'legFL', 'legFR', 'legBL', 'legBR'],

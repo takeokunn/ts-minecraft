@@ -1,13 +1,13 @@
 import { describe, it } from '@effect/vitest'
 import { Effect } from 'effect'
 import { expect } from 'vitest'
+import { FakeWebSocketServer } from '../infrastructure/websocket-server'
 import {
-  FakeWebSocketServer,
   MessageType,
   PlayerId,
   PlayerName,
   ServerService,
-  ServerServiceLive,
+  ServerServiceDefault,
   WorldId,
   decodeNetworkMessage,
   encodeNetworkMessage,
@@ -47,7 +47,7 @@ describe('network/server-service', () => {
       expect(port).toBe(25565)
       yield* server.stop()
       expect(fakeServer.getConnections().size).toBe(0)
-    }).pipe(Effect.provide(ServerServiceLive(fakeServer)))
+    }).pipe(Effect.provide(ServerServiceDefault(fakeServer)))
   })
 
   it.effect('server accepts connections and assigns PlayerIds', () => {
@@ -66,7 +66,7 @@ describe('network/server-service', () => {
 
       const players = yield* server.getConnectedPlayers()
       expect(players.has(welcome.playerId)).toBe(true)
-    }).pipe(Effect.provide(ServerServiceLive(fakeServer)))
+    }).pipe(Effect.provide(ServerServiceDefault(fakeServer)))
   })
 
   it.effect('server enforces max players limit', () => {
@@ -83,7 +83,47 @@ describe('network/server-service', () => {
       const rejected = yield* takeMessage(second.takeClientMessage)
       expect(rejected.type).toBe(MessageType.Error)
       if (rejected.type === MessageType.Error) expect(rejected.code).toBe('SERVER_FULL')
-    }).pipe(Effect.provide(ServerServiceLive(fakeServer, { maxPlayers: 1 })))
+    }).pipe(Effect.provide(ServerServiceDefault(fakeServer, { maxPlayers: 1 })))
+  })
+
+  it.effect('server sendToPlayer sends a direct message to a connected player', () => {
+    const fakeServer = new FakeWebSocketServer()
+    return Effect.gen(function* () {
+      const server = yield* ServerService
+      yield* server.start(25565)
+      const client = yield* fakeServer.connectClient()
+      yield* sendMessage(client.clientSend, joinMessage('Alex'))
+      const welcome = yield* takeMessage(client.takeClientMessage)
+      if (welcome.type !== MessageType.PlayerJoin) return
+
+      yield* server.sendToPlayer(welcome.playerId, {
+        type: MessageType.Chat,
+        playerId: welcome.playerId,
+        worldId,
+        message: 'direct hello',
+        timestamp: 2,
+      })
+      const direct = yield* takeMessage(client.takeClientMessage)
+      expect(direct.type).toBe(MessageType.Chat)
+      if (direct.type === MessageType.Chat) expect(direct.message).toBe('direct hello')
+    }).pipe(Effect.provide(ServerServiceDefault(fakeServer)))
+  })
+
+  it.effect('server sendToPlayer fails when the player is not connected', () => {
+    const fakeServer = new FakeWebSocketServer()
+    return Effect.gen(function* () {
+      const server = yield* ServerService
+      yield* server.start(25565)
+      const error = yield* server.sendToPlayer(PlayerId.make('missing'), {
+        type: MessageType.Chat,
+        playerId: PlayerId.make('missing'),
+        worldId,
+        message: 'direct hello',
+        timestamp: 2,
+      }).pipe(Effect.flip)
+      expect(error.operation).toBe('send')
+      expect(error.reason).toBe('player missing is not connected')
+    }).pipe(Effect.provide(ServerServiceDefault(fakeServer)))
   })
 
   it.effect('server broadcasts PlayerJoin to existing players on new connection', () => {
@@ -101,7 +141,7 @@ describe('network/server-service', () => {
       const broadcast = yield* takeMessage(first.takeClientMessage)
       expect(broadcast.type).toBe(MessageType.PlayerJoin)
       if (broadcast.type === MessageType.PlayerJoin) expect(broadcast.playerName).toBe(PlayerName.make('Steve'))
-    }).pipe(Effect.provide(ServerServiceLive(fakeServer)))
+    }).pipe(Effect.provide(ServerServiceDefault(fakeServer)))
   })
 
   it.effect('server broadcasts PlayerLeave on disconnect', () => {
@@ -121,7 +161,7 @@ describe('network/server-service', () => {
       yield* second.clientClose
       const leave = yield* takeMessage(first.takeClientMessage)
       expect(leave.type).toBe(MessageType.PlayerLeave)
-    }).pipe(Effect.provide(ServerServiceLive(fakeServer)))
+    }).pipe(Effect.provide(ServerServiceDefault(fakeServer)))
   })
 
   it.effect('server broadcasts PlayerMove to others and not sender', () => {
@@ -150,7 +190,7 @@ describe('network/server-service', () => {
       const move = yield* takeMessage(second.takeClientMessage)
       expect(move.type).toBe(MessageType.PlayerMove)
       if (move.type === MessageType.PlayerMove) expect(move.playerId).toBe(firstWelcome.playerId)
-    }).pipe(Effect.provide(ServerServiceLive(fakeServer)))
+    }).pipe(Effect.provide(ServerServiceDefault(fakeServer)))
   })
 
   it.effect('server broadcasts Chat to all', () => {
@@ -167,7 +207,7 @@ describe('network/server-service', () => {
       const chat = yield* takeMessage(client.takeClientMessage)
       expect(chat.type).toBe(MessageType.Chat)
       if (chat.type === MessageType.Chat) expect(chat.message).toBe('hello')
-    }).pipe(Effect.provide(ServerServiceLive(fakeServer)))
+    }).pipe(Effect.provide(ServerServiceDefault(fakeServer)))
   })
 
   it.effect('server broadcasts BlockPlace and BlockBreak to others and not sender', () => {
@@ -192,6 +232,6 @@ describe('network/server-service', () => {
       yield* sendMessage(first.clientSend, { type: MessageType.BlockBreak, playerId: firstWelcome.playerId, worldId, position: { x: 1, y: 64, z: 1 }, timestamp: 3 })
       const blockBreak = yield* takeMessage(second.takeClientMessage)
       expect(blockBreak.type).toBe(MessageType.BlockBreak)
-    }).pipe(Effect.provide(ServerServiceLive(fakeServer)))
+    }).pipe(Effect.provide(ServerServiceDefault(fakeServer)))
   })
 })

@@ -1,15 +1,9 @@
 import { describe, it, expect } from 'vitest'
-import { Effect, Option, Ref } from 'effect'
+import { Effect, MutableRef, Ref } from 'effect'
 import { DeltaTimeSecs } from '@ts-minecraft/core'
-import {
-  copyCameraPoseInto,
-  hasCameraPoseChanged,
-  advanceFixedStep,
-  runTickable,
-  decideAdaptiveQuality,
-  type CameraPoseSnapshot,
-  type AdaptiveQualityInput,
-} from '../application/frame/frame-runtime-logic'
+import { copyCameraPoseInto, hasCameraPoseChanged, type CameraPoseSnapshot } from '../application/frame/frame-camera-pose'
+import { advanceFixedStep, runTickable } from '../application/frame/frame-fixed-step'
+import { decideAdaptiveQuality, type AdaptiveQualityInput } from '../application/frame/frame-adaptive-quality'
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
 
@@ -121,7 +115,7 @@ describe('runTickable', () => {
 
   it('fires the tick once per fixed interval regardless of frame rate', () =>
     run(Effect.gen(function* () {
-      const acc = yield* Ref.make(0)
+      const acc = MutableRef.make(0)
       const count = yield* Ref.make(0)
       const tick = Ref.update(count, (n) => n + 1)
       // Simulate 60 frames at ~60fps (deltaTime 1/60). 1s elapsed at a 0.05s (20Hz)
@@ -132,7 +126,7 @@ describe('runTickable', () => {
 
   it('catches up multiple ticks when a single frame spans several intervals', () =>
     run(Effect.gen(function* () {
-      const acc = yield* Ref.make(0)
+      const acc = MutableRef.make(0)
       const count = yield* Ref.make(0)
       const tick = Ref.update(count, (n) => n + 1)
       // One long 0.16s frame at a 0.05s interval = 3 ticks (floor(0.16/0.05)).
@@ -142,7 +136,7 @@ describe('runTickable', () => {
 
   it('does not fire until the interval is reached', () =>
     run(Effect.gen(function* () {
-      const acc = yield* Ref.make(0)
+      const acc = MutableRef.make(0)
       const count = yield* Ref.make(0)
       const tick = Ref.update(count, (n) => n + 1)
       // Two sub-interval frames (0.02s each = 0.04s total < 0.05s) → no tick yet.
@@ -160,61 +154,63 @@ describe('runTickable', () => {
 describe('decideAdaptiveQuality', () => {
   it('returns no patch when adaptivePerformanceMode is false', () => {
     const result = decideAdaptiveQuality(makeAdaptiveInput({ adaptivePerformanceMode: false }))
-    expect(Option.isNone(result.settingsPatch)).toBe(true)
-    expect(result.nextCooldown).toBe(0)
+    expect(result).toBe(0)
   })
 
   it('decrements cooldown without patching when cooldown > 0', () => {
     const result = decideAdaptiveQuality(makeAdaptiveInput({ cooldown: 5 }))
-    expect(Option.isNone(result.settingsPatch)).toBe(true)
-    expect(result.nextCooldown).toBe(4)
+    expect(result).toBe(4)
   })
 
   it('returns no patch when fps is at/above the threshold', () => {
     const result = decideAdaptiveQuality(makeAdaptiveInput({ fps: 120, cooldown: 0 }))
-    expect(Option.isNone(result.settingsPatch)).toBe(true)
+    expect(result).toBe(0)
   })
 
   it('does NOT degrade a smooth ~60fps experience (regression: old 110 threshold forced 60Hz users to the floor)', () => {
     const result = decideAdaptiveQuality(
       makeAdaptiveInput({ graphicsQuality: 'medium', renderDistance: 8, fps: 60, cooldown: 0 }),
     )
-    expect(Option.isNone(result.settingsPatch)).toBe(true)
+    expect(result).toBe(0)
   })
 
   it('returns no patch when fps is exactly 0 (first frame guard)', () => {
     const result = decideAdaptiveQuality(makeAdaptiveInput({ fps: 0, cooldown: 0 }))
-    expect(Option.isNone(result.settingsPatch)).toBe(true)
+    expect(result).toBe(0)
   })
 
   it('lowers graphicsQuality from ultra to high when fps is low', () => {
     const result = decideAdaptiveQuality(makeAdaptiveInput({ graphicsQuality: 'ultra', fps: 30 }))
-    const patch = Option.getOrThrow(result.settingsPatch)
+    if (typeof result === 'number') throw new Error('expected patch')
+    const patch = result.settingsPatch
     expect(patch.graphicsQuality).toBe('high')
     expect(result.nextCooldown).toBe(20)
   })
 
   it('lowers graphicsQuality from high to medium when fps is low', () => {
     const result = decideAdaptiveQuality(makeAdaptiveInput({ graphicsQuality: 'high', fps: 30 }))
-    const patch = Option.getOrThrow(result.settingsPatch)
+    if (typeof result === 'number') throw new Error('expected patch')
+    const patch = result.settingsPatch
     expect(patch.graphicsQuality).toBe('medium')
   })
 
   it('lowers graphicsQuality from medium to low when fps is low', () => {
     const result = decideAdaptiveQuality(makeAdaptiveInput({ graphicsQuality: 'medium', fps: 30 }))
-    const patch = Option.getOrThrow(result.settingsPatch)
+    if (typeof result === 'number') throw new Error('expected patch')
+    const patch = result.settingsPatch
     expect(patch.graphicsQuality).toBe('low')
   })
 
   it('reduces renderDistance when at low quality and renderDistance > 4', () => {
     const result = decideAdaptiveQuality(makeAdaptiveInput({ graphicsQuality: 'low', renderDistance: 8, fps: 30 }))
-    const patch = Option.getOrThrow(result.settingsPatch)
+    if (typeof result === 'number') throw new Error('expected patch')
+    const patch = result.settingsPatch
     expect(patch.renderDistance).toBe(7)
     expect(result.nextCooldown).toBe(20)
   })
 
   it('does nothing when at low quality and renderDistance <= 4', () => {
     const result = decideAdaptiveQuality(makeAdaptiveInput({ graphicsQuality: 'low', renderDistance: 4, fps: 30 }))
-    expect(Option.isNone(result.settingsPatch)).toBe(true)
+    expect(result).toBe(0)
   })
 })

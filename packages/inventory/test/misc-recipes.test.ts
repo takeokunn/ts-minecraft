@@ -101,6 +101,42 @@ describe('application/recipes/misc-recipes', () => {
       expect(recipe!.output.count).toBe(1)
       expect(ingredientTotal('cobblestone-to-furnace')).toBe(8)
     })
+
+    it('planks-to-chest: 8 PLANKS -> 1 CHEST at crafting_table', () => {
+      const recipe = findById('planks-to-chest')
+      expect(recipe).toBeDefined()
+      expect(recipe!.station).toBe('crafting_table')
+      expect(recipe!.output.itemType).toBe('CHEST')
+      expect(recipe!.output.count).toBe(1)
+      expect(ingredientTotal('planks-to-chest')).toBe(8)
+    })
+
+    it('planks-to-door: 6 PLANKS -> 3 DOOR at crafting_table', () => {
+      const recipe = findById('planks-to-door')
+      expect(recipe).toBeDefined()
+      expect(recipe!.station).toBe('crafting_table')
+      expect(recipe!.output.itemType).toBe('DOOR')
+      expect(recipe!.output.count).toBe(3)
+      expect(ingredientTotal('planks-to-door')).toBe(6)
+    })
+
+    it('sticks-to-ladder: 7 STICKS -> 3 LADDER at crafting_table', () => {
+      const recipe = findById('sticks-to-ladder')
+      expect(recipe).toBeDefined()
+      expect(recipe!.station).toBe('crafting_table')
+      expect(recipe!.output.itemType).toBe('LADDER')
+      expect(recipe!.output.count).toBe(3)
+      expect(ingredientTotal('sticks-to-ladder')).toBe(7)
+    })
+
+    it('glowstone-dust-to-glowstone: 4 GLOWSTONE_DUST -> 1 GLOWSTONE at inventory', () => {
+      const recipe = findById('glowstone-dust-to-glowstone')
+      expect(recipe).toBeDefined()
+      expect(recipe!.station).toBe('inventory')
+      expect(recipe!.output.itemType).toBe('GLOWSTONE')
+      expect(recipe!.output.count).toBe(1)
+      expect(ingredientTotal('glowstone-dust-to-glowstone')).toBe(4)
+    })
   })
 
   describe('torch recipes (coal and charcoal)', () => {
@@ -158,8 +194,15 @@ describe('application/recipes/misc-recipes', () => {
       expect(recipe!.output.itemType).toBe('GLASS')
     })
 
-    it('raw-beef-to-cooked-beef and fish variants all use furnace station', () => {
-      const smeltedFood = ['raw-beef-to-cooked-beef', 'raw-cod-to-cooked-cod', 'raw-salmon-to-cooked-salmon']
+    it('raw meat and fish variants all use furnace station', () => {
+      const smeltedFood = [
+        'raw-beef-to-cooked-beef',
+        'raw-pork-to-cooked-porkchop',
+        'raw-mutton-to-cooked-mutton',
+        'raw-chicken-to-cooked-chicken',
+        'raw-cod-to-cooked-cod',
+        'raw-salmon-to-cooked-salmon',
+      ]
       for (const id of smeltedFood) {
         const recipe = findById(id)
         expect(recipe, `${id} missing`).toBeDefined()
@@ -230,13 +273,14 @@ describe('application/recipes/misc-recipes', () => {
       expect(recipe!.output.itemType).toBe('BREAD')
     })
 
-    it('arrows: 1 BONE + 2 STICKS → 4 ARROW at crafting_table', () => {
-      const recipe = findById('bone-and-sticks-to-arrows')
+    it('arrows: 1 FLINT + 1 STICKS + 1 FEATHER → 4 ARROW at crafting_table', () => {
+      const recipe = findById('flint-stick-feather-to-arrows')
       expect(recipe).toBeDefined()
       expect(recipe!.station).toBe('crafting_table')
       expect(recipe!.output.itemType).toBe('ARROW')
       expect(recipe!.output.count).toBe(4)
-      expect(ingredientTotal('bone-and-sticks-to-arrows')).toBe(3)
+      expect(recipe!.ingredients.map((ing) => ing.itemType)).toEqual(['FLINT', 'STICKS', 'FEATHER'])
+      expect(ingredientTotal('flint-stick-feather-to-arrows')).toBe(3)
     })
 
     it('bucket: 3 IRON_INGOT → 1 BUCKET at crafting_table', () => {

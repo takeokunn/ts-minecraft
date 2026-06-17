@@ -1,9 +1,16 @@
 import { Array as Arr, Effect, Option } from 'effect'
 import { InventoryServicePort } from '../../domain/ports'
 import type { InventoryItem } from '@ts-minecraft/core'
-import { VillageService } from '../village/village-service'
-import type { Villager, VillagerId } from '../../domain/village/village-model'
-import { TradeOfferId, TradeSuccess, TradeFailure, type TradeFailureReason, type TradeOffer, type TradeResult } from '../../domain/trading/trading-model'
+import { VillageService } from '../village'
+import type { Villager, VillagerId } from '../../domain/village'
+import {
+  TradeOfferId,
+  TradeSuccess,
+  TradeFailure,
+  type TradeFailureReason,
+  type TradeOffer,
+  type TradeResult,
+} from '../../domain/trading'
 import { TRADE_CURRENCY_BLOCK, TRADE_OFFERS } from './trading-service.config'
 
 export { TRADE_CURRENCY_BLOCK } from './trading-service.config'
@@ -26,11 +33,17 @@ const findOfferForVillager = (villager: Villager, offerId: TradeOfferId): Option
 const countBlockInInventory = (
   slots: ReadonlyArray<Option.Option<{ readonly itemType: InventoryItem; readonly count: number }>>,
   itemType: InventoryItem,
-): number =>
-  Arr.reduce(slots, 0, (total, slot) => {
+): number => {
+  let total = 0
+  for (let i = 0; i < slots.length; i++) {
+    const slot = slots[i]!
     const stack = Option.getOrNull(slot)
-    return total + (stack !== null && stack.itemType === itemType ? stack.count : 0)
-  })
+    if (stack !== null && stack.itemType === itemType) {
+      total += stack.count
+    }
+  }
+  return total
+}
 
 export class TradingService extends Effect.Service<TradingService>()(
   '@minecraft/trading/TradingService',
@@ -97,5 +110,3 @@ export class TradingService extends Effect.Service<TradingService>()(
     }),
   },
 ) {}
-
-export const TradingServiceLive = TradingService.Default

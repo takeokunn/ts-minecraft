@@ -49,9 +49,9 @@ export default defineConfig({
   ],
 
   webServer: {
-    command: 'corepack pnpm dev --port 5180 --strictPort',
+    command: 'VITE_E2E_DISABLE_HMR=1 corepack pnpm dev --host 127.0.0.1 --port 5180 --strictPort',
     url: 'http://localhost:5180',
-    reuseExistingServer: !process.env['CI'],
+    reuseExistingServer: false,
     timeout: 60_000,
     stdout: 'pipe',
     stderr: 'pipe',

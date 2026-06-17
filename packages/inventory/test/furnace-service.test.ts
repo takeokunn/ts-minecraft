@@ -1,11 +1,10 @@
 import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
 import { Array as Arr, Effect, Layer, MutableHashMap, MutableRef, Option } from 'effect'
-import { FurnaceService, FurnaceServiceLive } from '@ts-minecraft/inventory'
+import { FurnaceService } from '@ts-minecraft/inventory'
 import { RecipeService, InventoryError } from '@ts-minecraft/inventory'
 import { InventoryService } from '@ts-minecraft/inventory'
-import { PlayerService } from '@ts-minecraft/entity'
-import { ChunkManagerService } from '@ts-minecraft/world'
+import { PlayerServicePort, WorldBlockQueryPort } from '@ts-minecraft/world'
 import { RecipeId, DeltaTimeSecs } from '@ts-minecraft/core'
 import type { InventoryItem } from '@ts-minecraft/core'
 import {
@@ -43,7 +42,7 @@ describe('application/furnace/furnace-service', () => {
       },
     }
 
-    const layer = FurnaceServiceLive.pipe(
+    const layer = FurnaceService.Default.pipe(
       Layer.provide(Layer.succeed(RecipeService, makeRecipeService({
         'raw-iron-to-iron-ingot': {
           station: 'furnace',
@@ -55,8 +54,8 @@ describe('application/furnace/furnace-service', () => {
         removeBlock: inventory.removeBlock,
         addBlock: inventory.addBlock,
       }))),
-      Layer.provide(Layer.succeed(PlayerService, makePlayerService({ x: 0, y: 64, z: 0 }))),
-      Layer.provide(Layer.succeed(ChunkManagerService, makeChunkManagerService(makeChunkWithFurnace()))),
+      Layer.provide(Layer.succeed(PlayerServicePort, makePlayerService({ x: 0, y: 64, z: 0 }))),
+      Layer.provide(Layer.succeed(WorldBlockQueryPort, makeChunkManagerService(makeChunkWithFurnace()))),
     )
 
     return Effect.gen(function* () {
@@ -73,6 +72,50 @@ describe('application/furnace/furnace-service', () => {
       yield* furnace.collectOutput()
       expect(Option.getOrElse(MutableHashMap.get(items, 'IRON_INGOT'), () => 0)).toBe(1)
     }).pipe(Effect.provide(layer))
+  })
+
+  it.effect('coal burn time carries over to a second smelt without consuming another fuel item', () => {
+    const items = MutableHashMap.fromIterable<InventoryItem, number>([['RAW_IRON', 2], ['COAL', 1]])
+
+    return Effect.gen(function* () {
+      const furnace = yield* FurnaceService
+      yield* furnace.setSelectedFurnace({ x: 0, y: 64, z: 0 })
+
+      yield* furnace.startSmelting(RecipeId.make('raw-iron-to-iron-ingot'))
+      yield* furnace.tick(DeltaTimeSecs.make(10.0))
+      yield* furnace.collectOutput()
+
+      expect(Option.getOrElse(MutableHashMap.get(items, 'RAW_IRON'), () => 0)).toBe(1)
+      expect(Option.getOrElse(MutableHashMap.get(items, 'COAL'), () => 0)).toBe(0)
+      expect(Option.getOrElse(MutableHashMap.get(items, 'IRON_INGOT'), () => 0)).toBe(1)
+
+      yield* furnace.startSmelting(RecipeId.make('raw-iron-to-iron-ingot'))
+      yield* furnace.tick(DeltaTimeSecs.make(10.0))
+      yield* furnace.collectOutput()
+
+      expect(Option.getOrElse(MutableHashMap.get(items, 'RAW_IRON'), () => 0)).toBe(0)
+      expect(Option.getOrElse(MutableHashMap.get(items, 'COAL'), () => 0)).toBe(0)
+      expect(Option.getOrElse(MutableHashMap.get(items, 'IRON_INGOT'), () => 0)).toBe(2)
+    }).pipe(Effect.provide(makeFurnaceLayer({ inventoryItems: items })))
+  })
+
+  it.effect('two sticks provide enough burn time for exactly one smelt', () => {
+    const items = MutableHashMap.fromIterable<InventoryItem, number>([['RAW_IRON', 1], ['STICKS', 2]])
+
+    return Effect.gen(function* () {
+      const furnace = yield* FurnaceService
+      yield* furnace.setSelectedFurnace({ x: 0, y: 64, z: 0 })
+
+      yield* furnace.startSmelting(RecipeId.make('raw-iron-to-iron-ingot'))
+      expect(Option.getOrElse(MutableHashMap.get(items, 'STICKS'), () => 0)).toBe(1)
+
+      yield* furnace.tick(DeltaTimeSecs.make(10.0))
+      const stateOpt = yield* furnace.getNearestFurnaceState()
+      const state = Option.getOrThrow(stateOpt)
+      expect(state.output).toEqual(Option.some({ itemType: 'IRON_INGOT', count: 1 }))
+      expect(state.burnRemainingSecs).toBe(0)
+      expect(Option.getOrElse(MutableHashMap.get(items, 'STICKS'), () => 0)).toBe(0)
+    }).pipe(Effect.provide(makeFurnaceLayer({ inventoryItems: items })))
   })
 
   it.effect('serialize and deserialize round-trip furnace block state', () => {
@@ -100,7 +143,7 @@ describe('application/furnace/furnace-service', () => {
       },
     }
 
-    const layer = FurnaceServiceLive.pipe(
+    const layer = FurnaceService.Default.pipe(
       Layer.provide(Layer.succeed(RecipeService, makeRecipeService({
         'raw-iron-to-iron-ingot': {
           station: 'furnace',
@@ -112,8 +155,8 @@ describe('application/furnace/furnace-service', () => {
         removeBlock: inventory.removeBlock,
         addBlock: inventory.addBlock,
       }))),
-      Layer.provide(Layer.succeed(PlayerService, makePlayerService({ x: 0, y: 64, z: 0 }))),
-      Layer.provide(Layer.succeed(ChunkManagerService, makeChunkManagerService(makeChunkWithFurnace()))),
+      Layer.provide(Layer.succeed(PlayerServicePort, makePlayerService({ x: 0, y: 64, z: 0 }))),
+      Layer.provide(Layer.succeed(WorldBlockQueryPort, makeChunkManagerService(makeChunkWithFurnace()))),
     )
 
     return Effect.gen(function* () {
@@ -226,7 +269,7 @@ describe('application/furnace/furnace-service', () => {
       },
     }
 
-    const layer = FurnaceServiceLive.pipe(
+    const layer = FurnaceService.Default.pipe(
       Layer.provide(Layer.succeed(RecipeService, makeRecipeService({
         'raw-iron-to-iron-ingot': {
           station: 'furnace',
@@ -238,8 +281,8 @@ describe('application/furnace/furnace-service', () => {
         removeBlock: trackedInventory.removeBlock,
         addBlock: trackedInventory.addBlock,
       }))),
-      Layer.provide(Layer.succeed(PlayerService, makePlayerService({ x: 0, y: 64, z: 0 }))),
-      Layer.provide(Layer.succeed(ChunkManagerService, makeChunkManagerService(makeChunkWithFurnace()))),
+      Layer.provide(Layer.succeed(PlayerServicePort, makePlayerService({ x: 0, y: 64, z: 0 }))),
+      Layer.provide(Layer.succeed(WorldBlockQueryPort, makeChunkManagerService(makeChunkWithFurnace()))),
     )
 
     return Effect.gen(function* () {
@@ -276,7 +319,7 @@ describe('application/furnace/furnace-service', () => {
       },
     }
 
-    const layer = FurnaceServiceLive.pipe(
+    const layer = FurnaceService.Default.pipe(
       Layer.provide(Layer.succeed(RecipeService, makeRecipeService({
         'raw-iron-to-iron-ingot': {
           station: 'furnace',
@@ -288,8 +331,8 @@ describe('application/furnace/furnace-service', () => {
         removeBlock: customInventory.removeBlock,
         addBlock: customInventory.addBlock,
       }))),
-      Layer.provide(Layer.succeed(PlayerService, makePlayerService({ x: 0, y: 64, z: 0 }))),
-      Layer.provide(Layer.succeed(ChunkManagerService, makeChunkManagerService(makeChunkWithFurnace()))),
+      Layer.provide(Layer.succeed(PlayerServicePort, makePlayerService({ x: 0, y: 64, z: 0 }))),
+      Layer.provide(Layer.succeed(WorldBlockQueryPort, makeChunkManagerService(makeChunkWithFurnace()))),
     )
 
     return Effect.gen(function* () {
@@ -325,11 +368,11 @@ describe('application/furnace/furnace-service', () => {
         }),
     })
 
-    const layer = FurnaceServiceLive.pipe(
+    const layer = FurnaceService.Default.pipe(
       Layer.provide(Layer.succeed(RecipeService, makeRecipeService({}))),
       Layer.provide(Layer.succeed(InventoryService, inv)),
-      Layer.provide(Layer.succeed(PlayerService, makePlayerService({ x: 0, y: 64, z: 0 }))),
-      Layer.provide(Layer.succeed(ChunkManagerService, makeChunkManagerService(makeChunkWithFurnace()))),
+      Layer.provide(Layer.succeed(PlayerServicePort, makePlayerService({ x: 0, y: 64, z: 0 }))),
+      Layer.provide(Layer.succeed(WorldBlockQueryPort, makeChunkManagerService(makeChunkWithFurnace()))),
     )
 
     return Effect.gen(function* () {
@@ -380,7 +423,7 @@ describe('application/furnace/furnace-service', () => {
       },
     }
 
-    const layer = FurnaceServiceLive.pipe(
+    const layer = FurnaceService.Default.pipe(
       Layer.provide(Layer.succeed(RecipeService, makeRecipeService({
         'raw-iron-to-iron-ingot': {
           station: 'furnace',
@@ -392,8 +435,8 @@ describe('application/furnace/furnace-service', () => {
         removeBlock: inventory.removeBlock,
         addBlock: inventory.addBlock,
       }))),
-      Layer.provide(Layer.succeed(PlayerService, makePlayerService({ x: 0, y: 64, z: 0 }))),
-      Layer.provide(Layer.succeed(ChunkManagerService, makeChunkManagerService(makeChunkWithFurnace()))),
+      Layer.provide(Layer.succeed(PlayerServicePort, makePlayerService({ x: 0, y: 64, z: 0 }))),
+      Layer.provide(Layer.succeed(WorldBlockQueryPort, makeChunkManagerService(makeChunkWithFurnace()))),
     )
 
     return Effect.gen(function* () {

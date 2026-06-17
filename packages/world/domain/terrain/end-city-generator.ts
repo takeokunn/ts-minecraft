@@ -46,8 +46,8 @@ const placeTowerStory = (blocks: Uint8Array, ox: number, y: number, oz: number):
     for (let dz = 0; dz < 5; dz++) {
       const edge = dx === 0 || dx === 4 || dz === 0 || dz === 4
       for (let dy = 0; dy < 3; dy++) {
-        const window = dy === 1 && edge && (dx === 2 || dz === 2)
-        if (edge && !window) setBlock(blocks, ox + dx, y + dy, oz + dz, BLOCKS.purpur)
+        const opening = dy === 1 && edge && (dx === 2 || dz === 2)
+        if (edge && !opening) setBlock(blocks, ox + dx, y + dy, oz + dz, BLOCKS.purpur)
       }
       setBlock(blocks, ox + dx, y, oz + dz, BLOCKS.bricks)
       setBlock(blocks, ox + dx, y + 3, oz + dz, edge ? BLOCKS.slab : BLOCKS.purpur)
@@ -111,17 +111,19 @@ const placeCity = (blocks: Uint8Array, stories: number): void => {
   placeEndShip(blocks)
 }
 
+export const applyEndCityStructure = (blocks: Uint8Array, coord: ChunkCoord): void => {
+  if (!shouldGenerateEndCity(coord)) return
+  const seed = seedFromChunk(coord.x, coord.z, 0x5a17, 0xe1a7)
+  const stories = 3 + Math.floor(mulberry32(seed).value * 3)
+  placeCity(blocks, stories)
+}
+
 export const generateEndCity = (
   chunkService: ChunkFactory,
   coord: ChunkCoord,
 ): Effect.Effect<Chunk, never> =>
   Effect.gen(function* () {
     const chunk = yield* chunkService.createChunk(coord)
-    const blocks = chunk.blocks
-    if (!shouldGenerateEndCity(coord)) return { ...chunk, blocks }
-
-    const seed = seedFromChunk(coord.x, coord.z, 0x5a17, 0xe1a7)
-    const stories = 3 + Math.floor(mulberry32(seed).value * 3)
-    placeCity(blocks, stories)
-    return { ...chunk, blocks }
+    applyEndCityStructure(chunk.blocks, coord)
+    return chunk
   })

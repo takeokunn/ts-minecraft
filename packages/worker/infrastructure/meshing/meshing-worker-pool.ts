@@ -5,6 +5,7 @@ import type { Chunk, ChunkAABB } from '@ts-minecraft/world'
 import type { LodLevel } from '@ts-minecraft/rendering/infrastructure/meshing/lod-simplification'
 import { createSyncChunkMesher } from './meshing-worker-sync'
 import {
+  computeMeshingWorkerCount,
   MESHING_WORKER_TIMEOUT,
   MESHING_WORKER_FAILURE_THRESHOLD,
   TRANSPARENT_IDS_ARRAY,
@@ -73,9 +74,32 @@ export type MeshChunkOptions = {
   readonly dirtyAABB?: ChunkAABB
 }
 
+export const selectLeastLoadedWorkerIndex = (
+  workers: ReadonlyArray<PoolWorker>,
+  startIndex: number,
+): number => {
+  if (workers.length === 0) return 0
+
+  let bestIndex = startIndex % workers.length
+  let bestPending = MutableRef.get(workers[bestIndex]!.pending).size
+  if (bestPending === 0) return bestIndex
+
+  for (let offset = 1; offset < workers.length; offset++) {
+    const workerIndex = (startIndex + offset) % workers.length
+    const pendingCount = MutableRef.get(workers[workerIndex]!.pending).size
+    if (pendingCount >= bestPending) continue
+
+    bestIndex = workerIndex
+    bestPending = pendingCount
+    if (bestPending === 0) return bestIndex
+  }
+
+  return bestIndex
+}
+
 // Worker pool for offloading greedyMeshChunk to background threads.
-// In browser environments, creates Math.max(1, Math.min(4, hardwareConcurrency - 1))
-// workers so the main thread retains at least one core for rendering.
+// In browser environments, creates a small hardware-adaptive worker pool so the
+// main thread retains CPU headroom for rendering and input.
 // In non-browser environments (Node.js / vitest), falls back to synchronous
 // greedyMeshChunk calls — no Worker API required, tests pass unmodified.
 export class MeshingWorkerPool extends Effect.Service<MeshingWorkerPool>()(
@@ -103,7 +127,7 @@ export class MeshingWorkerPool extends Effect.Service<MeshingWorkerPool>()(
         }
       }
 
-      const workerCount = Math.max(1, Math.min(4, (navigator.hardwareConcurrency ?? 2) - 1))
+      const workerCount = computeMeshingWorkerCount()
       const nextIdRef = MutableRef.make(0)
       const nextWorkerIndexRef = MutableRef.make(0)
       const workerPoolDisabledRef = MutableRef.make(false)
@@ -171,8 +195,10 @@ export class MeshingWorkerPool extends Effect.Service<MeshingWorkerPool>()(
             ? Effect.sync(() => meshChunkSync(chunk, options?.lod ?? 0, options?.dirtyAABB))
             : Effect.async<WorkerMeshResult, Error>((resume) => {
             const id = MutableRef.getAndUpdate(nextIdRef, (n) => n + 1)
-            const workerIdx = MutableRef.getAndUpdate(nextWorkerIndexRef, (n) => n + 1) % workerCount
-            const state = MutableRef.get(poolWorkersRef)[workerIdx]
+            const startWorkerIndex = MutableRef.getAndUpdate(nextWorkerIndexRef, (n) => n + 1) % workerCount
+            const workers = MutableRef.get(poolWorkersRef)
+            const workerIdx = selectLeastLoadedWorkerIndex(workers, startWorkerIndex)
+            const state = workers[workerIdx]
 
             if (state === undefined) {
               resume(Effect.fail(new Error('Meshing worker pool is empty')))

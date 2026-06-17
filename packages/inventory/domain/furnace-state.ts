@@ -1,5 +1,5 @@
 import type { InventoryItem, RecipeId } from '@ts-minecraft/core'
-import { Option } from 'effect'
+import type { Option } from 'effect'
 
 export type FurnaceItemStack = {
   readonly itemType: InventoryItem
@@ -13,6 +13,8 @@ export type FurnaceBlockState = {
   readonly output: Option.Option<FurnaceItemStack>
   readonly activeRecipeId: Option.Option<RecipeId>
   readonly progressSecs: number
+  readonly burnRemainingSecs?: number | undefined
+  readonly burnTotalSecs?: number | undefined
 }
 
 // NOTE: the live FurnaceState type lives in furnace-service-utils.ts and uses

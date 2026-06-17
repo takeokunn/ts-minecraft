@@ -82,7 +82,6 @@ import {
   makeScene,
   drainSync,
   WorldRendererService,
-  WorldRendererServiceLive,
 } from './world-renderer-test-utils'
 import type { Chunk } from '@ts-minecraft/world'
 
@@ -91,9 +90,9 @@ import type { Chunk } from '@ts-minecraft/world'
 // ---------------------------------------------------------------------------
 
 describe('infrastructure/three/world-renderer', () => {
-  describe('WorldRendererServiceLive', () => {
+  describe('WorldRendererService.Default', () => {
     it('should be defined', () => {
-      expect(WorldRendererServiceLive).toBeDefined()
+      expect(WorldRendererService.Default).toBeDefined()
     })
 
     it.effect('creates the refraction render target at reduced resolution', () => {

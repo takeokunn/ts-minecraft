@@ -1,4 +1,4 @@
-import { Option } from 'effect'
+import type { Option } from 'effect'
 import type { ChunkAABB, MutableChunkAABB } from './chunk-aabb'
 
 export type BoundaryDirty = Readonly<{

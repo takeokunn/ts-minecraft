@@ -1,5 +1,5 @@
 import { Effect, Option } from 'effect'
-import { BlockType, blockTypeToIndex, indexToBlockType,
+import { BlockType, blockTypeToIndex, indexToBlockType, isValidBlockIndex,
 ChunkCoord, CHUNK_SIZE, CHUNK_HEIGHT,
 blockIndex, } from '@ts-minecraft/core'
 import type { Chunk } from '../domain/chunk'
@@ -22,7 +22,12 @@ export class ChunkService extends Effect.Service<ChunkService>()(
           chunkCoord: chunk.coord,
           reason: `Invalid local coordinates: (${localX}, ${y}, ${localZ}). Valid range: x,z=[0,${CHUNK_SIZE - 1}], y=[0,${CHUNK_HEIGHT - 1}]`,
         }))
-        return Effect.succeed(indexToBlockType(chunk.blocks[idx]!))
+        const blockId = chunk.blocks[idx]
+        if (!isValidBlockIndex(blockId)) return Effect.fail(new ChunkError({
+          chunkCoord: chunk.coord,
+          reason: `Invalid block id at local coordinates (${localX}, ${y}, ${localZ}): ${String(blockId)}`,
+        }))
+        return Effect.succeed(indexToBlockType(blockId))
       },
 
       // Returns a new Chunk with the block replaced; does not mutate the original.
@@ -51,5 +56,3 @@ export class ChunkService extends Effect.Service<ChunkService>()(
     }),
   }
 ) {}
-
-export const ChunkServiceLive = ChunkService.Default

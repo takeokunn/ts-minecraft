@@ -1,7 +1,10 @@
 import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
-import { Option } from 'effect'
+import { Option, Schema } from 'effect'
 import {
+  EnchantmentLevelSchema,
+  EnchantmentSchema,
+  EnchantmentTypeSchema,
   getSharpnessDamageBonus,
   getSmiteDamageBonus,
   getProtectionDamageReduction,
@@ -10,21 +13,45 @@ import {
   rollFortuneExtraDrops,
   getPowerDamageMultiplier,
   getKnockbackHorizontalMultiplier,
+  getFireAspectDurationSecs,
   getPunchKnockbackBonus,
   getFeatherFallingReduction,
   getFireProtectionReduction,
+  getProjectileProtectionReduction,
+  getBlastProtectionReduction,
   getRespirationBonusSecs,
   getLureWaitReductionSecs,
   getLuckTreasureChance,
   canEnchantItem,
   getMaxEnchantmentLevel,
   getBaneOfArthropodsDamageBonus,
+  getApplicableEnchantments,
+  isEnchantableItem,
   selectEnchantment,
   enchantXPCost,
   type EnchantmentLevel,
 } from '../domain/enchantment'
 
 describe('domain/enchantment', () => {
+  describe('schemas', () => {
+    it('decodes valid enchantment types and levels', () => {
+      expect(Schema.decodeUnknownSync(EnchantmentTypeSchema)('SHARPNESS')).toBe('SHARPNESS')
+      expect(Schema.decodeUnknownSync(EnchantmentLevelSchema)(5)).toBe(5)
+    })
+
+    it('rejects unknown enchantment types and out-of-range levels', () => {
+      expect(() => Schema.decodeUnknownSync(EnchantmentTypeSchema)('FROST_WALKER')).toThrow()
+      expect(() => Schema.decodeUnknownSync(EnchantmentLevelSchema)(6)).toThrow()
+    })
+
+    it('decodes complete enchantment payloads', () => {
+      expect(Schema.decodeUnknownSync(EnchantmentSchema)({ type: 'MENDING', level: 1 })).toEqual({
+        type: 'MENDING',
+        level: 1,
+      })
+    })
+  })
+
   describe('getSharpnessDamageBonus', () => {
     it('level 1 gives +1 bonus', () => {
       expect(getSharpnessDamageBonus(1)).toBe(1)
@@ -186,6 +213,30 @@ describe('domain/enchantment', () => {
     })
   })
 
+  describe('getApplicableEnchantments', () => {
+    it('returns the enchantment catalogue for enchantable items', () => {
+      expect(isEnchantableItem('DIAMOND_PICKAXE')).toBe(true)
+      expect(getApplicableEnchantments('DIAMOND_PICKAXE')).toEqual([
+        'EFFICIENCY',
+        'FORTUNE',
+        'SILK_TOUCH',
+        'UNBREAKING',
+        'MENDING',
+      ])
+    })
+
+    it('returns a stable empty catalogue for non-enchantable items', () => {
+      expect(isEnchantableItem('DIRT')).toBe(false)
+      expect(getApplicableEnchantments('DIRT')).toEqual([])
+      expect(getApplicableEnchantments('DIRT')).toBe(getApplicableEnchantments('COBBLESTONE'))
+    })
+
+    it('matches the enchantment selection boundary for non-enchantable items', () => {
+      expect(Option.isNone(selectEnchantment('DIRT', 30))).toBe(true)
+      expect(getApplicableEnchantments('DIRT')).toHaveLength(0)
+    })
+  })
+
   describe('getMaxEnchantmentLevel', () => {
     it('SHARPNESS has max level 5', () => {
       expect(getMaxEnchantmentLevel('SHARPNESS')).toBe(5)
@@ -209,6 +260,10 @@ describe('domain/enchantment', () => {
 
     it('INFINITY has max level 1', () => {
       expect(getMaxEnchantmentLevel('INFINITY')).toBe(1)
+    })
+
+    it('MENDING has max level 1', () => {
+      expect(getMaxEnchantmentLevel('MENDING')).toBe(1)
     })
   })
 
@@ -253,6 +308,27 @@ describe('domain/enchantment', () => {
     })
   })
 
+  describe('getFireAspectDurationSecs (R45)', () => {
+    it('FIRE_ASPECT I burns for 4 seconds', () => {
+      expect(getFireAspectDurationSecs(1)).toBe(4)
+    })
+
+    it('FIRE_ASPECT II burns for 8 seconds', () => {
+      expect(getFireAspectDurationSecs(2)).toBe(8)
+    })
+
+    it('FIRE_ASPECT applies only to swords', () => {
+      expect(canEnchantItem('DIAMOND_SWORD', 'FIRE_ASPECT')).toBe(true)
+      expect(canEnchantItem('IRON_SWORD', 'FIRE_ASPECT')).toBe(true)
+      expect(canEnchantItem('DIAMOND_AXE', 'FIRE_ASPECT')).toBe(false)
+      expect(canEnchantItem('BOW', 'FIRE_ASPECT')).toBe(false)
+    })
+
+    it('FIRE_ASPECT has max level 2', () => {
+      expect(getMaxEnchantmentLevel('FIRE_ASPECT')).toBe(2)
+    })
+  })
+
   describe('getFeatherFallingReduction (R41)', () => {
     it('FEATHER_FALLING I reduces fall damage by 12%', () => {
       expect(getFeatherFallingReduction(1)).toBeCloseTo(0.12)
@@ -269,6 +345,17 @@ describe('domain/enchantment', () => {
 
     it('FEATHER_FALLING has max level 4', () => {
       expect(getMaxEnchantmentLevel('FEATHER_FALLING')).toBe(4)
+    })
+  })
+
+  describe('DEPTH_STRIDER', () => {
+    it('applies only to boots', () => {
+      expect(canEnchantItem('IRON_BOOTS', 'DEPTH_STRIDER')).toBe(true)
+      expect(canEnchantItem('IRON_HELMET', 'DEPTH_STRIDER')).toBe(false)
+    })
+
+    it('has max level 3', () => {
+      expect(getMaxEnchantmentLevel('DEPTH_STRIDER')).toBe(3)
     })
   })
 
@@ -335,6 +422,23 @@ describe('domain/enchantment', () => {
     })
   })
 
+  describe('specific protection reductions', () => {
+    it('PROJECTILE_PROTECTION IV reduces projectile damage by 32%', () => {
+      expect(getProjectileProtectionReduction(4)).toBeCloseTo(0.32)
+    })
+
+    it('BLAST_PROTECTION IV reduces explosion damage by 32%', () => {
+      expect(getBlastProtectionReduction(4)).toBeCloseTo(0.32)
+    })
+
+    it('PROJECTILE_PROTECTION and BLAST_PROTECTION apply to armor only', () => {
+      expect(canEnchantItem('IRON_HELMET', 'PROJECTILE_PROTECTION')).toBe(true)
+      expect(canEnchantItem('DIAMOND_CHESTPLATE', 'BLAST_PROTECTION')).toBe(true)
+      expect(canEnchantItem('BOW', 'PROJECTILE_PROTECTION')).toBe(false)
+      expect(canEnchantItem('IRON_PICKAXE', 'BLAST_PROTECTION')).toBe(false)
+    })
+  })
+
   describe('LURE (fishing wait reduction)', () => {
     it('LURE I reduces wait by 5 seconds', () => {
       expect(getLureWaitReductionSecs(1)).toBe(5)
@@ -362,6 +466,21 @@ describe('domain/enchantment', () => {
     it('LUCK_OF_THE_SEA only applies to FISHING_ROD', () => {
       expect(canEnchantItem('FISHING_ROD', 'LUCK_OF_THE_SEA')).toBe(true)
       expect(canEnchantItem('BOW', 'LUCK_OF_THE_SEA')).toBe(false)
+    })
+  })
+
+  describe('MENDING', () => {
+    it('applies to durable tools, weapons, armor, bow, fishing rod, and shield', () => {
+      expect(canEnchantItem('DIAMOND_PICKAXE', 'MENDING')).toBe(true)
+      expect(canEnchantItem('IRON_SWORD', 'MENDING')).toBe(true)
+      expect(canEnchantItem('IRON_HELMET', 'MENDING')).toBe(true)
+      expect(canEnchantItem('BOW', 'MENDING')).toBe(true)
+      expect(canEnchantItem('FISHING_ROD', 'MENDING')).toBe(true)
+      expect(canEnchantItem('SHIELD', 'MENDING')).toBe(true)
+    })
+
+    it('does not apply to non-durable items', () => {
+      expect(canEnchantItem('DIRT', 'MENDING')).toBe(false)
     })
   })
 

@@ -1,89 +1,29 @@
-import { Effect, Ref, Clock, Option } from 'effect'
+import { Effect, Option, Ref } from 'effect'
 import { PlayerError } from '@ts-minecraft/entity/domain/errors'
 import { PlayerService } from '@ts-minecraft/entity/application/player-service'
 import { MovementService } from '@ts-minecraft/entity/application/movement-service'
 import { PlayerInputService } from '@ts-minecraft/entity/application/player-input-service'
-import { KeyMappings } from '@ts-minecraft/entity/domain/key-mappings'
-import { computeFlightVerticalVelocity, nextFlightState } from '@ts-minecraft/entity/domain/flight'
 import { PlayerCameraStateService } from '@ts-minecraft/entity/application/camera-state'
-import { DeltaTimeSecs, PlayerId, Position, PhysicsBodyId, DEFAULT_PLAYER_ID, PLAYER_HALF_WIDTH, PLAYER_HALF_HEIGHT, CHUNK_SIZE } from '@ts-minecraft/core'
+import { DeltaTimeSecs, PlayerId, Position, PhysicsBodyId, DEFAULT_PLAYER_ID, PLAYER_HALF_WIDTH, PLAYER_HALF_HEIGHT } from '@ts-minecraft/core'
 import { PhysicsService } from './physics-service'
 import { ChunkManagerService } from '@ts-minecraft/world/application/chunk-manager-service'
 import { InventoryService } from '@ts-minecraft/inventory/application/inventory-service'
 import { GameStateError } from '../domain/errors'
 import { GameModeService } from './game-mode-service'
-import { OFFSETS_3x3, isBlockSolid, isInWater } from '../domain/block-collision-predicates'
 import { TimingState, INITIAL_TIMING_STATE } from './game-state.types'
 import {
-  computeFlightPositionInto,
-  blendVelocityInto,
-  resolveCollisionOrNoclipInto,
-  applySneakEdgeClampInto,
-} from './game-state-physics'
+  GRAVITY_Y,
+  PLAYER_MASS,
+  createChunkCache,
+} from './game-state-support'
+import { failMissingPhysicsBody, mapPhysicsServiceError, mapPlayerError } from './game-state-errors'
+import { syncPlayerTransformAndResetState } from './game-state-player-sync'
+import { runGameStateUpdate } from './game-state-update-orchestration'
 
 export type { TimingState }
 export { TimingStateSchema } from './game-state.types'
 
 export const PLAYER_BODY_ID = 'player'
-
-const GRAVITY_Y = -9.82
-const PLAYER_MASS = 70
-
-const ZERO_VEC3 = Object.freeze({ x: 0, y: 0, z: 0 })
-
-// Module-scoped scratch objects reused across frames to avoid per-frame
-// position/velocity allocation (R96). These are only written by
-// copyPositionInto / copyVelocityInto inside a single frame's Effect.gen
-// scope; the values are consumed synchronously in the same generator body,
-// never retained across frames. Two position scratches needed because
-// prePos is captured before physics.step() and physPos after.
-const _scratchPosA = { x: 0, y: 0, z: 0 }
-const _scratchPosB = { x: 0, y: 0, z: 0 }
-const _scratchVel = { x: 0, y: 0, z: 0 }
-
-const SWIM_UP_SPEED = 3
-// Vanilla Minecraft water: the player SINKS slowly by default (water = reduced gravity + drag)
-// and holds JUMP to swim up. The previous gentle UPWARD buoyancy floated the player to the
-// surface so they could never actually submerge ('水って入れないの?'). A slow constant sink lets
-// the player dive in, while JUMP (SWIM_UP_SPEED) always lets them rise back — so they never get
-// stuck on the seabed (and spawn-selection no longer drops them into open ocean anyway).
-const WATER_SINK_SPEED = -1.2
-
-const refreshChunkCache = (
-  chunkManagerService: ChunkManagerService,
-  playerCx: number,
-  playerCz: number,
-  chunkCacheRef: Ref.Ref<Array<{ blocks: Uint8Array } | null>>,
-  lastChunkCoordRef: Ref.Ref<{ cx: number; cz: number }>,
-): Effect.Effect<void, never> =>
-  Effect.gen(function* () {
-    const cache = yield* Ref.get(chunkCacheRef)
-    cache.fill(null)
-    for (const [dx, dz] of OFFSETS_3x3) {
-      yield* Effect.gen(function* () {
-        const chunk = yield* chunkManagerService.getChunk({ x: playerCx + dx, z: playerCz + dz })
-        cache[(dx + 1) * 3 + (dz + 1)] = chunk
-      }).pipe(Effect.ignore)
-    }
-    yield* Ref.set(lastChunkCoordRef, { cx: playerCx, cz: playerCz })
-  })
-
-const applyWaterDrag = (
-  physicsService: PhysicsService,
-  playerBodyId: PhysicsBodyId,
-  resolvedVel: { x: number; y: number; z: number },
-  swimUp: boolean,
-  sneaking: boolean,
-): Effect.Effect<void, never> =>
-  physicsService.setVelocity(playerBodyId, {
-    x: resolvedVel.x * 0.4,
-    // Vanilla feel: JUMP swims up; SNEAK dives faster; otherwise a gentle constant sink so the
-    // player descends into the water (and can always rise again with JUMP).
-    y: swimUp ? SWIM_UP_SPEED
-      : sneaking ? Math.max(resolvedVel.y * 0.4, -2.5)
-      : WATER_SINK_SPEED,
-    z: resolvedVel.z * 0.4,
-  }).pipe(Effect.catchTag('PhysicsServiceError', () => Effect.void))
 
 export class GameStateService extends Effect.Service<GameStateService>()(
   '@minecraft/application/GameStateService',
@@ -106,7 +46,7 @@ export class GameStateService extends Effect.Service<GameStateService>()(
       // Fixed-size 9-slot 3×3 chunk neighborhood cache. Indexed by
       // (dx + 1) * 3 + (dz + 1) where (dx, dz) ∈ [-1, 1]². `null` = not loaded.
       // Eliminates per-frame Map allocation, .clear(), and string key construction.
-      const chunkCacheRef = yield* Ref.make<Array<{ blocks: Uint8Array } | null>>([null, null, null, null, null, null, null, null, null])
+      const chunkCacheRef = yield* Ref.make(createChunkCache())
       // Last refreshed player chunk coord. Refresh the 9-cell cache only when this changes.
       const lastChunkCoordRef = yield* Ref.make<{ cx: number; cz: number }>({ cx: Number.NaN, cz: Number.NaN })
       // Creative-mode flight toggle state (false outside creative).
@@ -132,143 +72,34 @@ export class GameStateService extends Effect.Service<GameStateService>()(
             yield* Ref.set(playerBodyIdRef, Option.some(playerBodyId))
             yield* playerService.create(playerId, spawnPosition)
           }).pipe(
-            Effect.catchTag('PhysicsServiceError', (e) =>
-              Effect.fail(new GameStateError({ operation: 'initialize', reason: e.operation, cause: e }))
-            ),
-            Effect.catchTag('PlayerError', (e) =>
-              Effect.fail(new GameStateError({ operation: 'initialize', reason: e.reason, cause: e }))
-            )
+            Effect.catchTag('PhysicsServiceError', mapPhysicsServiceError('initialize')),
+            Effect.catchTag('PlayerError', mapPlayerError('initialize'))
           ),
 
-        update: (deltaTime: DeltaTimeSecs): Effect.Effect<void, GameStateError> =>
-          Effect.gen(function* () {
-            const playerBodyId = Option.getOrNull(yield* Ref.get(playerBodyIdRef))
-            if (playerBodyId === null) return yield* Effect.fail(new GameStateError({ operation: 'update', reason: 'Physics not initialized. Call initialize() first.' }))
-
-            const rotation = yield* cameraState.getRotation()
-            const isGrounded = yield* Ref.get(isGroundedRef)
-            const isCreative = yield* gameModeService.isCreative()
-            const isSpectator = yield* gameModeService.isSpectator()
-
-            const flightToggled = yield* inputService.consumeKeyPress(KeyMappings.TOGGLE_FLIGHT)
-            const flying = isSpectator || nextFlightState(yield* Ref.get(flyingRef), isCreative, flightToggled)
-            yield* Ref.set(flyingRef, flying)
-
-            let flightVy = 0
-            if (flying) {
-              // Sequential: isKeyPressed is synchronous HashSet lookup — no parallelism benefit
-              const ascend = yield* inputService.isKeyPressed(KeyMappings.JUMP)
-              const descend = yield* inputService.isKeyPressed(KeyMappings.SNEAK)
-              flightVy = computeFlightVerticalVelocity(ascend, descend)
-            }
-
-            const sneaking = !flying && (yield* inputService.isKeyPressed(KeyMappings.SNEAK))
-
-            /* c8 ignore next 3 */
-            const currentVel = yield* physicsService.copyVelocityInto(playerBodyId, _scratchVel).pipe(
-              Effect.catchTag('PhysicsServiceError', (e) =>
-                Effect.gen(function* () {
-                  yield* Effect.logWarning(`getVelocity fallback: ${e.message ?? String(e)}`)
-                  _scratchVel.x = _scratchVel.y = _scratchVel.z = 0
-                  return _scratchVel
-                })
-              )
-            )
-
-            const inputVelocity = yield* movementService.update(rotation.yaw, isGrounded)
-            const jumped = inputVelocity.y > 0
-
-            yield* physicsService.setVelocity(playerBodyId,
-              blendVelocityInto(_scratchVel, inputVelocity, currentVel, { flying, flightVy, jumped, isGrounded })
-            )
-
-            if (jumped) yield* Ref.set(isGroundedRef, false)
-
-            const prePos: Position = (flying || (sneaking && isGrounded))
-              ? yield* physicsService.copyPositionInto(playerBodyId, _scratchPosA).pipe(
-                  Effect.catchTag('PhysicsServiceError', () => {
-                    _scratchPosA.x = _scratchPosA.y = _scratchPosA.z = 0
-                    return Effect.succeed(_scratchPosA as Position)
-                  }),
-                )
-              : (ZERO_VEC3 as Position)
-
-            yield* physicsService.step(deltaTime)
-
-            /* c8 ignore next */
-            const physPos = yield* physicsService.copyPositionInto(playerBodyId, _scratchPosB).pipe(
-              Effect.catchTag('PhysicsServiceError', () => {
-                _scratchPosB.x = _scratchPosB.y = _scratchPosB.z = 0
-                return Effect.succeed(_scratchPosB as Position)
-              })
-            )
-            const physVel = yield* physicsService.copyVelocityInto(playerBodyId, _scratchVel).pipe(
-              Effect.catchTag('PhysicsServiceError', () => {
-                _scratchVel.x = _scratchVel.y = _scratchVel.z = 0
-                return Effect.succeed(_scratchVel)
-              })
-            )
-
-            const effPos: Position = flying
-              ? computeFlightPositionInto(physPos, prePos.y, flightVy, deltaTime)
-              : physPos
-            if (flying) { (physVel as { y: number }).y = flightVy }
-            const effVel = physVel
-
-            const playerCx = Math.floor(effPos.x / CHUNK_SIZE)
-            const playerCz = Math.floor(effPos.z / CHUNK_SIZE)
-            const lastChunkCoord = yield* Ref.get(lastChunkCoordRef)
-            if (lastChunkCoord.cx !== playerCx || lastChunkCoord.cz !== playerCz) {
-              yield* refreshChunkCache(chunkManagerService, playerCx, playerCz, chunkCacheRef, lastChunkCoordRef)
-            }
-            const chunkCache = yield* Ref.get(chunkCacheRef)
-
-            const isSolid = (wx: number, wy: number, wz: number): boolean =>
-              isBlockSolid(wx, wy, wz, chunkCache, playerCx, playerCz)
-
-            const newIsGrounded = resolveCollisionOrNoclipInto(
-              physPos, physVel, effPos, effVel, isSolid, isSpectator,
-            )
-
-            applySneakEdgeClampInto(physPos, physVel, prePos, physPos, physVel, isSolid, sneaking, isGrounded)
-            // physPos now holds resolvedPos, physVel holds resolvedVel
-
-            // Sequential: setPosition/setVelocity are synchronous state writes —
-            // fiber parallelism adds overhead with no throughput gain.
-            yield* physicsService.setPosition(playerBodyId, physPos as Position).pipe(Effect.catchTag('PhysicsServiceError', () => Effect.void))
-            yield* physicsService.setVelocity(playerBodyId, physVel).pipe(Effect.catchTag('PhysicsServiceError', () => Effect.void))
-            yield* Ref.set(isGroundedRef, newIsGrounded)
-
-            if (!isSpectator && isInWater(physPos.x, physPos.y, physPos.z, chunkCache, playerCx, playerCz)) {
-              const swimUp = !flying && (yield* inputService.isKeyPressed(KeyMappings.JUMP))
-              yield* applyWaterDrag(physicsService, playerBodyId, physVel, swimUp, sneaking)
-            }
-
-            // Sequential: updatePosition/updateVelocity are synchronous state writes
-            yield* playerService.updatePosition(playerId, physPos as Position)
-            yield* playerService.updateVelocity(playerId, physVel)
-
-            const now = yield* Clock.currentTimeMillis
-            yield* Ref.update(timingStateRef, (state) => ({
-              lastFrameTime: now,
-              deltaTime,
-              frameCount: state.frameCount + 1,
-            }))
-          }).pipe(
-            Effect.catchTag('PhysicsServiceError', (e) =>
-              /* c8 ignore next -- defensive re-raise: only fires if physics service faults */
-              Effect.fail(new GameStateError({ operation: 'update', reason: e.operation, cause: e }))
-            ),
-            Effect.catchTag('PlayerError', (e) =>
-              /* c8 ignore next -- defensive re-raise: only fires if player service faults */
-              Effect.fail(new GameStateError({ operation: 'update', reason: e.reason, cause: e }))
-            )
-          ),
+        update: (deltaTime: DeltaTimeSecs, waterHorizontalDrag?: number | undefined): Effect.Effect<void, GameStateError> =>
+          runGameStateUpdate({
+            playerService,
+            physicsService,
+            movementService,
+            cameraState,
+            chunkManagerService,
+            gameModeService,
+            inputService,
+            timingStateRef,
+            playerBodyIdRef,
+            isGroundedRef,
+            chunkCacheRef,
+            lastChunkCoordRef,
+            flyingRef,
+            playerId,
+            deltaTime,
+            waterHorizontalDrag,
+          }),
 
         respawn: (spawnPosition: Position): Effect.Effect<void, GameStateError> =>
           Effect.gen(function* () {
             const playerBodyId = Option.getOrNull(yield* Ref.get(playerBodyIdRef))
-            if (playerBodyId === null) return yield* Effect.fail(new GameStateError({ operation: 'respawn', reason: 'Physics not initialized. Call initialize() first.' }))
+            if (playerBodyId === null) return yield* failMissingPhysicsBody('respawn')
 
             // Mode-aware: in survival, clear inventory on death. Creative preserves inventory.
             const isSurvival = yield* gameModeService.isSurvival()
@@ -276,22 +107,37 @@ export class GameStateService extends Effect.Service<GameStateService>()(
               yield* inventoryService.clear()
             }
 
-            yield* physicsService.setPosition(playerBodyId, spawnPosition)
-            yield* physicsService.setVelocity(playerBodyId, ZERO_VEC3)
-            yield* playerService.updatePosition(playerId, spawnPosition)
-            yield* playerService.updateVelocity(playerId, ZERO_VEC3)
-            yield* Ref.set(isGroundedRef, false)
-            // Invalidate the 3×3 chunk cache so it refreshes on next update()
-            yield* Ref.set(lastChunkCoordRef, { cx: Number.NaN, cz: Number.NaN })
-          }).pipe(
-            Effect.catchTag('PhysicsServiceError', (e) =>
-              /* c8 ignore next -- defensive re-raise: only fires if physics service faults */
-              Effect.fail(new GameStateError({ operation: 'respawn', reason: e.operation, cause: e }))
-            ),
-            Effect.catchTag('PlayerError', (e) =>
-              /* c8 ignore next -- defensive re-raise: only fires if player service faults */
-              Effect.fail(new GameStateError({ operation: 'respawn', reason: e.reason, cause: e }))
+            yield* syncPlayerTransformAndResetState(
+              physicsService,
+              playerService,
+              playerId,
+              playerBodyId,
+              spawnPosition,
+              isGroundedRef,
+              lastChunkCoordRef,
             )
+          }).pipe(
+            Effect.catchTag('PhysicsServiceError', mapPhysicsServiceError('respawn')),
+            Effect.catchTag('PlayerError', mapPlayerError('respawn'))
+          ),
+
+        setPlayerPosition: (position: Position): Effect.Effect<void, GameStateError> =>
+          Effect.gen(function* () {
+            const playerBodyId = Option.getOrNull(yield* Ref.get(playerBodyIdRef))
+            if (playerBodyId === null) return yield* failMissingPhysicsBody('setPlayerPosition')
+
+            yield* syncPlayerTransformAndResetState(
+              physicsService,
+              playerService,
+              playerId,
+              playerBodyId,
+              position,
+              isGroundedRef,
+              lastChunkCoordRef,
+            )
+          }).pipe(
+            Effect.catchTag('PhysicsServiceError', mapPhysicsServiceError('setPlayerPosition')),
+            Effect.catchTag('PlayerError', mapPlayerError('setPlayerPosition'))
           ),
 
         getTiming: (): Effect.Effect<TimingState, never> => Ref.get(timingStateRef),
@@ -308,4 +154,3 @@ export class GameStateService extends Effect.Service<GameStateService>()(
     }),
   }
 ) {}
-export const GameStateServiceLive = GameStateService.Default

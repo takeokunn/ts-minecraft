@@ -1,5 +1,5 @@
-import { Array as Arr, Effect, MutableHashMap, Option } from 'effect'
-import { blockTypeToIndex, CHUNK_SIZE, CHUNK_HEIGHT, LAKE_LEVEL } from '@ts-minecraft/core'
+import { Effect, MutableHashMap, Option } from 'effect'
+import { blockTypeToIndex, CHUNK_SIZE, CHUNK_HEIGHT } from '@ts-minecraft/core'
 import { computeColumnYFromValues } from '../density-function'
 import { peaksAndValleysFromWeirdness } from '../biome-classifier'
 import {
@@ -12,10 +12,11 @@ import {
   OVERHANG_THRESHOLD,
 } from './constants'
 import { computeRuggedness, chunkBlockIndexUnchecked } from './math'
-import { computeLakeBasin, resolveSurfaceY, fillWaterForColumn } from './lake-generator'
+import { computeLakeBasin, resolveSurfaceY, fillWaterForColumn, shouldFreezeWaterSurface } from './lake-generator'
 import { resolveSurfaceProfile, fillColumn } from './surface-resolver'
 import { TREE_CANOPY_MARGIN, shouldPlaceTree, placeTree } from './tree-placer'
 import { createTreeColumnKey, supportsTreeAtSurface } from './generator-coordinates'
+import { DEFAULT_TERRAIN_LEVELS, type TerrainLevels } from './generator-types'
 import type {
   TreeColumnContext,
   ColumnState,
@@ -23,6 +24,40 @@ import type {
   TreeColumnContextResolverDeps,
   ColumnStateBuildArgs,
 } from './generator-types'
+
+type BiomeColumn = ColumnStateBuildArgs['biomeColumns'][number]
+
+type TerrainChannelValues = {
+  readonly erosion: number
+  readonly jaggedness: number
+  readonly continentalness: number
+  readonly pv: number
+}
+
+const columnStateIndex = (lx: number, lz: number): number => lx * CHUNK_SIZE + lz
+
+const terrainSampleIndex = (lx: number, lz: number): number => lz * CHUNK_SIZE + lx
+
+const readNumber = (values: ArrayLike<number>, index: number): number => values[index] as number
+
+const readBiomeColumn = (biomeColumns: ReadonlyArray<BiomeColumn>, index: number): BiomeColumn =>
+  biomeColumns[index] as BiomeColumn
+
+const readColumnState = (columnStates: ReadonlyArray<ColumnState>, index: number): ColumnState =>
+  columnStates[index] as ColumnState
+
+const readOverhangTarget = (overhangTargets: ReadonlyArray<OverhangTarget>, index: number): OverhangTarget =>
+  overhangTargets[index] as OverhangTarget
+
+const readTerrainChannelValues = (
+  terrainChannels: ColumnStateBuildArgs['terrainChannels'],
+  index: number,
+): TerrainChannelValues => ({
+  erosion: readNumber(terrainChannels.erosion, index),
+  jaggedness: readNumber(terrainChannels.jaggedness, index),
+  continentalness: readNumber(terrainChannels.continentalness, index),
+  pv: readNumber(terrainChannels.pv, index),
+})
 
 export const buildColumnStates = ({
   blocks,
@@ -37,32 +72,36 @@ export const buildColumnStates = ({
   andesiteNoiseVals,
   treeColumnContextCache,
   blockIndices,
+  terrainLevels = DEFAULT_TERRAIN_LEVELS,
 }: ColumnStateBuildArgs): ReadonlyArray<ColumnState> => {
   const columnStates: ColumnState[] = []
   columnStates.length = CHUNK_SIZE * CHUNK_SIZE
 
   for (let lx = 0; lx < CHUNK_SIZE; lx++) {
     for (let lz = 0; lz < CHUNK_SIZE; lz++) {
-      const columnIndex = lx * CHUNK_SIZE + lz
-      const terrainIndex = lz * CHUNK_SIZE + lx
+      const columnIndex = columnStateIndex(lx, lz)
+      const terrainIndex = terrainSampleIndex(lx, lz)
       const wx = baseWorldX + lx
       const wz = baseWorldZ + lz
-      const { biome, props } = biomeColumns[columnIndex]!
-      const initialSurfaceY = initialSurfaceYs[columnIndex]!
-      const lakeNoiseVal = biome !== 'OCEAN' ? lakeNoiseVals[columnIndex]! : 0
-      const lakeBasinY = computeLakeBasin(biome, lakeNoiseVal, initialSurfaceY)
+      const { biome, props } = readBiomeColumn(biomeColumns, columnIndex)
+      const initialSurfaceY = readNumber(initialSurfaceYs, columnIndex)
+      const lakeNoiseVal = biome !== 'OCEAN' ? readNumber(lakeNoiseVals, columnIndex) : 0
+      const lakeBasinY = computeLakeBasin(biome, lakeNoiseVal, initialSurfaceY, terrainLevels)
       const surfaceY = resolveSurfaceY(biome, initialSurfaceY, lakeBasinY)
       /* c8 ignore next 3 */
       const isShore = Option.isNone(lakeBasinY)
         && lakeNoiseVal > LAKE_THRESHOLD - LAKE_SHORE_WIDTH
-        && surfaceY < LAKE_LEVEL + 4
+        && surfaceY < terrainLevels.lakeLevel + 4
+      const terrainValues = readTerrainChannelValues(terrainChannels, terrainIndex)
       const ruggedness = computeRuggedness(
-        terrainChannels.erosion[terrainIndex]!,
-        terrainChannels.jaggedness[terrainIndex]!,
+        terrainValues.erosion,
+        terrainValues.jaggedness,
+        terrainValues.continentalness,
+        terrainValues.pv,
       )
-      const graniteFlag = graniteNoiseVals[columnIndex]! > VARIANT_THRESHOLD
-      const dioriteFlag = !graniteFlag && dioriteNoiseVals[columnIndex]! > VARIANT_THRESHOLD
-      const andesiteFlag = !graniteFlag && !dioriteFlag && andesiteNoiseVals[columnIndex]! > VARIANT_THRESHOLD
+      const graniteFlag = readNumber(graniteNoiseVals, columnIndex) > VARIANT_THRESHOLD
+      const dioriteFlag = !graniteFlag && readNumber(dioriteNoiseVals, columnIndex) > VARIANT_THRESHOLD
+      const andesiteFlag = !graniteFlag && !dioriteFlag && readNumber(andesiteNoiseVals, columnIndex) > VARIANT_THRESHOLD
       const surfaceProfile = resolveSurfaceProfile({
         biome,
         defaultSurfaceBlockIndex: blockTypeToIndex(props.surfaceBlock),
@@ -74,6 +113,7 @@ export const buildColumnStates = ({
         sandBlockIndex: blockIndices.sandBlockIndex,
         gravelBlockIndex: blockIndices.gravelBlockIndex,
         stoneBlockIndex: blockIndices.stoneBlockIndex,
+        terrainLevels,
       })
 
       fillColumn(blocks, lx, lz, wx, wz, surfaceY, {
@@ -89,10 +129,21 @@ export const buildColumnStates = ({
         andesiteFlag,
       })
 
-      // Flood oceans, lakes, and rivers with WATER from surfaceY+1 up to the water level.
+      // Flood oceans, lakes, and rivers from surfaceY+1 up to the water level, freezing the top in cold columns.
       // Runs after the solid fill but before cave carving / overhangs / trees: cave-carver
       // protects WATER, overhang/tree passes skip non-air blocks, so water is preserved.
-      fillWaterForColumn(blocks, lx, lz, biome, surfaceY, lakeBasinY, blockIndices.waterBlockIndex)
+      fillWaterForColumn(
+        blocks,
+        lx,
+        lz,
+        biome,
+        surfaceY,
+        lakeBasinY,
+        blockIndices.waterBlockIndex,
+        blockIndices.iceBlockIndex,
+        shouldFreezeWaterSurface(biome, props.temperature),
+        terrainLevels,
+      )
 
       /* c8 ignore next */
       const surfaceBlock = blocks[chunkBlockIndexUnchecked(lx, surfaceY, lz)] ?? blockIndices.airBlockIndex
@@ -130,8 +181,8 @@ export const collectOverhangTargets = (
 
   for (let lx = 0; lx < CHUNK_SIZE; lx++) {
     for (let lz = 0; lz < CHUNK_SIZE; lz++) {
-      const columnIndex = lx * CHUNK_SIZE + lz
-      const { biome, ruggedness, surfaceY } = columnStates[columnIndex]!
+      const columnIndex = columnStateIndex(lx, lz)
+      const { biome, ruggedness, surfaceY } = readColumnState(columnStates, columnIndex)
       const eligible = biome === 'MOUNTAINS' || ruggedness >= 0.58
       if (!eligible) continue
 
@@ -142,7 +193,8 @@ export const collectOverhangTargets = (
           const nx = lx + dx
           const nz = lz + dz
           if (nx < 0 || nx >= CHUNK_SIZE || nz < 0 || nz >= CHUNK_SIZE) continue
-          neighborMaxSurface = Math.max(neighborMaxSurface, columnStates[nx * CHUNK_SIZE + nz]!.surfaceY)
+          const neighborState = readColumnState(columnStates, columnStateIndex(nx, nz))
+          neighborMaxSurface = Math.max(neighborMaxSurface, neighborState.surfaceY)
         }
       }
 
@@ -176,16 +228,17 @@ export const applyOverhangNoise = (
   stoneBlockIndex: number,
   airBlockIndex: number,
 ): void => {
-  Arr.forEach(overhangTargets, ({ lx, lz, y }, index) => {
+  for (let index = 0; index < overhangTargets.length; index++) {
+    const { lx, lz, y } = readOverhangTarget(overhangTargets, index)
     const blockIndex = chunkBlockIndexUnchecked(lx, y, lz)
     /* c8 ignore next */
-    if (blocks[blockIndex] !== airBlockIndex) return
+    if (blocks[blockIndex] !== airBlockIndex) continue
 
-    const { biome, surfaceY } = columnStates[lx * CHUNK_SIZE + lz]!
+    const { biome, surfaceY } = readColumnState(columnStates, columnStateIndex(lx, lz))
     const heightFactor = 1 - (y - surfaceY) / OVERHANG_BAND_HEIGHT
     const baseThreshold = biome === 'MOUNTAINS' ? OVERHANG_THRESHOLD - 0.08 : OVERHANG_THRESHOLD
     const threshold = baseThreshold - heightFactor * 0.14
-    if (overhangNoiseVals[index]! <= threshold) return
+    if (readNumber(overhangNoiseVals, index) <= threshold) continue
 
     // Connectivity guard: only place an overhang voxel if it is anchored to existing
     // solid terrain — a solid block directly below OR a solid horizontal neighbor.
@@ -205,7 +258,7 @@ export const applyOverhangNoise = (
     if (supported) {
       blocks[blockIndex] = stoneBlockIndex
     }
-  })
+  }
 }
 
 export const createTreeColumnContextResolver = ({
@@ -213,6 +266,7 @@ export const createTreeColumnContextResolver = ({
   noiseService,
   treeColumnContextCache,
   blockIndices,
+  terrainLevels = DEFAULT_TERRAIN_LEVELS,
 }: TreeColumnContextResolverDeps) => (wx: number, wz: number): Effect.Effect<TreeColumnContext, never> => {
   const cacheKey = createTreeColumnKey(wx, wz)
   const cached = Option.getOrNull(MutableHashMap.get(treeColumnContextCache, cacheKey))
@@ -230,13 +284,13 @@ export const createTreeColumnContextResolver = ({
     // computeColumnYFromValues expects Minecraft's peaks-and-valleys channel, not raw weirdness.
     const pv = peaksAndValleysFromWeirdness(weirdness)
     const initialSurfaceY = computeColumnYFromValues(continentalness, erosion, pv, jaggedness)
-    const lakeBasinY = computeLakeBasin(biome, lakeNoiseVal, initialSurfaceY)
+    const lakeBasinY = computeLakeBasin(biome, lakeNoiseVal, initialSurfaceY, terrainLevels)
     const surfaceY = resolveSurfaceY(biome, initialSurfaceY, lakeBasinY)
     /* c8 ignore next 3 */
     const isShore = Option.isNone(lakeBasinY)
       && lakeNoiseVal > LAKE_THRESHOLD - LAKE_SHORE_WIDTH
-      && surfaceY < LAKE_LEVEL + 4
-    const ruggedness = computeRuggedness(erosion, jaggedness)
+      && surfaceY < terrainLevels.lakeLevel + 4
+    const ruggedness = computeRuggedness(erosion, jaggedness, continentalness, pv)
     const surfaceProfile = resolveSurfaceProfile({
       biome,
       defaultSurfaceBlockIndex: blockTypeToIndex(props.surfaceBlock),
@@ -248,6 +302,7 @@ export const createTreeColumnContextResolver = ({
       sandBlockIndex: blockIndices.sandBlockIndex,
       gravelBlockIndex: blockIndices.gravelBlockIndex,
       stoneBlockIndex: blockIndices.stoneBlockIndex,
+      terrainLevels,
     })
 
     const context: TreeColumnContext = {
@@ -268,23 +323,20 @@ export const placeChunkTrees = (
   baseWorldX: number,
   baseWorldZ: number,
   resolveTreeColumnContext: (wx: number, wz: number) => Effect.Effect<TreeColumnContext, never>,
+  terrainLevels: TerrainLevels = DEFAULT_TERRAIN_LEVELS,
 ): Effect.Effect<void, never> =>
-  Effect.forEach(
-    Arr.makeBy(CHUNK_SIZE + TREE_CANOPY_MARGIN * 2, (index) => index - TREE_CANOPY_MARGIN),
-    (originLx) =>
-      Effect.forEach(
-        Arr.makeBy(CHUNK_SIZE + TREE_CANOPY_MARGIN * 2, (index) => index - TREE_CANOPY_MARGIN),
-        (originLz) =>
-          Effect.gen(function* () {
-            const wx = baseWorldX + originLx
-            const wz = baseWorldZ + originLz
-            const context = yield* resolveTreeColumnContext(wx, wz)
-            const { place, treeRng } = shouldPlaceTree(context.props.treeDensity, context.surfaceY, wx, wz)
-            if (place && !context.hasLakeBasin && context.supportsTree) {
-              placeTree(blocks, originLx, originLz, context.surfaceY, context.biome, treeRng)
-            }
-          }),
-        { concurrency: 1 },
-      ),
-    { concurrency: 1 },
-  )
+  Effect.gen(function* () {
+    const minOrigin = -TREE_CANOPY_MARGIN
+    const maxOrigin = CHUNK_SIZE + TREE_CANOPY_MARGIN
+    for (let originLx = minOrigin; originLx < maxOrigin; originLx++) {
+      for (let originLz = minOrigin; originLz < maxOrigin; originLz++) {
+        const wx = baseWorldX + originLx
+        const wz = baseWorldZ + originLz
+        const context = yield* resolveTreeColumnContext(wx, wz)
+        const { place, treeRng } = shouldPlaceTree(context.props.treeDensity, context.surfaceY, wx, wz, terrainLevels)
+        if (place && !context.hasLakeBasin && context.supportsTree) {
+          placeTree(blocks, originLx, originLz, context.surfaceY, context.biome, treeRng, terrainLevels)
+        }
+      }
+    }
+  })

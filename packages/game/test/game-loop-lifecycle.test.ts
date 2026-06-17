@@ -1,5 +1,5 @@
 import { describe, it } from '@effect/vitest'
-import { GameLoopService,GameLoopServiceLive } from '@ts-minecraft/game'
+import { GameLoopService } from '@ts-minecraft/game'
 import { Array as Arr,Effect,Fiber,MutableRef,Option,Ref } from 'effect'
 import { afterEach,beforeEach,expect,vi } from 'vitest'
 
@@ -58,7 +58,7 @@ const fireRaf = (timestamp = 16): void => {
 // ---------------------------------------------------------------------------
 // Test layer — GameLoopService has no external dependencies beyond globals.
 // ---------------------------------------------------------------------------
-const TestLayer = GameLoopServiceLive
+const TestLayer = GameLoopService.Default
 
 // ---------------------------------------------------------------------------
 
@@ -91,7 +91,7 @@ describe('application/game-loop', () => {
           yield* service.stop()
           expect(yield* service.isRunning()).toBe(false)
           return { stoppedCleanly: true }
-        }).pipe(Effect.provide(GameLoopServiceLive))
+        }).pipe(Effect.provide(GameLoopService.Default))
 
         const secondRun = Effect.gen(function* () {
           const service = yield* GameLoopService
@@ -100,7 +100,7 @@ describe('application/game-loop', () => {
           yield* service.stop()
           expect(yield* service.isRunning()).toBe(false)
           return { restartedCleanly: true }
-        }).pipe(Effect.provide(GameLoopServiceLive))
+        }).pipe(Effect.provide(GameLoopService.Default))
 
         const r1 = yield* firstRun
         const r2 = yield* secondRun

@@ -125,7 +125,7 @@ describe('BlockServiceError', () => {
 
 // ─── BlockService integration tests ──────────────────────────────────────────
 
-describe('BlockServiceLive — interface', () => {
+describe('BlockService — interface', () => {
   it.effect('exposes breakBlock and placeBlock', () => {
     const { service } = createMockChunkManagerService()
     const layer = createTestLayer(service, createMockPlayerService({ x: 100, y: 0, z: 100 }))

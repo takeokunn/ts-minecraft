@@ -1,6 +1,6 @@
 import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
-import { isBlockSolid, isInWater, OFFSETS_3x3 } from '@ts-minecraft/game'
+import { DEFAULT_BLOCK_FRICTION, getBlockFrictionAt, isBlockSolid, isInCobweb, isInLadder, isInWater, OFFSETS_3x3 } from '@ts-minecraft/game'
 import {
   BLOCK_IDS,
   chunkBlockIndex,
@@ -73,6 +73,16 @@ describe('isBlockSolid', () => {
       const cache = makeSingleBlockCache(BLOCK_IDS.LEAVES, 0, 64, 0)
       expect(isBlockSolid(0, 64, 0, cache, PLAYER_CX, PLAYER_CZ)).toBe(true)
     })
+
+    it('returns true for CACTUS — current cactus collision uses a full solid block', () => {
+      const cache = makeSingleBlockCache(BLOCK_IDS.CACTUS, 0, 64, 0)
+      expect(isBlockSolid(0, 64, 0, cache, PLAYER_CX, PLAYER_CZ)).toBe(true)
+    })
+
+    it('returns true for ICE — ice is a solid transparent block', () => {
+      const cache = makeSingleBlockCache(BLOCK_IDS.ICE, 0, 64, 0)
+      expect(isBlockSolid(0, 64, 0, cache, PLAYER_CX, PLAYER_CZ)).toBe(true)
+    })
   })
 
   describe('passable blocks are not solid', () => {
@@ -89,6 +99,28 @@ describe('isBlockSolid', () => {
     it('TORCH block is NOT solid (player passes through torch)', () => {
       const cache = makeSingleBlockCache(BLOCK_IDS.TORCH, 0, 60, 0)
       expect(isBlockSolid(0, 60, 0, cache, PLAYER_CX, PLAYER_CZ)).toBe(false)
+    })
+
+    it('LADDER block is NOT solid (player passes through ladder)', () => {
+      const cache = makeSingleBlockCache(BLOCK_IDS.LADDER, 0, 60, 0)
+      expect(isBlockSolid(0, 60, 0, cache, PLAYER_CX, PLAYER_CZ)).toBe(false)
+    })
+
+    it('COBWEB block is NOT solid (player passes through but slows down)', () => {
+      const cache = makeSingleBlockCache(BLOCK_IDS.COBWEB, 0, 60, 0)
+      expect(isBlockSolid(0, 60, 0, cache, PLAYER_CX, PLAYER_CZ)).toBe(false)
+    })
+
+    it('SAPLING block is NOT solid (player passes through sapling)', () => {
+      const cache = makeSingleBlockCache(BLOCK_IDS.SAPLING, 0, 60, 0)
+      expect(isBlockSolid(0, 60, 0, cache, PLAYER_CX, PLAYER_CZ)).toBe(false)
+    })
+
+    it('decorative plant blocks are NOT solid (player passes through decorative plants)', () => {
+      for (const blockId of [BLOCK_IDS.DANDELION, BLOCK_IDS.POPPY, BLOCK_IDS.BROWN_MUSHROOM, BLOCK_IDS.RED_MUSHROOM, BLOCK_IDS.TALL_GRASS, BLOCK_IDS.FERN, BLOCK_IDS.SUGAR_CANE, BLOCK_IDS.LILY_PAD]) {
+        const cache = makeSingleBlockCache(blockId, 0, 60, 0)
+        expect(isBlockSolid(0, 60, 0, cache, PLAYER_CX, PLAYER_CZ)).toBe(false)
+      }
     })
   })
 
@@ -117,6 +149,27 @@ describe('isBlockSolid', () => {
       })
       expect(isBlockSolid(WORLD_X, LOCAL_Y, LOCAL_Z, cache, PLAYER_CX, PLAYER_CZ)).toBe(true)
     })
+  })
+})
+
+// ---------------------------------------------------------------------------
+// getBlockFrictionAt
+// ---------------------------------------------------------------------------
+
+describe('getBlockFrictionAt', () => {
+  it('returns configured zero friction for AIR', () => {
+    const cache = makeAirChunkCache()
+    expect(getBlockFrictionAt(0, 64, 0, cache, PLAYER_CX, PLAYER_CZ)).toBe(0)
+  })
+
+  it('returns high friction for ICE so grounded movement can slide', () => {
+    const cache = makeSingleBlockCache(BLOCK_IDS.ICE, 0, 64, 0)
+    expect(getBlockFrictionAt(0, 64, 0, cache, PLAYER_CX, PLAYER_CZ)).toBe(0.98)
+  })
+
+  it('returns default friction for unloaded chunks', () => {
+    const cache = makeNullChunkCache()
+    expect(getBlockFrictionAt(0, 64, 0, cache, PLAYER_CX, PLAYER_CZ)).toBe(DEFAULT_BLOCK_FRICTION)
   })
 })
 
@@ -183,6 +236,54 @@ describe('isInWater', () => {
       })
       expect(isInWater(LOCAL_X, LOCAL_Y, WORLD_Z, cache, PLAYER_CX, PLAYER_CZ)).toBe(true)
     })
+  })
+})
+
+// ---------------------------------------------------------------------------
+// isInLadder
+// ---------------------------------------------------------------------------
+
+describe('isInLadder', () => {
+  it('returns true when a LADDER block is at the queried position', () => {
+    const cache = makeSingleBlockCache(BLOCK_IDS.LADDER, 2, 61, 3)
+    expect(isInLadder(2, 61, 3, cache, PLAYER_CX, PLAYER_CZ)).toBe(true)
+  })
+
+  it('returns false when the block is AIR or another passable block', () => {
+    const airCache = makeAirChunkCache()
+    const waterCache = makeSingleBlockCache(BLOCK_IDS.WATER, 2, 61, 3)
+    expect(isInLadder(2, 61, 3, airCache, PLAYER_CX, PLAYER_CZ)).toBe(false)
+    expect(isInLadder(2, 61, 3, waterCache, PLAYER_CX, PLAYER_CZ)).toBe(false)
+  })
+
+  it('returns false outside world height or cached chunks', () => {
+    const cache = makeSingleBlockCache(BLOCK_IDS.LADDER, 2, 61, 3)
+    expect(isInLadder(2, -1, 3, cache, PLAYER_CX, PLAYER_CZ)).toBe(false)
+    expect(isInLadder(3 * 16, 61, 3, cache, PLAYER_CX, PLAYER_CZ)).toBe(false)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// isInCobweb
+// ---------------------------------------------------------------------------
+
+describe('isInCobweb', () => {
+  it('returns true when a COBWEB block is at the queried position', () => {
+    const cache = makeSingleBlockCache(BLOCK_IDS.COBWEB, 2, 61, 3)
+    expect(isInCobweb(2, 61, 3, cache, PLAYER_CX, PLAYER_CZ)).toBe(true)
+  })
+
+  it('returns false when the block is AIR or another passable block', () => {
+    const airCache = makeAirChunkCache()
+    const waterCache = makeSingleBlockCache(BLOCK_IDS.WATER, 2, 61, 3)
+    expect(isInCobweb(2, 61, 3, airCache, PLAYER_CX, PLAYER_CZ)).toBe(false)
+    expect(isInCobweb(2, 61, 3, waterCache, PLAYER_CX, PLAYER_CZ)).toBe(false)
+  })
+
+  it('returns false outside world height or cached chunks', () => {
+    const cache = makeSingleBlockCache(BLOCK_IDS.COBWEB, 2, 61, 3)
+    expect(isInCobweb(2, -1, 3, cache, PLAYER_CX, PLAYER_CZ)).toBe(false)
+    expect(isInCobweb(3 * 16, 61, 3, cache, PLAYER_CX, PLAYER_CZ)).toBe(false)
   })
 })
 

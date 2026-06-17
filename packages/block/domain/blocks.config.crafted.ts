@@ -26,6 +26,24 @@ export const craftedAndItemBlocks: ReadonlyArray<Block> = [
     faces: defaultBlockFaces,
   }),
   new Block({
+    id: makeBlockId('block:chest'),
+    type: 'CHEST',
+    properties: { hardness: 35, transparency: false, solid: true, emissive: false, friction: 0.6 },
+    faces: defaultBlockFaces,
+  }),
+  new Block({
+    id: makeBlockId('block:door'),
+    type: 'DOOR',
+    properties: { hardness: 15, transparency: true, solid: false, emissive: false, friction: 0.6 },
+    faces: defaultBlockFaces,
+  }),
+  new Block({
+    id: makeBlockId('block:door_open'),
+    type: 'DOOR_OPEN',
+    properties: { hardness: 15, transparency: true, solid: false, emissive: false, friction: 0.6 },
+    faces: defaultBlockFaces,
+  }),
+  new Block({
     id: makeBlockId('block:torch'),
     type: 'TORCH',
     properties: { hardness: 1, transparency: true, solid: false, emissive: true, friction: 0.1 },
@@ -36,6 +54,26 @@ export const craftedAndItemBlocks: ReadonlyArray<Block> = [
     type: 'NETHERRACK',
     // Vanilla netherrack 0.4 — very soft, mines almost instantly
     properties: { hardness: 5, transparency: false, solid: true, emissive: false, friction: 0.6 },
+    faces: defaultBlockFaces,
+  }),
+  new Block({
+    id: makeBlockId('block:glowstone'),
+    type: 'GLOWSTONE',
+    // Vanilla glowstone 0.3 — fragile full block that emits maximum light.
+    properties: { hardness: 4, transparency: false, solid: true, emissive: true, friction: 0.6 },
+    faces: defaultBlockFaces,
+  }),
+  new Block({
+    id: makeBlockId('block:ladder'),
+    type: 'LADDER',
+    properties: { hardness: 4, transparency: true, solid: false, emissive: false, friction: 0.6 },
+    faces: defaultBlockFaces,
+  }),
+  new Block({
+    id: makeBlockId('block:cobweb'),
+    type: 'COBWEB',
+    // Vanilla cobweb is transparent/pass-through and slows entities heavily.
+    properties: { hardness: 4, transparency: true, solid: false, emissive: false, friction: 0.2 },
     faces: defaultBlockFaces,
   }),
   new Block({

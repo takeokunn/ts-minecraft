@@ -1,5 +1,12 @@
 import { describe, it, expect } from 'vitest'
-import { isRecord, extractResponseId, toNullableMeshed } from '../infrastructure/meshing/meshing-worker-pool-protocol'
+import { MutableRef } from 'effect'
+import {
+  isRecord,
+  extractResponseId,
+  rejectAllPendingRequests,
+  toNullableMeshed,
+  type PendingMesh,
+} from '../infrastructure/meshing/meshing-worker-pool-protocol'
 
 describe('isRecord', () => {
   it('returns true for plain objects', () => {
@@ -87,5 +94,27 @@ describe('toNullableMeshed', () => {
     const b = makeBuffers()
     expect(() => toNullableMeshed(b.positions, null, null, null, null, null, 'opaque')).toThrow()
     expect(() => toNullableMeshed(b.positions, b.normals, b.colors, null, null, null, 'opaque')).toThrow()
+  })
+})
+
+describe('rejectAllPendingRequests', () => {
+  it('rejects every pending request and clears the map', () => {
+    const error = new Error('worker failed')
+    const rejected: unknown[] = []
+    const pending = new Map<number, PendingMesh>([
+      [1, {
+        resolve: () => {},
+        reject: (e) => rejected.push(e),
+      }],
+      [2, {
+        resolve: () => {},
+        reject: (e) => rejected.push(e),
+      }],
+    ])
+
+    rejectAllPendingRequests(MutableRef.make(pending), error)
+
+    expect(rejected).toEqual([error, error])
+    expect(pending.size).toBe(0)
   })
 })

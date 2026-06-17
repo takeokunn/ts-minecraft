@@ -9,6 +9,10 @@ type ClearColor = (color: ColorPort) => void
 type UpdateMatrixWorld = () => void
 type UpdateProjectionMatrix = () => void
 type SkyUniformSet = (x: number, y: number, z: number) => void
+type MoonPhaseSetPosition = (x: number, y: number, z: number) => void
+type MoonPhaseSetPhase = (phase: number) => void
+type MoonPhaseSetVisible = (visible: boolean) => void
+type MoonPhaseSetOpacity = (opacity: number) => void
 export type ColorPort = {
   readonly r: number
   readonly g: number
@@ -99,6 +103,15 @@ export const SkyMaterialPortSchema = Schema.mutable(Schema.Struct({
 
 export type SkyMaterialPort = Schema.Schema.Type<typeof SkyMaterialPortSchema>
 
+export const MoonPhasePortSchema = Schema.mutable(Schema.Struct({
+  setPosition: Schema.declare((u): u is MoonPhaseSetPosition => typeof u === 'function'),
+  setPhase: Schema.declare((u): u is MoonPhaseSetPhase => typeof u === 'function'),
+  setVisible: Schema.declare((u): u is MoonPhaseSetVisible => typeof u === 'function'),
+  setOpacity: Schema.declare((u): u is MoonPhaseSetOpacity => typeof u === 'function'),
+}))
+
+export type MoonPhasePort = Schema.Schema.Type<typeof MoonPhasePortSchema>
+
 const DayNightLightsPortSchemaBase = Schema.mutable(Schema.Struct({
   light: LightPortSchema,
   ambientLight: AmbientLightPortSchema,
@@ -113,12 +126,20 @@ const DayNightLightsPortSchemaBase = Schema.mutable(Schema.Struct({
   return val === null || Schema.is(SkyMaterialPortSchema)(val)
   /* c8 ignore end */
 }),
+  moon: Schema.declare((u): u is Option.Option<MoonPhasePort> => {
+  /* c8 ignore start -- Schema.declare validator is invoked by the Effect Schema runtime during decode/is checks; not directly unit testable */
+  if (!Option.isOption(u)) return false
+  const val = Option.getOrNull(u)
+  return val === null || Schema.is(MoonPhasePortSchema)(val)
+  /* c8 ignore end */
+}),
 }))
 
 export const DayNightLightsPortSchema = DayNightLightsPortSchemaBase
 
 type DayNightLightsPortBase = Schema.Schema.Type<typeof DayNightLightsPortSchemaBase>
 
-export type DayNightLightsPort = Omit<DayNightLightsPortBase, 'sky'> & {
+export type DayNightLightsPort = Omit<DayNightLightsPortBase, 'sky' | 'moon'> & {
   readonly sky: Option.Option<SkyMaterialPort>
+  readonly moon: Option.Option<MoonPhasePort>
 }

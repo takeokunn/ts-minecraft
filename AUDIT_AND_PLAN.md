@@ -9,6 +9,121 @@
 
 ---
 
+## Round 109 — World Block Light TypedArray Contract Cleanup (2026-06-15)
+- Removed the remaining world block-light BFS `?? 0` block-buffer fallbacks; incremental propagation now reads the current full chunk `Uint8Array` contract through one local helper instead of treating missing entries as AIR.
+- Replaced the empty-buffer compatibility test with a full-buffer re-add propagation contract that proves opaque cells stop restored light while adjacent transparent cells still receive it.
+- Verification: `rg -n "\?\? 0|c8 ignore|missing block entries as air|sparse block fallback" packages/world/domain/block-light-bfs.ts packages/world/test/block-light-bfs.test.ts` found no matches, `corepack pnpm vitest run packages/world/test/block-light-bfs.test.ts` passed (10 tests), and targeted coverage for `packages/world/domain/block-light-bfs.ts` reached statements/branches/functions/lines 100%.
+- Gate status: `corepack pnpm typecheck`, `corepack pnpm lint`, `corepack pnpm check:refactor`, `corepack pnpm check:compat-removal`, `corepack pnpm check:coverage-policy`, and `git diff --check` passed.
+
+## Round 108 — Sky Light TypedArray Contract Cleanup (2026-06-15)
+- Removed the remaining sky-light BFS `?? 0` block-buffer fallbacks; skylight propagation now reads the current full chunk `Uint8Array` contract through one local helper instead of treating missing entries as AIR.
+- Replaced the compatibility test that passed an empty block buffer with a full-buffer propagation-blocker contract test.
+- Verification: `rg -n "\?\? 0|c8 ignore|missing block entries as air" packages/world/domain/sky-light-bfs.ts packages/world/test/sky-light-bfs.test.ts` found no matches, `corepack pnpm vitest run packages/world/test/sky-light-bfs.test.ts` passed (9 tests), and targeted coverage for `packages/world/domain/sky-light-bfs.ts` reached statements/branches/functions/lines 100%.
+- Gate status: `corepack pnpm typecheck`, `corepack pnpm lint`, `corepack pnpm check:refactor`, `corepack pnpm check:compat-removal`, `corepack pnpm check:coverage-policy`, and `git diff --check` passed.
+
+## Round 107 — Block Light Compatibility Fallback Removal (2026-06-15)
+- Removed `c8 ignore` coverage escapes and stale `?? 0`/undefined fallbacks from `packages/block/domain/light.ts`; current chunk/light/queue reads now rely on local invariants instead of silent compatibility defaults.
+- Centralized public block-index bounds handling in readable helpers, keeping unknown/invalid external indexes opaque and non-emissive while preserving internal TypedArray fast paths.
+- Updated light-domain tests to describe the current contract instead of fallback behavior and added negative/fractional public index coverage.
+- Verification: `rg -n "c8 ignore|\?\? 0|fallback|queueValueAt|level === undefined|byte === undefined|blockIdx === undefined" packages/block/domain/light.ts packages/block/test/light.test.ts` found no matches, `corepack pnpm vitest run packages/block/test/light.test.ts` passed (46 tests), `corepack pnpm typecheck`, `corepack pnpm lint`, `corepack pnpm check:compat-removal`, `corepack pnpm check:coverage-policy`, and `git diff --check` passed.
+- Full coverage status: `corepack pnpm test:coverage` passed (449 files; 6355 tests) with All files at statements 99.71%, branches 99.00%, functions 99.69%, lines 99.71%; `packages/block/domain/light.ts` is 100% statements/branches/functions/lines.
+
+## Round 106 — 2026 TypeScript Refactor and Coverage Gate Closure (2026-06-15)
+- Split EntityManager AI behavior into `entity-manager-ai.ts`, keeping domain decision logic readable and directly testable while leaving the manager as orchestration.
+- Removed stale compatibility fallbacks across current data contracts, including mob `stuckTicks ?? 0`, farming TypedArray `?? 0` block reads, chest slot fallback reads, and game-state error/position fallback paths.
+- Replaced coverage ignores with focused tests for sky-light BFS, interaction placement, farming storage bounds, node WebSocket send/close failure paths, game-state coverage branches, worker config fallback branches, and inventory/furnace/equipment behavior.
+- Lifted touched feature modules to direct 100% coverage where targeted: Entity AI, farming handler, placement handler, chest service, furnace smelting, inventory service, fluid service, node WebSocket server, game-state service, worker meshing config, and sky-light BFS.
+- Verification: `corepack pnpm typecheck`, `corepack pnpm lint`, `corepack pnpm build` (passes with the existing Vite >700 kB chunk warning), `corepack pnpm check:refactor`, `corepack pnpm check:compat-removal`, `corepack pnpm check:coverage-policy`, `git diff --check`, targeted Vitest runs for entity AI/manager and farming handler.
+- Full coverage status: `corepack pnpm test:coverage` passed (449 files; 6353 tests) with All files at statements 99.71%, branches 99.00%, functions 99.69%, lines 99.71%.
+
+## Round 105 — Node WebSocket Server Coverage and Data Boundary (2026-06-14)
+- Split Node WebSocket raw payload conversion into `node-websocket-data.ts`, keeping byte-copy and multipart payload normalization outside the server connection lifecycle.
+- Added focused data-boundary coverage for ArrayBuffer, Buffer, and multipart Buffer payloads without shared-memory leaks.
+- Added real `ws` server coverage for client acceptance, inbound/outbound payload flow, close behavior, post-close send rejection, active-client shutdown, and occupied-port startup failure.
+- Verification: `corepack pnpm vitest run packages/network/test/node-websocket-data.test.ts packages/network/test/node-websocket-server.test.ts`, `corepack pnpm typecheck`, `corepack pnpm lint`, `corepack pnpm check:refactor`, `corepack pnpm check:compat-removal`, `corepack pnpm check:coverage-policy`, `git diff --check`.
+- Full coverage status: `corepack pnpm test:coverage` ran all tests successfully (444 files; 6117 passed, 1 skipped) but still exits non-zero on the global 99% thresholds: statements/lines 97.37%, branches 96.38%, functions 97.94%.
+
+## Round 104 — Village and Browser WebSocket Coverage Lift (2026-06-14)
+- Added frame-maintenance village coverage for terrain-grounded structure placement, foundation filling, and unavailable chunk preservation of planned structure height.
+- Hardened `BrowserWebSocketClient.connect` so WebSocket construction failures are reported as `NetworkError` inside the Effect boundary.
+- Added browser WebSocket client coverage for open/send/close, inbound ArrayBuffer/string/Blob normalization, constructor failure, handshake error, closed sends, and unsupported payload filtering.
+- Verification: `corepack pnpm vitest run packages/app/application/frame/frame-maintenance-village.test.ts`, `corepack pnpm vitest run packages/network/test/browser-websocket-client.test.ts`, `corepack pnpm typecheck`, `corepack pnpm lint`, `corepack pnpm check:refactor`, `corepack pnpm check:compat-removal`, `corepack pnpm check:coverage-policy`.
+- Full coverage status: `corepack pnpm test:coverage` ran all tests successfully but still exits non-zero on the global 99% thresholds: statements/lines 96.89%, branches 96.40%, functions 97.53%.
+
+## Round 103 — Settings Storage Cleanup and Gate Fixes (2026-06-14)
+- Removed the SettingsService localStorage fallback path and partial/default merge behavior; settings now load the current IndexedDB payload and decode it through `SettingsSchema`.
+- Deleted the matching localStorage test fixture and narrowed settings-service tests to current-schema IndexedDB behavior.
+- Removed the unclassified `packages/core/domain/builders.ts` coverage exclusion so the file participates in the coverage contract.
+- Cleaned removal-sentinel wording from comments in app/entity/world/block/presentation code and aligned the stale main-menu corrupt-row style assertion with the current renderer output.
+- Verification: `corepack pnpm typecheck`, `corepack pnpm lint`, `corepack pnpm check:refactor`, `corepack pnpm check:compat-removal`, `corepack pnpm check:coverage-policy`, `corepack pnpm vitest run packages/game/test/settings-service.test.ts`, `corepack pnpm vitest run packages/game/test/settings-service-update.test.ts packages/presentation/menu/main-menu-dom.test.ts`.
+- Full coverage status: `corepack pnpm test:coverage` ran all tests successfully (440 files; 6105 passed, 1 skipped) but still exits non-zero on the global 99% thresholds: statements/lines 96.16%, branches 96.42%, functions 97.19%.
+
+## Round 102 — Cobweb Block Pass-Through and Slowdown (2026-06-14)
+- Added COBWEB as block storage index 77 with codec/schema coverage, initial block config, render/item atlas mapping, non-solid collision behavior, suffocation exemption, spawn-surface exclusion, and STRING drop override.
+- Wired player physics so feet/head contact with COBWEB applies heavy horizontal and vertical velocity slowdown while preserving spectator/flight bypasses.
+- Added focused coverage for indexing, block config, collision predicates, physics slowdown, hazard classification, texture maps, and drop overrides.
+- Verification: `corepack pnpm vitest run packages/core/domain/block-type.test.ts packages/core/domain/block-codec.test.ts packages/block/test/blocks.config.test.ts packages/game/test/block-collision-predicates.test.ts packages/game/test/game-state-physics.test.ts packages/entity/test/environment-hazard.test.ts packages/rendering/test/block-texture-map.test.ts packages/rendering/test/item-texture-map.test.ts packages/world/test/block-service-drop-overrides.test.ts`, `corepack pnpm typecheck`, `git diff --check`.
+
+## Round 101 — Infinite Water Source Renewal (2026-06-14)
+- Added water-source renewal to the fluid tick: a flowing water cell becomes a level-0 source when at least two horizontal adjacent water sources feed it and it cannot fall downward.
+- Kept unsupported water flowing downward instead of renewing, matching the existing simplified source/level model without creating suspended infinite sources.
+- Added focused fluid-service coverage for renewal and the downward-flow guard.
+- Verification: `corepack pnpm vitest run packages/world/test/fluid-service-tick.test.ts`, `corepack pnpm typecheck`, `git diff --check`.
+
+## Round 100 — Moon Phase Rendering (2026-06-14)
+- Added an 8-day moon phase value to `TimeService` and threaded it through the day/night cycle.
+- Added a structural `MoonPhasePort` and a generated CanvasTexture moon sprite so the Overworld night sky shows the current phase with opacity/position following the inverse sun path.
+- Hid the moon in Nether and End fixed-lighting paths, and updated app/runtime test stubs for the new lighting contract.
+- Verification: `corepack pnpm vitest run packages/game/test/time-service.test.ts packages/game/test/day-night-cycle.test.ts packages/core/domain/math/light-ports.test.ts packages/app/application/frame/stages/lighting-stage.test.ts` (83 passed), `corepack pnpm typecheck`.
+
+## Round 99 — Hotbar Selected Item Name Label (2026-06-14)
+- Added a transient selected-item name label to the Three.js hotbar HUD. The label redraws a CanvasTexture when the selected slot or selected item changes, stays quiet during initial HUD population, and hides for empty selections.
+- Wired per-frame label fade-out into the existing HUD render path and kept resize positioning aligned above the hotbar strip.
+- Added focused coverage for selected-item label drawing, empty-slot hiding, and render-time fade expiry.
+- Verification: `./node_modules/.bin/vitest run packages/presentation/hud/hotbar-three.test.ts` (20 passed), `./node_modules/.bin/tsc -p tsconfig.test.json --pretty false`, `./node_modules/.bin/tsc -p tsconfig.build.json --pretty false`, `git diff --check`.
+
+## Round 98 — TNT Player Explosion Damage (2026-06-14)
+- Wired flint-and-steel TNT explosions into player damage: the handler now samples the default player position, applies the shared TNT explosion damage formula, respects spectator mode and hurt invincibility, then applies existing armor/Protection reduction.
+- Added the matching health, exhaustion, and hurt-sound side effects while preserving the existing block destruction behavior and per-block write failure tolerance.
+- Added focused coverage for nearby TNT damage, outside-radius no-op, spectator immunity, and invincibility skipping.
+- Verification: `./node_modules/.bin/vitest run packages/app/application/frame/stages/interaction-placement-handler.test.ts` (21 passed), `./node_modules/.bin/tsc -p tsconfig.test.json --pretty false`, `./node_modules/.bin/tsc -p tsconfig.build.json --pretty false`, `git diff --check`.
+
+## Round 97 — Creeper Explosion Block Destruction (2026-06-14)
+- Added a queued `ExplosionEvent` path to EntityManager so completed Creeper fuses emit one block-damage event while preserving the existing explosion damage/self-destruct behavior.
+- Wired physics-stage to drain Creeper explosions and force nearby blocks to `AIR` using the shared explosion break-position geometry.
+- Added coverage for one-shot explosion draining, frame-stage block breaking, and debug-flag skipping.
+- Verification: `./node_modules/.bin/vitest run packages/entity/test/mob/entity-manager.test.ts packages/app/application/frame/stages/physics-stage.test.ts` (114 passed), `./node_modules/.bin/tsc -p tsconfig.test.json --pretty false`, `./node_modules/.bin/tsc -p tsconfig.build.json --pretty false`.
+
+## Round 96 — Creeper Fuse Flash Rendering (2026-06-14)
+- Exposed Creeper fuse progress on public `Entity` snapshots and invalidated the cached snapshot whenever the fuse changes, so rendering can observe pre-explosion state.
+- Added per-instance color support to the entity InstancedMesh pool and wired Creeper fuse progress into a white flash pulse before detonation.
+- Added coverage for fuse snapshot cache invalidation, pool color initialization/swap preservation, and renderer Creeper flash tinting.
+- Verification: `./node_modules/.bin/vitest run packages/entity/test/mob/entity-manager.test.ts packages/rendering/test/entity-instance-pool.test.ts packages/rendering/test/entity-renderer.test.ts` (84 passed), `./node_modules/.bin/tsc -p tsconfig.test.json --pretty false`, `./node_modules/.bin/tsc -p tsconfig.build.json --pretty false`, `git diff --check`.
+
+## Round 95 — Skeleton Shot World Occlusion Wiring (2026-06-14)
+- Wired physics-stage Skeleton ranged damage to the shared solid-block predicate, reusing the entity physics 3x3 chunk cache so world blocks can stop ranged shots in the frame path.
+- Refreshed the entity physics chunk cache when mob damage is enabled, even if AI/physics toggles are disabled, so the projectile blocker has loaded world data for damage-only debug configurations.
+- Added frame-stage coverage proving `getPlayerRangedDamage` receives a blocker backed by cached solid blocks.
+- Verification: `./node_modules/.bin/vitest run packages/app/application/frame/stages/physics-stage.test.ts packages/app/application/frame/stages/entity-update-stage.test.ts` (59 passed), `./node_modules/.bin/tsc -p tsconfig.test.json --pretty false`, `./node_modules/.bin/tsc -p tsconfig.build.json --pretty false`, `git diff --check`.
+
+## Round 94 — Skeleton Ranged Damage Separation (2026-06-14)
+- Removed Skeleton from the contact/melee damage path, so it no longer hurts the player just because the player is inside its 12-block attack range.
+- Added a separate skeleton ranged-shot damage path with cooldown and optional line-of-sight blocker; physics now adds ranged hostile damage alongside melee/explosion damage.
+- Added EntityManager coverage for no contact damage, ranged cooldown, out-of-range, and blocked line of sight, plus frame-stage coverage for ranged hostile damage wiring.
+- Verification: `./node_modules/.bin/vitest run packages/entity/test/mob/entity-manager.test.ts` (63 passed), `./node_modules/.bin/vitest run packages/app/application/frame/stages/physics-stage.test.ts` (47 passed), `./node_modules/.bin/tsc -p tsconfig.test.json --pretty false`, `./node_modules/.bin/tsc -p tsconfig.build.json --pretty false`, `git diff --check`.
+
+## Round 93 — Enderman Sight Occlusion (2026-06-14)
+- Added solid-block line-of-sight occlusion to Enderman eye-contact provocation. The look predicate now samples the eye-to-upper-body segment and refuses to provoke when a solid block blocks it.
+- Threaded the blocker predicate through EntityManager and the frame stage, reusing the existing 3x3 entity chunk cache and shared block-collision predicate for both AI sight checks and mob physics.
+- Added focused pure predicate and EntityManager coverage for blocked/unblocked eye contact.
+- Verification: `./node_modules/.bin/vitest run packages/entity/test/enderman-anger.test.ts packages/entity/test/mob/entity-manager.test.ts` (64 passed), `./node_modules/.bin/tsc -p tsconfig.test.json --pretty false`, `./node_modules/.bin/tsc -p tsconfig.build.json --pretty false`, `git diff --check`.
+
+## Round 92 — Enderman Eye-Contact Provoke (2026-06-14)
+- Implemented Enderman eye-contact provocation: the frame stage now passes camera forward direction and camera origin into mob AI, and Endermen persist an internal `isProvoked` state after the look ray crosses their upper-body target.
+- Kept unprovoked Endermen neutral for chasing/contact damage, while attacks against Endermen still provoke them.
+- Added focused coverage for the pure look-ray predicate plus EntityManager AI/contact-damage behavior.
+- Verification: `./node_modules/.bin/vitest run packages/entity/test/enderman-anger.test.ts packages/entity/test/mob/entity-manager.test.ts` (61 passed), `./node_modules/.bin/tsc -p tsconfig.test.json --pretty false`, `./node_modules/.bin/tsc -p tsconfig.build.json --pretty false`, `git diff --check`.
+
 ## Methodology
 
 Three read-only audits were fanned out (hot-path perf, chunk/meshing/memory, feature completeness),
@@ -2782,3 +2897,2022 @@ Final console scan: **0 ERROR-level messages** after the fix.
 ### Quality gate (Round 81)
 `pnpm typecheck` 0 · `pnpm lint` 0 errors / 4 warnings · `pnpm check:refactor` OK · `pnpm test`
 **5729 passed / 1 skipped** · `pnpm build` exit 0 · in-browser verified (no fluid errors) · 1 commit on `main`.
+
+---
+
+## CG. Round 82 (2026-06-14) — support updates + water-breakable attachments
+
+- [x] **FIX-AQ (support-sensitive blocks)** — Added shared support rules for TORCH,
+  REDSTONE_TORCH, REDSTONE_WIRE, and WHEAT_CROP. `breakBlock` and `forceSetBlock` now remove
+  unsupported blocks above the changed cell with an upward cascade, and `placeBlock` rejects
+  support-sensitive placement without a valid block below. Wheat requires FARMLAND; torch/redstone
+  attachments require a solid supporting block. `block-support.ts`, `block-service.ts`.
+- [x] **FIX-AR (water breaks attachments)** — Fluid spread can now replace water-breakable
+  attachment blocks, so water flowing into a torch/redstone/crop cell turns it into WATER during
+  the fluid tick instead of leaving an invalid submerged attachment. `fluid-service.ts`.
+
+### Quality gate (Round 82)
+`./node_modules/.bin/vitest run packages/world/test/block-service.test.ts packages/world/test/fluid-service-tick.test.ts`
+**39 passed** · `./node_modules/.bin/tsc -p tsconfig.test.json --pretty false` 0 ·
+`./node_modules/.bin/tsc -p tsconfig.build.json --pretty false` 0.
+
+---
+
+## CH. Round 83 (2026-06-14) — F1 gameplay HUD hide
+
+- [x] **FIX-AS (F1 HUD hide)** — Added `KeyMappings.HUD_TOGGLE='F1'` and input-stage handling
+  that toggles `body.hud-hidden`. The class hides the DOM gameplay HUD/crosshair/debug overlay,
+  and `hud-stage` uses the same visibility state to skip the Three.js hotbar pass so screenshot
+  HUD hiding covers both DOM and renderer overlays.
+
+### Quality gate (Round 83)
+`./node_modules/.bin/vitest run packages/app/application/frame/stages/input-stage.test.ts packages/app/application/frame/stages/hud-stage.test.ts`
+**27 passed** · `./node_modules/.bin/tsc -p tsconfig.test.json --pretty false` 0 ·
+`./node_modules/.bin/tsc -p tsconfig.build.json --pretty false` 0.
+
+---
+
+## CI. Round 84 (2026-06-14) — Q item drop input
+
+- [x] **FIX-AT (Q item drop input)** — Added `KeyMappings.DROP_ITEM='KeyQ'` and input-stage handling that consumes Q only during gameplay (no inventory/trade/settings/pause modal open). It removes one item from the selected hotbar slot via `InventoryService.removeBlock(..., preferredSlot)`. This covers the gameplay drop input; physical floating item entities/pickup remain tracked separately in the feature matrix.
+
+### Quality gate (Round 84)
+`./node_modules/.bin/vitest run packages/app/application/frame/stages/input-stage.test.ts`
+**20 passed** · `./node_modules/.bin/tsc -p tsconfig.test.json --pretty false` 0 ·
+`./node_modules/.bin/tsc -p tsconfig.build.json --pretty false` 0.
+
+---
+
+## CJ. Round 85 (2026-06-14) — gold armor recipes
+
+- [x] **FIX-AU (gold armor recipes)** — Added `GOLD_HELMET`, `GOLD_CHESTPLATE`,
+  `GOLD_LEGGINGS`, and `GOLD_BOOTS` as item types, equipment stats, durability entries,
+  enchantment targets, non-placeable inventory items, texture-map entries, and
+  `GOLD_INGOT` crafting-table recipes.
+
+### Quality gate (Round 85)
+`./node_modules/.bin/vitest run packages/inventory/test/armor-recipes.test.ts packages/inventory/test/armor-config.test.ts packages/inventory/test/armor.test.ts packages/inventory/test/enchantment-config.test.ts packages/core/domain/item-type.test.ts`
+**145 passed** · `./node_modules/.bin/tsc -p tsconfig.test.json --pretty false` 0 ·
+`./node_modules/.bin/tsc -p tsconfig.build.json --pretty false` 0.
+
+---
+
+## CK. Round 86 (2026-06-14) — gold tool durability audit
+
+- [x] **FIX-AV (gold tool durability audit)** — Confirmed all gold tools use vanilla 32
+  durability. Expanded tool completeness coverage so GOLD is part of the tier-wide
+  matrix, added explicit durability cases for GOLD_SWORD/GOLD_PICKAXE, and updated the
+  verification matrix entry from unknown to confirmed.
+
+### Quality gate (Round 86)
+`./node_modules/.bin/vitest run packages/inventory/test/tool-completeness.test.ts packages/inventory/test/durability.test.ts`
+**25 passed** · `./node_modules/.bin/tsc -p tsconfig.test.json --pretty false` 0 ·
+`./node_modules/.bin/tsc -p tsconfig.build.json --pretty false` 0.
+
+---
+
+## CL. Round 87 (2026-06-14) — shears durability on shearing
+
+- [x] **FIX-AW (shears durability)** — Connected `SHEARS` durability to the sheep
+  shearing interaction. A successful shear now damages the selected hotbar shears by
+  1 through `InventoryService.damageSlot`, so the existing durability pipeline handles
+  remaining durability and breakage. Added focused shearing tests and explicit
+  `SHEARS=238` durability coverage.
+
+### Quality gate (Round 87)
+`./node_modules/.bin/vitest run packages/app/application/frame/stages/interaction-shear-animal.test.ts packages/inventory/test/durability.test.ts packages/inventory/test/item-stack-durability.test.ts`
+**41 passed** · `./node_modules/.bin/tsc -p tsconfig.test.json --pretty false` 0 ·
+`./node_modules/.bin/tsc -p tsconfig.build.json --pretty false` 0 · `git diff --check` 0.
+
+---
+
+## CM. Round 88 (2026-06-14) — inventory open/close sound effects
+
+- [x] **FIX-AX (inventory UI sounds)** — Added `inventoryOpen` and `inventoryClose`
+  SoundManager effects and wired inventory modal transitions through them. KeyE now
+  plays the open cue when opening inventory and the close cue when closing it; Escape
+  also plays the close cue when dismissing an open inventory.
+
+### Quality gate (Round 88)
+`./node_modules/.bin/vitest run packages/app/application/frame/stages/input-stage.test.ts packages/game/test/sound-manager.test.ts`
+**26 passed** · `./node_modules/.bin/tsc -p tsconfig.test.json --pretty false` 0 ·
+`./node_modules/.bin/tsc -p tsconfig.build.json --pretty false` 0 · `git diff --check` 0.
+
+---
+
+## CN. Round 89 (2026-06-14) — block-aware footstep sounds
+
+- [x] **FIX-AY (footstep sounds)** — Added grass/stone/wood footstep effects and wired
+  grounded horizontal movement through the physics stage. Walking and sprinting use separate
+  cadence/gain values, and the sound family is selected from the block under the player.
+  Updated both footstep entries in the verification matrix to implemented.
+
+### Quality gate (Round 89)
+`./node_modules/.bin/vitest run packages/game/test/sound-manager.test.ts packages/app/application/frame/stages/physics-stage.test.ts`
+**passed** · `./node_modules/.bin/tsc -p tsconfig.test.json --pretty false` 0 ·
+`./node_modules/.bin/tsc -p tsconfig.build.json --pretty false` 0 · `git diff --check` 0.
+
+---
+
+## CO. Round 90 (2026-06-14) — ESC pause menu verification
+
+- [x] **FIX-AZ (ESC pause menu audit)** — Confirmed the input stage now treats Escape as
+  the vanilla pause-menu key: when no modal is open it calls `PauseMenuService.openIfClosed()`
+  and reconciles `gamePausedRef` from the live modal state. `OPEN_MENU_KEY` remains only as a
+  secondary menu shortcut. Updated the stale verification-matrix entry from "does not open" to
+  implemented.
+
+### Quality gate (Round 90)
+`./node_modules/.bin/vitest run packages/app/application/frame/stages/input-stage.test.ts`
+**20 passed** · `./node_modules/.bin/tsc -p tsconfig.test.json --pretty false` 0 ·
+`git diff --check` 0.
+
+---
+
+## CP. Round 91 (2026-06-14) — furnace fuel burn durations
+
+- [x] **FIX-BA (furnace fuel burn durations)** — Added per-fuel burn durations for coal,
+  charcoal, wood, planks, sticks, bows, fishing rods, and wooden tools. Furnace state now
+  persists remaining and total burn seconds, `FurnaceService.tick()` advances smelting by
+  available burn time, and an in-progress smelt consumes the next valid fuel only when the
+  current flame expires.
+
+### Quality gate (Round 91)
+`./node_modules/.bin/vitest run packages/inventory/test/furnace-service.test.ts packages/inventory/test/furnace-service-collect-tick.test.ts`
+**23 passed** ·
+`./node_modules/.bin/vitest run packages/world/test/storage-service.test.ts packages/world/test/storage-service-encode-roundtrip.test.ts packages/world/test/storage-service-quota.test.ts`
+**31 passed** · `./node_modules/.bin/tsc -p tsconfig.test.json --pretty false` 0 ·
+`./node_modules/.bin/tsc -p tsconfig.build.json --pretty false` 0 ·
+`git diff --check` 0.
+
+---
+
+## DQ. Round 106 (2026-06-14) — network client/server service coverage
+
+- [x] **COVERAGE-NETWORK-APPLICATION** — Expanded the network application service tests
+  around the public client/server contracts. Client coverage now includes empty receives
+  before connect, send failure before connect, failed connect state, and the active
+  send path through an open connection. Server coverage now includes direct `sendToPlayer`
+  success and disconnected-player failure.
+- [x] **TEST-CONTRACT-CLEANUP** — Removed the stale skipped reconnect assertion from
+  `client-service.test.ts`. The enabled reconnect variant currently hangs against the
+  service fiber lifecycle, so the remaining tests cover deterministic API behavior while
+  leaving reconnect timing for a scoped/fiber-controlled follow-up.
+
+### Quality gate (Round 106)
+`corepack pnpm vitest run packages/network/test/client-service.test.ts packages/network/test/server-service.test.ts`
+**18 passed** · `corepack pnpm typecheck` 0 · `corepack pnpm lint` 0 ·
+`corepack pnpm check:refactor` 0 · `corepack pnpm check:compat-removal` 0 ·
+`corepack pnpm check:coverage-policy` 0 · `git diff --check` 0 ·
+`corepack pnpm test:coverage` ran the full suite but exited 1 on the existing 99%
+global threshold: statements 97.44%, branches 96.39%, functions 98.10%, lines 97.44%.
+
+---
+
+## DR. Round 107 (2026-06-14) — chest transfer coverage
+
+- [x] **COVERAGE-INVENTORY-CHEST** — Expanded chest service coverage around direct
+  merge/swap moves, quick-move merge-before-empty behavior in both directions,
+  full-destination no-ops, invalid-height selection filtering, empty/unavailable
+  source guards, absent chest dismantle, and `clearChest` selection cleanup.
+- [x] **CHEST-SERVICE-READABILITY** — Normalized `getNearestChestState` formatting while
+  preserving the current state lookup behavior.
+
+### Quality gate (Round 107)
+`corepack pnpm vitest run packages/inventory/test/chest-service.test.ts`
+**13 passed** · targeted chest coverage reached statements 100%, branches 95.2%,
+functions 100%, lines 100%, but exited 1 on the global branch threshold ·
+`corepack pnpm typecheck` 0 · `corepack pnpm lint` 0 ·
+`corepack pnpm check:refactor` 0 · `corepack pnpm check:compat-removal` 0 ·
+`corepack pnpm check:coverage-policy` 0 · `git diff --check` 0 ·
+`corepack pnpm test:coverage` ran the full suite with **444 files / 6131 tests passed**,
+then exited 1 on the existing 99% global threshold: statements 97.69%, branches 96.58%,
+functions 98.41%, lines 97.69%.
+
+---
+
+## DR. Round 108 (2026-06-14) — multiplayer service coverage
+
+- [x] **COVERAGE-APP-MULTIPLAYER** — Expanded `MultiplayerService` tests from outbound
+  block sync into chat/movement sends, inbound block edit draining, remote player
+  join/move/leave state, chat retention, error absorption, disconnect no-op, and Live
+  layer construction.
+- [x] **MULTIPLAYER-TEST-ABSTRACTION** — Added local message builders and a configurable
+  client stub in `packages/app/application/multiplayer/multiplayer-service.test.ts` so
+  state transitions are tested through public service effects instead of coupling
+  assertions to internal refs.
+
+### Quality gate (Round 108)
+`corepack pnpm vitest run packages/app/application/multiplayer/multiplayer-service.test.ts`
+**12 passed** · targeted `multiplayer-service.ts` coverage reached statements 100%,
+branches 100%, functions 100%, lines 100% · `corepack pnpm typecheck` 0 ·
+`corepack pnpm lint` 0 · `corepack pnpm check:refactor` 0 ·
+`corepack pnpm check:compat-removal` 0 · `corepack pnpm check:coverage-policy` 0 ·
+`git diff --check` 0 · `corepack pnpm test:coverage` ran the full suite with
+**444 files / 6139 tests passed**, then exited 1 on the existing 99% global threshold:
+statements 98.18%, branches 96.6%, functions 98.97%, lines 98.18%.
+
+---
+
+## DS. Round 109 (2026-06-14) — grass spread and dragon death service coverage
+
+- [x] **COVERAGE-WORLD-GRASS-SPREAD** — Expanded grass spread tests to cover z-side
+  neighbors, positive-x neighbors, missing block entries as air, no-neighbor dirt, and
+  positive-x edge handling. Removed the unreachable y-range branch from the local block
+  reader so the domain helper matches the caller's bounded scan contract.
+- [x] **COVERAGE-ENTITY-DRAGON-DEATH-SERVICE** — Added application-service tests for
+  `tickDragonDeathSequence`, covering progress advancement through the dying phase and
+  the one-time return portal activation event forwarded from the dragon death domain.
+
+### Quality gate (Round 109)
+`corepack pnpm vitest run packages/world/test/grass-spread.test.ts packages/entity/test/mob/dragon-death-service.test.ts`
+**10 passed** · targeted coverage for `world/domain/grass-spread.ts` and
+`entity/application/mob/dragon-death-service.ts` reached statements 100%, branches 100%,
+functions 100%, lines 100%, while the partial coverage run exited 1 on the global
+threshold · `corepack pnpm typecheck` 0 · `corepack pnpm lint` 0 ·
+`corepack pnpm check:refactor` 0 · `corepack pnpm check:compat-removal` 0 ·
+`corepack pnpm check:coverage-policy` 0 · `git diff --check` 0 ·
+`corepack pnpm test:coverage` ran the full suite, then exited 1 on the existing 99%
+global threshold: statements 98.25%, branches 96.73%, functions 98.97%, lines 98.25%.
+
+---
+
+## DT. Round 110 (2026-06-14) — network client reconnect lifecycle coverage
+
+- [x] **NETWORK-CLIENT-RECONNECT-LIFECYCLE** — Refactored the client close watcher so
+  unexpected transport close, reconnect retry, and reconnected-handle watch installation
+  use one fiber lifecycle. `disconnect` now interrupts the active watcher/retry fiber,
+  clears the current handle, and leaves the public state as `disconnected`.
+- [x] **COVERAGE-NETWORK-CLIENT-RECONNECT** — Replaced the previous timing-only reconnect
+  assertion with deterministic `TestClock` tests for successful reconnect after an
+  unexpected close, exhausted reconnect attempts moving to `failed`, and explicit
+  disconnect interrupting an active reconnect attempt.
+
+### Quality gate (Round 110)
+`corepack pnpm vitest run packages/network/test/client-service.test.ts`
+**11 passed** · targeted coverage for `network/application/client-service.ts` reached
+statements 100%, branches 100%, functions 100%, lines 100% ·
+`corepack pnpm vitest run packages/network/test/client-service.test.ts --coverage --coverage.include=packages/network/application/client-service.ts`
+**11 passed** · `corepack pnpm typecheck` 0 · `corepack pnpm lint` 0 ·
+`corepack pnpm check:refactor` 0 · `corepack pnpm check:coverage-policy` 0 ·
+`git diff --check` 0 · `corepack pnpm check:compat-removal` 0 ·
+`corepack pnpm test:coverage` ran the full suite with **445 files / 6149 tests passed**,
+then exited 1 on the existing 99% global threshold: statements 98.41%, branches 96.79%,
+functions 99.13%, lines 98.41%.
+
+Remaining high-impact coverage targets include
+`packages/rendering/infrastructure/player/remote-player-renderer.ts`,
+`packages/world/application/block-service-break.ts`,
+`packages/world/application/block-service-support.ts`,
+`packages/app/application/frame/stages/player-stage.ts`,
+`packages/app/application/frame/stages/stage-survival.ts`,
+`packages/network/application/server-handlers.ts`, and
+`packages/network/infrastructure/websocket-server.ts`.
+
+---
+
+## DU. Round 111 (2026-06-14) — remote player renderer coverage
+
+- [x] **COVERAGE-RENDERING-REMOTE-PLAYER** — Expanded
+  `remote-player-renderer` tests across existing-player updates, unknown-player no-ops,
+  mesh material array disposal, and canvas-backed name tag creation/disposal.
+- [x] **REMOTE-PLAYER-RESOURCE-CONTRACTS** — Added test helpers for canvas document stubs
+  and GPU resource collection so lifecycle assertions stay focused on public renderer
+  effects while covering browser and non-2d-context branches.
+
+### Quality gate (Round 111)
+`corepack pnpm vitest run packages/rendering/infrastructure/player/remote-player-renderer.test.ts`
+**13 passed** · targeted coverage for
+`rendering/infrastructure/player/remote-player-renderer.ts` reached statements 100%,
+branches 100%, functions 100%, lines 100% ·
+`corepack pnpm vitest run packages/rendering/infrastructure/player/remote-player-renderer.test.ts --coverage --coverage.include=packages/rendering/infrastructure/player/remote-player-renderer.ts`
+**13 passed** · `corepack pnpm typecheck` 0 · `corepack pnpm lint` 0 ·
+`corepack pnpm check:refactor` 0 · `corepack pnpm check:coverage-policy` 0 ·
+`git diff --check` 0 · `corepack pnpm check:compat-removal` 0 ·
+`corepack pnpm test:coverage` ran the full suite with **445 files / 6154 tests passed**,
+then exited 1 on the existing 99% global threshold: statements 98.52%, branches 96.92%,
+functions 99.13%, lines 98.52%.
+
+Remaining high-impact coverage targets include
+`packages/world/application/block-service-break.ts`,
+`packages/world/application/block-service-support.ts`,
+`packages/app/application/frame/stages/player-stage.ts`,
+`packages/app/application/frame/stages/stage-survival.ts`,
+`packages/network/application/server-handlers.ts`, and
+`packages/network/infrastructure/websocket-server.ts`.
+
+---
+
+## DV. Round 112 (2026-06-15) — world block break cascade coverage
+
+- [x] **COVERAGE-WORLD-BLOCK-BREAK-PATHS** — Added focused block break tests for chunk
+  load/read failures, air targets, single and paired door removal, upper/lower door
+  partner read failures, water/lava cleanup, support-dependent notifications, and
+  inventory drop failures.
+- [x] **COVERAGE-WORLD-BLOCK-SUPPORT-CASCADE** — Added support helper tests for local
+  to world position conversion, dependent/support read failures, dependent removal
+  failures, chunk-height upper bounds, and still-supported support-sensitive blocks.
+
+### Quality gate (Round 112)
+`corepack pnpm vitest run packages/world/test/block-service-break-paths.test.ts`
+**16 passed** ·
+`corepack pnpm vitest run packages/world/test/block-service.test.ts packages/world/test/block-service-place.test.ts packages/world/test/block-service-silk-touch.test.ts packages/world/test/block-service-drop-overrides.test.ts packages/world/test/block-service-break-paths.test.ts --coverage --coverage.include=packages/world/application/block-service-break.ts --coverage.include=packages/world/application/block-service-support.ts`
+**5 files / 106 tests passed** · targeted coverage for
+`world/application/block-service-break.ts` and
+`world/application/block-service-support.ts` reached statements 100%, branches 100%,
+functions 100%, lines 100% · `corepack pnpm typecheck` 0 ·
+`corepack pnpm lint` 0 · `corepack pnpm check:refactor` 0 ·
+`corepack pnpm check:coverage-policy` 0 · `corepack pnpm check:compat-removal` 0 ·
+`git diff --check` 0.
+
+---
+
+Remaining high-impact coverage targets include
+`packages/app/application/frame/stages/player-stage.ts`,
+`packages/app/application/frame/stages/stage-survival.ts`,
+`packages/network/application/server-handlers.ts`, and
+`packages/network/infrastructure/websocket-server.ts`.
+
+---
+
+## DW. Round 113 (2026-06-15) — network server handler coverage
+
+- [x] **COVERAGE-NETWORK-SERVER-HANDLERS** — Expanded handler tests around assigned
+  join backfill, absent leave and move paths, ownership rejection, owned leave cleanup,
+  and Ping/Pong/Error dispatch behavior.
+- [x] **COVERAGE-NETWORK-FAKE-WEBSOCKET** — Covered fake server start/connect guard
+  rails and stored connection lookup while tightening early-failure control flow in
+  server and handler paths.
+
+### Quality gate (Round 113)
+`corepack pnpm vitest run packages/network/test/server-handlers.test.ts`
+**14 passed** ·
+`corepack pnpm vitest run packages/network/test/server-service.test.ts packages/network/test/server-handlers.test.ts --coverage --coverage.include=packages/network/application/server-handlers.ts --coverage.include=packages/network/infrastructure/websocket-server.ts`
+**2 files / 24 tests passed** · targeted coverage for
+`network/application/server-handlers.ts` and
+`network/infrastructure/websocket-server.ts` reached statements 100%, branches 100%,
+functions 100%, lines 100% · `corepack pnpm typecheck` 0 ·
+`corepack pnpm lint` 0 · `corepack pnpm check:refactor` 0 ·
+`corepack pnpm check:coverage-policy` 0 · `corepack pnpm check:compat-removal` 0 ·
+`git diff --check` 0.
+
+Remaining high-impact coverage targets include
+`packages/app/application/frame/stages/player-stage.ts` and
+`packages/app/application/frame/stages/stage-survival.ts`.
+
+---
+
+## DX. Round 114 (2026-06-15) — app physics survival coverage
+
+- [x] **COVERAGE-APP-PHYSICS-SURVIVAL** — Expanded physics frame tests for air HUD
+  transitions, drowning damage, Respiration refill bounds, Fire Protection lava
+  reduction, and sub-interval footstep accumulation.
+- [x] **COVERAGE-APP-PHYSICS-HEALTH** — Covered Feather Falling fall-damage reduction,
+  health/XP HUD edge branches, and hostile projectile blocker coordinate fallback.
+- [x] **COVERAGE-APP-PHYSICS-HELPERS** — Covered block footstep sounds and starvation
+  difficulty floors directly.
+
+### Quality gate (Round 114)
+`corepack pnpm vitest run packages/app/application/frame/stages/physics-stage.test.ts`
+**63 passed** ·
+`corepack pnpm vitest run packages/app/application/frame/stages/physics-stage.test.ts --coverage --coverage.include=packages/app/application/frame/stages/physics-stage-survival.ts --coverage.include=packages/app/application/frame/stages/physics-stage-health.ts --coverage.include=packages/app/application/frame/stages/physics-stage-damage-helpers.ts`
+**63 passed** · targeted coverage for
+`app/application/frame/stages/physics-stage-survival.ts`,
+`app/application/frame/stages/physics-stage-health.ts`, and
+`app/application/frame/stages/physics-stage-damage-helpers.ts` reached statements 100%,
+branches 100%, functions 100%, lines 100% · `corepack pnpm typecheck` 0 ·
+`corepack pnpm lint` 0 · `corepack pnpm check:refactor` 0 ·
+`corepack pnpm check:coverage-policy` 0 · `corepack pnpm check:compat-removal` 0 ·
+`git diff --check` 0.
+
+Remaining high-impact coverage targets include
+`packages/app/application/frame/stages/player-stage.ts`.
+
+---
+
+## DY. Round 115 (2026-06-15) — app multiplayer stage coverage
+
+- [x] **COVERAGE-APP-MULTIPLAYER-SYNC** — Covered position sync success and network
+  failure isolation so the multiplayer update cannot abort the frame.
+- [x] **COVERAGE-APP-INBOUND-BLOCK-EDITS** — Covered negative world coordinate chunk
+  selection, local dirty AABB normalization, and failed remote block writes continuing
+  to later inbound edits.
+
+### Quality gate (Round 115)
+`corepack pnpm vitest run packages/app/application/frame/stages/multiplayer-stage.test.ts`
+**7 passed** ·
+`corepack pnpm vitest run packages/app/application/frame/stages/multiplayer-stage.test.ts --coverage --coverage.include=packages/app/application/frame/stages/multiplayer-stage.ts --coverage.reporter=text`
+**7 passed** · targeted coverage for
+`app/application/frame/stages/multiplayer-stage.ts` reached statements 100%, branches
+100%, functions 100%, lines 100% · `corepack pnpm typecheck` 0 ·
+`corepack pnpm lint` 0 · `corepack pnpm check:refactor` 0 ·
+`corepack pnpm check:coverage-policy` 0 · `corepack pnpm check:compat-removal` 0 ·
+`git diff --check` 0.
+
+Remaining high-impact coverage targets from the current stage subset include
+`packages/app/application/frame/stages/interaction-item-use-handler.ts`,
+`packages/app/application/frame/stages/interaction-stage.ts`, and
+`packages/app/application/frame/stages/entity-update-stage.ts`.
+
+---
+
+## DZ. Round 116 (2026-06-15) — app interaction item-use coverage
+
+- [x] **COVERAGE-APP-ITEM-USE-FOOD-FISHING-ARMOR** — Covered invalid and valid non-food held items, failed food removal isolation, fishing XP/enchantment cast inputs, selected-slot armor misses/read failures, mismatched hotbar stacks, displaced armor inventory return, and failed equip side effects.
+- [x] **COVERAGE-APP-ANIMAL-ITEM-USE** — Covered feed/shear no-target and vanished-target paths plus inventory/sound failure isolation after successful animal interactions.
+
+### Quality gate (Round 116)
+
+`corepack pnpm vitest run packages/app/application/frame/stages/interaction-item-use-handler.test.ts packages/app/application/frame/stages/interaction-shear-animal.test.ts packages/app/application/frame/stages/interaction-feed-animal.test.ts`
+**37 passed** ·
+`corepack pnpm vitest run packages/app/application/frame/stages/interaction-item-use-handler.test.ts packages/app/application/frame/stages/interaction-shear-animal.test.ts packages/app/application/frame/stages/interaction-feed-animal.test.ts --coverage --coverage.include='packages/app/application/frame/stages/interaction-item-use-handler.ts' --coverage.exclude='**/*.test.ts' --coverage.all=false --coverage.reporter=text`
+**37 passed** · targeted coverage for
+`app/application/frame/stages/interaction-item-use-handler.ts` reached statements 100%, branches
+100%, functions 100%, lines 100% · `corepack pnpm typecheck` 0 ·
+`corepack pnpm lint` 0 · `corepack pnpm check:refactor` 0 ·
+`corepack pnpm check:coverage-policy` 0 · `corepack pnpm check:compat-removal` 0 ·
+`git diff --check` 0.
+
+Remaining high-impact coverage targets from the current stage subset include
+`packages/app/application/frame/stages/interaction-stage.ts` and
+`packages/app/application/frame/stages/entity-update-stage.ts`.
+
+---
+
+## EA. Round 117 (2026-06-15) — app entity update coverage
+
+- [x] **COVERAGE-APP-ENTITY-UPDATE-XP** — Covered birth-drain XP rewards through the
+  Mending repair path so remaining XP reaches the player service with the expected
+  breeding reward amount.
+- [x] **COVERAGE-APP-ENTITY-PHYSICS-GUARD** — Covered the physics-enabled/no-applyPhysics
+  guard so entity chunk-cache refreshes stay tied to an executable physics hook.
+
+### Quality gate (Round 117)
+
+`corepack pnpm vitest run packages/app/application/frame/stages/entity-update-stage.test.ts`
+**13 passed** ·
+`corepack pnpm vitest run packages/app/application/frame/stages/entity-update-stage.test.ts --coverage --coverage.include=packages/app/application/frame/stages/entity-update-stage.ts --coverage.reporter=text`
+**13 passed** · targeted coverage for
+`app/application/frame/stages/entity-update-stage.ts` reached statements 100%, branches
+100%, functions 100%, lines 100% · `corepack pnpm typecheck` 0 ·
+`corepack pnpm lint` 0 · `corepack pnpm check:refactor` 0 ·
+`corepack pnpm check:coverage-policy` 0 · `corepack pnpm check:compat-removal` 0 ·
+`git diff --check` 0.
+
+Remaining high-impact coverage target from the current stage subset:
+`packages/app/application/frame/stages/interaction-stage.ts`.
+
+---
+
+## EB. Round 118 (2026-06-15) — app interaction stage coverage
+
+- [x] **COVERAGE-APP-INTERACTION-STAGE-GATES** — Covered paused-stage short-circuit, stage-level redstone key flag bundling, bow charge start/release refs, and right-click sheep/feed priority without duplicating handler internals.
+- [x] **COVERAGE-APP-INTERACTION-TARGET-LOOKUP** — Covered creative pick-block target lookup for no target, missing chunk, AIR, out-of-range chunk cell, and the normal pick path.
+- [x] **COVERAGE-APP-INTERACTION-WATER-CHECK** — Covered mixed present/missing neighboring chunks during mining water checks so absent chunks stay non-fatal.
+
+### Quality gate (Round 118)
+
+`corepack pnpm vitest run packages/app/application/frame/stages/interaction-stage.test.ts --coverage --coverage.include=packages/app/application/frame/stages/interaction-stage.ts --coverage.reporter=text`
+**61 passed** · targeted coverage for
+`app/application/frame/stages/interaction-stage.ts` reached statements 100%, branches
+100%, functions 100%, lines 100% · `corepack pnpm typecheck` 0 ·
+`corepack pnpm lint` 0 · `corepack pnpm check:refactor` 0 ·
+`corepack pnpm check:coverage-policy` 0 · `corepack pnpm check:compat-removal` 0 ·
+`git diff --check` 0.
+
+Current high-impact frame-stage coverage targets from this subset are complete.
+
+---
+
+## EC. Round 119 (2026-06-15) — app interaction bow handler coverage
+
+- [x] **COVERAGE-APP-BOW-HANDLER-BRANCHES** — Covered short-charge early return,
+  missing-arrow return, Infinity arrow bypass, Unbreaking durability skip, Punch
+  knockback on surviving hits, Power damage scaling, and Looting bonus-drop failure
+  isolation through direct `handleBowFire` boundary tests.
+- [x] **COVERAGE-CONFIG-BOW-REENTRY** — Removed
+  `packages/app/application/frame/stages/interaction-bow-handler.ts` from the
+  permanent coverage exclusion list after targeted coverage reached 100%.
+
+### Quality gate (Round 119)
+
+`corepack pnpm vitest run packages/app/application/frame/stages/interaction-stage.test.ts --coverage --coverage.include=packages/app/application/frame/stages/interaction-bow-handler.ts --coverage.reporter=text`
+**66 passed** · targeted coverage for
+`app/application/frame/stages/interaction-bow-handler.ts` reached statements 100%, branches
+100%, functions 100%, lines 100% · `corepack pnpm typecheck` 0 ·
+`corepack pnpm lint` 0 · `corepack pnpm check:refactor` 0 ·
+`corepack pnpm check:coverage-policy` 0 · `corepack pnpm check:compat-removal` 0 ·
+`git diff --check` 0.
+
+---
+
+## ED. Round 120 (2026-06-15) — app interaction break handler coverage
+
+- [x] **COVERAGE-APP-BREAK-HANDLER-BRANCHES** — Covered underwater mining with and
+  without Aqua Affinity, HUD progress/reset paths, harvest refusal, creative break
+  effects, crop/grass/leaves/ore drops, Fortune/Silk Touch/Unbreaking behavior,
+  movement reset, flat-index fallback, AIR zero-hardness breaks, and Efficiency
+  break tick handling through direct `handleBlockBreakProgress` boundary tests.
+- [x] **COVERAGE-CONFIG-BREAK-REENTRY** — Removed
+  `packages/app/application/frame/stages/interaction-break-handler.ts` from the
+  permanent coverage exclusion list after targeted coverage reached 100%.
+
+### Quality gate (Round 120)
+
+`corepack pnpm vitest run packages/app/application/frame/stages/interaction-break-handler.test.ts --coverage --coverage.include=packages/app/application/frame/stages/interaction-break-handler.ts --coverage.reporter=text`
+**21 passed** · targeted coverage for
+`app/application/frame/stages/interaction-break-handler.ts` reached statements 100%,
+branches 100%, functions 100%, lines 100% · `corepack pnpm typecheck` 0 ·
+`corepack pnpm lint` 0 · `corepack pnpm check:refactor` 0 ·
+`corepack pnpm check:coverage-policy` 0 · `corepack pnpm check:compat-removal` 0 ·
+`git diff --check` 0.
+
+---
+
+## EE. Round 121 (2026-06-15) — app interaction item-use and melee handler coverage
+
+- [x] **COVERAGE-APP-ITEM-USE-REENTRY** — Removed
+  `packages/app/application/frame/stages/interaction-item-use-handler.ts` from the
+  permanent coverage exclusion list after the item-use, shearing, and feeding
+  interaction suites covered the handler at 100%.
+- [x] **COVERAGE-APP-MELEE-HANDLER-BRANCHES** — Covered baby mob drop/XP
+  suppression, Looting bonus-drop failure isolation, Knockback enchantment impulse
+  scaling, and Unbreaking durability skip behavior through the interaction frame
+  boundary.
+- [x] **COVERAGE-CONFIG-MELEE-REENTRY** — Removed
+  `packages/app/application/frame/stages/interaction-melee-handler.ts` from the
+  permanent coverage exclusion list after targeted coverage reached 100%.
+
+### Quality gate (Round 121)
+
+`corepack pnpm vitest run packages/app/application/frame/stages/interaction-item-use-handler.test.ts packages/app/application/frame/stages/interaction-shear-animal.test.ts packages/app/application/frame/stages/interaction-feed-animal.test.ts --coverage --coverage.include=packages/app/application/frame/stages/interaction-item-use-handler.ts --coverage.reporter=text`
+**37 passed** · targeted coverage for
+`app/application/frame/stages/interaction-item-use-handler.ts` reached statements
+100%, branches 100%, functions 100%, lines 100%.
+
+`corepack pnpm vitest run packages/app/application/frame/stages/interaction-stage.test.ts --coverage --coverage.include=packages/app/application/frame/stages/interaction-melee-handler.ts --coverage.reporter=text`
+**69 passed** · targeted coverage for
+`app/application/frame/stages/interaction-melee-handler.ts` reached statements
+100%, branches 100%, functions 100%, lines 100% · `corepack pnpm typecheck` 0 ·
+`corepack pnpm lint` 0 · `corepack pnpm check:refactor` 0 ·
+`corepack pnpm check:coverage-policy` 0 · `corepack pnpm check:compat-removal` 0 ·
+`git diff --check` 0.
+
+---
+
+## EF. Round 122 (2026-06-15) — app frame maintenance coverage
+
+- [x] **COVERAGE-APP-FRAME-MAINTENANCE-REENTRY** — Removed
+  `packages/app/application/frame/frame-maintenance.ts` from the permanent
+  coverage exclusion list after the Node frame-maintenance suites covered it at
+  100%.
+- [x] **COVERAGE-APP-FRAME-MAINTENANCE-BRANCHES** — Covered the feature-flag path
+  where mob spawning and village simulation are both disabled, proving the
+  maintenance loop skips world-time reads and spawning work in that mode.
+- [x] **COVERAGE-APP-FRAME-MAINTENANCE-DESPAWN-FALLBACK** — Covered the defensive
+  runtime path where mobs are disabled and `despawnAllEntities` is unavailable,
+  keeping the maintenance handler total rather than failing on a partial service
+  double.
+
+### Quality gate (Round 122)
+
+`corepack pnpm vitest run packages/app/application/frame/frame-maintenance.test.ts packages/app/application/frame/frame-maintenance-village.test.ts --coverage --coverage.include=packages/app/application/frame/frame-maintenance.ts --coverage.reporter=text`
+**20 passed** · targeted coverage for
+`app/application/frame/frame-maintenance.ts` reached statements 100%, branches
+100%, functions 100%, lines 100% · `corepack pnpm typecheck` 0 ·
+`corepack pnpm lint` 0 · `corepack pnpm check:refactor` 0 ·
+`corepack pnpm check:coverage-policy` 0 · `corepack pnpm check:compat-removal`
+0 · `git diff --check` 0.
+
+---
+
+## EG. Round 123 (2026-06-15) — block light domain coverage
+
+- [x] **COVERAGE-BLOCK-LIGHT-REENTRY** — Removed
+  `packages/block/domain/light.ts` from the permanent browser-only coverage
+  exclusion list because it is pure domain light-grid logic and is now covered
+  by Node tests.
+- [x] **COVERAGE-BLOCK-LIGHT-BFS** — Covered block-light grid clearing,
+  emissive source seeding, transparent-neighbor propagation, opaque-cell
+  blocking, and chunk-boundary propagation behavior through direct
+  `computeBlockLight` tests.
+- [x] **COVERAGE-BLOCK-SKY-LIGHT** — Covered all-air sky fill, all-opaque
+  darkness, transparent non-air blocks, unknown-index opaque fallback, and
+  highest-opaque-surface seeding through direct `computeSkyLight` tests.
+
+### Quality gate (Round 123)
+
+`corepack pnpm vitest run packages/block/test/light.test.ts --coverage --coverage.include=packages/block/domain/light.ts --coverage.reporter=text`
+**44 passed** · targeted coverage for `block/domain/light.ts` reached statements
+100%, branches 100%, functions 100%, lines 100% · `corepack pnpm typecheck` 0 ·
+`corepack pnpm lint` 0 · `corepack pnpm check:refactor` 0 ·
+`corepack pnpm check:coverage-policy` 0 · `corepack pnpm check:compat-removal`
+0 · `git diff --check` 0.
+
+---
+
+## EH. Round 124 (2026-06-15) — world chunk coordinate coverage
+
+- [x] **COVERAGE-WORLD-CHUNK-COORD-REENTRY** — Removed
+  `packages/world/domain/chunk-coord-utils.ts` from the permanent browser-only
+  coverage exclusion list because it is pure world-domain coordinate and
+  priority logic.
+- [x] **COVERAGE-WORLD-CHUNK-COORD-EXISTING-SUITES** — Confirmed the existing
+  domain, example, and property suites already cover chunk distance, world-to-
+  chunk conversion, block index conversion, circular load offsets, render-
+  distance chunk expansion, key serialization, and velocity-weighted priority
+  behavior at 100%.
+
+### Quality gate (Round 124)
+
+`corepack pnpm vitest run packages/world/domain/chunk-coord-utils.test.ts packages/world/test/chunk-terrain-utils.test.ts packages/world/test/chunk-terrain-utils.property.test.ts --coverage --coverage.include=packages/world/domain/chunk-coord-utils.ts --coverage.reporter=text`
+**70 passed** · targeted coverage for `world/domain/chunk-coord-utils.ts`
+reached statements 100%, branches 100%, functions 100%, lines 100% ·
+`corepack pnpm typecheck` 0 · `corepack pnpm lint` 0 ·
+`corepack pnpm check:refactor` 0 · `corepack pnpm check:coverage-policy` 0 ·
+`corepack pnpm check:compat-removal` 0 · `git diff --check` 0.
+
+---
+
+## GB. Round 171 (2026-06-15) - fluid chunk buffer fixtures
+
+- [x] **FLUID-CHUNK-BUFFER-FIXTURE** - Added a focused chunk-buffer test helper
+  that owns dense chunk block buffer sizing and empty chunk construction for
+  world tests.
+- [x] **FLUID-SERVICE-CHUNK-FACTORY** - Replaced local `makeEmptyChunk`,
+  `blockIndexAt`, and `makeChunkWith` helpers in fluid-service tests with
+  shared fixture factories.
+- [x] **FLUID-TEST-SHAPE-CENTRALIZATION** - Removed duplicated
+  `CHUNK_SIZE * CHUNK_SIZE * CHUNK_HEIGHT` block-buffer construction from the
+  targeted fluid test files.
+
+### Quality gate (Round 171)
+
+`rg -n "new Uint8Array\\(CHUNK_SIZE \\* CHUNK_SIZE \\* CHUNK_HEIGHT\\)|const makeEmptyChunk|const makeChunkWith|const blockIndexAt" packages/world/test/fluid-service.test.ts packages/world/test/fluid-service-tick.test.ts packages/world/test/fluid-service-lava.test.ts`
+0 matches ·
+`corepack pnpm vitest run packages/world/test/fluid-service.test.ts packages/world/test/fluid-service-tick.test.ts packages/world/test/fluid-service-lava.test.ts`
+**3 files / 34 tests passed** ·
+`corepack pnpm tsc --noEmit` 0 ·
+`corepack pnpm check:refactor` 0 · `corepack pnpm check:coverage-policy` 0 ·
+`corepack pnpm check:compat-removal` 0 · `git diff --check` 0.
+
+---
+
+## GC. Round 172 (2026-06-15) - block service chunk buffer fixtures
+
+- [x] **BLOCK-SERVICE-BUFFER-FACTORY** - Reused the shared chunk-buffer test
+  helper in block-service fixtures so dense chunk block allocation has one
+  named test boundary.
+- [x] **BLOCK-SERVICE-TEST-SHAPE-CLEANUP** - Removed direct
+  `CHUNK_SIZE * CHUNK_SIZE * CHUNK_HEIGHT` block-buffer construction from
+  targeted block-service tests.
+- [x] **WORLD-TEST-FIXTURE-CENTRALIZATION** - Extended the fluid fixture split
+  to block-service tests without changing service behavior.
+
+### Quality gate (Round 172)
+
+`rg -n "new Uint8Array\\(CHUNK_SIZE \\* CHUNK_SIZE \\* CHUNK_HEIGHT\\)" packages/world/test/block-service-test-utils.ts packages/world/test/block-service-furnace.test.ts packages/world/test/block-service.test.ts packages/world/test/block-service-silk-touch.test.ts packages/world/test/block-service-fluid-place.test.ts packages/world/test/block-service-place.test.ts`
+0 matches ·
+`corepack pnpm vitest run packages/world/test/block-service-furnace.test.ts packages/world/test/block-service.test.ts packages/world/test/block-service-silk-touch.test.ts packages/world/test/block-service-fluid-place.test.ts packages/world/test/block-service-place.test.ts`
+**5 files / 66 tests passed** ·
+`corepack pnpm tsc --noEmit` 0 ·
+`corepack pnpm check:refactor` 0 · `corepack pnpm check:coverage-policy` 0 ·
+`corepack pnpm check:compat-removal` 0 · `git diff --check` 0.
+
+---
+
+## GD. Round 173 (2026-06-15) - generator chunk buffer fixtures
+
+- [x] **GENERATOR-BUFFER-FACTORY** - Reused the shared chunk-buffer test helper
+  in terrain, end, grass-spread, and tree-placement tests so dense chunk block
+  allocation stays behind one named fixture boundary.
+- [x] **GENERATOR-TEST-SHAPE-CLEANUP** - Removed local `makeBlocks` and inline
+  `Uint8Array(CHUNK_SIZE * CHUNK_SIZE * CHUNK_HEIGHT)` fixture sizing from the
+  targeted generator tests.
+- [x] **WORLD-TEST-DATA-SEPARATION** - Kept behavior assertions focused on
+  terrain/end/grass logic while chunk data shape comes from shared test data
+  builders.
+
+### Quality gate (Round 173)
+
+`rg -n "new Uint8Array\\(CHUNK_SIZE \\* CHUNK_SIZE \\* CHUNK_HEIGHT\\)|new Uint8Array\\(CHUNK_SIZE \\* CHUNK_HEIGHT \\* CHUNK_SIZE\\)|blocks: new Uint8Array\\(CHUNK_SIZE \\* CHUNK_SIZE \\* CHUNK_HEIGHT\\)|fluid: Option\\.some\\(new Uint8Array\\(CHUNK_SIZE \\* CHUNK_SIZE \\* CHUNK_HEIGHT\\)\\)" packages/world/test/tree-placer.test.ts packages/world/test/cave-carver.test.ts packages/world/test/ore-generator.test.ts packages/world/test/surface-resolver-fill.test.ts packages/world/test/end-gateway.test.ts packages/world/test/end-city-generator.test.ts packages/world/test/grass-spread.test.ts packages/world/test/place-chunk-trees.test.ts`
+0 matches ·
+`corepack pnpm vitest run packages/world/test/tree-placer.test.ts packages/world/test/cave-carver.test.ts packages/world/test/ore-generator.test.ts packages/world/test/surface-resolver-fill.test.ts packages/world/test/end-gateway.test.ts packages/world/test/end-city-generator.test.ts packages/world/test/grass-spread.test.ts packages/world/test/place-chunk-trees.test.ts`
+**8 files / 95 tests passed** ·
+`corepack pnpm tsc --noEmit` 0 ·
+`corepack pnpm check:refactor` 0 · `corepack pnpm check:coverage-policy` 0 ·
+`corepack pnpm check:compat-removal` 0 · `git diff --check` 0.
+
+---
+
+## GE. Round 174 (2026-06-15) - remaining world chunk buffer fixtures
+
+- [x] **WORLD-BUFFER-FIXTURE-COMPLETION** - Reused `makeChunkBlockBuffer` in the
+  remaining light-engine, biome property, terrain pipeline, lake, overhang, and
+  chunk max-Y tests that still hand-built full chunk block buffers.
+- [x] **WORLD-TEST-SHAPE-BOUNDARY** - Removed direct chunk block buffer size
+  expressions from the targeted tests while leaving coordinate, height, and
+  column assertions explicit where they define the behavior under test.
+- [x] **DOMAIN-TEST-DATA-SEPARATION** - Kept `computeMaxY` scenarios focused on
+  occupancy shape and boundary positions while chunk allocation comes from the
+  shared test fixture.
+
+### Quality gate (Round 174)
+
+`rg -n "new Uint8Array\\(CHUNK_SIZE \\* CHUNK_SIZE \\* CHUNK_HEIGHT\\)|new Uint8Array\\(CHUNK_SIZE \\* CHUNK_HEIGHT \\* CHUNK_SIZE\\)|const makeBlocks = \\(\\): Uint8Array =>" packages/world/test/biome-service.property.test.ts packages/world/test/light-engine-bfs.property.test.ts packages/world/test/generator-pipeline.test.ts packages/world/test/lake-generator.test.ts packages/world/test/overhang-generator.test.ts packages/world/domain/chunk-max-y.test.ts`
+0 matches ·
+`corepack pnpm vitest run packages/world/test/biome-service.property.test.ts packages/world/test/light-engine-bfs.property.test.ts packages/world/test/generator-pipeline.test.ts packages/world/test/lake-generator.test.ts packages/world/test/overhang-generator.test.ts packages/world/domain/chunk-max-y.test.ts`
+**6 files / 31 tests passed** ·
+`corepack pnpm tsc --noEmit` 0 ·
+`corepack pnpm check:refactor` 0 · `corepack pnpm check:coverage-policy` 0 ·
+`corepack pnpm check:compat-removal` 0 · `git diff --check` 0.
+
+---
+
+## GF. Round 175 (2026-06-15) - spline coverage-ignore removal
+
+- [x] **SPLINE-CONTROL-FLOW-SIMPLIFICATION** - Removed the unreachable segment
+  fallback from `evaluateSpline` by keeping clamp and bracket selection in one
+  readable control flow.
+- [x] **SPLINE-ZERO-WIDTH-GUARD-REMOVAL** - Dropped the duplicate-knot
+  `span === 0` defensive branch; sorted splines either clamp exact knots or skip
+  duplicate zero-width pairs before interpolation.
+- [x] **COVERAGE-IGNORE-DEBT-REDUCTION** - Eliminated the remaining
+  `c8 ignore` annotations from `packages/world/domain/spline.ts` without adding
+  invalid-input compatibility behavior.
+
+### Quality gate (Round 175)
+
+`rg -n "c8 ignore|istanbul ignore|findSegment|span === 0" packages/world/domain/spline.ts`
+0 matches ·
+`corepack pnpm vitest run packages/world/domain/spline.test.ts packages/world/test/spline.test.ts`
+**2 files / 15 tests passed** ·
+`corepack pnpm tsc --noEmit` 0 ·
+`corepack pnpm check:refactor` 0 · `corepack pnpm check:coverage-policy` 0 ·
+`corepack pnpm check:compat-removal` 0 · `git diff --check` 0.
+
+---
+
+## GI. Round 177 (2026-06-15) - terrain spawn test fixture abstraction
+
+- [x] **ENTITY-TERRAIN-SPAWN-FIXTURE-BUILDER** - Added mob terrain chunk test
+  helpers that own chunk buffer allocation and block placement through
+  `chunkBlockIndexUnchecked`, keeping coordinate math out of spawn behavior
+  specs.
+- [x] **ENTITY-TERRAIN-SPAWN-READABILITY** - Replaced per-test
+  `new Uint8Array(CHUNK_SIZE * CHUNK_HEIGHT * CHUNK_SIZE)` setup with
+  human-readable terrain fixtures describing the surface block under test.
+- [x] **ENTITY-TERRAIN-SPAWN-LIGHT-OVERRIDES** - Kept block-light cases explicit
+  by passing only the lighting override to the shared chunk builder, separating
+  terrain data from hostile-spawn light logic.
+
+### Quality gate (Round 177)
+
+`rg -n "new Uint8Array\\(CHUNK_SIZE \\* CHUNK_HEIGHT \\* CHUNK_SIZE\\)|new Uint8Array\\(CHUNK_SIZE \\* CHUNK_SIZE \\* CHUNK_HEIGHT\\)|blockTypeToIndex|chunkBlockIndexUnchecked" packages/entity/test/mob/terrain-spawn.test.ts packages/entity/test/mob/test-utils.ts`
+helper-only matches in `test-utils.ts`; no direct chunk allocation remains in
+`terrain-spawn.test.ts` ·
+`corepack pnpm vitest run packages/entity/test/mob/terrain-spawn.test.ts`
+**1 file / 8 tests passed** ·
+`corepack pnpm tsc --noEmit` 0 ·
+`corepack pnpm check:refactor` 0 · `corepack pnpm check:coverage-policy` 0 ·
+`corepack pnpm check:compat-removal` 0 · `git diff --check` 0.
+
+---
+
+## GG. Round 176 (2026-06-15) - fishing loot fallback removal
+
+- [x] **FISHING-LOOT-NONEMPTY-CONTRACT** - Kept weighted loot selection on the
+  existing `WeightedLootTable` non-empty tuple contract instead of carrying a
+  runtime empty-table fallback.
+- [x] **FISHING-ROLL-NORMALIZATION** - Replaced decrement-and-tail fallback
+  selection with a normalized weighted roll and cumulative weight scan, making
+  bucket selection readable for negative and positive deterministic seeds.
+- [x] **FISHING-TERMINAL-BUCKET-EXPLICITNESS** - Split weighted selection into a
+  recursive non-empty entry scan so the final entry is the explicit terminal
+  bucket, not a compatibility fallback after the loop.
+
+### Quality gate (Round 176)
+
+`rg -n "fallbackEntry|fallback|compat|legacy|c8 ignore|istanbul ignore" packages/entity/domain/fishing.ts`
+0 matches ·
+`corepack pnpm vitest run packages/entity/test/fishing.test.ts`
+**1 file / 18 tests passed** ·
+`corepack pnpm tsc --noEmit` 0 ·
+`corepack pnpm check:refactor` 0 · `corepack pnpm check:coverage-policy` 0 ·
+`corepack pnpm check:compat-removal` 0 · `git diff --check` 0.
+
+---
+
+## EI. Round 125 (2026-06-15) — entity mob drop coverage
+
+- [x] **COVERAGE-ENTITY-MOB-DROP-REENTRY** — Removed
+  `packages/entity/domain/mob/drop.ts` from the permanent browser-only coverage
+  exclusion list because it is pure entity-domain drop probability logic and is
+  covered by Node tests.
+- [x] **COVERAGE-ENTITY-MOB-DROP-PREDICATE** — Confirmed the existing mob drop
+  tests cover required drop shapes, optional chance fields, unconditional drops,
+  chance-success rolls, and boundary failure at or above the chance threshold at
+  100%.
+
+### Quality gate (Round 125)
+
+`corepack pnpm vitest run packages/entity/test/mob/drop.test.ts --coverage --coverage.include=packages/entity/domain/mob/drop.ts --coverage.reporter=text`
+**10 passed** · targeted coverage for `entity/domain/mob/drop.ts` reached
+statements 100%, branches 100%, functions 100%, lines 100% ·
+`corepack pnpm typecheck` 0 · `corepack pnpm lint` 0 ·
+`corepack pnpm check:refactor` 0 · `corepack pnpm check:coverage-policy` 0 ·
+`corepack pnpm check:compat-removal` 0 · `git diff --check` 0.
+
+---
+
+## EJ. Round 126 (2026-06-15) — inventory enchantment schema coverage
+
+- [x] **COVERAGE-INVENTORY-ENCHANTMENT-SCHEMA-REENTRY** — Removed
+  `packages/inventory/domain/enchantment.types.ts` from the pure-type coverage
+  exclusion list because it exports runtime Effect Schema values.
+- [x] **INVENTORY-SCHEMA-CONTRACTS** — Added direct schema tests for valid
+  enchantment type and level decoding, invalid unknown and out-of-range
+  rejection, and complete enchantment payload decoding.
+- [x] **PURE-TYPE-IMPORT-HYGIENE** — Converted declaration-only imports in
+  `packages/inventory/domain/furnace-state.ts`,
+  `packages/rendering/application/chunk-count-port.ts`, and
+  `packages/app/application/frame/types.ts` to `import type`.
+
+### Quality gate (Round 126)
+
+`corepack pnpm vitest run packages/inventory/test/enchantment.test.ts --coverage --coverage.include=packages/inventory/domain/enchantment.types.ts --coverage.reporter=text`
+**86 passed** · targeted coverage for `inventory/domain/enchantment.types.ts`
+reached statements 100%, branches 100%, functions 100%, lines 100% ·
+`corepack pnpm typecheck` 0 · `corepack pnpm lint` 0 ·
+`corepack pnpm check:refactor` 0 · `corepack pnpm check:coverage-policy` 0 ·
+`corepack pnpm check:compat-removal` 0 · `git diff --check` 0.
+
+---
+
+## EK. Round 127 (2026-06-15) — world block light BFS coverage
+
+- [x] **COVERAGE-WORLD-BLOCK-LIGHT-BFS-REENTRY** — Removed
+  `packages/world/domain/block-light-bfs.ts` from the permanent browser-only
+  coverage exclusion list because it is pure world-domain block-light
+  propagation logic and is now covered by direct Node tests.
+- [x] **WORLD-LIGHT-MODEL-CLASSIFICATION** — Reclassified
+  `packages/world/domain/light-engine-model.ts` as pure type-only source and
+  converted its Effect import to `import type`.
+- [x] **WORLD-BLOCK-LIGHT-BFS-CONTRACTS** — Added direct tests for emissive
+  seeding, transparent attenuation, opaque-cell blocking, add/removal boundary
+  dirty flags, stale-light removal, stronger-neighbor re-adds, full block-buffer
+  re-add propagation, stale queued propagation skips, and level-one emitters.
+
+### Quality gate (Round 127)
+
+`corepack pnpm vitest run packages/world/test/block-light-bfs.test.ts --coverage --coverage.include=packages/world/domain/block-light-bfs.ts --coverage.reporter=text`
+**10 passed** · targeted coverage for `world/domain/block-light-bfs.ts` reached
+statements 100%, branches 100%, functions 100%, lines 100% ·
+`corepack pnpm typecheck` 0 · `corepack pnpm lint` 0 ·
+`corepack pnpm check:refactor` 0 · `corepack pnpm check:coverage-policy` 0 ·
+`corepack pnpm check:compat-removal` 0 · `git diff --check` 0.
+
+---
+
+## EL. Round 128 (2026-06-15) — interaction block access failure contracts
+
+- [x] **INTERACTION-BLOCK-ACCESS-NO-AIR-FALLBACK** — Removed the block-read
+  compatibility fallback that converted chunk load failures and missing cached
+  chunks into `AIR`. `readBlockTypeAt` now returns `AIR` only for vertical
+  out-of-world reads and otherwise preserves chunk-manager read failures.
+- [x] **PORTAL-CACHE-COMPLETE-NEIGHBORHOOD** — Made flint-and-steel portal
+  detection require a complete 3x3 chunk neighborhood before running cached
+  frame detection, avoiding partial-cache false negatives/positives disguised
+  as air blocks.
+- [x] **PLACEMENT-UNREADABLE-CHUNK-NOOP** — Updated bucket fill and generic
+  right-click handling to treat unreadable target chunks as no-op interaction
+  outcomes instead of silently reading them as `AIR`.
+- [x] **INTERACTION-BLOCK-ACCESS-CONTRACTS** — Added direct contracts for chunk
+  cache construction, negative-coordinate local indexing, vertical out-of-world
+  reads, propagated read failures, dirty marking, and complete-cache lookups.
+
+### Quality gate (Round 128)
+
+`corepack pnpm vitest run packages/app/application/frame/stages/interaction-block-access.test.ts packages/app/application/frame/stages/interaction-placement-handler.test.ts`
+**45 passed** ·
+`corepack pnpm vitest run packages/app/application/frame/stages/interaction-block-access.test.ts --coverage --coverage.include=packages/app/application/frame/stages/interaction-block-access.ts --coverage.reporter=text`
+**7 passed** · targeted coverage for
+`app/application/frame/stages/interaction-block-access.ts` reached statements
+100%, branches 100%, functions 100%, lines 100% ·
+`corepack pnpm typecheck` 0 · `corepack pnpm check:refactor` 0 ·
+`corepack pnpm check:coverage-policy` 0 · `corepack pnpm check:compat-removal`
+0 · targeted `git diff --check` 0.
+
+---
+
+## EM. Round 129 (2026-06-15) — mob terrain spawn complete-buffer contract
+
+- [x] **MOB-TERRAIN-SPAWN-NO-SPARSE-BLOCK-FALLBACK** — Removed the
+  `chunk.blocks[index] ?? 0` sparse-buffer compatibility read from
+  `packages/entity/domain/mob/terrain-spawn.ts`; terrain spawn now relies on
+  the world-domain `Chunk` contract that chunk block buffers are complete
+  `Uint8Array` instances.
+- [x] **MOB-TERRAIN-SPAWN-UNREACHABLE-BRANCH-REMOVAL** — Removed the
+  `c8 ignore` body/head occupancy guard that was unreachable after the
+  top-down first-solid-block scan. The highest non-air block in the column
+  already proves the two voxels above it are clear once the head-height bound
+  passes.
+- [x] **MOB-TERRAIN-SPAWN-READABILITY** — Extracted local-axis wrapping and
+  block-id lookup helpers so the spawn resolver states its scan rules directly
+  instead of interleaving coordinate normalization, flat indexing, and
+  compatibility defaulting.
+
+### Quality gate (Round 129)
+
+`corepack pnpm vitest run packages/entity/test/mob/terrain-spawn.test.ts --coverage --coverage.include=packages/entity/domain/mob/terrain-spawn.ts --coverage.reporter=text`
+**8 passed** · targeted coverage for
+`entity/domain/mob/terrain-spawn.ts` reached statements 100%, branches 100%,
+functions 100%, lines 100% · `corepack pnpm exec tsc --noEmit --pretty false`
+0 · `corepack pnpm check:refactor` 0 · `corepack pnpm check:coverage-policy`
+0 · `corepack pnpm check:compat-removal` 0.
+
+---
+
+## EN. Round 130 (2026-06-15) — fluid state complete-buffer contract
+
+- [x] **WORLD-FLUID-STATE-NO-SPARSE-BYTE-FALLBACK** — Removed the
+  `fluid[idx] ?? 0` sparse-buffer compatibility read from
+  `packages/world/application/fluid-state-ops.ts`; hydration now relies on
+  complete `Uint8Array` fluid buffers.
+- [x] **WORLD-FLUID-STATE-CODEC-CONTRACT** — Replaced the ignored invalid-byte
+  branch with `Option.getOrThrow(decodeFluidByte(byte))`, so non-zero fluid
+  bytes must be produced by the fluid codec instead of silently skipped.
+- [x] **WORLD-FLUID-STATE-HYDRATION-CONTRACTS** — Added direct tests for own-key
+  enqueue writes, complete-buffer hydration, empty-buffer no-op, source-block
+  hydration when no complete buffer exists, and invalid non-codec byte
+  rejection.
+
+### Quality gate (Round 130)
+
+`corepack pnpm vitest run packages/world/test/fluid-state-ops.test.ts --coverage --coverage.include=packages/world/application/fluid-state-ops.ts --coverage.reporter=text`
+**15 passed** · targeted coverage for
+`world/application/fluid-state-ops.ts` reached statements 100%, branches 100%,
+functions 100%, lines 100% · `corepack pnpm exec tsc --noEmit --pretty false`
+0 · `corepack pnpm check:refactor` 0 · `corepack pnpm check:coverage-policy`
+0 · `corepack pnpm check:compat-removal` 0 · targeted `git diff --check` 0.
+
+---
+
+## EO. Round 131 (2026-06-15) — grass spread complete-buffer contract
+
+- [x] **WORLD-GRASS-SPREAD-NO-MISSING-AIR-FALLBACK** — Removed the missing-cell
+  `?? AIR_BLOCK_IDX` compatibility read from
+  `packages/world/domain/grass-spread.ts`; grass spread now reads only from
+  complete chunk block buffers.
+- [x] **WORLD-GRASS-SPREAD-TYPED-BUFFER-PRECONDITION** — Added a typed
+  `GrassSpreadChunkError` precondition so incomplete chunk `Uint8Array` buffers
+  fail through `Effect` instead of silently producing no spread targets.
+- [x] **WORLD-GRASS-SPREAD-CONTRACTS** — Replaced the missing-entry-as-air
+  compatibility test with a rejection contract while preserving neighbor,
+  occupancy, coordinate, maintenance integration, and per-tick cap coverage.
+
+### Quality gate (Round 131)
+
+`corepack pnpm vitest run packages/world/test/grass-spread.test.ts --coverage --coverage.include=packages/world/domain/grass-spread.ts --coverage.reporter=text`
+**8 passed** · targeted coverage for `world/domain/grass-spread.ts` reached
+statements 100%, branches 100%, functions 100%, lines 100% ·
+`corepack pnpm vitest run packages/app/application/frame/frame-maintenance.test.ts`
+**18 passed** · `corepack pnpm exec tsc --noEmit --pretty false` 0 ·
+`corepack pnpm check:refactor` 0 · `corepack pnpm check:coverage-policy` 0 ·
+`corepack pnpm check:compat-removal` 0 · targeted `git diff --check` 0.
+
+## EP. Round 132 (2026-06-15) — fluid service complete block-buffer reads
+
+- [x] **WORLD-FLUID-SERVICE-NO-SPARSE-BLOCK-FALLBACK** — Removed the
+  `chunk.blocks[idx] ?? AIR_INDEX` sparse block fallback from
+  `packages/world/application/fluid-service-helpers.ts`; fluid replacement
+  checks now rely on the complete chunk block-buffer contract for valid local
+  coordinates.
+- [x] **WORLD-FLUID-SERVICE-STRICT-BLOCKAT** — Replaced the nullable `blockAt`
+  read with a strict in-bounds `Uint8Array` read and preserved `Option.none()`
+  only for unloaded chunks or out-of-bounds vertical coordinates.
+- [x] **WORLD-FLUID-SERVICE-HELPER-CONTRACTS** — Added direct helper tests for
+  AIR replacement, water-breakable blocks, lava rejection, unloaded chunks,
+  vertical bounds, and incomplete-buffer rejection without restoring missing
+  block cells as AIR.
+
+### Quality gate (Round 132)
+
+`corepack pnpm vitest run packages/world/test/fluid-service.test.ts --coverage --coverage.include=packages/world/application/fluid-service-helpers.ts --coverage.reporter=text`
+**16 passed** · targeted coverage for
+`world/application/fluid-service-helpers.ts` reached statements 100%, branches
+100%, functions 100%, lines 100% ·
+`corepack pnpm exec tsc --noEmit --pretty false` 0 ·
+`corepack pnpm check:refactor` 0 · `corepack pnpm check:coverage-policy` 0 ·
+`corepack pnpm check:compat-removal` 0 · targeted `git diff --check` 0.
+
+## EP. Round 133 (2026-06-15) — spline evaluator coverage escape removal
+
+- [x] **WORLD-SPLINE-NO-COVERAGE-ESCAPES** — Removed the remaining `c8 ignore`
+  escapes from `packages/world/domain/spline.ts`; segment selection now has no
+  unreachable tail fallback.
+- [x] **WORLD-SPLINE-SEGMENT-READABILITY** — Split bracket lookup and
+  interpolation into named pure helpers while preserving clamped endpoint and
+  first duplicate-knot semantics.
+- [x] **WORLD-SPLINE-CONTRACTS** — Verified domain and world spline contracts,
+  including duplicate knots and terrain spline usage, under targeted coverage.
+
+### Quality gate (Round 133)
+
+`corepack pnpm vitest run packages/world/domain/spline.test.ts packages/world/test/spline.test.ts packages/world/test/terrain-splines.test.ts --coverage --coverage.include=packages/world/domain/spline.ts --coverage.reporter=text`
+**19 passed** · targeted coverage for `world/domain/spline.ts` reached
+statements 100%, branches 100%, functions 100%, lines 100% ·
+`corepack pnpm exec tsc --noEmit --pretty false` 0 ·
+`corepack pnpm check:refactor` 0 · `corepack pnpm check:coverage-policy` 0 ·
+`corepack pnpm check:compat-removal` 0 · targeted `git diff --check` 0.
+
+---
+
+## EQ. Round 134 (2026-06-15) — fishing weighted loot coverage escape removal
+
+- [x] **ENTITY-FISHING-NO-WEIGHTED-FALLBACK** — Removed the remaining
+  `c8 ignore` escape from `packages/entity/domain/fishing.ts`; weighted loot
+  selection now treats the final entry as the final weight bucket instead of an
+  unreachable fallback.
+- [x] **ENTITY-FISHING-NONEMPTY-LOOT-TABLES** — Added a `WeightedLootTable`
+  tuple contract in `packages/entity/domain/fishing.config.ts` so fish,
+  treasure, and junk tables cannot be empty at the type boundary.
+- [x] **ENTITY-FISHING-FINAL-BUCKET-CONTRACTS** — Added deterministic catch
+  tests for the final weighted bucket in each category: pufferfish, iron ingot,
+  and coal.
+
+### Quality gate (Round 134)
+
+`corepack pnpm vitest run packages/entity/test/fishing.test.ts --coverage --coverage.include=packages/entity/domain/fishing.ts --coverage.reporter=text`
+**18 passed** · targeted coverage for `entity/domain/fishing.ts` reached
+statements 100%, branches 100%, functions 100%, lines 100% ·
+`corepack pnpm exec tsc --noEmit --pretty false` 0 ·
+`corepack pnpm check:refactor` 0 · `corepack pnpm check:coverage-policy` 0 ·
+`corepack pnpm check:compat-removal` 0 · targeted `git diff --check` 0.
+
+---
+
+## ER. Round 135 (2026-06-15) — interaction complete block-buffer reads
+
+- [x] **INTERACTION-BLOCK-READS-NO-SPARSE-AIR-FALLBACK** — Removed the
+  remaining interaction-stage `chunk.blocks[index] ?? 0` block-storage read
+  fallback from target block lookup and block breaking; both paths now share
+  the typed complete-buffer read contract.
+- [x] **INTERACTION-BLOCK-ACCESS-COMPLETE-BUFFER-CONTRACT** — Added strict
+  chunk block-buffer validation for exact `CHUNK_SIZE * CHUNK_SIZE *
+  CHUNK_HEIGHT` storage, out-of-range indexes, and missing cells, with failures
+  represented through `InteractionBlockReadError` instead of thrown exceptions.
+- [x] **INTERACTION-PORTAL-CACHE-STRICT-READS** — Prevalidated cached portal
+  chunks before constructing the synchronous frame detector so missing required
+  chunks or incomplete buffers do not get interpreted as AIR.
+
+### Quality gate (Round 135)
+
+`corepack pnpm vitest run packages/app/application/frame/stages/interaction-block-access.test.ts packages/app/application/frame/stages/interaction-break-handler.test.ts packages/app/application/frame/stages/interaction-stage.test.ts`
+**3 files / 103 tests passed** ·
+`corepack pnpm vitest run packages/app/application/frame/stages/interaction-block-access.test.ts packages/app/application/frame/stages/interaction-break-handler.test.ts packages/app/application/frame/stages/interaction-stage.test.ts --coverage --coverage.include=packages/app/application/frame/stages/interaction-block-access.ts --coverage.include=packages/app/application/frame/stages/interaction-break-handler.ts --coverage.include=packages/app/application/frame/stages/interaction-stage.ts --coverage.reporter=text`
+targeted coverage for all three included files reached statements 100%,
+branches 100%, functions 100%, lines 100% ·
+`corepack pnpm exec tsc --noEmit --pretty false` 0 ·
+`corepack pnpm check:refactor` 0 · `corepack pnpm check:coverage-policy` 0 ·
+`corepack pnpm check:compat-removal` 0 · targeted `git diff --check` 0.
+
+---
+
+## ES. Round 136 (2026-06-15) — physics column complete block-buffer reads
+
+- [x] **PHYSICS-COLUMN-READS-NO-SPARSE-AIR-FALLBACK** — Removed the physics
+  `chunk.blocks[index] ?? 0` block-storage fallback from column reads used by
+  survival hazards, footsteps, and portal travel.
+- [x] **PHYSICS-COLUMN-COMPLETE-BUFFER-CONTRACT** — Added
+  `PhysicsColumnReadError` validation so loaded chunks must expose exactly
+  `CHUNK_SIZE * CHUNK_SIZE * CHUNK_HEIGHT` defined block ids before a
+  synchronous column reader is created; unloaded chunks still produce a `null`
+  column reader.
+- [x] **PHYSICS-COLUMN-UTILITY-COVERAGE** — Added focused tests for complete
+  chunk reads, unloaded chunks, short storage, and sparse storage cells.
+
+### Quality gate (Round 136)
+
+`corepack pnpm vitest run packages/app/application/frame/stages/physics-stage-utils.test.ts packages/app/application/frame/stages/physics-stage.test.ts`
+**2 files / 67 tests passed** ·
+`corepack pnpm vitest run packages/app/application/frame/stages/physics-stage-utils.test.ts packages/app/application/frame/stages/physics-stage.test.ts --coverage --coverage.include=packages/app/application/frame/stages/physics-stage-utils.ts --coverage.reporter=text`
+targeted coverage for `physics-stage-utils.ts` reached statements 100%,
+branches 100%, functions 100%, lines 100% ·
+`corepack pnpm exec tsc --noEmit --pretty false` 0 ·
+`corepack pnpm check:refactor` 0 · `corepack pnpm check:coverage-policy` 0 ·
+`corepack pnpm check:compat-removal` 0 · `git diff --check` 0 · production
+block-storage AIR fallback scan found no matches outside world test helpers.
+
+---
+
+## ET. Round 137 (2026-06-15) — spawn selection complete block-buffer reads
+
+- [x] **SPAWN-SELECTION-NO-SPARSE-AIR-FALLBACK** — Removed the
+  `chunk.blocks[idx] ?? AIR` fallback from spawn selection so loaded chunk
+  storage holes are no longer treated as safe air during candidate scoring.
+- [x] **SPAWN-SELECTION-COMPLETE-BUFFER-CONTRACT** — Added
+  `SpawnSelectionChunkError` validation for exact chunk block-buffer length,
+  invalid local indexes, and missing block ids before synchronous spawn reads
+  can use loaded chunk data.
+- [x] **SPAWN-SELECTION-CORRUPT-CHUNK-TESTS** — Added focused tests for
+  truncated and sparse loaded chunks to lock the no-silent-AIR contract.
+
+### Quality gate (Round 137)
+
+`corepack pnpm vitest run packages/app/test/spawn-selection.test.ts`
+**14 passed** ·
+`corepack pnpm vitest run packages/app/test/spawn-selection.test.ts --coverage --coverage.all=false --coverage.include='packages/app/application/main/spawn-selection.ts' --coverage.exclude='node_modules/**' --coverage.exclude='dist/**' --coverage.thresholds.lines=0 --coverage.thresholds.functions=0 --coverage.thresholds.branches=0 --coverage.thresholds.statements=0 --coverage.reporter=text`
+targeted coverage for `spawn-selection.ts` reported statements 94.41%,
+branches 79.66%, functions 92.3%, lines 94.41% with the config-level
+`packages/app/application/main/**` exclusion overridden only for this probe ·
+`corepack pnpm exec tsc --noEmit --pretty false` 0 ·
+`corepack pnpm check:refactor` 0 · `corepack pnpm check:coverage-policy` 0 ·
+`corepack pnpm check:compat-removal` 0 · `git diff --check` 0 ·
+production block-storage fallback scan now leaves
+`packages/app/application/frame/frame-maintenance-village.ts:20` as the next
+app-side `?? AIR_BLOCK_IDX` candidate.
+
+---
+
+## EU. Round 138 (2026-06-15) — village placement complete block-buffer reads
+
+- [x] **VILLAGE-PLACEMENT-NO-SPARSE-AIR-FALLBACK** — Removed the remaining
+  `?? AIR_BLOCK_IDX` chunk block-storage fallback from village structure
+  grounding so loaded chunk holes are no longer interpreted as AIR terrain.
+- [x] **VILLAGE-PLACEMENT-COMPLETE-BUFFER-CONTRACT** — Added
+  `VillagePlacementBlockReadError` validation for exact
+  `CHUNK_SIZE * CHUNK_SIZE * CHUNK_HEIGHT` block storage and missing cells
+  before village placement reads loaded chunk columns.
+- [x] **VILLAGE-PLACEMENT-CORRUPT-CHUNK-TESTS** — Added focused tests for
+  unavailable chunks, all-air columns, truncated storage, and sparse storage.
+  Frame maintenance now logs village placement failures at the call site while
+  preserving the direct placement error contract for tests and callers.
+
+### Quality gate (Round 138)
+
+`corepack pnpm vitest run packages/app/application/frame/frame-maintenance-village.test.ts`
+**5 passed** ·
+`corepack pnpm vitest run packages/app/application/frame/frame-maintenance-village.test.ts --coverage --coverage.include=packages/app/application/frame/frame-maintenance-village.ts --coverage.reporter=text --coverage.thresholds.statements=0 --coverage.thresholds.branches=0 --coverage.thresholds.functions=0 --coverage.thresholds.lines=0`
+targeted coverage for `frame-maintenance-village.ts` reported statements
+95.91%, branches 96.55%, functions 100%, lines 95.91%; the only uncovered
+lines are the defensive out-of-range index branch, unreachable through
+normalized village world coordinates ·
+`corepack pnpm exec tsc --noEmit --pretty false` 0 ·
+`corepack pnpm check:refactor` 0 · `corepack pnpm check:coverage-policy` 0 ·
+`corepack pnpm check:compat-removal` 0 · `git diff --check` 0 ·
+targeted app main/frame block-storage AIR fallback scan found no remaining
+matches.
+
+---
+
+## EV. Round 139 (2026-06-15) — strict block type index decoding
+
+- [x] **BLOCK-CODEC-NO-AIR-FALLBACK** — Removed the central out-of-bounds-to-AIR
+  fallback from `indexToBlockType`; introduced branded `BlockTypeIndex`,
+  `isValidBlockIndex`, and `decodeBlockType` for explicit storage-boundary
+  validation.
+- [x] **CHUNK-BLOCK-ID-BOUNDARY-VALIDATION** — Updated chunk service, frame
+  interaction block access, physics column readers, farming reads, spawn
+  selection, and world test helpers to validate loaded block ids before decoding
+  instead of masking missing or corrupt values as AIR.
+- [x] **INVALID-BLOCK-ID-CONTRACT-TESTS** — Added chunk-service invalid stored
+  block-id coverage and updated codec, world, and app focused tests around strict
+  decode behavior.
+
+### Quality gate (Round 139)
+
+`corepack pnpm vitest run packages/core/domain/block-codec.test.ts packages/world/test/chunk-service.test.ts packages/world/test/block-service.test.ts packages/world/test/block-cycle.integration.test.ts packages/app/test/spawn-selection.test.ts packages/app/application/frame/stages/interaction-block-access.test.ts packages/app/application/frame/stages/interaction-break-handler.test.ts packages/app/application/frame/stages/interaction-farming-handler.test.ts packages/app/application/frame/stages/physics-stage-utils.test.ts`
+**9 files / 162 tests passed** ·
+`corepack pnpm exec tsc --noEmit --pretty false` 0 ·
+`corepack pnpm check:refactor` 0 · `corepack pnpm check:coverage-policy` 0 ·
+`corepack pnpm check:compat-removal` 0 · `git diff --check` 0 · targeted
+block-codec AIR fallback scan found no matches; broader `?? AIR/0` scan only
+reported unrelated numeric and test defaults.
+
+---
+
+## EW. Round 140 (2026-06-15) — break-speed explicit block and tool contract
+
+- [x] **BREAK-SPEED-NO-UNKNOWN-HARDNESS-FALLBACK** — Removed the string/unknown
+  fallback from block hardness lookup by typing `HARDNESS_BY_TYPE` as
+  `Record<BlockType, number>` and requiring `getBlockHardness` callers to pass
+  a decoded `BlockType`.
+- [x] **BREAK-TICKS-EXPLICIT-CORRECT-TOOL** — Replaced the positional
+  `computeBreakTicks(..., correctTool = true)` compatibility default with a
+  `BreakTicksInput` object that requires explicit `correctTool`,
+  `efficiencyLevel`, and `Option<InventoryItem>`.
+- [x] **BLOCK-CONFIG-COMPLETE-HARDNESS-DATA** — Registered missing `CHEST`,
+  `DOOR`, `DOOR_OPEN`, and `LADDER` block configs so every `BlockTypeSchema`
+  literal has explicit hardness data; the break-speed tests now assert that
+  completeness contract.
+- [x] **INTERACTION-BREAK-INVENTORY-ITEM-BOUNDARY** — Converted the frame
+  `Option<string>` hotbar value through `InventoryItemSchema` at the break
+  handler boundary, removing local `Option<InventoryItem>` casts before harvest,
+  effective-tool, and break-tick computation.
+
+### Quality gate (Round 140)
+
+`corepack pnpm exec vitest run packages/app/application/frame/stages/interaction-break-handler.test.ts packages/block/domain/break-speed.test.ts packages/block/test/blocks.config.test.ts`
+**3 files / 67 tests passed** ·
+`corepack pnpm exec vitest run packages/block/domain/break-speed.test.ts packages/block/test/blocks.config.test.ts`
+**2 files / 45 tests passed** ·
+`corepack pnpm exec tsc --noEmit --pretty false` 0 ·
+`corepack pnpm check:refactor` 0 · `corepack pnpm check:coverage-policy` 0 ·
+`corepack pnpm check:compat-removal` 0 · `git diff --check` 0 · targeted
+break-speed compatibility scan found no remaining unknown-hardness fallback,
+`correctTool` default, old compatibility tests, or local `Option<InventoryItem>`
+casts.
+
+---
+
+## EX. Round 141 (2026-06-15) — ore XP typed block contract
+
+- [x] **ORE-XP-NO-STRING-FALLBACK** — Replaced `getOreXpDrop(string)` and its
+  `?? 0` fallback with an explicit `OreXpBlockType` contract backed by a
+  complete `Record<OreXpBlockType, number>`.
+- [x] **ORE-XP-OPTIONAL-NON-ORE-CONTRACT** — Added `isOreXpBlock` and
+  `getOreXpDropOption(BlockType)` so non-ore blocks are represented as
+  `Option.none()` instead of being silently collapsed into an unknown-string
+  zero value.
+- [x] **ORE-XP-DATA-MATCHES-BLOCK-SCHEMA** — Removed orphan `NETHER_QUARTZ_ORE`
+  XP data because it is not a current `BlockType`; the XP table now has to
+  satisfy the compiled block schema.
+- [x] **INTERACTION-BREAK-XP-OPTION-FLOW** — Updated the frame break handler to
+  award XP through `getOreXpDropOption`, keeping non-ore and zero-XP ore cases
+  explicit in the application flow.
+
+### Quality gate (Round 141)
+
+`corepack pnpm vitest run packages/block/test/blocks.config.test.ts packages/app/application/frame/stages/interaction-break-handler.test.ts`
+**2 files / 49 tests passed** ·
+`corepack pnpm tsc --noEmit` 0 ·
+`corepack pnpm check:refactor` 0 · `corepack pnpm check:coverage-policy` 0 ·
+`corepack pnpm check:compat-removal` 0 · `git diff --check` 0.
+
+---
+
+## EY. Round 142 (2026-06-15) — game-state velocity read error contract
+
+- [x] **GAME-STATE-NO-VELOCITY-READ-FALLBACK** — Removed the
+  `copyVelocityInto` `PhysicsServiceError` catch paths that silently rewrote
+  failed physics velocity reads into zero vectors during `update`.
+- [x] **GAME-STATE-UPDATE-PHYSICS-ERROR-SURFACES** — Let velocity read failures
+  flow to the existing `update` boundary, where they are wrapped as
+  `GameStateError` with the original physics operation.
+- [x] **GAME-STATE-VELOCITY-ERROR-TEST** — Replaced the old fallback coverage
+  test with a contract test that asserts `update` fails and timing does not
+  advance when the physics velocity read fails.
+
+### Quality gate (Round 142)
+
+`corepack pnpm vitest run packages/game/test/game-state-coverage.test.ts`
+**1 file / 12 tests passed** ·
+`corepack pnpm tsc --noEmit` 0 ·
+`corepack pnpm check:refactor` 0 · `corepack pnpm check:coverage-policy` 0 ·
+`corepack pnpm check:compat-removal` 0 · `git diff --check` 0 · targeted
+game-state velocity fallback scan found no remaining old fallback strings or
+local catch-and-recover handling around velocity reads.
+
+---
+
+## EZ. Round 143 (2026-06-15) — worker request id strict boundary
+
+- [x] **MESHING-WORKER-NO-SYNTHETIC-ID-FALLBACK** — Removed the worker-side
+  `id=-1` fallback for malformed meshing requests; decode failures now produce
+  a failure response only when the original message carries a valid
+  non-negative integer request id.
+- [x] **TERRAIN-WORKER-NO-SYNTHETIC-ID-FALLBACK** — Applied the same request-id
+  contract to the terrain worker so structurally broken, uncorrelatable
+  messages are dropped instead of being routed through a synthetic id.
+- [x] **WORKER-MALFORMED-NO-ID-CONTRACT** — Updated the meshing worker contract
+  test to assert that malformed messages without a valid id produce no worker
+  response, preserving pool correlation as the only error-routing mechanism.
+
+### Quality gate (Round 143)
+
+`corepack pnpm vitest run packages/worker/test/meshing-worker.test.ts packages/worker/test/terrain-worker-protocol.test.ts packages/worker/test/meshing-worker-pool-protocol.test.ts`
+**3 files / 31 tests passed** ·
+`corepack pnpm tsc --noEmit` 0 ·
+`corepack pnpm check:refactor` 0 · `corepack pnpm check:coverage-policy` 0 ·
+`corepack pnpm check:compat-removal` 0 · targeted worker fallback-id scan found
+no remaining production `fallbackId`, `id=-1`, fallback-id wording, or synthetic
+worker id routing.
+
+---
+
+## FA. Round 144 (2026-06-15) - village structure anchor option contract
+
+- [x] **VILLAGE-ANCHOR-NO-POSITION-FALLBACK** - Removed the `fallback: Position` argument from `findStructureAnchor`; missing structure ids now return `Option.none()` instead of silently substituting an unrelated coordinate.
+- [x] **VILLAGE-TARGET-OPTION-CONTRACT** - Changed `getTargetPosition` to return `Option.Option<Position>` so Work/Rest/Wander expose missing structure links as absent targets, while Trade/Idle keep their explicit current-position target.
+- [x] **VILLAGE-FACTORY-CONFIG-ASSERTION** - Village creation now unwraps template-defined home anchors with `Option.getOrThrow`, surfacing config/template mismatches immediately instead of spawning villagers at the village center.
+- [x] **VILLAGE-TICK-NO-HIDDEN-RECOVERY** - The per-villager tick handles absent targets by keeping the villager in place through an explicit `Option.match` branch rather than relying on domain fallback coordinates.
+- [x] **VILLAGE-FALLBACK-TESTS-REMOVED** - Replaced fallback-position tests with `Option.none()` assertions and added missing target coverage for Work/Wander.
+
+### Quality gate (Round 144)
+
+`corepack pnpm vitest run packages/entity/test/village/village-simulation.test.ts packages/entity/test/village/village-factory.test.ts packages/entity/test/village/village-service.test.ts`
+**3 files / 60 tests passed** ·
+`corepack pnpm tsc --noEmit` 0 ·
+`corepack pnpm check:refactor` 0 · `corepack pnpm check:coverage-policy` 0 ·
+`corepack pnpm check:compat-removal` 0 · `git diff --check` 0 · targeted
+village anchor fallback scan found no remaining fallback argument, fallback
+position wording, or `fallback: Position` contract under `packages/entity`.
+
+---
+
+## FB. Round 145 (2026-06-15) - rendering fluid state strict contract
+
+- [x] **RENDERING-FLUID-NO-BLOCK-ID-FALLBACK** - Removed the meshing fallback that synthesized a source fluid cell from WATER/LAVA block ids when the fluid byte was missing or invalid.
+- [x] **RENDERING-FLUID-DATA-OWNS-HEIGHT** - `resolveFluidState` now renders only valid decoded fluid cells whose encoded type matches the block id, keeping height/source data in the fluid buffer instead of reconstructing it in rendering logic.
+- [x] **MESHING-FLUID-PASS-REQUIRES-DATA** - `greedyMeshChunk` invokes the fluid face pass only when a chunk carries a fluid buffer, so missing fluid data is an explicit no-fluid render state rather than a compatibility recovery path.
+- [x] **RENDERING-FLUID-CONTRACT-TESTS** - Added tests for zero-byte and mismatched fluid cells returning no render state, plus valid source-cell rendering and updated water routing fixtures to carry explicit fluid data.
+- [x] **RENDERING-FLUID-NO-CORNER-RECOVERY** - Removed the unreachable corner-height `current.height` recovery branch; valid fluid meshing samples the current cell through the encoded fluid buffer contract.
+
+### Quality gate (Round 145)
+
+`corepack pnpm vitest run packages/rendering/test/greedy-meshing-fluid-state.test.ts packages/rendering/test/greedy-meshing-fluid-height.test.ts packages/rendering/test/greedy-meshing-water.property.test.ts packages/rendering/test/greedy-meshing-advanced.test.ts packages/rendering/test/chunk-mesh.test.ts packages/worker/test/meshing-worker-pool.test.ts packages/worker/test/meshing-worker-pool-port-layer.test.ts`
+**7 files / 69 tests passed** ·
+`corepack pnpm tsc --noEmit` 0 ·
+`corepack pnpm check:refactor` 0 · `corepack pnpm check:coverage-policy` 0 ·
+`corepack pnpm check:compat-removal` 0 · `git diff --check` 0 · targeted
+rendering-fluid scan found no block-id-derived fluid fallback, no
+`Option.getOrUndefined(chunk.fluid)` meshing call, no undefined fluid pass, no
+decode fallback, and no meshing-local `fallback`/`compat`/`legacy`/`c8 ignore`
+wording remains.
+
+---
+
+## FC. Round 146 (2026-06-15) - furnace fuel duration strict contract
+
+- [x] **FURNACE-FUEL-NO-DURATION-FALLBACK** - Removed the smelt-duration fallback
+  from `getFuelBurnDurationSecs`; fuel burn duration is now read from the
+  explicit furnace fuel duration table only.
+- [x] **FURNACE-FUEL-ALLOWLIST-OWNS-DURATION** - Changed `FURNACE_FUEL_ITEMS` to
+  a readonly tuple and introduced `FurnaceFuelItem`, with
+  `FURNACE_FUEL_BURN_DURATION_SECS` typed as `Record<FurnaceFuelItem, number>`
+  so every accepted fuel item must have a configured duration.
+- [x] **FURNACE-SMELTING-FUEL-TYPE-CONTRACT** - Narrowed smelting preconditions
+  and fuel consumption helpers from generic `InventoryItem` fuel values to
+  `FurnaceFuelItem`, keeping arbitrary inventory items out of the fuel duration
+  path.
+- [x] **FURNACE-FUEL-CONTRACT-TEST** - Replaced the unknown-fuel fallback test
+  with a contract test that checks every furnace fuel item maps to a positive
+  configured burn duration.
+
+### Quality gate (Round 146)
+
+`corepack pnpm vitest run packages/inventory/test/furnace-service-collect-tick.test.ts packages/inventory/test/furnace-service.test.ts`
+**2 files / 31 tests passed** ·
+`corepack pnpm tsc --noEmit` 0 ·
+`corepack pnpm check:refactor` 0 · `corepack pnpm check:coverage-policy` 0 ·
+`corepack pnpm check:compat-removal` 0 · `git diff --check` 0 · targeted
+furnace-fuel scan found no remaining unknown-fuel fallback test, no smelt
+duration fallback for `getFuelBurnDurationSecs`, and no
+`FURNACE_FUEL_BURN_DURATION_SECS[...] ??` recovery path under
+`packages/inventory`.
+
+---
+
+## FD. Round 147 (2026-06-15) - armor defense strict data contract
+
+- [x] **ARMOR-ITEMS-CLOSED-CONTRACT** - Added `ARMOR_ITEMS` and `ArmorItem` so
+  armor data is modeled as a closed inventory-item subset rather than a partial
+  map over every `InventoryItem`.
+- [x] **ARMOR-DEFENSE-NO-PARTIAL-LOOKUP** - Changed
+  `ARMOR_DEFENSE_POINTS` and `ARMOR_SLOT_MAP` to `Record<ArmorItem, ...>`,
+  moving absent-item handling out of config data and into domain lookup logic.
+- [x] **ARMOR-DOMAIN-TYPE-GUARD** - Narrowed `isArmorItem` to
+  `item is ArmorItem`; `getArmorDefensePoints` and `getArmorSlot` now return
+  `Option.none()` only at the generic `InventoryItem` boundary.
+- [x] **ARMOR-TESTS-NO-DEFAULTS** - Removed `?? 0`, non-null assertions, and
+  string-key casts from armor config tests; tests now iterate the explicit
+  armor item contract.
+
+### Quality gate (Round 147)
+
+`corepack pnpm vitest run packages/inventory/test/armor-config.test.ts packages/inventory/test/armor.test.ts packages/inventory/test/equipment-service.test.ts packages/inventory/test/armor-recipes.test.ts`
+**4 files / 77 tests passed** ·
+`corepack pnpm tsc --noEmit` 0 ·
+`corepack pnpm check:refactor` 0 · `corepack pnpm check:coverage-policy` 0 ·
+`corepack pnpm check:compat-removal` 0 · `git diff --check` 0 · targeted armor
+scan found no remaining `ARMOR_DEFENSE_POINTS[...] ??`, armor config non-null
+assertions, `Partial<Record<InventoryItem, number>>`, or `ARMOR_SLOT_MAP[...] ??`
+recovery paths under armor domain/tests.
+
+---
+
+## FE. Round 148 (2026-06-15) - durability strict data contract
+
+- [x] **DURABILITY-DATA-SPLIT** - Moved durable item data into
+  `durability.config.ts`, keeping the closed durable item contract separate
+  from lookup and mutation logic.
+- [x] **DURABLE-ITEMS-CLOSED-CONTRACT** - Added `DURABLE_ITEMS` and
+  `DurableItem`, and changed `TOOL_MAX_DURABILITY` from
+  `Partial<Record<InventoryItem, number>>` to `Record<DurableItem, number>`.
+- [x] **DURABILITY-DOMAIN-TYPE-GUARD** - Narrowed `isDurable` to
+  `itemType is DurableItem`; `getMaxDurability` now returns `Option.none()`
+  only at the generic `InventoryItem` boundary instead of using nullable table
+  lookup.
+- [x] **ITEM-STACK-NON-STACKABLE-CONTRACT** - Derived item-stack's
+  non-stackable durable set from `DURABLE_ITEMS`, removing
+  `Object.keys(TOOL_MAX_DURABILITY) as InventoryItem[]` casts from
+  item-stack tests.
+
+### Quality gate (Round 148)
+
+`corepack pnpm vitest run packages/inventory/test/durability.test.ts packages/inventory/test/item-stack.test.ts packages/inventory/test/item-stack-durability.test.ts packages/inventory/test/tool-completeness.test.ts`
+**4 files / 88 tests passed** ·
+`corepack pnpm tsc --noEmit` 0 ·
+`corepack pnpm check:refactor` 0 · `corepack pnpm check:coverage-policy` 0 ·
+`corepack pnpm check:compat-removal` 0 · `git diff --check` 0 · targeted
+durability scan found no remaining `TOOL_MAX_DURABILITY[...] ??`, durability
+non-null assertions, `Partial<Record<InventoryItem, number>>`,
+`Option.fromNullable(TOOL_MAX_DURABILITY...)`, or
+`Object.keys(TOOL_MAX_DURABILITY)` recovery/cast paths under inventory
+domain/tests.
+
+---
+
+## FF. Round 149 (2026-06-15) - furnace smelting XP strict data contract
+
+- [x] **FURNACE-XP-DATA-CONTRACT** - Added `SMELTING_XP_ITEMS` and
+  `SmeltingXpItem`, and changed `SMELTING_XP_PER_ITEM` from
+  `Partial<Record<InventoryItem, number>>` to `Record<SmeltingXpItem, number>`.
+- [x] **FURNACE-XP-BOUNDARY-LOGIC** - Added `furnace-service-xp.ts` for the
+  generic `InventoryItem` boundary, explicit XP-item narrowing, Option-based
+  rate lookup, and whole-number collection XP calculation.
+- [x] **FURNACE-SERVICE-XP-DELEGATION** - Changed `collectOutput` to delegate
+  XP calculation instead of indexing XP data directly with a cast and fallback.
+- [x] **FURNACE-XP-TEST-CONTRACT** - Added direct tests for every configured XP
+  item and collection-boundary rounding, keeping service integration tests
+  focused on collect-output behavior.
+
+### Quality gate (Round 149)
+
+`corepack pnpm vitest run packages/inventory/test/furnace-service-collect-tick.test.ts packages/inventory/test/furnace-service.test.ts packages/inventory/test/furnace-service-errors.test.ts`
+**3 files / 42 tests passed** ·
+`corepack pnpm tsc --noEmit` 0 ·
+`corepack pnpm check:refactor` 0 · `corepack pnpm check:coverage-policy` 0 ·
+`corepack pnpm check:compat-removal` 0 · `git diff --check` 0 · targeted furnace
+XP scan found no remaining loose `SMELTING_XP_PER_ITEM[...] ??`, XP-table
+non-null assertions, `Partial<Record<InventoryItem, number>>`, or
+`Object.keys(SMELTING_XP_PER_ITEM)` recovery/cast paths under inventory
+application/tests.
+
+---
+
+## FG. Round 150 (2026-06-15) - enchantment applicability strict data contract
+
+- [x] **ENCHANTMENT-TYPES-SINGLE-SOURCE** - Added `ENCHANTMENT_TYPES` as the
+  single closed enchantment tuple and derived `EnchantmentTypeSchema` from it,
+  removing the duplicate test-side enchantment list.
+- [x] **ENCHANTMENT-APPLICABILITY-CLOSED-CONTRACT** - Changed
+  `APPLICABLE_TO` from `Partial<Record<EnchantmentType, ...>>` to
+  `Record<EnchantmentType, ...>`, so every enchantment must explicitly declare
+  its applicable item set.
+- [x] **ENCHANTMENT-APPLICABILITY-LOGIC-SPLIT** - Moved item applicability,
+  reverse lookup construction, deterministic hashing, and enchantment selection
+  into `enchantment-applicability.ts`, keeping config data separate from lookup
+  logic.
+- [x] **ENCHANTMENT-CONTRACT-TESTS-NO-FALLBACKS** - Updated enchantment config
+  tests to iterate `ENCHANTMENT_TYPES` and removed optional chaining, fallback
+  empty sets, local duplicate contracts, and string-key recovery casts.
+
+### Quality gate (Round 150)
+
+`corepack pnpm vitest run packages/inventory/test/enchantment-config.test.ts packages/inventory/test/enchantment.test.ts packages/inventory/test/enchanting.test.ts`
+**3 files / 121 tests passed** ·
+`corepack pnpm tsc --noEmit` 0 ·
+`corepack pnpm check:refactor` 0 · `corepack pnpm check:coverage-policy` 0 ·
+`corepack pnpm check:compat-removal` 0 · `git diff --check` 0 · targeted
+enchantment-applicability scan found no remaining `APPLICABLE_TO[...] ??` or
+optional/non-null recovery lookups, no `Partial<Record<EnchantmentType, ...>>`,
+no `Object.entries(APPLICABLE_TO)` cast path, no `ReadonlySet<string>` bridge,
+and no duplicate `ALL_ENCHANTMENTS` test contract under inventory domain/tests.
+
+---
+
+## FH. Round 151 (2026-06-15) - equipment persistence slot contract
+
+- [x] **EQUIPMENT-SLOTS-SINGLE-SOURCE** - Added `ARMOR_SLOTS` to armor config
+  and re-exported it from the armor domain so application logic and tests no
+  longer duplicate the equipment slot order.
+- [x] **EQUIPMENT-PERSISTENCE-SPLIT** - Added `equipment-persistence.ts` for
+  `EquipmentSlots`, explicit `EquipmentSaveData`, empty slot construction, and
+  serialize/deserialize conversion between equipped stacks and save DTOs.
+- [x] **EQUIPMENT-SERVICE-DELEGATION** - Changed `EquipmentService` to delegate
+  save-state conversion to the persistence module and to iterate the domain slot
+  tuple for worn armor and MENDING repair paths.
+- [x] **DESERIALIZE-REPLACE-SEMANTICS** - Changed equipment deserialization to
+  replace the equipment state, so slots absent from saved data are cleared
+  instead of preserving stale equipped armor.
+- [x] **EQUIPMENT-CONTRACT-TESTS** - Added a deserialize clearing regression
+  test and changed armor recipe coverage to import the domain slot tuple.
+
+### Quality gate (Round 151)
+
+`corepack pnpm vitest run packages/inventory/test/equipment-service.test.ts packages/inventory/test/armor.test.ts packages/inventory/test/armor-config.test.ts packages/inventory/test/armor-recipes.test.ts`
+**4 files / 78 tests passed** ·
+`corepack pnpm tsc --noEmit` 0 ·
+`corepack pnpm check:refactor` 0 · `corepack pnpm check:coverage-policy` 0 ·
+`corepack pnpm check:compat-removal` 0 · `git diff --check` 0 · targeted
+equipment slot scan found no remaining `Object.entries(slots) as`,
+`Partial<Record<ArmorSlot, ...>>`, `ARMOR_SLOT_ORDER`, or duplicate local
+`ARMOR_SLOTS` tuple under inventory application/domain/tests; only the domain
+tuple remains.
+
+---
+
+## FI. Round 152 (2026-06-15) - food strict data contract
+
+- [x] **FOOD-ITEMS-SINGLE-SOURCE** - Added `FOOD_ITEMS` as the closed edible
+  item tuple and derived the `FoodItem` union from it.
+- [x] **FOOD-TABLE-CLOSED-CONTRACT** - Changed `FOOD_TABLE` from
+  `Partial<Record<ItemType, FoodProperties>>` to a closed
+  `Record<FoodItem, FoodProperties>`, so registered food data cannot silently
+  depend on missing-key semantics.
+- [x] **FOOD-LOOKUP-NO-NULLABLE-INDEXING** - Changed `getFoodProperties` to
+  branch through the `isFood` type guard instead of indexing the table through
+  `Option.fromNullable`.
+- [x] **FOOD-TESTS-NO-KEY-CAST** - Updated food contract tests to iterate the
+  domain tuple instead of recovering food keys with `Object.keys(FOOD_TABLE) as
+  ReadonlyArray<ItemType>`.
+
+### Quality gate (Round 152)
+
+`corepack pnpm vitest run packages/entity/test/food.test.ts`
+**1 file / 22 tests passed** ·
+`corepack pnpm tsc --noEmit` 0 ·
+`corepack pnpm check:refactor` 0 · `corepack pnpm check:coverage-policy` 0 ·
+`corepack pnpm check:compat-removal` 0 · `git diff --check` 0 · targeted food
+scan found no remaining `Partial<Record<ItemType, FoodProperties>>`,
+`Object.keys(FOOD_TABLE) as`, `Option.fromNullable(FOOD_TABLE[...])`, or
+fallback table indexing under entity domain/tests.
+
+---
+
+## FJ. Round 153 (2026-06-15) - pickaxe harvest strict data contract
+
+- [x] **PICKAXE-TOOLS-SINGLE-SOURCE** - Added `PICKAXE_TOOLS` and derived the
+  `PickaxeTool` union from the closed tool tuple.
+- [x] **PICKAXE-HARVEST-CLOSED-CONTRACT** - Moved the pickaxe harvest lookup
+  into `harvestable-blocks.ts` and changed it from
+  `Partial<Record<ItemType, HashSet<BlockType>>>` to a closed
+  `Record<PickaxeTool, HashSet<BlockType>>`.
+- [x] **BLOCK-UTILS-DELEGATION** - Changed `canHarvestBlock` and the pickaxe
+  category set to consume `PICKAXE_REQUIRED_BLOCKS`,
+  `isPickaxeTool`, and `getPickaxeHarvestableBlocks` instead of owning harvest
+  data.
+- [x] **HARVEST-CONTRACT-TESTS** - Added tests proving every pickaxe tool maps
+  to exactly one harvest set, gold uses wooden-tier harvest rules, the
+  required-block catalogue is the diamond tier, and non-pickaxe inventory items
+  are rejected by the type guard.
+
+### Quality gate (Round 153)
+
+`corepack pnpm vitest run packages/world/test/harvestable-blocks.test.ts packages/world/test/block-utils.test.ts packages/world/application/block-utils.test.ts`
+**3 files / 55 tests passed** ·
+`corepack pnpm tsc --noEmit` 0 ·
+`corepack pnpm check:refactor` 0 · `corepack pnpm check:coverage-policy` 0 ·
+`corepack pnpm check:compat-removal` 0 · `git diff --check` 0 · targeted
+pickaxe harvest scan found no remaining
+`Partial<Record<ItemType, HashSet.HashSet<BlockType>>>`,
+`PICKAXE_HARVEST_SETS[...] ??`, `Object.keys(PICKAXE_HARVEST_SETS) as`, or
+`type PickaxeTool = keyof typeof PICKAXE_HARVEST_SETS` under world
+application/tests.
+
+---
+
+## FK. Round 154 (2026-06-15) - enchantment applicability explicit catalogue
+
+- [x] **ENCHANTMENT-CATALOGUE-BUILDER** - Split item enchantment catalogue
+  construction into explicit append and freeze helpers, removing hidden
+  `Map#get(...) ?? []` bucket creation.
+- [x] **ENCHANTABLE-ITEM-GUARD** - Added `isEnchantableItem` and made
+  `getApplicableEnchantments` branch through the guard before reading the
+  catalogue.
+- [x] **ENCHANTMENT-API-SURFACE** - Re-exported
+  `getApplicableEnchantments` and `isEnchantableItem` from the inventory
+  enchantment domain facade.
+- [x] **ENCHANTMENT-CONTRACT-TESTS** - Added tests for the diamond pickaxe
+  catalogue order, non-enchantable empty catalogue identity, and
+  `selectEnchantment`'s None boundary for non-enchantable items.
+
+### Quality gate (Round 154)
+
+`corepack pnpm vitest run packages/inventory/test/enchantment.test.ts packages/inventory/test/enchanting.test.ts packages/inventory/test/enchantment-config.test.ts`
+**3 files / 124 tests passed** ·
+`corepack pnpm tsc --noEmit` 0 ·
+`corepack pnpm check:refactor` 0 · `corepack pnpm check:coverage-policy` 0 ·
+`corepack pnpm check:compat-removal` 0 · `git diff --check` 0 · targeted
+enchantment applicability scan found no remaining `Map#get(...) ?? []`,
+`ITEM_ENCHANTMENTS.get(...) ?? []`, or builder-local hidden empty catalogue
+creation under the touched inventory domain/test files.
+
+---
+
+## FL. Round 155 (2026-06-15) - item stack enchantment accessors
+
+- [x] **STACK-ENCHANTMENTS-ACCESSOR** - Added `getStackEnchantments` as the
+  single explicit accessor for optional stack enchantment data, sharing one
+  frozen empty list for unenchanted stacks.
+- [x] **STACK-ENCHANTMENT-LOOKUP** - Added `findStackEnchantment` so domain and
+  application logic search enchantments through an `Option` contract instead
+  of nullable array reads.
+- [x] **MENDING-USES-DOMAIN-LOOKUP** - Changed Mending repair detection to use
+  `findStackEnchantment`, removing direct optional-array handling from the
+  repair path.
+- [x] **EQUIPMENT-PROTECTION-USES-DOMAIN-LOOKUP** - Changed equipment
+  protection aggregation to use `findStackEnchantment` for all protection
+  types.
+- [x] **STACK-ENCHANTMENT-CONTRACT-TESTS** - Added tests for shared empty
+  enchantment reads, present enchantment reads, missing lookup `None`, and
+  matching lookup values.
+
+### Quality gate (Round 155)
+
+`corepack pnpm vitest run packages/inventory/test/item-stack.test.ts packages/inventory/test/equipment-service.test.ts`
+**2 files / 72 tests passed** ·
+`corepack pnpm tsc --noEmit` 0 ·
+`corepack pnpm check:refactor` 0 · `corepack pnpm check:coverage-policy` 0 ·
+`corepack pnpm check:compat-removal` 0 · `git diff --check` 0 · targeted stack
+enchantment scan found no remaining `enchantments ?? []`,
+`stack.enchantments ?? []`, or optional slot enchantment chaining under the
+touched inventory domain/application/test files.
+
+---
+
+## FM. Round 156 (2026-06-15) - chunk AABB non-empty input contract
+
+- [x] **AABB-NONEMPTY-VOXEL-READ** - Changed `aabbFromVoxels` to split the
+  first voxel from the remaining list explicitly, returning `Option.none()` for
+  empty input before any bounding-box accumulation.
+- [x] **AABB-ACCUMULATION-READABILITY** - Removed nullable indexed voxel reads
+  and the per-iteration `undefined` branch from the AABB union path while
+  preserving the current imperative reducer style.
+
+### Quality gate (Round 156)
+
+`corepack pnpm vitest run packages/world/domain/chunk-aabb.test.ts packages/world/test/chunk-aabb.test.ts`
+**2 files / 30 tests passed** ·
+`corepack pnpm tsc --noEmit` 0 ·
+`corepack pnpm check:refactor` 0 · `corepack pnpm check:coverage-policy` 0 ·
+`corepack pnpm check:compat-removal` 0 · `git diff --check` 0 · targeted chunk
+AABB scan found no remaining `Option.fromNullable(...[`, `voxels[0]`, or
+`as DirtyVoxelLike` under `packages/world/domain/chunk-aabb.ts`.
+
+---
+
+## FN. Round 157 (2026-06-15) - spline non-empty segment contract
+
+- [x] **SPLINE-NONEMPTY-CONTRACT** - Added an explicit non-empty spline type
+  guard so endpoint reads happen only after the empty-spline boundary is handled.
+- [x] **SPLINE-SEGMENT-READABILITY** - Replaced indexed non-null segment reads
+  with a named segment lookup and interpolation helper, preserving clamped
+  endpoint behavior and the duplicate-knot zero-span guard.
+
+### Quality gate (Round 157)
+
+`corepack pnpm vitest run packages/world/domain/spline.test.ts packages/world/test/spline.test.ts packages/world/test/terrain-splines.test.ts`
+**3 files / 19 tests passed** ·
+`corepack pnpm tsc --noEmit` 0 ·
+`corepack pnpm check:refactor` 0 · `corepack pnpm check:coverage-policy` 0 ·
+`corepack pnpm check:compat-removal` 0 · `git diff --check` 0 · targeted spline
+scan found no remaining indexed non-null reads or type assertions under
+`packages/world/domain/spline.ts`.
+
+---
+
+## FO. Round 158 (2026-06-15) - renderer tracked mesh updates
+
+- [x] **TRACKED-MESH-LIST-HELPERS** - Replaced manual tracked mesh array
+  mutation in `world-renderer-chunk-update.ts` with named append, remove, and
+  replace helpers, removing indexed non-null reads from scene mesh tracking.
+- [x] **WATER-CHUNK-FIXTURE-CONTRACT** - Changed `makeChunk` test fixtures to
+  include a fluid buffer and synchronize water block writes with source-water
+  fluid cells, matching the greedy meshing water contract.
+- [x] **RENDERER-TEST-LAYER-SCENE-EFFECTS** - Updated default renderer test
+  layer scene operations to mutate the `THREE.Scene` and expose default water
+  mesh add/remove branches through domain-aware chunk data.
+- [x] **TEST-UTILITY-PUBLIC-SURFACE** - Removed the unused `Array as Arr`
+  re-export from renderer test utilities after confirming tests import Effect
+  helpers directly where needed.
+
+### Quality gate (Round 158)
+
+`corepack pnpm vitest run packages/rendering/test/world-renderer-chunks.test.ts packages/rendering/test/world-renderer.test.ts packages/rendering/test/world-renderer-water.test.ts packages/rendering/test/world-renderer-refraction.test.ts`
+**4 files / 27 tests passed** ·
+`corepack pnpm tsc --noEmit` 0 ·
+`corepack pnpm check:refactor` 0 · `corepack pnpm check:coverage-policy` 0 ·
+`corepack pnpm check:compat-removal` 0 · `git diff --check` 0 · targeted
+renderer scan found no remaining indexed non-null tracked-mesh reads,
+`Array as Arr`, `compat`, `legacy`, or `deprecated` markers under the touched
+renderer update/test utility files.
+
+---
+
+## FP. Round 159 (2026-06-15) - fishing loot non-empty selection contract
+
+- [x] **FISHING-WEIGHTED-TABLE-CONTRACT** - Kept fishing selection on the
+  `WeightedLootTable` non-empty tuple contract and removed indexed non-null
+  reads from the weighted picker.
+- [x] **FISHING-CATEGORY-READABILITY** - Named the fixed junk, base treasure,
+  luck bonus, max treasure, and percent-scale constants so category thresholds
+  read as domain probability rules instead of inline arithmetic.
+- [x] **FISHING-LOOT-SEED-SPLIT** - Split the category roll from the loot-table
+  seed before branching, preserving deterministic catch behavior while making
+  category selection independent from item selection.
+
+### Quality gate (Round 159)
+
+`corepack pnpm vitest run packages/entity/test/fishing.test.ts packages/entity/test/fishing-service.test.ts`
+**2 files / 36 tests passed** ·
+`corepack pnpm tsc --noEmit` 0 ·
+`corepack pnpm check:refactor` 0 · `corepack pnpm check:coverage-policy` 0 ·
+`corepack pnpm check:compat-removal` 0 · `git diff --check` 0 · targeted
+fishing scan found no remaining indexed non-null loot-table reads,
+`Array as Arr`, `compat`, `legacy`, `deprecated`, or `as any` markers under the
+touched fishing domain/test files.
+
+---
+
+## FQ. Round 160 (2026-06-15) - block light indexed read cleanup
+
+- [x] **BLOCK-LIGHT-LOCAL-LOOPS** - Removed `Array as Arr` usage from block
+  light table construction and light/skylight tests where plain loops better
+  match the package-local array data.
+- [x] **BLOCK-LIGHT-BOUNDED-READS** - Replaced hot-path indexed non-null reads
+  for emission, light bytes, block indices, and BFS queue entries with explicit
+  defaults after bounds checks.
+- [x] **BLOCK-LIGHT-NEIGHBOR-ITERATION** - Simplified BFS neighbor traversal with
+  tuple destructuring, removing indexed offset assertions from propagation.
+
+### Quality gate (Round 160)
+
+`corepack pnpm vitest run packages/block/test/light.test.ts packages/block/test/light-compute.test.ts packages/block/test/light-skylight.test.ts`
+**3 files / 62 tests passed** ·
+`corepack pnpm tsc --noEmit` 0 ·
+`corepack pnpm check:refactor` 0 · `corepack pnpm check:coverage-policy` 0 ·
+`corepack pnpm check:compat-removal` 0 · `git diff --check` 0 · targeted block
+light scan found no remaining indexed non-null reads, `Array as Arr`, `compat`,
+`legacy`, `deprecated`, or `as any` markers under the touched block light
+domain/test files.
+
+---
+
+## FR. Round 161 (2026-06-15) - sky light BFS bounded reads
+
+- [x] **SKY-LIGHT-BLOCK-READ-CONTRACT** - Replaced sky-light BFS chunk block
+  indexed non-null reads with an explicit full-buffer contract helper inside the
+  domain propagation file.
+- [x] **SKY-LIGHT-QUEUE-READABILITY** - Converted dirty voxel and queue
+  processing away from indexed non-null reads while preserving head-pointer
+  queue behavior.
+- [x] **SKY-LIGHT-NEIGHBOR-ITERATION** - Replaced parallel neighbor delta
+  indexing with tuple iteration and a named horizontal boundary marker shared
+  by removal and add propagation.
+
+### Quality gate (Round 161)
+
+`corepack pnpm vitest run packages/world/test/sky-light-bfs.test.ts packages/world/test/light-engine-service.test.ts`
+**2 files / 24 tests passed** ·
+`corepack pnpm tsc --noEmit` 0 ·
+`corepack pnpm check:refactor` 0 · `corepack pnpm check:coverage-policy` 0 ·
+`corepack pnpm check:compat-removal` 0 · `git diff --check` 0 · targeted
+sky-light BFS scan found no remaining indexed non-null reads, `?? 0` fallbacks,
+parallel neighbor delta reads, `compat`, `legacy`, `deprecated`, or `as any`
+markers under the touched sky-light BFS domain file.
+
+---
+
+## FS. Round 162 (2026-06-15) - block light BFS bounded reads
+
+- [x] **BLOCK-LIGHT-BLOCK-READ-CONTRACT** - Replaced block-light BFS chunk block
+  indexed non-null reads with an explicit full-buffer contract helper inside the
+  domain propagation file.
+- [x] **BLOCK-LIGHT-QUEUE-READABILITY** - Converted dirty voxel and queue
+  processing away from indexed non-null reads while preserving head-pointer
+  queue behavior.
+- [x] **BLOCK-LIGHT-NEIGHBOR-ITERATION** - Replaced parallel neighbor delta
+  indexing with tuple iteration and a named horizontal boundary marker shared
+  by removal and add propagation.
+
+### Quality gate (Round 162)
+
+`corepack pnpm vitest run packages/world/test/block-light-bfs.test.ts packages/world/test/light-engine-service.test.ts`
+**2 files / 25 tests passed** ·
+`corepack pnpm tsc --noEmit` 0 ·
+`corepack pnpm check:refactor` 0 · `corepack pnpm check:coverage-policy` 0 ·
+`corepack pnpm check:compat-removal` 0 · `git diff --check` 0 · targeted
+block-light BFS scan found no remaining indexed non-null reads, `?? 0`
+fallbacks, parallel neighbor delta reads, `compat`, `legacy`, `deprecated`, or
+`as any` markers under the touched block-light BFS domain file.
+
+---
+
+## FT. Round 163 (2026-06-15) - density function channel reads
+
+- [x] **DENSITY-CHANNEL-SAMPLE-INDEX** - Replaced the hard-coded column index
+  stride in `computeColumnY` with a `CHUNK_SIZE` based sample-index helper.
+- [x] **DENSITY-CHANNEL-READ-CONTRACT** - Moved the four terrain-noise channel
+  reads behind a named internal `readChannelValues` helper, removing direct
+  indexed non-null reads from the public column-height function.
+- [x] **DENSITY-SPLINE-READABILITY** - Removed single-letter pass-through locals
+  from `computeColumnYFromValues` so spline inputs remain named by terrain
+  channel.
+
+### Quality gate (Round 163)
+
+`corepack pnpm vitest run packages/world/test/density-function.test.ts packages/world/test/generator-pipeline.test.ts packages/world/test/chunk-terrain-overhang.test.ts`
+**3 files / 21 tests passed** ·
+`corepack pnpm tsc --noEmit` 0 ·
+`corepack pnpm check:refactor` 0 · `corepack pnpm check:coverage-policy` 0 ·
+`corepack pnpm check:compat-removal` 0 · `git diff --check` 0 · targeted
+density-function scan found no remaining indexed non-null reads, `?? 0`
+fallbacks, `compat`, `legacy`, `deprecated`, or `as any` markers under the
+touched density-function domain/test files.
+
+---
+
+## FU. Round 164 (2026-06-15) - generator pipeline bounded reads
+
+- [x] **GENERATOR-COLUMN-INDEX-CONTRACT** - Added named column-state and
+  terrain-sample index helpers so the generator pipeline no longer mixes
+  x-major column storage with z-major terrain-channel samples inline.
+- [x] **GENERATOR-TERRAIN-CHANNEL-READS** - Moved terrain-channel, biome-column,
+  column-state, and overhang-target indexed reads behind small named helpers,
+  removing direct indexed non-null reads from the touched generator pipeline
+  paths.
+- [x] **OVERHANG-TARGET-READABILITY** - Reworked overhang target iteration to
+  use explicit target reads and named column-state reads while preserving the
+  noise and support checks.
+- [x] **OVERHANG-TEST-ABSTRACTION** - Updated generator and overhang tests to
+  use `CHUNK_SIZE` sized buffers, named read helpers, and standard array/set
+  primitives instead of hard-coded 256 buffers or Effect collection helpers for
+  local test data.
+
+### Quality gate (Round 164)
+
+`corepack pnpm vitest run packages/world/test/generator-pipeline.test.ts packages/world/test/chunk-terrain-overhang.test.ts packages/world/test/overhang-generator.test.ts`
+**3 files / 17 tests passed** ·
+`corepack pnpm tsc --noEmit` 0 ·
+`corepack pnpm check:refactor` 0 · `corepack pnpm check:coverage-policy` 0 ·
+`corepack pnpm check:compat-removal` 0 · `git diff --check` 0 · targeted
+generator-pipeline scan found no remaining indexed non-null reads, `?? 0`
+fallbacks, hard-coded 256 terrain-column buffers, `Array as Arr`, `compat`,
+`legacy`, `deprecated`, or `as any` markers under the touched generator pipeline
+domain/test files.
+
+---
+
+## FV. Round 165 (2026-06-15) - noise channel sample sizing
+
+- [x] **NOISE-PORT-DEFAULT-SHAPE** - Replaced hard-coded terrain-channel
+  default buffer lengths with a `CHUNK_SIZE * CHUNK_SIZE` sample-count helper in
+  the noise service port default implementation.
+- [x] **NOISE-BATCH-READ-CONTRACT** - Moved `NoiseService` batch coordinate
+  reads behind a named helper, removing direct indexed non-null reads while
+  preserving the existing `NaN` propagation behavior for mismatched coordinate
+  arrays.
+- [x] **DENSITY-TEST-SAMPLE-FACTORY** - Reworked density-function tests to build
+  `Float64Array` channel samples through a chunk-plane-sized helper instead of
+  repeating literal `256` buffers.
+
+### Quality gate (Round 165)
+
+`corepack pnpm vitest run packages/world/test/density-function.test.ts packages/world/test/noise-service-batch.test.ts packages/world/test/noise-service-advanced.test.ts packages/world/test/noise-service-terrain.test.ts packages/world/test/primitives-batch.test.ts packages/world/test/noise-primitives-channels.test.ts`
+**6 files / 77 tests passed** ·
+`corepack pnpm tsc --noEmit` 0 ·
+`corepack pnpm check:refactor` 0 · `corepack pnpm check:coverage-policy` 0 ·
+`corepack pnpm check:compat-removal` 0 · `git diff --check` 0 · targeted
+noise-service/density scan found no remaining direct `Float64Array(256)`
+buffers, direct `xs[i]!` / `ys[i]!` / `zs[i]!` coordinate reads, `Arr.makeBy`,
+or `throw` markers under the touched files.
+
+---
+
+## FW. Round 166 (2026-06-15) - noise primitive bounded reads
+
+- [x] **NOISE-PRIMITIVE-SAMPLE-CONTRACT** - Exported
+  `CHUNK_COLUMN_SAMPLE_COUNT` from noise primitives and re-exported it through
+  infrastructure so domain and service tests assert the chunk-column contract
+  instead of hard-coded `256` lengths.
+- [x] **NOISE-PRIMITIVE-BATCH-READS** - Moved sparse channel interpolation and
+  batch coordinate/point reads behind named helpers that preserve existing
+  `NaN` propagation without direct indexed non-null reads.
+- [x] **NOISE-TEST-COLUMN-SIZE** - Updated primitive/noise-service tests to use
+  `CHUNK_SIZE`, `CHUNK_COLUMN_SAMPLE_COUNT`, and read helpers instead of
+  width/area literals and expected-side `!` reads.
+
+### Quality gate (Round 166)
+
+`corepack pnpm vitest run packages/world/test/noise-primitives-channels.test.ts packages/world/test/primitives-batch.test.ts packages/world/test/primitives.test.ts packages/world/test/noise-service-terrain.test.ts packages/world/test/noise-service-advanced.test.ts packages/world/test/noise-service-batch.test.ts packages/world/test/density-function.test.ts`
+**7 files / 113 tests passed** ·
+`corepack pnpm tsc --noEmit` 0 ·
+`corepack pnpm check:refactor` 0 · `corepack pnpm check:coverage-policy` 0 ·
+`corepack pnpm check:compat-removal` 0 · `git diff --check` 0 · targeted
+noise-primitive scan found no remaining `new Float64Array(256)`, direct batch
+indexed non-null reads, sparse channel non-null reads, `Arr.makeBy(256)`, or
+`throw` markers under the Round 166 touched files; the only `256` hit is a
+world-coordinate test origin.
+
+---
+
+## FX. Round 167 (2026-06-15) - biome chunk bounded reads
+
+- [x] **BIOME-CHUNK-SAMPLE-CONTRACT** - Switched biome chunk service/test sample
+  sizing to the exported `CHUNK_COLUMN_SAMPLE_COUNT` contract instead of
+  recomputing `CHUNK_SIZE * CHUNK_SIZE` in every terrain-channel mock.
+- [x] **BIOME-BATCH-READ-BOUNDARY** - Moved chunk noise input, scalar noise,
+  terrain channel, and neighbor-biome reads behind named helpers in
+  `BiomeService`, keeping climate classification separate from batch storage
+  boundary handling.
+- [x] **BIOME-TEST-READ-ABSTRACTION** - Replaced expected-side direct
+  `result[index]!` access in biome service tests with small read helpers, so
+  tests assert biome behavior without duplicating sparse array assumptions.
+
+### Quality gate (Round 167)
+
+`corepack pnpm vitest run packages/world/test/biome-service.test.ts packages/world/test/biome-service-chunk.test.ts packages/world/test/biome-service-classify.test.ts packages/world/test/biome-service.property.test.ts`
+**4 files / 74 tests passed** ·
+`corepack pnpm tsc --noEmit` 0 ·
+`corepack pnpm check:refactor` 0 · `corepack pnpm check:coverage-policy` 0 ·
+`corepack pnpm check:compat-removal` 0 · `git diff --check` 0 · targeted
+biome-service scan found no remaining direct indexed non-null reads,
+hard-coded `Float64Array(256)` buffers, or chunk-column
+`CHUNK_SIZE * CHUNK_SIZE` sample-count literals under the Round 167 touched
+files.
+
+---
+
+## FY. Round 168 (2026-06-15) - terrain test column fixtures
+
+- [x] **TERRAIN-CHANNEL-TEST-FACTORY** - Added a terrain test helper that builds
+  chunk-column channel samples from `CHUNK_COLUMN_SAMPLE_COUNT`, removing
+  repeated hard-coded `Float64Array(256)` test fixtures.
+- [x] **TERRAIN-BIOME-COLUMN-FACTORY** - Moved appearance-test biome-column
+  arrays behind a named chunk-column helper so tests no longer recompute
+  `CHUNK_SIZE * CHUNK_SIZE` for fixture shape.
+- [x] **TERRAIN-TEST-DATA-SEPARATION** - Updated ore, underground, and
+  appearance tests to describe terrain behavior while delegating sample-buffer
+  shape to shared test data builders.
+
+### Quality gate (Round 168)
+
+`corepack pnpm vitest run packages/world/test/chunk-terrain-ores.test.ts packages/world/test/chunk-terrain-underground.test.ts packages/world/test/chunk-terrain-appearance.test.ts`
+**3 files / 14 tests passed** ·
+`corepack pnpm tsc --noEmit` 0 ·
+`corepack pnpm check:refactor` 0 · `corepack pnpm check:coverage-policy` 0 ·
+`corepack pnpm check:compat-removal` 0 · `git diff --check` 0 · targeted
+terrain-test scan found no remaining `new Float64Array(256)` buffers or direct
+`CHUNK_SIZE * CHUNK_SIZE` chunk-column fixture sizing under the Round 168
+touched test files.
+
+---
+
+## FZ. Round 169 (2026-06-15) - terrain pipeline test fixtures
+
+- [x] **TERRAIN-PIPELINE-CHANNEL-FACTORY** - Reused
+  `terrain-channel-test-utils` in overhang and generator pipeline tests, so
+  chunk-column fixture shape is centralized across the terrain test suite.
+- [x] **TERRAIN-PIPELINE-DATA-SEPARATION** - Replaced remaining test-local
+  terrain channel `Float64Array(CHUNK_SIZE * CHUNK_SIZE)` construction with
+  `makeTerrainChannelSamples`.
+- [x] **TERRAIN-PIPELINE-COLUMN-FACTORY** - Replaced remaining test-local
+  biome/noise column arrays with `makeChunkColumnArray`, while leaving true 3D
+  block volume allocation explicit.
+
+### Quality gate (Round 169)
+
+`rg -n "new Float64Array\\(CHUNK_SIZE \\* CHUNK_SIZE\\)|Array\\.from\\(\\{ length: CHUNK_SIZE \\* CHUNK_SIZE \\}|const columnCount = CHUNK_SIZE \\* CHUNK_SIZE|CHUNK_SIZE \\* CHUNK_SIZE" packages/world/test/chunk-terrain-overhang.test.ts packages/world/test/overhang-generator.test.ts packages/world/test/generator-pipeline.test.ts`
+0 matches ·
+`corepack pnpm vitest run packages/world/test/chunk-terrain-overhang.test.ts packages/world/test/overhang-generator.test.ts packages/world/test/generator-pipeline.test.ts`
+**3 files / 17 tests passed** ·
+`corepack pnpm tsc --noEmit` 0 ·
+`corepack pnpm check:refactor` 0 · `corepack pnpm check:coverage-policy` 0 ·
+`corepack pnpm check:compat-removal` 0.
+
+---
+
+## GA. Round 170 (2026-06-15) - density/noise column fixtures
+
+- [x] **NOISE-TERRAIN-COLUMN-INDEX-FACTORY** - Replaced terrain-noise test
+  index-array construction with `makeChunkColumnArray`, keeping dense
+  chunk-column shape behind the shared fixture helper.
+- [x] **DENSITY-CHANNEL-SAMPLE-FACTORY** - Removed the density-function test's
+  local `CHUNK_SIZE * CHUNK_SIZE` sample-count alias and local channel factory
+  in favor of `makeTerrainChannelSamples`.
+- [x] **TERRAIN-PIPELINE-IMPORT-HYGIENE** - Removed an unused
+  `LAKE_LEVEL` import from the terrain generator pipeline so the TypeScript
+  gate is clean under `noUnusedLocals`.
+
+### Quality gate (Round 170)
+
+`rg -n "Array\\.from\\(\\{ length: CHUNK_COLUMN_SAMPLE_COUNT \\}|CHUNK_COLUMN_SAMPLE_COUNT = CHUNK_SIZE \\* CHUNK_SIZE|new Float64Array\\(CHUNK_SIZE \\* CHUNK_SIZE\\)|CHUNK_SIZE \\* CHUNK_SIZE" packages/world/test/noise-service-terrain.test.ts packages/world/test/density-function.test.ts`
+0 matches ·
+`corepack pnpm vitest run packages/world/test/noise-service-terrain.test.ts packages/world/test/density-function.test.ts packages/world/test/generator-pipeline.test.ts`
+**3 files / 27 tests passed** ·
+`corepack pnpm tsc --noEmit` 0 ·
+`corepack pnpm check:refactor` 0 · `corepack pnpm check:coverage-policy` 0 ·
+`corepack pnpm check:compat-removal` 0 · `git diff --check` 0.

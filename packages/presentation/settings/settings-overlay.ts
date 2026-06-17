@@ -223,4 +223,3 @@ export class SettingsOverlayService extends Effect.Service<SettingsOverlayServic
     }),
   }
 ) {}
-export const SettingsOverlayLive = SettingsOverlayService.Default

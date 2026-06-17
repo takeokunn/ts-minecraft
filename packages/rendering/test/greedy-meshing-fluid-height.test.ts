@@ -44,7 +44,7 @@ const topFaceHeights = (meshed: MeshedChunk): ReadonlyArray<number> => {
 }
 
 describe('greedyMeshChunk fluid-aware heights', () => {
-  it('lowers flowing water top vertices from the full-height fallback', () => {
+  it('lowers flowing water top vertices from the encoded fluid height', () => {
     const baseChunk = makeChunkWithBlock(ZERO_COORD, 0, 0, 0, 'WATER')
     const fluid = createFluidBuffer()
     fluid[0] = encodeFluidCell({ level: 4, source: false, type: 'water' })
@@ -59,14 +59,12 @@ describe('greedyMeshChunk fluid-aware heights', () => {
     })
   })
 
-  it('keeps water at full height when no fluid byte is available', () => {
+  it('does not render fluid faces when the fluid cell is absent', () => {
     const chunk = makeChunkWithBlock(ZERO_COORD, 0, 0, 0, 'WATER')
 
     const meshed = greedyMeshChunk(chunk, ZERO_OFFSET, TRANSPARENT_IDS).toMeshed()
 
-    topFaceHeights(meshed.water).forEach((height) => {
-      expect(height).toBeCloseTo(1)
-    })
+    expect(meshed.water.positions.length).toBe(0)
   })
 
   it('keeps lava in the opaque mesh while applying fluid-aware height', () => {
@@ -91,6 +89,7 @@ describe('greedyMeshChunk fluid-aware heights', () => {
       { lx: 1, y: 0, lz: 0, blockType: 'WATER' },
     ])
     const fluid = createFluidBuffer()
+    setFluidCell(fluid, 0, 0, 0, { level: 0, source: true, type: 'water' })
     setFluidCell(fluid, 1, 0, 0, { level: 4, source: false, type: 'water' })
     const chunk = { ...baseChunk, fluid: Option.some(fluid) }
 
@@ -113,6 +112,7 @@ describe('greedyMeshChunk fluid-aware heights', () => {
     const fluid = createFluidBuffer()
     setFluidCell(fluid, 0, 0, 0, { level: 4, source: false, type: 'water' })
     setFluidCell(fluid, 1, 0, 0, { level: 4, source: false, type: 'water' })
+    setFluidCell(fluid, 1, 1, 0, { level: 0, source: true, type: 'water' })
     const chunk = { ...baseChunk, fluid: Option.some(fluid) }
 
     const meshed = greedyMeshChunk(chunk, ZERO_OFFSET, TRANSPARENT_IDS).toMeshed()

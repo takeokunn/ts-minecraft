@@ -16,31 +16,180 @@
         width: 100vw;
         height: 100vh;
       }
+      body.hud-hidden #fps-counter,
+      body.hud-hidden #health-display,
+      body.hud-hidden #hunger-display,
+      body.hud-hidden #armor-display,
+      body.hud-hidden #air-display,
+      body.hud-hidden #break-progress,
+      body.hud-hidden #xp-display,
+      body.hud-hidden #survival-hud,
+      body.hud-hidden #crosshair,
+      body.hud-hidden #debug-overlay {
+        display: none !important;
+      }
+
+      #survival-hud {
+        position: fixed;
+        left: 50%;
+        bottom: 50px;
+        transform: translateX(-50%);
+        display: grid;
+        gap: 2px;
+        width: min(430px, calc(100vw - 24px));
+        pointer-events: none;
+        z-index: 10;
+        image-rendering: pixelated;
+      }
+
+      #survival-hud .hud-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        height: 18px;
+      }
+
+      #survival-hud .hud-meter {
+        display: grid;
+        grid-template-columns: repeat(10, 16px);
+        gap: 2px;
+        height: 16px;
+      }
+
+      #survival-hud .hud-meter-icon {
+        position: relative;
+        width: 16px;
+        height: 16px;
+        filter: drop-shadow(1px 1px 0 #1b1b1b);
+      }
+
+      #survival-hud .hud-meter-icon::before,
+      #survival-hud .hud-meter-icon::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+      }
+
+      #survival-hud .hud-meter-icon::before {
+        background: #2d2d2d;
+        opacity: 0.85;
+      }
+
+      #survival-hud .hud-meter-icon::after {
+        background: var(--icon-fill, #fff);
+      }
+
+      #survival-hud .hud-meter-icon[data-fill="empty"]::after {
+        opacity: 0;
+      }
+
+      #survival-hud .hud-meter-icon[data-fill="half"]::after {
+        clip-path: inset(0 50% 0 0);
+      }
+
+      #health-display .hud-meter-icon::before,
+      #health-display .hud-meter-icon::after {
+        clip-path: polygon(12.5% 0, 37.5% 0, 37.5% 12.5%, 50% 12.5%, 62.5% 0, 87.5% 0, 87.5% 12.5%, 100% 12.5%, 100% 50%, 87.5% 50%, 87.5% 62.5%, 75% 62.5%, 75% 75%, 62.5% 75%, 62.5% 87.5%, 50% 87.5%, 50% 100%, 37.5% 100%, 37.5% 87.5%, 25% 87.5%, 25% 75%, 12.5% 75%, 12.5% 62.5%, 0 62.5%, 0 12.5%, 12.5% 12.5%);
+      }
+
+      #health-display .hud-meter-icon {
+        --icon-fill: #c81919;
+      }
+
+      #hunger-display .hud-meter-icon::before,
+      #hunger-display .hud-meter-icon::after {
+        clip-path: polygon(25% 0, 68.75% 0, 68.75% 12.5%, 81.25% 12.5%, 81.25% 25%, 93.75% 25%, 93.75% 50%, 81.25% 50%, 81.25% 62.5%, 68.75% 62.5%, 68.75% 75%, 56.25% 75%, 56.25% 87.5%, 43.75% 87.5%, 43.75% 100%, 18.75% 100%, 18.75% 87.5%, 31.25% 87.5%, 31.25% 75%, 43.75% 75%, 43.75% 62.5%, 25% 62.5%, 25% 50%, 12.5% 50%, 12.5% 25%, 25% 25%);
+      }
+
+      #hunger-display .hud-meter-icon {
+        --icon-fill: #d18b2f;
+      }
+
+      #armor-display {
+        justify-self: start;
+        height: 16px;
+      }
+
+      #armor-display .hud-meter-icon::before,
+      #armor-display .hud-meter-icon::after {
+        clip-path: polygon(25% 0, 75% 0, 75% 12.5%, 87.5% 12.5%, 87.5% 37.5%, 75% 37.5%, 75% 100%, 25% 100%, 25% 37.5%, 12.5% 37.5%, 12.5% 12.5%, 25% 12.5%);
+      }
+
+      #armor-display .hud-meter-icon {
+        --icon-fill: #c8d2dc;
+      }
+
+      #xp-display {
+        position: relative;
+        width: 100%;
+        height: 8px;
+        background: #1b1b1b;
+        border: 2px solid #050505;
+        box-shadow: inset 0 0 0 1px #4b4b4b, 1px 1px 0 #0b0b0b;
+      }
+
+      #xp-progress-fill {
+        display: block;
+        width: 0%;
+        height: 100%;
+        background: linear-gradient(#a8ff58 0 37.5%, #4fae24 37.5% 75%, #277410 75%);
+      }
+
+      #xp-level {
+        position: absolute;
+        top: -22px;
+        left: 50%;
+        transform: translateX(-50%);
+        color: #7dff4f;
+        font: 700 16px/1 "Courier New", monospace;
+        text-shadow: 1px 1px 0 #163d0c, -1px -1px 0 #163d0c, 1px -1px 0 #163d0c, -1px 1px 0 #163d0c;
+      }
+
+      .hud-numeric {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        margin: -1px;
+        padding: 0;
+        overflow: hidden;
+        clip: rect(0 0 0 0);
+        white-space: nowrap;
+        border: 0;
+      }
     </style>
   </head>
-  <body>
+  <body class="hud-hidden">
     <div id="app"></div>
     <div id="multiplayer-root"></div>
     <canvas id="game-canvas"></canvas>
     <div id="fps-counter" style="position: fixed; top: 10px; right: 10px; background: rgba(0,0,0,0.7); color: white; padding: 5px 10px; font-family: monospace; font-size: 14px; pointer-events: none; z-index: 10;">
       FPS: <span id="fps-value">0</span>
     </div>
-    <div id="health-display" style="position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.7); color: #f66; padding: 5px 12px; font-family: monospace; font-size: 16px; pointer-events: none; z-index: 10;">
-      &#9829; <span id="health-value">20</span>/<span id="health-max">20</span>
-    </div>
-    <div id="hunger-display" style="position: fixed; bottom: 110px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.7); color: #fb3; padding: 5px 12px; font-family: monospace; font-size: 16px; pointer-events: none; z-index: 10;">
-      &#127831; <span id="hunger-value">20</span>/<span id="hunger-max">20</span>
-    </div>
-    <div id="armor-display" style="position: fixed; bottom: 140px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.7); color: #cdd6e0; padding: 5px 12px; font-family: monospace; font-size: 16px; pointer-events: none; z-index: 10;">
-      &#128737; <span id="armor-value">0</span>
+    <div id="survival-hud">
+      <div id="armor-display" class="hud-meter" aria-label="Armor">
+        <span class="hud-meter-icon" data-hud-icon data-fill="empty"></span><span class="hud-meter-icon" data-hud-icon data-fill="empty"></span><span class="hud-meter-icon" data-hud-icon data-fill="empty"></span><span class="hud-meter-icon" data-hud-icon data-fill="empty"></span><span class="hud-meter-icon" data-hud-icon data-fill="empty"></span><span class="hud-meter-icon" data-hud-icon data-fill="empty"></span><span class="hud-meter-icon" data-hud-icon data-fill="empty"></span><span class="hud-meter-icon" data-hud-icon data-fill="empty"></span><span class="hud-meter-icon" data-hud-icon data-fill="empty"></span><span class="hud-meter-icon" data-hud-icon data-fill="empty"></span>
+        <span id="armor-value" class="hud-numeric">0</span>
+      </div>
+      <div class="hud-row">
+        <div id="health-display" class="hud-meter" aria-label="Health">
+          <span class="hud-meter-icon" data-hud-icon data-fill="full"></span><span class="hud-meter-icon" data-hud-icon data-fill="full"></span><span class="hud-meter-icon" data-hud-icon data-fill="full"></span><span class="hud-meter-icon" data-hud-icon data-fill="full"></span><span class="hud-meter-icon" data-hud-icon data-fill="full"></span><span class="hud-meter-icon" data-hud-icon data-fill="full"></span><span class="hud-meter-icon" data-hud-icon data-fill="full"></span><span class="hud-meter-icon" data-hud-icon data-fill="full"></span><span class="hud-meter-icon" data-hud-icon data-fill="full"></span><span class="hud-meter-icon" data-hud-icon data-fill="full"></span>
+          <span id="health-value" class="hud-numeric">20</span><span id="health-max" class="hud-numeric">20</span>
+        </div>
+        <div id="hunger-display" class="hud-meter" aria-label="Hunger">
+          <span class="hud-meter-icon" data-hud-icon data-fill="full"></span><span class="hud-meter-icon" data-hud-icon data-fill="full"></span><span class="hud-meter-icon" data-hud-icon data-fill="full"></span><span class="hud-meter-icon" data-hud-icon data-fill="full"></span><span class="hud-meter-icon" data-hud-icon data-fill="full"></span><span class="hud-meter-icon" data-hud-icon data-fill="full"></span><span class="hud-meter-icon" data-hud-icon data-fill="full"></span><span class="hud-meter-icon" data-hud-icon data-fill="full"></span><span class="hud-meter-icon" data-hud-icon data-fill="full"></span><span class="hud-meter-icon" data-hud-icon data-fill="full"></span>
+          <span id="hunger-value" class="hud-numeric">20</span><span id="hunger-max" class="hud-numeric">20</span>
+        </div>
+      </div>
+      <div id="xp-display" aria-label="Experience">
+        <span id="xp-progress-fill"></span>
+        <span id="xp-level">0</span>
+        <span id="xp-bar" class="hud-numeric">0</span><span id="xp-bar-max" class="hud-numeric">7</span>
+      </div>
     </div>
     <!-- Air/oxygen (FR-2): hidden until the head is underwater; physics-stage toggles display + bubble count. -->
     <div id="air-display" style="display: none; position: fixed; bottom: 170px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.7); color: #7ec8ff; padding: 5px 12px; font-family: monospace; font-size: 16px; pointer-events: none; z-index: 10;"></div>
     <!-- Block break progress: hidden until left-click held on a block; interaction-stage updates value/max each frame. -->
     <progress id="break-progress" value="0" max="100" style="display: none; position: fixed; top: calc(50% + 20px); left: 50%; transform: translateX(-50%); width: 140px; height: 8px; pointer-events: none; z-index: 10; accent-color: #e8c040;"></progress>
-    <div id="xp-display" style="position: fixed; bottom: 55px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.7); color: #7dff4f; padding: 4px 12px; font-family: monospace; font-size: 14px; pointer-events: none; z-index: 10;">
-      &#11088; Lv <span id="xp-level">0</span> &nbsp; <span id="xp-bar">0</span>/<span id="xp-bar-max">7</span> XP
-    </div>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

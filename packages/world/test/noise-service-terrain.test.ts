@@ -1,20 +1,21 @@
 import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
 import { Array as Arr, Effect } from 'effect'
-import { NoiseService } from '@ts-minecraft/world'
+import { CHUNK_SIZE } from '@ts-minecraft/core'
+import { CHUNK_COLUMN_SAMPLE_COUNT, NoiseService } from '@ts-minecraft/world'
+import { makeChunkColumnArray } from './terrain-channel-test-utils'
 
 // ---------------------------------------------------------------------------
 // Phase 2.1c: Terrain-channel noise (C / E / PV / J)
 // ---------------------------------------------------------------------------
 
-// Dense-grid index: out[z * 16 + x] for a 16x16 channel buffer.
-// Helper preserves the explicit z-stride * 16 documentation across call sites
-// while keeping the iy=0 row-base out of `0 * 16` lint-warned form.
-const denseIdx = (z: number, x: number): number => z * 16 + x
+// Dense-grid index: out[z * CHUNK_SIZE + x] for a chunk-column channel buffer.
+const denseIdx = (z: number, x: number): number => z * CHUNK_SIZE + x
+const readChannelSample = (values: Float64Array, index: number): number => values[index] ?? Number.NaN
 
 describe('infrastructure/noise/noise-service — terrain channels', () => {
   describe('sampleTerrainChannels — shape & determinism', () => {
-    it.effect('returns four Float64Array of length 256 each', () =>
+    it.effect('returns four Float64Array chunk-column buffers', () =>
       Effect.gen(function* () {
         const service = yield* NoiseService
         yield* service.setSeed(42)
@@ -23,10 +24,10 @@ describe('infrastructure/noise/noise-service — terrain channels', () => {
         expect(out.erosion).toBeInstanceOf(Float64Array)
         expect(out.pv).toBeInstanceOf(Float64Array)
         expect(out.jaggedness).toBeInstanceOf(Float64Array)
-        expect(out.continentalness.length).toBe(256)
-        expect(out.erosion.length).toBe(256)
-        expect(out.pv.length).toBe(256)
-        expect(out.jaggedness.length).toBe(256)
+        expect(out.continentalness.length).toBe(CHUNK_COLUMN_SAMPLE_COUNT)
+        expect(out.erosion.length).toBe(CHUNK_COLUMN_SAMPLE_COUNT)
+        expect(out.pv.length).toBe(CHUNK_COLUMN_SAMPLE_COUNT)
+        expect(out.jaggedness.length).toBe(CHUNK_COLUMN_SAMPLE_COUNT)
       }).pipe(Effect.provide(NoiseService.Default))
     )
 
@@ -36,7 +37,7 @@ describe('infrastructure/noise/noise-service — terrain channels', () => {
         yield* service.setSeed(1337)
         const a = yield* service.sampleTerrainChannels(32, -16)
         const b = yield* service.sampleTerrainChannels(32, -16)
-        Arr.forEach(Arr.makeBy(256, (i) => i), (i) => {
+        Arr.forEach(makeChunkColumnArray((i) => i), (i) => {
           expect(a.continentalness[i]).toBe(b.continentalness[i])
           expect(a.erosion[i]).toBe(b.erosion[i])
           expect(a.pv[i]).toBe(b.pv[i])
@@ -84,20 +85,19 @@ describe('infrastructure/noise/noise-service — terrain channels', () => {
         const xStart = 0
         const zStart = 0
         const out = yield* service.sampleTerrainChannels(xStart, zStart)
-        // For odd x in [1,3,5,...,15], z=0: value should lie between (x-1,z=0) and (x+1,z=0).
-        // Note: x=15 has no upstream even neighbour within the 16-cell dense grid, but the
+        // For odd x in [1,3,5,...], z=0: value should lie between (x-1,z=0) and (x+1,z=0).
+        // Note: the final odd x has no upstream even neighbour within the dense grid, but the
         // bilinear formula with fx=0.5 still averages sparse corners six=7 and six=8, which
-        // ARE the neighbours at world-x = xStart+14 and xStart+16. So the even neighbours
-        // to compare against for x=15 are the dense cell (x=14) and the sparse-grid corner
-        // at sparse-x=8 (beyond the dense grid). We only check x in {1,3,5,...,13} to keep
+        // ARE the neighbours at world-x = xStart+14 and xStart+16 when CHUNK_SIZE is 16.
+        // We only check interior odd x values to keep
         // the neighbour pair inside the dense output.
-        // Index layout: z * 16 + x.
+        // Index layout: z * CHUNK_SIZE + x.
         Arr.forEach(['continentalness', 'erosion', 'pv', 'jaggedness'] as const, (channel) => {
           const arr = out[channel]
           Arr.forEach([1, 3, 5, 7, 9, 11, 13] as const, (x) => {
-            const mid = arr[denseIdx(0, x)]!
-            const lo = arr[denseIdx(0, x - 1)]!
-            const hi = arr[denseIdx(0, x + 1)]!
+            const mid = readChannelSample(arr, denseIdx(0, x))
+            const lo = readChannelSample(arr, denseIdx(0, x - 1))
+            const hi = readChannelSample(arr, denseIdx(0, x + 1))
             const min = Math.min(lo, hi)
             const max = Math.max(lo, hi)
             // Tiny epsilon guards against float-rounding at the exact endpoints.
@@ -116,7 +116,7 @@ describe('infrastructure/noise/noise-service — terrain channels', () => {
         const zStart = -32
         const out = yield* service.sampleTerrainChannels(xStart, zStart)
         // At (x=0, z=0) the dense output equals the sparse corner (sx=0, sz=0) which is the
-        // raw noise at world-space (xStart, zStart). Index: z*16 + x.
+        // raw noise at world-space (xStart, zStart). Index: z*CHUNK_SIZE + x.
         const rawC = yield* service.continentalness(xStart, zStart)
         expect(out.continentalness[denseIdx(0, 0)]).toBeCloseTo(rawC, 12)
         // Likewise at (x=2, z=2) → sparse corner (sx=1, sz=1) = world (xStart+2, zStart+2).
@@ -132,12 +132,12 @@ describe('infrastructure/noise/noise-service — terrain channels', () => {
         const out = yield* service.sampleTerrainChannels(0, 0)
         // (lx=2, lz=4) lands on a sparse-grid sample point (step=2), so no
         // bilinear blending — the dense output equals the raw direct sample.
-        // Producer writes at z*16+x = 4*16+2 = 66; consumer (density-function.ts)
+        // Producer writes at z*CHUNK_SIZE+x; consumer (density-function.ts)
         // reads with the same index. This pins down that the two agree.
         const lx = 2
         const lz = 4
         const direct = yield* service.continentalness(lx, lz)
-        expect(out.continentalness[lz * 16 + lx]).toBe(direct)
+        expect(out.continentalness[denseIdx(lz, lx)]).toBe(direct)
       }).pipe(Effect.provide(NoiseService.Default))
     )
   })
@@ -151,10 +151,10 @@ describe('infrastructure/noise/noise-service — terrain channels', () => {
         const zStart = 256
         const out = yield* service.sampleTerrainChannels(xStart, zStart)
         // At (lx=4, lz=6), sparse corner → world (xStart+4, zStart+6); no bilinear blending.
-        // Index: lz*16 + lx = 6*16 + 4 = 100.
+        // Index: lz*CHUNK_SIZE + lx.
         const w = yield* service.weirdness(xStart + 4, zStart + 6)
         const expected = 1 - Math.abs(3 * Math.abs(w) - 2)
-        expect(out.pv[6 * 16 + 4]).toBeCloseTo(expected, 12)
+        expect(out.pv[denseIdx(6, 4)]).toBeCloseTo(expected, 12)
       }).pipe(Effect.provide(NoiseService.Default))
     )
   })

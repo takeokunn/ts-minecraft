@@ -76,5 +76,3 @@ export class HotbarService extends Effect.Service<HotbarService>()(
     }),
   }
 ) {}
-
-export const HotbarServiceLive = HotbarService.Default

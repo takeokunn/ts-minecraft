@@ -7,6 +7,7 @@ import {
   getArmorSlot,
   computeTotalArmorPoints,
   MAX_ARMOR_POINTS,
+  ARMOR_ITEMS,
   ARMOR_DEFENSE_POINTS,
   ARMOR_SLOT_MAP,
 } from '../domain/armor'
@@ -25,6 +26,13 @@ describe('domain/armor', () => {
       expect(isArmorItem('IRON_CHESTPLATE')).toBe(true)
       expect(isArmorItem('IRON_LEGGINGS')).toBe(true)
       expect(isArmorItem('IRON_BOOTS')).toBe(true)
+    })
+
+    it('returns true for all gold armor pieces', () => {
+      expect(isArmorItem('GOLD_HELMET')).toBe(true)
+      expect(isArmorItem('GOLD_CHESTPLATE')).toBe(true)
+      expect(isArmorItem('GOLD_LEGGINGS')).toBe(true)
+      expect(isArmorItem('GOLD_BOOTS')).toBe(true)
     })
 
     it('returns true for all diamond armor pieces', () => {
@@ -57,6 +65,13 @@ describe('domain/armor', () => {
       expect(Option.getOrThrow(getArmorDefensePoints('IRON_BOOTS'))).toBe(2)
     })
 
+    it('returns correct defense for gold tier (total 11)', () => {
+      expect(Option.getOrThrow(getArmorDefensePoints('GOLD_HELMET'))).toBe(2)
+      expect(Option.getOrThrow(getArmorDefensePoints('GOLD_CHESTPLATE'))).toBe(5)
+      expect(Option.getOrThrow(getArmorDefensePoints('GOLD_LEGGINGS'))).toBe(3)
+      expect(Option.getOrThrow(getArmorDefensePoints('GOLD_BOOTS'))).toBe(1)
+    })
+
     it('returns correct defense for diamond tier (total 20)', () => {
       expect(Option.getOrThrow(getArmorDefensePoints('DIAMOND_HELMET'))).toBe(3)
       expect(Option.getOrThrow(getArmorDefensePoints('DIAMOND_CHESTPLATE'))).toBe(8)
@@ -74,12 +89,14 @@ describe('domain/armor', () => {
     it('assigns helmets to HELMET slot', () => {
       expect(Option.getOrThrow(getArmorSlot('LEATHER_HELMET'))).toBe('HELMET')
       expect(Option.getOrThrow(getArmorSlot('IRON_HELMET'))).toBe('HELMET')
+      expect(Option.getOrThrow(getArmorSlot('GOLD_HELMET'))).toBe('HELMET')
       expect(Option.getOrThrow(getArmorSlot('DIAMOND_HELMET'))).toBe('HELMET')
     })
 
     it('assigns chestplates to CHESTPLATE slot', () => {
       expect(Option.getOrThrow(getArmorSlot('LEATHER_CHESTPLATE'))).toBe('CHESTPLATE')
       expect(Option.getOrThrow(getArmorSlot('IRON_CHESTPLATE'))).toBe('CHESTPLATE')
+      expect(Option.getOrThrow(getArmorSlot('GOLD_CHESTPLATE'))).toBe('CHESTPLATE')
       expect(Option.getOrThrow(getArmorSlot('DIAMOND_CHESTPLATE'))).toBe('CHESTPLATE')
     })
 
@@ -116,6 +133,11 @@ describe('domain/armor', () => {
       expect(computeTotalArmorPoints([...fullIron])).toBe(15)
     })
 
+    it('computes full gold armor total (11)', () => {
+      const fullGold = ['GOLD_HELMET', 'GOLD_CHESTPLATE', 'GOLD_LEGGINGS', 'GOLD_BOOTS'] as const
+      expect(computeTotalArmorPoints([...fullGold])).toBe(11)
+    })
+
     it('computes full diamond armor total (20)', () => {
       const fullDiamond = ['DIAMOND_HELMET', 'DIAMOND_CHESTPLATE', 'DIAMOND_LEGGINGS', 'DIAMOND_BOOTS'] as const
       expect(computeTotalArmorPoints([...fullDiamond])).toBe(20)
@@ -133,14 +155,14 @@ describe('domain/armor', () => {
 
   describe('armor consistency', () => {
     it('every armor item in ARMOR_DEFENSE_POINTS also has a slot in ARMOR_SLOT_MAP', () => {
-      for (const item of Object.keys(ARMOR_DEFENSE_POINTS)) {
-        expect(item in ARMOR_SLOT_MAP).toBe(true)
+      for (const item of ARMOR_ITEMS) {
+        expect(ARMOR_SLOT_MAP[item]).toBeDefined()
       }
     })
 
     it('every armor item in ARMOR_SLOT_MAP also has defense points in ARMOR_DEFENSE_POINTS', () => {
-      for (const item of Object.keys(ARMOR_SLOT_MAP)) {
-        expect(item in ARMOR_DEFENSE_POINTS).toBe(true)
+      for (const item of ARMOR_ITEMS) {
+        expect(ARMOR_DEFENSE_POINTS[item]).toBeDefined()
       }
     })
   })

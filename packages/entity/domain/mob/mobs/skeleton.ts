@@ -1,8 +1,8 @@
 import { EntityType } from '../entity'
 import type { MobDefinition } from './mob-definition'
 
-// Skeleton: hostile undead archer — detects from far range; ranged projectile
-// attack is Phase 14+ scope; modelled as long-range melee for now.
+// Skeleton: hostile undead archer. Damage uses a ranged-shot path; physical
+// arrow entities/projectile ballistics remain a later fidelity step.
 export const SkeletonDefinition: MobDefinition = {
   type: EntityType.Skeleton,
   behavior: 'hostile',

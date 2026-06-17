@@ -1,8 +1,6 @@
-import { describe,it } from '@effect/vitest'
-import { blockTypeToIndex,SEA_LEVEL } from '@ts-minecraft/core'
-import {
-resolveSurfaceProfile
-} from '@ts-minecraft/world'
+import { describe, it } from '@effect/vitest'
+import { blockTypeToIndex, SEA_LEVEL } from '@ts-minecraft/core'
+import { resolveSurfaceProfile } from '@ts-minecraft/world'
 import { expect } from 'vitest'
 
 // ---------------------------------------------------------------------------
@@ -136,6 +134,23 @@ describe('resolveSurfaceProfile', () => {
       hasLakeBasin: false,
       isShore: false,
     })
+    expect(profile.surfaceBlockIndex).toBe(STONE)
+    expect(profile.subSurfaceBlockIndex).toBe(STONE)
+    expect(profile.surfaceDepth).toBe(1)
+  })
+
+  it('respects a custom seaLevel when evaluating alpine and outcrop thresholds', () => {
+    const terrainLevels = { seaLevel: 40, lakeLevel: 52 }
+    const profile = resolveSurfaceProfile({
+      ...BASE_PARAMS,
+      biome: 'FOREST',
+      surfaceY: terrainLevels.seaLevel + 28,
+      ruggedness: 0.6,
+      hasLakeBasin: false,
+      isShore: false,
+      terrainLevels,
+    })
+
     expect(profile.surfaceBlockIndex).toBe(STONE)
     expect(profile.subSurfaceBlockIndex).toBe(STONE)
     expect(profile.surfaceDepth).toBe(1)

@@ -1,7 +1,7 @@
 import { describe, it } from '@effect/vitest'
 import { Array as Arr, Effect, Layer, Option } from 'effect'
 import { expect, vi } from 'vitest'
-import { CrosshairService, CrosshairLive, DomOperationsService } from '@ts-minecraft/presentation/hud/crosshair'
+import { CrosshairService, DomOperationsService } from '@ts-minecraft/presentation/hud/crosshair'
 
 describe('CrosshairService', () => {
   describe('with mocked DOM', () => {
@@ -51,8 +51,8 @@ describe('CrosshairService', () => {
         } as DomOperationsService
       )
 
-      // Provide the mock DOM layer to CrosshairLive
-      const TestLayer = CrosshairLive.pipe(Layer.provide(MockDomLayer))
+      // Provide the mock DOM layer to CrosshairService.Default
+      const TestLayer = CrosshairService.Default.pipe(Layer.provide(MockDomLayer))
 
       return {
         TestLayer,
@@ -148,7 +148,7 @@ describe('CrosshairService', () => {
           appendChild: vi.fn((c: unknown) => c),
         }))
 
-        const TestLayer = CrosshairLive.pipe(
+        const TestLayer = CrosshairService.Default.pipe(
           Layer.provide(Layer.succeed(DomOperationsService, {
             createElement: createElementMock,
             appendChild: appendChildMock,

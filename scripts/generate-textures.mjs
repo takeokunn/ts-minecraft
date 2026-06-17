@@ -2,11 +2,11 @@
  * Generates individual tile PNGs and a combined atlas.png into /public/textures/.
  * Run once with: pnpm generate-textures
  *
- * - tile-{00-92}-*.png : individual 32×32 tiles for manual inspection/editing
+ * - tile-{00-113}-*.png : individual 32×32 tiles for manual inspection/editing
  * - atlas.png          : 512×512 combined atlas loaded by chunk-mesh.ts at runtime
  *
  * Drawing logic is the single source of truth for all block and item appearance.
- * Tiles 0-45, 63-92: block textures (indexed by TILE_MAP in block-texture-map.config.ts)
+ * Tiles 0-45, 63-92, 100-113: block textures (indexed by TILE_MAP in block-texture-map.config.ts)
  * Tiles 46-62, 93-99: item textures (indexed by ITEM_TILE_MAP in item-texture-map.config.ts)
  */
 
@@ -275,17 +275,17 @@ saveTile(8, 'leaves', (ctx) => {
 
 // tile 9: glass — light blue with highlight border
 saveTile(9, 'glass', (ctx) => {
-  ctx.fillStyle = '#aaddff'
+  ctx.fillStyle = 'rgba(170,221,255,0.34)'
   ctx.fillRect(0, 0, TILE_PX, TILE_PX)
-  ctx.fillStyle = '#c8eeff'
+  ctx.fillStyle = 'rgba(200,238,255,0.24)'
   ctx.fillRect(2, 2, TILE_PX - 4, TILE_PX - 4)
-  ctx.fillStyle = '#e0f8ff'
+  ctx.fillStyle = 'rgba(224,248,255,0.82)'
   ctx.fillRect(1, 1, TILE_PX - 2, 2)
   ctx.fillRect(1, 1, 2, TILE_PX - 2)
-  ctx.fillStyle = '#88bbdd'
+  ctx.fillStyle = 'rgba(136,187,221,0.72)'
   ctx.fillRect(1, TILE_PX - 3, TILE_PX - 2, 2)
   ctx.fillRect(TILE_PX - 3, 1, 2, TILE_PX - 2)
-  ctx.fillStyle = '#d8f0ff'
+  ctx.fillStyle = 'rgba(216,240,255,0.70)'
   ctx.fillRect(TILE_PX / 2 - 1, 4, 2, TILE_PX - 8)
   ctx.fillRect(4, TILE_PX / 2 - 1, TILE_PX - 8, 2)
 })
@@ -1350,8 +1350,220 @@ saveTile(100, 'redstone-wire', (ctx) => {
   ctx.fillRect(26, 14, 2, 1)
 })
 
+// 101: cobweb
+saveTile(101, 'cobweb', (ctx) => {
+  ctx.clearRect(0, 0, TILE_PX, TILE_PX)
+  ctx.strokeStyle = 'rgba(235,235,235,0.88)'
+  ctx.lineWidth = 2
+  ctx.beginPath()
+  ctx.moveTo(2, 2); ctx.lineTo(30, 30)
+  ctx.moveTo(30, 2); ctx.lineTo(2, 30)
+  ctx.moveTo(16, 0); ctx.lineTo(16, 32)
+  ctx.moveTo(0, 16); ctx.lineTo(32, 16)
+  ctx.stroke()
+  ctx.strokeStyle = 'rgba(205,205,205,0.82)'
+  ctx.lineWidth = 1
+  for (const inset of [5, 10, 15]) {
+    ctx.strokeRect(inset, inset, TILE_PX - inset * 2, TILE_PX - inset * 2)
+  }
+})
+
+// 102: sapling
+saveTile(102, 'sapling', (ctx) => {
+  ctx.clearRect(0, 0, TILE_PX, TILE_PX)
+  ctx.fillStyle = '#6b3f1f'
+  ctx.fillRect(15, 17, 3, 12)
+  ctx.fillStyle = '#2f8a32'
+  ctx.fillRect(12, 10, 8, 6)
+  ctx.fillRect(8, 15, 9, 5)
+  ctx.fillRect(17, 15, 8, 5)
+  ctx.fillStyle = '#1e5f24'
+  ctx.fillRect(11, 19, 6, 4)
+  ctx.fillRect(18, 19, 5, 4)
+  ctx.fillStyle = '#5fbd45'
+  ctx.fillRect(14, 11, 3, 2)
+  ctx.fillRect(9, 16, 3, 2)
+})
+
+// 103: dandelion
+saveTile(103, 'dandelion', (ctx) => {
+  ctx.clearRect(0, 0, TILE_PX, TILE_PX)
+  ctx.fillStyle = '#2b8a2f'
+  ctx.fillRect(15, 13, 2, 16)
+  ctx.fillRect(11, 23, 4, 2)
+  ctx.fillRect(17, 20, 5, 2)
+  ctx.fillStyle = '#f3d33b'
+  ctx.fillRect(12, 7, 8, 8)
+  ctx.fillStyle = '#ffe36c'
+  ctx.fillRect(14, 5, 4, 12)
+  ctx.fillRect(10, 9, 12, 4)
+  ctx.fillStyle = '#c99c1d'
+  ctx.fillRect(15, 10, 2, 2)
+})
+
+// 104: poppy
+saveTile(104, 'poppy', (ctx) => {
+  ctx.clearRect(0, 0, TILE_PX, TILE_PX)
+  ctx.fillStyle = '#247b2a'
+  ctx.fillRect(15, 14, 2, 15)
+  ctx.fillRect(10, 22, 5, 2)
+  ctx.fillRect(17, 24, 5, 2)
+  ctx.fillStyle = '#b51f24'
+  ctx.fillRect(10, 7, 6, 7)
+  ctx.fillRect(17, 7, 6, 7)
+  ctx.fillRect(13, 4, 7, 6)
+  ctx.fillStyle = '#e04a3f'
+  ctx.fillRect(12, 8, 3, 3)
+  ctx.fillRect(18, 8, 3, 3)
+  ctx.fillStyle = '#2a1a16'
+  ctx.fillRect(15, 10, 3, 3)
+})
+
+// 105: brown mushroom
+saveTile(105, 'brown-mushroom', (ctx) => {
+  ctx.clearRect(0, 0, TILE_PX, TILE_PX)
+  ctx.fillStyle = '#d8c4a0'
+  ctx.fillRect(14, 15, 5, 12)
+  ctx.fillStyle = '#8a5630'
+  ctx.fillRect(9, 8, 15, 8)
+  ctx.fillRect(12, 5, 9, 5)
+  ctx.fillStyle = '#6a3d22'
+  ctx.fillRect(9, 14, 15, 3)
+  ctx.fillStyle = '#b07945'
+  ctx.fillRect(13, 7, 3, 2)
+  ctx.fillRect(19, 10, 2, 2)
+})
+
+// 106: red mushroom
+saveTile(106, 'red-mushroom', (ctx) => {
+  ctx.clearRect(0, 0, TILE_PX, TILE_PX)
+  ctx.fillStyle = '#e0d0b5'
+  ctx.fillRect(14, 15, 5, 12)
+  ctx.fillStyle = '#b82020'
+  ctx.fillRect(8, 8, 16, 8)
+  ctx.fillRect(11, 5, 10, 5)
+  ctx.fillStyle = '#801515'
+  ctx.fillRect(8, 14, 16, 3)
+  ctx.fillStyle = '#f0ead8'
+  ctx.fillRect(12, 7, 3, 3)
+  ctx.fillRect(19, 9, 3, 3)
+  ctx.fillRect(15, 12, 2, 2)
+})
+
+// 107: tall grass
+saveTile(107, 'tall-grass', (ctx) => {
+  ctx.clearRect(0, 0, TILE_PX, TILE_PX)
+  const blades = [[7, 14, 2, 15], [11, 9, 2, 20], [15, 12, 2, 17], [19, 7, 2, 22], [23, 13, 2, 16]]
+  for (const [x, y, w, h] of blades) {
+    ctx.fillStyle = (x + y) % 2 === 0 ? '#2e8a34' : '#4b9e38'
+    ctx.fillRect(x, y, w, h)
+  }
+  ctx.fillStyle = '#1f6325'
+  ctx.fillRect(9, 25, 15, 4)
+})
+
+// 108: fern
+saveTile(108, 'fern', (ctx) => {
+  ctx.clearRect(0, 0, TILE_PX, TILE_PX)
+  ctx.fillStyle = '#226d2c'
+  ctx.fillRect(15, 8, 2, 22)
+  for (let y = 10; y < 27; y += 4) {
+    ctx.fillStyle = y % 8 === 2 ? '#3f9a42' : '#2e8135'
+    ctx.fillRect(9, y, 6, 2)
+    ctx.fillRect(17, y + 2, 6, 2)
+  }
+})
+
+// 109: sugar cane
+saveTile(109, 'sugar-cane', (ctx) => {
+  ctx.clearRect(0, 0, TILE_PX, TILE_PX)
+  ctx.fillStyle = '#75b84a'
+  ctx.fillRect(11, 5, 4, 24)
+  ctx.fillRect(18, 8, 4, 21)
+  ctx.fillStyle = '#d8ee8a'
+  for (const y of [9, 15, 21]) {
+    ctx.fillRect(11, y, 4, 1)
+    ctx.fillRect(18, y + 1, 4, 1)
+  }
+  ctx.fillStyle = '#2f7f35'
+  ctx.fillRect(10, 5, 1, 24)
+  ctx.fillRect(17, 8, 1, 21)
+})
+
+// 110: cactus
+saveTile(110, 'cactus', (ctx) => {
+  ctx.fillStyle = '#2f8b3e'
+  ctx.fillRect(0, 0, TILE_PX, TILE_PX)
+  ctx.fillStyle = '#3ea84d'
+  ctx.fillRect(3, 0, 8, TILE_PX)
+  ctx.fillRect(21, 0, 8, TILE_PX)
+  ctx.fillStyle = '#1f632b'
+  ctx.fillRect(0, 0, 2, TILE_PX)
+  ctx.fillRect(30, 0, 2, TILE_PX)
+  ctx.fillStyle = '#e3f2b5'
+  for (let y = 4; y < TILE_PX; y += 7) {
+    ctx.fillRect(6, y, 2, 1)
+    ctx.fillRect(15, y + 3, 2, 1)
+    ctx.fillRect(24, y + 1, 2, 1)
+  }
+})
+
+// 111: lily pad
+saveTile(111, 'lily-pad', (ctx) => {
+  ctx.clearRect(0, 0, TILE_PX, TILE_PX)
+  ctx.fillStyle = '#235f2d'
+  ctx.beginPath()
+  ctx.arc(16, 17, 12, 0, Math.PI * 2)
+  ctx.fill()
+  ctx.clearRect(16, 15, 14, 6)
+  ctx.fillStyle = '#3c9144'
+  ctx.fillRect(8, 14, 12, 3)
+  ctx.fillRect(10, 20, 10, 3)
+  ctx.fillStyle = '#17451f'
+  ctx.fillRect(15, 16, 2, 11)
+})
+
+// 112: ice
+saveTile(112, 'ice', (ctx) => {
+  ctx.fillStyle = 'rgba(150,215,255,0.52)'
+  ctx.fillRect(0, 0, TILE_PX, TILE_PX)
+  ctx.fillStyle = 'rgba(215,245,255,0.70)'
+  ctx.fillRect(1, 1, TILE_PX - 2, 2)
+  ctx.fillRect(1, 1, 2, TILE_PX - 2)
+  ctx.fillStyle = 'rgba(95,170,220,0.50)'
+  ctx.fillRect(3, TILE_PX - 4, TILE_PX - 6, 2)
+  ctx.fillRect(TILE_PX - 4, 3, 2, TILE_PX - 6)
+  ctx.strokeStyle = 'rgba(230,250,255,0.82)'
+  ctx.lineWidth = 1
+  ctx.beginPath()
+  ctx.moveTo(7, 9); ctx.lineTo(14, 15); ctx.lineTo(12, 23)
+  ctx.moveTo(19, 6); ctx.lineTo(21, 14); ctx.lineTo(27, 18)
+  ctx.stroke()
+})
+
+// 113: glowstone
+saveTile(113, 'glowstone', (ctx) => {
+  ctx.fillStyle = '#9a6a22'
+  ctx.fillRect(0, 0, TILE_PX, TILE_PX)
+  drawNoise(ctx, ['#c8922d', '#f0c85a', '#6f4a1b'], 0.42)
+  ctx.fillStyle = '#f6dc72'
+  ctx.fillRect(2, 3, 7, 6)
+  ctx.fillRect(18, 2, 9, 7)
+  ctx.fillRect(11, 14, 8, 7)
+  ctx.fillRect(23, 22, 6, 6)
+  ctx.fillStyle = '#fff0a8'
+  ctx.fillRect(4, 4, 3, 2)
+  ctx.fillRect(20, 4, 4, 2)
+  ctx.fillRect(13, 16, 3, 2)
+  ctx.fillStyle = '#5f3914'
+  ctx.fillRect(0, 0, TILE_PX, 2)
+  ctx.fillRect(0, TILE_PX - 2, TILE_PX, 2)
+  ctx.fillRect(0, 0, 2, TILE_PX)
+  ctx.fillRect(TILE_PX - 2, 0, 2, TILE_PX)
+})
+
 // Save combined atlas (single file loaded by chunk-mesh.ts at runtime).
 writeFileSync(join(OUTPUT_DIR, 'atlas.png'), atlasCanvas.toBuffer('image/png'))
-console.log(`  ✓ atlas.png (512×512, all 101 tiles combined)`)
+console.log(`  ✓ atlas.png (512×512, all 114 tiles combined)`)
 
-console.log(`\nDone — 101 individual tiles + atlas.png written to ${OUTPUT_DIR}`)
+console.log(`\nDone — 114 individual tiles + atlas.png written to ${OUTPUT_DIR}`)

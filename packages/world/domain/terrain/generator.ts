@@ -12,6 +12,7 @@ import {
   createCaveGridCoordinateArrays,
   createBlockIndices,
 } from './generator-coordinates'
+import { DEFAULT_TERRAIN_LEVELS, type TerrainLevels } from './generator-types'
 import {
   buildColumnStates,
   collectOverhangTargets,
@@ -24,7 +25,8 @@ export const generateTerrain = (
   chunkService: ChunkFactory,
   biomeService: BiomeGeneratorPort,
   noiseService: NoiseServicePort,
-  coord: ChunkCoord
+  coord: ChunkCoord,
+  terrainLevels: TerrainLevels = DEFAULT_TERRAIN_LEVELS,
 ): Effect.Effect<Chunk, never> =>
   Effect.gen(function* () {
     const chunk = yield* chunkService.createChunk(coord)
@@ -81,6 +83,7 @@ export const generateTerrain = (
       andesiteNoiseVals,
       treeColumnContextCache,
       blockIndices,
+      terrainLevels,
     })
 
     const { overhangXs, overhangYs, overhangZs, overhangTargets } = collectOverhangTargets(
@@ -124,9 +127,10 @@ export const generateTerrain = (
       noiseService,
       treeColumnContextCache,
       blockIndices,
+      terrainLevels,
     })
 
-    yield* placeChunkTrees(blocks, baseWorldX, baseWorldZ, resolveTreeColumnContext)
+    yield* placeChunkTrees(blocks, baseWorldX, baseWorldZ, resolveTreeColumnContext, terrainLevels)
 
     return { ...chunk, blocks }
   })

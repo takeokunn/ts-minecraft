@@ -1,6 +1,6 @@
-import type { TradeOffer } from '../../domain/trading/trading-model'
-import { TradeOfferId } from '../../domain/trading/trading-model'
-import { VillagerProfession } from '../../domain/village/village-model'
+import type { TradeOffer } from '../../domain/trading'
+import { TradeOfferId } from '../../domain/trading'
+import { VillagerProfession } from '../../domain/village'
 import type { InventoryItem } from '@ts-minecraft/core'
 
 export const TRADE_CURRENCY_BLOCK: InventoryItem = 'EMERALD'

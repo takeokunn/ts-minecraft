@@ -1,10 +1,14 @@
-import { Option } from 'effect'
-import type { ItemType } from '@ts-minecraft/core'
-import { MAX_LEVEL, FORTUNE_MULTIPLIERS, APPLICABLE_TO } from './enchantment.config'
+import { MAX_LEVEL, FORTUNE_MULTIPLIERS } from './enchantment.config'
 import type { EnchantmentType, EnchantmentLevel, Enchantment } from './enchantment.types'
 
 export type { EnchantmentType, EnchantmentLevel, Enchantment }
-export { EnchantmentTypeSchema, EnchantmentLevelSchema, EnchantmentSchema } from './enchantment.types'
+export {
+  canEnchantItem,
+  getApplicableEnchantments,
+  isEnchantableItem,
+  selectEnchantment,
+} from './enchantment-applicability'
+export { ENCHANTMENT_TYPES, EnchantmentTypeSchema, EnchantmentLevelSchema, EnchantmentSchema } from './enchantment.types'
 
 // ─── Validity ────────────────────────────────────────────────────────────────
 
@@ -37,6 +41,10 @@ export const getBaneOfArthropodsDamageBonus = (level: EnchantmentLevel): number 
 export const getKnockbackHorizontalMultiplier = (level: EnchantmentLevel): number =>
   1 + 0.5 * level
 
+// FIRE_ASPECT: vanilla burns targets for 4 seconds per level.
+export const getFireAspectDurationSecs = (level: EnchantmentLevel): number =>
+  4 * level
+
 // PUNCH (bow): each level adds 3 blocks of extra horizontal knockback on arrow impact.
 export const getPunchKnockbackBonus = (level: EnchantmentLevel): number =>
   3 * level
@@ -51,6 +59,14 @@ export const getProtectionDamageReduction = (level: EnchantmentLevel): number =>
 // FIRE_PROTECTION: each level reduces fire/lava damage by 8%. Additive across pieces,
 // capped at 64% total (mirrors PROTECTION cap for simplicity).
 export const getFireProtectionReduction = (level: EnchantmentLevel): number =>
+  0.08 * level
+
+// PROJECTILE_PROTECTION: each level reduces arrow/projectile damage by 8%.
+export const getProjectileProtectionReduction = (level: EnchantmentLevel): number =>
+  0.08 * level
+
+// BLAST_PROTECTION: each level reduces explosion damage by 8%.
+export const getBlastProtectionReduction = (level: EnchantmentLevel): number =>
   0.08 * level
 
 // FEATHER_FALLING: each level reduces fall damage by 12% (vanilla value).
@@ -92,47 +108,6 @@ export const rollFortuneExtraDrops = (level: EnchantmentLevel, rng: number): num
   const expectedExtra = FORTUNE_MULTIPLIERS[level] - 1
   const guaranteed = Math.floor(expectedExtra)
   return guaranteed + (rng < expectedExtra - guaranteed ? 1 : 0)
-}
-
-// ─── Applicable items ────────────────────────────────────────────────────────
-
-export const canEnchantItem = (item: ItemType, enchantment: EnchantmentType): boolean =>
-  APPLICABLE_TO[enchantment]?.has(item) ?? false
-
-// ─── Enchanting selection ─────────────────────────────────────────────────────
-
-// Reverse map built once at module load: item type → applicable enchantment types.
-const ITEM_ENCHANTMENTS: ReadonlyMap<string, ReadonlyArray<EnchantmentType>> = (() => {
-  const map = new Map<string, EnchantmentType[]>()
-  for (const [etype, items] of Object.entries(APPLICABLE_TO) as Array<[EnchantmentType, ReadonlySet<string>]>) {
-    for (const item of items) {
-      const existing = map.get(item) ?? []
-      existing.push(etype)
-      map.set(item, existing)
-    }
-  }
-  return map
-})()
-
-// Simple deterministic string hash (djb2-style).
-const hashStr = (s: string): number => {
-  let h = 5381
-  for (let i = 0; i < s.length; i++) h = (h * 33 ^ s.charCodeAt(i)) >>> 0
-  return h
-}
-
-// Returns the enchantment to apply to an item given the current XP level.
-// The result is deterministic: same item + same level always picks the same enchantment.
-// XP level controls the maximum enchantment level offered (higher XP → stronger enchantments).
-// Returns Option.none() if no enchantment applies to the item.
-export const selectEnchantment = (itemType: ItemType, xpLevel: number): Option.Option<Enchantment> => {
-  const applicable = ITEM_ENCHANTMENTS.get(itemType)
-  if (!applicable || applicable.length === 0) return Option.none()
-  const enchType = applicable[hashStr(itemType + String(xpLevel)) % applicable.length]!
-  const maxForType = MAX_LEVEL[enchType]
-  // Scale enchantment level with XP: 1 level per 5 XP levels, capped at the enchantment's max.
-  const enchLevel = Math.min(maxForType, Math.max(1, Math.floor(xpLevel / 5))) as EnchantmentLevel
-  return Option.some({ type: enchType, level: enchLevel })
 }
 
 // XP levels consumed when enchanting at a given enchantment level.

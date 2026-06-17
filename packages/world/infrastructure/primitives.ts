@@ -20,6 +20,7 @@ export {
   SCALE_E,
   SCALE_W,
   SCALE_J,
+  CHUNK_COLUMN_SAMPLE_COUNT,
   toPV,
   computeOctaveNoise,
   computeTerrainChannels,

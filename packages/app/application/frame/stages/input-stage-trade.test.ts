@@ -15,7 +15,7 @@ import {
   makeSettingsOverlay,
   makeTradingPresentation,
   runFrame,
-} from '@test/frame-handler-test-kit'
+} from '../../../test/frame-handler-test-kit'
 
 // ---------------------------------------------------------------------------
 // T key (TRADE_OPEN_KEY): trade open/close

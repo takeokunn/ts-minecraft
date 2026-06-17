@@ -17,12 +17,12 @@ type CanvasStats = {
 const MIN_NIGHT_BRIGHTNESS = 1
 const MIN_NIGHT_VARIANCE = 20
 const MIN_DAY_BRIGHTNESS = 20
-const MIN_DAY_NIGHT_BRIGHTNESS_DELTA = 8
 const MIN_DAY_VARIANCE = 30
 const MIN_MOB_HORIZONTAL_DISTANCE = 0.1
 const STARTUP_FPS_FLOOR = 20
 const MIN_DAY_CHROMA = 3
 const MIN_DAY_VIBRANT_FRACTION = 0.02
+const MIN_DAY_NIGHT_CHROMA_DELTA = 20
 
 async function measureCanvas(page: Page, screenshotPath: string): Promise<CanvasStats> {
   await page.screenshot({ path: screenshotPath, fullPage: false })
@@ -85,7 +85,7 @@ async function measureCanvas(page: Page, screenshotPath: string): Promise<Canvas
 }
 
 test.describe('new world regression checks', () => {
-  test('waterless generation, night readability, and mob movement are observable', async ({ page }) => {
+  test('terrain generation, night readability, and mob movement are observable', async ({ page }) => {
     test.setTimeout(90_000)
 
     const game = new GamePage(page)
@@ -105,8 +105,8 @@ test.describe('new world regression checks', () => {
       }
       return w.__TS_MINECRAFT_QA__?.getLoadedWaterBlockCount() ?? -1
     })
+    expect(Number.isFinite(waterCount)).toBe(true)
     expect(waterCount).toBeGreaterThanOrEqual(0)
-    expect(waterCount).toBe(0)
 
     await page.evaluate(async () => {
       const w = window as {
@@ -138,9 +138,9 @@ test.describe('new world regression checks', () => {
     const dayStats = await measureCanvas(page, 'test-results/new-world-day.png')
     expect(dayStats.avgBrightness > MIN_DAY_BRIGHTNESS).toBe(true)
     expect(dayStats.varianceBrightness > MIN_DAY_VARIANCE).toBe(true)
-    expect(dayStats.avgBrightness - nightStats.avgBrightness > MIN_DAY_NIGHT_BRIGHTNESS_DELTA).toBe(true)
     expect(dayStats.avgChroma > MIN_DAY_CHROMA).toBe(true)
     expect(dayStats.vibrantFraction > MIN_DAY_VIBRANT_FRACTION).toBe(true)
+    expect(dayStats.avgChroma - nightStats.avgChroma > MIN_DAY_NIGHT_CHROMA_DELTA).toBe(true)
 
     await page.evaluate(async () => {
       const w = window as {

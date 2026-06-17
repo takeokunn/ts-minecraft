@@ -129,11 +129,15 @@ export const buildPostProcessing = (
       })())
     : Option.none()
 
-  const smaaPassInstance = new SMAAPass(canvas.clientWidth, canvas.clientHeight)
-  smaaPassInstance.enabled = initialGraphics.smaaEnabled
-  smaaPassInstance.setSize(initialGraphics.smaaEnabled ? canvas.clientWidth : 1, initialGraphics.smaaEnabled ? canvas.clientHeight : 1)
-  comp.addPass(smaaPassInstance)
-  const smaa: Option.Option<SMAAPass> = Option.some(smaaPassInstance)
+  const smaa: Option.Option<SMAAPass> = initialGraphics.smaaEnabled
+    ? Option.some((() => {
+        const p = new SMAAPass(canvas.clientWidth, canvas.clientHeight)
+        p.enabled = true
+        p.setSize(canvas.clientWidth, canvas.clientHeight)
+        comp.addPass(p)
+        return p
+      })())
+    : Option.none()
 
   comp.addPass(new OutputPass())
 

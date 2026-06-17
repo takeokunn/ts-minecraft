@@ -119,7 +119,7 @@ describe('computeEndermanTeleportTarget', () => {
 
 describe('getMobDefinition', () => {
   it('returns a definition for every entity type', async () => {
-    const { getMobDefinition } = await import('./mobs/index')
+    const { getMobDefinition } = await import('./mobs')
     const { EntityType } = await import('./entity')
     for (const type of Object.values(EntityType)) {
       const def = getMobDefinition(type)

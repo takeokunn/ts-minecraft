@@ -1,34 +1,12 @@
-import { Effect, Match, Option, Ref, Data, Schema, HashMap } from 'effect'
-import { PhysicsBodyId, Position, PositionSchema, DeltaTimeSecs } from '@ts-minecraft/core'
-import { Vector3Schema, type Vector3 } from '@ts-minecraft/core'
+import { Effect, HashMap, Match, Option, Ref } from 'effect'
+import { PhysicsBodyId } from '@ts-minecraft/core'
+import type { DeltaTimeSecs, Position, Vector3 } from '@ts-minecraft/core'
 import { PhysicsWorldPort, RigidBodyPort, ShapePort } from '../domain/physics-port'
 import type { CustomBody, CustomShape } from '../domain/physics-body'
 import type { CustomWorld, WorldConfig } from '../domain/physics-world'
+import { PhysicsServiceError } from './physics-service-error'
+import type { AddBodyConfig } from './physics-service-schema'
 
-export class PhysicsServiceError extends Data.TaggedError('PhysicsServiceError')<{
-  readonly operation: string
-  readonly cause?: unknown
-}> {
-  override get message(): string {
-    return this.cause
-      ? `Physics error [${this.operation}]: ${String(this.cause)}`
-      : `Physics error [${this.operation}]`
-  }
-}
-
-const ShapeParamsSchema = Schema.Struct({
-  halfExtents: Schema.optional(Vector3Schema),
-  radius: Schema.optional(Schema.Number.pipe(Schema.finite(), Schema.positive())),
-})
-
-export const AddBodyConfigSchema = Schema.Struct({
-  mass: Schema.Number.pipe(Schema.finite(), Schema.nonNegative()),
-  position: PositionSchema,
-  shape: Schema.Literal('box', 'sphere', 'plane'),
-  shapeParams: Schema.optional(ShapeParamsSchema),
-  type: Schema.optional(Schema.Literal('dynamic', 'static', 'kinematic')),
-})
-export type AddBodyConfig = Schema.Schema.Type<typeof AddBodyConfigSchema>
 
 export class PhysicsService extends Effect.Service<PhysicsService>()(
   '@minecraft/application/PhysicsService',
@@ -170,4 +148,3 @@ export class PhysicsService extends Effect.Service<PhysicsService>()(
     }),
   }
 ) {}
-export const PhysicsServiceLive = PhysicsService.Default

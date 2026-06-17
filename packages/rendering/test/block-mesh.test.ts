@@ -2,7 +2,7 @@ import { describe, it } from '@effect/vitest'
 import { expect, vi, beforeEach, afterEach } from 'vitest'
 import { Effect } from 'effect'
 import * as THREE from 'three'
-import { BlockMeshService, BlockMeshServiceLive } from '@ts-minecraft/rendering'
+import { BlockMeshService } from '@ts-minecraft/rendering'
 import { mockCanvasElement } from '@test/helpers/three-mocks'
 
 describe('three/meshing/block-mesh', () => {
@@ -21,11 +21,11 @@ expect.fail(`Unexpected element request in block-mesh test: ${tag}`)
     vi.unstubAllGlobals()
   })
 
-  describe('BlockMeshServiceLive', () => {
-    const layer = BlockMeshServiceLive
+  describe('BlockMeshService.Default', () => {
+    const layer = BlockMeshService.Default
 
     it('should provide BlockMeshService as Layer', () => {
-      const serviceLayer = BlockMeshServiceLive
+      const serviceLayer = BlockMeshService.Default
 
       expect(serviceLayer).toBeDefined()
       expect(typeof serviceLayer).toBe('object')

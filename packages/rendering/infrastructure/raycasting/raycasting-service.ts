@@ -1,4 +1,4 @@
-import { Array as Arr, Effect, Option, Schema } from 'effect'
+import { Effect, Option, Schema } from 'effect'
 import * as THREE from 'three'
 import { Vector3Schema } from '@ts-minecraft/core'
 
@@ -39,28 +39,22 @@ export class RaycastingService extends Effect.Service<RaycastingService>()(
             // so we can skip recursive traversal and save per-frame tree walking.
             const intersects = raycaster.intersectObjects(scene.children, false)
 
-            // Option.flatMap chains: None-propagates through both guards,
-            // then Option.map builds the result only when both hit and face are present.
-            return Option.flatMap(
-              Arr.get(intersects, 0),
-              (hit) => Option.map(
-                Option.fromNullable(hit.face),
-                (face) => {
-                  // Offset slightly in the direction of the normal to get the block we hit, not the block we're standing in.
-                  const blockX = Math.floor(hit.point.x - face.normal.x * 0.01)
-                  const blockY = Math.floor(hit.point.y - face.normal.y * 0.01)
-                  const blockZ = Math.floor(hit.point.z - face.normal.z * 0.01)
-                  return {
-                    point: { x: hit.point.x, y: hit.point.y, z: hit.point.z },
-                    normal: { x: face.normal.x, y: face.normal.y, z: face.normal.z },
-                    distance: hit.distance,
-                    blockX,
-                    blockY,
-                    blockZ,
-                  }
-                }
-              )
-            )
+            const hit = intersects[0] ?? null
+            if (hit === null) return Option.none()
+            const face = hit.face ?? null
+            if (face === null) return Option.none()
+            // Offset slightly in the direction of the normal to get the block we hit, not the block we're standing in.
+            const blockX = Math.floor(hit.point.x - face.normal.x * 0.01)
+            const blockY = Math.floor(hit.point.y - face.normal.y * 0.01)
+            const blockZ = Math.floor(hit.point.z - face.normal.z * 0.01)
+            return Option.some({
+              point: { x: hit.point.x, y: hit.point.y, z: hit.point.z },
+              normal: { x: face.normal.x, y: face.normal.y, z: face.normal.z },
+              distance: hit.distance,
+              blockX,
+              blockY,
+              blockZ,
+            })
           }),
 
         worldToBlock: (
@@ -75,4 +69,3 @@ export class RaycastingService extends Effect.Service<RaycastingService>()(
     }),
   }
 ) {}
-export const RaycastingServiceLive = RaycastingService.Default

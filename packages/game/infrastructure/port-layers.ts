@@ -1,8 +1,8 @@
 import { Effect, Layer } from 'effect'
 import { PhysicsWorldPort, RigidBodyPort, ShapePort } from '../domain/physics-port'
-import { PhysicsWorldService, PhysicsWorldServiceLive } from './boundary/physics-world-service'
-import { RigidBodyService, RigidBodyServiceLive } from './boundary/rigid-body-service'
-import { ShapeService, ShapeServiceLive } from './boundary/shape-service'
+import { PhysicsWorldService } from './boundary/physics-world-service'
+import { RigidBodyService } from './boundary/rigid-body-service'
+import { ShapeService } from './boundary/shape-service'
 
 export const PhysicsWorldPortLayer = Layer.effect(
   PhysicsWorldPort,
@@ -12,7 +12,7 @@ export const PhysicsWorldPortLayer = Layer.effect(
     removeBody: (world, body) => svc.removeBody(world, body),
     step: (world, dt) => svc.step(world, dt),
   }))
-).pipe(Layer.provide(PhysicsWorldServiceLive))
+).pipe(Layer.provide(PhysicsWorldService.Default))
 
 export const RigidBodyPortLayer = Layer.effect(
   RigidBodyPort,
@@ -22,7 +22,7 @@ export const RigidBodyPortLayer = Layer.effect(
     setVelocity: (body, velocity) => svc.setVelocity(body, velocity),
     addShape: (body, shape) => svc.addShape(body, shape),
   }))
-).pipe(Layer.provide(RigidBodyServiceLive))
+).pipe(Layer.provide(RigidBodyService.Default))
 
 export const ShapePortLayer = Layer.effect(
   ShapePort,
@@ -31,4 +31,4 @@ export const ShapePortLayer = Layer.effect(
     createSphere: (config) => svc.createSphere(config),
     createPlane: () => svc.createPlane(),
   }))
-).pipe(Layer.provide(ShapeServiceLive))
+).pipe(Layer.provide(ShapeService.Default))

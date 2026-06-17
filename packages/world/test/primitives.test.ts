@@ -2,18 +2,21 @@ import { Array as Arr } from 'effect'
 import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
 import {
-computeOctaveNoise,
-createNoisePrimitives,
-mulberry32,
-normalizeNoise,
-SCALE_C,SCALE_E,
-SCALE_J,
-SCALE_W,
-toPV,
-WEYL_3D,
-WEYL_C,WEYL_E,
-WEYL_J,
-WEYL_W
+  CHUNK_COLUMN_SAMPLE_COUNT,
+  computeOctaveNoise,
+  createNoisePrimitives,
+  mulberry32,
+  normalizeNoise,
+  SCALE_C,
+  SCALE_E,
+  SCALE_J,
+  SCALE_W,
+  toPV,
+  WEYL_3D,
+  WEYL_C,
+  WEYL_E,
+  WEYL_J,
+  WEYL_W,
 } from '../infrastructure/primitives'
 
 describe('mulberry32', () => {
@@ -158,17 +161,17 @@ describe('computeOctaveNoise', () => {
 })
 
 describe('createNoisePrimitives — sampleTerrainChannels', () => {
-  it('sampleTerrainChannels returns four Float64Array each of length 256', () => {
+  it('sampleTerrainChannels returns four Float64Array chunk-column buffers', () => {
     const prims = createNoisePrimitives(42)
     const channels = prims.sampleTerrainChannels(0, 0)
     expect(channels.continentalness).toBeInstanceOf(Float64Array)
     expect(channels.erosion).toBeInstanceOf(Float64Array)
     expect(channels.pv).toBeInstanceOf(Float64Array)
     expect(channels.jaggedness).toBeInstanceOf(Float64Array)
-    expect(channels.continentalness.length).toBe(256)
-    expect(channels.erosion.length).toBe(256)
-    expect(channels.pv.length).toBe(256)
-    expect(channels.jaggedness.length).toBe(256)
+    expect(channels.continentalness.length).toBe(CHUNK_COLUMN_SAMPLE_COUNT)
+    expect(channels.erosion.length).toBe(CHUNK_COLUMN_SAMPLE_COUNT)
+    expect(channels.pv.length).toBe(CHUNK_COLUMN_SAMPLE_COUNT)
+    expect(channels.jaggedness.length).toBe(CHUNK_COLUMN_SAMPLE_COUNT)
   })
 
   it('sampleTerrainChannels is deterministic for the same seed and origin', () => {

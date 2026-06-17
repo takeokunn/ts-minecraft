@@ -14,7 +14,7 @@ import { getSharpnessDamageBonus, getSmiteDamageBonus, getBaneOfArthropodsDamage
 // Keeping these sets here (entity domain) avoids leaking mob knowledge into
 // the application / presentation layer.
 
-export const UNDEAD_MOB_TYPES = new Set(['Zombie', 'Skeleton'])
+export const UNDEAD_MOB_TYPES = new Set(['Zombie', 'Skeleton', 'Drowned', 'ZombieVillager'])
 export const ARTHROPOD_MOB_TYPES = new Set(['Spider'])
 
 export const CRITICAL_DAMAGE_MULTIPLIER = 1.5
@@ -104,12 +104,25 @@ export const computeWeaponEnchantBonus = (
   enchantments: ReadonlyArray<Enchantment>,
   entityType: string,
 ): number => {
-  const sharpness = enchantments.find((e) => e.type === 'SHARPNESS')
-  if (sharpness) return getSharpnessDamageBonus(sharpness.level)
-  const smite = enchantments.find((e) => e.type === 'SMITE')
-  if (smite && UNDEAD_MOB_TYPES.has(entityType)) return getSmiteDamageBonus(smite.level)
-  const bane = enchantments.find((e) => e.type === 'BANE_OF_ARTHROPODS')
-  if (bane && ARTHROPOD_MOB_TYPES.has(entityType)) return getBaneOfArthropodsDamageBonus(bane.level)
+  let sharpnessEnchant: Enchantment | undefined
+  let smiteEnchant: Enchantment | undefined
+  let baneEnchant: Enchantment | undefined
+  for (const enchantment of enchantments) {
+    if (enchantment.type === 'SHARPNESS') {
+      sharpnessEnchant = enchantment
+      break
+    }
+    if (enchantment.type === 'SMITE') {
+      smiteEnchant = enchantment
+      continue
+    }
+    if (enchantment.type === 'BANE_OF_ARTHROPODS') {
+      baneEnchant = enchantment
+    }
+  }
+  if (sharpnessEnchant !== undefined) return getSharpnessDamageBonus(sharpnessEnchant.level)
+  if (smiteEnchant !== undefined && UNDEAD_MOB_TYPES.has(entityType)) return getSmiteDamageBonus(smiteEnchant.level)
+  if (baneEnchant !== undefined && ARTHROPOD_MOB_TYPES.has(entityType)) return getBaneOfArthropodsDamageBonus(baneEnchant.level)
   return 0
 }
 
@@ -121,10 +134,18 @@ export const computeWeaponEnchantBonus = (
 
 export const KNOCKBACK_HORIZONTAL_SPEED = 5
 export const KNOCKBACK_VERTICAL_SPEED = 4.2
+// Sprint-hit knockback behaves like one extra horizontal knockback level in this model.
+export const SPRINT_ATTACK_KNOCKBACK_MULTIPLIER_BONUS = 0.5
 // 6 game ticks @ 20 ticks/s. Stored in SECONDS (not a frame count) and decremented by
 // deltaTime so the knockback lasts the same real 0.3s regardless of frame rate — counting
 // it down once per render frame made it ~3x too brief at 60fps (knockback barely registered).
 export const KNOCKBACK_DURATION_SECS = 0.3
+
+export const computeAttackKnockbackHorizontalMultiplier = (
+  enchantmentMultiplier: number,
+  isSprintAttack: boolean,
+): number =>
+  enchantmentMultiplier + (isSprintAttack ? SPRINT_ATTACK_KNOCKBACK_MULTIPLIER_BONUS : 0)
 
 // Builds the knockback impulse from the attacker→target horizontal direction.
 // Degenerate (zero-length) direction yields a straight-up pop so a point-blank

@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test'
 import { GamePage } from '../fixtures/game-page'
 import { attachFatalErrorMonitor } from '../helpers/console-monitor'
-import { waitForStableRender } from '../helpers/wait-helpers'
+import { openPauseMenu, waitForStableRender } from '../helpers/wait-helpers'
 
 async function focusCanvas(page: Page): Promise<void> {
   await page.mouse.click(320, 240)
@@ -26,9 +26,7 @@ test.describe('User flow', () => {
         await page.waitForTimeout(900)
       },
       async () => {
-        await page.keyboard.press('Escape')
-        // ESC now opens the pause menu, not settings overlay directly
-        await page.waitForSelector('#pause-menu-backdrop', { state: 'visible', timeout: 5_000 })
+        await openPauseMenu(page)
         // Resume to close the pause menu
         await page.click('[data-role="resume"]')
         await page.waitForSelector('#pause-menu-backdrop', { state: 'hidden', timeout: 5_000 })

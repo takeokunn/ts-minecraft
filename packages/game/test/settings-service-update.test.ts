@@ -4,27 +4,15 @@ import { describe, it } from '@effect/vitest'
 import { SettingsService } from '@ts-minecraft/game'
 import {
   DEFAULT_SETTINGS,
-  makeLocalStorageMock,
-  SettingsLive,
-  STORAGE_KEY,
+  makeIndexedDbMock,
+  SettingsServiceLayer,
 } from './settings-service-test-utils'
 
 describe('application/settings/settings-service (mutations)', () => {
-  let getItemSpy: ReturnType<typeof vi.fn>
-  let setItemSpy: ReturnType<typeof vi.fn>
-  let removeItemSpy: ReturnType<typeof vi.fn>
+  let idbPutSpy: ReturnType<typeof vi.fn>
 
   beforeEach(() => {
-    const mock = makeLocalStorageMock()
-    getItemSpy = mock.getItemSpy
-    setItemSpy = mock.setItemSpy
-    removeItemSpy = mock.removeItemSpy
-
-    vi.stubGlobal('localStorage', {
-      getItem: getItemSpy,
-      setItem: setItemSpy,
-      removeItem: removeItemSpy,
-    })
+    idbPutSpy = makeIndexedDbMock().putSpy
   })
 
   afterEach(() => {
@@ -38,7 +26,7 @@ describe('application/settings/settings-service (mutations)', () => {
         yield* service.updateSettings({ renderDistance: 10 })
         const settings = yield* service.getSettings()
         expect(settings).toEqual({ ...DEFAULT_SETTINGS, renderDistance: 10 })
-      }).pipe(Effect.provide(SettingsLive))
+      }).pipe(Effect.provide(SettingsServiceLayer))
     )
 
     it.effect('updates multiple fields', () =>
@@ -47,7 +35,7 @@ describe('application/settings/settings-service (mutations)', () => {
         yield* service.updateSettings({ renderDistance: 14, dayLengthSeconds: 600 })
         const settings = yield* service.getSettings()
         expect(settings).toEqual({ ...DEFAULT_SETTINGS, renderDistance: 14, dayLengthSeconds: 600 })
-      }).pipe(Effect.provide(SettingsLive))
+      }).pipe(Effect.provide(SettingsServiceLayer))
     )
 
     it.effect('accumulates valid sequential partial updates', () =>
@@ -58,7 +46,7 @@ describe('application/settings/settings-service (mutations)', () => {
         yield* service.updateSettings({ dayLengthSeconds: 300 })
         const settings = yield* service.getSettings()
         expect(settings).toEqual({ ...DEFAULT_SETTINGS, renderDistance: 6, mouseSensitivity: 1.8, dayLengthSeconds: 300 })
-      }).pipe(Effect.provide(SettingsLive))
+      }).pipe(Effect.provide(SettingsServiceLayer))
     )
 
     it.effect('falls back to defaults when renderDistance is out of range', () =>
@@ -67,7 +55,7 @@ describe('application/settings/settings-service (mutations)', () => {
         yield* service.updateSettings({ renderDistance: 17 })
         const settings = yield* service.getSettings()
         expect(settings).toEqual(DEFAULT_SETTINGS)
-      }).pipe(Effect.provide(SettingsLive))
+      }).pipe(Effect.provide(SettingsServiceLayer))
     )
 
     it.effect('falls back to defaults when mouseSensitivity is out of range', () =>
@@ -76,7 +64,7 @@ describe('application/settings/settings-service (mutations)', () => {
         yield* service.updateSettings({ mouseSensitivity: 0.05 })
         const settings = yield* service.getSettings()
         expect(settings).toEqual(DEFAULT_SETTINGS)
-      }).pipe(Effect.provide(SettingsLive))
+      }).pipe(Effect.provide(SettingsServiceLayer))
     )
 
     it.effect('falls back to defaults when dayLengthSeconds is out of range', () =>
@@ -85,7 +73,7 @@ describe('application/settings/settings-service (mutations)', () => {
         yield* service.updateSettings({ dayLengthSeconds: 5000 })
         const settings = yield* service.getSettings()
         expect(settings).toEqual(DEFAULT_SETTINGS)
-      }).pipe(Effect.provide(SettingsLive))
+      }).pipe(Effect.provide(SettingsServiceLayer))
     )
 
     it.effect('falls back to defaults when one field is valid and another is invalid', () =>
@@ -94,7 +82,7 @@ describe('application/settings/settings-service (mutations)', () => {
         yield* service.updateSettings({ renderDistance: 12, mouseSensitivity: 99 })
         const settings = yield* service.getSettings()
         expect(settings).toEqual(DEFAULT_SETTINGS)
-      }).pipe(Effect.provide(SettingsLive))
+      }).pipe(Effect.provide(SettingsServiceLayer))
     )
 
     it.effect('keeps previously valid settings when an update becomes invalid', () =>
@@ -104,22 +92,19 @@ describe('application/settings/settings-service (mutations)', () => {
         yield* service.updateSettings({ renderDistance: 99 })
         const settings = yield* service.getSettings()
         expect(settings).toEqual({ ...DEFAULT_SETTINGS, renderDistance: 10, mouseSensitivity: 1.4 })
-      }).pipe(Effect.provide(SettingsLive))
+      }).pipe(Effect.provide(SettingsServiceLayer))
     )
 
-    it.effect('persists updated settings to localStorage', () =>
+    it.effect('persists updated settings to IndexedDB', () =>
       Effect.gen(function* () {
         const service = yield* SettingsService
         yield* service.updateSettings({ renderDistance: 11 })
-        expect(setItemSpy).toHaveBeenCalledWith(
-          STORAGE_KEY,
-          JSON.stringify({ ...DEFAULT_SETTINGS, renderDistance: 11 })
-        )
-      }).pipe(Effect.provide(SettingsLive))
+        expect(idbPutSpy).toHaveBeenCalledWith({ ...DEFAULT_SETTINGS, renderDistance: 11 }, 'current')
+      }).pipe(Effect.provide(SettingsServiceLayer))
     )
 
-    it.effect('keeps in-memory update even when localStorage.setItem throws', () => {
-      setItemSpy.mockImplementation(() => {
+    it.effect('keeps in-memory update even when IndexedDB put throws', () => {
+      idbPutSpy.mockImplementation(() => {
 expect.fail('save failed')
       })
       return Effect.gen(function* () {
@@ -127,7 +112,7 @@ expect.fail('save failed')
         yield* service.updateSettings({ mouseSensitivity: 2.2 })
         const settings = yield* service.getSettings()
         expect(settings).toEqual({ ...DEFAULT_SETTINGS, mouseSensitivity: 2.2 })
-      }).pipe(Effect.provide(SettingsLive))
+      }).pipe(Effect.provide(SettingsServiceLayer))
     })
   })
 
@@ -143,17 +128,17 @@ expect.fail('save failed')
         yield* service.resetToDefaults()
         const settings = yield* service.getSettings()
         expect(settings).toEqual(DEFAULT_SETTINGS)
-      }).pipe(Effect.provide(SettingsLive))
+      }).pipe(Effect.provide(SettingsServiceLayer))
     )
 
-    it.effect('persists defaults to localStorage on reset', () =>
+    it.effect('persists defaults to IndexedDB on reset', () =>
       Effect.gen(function* () {
         const service = yield* SettingsService
         yield* service.updateSettings({ renderDistance: 13 })
         yield* service.resetToDefaults()
-        const lastCall = Option.getOrThrow(Arr.last(setItemSpy.mock.calls))
-        expect(lastCall).toEqual([STORAGE_KEY, JSON.stringify(DEFAULT_SETTINGS)])
-      }).pipe(Effect.provide(SettingsLive))
+        const lastCall = Option.getOrThrow(Arr.last(idbPutSpy.mock.calls))
+        expect(lastCall).toEqual([DEFAULT_SETTINGS, 'current'])
+      }).pipe(Effect.provide(SettingsServiceLayer))
     )
   })
 
@@ -166,7 +151,7 @@ expect.fail('save failed')
         const after = yield* service.getSettings()
         expect(before).toEqual(DEFAULT_SETTINGS)
         expect(after).toEqual({ ...DEFAULT_SETTINGS, renderDistance: 9 })
-      }).pipe(Effect.provide(SettingsLive))
+      }).pipe(Effect.provide(SettingsServiceLayer))
     )
 
     it.effect('chains getSettings -> updateSettings -> resetToDefaults -> getSettings', () =>
@@ -180,7 +165,7 @@ expect.fail('save failed')
         expect(initial).toEqual(DEFAULT_SETTINGS)
         expect(updated).toEqual({ ...DEFAULT_SETTINGS, dayLengthSeconds: 850 })
         expect(reset).toEqual(DEFAULT_SETTINGS)
-      }).pipe(Effect.provide(SettingsLive))
+      }).pipe(Effect.provide(SettingsServiceLayer))
     )
   })
 
@@ -192,7 +177,7 @@ expect.fail('save failed')
         yield* service.updateSettings({})
         const after = yield* service.getSettings()
         expect(after).toEqual(before)
-      }).pipe(Effect.provide(SettingsLive))
+      }).pipe(Effect.provide(SettingsServiceLayer))
     )
   })
 })

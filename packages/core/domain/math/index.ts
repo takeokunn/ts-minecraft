@@ -45,5 +45,5 @@ export type { Color } from './color'
 export type { CameraRotationPort, CameraTransformPort } from './camera-port'
 
 // Day/night port
-export { SkyMaterialPortSchema, DayNightLightsPortSchema, Option } from './day-night-port'
-export type { DayNightLightsPort, LightPort, LightTargetPort, AmbientLightPort, ColorPort, RendererPort, SkyMaterialPort } from './day-night-port'
+export { SkyMaterialPortSchema, MoonPhasePortSchema, DayNightLightsPortSchema, Option } from './day-night-port'
+export type { DayNightLightsPort, LightPort, LightTargetPort, AmbientLightPort, ColorPort, RendererPort, SkyMaterialPort, MoonPhasePort } from './day-night-port'

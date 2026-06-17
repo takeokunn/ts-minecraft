@@ -1,7 +1,7 @@
-import { Array as Arr, Effect, HashMap, HashSet, Option, Ref } from 'effect'
+import { Effect, HashMap, Option, Ref } from 'effect'
 import * as THREE from 'three'
 import type { Entity, EntityId as EntityIdType, EntityType } from '@ts-minecraft/entity'
-import { MOB_HALF_HEIGHT } from '@ts-minecraft/entity'
+import { CREEPER_FUSE_SECONDS, MOB_HALF_HEIGHT } from '@ts-minecraft/entity'
 import { SceneService } from '../scene/scene-service'
 import { buildMobGroup, type MobLimbGroup } from './mob-geometry'
 import { computeLimbAngleBase } from './walk-cycle'
@@ -21,6 +21,8 @@ const BABY_RENDER_SCALE = 0.5
 // floated every mob MOB_HALF_HEIGHT (0.9) blocks above the ground ('モブが宙に浮いてる').
 // Lower the render origin by the half-height so the feet sit on the surface.
 const MOB_RENDER_Y_OFFSET = MOB_HALF_HEIGHT
+const CREEPER_FLASH_COLOR = 0xffffff
+const CREEPER_FLASH_HZ = 8
 
 const setLimbRotation = (mesh: THREE.Mesh | null, angle: number): void => {
   if (mesh === null) return
@@ -62,6 +64,12 @@ const makeScratch = (): Scratch => ({
   rootMatrix: new THREE.Matrix4(),
 })
 
+type TrackedEntity = {
+  readonly group: MobLimbGroup
+  readonly type: EntityType
+  seenSyncSeq: number
+}
+
 // FR-2.5: per-frame allocation of a pre-sized lookup table keyed by limb pose name
 // would cost more than the closure capture below. We just route role → angle.
 const swingAngleForRole = (
@@ -80,11 +88,33 @@ const swingAngleForRole = (
   }
 }
 
+const clamp01 = (value: number): number => Math.min(1, Math.max(0, value))
+
+const lerpChannel = (from: number, to: number, amount: number): number =>
+  Math.round(from + (to - from) * amount)
+
+const mixColorHex = (from: number, to: number, amount: number): number => {
+  const t = clamp01(amount)
+  const r = lerpChannel((from >> 16) & 0xff, (to >> 16) & 0xff, t)
+  const g = lerpChannel((from >> 8) & 0xff, (to >> 8) & 0xff, t)
+  const b = lerpChannel(from & 0xff, to & 0xff, t)
+  return (r << 16) | (g << 8) | b
+}
+
+const getInstanceColor = (entity: Entity, baseColor: number, totalTimeSecs: number): number => {
+  if (entity.type !== 'Creeper' || entity.fuseSecs === undefined || entity.fuseSecs <= 0) {
+    return baseColor
+  }
+  const fuseProgress = clamp01(entity.fuseSecs / CREEPER_FUSE_SECONDS)
+  const pulse = (Math.sin(totalTimeSecs * Math.PI * 2 * CREEPER_FLASH_HZ) + 1) / 2
+  return mixColorHex(baseColor, CREEPER_FLASH_COLOR, fuseProgress * pulse)
+}
+
 // FR-2.5: pool→syncEntities full wire.
 //
-// `groupsRef` retains a `MobLimbGroup` per tracked entity, but the group's
-// `root` is NEVER added to the scene. The group is used purely as a transform
-// carrier so `updateEntityTransforms` can write per-frame matrices into the
+// `groupsRef` retains a transform carrier plus lightweight tracking metadata
+// per entity, but the carrier `root` is NEVER added to the scene. The group is
+// used purely so `updateEntityTransforms` can write per-frame matrices into the
 // pool's InstancedMesh buckets. Visible draw calls scale with the active
 // (type, role) bucket count (≤24), not the entity count.
 //
@@ -98,18 +128,20 @@ export class EntityRendererService extends Effect.Service<EntityRendererService>
     effect: Effect.gen(function* () {
       const sceneService = yield* SceneService
       void sceneService // bucket scene-add is owned by the pool; service kept for layer wiring + future use
-      const groupsRef = yield* Ref.make(HashMap.empty<EntityIdType, MobLimbGroup>())
+      const groupsRef = yield* Ref.make(HashMap.empty<EntityIdType, TrackedEntity>())
       const pool = createEntityInstancePool()
       const scratch = makeScratch()
+      let syncSeq = 0
 
-        // Tries to allocate every role for `entity`. Returns Some(group) on
+        // Tries to allocate every role for `entity`. Returns Some(entry) on
         // success, None on saturation (with all partial allocations rolled back).
         // Roles outside `ROLES_BY_TYPE[type]` are skipped — they map to None
         // specs in the pool (e.g. armL on quadrupeds, legBL on bipeds).
         const tryAllocateAllRoles = (
           entity: Entity,
           scene: THREE.Scene,
-        ): Option.Option<MobLimbGroup> => {
+          seenSyncSeq: number,
+        ): Option.Option<TrackedEntity> => {
           const type: EntityType = entity.type
           const roles = ROLES_BY_TYPE[type]
           const allocated: Array<PartRole> = []
@@ -127,7 +159,11 @@ export class EntityRendererService extends Effect.Service<EntityRendererService>
           // The MobLimbGroup mirrors the limb structure so `updateEntityTransforms`
           // can keep using its existing per-limb rotation logic; we then compose
           // each role's world matrix from (root.position, root.rotation, role.offset, role.swing).
-          return Option.some(buildMobGroup(type))
+          return Option.some({
+            group: buildMobGroup(type),
+            type,
+            seenSyncSeq,
+          })
         }
 
         const releaseAllRoles = (entity: { entityId: EntityIdType; type: EntityType }): void => {
@@ -139,7 +175,7 @@ export class EntityRendererService extends Effect.Service<EntityRendererService>
         }
 
         return {
-          // Reconciles tracked groups with the live entity list by entityId set diff.
+          // Reconciles tracked groups with the live entity list by generation mark.
           // Idempotent. New entities are admitted only when ALL roles fit in the
           // pool; saturation triggers a logWarning and the entity is silently
           // skipped from tracking.
@@ -149,47 +185,36 @@ export class EntityRendererService extends Effect.Service<EntityRendererService>
           ): Effect.Effect<void, never> =>
             Effect.gen(function* () {
               const groups = yield* Ref.get(groupsRef)
-              const liveIds = HashSet.fromIterable(Arr.map(entities, (e) => e.entityId))
+              const seq = ++syncSeq
+              let next = groups
 
-              const newEntities = Arr.filter(entities, (e) => !HashMap.has(groups, e.entityId))
-              const additions: Array<readonly [EntityIdType, MobLimbGroup]> = []
-              for (const entity of newEntities) {
-                const group = Option.getOrNull(tryAllocateAllRoles(entity, scene))
-                if (group === null) {
+              for (const entity of entities) {
+                const existing = HashMap.get(next, entity.entityId)
+                if (existing._tag === 'Some') {
+                  existing.value.seenSyncSeq = seq
+                  continue
+                }
+                const tracked = Option.getOrNull(tryAllocateAllRoles(entity, scene, seq))
+                if (tracked === null) {
                   yield* Effect.logWarning(
                     `entity-instance-pool saturated — type=${entity.type} id=${entity.entityId} skipped`,
                   )
                   continue
                 }
-                additions.push([entity.entityId, group] as const)
+                next = HashMap.set(next, entity.entityId, tracked)
               }
 
-              // Removals: entities tracked in groups but absent from liveIds.
-              // We need entity.type to release slots — recover it from the
-              // MobLimbGroup is impossible (group has no type field), so we
-              // walk the pool's internal slotIndex via getSlot per role on
-              // every type. Simpler: re-derive from the previous live set is
-              // not available. Instead, attempt release on every role across
-              // every type — releaseSlot is no-op when the entity isn't in
-              // that bucket, so this is correct and O(types × roles).
-              const removalIds: Array<EntityIdType> = []
-              for (const [id] of groups) {
-                if (!HashSet.has(liveIds, id)) removalIds.push(id)
-              }
-              for (const id of removalIds) {
-                for (const type of Object.keys(ROLES_BY_TYPE) as Array<EntityType>) {
-                  for (const role of ROLES_BY_TYPE[type]) {
-                    pool.releaseSlot(type, role, id)
-                  }
+              // Removals: entities tracked in groups but not marked in this sync.
+              // Store the type with the carrier so teardown only touches the
+              // entity's real bucket roles.
+              for (const [id, tracked] of groups) {
+                if (tracked.seenSyncSeq === seq) continue
+                for (const role of ROLES_BY_TYPE[tracked.type]) {
+                  pool.releaseSlot(tracked.type, role, id)
                 }
+                next = HashMap.remove(next, id)
               }
 
-              const afterAdd = Arr.reduce(
-                additions,
-                groups,
-                (acc, [id, group]) => HashMap.set(acc, id, group),
-              )
-              const next = Arr.reduce(removalIds, afterAdd, (acc, id) => HashMap.remove(acc, id))
               yield* Ref.set(groupsRef, next)
             }),
 
@@ -210,7 +235,7 @@ export class EntityRendererService extends Effect.Service<EntityRendererService>
                     // allocation outweighs MEMORY.md style consistency. _tag direct access is
                     // the documented exception (see greedy-meshing.ts getBlock for similar).
                     if (groupOpt._tag === 'None') continue
-                    const group = groupOpt.value
+                    const group = groupOpt.value.group
 
                     group.root.position.set(entity.position.x, entity.position.y - MOB_RENDER_Y_OFFSET, entity.position.z)
 
@@ -277,6 +302,12 @@ export class EntityRendererService extends Effect.Service<EntityRendererService>
                       scratch.matrix.multiply(scratch.offsetMatrix)
                       scratch.matrix.multiply(scratch.limbMatrix)
                       pool.setMatrixAt(entity.type, role, slot, scratch.matrix)
+                      pool.setColorAt(
+                        entity.type,
+                        role,
+                        slot,
+                        getInstanceColor(entity, bucket.spec.color, totalTimeSecs),
+                      )
                     }
                   }
                   pool.flushAll()
@@ -290,13 +321,14 @@ export class EntityRendererService extends Effect.Service<EntityRendererService>
           clearScene: (scene: THREE.Scene): Effect.Effect<void, never> =>
             Effect.gen(function* () {
               yield* Effect.sync(() => pool.disposeAll(scene))
-              yield* Ref.set(groupsRef, HashMap.empty())
+              yield* Ref.set(groupsRef, HashMap.empty<EntityIdType, TrackedEntity>())
             }),
 
           _getTrackedGroup: (id: EntityIdType): Effect.Effect<Option.Option<MobLimbGroup>, never> =>
             Effect.gen(function* () {
               const g = yield* Ref.get(groupsRef)
-              return HashMap.get(g, id)
+              const entry = Option.getOrNull(HashMap.get(g, id))
+              return entry === null ? Option.none() : Option.some(entry.group)
             }),
 
           // Test accessor for assertions around saturation, bucket counts, and
@@ -312,5 +344,3 @@ export class EntityRendererService extends Effect.Service<EntityRendererService>
     dependencies: [SceneService.Default],
   },
 ) {}
-
-export const EntityRendererLive = EntityRendererService.Default

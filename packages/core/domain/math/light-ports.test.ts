@@ -7,6 +7,7 @@ import {
   AmbientLightPortSchema,
   RendererPortSchema,
   SkyMaterialPortSchema,
+  MoonPhasePortSchema,
 } from './light-ports'
 import { makeTestColorPort } from '../builders'
 
@@ -46,6 +47,13 @@ const makeSkyMaterial = () => ({
     turbidity: { value: 10 },
     rayleigh: { value: 2 },
   },
+})
+
+const makeMoonPhasePort = () => ({
+  setPosition: (_x: number, _y: number, _z: number) => {},
+  setPhase: (_phase: number) => {},
+  setVisible: (_visible: boolean) => {},
+  setOpacity: (_opacity: number) => {},
 })
 
 // ── LightTargetPortSchema ──────────────────────────────────────────────────
@@ -177,6 +185,23 @@ describe('RendererPortSchema', () => {
 
   it('rejects a primitive string', () => {
     expect(() => Schema.decodeUnknownSync(RendererPortSchema)('renderer')).toThrow()
+  })
+})
+
+// ── MoonPhasePortSchema ───────────────────────────────────────────────────
+
+describe('MoonPhasePortSchema', () => {
+  it('accepts a valid moon phase port', () => {
+    expect(() => Schema.decodeUnknownSync(MoonPhasePortSchema)(makeMoonPhasePort())).not.toThrow()
+  })
+
+  it('rejects when setPhase is not a function', () => {
+    const invalid = { ...makeMoonPhasePort(), setPhase: 3 }
+    expect(() => Schema.decodeUnknownSync(MoonPhasePortSchema)(invalid)).toThrow()
+  })
+
+  it('rejects null', () => {
+    expect(() => Schema.decodeUnknownSync(MoonPhasePortSchema)(null)).toThrow()
   })
 })
 

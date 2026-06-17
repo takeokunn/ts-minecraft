@@ -1,61 +1,20 @@
-import { Array as Arr, Cause, Clock, Effect, HashMap, MutableRef, Option, Ref } from 'effect'
+import { Cause, Clock, Effect, HashMap, MutableRef, Option } from 'effect'
 import { DEFAULT_PLAYER_ID } from '@ts-minecraft/core'
-import type { Chunk, ChunkAABB } from '@ts-minecraft/world'
-import { chunkBlockIndexUnchecked } from '@ts-minecraft/world'
-import { DESPAWN_DISTANCE, resolveMobSpawnPosition } from '@ts-minecraft/entity'
-import type { Village, VillageStructure } from '@ts-minecraft/entity'
-import { CHUNK_SIZE, CHUNK_HEIGHT, blockTypeToIndex } from '@ts-minecraft/core'
-import { buildingBlocksForVillage } from '@ts-minecraft/entity'
-import { FALLBACK_PLAYER_POS, MAX_DIRTY_CHUNK_UPDATES_PER_FRAME } from '@ts-minecraft/app/frame-handler.config'
-import { CROP_GROWTH_INTERVAL_SECS } from '@ts-minecraft/world'
+import type { Chunk } from '@ts-minecraft/world'
+import { FALLBACK_PLAYER_POS } from '@ts-minecraft/app/frame-handler.config'
 import type { FrameHandlerDeps, FrameHandlerServices } from '@ts-minecraft/app/frame/types'
-import type { DeltaTimeSecs, Position } from '@ts-minecraft/core'
-
-// FR-4.2: dirty chunks queued for re-mesh now carry their accumulated dirty
-// AABB (Option.none() means "full chunk"). Producers (block-handler & the
-// chunk-manager drain) supply both fields; the flush step forwards the AABB
-// to `worldRendererService.updateChunkInScene`.
-export type DirtyChunkEntry = { readonly chunk: Chunk; readonly dirtyAABB: Option.Option<ChunkAABB> }
-
-// Blocks that are NOT the terrain surface when grounding a village structure: air,
-// fluids, and the tree canopy/trunk (a house should sit on the ground, not on a tree).
-const VILLAGE_NON_GROUND_IDS: ReadonlySet<number> = new Set([
-  blockTypeToIndex('AIR'), blockTypeToIndex('WATER'), blockTypeToIndex('LAVA'),
-  blockTypeToIndex('LEAVES'), blockTypeToIndex('WOOD'),
-])
-const AIR_BLOCK_IDX = blockTypeToIndex('AIR')
-
-// Topmost terrain (ground) block Y in a chunk column, or -1 if the column has none.
-const topGroundY = (blocks: Uint8Array, lx: number, lz: number): number => {
-  for (let y = CHUNK_HEIGHT - 1; y >= 0; y--) {
-    const b = blocks[chunkBlockIndexUnchecked(lx, y, lz)] ?? AIR_BLOCK_IDX
-    if (!VILLAGE_NON_GROUND_IDS.has(b)) return y
-  }
-  return -1
-}
-
-// Foundation cap: deepest a village foundation pillar will fill below the floor. Footprint
-// columns sit within a few blocks of the anchor on normal terrain, so this only matters at
-// steep edges — it bounds the fill so a house at a ravine lip can't drop a 100-block pillar.
-const VILLAGE_FOUNDATION_MAX_DEPTH = 12
-
-// Unions two dirty AABBs. Either side being None means "full chunk" (no AABB),
-// so None propagates through: union(Some, None) = None, union(None, _) = None.
-const unionDirtyAABB = (
-  a: Option.Option<ChunkAABB>,
-  b: Option.Option<ChunkAABB>,
-): Option.Option<ChunkAABB> =>
-  Option.zipWith(a, b, (av, bv) => ({
-    minX: Math.min(av.minX, bv.minX), maxX: Math.max(av.maxX, bv.maxX),
-    minY: Math.min(av.minY, bv.minY), maxY: Math.max(av.maxY, bv.maxY),
-    minZ: Math.min(av.minZ, bv.minZ), maxZ: Math.max(av.maxZ, bv.maxZ),
-  }))
+import type { DeltaTimeSecs } from '@ts-minecraft/core'
+import { runMaintenanceSimulation } from './frame-maintenance-simulation'
+import { runMaintenanceSync } from './frame-maintenance-sync'
+import { shouldContinueMaintenanceCycle } from './frame-maintenance-cycle.plan'
+import type { DirtyChunkEntry } from './frame-maintenance-dirty'
+import { resolveMaintenanceContext } from './frame-maintenance-context'
 
 type MaintenanceState = {
-  readonly lastLoadedChunksRef: Ref.Ref<Option.Option<ReadonlyArray<Chunk>>>
+  readonly lastLoadedChunksRef: MutableRef.MutableRef<Option.Option<ReadonlyArray<Chunk>>>
   readonly lastChunkStreamingRef: MutableRef.MutableRef<{ readonly cx: number; readonly cz: number; readonly renderDistance: number }>
   readonly chunkSyncPendingRef: MutableRef.MutableRef<boolean>
-  readonly dirtyChunksRef: Ref.Ref<HashMap.HashMap<string, DirtyChunkEntry>>
+  readonly dirtyChunksRef: MutableRef.MutableRef<HashMap.HashMap<string, DirtyChunkEntry>>
   // Accumulated maintenance-tick time for crop growth; fires tickAll() every CROP_GROWTH_INTERVAL_SECS.
   readonly cropTickAccumulatorRef: MutableRef.MutableRef<number>
   // Wall-clock ms of the previous maintenance iteration, so the real elapsed delta
@@ -70,6 +29,92 @@ type MaintenanceServices = Pick<
   'entityManager' | 'gameState' | 'chunkManagerService' | 'settingsService' | 'worldRendererService' | 'fluidService' | 'blockHighlight' | 'furnaceService' | 'mobSpawner' | 'villageService' | 'timeService' | 'debugFeatureFlags' | 'blockService' | 'cropGrowthService'
 >
 
+export const computeMaintenanceDeltaTime = (
+  lastMaintenanceTimeMs: number,
+  nowMs: number,
+): DeltaTimeSecs => {
+  const rawMaintenanceDelta = lastMaintenanceTimeMs < 0 ? 0.05 : (nowMs - lastMaintenanceTimeMs) / 1000
+  return Math.min(Math.max(rawMaintenanceDelta, 0.001), 0.25) as DeltaTimeSecs
+}
+
+const runMaintenanceCycle = (
+  deps: Pick<FrameHandlerDeps, 'scene'>,
+  services: MaintenanceServices,
+  state: MaintenanceState,
+): Effect.Effect<boolean, never> =>
+  Effect.gen(function* () {
+    const {
+      gameState,
+      settingsService,
+      debugFeatureFlags,
+    } = services
+
+    const playerPos = yield* gameState.getPlayerPosition(DEFAULT_PLAYER_ID).pipe(
+      Effect.catchAllCause(() => Effect.succeed(FALLBACK_PLAYER_POS)),
+    )
+    const currentSettings = yield* settingsService.getSettings()
+    const debugFlags = yield* debugFeatureFlags.getFlags()
+    const {
+      mobsEnabled,
+      mobsSpawnEnabled,
+      furnaceEnabled,
+      villageEnabled,
+      chunkStreamingEnabled,
+      chunkSceneSyncEnabled,
+      dirtyChunkFlushEnabled,
+      cx,
+      cz,
+    } = resolveMaintenanceContext({
+      playerPos,
+      difficulty: currentSettings.difficulty,
+      debugFlags,
+    })
+    // Real elapsed time since the previous maintenance iteration. The loop's sleep
+    // is 16ms (busy) or 48ms (idle) + handler execution, so a fixed 0.05 made
+    // furnace/crop/village run faster under load and frame-rate dependently. First
+    // call falls back to ~0.05 (the idle cadence). Clamp: floor avoids a divide-by-
+    // tiny spike; the 0.25 cap stops a background-tab pause from dumping a huge
+    // backlog into the simulation on resume.
+    const nowMs = yield* Clock.currentTimeMillis
+    const lastMaintenanceMs = MutableRef.get(state.lastMaintenanceTimeMsRef)
+    MutableRef.set(state.lastMaintenanceTimeMsRef, nowMs)
+    const maintenanceDeltaTime = computeMaintenanceDeltaTime(lastMaintenanceMs, nowMs)
+    const simulationResult = yield* runMaintenanceSimulation(
+      services,
+      state,
+      {
+        mobsEnabled,
+        mobsSpawnEnabled,
+        furnaceEnabled,
+        villageEnabled,
+        playerPos,
+        maintenanceDeltaTime,
+      },
+    )
+    const { didLoadChunks, flushedDirtyChunkCount } = yield* runMaintenanceSync(
+      deps,
+      services,
+      state,
+      {
+        chunkStreamingEnabled,
+        chunkSceneSyncEnabled,
+        dirtyChunkFlushEnabled,
+        cx,
+        cz,
+        playerPos,
+        renderDistance: currentSettings.renderDistance,
+      },
+    )
+    const chunkSyncPending = MutableRef.get(state.chunkSyncPendingRef)
+
+    /* c8 ignore next */
+    return shouldContinueMaintenanceCycle({
+      didLoadChunks,
+      chunkSyncPending,
+      flushedDirtyChunkCount,
+      simulationResult,
+    })
+  })
 
 export const createMaintenanceHandler = (
   deps: Pick<FrameHandlerDeps, 'scene' | 'sessionPausedRef'>,
@@ -84,280 +129,7 @@ export const createMaintenanceHandler = (
       if (MutableRef.get(deps.sessionPausedRef)) {
         return false
       }
-      const {
-        entityManager,
-        gameState,
-        chunkManagerService,
-        settingsService,
-        worldRendererService,
-        fluidService,
-        blockHighlight,
-        furnaceService,
-        mobSpawner,
-        villageService,
-        timeService,
-        debugFeatureFlags,
-        blockService,
-      } = services
-
-      const playerPos = yield* gameState.getPlayerPosition(DEFAULT_PLAYER_ID).pipe(
-        Effect.catchAllCause(() => Effect.succeed(FALLBACK_PLAYER_POS)),
-      )
-      const timeOfDay = yield* timeService.getTimeOfDay().pipe(
-        Effect.catchAllCause(() => Effect.succeed(0.5)),
-      )
-      const currentSettings = yield* settingsService.getSettings()
-      const debugFlags = yield* debugFeatureFlags.getFlags()
-      const mobsEnabled = debugFlags['mobs.enabled']
-      const mobsSpawnEnabled = mobsEnabled && debugFlags['mobs.spawn']
-      const furnaceEnabled = debugFlags['simulation.furnace']
-      const villageEnabled = debugFlags['simulation.village']
-      const chunkStreamingEnabled = debugFlags['world.chunkStreaming']
-      const chunkSceneSyncEnabled = debugFlags['world.chunkSceneSync']
-      const dirtyChunkFlushEnabled = chunkSceneSyncEnabled && debugFlags['world.dirtyChunkFlush']
-      const cx = Math.floor(playerPos.x / CHUNK_SIZE)
-      const cz = Math.floor(playerPos.z / CHUNK_SIZE)
-      // Real elapsed time since the previous maintenance iteration. The loop's sleep
-      // is 16ms (busy) or 48ms (idle) + handler execution, so a fixed 0.05 made
-      // furnace/crop/village run faster under load and frame-rate dependently. First
-      // call falls back to ~0.05 (the idle cadence). Clamp: floor avoids a divide-by-
-      // tiny spike; the 0.25 cap stops a background-tab pause from dumping a huge
-      // backlog into the simulation on resume.
-      const nowMs = yield* Clock.currentTimeMillis
-      const lastMaintenanceMs = MutableRef.get(state.lastMaintenanceTimeMsRef)
-      MutableRef.set(state.lastMaintenanceTimeMsRef, nowMs)
-      const rawMaintenanceDelta = lastMaintenanceMs < 0 ? 0.05 : (nowMs - lastMaintenanceMs) / 1000
-      const maintenanceDeltaTime = Math.min(Math.max(rawMaintenanceDelta, 0.001), 0.25) as DeltaTimeSecs
-      const despawnFarEntities = entityManager.despawnFarEntities
-      const despawnAllEntities = entityManager.despawnAllEntities
-
-      const despawnedCount = mobsEnabled
-        ? typeof despawnFarEntities === 'function'
-          ? yield* despawnFarEntities(playerPos, DESPAWN_DISTANCE)
-          : 0
-        : typeof despawnAllEntities === 'function'
-          ? yield* despawnAllEntities()
-          /* c8 ignore next -- defensive: despawnAllEntities is always available when mobs disabled */
-          : 0
-
-      if (furnaceEnabled) {
-        yield* furnaceService.tick(maintenanceDeltaTime).pipe(Effect.catchAllCause(() => Effect.void))
-      }
-
-      // Crop growth tick — advance all player-planted crops every CROP_GROWTH_INTERVAL_SECS.
-      // Village / world-generated crops are not tracked and default to ripe on break.
-      const newCropAcc = MutableRef.get(state.cropTickAccumulatorRef) + Number(maintenanceDeltaTime)
-      if (newCropAcc >= CROP_GROWTH_INTERVAL_SECS) {
-        MutableRef.set(state.cropTickAccumulatorRef, newCropAcc - CROP_GROWTH_INTERVAL_SECS)
-        yield* services.cropGrowthService.tickAll().pipe(Effect.catchAllCause(() => Effect.void))
-      } else {
-        MutableRef.set(state.cropTickAccumulatorRef, newCropAcc)
-      }
-
-      // R25: hostile mobs spawn only at night (per selectMobType); gate their
-      // spawn surfaces on darkness. Derived from the already-fetched timeOfDay to
-      // match TimeService.isNight (timeOfDay < 0.25 || > 0.75) without an extra call.
-      const isNightSpawn = timeOfDay < 0.25 || timeOfDay > 0.75
-      const spawnResult = mobsSpawnEnabled
-        ? yield* mobSpawner.trySpawn(
-            playerPos,
-            (candidatePosition: Position) => {
-              const chunkCoord = {
-                x: Math.floor(Math.floor(candidatePosition.x) / CHUNK_SIZE),
-                z: Math.floor(Math.floor(candidatePosition.z) / CHUNK_SIZE),
-              }
-
-              return Effect.gen(function* () {
-                const chunk = yield* chunkManagerService.getChunk(chunkCoord)
-                return resolveMobSpawnPosition(chunk, candidatePosition, isNightSpawn)
-              }).pipe(Effect.catchAllCause(() => Effect.succeed(Option.none<Position>())))
-            },
-            // Real elapsed time gates the spawn cadence (frame-rate / load independent).
-            maintenanceDeltaTime,
-          ).pipe(
-            /* c8 ignore start */
-            Effect.catchAllCause((cause) =>
-              Effect.gen(function* () {
-                yield* Effect.logError(`Mob spawn error: ${Cause.pretty(cause)}`)
-                return Option.none()
-              }),
-            ),
-            /* c8 ignore end */
-          )
-        : Option.none()
-      if (villageEnabled) {
-        const villagesBefore = yield* villageService.getVillages()
-        const countBefore = villagesBefore.length
-        yield* villageService.update(playerPos, timeOfDay, maintenanceDeltaTime).pipe(
-          Effect.catchAllCause((cause) => Effect.logError(`Village system error: ${Cause.pretty(cause)}`)),
-        )
-        const villagesAfter = yield* villageService.getVillages()
-        // Build the before-ID set only when the count grew to avoid allocating a
-        // Set + temporary array on the common case where no new village was added.
-        const newVillages: Village[] = villagesAfter.length > countBefore
-          ? (() => {
-              const beforeIds = new Set<string>()
-              for (const v of villagesBefore) beforeIds.add(v.villageId)
-              return villagesAfter.filter((v: Village) => !beforeIds.has(v.villageId))
-            })()
-          : []
-        if (newVillages.length > 0) {
-          for (const village of newVillages) {
-            // Per-column terrain-surface resolver with a small chunk cache (footprints can
-            // straddle chunk borders). getChunk returns the already-loaded chunk, so this is
-            // cheap; village creation is a rare maintenance event.
-            const chunkByKey = new Map<string, Chunk | null>()
-            const surfaceAt = (wx: number, wz: number): Effect.Effect<number, never> =>
-              Effect.gen(function* () {
-                const ccx = Math.floor(wx / CHUNK_SIZE)
-                const ccz = Math.floor(wz / CHUNK_SIZE)
-                const key = `${ccx},${ccz}`
-                let chunk = chunkByKey.get(key)
-                if (chunk === undefined) {
-                  chunk = yield* chunkManagerService.getChunk({ x: ccx, z: ccz }).pipe(
-                    Effect.catchAll(() => Effect.succeed(null)),
-                  )
-                  chunkByKey.set(key, chunk)
-                }
-                if (chunk === null) return -1
-                const lx = ((wx % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE
-                const lz = ((wz % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE
-                return topGroundY(chunk.blocks, lx, lz)
-              })
-
-            // Ground each structure to the TERRAIN surface of its own anchor column (its stored
-            // Y came from the player body, not terrain → houses floated). Floor = surfaceY+1.
-            const groundedStructures: VillageStructure[] = []
-            for (const s of village.structures) {
-              const groundY = yield* surfaceAt(s.anchor.x, s.anchor.z)
-              groundedStructures.push(
-                groundY < 0 ? s : { ...s, anchor: { ...s.anchor, y: groundY + 1 } },
-              )
-            }
-
-            // Foundation: under EVERY footprint column, fill solid (COBBLESTONE) from that
-            // column's terrain surface up to just below the floor, so a house on a slope/edge
-            // always has ground beneath it instead of a floating floor ('生成する家は地面が
-            // かならずある状態で'). Depth-capped to avoid ravine-lip pillars.
-            for (const s of groundedStructures) {
-              const floorY = s.anchor.y
-              for (let dx = 0; dx < s.size.x; dx++) {
-                for (let dz = 0; dz < s.size.z; dz++) {
-                  const wx = s.anchor.x + dx
-                  const wz = s.anchor.z + dz
-                  const colSurface = yield* surfaceAt(wx, wz)
-                  if (colSurface < 0) continue
-                  const fillBottom = Math.max(colSurface + 1, floorY - VILLAGE_FOUNDATION_MAX_DEPTH)
-                  for (let y = fillBottom; y < floorY; y++) {
-                    yield* blockService.forceSetBlock({ x: wx, y, z: wz }, 'COBBLESTONE').pipe(
-                      Effect.catchAll(() => Effect.void),
-                    )
-                  }
-                }
-              }
-            }
-
-            const placements = buildingBlocksForVillage(groundedStructures)
-            for (const { position, blockType } of placements) {
-              yield* blockService.forceSetBlock(position, blockType).pipe(
-                Effect.catchAll(() => Effect.void),
-              )
-            }
-          }
-        }
-      }
-
-      const chunkSyncPending = MutableRef.get(state.chunkSyncPendingRef)
-      const { cx: lastCx, cz: lastCz, renderDistance: lastRenderDistance } = MutableRef.get(state.lastChunkStreamingRef)
-      /* c8 ignore next */
-      const shouldRefreshChunks = chunkStreamingEnabled && (chunkSyncPending || lastCx !== cx || lastCz !== cz || lastRenderDistance !== currentSettings.renderDistance)
-
-      if (shouldRefreshChunks) {
-        const didLoadChunks = chunkSyncPending
-          ? false
-          : yield* chunkManagerService.loadChunksAroundPlayer(playerPos, currentSettings.renderDistance)
-        if (chunkSceneSyncEnabled) {
-          const loadedChunks = yield* chunkManagerService.getLoadedChunks()
-          const lastLoadedChunks = yield* Ref.get(state.lastLoadedChunksRef)
-          const lastLoadedChunksVal = Option.getOrNull(lastLoadedChunks)
-          const chunksChanged = lastLoadedChunksVal === null || lastLoadedChunksVal !== loadedChunks
-          const shouldSyncWorld = chunkSyncPending || chunksChanged
-
-          if (shouldSyncWorld) {
-            const fullySynced = yield* worldRendererService.syncChunksToScene(loadedChunks, deps.scene)
-
-            if (chunksChanged) {
-              yield* fluidService.syncLoadedChunks(loadedChunks)
-              yield* blockHighlight.invalidateCache()
-            }
-
-            if (fullySynced) {
-              if (chunksChanged) {
-                yield* Ref.set(state.lastLoadedChunksRef, Option.some(loadedChunks))
-              }
-              MutableRef.set(state.chunkSyncPendingRef, false)
-            } else {
-              MutableRef.set(state.chunkSyncPendingRef, true)
-            }
-          }
-        }
-
-        if (didLoadChunks) {
-          MutableRef.set(state.lastChunkStreamingRef, { cx, cz, renderDistance: currentSettings.renderDistance })
-        }
-      }
-
-      // FR-4.2: drain render-dirty entries with their accumulated AABBs. If a
-      // chunk is already queued (from interaction-block-handler), union the
-      // AABBs so the flush sees the widest dirty region for that chunk.
-      const renderDirtyEntries = dirtyChunkFlushEnabled
-        ? yield* chunkManagerService.drainRenderDirtyChunkEntries()
-        : []
-      if (renderDirtyEntries.length > 0) {
-        yield* Ref.update(
-          state.dirtyChunksRef,
-          (current) => Arr.reduce(
-            renderDirtyEntries,
-            current,
-            (acc, entry) => {
-              const k = `${entry.chunk.coord.x},${entry.chunk.coord.z}`
-              const existing = Option.getOrNull(HashMap.get(acc, k))
-              // Union new AABB with whatever was already queued. Either side
-              // being Option.none() ⇒ full-chunk fallback (Option.none()).
-              const dirtyAABB = existing === null
-                ? entry.dirtyAABB
-                : unionDirtyAABB(existing.dirtyAABB, entry.dirtyAABB)
-              return HashMap.set(acc, k, { chunk: entry.chunk, dirtyAABB })
-            },
-          ),
-        )
-      }
-
-      let flushedDirtyChunkCount = 0
-      if (dirtyChunkFlushEnabled) {
-        const dirtyChunks = yield* Ref.getAndSet(state.dirtyChunksRef, HashMap.empty())
-        const dirtyEntries = Arr.fromIterable(dirtyChunks)
-        const chunksToUpdate = Arr.take(dirtyEntries, MAX_DIRTY_CHUNK_UPDATES_PER_FRAME)
-        const remainingEntries = Arr.drop(dirtyEntries, MAX_DIRTY_CHUNK_UPDATES_PER_FRAME)
-        // Sequential: maintenance path with per-frame cap (MAX_DIRTY_CHUNK_UPDATES_PER_FRAME).
-        // Individual yield* avoids fiber overhead on the bounded maintenance loop.
-        for (const [, entry] of chunksToUpdate) {
-          yield* worldRendererService.updateChunkInScene(
-            entry.chunk, deps.scene, Option.getOrUndefined(entry.dirtyAABB),
-          )
-        }
-        /* c8 ignore next 4 -- only fires when dirtyChunks > MAX_DIRTY_CHUNK_UPDATES_PER_FRAME; not tested in unit tests */
-        if (remainingEntries.length > 0) {
-          yield* Ref.update(state.dirtyChunksRef, (current) =>
-            Arr.reduce(remainingEntries, current, (acc, [key, entry]) => HashMap.set(acc, key, entry))
-          )
-        }
-        if (dirtyEntries.length > 0) yield* blockHighlight.invalidateCache()
-        flushedDirtyChunkCount = dirtyEntries.length
-      }
-
-      /* c8 ignore next */
-      return shouldRefreshChunks || chunkSyncPending || flushedDirtyChunkCount > 0 || despawnedCount > 0 || Option.isSome(spawnResult)
+      return yield* runMaintenanceCycle(deps, services, state)
     }).pipe(
       Effect.catchAllCause((cause) =>
         Effect.gen(function* () {

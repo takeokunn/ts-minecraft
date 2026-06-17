@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest'
+import { CHUNK_SIZE } from '@ts-minecraft/core'
 import {
+  CHUNK_COLUMN_SAMPLE_COUNT,
   computeTerrainChannels,
   createNoisePrimitives,
   noise2DBatchXY,
@@ -15,12 +17,14 @@ import {
 const constant = (k: number): NoiseFn2D => () => k
 // Returns its first (world-x) argument — affine, so bilinear interpolation is exact.
 const firstArg: NoiseFn2D = (x) => x
+const readNumber = (values: ReadonlyArray<number>, index: number): number => values[index] ?? Number.NaN
+const denseIdx = (z: number, x: number): number => z * CHUNK_SIZE + x
 
 describe('computeTerrainChannels', () => {
-  it('produces four 256-length channel arrays (16×16 chunk column)', () => {
+  it('produces four chunk-column channel arrays', () => {
     const ch = computeTerrainChannels(constant(0), constant(0), constant(0), constant(0), 0, 0)
     for (const arr of [ch.continentalness, ch.erosion, ch.pv, ch.jaggedness]) {
-      expect(arr.length).toBe(256)
+      expect(arr.length).toBe(CHUNK_COLUMN_SAMPLE_COUNT)
     }
   })
 
@@ -41,10 +45,10 @@ describe('computeTerrainChannels', () => {
   it('reproduces an affine field exactly at every cell (bilinear interpolation is exact)', () => {
     // continentalness fn returns world-x (scaled), so cell (x,z) must equal (xStart + x) * SCALE_C
     const ch = computeTerrainChannels(firstArg, constant(0), constant(0), constant(0), 0, 0)
-    for (let z = 0; z < 16; z++) {
-      for (let x = 0; x < 16; x++) {
+    for (let z = 0; z < CHUNK_SIZE; z++) {
+      for (let x = 0; x < CHUNK_SIZE; x++) {
         const expected = (0 + x) * SCALE_C
-        expect(ch.continentalness[z * 16 + x]).toBeCloseTo(expected, 12)
+        expect(ch.continentalness[denseIdx(z, x)]).toBeCloseTo(expected, 12)
       }
     }
   })
@@ -83,7 +87,7 @@ describe('createNoisePrimitives', () => {
   it('sampleTerrainChannels matches a direct computeTerrainChannels call', () => {
     const p = createNoisePrimitives(99)
     const viaPrimitive = p.sampleTerrainChannels(0, 0)
-    expect(viaPrimitive.continentalness.length).toBe(256)
+    expect(viaPrimitive.continentalness.length).toBe(CHUNK_COLUMN_SAMPLE_COUNT)
     // pv is bounded by toPV's range [-1, 1]
     expect([...viaPrimitive.pv].every((v) => v >= -1 - 1e-9 && v <= 1 + 1e-9)).toBe(true)
   })
@@ -96,7 +100,7 @@ describe('batch helpers', () => {
     const xs = [1, 2, 3]
     const zs = [4, 5, 6]
     const out = noise2DBatchXY(p, xs, zs)
-    expect(out).toEqual(xs.map((x, i) => p.noise2D(x, zs[i]!)))
+    expect(out).toEqual(xs.map((x, i) => p.noise2D(x, readNumber(zs, i))))
   })
 
   it('noise3DBatchXYZ maps three parallel arrays element-wise', () => {
@@ -104,14 +108,14 @@ describe('batch helpers', () => {
     const ys = [10, 11]
     const zs = [20, 21]
     const out = noise3DBatchXYZ(p, xs, ys, zs)
-    expect(out).toEqual(xs.map((x, i) => p.noise3D(x, ys[i]!, zs[i]!)))
+    expect(out).toEqual(xs.map((x, i) => p.noise3D(x, readNumber(ys, i), readNumber(zs, i))))
   })
 
   it('octaveNoise2DBatchXY threads octave params to every point', () => {
     const xs = [1, 2]
     const zs = [3, 4]
     const out = octaveNoise2DBatchXY(p, xs, zs, 4, 0.5, 2)
-    expect(out).toEqual(xs.map((x, i) => p.octaveNoise2D(x, zs[i]!, 4, 0.5, 2)))
+    expect(out).toEqual(xs.map((x, i) => p.octaveNoise2D(x, readNumber(zs, i), 4, 0.5, 2)))
   })
 
   it('noise2DBatch consumes [x, z] tuples', () => {

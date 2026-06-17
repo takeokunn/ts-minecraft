@@ -3,11 +3,11 @@ import { expect } from 'vitest'
 import { Array as Arr, Effect, Layer, Schema } from 'effect'
 import {
   BiomeService,
-  BiomeServiceLive,
+  BiomeService,
   BiomeTypeSchema,
+  CHUNK_COLUMN_SAMPLE_COUNT,
   NoiseServicePort,
 } from '@ts-minecraft/world'
-import { CHUNK_SIZE } from '@ts-minecraft/core'
 import { classifyBiome } from '../domain/biome-classifier.ts'
 import { TEMP_HOT } from '../domain/biome-classifier.config.ts'
 
@@ -43,17 +43,17 @@ const makeMockLayer = (
     jaggedness: () => Effect.succeed(0),
     sampleTerrainChannels: () =>
       Effect.succeed({
-        continentalness: new Float64Array(Arr.makeBy(CHUNK_SIZE * CHUNK_SIZE, () => cont)),
-        erosion: new Float64Array(Arr.makeBy(CHUNK_SIZE * CHUNK_SIZE, () => eros)),
-        pv: new Float64Array(Arr.makeBy(CHUNK_SIZE * CHUNK_SIZE, () => pv)),
-        jaggedness: new Float64Array(Arr.makeBy(CHUNK_SIZE * CHUNK_SIZE, () => 0)),
+        continentalness: new Float64Array(Arr.makeBy(CHUNK_COLUMN_SAMPLE_COUNT, () => cont)),
+        erosion: new Float64Array(Arr.makeBy(CHUNK_COLUMN_SAMPLE_COUNT, () => eros)),
+        pv: new Float64Array(Arr.makeBy(CHUNK_COLUMN_SAMPLE_COUNT, () => pv)),
+        jaggedness: new Float64Array(Arr.makeBy(CHUNK_COLUMN_SAMPLE_COUNT, () => 0)),
       }),
     setSeed: () => Effect.void,
   }))
 }
 
 const makeLayer = (temp: number, hum: number, cont: number, eros: number, pv = 0, river = 0.0) =>
-  BiomeServiceLive.pipe(Layer.provide(makeMockLayer(temp, hum, cont, eros, pv, river)))
+  BiomeService.Default.pipe(Layer.provide(makeMockLayer(temp, hum, cont, eros, pv, river)))
 
 describe('classifyBiomeFromClimate — baseBiome SWAMP overridden to FOREST by continentalness', () => {
   it.effect('temp=0.71, hum=0.9, cont=0.2, eros=0.6 → FOREST (continentalness > 0.15)', () =>
@@ -82,14 +82,12 @@ describe('classifyBiomeFromClimate — baseBiome SWAMP overridden to FOREST by c
 })
 
 describe('classifyBiomeFromClimate — mountain override branches', () => {
-  it.effect('MOUNTAINS base with high continentalness and mountaininess → MOUNTAINS (no override)', () =>
+  it.effect('MOUNTAINS base with high continentalness and mountaininess → SNOW when cold', () =>
     Effect.gen(function* () {
       const svc = yield* BiomeService
       const biome = yield* svc.getBiome(0, 0)
-      // MOUNTAINS base biome requires cold temp (temp < 0.3), humidity in (0.4, 0.55)
-      // pv=1 → mountaininess = 0.65*1 + 0.35*max(0, 0.45-eros)
-      // With cont=0.6 > 0.5 and mountaininess > 0.42 → returns MOUNTAINS (not TAIGA override path)
-      expect(['MOUNTAINS', 'SNOW', 'TAIGA']).toContain(biome)
+      // Cold, high-continentalness mountains should resolve to SNOW when rugged enough.
+      expect(biome).toBe('SNOW')
     }).pipe(Effect.provide(makeLayer(0.2, 0.45, 0.6, 0.0, 1.0)))
   )
 
@@ -109,14 +107,13 @@ describe('classifyBiomeFromClimate — mountain override branches', () => {
     }).pipe(Effect.provide(makeLayer(0.2, 0.45, 0.6, 0.0, 0.8)))
   )
 
-  it.effect('MOUNTAINS base with low continentalness → TAIGA override', () =>
+  it.effect('MOUNTAINS base with low mountaininess → TAIGA override', () =>
     Effect.gen(function* () {
       const svc = yield* BiomeService
       const biome = yield* svc.getBiome(0, 0)
-      // Cold temp (< 0.3), humidity in mountains range (> 0.4), low continentalness → MOUNTAINS base
-      // but continentalness < 0.32 triggers override → TAIGA (since temp < TEMP_COLD)
-      expect(['TAIGA', 'MOUNTAINS']).toContain(biome)
-    }).pipe(Effect.provide(makeLayer(0.2, 0.45, 0.2, 0.6)))
+      // Cold temp (< 0.3), humidity in mountains range (> 0.4), but flat terrain softens the biome.
+      expect(biome).toBe('TAIGA')
+    }).pipe(Effect.provide(makeLayer(0.2, 0.45, 0.2, 0.6, 0.0)))
   )
 })
 
@@ -157,9 +154,9 @@ describe('classifyBiomeFromClimate — MOUNTAINS base overridden to TAIGA/FOREST
   )
 })
 
-describe('classifyBiomeFromClimate — baseBiome OCEAN passthrough', () => {
-  it('classifyBiome keeps very-wet temp at TEMP_HOT in OCEAN and only flips above TEMP_HOT', () => {
-    expect(classifyBiome(TEMP_HOT, 0.9)).toBe('OCEAN')
+describe('classifyBiomeFromClimate — very wet climates stay terrestrial', () => {
+  it('classifyBiome keeps very-wet temperate climates in FOREST and hot climates in SWAMP', () => {
+    expect(classifyBiome(TEMP_HOT, 0.9)).toBe('FOREST')
     expect(classifyBiome(TEMP_HOT + 0.01, 0.9)).toBe('SWAMP')
   })
 
@@ -177,12 +174,11 @@ describe('classifyBiomeFromClimate — baseBiome OCEAN passthrough', () => {
     }
   })
 
-  it.effect('humidity > 0.85, temp ≤ TEMP_HOT, cont > -0.42 → FOREST (OCEAN base converted)', () =>
+  it.effect('humidity > 0.85, temp ≤ TEMP_HOT, cont > -0.42 → FOREST', () =>
     Effect.gen(function* () {
       const svc = yield* BiomeService
       const biome = yield* svc.getBiome(0, 0)
-      // humidity > HUM_VERY_WET and temp ≤ TEMP_HOT → OCEAN base biome
-      // OCEAN base → returns FOREST
+      // humidity > HUM_VERY_WET and temperate temperature should remain terrestrial.
       expect(biome).toBe('FOREST')
     }).pipe(Effect.provide(makeLayer(0.5, 0.9, 0.35, 0.6)))
   )

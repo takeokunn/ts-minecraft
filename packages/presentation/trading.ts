@@ -178,5 +178,3 @@ export class TradingPresentationService extends Effect.Service<TradingPresentati
     }),
   }
 ) {}
-
-export const TradingPresentationLive = TradingPresentationService.Default

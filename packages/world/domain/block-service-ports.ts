@@ -50,6 +50,19 @@ export class PlayerServicePort extends Context.Tag('@minecraft/domain/PlayerServ
 >() {}
 
 // ---------------------------------------------------------------------------
+// WorldBlockQueryPort
+// ---------------------------------------------------------------------------
+
+export type WorldBlockQueryPortShape = {
+  readonly getBlockIndexAt: (position: Position) => Effect.Effect<Option.Option<number>, never>
+}
+
+export class WorldBlockQueryPort extends Context.Tag('@minecraft/domain/WorldBlockQueryPort')<
+  WorldBlockQueryPort,
+  WorldBlockQueryPortShape
+>() {}
+
+// ---------------------------------------------------------------------------
 // InventoryServicePort
 // ---------------------------------------------------------------------------
 

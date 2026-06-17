@@ -1,4 +1,4 @@
-import { Effect, Option, Ref, Schema } from 'effect'
+import { Effect, MutableRef, Option, Schema } from 'effect'
 import * as THREE from 'three'
 import { RaycastHit, RaycastingService } from '@ts-minecraft/rendering'
 
@@ -54,7 +54,7 @@ const posesMatch = (a: CameraPose, b: CameraPose): boolean =>
   a.qx === b.qx && a.qy === b.qy && a.qz === b.qz && a.qw === b.qw
 
 // ─── HitState ────────────────────────────────────────────────────────────────
-// target and hit always move together — merged into one Ref to enforce the invariant structurally
+// target and hit always move together in one slot to enforce the invariant structurally
 
 type HitState = {
   readonly target: Option.Option<BlockTarget>
@@ -68,12 +68,12 @@ export class BlockHighlightService extends Effect.Service<BlockHighlightService>
     effect: Effect.gen(function* () {
       const raycastingService = yield* RaycastingService
       // Wireframe cube mesh for highlighting
-      const highlightMeshRef = yield* Ref.make<Option.Option<THREE.LineSegments>>(Option.none())
-      // target and hit always change together — one atomic Ref instead of two
-      const hitStateRef = yield* Ref.make<HitState>(EMPTY_HIT_STATE)
-      const overrideHitStateRef = yield* Ref.make<Option.Option<HitState>>(Option.none())
+      const highlightMeshRef = MutableRef.make<Option.Option<THREE.LineSegments>>(Option.none())
+      // target and hit always change together in one cached slot instead of two
+      const hitStateRef = MutableRef.make<HitState>(EMPTY_HIT_STATE)
+      const overrideHitStateRef = MutableRef.make<Option.Option<HitState>>(Option.none())
       // Last camera pose used for raycast; invalidated whenever the scene changes.
-      const lastCameraPoseRef = yield* Ref.make<CameraPose>(INVALID_CAMERA_POSE)
+      const lastCameraPoseRef = MutableRef.make<CameraPose>(INVALID_CAMERA_POSE)
 
       // Handles the QA-override path: positions the mesh at the forced target and
       // records the forced state. Separated from the raycast path so each branch
@@ -83,20 +83,18 @@ export class BlockHighlightService extends Effect.Service<BlockHighlightService>
         forced: HitState,
         currentPose: CameraPose,
       ): Effect.Effect<void, never> =>
-        Effect.gen(function* () {
-          yield* Effect.sync(() => {
+        Effect.sync(() => {
+          /* c8 ignore next */
+          const target = Option.getOrNull(forced.target)
+          if (target === null) {
             /* c8 ignore next */
-            const target = Option.getOrNull(forced.target)
-            if (target === null) {
-              /* c8 ignore next */
-              mesh.visible = false
-            } else {
-              mesh.position.set(target.x + 0.5, target.y + 0.5, target.z + 0.5)
-              mesh.visible = true
-            }
-          })
-          yield* Ref.set(hitStateRef, forced)
-          yield* Ref.set(lastCameraPoseRef, currentPose)
+            mesh.visible = false
+          } else {
+            mesh.position.set(target.x + 0.5, target.y + 0.5, target.z + 0.5)
+            mesh.visible = true
+          }
+          MutableRef.set(hitStateRef, forced)
+          MutableRef.set(lastCameraPoseRef, currentPose)
         })
 
       // Handles the normal path: fires a raycast, positions the mesh at the hit
@@ -114,17 +112,18 @@ export class BlockHighlightService extends Effect.Service<BlockHighlightService>
               // Position highlight at block coordinates (center of the block)
               mesh.position.set(hit.blockX + 0.5, hit.blockY + 0.5, hit.blockZ + 0.5)
               mesh.visible = true
-            })
-            // Atomic write: target and hit always set together
-            yield* Ref.set(hitStateRef, {
-              target: Option.some({ x: hit.blockX, y: hit.blockY, z: hit.blockZ }),
-              hit: Option.some(hit),
+              MutableRef.set(hitStateRef, {
+                target: Option.some({ x: hit.blockX, y: hit.blockY, z: hit.blockZ }),
+                hit: Option.some(hit),
+              })
             })
           } else {
-            yield* Effect.sync(() => { mesh.visible = false })
-            yield* Ref.set(hitStateRef, EMPTY_HIT_STATE)
+            yield* Effect.sync(() => {
+              mesh.visible = false
+              MutableRef.set(hitStateRef, EMPTY_HIT_STATE)
+            })
           }
-          yield* Ref.set(lastCameraPoseRef, currentPose)
+          MutableRef.set(lastCameraPoseRef, currentPose)
         })
 
       return {
@@ -132,19 +131,19 @@ export class BlockHighlightService extends Effect.Service<BlockHighlightService>
           Effect.gen(function* () {
             const mesh = createWireframeCube()
             yield* Effect.sync(() => { mesh.visible = false; scene.add(mesh) })
-            yield* Ref.set(highlightMeshRef, Option.some(mesh))
+            MutableRef.set(highlightMeshRef, Option.some(mesh))
           }),
 
         update: (camera: THREE.Camera, scene: THREE.Scene): Effect.Effect<void, never> =>
           Effect.gen(function* () {
             const currentPose = captureCameraPose(camera)
-            const lastPose = yield* Ref.get(lastCameraPoseRef)
+            const lastPose = MutableRef.get(lastCameraPoseRef)
             if (posesMatch(lastPose, currentPose)) return
 
-            const mesh = Option.getOrNull(yield* Ref.get(highlightMeshRef))
+            const mesh = Option.getOrNull(MutableRef.get(highlightMeshRef))
             if (mesh === null) return
 
-            const overrideState = Option.getOrNull(yield* Ref.get(overrideHitStateRef))
+            const overrideState = Option.getOrNull(MutableRef.get(overrideHitStateRef))
             if (overrideState !== null) {
               yield* applyForcedHighlight(mesh, overrideState, currentPose)
             } else {
@@ -154,56 +153,46 @@ export class BlockHighlightService extends Effect.Service<BlockHighlightService>
 
         // Invalidated whenever scene changes so next update re-runs the raycast.
         invalidateCache: (): Effect.Effect<void, never> =>
-          Ref.set(lastCameraPoseRef, INVALID_CAMERA_POSE),
+          Effect.sync(() => {
+            MutableRef.set(lastCameraPoseRef, INVALID_CAMERA_POSE)
+          }),
 
         setVisible: (visible: boolean): Effect.Effect<void, never> =>
-          Effect.gen(function* () {
-            const opt = yield* Ref.get(highlightMeshRef)
-            const m = Option.getOrNull(opt)
-            if (m !== null) yield* Effect.sync(() => { m.visible = visible })
+          Effect.sync(() => {
+            const m = Option.getOrNull(MutableRef.get(highlightMeshRef))
+            if (m !== null) m.visible = visible
           }),
 
         getTargetBlock: (): Effect.Effect<Option.Option<BlockTarget>, never> =>
-          Effect.gen(function* () {
-            const s = yield* Ref.get(hitStateRef)
-            return s.target
-          }),
+          Effect.sync(() => MutableRef.get(hitStateRef).target),
 
         // Full hit required for computing adjacent block position during placement.
         getTargetHit: (): Effect.Effect<Option.Option<RaycastHit>, never> =>
-          Effect.gen(function* () {
-            const s = yield* Ref.get(hitStateRef)
-            return s.hit
-          }),
+          Effect.sync(() => MutableRef.get(hitStateRef).hit),
 
         setTargetForQA: (target: BlockTarget, hit: RaycastHit): Effect.Effect<void, never> =>
-          Effect.gen(function* () {
-            const meshForQA = Option.getOrNull(yield* Ref.get(highlightMeshRef))
+          Effect.sync(() => {
+            const meshForQA = Option.getOrNull(MutableRef.get(highlightMeshRef))
             if (meshForQA !== null) {
-              yield* Effect.sync(() => {
-                meshForQA.position.set(target.x + 0.5, target.y + 0.5, target.z + 0.5)
-                meshForQA.visible = true
-              })
+              meshForQA.position.set(target.x + 0.5, target.y + 0.5, target.z + 0.5)
+              meshForQA.visible = true
             }
-            yield* Ref.set(hitStateRef, {
+            const forced = {
               target: Option.some(target),
               hit: Option.some(hit),
-            })
-            yield* Ref.set(overrideHitStateRef, Option.some({
-              target: Option.some(target),
-              hit: Option.some(hit),
-            }))
+            }
+            MutableRef.set(hitStateRef, forced)
+            MutableRef.set(overrideHitStateRef, Option.some(forced))
           }),
 
         clearTargetForQA: (): Effect.Effect<void, never> =>
-          Effect.gen(function* () {
-            const meshForClear = Option.getOrNull(yield* Ref.get(highlightMeshRef))
-            if (meshForClear !== null) yield* Effect.sync(() => { meshForClear.visible = false })
-            yield* Ref.set(overrideHitStateRef, Option.none())
-            yield* Ref.set(hitStateRef, EMPTY_HIT_STATE)
+          Effect.sync(() => {
+            const meshForClear = Option.getOrNull(MutableRef.get(highlightMeshRef))
+            if (meshForClear !== null) meshForClear.visible = false
+            MutableRef.set(overrideHitStateRef, Option.none())
+            MutableRef.set(hitStateRef, EMPTY_HIT_STATE)
           }),
       }
     }),
   }
 ) {}
-export const BlockHighlightLive = BlockHighlightService.Default

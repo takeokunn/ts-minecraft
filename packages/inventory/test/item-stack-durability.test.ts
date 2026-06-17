@@ -33,9 +33,9 @@ describe("domain/item-stack — durability", () => {
 
     const nonToolCases = ["DIRT", "STONE", "WOOD", "GLASS"] as const;
     Arr.forEach(nonToolCases, (item) => {
-      it(`leaves durability undefined for non-tool ${item}`, () => {
+      it(`uses null durability for non-tool ${item}`, () => {
         const stack = createStack(item, 5);
-        expect(stack.durability).toBeUndefined();
+        expect(stack.durability).toBeNull();
       });
     });
   });

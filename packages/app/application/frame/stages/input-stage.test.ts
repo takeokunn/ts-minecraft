@@ -1,7 +1,12 @@
 import { describe, it } from '@effect/vitest'
-import { expect, vi } from 'vitest'
-import { Effect, MutableHashSet, Ref } from 'effect'
+import { afterEach, expect, vi } from 'vitest'
+import { Effect, MutableHashSet, Option, Ref } from 'effect'
+import { createFrameHandlers } from '@ts-minecraft/app'
+import { SlotIndex } from '@ts-minecraft/core'
+import type { DeltaTimeSecs } from '@ts-minecraft/core'
 import { KeyMappings } from '@ts-minecraft/entity'
+import { HOTBAR_START } from '@ts-minecraft/inventory'
+import { GAMEPLAY_HUD_HIDDEN_CLASS } from '@ts-minecraft/presentation'
 import { OPEN_MENU_KEY } from '@ts-minecraft/app/frame-handler.config'
 import {
   DEFAULT_SETTINGS,
@@ -13,7 +18,36 @@ import {
   makeSettingsOverlay,
   makeTradingPresentation,
   runFrame,
-} from '@test/frame-handler-test-kit'
+} from '../../../test/frame-handler-test-kit'
+
+const FRAME_DELTA = 0.016 as DeltaTimeSecs
+
+const stubDocumentBodyClassList = (): Set<string> => {
+  const classes = new Set<string>()
+  vi.stubGlobal('document', {
+    body: {
+      classList: {
+        add: (name: string) => { classes.add(name) },
+        remove: (name: string) => { classes.delete(name) },
+        contains: (name: string) => classes.has(name),
+        toggle: (name: string, force?: boolean) => {
+          const shouldAdd = force ?? !classes.has(name)
+          if (shouldAdd) {
+            classes.add(name)
+          } else {
+            classes.delete(name)
+          }
+          return shouldAdd
+        },
+      },
+    },
+  })
+  return classes
+}
+
+afterEach(() => {
+  vi.unstubAllGlobals()
+})
 
 // ---------------------------------------------------------------------------
 // Escape key: overlay toggle logic
@@ -23,11 +57,15 @@ describe('Escape key handling', () => {
   it.effect('closes inventory and sets gamePausedRef to false when Escape is pressed while inventory is open', () => Effect.gen(function* () {
     const pressedKeys = MutableHashSet.make(KeyMappings.ESCAPE)
     const { deps, services, inventoryState } = yield* arrangeFrameHarness({ paused: true, inventoryOpen: true, pressedKeys })
+    const playEffectSpy = vi.fn(() => Effect.void)
+    Object.assign(services.soundManager, { playEffect: playEffectSpy })
 
     yield* runFrame(deps, services)
 
     // Inventory must now be closed
     expect(inventoryState.open).toBe(false)
+    expect(playEffectSpy).toHaveBeenCalledWith('inventoryClose')
+    expect(playEffectSpy).not.toHaveBeenCalledWith('inventoryOpen')
     // gamePausedRef must be false
     const paused = yield* Ref.get(deps.gamePausedRef)
     expect(paused).toBe(false)
@@ -46,21 +84,16 @@ describe('Escape key handling', () => {
     expect(paused).toBe(false)
   }))
 
-  // ESC is decoupled from the menu: pressing Escape with nothing open must NOT open the
-  // pause menu — it only releases the pointer lock (browser-native; mouse-look gates on
-  // isPointerLocked). Opening the menu is OPEN_MENU_KEY now. (User: 'ESCは視点解除に'.)
-  it.effect('does NOT open the pause menu when Escape is pressed (Escape only releases the cursor)', () => Effect.gen(function* () {
+  // Vanilla behavior: pressing Escape with nothing open opens the pause menu.
+  it.effect('opens the pause menu when Escape is pressed with no modal open', () => Effect.gen(function* () {
     const pressedKeys = MutableHashSet.make(KeyMappings.ESCAPE)
     const { deps, services, settingsState } = yield* arrangeFrameHarness({ pressedKeys })
-    const openIfClosedSpy = vi.fn(() => Effect.void)
-    Object.assign(services.pauseMenu, { openIfClosed: openIfClosedSpy })
 
     yield* runFrame(deps, services)
 
-    // ESC must NOT open the pause menu (or settings), and must not pause the game.
-    expect(openIfClosedSpy).not.toHaveBeenCalled()
     expect(settingsState.open).toBe(false)
-    expect(yield* Ref.get(deps.gamePausedRef)).toBe(false)
+    expect(yield* services.pauseMenu.isOpen()).toBe(true)
+    expect(yield* Ref.get(deps.gamePausedRef)).toBe(true)
   }))
 
   // OPEN_MENU_KEY (the decoupled menu key) opens the pause menu and pauses the game.
@@ -133,6 +166,87 @@ describe('Escape key handling', () => {
   }))
 })
 
+describe('F1 HUD visibility handling', () => {
+  it.effect('toggles the gameplay HUD hidden class when F1 is pressed', () => Effect.gen(function* () {
+    const classes = stubDocumentBodyClassList()
+    const pressedKeys = MutableHashSet.make(KeyMappings.HUD_TOGGLE)
+    const { deps, services } = yield* arrangeFrameHarness({ pressedKeys })
+
+    yield* runFrame(deps, services)
+
+    expect(classes.has(GAMEPLAY_HUD_HIDDEN_CLASS)).toBe(true)
+  }))
+
+  it.effect('does not change HUD visibility when F1 is not pressed', () => Effect.gen(function* () {
+    const classes = stubDocumentBodyClassList()
+    const { deps, services } = yield* arrangeFrameHarness()
+
+    yield* runFrame(deps, services)
+
+    expect(classes.has(GAMEPLAY_HUD_HIDDEN_CLASS)).toBe(false)
+  }))
+})
+
+describe('Q item drop handling', () => {
+  it.effect('removes one item from the selected hotbar slot when Q is pressed during gameplay', () => Effect.gen(function* () {
+    const pressedKeys = MutableHashSet.make(KeyMappings.DROP_ITEM)
+    const { deps, services } = yield* arrangeFrameHarness({ pressedKeys })
+    const removeBlockSpy = vi.fn(() => Effect.void)
+
+    Object.assign(services.hotbarService, {
+      getSelectedBlockType: () => Effect.succeed(Option.some('DIRT')),
+      getSelectedSlot: () => Effect.succeed(SlotIndex.make(2)),
+    })
+    Object.assign(services.inventoryService, {
+      removeBlock: removeBlockSpy,
+    })
+
+    yield* runFrame(deps, services)
+
+    expect(removeBlockSpy).toHaveBeenCalledTimes(1)
+    const [[itemType, count, slot]] = removeBlockSpy.mock.calls
+    expect(itemType).toBe('DIRT')
+    expect(count).toBe(1)
+    expect(SlotIndex.toNumber(slot)).toBe(HOTBAR_START + 2)
+  }))
+
+  it.effect('does not drop the selected item while a modal is open', () => Effect.gen(function* () {
+    const pressedKeys = MutableHashSet.make(KeyMappings.DROP_ITEM)
+    const { deps, services } = yield* arrangeFrameHarness({ paused: true, inventoryOpen: true, pressedKeys })
+    const removeBlockSpy = vi.fn(() => Effect.void)
+
+    Object.assign(services.hotbarService, {
+      getSelectedBlockType: () => Effect.succeed(Option.some('DIRT')),
+      getSelectedSlot: () => Effect.succeed(SlotIndex.make(2)),
+    })
+    Object.assign(services.inventoryService, {
+      removeBlock: removeBlockSpy,
+    })
+
+    yield* runFrame(deps, services)
+
+    expect(removeBlockSpy).not.toHaveBeenCalled()
+  }))
+
+  it.effect('does nothing when the selected hotbar slot is empty', () => Effect.gen(function* () {
+    const pressedKeys = MutableHashSet.make(KeyMappings.DROP_ITEM)
+    const { deps, services } = yield* arrangeFrameHarness({ pressedKeys })
+    const removeBlockSpy = vi.fn(() => Effect.void)
+
+    Object.assign(services.hotbarService, {
+      getSelectedBlockType: () => Effect.succeed(Option.none()),
+      getSelectedSlot: () => Effect.succeed(SlotIndex.make(2)),
+    })
+    Object.assign(services.inventoryService, {
+      removeBlock: removeBlockSpy,
+    })
+
+    yield* runFrame(deps, services)
+
+    expect(removeBlockSpy).not.toHaveBeenCalled()
+  }))
+})
+
 // ---------------------------------------------------------------------------
 // KeyE (inventory) key: overlay toggle logic
 // ---------------------------------------------------------------------------
@@ -149,11 +263,15 @@ describe('inventory key (KeyE) handling', () => {
       inventoryRenderer: makeInventoryRenderer(invState),
       settingsOverlay: makeSettingsOverlay(setState),
     })
+    const playEffectSpy = vi.fn(() => Effect.void)
+    Object.assign(services.soundManager, { playEffect: playEffectSpy })
 
     yield* runFrame(deps, services)
 
     // Inventory must now be open
     expect(invState.open).toBe(true)
+    expect(playEffectSpy).toHaveBeenCalledWith('inventoryOpen')
+    expect(playEffectSpy).not.toHaveBeenCalledWith('inventoryClose')
     // gamePausedRef must be true
     const paused = yield* Ref.get(deps.gamePausedRef)
     expect(paused).toBe(true)
@@ -170,11 +288,15 @@ describe('inventory key (KeyE) handling', () => {
       inventoryRenderer: makeInventoryRenderer(invState),
       settingsOverlay: makeSettingsOverlay(setState),
     })
+    const playEffectSpy = vi.fn(() => Effect.void)
+    Object.assign(services.soundManager, { playEffect: playEffectSpy })
 
     yield* runFrame(deps, services)
 
     // Inventory must now be closed
     expect(invState.open).toBe(false)
+    expect(playEffectSpy).toHaveBeenCalledWith('inventoryClose')
+    expect(playEffectSpy).not.toHaveBeenCalledWith('inventoryOpen')
     // gamePausedRef must be false
     const paused = yield* Ref.get(deps.gamePausedRef)
     expect(paused).toBe(false)
@@ -291,44 +413,74 @@ describe('Escape key: trade overlay branch', () => {
 // ---------------------------------------------------------------------------
 
 describe('syncDayLength', () => {
-  it.effect('updates TimeService when dayLengthSeconds has changed', () => Effect.gen(function* () {
+  it.effect('writes the initial dayLengthSeconds from settings without polling TimeService', () => Effect.gen(function* () {
     const deps = yield* makeDeps(false)
     const setDayLengthSpy = vi.fn(() => Effect.void)
-    // getDayLength returns a different value than DEFAULT_SETTINGS — forces the branch
-    const differentDayLength = DEFAULT_SETTINGS.dayLengthSeconds + 100
+    const getDayLengthSpy = vi.fn(() => Effect.succeed(DEFAULT_SETTINGS.dayLengthSeconds + 100))
 
     const services = makeServices({
       inputService: makeInputService(),
       inventoryRenderer: makeInventoryRenderer({ open: false }),
       settingsOverlay: makeSettingsOverlay({ open: false }),
     })
-    // Override timeService so getDayLength returns a value ≠ input dayLengthSeconds
     Object.assign(services.timeService, {
-      getDayLength: () => Effect.succeed(differentDayLength),
+      getDayLength: getDayLengthSpy,
       setDayLength: setDayLengthSpy,
     })
 
-    // runFrame uses DEFAULT_SETTINGS.dayLengthSeconds as the frame input;
-    // differentDayLength ≠ DEFAULT_SETTINGS.dayLengthSeconds → update must fire
     yield* runFrame(deps, services)
 
     expect(setDayLengthSpy).toHaveBeenCalledWith(DEFAULT_SETTINGS.dayLengthSeconds)
+    expect(getDayLengthSpy).not.toHaveBeenCalled()
   }))
 
-  it.effect('skips TimeService update when dayLengthSeconds has not changed', () => Effect.gen(function* () {
+  it.effect('skips TimeService update while cached dayLengthSeconds is unchanged', () => Effect.gen(function* () {
     const deps = yield* makeDeps(false)
     const setDayLengthSpy = vi.fn(() => Effect.void)
+    const getDayLengthSpy = vi.fn(() => Effect.succeed(DEFAULT_SETTINGS.dayLengthSeconds))
 
     const services = makeServices({
       inputService: makeInputService(),
       inventoryRenderer: makeInventoryRenderer({ open: false }),
       settingsOverlay: makeSettingsOverlay({ open: false }),
     })
-    // getDayLength already returns DEFAULT_SETTINGS.dayLengthSeconds (same as frame input)
+    Object.assign(services.timeService, {
+      getDayLength: getDayLengthSpy,
+      setDayLength: setDayLengthSpy,
+    })
+
+    const { frameHandler } = yield* createFrameHandlers(deps, services)
+    yield* frameHandler(FRAME_DELTA)
+    yield* frameHandler(FRAME_DELTA)
+
+    expect(setDayLengthSpy).toHaveBeenCalledTimes(1)
+    expect(setDayLengthSpy).toHaveBeenCalledWith(DEFAULT_SETTINGS.dayLengthSeconds)
+    expect(getDayLengthSpy).not.toHaveBeenCalled()
+  }))
+
+  it.effect('updates TimeService when dayLengthSeconds settings change', () => Effect.gen(function* () {
+    const deps = yield* makeDeps(false)
+    const setDayLengthSpy = vi.fn(() => Effect.void)
+    let settings = { ...DEFAULT_SETTINGS }
+
+    const services = makeServices({
+      inputService: makeInputService(),
+      inventoryRenderer: makeInventoryRenderer({ open: false }),
+      settingsOverlay: makeSettingsOverlay({ open: false }),
+    })
+    Object.assign(services.settingsService, {
+      getSettings: () => Effect.succeed(settings),
+    })
     Object.assign(services.timeService, { setDayLength: setDayLengthSpy })
 
-    yield* runFrame(deps, services)
+    const { frameHandler } = yield* createFrameHandlers(deps, services)
+    yield* frameHandler(FRAME_DELTA)
 
-    expect(setDayLengthSpy).not.toHaveBeenCalled()
+    settings = { ...DEFAULT_SETTINGS, dayLengthSeconds: DEFAULT_SETTINGS.dayLengthSeconds + 60 }
+    yield* frameHandler(FRAME_DELTA)
+
+    expect(setDayLengthSpy).toHaveBeenCalledTimes(2)
+    expect(setDayLengthSpy).toHaveBeenNthCalledWith(1, DEFAULT_SETTINGS.dayLengthSeconds)
+    expect(setDayLengthSpy).toHaveBeenNthCalledWith(2, DEFAULT_SETTINGS.dayLengthSeconds + 60)
   }))
 })

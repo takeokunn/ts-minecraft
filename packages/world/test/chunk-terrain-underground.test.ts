@@ -2,15 +2,16 @@ import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
 import { Array as Arr, Effect, Layer, MutableRef } from 'effect'
 import { StorageServicePort } from '@ts-minecraft/world'
-import { NoiseServicePort, NoiseServiceLive, BiomeServiceLive, ChunkManagerService, ChunkManagerServiceLive } from '@ts-minecraft/world'
-import { ChunkServiceLive } from '@ts-minecraft/world/application/chunk-service'
+import { NoiseServicePort, NoiseService, BiomeService, ChunkManagerService } from '@ts-minecraft/world'
+import { ChunkService } from '@ts-minecraft/world/application/chunk-service'
 import { CHUNK_SIZE, CHUNK_HEIGHT } from '@ts-minecraft/core'
 import {
   buildTestLayer,
-  LightEngineNoopLive,
+  LightEngineNoopLayer,
   makeInMemoryStorage,
   buildInlineTerrainPoolLayer,
 } from './chunk-manager-test-utils'
+import { makeTerrainChannelSamples } from './terrain-channel-test-utils'
 
 describe('terrain/chunk-terrain-underground', () => {
   describe('Phase 1.2 — bedrock layer, deepslate, stone variants', () => {
@@ -119,30 +120,24 @@ describe('terrain/chunk-terrain-underground', () => {
           erosion: (_x: number, _z: number) => Effect.succeed(0),
           weirdness: (_x: number, _z: number) => Effect.succeed(0),
           jaggedness: (_x: number, _z: number) => Effect.succeed(0),
-          sampleTerrainChannels: (_cx: number, _cz: number) =>
-            Effect.succeed({
-              continentalness: new Float64Array(256),
-              erosion: new Float64Array(256),
-              pv: new Float64Array(256),
-              jaggedness: new Float64Array(256),
-            }),
+          sampleTerrainChannels: (_cx: number, _cz: number) => Effect.succeed(makeTerrainChannelSamples()),
         }),
       )
 
       const storage = makeInMemoryStorage()
       const StorageTestLayer = Layer.succeed(StorageServicePort, storage)
-      const BiomeTestLayer = BiomeServiceLive.pipe(Layer.provide(HighVariantNoise))
+      const BiomeTestLayer = BiomeService.Default.pipe(Layer.provide(HighVariantNoise))
 
-      const HighVariantTestLayer = ChunkManagerServiceLive.pipe(
-        Layer.provide(ChunkServiceLive),
+      const HighVariantTestLayer = ChunkManagerService.Default.pipe(
+        Layer.provide(ChunkService.Default),
         Layer.provide(StorageTestLayer),
         Layer.provide(BiomeTestLayer),
         Layer.provide(HighVariantNoise),
-        Layer.provide(NoiseServiceLive),
+        Layer.provide(NoiseService.Default),
         Layer.provide(buildInlineTerrainPoolLayer(
-          Layer.mergeAll(ChunkServiceLive, BiomeTestLayer, HighVariantNoise),
+          Layer.mergeAll(ChunkService.Default, BiomeTestLayer, HighVariantNoise),
         )),
-        Layer.provide(LightEngineNoopLive),
+        Layer.provide(LightEngineNoopLayer),
       )
 
       return Effect.gen(function* () {

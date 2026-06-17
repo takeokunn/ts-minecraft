@@ -63,5 +63,3 @@ export class FishingService extends Effect.Service<FishingService>()(
     }),
   },
 ) {}
-
-export const FishingServiceLive = FishingService.Default

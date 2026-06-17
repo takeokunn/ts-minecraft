@@ -1,7 +1,34 @@
 import { CHUNK_HEIGHT, CHUNK_SIZE, blockIndexUnsafe } from '@ts-minecraft/core'
 import { getLightAt, isTransparentIndex, LIGHT_LEVEL_MAX, setLightAt } from '@ts-minecraft/block'
 import type { AABBAccumulator, DirtyVoxel, MutableBoundaryDirty } from './light-engine-model'
-import { NEIGHBOR_DX, NEIGHBOR_DY, NEIGHBOR_DZ, packPosLevel, trackTouched, unpackLevel, unpackX, unpackY, unpackZ } from './light-engine-utils'
+import { packPosLevel, trackTouched, unpackLevel, unpackX, unpackY, unpackZ } from './light-engine-utils'
+
+const NEIGHBOR_OFFSETS: ReadonlyArray<readonly [dx: number, dy: number, dz: number]> = [
+  [1, 0, 0],
+  [-1, 0, 0],
+  [0, 1, 0],
+  [0, -1, 0],
+  [0, 0, 1],
+  [0, 0, -1],
+]
+
+const blockAt = (blocks: Uint8Array, lx: number, y: number, lz: number): number => {
+  return blocks[blockIndexUnsafe(lx, y, lz)] as number
+}
+
+const isOutsideChunk = (lx: number, y: number, lz: number): boolean =>
+  lx < 0 || lx >= CHUNK_SIZE || y < 0 || y >= CHUNK_HEIGHT || lz < 0 || lz >= CHUNK_SIZE
+
+const markHorizontalBoundary = (boundary: MutableBoundaryDirty, lx: number, lz: number): void => {
+  if (lx < 0) boundary.nx = true
+  else if (lx >= CHUNK_SIZE) boundary.px = true
+  if (lz < 0) boundary.nz = true
+  else if (lz >= CHUNK_SIZE) boundary.pz = true
+}
+
+const queuedLightAt = (queue: ReadonlyArray<number>, index: number): number => {
+  return queue[index] as number
+}
 
 export const propagateSkyLightIncremental = (
   blocks: Uint8Array,
@@ -14,66 +41,59 @@ export const propagateSkyLightIncremental = (
   const removalQueue: number[] = []
   const addQueue: number[] = []
 
-  for (let i = 0; i < dirty.length; i++) {
-    const d = dirty[i]!
-    const colKey = (d.lx << 4) | d.lz
+  for (const dirtyVoxel of dirty) {
+    const colKey = (dirtyVoxel.lx << 4) | dirtyVoxel.lz
     if (columnsSeen.has(colKey)) continue
     columnsSeen.add(colKey)
 
     let exposed = true
     for (let y = CHUNK_HEIGHT - 1; y >= 0; y--) {
-      const idx = blockIndexUnsafe(d.lx, y, d.lz)
-      const blockIdx = blocks[idx] ?? 0
-      if (isTransparentIndex(blockIdx) === false) {
+      const blockIdx = blockAt(blocks, dirtyVoxel.lx, y, dirtyVoxel.lz)
+      const isOpaque = isTransparentIndex(blockIdx) === false
+      if (isOpaque) {
         exposed = false
       }
-      const current = getLightAt(grid, d.lx, y, d.lz)
+      const current = getLightAt(grid, dirtyVoxel.lx, y, dirtyVoxel.lz)
       if (exposed) {
         if (current < LIGHT_LEVEL_MAX) {
-          setLightAt(grid, d.lx, y, d.lz, LIGHT_LEVEL_MAX)
-          trackTouched(touched, d.lx, y, d.lz)
-          addQueue.push(packPosLevel(d.lx, y, d.lz, LIGHT_LEVEL_MAX))
+          setLightAt(grid, dirtyVoxel.lx, y, dirtyVoxel.lz, LIGHT_LEVEL_MAX)
+          trackTouched(touched, dirtyVoxel.lx, y, dirtyVoxel.lz)
+          addQueue.push(packPosLevel(dirtyVoxel.lx, y, dirtyVoxel.lz, LIGHT_LEVEL_MAX))
         }
       } else if (current === LIGHT_LEVEL_MAX) {
-        setLightAt(grid, d.lx, y, d.lz, 0)
-        trackTouched(touched, d.lx, y, d.lz)
-        removalQueue.push(packPosLevel(d.lx, y, d.lz, LIGHT_LEVEL_MAX))
-      /* c8 ignore start -- opaque block with residual light: rare light-engine state requiring specific block/light combo */
-      } else if (isTransparentIndex(blockIdx) === false && current > 0) {
-        setLightAt(grid, d.lx, y, d.lz, 0)
-        trackTouched(touched, d.lx, y, d.lz)
-        removalQueue.push(packPosLevel(d.lx, y, d.lz, current))
+        setLightAt(grid, dirtyVoxel.lx, y, dirtyVoxel.lz, 0)
+        trackTouched(touched, dirtyVoxel.lx, y, dirtyVoxel.lz)
+        removalQueue.push(packPosLevel(dirtyVoxel.lx, y, dirtyVoxel.lz, LIGHT_LEVEL_MAX))
+      } else if (isOpaque && current > 0) {
+        setLightAt(grid, dirtyVoxel.lx, y, dirtyVoxel.lz, 0)
+        trackTouched(touched, dirtyVoxel.lx, y, dirtyVoxel.lz)
+        removalQueue.push(packPosLevel(dirtyVoxel.lx, y, dirtyVoxel.lz, current))
       }
-      /* c8 ignore end */
     }
   }
 
   let head = 0
   while (head < removalQueue.length) {
-    const packed = removalQueue[head++]!
+    const packed = queuedLightAt(removalQueue, head)
+    head += 1
     const x = unpackX(packed)
     const y = unpackY(packed)
     const z = unpackZ(packed)
     const oldLevel = unpackLevel(packed)
-    for (let i = 0; i < 6; i++) {
-      const nx = x + NEIGHBOR_DX[i]!
-      const ny = y + NEIGHBOR_DY[i]!
-      const nz = z + NEIGHBOR_DZ[i]!
-      if (nx < 0 || nx >= CHUNK_SIZE || ny < 0 || ny >= CHUNK_HEIGHT || nz < 0 || nz >= CHUNK_SIZE) {
-        if (nx < 0) boundary.nx = true
-        else if (nx >= CHUNK_SIZE) boundary.px = true
-        if (nz < 0) boundary.nz = true
-        else if (nz >= CHUNK_SIZE) boundary.pz = true
+    for (const [dx, dy, dz] of NEIGHBOR_OFFSETS) {
+      const nx = x + dx
+      const ny = y + dy
+      const nz = z + dz
+      if (isOutsideChunk(nx, ny, nz)) {
+        markHorizontalBoundary(boundary, nx, nz)
         continue
       }
       const nLevel = getLightAt(grid, nx, ny, nz)
       if (nLevel === 0) continue
-      /* c8 ignore start -- light removal cascade BFS: nLevel < oldLevel only with specific light gradients */
       if (nLevel < oldLevel) {
         setLightAt(grid, nx, ny, nz, 0)
         trackTouched(touched, nx, ny, nz)
         removalQueue.push(packPosLevel(nx, ny, nz, nLevel))
-      /* c8 ignore end */
       } else {
         addQueue.push(packPosLevel(nx, ny, nz, nLevel))
       }
@@ -82,7 +102,8 @@ export const propagateSkyLightIncremental = (
 
   head = 0
   while (head < addQueue.length) {
-    const packed = addQueue[head++]!
+    const packed = queuedLightAt(addQueue, head)
+    head += 1
     const x = unpackX(packed)
     const y = unpackY(packed)
     const z = unpackZ(packed)
@@ -91,18 +112,15 @@ export const propagateSkyLightIncremental = (
     if (cur > level) continue
     if (level <= 1) continue
     const nextLevel = level - 1
-    for (let i = 0; i < 6; i++) {
-      const nx = x + NEIGHBOR_DX[i]!
-      const ny = y + NEIGHBOR_DY[i]!
-      const nz = z + NEIGHBOR_DZ[i]!
-      if (nx < 0 || nx >= CHUNK_SIZE || ny < 0 || ny >= CHUNK_HEIGHT || nz < 0 || nz >= CHUNK_SIZE) {
-        if (nx < 0) boundary.nx = true
-        else if (nx >= CHUNK_SIZE) boundary.px = true
-        if (nz < 0) boundary.nz = true
-        else if (nz >= CHUNK_SIZE) boundary.pz = true
+    for (const [dx, dy, dz] of NEIGHBOR_OFFSETS) {
+      const nx = x + dx
+      const ny = y + dy
+      const nz = z + dz
+      if (isOutsideChunk(nx, ny, nz)) {
+        markHorizontalBoundary(boundary, nx, nz)
         continue
       }
-      const nBlock = blocks[blockIndexUnsafe(nx, ny, nz)] ?? 0
+      const nBlock = blockAt(blocks, nx, ny, nz)
       if (isTransparentIndex(nBlock) === false) continue
       const existing = getLightAt(grid, nx, ny, nz)
       if (existing >= nextLevel) continue

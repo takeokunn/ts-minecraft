@@ -1,15 +1,15 @@
 import { Layer, MutableHashMap, MutableHashSet, Effect, Option } from 'effect'
 import { ChunkManagerService } from '@ts-minecraft/world'
-import { PlayerInputService } from '@ts-minecraft/entity'
-import { MovementServiceLive } from '@ts-minecraft/entity'
-import { PlayerCameraStateLive } from '@ts-minecraft/entity'
-import { PlayerServiceLive } from '@ts-minecraft/entity'
-import { PhysicsServiceLive } from '@ts-minecraft/game'
+import { HungerService, PlayerInputService } from '@ts-minecraft/entity'
+import { MovementService } from '@ts-minecraft/entity'
+import { PlayerCameraStateService } from '@ts-minecraft/entity'
+import { PlayerService } from '@ts-minecraft/entity'
+import { PhysicsService } from '@ts-minecraft/game'
 import { PhysicsWorldPortLayer, RigidBodyPortLayer, ShapePortLayer } from '@ts-minecraft/game'
-import { GameModeServiceLive } from '@ts-minecraft/game'
-import { InventoryServiceLive } from '@ts-minecraft/inventory'
-import { BlockRegistryLive } from '@ts-minecraft/block'
-import { GameStateServiceLive } from '@ts-minecraft/game'
+import { GameModeService } from '@ts-minecraft/game'
+import { InventoryService } from '@ts-minecraft/inventory'
+import { BlockRegistry } from '@ts-minecraft/block'
+import { GameStateService } from '@ts-minecraft/game'
 
 export const NoOpChunkManagerLayer = Layer.succeed(ChunkManagerService, ChunkManagerService.of({
   _tag: '@minecraft/application/ChunkManagerService' as const,
@@ -34,27 +34,29 @@ export const NoOpPlayerInputLayer = Layer.succeed(PlayerInputService, PlayerInpu
   isPointerLocked: () => Effect.succeed(false),
 }))
 
-export const PhysicsLayer = PhysicsServiceLive.pipe(
+export const PhysicsLayer = PhysicsService.Default.pipe(
   Layer.provide(PhysicsWorldPortLayer),
   Layer.provide(RigidBodyPortLayer),
   Layer.provide(ShapePortLayer),
 )
 
-export const MovementLayer = MovementServiceLive.pipe(
+export const MovementLayer = MovementService.Default.pipe(
   Layer.provide(NoOpPlayerInputLayer),
+  Layer.provide(HungerService.Default),
 )
 
-export const InventoryLayerForTest = InventoryServiceLive.pipe(Layer.provide(BlockRegistryLive))
+export const InventoryLayerForTest = InventoryService.Default.pipe(Layer.provide(BlockRegistry.Default))
 
-export const TestGameLayer = GameStateServiceLive.pipe(
-  Layer.provide(PlayerServiceLive),
+export const TestGameLayer = GameStateService.Default.pipe(
+  Layer.provide(PlayerService.Default),
   Layer.provide(PhysicsLayer),
   Layer.provide(MovementLayer),
+  Layer.provide(HungerService.Default),
   // GameStateService now directly requires PlayerInputService (creative flight, FR-1).
   Layer.provide(NoOpPlayerInputLayer),
-  Layer.provide(PlayerCameraStateLive),
+  Layer.provide(PlayerCameraStateService.Default),
   Layer.provide(NoOpChunkManagerLayer),
-  Layer.provide(GameModeServiceLive),
+  Layer.provide(GameModeService.Default),
   Layer.provide(InventoryLayerForTest),
 )
 
@@ -111,21 +113,24 @@ export const createTestInputService = (initialState: {
 
 export const createTestLayer = (inputService: ReturnType<typeof createTestInputService>) => {
   const inputLayer = Layer.succeed(PlayerInputService, inputService)
-  const movementLayer = MovementServiceLive.pipe(Layer.provide(inputLayer))
+  const movementLayer = MovementService.Default.pipe(
+    Layer.provide(inputLayer),
+    Layer.provide(HungerService.Default),
+  )
   const dependencyLayers = Layer.mergeAll(
     PhysicsLayer,
     movementLayer,
     // GameStateService directly consumes PlayerInputService for creative flight
     // (FR-1) — expose the same test input the movement layer uses.
     inputLayer,
-    PlayerCameraStateLive,
-    PlayerServiceLive,
+    PlayerCameraStateService.Default,
+    PlayerService.Default,
     NoOpChunkManagerLayer,
-    GameModeServiceLive,
+    GameModeService.Default,
     InventoryLayerForTest,
   )
   return Layer.mergeAll(
-    GameStateServiceLive.pipe(Layer.provide(dependencyLayers)),
-    PlayerServiceLive,
+    GameStateService.Default.pipe(Layer.provide(dependencyLayers)),
+    PlayerService.Default,
   )
 }

@@ -53,4 +53,3 @@ export class PlayerCameraStateService extends Effect.Service<PlayerCameraStateSe
     }),
   }
 ) {}
-export const PlayerCameraStateLive = PlayerCameraStateService.Default

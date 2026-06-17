@@ -5,7 +5,12 @@ import {
   STONE_PICKAXE_HARVESTABLE_BLOCKS,
   IRON_PICKAXE_HARVESTABLE_BLOCKS,
   DIAMOND_PICKAXE_HARVESTABLE_BLOCKS,
-} from '../application/harvestable-blocks'
+  PICKAXE_HARVEST_SETS,
+  PICKAXE_REQUIRED_BLOCKS,
+  PICKAXE_TOOLS,
+  getPickaxeHarvestableBlocks,
+  isPickaxeTool,
+} from '../domain/harvestable-blocks'
 
 describe('pickaxe tier harvestable blocks', () => {
   it('wooden tier includes basic stone and coal ore', () => {
@@ -75,5 +80,29 @@ describe('pickaxe tier harvestable blocks', () => {
     expect(HashSet.size(IRON_PICKAXE_HARVESTABLE_BLOCKS)).toBeLessThan(
       HashSet.size(DIAMOND_PICKAXE_HARVESTABLE_BLOCKS),
     )
+  })
+
+  it('exposes one strict harvest set for every pickaxe tool', () => {
+    expect(PICKAXE_TOOLS).toHaveLength(5)
+
+    for (const tool of PICKAXE_TOOLS) {
+      expect(getPickaxeHarvestableBlocks(tool)).toBe(PICKAXE_HARVEST_SETS[tool])
+      expect(HashSet.size(getPickaxeHarvestableBlocks(tool))).toBeGreaterThan(0)
+      expect(isPickaxeTool(tool)).toBe(true)
+    }
+  })
+
+  it('keeps gold pickaxes on wooden-tier harvest rules', () => {
+    expect(getPickaxeHarvestableBlocks('GOLD_PICKAXE')).toBe(WOODEN_PICKAXE_HARVESTABLE_BLOCKS)
+  })
+
+  it('uses the diamond tier as the pickaxe-required block catalogue', () => {
+    expect(PICKAXE_REQUIRED_BLOCKS).toBe(DIAMOND_PICKAXE_HARVESTABLE_BLOCKS)
+    expect(HashSet.has(PICKAXE_REQUIRED_BLOCKS, 'OBSIDIAN')).toBe(true)
+  })
+
+  it('rejects non-pickaxe inventory items', () => {
+    expect(isPickaxeTool('WOODEN_SWORD')).toBe(false)
+    expect(isPickaxeTool('IRON_SHOVEL')).toBe(false)
   })
 })

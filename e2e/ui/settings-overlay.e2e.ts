@@ -1,6 +1,7 @@
 import { test, expect, type PlaywrightTestArgs } from '@playwright/test'
 import { GamePage } from '../fixtures/game-page'
-import { waitForPauseMenu } from '../helpers/wait-helpers'
+import { getMinecraftSettings, type MinecraftSettingsSnapshot } from '../helpers/db-helpers'
+import { openPauseMenu, waitForPauseMenu } from '../helpers/wait-helpers'
 
 type Page = PlaywrightTestArgs['page']
 
@@ -16,21 +17,14 @@ test.describe('Settings overlay', () => {
     )
   }
 
-  const waitForStoredSetting = async (page: Page, key: string, predicate: string) => {
-    await page.waitForFunction(
-      ({ storageKey, expression }: { storageKey: string, expression: string }) => {
-        const raw = localStorage.getItem(storageKey)
-        if (!raw) return false
-
-        try {
-          const settings = JSON.parse(raw) as Record<string, unknown>
-          return Function('settings', `return ${expression}`)(settings) as boolean
-        } catch {
-          return false
-        }
-      },
-      { storageKey: key, expression: predicate }
-    )
+  const waitForStoredSetting = async (
+    page: Page,
+    predicate: (settings: MinecraftSettingsSnapshot) => boolean,
+  ) => {
+    await expect.poll(async () => {
+      const settings = await getMinecraftSettings(page)
+      return settings !== null && predicate(settings)
+    }, { timeout: 10_000 }).toBe(true)
   }
 
   test.beforeEach(async ({ page }) => {
@@ -49,8 +43,7 @@ test.describe('Settings overlay', () => {
     expect(initiallyOpen).toBe(false)
 
     // ESC now opens the pause menu; click Settings to open the overlay
-    await page.keyboard.press('Escape')
-    await page.waitForSelector('#pause-menu-backdrop', { state: 'visible', timeout: 5_000 })
+    await openPauseMenu(page)
     await page.click('[data-role="settings"]')
     await waitForOverlayState(page, true)
 
@@ -62,8 +55,7 @@ test.describe('Settings overlay', () => {
     const game = new GamePage(page)
 
     // Open settings via pause menu flow
-    await page.keyboard.press('Escape')
-    await page.waitForSelector('#pause-menu-backdrop', { state: 'visible', timeout: 5_000 })
+    await openPauseMenu(page)
     await page.click('[data-role="settings"]')
     await waitForOverlayState(page, true)
     const isOpen = await game.isOverlayOpen('settings-overlay')
@@ -77,8 +69,7 @@ test.describe('Settings overlay', () => {
   })
 
   test('pause -> settings -> resume returns to active gameplay state', async ({ page }) => {
-    await page.keyboard.press('Escape')
-    await waitForPauseMenu(page)
+    await openPauseMenu(page)
     await page.click('[data-role="settings"]')
     await waitForOverlayState(page, true)
     await expect(page.locator('#pause-menu-backdrop')).toBeHidden()
@@ -101,8 +92,7 @@ test.describe('Settings overlay', () => {
     const game = new GamePage(page)
 
     // Open settings via pause menu flow
-    await page.keyboard.press('Escape')
-    await page.waitForSelector('#pause-menu-backdrop', { state: 'visible', timeout: 5_000 })
+    await openPauseMenu(page)
     await page.click('[data-role="settings"]')
     await waitForOverlayState(page, true)
 
@@ -116,8 +106,7 @@ test.describe('Settings overlay', () => {
 
   test('#settings-apply button is not rendered', async ({ page }) => {
     // Open settings via pause menu flow
-    await page.keyboard.press('Escape')
-    await page.waitForSelector('#pause-menu-backdrop', { state: 'visible', timeout: 5_000 })
+    await openPauseMenu(page)
     await page.click('[data-role="settings"]')
     await waitForOverlayState(page, true)
 
@@ -126,8 +115,7 @@ test.describe('Settings overlay', () => {
 
   test('#rd-input slider is interactable', async ({ page }) => {
     // Open settings via pause menu flow
-    await page.keyboard.press('Escape')
-    await page.waitForSelector('#pause-menu-backdrop', { state: 'visible', timeout: 5_000 })
+    await openPauseMenu(page)
     await page.click('[data-role="settings"]')
     await waitForOverlayState(page, true)
 
@@ -140,10 +128,9 @@ test.describe('Settings overlay', () => {
     expect(Number(sliderValue) > 0).toBe(true)
   })
 
-  test('render distance change persists to localStorage immediately', async ({ page }) => {
+  test('render distance change persists immediately', async ({ page }) => {
     // Open settings via pause menu flow
-    await page.keyboard.press('Escape')
-    await page.waitForSelector('#pause-menu-backdrop', { state: 'visible', timeout: 5_000 })
+    await openPauseMenu(page)
     await page.click('[data-role="settings"]')
     await waitForOverlayState(page, true)
 
@@ -169,42 +156,23 @@ test.describe('Settings overlay', () => {
     }, targetValue)
     await waitForStoredSetting(
       page,
-      'minecraft-settings',
-      `settings.renderDistance === ${targetValue} && settings.adaptivePerformanceMode === false`
+      (settings) => settings.renderDistance === targetValue && settings.adaptivePerformanceMode === false,
     )
 
-    // Verify localStorage was updated with the new render distance
-    const storedRenderDistance = await page.evaluate((key: string) => {
-      const raw = localStorage.getItem(key)
-      if (!raw) return null
-      try {
-        return (JSON.parse(raw) as { renderDistance?: number }).renderDistance ?? null
-      } catch {
-        return null
-      }
-    }, 'minecraft-settings')
+    const storedRenderDistance = (await getMinecraftSettings(page))?.renderDistance ?? null
 
     expect(storedRenderDistance).toBe(targetValue)
   })
 
   test('quality selection persists immediately without Apply', async ({ page }) => {
-    await page.keyboard.press('Escape')
-    await page.waitForSelector('#pause-menu-backdrop', { state: 'visible', timeout: 5_000 })
+    await openPauseMenu(page)
     await page.click('[data-role="settings"]')
     await waitForOverlayState(page, true)
 
     await page.locator('#quality-select').selectOption('low')
-    await waitForStoredSetting(page, 'minecraft-settings', "settings.graphicsQuality === 'low'")
+    await waitForStoredSetting(page, (settings) => settings.graphicsQuality === 'low')
 
-    const storedGraphicsQuality = await page.evaluate((key: string) => {
-      const raw = localStorage.getItem(key)
-      if (!raw) return null
-      try {
-        return (JSON.parse(raw) as { graphicsQuality?: string }).graphicsQuality ?? null
-      } catch {
-        return null
-      }
-    }, 'minecraft-settings')
+    const storedGraphicsQuality = (await getMinecraftSettings(page))?.graphicsQuality ?? null
 
     expect(storedGraphicsQuality).toBe('low')
   })
@@ -214,8 +182,7 @@ test.describe('Settings overlay', () => {
     const game = new GamePage(page)
 
     // Open settings via pause menu flow and set a known render distance
-    await page.keyboard.press('Escape')
-    await page.waitForSelector('#pause-menu-backdrop', { state: 'visible', timeout: 5_000 })
+    await openPauseMenu(page)
     await page.click('[data-role="settings"]')
     await waitForOverlayState(page, true)
 
@@ -233,11 +200,10 @@ test.describe('Settings overlay', () => {
     }, targetValue)
     await waitForStoredSetting(
       page,
-      'minecraft-settings',
-      `settings.renderDistance === ${targetValue} && settings.adaptivePerformanceMode === false`
+      (settings) => settings.renderDistance === targetValue && settings.adaptivePerformanceMode === false,
     )
 
-    // Reload the page — localStorage persists within the same browser context
+    // Reload the page; IndexedDB persists within the same browser context.
     await page.reload()
 
     // Reload returns to the main menu; start a new session without clearing localStorage.

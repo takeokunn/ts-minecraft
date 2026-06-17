@@ -57,17 +57,17 @@ describe('frame-budget — FR-1.1 dynamic frame budgets', () => {
   })
 
   describe('computeMaxChunkUpdatesPerFrame', () => {
-    it('60 FPS → 8', () => {
-      expect(computeMaxChunkUpdatesPerFrame(SIXTY_FPS)).toBe(8)
+    it('60 FPS → 4', () => {
+      expect(computeMaxChunkUpdatesPerFrame(SIXTY_FPS)).toBe(4)
     })
 
-    it('120 FPS → 16; 240 FPS → 32', () => {
-      expect(computeMaxChunkUpdatesPerFrame(ONE_TWENTY_FPS)).toBe(16)
-      expect(computeMaxChunkUpdatesPerFrame(TWO_FORTY_FPS)).toBe(32)
+    it('120 FPS → 2; 240 FPS → 1', () => {
+      expect(computeMaxChunkUpdatesPerFrame(ONE_TWENTY_FPS)).toBe(2)
+      expect(computeMaxChunkUpdatesPerFrame(TWO_FORTY_FPS)).toBe(1)
     })
 
-    it('30 FPS → 4', () => {
-      expect(computeMaxChunkUpdatesPerFrame(THIRTY_FPS)).toBe(4)
+    it('30 FPS → 8', () => {
+      expect(computeMaxChunkUpdatesPerFrame(THIRTY_FPS)).toBe(8)
     })
 
     it('always integer (Math.ceil)', () => {
@@ -77,17 +77,17 @@ describe('frame-budget — FR-1.1 dynamic frame budgets', () => {
   })
 
   describe('computeMaxDirtyChunkUpdatesPerFrame', () => {
-    it('60 FPS → 4', () => {
-      expect(computeMaxDirtyChunkUpdatesPerFrame(SIXTY_FPS)).toBe(4)
+    it('60 FPS → 2', () => {
+      expect(computeMaxDirtyChunkUpdatesPerFrame(SIXTY_FPS)).toBe(2)
     })
 
-    it('120 FPS → 8; 240 FPS → 16', () => {
-      expect(computeMaxDirtyChunkUpdatesPerFrame(ONE_TWENTY_FPS)).toBe(8)
-      expect(computeMaxDirtyChunkUpdatesPerFrame(TWO_FORTY_FPS)).toBe(16)
+    it('120 FPS → 1; 240 FPS → 1', () => {
+      expect(computeMaxDirtyChunkUpdatesPerFrame(ONE_TWENTY_FPS)).toBe(1)
+      expect(computeMaxDirtyChunkUpdatesPerFrame(TWO_FORTY_FPS)).toBe(1)
     })
 
-    it('30 FPS → 2', () => {
-      expect(computeMaxDirtyChunkUpdatesPerFrame(THIRTY_FPS)).toBe(2)
+    it('30 FPS → 4', () => {
+      expect(computeMaxDirtyChunkUpdatesPerFrame(THIRTY_FPS)).toBe(4)
     })
   })
 
@@ -104,10 +104,10 @@ describe('frame-budget — FR-1.1 dynamic frame budgets', () => {
       expect(MAX_DIRTY_CHUNK_UPDATES_PER_FRAME).toBe(computeMaxDirtyChunkUpdatesPerFrame(DEFAULT_TARGET_FPS))
     })
 
-    it('60 FPS reproduces the historical hard-coded values exactly', () => {
+    it('60 FPS exports the low-spec frame caps', () => {
       expect(computeChunkSyncBudgetMs(SIXTY_FPS)).toBe(4)
-      expect(computeMaxChunkUpdatesPerFrame(SIXTY_FPS)).toBe(8)
-      expect(computeMaxDirtyChunkUpdatesPerFrame(SIXTY_FPS)).toBe(4)
+      expect(computeMaxChunkUpdatesPerFrame(SIXTY_FPS)).toBe(4)
+      expect(computeMaxDirtyChunkUpdatesPerFrame(SIXTY_FPS)).toBe(2)
     })
   })
 

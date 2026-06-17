@@ -1,7 +1,7 @@
 import { Effect, Layer, MutableRef, Option } from 'effect'
 import { vi } from 'vitest'
 import { DomOperationsService } from '@ts-minecraft/presentation/hud/crosshair'
-import { TradingPresentationLive } from '@ts-minecraft/presentation/trading'
+import { TradingPresentationService } from '@ts-minecraft/presentation/trading'
 import { TradingService, TradeFailure, TradeOfferId, TradeSuccess, type TradeOffer } from '@ts-minecraft/entity'
 import { VillageService } from '@ts-minecraft/entity'
 import { VillageId, VillageStructureId, VillagerActivity, VillagerId, VillagerProfession, type Villager } from '@ts-minecraft/entity'
@@ -155,7 +155,7 @@ export const createTradingTestLayer = () => {
 
   const TradingLayer = Layer.succeed(TradingService, tradingSpies)
   const VillageLayer = Layer.succeed(VillageService, villageSpies)
-  const TestLayer = TradingPresentationLive.pipe(Layer.provide(MockDomLayer), Layer.provide(TradingLayer), Layer.provide(VillageLayer))
+  const TestLayer = TradingPresentationService.Default.pipe(Layer.provide(MockDomLayer), Layer.provide(TradingLayer), Layer.provide(VillageLayer))
 
   return {
     TestLayer,

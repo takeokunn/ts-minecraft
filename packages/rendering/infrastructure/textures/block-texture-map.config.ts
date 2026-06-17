@@ -9,7 +9,8 @@
 //   27-33: deepslate ores (same order)
 //   34-40: blocks (coal, iron, gold, diamond, redstone, lapis, emerald)
 //   41-45: planks, sticks (item-only atlas tile), crafting table, furnace, torch
-//   63-92: end/nether/decorative block texture tiles
+//   63-92: end/nether/decorative/storage block texture tiles
+//   100-113: redstone wire, cobweb, plants, cactus, lily pad, ice, glowstone
 // TILE_MAP is indexed by BlockType storage id only. Inventory-only atlas tiles
 // such as sticks are not valid block ids and must not be inserted here.
 export type TextureFaceDir = 'top' | 'bottom' | 'side'
@@ -87,4 +88,21 @@ export const TILE_MAP: ReadonlyArray<Readonly<Record<TextureFaceDir, number>>> =
   { top: 66, bottom: 66, side: 66 }, // 69: PURPUR_SLAB
   { top: 66, bottom: 66, side: 66 }, // 70: PURPUR_STAIRS
   { top: 75, bottom: 75, side: 75 }, // 71: SHULKER_BOX
+  { top: 73, bottom: 74, side: 74 }, // 72: CHEST
+  { top: 41, bottom: 41, side: 41 }, // 73: DOOR (simplified full-cube render)
+  { top: 41, bottom: 41, side: 41 }, // 74: DOOR_OPEN (interaction state)
+  { top: 113, bottom: 113, side: 113 }, // 75: GLOWSTONE
+  { top: 41, bottom: 41, side: 41 }, // 76: LADDER (simplified full-cube render)
+  { top: 101, bottom: 101, side: 101 }, // 77: COBWEB
+  { top: 102, bottom: 102, side: 102 }, // 78: SAPLING
+  { top: 103, bottom: 103, side: 103 }, // 79: DANDELION
+  { top: 104, bottom: 104, side: 104 }, // 80: POPPY
+  { top: 105, bottom: 105, side: 105 }, // 81: BROWN_MUSHROOM
+  { top: 106, bottom: 106, side: 106 }, // 82: RED_MUSHROOM
+  { top: 107, bottom: 107, side: 107 }, // 83: TALL_GRASS
+  { top: 108, bottom: 108, side: 108 }, // 84: FERN
+  { top: 109, bottom: 109, side: 109 }, // 85: SUGAR_CANE
+  { top: 110, bottom: 110, side: 110 }, // 86: CACTUS
+  { top: 111, bottom: 111, side: 111 }, // 87: LILY_PAD
+  { top: 112, bottom: 112, side: 112 }, // 88: ICE
 ]

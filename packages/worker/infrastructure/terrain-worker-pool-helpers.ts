@@ -57,11 +57,19 @@ export const generateTerrainSync = (
 // Helpers
 // -----------------------------------------------------------------------------
 
+export const computeWorkerCountFromHardwareConcurrency = (hardwareConcurrency: number): number => {
+  if (!Number.isFinite(hardwareConcurrency) || hardwareConcurrency <= 2) {
+    return 1
+  }
+
+  return Math.max(1, Math.min(3, Math.floor(hardwareConcurrency / 2)))
+}
+
 export const computeWorkerCount = (): number => {
   const hc = (typeof navigator !== 'undefined' && typeof navigator.hardwareConcurrency === 'number')
     ? navigator.hardwareConcurrency
     : 2
-  return Math.max(2, Math.min(8, hc - 1))
+  return computeWorkerCountFromHardwareConcurrency(hc)
 }
 
 // In dev builds, assert that the buffer has been detached post-postMessage.
@@ -94,7 +102,7 @@ export const terminateWorkerSafely = (worker: Worker): void => {
   } catch {
     // ignore: terminate after a fatal error sometimes throws
   }
-      }
+}
 
 export const formatWorkerErrorDetails = (event: ErrorEvent): string => {
   const details = [

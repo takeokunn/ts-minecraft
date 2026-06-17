@@ -1,5 +1,5 @@
 import { Array as Arr, Effect, Either, Option, Ref } from 'effect'
-import { InventoryService, HOTBAR_START, type InventorySlot } from '@ts-minecraft/inventory'
+import { ChestService, InventoryService, HOTBAR_START, type InventorySlot } from '@ts-minecraft/inventory'
 import { HotbarService } from '@ts-minecraft/inventory'
 import { RecipeService } from '@ts-minecraft/inventory'
 import { FurnaceService } from '@ts-minecraft/inventory'
@@ -27,6 +27,7 @@ export class InventoryRendererService extends Effect.Service<InventoryRendererSe
       const hotbarService = yield* HotbarService
       const recipeService = yield* RecipeService
       const furnaceService = yield* FurnaceService
+      const chestService = yield* ChestService
       const gameState = yield* GameStateService
       const chunkManagerService = yield* ChunkManagerService
       const xpService = yield* XPService
@@ -84,11 +85,14 @@ export class InventoryRendererService extends Effect.Service<InventoryRendererSe
           if (furnace === null) { yield* furnaceService.startSmelting(recipeId); return }
           if (Option.isNone(furnace.output)) { yield* furnaceService.startSmelting(recipeId); return }
           const { xp } = yield* furnaceService.collectOutput()
-          if (xp > 0) yield* xpService.addXP(xp)
+          if (xp > 0) {
+            const remainingXP = yield* inventoryService.repairMendingItemsWithXP(xp)
+            if (remainingXP > 0) yield* xpService.addXP(remainingXP)
+          }
         }) as Effect.Effect<void, Error, never>
       }
 
-      const { overlayEl, slotEls, craftingListEl, statusEl } = yield* Effect.sync(() => buildOverlayDom(dom))
+      const { overlayEl, chestContainerEl, chestSlotEls, slotEls, craftingListEl, statusEl } = yield* Effect.sync(() => buildOverlayDom(dom))
       /* c8 ignore next */
       const handleDelegatedClick = buildHandleDelegatedClick({
         hasNearbyCraftingTable,
@@ -96,6 +100,7 @@ export class InventoryRendererService extends Effect.Service<InventoryRendererSe
         performRecipe,
         hotbarService,
         inventoryService,
+        chestService,
         statusMessageRef,
         refreshSlots: () => refreshSlots(),
       })
@@ -103,6 +108,7 @@ export class InventoryRendererService extends Effect.Service<InventoryRendererSe
       const refreshSlots = (): Effect.Effect<void, never> =>
         Effect.gen(function* () {
           const allSlots = yield* inventoryService.getAllSlots()
+          const chestState = yield* chestService.getNearestChestState()
           const selectedSlot = yield* hotbarService.getSelectedSlot()
           const [craftableRecipes, selectedRecipeIndex] = yield* refreshCraftingState(allSlots)
           const statusMessage = yield* Ref.get(statusMessageRef)
@@ -110,6 +116,10 @@ export class InventoryRendererService extends Effect.Service<InventoryRendererSe
           /* c8 ignore start */
           yield* Effect.sync(() => {
             const selectedHotbarIdx = HOTBAR_START + SlotIndex.toNumber(selectedSlot)
+            const chest = Option.getOrNull(chestState)
+            const chestContainer = Option.getOrNull(chestContainerEl)
+            if (chestContainer !== null) chestContainer.style.display = chest === null ? 'none' : 'block'
+            renderSlotElements(chestSlotEls, chest?.slots ?? [], -1)
             renderSlotElements(slotEls, allSlots, selectedHotbarIdx)
             renderCraftingList(dom, craftingListEl, craftableRecipes, selectedRecipeIndex)
             renderStatusEl(statusEl, statusMessage)
@@ -185,4 +195,3 @@ export class InventoryRendererService extends Effect.Service<InventoryRendererSe
     }),
   }
 ) {}
-export const InventoryRendererLive = InventoryRendererService.Default

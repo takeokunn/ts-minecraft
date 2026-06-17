@@ -10,6 +10,7 @@ import {
   shouldGenerateEndCity,
 } from '@ts-minecraft/world'
 import type { ChunkFactory } from '../domain/terrain/generator-types'
+import { makeChunkBlockBuffer } from './chunk-buffer-test-utils'
 
 const CITY_COORD = { x: -5, z: -1 }
 const MAIN_COORD = { x: 0, z: 0 }
@@ -22,8 +23,8 @@ const END_PORTAL = blockTypeToIndex('END_PORTAL')
 const mockChunkService: ChunkFactory = {
   createChunk: (coord) => Effect.succeed({
     coord,
-    blocks: new Uint8Array(CHUNK_SIZE * CHUNK_SIZE * CHUNK_HEIGHT),
-    fluid: Option.some(new Uint8Array(CHUNK_SIZE * CHUNK_SIZE * CHUNK_HEIGHT)),
+    blocks: makeChunkBlockBuffer(),
+    fluid: Option.some(makeChunkBlockBuffer()),
   }),
 }
 

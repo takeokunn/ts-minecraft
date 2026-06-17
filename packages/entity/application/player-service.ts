@@ -70,4 +70,3 @@ export class PlayerService extends Effect.Service<PlayerService>()(
     }),
   }
 ) {}
-export const PlayerServiceLive = PlayerService.Default

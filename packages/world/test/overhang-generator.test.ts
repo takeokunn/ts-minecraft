@@ -1,12 +1,14 @@
 import { describe, it } from 'vitest'
 import { expect } from 'vitest'
 import { Option } from 'effect'
-import { CHUNK_SIZE, CHUNK_HEIGHT, blockTypeToIndex } from '@ts-minecraft/core'
+import { CHUNK_SIZE, blockTypeToIndex } from '@ts-minecraft/core'
 import { collectOverhangTargets, applyOverhangNoise } from '../domain/terrain/generator-pipeline'
 import { OVERHANG_BAND_HEIGHT, OVERHANG_THRESHOLD, OVERHANG_NOISE_SCALE } from '../domain/terrain/constants'
 import { chunkBlockIndexUnchecked } from '../domain/terrain/math'
 import type { ColumnState } from '../domain/terrain/generator-types'
 import type { BiomeProperties } from '../domain/biome'
+import { makeChunkBlockBuffer } from './chunk-buffer-test-utils'
+import { makeChunkColumnArray } from './terrain-channel-test-utils'
 
 const AIR = blockTypeToIndex('AIR')
 const STONE = blockTypeToIndex('STONE')
@@ -23,17 +25,17 @@ const makeColumnStates = (
   overrides: Partial<Record<number, Partial<ColumnState>>> = {},
   defaults: Partial<ColumnState> = {},
 ): ReadonlyArray<ColumnState> =>
-  Array.from({ length: CHUNK_SIZE * CHUNK_SIZE }, (_, i) => ({
+  makeChunkColumnArray((i) => ({
     biome: 'PLAINS',
     props: MINIMAL_PROPS,
     surfaceY: 64,
     lakeBasinY: Option.none(),
     ruggedness: 0.3,
     ...defaults,
-    ...(overrides[i] ?? {}),
+    ...overrides[i],
   }))
 
-const makeBlocks = (): Uint8Array => new Uint8Array(CHUNK_SIZE * CHUNK_HEIGHT * CHUNK_SIZE)
+const makeBlocks = (): Uint8Array<ArrayBufferLike> => makeChunkBlockBuffer()
 
 describe('collectOverhangTargets', () => {
   it('returns empty arrays when no columns are eligible (low ruggedness, non-mountain biomes)', () => {
@@ -59,14 +61,15 @@ describe('collectOverhangTargets', () => {
 
   it('collects targets for columns with ruggedness >= 0.58 regardless of biome', () => {
     const blocks = makeBlocks()
-    // Column (2,3) at flat index 2*16+3=35: PLAINS, ruggedness=0.60, surfaceY=70.
+    // Column (2,3) at flat index 2 * CHUNK_SIZE + 3: PLAINS, ruggedness=0.60, surfaceY=70.
     // Neighbors also at surfaceY=70 → neighborMaxSurface=70; supportCeiling = 70+2=72.
     // Scan y from 72 to min(254, 70+14)=84, skip y > 72 → only y=72 (1 target).
-    const columnStates = makeColumnStates({ 35: { ruggedness: 0.60, surfaceY: 70 } }, { surfaceY: 70 })
+    const ruggedColumnIndex = 2 * CHUNK_SIZE + 3
+    const columnStates = makeColumnStates({ [ruggedColumnIndex]: { ruggedness: 0.60, surfaceY: 70 } }, { surfaceY: 70 })
     const result = collectOverhangTargets(blocks, 0, 0, columnStates, AIR)
     const targets = result.overhangTargets.filter((t) => t.lx === 2 && t.lz === 3)
     expect(targets).toHaveLength(1)
-    expect(targets[0]!.y).toBe(72)
+    expect(targets[0]?.y).toBe(72)
   })
 
   it('skips already-filled (non-air) blocks in the overhang scan range', () => {

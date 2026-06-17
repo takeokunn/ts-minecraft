@@ -1,4 +1,4 @@
-import { Array as Arr, Effect, HashMap, Option, Ref } from 'effect'
+import { Effect, HashMap, Option, Ref } from 'effect'
 import * as THREE from 'three'
 import { ChunkCacheKey } from '@ts-minecraft/core'
 import { Chunk, type ChunkAABB } from '@ts-minecraft/world'
@@ -16,43 +16,39 @@ export type UpdateChunkContext = {
   readonly invalidateSceneCaches: () => Effect.Effect<void, never>
 }
 
-/**
- * Adds/removes an optional mesh from the scene, mirroring the change into an
- * optional tracking list. `trackingRef` is the water-mesh list used by the
- * refraction pre-pass; pass `null` for meshes that must NOT join that list
- * (e.g. transparent-solid GLASS/LEAVES, which are not water and whose geometry
- * is already disposed by ChunkMeshService.updateChunkMesh).
- */
-const syncOptionalMeshInScene = (
-  scene: THREE.Scene,
-  sceneService: SceneService,
-  trackingRef: Ref.Ref<ReadonlyArray<THREE.Mesh>> | null,
-  prevMesh: Option.Option<THREE.Mesh>,
-  nextMesh: Option.Option<THREE.Mesh>,
-): Effect.Effect<void, never> =>
-  Effect.gen(function* () {
-    const track = (f: (arr: ReadonlyArray<THREE.Mesh>) => ReadonlyArray<THREE.Mesh>): Effect.Effect<void, never> =>
-      trackingRef === null ? Effect.void : Ref.update(trackingRef, f)
-    const prevMeshVal = Option.getOrNull(prevMesh)
-    if (prevMeshVal === null) {
-      const m = Option.getOrNull(nextMesh)
-      if (m === null) return
-      yield* sceneService.add(scene, m)
-      yield* track((arr) => Arr.append(arr, m))
-      return
-    }
-    const newMesh = Option.getOrNull(nextMesh)
-    if (newMesh === null) {
-      yield* sceneService.remove(scene, prevMeshVal)
-      yield* track((arr) => Arr.filter(arr, (mesh) => mesh !== prevMeshVal))
-      return
-    }
-    /* c8 ignore next 7 */
-    if (prevMeshVal === newMesh) return
-    yield* sceneService.remove(scene, prevMeshVal)
-    yield* sceneService.add(scene, newMesh)
-    yield* track((arr) => Arr.append(Arr.filter(arr, (mesh) => mesh !== prevMeshVal), newMesh))
-  })
+type TrackedMeshes = ReadonlyArray<THREE.Mesh>
+
+const appendTrackedMesh = (
+  meshes: TrackedMeshes,
+  mesh: THREE.Mesh,
+): TrackedMeshes => {
+  const nextMeshes = meshes.slice()
+  nextMeshes.push(mesh)
+  return nextMeshes
+}
+
+const removeTrackedMesh = (
+  meshes: TrackedMeshes,
+  mesh: THREE.Mesh,
+): TrackedMeshes => {
+  const index = meshes.indexOf(mesh)
+  if (index === -1) return meshes
+  const nextMeshes = meshes.slice()
+  nextMeshes.splice(index, 1)
+  return nextMeshes
+}
+
+const replaceTrackedMesh = (
+  meshes: TrackedMeshes,
+  prevMesh: THREE.Mesh,
+  nextMesh: THREE.Mesh,
+): TrackedMeshes => {
+  const index = meshes.indexOf(prevMesh)
+  if (index === -1) return appendTrackedMesh(meshes, nextMesh)
+  const nextMeshes = meshes.slice()
+  nextMeshes[index] = nextMesh
+  return nextMeshes
+}
 
 /**
  * Re-meshes a single chunk in place; call after block break/place for the
@@ -71,6 +67,12 @@ export const updateChunkInScene = (
   const key = chunkKey(chunk.coord)
   return Effect.gen(function* () {
     const meshes = yield* Ref.get(meshesRef)
+    const initialWaterMeshes = yield* Ref.get(waterMeshesRef)
+    let nextMeshes = meshes
+    let nextWaterMeshes = initialWaterMeshes
+    let waterMeshesChanged = false
+    let meshesChanged = false
+
     const existing = Option.getOrNull(HashMap.get(meshes, key))
 
     if (existing !== null) {
@@ -78,35 +80,81 @@ export const updateChunkInScene = (
       // FR-4.2: thread dirtyAABB; preserves existing.lod via positional 5th arg.
       const { waterMesh: nextWaterMesh, transparentSolidMesh: nextTransparentSolidMesh } =
         yield* chunkMeshService.updateChunkMesh(existing.opaque, existing.water, chunk, waterMaterial, undefined, dirtyAABB, existing.transparentSolid)
-      const updateWaterScene = syncOptionalMeshInScene(scene, sceneService, waterMeshesRef, existing.water, nextWaterMesh)
+
+      const prevWaterMesh = Option.getOrNull(existing.water)
+      const nextWaterMeshVal = Option.getOrNull(nextWaterMesh)
+      if (prevWaterMesh === null) {
+        if (nextWaterMeshVal !== null) {
+          yield* sceneService.add(scene, nextWaterMeshVal)
+          nextWaterMeshes = appendTrackedMesh(nextWaterMeshes, nextWaterMeshVal)
+          waterMeshesChanged = true
+        }
+      } else if (nextWaterMeshVal === null) {
+        yield* sceneService.remove(scene, prevWaterMesh)
+        nextWaterMeshes = removeTrackedMesh(nextWaterMeshes, prevWaterMesh)
+        waterMeshesChanged = true
+      } else if (prevWaterMesh !== nextWaterMeshVal) {
+        yield* sceneService.remove(scene, prevWaterMesh)
+        yield* sceneService.add(scene, nextWaterMeshVal)
+        nextWaterMeshes = replaceTrackedMesh(nextWaterMeshes, prevWaterMesh, nextWaterMeshVal)
+        waterMeshesChanged = true
+      }
+
       // null tracking ref: transparent-solid meshes must not pollute the water
       // refraction list (they would be wrongly hidden during the pre-pass).
-      const updateTransparentSolidScene = syncOptionalMeshInScene(scene, sceneService, null, existing.transparentSolid, nextTransparentSolidMesh)
-      yield* updateWaterScene
-      yield* updateTransparentSolidScene
+      const prevTransparentSolidMesh = Option.getOrNull(existing.transparentSolid)
+      const nextTransparentSolidMeshVal = Option.getOrNull(nextTransparentSolidMesh)
+      if (prevTransparentSolidMesh === null) {
+        if (nextTransparentSolidMeshVal !== null) {
+          yield* sceneService.add(scene, nextTransparentSolidMeshVal)
+        }
+      } else if (nextTransparentSolidMeshVal === null) {
+        yield* sceneService.remove(scene, prevTransparentSolidMesh)
+      } else if (prevTransparentSolidMesh !== nextTransparentSolidMeshVal) {
+        yield* sceneService.remove(scene, prevTransparentSolidMesh)
+        yield* sceneService.add(scene, nextTransparentSolidMeshVal)
+      }
+
       // FR-3.1: preserve the existing chunk's LOD when re-meshing in place.
-      yield* Ref.update(meshesRef, (map) => HashMap.set(map, key, { opaque: existing.opaque, water: nextWaterMesh, transparentSolid: nextTransparentSolidMesh, lod: existing.lod }))
+      nextMeshes = HashMap.set(nextMeshes, key, {
+        opaque: existing.opaque,
+        water: nextWaterMesh,
+        transparentSolid: nextTransparentSolidMesh,
+        lod: existing.lod,
+      })
+      meshesChanged = true
     } else {
       // First time this chunk appears — create and register a new mesh
       const { opaqueMesh, waterMesh, transparentSolidMesh } = yield* chunkMeshService.createChunkMesh(chunk, waterMaterial)
       const waterMeshVal = Option.getOrNull(waterMesh)
-      const addWater = waterMeshVal !== null
-        ? Effect.gen(function* () {
-            yield* sceneService.add(scene, waterMeshVal)
-            yield* Ref.update(waterMeshesRef, (arr) => Arr.append(arr, waterMeshVal))
-          })
-        : Effect.void
+      if (waterMeshVal !== null) {
+        yield* sceneService.add(scene, waterMeshVal)
+        nextWaterMeshes = appendTrackedMesh(nextWaterMeshes, waterMeshVal)
+        waterMeshesChanged = true
+      }
+
       const transparentSolidMeshVal = Option.getOrNull(transparentSolidMesh)
-      const addTransparentSolid = transparentSolidMeshVal !== null
-        ? sceneService.add(scene, transparentSolidMeshVal)
-        : Effect.void
+      if (transparentSolidMeshVal !== null) {
+        yield* sceneService.add(scene, transparentSolidMeshVal)
+      }
+
       yield* sceneService.add(scene, opaqueMesh)
-      yield* addWater
-      yield* addTransparentSolid
       // FR-3.1: default to LOD 0; sync-loop reconciles on next pass via hasLodChanges.
-      yield* Ref.update(meshesRef, (map) => HashMap.set(map, key, { opaque: opaqueMesh, water: waterMesh, transparentSolid: transparentSolidMesh, lod: 0 }))
+      nextMeshes = HashMap.set(nextMeshes, key, {
+        opaque: opaqueMesh,
+        water: waterMesh,
+        transparentSolid: transparentSolidMesh,
+        lod: 0,
+      })
+      meshesChanged = true
     }
 
+    if (waterMeshesChanged) {
+      yield* Ref.set(waterMeshesRef, nextWaterMeshes)
+    }
+    if (meshesChanged) {
+      yield* Ref.set(meshesRef, nextMeshes)
+    }
     yield* invalidateSceneCaches()
   })
 }

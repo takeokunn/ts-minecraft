@@ -1,7 +1,18 @@
 import { Array as Arr, Effect } from 'effect'
-import { DEBUG_FEATURE_FLAG_DEFAULTS } from '@ts-minecraft/app/debug-feature-flags'
+import {
+  DEBUG_FEATURE_FLAG_CATALOG,
+  DEBUG_FEATURE_FLAG_DEFAULTS,
+} from '@ts-minecraft/app/debug-feature-flags'
 import type { DebugOverlayDeps, DebugOverlayDomNodes } from '@ts-minecraft/presentation/hud/debug-overlay-types'
-import { buildTogglePanel, filterToggleRows, refreshTogglePanel, runPanelEffect, updateToggleRowsFromFlags } from '@ts-minecraft/presentation/hud/debug-overlay-panel'
+import {
+  buildTogglePanel,
+  refreshTogglePanel,
+  runPanelEffect,
+} from '@ts-minecraft/presentation/hud/debug-overlay-panel'
+import {
+  applyDebugOverlayPanelState,
+  resolveDebugOverlayPanelState,
+} from '@ts-minecraft/presentation/hud/debug-overlay-panel-state'
 
 const createMetricsPanel = (): { readonly metricsPanel: HTMLDivElement; readonly textNodes: ReadonlyArray<Text> } => {
   const metricsPanel = document.createElement('div')
@@ -71,7 +82,9 @@ export const buildDebugOverlayDom = (
       yield* refreshTogglePanel(dom, deps, 'All debug toggles reset')
     }))
   })
-  panelNodes.searchInput.addEventListener('input', () => filterToggleRows(dom))
+  panelNodes.searchInput.addEventListener('input', () => {
+    runPanelEffect(dom, refreshTogglePanel(dom, deps))
+  })
   panelNodes.searchInput.addEventListener('keydown', (event) => {
     if (event.key !== 'Escape') return
     event.preventDefault()
@@ -79,6 +92,12 @@ export const buildDebugOverlayDom = (
   })
 
   document.body.appendChild(overlay)
-  updateToggleRowsFromFlags(dom, { ...DEBUG_FEATURE_FLAG_DEFAULTS })
+  applyDebugOverlayPanelState(
+    dom,
+    resolveDebugOverlayPanelState(
+      { catalog: DEBUG_FEATURE_FLAG_CATALOG, flags: { ...DEBUG_FEATURE_FLAG_DEFAULTS } },
+      '',
+    ),
+  )
   return dom
 }

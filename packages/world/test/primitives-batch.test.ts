@@ -9,6 +9,8 @@ import {
   octaveNoise2DBatchXY,
 } from '../infrastructure/primitives'
 
+const readNumber = (values: ReadonlyArray<number>, index: number): number => values[index] ?? Number.NaN
+
 describe('noise2DBatch', () => {
   it('returns one value per input point', () => {
     const prims = createNoisePrimitives(42)
@@ -70,7 +72,7 @@ describe('noise2DBatchXY', () => {
     const zs = [4, 20, 0]
     const batch = noise2DBatchXY(prims, xs, zs)
     xs.forEach((x, i) => {
-      expect(batch[i]).toBeCloseTo(prims.noise2D(x, zs[i]!), 10)
+      expect(batch[i]).toBeCloseTo(prims.noise2D(x, readNumber(zs, i)), 10)
     })
   })
 
@@ -98,7 +100,7 @@ describe('noise3DBatchXYZ', () => {
     const zs = [4, 30, 0]
     const batch = noise3DBatchXYZ(prims, xs, ys, zs)
     xs.forEach((x, i) => {
-      expect(batch[i]).toBeCloseTo(prims.noise3D(x, ys[i]!, zs[i]!), 10)
+      expect(batch[i]).toBeCloseTo(prims.noise3D(x, readNumber(ys, i), readNumber(zs, i)), 10)
     })
   })
 
@@ -124,7 +126,7 @@ describe('octaveNoise2DBatchXY', () => {
     const zs = [4, 20, 0]
     const batch = octaveNoise2DBatchXY(prims, xs, zs, 4, 0.5, 2.0)
     xs.forEach((x, i) => {
-      expect(batch[i]).toBeCloseTo(prims.octaveNoise2D(x, zs[i]!, 4, 0.5, 2.0), 10)
+      expect(batch[i]).toBeCloseTo(prims.octaveNoise2D(x, readNumber(zs, i), 4, 0.5, 2.0), 10)
     })
   })
 

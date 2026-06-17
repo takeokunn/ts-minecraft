@@ -47,7 +47,7 @@ describe('application/game-state (core)', () => {
     })
   })
 
-  describe('GameStateServiceLive', () => {
+  describe('GameStateService.Default', () => {
     it('should provide GameStateService as Layer', () => {
       const inputService = createTestInputService()
       const layer = createTestLayer(inputService)

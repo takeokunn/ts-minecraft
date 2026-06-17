@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { Option } from 'effect'
 import { fillExistingStacks, drainPreferredSlot, fillEmptySlots } from './inventory-service.helpers'
-import type { InventorySlots } from './inventory-service'
+import type { InventorySlots } from './inventory-service-types'
 import { createStack } from '../domain/item-stack'
 
 const MAX_STACK = 64

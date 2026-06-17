@@ -4,25 +4,29 @@ import {
   FORTUNE_MULTIPLIERS,
   APPLICABLE_TO,
 } from '../domain/enchantment.config'
-import type { EnchantmentType } from '../domain/enchantment.types'
-
-const ALL_ENCHANTMENTS: EnchantmentType[] = [
-  'SHARPNESS', 'SMITE', 'BANE_OF_ARTHROPODS', 'KNOCKBACK',
-  'PROTECTION', 'PROJECTILE_PROTECTION', 'FIRE_PROTECTION', 'BLAST_PROTECTION',
-  'FEATHER_FALLING', 'RESPIRATION', 'EFFICIENCY', 'FORTUNE',
-  'SILK_TOUCH', 'UNBREAKING', 'LOOTING', 'INFINITY', 'POWER', 'PUNCH',
-  'LURE', 'LUCK_OF_THE_SEA',
-]
+import { ENCHANTMENT_TYPES } from '../domain/enchantment.types'
 
 describe('MAX_LEVEL', () => {
   it('has entries for all enchantment types', () => {
-    for (const enchantment of ALL_ENCHANTMENTS) {
+    for (const enchantment of ENCHANTMENT_TYPES) {
       expect(MAX_LEVEL[enchantment]).toBeDefined()
     }
   })
 
   it('SILK_TOUCH has max level 1 (cannot be leveled up)', () => {
     expect(MAX_LEVEL['SILK_TOUCH']).toBe(1)
+  })
+
+  it('AQUA_AFFINITY has max level 1', () => {
+    expect(MAX_LEVEL['AQUA_AFFINITY']).toBe(1)
+  })
+
+  it('DEPTH_STRIDER has max level 3', () => {
+    expect(MAX_LEVEL['DEPTH_STRIDER']).toBe(3)
+  })
+
+  it('FIRE_ASPECT has max level 2', () => {
+    expect(MAX_LEVEL['FIRE_ASPECT']).toBe(2)
   })
 
   it('most sword/tool enchantments have max level >= 2', () => {
@@ -57,37 +61,56 @@ describe('FORTUNE_MULTIPLIERS', () => {
 
 describe('APPLICABLE_TO', () => {
   it('SHARPNESS applies to swords', () => {
-    expect(APPLICABLE_TO['SHARPNESS']?.has('IRON_SWORD')).toBe(true)
-    expect(APPLICABLE_TO['SHARPNESS']?.has('DIAMOND_SWORD')).toBe(true)
+    expect(APPLICABLE_TO['SHARPNESS'].has('IRON_SWORD')).toBe(true)
+    expect(APPLICABLE_TO['SHARPNESS'].has('DIAMOND_SWORD')).toBe(true)
   })
 
   it('FORTUNE applies to pickaxes', () => {
-    expect(APPLICABLE_TO['FORTUNE']?.has('IRON_PICKAXE')).toBe(true)
-    expect(APPLICABLE_TO['FORTUNE']?.has('DIAMOND_PICKAXE')).toBe(true)
+    expect(APPLICABLE_TO['FORTUNE'].has('IRON_PICKAXE')).toBe(true)
+    expect(APPLICABLE_TO['FORTUNE'].has('DIAMOND_PICKAXE')).toBe(true)
   })
 
   it('SILK_TOUCH applies to pickaxes', () => {
-    expect(APPLICABLE_TO['SILK_TOUCH']?.has('IRON_PICKAXE')).toBe(true)
+    expect(APPLICABLE_TO['SILK_TOUCH'].has('IRON_PICKAXE')).toBe(true)
   })
 
   it('FEATHER_FALLING only applies to boots', () => {
-    const items = Array.from(APPLICABLE_TO['FEATHER_FALLING'] ?? [])
+    const items = Array.from(APPLICABLE_TO['FEATHER_FALLING'])
     expect(items.every(item => item.endsWith('BOOTS'))).toBe(true)
   })
 
+  it('AQUA_AFFINITY only applies to helmets', () => {
+    const items = Array.from(APPLICABLE_TO['AQUA_AFFINITY'])
+    expect(items.every(item => item.endsWith('HELMET'))).toBe(true)
+    expect(APPLICABLE_TO['AQUA_AFFINITY'].has('DIAMOND_HELMET')).toBe(true)
+  })
+
+  it('DEPTH_STRIDER only applies to boots', () => {
+    const items = Array.from(APPLICABLE_TO['DEPTH_STRIDER'])
+    expect(items.every(item => item.endsWith('BOOTS'))).toBe(true)
+    expect(APPLICABLE_TO['DEPTH_STRIDER'].has('DIAMOND_BOOTS')).toBe(true)
+  })
+
   it('bow-specific enchantments only apply to bow', () => {
-    expect(APPLICABLE_TO['INFINITY']?.has('BOW')).toBe(true)
-    expect(APPLICABLE_TO['POWER']?.has('BOW')).toBe(true)
-    expect(APPLICABLE_TO['INFINITY']?.has('IRON_SWORD')).toBe(false)
+    expect(APPLICABLE_TO['INFINITY'].has('BOW')).toBe(true)
+    expect(APPLICABLE_TO['POWER'].has('BOW')).toBe(true)
+    expect(APPLICABLE_TO['INFINITY'].has('IRON_SWORD')).toBe(false)
+  })
+
+  it('FIRE_ASPECT applies only to swords', () => {
+    const items = Array.from(APPLICABLE_TO['FIRE_ASPECT'])
+    expect(items.every(item => item.endsWith('SWORD'))).toBe(true)
+    expect(APPLICABLE_TO['FIRE_ASPECT'].has('DIAMOND_SWORD')).toBe(true)
+    expect(APPLICABLE_TO['FIRE_ASPECT'].has('DIAMOND_AXE')).toBe(false)
   })
 
   it('PROTECTION applies to all armor pieces', () => {
     const armorItems = [
-      'LEATHER_HELMET', 'IRON_HELMET', 'DIAMOND_HELMET',
-      'LEATHER_CHESTPLATE', 'IRON_CHESTPLATE', 'DIAMOND_CHESTPLATE',
+      'LEATHER_HELMET', 'IRON_HELMET', 'GOLD_HELMET', 'DIAMOND_HELMET',
+      'LEATHER_CHESTPLATE', 'IRON_CHESTPLATE', 'GOLD_CHESTPLATE', 'DIAMOND_CHESTPLATE',
     ]
     for (const item of armorItems) {
-      expect(APPLICABLE_TO['PROTECTION']?.has(item as never)).toBe(true)
+      expect(APPLICABLE_TO['PROTECTION'].has(item)).toBe(true)
     }
   })
 })

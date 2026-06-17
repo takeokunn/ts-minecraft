@@ -1,20 +1,20 @@
 import { describe,it } from '@effect/vitest'
-import { TerrainWorkerPoolPortLayer } from '@ts-minecraft/world'
+import { TerrainWorkerPoolPortLayer } from '@ts-minecraft/worker'
 import { DEFAULT_WORLD_ID } from '@ts-minecraft/core'
 import {
-BiomeServiceLive,
+BiomeService,
 ChunkManagerService,
-ChunkManagerServiceLive,
-MAX_CACHED_CHUNKS,NoiseServiceLive,NoiseServicePort,RENDER_DISTANCE,StorageServicePort,UNLOAD_DISTANCE,
+ChunkManagerService,
+MAX_CACHED_CHUNKS,NoiseService,NoiseServicePort,RENDER_DISTANCE,StorageServicePort,UNLOAD_DISTANCE,
 getChunksInRenderDistance
 } from '@ts-minecraft/world'
 import { StorageError } from '@ts-minecraft/world'
 import { Array as Arr,Effect,Layer,Option } from 'effect'
 import { expect } from 'vitest'
-import { ChunkServiceLive } from '@ts-minecraft/world/application/chunk-service'
+import { ChunkService } from '@ts-minecraft/world/application/chunk-service'
 import {
 EXPECTED_BLOCKS_LENGTH,
-LightEngineNoopLive,
+LightEngineNoopLayer,
 buildTestLayerWithStoredChunks,
 chunkStorageBlocks,
 makeInMemoryStorage
@@ -42,16 +42,16 @@ describe('application/chunk/chunk-manager-service (eviction)', () => {
       )
 
       const NoiseLayer = NoiseServicePort.Default
-      const BiomeTestLayer = BiomeServiceLive.pipe(Layer.provide(NoiseLayer))
+      const BiomeTestLayer = BiomeService.Default.pipe(Layer.provide(NoiseLayer))
 
-      const TestLayer = ChunkManagerServiceLive.pipe(
-        Layer.provide(ChunkServiceLive),
+      const TestLayer = ChunkManagerService.Default.pipe(
+        Layer.provide(ChunkService.Default),
         Layer.provide(StorageTestLayer),
         Layer.provide(BiomeTestLayer),
         Layer.provide(NoiseLayer),
-        Layer.provide(NoiseServiceLive),
+        Layer.provide(NoiseService.Default),
         Layer.provide(TerrainWorkerPoolPortLayer),
-        Layer.provide(LightEngineNoopLive),
+        Layer.provide(LightEngineNoopLayer),
       )
 
       return { TestLayer, storage }
@@ -226,16 +226,16 @@ describe('application/chunk/chunk-manager-service (eviction)', () => {
 
       const FailingStorageLayer = Layer.succeed(StorageServicePort, failingStorage)
       const NoiseLayer = NoiseServicePort.Default
-      const BiomeTestLayer = BiomeServiceLive.pipe(Layer.provide(NoiseLayer))
+      const BiomeTestLayer = BiomeService.Default.pipe(Layer.provide(NoiseLayer))
 
-      const FailingTestLayer = ChunkManagerServiceLive.pipe(
-        Layer.provide(ChunkServiceLive),
+      const FailingTestLayer = ChunkManagerService.Default.pipe(
+        Layer.provide(ChunkService.Default),
         Layer.provide(FailingStorageLayer),
         Layer.provide(BiomeTestLayer),
         Layer.provide(NoiseLayer),
-        Layer.provide(NoiseServiceLive),
+        Layer.provide(NoiseService.Default),
         Layer.provide(TerrainWorkerPoolPortLayer),
-        Layer.provide(LightEngineNoopLive),
+        Layer.provide(LightEngineNoopLayer),
       )
 
       // The error should propagate and be catchable with Effect.catchTag

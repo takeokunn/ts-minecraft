@@ -7,15 +7,16 @@ import { BiomeService } from '@ts-minecraft/world'
 import { RecipeService } from '@ts-minecraft/inventory'
 import { PlayerError } from '@ts-minecraft/entity'
 import { StorageError } from '@ts-minecraft/world'
-import { DebugOverlayService } from '@ts-minecraft/presentation/hud/debug-overlay'
-import { DeathScreenService } from '@ts-minecraft/presentation/menu/death-screen'
-import { type ColorPort, type SkyMaterialPort, type Position } from '@ts-minecraft/core'
+import { DebugOverlayService } from '@ts-minecraft/presentation'
+import { DeathScreenService } from '@ts-minecraft/presentation'
+import { type MoonPhasePort, type SkyMaterialPort, type Position } from '@ts-minecraft/core'
 
 import { createFrameHandlers } from '@ts-minecraft/app/frame-handler'
 import type { FrameHandlerDeps, FrameHandlerServices } from '@ts-minecraft/app/frame/types'
 import { installQaApi } from '@ts-minecraft/app/main/qa-api'
 import { wrapFrameHandlerWithBrowserEffects, type PendingResize } from '@ts-minecraft/app/main/browser-runtime'
 import type { SessionControl } from '@ts-minecraft/app/main/session-control'
+import { assembleFrameHandlerDeps } from '@ts-minecraft/app/main/session-runtime-deps'
 
 // Lighting values captured from buildLighting — forwarded to FrameHandlerDeps.lights.
 export type SessionLightingSnapshot = {
@@ -23,6 +24,7 @@ export type SessionLightingSnapshot = {
   readonly ambientLight: THREE.AmbientLight
   readonly sky: THREE.Object3D
   readonly skyPort: SkyMaterialPort
+  readonly moonPort: MoonPhasePort
   readonly skyNight: THREE.Color
   readonly skyDay: THREE.Color
   readonly skyCurrent: THREE.Color
@@ -71,43 +73,6 @@ export type SessionRuntimeParams = {
   readonly debugOverlay: DebugOverlayService
   readonly biomeService: BiomeService
   readonly recipeService: RecipeService
-}
-
-// Assembles FrameHandlerDeps from the flat SessionRuntimeParams record.
-// Kept as a local helper — callers use buildSessionRuntime which calls it internally.
-const assembleFrameHandlerDeps = (p: SessionRuntimeParams): FrameHandlerDeps => {
-  const dayNightRenderer = {
-    setClearColor: (color: ColorPort) =>
-      p.renderer.setClearColor(new THREE.Color().setRGB(color.r, color.g, color.b)),
-  }
-  const { light, ambientLight, skyPort, skyNight, skyDay, skyCurrent, sky } = p.lighting
-  return {
-    renderer: p.renderer,
-    scene: p.scene,
-    camera: p.camera,
-    respawnPositionRef: p.respawnPositionRef,
-    lights: { light, ambientLight, renderer: dayNightRenderer, skyNight, skyDay, skyCurrent, sky: Option.some(skyPort) },
-    skyMesh: Option.some(sky),
-    fpsElement: Option.fromNullable(p.fpsElement),
-    healthValueElement: Option.fromNullable(p.healthValueElement),
-    healthMaxElement: Option.fromNullable(p.healthMaxElement),
-    hungerValueElement: Option.fromNullable(p.hungerValueElement),
-    hungerMaxElement: Option.fromNullable(p.hungerMaxElement),
-    xpLevelElement: Option.fromNullable(p.xpLevelElement),
-    xpBarElement: Option.fromNullable(p.xpBarElement),
-    xpBarMaxElement: Option.fromNullable(p.xpBarMaxElement),
-    armorValueElement: Option.fromNullable(p.armorValueElement),
-    airElement: Option.fromNullable(p.airElement),
-    breakProgressElement: Option.fromNullable(p.breakProgressElement),
-    gamePausedRef: p.gamePausedRef,
-    sessionPausedRef: p.control.isPausedRef,
-    composer: Option.some(p.composer),
-    gtaoPass: p.gtaoPass,
-    bloomPass: p.bloomPass,
-    dofPass: p.bokehPass,
-    godRaysPass: p.godRaysPass,
-    smaaPass: p.smaaPass,
-  }
 }
 
 // Builds frame handlers + mounts all per-session overlays (death screen, pause menu,

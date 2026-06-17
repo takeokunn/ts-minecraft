@@ -9,6 +9,10 @@ type ClearColor = (color: ColorPort) => void
 type UpdateMatrixWorld = () => void
 type UpdateProjectionMatrix = () => void
 type SkyUniformSet = (x: number, y: number, z: number) => void
+type MoonPhaseSetPosition = (x: number, y: number, z: number) => void
+type MoonPhaseSetPhase = (phase: number) => void
+type MoonPhaseSetVisible = (visible: boolean) => void
+type MoonPhaseSetOpacity = (opacity: number) => void
 
 export const LightTargetPortSchema = Schema.mutable(Schema.Struct({
   position: Schema.Struct({
@@ -74,3 +78,12 @@ export const SkyMaterialPortSchema = Schema.mutable(Schema.Struct({
 }))
 
 export type SkyMaterialPort = Schema.Schema.Type<typeof SkyMaterialPortSchema>
+
+export const MoonPhasePortSchema = Schema.mutable(Schema.Struct({
+  setPosition: Schema.declare((u): u is MoonPhaseSetPosition => typeof u === 'function'),
+  setPhase: Schema.declare((u): u is MoonPhaseSetPhase => typeof u === 'function'),
+  setVisible: Schema.declare((u): u is MoonPhaseSetVisible => typeof u === 'function'),
+  setOpacity: Schema.declare((u): u is MoonPhaseSetOpacity => typeof u === 'function'),
+}))
+
+export type MoonPhasePort = Schema.Schema.Type<typeof MoonPhasePortSchema>
