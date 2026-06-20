@@ -8,6 +8,7 @@ import { installBrowserEventBridge } from '@ts-minecraft/app/main/browser-runtim
 import { startSessionAutoSaveDaemon } from '@ts-minecraft/app/main/session-autosave'
 import type { BootContext } from '@ts-minecraft/app/main/boot'
 import { buildSessionRuntime } from '@ts-minecraft/app/main/session-runtime'
+import { flushPendingSaves } from '@ts-minecraft/app/main/browser-runtime-save-effects'
 import type { SessionRuntimeParams } from '@ts-minecraft/app/main/session-runtime-types'
 import type { FrameHandlerServices } from '@ts-minecraft/app/application/frame/types/services'
 import { waitForInitialFrameRate } from '@ts-minecraft/app/main/session-loading-gates'
@@ -72,6 +73,11 @@ export const runSessionLifecycleStartup = ({
       pendingSaveDirtyChunksRef: runtimeParams.state.pendingSaveDirtyChunksRef,
       gameLoopService,
       frameHandler: frameHandlerWithBrowserEvents,
+      bestEffortSave: flushPendingSaves({
+        pendingSaveDirtyChunksRef: runtimeParams.state.pendingSaveDirtyChunksRef,
+        chunkManagerService: runtimeServices.chunkManagerService,
+        persistSessionState: runtimeParams.state.persistSessionState().pipe(Effect.catchAllCause(() => Effect.void)),
+      }),
     })
 
     yield* Effect.log('Game initialized — inventory, day/night cycle, and settings ready')

@@ -18,6 +18,7 @@ describe('browser-runtime-event-handlers-visibility', () => {
     const pendingSaveDirtyChunksRef = MutableRef.make(false)
     const pauseSpy = vi.fn()
     const resumeSpy = vi.fn()
+    const saveSpy = vi.fn()
     let hidden = true
 
     const handleVisibilityChange = createBrowserVisibilityChangeHandler({
@@ -32,16 +33,21 @@ describe('browser-runtime-event-handlers-visibility', () => {
       } as never,
       frameHandler: (() => Effect.void) as never,
       isDocumentHidden: () => hidden,
+      bestEffortSave: Effect.sync(() => {
+        saveSpy()
+      }),
     })
 
     handleVisibilityChange()
     await Effect.runPromise(Effect.yieldNow())
     expect(MutableRef.get(pendingSaveDirtyChunksRef)).toBe(true)
+    expect(saveSpy).toHaveBeenCalledOnce()
     expect(pauseSpy).toHaveBeenCalledOnce()
 
     hidden = false
     handleVisibilityChange()
     await Effect.runPromise(Effect.yieldNow())
     expect(resumeSpy).toHaveBeenCalledOnce()
+    expect(saveSpy).toHaveBeenCalledOnce()
   })
 })

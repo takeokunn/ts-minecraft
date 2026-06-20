@@ -19,6 +19,50 @@ const requestEffect = <A>(request: IDBRequest<A>, operation: SettingsError['oper
     })
   })
 
+const writeRequestEffect = <A>(
+  transaction: IDBTransaction,
+  request: IDBRequest<A>,
+  operation: SettingsError['operation'],
+): Effect.Effect<A, SettingsError> =>
+  effectFromCallback<A, SettingsError>((resume) => {
+    let settled = false
+    let hasRequestResult = false
+    let requestResult: A | undefined
+
+    const settle = (effect: Effect.Effect<A, SettingsError>): void => {
+      if (settled) return
+      settled = true
+      resume(effect)
+    }
+
+    const fail = (cause: unknown): void => {
+      settle(Effect.fail(new SettingsError({ operation, cause })))
+    }
+
+    request.onsuccess = () => {
+      requestResult = request.result
+      hasRequestResult = true
+    }
+    request.onerror = () => fail(request.error ?? transaction.error ?? undefined)
+    transaction.oncomplete = () => {
+      if (!hasRequestResult) {
+        fail(new Error('IndexedDB write transaction completed before request success'))
+        return
+      }
+      settle(Effect.succeed(requestResult as A))
+    }
+    transaction.onerror = () => fail(transaction.error ?? request.error ?? undefined)
+    transaction.onabort = () => fail(transaction.error ?? request.error ?? undefined)
+
+    return Effect.sync(() => {
+      request.onsuccess = null
+      request.onerror = null
+      transaction.oncomplete = null
+      transaction.onerror = null
+      transaction.onabort = null
+    })
+  })
+
 const openSettingsDatabase = (operation: SettingsError['operation']): Effect.Effect<IDBDatabase, SettingsError> =>
   Effect.gen(function* () {
     if (typeof indexedDB === 'undefined') {
@@ -92,10 +136,14 @@ export const SettingsStorageServiceLayer = Layer.effect(
         Effect.gen(function* () {
           yield* initialize('save')
           yield* withSettingsDatabase(dbRef, 'save', (db) =>
-            requestEffect(
-              db.transaction(SETTINGS_STORE_NAME, 'readwrite').objectStore(SETTINGS_STORE_NAME).put(settings, SETTINGS_RECORD_KEY),
-              'save',
-            ).pipe(Effect.asVoid)
+            Effect.gen(function* () {
+              const transaction = db.transaction(SETTINGS_STORE_NAME, 'readwrite')
+              yield* writeRequestEffect(
+                transaction,
+                transaction.objectStore(SETTINGS_STORE_NAME).put(settings, SETTINGS_RECORD_KEY),
+                'save',
+              ).pipe(Effect.asVoid)
+            })
           )
         }),
     })

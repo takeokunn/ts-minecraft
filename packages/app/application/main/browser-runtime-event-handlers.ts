@@ -7,6 +7,7 @@ type BrowserEventBridgeHandlers = {
   readonly handleResize: () => void
   readonly handleVisibilityChange: () => void
   readonly handleBeforeUnload: () => void
+  readonly handlePageHide: () => void
   readonly handleCanvasMouseDown: () => void
 }
 
@@ -22,6 +23,7 @@ export const createBrowserEventBridgeHandlers = ({
   pendingSaveDirtyChunksRef,
   gameLoopService,
   frameHandler,
+  bestEffortSave,
   isDocumentHidden,
 }: BrowserEventBridgeHandlerDeps): BrowserEventBridgeHandlers => {
   const handleResize = createBrowserResizeHandler({
@@ -31,10 +33,11 @@ export const createBrowserEventBridgeHandlers = ({
   const pageLifecycleDeps = {
     pendingSaveDirtyChunksRef,
     isDocumentHidden,
+    ...(bestEffortSave ? { bestEffortSave } : {}),
     ...(gameLoopService ? { gameLoopService } : {}),
     ...(frameHandler ? { frameHandler } : {}),
   }
-  const { handleVisibilityChange, handleBeforeUnload } = createBrowserPageLifecycleHandlers(
+  const { handleVisibilityChange, handleBeforeUnload, handlePageHide } = createBrowserPageLifecycleHandlers(
     pageLifecycleDeps,
   )
   const handleCanvasMouseDown = createBrowserCanvasMouseDownHandler({
@@ -46,6 +49,7 @@ export const createBrowserEventBridgeHandlers = ({
     handleResize,
     handleVisibilityChange,
     handleBeforeUnload,
+    handlePageHide,
     handleCanvasMouseDown,
   }
 }

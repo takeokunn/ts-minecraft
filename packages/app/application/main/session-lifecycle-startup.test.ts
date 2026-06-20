@@ -23,9 +23,14 @@ vi.mock('@ts-minecraft/rendering', () => ({
   installPerfHudCounters: mocks.installPerfHudCounters,
 }))
 
-vi.mock('@ts-minecraft/app/main/session-autosave', () => ({
-  startSessionAutoSaveDaemon: mocks.startSessionAutoSaveDaemon,
-}))
+vi.mock('@ts-minecraft/app/main/session-autosave', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@ts-minecraft/app/main/session-autosave')>()
+
+  return {
+    ...actual,
+    startSessionAutoSaveDaemon: mocks.startSessionAutoSaveDaemon,
+  }
+})
 
 vi.mock('@ts-minecraft/app/main/session-loading-gates', () => ({
   waitForInitialFrameRate: mocks.waitForInitialFrameRate,
@@ -58,8 +63,14 @@ describe('runSessionLifecycleStartup', () => {
       stop: vi.fn(() => Effect.void),
     }
     const inputPointerLock = Effect.void
-    const saveDirtyChunksEffect = Effect.void
-    const persistSessionStateEffect = Effect.void
+    const saveDirtyChunksRunSpy = vi.fn()
+    const persistSessionStateRunSpy = vi.fn()
+    const saveDirtyChunksEffect = Effect.sync(() => {
+      saveDirtyChunksRunSpy()
+    })
+    const persistSessionStateEffect = Effect.sync(() => {
+      persistSessionStateRunSpy()
+    })
     const runtimeServices = {
       chunkManagerService: {
         saveDirtyChunks: vi.fn(() => saveDirtyChunksEffect),
@@ -116,7 +127,8 @@ describe('runSessionLifecycleStartup', () => {
     expect(mocks.buildSessionRuntime).toHaveBeenCalledWith(runtimeParams, runtimeServices)
     expect(runtimeServices.inputService.requestPointerLock).toHaveBeenCalledOnce()
     expect(mocks.installBrowserEventBridge).toHaveBeenCalledOnce()
-    expect(mocks.installBrowserEventBridge).toHaveBeenCalledWith({
+    const browserBridgeDeps = mocks.installBrowserEventBridge.mock.calls[0]?.[0]
+    expect(browserBridgeDeps).toMatchObject({
       canvas: bootCtx.canvas,
       inputPointerLock,
       gamePausedRef,
@@ -125,6 +137,7 @@ describe('runSessionLifecycleStartup', () => {
       gameLoopService,
       frameHandler: frameHandlerWithBrowserEvents,
     })
+    expect(browserBridgeDeps.bestEffortSave).toBeDefined()
     expect(mocks.installPerfHudCounters).toHaveBeenCalledOnce()
     expect(mocks.installPerfHudCounters).toHaveBeenCalledWith(
       bootCtx.perfHud,
@@ -145,5 +158,11 @@ describe('runSessionLifecycleStartup', () => {
     expect(mocks.waitForInitialFrameRate).toHaveBeenCalledWith(runtimeParams.hud.fpsElement)
     expect(loadingScreen.hide).toHaveBeenCalledOnce()
     expect(terrainPool.queueDepth).not.toHaveBeenCalled()
+
+    MutableRef.set(pendingSaveDirtyChunksRef, true)
+    await Effect.runPromise(browserBridgeDeps.bestEffortSave)
+    expect(saveDirtyChunksRunSpy).toHaveBeenCalledOnce()
+    expect(persistSessionStateRunSpy).toHaveBeenCalledOnce()
+    expect(MutableRef.get(pendingSaveDirtyChunksRef)).toBe(false)
   })
 })

@@ -14,4 +14,5 @@ export type BrowserEventBridgeDeps = {
   readonly pendingSaveDirtyChunksRef: MutableRef.MutableRef<boolean>
   readonly gameLoopService?: GameLoopService
   readonly frameHandler?: FrameHandler
+  readonly bestEffortSave?: Effect.Effect<void, never>
 }

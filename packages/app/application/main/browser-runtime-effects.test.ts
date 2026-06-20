@@ -26,6 +26,29 @@ describe('browser-runtime-effects', () => {
     expect(MutableRef.get(pendingSaveDirtyChunksRef)).toBe(false)
   })
 
+  it('reads the pending save flag when the flush effect runs', async () => {
+    const calls: string[] = []
+    const pendingSaveDirtyChunksRef = MutableRef.make(false)
+    const chunkManagerService = {
+      saveDirtyChunks: () => Effect.sync(() => {
+        calls.push('saveDirtyChunks')
+      }),
+    }
+    const flushEffect = flushPendingSaves({
+      pendingSaveDirtyChunksRef,
+      chunkManagerService: chunkManagerService as never,
+      persistSessionState: Effect.sync(() => {
+        calls.push('persistSessionState')
+      }),
+    })
+
+    MutableRef.set(pendingSaveDirtyChunksRef, true)
+    await Effect.runPromise(flushEffect)
+
+    expect(calls).toEqual(['saveDirtyChunks', 'persistSessionState'])
+    expect(MutableRef.get(pendingSaveDirtyChunksRef)).toBe(false)
+  })
+
   it('applies pending resize and clears the resize ref', async () => {
     const pendingResizeRef = MutableRef.make(Option.some({ width: 320, height: 180 }))
     const settingsService = { getSettings: () => Effect.succeed({ graphicsQuality: 'high' }) }

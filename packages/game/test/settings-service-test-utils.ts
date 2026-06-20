@@ -39,9 +39,16 @@ export type IndexedDbMock = {
   getSpy: ReturnType<typeof vi.fn>
 }
 
-const queueRequestSuccess = <A>(request: IDBRequest<A>, value: A): void => {
+type TransactionFixture = {
+  oncomplete: ((this: IDBTransaction, ev: Event) => unknown) | null
+}
+
+const queueRequestSuccess = <A>(request: IDBRequest<A>, value: A, transaction?: TransactionFixture): void => {
   Object.defineProperty(request, 'result', { configurable: true, get: () => value })
-  queueMicrotask(() => request.onsuccess?.(new Event('success')))
+  queueMicrotask(() => {
+    request.onsuccess?.(new Event('success'))
+    transaction?.oncomplete?.call(transaction as unknown as IDBTransaction, new Event('complete'))
+  })
 }
 
 export const makeIndexedDbMock = (): IndexedDbMock => {
@@ -57,20 +64,30 @@ export const makeIndexedDbMock = (): IndexedDbMock => {
       contains: (name: string) => name === SETTINGS_STORE_NAME,
     },
     createObjectStore: vi.fn(),
-    transaction: vi.fn(() => ({
-      objectStore: vi.fn(() => ({
-        get: (key: string) => {
-          const request = {} as IDBRequest<unknown>
-          queueRequestSuccess(request, getSpy(key))
-          return request
-        },
-        put: (value: unknown, key: string) => {
-          const request = {} as IDBRequest<IDBValidKey>
-          queueRequestSuccess(request, putSpy(value, key))
-          return request
-        },
-      })),
-    })),
+    transaction: vi.fn(() => {
+      const transaction: TransactionFixture & {
+        objectStore: ReturnType<typeof vi.fn>
+        onerror: null
+        onabort: null
+      } = {
+        oncomplete: null,
+        onerror: null,
+        onabort: null,
+        objectStore: vi.fn(() => ({
+          get: (key: string) => {
+            const request = {} as IDBRequest<unknown>
+            queueRequestSuccess(request, getSpy(key))
+            return request
+          },
+          put: (value: unknown, key: string) => {
+            const request = {} as IDBRequest<IDBValidKey>
+            queueRequestSuccess(request, putSpy(value, key), transaction)
+            return request
+          },
+        })),
+      }
+      return transaction
+    }),
     close: vi.fn(),
   } as unknown as IDBDatabase
 

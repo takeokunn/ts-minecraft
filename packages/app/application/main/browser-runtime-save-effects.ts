@@ -6,7 +6,7 @@ export const flushPendingSaves = ({
   pendingSaveDirtyChunksRef,
   chunkManagerService,
   persistSessionState,
-}: Pick<{ readonly pendingSaveDirtyChunksRef: MutableRef.MutableRef<boolean>; readonly chunkManagerService: ChunkManagerService; readonly persistSessionState: Effect.Effect<void, never> }, 'pendingSaveDirtyChunksRef' | 'chunkManagerService' | 'persistSessionState'>): Effect.Effect<void, never> => {
+}: Pick<{ readonly pendingSaveDirtyChunksRef: MutableRef.MutableRef<boolean>; readonly chunkManagerService: ChunkManagerService; readonly persistSessionState: Effect.Effect<void, never> }, 'pendingSaveDirtyChunksRef' | 'chunkManagerService' | 'persistSessionState'>): Effect.Effect<void, never> => Effect.suspend(() => {
   const pendingSaveDirtyChunks = MutableRef.get(pendingSaveDirtyChunksRef)
   MutableRef.set(pendingSaveDirtyChunksRef, false)
   if (!pendingSaveDirtyChunks) return Effect.void
@@ -15,4 +15,4 @@ export const flushPendingSaves = ({
   // (and now LOGGING) any failure. Previously this path silently dropped errors; the
   // shared helper keeps a single source for the Effect.all + catchAllCause shape.
   return performAutoSaveTick(chunkManagerService.saveDirtyChunks(), persistSessionState)
-}
+})

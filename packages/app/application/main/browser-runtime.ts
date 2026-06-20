@@ -10,6 +10,7 @@ export const installBrowserEventBridge = ({
   pendingSaveDirtyChunksRef,
   gameLoopService,
   frameHandler,
+  bestEffortSave,
 }: BrowserEventBridgeDeps) => {
   const handlerDeps = {
     canvas,
@@ -18,17 +19,19 @@ export const installBrowserEventBridge = ({
     pendingResizeRef,
     pendingSaveDirtyChunksRef,
     isDocumentHidden: () => document.hidden,
+    ...(bestEffortSave ? { bestEffortSave } : {}),
     ...(gameLoopService ? { gameLoopService } : {}),
     ...(frameHandler ? { frameHandler } : {}),
   }
 
-  const { handleResize, handleVisibilityChange, handleBeforeUnload, handleCanvasMouseDown } = createBrowserEventBridgeHandlers(handlerDeps)
+  const { handleResize, handleVisibilityChange, handleBeforeUnload, handlePageHide, handleCanvasMouseDown } = createBrowserEventBridgeHandlers(handlerDeps)
 
   return installBrowserEventBridgeListeners({
     canvas,
     handleResize,
     handleVisibilityChange,
     handleBeforeUnload,
+    handlePageHide,
     handleCanvasMouseDown,
   })
 }

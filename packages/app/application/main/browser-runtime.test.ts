@@ -51,6 +51,7 @@ describe('browser-runtime', () => {
       windowListeners.get('resize')?.(new Event('resize'))
       documentListeners.get('visibilitychange')?.(new Event('visibilitychange'))
       windowListeners.get('beforeunload')?.(new Event('beforeunload'))
+      windowListeners.get('pagehide')?.(new Event('pagehide'))
       canvasListeners.get('mousedown')?.(new Event('mousedown'))
 
       expect(Option.getOrNull(MutableRef.get(pendingResizeRef))).toEqual({ width: 800, height: 600 })

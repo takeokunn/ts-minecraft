@@ -20,6 +20,7 @@ describe('browser-runtime-event-handlers', () => {
     const pointerLockSpy = vi.fn()
     const pauseSpy = vi.fn()
     const resumeSpy = vi.fn()
+    const saveSpy = vi.fn()
     const gamePausedRef = Effect.runSync(Ref.make(false))
     let hidden = true
 
@@ -43,6 +44,9 @@ describe('browser-runtime-event-handlers', () => {
         }),
       } as never,
       frameHandler: (() => Effect.void) as never,
+      bestEffortSave: Effect.sync(() => {
+        saveSpy()
+      }),
       isDocumentHidden: () => hidden,
     })
 
@@ -50,16 +54,24 @@ describe('browser-runtime-event-handlers', () => {
     expect(Option.getOrNull(MutableRef.get(pendingResizeRef))).toEqual({ width: 1024, height: 576 })
 
     handlers.handleBeforeUnload()
+    await Effect.runPromise(Effect.yieldNow())
     expect(MutableRef.get(pendingSaveDirtyChunksRef)).toBe(true)
+    expect(saveSpy).toHaveBeenCalledOnce()
+
+    handlers.handlePageHide()
+    await Effect.runPromise(Effect.yieldNow())
+    expect(saveSpy).toHaveBeenCalledTimes(2)
 
     handlers.handleVisibilityChange()
     await Effect.runPromise(Effect.yieldNow())
     expect(pauseSpy).toHaveBeenCalledOnce()
+    expect(saveSpy).toHaveBeenCalledTimes(3)
 
     hidden = false
     handlers.handleVisibilityChange()
     await Effect.runPromise(Effect.yieldNow())
     expect(resumeSpy).toHaveBeenCalledOnce()
+    expect(saveSpy).toHaveBeenCalledTimes(3)
 
     handlers.handleCanvasMouseDown()
     await Effect.runPromise(Effect.yieldNow())

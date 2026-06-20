@@ -6,6 +6,7 @@ type BrowserVisibilityChangeHandlerDeps = {
   readonly gameLoopService?: GameLoopService
   readonly frameHandler?: FrameHandler
   readonly isDocumentHidden: () => boolean
+  readonly bestEffortSave?: Effect.Effect<void, never>
 }
 
 export const createBrowserVisibilityChangeHandler = ({
@@ -13,10 +14,12 @@ export const createBrowserVisibilityChangeHandler = ({
   gameLoopService,
   frameHandler,
   isDocumentHidden,
+  bestEffortSave,
 }: BrowserVisibilityChangeHandlerDeps): (() => void) => {
   return () => {
     if (isDocumentHidden()) {
       MutableRef.set(pendingSaveDirtyChunksRef, true)
+      if (bestEffortSave) Effect.runFork(bestEffortSave)
       if (gameLoopService) Effect.runFork(gameLoopService.pause())
     } else if (gameLoopService && frameHandler) {
       Effect.runFork(gameLoopService.resume(frameHandler))
