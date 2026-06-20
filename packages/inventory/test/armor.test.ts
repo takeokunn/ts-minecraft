@@ -6,11 +6,13 @@ import {
   getArmorDefensePoints,
   getArmorSlot,
   computeTotalArmorPoints,
+} from '../domain/armor'
+import {
   MAX_ARMOR_POINTS,
   ARMOR_ITEMS,
   ARMOR_DEFENSE_POINTS,
   ARMOR_SLOT_MAP,
-} from '../domain/armor'
+} from '../domain/armor.config'
 
 describe('domain/armor', () => {
   describe('isArmorItem', () => {

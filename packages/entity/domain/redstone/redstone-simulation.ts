@@ -26,12 +26,14 @@ export const canConduct = (type: RedstoneComponentType): boolean =>
   type === RedstoneComponentType.Lever ||
   type === RedstoneComponentType.Button ||
   type === RedstoneComponentType.Torch ||
-  type === RedstoneComponentType.Piston
+  type === RedstoneComponentType.Piston ||
+  type === RedstoneComponentType.PressurePlate
 
 export const isPowerSource = (component: RedstoneComponent): boolean =>
   (component.type === RedstoneComponentType.Lever && component.state.active) ||
   (component.type === RedstoneComponentType.Button && component.state.buttonTicksRemaining > 0) ||
-  (component.type === RedstoneComponentType.Torch && component.state.active)
+  (component.type === RedstoneComponentType.Torch && component.state.active) ||
+  (component.type === RedstoneComponentType.PressurePlate && component.state.active)
 
 export const neighborsOf = (position: Position): ReadonlyArray<Position> => [
   { x: position.x + 1, y: position.y, z: position.z },

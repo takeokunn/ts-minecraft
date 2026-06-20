@@ -2,7 +2,8 @@ import { Cause, Clock, Effect, HashMap, MutableRef, Option } from 'effect'
 import { DEFAULT_PLAYER_ID } from '@ts-minecraft/core'
 import type { Chunk } from '@ts-minecraft/world'
 import { FALLBACK_PLAYER_POS } from '@ts-minecraft/app/frame-handler.config'
-import type { FrameHandlerDeps, FrameHandlerServices } from '@ts-minecraft/app/frame/types'
+import type { FrameHandlerDeps } from '@ts-minecraft/app/application/frame/types/deps'
+import type { FrameHandlerServices } from '@ts-minecraft/app/application/frame/types/services'
 import type { DeltaTimeSecs } from '@ts-minecraft/core'
 import { runMaintenanceSimulation } from './frame-maintenance-simulation'
 import { runMaintenanceSync } from './frame-maintenance-sync'
@@ -26,7 +27,7 @@ type MaintenanceState = {
 
 type MaintenanceServices = Pick<
   FrameHandlerServices,
-  'entityManager' | 'gameState' | 'chunkManagerService' | 'settingsService' | 'worldRendererService' | 'fluidService' | 'blockHighlight' | 'furnaceService' | 'mobSpawner' | 'villageService' | 'timeService' | 'debugFeatureFlags' | 'blockService' | 'cropGrowthService'
+  'entityManager' | 'gameState' | 'chunkManagerService' | 'settingsService' | 'worldRendererService' | 'fluidService' | 'blockHighlight' | 'furnaceService' | 'mobSpawner' | 'villageService' | 'timeService' | 'debugFeatureFlags' | 'blockService' | 'cropGrowthService' | 'weatherService' | 'biomeService'
 >
 
 export const computeMaintenanceDeltaTime = (

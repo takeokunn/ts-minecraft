@@ -1,7 +1,8 @@
 import { describe, it, expect, vi } from 'vitest'
 import { Effect, Option } from 'effect'
 import * as THREE from 'three'
-import { EntityType } from '@ts-minecraft/entity'
+import { EntityType } from '@ts-minecraft/entity/domain/mob/entity'
+import type { FrameAnimalInteractionServices } from '@ts-minecraft/app/frame/frame-interaction-service-types/animal'
 import { handleFeedAnimal } from '@ts-minecraft/app/frame/stages/interaction-item-use-handler/feed-animal'
 
 // Default camera at origin looks down -Z; entity center (y + 0.9 offset) on the
@@ -24,11 +25,16 @@ const makeServices = (
     readonly removeBlock?: () => Effect.Effect<void, string>
     readonly playEffect?: () => Effect.Effect<void, string>
   } = {},
-) => {
+): {
+  readonly services: FrameAnimalInteractionServices
+  readonly removeBlock: ReturnType<typeof vi.fn>
+  readonly feedEntity: ReturnType<typeof vi.fn>
+  readonly playEffect: ReturnType<typeof vi.fn>
+} => {
   const removeBlock = vi.fn(options.removeBlock ?? (() => Effect.void))
   const feedEntity = vi.fn(() => Effect.succeed(feedResult))
   const playEffect = vi.fn(options.playEffect ?? (() => Effect.void))
-  const services = {
+  const services: FrameAnimalInteractionServices = {
     hotbarService: {
       getSelectedBlockType: () => Effect.succeed(heldItem === undefined ? Option.none() : Option.some(heldItem)),
       getSelectedSlot: () => Effect.succeed(0),
@@ -40,7 +46,7 @@ const makeServices = (
     },
     inventoryService: { removeBlock },
     soundManager: { playEffect },
-  } as never
+  }
   return { services, removeBlock, feedEntity, playEffect }
 }
 

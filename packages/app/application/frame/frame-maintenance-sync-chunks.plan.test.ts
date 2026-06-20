@@ -6,7 +6,7 @@ import {
   resolveMaintenanceChunkSceneSyncPlan,
   resolveMaintenanceChunkSyncPlan,
 } from './frame-maintenance-sync-chunks.plan'
-import { DEFAULT_SETTINGS } from '../../test/frame-handler-test-kit'
+import { DEFAULT_SETTINGS } from '../../test/frame-handler-test-kit/shared'
 
 const makeChunk = (): Chunk =>
   ({

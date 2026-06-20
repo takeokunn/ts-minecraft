@@ -5,12 +5,28 @@ import { CHUNK_SIZE, CHUNK_HEIGHT, blockTypeToIndex, SlotIndex } from '@ts-minec
 import type { BlockType } from '@ts-minecraft/core'
 import type { Chunk } from '@ts-minecraft/world'
 import { handleFarmingInteraction } from '@ts-minecraft/app/frame/stages/interaction-farming-handler'
+import type { FrameHandlerServices } from '@ts-minecraft/app/application/frame/types/services'
+import type { FrameStageRefs } from '@ts-minecraft/app/application/frame/types/stage-refs'
 import type { TargetRayHit } from '@ts-minecraft/app/frame/stages/interaction-types'
-import { HOTBAR_START } from '@ts-minecraft/inventory'
+import { HOTBAR_START } from '@ts-minecraft/inventory/application/inventory-service'
 
 // ---------------------------------------------------------------------------
 // helpers
 // ---------------------------------------------------------------------------
+
+type FarmingHandlerServices = Pick<
+  FrameHandlerServices,
+  'hotbarService' | 'blockService' | 'chunkManagerService' | 'soundManager' | 'inventoryService' | 'cropGrowthService'
+>
+
+type FarmingTestServices = FarmingHandlerServices & {
+  readonly _forceSetBlockSpy: ReturnType<typeof vi.fn>
+  readonly _removeBlockSpy: ReturnType<typeof vi.fn>
+  readonly _plantSpy: ReturnType<typeof vi.fn>
+  readonly _advanceByBoneMealSpy: ReturnType<typeof vi.fn>
+}
+
+type FarmingHandlerRefs = Pick<FrameStageRefs, 'dirtyChunksRef'>
 
 const makeEmptyChunk = (cx: number, cz: number): Chunk => ({
   coord: { x: cx, z: cz },
@@ -35,6 +51,10 @@ const makeHit = (bx: number, by: number, bz: number): TargetRayHit => ({
   blockZ: bz,
   distance: 3,
   normal: { x: 0, y: 1, z: 0 },
+})
+
+const makeRefs = (): FarmingHandlerRefs => ({
+  dirtyChunksRef: MutableRef.make(HashMap.empty<string, unknown>()),
 })
 
 const makeServices = (opts: {
@@ -68,18 +88,7 @@ const makeServices = (opts: {
     _removeBlockSpy: removeBlockSpy,
     _plantSpy: plantSpy,
     _advanceByBoneMealSpy: advanceByBoneMealSpy,
-  } as unknown as {
-    hotbarService: { getSelectedBlockType: ReturnType<typeof vi.fn>; getSelectedSlot: ReturnType<typeof vi.fn> }
-    blockService: { forceSetBlock: ReturnType<typeof vi.fn> }
-    chunkManagerService: { getChunk: (coord: { x: number; z: number }) => Effect.Effect<Chunk, Error> }
-    soundManager: { playEffect: ReturnType<typeof vi.fn> }
-    inventoryService: { removeBlock: ReturnType<typeof vi.fn> }
-    cropGrowthService: { plant: ReturnType<typeof vi.fn>; harvest: ReturnType<typeof vi.fn>; tickAll: ReturnType<typeof vi.fn>; advanceByBoneMeal: ReturnType<typeof vi.fn> }
-    _forceSetBlockSpy: ReturnType<typeof vi.fn>
-    _removeBlockSpy: ReturnType<typeof vi.fn>
-    _plantSpy: ReturnType<typeof vi.fn>
-    _advanceByBoneMealSpy: ReturnType<typeof vi.fn>
-  }
+  } as FarmingTestServices
 }
 
 // ---------------------------------------------------------------------------
@@ -89,31 +98,23 @@ const makeServices = (opts: {
 describe('handleFarmingInteraction', () => {
   it.effect('returns false immediately when targetHit is none', () =>
     Effect.gen(function* () {
-      const dirtyChunksRef = MutableRef.make(HashMap.empty<string, unknown>())
+      const refs = makeRefs()
       const services = makeServices({ selectedItem: 'WOODEN_HOE' })
-      const result = yield* handleFarmingInteraction(
-        services as never,
-        { dirtyChunksRef } as never,
-        { targetHit: Option.none() },
-      )
+      const result = yield* handleFarmingInteraction(services, refs, { targetHit: Option.none() })
       expect(result).toBe(false)
     }),
   )
 
   it.effect('returns false when selected item is not a hoe or wheat seeds (e.g. STONE)', () =>
     Effect.gen(function* () {
-      const dirtyChunksRef = MutableRef.make(HashMap.empty<string, unknown>())
+      const refs = makeRefs()
       const chunk = makeEmptyChunk(0, 0)
       setChunkBlock(chunk, 2, 64, 3, 'DIRT')
       const services = makeServices({
         selectedItem: 'STONE',
         getChunkFn: (_c) => Effect.succeed(chunk),
       })
-      const result = yield* handleFarmingInteraction(
-        services as never,
-        { dirtyChunksRef } as never,
-        { targetHit: Option.some(makeHit(2, 64, 3)) },
-      )
+      const result = yield* handleFarmingInteraction(services, refs, { targetHit: Option.some(makeHit(2, 64, 3)) })
       expect(result).toBe(false)
       expect(services._forceSetBlockSpy).not.toHaveBeenCalled()
     }),
@@ -123,18 +124,14 @@ describe('handleFarmingInteraction', () => {
     Effect.gen(function* () {
       // APPLE passes Schema.is(ItemTypeSchema) but is neither HOE nor WHEAT_SEEDS → hits the
       // final `return Effect.succeed(false)` fallthrough at the bottom of the handler.
-      const dirtyChunksRef = MutableRef.make(HashMap.empty<string, unknown>())
+      const refs = makeRefs()
       const chunk = makeEmptyChunk(0, 0)
       setChunkBlock(chunk, 2, 64, 3, 'DIRT')
       const services = makeServices({
         selectedItem: 'APPLE',
         getChunkFn: (_c) => Effect.succeed(chunk),
       })
-      const result = yield* handleFarmingInteraction(
-        services as never,
-        { dirtyChunksRef } as never,
-        { targetHit: Option.some(makeHit(2, 64, 3)) },
-      )
+      const result = yield* handleFarmingInteraction(services, refs, { targetHit: Option.some(makeHit(2, 64, 3)) })
       expect(result).toBe(false)
       expect(services._forceSetBlockSpy).not.toHaveBeenCalled()
     }),
@@ -142,31 +139,23 @@ describe('handleFarmingInteraction', () => {
 
   it.effect('returns false when no item is selected', () =>
     Effect.gen(function* () {
-      const dirtyChunksRef = MutableRef.make(HashMap.empty<string, unknown>())
+      const refs = makeRefs()
       const services = makeServices({ selectedItem: null })
-      const result = yield* handleFarmingInteraction(
-        services as never,
-        { dirtyChunksRef } as never,
-        { targetHit: Option.some(makeHit(0, 64, 0)) },
-      )
+      const result = yield* handleFarmingInteraction(services, refs, { targetHit: Option.some(makeHit(0, 64, 0)) })
       expect(result).toBe(false)
     }),
   )
 
   it.effect('tills DIRT → FARMLAND with a wooden hoe and returns true', () =>
     Effect.gen(function* () {
-      const dirtyChunksRef = MutableRef.make(HashMap.empty<string, unknown>())
+      const refs = makeRefs()
       const chunk = makeEmptyChunk(0, 0)
       setChunkBlock(chunk, 0, 64, 0, 'DIRT')
       const services = makeServices({
         selectedItem: 'WOODEN_HOE',
         getChunkFn: (_c) => Effect.succeed(chunk),
       })
-      const result = yield* handleFarmingInteraction(
-        services as never,
-        { dirtyChunksRef } as never,
-        { targetHit: Option.some(makeHit(0, 64, 0)) },
-      )
+      const result = yield* handleFarmingInteraction(services, refs, { targetHit: Option.some(makeHit(0, 64, 0)) })
       expect(result).toBe(true)
       expect(services._forceSetBlockSpy).toHaveBeenCalledWith({ x: 0, y: 64, z: 0 }, 'FARMLAND')
     }),
@@ -174,18 +163,14 @@ describe('handleFarmingInteraction', () => {
 
   it.effect('tills GRASS → FARMLAND with an iron hoe and returns true', () =>
     Effect.gen(function* () {
-      const dirtyChunksRef = MutableRef.make(HashMap.empty<string, unknown>())
+      const refs = makeRefs()
       const chunk = makeEmptyChunk(0, 0)
       setChunkBlock(chunk, 5, 70, 3, 'GRASS')
       const services = makeServices({
         selectedItem: 'IRON_HOE',
         getChunkFn: (_c) => Effect.succeed(chunk),
       })
-      const result = yield* handleFarmingInteraction(
-        services as never,
-        { dirtyChunksRef } as never,
-        { targetHit: Option.some(makeHit(5, 70, 3)) },
-      )
+      const result = yield* handleFarmingInteraction(services, refs, { targetHit: Option.some(makeHit(5, 70, 3)) })
       expect(result).toBe(true)
       expect(services._forceSetBlockSpy).toHaveBeenCalledWith({ x: 5, y: 70, z: 3 }, 'FARMLAND')
     }),
@@ -193,18 +178,14 @@ describe('handleFarmingInteraction', () => {
 
   it.effect('returns false when hoe targets a non-tillable block (e.g. STONE)', () =>
     Effect.gen(function* () {
-      const dirtyChunksRef = MutableRef.make(HashMap.empty<string, unknown>())
+      const refs = makeRefs()
       const chunk = makeEmptyChunk(0, 0)
       setChunkBlock(chunk, 0, 64, 0, 'STONE')
       const services = makeServices({
         selectedItem: 'DIAMOND_HOE',
         getChunkFn: (_c) => Effect.succeed(chunk),
       })
-      const result = yield* handleFarmingInteraction(
-        services as never,
-        { dirtyChunksRef } as never,
-        { targetHit: Option.some(makeHit(0, 64, 0)) },
-      )
+      const result = yield* handleFarmingInteraction(services, refs, { targetHit: Option.some(makeHit(0, 64, 0)) })
       expect(result).toBe(false)
       expect(services._forceSetBlockSpy).not.toHaveBeenCalled()
     }),
@@ -212,17 +193,13 @@ describe('handleFarmingInteraction', () => {
 
   it.effect('returns false when hoe target y is outside loaded block storage', () =>
     Effect.gen(function* () {
-      const dirtyChunksRef = MutableRef.make(HashMap.empty<string, unknown>())
+      const refs = makeRefs()
       const chunk = makeEmptyChunk(0, 0)
       const services = makeServices({
         selectedItem: 'WOODEN_HOE',
         getChunkFn: (_c) => Effect.succeed(chunk),
       })
-      const result = yield* handleFarmingInteraction(
-        services as never,
-        { dirtyChunksRef } as never,
-        { targetHit: Option.some(makeHit(0, CHUNK_HEIGHT, 0)) },
-      )
+      const result = yield* handleFarmingInteraction(services, refs, { targetHit: Option.some(makeHit(0, CHUNK_HEIGHT, 0)) })
 
       expect(result).toBe(false)
       expect(services._forceSetBlockSpy).not.toHaveBeenCalled()
@@ -231,7 +208,7 @@ describe('handleFarmingInteraction', () => {
 
   it.effect('plants WHEAT_CROP on FARMLAND with WHEAT_SEEDS and removes one seed', () =>
     Effect.gen(function* () {
-      const dirtyChunksRef = MutableRef.make(HashMap.empty<string, unknown>())
+      const refs = makeRefs()
       const chunk = makeEmptyChunk(0, 0)
       setChunkBlock(chunk, 2, 64, 3, 'FARMLAND')
       const selectedSlot = 2
@@ -240,11 +217,7 @@ describe('handleFarmingInteraction', () => {
         selectedSlot,
         getChunkFn: (_c) => Effect.succeed(chunk),
       })
-      const result = yield* handleFarmingInteraction(
-        services as never,
-        { dirtyChunksRef } as never,
-        { targetHit: Option.some(makeHit(2, 64, 3)) },
-      )
+      const result = yield* handleFarmingInteraction(services, refs, { targetHit: Option.some(makeHit(2, 64, 3)) })
       expect(result).toBe(true)
       expect(services._removeBlockSpy).toHaveBeenCalledWith(
         'WHEAT_SEEDS',
@@ -257,18 +230,14 @@ describe('handleFarmingInteraction', () => {
 
   it.effect('returns false when WHEAT_SEEDS targets non-FARMLAND block', () =>
     Effect.gen(function* () {
-      const dirtyChunksRef = MutableRef.make(HashMap.empty<string, unknown>())
+      const refs = makeRefs()
       const chunk = makeEmptyChunk(0, 0)
       setChunkBlock(chunk, 0, 64, 0, 'DIRT')
       const services = makeServices({
         selectedItem: 'WHEAT_SEEDS',
         getChunkFn: (_c) => Effect.succeed(chunk),
       })
-      const result = yield* handleFarmingInteraction(
-        services as never,
-        { dirtyChunksRef } as never,
-        { targetHit: Option.some(makeHit(0, 64, 0)) },
-      )
+      const result = yield* handleFarmingInteraction(services, refs, { targetHit: Option.some(makeHit(0, 64, 0)) })
       expect(result).toBe(false)
       expect(services._removeBlockSpy).not.toHaveBeenCalled()
     }),
@@ -276,16 +245,12 @@ describe('handleFarmingInteraction', () => {
 
   it.effect('returns false when WHEAT_SEEDS target chunk is unavailable', () =>
     Effect.gen(function* () {
-      const dirtyChunksRef = MutableRef.make(HashMap.empty<string, unknown>())
+      const refs = makeRefs()
       const services = makeServices({
         selectedItem: 'WHEAT_SEEDS',
         getChunkFn: (_c) => Effect.fail(new Error('chunk not loaded')),
       })
-      const result = yield* handleFarmingInteraction(
-        services as never,
-        { dirtyChunksRef } as never,
-        { targetHit: Option.some(makeHit(2, 64, 3)) },
-      )
+      const result = yield* handleFarmingInteraction(services, refs, { targetHit: Option.some(makeHit(2, 64, 3)) })
 
       expect(result).toBe(false)
       expect(services._removeBlockSpy).not.toHaveBeenCalled()
@@ -295,17 +260,13 @@ describe('handleFarmingInteraction', () => {
 
   it.effect('returns false when WHEAT_SEEDS target y is outside loaded block storage', () =>
     Effect.gen(function* () {
-      const dirtyChunksRef = MutableRef.make(HashMap.empty<string, unknown>())
+      const refs = makeRefs()
       const chunk = makeEmptyChunk(0, 0)
       const services = makeServices({
         selectedItem: 'WHEAT_SEEDS',
         getChunkFn: (_c) => Effect.succeed(chunk),
       })
-      const result = yield* handleFarmingInteraction(
-        services as never,
-        { dirtyChunksRef } as never,
-        { targetHit: Option.some(makeHit(2, CHUNK_HEIGHT, 3)) },
-      )
+      const result = yield* handleFarmingInteraction(services, refs, { targetHit: Option.some(makeHit(2, CHUNK_HEIGHT, 3)) })
 
       expect(result).toBe(false)
       expect(services._removeBlockSpy).not.toHaveBeenCalled()
@@ -315,23 +276,19 @@ describe('handleFarmingInteraction', () => {
 
   it.effect('returns false (not true) when hoe getChunk fails (error is caught)', () =>
     Effect.gen(function* () {
-      const dirtyChunksRef = MutableRef.make(HashMap.empty<string, unknown>())
+      const refs = makeRefs()
       const services = makeServices({
         selectedItem: 'STONE_HOE',
         getChunkFn: (_c) => Effect.fail(new Error('chunk not loaded')),
       })
-      const result = yield* handleFarmingInteraction(
-        services as never,
-        { dirtyChunksRef } as never,
-        { targetHit: Option.some(makeHit(0, 64, 0)) },
-      )
+      const result = yield* handleFarmingInteraction(services, refs, { targetHit: Option.some(makeHit(0, 64, 0)) })
       expect(result).toBe(false)
     }),
   )
 
   it.effect('registers the planted crop in cropGrowthService.plant', () =>
     Effect.gen(function* () {
-      const dirtyChunksRef = MutableRef.make(HashMap.empty<string, unknown>())
+      const refs = makeRefs()
       const chunk = makeEmptyChunk(0, 0)
       setChunkBlock(chunk, 2, 64, 3, 'FARMLAND')
       const selectedSlot = 0
@@ -340,11 +297,7 @@ describe('handleFarmingInteraction', () => {
         selectedSlot,
         getChunkFn: (_c) => Effect.succeed(chunk),
       })
-      yield* handleFarmingInteraction(
-        services as never,
-        { dirtyChunksRef } as never,
-        { targetHit: Option.some(makeHit(2, 64, 3)) },
-      )
+      yield* handleFarmingInteraction(services, refs, { targetHit: Option.some(makeHit(2, 64, 3)) })
       // crop at blockY+1 = y65
       expect(services._plantSpy).toHaveBeenCalledWith({ x: 2, y: 65, z: 3 })
     }),
@@ -353,18 +306,14 @@ describe('handleFarmingInteraction', () => {
   // R63: BONE_MEAL on WHEAT_CROP advances growth
   it.effect('applying BONE_MEAL to a WHEAT_CROP calls advanceByBoneMeal and consumes 1 bone meal', () =>
     Effect.gen(function* () {
-      const dirtyChunksRef = MutableRef.make(HashMap.empty<string, unknown>())
+      const refs = makeRefs()
       const chunk = makeEmptyChunk(0, 0)
       setChunkBlock(chunk, 2, 64, 3, 'WHEAT_CROP')
       const services = makeServices({
         selectedItem: 'BONE_MEAL',
         getChunkFn: (_c) => Effect.succeed(chunk),
       })
-      const result = yield* handleFarmingInteraction(
-        services as never,
-        { dirtyChunksRef } as never,
-        { targetHit: Option.some(makeHit(2, 64, 3)) },
-      )
+      const result = yield* handleFarmingInteraction(services, refs, { targetHit: Option.some(makeHit(2, 64, 3)) })
       expect(result).toBe(true)
       expect(services._advanceByBoneMealSpy).toHaveBeenCalledWith({ x: 2, y: 64, z: 3 })
       expect(services._removeBlockSpy).toHaveBeenCalledWith('BONE_MEAL', 1, SlotIndex.make(HOTBAR_START + 0))
@@ -373,7 +322,7 @@ describe('handleFarmingInteraction', () => {
 
   it.effect('applying BONE_MEAL to a SAPLING grows an oak-like tree and consumes 1 bone meal', () =>
     Effect.gen(function* () {
-      const dirtyChunksRef = MutableRef.make(HashMap.empty<string, unknown>())
+      const refs = makeRefs()
       const chunk = makeEmptyChunk(0, 0)
       setChunkBlock(chunk, 2, 64, 3, 'SAPLING')
       const selectedSlot = 2
@@ -382,11 +331,7 @@ describe('handleFarmingInteraction', () => {
         selectedSlot,
         getChunkFn: (_c) => Effect.succeed(chunk),
       })
-      const result = yield* handleFarmingInteraction(
-        services as never,
-        { dirtyChunksRef } as never,
-        { targetHit: Option.some(makeHit(2, 64, 3)) },
-      )
+      const result = yield* handleFarmingInteraction(services, refs, { targetHit: Option.some(makeHit(2, 64, 3)) })
 
       expect(result).toBe(true)
       expect(services._removeBlockSpy).toHaveBeenCalledWith(
@@ -398,14 +343,14 @@ describe('handleFarmingInteraction', () => {
       expect(services._forceSetBlockSpy).toHaveBeenCalledWith({ x: 2, y: 64, z: 3 }, 'WOOD')
       expect(services._forceSetBlockSpy).toHaveBeenCalledWith({ x: 2, y: 68, z: 3 }, 'WOOD')
       expect(services._forceSetBlockSpy).toHaveBeenCalledWith({ x: 2, y: 69, z: 3 }, 'LEAVES')
-      const dirty = MutableRef.get(dirtyChunksRef)
+      const dirty = MutableRef.get(refs.dirtyChunksRef)
       expect(HashMap.has(dirty, '0,0')).toBe(true)
     }),
   )
 
   it.effect('applying BONE_MEAL to a SAPLING returns false when tree space is blocked', () =>
     Effect.gen(function* () {
-      const dirtyChunksRef = MutableRef.make(HashMap.empty<string, unknown>())
+      const refs = makeRefs()
       const chunk = makeEmptyChunk(0, 0)
       setChunkBlock(chunk, 2, 64, 3, 'SAPLING')
       setChunkBlock(chunk, 2, 65, 3, 'STONE')
@@ -413,11 +358,7 @@ describe('handleFarmingInteraction', () => {
         selectedItem: 'BONE_MEAL',
         getChunkFn: (_c) => Effect.succeed(chunk),
       })
-      const result = yield* handleFarmingInteraction(
-        services as never,
-        { dirtyChunksRef } as never,
-        { targetHit: Option.some(makeHit(2, 64, 3)) },
-      )
+      const result = yield* handleFarmingInteraction(services, refs, { targetHit: Option.some(makeHit(2, 64, 3)) })
 
       expect(result).toBe(false)
       expect(services._removeBlockSpy).not.toHaveBeenCalled()
@@ -427,17 +368,13 @@ describe('handleFarmingInteraction', () => {
 
   it.effect('applying BONE_MEAL returns false when target y is outside loaded block storage', () =>
     Effect.gen(function* () {
-      const dirtyChunksRef = MutableRef.make(HashMap.empty<string, unknown>())
+      const refs = makeRefs()
       const chunk = makeEmptyChunk(0, 0)
       const services = makeServices({
         selectedItem: 'BONE_MEAL',
         getChunkFn: (_c) => Effect.succeed(chunk),
       })
-      const result = yield* handleFarmingInteraction(
-        services as never,
-        { dirtyChunksRef } as never,
-        { targetHit: Option.some(makeHit(2, -1, 3)) },
-      )
+      const result = yield* handleFarmingInteraction(services, refs, { targetHit: Option.some(makeHit(2, -1, 3)) })
 
       expect(result).toBe(false)
       expect(services._removeBlockSpy).not.toHaveBeenCalled()
@@ -447,18 +384,14 @@ describe('handleFarmingInteraction', () => {
 
   it.effect('applying BONE_MEAL to a SAPLING returns false when planned tree storage is incomplete', () =>
     Effect.gen(function* () {
-      const dirtyChunksRef = MutableRef.make(HashMap.empty<string, unknown>())
+      const refs = makeRefs()
       const chunk = makeSparseChunk(0, 0)
       setChunkBlock(chunk, 2, 64, 3, 'SAPLING')
       const services = makeServices({
         selectedItem: 'BONE_MEAL',
         getChunkFn: (_c) => Effect.succeed(chunk),
       })
-      const result = yield* handleFarmingInteraction(
-        services as never,
-        { dirtyChunksRef } as never,
-        { targetHit: Option.some(makeHit(2, 64, 3)) },
-      )
+      const result = yield* handleFarmingInteraction(services, refs, { targetHit: Option.some(makeHit(2, 64, 3)) })
 
       expect(result).toBe(false)
       expect(services._removeBlockSpy).not.toHaveBeenCalled()
@@ -468,16 +401,12 @@ describe('handleFarmingInteraction', () => {
 
   it.effect('applying BONE_MEAL returns false when target crop chunk is unavailable', () =>
     Effect.gen(function* () {
-      const dirtyChunksRef = MutableRef.make(HashMap.empty<string, unknown>())
+      const refs = makeRefs()
       const services = makeServices({
         selectedItem: 'BONE_MEAL',
         getChunkFn: (_c) => Effect.fail(new Error('chunk not loaded')),
       })
-      const result = yield* handleFarmingInteraction(
-        services as never,
-        { dirtyChunksRef } as never,
-        { targetHit: Option.some(makeHit(2, 64, 3)) },
-      )
+      const result = yield* handleFarmingInteraction(services, refs, { targetHit: Option.some(makeHit(2, 64, 3)) })
 
       expect(result).toBe(false)
       expect(services._removeBlockSpy).not.toHaveBeenCalled()
@@ -487,18 +416,14 @@ describe('handleFarmingInteraction', () => {
 
   it.effect('applying BONE_MEAL to a SAPLING returns false when planned tree leaves exceed world height', () =>
     Effect.gen(function* () {
-      const dirtyChunksRef = MutableRef.make(HashMap.empty<string, unknown>())
+      const refs = makeRefs()
       const chunk = makeEmptyChunk(0, 0)
       setChunkBlock(chunk, 2, CHUNK_HEIGHT - 2, 3, 'SAPLING')
       const services = makeServices({
         selectedItem: 'BONE_MEAL',
         getChunkFn: (_c) => Effect.succeed(chunk),
       })
-      const result = yield* handleFarmingInteraction(
-        services as never,
-        { dirtyChunksRef } as never,
-        { targetHit: Option.some(makeHit(2, CHUNK_HEIGHT - 2, 3)) },
-      )
+      const result = yield* handleFarmingInteraction(services, refs, { targetHit: Option.some(makeHit(2, CHUNK_HEIGHT - 2, 3)) })
 
       expect(result).toBe(false)
       expect(services._removeBlockSpy).not.toHaveBeenCalled()
@@ -508,18 +433,14 @@ describe('handleFarmingInteraction', () => {
 
   it.effect('applying BONE_MEAL to a SAPLING returns false when planned tree crosses into an unloaded chunk', () =>
     Effect.gen(function* () {
-      const dirtyChunksRef = MutableRef.make(HashMap.empty<string, unknown>())
+      const refs = makeRefs()
       const chunk = makeEmptyChunk(0, 0)
       setChunkBlock(chunk, 0, 64, 3, 'SAPLING')
       const services = makeServices({
         selectedItem: 'BONE_MEAL',
         getChunkFn: (coord) => (coord.x === 0 && coord.z === 0 ? Effect.succeed(chunk) : Effect.fail(new Error('chunk not loaded'))),
       })
-      const result = yield* handleFarmingInteraction(
-        services as never,
-        { dirtyChunksRef } as never,
-        { targetHit: Option.some(makeHit(0, 64, 3)) },
-      )
+      const result = yield* handleFarmingInteraction(services, refs, { targetHit: Option.some(makeHit(0, 64, 3)) })
 
       expect(result).toBe(false)
       expect(services._removeBlockSpy).not.toHaveBeenCalled()
@@ -529,18 +450,14 @@ describe('handleFarmingInteraction', () => {
 
   it.effect('applying BONE_MEAL to a non-crop/non-sapling block returns false and does not consume', () =>
     Effect.gen(function* () {
-      const dirtyChunksRef = MutableRef.make(HashMap.empty<string, unknown>())
+      const refs = makeRefs()
       const chunk = makeEmptyChunk(0, 0)
       setChunkBlock(chunk, 2, 64, 3, 'DIRT')
       const services = makeServices({
         selectedItem: 'BONE_MEAL',
         getChunkFn: (_c) => Effect.succeed(chunk),
       })
-      const result = yield* handleFarmingInteraction(
-        services as never,
-        { dirtyChunksRef } as never,
-        { targetHit: Option.some(makeHit(2, 64, 3)) },
-      )
+      const result = yield* handleFarmingInteraction(services, refs, { targetHit: Option.some(makeHit(2, 64, 3)) })
       expect(result).toBe(false)
       expect(services._advanceByBoneMealSpy).not.toHaveBeenCalled()
       expect(services._removeBlockSpy).not.toHaveBeenCalled()
@@ -549,19 +466,15 @@ describe('handleFarmingInteraction', () => {
 
   it.effect('marks the chunk dirty after tilling DIRT with a hoe', () =>
     Effect.gen(function* () {
-      const dirtyChunksRef = MutableRef.make(HashMap.empty<string, unknown>())
+      const refs = makeRefs()
       const chunk = makeEmptyChunk(0, 0)
       setChunkBlock(chunk, 0, 64, 0, 'DIRT')
       const services = makeServices({
         selectedItem: 'WOODEN_HOE',
         getChunkFn: (_c) => Effect.succeed(chunk),
       })
-      yield* handleFarmingInteraction(
-        services as never,
-        { dirtyChunksRef } as never,
-        { targetHit: Option.some(makeHit(0, 64, 0)) },
-      )
-      const dirty = MutableRef.get(dirtyChunksRef)
+      yield* handleFarmingInteraction(services, refs, { targetHit: Option.some(makeHit(0, 64, 0)) })
+      const dirty = MutableRef.get(refs.dirtyChunksRef)
       expect(HashMap.size(dirty)).toBe(1)
       expect(HashMap.has(dirty, '0,0')).toBe(true)
     }),

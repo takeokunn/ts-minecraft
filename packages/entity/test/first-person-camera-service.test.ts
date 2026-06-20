@@ -1,9 +1,8 @@
 import { describe,it } from '@effect/vitest'
-import type { MouseDelta } from '@ts-minecraft/entity'
-import {
-  BASE_MOUSE_SENSITIVITY,FirstPersonCameraService,
-  PlayerCameraStateService,PlayerInputService
-} from '@ts-minecraft/entity'
+import type { MouseDelta } from '@ts-minecraft/entity/application/player-input-service';
+import { PlayerCameraStateService } from '@ts-minecraft/entity/application/camera-state';
+import { BASE_MOUSE_SENSITIVITY, FirstPersonCameraService } from '@ts-minecraft/entity/application/first-person-camera-service';
+import { PlayerInputService } from '@ts-minecraft/entity/application/player-input-service';
 import { Effect,Layer,MutableRef } from 'effect'
 import * as THREE from 'three'
 import { expect } from 'vitest'

@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest'
 import { Effect, Option } from 'effect'
 import * as THREE from 'three'
-import { EntityType } from '@ts-minecraft/entity'
+import { EntityType } from '@ts-minecraft/entity/domain/mob/entity'
 import { handleShearAnimal } from '@ts-minecraft/app/frame/stages/interaction-item-use-handler/shear-animal'
 
 // Default camera at origin looks down -Z; entity center (y + 0.9 offset) on the

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { FluidKey } from '@ts-minecraft/block'
-import type { FluidCell } from '@ts-minecraft/block'
+import { FluidKey } from '@ts-minecraft/block/domain/fluid-model'
+import type { FluidCell } from '@ts-minecraft/block/domain/fluid-model'
 import { splitBudget } from '../application/fluid-tick-budget'
 
 const waterCell = (level = 7): FluidCell => ({ type: 'water', level })

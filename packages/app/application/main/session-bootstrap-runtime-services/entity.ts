@@ -1,9 +1,9 @@
-import type { SessionBootstrapServices } from '@ts-minecraft/app/main/session-bootstrap-types'
-import type { FrameHandlerServices } from '@ts-minecraft/app/frame/types'
+import type { SessionBootstrapServices } from '@ts-minecraft/app/main/session-bootstrap-types/services'
+import type { FrameHandlerServices } from '@ts-minecraft/app/application/frame/types/services'
 
 type SessionRuntimeEntityServices = Pick<
   FrameHandlerServices,
-  'debugFeatureFlags' | 'entityManager' | 'mobSpawner' | 'villageService' | 'tradingPresentation'
+  'debugFeatureFlags' | 'droppedItemService' | 'droppedXpOrbService' | 'entityManager' | 'mobSpawner' | 'villageService' | 'tradingPresentation'
 >
 
 export const buildSessionRuntimeEntityServices = ({
@@ -12,6 +12,8 @@ export const buildSessionRuntimeEntityServices = ({
   readonly services: SessionBootstrapServices
 }): SessionRuntimeEntityServices => ({
   debugFeatureFlags: services.debugFeatureFlags,
+  droppedItemService: services.droppedItemService,
+  droppedXpOrbService: services.droppedXpOrbService,
   entityManager: services.entityManager,
   mobSpawner: services.mobSpawner,
   villageService: services.villageService,

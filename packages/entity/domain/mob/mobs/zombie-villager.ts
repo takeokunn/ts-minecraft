@@ -13,6 +13,7 @@ export const ZombieVillagerDefinition: MobDefinition = {
   drops: [
     { blockType: 'ROTTEN_FLESH', count: 1 },
     { blockType: 'CARROT', count: 1, chance: 0.025 },
+    { blockType: 'IRON_INGOT', count: 1, chance: 0.025 },
   ],
   xpReward: 5,
 }

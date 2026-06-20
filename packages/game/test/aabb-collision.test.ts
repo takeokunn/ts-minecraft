@@ -1,6 +1,6 @@
 import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
-import { resolveBlockCollisions } from '@ts-minecraft/game'
+import { CACTUS_COLLISION_SHAPE, PRESSURE_PLATE_COLLISION_SHAPE, resolveBlockCollisions } from '@ts-minecraft/game'
 
 const HALF_W = 0.3
 const HALF_H = 0.9
@@ -73,6 +73,35 @@ describe('resolveBlockCollisions', () => {
       expect(result.isGrounded).toBe(false)
       expect(result.position.y).toBe(10)
       expect(result.velocity.y).toBe(-1)
+    })
+
+    it('accepts 0.6 block side overlap as a step-height floor', () => {
+      const blockTop = 10
+      const result = resolveBlockCollisions(
+        { x: 0.75, y: blockTop - 0.6 + HALF_H, z: 0.5 },
+        { x: 0, y: -0.1, z: 0 },
+        HALF_W,
+        HALF_H,
+        (bx, by, bz) => bx === 1 && by === blockTop - 1 && bz === 0,
+      )
+
+      expect(result.position.y).toBeCloseTo(blockTop + HALF_H, 5)
+      expect(result.isGrounded).toBe(true)
+    })
+
+    it('does not accept more than 0.6 block side overlap as a step-height floor', () => {
+      const blockTop = 10
+      const startY = blockTop - 0.601 + HALF_H
+      const result = resolveBlockCollisions(
+        { x: 0.75, y: startY, z: 0.5 },
+        { x: 0, y: 0, z: 0 },
+        HALF_W,
+        HALF_H,
+        (bx, by, bz) => bx === 1 && by === blockTop - 1 && bz === 0,
+      )
+
+      expect(result.position.y).toBeCloseTo(startY, 5)
+      expect(result.isGrounded).toBe(false)
     })
   })
 
@@ -151,6 +180,57 @@ describe('resolveBlockCollisions', () => {
 
       expect(result.velocity.z).toBe(0)
       expect(result.position.z).toBeCloseTo(4 - HALF_W, 5)
+    })
+  })
+
+  describe('custom block collision shapes', () => {
+    it('lands on top of a one-sixteenth height pressure plate shape', () => {
+      const pos = { x: 0.5, y: HALF_H, z: 0.5 }
+      const vel = { x: 0, y: -0.1, z: 0 }
+      const solid = (bx: number, by: number, bz: number): boolean => bx === 0 && by === 0 && bz === 0
+      const shape = (bx: number, by: number, bz: number) => solid(bx, by, bz) ? PRESSURE_PLATE_COLLISION_SHAPE : null
+
+      const result = resolveBlockCollisions(pos, vel, HALF_W, HALF_H, solid, shape)
+
+      expect(result.position.y).toBeCloseTo(PRESSURE_PLATE_COLLISION_SHAPE.maxY + HALF_H, 5)
+      expect(result.isGrounded).toBe(true)
+      expect(result.velocity.y).toBe(0)
+    })
+
+    it('uses the cactus inset when resolving positive X movement', () => {
+      const pos = { x: 0.78, y: 5.5, z: 0.5 }
+      const vel = { x: 1, y: 0, z: 0 }
+      const solid = (bx: number, by: number, bz: number): boolean => bx === 1 && by === 5 && bz === 0
+      const shape = (bx: number, by: number, bz: number) => solid(bx, by, bz) ? CACTUS_COLLISION_SHAPE : null
+
+      const result = resolveBlockCollisions(pos, vel, HALF_W, HALF_H, solid, shape)
+
+      expect(result.position.x).toBeCloseTo(1 + CACTUS_COLLISION_SHAPE.minX - HALF_W, 5)
+      expect(result.velocity.x).toBe(0)
+    })
+
+    it('does not collide before reaching the cactus inset', () => {
+      const pos = { x: 0.75, y: 5.5, z: 0.5 }
+      const vel = { x: 1, y: 0, z: 0 }
+      const solid = (bx: number, by: number, bz: number): boolean => bx === 1 && by === 5 && bz === 0
+      const shape = (bx: number, by: number, bz: number) => solid(bx, by, bz) ? CACTUS_COLLISION_SHAPE : null
+
+      const result = resolveBlockCollisions(pos, vel, HALF_W, HALF_H, solid, shape)
+
+      expect(result.position.x).toBe(pos.x)
+      expect(result.velocity.x).toBe(vel.x)
+    })
+
+    it('uses the cactus inset when resolving positive Z movement', () => {
+      const pos = { x: 0.5, y: 5.5, z: 0.78 }
+      const vel = { x: 0, y: 0, z: 1 }
+      const solid = (bx: number, by: number, bz: number): boolean => bx === 0 && by === 5 && bz === 1
+      const shape = (bx: number, by: number, bz: number) => solid(bx, by, bz) ? CACTUS_COLLISION_SHAPE : null
+
+      const result = resolveBlockCollisions(pos, vel, HALF_W, HALF_H, solid, shape)
+
+      expect(result.position.z).toBeCloseTo(1 + CACTUS_COLLISION_SHAPE.minZ - HALF_W, 5)
+      expect(result.velocity.z).toBe(0)
     })
   })
 

@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import {
   DRAGON_EGG_TELEPORT_RANGE,
   computeDragonEggTeleport,
-} from '@ts-minecraft/block'
+} from '@ts-minecraft/block/domain/dragon-egg'
 
 describe('dragon egg teleport behavior', () => {
   it('uses a fifteen-block horizontal teleport range', () => {

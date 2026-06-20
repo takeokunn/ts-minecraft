@@ -1,4 +1,5 @@
-import { enchantmentsOf, getFireProtectionReduction } from '@ts-minecraft/inventory'
+import { getFireProtectionReduction } from '@ts-minecraft/inventory/domain/enchantment'
+import { enchantmentsOf } from '@ts-minecraft/inventory/domain/item-stack'
 import type { EquipmentSlots } from '@ts-minecraft/inventory/application/equipment-service-types'
 
 const ARMOR_SLOTS: Array<keyof EquipmentSlots> = ['HELMET', 'CHESTPLATE', 'LEGGINGS', 'BOOTS']

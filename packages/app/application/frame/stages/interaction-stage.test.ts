@@ -1,22 +1,23 @@
 import { describe, it } from '@effect/vitest'
+import { Effect, HashMap, MutableHashSet, MutableRef, Option } from 'effect'
+import { expect, vi } from 'vitest'
+import { makeDeps } from '../../../test/frame-handler-test-kit/orchestration/deps'
+import { runFrame } from '../../../test/frame-handler-test-kit/orchestration/harness'
+import { makeInputService } from '../../../test/frame-handler-test-kit/presentation/input'
 import {
-makeDeps,
-makeInputService,
-makeInventoryRenderer,
-makeServices,
-makeSettingsOverlay,
-runFrame,
-} from '../../../test/frame-handler-test-kit'
-import { Effect,HashMap,MutableHashSet,MutableRef,Option } from 'effect'
+  makeInventoryRenderer,
+  makeSettingsOverlay,
+} from '../../../test/frame-handler-test-kit/presentation/overlay'
+import { makeServices } from '../../../test/frame-handler-test-kit/services'
 import * as THREE from 'three'
 import { CHUNK_HEIGHT, CHUNK_SIZE, blockTypeToIndex } from '@ts-minecraft/core'
 import type { BlockType } from '@ts-minecraft/core'
-import { expect,vi } from 'vitest'
 import { getParticleUvOffset } from '@ts-minecraft/rendering'
 import { handleBowFire } from '@ts-minecraft/app/frame/stages/interaction-bow-handler'
-import { EntityType, KeyMappings } from '@ts-minecraft/entity'
+import { EntityType } from '@ts-minecraft/entity/domain/mob/entity'
+import { KeyMappings } from '@ts-minecraft/entity/domain/key-mappings'
 import { interactionStage } from '@ts-minecraft/app/frame/stages/interaction-stage'
-import { DEBUG_FEATURE_FLAG_DEFAULTS } from '@ts-minecraft/app/debug-feature-flags'
+import { DEBUG_FEATURE_FLAG_DEFAULTS } from '@ts-minecraft/app/application/debug-feature-flags.config'
 import { REDSTONE_PLACE_WIRE_KEY } from '@ts-minecraft/app/frame-handler.config'
 import { createAttackSwingState } from '@ts-minecraft/presentation'
 
@@ -230,20 +231,27 @@ describe('step 7 — block interaction', () => {
     ;(services.blockHighlight as { getTargetBlock: unknown }).getTargetBlock = vi.fn(() =>
       Effect.succeed(Option.none())
     )
+    const entity = { entityId: 'entity-1', position: { x: 0, y: 64, z: -2 }, velocity: { x: 0, y: 0, z: 0 }, rotation: {} as THREE.Quaternion, health: 20, type: 'Zombie' }
     ;(services.entityManager as { getEntities: unknown }).getEntities = vi.fn(() =>
-      Effect.succeed([{ entityId: 'entity-1', position: { x: 0, y: 64, z: -2 }, velocity: { x: 0, y: 0, z: 0 }, rotation: {} as THREE.Quaternion, health: 20, type: 'Zombie' }])
+      Effect.succeed([entity])
     )
+    ;(services.entityManager as { getEntity: unknown }).getEntity = vi.fn(() => Effect.succeed(Option.some(entity)))
     const applyDamageSpy = vi.fn(() => Effect.succeed(Option.some([{ blockType: 'DIRT', count: 2 }])))
-    const addBlockSpy = vi.fn(() => Effect.succeed(true))
+    const spawnDroppedItemSpy = vi.fn(() => Effect.void)
     const breakSpy = vi.fn(() => Effect.void)
     ;(services.entityManager as { applyDamage: unknown }).applyDamage = applyDamageSpy
-    ;(services.inventoryService as { addBlock: unknown }).addBlock = addBlockSpy
+    ;(services.droppedItemService as { spawn: unknown }).spawn = spawnDroppedItemSpy
     ;(services.blockService as { breakBlock: unknown }).breakBlock = breakSpy
 
     yield* runFrame(deps, services)
 
     expect(applyDamageSpy).toHaveBeenCalledWith('entity-1', 4)
-    expect(addBlockSpy).toHaveBeenCalledWith('DIRT', 2)
+    expect(spawnDroppedItemSpy).toHaveBeenCalledWith(expect.objectContaining({
+      itemType: 'DIRT',
+      count: 2,
+      position: { x: 0, y: 64.5, z: -2 },
+      velocity: { x: 0, y: 0.14, z: 0 },
+    }))
     expect(breakSpy).not.toHaveBeenCalled()
   }))
 
@@ -272,7 +280,7 @@ describe('step 7 — block interaction', () => {
     yield* runFrame(deps, services)
 
     expect(breakSpy).toHaveBeenCalledOnce()
-    expect(breakSpy).toHaveBeenCalledWith({ x: 0, y: 64, z: 0 }, false)
+    expect(breakSpy).toHaveBeenCalledWith({ x: 0, y: 64, z: 0 }, false, { dropItems: false })
   }))
 
   it.effect('creative mode breaks a hard block immediately without a harvest tool', () => Effect.gen(function* () {
@@ -430,7 +438,7 @@ describe('step 7 — block interaction', () => {
     expect(breakSpy).not.toHaveBeenCalled()
   }))
 
-  it.effect('breaking tall grass can add wheat seeds', () => Effect.gen(function* () {
+  it.effect('breaking tall grass can spawn wheat seeds', () => Effect.gen(function* () {
     const deps = yield* makeDeps(false)
     const inputService = makeInputService()
     ;(inputService as { isMouseDown: unknown }).isMouseDown = (btn: number) =>
@@ -460,16 +468,19 @@ describe('step 7 — block interaction', () => {
     )
     const breakSpy = vi.fn(() => Effect.void)
     const addBlockSpy = vi.fn(() => Effect.void)
+    const spawnDroppedItemSpy = vi.fn(() => Effect.void)
     ;(services.blockService as { breakBlock: unknown }).breakBlock = breakSpy
     ;(services.inventoryService as { addBlock: unknown }).addBlock = addBlockSpy
+    ;(services.droppedItemService as { spawn: unknown }).spawn = spawnDroppedItemSpy
     yield* Effect.acquireUseRelease(
       Effect.sync(() => vi.spyOn(Math, 'random').mockReturnValue(0)),
       () => runFrame(deps, services),
       (randomSpy) => Effect.sync(() => randomSpy.mockRestore()),
     )
 
-    expect(breakSpy).toHaveBeenCalledWith({ x: 0, y: 64, z: 0 }, false)
-    expect(addBlockSpy).toHaveBeenCalledWith('WHEAT_SEEDS', 1)
+    expect(breakSpy).toHaveBeenCalledWith({ x: 0, y: 64, z: 0 }, false, { dropItems: false })
+    expect(spawnDroppedItemSpy).toHaveBeenCalledWith(expect.objectContaining({ itemType: 'WHEAT_SEEDS', count: 1 }))
+    expect(addBlockSpy).not.toHaveBeenCalled()
   }))
 
   it.effect('breaking fern with shears harvests the plant instead of rolling seeds', () => Effect.gen(function* () {
@@ -502,9 +513,11 @@ describe('step 7 — block interaction', () => {
     )
     const breakSpy = vi.fn(() => Effect.void)
     const addBlockSpy = vi.fn(() => Effect.void)
+    const spawnDroppedItemSpy = vi.fn(() => Effect.void)
     const damageSlotSpy = vi.fn(() => Effect.void)
     ;(services.blockService as { breakBlock: unknown }).breakBlock = breakSpy
     ;(services.inventoryService as { addBlock: unknown }).addBlock = addBlockSpy
+    ;(services.droppedItemService as { spawn: unknown }).spawn = spawnDroppedItemSpy
     ;(services.inventoryService as { damageSlot: unknown }).damageSlot = damageSlotSpy
     yield* Effect.acquireUseRelease(
       Effect.sync(() => vi.spyOn(Math, 'random').mockReturnValue(0)),
@@ -512,7 +525,9 @@ describe('step 7 — block interaction', () => {
       (randomSpy) => Effect.sync(() => randomSpy.mockRestore()),
     )
 
-    expect(breakSpy).toHaveBeenCalledWith({ x: 0, y: 64, z: 0 }, true)
+    expect(breakSpy).toHaveBeenCalledWith({ x: 0, y: 64, z: 0 }, true, { dropItems: false })
+    expect(spawnDroppedItemSpy).toHaveBeenCalledWith(expect.objectContaining({ itemType: 'FERN', count: 1 }))
+    expect(spawnDroppedItemSpy).not.toHaveBeenCalledWith(expect.objectContaining({ itemType: 'WHEAT_SEEDS' }))
     expect(addBlockSpy).not.toHaveBeenCalledWith('WHEAT_SEEDS', 1)
     expect(damageSlotSpy).toHaveBeenCalledWith(27, 1)
   }))
@@ -1885,20 +1900,23 @@ describe('step 7 — block interaction', () => {
     ;(services.entityManager as { applyDamage: unknown }).applyDamage = vi.fn(() =>
       Effect.succeed(Option.some([{ blockType: 'ROTTEN_FLESH', count: 1 }]))
     )
-    const addBlockSpy = vi.fn(() => Effect.succeed(true))
+    const spawnDroppedItemSpy = vi.fn(() => Effect.void)
+    const spawnXpOrbSpy = vi.fn(() => Effect.void)
     const addXPSpy = vi.fn(() =>
       Effect.succeed({ totalXP: 0, level: 0, xpIntoLevel: 0, xpRequiredForNext: 7 })
     )
-    ;(services.inventoryService as { addBlock: unknown }).addBlock = addBlockSpy
+    ;(services.droppedItemService as { spawn: unknown }).spawn = spawnDroppedItemSpy
+    ;(services.droppedXpOrbService as { spawn: unknown }).spawn = spawnXpOrbSpy
     ;(services.xpService as { addXP: unknown }).addXP = addXPSpy
 
     yield* runFrame(deps, services)
 
-    expect(addBlockSpy).not.toHaveBeenCalled()
+    expect(spawnDroppedItemSpy).not.toHaveBeenCalled()
+    expect(spawnXpOrbSpy).not.toHaveBeenCalled()
     expect(addXPSpy).not.toHaveBeenCalled()
   }))
 
-  it.effect('melee Looting adds bonus drops and suppresses failed bonus writes', () => Effect.gen(function* () {
+  it.effect('melee Looting spawns bonus dropped items', () => Effect.gen(function* () {
     const deps = yield* makeDeps(false)
     deps.camera.position.set(0, 0, 0)
     deps.camera.getWorldDirection = vi.fn((target: THREE.Vector3) => target.set(0, 0, -1))
@@ -1928,22 +1946,37 @@ describe('step 7 — block interaction', () => {
       Effect.succeed(Option.some({ itemType: 'IRON_SWORD', count: 1, enchantments: [{ type: 'LOOTING', level: 2 }] }))
     )
     ;(services.inventoryService as { damageSlot: unknown }).damageSlot = vi.fn(() => Effect.void)
-    const addBlockSpy = vi
-      .fn()
-      .mockReturnValueOnce(Effect.succeed(true))
-      .mockReturnValueOnce(Effect.fail(new Error('inventory full')))
-    ;(services.inventoryService as { addBlock: unknown }).addBlock = addBlockSpy
+    const spawnDroppedItemSpy = vi.fn(() => Effect.void)
+    const spawnXpOrbSpy = vi.fn(() => Effect.void)
+    const addXPSpy = vi.fn(() =>
+      Effect.succeed({ totalXP: 0, level: 0, xpIntoLevel: 0, xpRequiredForNext: 7 })
+    )
+    ;(services.droppedItemService as { spawn: unknown }).spawn = spawnDroppedItemSpy
+    ;(services.droppedXpOrbService as { spawn: unknown }).spawn = spawnXpOrbSpy
     ;(services.entityManager as { applyDamage: unknown }).applyDamage = vi.fn(() =>
       Effect.succeed(Option.some([{ blockType: 'ROTTEN_FLESH', count: 1 }]))
     )
-    ;(services.xpService as { addXP: unknown }).addXP = vi.fn(() =>
-      Effect.succeed({ totalXP: 0, level: 0, xpIntoLevel: 0, xpRequiredForNext: 7 })
-    )
+    ;(services.xpService as { addXP: unknown }).addXP = addXPSpy
 
     yield* runFrame(deps, services)
 
-    expect(addBlockSpy).toHaveBeenNthCalledWith(1, 'ROTTEN_FLESH', 1)
-    expect(addBlockSpy).toHaveBeenNthCalledWith(2, 'ROTTEN_FLESH', 2)
+    expect(spawnDroppedItemSpy).toHaveBeenNthCalledWith(1, expect.objectContaining({
+      itemType: 'ROTTEN_FLESH',
+      count: 1,
+      position: { x: 0, y: 64.5, z: -2 },
+      velocity: { x: 0, y: 0.14, z: 0 },
+    }))
+    expect(spawnDroppedItemSpy).toHaveBeenNthCalledWith(2, expect.objectContaining({
+      itemType: 'ROTTEN_FLESH',
+      count: 2,
+      position: { x: 0, y: 64.5, z: -2 },
+      velocity: { x: 0, y: 0.14, z: 0 },
+    }))
+    expect(spawnXpOrbSpy).toHaveBeenCalledWith(expect.objectContaining({
+      amount: 5,
+      position: { x: 0, y: 64.5, z: -2 },
+    }))
+    expect(addXPSpy).not.toHaveBeenCalled()
   }))
 
   it.effect('melee Knockback enchantment scales impulse and Unbreaking can skip weapon durability', () => Effect.gen(function* () {
@@ -1995,11 +2028,11 @@ describe('step 7 — block interaction', () => {
 })
 
 // ---------------------------------------------------------------------------
-// R38: Bow kills grant mob XP (direct handleBowFire unit test)
+// R38: Bow kills spawn mob XP orbs (direct handleBowFire unit test)
 // ---------------------------------------------------------------------------
 
-describe('step R38 — bow kill grants XP', () => {
-  it.effect('xpService.addXP is called with Zombie xp reward after a lethal bow shot', () => Effect.gen(function* () {
+describe('step R38 — bow kill spawns XP orb', () => {
+  it.effect('droppedXpOrbService.spawn is called with Zombie xp reward after a lethal bow shot', () => Effect.gen(function* () {
     // Call handleBowFire directly with a fully-charged shot (secsHeld=1.0 ≥ BOW_MIN_CHARGE_SECS=0.2).
     const deps = yield* makeDeps(false)
     deps.camera.position.set(0, 64, 0)
@@ -2028,7 +2061,11 @@ describe('step R38 — bow kill grants XP', () => {
     ;(services.entityManager as { applyDamage: unknown }).applyDamage = applyDamageSpy
 
     const addXPSpy = vi.fn(() => Effect.succeed({ totalXP: 0, level: 0, xpIntoLevel: 0, xpRequiredForNext: 7 }))
+    const spawnDroppedItemSpy = vi.fn(() => Effect.void)
+    const spawnXpOrbSpy = vi.fn(() => Effect.void)
     ;(services.xpService as { addXP: unknown }).addXP = addXPSpy
+    ;(services.droppedItemService as { spawn: unknown }).spawn = spawnDroppedItemSpy
+    ;(services.droppedXpOrbService as { spawn: unknown }).spawn = spawnXpOrbSpy
 
     yield* handleBowFire(
       deps,
@@ -2038,8 +2075,18 @@ describe('step R38 — bow kill grants XP', () => {
     )
 
     expect(applyDamageSpy).toHaveBeenCalled()
+    expect(spawnDroppedItemSpy).toHaveBeenCalledWith(expect.objectContaining({
+      itemType: 'ROTTEN_FLESH',
+      count: 1,
+      position: { x: 0, y: 63.6, z: -2 },
+      velocity: { x: 0, y: 0.14, z: 0 },
+    }))
     // Zombie xpReward is 5 (from getMobDefinition).
-    expect(addXPSpy).toHaveBeenCalledWith(5)
+    expect(spawnXpOrbSpy).toHaveBeenCalledWith(expect.objectContaining({
+      amount: 5,
+      position: { x: 0, y: 63.6, z: -2 },
+    }))
+    expect(addXPSpy).not.toHaveBeenCalled()
   }))
 
   it.effect('short bow charge returns before touching the hotbar', () => Effect.gen(function* () {
@@ -2114,7 +2161,7 @@ describe('step R38 — bow kill grants XP', () => {
     expect(applyKnockbackSpy.mock.calls[0]?.[1].z).toBeLessThan(-5)
   }))
 
-  it.effect('Looting adds bonus drops and suppresses failed bonus writes', () => Effect.gen(function* () {
+  it.effect('Looting spawns bonus dropped items', () => Effect.gen(function* () {
     const deps = yield* makeDeps(false)
     deps.camera.position.set(0, 64, 0)
     deps.camera.getWorldDirection = vi.fn((target: THREE.Vector3) => target.set(0, 0, -1))
@@ -2131,11 +2178,8 @@ describe('step R38 — bow kill grants XP', () => {
       }))
     )
     ;(services.inventoryService as { damageSlot: unknown }).damageSlot = vi.fn(() => Effect.void)
-    const addBlockSpy = vi
-      .fn()
-      .mockReturnValueOnce(Effect.succeed(true))
-      .mockReturnValueOnce(Effect.fail(new Error('inventory full')))
-    ;(services.inventoryService as { addBlock: unknown }).addBlock = addBlockSpy
+    const spawnDroppedItemSpy = vi.fn(() => Effect.void)
+    ;(services.droppedItemService as { spawn: unknown }).spawn = spawnDroppedItemSpy
     const entity = { entityId: 'entity-1', position: { x: 0, y: 63.1, z: -2 }, velocity: { x: 0, y: 0, z: 0 }, rotation: {} as THREE.Quaternion, health: 1, type: 'Zombie' }
     ;(services.entityManager as { getEntity: unknown }).getEntity = vi.fn(() => Effect.succeed(Option.some(entity)))
     const applyDamageSpy = vi.fn(() =>
@@ -2149,8 +2193,18 @@ describe('step R38 — bow kill grants XP', () => {
     yield* handleBowFire(deps, services, [entity], { chargeStartSecs: 0, nowSecs: 1.0 })
 
     expect(applyDamageSpy.mock.calls[0]?.[1]).toBeGreaterThan(3)
-    expect(addBlockSpy).toHaveBeenNthCalledWith(1, 'ROTTEN_FLESH', 1)
-    expect(addBlockSpy).toHaveBeenNthCalledWith(2, 'ROTTEN_FLESH', 2)
+    expect(spawnDroppedItemSpy).toHaveBeenNthCalledWith(1, expect.objectContaining({
+      itemType: 'ROTTEN_FLESH',
+      count: 1,
+      position: { x: 0, y: 63.6, z: -2 },
+      velocity: { x: 0, y: 0.14, z: 0 },
+    }))
+    expect(spawnDroppedItemSpy).toHaveBeenNthCalledWith(2, expect.objectContaining({
+      itemType: 'ROTTEN_FLESH',
+      count: 2,
+      position: { x: 0, y: 63.6, z: -2 },
+      velocity: { x: 0, y: 0.14, z: 0 },
+    }))
   }))
 
   it.effect('Unbreaking can skip bow durability when the roll succeeds', () => Effect.gen(function* () {

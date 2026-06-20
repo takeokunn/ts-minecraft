@@ -1,6 +1,7 @@
 import { expect, it } from 'vitest'
-import { EntityId, EntityType } from '@ts-minecraft/entity'
-import { CREEPER_EXPLOSION_POWER, computeExplosionDamageAt } from '../../domain/explosion'
+import { EntityId, EntityType } from '@ts-minecraft/entity/domain/mob/entity';
+import { CREEPER_EXPLOSION_POWER } from '../../domain/explosion'
+import { computeExplosionDamageAt } from '../../domain/explosion-resolution'
 import { CREEPER_FUSE_SECONDS } from '../../domain/mob/creeper-fuse'
 import { resolveCreeperContactDamage } from '../../application/mob/entity-manager-creeper-detonation'
 import { makeTestManagedEntity } from './test-utils'

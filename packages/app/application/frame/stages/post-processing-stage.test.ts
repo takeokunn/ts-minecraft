@@ -1,18 +1,18 @@
 import { describe, it } from '@effect/vitest'
+import { DEFAULT_SETTINGS } from '../../../test/frame-handler-test-kit/shared'
+import { makeDeps } from '../../../test/frame-handler-test-kit/orchestration/deps'
+import { runFrame } from '../../../test/frame-handler-test-kit/orchestration/harness'
+import { makeInputService } from '../../../test/frame-handler-test-kit/presentation/input'
 import {
-DEFAULT_SETTINGS,
-makeDeps,
-makeInputService,
-makeInventoryRenderer,
-makeServices,
-makeSettingsOverlay,
-runFrame,
-} from '../../../test/frame-handler-test-kit'
-import { createFrameHandlers } from '@ts-minecraft/app'
+  makeInventoryRenderer,
+  makeSettingsOverlay,
+} from '../../../test/frame-handler-test-kit/presentation/overlay'
+import { makeServices } from '../../../test/frame-handler-test-kit/services'
+import { createFrameHandlers } from '@ts-minecraft/app/frame-handler'
 import type { DeltaTimeSecs } from '@ts-minecraft/core'
-import { resolvePreset } from '@ts-minecraft/game'
-import { Effect,MutableRef,Option } from 'effect'
-import { expect,vi } from 'vitest'
+import { resolvePreset } from '@ts-minecraft/game/application/settings-service.config'
+import { Effect, MutableRef, Option } from 'effect'
+import { expect, vi } from 'vitest'
 
 // Derive from the preset (not hard-coded) so retuning pixelRatioCap doesn't break
 // these tests. The node test env has no `window`, so devicePixelRatio defaults to

@@ -1,7 +1,7 @@
 import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
 import { Effect, Fiber } from 'effect'
-import { HealthService } from '@ts-minecraft/entity'
+import { HealthService } from '@ts-minecraft/entity/application/health-service';
 
 const withHealthService = <A>(
   f: (hs: HealthService) => Effect.Effect<A, never>,

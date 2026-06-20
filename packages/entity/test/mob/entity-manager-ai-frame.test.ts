@@ -1,5 +1,5 @@
 import { DeltaTimeSecs } from '@ts-minecraft/core'
-import { EntityId, EntityType } from '@ts-minecraft/entity'
+import { EntityId, EntityType } from '@ts-minecraft/entity/domain/mob/entity';
 import { describe, expect, it } from 'vitest'
 import { prepareEntityAIFrame } from '../../application/mob/entity-manager-ai-frame'
 import { shouldEndermanBecomeProvoked } from '../../application/mob/entity-manager-ai-enderman'

@@ -19,13 +19,6 @@ import type { MeshChunkOptions, WorkerMeshResult } from '../domain/meshing-worke
 //   - `Effect.Service` exposed at this seam
 //   - Concrete `MeshingWorkerPool` is bridged via `MeshingWorkerPoolPortLayer`
 //     in infrastructure/meshing/meshing-worker-pool-port-layer.ts
-//
-// `WorkerMeshResult` is re-exported from infrastructure rather than redeclared:
-// it is a structural payload of typed-array buffers (positions/normals/etc.)
-// that flow through the port unchanged. Re-declaring it would force a noop
-// remap on every meshChunk call. The shape is part of the port contract; if
-// it changes, both sides update together.
-//
 // The error channel is `never`: `MeshingWorkerPool.meshChunk` already
 // terminates its `Effect.catchAll` by falling back to synchronous meshing,
 // so no error reaches the port consumer. If a future implementation surfaces
@@ -41,8 +34,3 @@ export class MeshingWorkerPoolPort extends Effect.Service<MeshingWorkerPoolPort>
     },
   }
 ) {}
-
-// `WorkerMeshResult` is exported from the infrastructure module
-// (`./infrastructure/meshing/meshing-worker-pool`); consumers import it from
-// the package root (`@ts-minecraft/rendering`). Duplicating the re-export
-// here would collide under `export *` re-exports in the package index.

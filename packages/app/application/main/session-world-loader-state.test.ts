@@ -1,6 +1,5 @@
 import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
-import { Option } from 'effect'
 import { CURRENT_WORLD_SAVE_VERSION } from '@ts-minecraft/world'
 
 import { DEFAULT_BASE_SPAWN_POSITION, resolveSessionStartPositions } from './session-world-loader-state'

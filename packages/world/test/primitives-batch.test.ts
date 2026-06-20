@@ -7,7 +7,7 @@ import {
   noise2DBatchXY,
   noise3DBatchXYZ,
   octaveNoise2DBatchXY,
-} from '../infrastructure/primitives'
+} from '../domain/noise-primitives'
 
 const readNumber = (values: ReadonlyArray<number>, index: number): number => values[index] ?? Number.NaN
 

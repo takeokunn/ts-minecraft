@@ -18,7 +18,22 @@ export const TILE_FRACTION = 1 / 16 // ATLAS_COLS=16; one tile spans 1/16 of UV 
 
 // Pre-built constant: identity matrix scaled to zero (inactive slot marker).
 // Allocated once at module load — never recreated.
-export const ZERO_MATRIX = new THREE.Matrix4().makeScale(0, 0, 0)
+const fillMatrixElements = (matrix: THREE.Matrix4, value: number): void => {
+  const elements = (matrix as unknown as { readonly elements?: { fill: (value: number) => unknown } }).elements
+  elements?.fill(value)
+}
+
+const makeZeroScaleMatrix = (): THREE.Matrix4 => {
+  const matrix = new THREE.Matrix4()
+  if (typeof matrix.makeScale === 'function') {
+    return matrix.makeScale(0, 0, 0)
+  }
+
+  fillMatrixElements(matrix, 0)
+  return matrix
+}
+
+export const ZERO_MATRIX = makeZeroScaleMatrix()
 
 // Per-instance UV comes from `uvOffset` instanced buffer attribute, sampled via onBeforeCompile shader patch.
 export const buildParticleGeometry = (atlasTileFraction: number): THREE.PlaneGeometry => {

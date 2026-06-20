@@ -1,9 +1,9 @@
 import { Effect, Option } from 'effect'
 import { setBlockInChunk } from '../domain/chunk'
 import type { Chunk } from '../domain/chunk'
-import { createFluidBuffer, encodeFluidCell, FLUID_BYTE_LENGTH,
-blockTypeFor, getBlockIndex, localX, localY, localZ, } from '@ts-minecraft/block'
-import type { FluidCell } from '@ts-minecraft/block'
+import { createFluidBuffer, encodeFluidCell, FLUID_BYTE_LENGTH } from '@ts-minecraft/block/domain/fluid'
+import { blockTypeFor, getBlockIndex, localX, localY, localZ } from '@ts-minecraft/block/domain/fluid-position-utils'
+import type { FluidCell } from '@ts-minecraft/block/domain/fluid-model'
 import type { Position } from '@ts-minecraft/core'
 import type { BlockType } from '@ts-minecraft/core'
 import type { ChunkManagerService } from './chunk-manager-service'

@@ -1,9 +1,9 @@
 import { Effect, MutableRef } from 'effect'
 import * as THREE from 'three'
 import type { Position } from '@ts-minecraft/core'
-import type { PlayerCameraStateService } from '@ts-minecraft/entity'
+import type { PlayerCameraStateService } from '@ts-minecraft/entity/application/camera-state'
 import type { BlockHighlightService } from '@ts-minecraft/presentation'
-import type { StagedResourceBlock } from '@ts-minecraft/app/main/qa-api-types'
+import type { StagedResourceBlock } from '@ts-minecraft/app/main/qa-api-types/staged'
 
 const makeSetAimForQA = (
   camera: THREE.PerspectiveCamera,

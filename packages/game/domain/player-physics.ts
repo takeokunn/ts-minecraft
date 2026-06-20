@@ -1,5 +1,6 @@
 import type { Position } from '@ts-minecraft/core'
 import { PLAYER_HALF_WIDTH, PLAYER_HALF_HEIGHT } from '@ts-minecraft/core'
+import type { BlockCollisionShapeFn } from './aabb-collision'
 import { resolveBlockCollisions, resolveBlockCollisionsInto, clampSneakEdge, SNEAK_STEP_DOWN } from './aabb-collision'
 
 export type Vec3 = { x: number; y: number; z: number }
@@ -128,10 +129,11 @@ export const resolveCollisionOrNoclip = (
   velocity: Vec3,
   isBlockSolid: BlockSolidFn,
   isSpectator: boolean,
+  getBlockCollisionShape?: BlockCollisionShapeFn,
 ): CollisionResult =>
   isSpectator
     ? { position, velocity, isGrounded: false }
-    : resolveBlockCollisions(position, velocity, PLAYER_HALF_WIDTH, PLAYER_HALF_HEIGHT, isBlockSolid)
+    : resolveBlockCollisions(position, velocity, PLAYER_HALF_WIDTH, PLAYER_HALF_HEIGHT, isBlockSolid, getBlockCollisionShape)
 
 // Zero-allocation variant: writes resolved position into outPos, velocity
 // into outVel. Safe to alias outPos/outVel with position/velocity because
@@ -144,13 +146,14 @@ export const resolveCollisionOrNoclipInto = (
   velocity: Vec3,
   isBlockSolid: BlockSolidFn,
   isSpectator: boolean,
+  getBlockCollisionShape?: BlockCollisionShapeFn,
 ): boolean => {
   if (isSpectator) {
     outPos.x = position.x; outPos.y = position.y; outPos.z = position.z
     outVel.x = velocity.x; outVel.y = velocity.y; outVel.z = velocity.z
     return false
   }
-  return resolveBlockCollisionsInto(outPos, outVel, position, velocity, PLAYER_HALF_WIDTH, PLAYER_HALF_HEIGHT, isBlockSolid)
+  return resolveBlockCollisionsInto(outPos, outVel, position, velocity, PLAYER_HALF_WIDTH, PLAYER_HALF_HEIGHT, isBlockSolid, getBlockCollisionShape)
 }
 
 export const applySneakEdgeClamp = (
@@ -258,6 +261,7 @@ export const applySneakEdgeClampInto = (
 
 export type PlayerPostPhysicsContactQuery = {
   readonly isSolid: BlockSolidFn
+  readonly getCollisionShape?: BlockCollisionShapeFn
   readonly isInLadder: (wx: number, wy: number, wz: number) => boolean
   readonly isInCobweb: (wx: number, wy: number, wz: number) => boolean
   readonly isInWater: (wx: number, wy: number, wz: number) => boolean
@@ -282,7 +286,7 @@ export const resolvePlayerPostPhysicsContactState = (
   wasGrounded: boolean,
   isSpectator: boolean,
 ): PlayerPostPhysicsContactState => {
-  const isGrounded = resolveCollisionOrNoclipInto(physPos, physVel, effPos, effVel, queries.isSolid, isSpectator)
+  const isGrounded = resolveCollisionOrNoclipInto(physPos, physVel, effPos, effVel, queries.isSolid, isSpectator, queries.getCollisionShape)
   applySneakEdgeClampInto(physPos, physVel, prePos, physPos, physVel, queries.isSolid, sneaking, wasGrounded)
 
   const onLadder = canApplyEnvironmentEffects

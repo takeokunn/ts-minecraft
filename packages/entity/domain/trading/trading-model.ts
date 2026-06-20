@@ -1,6 +1,6 @@
 import { Data, Schema } from 'effect'
 import { InventoryItemSchema } from '@ts-minecraft/core'
-import { VillagerProfessionSchema, type Villager } from '../village'
+import { VillagerProfessionSchema, type Villager } from '../village/village-model'
 
 export const TradeOfferIdSchema = Schema.String.pipe(Schema.brand('TradeOfferId'))
 export type TradeOfferId = Schema.Schema.Type<typeof TradeOfferIdSchema>

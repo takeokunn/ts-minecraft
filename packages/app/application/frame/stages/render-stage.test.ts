@@ -2,10 +2,10 @@ import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
 import { Effect, MutableRef } from 'effect'
 import * as THREE from 'three'
-import { DEBUG_FEATURE_FLAG_DEFAULTS, type DebugFeatureFlags } from '@ts-minecraft/app/debug-feature-flags'
+import { DEBUG_FEATURE_FLAG_DEFAULTS, type DebugFeatureFlags } from '@ts-minecraft/app/application/debug-feature-flags.config'
 import { renderStage } from '@ts-minecraft/app/frame/stages/render-stage'
 import { createAttackSwingState } from '@ts-minecraft/presentation'
-import { resolvePreset } from '@ts-minecraft/game'
+import { resolvePreset } from '@ts-minecraft/game/application/settings-service.config'
 
 // ---------------------------------------------------------------------------
 // Helpers

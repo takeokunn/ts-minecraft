@@ -1,5 +1,5 @@
 import { Effect, MutableRef } from 'effect'
-import { accrueHazardTicks } from '@ts-minecraft/entity'
+import { accrueHazardTicks } from '@ts-minecraft/entity/domain/environment-hazard-resolution'
 import type { PhysicsColumnReadError } from '../physics-stage-utils'
 
 type ApplyCadencedHazardInput = {

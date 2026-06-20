@@ -1,11 +1,11 @@
 import { describe,it } from '@effect/vitest'
+import { HealthService } from '@ts-minecraft/entity/application/health-service';
 import {
-HealthService,
-applyDamageToHealth,
-computeFallDamage,
-healHealth,
-tickInvincibility,
-} from '@ts-minecraft/entity'
+  applyDamageToHealth,
+  computeFallDamage,
+  healHealth,
+  tickInvincibility,
+} from '@ts-minecraft/entity/domain/player-health-resolution'
 import { Array as Arr,Effect } from 'effect'
 import { expect } from 'vitest'
 import { PlayerHealth } from '../domain/player-health'

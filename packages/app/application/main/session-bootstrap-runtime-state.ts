@@ -1,7 +1,8 @@
 import { Effect, MutableRef, Option, Ref } from 'effect'
 
-import type { PendingResize } from '@ts-minecraft/app/main/browser-runtime-event-handlers'
-import { readSessionHudElements, type SessionHudElements } from '@ts-minecraft/app/main/session-runtime-deps'
+import type { PendingResize } from './browser-runtime-types'
+import type { SessionHudElements } from '@ts-minecraft/app/main/session-runtime-types'
+import { readSessionHudElements } from '@ts-minecraft/app/main/session-runtime-deps/hud'
 
 export type SessionRuntimeBootstrapState = {
   readonly pendingResizeRef: MutableRef.MutableRef<Option.Option<PendingResize>>

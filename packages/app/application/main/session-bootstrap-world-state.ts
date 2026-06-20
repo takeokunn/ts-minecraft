@@ -5,7 +5,7 @@ import type { BootContext } from '@ts-minecraft/app/main/boot'
 import { buildSpawnSelection, loadOrCreateWorld } from '@ts-minecraft/app/main/session-world-loader'
 import { resolveSessionStartPositions } from '@ts-minecraft/app/main/session-world-loader-state'
 import { type WorldBootstrap } from '@ts-minecraft/app/main/session-world-loader-metadata'
-import type { SpawnSelection } from '@ts-minecraft/app/main/spawn-selection'
+import type { SpawnSelection } from '@ts-minecraft/app/main/spawn-selection-search'
 import { type WorldId, type Position } from '@ts-minecraft/core'
 import type { ChunkManagerService } from '@ts-minecraft/world'
 

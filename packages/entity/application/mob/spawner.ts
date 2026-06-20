@@ -1,5 +1,5 @@
 import { Effect, Option, Ref } from 'effect'
-import { TimeServicePort } from '../../domain/ports'
+import { TimeServicePort } from '../../domain/time-service-port'
 import { EntityManager } from './entity-manager'
 import type { EntityId } from '../../domain/mob/entity'
 import type { Position } from '@ts-minecraft/core'

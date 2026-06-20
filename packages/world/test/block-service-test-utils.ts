@@ -4,10 +4,10 @@ import { ChunkManagerService } from '../application/chunk-manager-service'
 import { ChunkCoord, CHUNK_SIZE, CHUNK_HEIGHT, blockTypeToIndex, indexToBlockType, isValidBlockIndex } from '@ts-minecraft/core'
 import { ChunkService } from '../application/chunk-service'
 import type { Chunk } from '../domain/chunk'
-import { PlayerService } from '@ts-minecraft/entity'
+import { PlayerService } from '@ts-minecraft/entity/application/player-service'
 import type { BlockType, InventoryItem } from '@ts-minecraft/core'
 import { ChunkCacheKey, Position, PlayerId, SlotIndex } from '@ts-minecraft/core'
-import { PlayerError } from '@ts-minecraft/entity'
+import { PlayerError } from '@ts-minecraft/entity/domain/errors'
 import { BlockService } from '../application/block-service'
 import { worldToBlockLocal } from '../domain/block-utils'
 import { InventoryService, type InventorySlot } from '@ts-minecraft/inventory/application/inventory-service'
@@ -55,6 +55,29 @@ export interface MockChunkManagerHandle {
   getChunkForPos: (pos: Position) => Chunk
 }
 
+const createMockChunkManagerHandle = (
+  ensureChunk: (coord: ChunkCoord) => Chunk,
+  getLoadedChunks: () => Array<Chunk>,
+): MockChunkManagerHandle => {
+  const service = ChunkManagerService.of({
+    _tag: '@minecraft/application/ChunkManagerService' as const,
+    getChunk: (coord: ChunkCoord) => Effect.sync(() => ensureChunk(coord)),
+    loadChunksAroundPlayer: (_playerPos: Position, _renderDistance?: number) => Effect.succeed(false),
+    getLoadedChunks: () => Effect.succeed(getLoadedChunks()),
+    drainRenderDirtyChunks: () => Effect.succeed([]),
+    drainRenderDirtyChunkEntries: () => Effect.succeed([]),
+    markChunkDirty: (_coord: ChunkCoord) => Effect.void,
+    saveDirtyChunks: () => Effect.void,
+    unloadChunk: (_coord: ChunkCoord) => Effect.void,
+    setActiveWorldId: (_worldId: unknown) => Effect.void,
+    setActiveDimension: (_dim: unknown) => Effect.void,
+  })
+  return {
+    service,
+    getChunkForPos: (pos: Position) => ensureChunk(worldToLocal(pos).coord),
+  }
+}
+
 export const createMockChunkManagerService = (
   initialBlocks?: Array<{ pos: Position; blockType: BlockType }>
 ): MockChunkManagerHandle => {
@@ -76,23 +99,34 @@ export const createMockChunkManagerService = (
     })
   }
 
-  const service = ChunkManagerService.of({
-    _tag: '@minecraft/application/ChunkManagerService' as const,
-    getChunk: (coord: ChunkCoord) => Effect.sync(() => ensureChunk(coord)),
-    loadChunksAroundPlayer: (_playerPos: Position, _renderDistance?: number) => Effect.succeed(false),
-    getLoadedChunks: () => Effect.succeed(Arr.fromIterable(MutableHashMap.values(chunkMap))),
-    drainRenderDirtyChunks: () => Effect.succeed([]),
-        drainRenderDirtyChunkEntries: () => Effect.succeed([]),
-    markChunkDirty: (_coord: ChunkCoord) => Effect.void,
-    saveDirtyChunks: () => Effect.void,
-    unloadChunk: (_coord: ChunkCoord) => Effect.void,
-    setActiveWorldId: (_worldId: unknown) => Effect.void,
-    setActiveDimension: (_dim: unknown) => Effect.void,
+  return createMockChunkManagerHandle(
+    ensureChunk,
+    () => Arr.fromIterable(MutableHashMap.values(chunkMap)),
+  )
+}
+
+export const createMockChunkManagerServiceFromChunks = (
+  chunks: ReadonlyArray<Chunk>,
+): MockChunkManagerHandle => {
+  const chunkMap = MutableHashMap.empty<ChunkCacheKey, Chunk>()
+
+  Arr.forEach(chunks, (chunk) => {
+    MutableHashMap.set(chunkMap, ChunkCacheKey.make(chunk.coord), chunk)
   })
-  return {
-    service,
-    getChunkForPos: (pos: Position) => ensureChunk(worldToLocal(pos).coord),
+
+  const ensureChunk = (coord: ChunkCoord): Chunk => {
+    const key = ChunkCacheKey.make(coord)
+    return Option.getOrElse(MutableHashMap.get(chunkMap, key), () => {
+      const chunk = makeEmptyChunk(coord)
+      MutableHashMap.set(chunkMap, key, chunk)
+      return chunk
+    })
   }
+
+  return createMockChunkManagerHandle(
+    ensureChunk,
+    () => Arr.fromIterable(MutableHashMap.values(chunkMap)),
+  )
 }
 
 export const createFailingChunkManagerService = (): ChunkManagerService => ChunkManagerService.of({
@@ -102,7 +136,7 @@ export const createFailingChunkManagerService = (): ChunkManagerService => Chunk
   loadChunksAroundPlayer: (_playerPos: Position, _renderDistance?: number) => Effect.succeed(false),
   getLoadedChunks: () => Effect.succeed([]),
   drainRenderDirtyChunks: () => Effect.succeed([]),
-        drainRenderDirtyChunkEntries: () => Effect.succeed([]),
+  drainRenderDirtyChunkEntries: () => Effect.succeed([]),
   markChunkDirty: (_coord: ChunkCoord) => Effect.void,
   saveDirtyChunks: () => Effect.void,
   unloadChunk: (_coord: ChunkCoord) => Effect.void,
@@ -161,7 +195,9 @@ export const createMockHotbarService = (selectedBlockType: Option.Option<Invento
   update: () => Effect.void,
 })
 
-export const createMockFurnaceService = (): FurnaceService => FurnaceService.of({
+export const createMockFurnaceService = (options?: {
+  readonly dismantleFurnace?: (position: Position) => Effect.Effect<boolean, never>
+}): FurnaceService => FurnaceService.of({
   _tag: '@minecraft/application/FurnaceService' as const,
   getState: () => Effect.succeed({ furnaces: HashMap.empty(), selectedFurnacePosition: Option.none() }),
   getNearestFurnaceState: () => Effect.succeed(Option.none()),
@@ -170,13 +206,16 @@ export const createMockFurnaceService = (): FurnaceService => FurnaceService.of(
   startSmelting: (_recipeId) => Effect.void,
   collectOutput: () => Effect.succeed({ collected: true, xp: 0 }),
   clearFurnace: (_position: Position) => Effect.succeed([]),
-  dismantleFurnace: (_position: Position) => Effect.succeed(true),
+  dismantleFurnace: (position: Position) =>
+    options?.dismantleFurnace ? options.dismantleFurnace(position) : Effect.succeed(true),
   serialize: () => Effect.succeed([]),
   deserialize: (_serialized) => Effect.void,
   tick: (_deltaTime) => Effect.void,
 })
 
-export const createMockChestService = (): ChestService => ChestService.of({
+export const createMockChestService = (options?: {
+  readonly dismantleChest?: (position: Position) => Effect.Effect<boolean, never>
+}): ChestService => ChestService.of({
   _tag: '@minecraft/application/ChestService' as const,
   getState: () => Effect.succeed({ chests: HashMap.empty(), selectedChestPosition: Option.none() }),
   getNearestChestState: () => Effect.succeed(Option.none()),
@@ -187,20 +226,27 @@ export const createMockChestService = (): ChestService => ChestService.of({
   quickMoveInventoryToChest: (_inventoryIndex) => Effect.void,
   quickMoveChestToInventory: (_chestIndex) => Effect.void,
   clearChest: (_position: Position) => Effect.succeed([]),
-  dismantleChest: (_position: Position) => Effect.succeed(true),
+  dismantleChest: (position: Position) =>
+    options?.dismantleChest ? options.dismantleChest(position) : Effect.succeed(true),
   serialize: () => Effect.succeed([]),
   deserialize: (_serialized) => Effect.void,
 })
 
 export const createFluidRecorder = () => {
-  const calls = { notify: [] as Position[], seed: [] as Position[], remove: [] as Position[] }
+  const calls = {
+    notify: [] as Position[],
+    seedWater: [] as Position[],
+    seedLava: [] as Position[],
+    removeWater: [] as Position[],
+    removeLava: [] as Position[],
+  }
   const service = FluidService.of({
     _tag: '@minecraft/application/FluidService' as const,
     notifyBlockChanged: (pos: Position) => Effect.sync(() => { calls.notify.push(pos) }),
-    seedWater: (pos: Position) => Effect.sync(() => { calls.seed.push(pos) }),
-    seedLava: (_pos: Position) => Effect.void,
-    removeWater: (pos: Position) => Effect.sync(() => { calls.remove.push(pos) }),
-    removeLava: (_pos: Position) => Effect.void,
+    seedWater: (pos: Position) => Effect.sync(() => { calls.seedWater.push(pos) }),
+    seedLava: (pos: Position) => Effect.sync(() => { calls.seedLava.push(pos) }),
+    removeWater: (pos: Position) => Effect.sync(() => { calls.removeWater.push(pos) }),
+    removeLava: (pos: Position) => Effect.sync(() => { calls.removeLava.push(pos) }),
     syncLoadedChunks: (_chunks) => Effect.void,
     tick: () => Effect.void,
   })

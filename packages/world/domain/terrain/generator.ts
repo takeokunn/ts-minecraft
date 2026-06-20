@@ -13,13 +13,10 @@ import {
   createBlockIndices,
 } from './generator-coordinates'
 import { DEFAULT_TERRAIN_LEVELS, type TerrainLevels } from './generator-types'
-import {
-  buildColumnStates,
-  collectOverhangTargets,
-  applyOverhangNoise,
-  createTreeColumnContextResolver,
-  placeChunkTrees,
-} from './generator-pipeline'
+import { buildColumnStates } from './generator-column-state'
+import { collectOverhangTargets, applyOverhangNoise } from './generator-overhang'
+import { createTreeColumnContextResolver, placeChunkTrees } from './generator-tree-context'
+import { placeChunkPlants } from './plant-placer'
 
 export const generateTerrain = (
   chunkService: ChunkFactory,
@@ -131,6 +128,7 @@ export const generateTerrain = (
     })
 
     yield* placeChunkTrees(blocks, baseWorldX, baseWorldZ, resolveTreeColumnContext, terrainLevels)
+    placeChunkPlants(blocks, baseWorldX, baseWorldZ, columnStates)
 
     return { ...chunk, blocks }
   })

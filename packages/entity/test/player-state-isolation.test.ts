@@ -1,7 +1,8 @@
 import { describe, it } from '@effect/vitest'
 import { expect, it as plainIt } from 'vitest'
 import { Effect, Schema } from 'effect'
-import { PlayerService, PlayerStateSchema } from '@ts-minecraft/entity'
+import { PlayerService } from '@ts-minecraft/entity/application/player-service';
+import { PlayerStateSchema } from '@ts-minecraft/entity/domain/player-state';
 import type { PlayerId, Position } from '@ts-minecraft/core'
 
 const TestLayer = PlayerService.Default

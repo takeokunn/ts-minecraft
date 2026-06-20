@@ -1,10 +1,14 @@
 import { Effect, Option } from 'effect'
 
 import { type WeatherService } from '@ts-minecraft/game'
-import { type EquipmentService, type InventoryService } from '@ts-minecraft/inventory'
-import { type HealthService, type HungerService, type XPService } from '@ts-minecraft/entity'
+import { type EquipmentService } from '@ts-minecraft/inventory/application/equipment-service'
+import { type InventoryService } from '@ts-minecraft/inventory/application/inventory-service'
+import { type HealthService } from '@ts-minecraft/entity/application/health-service'
+import { type HungerService } from '@ts-minecraft/entity/application/hunger-service'
+import { type XPService } from '@ts-minecraft/entity/application/xp-service'
 import { type CropGrowthService } from '@ts-minecraft/world'
-import { type ChestService, type FurnaceService } from '@ts-minecraft/inventory'
+import { type ChestService } from '@ts-minecraft/inventory/application/chest-service'
+import { type FurnaceService } from '@ts-minecraft/inventory/application/furnace-service'
 
 import { restoreSavedPlayerState } from './session-restore-saved-player-state'
 import type { WorldBootstrap } from './session-world-loader-metadata'

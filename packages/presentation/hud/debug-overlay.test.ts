@@ -2,7 +2,7 @@ import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
 import { Effect } from 'effect'
 
-import { DEBUG_FEATURE_FLAG_CATALOG } from '@ts-minecraft/app/debug-feature-flags'
+import { DEBUG_FEATURE_FLAG_CATALOG } from '@ts-minecraft/app/application/debug-feature-flags'
 import {
   DebugOverlayService,
   debugFeatureGroupLabels,

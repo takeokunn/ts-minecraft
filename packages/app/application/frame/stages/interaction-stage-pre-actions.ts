@@ -1,5 +1,7 @@
 import { Effect, MutableRef } from 'effect'
-import type { FrameHandlerDeps, FrameHandlerServices, FrameStageRefs } from '@ts-minecraft/app/frame/types'
+import type { FrameHandlerDeps } from '@ts-minecraft/app/application/frame/types/deps'
+import type { FrameHandlerServices } from '@ts-minecraft/app/application/frame/types/services'
+import type { FrameStageRefs } from '@ts-minecraft/app/application/frame/types/stage-refs'
 import { handleBowFire } from '@ts-minecraft/app/frame/stages/interaction-bow-handler'
 import { handleUnequipArmor } from '@ts-minecraft/app/frame/stages/interaction-item-use-handler/unequip-armor'
 import type { InteractionStageSnapshot } from '@ts-minecraft/app/frame/stages/interaction-stage-snapshot'
@@ -13,6 +15,8 @@ export const runInteractionStagePreActions = (
     | 'inventoryService'
     | 'hotbarService'
     | 'soundManager'
+    | 'droppedItemService'
+    | 'droppedXpOrbService'
     | 'xpService'
   >,
   refs: Pick<FrameStageRefs, 'breakProgressRef' | 'isShieldBlockingRef' | 'bowChargeStartRef'>,

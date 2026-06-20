@@ -4,19 +4,25 @@ import {
   RedstoneComponentType,
   type RedstoneComponent,
   type RedstoneTickSnapshot,
+} from '../../domain/redstone/redstone-model'
+import {
   type PositionKey,
   positionKey,
   toBlockPosition,
-  normalizeComponentPosition,
-  makeDefaultState,
-  propagatePower,
-  updatePistons,
-  decayButtonTimers,
-  sortedPowerSnapshot,
+} from '../../domain/redstone/redstone-position-utils'
+import {
   computeNeedsPropagation,
+  decayButtonTimers,
+  makeDefaultState,
+  normalizeComponentPosition,
+  propagatePower,
+  sortedPowerSnapshot,
+  updatePistons,
+} from '../../domain/redstone/redstone-simulation'
+import {
   DEFAULT_BUTTON_TICKS,
   MAX_BUTTON_TICKS,
-} from '../../domain/redstone'
+} from '../../domain/redstone/redstone.config'
 
 type RedstoneState = {
   readonly tick: number
@@ -178,6 +184,34 @@ export class RedstoneService extends Effect.Service<RedstoneService>()(
               return [Option.some(updated), { ...state, components: HashMap.set(state.components, key, updated) }]
             })
             yield* Ref.set(dirtyRef, true)
+            return result
+          }),
+
+        setPressurePlatePressed: (
+          position: Position,
+          pressed: boolean,
+        ): Effect.Effect<Option.Option<RedstoneComponent>, never> =>
+          Effect.gen(function* () {
+            const [result, changed] = yield* Ref.modify(
+              stateRef,
+              (state): [[Option.Option<RedstoneComponent>, boolean], RedstoneState] => {
+                const key = positionKey(position)
+                const currentValue = Option.getOrNull(HashMap.get(state.components, key))
+                const current = currentValue !== null && currentValue.type === RedstoneComponentType.PressurePlate ? currentValue : null
+                if (current === null) return [[Option.none(), false], state]
+                if (current.state.active === pressed) return [[Option.some(current), false], state]
+
+                const updated: RedstoneComponent = {
+                  ...current,
+                  state: { ...current.state, active: pressed, buttonTicksRemaining: 0 },
+                }
+                return [
+                  [Option.some(updated), true],
+                  { ...state, components: HashMap.set(state.components, key, updated) },
+                ]
+              },
+            )
+            if (changed) yield* Ref.set(dirtyRef, true)
             return result
           }),
 

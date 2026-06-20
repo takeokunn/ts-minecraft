@@ -2,18 +2,16 @@ import { describe, it } from '@effect/vitest'
 import { Effect } from 'effect'
 import { expect } from 'vitest'
 import { FakeWebSocketServer } from '../infrastructure/websocket-server'
+import { decodeNetworkMessage, encodeNetworkMessage } from '../application/codec'
+import { ServerService, ServerServiceDefault } from '../application/server-service'
 import {
   MessageType,
   PlayerId,
   PlayerName,
-  ServerService,
-  ServerServiceDefault,
   WorldId,
-  decodeNetworkMessage,
-  encodeNetworkMessage,
   type NetworkMessage,
   type PlayerJoinMessage,
-} from '@ts-minecraft/network'
+} from '../domain/schemas'
 
 const worldId = WorldId.make('overworld')
 

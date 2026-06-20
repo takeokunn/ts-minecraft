@@ -11,9 +11,9 @@ import {
   shouldDespawnEntity,
   MOB_STUCK_EPSILON,
 } from '../../domain/mob/entity-manager-utils'
-import { computeEndermanTeleportPosition, makeWanderDirectionFromHash } from '@ts-minecraft/entity'
-import { distanceToPlayerSq } from '@ts-minecraft/entity'
-import { EntityType } from '@ts-minecraft/entity'
+import { computeEndermanTeleportPosition, makeWanderDirectionFromHash } from '@ts-minecraft/entity/domain/mob/entity-utils';
+import { distanceToPlayerSq } from '@ts-minecraft/entity/domain/mob/state-machine';
+import { EntityType } from '@ts-minecraft/entity/domain/mob/entity';
 import { makeTestEntity } from './test-utils'
 
 describe('entity/entity-manager-utils', () => {

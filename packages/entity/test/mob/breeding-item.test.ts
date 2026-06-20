@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { EntityType } from '@ts-minecraft/entity'
-import { getMobDefinition } from '@ts-minecraft/entity/domain/mob/mobs'
+import { EntityType } from '@ts-minecraft/entity/domain/mob/entity';
+import { getMobDefinition } from '@ts-minecraft/entity/domain/mob/mobs/get-mob-definition'
 
 // R6a: breedingItem data foundation for mob breeding.
 describe('mob breeding item (R6a)', () => {

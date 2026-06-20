@@ -50,6 +50,11 @@ describe('infrastructure/three/textures/item-texture-map', () => {
       expect(getItemTileIndex('CACTUS')).toBe(110)
       expect(getItemTileIndex('LILY_PAD')).toBe(111)
       expect(getItemTileIndex('ICE')).toBe(112)
+      expect(getItemTileIndex('PRESSURE_PLATE')).toBe(1)
+      expect(getItemTileIndex('STONE_SLAB')).toBe(1)
+      expect(getItemTileIndex('OAK_STAIRS')).toBe(41)
+      expect(getItemTileIndex('ANVIL')).toBe(35)
+      expect(getItemTileIndex('CAULDRON')).toBe(35)
     })
   })
 

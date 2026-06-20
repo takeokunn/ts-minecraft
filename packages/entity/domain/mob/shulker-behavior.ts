@@ -1,6 +1,6 @@
 import { Schema } from 'effect'
 import type { Position, Vector3 } from '@ts-minecraft/core'
-import { applyArmorReduction } from '../combat'
+import { applyArmorReduction } from '../combat-resolution'
 
 export const ShulkerShellStateSchema = Schema.Literal('closed', 'opening', 'open')
 export type ShulkerShellState = Schema.Schema.Type<typeof ShulkerShellStateSchema>

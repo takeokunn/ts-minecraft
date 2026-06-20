@@ -1,6 +1,16 @@
 import { Cause, Effect, Option, Ref } from 'effect'
-import { type ChestService, type HotbarService, type InventoryService, INVENTORY_SIZE, HOTBAR_START } from '@ts-minecraft/inventory'
+import { type ChestService } from '@ts-minecraft/inventory/application/chest-service'
+import { type EquipmentService } from '@ts-minecraft/inventory/application/equipment-service'
+import { type HotbarService } from '@ts-minecraft/inventory/application/hotbar-service'
+import {
+  INVENTORY_SIZE,
+  HOTBAR_START,
+  type InventoryService,
+  type InventorySlot,
+} from '@ts-minecraft/inventory/application/inventory-service'
+import { removeFromStack } from '@ts-minecraft/inventory/domain/item-stack'
 import { RecipeId, SlotIndex } from '@ts-minecraft/core'
+import { applyInventoryCursorClick, describeInventoryCursor, type InventoryCursorClickButton } from './inventory-cursor-click'
 
 export type ClickHandlerDeps = {
   readonly hasNearbyCraftingTable: () => Effect.Effect<boolean, never>
@@ -13,9 +23,36 @@ export type ClickHandlerDeps = {
   readonly hotbarService: HotbarService
   readonly inventoryService: InventoryService
   readonly chestService: ChestService
+  readonly equipmentService: EquipmentService
+  readonly inventoryCursorRef: Ref.Ref<InventorySlot>
   readonly statusMessageRef: Ref.Ref<string>
   readonly refreshSlots: () => Effect.Effect<void, never>
 }
+
+export type ShiftQuickMoveInventoryDeps = Pick<ClickHandlerDeps, 'chestService' | 'inventoryService' | 'equipmentService'>
+
+export const shiftQuickMoveInventorySlot = (
+  deps: ShiftQuickMoveInventoryDeps,
+  clickedSlot: SlotIndex,
+): Effect.Effect<void, never> =>
+  Effect.gen(function* () {
+    const hasChestAccess = yield* deps.chestService.hasNearbyChest()
+    if (hasChestAccess) {
+      yield* deps.chestService.quickMoveInventoryToChest(clickedSlot)
+      return
+    }
+
+    const stack = Option.getOrNull(yield* deps.inventoryService.getSlot(clickedSlot))
+    if (stack !== null) {
+      const equipped = yield* deps.equipmentService.equipIfSlotEmpty(stack)
+      if (equipped) {
+        yield* deps.inventoryService.setSlot(clickedSlot, removeFromStack(stack, 1))
+        return
+      }
+    }
+
+    yield* deps.inventoryService.quickMove(clickedSlot)
+  })
 
 /* c8 ignore next */
 export const buildHandleDelegatedClick = (deps: ClickHandlerDeps) =>
@@ -27,9 +64,12 @@ export const buildHandleDelegatedClick = (deps: ClickHandlerDeps) =>
       hotbarService,
       inventoryService,
       chestService,
+      equipmentService,
+      inventoryCursorRef,
       statusMessageRef,
       refreshSlots,
     } = deps
+    if (event.type === 'contextmenu') event.preventDefault()
 
     const htmlTarget = event.target instanceof HTMLElement ? event.target : null
     const recipeTarget = Option.fromNullable(htmlTarget?.closest('[data-recipe-id]')).pipe(
@@ -106,17 +146,16 @@ export const buildHandleDelegatedClick = (deps: ClickHandlerDeps) =>
         Effect.runFork(
           Effect.gen(function* () {
             if (shiftQuickMove) {
-              const hasChestAccess = yield* chestService.hasNearbyChest()
-              if (hasChestAccess) {
-                yield* chestService.quickMoveInventoryToChest(SlotIndex.make(index))
-              } else {
-                // Vanilla shift-click: quick-transfer the clicked stack to the other region.
-                yield* inventoryService.quickMove(SlotIndex.make(index))
-              }
+              yield* shiftQuickMoveInventorySlot({ chestService, inventoryService, equipmentService }, SlotIndex.make(index))
             } else {
-              const selectedSlot = yield* hotbarService.getSelectedSlot()
-              const hotbarInventoryIndex = HOTBAR_START + SlotIndex.toNumber(selectedSlot)
-              yield* inventoryService.moveStack(SlotIndex.make(index), SlotIndex.make(hotbarInventoryIndex))
+              const clickedSlot = SlotIndex.make(index)
+              const button: InventoryCursorClickButton = event.type === 'contextmenu' || event.button === 2 ? 'secondary' : 'primary'
+              const slot = yield* inventoryService.getSlot(clickedSlot)
+              const cursor = yield* Ref.get(inventoryCursorRef)
+              const next = applyInventoryCursorClick({ slot, cursor }, button)
+              yield* inventoryService.setSlot(clickedSlot, next.slot)
+              yield* Ref.set(inventoryCursorRef, next.cursor)
+              yield* Ref.set(statusMessageRef, describeInventoryCursor(next.cursor))
             }
             yield* refreshSlots()
           }).pipe(

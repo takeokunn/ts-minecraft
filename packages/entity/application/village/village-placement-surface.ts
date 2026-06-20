@@ -1,6 +1,7 @@
 import { Effect } from 'effect'
 import { CHUNK_HEIGHT, CHUNK_SIZE, blockTypeToIndex } from '@ts-minecraft/core'
 import { type Chunk, type ChunkManagerService, chunkBlockIndexUnchecked } from '@ts-minecraft/world'
+import { VillagePlacementBlockReadError } from './village-placement-surface-error'
 
 const VILLAGE_NON_GROUND_IDS: ReadonlySet<number> = new Set([
   blockTypeToIndex('AIR'),
@@ -11,20 +12,6 @@ const VILLAGE_NON_GROUND_IDS: ReadonlySet<number> = new Set([
 ])
 
 const CHUNK_BLOCK_COUNT = CHUNK_SIZE * CHUNK_SIZE * CHUNK_HEIGHT
-
-export interface VillagePlacementBlockReadErrorFields {
-  readonly message: string
-}
-
-export class VillagePlacementBlockReadError extends Error {
-  readonly _tag = 'VillagePlacementBlockReadError'
-
-  constructor(readonly fields: VillagePlacementBlockReadErrorFields) {
-    super(fields.message)
-    this.name = 'VillagePlacementBlockReadError'
-    Object.setPrototypeOf(this, new.target.prototype)
-  }
-}
 
 export type VillageSurfaceResolver = (wx: number, wz: number) => Effect.Effect<number, VillagePlacementBlockReadError>
 

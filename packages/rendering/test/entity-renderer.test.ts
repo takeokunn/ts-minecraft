@@ -7,7 +7,8 @@ import {
   SceneService,
   LIMB_SWING_AMPLITUDE,
 } from '@ts-minecraft/rendering'
-import { EntityId, MOB_HALF_HEIGHT, type Entity, type EntityType } from '@ts-minecraft/entity'
+import { EntityId, type Entity, type EntityType } from '@ts-minecraft/entity/domain/mob/entity'
+import { MOB_HALF_HEIGHT } from '@ts-minecraft/entity/domain/mob/spawner-config'
 import { identity } from '@ts-minecraft/core'
 
 // FR-2.5: pool→syncEntities full wire. `scene.add` is now called once per

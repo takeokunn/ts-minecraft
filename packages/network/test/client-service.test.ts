@@ -3,19 +3,11 @@ import { Effect, Option, Stream, TestClock, TestContext } from 'effect'
 import { expect } from 'vitest'
 import { FakeWebSocketClient } from '../infrastructure/websocket-client'
 import { FakeWebSocketServer } from '../infrastructure/websocket-server'
-import {
-  ClientService,
-  ClientServiceDefault,
-  MessageType,
-  NetworkError,
-  PlayerId,
-  PlayerName,
-  ServerService,
-  ServerServiceDefault,
-  WorldId,
-  encodeNetworkMessage,
-  type NetworkMessage,
-} from '@ts-minecraft/network'
+import { ClientService, ClientServiceDefault } from '../application/client-service'
+import { encodeNetworkMessage } from '../application/codec'
+import { NetworkError } from '../domain/errors'
+import { MessageType, PlayerId, PlayerName, WorldId, type NetworkMessage } from '../domain/schemas'
+import { ServerService, ServerServiceDefault } from '../application/server-service'
 
 const takeFromClient = (stream: Stream.Stream<NetworkMessage, never, never>): Effect.Effect<NetworkMessage, never> =>
   Effect.gen(function* () {

@@ -1,68 +1,11 @@
 import { describe, it } from '@effect/vitest'
-import { Effect, Layer, Option } from 'effect'
+import { Effect } from 'effect'
 import { expect, vi } from 'vitest'
 import { CrosshairService, DomOperationsService } from '@ts-minecraft/presentation/hud/crosshair'
+import { createMockDomLayer } from './crosshair-test-utils'
 
 describe('CrosshairService', () => {
   describe('with mocked DOM', () => {
-    const createMockDomLayer = () => {
-      const appendChildMock = vi.fn()
-      const removeChildMock = vi.fn()
-      const createElementMock = vi.fn()
-      const getParentNodeMock = vi.fn()
-      const createdElements: Array<{ id: string; style: { cssText: string }; children: unknown[]; parentNode: unknown | null }> = []
-
-      createElementMock.mockImplementation((_tagName: string) => {
-        const element = {
-          id: '',
-          style: { cssText: '' },
-          children: [] as unknown[],
-          parentNode: null as unknown | null,
-          appendChild: vi.fn((child: unknown) => {
-            ;(element as { children: unknown[] }).children.push(child)
-            return child
-          }),
-        }
-        createdElements.push(element as typeof createdElements[0])
-        return element
-      })
-
-      appendChildMock.mockImplementation((element: unknown) => {
-        ;(element as { parentNode: unknown | null }).parentNode = 'body'
-        return element
-      })
-
-      removeChildMock.mockImplementation((element: unknown) => {
-        ;(element as { parentNode: unknown | null }).parentNode = null
-        return element
-      })
-
-      getParentNodeMock.mockImplementation((element: unknown) => {
-        return Option.fromNullable((element as { parentNode: HTMLElement | null }).parentNode)
-      })
-
-      const MockDomLayer = Layer.succeed(
-        DomOperationsService,
-        {
-          createElement: createElementMock,
-          appendChild: appendChildMock,
-          removeChild: removeChildMock,
-          getParentNode: getParentNodeMock,
-        } as DomOperationsService
-      )
-
-      const TestLayer = CrosshairService.Default.pipe(Layer.provide(MockDomLayer))
-
-      return {
-        TestLayer,
-        appendChildMock,
-        removeChildMock,
-        createElementMock,
-        getParentNodeMock,
-        getCreatedElements: () => createdElements,
-      }
-    }
-
     describe('integration', () => {
       it.effect('should handle show -> hide -> show cycle correctly', () => {
         const { TestLayer, appendChildMock, removeChildMock } = createMockDomLayer()
@@ -121,12 +64,16 @@ describe('CrosshairService', () => {
 
   describe('DomOperationsService', () => {
     it('should create a valid mock layer', () => {
-      const mockDom = {
+      const mockDom = DomOperationsService.of({
+        _tag: '@minecraft/presentation/DomOperations' as const,
         createElement: vi.fn(),
         appendChild: vi.fn(),
         removeChild: vi.fn(),
         getParentNode: vi.fn(),
-      } as DomOperationsService
+        appendChildTo: vi.fn(),
+        setInnerHTML: vi.fn(),
+        querySelector: vi.fn(),
+      })
 
       expect(mockDom).toBeDefined()
     })

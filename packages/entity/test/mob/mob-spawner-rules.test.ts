@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { canSpawnAtPosition } from '../../application/mob/mob-spawner-rules'
-import { MAX_SPAWN_DISTANCE, MIN_SPAWN_DISTANCE, DESPAWN_DISTANCE } from '@ts-minecraft/entity'
+import { DESPAWN_DISTANCE, MAX_SPAWN_DISTANCE, MIN_SPAWN_DISTANCE } from '@ts-minecraft/entity/domain/mob/spawner-config';
 
 describe('mob-spawner-rules', () => {
   const playerPosition = { x: 0, y: 64, z: 0 }

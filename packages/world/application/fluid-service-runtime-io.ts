@@ -2,8 +2,8 @@ import { Effect, HashMap, Ref } from "effect";
 import {
   chunkCoordsForPosition,
   enqueue,
-} from "@ts-minecraft/block";
-import type { FluidCell, FluidState, FluidType } from "@ts-minecraft/block";
+} from "@ts-minecraft/block/domain/fluid-position-utils";
+import type { FluidCell, FluidState, FluidType } from "@ts-minecraft/block/domain/fluid-model";
 import { ChunkCacheKey, type Position } from "@ts-minecraft/core";
 import type { BlockType } from "@ts-minecraft/core";
 import {

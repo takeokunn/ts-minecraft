@@ -3,7 +3,7 @@ import { expect } from 'vitest'
 import { Option } from 'effect'
 
 import { buildSessionRuntimeServices } from '@ts-minecraft/app/main/session-bootstrap-runtime-services'
-import type { SessionBootstrapServices } from '@ts-minecraft/app/main/session-bootstrap-types'
+import type { SessionBootstrapServices } from '@ts-minecraft/app/main/session-bootstrap-types/services'
 
 const makeService = (id: string) => ({ id } as never)
 
@@ -44,8 +44,11 @@ describe('session-bootstrap-runtime-services', () => {
       hungerService: makeService('hunger'),
       xpService: makeService('xp'),
       fishingService: makeService('fishing'),
+      droppedItemService: makeService('dropped-item'),
+      droppedXpOrbService: makeService('dropped-xp-orb'),
       worldRendererService: makeService('world-renderer'),
       entityRenderer: makeService('entity-renderer'),
+      droppedItemRenderer: makeService('dropped-item-renderer'),
       chunkMeshService: makeService('chunk-mesh'),
       particleSystem: makeService('particle-system'),
       entityManager: makeService('entity-manager'),
@@ -77,6 +80,7 @@ describe('session-bootstrap-runtime-services', () => {
     expect(runtimeServices.soundManager).toBe(soundManager)
     expect(runtimeServices.musicManager).toBe(musicManager)
     expect(runtimeServices.perfHud).toBe(perfHud)
+    expect(runtimeServices.biomeService).toBe(services.biomeService)
     expect(Option.isNone(runtimeServices.multiplayer)).toBe(true)
   })
 })

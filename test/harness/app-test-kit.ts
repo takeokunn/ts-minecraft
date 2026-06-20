@@ -4,7 +4,7 @@ import {
   DEBUG_FEATURE_FLAG_DEFAULTS,
   type DebugFeatureFlagGroup,
   type DebugFeatureFlagId,
-} from '@ts-minecraft/app/debug-feature-flags'
+} from '@ts-minecraft/app/application/debug-feature-flags'
 import type { OverlayState } from './shared-test-kit'
 
 /** Creates an inventory renderer fake backed by mutable overlay state. */
@@ -152,7 +152,7 @@ export const makeDebugFeatureFlags = () => {
       debugFlagsState.current = { ...DEBUG_FEATURE_FLAG_DEFAULTS }
     }),
     resetGroup: resetDebugFeatureGroup,
-  } as unknown as InstanceType<typeof import('@ts-minecraft/app/debug-feature-flags').DebugFeatureFlagsService>
+  } as unknown as InstanceType<typeof import('@ts-minecraft/app/application/debug-feature-flags').DebugFeatureFlagsService>
 }
 
 /** Creates an FPS counter fake pinned to 60 FPS and zero frames. */

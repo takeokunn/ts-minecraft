@@ -1,12 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import {
-  accrueHazardTicks,
-  isSuffocatingBlock,
-  nextAirSecs,
-  MAX_AIR_SECS,
-  LAVA_DAMAGE_INTERVAL_SECS,
-  VOID_DAMAGE_Y,
-} from '@ts-minecraft/entity'
+import { FIRE_DAMAGE, FIRE_DAMAGE_INTERVAL_SECS, LAVA_BURN_DURATION_SECS, LAVA_DAMAGE_INTERVAL_SECS, LIGHTNING_DAMAGE, LIGHTNING_DAMAGE_INTERVAL_SECS, MAX_AIR_SECS, VOID_DAMAGE_Y } from '@ts-minecraft/entity/domain/environment-hazard.config'
+import { accrueHazardTicks, isSuffocatingBlock, nextAirSecs } from '@ts-minecraft/entity/domain/environment-hazard-resolution'
 
 describe('accrueHazardTicks', () => {
   it('emits no tick until the interval elapses', () => {
@@ -65,6 +59,9 @@ describe('isSuffocatingBlock', () => {
     expect(isSuffocatingBlock('DOOR_OPEN')).toBe(false)
     expect(isSuffocatingBlock('LADDER')).toBe(false)
     expect(isSuffocatingBlock('COBWEB')).toBe(false)
+    expect(isSuffocatingBlock('PRESSURE_PLATE')).toBe(false)
+    expect(isSuffocatingBlock('STONE_SLAB')).toBe(false)
+    expect(isSuffocatingBlock('OAK_STAIRS')).toBe(false)
     expect(isSuffocatingBlock('SAPLING')).toBe(false)
     expect(isSuffocatingBlock('DANDELION')).toBe(false)
     expect(isSuffocatingBlock('POPPY')).toBe(false)
@@ -72,6 +69,7 @@ describe('isSuffocatingBlock', () => {
     expect(isSuffocatingBlock('RED_MUSHROOM')).toBe(false)
     expect(isSuffocatingBlock('TALL_GRASS')).toBe(false)
     expect(isSuffocatingBlock('FERN')).toBe(false)
+    expect(isSuffocatingBlock('CACTUS')).toBe(false)
   })
 
   it('treats full solid blocks as suffocating', () => {
@@ -84,5 +82,20 @@ describe('isSuffocatingBlock', () => {
 describe('void damage constants', () => {
   it('uses the vanilla-style below-world threshold', () => {
     expect(VOID_DAMAGE_Y).toBe(-64)
+  })
+})
+
+describe('lava afterburn constants', () => {
+  it('uses a short post-lava burn window with one-second fire ticks', () => {
+    expect(LAVA_BURN_DURATION_SECS).toBe(8)
+    expect(FIRE_DAMAGE).toBe(1)
+    expect(FIRE_DAMAGE_INTERVAL_SECS).toBe(1)
+  })
+})
+
+describe('lightning damage constants', () => {
+  it('uses vanilla direct-strike damage with one-second cadence', () => {
+    expect(LIGHTNING_DAMAGE).toBe(5)
+    expect(LIGHTNING_DAMAGE_INTERVAL_SECS).toBe(1)
   })
 })

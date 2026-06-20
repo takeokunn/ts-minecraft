@@ -15,6 +15,10 @@ import {
 describe('pickaxe tier harvestable blocks', () => {
   it('wooden tier includes basic stone and coal ore', () => {
     expect(HashSet.has(WOODEN_PICKAXE_HARVESTABLE_BLOCKS, 'STONE')).toBe(true)
+    expect(HashSet.has(WOODEN_PICKAXE_HARVESTABLE_BLOCKS, 'PRESSURE_PLATE')).toBe(true)
+    expect(HashSet.has(WOODEN_PICKAXE_HARVESTABLE_BLOCKS, 'STONE_SLAB')).toBe(true)
+    expect(HashSet.has(WOODEN_PICKAXE_HARVESTABLE_BLOCKS, 'ANVIL')).toBe(true)
+    expect(HashSet.has(WOODEN_PICKAXE_HARVESTABLE_BLOCKS, 'CAULDRON')).toBe(true)
     expect(HashSet.has(WOODEN_PICKAXE_HARVESTABLE_BLOCKS, 'COAL_ORE')).toBe(true)
     expect(HashSet.has(WOODEN_PICKAXE_HARVESTABLE_BLOCKS, 'DEEPSLATE_COAL_ORE')).toBe(true)
   })

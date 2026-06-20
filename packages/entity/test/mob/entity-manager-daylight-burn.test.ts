@@ -1,6 +1,6 @@
 import { HashMap, Option } from 'effect'
 import { DeltaTimeSecs } from '@ts-minecraft/core'
-import { EntityId, EntityType } from '@ts-minecraft/entity'
+import { EntityId, EntityType } from '@ts-minecraft/entity/domain/mob/entity';
 import { describe, expect, it as plainIt } from 'vitest'
 import { advanceDaylightBurnCadence, pruneBurnKilledEntities } from '../../application/mob/entity-manager-daylight-burn'
 import { type ManagedEntity } from '../../domain/mob/entity-internal'

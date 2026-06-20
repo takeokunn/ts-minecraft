@@ -91,6 +91,12 @@ describe('infrastructure/three/textures/block-texture-map', () => {
         { blockType: 'CACTUS', expectedTileIndex: 110 },
         { blockType: 'LILY_PAD', expectedTileIndex: 111 },
         { blockType: 'ICE', expectedTileIndex: 112 },
+        { blockType: 'PRESSURE_PLATE', expectedTileIndex: 1 },
+        { blockType: 'STONE_SLAB', expectedTileIndex: 1 },
+        { blockType: 'OAK_STAIRS', expectedTileIndex: 41 },
+        { blockType: 'ANVIL', expectedTileIndex: 35 },
+        { blockType: 'CAULDRON', expectedTileIndex: 35 },
+        { blockType: 'FIRE', expectedTileIndex: 18 },
       ]
 
       Arr.forEach(cases, ({ blockType, expectedTileIndex }) => {

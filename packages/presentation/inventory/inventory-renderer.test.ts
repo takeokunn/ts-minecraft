@@ -2,7 +2,7 @@ import { describe, it } from '@effect/vitest'
 import { Array as Arr, Effect, Option } from 'effect'
 import { expect } from 'vitest'
 import { InventoryRendererService } from '@ts-minecraft/presentation/inventory/inventory-renderer'
-import { INVENTORY_SIZE } from '@ts-minecraft/inventory'
+import { INVENTORY_SIZE } from '@ts-minecraft/inventory/application/inventory-service'
 import {
   buildTestLayer,
   createMockDomLayer,

@@ -25,7 +25,7 @@ const metadata = {
   playerState: {
     position: { x: 1, y: 64, z: 2 },
     health: 20,
-    inventory: { slots: [Option.some({ slot: 0, itemType: 'WOOD', count: 3 }), Option.none()] },
+    inventory: { slots: [Option.some({ slot: 0, itemType: 'WOOD', count: 3, durability: null }), Option.none()] },
     timeOfDay: 0.5,
     hunger: { foodLevel: 20, saturation: 5 },
     totalXP: 7,
@@ -71,7 +71,7 @@ describe('storage/WorldMetadata encode↔decode round-trip (real persistence pat
     expect(f.progressSecs).toBe(0.5)
 
     // Inventory shares the same OptionFromNullOr pattern — verify it too.
-    expect(loaded.playerState!.inventory.slots[0]).toEqual(Option.some({ slot: 0, itemType: 'WOOD', count: 3 }))
+    expect(loaded.playerState!.inventory.slots[0]).toEqual(Option.some({ slot: 0, itemType: 'WOOD', count: 3, durability: null }))
     expect(loaded.playerState!.inventory.slots[1]).toEqual(Option.none())
   })
 

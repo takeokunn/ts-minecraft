@@ -1,8 +1,9 @@
 import { describe, it, expect } from 'vitest'
 import { Option } from 'effect'
 import { CHUNK_HEIGHT } from '@ts-minecraft/core'
-import { createLightBuffer, setLightAt } from '@ts-minecraft/block'
-import { resolveMobSpawnPosition, MOB_HALF_HEIGHT, HOSTILE_SPAWN_MAX_BLOCK_LIGHT } from '@ts-minecraft/entity'
+import { createLightBuffer, setLightAt } from '@ts-minecraft/block/domain/light'
+import { HOSTILE_SPAWN_MAX_BLOCK_LIGHT, MOB_HALF_HEIGHT } from '@ts-minecraft/entity/domain/mob/spawner-config';
+import { resolveMobSpawnPosition } from '@ts-minecraft/entity/domain/mob/terrain-spawn';
 import { expectSome, makeTerrainChunk } from './test-utils'
 
 // ─── helpers ──────────────────────────────────────────────────────────────────

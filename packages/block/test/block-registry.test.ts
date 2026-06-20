@@ -2,7 +2,8 @@ import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
 import { Array as Arr, Effect, Option } from 'effect'
 import { BlockId } from '@ts-minecraft/core'
-import { Block, BlockRegistry } from '@ts-minecraft/block'
+import { Block } from '@ts-minecraft/block/domain/block'
+import { BlockRegistry } from '@ts-minecraft/block/application/block-registry'
 
 // ---------------------------------------------------------------------------
 // Helpers

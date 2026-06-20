@@ -1,4 +1,4 @@
-import type { DebugFeatureFlags } from '@ts-minecraft/app/debug-feature-flags'
+import type { DebugFeatureFlags } from '@ts-minecraft/app/application/debug-feature-flags.config'
 import type { GameDifficulty } from '@ts-minecraft/game'
 import type { DeltaTimeSecs, Position } from '@ts-minecraft/core'
 

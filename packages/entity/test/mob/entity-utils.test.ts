@@ -1,9 +1,10 @@
 import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
 import { Array as Arr } from 'effect'
-import { EntityId } from '@ts-minecraft/entity'
-import { hashEntityId, makeWanderDirection, toPublicEntity, BABY_GROW_TICKS } from '@ts-minecraft/entity'
-import { AIState } from '@ts-minecraft/entity'
+import { EntityId } from '@ts-minecraft/entity/domain/mob/entity';
+import { BABY_GROW_TICKS } from '@ts-minecraft/entity/domain/mob/breeding';
+import { hashEntityId, makeWanderDirection, toPublicEntity } from '@ts-minecraft/entity/domain/mob/entity-utils';
+import { AIState } from '@ts-minecraft/entity/domain/mob/state-machine';
 import { makeWanderDirectionFromHash, computeEndermanTeleportPosition } from '../../domain/mob/entity-utils'
 import type { ManagedEntity } from '../../domain/mob/entity-internal'
 

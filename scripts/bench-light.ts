@@ -3,7 +3,7 @@
 import { performance } from 'node:perf_hooks'
 import { blockTypeToIndex, CHUNK_SIZE, CHUNK_HEIGHT } from '@ts-minecraft/core'
 import { chunkBlockIndexUnchecked } from '@ts-minecraft/world'
-import { computeSkyLight, computeBlockLight, createLightBuffer } from '@ts-minecraft/block'
+import { computeSkyLight, computeBlockLight, createLightBuffer } from '@ts-minecraft/block/domain/light'
 
 const STONE = blockTypeToIndex('STONE')
 const GRASS = blockTypeToIndex('GRASS')

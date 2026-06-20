@@ -1,6 +1,6 @@
 import { Effect } from 'effect'
 import { CrosshairService } from '@ts-minecraft/presentation'
-import { DebugFeatureFlagsService } from '@ts-minecraft/app/debug-feature-flags'
+import { DebugFeatureFlagsService } from '@ts-minecraft/app/application/debug-feature-flags'
 import { DebugOverlayService } from '@ts-minecraft/presentation'
 import { LoadingScreenService } from '@ts-minecraft/presentation'
 import { BlockHighlightService } from '@ts-minecraft/presentation'

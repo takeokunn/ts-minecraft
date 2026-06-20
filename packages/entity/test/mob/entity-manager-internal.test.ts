@@ -1,6 +1,6 @@
 import { describe, expect } from 'vitest'
 import { Effect, HashMap, Option, Ref } from 'effect'
-import { EntityId, EntityType, type Entity } from '@ts-minecraft/entity'
+import { EntityId, EntityType } from '@ts-minecraft/entity/domain/mob/entity';
 import { CREEPER_EXPLOSION_POWER } from '../../domain/explosion'
 import { CREEPER_FUSE_SECONDS } from '../../domain/mob/creeper-fuse'
 import { itEntityManagerInternalEffect, makeTestManagedEntity } from './test-utils'

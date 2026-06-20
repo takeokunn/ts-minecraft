@@ -1,6 +1,6 @@
 import { Array as Arr, HashMap, Option } from 'effect'
 import type { InventoryItem } from '@ts-minecraft/core'
-import type { InventorySlot } from '@ts-minecraft/inventory'
+import type { InventorySlot } from '@ts-minecraft/inventory/application/inventory-service'
 import { SLOT_COLORS, DEFAULT_SLOT_COLOR, getTileImageUrl } from './inventory-renderer.config'
 
 /* c8 ignore next 2 */

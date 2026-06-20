@@ -2,26 +2,27 @@ import { Effect, HashMap, MutableRef, Option, Schema } from 'effect'
 import { aabbFromVoxel } from '@ts-minecraft/world'
 import { CHUNK_SIZE, BlockTypeSchema, ItemTypeSchema } from '@ts-minecraft/core'
 import type { BlockType, Position } from '@ts-minecraft/core'
-import { selectEnchantment, enchantXPCost, enchantItem } from '@ts-minecraft/inventory'
-import type { FrameStageRefs } from '@ts-minecraft/app/frame/types'
+import { RedstoneComponentType } from '@ts-minecraft/entity/domain/redstone/redstone-model'
+import { selectEnchantment } from '@ts-minecraft/inventory/domain/enchantment-applicability'
+import { enchantXPCost } from '@ts-minecraft/inventory/domain/enchantment'
+import { enchantItem } from '@ts-minecraft/inventory/domain/item-stack'
+import { TNT_EXPLOSION_POWER } from '@ts-minecraft/entity/domain/explosion'
+import type { FrameStageRefs } from '@ts-minecraft/app/application/frame/types/stage-refs'
 import type { TargetRayHit } from '@ts-minecraft/app/frame/stages/interaction-types'
-import type {
-  FrameBedInteractionServices,
-  FrameDoorInteractionServices,
-  FrameEnchantingTableInteractionServices,
-  FrameRightClickInteractionServices,
-} from '@ts-minecraft/app/frame/frame-interaction-service-types'
+import type { FrameBedInteractionServices } from '@ts-minecraft/app/frame/frame-interaction-service-types/bed'
+import type { FrameDoorInteractionServices } from '@ts-minecraft/app/frame/frame-interaction-service-types/door'
+import type { FrameEnchantingTableInteractionServices } from '@ts-minecraft/app/frame/frame-interaction-service-types/enchanting-table'
+import type { FrameRightClickInteractionServices } from '@ts-minecraft/app/frame/frame-interaction-service-types/right-click'
 import { markChunkDirtyAt, readBlockTypeAt } from './interaction-block-access'
-import { adjacentToHit, buildTntBreakPositions } from './placement-geometry'
+import { adjacentToHit, buildExplosionBreakPositions } from './placement-geometry'
 import { resolveRightClickTargetRoute } from './interaction-right-click-target-routing'
 import { selectedHotbarSlotIndex } from './selected-hotbar-slot'
+import { applyExplosionPlayerDamage } from './interaction-flint-steel-tnt'
 
-export { adjacentToHit, buildTntBreakPositions }
-export { handleBucket } from './interaction-bucket-handler/bucket-handler'
-export { handleFlintAndSteel } from './interaction-flint-steel-handler'
+const BED_EXPLOSION_BREAK_RADIUS = 4
 
 // Right-clicking a BED block at night skips to dawn and sets the player's spawn point.
-// In the nether, sleeping causes an explosion in vanilla; here we just do nothing (safe mode).
+// In the nether, sleeping detonates the bed instead of setting a spawn point.
 export const handleBed = (
   services: FrameBedInteractionServices,
   respawnPositionRef: MutableRef.MutableRef<Position>,
@@ -29,7 +30,14 @@ export const handleBed = (
 ): Effect.Effect<boolean> =>
   Effect.gen(function* () {
     const dimension = yield* services.netherService.getDimension()
-    if (dimension === 'nether') return false    // beds explode in nether; skip safely
+    if (dimension === 'nether') {
+      yield* services.soundManager.playEffect('blockBreak', { position: bedPos })
+      for (const pos of buildExplosionBreakPositions(bedPos, BED_EXPLOSION_BREAK_RADIUS)) {
+        yield* services.blockService.forceSetBlock(pos, 'AIR').pipe(Effect.catchAll(() => Effect.void))
+      }
+      yield* applyExplosionPlayerDamage(services, bedPos, TNT_EXPLOSION_POWER)
+      return true
+    }
     const isNight = yield* services.timeService.isNight()
     if (!isNight) return false
     yield* services.timeService.setTimeOfDay(0.25)            // skip to dawn
@@ -66,7 +74,7 @@ export const handleDoor = (
 
 // Right-clicking an ENCHANTING_TABLE enchants the held item using the player's XP.
 // Deterministic: same item + same XP level → same enchantment every time.
-// Consumes enchLevel XP levels. No lapis cost (simplified vs vanilla).
+// Consumes the selected enchantment cost in XP levels and lapis lazuli.
 const handleEnchantingTable = (
   services: FrameEnchantingTableInteractionServices,
   tablePos: { readonly x: number; readonly y: number; readonly z: number },
@@ -82,6 +90,11 @@ const handleEnchantingTable = (
     const enchantment = Option.getOrNull(selectEnchantment(stack.itemType, xp.level))
     if (enchantment === null) return
     const cost = enchantXPCost(enchantment.level)
+    const paidLapis = yield* services.inventoryService.removeBlock('LAPIS_LAZULI', cost).pipe(
+      Effect.as(true),
+      Effect.catchAll(() => Effect.succeed(false)),
+    )
+    if (!paidLapis) return
     const enchanted = enchantItem(stack, enchantment)
     yield* services.inventoryService.setSlot(slotIndex, Option.some(enchanted))
     yield* services.xpService.spendLevels(cost)
@@ -145,6 +158,9 @@ export const handleRightClick = (
       item,
       selectedHotbarSlotIndex(selectedSlot),
     )
+    if (item === 'PRESSURE_PLATE') {
+      yield* services.redstoneService.setComponent(adjacentPos, RedstoneComponentType.PressurePlate)
+    }
     yield* services.soundManager.playEffect('blockPlace', { position: adjacentPos })
     // FR-3: broadcast the placement to other players (no-op offline).
     yield* (Option.getOrNull(services.multiplayer)?.sendBlockPlace(adjacentPos, item)) ?? Effect.void

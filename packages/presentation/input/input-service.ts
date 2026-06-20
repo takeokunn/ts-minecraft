@@ -1,8 +1,9 @@
 import { Effect, Layer, Option, HashMap, HashSet, Schema, MutableRef } from 'effect'
-import { PlayerInputService } from '@ts-minecraft/entity'
-import type { MouseDelta } from '@ts-minecraft/entity'
-export type { MouseDelta } from '@ts-minecraft/entity'
-export { MouseDeltaSchema } from '@ts-minecraft/entity'
+import { KeyMappings } from '@ts-minecraft/entity/domain/key-mappings'
+import { PlayerInputService, type MouseDelta } from '@ts-minecraft/entity/application/player-input-service'
+
+export type { MouseDelta } from '@ts-minecraft/entity/application/player-input-service'
+export { MouseDeltaSchema } from '@ts-minecraft/entity/application/player-input-service'
 
 export const MouseButtonSchema = Schema.Literal(0, 1, 2)
 export type MouseButton = Schema.Schema.Type<typeof MouseButtonSchema>
@@ -18,18 +19,18 @@ const GAMEPAD_LOOK_SENSITIVITY = 14
 const GAMEPAD_WHEEL_STEP = 120
 
 const GAMEPAD_KEY_BINDINGS = {
-  forward: 'KeyW',
-  backward: 'KeyS',
-  left: 'KeyA',
-  right: 'KeyD',
-  jump: 'Space',
-  sneak: 'ShiftLeft',
-  sprint: 'ControlLeft',
-  inventory: 'KeyE',
-  drop: 'KeyQ',
-  menu: 'Escape',
-  hud: 'F1',
-  camera: 'F5',
+  forward: KeyMappings.MOVE_FORWARD,
+  backward: KeyMappings.MOVE_BACKWARD,
+  left: KeyMappings.MOVE_LEFT,
+  right: KeyMappings.MOVE_RIGHT,
+  jump: KeyMappings.JUMP,
+  sneak: KeyMappings.SNEAK,
+  sprint: KeyMappings.SPRINT,
+  inventory: KeyMappings.INVENTORY_OPEN,
+  drop: KeyMappings.DROP_ITEM,
+  menu: KeyMappings.ESCAPE,
+  hud: KeyMappings.HUD_TOGGLE,
+  camera: KeyMappings.CAMERA_TOGGLE,
 } as const
 
 const normalizeAxis = (value: number, deadzone: number): number => {
@@ -181,13 +182,10 @@ export class InputService extends Effect.Service<InputService>()(
         MutableRef.set(gamepadPreviousWheelButtonsRef, cloneSet(wheelButtons))
       }
 
-      // Keys whose browser default action interferes with gameplay: arrows and
-      // PageUp/Down scroll the page; Space scrolls AND activates a focused button
-      // (e.g. the menu button just clicked to start the world) — which silently
-      // eats the jump. We preventDefault these during play, but NOT while a text
-      // field is focused (world-name entry still needs space/arrows).
+      // Keys whose browser default action interferes with gameplay. Keep
+      // editable targets untouched so menu/forms preserve normal typing behavior.
       const GAME_DEFAULT_BLOCKED = new Set([
-        'Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'PageUp', 'PageDown',
+        'Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'PageUp', 'PageDown', 'F1', 'F11',
       ])
       const isEditableTarget = (target: EventTarget | null): boolean => {
         const el = target as HTMLElement | null
@@ -195,10 +193,14 @@ export class InputService extends Effect.Service<InputService>()(
         const tag = el.tagName
         return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || el.isContentEditable === true
       }
+      const isBrowserShortcutBlocked = (event: KeyboardEvent): boolean =>
+        event.code === 'KeyW' && (event.ctrlKey || event.metaKey)
+      const shouldPreventGameDefault = (event: KeyboardEvent): boolean =>
+        !isEditableTarget(event.target) && (GAME_DEFAULT_BLOCKED.has(event.code) || isBrowserShortcutBlocked(event))
 
       // Keyboard event handlers
       const handleKeyDown = (event: KeyboardEvent) => {
-        if (GAME_DEFAULT_BLOCKED.has(event.code) && !isEditableTarget(event.target)) {
+        if (shouldPreventGameDefault(event)) {
           event.preventDefault()
         }
         if (!event.repeat) {

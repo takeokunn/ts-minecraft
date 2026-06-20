@@ -32,6 +32,7 @@ export const makeEntityManagerUpdateWithBreeding = (
       playerLookDirection?: Vector3,
       playerLookOrigin: Position = playerPosition,
       playerLookBlocked?: (position: Position) => boolean,
+      daylightBurnProtected: boolean = false,
     ) =>
       Effect.gen(function* () {
         yield* updateModule.update(
@@ -41,6 +42,7 @@ export const makeEntityManagerUpdateWithBreeding = (
           playerLookDirection,
           playerLookOrigin,
           playerLookBlocked,
+          daylightBurnProtected,
         )
         yield* runBreedingUpdate(entitiesRef, birthsRef, cachedEntitiesRef, addEntity)
       }),

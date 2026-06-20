@@ -1,13 +1,24 @@
 import { describe, it } from '@effect/vitest'
 import { Effect, HashMap, MutableRef, Option } from 'effect'
 import { expect, vi } from 'vitest'
-import { CHUNK_SIZE, CHUNK_HEIGHT, blockTypeToIndex } from '@ts-minecraft/core'
-import type { BlockType } from '@ts-minecraft/core'
-import { buildPlayerXP, computeExplosionDamageAt, EXHAUSTION_DAMAGE, TNT_EXPLOSION_POWER } from '@ts-minecraft/entity'
-import { createStack, enchantmentsOf, type ItemStack } from '@ts-minecraft/inventory'
+import { CHUNK_SIZE, CHUNK_HEIGHT, SlotIndex, blockTypeToIndex } from '@ts-minecraft/core'
+import type { BlockType, InventoryItem } from '@ts-minecraft/core'
+import { buildPlayerXP } from '@ts-minecraft/entity/domain/player-xp-calc'
+import { TNT_EXPLOSION_POWER } from '@ts-minecraft/entity/domain/explosion'
+import { computeExplosionDamageAt } from '@ts-minecraft/entity/domain/explosion-resolution'
+import { EXHAUSTION_DAMAGE } from '@ts-minecraft/entity/application/hunger-service.config'
+import { createStack, enchantmentsOf, type ItemStack } from '@ts-minecraft/inventory/domain/item-stack'
 import type { Chunk } from '@ts-minecraft/world'
-import { handleFlintAndSteel, handleBucket, handleBed, handleDoor, handleRightClick } from '@ts-minecraft/app/frame/stages/interaction-placement-handler'
+import { handleBed, handleDoor, handleRightClick } from '@ts-minecraft/app/frame/stages/interaction-placement-handler'
+import { handleBucket } from '@ts-minecraft/app/frame/stages/interaction-bucket-handler/bucket-handler'
+import { handleFlintAndSteel } from '@ts-minecraft/app/frame/stages/interaction-flint-steel-handler'
+import { selectedHotbarSlotIndex } from '@ts-minecraft/app/frame/stages/selected-hotbar-slot'
 import type { TargetRayHit } from '@ts-minecraft/app/frame/stages/interaction-types'
+import type { FrameBedInteractionServices } from '@ts-minecraft/app/application/frame/frame-interaction-service-types/bed'
+import type { FrameBucketInteractionServices } from '@ts-minecraft/app/application/frame/frame-interaction-service-types/bucket'
+import type { FrameDoorInteractionServices } from '@ts-minecraft/app/application/frame/frame-interaction-service-types/door'
+import type { FrameFlintAndSteelInteractionServices } from '@ts-minecraft/app/application/frame/frame-interaction-service-types/flint-and-steel'
+import type { FrameRightClickInteractionServices } from '@ts-minecraft/app/application/frame/frame-interaction-service-types/right-click'
 
 // ---------------------------------------------------------------------------
 // helpers
@@ -61,26 +72,65 @@ const makePortalHit = (): TargetRayHit => ({
 const makeServices = (opts: {
   forceSetBlockSpy?: ReturnType<typeof vi.fn>
   registerPortalSpy?: ReturnType<typeof vi.fn>
+  damageSlotSpy?: ReturnType<typeof vi.fn>
+  getSelectedSlotSpy?: ReturnType<typeof vi.fn>
   getChunkFn?: (coord: { x: number; z: number }) => Effect.Effect<Chunk, Error>
 } = {}) => {
   const forceSetBlockSpy = opts.forceSetBlockSpy ?? vi.fn(() => Effect.void)
   const registerPortalSpy = opts.registerPortalSpy ?? vi.fn(() => Effect.void)
+  const damageSlotSpy = opts.damageSlotSpy ?? vi.fn(() => Effect.void)
+  const getSelectedSlotSpy = opts.getSelectedSlotSpy ?? vi.fn(() => Effect.succeed(SlotIndex.make(2)))
   return {
     blockService: { forceSetBlock: forceSetBlockSpy },
     chunkManagerService: {
       getChunk: opts.getChunkFn ?? ((_coord) => Effect.succeed(makeEmptyChunk(0, 0))),
     },
+    gameState: {
+      getPlayerPosition: vi.fn(() => Effect.succeed({ x: 0, y: 64, z: 0 })),
+    },
+    gameMode: {
+      isSpectator: vi.fn(() => Effect.succeed(false)),
+    },
     netherService: { registerPortal: registerPortalSpy },
+    hotbarService: { getSelectedSlot: getSelectedSlotSpy },
+    inventoryService: { damageSlot: damageSlotSpy },
+    healthService: {
+      getHealth: vi.fn(() => Effect.succeed({ current: 20, max: 20, invincibilityTicks: 0 })),
+      applyDamage: vi.fn(() => Effect.void),
+    },
+    hungerService: {
+      addExhaustion: vi.fn(() => Effect.void),
+    },
+    equipmentService: {
+      getTotalArmorPoints: vi.fn(() => Effect.succeed(0)),
+      getTotalProtectionReduction: vi.fn(() => Effect.succeed(0)),
+      getTotalBlastProtectionReduction: vi.fn(() => Effect.succeed(0)),
+    },
     soundManager: { playEffect: vi.fn(() => Effect.void) },
     _forceSetBlockSpy: forceSetBlockSpy,
     _registerPortalSpy: registerPortalSpy,
-  } as unknown as {
+    _damageSlotSpy: damageSlotSpy,
+    _getSelectedSlotSpy: getSelectedSlotSpy,
+  } as FrameFlintAndSteelInteractionServices & {
     blockService: { forceSetBlock: ReturnType<typeof vi.fn> }
     chunkManagerService: { getChunk: (coord: { x: number; z: number }) => Effect.Effect<Chunk, Error> }
+    gameState: { getPlayerPosition: ReturnType<typeof vi.fn> }
+    gameMode: { isSpectator: ReturnType<typeof vi.fn> }
     netherService: { registerPortal: ReturnType<typeof vi.fn> }
+    hotbarService: { getSelectedSlot: ReturnType<typeof vi.fn> }
+    inventoryService: { damageSlot: ReturnType<typeof vi.fn> }
+    healthService: { getHealth: ReturnType<typeof vi.fn>; applyDamage: ReturnType<typeof vi.fn> }
+    hungerService: { addExhaustion: ReturnType<typeof vi.fn> }
+    equipmentService: {
+      getTotalArmorPoints: ReturnType<typeof vi.fn>
+      getTotalProtectionReduction: ReturnType<typeof vi.fn>
+      getTotalBlastProtectionReduction: ReturnType<typeof vi.fn>
+    }
     soundManager: { playEffect: ReturnType<typeof vi.fn> }
     _forceSetBlockSpy: ReturnType<typeof vi.fn>
     _registerPortalSpy: ReturnType<typeof vi.fn>
+    _damageSlotSpy: ReturnType<typeof vi.fn>
+    _getSelectedSlotSpy: ReturnType<typeof vi.fn>
   }
 }
 
@@ -94,15 +144,16 @@ describe('interaction-placement-handler / handleFlintAndSteel', () => {
       const dirtyChunksRef = MutableRef.make(HashMap.empty<string, unknown>())
       const services = makeServices()
       const result = yield* handleFlintAndSteel(
-        services as never,
-        { dirtyChunksRef } as never,
+        services,
+        { dirtyChunksRef },
         { targetHit: Option.none() },
       )
       expect(result).toBe(false)
+      expect(services._damageSlotSpy).not.toHaveBeenCalled()
     }),
   )
 
-  it.effect('returns false when target is hit but no valid OBSIDIAN frame surrounds ignition', () =>
+  it.effect('places FIRE in adjacent AIR when no valid OBSIDIAN frame surrounds ignition', () =>
     Effect.gen(function* () {
       const dirtyChunksRef = MutableRef.make(HashMap.empty<string, unknown>())
       const services = makeServices({
@@ -111,11 +162,35 @@ describe('interaction-placement-handler / handleFlintAndSteel', () => {
       })
       const hit: TargetRayHit = { blockX: 10, blockY: 64, blockZ: 10, distance: 3, normal: { x: 0, y: 1, z: 0 } }
       const result = yield* handleFlintAndSteel(
-        services as never,
-        { dirtyChunksRef } as never,
+        services,
+        { dirtyChunksRef },
+        { targetHit: Option.some(hit) },
+      )
+      expect(result).toBe(true)
+      expect(services._forceSetBlockSpy).toHaveBeenCalledWith({ x: 10, y: 65, z: 10 }, 'FIRE')
+      expect(services._damageSlotSpy).toHaveBeenCalledWith(selectedHotbarSlotIndex(SlotIndex.make(2)), 1)
+      expect(services.soundManager.playEffect).toHaveBeenCalledWith('blockPlace', { position: { x: 10, y: 65, z: 10 } })
+    }),
+  )
+
+  it.effect('returns false when FIRE ignition target is occupied', () =>
+    Effect.gen(function* () {
+      const dirtyChunksRef = MutableRef.make(HashMap.empty<string, unknown>())
+      const chunk = makeEmptyChunk(0, 0)
+      setChunkBlock(chunk, 10, 64, 10, 'STONE')
+      setChunkBlock(chunk, 10, 65, 10, 'STONE')
+      const services = makeServices({
+        getChunkFn: (coord) => Effect.succeed(coord.x === 0 && coord.z === 0 ? chunk : makeEmptyChunk(coord.x, coord.z)),
+      })
+      const hit: TargetRayHit = { blockX: 10, blockY: 64, blockZ: 10, distance: 3, normal: { x: 0, y: 1, z: 0 } }
+      const result = yield* handleFlintAndSteel(
+        services,
+        { dirtyChunksRef },
         { targetHit: Option.some(hit) },
       )
       expect(result).toBe(false)
+      expect(services._forceSetBlockSpy).not.toHaveBeenCalled()
+      expect(services._damageSlotSpy).not.toHaveBeenCalled()
     }),
   )
 
@@ -136,19 +211,20 @@ describe('interaction-placement-handler / handleFlintAndSteel', () => {
       })
 
       const result = yield* handleFlintAndSteel(
-        services as never,
-        { dirtyChunksRef } as never,
+        services,
+        { dirtyChunksRef },
         { targetHit: Option.some(makePortalHit()) },
       )
 
       // 6 interior cells (2 wide × 3 tall) each receive NETHER_PORTAL
       expect(forceSetBlockSpy).toHaveBeenCalledTimes(6)
       expect(registerPortalSpy).toHaveBeenCalledOnce()
+      expect(services._damageSlotSpy).toHaveBeenCalledWith(selectedHotbarSlotIndex(SlotIndex.make(2)), 1)
       expect(result).toBe(true)
     }),
   )
 
-  it.effect('returns false when any portal-neighborhood chunk is unreadable', () =>
+  it.effect('falls back to FIRE when a portal-neighborhood chunk is unreadable but ignition cell is readable', () =>
     Effect.gen(function* () {
       const dirtyChunksRef = MutableRef.make(HashMap.empty<string, unknown>())
       const portalChunks = makePortalChunkMap()
@@ -164,14 +240,16 @@ describe('interaction-placement-handler / handleFlintAndSteel', () => {
       })
 
       const result = yield* handleFlintAndSteel(
-        services as never,
-        { dirtyChunksRef } as never,
+        services,
+        { dirtyChunksRef },
         { targetHit: Option.some(makePortalHit()) },
       )
 
-      expect(result).toBe(false)
-      expect(forceSetBlockSpy).not.toHaveBeenCalled()
+      expect(result).toBe(true)
+      expect(forceSetBlockSpy).toHaveBeenCalledOnce()
+      expect(forceSetBlockSpy).toHaveBeenCalledWith({ x: 0, y: 64, z: 0 }, 'FIRE')
       expect(registerPortalSpy).not.toHaveBeenCalled()
+      expect(services._damageSlotSpy).toHaveBeenCalledWith(selectedHotbarSlotIndex(SlotIndex.make(2)), 1)
     }),
   )
 
@@ -186,11 +264,12 @@ describe('interaction-placement-handler / handleFlintAndSteel', () => {
       })
 
       const result = yield* handleFlintAndSteel(
-        services as never,
-        { dirtyChunksRef } as never,
+        services,
+        { dirtyChunksRef },
         { targetHit: Option.some(makePortalHit()) },
       )
       expect(result).toBe(true)
+      expect(services._damageSlotSpy).toHaveBeenCalledWith(selectedHotbarSlotIndex(SlotIndex.make(2)), 1)
     }),
   )
 })
@@ -199,7 +278,18 @@ describe('interaction-placement-handler / handleFlintAndSteel', () => {
 // R26: water/lava buckets
 // ---------------------------------------------------------------------------
 
-const makeBucketServices = (heldItem: BlockType | string, targetBlock: BlockType = 'AIR') => {
+const makeBucketServices = (
+  heldItem: InventoryItem,
+  targetBlock: BlockType = 'AIR',
+): { services: FrameBucketInteractionServices; spies: {
+  removeBlock: ReturnType<typeof vi.fn>
+  addBlock: ReturnType<typeof vi.fn>
+  forceSetBlock: ReturnType<typeof vi.fn>
+  seedWater: ReturnType<typeof vi.fn>
+  seedLava: ReturnType<typeof vi.fn>
+  removeWater: ReturnType<typeof vi.fn>
+  removeLava: ReturnType<typeof vi.fn>
+} } => {
   const removeBlock = vi.fn(() => Effect.void)
   const addBlock = vi.fn(() => Effect.void)
   const forceSetBlock = vi.fn(() => Effect.void)
@@ -235,7 +325,7 @@ describe('interaction-placement-handler / handleBucket', () => {
     Effect.gen(function* () {
       const dirtyChunksRef = MutableRef.make(HashMap.empty<string, unknown>())
       const { services, spies } = makeBucketServices('BUCKET', 'WATER')
-      const result = yield* handleBucket(services as never, { dirtyChunksRef } as never, { targetHit: Option.none() })
+      const result = yield* handleBucket(services, { dirtyChunksRef }, { targetHit: Option.none() })
       expect(result).toBe(false)
       expect(spies.removeWater).not.toHaveBeenCalled()
       expect(spies.addBlock).not.toHaveBeenCalled()
@@ -246,7 +336,7 @@ describe('interaction-placement-handler / handleBucket', () => {
     Effect.gen(function* () {
       const dirtyChunksRef = MutableRef.make(HashMap.empty<string, unknown>())
       const { services } = makeBucketServices('STONE')
-      const result = yield* handleBucket(services as never, { dirtyChunksRef } as never, { targetHit: Option.some(bucketHit) })
+      const result = yield* handleBucket(services, { dirtyChunksRef }, { targetHit: Option.some(bucketHit) })
       expect(result).toBe(false)
     }),
   )
@@ -255,7 +345,7 @@ describe('interaction-placement-handler / handleBucket', () => {
     Effect.gen(function* () {
       const dirtyChunksRef = MutableRef.make(HashMap.empty<string, unknown>())
       const { services, spies } = makeBucketServices('WATER_BUCKET')
-      const result = yield* handleBucket(services as never, { dirtyChunksRef } as never, { targetHit: Option.some(bucketHit) })
+      const result = yield* handleBucket(services, { dirtyChunksRef }, { targetHit: Option.some(bucketHit) })
       expect(result).toBe(true)
       expect(spies.seedWater).toHaveBeenCalledOnce()
       expect(spies.seedLava).not.toHaveBeenCalled()
@@ -268,7 +358,7 @@ describe('interaction-placement-handler / handleBucket', () => {
     Effect.gen(function* () {
       const dirtyChunksRef = MutableRef.make(HashMap.empty<string, unknown>())
       const { services, spies } = makeBucketServices('BUCKET', 'WATER')
-      const result = yield* handleBucket(services as never, { dirtyChunksRef } as never, { targetHit: Option.some(bucketHit) })
+      const result = yield* handleBucket(services, { dirtyChunksRef }, { targetHit: Option.some(bucketHit) })
       expect(result).toBe(true)
       expect(spies.removeWater).toHaveBeenCalledOnce()
       expect(spies.removeBlock).toHaveBeenCalledWith('BUCKET', 1, expect.anything())
@@ -280,7 +370,7 @@ describe('interaction-placement-handler / handleBucket', () => {
     Effect.gen(function* () {
       const dirtyChunksRef = MutableRef.make(HashMap.empty<string, unknown>())
       const { services, spies } = makeBucketServices('BUCKET', 'LAVA')
-      const result = yield* handleBucket(services as never, { dirtyChunksRef } as never, { targetHit: Option.some(bucketHit) })
+      const result = yield* handleBucket(services, { dirtyChunksRef }, { targetHit: Option.some(bucketHit) })
       expect(result).toBe(true)
       expect(spies.removeLava).toHaveBeenCalledOnce()
       expect(spies.removeWater).not.toHaveBeenCalled()
@@ -292,7 +382,7 @@ describe('interaction-placement-handler / handleBucket', () => {
     Effect.gen(function* () {
       const dirtyChunksRef = MutableRef.make(HashMap.empty<string, unknown>())
       const { services, spies } = makeBucketServices('BUCKET', 'STONE')
-      const result = yield* handleBucket(services as never, { dirtyChunksRef } as never, { targetHit: Option.some(bucketHit) })
+      const result = yield* handleBucket(services, { dirtyChunksRef }, { targetHit: Option.some(bucketHit) })
       expect(result).toBe(false)
       expect(spies.removeWater).not.toHaveBeenCalled()
       expect(spies.addBlock).not.toHaveBeenCalled()
@@ -303,7 +393,7 @@ describe('interaction-placement-handler / handleBucket', () => {
     Effect.gen(function* () {
       const dirtyChunksRef = MutableRef.make(HashMap.empty<string, unknown>())
       const { services, spies } = makeBucketServices('LAVA_BUCKET')
-      const result = yield* handleBucket(services as never, { dirtyChunksRef } as never, { targetHit: Option.some(bucketHit) })
+      const result = yield* handleBucket(services, { dirtyChunksRef }, { targetHit: Option.some(bucketHit) })
       expect(result).toBe(true)
       expect(spies.seedLava).toHaveBeenCalledOnce()
       expect(spies.addBlock).toHaveBeenCalledWith('BUCKET', 1)
@@ -330,7 +420,7 @@ const makeDoorRightClickServices = (
     blockService: { forceSetBlock, placeBlock },
     chunkManagerService: { getChunk: () => Effect.succeed(chunk) },
     soundManager: { playEffect },
-  }
+  } as FrameDoorInteractionServices
   return { services, spies: { forceSetBlock, placeBlock, playEffect } }
 }
 
@@ -344,8 +434,8 @@ describe('interaction-placement-handler / handleRightClick doors', () => {
       const { services, spies } = makeDoorRightClickServices('DOOR')
 
       yield* handleRightClick(
-        services as never,
-        { dirtyChunksRef } as never,
+        services,
+        { dirtyChunksRef },
         { targetHit: Option.some(doorHit), respawnPositionRef },
       )
 
@@ -362,8 +452,8 @@ describe('interaction-placement-handler / handleRightClick doors', () => {
       const { services, spies } = makeDoorRightClickServices('DOOR_OPEN')
 
       yield* handleRightClick(
-        services as never,
-        { dirtyChunksRef } as never,
+        services,
+        { dirtyChunksRef },
         { targetHit: Option.some(doorHit), respawnPositionRef },
       )
 
@@ -380,8 +470,8 @@ describe('interaction-placement-handler / handleRightClick doors', () => {
       const { services, spies } = makeDoorRightClickServices('DOOR', { upperBlock: 'DOOR' })
 
       yield* handleRightClick(
-        services as never,
-        { dirtyChunksRef } as never,
+        services,
+        { dirtyChunksRef },
         { targetHit: Option.some(doorHit), respawnPositionRef },
       )
 
@@ -399,8 +489,8 @@ describe('interaction-placement-handler / handleRightClick doors', () => {
       const { services, spies } = makeDoorRightClickServices('DOOR_OPEN', { lowerBlock: 'DOOR_OPEN' })
 
       yield* handleRightClick(
-        services as never,
-        { dirtyChunksRef } as never,
+        services,
+        { dirtyChunksRef },
         { targetHit: Option.some(doorHit), respawnPositionRef },
       )
 
@@ -418,8 +508,8 @@ describe('interaction-placement-handler / handleDoor', () => {
       const dirtyChunksRef = MutableRef.make(HashMap.empty<string, unknown>())
       const { services, spies } = makeDoorRightClickServices('DOOR')
       const result = yield* handleDoor(
-        services as never,
-        { dirtyChunksRef } as never,
+        services,
+        { dirtyChunksRef },
         { x: 0, y: 64, z: 0 },
         'STONE',
       )
@@ -437,10 +527,11 @@ describe('interaction-placement-handler / handleDoor', () => {
 const makeRightClickServices = (
   targetBlock: BlockType,
   opts: {
-    readonly selectedItem?: string | null
+    readonly selectedItem?: InventoryItem | null
     readonly inventoryOpen?: boolean
     readonly xpLevel?: number
     readonly slotStack?: Option.Option<ReturnType<typeof createStack>>
+    readonly removeBlock?: ReturnType<typeof vi.fn>
     readonly multiplayer?: Option.Option<{ readonly sendBlockPlace: ReturnType<typeof vi.fn> }>
   } = {},
 ) => {
@@ -452,6 +543,7 @@ const makeRightClickServices = (
   const toggle = vi.fn(() => Effect.void)
   const placeBlock = vi.fn(() => Effect.void)
   const setSlot = vi.fn(() => Effect.void)
+  const removeBlock = opts.removeBlock ?? vi.fn(() => Effect.void)
   const spendLevels = vi.fn(() => Effect.void)
   const playEffect = vi.fn(() => Effect.void)
 
@@ -468,6 +560,9 @@ const makeRightClickServices = (
       getSelectedBlockType: () => Effect.succeed(selectedItem === null ? Option.none() : Option.some(selectedItem)),
       getSelectedSlot: () => Effect.succeed(0),
     },
+    redstoneService: {
+      setComponent: vi.fn(() => Effect.void),
+    },
     chestService: { setSelectedChest },
     furnaceService: { setSelectedFurnace },
     timeService: {
@@ -479,6 +574,7 @@ const makeRightClickServices = (
     },
     inventoryService: {
       getSlot: vi.fn(() => Effect.succeed(opts.slotStack ?? Option.none())),
+      removeBlock,
       setSlot,
     },
     inventoryRenderer: {
@@ -489,10 +585,31 @@ const makeRightClickServices = (
       getXP: () => Effect.succeed(buildPlayerXP(opts.xpLevel ?? 0)),
       spendLevels,
     },
+    gameState: {
+      getPlayerPosition: vi.fn(() => Effect.succeed({ x: 0, y: 64, z: 0 })),
+    },
+    gameMode: {
+      isSpectator: vi.fn(() => Effect.succeed(false)),
+    },
+    healthService: {
+      getHealth: vi.fn(() => Effect.succeed({ current: 20, max: 20, invincibilityTicks: 0 })),
+      applyDamage: vi.fn(() => Effect.void),
+    },
+    hungerService: {
+      addExhaustion: vi.fn(() => Effect.void),
+    },
+    equipmentService: {
+      getTotalArmorPoints: vi.fn(() => Effect.succeed(0)),
+      getTotalProtectionReduction: vi.fn(() => Effect.succeed(0)),
+      getTotalBlastProtectionReduction: vi.fn(() => Effect.succeed(0)),
+    },
     multiplayer: opts.multiplayer ?? Option.none(),
-  }
+  } as FrameRightClickInteractionServices
 
-  return { services, spies: { setSelectedChest, setSelectedFurnace, toggle, placeBlock, setSlot, spendLevels, playEffect } }
+  return {
+    services,
+    spies: { setSelectedChest, setSelectedFurnace, toggle, placeBlock, setSlot, removeBlock, spendLevels, playEffect },
+  }
 }
 
 describe('interaction-placement-handler / handleRightClick special blocks', () => {
@@ -503,8 +620,8 @@ describe('interaction-placement-handler / handleRightClick special blocks', () =
       const { services, spies } = makeRightClickServices('AIR', { selectedItem: 'STONE' })
 
       yield* handleRightClick(
-        services as never,
-        { dirtyChunksRef } as never,
+        services,
+        { dirtyChunksRef },
         { targetHit: Option.none(), respawnPositionRef },
       )
 
@@ -519,8 +636,8 @@ describe('interaction-placement-handler / handleRightClick special blocks', () =
       const { services, spies } = makeRightClickServices('FURNACE', { selectedItem: 'STONE' })
 
       yield* handleRightClick(
-        services as never,
-        { dirtyChunksRef } as never,
+        services,
+        { dirtyChunksRef },
         { targetHit: Option.some(doorHit), respawnPositionRef },
       )
 
@@ -536,8 +653,8 @@ describe('interaction-placement-handler / handleRightClick special blocks', () =
       const { services, spies } = makeRightClickServices('CHEST', { inventoryOpen: false, selectedItem: 'STONE' })
 
       yield* handleRightClick(
-        services as never,
-        { dirtyChunksRef } as never,
+        services,
+        { dirtyChunksRef },
         { targetHit: Option.some(doorHit), respawnPositionRef },
       )
 
@@ -554,8 +671,8 @@ describe('interaction-placement-handler / handleRightClick special blocks', () =
       const { services, spies } = makeRightClickServices('BED', { selectedItem: 'STONE' })
 
       yield* handleRightClick(
-        services as never,
-        { dirtyChunksRef } as never,
+        services,
+        { dirtyChunksRef },
         { targetHit: Option.some(doorHit), respawnPositionRef },
       )
 
@@ -575,8 +692,8 @@ describe('interaction-placement-handler / handleRightClick special blocks', () =
       })
 
       yield* handleRightClick(
-        services as never,
-        { dirtyChunksRef } as never,
+        services,
+        { dirtyChunksRef },
         { targetHit: Option.some(doorHit), respawnPositionRef },
       )
 
@@ -589,7 +706,31 @@ describe('interaction-placement-handler / handleRightClick special blocks', () =
       }
       expect(enchantmentsOf(Option.some(stored)).length).toBeGreaterThan(0)
       expect(spies.spendLevels).toHaveBeenCalled()
+      expect(spies.removeBlock).toHaveBeenCalledWith('LAPIS_LAZULI', spies.spendLevels.mock.calls[0]?.[0])
       expect(spies.playEffect).toHaveBeenCalledWith('enchant', { position: { x: 0, y: 64, z: 0 } })
+    }),
+  )
+
+  it.effect('does not enchant when lapis lazuli cannot be consumed', () =>
+    Effect.gen(function* () {
+      const dirtyChunksRef = MutableRef.make(HashMap.empty<string, unknown>())
+      const respawnPositionRef = MutableRef.make({ x: 0, y: 64, z: 0 })
+      const { services, spies } = makeRightClickServices('ENCHANTING_TABLE', {
+        xpLevel: 10,
+        slotStack: Option.some(createStack('IRON_SWORD')),
+        removeBlock: vi.fn(() => Effect.fail(new Error('missing lapis'))),
+      })
+
+      yield* handleRightClick(
+        services,
+        { dirtyChunksRef },
+        { targetHit: Option.some(doorHit), respawnPositionRef },
+      )
+
+      expect(spies.removeBlock).toHaveBeenCalled()
+      expect(spies.setSlot).not.toHaveBeenCalled()
+      expect(spies.spendLevels).not.toHaveBeenCalled()
+      expect(spies.playEffect).not.toHaveBeenCalledWith('enchant', { position: { x: 0, y: 64, z: 0 } })
     }),
   )
 
@@ -603,8 +744,8 @@ describe('interaction-placement-handler / handleRightClick special blocks', () =
       })
 
       yield* handleRightClick(
-        services as never,
-        { dirtyChunksRef } as never,
+        services,
+        { dirtyChunksRef },
         { targetHit: Option.some(doorHit), respawnPositionRef },
       )
 
@@ -623,8 +764,8 @@ describe('interaction-placement-handler / handleRightClick special blocks', () =
       })
 
       yield* handleRightClick(
-        services as never,
-        { dirtyChunksRef } as never,
+        services,
+        { dirtyChunksRef },
         { targetHit: Option.some(doorHit), respawnPositionRef },
       )
 
@@ -643,8 +784,8 @@ describe('interaction-placement-handler / handleRightClick special blocks', () =
       })
 
       yield* handleRightClick(
-        services as never,
-        { dirtyChunksRef } as never,
+        services,
+        { dirtyChunksRef },
         { targetHit: Option.some(doorHit), respawnPositionRef },
       )
 
@@ -660,8 +801,8 @@ describe('interaction-placement-handler / handleRightClick special blocks', () =
       const { services, spies } = makeRightClickServices('AIR', { selectedItem: 'APPLE' })
 
       yield* handleRightClick(
-        services as never,
-        { dirtyChunksRef } as never,
+        services,
+        { dirtyChunksRef },
         { targetHit: Option.some(doorHit), respawnPositionRef },
       )
 
@@ -676,8 +817,8 @@ describe('interaction-placement-handler / handleRightClick special blocks', () =
       const { services, spies } = makeRightClickServices('AIR')
 
       yield* handleRightClick(
-        services as never,
-        { dirtyChunksRef } as never,
+        services,
+        { dirtyChunksRef },
         { targetHit: Option.some(doorHit), respawnPositionRef },
       )
 
@@ -692,8 +833,8 @@ describe('interaction-placement-handler / handleRightClick special blocks', () =
       const { services, spies } = makeRightClickServices('AIR', { selectedItem: 'STONE', multiplayer: Option.none() })
 
       yield* handleRightClick(
-        services as never,
-        { dirtyChunksRef } as never,
+        services,
+        { dirtyChunksRef },
         { targetHit: Option.some(doorHit), respawnPositionRef },
       )
 
@@ -713,8 +854,8 @@ describe('interaction-placement-handler / handleRightClick special blocks', () =
       })
 
       yield* handleRightClick(
-        services as never,
-        { dirtyChunksRef } as never,
+        services,
+        { dirtyChunksRef },
         { targetHit: Option.some(doorHit), respawnPositionRef },
       )
 
@@ -738,11 +879,20 @@ describe('interaction-placement-handler / handleFlintAndSteel (TNT)', () => {
     readonly armorPoints?: number
     readonly protectionReduction?: number
     readonly blastProtectionReduction?: number
-  } = {}) => {
+    readonly damageSlotSpy?: ReturnType<typeof vi.fn>
+  } = {}): {
+    services: FrameFlintAndSteelInteractionServices
+    forceSetBlockSpy: ReturnType<typeof vi.fn>
+    applyDamageSpy: ReturnType<typeof vi.fn>
+    addExhaustionSpy: ReturnType<typeof vi.fn>
+    playEffectSpy: ReturnType<typeof vi.fn>
+    damageSlotSpy: ReturnType<typeof vi.fn>
+  } => {
     const forceSetBlockSpy = opts.forceSetBlockSpy ?? vi.fn(() => Effect.void)
     const applyDamageSpy = vi.fn(() => Effect.void)
     const addExhaustionSpy = vi.fn(() => Effect.void)
     const playEffectSpy = vi.fn(() => Effect.void)
+    const damageSlotSpy = opts.damageSlotSpy ?? vi.fn(() => Effect.void)
     // Chunk containing a TNT block at world position (0, 64, 0): lx=0, y=64, lz=0
     const chunk = makeEmptyChunk(0, 0)
     setChunkBlock(chunk, 0, 64, 0, 'TNT')
@@ -770,11 +920,18 @@ describe('interaction-placement-handler / handleFlintAndSteel (TNT)', () => {
           getTotalProtectionReduction: vi.fn(() => Effect.succeed(opts.protectionReduction ?? 0)),
           getTotalBlastProtectionReduction: vi.fn(() => Effect.succeed(opts.blastProtectionReduction ?? 0)),
         },
-      },
+        hotbarService: {
+          getSelectedSlot: vi.fn(() => Effect.succeed(SlotIndex.make(2))),
+        },
+        inventoryService: {
+          damageSlot: damageSlotSpy,
+        },
+      } as FrameFlintAndSteelInteractionServices,
       forceSetBlockSpy,
       applyDamageSpy,
       addExhaustionSpy,
       playEffectSpy,
+      damageSlotSpy,
     }
   }
 
@@ -783,10 +940,10 @@ describe('interaction-placement-handler / handleFlintAndSteel (TNT)', () => {
   it.effect('explodes TNT: breaks all blocks in radius sphere and returns true', () =>
     Effect.gen(function* () {
       const dirtyChunksRef = MutableRef.make(HashMap.empty<string, unknown>())
-      const { services, forceSetBlockSpy } = makeTntServices()
+      const { services, forceSetBlockSpy, damageSlotSpy } = makeTntServices()
       const result = yield* handleFlintAndSteel(
-        services as never,
-        { dirtyChunksRef } as never,
+        services,
+        { dirtyChunksRef },
         { targetHit: Option.some(tntHit) },
       )
       expect(result).toBe(true)
@@ -794,6 +951,7 @@ describe('interaction-placement-handler / handleFlintAndSteel (TNT)', () => {
       expect(forceSetBlockSpy.mock.calls.length).toBeGreaterThan(1)
       // First call removes the TNT itself
       expect(forceSetBlockSpy.mock.calls[0]?.[1]).toBe('AIR')
+      expect(damageSlotSpy).toHaveBeenCalledWith(selectedHotbarSlotIndex(SlotIndex.make(2)), 1)
     }),
   )
 
@@ -802,8 +960,8 @@ describe('interaction-placement-handler / handleFlintAndSteel (TNT)', () => {
       const dirtyChunksRef = MutableRef.make(HashMap.empty<string, unknown>())
       const { services } = makeTntServices({ forceSetBlockSpy: vi.fn(() => Effect.fail(new Error('write error'))) })
       const result = yield* handleFlintAndSteel(
-        services as never,
-        { dirtyChunksRef } as never,
+        services,
+        { dirtyChunksRef },
         { targetHit: Option.some(tntHit) },
       )
       expect(result).toBe(true)
@@ -816,8 +974,8 @@ describe('interaction-placement-handler / handleFlintAndSteel (TNT)', () => {
       const playerPosition = { x: 0, y: 64, z: 0 }
       const { services, applyDamageSpy, addExhaustionSpy, playEffectSpy } = makeTntServices({ playerPosition })
       const result = yield* handleFlintAndSteel(
-        services as never,
-        { dirtyChunksRef } as never,
+        services,
+        { dirtyChunksRef },
         { targetHit: Option.some(tntHit) },
       )
       const expectedDamage = computeExplosionDamageAt({ x: 0, y: 64, z: 0 }, TNT_EXPLOSION_POWER, playerPosition)
@@ -835,8 +993,8 @@ describe('interaction-placement-handler / handleFlintAndSteel (TNT)', () => {
       const playerPosition = { x: 0, y: 64, z: 0 }
       const { services, applyDamageSpy } = makeTntServices({ playerPosition, blastProtectionReduction: 0.32 })
       const result = yield* handleFlintAndSteel(
-        services as never,
-        { dirtyChunksRef } as never,
+        services,
+        { dirtyChunksRef },
         { targetHit: Option.some(tntHit) },
       )
       const rawDamage = computeExplosionDamageAt({ x: 0, y: 64, z: 0 }, TNT_EXPLOSION_POWER, playerPosition)
@@ -851,8 +1009,8 @@ describe('interaction-placement-handler / handleFlintAndSteel (TNT)', () => {
       const dirtyChunksRef = MutableRef.make(HashMap.empty<string, unknown>())
       const { services, applyDamageSpy, addExhaustionSpy } = makeTntServices({ playerPosition: { x: 9, y: 64, z: 0 } })
       const result = yield* handleFlintAndSteel(
-        services as never,
-        { dirtyChunksRef } as never,
+        services,
+        { dirtyChunksRef },
         { targetHit: Option.some(tntHit) },
       )
 
@@ -866,16 +1024,18 @@ describe('interaction-placement-handler / handleFlintAndSteel (TNT)', () => {
     Effect.gen(function* () {
       const spectatorRef = MutableRef.make(HashMap.empty<string, unknown>())
       const spectator = makeTntServices({ isSpectator: true })
-      yield* handleFlintAndSteel(spectator.services as never, { dirtyChunksRef: spectatorRef } as never, {
+      yield* handleFlintAndSteel(spectator.services, { dirtyChunksRef: spectatorRef }, {
         targetHit: Option.some(tntHit),
       })
 
       const invincibleRef = MutableRef.make(HashMap.empty<string, unknown>())
       const invincible = makeTntServices({ health: { current: 20, max: 20, invincibilityTicks: 10 } })
-      yield* handleFlintAndSteel(invincible.services as never, { dirtyChunksRef: invincibleRef } as never, {
+      yield* handleFlintAndSteel(invincible.services, { dirtyChunksRef: invincibleRef }, {
         targetHit: Option.some(tntHit),
       })
 
+      expect(spectator.damageSlotSpy).toHaveBeenCalledWith(selectedHotbarSlotIndex(SlotIndex.make(2)), 1)
+      expect(invincible.damageSlotSpy).toHaveBeenCalledWith(selectedHotbarSlotIndex(SlotIndex.make(2)), 1)
       expect(spectator.applyDamageSpy).not.toHaveBeenCalled()
       expect(invincible.applyDamageSpy).not.toHaveBeenCalled()
     }),
@@ -889,13 +1049,39 @@ describe('interaction-placement-handler / handleFlintAndSteel (TNT)', () => {
 const makeBedServices = (opts: {
   isNight?: boolean
   dimension?: string
-}) => ({
+  playerPosition?: { readonly x: number; readonly y: number; readonly z: number }
+  health?: { readonly current: number; readonly max: number; readonly invincibilityTicks: number }
+  armorPoints?: number
+  protectionReduction?: number
+  blastProtectionReduction?: number
+}): FrameBedInteractionServices => ({
+  blockService: {
+    forceSetBlock: vi.fn(() => Effect.void),
+  },
   timeService: {
     isNight: () => Effect.succeed(opts.isNight ?? true),
     setTimeOfDay: vi.fn(() => Effect.void),
   },
   netherService: {
     getDimension: () => Effect.succeed(opts.dimension ?? 'overworld'),
+  },
+  gameState: {
+    getPlayerPosition: vi.fn(() => Effect.succeed(opts.playerPosition ?? { x: 5, y: 64, z: 5 })),
+  },
+  gameMode: {
+    isSpectator: vi.fn(() => Effect.succeed(false)),
+  },
+  healthService: {
+    getHealth: vi.fn(() => Effect.succeed(opts.health ?? { current: 20, max: 20, invincibilityTicks: 0 })),
+    applyDamage: vi.fn(() => Effect.void),
+  },
+  hungerService: {
+    addExhaustion: vi.fn(() => Effect.void),
+  },
+  equipmentService: {
+    getTotalArmorPoints: vi.fn(() => Effect.succeed(opts.armorPoints ?? 0)),
+    getTotalProtectionReduction: vi.fn(() => Effect.succeed(opts.protectionReduction ?? 0)),
+    getTotalBlastProtectionReduction: vi.fn(() => Effect.succeed(opts.blastProtectionReduction ?? 0)),
   },
   soundManager: { playEffect: vi.fn(() => Effect.void) },
 })
@@ -907,7 +1093,7 @@ describe('interaction-placement-handler / handleBed', () => {
     Effect.gen(function* () {
       const respawnRef = MutableRef.make({ x: 0, y: 64, z: 0 })
       const services = makeBedServices({ isNight: true, dimension: 'overworld' })
-      const result = yield* handleBed(services as never, respawnRef, bedPos)
+      const result = yield* handleBed(services, respawnRef, bedPos)
       expect(result).toBe(true)
       expect((services.timeService.setTimeOfDay as ReturnType<typeof vi.fn>)).toHaveBeenCalledWith(0.25)
       expect(MutableRef.get(respawnRef).y).toBe(bedPos.y + 1)
@@ -918,19 +1104,26 @@ describe('interaction-placement-handler / handleBed', () => {
     Effect.gen(function* () {
       const respawnRef = MutableRef.make({ x: 0, y: 64, z: 0 })
       const services = makeBedServices({ isNight: false, dimension: 'overworld' })
-      const result = yield* handleBed(services as never, respawnRef, bedPos)
+      const result = yield* handleBed(services, respawnRef, bedPos)
       expect(result).toBe(false)
       expect((services.timeService.setTimeOfDay as ReturnType<typeof vi.fn>)).not.toHaveBeenCalled()
     }),
   )
 
-  it.effect('returns false in the nether without calling setTimeOfDay', () =>
+  it.effect('explodes in the nether without calling setTimeOfDay', () =>
     Effect.gen(function* () {
       const respawnRef = MutableRef.make({ x: 0, y: 64, z: 0 })
-      const services = makeBedServices({ isNight: true, dimension: 'nether' })
-      const result = yield* handleBed(services as never, respawnRef, bedPos)
-      expect(result).toBe(false)
+      const playerPosition = { x: 5, y: 64, z: 5 }
+      const services = makeBedServices({ isNight: true, dimension: 'nether', playerPosition })
+      const result = yield* handleBed(services, respawnRef, bedPos)
+      const expectedDamage = computeExplosionDamageAt(bedPos, TNT_EXPLOSION_POWER, playerPosition)
+      expect(result).toBe(true)
       expect((services.timeService.setTimeOfDay as ReturnType<typeof vi.fn>)).not.toHaveBeenCalled()
+      expect(services.blockService.forceSetBlock.mock.calls.length).toBeGreaterThan(1)
+      expect(services.healthService.applyDamage).toHaveBeenCalledWith(expectedDamage)
+      expect(services.hungerService.addExhaustion).toHaveBeenCalledWith(EXHAUSTION_DAMAGE)
+      expect(services.soundManager.playEffect).toHaveBeenCalledWith('blockBreak', { position: bedPos })
+      expect(services.soundManager.playEffect).toHaveBeenCalledWith('playerHurt', { position: playerPosition })
     }),
   )
 })

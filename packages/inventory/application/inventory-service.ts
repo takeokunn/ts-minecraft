@@ -85,9 +85,7 @@ export class InventoryService extends Effect.Service<InventoryService>()(
         serialize: (): Effect.Effect<InventorySaveData, never> =>
           Effect.map(Ref.get(slotsRef), serializeInventorySlots),
 
-        // Used by the death flow in survival mode (FR-1.3): inventory is dropped at the
-        // death position. Phase-1 semantics treat "drop" as "clear" — Phase-3 will
-        // materialize world-entity drops.
+        // Clears slots after callers have applied any required world-drop semantics.
         clear: (): Effect.Effect<void, never> =>
           Ref.set(slotsRef, Arr.makeBy(INVENTORY_SIZE, () => Option.none<ItemStack>())),
 

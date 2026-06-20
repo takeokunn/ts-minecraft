@@ -1,6 +1,6 @@
 import { Layer } from 'effect'
 
-import { TradingService } from '@ts-minecraft/entity'
+import { TradingService } from '@ts-minecraft/entity/application/trading/trading-service'
 
 import { InventoryLayer } from './game-logic-inventory-support-bundles'
 import { VillageLayer } from './game-logic-village-layer-bundles'

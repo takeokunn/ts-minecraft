@@ -1,5 +1,5 @@
 import type { DeltaTimeSecs, Position } from '@ts-minecraft/core'
-import { computeFlightVerticalVelocity, nextFlightState } from '@ts-minecraft/entity/domain/flight'
+import { computeFlightVerticalVelocity, nextFlightState } from '@ts-minecraft/entity/domain/flight-resolution'
 import { blendVelocityInto, type PlayerPostPhysicsContactQuery, type PlayerPostPhysicsContactState, type Vec3, computeFlightPositionInto, resolvePlayerPostPhysicsContactState } from './player-physics'
 
 export type FrameMotionState = {

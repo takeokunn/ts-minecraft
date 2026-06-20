@@ -1,8 +1,8 @@
 import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
 import { Array as Arr, Effect } from 'effect'
-import { RedstoneComponentType } from '@ts-minecraft/entity'
-import { RedstoneService } from '@ts-minecraft/entity'
+import { RedstoneComponentType } from '@ts-minecraft/entity/domain/redstone/redstone-model';
+import { RedstoneService } from '@ts-minecraft/entity/application/redstone/redstone-service';
 import { expectSome } from '../test-utils'
 
 describe('redstone/redstone-service', () => {

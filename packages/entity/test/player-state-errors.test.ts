@@ -1,6 +1,6 @@
 import { describe,it } from '@effect/vitest'
 import type { PlayerId,Position } from '@ts-minecraft/core'
-import { PlayerService } from '@ts-minecraft/entity'
+import { PlayerService } from '@ts-minecraft/entity/application/player-service';
 import { Effect,Either } from 'effect'
 import { expect } from 'vitest'
 import { expectSome } from './test-utils'

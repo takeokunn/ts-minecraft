@@ -1,8 +1,8 @@
 import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
 import { Array as Arr, Effect, Option } from 'effect'
-import { RedstoneComponentType } from '@ts-minecraft/entity'
-import { RedstoneService } from '@ts-minecraft/entity'
+import { RedstoneComponentType } from '@ts-minecraft/entity/domain/redstone/redstone-model';
+import { RedstoneService } from '@ts-minecraft/entity/application/redstone/redstone-service';
 import { expectSome } from '../test-utils'
 
 describe('redstone/redstone-service', () => {
@@ -49,6 +49,40 @@ describe('redstone/redstone-service', () => {
       expect(firstTickPower).toBe(14)
       expect(secondTickPower).toBe(14)
       expect(thirdTickPower).toBe(0)
+    }).pipe(Effect.provide(RedstoneService.Default))
+  )
+
+  it.effect('pressure plate emits power while pressed and clears when released', () =>
+    Effect.gen(function* () {
+      const redstone = yield* RedstoneService
+
+      yield* redstone.setComponent({ x: 0, y: 64, z: 0 }, RedstoneComponentType.PressurePlate)
+      yield* redstone.setComponent({ x: 1, y: 64, z: 0 }, RedstoneComponentType.Wire)
+
+      yield* redstone.setPressurePlatePressed({ x: 0, y: 64, z: 0 }, true)
+      yield* redstone.tick()
+      const pressedPower = yield* redstone.getPowerAt({ x: 1, y: 64, z: 0 })
+
+      yield* redstone.setPressurePlatePressed({ x: 0, y: 64, z: 0 }, false)
+      yield* redstone.tick()
+      const releasedPower = yield* redstone.getPowerAt({ x: 1, y: 64, z: 0 })
+
+      expect(pressedPower).toBe(14)
+      expect(releasedPower).toBe(0)
+    }).pipe(Effect.provide(RedstoneService.Default))
+  )
+
+  it.effect('setPressurePlatePressed returns none when no pressure plate exists', () =>
+    Effect.gen(function* () {
+      const redstone = yield* RedstoneService
+
+      const missing = yield* redstone.setPressurePlatePressed({ x: 0, y: 64, z: 0 }, true)
+
+      yield* redstone.setComponent({ x: 1, y: 64, z: 0 }, RedstoneComponentType.Lever)
+      const wrongType = yield* redstone.setPressurePlatePressed({ x: 1, y: 64, z: 0 }, true)
+
+      expect(Option.isNone(missing)).toBe(true)
+      expect(Option.isNone(wrongType)).toBe(true)
     }).pipe(Effect.provide(RedstoneService.Default))
   )
 

@@ -73,37 +73,78 @@ describe('mob-geometry', () => {
   })
 
   describe('buildMobGroup(Chicken)', () => {
-    it('returns a small quadruped with white body and orange legs', () => {
+    it('returns a small bird with wing arms and two orange legs', () => {
       const g = buildMobGroup('Chicken')
+      const armL = g.armL
+      const armR = g.armR
+      if (armL === null || armR === null) {
+        throw new Error('Chicken should have wing arms')
+      }
       const body = (g.body.material as THREE.MeshStandardMaterial).color.getHex()
+      const wing = (armL.material as THREE.MeshStandardMaterial).color.getHex()
       const leg = (g.legFL.material as THREE.MeshStandardMaterial).color.getHex()
       expect(g.root.children.length).toBe(6)
-      expect(g.armL).toBeNull()
-      expect(g.armR).toBeNull()
-      expect(g.legBL).not.toBeNull()
-      expect(g.legBR).not.toBeNull()
+      expect(armL.position.x).toBeGreaterThan(g.body.position.x)
+      expect(armR.position.x).toBeLessThan(g.body.position.x)
+      expect(armL.geometry.parameters.height).toBeLessThan(g.body.geometry.parameters.height)
+      expect(g.legBL).toBeNull()
+      expect(g.legBR).toBeNull()
       expect(body).toBe(0xf5f5f5)
+      expect(wing).toBe(0xf5f5f5)
       expect(leg).toBe(0xe0a020)
     })
   })
 
   describe('buildMobGroup(Bat)', () => {
-    it('returns a small dark quadruped placeholder', () => {
+    it('returns a small dark body with wing arms and no back legs', () => {
       const g = buildMobGroup('Bat')
+      const armL = g.armL
+      const armR = g.armR
+      if (armL === null || armR === null) {
+        throw new Error('Bat should have wing arms')
+      }
       const head = (g.head.material as THREE.MeshStandardMaterial).color.getHex()
       const body = (g.body.material as THREE.MeshStandardMaterial).color.getHex()
+      const wing = (armL.material as THREE.MeshStandardMaterial).color.getHex()
       expect(g.root.children.length).toBe(6)
-      expect(g.armL).toBeNull()
-      expect(g.armR).toBeNull()
-      expect(g.legBL).not.toBeNull()
-      expect(g.legBR).not.toBeNull()
+      expect(armL.position.x).toBeGreaterThan(g.body.position.x)
+      expect(armR.position.x).toBeLessThan(g.body.position.x)
+      expect(armL.geometry.parameters.width).toBeGreaterThan(g.body.geometry.parameters.width)
+      expect(armL.geometry.parameters.height).toBeLessThan(g.body.geometry.parameters.height)
+      expect(g.legBL).toBeNull()
+      expect(g.legBR).toBeNull()
       expect(head).toBe(0x2b2420)
       expect(body).toBe(0x1f1a17)
+      expect(wing).toBe(0x15110f)
+    })
+  })
+
+  describe('buildMobGroup(Bee)', () => {
+    it('returns a yellow flying body with pale wing arms and no back legs', () => {
+      const g = buildMobGroup('Bee')
+      const armL = g.armL
+      const armR = g.armR
+      if (armL === null || armR === null) {
+        throw new Error('Bee should have wing arms')
+      }
+      const head = (g.head.material as THREE.MeshStandardMaterial).color.getHex()
+      const body = (g.body.material as THREE.MeshStandardMaterial).color.getHex()
+      const wing = (armL.material as THREE.MeshStandardMaterial).color.getHex()
+      expect(g.root.children.length).toBe(6)
+      expect(armL.position.x).toBeGreaterThan(g.body.position.x)
+      expect(armR.position.x).toBeLessThan(g.body.position.x)
+      expect(armL.geometry.parameters.width).toBeGreaterThan(g.body.geometry.parameters.width)
+      expect(armL.geometry.parameters.height).toBeLessThan(g.body.geometry.parameters.height)
+      expect(g.legBL).toBeNull()
+      expect(g.legBR).toBeNull()
+      expect(head).toBe(0x1f1b13)
+      expect(body).toBe(0xe4b83f)
+      expect(wing).toBe(0xb9e6ff)
     })
   })
 
   describe('buildMobGroup(Squid)', () => {
-    it('returns a blue quadruped placeholder with tentacle roles', () => {
+    it('returns a vertical blue body with four hanging tentacle roles', () => {
       const g = buildMobGroup('Squid')
       const body = (g.body.material as THREE.MeshStandardMaterial).color.getHex()
       const leg = (g.legFL.material as THREE.MeshStandardMaterial).color.getHex()
@@ -112,8 +153,29 @@ describe('mob-geometry', () => {
       expect(g.armR).toBeNull()
       expect(g.legBL).not.toBeNull()
       expect(g.legBR).not.toBeNull()
+      expect(g.body.position.y).toBeGreaterThan(g.head.position.y)
+      expect(g.head.position.y).toBeGreaterThan(g.legFL.position.y)
+      expect(g.legFL.position.z).toBeGreaterThan(0)
+      expect(g.legBL?.position.z).toBeLessThan(0)
       expect(body).toBe(0x2f78b7)
       expect(leg).toBe(0x1f4f7a)
+    })
+  })
+
+  describe('buildMobGroup(GlowSquid)', () => {
+    it('returns a luminous cyan squid body with four tentacle roles', () => {
+      const g = buildMobGroup('GlowSquid')
+      const body = (g.body.material as THREE.MeshStandardMaterial).color.getHex()
+      const leg = (g.legFL.material as THREE.MeshStandardMaterial).color.getHex()
+      expect(g.root.children.length).toBe(6)
+      expect(g.armL).toBeNull()
+      expect(g.armR).toBeNull()
+      expect(g.legBL).not.toBeNull()
+      expect(g.legBR).not.toBeNull()
+      expect(g.body.position.y).toBeGreaterThan(g.head.position.y)
+      expect(g.head.position.y).toBeGreaterThan(g.legFL.position.y)
+      expect(body).toBe(0x5df0df)
+      expect(leg).toBe(0x1db8aa)
     })
   })
 
@@ -172,6 +234,15 @@ describe('buildMobGroup — additional mob types', () => {
     expect(g.legFL).toBeDefined()
   })
 
+  it('builds an Endermite as a compact quadruped', () => {
+    const g = buildMobGroup('Endermite')
+    expect(g.root.children.length).toBe(6)
+    expect(g.armL).toBeNull()
+    expect(g.armR).toBeNull()
+    expect(g.legBL).not.toBeNull()
+    expect(g.legBR).not.toBeNull()
+  })
+
   it('builds an Enderman (biped) without error', () => {
     const g = buildMobGroup('Enderman')
     expect(g.head).toBeDefined()
@@ -180,27 +251,49 @@ describe('buildMobGroup — additional mob types', () => {
     expect(g.armL).toBeDefined()
   })
 
-  it('builds a Witch (biped) without error', () => {
+  it('builds a Witch with a long robe silhouette', () => {
     const g = buildMobGroup('Witch')
-    expect(g.head).toBeDefined()
-    expect(g.body).toBeDefined()
-    expect(g.legFL).toBeDefined()
-    expect(g.armL).toBeDefined()
+    const body = g.body.material as THREE.MeshStandardMaterial
+    const arm = Option.getOrThrow(Option.fromNullable(g.armL))
+    expect(g.root.children.length).toBe(6)
+    expect(g.head.geometry.parameters.width).toBeLessThan(g.body.geometry.parameters.width)
+    expect(g.body.geometry.parameters.height).toBeGreaterThan(g.legFL.geometry.parameters.height * 2)
+    expect(arm.geometry.parameters.height).toBeGreaterThan(g.legFL.geometry.parameters.height)
+    expect(g.legBL).toBeNull()
+    expect(g.legBR).toBeNull()
+    expect(body.color.getHex()).toBe(0x4b2a63)
   })
 
-  it('builds a Drowned (biped) without error', () => {
+  it('builds a Drowned with a waterlogged biped silhouette', () => {
     const g = buildMobGroup('Drowned')
-    expect(g.head).toBeDefined()
-    expect(g.body).toBeDefined()
-    expect(g.legFL).toBeDefined()
-    expect(g.armL).toBeDefined()
+    const head = g.head.material as THREE.MeshStandardMaterial
+    const body = g.body.material as THREE.MeshStandardMaterial
+    const arm = Option.getOrThrow(Option.fromNullable(g.armL))
+    const leg = g.legFL
+    expect(g.root.children.length).toBe(6)
+    expect(g.body.geometry.parameters.width).toBeGreaterThan(leg.geometry.parameters.width)
+    expect(arm.geometry.parameters.width).toBeLessThan(leg.geometry.parameters.width)
+    expect(arm.geometry.parameters.height).toBeGreaterThan(g.body.geometry.parameters.height)
+    expect(g.legBL).toBeNull()
+    expect(g.legBR).toBeNull()
+    expect(head.color.getHex()).toBe(0x4fa89a)
+    expect(body.color.getHex()).toBe(0x1f5f72)
   })
 
-  it('builds a Zombie Villager (biped) without error', () => {
+  it('builds a Zombie Villager with an oversized head and robe silhouette', () => {
     const g = buildMobGroup('ZombieVillager')
-    expect(g.head).toBeDefined()
-    expect(g.body).toBeDefined()
-    expect(g.legFL).toBeDefined()
-    expect(g.armL).toBeDefined()
+    const head = g.head.material as THREE.MeshStandardMaterial
+    const body = g.body.material as THREE.MeshStandardMaterial
+    const arm = Option.getOrThrow(Option.fromNullable(g.armL))
+    const leg = g.legFL
+    expect(g.root.children.length).toBe(6)
+    expect(g.head.geometry.parameters.width).toBeGreaterThan(g.body.geometry.parameters.width)
+    expect(g.body.geometry.parameters.width).toBeGreaterThan(leg.geometry.parameters.width)
+    expect(g.body.geometry.parameters.height).toBeGreaterThan(leg.geometry.parameters.height)
+    expect(arm.geometry.parameters.height).toBeGreaterThan(leg.geometry.parameters.height)
+    expect(g.legBL).toBeNull()
+    expect(g.legBR).toBeNull()
+    expect(head.color.getHex()).toBe(0x7fa85a)
+    expect(body.color.getHex()).toBe(0x7a4f2a)
   })
 })

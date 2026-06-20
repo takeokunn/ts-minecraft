@@ -7,7 +7,10 @@ import { EnvironmentPort } from '@ts-minecraft/core'
 // as localhost, which forces audioEnabled=false on load. Replicate that explicitly here.
 export const EnvironmentTest = Layer.succeed(EnvironmentPort, { isLocalhost: Effect.succeed(true) })
 
-export const SettingsServiceLayer = SettingsService.Default.pipe(Layer.provide(EnvironmentTest))
+export const SettingsServiceLayer = SettingsService.Default.pipe(
+  Layer.provide(SettingsStorageServiceLayer),
+  Layer.provide(EnvironmentTest),
+)
 export const SettingsServiceDefault = SettingsService.Default.pipe(
   Layer.provide(SettingsStorageServiceLayer),
   Layer.provide(EnvironmentTest),

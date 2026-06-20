@@ -1,8 +1,9 @@
 import { Effect, MutableRef } from 'effect'
 import { logErrors } from '@ts-minecraft/app/frame/error-logging'
-import type { FrameHandlerDeps, FrameStageRefs } from '@ts-minecraft/app/frame/types'
-import type { FrameCameraServices } from '@ts-minecraft/app/frame/frame-service-types'
-import { KeyMappings } from '@ts-minecraft/entity'
+import type { FrameHandlerDeps } from '@ts-minecraft/app/application/frame/types/deps'
+import type { FrameStageRefs } from '@ts-minecraft/app/application/frame/types/stage-refs'
+import type { FrameCameraServices } from '@ts-minecraft/app/frame/frame-service-types/camera'
+import { KeyMappings } from '@ts-minecraft/entity/domain/key-mappings'
 import { EYE_LEVEL_OFFSET } from '@ts-minecraft/app/frame-handler.config'
 import { CHUNK_SIZE, CHUNK_HEIGHT } from '@ts-minecraft/core'
 import { MAX_SHADOW_HALF_EXTENT } from '@ts-minecraft/core'
@@ -42,25 +43,21 @@ export const cameraStage = (
     const ctrlR = yield* services.inputService.isKeyPressed(KeyMappings.SPRINT_ALT)
     const forward = yield* services.inputService.isKeyPressed(KeyMappings.MOVE_FORWARD)
     const sneak = yield* services.inputService.isKeyPressed(KeyMappings.SNEAK)
-    yield* Effect.sync(() => {
-      const sprinting = (ctrlL || ctrlR) && forward && !sneak
-      const targetFov = sprinting ? SPRINT_FOV : BASE_FOV
-      const nextFov = deps.camera.fov + (targetFov - deps.camera.fov) * FOV_LERP
-      if (Math.abs(nextFov - deps.camera.fov) > 0.05) {
-        deps.camera.fov = nextFov
-        deps.camera.updateProjectionMatrix()
-      }
-    })
+    const sprinting = (ctrlL || ctrlR) && forward && !sneak
+    const targetFov = sprinting ? SPRINT_FOV : BASE_FOV
+    const nextFov = deps.camera.fov + (targetFov - deps.camera.fov) * FOV_LERP
+    if (Math.abs(nextFov - deps.camera.fov) > 0.05) {
+      deps.camera.fov = nextFov
+      deps.camera.updateProjectionMatrix()
+    }
 
     // Camera perspective + position sync
     const rotation = yield* services.playerCameraState.getRotation()
     const cameraMode = yield* services.playerCameraState.getMode()
     if (cameraMode === 'firstPerson') {
-      yield* Effect.sync(() => {
-        const eyeY = inputs.playerPos.y + EYE_LEVEL_OFFSET
-        deps.camera.position.set(inputs.playerPos.x, eyeY, inputs.playerPos.z)
-        deps.camera.rotation.set(rotation.pitch, rotation.yaw, 0, 'YXZ')
-      })
+      const eyeY = inputs.playerPos.y + EYE_LEVEL_OFFSET
+      deps.camera.position.set(inputs.playerPos.x, eyeY, inputs.playerPos.z)
+      deps.camera.rotation.set(rotation.pitch, rotation.yaw, 0, 'YXZ')
     } else {
       yield* services.thirdPersonCamera.update(deps.camera, inputs.playerPos, EYE_LEVEL_OFFSET)
     }
@@ -74,16 +71,14 @@ export const cameraStage = (
     // extra full shadow pass roughly every 5-7 frames while walking (the dominant gameplay
     // state); relying on the mod-8 trigger alone cuts shadow passes ~8× during movement. The
     // target lagging the player by ≤8 frames is imperceptible for a sun-direction shadow.
-    yield* Effect.sync(() => {
-      const lastTarget = MutableRef.get(refs.lastShadowTargetRef)
-      const dx = inputs.playerPos.x - lastTarget.x
-      const dz = inputs.playerPos.z - lastTarget.z
-      if (dx * dx + dz * dz > 0.25) {
-        MutableRef.set(refs.lastShadowTargetRef, { x: inputs.playerPos.x, z: inputs.playerPos.z })
-        deps.lights.light.target.position.set(inputs.playerPos.x, 0, inputs.playerPos.z)
-        deps.lights.light.target.updateMatrixWorld()
-      }
-    })
+    const lastTarget = MutableRef.get(refs.lastShadowTargetRef)
+    const dx = inputs.playerPos.x - lastTarget.x
+    const dz = inputs.playerPos.z - lastTarget.z
+    if (dx * dx + dz * dz > 0.25) {
+      MutableRef.set(refs.lastShadowTargetRef, { x: inputs.playerPos.x, z: inputs.playerPos.z })
+      deps.lights.light.target.position.set(inputs.playerPos.x, 0, inputs.playerPos.z)
+      deps.lights.light.target.updateMatrixWorld()
+    }
 
     // Dynamic shadow frustum: tighten bounds to renderDistance for higher texel density.
     // Only update when renderDistance changes (avoids per-frame updateProjectionMatrix).
@@ -91,22 +86,20 @@ export const cameraStage = (
     const renderDistanceChanged = lastRenderDistance !== inputs.renderDistance
     if (renderDistanceChanged) MutableRef.set(refs.lastRenderDistanceRef, inputs.renderDistance)
     if (!renderDistanceChanged) return
-    yield* Effect.sync(() => {
-      // Dynamic camera far plane: keep Z-buffer precision tight to visible range
-      deps.camera.far = Math.max(inputs.renderDistance * CHUNK_SIZE * 1.5 + CHUNK_HEIGHT, 300)
-      deps.camera.updateProjectionMatrix()
-      // Shadow frustum: tighten bounds to renderDistance for higher texel density
-      const halfExtent = Math.min(
-        Math.ceil(inputs.renderDistance * CHUNK_SIZE * 0.5),
-        MAX_SHADOW_HALF_EXTENT,
-      )
-      const cam = deps.lights.light.shadow.camera
-      cam.far = Math.max(inputs.renderDistance * CHUNK_SIZE * 1.5 + CHUNK_HEIGHT, 300)
-      cam.left = -halfExtent
-      cam.right = halfExtent
-      cam.top = halfExtent
-      cam.bottom = -halfExtent
-      cam.updateProjectionMatrix()
-      inputs.markShadowMapDirty()
-    })
+    // Dynamic camera far plane: keep Z-buffer precision tight to visible range
+    deps.camera.far = Math.max(inputs.renderDistance * CHUNK_SIZE * 1.5 + CHUNK_HEIGHT, 300)
+    deps.camera.updateProjectionMatrix()
+    // Shadow frustum: tighten bounds to renderDistance for higher texel density
+    const halfExtent = Math.min(
+      Math.ceil(inputs.renderDistance * CHUNK_SIZE * 0.5),
+      MAX_SHADOW_HALF_EXTENT,
+    )
+    const cam = deps.lights.light.shadow.camera
+    cam.far = Math.max(inputs.renderDistance * CHUNK_SIZE * 1.5 + CHUNK_HEIGHT, 300)
+    cam.left = -halfExtent
+    cam.right = halfExtent
+    cam.top = halfExtent
+    cam.bottom = -halfExtent
+    cam.updateProjectionMatrix()
+    inputs.markShadowMapDirty()
   })

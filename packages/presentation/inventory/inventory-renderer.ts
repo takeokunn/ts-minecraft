@@ -1,15 +1,17 @@
 import { Array as Arr, Effect, Either, Option, Ref } from 'effect'
-import { ChestService, InventoryService, HOTBAR_START, type InventorySlot } from '@ts-minecraft/inventory'
-import { HotbarService } from '@ts-minecraft/inventory'
-import { RecipeService } from '@ts-minecraft/inventory'
-import { FurnaceService } from '@ts-minecraft/inventory'
+import { ChestService } from '@ts-minecraft/inventory/application/chest-service'
+import { EquipmentService } from '@ts-minecraft/inventory/application/equipment-service'
+import { InventoryService, HOTBAR_START, type InventorySlot } from '@ts-minecraft/inventory/application/inventory-service'
+import { HotbarService } from '@ts-minecraft/inventory/application/hotbar-service'
+import { RecipeService } from '@ts-minecraft/inventory/application/recipe-service'
+import { FurnaceService } from '@ts-minecraft/inventory/application/furnace-service'
 import { GameStateService } from '@ts-minecraft/game'
 import { ChunkManagerService } from '@ts-minecraft/world'
-import { XPService } from '@ts-minecraft/entity'
+import { XPService } from '@ts-minecraft/entity/application/xp-service'
 import { DEFAULT_PLAYER_ID } from '@ts-minecraft/core'
 import { RecipeId } from '@ts-minecraft/core'
 import { DomOperationsService } from '@ts-minecraft/presentation/hud/crosshair'
-import type { Recipe } from '@ts-minecraft/inventory'
+import type { Recipe } from '@ts-minecraft/inventory/domain/crafting'
 import { SlotIndex } from '@ts-minecraft/core'
 import { blockTypeToIndex } from '@ts-minecraft/core'
 import { scanNearbyBlock } from '@ts-minecraft/app/main/qa-spatial'
@@ -25,6 +27,7 @@ export class InventoryRendererService extends Effect.Service<InventoryRendererSe
     scoped: Effect.gen(function* () {
       const inventoryService = yield* InventoryService
       const hotbarService = yield* HotbarService
+      const equipmentService = yield* EquipmentService
       const recipeService = yield* RecipeService
       const furnaceService = yield* FurnaceService
       const chestService = yield* ChestService
@@ -35,6 +38,7 @@ export class InventoryRendererService extends Effect.Service<InventoryRendererSe
       const isVisibleRef = yield* Ref.make(false)
       const availableRecipesRef = yield* Ref.make<ReadonlyArray<Recipe>>([])
       const selectedRecipeIndexRef = yield* Ref.make(0)
+      const inventoryCursorRef = yield* Ref.make<InventorySlot>(Option.none())
       const statusMessageRef = yield* Ref.make('Click a recipe to craft it.')
 
       const getChunkOrNone = (coord: { readonly x: number; readonly z: number }) =>
@@ -101,6 +105,8 @@ export class InventoryRendererService extends Effect.Service<InventoryRendererSe
         hotbarService,
         inventoryService,
         chestService,
+        equipmentService,
+        inventoryCursorRef,
         statusMessageRef,
         refreshSlots: () => refreshSlots(),
       })
@@ -128,11 +134,17 @@ export class InventoryRendererService extends Effect.Service<InventoryRendererSe
         })
 
       yield* Effect.sync(() => {
-        Option.getOrNull(overlayEl)?.addEventListener('click', handleDelegatedClick)
+        const el = Option.getOrNull(overlayEl)
+        el?.addEventListener('click', handleDelegatedClick)
+        el?.addEventListener('contextmenu', handleDelegatedClick)
       })
       yield* Effect.addFinalizer(() => Effect.sync(() => {
         const el = Option.getOrNull(overlayEl)
-        if (el !== null) { el.removeEventListener('click', handleDelegatedClick); el.remove() }
+        if (el !== null) {
+          el.removeEventListener('click', handleDelegatedClick)
+          el.removeEventListener('contextmenu', handleDelegatedClick)
+          el.remove()
+        }
       }))
 
       return {

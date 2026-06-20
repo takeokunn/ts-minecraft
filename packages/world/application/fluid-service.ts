@@ -1,8 +1,8 @@
 import { Effect, HashMap, Ref } from "effect";
-import { INITIAL_STATE } from "@ts-minecraft/block";
+import { INITIAL_STATE } from "@ts-minecraft/block/domain/fluid-model";
 import { ChunkManagerService } from "./chunk-manager-service";
-import { makeFluidServiceRuntime } from "./fluid-service-ops";
-import type { FluidState } from "@ts-minecraft/block";
+import { makeFluidServiceRuntime } from "./fluid-service-runtime-io";
+import type { FluidState } from "@ts-minecraft/block/domain/fluid-model";
 import { type LoadedChunkCache } from "./fluid-service-helpers";
 
 export { resolveContact } from "../domain/fluid-contact";

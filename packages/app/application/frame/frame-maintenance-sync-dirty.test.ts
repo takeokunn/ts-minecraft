@@ -3,7 +3,7 @@ import { expect, vi } from 'vitest'
 import { Effect, HashMap, MutableRef, Option } from 'effect'
 import { runMaintenanceDirtyChunkFlush } from './frame-maintenance-sync-dirty'
 import type { DirtyChunkEntry } from './frame-maintenance-dirty'
-import { arrangeFrameHarness } from '../../test/frame-handler-test-kit'
+import { arrangeFrameHarness } from '../../test/frame-handler-test-kit/orchestration/harness'
 import type { Chunk } from '@ts-minecraft/world'
 
 const makeMaintenanceDirtyFlushState = () => ({

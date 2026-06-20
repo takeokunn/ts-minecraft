@@ -1,6 +1,7 @@
 import { Layer } from 'effect'
 
-import { FurnaceService, RecipeService } from '@ts-minecraft/inventory'
+import { FurnaceService } from '@ts-minecraft/inventory/application/furnace-service'
+import { RecipeService } from '@ts-minecraft/inventory/application/recipe-service'
 
 import { InventoryLayer } from './game-logic-inventory-support-bundles'
 import { PlayerServicePortLayer, WorldBlockQueryPortLayer } from './game-logic-ports'

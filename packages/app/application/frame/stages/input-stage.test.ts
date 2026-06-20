@@ -1,24 +1,26 @@
 import { describe, it } from '@effect/vitest'
 import { afterEach, expect, vi } from 'vitest'
 import { Effect, MutableHashSet, Option, Ref } from 'effect'
-import { createFrameHandlers } from '@ts-minecraft/app'
+import { createFrameHandlers } from '@ts-minecraft/app/frame-handler'
 import { SlotIndex } from '@ts-minecraft/core'
 import type { DeltaTimeSecs } from '@ts-minecraft/core'
-import { KeyMappings } from '@ts-minecraft/entity'
-import { HOTBAR_START } from '@ts-minecraft/inventory'
+import { KeyMappings } from '@ts-minecraft/entity/domain/key-mappings'
+import { HOTBAR_START } from '@ts-minecraft/inventory/application/inventory-service'
 import { GAMEPLAY_HUD_HIDDEN_CLASS } from '@ts-minecraft/presentation'
 import { OPEN_MENU_KEY } from '@ts-minecraft/app/frame-handler.config'
+import { DEFAULT_SETTINGS } from '../../../test/frame-handler-test-kit/shared'
 import {
-  DEFAULT_SETTINGS,
   arrangeFrameHarness,
-  makeDeps,
-  makeInputService,
+  runFrame,
+} from '../../../test/frame-handler-test-kit/orchestration/harness'
+import { makeDeps } from '../../../test/frame-handler-test-kit/orchestration/deps'
+import { makeInputService } from '../../../test/frame-handler-test-kit/presentation/input'
+import {
   makeInventoryRenderer,
-  makeServices,
   makeSettingsOverlay,
   makeTradingPresentation,
-  runFrame,
-} from '../../../test/frame-handler-test-kit'
+} from '../../../test/frame-handler-test-kit/presentation/overlay'
+import { makeServices } from '../../../test/frame-handler-test-kit/services'
 
 const FRAME_DELTA = 0.016 as DeltaTimeSecs
 
@@ -188,10 +190,19 @@ describe('F1 HUD visibility handling', () => {
 })
 
 describe('Q item drop handling', () => {
-  it.effect('removes one item from the selected hotbar slot when Q is pressed during gameplay', () => Effect.gen(function* () {
+  it.effect('removes one item from the selected hotbar slot and spawns a dropped item when Q is pressed during gameplay', () => Effect.gen(function* () {
     const pressedKeys = MutableHashSet.make(KeyMappings.DROP_ITEM)
     const { deps, services } = yield* arrangeFrameHarness({ pressedKeys })
     const removeBlockSpy = vi.fn(() => Effect.void)
+    const spawnSpy = vi.fn(() => Effect.succeed({
+      id: 'drop-1',
+      itemType: 'DIRT',
+      count: 1,
+      position: { x: 0, y: 64, z: 0 },
+      velocity: { x: 0, y: 0, z: 0 },
+      ageTicks: 0,
+      pickupDelayTicks: 10,
+    }))
 
     Object.assign(services.hotbarService, {
       getSelectedBlockType: () => Effect.succeed(Option.some('DIRT')),
@@ -199,6 +210,9 @@ describe('Q item drop handling', () => {
     })
     Object.assign(services.inventoryService, {
       removeBlock: removeBlockSpy,
+    })
+    Object.assign(services.droppedItemService, {
+      spawn: spawnSpy,
     })
 
     yield* runFrame(deps, services)
@@ -208,6 +222,12 @@ describe('Q item drop handling', () => {
     expect(itemType).toBe('DIRT')
     expect(count).toBe(1)
     expect(SlotIndex.toNumber(slot)).toBe(HOTBAR_START + 2)
+    expect(spawnSpy).toHaveBeenCalledWith({
+      itemType: 'DIRT',
+      count: 1,
+      position: { x: 0, y: 64, z: 0 },
+      pickupDelayTicks: 10,
+    })
   }))
 
   it.effect('does not drop the selected item while a modal is open', () => Effect.gen(function* () {

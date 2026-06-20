@@ -3,9 +3,6 @@ import type { InventoryItem } from '@ts-minecraft/core'
 import { ARMOR_DEFENSE_POINTS, ARMOR_SLOT_MAP, MAX_ARMOR_POINTS } from './armor.config'
 import type { ArmorItem, ArmorSlot } from './armor.config'
 
-export type { ArmorItem, ArmorSlot } from './armor.config'
-export { ARMOR_DEFENSE_POINTS, ARMOR_ITEMS, ARMOR_SLOTS, ARMOR_SLOT_MAP, MAX_ARMOR_POINTS } from './armor.config'
-
 export const isArmorItem = (item: InventoryItem): item is ArmorItem =>
   Object.hasOwn(ARMOR_DEFENSE_POINTS, item)
 

@@ -4,12 +4,12 @@ import {
   FLUID_TICK_BUDGET,
   chunkCoordsForPosition,
   parseKey,
-} from "@ts-minecraft/block";
+} from "@ts-minecraft/block/domain/fluid-model";
 import type {
   FluidCell,
   FluidKey,
   FluidState,
-} from "@ts-minecraft/block";
+} from "@ts-minecraft/block/domain/fluid-model";
 import { ChunkCacheKey } from "@ts-minecraft/core";
 import type { LoadedChunkCache } from "./fluid-service-helpers";
 import { cacheFromChunks } from "./fluid-service-helpers";

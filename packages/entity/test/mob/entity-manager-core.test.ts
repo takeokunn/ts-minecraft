@@ -1,7 +1,8 @@
-import { describe, it } from '@effect/vitest'
+import { describe } from '@effect/vitest'
 import { expect } from 'vitest'
 import { Effect, Option } from 'effect'
-import { EntityId, EntityManager, EntityType } from '@ts-minecraft/entity'
+import { EntityManager } from '@ts-minecraft/entity/application/mob/entity-manager';
+import { EntityId, EntityType } from '@ts-minecraft/entity/domain/mob/entity';
 import { expectSome, itEntityManagerEffect } from './test-utils'
 
 describe('entity/entityManagerCore', () => {

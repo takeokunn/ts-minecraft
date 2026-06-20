@@ -1,5 +1,5 @@
 import type { InventoryItem, Position } from '@ts-minecraft/core'
-import type { DebugFeatureFlagGroup, DebugFeatureFlagId, DebugFeatureSnapshot } from '@ts-minecraft/app/debug-feature-flags'
+import type { DebugFeatureFlagGroup, DebugFeatureFlagId, DebugFeatureSnapshot } from '@ts-minecraft/app/application/debug-feature-flags.config'
 import type { QaRenderingSnapshot } from './rendering'
 
 export type QaApi = {

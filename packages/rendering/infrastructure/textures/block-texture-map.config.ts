@@ -4,7 +4,7 @@
 //   4: grass_top     5: grass_side     6: sand         7: water
 //   8: leaves        9: glass          10: snow        11: gravel
 //   12: cobblestone  13: granite       14: diorite     15: andesite
-//   16: deepslate    17: bedrock       18: lava        19: obsidian
+//   16: deepslate    17: bedrock       18: lava/fire   19: obsidian
 //   20-26: ores (coal, iron, gold, diamond, redstone, lapis, emerald)
 //   27-33: deepslate ores (same order)
 //   34-40: blocks (coal, iron, gold, diamond, redstone, lapis, emerald)
@@ -105,4 +105,10 @@ export const TILE_MAP: ReadonlyArray<Readonly<Record<TextureFaceDir, number>>> =
   { top: 110, bottom: 110, side: 110 }, // 86: CACTUS
   { top: 111, bottom: 111, side: 111 }, // 87: LILY_PAD
   { top: 112, bottom: 112, side: 112 }, // 88: ICE
+  { top: 1, bottom: 1, side: 1 }, // 89: PRESSURE_PLATE
+  { top: 1, bottom: 1, side: 1 }, // 90: STONE_SLAB
+  { top: 41, bottom: 41, side: 41 }, // 91: OAK_STAIRS
+  { top: 35, bottom: 35, side: 35 }, // 92: ANVIL
+  { top: 35, bottom: 35, side: 35 }, // 93: CAULDRON
+  { top: 18, bottom: 18, side: 18 }, // 94: FIRE (temporary lava tile)
 ]

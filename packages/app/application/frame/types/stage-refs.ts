@@ -26,12 +26,15 @@ export type FrameStageRefs = {
   // Resets to 0 when the player leaves the portal. Dimension travel fires when this
   // reaches PORTAL_ACTIVATION_SECS (4 seconds — vanilla 80-tick equivalent).
   readonly portalSecsRef: Ref.Ref<number>
-  // FR-2 liquid hazards: lava-burn damage accumulator + remaining air supply (secs)
-  // + out-of-air drown-damage accumulator.
+  // FR-2 liquid hazards: lava damage accumulator, post-lava burn state,
+  // remaining air supply (secs), and out-of-air drown-damage accumulator.
   readonly lavaDamageSecsRef: MutableRef.MutableRef<number>
+  readonly lavaBurnRemainingSecsRef: MutableRef.MutableRef<number>
+  readonly lavaBurnDamageSecsRef: MutableRef.MutableRef<number>
   readonly airSecsRef: MutableRef.MutableRef<number>
   readonly drownDamageSecsRef: MutableRef.MutableRef<number>
   readonly suffocationDamageSecsRef: MutableRef.MutableRef<number>
+  readonly lightningDamageSecsRef: MutableRef.MutableRef<number>
   readonly voidDamageSecsRef: MutableRef.MutableRef<number>
   // Block break progress: tracks currently targeted block key + accumulated ticks + total required.
   readonly breakProgressRef: MutableRef.MutableRef<{ blockKey: string; ticks: number; totalTicks: number } | null>

@@ -1,5 +1,5 @@
 import { Effect, Ref } from "effect";
-import type { FluidState } from "@ts-minecraft/block";
+import type { FluidState } from "@ts-minecraft/block/domain/fluid-model";
 import type { Chunk } from "../domain/chunk";
 import type { LoadedChunkCache } from "./fluid-service-helpers";
 import { buildSyncedFluidState } from "./fluid-service-runtime-plan";

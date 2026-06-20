@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest'
 import { Effect, Option } from 'effect'
 import { handleFoodConsumption } from '@ts-minecraft/app/frame/stages/interaction-item-use-handler/food-consumption'
-import { MAX_FOOD_LEVEL } from '@ts-minecraft/entity'
+import { MAX_FOOD_LEVEL } from '@ts-minecraft/entity/application/hunger-service.config'
 
 // Base mock factory — every service method starts as a vi.fn() returning safe
 // defaults. Individual tests override only the fields they care about.

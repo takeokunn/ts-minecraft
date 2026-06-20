@@ -2,7 +2,8 @@ import { describe, it } from '@effect/vitest'
 import { expect, vi } from 'vitest'
 import { Effect, MutableRef, Option } from 'effect'
 import { CHUNK_HEIGHT, CHUNK_SIZE } from '@ts-minecraft/core'
-import { DEFAULT_SETTINGS, arrangeFrameHarness } from '../../test/frame-handler-test-kit'
+import { DEFAULT_SETTINGS } from '../../test/frame-handler-test-kit/shared'
+import { arrangeFrameHarness } from '../../test/frame-handler-test-kit/orchestration/harness'
 import { runMaintenanceChunkSceneSync } from './frame-maintenance-sync-chunks'
 
 const makeChunkSyncState = () => ({

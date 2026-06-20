@@ -1,9 +1,6 @@
 import { describe,it } from '@effect/vitest'
-import {
-PITCH_MAX,
-PITCH_MIN,
-PlayerCameraStateService
-} from '@ts-minecraft/entity'
+import { PlayerCameraStateService } from '@ts-minecraft/entity/application/camera-state';
+import { PITCH_MAX, PITCH_MIN } from '@ts-minecraft/entity/domain/camera-state';
 import { Effect } from 'effect'
 import { expect } from 'vitest'
 

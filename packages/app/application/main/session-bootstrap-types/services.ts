@@ -1,14 +1,16 @@
-export type { SessionRenderingBootstrapServices } from './rendering'
-export type { SessionWorldBootstrapServices } from './world'
-export type { SessionGameBootstrapServices, SessionBootstrapGameplayDeps } from './game'
-export type { SessionPresentationBootstrapServices, SessionBootstrapPresentationDeps } from './presentation'
-export type { SessionInventoryBootstrapServices } from './inventory'
-export type { SessionEntityBootstrapServices } from './entity'
+export type SessionBootstrapServiceGroups = {
+  readonly rendering: import('./rendering').SessionRenderingBootstrapServices
+  readonly world: import('./world').SessionWorldBootstrapServices
+  readonly gameplay: import('./game').SessionGameBootstrapServices
+  readonly presentation: import('./presentation/services').SessionPresentationBootstrapServices
+  readonly inventory: import('./inventory').SessionInventoryBootstrapServices
+  readonly entity: import('./entity').SessionEntityBootstrapServices
+}
 
 export type SessionBootstrapServices =
   import('./rendering').SessionRenderingBootstrapServices &
   import('./world').SessionWorldBootstrapServices &
   import('./game').SessionGameBootstrapServices &
-  import('./presentation').SessionPresentationBootstrapServices &
+  import('./presentation/services').SessionPresentationBootstrapServices &
   import('./inventory').SessionInventoryBootstrapServices &
   import('./entity').SessionEntityBootstrapServices

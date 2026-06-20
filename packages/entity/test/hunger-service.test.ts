@@ -1,12 +1,7 @@
 import { describe, it } from '@effect/vitest'
-import {
-  HungerService,
-  PlayerHunger,
-  addExhaustionToHunger,
-  advanceFoodTimer,
-  eatFood,
-  applyExhaustionCascade,
-} from '@ts-minecraft/entity'
+import { HungerService } from '@ts-minecraft/entity/application/hunger-service'
+import { PlayerHunger } from '@ts-minecraft/entity/domain/player-hunger'
+import { addExhaustionToHunger, advanceFoodTimer, applyExhaustionCascade, eatFood } from '@ts-minecraft/entity/domain/player-hunger-resolution'
 import { Array as Arr, Effect } from 'effect'
 import { expect } from 'vitest'
 import {

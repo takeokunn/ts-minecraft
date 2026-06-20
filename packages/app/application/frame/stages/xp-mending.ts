@@ -1,13 +1,25 @@
 import { Effect } from 'effect'
-import type { FrameHandlerServices } from '@ts-minecraft/app/frame/types'
+
+export type MendingExperienceServices = {
+  readonly inventoryService: {
+    readonly repairMendingItemsWithXP: (amount: number) => Effect.Effect<number, never, never>
+  }
+  readonly equipmentService: {
+    readonly repairMendingItemsWithXP: (amount: number) => Effect.Effect<number, never, never>
+  }
+  readonly xpService: {
+    readonly addXP: (amount: number) => Effect.Effect<unknown, never, never>
+  }
+}
 
 export const addExperienceWithMending = (
   amount: number,
-  services: Pick<FrameHandlerServices, 'inventoryService' | 'equipmentService' | 'xpService'>,
-) =>
+  services: MendingExperienceServices,
+): Effect.Effect<void, never> =>
   Effect.gen(function* () {
     const remainingAfterInventory = yield* services.inventoryService.repairMendingItemsWithXP(amount)
     const remainingAfterEquipment = yield* services.equipmentService.repairMendingItemsWithXP(remainingAfterInventory)
-    if (remainingAfterEquipment <= 0) return yield* services.xpService.getXP()
-    return yield* services.xpService.addXP(remainingAfterEquipment)
+    if (remainingAfterEquipment > 0) {
+      yield* services.xpService.addXP(remainingAfterEquipment)
+    }
   })

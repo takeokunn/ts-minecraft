@@ -1,14 +1,15 @@
 import { Effect } from 'effect'
 import { type BlockService } from '@ts-minecraft/world'
-import { type VillageBlockPlacement } from './village-placement-plan'
-
-type VillageBlockPosition = Parameters<BlockService['forceSetBlock']>[0]
-type VillageBlockType = Parameters<BlockService['forceSetBlock']>[1]
+import {
+  type VillageBlockPlacement,
+  type VillagePlacementServiceBlockType,
+  type VillagePlacementServicePosition,
+} from './village-placement-foundation-types'
 
 export const writeVillageBlock = (
   blockService: Pick<BlockService, 'forceSetBlock'>,
-  position: VillageBlockPosition,
-  blockType: VillageBlockType,
+  position: VillagePlacementServicePosition,
+  blockType: VillagePlacementServiceBlockType,
 ): Effect.Effect<void, never> =>
   blockService.forceSetBlock(position, blockType).pipe(
     Effect.catchAll(() => Effect.void),

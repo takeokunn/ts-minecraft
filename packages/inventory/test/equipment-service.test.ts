@@ -40,6 +40,31 @@ describe('application/equipment-service', () => {
     }).pipe(Effect.provide(testLayer))
   )
 
+  it.effect('equipIfSlotEmpty fills an empty matching armor slot', () =>
+    Effect.gen(function* () {
+      const svc = yield* EquipmentService
+
+      const equipped = yield* svc.equipIfSlotEmpty(mk('IRON_HELMET'))
+
+      expect(equipped).toBe(true)
+      const item = yield* svc.getEquippedItem('HELMET')
+      expect(Option.getOrThrow(item).itemType).toBe('IRON_HELMET')
+    }).pipe(Effect.provide(testLayer))
+  )
+
+  it.effect('equipIfSlotEmpty does not overwrite occupied armor slots', () =>
+    Effect.gen(function* () {
+      const svc = yield* EquipmentService
+      yield* svc.equip(mk('DIAMOND_HELMET'))
+
+      const equipped = yield* svc.equipIfSlotEmpty(mk('IRON_HELMET'))
+
+      expect(equipped).toBe(false)
+      const item = yield* svc.getEquippedItem('HELMET')
+      expect(Option.getOrThrow(item).itemType).toBe('DIAMOND_HELMET')
+    }).pipe(Effect.provide(testLayer))
+  )
+
   it.effect('equip returns false for non-armor items', () =>
     Effect.gen(function* () {
       const svc = yield* EquipmentService

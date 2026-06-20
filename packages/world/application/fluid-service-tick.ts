@@ -1,40 +1,25 @@
-import { Effect, HashMap, Ref } from "effect";
+import { Effect, Ref } from "effect";
 import {
   FLUID_TICK_BUDGET,
   LAVA_TICK_INTERVAL,
   parseKey,
-} from "@ts-minecraft/block";
-import type { FluidCell, FluidState } from "@ts-minecraft/block";
-import type { ChunkCacheKey, Position } from "@ts-minecraft/core";
-import type { BlockType } from "@ts-minecraft/core";
-import type { Chunk } from "../domain/chunk";
+} from "@ts-minecraft/block/domain/fluid-model";
+import type { FluidState } from "@ts-minecraft/block/domain/fluid-model";
 import type { LoadedChunkCache } from "./fluid-service-helpers";
 import { processFluidCell } from "./fluid-service-flow";
+import type { FluidServiceWrites } from "./fluid-service-write-ports";
 import { splitBudget } from "./fluid-tick-budget";
 import {
   collectTickWork,
   removeWorkFromFrontier,
 } from "./fluid-service-runtime-plan";
 
-type FluidTickWrite = {
-  readonly writeFluid: (
-    loaded: HashMap.HashMap<ChunkCacheKey, Chunk>,
-    position: Position,
-    cell: FluidCell,
-  ) => Effect.Effect<void, never>;
-  readonly writeSolid: (
-    loaded: HashMap.HashMap<ChunkCacheKey, Chunk>,
-    position: Position,
-    blockType: BlockType,
-  ) => Effect.Effect<void, never>;
-};
-
 export const makeTick =
   (
     stateRef: Ref.Ref<FluidState>,
     loadedCacheRef: Ref.Ref<LoadedChunkCache>,
-    writeFluid: FluidTickWrite["writeFluid"],
-    writeSolid: FluidTickWrite["writeSolid"],
+    writeFluid: FluidServiceWrites["writeFluid"],
+    writeSolid: FluidServiceWrites["writeSolid"],
   ) =>
   (): Effect.Effect<void, never> =>
     Effect.gen(function* () {

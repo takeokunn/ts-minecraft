@@ -93,6 +93,39 @@ describe('application/recipes/misc-recipes', () => {
       expect(ingredientTotal('planks-to-crafting-table')).toBe(4)
     })
 
+    it('book-diamonds-obsidian-to-enchanting-table: 1 BOOK + 2 DIAMOND + 4 OBSIDIAN -> 1 ENCHANTING_TABLE at crafting_table', () => {
+      const recipe = findById('book-diamonds-obsidian-to-enchanting-table')
+      expect(recipe).toBeDefined()
+      expect(recipe!.station).toBe('crafting_table')
+      expect(recipe!.ingredients).toHaveLength(3)
+      expect(recipe!.ingredients[0]).toMatchObject({ itemType: 'BOOK', count: 1 })
+      expect(recipe!.ingredients[1]).toMatchObject({ itemType: 'DIAMOND', count: 2 })
+      expect(recipe!.ingredients[2]).toMatchObject({ itemType: 'OBSIDIAN', count: 4 })
+      expect(recipe!.output).toEqual({ itemType: 'ENCHANTING_TABLE', count: 1 })
+      expect(ingredientTotal('book-diamonds-obsidian-to-enchanting-table')).toBe(7)
+    })
+
+    it('iron-blocks-iron-ingots-to-anvil: 3 IRON_BLOCK + 4 IRON_INGOT -> 1 ANVIL at crafting_table', () => {
+      const recipe = findById('iron-blocks-iron-ingots-to-anvil')
+      expect(recipe).toBeDefined()
+      expect(recipe!.station).toBe('crafting_table')
+      expect(recipe!.ingredients).toHaveLength(2)
+      expect(recipe!.ingredients[0]).toMatchObject({ itemType: 'IRON_BLOCK', count: 3 })
+      expect(recipe!.ingredients[1]).toMatchObject({ itemType: 'IRON_INGOT', count: 4 })
+      expect(recipe!.output).toEqual({ itemType: 'ANVIL', count: 1 })
+      expect(ingredientTotal('iron-blocks-iron-ingots-to-anvil')).toBe(7)
+    })
+
+    it('iron-ingots-to-cauldron: 7 IRON_INGOT -> 1 CAULDRON at crafting_table', () => {
+      const recipe = findById('iron-ingots-to-cauldron')
+      expect(recipe).toBeDefined()
+      expect(recipe!.station).toBe('crafting_table')
+      expect(recipe!.ingredients).toHaveLength(1)
+      expect(recipe!.ingredients[0]).toMatchObject({ itemType: 'IRON_INGOT', count: 7 })
+      expect(recipe!.output).toEqual({ itemType: 'CAULDRON', count: 1 })
+      expect(ingredientTotal('iron-ingots-to-cauldron')).toBe(7)
+    })
+
     it('cobblestone-to-furnace: 8 COBBLESTONE → 1 FURNACE at crafting_table', () => {
       const recipe = findById('cobblestone-to-furnace')
       expect(recipe).toBeDefined()
@@ -129,6 +162,33 @@ describe('application/recipes/misc-recipes', () => {
       expect(ingredientTotal('sticks-to-ladder')).toBe(7)
     })
 
+    it('stone-to-pressure-plate: 2 STONE -> 1 PRESSURE_PLATE at crafting_table', () => {
+      const recipe = findById('stone-to-pressure-plate')
+      expect(recipe).toBeDefined()
+      expect(recipe!.station).toBe('crafting_table')
+      expect(recipe!.output.itemType).toBe('PRESSURE_PLATE')
+      expect(recipe!.output.count).toBe(1)
+      expect(ingredientTotal('stone-to-pressure-plate')).toBe(2)
+    })
+
+    it('stone-to-stone-slab: 3 STONE -> 6 STONE_SLAB at crafting_table', () => {
+      const recipe = findById('stone-to-stone-slab')
+      expect(recipe).toBeDefined()
+      expect(recipe!.station).toBe('crafting_table')
+      expect(recipe!.output.itemType).toBe('STONE_SLAB')
+      expect(recipe!.output.count).toBe(6)
+      expect(ingredientTotal('stone-to-stone-slab')).toBe(3)
+    })
+
+    it('planks-to-oak-stairs: 6 PLANKS -> 4 OAK_STAIRS at crafting_table', () => {
+      const recipe = findById('planks-to-oak-stairs')
+      expect(recipe).toBeDefined()
+      expect(recipe!.station).toBe('crafting_table')
+      expect(recipe!.output.itemType).toBe('OAK_STAIRS')
+      expect(recipe!.output.count).toBe(4)
+      expect(ingredientTotal('planks-to-oak-stairs')).toBe(6)
+    })
+
     it('glowstone-dust-to-glowstone: 4 GLOWSTONE_DUST -> 1 GLOWSTONE at inventory', () => {
       const recipe = findById('glowstone-dust-to-glowstone')
       expect(recipe).toBeDefined()
@@ -136,6 +196,42 @@ describe('application/recipes/misc-recipes', () => {
       expect(recipe!.output.itemType).toBe('GLOWSTONE')
       expect(recipe!.output.count).toBe(1)
       expect(ingredientTotal('glowstone-dust-to-glowstone')).toBe(4)
+    })
+  })
+
+  describe('mineral block compacting recipes', () => {
+    const pairs = [
+      ['coal-to-coal-block', 'coal-block-to-coal', 'COAL', 'COAL_BLOCK'],
+      ['iron-ingots-to-iron-block', 'iron-block-to-iron-ingots', 'IRON_INGOT', 'IRON_BLOCK'],
+      ['gold-ingots-to-gold-block', 'gold-block-to-gold-ingots', 'GOLD_INGOT', 'GOLD_BLOCK'],
+      ['diamonds-to-diamond-block', 'diamond-block-to-diamonds', 'DIAMOND', 'DIAMOND_BLOCK'],
+      ['redstone-dust-to-redstone-block', 'redstone-block-to-redstone-dust', 'REDSTONE_DUST', 'REDSTONE_BLOCK'],
+      ['lapis-lazuli-to-lapis-block', 'lapis-block-to-lapis-lazuli', 'LAPIS_LAZULI', 'LAPIS_BLOCK'],
+      ['emeralds-to-emerald-block', 'emerald-block-to-emeralds', 'EMERALD', 'EMERALD_BLOCK'],
+    ] as const
+
+    it('compacts 9 mineral items into one block at crafting_table', () => {
+      for (const [compactId, , material, block] of pairs) {
+        const recipe = findById(compactId)
+        expect(recipe, `${compactId} missing`).toBeDefined()
+        expect(recipe!.station, `${compactId} station`).toBe('crafting_table')
+        expect(recipe!.ingredients).toHaveLength(1)
+        expect(recipe!.ingredients[0].itemType).toBe(material)
+        expect(recipe!.ingredients[0].count).toBe(9)
+        expect(recipe!.output).toEqual({ itemType: block, count: 1 })
+      }
+    })
+
+    it('unpacks one mineral block into 9 items in inventory', () => {
+      for (const [, unpackId, material, block] of pairs) {
+        const recipe = findById(unpackId)
+        expect(recipe, `${unpackId} missing`).toBeDefined()
+        expect(recipe!.station, `${unpackId} station`).toBe('inventory')
+        expect(recipe!.ingredients).toHaveLength(1)
+        expect(recipe!.ingredients[0].itemType).toBe(block)
+        expect(recipe!.ingredients[0].count).toBe(1)
+        expect(recipe!.output).toEqual({ itemType: material, count: 9 })
+      }
     })
   })
 

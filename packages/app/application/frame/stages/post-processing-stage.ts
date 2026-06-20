@@ -3,7 +3,10 @@
 // concern (water shader uniforms feed into the composer's render flow).
 import { Effect, MutableRef } from 'effect'
 import { logErrors } from '@ts-minecraft/app/frame/error-logging'
-import type { FrameHandlerDeps, FrameHandlerServices, FrameStageRefs, ResolvedDeps } from '@ts-minecraft/app/frame/types'
+import type { FrameHandlerDeps } from '@ts-minecraft/app/application/frame/types/deps'
+import type { ResolvedDeps } from '@ts-minecraft/app/application/frame/types/runtime'
+import type { FrameHandlerServices } from '@ts-minecraft/app/application/frame/types/services'
+import type { FrameStageRefs } from '@ts-minecraft/app/application/frame/types/stage-refs'
 import { captureCameraPose, copyCameraPoseInto, hasCameraPoseChanged } from '@ts-minecraft/app/frame/frame-camera-pose'
 import type { ResolvedGraphics } from '@ts-minecraft/game'
 import { resolvePostProcessingSetupLayout } from './post-processing-layout'

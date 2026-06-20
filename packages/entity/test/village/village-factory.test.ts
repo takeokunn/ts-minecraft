@@ -1,19 +1,21 @@
 import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
 import { Array as Arr, Effect, HashSet } from 'effect'
-import { VILLAGE_NEAR_DISTANCE } from '@ts-minecraft/entity'
-import { createVillage, ensureVillageInState, INITIAL_VILLAGE_STATE } from '../../domain/village'
+import { VILLAGE_NEAR_DISTANCE } from '@ts-minecraft/entity/domain/village/village-simulation-constants'
+import { createVillage } from '../../domain/village/village-creation'
+import { ensureVillageInState } from '../../domain/village/village-creation-resolution'
+import { INITIAL_VILLAGE_STATE } from '../../domain/village/village-state'
 
-describe('village/village-creation', () => {
+describe('village/village-creation-resolution', () => {
   it.effect('createVillage returns village with correct id pattern', () =>
-    Effect.gen(function* () {
+    Effect.sync(() => {
       const village = createVillage(1, { x: 48, y: 64, z: 48 })
       expect(village.villageId).toBe('village-1')
     })
   )
 
   it.effect('createVillage has all required structure types: well, road, house (×3), farm', () =>
-    Effect.gen(function* () {
+    Effect.sync(() => {
       const village = createVillage(1, { x: 48, y: 64, z: 48 })
       const types = HashSet.fromIterable(Arr.map(village.structures, (s) => s.type))
       expect(HashSet.has(types, 'well')).toBe(true)
@@ -27,14 +29,14 @@ describe('village/village-creation', () => {
   )
 
   it.effect('createVillage has exactly 3 villagers', () =>
-    Effect.gen(function* () {
+    Effect.sync(() => {
       const village = createVillage(1, { x: 48, y: 64, z: 48 })
       expect(village.villagers).toHaveLength(3)
     })
   )
 
   it.effect('createVillage villager home/workplace structureIds reference existing structures', () =>
-    Effect.gen(function* () {
+    Effect.sync(() => {
       const village = createVillage(1, { x: 48, y: 64, z: 48 })
       const structureIds = HashSet.fromIterable(Arr.map(village.structures, (s) => s.structureId))
       Arr.forEach(village.villagers, (villager) => {
@@ -45,7 +47,7 @@ describe('village/village-creation', () => {
   )
 
   it.effect('createVillage is deterministic for repeated calls', () =>
-    Effect.gen(function* () {
+    Effect.sync(() => {
       const a = createVillage(1, { x: 48, y: 64, z: 48 })
       const b = createVillage(1, { x: 48, y: 64, z: 48 })
       expect(a.villageId).toBe(b.villageId)
@@ -56,7 +58,7 @@ describe('village/village-creation', () => {
 
   describe('ensureVillageInState', () => {
     it.effect('empty state + position creates a new village', () =>
-      Effect.gen(function* () {
+      Effect.sync(() => {
         const [state, village] = ensureVillageInState(INITIAL_VILLAGE_STATE, { x: 48, y: 64, z: 48 })
         expect(state.villages).toHaveLength(1)
         expect(village.villageId).toBe('village-1')
@@ -64,7 +66,7 @@ describe('village/village-creation', () => {
     )
 
     it.effect('state with nearby village returns the existing village (no new one)', () =>
-      Effect.gen(function* () {
+      Effect.sync(() => {
         const existingVillage = createVillage(1, { x: 48, y: 64, z: 48 })
         const state = {
           ...INITIAL_VILLAGE_STATE,
@@ -80,7 +82,7 @@ describe('village/village-creation', () => {
     )
 
     it.effect('state with a far-away village creates a second village', () =>
-      Effect.gen(function* () {
+      Effect.sync(() => {
         const existingVillage = createVillage(1, { x: 48, y: 64, z: 48 })
         const state = {
           ...INITIAL_VILLAGE_STATE,

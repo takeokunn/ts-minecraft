@@ -2,7 +2,7 @@ import type {
   DebugFeatureBadge,
   DebugFeatureCatalogEntry,
   DebugFeatureFlagGroup,
-} from '@ts-minecraft/app/debug-feature-flags'
+} from '@ts-minecraft/app/application/debug-feature-flags'
 
 export const DOM_UPDATE_INTERVAL_MS = 250
 

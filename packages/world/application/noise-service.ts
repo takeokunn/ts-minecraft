@@ -84,7 +84,7 @@ export class NoiseService extends Effect.Service<NoiseService>()(
         ): Effect.Effect<ReadonlyArray<number>, never> =>
           Effect.sync(() => {
             const length = points.length
-            const values = new Array<number>(length)
+            const values = Array.from({ length }) as Array<number>
             for (let i = 0; i < length; i++) {
               const point = points[i]!
               values[i] = primitives.octaveNoise2D(point[0], point[1], octaves, persistence, lacunarity)
@@ -97,7 +97,7 @@ export class NoiseService extends Effect.Service<NoiseService>()(
         ): Effect.Effect<ReadonlyArray<number>, never> =>
           Effect.sync(() => {
             const length = points.length
-            const values = new Array<number>(length)
+            const values = Array.from({ length }) as Array<number>
             for (let i = 0; i < length; i++) {
               const point = points[i]!
               values[i] = primitives.noise2D(point[0], point[1])
@@ -114,7 +114,7 @@ export class NoiseService extends Effect.Service<NoiseService>()(
         ): Effect.Effect<ReadonlyArray<number>, never> =>
           Effect.sync(() => {
             const length = xs.length
-            const values = new Array<number>(length)
+            const values = Array.from({ length }) as Array<number>
             for (let i = 0; i < length; i++) {
               values[i] = primitives.octaveNoise2D(
                 readBatchCoordinate(xs, i),
@@ -133,7 +133,7 @@ export class NoiseService extends Effect.Service<NoiseService>()(
         ): Effect.Effect<ReadonlyArray<number>, never> =>
           Effect.sync(() => {
             const length = xs.length
-            const values = new Array<number>(length)
+            const values = Array.from({ length }) as Array<number>
             for (let i = 0; i < length; i++) {
               values[i] = primitives.noise2D(
                 readBatchCoordinate(xs, i),

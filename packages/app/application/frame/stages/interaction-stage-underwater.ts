@@ -2,7 +2,8 @@ import { Effect } from 'effect'
 import type { Position, ChunkCoord } from '@ts-minecraft/core'
 import { isInWater } from '@ts-minecraft/game/domain/block-collision-predicates'
 import { worldToChunkCoord } from '@ts-minecraft/world/domain/chunk-coord-utils'
-import type { FrameHandlerDeps, FrameHandlerServices } from '@ts-minecraft/app/frame/types'
+import type { FrameHandlerDeps } from '@ts-minecraft/app/application/frame/types/deps'
+import type { FrameHandlerServices } from '@ts-minecraft/app/application/frame/types/services'
 
 export type UnderwaterChunkCacheEntry = { readonly blocks: Uint8Array } | null
 
@@ -13,7 +14,7 @@ export const buildPlayerUnderwaterChunkCache = (
   playerChunkCoord: ChunkCoord,
 ): Effect.Effect<ReadonlyArray<UnderwaterChunkCacheEntry>, never> =>
   Effect.gen(function* () {
-    const chunkCache: Array<UnderwaterChunkCacheEntry> = new Array(9)
+    const chunkCache = Array.from({ length: 9 }) as Array<UnderwaterChunkCacheEntry>
     let index = 0
 
     for (let dx = -1; dx <= 1; dx += 1) {

@@ -26,6 +26,7 @@ export const makeHotbarService = () => ({
 /** Creates an equipment service fake with no equipped armor. */
 export const makeEquipmentService = () => ({
   equip: (_stack: unknown) => Effect.succeed(false),
+  equipIfSlotEmpty: (_stack: unknown) => Effect.succeed(false),
   unequipSlot: (_slot: unknown) => Effect.succeed(Option.none()),
   getEquippedItem: (_slot: unknown) => Effect.succeed(Option.none()),
   getAll: () => Effect.succeed({ HELMET: Option.none(), CHESTPLATE: Option.none(), LEGGINGS: Option.none(), BOOTS: Option.none() }),

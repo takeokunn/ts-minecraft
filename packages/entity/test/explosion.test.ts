@@ -1,12 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import {
-  CREEPER_EXPLOSION_POWER,
-  CHARGED_CREEPER_EXPLOSION_POWER,
-  TNT_EXPLOSION_POWER,
-  explosionRadius,
-  computeExplosionDamage,
-  computeExplosionDamageAt,
-} from '@ts-minecraft/entity'
+import { CHARGED_CREEPER_EXPLOSION_POWER, CREEPER_EXPLOSION_POWER, TNT_EXPLOSION_POWER } from '@ts-minecraft/entity/domain/explosion';
+import { computeExplosionDamage, computeExplosionDamageAt, explosionRadius } from '@ts-minecraft/entity/domain/explosion-resolution';
 
 describe('explosion power constants', () => {
   it('match vanilla blast powers', () => {

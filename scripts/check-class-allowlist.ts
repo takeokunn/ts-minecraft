@@ -1,10 +1,8 @@
 import { readFile } from 'node:fs/promises'
-import { collectProductionPackageFiles, lineOfIndex, printViolationsAndExit, relativeFromRoot, stripCommentsAndStrings, type Violation } from './check-utils.ts'
+import { collectProductionPackageFiles, lineOfIndex, relativeFromRoot, stripCommentsAndStrings, type Violation } from './check-utils.ts'
 
-const checkName = 'check-class-allowlist'
-
-const classPattern = /\b(?:export\s+)?(?:abstract\s+)?class\s+([A-Za-z_$][\w$]*)(?:\s+extends\s+([^\{]+))?/gu
-const classExpressionPattern = /(?:=|return|\()\s*(?:abstract\s+)?class(?:\s+[A-Za-z_$][\w$]*)?(?:\s+extends\s+([^\{]+))?/gu
+const classPattern = /\b(?:export\s+)?(?:abstract\s+)?class\s+([A-Za-z_$][\w$]*)(?:\s+extends\s+([^{]+))?/gu
+const classExpressionPattern = /(?:=|return|\()\s*(?:abstract\s+)?class(?:\s+[A-Za-z_$][\w$]*)?(?:\s+extends\s+([^{]+))?/gu
 
 const isAllowedExtends = (extendsText: string | undefined, hasSchemaApproval: boolean): boolean => {
   if (extendsText === undefined) {

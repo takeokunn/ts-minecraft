@@ -1,7 +1,7 @@
 import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
 import { Array as Arr, HashSet } from 'effect'
-import { KeyMappings } from '@ts-minecraft/entity'
+import { KeyMappings } from '@ts-minecraft/entity/domain/key-mappings';
 
 describe('KeyMappings', () => {
   describe('movement keys', () => {

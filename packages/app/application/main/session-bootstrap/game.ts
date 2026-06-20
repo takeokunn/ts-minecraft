@@ -1,6 +1,5 @@
 import { Effect } from 'effect'
-import { GameStateService, TimeService, WeatherService, GameLoopService, GameModeService } from '@ts-minecraft/game'
-import type { GameMode } from '@ts-minecraft/game'
+import { GameStateService, TimeService, WeatherService, GameModeService } from '@ts-minecraft/game'
 
 export const buildGameBootstrapServices = Effect.gen(function* () {
   const gameState = yield* GameStateService
@@ -15,9 +14,3 @@ export const buildGameBootstrapServices = Effect.gen(function* () {
     gameModeService,
   }
 })
-
-export const buildGameLoopService = Effect.gen(function* () {
-  return yield* GameLoopService
-})
-
-export type { GameMode }

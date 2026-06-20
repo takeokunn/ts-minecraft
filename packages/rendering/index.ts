@@ -6,20 +6,18 @@ export * from './infrastructure/renderer/world-renderer-pose-cache'
 export * from './infrastructure/camera/perspective'
 export * from './infrastructure/entity/entity-instance-pool'
 export * from './infrastructure/entity/entity-renderer'
+export * from './infrastructure/entity/dropped-item-renderer'
 export * from './infrastructure/entity/mob-geometry'
 export * from './infrastructure/entity/walk-cycle'
-export * from './infrastructure/player'
+export * from './infrastructure/player/remote-player-renderer'
 export * from './infrastructure/post-processing/composite-pass'
 export * from './infrastructure/post-processing/god-rays-pass'
 export * from './infrastructure/meshing/block-mesh'
 export * from './infrastructure/meshing/chunk-mesh'
 export * from './infrastructure/meshing/greedy-meshing'
-// FR-4.1: expose subregion entrypoint and schema; suppress the secondary
-// DirtyAABB type export (the canonical one is from meshing-worker-pool below).
 export {
   greedyMeshChunkSubregion,
   computeAffectedSlices,
-  DirtyAABBSchema,
   type SubregionMeshOptions,
   type SliceRange,
 } from './infrastructure/meshing/subregion-greedy'
@@ -38,5 +36,3 @@ export * from './infrastructure/textures/texture-loader'
 export * from './infrastructure/post-processing/water-material'
 export * from './infrastructure/particles/particle-system'
 export * from './presentation/perf-hud'
-// Worker re-exports removed to break circular dependency (rendering ↔ worker).
-// Import directly from @ts-minecraft/worker instead.

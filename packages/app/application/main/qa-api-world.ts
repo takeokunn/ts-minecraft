@@ -1,14 +1,14 @@
 import { Effect, MutableRef, Option, Schema } from 'effect'
 import type * as THREE from 'three'
 import { BlockTypeSchema, SlotIndex } from '@ts-minecraft/core'
-import { HOTBAR_START } from '@ts-minecraft/inventory'
+import { HOTBAR_START } from '@ts-minecraft/inventory/application/inventory-service'
 import type { BlockService, ChunkManagerService } from '@ts-minecraft/world'
 import { setBlockInChunk } from '@ts-minecraft/world'
-import type { HotbarService } from '@ts-minecraft/inventory'
+import type { HotbarService } from '@ts-minecraft/inventory/application/hotbar-service'
 import type { WorldRendererService } from '@ts-minecraft/rendering'
 import type { BlockHighlightService } from '@ts-minecraft/presentation'
 import { getChunkAccessForWorldPosition, projectBlockAhead } from '@ts-minecraft/app/main/qa-spatial'
-import type { StagedResourceBlock, StagedZombiePosition } from '@ts-minecraft/app/main/qa-api-types'
+import type { StagedResourceBlock, StagedZombiePosition } from '@ts-minecraft/app/main/qa-api-types/staged'
 
 export const stageProgressionScenario = (
   camera: THREE.PerspectiveCamera,

@@ -1,7 +1,7 @@
 import { describe, it } from 'vitest'
 import { expect } from 'vitest'
 import { Effect } from 'effect'
-import { StorageError } from '@ts-minecraft/block'
+import { StorageError } from '@ts-minecraft/block/domain/errors'
 import {
   isQuotaExceeded,
   tryCatchStorage,

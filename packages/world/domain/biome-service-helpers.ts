@@ -2,6 +2,8 @@ import type { BiomeProperties, BiomeType } from './biome'
 import { buildRefinedChunkBiomes } from './biome-chunk'
 import {
   buildChunkNoiseInputs,
+  classifyBiomeFromClimate,
+  peaksAndValleysFromWeirdness,
   type ChunkNoiseCoord,
 } from './biome-classifier'
 
@@ -10,6 +12,20 @@ export type ChunkNoiseInput = ChunkNoiseCoord
 export type BiomeChunkEntry = Readonly<{
   readonly biome: BiomeType
   readonly props: BiomeProperties
+}>
+
+export type SampledBiomeDataInput = Readonly<{
+  temperature: number
+  humidity: number
+  continentalness: number
+  erosion: number
+  weirdness: number
+  riverNoise: number
+}>
+
+export type SampledBiomeData = Readonly<{
+  biome: BiomeType
+  continentalness: number
 }>
 
 const MISSING_CHUNK_NOISE_INPUT: ChunkNoiseInput = {
@@ -30,6 +46,25 @@ export const makeBiomeChunkEntry = (
 ): BiomeChunkEntry => ({
   biome,
   props,
+})
+
+export const buildSampledBiomeData = ({
+  temperature,
+  humidity,
+  continentalness,
+  erosion,
+  weirdness,
+  riverNoise,
+}: SampledBiomeDataInput): SampledBiomeData => ({
+  biome: classifyBiomeFromClimate({
+    temperature,
+    humidity,
+    continentalness,
+    erosion,
+    pv: peaksAndValleysFromWeirdness(weirdness),
+    riverNoise,
+  }),
+  continentalness,
 })
 
 export type BiomeChunkNoiseBatchInputs = Readonly<{

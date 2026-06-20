@@ -1,6 +1,7 @@
 import { describe, it } from '@effect/vitest'
 import { afterEach, beforeEach, expect, vi } from 'vitest'
 import { LIGHT_BYTE_LENGTH } from '@ts-minecraft/worker'
+import { createFluidBuffer, encodeFluidCell } from '@ts-minecraft/world'
 
 type WorkerSelfMock = {
   postMessage: ReturnType<typeof vi.fn>
@@ -13,10 +14,12 @@ const makeChunkBuffer = (): ArrayBuffer => {
   return blocks.buffer
 }
 
-const makeWaterChunkBuffer = (): ArrayBuffer => {
+const makeWaterChunkBuffers = (): { readonly blocks: ArrayBuffer; readonly fluid: ArrayBuffer } => {
   const blocks = new Uint8Array(16 * 256 * 16)
+  const fluid = createFluidBuffer()
   blocks[0] = 6
-  return blocks.buffer
+  fluid[0] = encodeFluidCell({ level: 0, source: true, type: 'water' })
+  return { blocks: blocks.buffer, fluid: fluid.buffer }
 }
 
 const makeLightBuffer = (): ArrayBuffer => new Uint8Array(LIGHT_BYTE_LENGTH).buffer
@@ -127,10 +130,13 @@ describe('infrastructure/meshing/meshing-worker', () => {
 
     await import('../infrastructure/meshing/meshing-worker')
 
+    const waterChunk = makeWaterChunkBuffers()
+
     selfMock.onmessage?.({
       data: {
         id: 17,
-        blocks: makeWaterChunkBuffer(),
+        blocks: waterChunk.blocks,
+        fluid: waterChunk.fluid,
         skyLight: makeLightBuffer(),
         blockLight: makeLightBuffer(),
         wx: 0,

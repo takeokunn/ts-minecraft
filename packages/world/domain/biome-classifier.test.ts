@@ -8,7 +8,7 @@ import {
   peaksAndValleysFromWeirdness,
   refineBeachBiome,
 } from './biome-classifier'
-import { toPV } from '../infrastructure/primitives'
+import { toPV } from './noise-primitives'
 
 const classifyBiomeCases = [
   [0.1, 0.1, 'SNOW'],

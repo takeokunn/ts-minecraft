@@ -127,6 +127,7 @@ export const BLOCK_IDS = {
   LEAVES: 7,
   LAVA: 17,
   TORCH: 43,
+  PURPUR_SLAB: 69,
   LADDER: 76,
   COBWEB: 77,
   SAPLING: 78,
@@ -140,6 +141,9 @@ export const BLOCK_IDS = {
   CACTUS: 86,
   LILY_PAD: 87,
   ICE: 88,
+  PRESSURE_PLATE: 89,
+  STONE_SLAB: 90,
+  OAK_STAIRS: 91,
 } as const
 
 /**

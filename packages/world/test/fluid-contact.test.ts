@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { Option } from 'effect'
 import { resolveContact } from '../domain/fluid-contact'
-import type { FluidCell } from '@ts-minecraft/block'
+import type { FluidCell } from '@ts-minecraft/block/domain/fluid-model'
 
 const waterSource: FluidCell = { type: 'water', source: true, level: 0 }
 const waterFlow: FluidCell = { type: 'water', source: false, level: 3 }

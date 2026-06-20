@@ -1,9 +1,8 @@
 // App-level multiplayer service: aggregates network state, exposed to frame stages
 // and presentation. Pure state management + network delegation.
 import { Context, Effect, Fiber, Layer, Option, Ref, Stream } from 'effect'
-import type { ConnectionState, NetworkMessage, PlayerId, PlayerName, Vec3 } from '@ts-minecraft/network'
-import { MessageType, WorldId } from '@ts-minecraft/network'
-import type { ClientServiceShape } from '@ts-minecraft/network'
+import type { ConnectionState, ClientServiceShape } from '@ts-minecraft/network/application/client-service'
+import { MessageType, PlayerId, PlayerName, WorldId, type NetworkMessage, type Vec3 } from '@ts-minecraft/network/domain/schemas'
 import type { BlockType } from '@ts-minecraft/core'
 
 const OVERWORLD_ID = WorldId.make('overworld')

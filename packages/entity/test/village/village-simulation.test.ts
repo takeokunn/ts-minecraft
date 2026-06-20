@@ -1,26 +1,17 @@
 import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
 import { Option } from 'effect'
-import {
-  VillageId,
-  VillageStructureId,
-  VillagerId,
-  VillagerActivity,
-  type VillageState,
-  TRADE_DISTANCE,
-  WANDER_RADIUS,
-  distanceSq,
-  hashString,
-  moveTowards,
-  findNearestVillage,
-  findStructureAnchor,
-  snapVillageCenter,
-  nextActivityForVillager,
-  getTargetPosition,
-  flattenVillagers,
-  advanceVillageState,
-} from '@ts-minecraft/entity'
-import type { Villager, VillageStructure } from '@ts-minecraft/entity'
+import { VillageId, VillagerActivity, VillagerId, VillageStructureId } from '@ts-minecraft/entity/domain/village/village-model'
+import { snapVillageCenter } from '@ts-minecraft/entity/domain/village/village-placement-geometry';
+import { distanceSq, moveTowards } from '@ts-minecraft/entity/domain/village/village-position';
+import { findNearestVillage, findStructureAnchor } from '@ts-minecraft/entity/domain/village/village-search';
+import { TRADE_DISTANCE } from '@ts-minecraft/entity/domain/village/village-simulation-constants';
+import { advanceVillageState } from '@ts-minecraft/entity/domain/village/village-simulation-update';
+import { getTargetPosition, nextActivityForVillager } from '@ts-minecraft/entity/domain/village/village-simulation-activity';
+import { WANDER_RADIUS } from '@ts-minecraft/entity/domain/village/village-simulation.config';
+import { hashString } from '@ts-minecraft/entity/domain/village/village-hash';
+import { flattenVillagers, type VillageState } from '@ts-minecraft/entity/domain/village/village-state';
+import type { Villager, Village, VillageStructure } from '@ts-minecraft/entity/domain/village/village-model'
 import {
   makeTestVillager,
   makeTestVillage,
@@ -51,6 +42,9 @@ const makeStructure = (id: string, ax: number, ay: number, az: number): VillageS
     anchor: { x: ax, y: ay, z: az },
     size: { x: 1, y: 1, z: 1 },
   })
+
+const ORIGIN_QUERY = { x: 0, y: 64, z: 0 }
+const FAR_PLAYER_POSITION = { x: 1000, y: 64, z: 0 }
 
 describe('village/village-simulation', () => {
   describe('distanceSq', () => {
@@ -124,22 +118,22 @@ describe('village/village-simulation', () => {
 
   describe('findNearestVillage', () => {
     it('empty array returns Option.none()', () => {
-      expect(Option.isNone(findNearestVillage([], { x: 0, y: 64, z: 0 }))).toBe(true)
+      expect(Option.isNone(findNearestVillage([], ORIGIN_QUERY))).toBe(true)
     })
 
     it('single village returns that village', () => {
       const village = makeVillage('village-1', 0, 64, 0)
       const result = findNearestVillage([village], { x: 5, y: 64, z: 5 })
-      expectSome(result)
-      expect(expectSome(result).villageId).toBe(village.villageId)
+      const nearestVillage = expectSome(result)
+      expect(nearestVillage.villageId).toBe(village.villageId)
     })
 
     it('multiple villages returns the closest one', () => {
       const near = makeVillage('village-1', 10, 64, 0)
       const far = makeVillage('village-2', 500, 64, 0)
-      const query = { x: 0, y: 64, z: 0 }
-      const result = findNearestVillage([near, far], query)
-      expect(expectSome(result).villageId).toBe(near.villageId)
+      const result = findNearestVillage([near, far], ORIGIN_QUERY)
+      const nearestVillage = expectSome(result)
+      expect(nearestVillage.villageId).toBe(near.villageId)
     })
   })
 
@@ -170,40 +164,39 @@ describe('village/village-simulation', () => {
   describe('nextActivityForVillager', () => {
     const villager = makeVillager('village-1:villager-farmer', 0, 64, 0)
 
+    const expectActivity = (timeOfDay: number, expectedActivity: VillagerActivity): void => {
+      expect(nextActivityForVillager(villager, FAR_PLAYER_POSITION, timeOfDay)).toBe(expectedActivity)
+    }
+
     it('player within TRADE_DISTANCE returns Trade', () => {
       const playerPosition = { x: TRADE_DISTANCE - 1, y: 64, z: 0 }
       expect(nextActivityForVillager(villager, playerPosition, 0.5)).toBe(VillagerActivity.Trade)
     })
 
     it('timeOfDay < 0.22 returns Rest', () => {
-      const farPlayer = { x: 1000, y: 64, z: 0 }
-      expect(nextActivityForVillager(villager, farPlayer, 0.1)).toBe(VillagerActivity.Rest)
+      expectActivity(0.1, VillagerActivity.Rest)
     })
 
     it('timeOfDay > 0.78 returns Rest', () => {
-      const farPlayer = { x: 1000, y: 64, z: 0 }
-      expect(nextActivityForVillager(villager, farPlayer, 0.9)).toBe(VillagerActivity.Rest)
+      expectActivity(0.9, VillagerActivity.Rest)
     })
 
     it('timeOfDay in [0.28, 0.72] returns Work', () => {
-      const farPlayer = { x: 1000, y: 64, z: 0 }
-      expect(nextActivityForVillager(villager, farPlayer, 0.5)).toBe(VillagerActivity.Work)
-      expect(nextActivityForVillager(villager, farPlayer, 0.28)).toBe(VillagerActivity.Work)
-      expect(nextActivityForVillager(villager, farPlayer, 0.72)).toBe(VillagerActivity.Work)
+      expectActivity(0.5, VillagerActivity.Work)
+      expectActivity(0.28, VillagerActivity.Work)
+      expectActivity(0.72, VillagerActivity.Work)
     })
 
     it('timeOfDay in transition range returns Wander', () => {
-      const farPlayer = { x: 1000, y: 64, z: 0 }
       // Between 0.22 and 0.28 → Wander
-      expect(nextActivityForVillager(villager, farPlayer, 0.25)).toBe(VillagerActivity.Wander)
+      expectActivity(0.25, VillagerActivity.Wander)
       // Between 0.72 and 0.78 → Wander
-      expect(nextActivityForVillager(villager, farPlayer, 0.75)).toBe(VillagerActivity.Wander)
+      expectActivity(0.75, VillagerActivity.Wander)
     })
   })
 
   describe('advanceVillageState', () => {
     it('increments updateTick and leaves distant villages untouched', () => {
-      const playerPosition = { x: 0, y: 64, z: 0 }
       const nearVillage = makeTestVillage({
         villageId: VillageId.make('village-near'),
         center: { x: 0, y: 64, z: 0 },
@@ -217,7 +210,7 @@ describe('village/village-simulation', () => {
         updateTick: 7,
       }
 
-      const next = advanceVillageState(state, playerPosition, 0.5, 1 / 60)
+      const next = advanceVillageState(state, ORIGIN_QUERY, 0.5, 1 / 60)
 
       expect(next.updateTick).toBe(8)
       expect(next.villages[1]).toBe(farVillage)
@@ -230,19 +223,19 @@ describe('village/village-simulation', () => {
       // onSome branch: new village is NOT closer → return existing closest
       const near = makeVillage('village-near', 10, 64, 0)
       const far = makeVillage('village-far', 500, 64, 0)
-      const query = { x: 0, y: 64, z: 0 }
-      const result = findNearestVillage([near, far], query)
-      expect(expectSome(result).villageId).toBe(near.villageId)
+      const result = findNearestVillage([near, far], ORIGIN_QUERY)
+      const nearestVillage = expectSome(result)
+      expect(nearestVillage.villageId).toBe(near.villageId)
     })
 
     it('replaces closest when a nearer village is encountered later', () => {
       // onSome branch: new village IS closer → return Option.some(village)
       const far = makeVillage('village-far', 500, 64, 0)
       const near = makeVillage('village-near', 10, 64, 0)
-      const query = { x: 0, y: 64, z: 0 }
       // far is processed first (becomes initial closest), then near replaces it
-      const result = findNearestVillage([far, near], query)
-      expect(expectSome(result).villageId).toBe(near.villageId)
+      const result = findNearestVillage([far, near], ORIGIN_QUERY)
+      const nearestVillage = expectSome(result)
+      expect(nearestVillage.villageId).toBe(near.villageId)
     })
   })
 

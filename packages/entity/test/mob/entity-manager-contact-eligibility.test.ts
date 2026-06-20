@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest'
-import { EntityId, EntityType } from '@ts-minecraft/entity'
+import { EntityId, EntityType } from '@ts-minecraft/entity/domain/mob/entity';
 import { canHostileContactDamagePlayer } from '../../application/mob/entity-manager-contact-eligibility'
 import { makeTestManagedEntity } from './test-utils'
 

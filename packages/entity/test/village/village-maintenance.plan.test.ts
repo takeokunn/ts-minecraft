@@ -1,7 +1,7 @@
 import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
-import { VillageId } from '@ts-minecraft/entity'
-import { collectNewVillages, resolveVillageMaintenancePlan } from '../../domain/village'
+import { VillageId } from '@ts-minecraft/entity/domain/village/village-model'
+import { collectNewVillages, resolveVillageMaintenancePlan } from '../../domain/village/village-maintenance-plan'
 import { makeTestVillage } from './test-utils'
 
 const makeVillageWithId = (id: string) => makeTestVillage({

@@ -1,6 +1,6 @@
 import { describe } from '@effect/vitest'
 import { expect, it as plainIt } from 'vitest'
-import { EntityId, EntityType } from '@ts-minecraft/entity'
+import { EntityId, EntityType } from '@ts-minecraft/entity/domain/mob/entity';
 import { isShotPathBlocked, makeSkeletonShotSourcePosition, makeSkeletonShotTargetPosition } from '../../application/mob/entity-manager-projectile'
 import { makeTestManagedEntity } from './test-utils'
 

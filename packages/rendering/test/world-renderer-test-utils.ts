@@ -1,7 +1,7 @@
 import { vi } from 'vitest'
 import { Effect, Layer, Option } from 'effect'
 import * as THREE from 'three'
-import { createFluidBuffer, encodeFluidCell } from '@ts-minecraft/block'
+import { createFluidBuffer, encodeFluidCell } from '@ts-minecraft/block/domain/fluid'
 import { blockTypeToIndex } from '@ts-minecraft/core'
 
 const makeAtlasTexture = (): THREE.Texture =>
@@ -164,12 +164,11 @@ export const buildTestLayer = (
 
 export const makeScene = (): THREE.Scene => new THREE.Scene()
 
-export const makeRenderer = (): THREE.WebGLRenderer =>
-  ({
-    setRenderTarget: vi.fn(),
-    render: vi.fn(),
-    shadowMap: { autoUpdate: true, needsUpdate: false },
-  }) as unknown as THREE.WebGLRenderer
+export const makeRenderer = (): THREE.WebGLRenderer => ({
+  setRenderTarget: vi.fn(),
+  render: vi.fn(),
+  shadowMap: { autoUpdate: true, needsUpdate: false },
+} as THREE.WebGLRenderer)
 
 // Drain helper: call syncChunksToScene repeatedly until it returns true
 // (i.e. all new chunks have been meshed). The time-budget throttle in

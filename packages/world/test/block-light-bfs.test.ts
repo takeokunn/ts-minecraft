@@ -1,5 +1,5 @@
 import { describe, expect, it } from '@effect/vitest'
-import { createLightBuffer, getLightAt, setLightAt } from '@ts-minecraft/block'
+import { createLightBuffer, getLightAt, setLightAt } from '@ts-minecraft/block/domain/light'
 import { CHUNK_HEIGHT, CHUNK_SIZE, blockIndexUnsafe, blockTypeToIndex } from '@ts-minecraft/core'
 import { propagateBlockLightIncremental } from '../domain/block-light-bfs'
 import type { AABBAccumulator, DirtyVoxel, MutableBoundaryDirty } from '../domain/light-engine-model'

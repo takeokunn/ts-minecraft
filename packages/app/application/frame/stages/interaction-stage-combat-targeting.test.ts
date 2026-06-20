@@ -1,7 +1,7 @@
 import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
 import * as THREE from 'three'
-import { EntityId } from '@ts-minecraft/entity'
+import { EntityId } from '@ts-minecraft/entity/domain/mob/entity'
 import { hasAttackableTargetInCombatRange } from './interaction-stage-combat-targeting'
 
 const makeCamera = (px: number, py: number, pz: number, dirX: number, dirY: number, dirZ: number): THREE.PerspectiveCamera => {

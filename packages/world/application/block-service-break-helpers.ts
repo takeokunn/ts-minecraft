@@ -7,7 +7,7 @@ import { InventoryServicePortError } from '../domain/block-service-ports'
 import type { ChunkService } from './chunk-service'
 import { canHarvestBlock } from '../domain/block-utils'
 import { BlockServiceError } from './block-service-error'
-import { DIAMOND_PICKAXE_HARVESTABLE_BLOCKS, getBlockDropCount, getInventoryDropForBlock, isGrassSeedDropBlock } from './block-service.config'
+import { blockDropsBaseItem, DIAMOND_PICKAXE_HARVESTABLE_BLOCKS, getBlockDropCount, getInventoryDropForBlock, isGrassSeedDropBlock } from './block-service.config'
 import { removeUnsupportedCascade } from './block-service-support'
 
 export type BreakBlockOptions = {
@@ -186,7 +186,11 @@ export const applyBreakBlock = (
       yield* deps.fluidService.notifyBlockChanged(worldPositionFor(context.chunkCoord, removedBlock))
     }
     yield* Metric.increment(Metric.counter('blocks_broken'))
-    const shouldDropBaseItem = context.dropItems && canHarvest && (!isGrassSeedDropBlock(context.blockType) || context.silkTouch)
+    const canDropBaseItem = canHarvest || context.silkTouch
+    const shouldDropBaseItem = context.dropItems
+      && canDropBaseItem
+      && (context.silkTouch || blockDropsBaseItem(context.blockType))
+      && (!isGrassSeedDropBlock(context.blockType) || context.silkTouch)
     if (shouldDropBaseItem) {
       const dropItem = context.silkTouch ? context.blockType : getInventoryDropForBlock(context.blockType)
       const dropCount = context.silkTouch ? 1 : getBlockDropCount(context.blockType)

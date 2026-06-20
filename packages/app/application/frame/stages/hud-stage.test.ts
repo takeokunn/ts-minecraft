@@ -1,18 +1,19 @@
 import { describe, it } from '@effect/vitest'
 import { afterEach, expect, vi } from 'vitest'
 import { Effect, MutableRef, Option } from 'effect'
-import { createFrameHandlers, type FrameHandlerDeps } from '@ts-minecraft/app'
+import { createFrameHandlers } from '@ts-minecraft/app/frame-handler'
+import type { FrameHandlerDeps } from '@ts-minecraft/app/application/frame/types/deps'
 import type { DeltaTimeSecs } from '@ts-minecraft/core'
 import { GAMEPLAY_HUD_HIDDEN_CLASS } from '@ts-minecraft/presentation'
+import { DEFAULT_SETTINGS } from '../../../test/frame-handler-test-kit/shared'
+import { makeDeps } from '../../../test/frame-handler-test-kit/orchestration/deps'
+import { makeInputService } from '../../../test/frame-handler-test-kit/presentation/input'
 import {
-  DEFAULT_SETTINGS,
-  makeDeps,
-  makeInputService,
   makeInventoryRenderer,
-  makeServices,
   makeSettingsOverlay,
-  runFrame,
-} from '../../../test/frame-handler-test-kit'
+} from '../../../test/frame-handler-test-kit/presentation/overlay'
+import { makeServices } from '../../../test/frame-handler-test-kit/services'
+import { runFrame } from '../../../test/frame-handler-test-kit/orchestration/harness'
 
 const stubDocumentBodyClassList = (initialClasses: ReadonlySet<string> = new Set()): void => {
   const classes = new Set(initialClasses)

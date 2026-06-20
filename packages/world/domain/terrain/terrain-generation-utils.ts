@@ -3,7 +3,7 @@ import {
   LIGHT_BYTE_LENGTH,
   computeBlockLight,
   computeSkyLight,
-} from "@ts-minecraft/block";
+} from "@ts-minecraft/block/domain/light";
 
 export type ChunkBlocks = Readonly<{
   blocks: Uint8Array;

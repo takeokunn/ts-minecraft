@@ -1,4 +1,11 @@
-import { initialBlocks } from '@ts-minecraft/block'
+import { initialBlocks } from '@ts-minecraft/block/domain/blocks.config'
+import {
+  CACTUS_COLLISION_SHAPE,
+  FULL_BLOCK_COLLISION_SHAPE,
+  PRESSURE_PLATE_COLLISION_SHAPE,
+  SLAB_COLLISION_SHAPE,
+  type BlockCollisionShape,
+} from './aabb-collision'
 import { CHUNK_SIZE, CHUNK_HEIGHT, INDEX_TO_BLOCK_TYPE, blockTypeToIndex } from '@ts-minecraft/core'
 import { chunkBlockIndexUnchecked } from '@ts-minecraft/world'
 
@@ -32,7 +39,13 @@ const PASSABLE_BLOCK_IDS: ReadonlySet<number> = new Set([
 const WATER_ID = blockTypeToIndex('WATER')
 const LADDER_ID = blockTypeToIndex('LADDER')
 const COBWEB_ID = blockTypeToIndex('COBWEB')
+const CACTUS_ID = blockTypeToIndex('CACTUS')
+const PRESSURE_PLATE_ID = blockTypeToIndex('PRESSURE_PLATE')
 const BEDROCK_ID = blockTypeToIndex('BEDROCK')
+const SLAB_BLOCK_IDS: ReadonlySet<number> = new Set([
+  blockTypeToIndex('PURPUR_SLAB'),
+  blockTypeToIndex('STONE_SLAB'),
+])
 
 const BLOCK_FRICTION_BY_ID: ReadonlyArray<number> = INDEX_TO_BLOCK_TYPE.map((type) =>
   initialBlocks.find((block) => block.type === type)?.properties.friction ?? DEFAULT_BLOCK_FRICTION
@@ -77,6 +90,20 @@ export const isBlockSolid = (
   const blockId = blockIdAt(wx, wy, wz, chunkCache, playerCx, playerCz)
   if (blockId === null) return false
   return blockId !== 0 && !PASSABLE_BLOCK_IDS.has(blockId)
+}
+
+export const getBlockCollisionShapeAt = (
+  wx: number, wy: number, wz: number,
+  chunkCache: ReadonlyArray<{ blocks: Uint8Array } | null>,
+  playerCx: number,
+  playerCz: number
+): BlockCollisionShape | null => {
+  const blockId = blockIdAt(wx, wy, wz, chunkCache, playerCx, playerCz)
+  if (blockId === null || blockId === 0 || PASSABLE_BLOCK_IDS.has(blockId)) return null
+  if (blockId === CACTUS_ID) return CACTUS_COLLISION_SHAPE
+  if (blockId === PRESSURE_PLATE_ID) return PRESSURE_PLATE_COLLISION_SHAPE
+  if (SLAB_BLOCK_IDS.has(blockId)) return SLAB_COLLISION_SHAPE
+  return FULL_BLOCK_COLLISION_SHAPE
 }
 
 const isBlockTypeAt = (

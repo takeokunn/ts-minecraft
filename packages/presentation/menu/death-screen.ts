@@ -2,7 +2,7 @@ import { Cause, Duration, Effect, Fiber, MutableRef, Option, Scope } from 'effec
 import { DomOperationsService } from '@ts-minecraft/presentation/hud/crosshair'
 import { GameStateService } from '@ts-minecraft/game'
 import { GameModeService } from '@ts-minecraft/game'
-import { HealthService } from '@ts-minecraft/entity'
+import { HealthService } from '@ts-minecraft/entity/application/health-service'
 import { DEFAULT_PLAYER_ID } from '@ts-minecraft/core'
 import {
   type SessionControl,

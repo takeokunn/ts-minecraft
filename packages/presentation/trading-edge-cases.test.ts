@@ -2,7 +2,8 @@ import { beforeEach, describe, it } from '@effect/vitest'
 import { Effect } from 'effect'
 import { expect } from 'vitest'
 import { TradingPresentationService } from '@ts-minecraft/presentation/trading'
-import { TradeSuccess, VillagerId } from '@ts-minecraft/entity'
+import { TradeSuccess } from '@ts-minecraft/entity/domain/trading/trading-model'
+import { VillagerId } from '@ts-minecraft/entity/domain/village/village-model'
 import { createTradingTestLayer, installBrowserDocument, makeOffer, makeVillager } from './trading-test-utils'
 
 describe('TradingPresentationService', () => {

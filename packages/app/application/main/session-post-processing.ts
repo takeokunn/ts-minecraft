@@ -8,7 +8,7 @@ import { BokehPass } from 'three/addons/postprocessing/BokehPass.js'
 import { SMAAPass } from 'three/addons/postprocessing/SMAAPass.js'
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js'
 import { GodRaysPass, CompositePass, resolveCompositeFlags, compositeFlagsAnyEnabled } from '@ts-minecraft/rendering'
-import { resolvePreset } from '@ts-minecraft/game'
+import { resolvePreset } from '@ts-minecraft/game/application/settings-service.config'
 import {
   GTAO_BLEND_INTENSITY,
   BLOOM_STRENGTH, BLOOM_RADIUS, BLOOM_THRESHOLD,

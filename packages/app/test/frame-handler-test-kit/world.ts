@@ -27,6 +27,7 @@ export const makeHotbarService = () => ({
 /** Creates an equipment service fake with no equipped armor. */
 export const makeEquipmentService = () => ({
   equip: (_stack: unknown) => Effect.succeed(false),
+  equipIfSlotEmpty: (_stack: unknown) => Effect.succeed(false),
   unequipSlot: (_slot: unknown) => Effect.succeed(Option.none()),
   getEquippedItem: (_slot: unknown) => Effect.succeed(Option.none()),
   getAll: () => Effect.succeed({ HELMET: Option.none(), CHESTPLATE: Option.none(), LEGGINGS: Option.none(), BOOTS: Option.none() }),
@@ -65,6 +66,13 @@ export const makeEntityRenderer = () => ({
   _getTrackedGroup: (_id: unknown) => Effect.succeed(Option.none()),
 }) as unknown as InstanceType<typeof import('@ts-minecraft/rendering').EntityRendererService>
 
+/** Creates a dropped item renderer fake that tracks no scene groups. */
+export const makeDroppedItemRenderer = () => ({
+  syncItems: (_items: unknown, _scene: unknown, _total: unknown) => Effect.void,
+  clearScene: (_scene: unknown) => Effect.void,
+  _getTrackedGroup: (_id: unknown) => Effect.succeed(Option.none()),
+}) as unknown as InstanceType<typeof import('@ts-minecraft/rendering').DroppedItemRendererService>
+
 /** Creates a chunk mesh service fake for sunlight updates. */
 export const makeChunkMeshService = () => ({
   setSunIntensity: (_value: number) => Effect.void,
@@ -97,12 +105,13 @@ const EMPTY_CHUNK_BLOCKS = new Uint8Array(16 * 16 * 256)
 
 /** Creates a chunk manager fake with no loaded or dirty chunks by default. */
 export const makeChunkManagerService = () => ({
-  loadChunksAroundPlayer: (_pos: unknown) => Effect.void,
+  loadChunksAroundPlayer: (_pos: unknown) => Effect.succeed(true),
   getLoadedChunks: () => Effect.succeed([]),
   drainRenderDirtyChunks: () => Effect.succeed([]),
   // FR-4.2: AABB-aware drain — defaults to empty so existing tests behave unchanged.
   drainRenderDirtyChunkEntries: () => Effect.succeed([]),
-  getChunk: (_coord: unknown) => Effect.succeed({ coord: { x: 0, z: 0 }, blocks: EMPTY_CHUNK_BLOCKS, dirty: false }),
+  getChunk: (_coord: unknown) =>
+    Effect.succeed({ coord: { x: 0, z: 0 }, blocks: EMPTY_CHUNK_BLOCKS, fluid: Option.none(), dirty: false }),
   setActiveWorldId: (_worldId: unknown) => Effect.void,
   setActiveDimension: (_dim: unknown) => Effect.void,
   markChunkDirty: (_coord: unknown) => Effect.void,
@@ -125,6 +134,21 @@ export const makeWeatherService = () => ({
   setWeather: (_w: unknown) => Effect.void,
   tick: (_dt: unknown) => Effect.succeed('clear' as const),
 }) as unknown as InstanceType<typeof import('@ts-minecraft/game').WeatherService>
+
+/** Creates an inert biome service fake that resolves every column as plains. */
+export const makeBiomeService = () => ({
+  getBiome: (_x: number, _z: number) => Effect.succeed('PLAINS' as const),
+  getBiomeProperties: (_biome: unknown) => Effect.succeed({
+    surfaceBlock: 'GRASS' as const,
+    subSurfaceBlock: 'DIRT' as const,
+    treeDensity: 0,
+    temperature: 0.8,
+    humidity: 0.4,
+  }),
+  getTemperature: (_x: number, _z: number) => Effect.succeed(0.8),
+  getHumidity: (_x: number, _z: number) => Effect.succeed(0.4),
+  getBiomesAndPropertiesForChunk: (_chunkCoord: unknown) => Effect.succeed([]),
+}) as unknown as InstanceType<typeof import('@ts-minecraft/world').BiomeService>
 
 /** Creates an inert nether service fake for tests that don't exercise portal logic. */
 export const makeNetherService = () => ({

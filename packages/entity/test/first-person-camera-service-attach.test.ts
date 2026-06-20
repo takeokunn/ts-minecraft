@@ -2,11 +2,10 @@ import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
 import { Arbitrary, Array as Arr, Effect, Layer, MutableRef, Option, Schema } from 'effect'
 import * as THREE from 'three'
-import { PlayerInputService } from '@ts-minecraft/entity'
-import { PlayerCameraStateService, PITCH_MIN, PITCH_MAX } from '@ts-minecraft/entity'
-import {
-  FirstPersonCameraService,
-} from '@ts-minecraft/entity'
+import { PlayerInputService } from '@ts-minecraft/entity/application/player-input-service';
+import { PlayerCameraStateService } from '@ts-minecraft/entity/application/camera-state';
+import { PITCH_MAX, PITCH_MIN } from '@ts-minecraft/entity/domain/camera-state';
+import { FirstPersonCameraService } from '@ts-minecraft/entity/application/first-person-camera-service';
 import { createTestInputService } from './movement-service-test-utils'
 
 const createTestLayers = (inputService: PlayerInputService) =>

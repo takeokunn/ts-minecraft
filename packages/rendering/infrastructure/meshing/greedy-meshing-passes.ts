@@ -1,5 +1,5 @@
 import { FaceDir } from '../textures/block-texture-map'
-import type { LightGrids } from '@ts-minecraft/block'
+import type { LightGrids } from '@ts-minecraft/block/domain/light'
 import { ChunkWorldOffset } from './greedy-meshing-types'
 import { MeshAccumulator, addQuad } from './greedy-meshing-accumulator'
 

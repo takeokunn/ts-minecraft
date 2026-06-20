@@ -222,18 +222,20 @@ export class WorldRendererService extends Effect.Service<WorldRendererService>()
 
         clearScene: (scene: THREE.Scene): Effect.Effect<void, never> =>
           Effect.gen(function* () {
-            const removeAndDispose = (m: THREE.Mesh): Effect.Effect<void, never> =>
-              Effect.gen(function* () {
-                yield* sceneService.remove(scene, m)
-                yield* Effect.sync(() => disposeMesh(m))
-              })
             const meshes = yield* Ref.get(meshesRef)
             for (const chunkMeshes of HashMap.values(meshes)) {
               const waterVal = Option.getOrNull(chunkMeshes.water)
               const transparentSolidVal = Option.getOrNull(chunkMeshes.transparentSolid)
-              yield* removeAndDispose(chunkMeshes.opaque)
-              if (waterVal !== null) yield* removeAndDispose(waterVal)
-              if (transparentSolidVal !== null) yield* removeAndDispose(transparentSolidVal)
+              yield* sceneService.remove(scene, chunkMeshes.opaque)
+              yield* Effect.sync(() => disposeMesh(chunkMeshes.opaque))
+              if (waterVal !== null) {
+                yield* sceneService.remove(scene, waterVal)
+                yield* Effect.sync(() => disposeMesh(waterVal))
+              }
+              if (transparentSolidVal !== null) {
+                yield* sceneService.remove(scene, transparentSolidVal)
+                yield* Effect.sync(() => disposeMesh(transparentSolidVal))
+              }
             }
             yield* Ref.set(meshesRef, HashMap.empty())
             yield* Ref.set(waterMeshesRef, [])

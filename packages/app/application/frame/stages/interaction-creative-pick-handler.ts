@@ -1,8 +1,9 @@
 import { Effect, Option } from 'effect'
-import { HOTBAR_START, ItemStack, maxStackFor } from '@ts-minecraft/inventory'
+import { HOTBAR_START } from '@ts-minecraft/inventory/application/inventory-service'
+import { ItemStack, maxStackFor } from '@ts-minecraft/inventory/domain/item-stack'
 import { SlotIndex } from '@ts-minecraft/core'
 import type { BlockType } from '@ts-minecraft/core'
-import type { FrameCreativePickInteractionServices } from '@ts-minecraft/app/frame/frame-interaction-service-types'
+import type { FrameCreativePickInteractionServices } from '@ts-minecraft/app/frame/frame-interaction-service-types/creative-pick'
 import type { TargetBlockHit } from '@ts-minecraft/app/frame/stages/interaction-types'
 import { readBlockTypeAt } from '@ts-minecraft/app/frame/stages/interaction-block-access'
 

@@ -2,8 +2,6 @@ import { Option } from 'effect'
 import type { InventoryItem } from '@ts-minecraft/core'
 import { SMELTING_XP_PER_ITEM, type SmeltingXpItem } from './furnace-service.config'
 
-export { SMELTING_XP_ITEMS, SMELTING_XP_PER_ITEM, type SmeltingXpItem } from './furnace-service.config'
-
 export const isSmeltingXpItem = (itemType: InventoryItem): itemType is SmeltingXpItem =>
   Object.hasOwn(SMELTING_XP_PER_ITEM, itemType)
 

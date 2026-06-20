@@ -13,3 +13,8 @@ export const SquidDefinition: MobDefinition = {
   drops: [{ blockType: 'INK_SAC', count: 1 }],
   xpReward: 2,
 }
+
+export const GlowSquidDefinition: MobDefinition = {
+  ...SquidDefinition,
+  type: EntityType.GlowSquid,
+}

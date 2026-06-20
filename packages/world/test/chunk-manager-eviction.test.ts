@@ -4,7 +4,6 @@ import { DEFAULT_WORLD_ID } from '@ts-minecraft/core'
 import {
 BiomeService,
 ChunkManagerService,
-ChunkManagerService,
 MAX_CACHED_CHUNKS,NoiseService,NoiseServicePort,RENDER_DISTANCE,StorageServicePort,UNLOAD_DISTANCE,
 getChunksInRenderDistance
 } from '@ts-minecraft/world'

@@ -1,5 +1,5 @@
 import { DeltaTimeSecs } from '@ts-minecraft/core'
-import { EntityId, EntityType } from '@ts-minecraft/entity'
+import { EntityId, EntityType } from '@ts-minecraft/entity/domain/mob/entity';
 import { describe, expect, it as plainIt } from 'vitest'
 import { tickEntityFire } from '../../application/mob/entity-manager-fire'
 import { makeTestManagedEntity } from './test-utils'

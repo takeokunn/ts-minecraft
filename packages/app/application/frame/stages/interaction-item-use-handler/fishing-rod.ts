@@ -1,7 +1,7 @@
 import { Effect } from 'effect'
 import type { SlotIndex } from '@ts-minecraft/core'
-import { enchantmentsOf } from '@ts-minecraft/inventory'
-import type { FrameFishingRodInteractionServices } from '@ts-minecraft/app/frame/frame-interaction-service-types'
+import { enchantmentsOf } from '@ts-minecraft/inventory/domain/item-stack'
+import type { FrameFishingRodInteractionServices } from '@ts-minecraft/app/frame/frame-interaction-service-types/fishing-rod'
 import { selectedHotbarSlotIndex } from '../selected-hotbar-slot'
 
 export const handleFishingRodActivation = (

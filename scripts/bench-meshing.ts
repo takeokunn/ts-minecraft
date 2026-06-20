@@ -11,7 +11,6 @@ import { createAccumulatorPool } from '@ts-minecraft/rendering/infrastructure/me
 
 const STONE = blockTypeToIndex('STONE')
 const GRASS = blockTypeToIndex('GRASS')
-const AIR = 0
 
 const newBlocks = () => new Uint8Array(CHUNK_SIZE * CHUNK_HEIGHT * CHUNK_SIZE)
 const set = (b: Uint8Array, x: number, y: number, z: number, v: number) => { b[chunkBlockIndexUnchecked(x, y, z)] = v }

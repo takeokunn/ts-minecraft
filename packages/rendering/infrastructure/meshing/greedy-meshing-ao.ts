@@ -1,6 +1,6 @@
 import { CHUNK_SIZE, CHUNK_HEIGHT } from '@ts-minecraft/core'
-import { getLightAt } from '@ts-minecraft/block'
-import type { LightGrids } from '@ts-minecraft/block'
+import { getLightAt } from '@ts-minecraft/block/domain/light'
+import type { LightGrids } from '@ts-minecraft/block/domain/light'
 import { AIR } from './greedy-meshing-types'
 
 export const getBlock = (blocks: Readonly<Uint8Array>, lx: number, y: number, lz: number): number => {

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { CHUNK_HEIGHT, CHUNK_SIZE, blockTypeToIndex } from '@ts-minecraft/core'
-import { createFluidBuffer, encodeFluidCell } from '@ts-minecraft/block'
+import { createFluidBuffer, encodeFluidCell } from '@ts-minecraft/block/domain/fluid'
 import {
   isFluidBlockId,
   isFluidFaceOccluder,

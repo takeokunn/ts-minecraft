@@ -5,7 +5,7 @@ import * as Ref from 'effect/Ref'
 
 import type { EntityDrop } from '../../domain/mob/drop'
 import type { Entity, EntityId } from '../../domain/mob/entity'
-import { KNOCKBACK_DURATION_SECS } from '../../domain/combat'
+import { KNOCKBACK_DURATION_SECS } from '../../domain/combat.config'
 import type { Vector3 } from '@ts-minecraft/core'
 import type { ManagedEntity } from '../../domain/mob/entity-internal'
 import { damageManagedEntity } from './entity-manager-damage'

@@ -1,5 +1,5 @@
 import { Effect, Ref } from 'effect'
-import { KeyMappings } from '@ts-minecraft/entity'
+import { KeyMappings } from '@ts-minecraft/entity/domain/key-mappings'
 import { OPEN_MENU_KEY } from '@ts-minecraft/app/frame-handler.config'
 import type { InputDeps, InputServices } from './input-stage-types'
 

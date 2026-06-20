@@ -2,12 +2,9 @@ import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
 import { Effect, Layer, MutableRef } from 'effect'
 import * as THREE from 'three'
-import { PlayerInputService } from '@ts-minecraft/entity'
-import { PlayerCameraStateService } from '@ts-minecraft/entity'
-import {
-  FirstPersonCameraService,
-  BASE_MOUSE_SENSITIVITY,
-} from '@ts-minecraft/entity'
+import { PlayerInputService } from '@ts-minecraft/entity/application/player-input-service';
+import { PlayerCameraStateService } from '@ts-minecraft/entity/application/camera-state';
+import { BASE_MOUSE_SENSITIVITY, FirstPersonCameraService } from '@ts-minecraft/entity/application/first-person-camera-service';
 
 const createTestLayers = (inputService: PlayerInputService) =>
   Layer.merge(

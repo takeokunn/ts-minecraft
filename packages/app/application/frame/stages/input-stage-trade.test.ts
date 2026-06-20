@@ -7,15 +7,15 @@ import {
   TRADE_PREV_KEY,
   TRADE_EXECUTE_KEY,
 } from '@ts-minecraft/app/frame-handler.config'
+import { makeDeps } from '../../../test/frame-handler-test-kit/orchestration/deps'
+import { makeInputService } from '../../../test/frame-handler-test-kit/presentation/input'
 import {
-  makeDeps,
-  makeInputService,
   makeInventoryRenderer,
-  makeServices,
   makeSettingsOverlay,
   makeTradingPresentation,
-  runFrame,
-} from '../../../test/frame-handler-test-kit'
+} from '../../../test/frame-handler-test-kit/presentation/overlay'
+import { makeServices } from '../../../test/frame-handler-test-kit/services'
+import { runFrame } from '../../../test/frame-handler-test-kit/orchestration/harness'
 
 // ---------------------------------------------------------------------------
 // T key (TRADE_OPEN_KEY): trade open/close

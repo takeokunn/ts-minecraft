@@ -3,11 +3,11 @@ import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
 import {
   ResolvedGraphicsSchema,
-  resolvePreset,
   SettingsSchema,
   type GraphicsQuality,
   GRAPHICS_PRESETS,
 } from '@ts-minecraft/game'
+import { resolvePreset } from '../application/settings-service.config'
 
 describe('application/settings/settings-service', () => {
   describe('SettingsSchema', () => {

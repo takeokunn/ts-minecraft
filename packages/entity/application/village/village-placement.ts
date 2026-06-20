@@ -1,17 +1,11 @@
 import { Effect } from 'effect'
-import {
-  type BlockService,
-  type ChunkManagerService,
-} from '@ts-minecraft/world'
-import { buildingBlocksForVillage, type Village } from '../../domain/village'
+import { buildingBlocksForVillage } from '../../domain/village/village-builder-placements'
+import { type Village } from '../../domain/village/village-model'
 import { buildVillageFoundationPlacements, groundVillageStructures } from './village-placement-plan'
-import { makeVillageSurfaceResolver, type VillagePlacementBlockReadError } from './village-placement-surface'
+import { makeVillageSurfaceResolver } from './village-placement-surface'
+import { type VillagePlacementBlockReadError } from './village-placement-surface-error'
+import { type VillagePlacementServices } from './village-placement-services'
 import { writeVillagePlacements } from './village-placement-write'
-
-export type VillagePlacementServices = {
-  readonly blockService: Pick<BlockService, 'forceSetBlock'>
-  readonly chunkManagerService: Pick<ChunkManagerService, 'getChunk'>
-}
 
 export const placeVillageStructures = (
   village: Village,

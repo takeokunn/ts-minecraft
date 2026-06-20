@@ -1,5 +1,5 @@
 import { CHUNK_HEIGHT, CHUNK_SIZE } from '@ts-minecraft/core'
-import { createLightBuffer, LIGHT_BYTE_LENGTH } from '@ts-minecraft/block'
+import { createLightBuffer, LIGHT_BYTE_LENGTH } from '@ts-minecraft/block/domain/light'
 import { growAABBToVoxel } from './chunk-aabb'
 import type { AABBAccumulator } from './light-engine-model'
 

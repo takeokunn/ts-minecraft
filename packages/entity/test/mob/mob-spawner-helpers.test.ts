@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { EntityType } from '@ts-minecraft/entity'
+import { EntityType } from '@ts-minecraft/entity/domain/mob/entity';
 import { getSpawnPosition, selectMobType } from '../../application/mob/mob-spawner-helpers'
 
 describe('entity/mob-spawner-helpers', () => {
@@ -23,6 +23,7 @@ describe('entity/mob-spawner-helpers', () => {
     expect(selectMobType(false, 0)).toBe(EntityType.Cow)
     expect(selectMobType(false, 1)).toBe(EntityType.Pig)
     expect(selectMobType(false, 2)).toBe(EntityType.Sheep)
-    expect(selectMobType(false, 999)).toBe(EntityType.Chicken)
+    expect(selectMobType(false, 5)).toBe(EntityType.Bee)
+    expect(selectMobType(false, 999)).toBe(EntityType.GlowSquid)
   })
 })

@@ -10,6 +10,7 @@ import {
   computeEquipmentTotalProjectileProtectionReduction,
   damageArmorSlot,
   equipArmorItem,
+  equipArmorItemIfSlotEmpty,
   repairMendingItemsWithXP,
   unequipArmorSlot,
 } from '../application/equipment-service-state'
@@ -36,6 +37,35 @@ describe('equipment-service-state', () => {
     const [equippedSword, swordSlots] = equipArmorItem(empty, createStack('IRON_SWORD'))
     expect(equippedSword).toBe(false)
     expect(swordSlots).toEqual(empty)
+  })
+
+  it('equips armor only when the target slot is empty', () => {
+    const empty = emptyEquipmentSlots()
+
+    const [equippedHelmet, helmetSlots] = equipArmorItemIfSlotEmpty(empty, mkArmor('IRON_HELMET'))
+    expect(equippedHelmet).toBe(true)
+    expect(Option.getOrThrow(helmetSlots.HELMET).itemType).toBe('IRON_HELMET')
+
+    const occupied = {
+      ...emptyEquipmentSlots(),
+      HELMET: Option.some(mkArmor('DIAMOND_HELMET')),
+    }
+    const [equippedReplacement, replacementSlots] = equipArmorItemIfSlotEmpty(occupied, mkArmor('IRON_HELMET'))
+    expect(equippedReplacement).toBe(false)
+    expect(replacementSlots).toEqual(occupied)
+  })
+
+  it('normalizes auto-equipped armor to a single item', () => {
+    const stack = new ItemStack({
+      itemType: 'IRON_HELMET',
+      count: 2,
+      durability: createStack('IRON_HELMET').durability,
+    })
+
+    const [equipped, slots] = equipArmorItemIfSlotEmpty(emptyEquipmentSlots(), stack)
+
+    expect(equipped).toBe(true)
+    expect(Option.getOrThrow(slots.HELMET).count).toBe(1)
   })
 
   it('unequips armor slots and returns the removed stack', () => {

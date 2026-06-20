@@ -11,7 +11,7 @@ import {
   BlockMeshService,
   ChunkMeshService,
 } from '@ts-minecraft/rendering'
-import { BlockRegistry } from '@ts-minecraft/block'
+import { BlockRegistry } from '@ts-minecraft/block/application/block-registry'
 
 // Physics infrastructure (custom engine)
 import {
@@ -23,7 +23,6 @@ import {
 
 // Procedural generation and storage infrastructure
 import { NoiseService, StorageService } from '@ts-minecraft/world'
-export { TerrainWorkerPoolPortLayer } from '@ts-minecraft/worker'
 
 // Chunk domain service
 import { ChunkService } from '@ts-minecraft/world'
@@ -40,7 +39,7 @@ import { PhysicsService } from '@ts-minecraft/game'
 
 // Player state (used by GameLayer in game-logic-game-state-bundles.ts;
 // declared here because PlayerService has no dependencies and is part of the base graph).
-import { PlayerService } from '@ts-minecraft/entity'
+import { PlayerService } from '@ts-minecraft/entity/application/player-service'
 
 // Input infrastructure (raw DOM/keyboard) — exposed at this layer because
 // DomOperationsService.Default is the lowest-level DOM port the rest of the graph builds on.
@@ -136,5 +135,3 @@ export const SimulationInfrastructureLayers = Layer.mergeAll(
 export const InfrastructureLayers = PlatformInfrastructureLayers.pipe(
   Layer.provideMerge(SimulationInfrastructureLayers),
 )
-
-export { EnvironmentLayer } from '@ts-minecraft/world'

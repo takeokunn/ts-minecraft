@@ -2,7 +2,7 @@ import { describe, it } from '@effect/vitest'
 import { expect, vi } from 'vitest'
 import { Effect } from 'effect'
 import { postProcessingSetupStage } from '@ts-minecraft/app/frame/stages/post-processing-stage'
-import { resolvePreset } from '@ts-minecraft/game'
+import { resolvePreset } from '@ts-minecraft/game/application/settings-service.config'
 
 const makeRendererStub = (w = 800, h = 600) => ({
   domElement: { clientWidth: w, clientHeight: h },

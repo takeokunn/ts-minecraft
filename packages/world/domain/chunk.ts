@@ -1,8 +1,9 @@
-import { Effect, Schema } from 'effect'
-import { BlockType, blockTypeToIndex,
-ChunkCoordSchema,
+import { Effect, Option, Schema } from 'effect'
+import { BlockType, blockTypeToIndex, indexToBlockType, isValidBlockIndex,
+ChunkCoord, ChunkCoordSchema,
 toBlockIndex, BlockIndexError,
-CHUNK_SIZE, CHUNK_HEIGHT, } from '@ts-minecraft/core'
+CHUNK_SIZE, CHUNK_HEIGHT, blockIndex, } from '@ts-minecraft/core'
+import { ChunkError } from './errors'
 
 // Bumped from 2 → 3 for Phase 2.1 multi-noise.
 export const WORLD_SCHEMA_VERSION = 3
@@ -22,6 +23,12 @@ export const ChunkSchema = Schema.Struct({
   maxY: Schema.optional(Schema.Number.pipe(Schema.int(), Schema.between(-1, CHUNK_HEIGHT - 1))),
 })
 export type Chunk = Schema.Schema.Type<typeof ChunkSchema>
+
+export const createEmptyChunk = (coord: ChunkCoord): Chunk => ({
+  coord,
+  blocks: new Uint8Array(CHUNK_SIZE * CHUNK_SIZE * CHUNK_HEIGHT),
+  fluid: Option.some(new Uint8Array(CHUNK_SIZE * CHUNK_SIZE * CHUNK_HEIGHT)),
+})
 
 // FR-3.3: Compute the highest Y where any non-AIR (index !== 0) block exists.
 // Returns -1 if the chunk is entirely AIR. Scans top-down so the typical case
@@ -50,6 +57,61 @@ export const computeMaxY = (blocks: Readonly<Uint8Array>): number => {
 // Zero allocation, no copy — returns backing Uint8Array as Readonly. Use for hot loops (e.g., greedy meshing).
 export const getBlocksBatch = (chunk: Chunk): Effect.Effect<Readonly<Uint8Array>, never> =>
   Effect.succeed(chunk.blocks as Readonly<Uint8Array>)
+
+export const getBlockFromChunk = (
+  chunk: Chunk,
+  localX: number,
+  y: number,
+  localZ: number
+): Effect.Effect<BlockType, ChunkError> => {
+  const idx = Option.getOrNull(blockIndex(localX, y, localZ))
+  if (idx === null) {
+    return Effect.fail(new ChunkError({
+      chunkCoord: chunk.coord,
+      reason: `Invalid local coordinates: (${localX}, ${y}, ${localZ}). Valid range: x,z=[0,${CHUNK_SIZE - 1}], y=[0,${CHUNK_HEIGHT - 1}]`,
+    }))
+  }
+
+  const blockId = chunk.blocks[idx]
+  if (!isValidBlockIndex(blockId)) {
+    return Effect.fail(new ChunkError({
+      chunkCoord: chunk.coord,
+      reason: `Invalid block id at local coordinates (${localX}, ${y}, ${localZ}): ${String(blockId)}`,
+    }))
+  }
+
+  return Effect.succeed(indexToBlockType(blockId))
+}
+
+export const setBlockOnChunk = (
+  chunk: Chunk,
+  localX: number,
+  y: number,
+  localZ: number,
+  blockType: BlockType
+): Effect.Effect<Chunk, ChunkError> => {
+  const idx = Option.getOrNull(blockIndex(localX, y, localZ))
+  if (idx === null) {
+    return Effect.fail(new ChunkError({
+      chunkCoord: chunk.coord,
+      reason: `Invalid local coordinates: (${localX}, ${y}, ${localZ}). Valid range: x,z=[0,${CHUNK_SIZE - 1}], y=[0,${CHUNK_HEIGHT - 1}]`,
+    }))
+  }
+
+  const newBlocks = new Uint8Array(chunk.blocks)
+  newBlocks[idx] = blockTypeToIndex(blockType)
+  return Effect.succeed({ ...chunk, blocks: newBlocks })
+}
+
+export const worldPositionToChunkCoord = (worldX: number, worldZ: number): ChunkCoord => ({
+  x: Math.floor(worldX / CHUNK_SIZE),
+  z: Math.floor(worldZ / CHUNK_SIZE),
+})
+
+export const chunkLocalToWorldCoord = (coord: ChunkCoord, localX: number, localZ: number): ChunkCoord => ({
+  x: coord.x * CHUNK_SIZE + localX,
+  z: coord.z * CHUNK_SIZE + localZ,
+})
 
 // In-place mutation (O(1)). Caller MUST call chunkManagerService.markChunkDirty() to register in the dirty-set.
 // Use ChunkService.setBlock for immutable update patterns.

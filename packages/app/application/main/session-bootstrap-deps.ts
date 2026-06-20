@@ -1,41 +1,21 @@
 import { Effect } from 'effect'
-import { WorldId } from '@ts-minecraft/core'
+import { GameLoopService } from '@ts-minecraft/game'
 
-import type { BootContext } from '@ts-minecraft/app/main/boot'
-import type { GameMode } from './session-bootstrap/game'
-import type { SessionBootstrapDeps, SessionBootstrapServices } from '@ts-minecraft/app/main/session-bootstrap-types'
-import { buildEntityBootstrapServices } from './session-bootstrap/entity'
-import { buildGameBootstrapServices, buildGameLoopService } from './session-bootstrap/game'
-import { buildInventoryBootstrapServices } from './session-bootstrap/inventory'
-import { buildPresentationBootstrapServices, buildSessionLoadingServices } from './session-bootstrap/presentation'
-import { buildRenderingBootstrapServices } from './session-bootstrap/rendering'
-import { buildWorldBootstrapServices } from './session-bootstrap/world'
+import type { GameMode } from '@ts-minecraft/game'
+import { buildSessionLoadingServices } from './session-bootstrap/presentation'
+import { buildSessionBootstrapServices } from './session-bootstrap-deps/services'
 
 export const buildSessionBootstrapDeps = (
-  bootCtx: BootContext,
-  worldId: WorldId,
+  bootCtx: import('@ts-minecraft/app/main/boot').BootContext,
+  worldId: import('@ts-minecraft/core').WorldId,
   initialGameMode: GameMode,
 ) =>
   Effect.gen(function* () {
-    const renderingServices = yield* buildRenderingBootstrapServices
-    const worldServices = yield* buildWorldBootstrapServices
-    const gameServices = yield* buildGameBootstrapServices
-    const presentationServices = yield* buildPresentationBootstrapServices
-    const inventoryServices = yield* buildInventoryBootstrapServices
-    const entityServices = yield* buildEntityBootstrapServices
+    const services = yield* buildSessionBootstrapServices
     const loadingServices = yield* buildSessionLoadingServices
-    const gameLoopService = yield* buildGameLoopService
+    const gameLoopService = yield* GameLoopService
 
-    const services: SessionBootstrapServices = {
-      ...renderingServices,
-      ...worldServices,
-      ...gameServices,
-      ...presentationServices,
-      ...inventoryServices,
-      ...entityServices,
-    }
-
-    const deps: SessionBootstrapDeps = {
+    return {
       bootCtx,
       worldId,
       initialGameMode,
@@ -43,6 +23,4 @@ export const buildSessionBootstrapDeps = (
       ...loadingServices,
       services,
     }
-
-    return deps
   })

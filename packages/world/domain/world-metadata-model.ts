@@ -37,6 +37,7 @@ const WeatherStateSchema = Schema.Struct({
 
 export const WorldMetadataSchema = Schema.Struct({
   seed: Schema.Number.pipe(Schema.int(), Schema.nonNegative()),
+  displayName: Schema.optional(Schema.String),
   createdAt: Schema.DateFromSelf,
   lastPlayed: Schema.DateFromSelf,
   playerSpawn: Schema.Struct({

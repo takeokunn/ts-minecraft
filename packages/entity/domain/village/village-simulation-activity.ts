@@ -5,16 +5,8 @@ import { VillagerActivity, type Village, type Villager, VillageStructureId } fro
 import { ACTIVITY_REST_END, ACTIVITY_REST_START, ACTIVITY_WORK_END, ACTIVITY_WORK_START, WANDER_PHASE_TICK_STEP, WANDER_RADIUS } from './village-simulation.config'
 import { distanceSq } from './village-position'
 import { findStructureAnchor } from './village-search'
-
-const TRADE_DISTANCE = 4
-
-const hashString = (source: string): number => {
-  let hash = 0
-  for (let i = 0; i < source.length; i++) {
-    hash = ((hash << 5) - hash + source.charCodeAt(i)) | 0
-  }
-  return Math.abs(hash)
-}
+import { TRADE_DISTANCE } from './village-simulation-constants'
+import { hashString } from './village-hash'
 
 const isInTradeRange = (villagerPosition: Position, playerPosition: Position): boolean =>
   distanceSq(villagerPosition, playerPosition) <= TRADE_DISTANCE * TRADE_DISTANCE

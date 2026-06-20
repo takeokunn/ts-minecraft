@@ -1,8 +1,8 @@
 import { Array as Arr, Effect, Option } from 'effect'
-import { InventoryServicePort } from '../../domain/ports'
+import { InventoryServicePort } from '../../domain/inventory-service-port'
 import type { InventoryItem } from '@ts-minecraft/core'
-import { VillageService } from '../village'
-import type { Villager, VillagerId } from '../../domain/village'
+import { VillageService } from '../village/village-service'
+import type { Villager, VillagerId } from '../../domain/village/village-model'
 import {
   TradeOfferId,
   TradeSuccess,
@@ -10,7 +10,7 @@ import {
   type TradeFailureReason,
   type TradeOffer,
   type TradeResult,
-} from '../../domain/trading'
+} from '../../domain/trading/trading-model'
 import { TRADE_CURRENCY_BLOCK, TRADE_OFFERS } from './trading-service.config'
 
 export { TRADE_CURRENCY_BLOCK } from './trading-service.config'

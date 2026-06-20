@@ -1,69 +1,11 @@
 import { describe, it } from '@effect/vitest'
-import { Array as Arr, Effect, Layer, Option } from 'effect'
-import { expect, vi } from 'vitest'
-import { CrosshairService, DomOperationsService } from '@ts-minecraft/presentation/hud/crosshair'
+import { Array as Arr, Effect, Option } from 'effect'
+import { expect } from 'vitest'
+import { CrosshairService } from '@ts-minecraft/presentation/hud/crosshair'
+import { createMockDomLayer } from './crosshair-test-utils'
 
 describe('CrosshairService', () => {
   describe('with mocked DOM', () => {
-    const createMockDomLayer = () => {
-      const appendChildMock = vi.fn()
-      const removeChildMock = vi.fn()
-      const createElementMock = vi.fn()
-      const getParentNodeMock = vi.fn()
-      const createdElements: Array<{ id: string; style: { cssText: string }; children: unknown[]; parentNode: unknown | null }> = []
-
-      createElementMock.mockImplementation((_tagName: string) => {
-        const element = {
-          id: '',
-          style: { cssText: '' },
-          children: [] as unknown[],
-          parentNode: null as unknown | null,
-          appendChild: vi.fn((child: unknown) => {
-            ;(element as { children: unknown[] }).children.push(child)
-            return child
-          }),
-        }
-        createdElements.push(element as typeof createdElements[0])
-        return element
-      })
-
-      appendChildMock.mockImplementation((element: unknown) => {
-        ;(element as { parentNode: unknown | null }).parentNode = 'body'
-        return element
-      })
-
-      removeChildMock.mockImplementation((element: unknown) => {
-        ;(element as { parentNode: unknown | null }).parentNode = null
-        return element
-      })
-
-      getParentNodeMock.mockImplementation((element: unknown) => {
-        return Option.fromNullable((element as { parentNode: HTMLElement | null }).parentNode)
-      })
-
-      const MockDomLayer = Layer.succeed(
-        DomOperationsService,
-        {
-          createElement: createElementMock,
-          appendChild: appendChildMock,
-          removeChild: removeChildMock,
-          getParentNode: getParentNodeMock,
-        } as DomOperationsService
-      )
-
-      // Provide the mock DOM layer to CrosshairService.Default
-      const TestLayer = CrosshairService.Default.pipe(Layer.provide(MockDomLayer))
-
-      return {
-        TestLayer,
-        appendChildMock,
-        removeChildMock,
-        createElementMock,
-        getParentNodeMock,
-        getCreatedElements: () => createdElements,
-      }
-    }
-
     describe('show', () => {
       it.effect('should append crosshair element to document body', () => {
         const { TestLayer, appendChildMock } = createMockDomLayer()
@@ -139,23 +81,8 @@ describe('CrosshairService', () => {
       })
 
       it.effect('should do nothing when element has no parent node (onNone branch)', () => {
-        const appendChildMock = vi.fn()
-        const removeChildMock = vi.fn()
-        const createElementMock = vi.fn()
-        const getParentNodeMock = vi.fn().mockReturnValue(Option.none<HTMLElement>())
-        createElementMock.mockImplementation((_tagName: string) => ({
-          id: '', style: { cssText: '' }, children: [],
-          appendChild: vi.fn((c: unknown) => c),
-        }))
-
-        const TestLayer = CrosshairService.Default.pipe(
-          Layer.provide(Layer.succeed(DomOperationsService, {
-            createElement: createElementMock,
-            appendChild: appendChildMock,
-            removeChild: removeChildMock,
-            getParentNode: getParentNodeMock,
-          } as DomOperationsService))
-        )
+        const { TestLayer, removeChildMock, getParentNodeMock } = createMockDomLayer()
+        getParentNodeMock.mockReturnValue(Option.none<HTMLElement>())
 
         return Effect.gen(function* () {
           const crosshair = yield* CrosshairService

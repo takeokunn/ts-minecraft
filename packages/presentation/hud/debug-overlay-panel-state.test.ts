@@ -1,14 +1,14 @@
 import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
 
-import { DEBUG_FEATURE_FLAG_CATALOG } from '@ts-minecraft/app/debug-feature-flags'
+import { DEBUG_FEATURE_FLAG_CATALOG } from '@ts-minecraft/app/application/debug-feature-flags'
 import {
   applyDebugOverlayPanelState,
   resolveDebugOverlayPanelState,
 } from '@ts-minecraft/presentation/hud/debug-overlay-panel-state'
 import { DEBUG_FEATURE_GROUP_ORDER } from '@ts-minecraft/presentation/hud/debug-overlay-utils'
 import type { DebugOverlayDomNodes } from '@ts-minecraft/presentation/hud/debug-overlay-types'
-import type { DebugFeatureFlagGroup, DebugFeatureSnapshot } from '@ts-minecraft/app/debug-feature-flags'
+import type { DebugFeatureFlagGroup, DebugFeatureSnapshot } from '@ts-minecraft/app/application/debug-feature-flags'
 
 const buildSnapshot = (): DebugFeatureSnapshot => {
   const flags = Object.fromEntries(

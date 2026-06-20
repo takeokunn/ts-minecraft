@@ -4,10 +4,10 @@ import { expect, vi } from 'vitest'
 import { CHUNK_HEIGHT, CHUNK_SIZE, blockTypeToIndex } from '@ts-minecraft/core'
 import { chunkBlockIndexUnchecked, type Chunk } from '@ts-minecraft/world'
 import {
-  VillagePlacementBlockReadError,
   makeVillageSurfaceResolver,
   readVillageBlockId,
 } from '../../application/village/village-placement-surface'
+import { VillagePlacementBlockReadError } from '../../application/village/village-placement-surface-error'
 import { makeTestChunk } from './test-utils'
 
 const setBlock = (

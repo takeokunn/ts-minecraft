@@ -119,6 +119,8 @@ const FIRST_PERSON_BLOCK_ITEMS: ReadonlySet<InventoryItem> = new Set<InventoryIt
   'REPEATER',
   'BED',
   'ENCHANTING_TABLE',
+  'ANVIL',
+  'CAULDRON',
   'END_STONE',
   'END_PORTAL_FRAME',
   'END_PORTAL',
@@ -153,6 +155,9 @@ const FIRST_PERSON_BLOCK_ITEMS: ReadonlySet<InventoryItem> = new Set<InventoryIt
   'CACTUS',
   'LILY_PAD',
   'ICE',
+  'PRESSURE_PLATE',
+  'STONE_SLAB',
+  'OAK_STAIRS',
 ])
 
 const formatInventoryItemName = (item: InventoryItem): string => {

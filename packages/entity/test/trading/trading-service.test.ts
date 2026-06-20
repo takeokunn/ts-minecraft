@@ -1,11 +1,14 @@
 import { describe, it } from '@effect/vitest'
 import { it as plainIt, expect } from 'vitest'
 import { Array as Arr, Effect, Either, Layer, Match, Option } from 'effect'
-import { InventoryService } from '@ts-minecraft/inventory'
-import { BlockRegistry } from '@ts-minecraft/block'
-import { TradingService, TRADE_CURRENCY_BLOCK, TradeFailure, TradeSuccess, TradeOfferId, VillagerProfession } from '@ts-minecraft/entity'
-import { VillageService } from '@ts-minecraft/entity'
-import { InventoryServicePort } from '../../domain/ports'
+import { InventoryService } from '@ts-minecraft/inventory/application/inventory-service'
+import { BlockRegistry } from '@ts-minecraft/block/application/block-registry'
+import { TradingService } from '@ts-minecraft/entity/application/trading/trading-service';
+import { TRADE_CURRENCY_BLOCK } from '@ts-minecraft/entity/application/trading/trading-service.config';
+import { TradeFailure, TradeOfferId, TradeSuccess } from '@ts-minecraft/entity/domain/trading/trading-model';
+import { VillagerProfession } from '@ts-minecraft/entity/domain/village/village-model';
+import { VillageService } from '@ts-minecraft/entity/application/village/village-service';
+import { InventoryServicePort } from '../../domain/inventory-service-port'
 import { InventoryError } from '../../domain/errors'
 import type { InventoryItem } from '@ts-minecraft/core'
 import { expectSome } from '../test-utils'

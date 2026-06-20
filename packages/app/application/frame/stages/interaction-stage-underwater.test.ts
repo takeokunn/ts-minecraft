@@ -1,6 +1,6 @@
 import { describe, it } from '@effect/vitest'
 import { Effect } from 'effect'
-import { expect, vi } from 'vitest'
+import { expect } from 'vitest'
 import { CHUNK_HEIGHT, CHUNK_SIZE, blockTypeToIndex } from '@ts-minecraft/core'
 import type { BlockType } from '@ts-minecraft/core'
 import {

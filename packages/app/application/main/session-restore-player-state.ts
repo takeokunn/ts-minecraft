@@ -1,4 +1,4 @@
-import { type EquipmentService } from '@ts-minecraft/inventory'
+import { type EquipmentService } from '@ts-minecraft/inventory/application/equipment-service'
 import { type WorldMetadata } from '@ts-minecraft/world'
 
 type SavedPlayerState = NonNullable<WorldMetadata['playerState']>

@@ -1,13 +1,8 @@
-import type { BootContext } from '@ts-minecraft/app/main/boot'
+import type { SessionBootstrapCoreDeps } from './core'
+import type { SessionBootstrapServiceGroups } from './services'
+import type { SessionBootstrapPresentationDeps } from './presentation/deps'
 
-import type { SessionBootstrapServices } from './services'
-
-export type SessionBootstrapDeps = {
-  readonly bootCtx: BootContext
-  readonly worldId: import('@ts-minecraft/core').WorldId
-  readonly initialGameMode: import('@ts-minecraft/game').GameMode
-  readonly gameLoopService: import('@ts-minecraft/game').GameLoopService
-  readonly loadingScreen: import('@ts-minecraft/presentation').LoadingScreenService
-  readonly deathScreen: import('@ts-minecraft/presentation').DeathScreenService
-  readonly services: SessionBootstrapServices
-}
+export type SessionBootstrapDeps = SessionBootstrapCoreDeps &
+  SessionBootstrapPresentationDeps & {
+    readonly services: SessionBootstrapServiceGroups
+  }

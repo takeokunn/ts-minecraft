@@ -1,7 +1,7 @@
 import { Effect, Ref } from 'effect'
 import { logErrors } from '@ts-minecraft/app/frame/error-logging'
 import { getDepthStriderWaterDrag } from '@ts-minecraft/game'
-import { enchantmentsOf } from '@ts-minecraft/inventory'
+import { enchantmentsOf } from '@ts-minecraft/inventory/domain/item-stack'
 import { applyNetherPortalTravel, applyEndPortalTravel } from './physics-stage-portal'
 import type { PhysicsStageDeps } from './physics-stage-types/deps'
 import type { PhysicsStageInputs } from './physics-stage-types/inputs'

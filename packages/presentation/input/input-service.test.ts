@@ -3,7 +3,7 @@ import { Effect, Layer, MutableHashMap, MutableHashSet } from 'effect'
 import { afterEach } from 'vitest'
 import { MouseButton, PlayerInputServiceLayer } from '@ts-minecraft/presentation/input/input-service'
 import { InputService } from '@ts-minecraft/presentation/input/input-service'
-import { PlayerInputService } from '@ts-minecraft/entity'
+import { PlayerInputService } from '@ts-minecraft/entity/application/player-input-service'
 import { createTestInputService, createTestLayer } from '@ts-minecraft/presentation/input/input-service-test-utils'
 
 const restoreDomGlobals = () => {
@@ -225,18 +225,19 @@ describe('InputService', () => {
       fakeDocument: { dispatchEvent: (e: Event) => boolean },
       code: string,
       target: unknown,
+      init: Partial<KeyboardEvent> = {},
     ): { prevented: number } => {
       const counter = { prevented: 0 }
-      const ev = { type: 'keydown', code, repeat: false, target, preventDefault: () => { counter.prevented++ } }
+      const ev = { type: 'keydown', code, repeat: false, target, preventDefault: () => { counter.prevented++ }, ...init }
       fakeDocument.dispatchEvent(ev as unknown as Event)
       return counter
     }
 
-    it.effect('preventDefault fires for Space/arrows when no text field is focused (fixes jump + page-scroll)', () => {
+    it.effect('preventDefault fires for Space/arrows/page keys when no text field is focused (fixes jump + page-scroll)', () => {
       const { fakeDocument } = installPointerLockDom()
       return Effect.scoped(Effect.gen(function* () {
         const input = yield* InputService
-        for (const code of ['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight']) {
+        for (const code of ['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'PageUp', 'PageDown']) {
           const { prevented } = dispatchKey(fakeDocument, code, null)
           expect(prevented).toBe(1)
           expect(yield* input.isKeyPressed(code)).toBe(true)
@@ -244,12 +245,35 @@ describe('InputService', () => {
       }).pipe(Effect.provide(InputService.Default)))
     })
 
+    it.effect('prevents browser-reserved gameplay shortcuts when no text field is focused', () => {
+      const { fakeDocument } = installPointerLockDom()
+      return Effect.scoped(Effect.gen(function* () {
+        const input = yield* InputService
+        for (const code of ['F1', 'F11']) {
+          const { prevented } = dispatchKey(fakeDocument, code, null)
+          expect(prevented).toBe(1)
+          expect(yield* input.isKeyPressed(code)).toBe(true)
+        }
+
+        expect(dispatchKey(fakeDocument, 'KeyW', null, { ctrlKey: true }).prevented).toBe(1)
+        expect(dispatchKey(fakeDocument, 'KeyW', null, { metaKey: true }).prevented).toBe(1)
+        expect(yield* input.isKeyPressed('KeyW')).toBe(true)
+      }).pipe(Effect.provide(InputService.Default)))
+    })
+
     it.effect('does NOT preventDefault while a text input is focused (preserves world-name typing)', () => {
       const { fakeDocument } = installPointerLockDom()
       return Effect.scoped(Effect.gen(function* () {
         const input = yield* InputService
-        const { prevented } = dispatchKey(fakeDocument, 'Space', { tagName: 'INPUT', isContentEditable: false })
-        expect(prevented).toBe(0)
+        for (const [code, init] of [
+          ['Space', {}],
+          ['F1', {}],
+          ['F11', {}],
+          ['KeyW', { ctrlKey: true }],
+        ] as const) {
+          const { prevented } = dispatchKey(fakeDocument, code, { tagName: 'INPUT', isContentEditable: false }, init)
+          expect(prevented).toBe(0)
+        }
         void input
       }).pipe(Effect.provide(InputService.Default)))
     })

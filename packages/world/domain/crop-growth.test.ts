@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest'
-import { advanceCropAge, CROP_MAX_AGE, isRipeCrop, CROP_GROWTH_INTERVAL_SECS } from './crop-growth'
+import {
+  advanceCropAge,
+  BONE_MEAL_MAX_ADVANCE,
+  BONE_MEAL_MIN_ADVANCE,
+  CROP_GROWTH_INTERVAL_SECS,
+  CROP_MAX_AGE,
+  isRipeCrop,
+  resolveBoneMealAdvance,
+} from './crop-growth'
 
 describe('crop-growth domain', () => {
   it('CROP_MAX_AGE is 2', () => {
@@ -43,6 +51,23 @@ describe('crop-growth domain', () => {
 
     it('clamps when already past max', () => {
       expect(advanceCropAge(10)).toBe(CROP_MAX_AGE)
+    })
+  })
+
+  describe('resolveBoneMealAdvance', () => {
+    it('maps random rolls to vanilla 2-5 growth stage advances', () => {
+      expect(resolveBoneMealAdvance(0)).toBe(BONE_MEAL_MIN_ADVANCE)
+      expect(resolveBoneMealAdvance(0.249999)).toBe(2)
+      expect(resolveBoneMealAdvance(0.25)).toBe(3)
+      expect(resolveBoneMealAdvance(0.5)).toBe(4)
+      expect(resolveBoneMealAdvance(0.75)).toBe(BONE_MEAL_MAX_ADVANCE)
+      expect(resolveBoneMealAdvance(0.999999)).toBe(BONE_MEAL_MAX_ADVANCE)
+    })
+
+    it('clamps invalid or out-of-range rolls', () => {
+      expect(resolveBoneMealAdvance(-1)).toBe(BONE_MEAL_MIN_ADVANCE)
+      expect(resolveBoneMealAdvance(1)).toBe(BONE_MEAL_MAX_ADVANCE)
+      expect(resolveBoneMealAdvance(Number.NaN)).toBe(BONE_MEAL_MIN_ADVANCE)
     })
   })
 })

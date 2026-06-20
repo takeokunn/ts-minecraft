@@ -3,8 +3,9 @@
 // Per-stage decomposition (FR-017): each phase lives under frame/stages/; this module owns long-lived refs.
 import { Effect, HashMap, MutableRef, Option, Ref } from 'effect'
 import * as THREE from 'three'
-import { resolvePreset, type ResolvedGraphics } from '@ts-minecraft/game'
-import { MAX_AIR_SECS } from '@ts-minecraft/entity'
+import { type ResolvedGraphics } from '@ts-minecraft/game'
+import { resolvePreset } from '@ts-minecraft/game/application/settings-service.config'
+import { MAX_AIR_SECS } from '@ts-minecraft/entity/domain/environment-hazard.config'
 import type { Chunk } from '@ts-minecraft/world'
 import type { DirtyChunkEntry } from './frame/frame-maintenance-dirty'
 import { type DayNightLights } from '@ts-minecraft/game'
@@ -12,13 +13,10 @@ import { type CameraPoseSnapshot } from '@ts-minecraft/app/frame/frame-camera-po
 import { createMaintenanceHandler } from '@ts-minecraft/app/frame/frame-maintenance'
 import { runFrameStages } from '@ts-minecraft/app/frame/frame-stage-executor'
 import { createAttackSwingState } from '@ts-minecraft/presentation'
-import type {
-  FrameHandlerDeps,
-  FrameHandlerServices,
-  FrameLoopHandlers,
-  FrameStageRefs,
-  ResolvedDeps,
-} from '@ts-minecraft/app/frame/types'
+import type { FrameHandlerDeps } from '@ts-minecraft/app/application/frame/types/deps'
+import type { FrameHandlerServices } from '@ts-minecraft/app/application/frame/types/services'
+import type { FrameLoopHandlers, ResolvedDeps } from '@ts-minecraft/app/application/frame/types/runtime'
+import type { FrameStageRefs } from '@ts-minecraft/app/application/frame/types/stage-refs'
 
 // ---------------------------------------------------------------------------
 // Internal factory — wires refs, derived deps, and the per-frame orchestrator.
@@ -56,9 +54,12 @@ const createFrameLoopHandlersInternal = (
     const portalSecsRef = yield* Ref.make(0)
     // FR-2 liquid/environment hazards: lava-burn timer + air supply (starts full).
     const lavaDamageSecsRef = MutableRef.make(0)
+    const lavaBurnRemainingSecsRef = MutableRef.make(0)
+    const lavaBurnDamageSecsRef = MutableRef.make(0)
     const airSecsRef = MutableRef.make(MAX_AIR_SECS)
     const drownDamageSecsRef = MutableRef.make(0)
     const suffocationDamageSecsRef = MutableRef.make(0)
+    const lightningDamageSecsRef = MutableRef.make(0)
     const voidDamageSecsRef = MutableRef.make(0)
     const breakProgressRef = MutableRef.make<{ blockKey: string; ticks: number; totalTicks: number } | null>(null)
     const bowChargeStartRef = MutableRef.make<number | null>(null)
@@ -186,9 +187,12 @@ const createFrameLoopHandlersInternal = (
       attackSwingStateRef,
       portalSecsRef,
       lavaDamageSecsRef,
+      lavaBurnRemainingSecsRef,
+      lavaBurnDamageSecsRef,
       airSecsRef,
       drownDamageSecsRef,
       suffocationDamageSecsRef,
+      lightningDamageSecsRef,
       voidDamageSecsRef,
       breakProgressRef,
       bowChargeStartRef,

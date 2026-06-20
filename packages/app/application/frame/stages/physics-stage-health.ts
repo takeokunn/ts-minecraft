@@ -26,11 +26,12 @@ export const applyPhysicsHealthAndHud = (
       yield* Ref.set(refs.finalPosRef, refreshedPos)
       const armorPoints = yield* services.equipmentService.getTotalArmorPoints()
       const isSpectatorMode = yield* services.gameMode.isSpectator()
+      const isCreativeMode = yield* services.gameMode.isCreative()
       const applyDamage = (amount: number) => tryApplyPlayerDamage(amount, isSpectatorMode, services)
 
       const isGrounded = yield* services.gameState.isPlayerGrounded()
       const rawFallDamage = yield* services.healthService.processFallDamage(refreshedPos.y, isGrounded)
-      const fallDamage = resolveFallDamage(rawFallDamage, bootsOpt)
+      const fallDamage = isCreativeMode ? 0 : resolveFallDamage(rawFallDamage, bootsOpt)
       const tookFallDamage = yield* applyDamage(fallDamage)
       if (tookFallDamage) {
         yield* services.soundManager.playEffect('playerHurt', { position: refreshedPos })

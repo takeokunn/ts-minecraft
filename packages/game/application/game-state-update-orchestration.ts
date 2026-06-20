@@ -9,6 +9,7 @@ import { GameModeService } from './game-mode-service'
 import { PhysicsService } from './physics-service'
 import { GameStateError } from '../domain/errors'
 import {
+  getBlockCollisionShapeAt,
   getBlockFrictionAt,
   isBlockSolid,
   isInCobweb,
@@ -148,6 +149,7 @@ export const runGameStateUpdate = (
       frameMotionState: frameContext.frameMotionState,
       queries: {
         isSolid: (wx, wy, wz) => isBlockSolid(wx, wy, wz, chunkCache, playerCx, playerCz),
+        getCollisionShape: (wx, wy, wz) => getBlockCollisionShapeAt(wx, wy, wz, chunkCache, playerCx, playerCz),
         isInLadder: (wx, wy, wz) => isInLadder(wx, wy, wz, chunkCache, playerCx, playerCz),
         isInCobweb: (wx, wy, wz) => isInCobweb(wx, wy, wz, chunkCache, playerCx, playerCz),
         isInWater: (wx, wy, wz) => isInWater(wx, wy, wz, chunkCache, playerCx, playerCz),

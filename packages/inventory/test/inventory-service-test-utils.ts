@@ -1,8 +1,8 @@
 import { Array as Arr, Effect, Layer, MutableHashMap, MutableRef } from 'effect'
 import type { BlockType } from '@ts-minecraft/core'
-import type { Block } from '@ts-minecraft/block'
-import { BlockRegistry } from '@ts-minecraft/block'
-import { InventoryService } from '@ts-minecraft/inventory'
+import type { Block } from '@ts-minecraft/block/domain/block'
+import { BlockRegistry } from '@ts-minecraft/block/application/block-registry'
+import { InventoryService } from '@ts-minecraft/inventory/application/inventory-service'
 
 export const asSlotIndex = (n: number): import('@ts-minecraft/core').SlotIndex => n as import('@ts-minecraft/core').SlotIndex
 

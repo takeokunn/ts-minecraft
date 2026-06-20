@@ -1,8 +1,8 @@
 import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
 import { Array as Arr } from 'effect'
-import { AIState, computeStateVelocity, computeStateVelocityInto, distanceToPlayer, resolveAIState } from '@ts-minecraft/entity'
-import type { AITransitionContext } from '@ts-minecraft/entity'
+import { AIState, computeStateVelocity, computeStateVelocityInto, distanceToPlayer, resolveAIState } from '@ts-minecraft/entity/domain/mob/state-machine';
+import type { AITransitionContext } from '@ts-minecraft/entity/domain/mob/state-machine';
 
 describe('ai/stateMachine', () => {
   describe('resolveAIState', () => {

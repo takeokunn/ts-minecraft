@@ -1,11 +1,14 @@
 import type * as THREE from 'three'
 import type { BlockService, ChunkManagerService } from '@ts-minecraft/world'
-import type { PlayerCameraStateService } from '@ts-minecraft/entity'
+import type { PlayerCameraStateService } from '@ts-minecraft/entity/application/camera-state'
 import type { GameStateService, TimeService } from '@ts-minecraft/game'
-import type { FurnaceService, HotbarService, InventoryService, RecipeService } from '@ts-minecraft/inventory'
-import type { EntityManager } from '@ts-minecraft/entity'
+import type { FurnaceService } from '@ts-minecraft/inventory/application/furnace-service'
+import type { HotbarService } from '@ts-minecraft/inventory/application/hotbar-service'
+import type { InventoryService } from '@ts-minecraft/inventory/application/inventory-service'
+import type { RecipeService } from '@ts-minecraft/inventory/application/recipe-service'
+import type { EntityManager } from '@ts-minecraft/entity/application/mob/entity-manager'
 import type { WorldRendererService } from '@ts-minecraft/rendering'
-import type { DebugFeatureFlagsService } from '@ts-minecraft/app/debug-feature-flags'
+import type { DebugFeatureFlagsService } from '@ts-minecraft/app/application/debug-feature-flags'
 import type { BlockHighlightService, InputService, InventoryRendererService } from '@ts-minecraft/presentation'
 
 export type QaApiDeps = {

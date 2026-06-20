@@ -3,7 +3,7 @@ import type { Chunk } from '@ts-minecraft/world'
 import type { Position } from '@ts-minecraft/core'
 import { CHUNK_HEIGHT, CHUNK_SIZE } from '@ts-minecraft/core'
 import { chunkBlockIndexUnchecked } from '@ts-minecraft/world'
-import { getLightAt } from '@ts-minecraft/block'
+import { getLightAt } from '@ts-minecraft/block/domain/light'
 import { MOB_HALF_HEIGHT, HOSTILE_SPAWN_MAX_BLOCK_LIGHT } from './spawner-config'
 
 const toLocalAxis = (blockCoordinate: number): number =>

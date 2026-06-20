@@ -113,6 +113,7 @@ export const renderValidRow = (
   worldId: WorldId,
   metadata: WorldMetadata,
   onLoad: () => void,
+  onRename: () => void,
   onDelete: () => void,
 ): void => {
   const row = dom.createElement('div')
@@ -121,7 +122,7 @@ export const renderValidRow = (
   info.style.cssText = 'flex:1;display:flex;flex-direction:column;gap:2px;min-width:0'
   const name = dom.createElement('div')
   name.style.cssText = 'font-size:15px;font-weight:bold;white-space:nowrap;overflow:hidden;text-overflow:ellipsis'
-  name.textContent = String(worldId)
+  name.textContent = metadata.displayName ?? String(worldId)
   const meta = dom.createElement('div')
   meta.style.cssText = 'font-size:12px;opacity:0.8'
   meta.textContent = `Last played: ${formatLastPlayed(metadata.lastPlayed)}`
@@ -139,6 +140,11 @@ export const renderValidRow = (
   loadBtn.textContent = 'Load'
   loadBtn.style.cssText = buttonStyle
   loadBtn.addEventListener('click', onLoad)
+  const renameBtn = dom.createElement('button')
+  renameBtn.type = 'button'
+  renameBtn.textContent = 'Rename'
+  renameBtn.style.cssText = buttonStyle
+  renameBtn.addEventListener('click', onRename)
   const deleteBtn = dom.createElement('button')
   deleteBtn.type = 'button'
   deleteBtn.textContent = 'Delete'
@@ -147,6 +153,7 @@ export const renderValidRow = (
   row.appendChild(info)
   row.appendChild(badge)
   row.appendChild(loadBtn)
+  row.appendChild(renameBtn)
   row.appendChild(deleteBtn)
   dom.appendChildTo(lwList, row)
 }

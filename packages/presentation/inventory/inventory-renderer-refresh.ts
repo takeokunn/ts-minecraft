@@ -1,7 +1,8 @@
 import { Array as Arr, Option } from 'effect'
-import { HOTBAR_START } from '@ts-minecraft/inventory'
-import type { InventoryItem } from '@ts-minecraft/core'
-import type { Recipe } from '@ts-minecraft/inventory'
+import { HOTBAR_START, type InventorySlot } from '@ts-minecraft/inventory/application/inventory-service'
+import type { Enchantment } from '@ts-minecraft/inventory/domain/enchantment.types'
+import type { ItemStack } from '@ts-minecraft/inventory/domain/item-stack'
+import type { Recipe } from '@ts-minecraft/inventory/domain/crafting'
 import { DomOperationsService } from '@ts-minecraft/presentation/hud/crosshair'
 import { getSlotColor, getSlotImageStyle } from './inventory-renderer-helpers'
 import {
@@ -12,10 +13,32 @@ import {
   SLOT_BORDER_SELECTED, SLOT_BORDER_DEFAULT,
 } from './inventory-renderer.config'
 
-type RenderableSlot = Option.Option<{
-  readonly itemType: InventoryItem
-  readonly count: number
-}>
+type RenderableSlot = InventorySlot
+
+const ROMAN_LEVELS: Readonly<Record<number, string>> = {
+  1: 'I',
+  2: 'II',
+  3: 'III',
+  4: 'IV',
+  5: 'V',
+}
+
+const formatLabel = (value: string): string =>
+  value
+    .split('_')
+    .map((part) => part.length === 0 ? part : `${part[0]!.toUpperCase()}${part.slice(1).toLowerCase()}`)
+    .join(' ')
+
+const formatEnchantment = (enchantment: Enchantment): string =>
+  `${formatLabel(enchantment.type)} ${ROMAN_LEVELS[enchantment.level] ?? String(enchantment.level)}`
+
+const buildSlotTooltip = (stack: ItemStack): string => {
+  const enchantments = stack.enchantments ?? []
+  const lines = [formatLabel(stack.itemType), `Count: ${stack.count}`]
+  return enchantments.length === 0
+    ? lines.join('\n')
+    : [...lines, 'Enchantments:', ...enchantments.map(formatEnchantment)].join('\n')
+}
 
 /* c8 ignore start */
 export const renderSlotElements = (
@@ -35,12 +58,17 @@ export const renderSlotElements = (
         el.style.backgroundImage = ''
         el.style.background = getSlotColor(stack.itemType)
       }
-      el.title = `${stack.itemType} ×${stack.count}`
+      const tooltip = buildSlotTooltip(stack)
+      el.title = tooltip
+      el.dataset['tooltip'] = tooltip
+      el.setAttribute?.('aria-label', tooltip.replace(/\n/g, ', '))
       el.textContent = stack.count < 64 ? String(stack.count) : ''
     } else {
       el.style.backgroundImage = ''
       el.style.background = DEFAULT_SLOT_COLOR
       el.title = ''
+      delete el.dataset['tooltip']
+      el.removeAttribute?.('aria-label')
       el.textContent = ''
     }
     el.style.border = i >= HOTBAR_START && i === selectedHotbarIdx

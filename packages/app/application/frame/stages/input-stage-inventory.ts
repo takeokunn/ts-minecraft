@@ -1,11 +1,13 @@
 import { Effect, Option, Ref } from 'effect'
-import { KeyMappings } from '@ts-minecraft/entity'
-import { HOTBAR_START } from '@ts-minecraft/inventory'
-import { SlotIndex } from '@ts-minecraft/core'
+import { DROPPED_ITEM_PICKUP_DELAY_TICKS } from '@ts-minecraft/entity/domain/dropped-item'
+import { KeyMappings } from '@ts-minecraft/entity/domain/key-mappings'
+import { HOTBAR_START } from '@ts-minecraft/inventory/application/inventory-service'
+import { SlotIndex, type Position } from '@ts-minecraft/core'
 import type { InputDeps, InputServices } from './input-stage-types'
 
 export const handleDropItemKey = (
-  services: Pick<InputServices, 'inputService' | 'inventoryRenderer' | 'settingsOverlay' | 'pauseMenu' | 'tradingPresentation' | 'hotbarService' | 'inventoryService'>,
+  services: Pick<InputServices, 'inputService' | 'inventoryRenderer' | 'settingsOverlay' | 'pauseMenu' | 'tradingPresentation' | 'hotbarService' | 'inventoryService' | 'droppedItemService'>,
+  playerPosition: Position,
 ): Effect.Effect<void, never> =>
   Effect.gen(function* () {
     const pressed = yield* services.inputService.consumeKeyPress(KeyMappings.DROP_ITEM)
@@ -24,9 +26,18 @@ export const handleDropItemKey = (
 
     const selectedSlot = yield* services.hotbarService.getSelectedSlot()
     const inventorySlot = SlotIndex.make(HOTBAR_START + SlotIndex.toNumber(selectedSlot))
-    yield* services.inventoryService.removeBlock(selectedItem, 1, inventorySlot).pipe(
-      Effect.catchAll(() => Effect.void),
+    const removed = yield* services.inventoryService.removeBlock(selectedItem, 1, inventorySlot).pipe(
+      Effect.as(true),
+      Effect.catchAll(() => Effect.succeed(false)),
     )
+    if (!removed) return
+
+    yield* services.droppedItemService.spawn({
+      itemType: selectedItem,
+      count: 1,
+      position: playerPosition,
+      pickupDelayTicks: DROPPED_ITEM_PICKUP_DELAY_TICKS,
+    })
   })
 
 export const handleInventoryKey = (

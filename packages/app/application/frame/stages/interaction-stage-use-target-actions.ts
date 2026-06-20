@@ -1,5 +1,7 @@
 import { Effect } from 'effect'
-import type { FrameHandlerDeps, FrameHandlerServices, FrameStageRefs } from '@ts-minecraft/app/frame/types'
+import type { FrameHandlerDeps } from '@ts-minecraft/app/application/frame/types/deps'
+import type { FrameHandlerServices } from '@ts-minecraft/app/application/frame/types/services'
+import type { FrameStageRefs } from '@ts-minecraft/app/application/frame/types/stage-refs'
 import { handleRightClickPriorityFromContext } from '@ts-minecraft/app/frame/stages/interaction-right-click-handler'
 import { shouldRunInteractionStageUseTargetActions, type InteractionStageUseTargetActionsContext } from '@ts-minecraft/app/frame/stages/interaction-stage-use-target-actions-helpers'
 
@@ -28,6 +30,7 @@ export const runInteractionStageUseTargetActions = (
     | 'cropGrowthService'
     | 'fluidService'
     | 'gameMode'
+    | 'redstoneService'
   >,
   refs: Pick<FrameStageRefs, 'dirtyChunksRef'>,
   context: InteractionStageUseTargetActionsContext,

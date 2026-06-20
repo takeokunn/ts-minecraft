@@ -2,9 +2,10 @@ import { Effect, Layer, MutableRef, Option } from 'effect'
 import { vi } from 'vitest'
 import { DomOperationsService } from '@ts-minecraft/presentation/hud/crosshair'
 import { TradingPresentationService } from '@ts-minecraft/presentation/trading'
-import { TradingService, TradeFailure, TradeOfferId, TradeSuccess, type TradeOffer } from '@ts-minecraft/entity'
-import { VillageService } from '@ts-minecraft/entity'
-import { VillageId, VillageStructureId, VillagerActivity, VillagerId, VillagerProfession, type Villager } from '@ts-minecraft/entity'
+import { TradingService } from '@ts-minecraft/entity/application/trading/trading-service'
+import { VillageService } from '@ts-minecraft/entity/application/village/village-service'
+import { TradeFailure, TradeOfferId, TradeSuccess, type TradeOffer } from '@ts-minecraft/entity/domain/trading/trading-model'
+import { VillageId, VillageStructureId, VillagerActivity, VillagerId, VillagerProfession, type Villager } from '@ts-minecraft/entity/domain/village/village-model'
 
 export type MockElement = Pick<HTMLElement, 'id' | 'textContent'> & {
   id: string

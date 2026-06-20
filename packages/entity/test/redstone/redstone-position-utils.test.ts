@@ -1,7 +1,7 @@
 import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
 import { HashSet } from 'effect'
-import { positionKey, positionFromKey, toBlockPosition } from '@ts-minecraft/entity'
+import { positionFromKey, positionKey, toBlockPosition } from '@ts-minecraft/entity/domain/redstone/redstone-position-utils';
 
 describe('redstone/redstone-position-utils', () => {
   describe('toBlockPosition', () => {

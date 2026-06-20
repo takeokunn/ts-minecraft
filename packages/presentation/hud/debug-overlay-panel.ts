@@ -1,7 +1,7 @@
 import { Cause, Effect } from 'effect'
 import {
   DEBUG_FEATURE_FLAG_CATALOG,
-} from '@ts-minecraft/app/debug-feature-flags'
+} from '@ts-minecraft/app/application/debug-feature-flags'
 import type { DebugOverlayDeps, DebugOverlayDomNodes, GroupSectionNodes, TogglePanelNodes, ToggleRowNodes } from '@ts-minecraft/presentation/hud/debug-overlay-types'
 import {
   badgeStyles,

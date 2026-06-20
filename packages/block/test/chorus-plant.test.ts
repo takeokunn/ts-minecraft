@@ -5,7 +5,7 @@ import {
   canChorusFlowerGrow,
   growChorusPlant,
   type ChorusWorldState,
-} from '@ts-minecraft/block'
+} from '@ts-minecraft/block/domain/chorus-plant'
 
 const key = (position: Position): string => `${position.x},${position.y},${position.z}`
 

@@ -10,6 +10,8 @@ import { cycleGameMode, gameModeLabel, generateWorldId } from './main-menu-utils
 import type { MenuButtons } from './main-menu-dom'
 import { renderValidRow, renderCorruptRow } from './main-menu-dom'
 
+type RenamePrompt = (currentName: string) => string | null | undefined
+
 // --- Menu run-state refs bundled together ---
 
 export interface MenuRefs {
@@ -61,6 +63,7 @@ export const makeRefreshLoadList = (
   buttons: MenuButtons,
   completeWith: (choice: MainMenuChoice) => void,
   openDeleteConfirm: (worldId: WorldId, label: string) => void,
+  openRenamePrompt: (worldId: WorldId, label: string) => void,
 ): (() => Effect.Effect<void, never>) =>
   () =>
     storageService.listWorldMetadata.pipe(
@@ -98,7 +101,8 @@ export const makeRefreshLoadList = (
                 worldId,
                 metadata,
                 () => completeWith({ action: 'loadWorld', worldId }),
-                () => openDeleteConfirm(worldId, String(worldId)),
+                () => openRenamePrompt(worldId, metadata.displayName ?? String(worldId)),
+                () => openDeleteConfirm(worldId, metadata.displayName ?? String(worldId)),
               )
             })
             Arr.forEach(corrupt, (worldId) => {
@@ -112,6 +116,41 @@ export const makeRefreshLoadList = (
           }),
       }),
     )
+
+// --- Rename prompt ---
+
+const defaultRenamePrompt: RenamePrompt = (currentName) => globalThis.window?.prompt?.('Rename world', currentName)
+
+export const makeOpenRenamePrompt = (
+  storageService: StorageService,
+  refreshLoadList: () => Effect.Effect<void, never>,
+  promptForName: RenamePrompt = defaultRenamePrompt,
+) => (worldId: WorldId, currentName: string): void => {
+  Effect.runFork(
+    Effect.gen(function* () {
+      const requestedName = yield* Effect.sync(() => promptForName(currentName))
+      const displayName = requestedName?.trim()
+
+      if (!displayName || displayName === currentName) return
+
+      const metadata = yield* storageService.loadWorldMetadata(worldId)
+      if (Option.isNone(metadata)) {
+        yield* Effect.logWarning(`MainMenu: cannot rename missing world "${String(worldId)}"`)
+        return
+      }
+
+      yield* storageService.saveWorldMetadata(worldId, {
+        ...metadata.value,
+        displayName,
+      })
+      yield* refreshLoadList()
+    }).pipe(
+      Effect.catchAllCause((cause) =>
+        Effect.logError(`MainMenu: renameWorld failed for "${String(worldId)}": ${Cause.pretty(cause)}`),
+      ),
+    ),
+  )
+}
 
 // --- Delete confirm ---
 

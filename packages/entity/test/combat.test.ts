@@ -1,22 +1,11 @@
 import { describe, it } from '@effect/vitest'
+import { ARTHROPOD_MOB_TYPES, CRITICAL_DAMAGE_MULTIPLIER, KNOCKBACK_HORIZONTAL_SPEED, KNOCKBACK_VERTICAL_SPEED, PLAYER_ATTACK_DAMAGE, SPRINT_ATTACK_KNOCKBACK_MULTIPLIER_BONUS, UNDEAD_MOB_TYPES } from '@ts-minecraft/entity/domain/combat.config'
+import { applyArmorReduction, computeAttackCharge, computeAttackDamage, computeAttackKnockbackHorizontalMultiplier, computeChargedDamage, computeKnockback, computeWeaponEnchantBonus, getWeaponBaseDamage } from '@ts-minecraft/entity/domain/combat-resolution'
 import {
-  applyArmorReduction,
-  computeAttackDamage,
-  computeKnockback,
-  computeAttackKnockbackHorizontalMultiplier,
-  computeAttackCharge,
-  computeChargedDamage,
-  computeWeaponEnchantBonus,
-  getWeaponBaseDamage,
-  CRITICAL_DAMAGE_MULTIPLIER,
-  KNOCKBACK_HORIZONTAL_SPEED,
-  KNOCKBACK_VERTICAL_SPEED,
-  SPRINT_ATTACK_KNOCKBACK_MULTIPLIER_BONUS,
-  PLAYER_ATTACK_DAMAGE,
-  UNDEAD_MOB_TYPES,
-  ARTHROPOD_MOB_TYPES,
-} from '@ts-minecraft/entity'
-import { getSharpnessDamageBonus, getSmiteDamageBonus, getBaneOfArthropodsDamageBonus } from '@ts-minecraft/inventory'
+  getBaneOfArthropodsDamageBonus,
+  getSharpnessDamageBonus,
+  getSmiteDamageBonus,
+} from '@ts-minecraft/inventory/domain/enchantment'
 import { Array as Arr } from 'effect'
 import { expect } from 'vitest'
 

@@ -1,15 +1,8 @@
 import { describe, it, expect } from 'vitest'
 import { Effect, Option } from 'effect'
-import {
-  canBeSheared,
-  shearWoolCount,
-  tickWoolRegrowth,
-  SHEAR_WOOL_MIN,
-  SHEAR_WOOL_MAX,
-  WOOL_REGROWTH_TICKS,
-  EntityManager,
-  EntityType,
-} from '@ts-minecraft/entity'
+import { EntityManager } from '@ts-minecraft/entity/application/mob/entity-manager';
+import { EntityType } from '@ts-minecraft/entity/domain/mob/entity';
+import { canBeSheared, SHEAR_WOOL_MAX, SHEAR_WOOL_MIN, shearWoolCount, tickWoolRegrowth, WOOL_REGROWTH_TICKS } from '@ts-minecraft/entity/domain/mob/shearing';
 import { expectSome, runWithEntityManager } from './test-utils'
 
 describe('shearing domain (R11)', () => {

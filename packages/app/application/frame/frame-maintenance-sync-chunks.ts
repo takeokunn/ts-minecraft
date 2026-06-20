@@ -1,5 +1,6 @@
 import { Cause, Effect, MutableRef, Option } from 'effect'
-import type { FrameHandlerDeps, FrameHandlerServices } from '@ts-minecraft/app/frame/types'
+import type { FrameHandlerDeps } from '@ts-minecraft/app/application/frame/types/deps'
+import type { FrameHandlerServices } from '@ts-minecraft/app/application/frame/types/services'
 import type { Chunk } from '@ts-minecraft/world'
 import {
   resolveMaintenanceChunkSceneSyncPlan,
@@ -36,7 +37,7 @@ export const runMaintenanceChunkSceneSync = (
       return didLoadChunks
     }
 
-    didLoadChunks = chunkSyncPending
+    const chunkLoadResult = chunkSyncPending
       ? false
       : yield* chunkManagerService.loadChunksAroundPlayer(input.playerPos, input.renderDistance).pipe(
           Effect.catchAllCause((cause) =>
@@ -45,6 +46,7 @@ export const runMaintenanceChunkSceneSync = (
             ),
           ),
         )
+    didLoadChunks = chunkLoadResult !== false
 
     if (input.chunkSceneSyncEnabled) {
       const loadedChunks = yield* chunkManagerService.getLoadedChunks()

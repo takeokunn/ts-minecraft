@@ -1,5 +1,5 @@
 import { Effect, MutableRef, Option } from 'effect'
-import { resolvePreset } from '@ts-minecraft/game'
+import { resolvePreset } from '@ts-minecraft/game/application/settings-service.config'
 import type { SettingsService } from '@ts-minecraft/game'
 import type { WorldRendererService, GodRaysPass } from '@ts-minecraft/rendering'
 import type { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js'
@@ -9,7 +9,7 @@ import type { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPas
 import type { SMAAPass } from 'three/addons/postprocessing/SMAAPass.js'
 import type { WebGLRenderer, PerspectiveCamera, WebGLRenderTarget } from 'three'
 
-import type { PendingResize } from './browser-runtime-event-handlers'
+import type { PendingResize } from './browser-runtime-types'
 import { resolveBrowserRuntimeResizeLayout } from './browser-runtime-resize-layout'
 import { applyBrowserRuntimeResizeRendering } from './browser-runtime-resize-effects-rendering'
 import { applyBrowserRuntimeResizeWorld } from './browser-runtime-resize-effects-world'

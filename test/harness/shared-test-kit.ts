@@ -1,7 +1,9 @@
 import { Effect, MutableHashSet, MutableRef, Option, Ref } from 'effect'
 import * as THREE from 'three'
 import { vi } from 'vitest'
-import { createFrameHandlers, type FrameHandlerDeps, type FrameHandlerServices } from '@ts-minecraft/app'
+import { createFrameHandlers } from '@ts-minecraft/app/frame-handler'
+import type { FrameHandlerDeps } from '@ts-minecraft/app/application/frame/types/deps'
+import type { FrameHandlerServices } from '@ts-minecraft/app/application/frame/types/services'
 import type { DeltaTimeSecs } from '@ts-minecraft/core'
 import type { DayNightLights } from '@ts-minecraft/game'
 import type { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js'
@@ -11,6 +13,8 @@ import { makeGameMode, makeGameState, makeMusicManager, makeSettingsService, mak
 import { makeEquipmentService, makeHotbarService, makeInventoryService } from './inventory-test-kit'
 import { makeCameraState, makeFirstPersonCamera, makeFishingService, makeHealthService, makeHungerService, makeThirdPersonCamera, makeXPService } from './player-test-kit'
 import { makeChunkMeshService, makeEntityRenderer, makeParticleSystem, makePerfHud, makeWorldRendererService } from './rendering-test-kit'
+import { makeDroppedItemService, makeDroppedXpOrbService } from '../../packages/app/test/frame-handler-test-kit/entity'
+import { makeBiomeService, makeDroppedItemRenderer } from '../../packages/app/test/frame-handler-test-kit/world'
 import { makeBlockService, makeChunkManagerService, makeCropGrowthService, makeFluidService, makeNetherService, makeWeatherService } from './terrain-test-kit'
 
 export type CameraMode = 'firstPerson' | 'thirdPerson'
@@ -156,6 +160,7 @@ export const makeServices = (opts: {
     fpsCounter: makeFPSCounter(),
     worldRendererService: makeWorldRendererService(),
     entityRenderer: makeEntityRenderer(),
+    droppedItemRenderer: makeDroppedItemRenderer(),
     chunkMeshService: makeChunkMeshService(),
     particleSystem: makeParticleSystem(),
     healthService: makeHealthService(),
@@ -169,6 +174,9 @@ export const makeServices = (opts: {
     redstoneService: makeRedstoneService(),
     cropGrowthService: makeCropGrowthService(),
     fluidService: makeFluidService(),
+    biomeService: makeBiomeService(),
+    droppedItemService: makeDroppedItemService(),
+    droppedXpOrbService: makeDroppedXpOrbService(),
     chestService: makeChestService(),
     furnaceService: makeFurnaceService(),
     netherService: makeNetherService(),

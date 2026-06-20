@@ -1,12 +1,8 @@
 import { describe, it } from '@effect/vitest'
 import { Array as Arr, Effect } from 'effect'
 import { expect } from 'vitest'
-import {
-  PlayerCameraStateService,
-  PITCH_MIN,
-  PITCH_MAX,
-  type CameraRotation,
-} from '@ts-minecraft/entity'
+import { PlayerCameraStateService } from '@ts-minecraft/entity/application/camera-state';
+import { PITCH_MAX, PITCH_MIN, type CameraRotation } from '@ts-minecraft/entity/domain/camera-state';
 
 describe('PlayerCameraStateService', () => {
   describe('reset', () => {

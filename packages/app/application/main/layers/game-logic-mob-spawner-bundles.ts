@@ -1,6 +1,7 @@
 import { Effect, Layer } from 'effect'
 
-import { MobSpawner, TimeServicePort } from '@ts-minecraft/entity'
+import { MobSpawner } from '@ts-minecraft/entity/application/mob/spawner'
+import { TimeServicePort } from '@ts-minecraft/entity/domain/time-service-port'
 import { TimeService } from '@ts-minecraft/game'
 
 import { EntityManagerLayer } from './game-logic-entity-manager-bundles'

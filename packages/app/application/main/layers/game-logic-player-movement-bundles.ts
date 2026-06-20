@@ -1,6 +1,7 @@
 import { Layer } from 'effect'
 
-import { HungerService, MovementService } from '@ts-minecraft/entity'
+import { HungerService } from '@ts-minecraft/entity/application/hunger-service'
+import { MovementService } from '@ts-minecraft/entity/application/movement-service'
 
 import { PlayerInputLayer } from './game-logic-player-input-bundles'
 

@@ -1,15 +1,15 @@
 import { describe, it } from '@effect/vitest'
-import {
-  makeDeps,
-  makeInputService,
-  makeInventoryRenderer,
-  makeServices,
-  makeSettingsOverlay,
-  runFrame,
-} from '../../../test/frame-handler-test-kit'
 import { Effect, Option } from 'effect'
 import * as THREE from 'three'
 import { expect, vi } from 'vitest'
+import { makeDeps } from '../../../test/frame-handler-test-kit/orchestration/deps'
+import { makeInputService } from '../../../test/frame-handler-test-kit/presentation/input'
+import {
+  makeInventoryRenderer,
+  makeSettingsOverlay,
+} from '../../../test/frame-handler-test-kit/presentation/overlay'
+import { makeServices } from '../../../test/frame-handler-test-kit/services'
+import { runFrame } from '../../../test/frame-handler-test-kit/orchestration/harness'
 
 // ---------------------------------------------------------------------------
 // Phase 14 — mob vocalizations: a LETHAL player attack plays mobDeath only;

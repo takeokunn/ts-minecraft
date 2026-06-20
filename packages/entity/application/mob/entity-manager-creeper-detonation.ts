@@ -1,5 +1,6 @@
 import type { Position } from '@ts-minecraft/core'
-import { computeExplosionDamageAt, CREEPER_EXPLOSION_POWER, type ExplosionEvent } from '../../domain/explosion'
+import { CREEPER_EXPLOSION_POWER, type ExplosionEvent } from '../../domain/explosion'
+import { computeExplosionDamageAt } from '../../domain/explosion-resolution'
 import { CREEPER_FUSE_SECONDS } from '../../domain/mob/creeper-fuse'
 import { EntityType } from '../../domain/mob/entity'
 import type { ManagedEntity } from '../../domain/mob/entity-internal'

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { EntityId, EntityType } from '@ts-minecraft/entity'
+import { EntityId, EntityType } from '@ts-minecraft/entity/domain/mob/entity';
 import { createSpawnedManagedEntity } from '../../application/mob/entity-manager-spawn'
 import { resolveDamagedManagedEntityState } from '../../application/mob/entity-manager-damage-enderman'
 

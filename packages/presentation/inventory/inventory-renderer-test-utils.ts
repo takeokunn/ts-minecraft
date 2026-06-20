@@ -1,18 +1,19 @@
 import { Array as Arr, Effect, HashMap, Layer, Option } from 'effect'
 import { vi } from 'vitest'
 import { InventoryRendererService } from '@ts-minecraft/presentation/inventory/inventory-renderer'
-import { InventoryService, INVENTORY_SIZE, HOTBAR_START } from '@ts-minecraft/inventory'
-import { HotbarService } from '@ts-minecraft/inventory'
-import { RecipeService } from '@ts-minecraft/inventory'
-import { FurnaceService } from '@ts-minecraft/inventory'
-import { ChestService } from '@ts-minecraft/inventory'
+import { ChestService } from '@ts-minecraft/inventory/application/chest-service'
+import { EquipmentService } from '@ts-minecraft/inventory/application/equipment-service'
+import { InventoryService, INVENTORY_SIZE, HOTBAR_START } from '@ts-minecraft/inventory/application/inventory-service'
+import { HotbarService } from '@ts-minecraft/inventory/application/hotbar-service'
+import { RecipeService } from '@ts-minecraft/inventory/application/recipe-service'
+import { FurnaceService } from '@ts-minecraft/inventory/application/furnace-service'
 import { GameStateService } from '@ts-minecraft/game'
 import { ChunkManagerService } from '@ts-minecraft/world'
-import { XPService } from '@ts-minecraft/entity'
+import { XPService } from '@ts-minecraft/entity/application/xp-service'
 import { DomOperationsService } from '@ts-minecraft/presentation/hud/crosshair'
 import { DeltaTimeSecs } from '@ts-minecraft/core'
 import { RecipeId, SlotIndex } from '@ts-minecraft/core'
-import type { Recipe } from '@ts-minecraft/inventory'
+import type { Recipe } from '@ts-minecraft/inventory/domain/crafting'
 
 // ---------------------------------------------------------------------------
 // Mock factories
@@ -167,6 +168,36 @@ export const createMockChestLayer = (overrides: Partial<Pick<ChestService,
   return { MockChestLayer }
 }
 
+export const createMockEquipmentLayer = () => {
+  const equipIfSlotEmpty = vi.fn(() => Effect.succeed(false))
+  const MockEquipmentLayer = Layer.succeed(EquipmentService, EquipmentService.of({
+    _tag: '@minecraft/application/EquipmentService' as const,
+    equip: vi.fn(() => Effect.succeed(false)),
+    equipIfSlotEmpty,
+    unequipSlot: vi.fn(() => Effect.succeed(Option.none())),
+    getEquippedItem: vi.fn(() => Effect.succeed(Option.none())),
+    getAll: vi.fn(() =>
+      Effect.succeed({
+        HELMET: Option.none(),
+        CHESTPLATE: Option.none(),
+        LEGGINGS: Option.none(),
+        BOOTS: Option.none(),
+      })
+    ),
+    getTotalArmorPoints: vi.fn(() => Effect.succeed(0)),
+    getTotalProtectionReduction: vi.fn(() => Effect.succeed(0)),
+    getTotalProjectileProtectionReduction: vi.fn(() => Effect.succeed(0)),
+    getTotalBlastProtectionReduction: vi.fn(() => Effect.succeed(0)),
+    damageArmorSlot: vi.fn(() => Effect.void),
+    repairMendingItemsWithXP: vi.fn((amount: number) => Effect.succeed(amount)),
+    serialize: vi.fn(() => Effect.succeed({})),
+    deserialize: vi.fn(() => Effect.void),
+    reset: vi.fn(() => Effect.void),
+  }))
+
+  return { MockEquipmentLayer, equipIfSlotEmpty }
+}
+
 const MOCK_PLAYER_XP = { totalXP: 0, level: 0, xpIntoLevel: 0, xpRequiredForNext: 7 }
 
 export const createMockXPLayer = () => {
@@ -227,6 +258,7 @@ export const buildTestLayer = (
   mockChunkManager = createMockChunkManagerLayer(),
   mockXP = createMockXPLayer(),
   mockChest = createMockChestLayer(),
+  mockEquipment = createMockEquipmentLayer(),
 ) =>
   InventoryRendererService.Default.pipe(
     Layer.provide(mockDom.MockDomLayer),
@@ -235,6 +267,7 @@ export const buildTestLayer = (
     Layer.provide(mockRecipe.MockRecipeLayer),
     Layer.provide(mockFurnace.MockFurnaceLayer),
     Layer.provide(mockChest.MockChestLayer),
+    Layer.provide(mockEquipment.MockEquipmentLayer),
     Layer.provide(mockGameState.MockGameStateLayer),
     Layer.provide(mockChunkManager.MockChunkManagerLayer),
     Layer.provide(mockXP.MockXPLayer),

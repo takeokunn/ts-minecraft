@@ -1,6 +1,6 @@
 import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
-import { CHUNK_HEIGHT, CHUNK_SIZE, blockTypeToIndex } from '@ts-minecraft/core'
+import { CHUNK_HEIGHT, CHUNK_SIZE } from '@ts-minecraft/core'
 import {
   LIGHT_LEVEL_MAX,
   createLightBuffer,

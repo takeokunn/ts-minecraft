@@ -1,5 +1,5 @@
 import { CHUNK_HEIGHT, CHUNK_SIZE, blockIndexUnsafe } from '@ts-minecraft/core'
-import { getLightAt, isTransparentIndex, LIGHT_LEVEL_MAX, setLightAt } from '@ts-minecraft/block'
+import { getLightAt, isTransparentIndex, LIGHT_LEVEL_MAX, setLightAt } from '@ts-minecraft/block/domain/light'
 import type { AABBAccumulator, DirtyVoxel, MutableBoundaryDirty } from './light-engine-model'
 import { packPosLevel, trackTouched, unpackLevel, unpackX, unpackY, unpackZ } from './light-engine-utils'
 

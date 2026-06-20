@@ -3,7 +3,7 @@ import * as THREE from 'three'
 import { Sky } from 'three/addons/objects/Sky.js'
 import { SceneService } from '@ts-minecraft/rendering'
 import { StartupError } from '@ts-minecraft/game'
-import { resolvePreset } from '@ts-minecraft/game'
+import { resolvePreset } from '@ts-minecraft/game/application/settings-service.config'
 import { CHUNK_SIZE, CHUNK_HEIGHT } from '@ts-minecraft/core'
 import { MAX_SHADOW_HALF_EXTENT, MoonPhasePortSchema, SkyMaterialPortSchema } from '@ts-minecraft/core'
 import {

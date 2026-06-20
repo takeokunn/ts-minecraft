@@ -1,8 +1,8 @@
 import { Option } from 'effect'
 
 import type { BootContext } from '@ts-minecraft/app/main/boot'
-import type { SessionBootstrapServices } from '@ts-minecraft/app/main/session-bootstrap-types'
-import type { FrameHandlerServices } from '@ts-minecraft/app/frame/types'
+import type { SessionBootstrapServices } from '@ts-minecraft/app/main/session-bootstrap-types/services'
+import type { FrameHandlerServices } from '@ts-minecraft/app/application/frame/types/services'
 
 type SessionRuntimeStateServices = Pick<
   FrameHandlerServices,

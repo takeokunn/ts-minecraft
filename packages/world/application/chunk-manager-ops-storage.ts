@@ -1,6 +1,6 @@
 import { Effect, Option } from 'effect'
 import { ChunkCoord, CHUNK_HEIGHT, CHUNK_SIZE, type WorldId } from '@ts-minecraft/core'
-import { createFluidBuffer } from '@ts-minecraft/block'
+import { createFluidBuffer } from '@ts-minecraft/block/domain/fluid'
 import { computeMaxY, type Chunk } from '../domain/chunk'
 import { StorageError } from '../domain/errors'
 import type { ChunkManagerError } from './chunk-manager-constants'

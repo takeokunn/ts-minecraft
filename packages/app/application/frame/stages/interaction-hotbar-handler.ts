@@ -1,8 +1,5 @@
 import { Effect } from 'effect'
-import type {
-  FrameHotbarHudServices,
-  FrameHotbarInputServices,
-} from '@ts-minecraft/app/frame/frame-interaction-service-types'
+import type { FrameHotbarHudServices, FrameHotbarInputServices } from '@ts-minecraft/app/frame/frame-interaction-service-types/hotbar'
 
 export const handleHotbarInput = (
   services: FrameHotbarInputServices,

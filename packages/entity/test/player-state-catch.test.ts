@@ -1,7 +1,7 @@
 import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
 import { Effect } from 'effect'
-import { PlayerService } from '@ts-minecraft/entity'
+import { PlayerService } from '@ts-minecraft/entity/application/player-service';
 import type { PlayerId, Position } from '@ts-minecraft/core'
 
 const testPlayerId = 'player-1' as PlayerId

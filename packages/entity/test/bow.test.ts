@@ -3,11 +3,13 @@ import {
   computeBowCharge,
   computeBowDamage,
   canFireBow,
+} from '../domain/bow-resolution'
+import {
   BOW_MAX_DAMAGE,
   BOW_MIN_DAMAGE,
   BOW_MIN_CHARGE_SECS,
   BOW_FULL_CHARGE_SECS,
-} from '../domain/bow'
+} from '../domain/bow.config'
 
 describe('computeBowCharge', () => {
   it('returns 0 at 0 seconds held', () => {

@@ -1,5 +1,3 @@
-import type { Position } from '@ts-minecraft/core'
-
 export type StructureTemplate = {
   readonly suffix: string
   readonly type: 'well' | 'road' | 'house' | 'farm'
@@ -47,11 +45,3 @@ export const VILLAGER_TEMPLATES: ReadonlyArray<VillagerTemplate> = [
     workplaceStructureSuffix: 'road-main',
   },
 ]
-
-export const buildAnchor = (center: Position, template: StructureTemplate): Position => ({
-  x: center.x + template.offsetX,
-  y: center.y + template.offsetY,
-  z: center.z + template.offsetZ,
-})
-
-export const buildScopedId = (parentId: string, suffix: string): string => `${parentId}:${suffix}`

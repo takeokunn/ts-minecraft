@@ -1,5 +1,6 @@
 import { Effect, MutableRef, Option } from 'effect'
-import type { FrameHandlerServices, FrameStageRefs } from '@ts-minecraft/app/frame/types'
+import type { FrameHandlerServices } from '@ts-minecraft/app/application/frame/types/services'
+import type { FrameStageRefs } from '@ts-minecraft/app/application/frame/types/stage-refs'
 import type { TargetBlockHit } from '@ts-minecraft/app/frame/stages/interaction-types'
 import { handleCreativePickBlock } from '@ts-minecraft/app/frame/stages/interaction-creative-pick-handler'
 import { handleRedstoneInput } from '@ts-minecraft/app/frame/stages/interaction-redstone-handler'

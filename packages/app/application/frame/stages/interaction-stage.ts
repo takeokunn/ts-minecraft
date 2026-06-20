@@ -1,8 +1,10 @@
 // Stage 7: interactionStage — block highlight, then break/place/redstone interactions.
 import { Effect } from 'effect'
-import type { DebugFeatureFlags } from '@ts-minecraft/app/debug-feature-flags'
+import type { DebugFeatureFlags } from '@ts-minecraft/app/application/debug-feature-flags.config'
 import { logErrors } from '@ts-minecraft/app/frame/error-logging'
-import type { FrameHandlerDeps, FrameHandlerServices, FrameStageRefs } from '@ts-minecraft/app/frame/types'
+import type { FrameHandlerDeps } from '@ts-minecraft/app/application/frame/types/deps'
+import type { FrameHandlerServices } from '@ts-minecraft/app/application/frame/types/services'
+import type { FrameStageRefs } from '@ts-minecraft/app/application/frame/types/stage-refs'
 import { runInteractionStageFrame } from '@ts-minecraft/app/frame/stages/interaction-stage-frame'
 
 export const interactionStage = (
@@ -35,6 +37,8 @@ export const interactionStage = (
     | 'timeService'
     | 'multiplayer'
     | 'gameMode'
+    | 'droppedItemService'
+    | 'droppedXpOrbService'
   >,
   refs: Pick<FrameStageRefs, 'dirtyChunksRef' | 'totalTimeSecsRef' | 'lastPlayerAttackTimeRef' | 'attackSwingStateRef' | 'breakProgressRef' | 'bowChargeStartRef' | 'isShieldBlockingRef'>,
   inputs: {

@@ -1,5 +1,5 @@
 import { describe,it } from '@effect/vitest'
-import { HealthService } from '@ts-minecraft/entity'
+import { HealthService } from '@ts-minecraft/entity/application/health-service'
 import { Effect } from 'effect'
 import { expect } from 'vitest'
 

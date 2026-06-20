@@ -12,6 +12,10 @@ export const SkeletonDefinition: MobDefinition = {
   detectionRange: 20,
   attackRange: 12,
   fleeHealthThreshold: 0,
-  drops: [{ blockType: 'BONE', count: 1 }, { blockType: 'ARROW', count: 2 }],
+  drops: [
+    { blockType: 'BONE', count: 1 },
+    { blockType: 'ARROW', count: 2 },
+    { blockType: 'BOW', count: 1, chance: 0.085 },
+  ],
   xpReward: 5,
 }

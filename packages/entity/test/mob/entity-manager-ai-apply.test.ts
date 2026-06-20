@@ -1,5 +1,6 @@
 import { DeltaTimeSecs, zero } from '@ts-minecraft/core'
-import { AIState, EntityId, EntityType } from '@ts-minecraft/entity'
+import { EntityId, EntityType } from '@ts-minecraft/entity/domain/mob/entity';
+import { AIState } from '@ts-minecraft/entity/domain/mob/state-machine';
 import { describe, expect, it } from 'vitest'
 import { applyEntityAIFrame } from '../../application/mob/entity-manager-ai-apply'
 import { prepareEntityAIFrame } from '../../application/mob/entity-manager-ai-frame'

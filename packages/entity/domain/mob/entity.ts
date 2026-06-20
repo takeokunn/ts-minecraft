@@ -15,7 +15,9 @@ export const EntityTypeSchema = Schema.Literal(
   'Sheep',
   'Chicken',
   'Bat',
+  'Bee',
   'Squid',
+  'GlowSquid',
   'Witch',
   'Drowned',
   'ZombieVillager',
@@ -34,7 +36,9 @@ const ActiveEntityTypeSchema = Schema.Literal(
   'Sheep',
   'Chicken',
   'Bat',
+  'Bee',
   'Squid',
+  'GlowSquid',
   'Witch',
   'Drowned',
   'ZombieVillager',
@@ -42,7 +46,8 @@ const ActiveEntityTypeSchema = Schema.Literal(
   'Skeleton',
   'Spider',
   'Enderman',
-  'EnderDragon'
+  'EnderDragon',
+  'Endermite'
 )
 export type EntityType = Schema.Schema.Type<typeof ActiveEntityTypeSchema>
 export const EntityType = {
@@ -52,7 +57,9 @@ export const EntityType = {
   Sheep: 'Sheep' as const,
   Chicken: 'Chicken' as const,
   Bat: 'Bat' as const,
+  Bee: 'Bee' as const,
   Squid: 'Squid' as const,
+  GlowSquid: 'GlowSquid' as const,
   Witch: 'Witch' as const,
   Drowned: 'Drowned' as const,
   ZombieVillager: 'ZombieVillager' as const,

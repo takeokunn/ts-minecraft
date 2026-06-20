@@ -1,7 +1,9 @@
 import { it } from '@effect/vitest'
 import { Effect, HashMap, Option, Ref } from 'effect'
-import { AIState, EntityId, EntityManager, EntityType, createEntity } from '@ts-minecraft/entity'
-import type { Entity, EntityType as EntityTypeT } from '@ts-minecraft/entity'
+import { EntityManager } from '@ts-minecraft/entity/application/mob/entity-manager';
+import { createEntity, EntityId, EntityType } from '@ts-minecraft/entity/domain/mob/entity';
+import { AIState } from '@ts-minecraft/entity/domain/mob/state-machine';
+import type { Entity, EntityType as EntityTypeT } from '@ts-minecraft/entity/domain/mob/entity';
 import type { BlockType, Position, Vector3, Quaternion } from '@ts-minecraft/core'
 import { CHUNK_HEIGHT, CHUNK_SIZE, blockTypeToIndex, zero, identity } from '@ts-minecraft/core'
 import { chunkBlockIndexUnchecked } from '@ts-minecraft/world'
@@ -11,7 +13,7 @@ import { BABY_GROW_TICKS } from '../../domain/mob/breeding'
 import type { EntityDrop } from '../../domain/mob/drop'
 import type { ManagedEntity } from '../../domain/mob/entity-internal'
 import { makeEntityManagerInternal } from '../../application/mob/entity-manager-internal'
-import { getMobDefinition } from '../../domain/mob/mobs'
+import { getMobDefinition } from '../../domain/mob/mobs/get-mob-definition'
 import { DeltaTimeSecs } from '@ts-minecraft/core'
 import type { EntityFrameContext } from '../../application/mob/entity-manager-ai-frame'
 
@@ -79,7 +81,7 @@ export const itEntityManagerEffect = <A, E>(
 
 export const unwrapSomeEffect = <A, E, R>(
   effect: Effect.Effect<Option.Option<A>, E, R>,
-): Effect.Effect<A, E, R> => Effect.andThen(effect, Option.getOrThrow)
+): Effect.Effect<A, E, R> => Effect.map(effect, Option.getOrThrow)
 
 export const unwrapSome = <A>(option: Option.Option<A>): A => Option.getOrThrow(option)
 export { expectSome } from '../test-utils'

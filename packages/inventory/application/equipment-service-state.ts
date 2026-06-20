@@ -1,11 +1,12 @@
 import { Array as Arr, Option, identity } from 'effect'
-import { ARMOR_SLOTS, getArmorSlot, computeTotalArmorPoints, type ArmorSlot } from '../domain/armor'
+import { getArmorSlot, computeTotalArmorPoints } from '../domain/armor'
+import { ARMOR_SLOTS, type ArmorSlot } from '../domain/armor.config'
 import {
   computeTotalProtectionReduction,
   computeTotalProjectileProtectionReduction,
   computeTotalBlastProtectionReduction,
 } from '../domain/armor-protection'
-import { type ItemStack, damageStack, repairStackWithMendingXP } from '../domain/item-stack'
+import { ItemStack, damageStack, repairStackWithMendingXP } from '../domain/item-stack'
 import type { EquipmentSlots } from './equipment-service-types'
 
 const wornStacks = (slots: EquipmentSlots): ReadonlyArray<ItemStack> =>
@@ -18,6 +19,23 @@ export const equipArmorItem = (slots: EquipmentSlots, stack: ItemStack): readonl
   const armorSlot = Option.getOrNull(getArmorSlot(stack.itemType))
   if (armorSlot === null) return [false, slots]
   return [true, { ...slots, [armorSlot]: Option.some(stack) }]
+}
+
+const asSingleArmorStack = (stack: ItemStack): ItemStack =>
+  stack.count === 1
+    ? stack
+    : new ItemStack({
+        itemType: stack.itemType,
+        count: 1,
+        durability: stack.durability,
+        enchantments: stack.enchantments,
+      })
+
+export const equipArmorItemIfSlotEmpty = (slots: EquipmentSlots, stack: ItemStack): readonly [boolean, EquipmentSlots] => {
+  const armorSlot = Option.getOrNull(getArmorSlot(stack.itemType))
+  if (armorSlot === null) return [false, slots]
+  if (Option.isSome(slots[armorSlot])) return [false, slots]
+  return [true, { ...slots, [armorSlot]: Option.some(asSingleArmorStack(stack)) }]
 }
 
 export const unequipArmorSlot = (slots: EquipmentSlots, slot: ArmorSlot): readonly [Option.Option<ItemStack>, EquipmentSlots] => [

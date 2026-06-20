@@ -13,6 +13,10 @@ export type PickaxeTool = (typeof PICKAXE_TOOLS)[number]
 
 export const WOODEN_PICKAXE_HARVESTABLE_BLOCKS: HashSet.HashSet<BlockType> = HashSet.fromIterable<BlockType>([
   'STONE',
+  'PRESSURE_PLATE',
+  'STONE_SLAB',
+  'ANVIL',
+  'CAULDRON',
   'COAL_ORE',
   'DEEPSLATE_COAL_ORE',
 ])

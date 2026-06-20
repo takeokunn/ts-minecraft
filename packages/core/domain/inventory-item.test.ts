@@ -29,6 +29,11 @@ describe('InventoryItemSchema', () => {
     expect(Either.isRight(result)).toBe(true)
   })
 
+  it('accepts ItemType member "BOOK"', () => {
+    const result = Schema.decodeUnknownEither(InventoryItemSchema)('BOOK')
+    expect(Either.isRight(result)).toBe(true)
+  })
+
   it('rejects unknown string "UNKNOWN_ITEM"', () => {
     const result = Schema.decodeUnknownEither(InventoryItemSchema)('UNKNOWN_ITEM')
     expect(Either.isLeft(result)).toBe(true)

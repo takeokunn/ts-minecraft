@@ -1,4 +1,5 @@
-import { AIState, EntityId, EntityType } from '@ts-minecraft/entity'
+import { EntityId, EntityType } from '@ts-minecraft/entity/domain/mob/entity';
+import { AIState } from '@ts-minecraft/entity/domain/mob/state-machine';
 import { describe, expect, it, vi } from 'vitest'
 import { tryApplyEndermanTeleport } from '../../application/mob/entity-manager-ai-enderman-teleport'
 import { prepareEntityAIFrame } from '../../application/mob/entity-manager-ai-frame'

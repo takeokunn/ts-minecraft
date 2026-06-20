@@ -1,17 +1,35 @@
 import { Effect, MutableRef, Option, Schema } from 'effect'
-import type { FrameHandlerDeps, FrameHandlerServices, FrameStageRefs } from '@ts-minecraft/app/frame/types'
+import type { FrameHandlerDeps } from '@ts-minecraft/app/application/frame/types/deps'
+import type { FrameHandlerServices } from '@ts-minecraft/app/application/frame/types/services'
+import type { FrameStageRefs } from '@ts-minecraft/app/application/frame/types/stage-refs'
 import { findAttackableEntity } from '@ts-minecraft/app/frame/stages/attack-targeting'
 import { blockTypeToIndex, SlotIndex, ItemTypeSchema } from '@ts-minecraft/core'
-import { HOTBAR_START, isDurable, getFireAspectDurationSecs, getKnockbackHorizontalMultiplier, getUnbreakingSkipChance, enchantmentsOf } from '@ts-minecraft/inventory'
-import type { Entity, EntityDrop } from '@ts-minecraft/entity'
-import { computeAttackDamage, computeKnockback, computeAttackCharge, computeChargedDamage, DEFAULT_ATTACK_COOLDOWN_SECS, EXHAUSTION_ATTACK, dropPasses, getWeaponBaseDamage, computeWeaponEnchantBonus, computeAttackKnockbackHorizontalMultiplier, KeyMappings } from '@ts-minecraft/entity'
-import { getMobDefinition } from '@ts-minecraft/entity/domain/mob/mobs'
+import { HOTBAR_START } from '@ts-minecraft/inventory/application/inventory-service'
+import { isDurable } from '@ts-minecraft/inventory/domain/durability'
+import { getFireAspectDurationSecs, getKnockbackHorizontalMultiplier, getUnbreakingSkipChance } from '@ts-minecraft/inventory/domain/enchantment'
+import { enchantmentsOf } from '@ts-minecraft/inventory/domain/item-stack'
+import type { Entity } from '@ts-minecraft/entity/domain/mob/entity'
+import type { EntityDrop } from '@ts-minecraft/entity/domain/mob/drop'
+import {
+  computeAttackDamage,
+  computeKnockback,
+  computeAttackCharge,
+  computeChargedDamage,
+  getWeaponBaseDamage,
+  computeWeaponEnchantBonus,
+  computeAttackKnockbackHorizontalMultiplier,
+} from '@ts-minecraft/entity/domain/combat-resolution'
+import { DEFAULT_ATTACK_COOLDOWN_SECS } from '@ts-minecraft/entity/domain/combat.config'
+import { EXHAUSTION_ATTACK } from '@ts-minecraft/entity/application/hunger-service.config'
+import { dropPasses } from '@ts-minecraft/entity/domain/mob/drop'
+import { KeyMappings } from '@ts-minecraft/entity/domain/key-mappings'
+import { getMobDefinition } from '@ts-minecraft/entity/domain/mob/mobs/get-mob-definition'
 import { getParticleUvOffset } from '@ts-minecraft/rendering'
 import { triggerAttackSwing } from '@ts-minecraft/presentation'
 import { ENTITY_CENTER_Y_OFFSET } from '@ts-minecraft/app/frame-handler.config'
 import type { TargetBlockHit, TargetRayHit } from '@ts-minecraft/app/frame/stages/interaction-types'
-import type { DebugFeatureFlags } from '@ts-minecraft/app/debug-feature-flags'
-import { addExperienceWithMending } from '@ts-minecraft/app/application/frame/stages/xp-mending'
+import type { DebugFeatureFlags } from '@ts-minecraft/app/application/debug-feature-flags.config'
+import { spawnMobDrop, spawnMobXpOrb } from '@ts-minecraft/app/application/frame/stages/interaction-mob-drops'
 
 // Combat-feedback hit burst: a small fleck of red particles on a landed melee
 // hit. REDSTONE_BLOCK is the red-ish source block; its top-face atlas tile UV is
@@ -44,10 +62,11 @@ export const handleLeftClick = (
     | 'particleSystem'
     | 'gameState'
     | 'inputService'
-    | 'xpService'
     | 'multiplayer'
     | 'cropGrowthService'
     | 'hungerService'
+    | 'droppedItemService'
+    | 'droppedXpOrbService'
   >,
   refs: Pick<FrameStageRefs, 'dirtyChunksRef' | 'totalTimeSecsRef' | 'lastPlayerAttackTimeRef' | 'attackSwingStateRef'>,
   context: {
@@ -147,21 +166,24 @@ export const handleLeftClick = (
       if (!dropPasses(drop, Math.random())) continue
       if (rolledDrops === null) rolledDrops = []
       rolledDrops.push(drop)
-      yield* services.inventoryService.addBlock(drop.blockType, drop.count)
+      if (entity !== null) {
+        yield* spawnMobDrop(services, entity, drop)
+      }
     }
     // Looting enchantment: add `level` bonus count of each (rolled) mob drop.
     if (rolledDrops !== null && !wasBaby) {
       if (lootingEnchant) {
         for (const drop of rolledDrops) {
-          yield* services.inventoryService.addBlock(drop.blockType, lootingEnchant.level)
-            .pipe(Effect.catchAllCause(() => Effect.void))
+          if (entity !== null) {
+            yield* spawnMobDrop(services, entity, drop, lootingEnchant.level)
+          }
         }
       }
     }
     // Mob killed (drops returned Some) → grant XP from the pre-kill entity snapshot
     // (babies grant none, matching vanilla).
     if (Option.isSome(drops) && entity !== null && !wasBaby) {
-      yield* addExperienceWithMending(getMobDefinition(entity.type).xpReward, services)
+      yield* spawnMobXpOrb(services, entity, getMobDefinition(entity.type).xpReward)
     }
 
     // Vocalization runs after damage: kill → mobDeath, survive → mobHurt.

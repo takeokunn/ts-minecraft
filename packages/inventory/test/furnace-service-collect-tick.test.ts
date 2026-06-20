@@ -1,12 +1,12 @@
 import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
 import { Effect, Either, HashMap, Layer, MutableHashMap, MutableRef, Option, Ref } from 'effect'
-import { FurnaceService, FurnaceError } from '@ts-minecraft/inventory'
-import { RecipeService, InventoryError } from '@ts-minecraft/inventory'
-import { InventoryService } from '@ts-minecraft/inventory'
+import { FurnaceService } from '@ts-minecraft/inventory/application/furnace-service'
 import { PlayerServicePort, WorldBlockQueryPort } from '@ts-minecraft/world'
 import { RecipeId, DeltaTimeSecs } from '@ts-minecraft/core'
 import type { InventoryItem } from '@ts-minecraft/core'
+import { FurnaceError, InventoryError } from '../domain/errors'
+import { InventoryService } from '../application/inventory-service'
 import {
   advanceFurnace,
   consumeSmeltingIngredients,
@@ -20,6 +20,7 @@ import {
   SMELTING_XP_ITEMS,
   SMELTING_XP_PER_ITEM,
 } from '../application/furnace-service.config'
+import { RecipeService } from '../application/recipe-service'
 import { calculateSmeltingXp, getSmeltingXpRate } from '../application/furnace-service-xp'
 import { emptyFurnaceAtPosition, INITIAL_STATE, setFurnaceState } from '../domain/furnace-service-utils'
 import {

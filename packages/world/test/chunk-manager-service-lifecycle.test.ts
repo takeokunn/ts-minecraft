@@ -6,8 +6,6 @@ import {
   RENDER_DISTANCE,
   MAX_CACHED_CHUNKS,
   getChunksInRenderDistance,
-  ChunkService,
-  NoiseServicePort,
 } from '@ts-minecraft/world'
 import { CHUNK_SIZE, DEFAULT_WORLD_ID, WorldId } from '@ts-minecraft/core'
 import {

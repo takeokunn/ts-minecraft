@@ -1,12 +1,17 @@
 import { Effect, HashMap, MutableRef, Option } from 'effect'
 import { describe, expect, it, vi } from 'vitest'
 import {
+  CACTUS_DAMAGE,
+  FIRE_DAMAGE,
   LAVA_DAMAGE,
+  LAVA_BURN_DURATION_SECS,
+  LIGHTNING_DAMAGE,
+  LIGHTNING_DAMAGE_INTERVAL_SECS,
   SUFFOCATION_DAMAGE,
   VOID_DAMAGE,
   VOID_DAMAGE_INTERVAL_SECS,
   VOID_DAMAGE_Y,
-} from '@ts-minecraft/entity'
+} from '@ts-minecraft/entity/domain/environment-hazard.config'
 import { emptyEquipmentSlots } from '../../../../../inventory/application/equipment-persistence'
 import type { PhysicsStageInputs } from '../physics-stage-types/inputs'
 import type { PhysicsStageRefs } from '../physics-stage-types/refs'
@@ -40,9 +45,12 @@ const makeRefs = (): PhysicsStageRefs =>
     portalSecsRef: MutableRef.make(0),
     dirtyChunksRef: MutableRef.make(HashMap.empty<string, unknown>()),
     lavaDamageSecsRef: MutableRef.make(0),
+    lavaBurnRemainingSecsRef: MutableRef.make(0),
+    lavaBurnDamageSecsRef: MutableRef.make(0),
     airSecsRef: MutableRef.make(10),
     drownDamageSecsRef: MutableRef.make(0),
     suffocationDamageSecsRef: MutableRef.make(0),
+    lightningDamageSecsRef: MutableRef.make(0),
     voidDamageSecsRef: MutableRef.make(0),
     lastAirBubblesRef: MutableRef.make(10),
     isShieldBlockingRef: MutableRef.make(false),
@@ -98,6 +106,8 @@ describe('physics-stage-survival/environment-hazards', () => {
         movement,
         'LAVA',
         'STONE',
+        false,
+        false,
         applyDamage,
       ),
     )
@@ -111,5 +121,172 @@ describe('physics-stage-survival/environment-hazards', () => {
     expect(MutableRef.get(refs.lavaDamageSecsRef)).toBe(0)
     expect(MutableRef.get(refs.suffocationDamageSecsRef)).toBe(0)
     expect(MutableRef.get(refs.voidDamageSecsRef)).toBe(0)
+  })
+
+  it('applies cactus contact damage immediately in survival', async () => {
+    const services = makeServices()
+    const refs = makeRefs()
+    const damageCalls: number[] = []
+    const applyDamage = (damage: number) => {
+      damageCalls.push(damage)
+      return Effect.succeed(true)
+    }
+    const movement: SurvivalMovementState = {
+      distanceMoved: 0,
+      inCreative: false,
+      isGrounded: false,
+      isSneaking: false,
+      isSprinting: false,
+    }
+    const refreshedPos = { x: 1, y: 64, z: 1 }
+
+    await Effect.runPromise(
+      applySurvivalHazardEffects(
+        services,
+        refs,
+        makeInputs(0),
+        refreshedPos,
+        movement,
+        'AIR',
+        'AIR',
+        true,
+        false,
+        applyDamage,
+      ),
+    )
+
+    expect(damageCalls).toEqual([CACTUS_DAMAGE])
+    expect((services.soundManager.playEffect as ReturnType<typeof vi.fn>).mock.calls).toEqual([
+      ['playerHurt', { position: refreshedPos }],
+    ])
+  })
+
+  it('keeps burning briefly after leaving lava', async () => {
+    const services = makeServices()
+    const refs = makeRefs()
+    const damageCalls: number[] = []
+    const applyDamage = (damage: number) => {
+      damageCalls.push(damage)
+      return Effect.succeed(true)
+    }
+    const movement: SurvivalMovementState = {
+      distanceMoved: 0,
+      inCreative: false,
+      isGrounded: false,
+      isSneaking: false,
+      isSprinting: false,
+    }
+    const refreshedPos = { x: 1, y: 64, z: 1 }
+
+    await Effect.runPromise(
+      applySurvivalHazardEffects(
+        services,
+        refs,
+        makeInputs(0.5),
+        refreshedPos,
+        movement,
+        'LAVA',
+        'AIR',
+        false,
+        false,
+        applyDamage,
+      ),
+    )
+
+    await Effect.runPromise(
+      applySurvivalHazardEffects(
+        services,
+        refs,
+        makeInputs(1),
+        refreshedPos,
+        movement,
+        'AIR',
+        'AIR',
+        false,
+        false,
+        applyDamage,
+      ),
+    )
+
+    expect(damageCalls).toEqual([LAVA_DAMAGE, FIRE_DAMAGE])
+    expect(MutableRef.get(refs.lavaBurnRemainingSecsRef)).toBe(LAVA_BURN_DURATION_SECS - 1)
+  })
+
+  it('clears post-lava burn state in creative', async () => {
+    const services = makeServices()
+    const refs = makeRefs()
+    MutableRef.set(refs.lavaBurnRemainingSecsRef, 4)
+    MutableRef.set(refs.lavaBurnDamageSecsRef, 0.5)
+    const damageCalls: number[] = []
+    const applyDamage = (damage: number) => {
+      damageCalls.push(damage)
+      return Effect.succeed(true)
+    }
+    const movement: SurvivalMovementState = {
+      distanceMoved: 0,
+      inCreative: true,
+      isGrounded: false,
+      isSneaking: false,
+      isSprinting: false,
+    }
+    const refreshedPos = { x: 1, y: 64, z: 1 }
+
+    await Effect.runPromise(
+      applySurvivalHazardEffects(
+        services,
+        refs,
+        makeInputs(1),
+        refreshedPos,
+        movement,
+        'AIR',
+        'AIR',
+        false,
+        false,
+        applyDamage,
+      ),
+    )
+
+    expect(damageCalls).toEqual([])
+    expect(MutableRef.get(refs.lavaBurnRemainingSecsRef)).toBe(0)
+    expect(MutableRef.get(refs.lavaBurnDamageSecsRef)).toBe(0)
+  })
+
+  it('applies cadenced lightning damage while thunder sky exposure is active', async () => {
+    const services = makeServices()
+    const refs = makeRefs()
+    const damageCalls: number[] = []
+    const applyDamage = (damage: number) => {
+      damageCalls.push(damage)
+      return Effect.succeed(true)
+    }
+    const movement: SurvivalMovementState = {
+      distanceMoved: 0,
+      inCreative: false,
+      isGrounded: false,
+      isSneaking: false,
+      isSprinting: false,
+    }
+    const refreshedPos = { x: 1, y: 64, z: 1 }
+
+    await Effect.runPromise(
+      applySurvivalHazardEffects(
+        services,
+        refs,
+        makeInputs(LIGHTNING_DAMAGE_INTERVAL_SECS),
+        refreshedPos,
+        movement,
+        'AIR',
+        'AIR',
+        false,
+        true,
+        applyDamage,
+      ),
+    )
+
+    expect(damageCalls).toEqual([LIGHTNING_DAMAGE])
+    expect((services.soundManager.playEffect as ReturnType<typeof vi.fn>).mock.calls).toEqual([
+      ['playerHurt', { position: refreshedPos }],
+    ])
+    expect(MutableRef.get(refs.lightningDamageSecsRef)).toBe(0)
   })
 })

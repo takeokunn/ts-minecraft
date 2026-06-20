@@ -1,7 +1,7 @@
 import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
-import { EntityId, EntityType } from '@ts-minecraft/entity'
-import { AIState } from '@ts-minecraft/entity'
+import { EntityId, EntityType } from '@ts-minecraft/entity/domain/mob/entity';
+import { AIState } from '@ts-minecraft/entity/domain/mob/state-machine';
 import { BABY_GROW_TICKS } from '../../domain/mob/breeding'
 import { createSpawnedManagedEntity } from '../../application/mob/entity-manager-spawn'
 

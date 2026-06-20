@@ -11,7 +11,7 @@
  */
 
 import { Duration, Effect, HashMap, HashSet, Metric, Option, Ref } from 'effect'
-import { createFluidBuffer } from '@ts-minecraft/block'
+import { createFluidBuffer } from '@ts-minecraft/block/domain/fluid'
 import { computeMaxY, type Chunk } from '../domain/chunk'
 import { ChunkCoord, type WorldId } from '@ts-minecraft/core'
 import { StorageError } from '../domain/errors'

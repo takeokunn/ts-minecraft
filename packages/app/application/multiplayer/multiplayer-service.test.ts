@@ -1,13 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { Effect, Stream } from 'effect'
-import {
-  MessageType,
-  PlayerId,
-  PlayerName,
-  WorldId,
-  type ClientServiceShape,
-  type NetworkMessage,
-} from '@ts-minecraft/network'
+import { MessageType, PlayerId, PlayerName, WorldId, type NetworkMessage } from '@ts-minecraft/network/domain/schemas'
+import type { ClientServiceShape } from '@ts-minecraft/network/application/client-service'
 import {
   MultiplayerServiceImpl,
   MultiplayerServiceDefault,

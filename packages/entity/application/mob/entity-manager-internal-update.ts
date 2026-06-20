@@ -29,6 +29,7 @@ export const makeEntityManagerUpdate = (
       playerLookDirection?: Vector3,
       playerLookOrigin: Position = playerPosition,
       playerLookBlocked?: (position: Position) => boolean,
+      daylightBurnProtected: boolean = false,
     ): Effect.Effect<void, never> =>
       Effect.gen(function* () {
         const tick = yield* Ref.updateAndGet(updateTickRef, (value) => value + 1)
@@ -38,7 +39,7 @@ export const makeEntityManagerUpdate = (
           burnAccumulatorRef,
           (acc): [boolean, number] => {
             const [burnFires, nextAcc] = advanceDaylightBurnCadence(acc, deltaTime)
-            return [!isNight && burnFires, nextAcc]
+            return [!isNight && !daylightBurnProtected && burnFires, nextAcc]
           },
         )
         const hasCreeperRef = MutableRef.make(false)

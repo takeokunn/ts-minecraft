@@ -17,7 +17,7 @@ import {
   WEYL_E,
   WEYL_J,
   WEYL_W,
-} from '../infrastructure/primitives'
+} from '../domain/noise-primitives'
 
 describe('mulberry32', () => {
   it('produces values in [0, 1)', () => {

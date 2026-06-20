@@ -1,7 +1,6 @@
-import { createBrowserEventBridgeHandlers, type BrowserEventBridgeDeps } from './browser-runtime-event-handlers'
+import { createBrowserEventBridgeHandlers } from './browser-runtime-event-handlers'
 import { installBrowserEventBridgeListeners } from './browser-runtime-event-bridge-listeners'
-export { wrapFrameHandlerWithBrowserEffects } from './browser-runtime-effects'
-export type { PendingResize } from './browser-runtime-event-handlers'
+import type { BrowserEventBridgeDeps } from './browser-runtime-types'
 
 export const installBrowserEventBridge = ({
   canvas,

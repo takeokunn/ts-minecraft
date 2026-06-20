@@ -8,7 +8,7 @@ import { expect } from 'vitest'
 import { Array as Arr, Effect, HashMap, HashSet, Option } from 'effect'
 import * as fc from 'effect/FastCheck'
 import type { InventoryItem } from '@ts-minecraft/core'
-import { RecipeService } from '@ts-minecraft/inventory'
+import { RecipeService } from '@ts-minecraft/inventory/application/recipe-service'
 
 describe('recipe-service / findCraftable (property-based)', () => {
   it.effect(

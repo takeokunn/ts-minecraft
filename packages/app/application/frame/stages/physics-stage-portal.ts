@@ -1,5 +1,6 @@
 import { Effect, HashMap, MutableRef, Option, Ref } from 'effect'
-import type { FrameHandlerServices, FrameStageRefs } from '@ts-minecraft/app/frame/types'
+import type { FrameHandlerServices } from '@ts-minecraft/app/application/frame/types/services'
+import type { FrameStageRefs } from '@ts-minecraft/app/application/frame/types/stage-refs'
 import { resolveNetherTravel, type Dimension } from '@ts-minecraft/world'
 import type { DeltaTimeSecs, Position } from '@ts-minecraft/core'
 import { worldToChunkCoord } from '@ts-minecraft/world/domain/chunk-coord-utils'

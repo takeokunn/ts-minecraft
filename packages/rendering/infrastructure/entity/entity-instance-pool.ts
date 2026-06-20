@@ -1,5 +1,5 @@
 import * as THREE from 'three'
-import type { EntityType } from '@ts-minecraft/entity'
+import type { EntityType } from '@ts-minecraft/entity/domain/mob/entity'
 import { MutableHashMap, Option } from 'effect'
 import { getRoleSpec, type Dim3, type PartRole, type RolePivot, type RoleSpec } from './entity-instance-specs'
 export { getRoleSpec, ROLES_BY_TYPE } from './entity-instance-specs'

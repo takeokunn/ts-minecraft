@@ -1,14 +1,12 @@
 import { Effect } from 'effect'
-import { type Village, type VillageStructure } from '../../domain/village'
-import { collectStructureFootprintCells, groundVillageStructure } from '../../domain/village'
+import { type Village, type VillageStructure } from '../../domain/village/village-model'
+import { collectStructureFootprintCells, groundVillageStructure } from '../../domain/village/village-placement-geometry'
 import {
   buildFoundationPlacementsFromFootprint,
-  type VillageBlockPlacement,
-  type VillageFoundationFootprintCell,
 } from './village-placement-foundation'
-import { type VillageSurfaceResolver, VillagePlacementBlockReadError } from './village-placement-surface'
-
-export type { VillageBlockPlacement } from './village-placement-foundation'
+import { type VillageBlockPlacement, type VillageFoundationFootprintCell } from './village-placement-foundation-types'
+import { type VillageSurfaceResolver } from './village-placement-surface'
+import { type VillagePlacementBlockReadError } from './village-placement-surface-error'
 
 export const groundVillageStructures = (
   village: Village,

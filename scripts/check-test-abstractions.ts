@@ -1,7 +1,5 @@
 import { readFile } from 'node:fs/promises'
-import { collectTestFiles, printViolationsAndExit, relativeFromRoot, type Violation } from './check-utils.ts'
-
-const checkName = 'check-test-abstractions'
+import { collectTestFiles, relativeFromRoot, type Violation } from './check-utils.ts'
 
 const effectUsagePattern = /\b(?:Effect|Layer|Context|Exit|Cause)\b/u
 const localFactoryPattern = /\b(?:function|const)\s+(?:create|make|build)[A-Z][A-Za-z0-9_]*(?:\s*=|\s*\()/u

@@ -1,7 +1,7 @@
 import { Effect, Match, Option } from 'effect'
-import { RedstoneComponentType } from '@ts-minecraft/entity'
+import { RedstoneComponentType } from '@ts-minecraft/entity/domain/redstone/redstone-model'
 import type { BlockType, Position } from '@ts-minecraft/core'
-import type { FrameRedstoneInteractionServices } from '@ts-minecraft/app/frame/frame-interaction-service-types'
+import type { FrameRedstoneInteractionServices } from '@ts-minecraft/app/frame/frame-interaction-service-types/redstone'
 import type { TargetBlockHit } from '@ts-minecraft/app/frame/stages/interaction-types'
 
 export type RedstoneFlags = {

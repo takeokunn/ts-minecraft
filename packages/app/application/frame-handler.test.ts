@@ -2,17 +2,19 @@ import { describe, it } from '@effect/vitest'
 import { expect, vi } from 'vitest'
 import { Effect, MutableRef, Option } from 'effect'
 import * as THREE from 'three'
-import { createFrameHandlers } from '@ts-minecraft/app'
+import { createFrameHandlers } from '@ts-minecraft/app/frame-handler'
 import type { DeltaTimeSecs, SkyMaterialPort } from '@ts-minecraft/core'
 import {
   arrangeFrameHarness,
-  makeDeps,
-  makeInputService,
-  makeInventoryRenderer,
-  makeServices,
-  makeSettingsOverlay,
   runFrame,
-} from '../test/frame-handler-test-kit'
+} from '../test/frame-handler-test-kit/orchestration/harness'
+import { makeDeps } from '../test/frame-handler-test-kit/orchestration/deps'
+import { makeInputService } from '../test/frame-handler-test-kit/presentation/input'
+import {
+  makeInventoryRenderer,
+  makeSettingsOverlay,
+} from '../test/frame-handler-test-kit/presentation/overlay'
+import { makeServices } from '../test/frame-handler-test-kit/services'
 
 const FRAME_DELTA = 0.016 as DeltaTimeSecs
 

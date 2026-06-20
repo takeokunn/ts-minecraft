@@ -1,6 +1,7 @@
 import { DeltaTimeSecs, zero } from '@ts-minecraft/core'
 import { MutableRef } from 'effect'
-import { AIState, EntityType, EntityId } from '@ts-minecraft/entity'
+import { EntityId, EntityType } from '@ts-minecraft/entity/domain/mob/entity';
+import { AIState } from '@ts-minecraft/entity/domain/mob/state-machine';
 import { describe, expect, it } from 'vitest'
 import { prepareEntityPhysicsFrame } from '../../application/mob/entity-manager-physics-frame'
 import { processEntityPhysics } from '../../application/mob/entity-manager-physics'

@@ -4,7 +4,6 @@ import { CHUNK_HEIGHT, CHUNK_SIZE, blockIndex, blockTypeToIndex } from '@ts-mine
 import type { Chunk } from '@ts-minecraft/world/domain/chunk'
 import { candidateAt, clampAboveWater, findFallbackSurfaceY, scoreSpawnCandidate } from '@ts-minecraft/app/main/spawn-selection-search'
 
-const AIR = blockTypeToIndex('AIR')
 const DIRT = blockTypeToIndex('DIRT')
 const STONE = blockTypeToIndex('STONE')
 const WATER = blockTypeToIndex('WATER')

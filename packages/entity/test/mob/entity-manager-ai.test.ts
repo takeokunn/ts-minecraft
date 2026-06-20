@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import { MutableRef } from 'effect'
 import { DeltaTimeSecs, zero } from '@ts-minecraft/core'
-import { AIState, EntityId, EntityType } from '@ts-minecraft/entity'
+import { EntityId, EntityType } from '@ts-minecraft/entity/domain/mob/entity';
+import { AIState } from '@ts-minecraft/entity/domain/mob/state-machine';
 import { processEntityAI } from '../../application/mob/entity-manager-ai'
 import type { EntityFrameContext } from '../../application/mob/entity-manager-ai-frame'
 import type { ManagedEntity } from '../../domain/mob/entity-internal'

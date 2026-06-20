@@ -1,5 +1,5 @@
 import { CHUNK_SIZE } from '@ts-minecraft/core'
-import type { LightGrids } from '@ts-minecraft/block'
+import type { LightGrids } from '@ts-minecraft/block/domain/light'
 import type { ChunkWorldOffset } from './greedy-meshing-types'
 import { addQuad, type MeshAccumulator } from './greedy-meshing-accumulator'
 import { getBlock, sampleCornerLight } from './greedy-meshing-ao'

@@ -1,9 +1,6 @@
 import { describe,it } from '@effect/vitest'
-import {
-DEFAULT_JUMP_VELOCITY,DEFAULT_SPRINT_SPEED,DEFAULT_WALK_SPEED,MovementService,
-PlayerInputService,SPRINT_JUMP_HORIZONTAL_MULTIPLIER,
-type MovementInput
-} from '@ts-minecraft/entity'
+import { DEFAULT_JUMP_VELOCITY, DEFAULT_SPRINT_SPEED, DEFAULT_WALK_SPEED, MovementService, SPRINT_JUMP_HORIZONTAL_MULTIPLIER, type MovementInput } from '@ts-minecraft/entity/application/movement-service';
+import { PlayerInputService } from '@ts-minecraft/entity/application/player-input-service';
 import { Arbitrary,Effect,MutableHashMap,MutableHashSet,Option,Schema } from 'effect'
 import { expect } from 'vitest'
 import { createTestInputService,createTestLayers } from './movement-service-test-utils'

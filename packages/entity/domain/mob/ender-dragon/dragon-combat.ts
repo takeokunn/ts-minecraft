@@ -1,4 +1,4 @@
-import { computeAttackDamage } from '../../combat'
+import { computeAttackDamage } from '../../combat-resolution'
 import type { DragonPhase } from './dragon-phase'
 
 export const dragonBreathAttackRange = 6

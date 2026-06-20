@@ -1,8 +1,8 @@
 import { Effect, Option } from 'effect'
-import type { FrameHandlerDeps } from '@ts-minecraft/app/frame/types'
-import { getMobDefinition } from '@ts-minecraft/entity/domain/mob/mobs'
+import type { FrameHandlerDeps } from '@ts-minecraft/app/application/frame/types/deps'
+import { getMobDefinition } from '@ts-minecraft/entity/domain/mob/mobs/get-mob-definition'
 import { findAttackableEntity } from '@ts-minecraft/app/frame/stages/attack-targeting'
-import type { FrameAnimalInteractionServices } from '@ts-minecraft/app/frame/frame-interaction-service-types'
+import type { FrameAnimalInteractionServices } from '@ts-minecraft/app/frame/frame-interaction-service-types/animal'
 import { selectedHotbarSlotIndex } from '../selected-hotbar-slot'
 
 /**

@@ -1,8 +1,8 @@
 import { Effect, Option } from 'effect'
 
 import { type WorldBootstrap } from '@ts-minecraft/app/main/session-world-loader-metadata'
-import type { SpawnSelection } from '@ts-minecraft/app/main/spawn-selection'
-import { PlayerCameraStateService } from '@ts-minecraft/entity'
+import type { SpawnSelection } from '@ts-minecraft/app/main/spawn-selection-search'
+import { PlayerCameraStateService } from '@ts-minecraft/entity/application/camera-state'
 
 export type SessionBootstrapWorldPresentationPlayerDeps = {
   readonly worldBootstrap: WorldBootstrap

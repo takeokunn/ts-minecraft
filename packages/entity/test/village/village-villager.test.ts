@@ -1,12 +1,9 @@
 import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
 import { Option } from 'effect'
-import {
-  VillageId,
-  VillagerId,
-  findVillagerById,
-  awardVillagerExperience,
-} from '@ts-minecraft/entity'
+import { VillageId, VillagerId } from '@ts-minecraft/entity/domain/village/village-model';
+import { awardVillagerExperience } from '@ts-minecraft/entity/domain/village/village-villager-experience';
+import { findVillagerById } from '@ts-minecraft/entity/domain/village/village-villager-search';
 import { expectSome } from '../test-utils'
 import { makeTestVillage, makeTestVillager } from './test-utils'
 

@@ -1,6 +1,6 @@
 import { Effect } from 'effect'
 import { describe, expect, it, vi } from 'vitest'
-import { makeFurnaceService } from '../../test/frame-handler-test-kit'
+import { makeFurnaceService } from '../../test/frame-handler-test-kit/entity'
 import { runFurnaceMaintenance } from './frame-maintenance-furnace'
 
 describe('runFurnaceMaintenance', () => {

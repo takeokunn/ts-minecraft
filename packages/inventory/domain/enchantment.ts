@@ -8,7 +8,6 @@ export {
   isEnchantableItem,
   selectEnchantment,
 } from './enchantment-applicability'
-export { ENCHANTMENT_TYPES, EnchantmentTypeSchema, EnchantmentLevelSchema, EnchantmentSchema } from './enchantment.types'
 
 // ─── Validity ────────────────────────────────────────────────────────────────
 

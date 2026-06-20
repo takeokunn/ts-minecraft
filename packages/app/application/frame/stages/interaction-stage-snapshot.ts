@@ -1,6 +1,8 @@
 import { Effect, MutableRef, Option, Ref } from 'effect'
 import type { InventoryItem } from '@ts-minecraft/core'
-import type { FrameHandlerDeps, FrameHandlerServices, FrameStageRefs } from '@ts-minecraft/app/frame/types'
+import type { FrameHandlerDeps } from '@ts-minecraft/app/application/frame/types/deps'
+import type { FrameHandlerServices } from '@ts-minecraft/app/application/frame/types/services'
+import type { FrameStageRefs } from '@ts-minecraft/app/application/frame/types/stage-refs'
 import {
   REDSTONE_PLACE_WIRE_KEY,
   REDSTONE_PLACE_LEVER_KEY,

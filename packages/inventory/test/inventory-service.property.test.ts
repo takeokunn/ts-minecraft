@@ -2,10 +2,10 @@ import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
 import { Arbitrary, Array as Arr, Effect, Either, Layer, Option, Schema } from 'effect'
 import type { InventoryItem } from '@ts-minecraft/core'
-import { BlockRegistry } from '@ts-minecraft/block'
+import { BlockRegistry } from '@ts-minecraft/block/application/block-registry'
 import { createStack, MAX_STACK_SIZE } from '../domain/item-stack'
 import type { SlotIndex } from '@ts-minecraft/core'
-import { InventoryService, INVENTORY_SIZE } from '@ts-minecraft/inventory'
+import { InventoryService, INVENTORY_SIZE } from '@ts-minecraft/inventory/application/inventory-service'
 import { createTestBlockRegistry } from './inventory-service-test-utils'
 
 // ---------------------------------------------------------------------------

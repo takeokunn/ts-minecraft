@@ -1,4 +1,4 @@
-import { Cause, Effect } from 'effect'
+import { Cause, Duration, Effect, Fiber, Schedule } from 'effect'
 
 // One autosave tick: persist dirty chunks and session state together, swallowing
 // (and logging) ANY failure so the surrounding `Effect.repeat` daemon survives a
@@ -25,4 +25,18 @@ export const performAutoSaveTick = <E1, E2>(
   saveDirtyChunks.pipe(
     Effect.flatMap(() => persistSessionState),
     Effect.catchAllCause((cause) => Effect.logError(`Auto-save error: ${Cause.pretty(cause)}`)),
+  )
+
+export const AUTO_SAVE_INTERVAL = Duration.seconds(5)
+
+export const startSessionAutoSaveDaemon = <E1, E2>(
+  saveDirtyChunks: Effect.Effect<void, E1>,
+  persistSessionState: Effect.Effect<void, E2>,
+  interval: Duration.Duration = AUTO_SAVE_INTERVAL,
+): Effect.Effect<Fiber.RuntimeFiber<number, never>, never> =>
+  Effect.forkDaemon(
+    Effect.repeat(
+      performAutoSaveTick(saveDirtyChunks, persistSessionState),
+      Schedule.spaced(interval),
+    ),
   )

@@ -1,18 +1,12 @@
 import { Effect, Option, Ref } from 'effect'
 import type { DeltaTimeSecs, Position } from '@ts-minecraft/core'
-import {
-  VillagerId,
-  type Village,
-  type Villager,
-  flattenVillagers,
-  awardVillagerExperience,
-  findClosestVillagerInRange,
-  findVillagerById,
-  INITIAL_VILLAGE_STATE,
-  advanceVillageState,
-  ensureVillageInState,
-  type VillageState,
-} from '../../domain/village'
+import { awardVillagerExperience } from '../../domain/village/village-villager-experience'
+import { advanceVillageState } from '../../domain/village/village-simulation-update'
+import { ensureVillageInState } from '../../domain/village/village-creation-resolution'
+import { findClosestVillagerInRange } from '../../domain/village/village-search'
+import { findVillagerById } from '../../domain/village/village-villager-search'
+import { flattenVillagers, INITIAL_VILLAGE_STATE, type VillageState } from '../../domain/village/village-state'
+import { type Village, type Villager, VillagerId } from '../../domain/village/village-model'
 
 export class VillageService extends Effect.Service<VillageService>()(
   '@minecraft/village/VillageService',

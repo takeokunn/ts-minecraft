@@ -2,7 +2,7 @@ import { Array as Arr, Effect } from 'effect'
 import {
   DEBUG_FEATURE_FLAG_CATALOG,
   DEBUG_FEATURE_FLAG_DEFAULTS,
-} from '@ts-minecraft/app/debug-feature-flags'
+} from '@ts-minecraft/app/application/debug-feature-flags'
 import type { DebugOverlayDeps, DebugOverlayDomNodes } from '@ts-minecraft/presentation/hud/debug-overlay-types'
 import {
   buildTogglePanel,

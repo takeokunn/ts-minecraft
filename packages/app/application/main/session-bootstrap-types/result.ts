@@ -1,7 +1,7 @@
 import type { BootContext } from '@ts-minecraft/app/main/boot'
 import type { SessionControl } from '@ts-minecraft/app/main/session-control'
-import type { SessionRuntimeParams } from '@ts-minecraft/app/main/session-runtime'
-import type { FrameHandlerServices } from '@ts-minecraft/app/frame/types'
+import type { SessionRuntimeParams } from '@ts-minecraft/app/main/session-runtime-types'
+import type { FrameHandlerServices } from '@ts-minecraft/app/application/frame/types/services'
 
 export type SessionBootstrapResult = {
   readonly bootCtx: BootContext

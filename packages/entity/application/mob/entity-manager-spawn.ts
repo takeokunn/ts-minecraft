@@ -2,7 +2,7 @@ import { zero, type Position } from '@ts-minecraft/core'
 import { createEntity as createEntityModel, type EntityId, type EntityType } from '../../domain/mob/entity'
 import type { EntityDrop } from '../../domain/mob/drop'
 import { BABY_GROW_TICKS } from '../../domain/mob/breeding'
-import { getMobDefinition } from '../../domain/mob/mobs'
+import { getMobDefinition } from '../../domain/mob/mobs/get-mob-definition'
 import { AIState } from '../../domain/mob/state-machine'
 import type { ManagedEntity } from '../../domain/mob/entity-internal'
 

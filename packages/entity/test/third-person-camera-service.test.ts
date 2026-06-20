@@ -1,7 +1,7 @@
 import { describe, it } from '@effect/vitest'
 import { Effect, Layer } from 'effect'
 import { expect } from 'vitest'
-import { PlayerCameraStateService } from '@ts-minecraft/entity'
+import { PlayerCameraStateService } from '@ts-minecraft/entity/application/camera-state';
 import { ThirdPersonCameraService } from '../application/third-person-camera-service'
 import type { CameraTransformPort } from '@ts-minecraft/core'
 

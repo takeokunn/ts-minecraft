@@ -9,7 +9,8 @@ import {
   indexToBlockType,
   isValidBlockType,
 } from '@ts-minecraft/core'
-import { endBlocks, initialBlocks } from '@ts-minecraft/block'
+import { endBlocks } from '@ts-minecraft/block/domain/blocks.config.end'
+import { initialBlocks } from '@ts-minecraft/block/domain/blocks.config'
 
 const endBlockTypes = [
   'CHORUS_FLOWER',

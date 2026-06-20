@@ -1,4 +1,4 @@
-import type { FluidCell, FluidKey } from '@ts-minecraft/block'
+import type { FluidCell, FluidKey } from '@ts-minecraft/block/domain/fluid-model'
 
 export type WorkItem = { key: FluidKey; cell: FluidCell }
 

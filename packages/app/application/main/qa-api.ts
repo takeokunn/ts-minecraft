@@ -1,8 +1,7 @@
 import { Effect, MutableRef } from 'effect'
-import type { DebugFeatureFlagGroup, DebugFeatureFlagId } from '@ts-minecraft/app/debug-feature-flags'
+import type { DebugFeatureFlagGroup, DebugFeatureFlagId } from '@ts-minecraft/app/application/debug-feature-flags.config'
 import { DEFAULT_PLAYER_ID } from '@ts-minecraft/core'
 import type { InventoryItem } from '@ts-minecraft/core'
-import type { QaApi, QaApiDeps, StagedResourceBlock, StagedZombiePosition } from '@ts-minecraft/app/main/qa-api-types'
 import { isQaApiEnabled } from '@ts-minecraft/app/main/qa-api-env'
 import {
   craftRecipeForQA,
@@ -22,8 +21,9 @@ import {
 import { attackFirstZombie, getMobMovementSnapshot, spawnLowHealthZombieInFront } from '@ts-minecraft/app/main/qa-api-combat'
 import { aimAtBuildSpot, aimAtStagedResource, aimAtStagedZombie, dispatchMouseClick } from '@ts-minecraft/app/main/qa-api-visual'
 import { getLoadedWaterBlockCount, getRenderingSnapshot, setTimeOfDayForQA } from '@ts-minecraft/app/main/qa-api-rendering'
-
-export type { QaApi, QaApiDeps } from '@ts-minecraft/app/main/qa-api-types'
+import type { QaApi } from '@ts-minecraft/app/main/qa-api-types/api'
+import type { QaApiDeps } from '@ts-minecraft/app/main/qa-api-types/deps'
+import type { StagedResourceBlock, StagedZombiePosition } from '@ts-minecraft/app/main/qa-api-types/staged'
 
 const makeQaApi = (
   deps: QaApiDeps,

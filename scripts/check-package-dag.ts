@@ -4,15 +4,12 @@ import {
   collectPackageLayerFiles,
   extractWorkspacePackageName,
   parseImports,
-  printViolationsAndExit,
   readPackageInfos,
   relativeFromRoot,
   rootDir,
   targetNameForPackage,
   type Violation,
 } from './check-utils.ts'
-
-const checkName = 'check-package-dag'
 
 // Allowed dependency edges matching the current 10-package architecture.
 // Edges flow downward: outer packages can depend on inner packages.

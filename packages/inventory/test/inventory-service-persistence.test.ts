@@ -4,7 +4,7 @@ import type { SlotIndex } from '@ts-minecraft/core'
 import {
   INVENTORY_SIZE,
   InventoryService,
-} from '@ts-minecraft/inventory'
+} from '@ts-minecraft/inventory/application/inventory-service'
 import { InventorySaveDataSchema } from '@ts-minecraft/core'
 import { createStack } from '../domain/item-stack'
 import { getMaxDurability } from '../domain/durability'

@@ -3,17 +3,22 @@ import { BlockIndexError,CHUNK_HEIGHT,CHUNK_SIZE } from '@ts-minecraft/core'
 import { Effect,Either,Option } from 'effect'
 import { describe,expect } from 'vitest'
 import { ChunkService } from '@ts-minecraft/world/application/chunk-service'
-import { getBlocksBatch,setBlockInChunk } from './chunk'
+import {
+  chunkLocalToWorldCoord,
+  createEmptyChunk,
+  getBlockFromChunk,
+  getBlocksBatch,
+  setBlockInChunk,
+  setBlockOnChunk,
+  worldPositionToChunkCoord,
+} from './chunk'
 import { ChunkError } from './errors'
 
 // ---------------------------------------------------------------------------
 // Helper: create a fresh empty chunk for (0, 0)
 // ---------------------------------------------------------------------------
 const makeEmptyChunk = () =>
-  Effect.gen(function* () {
-    const cs = yield* ChunkService
-    return yield* cs.createChunk({ x: 0, z: 0 })
-  }).pipe(Effect.provide(ChunkService.Default))
+  Effect.succeed(createEmptyChunk({ x: 0, z: 0 }))
 
 // ---------------------------------------------------------------------------
 // getBlocksBatch
@@ -138,6 +143,34 @@ describe('ChunkService.createChunk', () => {
   )
 })
 
+describe('createEmptyChunk', () => {
+  it.effect('creates a chunk with the given coord', () =>
+    Effect.sync(() => {
+      const chunk = createEmptyChunk({ x: 3, z: -2 })
+      expect(chunk.coord).toEqual({ x: 3, z: -2 })
+    })
+  )
+
+  it.effect('creates a chunk with a zero-filled blocks buffer of the correct size', () =>
+    Effect.sync(() => {
+      const chunk = createEmptyChunk({ x: 0, z: 0 })
+      expect(chunk.blocks).toBeInstanceOf(Uint8Array)
+      expect(chunk.blocks.length).toBe(CHUNK_SIZE * CHUNK_SIZE * CHUNK_HEIGHT)
+      expect(chunk.blocks.every(b => b === 0)).toBe(true)
+    })
+  )
+
+  it.effect('creates a chunk with a fluid buffer wrapped in Option.some', () =>
+    Effect.sync(() => {
+      const chunk = createEmptyChunk({ x: 0, z: 0 })
+      expect(Option.isSome(chunk.fluid)).toBe(true)
+      const fluid = Option.getOrThrow(chunk.fluid)
+      expect(fluid).toBeInstanceOf(Uint8Array)
+      expect(fluid.length).toBe(CHUNK_SIZE * CHUNK_SIZE * CHUNK_HEIGHT)
+    })
+  )
+})
+
 // ---------------------------------------------------------------------------
 // ChunkService.getBlock
 // ---------------------------------------------------------------------------
@@ -216,6 +249,25 @@ describe('ChunkService.getBlock', () => {
       expect(err).toBeInstanceOf(ChunkError)
       expect(err.reason).toContain('-1')
     }).pipe(Effect.provide(ChunkService.Default))
+  )
+})
+
+describe('getBlockFromChunk', () => {
+  it.effect('returns AIR for a fresh chunk at (0, 0, 0)', () =>
+    Effect.gen(function* () {
+      const chunk = createEmptyChunk({ x: 0, z: 0 })
+      const blockType = yield* getBlockFromChunk(chunk, 0, 0, 0)
+      expect(blockType).toBe('AIR')
+    })
+  )
+
+  it.effect('returns the block type that was set via setBlockInChunk', () =>
+    Effect.gen(function* () {
+      const chunk = createEmptyChunk({ x: 0, z: 0 })
+      yield* setBlockInChunk(chunk, 2, 10, 3, 'STONE')
+      const blockType = yield* getBlockFromChunk(chunk, 2, 10, 3)
+      expect(blockType).toBe('STONE')
+    })
   )
 })
 
@@ -312,5 +364,33 @@ describe('ChunkService.setBlock', () => {
       expect(err).toBeInstanceOf(ChunkError)
       expect(err.reason).toContain('-1')
     }).pipe(Effect.provide(ChunkService.Default))
+  )
+})
+
+describe('setBlockOnChunk', () => {
+  it.effect('returns a new chunk with the updated block type (immutable)', () =>
+    Effect.gen(function* () {
+      const original = createEmptyChunk({ x: 0, z: 0 })
+      const updated = yield* setBlockOnChunk(original, 1, 5, 2, 'GRASS')
+      expect(original.blocks[0]).toBe(0)
+      const blockType = yield* getBlockFromChunk(updated, 1, 5, 2)
+      expect(blockType).toBe('GRASS')
+    })
+  )
+})
+
+describe('chunk coordinate transforms', () => {
+  it.effect('maps world coordinates to chunk coordinates', () =>
+    Effect.sync(() => {
+      expect(worldPositionToChunkCoord(32, 48)).toEqual({ x: 2, z: 3 })
+      expect(worldPositionToChunkCoord(-1, 0)).toEqual({ x: -1, z: 0 })
+    })
+  )
+
+  it.effect('maps chunk coordinates back to world coordinates', () =>
+    Effect.sync(() => {
+      expect(chunkLocalToWorldCoord({ x: 2, z: 3 }, 5, 7)).toEqual({ x: 37, z: 55 })
+      expect(chunkLocalToWorldCoord({ x: -1, z: -1 }, 0, 0)).toEqual({ x: -CHUNK_SIZE, z: -CHUNK_SIZE })
+    })
   )
 })

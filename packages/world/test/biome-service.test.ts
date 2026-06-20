@@ -1,16 +1,17 @@
 import { describe,it } from '@effect/vitest'
 import {
 BiomeType,
-buildChunkNoiseInputs,
-CHUNK_COLUMN_SAMPLE_COUNT,
-classifyBiome
+  CHUNK_COLUMN_SAMPLE_COUNT,
+  classifyBiome
 } from '@ts-minecraft/world'
 import { Array as Arr,Effect } from 'effect'
 import { expect } from 'vitest'
-import { readChunkNoiseInput } from '../domain/biome-service-helpers'
+import { buildChunkNoiseInputs } from '../domain/biome-classifier'
+import {
+  buildSampledBiomeData,
+  readChunkNoiseInput,
+} from '../domain/biome-service-helpers'
 import { withBiomeService } from './biome-service-test-utils'
-
-type ChunkNoiseInput = ReturnType<typeof buildChunkNoiseInputs>[number]
 
 describe('classifyBiome — biome classification', () => {
   const cases: ReadonlyArray<readonly [number, number, BiomeType]> = [
@@ -83,6 +84,40 @@ describe('buildChunkNoiseInputs', () => {
     const offset = 10000 * 0.005
     Arr.forEach(result, (coord) => {
       expect(coord.humX - coord.tempX).toBeCloseTo(offset)
+    })
+  })
+})
+
+describe('buildSampledBiomeData', () => {
+  it('keeps continentalness and delegates terrestrial classification to domain logic', () => {
+    const result = buildSampledBiomeData({
+      temperature: 0.5,
+      humidity: 0.7,
+      continentalness: 0.3,
+      erosion: 0.4,
+      weirdness: 0.2,
+      riverNoise: 1,
+    })
+
+    expect(result).toEqual({
+      biome: 'FOREST',
+      continentalness: 0.3,
+    })
+  })
+
+  it('derives mountain classification from weirdness through the helper', () => {
+    const result = buildSampledBiomeData({
+      temperature: 0.8,
+      humidity: 0.5,
+      continentalness: 0.8,
+      erosion: 0,
+      weirdness: 2 / 3,
+      riverNoise: 1,
+    })
+
+    expect(result).toEqual({
+      biome: 'MOUNTAINS',
+      continentalness: 0.8,
     })
   })
 })

@@ -1,12 +1,10 @@
 import { describe, expect, it } from '@effect/vitest'
-import { BlockRegistry } from '@ts-minecraft/block'
+import { BlockRegistry } from '@ts-minecraft/block/application/block-registry'
 import { blockTypeToIndex, CHUNK_HEIGHT, CHUNK_SIZE, SlotIndex } from '@ts-minecraft/core'
 import { PlayerServicePort, WorldBlockQueryPort } from '@ts-minecraft/world'
-import {
-  CHEST_SIZE,
-  ChestService,
-  InventoryService,
-} from '@ts-minecraft/inventory'
+import { InventoryService } from '@ts-minecraft/inventory/application/inventory-service'
+import { ChestService } from '@ts-minecraft/inventory/application/chest-service'
+import { CHEST_SIZE } from '@ts-minecraft/inventory/domain/chest-service.config'
 import { Effect, Layer, Option } from 'effect'
 
 import type { ChestBlockState } from '../domain/chest-state'

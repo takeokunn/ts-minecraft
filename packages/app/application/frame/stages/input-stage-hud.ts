@@ -1,5 +1,5 @@
 import { Effect } from 'effect'
-import { KeyMappings } from '@ts-minecraft/entity'
+import { KeyMappings } from '@ts-minecraft/entity/domain/key-mappings'
 import { toggleGameplayHudVisibility } from '@ts-minecraft/presentation'
 import type { InputServices } from './input-stage-types'
 

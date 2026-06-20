@@ -38,6 +38,7 @@ const isWorldMetadata = (value: unknown): value is WorldMetadata =>
     && typeof value['seed'] === 'number'
     && value['createdAt'] instanceof Date
     && value['lastPlayed'] instanceof Date
+    && (value['displayName'] === undefined || typeof value['displayName'] === 'string')
     && isPlayerSpawn(value['playerSpawn'])
     && (value['gameMode'] === 'survival' || value['gameMode'] === 'creative')
     && typeof value['saveVersion'] === 'number'
@@ -62,7 +63,9 @@ export const makeInMemoryStorageService = () => {
 
     saveChunk: (worldId: WorldId, chunkCoord: ChunkCoord, data: ChunkStorageValue) =>
       Effect.sync(() => {
-        MutableHashMap.set(chunkStore, chunkKey(worldId, chunkCoord), data)
+        const key = chunkKey(worldId, chunkCoord)
+        MutableHashMap.set(chunkStore, key, data)
+        return key
       }),
 
     loadChunk: (worldId: WorldId, chunkCoord: ChunkCoord) =>
@@ -71,6 +74,7 @@ export const makeInMemoryStorageService = () => {
     saveWorldMetadata: (worldId: WorldId, metadata: WorldMetadata) =>
       Effect.sync(() => {
         MutableHashMap.set(metaStore, worldId, metadata)
+        return worldId
       }),
 
     loadWorldMetadata: (worldId: WorldId) =>
@@ -139,7 +143,9 @@ export const makeFailingStorageService = (throwOnSave: () => void) => {
       Effect.sync(() => {
         MutableRef.updateAndGet(saveCallCountRef, n => n + 1)
         throwOnSave()
-        MutableHashMap.set(chunkStore, chunkKey(worldId, chunkCoord), data)
+        const key = chunkKey(worldId, chunkCoord)
+        MutableHashMap.set(chunkStore, key, data)
+        return key
       }),
 
     loadChunk: (worldId: WorldId, chunkCoord: ChunkCoord) =>
@@ -148,6 +154,7 @@ export const makeFailingStorageService = (throwOnSave: () => void) => {
     saveWorldMetadata: (worldId: WorldId, metadata: WorldMetadata) =>
       Effect.sync(() => {
         MutableHashMap.set(metaStore, worldId, metadata)
+        return worldId
       }),
 
     loadWorldMetadata: (worldId: WorldId) =>

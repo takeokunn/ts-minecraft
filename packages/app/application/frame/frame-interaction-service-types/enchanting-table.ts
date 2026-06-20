@@ -1,4 +1,6 @@
-import type { FrameAudioServices, FrameInventoryServices, FrameLivingServices } from '../frame-service-types'
+import type { FrameAudioServices } from '../frame-service-types/audio'
+import type { FrameInventoryServices } from '../frame-service-types/inventory'
+import type { FrameLivingServices } from '../frame-service-types/living'
 
 export type FrameEnchantingTableInteractionServices = Pick<FrameInventoryServices, 'hotbarService' | 'inventoryService'> &
   Pick<FrameLivingServices, 'xpService'> &

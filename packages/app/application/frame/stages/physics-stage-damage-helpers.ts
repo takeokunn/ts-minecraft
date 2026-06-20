@@ -1,8 +1,10 @@
 import { Effect } from 'effect'
 import { logErrors } from '@ts-minecraft/app/frame/error-logging'
-import type { FrameAudioServices, FrameInteractionServices, FrameLivingServices } from '@ts-minecraft/app/frame/frame-service-types'
-import type { ExplosionEvent } from '@ts-minecraft/entity'
-import { EXHAUSTION_DAMAGE } from '@ts-minecraft/entity'
+import type { FrameAudioServices } from '@ts-minecraft/app/frame/frame-service-types/audio'
+import type { FrameInteractionServices } from '@ts-minecraft/app/frame/frame-service-types/interaction'
+import type { FrameLivingServices } from '@ts-minecraft/app/frame/frame-service-types/living'
+import type { ExplosionEvent } from '@ts-minecraft/entity/domain/explosion'
+import { EXHAUSTION_DAMAGE } from '@ts-minecraft/entity/application/hunger-service.config'
 import { buildExplosionBreakPositions } from './placement-geometry'
 
 export type DamageServices = FrameLivingServices

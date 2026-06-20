@@ -1,12 +1,24 @@
 import type { BlockType } from '@ts-minecraft/core'
 import { CHUNK_SIZE, blockTypeToIndex } from '@ts-minecraft/core'
-import { greedyMeshChunk } from '@ts-minecraft/rendering'
 import { Array as Arr,MutableHashSet } from 'effect'
 import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
+import { greedyMeshChunk } from '@ts-minecraft/rendering'
 import { makeChunkWithBlock,makeChunkWithBlocks,makeEmptyChunk,ZERO_COORD,ZERO_OFFSET,countFacesByNormal,findFirstFaceVertexWithNormal,assertAllXPositionsGte,assertAllZPositionsGte } from './greedy-meshing-test-utils'
 
 // ─── Tests ─────────────────────────────────────────────────────────────────
+
+const axisValues = (positions: Float32Array, axis: 0 | 1 | 2): number[] => {
+  const values: number[] = []
+  for (let i = axis; i < positions.length; i += 3) values.push(positions[i]!)
+  return values
+}
+
+const expectAxisMinMax = (positions: Float32Array, axis: 0 | 1 | 2, min: number, max: number): void => {
+  const values = axisValues(positions, axis)
+  expect(Math.min(...values)).toBeCloseTo(min)
+  expect(Math.max(...values)).toBeCloseTo(max)
+}
 
 describe('greedyMeshChunk', () => {
   describe('empty chunk (all AIR)', () => {
@@ -246,6 +258,47 @@ describe('greedyMeshChunk', () => {
     })
   })
 
+})
+
+// ─── Plant model meshing ───────────────────────────────────────────────────
+
+describe('greedyMeshChunk plant model meshing', () => {
+  it('TALL_GRASS uses two crossed quads in transparentSolid, not a cube', () => {
+    const chunk = makeChunkWithBlock(ZERO_COORD, 4, 8, 5, 'TALL_GRASS')
+    const result = greedyMeshChunk(chunk, ZERO_OFFSET)
+    const meshed = result.toMeshed()
+
+    expect(meshed.transparentSolid.indices.length / 6).toBe(2)
+    expect(meshed.opaque.positions.length).toBe(0)
+    expect(meshed.water.positions.length).toBe(0)
+    expectAxisMinMax(meshed.transparentSolid.positions, 0, 4.1, 4.9)
+    expectAxisMinMax(meshed.transparentSolid.positions, 1, 8, 9)
+    expectAxisMinMax(meshed.transparentSolid.positions, 2, 5.1, 5.9)
+  })
+
+  it('LILY_PAD uses one thin horizontal quad in transparentSolid', () => {
+    const chunk = makeChunkWithBlock(ZERO_COORD, 6, 12, 7, 'LILY_PAD')
+    const result = greedyMeshChunk(chunk, ZERO_OFFSET)
+    const meshed = result.toMeshed()
+
+    expect(meshed.opaque.positions.length).toBe(0)
+    expect(meshed.transparentSolid.indices.length / 6).toBe(1)
+    expectAxisMinMax(meshed.transparentSolid.positions, 0, 6 + 1 / 16, 7 - 1 / 16)
+    expectAxisMinMax(meshed.transparentSolid.positions, 1, 12 + 1 / 16, 12 + 1 / 16)
+    expectAxisMinMax(meshed.transparentSolid.positions, 2, 7 + 1 / 16, 8 - 1 / 16)
+  })
+
+  it('CACTUS uses an inset thin column instead of full cube faces', () => {
+    const chunk = makeChunkWithBlock(ZERO_COORD, 2, 3, 4, 'CACTUS')
+    const result = greedyMeshChunk(chunk, ZERO_OFFSET)
+    const meshed = result.toMeshed()
+
+    expect(meshed.opaque.positions.length).toBe(0)
+    expect(meshed.transparentSolid.indices.length / 6).toBe(6)
+    expectAxisMinMax(meshed.transparentSolid.positions, 0, 2 + 1 / 16, 3 - 1 / 16)
+    expectAxisMinMax(meshed.transparentSolid.positions, 1, 3, 4)
+    expectAxisMinMax(meshed.transparentSolid.positions, 2, 4 + 1 / 16, 5 - 1 / 16)
+  })
 })
 
 // ─── Transparent solid (GLASS / LEAVES) meshing ─────────────────────────────

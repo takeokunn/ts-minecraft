@@ -1,22 +1,11 @@
 import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
-import { Array as Arr, HashMap, HashSet } from 'effect'
-import {
-  RedstonePowerLevel,
-  RedstoneComponentType,
-  canConduct,
-  isPowerSource,
-  neighborsOf,
-  propagatePower,
-  updatePistons,
-  decayButtonTimers,
-  sortedPowerSnapshot,
-  positionKey,
-  toBlockPosition,
-  normalizeComponentPosition,
-  computeNeedsPropagation,
-} from '@ts-minecraft/entity'
-import type { RedstoneComponent, PositionKey } from '@ts-minecraft/entity'
+import { Array as Arr, HashMap, HashSet, Option } from 'effect'
+import { RedstoneComponentType, RedstonePowerLevel } from '@ts-minecraft/entity/domain/redstone/redstone-model';
+import { positionKey, toBlockPosition } from '@ts-minecraft/entity/domain/redstone/redstone-position-utils';
+import { canConduct, computeNeedsPropagation, decayButtonTimers, isPowerSource, neighborsOf, normalizeComponentPosition, propagatePower, sortedPowerSnapshot, updatePistons } from '@ts-minecraft/entity/domain/redstone/redstone-simulation';
+import type { RedstoneComponent } from '@ts-minecraft/entity/domain/redstone/redstone-model';
+import type { PositionKey } from '@ts-minecraft/entity/domain/redstone/redstone-position-utils';
 import { makeTestRedstoneComponent } from '../redstone/test-utils'
 import { expectSome } from '../test-utils'
 
@@ -47,6 +36,7 @@ describe('canConduct', () => {
     [RedstoneComponentType.Button, true],
     [RedstoneComponentType.Torch, true],
     [RedstoneComponentType.Piston, true],
+    [RedstoneComponentType.PressurePlate, true],
     ['lamp' as RedstoneComponentType, false],
   ]
 
@@ -75,6 +65,8 @@ describe('isPowerSource', () => {
     ],
     ['active Torch', makeComponent(RedstoneComponentType.Torch, 0, 64, 0, { active: true }), true],
     ['inactive Torch', makeComponent(RedstoneComponentType.Torch, 0, 64, 0, { active: false }), false],
+    ['active PressurePlate', makeComponent(RedstoneComponentType.PressurePlate, 0, 64, 0, { active: true }), true],
+    ['inactive PressurePlate', makeComponent(RedstoneComponentType.PressurePlate, 0, 64, 0, { active: false }), false],
     ['Wire', makeComponent(RedstoneComponentType.Wire, 0, 64, 0), false],
   ]
 
@@ -135,6 +127,15 @@ describe('propagatePower', () => {
     const lever = makeComponent(RedstoneComponentType.Lever, 0, 64, 0, { active: true })
     const wire = makeComponent(RedstoneComponentType.Wire, 1, 64, 0)
     const components = makeComponents([lever, wire])
+    const power = propagatePower(components)
+    const wirePower = Option.getOrElse(HashMap.get(power, positionKey({ x: 1, y: 64, z: 0 })), () => 0)
+    expect(wirePower).toBe(14)
+  })
+
+  it('Wire 1 step from active PressurePlate → powered at 14', () => {
+    const plate = makeComponent(RedstoneComponentType.PressurePlate, 0, 64, 0, { active: true })
+    const wire = makeComponent(RedstoneComponentType.Wire, 1, 64, 0)
+    const components = makeComponents([plate, wire])
     const power = propagatePower(components)
     const wirePower = Option.getOrElse(HashMap.get(power, positionKey({ x: 1, y: 64, z: 0 })), () => 0)
     expect(wirePower).toBe(14)

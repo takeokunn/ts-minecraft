@@ -2,7 +2,9 @@ import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
 import { Schema } from 'effect'
 import { EntityType } from '../../domain/mob/entity'
-import { getMobDefinition, MobDefinitions, MobDefinitionSchema } from '../../domain/mob/mobs'
+import { getMobDefinition } from '../../domain/mob/mobs/get-mob-definition'
+import { MobDefinitions } from '../../domain/mob/mobs/mob-definitions'
+import { MobDefinitionSchema } from '../../domain/mob/mobs/mob-definition'
 import { HOSTILE_MOBS, PASSIVE_MOBS } from '../../domain/mob/mob-categories'
 
 type MobDefinition = ReturnType<typeof getMobDefinition>
@@ -15,6 +17,10 @@ const expectDrops = (definition: MobDefinition, ...blockTypes: ReadonlyArray<Dro
   for (const blockType of blockTypes) {
     expect(dropTypes).toContain(blockType)
   }
+}
+
+const expectDrop = (definition: MobDefinition, drop: MobDefinition['drops'][number]) => {
+  expect(definition.drops).toContainEqual(drop)
 }
 
 describe('mob definitions', () => {
@@ -63,6 +69,10 @@ describe('mob definitions', () => {
     it('drops ARROW', () => {
       expectDrops(def, 'ARROW')
     })
+
+    it('can rarely drop its equipped bow', () => {
+      expect(def.drops).toContainEqual({ blockType: 'BOW', count: 1, chance: 0.085 })
+    })
   })
 
   describe('passive mobs correct drops', () => {
@@ -107,8 +117,21 @@ describe('mob definitions', () => {
       expect(def.xpReward).toBe(0)
     })
 
+    it('bee drops nothing and grants XP', () => {
+      const def = getMobDefinition(EntityType.Bee)
+      expect(def.behavior).toBe('passive')
+      expect(def.drops).toHaveLength(0)
+      expect(def.xpReward).toBe(1)
+    })
+
     it('squid drops INK_SAC', () => {
       const def = getMobDefinition(EntityType.Squid)
+      expectDrops(def, 'INK_SAC')
+    })
+
+    it('glow squid is passive and currently drops INK_SAC', () => {
+      const def = getMobDefinition(EntityType.GlowSquid)
+      expect(def.behavior).toBe('passive')
       expectDrops(def, 'INK_SAC')
     })
   })
@@ -182,6 +205,16 @@ describe('mob definitions', () => {
     })
   })
 
+  describe('Zombie', () => {
+    const def = getMobDefinition(EntityType.Zombie)
+
+    it('drops vanilla-style zombie rare loot that exists in core', () => {
+      expectDrop(def, { blockType: 'ROTTEN_FLESH', count: 1 })
+      expectDrop(def, { blockType: 'CARROT', count: 1, chance: 0.025 })
+      expectDrop(def, { blockType: 'IRON_INGOT', count: 1, chance: 0.025 })
+    })
+  })
+
   describe('Drowned', () => {
     const def = getMobDefinition(EntityType.Drowned)
 
@@ -215,8 +248,10 @@ describe('mob definitions', () => {
       expect(def.attackRange).toBe(zombieDef.attackRange)
     })
 
-    it('drops zombie loot placeholders', () => {
-      expectDrops(def, 'ROTTEN_FLESH', 'CARROT')
+    it('drops vanilla-style zombie villager rare loot that exists in core', () => {
+      expectDrop(def, { blockType: 'ROTTEN_FLESH', count: 1 })
+      expectDrop(def, { blockType: 'CARROT', count: 1, chance: 0.025 })
+      expectDrop(def, { blockType: 'IRON_INGOT', count: 1, chance: 0.025 })
     })
   })
 
@@ -253,13 +288,15 @@ describe('mob definitions', () => {
       expect(HOSTILE_MOBS).toContain(EntityType.ZombieVillager)
     })
 
-    it('PASSIVE_MOBS contains Cow, Pig, Sheep, Chicken, Bat, and Squid', () => {
+    it('PASSIVE_MOBS contains Cow, Pig, Sheep, Chicken, Bat, Bee, Squid, and GlowSquid', () => {
       expect(PASSIVE_MOBS).toContain(EntityType.Cow)
       expect(PASSIVE_MOBS).toContain(EntityType.Pig)
       expect(PASSIVE_MOBS).toContain(EntityType.Sheep)
       expect(PASSIVE_MOBS).toContain(EntityType.Chicken)
       expect(PASSIVE_MOBS).toContain(EntityType.Bat)
+      expect(PASSIVE_MOBS).toContain(EntityType.Bee)
       expect(PASSIVE_MOBS).toContain(EntityType.Squid)
+      expect(PASSIVE_MOBS).toContain(EntityType.GlowSquid)
     })
 
     it('no mob appears in both hostile and passive categories', () => {

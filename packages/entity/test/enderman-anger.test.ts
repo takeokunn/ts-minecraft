@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { isEndermanProvokedByLook } from '@ts-minecraft/entity'
+import { isEndermanProvokedByLook } from '@ts-minecraft/entity/domain/mob/enderman-anger';
 
 describe('entity/enderman-anger', () => {
   const playerPosition = { x: 0, y: 66.1, z: 0 }

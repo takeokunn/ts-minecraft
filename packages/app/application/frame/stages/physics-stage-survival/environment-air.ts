@@ -1,5 +1,5 @@
 import { Effect, MutableRef } from 'effect'
-import { DROWN_DAMAGE, DROWN_DAMAGE_INTERVAL_SECS } from '@ts-minecraft/entity'
+import { DROWN_DAMAGE, DROWN_DAMAGE_INTERVAL_SECS } from '@ts-minecraft/entity/domain/environment-hazard.config'
 import type { BlockType, Position } from '@ts-minecraft/core'
 import { resolveAirState, resolveEffectiveMaxAirSecs } from './air-logic'
 import { applyCadencedHazard } from './hazard-logic'

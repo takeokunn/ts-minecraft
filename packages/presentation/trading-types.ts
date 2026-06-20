@@ -1,6 +1,6 @@
 import { Option } from 'effect'
-import type { TradeOffer } from '@ts-minecraft/entity'
-import type { VillagerId } from '@ts-minecraft/entity'
+import type { TradeOffer } from '@ts-minecraft/entity/domain/trading/trading-model'
+import type { VillagerId } from '@ts-minecraft/entity/domain/village/village-model'
 
 export type TradingUiState = {
   readonly villagerId: VillagerId

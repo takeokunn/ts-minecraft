@@ -8,7 +8,8 @@ export const LOVE_DURATION_TICKS = 600 // 30s window to find a mate after feedin
 export const BREED_COOLDOWN_TICKS = 6000 // 5min before an animal can breed again
 export const BABY_GROW_TICKS = 24000 // 20min for a baby to reach adulthood
 export const BREED_RANGE = 3 // blocks between two in-love adults to form a pair
-export const BREED_XP_REWARD = 4 // XP granted to the player per successful breeding (vanilla 1-7)
+export const BREED_XP_MIN_REWARD = 1
+export const BREED_XP_MAX_REWARD = 7
 
 const BREED_RANGE_SQ = BREED_RANGE * BREED_RANGE
 
@@ -24,6 +25,12 @@ export type BreedingState = {
 export const isAdult = (ageTicks: number): boolean => ageTicks >= BABY_GROW_TICKS
 
 export const isBaby = (ageTicks: number): boolean => ageTicks < BABY_GROW_TICKS
+
+export const resolveBreedingExperience = (roll: number): number => {
+  const clampedRoll = Number.isFinite(roll) ? Math.min(0.999_999_999_999, Math.max(0, roll)) : 0
+  const range = BREED_XP_MAX_REWARD - BREED_XP_MIN_REWARD + 1
+  return BREED_XP_MIN_REWARD + Math.floor(clampedRoll * range)
+}
 
 /**
  * New age after feeding a baby its breeding item — vanilla reduces the REMAINING

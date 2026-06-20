@@ -1,8 +1,13 @@
 import { describe, it, describe as effectDescribe, it as effectIt } from '@effect/vitest'
 import { expect } from 'vitest'
-import { resolveFishingCatch, resolveFishingWaitSecs } from '../domain/fishing'
+import {
+  resolveFishingCatch,
+  resolveFishingCatchResult,
+  resolveFishingExperience,
+  resolveFishingWaitSecs,
+} from '../domain/fishing-resolution'
 import { FISHING_MIN_WAIT_SECS, FISHING_MAX_WAIT_SECS } from '../domain/fishing.config'
-import { Effect } from 'effect'
+import { Effect, Option } from 'effect'
 import { FishingService } from '../application/fishing-service'
 import { expectSome } from './test-utils'
 
@@ -75,6 +80,30 @@ describe('domain/fishing', () => {
       expect(withLuck).toBeGreaterThan(noLuck)
     })
   })
+
+  describe('resolveFishingExperience', () => {
+    it('always returns the vanilla catch XP range', () => {
+      for (let seed = -50; seed < 200; seed++) {
+        const experience = resolveFishingExperience(seed)
+        expect(experience).toBeGreaterThanOrEqual(1)
+        expect(experience).toBeLessThanOrEqual(6)
+      }
+    })
+
+    it('is deterministic — same seed → same result', () => {
+      expect(resolveFishingExperience(42)).toBe(resolveFishingExperience(42))
+      expect(resolveFishingExperience(-7)).toBe(resolveFishingExperience(-7))
+    })
+  })
+
+  describe('resolveFishingCatchResult', () => {
+    it('combines caught item and XP reward for a successful catch', () => {
+      const result = resolveFishingCatchResult(42)
+
+      expect(result.item).toBe(resolveFishingCatch(42))
+      expect(result.experience).toBe(resolveFishingExperience(42))
+    })
+  })
 })
 
 effectDescribe('application/fishing-service', () => {
@@ -116,13 +145,16 @@ effectDescribe('application/fishing-service', () => {
     }).pipe(Effect.provide(testLayer))
   )
 
-  effectIt.effect('tick returns Some(item) when target time fully elapses', () =>
+  effectIt.effect('tick returns Some(catch result) when target time fully elapses', () =>
     Effect.gen(function* () {
       const svc = yield* FishingService
       yield* svc.cast(42)
       // Advance 40 seconds — always past the maximum wait
       const result = yield* svc.tick(40)
-      expectSome(result)
+      const catchResult = expectSome(result)
+      expect(typeof catchResult.item).toBe('string')
+      expect(catchResult.experience).toBeGreaterThanOrEqual(1)
+      expect(catchResult.experience).toBeLessThanOrEqual(6)
       // After catching, fishing resets to idle
       expect(yield* svc.isFishing()).toBe(false)
     }).pipe(Effect.provide(testLayer))

@@ -2,8 +2,8 @@ import { Layer } from 'effect'
 
 import { DomOperationsService } from '@ts-minecraft/presentation'
 import { InventoryRendererService } from '@ts-minecraft/presentation'
-import { RecipeService } from '@ts-minecraft/inventory'
-import { XPService } from '@ts-minecraft/entity'
+import { RecipeService } from '@ts-minecraft/inventory/application/recipe-service'
+import { XPService } from '@ts-minecraft/entity/application/xp-service'
 
 import {
   GameLayer,

@@ -2,14 +2,14 @@ import { describe, it } from '@effect/vitest'
 import { expect, vi } from 'vitest'
 import { Effect, Ref } from 'effect'
 import { CHUNK_HEIGHT, CHUNK_SIZE, blockTypeToIndex } from '@ts-minecraft/core'
-import { VillageStructureId } from '@ts-minecraft/entity'
+import { VillageStructureId } from '@ts-minecraft/entity/domain/village/village-model';
 import { chunkBlockIndexUnchecked, type Chunk } from '@ts-minecraft/world'
 import { runVillageMaintenance } from '../../application/village/village-maintenance'
 import {
   placeVillageStructures,
-  type VillagePlacementServices,
 } from '../../application/village/village-placement'
-import { VillagePlacementBlockReadError } from '../../application/village/village-placement-surface'
+import { type VillagePlacementServices } from '../../application/village/village-placement-services'
+import { VillagePlacementBlockReadError } from '../../application/village/village-placement-surface-error'
 import { makeTestChunk, makeTestVillage } from './test-utils'
 
 const setBlock = (

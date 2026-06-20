@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { Option } from 'effect'
 import { CHUNK_HEIGHT, CHUNK_SIZE, blockIndex, blockTypeToIndex } from '@ts-minecraft/core'
 import type { Chunk } from '@ts-minecraft/world/domain/chunk'
-import { selectSurfaceSpawn, SpawnSelectionChunkError } from '@ts-minecraft/app/main/spawn-selection'
+import { selectSurfaceSpawn, SpawnSelectionChunkError } from '@ts-minecraft/app/main/spawn-selection-search'
 
 const AIR = blockTypeToIndex('AIR')
 const DIRT = blockTypeToIndex('DIRT')

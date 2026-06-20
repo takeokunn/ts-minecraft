@@ -3,6 +3,9 @@ import { Effect, HashMap, MutableRef, Option } from 'effect'
 import { aabbFromVoxel } from '@ts-minecraft/world'
 import { applyInboundBlockEdits, multiplayerStage } from '@ts-minecraft/app/frame/stages/multiplayer-stage'
 import type { MultiplayerService, RemoteBlockEdit } from '@ts-minecraft/app/application/multiplayer/multiplayer-service'
+import type { FrameHandlerServices } from '@ts-minecraft/app/application/frame/types/services'
+import type { FrameStageRefs } from '@ts-minecraft/app/application/frame/types/stage-refs'
+import type { Chunk } from '@ts-minecraft/world'
 
 describe('multiplayerStage', () => {
   it('sends the current position and rotation to the multiplayer service', async () => {
@@ -24,6 +27,8 @@ describe('multiplayerStage', () => {
 })
 
 describe('applyInboundBlockEdits (T15c)', () => {
+  type MultiplayerStageServices = Pick<FrameHandlerServices, 'blockService' | 'chunkManagerService'>
+
   const run = (
     edits: RemoteBlockEdit[],
     options: {
@@ -35,11 +40,11 @@ describe('applyInboundBlockEdits (T15c)', () => {
       Effect.gen(function* () {
         const forceSetBlock = options.forceSetBlock ?? vi.fn(() => Effect.void)
         const getChunk =
-          options.getChunk ?? vi.fn(() => Effect.succeed({ coord: { x: 0, z: 0 }, blocks: new Uint8Array(0) } as never))
+          options.getChunk ?? vi.fn(() => Effect.succeed({ coord: { x: 0, z: 0 }, blocks: new Uint8Array(0) } as Chunk))
         const mp = { drainBlockEdits: Effect.succeed(edits as ReadonlyArray<RemoteBlockEdit>) } as unknown as MultiplayerService
-        const services = { blockService: { forceSetBlock }, chunkManagerService: { getChunk } } as never
+        const services: MultiplayerStageServices = { blockService: { forceSetBlock }, chunkManagerService: { getChunk } }
         const dirtyRef = MutableRef.make(HashMap.empty<string, unknown>())
-        yield* applyInboundBlockEdits(mp, services, dirtyRef as never)
+        yield* applyInboundBlockEdits(mp, services, dirtyRef as FrameStageRefs['dirtyChunksRef'])
         const dirty = MutableRef.get(dirtyRef)
         return { forceSetBlock, getChunk, dirty, dirtySize: HashMap.size(dirty) }
       }),

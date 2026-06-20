@@ -5,11 +5,17 @@ import { defaultBlockFaces } from './blocks.config.terrain'
 const makeBlockId = (id: string) => BlockId.make(id)
 
 export const craftedAndItemBlocks: ReadonlyArray<Block> = [
+new Block({
+  id: makeBlockId('block:planks'),
+  type: 'PLANKS',
+  // Vanilla planks 2.0 = wood (35 on this scale), not stone-soft.
+  properties: { hardness: 35, transparency: false, solid: true, emissive: false, friction: 0.6 },
+  faces: defaultBlockFaces,
+}),
   new Block({
-    id: makeBlockId('block:planks'),
-    type: 'PLANKS',
-    // Vanilla planks 2.0 = wood (35 on this scale), not stone-soft.
-    properties: { hardness: 35, transparency: false, solid: true, emissive: false, friction: 0.6 },
+    id: makeBlockId('block:oak_stairs'),
+    type: 'OAK_STAIRS',
+    properties: { hardness: 35, transparency: true, solid: true, emissive: false, friction: 0.6 },
     faces: defaultBlockFaces,
   }),
   new Block({
@@ -83,6 +89,12 @@ export const craftedAndItemBlocks: ReadonlyArray<Block> = [
     properties: { hardness: 0, transparency: true, solid: false, emissive: true, friction: 0.0 },
     faces: defaultBlockFaces,
   }),
+  new Block({
+    id: makeBlockId('block:fire'),
+    type: 'FIRE',
+    properties: { hardness: 0, transparency: true, solid: false, emissive: true, friction: 0.0 },
+    faces: defaultBlockFaces,
+  }),
   // Redstone components (Phase 16)
   new Block({
     id: makeBlockId('block:redstone_wire'),
@@ -111,6 +123,18 @@ export const craftedAndItemBlocks: ReadonlyArray<Block> = [
     faces: defaultBlockFaces,
   }),
   new Block({
+    id: makeBlockId('block:pressure_plate'),
+    type: 'PRESSURE_PLATE',
+    properties: { hardness: 5, transparency: true, solid: false, emissive: false, friction: 0.6 },
+    faces: defaultBlockFaces,
+  }),
+  new Block({
+    id: makeBlockId('block:stone_slab'),
+    type: 'STONE_SLAB',
+    properties: { hardness: 25, transparency: true, solid: true, emissive: false, friction: 0.6 },
+    faces: defaultBlockFaces,
+  }),
+  new Block({
     id: makeBlockId('block:repeater'),
     type: 'REPEATER',
     properties: { hardness: 35, transparency: true, solid: false, emissive: false, friction: 0.6 },
@@ -127,6 +151,18 @@ export const craftedAndItemBlocks: ReadonlyArray<Block> = [
     id: makeBlockId('block:enchanting_table'),
     type: 'ENCHANTING_TABLE',
     properties: { hardness: 30, transparency: false, solid: true, emissive: false, friction: 0.6 },
+    faces: defaultBlockFaces,
+  }),
+  new Block({
+    id: makeBlockId('block:anvil'),
+    type: 'ANVIL',
+    properties: { hardness: 75, transparency: false, solid: true, emissive: false, friction: 0.6 },
+    faces: defaultBlockFaces,
+  }),
+  new Block({
+    id: makeBlockId('block:cauldron'),
+    type: 'CAULDRON',
+    properties: { hardness: 35, transparency: false, solid: true, emissive: false, friction: 0.6 },
     faces: defaultBlockFaces,
   }),
   new Block({

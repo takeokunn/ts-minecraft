@@ -1,5 +1,5 @@
 import { Option } from 'effect'
-import { computeBlockLight, computeSkyLight, createLightBuffer, type LightGrids } from '@ts-minecraft/block'
+import { computeBlockLight, computeSkyLight, createLightBuffer, type LightGrids } from '@ts-minecraft/block/domain/light'
 import type { Chunk } from './chunk'
 import { fullChunkAABB } from './chunk-aabb'
 import { propagateBlockLightIncremental } from './block-light-bfs'
@@ -7,7 +7,7 @@ import { propagateSkyLightIncremental } from './sky-light-bfs'
 import type { AABBAccumulator, DirtyVoxel, IncrementalLightResult, BoundaryDirty, MutableBoundaryDirty } from './light-engine-model'
 import { FULL_RECOMPUTE_THRESHOLD, inLightBounds, lightBufferOrFresh, trackTouched } from './light-engine-utils'
 
-export type { LightGrids } from '@ts-minecraft/block'
+export type { LightGrids } from '@ts-minecraft/block/domain/light'
 
 export const computeFreshLight = (chunk: Chunk): LightGrids => {
   const sky = createLightBuffer()

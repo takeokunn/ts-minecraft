@@ -36,7 +36,7 @@ export const resolveDayNightCycleAppearance = (state: DayNightCycleState): DayNi
   const directionalLightIntensity = DIRECT_LIGHT_MIN + state.dayFactor * DIRECT_LIGHT_RANGE
   const ambientLightIntensity = AMBIENT_LIGHT_MIN + state.dayFactor * AMBIENT_LIGHT_RANGE
   const directionalLightColor = {
-    h: 0.06 - state.horizonBlend * 0.04,
+    h: Math.max(0, 0.06 - state.horizonBlend * 0.08),
     s: state.horizonBlend * 0.9,
     l: 0.5 + state.dayFactor * 0.5,
   }

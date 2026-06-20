@@ -1,7 +1,8 @@
 import { Array as Arr, Effect } from 'effect'
 import { describe, it } from '@effect/vitest'
 import { expect, vi } from 'vitest'
-import { resolvePreset, type GraphicsQuality } from '@ts-minecraft/game'
+import type { GraphicsQuality } from '@ts-minecraft/game'
+import { resolvePreset } from '@ts-minecraft/game/application/settings-service.config'
 
 // ---------------------------------------------------------------------------
 // FR-1.6: buildPostProcessing chooses the EffectComposer intermediate RT

@@ -1,4 +1,9 @@
-import { EXHAUSTION_JUMP, EXHAUSTION_SPRINT_JUMP, EXHAUSTION_SPRINT_PER_BLOCK, EXHAUSTION_WALK_PER_BLOCK } from '@ts-minecraft/entity'
+import {
+  EXHAUSTION_JUMP,
+  EXHAUSTION_SPRINT_JUMP,
+  EXHAUSTION_SPRINT_PER_BLOCK,
+  EXHAUSTION_WALK_PER_BLOCK,
+} from '@ts-minecraft/entity/application/hunger-service.config'
 
 export const resolveIsSprinting = (
   sprintLeftPressed: boolean,

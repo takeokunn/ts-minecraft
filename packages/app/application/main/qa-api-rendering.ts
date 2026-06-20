@@ -3,7 +3,7 @@ import * as THREE from 'three'
 import { blockTypeToIndex } from '@ts-minecraft/core'
 import type { ChunkManagerService } from '@ts-minecraft/world'
 import type { TimeService } from '@ts-minecraft/game'
-import type { QaChunkCoord, QaChunkMeshSnapshot, QaRenderingSnapshot } from '@ts-minecraft/app/main/qa-api-types'
+import type { QaChunkCoord, QaChunkMeshSnapshot, QaRenderingSnapshot } from '@ts-minecraft/app/main/qa-api-types/rendering'
 import { getUnknownProperty } from '@ts-minecraft/app/main/qa-api-env'
 
 type ChunkMeshWithCoord = THREE.Mesh<THREE.BufferGeometry, THREE.Material | THREE.Material[]> & {

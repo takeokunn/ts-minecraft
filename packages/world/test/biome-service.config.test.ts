@@ -2,7 +2,6 @@ import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
 import { Schema } from 'effect'
 import {
-  BIOME_PROPERTIES,
   BIOME_SCALE,
   HUMIDITY_WORLD_OFFSET,
   TEMP_COLD, TEMP_HOT,
@@ -11,6 +10,7 @@ import {
   RIVER_CENTER, RIVER_HALF_WIDTH,
 } from '../application/biome-service.config'
 import { BiomePropertiesSchema } from '../domain/biome'
+import { BIOME_PROPERTIES } from '../domain/biome-properties'
 
 const BIOME_TYPES = ['PLAINS', 'DESERT', 'FOREST', 'OCEAN', 'MOUNTAINS', 'SNOW', 'SWAMP', 'JUNGLE', 'BEACH', 'RIVER', 'TAIGA', 'SAVANNA'] as const
 

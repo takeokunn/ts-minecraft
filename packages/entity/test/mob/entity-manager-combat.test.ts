@@ -1,10 +1,11 @@
 import { describe } from '@effect/vitest'
 import { expect, it as plainIt } from 'vitest'
 import { Effect, HashMap, Option } from 'effect'
-import { EntityId, EntityType } from '@ts-minecraft/entity'
-import { EntityManager } from '@ts-minecraft/entity'
+import { EntityId, EntityType } from '@ts-minecraft/entity/domain/mob/entity';
+import { EntityManager } from '@ts-minecraft/entity/application/mob/entity-manager';
 import { DeltaTimeSecs } from '@ts-minecraft/core'
-import { CREEPER_EXPLOSION_POWER, computeExplosionDamageAt } from '../../domain/explosion'
+import { CREEPER_EXPLOSION_POWER } from '../../domain/explosion'
+import { computeExplosionDamageAt } from '../../domain/explosion-resolution'
 import { CREEPER_FUSE_SECONDS } from '../../domain/mob/creeper-fuse'
 import { HOSTILE_ATTACK_COOLDOWN_SECS } from '../../domain/mob/entity-internal'
 import { resolvePlayerContactDamage, resolvePlayerRangedDamage } from '../../application/mob/entity-manager-combat'

@@ -1,17 +1,20 @@
 import { describe, it } from '@effect/vitest'
 import { expect, vi } from 'vitest'
 import { Array as Arr, Effect, MutableRef, Option } from 'effect'
-import { createFrameHandlers } from '@ts-minecraft/app'
+import { createFrameHandlers } from '@ts-minecraft/app/frame-handler'
 import { MAX_DIRTY_CHUNK_UPDATES_PER_FRAME } from '@ts-minecraft/app/frame-handler.config'
+import { CHUNK_HEIGHT, CHUNK_SIZE } from '@ts-minecraft/core'
 import type { DeltaTimeSecs } from '@ts-minecraft/core'
+import { makeDeps } from '../../../test/frame-handler-test-kit/orchestration/deps'
+import { runFrame } from '../../../test/frame-handler-test-kit/orchestration/harness'
+import { makeInputService } from '../../../test/frame-handler-test-kit/presentation/input'
 import {
-  makeDeps,
-  makeInputService,
   makeInventoryRenderer,
-  makeServices,
   makeSettingsOverlay,
-  runFrame,
-} from '../../../test/frame-handler-test-kit'
+} from '../../../test/frame-handler-test-kit/presentation/overlay'
+import { makeServices } from '../../../test/frame-handler-test-kit/services'
+
+const makeTestChunkBlocks = (): Uint8Array => new Uint8Array(CHUNK_SIZE * CHUNK_SIZE * CHUNK_HEIGHT)
 
 // ---------------------------------------------------------------------------
 // Step 1: Chunk streaming
@@ -79,7 +82,7 @@ describe('step 1 — chunk streaming', () => {
       inventoryRenderer: makeInventoryRenderer({ open: false }),
       settingsOverlay: makeSettingsOverlay({ open: false }),
     })
-    const loadedChunks = [{ coord: { x: 0, z: 0 }, blocks: new Uint8Array(0), dirty: false }]
+    const loadedChunks = [{ coord: { x: 0, z: 0 }, blocks: makeTestChunkBlocks(), dirty: false }]
     const loadSpy = vi.fn(() => Effect.void)
     const syncSpy = vi.fn(() => Effect.succeed(false as boolean))
     syncSpy.mockImplementationOnce(() => Effect.succeed(false as boolean))
@@ -158,6 +161,8 @@ describe('step 1 — chunk streaming', () => {
       Effect.succeed(button === 0)
     services.inputService.consumeMouseClick = (button: number) =>
       Effect.succeed(button === 0 && MutableRef.get(clickCountRef) < queuedTargets.length)
+    services.gameMode.isCreative = () => Effect.succeed(true)
+    services.gameMode.isSurvival = () => Effect.succeed(false)
 
     services.blockHighlight.getTargetBlock = () =>
       Effect.succeed(MutableRef.get(clickCountRef) < queuedTargets.length ? Option.some(queuedTargets[MutableRef.get(clickCountRef)]!) : Option.none())
@@ -170,7 +175,7 @@ describe('step 1 — chunk streaming', () => {
       })
 
     services.chunkManagerService.getChunk = (coord) =>
-      Effect.succeed({ coord, blocks: new Uint8Array(0), fluid: Option.none() })
+      Effect.succeed({ coord, blocks: makeTestChunkBlocks(), fluid: Option.none() })
 
     const { frameHandler, maintenanceHandler } = yield* createFrameHandlers(deps, services)
 

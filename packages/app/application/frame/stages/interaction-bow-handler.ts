@@ -1,14 +1,20 @@
 import { Effect, Option } from 'effect'
-import type { FrameHandlerDeps } from '@ts-minecraft/app/frame/types'
+import type { FrameHandlerDeps } from '@ts-minecraft/app/application/frame/types/deps'
 import { findAttackableEntity } from '@ts-minecraft/app/frame/stages/attack-targeting'
 import { SlotIndex } from '@ts-minecraft/core'
-import type { EntityDrop, EntityId as EntityIdType } from '@ts-minecraft/entity'
-import { computeKnockback, computeBowCharge, computeBowDamage, canFireBow, BOW_MAX_RANGE, dropPasses } from '@ts-minecraft/entity'
-import { getMobDefinition } from '@ts-minecraft/entity/domain/mob/mobs'
-import { HOTBAR_START, getPowerDamageMultiplier, getUnbreakingSkipChance, getPunchKnockbackBonus, enchantmentsOf } from '@ts-minecraft/inventory'
-import type { Enchantment } from '@ts-minecraft/inventory'
-import { addExperienceWithMending } from '@ts-minecraft/app/application/frame/stages/xp-mending'
-import type { FrameBowInteractionServices } from '@ts-minecraft/app/frame/frame-interaction-service-types'
+import type { EntityDrop } from '@ts-minecraft/entity/domain/mob/drop'
+import type { EntityId as EntityIdType } from '@ts-minecraft/entity/domain/mob/entity'
+import { computeKnockback } from '@ts-minecraft/entity/domain/combat-resolution'
+import { BOW_MAX_RANGE } from '@ts-minecraft/entity/domain/bow.config'
+import { canFireBow, computeBowCharge, computeBowDamage } from '@ts-minecraft/entity/domain/bow-resolution'
+import { dropPasses } from '@ts-minecraft/entity/domain/mob/drop'
+import { getMobDefinition } from '@ts-minecraft/entity/domain/mob/mobs/get-mob-definition'
+import { HOTBAR_START } from '@ts-minecraft/inventory/application/inventory-service'
+import { getPowerDamageMultiplier, getUnbreakingSkipChance, getPunchKnockbackBonus } from '@ts-minecraft/inventory/domain/enchantment'
+import type { Enchantment } from '@ts-minecraft/inventory/domain/enchantment.types'
+import { enchantmentsOf } from '@ts-minecraft/inventory/domain/item-stack'
+import type { FrameBowInteractionServices } from '@ts-minecraft/app/frame/frame-interaction-service-types/bow'
+import { spawnMobDrop, spawnMobXpOrb } from '@ts-minecraft/app/application/frame/stages/interaction-mob-drops'
 
 // R101: avoid per-kill [] allocation when entity has no drops.
 const NO_DROPS: ReadonlyArray<EntityDrop> = []
@@ -45,21 +51,24 @@ const applyBowHitToEntity = (
       if (!dropPasses(drop, Math.random())) continue
       if (rolledBowDrops === null) rolledBowDrops = []
       rolledBowDrops.push(drop)
-      yield* services.inventoryService.addBlock(drop.blockType, drop.count)
+      if (entity !== null) {
+        yield* spawnMobDrop(services, entity, drop)
+      }
     }
 
     // Looting on bow kills: same bonus-drop mechanic as melee.
     if (rolledBowDrops !== null && opts.hasLooting) {
       for (const drop of rolledBowDrops) {
-        yield* services.inventoryService.addBlock(drop.blockType, opts.hasLooting!.level)
-          .pipe(Effect.catchAllCause(() => Effect.void))
+        if (entity !== null) {
+          yield* spawnMobDrop(services, entity, drop, opts.hasLooting.level)
+        }
       }
     }
 
     // Award mob XP on kill (drops is Some when the entity was removed).
     if (Option.isSome(drops) && entity !== null) {
       const xpReward = getMobDefinition(entity.type).xpReward
-      if (xpReward > 0) yield* addExperienceWithMending(xpReward, services)
+      yield* spawnMobXpOrb(services, entity, xpReward)
     }
   })
 

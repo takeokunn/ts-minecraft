@@ -1,6 +1,8 @@
 import { Effect } from 'effect'
-import type { DebugFeatureFlags } from '@ts-minecraft/app/debug-feature-flags'
-import type { FrameHandlerDeps, FrameHandlerServices, FrameStageRefs } from '@ts-minecraft/app/frame/types'
+import type { DebugFeatureFlags } from '@ts-minecraft/app/application/debug-feature-flags.config'
+import type { FrameHandlerDeps } from '@ts-minecraft/app/application/frame/types/deps'
+import type { FrameHandlerServices } from '@ts-minecraft/app/application/frame/types/services'
+import type { FrameStageRefs } from '@ts-minecraft/app/application/frame/types/stage-refs'
 import { handleHotbarInput, renderHotbarHud } from '@ts-minecraft/app/frame/stages/interaction-hotbar-handler'
 import { runInteractionStageActions } from '@ts-minecraft/app/frame/stages/interaction-stage-actions'
 import { resolveInteractionStageIntent } from '@ts-minecraft/app/frame/stages/interaction-stage-intent'
@@ -37,6 +39,8 @@ export const runInteractionStageFrame = (
     | 'timeService'
     | 'multiplayer'
     | 'gameMode'
+    | 'droppedItemService'
+    | 'droppedXpOrbService'
   >,
   refs: Pick<FrameStageRefs, 'dirtyChunksRef' | 'totalTimeSecsRef' | 'lastPlayerAttackTimeRef' | 'attackSwingStateRef' | 'breakProgressRef' | 'bowChargeStartRef' | 'isShieldBlockingRef'>,
   inputs: {

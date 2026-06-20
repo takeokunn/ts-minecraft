@@ -131,21 +131,36 @@ describe('presentation/menu/main-menu-dom', () => {
     const { dom } = makeDom()
     const list = makeTestElement('div')
     const onLoad = vi.fn()
+    const onRename = vi.fn()
     const onDelete = vi.fn()
 
-    renderValidRow(dom, list, WorldId.make('alpha'), makeMetadata(), onLoad, onDelete)
+    renderValidRow(
+      dom,
+      list,
+      WorldId.make('alpha'),
+      { ...makeMetadata(), displayName: 'Alpha Base' },
+      onLoad,
+      onRename,
+      onDelete,
+    )
 
     const row = asTestElement(list).childrenList[0]
   if (row === undefined) expect.fail('Expected renderValidRow to append a row')
+    const name = row.childrenList[0]?.childrenList[0]
     const loadButton = row.childrenList.find((child) => child.textContent === 'Load')
+    const renameButton = row.childrenList.find((child) => child.textContent === 'Rename')
     const deleteButton = row.childrenList.find((child) => child.textContent === 'Delete')
+    expect(name?.textContent).toBe('Alpha Base')
     expect(loadButton).toBeDefined()
+    expect(renameButton).toBeDefined()
     expect(deleteButton).toBeDefined()
 
     loadButton?.click()
+    renameButton?.click()
     deleteButton?.click()
 
     expect(onLoad).toHaveBeenCalledTimes(1)
+    expect(onRename).toHaveBeenCalledTimes(1)
     expect(onDelete).toHaveBeenCalledTimes(1)
   })
 

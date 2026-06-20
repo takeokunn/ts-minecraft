@@ -3,8 +3,7 @@ import { Layer } from 'effect'
 import { DomOperationsService } from '@ts-minecraft/presentation'
 import { SettingsOverlayService } from '@ts-minecraft/presentation'
 import { SettingsService, SettingsStorageServiceLayer } from '@ts-minecraft/game'
-
-import { EnvironmentLayer } from './infrastructure-bundles'
+import { EnvironmentLayer } from '@ts-minecraft/world'
 
 const SettingsLayer = SettingsService.Default.pipe(
   Layer.provide(SettingsStorageServiceLayer),

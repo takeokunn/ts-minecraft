@@ -1,6 +1,6 @@
 import type { TimeService, WeatherService } from '@ts-minecraft/game'
 import type { ChunkMeshService, WorldRendererService } from '@ts-minecraft/rendering'
-import type { ChunkManagerService, NetherService } from '@ts-minecraft/world'
+import type { BiomeService, ChunkManagerService, NetherService } from '@ts-minecraft/world'
 
 export type FrameWorldServices = {
   readonly chunkManagerService: ChunkManagerService
@@ -8,5 +8,6 @@ export type FrameWorldServices = {
   readonly chunkMeshService: ChunkMeshService
   readonly timeService: TimeService
   readonly weatherService: WeatherService
+  readonly biomeService: BiomeService
   readonly netherService: NetherService
 }

@@ -1,5 +1,5 @@
-import { RedstoneComponentType } from '@ts-minecraft/entity'
-import type { RedstoneComponent, RedstoneComponentType as RedstoneComponentTypeT } from '@ts-minecraft/entity'
+import { RedstoneComponentType } from '@ts-minecraft/entity/domain/redstone/redstone-model';
+import type { RedstoneComponent, RedstoneComponentType as RedstoneComponentTypeT } from '@ts-minecraft/entity/domain/redstone/redstone-model';
 import type { Position } from '@ts-minecraft/core'
 
 type RedstoneComponentOverrides = Partial<{

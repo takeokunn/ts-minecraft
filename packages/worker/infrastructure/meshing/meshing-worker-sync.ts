@@ -3,7 +3,7 @@ import { greedyMeshChunk } from '@ts-minecraft/rendering/infrastructure/meshing/
 import { createGreedyMeshScratch, type GreedyMeshResult } from '@ts-minecraft/rendering/infrastructure/meshing/greedy-meshing-types'
 import { greedyMeshChunkSubregion } from '@ts-minecraft/rendering/infrastructure/meshing/subregion-greedy'
 import { simplifyMesh, type LodLevel } from '@ts-minecraft/rendering/infrastructure/meshing/lod-simplification'
-import type { LightGrids } from '@ts-minecraft/block'
+import type { LightGrids } from '@ts-minecraft/block/domain/light'
 import { CHUNK_SIZE, type ChunkCoord } from '@ts-minecraft/core'
 import type { Chunk, ChunkAABB } from '@ts-minecraft/world'
 import type { WorkerMeshResult } from './meshing-worker-pool-protocol'

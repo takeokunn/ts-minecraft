@@ -5,8 +5,8 @@ import { Effect } from 'effect'
 import {
   DEBUG_FEATURE_FLAG_CATALOG,
   DEBUG_FEATURE_FLAG_DEFAULTS,
-  DebugFeatureFlagsService,
-} from '@ts-minecraft/app/debug-feature-flags'
+} from '@ts-minecraft/app/application/debug-feature-flags.config'
+import { DebugFeatureFlagsService } from '@ts-minecraft/app/application/debug-feature-flags'
 
 describe('application/debug-feature-flags', () => {
   it.effect('keeps flags session-local and supports mutation/reset helpers', () =>

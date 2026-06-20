@@ -1,6 +1,6 @@
 import { Effect, MutableRef, Option } from 'effect'
 import { describe, expect, it, vi } from 'vitest'
-import { KeyMappings } from '@ts-minecraft/entity'
+import { KeyMappings } from '@ts-minecraft/entity/domain/key-mappings'
 import { resolveJumpExhaustion, resolveMovementExhaustionRate } from './movement-logic'
 import { applySurvivalMovementAndHunger } from './movement'
 

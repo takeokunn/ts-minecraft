@@ -1,14 +1,14 @@
 import { describe, it } from '@effect/vitest'
 import { expect, vi } from 'vitest'
 import { Effect } from 'effect'
-import { VillageStructureId } from '@ts-minecraft/entity'
+import { VillageStructureId } from '@ts-minecraft/entity/domain/village/village-model';
 import { makeTestVillage, makeTestVillageStructure } from './test-utils'
 import {
   buildVillageFoundationPlacements,
   groundVillageStructures,
-  type VillageBlockPlacement,
 } from '../../application/village/village-placement-plan'
 import { buildFoundationPlacementsFromFootprint } from '../../application/village/village-placement-foundation'
+import { type VillageBlockPlacement } from '../../application/village/village-placement-foundation-types'
 import { type VillageSurfaceResolver } from '../../application/village/village-placement-surface'
 
 const makeSurfaceResolver = (heights: Record<string, number>): VillageSurfaceResolver =>
@@ -54,7 +54,7 @@ describe('village/village-placement.plan', () => {
   )
 
   it.effect('caps foundation depth while filling below grounded structures', () =>
-    Effect.gen(function* () {
+    Effect.sync(() => {
       const placements = buildFoundationPlacementsFromFootprint([
         { x: 1, z: 2, surfaceY: 8 },
         { x: 2, z: 2, surfaceY: 6 },

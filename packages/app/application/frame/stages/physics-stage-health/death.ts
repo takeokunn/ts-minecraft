@@ -21,7 +21,6 @@ export const handleDeathOrSurvival = (
     const isDead = yield* services.healthService.isDead()
     if (isDead) {
       yield* services.xpService.reset()
-      yield* services.equipmentService.reset()
       yield* services.fishingService.cancel()
       const isCreative = yield* services.gameMode.isCreative()
       if (isCreative) {

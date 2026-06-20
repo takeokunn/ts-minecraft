@@ -1,14 +1,14 @@
 import { describe, it } from '@effect/vitest'
 import { expect, vi } from 'vitest'
 import { Effect, MutableHashSet, Option } from 'effect'
+import { makeDeps } from '../../../test/frame-handler-test-kit/orchestration/deps'
+import { runFrame } from '../../../test/frame-handler-test-kit/orchestration/harness'
+import { makeInputService } from '../../../test/frame-handler-test-kit/presentation/input'
 import {
-  makeDeps,
-  makeInputService,
   makeInventoryRenderer,
-  makeServices,
   makeSettingsOverlay,
-  runFrame,
-} from '../../../test/frame-handler-test-kit'
+} from '../../../test/frame-handler-test-kit/presentation/overlay'
+import { makeServices } from '../../../test/frame-handler-test-kit/services'
 
 describe('step 7 — redstone dispatch', () => {
   it.effect('placeWire key (KeyR) calls redstoneService.setComponent with Wire type', () => Effect.gen(function* () {

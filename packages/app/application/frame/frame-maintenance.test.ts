@@ -1,18 +1,16 @@
 import { describe, it } from '@effect/vitest'
 import { expect, vi } from 'vitest'
 import { Effect, HashMap, MutableRef, Option } from 'effect'
-import { createFrameHandlers } from '@ts-minecraft/app'
-import { DESPAWN_DISTANCE } from '@ts-minecraft/entity'
+import { createFrameHandlers } from '@ts-minecraft/app/frame-handler'
+import { DESPAWN_DISTANCE } from '@ts-minecraft/entity/domain/mob/spawner-config'
 import { computeMaintenanceDeltaTime } from './frame-maintenance'
 import { splitDirtyChunksForFlush, type DirtyChunkEntry } from './frame-maintenance-dirty'
 import { runMaintenanceSync } from './frame-maintenance-sync'
-import { LIGHT_BYTE_LENGTH, setLightAt } from '@ts-minecraft/block'
+import { LIGHT_BYTE_LENGTH, setLightAt } from '@ts-minecraft/block/domain/light'
 import { CHUNK_HEIGHT, CHUNK_SIZE, type DeltaTimeSecs, type Position } from '@ts-minecraft/core'
 import type { Chunk } from '@ts-minecraft/world'
-import {
-  DEFAULT_SETTINGS,
-  arrangeFrameHarness,
-} from '../../test/frame-handler-test-kit'
+import { arrangeFrameHarness } from '../../test/frame-handler-test-kit/orchestration/harness'
+import { DEFAULT_SETTINGS } from '../../test/frame-handler-test-kit/shared'
 
 const makeMaintenanceSyncState = () => ({
   lastLoadedChunksRef: MutableRef.make<Option.Option<ReadonlyArray<Chunk>>>(Option.none()),

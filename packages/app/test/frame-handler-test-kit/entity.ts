@@ -107,6 +107,39 @@ export const makeFishingService = () => ({
   reset: () => Effect.void,
 }) as unknown as InstanceType<typeof import('@ts-minecraft/entity').FishingService>
 
+/** Creates an empty dropped item service fake. */
+export const makeDroppedItemService = () => ({
+  spawn: (_input: unknown) => Effect.succeed({
+    id: 'fake-dropped-item',
+    itemType: 'DIRT',
+    count: 1,
+    position: { x: 0, y: 64, z: 0 },
+    velocity: { x: 0, y: 0, z: 0 },
+    ageTicks: 0,
+    pickupDelayTicks: 0,
+  }),
+  getAll: () => Effect.succeed([]),
+  collectWithin: (_playerPosition: unknown) => Effect.succeed([]),
+  tick: (_ageDeltaTicks?: unknown) => Effect.void,
+  reset: () => Effect.void,
+}) as unknown as InstanceType<typeof import('@ts-minecraft/entity').DroppedItemService>
+
+/** Creates an empty dropped XP orb service fake. */
+export const makeDroppedXpOrbService = () => ({
+  spawn: (_input: unknown) => Effect.succeed({
+    id: 'fake-dropped-xp-orb',
+    amount: 1,
+    position: { x: 0, y: 64, z: 0 },
+    velocity: { x: 0, y: 0, z: 0 },
+    ageTicks: 0,
+    pickupDelayTicks: 0,
+  }),
+  getAll: () => Effect.succeed([]),
+  collectWithin: (_playerPosition: unknown) => Effect.succeed([]),
+  tick: (_ageDeltaTicks?: unknown) => Effect.void,
+  reset: () => Effect.void,
+}) as unknown as InstanceType<typeof import('@ts-minecraft/entity').DroppedXpOrbService>
+
 /** Creates a survival game mode service fake. */
 export const makeGameMode = () => ({
   get: () => Effect.succeed('survival' as const),
@@ -180,6 +213,7 @@ export const makeEntityManager = () => ({
   feedEntity: (_entityId: unknown) => Effect.succeed(false),
   shearEntity: (_entityId: unknown) => Effect.succeed(Option.none()),
   despawnAllEntities: () => Effect.succeed(0),
+  despawnFarEntities: (_playerPosition: unknown, _maxDistance: unknown) => Effect.succeed(0),
   // Stub that exercises the collision-resolver callback (so isBlockSolid in entity-update-stage runs).
   // The resolver is the output-parameter form: (outPos, outVel, pos, vel) => isGrounded.
   applyPhysics: (_dt: unknown, resolver: unknown) => {
@@ -220,6 +254,7 @@ export const makeRedstoneService = () => ({
   getComponents: () => Effect.succeed([]),
   toggleLever: (_position: unknown) => Effect.succeed(Option.none()),
   pressButton: (_position: unknown, _durationTicks?: unknown) => Effect.succeed(Option.none()),
+  setPressurePlatePressed: (_position: unknown, _pressed: unknown) => Effect.succeed(Option.none()),
   toggleTorch: (_position: unknown) => Effect.succeed(Option.none()),
   getPowerAt: (_position: unknown) => Effect.succeed(0),
   getPowerSnapshot: () => Effect.succeed({ tick: 0, poweredPositions: [] }),

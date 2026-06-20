@@ -7,6 +7,10 @@ import {
   PLAYER_BODY_ID,
 } from '@ts-minecraft/game'
 import { DEFAULT_PLAYER_ID } from '@ts-minecraft/core'
+import { DroppedItemService } from '@ts-minecraft/entity/application/dropped-item-service'
+import { createStack } from '@ts-minecraft/inventory/domain/item-stack'
+import { EquipmentService } from '@ts-minecraft/inventory/application/equipment-service'
+import { InventoryService } from '@ts-minecraft/inventory/application/inventory-service'
 import { createTestInputService, createTestLayer } from './game-state-test-utils'
 
 describe('application/game-state (core)', () => {
@@ -247,6 +251,48 @@ describe('application/game-state (core)', () => {
         expect(grounded).toBe(false)
         expect(afterUpdate.x).toBe(respawnPosition.x)
         expect(afterUpdate.z).toBe(respawnPosition.z)
+      }).pipe(Effect.provide(testLayer))
+    })
+
+    it.effect('should drop survival inventory at the death position before clearing it', () => {
+      const inputService = createTestInputService()
+      const testLayer = createTestLayer(inputService)
+      const deathPosition = { x: 1, y: 6, z: -2 }
+      const respawnPosition = { x: 10, y: 20, z: -5 }
+
+      return Effect.gen(function* () {
+        const service = yield* GameStateService
+        const inventory = yield* InventoryService
+        const equipment = yield* EquipmentService
+        const droppedItems = yield* DroppedItemService
+
+        yield* service.initialize(deathPosition)
+        yield* inventory.addBlock('DIRT', 3)
+        yield* inventory.addBlock('STONE', 2)
+        yield* equipment.equip(createStack('IRON_HELMET'))
+        yield* equipment.equip(createStack('DIAMOND_BOOTS'))
+
+        yield* service.respawn(respawnPosition)
+
+        const drops = yield* droppedItems.getAll()
+        expect(drops).toHaveLength(4)
+        expect(drops.map((drop) => [drop.itemType, drop.count])).toEqual(expect.arrayContaining([
+          ['DIRT', 3],
+          ['STONE', 2],
+          ['IRON_HELMET', 1],
+          ['DIAMOND_BOOTS', 1],
+        ]))
+        expect(drops.every((drop) =>
+          drop.position.x === deathPosition.x &&
+          drop.position.y === deathPosition.y + 0.5 &&
+          drop.position.z === deathPosition.z &&
+          drop.pickupDelayTicks === 40
+        )).toBe(true)
+
+        const slots = yield* inventory.getAllSlots()
+        expect(slots.every((slot) => Option.isNone(slot))).toBe(true)
+        const equipmentSlots = yield* equipment.getAll()
+        expect(Object.values(equipmentSlots).every((slot) => Option.isNone(slot))).toBe(true)
       }).pipe(Effect.provide(testLayer))
     })
   })

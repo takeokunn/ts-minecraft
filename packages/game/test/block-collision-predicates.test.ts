@@ -1,6 +1,19 @@
 import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
-import { DEFAULT_BLOCK_FRICTION, getBlockFrictionAt, isBlockSolid, isInCobweb, isInLadder, isInWater, OFFSETS_3x3 } from '@ts-minecraft/game'
+import {
+  CACTUS_COLLISION_SHAPE,
+  DEFAULT_BLOCK_FRICTION,
+  FULL_BLOCK_COLLISION_SHAPE,
+  PRESSURE_PLATE_COLLISION_SHAPE,
+  SLAB_COLLISION_SHAPE,
+  getBlockCollisionShapeAt,
+  getBlockFrictionAt,
+  isBlockSolid,
+  isInCobweb,
+  isInLadder,
+  isInWater,
+  OFFSETS_3x3,
+} from '@ts-minecraft/game'
 import {
   BLOCK_IDS,
   chunkBlockIndex,
@@ -74,7 +87,7 @@ describe('isBlockSolid', () => {
       expect(isBlockSolid(0, 64, 0, cache, PLAYER_CX, PLAYER_CZ)).toBe(true)
     })
 
-    it('returns true for CACTUS — current cactus collision uses a full solid block', () => {
+    it('returns true for CACTUS so it participates in collision and damage', () => {
       const cache = makeSingleBlockCache(BLOCK_IDS.CACTUS, 0, 64, 0)
       expect(isBlockSolid(0, 64, 0, cache, PLAYER_CX, PLAYER_CZ)).toBe(true)
     })
@@ -82,6 +95,18 @@ describe('isBlockSolid', () => {
     it('returns true for ICE — ice is a solid transparent block', () => {
       const cache = makeSingleBlockCache(BLOCK_IDS.ICE, 0, 64, 0)
       expect(isBlockSolid(0, 64, 0, cache, PLAYER_CX, PLAYER_CZ)).toBe(true)
+    })
+
+    it('returns true for PRESSURE_PLATE so its thin collision shape participates in physics', () => {
+      const cache = makeSingleBlockCache(BLOCK_IDS.PRESSURE_PLATE, 0, 60, 0)
+      expect(isBlockSolid(0, 60, 0, cache, PLAYER_CX, PLAYER_CZ)).toBe(true)
+    })
+
+    it('returns true for basic slab and stair blocks', () => {
+      for (const blockId of [BLOCK_IDS.PURPUR_SLAB, BLOCK_IDS.STONE_SLAB, BLOCK_IDS.OAK_STAIRS]) {
+        const cache = makeSingleBlockCache(blockId, 0, 60, 0)
+        expect(isBlockSolid(0, 60, 0, cache, PLAYER_CX, PLAYER_CZ)).toBe(true)
+      }
     })
   })
 
@@ -110,6 +135,7 @@ describe('isBlockSolid', () => {
       const cache = makeSingleBlockCache(BLOCK_IDS.COBWEB, 0, 60, 0)
       expect(isBlockSolid(0, 60, 0, cache, PLAYER_CX, PLAYER_CZ)).toBe(false)
     })
+
 
     it('SAPLING block is NOT solid (player passes through sapling)', () => {
       const cache = makeSingleBlockCache(BLOCK_IDS.SAPLING, 0, 60, 0)
@@ -149,6 +175,42 @@ describe('isBlockSolid', () => {
       })
       expect(isBlockSolid(WORLD_X, LOCAL_Y, LOCAL_Z, cache, PLAYER_CX, PLAYER_CZ)).toBe(true)
     })
+  })
+})
+
+// ---------------------------------------------------------------------------
+// getBlockCollisionShapeAt
+// ---------------------------------------------------------------------------
+
+describe('getBlockCollisionShapeAt', () => {
+  it('returns full block shape for normal solid blocks', () => {
+    const cache = makeSingleBlockCache(BLOCK_IDS.DIRT, 0, 64, 0)
+    expect(getBlockCollisionShapeAt(0, 64, 0, cache, PLAYER_CX, PLAYER_CZ)).toBe(FULL_BLOCK_COLLISION_SHAPE)
+  })
+
+  it('returns thin cactus shape for CACTUS', () => {
+    const cache = makeSingleBlockCache(BLOCK_IDS.CACTUS, 0, 64, 0)
+    expect(getBlockCollisionShapeAt(0, 64, 0, cache, PLAYER_CX, PLAYER_CZ)).toBe(CACTUS_COLLISION_SHAPE)
+  })
+
+    it('returns one-sixteenth height shape for PRESSURE_PLATE', () => {
+      const cache = makeSingleBlockCache(BLOCK_IDS.PRESSURE_PLATE, 0, 64, 0)
+      expect(getBlockCollisionShapeAt(0, 64, 0, cache, PLAYER_CX, PLAYER_CZ)).toBe(PRESSURE_PLATE_COLLISION_SHAPE)
+    })
+
+    it('returns half-height shape for slab blocks', () => {
+      for (const blockId of [BLOCK_IDS.PURPUR_SLAB, BLOCK_IDS.STONE_SLAB]) {
+        const cache = makeSingleBlockCache(blockId, 0, 64, 0)
+        expect(getBlockCollisionShapeAt(0, 64, 0, cache, PLAYER_CX, PLAYER_CZ)).toBe(SLAB_COLLISION_SHAPE)
+      }
+    })
+
+  it('returns null for passable blocks and unloaded chunks', () => {
+    const waterCache = makeSingleBlockCache(BLOCK_IDS.WATER, 0, 64, 0)
+    const unloadedCache = makeNullChunkCache()
+
+    expect(getBlockCollisionShapeAt(0, 64, 0, waterCache, PLAYER_CX, PLAYER_CZ)).toBeNull()
+    expect(getBlockCollisionShapeAt(0, 64, 0, unloadedCache, PLAYER_CX, PLAYER_CZ)).toBeNull()
   })
 })
 

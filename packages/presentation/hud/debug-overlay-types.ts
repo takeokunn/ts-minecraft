@@ -2,14 +2,14 @@ import type * as Scope from 'effect/Scope'
 import type { Effect } from 'effect'
 import type { BiomeService, ChunkManagerService } from '@ts-minecraft/world'
 import type { GameStateService, TimeService } from '@ts-minecraft/game'
-import type { PlayerCameraStateService } from '@ts-minecraft/entity'
+import type { PlayerCameraStateService } from '@ts-minecraft/entity/application/camera-state'
 import type { FPSCounterService } from '@ts-minecraft/presentation/fps-counter'
 import type {
   DebugFeatureCatalogEntry,
   DebugFeatureFlagGroup,
   DebugFeatureFlagId,
   DebugFeatureFlagsService,
-} from '@ts-minecraft/app/debug-feature-flags'
+} from '@ts-minecraft/app/application/debug-feature-flags'
 
 export type DebugOverlayDeps = {
   readonly biomeService: BiomeService

@@ -1,7 +1,7 @@
 import { Data } from 'effect'
 import type { ChunkCoord } from '@ts-minecraft/core'
 
-export { StorageError } from '@ts-minecraft/block'
+export { StorageError } from '@ts-minecraft/block/domain/errors'
 
 export class ChunkError extends Data.TaggedError('ChunkError')<{
   readonly chunkCoord: ChunkCoord

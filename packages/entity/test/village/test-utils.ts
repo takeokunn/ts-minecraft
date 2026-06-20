@@ -1,17 +1,6 @@
-import {
-  VillageId,
-  VillageStructureId,
-  VillagerId,
-  VillagerProfession,
-  VillagerActivity,
-} from '@ts-minecraft/entity'
-import type {
-  Village,
-  Villager,
-  VillageStructure,
-  VillagerProfession as VillagerProfessionT,
-  VillagerActivity as VillagerActivityT,
-} from '@ts-minecraft/entity'
+import { VillageId, VillagerActivity, VillagerId, VillagerProfession, VillageStructureId } from '@ts-minecraft/entity/domain/village/village-model';
+import type { Village, Villager, VillagerActivity as VillagerActivityT, VillagerProfession as VillagerProfessionT, VillageStructure } from '@ts-minecraft/entity/domain/village/village-model';
+import { Option } from 'effect'
 import type { Position } from '@ts-minecraft/core'
 import type { Chunk } from '@ts-minecraft/world'
 
@@ -86,5 +75,5 @@ export const makeTestVillage = (overrides: VillageOverrides = {}): Village => {
 export const makeTestChunk = (blocks: Chunk['blocks']): Chunk => ({
   coord: { x: 0, z: 0 },
   blocks,
-  dirty: false,
+  fluid: Option.none(),
 })

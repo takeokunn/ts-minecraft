@@ -33,14 +33,14 @@ const sampleOreY = (
 
 // Parallel to ORE_CONFIGS; resolved once at module load to avoid per-chunk blockTypeToIndex calls.
 export const ORE_REGULAR_INDICES: ReadonlyArray<number> = (() => {
-  const indices = new Array<number>(ORE_CONFIGS.length)
+  const indices = Array.from({ length: ORE_CONFIGS.length }) as Array<number>
   for (let i = 0; i < ORE_CONFIGS.length; i++) {
     indices[i] = blockTypeToIndex(`${ORE_CONFIGS[i]!.name}_ORE`)
   }
   return indices
 })()
 export const ORE_DEEPSLATE_INDICES: ReadonlyArray<number> = (() => {
-  const indices = new Array<number>(ORE_CONFIGS.length)
+  const indices = Array.from({ length: ORE_CONFIGS.length }) as Array<number>
   for (let i = 0; i < ORE_CONFIGS.length; i++) {
     indices[i] = blockTypeToIndex(`DEEPSLATE_${ORE_CONFIGS[i]!.name}_ORE`)
   }

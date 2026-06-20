@@ -5,8 +5,8 @@ import {
   blockKey,
   createFluidBuffer,
   encodeFluidCell,
-} from '@ts-minecraft/block'
-import type { FluidCell } from '@ts-minecraft/block'
+} from '@ts-minecraft/block/domain/fluid'
+import type { FluidCell } from '@ts-minecraft/block/domain/fluid-model'
 import { CHUNK_HEIGHT, CHUNK_SIZE, blockIndex, blockTypeToIndex } from '@ts-minecraft/core'
 import type { Position } from '@ts-minecraft/core'
 import type { Chunk } from '../domain/chunk'

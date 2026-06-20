@@ -1,7 +1,7 @@
 import { Schema } from 'effect'
 import { CHUNK_SIZE, CHUNK_HEIGHT } from '@ts-minecraft/core'
 import type { Chunk } from '@ts-minecraft/world'
-import type { LightGrids } from '@ts-minecraft/block'
+import type { LightGrids } from '@ts-minecraft/block/domain/light'
 import {
   ChunkWorldOffset,
   GreedyMeshResult,

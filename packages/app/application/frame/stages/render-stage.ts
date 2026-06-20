@@ -1,7 +1,10 @@
 import { Effect, MutableRef } from 'effect'
 import * as THREE from 'three'
-import type { DebugFeatureFlags } from '@ts-minecraft/app/debug-feature-flags'
-import type { FrameHandlerDeps, FrameHandlerServices, FrameStageRefs, ResolvedDeps } from '@ts-minecraft/app/frame/types'
+import type { DebugFeatureFlags } from '@ts-minecraft/app/application/debug-feature-flags.config'
+import type { FrameHandlerDeps } from '@ts-minecraft/app/application/frame/types/deps'
+import type { ResolvedDeps } from '@ts-minecraft/app/application/frame/types/runtime'
+import type { FrameHandlerServices } from '@ts-minecraft/app/application/frame/types/services'
+import type { FrameStageRefs } from '@ts-minecraft/app/application/frame/types/stage-refs'
 import type { ResolvedGraphics } from '@ts-minecraft/game'
 import { getAttackSwingOffset } from '@ts-minecraft/presentation'
 

@@ -1,0 +1,4 @@
+export const VILLAGE_GRID_SIZE = 96
+export const VILLAGE_NEAR_DISTANCE = 80
+export const TRADE_DISTANCE = 4
+export const VILLAGE_SIMULATION_DISTANCE = 192

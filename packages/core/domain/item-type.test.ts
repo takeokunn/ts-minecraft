@@ -114,6 +114,15 @@ describe('ItemTypeSchema — mob drops', () => {
   })
 })
 
+describe('ItemTypeSchema — crafting components', () => {
+  const CRAFTING_COMPONENTS = ['BOOK'] as const
+
+  it['each'](CRAFTING_COMPONENTS)('accepts crafting component "%s"', (item: (typeof CRAFTING_COMPONENTS)[number]) => {
+    const result = Schema.decodeUnknownEither(ItemTypeSchema)(item)
+    expect(Either.isRight(result)).toBe(true)
+  })
+})
+
 describe('ItemTypeSchema — armor items', () => {
   const LEATHER_ARMOR = [
     'LEATHER_HELMET',

@@ -2,7 +2,7 @@ import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
 import { Schema } from 'effect'
 import { BlockId } from '@ts-minecraft/core'
-import { Block, BlockPropertiesSchema, BlockFaceSchema } from '@ts-minecraft/block'
+import { Block, BlockPropertiesSchema, BlockFaceSchema } from '@ts-minecraft/block/domain/block'
 
 // ---------------------------------------------------------------------------
 // BlockPropertiesSchema

@@ -4,8 +4,8 @@ import {
   FLUID_TICK_BUDGET,
   INITIAL_STATE,
   blockKey,
-} from '@ts-minecraft/block'
-import type { FluidCell, FluidState, FluidType } from '@ts-minecraft/block'
+} from '@ts-minecraft/block/domain/fluid-model'
+import type { FluidCell, FluidState, FluidType } from '@ts-minecraft/block/domain/fluid-model'
 import { CHUNK_SIZE, ChunkCacheKey } from '@ts-minecraft/core'
 import type { Position } from '@ts-minecraft/core'
 import { cacheFromChunks } from '../application/fluid-service-helpers'

@@ -3,13 +3,10 @@ import {
   collectProductionPackageFiles,
   getPackageLayer,
   parseImports,
-  printViolationsAndExit,
   relativeFromRoot,
   stripCommentsAndStrings,
   type Violation,
 } from './check-utils.ts'
-
-const checkName = 'check-data-logic-separation'
 
 const forbiddenDomainRuntimePatterns: ReadonlyArray<{ readonly rule: string; readonly pattern: RegExp; readonly message: string }> = [
   { rule: 'date-in-domain', pattern: /\b(?:Date\.now|new\s+Date)\b/gu, message: 'domain/ must not read wall-clock time; inject time through application/infrastructure ports' },

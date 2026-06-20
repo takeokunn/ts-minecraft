@@ -8,8 +8,6 @@ import type { PhysicsStageServices } from './physics-stage-types/services'
 import type { PhysicsColumnReadError } from './physics-stage-utils'
 import type { Position } from '@ts-minecraft/core'
 
-export type { ApplyPlayerDamage } from './physics-stage-survival/types'
-
 export const applySurvivalEffects = (
   services: PhysicsStageServices,
   refs: PhysicsStageRefs,

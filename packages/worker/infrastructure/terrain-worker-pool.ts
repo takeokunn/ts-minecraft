@@ -269,4 +269,4 @@ export class TerrainWorkerPool extends Effect.Service<TerrainWorkerPool>()(
   },
 ) {}
 
-export { LIGHT_BYTE_LENGTH } from '@ts-minecraft/block'
+export { LIGHT_BYTE_LENGTH } from '@ts-minecraft/block/domain/light'

@@ -1,5 +1,5 @@
 import { Effect } from 'effect'
-import { getLightAt } from '@ts-minecraft/block'
+import { getLightAt } from '@ts-minecraft/block/domain/light'
 import type { Chunk } from '../domain/chunk'
 import type { DirtyVoxel, IncrementalLightResult } from '../domain/light-engine-model'
 import { inLightBounds } from '../domain/light-engine-utils'

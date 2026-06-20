@@ -1,7 +1,7 @@
 import { Option } from 'effect'
 import type { ItemType } from '@ts-minecraft/core'
-import { isArmorItem } from '@ts-minecraft/inventory'
-import { getFoodProperties, type FoodProperties } from '@ts-minecraft/entity'
+import { isArmorItem } from '@ts-minecraft/inventory/domain/armor'
+import { getFoodProperties, type FoodProperties } from '@ts-minecraft/entity/domain/food-resolution'
 
 export type HeldItemUseRoute =
   | { readonly kind: 'fishingRod' }

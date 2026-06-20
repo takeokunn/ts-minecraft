@@ -1,12 +1,6 @@
 import { describe, it } from '@effect/vitest'
-import {
-  PlayerHunger,
-  PlayerHungerInvariant,
-  addExhaustionToHunger,
-  applyExhaustionCascade,
-  eatFood,
-  advanceFoodTimer,
-} from '@ts-minecraft/entity'
+import { PlayerHunger, PlayerHungerInvariant } from '@ts-minecraft/entity/domain/player-hunger'
+import { addExhaustionToHunger, advanceFoodTimer, applyExhaustionCascade, eatFood } from '@ts-minecraft/entity/domain/player-hunger-resolution'
 import { Either, Schema } from 'effect'
 import { expect } from 'vitest'
 

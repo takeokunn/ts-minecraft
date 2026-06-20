@@ -1,7 +1,10 @@
 import { Effect } from 'effect'
 
-import { EquipmentService, InventoryService } from '@ts-minecraft/inventory'
-import { HealthService, HungerService, XPService } from '@ts-minecraft/entity'
+import { EquipmentService } from '@ts-minecraft/inventory/application/equipment-service'
+import { InventoryService } from '@ts-minecraft/inventory/application/inventory-service'
+import { HealthService } from '@ts-minecraft/entity/application/health-service'
+import { HungerService } from '@ts-minecraft/entity/application/hunger-service'
+import { XPService } from '@ts-minecraft/entity/application/xp-service'
 import { CropGrowthService, type WorldMetadata } from '@ts-minecraft/world'
 
 import { buildSessionRestorePlayerState } from './session-restore-player-state'

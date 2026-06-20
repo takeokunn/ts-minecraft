@@ -1,6 +1,6 @@
 import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
-import { applyArmorReduction } from '../../domain/combat'
+import { applyArmorReduction } from '../../domain/combat-resolution'
 import {
   computeShulkerBulletDirection,
   computeShulkerShellDamage,

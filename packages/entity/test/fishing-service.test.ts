@@ -1,8 +1,8 @@
 import { describe, it } from '@effect/vitest'
-import { Effect } from 'effect'
+import { Effect, Option } from 'effect'
 import { expect } from 'vitest'
-import { FishingService } from '@ts-minecraft/entity'
-import { resolveFishingWaitSecs } from '../domain/fishing'
+import { FishingService } from '@ts-minecraft/entity/application/fishing-service'
+import { resolveFishingWaitSecs } from '../domain/fishing-resolution'
 import { expectSome } from './test-utils'
 
 // ─── Test helpers ─────────────────────────────────────────────────────────────
@@ -112,14 +112,16 @@ describe('FishingService — after cast', () => {
 // ─── catch ────────────────────────────────────────────────────────────────────
 
 describe('FishingService — catch', () => {
-  it.effect('tick past targetSecs returns Some(item)', () =>
+  it.effect('tick past targetSecs returns Some(catch result)', () =>
     withFishingService((fs) =>
       Effect.gen(function* () {
         const targetSecs = resolveFishingWaitSecs(TEST_SEED)
         yield* fs.cast(TEST_SEED)
         const result = yield* fs.tick(targetSecs + 0.001)
-        const item = expectSome(result)
-        expect(typeof item).toBe('string')
+        const catchResult = expectSome(result)
+        expect(typeof catchResult.item).toBe('string')
+        expect(catchResult.experience).toBeGreaterThanOrEqual(1)
+        expect(catchResult.experience).toBeLessThanOrEqual(6)
       })
     )
   )

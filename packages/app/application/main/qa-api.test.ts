@@ -3,9 +3,9 @@ import { afterEach, expect, vi } from 'vitest'
 import { Effect, HashMap, Option } from 'effect'
 import * as THREE from 'three'
 import { DeltaTimeSecs, RecipeId, SlotIndex, type InventoryItem, type InventorySaveData } from '@ts-minecraft/core'
-import { EntityId, type Entity } from '@ts-minecraft/entity'
-import type { FurnaceBlockState } from '@ts-minecraft/inventory'
-import { createStack } from '@ts-minecraft/inventory'
+import { EntityId, type Entity } from '@ts-minecraft/entity/domain/mob/entity'
+import type { FurnaceBlockState } from '@ts-minecraft/inventory/domain/furnace-state'
+import { createStack } from '@ts-minecraft/inventory/domain/item-stack'
 import { installQaApi } from '@ts-minecraft/app/main/qa-api'
 import {
   DEBUG_FEATURE_FLAG_CATALOG,
@@ -13,7 +13,7 @@ import {
   type DebugFeatureFlagGroup,
   type DebugFeatureFlagId,
   type DebugFeatureFlags,
-} from '@ts-minecraft/app/debug-feature-flags'
+} from '@ts-minecraft/app/application/debug-feature-flags.config'
 
 type QaInstallDeps = Parameters<typeof installQaApi>[0]
 

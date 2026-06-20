@@ -1,10 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import {
-  CREEPER_IGNITION_RANGE,
-  CREEPER_FUSE_SECONDS,
-  initialCreeperFuse,
-  tickCreeperFuse,
-} from '@ts-minecraft/entity'
+import { CREEPER_FUSE_SECONDS, CREEPER_IGNITION_RANGE, initialCreeperFuse, tickCreeperFuse } from '@ts-minecraft/entity/domain/mob/creeper-fuse';
 
 const creeper = { x: 0, y: 0, z: 0 }
 

@@ -1,6 +1,6 @@
 import { Effect } from 'effect'
 import type { DeltaTimeSecs } from '@ts-minecraft/core'
-import type { FrameInventoryServices } from '@ts-minecraft/app/frame/frame-service-types'
+import type { FrameInventoryServices } from '@ts-minecraft/app/frame/frame-service-types/inventory'
 
 type FurnaceMaintenanceServices = Pick<FrameInventoryServices, 'furnaceService'>
 

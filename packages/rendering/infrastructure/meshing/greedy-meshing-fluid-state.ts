@@ -2,10 +2,14 @@ import { Option } from 'effect'
 import { CHUNK_SIZE, CHUNK_HEIGHT, blockTypeToIndex } from '@ts-minecraft/core'
 import {
   decodeFluidByte,
+} from '@ts-minecraft/block/domain/fluid'
+import {
   maxLevelFor,
-  type FluidCell,
-  type FluidType,
-} from '@ts-minecraft/block'
+} from '@ts-minecraft/block/domain/fluid-position-utils'
+import type {
+  FluidCell,
+  FluidType,
+} from '@ts-minecraft/block/domain/fluid-model'
 import { AIR } from './greedy-meshing-types'
 import { getBlock } from './greedy-meshing-ao'
 import { dequantLight } from './greedy-meshing-passes'

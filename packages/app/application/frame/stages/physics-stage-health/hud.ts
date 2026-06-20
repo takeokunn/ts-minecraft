@@ -1,5 +1,5 @@
 import { Effect, MutableRef } from 'effect'
-import { MAX_FOOD_LEVEL } from '@ts-minecraft/entity'
+import { MAX_FOOD_LEVEL } from '@ts-minecraft/entity/application/hunger-service.config'
 import type { PhysicsColumnReadError } from '../physics-stage-utils'
 import type { PhysicsStageInputs } from '../physics-stage-types/inputs'
 import type { PhysicsStageRefs } from '../physics-stage-types/refs'

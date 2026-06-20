@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import { Effect } from 'effect'
-import { AIState, EntityManager, EntityType } from '@ts-minecraft/entity'
+import { EntityManager } from '@ts-minecraft/entity/application/mob/entity-manager';
+import { EntityType } from '@ts-minecraft/entity/domain/mob/entity';
+import { AIState } from '@ts-minecraft/entity/domain/mob/state-machine';
 import { DeltaTimeSecs } from '@ts-minecraft/core'
 import { expectSome, runWithEntityManager } from './test-utils'
 

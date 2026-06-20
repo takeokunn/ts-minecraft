@@ -8,8 +8,8 @@ import {
   blockKeyFromChunkIndex,
   decodeFluidByte,
   enqueueKey,
-} from '@ts-minecraft/block'
-import type { FluidCell, FluidKey, FluidState, FluidType } from '@ts-minecraft/block'
+} from '@ts-minecraft/block/domain/fluid'
+import type { FluidCell, FluidKey, FluidState, FluidType } from '@ts-minecraft/block/domain/fluid-model'
 import type { Position } from '@ts-minecraft/core'
 
 export const setCell = (state: FluidState, position: Position, cell: FluidCell): FluidState => ({

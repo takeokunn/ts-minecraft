@@ -1,7 +1,7 @@
 import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
-import { Effect, Ref } from 'effect'
-import { performAutoSaveTick } from '@ts-minecraft/app/main/session-autosave'
+import { Duration, Effect, Fiber, Ref, TestClock, TestContext } from 'effect'
+import { performAutoSaveTick, startSessionAutoSaveDaemon } from '@ts-minecraft/app/main/session-autosave'
 
 // The autosave daemon is `Effect.repeat(performAutoSaveTick(...), Schedule.spaced(5s))`.
 // `Effect.repeat` re-runs its effect only while it SUCCEEDS, so each tick must be
@@ -78,5 +78,23 @@ describe('performAutoSaveTick (autosave daemon resilience)', () => {
       // leaving attempts at 1.
       expect(yield* Ref.get(attempts)).toBe(2)
     }),
+  )
+
+  it.effect('starts a repeating daemon that can be advanced and interrupted', () =>
+    Effect.gen(function* () {
+      const ticks = yield* Ref.make(0)
+      const save = Ref.update(ticks, (n) => n + 1)
+
+      const daemon = yield* startSessionAutoSaveDaemon(save, Effect.void, Duration.millis(5))
+
+      yield* Effect.yieldNow()
+      expect(yield* Ref.get(ticks)).toBe(1)
+
+      yield* TestClock.adjust('5 millis')
+      yield* Effect.yieldNow()
+      expect(yield* Ref.get(ticks)).toBe(2)
+
+      yield* Fiber.interrupt(daemon)
+    }).pipe(Effect.provide(TestContext.TestContext)),
   )
 })

@@ -2,7 +2,7 @@ import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
 import { Effect } from 'effect'
 import * as fc from 'effect/FastCheck'
-import { HealthService } from '@ts-minecraft/entity'
+import { HealthService } from '@ts-minecraft/entity/application/health-service';
 
 // ---------------------------------------------------------------------------
 // Property tests for HealthService.processFallDamage

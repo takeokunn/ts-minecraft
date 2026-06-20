@@ -20,7 +20,16 @@ import {
   isTransparentIndex,
   setLightAt,
 } from '../domain/light'
-import { makeChunkBlocks, setChunkBlock } from './chunk-block-test-utils'
+import { makeChunkBlocks, setChunkBlock as setChunkBlockFixture } from './chunk-block-test-utils'
+
+const createChunkBlocks = makeChunkBlocks
+const setChunkBlock = (
+  blocks: Uint8Array,
+  lx: number,
+  y: number,
+  lz: number,
+  blockType: Parameters<typeof setChunkBlockFixture>[1]['blockType'],
+): void => setChunkBlockFixture(blocks, { lx, y, lz, blockType })
 
 // ---------------------------------------------------------------------------
 // isTransparent / emissiveLightLevel
@@ -55,6 +64,10 @@ describe('emissiveLightLevel', () => {
 
   it('GLOWSTONE has emissive level 15', () => {
     expect(emissiveLightLevel('GLOWSTONE')).toBe(15)
+  })
+
+  it('FIRE has emissive level 15', () => {
+    expect(emissiveLightLevel('FIRE')).toBe(15)
   })
 
   // R67: dimmer light sources — each has a distinct vanilla level below 15.
@@ -113,6 +126,10 @@ describe('emissiveLevelByIndex', () => {
 
   it('GLOWSTONE index returns 15', () => {
     expect(emissiveLevelByIndex(blockTypeToIndex('GLOWSTONE'))).toBe(15)
+  })
+
+  it('FIRE index returns 15', () => {
+    expect(emissiveLevelByIndex(blockTypeToIndex('FIRE'))).toBe(15)
   })
 
   it('out-of-bounds index 200 returns 0', () => {

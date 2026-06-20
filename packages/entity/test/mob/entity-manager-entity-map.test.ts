@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { HashMap, Option } from 'effect'
-import { EntityId } from '@ts-minecraft/entity'
+import { EntityId } from '@ts-minecraft/entity/domain/mob/entity';
 import { mapManagedEntities } from '../../application/mob/entity-manager-entity-map'
 import { expectSome } from './test-utils'
 

@@ -1,5 +1,7 @@
-import { TradeOfferId, VillagerProfession } from '@ts-minecraft/entity'
-import type { TradeOffer, VillagerProfession as VillagerProfessionT } from '@ts-minecraft/entity'
+import { TradeOfferId } from '@ts-minecraft/entity/domain/trading/trading-model';
+import { VillagerProfession } from '@ts-minecraft/entity/domain/village/village-model';
+import type { TradeOffer } from '@ts-minecraft/entity/domain/trading/trading-model';
+import type { VillagerProfession as VillagerProfessionT } from '@ts-minecraft/entity/domain/village/village-model';
 import type { InventoryItem } from '@ts-minecraft/core'
 
 type TradeOfferOverrides = Partial<{

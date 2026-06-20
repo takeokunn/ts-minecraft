@@ -1,17 +1,8 @@
 import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
 import { Schema } from 'effect'
-import {
-  VillageId,
-  VillageStructureId,
-  VillagerId,
-  VillageStructureTypeSchema,
-  VillagerProfessionSchema,
-  VillagerActivitySchema,
-  VillagerProfession,
-  VillagerActivity,
-  villagerLevelFromExperience,
-} from '@ts-minecraft/entity'
+import { VillageId, VillagerActivity, VillagerActivitySchema, VillagerId, VillagerProfession, VillagerProfessionSchema, VillageStructureId, VillageStructureTypeSchema } from '@ts-minecraft/entity/domain/village/village-model';
+import { villagerLevelFromExperience } from '@ts-minecraft/entity/domain/village/village-villager-level';
 
 describe('village/village-model', () => {
   describe('villagerLevelFromExperience', () => {

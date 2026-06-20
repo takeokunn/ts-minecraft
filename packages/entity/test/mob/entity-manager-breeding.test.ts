@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { HashMap } from 'effect'
-import { EntityId } from '@ts-minecraft/entity'
+import { EntityId } from '@ts-minecraft/entity/domain/mob/entity';
 import type { ManagedEntity } from '../../domain/mob/entity-internal'
 import { BREED_COOLDOWN_TICKS } from '../../domain/mob/breeding'
 import { resetBreedingParentState } from '../../application/mob/entity-manager-breeding'

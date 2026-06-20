@@ -10,6 +10,7 @@ import {
   makeCompleteWith,
   makeMenuRefs,
   makeOpenDeleteConfirm,
+  makeOpenRenamePrompt,
   makeRefreshLoadList,
   makeSetSubState,
   makeUpdateModeButton,
@@ -177,7 +178,7 @@ describe('presentation/menu/main-menu-handlers', () => {
   it('refreshes the load list with an empty saved-world message', async () => {
     const dom = makeDom()
     const buttons = makeButtons()
-    const refresh = makeRefreshLoadList(dom.service, makeStorage(), buttons, vi.fn(), vi.fn())
+    const refresh = makeRefreshLoadList(dom.service, makeStorage(), buttons, vi.fn(), vi.fn(), vi.fn())
 
     await Effect.runPromise(refresh())
 
@@ -193,7 +194,7 @@ describe('presentation/menu/main-menu-handlers', () => {
     const storage = makeStorage({
       listWorldMetadata: Effect.fail(new StorageError({ operation: 'listWorldMetadata', cause: 'boom' })),
     })
-    const refresh = makeRefreshLoadList(dom.service, storage, buttons, vi.fn(), vi.fn())
+    const refresh = makeRefreshLoadList(dom.service, storage, buttons, vi.fn(), vi.fn(), vi.fn())
 
     await Effect.runPromise(refresh())
 
@@ -208,6 +209,7 @@ describe('presentation/menu/main-menu-handlers', () => {
     const buttons = makeButtons()
     const loadedChoices: MainMenuChoice[] = []
     const deleteRequests: Array<{ readonly worldId: WorldId; readonly label: string }> = []
+    const renameRequests: Array<{ readonly worldId: WorldId; readonly label: string }> = []
     const newerWorldId = WorldId.make('newer')
     const olderWorldId = WorldId.make('older')
     const corruptWorldId = WorldId.make('corrupt')
@@ -226,12 +228,57 @@ describe('presentation/menu/main-menu-handlers', () => {
       buttons,
       (choice) => loadedChoices.push(choice),
       (worldId, label) => deleteRequests.push({ worldId, label }),
+      (worldId, label) => renameRequests.push({ worldId, label }),
     )
 
     await Effect.runPromise(refresh())
 
     expect(dom.setInnerHTML).toHaveBeenCalledWith(buttons.lwList, '')
     expect(dom.createdRows).toHaveLength(3)
+    expect(loadedChoices).toHaveLength(0)
+    expect(deleteRequests).toHaveLength(0)
+    expect(renameRequests).toHaveLength(0)
+  })
+
+  it('renames a saved world display name and refreshes after prompt entry', async () => {
+    const worldId = WorldId.make('alpha')
+    const metadata = makeMetadata(new Date('2026-05-03T00:00:00.000Z'))
+    const loadWorldMetadata = vi.fn(() => Effect.succeed(Option.some(metadata)))
+    const saveWorldMetadata = vi.fn(() => Effect.void)
+    const refreshLoadList = vi.fn(() => Effect.void)
+    const promptForName = vi.fn(() => '  Renamed World  ')
+    const openRenamePrompt = makeOpenRenamePrompt(
+      makeStorage({ loadWorldMetadata, saveWorldMetadata }),
+      refreshLoadList,
+      promptForName,
+    )
+
+    openRenamePrompt(worldId, 'Alpha')
+    await delayForFork()
+
+    expect(promptForName).toHaveBeenCalledWith('Alpha')
+    expect(loadWorldMetadata).toHaveBeenCalledWith(worldId)
+    expect(saveWorldMetadata).toHaveBeenCalledWith(worldId, { ...metadata, displayName: 'Renamed World' })
+    expect(refreshLoadList).toHaveBeenCalledTimes(1)
+  })
+
+  it('does not rename or refresh when prompt is cancelled or blank', async () => {
+    const metadata = makeMetadata(new Date('2026-05-03T00:00:00.000Z'))
+    const loadWorldMetadata = vi.fn(() => Effect.succeed(Option.some(metadata)))
+    const saveWorldMetadata = vi.fn(() => Effect.void)
+    const refreshLoadList = vi.fn(() => Effect.void)
+    const openRenamePrompt = makeOpenRenamePrompt(
+      makeStorage({ loadWorldMetadata, saveWorldMetadata }),
+      refreshLoadList,
+      vi.fn(() => '   '),
+    )
+
+    openRenamePrompt(WorldId.make('alpha'), 'Alpha')
+    await delayForFork()
+
+    expect(loadWorldMetadata).not.toHaveBeenCalled()
+    expect(saveWorldMetadata).not.toHaveBeenCalled()
+    expect(refreshLoadList).not.toHaveBeenCalled()
   })
 
   it('creates a generated world id when confirming with a blank world name', () => {

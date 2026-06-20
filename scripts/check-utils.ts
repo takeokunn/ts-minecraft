@@ -126,7 +126,7 @@ export const readPackageInfos = async (): Promise<ReadonlyArray<PackageInfo>> =>
     }
 
     const dependencies = new Set(
-      Object.entries({ ...(packageJson.dependencies ?? {}), ...(packageJson.devDependencies ?? {}) })
+      Object.entries({ ...packageJson.dependencies, ...packageJson.devDependencies })
         .filter(([, version]) => version === 'workspace:*')
         .map(([dependency]) => dependency),
     )

@@ -9,7 +9,7 @@ import {
   createEntityInstancePool,
   type PartRole,
 } from '@ts-minecraft/rendering'
-import { EntityId, type Entity, type EntityType } from '@ts-minecraft/entity'
+import { EntityId, type Entity, type EntityType } from '@ts-minecraft/entity/domain/mob/entity'
 import { identity } from '@ts-minecraft/core'
 
 // ---------------------------------------------------------------------------

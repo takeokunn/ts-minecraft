@@ -2,8 +2,8 @@ import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
 import { Array as Arr, Effect, HashSet, Option } from 'effect'
 import type { DeltaTimeSecs } from '@ts-minecraft/core'
-import { VillageStructureId, VillagerActivity, VillagerId } from '@ts-minecraft/entity'
-import { VillageService } from '@ts-minecraft/entity'
+import { VillagerActivity, VillagerId, VillageStructureId } from '@ts-minecraft/entity/domain/village/village-model';
+import { VillageService } from '@ts-minecraft/entity/application/village/village-service';
 import { expectSome } from '../test-utils'
 
 const ONE_SECOND = 1 as DeltaTimeSecs

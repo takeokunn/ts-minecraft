@@ -1,6 +1,6 @@
 import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
-import { BIOME_PROPERTIES } from '../application/biome-service.config'
+import { BIOME_PROPERTIES } from './biome-properties'
 import { CHUNK_COLUMN_SAMPLE_COUNT } from './noise-primitives'
 import {
   buildChunkNoiseBatchInputsFromCoords,

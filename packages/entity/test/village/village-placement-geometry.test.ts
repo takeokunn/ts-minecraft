@@ -1,10 +1,7 @@
 import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
-import { VillageStructureId } from '@ts-minecraft/entity'
-import {
-  collectStructureFootprintCells,
-  groundVillageStructure,
-} from '../../domain/village'
+import { VillageStructureId } from '@ts-minecraft/entity/domain/village/village-model'
+import { collectStructureFootprintCells, groundVillageStructure } from '../../domain/village/village-placement-geometry'
 import { makeTestVillageStructure } from './test-utils'
 
 describe('village/village-placement-geometry', () => {

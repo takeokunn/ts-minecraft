@@ -60,6 +60,7 @@ export const makeRedstoneService = () => ({
   getComponents: () => Effect.succeed([]),
   toggleLever: (_position: unknown) => Effect.succeed(Option.none()),
   pressButton: (_position: unknown, _durationTicks?: unknown) => Effect.succeed(Option.none()),
+  setPressurePlatePressed: (_position: unknown, _pressed: unknown) => Effect.succeed(Option.none()),
   toggleTorch: (_position: unknown) => Effect.succeed(Option.none()),
   getPowerAt: (_position: unknown) => Effect.succeed(0),
   getPowerSnapshot: () => Effect.succeed({ tick: 0, poweredPositions: [] }),

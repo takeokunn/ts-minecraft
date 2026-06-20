@@ -1,7 +1,8 @@
 import { describe, expect } from '@effect/vitest'
-import { Effect, Option } from 'effect'
-import { AIState } from '@ts-minecraft/entity'
-import { EntityType, EntityManager } from '@ts-minecraft/entity'
+import { Effect } from 'effect'
+import { AIState } from '@ts-minecraft/entity/domain/mob/state-machine';
+import { EntityManager } from '@ts-minecraft/entity/application/mob/entity-manager';
+import { EntityType } from '@ts-minecraft/entity/domain/mob/entity';
 import { DeltaTimeSecs } from '@ts-minecraft/core'
 import { itEntityManagerEffect, unwrapSome, unwrapSomeEffect } from './test-utils'
 

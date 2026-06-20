@@ -1,5 +1,5 @@
 import { Option } from 'effect'
-import type { FluidCell } from '@ts-minecraft/block'
+import type { FluidCell } from '@ts-minecraft/block/domain/fluid-model'
 import type { BlockType } from '@ts-minecraft/core'
 
 // Lava + water contact (vanilla): the LAVA's source state alone decides the

@@ -29,8 +29,8 @@ describe('block-codec', () => {
       expect(INDEX_TO_BLOCK_TYPE.length).toBe(new Set(INDEX_TO_BLOCK_TYPE).size)
     })
 
-    it('has exactly 89 entries (world-placeable blocks including nether, farming, redstone, furniture, crafting stations, End dimension, End expansion, storage, doors, glowstone, ladder, cobweb, sapling, flowers, mushrooms, grasses, waterside plants, and ice)', () => {
-      expect(INDEX_TO_BLOCK_TYPE.length).toBe(89)
+    it('has exactly 95 entries (world-placeable blocks including nether, farming, redstone, furniture, crafting stations, End dimension, End expansion, storage, doors, glowstone, ladder, cobweb, sapling, flowers, mushrooms, grasses, waterside plants, ice, pressure plate, basic slab, basic stair, anvil, cauldron, and fire)', () => {
+      expect(INDEX_TO_BLOCK_TYPE.length).toBe(95)
     })
 
     it('PLANKS is at index 40', () => {
@@ -69,7 +69,7 @@ describe('block-codec', () => {
       expect(blockTypeToIndex('DOOR_OPEN')).toBe(74)
     })
 
-    it('GLOWSTONE, LADDER, COBWEB, SAPLING, flowers, mushrooms, grasses, waterside plants, and ice are appended at indices 75-88', () => {
+    it('GLOWSTONE, LADDER, COBWEB, SAPLING, flowers, mushrooms, grasses, waterside plants, ice, and pressure plate are appended at indices 75-89', () => {
       expect(INDEX_TO_BLOCK_TYPE[75]).toBe('GLOWSTONE')
       expect(INDEX_TO_BLOCK_TYPE[76]).toBe('LADDER')
       expect(INDEX_TO_BLOCK_TYPE[77]).toBe('COBWEB')
@@ -84,6 +84,7 @@ describe('block-codec', () => {
       expect(INDEX_TO_BLOCK_TYPE[86]).toBe('CACTUS')
       expect(INDEX_TO_BLOCK_TYPE[87]).toBe('LILY_PAD')
       expect(INDEX_TO_BLOCK_TYPE[88]).toBe('ICE')
+      expect(INDEX_TO_BLOCK_TYPE[89]).toBe('PRESSURE_PLATE')
       expect(blockTypeToIndex('GLOWSTONE')).toBe(75)
       expect(blockTypeToIndex('LADDER')).toBe(76)
       expect(blockTypeToIndex('COBWEB')).toBe(77)
@@ -98,6 +99,20 @@ describe('block-codec', () => {
       expect(blockTypeToIndex('CACTUS')).toBe(86)
       expect(blockTypeToIndex('LILY_PAD')).toBe(87)
       expect(blockTypeToIndex('ICE')).toBe(88)
+      expect(blockTypeToIndex('PRESSURE_PLATE')).toBe(89)
+    })
+
+    it('STONE_SLAB, OAK_STAIRS, ANVIL, CAULDRON, and FIRE are appended at indices 90-94', () => {
+      expect(INDEX_TO_BLOCK_TYPE[90]).toBe('STONE_SLAB')
+      expect(INDEX_TO_BLOCK_TYPE[91]).toBe('OAK_STAIRS')
+      expect(INDEX_TO_BLOCK_TYPE[92]).toBe('ANVIL')
+      expect(INDEX_TO_BLOCK_TYPE[93]).toBe('CAULDRON')
+      expect(INDEX_TO_BLOCK_TYPE[94]).toBe('FIRE')
+      expect(blockTypeToIndex('STONE_SLAB')).toBe(90)
+      expect(blockTypeToIndex('OAK_STAIRS')).toBe(91)
+      expect(blockTypeToIndex('ANVIL')).toBe(92)
+      expect(blockTypeToIndex('CAULDRON')).toBe(93)
+      expect(blockTypeToIndex('FIRE')).toBe(94)
     })
 
     it('does not contain inventory-only items', () => {

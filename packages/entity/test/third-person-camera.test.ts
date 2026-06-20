@@ -1,9 +1,9 @@
 import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
 import { Effect, Layer, MutableRef } from 'effect'
-import { PlayerCameraStateService } from '@ts-minecraft/entity'
+import { PlayerCameraStateService } from '@ts-minecraft/entity/application/camera-state';
 import type { CameraTransformPort } from '@ts-minecraft/core'
-import { ThirdPersonCameraService } from '@ts-minecraft/entity'
+import { ThirdPersonCameraService } from '@ts-minecraft/entity/application/third-person-camera-service';
 
 // ---------------------------------------------------------------------------
 // Mock PlayerCameraStateService

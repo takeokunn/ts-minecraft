@@ -1,11 +1,7 @@
 import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
 import { Effect } from 'effect'
-import {
-  MovementService,
-  type MovementInput,
-  DEFAULT_WALK_SPEED,
-} from '@ts-minecraft/entity'
+import { DEFAULT_WALK_SPEED, MovementService, type MovementInput } from '@ts-minecraft/entity/application/movement-service';
 import { createTestInputService, createTestLayers } from './movement-service-test-utils'
 
 describe('MovementService', () => {

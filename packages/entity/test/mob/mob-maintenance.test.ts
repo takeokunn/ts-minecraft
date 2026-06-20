@@ -1,6 +1,7 @@
 import { describe, expect, it } from '@effect/vitest'
 import { Effect, Option } from 'effect'
-import { EntityId, runMobMaintenance } from '@ts-minecraft/entity'
+import { runMobMaintenance } from '@ts-minecraft/entity/application/mob/mob-maintenance';
+import { EntityId } from '@ts-minecraft/entity/domain/mob/entity';
 import { expectSome, makeTerrainChunk } from './test-utils'
 
 type MobMaintenanceServices = Parameters<typeof runMobMaintenance>[0]

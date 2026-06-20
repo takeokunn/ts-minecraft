@@ -60,6 +60,8 @@ export const ItemTypeSchema = Schema.Literal(
   'STRING',
   'SPIDER_EYE',
   'ENDER_PEARL',
+  // Crafting components
+  'BOOK',
   // The End items
   'CHORUS_FRUIT',
   'DRAGON_BREATH',

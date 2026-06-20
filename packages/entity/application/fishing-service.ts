@@ -1,6 +1,5 @@
 import { Effect, Option, Ref } from 'effect'
-import type { ItemType } from '@ts-minecraft/core'
-import { resolveFishingCatch, resolveFishingWaitSecs } from '../domain/fishing'
+import { type FishingCatch, resolveFishingCatchResult, resolveFishingWaitSecs } from '../domain/fishing-resolution'
 
 type FishingState =
   | { readonly _tag: 'idle' }
@@ -29,14 +28,14 @@ export class FishingService extends Effect.Service<FishingService>()(
 
       // Advance the fishing timer. Returns Some(item) when a catch occurs,
       // resetting to idle. Returns None when still waiting or not fishing.
-      tick: (deltaSecs: number): Effect.Effect<Option.Option<ItemType>, never> =>
-        Ref.modify(stateRef, (state): [Option.Option<ItemType>, FishingState] => {
-          if (state._tag === 'idle') return [Option.none(), state]
-          const nextElapsed = state.elapsedSecs + deltaSecs
-          if (nextElapsed >= state.targetSecs) {
-            const caught = resolveFishingCatch(state.seed + Math.floor(nextElapsed * 100), state.luckLevel)
-            return [Option.some(caught), IDLE]
-          }
+            tick: (deltaSecs: number): Effect.Effect<Option.Option<FishingCatch>, never> =>
+              Ref.modify(stateRef, (state): [Option.Option<FishingCatch>, FishingState] => {
+                if (state._tag === 'idle') return [Option.none(), state]
+                const nextElapsed = state.elapsedSecs + deltaSecs
+                if (nextElapsed >= state.targetSecs) {
+                  const caught = resolveFishingCatchResult(state.seed + Math.floor(nextElapsed * 100), state.luckLevel)
+                  return [Option.some(caught), IDLE]
+                }
           return [Option.none(), { ...state, elapsedSecs: nextElapsed }]
         }),
 

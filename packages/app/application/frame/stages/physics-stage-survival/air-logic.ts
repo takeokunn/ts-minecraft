@@ -1,9 +1,11 @@
 import { Option } from 'effect'
-import { MAX_AIR_SECS } from '@ts-minecraft/entity'
-import { enchantmentsOf, getRespirationBonusSecs, type ItemStack } from '@ts-minecraft/inventory'
+import { MAX_AIR_SECS } from '@ts-minecraft/entity/domain/environment-hazard.config'
+import { getRespirationBonusSecs } from '@ts-minecraft/inventory/domain/enchantment'
+import type { Enchantment } from '@ts-minecraft/inventory/domain/enchantment.types'
+import { enchantmentsOf, type ItemStack } from '@ts-minecraft/inventory/domain/item-stack'
 
 export const resolveEffectiveMaxAirSecs = (helmetOpt: Option.Option<ItemStack>): number => {
-  let respirationEnchantment = null
+  let respirationEnchantment: Enchantment | null = null
   for (const enchantment of enchantmentsOf(helmetOpt)) {
     if (enchantment.type === 'RESPIRATION') {
       respirationEnchantment = enchantment

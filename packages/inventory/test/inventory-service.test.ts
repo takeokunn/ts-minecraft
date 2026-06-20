@@ -5,7 +5,7 @@ import {
   HOTBAR_START,
   INVENTORY_SIZE,
   InventoryService,
-} from '@ts-minecraft/inventory'
+} from '@ts-minecraft/inventory/application/inventory-service'
 import { ItemStack, MAX_STACK_SIZE, createStack } from '../domain/item-stack'
 import {
   asSlotIndex,

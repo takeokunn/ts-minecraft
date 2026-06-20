@@ -46,8 +46,6 @@ export default defineConfig({
         '**/index.ts',
         '**/*schemas.ts',
         '**/*ports.ts',
-        'packages/core/domain/errors.ts',
-
         // PURE_TYPE: declarations only; no executable source behavior to cover in Vitest.
         'packages/inventory/domain/furnace-state.ts',
         'packages/world/domain/terrain/generator-types.ts',

@@ -1,5 +1,11 @@
 import { Deferred, Effect, Option, Ref } from 'effect'
-import { PlayerHealth, applyDamageToHealth, healHealth, tickInvincibility, computeFallDamage } from '../domain/player-health'
+import { PlayerHealth } from '../domain/player-health'
+import {
+  applyDamageToHealth,
+  computeFallDamage,
+  healHealth,
+  tickInvincibility,
+} from '../domain/player-health-resolution'
 import { PLAYER_MAX_HEALTH, PLAYER_START_HEALTH } from './health-service.config'
 
 // ─── Types ────────────────────────────────────────────────────────────────────

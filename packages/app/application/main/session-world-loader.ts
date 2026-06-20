@@ -6,7 +6,7 @@ import { GameModeService, type GameMode } from '@ts-minecraft/game'
 import { StorageService } from '@ts-minecraft/world'
 import { CHUNK_SIZE, SEA_LEVEL, WorldId } from '@ts-minecraft/core'
 import { MAX_SEED_VALUE } from '@ts-minecraft/app/main.config'
-import { selectSurfaceSpawn } from '@ts-minecraft/app/main/spawn-selection'
+import { selectSurfaceSpawn } from '@ts-minecraft/app/main/spawn-selection-search'
 import {
   buildFreshWorldState,
   buildLoadedWorldBootstrap,

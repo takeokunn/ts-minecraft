@@ -3,7 +3,7 @@ import { expect } from 'vitest'
 import { Array as Arr } from 'effect'
 import { ARMOR_RECIPES } from '../application/recipes/armor-recipes'
 import type { InventoryItem } from '@ts-minecraft/core'
-import { ARMOR_SLOTS } from '../domain/armor'
+import { ARMOR_SLOTS } from '../domain/armor.config'
 
 // ---------------------------------------------------------------------------
 // Helpers

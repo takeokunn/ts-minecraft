@@ -3,11 +3,10 @@ import { MainLayers } from '@ts-minecraft/app'
 import { PerfHudService } from '@ts-minecraft/rendering'
 import { TerrainWorkerPool } from '@ts-minecraft/worker'
 import { StorageService } from '@ts-minecraft/world'
-import {
-  bootProgram,
-  sessionProgram,
-} from '@ts-minecraft/app'
-import { HungerService, TimeServicePort, InventoryServicePort } from '@ts-minecraft/entity'
+import { bootProgram, sessionProgram } from '@ts-minecraft/app'
+import { HungerService, DroppedItemService } from '@ts-minecraft/entity'
+import { InventoryServicePort } from '@ts-minecraft/entity/domain/inventory-service-port'
+import { TimeServicePort } from '@ts-minecraft/entity/domain/time-service-port'
 import { LoadingScreenService, MainMenuService, setGameplayHudHidden } from '@ts-minecraft/presentation'
 import { WorldId, parseWorldParam, clearWorldParam } from '@ts-minecraft/core'
 import type { BootContext } from '@ts-minecraft/app'
@@ -114,6 +113,7 @@ const mainMenuLoop = (bootCtx: BootContext) =>
 
 const StartupLayers = Layer.mergeAll(
   HungerService.Default,
+  DroppedItemService.Default,
   PerfHudService.Default,
   TerrainWorkerPool.Default,
   TimeServicePort.Default,

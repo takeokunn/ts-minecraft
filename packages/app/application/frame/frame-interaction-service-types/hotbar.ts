@@ -1,4 +1,5 @@
-import type { FrameHudServices, FrameInventoryServices } from '../frame-service-types'
+import type { FrameHudServices } from '../frame-service-types/hud'
+import type { FrameInventoryServices } from '../frame-service-types/inventory'
 
 export type FrameHotbarInputServices = Pick<FrameInventoryServices, 'hotbarService'>
 

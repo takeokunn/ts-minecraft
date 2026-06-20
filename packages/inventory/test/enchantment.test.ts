@@ -2,9 +2,6 @@ import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
 import { Option, Schema } from 'effect'
 import {
-  EnchantmentLevelSchema,
-  EnchantmentSchema,
-  EnchantmentTypeSchema,
   getSharpnessDamageBonus,
   getSmiteDamageBonus,
   getProtectionDamageReduction,
@@ -29,8 +26,13 @@ import {
   isEnchantableItem,
   selectEnchantment,
   enchantXPCost,
-  type EnchantmentLevel,
 } from '../domain/enchantment'
+import {
+  EnchantmentLevelSchema,
+  EnchantmentSchema,
+  EnchantmentTypeSchema,
+  type EnchantmentLevel,
+} from '../domain/enchantment.types'
 
 describe('domain/enchantment', () => {
   describe('schemas', () => {

@@ -2,7 +2,7 @@ import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
 import { Effect, Either, Schema } from 'effect'
 import { CHUNK_SIZE, CHUNK_HEIGHT, ChunkCoordSchema, BlockIndexError } from './chunk-coords'
-import { blockIndex, blockIndexUnsafe, toBlockIndex } from './chunk-coords.fns'
+import { blockIndex, blockIndexUnsafe, toBlockIndex } from './chunk-coords'
 
 // ── Constants ──────────────────────────────────────────────────────────────
 

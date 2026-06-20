@@ -1,8 +1,9 @@
-import { describe, it } from '@effect/vitest'
+import { describe } from '@effect/vitest'
 import { expect } from 'vitest'
 import { Effect } from 'effect'
 import { DeltaTimeSecs } from '@ts-minecraft/core'
-import { EntityManager, EntityType } from '@ts-minecraft/entity'
+import { EntityManager } from '@ts-minecraft/entity/application/mob/entity-manager';
+import { EntityType } from '@ts-minecraft/entity/domain/mob/entity';
 import { itEntityManagerEffect } from './test-utils'
 
 describe('entity/entityManagerLifecycle', () => {

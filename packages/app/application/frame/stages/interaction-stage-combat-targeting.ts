@@ -1,5 +1,5 @@
 import * as THREE from 'three'
-import type { FrameHandlerDeps } from '@ts-minecraft/app/frame/types'
+import type { FrameHandlerDeps } from '@ts-minecraft/app/application/frame/types/deps'
 import type { Position } from '@ts-minecraft/core'
 import { ENTITY_CENTER_Y_OFFSET, PLAYER_ATTACK_RADIUS, PLAYER_ATTACK_REACH } from '@ts-minecraft/app/frame-handler.config'
 

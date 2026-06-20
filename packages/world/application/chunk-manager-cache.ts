@@ -1,7 +1,7 @@
 import { HashSet, HashMap, Schema } from 'effect'
 import { ChunkSchema } from '../domain/chunk'
 import type { ChunkAABB } from '../domain/chunk-aabb'
-import { FLUID_BYTE_LENGTH, createFluidBuffer } from '@ts-minecraft/block'
+import { FLUID_BYTE_LENGTH, createFluidBuffer } from '@ts-minecraft/block/domain/fluid'
 import type { ChunkStorageValue } from '../domain/storage-service-port'
 import type { ChunkCacheKey, WorldId } from '@ts-minecraft/core'
 

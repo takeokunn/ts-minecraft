@@ -3,12 +3,14 @@ import { expect } from 'vitest'
 import { Option } from 'effect'
 import {
   selectEnchantment,
-  enchantXPCost,
   canEnchantItem,
+} from '@ts-minecraft/inventory/domain/enchantment-applicability'
+import {
+  enchantXPCost,
   getSharpnessDamageBonus,
   getProtectionDamageReduction,
-} from '@ts-minecraft/inventory'
-import { createStack, enchantItem } from '@ts-minecraft/inventory'
+} from '@ts-minecraft/inventory/domain/enchantment'
+import { createStack, enchantItem } from '@ts-minecraft/inventory/domain/item-stack'
 
 describe('selectEnchantment', () => {
   it('returns Option.none for non-enchantable items', () => {

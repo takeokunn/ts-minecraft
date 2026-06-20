@@ -101,6 +101,17 @@ export const collectChunkRemovalBatch = (
   return { removalsToProcess, allStaleRemoved: staleCount <= removalsToProcess.length }
 }
 
+export const collectWaterMeshes = (
+  meshes: HashMap.HashMap<ChunkCacheKey, ChunkMeshes>,
+): ReadonlyArray<THREE.Mesh> => {
+  const waterMeshes: Array<THREE.Mesh> = []
+  for (const chunkMeshes of HashMap.values(meshes)) {
+    const waterMesh = Option.getOrNull(chunkMeshes.water)
+    if (waterMesh !== null) waterMeshes.push(waterMesh)
+  }
+  return waterMeshes
+}
+
 type TrackedMeshes = ReadonlyArray<THREE.Mesh>
 
 const appendTrackedMesh = (
@@ -238,9 +249,10 @@ export const syncChunksToScene = (
     let newProcessed = 0
     while (shouldContinueBudgetedChunkSync(newProcessed, newChunkHardCap, nowMs() - addStartMs)) {
       const batchEnd = Math.min(newProcessed + CHUNK_SYNC_CONCURRENCY, newChunkHardCap)
-      const batchChunks: Array<Chunk> = []
-      for (let i = newProcessed; i < batchEnd; i++) {
-        batchChunks.push(newChunks[i]!)
+      const batchSize = batchEnd - newProcessed
+      const batchChunks = Array.from({ length: batchSize }) as Array<Chunk>
+      for (let i = 0; i < batchSize; i++) {
+        batchChunks[i] = newChunks[newProcessed + i]!
       }
       const meshed = yield* Effect.forEach(
         batchChunks,

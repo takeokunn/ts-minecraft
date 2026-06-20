@@ -1,12 +1,12 @@
 import { Layer } from 'effect'
 
 import { ChunkManagerService, ChunkService } from '@ts-minecraft/world'
+import { TerrainWorkerPoolPortLayer } from '@ts-minecraft/worker'
 
 import {
   BiomeLayer,
   NoisePortLayer,
   StoragePortLayer,
-  TerrainWorkerPoolPortLayer,
 } from './infrastructure-bundles'
 import { LightEngineLayer } from './game-logic-light-engine-bundles'
 

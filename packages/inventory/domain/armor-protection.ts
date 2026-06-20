@@ -1,7 +1,7 @@
 import { Option } from 'effect'
 import { getBlastProtectionReduction, getProtectionDamageReduction, getProjectileProtectionReduction } from './enchantment'
 import { findStackEnchantment, type ItemStack } from './item-stack'
-import type { EnchantmentLevel, EnchantmentType } from './enchantment'
+import type { EnchantmentLevel, EnchantmentType } from './enchantment.types'
 
 type ReductionFn = (level: EnchantmentLevel) => number
 

@@ -3,7 +3,6 @@ import { expect } from 'vitest'
 import { Array as Arr, Effect, Layer, Schema } from 'effect'
 import {
   BiomeService,
-  BiomeService,
   BiomeTypeSchema,
   CHUNK_COLUMN_SAMPLE_COUNT,
   NoiseServicePort,

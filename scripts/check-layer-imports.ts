@@ -4,13 +4,9 @@ import {
   collectPackageLayerFiles,
   getPackageLayer,
   parseImports,
-  printViolationsAndExit,
   relativeFromRoot,
-  rootDir,
   type Violation,
 } from './check-utils.ts'
-
-const checkName = 'check-layer-imports'
 
 const forbiddenLayerImports: Readonly<Record<string, ReadonlySet<string>>> = {
   domain: new Set(['application', 'infrastructure', 'presentation']),

@@ -4,10 +4,12 @@ import { PlayerService } from '@ts-minecraft/entity/application/player-service'
 import { MovementService } from '@ts-minecraft/entity/application/movement-service'
 import { PlayerInputService } from '@ts-minecraft/entity/application/player-input-service'
 import { PlayerCameraStateService } from '@ts-minecraft/entity/application/camera-state'
+import { DroppedItemService } from '@ts-minecraft/entity/application/dropped-item-service'
 import { DeltaTimeSecs, PlayerId, Position, PhysicsBodyId, DEFAULT_PLAYER_ID, PLAYER_HALF_WIDTH, PLAYER_HALF_HEIGHT } from '@ts-minecraft/core'
 import { PhysicsService } from './physics-service'
 import { ChunkManagerService } from '@ts-minecraft/world/application/chunk-manager-service'
 import { InventoryService } from '@ts-minecraft/inventory/application/inventory-service'
+import { EquipmentService } from '@ts-minecraft/inventory/application/equipment-service'
 import { GameStateError } from '../domain/errors'
 import { GameModeService } from './game-mode-service'
 import { TimingState, INITIAL_TIMING_STATE } from './game-state.types'
@@ -25,6 +27,27 @@ export { TimingStateSchema } from './game-state.types'
 
 export const PLAYER_BODY_ID = 'player'
 
+const DEATH_DROP_PICKUP_DELAY_TICKS = 40
+const DEATH_DROP_HEIGHT_OFFSET = 0.5
+const DEATH_DROP_SCATTER_SPEED = 0.08
+const DEATH_DROP_UPWARD_SPEED = 0.16
+
+const deathDropPosition = (position: Position): Position => ({
+  x: position.x,
+  y: position.y + DEATH_DROP_HEIGHT_OFFSET,
+  z: position.z,
+})
+
+const deathDropVelocity = (index: number): Position => {
+  const angle = (index % 8) * (Math.PI / 4)
+  const ring = Math.floor(index / 8)
+  return {
+    x: Math.cos(angle) * DEATH_DROP_SCATTER_SPEED,
+    y: DEATH_DROP_UPWARD_SPEED + Math.min(ring, 2) * 0.02,
+    z: Math.sin(angle) * DEATH_DROP_SCATTER_SPEED,
+  }
+}
+
 export class GameStateService extends Effect.Service<GameStateService>()(
   '@minecraft/application/GameStateService',
   {
@@ -36,6 +59,8 @@ export class GameStateService extends Effect.Service<GameStateService>()(
       const chunkManagerService = yield* ChunkManagerService
       const gameModeService = yield* GameModeService
       const inventoryService = yield* InventoryService
+      const equipmentService = yield* EquipmentService
+      const droppedItemService = yield* DroppedItemService
       const inputService = yield* PlayerInputService
       // deltaTime initial value uses a first-frame estimate of 16ms at 60fps
       const timingStateRef = yield* Ref.make<TimingState>(INITIAL_TIMING_STATE)
@@ -101,10 +126,36 @@ export class GameStateService extends Effect.Service<GameStateService>()(
             const playerBodyId = Option.getOrNull(yield* Ref.get(playerBodyIdRef))
             if (playerBodyId === null) return yield* failMissingPhysicsBody('respawn')
 
-            // Mode-aware: in survival, clear inventory on death. Creative preserves inventory.
+            // Mode-aware: survival materializes inventory as world drops. Creative preserves inventory.
             const isSurvival = yield* gameModeService.isSurvival()
             if (isSurvival) {
+              const deathPosition = yield* playerService.getPosition(playerId)
+              const inventorySlots = yield* inventoryService.getAllSlots()
+              const equipmentSlots = yield* equipmentService.getAll()
+              const equipmentStacks = [
+                equipmentSlots.HELMET,
+                equipmentSlots.CHESTPLATE,
+                equipmentSlots.LEGGINGS,
+                equipmentSlots.BOOTS,
+              ]
+              const indexedDrops = [
+                ...inventorySlots.map((slot, index) => ({ slot, index })),
+                ...equipmentStacks.map((slot, index) => ({ slot, index: inventorySlots.length + index })),
+              ]
+              yield* Effect.forEach(indexedDrops, ({ slot, index }) =>
+                Option.match(slot, {
+                  onNone: () => Effect.void,
+                  onSome: (stack) =>
+                    droppedItemService.spawn({
+                      itemType: stack.itemType,
+                      count: stack.count,
+                      position: deathDropPosition(deathPosition),
+                      velocity: deathDropVelocity(index),
+                      pickupDelayTicks: DEATH_DROP_PICKUP_DELAY_TICKS,
+                    }).pipe(Effect.asVoid),
+                }), { concurrency: 1 })
               yield* inventoryService.clear()
+              yield* equipmentService.reset()
             }
 
             yield* syncPlayerTransformAndResetState(

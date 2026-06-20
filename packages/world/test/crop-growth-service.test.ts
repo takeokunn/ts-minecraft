@@ -1,8 +1,8 @@
 import { describe, it } from '@effect/vitest'
 import { Effect } from 'effect'
-import { expect } from 'vitest'
+import { expect, vi } from 'vitest'
 import { CropGrowthService } from '@ts-minecraft/world'
-import { CROP_MAX_AGE, BONE_MEAL_ADVANCE } from '@ts-minecraft/world'
+import { CROP_MAX_AGE } from '@ts-minecraft/world'
 
 // ─── Test helpers ─────────────────────────────────────────────────────────────
 
@@ -121,17 +121,23 @@ describe('CropGrowthService — tickAll', () => {
 // ─── advanceByBoneMeal ───────────────────────────────────────────────────────
 
 describe('CropGrowthService — advanceByBoneMeal', () => {
-  it.effect('bone meal on fresh crop advances it by BONE_MEAL_ADVANCE stages', () =>
+  it.effect('bone meal on fresh crop uses a vanilla growth roll and clamps to ripe age', () =>
     withCropService((cs) =>
       Effect.gen(function* () {
-        yield* cs.plant(at(0, 64, 0))
-        const newAge = yield* cs.advanceByBoneMeal(at(0, 64, 0))
-        expect(newAge).toBe(BONE_MEAL_ADVANCE)
+        const randomSpy = vi.spyOn(Math, 'random').mockReturnValue(0.75)
+        try {
+          yield* cs.plant(at(0, 64, 0))
+          const newAge = yield* cs.advanceByBoneMeal(at(0, 64, 0))
+          expect(randomSpy).toHaveBeenCalledTimes(1)
+          expect(newAge).toBe(CROP_MAX_AGE)
+        } finally {
+          randomSpy.mockRestore()
+        }
       })
     )
   )
 
-  it.effect('bone meal is enough to ripen a fresh crop in one use (BONE_MEAL_ADVANCE ≥ CROP_MAX_AGE)', () =>
+  it.effect('bone meal is enough to ripen a fresh crop in one use', () =>
     withCropService((cs) =>
       Effect.gen(function* () {
         yield* cs.plant(at(0, 64, 0))
@@ -145,20 +151,32 @@ describe('CropGrowthService — advanceByBoneMeal', () => {
   it.effect('bone meal on untracked position returns CROP_MAX_AGE (treats as already ripe)', () =>
     withCropService((cs) =>
       Effect.gen(function* () {
-        const age = yield* cs.advanceByBoneMeal(at(99, 64, 99))
-        expect(age).toBe(CROP_MAX_AGE)
+        const randomSpy = vi.spyOn(Math, 'random').mockReturnValue(0)
+        try {
+          const age = yield* cs.advanceByBoneMeal(at(99, 64, 99))
+          expect(randomSpy).not.toHaveBeenCalled()
+          expect(age).toBe(CROP_MAX_AGE)
+        } finally {
+          randomSpy.mockRestore()
+        }
       })
     )
   )
 
-  it.effect('bone meal clamps at CROP_MAX_AGE even when current + BONE_MEAL_ADVANCE would exceed it', () =>
+  it.effect('bone meal clamps at CROP_MAX_AGE even when the random advance would exceed it', () =>
     withCropService((cs) =>
       Effect.gen(function* () {
-        yield* cs.plant(at(0, 64, 0))
-        yield* cs.tickAll() // age=1
-        const age = yield* cs.advanceByBoneMeal(at(0, 64, 0))
-        expect(age).toBe(CROP_MAX_AGE)
-        expect(age).not.toBeGreaterThan(CROP_MAX_AGE)
+        const randomSpy = vi.spyOn(Math, 'random').mockReturnValue(0.75)
+        try {
+          yield* cs.plant(at(0, 64, 0))
+          yield* cs.tickAll() // age=1
+          const age = yield* cs.advanceByBoneMeal(at(0, 64, 0))
+          expect(randomSpy).toHaveBeenCalledTimes(1)
+          expect(age).toBe(CROP_MAX_AGE)
+          expect(age).not.toBeGreaterThan(CROP_MAX_AGE)
+        } finally {
+          randomSpy.mockRestore()
+        }
       })
     )
   )

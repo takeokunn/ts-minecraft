@@ -1,0 +1,25 @@
+import { makeCameraState, makeChestService, makeDroppedItemService, makeDroppedXpOrbService, makeEntityManager, makeFishingService, makeFirstPersonCamera, makeFurnaceService, makeGameMode, makeGameState, makeHealthService, makeHungerService, makeMobSpawner, makeMusicManager, makeRedstoneService, makeSettingsService, makeSoundManager, makeThirdPersonCamera, makeTimeService, makeVillageService, makeXPService } from '../entity'
+
+export const makeEntityServices = (playerCameraState: ReturnType<typeof makeCameraState>['service']) => ({
+  gameState: makeGameState(),
+  playerCameraState,
+  firstPersonCamera: makeFirstPersonCamera(),
+  thirdPersonCamera: makeThirdPersonCamera(),
+  timeService: makeTimeService(),
+  settingsService: makeSettingsService(),
+  healthService: makeHealthService(),
+  hungerService: makeHungerService(),
+  xpService: makeXPService(),
+  fishingService: makeFishingService(),
+  droppedItemService: makeDroppedItemService(),
+  droppedXpOrbService: makeDroppedXpOrbService(),
+  soundManager: makeSoundManager(),
+  musicManager: makeMusicManager(),
+  entityManager: makeEntityManager(),
+  mobSpawner: makeMobSpawner(),
+  villageService: makeVillageService(),
+  redstoneService: makeRedstoneService(),
+  chestService: makeChestService(),
+  furnaceService: makeFurnaceService(),
+  gameMode: makeGameMode(),
+})

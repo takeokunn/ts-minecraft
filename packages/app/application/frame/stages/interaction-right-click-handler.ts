@@ -1,8 +1,12 @@
 import { Effect, Option } from 'effect'
-import type { FrameHandlerDeps, FrameHandlerServices, FrameStageRefs } from '@ts-minecraft/app/frame/types'
+import type { FrameHandlerDeps } from '@ts-minecraft/app/application/frame/types/deps'
+import type { FrameHandlerServices } from '@ts-minecraft/app/application/frame/types/services'
+import type { FrameStageRefs } from '@ts-minecraft/app/application/frame/types/stage-refs'
 import type { TargetRayHit } from '@ts-minecraft/app/frame/stages/interaction-types'
-import { handleBucket, handleRightClick } from '@ts-minecraft/app/frame/stages/interaction-placement-handler'
+import { handleBucket } from '@ts-minecraft/app/frame/stages/interaction-bucket-handler/bucket-handler'
+import { handleRightClick } from '@ts-minecraft/app/frame/stages/interaction-placement-handler'
 import { handleFeedAnimal } from '@ts-minecraft/app/frame/stages/interaction-item-use-handler/feed-animal'
+import { handleEnderPearlThrow } from '@ts-minecraft/app/frame/stages/interaction-item-use-handler/ender-pearl'
 import { handleFoodConsumption } from '@ts-minecraft/app/frame/stages/interaction-item-use-handler/food-consumption'
 import { handleShearAnimal } from '@ts-minecraft/app/frame/stages/interaction-item-use-handler/shear-animal'
 import { handleFarmingInteraction } from '@ts-minecraft/app/frame/stages/interaction-farming-handler'
@@ -15,6 +19,7 @@ export type RightClickPriorityHandlers = {
   readonly shearAnimal: () => Effect.Effect<boolean, never>
   readonly feedAnimal: () => Effect.Effect<boolean, never>
   readonly consumeFood: () => Effect.Effect<boolean, never>
+  readonly enderPearl: () => Effect.Effect<boolean, never>
   readonly farm: () => Effect.Effect<boolean, never>
   readonly bucket: () => Effect.Effect<boolean, never>
   readonly ignite: () => Effect.Effect<boolean, never>
@@ -33,6 +38,7 @@ export const handleRightClickPriority = (
     if (yield* handlers.shearAnimal()) return
     if (yield* handlers.feedAnimal()) return
     if (yield* handlers.consumeFood()) return
+    if (yield* handlers.enderPearl()) return
     if (yield* handlers.farm()) return
     if (yield* handlers.bucket()) return
     if (yield* handlers.ignite()) return
@@ -65,6 +71,7 @@ export const handleRightClickPriorityFromContext = (
     | 'cropGrowthService'
     | 'fluidService'
     | 'gameMode'
+    | 'redstoneService'
   >,
   refs: Pick<FrameStageRefs, 'dirtyChunksRef'>,
   context: RightClickPriorityContext,
@@ -73,6 +80,7 @@ export const handleRightClickPriorityFromContext = (
     if (yield* handleShearAnimal(deps, services)) return
     if (yield* handleFeedAnimal(deps, services)) return
     if (yield* handleFoodConsumption(services)) return
+    if (yield* handleEnderPearlThrow(deps, services, { targetHit: context.targetHit })) return
     if (yield* handleFarmingInteraction(services, refs, { targetHit: context.targetHit })) return
     if (yield* handleBucket(services, refs, { targetHit: context.targetHit })) return
 

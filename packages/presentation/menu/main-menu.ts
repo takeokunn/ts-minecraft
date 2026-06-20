@@ -11,6 +11,7 @@ import {
   makeUpdateModeButton,
   makeCompleteWith,
   makeRefreshLoadList,
+  makeOpenRenamePrompt,
   makeOpenDeleteConfirm,
   makeClickHandlers,
 } from './main-menu-handlers'
@@ -57,6 +58,10 @@ export class MainMenuService extends Effect.Service<MainMenuService>()(
         confirmDialog,
         () => refreshLoadList(),
       )
+      const openRenamePrompt = makeOpenRenamePrompt(
+        storageService,
+        () => refreshLoadList(),
+      )
 
       const refreshLoadList = makeRefreshLoadList(
         dom,
@@ -64,6 +69,7 @@ export class MainMenuService extends Effect.Service<MainMenuService>()(
         buttons,
         completeWith,
         openDeleteConfirm,
+        openRenamePrompt,
       )
 
       const handlers = makeClickHandlers(

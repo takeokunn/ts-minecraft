@@ -1,6 +1,6 @@
 import { describe, expect, it } from '@effect/vitest'
 import { Effect, HashMap, Option, Ref } from 'effect'
-import { EntityId, EntityType, type Entity } from '@ts-minecraft/entity'
+import { EntityId, EntityType, type Entity } from '@ts-minecraft/entity/domain/mob/entity';
 import { makeEntityManagerMutations } from '../../application/mob/entity-manager-entity-mutation'
 import type { ManagedEntity } from '../../domain/mob/entity-internal'
 import { expectSome, makeTestManagedEntity } from './test-utils'

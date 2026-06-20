@@ -1,19 +1,17 @@
 import { describe, it } from '@effect/vitest'
 import { expect, vi } from 'vitest'
 import { Effect, MutableHashSet, MutableRef } from 'effect'
-import { KeyMappings, ThirdPersonCameraService } from '@ts-minecraft/entity'
+import { KeyMappings } from '@ts-minecraft/entity/domain/key-mappings'
+import { ThirdPersonCameraService } from '@ts-minecraft/entity/application/third-person-camera-service'
+import { makeDeps, makeCamera, makeLights } from '../../../test/frame-handler-test-kit/orchestration/deps'
+import { runFrame } from '../../../test/frame-handler-test-kit/orchestration/harness'
+import { makeCameraState, makeFirstPersonCamera } from '../../../test/frame-handler-test-kit/entity'
+import { makeInputService } from '../../../test/frame-handler-test-kit/presentation/input'
 import {
-  makeDeps,
-  makeCamera,
-  makeLights,
-  makeCameraState,
-  makeFirstPersonCamera,
-  makeInputService,
   makeInventoryRenderer,
-  makeServices,
   makeSettingsOverlay,
-  runFrame,
-} from '../../../test/frame-handler-test-kit'
+} from '../../../test/frame-handler-test-kit/presentation/overlay'
+import { makeServices } from '../../../test/frame-handler-test-kit/services'
 import { cameraStage } from '@ts-minecraft/app/frame/stages/camera-stage'
 
 // ---------------------------------------------------------------------------

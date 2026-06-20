@@ -1,6 +1,6 @@
 import { Option } from 'effect'
 import type { InventoryItem } from '@ts-minecraft/core'
-import type { ArmorSlot } from '../domain/armor'
+import type { ArmorSlot } from '../domain/armor.config'
 import { type ItemStack, createStack } from '../domain/item-stack'
 import type { EquipmentSlots } from './equipment-service-types'
 

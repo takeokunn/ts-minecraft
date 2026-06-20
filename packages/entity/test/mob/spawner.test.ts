@@ -1,7 +1,11 @@
 import { describe, expect, it } from '@effect/vitest'
 import { Array as Arr, Effect, Layer, Option } from 'effect'
-import { TimeServicePort } from '../../domain/ports'
-import { HOSTILE_MOBS, PASSIVE_MOBS, SPAWN_INTERVAL_SECS, type EntityId, EntityManager, MobSpawner } from '@ts-minecraft/entity'
+import { TimeServicePort } from '../../domain/time-service-port'
+import { EntityManager } from '@ts-minecraft/entity/application/mob/entity-manager';
+import { MobSpawner } from '@ts-minecraft/entity/application/mob/spawner';
+import { type EntityId } from '@ts-minecraft/entity/domain/mob/entity';
+import { HOSTILE_MOBS, PASSIVE_MOBS } from '@ts-minecraft/entity/domain/mob/mob-categories';
+import { SPAWN_INTERVAL_SECS } from '@ts-minecraft/entity/domain/mob/spawner-config';
 import { expectSome } from './test-utils'
 
 const makeTimeLayer = (night: boolean) =>

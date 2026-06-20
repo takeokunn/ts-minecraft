@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { Option } from 'effect'
-import { fullChunkAABB, unionAABB, type ChunkAABB } from '../domain/chunk-aabb'
+import { fullChunkAABB, type ChunkAABB } from '../domain/chunk-aabb'
 import {
   dirtyAABBFromVoxels,
   dirtyOffsets,

@@ -1,6 +1,8 @@
 import { Effect } from 'effect'
-import type { DebugFeatureFlags } from '@ts-minecraft/app/debug-feature-flags'
-import type { FrameHandlerDeps, FrameHandlerServices, FrameStageRefs } from '@ts-minecraft/app/frame/types'
+import type { DebugFeatureFlags } from '@ts-minecraft/app/application/debug-feature-flags.config'
+import type { FrameHandlerDeps } from '@ts-minecraft/app/application/frame/types/deps'
+import type { FrameHandlerServices } from '@ts-minecraft/app/application/frame/types/services'
+import type { FrameStageRefs } from '@ts-minecraft/app/application/frame/types/stage-refs'
 import type { InteractionStageIntent } from '@ts-minecraft/app/frame/stages/interaction-stage-intent'
 import type { InteractionStageSnapshot } from '@ts-minecraft/app/frame/stages/interaction-stage-snapshot'
 import { runInteractionStageCombatActions } from '@ts-minecraft/app/frame/stages/interaction-stage-combat-actions'
@@ -36,6 +38,8 @@ export const runInteractionStageActions = (
     | 'multiplayer'
     | 'gameMode'
     | 'particleSystem'
+    | 'droppedItemService'
+    | 'droppedXpOrbService'
   >,
   refs: Pick<
     FrameStageRefs,

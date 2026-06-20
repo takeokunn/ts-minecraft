@@ -1,5 +1,5 @@
 import { Match } from 'effect'
-import type { TradeResult } from '@ts-minecraft/entity'
+import type { TradeResult } from '@ts-minecraft/entity/domain/trading/trading-model'
 
 export const normalizeSelection = (length: number, index: number): number => {
   if (length <= 0) {

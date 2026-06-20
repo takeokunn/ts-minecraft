@@ -1,5 +1,5 @@
 import { Effect, Option } from 'effect'
-import type { FrameUnequipArmorInteractionServices } from '@ts-minecraft/app/frame/frame-interaction-service-types'
+import type { FrameUnequipArmorInteractionServices } from '@ts-minecraft/app/frame/frame-interaction-service-types/unequip-armor'
 
 export const handleUnequipArmor = (
   services: FrameUnequipArmorInteractionServices,

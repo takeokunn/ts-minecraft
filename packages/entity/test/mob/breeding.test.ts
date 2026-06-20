@@ -1,20 +1,23 @@
 import { describe, it, expect } from 'vitest'
 import {
-  canAcceptBreedingFood,
-  isBreedingPair,
-  tickBreedingTimers,
-  isAdult,
-  isInLove,
-  ADULT_BREEDING_STATE,
-  newbornBreedingState,
-  afterBreedingParentState,
-  findBreedingPairs,
-  isBaby,
   acceleratedBabyAge,
+  ADULT_BREEDING_STATE,
+  afterBreedingParentState,
   BABY_GROW_TICKS,
-  LOVE_DURATION_TICKS,
   BREED_COOLDOWN_TICKS,
-} from '@ts-minecraft/entity'
+  BREED_XP_MAX_REWARD,
+  BREED_XP_MIN_REWARD,
+  canAcceptBreedingFood,
+  findBreedingPairs,
+  isAdult,
+  isBaby,
+  isBreedingPair,
+  isInLove,
+  LOVE_DURATION_TICKS,
+  newbornBreedingState,
+  resolveBreedingExperience,
+  tickBreedingTimers,
+} from '@ts-minecraft/entity/domain/mob/breeding'
 
 describe('breeding domain (R6b)', () => {
   describe('canAcceptBreedingFood', () => {
@@ -76,6 +79,19 @@ describe('breeding domain (R6b)', () => {
       let s = newbornBreedingState()
       for (let i = 0; i < BABY_GROW_TICKS; i++) s = tickBreedingTimers(s, 1)
       expect(isAdult(s.ageTicks)).toBe(true)
+    })
+  })
+
+  describe('resolveBreedingExperience', () => {
+    it('maps breeding XP rolls to the vanilla 1-7 inclusive range', () => {
+      expect(resolveBreedingExperience(0)).toBe(BREED_XP_MIN_REWARD)
+      expect(resolveBreedingExperience(0.999_999)).toBe(BREED_XP_MAX_REWARD)
+      expect(resolveBreedingExperience(1)).toBe(BREED_XP_MAX_REWARD)
+    })
+
+    it('clamps invalid rolls to the minimum reward', () => {
+      expect(resolveBreedingExperience(Number.NaN)).toBe(BREED_XP_MIN_REWARD)
+      expect(resolveBreedingExperience(-1)).toBe(BREED_XP_MIN_REWARD)
     })
   })
 

@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { MetersPerSec } from '@ts-minecraft/core'
-import { computeFlightVerticalVelocity, nextFlightState, DEFAULT_FLY_VERTICAL_SPEED } from '@ts-minecraft/entity/domain/flight'
+import { DEFAULT_FLY_VERTICAL_SPEED } from '@ts-minecraft/entity/domain/flight'
+import { computeFlightVerticalVelocity, nextFlightState } from '@ts-minecraft/entity/domain/flight-resolution'
 
 describe('computeFlightVerticalVelocity', () => {
   const s = MetersPerSec.toNumber(DEFAULT_FLY_VERTICAL_SPEED)

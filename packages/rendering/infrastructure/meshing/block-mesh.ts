@@ -49,26 +49,32 @@ export class BlockMeshService extends Effect.Service<BlockMeshService>()(
 
         disposeMesh: (mesh: THREE.Mesh): Effect.Effect<void, never> =>
           Effect.gen(function* () {
-            if (mesh.material) {
-              const materials: ReadonlyArray<THREE.Material> = Array.isArray(mesh.material)
-                ? mesh.material
-                : [mesh.material]
-              yield* Effect.forEach(
-                materials,
-                (mat) =>
-                  Effect.gen(function* () {
-                    const cache = yield* Ref.get(materialCache)
-                    let cached = false
-                    for (const [, cachedMaterial] of cache) {
-                      if (cachedMaterial !== mat) continue
-                      cached = true
-                      break
-                    }
-                    if (!cached) yield* Effect.sync(() => mat.dispose())
-                  }),
-                { concurrency: 1 }
-              )
-            }
+            const material = mesh.material
+            if (!material) return
+
+            const cache = yield* Ref.get(materialCache)
+            yield* Effect.sync(() => {
+              if (Array.isArray(material)) {
+                for (const mat of material) {
+                  let cached = false
+                  for (const [, cachedMaterial] of cache) {
+                    if (cachedMaterial !== mat) continue
+                    cached = true
+                    break
+                  }
+                  if (!cached) mat.dispose()
+                }
+                return
+              }
+
+              let cached = false
+              for (const [, cachedMaterial] of cache) {
+                if (cachedMaterial !== material) continue
+                cached = true
+                break
+              }
+              if (!cached) material.dispose()
+            })
           }),
 
         disposeAll: (): Effect.Effect<void, never> =>

@@ -162,14 +162,14 @@ describe('decideAdaptiveQuality', () => {
     expect(result).toBe(4)
   })
 
-  it('returns no patch when fps is at/above the threshold', () => {
-    const result = decideAdaptiveQuality(makeAdaptiveInput({ fps: 120, cooldown: 0 }))
+  it('returns no patch when fps is in the threshold deadband', () => {
+    const result = decideAdaptiveQuality(makeAdaptiveInput({ fps: 55, cooldown: 0 }))
     expect(result).toBe(0)
   })
 
-  it('does NOT degrade a smooth ~60fps experience (regression: old 110 threshold forced 60Hz users to the floor)', () => {
+  it('does NOT degrade a smooth near-60fps experience (regression: old 110 threshold forced 60Hz users to the floor)', () => {
     const result = decideAdaptiveQuality(
-      makeAdaptiveInput({ graphicsQuality: 'medium', renderDistance: 8, fps: 60, cooldown: 0 }),
+      makeAdaptiveInput({ graphicsQuality: 'medium', renderDistance: 8, fps: 59, cooldown: 0 }),
     )
     expect(result).toBe(0)
   })
@@ -211,6 +211,25 @@ describe('decideAdaptiveQuality', () => {
 
   it('does nothing when at low quality and renderDistance <= 4', () => {
     const result = decideAdaptiveQuality(makeAdaptiveInput({ graphicsQuality: 'low', renderDistance: 4, fps: 30 }))
+    expect(result).toBe(0)
+  })
+
+  it('increases renderDistance when fps is comfortably above the threshold', () => {
+    const result = decideAdaptiveQuality(makeAdaptiveInput({ graphicsQuality: 'low', renderDistance: 6, fps: 120 }))
+    if (typeof result === 'number') throw new Error('expected patch')
+    expect(result.settingsPatch.renderDistance).toBe(7)
+    expect(result.nextCooldown).toBe(20)
+  })
+
+  it('raises graphicsQuality after renderDistance has recovered', () => {
+    const result = decideAdaptiveQuality(makeAdaptiveInput({ graphicsQuality: 'medium', renderDistance: 8, fps: 120 }))
+    if (typeof result === 'number') throw new Error('expected patch')
+    expect(result.settingsPatch.graphicsQuality).toBe('high')
+    expect(result.nextCooldown).toBe(20)
+  })
+
+  it('does not auto-raise graphicsQuality beyond high', () => {
+    const result = decideAdaptiveQuality(makeAdaptiveInput({ graphicsQuality: 'high', renderDistance: 8, fps: 120 }))
     expect(result).toBe(0)
   })
 })

@@ -123,6 +123,8 @@ export const NON_PLACEABLE_ITEM_TYPES: HashSet.HashSet<InventoryItem> = HashSet.
   'ENDER_EYE',
   'POPPED_CHORUS_FRUIT',
   'SHULKER_SHELL',
+  // Crafting/reading item — not placeable as a block.
+  'BOOK',
 ])
 
 export const INVENTORY_DROP_OVERRIDES: HashMap.HashMap<BlockType, InventoryItem> = HashMap.fromIterable<BlockType, InventoryItem>([
@@ -159,6 +161,13 @@ export const INVENTORY_DROP_OVERRIDES: HashMap.HashMap<BlockType, InventoryItem>
 
 export const getInventoryDropForBlock = (blockType: BlockType): InventoryItem =>
   Option.getOrElse(HashMap.get(INVENTORY_DROP_OVERRIDES, blockType), () => blockType)
+
+const NO_BASE_DROP_BLOCK_TYPES: HashSet.HashSet<BlockType> = HashSet.fromIterable<BlockType>([
+  'ICE',
+])
+
+export const blockDropsBaseItem = (blockType: BlockType): boolean =>
+  !HashSet.has(NO_BASE_DROP_BLOCK_TYPES, blockType)
 
 // R24: base (Fortune-independent) drop count per broken block. Vanilla drops
 // multiple units from redstone (4-5) and lapis (4-9) ores; everything else

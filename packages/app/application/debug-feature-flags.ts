@@ -1,5 +1,4 @@
 import { Effect, MutableRef } from 'effect'
-import type { DebugFeatureFlagGroup } from './debug-feature-flags.types'
 import {
   DEBUG_FEATURE_FLAG_CATALOG,
   DEBUG_FEATURE_FLAG_DEFAULTS,
@@ -7,19 +6,16 @@ import {
   type DebugFeatureFlags,
   type DebugFeatureSnapshot,
 } from './debug-feature-flags.config'
+import type { DebugFeatureFlagGroup } from './debug-feature-flags.types'
 
-export type { DebugFeatureFlagGroup } from './debug-feature-flags.types'
-export type { DebugFeatureBadge, DebugFeatureCatalogShape } from './debug-feature-flags.types'
-export {
-  DEBUG_FEATURE_FLAG_CATALOG,
-  DEBUG_FEATURE_FLAG_DEFAULTS,
-} from './debug-feature-flags.config'
+export { DEBUG_FEATURE_FLAG_CATALOG, DEBUG_FEATURE_FLAG_DEFAULTS } from './debug-feature-flags.config'
 export type {
   DebugFeatureCatalogEntry,
   DebugFeatureFlagId,
   DebugFeatureFlags,
   DebugFeatureSnapshot,
 } from './debug-feature-flags.config'
+export type { DebugFeatureBadge, DebugFeatureFlagGroup } from './debug-feature-flags.types'
 
 export class DebugFeatureFlagsService extends Effect.Service<DebugFeatureFlagsService>()(
   '@minecraft/application/DebugFeatureFlagsService',

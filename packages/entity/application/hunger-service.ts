@@ -1,12 +1,14 @@
 import { Effect, Ref } from 'effect'
 import {
   PlayerHunger,
-  addExhaustionToHunger,
-  eatFood,
-  advanceFoodTimer,
   type HungerState,
   type HungerTickEffect,
 } from '../domain/player-hunger'
+import {
+  addExhaustionToHunger,
+  advanceFoodTimer,
+  eatFood,
+} from '../domain/player-hunger-resolution'
 import {
   FOOD_TICK_INTERVAL,
   MAX_EXHAUSTION,
@@ -34,49 +36,49 @@ export class HungerService extends Effect.Service<HungerService>()(
     effect: Effect.gen(function* () {
       const stateRef = yield* Ref.make<HungerState>(INITIAL_STATE)
       return {
-      getHunger: (): Effect.Effect<PlayerHunger, never> =>
-        Effect.gen(function* () {
-          const s = yield* Ref.get(stateRef)
-          return s.hunger
-        }),
+        getHunger: (): Effect.Effect<PlayerHunger, never> =>
+          Effect.gen(function* () {
+            const s = yield* Ref.get(stateRef)
+            return s.hunger
+          }),
 
-      // Accumulate exhaustion from an action (sprinting, jumping, attacking, …).
-      addExhaustion: (amount: number): Effect.Effect<void, never> =>
-        Ref.update(stateRef, (s) => ({
-          ...s,
-          hunger: addExhaustionToHunger(s.hunger, amount, MAX_EXHAUSTION),
-        })),
+        // Accumulate exhaustion from an action (sprinting, jumping, attacking, …).
+        addExhaustion: (amount: number): Effect.Effect<void, never> =>
+          Ref.update(stateRef, (s) => ({
+            ...s,
+            hunger: addExhaustionToHunger(s.hunger, amount, MAX_EXHAUSTION),
+          })),
 
-      // Consume a food item: food drumsticks restored, saturationModifier
-      // is the item's vanilla saturation modifier (e.g. 0.6 for bread).
-      eat: (food: number, saturationModifier: number): Effect.Effect<void, never> =>
-        Ref.update(stateRef, (s) => ({
-          ...s,
-          hunger: eatFood(s.hunger, food, saturationModifier, MAX_FOOD_LEVEL),
-        })),
+        // Consume a food item: food drumsticks restored, saturationModifier
+        // is the item's vanilla saturation modifier (e.g. 0.6 for bread).
+        eat: (food: number, saturationModifier: number): Effect.Effect<void, never> =>
+          Ref.update(stateRef, (s) => ({
+            ...s,
+            hunger: eatFood(s.hunger, food, saturationModifier, MAX_FOOD_LEVEL),
+          })),
 
-      // Advance one game tick; returns the regen/starve signal for the caller to
-      // apply to HealthService. `canRegen` must be true only when the player is below
-      // max health (vanilla: regen and its food cost only happen while healing).
-      // Atomic: timer advance and effect decision are one write.
-      tick: (canRegen: boolean): Effect.Effect<HungerTickEffect, never> =>
-        Ref.modify(stateRef, (s) =>
-          advanceFoodTimer(s, FOOD_TICK_INTERVAL, REGEN_FOOD_THRESHOLD, EXHAUSTION_PER_REGEN, MAX_EXHAUSTION, canRegen)
-        ),
+        // Advance one game tick; returns the regen/starve signal for the caller to
+        // apply to HealthService. `canRegen` must be true only when the player is below
+        // max health (vanilla: regen and its food cost only happen while healing).
+        // Atomic: timer advance and effect decision are one write.
+        tick: (canRegen: boolean): Effect.Effect<HungerTickEffect, never> =>
+          Ref.modify(stateRef, (s) =>
+            advanceFoodTimer(s, FOOD_TICK_INTERVAL, REGEN_FOOD_THRESHOLD, EXHAUSTION_PER_REGEN, MAX_EXHAUSTION, canRegen)
+          ),
 
-      reset: (): Effect.Effect<void, never> =>
-        Ref.set(stateRef, INITIAL_STATE),
+        reset: (): Effect.Effect<void, never> =>
+          Ref.set(stateRef, INITIAL_STATE),
 
-      // Restore persisted hunger (e.g. on world load). Clamps to valid bounds and
-      // enforces the saturation≤foodLevel invariant; resets exhaustion + tick timer.
-      restore: (foodLevel: number, saturation: number): Effect.Effect<void, never> => {
-        const clampedFood = Math.max(0, Math.min(MAX_FOOD_LEVEL, Math.floor(foodLevel)))
-        const clampedSat = Math.max(0, Math.min(clampedFood, saturation))
-        return Ref.set(stateRef, {
-          hunger: new PlayerHunger({ foodLevel: clampedFood, saturation: clampedSat, exhaustion: 0 }),
-          tickTimer: 0,
-        })
-      },
+        // Restore persisted hunger (e.g. on world load). Clamps to valid bounds and
+        // enforces the saturation≤foodLevel invariant; resets exhaustion + tick timer.
+        restore: (foodLevel: number, saturation: number): Effect.Effect<void, never> => {
+          const clampedFood = Math.max(0, Math.min(MAX_FOOD_LEVEL, Math.floor(foodLevel)))
+          const clampedSat = Math.max(0, Math.min(clampedFood, saturation))
+          return Ref.set(stateRef, {
+            hunger: new PlayerHunger({ foodLevel: clampedFood, saturation: clampedSat, exhaustion: 0 }),
+            tickTimer: 0,
+          })
+        },
       }
     }),
   }

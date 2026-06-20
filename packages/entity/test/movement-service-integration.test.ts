@@ -1,11 +1,5 @@
 import { describe,it } from '@effect/vitest'
-import {
-  DEFAULT_JUMP_VELOCITY,
-  DEFAULT_SPRINT_SPEED,
-  DEFAULT_WALK_SPEED,
-  MovementService,
-  SPRINT_JUMP_HORIZONTAL_MULTIPLIER
-} from '@ts-minecraft/entity'
+import { DEFAULT_JUMP_VELOCITY, DEFAULT_SPRINT_SPEED, DEFAULT_WALK_SPEED, MovementService, SPRINT_JUMP_HORIZONTAL_MULTIPLIER } from '@ts-minecraft/entity/application/movement-service';
 import { Array as Arr,Effect,Ref } from 'effect'
 import { expect } from 'vitest'
 import { createTestInputService,createTestLayers } from './movement-service-test-utils'

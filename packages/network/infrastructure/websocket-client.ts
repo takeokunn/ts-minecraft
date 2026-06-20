@@ -1,4 +1,4 @@
-import { Effect, Stream } from 'effect'
+import { Effect } from 'effect'
 import { NetworkError } from '../domain/errors'
 import type { WebSocketClientHandle, WebSocketClientPort } from '../domain/websocket-ports'
 import type { FakeWebSocketServer } from './websocket-server'

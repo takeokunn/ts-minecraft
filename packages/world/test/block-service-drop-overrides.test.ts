@@ -1,7 +1,10 @@
 import { describe, it, expect } from 'vitest'
 import { HashSet, Schema } from 'effect'
 import { BlockTypeSchema, ItemTypeSchema } from '@ts-minecraft/core'
-import { getBlockDropCount, getInventoryDropForBlock, rollLeafDrops, LEAF_APPLE_DROP_CHANCE, LEAF_STICK_DROP_CHANCE, LEAF_SAPLING_DROP_CHANCE, GRASS_SEED_DROP_CHANCE, isGrassSeedDropBlock, rollGrassSeedDrop, NON_PLACEABLE_ITEM_TYPES } from '../application/block-service.config'
+import { blockDropsBaseItem, getBlockDropCount, getInventoryDropForBlock, rollLeafDrops, LEAF_APPLE_DROP_CHANCE, LEAF_STICK_DROP_CHANCE, LEAF_SAPLING_DROP_CHANCE, GRASS_SEED_DROP_CHANCE, isGrassSeedDropBlock, rollGrassSeedDrop, NON_PLACEABLE_ITEM_TYPES } from '../application/block-service.config'
+
+const SELF_DROPPING_DECORATIVE_BLOCKS = ['DANDELION', 'POPPY', 'BROWN_MUSHROOM', 'RED_MUSHROOM'] as const
+type SelfDroppingDecorativeBlock = typeof SELF_DROPPING_DECORATIVE_BLOCKS[number]
 
 describe('getInventoryDropForBlock — vanilla drop correctness', () => {
   it('GRASS drops DIRT (not GRASS)', () => {
@@ -57,9 +60,9 @@ describe('getInventoryDropForBlock — vanilla drop correctness', () => {
     expect(getInventoryDropForBlock('SAPLING')).toBe('SAPLING')
   })
 
-  it.each(['DANDELION', 'POPPY', 'BROWN_MUSHROOM', 'RED_MUSHROOM'] as const)(
+  it.each(SELF_DROPPING_DECORATIVE_BLOCKS)(
     '%s drops itself (no override)',
-    (blockType) => {
+    (blockType: SelfDroppingDecorativeBlock) => {
       expect(getInventoryDropForBlock(blockType)).toBe(blockType)
     },
   )
@@ -67,6 +70,11 @@ describe('getInventoryDropForBlock — vanilla drop correctness', () => {
   it('SNOW drops four SNOWBALL items', () => {
     expect(getInventoryDropForBlock('SNOW')).toBe('SNOWBALL')
     expect(getBlockDropCount('SNOW')).toBe(4)
+  })
+
+  it('ICE has no base drop without Silk Touch', () => {
+    expect(blockDropsBaseItem('ICE')).toBe(false)
+    expect(blockDropsBaseItem('STONE')).toBe(true)
   })
 })
 

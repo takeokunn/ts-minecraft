@@ -1,12 +1,13 @@
 import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
 import { Effect, Either, Layer, MutableHashMap, Option } from 'effect'
-import { FurnaceService, FurnaceError } from '@ts-minecraft/inventory'
-import { RecipeService, InventoryError } from '@ts-minecraft/inventory'
-import { InventoryService } from '@ts-minecraft/inventory'
+import { FurnaceService } from '@ts-minecraft/inventory/application/furnace-service'
 import { PlayerServicePort, WorldBlockQueryPort } from '@ts-minecraft/world'
 import { RecipeId, DeltaTimeSecs } from '@ts-minecraft/core'
 import type { InventoryItem } from '@ts-minecraft/core'
+import { FurnaceError, InventoryError } from '../domain/errors'
+import { RecipeService } from '../application/recipe-service'
+import { InventoryService } from '../application/inventory-service'
 import {
   makeChunkManagerService,
   makeChunkWithFurnace,

@@ -128,7 +128,7 @@ export const makeChunkManagerService = (
 ) =>
   WorldBlockQueryPort.of({
     getBlockIndexAt: (position) =>
-      Effect.gen(function* () {
+      Effect.sync(() => {
         const { chunkCoord, ly, flatIdx } = worldToBlockIndex(position)
         if (ly < 0 || ly >= CHUNK_HEIGHT) return Option.none()
         if (chunk.coord.x !== chunkCoord.x || chunk.coord.z !== chunkCoord.z) return Option.none()

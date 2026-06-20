@@ -23,7 +23,7 @@ export const toPlacedBlock = (
 export const toDirtyVoxels = (
   placedBlocks: ReadonlyArray<PlacedBlock>,
 ): Array<DirtyVoxel> => {
-  const dirtyVoxels: Array<DirtyVoxel> = new Array(placedBlocks.length);
+  const dirtyVoxels = Array.from({ length: placedBlocks.length }) as Array<DirtyVoxel>;
   for (let i = 0; i < placedBlocks.length; i++) {
     const block = placedBlocks[i]!;
     dirtyVoxels[i] = {

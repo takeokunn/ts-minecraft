@@ -8,7 +8,7 @@ LAVA_TICK_INTERVAL,
 FLOW_OFFSETS,
 NOTIFY_OFFSETS,
 FluidKey,
-INITIAL_STATE, } from '@ts-minecraft/block'
+INITIAL_STATE, } from '@ts-minecraft/block/domain/fluid-model'
 import { decodeFluidByte, encodeFluidCell } from '../domain/fluid'
 
 describe('constants sanity checks', () => {

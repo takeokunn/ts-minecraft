@@ -1,7 +1,8 @@
 import { Effect, HashMap, Option, Ref } from 'effect'
 import * as THREE from 'three'
-import type { Entity, EntityId as EntityIdType, EntityType } from '@ts-minecraft/entity'
-import { CREEPER_FUSE_SECONDS, MOB_HALF_HEIGHT } from '@ts-minecraft/entity'
+import type { Entity, EntityId as EntityIdType, EntityType } from '@ts-minecraft/entity/domain/mob/entity'
+import { CREEPER_FUSE_SECONDS } from '@ts-minecraft/entity/domain/mob/creeper-fuse'
+import { MOB_HALF_HEIGHT } from '@ts-minecraft/entity/domain/mob/spawner-config'
 import { SceneService } from '../scene/scene-service'
 import { buildMobGroup, type MobLimbGroup } from './mob-geometry'
 import { computeLimbAngleBase } from './walk-cycle'
@@ -144,16 +145,17 @@ export class EntityRendererService extends Effect.Service<EntityRendererService>
         ): Option.Option<TrackedEntity> => {
           const type: EntityType = entity.type
           const roles = ROLES_BY_TYPE[type]
-          const allocated: Array<PartRole> = []
-          for (const role of roles) {
+          for (let roleIndex = 0; roleIndex < roles.length; roleIndex += 1) {
+            const role = roles[roleIndex]!
             const slotOpt = pool.allocateSlot(scene, type, role, entity.entityId)
             if (Option.isNone(slotOpt)) {
               // Rollback: release every prior slot. Pool releaseSlot is no-op
               // when the entity isn't in that bucket, so this is safe.
-              for (const prior of allocated) pool.releaseSlot(type, prior, entity.entityId)
+              for (let priorIndex = 0; priorIndex < roleIndex; priorIndex += 1) {
+                pool.releaseSlot(type, roles[priorIndex]!, entity.entityId)
+              }
               return Option.none()
             }
-            allocated.push(role)
           }
           // Build the transform carrier — group.root is NOT added to the scene.
           // The MobLimbGroup mirrors the limb structure so `updateEntityTransforms`

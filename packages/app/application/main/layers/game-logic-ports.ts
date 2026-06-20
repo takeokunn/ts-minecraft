@@ -1,7 +1,7 @@
 import { Effect, Layer, Option } from 'effect'
 
 import { CHUNK_HEIGHT, blockTypeToIndex } from '@ts-minecraft/core'
-import { PlayerService } from '@ts-minecraft/entity'
+import { PlayerService } from '@ts-minecraft/entity/application/player-service'
 import { ChunkManagerService, PlayerServicePort, WorldBlockQueryPort, worldToBlockIndex } from '@ts-minecraft/world'
 
 import { ChunkManagerLayer } from './game-logic-chunk-manager-bundles'

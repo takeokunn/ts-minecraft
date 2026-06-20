@@ -3,9 +3,8 @@ import { CHUNK_HEIGHT } from '@ts-minecraft/core'
 import { Chunk } from '@ts-minecraft/world'
 import {
   type LightGrids,
-} from '@ts-minecraft/block'
+} from '@ts-minecraft/block/domain/light'
 
-// Re-export all public API so meshing/index.ts and meshing-worker-pool.ts imports still work.
 export * from './greedy-meshing-types'
 export * from './greedy-meshing-quads'
 
@@ -29,6 +28,7 @@ import {
 import type { FacePassState } from './greedy-meshing-passes'
 
 import { meshFluidFaces } from './greedy-meshing-fluids'
+import { addPlantMeshes } from './plant-mesh'
 import {
   meshXPosFace,
   meshXNegFace,
@@ -125,6 +125,8 @@ export const greedyMeshChunk = (
   meshYNegFace(state)
   meshZPosFace(state)
   meshZNegFace(state)
+  addPlantMeshes(blocks, lightGrids, getTransparentSolidAcc, offset, yLimit)
+
   const fluid = Option.getOrNull(chunk.fluid)
   if (fluid !== null) {
     meshFluidFaces(

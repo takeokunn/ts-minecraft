@@ -7,7 +7,9 @@ export const PASSIVE_MOBS: ReadonlyArray<EntityType> = [
   EntityType.Sheep,
   EntityType.Chicken,
   EntityType.Bat,
+  EntityType.Bee,
   EntityType.Squid,
+  EntityType.GlowSquid,
 ]
 
 // Hostile mob rotation — selected round-robin at night

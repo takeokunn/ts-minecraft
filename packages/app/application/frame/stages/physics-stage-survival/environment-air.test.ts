@@ -1,6 +1,9 @@
 import { Effect, HashMap, MutableRef, Option } from 'effect'
 import { describe, expect, it, vi } from 'vitest'
-import { DROWN_DAMAGE, DROWN_DAMAGE_INTERVAL_SECS } from '@ts-minecraft/entity'
+import {
+  DROWN_DAMAGE,
+  DROWN_DAMAGE_INTERVAL_SECS,
+} from '@ts-minecraft/entity/domain/environment-hazard.config'
 import { emptyEquipmentSlots } from '../../../../../inventory/application/equipment-persistence'
 import type { PhysicsStageInputs } from '../physics-stage-types/inputs'
 import type { PhysicsStageRefs } from '../physics-stage-types/refs'
@@ -34,9 +37,12 @@ const makeRefs = (airSecs = 0, lastAirBubbles = 10): PhysicsStageRefs =>
     portalSecsRef: MutableRef.make(0),
     dirtyChunksRef: MutableRef.make(HashMap.empty<string, unknown>()),
     lavaDamageSecsRef: MutableRef.make(0),
+    lavaBurnRemainingSecsRef: MutableRef.make(0),
+    lavaBurnDamageSecsRef: MutableRef.make(0),
     airSecsRef: MutableRef.make(airSecs),
     drownDamageSecsRef: MutableRef.make(0),
     suffocationDamageSecsRef: MutableRef.make(0),
+    lightningDamageSecsRef: MutableRef.make(0),
     voidDamageSecsRef: MutableRef.make(0),
     lastAirBubblesRef: MutableRef.make(lastAirBubbles),
     isShieldBlockingRef: MutableRef.make(false),

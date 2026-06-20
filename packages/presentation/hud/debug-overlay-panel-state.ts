@@ -3,7 +3,7 @@ import {
   type DebugFeatureFlagGroup,
   type DebugFeatureFlagId,
   type DebugFeatureSnapshot,
-} from '@ts-minecraft/app/debug-feature-flags'
+} from '@ts-minecraft/app/application/debug-feature-flags'
 import type { DebugOverlayDomNodes } from '@ts-minecraft/presentation/hud/debug-overlay-types'
 import {
   DEBUG_FEATURE_GROUP_ORDER,

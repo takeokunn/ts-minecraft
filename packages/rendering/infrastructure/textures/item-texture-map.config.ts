@@ -81,6 +81,12 @@ export const ITEM_TILE_MAP: Readonly<Record<InventoryItem, number>> = {
   CACTUS: 110,
   LILY_PAD: 111,
   ICE: 112,
+  PRESSURE_PLATE: 1,
+  STONE_SLAB: 1,
+  OAK_STAIRS: 41,
+  ANVIL: 35,
+  CAULDRON: 35,
+  FIRE: 18,
 
   // ItemTypes
   STICKS: 48,
@@ -106,6 +112,7 @@ export const ITEM_TILE_MAP: Readonly<Record<InventoryItem, number>> = {
   ROTTEN_FLESH: 93,
   APPLE: 94,
   BREAD: 95,
+  BOOK: 49,
   CARROT: 96,
   RAW_PORKCHOP: 93,
   COOKED_PORKCHOP: 97,

@@ -8,7 +8,6 @@ import { SettingsStoragePort } from '../domain/settings-storage-port'
 export type { Settings }
 export type { GameDifficulty, ResolvedGraphics } from './settings.schema'
 export { GameDifficultySchema, GraphicsQuality, ResolvedGraphicsSchema, SettingsSchema }
-export { resolvePreset } from './settings-service.config'
 
 const DEFAULT_SETTINGS: Settings = {
   renderDistance: 3,

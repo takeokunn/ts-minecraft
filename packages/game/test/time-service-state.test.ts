@@ -10,7 +10,7 @@ import {
   isNightFromState,
   setDayLengthOnState,
   setTimeOfDayOnState,
-} from '@ts-minecraft/game'
+} from '../application/time-service-state'
 
 describe('application/time/time-service-state', () => {
   it('advances ticks at 60 ticks per second', () => {

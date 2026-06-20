@@ -4,7 +4,8 @@ import { Effect, HashMap, MutableRef, Option, Schema } from 'effect'
 import { BlockTypeSchema, CHUNK_SIZE, type Position } from '@ts-minecraft/core'
 import { aabbFromVoxel } from '@ts-minecraft/world'
 import type { MultiplayerService } from '@ts-minecraft/app/application/multiplayer/multiplayer-service'
-import type { FrameHandlerServices, FrameStageRefs } from '@ts-minecraft/app/frame/types'
+import type { FrameHandlerServices } from '@ts-minecraft/app/application/frame/types/services'
+import type { FrameStageRefs } from '@ts-minecraft/app/application/frame/types/stage-refs'
 
 export const multiplayerStage = (
   multiplayer: MultiplayerService,

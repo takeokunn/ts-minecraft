@@ -3,7 +3,7 @@ import { expect } from 'vitest'
 import { Array as Arr, Option } from 'effect'
 import { Schema } from 'effect'
 import { BlockTypeSchema } from '@ts-minecraft/core'
-import { initialBlocks } from '@ts-minecraft/block'
+import { initialBlocks } from '@ts-minecraft/block/domain/blocks.config'
 import { terrainBlocks } from '../domain/blocks.config.terrain'
 import { oreAndMineralBlocks, getOreXpDrop, getOreXpDropOption, isOreXpBlock } from '../domain/blocks.config.ores'
 import { craftedAndItemBlocks } from '../domain/blocks.config.crafted'
@@ -98,6 +98,57 @@ describe('initialBlocks known data correctness', () => {
     expect(ice.properties.friction).toBeGreaterThan(0.8)
   })
 
+  it('PRESSURE_PLATE block exists as a transparent non-solid stone utility block', () => {
+    const pressurePlate = Option.getOrThrow(Arr.findFirst(initialBlocks, (b) => b.type === 'PRESSURE_PLATE'))
+    expect(pressurePlate.properties.solid).toBe(false)
+    expect(pressurePlate.properties.transparency).toBe(true)
+    expect(pressurePlate.properties.emissive).toBe(false)
+    expect(pressurePlate.properties.hardness).toBe(5)
+  })
+
+  it('STONE_SLAB block exists as a transparent solid stone-family block', () => {
+    const slab = Option.getOrThrow(Arr.findFirst(initialBlocks, (b) => b.type === 'STONE_SLAB'))
+    const stone = Option.getOrThrow(Arr.findFirst(initialBlocks, (b) => b.type === 'STONE'))
+    expect(slab.properties.solid).toBe(true)
+    expect(slab.properties.transparency).toBe(true)
+    expect(slab.properties.emissive).toBe(false)
+    expect(slab.properties.hardness).toBe(stone.properties.hardness)
+  })
+
+  it('OAK_STAIRS block exists as a transparent solid wood-family block', () => {
+    const stairs = Option.getOrThrow(Arr.findFirst(initialBlocks, (b) => b.type === 'OAK_STAIRS'))
+    const planks = Option.getOrThrow(Arr.findFirst(initialBlocks, (b) => b.type === 'PLANKS'))
+    expect(stairs.properties.solid).toBe(true)
+    expect(stairs.properties.transparency).toBe(true)
+    expect(stairs.properties.emissive).toBe(false)
+    expect(stairs.properties.hardness).toBe(planks.properties.hardness)
+  })
+
+  it('ANVIL block exists as a solid non-transparent utility block', () => {
+    const anvil = Option.getOrThrow(Arr.findFirst(initialBlocks, (b) => b.type === 'ANVIL'))
+    expect(anvil.properties.solid).toBe(true)
+    expect(anvil.properties.transparency).toBe(false)
+    expect(anvil.properties.emissive).toBe(false)
+    expect(anvil.properties.hardness).toBe(75)
+  })
+
+  it('CAULDRON block exists as a solid non-transparent utility block', () => {
+    const cauldron = Option.getOrThrow(Arr.findFirst(initialBlocks, (b) => b.type === 'CAULDRON'))
+    expect(cauldron.properties.solid).toBe(true)
+    expect(cauldron.properties.transparency).toBe(false)
+    expect(cauldron.properties.emissive).toBe(false)
+    expect(cauldron.properties.hardness).toBe(35)
+  })
+
+  it('FIRE block exists as a transparent non-solid maximum-light block', () => {
+    const fire = Option.getOrThrow(Arr.findFirst(initialBlocks, (b) => b.type === 'FIRE'))
+    expect(fire.properties.solid).toBe(false)
+    expect(fire.properties.transparency).toBe(true)
+    expect(fire.properties.emissive).toBe(true)
+    expect(fire.properties.hardness).toBe(0)
+    expect(fire.properties.friction).toBe(0)
+  })
+
   it('STONE block exists with solid: true and transparency: false', () => {
     const stone = Option.getOrThrow(Arr.findFirst(initialBlocks, (b) => b.type === 'STONE'))
     expect(stone.properties.solid).toBe(true)
@@ -112,11 +163,14 @@ describe('initialBlocks known data correctness', () => {
     expect(hardnessOf('SNOW')).toBeLessThan(hardnessOf('DIRT'))
     expect(hardnessOf('SNOW')).toBeLessThan(hardnessOf('ICE'))
     expect(hardnessOf('ICE')).toBeLessThan(hardnessOf('DIRT'))
+    expect(hardnessOf('PRESSURE_PLATE')).toBeLessThan(hardnessOf('STONE'))
     expect(hardnessOf('DIRT')).toBeLessThan(hardnessOf('STONE'))
     expect(hardnessOf('SAND')).toBeLessThan(hardnessOf('STONE'))
     expect(hardnessOf('GRASS')).toBeLessThan(hardnessOf('STONE'))
+    expect(hardnessOf('FIRE')).toBe(0)
     // Stone-family share stone's hardness; wood (2.0) and deepslate (3.0) are harder than stone (1.5).
     expect(hardnessOf('GRANITE')).toBe(hardnessOf('STONE'))
+    expect(hardnessOf('STONE_SLAB')).toBe(hardnessOf('STONE'))
     expect(hardnessOf('STONE')).toBeLessThan(hardnessOf('WOOD'))
     expect(hardnessOf('STONE')).toBeLessThan(hardnessOf('DEEPSLATE'))
     // Obsidian is very hard but breakable, below unbreakable bedrock.
@@ -135,8 +189,12 @@ describe('initialBlocks known data correctness', () => {
     // Crafted: planks share wood's hardness (both vanilla 2.0); furnace (3.5) sits
     // between deepslate (3.0) and obsidian (50).
     expect(hardnessOf('PLANKS')).toBe(hardnessOf('WOOD'))
+    expect(hardnessOf('OAK_STAIRS')).toBe(hardnessOf('PLANKS'))
+    expect(hardnessOf('CAULDRON')).toBe(hardnessOf('PLANKS'))
     expect(hardnessOf('FURNACE')).toBeGreaterThan(hardnessOf('DEEPSLATE'))
     expect(hardnessOf('FURNACE')).toBeLessThan(hardnessOf('OBSIDIAN'))
+    expect(hardnessOf('ANVIL')).toBeGreaterThan(hardnessOf('FURNACE'))
+    expect(hardnessOf('ANVIL')).toBeLessThan(hardnessOf('BEDROCK'))
   })
 })
 

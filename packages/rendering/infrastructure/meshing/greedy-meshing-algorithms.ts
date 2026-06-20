@@ -13,6 +13,7 @@ import {
 } from './greedy-meshing-ao'
 import { AIR } from './greedy-meshing-types'
 import { isFluidBlockId, isSolidFaceExposed } from './greedy-meshing-fluid-state'
+import { isPlantMeshBlockId } from './plant-mesh'
 
 // ─── Per-face pass functions ─────────────────────────────────────────────────
 
@@ -36,7 +37,7 @@ export const meshXPosFace = (s: FacePassState): void => {
     for (let lz = 0; lz < CHUNK_SIZE; lz++) {
       for (let y = 0; y < s.yLimit; y++) {
         const blockId = getBlock(s.blocks, lx, y, lz)
-        if (blockId !== AIR && !isFluidBlockId(blockId) && isSolidFaceExposed(s.blocks, blockId, s.transparentSolidLookup, lx + 1, y, lz)) {
+        if (blockId !== AIR && !isPlantMeshBlockId(blockId) && !isFluidBlockId(blockId) && isSolidFaceExposed(s.blocks, blockId, s.transparentSolidLookup, lx + 1, y, lz)) {
           const ao = aoXPos(s.blocks, lx, y, lz)
           // 4 corners on +X face — air voxel at (lx+1,y,lz); tangents (lz, y).
           const c0 = sampleCornerLight(s.lightGrids, lx + 1, y, lz, 0, 0, 1, 0, 1, 0, 0, 0)
@@ -75,7 +76,7 @@ export const meshXNegFace = (s: FacePassState): void => {
     for (let lz = 0; lz < CHUNK_SIZE; lz++) {
       for (let y = 0; y < s.yLimit; y++) {
         const blockId = getBlock(s.blocks, lx, y, lz)
-        if (blockId !== AIR && !isFluidBlockId(blockId) && isSolidFaceExposed(s.blocks, blockId, s.transparentSolidLookup, lx - 1, y, lz)) {
+        if (blockId !== AIR && !isPlantMeshBlockId(blockId) && !isFluidBlockId(blockId) && isSolidFaceExposed(s.blocks, blockId, s.transparentSolidLookup, lx - 1, y, lz)) {
           const ao = aoXNeg(s.blocks, lx, y, lz)
           // Vertices for X- are emitted in reverse winding (lz0+du..lz0); align corners to that order.
           const c0 = sampleCornerLight(s.lightGrids, lx - 1, y, lz, 0, 0, 1, 0, 1, 0, 1, 0)
@@ -114,7 +115,7 @@ export const meshYPosFace = (s: FacePassState): void => {
     for (let lx = 0; lx < CHUNK_SIZE; lx++) {
       for (let lz = 0; lz < CHUNK_SIZE; lz++) {
         const blockId = getBlock(s.blocks, lx, y, lz)
-        if (blockId !== AIR && !isFluidBlockId(blockId) && isSolidFaceExposed(s.blocks, blockId, s.transparentSolidLookup, lx, y + 1, lz)) {
+        if (blockId !== AIR && !isPlantMeshBlockId(blockId) && !isFluidBlockId(blockId) && isSolidFaceExposed(s.blocks, blockId, s.transparentSolidLookup, lx, y + 1, lz)) {
           const ao = aoYPos(s.blocks, lx, y, lz)
           // Vertex order: (lx0, lz0), (lx0, lz0+dv), (lx0+du, lz0+dv), (lx0+du, lz0).
           const c0 = sampleCornerLight(s.lightGrids, lx, y + 1, lz, 1, 0, 0, 0, 0, 1, 0, 0)
@@ -153,7 +154,7 @@ export const meshYNegFace = (s: FacePassState): void => {
     for (let lx = 0; lx < CHUNK_SIZE; lx++) {
       for (let lz = 0; lz < CHUNK_SIZE; lz++) {
         const blockId = getBlock(s.blocks, lx, y, lz)
-        if (blockId !== AIR && !isFluidBlockId(blockId) && isSolidFaceExposed(s.blocks, blockId, s.transparentSolidLookup, lx, y - 1, lz)) {
+        if (blockId !== AIR && !isPlantMeshBlockId(blockId) && !isFluidBlockId(blockId) && isSolidFaceExposed(s.blocks, blockId, s.transparentSolidLookup, lx, y - 1, lz)) {
           const ao = aoYNeg(s.blocks, lx, y, lz)
           // Vertex order: (lx0+du, lz0), (lx0+du, lz0+dv), (lx0, lz0+dv), (lx0, lz0).
           const c0 = sampleCornerLight(s.lightGrids, lx, y - 1, lz, 1, 0, 0, 0, 0, 1, 1, 0)
@@ -192,7 +193,7 @@ export const meshZPosFace = (s: FacePassState): void => {
     for (let lx = 0; lx < CHUNK_SIZE; lx++) {
       for (let y = 0; y < s.yLimit; y++) {
         const blockId = getBlock(s.blocks, lx, y, lz)
-        if (blockId !== AIR && !isFluidBlockId(blockId) && isSolidFaceExposed(s.blocks, blockId, s.transparentSolidLookup, lx, y, lz + 1)) {
+        if (blockId !== AIR && !isPlantMeshBlockId(blockId) && !isFluidBlockId(blockId) && isSolidFaceExposed(s.blocks, blockId, s.transparentSolidLookup, lx, y, lz + 1)) {
           const ao = aoZPos(s.blocks, lx, y, lz)
           // Vertex order: (lx0+du, y0), (lx0+du, y0+dv), (lx0, y0+dv), (lx0, y0).
           const c0 = sampleCornerLight(s.lightGrids, lx, y, lz + 1, 1, 0, 0, 0, 1, 0, 1, 0)
@@ -231,7 +232,7 @@ export const meshZNegFace = (s: FacePassState): void => {
     for (let lx = 0; lx < CHUNK_SIZE; lx++) {
       for (let y = 0; y < s.yLimit; y++) {
         const blockId = getBlock(s.blocks, lx, y, lz)
-        if (blockId !== AIR && !isFluidBlockId(blockId) && isSolidFaceExposed(s.blocks, blockId, s.transparentSolidLookup, lx, y, lz - 1)) {
+        if (blockId !== AIR && !isPlantMeshBlockId(blockId) && !isFluidBlockId(blockId) && isSolidFaceExposed(s.blocks, blockId, s.transparentSolidLookup, lx, y, lz - 1)) {
           const ao = aoZNeg(s.blocks, lx, y, lz)
           // Vertex order: (lx0, y0), (lx0, y0+dv), (lx0+du, y0+dv), (lx0+du, y0).
           const c0 = sampleCornerLight(s.lightGrids, lx, y, lz - 1, 1, 0, 0, 0, 1, 0, 0, 0)
@@ -249,4 +250,3 @@ export const meshZNegFace = (s: FacePassState): void => {
     runGreedyExpansion(s.maskCH, CHUNK_SIZE, s.yLimit, emit, lz)
   }
 }
-

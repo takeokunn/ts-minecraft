@@ -8,13 +8,15 @@ describe('mob-categories — PASSIVE_MOBS', () => {
     expect(PASSIVE_MOBS.length).toBeGreaterThan(0)
   })
 
-  it('PASSIVE_MOBS contains Cow, Pig, Sheep, Chicken, Bat, Squid', () => {
+  it('PASSIVE_MOBS contains Cow, Pig, Sheep, Chicken, Bat, Bee, Squid, and GlowSquid', () => {
     expect(PASSIVE_MOBS).toContain(EntityType.Cow)
     expect(PASSIVE_MOBS).toContain(EntityType.Pig)
     expect(PASSIVE_MOBS).toContain(EntityType.Sheep)
     expect(PASSIVE_MOBS).toContain(EntityType.Chicken)
     expect(PASSIVE_MOBS).toContain(EntityType.Bat)
+    expect(PASSIVE_MOBS).toContain(EntityType.Bee)
     expect(PASSIVE_MOBS).toContain(EntityType.Squid)
+    expect(PASSIVE_MOBS).toContain(EntityType.GlowSquid)
   })
 
   it('PASSIVE_MOBS has no duplicates', () => {

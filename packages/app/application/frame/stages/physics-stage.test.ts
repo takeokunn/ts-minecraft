@@ -1,23 +1,25 @@
 import { describe, it } from '@effect/vitest'
 import { expect, vi } from 'vitest'
 import { Effect, HashMap, MutableHashSet, MutableRef, Option, Ref } from 'effect'
-import { createFrameHandlers } from '@ts-minecraft/app'
-import { DEBUG_FEATURE_FLAG_DEFAULTS } from '@ts-minecraft/app/debug-feature-flags'
+import { createFrameHandlers } from '@ts-minecraft/app/frame-handler'
+import { DEBUG_FEATURE_FLAG_DEFAULTS } from '@ts-minecraft/app/application/debug-feature-flags.config'
 import { CHUNK_SIZE, CHUNK_HEIGHT, blockTypeToIndex } from '@ts-minecraft/core'
+import { SlotIndex } from '@ts-minecraft/core'
 import type { DeltaTimeSecs } from '@ts-minecraft/core'
 import type { BlockType } from '@ts-minecraft/core'
 import type { SoundEffect } from '@ts-minecraft/game'
-import { computeExplosionDamageAt } from '@ts-minecraft/entity'
+import { computeExplosionDamageAt } from '@ts-minecraft/entity/domain/explosion'
+import { DEFAULT_SETTINGS } from '../../../test/frame-handler-test-kit/shared'
+import { makeDeps } from '../../../test/frame-handler-test-kit/orchestration/deps'
+import { runFrame } from '../../../test/frame-handler-test-kit/orchestration/harness'
+import { makeInputService } from '../../../test/frame-handler-test-kit/presentation/input'
 import {
-  DEFAULT_SETTINGS,
-  makeDeps,
-  makeInputService,
   makeInventoryRenderer,
-  makeServices,
   makeSettingsOverlay,
-  runFrame,
-} from '../../../test/frame-handler-test-kit'
+} from '../../../test/frame-handler-test-kit/presentation/overlay'
+import { makeServices } from '../../../test/frame-handler-test-kit/services'
 import { physicsStage } from './physics-stage'
+import { selectedHotbarSlotIndex } from './selected-hotbar-slot'
 
 type ColumnBlockType = Parameters<typeof blockTypeToIndex>[0]
 type PhysicsStageRefsForTest = Parameters<typeof physicsStage>[2]
@@ -32,9 +34,12 @@ const makePhysicsStageRefs = (): Effect.Effect<PhysicsStageRefsForTest, never> =
       portalSecsRef: yield* Ref.make(0),
       dirtyChunksRef: MutableRef.make(HashMap.empty<string, unknown>()) as PhysicsStageRefsForTest['dirtyChunksRef'],
       lavaDamageSecsRef: MutableRef.make(0),
+      lavaBurnRemainingSecsRef: MutableRef.make(0),
+      lavaBurnDamageSecsRef: MutableRef.make(0),
       airSecsRef: MutableRef.make(15),
       drownDamageSecsRef: MutableRef.make(0),
       suffocationDamageSecsRef: MutableRef.make(0),
+      lightningDamageSecsRef: MutableRef.make(0),
       voidDamageSecsRef: MutableRef.make(0),
       lastAirBubblesRef: MutableRef.make(-1),
       isShieldBlockingRef: MutableRef.make(false),
@@ -45,7 +50,7 @@ const makePhysicsStageRefs = (): Effect.Effect<PhysicsStageRefsForTest, never> =
       hungerTickAccumulatorRef: MutableRef.make(0),
       entityPhysicsChunkCacheRef: yield* Ref.make([null, null, null, null, null, null, null, null, null]),
       lastEntityPhysicsChunkCoordRef: yield* Ref.make({ cx: Number.NaN, cz: Number.NaN }),
-    }
+    } as unknown as PhysicsStageRefsForTest
   })
 
 describe('step 3.5 — fall damage', () => {
@@ -126,6 +131,28 @@ describe('step 3.5 — fall damage', () => {
     yield* runFrame(deps, services)
 
     expect(applyDamageSpy).not.toHaveBeenCalled()
+  }))
+
+  it.effect('does NOT apply fall damage in creative mode', () => Effect.gen(function* () {
+    const deps = yield* makeDeps(false)
+    const services = makeServices({
+      inputService: makeInputService(),
+      inventoryRenderer: makeInventoryRenderer({ open: false }),
+      settingsOverlay: makeSettingsOverlay({ open: false }),
+    })
+    ;(services.gameMode as { isCreative: unknown }).isCreative = vi.fn(() => Effect.succeed(true))
+    const processFallDamageSpy = vi.fn(() => Effect.succeed(5))
+    ;(services.healthService as { processFallDamage: unknown }).processFallDamage = processFallDamageSpy
+    const applyDamageSpy = vi.fn(() => Effect.void)
+    ;(services.healthService as { applyDamage: unknown }).applyDamage = applyDamageSpy
+    const playEffectSpy = vi.fn(() => Effect.void)
+    ;(services.soundManager as { playEffect: unknown }).playEffect = playEffectSpy
+
+    yield* runFrame(deps, services)
+
+    expect(processFallDamageSpy).toHaveBeenCalledOnce()
+    expect(applyDamageSpy).not.toHaveBeenCalled()
+    expect(playEffectSpy).not.toHaveBeenCalledWith('playerHurt', expect.anything())
   }))
 
   it.effect('calls healthService.tick each frame', () => Effect.gen(function* () {
@@ -540,9 +567,12 @@ describe('step 3.5 — fall damage', () => {
 
     yield* runFrame(deps, services)
 
-    const airCalls = forceSetBlockSpy.mock.calls.filter(([, block]) => block === 'AIR')
+    const airCalls = forceSetBlockSpy.mock.calls.filter((call: readonly unknown[]) => call[1] === 'AIR')
     expect(airCalls.length).toBeGreaterThan(1)
-    expect(airCalls.some(([pos]) => pos.x === center.x && pos.y === center.y && pos.z === center.z)).toBe(true)
+    expect(airCalls.some((call: readonly unknown[]) => {
+      const pos = call[0] as { readonly x: number; readonly y: number; readonly z: number }
+      return pos.x === center.x && pos.y === center.y && pos.z === center.z
+    })).toBe(true)
     expect(playEffectSpy).toHaveBeenCalledWith('blockBreak', { position: center })
   }))
 
@@ -621,7 +651,7 @@ describe('step 3.5 — fall damage', () => {
       null,
       null,
       null,
-      { coord: { x: 1, z: 1 }, blocks },
+      { coord: { x: 1, z: 1 }, blocks, fluid: Option.none() },
       null,
       null,
       null,
@@ -758,14 +788,24 @@ describe('step 3.5 — fall damage', () => {
     })
     // The bobber resolves this frame, yielding a cooked cod.
     ;(services.fishingService as { tick: unknown }).tick = vi.fn(() =>
-      Effect.succeed(Option.some('COOKED_COD'))
+      Effect.succeed(Option.some({ item: 'COOKED_COD', experience: 5 }))
     )
     const addBlockSpy = vi.fn(() => Effect.succeed(true))
     ;(services.inventoryService as { addBlock: unknown }).addBlock = addBlockSpy
+    const damageSlotSpy = vi.fn(() => Effect.void)
+    ;(services.inventoryService as { damageSlot: unknown }).damageSlot = damageSlotSpy
+    const selectedSlot = SlotIndex.make(2)
+    ;(services.hotbarService as { getSelectedSlot: unknown }).getSelectedSlot = vi.fn(() =>
+      Effect.succeed(selectedSlot)
+    )
+    const addXPSpy = vi.fn(() => Effect.void)
+    ;(services.xpService as { addXP: unknown }).addXP = addXPSpy
 
     yield* runFrame(deps, services)
 
     expect(addBlockSpy).toHaveBeenCalledWith('COOKED_COD', 1)
+    expect(damageSlotSpy).toHaveBeenCalledWith(selectedHotbarSlotIndex(selectedSlot), 1)
+    expect(addXPSpy).toHaveBeenCalledWith(5)
   }))
 
   it.effect('does NOT add anything when fishing is idle (tick returns none)', () => Effect.gen(function* () {
@@ -1496,8 +1536,8 @@ describe('physics-stage — nether portal travel', () => {
 
     // The auto-generated portal is 4 wide (2+2 frame cols) × 5 tall (3+2 frame rows)
     // = frame: 20 obsidian positions + interior: 2×3=6 NETHER_PORTAL positions
-    expect(forceSetBlockSpy.mock.calls.some(([, type]) => type === 'OBSIDIAN')).toBe(true)
-    expect(forceSetBlockSpy.mock.calls.some(([, type]) => type === 'NETHER_PORTAL')).toBe(true)
+    expect(forceSetBlockSpy.mock.calls.some((call: readonly unknown[]) => call[1] === 'OBSIDIAN')).toBe(true)
+    expect(forceSetBlockSpy.mock.calls.some((call: readonly unknown[]) => call[1] === 'NETHER_PORTAL')).toBe(true)
     expect(registerPortalSpy).toHaveBeenCalledOnce()
   }))
 

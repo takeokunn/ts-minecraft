@@ -61,6 +61,7 @@ describe('infrastructure/storage/storage-service', () => {
       const now = new Date()
       const metadata: WorldMetadata = {
         seed: 42,
+        displayName: 'My Saved World',
         createdAt: now,
         lastPlayed: now,
         playerSpawn: { x: 8, y: 64, z: 8 },
@@ -72,6 +73,7 @@ describe('infrastructure/storage/storage-service', () => {
         yield* storage.saveWorldMetadata(testWorldId, metadata)
         const loaded = Option.getOrThrow(yield* storage.loadWorldMetadata(testWorldId))
         expect(loaded.seed).toBe(42)
+        expect(loaded.displayName).toBe('My Saved World')
         expect(loaded.playerSpawn).toEqual({ x: 8, y: 64, z: 8 })
       }).pipe(Effect.provide(TestLayer))
     })

@@ -8,7 +8,6 @@ import {
   NoiseService,
   BiomeService,
   ChunkManagerService,
-  ChunkManagerService,
 } from '@ts-minecraft/world'
 import { TerrainWorkerPoolPortLayer } from '@ts-minecraft/worker'
 import { ChunkService } from '@ts-minecraft/world/application/chunk-service'

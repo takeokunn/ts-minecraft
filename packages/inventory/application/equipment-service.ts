@@ -1,5 +1,6 @@
 import { Effect, Option, Ref } from 'effect'
-import { isArmorItem, type ArmorSlot } from '../domain/armor'
+import { isArmorItem } from '../domain/armor'
+import type { ArmorSlot } from '../domain/armor.config'
 import { type ItemStack } from '../domain/item-stack'
 import {
   type EquipmentSaveData,
@@ -14,6 +15,7 @@ import {
   computeEquipmentTotalProjectileProtectionReduction,
   damageArmorSlot,
   equipArmorItem,
+  equipArmorItemIfSlotEmpty,
   repairMendingItemsWithXP,
   unequipArmorSlot,
 } from './equipment-service-state'
@@ -27,6 +29,10 @@ export class EquipmentService extends Effect.Service<EquipmentService>()(
         // Returns true if the item was armor and was equipped; false otherwise.
         equip: (stack: ItemStack): Effect.Effect<boolean, never> =>
           Ref.modify(slotsRef, (slots) => equipArmorItem(slots, stack)),
+
+        // Shift-click armor equip: only fills an empty matching armor slot.
+        equipIfSlotEmpty: (stack: ItemStack): Effect.Effect<boolean, never> =>
+          Ref.modify(slotsRef, (slots) => equipArmorItemIfSlotEmpty(slots, stack)),
 
         // Removes and returns the stack in the given slot (none if already empty).
         unequipSlot: (slot: ArmorSlot): Effect.Effect<Option.Option<ItemStack>, never> =>

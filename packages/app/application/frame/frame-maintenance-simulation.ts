@@ -1,8 +1,10 @@
 import { Effect, MutableRef, Option } from 'effect'
-import { runMobMaintenance, runVillageMaintenance, type EntityId } from '@ts-minecraft/entity'
-import type { FrameHandlerServices } from '@ts-minecraft/app/frame/types'
+import { runMobMaintenance } from '@ts-minecraft/entity/application/mob/mob-maintenance'
+import { runVillageMaintenance } from '@ts-minecraft/entity/application/village/village-maintenance'
+import type { EntityId } from '@ts-minecraft/entity/domain/mob/entity'
+import type { FrameHandlerServices } from '@ts-minecraft/app/application/frame/types/services'
 import type { DeltaTimeSecs, Position } from '@ts-minecraft/core'
-import { runCropGrowthMaintenance } from '@ts-minecraft/world'
+import { runCropGrowthMaintenance, runFallingBlockMaintenance } from '@ts-minecraft/world'
 import { runFurnaceMaintenance } from './frame-maintenance-furnace'
 import { resolveMaintenanceTimeOfDay } from './frame-maintenance-time-of-day'
 import {
@@ -16,7 +18,7 @@ type MaintenanceSimulationState = {
 
 type MaintenanceSimulationServices = Pick<
   FrameHandlerServices,
-  'entityManager' | 'chunkManagerService' | 'furnaceService' | 'mobSpawner' | 'villageService' | 'timeService' | 'blockService' | 'cropGrowthService'
+  'entityManager' | 'chunkManagerService' | 'furnaceService' | 'mobSpawner' | 'villageService' | 'timeService' | 'blockService' | 'cropGrowthService' | 'weatherService' | 'biomeService'
 >
 
 type MaintenanceSimulationInput = MaintenanceSimulationPlanInput & {
@@ -45,6 +47,8 @@ export const runMaintenanceSimulation = (
       timeService,
       blockService,
       cropGrowthService,
+      weatherService,
+      biomeService,
     } = services
     const { playerPos, maintenanceDeltaTime, mobsEnabled, mobsSpawnEnabled } = input
     const plan = resolveMaintenanceSimulationPlan(input)
@@ -65,10 +69,18 @@ export const runMaintenanceSimulation = (
       yield* runFurnaceMaintenance({ furnaceService }, maintenanceDeltaTime)
     }
 
+    yield* runFallingBlockMaintenance({ blockService, chunkManagerService })
+
     // Crop growth tick — advance all player-planted crops every CROP_GROWTH_INTERVAL_SECS.
     // Village / world-generated crops are not tracked and default to ripe on break.
     yield* runCropGrowthMaintenance(
-      { blockService, chunkManagerService, cropGrowthService },
+      {
+        blockService,
+        chunkManagerService,
+        cropGrowthService,
+        biomeService,
+        getWeather: () => weatherService.getWeather(),
+      },
       state,
       maintenanceDeltaTime,
     )

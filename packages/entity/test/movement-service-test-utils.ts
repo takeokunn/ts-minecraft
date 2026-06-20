@@ -1,6 +1,9 @@
 import { Effect, Layer, MutableHashMap, MutableHashSet, MutableRef, Option } from 'effect'
-import { HungerService, PlayerHunger, PlayerInputService } from '@ts-minecraft/entity'
-import type { MouseDelta, MovementInput } from '@ts-minecraft/entity'
+import { HungerService } from '@ts-minecraft/entity/application/hunger-service';
+import { PlayerInputService } from '@ts-minecraft/entity/application/player-input-service';
+import { PlayerHunger } from '@ts-minecraft/entity/domain/player-hunger';
+import type { MovementInput } from '@ts-minecraft/entity/application/movement-service';
+import type { MouseDelta } from '@ts-minecraft/entity/application/player-input-service';
 
 type TestInputService = PlayerInputService & {
   readonly setKeyPressed: (key: string, pressed: boolean) => void

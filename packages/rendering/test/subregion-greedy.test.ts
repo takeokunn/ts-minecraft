@@ -4,14 +4,15 @@ import { Array as Arr, Option } from 'effect'
 import * as fc from 'effect/FastCheck'
 import { CHUNK_SIZE, CHUNK_HEIGHT, blockTypeToIndex } from '@ts-minecraft/core'
 import type { ChunkCoord, BlockType } from '@ts-minecraft/core'
+import { createFluidBuffer, encodeFluidCell } from '@ts-minecraft/world'
 import type { Chunk } from '@ts-minecraft/world'
 import {
   greedyMeshChunk,
   greedyMeshChunkSubregion,
   computeAffectedSlices,
-  type DirtyAABB,
   type MeshedChunk,
 } from '@ts-minecraft/rendering'
+import type { DirtyAABB } from '../infrastructure/meshing/subregion-greedy'
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -25,11 +26,16 @@ const blockIndex = (lx: number, y: number, lz: number): number =>
 const makeEmptyChunk = (coord: ChunkCoord = ZERO_COORD): Chunk => ({
   coord,
   blocks: new Uint8Array(TOTAL_BLOCKS),
-  fluid: Option.none(),
+  fluid: Option.some(createFluidBuffer()),
 })
 
 const setBlock = (chunk: Chunk, lx: number, y: number, lz: number, type: BlockType): void => {
-  chunk.blocks[blockIndex(lx, y, lz)] = blockTypeToIndex(type)
+  const index = blockIndex(lx, y, lz)
+  chunk.blocks[index] = blockTypeToIndex(type)
+  const fluid = Option.getOrNull(chunk.fluid)
+  if (fluid !== null) {
+    fluid[index] = type === 'WATER' ? encodeFluidCell({ level: 0, source: true, type: 'water' }) : 0
+  }
 }
 
 // Multiset signature of a meshed buffer: count quads keyed by their full

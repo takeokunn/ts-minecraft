@@ -1,6 +1,6 @@
 import { Effect, HashMap, Option, Ref } from 'effect'
 import { describe, expect, it } from '@effect/vitest'
-import { EntityId, EntityType } from '@ts-minecraft/entity'
+import { EntityId, EntityType } from '@ts-minecraft/entity/domain/mob/entity';
 import type { Position } from '@ts-minecraft/core'
 import { BABY_GROW_TICKS } from '../../domain/mob/breeding'
 import type { ManagedEntity } from '../../domain/mob/entity-internal'

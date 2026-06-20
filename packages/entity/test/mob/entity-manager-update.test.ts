@@ -1,8 +1,9 @@
 import { describe } from '@effect/vitest'
 import { expect } from 'vitest'
 import { Array as Arr, Effect, MutableRef, Option } from 'effect'
-import { AIState, EntityType, EntityId } from '@ts-minecraft/entity'
-import { EntityManager } from '@ts-minecraft/entity'
+import { EntityId, EntityType } from '@ts-minecraft/entity/domain/mob/entity';
+import { AIState } from '@ts-minecraft/entity/domain/mob/state-machine';
+import { EntityManager } from '@ts-minecraft/entity/application/mob/entity-manager';
 import { DeltaTimeSecs } from '@ts-minecraft/core'
 import { itEntityManagerEffect, unwrapSome, unwrapSomeEffect } from './test-utils'
 
@@ -92,6 +93,19 @@ describe('entity/entityManagerUpdate', () => {
         expect((yield* entityManager.getEntities())[0]!.health).toBe(19)
         yield* entityManager.update(DeltaTimeSecs.make(0.9), player, false)
         expect((yield* entityManager.getEntities())[0]!.health).toBe(18)
+      }))
+
+    itEntityManagerEffect('daylight burn protection suppresses zombie daylight damage', () =>
+      Effect.gen(function* () {
+        const entityManager = yield* EntityManager
+        yield* entityManager.addEntity(EntityType.Zombie, { x: 0, y: 64, z: 0 })
+        const player = { x: 1, y: 64, z: 0 }
+
+        yield* entityManager.update(DeltaTimeSecs.make(1.2), player, false, undefined, player, undefined, true)
+
+        const entities = yield* entityManager.getEntities()
+        expect(entities.length).toBe(1)
+        expect(entities[0]!.health).toBe(20)
       }))
 
     itEntityManagerEffect('igniteEntity exposes fireSecs and deals 1 damage per burning second', () =>

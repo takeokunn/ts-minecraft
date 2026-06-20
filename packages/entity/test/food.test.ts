@@ -1,7 +1,8 @@
 import { describe, it } from '@effect/vitest'
-import { getFoodProperties, isFood, FOOD_ITEMS } from '@ts-minecraft/entity'
+import { getFoodProperties, isFood } from '@ts-minecraft/entity/domain/food-resolution'
+import { FOOD_ITEMS } from '@ts-minecraft/entity/domain/food.config'
 import type { ItemType } from '@ts-minecraft/core'
-import { Array as Arr } from 'effect'
+import { Array as Arr, Option } from 'effect'
 import { expect } from 'vitest'
 import { expectSome } from './test-utils'
 
@@ -50,10 +51,7 @@ describe('FOOD_TABLE completeness', () => {
 
   it('every key in FOOD_TABLE yields Some from getFoodProperties', () => {
     for (const item of FOOD_ITEMS) {
-      expect(
-        expectSome(getFoodProperties(item)),
-        `${item} is in FOOD_TABLE but getFoodProperties returns None`,
-      ).toBe(true)
+      expectSome(getFoodProperties(item))
     }
   })
 

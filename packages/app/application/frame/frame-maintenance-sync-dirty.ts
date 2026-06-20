@@ -1,5 +1,6 @@
 import { Effect, HashMap, MutableRef, Option } from 'effect'
-import type { FrameHandlerDeps, FrameHandlerServices } from '@ts-minecraft/app/frame/types'
+import type { FrameHandlerDeps } from '@ts-minecraft/app/application/frame/types/deps'
+import type { FrameHandlerServices } from '@ts-minecraft/app/application/frame/types/services'
 import { MAX_DIRTY_CHUNK_UPDATES_PER_FRAME } from '@ts-minecraft/app/frame-handler.config'
 import { mergeDirtyChunkEntries, splitDirtyChunksForFlush, type DirtyChunkEntry } from './frame-maintenance-dirty'
 

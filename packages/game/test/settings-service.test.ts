@@ -1,5 +1,6 @@
 import { describe,it } from '@effect/vitest'
-import { GRAPHICS_PRESETS,resolvePreset,SettingsService } from '@ts-minecraft/game'
+import { GRAPHICS_PRESETS,SettingsService } from '@ts-minecraft/game'
+import { resolvePreset } from '../application/settings-service.config'
 import { Array as Arr,Effect,MutableHashMap } from 'effect'
 import { afterEach,beforeEach,expect,vi } from 'vitest'
 import {

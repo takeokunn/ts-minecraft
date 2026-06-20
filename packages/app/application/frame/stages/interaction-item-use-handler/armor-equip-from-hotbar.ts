@@ -1,7 +1,7 @@
 import { Effect, Option } from 'effect'
 import type { InventoryItem, SlotIndex } from '@ts-minecraft/core'
-import { getArmorSlot } from '@ts-minecraft/inventory'
-import type { FrameArmorEquipInteractionServices } from '@ts-minecraft/app/frame/frame-interaction-service-types'
+import { getArmorSlot } from '@ts-minecraft/inventory/domain/armor'
+import type { FrameArmorEquipInteractionServices } from '@ts-minecraft/app/frame/frame-interaction-service-types/armor'
 import { selectedHotbarSlotIndex } from '../selected-hotbar-slot'
 
 export const handleArmorEquipFromHotbar = (

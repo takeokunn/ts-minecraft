@@ -1,260 +1,192 @@
 import { describe, expect, it } from '@effect/vitest'
-import { Array as Arr, Effect, Layer, Option } from 'effect'
-import { ChunkManagerService } from '@ts-minecraft/world'
+import { Array as Arr, Effect, Option } from 'effect'
 import { blockIndex, blockTypeToIndex } from '@ts-minecraft/core'
-import { ChunkService, setBlockInChunk } from '@ts-minecraft/world'
-import { encodeFluidCell } from '@ts-minecraft/world'
-import { FluidService, resolveContact } from '@ts-minecraft/world'
+import { resolveContact } from '@ts-minecraft/world'
+import type { ChunkBlockFixture } from './chunk-buffer-test-utils'
+import { makeFluidTestChunk, withFluidService, withTrackedFluidService } from './fluid-test-utils'
 
-const makeChunkManager = (loadedChunks: ReadonlyArray<{ coord: { x: number; z: number }; blocks: Uint8Array; fluid: Option.Option<Uint8Array> }>) => {
-  const dirtyCalls: Array<{ x: number; z: number }> = []
-  const layer = Layer.succeed(ChunkManagerService, {
-    getLoadedChunks: () => Effect.succeed(loadedChunks),
-    markChunkDirty: (coord: { x: number; z: number }) => Effect.sync(() => {
-      dirtyCalls.push(coord)
-    }),
-  } satisfies Pick<ChunkManagerService, 'getLoadedChunks' | 'markChunkDirty'> as ChunkManagerService)
+const LOCAL_COORDS = Arr.makeBy(16, i => i)
 
-  return { layer, dirtyCalls }
-}
+const blockIndexOrMinusOne = (lx: number, y: number, lz: number): number =>
+  Option.getOrElse(blockIndex(lx, y, lz), () => -1)
+
+const platformLineAt = (y: number, lz: number): ReadonlyArray<ChunkBlockFixture> =>
+  Arr.map(LOCAL_COORDS, lx => ({ lx, y, lz, blockType: 'STONE' as const }))
+
+const platformPlaneAt = (y: number): ReadonlyArray<ChunkBlockFixture> =>
+  Arr.flatMap(LOCAL_COORDS, lx =>
+    Arr.map(LOCAL_COORDS, lz => ({ lx, y, lz, blockType: 'STONE' as const })),
+  )
 
 describe('application/fluid/fluid-service', () => {
-  it.effect('seeds water blocks into loaded chunks', () =>
-    Effect.gen(function* () {
-      const chunkService = yield* ChunkService
-      const chunk = yield* chunkService.createChunk({ x: 0, z: 0 })
+  it.effect('seeds water blocks into loaded chunks', () => {
+    const chunk = makeFluidTestChunk()
 
-      const { layer: chunkManagerLayer, dirtyCalls } = makeChunkManager([chunk])
-      const blockIdx = yield* Effect.gen(function* () {
-        const fluid = yield* FluidService
-        yield* fluid.seedWater({ x: 4, y: 10, z: 4 })
-        return Option.getOrElse(blockIndex(4, 10, 4), () => -1)
-      }).pipe(Effect.provide(FluidService.Default.pipe(Layer.provide(chunkManagerLayer))))
+    return withTrackedFluidService([chunk], (fluid, dirtyCalls) =>
+      Effect.sync(() => blockIndexOrMinusOne(4, 10, 4)).pipe(
+        Effect.tap(() => fluid.seedWater({ x: 4, y: 10, z: 4 })),
+        Effect.map(blockIdx => {
+          expect(chunk.blocks[blockIdx]).toBe(blockTypeToIndex('WATER'))
+          expect(dirtyCalls).toHaveLength(1)
+          expect(dirtyCalls[0]).toEqual({ x: 0, z: 0 })
+        }),
+      ),
+    )
+  })
 
-      expect(chunk.blocks[blockIdx]).toBe(blockTypeToIndex('WATER'))
-      expect(dirtyCalls).toHaveLength(1)
-      expect(dirtyCalls[0]).toEqual({ x: 0, z: 0 })
-    }).pipe(Effect.provide(ChunkService.Default))
-  )
+  it.effect('spreads a source downward on tick', () => {
+    const chunk = makeFluidTestChunk({
+      blocks: [{ lx: 4, y: 10, lz: 4, blockType: 'WATER' }],
+      fluids: [{ lx: 4, y: 10, lz: 4, cell: { level: 0, source: true, type: 'water' } }],
+    })
 
-  it.effect('spreads a source downward on tick', () =>
-    Effect.gen(function* () {
-      const chunkService = yield* ChunkService
-      const chunkBase = yield* chunkService.createChunk({ x: 0, z: 0 })
-      yield* setBlockInChunk(chunkBase, 4, 10, 4, 'WATER')
-      const sourceIdx = Option.getOrElse(blockIndex(4, 10, 4), () => -1)
-      const fluidBuffer = new Uint8Array(chunkBase.blocks.length)
-      if (sourceIdx >= 0) {
-        fluidBuffer[sourceIdx] = encodeFluidCell({ level: 0, source: true, type: 'water' })
-      }
-      const chunk = { ...chunkBase, fluid: Option.some(fluidBuffer) } as typeof chunkBase
-
-      const { layer: chunkManagerLayer, dirtyCalls } = makeChunkManager([chunk])
-      const blockIdx = yield* Effect.gen(function* () {
-        const fluid = yield* FluidService
-        yield* fluid.syncLoadedChunks([chunk])
+    return withTrackedFluidService([chunk], (fluid, dirtyCalls) =>
+      Effect.gen(function* () {
         yield* fluid.tick()
-        return Option.getOrElse(blockIndex(4, 9, 4), () => -1)
-      }).pipe(Effect.provide(FluidService.Default.pipe(Layer.provide(chunkManagerLayer))))
+        const blockIdx = blockIndexOrMinusOne(4, 9, 4)
+        expect(chunk.blocks[blockIdx]).toBe(blockTypeToIndex('WATER'))
+        expect(dirtyCalls.length).toBeGreaterThan(0)
+      }),
+    )
+  })
 
-      expect(chunk.blocks[blockIdx]).toBe(blockTypeToIndex('WATER'))
-      expect(dirtyCalls.length).toBeGreaterThan(0)
-    }).pipe(Effect.provide(ChunkService.Default))
-  )
+  it.effect('seeds lava blocks into loaded chunks', () => {
+    const chunk = makeFluidTestChunk()
 
-  it.effect('seeds lava blocks into loaded chunks', () =>
-    Effect.gen(function* () {
-      const chunkService = yield* ChunkService
-      const chunk = yield* chunkService.createChunk({ x: 0, z: 0 })
-
-      const { layer: chunkManagerLayer, dirtyCalls } = makeChunkManager([chunk])
-      const blockIdx = yield* Effect.gen(function* () {
-        const fluid = yield* FluidService
+    return withTrackedFluidService([chunk], (fluid, dirtyCalls) =>
+      Effect.gen(function* () {
         yield* fluid.seedLava({ x: 4, y: 10, z: 4 })
-        return Option.getOrElse(blockIndex(4, 10, 4), () => -1)
-      }).pipe(Effect.provide(FluidService.Default.pipe(Layer.provide(chunkManagerLayer))))
+        const blockIdx = blockIndexOrMinusOne(4, 10, 4)
+        expect(chunk.blocks[blockIdx]).toBe(blockTypeToIndex('LAVA'))
+        expect(dirtyCalls).toHaveLength(1)
+      }),
+    )
+  })
 
-      expect(chunk.blocks[blockIdx]).toBe(blockTypeToIndex('LAVA'))
-      expect(dirtyCalls).toHaveLength(1)
-    }).pipe(Effect.provide(ChunkService.Default))
-  )
+  it.effect('lava propagates slower than water (water reaches farther in 1 tick)', () => {
+    const waterChunk = makeFluidTestChunk({
+      blocks: platformLineAt(5, 4),
+    })
+    const lavaChunk = makeFluidTestChunk({
+      blocks: platformLineAt(5, 4),
+      coord: { x: 1, z: 0 },
+    })
 
-  it.effect('lava propagates slower than water (water reaches farther in 1 tick)', () =>
-    Effect.gen(function* () {
-      const chunkService = yield* ChunkService
-      const waterChunk = yield* chunkService.createChunk({ x: 0, z: 0 })
-      const lavaChunk = yield* chunkService.createChunk({ x: 1, z: 0 })
-
-      // Carve AIR around each source to give room to flow horizontally.
-      // Stack the source on top of a STONE platform at y=5.
-      yield* Effect.forEach(Arr.makeBy(16, (i) => i), (lx) =>
-        Effect.all([
-          setBlockInChunk(waterChunk, lx, 5, 4, 'STONE'),
-          setBlockInChunk(lavaChunk, lx, 5, 4, 'STONE'),
-        ], { concurrency: 'unbounded', discard: true })
-      , { concurrency: 1, discard: true })
-      yield* setBlockInChunk(waterChunk, 4, 6, 4, 'WATER')
-      yield* setBlockInChunk(lavaChunk, 4, 6, 4, 'LAVA')
-
-      const { layer: chunkManagerLayer } = makeChunkManager([waterChunk, lavaChunk])
-
-      yield* Effect.gen(function* () {
-        const fluid = yield* FluidService
-        yield* fluid.syncLoadedChunks([waterChunk, lavaChunk])
+    return withFluidService([waterChunk, lavaChunk], fluid =>
+      Effect.gen(function* () {
         yield* fluid.seedWater({ x: 4, y: 6, z: 4 })
         yield* fluid.seedLava({ x: 16 + 4, y: 6, z: 4 })
-        // After a single tick: water should flow horizontally because below is STONE.
-        // Lava ticks only on every 3rd tick — so after 1 tick, lava should not have moved yet.
         yield* fluid.tick()
-      }).pipe(Effect.provide(FluidService.Default.pipe(Layer.provide(chunkManagerLayer))))
 
-      // Water source was at world x=4 in chunk {0,0}: local (4,6,4). Neighbor at local (5,6,4) in same chunk.
-      const waterNeighborIdx = Option.getOrElse(blockIndex(5, 6, 4), () => -1)
-      // Lava source world x=20 maps to chunk {1,0} local x=4. Neighbor world x=21 -> local x=5.
-      const lavaSourceIdx = Option.getOrElse(blockIndex(4, 6, 4), () => -1)
-      const lavaNeighborIdx = Option.getOrElse(blockIndex(5, 6, 4), () => -1)
-      expect(waterChunk.blocks[waterNeighborIdx]).toBe(blockTypeToIndex('WATER'))
-      // Lava source is preserved after tick
-      expect(lavaChunk.blocks[lavaSourceIdx]).toBe(blockTypeToIndex('LAVA'))
-      // Lava should NOT yet have spread to its neighbor on the first tick
-      expect(lavaChunk.blocks[lavaNeighborIdx]).not.toBe(blockTypeToIndex('LAVA'))
-    }).pipe(Effect.provide(ChunkService.Default))
-  )
+        const waterNeighborIdx = blockIndexOrMinusOne(5, 6, 4)
+        const lavaSourceIdx = blockIndexOrMinusOne(4, 6, 4)
+        const lavaNeighborIdx = blockIndexOrMinusOne(5, 6, 4)
+
+        expect(waterChunk.blocks[waterNeighborIdx]).toBe(blockTypeToIndex('WATER'))
+        expect(lavaChunk.blocks[lavaSourceIdx]).toBe(blockTypeToIndex('LAVA'))
+        expect(lavaChunk.blocks[lavaNeighborIdx]).not.toBe(blockTypeToIndex('LAVA'))
+      }),
+    )
+  })
 
   const resolveContactCases: ReadonlyArray<[string, Parameters<typeof resolveContact>, Option.Option<string>]> = [
-    ['flowing lava + water source → COBBLESTONE',  [{ level: 1, source: false, type: 'lava' }, { level: 0, source: true,  type: 'water' }], Option.some('COBBLESTONE')],
-    ['flowing lava + flowing water → COBBLESTONE', [{ level: 1, source: false, type: 'lava' }, { level: 2, source: false, type: 'water' }], Option.some('COBBLESTONE')],
-    ['lava source + flowing water → OBSIDIAN',     [{ level: 0, source: true,  type: 'lava' }, { level: 2, source: false, type: 'water' }], Option.some('OBSIDIAN')],
-    ['lava source + water source → OBSIDIAN',      [{ level: 0, source: true,  type: 'lava' }, { level: 0, source: true,  type: 'water' }], Option.some('OBSIDIAN')],
-    ['two water cells → none',                     [{ level: 0, source: true,  type: 'water'}, { level: 0, source: true,  type: 'water' }], Option.none()],
-    ['two lava cells → none',                      [{ level: 0, source: true,  type: 'lava' }, { level: 0, source: true,  type: 'lava'  }], Option.none()],
+    ['flowing lava + water source -> COBBLESTONE', [{ level: 1, source: false, type: 'lava' }, { level: 0, source: true, type: 'water' }], Option.some('COBBLESTONE')],
+    ['flowing lava + flowing water -> COBBLESTONE', [{ level: 1, source: false, type: 'lava' }, { level: 2, source: false, type: 'water' }], Option.some('COBBLESTONE')],
+    ['lava source + flowing water -> OBSIDIAN', [{ level: 0, source: true, type: 'lava' }, { level: 2, source: false, type: 'water' }], Option.some('OBSIDIAN')],
+    ['lava source + water source -> OBSIDIAN', [{ level: 0, source: true, type: 'lava' }, { level: 0, source: true, type: 'water' }], Option.some('OBSIDIAN')],
+    ['two water cells -> none', [{ level: 0, source: true, type: 'water' }, { level: 0, source: true, type: 'water' }], Option.none()],
+    ['two lava cells -> none', [{ level: 0, source: true, type: 'lava' }, { level: 0, source: true, type: 'lava' }], Option.none()],
   ]
 
   Arr.forEach(resolveContactCases, ([label, [lava, water], expected]) => {
-    it(`resolveContact — ${label}`, () => {
+    it(`resolveContact - ${label}`, () => {
       expect(resolveContact(lava, water)).toEqual(expected)
     })
   })
 
-  it.effect('lava adjacent to water converts to obsidian/cobblestone on tick depending on source state', () =>
-    Effect.gen(function* () {
-      const chunkService = yield* ChunkService
-      const chunk = yield* chunkService.createChunk({ x: 0, z: 0 })
-      // Platform at y=5 so fluids do not fall.
-      yield* Effect.forEach(Arr.makeBy(16, (i) => i), (lx) =>
-        Effect.forEach(Arr.makeBy(16, (i) => i), (lz) =>
-          setBlockInChunk(chunk, lx, 5, lz, 'STONE'), { concurrency: 1, discard: true })
-      , { concurrency: 1, discard: true })
-      // Seed water source at (4,6,4) and lava source at (5,6,4) — adjacent.
-      yield* setBlockInChunk(chunk, 4, 6, 4, 'WATER')
-      yield* setBlockInChunk(chunk, 5, 6, 4, 'LAVA')
+  it.effect('lava adjacent to water converts to obsidian/cobblestone on tick depending on source state', () => {
+    const chunk = makeFluidTestChunk({
+      blocks: platformPlaneAt(5),
+    })
 
-      const { layer: chunkManagerLayer } = makeChunkManager([chunk])
-      yield* Effect.gen(function* () {
-        const fluid = yield* FluidService
-        yield* fluid.syncLoadedChunks([chunk])
+    return withFluidService([chunk], fluid =>
+      Effect.gen(function* () {
         yield* fluid.seedWater({ x: 4, y: 6, z: 4 })
-        // Make lava FLOWING by placing it as a flowing cell from a source
         yield* fluid.seedLava({ x: 5, y: 6, z: 4 })
-        // Need to tick several times so lava propagates to a flowing state before touching water
-        // (on tick 3, lava is active). Also run many ticks so contact eventually triggers.
-        yield* Effect.forEach(Arr.makeBy(6, (i) => i), () => fluid.tick(), { concurrency: 1, discard: true })
-      }).pipe(Effect.provide(FluidService.Default.pipe(Layer.provide(chunkManagerLayer))))
+        yield* Effect.forEach(Arr.makeBy(6, i => i), () => fluid.tick(), { concurrency: 1, discard: true })
 
-      // Either the contact produced OBSIDIAN (source lava) or COBBLESTONE (flowing lava)
-      const indices = Arr.makeBy(16, (i) => i)
-      const hasConversion = Arr.some(indices, (lx) =>
-        Arr.some(indices, (lz) => {
-          const idx = Option.getOrElse(blockIndex(lx, 6, lz), () => -1)
-          if (idx < 0) return false
-          return chunk.blocks[idx] === blockTypeToIndex('OBSIDIAN') || chunk.blocks[idx] === blockTypeToIndex('COBBLESTONE')
-        })
-      )
-      expect(hasConversion).toBe(true)
-    }).pipe(Effect.provide(ChunkService.Default))
-  )
+        const hasConversion = Arr.some(LOCAL_COORDS, lx =>
+          Arr.some(LOCAL_COORDS, lz => {
+            const idx = blockIndexOrMinusOne(lx, 6, lz)
+            return idx >= 0 && (
+              chunk.blocks[idx] === blockTypeToIndex('OBSIDIAN')
+              || chunk.blocks[idx] === blockTypeToIndex('COBBLESTONE')
+            )
+          }),
+        )
+        expect(hasConversion).toBe(true)
+      }),
+    )
+  })
 
-  it.effect('lava and water coexist at non-adjacent positions', () =>
-    Effect.gen(function* () {
-      const chunkService = yield* ChunkService
-      const chunk = yield* chunkService.createChunk({ x: 0, z: 0 })
-      // Place sources far apart (x=2 vs x=12) so they do not interact.
-      yield* setBlockInChunk(chunk, 2, 10, 2, 'WATER')
-      yield* setBlockInChunk(chunk, 12, 10, 12, 'LAVA')
+  it.effect('lava and water coexist at non-adjacent positions', () => {
+    const chunk = makeFluidTestChunk()
 
-      const { layer: chunkManagerLayer } = makeChunkManager([chunk])
-      yield* Effect.gen(function* () {
-        const fluid = yield* FluidService
-        yield* fluid.syncLoadedChunks([chunk])
+    return withFluidService([chunk], fluid =>
+      Effect.gen(function* () {
         yield* fluid.seedWater({ x: 2, y: 10, z: 2 })
         yield* fluid.seedLava({ x: 12, y: 10, z: 12 })
-        yield* Effect.forEach(Arr.makeBy(5, (i) => i), () => fluid.tick(), { concurrency: 1, discard: true })
-      }).pipe(Effect.provide(FluidService.Default.pipe(Layer.provide(chunkManagerLayer))))
+        yield* Effect.forEach(Arr.makeBy(5, i => i), () => fluid.tick(), { concurrency: 1, discard: true })
 
-      const waterIdx = Option.getOrElse(blockIndex(2, 10, 2), () => -1)
-      const lavaIdx = Option.getOrElse(blockIndex(12, 10, 12), () => -1)
-      expect(chunk.blocks[waterIdx]).toBe(blockTypeToIndex('WATER'))
-      expect(chunk.blocks[lavaIdx]).toBe(blockTypeToIndex('LAVA'))
-    }).pipe(Effect.provide(ChunkService.Default))
-  )
+        const waterIdx = blockIndexOrMinusOne(2, 10, 2)
+        const lavaIdx = blockIndexOrMinusOne(12, 10, 12)
+        expect(chunk.blocks[waterIdx]).toBe(blockTypeToIndex('WATER'))
+        expect(chunk.blocks[lavaIdx]).toBe(blockTypeToIndex('LAVA'))
+      }),
+    )
+  })
 
-  it.effect('removeWater replaces a seeded water block with AIR', () =>
-    Effect.gen(function* () {
-      const chunkService = yield* ChunkService
-      const chunk = yield* chunkService.createChunk({ x: 0, z: 0 })
+  it.effect('removeWater replaces a seeded water block with AIR', () => {
+    const chunk = makeFluidTestChunk()
 
-      const { layer: chunkManagerLayer, dirtyCalls } = makeChunkManager([chunk])
-      const blockIdx = Option.getOrElse(blockIndex(4, 10, 4), () => -1)
-
-      yield* Effect.gen(function* () {
-        const fluid = yield* FluidService
+    return withTrackedFluidService([chunk], (fluid, dirtyCalls) =>
+      Effect.gen(function* () {
         yield* fluid.seedWater({ x: 4, y: 10, z: 4 })
         yield* fluid.removeWater({ x: 4, y: 10, z: 4 })
-      }).pipe(Effect.provide(FluidService.Default.pipe(Layer.provide(chunkManagerLayer))))
 
-      expect(chunk.blocks[blockIdx]).toBe(blockTypeToIndex('AIR'))
-      // Both seed and remove mark dirty
-      expect(dirtyCalls.length).toBeGreaterThanOrEqual(2)
-    }).pipe(Effect.provide(ChunkService.Default))
-  )
+        const blockIdx = blockIndexOrMinusOne(4, 10, 4)
+        expect(chunk.blocks[blockIdx]).toBe(blockTypeToIndex('AIR'))
+        expect(dirtyCalls.length).toBeGreaterThanOrEqual(2)
+      }),
+    )
+  })
 
-  it.effect('removeLava replaces a seeded lava block with AIR', () =>
-    Effect.gen(function* () {
-      const chunkService = yield* ChunkService
-      const chunk = yield* chunkService.createChunk({ x: 0, z: 0 })
+  it.effect('removeLava replaces a seeded lava block with AIR', () => {
+    const chunk = makeFluidTestChunk()
 
-      const { layer: chunkManagerLayer } = makeChunkManager([chunk])
-      const blockIdx = Option.getOrElse(blockIndex(5, 8, 5), () => -1)
-
-      yield* Effect.gen(function* () {
-        const fluid = yield* FluidService
+    return withFluidService([chunk], fluid =>
+      Effect.gen(function* () {
         yield* fluid.seedLava({ x: 5, y: 8, z: 5 })
         yield* fluid.removeLava({ x: 5, y: 8, z: 5 })
-      }).pipe(Effect.provide(FluidService.Default.pipe(Layer.provide(chunkManagerLayer))))
 
-      expect(chunk.blocks[blockIdx]).toBe(blockTypeToIndex('AIR'))
-    }).pipe(Effect.provide(ChunkService.Default))
-  )
+        const blockIdx = blockIndexOrMinusOne(5, 8, 5)
+        expect(chunk.blocks[blockIdx]).toBe(blockTypeToIndex('AIR'))
+      }),
+    )
+  })
 
-  it.effect('notifyBlockChanged adds the position to the frontier so next tick processes it', () =>
-    Effect.gen(function* () {
-      const chunkService = yield* ChunkService
-      const chunk = yield* chunkService.createChunk({ x: 0, z: 0 })
-      yield* setBlockInChunk(chunk, 4, 10, 4, 'WATER')
+  it.effect('notifyBlockChanged adds the position to the frontier so next tick processes it', () => {
+    const chunk = makeFluidTestChunk({
+      blocks: [{ lx: 4, y: 10, lz: 4, blockType: 'WATER' }],
+    })
 
-      const { layer: chunkManagerLayer, dirtyCalls } = makeChunkManager([chunk])
-
-      yield* Effect.gen(function* () {
-        const fluid = yield* FluidService
-        // Prime the cache so tick finds the chunk
-        yield* fluid.syncLoadedChunks([chunk])
-        // Notify about an existing water block — tick should pick it up
+    return withTrackedFluidService([chunk], (fluid, dirtyCalls) =>
+      Effect.gen(function* () {
         yield* fluid.notifyBlockChanged({ x: 4, y: 10, z: 4 })
         yield* fluid.tick()
-      }).pipe(Effect.provide(FluidService.Default.pipe(Layer.provide(chunkManagerLayer))))
 
-      // The tick should have processed the block (dirty calls from propagation)
-      expect(dirtyCalls.length).toBeGreaterThanOrEqual(0)
-    }).pipe(Effect.provide(ChunkService.Default))
-  )
+        expect(dirtyCalls.length).toBeGreaterThanOrEqual(0)
+      }),
+    )
+  })
 })

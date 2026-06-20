@@ -1,7 +1,8 @@
 import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
 import { Array as Arr } from 'effect'
-import { MobDefinitions, getMobDefinition } from '../../domain/mob/mobs'
+import { MobDefinitions } from '../../domain/mob/mobs/mob-definitions'
+import { getMobDefinition } from '../../domain/mob/mobs/get-mob-definition'
 import { EntityType } from '../../domain/mob/entity'
 
 const allEntityTypes = Object.values(EntityType) as EntityType[]
@@ -123,6 +124,10 @@ describe('getMobDefinition', () => {
 
   it('Squid is passive', () => {
     expect(getMobDefinition(EntityType.Squid).behavior).toBe('passive')
+  })
+
+  it('GlowSquid is passive', () => {
+    expect(getMobDefinition(EntityType.GlowSquid).behavior).toBe('passive')
   })
 
   it('Witch is hostile', () => {

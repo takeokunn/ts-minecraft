@@ -1,6 +1,7 @@
 import { describe, expect, it } from '@effect/vitest'
 import { Effect, HashMap, MutableRef, Option, Ref } from 'effect'
-import { DeltaTimeSecs, EntityId, EntityType, type Entity } from '@ts-minecraft/entity'
+import { EntityId, EntityType, type Entity } from '@ts-minecraft/entity/domain/mob/entity';
+import { DeltaTimeSecs } from '@ts-minecraft/core/domain/numerics';
 import { applyBurnDamageCleanup, invalidateEntityCacheIfNeeded, updateCreeperFuseStates, updateSheepWoolRegrowth } from '../../application/mob/entity-manager-update-maintenance'
 import type { ManagedEntity } from '../../domain/mob/entity-internal'
 import { expectSome, makeTestManagedEntity } from './test-utils'

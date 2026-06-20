@@ -1,14 +1,17 @@
 import { Layer, MutableHashMap, MutableHashSet, Effect, Option } from 'effect'
 import { ChunkManagerService } from '@ts-minecraft/world'
-import { HungerService, PlayerInputService } from '@ts-minecraft/entity'
-import { MovementService } from '@ts-minecraft/entity'
-import { PlayerCameraStateService } from '@ts-minecraft/entity'
-import { PlayerService } from '@ts-minecraft/entity'
+import { DroppedItemService } from '@ts-minecraft/entity/application/dropped-item-service'
+import { HungerService } from '@ts-minecraft/entity/application/hunger-service'
+import { PlayerInputService } from '@ts-minecraft/entity/application/player-input-service'
+import { MovementService } from '@ts-minecraft/entity/application/movement-service'
+import { PlayerCameraStateService } from '@ts-minecraft/entity/application/camera-state'
+import { PlayerService } from '@ts-minecraft/entity/application/player-service'
 import { PhysicsService } from '@ts-minecraft/game'
 import { PhysicsWorldPortLayer, RigidBodyPortLayer, ShapePortLayer } from '@ts-minecraft/game'
 import { GameModeService } from '@ts-minecraft/game'
-import { InventoryService } from '@ts-minecraft/inventory'
-import { BlockRegistry } from '@ts-minecraft/block'
+import { InventoryService } from '@ts-minecraft/inventory/application/inventory-service'
+import { EquipmentService } from '@ts-minecraft/inventory/application/equipment-service'
+import { BlockRegistry } from '@ts-minecraft/block/application/block-registry'
 import { GameStateService } from '@ts-minecraft/game'
 
 export const NoOpChunkManagerLayer = Layer.succeed(ChunkManagerService, ChunkManagerService.of({
@@ -58,6 +61,8 @@ export const TestGameLayer = GameStateService.Default.pipe(
   Layer.provide(NoOpChunkManagerLayer),
   Layer.provide(GameModeService.Default),
   Layer.provide(InventoryLayerForTest),
+  Layer.provide(EquipmentService.Default),
+  Layer.provide(DroppedItemService.Default),
 )
 
 export const createTestInputService = (initialState: {
@@ -128,9 +133,8 @@ export const createTestLayer = (inputService: ReturnType<typeof createTestInputS
     NoOpChunkManagerLayer,
     GameModeService.Default,
     InventoryLayerForTest,
+    EquipmentService.Default,
+    DroppedItemService.Default,
   )
-  return Layer.mergeAll(
-    GameStateService.Default.pipe(Layer.provide(dependencyLayers)),
-    PlayerService.Default,
-  )
+  return GameStateService.Default.pipe(Layer.provideMerge(dependencyLayers))
 }

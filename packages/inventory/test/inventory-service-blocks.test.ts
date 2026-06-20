@@ -1,10 +1,10 @@
 import { describe,expect,it } from '@effect/vitest'
 import {
-HOTBAR_SIZE,
-HOTBAR_START,
-INVENTORY_SIZE,
-InventoryService,
-} from '@ts-minecraft/inventory'
+  HOTBAR_SIZE,
+  HOTBAR_START,
+  INVENTORY_SIZE,
+  InventoryService,
+} from '@ts-minecraft/inventory/application/inventory-service'
 import { Array as Arr,Effect,Either,Option } from 'effect'
 import type { ItemStack } from '../domain/item-stack'
 import { MAX_STACK_SIZE,createStack } from '../domain/item-stack'

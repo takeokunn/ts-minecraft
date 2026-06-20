@@ -1,18 +1,18 @@
 import { describe, it } from '@effect/vitest'
+import { Array as Arr, Effect, MutableRef, Option } from 'effect'
+import { expect, vi } from 'vitest'
+import { makeDeps } from '../../../test/frame-handler-test-kit/orchestration/deps'
+import { runFrame } from '../../../test/frame-handler-test-kit/orchestration/harness'
+import { makeInputService } from '../../../test/frame-handler-test-kit/presentation/input'
 import {
-makeDeps,
-makeInputService,
-makeInventoryRenderer,
-makeServices,
-makeSettingsOverlay,
-runFrame,
-} from '../../../test/frame-handler-test-kit'
+  makeInventoryRenderer,
+  makeSettingsOverlay,
+} from '../../../test/frame-handler-test-kit/presentation/overlay'
+import { makeServices } from '../../../test/frame-handler-test-kit/services'
 import { lightingStage } from '@ts-minecraft/app/frame/stages/lighting-stage'
 import type { DeltaTimeSecs } from '@ts-minecraft/core'
 import type { DayNightLights } from '@ts-minecraft/game'
-import { Array as Arr,Effect,MutableRef,Option } from 'effect'
 import * as THREE from 'three'
-import { expect,vi } from 'vitest'
 
 // ---------------------------------------------------------------------------
 // Step 2: Day/night cycle
@@ -171,13 +171,13 @@ describe('step 2.5 — shadow map dirty flag', () => {
 
       // 7 frames — counter increments 1→7; shadowFrame never reaches 0 again yet.
       yield* Effect.forEach(Arr.makeBy(7, (i) => i), () =>
-        lightingStage(deps as never, services as never, { shadowUpdateCounterRef }, inputs),
+        lightingStage(deps, services, { shadowUpdateCounterRef }, inputs),
         { concurrency: 1 },
       )
       expect(state.needsUpdate).toBe(false)
 
       // 8th frame: (7+1)%8=0 → shadowFrame===0 && castShadow=true → triggers dirty.
-      yield* lightingStage(deps as never, services as never, { shadowUpdateCounterRef }, inputs)
+      yield* lightingStage(deps, services, { shadowUpdateCounterRef }, inputs)
       expect(state.needsUpdate).toBe(true)
     })
   )
@@ -197,7 +197,7 @@ describe('step 2.5 — shadow map dirty flag', () => {
 
       // 8 full frames — counter wraps to 0 on the 8th, but castShadow=false suppresses it.
       yield* Effect.forEach(Arr.makeBy(8, (i) => i), () =>
-        lightingStage(deps as never, services as never, { shadowUpdateCounterRef }, inputs),
+        lightingStage(deps, services, { shadowUpdateCounterRef }, inputs),
         { concurrency: 1 },
       )
       expect(state.needsUpdate).toBe(false)

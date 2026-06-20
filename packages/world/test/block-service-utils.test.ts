@@ -173,7 +173,7 @@ describe('BlockService.breakBlock', () => {
     const layer = createTestLayer(handle.service, createMockPlayerService({ x: 100, y: 0, z: 100 }), fluid.service)
     return Effect.gen(function* () {
       yield* Effect.flatMap(BlockService, (svc) => svc.breakBlock(pos))
-      expect(fluid.calls.remove).toEqual([pos])
+      expect(fluid.calls.removeWater).toEqual([pos])
       expect(fluid.calls.notify).toEqual([pos])
     }).pipe(Effect.provide(layer))
   })

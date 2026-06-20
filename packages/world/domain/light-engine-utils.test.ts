@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { CHUNK_HEIGHT, CHUNK_SIZE } from '@ts-minecraft/core'
-import { LIGHT_BYTE_LENGTH } from '@ts-minecraft/block'
+import { LIGHT_BYTE_LENGTH } from '@ts-minecraft/block/domain/light'
 import {
   inLightBounds,
   lightBufferOrFresh,

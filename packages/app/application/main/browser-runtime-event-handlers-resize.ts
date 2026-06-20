@@ -1,6 +1,6 @@
 import { MutableRef, Option } from 'effect'
 
-import type { PendingResize } from './browser-runtime-event-handlers'
+import type { PendingResize } from './browser-runtime-types'
 
 type BrowserResizeHandlerDeps = {
   readonly canvas: HTMLCanvasElement

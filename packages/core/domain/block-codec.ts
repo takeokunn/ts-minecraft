@@ -33,11 +33,13 @@ export const INDEX_TO_BLOCK_TYPE: ReadonlyArray<BlockType> = [
   'CHEST',
   // Doors - indices 73-74
   'DOOR', 'DOOR_OPEN',
-  // Nether / passable utility / plants / ice - indices 75-88
+  // Nether / passable utility / plants / ice - indices 75-89
   'GLOWSTONE', 'LADDER', 'COBWEB', 'SAPLING',
   'DANDELION', 'POPPY', 'BROWN_MUSHROOM', 'RED_MUSHROOM',
   'TALL_GRASS', 'FERN', 'SUGAR_CANE', 'CACTUS',
-  'LILY_PAD', 'ICE',
+  'LILY_PAD', 'ICE', 'PRESSURE_PLATE',
+  // Basic slabs / stairs / utility blocks - indices 90-94
+  'STONE_SLAB', 'OAK_STAIRS', 'ANVIL', 'CAULDRON', 'FIRE',
 ]
 
 export const BLOCK_COUNT = INDEX_TO_BLOCK_TYPE.length

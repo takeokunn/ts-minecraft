@@ -1,6 +1,7 @@
 import { Array as Arr, Option } from 'effect'
-import { CHEST_SIZE, INVENTORY_SIZE, HOTBAR_START } from '@ts-minecraft/inventory'
+import { INVENTORY_SIZE, HOTBAR_START } from '@ts-minecraft/inventory/application/inventory-service'
 import { DomOperationsService } from '@ts-minecraft/presentation/hud/crosshair'
+import { CHEST_SIZE } from '@ts-minecraft/inventory/domain/chest-service.config'
 import {
   DEFAULT_SLOT_COLOR, SLOT_EL_STYLE,
   OVERLAY_STYLE, OVERLAY_TITLE_STYLE,

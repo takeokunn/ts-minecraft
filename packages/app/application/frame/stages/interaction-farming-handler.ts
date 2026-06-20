@@ -1,8 +1,9 @@
 import { Effect, HashMap, HashSet, MutableRef, Option, Schema } from 'effect'
 import { CHUNK_SIZE, CHUNK_HEIGHT, decodeBlockType, SlotIndex, ItemTypeSchema } from '@ts-minecraft/core'
 import type { BlockType, Position } from '@ts-minecraft/core'
-import { HOTBAR_START } from '@ts-minecraft/inventory'
-import type { FrameHandlerServices, FrameStageRefs } from '@ts-minecraft/app/frame/types'
+import { HOTBAR_START } from '@ts-minecraft/inventory/application/inventory-service'
+import type { FrameHandlerServices } from '@ts-minecraft/app/application/frame/types/services'
+import type { FrameStageRefs } from '@ts-minecraft/app/application/frame/types/stage-refs'
 import type { TargetRayHit } from '@ts-minecraft/app/frame/stages/interaction-types'
 import { HOE_ITEM_TYPES, TILLABLE_BLOCK_TYPES } from '@ts-minecraft/world'
 
