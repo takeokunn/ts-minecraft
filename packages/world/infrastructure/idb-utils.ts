@@ -48,11 +48,51 @@ const wrapRequest = <T>(req: IDBRequest<T>): Effect.Effect<T, IndexedDBError> =>
     })
   })
 
+const wrapWriteRequest = <T>(tx: IDBTransaction, req: IDBRequest<T>): Effect.Effect<T, IndexedDBError> =>
+  Effect.async((resume) => {
+    const settledRef = MutableRef.make(false)
+    const hasRequestResultRef = MutableRef.make(false)
+    const requestResultRef = MutableRef.make<T | undefined>(undefined)
+
+    const settle = (effect: Effect.Effect<T, IndexedDBError>): void => {
+      if (MutableRef.get(settledRef)) return
+      MutableRef.set(settledRef, true)
+      resume(effect)
+    }
+
+    const fail = (message: string, cause: unknown): void => {
+      settle(Effect.fail(new IndexedDBError({ message, cause })))
+    }
+
+    req.onsuccess = () => {
+      MutableRef.set(requestResultRef, req.result)
+      MutableRef.set(hasRequestResultRef, true)
+    }
+    req.onerror = () => fail('IndexedDB write request failed', req.error ?? tx.error ?? undefined)
+    tx.oncomplete = () => {
+      if (!MutableRef.get(hasRequestResultRef)) {
+        fail('IndexedDB write transaction completed before request success', undefined)
+        return
+      }
+      settle(Effect.succeed(MutableRef.get(requestResultRef) as T))
+    }
+    tx.onerror = () => fail('IndexedDB write transaction failed', tx.error ?? req.error ?? undefined)
+    tx.onabort = () => fail('IndexedDB write transaction aborted', tx.error ?? req.error ?? undefined)
+
+    return Effect.sync(() => {
+      req.onsuccess = null
+      req.onerror = null
+      tx.oncomplete = null
+      tx.onerror = null
+      tx.onabort = null
+    })
+  })
+
 const makeTypedDB = <T extends DBSchema>(db: IDBDatabase): TypedIDBDatabase<T> => ({
   put<S extends Extract<keyof T, string>>(storeName: S, value: T[S]['value'], key?: T[S]['key']) {
     const tx = db.transaction(storeName, 'readwrite')
     const req = key !== undefined ? tx.objectStore(storeName).put(value, key) : tx.objectStore(storeName).put(value)
-    return wrapRequest(req)
+    return wrapWriteRequest(tx, req)
   },
 
   get<S extends Extract<keyof T, string>>(storeName: S, key: T[S]['key']) {
@@ -62,7 +102,7 @@ const makeTypedDB = <T extends DBSchema>(db: IDBDatabase): TypedIDBDatabase<T> =
 
   delete<S extends Extract<keyof T, string>>(storeName: S, key: T[S]['key']) {
     const tx = db.transaction(storeName, 'readwrite')
-    return wrapRequest(tx.objectStore(storeName).delete(key)).pipe(Effect.asVoid)
+    return wrapWriteRequest(tx, tx.objectStore(storeName).delete(key)).pipe(Effect.asVoid)
   },
 
   forEachCursor<S extends Extract<keyof T, string>>(
