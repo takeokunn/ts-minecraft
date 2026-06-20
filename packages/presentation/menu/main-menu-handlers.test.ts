@@ -47,6 +47,7 @@ const makeDiv = (id: string): HTMLDivElement => ({
 const makeButtons = (): MenuButtons => ({
   newWorld: makeButton('new-world'),
   loadWorld: makeButton('load-world'),
+  settings: makeButton('settings'),
   nwName: makeInput('nw-name'),
   nwMode: makeButton('nw-mode'),
   nwCancel: makeButton('nw-cancel'),
@@ -292,6 +293,7 @@ describe('presentation/menu/main-menu-handlers', () => {
       vi.fn(),
       (choice) => choices.push(choice),
       vi.fn(() => Effect.void),
+      vi.fn(() => Effect.void),
     )
 
     buttons.nwName.value = '   '
@@ -356,6 +358,7 @@ describe('presentation/menu/main-menu-handlers', () => {
     const subStates: SubState[] = []
     const choices: MainMenuChoice[] = []
     const updateModeButton = vi.fn()
+    const openSettings = vi.fn(() => Effect.void)
     const refreshLoadList = vi.fn(() => Effect.void)
     const handlers = makeClickHandlers(
       refs,
@@ -363,6 +366,7 @@ describe('presentation/menu/main-menu-handlers', () => {
       (next) => subStates.push(next),
       updateModeButton,
       (choice) => choices.push(choice),
+      openSettings,
       refreshLoadList,
     )
 
@@ -381,6 +385,11 @@ describe('presentation/menu/main-menu-handlers', () => {
     buttons.nwName.value = ' Named World '
     handlers.onNwConfirmClick()
     expect(choices).toContainEqual({ action: 'newWorld', worldId: WorldId.make('Named World'), gameMode: 'creative' })
+
+    handlers.onSettingsClick()
+    await delayForFork()
+    expect(openSettings).toHaveBeenCalledTimes(1)
+    expect(choices).toHaveLength(1)
 
     handlers.onLoadWorldClick()
     await delayForFork()
@@ -410,6 +419,7 @@ describe('presentation/menu/main-menu-handlers', () => {
       (next) => subStates.push(next),
       vi.fn(),
       vi.fn(),
+      vi.fn(() => Effect.void),
       vi.fn(() => Effect.void),
     )
     const preventDefault = vi.fn()

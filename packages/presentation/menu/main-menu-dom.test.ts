@@ -115,6 +115,7 @@ describe('presentation/menu/main-menu-dom', () => {
     expect(elements.newWorldCard.id).toBe('main-menu-new-world')
     expect(elements.loadWorldCard.id).toBe('main-menu-load-world')
     expect(elements.buttons.newWorld.id).toBe('mm-new-world')
+    expect(elements.buttons.settings.id).toBe('mm-settings')
     expect(elements.buttons.lwList.id).toBe('mm-lw-list')
     expect(appended).toHaveLength(1)
   })

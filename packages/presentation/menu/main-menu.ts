@@ -72,24 +72,35 @@ export class MainMenuService extends Effect.Service<MainMenuService>()(
         openRenamePrompt,
       )
 
+      const openSettings = (): Effect.Effect<void, never> =>
+        Effect.sync(() => document.getElementById('settings-gear-btn') as HTMLButtonElement | null).pipe(
+          Effect.flatMap((settingsButton) =>
+            settingsButton === null
+              ? Effect.logWarning('MainMenu: settings overlay button is not mounted')
+              : Effect.sync(() => settingsButton.click()),
+          ),
+        )
+
       const handlers = makeClickHandlers(
         refs,
         buttons,
         setSubState,
         updateModeButton,
         completeWith,
+        openSettings,
         refreshLoadList,
       )
 
       const {
         onNewWorldClick, onLoadWorldClick,
-        onNwModeClick, onNwCancelClick, onNwConfirmClick, onLwBackClick, onEsc,
+        onSettingsClick, onNwModeClick, onNwCancelClick, onNwConfirmClick, onLwBackClick, onEsc,
       } = handlers
 
       yield* Effect.acquireRelease(
         Effect.sync(() => {
           buttons.newWorld.addEventListener('click', onNewWorldClick)
           buttons.loadWorld.addEventListener('click', onLoadWorldClick)
+          buttons.settings.addEventListener('click', onSettingsClick)
           buttons.nwMode.addEventListener('click', onNwModeClick)
           buttons.nwCancel.addEventListener('click', onNwCancelClick)
           buttons.nwConfirm.addEventListener('click', onNwConfirmClick)
@@ -99,6 +110,7 @@ export class MainMenuService extends Effect.Service<MainMenuService>()(
           Effect.sync(() => {
             buttons.newWorld.removeEventListener('click', onNewWorldClick)
             buttons.loadWorld.removeEventListener('click', onLoadWorldClick)
+            buttons.settings.removeEventListener('click', onSettingsClick)
             buttons.nwMode.removeEventListener('click', onNwModeClick)
             buttons.nwCancel.removeEventListener('click', onNwCancelClick)
             buttons.nwConfirm.removeEventListener('click', onNwConfirmClick)

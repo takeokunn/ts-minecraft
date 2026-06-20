@@ -178,6 +178,7 @@ export const makeOpenDeleteConfirm = (
 export interface ClickHandlers {
   readonly onNewWorldClick: () => void
   readonly onLoadWorldClick: () => void
+  readonly onSettingsClick: () => void
   readonly onNwModeClick: () => void
   readonly onNwCancelClick: () => void
   readonly onNwConfirmClick: () => void
@@ -191,6 +192,7 @@ export const makeClickHandlers = (
   setSubState: (next: SubState) => void,
   updateModeButton: () => void,
   completeWith: (choice: MainMenuChoice) => void,
+  openSettings: () => Effect.Effect<void, never>,
   refreshLoadList: () => Effect.Effect<void, never>,
 ): ClickHandlers => ({
   onNewWorldClick: () => {
@@ -203,6 +205,15 @@ export const makeClickHandlers = (
   onLoadWorldClick: () => {
     setSubState('load-world')
     Effect.runFork(refreshLoadList())
+  },
+  onSettingsClick: () => {
+    Effect.runFork(
+      openSettings().pipe(
+        Effect.catchAllCause((cause) =>
+          Effect.logError(`MainMenu: open settings failed: ${Cause.pretty(cause)}`),
+        ),
+      ),
+    )
   },
   onNwModeClick: () => {
     MutableRef.set(refs.newWorldModeRef, cycleGameMode(MutableRef.get(refs.newWorldModeRef)))

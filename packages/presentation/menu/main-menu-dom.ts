@@ -10,6 +10,7 @@ import { formatLastPlayed, gameModeLabel } from './main-menu-utils'
 export interface MenuButtons {
   readonly newWorld: HTMLButtonElement
   readonly loadWorld: HTMLButtonElement
+  readonly settings: HTMLButtonElement
   readonly nwName: HTMLInputElement
   readonly nwMode: HTMLButtonElement
   readonly nwCancel: HTMLButtonElement
@@ -41,6 +42,7 @@ export const buildMenuDOM = (dom: DomOperationsService): MenuDomElements => {
     <h1 style="margin:0 0 16px;text-align:center;font-size:28px;color:#fff;text-shadow:2px 2px #222">ts-minecraft</h1>
     <button type="button" id="mm-new-world" style="${buttonStyle}">Create New World</button>
     <button type="button" id="mm-load-world" style="${buttonStyle}">Select World</button>
+    <button type="button" id="mm-settings" style="${buttonStyle}">Options...</button>
   `)
 
   // NEW_WORLD card
@@ -86,6 +88,7 @@ export const buildMenuDOM = (dom: DomOperationsService): MenuDomElements => {
   const buttons: MenuButtons = {
     newWorld: required<HTMLButtonElement>(rootCard, '#mm-new-world'),
     loadWorld: required<HTMLButtonElement>(rootCard, '#mm-load-world'),
+    settings: required<HTMLButtonElement>(rootCard, '#mm-settings'),
     nwName: required<HTMLInputElement>(newWorldCard, '#mm-nw-name'),
     nwMode: required<HTMLButtonElement>(newWorldCard, '#mm-nw-mode'),
     nwCancel: required<HTMLButtonElement>(newWorldCard, '#mm-nw-cancel'),
