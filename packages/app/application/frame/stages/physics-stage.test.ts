@@ -8,6 +8,7 @@ import { SlotIndex } from '@ts-minecraft/core'
 import type { DeltaTimeSecs } from '@ts-minecraft/core'
 import type { BlockType } from '@ts-minecraft/core'
 import type { SoundEffect } from '@ts-minecraft/game'
+import { XP_ORB_PICKUP_DELAY_TICKS } from '@ts-minecraft/entity/domain/dropped-xp-orb'
 import { computeExplosionDamageAt } from '@ts-minecraft/entity/domain/explosion-resolution'
 import { DEFAULT_SETTINGS } from '../../../test/frame-handler-test-kit/shared'
 import { makeDeps } from '../../../test/frame-handler-test-kit/orchestration/deps'
@@ -779,7 +780,7 @@ describe('step 3.5 — fall damage', () => {
     expect(applyDamageSpy).toHaveBeenCalledWith(10)
   }))
 
-  it.effect('deposits a resolved fishing catch into the inventory', () => Effect.gen(function* () {
+  it.effect('deposits a resolved fishing catch into the inventory and world XP orb lane', () => Effect.gen(function* () {
     const deps = yield* makeDeps(false)
     const services = makeServices({
       inputService: makeInputService(),
@@ -798,14 +799,18 @@ describe('step 3.5 — fall damage', () => {
     ;(services.hotbarService as { getSelectedSlot: unknown }).getSelectedSlot = vi.fn(() =>
       Effect.succeed(selectedSlot)
     )
-    const addXPSpy = vi.fn(() => Effect.void)
-    ;(services.xpService as { addXP: unknown }).addXP = addXPSpy
+    const spawnXpOrbSpy = vi.fn(() => Effect.void)
+    ;(services.droppedXpOrbService as { spawn: unknown }).spawn = spawnXpOrbSpy
 
     yield* runFrame(deps, services)
 
     expect(addBlockSpy).toHaveBeenCalledWith('COOKED_COD', 1)
     expect(damageSlotSpy).toHaveBeenCalledWith(selectedHotbarSlotIndex(selectedSlot), 1)
-    expect(addXPSpy).toHaveBeenCalledWith(5)
+    expect(spawnXpOrbSpy).toHaveBeenCalledWith({
+      amount: 5,
+      position: { x: 0, y: 64.5, z: 0 },
+      pickupDelayTicks: XP_ORB_PICKUP_DELAY_TICKS,
+    })
   }))
 
   it.effect('does NOT add anything when fishing is idle (tick returns none)', () => Effect.gen(function* () {

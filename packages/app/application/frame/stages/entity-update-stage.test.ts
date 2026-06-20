@@ -569,11 +569,11 @@ describe('step 2.85 — entity renderer wiring', () => {
       addXP: addXPSpy,
     })
 
-    try {
-      yield* runFrame(deps, services)
-    } finally {
-      randomSpy.mockRestore()
-    }
+    yield* Effect.acquireUseRelease(
+      Effect.succeed(randomSpy),
+      () => runFrame(deps, services),
+      (spy) => Effect.sync(() => spy.mockRestore()),
+    )
 
     expect(inventoryMendingSpy).toHaveBeenCalledWith(BREED_XP_MIN_REWARD + BREED_XP_MAX_REWARD)
     expect(equipmentMendingSpy).toHaveBeenCalledWith(BREED_XP_MIN_REWARD + 4)

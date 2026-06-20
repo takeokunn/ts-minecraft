@@ -2,5 +2,5 @@ import type { FrameHandlerServices } from '@ts-minecraft/app/application/frame/t
 
 export type PhysicsStageServices = Pick<
   FrameHandlerServices,
-  'gameState' | 'healthService' | 'hungerService' | 'xpService' | 'equipmentService' | 'fishingService' | 'inventoryService' | 'hotbarService' | 'soundManager' | 'entityManager' | 'gameMode' | 'chunkManagerService' | 'netherService' | 'blockService' | 'inputService' | 'weatherService'
+  'gameState' | 'healthService' | 'hungerService' | 'xpService' | 'equipmentService' | 'fishingService' | 'inventoryService' | 'hotbarService' | 'soundManager' | 'entityManager' | 'gameMode' | 'chunkManagerService' | 'netherService' | 'blockService' | 'inputService' | 'weatherService' | 'droppedXpOrbService'
 >
