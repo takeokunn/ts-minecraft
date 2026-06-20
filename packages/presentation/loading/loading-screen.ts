@@ -35,7 +35,12 @@ const renderLoadingView = (dom: DomOperationsService, overlayEl: HTMLDivElement)
   dom.appendChildTo(overlayEl, createLoadingText(dom))
 }
 
-const renderErrorView = (dom: DomOperationsService, overlayEl: HTMLDivElement, message: string): void => {
+const renderErrorView = (
+  dom: DomOperationsService,
+  overlayEl: HTMLDivElement,
+  message: string,
+  detailText = 'Returning to main menu...',
+): void => {
   clearElementChildren(overlayEl)
 
   const title = createBaseTitle(dom)
@@ -45,7 +50,7 @@ const renderErrorView = (dom: DomOperationsService, overlayEl: HTMLDivElement, m
   errorMessage.style.cssText = 'color:#ffb4b4;font-family:monospace;font-size:16px;max-width:680px;text-align:center;line-height:1.6;padding:0 16px'
 
   const detail = dom.createElement('div')
-  detail.textContent = 'Returning to main menu...'
+  detail.textContent = detailText
   detail.style.cssText = 'color:#fff;font-family:monospace;font-size:14px;margin-top:16px;opacity:0.9'
 
   dom.appendChildTo(overlayEl, title)
@@ -104,11 +109,11 @@ export class LoadingScreenService extends Effect.Service<LoadingScreenService>()
           const el = Option.getOrNull(overlayEl)
           if (el !== null) el.style.display = 'none'
         }),
-        showError: (message: string): Effect.Effect<void, never> => Effect.sync(() => {
+        showError: (message: string, detailText?: string): Effect.Effect<void, never> => Effect.sync(() => {
           const el = Option.getOrNull(overlayEl)
           if (el !== null) {
             el.style.display = 'flex'
-            renderErrorView(dom, el, message)
+            renderErrorView(dom, el, message, detailText)
           }
         }),
       }

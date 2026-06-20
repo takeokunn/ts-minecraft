@@ -131,6 +131,33 @@ describe('presentation/loading/loading-screen', () => {
     })))
   })
 
+  it.scoped('showError should render a custom detail message', () => {
+    const mockDom = createMockDomLayer()
+    const appendToHead = vi.fn((element: unknown) => {
+      ;(element as { parentNode?: unknown }).parentNode = { removeChild: vi.fn() }
+    })
+
+    Reflect.set(globalThis as object, 'document', {
+      head: { appendChild: appendToHead },
+    })
+
+    const TestLayer = buildTestLayer(mockDom)
+
+    return Effect.gen(function* () {
+      const loading = yield* LoadingScreenService
+      yield* loading.showError(
+        'Startup failed.',
+        'Refresh the page or check the browser console for details.',
+      )
+
+      expect(mockDom.overlayEl.children).toHaveLength(3)
+      const detailNode = mockDom.overlayEl.children[2] as { textContent: string }
+      expect(detailNode.textContent).toBe('Refresh the page or check the browser console for details.')
+    }).pipe(Effect.provide(TestLayer), Effect.ensuring(Effect.sync(() => {
+      Reflect.deleteProperty(globalThis as object, 'document')
+    })))
+  })
+
   it.scoped('show should restore the loading view after an error', () => {
     const mockDom = createMockDomLayer()
     const appendToHead = vi.fn((element: unknown) => {

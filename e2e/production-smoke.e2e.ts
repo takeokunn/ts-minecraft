@@ -1,18 +1,8 @@
 import { expect, test } from '@playwright/test'
+import { attachFatalErrorMonitor } from './helpers/console-monitor'
 
 test('built app boots without runtime ReferenceError', async ({ page }) => {
-  const consoleErrors: string[] = []
-  const pageErrors: string[] = []
-
-  page.on('console', (message: ConsoleMessage) => {
-    if (message.type() === 'error') {
-      consoleErrors.push(message.text())
-    }
-  })
-
-  page.on('pageerror', (error: Error) => {
-    pageErrors.push(String(error))
-  })
+  const getFatalErrors = attachFatalErrorMonitor(page)
 
   await page.goto('/', { waitUntil: 'domcontentloaded' })
   await page.waitForTimeout(3000)
@@ -40,12 +30,5 @@ test('built app boots without runtime ReferenceError', async ({ page }) => {
   await expect(page.locator('#health-value')).toHaveText('20')
   await expect(page.locator('#health-max')).toHaveText('20')
 
-  const runtimeErrors = consoleErrors.filter((message) =>
-    message.includes('ReferenceError: Cannot access') ||
-    message.includes('TypeError:') ||
-    message.includes('SyntaxError:')
-  )
-
-  expect(runtimeErrors.length).toBe(0)
-  expect(pageErrors.length).toBe(0)
+  expect(getFatalErrors().length).toBe(0)
 })

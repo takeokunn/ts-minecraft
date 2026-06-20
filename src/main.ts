@@ -12,6 +12,35 @@ import { WorldId, parseWorldParam, clearWorldParam } from '@ts-minecraft/core'
 import type { BootContext } from '@ts-minecraft/app'
 import type { GameMode } from '@ts-minecraft/game'
 
+const SESSION_FAILURE_MESSAGE = 'The game session stopped unexpectedly.'
+const SESSION_FAILURE_DISPLAY_DELAY = '2 seconds'
+const STARTUP_FAILURE_MESSAGE = 'Startup failed.'
+const STARTUP_FAILURE_DETAIL = 'Refresh the page or check the browser console for details.'
+
+const presentSessionFailure = (
+  loadingScreen: LoadingScreenService,
+  cause: Cause.Cause<unknown>,
+) =>
+  loadingScreen.showError(SESSION_FAILURE_MESSAGE).pipe(
+    Effect.zipRight(Effect.logError(`Session error: ${Cause.pretty(cause)}`)),
+    Effect.zipRight(Effect.sleep(SESSION_FAILURE_DISPLAY_DELAY)),
+    Effect.asVoid,
+  )
+
+const presentStartupFailure = (cause: Cause.Cause<unknown>) =>
+  Effect.gen(function* () {
+    const loadingScreen = yield* LoadingScreenService
+    yield* Effect.sync(() => setGameplayHudHidden(true))
+    yield* loadingScreen.showError(STARTUP_FAILURE_MESSAGE, STARTUP_FAILURE_DETAIL)
+    yield* Effect.logError(`Startup failed: ${Cause.pretty(cause)}`)
+  }).pipe(
+    Effect.catchAllCause((displayCause) =>
+      Effect.logError(
+        `Startup failed: ${Cause.pretty(cause)}\nStartup error UI failed: ${Cause.pretty(displayCause)}`,
+      ).pipe(Effect.asVoid),
+    ),
+  )
+
 const runSessionToTitle = (
   bootCtx: BootContext,
   worldId: WorldId,
@@ -83,7 +112,7 @@ const mainMenuLoop = (bootCtx: BootContext) =>
       yield* Effect.sync(() => clearWorldParam())
       yield* Effect.sync(() => setGameplayHudHidden(false))
       yield* runSessionToTitle(bootCtx, worldId, urlGameMode).pipe(
-        Effect.catchAllCause((cause) => Effect.logError(`Session error: ${Cause.pretty(cause)}`)),
+        Effect.catchAllCause((cause) => presentSessionFailure(loadingScreen, cause)),
         Effect.asVoid,
       )
     }
@@ -102,7 +131,7 @@ const mainMenuLoop = (bootCtx: BootContext) =>
         : yield* loadGameModeForWorld(choice.worldId)
 
       yield* runSessionToTitle(bootCtx, choice.worldId, gameMode).pipe(
-        Effect.catchAllCause((cause) => Effect.logError(`Session error: ${Cause.pretty(cause)}`)),
+        Effect.catchAllCause((cause) => presentSessionFailure(loadingScreen, cause)),
         Effect.asVoid,
       )
       yield* Effect.sync(() => clearWorldParam())
@@ -126,9 +155,7 @@ const AppLayers = MainLayers.pipe(
 
 const program = bootProgram.pipe(
   Effect.flatMap(mainMenuLoop),
-  Effect.catchAllCause((cause) =>
-    Effect.logError(`Startup failed: ${Cause.pretty(cause)}`).pipe(Effect.asVoid),
-  ),
+  Effect.catchAllCause(presentStartupFailure),
   Effect.provide(AppLayers),
 )
 
