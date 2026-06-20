@@ -3,7 +3,7 @@ import { it } from '@effect/vitest'
 import { Array as Arr, Effect } from 'effect'
 import { vi } from 'vitest'
 import { CHUNK_HEIGHT, CHUNK_SIZE } from '@ts-minecraft/core'
-import { LIGHT_BYTE_LENGTH } from '@ts-minecraft/worker'
+import { LIGHT_BYTE_LENGTH } from '@ts-minecraft/block/domain/light'
 import { TerrainWorkerPool } from '@ts-minecraft/worker'
 
 const BLOCK_BYTES = CHUNK_SIZE * CHUNK_SIZE * CHUNK_HEIGHT

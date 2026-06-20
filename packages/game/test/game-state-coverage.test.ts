@@ -14,6 +14,8 @@ import { KeyMappings } from '@ts-minecraft/entity/domain/key-mappings'
 import { ChunkManagerService, chunkBlockIndexUnchecked } from '@ts-minecraft/world'
 import { PhysicsWorldPortLayer, RigidBodyPortLayer, ShapePortLayer } from '@ts-minecraft/game'
 import { InventoryService } from '@ts-minecraft/inventory/application/inventory-service'
+import { EquipmentService } from '@ts-minecraft/inventory/application/equipment-service'
+import { DroppedItemService } from '@ts-minecraft/entity/application/dropped-item-service'
 import { BlockRegistry } from '@ts-minecraft/block/application/block-registry'
 import { NoOpChunkManagerLayer, createTestInputService, createTestLayer } from './game-state-test-utils'
 
@@ -65,6 +67,8 @@ describe('application/game-state (coverage)', () => {
       chunkManagerLayer,
       GameModeService.Default,
       inventoryLayer,
+      EquipmentService.Default,
+      DroppedItemService.Default,
     )
     return Layer.mergeAll(
       GameStateService.Default.pipe(Layer.provide(dependencyLayers)),
@@ -92,6 +96,8 @@ describe('application/game-state (coverage)', () => {
       chunkManagerLayer,
       GameModeService.Default,
       inventoryLayer,
+      EquipmentService.Default,
+      DroppedItemService.Default,
     )
     return Layer.mergeAll(
       GameStateService.Default.pipe(Layer.provide(dependencyLayers)),
@@ -169,6 +175,8 @@ describe('application/game-state (coverage)', () => {
         RealChunkManagerLayer,
         GameModeService.Default,
         inventoryLayer,
+        EquipmentService.Default,
+        DroppedItemService.Default,
       )
       return Layer.mergeAll(
         GameStateService.Default.pipe(Layer.provide(dependencyLayers)),
@@ -246,6 +254,8 @@ describe('application/game-state (coverage)', () => {
         NoOpChunkManagerLayer,
         GameModeService.Default,
         inventoryLayer,
+        EquipmentService.Default,
+        DroppedItemService.Default,
       )
       return Layer.mergeAll(
         GameStateService.Default.pipe(Layer.provide(dependencyLayers)),
@@ -312,6 +322,8 @@ describe('application/game-state (coverage)', () => {
         NoOpChunkManagerLayer,
         GameModeService.Default,
         inventoryLayer,
+        EquipmentService.Default,
+        DroppedItemService.Default,
       )
       return Layer.mergeAll(
         GameStateService.Default.pipe(Layer.provide(dependencyLayers)),
@@ -392,6 +404,8 @@ describe('application/game-state (coverage)', () => {
         WaterChunkManagerLayer,
         GameModeService.Default,
         InventoryService.Default.pipe(Layer.provide(BlockRegistry.Default)),
+        EquipmentService.Default,
+        DroppedItemService.Default,
       )
       const testLayer = Layer.mergeAll(
         GameStateService.Default.pipe(Layer.provide(dependencyLayers)),

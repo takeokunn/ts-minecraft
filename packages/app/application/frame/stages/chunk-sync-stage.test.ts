@@ -119,7 +119,7 @@ describe('step 1 — chunk streaming', () => {
     expect(spy).toHaveBeenCalledOnce()
   }))
 
-  it.effect('skips applyFrustumCulling once the camera pose stabilizes', () => Effect.gen(function* () {
+  it.effect('skips applyFrustumCulling after the camera pose stabilizes', () => Effect.gen(function* () {
     const deps = yield* makeDeps(false)
     const services = makeServices({
       inputService: makeInputService(),
@@ -137,8 +137,10 @@ describe('step 1 — chunk streaming', () => {
     yield* handler(0.016 as DeltaTimeSecs)
     yield* handler(0.016 as DeltaTimeSecs)
     yield* handler(0.016 as DeltaTimeSecs)
+    yield* handler(0.016 as DeltaTimeSecs)
+    yield* handler(0.016 as DeltaTimeSecs)
 
-    expect(spy).toHaveBeenCalledOnce()
+    expect(spy).toHaveBeenCalledTimes(2)
   }))
 
   it.effect('preserves dirty chunk updates added while maintenance requeues remaining work', () => Effect.gen(function* () {

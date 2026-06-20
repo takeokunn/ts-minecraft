@@ -10,6 +10,7 @@ import { makeEntityFrameContext, makeTestManagedEntity } from './test-utils'
 describe('entity/entityManagerAIApply', () => {
   it('reuses idle or attack frames only when the entity is unchanged', () => {
     const entity = makeTestManagedEntity({
+      entityId: EntityId.make('entity-reuse-idle'),
       type: EntityType.Sheep,
       aiState: AIState.Idle,
       velocity: zero,
