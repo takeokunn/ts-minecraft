@@ -73,6 +73,13 @@ export const makeDroppedItemRenderer = () => ({
   _getTrackedGroup: (_id: unknown) => Effect.succeed(Option.none()),
 }) as unknown as InstanceType<typeof import('@ts-minecraft/rendering').DroppedItemRendererService>
 
+/** Creates a dropped XP orb renderer fake that tracks no scene groups. */
+export const makeDroppedXpOrbRenderer = () => ({
+  syncOrbs: (_orbs: unknown, _scene: unknown, _total: unknown) => Effect.void,
+  clearScene: (_scene: unknown) => Effect.void,
+  _getTrackedGroup: (_id: unknown) => Effect.succeed(Option.none()),
+}) as unknown as InstanceType<typeof import('@ts-minecraft/rendering').DroppedXpOrbRendererService>
+
 /** Creates a chunk mesh service fake for sunlight updates. */
 export const makeChunkMeshService = () => ({
   setSunIntensity: (_value: number) => Effect.void,

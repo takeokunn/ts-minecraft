@@ -1,10 +1,7 @@
 import { HashMap, HashSet, Option } from "effect";
 import type { Chunk } from "../domain/chunk";
-import {
-  FLUID_TICK_BUDGET,
-  chunkCoordsForPosition,
-  parseKey,
-} from "@ts-minecraft/block/domain/fluid-model";
+import { FLUID_TICK_BUDGET } from "@ts-minecraft/block/domain/fluid-model";
+import { chunkCoordsForPosition, parseKey } from "@ts-minecraft/block/domain/fluid-position-utils";
 import type {
   FluidCell,
   FluidKey,

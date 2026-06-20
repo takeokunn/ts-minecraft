@@ -3,8 +3,6 @@ import { HashSet } from 'effect'
 import { expect } from 'vitest'
 import { CHUNK_HEIGHT, CHUNK_SIZE } from '@ts-minecraft/core'
 import {
-  LAVA_INDEX,
-  WATER_INDEX,
   blockIndexFor,
   blockKey,
   blockKeyFromChunkIndex,
@@ -22,7 +20,9 @@ import {
   positionFromChunk,
 } from '@ts-minecraft/block/domain/fluid-position-utils'
 import {
+  LAVA_INDEX,
   LAVA_MAX_LEVEL,
+  WATER_INDEX,
   WATER_MAX_LEVEL,
 } from '@ts-minecraft/block/domain/fluid-model'
 import { makeMinimalBlockChunk } from './chunk-block-test-utils'

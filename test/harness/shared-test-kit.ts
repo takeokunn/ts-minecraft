@@ -14,7 +14,7 @@ import { makeEquipmentService, makeHotbarService, makeInventoryService } from '.
 import { makeCameraState, makeFirstPersonCamera, makeFishingService, makeHealthService, makeHungerService, makeThirdPersonCamera, makeXPService } from './player-test-kit'
 import { makeChunkMeshService, makeEntityRenderer, makeParticleSystem, makePerfHud, makeWorldRendererService } from './rendering-test-kit'
 import { makeDroppedItemService, makeDroppedXpOrbService } from '../../packages/app/test/frame-handler-test-kit/entity'
-import { makeBiomeService, makeDroppedItemRenderer } from '../../packages/app/test/frame-handler-test-kit/world'
+import { makeBiomeService, makeDroppedItemRenderer, makeDroppedXpOrbRenderer } from '../../packages/app/test/frame-handler-test-kit/world'
 import { makeBlockService, makeChunkManagerService, makeCropGrowthService, makeFluidService, makeNetherService, makeWeatherService } from './terrain-test-kit'
 
 export type CameraMode = 'firstPerson' | 'thirdPerson'
@@ -161,6 +161,7 @@ export const makeServices = (opts: {
     worldRendererService: makeWorldRendererService(),
     entityRenderer: makeEntityRenderer(),
     droppedItemRenderer: makeDroppedItemRenderer(),
+    droppedXpOrbRenderer: makeDroppedXpOrbRenderer(),
     chunkMeshService: makeChunkMeshService(),
     particleSystem: makeParticleSystem(),
     healthService: makeHealthService(),

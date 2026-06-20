@@ -2,8 +2,8 @@ import { Effect, Ref } from "effect";
 import {
   FLUID_TICK_BUDGET,
   LAVA_TICK_INTERVAL,
-  parseKey,
 } from "@ts-minecraft/block/domain/fluid-model";
+import { parseKey } from "@ts-minecraft/block/domain/fluid-position-utils";
 import type { FluidState } from "@ts-minecraft/block/domain/fluid-model";
 import type { LoadedChunkCache } from "./fluid-service-helpers";
 import { processFluidCell } from "./fluid-service-flow";

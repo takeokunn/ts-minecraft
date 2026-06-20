@@ -109,7 +109,7 @@ export const entityUpdateStage = (
   deps: Pick<FrameHandlerDeps, 'scene' | 'camera'>,
   services: Pick<
     FrameHandlerServices,
-    'chunkManagerService' | 'droppedItemService' | 'droppedXpOrbService' | 'droppedItemRenderer' | 'entityManager' | 'entityRenderer' | 'redstoneService' | 'fluidService' | 'particleSystem' | 'inventoryService' | 'equipmentService' | 'xpService'
+    'chunkManagerService' | 'droppedItemService' | 'droppedXpOrbService' | 'droppedItemRenderer' | 'droppedXpOrbRenderer' | 'entityManager' | 'entityRenderer' | 'redstoneService' | 'fluidService' | 'particleSystem' | 'inventoryService' | 'equipmentService' | 'xpService'
   >,
   refs: Pick<
     FrameStageRefs,
@@ -241,6 +241,8 @@ export const entityUpdateStage = (
         }
         const droppedItems = yield* services.droppedItemService.getAll()
         yield* services.droppedItemRenderer.syncItems(droppedItems, deps.scene, inputs.totalTimeSecs)
+        const droppedXpOrbs = yield* services.droppedXpOrbService.getAll()
+        yield* services.droppedXpOrbRenderer.syncOrbs(droppedXpOrbs, deps.scene, inputs.totalTimeSecs)
 
         // Sequential synchronous reads stay on the frame lane; nested flatMaps
         // would add callback allocations without any concurrency gain here.

@@ -9,7 +9,6 @@ import {
   rollLeafDrops,
 } from '@ts-minecraft/world'
 import type { FrameStageRefs } from '@ts-minecraft/app/application/frame/types/stage-refs'
-import type { BlockType, InventoryItem } from '@ts-minecraft/core'
 import { SlotIndex } from '@ts-minecraft/core'
 import { HOTBAR_START } from '@ts-minecraft/inventory/application/inventory-service'
 import { isDurable } from '@ts-minecraft/inventory/domain/durability'

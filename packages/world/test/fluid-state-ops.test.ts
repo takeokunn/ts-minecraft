@@ -1,12 +1,8 @@
 import { describe, it, expect } from 'vitest'
 import { HashMap, HashSet, Option } from 'effect'
-import {
-  INITIAL_STATE,
-  blockKey,
-  createFluidBuffer,
-  encodeFluidCell,
-} from '@ts-minecraft/block/domain/fluid'
-import type { FluidCell } from '@ts-minecraft/block/domain/fluid-model'
+import { createFluidBuffer, encodeFluidCell } from '@ts-minecraft/block/domain/fluid'
+import { INITIAL_STATE, type FluidCell } from '@ts-minecraft/block/domain/fluid-model'
+import { blockKey } from '@ts-minecraft/block/domain/fluid-position-utils'
 import { CHUNK_HEIGHT, CHUNK_SIZE, blockIndex, blockTypeToIndex } from '@ts-minecraft/core'
 import type { Position } from '@ts-minecraft/core'
 import type { Chunk } from '../domain/chunk'

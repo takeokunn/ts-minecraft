@@ -66,6 +66,7 @@ describe('session-bootstrap-runtime', () => {
         worldRendererService: makeService('world-renderer'),
         entityRenderer: makeService('entity-renderer'),
         droppedItemRenderer: makeService('dropped-item-renderer'),
+        droppedXpOrbRenderer: makeService('dropped-xp-orb-renderer'),
         chunkMeshService: makeService('chunk-mesh'),
         particleSystem: makeService('particle-system'),
         entityManager: makeService('entity-manager'),
@@ -123,6 +124,7 @@ describe('session-bootstrap-runtime', () => {
       expect(bundle.runtimeParams.overlays.debugOverlay).toBe(debugOverlay)
       expect(bundle.runtimeServices.gameMode).toBe(services.gameModeService)
       expect(bundle.runtimeServices.perfHud).toBe(perfHud)
+      expect(bundle.runtimeServices.droppedXpOrbRenderer).toBe(services.droppedXpOrbRenderer)
       expect(vi.isMockFunction(getElementById)).toBe(true)
       expect(getElementById).toHaveBeenCalledWith('fps-value')
     })

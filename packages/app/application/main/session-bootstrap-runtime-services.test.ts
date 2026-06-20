@@ -49,6 +49,7 @@ describe('session-bootstrap-runtime-services', () => {
       worldRendererService: makeService('world-renderer'),
       entityRenderer: makeService('entity-renderer'),
       droppedItemRenderer: makeService('dropped-item-renderer'),
+      droppedXpOrbRenderer: makeService('dropped-xp-orb-renderer'),
       chunkMeshService: makeService('chunk-mesh'),
       particleSystem: makeService('particle-system'),
       entityManager: makeService('entity-manager'),
@@ -81,6 +82,7 @@ describe('session-bootstrap-runtime-services', () => {
     expect(runtimeServices.musicManager).toBe(musicManager)
     expect(runtimeServices.perfHud).toBe(perfHud)
     expect(runtimeServices.biomeService).toBe(services.biomeService)
+    expect(runtimeServices.droppedXpOrbRenderer).toBe(services.droppedXpOrbRenderer)
     expect(Option.isNone(runtimeServices.multiplayer)).toBe(true)
   })
 })

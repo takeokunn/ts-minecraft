@@ -1,4 +1,22 @@
-import { makeBiomeService, makeBlockService, makeChunkManagerService, makeChunkMeshService, makeCropGrowthService, makeDroppedItemRenderer, makeEquipmentService, makeFluidService, makeHotbarService, makeInventoryService, makeNetherService, makeParticleSystem, makePerfHud, makeWorldRendererService, makeEntityRenderer, makeWeatherService } from '../world'
+import {
+  makeBiomeService,
+  makeBlockService,
+  makeChunkManagerService,
+  makeChunkMeshService,
+  makeCropGrowthService,
+  makeDroppedItemRenderer,
+  makeDroppedXpOrbRenderer,
+  makeEntityRenderer,
+  makeEquipmentService,
+  makeFluidService,
+  makeHotbarService,
+  makeInventoryService,
+  makeNetherService,
+  makeParticleSystem,
+  makePerfHud,
+  makeWeatherService,
+  makeWorldRendererService,
+} from '../world'
 
 export const makeWorldServices = () => ({
   blockService: makeBlockService(),
@@ -8,6 +26,7 @@ export const makeWorldServices = () => ({
   equipmentService: makeEquipmentService(),
   worldRendererService: makeWorldRendererService(),
   droppedItemRenderer: makeDroppedItemRenderer(),
+  droppedXpOrbRenderer: makeDroppedXpOrbRenderer(),
   entityRenderer: makeEntityRenderer(),
   chunkMeshService: makeChunkMeshService(),
   particleSystem: makeParticleSystem(),

@@ -221,18 +221,30 @@ describe('step 2.85 — entity renderer wiring', () => {
       ageTicks: 3,
       pickupDelayTicks: 0,
     }
+    const visibleOrb: DroppedXpOrbEntity = {
+      id: 'xp-orb-visible',
+      amount: 2,
+      position: { x: 1, y: 64, z: 1 },
+      velocity: { x: 0, y: 0, z: 0 },
+      ageTicks: 8,
+      pickupDelayTicks: 4,
+    }
     const tickSpy = vi.fn(() => Effect.void)
     const collectSpy = vi.fn(() => Effect.succeed([collectedOrb]))
+    const getAllSpy = vi.fn(() => Effect.succeed([visibleOrb]))
     const inventoryMendingSpy = vi.fn(() => Effect.succeed(3))
     const equipmentMendingSpy = vi.fn(() => Effect.succeed(1))
     const addXPSpy = vi.fn(() => Effect.succeed({ totalXP: 1, level: 0, xpIntoLevel: 1, xpRequiredForNext: 7 }))
+    const syncOrbsSpy = vi.fn(() => Effect.void)
     Object.assign(services.droppedXpOrbService, {
       tick: tickSpy,
       collectWithin: collectSpy,
+      getAll: getAllSpy,
     })
     Object.assign(services.inventoryService, { repairMendingItemsWithXP: inventoryMendingSpy })
     Object.assign(services.equipmentService, { repairMendingItemsWithXP: equipmentMendingSpy })
     Object.assign(services.xpService, { addXP: addXPSpy })
+    Object.assign(services.droppedXpOrbRenderer, { syncOrbs: syncOrbsSpy })
 
     yield* runFrame(deps, services)
 
@@ -241,6 +253,8 @@ describe('step 2.85 — entity renderer wiring', () => {
     expect(inventoryMendingSpy).toHaveBeenCalledWith(5)
     expect(equipmentMendingSpy).toHaveBeenCalledWith(3)
     expect(addXPSpy).toHaveBeenCalledWith(1)
+    expect(getAllSpy).toHaveBeenCalledOnce()
+    expect(syncOrbsSpy).toHaveBeenCalledWith([visibleOrb], deps.scene, expect.any(Number))
   }))
 
   it.effect('skips entityRenderer.syncEntities when entity structure version is unchanged', () => Effect.gen(function* () {

@@ -1,15 +1,9 @@
 import { HashMap, HashSet, Option } from 'effect'
 import type { Chunk } from '../domain/chunk'
-import {
-  FLUID_BYTE_LENGTH,
-  LAVA_INDEX,
-  WATER_INDEX,
-  blockKey,
-  blockKeyFromChunkIndex,
-  decodeFluidByte,
-  enqueueKey,
-} from '@ts-minecraft/block/domain/fluid'
+import { FLUID_BYTE_LENGTH, decodeFluidByte } from '@ts-minecraft/block/domain/fluid'
+import { LAVA_INDEX, WATER_INDEX } from '@ts-minecraft/block/domain/fluid-model'
 import type { FluidCell, FluidKey, FluidState, FluidType } from '@ts-minecraft/block/domain/fluid-model'
+import { blockKey, blockKeyFromChunkIndex, enqueueKey } from '@ts-minecraft/block/domain/fluid-position-utils'
 import type { Position } from '@ts-minecraft/core'
 
 export const setCell = (state: FluidState, position: Position, cell: FluidCell): FluidState => ({

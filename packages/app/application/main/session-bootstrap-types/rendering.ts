@@ -1,4 +1,4 @@
-import type { SceneService, PerspectiveCameraService, WorldRendererService, EntityRendererService, ChunkMeshService, DroppedItemRendererService } from '@ts-minecraft/rendering'
+import type { SceneService, PerspectiveCameraService, WorldRendererService, EntityRendererService, ChunkMeshService, DroppedItemRendererService, DroppedXpOrbRendererService } from '@ts-minecraft/rendering'
 import type { ParticleSystemService } from '@ts-minecraft/rendering'
 
 export type SessionRenderingBootstrapServices = {
@@ -6,6 +6,7 @@ export type SessionRenderingBootstrapServices = {
   readonly cameraService: PerspectiveCameraService
   readonly worldRendererService: WorldRendererService
   readonly droppedItemRenderer: DroppedItemRendererService
+  readonly droppedXpOrbRenderer: DroppedXpOrbRendererService
   readonly entityRenderer: EntityRendererService
   readonly chunkMeshService: ChunkMeshService
   readonly particleSystem: ParticleSystemService

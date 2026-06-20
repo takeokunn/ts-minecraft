@@ -7,6 +7,7 @@ type SessionRuntimeWorldServices = Pick<
   | 'timeService'
   | 'worldRendererService'
   | 'droppedItemRenderer'
+  | 'droppedXpOrbRenderer'
   | 'entityRenderer'
   | 'chunkMeshService'
   | 'particleSystem'
@@ -29,6 +30,7 @@ export const buildSessionRuntimeWorldServices = ({
   timeService: services.timeService,
   worldRendererService: services.worldRendererService,
   droppedItemRenderer: services.droppedItemRenderer,
+  droppedXpOrbRenderer: services.droppedXpOrbRenderer,
   entityRenderer: services.entityRenderer,
   chunkMeshService: services.chunkMeshService,
   particleSystem: services.particleSystem,

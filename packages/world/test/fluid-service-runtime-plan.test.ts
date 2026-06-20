@@ -3,8 +3,8 @@ import { describe, expect, it } from 'vitest'
 import {
   FLUID_TICK_BUDGET,
   INITIAL_STATE,
-  blockKey,
 } from '@ts-minecraft/block/domain/fluid-model'
+import { blockKey } from '@ts-minecraft/block/domain/fluid-position-utils'
 import type { FluidCell, FluidState, FluidType } from '@ts-minecraft/block/domain/fluid-model'
 import { CHUNK_SIZE, ChunkCacheKey } from '@ts-minecraft/core'
 import type { Position } from '@ts-minecraft/core'
