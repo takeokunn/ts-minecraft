@@ -157,6 +157,7 @@ export const INVENTORY_DROP_OVERRIDES: HashMap.HashMap<BlockType, InventoryItem>
   ['GRAVEL', 'FLINT'],
   ['SNOW', 'SNOWBALL'],
   ['DOOR_OPEN', 'DOOR'],
+  ['WATER_CAULDRON', 'CAULDRON'],
 ])
 
 export const getInventoryDropForBlock = (blockType: BlockType): InventoryItem =>

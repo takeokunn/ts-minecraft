@@ -140,6 +140,14 @@ describe('initialBlocks known data correctness', () => {
     expect(cauldron.properties.hardness).toBe(35)
   })
 
+  it('WATER_CAULDRON block exists as a solid non-transparent cauldron state block', () => {
+    const waterCauldron = Option.getOrThrow(Arr.findFirst(initialBlocks, (b) => b.type === 'WATER_CAULDRON'))
+    expect(waterCauldron.properties.solid).toBe(true)
+    expect(waterCauldron.properties.transparency).toBe(false)
+    expect(waterCauldron.properties.emissive).toBe(false)
+    expect(waterCauldron.properties.hardness).toBe(35)
+  })
+
   it('FIRE block exists as a transparent non-solid maximum-light block', () => {
     const fire = Option.getOrThrow(Arr.findFirst(initialBlocks, (b) => b.type === 'FIRE'))
     expect(fire.properties.solid).toBe(false)
@@ -191,6 +199,7 @@ describe('initialBlocks known data correctness', () => {
     expect(hardnessOf('PLANKS')).toBe(hardnessOf('WOOD'))
     expect(hardnessOf('OAK_STAIRS')).toBe(hardnessOf('PLANKS'))
     expect(hardnessOf('CAULDRON')).toBe(hardnessOf('PLANKS'))
+    expect(hardnessOf('WATER_CAULDRON')).toBe(hardnessOf('CAULDRON'))
     expect(hardnessOf('FURNACE')).toBeGreaterThan(hardnessOf('DEEPSLATE'))
     expect(hardnessOf('FURNACE')).toBeLessThan(hardnessOf('OBSIDIAN'))
     expect(hardnessOf('ANVIL')).toBeGreaterThan(hardnessOf('FURNACE'))

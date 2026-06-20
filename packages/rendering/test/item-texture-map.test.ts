@@ -55,6 +55,7 @@ describe('infrastructure/three/textures/item-texture-map', () => {
       expect(getItemTileIndex('OAK_STAIRS')).toBe(41)
       expect(getItemTileIndex('ANVIL')).toBe(35)
       expect(getItemTileIndex('CAULDRON')).toBe(35)
+      expect(getItemTileIndex('WATER_CAULDRON')).toBe(35)
     })
   })
 

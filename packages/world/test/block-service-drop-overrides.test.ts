@@ -47,6 +47,10 @@ describe('getInventoryDropForBlock — vanilla drop correctness', () => {
     expect(getInventoryDropForBlock('DOOR_OPEN')).toBe('DOOR')
   })
 
+  it('WATER_CAULDRON drops the empty CAULDRON item', () => {
+    expect(getInventoryDropForBlock('WATER_CAULDRON')).toBe('CAULDRON')
+  })
+
   it('GLOWSTONE drops four GLOWSTONE_DUST items', () => {
     expect(getInventoryDropForBlock('GLOWSTONE')).toBe('GLOWSTONE_DUST')
     expect(getBlockDropCount('GLOWSTONE')).toBe(4)

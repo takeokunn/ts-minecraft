@@ -29,8 +29,8 @@ describe('block-codec', () => {
       expect(INDEX_TO_BLOCK_TYPE.length).toBe(new Set(INDEX_TO_BLOCK_TYPE).size)
     })
 
-    it('has exactly 95 entries (world-placeable blocks including nether, farming, redstone, furniture, crafting stations, End dimension, End expansion, storage, doors, glowstone, ladder, cobweb, sapling, flowers, mushrooms, grasses, waterside plants, ice, pressure plate, basic slab, basic stair, anvil, cauldron, and fire)', () => {
-      expect(INDEX_TO_BLOCK_TYPE.length).toBe(95)
+    it('has exactly 96 entries (world-placeable blocks including nether, farming, redstone, furniture, crafting stations, End dimension, End expansion, storage, doors, glowstone, ladder, cobweb, sapling, flowers, mushrooms, grasses, waterside plants, ice, pressure plate, basic slab, basic stair, anvil, cauldron, fire, and water-filled cauldron)', () => {
+      expect(INDEX_TO_BLOCK_TYPE.length).toBe(96)
     })
 
     it('PLANKS is at index 40', () => {
@@ -102,17 +102,19 @@ describe('block-codec', () => {
       expect(blockTypeToIndex('PRESSURE_PLATE')).toBe(89)
     })
 
-    it('STONE_SLAB, OAK_STAIRS, ANVIL, CAULDRON, and FIRE are appended at indices 90-94', () => {
+    it('STONE_SLAB, OAK_STAIRS, ANVIL, CAULDRON, FIRE, and WATER_CAULDRON are appended at indices 90-95', () => {
       expect(INDEX_TO_BLOCK_TYPE[90]).toBe('STONE_SLAB')
       expect(INDEX_TO_BLOCK_TYPE[91]).toBe('OAK_STAIRS')
       expect(INDEX_TO_BLOCK_TYPE[92]).toBe('ANVIL')
       expect(INDEX_TO_BLOCK_TYPE[93]).toBe('CAULDRON')
       expect(INDEX_TO_BLOCK_TYPE[94]).toBe('FIRE')
+      expect(INDEX_TO_BLOCK_TYPE[95]).toBe('WATER_CAULDRON')
       expect(blockTypeToIndex('STONE_SLAB')).toBe(90)
       expect(blockTypeToIndex('OAK_STAIRS')).toBe(91)
       expect(blockTypeToIndex('ANVIL')).toBe(92)
       expect(blockTypeToIndex('CAULDRON')).toBe(93)
       expect(blockTypeToIndex('FIRE')).toBe(94)
+      expect(blockTypeToIndex('WATER_CAULDRON')).toBe(95)
     })
 
     it('does not contain inventory-only items', () => {

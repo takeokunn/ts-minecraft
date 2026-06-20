@@ -366,6 +366,47 @@ describe('interaction-placement-handler / handleBucket', () => {
     }),
   )
 
+  it.effect('fills a CAULDRON with a WATER_BUCKET without placing world water', () =>
+    Effect.gen(function* () {
+      const dirtyChunksRef = MutableRef.make(HashMap.empty<string, unknown>())
+      const { services, spies } = makeBucketServices('WATER_BUCKET', 'CAULDRON')
+      const result = yield* handleBucket(services, { dirtyChunksRef }, { targetHit: Option.some(bucketHit) })
+      expect(result).toBe(true)
+      expect(spies.forceSetBlock).toHaveBeenCalledWith({ x: 0, y: 63, z: 0 }, 'WATER_CAULDRON')
+      expect(spies.seedWater).not.toHaveBeenCalled()
+      expect(spies.removeWater).not.toHaveBeenCalled()
+      expect(spies.removeBlock).toHaveBeenCalledWith('WATER_BUCKET', 1, expect.anything())
+      expect(spies.addBlock).toHaveBeenCalledWith('BUCKET', 1)
+    }),
+  )
+
+  it.effect('fills an empty BUCKET from a WATER_CAULDRON without removing world water', () =>
+    Effect.gen(function* () {
+      const dirtyChunksRef = MutableRef.make(HashMap.empty<string, unknown>())
+      const { services, spies } = makeBucketServices('BUCKET', 'WATER_CAULDRON')
+      const result = yield* handleBucket(services, { dirtyChunksRef }, { targetHit: Option.some(bucketHit) })
+      expect(result).toBe(true)
+      expect(spies.forceSetBlock).toHaveBeenCalledWith({ x: 0, y: 63, z: 0 }, 'CAULDRON')
+      expect(spies.removeWater).not.toHaveBeenCalled()
+      expect(spies.seedWater).not.toHaveBeenCalled()
+      expect(spies.removeBlock).toHaveBeenCalledWith('BUCKET', 1, expect.anything())
+      expect(spies.addBlock).toHaveBeenCalledWith('WATER_BUCKET', 1)
+    }),
+  )
+
+  it.effect('does nothing when an empty BUCKET targets an empty CAULDRON', () =>
+    Effect.gen(function* () {
+      const dirtyChunksRef = MutableRef.make(HashMap.empty<string, unknown>())
+      const { services, spies } = makeBucketServices('BUCKET', 'CAULDRON')
+      const result = yield* handleBucket(services, { dirtyChunksRef }, { targetHit: Option.some(bucketHit) })
+      expect(result).toBe(false)
+      expect(spies.forceSetBlock).not.toHaveBeenCalled()
+      expect(spies.removeWater).not.toHaveBeenCalled()
+      expect(spies.removeBlock).not.toHaveBeenCalled()
+      expect(spies.addBlock).not.toHaveBeenCalled()
+    }),
+  )
+
   it.effect('fills an empty BUCKET from a LAVA source: removes the lava and swaps to LAVA_BUCKET', () =>
     Effect.gen(function* () {
       const dirtyChunksRef = MutableRef.make(HashMap.empty<string, unknown>())

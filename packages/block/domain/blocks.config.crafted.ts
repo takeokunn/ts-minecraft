@@ -166,6 +166,12 @@ new Block({
     faces: defaultBlockFaces,
   }),
   new Block({
+    id: makeBlockId('block:water_cauldron'),
+    type: 'WATER_CAULDRON',
+    properties: { hardness: 35, transparency: false, solid: true, emissive: false, friction: 0.6 },
+    faces: defaultBlockFaces,
+  }),
+  new Block({
     id: makeBlockId('block:end_stone'),
     type: 'END_STONE',
     properties: { hardness: 45, transparency: false, solid: true, emissive: false, friction: 0.6 },

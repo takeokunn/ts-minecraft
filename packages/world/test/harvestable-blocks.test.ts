@@ -19,6 +19,7 @@ describe('pickaxe tier harvestable blocks', () => {
     expect(HashSet.has(WOODEN_PICKAXE_HARVESTABLE_BLOCKS, 'STONE_SLAB')).toBe(true)
     expect(HashSet.has(WOODEN_PICKAXE_HARVESTABLE_BLOCKS, 'ANVIL')).toBe(true)
     expect(HashSet.has(WOODEN_PICKAXE_HARVESTABLE_BLOCKS, 'CAULDRON')).toBe(true)
+    expect(HashSet.has(WOODEN_PICKAXE_HARVESTABLE_BLOCKS, 'WATER_CAULDRON')).toBe(true)
     expect(HashSet.has(WOODEN_PICKAXE_HARVESTABLE_BLOCKS, 'COAL_ORE')).toBe(true)
     expect(HashSet.has(WOODEN_PICKAXE_HARVESTABLE_BLOCKS, 'DEEPSLATE_COAL_ORE')).toBe(true)
   })

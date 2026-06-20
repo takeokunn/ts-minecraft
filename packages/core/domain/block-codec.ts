@@ -38,8 +38,8 @@ export const INDEX_TO_BLOCK_TYPE: ReadonlyArray<BlockType> = [
   'DANDELION', 'POPPY', 'BROWN_MUSHROOM', 'RED_MUSHROOM',
   'TALL_GRASS', 'FERN', 'SUGAR_CANE', 'CACTUS',
   'LILY_PAD', 'ICE', 'PRESSURE_PLATE',
-  // Basic slabs / stairs / utility blocks - indices 90-94
-  'STONE_SLAB', 'OAK_STAIRS', 'ANVIL', 'CAULDRON', 'FIRE',
+  // Basic slabs / stairs / utility blocks - indices 90-95
+  'STONE_SLAB', 'OAK_STAIRS', 'ANVIL', 'CAULDRON', 'FIRE', 'WATER_CAULDRON',
 ]
 
 export const BLOCK_COUNT = INDEX_TO_BLOCK_TYPE.length

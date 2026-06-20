@@ -87,6 +87,7 @@ export const ITEM_TILE_MAP: Readonly<Record<InventoryItem, number>> = {
   ANVIL: 35,
   CAULDRON: 35,
   FIRE: 18,
+  WATER_CAULDRON: 35,
 
   // ItemTypes
   STICKS: 48,

@@ -57,7 +57,7 @@ describe('BlockTypeSchema', () => {
       expect(Either.isRight(result)).toBe(true)
     })
 
-    const CRAFTING_BLOCKS = ['PLANKS', 'CRAFTING_TABLE', 'FURNACE', 'TORCH', 'CHEST', 'DOOR', 'DOOR_OPEN', 'GLOWSTONE', 'LADDER', 'COBWEB', 'PRESSURE_PLATE', 'STONE_SLAB', 'OAK_STAIRS', 'ANVIL', 'CAULDRON', 'FIRE'] as const
+    const CRAFTING_BLOCKS = ['PLANKS', 'CRAFTING_TABLE', 'FURNACE', 'TORCH', 'CHEST', 'DOOR', 'DOOR_OPEN', 'GLOWSTONE', 'LADDER', 'COBWEB', 'PRESSURE_PLATE', 'STONE_SLAB', 'OAK_STAIRS', 'ANVIL', 'CAULDRON', 'FIRE', 'WATER_CAULDRON'] as const
 
     it['each'](CRAFTING_BLOCKS)('accepts crafting/utility block "%s"', (block: (typeof CRAFTING_BLOCKS)[number]) => {
       const result = Schema.decodeUnknownEither(BlockTypeSchema)(block)

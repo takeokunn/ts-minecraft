@@ -17,6 +17,7 @@ export const WOODEN_PICKAXE_HARVESTABLE_BLOCKS: HashSet.HashSet<BlockType> = Has
   'STONE_SLAB',
   'ANVIL',
   'CAULDRON',
+  'WATER_CAULDRON',
   'COAL_ORE',
   'DEEPSLATE_COAL_ORE',
 ])
