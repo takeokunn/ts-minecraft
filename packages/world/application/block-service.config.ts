@@ -133,6 +133,7 @@ export const NON_PLACEABLE_ITEM_TYPES: HashSet.HashSet<InventoryItem> = HashSet.
   'COMPASS',
   'CLOCK',
   'MAP',
+  'SPYGLASS',
 ])
 
 export const INVENTORY_DROP_OVERRIDES: HashMap.HashMap<BlockType, InventoryItem> = HashMap.fromIterable<BlockType, InventoryItem>([

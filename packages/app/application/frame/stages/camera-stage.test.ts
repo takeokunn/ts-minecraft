@@ -1,6 +1,6 @@
 import { describe, it } from '@effect/vitest'
 import { expect, vi } from 'vitest'
-import { Effect, MutableHashSet, MutableRef } from 'effect'
+import { Effect, MutableHashSet, MutableRef, Option } from 'effect'
 import * as THREE from 'three'
 import { CHUNK_SIZE } from '@ts-minecraft/core'
 import { KeyMappings } from '@ts-minecraft/entity/domain/key-mappings'
@@ -21,6 +21,11 @@ import { cameraStage } from '@ts-minecraft/app/frame/stages/camera-stage'
 // ---------------------------------------------------------------------------
 
 describe('step 8 — camera sync', () => {
+  const makeHotbarService = (selectedItem: string | null = null): Parameters<typeof cameraStage>[1]['hotbarService'] =>
+    ({
+      getSelectedBlockType: () => Effect.succeed(selectedItem === null ? Option.none() : Option.some(selectedItem)),
+    }) as Parameters<typeof cameraStage>[1]['hotbarService']
+
   it.effect('sets camera position to playerPos with EYE_LEVEL_OFFSET applied', () => Effect.gen(function* () {
     const deps = yield* makeDeps(false)
     const services = makeServices({
@@ -75,7 +80,7 @@ describe('step 8 — camera sync', () => {
     const shadowDirtyCalledRef = MutableRef.make(false)
     yield* cameraStage(
       { camera, lights, scene },
-      { inputService, playerCameraState: cameraStateService, firstPersonCamera: makeFirstPersonCamera(), thirdPersonCamera },
+      { inputService, hotbarService: makeHotbarService(), playerCameraState: cameraStateService, firstPersonCamera: makeFirstPersonCamera(), thirdPersonCamera },
       { lastShadowTargetRef, lastRenderDistanceRef },
       { playerPos: { x: 5, y: 64, z: 3 }, renderDistance: 8, markShadowMapDirty: () => { MutableRef.set(shadowDirtyCalledRef, true) } },
     )
@@ -103,7 +108,7 @@ describe('step 8 — camera sync', () => {
     const shadowDirtyCalledRef = MutableRef.make(false)
     yield* cameraStage(
       { camera, lights, scene },
-      { inputService, playerCameraState: cameraStateService, firstPersonCamera: makeFirstPersonCamera(), thirdPersonCamera },
+      { inputService, hotbarService: makeHotbarService(), playerCameraState: cameraStateService, firstPersonCamera: makeFirstPersonCamera(), thirdPersonCamera },
       { lastShadowTargetRef, lastRenderDistanceRef },
       { playerPos: { x: 5, y: 64, z: 3 }, renderDistance: 8, markShadowMapDirty: () => { MutableRef.set(shadowDirtyCalledRef, true) } },
     )
@@ -128,7 +133,7 @@ describe('step 8 — camera sync', () => {
 
     yield* cameraStage(
       { camera, lights, scene },
-      { inputService, playerCameraState: cameraStateService, firstPersonCamera: makeFirstPersonCamera(), thirdPersonCamera },
+      { inputService, hotbarService: makeHotbarService(), playerCameraState: cameraStateService, firstPersonCamera: makeFirstPersonCamera(), thirdPersonCamera },
       { lastShadowTargetRef, lastRenderDistanceRef },
       { playerPos: { x: 5, y: 64, z: 3 }, renderDistance: 8, markShadowMapDirty: () => {} },
     )
@@ -151,7 +156,7 @@ describe('step 8 — camera sync', () => {
     const runOnce = (camera: ReturnType<typeof makeCamera>, inputService: ReturnType<typeof makeInputService>) =>
       cameraStage(
         { camera, lights, scene },
-        { inputService, playerCameraState: cameraStateService, firstPersonCamera: makeFirstPersonCamera(), thirdPersonCamera },
+        { inputService, hotbarService: makeHotbarService(), playerCameraState: cameraStateService, firstPersonCamera: makeFirstPersonCamera(), thirdPersonCamera },
         { lastShadowTargetRef, lastRenderDistanceRef },
         { playerPos: { x: 5, y: 64, z: 3 }, renderDistance: 8, markShadowMapDirty: () => {} },
       )
@@ -172,5 +177,55 @@ describe('step 8 — camera sync', () => {
     idleCam.fov = 75
     yield* runOnce(idleCam, makeInputService())
     expect(idleCam.fov).toBeCloseTo(75)
+  }))
+
+  it.effect('narrows FOV while holding right click with SPYGLASS in first person', () => Effect.gen(function* () {
+    const camera = makeCamera()
+    camera.fov = 75
+    const lights = makeLights()
+    const scene = new THREE.Scene()
+    const { service: cameraStateService } = makeCameraState('firstPerson')
+    const inputService = makeInputService()
+    Object.assign(inputService, {
+      isMouseDown: (button: number) => Effect.succeed(button === 2),
+    })
+    const thirdPersonCamera: Parameters<typeof cameraStage>[1]['thirdPersonCamera'] = ThirdPersonCameraService.of({
+      _tag: '@minecraft/application/ThirdPersonCameraService' as const,
+      update: () => Effect.void,
+    })
+
+    yield* cameraStage(
+      { camera, lights, scene },
+      { inputService, hotbarService: makeHotbarService('SPYGLASS'), playerCameraState: cameraStateService, firstPersonCamera: makeFirstPersonCamera(), thirdPersonCamera },
+      { lastShadowTargetRef: MutableRef.make({ x: 5, z: 3 }), lastRenderDistanceRef: MutableRef.make(8) },
+      { playerPos: { x: 5, y: 64, z: 3 }, renderDistance: 8, markShadowMapDirty: () => {} },
+    )
+
+    expect(camera.fov).toBeLessThan(75)
+  }))
+
+  it.effect('does not apply SPYGLASS zoom in third person', () => Effect.gen(function* () {
+    const camera = makeCamera()
+    camera.fov = 75
+    const lights = makeLights()
+    const scene = new THREE.Scene()
+    const { service: cameraStateService } = makeCameraState('thirdPerson')
+    const inputService = makeInputService()
+    Object.assign(inputService, {
+      isMouseDown: (button: number) => Effect.succeed(button === 2),
+    })
+    const thirdPersonCamera: Parameters<typeof cameraStage>[1]['thirdPersonCamera'] = ThirdPersonCameraService.of({
+      _tag: '@minecraft/application/ThirdPersonCameraService' as const,
+      update: () => Effect.void,
+    })
+
+    yield* cameraStage(
+      { camera, lights, scene },
+      { inputService, hotbarService: makeHotbarService('SPYGLASS'), playerCameraState: cameraStateService, firstPersonCamera: makeFirstPersonCamera(), thirdPersonCamera },
+      { lastShadowTargetRef: MutableRef.make({ x: 5, z: 3 }), lastRenderDistanceRef: MutableRef.make(8) },
+      { playerPos: { x: 5, y: 64, z: 3 }, renderDistance: 8, markShadowMapDirty: () => {} },
+    )
+
+    expect(camera.fov).toBeCloseTo(75)
   }))
 })

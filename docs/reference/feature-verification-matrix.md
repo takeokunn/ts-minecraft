@@ -2329,7 +2329,7 @@ XP スケール: 最大レベル = `floor(xpLevel / 5)`、上限はエンチャ�
 | 261 | エンチャント相互排他なし | `enchantment.config.ts` に排他グループ定義なし。公式で同一アイテムに付与不可の SHARPNESS+SMITE+BANE_OF_ARTHROPODS や PROTECTION 系の重複付与が可能 | `packages/inventory/domain/enchantment.config.ts` |
 | 262 | トライデントなし | TRIDENT が `item-type.ts` に未定義。投擲→攻撃→帰還メカニクスなし | `packages/core/domain/item-type.ts` |
 | 263 | クロスボウなし | CROSSBOW が `item-type.ts` に未定義 | `packages/core/domain/item-type.ts` |
-| 264 | 望遠鏡（スパイグラス）・ズームなし | SPYGLASS が `item-type.ts` に未定義。視野角ズームメカニクスなし | `packages/core/domain/item-type.ts` |
+| 264 | 望遠鏡（スパイグラス）・ズーム | 対応済み: SPYGLASS を ItemType/非設置/アイコンへ登録し、一人称で右クリック長押し中だけ FOV を狭めるズームを追加。 | `packages/core/domain/item-type.ts`, `packages/app/application/frame/stages/camera-stage.ts`, `packages/app/application/frame/stages/camera-stage.test.ts` |
 | 265 | マルチプレイのプレイヤーリスト（TAB キー）実装済み | `player-list-panel.ts` と `multiplayer-stage.ts` で接続中プレイヤー一覧を表示し、`player-list-panel.test.ts` で表示/閉じる操作も検証済み | `packages/presentation/multiplayer/player-list-panel.ts`, `packages/presentation/test/multiplayer/player-list-panel.test.ts`, `packages/app/application/frame/stages/multiplayer-stage.ts` |
 | 266 | 馬・ロバモブなし | HORSE/DONKEY が EntityType に未定義。騎乗・装備・テイムメカニクスなし | `packages/entity/domain/mob/entity.ts` |
 | 267 | エンド湧き出し台の高度が非公式（y=64 vs 公式 y≈49）| `end-generator.ts:14`：`END_SURFACE_Y=64` で湧き出し台を y=64 に生成。公式 Java Edition の湧き出し台は y≈49 | `packages/world/domain/terrain/end-generator.ts:14` |

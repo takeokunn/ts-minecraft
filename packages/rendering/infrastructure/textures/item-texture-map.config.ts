@@ -153,6 +153,7 @@ export const ITEM_TILE_MAP: Readonly<Record<InventoryItem, number>> = {
   COMPASS: 59,
   CLOCK: 57,
   MAP: 95,
+  SPYGLASS: 59,
   WOODEN_HOE: 51,
   STONE_HOE: 52,
   IRON_HOE: 55,

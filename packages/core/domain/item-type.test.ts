@@ -211,7 +211,7 @@ describe('ItemTypeSchema — hoe tools', () => {
 })
 
 describe('ItemTypeSchema — ranged and utility items', () => {
-  const RANGED_UTILITY = ['BOW', 'FISHING_ROD', 'SHIELD', 'COMPASS', 'CLOCK', 'MAP'] as const
+  const RANGED_UTILITY = ['BOW', 'FISHING_ROD', 'SHIELD', 'COMPASS', 'CLOCK', 'MAP', 'SPYGLASS'] as const
 
   it['each'](RANGED_UTILITY)('accepts ranged/utility item "%s"', (item: (typeof RANGED_UTILITY)[number]) => {
     const result = Schema.decodeUnknownEither(ItemTypeSchema)(item)

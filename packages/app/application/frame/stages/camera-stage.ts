@@ -1,4 +1,4 @@
-import { Effect, MutableRef } from 'effect'
+import { Effect, MutableRef, Option } from 'effect'
 import { logErrors } from '@ts-minecraft/app/frame/error-logging'
 import type { FrameHandlerDeps } from '@ts-minecraft/app/application/frame/types/deps'
 import type { FrameStageRefs } from '@ts-minecraft/app/application/frame/types/stage-refs'
@@ -14,7 +14,9 @@ import type { Position } from '@ts-minecraft/core'
 // the FOV state so no extra ref is needed.
 const BASE_FOV = 75
 const SPRINT_FOV = 82
+const SPYGLASS_FOV = 20
 const FOV_LERP = 0.18
+const SPYGLASS_FOV_LERP = 0.35
 
 export const cameraStage = (
   deps: Pick<FrameHandlerDeps, 'camera' | 'lights' | 'scene'>,
@@ -36,6 +38,8 @@ export const cameraStage = (
       'Camera toggle error',
     )
 
+    const cameraMode = yield* services.playerCameraState.getMode()
+
     // Sprint FOV: sprinting = Ctrl held + moving forward + not sneaking (mirrors
     // movement-service's sprint rule). Ease the camera FOV toward the target and
     // only touch the projection matrix when it actually changes.
@@ -44,8 +48,12 @@ export const cameraStage = (
     const forward = yield* services.inputService.isKeyPressed(KeyMappings.MOVE_FORWARD)
     const sneak = yield* services.inputService.isKeyPressed(KeyMappings.SNEAK)
     const sprinting = (ctrlL || ctrlR) && forward && !sneak
-    const targetFov = sprinting ? SPRINT_FOV : BASE_FOV
-    const nextFov = deps.camera.fov + (targetFov - deps.camera.fov) * FOV_LERP
+    const selectedItem = yield* services.hotbarService.getSelectedBlockType()
+    const rightClickHeld = yield* services.inputService.isMouseDown(2)
+    const spyglassZooming = cameraMode === 'firstPerson' && rightClickHeld && Option.getOrNull(selectedItem) === 'SPYGLASS'
+    const targetFov = spyglassZooming ? SPYGLASS_FOV : sprinting ? SPRINT_FOV : BASE_FOV
+    const fovLerp = spyglassZooming ? SPYGLASS_FOV_LERP : FOV_LERP
+    const nextFov = deps.camera.fov + (targetFov - deps.camera.fov) * fovLerp
     if (Math.abs(nextFov - deps.camera.fov) > 0.05) {
       deps.camera.fov = nextFov
       deps.camera.updateProjectionMatrix()
@@ -53,7 +61,6 @@ export const cameraStage = (
 
     // Camera perspective + position sync
     const rotation = yield* services.playerCameraState.getRotation()
-    const cameraMode = yield* services.playerCameraState.getMode()
     if (cameraMode === 'firstPerson') {
       const eyeY = inputs.playerPos.y + EYE_LEVEL_OFFSET
       deps.camera.position.set(inputs.playerPos.x, eyeY, inputs.playerPos.z)
