@@ -36,6 +36,7 @@ const makeRefs = (airSecs = 0, lastAirBubbles = 10): PhysicsStageRefs =>
     lastXPRef: MutableRef.make(0),
     lastArmorRef: MutableRef.make(0),
     portalSecsRef: MutableRef.make(0),
+    portalCooldownSecsRef: MutableRef.make(0),
     dirtyChunksRef: MutableRef.make(HashMap.empty<string, unknown>()),
     lavaDamageSecsRef: MutableRef.make(0),
     lavaBurnRemainingSecsRef: MutableRef.make(0),

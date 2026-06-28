@@ -2357,7 +2357,7 @@ XP スケール: 最大レベル = `floor(xpLevel / 5)`、上限はエンチャ�
 | 290 | インベントリソートなし | インベントリ画面にソートボタン・キーバインドなし | `packages/presentation/inventory/inventory-renderer.ts` |
 | 291 | アイテムホバーツールチップ実装済み | インベントリ/チェスト内アイテムの slot title/data-tooltip/aria-label に表示名・個数・エンチャント一覧を反映し、空スロットでは stale tooltip を消去 | `packages/presentation/inventory/inventory-renderer-refresh.ts`, `packages/presentation/inventory/inventory-renderer-refresh.test.ts` |
 | 292 | 銅ブロック・酸化メカニクスなし | COPPER/COPPER_ORE/EXPOSED_COPPER 等が `block-type.ts` に未定義。時間経過による緑青（酸化）・ロウ付け(Wax)なし | `packages/core/domain/block-type.ts` |
-| 293 | ネザーポータル通過後の再入場クールダウンなし | `physics-stage-portal.ts:8` の PORTAL_ACTIVATION_SECS=4.0 は入場時のみ。出口側ポータルで即座に逆方向へ戻れる（行き来ループ防止なし）| `packages/app/application/frame/stages/physics-stage-portal.ts:8` |
+| 293 | ネザーポータル通過後の再入場クールダウン実装済み | `portalCooldownSecsRef` と PORTAL_REENTRY_COOLDOWN_SECS=4.0 を追加。通過直後はクールダウンを毎フレーム減衰し、クールダウン中はポータル滞在時間を加算しないため出口側ポータルでの即時往復を防止 | `packages/app/application/frame/stages/physics-stage-portal.ts`, `packages/app/application/frame/stages/physics-stage.test.ts` |
 | 294 | リスポーンアンカー（ネザー拠点）なし | RESPAWN_ANCHOR が `block-type.ts` に未定義。ネザーでの拠点リスポーン設定なし | `packages/core/domain/block-type.ts` |
 | 295 | 1.15〜1.20 新規モブ未実装 | BEE は passive Mob として実装済み。AXOLOTL・FOX・GOAT・FROG・TADPOLE・ALLAY・WARDEN・CAMEL 等は EntityType 未定義で、水中/村/レイド/騎乗系の新規 Mob 群は未対応が残る | `packages/entity/domain/mob/entity.ts:11` |
 | 296 | バンドルアイテムなし | BUNDLE が `item-type.ts` に未定義。複数種のアイテムを 1 スタックにまとめる収納アイテムなし | `packages/core/domain/item-type.ts` |

@@ -20,6 +20,7 @@ import {
 } from '../../../test/frame-handler-test-kit/presentation/overlay'
 import { makeServices } from '../../../test/frame-handler-test-kit/services'
 import { physicsStage } from './physics-stage'
+import { PORTAL_ACTIVATION_SECS, PORTAL_REENTRY_COOLDOWN_SECS } from './physics-stage-portal'
 import { selectedHotbarSlotIndex } from './selected-hotbar-slot'
 
 type ColumnBlockType = Parameters<typeof blockTypeToIndex>[0]
@@ -33,6 +34,7 @@ const makePhysicsStageRefs = (): Effect.Effect<PhysicsStageRefsForTest, never> =
       lastXPRef: MutableRef.make({ level: -1, xpIntoLevel: -1, xpRequiredForNext: -1 }),
       lastArmorRef: MutableRef.make({ armorPoints: -1 }),
       portalSecsRef: yield* Ref.make(0),
+      portalCooldownSecsRef: yield* Ref.make(0),
       dirtyChunksRef: MutableRef.make(HashMap.empty<string, unknown>()) as PhysicsStageRefsForTest['dirtyChunksRef'],
       lavaDamageSecsRef: MutableRef.make(0),
       lavaBurnRemainingSecsRef: MutableRef.make(0),
@@ -1458,6 +1460,40 @@ describe('physics-stage — nether portal travel', () => {
     expect(setDimensionSpy).toHaveBeenCalledOnce()
     expect(setDimensionSpy).toHaveBeenCalledWith('nether')
     expect(respawnSpy).toHaveBeenCalledOnce()
+  }))
+
+  it.effect('nether portal travel arms a cooldown before activation can accumulate again', () => Effect.gen(function* () {
+    const deps = yield* makeDeps(false)
+    const services = makeServices({
+      inputService: makeInputService(),
+      inventoryRenderer: makeInventoryRenderer({ open: false }),
+      settingsOverlay: makeSettingsOverlay({ open: false }),
+    })
+    const portalChunk = makePortalChunk()
+    ;(services.chunkManagerService as { getChunk: unknown }).getChunk = vi.fn(() =>
+      Effect.succeed(portalChunk),
+    )
+    const setDimensionSpy = vi.fn(() => Effect.void)
+    ;(services.netherService as { setDimension: unknown }).setDimension = setDimensionSpy
+    const respawnSpy = vi.fn(() => Effect.void)
+    ;(services.gameState as { respawn: unknown }).respawn = respawnSpy
+
+    const { frameHandler, maintenanceHandler } = yield* createFrameHandlers(deps, services)
+    yield* maintenanceHandler()
+
+    const activationFrames = Math.ceil(PORTAL_ACTIVATION_SECS)
+    const cooldownFrames = Math.ceil(PORTAL_REENTRY_COOLDOWN_SECS)
+    for (let i = 0; i < activationFrames + cooldownFrames; i++) {
+      yield* frameHandler(1.0 as DeltaTimeSecs)
+    }
+
+    expect(setDimensionSpy).toHaveBeenCalledOnce()
+    expect(respawnSpy).toHaveBeenCalledOnce()
+
+    yield* frameHandler(PORTAL_ACTIVATION_SECS as DeltaTimeSecs)
+
+    expect(setDimensionSpy).toHaveBeenCalledTimes(2)
+    expect(respawnSpy).toHaveBeenCalledTimes(2)
   }))
 
   it.effect('player NOT in NETHER_PORTAL does not trigger dimension travel', () => Effect.gen(function* () {

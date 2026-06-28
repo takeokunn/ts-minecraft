@@ -26,6 +26,9 @@ export type FrameStageRefs = {
   // Resets to 0 when the player leaves the portal. Dimension travel fires when this
   // reaches PORTAL_ACTIVATION_SECS (4 seconds — vanilla 80-tick equivalent).
   readonly portalSecsRef: Ref.Ref<number>
+  // Suppresses immediate re-entry after a Nether portal transfer, preventing
+  // the destination portal from accumulating activation time in the same loop.
+  readonly portalCooldownSecsRef: Ref.Ref<number>
   // FR-2 liquid hazards: lava damage accumulator, post-lava burn state,
   // remaining air supply (secs), and out-of-air drown-damage accumulator.
   readonly lavaDamageSecsRef: MutableRef.MutableRef<number>

@@ -141,6 +141,7 @@ const makeRefs = (overrides: Partial<Record<keyof PhysicsStageRefs, number>> = {
     lastXPRef: MutableRef.make(0),
     lastArmorRef: MutableRef.make(0),
     portalSecsRef: MutableRef.make(0),
+    portalCooldownSecsRef: MutableRef.make(0),
     dirtyChunksRef: MutableRef.make(HashMap.empty<string, unknown>()),
     lavaDamageSecsRef: MutableRef.make(overrides.lavaDamageSecsRef ?? 0),
     lavaBurnRemainingSecsRef: MutableRef.make(overrides.lavaBurnRemainingSecsRef ?? 0),

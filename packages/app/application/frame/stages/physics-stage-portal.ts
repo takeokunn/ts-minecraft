@@ -6,7 +6,11 @@ import type { DeltaTimeSecs, Position } from '@ts-minecraft/core'
 import { worldToChunkCoord } from '@ts-minecraft/world/domain/chunk-coord-utils'
 import { makeColumnReaderAt } from './physics-stage-utils'
 
-const PORTAL_ACTIVATION_SECS = 4.0
+export const PORTAL_ACTIVATION_SECS = 4.0
+export const PORTAL_REENTRY_COOLDOWN_SECS = 4.0
+
+const tickPortalCooldown = (cooldownSecs: number, deltaTime: DeltaTimeSecs): number =>
+  Math.max(0, cooldownSecs - deltaTime)
 
 const hasEntityType = (
   entities: ReadonlyArray<{ readonly type: string }>,
@@ -23,11 +27,18 @@ const hasEntityType = (
 
 export const applyNetherPortalTravel = (
   services: Pick<FrameHandlerServices, 'netherService' | 'chunkManagerService' | 'gameState' | 'blockService'>,
-  refs: Pick<FrameStageRefs, 'portalSecsRef' | 'dirtyChunksRef' | 'finalPosRef'>,
+  refs: Pick<FrameStageRefs, 'portalSecsRef' | 'portalCooldownSecsRef' | 'dirtyChunksRef' | 'finalPosRef'>,
   inputs: { readonly deltaTime: DeltaTimeSecs },
   playerPos: Position,
 ) =>
   Effect.gen(function* () {
+    const cooldownSecs = yield* Ref.get(refs.portalCooldownSecsRef)
+    if (cooldownSecs > 0) {
+      yield* Ref.set(refs.portalCooldownSecsRef, tickPortalCooldown(cooldownSecs, inputs.deltaTime))
+      yield* Ref.set(refs.portalSecsRef, 0)
+      return
+    }
+
     const py = Math.floor(playerPos.y)
     const columnBlockAt = yield* makeColumnReaderAt(services.chunkManagerService, playerPos)
     const inPortal = columnBlockAt(py) === 'NETHER_PORTAL'
@@ -47,6 +58,7 @@ export const applyNetherPortalTravel = (
         yield* services.chunkManagerService.setActiveDimension(plan.toDimension)
         yield* services.gameState.respawn(plan.destination)
         yield* Ref.set(refs.finalPosRef, plan.destination)
+        yield* Ref.set(refs.portalCooldownSecsRef, PORTAL_REENTRY_COOLDOWN_SECS)
         const portalLayout = Option.getOrNull(plan.portalToCreate)
         if (portalLayout !== null) {
           for (const pos of portalLayout.frame) {
