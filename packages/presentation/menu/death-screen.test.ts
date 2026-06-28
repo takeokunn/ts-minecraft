@@ -212,13 +212,13 @@ const makeGameModeLayer = (mode: 'survival' | 'creative') =>
     }),
   )
 
-const makeSessionControl = (): Effect.Effect<SessionControl, never> =>
-  Effect.gen(function* () {
-    return {
-      isPausedRef: MutableRef.make(true),
-      quitToTitleSignal: yield* Deferred.make<void, never>(),
-    }
-  })
+  const makeSessionControl = (): Effect.Effect<SessionControl, never> =>
+    Effect.gen(function* () {
+      return {
+        isPausedRef: MutableRef.make(false),
+        quitToTitleSignal: yield* Deferred.make<void, never>(),
+      }
+    })
 
 const makeTestLayer = (documentRef: MockDocument, mode: 'survival' | 'creative') => {
   const dom = makeDom(documentRef)
@@ -260,12 +260,13 @@ describe('DeathScreenService', () => {
 
           const backdrop = dom.roots[0]
           const respawnBtn = dom.created.find((element) => element.dataset.role === 'respawn')
-          expect(yield* service.isOpen()).toBe(true)
-          expect(backdrop?.style.display).toBe('flex')
-          expect(respawnBtn).toBeDefined()
+            expect(yield* service.isOpen()).toBe(true)
+            expect(backdrop?.style.display).toBe('flex')
+            expect(respawnBtn).toBeDefined()
+            expect(MutableRef.get(control.isPausedRef)).toBe(true)
 
-          respawnBtn?.click()
-          yield* Effect.sleep(Duration.millis(1))
+            respawnBtn?.click()
+            yield* Effect.sleep(Duration.millis(1))
 
           expect(yield* service.isOpen()).toBe(false)
           expect(backdrop?.style.display).toBe('none')
@@ -293,11 +294,12 @@ describe('DeathScreenService', () => {
           yield* health.applyDamage(100)
           yield* Effect.sleep(Duration.millis(1))
 
-          expect(yield* service.isOpen()).toBe(false)
-          expect(dom.roots[0]?.style.display).not.toBe('flex')
-        }).pipe(Effect.provide(layer)),
-      ),
-    )
+            expect(yield* service.isOpen()).toBe(false)
+            expect(dom.roots[0]?.style.display).not.toBe('flex')
+            expect(MutableRef.get(control.isPausedRef)).toBe(false)
+          }).pipe(Effect.provide(layer)),
+        ),
+      )
   })
 
   it('routes Enter on the quit button to quit-to-title', async () => {
