@@ -1,6 +1,6 @@
 import { describe, it } from '@effect/vitest'
 import { Array as Arr, Effect, MutableRef, Option } from 'effect'
-import { expect, vi } from 'vitest'
+import { afterEach, expect, vi } from 'vitest'
 import { makeDeps } from '../../../test/frame-handler-test-kit/orchestration/deps'
 import { runFrame } from '../../../test/frame-handler-test-kit/orchestration/harness'
 import { makeInputService } from '../../../test/frame-handler-test-kit/presentation/input'
@@ -9,10 +9,14 @@ import {
   makeSettingsOverlay,
 } from '../../../test/frame-handler-test-kit/presentation/overlay'
 import { makeServices } from '../../../test/frame-handler-test-kit/services'
-import { lightingStage } from '@ts-minecraft/app/frame/stages/lighting-stage'
+import { lightingStage, resetLightingWeatherSoundStateForTests } from '@ts-minecraft/app/frame/stages/lighting-stage'
 import type { DeltaTimeSecs } from '@ts-minecraft/core'
 import type { DayNightLights } from '@ts-minecraft/game'
 import * as THREE from 'three'
+
+afterEach(() => {
+  resetLightingWeatherSoundStateForTests()
+})
 
 // ---------------------------------------------------------------------------
 // Step 2: Day/night cycle
@@ -146,6 +150,18 @@ const makeLightingServices = () => ({
     getDayLength: () => Effect.succeed(1200),
   },
   musicManager: { updateFromContext: () => Effect.void },
+  soundManager: {
+    applySettings: () => Effect.void,
+    setListenerPosition: () => Effect.void,
+    playEffect: (_effect: unknown, _options?: unknown) => Effect.void,
+    getState: () =>
+      Effect.succeed({
+        enabled: true,
+        masterVolume: 0.8,
+        sfxVolume: 1,
+        listenerPosition: { x: 0, y: 64, z: 0 },
+      }),
+  },
   chunkMeshService: { setSunIntensity: () => Effect.void },
   netherService: { getDimension: () => Effect.succeed('overworld' as const) },
   weatherService: {
@@ -153,6 +169,80 @@ const makeLightingServices = () => ({
     getWeather: () => Effect.succeed('clear' as const),
     setWeather: (_w: unknown) => Effect.void,
   },
+})
+
+describe('step 2.4 — weather ambience sound', () => {
+  it.effect('plays rain ambience in overworld rain', () =>
+    Effect.gen(function* () {
+      const shadowUpdateCounterRef = MutableRef.make(0)
+      const playEffect = vi.fn(() => Effect.void)
+      const services = makeLightingServices()
+      ;(services.weatherService as { tick: unknown }).tick = vi.fn(() => Effect.succeed('rain' as const))
+      ;(services.soundManager as { playEffect: unknown }).playEffect = playEffect
+
+      yield* lightingStage(
+        { lights: { light: { castShadow: false } }, renderer: {} },
+        services,
+        { shadowUpdateCounterRef },
+        {
+          deltaTime: 0.016 as DeltaTimeSecs,
+          effectiveLights: makeFakeEffectiveLights(),
+          playerPos: { x: 0, y: 64, z: 0 },
+          markShadowMapDirty: () => {},
+        },
+      )
+
+      expect(playEffect).toHaveBeenCalledWith('rainAmbient', { gainScale: 0.75 })
+    }),
+  )
+
+  it.effect('suppresses weather ambience outside the overworld', () =>
+    Effect.gen(function* () {
+      const shadowUpdateCounterRef = MutableRef.make(0)
+      const playEffect = vi.fn(() => Effect.void)
+      const services = makeLightingServices()
+      ;(services.weatherService as { tick: unknown }).tick = vi.fn(() => Effect.succeed('thunder' as const))
+      ;(services.netherService as { getDimension: unknown }).getDimension = vi.fn(() =>
+        Effect.succeed('nether' as const),
+      )
+      ;(services.soundManager as { playEffect: unknown }).playEffect = playEffect
+
+      yield* lightingStage(
+        { lights: { light: { castShadow: false } }, renderer: {} },
+        services,
+        { shadowUpdateCounterRef },
+        {
+          deltaTime: 2 as DeltaTimeSecs,
+          effectiveLights: makeFakeEffectiveLights(),
+          playerPos: { x: 0, y: 64, z: 0 },
+          markShadowMapDirty: () => {},
+        },
+      )
+
+      expect(playEffect).not.toHaveBeenCalled()
+    }),
+  )
+
+  it.effect('plays delayed thunder ambience while thunder continues', () =>
+    Effect.gen(function* () {
+      const shadowUpdateCounterRef = MutableRef.make(0)
+      const playEffect = vi.fn(() => Effect.void)
+      const services = makeLightingServices()
+      ;(services.weatherService as { tick: unknown }).tick = vi.fn(() => Effect.succeed('thunder' as const))
+      ;(services.soundManager as { playEffect: unknown }).playEffect = playEffect
+      const deps = { lights: { light: { castShadow: false } }, renderer: {} }
+      const inputs = {
+        effectiveLights: makeFakeEffectiveLights(),
+        playerPos: { x: 0, y: 64, z: 0 },
+        markShadowMapDirty: () => {},
+      }
+
+      yield* lightingStage(deps, services, { shadowUpdateCounterRef }, { ...inputs, deltaTime: 0.016 as DeltaTimeSecs })
+      yield* lightingStage(deps, services, { shadowUpdateCounterRef }, { ...inputs, deltaTime: 1.6 as DeltaTimeSecs })
+
+      expect(playEffect).toHaveBeenCalledWith('thunderAmbient', { gainScale: 1 })
+    }),
+  )
 })
 
 describe('step 2.5 — shadow map dirty flag', () => {

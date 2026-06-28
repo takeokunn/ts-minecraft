@@ -189,6 +189,33 @@ describe('audio/sound-manager', () => {
     }).pipe(Effect.provide(makeSoundLayer(fake.engine)))
   })
 
+  it.effect('routes weather ambience effects through configured non-spatial synth cues', () => {
+    const fake = makeFakeAudioEngine()
+    return Effect.gen(function* () {
+      const soundManager = yield* SoundManager
+      yield* soundManager.applySettings({ enabled: true, masterVolume: 1, sfxVolume: 0.5 })
+
+      yield* soundManager.playEffect('rainAmbient', { gainScale: 0.75 })
+      yield* soundManager.playEffect('thunderAmbient')
+
+      const rain = fake.playRequests[0]
+      const thunder = fake.playRequests[1]
+      expect(fake.playRequests).toHaveLength(2)
+      expect(rain).toBeDefined()
+      expect(thunder).toBeDefined()
+      expect(rain!.frequency).toBe(SOUND_LIBRARY.rainAmbient.frequency)
+      expect(rain!.wave).toBe(SOUND_LIBRARY.rainAmbient.wave)
+      expect(rain!.gain).toBeCloseTo(SOUND_LIBRARY.rainAmbient.baseGain * 0.5 * 0.75, 4)
+      expect(rain!.loop).toBe(false)
+      expect(rain!.position).toBeUndefined()
+      expect(thunder!.frequency).toBe(SOUND_LIBRARY.thunderAmbient.frequency)
+      expect(thunder!.wave).toBe(SOUND_LIBRARY.thunderAmbient.wave)
+      expect(thunder!.gain).toBeCloseTo(SOUND_LIBRARY.thunderAmbient.baseGain * 0.5, 4)
+      expect(thunder!.loop).toBe(false)
+      expect(thunder!.position).toBeUndefined()
+    }).pipe(Effect.provide(makeSoundLayer(fake.engine)))
+  })
+
   it.effect('does not play sounds while disabled', () => {
     const fake = makeFakeAudioEngine()
     return Effect.gen(function* () {

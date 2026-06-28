@@ -7,6 +7,7 @@ import type { FrameWorldServices } from '@ts-minecraft/app/frame/frame-service-t
 import { updateDayNightCycle, computeTerrainSunIntensity, applyNetherEnvironment, applyEndEnvironment, type DayNightLights } from '@ts-minecraft/game'
 import type { DeltaTimeSecs, Position } from '@ts-minecraft/core'
 import type { Weather } from '@ts-minecraft/game'
+import { collectWeatherSoundCues, createWeatherSoundState } from './lighting-stage-weather-sound'
 
 // Apply a grey-blue tint when it is raining or thundering (overrides the daytime sky).
 const applyRainEnvironment = (lights: DayNightLights, weather: Weather): void => {
@@ -28,6 +29,12 @@ const applyRainEnvironment = (lights: DayNightLights, weather: Weather): void =>
 const musicContextScratch: { isNight: boolean; playerPosition: Position } = {
   isNight: false,
   playerPosition: { x: 0, y: 0, z: 0 },
+}
+
+let weatherSoundState = createWeatherSoundState()
+
+export const resetLightingWeatherSoundStateForTests = (): void => {
+  weatherSoundState = createWeatherSoundState()
 }
 
 export const lightingStage = (
@@ -55,7 +62,22 @@ export const lightingStage = (
           if (dimension === 'nether') applyNetherEnvironment(inputs.effectiveLights)
           else if (dimension === 'end') applyEndEnvironment(inputs.effectiveLights)
           else applyRainEnvironment(inputs.effectiveLights, weather)
-        }),
+          const [nextWeatherSoundState, weatherSoundCues] = collectWeatherSoundCues(
+            weatherSoundState,
+            dimension === 'overworld' ? weather : 'clear',
+            inputs.deltaTime,
+          )
+          weatherSoundState = nextWeatherSoundState
+          return weatherSoundCues
+        }).pipe(
+          Effect.flatMap((weatherSoundCues) =>
+            Effect.forEach(
+              weatherSoundCues,
+              (cue) => services.soundManager.playEffect(cue.effect, { gainScale: cue.gainScale }),
+              { concurrency: 1, discard: true },
+            ),
+          ),
+        ),
       ),
     ),
     Effect.flatMap(() =>

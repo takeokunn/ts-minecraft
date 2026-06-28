@@ -14,6 +14,8 @@ export const SoundEffectSchema = Schema.Literal(
   'footstepGrass',
   'footstepStone',
   'footstepWood',
+  'rainAmbient',
+  'thunderAmbient',
 )
 export type SoundEffect = Schema.Schema.Type<typeof SoundEffectSchema>
 
