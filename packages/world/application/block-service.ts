@@ -9,6 +9,7 @@ import type { ChestService } from "@ts-minecraft/inventory/application/chest-ser
 import type { FurnaceService } from "@ts-minecraft/inventory/application/furnace-service";
 import { makeBreakBlock } from "./block-service-break";
 import { makeForceSetBlock } from "./block-service-force-set";
+import { makeGetBlock } from "./block-service-get";
 import { makePlaceBlock } from "./block-service-place";
 
 const FurnaceServiceTag = Context.GenericTag<FurnaceService>(
@@ -36,6 +37,10 @@ export class BlockService extends Effect.Service<BlockService>()(
       const chestService = yield* ChestServiceTag;
 
       return {
+        getBlock: makeGetBlock({
+          chunkManagerService,
+          chunkService,
+        }),
         breakBlock: makeBreakBlock({
           chunkManagerService,
           chunkService,

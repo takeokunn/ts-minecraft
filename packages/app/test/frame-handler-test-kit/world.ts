@@ -112,6 +112,7 @@ export const makePerfHud = () => ({
 
 /** Creates a terrain block service fake for break/place operations. */
 export const makeBlockService = () => ({
+  getBlock: (_pos: unknown) => Effect.succeed('AIR' as const),
   breakBlock: (_pos: unknown) => Effect.void,
   placeBlock: (_pos: unknown, _type: unknown, _slot?: unknown) => Effect.void,
   forceSetBlock: (_pos: unknown, _type: unknown) => Effect.void,

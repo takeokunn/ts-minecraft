@@ -130,6 +130,14 @@ const forceSetBlockEither = (
     return yield* Effect.either((yield* BlockService).forceSetBlock(position, blockType))
   }).pipe(Effect.provide(layer))
 
+const getBlockEither = (
+  layer: ReturnType<typeof buildLayer>,
+  position: Position = DEFAULT_BLOCK_POSITION,
+) =>
+  Effect.gen(function* () {
+    return yield* Effect.either((yield* BlockService).getBlock(position))
+  }).pipe(Effect.provide(layer))
+
 const makeChunkWithBlocks = (blocks: Array<{ idx: number; type: BlockType }>): Chunk => {
   const chunk = makeChunk('AIR')
   blocks.forEach(({ idx, type }) => {
@@ -196,6 +204,36 @@ describe('terrain/application/block-service pure helpers', () => {
     const playerFeet = { x: 0, y: 64, z: 0 }
     const blockPos = { x: 5, y: 64, z: 5 }
     expect(blockOverlapsPlayer(blockPos, playerFeet)).toBe(false)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// getBlock
+// ---------------------------------------------------------------------------
+
+describe('terrain/application/block-service getBlock', () => {
+  it.effect('reads a block at world coordinates without mutating chunk', () => {
+    const chunk = makeChunk('STONE', BLOCK_IDX_64)
+    const layer = buildLayer({ chunk })
+    return getBlockEither(layer).pipe(
+      Effect.tap((result) => Effect.sync(() => {
+        expect(Either.isRight(result)).toBe(true)
+        expect(Option.getOrThrow(Either.getRight(result))).toBe('STONE')
+        expect(blockAt(chunk, BLOCK_IDX_64)).toBe('STONE')
+      })),
+    )
+  })
+
+  it.effect('reads blocks through negative world coordinates', () => {
+    const chunk = makeEmptyChunk({ x: -1, z: -1 })
+    writeBlock(chunk, 15, 64, 15, 'DIRT')
+    const layer = buildLayer({ chunk })
+    return getBlockEither(layer, { x: -1, y: 64, z: -1 }).pipe(
+      Effect.tap((result) => Effect.sync(() => {
+        expect(Either.isRight(result)).toBe(true)
+        expect(Option.getOrThrow(Either.getRight(result))).toBe('DIRT')
+      })),
+    )
   })
 })
 
