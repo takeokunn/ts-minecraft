@@ -79,6 +79,7 @@ export const loadOrCreateWorld = (
   storageService: StorageService,
   noiseService: NoiseService,
   gameModeService: GameModeService,
+  initialSeed?: number,
 ): Effect.Effect<WorldBootstrap, StartupError> =>
   Effect.gen(function* () {
     const existingMetadata = yield* Effect.raceFirst(
@@ -101,7 +102,7 @@ export const loadOrCreateWorld = (
       return buildLoadedWorldBootstrap(metadata)
     }
 
-    const seed = yield* Random.nextIntBetween(0, MAX_SEED_VALUE)
+    const seed = initialSeed ?? (yield* Random.nextIntBetween(0, MAX_SEED_VALUE))
     const nowMs = yield* Clock.currentTimeMillis
     const now = new Date(nowMs)
     yield* noiseService.setSeed(seed)

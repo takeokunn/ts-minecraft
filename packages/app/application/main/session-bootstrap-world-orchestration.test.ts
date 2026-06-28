@@ -57,6 +57,7 @@ describe('buildSessionBootstrapWorldOrchestration', () => {
         },
         worldId: 'world-1' as never,
         initialGameMode: 'survival' as never,
+        initialSeed: 1234,
         chunkManagerService,
         gameModeService,
       },
@@ -129,6 +130,7 @@ describe('buildSessionBootstrapWorldOrchestration', () => {
     expect(buildSessionBootstrapWorldState).toHaveBeenCalledWith(expect.objectContaining({
       worldId: 'world-1',
       initialGameMode: 'survival',
+      initialSeed: 1234,
       chunkManagerService,
       gameModeService,
     }))

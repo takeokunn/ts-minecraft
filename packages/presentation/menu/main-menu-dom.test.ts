@@ -56,7 +56,7 @@ const makeTestElement = <K extends keyof HTMLElementTagNameMap>(_tagName: K): HT
 }
 
 const tagForId = (id: string): keyof HTMLElementTagNameMap => {
-  if (id === 'mm-nw-name') return 'input'
+  if (id === 'mm-nw-name' || id === 'mm-nw-seed') return 'input'
   if (id === 'mm-lw-list') return 'div'
   return 'button'
 }
@@ -116,6 +116,7 @@ describe('presentation/menu/main-menu-dom', () => {
     expect(elements.loadWorldCard.id).toBe('main-menu-load-world')
     expect(elements.buttons.newWorld.id).toBe('mm-new-world')
     expect(elements.buttons.settings.id).toBe('mm-settings')
+    expect(elements.buttons.nwSeed.id).toBe('mm-nw-seed')
     expect(elements.buttons.lwList.id).toBe('mm-lw-list')
     expect(appended).toHaveLength(1)
   })

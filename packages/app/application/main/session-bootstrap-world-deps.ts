@@ -20,6 +20,7 @@ export type SessionBootstrapWorldStateDeps = {
   readonly initialGameMode: GameMode
   readonly chunkManagerService: ChunkManagerService
   readonly gameModeService: GameModeService
+  readonly initialSeed?: number
 }
 
 export type SessionBootstrapWorldTerrainDeps = {

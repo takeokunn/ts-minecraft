@@ -1,5 +1,5 @@
 import { Array as Arr, Cause, Deferred, Effect, MutableRef, Option, Order } from 'effect'
-import { StorageService, type WorldMetadata } from '@ts-minecraft/world'
+import { StorageService, parseWorldSeedInput, type WorldMetadata } from '@ts-minecraft/world'
 import { DomOperationsService } from '@ts-minecraft/presentation/hud/crosshair'
 import { ConfirmDialogService } from '@ts-minecraft/presentation/menu/confirm-dialog'
 import { WorldId } from '@ts-minecraft/core'
@@ -198,6 +198,7 @@ export const makeClickHandlers = (
   onNewWorldClick: () => {
     MutableRef.set(refs.newWorldModeRef, 'survival')
     buttons.nwName.value = ''
+    buttons.nwSeed.value = ''
     updateModeButton()
     setSubState('new-world')
     buttons.nwName.focus()
@@ -227,7 +228,13 @@ export const makeClickHandlers = (
     const trimmed = buttons.nwName.value.trim()
     const worldId = trimmed.length > 0 ? WorldId.make(trimmed) : generateWorldId()
     const gameMode = MutableRef.get(refs.newWorldModeRef)
-    completeWith({ action: 'newWorld', worldId, gameMode })
+    const seed = parseWorldSeedInput(buttons.nwSeed.value)
+    completeWith({
+      action: 'newWorld',
+      worldId,
+      gameMode,
+      ...(seed === undefined ? {} : { seed }),
+    })
   },
   onLwBackClick: () => {
     setSubState('root')

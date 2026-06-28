@@ -18,9 +18,10 @@ export const sessionProgram = (
   bootCtx: BootContext,
   worldId: WorldId,
   initialGameMode: GameMode,
+  initialSeed?: number,
 ) =>
   Effect.gen(function* () {
-    const bootstrapDeps = yield* buildSessionBootstrapDeps(bootCtx, worldId, initialGameMode)
+    const bootstrapDeps = yield* buildSessionBootstrapDeps(bootCtx, worldId, initialGameMode, initialSeed)
     const bootstrap = yield* buildSessionBootstrapOrchestration(bootstrapDeps)
 
     return yield* runSessionLifecycle(bootstrap)

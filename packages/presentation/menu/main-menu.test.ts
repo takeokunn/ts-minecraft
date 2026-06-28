@@ -7,6 +7,7 @@ import { DomOperationsService } from '@ts-minecraft/presentation/hud/crosshair'
 import { StorageService, type WorldMetadata } from '@ts-minecraft/world'
 import { WorldId } from '@ts-minecraft/core'
 import type { ChunkCoord } from '@ts-minecraft/core'
+import type { MainMenuChoice } from './main-menu-types'
 
 // ---------------------------------------------------------------------------
 // Test scaffolding
@@ -83,10 +84,17 @@ describe('presentation/menu/main-menu', () => {
   })
 
   describe('MainMenuChoice contract', () => {
-    it('newWorld choice carries worldId and gameMode', () => {
-      const choice = { action: 'newWorld' as const, worldId: 'foo' as WorldId, gameMode: 'creative' as const }
+    it('newWorld choice can carry worldId, gameMode, and optional seed', () => {
+      const choice: MainMenuChoice = {
+        action: 'newWorld',
+        worldId: 'foo' as WorldId,
+        gameMode: 'creative',
+        seed: 1234,
+      }
+
       expect(choice.action).toBe('newWorld')
       expect(choice.gameMode).toBe('creative')
+      expect(choice.seed).toBe(1234)
     })
 
     it('loadWorld choice carries only worldId', () => {

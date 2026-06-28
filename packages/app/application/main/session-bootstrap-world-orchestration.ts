@@ -18,6 +18,7 @@ export const buildSessionBootstrapWorldOrchestration = ({
       initialGameMode,
       chunkManagerService,
       gameModeService,
+      initialSeed,
     } = state
     const {
       bootCtx: terrainBootCtx,
@@ -59,6 +60,7 @@ export const buildSessionBootstrapWorldOrchestration = ({
       initialGameMode,
       chunkManagerService,
       gameModeService,
+      ...(initialSeed === undefined ? {} : { initialSeed }),
     })
 
     yield* chunkManagerService.setActiveWorldId(worldId)
