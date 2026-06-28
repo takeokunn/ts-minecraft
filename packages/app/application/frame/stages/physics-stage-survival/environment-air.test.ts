@@ -1,5 +1,5 @@
 import { Effect, HashMap, MutableRef, Option } from 'effect'
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   DROWN_DAMAGE,
   DROWN_DAMAGE_INTERVAL_SECS,
@@ -9,6 +9,7 @@ import type { PhysicsStageInputs } from '../physics-stage-types/inputs'
 import type { PhysicsStageRefs } from '../physics-stage-types/refs'
 import type { PhysicsStageServices } from '../physics-stage-types/services'
 import { applySurvivalAirEffects } from './environment-air'
+import { UNDERWATER_SCREEN_TINT_CLASS } from './environment-feedback'
 import type { SurvivalMovementState } from './types'
 
 const makeInputs = (deltaTime: number): PhysicsStageInputs =>
@@ -79,6 +80,10 @@ const makeServices = () => {
   }
 }
 
+afterEach(() => {
+  vi.unstubAllGlobals()
+})
+
 describe('physics-stage-survival/environment-air', () => {
   it('syncs the air meter and applies drowning damage while submerged', async () => {
     const services = makeServices()
@@ -127,5 +132,33 @@ describe('physics-stage-survival/environment-air', () => {
     expect(airElement.textContent).toBe('💀 Drowning')
     expect(MutableRef.get(refs.airSecsRef)).toBe(0)
     expect(MutableRef.get(refs.lastAirBubblesRef)).toBe(0)
+  })
+
+  it('syncs underwater tint even when air bubble count is unchanged', async () => {
+    const services = makeServices()
+    const refs = makeRefs(15, 10)
+    const refreshedPos = { x: 0, y: 64, z: 0 }
+    const damageCalls: number[] = []
+    const applyDamage = (damage: number) => {
+      damageCalls.push(damage)
+      return Effect.succeed(true)
+    }
+    const toggle = vi.fn()
+    vi.stubGlobal('document', { body: { classList: { toggle } } })
+    const movement: SurvivalMovementState = {
+      distanceMoved: 0,
+      inCreative: false,
+      isGrounded: false,
+      isSneaking: false,
+      isSprinting: false,
+    }
+
+    await Effect.runPromise(
+      applySurvivalAirEffects(services, refs, makeInputs(0.1), refreshedPos, movement, 'WATER', applyDamage),
+    )
+
+    expect(toggle).toHaveBeenCalledWith(UNDERWATER_SCREEN_TINT_CLASS, true)
+    expect(damageCalls).toEqual([])
+    expect(MutableRef.get(refs.lastAirBubblesRef)).toBe(10)
   })
 })

@@ -16,6 +16,29 @@
         width: 100vw;
         height: 100vh;
       }
+
+      #underwater-screen-tint {
+        position: fixed;
+        inset: 0;
+        z-index: 7;
+        pointer-events: none;
+        opacity: 0;
+        background:
+          radial-gradient(circle at 50% 42%, rgba(130, 223, 255, 0.18), transparent 52%),
+          linear-gradient(180deg, rgba(33, 139, 192, 0.32), rgba(7, 48, 86, 0.46));
+        transition: opacity 140ms ease-out;
+      }
+
+      body.underwater-screen-tint #underwater-screen-tint {
+        opacity: 1;
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        #underwater-screen-tint {
+          transition: none;
+        }
+      }
+
       body.hud-hidden #fps-counter,
       body.hud-hidden #health-display,
       body.hud-hidden #hunger-display,
@@ -162,6 +185,7 @@
     <div id="app"></div>
     <div id="multiplayer-root"></div>
     <canvas id="game-canvas"></canvas>
+    <div id="underwater-screen-tint" aria-hidden="true"></div>
     <div id="fps-counter" style="position: fixed; top: 10px; right: 10px; background: rgba(0,0,0,0.7); color: white; padding: 5px 10px; font-family: monospace; font-size: 14px; pointer-events: none; z-index: 10;">
       FPS: <span id="fps-value">0</span>
     </div>
