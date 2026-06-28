@@ -4,6 +4,7 @@ import { afterEach } from 'vitest'
 import { MouseButton, PlayerInputServiceLayer } from '@ts-minecraft/presentation/input/input-service'
 import { InputService } from '@ts-minecraft/presentation/input/input-service'
 import { PlayerInputService } from '@ts-minecraft/entity/application/player-input-service'
+import { KeyMappings } from '@ts-minecraft/entity/domain/key-mappings'
 import { createTestInputService, createTestLayer } from '@ts-minecraft/presentation/input/input-service-test-utils'
 
 const restoreDomGlobals = () => {
@@ -256,7 +257,7 @@ describe('InputService', () => {
       const { fakeDocument } = installPointerLockDom()
       return Effect.scoped(Effect.gen(function* () {
         const input = yield* InputService
-        for (const code of ['F1', 'F11']) {
+        for (const code of [KeyMappings.HUD_TOGGLE, KeyMappings.SCREENSHOT, 'F11']) {
           const { prevented } = dispatchKey(fakeDocument, code, null)
           expect(prevented).toBe(1)
           expect(yield* input.isKeyPressed(code)).toBe(true)
@@ -274,7 +275,8 @@ describe('InputService', () => {
         const input = yield* InputService
         for (const [code, init] of [
           ['Space', {}],
-          ['F1', {}],
+          [KeyMappings.HUD_TOGGLE, {}],
+          [KeyMappings.SCREENSHOT, {}],
           ['F11', {}],
           ['KeyW', { ctrlKey: true }],
         ] as const) {

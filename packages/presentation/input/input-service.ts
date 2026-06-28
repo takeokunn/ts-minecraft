@@ -1,6 +1,7 @@
 import { Effect, Layer, Option, HashMap, HashSet, Schema, MutableRef } from 'effect'
 import { KeyMappings } from '@ts-minecraft/entity/domain/key-mappings'
 import { PlayerInputService, type MouseDelta } from '@ts-minecraft/entity/application/player-input-service'
+import { downloadCanvasScreenshot } from './screenshot-service'
 
 export type { MouseDelta } from '@ts-minecraft/entity/application/player-input-service'
 export { MouseDeltaSchema } from '@ts-minecraft/entity/application/player-input-service'
@@ -185,7 +186,16 @@ export class InputService extends Effect.Service<InputService>()(
       // Keys whose browser default action interferes with gameplay. Keep
       // editable targets untouched so menu/forms preserve normal typing behavior.
       const GAME_DEFAULT_BLOCKED = new Set([
-        'Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'PageUp', 'PageDown', 'F1', 'F11',
+        KeyMappings.JUMP,
+        KeyMappings.MOVE_FORWARD_ALT,
+        KeyMappings.MOVE_BACKWARD_ALT,
+        KeyMappings.MOVE_LEFT_ALT,
+        KeyMappings.MOVE_RIGHT_ALT,
+        'PageUp',
+        'PageDown',
+        KeyMappings.HUD_TOGGLE,
+        KeyMappings.SCREENSHOT,
+        'F11',
       ])
       const isEditableTarget = (target: EventTarget | null): boolean => {
         const el = target as HTMLElement | null
@@ -206,6 +216,9 @@ export class InputService extends Effect.Service<InputService>()(
           event.preventDefault()
         }
         if (!event.repeat) {
+          if (event.code === KeyMappings.SCREENSHOT) {
+            downloadCanvasScreenshot()
+          }
           MutableRef.set(pressedKeysRef, HashSet.add(MutableRef.get(pressedKeysRef), event.code))
           // Mark as just pressed (for consumeKeyPress)
           MutableRef.set(justPressedKeysRef, HashSet.add(MutableRef.get(justPressedKeysRef), event.code))

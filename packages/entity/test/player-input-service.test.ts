@@ -126,6 +126,10 @@ describe('KeyMappings constants', () => {
       expect(KeyMappings.CAMERA_TOGGLE).toBe('F5')
     })
 
+    it('SCREENSHOT should be F2', () => {
+      expect(KeyMappings.SCREENSHOT).toBe('F2')
+    })
+
     it('INVENTORY_SORT should be KeyR', () => {
       expect(KeyMappings.INVENTORY_SORT).toBe('KeyR')
     })

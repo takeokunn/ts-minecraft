@@ -51,6 +51,10 @@ describe('KeyMappings', () => {
       expect(KeyMappings.CAMERA_TOGGLE).toBe('F5')
     })
 
+    it('SCREENSHOT maps to F2', () => {
+      expect(KeyMappings.SCREENSHOT).toBe('F2')
+    })
+
     it('PLAYER_LIST_TOGGLE maps to Tab', () => {
       expect(KeyMappings.PLAYER_LIST_TOGGLE).toBe('Tab')
     })
@@ -103,9 +107,9 @@ describe('KeyMappings', () => {
       })
     })
 
-    it('has exactly 29 key bindings', () => {
-      // 24 primary bindings + 4 arrow-key movement aliases (MOVE_*_ALT) + SPRINT_ALT.
-      expect(Object.keys(KeyMappings).length).toBe(29)
+    it('has exactly 30 key bindings', () => {
+      // 25 primary bindings + 4 arrow-key movement aliases (MOVE_*_ALT) + SPRINT_ALT.
+      expect(Object.keys(KeyMappings).length).toBe(30)
     })
   })
 
