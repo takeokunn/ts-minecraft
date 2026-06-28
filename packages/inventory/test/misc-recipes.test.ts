@@ -191,6 +191,17 @@ describe('application/recipes/misc-recipes', () => {
       expect(ingredientTotal('iron-ingots-redstone-dust-to-compass')).toBe(5)
     })
 
+    it('gold-ingots-redstone-dust-to-clock: 4 GOLD_INGOT + 1 REDSTONE_DUST -> 1 CLOCK at crafting_table', () => {
+      const recipe = findById('gold-ingots-redstone-dust-to-clock')
+      expect(recipe).toBeDefined()
+      expect(recipe!.station).toBe('crafting_table')
+      expect(recipe!.ingredients).toHaveLength(2)
+      expect(recipe!.ingredients[0]).toMatchObject({ itemType: 'GOLD_INGOT', count: 4 })
+      expect(recipe!.ingredients[1]).toMatchObject({ itemType: 'REDSTONE_DUST', count: 1 })
+      expect(recipe!.output).toEqual({ itemType: 'CLOCK', count: 1 })
+      expect(ingredientTotal('gold-ingots-redstone-dust-to-clock')).toBe(5)
+    })
+
     it('paper-compass-to-map: 8 PAPER + 1 COMPASS -> 1 MAP at crafting_table', () => {
       const recipe = findById('paper-compass-to-map')
       expect(recipe).toBeDefined()

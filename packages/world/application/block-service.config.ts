@@ -131,6 +131,7 @@ export const NON_PLACEABLE_ITEM_TYPES: HashSet.HashSet<InventoryItem> = HashSet.
   'BOOK',
   'PAPER',
   'COMPASS',
+  'CLOCK',
   'MAP',
 ])
 

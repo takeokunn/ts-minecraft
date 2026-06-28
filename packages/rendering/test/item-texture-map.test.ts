@@ -29,6 +29,7 @@ describe('infrastructure/three/textures/item-texture-map', () => {
       expect(getItemTileIndex('GLOWSTONE_DUST')).toBe(113)
       expect(getItemTileIndex('PAPER')).toBe(95)
       expect(getItemTileIndex('COMPASS')).toBe(59)
+      expect(getItemTileIndex('CLOCK')).toBe(57)
       expect(getItemTileIndex('MAP')).toBe(95)
       expect(getItemTileIndex('BOAT')).toBe(41)
       expect(getItemTileIndex('MINECART')).toBe(35)

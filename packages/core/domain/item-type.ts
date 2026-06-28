@@ -78,6 +78,7 @@ export const ItemTypeSchema = Schema.Literal(
   'FISHING_ROD',
   'SHIELD',
   'COMPASS',
+  'CLOCK',
   'MAP',
   // Hoe tools — for tilling farmland
   'WOODEN_HOE',

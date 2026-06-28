@@ -94,6 +94,15 @@ export const BASIC_MISC_RECIPES: ReadonlyArray<Recipe> = [
     output: { itemType: 'COMPASS', count: 1 },
   }),
   new Recipe({
+    id: RecipeId.make('gold-ingots-redstone-dust-to-clock'),
+    station: 'crafting_table',
+    ingredients: [
+      new RecipeIngredient({ itemType: 'GOLD_INGOT', count: 4 }),
+      new RecipeIngredient({ itemType: 'REDSTONE_DUST', count: 1 }),
+    ],
+    output: { itemType: 'CLOCK', count: 1 },
+  }),
+  new Recipe({
     id: RecipeId.make('paper-compass-to-map'),
     station: 'crafting_table',
     ingredients: [
