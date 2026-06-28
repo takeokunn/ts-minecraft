@@ -27,6 +27,7 @@ export type ClickHandlerDeps = {
   readonly inventoryCursorRef: Ref.Ref<InventorySlot>
   readonly statusMessageRef: Ref.Ref<string>
   readonly refreshSlots: () => Effect.Effect<void, never>
+  readonly sortInventory: () => Effect.Effect<void, never>
 }
 
 export type ShiftQuickMoveInventoryDeps = Pick<ClickHandlerDeps, 'chestService' | 'inventoryService' | 'equipmentService'>
@@ -68,10 +69,28 @@ export const buildHandleDelegatedClick = (deps: ClickHandlerDeps) =>
       inventoryCursorRef,
       statusMessageRef,
       refreshSlots,
+      sortInventory,
     } = deps
     if (event.type === 'contextmenu') event.preventDefault()
 
     const htmlTarget = event.target instanceof HTMLElement ? event.target : null
+    const actionTarget = Option.getOrNull(
+      Option.fromNullable(htmlTarget?.closest('[data-inventory-action]')).pipe(
+        Option.filter((target): target is HTMLElement => target instanceof HTMLElement),
+      ),
+    )
+    if (actionTarget?.dataset['inventoryAction'] === 'sort') {
+      event.preventDefault()
+      Effect.runFork(
+        sortInventory().pipe(
+          Effect.catchAllCause((cause) =>
+            Effect.logError(`Inventory sort error: ${Cause.pretty(cause)}`),
+          ),
+        ),
+      )
+      return
+    }
+
     const recipeTarget = Option.fromNullable(htmlTarget?.closest('[data-recipe-id]')).pipe(
       Option.filter((target): target is HTMLElement => target instanceof HTMLElement),
     )

@@ -85,6 +85,7 @@ export const buildIntegrationLayer = (playerPos: Position = { x: 100, y: 0, z: 1
     repairMendingItemsWithXP: (amount) => Effect.succeed(amount),
     moveStack: (_from, _to) => Effect.void,
     quickMove: (_from) => Effect.void,
+    sortInventory: () => Effect.void,
     getHotbarSlots: () => Effect.succeed([]),
     getAllSlots: () => Effect.succeed(emptyInventorySlots),
     serialize: () => Effect.succeed({ slots: [] }),

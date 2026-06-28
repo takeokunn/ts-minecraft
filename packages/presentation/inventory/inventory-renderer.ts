@@ -97,19 +97,6 @@ export class InventoryRendererService extends Effect.Service<InventoryRendererSe
       }
 
       const { overlayEl, chestContainerEl, chestSlotEls, slotEls, craftingListEl, statusEl } = yield* Effect.sync(() => buildOverlayDom(dom))
-      /* c8 ignore next */
-      const handleDelegatedClick = buildHandleDelegatedClick({
-        hasNearbyCraftingTable,
-        hasNearbyFurnace,
-        performRecipe,
-        hotbarService,
-        inventoryService,
-        chestService,
-        equipmentService,
-        inventoryCursorRef,
-        statusMessageRef,
-        refreshSlots: () => refreshSlots(),
-      })
 
       const refreshSlots = (): Effect.Effect<void, never> =>
         Effect.gen(function* () {
@@ -132,6 +119,30 @@ export class InventoryRendererService extends Effect.Service<InventoryRendererSe
           })
           /* c8 ignore stop */
         })
+
+      const sortInventory = (): Effect.Effect<void, never> =>
+        Effect.gen(function* () {
+          const isVisible = yield* Ref.get(isVisibleRef)
+          if (!isVisible) return
+          yield* inventoryService.sortInventory()
+          yield* Ref.set(statusMessageRef, 'Inventory sorted.')
+          yield* refreshSlots()
+        })
+
+      /* c8 ignore next */
+      const handleDelegatedClick = buildHandleDelegatedClick({
+        hasNearbyCraftingTable,
+        hasNearbyFurnace,
+        performRecipe,
+        hotbarService,
+        inventoryService,
+        chestService,
+        equipmentService,
+        inventoryCursorRef,
+        statusMessageRef,
+        refreshSlots: () => refreshSlots(),
+        sortInventory: () => sortInventory(),
+      })
 
       yield* Effect.sync(() => {
         const el = Option.getOrNull(overlayEl)
@@ -166,6 +177,8 @@ export class InventoryRendererService extends Effect.Service<InventoryRendererSe
             const isVisible = yield* Ref.get(isVisibleRef)
             if (isVisible) yield* refreshSlots()
           }),
+
+        sortInventory,
 
         cycleRecipes: (delta: number): Effect.Effect<void, never> =>
           Effect.gen(function* () {

@@ -18,6 +18,7 @@ const makeElement = <K extends keyof HTMLElementTagNameMap>(_tagName: K): HTMLEl
     dataset: {},
     textContent: '',
     title: '',
+    type: '',
     childrenList,
   }
   return element as unknown as HTMLElementTagNameMap[K]
@@ -68,6 +69,10 @@ describe('presentation/inventory/inventory-renderer-dom', () => {
       expect(overlay.slotEls[35]?.dataset['slot']).toBe('35')
       expect(Option.getOrUndefined(overlay.statusEl)?.textContent).toBe('Click a recipe to craft it.')
       expect(Option.isSome(overlay.craftingListEl)).toBe(true)
+      expect(Option.isSome(overlay.sortButtonEl)).toBe(true)
+      const sortButton = Option.getOrThrow(overlay.sortButtonEl)
+      expect(sortButton.dataset['inventoryAction']).toBe('sort')
+      expect(sortButton.textContent).toBe('Sort (X)')
       expect(appended).toHaveLength(1)
       expect(appended[0]?.id).toBe('inventory-overlay')
     } finally {

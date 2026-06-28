@@ -375,6 +375,50 @@ describe('inventory key (KeyE) handling', () => {
   }))
 })
 
+describe('inventory sort key (KeyX) handling', () => {
+  it.effect('sorts inventory when KeyX is pressed while inventory is open', () => Effect.gen(function* () {
+    const invState = { open: true }
+    const pressedKeys = MutableHashSet.make(KeyMappings.INVENTORY_SORT)
+
+    const deps = yield* makeDeps(true)
+    const inventoryRenderer = makeInventoryRenderer(invState)
+    const sortSpy = vi.fn(() => Effect.void)
+    Object.assign(inventoryRenderer, { sortInventory: sortSpy })
+
+    const services = makeServices({
+      inputService: makeInputService(pressedKeys),
+      inventoryRenderer,
+      settingsOverlay: makeSettingsOverlay({ open: false }),
+      tradingPresentation: makeTradingPresentation({ open: false }),
+    })
+
+    yield* runFrame(deps, services)
+
+    expect(sortSpy).toHaveBeenCalledOnce()
+  }))
+
+  it.effect('does not sort inventory when KeyX is pressed while inventory is closed', () => Effect.gen(function* () {
+    const invState = { open: false }
+    const pressedKeys = MutableHashSet.make(KeyMappings.INVENTORY_SORT)
+
+    const deps = yield* makeDeps(false)
+    const inventoryRenderer = makeInventoryRenderer(invState)
+    const sortSpy = vi.fn(() => Effect.void)
+    Object.assign(inventoryRenderer, { sortInventory: sortSpy })
+
+    const services = makeServices({
+      inputService: makeInputService(pressedKeys),
+      inventoryRenderer,
+      settingsOverlay: makeSettingsOverlay({ open: false }),
+      tradingPresentation: makeTradingPresentation({ open: false }),
+    })
+
+    yield* runFrame(deps, services)
+
+    expect(sortSpy).not.toHaveBeenCalled()
+  }))
+})
+
 describe('inventory crafting runtime wiring', () => {
   it.effect('routes inventory overlay navigation keys to crafting controls when inventory is open', () => Effect.gen(function* () {
     const deps = yield* makeDeps(true)

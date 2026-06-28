@@ -46,6 +46,10 @@ describe('KeyMappings', () => {
     it('CAMERA_TOGGLE maps to F5', () => {
       expect(KeyMappings.CAMERA_TOGGLE).toBe('F5')
     })
+
+    it('INVENTORY_SORT maps to KeyX', () => {
+      expect(KeyMappings.INVENTORY_SORT).toBe('KeyX')
+    })
   })
 
   describe('hotbar keys', () => {
@@ -95,9 +99,9 @@ describe('KeyMappings', () => {
       })
     })
 
-    it('has exactly 27 key bindings', () => {
-      // 22 primary bindings + 4 arrow-key movement aliases (MOVE_*_ALT) + SPRINT_ALT.
-      expect(Object.keys(KeyMappings).length).toBe(27)
+    it('has exactly 28 key bindings', () => {
+      // 23 primary bindings + 4 arrow-key movement aliases (MOVE_*_ALT) + SPRINT_ALT.
+      expect(Object.keys(KeyMappings).length).toBe(28)
     })
   })
 

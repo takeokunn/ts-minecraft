@@ -103,6 +103,7 @@ export const makeInventoryService = (
     repairMendingItemsWithXP: (amount) => Effect.succeed(amount),
     moveStack: () => Effect.void,
     quickMove: () => Effect.void,
+    sortInventory: () => Effect.void,
     getHotbarSlots: () => Effect.succeed([]),
     clear: () =>
       Effect.sync(() => {

@@ -30,6 +30,7 @@ describe('presentation/inventory/inventory-renderer', () => {
         expect(typeof renderer.update).toBe('function')
         expect(typeof renderer.cycleRecipes).toBe('function')
         expect(typeof renderer.craftSelectedRecipe).toBe('function')
+        expect(typeof renderer.sortInventory).toBe('function')
       }).pipe(Effect.provide(TestLayer))
     })
   })
@@ -162,6 +163,38 @@ describe('presentation/inventory/inventory-renderer', () => {
         yield* renderer.update()
         yield* renderer.update()
         yield* renderer.update()
+      }).pipe(Effect.provide(TestLayer))
+    })
+  })
+
+  describe('sortInventory', () => {
+    it.scoped('does not call InventoryService while closed', () => {
+      const mockDom = createMockDomLayer()
+      const mockInventory = createMockInventoryLayer()
+      const mockHotbar = createMockHotbarLayer()
+      const TestLayer = buildTestLayer(mockDom, mockInventory, mockHotbar)
+
+      return Effect.gen(function* () {
+        const renderer = yield* InventoryRendererService
+        yield* renderer.sortInventory()
+        expect(mockInventory.sortInventory).not.toHaveBeenCalled()
+      }).pipe(Effect.provide(TestLayer))
+    })
+
+    it.scoped('sorts and refreshes when open', () => {
+      const mockDom = createMockDomLayer()
+      const mockInventory = createMockInventoryLayer()
+      const mockHotbar = createMockHotbarLayer()
+      const TestLayer = buildTestLayer(mockDom, mockInventory, mockHotbar)
+
+      return Effect.gen(function* () {
+        const renderer = yield* InventoryRendererService
+        yield* renderer.toggle()
+        mockInventory.sortInventory.mockClear()
+        const refreshCallsBefore = mockInventory.getAllSlots.mock.calls.length
+        yield* renderer.sortInventory()
+        expect(mockInventory.sortInventory).toHaveBeenCalledOnce()
+        expect(mockInventory.getAllSlots.mock.calls.length).toBeGreaterThan(refreshCallsBefore)
       }).pipe(Effect.provide(TestLayer))
     })
   })

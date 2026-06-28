@@ -21,7 +21,7 @@ import type { Recipe } from '@ts-minecraft/inventory/domain/crafting'
 
 export const createMockDomLayer = () => {
   const createElement = vi.fn((_tagName: string) => {
-    const el: Pick<HTMLElement, 'id' | 'textContent' | 'title' | 'dataset'> & {
+    const el: Pick<HTMLElement, 'id' | 'textContent' | 'title' | 'dataset'> & { type: string } & {
       style: Pick<CSSStyleDeclaration, 'cssText' | 'display' | 'background' | 'border'>
       addEventListener: ReturnType<typeof vi.fn>
       removeEventListener: ReturnType<typeof vi.fn>
@@ -36,6 +36,7 @@ export const createMockDomLayer = () => {
       },
       textContent: '',
       title: '',
+      type: '',
       dataset: {} as Record<string, string>,
       addEventListener: vi.fn(),
       removeEventListener: vi.fn(),
@@ -66,6 +67,7 @@ export const createMockInventoryLayer = (overrideSlots?: ReadonlyArray<Option.Op
   const repairMendingItemsWithXP = vi.fn((amount: number) => Effect.succeed(amount))
   const moveStack = vi.fn((_from: SlotIndex, _to: SlotIndex) => Effect.void)
   const quickMove = vi.fn((_from: SlotIndex) => Effect.void)
+  const sortInventory = vi.fn(() => Effect.void)
   const addBlock = vi.fn((_bt: unknown, _count: number) => Effect.succeed(true))
   const removeBlock = vi.fn((_bt: unknown, _count: number) => Effect.succeed(true))
   const getHotbarSlots = vi.fn(() => Effect.succeed(Arr.drop(slots, HOTBAR_START)))
@@ -81,6 +83,7 @@ export const createMockInventoryLayer = (overrideSlots?: ReadonlyArray<Option.Op
     repairMendingItemsWithXP,
     moveStack,
     quickMove,
+    sortInventory,
     addBlock,
     removeBlock,
     getHotbarSlots,
@@ -89,7 +92,7 @@ export const createMockInventoryLayer = (overrideSlots?: ReadonlyArray<Option.Op
     deserialize,
   }))
 
-  return { MockInventoryLayer, getAllSlots, moveStack, quickMove }
+  return { MockInventoryLayer, getAllSlots, moveStack, quickMove, sortInventory }
 }
 
 export const createMockHotbarLayer = (selectedSlot = 0) => {

@@ -17,6 +17,7 @@ export const makeInventoryRenderer = (state: OverlayState) =>
         return state.open
       }),
     update: () => Effect.void,
+    sortInventory: () => Effect.void,
     cycleRecipes: (_delta: number) => Effect.void,
     craftSelectedRecipe: () => Effect.succeed(false),
   })

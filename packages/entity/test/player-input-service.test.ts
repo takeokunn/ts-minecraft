@@ -125,6 +125,10 @@ describe('KeyMappings constants', () => {
     it('CAMERA_TOGGLE should be F5', () => {
       expect(KeyMappings.CAMERA_TOGGLE).toBe('F5')
     })
+
+    it('INVENTORY_SORT should be KeyX', () => {
+      expect(KeyMappings.INVENTORY_SORT).toBe('KeyX')
+    })
   })
 
   describe('hotbar slot keys', () => {

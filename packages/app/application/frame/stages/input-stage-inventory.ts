@@ -40,6 +40,19 @@ export const handleDropItemKey = (
     })
   })
 
+export const handleInventorySortKey = (
+  services: Pick<InputServices, 'inputService' | 'inventoryRenderer'>,
+): Effect.Effect<void, never> =>
+  Effect.gen(function* () {
+    const sortPressed = yield* services.inputService.consumeKeyPress(KeyMappings.INVENTORY_SORT)
+    if (!sortPressed) return
+
+    const inventoryOpen = yield* services.inventoryRenderer.isOpen()
+    if (!inventoryOpen) return
+
+    yield* services.inventoryRenderer.sortInventory()
+  })
+
 export const handleInventoryKey = (
   deps: InputDeps,
   services: Pick<InputServices, 'inputService' | 'inventoryRenderer' | 'settingsOverlay' | 'tradingPresentation' | 'soundManager'>,

@@ -1,14 +1,17 @@
 import { describe, expect, it } from '@effect/vitest'
 import { Option } from 'effect'
+import { HOTBAR_START } from '../application/inventory-service'
 import { createStack, ItemStack } from '../domain/item-stack'
 import type { InventorySlots } from '../application/inventory-service-types'
 import {
   moveStackInInventorySlots,
   repairMendingInventorySlotsWithXP,
+  sortInventorySlots,
 } from '../application/inventory-service-state'
 import { asSlotIndex } from '../test/inventory-service-test-utils'
 
 const emptySlots = (): InventorySlots => Array.from({ length: 36 }, () => Option.none())
+const stackAt = (slots: InventorySlots, index: number): ItemStack => Option.getOrThrow(slots[index])
 
 const mkMendingPickaxe = (durability: number): ItemStack =>
   new ItemStack({
@@ -75,6 +78,46 @@ describe('application/inventory/inventory-service-state', () => {
 
       expect(emptySource).toEqual(slots)
       expect(sameSlot).toEqual(slots)
+    })
+  })
+
+  describe('sortInventorySlots', () => {
+    it('compacts and merges main inventory while preserving hotbar slots', () => {
+      const slots = emptySlots()
+      slots[0] = Option.some(createStack('STONE', 40))
+      slots[1] = Option.some(createStack('DIRT', 10))
+      slots[4] = Option.some(createStack('STONE', 30))
+      slots[8] = Option.some(createStack('COBBLESTONE', 5))
+      slots[HOTBAR_START] = Option.some(createStack('DIAMOND', 3))
+
+      const sorted = sortInventorySlots(slots)
+
+      expect(stackAt(sorted, 0).itemType).toBe('COBBLESTONE')
+      expect(stackAt(sorted, 0).count).toBe(5)
+      expect(stackAt(sorted, 1).itemType).toBe('DIRT')
+      expect(stackAt(sorted, 1).count).toBe(10)
+      expect(stackAt(sorted, 2).itemType).toBe('STONE')
+      expect(stackAt(sorted, 2).count).toBe(64)
+      expect(stackAt(sorted, 3).itemType).toBe('STONE')
+      expect(stackAt(sorted, 3).count).toBe(6)
+      expect(Option.isNone(sorted[4])).toBe(true)
+      expect(stackAt(sorted, HOTBAR_START).itemType).toBe('DIAMOND')
+      expect(stackAt(sorted, HOTBAR_START).count).toBe(3)
+    })
+
+    it('keeps durable tools as separate sorted stacks', () => {
+      const slots = emptySlots()
+      slots[0] = Option.some(new ItemStack({ itemType: 'IRON_PICKAXE', count: 1, durability: 12 }))
+      slots[1] = Option.some(new ItemStack({ itemType: 'DIAMOND_PICKAXE', count: 1, durability: 30 }))
+      slots[2] = Option.some(new ItemStack({ itemType: 'IRON_PICKAXE', count: 1, durability: 40 }))
+
+      const sorted = sortInventorySlots(slots)
+
+      expect(stackAt(sorted, 0).itemType).toBe('DIAMOND_PICKAXE')
+      expect(stackAt(sorted, 1).itemType).toBe('IRON_PICKAXE')
+      expect(stackAt(sorted, 1).durability).toBe(12)
+      expect(stackAt(sorted, 2).itemType).toBe('IRON_PICKAXE')
+      expect(stackAt(sorted, 2).durability).toBe(40)
     })
   })
 

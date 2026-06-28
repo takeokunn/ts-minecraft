@@ -2354,7 +2354,7 @@ XP スケール: 最大レベル = `floor(xpLevel / 5)`、上限はエンチャ�
 | 287 | F1 キーで HUD 非表示実装済み | `KeyMappings.HUD_TOGGLE='F1'` を `input-stage.ts` で消費し、`body.hud-hidden` でFPS/体力/空腹/防具/酸素/破壊バー/XP/クロスヘア/デバッグDOMを非表示化。`hud-stage.ts` は同じ状態で Three.js ホットバー描画も抑制 | `packages/entity/domain/key-mappings.ts`, `packages/app/application/frame/stages/input-stage.ts`, `index.html`, `packages/app/application/frame/stages/hud-stage.ts` |
 | 288 | クラフト UI がグリッドではなくリスト形式 | インベントリ画面の 2×2・クラフトテーブルの 3×3 グリッドが視覚的に存在せず、テキストベースのレシピリスト（ボタン選択式）として実装。公式の直感的なグリッド UI なし | `packages/presentation/inventory/inventory-renderer-dom.ts:47` |
 | 289 | レシピブック UI なし | インゲームでクラフトレシピを一覧・検索できるレシピブックなし | `packages/presentation/inventory/` |
-| 290 | インベントリソートなし | インベントリ画面にソートボタン・キーバインドなし | `packages/presentation/inventory/inventory-renderer.ts` |
+| 290 | インベントリソート実装済み | `Sort (X)` ボタンと `KeyMappings.INVENTORY_SORT='KeyX'` でメインインベントリを圧縮・整列する。ホットバーは選択中アイテム保護のため保持 | `packages/presentation/inventory/inventory-renderer.ts`, `packages/inventory/application/inventory-service-state.ts`, `packages/app/application/frame/stages/input-stage-inventory.ts` |
 | 291 | アイテムホバーツールチップ実装済み | インベントリ/チェスト内アイテムの slot title/data-tooltip/aria-label に表示名・個数・エンチャント一覧を反映し、空スロットでは stale tooltip を消去 | `packages/presentation/inventory/inventory-renderer-refresh.ts`, `packages/presentation/inventory/inventory-renderer-refresh.test.ts` |
 | 292 | 銅ブロック・酸化メカニクスなし | COPPER/COPPER_ORE/EXPOSED_COPPER 等が `block-type.ts` に未定義。時間経過による緑青（酸化）・ロウ付け(Wax)なし | `packages/core/domain/block-type.ts` |
 | 293 | ネザーポータル通過後の再入場クールダウンなし | `physics-stage-portal.ts:8` の PORTAL_ACTIVATION_SECS=4.0 は入場時のみ。出口側ポータルで即座に逆方向へ戻れる（行き来ループ防止なし）| `packages/app/application/frame/stages/physics-stage-portal.ts:8` |

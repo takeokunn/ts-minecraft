@@ -13,6 +13,7 @@ import {
   tryAddBlocksToInventory,
   repairMendingInventorySlotsWithXP,
   serializeInventorySlots,
+  sortInventorySlots,
 } from './inventory-service-state'
 
 export { INVENTORY_SIZE, HOTBAR_START, HOTBAR_SIZE }
@@ -48,6 +49,9 @@ export class InventoryService extends Effect.Service<InventoryService>()(
 
         moveStack: (from: SlotIndex, to: SlotIndex): Effect.Effect<void, never> =>
           Ref.update(slotsRef, (slots) => moveStackInInventorySlots(slots, from, to)),
+
+        sortInventory: (): Effect.Effect<void, never> =>
+          Ref.update(slotsRef, sortInventorySlots),
 
         // Vanilla shift-click quick-move: transfer the whole stack at `from` to the OTHER
         // region (main 0..HOTBAR_START <-> hotbar HOTBAR_START..INVENTORY_SIZE), merging into

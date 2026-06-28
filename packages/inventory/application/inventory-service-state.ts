@@ -59,6 +59,60 @@ export const quickMoveInventorySlots = (slots: InventorySlots, from: SlotIndex):
   return Arr.modify(merged, fromIdx, () => removeFromStack(source, moved))
 }
 
+type IndexedStack = {
+  readonly stack: ItemStack
+  readonly originalIndex: number
+}
+
+const cloneStackWithCount = (stack: ItemStack, count: number): ItemStack =>
+  new ItemStack({
+    itemType: stack.itemType,
+    count,
+    durability: stack.durability,
+    enchantments: stack.enchantments,
+  })
+
+const compareIndexedStacks = (a: IndexedStack, b: IndexedStack): number =>
+  a.stack.itemType.localeCompare(b.stack.itemType) || a.originalIndex - b.originalIndex
+
+const compactSortedMainInventoryStacks = (entries: ReadonlyArray<IndexedStack>): ReadonlyArray<ItemStack> => {
+  const compacted: ItemStack[] = []
+  for (const { stack } of [...entries].sort(compareIndexedStacks)) {
+    let remaining = stack.count
+    for (let i = 0; i < compacted.length && remaining > 0; i++) {
+      const existing = compacted[i]
+      if (existing === undefined || !canMerge(existing, stack)) continue
+      const capacity = maxStackFor(existing.itemType) - existing.count
+      if (capacity <= 0) continue
+      const moved = Math.min(capacity, remaining)
+      compacted[i] = cloneStackWithCount(existing, existing.count + moved)
+      remaining -= moved
+    }
+    while (remaining > 0) {
+      const count = Math.min(maxStackFor(stack.itemType), remaining)
+      compacted.push(cloneStackWithCount(stack, count))
+      remaining -= count
+    }
+  }
+  return compacted
+}
+
+export const sortInventorySlots = (slots: InventorySlots): InventorySlots => {
+  const mainEntries = slots.slice(0, HOTBAR_START).flatMap((slot, index) => {
+    const stack = Option.getOrNull(slot)
+    return stack === null ? [] : [{ stack, originalIndex: index }]
+  })
+  const compacted = compactSortedMainInventoryStacks(mainEntries)
+  const sortedMain = Arr.makeBy(HOTBAR_START, (index) => {
+    const stack = compacted[index]
+    return stack === undefined ? Option.none<ItemStack>() : Option.some(stack)
+  })
+  return [
+    ...sortedMain,
+    ...slots.slice(HOTBAR_START, INVENTORY_SIZE),
+  ]
+}
+
 export const tryAddBlocksToInventory = (
   slots: InventorySlots,
   itemType: InventoryItem,

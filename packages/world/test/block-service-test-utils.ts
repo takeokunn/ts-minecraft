@@ -179,6 +179,7 @@ export const createMockInventoryService = (options?: {
   repairMendingItemsWithXP: (amount: number) => Effect.succeed(amount),
   moveStack: (_from: SlotIndex, _to: SlotIndex) => Effect.void,
   quickMove: (_from: SlotIndex) => Effect.void,
+  sortInventory: () => Effect.void,
   getHotbarSlots: () => Effect.succeed([]),
   getAllSlots: () => Effect.succeed([]),
   serialize: () => Effect.succeed({ slots: [] }),

@@ -3,6 +3,8 @@ import { INVENTORY_SIZE, HOTBAR_START } from '@ts-minecraft/inventory/applicatio
 import { DomOperationsService } from '@ts-minecraft/presentation/hud/crosshair'
 import { CHEST_SIZE } from '@ts-minecraft/inventory/domain/chest-service.config'
 import {
+  INVENTORY_ACTION_BUTTON_STYLE,
+  INVENTORY_TOOLBAR_STYLE,
   DEFAULT_SLOT_COLOR, SLOT_EL_STYLE,
   OVERLAY_STYLE, OVERLAY_TITLE_STYLE,
   CHEST_GRID_STYLE, CHEST_SECTION_STYLE, CHEST_TITLE_STYLE,
@@ -17,6 +19,7 @@ export type OverlayDom = {
   readonly slotEls: HTMLDivElement[]
   readonly craftingListEl: Option.Option<HTMLDivElement>
   readonly statusEl: Option.Option<HTMLDivElement>
+  readonly sortButtonEl: Option.Option<HTMLButtonElement>
 }
 
 /* c8 ignore next 5 */
@@ -45,6 +48,7 @@ export const buildOverlayDom = (dom: DomOperationsService): OverlayDom => {
       slotEls: [],
       craftingListEl: Option.none(),
       statusEl: Option.none(),
+      sortButtonEl: Option.none(),
     }
   }
   /* c8 ignore start */
@@ -57,6 +61,17 @@ export const buildOverlayDom = (dom: DomOperationsService): OverlayDom => {
   title.textContent = 'Inventory'
   title.style.cssText = OVERLAY_TITLE_STYLE
   dom.appendChildTo(el, title)
+
+  const toolbar = dom.createElement('div')
+  toolbar.style.cssText = INVENTORY_TOOLBAR_STYLE
+  const sortButton = dom.createElement('button')
+  sortButton.type = 'button'
+  sortButton.dataset['inventoryAction'] = 'sort'
+  sortButton.textContent = 'Sort (X)'
+  sortButton.title = 'Sort main inventory (keeps hotbar)'
+  sortButton.style.cssText = INVENTORY_ACTION_BUTTON_STYLE
+  dom.appendChildTo(toolbar, sortButton)
+  dom.appendChildTo(el, toolbar)
 
   const chestContainer = dom.createElement('div')
   chestContainer.style.cssText = CHEST_SECTION_STYLE
@@ -113,6 +128,7 @@ export const buildOverlayDom = (dom: DomOperationsService): OverlayDom => {
     slotEls: Arr.appendAll(mainSlots, hotbarSlots),
     craftingListEl: Option.some(craftingList),
     statusEl: Option.some(status),
+    sortButtonEl: Option.some(sortButton),
   }
   /* c8 ignore stop */
 }
