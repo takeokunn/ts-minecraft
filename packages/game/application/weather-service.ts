@@ -1,6 +1,6 @@
 import { Effect, Ref } from 'effect'
 import {
-  CLEAR_DURATION_SECS,
+  createWeatherState,
   resolveNextWeatherState,
   type Weather,
   type WeatherState,
@@ -10,10 +10,7 @@ export class WeatherService extends Effect.Service<WeatherService>()(
   '@minecraft/application/WeatherService',
   {
     effect: Effect.gen(function* () {
-      const stateRef = yield* Ref.make<WeatherState>({
-        weather: 'clear',
-        remainingSecs: CLEAR_DURATION_SECS,
-      })
+      const stateRef = yield* Ref.make<WeatherState>(createWeatherState('clear', Math.random()))
 
       return {
         getWeather: (): Effect.Effect<Weather, never> =>
@@ -23,10 +20,7 @@ export class WeatherService extends Effect.Service<WeatherService>()(
           }),
 
         setWeather: (weather: Weather): Effect.Effect<void, never> =>
-          Ref.update(stateRef, (s) => ({
-            weather,
-            remainingSecs: s.remainingSecs,
-          })),
+          Ref.set(stateRef, createWeatherState(weather, Math.random())),
 
         serialize: (): Effect.Effect<WeatherState, never> =>
           Ref.get(stateRef),
@@ -38,7 +32,7 @@ export class WeatherService extends Effect.Service<WeatherService>()(
           Ref.modify(stateRef, (s): [Weather, WeatherState] => {
             const newRemaining = s.remainingSecs - deltaTime
             if (newRemaining > 0) return [s.weather, { ...s, remainingSecs: newRemaining }]
-            const next = resolveNextWeatherState(s.weather, Math.random())
+            const next = resolveNextWeatherState(s.weather, Math.random(), Math.random())
             return [next.weather, next]
           }),
       }

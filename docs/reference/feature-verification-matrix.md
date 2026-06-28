@@ -1502,22 +1502,23 @@ effBonus = correctTool && efficiencyLevel !== undefined ? efficiencyLevel² + 1 
 ## §M. 天候（Weather）
 
 参照ファイル:
-- `packages/game/application/weather-service.ts` — WeatherService、天候サイクル
+- `packages/game/domain/weather.ts` — 天候サイクル、遷移確率、継続時間範囲
+- `packages/game/application/weather-service.ts` — WeatherService、天候状態進行
 - `packages/app/application/frame/stages/lighting-stage.ts:7-19` — `applyRainEnvironment`
 
 ### M-1. 天候定数（実装値）
 
 | 天候 | 継続時間 | 公式 | 参照 |
 |---|---|---|---|
-| clear | 600 s (10 min) | 0.5〜7.5 min | `weather-service.ts:6` |
-| rain | 240 s (4 min) | 0.5〜7.5 min | `weather-service.ts:7` |
-| thunder | 120 s (2 min) | 0.5〜3.75 min | `weather-service.ts:8` |
+| clear | 600〜9000 s (10〜150 min) | 12000〜180000 tick | `weather.ts:8` |
+| rain | 600〜1200 s (10〜20 min) | 12000〜24000 tick | `weather.ts:9` |
+| thunder | 180〜780 s (3〜13 min) | 3600〜15600 tick | `weather.ts:10` |
 
-天候サイクル: `clear → rain → thunder → clear`（公式はランダム、本実装は固定順序 — 差分記録すること）
+天候サイクル: `resolveNextWeatherState` が現在天候と乱数から次の天候を選び、遷移先の継続時間をランダム範囲で割り当てる。
 
 ### M-2. 天候検証項目
 
-- 天候が `clear → rain → thunder → clear` の固定順序でサイクルすることを `weather-service.ts:16-19` で確認する
+- 天候が固定順序ではなく、`resolveNextWeatherState` の分岐と `resolveWeatherDurationSecs` の範囲でサイクルすることを `weather.test.ts` と `weather-service.test.ts` で確認する
 - 雨天時に環境光が 0.85 倍になることを `lighting-stage.ts:14` で確認する
 - 雷天時に環境光が 0.6 倍になることを `lighting-stage.ts:11` で確認する
 - 雨天時に空の色が曇り灰青（`HSL(0.6, 0.08, 0.35)` 相当）になることを `lighting-stage.ts:17` で確認する
@@ -2092,7 +2093,7 @@ XP スケール: 最大レベル = `floor(xpLevel / 5)`、上限はエンチャ�
 | 25 | クリエイティブ落下ダメージ無効 | **実装済み** — `processFallDamage` による落下状態更新は継続しつつ、Creative では適用ダメージを 0 にして `healthService.applyDamage` と hurt 音を発火させない | `packages/app/application/frame/stages/physics-stage-health.ts`, `packages/app/application/frame/stages/physics-stage.test.ts` |
 | 26 | エンチャント UI | 公式は 3 択ランダム＋ラピスラズリ消費。本実装は即時決定論的エンチャント（XP のみ）| `interaction-placement-handler.ts:239` |
 | 27 | DESPAWN_DISTANCE | **実装済み** — 128 ブロック | `packages/entity/domain/mob/spawner-config.ts:4` |
-| 28 | 天候サイクル | 固定順序 clear→rain→thunder（公式はランダム長）| `packages/game/application/weather-service.ts` |
+| 28 | 天候サイクル | **実装済み** — clear 600〜9000s、rain 600〜1200s、thunder 180〜780s の範囲で継続時間を割り当て、`resolveNextWeatherState` で固定順序ではない分岐遷移を行う | `packages/game/domain/weather.ts`, `packages/game/application/weather-service.ts` |
 | 29 | SHEARS 耐久値 | **実装済み** — 最大耐久 238。羊の毛刈り成功時に選択スロットの SHEARS を 1 消耗し、0 到達で破損 | `packages/inventory/domain/durability.ts`, `packages/app/application/frame/stages/interaction-item-use-handler.ts` |
 | 30 | 釣り待ち時間 | **実装済み** — 5-45 秒。`FISHING_MIN_WAIT_SECS=5` / `FISHING_MAX_WAIT_SECS=45` で上限込みの待機時間を返す | `packages/entity/domain/fishing.config.ts`, `packages/entity/domain/fishing-resolution.ts` |
 | 31 | 弓のヒットスキャン | 矢エンティティなし・ヒットスキャン 50 ブロック（公式は弾道矢）| `packages/entity/domain/bow.ts:8` |

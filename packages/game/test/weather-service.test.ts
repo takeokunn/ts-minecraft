@@ -1,7 +1,12 @@
 import { describe, it } from '@effect/vitest'
 import { expect, vi } from 'vitest'
 import { Effect } from 'effect'
-import { WeatherService } from '@ts-minecraft/game'
+import {
+  CLEAR_DURATION_RANGE_SECS,
+  RAIN_DURATION_RANGE_SECS,
+  THUNDER_DURATION_RANGE_SECS,
+  WeatherService,
+} from '@ts-minecraft/game'
 
 describe('WeatherService', () => {
   it.effect('starts in clear weather', () =>
@@ -15,7 +20,6 @@ describe('WeatherService', () => {
   it.effect('tick does not change weather before duration expires', () =>
     Effect.gen(function* () {
       const svc = yield* WeatherService
-      // Tick 10 seconds — much less than CLEAR_DURATION_SECS (600)
       const result = yield* svc.tick(10)
       expect(result).toBe('clear')
     }).pipe(Effect.provide(WeatherService.Default))
@@ -24,9 +28,20 @@ describe('WeatherService', () => {
   it.effect('tick transitions to rain after clear duration expires', () =>
     Effect.gen(function* () {
       const svc = yield* WeatherService
-      // Tick exactly past the 600s clear duration
-      const result = yield* svc.tick(601)
-      expect(result).toBe('rain')
+      yield* svc.restore({ weather: 'clear', remainingSecs: 1 })
+      yield* Effect.acquireUseRelease(
+        Effect.sync(() => vi.spyOn(Math, 'random').mockReturnValueOnce(0.5).mockReturnValueOnce(0)),
+        () =>
+          Effect.gen(function* () {
+            const result = yield* svc.tick(1.1)
+            expect(result).toBe('rain')
+            expect(yield* svc.serialize()).toEqual({
+              weather: 'rain',
+              remainingSecs: RAIN_DURATION_RANGE_SECS.min,
+            })
+          }),
+        (randomSpy) => Effect.sync(() => randomSpy.mockRestore()),
+      )
     }).pipe(Effect.provide(WeatherService.Default))
   )
 
@@ -44,7 +59,9 @@ describe('WeatherService', () => {
       const svc = yield* WeatherService
       yield* svc.tick(10)
       const state = yield* svc.serialize()
-      expect(state).toEqual({ weather: 'clear', remainingSecs: 590 })
+      expect(state.weather).toBe('clear')
+      expect(state.remainingSecs).toBeGreaterThanOrEqual(CLEAR_DURATION_RANGE_SECS.min - 10)
+      expect(state.remainingSecs).toBeLessThanOrEqual(CLEAR_DURATION_RANGE_SECS.max - 10)
     }).pipe(Effect.provide(WeatherService.Default))
   )
 
@@ -55,26 +72,40 @@ describe('WeatherService', () => {
       expect(yield* svc.getWeather()).toBe('rain')
       expect(yield* svc.tick(0.5)).toBe('rain')
       yield* Effect.acquireUseRelease(
-        Effect.sync(() => vi.spyOn(Math, 'random').mockReturnValue(0.29)),
+        Effect.sync(() => vi.spyOn(Math, 'random').mockReturnValueOnce(0.29).mockReturnValueOnce(0)),
         () =>
           Effect.gen(function* () {
             expect(yield* svc.tick(0.6)).toBe('thunder')
+            expect(yield* svc.serialize()).toEqual({
+              weather: 'thunder',
+              remainingSecs: THUNDER_DURATION_RANGE_SECS.min,
+            })
           }),
         (randomSpy) => Effect.sync(() => randomSpy.mockRestore()),
       )
     }).pipe(Effect.provide(WeatherService.Default))
   )
 
-  it.effect('transitions: clear → rain → thunder → clear', () =>
+  it.effect('uses random branch rolls and randomized target durations', () =>
     Effect.gen(function* () {
       const svc = yield* WeatherService
+      yield* svc.restore({ weather: 'clear', remainingSecs: 1 })
       yield* Effect.acquireUseRelease(
-        Effect.sync(() => vi.spyOn(Math, 'random').mockReturnValue(0.29)),
+        Effect.sync(() =>
+          vi
+            .spyOn(Math, 'random')
+            .mockReturnValueOnce(0.5)
+            .mockReturnValueOnce(0)
+            .mockReturnValueOnce(0.29)
+            .mockReturnValueOnce(0)
+            .mockReturnValueOnce(0.2)
+            .mockReturnValueOnce(0),
+        ),
         () =>
           Effect.gen(function* () {
-            expect(yield* svc.tick(601)).toBe('rain')    // past clear (600s)
-            expect(yield* svc.tick(241)).toBe('thunder') // past rain (240s)
-            expect(yield* svc.tick(121)).toBe('clear')   // past thunder (120s)
+            expect(yield* svc.tick(1.1)).toBe('rain')
+            expect(yield* svc.tick(RAIN_DURATION_RANGE_SECS.min + 1)).toBe('thunder')
+            expect(yield* svc.tick(THUNDER_DURATION_RANGE_SECS.min + 1)).toBe('rain')
           }),
         (randomSpy) => Effect.sync(() => randomSpy.mockRestore()),
       )
@@ -86,7 +117,7 @@ describe('WeatherService', () => {
       const svc = yield* WeatherService
       yield* svc.restore({ weather: 'rain', remainingSecs: 1 })
       yield* Effect.acquireUseRelease(
-        Effect.sync(() => vi.spyOn(Math, 'random').mockReturnValue(0.3)),
+        Effect.sync(() => vi.spyOn(Math, 'random').mockReturnValueOnce(0.3).mockReturnValueOnce(0)),
         () =>
           Effect.gen(function* () {
             expect(yield* svc.tick(1.1)).toBe('clear')
