@@ -189,6 +189,31 @@ describe('audio/sound-manager', () => {
     }).pipe(Effect.provide(makeSoundLayer(fake.engine)))
   })
 
+  it.effect('routes weather effects through the configured synth cues', () => {
+    const fake = makeFakeAudioEngine()
+    return Effect.gen(function* () {
+      const soundManager = yield* SoundManager
+      yield* soundManager.applySettings({ enabled: true, masterVolume: 1, sfxVolume: 0.8 })
+
+      yield* soundManager.playEffect('rainAmbient')
+      yield* soundManager.playEffect('thunderClap', { gainScale: 1.25 })
+
+      const rain = fake.playRequests[0]
+      const thunder = fake.playRequests[1]
+      expect(fake.playRequests).toHaveLength(2)
+      expect(rain).toBeDefined()
+      expect(thunder).toBeDefined()
+
+      expect(rain!.frequency).toBe(SOUND_LIBRARY.rainAmbient.frequency)
+      expect(rain!.wave).toBe(SOUND_LIBRARY.rainAmbient.wave)
+      expect(rain!.gain).toBeCloseTo(SOUND_LIBRARY.rainAmbient.baseGain * 0.8, 4)
+
+      expect(thunder!.frequency).toBe(SOUND_LIBRARY.thunderClap.frequency)
+      expect(thunder!.wave).toBe(SOUND_LIBRARY.thunderClap.wave)
+      expect(thunder!.gain).toBeCloseTo(SOUND_LIBRARY.thunderClap.baseGain * 0.8 * 1.25, 4)
+    }).pipe(Effect.provide(makeSoundLayer(fake.engine)))
+  })
+
   it.effect('does not play sounds while disabled', () => {
     const fake = makeFakeAudioEngine()
     return Effect.gen(function* () {

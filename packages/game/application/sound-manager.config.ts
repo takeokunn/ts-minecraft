@@ -27,6 +27,8 @@ export const SOUND_LIBRARY = {
   footstepGrass: { frequency: 170, durationMs: 45, wave: 'triangle' as OscillatorWave, baseGain: 0.18 },
   footstepStone: { frequency: 260, durationMs: 38, wave: 'square' as OscillatorWave, baseGain: 0.16 },
   footstepWood: { frequency: 210, durationMs: 48, wave: 'triangle' as OscillatorWave, baseGain: 0.2 },
+  rainAmbient: { frequency: 120, durationMs: 320, wave: 'triangle' as OscillatorWave, baseGain: 0.16 },
+  thunderClap: { frequency: 55, durationMs: 650, wave: 'sawtooth' as OscillatorWave, baseGain: 0.46 },
 } satisfies Record<string, SoundDefinition>
 
 export const DEFAULT_LISTENER_POSITION = { x: 0, y: 64, z: 0 }

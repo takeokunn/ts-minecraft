@@ -72,6 +72,10 @@ export type FrameStageRefs = {
   readonly wasGroundedRef: MutableRef.MutableRef<boolean>
   // Horizontal distance accumulated since the last footstep cue.
   readonly footstepDistanceAccumulatorRef: MutableRef.MutableRef<number>
+  // Seconds accumulated since the last rain ambience cue.
+  readonly rainSoundAccumulatorRef: MutableRef.MutableRef<number>
+  // Seconds accumulated since the last thunder ambience cue.
+  readonly thunderSoundAccumulatorRef: MutableRef.MutableRef<number>
   // Hoisted out of physicsStage so no new Ref is allocated per frame.
   // Reset with Ref.set on entry to physicsStage each frame.
   readonly finalPosRef: Ref.Ref<Position>

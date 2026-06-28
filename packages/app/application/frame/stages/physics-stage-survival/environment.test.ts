@@ -154,6 +154,8 @@ const makeRefs = (overrides: Partial<Record<keyof PhysicsStageRefs, number>> = {
     isShieldBlockingRef: MutableRef.make(false),
     wasGroundedRef: MutableRef.make(false),
     footstepDistanceAccumulatorRef: MutableRef.make(overrides.footstepDistanceAccumulatorRef ?? 0),
+    rainSoundAccumulatorRef: MutableRef.make(overrides.rainSoundAccumulatorRef ?? 0),
+    thunderSoundAccumulatorRef: MutableRef.make(overrides.thunderSoundAccumulatorRef ?? 0),
     finalPosRef: MutableRef.make({ x: 0, y: 0, z: 0 }),
     healthTickAccumulatorRef: MutableRef.make(0),
     hungerTickAccumulatorRef: MutableRef.make(0),

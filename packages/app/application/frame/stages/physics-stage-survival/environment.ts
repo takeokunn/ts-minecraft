@@ -10,6 +10,7 @@ import { FOOTSTEP_GROUND_SAMPLE_OFFSET } from './footstep-sound-logic'
 import { applySurvivalAirEffects } from './environment-air'
 import { applySurvivalFootstepEffects } from './environment-footstep'
 import { applySurvivalHazardEffects } from './environment-hazards'
+import { applySurvivalWeatherSoundEffects } from './weather-sound'
 import type { ApplyPlayerDamage, SurvivalMovementState } from './types'
 
 const CACTUS_CONTACT_EPSILON = 0.02
@@ -86,17 +87,21 @@ export const applySurvivalEnvironmentEffects = (
         Effect.flatMap((touchingCactus) =>
           services.weatherService.getWeather().pipe(
             Effect.flatMap((weather) =>
-              applySurvivalHazardEffects(
-                services,
-                refs,
-                inputs,
-                refreshedPos,
-                movement,
-                feetBlock,
-                eyeBlock,
-                touchingCactus,
-                weather === 'thunder' && exposedToSky,
-                applyDamage,
+              applySurvivalWeatherSoundEffects(services, refs, inputs.deltaTime, refreshedPos, weather).pipe(
+                Effect.flatMap(() =>
+                  applySurvivalHazardEffects(
+                    services,
+                    refs,
+                    inputs,
+                    refreshedPos,
+                    movement,
+                    feetBlock,
+                    eyeBlock,
+                    touchingCactus,
+                    weather === 'thunder' && exposedToSky,
+                    applyDamage,
+                  ),
+                ),
               ),
             ),
           ),

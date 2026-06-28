@@ -141,6 +141,8 @@ const createFrameLoopHandlersInternal = (
     const lastAudioRef = MutableRef.make({ enabled: false, master: -1, sfx: -1, music: -1 })
     const wasGroundedRef = MutableRef.make(true)
     const footstepDistanceAccumulatorRef = MutableRef.make(0)
+    const rainSoundAccumulatorRef = MutableRef.make(0)
+    const thunderSoundAccumulatorRef = MutableRef.make(0)
     // Hoisted final-position ref: reset to initialPlayerPos at the start of physicsStage
     // each frame, avoiding a per-frame Ref.make allocation on the hot path.
     const finalPosRef = yield* Ref.make<import('@ts-minecraft/core').Position>({ x: 0, y: 0, z: 0 })
@@ -222,6 +224,8 @@ const createFrameLoopHandlersInternal = (
       lastAudioRef,
       wasGroundedRef,
       footstepDistanceAccumulatorRef,
+      rainSoundAccumulatorRef,
+      thunderSoundAccumulatorRef,
       finalPosRef,
       deltaTimeRef: MutableRef.make(0 as import('@ts-minecraft/core').DeltaTimeSecs),
       lastSyncedDayLengthSecondsRef: MutableRef.make(Number.NaN),
