@@ -2211,7 +2211,7 @@ XP スケール: 最大レベル = `floor(xpLevel / 5)`、上限はエンチャ�
 | 144 | ダイヤモンド鉱石の Y レンジが異なる | 本実装：`minY=5, maxY=16, peakY=8`（三角分布）。公式 Java 1.21 は Y=−64 〜 −58 付近に最頻出。Y 座標系の起点差（本実装 Y=0 ≈ 公式 Y=-64）を考慮しても分布範囲が異なる | `packages/world/domain/terrain/constants.ts:70` |
 | 145 | ネザーのベッドが爆発しない | 公式はネザー/エンドでベッド使用→爆発。本実装は `getDimension()==='nether'` で `return false`（無効化のみ、爆発ダメージなし）| `interaction-placement-handler.ts:229` |
 | 146 | 村にアイアンゴーレムなし | 村（VillageService）は実装済みだが防衛 NPC であるアイアンゴーレムの定義・スポーンロジックなし | `packages/entity/domain/mob/mobs/` |
-| 147 | ワールドシード入力 UI なし | NoiseService に `setSeed(n)` は実装済みだが、ワールド作成 UI でシードを指定する入力欄なし。プレイヤーがシードを選択不可 | `packages/presentation/menu/main-menu-handlers.ts:43` |
+| 147 | ワールドシード入力 UI を実装済み | ワールド作成 UI に任意 seed 入力欄を追加。空欄はランダム、数値は 32-bit seed に正規化、文字列は deterministic hash として新規ワールド作成時だけ `loadOrCreateWorld` へ渡す。既存ワールドは保存済み seed を使用 | `packages/presentation/menu/main-menu-dom.ts:61`, `packages/presentation/menu/main-menu-utils.ts:36`, `packages/app/application/main/session-world-loader.ts:111` |
 | 148 | モブ昼間炎上が 1 秒ごと（公式は 1 game-tick ≒ 0.05 秒ごと判定）| `DAYTIME_BURN_INTERVAL_SECS=1.0` のアキュムレータで 1 秒間隔ダメージ。公式は毎 tick 光レベル検査し炎上継続。間隔が 20× 遅い | `packages/entity/application/mob/entity-manager-internal-update.ts:191` |
 | 149 | 動物 XP ドロップが固定値（公式はランダム範囲）| 牛・豚・羊は `xpReward: 2` 固定。公式はプレイヤーによる死亡の場合 1〜3 ランダム | `packages/entity/domain/mob/mobs/cow.ts:14` |
 | 150 | XP レベル計算式が公式準拠 | Lv0-15: `2L+7`、Lv16-30: `5L-38`、Lv31+: `9L-158`。公式 Java Edition と完全一致 | `packages/entity/domain/player-xp-calc.ts:5` |

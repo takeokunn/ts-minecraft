@@ -18,6 +18,7 @@ export type SessionBootstrapWorldStateDeps = {
   readonly bootCtx: Pick<BootContext, 'storageService' | 'noiseService'>
   readonly worldId: WorldId
   readonly initialGameMode: GameMode
+  readonly initialSeed?: number
   readonly chunkManagerService: ChunkManagerService
   readonly gameModeService: GameModeService
 }

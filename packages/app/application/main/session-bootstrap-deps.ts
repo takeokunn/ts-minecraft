@@ -9,6 +9,7 @@ export const buildSessionBootstrapDeps = (
   bootCtx: import('@ts-minecraft/app/main/boot').BootContext,
   worldId: import('@ts-minecraft/core').WorldId,
   initialGameMode: GameMode,
+  initialSeed?: number,
 ) =>
   Effect.gen(function* () {
     const services = yield* buildSessionBootstrapServices
@@ -19,6 +20,7 @@ export const buildSessionBootstrapDeps = (
       bootCtx,
       worldId,
       initialGameMode,
+      ...(initialSeed === undefined ? {} : { initialSeed }),
       gameLoopService,
       ...loadingServices,
       services,

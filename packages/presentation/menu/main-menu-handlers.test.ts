@@ -49,6 +49,7 @@ const makeButtons = (): MenuButtons => ({
   loadWorld: makeButton('load-world'),
   settings: makeButton('settings'),
   nwName: makeInput('nw-name'),
+  nwSeed: makeInput('nw-seed'),
   nwMode: makeButton('nw-mode'),
   nwCancel: makeButton('nw-cancel'),
   nwConfirm: makeButton('nw-confirm'),
@@ -297,9 +298,11 @@ describe('presentation/menu/main-menu-handlers', () => {
     )
 
     buttons.nwName.value = '   '
+    buttons.nwSeed.value = '   '
     handlers.onNwConfirmClick()
 
     expect(choices.at(0)).toMatchObject({ action: 'newWorld', gameMode: 'survival' })
+    expect(choices.at(0)).not.toHaveProperty('seed')
   })
 
   it('deletes and refreshes after delete confirmation is accepted', async () => {
@@ -371,10 +374,12 @@ describe('presentation/menu/main-menu-handlers', () => {
     )
 
     buttons.nwName.value = 'stale'
+    buttons.nwSeed.value = 'stale-seed'
     MutableRef.set(refs.newWorldModeRef, 'creative')
     handlers.onNewWorldClick()
     expect(MutableRef.get(refs.newWorldModeRef)).toBe('survival')
     expect(buttons.nwName.value).toBe('')
+    expect(buttons.nwSeed.value).toBe('')
     expect(updateModeButton).toHaveBeenCalledTimes(1)
     expect(subStates).toContain('new-world')
     expect(buttons.nwName.focus).toHaveBeenCalledTimes(1)
@@ -383,8 +388,14 @@ describe('presentation/menu/main-menu-handlers', () => {
     expect(MutableRef.get(refs.newWorldModeRef)).toBe('creative')
 
     buttons.nwName.value = ' Named World '
+    buttons.nwSeed.value = '424242'
     handlers.onNwConfirmClick()
-    expect(choices).toContainEqual({ action: 'newWorld', worldId: WorldId.make('Named World'), gameMode: 'creative' })
+    expect(choices).toContainEqual({
+      action: 'newWorld',
+      worldId: WorldId.make('Named World'),
+      gameMode: 'creative',
+      seed: 424242,
+    })
 
     handlers.onSettingsClick()
     await delayForFork()

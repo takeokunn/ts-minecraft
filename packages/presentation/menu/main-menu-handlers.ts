@@ -6,7 +6,7 @@ import { WorldId } from '@ts-minecraft/core'
 import type { GameMode } from '@ts-minecraft/game'
 import type { MainMenuChoice } from './main-menu-types'
 import type { SubState } from './main-menu-utils'
-import { cycleGameMode, gameModeLabel, generateWorldId } from './main-menu-utils'
+import { cycleGameMode, gameModeLabel, generateWorldId, parseWorldSeedInput } from './main-menu-utils'
 import type { MenuButtons } from './main-menu-dom'
 import { renderValidRow, renderCorruptRow } from './main-menu-dom'
 
@@ -198,6 +198,7 @@ export const makeClickHandlers = (
   onNewWorldClick: () => {
     MutableRef.set(refs.newWorldModeRef, 'survival')
     buttons.nwName.value = ''
+    buttons.nwSeed.value = ''
     updateModeButton()
     setSubState('new-world')
     buttons.nwName.focus()
@@ -227,7 +228,11 @@ export const makeClickHandlers = (
     const trimmed = buttons.nwName.value.trim()
     const worldId = trimmed.length > 0 ? WorldId.make(trimmed) : generateWorldId()
     const gameMode = MutableRef.get(refs.newWorldModeRef)
-    completeWith({ action: 'newWorld', worldId, gameMode })
+    const seed = parseWorldSeedInput(buttons.nwSeed.value)
+    const choice: MainMenuChoice = seed === undefined
+      ? { action: 'newWorld', worldId, gameMode }
+      : { action: 'newWorld', worldId, gameMode, seed }
+    completeWith(choice)
   },
   onLwBackClick: () => {
     setSubState('root')

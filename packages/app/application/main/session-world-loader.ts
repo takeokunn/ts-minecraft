@@ -14,6 +14,12 @@ import {
 } from './session-world-loader-metadata'
 
 const SPAWN_SEARCH_CHUNK_RADIUS = 2
+const WORLD_SEED_MODULUS = MAX_SEED_VALUE + 1
+
+const normalizeInitialSeed = (seed: number): number =>
+  Number.isFinite(seed)
+    ? ((Math.trunc(seed) % WORLD_SEED_MODULUS) + WORLD_SEED_MODULUS) % WORLD_SEED_MODULUS
+    : 0
 
 // New worlds: ~60% of seeds put OCEAN at the world origin (median surface y≈56 < SEA_LEVEL),
 // so spawning at (0,0) drops the player into open water. Land is almost always within a few
@@ -79,6 +85,7 @@ export const loadOrCreateWorld = (
   storageService: StorageService,
   noiseService: NoiseService,
   gameModeService: GameModeService,
+  initialSeed?: number,
 ): Effect.Effect<WorldBootstrap, StartupError> =>
   Effect.gen(function* () {
     const existingMetadata = yield* Effect.raceFirst(
@@ -101,7 +108,9 @@ export const loadOrCreateWorld = (
       return buildLoadedWorldBootstrap(metadata)
     }
 
-    const seed = yield* Random.nextIntBetween(0, MAX_SEED_VALUE)
+    const seed = initialSeed === undefined
+      ? yield* Random.nextIntBetween(0, MAX_SEED_VALUE)
+      : normalizeInitialSeed(initialSeed)
     const nowMs = yield* Clock.currentTimeMillis
     const now = new Date(nowMs)
     yield* noiseService.setSeed(seed)

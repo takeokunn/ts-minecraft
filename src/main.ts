@@ -45,10 +45,11 @@ const runSessionToTitle = (
   bootCtx: BootContext,
   worldId: WorldId,
   gameMode: GameMode,
+  initialSeed?: number,
 ) =>
   Effect.gen(function* () {
     const scope = yield* Scope.make()
-    const exit = yield* sessionProgram(bootCtx, worldId, gameMode).pipe(
+    const exit = yield* sessionProgram(bootCtx, worldId, gameMode, initialSeed).pipe(
       Scope.extend(scope),
       Effect.exit,
     )
@@ -129,8 +130,9 @@ const mainMenuLoop = (bootCtx: BootContext) =>
       const gameMode: GameMode = choice.action === 'newWorld'
         ? choice.gameMode
         : yield* loadGameModeForWorld(choice.worldId)
+      const initialSeed = choice.action === 'newWorld' ? choice.seed : undefined
 
-      yield* runSessionToTitle(bootCtx, choice.worldId, gameMode).pipe(
+      yield* runSessionToTitle(bootCtx, choice.worldId, gameMode, initialSeed).pipe(
         Effect.catchAllCause((cause) => presentSessionFailure(loadingScreen, cause)),
         Effect.asVoid,
       )

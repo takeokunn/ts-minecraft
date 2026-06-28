@@ -16,6 +16,7 @@ export const buildSessionBootstrapWorldOrchestration = ({
       bootCtx,
       worldId,
       initialGameMode,
+      initialSeed,
       chunkManagerService,
       gameModeService,
     } = state
@@ -57,6 +58,7 @@ export const buildSessionBootstrapWorldOrchestration = ({
       bootCtx,
       worldId,
       initialGameMode,
+      ...(initialSeed === undefined ? {} : { initialSeed }),
       chunkManagerService,
       gameModeService,
     })

@@ -38,11 +38,12 @@ describe('buildSessionBootstrapWorldState', () => {
       bootCtx,
       worldId: 'world-1' as never,
       initialGameMode: 'survival' as never,
+      initialSeed: 12345,
       chunkManagerService,
       gameModeService,
     }))
 
-    expect(loadOrCreateWorld).toHaveBeenCalledWith('world-1', 'survival', storageService, noiseService, gameModeService)
+    expect(loadOrCreateWorld).toHaveBeenCalledWith('world-1', 'survival', storageService, noiseService, gameModeService, 12345)
     expect(buildSpawnSelection).toHaveBeenCalledWith(worldBootstrap.baseSpawnPosition, chunkManagerService)
     expect(resolveSessionStartPositions).toHaveBeenCalledWith(worldBootstrap, initialSpawnSelection.position)
     expect(MutableRef.get(result.respawnPositionRef)).toEqual(resolved.respawnPosition)

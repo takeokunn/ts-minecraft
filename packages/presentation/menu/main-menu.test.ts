@@ -83,10 +83,11 @@ describe('presentation/menu/main-menu', () => {
   })
 
   describe('MainMenuChoice contract', () => {
-    it('newWorld choice carries worldId and gameMode', () => {
-      const choice = { action: 'newWorld' as const, worldId: 'foo' as WorldId, gameMode: 'creative' as const }
+    it('newWorld choice carries worldId, gameMode, and optional seed', () => {
+      const choice = { action: 'newWorld' as const, worldId: 'foo' as WorldId, gameMode: 'creative' as const, seed: 12345 }
       expect(choice.action).toBe('newWorld')
       expect(choice.gameMode).toBe('creative')
+      expect(choice.seed).toBe(12345)
     })
 
     it('loadWorld choice carries only worldId', () => {

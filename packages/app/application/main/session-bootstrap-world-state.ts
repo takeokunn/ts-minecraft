@@ -13,6 +13,7 @@ export type SessionBootstrapWorldStateDeps = {
   readonly bootCtx: Pick<BootContext, 'storageService' | 'noiseService'>
   readonly worldId: WorldId
   readonly initialGameMode: GameMode
+  readonly initialSeed?: number
   readonly chunkManagerService: ChunkManagerService
   readonly gameModeService: GameModeService
 }
@@ -29,11 +30,19 @@ export const buildSessionBootstrapWorldState = ({
   bootCtx,
   worldId,
   initialGameMode,
+  initialSeed,
   chunkManagerService,
   gameModeService,
 }: SessionBootstrapWorldStateDeps) =>
   Effect.gen(function* () {
-    const worldBootstrap = yield* loadOrCreateWorld(worldId, initialGameMode, bootCtx.storageService, bootCtx.noiseService, gameModeService)
+    const worldBootstrap = yield* loadOrCreateWorld(
+      worldId,
+      initialGameMode,
+      bootCtx.storageService,
+      bootCtx.noiseService,
+      gameModeService,
+      initialSeed,
+    )
     const initialSpawnSelection = yield* buildSpawnSelection(worldBootstrap.baseSpawnPosition, chunkManagerService)
     const { initialChunkLoadAnchor, respawnPosition, spawnPosition } = resolveSessionStartPositions(worldBootstrap, initialSpawnSelection.position)
 

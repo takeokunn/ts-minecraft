@@ -99,6 +99,7 @@ describe('buildSessionBootstrapOrchestration', () => {
       },
       worldId: 'world-1' as never,
       initialGameMode: 'survival' as never,
+      initialSeed: 12345,
       gameLoopService: { id: 'game-loop' } as never,
       loadingScreen: { id: 'loading' } as never,
       deathScreen: { id: 'death' } as never,
@@ -146,6 +147,9 @@ describe('buildSessionBootstrapOrchestration', () => {
     expect(buildSessionBootstrapStartupState).toHaveBeenCalledOnce()
     expect(buildSessionBootstrapScene).toHaveBeenCalledOnce()
     expect(buildSessionBootstrapWorldOrchestration).toHaveBeenCalledOnce()
+    expect(buildSessionBootstrapWorldOrchestration).toHaveBeenCalledWith(expect.objectContaining({
+      state: expect.objectContaining({ initialSeed: 12345 }),
+    }))
     expect(buildLighting).toHaveBeenCalledOnce()
     expect(buildSessionRuntimeBundle).toHaveBeenCalledOnce()
     expect(result).toEqual({

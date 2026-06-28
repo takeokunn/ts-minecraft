@@ -1,6 +1,6 @@
 import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
-import { formatLastPlayed, cycleGameMode, generateWorldId } from './main-menu-utils'
+import { formatLastPlayed, cycleGameMode, generateWorldId, parseWorldSeedInput } from './main-menu-utils'
 
 describe('formatLastPlayed', () => {
   it('formats a valid date as a locale string', () => {
@@ -50,5 +50,29 @@ describe('generateWorldId', () => {
   it('generates distinct IDs on consecutive calls', () => {
     const ids = new Set(Array.from({ length: 20 }, () => String(generateWorldId())))
     expect(ids.size).toBeGreaterThan(1)
+  })
+})
+
+describe('parseWorldSeedInput', () => {
+  it('treats blank input as no explicit seed', () => {
+    expect(parseWorldSeedInput('')).toBeUndefined()
+    expect(parseWorldSeedInput('   ')).toBeUndefined()
+  })
+
+  it('normalizes integer seed input into the 32-bit seed range', () => {
+    expect(parseWorldSeedInput('12345')).toBe(12345)
+    expect(parseWorldSeedInput('-1')).toBe(0xffffffff)
+  })
+
+  it('falls back to 0 for numeric input beyond JavaScript finite range', () => {
+    expect(parseWorldSeedInput('1'.repeat(400))).toBe(0)
+  })
+
+  it('hashes text input deterministically', () => {
+    const seed = parseWorldSeedInput('glacier')
+    expect(seed).toBe(parseWorldSeedInput('glacier'))
+    expect(seed).not.toBe(parseWorldSeedInput('desert'))
+    expect(seed).toBeGreaterThanOrEqual(0)
+    expect(seed).toBeLessThanOrEqual(0xffffffff)
   })
 })
