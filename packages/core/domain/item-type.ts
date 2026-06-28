@@ -63,6 +63,7 @@ export const ItemTypeSchema = Schema.Literal(
   'ENDER_PEARL',
   // Crafting components
   'BOOK',
+  'PAPER',
   // The End items
   'CHORUS_FRUIT',
   'DRAGON_BREATH',
@@ -76,6 +77,8 @@ export const ItemTypeSchema = Schema.Literal(
   'BOW',
   'FISHING_ROD',
   'SHIELD',
+  'COMPASS',
+  'MAP',
   // Hoe tools — for tilling farmland
   'WOODEN_HOE',
   'STONE_HOE',

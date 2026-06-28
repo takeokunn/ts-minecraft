@@ -79,6 +79,30 @@ export const BASIC_MISC_RECIPES: ReadonlyArray<Recipe> = [
     output: { itemType: 'LADDER', count: 3 },
   }),
   new Recipe({
+    id: RecipeId.make('sugar-cane-to-paper'),
+    station: 'crafting_table',
+    ingredients: [new RecipeIngredient({ itemType: 'SUGAR_CANE', count: 3 })],
+    output: { itemType: 'PAPER', count: 3 },
+  }),
+  new Recipe({
+    id: RecipeId.make('iron-ingots-redstone-dust-to-compass'),
+    station: 'crafting_table',
+    ingredients: [
+      new RecipeIngredient({ itemType: 'IRON_INGOT', count: 4 }),
+      new RecipeIngredient({ itemType: 'REDSTONE_DUST', count: 1 }),
+    ],
+    output: { itemType: 'COMPASS', count: 1 },
+  }),
+  new Recipe({
+    id: RecipeId.make('paper-compass-to-map'),
+    station: 'crafting_table',
+    ingredients: [
+      new RecipeIngredient({ itemType: 'PAPER', count: 8 }),
+      new RecipeIngredient({ itemType: 'COMPASS', count: 1 }),
+    ],
+    output: { itemType: 'MAP', count: 1 },
+  }),
+  new Recipe({
     id: RecipeId.make('glowstone-dust-to-glowstone'),
     station: 'inventory',
     ingredients: [new RecipeIngredient({ itemType: 'GLOWSTONE_DUST', count: 4 })],

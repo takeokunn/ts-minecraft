@@ -170,6 +170,38 @@ describe('application/recipes/misc-recipes', () => {
       expect(ingredientTotal('sticks-to-ladder')).toBe(7)
     })
 
+    it('sugar-cane-to-paper: 3 SUGAR_CANE -> 3 PAPER at crafting_table', () => {
+      const recipe = findById('sugar-cane-to-paper')
+      expect(recipe).toBeDefined()
+      expect(recipe!.station).toBe('crafting_table')
+      expect(recipe!.ingredients).toHaveLength(1)
+      expect(recipe!.ingredients[0]).toMatchObject({ itemType: 'SUGAR_CANE', count: 3 })
+      expect(recipe!.output).toEqual({ itemType: 'PAPER', count: 3 })
+      expect(ingredientTotal('sugar-cane-to-paper')).toBe(3)
+    })
+
+    it('iron-ingots-redstone-dust-to-compass: 4 IRON_INGOT + 1 REDSTONE_DUST -> 1 COMPASS at crafting_table', () => {
+      const recipe = findById('iron-ingots-redstone-dust-to-compass')
+      expect(recipe).toBeDefined()
+      expect(recipe!.station).toBe('crafting_table')
+      expect(recipe!.ingredients).toHaveLength(2)
+      expect(recipe!.ingredients[0]).toMatchObject({ itemType: 'IRON_INGOT', count: 4 })
+      expect(recipe!.ingredients[1]).toMatchObject({ itemType: 'REDSTONE_DUST', count: 1 })
+      expect(recipe!.output).toEqual({ itemType: 'COMPASS', count: 1 })
+      expect(ingredientTotal('iron-ingots-redstone-dust-to-compass')).toBe(5)
+    })
+
+    it('paper-compass-to-map: 8 PAPER + 1 COMPASS -> 1 MAP at crafting_table', () => {
+      const recipe = findById('paper-compass-to-map')
+      expect(recipe).toBeDefined()
+      expect(recipe!.station).toBe('crafting_table')
+      expect(recipe!.ingredients).toHaveLength(2)
+      expect(recipe!.ingredients[0]).toMatchObject({ itemType: 'PAPER', count: 8 })
+      expect(recipe!.ingredients[1]).toMatchObject({ itemType: 'COMPASS', count: 1 })
+      expect(recipe!.output).toEqual({ itemType: 'MAP', count: 1 })
+      expect(ingredientTotal('paper-compass-to-map')).toBe(9)
+    })
+
     it('stone-to-pressure-plate: 2 STONE -> 1 PRESSURE_PLATE at crafting_table', () => {
       const recipe = findById('stone-to-pressure-plate')
       expect(recipe).toBeDefined()

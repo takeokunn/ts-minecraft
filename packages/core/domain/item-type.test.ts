@@ -115,7 +115,7 @@ describe('ItemTypeSchema — mob drops', () => {
 })
 
 describe('ItemTypeSchema — crafting components', () => {
-  const CRAFTING_COMPONENTS = ['BOOK'] as const
+  const CRAFTING_COMPONENTS = ['BOOK', 'PAPER'] as const
 
   it['each'](CRAFTING_COMPONENTS)('accepts crafting component "%s"', (item: (typeof CRAFTING_COMPONENTS)[number]) => {
     const result = Schema.decodeUnknownEither(ItemTypeSchema)(item)
@@ -211,7 +211,7 @@ describe('ItemTypeSchema — hoe tools', () => {
 })
 
 describe('ItemTypeSchema — ranged and utility items', () => {
-  const RANGED_UTILITY = ['BOW', 'FISHING_ROD', 'SHIELD'] as const
+  const RANGED_UTILITY = ['BOW', 'FISHING_ROD', 'SHIELD', 'COMPASS', 'MAP'] as const
 
   it['each'](RANGED_UTILITY)('accepts ranged/utility item "%s"', (item: (typeof RANGED_UTILITY)[number]) => {
     const result = Schema.decodeUnknownEither(ItemTypeSchema)(item)

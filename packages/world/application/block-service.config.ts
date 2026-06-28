@@ -127,8 +127,11 @@ export const NON_PLACEABLE_ITEM_TYPES: HashSet.HashSet<InventoryItem> = HashSet.
   'ENDER_EYE',
   'POPPED_CHORUS_FRUIT',
   'SHULKER_SHELL',
-  // Crafting/reading item — not placeable as a block.
+  // Crafting/reading/navigation items — not placeable as blocks.
   'BOOK',
+  'PAPER',
+  'COMPASS',
+  'MAP',
 ])
 
 export const INVENTORY_DROP_OVERRIDES: HashMap.HashMap<BlockType, InventoryItem> = HashMap.fromIterable<BlockType, InventoryItem>([

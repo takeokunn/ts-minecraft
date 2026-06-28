@@ -12,7 +12,7 @@ import type { InventoryItem } from '@ts-minecraft/core'
 //   54: IRON_INGOT  55: IRON_PICKAXE  56: RAW_GOLD
 //   57: GOLD_INGOT  58: DIAMOND      59: REDSTONE_DUST
 //   60: LAPIS_LAZULI 61: EMERALD     62: DIAMOND_PICKAXE
-//   93: ROTTEN_FLESH 94: APPLE       95: BREAD
+//   93: ROTTEN_FLESH 94: APPLE       95: BREAD/PAPER/MAP
 //   96: CARROT      97: COOKED_PORKCHOP 98: GOLDEN_APPLE 99: WHEAT
 //   100: REDSTONE_WIRE 101-113: COBWEB, plants, cactus, lily pad, ice, glowstone
 export const ITEM_TILE_MAP: Readonly<Record<InventoryItem, number>> = {
@@ -116,6 +116,7 @@ export const ITEM_TILE_MAP: Readonly<Record<InventoryItem, number>> = {
   APPLE: 94,
   BREAD: 95,
   BOOK: 49,
+  PAPER: 95,
   CARROT: 96,
   RAW_PORKCHOP: 93,
   COOKED_PORKCHOP: 97,
@@ -149,6 +150,8 @@ export const ITEM_TILE_MAP: Readonly<Record<InventoryItem, number>> = {
   BOW: 48,
   FISHING_ROD: 48,
   SHIELD: 54,
+  COMPASS: 59,
+  MAP: 95,
   WOODEN_HOE: 51,
   STONE_HOE: 52,
   IRON_HOE: 55,
