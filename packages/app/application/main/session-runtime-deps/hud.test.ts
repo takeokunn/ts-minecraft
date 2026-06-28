@@ -20,6 +20,7 @@ describe('session-runtime-deps/hud', () => {
     expect(elements.armorValueElement).toBeNull()
     expect(elements.airElement).toBeNull()
     expect(elements.breakProgressElement).toBeNull()
+    expect(elements.autoSaveStatusElement).toBeNull()
 
     expect(getElementById).toHaveBeenCalledWith('fps-value')
     expect(getElementById).toHaveBeenCalledWith('health-value')
@@ -32,5 +33,6 @@ describe('session-runtime-deps/hud', () => {
     expect(getElementById).toHaveBeenCalledWith('armor-value')
     expect(getElementById).toHaveBeenCalledWith('air-display')
     expect(getElementById).toHaveBeenCalledWith('break-progress')
+    expect(getElementById).toHaveBeenCalledWith('autosave-status')
   })
 })

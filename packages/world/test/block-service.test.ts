@@ -776,6 +776,25 @@ describe('terrain/application/block-service breakBlock container dismantle paths
     })))
   })
 
+  it.effect('breakBlock refuses to remove a shulker box when its contents cannot fit in inventory', () => {
+    const layer = buildLayer({ blockAtIdx: 'SHULKER_BOX', chestDismantleResult: false })
+    return breakBlockEither(layer).pipe(
+      Effect.tap((result) => Effect.sync(() => {
+      expect(Either.isLeft(result)).toBe(true)
+      const err = Option.getOrThrow(Either.getLeft(result))
+      expect(err.operation).toBe('breakBlock')
+      expect(err.reason).toContain('Cannot break shulker box while its contents cannot fit in inventory')
+      })),
+    )
+  })
+
+  it.effect('breakBlock removes a shulker box after its contents are returned to inventory', () => {
+    const layer = buildLayer({ blockAtIdx: 'SHULKER_BOX', chestDismantleResult: true })
+    return breakBlockEither(layer).pipe(Effect.tap((result) => Effect.sync(() => {
+      expect(Either.isRight(result)).toBe(true)
+    })))
+  })
+
   it.effect('breakBlock refuses to remove a furnace when its contents cannot fit in inventory', () => {
     const layer = buildLayer({ blockAtIdx: 'FURNACE', dismantleResult: false })
     return breakBlockEither(layer).pipe(Effect.tap((result) => Effect.sync(() => {

@@ -10,6 +10,7 @@ export type InputServices = Pick<
   | 'inventoryRenderer'
   | 'settingsOverlay'
   | 'pauseMenu'
+  | 'playerListPanel'
   | 'tradingPresentation'
   | 'droppedItemService'
   | 'hotbarService'

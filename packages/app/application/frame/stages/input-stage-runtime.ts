@@ -3,14 +3,15 @@ import type { InputDeps, InputRefs, InputServices } from './input-stage-types'
 
 export const reconcileModalPause = (
   deps: InputDeps,
-  services: Pick<InputServices, 'inventoryRenderer' | 'settingsOverlay' | 'pauseMenu' | 'tradingPresentation'>,
+  services: Pick<InputServices, 'inventoryRenderer' | 'playerListPanel' | 'settingsOverlay' | 'pauseMenu' | 'tradingPresentation'>,
 ): Effect.Effect<void, never> =>
   Effect.gen(function* () {
     const invOpen = yield* services.inventoryRenderer.isOpen()
+    const playerListOpen = yield* services.playerListPanel.isOpen()
     const tradeOpen = yield* services.tradingPresentation.isOpen()
     const settingsOpen = yield* services.settingsOverlay.isOpen()
     const pauseOpen = yield* services.pauseMenu.isOpen()
-    yield* Ref.set(deps.gamePausedRef, invOpen || tradeOpen || settingsOpen || pauseOpen)
+    yield* Ref.set(deps.gamePausedRef, invOpen || playerListOpen || tradeOpen || settingsOpen || pauseOpen)
   })
 
 export const syncDayLength = (

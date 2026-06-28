@@ -134,12 +134,13 @@ const dismantleContainer = (
       }
     }
 
-    if (blockType === 'CHEST') {
+    if (blockType === 'CHEST' || blockType === 'SHULKER_BOX') {
       const dismantled = yield* containers.dismantleChest(position)
       if (!dismantled) {
+        const storageName = blockType === 'CHEST' ? 'chest' : 'shulker box'
         return yield* Effect.fail(new BlockServiceError({
           operation,
-          reason: 'Cannot break chest while its contents cannot fit in inventory',
+          reason: `Cannot break ${storageName} while its contents cannot fit in inventory`,
         }))
       }
     }

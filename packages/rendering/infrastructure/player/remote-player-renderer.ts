@@ -29,11 +29,15 @@ type PlayerParts = Readonly<{
 type RemotePlayerEntry = {
   group: THREE.Group
   parts: PlayerParts
+  renderState: RemotePlayerState
   seenSnapshotSeq: number
 }
 
 const PLAYER_HEIGHT = 1.8
 const NAME_TAG_Y = 2.15
+const REMOTE_PLAYER_SNAPSHOT_LERP = 0.35
+const REMOTE_PLAYER_SNAP_DISTANCE = 8
+const TWO_PI = Math.PI * 2
 
 const createBox = (
   size: readonly [number, number, number],
@@ -130,7 +134,55 @@ const disposeEntry = (entry: RemotePlayerEntry): void => {
   })
 }
 
+const distanceSquared = (
+  a: RemotePlayerState['position'],
+  b: RemotePlayerState['position'],
+): number => {
+  const dx = b.x - a.x
+  const dy = b.y - a.y
+  const dz = b.z - a.z
+  return dx * dx + dy * dy + dz * dz
+}
+
+const lerp = (from: number, to: number, alpha: number): number => from + (to - from) * alpha
+
+const modulo = (value: number, divisor: number): number => ((value % divisor) + divisor) % divisor
+
+const shortestAngleDelta = (from: number, to: number): number => {
+  return modulo(to - from + Math.PI, TWO_PI) - Math.PI
+}
+
+const interpolateRemoteState = (
+  current: RemotePlayerState,
+  target: RemotePlayerState,
+): RemotePlayerState => {
+  if (
+    distanceSquared(current.position, target.position) >=
+    REMOTE_PLAYER_SNAP_DISTANCE * REMOTE_PLAYER_SNAP_DISTANCE
+  ) {
+    return target
+  }
+
+  return {
+    playerId: target.playerId,
+    playerName: target.playerName,
+    position: {
+      x: lerp(current.position.x, target.position.x, REMOTE_PLAYER_SNAPSHOT_LERP),
+      y: lerp(current.position.y, target.position.y, REMOTE_PLAYER_SNAPSHOT_LERP),
+      z: lerp(current.position.z, target.position.z, REMOTE_PLAYER_SNAPSHOT_LERP),
+    },
+    rotation: {
+      yaw:
+        current.rotation.yaw +
+        shortestAngleDelta(current.rotation.yaw, target.rotation.yaw) * REMOTE_PLAYER_SNAPSHOT_LERP,
+      pitch: lerp(current.rotation.pitch, target.rotation.pitch, REMOTE_PLAYER_SNAPSHOT_LERP),
+    },
+    limbSwing: target.limbSwing,
+  }
+}
+
 const applyState = (entry: RemotePlayerEntry, state: RemotePlayerState): void => {
+  entry.renderState = state
   entry.group.position.set(state.position.x, state.position.y, state.position.z)
   entry.group.rotation.y = state.rotation.yaw
   entry.parts.root.rotation.x = state.rotation.pitch
@@ -154,7 +206,7 @@ export const createRemotePlayerRenderer = (
     const parts = createPlayerParts(state)
     const group = new THREE.Group()
     group.add(parts.root)
-    const entry: RemotePlayerEntry = { group, parts, seenSnapshotSeq }
+    const entry: RemotePlayerEntry = { group, parts, renderState: state, seenSnapshotSeq }
     applyState(entry, state)
     return entry
   }
@@ -191,7 +243,7 @@ export const createRemotePlayerRenderer = (
         const existing = players.get(snapshot.playerId)
         if (existing !== undefined) {
           existing.seenSnapshotSeq = seq
-          applyState(existing, snapshot)
+          applyState(existing, interpolateRemoteState(existing.renderState, snapshot))
           continue
         }
         const entry = createEntry(snapshot, seq)

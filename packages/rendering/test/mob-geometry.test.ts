@@ -243,6 +243,24 @@ describe('buildMobGroup — additional mob types', () => {
     expect(g.legBR).not.toBeNull()
   })
 
+  it('builds a Shulker with a body shell and side shell panels', () => {
+    const g = buildMobGroup('Shulker')
+    const body = g.body.material as THREE.MeshStandardMaterial
+    const shell = g.legFL.material as THREE.MeshStandardMaterial
+    expect(g.root.children.length).toBe(4)
+    expect(g.armL).toBeNull()
+    expect(g.armR).toBeNull()
+    expect(g.legBL).toBeNull()
+    expect(g.legBR).toBeNull()
+    expect(g.body.geometry.parameters.width).toBeGreaterThan(g.head.geometry.parameters.width)
+    expect(g.body.geometry.parameters.depth).toBeGreaterThan(g.head.geometry.parameters.depth)
+    expect(g.legFL.geometry.parameters.width).toBeLessThan(g.body.geometry.parameters.width)
+    expect(g.legFL.position.x).toBeCloseTo(-g.legFR.position.x)
+    expect(g.legFL.position.y).toBeCloseTo(g.body.geometry.parameters.height)
+    expect(body.color.getHex()).toBe(0x7f4f87)
+    expect(shell.color.getHex()).toBe(0x4e3454)
+  })
+
   it('builds an Enderman (biped) without error', () => {
     const g = buildMobGroup('Enderman')
     expect(g.head).toBeDefined()

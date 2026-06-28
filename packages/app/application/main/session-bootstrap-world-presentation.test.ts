@@ -24,6 +24,7 @@ describe('initializeSessionBootstrapWorldPresentation', () => {
     const spawnPosition = { x: 10, y: 64, z: 10 }
     const scene = {} as never
     const canvas = { clientWidth: 800, clientHeight: 600 } as HTMLCanvasElement
+    const entityManager = {} as never
 
     await Effect.runPromise(Effect.scoped(initializeSessionBootstrapWorldPresentation({
       worldBootstrap,
@@ -38,6 +39,7 @@ describe('initializeSessionBootstrapWorldPresentation', () => {
       particleSystem: {} as never,
       timeService: {} as never,
       crosshair: {} as never,
+      controlsHint: {} as never,
       inventoryService: {} as never,
       equipmentService: {} as never,
       healthService: {} as never,
@@ -47,6 +49,7 @@ describe('initializeSessionBootstrapWorldPresentation', () => {
       furnaceService: {} as never,
       weatherService: {} as never,
       cropGrowthService: {} as never,
+      entityManager,
       spawnPosition,
     })))
 
@@ -54,6 +57,7 @@ describe('initializeSessionBootstrapWorldPresentation', () => {
     expect(initializeSessionBootstrapWorldPresentationState).toHaveBeenCalledWith(expect.objectContaining({
       worldBootstrap,
       initialSettings: { dayLengthSeconds: 900 },
+      entityManager,
       spawnPosition,
     }))
     expect(initializeSessionBootstrapWorldPresentationView).toHaveBeenCalledOnce()

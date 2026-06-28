@@ -24,6 +24,7 @@ describe('getFoodProperties', () => {
     ['GOLDEN_APPLE', 4, 1.2],
     ['SPIDER_EYE', 2, 0.1],
     ['ROTTEN_FLESH', 4, 0.1],
+    ['CHORUS_FRUIT', 4, 0.3],
   ]
 
   Arr.forEach(cases, ([item, foodLevel, saturationModifier]) => {
@@ -63,8 +64,8 @@ describe('FOOD_TABLE completeness', () => {
     }
   })
 
-  it('covers all 20 registered food items (prevents silent omissions)', () => {
-    expect(FOOD_ITEMS.length).toBe(20)
+  it('covers all 21 registered food items (prevents silent omissions)', () => {
+    expect(FOOD_ITEMS.length).toBe(21)
   })
 })
 
@@ -77,6 +78,7 @@ describe('isFood', () => {
     expect(isFood('COOKED_BEEF')).toBe(true)
     expect(isFood('GOLDEN_APPLE')).toBe(true)
     expect(isFood('SPIDER_EYE')).toBe(true)
+    expect(isFood('CHORUS_FRUIT')).toBe(true)
   })
 
   it('is false for non-edible items', () => {

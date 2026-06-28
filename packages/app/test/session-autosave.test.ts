@@ -2,6 +2,7 @@ import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
 import { Duration, Effect, Fiber, Ref, TestClock, TestContext } from 'effect'
 import { performAutoSaveTick, startSessionAutoSaveDaemon } from '@ts-minecraft/app/main/session-autosave'
+import type { AutoSaveStatusReporter } from '@ts-minecraft/app/main/session-autosave'
 
 // The autosave daemon is `Effect.repeat(performAutoSaveTick(...), Schedule.spaced(5s))`.
 // `Effect.repeat` re-runs its effect only while it SUCCEEDS, so each tick must be
@@ -25,10 +26,44 @@ describe('performAutoSaveTick (autosave daemon resilience)', () => {
     }),
   )
 
+  it.effect('reports saving and saved around a successful autosave tick', () =>
+    Effect.gen(function* () {
+      const ran = yield* Ref.make<ReadonlyArray<string>>([])
+      const save = Ref.update(ran, (a) => [...a, 'chunks'])
+      const persist = Ref.update(ran, (a) => [...a, 'session'])
+      const reporter: AutoSaveStatusReporter = (status) => Ref.update(ran, (a) => [...a, `status:${status}`])
+
+      yield* performAutoSaveTick(save, persist, reporter)
+
+      expect(yield* Ref.get(ran)).toEqual([
+        'status:saving',
+        'chunks',
+        'session',
+        'status:saved',
+      ])
+    }),
+  )
+
   it.effect('SUCCEEDS (swallows the error) when the chunk save fails with a typed error', () =>
     Effect.gen(function* () {
       const result = yield* performAutoSaveTick(Effect.fail(new Error('IndexedDB transaction failed')), Effect.void)
       expect(result).toBeUndefined()
+    }),
+  )
+
+  it.effect('reports error when the chunk save fails', () =>
+    Effect.gen(function* () {
+      const ran = yield* Ref.make<ReadonlyArray<string>>([])
+      const reporter: AutoSaveStatusReporter = (status) => Ref.update(ran, (a) => [...a, `status:${status}`])
+
+      const result = yield* performAutoSaveTick(
+        Effect.fail(new Error('IndexedDB transaction failed')),
+        Ref.update(ran, (a) => [...a, 'session']),
+        reporter,
+      )
+
+      expect(result).toBeUndefined()
+      expect(yield* Ref.get(ran)).toEqual(['status:saving', 'status:error'])
     }),
   )
 
@@ -39,13 +74,47 @@ describe('performAutoSaveTick (autosave daemon resilience)', () => {
     }),
   )
 
-  it.effect('SUCCEEDS when BOTH saves fail simultaneously (parallel cause is folded)', () =>
+  it.effect('reports error when the session persist fails', () =>
+    Effect.gen(function* () {
+      const ran = yield* Ref.make<ReadonlyArray<string>>([])
+      const reporter: AutoSaveStatusReporter = (status) => Ref.update(ran, (a) => [...a, `status:${status}`])
+
+      const result = yield* performAutoSaveTick(
+        Ref.update(ran, (a) => [...a, 'chunks']),
+        Effect.fail(new Error('quota exceeded')),
+        reporter,
+      )
+
+      expect(result).toBeUndefined()
+      expect(yield* Ref.get(ran)).toEqual(['status:saving', 'chunks', 'status:error'])
+    }),
+  )
+
+  it.effect('SUCCEEDS when save and persist effects are both fallible', () =>
     Effect.gen(function* () {
       const result = yield* performAutoSaveTick(
         Effect.fail(new Error('chunk write failed')),
         Effect.fail(new Error('metadata write failed')),
       )
       expect(result).toBeUndefined()
+    }),
+  )
+
+  it.effect('SUCCEEDS when the status reporter throws before a successful save', () =>
+    Effect.gen(function* () {
+      const ran = yield* Ref.make<ReadonlyArray<string>>([])
+      const reporter: AutoSaveStatusReporter = (status) =>
+        status === 'saving'
+          ? Effect.die(new Error('hud failed'))
+          : Ref.update(ran, (a) => [...a, `status:${status}`])
+
+      yield* performAutoSaveTick(
+        Ref.update(ran, (a) => [...a, 'chunks']),
+        Ref.update(ran, (a) => [...a, 'session']),
+        reporter,
+      )
+
+      expect(yield* Ref.get(ran)).toEqual(['chunks', 'session', 'status:saved'])
     }),
   )
 

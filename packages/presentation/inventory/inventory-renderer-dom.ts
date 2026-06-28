@@ -7,7 +7,8 @@ import {
   OVERLAY_STYLE, OVERLAY_TITLE_STYLE,
   CHEST_GRID_STYLE, CHEST_SECTION_STYLE, CHEST_TITLE_STYLE,
   MAIN_GRID_STYLE, HOTBAR_GRID_STYLE, SEPARATOR_STYLE,
-  CRAFTING_TITLE_STYLE, CRAFTING_LIST_STYLE, STATUS_STYLE,
+  CRAFTING_TITLE_STYLE, CRAFTING_PREVIEW_STYLE, CRAFTING_LIST_STYLE, STATUS_STYLE,
+  RECIPE_BOOK_SEARCH_LABEL_STYLE, RECIPE_BOOK_SEARCH_INPUT_STYLE,
 } from './inventory-renderer.config'
 
 export type OverlayDom = {
@@ -15,14 +16,19 @@ export type OverlayDom = {
   readonly chestContainerEl: Option.Option<HTMLDivElement>
   readonly chestSlotEls: HTMLDivElement[]
   readonly slotEls: HTMLDivElement[]
+  readonly recipeBookEl: Option.Option<HTMLDivElement>
+  readonly recipeBookSearchEl: Option.Option<HTMLInputElement>
+  readonly craftingPreviewEl: Option.Option<HTMLDivElement>
   readonly craftingListEl: Option.Option<HTMLDivElement>
   readonly statusEl: Option.Option<HTMLDivElement>
+  readonly sortButtonEl: Option.Option<HTMLButtonElement>
 }
 
 /* c8 ignore next 5 */
 export const createSlotEl = (dom: DomOperationsService, index: number): HTMLDivElement => {
   const el = dom.createElement('div')
   el.dataset['slot'] = String(index)
+  el.draggable = true
   el.style.cssText = `${SLOT_EL_STYLE};background:${DEFAULT_SLOT_COLOR}`
   return el
 }
@@ -31,6 +37,7 @@ export const createSlotEl = (dom: DomOperationsService, index: number): HTMLDivE
 export const createChestSlotEl = (dom: DomOperationsService, index: number): HTMLDivElement => {
   const el = dom.createElement('div')
   el.dataset['chestSlot'] = String(index)
+  el.draggable = true
   el.style.cssText = `${SLOT_EL_STYLE};background:${DEFAULT_SLOT_COLOR}`
   return el
 }
@@ -43,8 +50,12 @@ export const buildOverlayDom = (dom: DomOperationsService): OverlayDom => {
       chestContainerEl: Option.none(),
       chestSlotEls: [],
       slotEls: [],
+      recipeBookEl: Option.none(),
+      recipeBookSearchEl: Option.none(),
+      craftingPreviewEl: Option.none(),
       craftingListEl: Option.none(),
       statusEl: Option.none(),
+      sortButtonEl: Option.none(),
     }
   }
   /* c8 ignore start */
@@ -57,6 +68,13 @@ export const buildOverlayDom = (dom: DomOperationsService): OverlayDom => {
   title.textContent = 'Inventory'
   title.style.cssText = OVERLAY_TITLE_STYLE
   dom.appendChildTo(el, title)
+
+  const sortButton = dom.createElement('button') as HTMLButtonElement
+  sortButton.textContent = 'Sort Inventory (R)'
+  sortButton.title = 'Sort inventory slots'
+  sortButton.dataset['inventoryAction'] = 'sort'
+  sortButton.style.cssText = 'margin:0 0 12px 0;padding:6px 10px;background:#6b5b3e;color:#f5e6c8;border:1px solid #d7b46a;border-radius:4px;cursor:pointer'
+  dom.appendChildTo(el, sortButton)
 
   const chestContainer = dom.createElement('div')
   chestContainer.style.cssText = CHEST_SECTION_STYLE
@@ -95,6 +113,31 @@ export const buildOverlayDom = (dom: DomOperationsService): OverlayDom => {
   craftingTitle.style.cssText = CRAFTING_TITLE_STYLE
   dom.appendChildTo(el, craftingTitle)
 
+  const recipeBookTitle = dom.createElement('div')
+  recipeBookTitle.textContent = 'Recipe Book'
+  recipeBookTitle.style.cssText = CRAFTING_TITLE_STYLE
+  dom.appendChildTo(el, recipeBookTitle)
+
+  const recipeBookSearchLabel = dom.createElement('div')
+  recipeBookSearchLabel.textContent = 'Search recipes'
+  recipeBookSearchLabel.style.cssText = RECIPE_BOOK_SEARCH_LABEL_STYLE
+  dom.appendChildTo(el, recipeBookSearchLabel)
+
+  const recipeBookSearch = dom.createElement('input') as HTMLInputElement
+  recipeBookSearch.type = 'search'
+  recipeBookSearch.placeholder = 'Search by name, ingredient, or station'
+  recipeBookSearch.value = ''
+  recipeBookSearch.style.cssText = RECIPE_BOOK_SEARCH_INPUT_STYLE
+  dom.appendChildTo(el, recipeBookSearch)
+
+  const recipeBook = dom.createElement('div')
+  recipeBook.style.cssText = CRAFTING_LIST_STYLE
+  dom.appendChildTo(el, recipeBook)
+
+  const craftingPreview = dom.createElement('div')
+  craftingPreview.style.cssText = CRAFTING_PREVIEW_STYLE
+  dom.appendChildTo(el, craftingPreview)
+
   const craftingList = dom.createElement('div')
   craftingList.style.cssText = CRAFTING_LIST_STYLE
   dom.appendChildTo(el, craftingList)
@@ -111,8 +154,12 @@ export const buildOverlayDom = (dom: DomOperationsService): OverlayDom => {
     chestContainerEl: Option.some(chestContainer),
     chestSlotEls: chestSlots,
     slotEls: Arr.appendAll(mainSlots, hotbarSlots),
+    recipeBookEl: Option.some(recipeBook),
+    recipeBookSearchEl: Option.some(recipeBookSearch),
+    craftingPreviewEl: Option.some(craftingPreview),
     craftingListEl: Option.some(craftingList),
     statusEl: Option.some(status),
+    sortButtonEl: Option.some(sortButton),
   }
   /* c8 ignore stop */
 }

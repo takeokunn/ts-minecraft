@@ -2,6 +2,7 @@ import { Effect } from 'effect'
 import type * as THREE from 'three'
 
 import { CrosshairService } from '@ts-minecraft/presentation'
+import { ControlsHintService } from '@ts-minecraft/presentation'
 import { BlockHighlightService } from '@ts-minecraft/presentation'
 import { HotbarRendererService } from '@ts-minecraft/presentation'
 import { ParticleSystemService } from '@ts-minecraft/rendering'
@@ -13,6 +14,7 @@ export type SessionBootstrapWorldPresentationViewDeps = {
   readonly hotbarRenderer: HotbarRendererService
   readonly particleSystem: ParticleSystemService
   readonly crosshair: CrosshairService
+  readonly controlsHint: ControlsHintService
 }
 
 export const initializeSessionBootstrapWorldPresentationView = ({
@@ -22,10 +24,12 @@ export const initializeSessionBootstrapWorldPresentationView = ({
   hotbarRenderer,
   particleSystem,
   crosshair,
+  controlsHint,
 }: SessionBootstrapWorldPresentationViewDeps) =>
   Effect.gen(function* () {
     yield* blockHighlight.initialize(scene)
     yield* hotbarRenderer.initialize(canvas.clientWidth, canvas.clientHeight)
     yield* particleSystem.attach(scene)
     yield* crosshair.show()
+    yield* controlsHint.show()
   })

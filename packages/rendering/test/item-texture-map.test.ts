@@ -27,6 +27,8 @@ describe('infrastructure/three/textures/item-texture-map', () => {
       expect(getItemTileIndex('STICKS')).toBe(48)
       expect(getItemTileIndex('DIAMOND_PICKAXE')).toBe(62)
       expect(getItemTileIndex('GLOWSTONE_DUST')).toBe(113)
+      expect(getItemTileIndex('BOAT')).toBe(41)
+      expect(getItemTileIndex('MINECART')).toBe(35)
     })
 
     it('should keep block mappings stable', () => {
@@ -56,6 +58,7 @@ describe('infrastructure/three/textures/item-texture-map', () => {
       expect(getItemTileIndex('ANVIL')).toBe(35)
       expect(getItemTileIndex('CAULDRON')).toBe(35)
       expect(getItemTileIndex('WATER_CAULDRON')).toBe(35)
+      expect(getItemTileIndex('RAIL')).toBe(35)
     })
   })
 

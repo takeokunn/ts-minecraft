@@ -9,6 +9,8 @@ import {
   type ChickenParts,
   type QuadrupedPalette,
   type QuadrupedParts,
+  type ShulkerPalette,
+  type ShulkerParts,
   type SquidPalette,
   type SquidParts,
   type ZombiePalette,
@@ -36,6 +38,8 @@ import {
   PIG_PARTS,
   SHEEP_PALETTE,
   SHEEP_PARTS,
+  SHULKER_PALETTE,
+  SHULKER_PARTS,
   SKELETON_PALETTE,
   SKELETON_PARTS,
   SPIDER_PALETTE,
@@ -267,6 +271,48 @@ const buildSquid = (typeKey: string, parts: SquidParts, palette: SquidPalette): 
   return { root, head, body, armL: null, armR: null, legFL, legFR, legBL, legBR }
 }
 
+const buildShulker = (typeKey: string, parts: ShulkerParts, palette: ShulkerPalette): MobLimbGroup => {
+  const [bodyW, bodyH] = parts.body
+  const [, headH] = parts.head
+  const [shellW] = parts.shellSide
+  const root = new THREE.Group()
+
+  const bodyGeom = getOrCreateGeometry(`${typeKey}:body`, parts.body, false)
+  const bodyMat = getOrCreateMaterial(`${typeKey}:body`, palette.body)
+  const body = new THREE.Mesh(bodyGeom, bodyMat)
+  body.position.set(0, bodyH / 2, 0)
+  root.add(body)
+
+  const headGeom = getOrCreateGeometry(`${typeKey}:head`, parts.head, false)
+  const headMat = getOrCreateMaterial(`${typeKey}:head`, palette.head)
+  const head = new THREE.Mesh(headGeom, headMat)
+  head.position.set(0, bodyH + headH / 2 - 0.08, 0)
+  root.add(head)
+
+  const shellGeom = getOrCreateGeometry(`${typeKey}:shellSide`, parts.shellSide, true)
+  const shellMat = getOrCreateMaterial(`${typeKey}:shellSide`, palette.shell)
+  const shellX = bodyW / 2 + shellW / 2
+  const shellY = bodyH
+  const legFL = new THREE.Mesh(shellGeom, shellMat)
+  legFL.position.set(+shellX, shellY, 0)
+  root.add(legFL)
+  const legFR = new THREE.Mesh(shellGeom, shellMat)
+  legFR.position.set(-shellX, shellY, 0)
+  root.add(legFR)
+
+  return {
+    root,
+    head,
+    body,
+    armL: null,
+    armR: null,
+    legFL,
+    legFR,
+    legBL: null,
+    legBR: null,
+  }
+}
+
 export const buildMobGroup = (type: EntityType): MobLimbGroup => {
   switch (type) {
     case 'Zombie':
@@ -305,5 +351,7 @@ export const buildMobGroup = (type: EntityType): MobLimbGroup => {
       return buildBiped('EnderDragon', DRAGON_PARTS, DRAGON_PALETTE)
     case 'Endermite':
       return buildQuadruped('Endermite', ENDERMITE_PARTS, ENDERMITE_PALETTE)
+    case 'Shulker':
+      return buildShulker('Shulker', SHULKER_PARTS, SHULKER_PALETTE)
   }
 }

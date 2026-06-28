@@ -2,7 +2,7 @@ import { Array as Arr, Option } from 'effect'
 import type { InventoryItem, InventorySaveData, InventorySlotSaveEntry } from '@ts-minecraft/core'
 import { SlotIndex } from '@ts-minecraft/core'
 import { INVENTORY_SIZE, HOTBAR_START } from './inventory-service.config'
-import { ItemStack, canMerge, maxStackFor, mergeStacks, removeFromStack, repairStackWithMendingXP } from '../domain/item-stack'
+import { ItemStack, canMerge, getStackEnchantments, maxStackFor, mergeStacks, removeFromStack, repairStackWithMendingXP } from '../domain/item-stack'
 import type { InventorySlot, InventorySlots } from './inventory-service-types'
 import { fillEmptySlots, fillExistingStacks, drainPreferredSlot } from './inventory-service.helpers'
 
@@ -102,6 +102,86 @@ export const moveStackInInventorySlots = (
 
   const withFrom = Arr.modify(slots, fromIdx, () => toSlot)
   return Arr.modify(withFrom, toIdx, () => fromSlot)
+}
+
+const normalizedEnchantmentsKey = (stack: ItemStack): string =>
+  [...getStackEnchantments(stack)]
+    .sort((a, b) => {
+      const typeOrder = a.type.localeCompare(b.type)
+      return typeOrder !== 0 ? typeOrder : a.level - b.level
+    })
+    .map((enchantment) => `${enchantment.type}:${enchantment.level}`)
+    .join(',')
+
+const stackIdentityKey = (stack: ItemStack): string =>
+  `${stack.itemType}|${stack.durability ?? ''}|${normalizedEnchantmentsKey(stack)}`
+
+const cloneStackWithCount = (base: ItemStack, count: number): ItemStack =>
+  new ItemStack({
+    itemType: base.itemType,
+    count,
+    durability: base.durability,
+    enchantments:
+      base.enchantments === undefined
+        ? undefined
+        : base.enchantments.map((enchantment) => ({ ...enchantment })),
+  })
+
+const compareStacksForSort = (a: ItemStack, b: ItemStack): number => {
+  const itemTypeOrder = a.itemType.localeCompare(b.itemType)
+  if (itemTypeOrder !== 0) return itemTypeOrder
+
+  const identityOrder = stackIdentityKey(a).localeCompare(stackIdentityKey(b))
+  if (identityOrder !== 0) return identityOrder
+
+  return b.count - a.count
+}
+
+export const sortInventorySlots = (slots: InventorySlots): InventorySlots => {
+  const occupied: ItemStack[] = []
+  for (const slot of slots) {
+    const stack = Option.getOrNull(slot)
+    if (stack !== null) occupied.push(stack)
+  }
+
+  const ordered = [...occupied].sort(compareStacksForSort)
+  const compacted: ItemStack[] = []
+  let index = 0
+
+  while (index < ordered.length) {
+    const base = ordered[index]
+    if (base === undefined) break
+
+    const key = stackIdentityKey(base)
+    const group: ItemStack[] = []
+
+    while (index < ordered.length) {
+      const stack = ordered[index]
+      if (stack === undefined || stackIdentityKey(stack) !== key) break
+      group.push(stack)
+      index += 1
+    }
+
+    const maxStack = maxStackFor(base.itemType)
+    if (maxStack <= 1) {
+      for (const stack of group) {
+        compacted.push(cloneStackWithCount(stack, stack.count))
+      }
+      continue
+    }
+
+    let remaining = group.reduce((sum, stack) => sum + stack.count, 0)
+    while (remaining > 0) {
+      const count = Math.min(maxStack, remaining)
+      compacted.push(cloneStackWithCount(base, count))
+      remaining -= count
+    }
+  }
+
+  return Arr.makeBy(INVENTORY_SIZE, (slotIndex) => {
+    const stack = compacted[slotIndex]
+    return stack === undefined ? Option.none<ItemStack>() : Option.some(stack)
+  })
 }
 
 export const repairMendingInventorySlotsWithXP = (

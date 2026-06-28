@@ -1,6 +1,31 @@
 import { Effect, Option } from 'effect'
 import { MutableRef } from 'effect'
 
+const CROSSHAIR_PULSE_MS = 120
+
+const createCrosshairCss = (
+  scale = 1,
+  filter = 'drop-shadow(0 0 2px rgba(0, 0, 0, 0.9))',
+) => `
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%) scale(${scale});
+        width: 20px;
+        height: 20px;
+        pointer-events: none;
+        z-index: 1000;
+        mix-blend-mode: difference;
+        filter: ${filter};
+        transition: transform 80ms ease-out, filter 120ms ease-out;
+      `
+
+const CROSSHAIR_BASE_CSS = createCrosshairCss()
+const CROSSHAIR_PULSE_CSS = createCrosshairCss(
+  1.45,
+  'drop-shadow(0 0 4px rgba(255, 255, 255, 0.95)) drop-shadow(0 0 10px rgba(255, 70, 70, 0.85))',
+)
+
 // DOM abstraction for testability
 export class DomOperationsService extends Effect.Service<DomOperationsService>()(
   '@minecraft/presentation/DomOperations',
@@ -32,16 +57,7 @@ export class CrosshairService extends Effect.Service<CrosshairService>()(
       // Create crosshair element
       const element = dom.createElement('div')
       element.id = 'crosshair'
-      element.style.cssText = `
-        position: fixed;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-        width: 20px;
-        height: 20px;
-        pointer-events: none;
-        z-index: 1000;
-      `
+      element.style.cssText = CROSSHAIR_BASE_CSS
 
       // Create crosshair lines (cross shape)
       const createLine = (isVertical: boolean) => {
@@ -70,11 +86,26 @@ export class CrosshairService extends Effect.Service<CrosshairService>()(
       element.appendChild(createLine(false)) // Horizontal
 
       const visibleRef = MutableRef.make(false)
+      const pulseTimeoutRef = MutableRef.make<ReturnType<typeof setTimeout> | null>(null)
+
+      const clearPulseTimer = () => {
+        const pulseTimeout = MutableRef.get(pulseTimeoutRef)
+        if (pulseTimeout === null) return
+        clearTimeout(pulseTimeout)
+        MutableRef.set(pulseTimeoutRef, null)
+      }
+
+      const resetPulse = () => {
+        element.style.cssText = CROSSHAIR_BASE_CSS
+        MutableRef.set(pulseTimeoutRef, null)
+      }
+
       return {
         show: (): Effect.Effect<void, never> =>
           Effect.sync(() => {
             if (MutableRef.get(visibleRef)) return
             MutableRef.set(visibleRef, true)
+            element.style.cssText = CROSSHAIR_BASE_CSS
             dom.appendChild(element)
           }),
 
@@ -82,6 +113,8 @@ export class CrosshairService extends Effect.Service<CrosshairService>()(
           Effect.sync(() => {
             if (!MutableRef.get(visibleRef)) return
             MutableRef.set(visibleRef, false)
+            clearPulseTimer()
+            element.style.cssText = CROSSHAIR_BASE_CSS
             if (Option.isSome(dom.getParentNode(element))) dom.removeChild(element)
           }),
 
@@ -89,8 +122,22 @@ export class CrosshairService extends Effect.Service<CrosshairService>()(
           Effect.sync(() => {
             const wasVisible = MutableRef.get(visibleRef)
             MutableRef.set(visibleRef, !wasVisible)
-            if (wasVisible) dom.removeChild(element)
-            else dom.appendChild(element)
+            if (wasVisible) {
+              clearPulseTimer()
+              element.style.cssText = CROSSHAIR_BASE_CSS
+              dom.removeChild(element)
+            } else {
+              element.style.cssText = CROSSHAIR_BASE_CSS
+              dom.appendChild(element)
+            }
+          }),
+
+        pulse: (): Effect.Effect<void, never> =>
+          Effect.sync(() => {
+            if (!MutableRef.get(visibleRef)) return
+            clearPulseTimer()
+            element.style.cssText = CROSSHAIR_PULSE_CSS
+            MutableRef.set(pulseTimeoutRef, setTimeout(resetPulse, CROSSHAIR_PULSE_MS))
           }),
 
         isVisible: (): Effect.Effect<boolean, never> => Effect.sync(() => MutableRef.get(visibleRef)),

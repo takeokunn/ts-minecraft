@@ -19,6 +19,7 @@ export interface MenuRefs {
   readonly newWorldModeRef: MutableRef.MutableRef<GameMode>
   readonly activeDeferredRef: MutableRef.MutableRef<Option.Option<Deferred.Deferred<MainMenuChoice, never>>>
   readonly escHandlerRef: MutableRef.MutableRef<Option.Option<(ev: KeyboardEvent) => void>>
+  readonly recentWorldRef: MutableRef.MutableRef<Option.Option<WorldId>>
 }
 
 export const makeMenuRefs = (): MenuRefs => ({
@@ -26,6 +27,7 @@ export const makeMenuRefs = (): MenuRefs => ({
   newWorldModeRef: MutableRef.make<GameMode>('survival'),
   activeDeferredRef: MutableRef.make<Option.Option<Deferred.Deferred<MainMenuChoice, never>>>(Option.none()),
   escHandlerRef: MutableRef.make<Option.Option<(ev: KeyboardEvent) => void>>(Option.none()),
+  recentWorldRef: MutableRef.make<Option.Option<WorldId>>(Option.none()),
 })
 
 // --- State helpers ---
@@ -35,11 +37,15 @@ export const makeSetSubState = (
   rootCard: HTMLDivElement,
   newWorldCard: HTMLDivElement,
   loadWorldCard: HTMLDivElement,
+  multiplayerCard: HTMLDivElement,
+  howToPlayCard: HTMLDivElement,
 ) => (next: SubState): void => {
   MutableRef.set(refs.subStateRef, next)
   rootCard.style.display = next === 'root' ? 'flex' : 'none'
   newWorldCard.style.display = next === 'new-world' ? 'flex' : 'none'
   loadWorldCard.style.display = next === 'load-world' ? 'flex' : 'none'
+  multiplayerCard.style.display = next === 'multiplayer' ? 'flex' : 'none'
+  howToPlayCard.style.display = next === 'how-to-play' ? 'flex' : 'none'
 }
 
 export const makeUpdateModeButton = (refs: MenuRefs, buttons: MenuButtons) => (): void => {
@@ -61,6 +67,7 @@ export const makeRefreshLoadList = (
   dom: DomOperationsService,
   storageService: StorageService,
   buttons: MenuButtons,
+  refs: MenuRefs,
   completeWith: (choice: MainMenuChoice) => void,
   openDeleteConfirm: (worldId: WorldId, label: string) => void,
   openRenamePrompt: (worldId: WorldId, label: string) => void,
@@ -71,6 +78,7 @@ export const makeRefreshLoadList = (
         onFailure: (err) =>
           Effect.gen(function* () {
             yield* Effect.logWarning(`MainMenu: listWorldMetadata failed: ${String(err)}`)
+            MutableRef.set(refs.recentWorldRef, Option.none())
             yield* Effect.sync(() => {
               dom.setInnerHTML(buttons.lwList, '<div style="opacity:0.7">Failed to load worlds</div>')
             })
@@ -78,6 +86,7 @@ export const makeRefreshLoadList = (
         onSuccess: ({ valid, corrupt }) =>
           Effect.sync(() => {
             if (valid.length === 0 && corrupt.length === 0) {
+              MutableRef.set(refs.recentWorldRef, Option.none())
               dom.setInnerHTML(
                 buttons.lwList,
                 '<div style="opacity:0.7;padding:8px">No saved worlds yet</div>',
@@ -93,6 +102,10 @@ export const makeRefreshLoadList = (
               ),
             )
             const sorted = Arr.sort(valid, lastPlayedDesc)
+            MutableRef.set(
+              refs.recentWorldRef,
+              Option.fromNullable(sorted.at(0)?.worldId),
+            )
             dom.setInnerHTML(buttons.lwList, '')
             Arr.forEach(sorted, ({ worldId, metadata }) => {
               renderValidRow(
@@ -178,11 +191,17 @@ export const makeOpenDeleteConfirm = (
 export interface ClickHandlers {
   readonly onNewWorldClick: () => void
   readonly onLoadWorldClick: () => void
+  readonly onMultiplayerClick: () => void
+  readonly onHowToPlayClick: () => void
   readonly onSettingsClick: () => void
   readonly onNwModeClick: () => void
   readonly onNwCancelClick: () => void
   readonly onNwConfirmClick: () => void
   readonly onLwBackClick: () => void
+  readonly onMpCancelClick: () => void
+  readonly onMpConfirmClick: () => void
+  readonly onContinueWorldClick: () => void
+  readonly onHowToPlayCloseClick: () => void
   readonly onEsc: (ev: KeyboardEvent) => void
 }
 
@@ -205,6 +224,23 @@ export const makeClickHandlers = (
   onLoadWorldClick: () => {
     setSubState('load-world')
     Effect.runFork(refreshLoadList())
+  },
+  onMultiplayerClick: () => {
+    setSubState('multiplayer')
+    buttons.mpServerUrl.focus()
+  },
+  onContinueWorldClick: () => {
+    const recentWorld = MutableRef.get(refs.recentWorldRef)
+    if (Option.isSome(recentWorld)) {
+      completeWith({ action: 'loadWorld', worldId: recentWorld.value })
+      return
+    }
+    setSubState('load-world')
+    Effect.runFork(refreshLoadList())
+  },
+  onHowToPlayClick: () => {
+    setSubState('how-to-play')
+    buttons.howToPlayClose.focus()
   },
   onSettingsClick: () => {
     Effect.runFork(
@@ -233,13 +269,35 @@ export const makeClickHandlers = (
     setSubState('root')
     buttons.loadWorld.focus()
   },
+  onMpCancelClick: () => {
+    setSubState('root')
+    buttons.multiplayer.focus()
+  },
+  onMpConfirmClick: () => {
+    completeWith({
+      action: 'multiplayer',
+      serverUrl: buttons.mpServerUrl.value.trim(),
+      playerName: buttons.mpPlayerName.value.trim(),
+    })
+  },
+  onHowToPlayCloseClick: () => {
+    setSubState('root')
+    buttons.howToPlay.focus()
+  },
   onEsc: (ev: KeyboardEvent) => {
     if (ev.key !== 'Escape') return
     const sub = MutableRef.get(refs.subStateRef)
     if (sub === 'root') return
-    ev.preventDefault()
-    setSubState('root')
-    const focusTarget = sub === 'new-world' ? buttons.newWorld : buttons.loadWorld
-    focusTarget.focus()
-  },
-})
+      ev.preventDefault()
+      setSubState('root')
+      const focusTarget =
+        sub === 'new-world'
+          ? buttons.newWorld
+          : sub === 'load-world'
+            ? buttons.loadWorld
+            : sub === 'multiplayer'
+              ? buttons.multiplayer
+              : buttons.howToPlay
+      focusTarget.focus()
+    },
+  })

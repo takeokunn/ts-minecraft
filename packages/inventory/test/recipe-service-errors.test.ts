@@ -216,6 +216,8 @@ describe('application/crafting/recipe-service — access control and errors', ()
         damageSlot: (_idx: unknown, _amount?: number) => Effect.void,
         repairMendingItemsWithXP: (amount: number) => Effect.succeed(amount),
         moveStack: (_from: unknown, _to: unknown) => Effect.void,
+        quickMove: (_from: unknown) => Effect.void,
+        sortInventory: () => Effect.void,
         getHotbarSlots: () => Effect.succeed([]),
         clear: () => Effect.void,
         serialize: () => Effect.succeed({ slots: [] }),

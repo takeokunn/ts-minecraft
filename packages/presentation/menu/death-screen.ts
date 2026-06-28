@@ -145,20 +145,27 @@ export class DeathScreenService extends Effect.Service<DeathScreenService>()(
 
                     // Death-watcher fiber: forever awaits next death, opens overlay
                     // (in survival only — creative auto-respawns via frame-handler).
-                    const deathWatcher: Effect.Effect<void, never> = Effect.gen(function* () {
-                      yield* healthService.awaitDeath()
-                      const isCreative = yield* gameMode.isCreative()
-                      if (isCreative) {
-                        // Frame-handler already triggered auto-respawn — do nothing.
-                        return
+                    const waitForRevival = Effect.gen(function* () {
+                      while (yield* healthService.isDead()) {
+                        yield* Effect.sleep(Duration.millis(1))
                       }
-                      yield* Effect.sync(() => {
-                        if (MutableRef.get(isOpenRef)) return
-                        MutableRef.set(isOpenRef, true)
-                        showOverlay()
-                      })
+                    })
+
+                    const deathWatcher: Effect.Effect<void, never> = Effect.gen(function* () {
+                      while (true) {
+                        yield* healthService.awaitDeath()
+                        const isCreative = yield* gameMode.isCreative()
+                        if (!isCreative) {
+                          yield* Effect.sync(() => {
+                            if (MutableRef.get(isOpenRef)) return
+                            MutableRef.set(isOpenRef, true)
+                            setPaused(control, true)
+                            showOverlay()
+                          })
+                        }
+                        yield* waitForRevival
+                      }
                     }).pipe(
-                      Effect.forever,
                       Effect.catchAllCause((cause) =>
                         Effect.logError(`Death-screen watcher error: ${Cause.pretty(cause)}`),
                       ),
@@ -182,12 +189,11 @@ export class DeathScreenService extends Effect.Service<DeathScreenService>()(
                       }
                       hideOverlay()
                       MutableRef.set(isOpenRef, false)
-                      yield* Effect.raceFirst(
+                      Effect.runFork(
                         Fiber.interrupt(handlers.fiber).pipe(
                           Effect.asVoid,
                           Effect.catchAllCause(() => Effect.void),
                         ),
-                        Effect.sleep(Duration.millis(250)),
                       )
                     }),
                 ).pipe(Effect.asVoid),

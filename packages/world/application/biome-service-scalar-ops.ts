@@ -118,7 +118,7 @@ export const createScalarBiomeOps = (
           samplingPlan.neighboringCoords,
           ({ x: neighborX, z: neighborZ }) =>
             sampleBaseBiome(neighborX, neighborZ),
-          { concurrency: "unbounded" },
+          { concurrency: 8 },
         );
         return refineScalarBiome({
           biome,

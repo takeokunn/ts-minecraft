@@ -14,6 +14,7 @@ import {
   makeNetherService,
   makeParticleSystem,
   makePerfHud,
+  makeRemotePlayerRenderer,
   makeWeatherService,
   makeWorldRendererService,
 } from '../world'
@@ -30,6 +31,7 @@ export const makeWorldServices = () => ({
   entityRenderer: makeEntityRenderer(),
   chunkMeshService: makeChunkMeshService(),
   particleSystem: makeParticleSystem(),
+  remotePlayerRenderer: makeRemotePlayerRenderer(),
   weatherService: makeWeatherService(),
   biomeService: makeBiomeService(),
   fluidService: makeFluidService(),

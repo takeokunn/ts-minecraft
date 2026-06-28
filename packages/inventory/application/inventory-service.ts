@@ -13,6 +13,7 @@ import {
   tryAddBlocksToInventory,
   repairMendingInventorySlotsWithXP,
   serializeInventorySlots,
+  sortInventorySlots,
 } from './inventory-service-state'
 
 export { INVENTORY_SIZE, HOTBAR_START, HOTBAR_SIZE }
@@ -55,6 +56,9 @@ export class InventoryService extends Effect.Service<InventoryService>()(
         // remainder in the source slot; a full target region is a no-op.
         quickMove: (from: SlotIndex): Effect.Effect<void, never> =>
           Ref.update(slotsRef, (slots) => quickMoveInventorySlots(slots, from)),
+
+        sortInventory: (): Effect.Effect<void, never> =>
+          Ref.update(slotsRef, sortInventorySlots),
 
         addBlock: (itemType: InventoryItem, count: number): Effect.Effect<void, InventoryError> =>
           Effect.gen(function* () {

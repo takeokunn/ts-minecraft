@@ -10,12 +10,17 @@ import {
 const supportSensitiveCases = [
   ['TORCH', true],
   ['PRESSURE_PLATE', true],
+  ['RAIL', true],
   ['STONE', false],
 ] as const
 
 const supportRuleCases = [
   ['PRESSURE_PLATE', 'STONE', true],
   ['PRESSURE_PLATE', 'AIR', false],
+  ['RAIL', 'STONE', true],
+  ['RAIL', 'AIR', false],
+  ['RAIL', 'WATER', false],
+  ['RAIL', 'PRESSURE_PLATE', false],
   ['WHEAT_CROP', 'FARMLAND', true],
   ['WHEAT_CROP', 'DIRT', false],
   ['SUGAR_CANE', 'SAND', true],
@@ -26,6 +31,7 @@ const supportRuleCases = [
 const waterBreakableCases = [
   ['TORCH', true],
   ['PRESSURE_PLATE', true],
+  ['RAIL', true],
   ['STONE', false],
 ] as const
 

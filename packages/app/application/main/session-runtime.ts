@@ -3,6 +3,7 @@ import { Effect } from 'effect'
 import { createFrameHandlers } from '@ts-minecraft/app/frame-handler'
 import type { FrameHandlerServices } from '@ts-minecraft/app/application/frame/types/services'
 import { wrapFrameHandlerWithBrowserEffects } from '@ts-minecraft/app/main/browser-runtime-effects'
+import { createDomAutoSaveStatusReporter } from '@ts-minecraft/app/main/session-autosave-status'
 import { assembleFrameHandlerDeps } from '@ts-minecraft/app/main/session-runtime-deps/frame-handler'
 import { installSessionRuntimeOverlays } from '@ts-minecraft/app/main/session-runtime-overlays'
 import type { SessionRuntimeParams } from '@ts-minecraft/app/main/session-runtime-types'
@@ -29,6 +30,7 @@ export const buildSessionRuntime = (
         godRaysPass,
         smaaPass,
       },
+      hud: { autoSaveStatusElement },
       state: { pendingResizeRef, pendingSaveDirtyChunksRef, persistSessionState },
     } = params
 
@@ -48,6 +50,7 @@ export const buildSessionRuntime = (
       pendingSaveDirtyChunksRef,
       chunkManagerService,
       persistSessionState: persistSessionState().pipe(Effect.catchAllCause(() => Effect.void)),
+      reportAutoSaveStatus: createDomAutoSaveStatusReporter(autoSaveStatusElement),
       settingsService,
       renderer,
       camera,

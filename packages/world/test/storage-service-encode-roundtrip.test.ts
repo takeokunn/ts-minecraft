@@ -40,6 +40,14 @@ const metadata = {
     activeRecipeId: Option.some('raw-iron-to-iron-ingot'),
     progressSecs: 0.5,
   }],
+  entityStates: [{
+    entityId: 'shulker-1',
+    position: { x: 12, y: 65, z: 18 },
+    velocity: { x: 0, y: 0, z: 0 },
+    rotation: { x: 0, y: 0, z: 0, w: 1 },
+    health: 30,
+    type: 'Shulker' as const,
+  }],
   gameMode: 'survival' as const,
   saveVersion: 1,
 }
@@ -73,6 +81,14 @@ describe('storage/WorldMetadata encode↔decode round-trip (real persistence pat
     // Inventory shares the same OptionFromNullOr pattern — verify it too.
     expect(loaded.playerState!.inventory.slots[0]).toEqual(Option.some({ slot: 0, itemType: 'WOOD', count: 3, durability: null }))
     expect(loaded.playerState!.inventory.slots[1]).toEqual(Option.none())
+    expect(loaded.entityStates).toEqual([{
+      entityId: 'shulker-1',
+      position: { x: 12, y: 65, z: 18 },
+      velocity: { x: 0, y: 0, z: 0 },
+      rotation: { x: 0, y: 0, z: 0, w: 1 },
+      health: 30,
+      type: 'Shulker',
+    }])
   })
 
   it('storing DECODED Options directly (the pre-fix bug) would NOT survive a structured clone', async () => {

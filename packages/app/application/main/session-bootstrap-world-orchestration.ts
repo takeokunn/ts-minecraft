@@ -34,6 +34,7 @@ export const buildSessionBootstrapWorldOrchestration = ({
       blockHighlight,
       hotbarRenderer,
       crosshair,
+      controlsHint,
       timeService,
       inventoryService,
       equipmentService,
@@ -44,6 +45,7 @@ export const buildSessionBootstrapWorldOrchestration = ({
       furnaceService,
       weatherService,
       cropGrowthService,
+      entityManager,
     } = presentation
 
     yield* gameModeService.set(initialGameMode)
@@ -86,6 +88,7 @@ export const buildSessionBootstrapWorldOrchestration = ({
       weatherService,
       storageService: bootCtx.storageService,
       cropGrowthService,
+      entityManager,
       worldBootstrap,
       worldId,
       respawnPositionRef,
@@ -106,6 +109,7 @@ export const buildSessionBootstrapWorldOrchestration = ({
       particleSystem,
       timeService,
       crosshair,
+      controlsHint,
       inventoryService,
       equipmentService,
       healthService,
@@ -115,6 +119,7 @@ export const buildSessionBootstrapWorldOrchestration = ({
       furnaceService,
       weatherService,
       cropGrowthService,
+      entityManager,
       spawnPosition,
     })
 

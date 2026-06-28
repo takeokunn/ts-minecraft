@@ -45,6 +45,7 @@ describe('session-runtime-deps/frame-handler', () => {
         armorValueElement: { tag: 'armor-value' } as never,
         airElement: null,
         breakProgressElement: { tag: 'break-progress' } as never,
+        autoSaveStatusElement: null,
       },
       state: {
         control: control as never,
@@ -57,6 +58,8 @@ describe('session-runtime-deps/frame-handler', () => {
       overlays: {
         deathScreen: {} as never,
         debugOverlay: {} as never,
+        connectionPanel: {} as never,
+        chatPanel: {} as never,
         biomeService: {} as never,
         recipeService: {} as never,
       },

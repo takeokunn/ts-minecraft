@@ -43,6 +43,7 @@ describe('initializeSessionBootstrapWorldPresentationState', () => {
       furnaceService: {} as never,
       weatherService: {} as never,
       cropGrowthService: {} as never,
+      entityManager: {} as never,
       spawnPosition,
     })))
 
@@ -82,6 +83,7 @@ describe('initializeSessionBootstrapWorldPresentationState', () => {
       furnaceService: {} as never,
       weatherService: {} as never,
       cropGrowthService: {} as never,
+      entityManager: {} as never,
       spawnPosition,
     })))
 

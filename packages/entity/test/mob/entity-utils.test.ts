@@ -99,6 +99,7 @@ describe('entity/entity-utils', () => {
       knockbackSecsRemaining: 0,
       stuckTicks: 0,
       fuseSecs: 0,
+      woolRegrowthTicks: 0,
     })
 
     it('preserves all public Entity fields', () => {
@@ -123,6 +124,7 @@ describe('entity/entity-utils', () => {
       'isGrounded',
       'stuckTicks',
       'fuseSecs',
+      'woolRegrowthTicks',
     ] as const
 
     it('does not expose AI-internal fields on the result', () => {
@@ -143,6 +145,13 @@ describe('entity/entity-utils', () => {
     it('isBaby reflects ageTicks vs BABY_GROW_TICKS (R6d)', () => {
       expect(toPublicEntity({ ...makeManagedEntity(), ageTicks: BABY_GROW_TICKS }).isBaby).toBe(false)
       expect(toPublicEntity({ ...makeManagedEntity(), ageTicks: 0 }).isBaby).toBe(true)
+    })
+
+    it('exposes isSheared for regrowing sheep only', () => {
+      const woollySheep = toPublicEntity({ ...makeManagedEntity(), type: 'Sheep', woolRegrowthTicks: 0 })
+      const shearedSheep = toPublicEntity({ ...makeManagedEntity(), type: 'Sheep', woolRegrowthTicks: 12 })
+      expect(woollySheep).not.toHaveProperty('isSheared')
+      expect(shearedSheep.isSheared).toBe(true)
     })
   })
 

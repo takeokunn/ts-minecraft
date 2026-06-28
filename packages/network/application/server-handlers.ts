@@ -1,7 +1,7 @@
 import { Effect, Queue, Ref } from 'effect'
 import { NetworkError } from '../domain/errors'
 import { MessageType, PlayerId, WorldId } from '../domain/schemas'
-import type { BlockBreakMessage, BlockPlaceMessage, ChatMessage, NetworkMessage, PlayerJoinMessage, PlayerMoveMessage } from '../domain/schemas'
+import type { BlockBreakMessage, BlockPlaceMessage, ChatMessage, EntitySnapshotMessage, NetworkMessage, PlayerJoinMessage, PlayerMoveMessage } from '../domain/schemas'
 import type { WebSocketConnection } from '../domain/websocket-ports'
 import { decodeNetworkMessage, sendEncodedToConnection } from './codec'
 import type { ConnectedPlayer, GameServer, ServerServiceShape } from './server-service'
@@ -62,6 +62,7 @@ export const handlePlayerJoin = (
     yield* Ref.update(services.gameServer.playerIdByConnectionId, (ids) => new Map(ids).set(connection.id, playerId))
 
     const assignedJoin: PlayerJoinMessage = { ...message, playerId, timestamp: Date.now() }
+    yield* sendEncodedToConnection(connection, assignedJoin)
     for (const existingPlayer of currentPlayers.values()) {
       yield* sendEncodedToConnection(connection, {
         type: MessageType.PlayerJoin,
@@ -72,7 +73,6 @@ export const handlePlayerJoin = (
         timestamp: Date.now(),
       })
     }
-    yield* sendEncodedToConnection(connection, assignedJoin)
     yield* services.serverService.broadcast(assignedJoin, playerId)
     return playerId
   })
@@ -124,6 +124,11 @@ export const handlePlayerMove = (
     yield* services.serverService.broadcast(message, message.playerId)
   })
 
+export const handleEntitySnapshot = (
+  services: ServerHandlerServices,
+  message: EntitySnapshotMessage,
+): Effect.Effect<void, NetworkError> => services.serverService.broadcast(message, message.playerId)
+
 export const handleBlockPlace = (
   services: ServerHandlerServices,
   message: BlockPlaceMessage,
@@ -164,6 +169,10 @@ export const dispatchMessage = (
       case MessageType.PlayerMove:
         yield* verifyPlayerOwnership(services, connection.id, message.playerId)
         yield* handlePlayerMove(services, message)
+        return
+      case MessageType.EntitySnapshot:
+        yield* verifyPlayerOwnership(services, connection.id, message.playerId)
+        yield* handleEntitySnapshot(services, message)
         return
       case MessageType.BlockPlace:
         yield* verifyPlayerOwnership(services, connection.id, message.playerId)

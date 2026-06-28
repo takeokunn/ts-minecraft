@@ -21,6 +21,7 @@ export const initializeSessionBootstrapWorldPresentation = ({
   particleSystem,
   timeService,
   crosshair,
+  controlsHint,
   inventoryService,
   equipmentService,
   healthService,
@@ -30,6 +31,7 @@ export const initializeSessionBootstrapWorldPresentation = ({
   furnaceService,
   weatherService,
   cropGrowthService,
+  entityManager,
   spawnPosition,
 }: SessionBootstrapWorldPresentationDeps) =>
   Effect.gen(function* () {
@@ -49,6 +51,7 @@ export const initializeSessionBootstrapWorldPresentation = ({
       furnaceService,
       weatherService,
       cropGrowthService,
+      entityManager,
       spawnPosition,
     })
 
@@ -59,5 +62,6 @@ export const initializeSessionBootstrapWorldPresentation = ({
       hotbarRenderer,
       particleSystem,
       crosshair,
+      controlsHint,
     })
   })

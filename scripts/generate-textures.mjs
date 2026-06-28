@@ -246,28 +246,28 @@ saveTile(7, 'water', (ctx) => {
   }
 })
 
-// tile 8: leaves — dark green with lighter spots
+// tile 8: leaves — dense canopy with irregular highlights
 saveTile(8, 'leaves', (ctx) => {
-  ctx.fillStyle = '#1a7a1a'
+  ctx.fillStyle = '#1b7f1b'
   ctx.fillRect(0, 0, TILE_PX, TILE_PX)
   for (let lx = 0; lx < TILE_PX; lx += 4) {
     for (let ly = 0; ly < TILE_PX; ly += 4) {
-      const variant = (lx + ly) % 12
-      if (variant === 0) {
+      const variant = (lx * 3 + ly * 5) % 16
+      if (variant < 6) {
+        ctx.fillStyle = '#2aa82a'
+        ctx.fillRect(lx, ly, 4, 4)
+      } else if (variant < 10) {
         ctx.fillStyle = '#228b22'
-        ctx.fillRect(lx, ly, 3, 3)
-      } else if (variant === 4) {
-        ctx.fillStyle = '#2da02d'
-        ctx.fillRect(lx + 1, ly + 1, 2, 2)
-      } else if (variant === 8) {
-        ctx.fillStyle = '#145014'
-        ctx.fillRect(lx, ly, 2, 2)
+        ctx.fillRect(lx + 1, ly, 3, 4)
+      } else {
+        ctx.fillStyle = '#166216'
+        ctx.fillRect(lx, ly + 1, 4, 3)
       }
     }
   }
-  for (let gx = 2; gx < TILE_PX; gx += 5) {
-    for (let gy = 2; gy < TILE_PX; gy += 5) {
-      ctx.fillStyle = '#0f5a0f'
+  for (let gx = 1; gx < TILE_PX; gx += 6) {
+    for (let gy = 1; gy < TILE_PX; gy += 6) {
+      ctx.fillStyle = (gx + gy) % 2 === 0 ? '#0f5a0f' : '#3cb33c'
       ctx.fillRect(gx, gy, 1, 1)
     }
   }

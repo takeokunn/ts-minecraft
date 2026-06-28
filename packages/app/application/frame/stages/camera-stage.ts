@@ -17,7 +17,7 @@ const SPRINT_FOV = 82
 const FOV_LERP = 0.18
 
 export const cameraStage = (
-  deps: Pick<FrameHandlerDeps, 'camera' | 'lights'>,
+  deps: Pick<FrameHandlerDeps, 'camera' | 'lights' | 'scene'>,
   services: FrameCameraServices,
   refs: Pick<FrameStageRefs, 'lastShadowTargetRef' | 'lastRenderDistanceRef'>,
   inputs: {
@@ -80,26 +80,33 @@ export const cameraStage = (
       deps.lights.light.target.updateMatrixWorld()
     }
 
-    // Dynamic shadow frustum: tighten bounds to renderDistance for higher texel density.
+    // Dynamic visibility envelope: tighten camera/shadows/fog to renderDistance.
     // Only update when renderDistance changes (avoids per-frame updateProjectionMatrix).
     const lastRenderDistance = MutableRef.get(refs.lastRenderDistanceRef)
     const renderDistanceChanged = lastRenderDistance !== inputs.renderDistance
     if (renderDistanceChanged) MutableRef.set(refs.lastRenderDistanceRef, inputs.renderDistance)
     if (!renderDistanceChanged) return
     // Dynamic camera far plane: keep Z-buffer precision tight to visible range
-    deps.camera.far = Math.max(inputs.renderDistance * CHUNK_SIZE * 1.5 + CHUNK_HEIGHT, 300)
+    const visibleDistance = inputs.renderDistance * CHUNK_SIZE
+    const farDistance = Math.max(visibleDistance * 1.5 + CHUNK_HEIGHT, 300)
+    deps.camera.far = farDistance
     deps.camera.updateProjectionMatrix()
     // Shadow frustum: tighten bounds to renderDistance for higher texel density
     const halfExtent = Math.min(
-      Math.ceil(inputs.renderDistance * CHUNK_SIZE * 0.5),
+      Math.ceil(visibleDistance * 0.5),
       MAX_SHADOW_HALF_EXTENT,
     )
     const cam = deps.lights.light.shadow.camera
-    cam.far = Math.max(inputs.renderDistance * CHUNK_SIZE * 1.5 + CHUNK_HEIGHT, 300)
+    cam.far = farDistance
     cam.left = -halfExtent
     cam.right = halfExtent
     cam.top = halfExtent
     cam.bottom = -halfExtent
     cam.updateProjectionMatrix()
+    const fog = deps.scene.fog
+    if (fog !== null && 'near' in fog && 'far' in fog) {
+      fog.near = visibleDistance * 0.55
+      fog.far = visibleDistance * 1.08
+    }
     inputs.markShadowMapDirty()
   })

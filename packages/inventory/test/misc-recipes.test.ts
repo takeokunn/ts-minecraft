@@ -1,7 +1,15 @@
 import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
 import { Array as Arr } from 'effect'
-import { MISC_RECIPES } from '../application/recipes/misc-recipes'
+import { BASIC_MISC_RECIPES } from '../application/recipes/basic-misc-recipes'
+import { EQUIPMENT_MISC_RECIPES } from '../application/recipes/equipment-misc-recipes'
+import { SMELTING_MISC_RECIPES } from '../application/recipes/smelting-misc-recipes'
+
+const MISC_RECIPES = [
+  ...BASIC_MISC_RECIPES,
+  ...SMELTING_MISC_RECIPES,
+  ...EQUIPMENT_MISC_RECIPES,
+] as const
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -169,6 +177,37 @@ describe('application/recipes/misc-recipes', () => {
       expect(recipe!.output.itemType).toBe('PRESSURE_PLATE')
       expect(recipe!.output.count).toBe(1)
       expect(ingredientTotal('stone-to-pressure-plate')).toBe(2)
+    })
+
+    it('iron-ingots-and-sticks-to-rails: 6 IRON_INGOT + 1 STICKS -> 16 RAIL at crafting_table', () => {
+      const recipe = findById('iron-ingots-and-sticks-to-rails')
+      expect(recipe).toBeDefined()
+      expect(recipe!.station).toBe('crafting_table')
+      expect(recipe!.ingredients).toHaveLength(2)
+      expect(recipe!.ingredients[0]).toMatchObject({ itemType: 'IRON_INGOT', count: 6 })
+      expect(recipe!.ingredients[1]).toMatchObject({ itemType: 'STICKS', count: 1 })
+      expect(recipe!.output).toEqual({ itemType: 'RAIL', count: 16 })
+      expect(ingredientTotal('iron-ingots-and-sticks-to-rails')).toBe(7)
+    })
+
+    it('planks-to-boat: 5 PLANKS -> 1 BOAT at crafting_table', () => {
+      const recipe = findById('planks-to-boat')
+      expect(recipe).toBeDefined()
+      expect(recipe!.station).toBe('crafting_table')
+      expect(recipe!.ingredients).toHaveLength(1)
+      expect(recipe!.ingredients[0]).toMatchObject({ itemType: 'PLANKS', count: 5 })
+      expect(recipe!.output).toEqual({ itemType: 'BOAT', count: 1 })
+      expect(ingredientTotal('planks-to-boat')).toBe(5)
+    })
+
+    it('iron-ingots-to-minecart: 5 IRON_INGOT -> 1 MINECART at crafting_table', () => {
+      const recipe = findById('iron-ingots-to-minecart')
+      expect(recipe).toBeDefined()
+      expect(recipe!.station).toBe('crafting_table')
+      expect(recipe!.ingredients).toHaveLength(1)
+      expect(recipe!.ingredients[0]).toMatchObject({ itemType: 'IRON_INGOT', count: 5 })
+      expect(recipe!.output).toEqual({ itemType: 'MINECART', count: 1 })
+      expect(ingredientTotal('iron-ingots-to-minecart')).toBe(5)
     })
 
     it('stone-to-stone-slab: 3 STONE -> 6 STONE_SLAB at crafting_table', () => {

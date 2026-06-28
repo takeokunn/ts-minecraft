@@ -74,6 +74,7 @@ const createFrameLoopHandlersInternal = (
     // Track last renderDistance to avoid per-frame shadow camera updateProjectionMatrix
     const lastRenderDistanceRef = MutableRef.make(0)
     const lastEntityStructureVersionRef = yield* Ref.make(-1)
+    const lastRemotePlayerIdsRef = MutableRef.make<ReadonlySet<string>>(new Set())
     const entityPhysicsChunkCacheRef = yield* Ref.make<Array<Chunk | null>>([
       null, null, null,
       null, null, null,
@@ -200,6 +201,7 @@ const createFrameLoopHandlersInternal = (
       lastAirBubblesRef,
       lastRenderDistanceRef,
       lastEntityStructureVersionRef,
+      lastRemotePlayerIdsRef,
       entityPhysicsChunkCacheRef,
       lastEntityPhysicsChunkCoordRef,
       lastEntityPhysicsLoadedChunksRef,

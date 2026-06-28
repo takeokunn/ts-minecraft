@@ -1,7 +1,7 @@
 import { WorldId } from '@ts-minecraft/core'
 import type { GameMode } from '@ts-minecraft/game'
 
-export type SubState = 'root' | 'new-world' | 'load-world'
+export type SubState = 'root' | 'new-world' | 'load-world' | 'multiplayer' | 'how-to-play'
 
 export const formatLastPlayed = (date: Date): string =>
   Number.isNaN(date.getTime()) ? 'Invalid Date' : date.toISOString()

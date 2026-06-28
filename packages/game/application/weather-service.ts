@@ -38,7 +38,7 @@ export class WeatherService extends Effect.Service<WeatherService>()(
           Ref.modify(stateRef, (s): [Weather, WeatherState] => {
             const newRemaining = s.remainingSecs - deltaTime
             if (newRemaining > 0) return [s.weather, { ...s, remainingSecs: newRemaining }]
-            const next = resolveNextWeatherState(s.weather)
+            const next = resolveNextWeatherState(s.weather, Math.random())
             return [next.weather, next]
           }),
       }

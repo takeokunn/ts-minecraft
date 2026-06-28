@@ -1,4 +1,5 @@
 import { initialBlocks } from '@ts-minecraft/block/domain/blocks.config'
+import type { BlockType } from '@ts-minecraft/core'
 import {
   CACTUS_COLLISION_SHAPE,
   FULL_BLOCK_COLLISION_SHAPE,
@@ -19,6 +20,7 @@ export const DEFAULT_BLOCK_FRICTION = 0.6
 // through tree canopies ('木の葉にあたり判定がないのですり抜ける'). Only genuinely
 // non-colliding blocks (fluids, torches) belong here.
 const PASSABLE_BLOCK_IDS: ReadonlySet<number> = new Set([
+  0,
   blockTypeToIndex('WATER'),
   blockTypeToIndex('LAVA'),
   blockTypeToIndex('TORCH'),
@@ -33,7 +35,10 @@ const PASSABLE_BLOCK_IDS: ReadonlySet<number> = new Set([
   blockTypeToIndex('FERN'),
   blockTypeToIndex('SUGAR_CANE'),
   blockTypeToIndex('LILY_PAD'),
+  blockTypeToIndex('RAIL'),
 ])
+
+export const isPassableBlockType = (blockType: BlockType): boolean => PASSABLE_BLOCK_IDS.has(blockTypeToIndex(blockType))
 
 // Hoisted to module scope: computed once at module load, not per frame.
 const WATER_ID = blockTypeToIndex('WATER')

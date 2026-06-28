@@ -5,6 +5,7 @@ export type SessionBootstrapServiceGroups = {
   readonly presentation: import('./presentation/services').SessionPresentationBootstrapServices
   readonly inventory: import('./inventory').SessionInventoryBootstrapServices
   readonly entity: import('./entity').SessionEntityBootstrapServices
+  readonly multiplayer: import('./multiplayer').SessionMultiplayerBootstrapServices
 }
 
 export type SessionBootstrapServices =
@@ -13,4 +14,5 @@ export type SessionBootstrapServices =
   import('./game').SessionGameBootstrapServices &
   import('./presentation/services').SessionPresentationBootstrapServices &
   import('./inventory').SessionInventoryBootstrapServices &
-  import('./entity').SessionEntityBootstrapServices
+  import('./entity').SessionEntityBootstrapServices &
+  import('./multiplayer').SessionMultiplayerBootstrapServices

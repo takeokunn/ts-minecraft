@@ -8,15 +8,15 @@ difficulty: 'advanced'
 
 # Phase 20 - Multiplayer Features
 
-> **実装状況 (2026-06-09)**: Phase 20 は進行中。基盤は完了（protocol + transport + service）だが、アプリ統合・リモートプレイヤー表示・チャット UI は未実装。
+> **実装状況 (2026-06-21)**: Phase 20 は進行中だが、基盤とアプリ統合はほぼ実装済み。`session-bootstrap` の multiplayer は既定で有効、チャット UI と接続 UI は配線済み、remote player 表示もフレーム側に接続済み。
 > - ✅ **ネットワーク基盤**: `packages/network/` — 35 tests、全9メッセージ型、ブラウザ/Node WebSocket アダプター、サーバー/クライアントサービス
 > - ✅ **マルチプレイヤーサービス**: `packages/app/application/multiplayer/multiplayer-service.ts` — Effect Tag + Layer、状態管理、inbound/outbound 委譲
 > - ✅ **フレームステージ**: `packages/app/application/frame/stages/multiplayer-stage.ts` — 位置同期送信
 > - ✅ **接続UI**: `packages/presentation/multiplayer/connection-panel.ts` — 6 tests、DOM ベース
 > - ✅ **リモートプレイヤーレンダラー**: `packages/rendering/infrastructure/player/remote-player-renderer.ts` — 6 tests、Three.js Group 管理
-> - ✅ **フレーム統合点**: `FrameHandlerServices.multiplayer` + `frame-stage-executor.ts` 配線済み。ただし `session.ts` で `Option.none()`（デフォルト無効）。有効化には `Option.some(MultiplayerServiceLive(client))` への変更が必要。
-> - ⏳ **チャット UI**: T キー開閉、メッセージ履歴、送信 UI
-> - ⏳ **他プレイヤー表示**: remote-player-renderer の実 camera/scene への接続
+> - ✅ **フレーム統合点**: `FrameHandlerServices.multiplayer` + `frame-stage-executor.ts` 配線済み。`session-bootstrap/multiplayer.ts` で multiplayer は既定有効。
+> - ✅ **チャット UI**: T キー開閉、メッセージ履歴、送信 UI
+> - ✅ **他プレイヤー表示**: remote-player-renderer の実 camera/scene への接続
 > - ⏳ **E2E テスト**: 2ブラウザ Playwright マルチプレイヤーシナリオ
 
 ## 目標

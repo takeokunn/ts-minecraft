@@ -15,6 +15,7 @@ export const runInteractionStageCombatActions = (
     FrameHandlerServices,
     | 'blockService'
     | 'chunkManagerService'
+    | 'crosshair'
     | 'soundManager'
     | 'entityManager'
     | 'inventoryService'

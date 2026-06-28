@@ -3,6 +3,7 @@ import type { DeltaTimeSecs, Vector3 } from '@ts-minecraft/core'
 import type { Position } from '@ts-minecraft/core'
 import type { Entity, EntityId, EntityType } from '../../domain/mob/entity'
 import { type ManagedEntity } from '../../domain/mob/entity-internal'
+import type { DragonDeathEvent } from '../../domain/mob/ender-dragon/dragon-death'
 import { makeEntityManagerUpdate } from './entity-manager-internal-update'
 import { runBreedingUpdate } from './entity-manager-breeding-update'
 
@@ -13,6 +14,7 @@ export const makeEntityManagerUpdateWithBreeding = (
   structureVersionRef: Ref.Ref<number>,
   burnAccumulatorRef: Ref.Ref<number>,
   birthsRef: Ref.Ref<number>,
+  dragonEventsRef: Ref.Ref<ReadonlyArray<DragonDeathEvent>>,
   addEntity: (type: EntityType, position: Position, ageTicks?: number) => Effect.Effect<EntityId, never>,
 ) => {
   const updateModule = makeEntityManagerUpdate(
@@ -21,6 +23,7 @@ export const makeEntityManagerUpdateWithBreeding = (
     cachedEntitiesRef,
     structureVersionRef,
     burnAccumulatorRef,
+    dragonEventsRef,
   )
 
   return {

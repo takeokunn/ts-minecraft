@@ -1,5 +1,6 @@
 import { Effect, Option } from 'effect'
 import type { FrameHandlerDeps } from '@ts-minecraft/app/application/frame/types/deps'
+import { readBlockTypeAt } from '@ts-minecraft/app/application/frame/stages/interaction-block-access'
 import { findAttackableEntity } from '@ts-minecraft/app/frame/stages/attack-targeting'
 import { SlotIndex } from '@ts-minecraft/core'
 import type { EntityDrop } from '@ts-minecraft/entity/domain/mob/drop'
@@ -15,9 +16,42 @@ import type { Enchantment } from '@ts-minecraft/inventory/domain/enchantment.typ
 import { enchantmentsOf } from '@ts-minecraft/inventory/domain/item-stack'
 import type { FrameBowInteractionServices } from '@ts-minecraft/app/frame/frame-interaction-service-types/bow'
 import { spawnMobDrop, spawnMobXpOrb } from '@ts-minecraft/app/application/frame/stages/interaction-mob-drops'
+import { isPassableBlockType } from '@ts-minecraft/game/domain/block-collision-predicates'
 
 // R101: avoid per-kill [] allocation when entity has no drops.
 const NO_DROPS: ReadonlyArray<EntityDrop> = []
+const ENTITY_CENTER_Y_OFFSET = 0.9
+const BOW_LOS_STEP = 0.1
+const BOW_LOS_COORD_EPSILON = 1e-6
+
+const isBowShotBlockedByTerrain = (
+  services: Pick<FrameBowInteractionServices, 'chunkManagerService'>,
+  from: { readonly x: number; readonly y: number; readonly z: number },
+  to: { readonly x: number; readonly y: number; readonly z: number },
+) =>
+  Effect.gen(function* () {
+    const dx = to.x - from.x
+    const dy = to.y - from.y
+    const dz = to.z - from.z
+    const distance = Math.hypot(dx, dy, dz)
+    if (distance <= 0) return false
+
+    const steps = Math.max(1, Math.ceil(distance / BOW_LOS_STEP))
+    for (let i = 1; i < steps; i++) {
+      const t = (i * BOW_LOS_STEP) / distance
+      if (t >= 1) break
+      const blockType = yield* readBlockTypeAt(services.chunkManagerService, {
+        x: Math.floor(from.x + dx * t + BOW_LOS_COORD_EPSILON),
+        y: Math.floor(from.y + dy * t + BOW_LOS_COORD_EPSILON),
+        z: Math.floor(from.z + dz * t + BOW_LOS_COORD_EPSILON),
+      })
+      if (!isPassableBlockType(blockType)) return true
+    }
+
+    return false
+  }).pipe(
+    Effect.catchAll(() => Effect.succeed(false)),
+  )
 
 const applyBowHitToEntity = (
   entityId: EntityIdType,
@@ -27,10 +61,20 @@ const applyBowHitToEntity = (
 ) =>
   Effect.gen(function* () {
     const entity = Option.getOrNull(yield* services.entityManager.getEntity(entityId))
+    if (entity !== null) {
+      const blocked = yield* isBowShotBlockedByTerrain(services, deps.camera.position, {
+        x: entity.position.x,
+        y: entity.position.y + ENTITY_CENTER_Y_OFFSET,
+        z: entity.position.z,
+      })
+      if (blocked) return
+    }
+
     const drops = yield* services.entityManager.applyDamage(entityId, opts.damage)
 
     if (entity !== null) {
       yield* services.soundManager.playEffect('entityHit', { position: entity.position })
+      yield* services.crosshair.pulse()
     }
 
     // PUNCH: apply horizontal knockback on arrow hit when entity survived.
@@ -141,7 +185,6 @@ export const handleBowFire = (
     }
 
     // Hitscan: find the nearest entity in the crosshair within bow range.
-    // maxDistance = none() (bow ignores block occlusion; it shoots through transparent blocks).
     const targetId = findAttackableEntity(entities, deps.camera, null, BOW_MAX_RANGE)
 
     const targetIdVal = Option.getOrNull(targetId)

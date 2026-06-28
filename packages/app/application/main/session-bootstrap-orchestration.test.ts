@@ -1,5 +1,5 @@
 import { describe, it } from '@effect/vitest'
-import { Effect } from 'effect'
+import { Effect, Option } from 'effect'
 import { expect, vi } from 'vitest'
 
 import { buildLighting } from '@ts-minecraft/app/main/session-lighting'
@@ -52,6 +52,11 @@ describe('buildSessionBootstrapOrchestration', () => {
     const lighting = { id: 'lighting' } as never
     const runtimeParams = { id: 'runtime-params' } as never
     const runtimeServices = { id: 'runtime-services' } as never
+    const connectionPanel = { id: 'connection-panel' } as never
+    const chatPanel = { id: 'chat-panel' } as never
+    const playerListPanel = { id: 'player-list-panel' } as never
+    const multiplayerService = Option.some({ id: 'multiplayer' } as never)
+    const entityManager = { id: 'entity-manager' } as never
 
     vi.mocked(buildSessionBootstrapStartupState).mockImplementation(() => {
       callOrder.push('startup')
@@ -79,9 +84,13 @@ describe('buildSessionBootstrapOrchestration', () => {
       callOrder.push('lighting')
       return Effect.succeed(lighting)
     })
-    vi.mocked(buildSessionRuntimeBundle).mockImplementation(({ rendering }) => {
+    vi.mocked(buildSessionRuntimeBundle).mockImplementation(({ rendering, overlays, services }) => {
       callOrder.push('runtime')
       expect(rendering.lighting).toBe(lighting)
+      expect(overlays.connectionPanel).toBe(connectionPanel)
+      expect(overlays.chatPanel).toBe(chatPanel)
+      expect(overlays.playerListPanel).toBe(playerListPanel)
+      expect(services.multiplayerService).toBe(multiplayerService)
       return Effect.succeed({ runtimeParams, runtimeServices })
     })
 
@@ -99,6 +108,7 @@ describe('buildSessionBootstrapOrchestration', () => {
       },
       worldId: 'world-1' as never,
       initialGameMode: 'survival' as never,
+      startupMultiplayerConnection: Option.none(),
       gameLoopService: { id: 'game-loop' } as never,
       loadingScreen: { id: 'loading' } as never,
       deathScreen: { id: 'death' } as never,
@@ -122,6 +132,9 @@ describe('buildSessionBootstrapOrchestration', () => {
         },
         presentation: {
           debugOverlay: { id: 'debug-overlay' } as never,
+          connectionPanel,
+          chatPanel,
+          playerListPanel,
           blockHighlight: { id: 'block-highlight' } as never,
           crosshair: { id: 'crosshair' } as never,
           hotbarRenderer: { id: 'hotbar-renderer' } as never,
@@ -138,6 +151,10 @@ describe('buildSessionBootstrapOrchestration', () => {
           healthService: { id: 'health' } as never,
           hungerService: { id: 'hunger' } as never,
           xpService: { id: 'xp' } as never,
+          entityManager,
+        },
+        multiplayer: {
+          multiplayerService,
         },
       } as never,
     } satisfies Parameters<typeof buildSessionBootstrapOrchestration>[0]))
@@ -146,6 +163,7 @@ describe('buildSessionBootstrapOrchestration', () => {
     expect(buildSessionBootstrapStartupState).toHaveBeenCalledOnce()
     expect(buildSessionBootstrapScene).toHaveBeenCalledOnce()
     expect(buildSessionBootstrapWorldOrchestration).toHaveBeenCalledOnce()
+    expect(vi.mocked(buildSessionBootstrapWorldOrchestration).mock.calls[0]?.[0].presentation.entityManager).toBe(entityManager)
     expect(buildLighting).toHaveBeenCalledOnce()
     expect(buildSessionRuntimeBundle).toHaveBeenCalledOnce()
     expect(result).toEqual({

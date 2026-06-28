@@ -2132,9 +2132,9 @@ adversarial perf workflow (6 grounded finders → per-finding adversarial verify
    OutputPass blit) despite ZERO active post-fx → ~8MB RT VRAM + 1 wasted full-screen pass/frame.
    Fix: bypass composer when no post-pass is active (`renderer.render` direct; renderer already has the
    same ACESFilmic+sRGB the OutputPass applies). `render-stage.ts:69`.
-3. **[medium, TODO]** new-chunk mesh drain serializes worker round-trips (concurrency:1) and counts
-   await-latency against the 4ms main-thread budget → 3 of 4 worker cores idle on load/streaming.
-   `world-renderer-chunk-sync.ts:126`.
+3. **[x] FIX-M** new-chunk mesh drain was serialized at `concurrency:1`; it is now parallelized
+   across the per-frame batch and no longer counts worker-await latency against the main-thread
+   budget. `world-renderer-chunk-sync.ts` (Round 58).
 
 - [x] **FIX-K**: replaced `HashMap.map` with a single pass that applies `f` once per entity and only
   `HashMap.set`s the entries that ACTUALLY changed (`next !== entity`), returning the **original map
@@ -2168,9 +2168,8 @@ memory pressure is allocation/GC churn (this fix) + the composer RT (finding #2)
   bypasses composer).
 
 Two memory wins landed back-to-back for the "メモリが足りなさすぎる" report: FIX-K (kill per-frame entity
-HAMT garbage = GC pressure) + FIX-L (reclaim the ~8MB composer RT = VRAM). Remaining verified follow-up:
-finding #3 (parallelize the serialized worker mesh drain, `world-renderer-chunk-sync.ts:126`) — load
-latency / worker under-utilisation, medium effort, deferred to a future round.
+HAMT garbage = GC pressure) + FIX-L (reclaim the ~8MB composer RT = VRAM). The worker mesh drain
+follow-up was later landed as FIX-M in Round 58.
 
 ### Quality gate (Round 57)
 `pnpm typecheck` 0 errors · `pnpm lint` 0 errors / 4 warnings (pre-existing) ·

@@ -38,6 +38,8 @@ export type QuadrupedPalette = Readonly<{ head: number; body: number; leg: numbe
 export type ChickenPalette = Readonly<{ head: number; body: number; wing: number; leg: number }>
 export type BatPalette = Readonly<{ head: number; body: number; wing: number; foot: number }>
 export type SquidPalette = Readonly<{ head: number; body: number; tentacle: number }>
+export type ShulkerParts = Readonly<{ head: Dim3; body: Dim3; shellSide: Dim3 }>
+export type ShulkerPalette = Readonly<{ head: number; body: number; shell: number }>
 
 export const ZOMBIE_PARTS: ZombieParts = {
   head: [0.5, 0.5, 0.5],
@@ -153,6 +155,13 @@ export const ENDERMITE_PARTS: QuadrupedParts = {
 }
 export const ENDERMITE_PALETTE: QuadrupedPalette = { head: 0xb7b3a5, body: 0x8c887c, leg: 0x5f5b54 }
 
+export const SHULKER_PARTS: ShulkerParts = {
+  head: [0.48, 0.48, 0.48],
+  body: [0.82, 0.62, 0.82],
+  shellSide: [0.08, 0.52, 0.82],
+}
+export const SHULKER_PALETTE: ShulkerPalette = { head: 0xb483b8, body: 0x7f4f87, shell: 0x4e3454 }
+
 export const ENDERMAN_PARTS: ZombieParts = {
   head: [0.5, 0.5, 0.5],
   body: [0.375, 0.875, 0.25],
@@ -168,4 +177,3 @@ export const DRAGON_PARTS: ZombieParts = {
   leg: [0.25, 0.5, 0.25],
 }
 export const DRAGON_PALETTE: ZombiePalette = { head: 0x0a0020, body: 0x0a0020, arm: 0x0a0020, leg: 0x0a0020 }
-

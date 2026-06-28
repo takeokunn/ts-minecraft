@@ -37,7 +37,7 @@ describe('canConduct', () => {
     [RedstoneComponentType.Torch, true],
     [RedstoneComponentType.Piston, true],
     [RedstoneComponentType.PressurePlate, true],
-    ['lamp' as RedstoneComponentType, false],
+    [RedstoneComponentType.Lamp, false],
   ]
 
   Arr.forEach(conductingTypes, ([type, expected]) => {
@@ -159,7 +159,7 @@ describe('propagatePower', () => {
   it('non-conducting component (Lamp) breaks propagation chain', () => {
     const lever = makeComponent(RedstoneComponentType.Lever, 0, 64, 0, { active: true })
     // Lamp at x=1 does not conduct — wire at x=2 should not receive power
-    const lamp = makeComponent('lamp' as RedstoneComponentType, 1, 64, 0)
+    const lamp = makeComponent(RedstoneComponentType.Lamp, 1, 64, 0)
     const wire = makeComponent(RedstoneComponentType.Wire, 2, 64, 0)
     const components = makeComponents([lever, lamp, wire])
     const power = propagatePower(components)

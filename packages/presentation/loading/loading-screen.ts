@@ -25,10 +25,17 @@ const createLoadingText = (dom: DomOperationsService): HTMLDivElement => {
   const loadingText = dom.createElement('div')
   loadingText.textContent = 'Loading...'
   loadingText.style.cssText = 'color:#fff;font-family:monospace;font-size:16px;margin-top:16px'
+  loadingText.setAttribute('role', 'status')
+  loadingText.setAttribute('aria-live', 'polite')
   return loadingText
 }
 
 const renderLoadingView = (dom: DomOperationsService, overlayEl: HTMLDivElement): void => {
+  overlayEl.setAttribute('role', 'status')
+  overlayEl.setAttribute('aria-live', 'polite')
+  overlayEl.setAttribute('aria-busy', 'true')
+  overlayEl.setAttribute('aria-label', 'Loading ts-minecraft')
+  overlayEl.removeAttribute('aria-modal')
   clearElementChildren(overlayEl)
   dom.appendChildTo(overlayEl, createBaseTitle(dom))
   dom.appendChildTo(overlayEl, createLoadingSpinner(dom))
@@ -41,6 +48,12 @@ const renderErrorView = (
   message: string,
   detailText = 'Returning to main menu...',
 ): void => {
+  overlayEl.setAttribute('role', 'alertdialog')
+  overlayEl.setAttribute('aria-modal', 'true')
+  overlayEl.setAttribute('aria-live', 'assertive')
+  overlayEl.setAttribute('aria-busy', 'false')
+  overlayEl.setAttribute('aria-label', 'Game session error')
+  overlayEl.tabIndex = -1
   clearElementChildren(overlayEl)
 
   const title = createBaseTitle(dom)
@@ -48,6 +61,7 @@ const renderErrorView = (
   const errorMessage = dom.createElement('div')
   errorMessage.textContent = message
   errorMessage.style.cssText = 'color:#ffb4b4;font-family:monospace;font-size:16px;max-width:680px;text-align:center;line-height:1.6;padding:0 16px'
+  errorMessage.setAttribute('role', 'alert')
 
   const detail = dom.createElement('div')
   detail.textContent = detailText
@@ -56,6 +70,7 @@ const renderErrorView = (
   dom.appendChildTo(overlayEl, title)
   dom.appendChildTo(overlayEl, errorMessage)
   dom.appendChildTo(overlayEl, detail)
+  overlayEl.focus({ preventScroll: true })
 }
 
 export class LoadingScreenService extends Effect.Service<LoadingScreenService>()(

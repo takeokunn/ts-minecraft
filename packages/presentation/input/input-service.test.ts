@@ -232,6 +232,13 @@ describe('InputService', () => {
       fakeDocument.dispatchEvent(ev as unknown as Event)
       return counter
     }
+    const dispatchKeyUp = (
+      fakeDocument: { dispatchEvent: (e: Event) => boolean },
+      code: string,
+      target: unknown,
+    ) => {
+      fakeDocument.dispatchEvent({ type: 'keyup', code, target, preventDefault: () => {} } as unknown as Event)
+    }
 
     it.effect('preventDefault fires for Space/arrows/page keys when no text field is focused (fixes jump + page-scroll)', () => {
       const { fakeDocument } = installPointerLockDom()
@@ -273,8 +280,30 @@ describe('InputService', () => {
         ] as const) {
           const { prevented } = dispatchKey(fakeDocument, code, { tagName: 'INPUT', isContentEditable: false }, init)
           expect(prevented).toBe(0)
+          expect(yield* input.isKeyPressed(code)).toBe(false)
+          expect(yield* input.consumeKeyPress(code)).toBe(false)
         }
-        void input
+      }).pipe(Effect.provide(InputService.Default)))
+    })
+
+    it.effect('does not record key state from content-editable targets', () => {
+      const { fakeDocument } = installPointerLockDom()
+      return Effect.scoped(Effect.gen(function* () {
+        const input = yield* InputService
+        dispatchKey(fakeDocument, 'KeyT', { tagName: 'DIV', isContentEditable: true })
+        expect(yield* input.isKeyPressed('KeyT')).toBe(false)
+        expect(yield* input.consumeKeyPress('KeyT')).toBe(false)
+      }).pipe(Effect.provide(InputService.Default)))
+    })
+
+    it.effect('still clears a held key when keyup happens after focus moves into text input', () => {
+      const { fakeDocument } = installPointerLockDom()
+      return Effect.scoped(Effect.gen(function* () {
+        const input = yield* InputService
+        dispatchKey(fakeDocument, 'KeyW', null)
+        expect(yield* input.isKeyPressed('KeyW')).toBe(true)
+        dispatchKeyUp(fakeDocument, 'KeyW', { tagName: 'INPUT', isContentEditable: false })
+        expect(yield* input.isKeyPressed('KeyW')).toBe(false)
       }).pipe(Effect.provide(InputService.Default)))
     })
 

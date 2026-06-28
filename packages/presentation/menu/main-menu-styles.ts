@@ -1,8 +1,10 @@
 export const overlayBaseStyle = [
   'position:fixed', 'top:0', 'left:0', 'width:100vw', 'height:100vh',
+  'box-sizing:border-box',
   'background:linear-gradient(#83b7ff 0 44%,#4e8f2f 44% 49%,#8a5a32 49% 100%)',
   'color:#fff', 'font-family:"Courier New",monospace',
   'text-shadow:2px 2px #222', 'image-rendering:pixelated',
+  'padding:16px', 'overflow:auto',
   'display:flex', 'align-items:center', 'justify-content:center', 'flex-direction:column',
   'z-index:5000',
 ].join(';')
@@ -11,7 +13,9 @@ export const cardStyle = [
   'background:#c6c6c6', 'padding:18px',
   'border:2px solid #111',
   'box-shadow:inset 3px 3px #fff,inset -3px -3px #555,0 12px 0 rgba(0,0,0,0.35)',
-  'min-width:min(420px,calc(100vw - 32px))',
+  'box-sizing:border-box',
+  'width:min(420px,calc(100vw - 32px))',
+  'max-width:100%',
   'display:flex', 'flex-direction:column', 'gap:12px',
   'color:#202020', 'text-shadow:none',
 ].join(';')

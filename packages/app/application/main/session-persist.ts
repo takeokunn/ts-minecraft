@@ -11,6 +11,7 @@ import { FurnaceService } from '@ts-minecraft/inventory/application/furnace-serv
 import { HealthService } from '@ts-minecraft/entity/application/health-service'
 import { HungerService } from '@ts-minecraft/entity/application/hunger-service'
 import { XPService } from '@ts-minecraft/entity/application/xp-service'
+import type { EntityManager } from '@ts-minecraft/entity/application/mob/entity-manager'
 import { PlayerError } from '@ts-minecraft/entity/domain/errors'
 import { StorageService, CropGrowthService } from '@ts-minecraft/world'
 import { StorageError } from '@ts-minecraft/world'
@@ -34,13 +35,14 @@ export type PersistSessionStateDeps = {
   readonly weatherService: WeatherService
   readonly storageService: StorageService
   readonly cropGrowthService: CropGrowthService
+  readonly entityManager: EntityManager
   readonly worldBootstrap: WorldBootstrap
   readonly worldId: WorldId
   readonly respawnPositionRef: MutableRef.MutableRef<Position>
 }
 
 export const buildPersistSessionState = (deps: PersistSessionStateDeps) => (): Effect.Effect<void, PlayerError | StorageError> => {
-  const { gameState, inventoryService, equipmentService, healthService, hungerService, xpService, timeService, chestService, furnaceService, gameModeService, weatherService, storageService, cropGrowthService, worldBootstrap, worldId, respawnPositionRef } = deps
+  const { gameState, inventoryService, equipmentService, healthService, hungerService, xpService, timeService, chestService, furnaceService, gameModeService, weatherService, storageService, cropGrowthService, entityManager, worldBootstrap, worldId, respawnPositionRef } = deps
   return Effect.gen(function* () {
     const nowMs = yield* Clock.currentTimeMillis
     const playerPosition = yield* gameState.getPlayerPosition(DEFAULT_PLAYER_ID)
@@ -55,6 +57,7 @@ export const buildPersistSessionState = (deps: PersistSessionStateDeps) => (): E
     const gameMode = yield* gameModeService.get()
     const cropAges = yield* cropGrowthService.serialize()
     const weatherState = yield* weatherService.serialize()
+    const entityStates = yield* entityManager.getEntities()
     const metadata = buildSessionSaveMetadata({
       worldBootstrap,
       lastPlayed: new Date(nowMs),
@@ -72,6 +75,7 @@ export const buildPersistSessionState = (deps: PersistSessionStateDeps) => (): E
       chestStates,
       furnaceStates,
       weatherState,
+      entityStates,
       gameMode,
     })
     yield* storageService.saveWorldMetadata(worldId, metadata)

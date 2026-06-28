@@ -93,7 +93,7 @@ describe('makeJoinMessage', () => {
 })
 
 describe('server handler dispatch', () => {
-  it.effect('sends existing players before the assigned join message', () =>
+  it.effect('sends the assigned join message before existing players', () =>
     Effect.gen(function* () {
       const harness = yield* makeHarness()
       const pair = yield* makePair()
@@ -113,18 +113,18 @@ describe('server handler dispatch', () => {
         pair.connection,
       )
 
-      const existing = yield* takeMessage(pair)
-      expect(existing.type).toBe(MessageType.PlayerJoin)
-      if (existing.type === MessageType.PlayerJoin) {
-        expect(existing.playerId).toBe(firstPlayerId)
-        expect(existing.playerName).toBe(PlayerName.make('Alex'))
-      }
-
       const assigned = yield* takeMessage(pair)
       expect(assigned.type).toBe(MessageType.PlayerJoin)
       if (assigned.type === MessageType.PlayerJoin) {
         expect(assigned.playerId).toBe(assignedPlayerId)
         expect(assigned.playerName).toBe(PlayerName.make('Steve'))
+      }
+
+      const existing = yield* takeMessage(pair)
+      expect(existing.type).toBe(MessageType.PlayerJoin)
+      if (existing.type === MessageType.PlayerJoin) {
+        expect(existing.playerId).toBe(firstPlayerId)
+        expect(existing.playerName).toBe(PlayerName.make('Alex'))
       }
 
       const broadcasts = yield* Ref.get(harness.broadcasts)
@@ -189,6 +189,36 @@ describe('server handler dispatch', () => {
         expect(result.left.reason).toContain('does not belong to connection')
       }
       expect(yield* Ref.get(harness.broadcasts)).toEqual([])
+    }),
+  )
+
+  it.effect('dispatches an owned entity snapshot to other players', () =>
+    Effect.gen(function* () {
+      const harness = yield* makeHarness()
+      const pair = yield* makePair()
+      yield* Ref.set(harness.gameServer.playerIdByConnectionId, new Map([[pair.connection.id, firstPlayerId]]))
+
+      const raw = yield* encodeNetworkMessage({
+        type: MessageType.EntitySnapshot,
+        playerId: firstPlayerId,
+        worldId,
+        entityId: 'entity-1',
+        entityType: 'ZOMBIE',
+        position: { x: 3, y: 64, z: -2 },
+        health: 8,
+        alive: true,
+        timestamp: 5,
+      }).pipe(Effect.orDie)
+      yield* dispatchMessage(harness, pair.connection, raw)
+
+      const broadcasts = yield* Ref.get(harness.broadcasts)
+      expect(broadcasts).toHaveLength(1)
+      expect(broadcasts[0]?.exclude).toBe(firstPlayerId)
+      expect(broadcasts[0]?.message).toMatchObject({
+        type: MessageType.EntitySnapshot,
+        entityId: 'entity-1',
+        alive: true,
+      })
     }),
   )
 

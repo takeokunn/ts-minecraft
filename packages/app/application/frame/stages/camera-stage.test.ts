@@ -1,6 +1,8 @@
 import { describe, it } from '@effect/vitest'
 import { expect, vi } from 'vitest'
 import { Effect, MutableHashSet, MutableRef } from 'effect'
+import * as THREE from 'three'
+import { CHUNK_SIZE } from '@ts-minecraft/core'
 import { KeyMappings } from '@ts-minecraft/entity/domain/key-mappings'
 import { ThirdPersonCameraService } from '@ts-minecraft/entity/application/third-person-camera-service'
 import { makeDeps, makeCamera, makeLights } from '../../../test/frame-handler-test-kit/orchestration/deps'
@@ -57,6 +59,7 @@ describe('step 8 — camera sync', () => {
   it.effect('updates the shadow target when the player moves > 0.5 blocks but does NOT force a shadow re-render (perf: mod-8 cadence owns that)', () => Effect.gen(function* () {
     const camera = makeCamera()
     const lights = makeLights()
+    const scene = new THREE.Scene()
     const { service: cameraStateService } = makeCameraState('firstPerson')
     const inputService = makeInputService()
     const thirdPersonCamera: Parameters<typeof cameraStage>[1]['thirdPersonCamera'] = ThirdPersonCameraService.of({
@@ -71,7 +74,7 @@ describe('step 8 — camera sync', () => {
 
     const shadowDirtyCalledRef = MutableRef.make(false)
     yield* cameraStage(
-      { camera, lights },
+      { camera, lights, scene },
       { inputService, playerCameraState: cameraStateService, firstPersonCamera: makeFirstPersonCamera(), thirdPersonCamera },
       { lastShadowTargetRef, lastRenderDistanceRef },
       { playerPos: { x: 5, y: 64, z: 3 }, renderDistance: 8, markShadowMapDirty: () => { MutableRef.set(shadowDirtyCalledRef, true) } },
@@ -86,6 +89,7 @@ describe('step 8 — camera sync', () => {
   it.effect('marks shadow map dirty when render distance changes (shadow frustum must re-render)', () => Effect.gen(function* () {
     const camera = makeCamera()
     const lights = makeLights()
+    const scene = new THREE.Scene()
     const { service: cameraStateService } = makeCameraState('firstPerson')
     const inputService = makeInputService()
     const thirdPersonCamera: Parameters<typeof cameraStage>[1]['thirdPersonCamera'] = ThirdPersonCameraService.of({
@@ -98,7 +102,7 @@ describe('step 8 — camera sync', () => {
 
     const shadowDirtyCalledRef = MutableRef.make(false)
     yield* cameraStage(
-      { camera, lights },
+      { camera, lights, scene },
       { inputService, playerCameraState: cameraStateService, firstPersonCamera: makeFirstPersonCamera(), thirdPersonCamera },
       { lastShadowTargetRef, lastRenderDistanceRef },
       { playerPos: { x: 5, y: 64, z: 3 }, renderDistance: 8, markShadowMapDirty: () => { MutableRef.set(shadowDirtyCalledRef, true) } },
@@ -107,8 +111,36 @@ describe('step 8 — camera sync', () => {
     expect(MutableRef.get(shadowDirtyCalledRef)).toBe(true)
   }))
 
+  it.effect('updates linear fog range when render distance changes', () => Effect.gen(function* () {
+    const camera = makeCamera()
+    const lights = makeLights()
+    const scene = new THREE.Scene()
+    scene.fog = new THREE.Fog(0x87ceeb, 1, 2)
+    const { service: cameraStateService } = makeCameraState('firstPerson')
+    const inputService = makeInputService()
+    const thirdPersonCamera: Parameters<typeof cameraStage>[1]['thirdPersonCamera'] = ThirdPersonCameraService.of({
+      _tag: '@minecraft/application/ThirdPersonCameraService' as const,
+      update: () => Effect.void,
+    })
+
+    const lastShadowTargetRef = MutableRef.make({ x: 5, z: 3 })
+    const lastRenderDistanceRef = MutableRef.make(4)
+
+    yield* cameraStage(
+      { camera, lights, scene },
+      { inputService, playerCameraState: cameraStateService, firstPersonCamera: makeFirstPersonCamera(), thirdPersonCamera },
+      { lastShadowTargetRef, lastRenderDistanceRef },
+      { playerPos: { x: 5, y: 64, z: 3 }, renderDistance: 8, markShadowMapDirty: () => {} },
+    )
+
+    const visibleDistance = 8 * CHUNK_SIZE
+    expect(scene.fog.near).toBeCloseTo(visibleDistance * 0.55)
+    expect(scene.fog.far).toBeCloseTo(visibleDistance * 1.08)
+  }))
+
   it.effect('widens FOV while sprinting (Ctrl + forward) and holds base FOV when idle (R5)', () => Effect.gen(function* () {
     const lights = makeLights()
+    const scene = new THREE.Scene()
     const { service: cameraStateService } = makeCameraState('firstPerson')
     const thirdPersonCamera: Parameters<typeof cameraStage>[1]['thirdPersonCamera'] = ThirdPersonCameraService.of({
       _tag: '@minecraft/application/ThirdPersonCameraService' as const,
@@ -118,7 +150,7 @@ describe('step 8 — camera sync', () => {
     const lastRenderDistanceRef = MutableRef.make(8)
     const runOnce = (camera: ReturnType<typeof makeCamera>, inputService: ReturnType<typeof makeInputService>) =>
       cameraStage(
-        { camera, lights },
+        { camera, lights, scene },
         { inputService, playerCameraState: cameraStateService, firstPersonCamera: makeFirstPersonCamera(), thirdPersonCamera },
         { lastShadowTargetRef, lastRenderDistanceRef },
         { playerPos: { x: 5, y: 64, z: 3 }, renderDistance: 8, markShadowMapDirty: () => {} },

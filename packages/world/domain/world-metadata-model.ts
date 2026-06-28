@@ -1,5 +1,13 @@
 import { Schema } from 'effect'
-import { GameModeSchema, InventoryItemSchema, InventorySaveDataSchema, PositionSchema, RecipeIdSchema } from '@ts-minecraft/core'
+import {
+  GameModeSchema,
+  InventoryItemSchema,
+  InventorySaveDataSchema,
+  PositionSchema,
+  QuaternionSchema,
+  RecipeIdSchema,
+  Vector3Schema,
+} from '@ts-minecraft/core'
 
 export const CURRENT_WORLD_SAVE_VERSION = 1
 
@@ -33,6 +41,40 @@ const ChestStateSchema = Schema.Struct({
 const WeatherStateSchema = Schema.Struct({
   weather: Schema.Literal('clear', 'rain', 'thunder'),
   remainingSecs: Schema.Number.pipe(Schema.finite(), Schema.nonNegative()),
+})
+
+const EntityTypeSchema = Schema.Literal(
+  'Zombie',
+  'Cow',
+  'Pig',
+  'Sheep',
+  'Chicken',
+  'Bat',
+  'Bee',
+  'Squid',
+  'GlowSquid',
+  'Witch',
+  'Drowned',
+  'ZombieVillager',
+  'Creeper',
+  'Skeleton',
+  'Spider',
+  'Enderman',
+  'EnderDragon',
+  'Endermite',
+  'Shulker',
+)
+
+const EntityStateSchema = Schema.Struct({
+  entityId: Schema.String,
+  position: PositionSchema,
+  velocity: Vector3Schema,
+  rotation: QuaternionSchema,
+  health: Schema.Number.pipe(Schema.finite(), Schema.nonNegative()),
+  type: EntityTypeSchema,
+  isBaby: Schema.optional(Schema.Boolean),
+  fuseSecs: Schema.optional(Schema.Number.pipe(Schema.finite(), Schema.nonNegative())),
+  fireSecs: Schema.optional(Schema.Number.pipe(Schema.finite(), Schema.nonNegative())),
 })
 
 export const WorldMetadataSchema = Schema.Struct({
@@ -73,6 +115,7 @@ export const WorldMetadataSchema = Schema.Struct({
   chestStates: Schema.optional(Schema.Array(ChestStateSchema)),
   furnaceStates: Schema.optional(Schema.Array(FurnaceStateSchema)),
   weatherState: Schema.optional(WeatherStateSchema),
+  entityStates: Schema.optional(Schema.Array(EntityStateSchema)),
   gameMode: GameModeSchema,
   saveVersion: Schema.Number.pipe(Schema.int(), Schema.positive()),
 })

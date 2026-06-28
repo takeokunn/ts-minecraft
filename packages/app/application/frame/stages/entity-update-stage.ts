@@ -17,8 +17,10 @@ import { logErrors } from '@ts-minecraft/app/frame/error-logging'
 import type { FrameHandlerDeps } from '@ts-minecraft/app/application/frame/types/deps'
 import type { FrameHandlerServices } from '@ts-minecraft/app/application/frame/types/services'
 import type { FrameStageRefs } from '@ts-minecraft/app/application/frame/types/stage-refs'
+import type { LocalEntitySnapshot } from '@ts-minecraft/app/application/multiplayer/multiplayer-service'
 import { runTickable } from '@ts-minecraft/app/frame/frame-fixed-step'
 import { addExperienceWithMending } from '@ts-minecraft/app/application/frame/stages/xp-mending'
+import { dragonDeathStage } from '@ts-minecraft/app/application/frame/stages/dragon-death-stage'
 import { REDSTONE_TICK_INTERVAL_SECS, FLUID_TICK_INTERVAL_SECS } from '@ts-minecraft/app/frame-handler.config'
 import { CHUNK_SIZE, type DeltaTimeSecs, type Position } from '@ts-minecraft/core'
 
@@ -28,8 +30,11 @@ const ENTITY_PHYSICS_CHUNK_OFFSETS = [
   [1, -1, 6], [1, 0, 7], [1, 1, 8],
 ] as const
 const RENDER_DISABLED_STRUCTURE_VERSION = Number.NEGATIVE_INFINITY
+const REMOTE_ENTITY_ID_PREFIX = 'remote:'
 const _playerLookDirection = new THREE.Vector3()
 const PRESSURE_PLATE_PLAYER_VERTICAL_REACH = 1.75
+const DROPPED_ITEM_PRESSURE_PLATE_HALF_WIDTH = 0.125
+const DROPPED_ITEM_PRESSURE_PLATE_HALF_HEIGHT = 0.125
 
 const hasMissingPhysicsChunk = (chunkCache: ReadonlyArray<unknown>): boolean => {
   for (let i = 0; i < chunkCache.length; i++) {
@@ -60,9 +65,34 @@ export const isEntityPressingPressurePlate = (entity: Pick<Entity, 'position'>, 
   return overlapsHorizontally && entityBottom <= platePos.y + PRESSURE_PLATE_COLLISION_HEIGHT && entityTop >= platePos.y
 }
 
+export const isDroppedItemPressingPressurePlate = (
+  item: Pick<DroppedItemEntity, 'position'>,
+  platePos: Position,
+): boolean => {
+  const pos = item.position
+  const overlapsHorizontally =
+    pos.x + DROPPED_ITEM_PRESSURE_PLATE_HALF_WIDTH > platePos.x &&
+    pos.x - DROPPED_ITEM_PRESSURE_PLATE_HALF_WIDTH < platePos.x + 1 &&
+    pos.z + DROPPED_ITEM_PRESSURE_PLATE_HALF_WIDTH > platePos.z &&
+    pos.z - DROPPED_ITEM_PRESSURE_PLATE_HALF_WIDTH < platePos.z + 1
+  const itemBottom = pos.y - DROPPED_ITEM_PRESSURE_PLATE_HALF_HEIGHT
+  const itemTop = pos.y + DROPPED_ITEM_PRESSURE_PLATE_HALF_HEIGHT
+  return overlapsHorizontally && itemBottom <= platePos.y + PRESSURE_PLATE_COLLISION_HEIGHT && itemTop >= platePos.y
+}
+
 const isAnyEntityPressingPressurePlate = (entities: ReadonlyArray<Pick<Entity, 'position'>>, platePos: Position): boolean => {
   for (const entity of entities) {
     if (isEntityPressingPressurePlate(entity, platePos)) return true
+  }
+  return false
+}
+
+const isAnyDroppedItemPressingPressurePlate = (
+  droppedItems: ReadonlyArray<Pick<DroppedItemEntity, 'position'>>,
+  platePos: Position,
+): boolean => {
+  for (const item of droppedItems) {
+    if (isDroppedItemPressingPressurePlate(item, platePos)) return true
   }
   return false
 }
@@ -71,6 +101,7 @@ export const updatePressurePlateStates = (
   redstoneService: Pick<FrameHandlerServices['redstoneService'], 'getComponents' | 'setPressurePlatePressed'>,
   playerPos: Position,
   entities: ReadonlyArray<Pick<Entity, 'position'>> = [],
+  droppedItems: ReadonlyArray<Pick<DroppedItemEntity, 'position'>> = [],
 ): Effect.Effect<void, never> =>
   Effect.gen(function* () {
     const components = yield* redstoneService.getComponents()
@@ -79,10 +110,24 @@ export const updatePressurePlateStates = (
       yield* redstoneService.setPressurePlatePressed(
         component.position,
         isPlayerPressingPressurePlate(playerPos, component.position) ||
-          isAnyEntityPressingPressurePlate(entities, component.position),
+          isAnyEntityPressingPressurePlate(entities, component.position) ||
+          isAnyDroppedItemPressingPressurePlate(droppedItems, component.position),
       )
     }
   })
+
+export const createLocalEntitySnapshots = (
+  entities: ReadonlyArray<Pick<Entity, 'entityId' | 'type' | 'position' | 'health'>>,
+): ReadonlyArray<LocalEntitySnapshot> =>
+  entities
+    .filter((entity) => !String(entity.entityId).startsWith(REMOTE_ENTITY_ID_PREFIX))
+    .map((entity) => ({
+      entityId: String(entity.entityId),
+      entityType: entity.type,
+      position: entity.position,
+      health: entity.health,
+      alive: entity.health > 0,
+    }))
 
 const addCollectedDroppedItem = (
   services: Pick<FrameHandlerServices, 'droppedItemService' | 'inventoryService'>,
@@ -109,7 +154,7 @@ export const entityUpdateStage = (
   deps: Pick<FrameHandlerDeps, 'scene' | 'camera'>,
   services: Pick<
     FrameHandlerServices,
-    'chunkManagerService' | 'droppedItemService' | 'droppedXpOrbService' | 'droppedItemRenderer' | 'droppedXpOrbRenderer' | 'entityManager' | 'entityRenderer' | 'redstoneService' | 'fluidService' | 'particleSystem' | 'inventoryService' | 'equipmentService' | 'xpService'
+    'chunkManagerService' | 'droppedItemService' | 'droppedXpOrbService' | 'droppedItemRenderer' | 'droppedXpOrbRenderer' | 'entityManager' | 'entityRenderer' | 'redstoneService' | 'fluidService' | 'particleSystem' | 'inventoryService' | 'equipmentService' | 'xpService' | 'blockService'
   >,
   refs: Pick<
     FrameStageRefs,
@@ -120,6 +165,7 @@ export const entityUpdateStage = (
     | 'lastLoadedChunksRef'
     | 'redstoneTickAccumulatorRef'
     | 'fluidTickAccumulatorRef'
+    | 'dirtyChunksRef'
   >,
   inputs: {
     readonly deltaTime: DeltaTimeSecs
@@ -129,7 +175,7 @@ export const entityUpdateStage = (
     readonly isNight: boolean
     readonly daylightBurnProtected?: boolean
   },
-): Effect.Effect<void, never> =>
+): Effect.Effect<ReadonlyArray<LocalEntitySnapshot>, never> =>
   Effect.gen(function* () {
     const debugFlags = inputs.debugFlags
     const mobsEnabled = debugFlags['mobs.enabled']
@@ -165,12 +211,16 @@ export const entityUpdateStage = (
         // below when only a partial cache miss remains.
         if (refreshAllChunks) chunkCache.fill(null)
 
-        // Sequential for...of: chunk boundary crossing event (not per-frame).
-        // Individual yield* avoids fiber spawn + Effect.gen callback allocations.
-        for (const [dx, dz, index] of ENTITY_PHYSICS_CHUNK_OFFSETS) {
-          /* c8 ignore next 3 -- cache-hit path: requires 2nd frame at same chunk coord with partial cache populated */
-          if (!refreshAllChunks && chunkCache[index] != null) continue
-          const chunk = yield* services.chunkManagerService.getChunk({ x: playerCx + dx, z: playerCz + dz }).pipe(Effect.catchAll(() => Effect.succeed(null)))
+        const chunksToRefresh = ENTITY_PHYSICS_CHUNK_OFFSETS.filter(([, , index]) => refreshAllChunks || chunkCache[index] == null)
+        const refreshedChunks = yield* Effect.forEach(
+          chunksToRefresh,
+          ([dx, dz, index]) =>
+            services.chunkManagerService
+              .getChunk({ x: playerCx + dx, z: playerCz + dz })
+              .pipe(Effect.catchAll(() => Effect.succeed(null)), Effect.map((chunk) => [index, chunk] as const)),
+          { concurrency: 8 },
+        )
+        for (const [index, chunk] of refreshedChunks) {
           if (chunk !== null) chunkCache[index] = chunk
         }
 
@@ -210,6 +260,9 @@ export const entityUpdateStage = (
         }
         yield* logErrors(addExperienceWithMending(breedingExperience, services), 'Breeding XP error')
       }
+      // Ender Dragon boss: drain & apply this tick's death events (egg/return-portal block
+      // placement + XP fountain). Emitted by entityManager.update() above.
+      yield* logErrors(dragonDeathStage(services, refs), 'Dragon death error')
     }
 
     if (mobsPhysicsEnabled && typeof applyPhysics === 'function') {
@@ -227,7 +280,7 @@ export const entityUpdateStage = (
       )
     }
 
-    yield* logErrors(
+    const entitySnapshotsResult = yield* logErrors(
       Effect.gen(function* () {
         yield* services.droppedItemService.tick()
         const collectedItems = yield* services.droppedItemService.collectWithin(inputs.playerPos)
@@ -247,6 +300,9 @@ export const entityUpdateStage = (
         // Sequential synchronous reads stay on the frame lane; nested flatMaps
         // would add callback allocations without any concurrency gain here.
         const entitiesSnapshot = yield* services.entityManager.getEntities()
+        const entitySnapshots: ReadonlyArray<LocalEntitySnapshot> = mobsEnabled
+          ? createLocalEntitySnapshots(entitiesSnapshot)
+          : []
         const structureVersion = yield* services.entityManager.getStructureVersion()
         const lastStructureVersion = yield* Ref.get(refs.lastEntityStructureVersionRef)
 
@@ -257,7 +313,7 @@ export const entityUpdateStage = (
             yield* Ref.set(refs.lastEntityStructureVersionRef, RENDER_DISABLED_STRUCTURE_VERSION)
           }
           /* c8 ignore end */
-          return
+          return entitySnapshots
         }
 
         if (lastStructureVersion !== structureVersion) {
@@ -270,6 +326,7 @@ export const entityUpdateStage = (
           inputs.totalTimeSecs,
           inputs.deltaTime,
         )
+        return entitySnapshots
       }),
       'Entity render error',
     )
@@ -279,8 +336,16 @@ export const entityUpdateStage = (
         runTickable(
           refs.redstoneTickAccumulatorRef,
           Effect.gen(function* () {
-            const entitiesSnapshot = mobsEnabled ? yield* services.entityManager.getEntities() : []
-            yield* updatePressurePlateStates(services.redstoneService, inputs.playerPos, entitiesSnapshot)
+            const entitiesSnapshotEffect: Effect.Effect<ReadonlyArray<Pick<Entity, 'position'>>, never> = mobsEnabled
+              ? services.entityManager.getEntities()
+              : Effect.succeed([])
+            const droppedItemsEffect: Effect.Effect<ReadonlyArray<Pick<DroppedItemEntity, 'position'>>, never> =
+              services.droppedItemService.getAll()
+            const [entitiesSnapshot, droppedItems] = yield* Effect.all([
+              entitiesSnapshotEffect,
+              droppedItemsEffect,
+            ], { concurrency: 2 })
+            yield* updatePressurePlateStates(services.redstoneService, inputs.playerPos, entitiesSnapshot, droppedItems)
             yield* services.redstoneService.tick()
           }),
           inputs.deltaTime,
@@ -302,4 +367,5 @@ export const entityUpdateStage = (
     if (debugFlags['particles.update']) {
       yield* logErrors(services.particleSystem.update(inputs.deltaTime), 'Particle system error')
     }
+    return entitySnapshotsResult ?? []
   })

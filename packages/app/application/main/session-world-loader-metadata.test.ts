@@ -16,6 +16,16 @@ describe('session-world-loader-metadata', () => {
       totalXP: 12,
       equipment: {},
     }
+    const entityStates: NonNullable<WorldMetadata['entityStates']> = [
+      {
+        entityId: 'mob-1',
+        position: { x: 12, y: 65, z: 18 },
+        velocity: { x: 0, y: 0, z: 0 },
+        rotation: { x: 0, y: 0, z: 0, w: 1 },
+        health: 8,
+        type: 'Shulker',
+      },
+    ]
     const metadata: WorldMetadata = {
       seed: 99,
       createdAt: new Date('2024-02-01'),
@@ -25,6 +35,7 @@ describe('session-world-loader-metadata', () => {
       chestStates: [{ position: { x: 2, y: 64, z: 3 }, slots: [] }],
       furnaceStates: [{ position: { x: 4, y: 64, z: 5 }, input: Option.none(), fuel: Option.none(), output: Option.none(), activeRecipeId: Option.none(), progressSecs: 0 }],
       weatherState: { weather: 'rain', remainingSecs: 30 },
+      entityStates,
       gameMode: 'creative',
       saveVersion: CURRENT_WORLD_SAVE_VERSION,
     }
@@ -36,6 +47,7 @@ describe('session-world-loader-metadata', () => {
     expect(Option.getOrThrow(bootstrap.savedChestStates)).toEqual(metadata.chestStates)
     expect(Option.getOrThrow(bootstrap.savedFurnaceStates)).toEqual(metadata.furnaceStates)
     expect(Option.getOrThrow(bootstrap.savedWeatherState)).toEqual(metadata.weatherState)
+    expect(Option.getOrThrow(bootstrap.savedEntityStates)).toEqual(entityStates)
     expect(bootstrap.gameMode).toBe('creative')
   })
 
@@ -65,6 +77,7 @@ describe('session-world-loader-metadata', () => {
     expect(Option.isNone(freshWorld.bootstrap.savedChestStates)).toBe(true)
     expect(Option.isNone(freshWorld.bootstrap.savedFurnaceStates)).toBe(true)
     expect(Option.isNone(freshWorld.bootstrap.savedWeatherState)).toBe(true)
+    expect(Option.isNone(freshWorld.bootstrap.savedEntityStates)).toBe(true)
     expect(freshWorld.metadata.saveVersion).toBe(CURRENT_WORLD_SAVE_VERSION)
   })
 })

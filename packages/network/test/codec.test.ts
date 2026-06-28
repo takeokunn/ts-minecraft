@@ -15,6 +15,7 @@ const MESSAGES: ReadonlyArray<{ readonly label: string; readonly msg: NetworkMes
   { label: 'PlayerJoin', msg: { type: MessageType.PlayerJoin, playerId: pid, playerName: pname, worldId: wid, position: { x: 1, y: 2, z: 3 }, timestamp: ts } },
   { label: 'PlayerLeave', msg: { type: MessageType.PlayerLeave, playerId: pid, worldId: wid, timestamp: ts } },
   { label: 'PlayerMove', msg: { type: MessageType.PlayerMove, playerId: pid, worldId: wid, position: { x: 1.5, y: 64, z: -3.25 }, rotation: { yaw: 0.5, pitch: -0.2 }, timestamp: ts } },
+  { label: 'EntitySnapshot', msg: { type: MessageType.EntitySnapshot, playerId: pid, worldId: wid, entityId: 'entity-1', entityType: 'ZOMBIE', position: { x: 2, y: 64, z: -2 }, health: 12, alive: true, timestamp: ts } },
   { label: 'BlockPlace', msg: { type: MessageType.BlockPlace, playerId: pid, worldId: wid, position: { x: 10, y: 20, z: 30 }, blockType: 'STONE', timestamp: ts } },
   { label: 'BlockBreak', msg: { type: MessageType.BlockBreak, playerId: pid, worldId: wid, position: { x: -5, y: 0, z: 7 }, timestamp: ts } },
   { label: 'Chat', msg: { type: MessageType.Chat, playerId: pid, worldId: wid, message: 'hello world', timestamp: ts } },

@@ -1,8 +1,10 @@
 import { describe, it } from '@effect/vitest'
 import { Array as Arr, Effect, Option } from 'effect'
-import { expect } from 'vitest'
+import { afterEach, expect, vi } from 'vitest'
 import { InventoryRendererService } from '@ts-minecraft/presentation/inventory/inventory-renderer'
-import { INVENTORY_SIZE } from '@ts-minecraft/inventory/application/inventory-service'
+import { INVENTORY_SIZE, type InventorySlot } from '@ts-minecraft/inventory/application/inventory-service'
+import { createStack } from '@ts-minecraft/inventory/domain/item-stack'
+import { SlotIndex } from '@ts-minecraft/core'
 import {
   buildTestLayer,
   createMockDomLayer,
@@ -15,7 +17,14 @@ import {
 // Tests
 // ---------------------------------------------------------------------------
 
+const countOf = (slot: InventorySlot): number =>
+  Option.match(slot, { onNone: () => 0, onSome: (item) => item.count })
+
 describe('presentation/inventory/inventory-renderer', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
   describe('InventoryRendererService — layer provision', () => {
     it('should be defined', () => {
       expect(InventoryRendererService.Default).toBeDefined()
@@ -28,6 +37,7 @@ describe('presentation/inventory/inventory-renderer', () => {
         expect(typeof renderer.toggle).toBe('function')
         expect(typeof renderer.isOpen).toBe('function')
         expect(typeof renderer.update).toBe('function')
+        expect(typeof renderer.sortInventory).toBe('function')
         expect(typeof renderer.cycleRecipes).toBe('function')
         expect(typeof renderer.craftSelectedRecipe).toBe('function')
       }).pipe(Effect.provide(TestLayer))
@@ -102,6 +112,65 @@ describe('presentation/inventory/inventory-renderer', () => {
       }).pipe(Effect.provide(TestLayer))
     })
 
+    it.scoped('filters the recipe book when the search input changes', () => {
+      vi.stubGlobal('document', {})
+      const mockDom = createMockDomLayer()
+      const mockInventory = createMockInventoryLayer()
+      const mockHotbar = createMockHotbarLayer()
+      const mockRecipe = createMockRecipeLayer()
+      mockRecipe.recipes.push(
+        {
+          id: 'wooden-sword',
+          station: 'crafting_table',
+          ingredients: [
+            { itemType: 'PLANKS', count: 2 },
+            { itemType: 'STICK', count: 1 },
+          ],
+          output: { itemType: 'WOODEN_SWORD', count: 1 },
+        },
+        {
+          id: 'iron-ingot',
+          station: 'furnace',
+          ingredients: [
+            { itemType: 'RAW_IRON', count: 1 },
+          ],
+          output: { itemType: 'IRON_INGOT', count: 1 },
+        },
+      )
+      const TestLayer = buildTestLayer(mockDom, mockInventory, mockHotbar, mockRecipe)
+
+      return Effect.gen(function* () {
+        const renderer = yield* InventoryRendererService
+        yield* renderer.toggle()
+
+        const searchInputIndex = mockDom.createElement.mock.calls.findIndex(([tagName]) => tagName === 'input')
+        const searchInput = mockDom.createElement.mock.results[searchInputIndex]?.value as
+          | HTMLInputElement & { addEventListener: ReturnType<typeof vi.fn> }
+          | undefined
+        expect(searchInput).toBeDefined()
+        if (searchInput === undefined) return
+
+        const inputHandler = searchInput.addEventListener.mock.calls.find(([type]) => type === 'input')?.[1] as
+          | ((event: Event) => void)
+          | undefined
+        expect(inputHandler).toBeDefined()
+        if (inputHandler === undefined) return
+
+        inputHandler({
+          currentTarget: { value: 'sword' },
+        } as unknown as Event)
+        yield* Effect.promise<void>(() => new Promise((resolve) => setTimeout(resolve, 0)))
+
+        const recipeBook = mockDom.createElement.mock.results
+          .map((result) => result.value)
+          .find((el) => el.style?.cssText?.includes('max-height:180px') && 'textContent' in el) as
+          | { childrenList?: Array<{ dataset?: Record<string, string>; textContent?: string }> }
+          | undefined
+        expect(recipeBook?.childrenList?.length).toBeGreaterThan(0)
+        expect(recipeBook?.childrenList?.[0]?.dataset?.recipeId).toBe('wooden-sword')
+      }).pipe(Effect.provide(TestLayer))
+    })
+
     it.scoped('should NOT refresh slots when toggling closed', () => {
       const mockDom = createMockDomLayer()
       const mockInventory = createMockInventoryLayer()
@@ -114,6 +183,218 @@ describe('presentation/inventory/inventory-renderer', () => {
         const callsAfterOpen = mockInventory.getAllSlots.mock.calls.length
         yield* renderer.toggle() // close — should NOT refresh
         expect(mockInventory.getAllSlots.mock.calls.length).toBe(callsAfterOpen)
+      }).pipe(Effect.provide(TestLayer))
+    })
+
+    it.scoped('returns a held cursor stack to inventory before closing', () => {
+      vi.stubGlobal('document', {})
+      vi.stubGlobal('HTMLElement', class MockHTMLElement {})
+
+      const mockDom = createMockDomLayer()
+      const mockInventorySlots = Arr.makeBy(INVENTORY_SIZE, (index) =>
+        index === 0 ? Option.some(createStack('DIRT', 12)) : Option.none(),
+      )
+      const mockInventory = createMockInventoryLayer(mockInventorySlots)
+      const mockHotbar = createMockHotbarLayer()
+      const TestLayer = buildTestLayer(mockDom, mockInventory, mockHotbar)
+
+      return Effect.gen(function* () {
+        const renderer = yield* InventoryRendererService
+        yield* renderer.toggle()
+
+        const overlay = mockDom.createElement.mock.results[0]?.value as
+          | { addEventListener: ReturnType<typeof vi.fn> }
+          | undefined
+        const clickHandler = overlay?.addEventListener.mock.calls.find(([type]) => type === 'click')?.[1] as
+          | ((event: MouseEvent) => void)
+          | undefined
+        const slotZero = mockDom.createElement.mock.results
+          .map((result) => result.value)
+          .find((el) => el.dataset?.slot === '0') as
+          | (HTMLElement & { closest: ReturnType<typeof vi.fn> })
+          | undefined
+
+        expect(clickHandler).toBeDefined()
+        expect(slotZero).toBeDefined()
+        if (clickHandler === undefined || slotZero === undefined) {
+          return
+        }
+
+        Object.setPrototypeOf(slotZero, HTMLElement.prototype)
+        slotZero.closest = vi.fn((selector: string) => (selector === '[data-slot]' ? slotZero : null))
+        clickHandler({
+          button: 0,
+          shiftKey: false,
+          target: slotZero,
+          preventDefault: vi.fn(),
+          stopPropagation: vi.fn(),
+        } as unknown as MouseEvent)
+        yield* Effect.promise<void>(() => new Promise((resolve) => setTimeout(resolve, 0)))
+
+        expect(Option.isNone(mockInventory.getCurrentSlots()[0] ?? Option.none())).toBe(true)
+        const closeResult = yield* renderer.toggle()
+        expect(closeResult).toBe(false)
+        expect(countOf(mockInventory.getCurrentSlots()[0] ?? Option.none())).toBe(12)
+      }).pipe(Effect.provide(TestLayer))
+    })
+
+    it.scoped('supports drag-and-drop from one inventory slot to another', () => {
+      const mockDom = createMockDomLayer()
+      const mockInventorySlots = Arr.makeBy(INVENTORY_SIZE, (index) =>
+        index === 0 ? Option.some(createStack('DIRT', 12)) : Option.none(),
+      )
+      const mockInventory = createMockInventoryLayer(mockInventorySlots)
+      const mockHotbar = createMockHotbarLayer()
+      const TestLayer = buildTestLayer(mockDom, mockInventory, mockHotbar)
+      const globalWithDocument = globalThis as typeof globalThis & { document?: unknown }
+      const previousDocument = globalWithDocument.document
+      if (previousDocument === undefined) {
+        globalWithDocument.document = {}
+      }
+
+      const getHandler = <T extends Event>(
+        element: { addEventListener: ReturnType<typeof vi.fn> },
+        type: string,
+      ) =>
+        element.addEventListener.mock.calls.find(([eventType]) => eventType === type)?.[1] as
+          | ((event: T) => void)
+          | undefined
+
+      return Effect.gen(function* () {
+        yield* Effect.addFinalizer(() =>
+          Effect.sync(() => {
+            if (previousDocument === undefined) {
+              delete globalWithDocument.document
+            } else {
+              globalWithDocument.document = previousDocument
+            }
+          }),
+        )
+        const renderer = yield* InventoryRendererService
+        yield* renderer.toggle()
+
+        const slotZero = mockDom.createElement.mock.results
+          .map((result) => result.value)
+          .find((el) => el.dataset?.slot === '0') as
+          | (HTMLElement & { addEventListener: ReturnType<typeof vi.fn> })
+          | undefined
+        const slotOne = mockDom.createElement.mock.results
+          .map((result) => result.value)
+          .find((el) => el.dataset?.slot === '1') as
+          | (HTMLElement & { addEventListener: ReturnType<typeof vi.fn> })
+          | undefined
+        expect(slotZero).toBeDefined()
+        expect(slotOne).toBeDefined()
+        if (slotZero === undefined || slotOne === undefined) {
+          return
+        }
+
+        const dragStart = getHandler<DragEvent>(slotZero, 'dragstart')
+        const drop = getHandler<DragEvent>(slotOne, 'drop')
+
+        expect(dragStart).toBeDefined()
+        expect(drop).toBeDefined()
+        if (dragStart === undefined || drop === undefined) {
+          return
+        }
+
+        dragStart({
+          currentTarget: slotZero,
+          target: slotZero,
+          dataTransfer: {
+            effectAllowed: '',
+            setData: vi.fn(),
+          },
+        } as unknown as DragEvent)
+        drop({
+          currentTarget: slotOne,
+          target: slotOne,
+          preventDefault: vi.fn(),
+          stopPropagation: vi.fn(),
+        } as unknown as DragEvent)
+        yield* Effect.promise<void>(() => new Promise((resolve) => setTimeout(resolve, 0)))
+
+        expect(mockInventory.moveStack).toHaveBeenCalledOnce()
+        expect(mockInventory.moveStack).toHaveBeenCalledWith(SlotIndex.make(0), SlotIndex.make(1))
+      }).pipe(Effect.provide(TestLayer))
+    })
+  })
+
+  describe('sortInventory', () => {
+    it.scoped('sorts inventory and refreshes slots when cursor is empty', () => {
+      vi.stubGlobal('document', {})
+      vi.stubGlobal('HTMLElement', class MockHTMLElement {})
+      const mockDom = createMockDomLayer()
+      const mockInventorySlots = Arr.makeBy(INVENTORY_SIZE, (index) =>
+        index === 5
+          ? Option.some(createStack('DIRT', 40))
+          : index === 8
+            ? Option.some(createStack('DIRT', 30))
+            : Option.none(),
+      )
+      const mockInventory = createMockInventoryLayer(mockInventorySlots)
+      const mockHotbar = createMockHotbarLayer()
+      const TestLayer = buildTestLayer(mockDom, mockInventory, mockHotbar)
+
+      return Effect.gen(function* () {
+        const renderer = yield* InventoryRendererService
+        yield* renderer.toggle()
+        yield* renderer.sortInventory()
+
+        expect(mockInventory.sortInventory).toHaveBeenCalledOnce()
+        expect(countOf(mockInventory.getCurrentSlots()[0] ?? Option.none())).toBe(64)
+        expect(countOf(mockInventory.getCurrentSlots()[1] ?? Option.none())).toBe(6)
+      }).pipe(Effect.provide(TestLayer))
+    })
+
+    it.scoped('does not sort while the cursor is holding an item', () => {
+      vi.stubGlobal('document', {})
+      vi.stubGlobal('HTMLElement', class MockHTMLElement {})
+      const mockDom = createMockDomLayer()
+      const mockInventorySlots = Arr.makeBy(INVENTORY_SIZE, (index) =>
+        index === 0 ? Option.some(createStack('DIRT', 12)) : Option.none(),
+      )
+      const mockInventory = createMockInventoryLayer(mockInventorySlots)
+      const mockHotbar = createMockHotbarLayer()
+      const TestLayer = buildTestLayer(mockDom, mockInventory, mockHotbar)
+
+      return Effect.gen(function* () {
+        const renderer = yield* InventoryRendererService
+        yield* renderer.toggle()
+
+        const overlay = mockDom.createElement.mock.results[0]?.value as
+          | { addEventListener: ReturnType<typeof vi.fn> }
+          | undefined
+        const clickHandler = overlay?.addEventListener.mock.calls.find(([type]) => type === 'click')?.[1] as
+          | ((event: MouseEvent) => void)
+          | undefined
+        const slotZero = mockDom.createElement.mock.results
+          .map((result) => result.value)
+          .find((el) => el.dataset?.slot === '0') as
+          | (HTMLElement & { closest: ReturnType<typeof vi.fn> })
+          | undefined
+
+        expect(clickHandler).toBeDefined()
+        expect(slotZero).toBeDefined()
+        if (clickHandler === undefined || slotZero === undefined) {
+          return
+        }
+
+        Object.setPrototypeOf(slotZero, HTMLElement.prototype)
+        slotZero.closest = vi.fn((selector: string) => (selector === '[data-slot]' ? slotZero : null))
+        clickHandler({
+          button: 0,
+          shiftKey: false,
+          target: slotZero,
+          preventDefault: vi.fn(),
+          stopPropagation: vi.fn(),
+        } as unknown as MouseEvent)
+        yield* Effect.promise<void>(() => new Promise((resolve) => setTimeout(resolve, 0)))
+
+        yield* renderer.sortInventory()
+
+        expect(mockInventory.sortInventory).not.toHaveBeenCalled()
+        expect(Option.isNone(mockInventory.getCurrentSlots()[0] ?? Option.none())).toBe(true)
       }).pipe(Effect.provide(TestLayer))
     })
   })

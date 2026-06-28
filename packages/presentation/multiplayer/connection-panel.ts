@@ -50,6 +50,7 @@ const makeInput = (
   input.type = 'text'
   input.placeholder = placeholder
   input.style.cssText = inputStyle
+  input.setAttribute('aria-label', labelText)
   dom.appendChildTo(label, caption)
   dom.appendChildTo(label, input)
   return input
@@ -61,7 +62,12 @@ const appendPanel = (dom: DomOperationsService, element: HTMLElement): void => {
   else dom.appendChild(element)
 }
 
-export const makeConnectionPanel = (dom: DomOperationsService) =>
+const resolveInitialServerUrl = (): string => {
+  const env = (import.meta as ImportMeta & { env?: { readonly VITE_WS_URL?: string } }).env
+  return env?.VITE_WS_URL?.trim() ?? ''
+}
+
+export const makeConnectionPanel = (dom: DomOperationsService, initialServerUrl = resolveInitialServerUrl()) =>
   Effect.gen(function* () {
     const connectQueue = yield* Queue.unbounded<ConnectionRequest>()
     const disconnectQueue = yield* Queue.unbounded<void>()
@@ -71,18 +77,26 @@ export const makeConnectionPanel = (dom: DomOperationsService) =>
     element.id = 'multiplayer-connection-panel'
     element.className = 'multiplayer-connection-panel'
     element.style.cssText = panelStyle
+    element.setAttribute('aria-hidden', 'true')
+    element.setAttribute('aria-label', 'Multiplayer connection')
 
     const serverInput = makeInput(dom, 'mp-server-url', 'Server URL', 'ws://localhost:8080')
+    serverInput.setAttribute('autocomplete', 'url')
+    if (initialServerUrl.length > 0) serverInput.value = initialServerUrl
     const playerInput = makeInput(dom, 'mp-player-name', 'Player name', 'Steve')
+    playerInput.setAttribute('autocomplete', 'nickname')
     const button = dom.createElement('button')
     button.type = 'button'
     button.className = 'mp-button'
     button.textContent = 'Connect'
     button.style.cssText = buttonStyle
+    button.setAttribute('aria-label', 'Connect to multiplayer server')
     const status = dom.createElement('div')
     status.className = 'mp-status'
     status.textContent = 'Disconnected'
     status.style.cssText = 'font-size:12px;opacity:0.9;min-height:16px'
+    status.setAttribute('role', 'status')
+    status.setAttribute('aria-live', 'polite')
 
     dom.appendChildTo(element, serverInput.parentElement ?? serverInput)
     dom.appendChildTo(element, playerInput.parentElement ?? playerInput)
@@ -92,9 +106,21 @@ export const makeConnectionPanel = (dom: DomOperationsService) =>
     const handleClick = () => {
       Effect.runFork(Effect.gen(function* () {
         const connected = yield* Ref.get(connectedRef)
-        if (connected) yield* Queue.offer(disconnectQueue, undefined)
-        else yield* Queue.offer(connectQueue, {
-          serverUrl: serverInput.value.trim(),
+        if (connected) {
+          yield* Queue.offer(disconnectQueue, undefined)
+          return
+        }
+
+        const serverUrl = serverInput.value.trim()
+        if (serverUrl.length === 0) {
+          yield* Effect.sync(() => {
+            status.textContent = 'Server URL is required'
+          })
+          return
+        }
+
+        yield* Queue.offer(connectQueue, {
+          serverUrl,
           playerName: playerInput.value.trim(),
         })
       }).pipe(
@@ -107,11 +133,27 @@ export const makeConnectionPanel = (dom: DomOperationsService) =>
       setStatus: (text) => Effect.sync(() => { status.textContent = text }),
       onConnect: Stream.fromQueue(connectQueue),
       onDisconnect: Stream.fromQueue(disconnectQueue),
-      show: Effect.sync(() => { element.style.display = 'flex' }),
-      hide: Effect.sync(() => { element.style.display = 'none' }),
+      show: Effect.sync(() => {
+        element.style.display = 'flex'
+        element.setAttribute('aria-hidden', 'false')
+      }),
+      hide: Effect.sync(() => {
+        element.style.display = 'none'
+        element.setAttribute('aria-hidden', 'true')
+      }),
       setConnected: (connected) => Effect.gen(function* () {
         yield* Ref.set(connectedRef, connected)
-        yield* Effect.sync(() => { button.textContent = connected ? 'Disconnect' : 'Connect' })
+        yield* Effect.sync(() => {
+          serverInput.disabled = connected
+          playerInput.disabled = connected
+          serverInput.setAttribute('aria-disabled', String(connected))
+          playerInput.setAttribute('aria-disabled', String(connected))
+          button.textContent = connected ? 'Disconnect' : 'Connect'
+          button.setAttribute(
+            'aria-label',
+            connected ? 'Disconnect from multiplayer server' : 'Connect to multiplayer server',
+          )
+        })
       }),
     }
 
@@ -119,6 +161,12 @@ export const makeConnectionPanel = (dom: DomOperationsService) =>
       appendPanel(dom, element)
       button.addEventListener('click', handleClick)
     })
+    yield* Effect.addFinalizer(() =>
+      Effect.sync(() => {
+        button.removeEventListener('click', handleClick)
+        dom.removeChild(element)
+      }),
+    )
     return panel
   })
 

@@ -1,21 +1,59 @@
-// Frame stage: syncs the local player's position to the multiplayer server and
-// applies inbound block edits from remote players to the local world.
+// Frame stage: syncs local state to the multiplayer server and applies remote
+// world/entity deltas without letting network faults abort rendering.
 import { Effect, HashMap, MutableRef, Option, Schema } from 'effect'
 import { BlockTypeSchema, CHUNK_SIZE, type Position } from '@ts-minecraft/core'
+import { EntityId, EntityType, type EntityType as EntityTypeValue } from '@ts-minecraft/entity/domain/mob/entity'
 import { aabbFromVoxel } from '@ts-minecraft/world'
-import type { MultiplayerService } from '@ts-minecraft/app/application/multiplayer/multiplayer-service'
+import type {
+  LocalEntitySnapshot,
+  MultiplayerService,
+  RemoteEntitySnapshot,
+} from '@ts-minecraft/app/application/multiplayer/multiplayer-service'
 import type { FrameHandlerServices } from '@ts-minecraft/app/application/frame/types/services'
 import type { FrameStageRefs } from '@ts-minecraft/app/application/frame/types/stage-refs'
+
+const ACTIVE_REMOTE_ENTITY_TYPES: ReadonlySet<string> = new Set([
+  EntityType.Zombie,
+  EntityType.Cow,
+  EntityType.Pig,
+  EntityType.Sheep,
+  EntityType.Chicken,
+  EntityType.Bat,
+  EntityType.Bee,
+  EntityType.Squid,
+  EntityType.GlowSquid,
+  EntityType.Witch,
+  EntityType.Drowned,
+  EntityType.ZombieVillager,
+  EntityType.Creeper,
+  EntityType.Skeleton,
+  EntityType.Spider,
+  EntityType.Enderman,
+  EntityType.EnderDragon,
+  EntityType.Endermite,
+])
+
+const isActiveRemoteEntityType = (value: string): value is EntityTypeValue =>
+  ACTIVE_REMOTE_ENTITY_TYPES.has(value)
+
+const remoteEntityId = (snapshot: RemoteEntitySnapshot): EntityId =>
+  EntityId.make(`remote:${snapshot.playerId}:${snapshot.entityId}`)
 
 export const multiplayerStage = (
   multiplayer: MultiplayerService,
   playerPos: { readonly x: number; readonly y: number; readonly z: number },
   playerYaw: number,
   playerPitch: number,
+  entitySnapshots: ReadonlyArray<LocalEntitySnapshot> = [],
 ): Effect.Effect<void, never> =>
-  multiplayer
-    .sendPositionUpdate(playerPos, { yaw: playerYaw, pitch: playerPitch })
-    .pipe(Effect.catchAll(() => Effect.void))
+  Effect.gen(function* () {
+    yield* multiplayer
+      .sendPositionUpdate(playerPos, { yaw: playerYaw, pitch: playerPitch })
+      .pipe(Effect.catchAll(() => Effect.void))
+    for (const snapshot of entitySnapshots) {
+      yield* multiplayer.sendEntitySnapshot(snapshot).pipe(Effect.catchAll(() => Effect.void))
+    }
+  })
 
 /**
  * FR-3: applies block edits received from remote players to the local world.
@@ -55,6 +93,29 @@ export const applyInboundBlockEdits = (
               }),
             ),
           ).pipe(Effect.catchAll(() => Effect.void))
+        }
+      }),
+    ),
+  )
+
+export const applyInboundEntitySnapshots = (
+  multiplayer: MultiplayerService,
+  services: Pick<FrameHandlerServices, 'entityManager'>,
+): Effect.Effect<void, never> =>
+  multiplayer.drainEntitySnapshots.pipe(
+    Effect.flatMap((snapshots) =>
+      Effect.gen(function* () {
+        for (const snapshot of snapshots) {
+          if (!isActiveRemoteEntityType(snapshot.entityType)) continue
+          yield* services.entityManager
+            .applyEntitySnapshot({
+              entityId: remoteEntityId(snapshot),
+              entityType: snapshot.entityType,
+              position: snapshot.position,
+              health: snapshot.health,
+              alive: snapshot.alive,
+            })
+            .pipe(Effect.catchAll(() => Effect.void))
         }
       }),
     ),

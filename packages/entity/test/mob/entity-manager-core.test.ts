@@ -64,6 +64,80 @@ describe('entity/entityManagerCore', () => {
       }))
   })
 
+  describe('applyEntitySnapshot', () => {
+    itEntityManagerEffect('upserts, updates, and removes snapshot entities through the public API', () =>
+      Effect.gen(function* () {
+        const entityManager = yield* EntityManager
+        const entityId = EntityId.make('remote:player-b:entity-1')
+        const beforeVersion = yield* entityManager.getStructureVersion()
+
+        const created = yield* entityManager.applyEntitySnapshot({
+          entityId,
+          entityType: EntityType.Creeper,
+          position: { x: 1, y: 64, z: 2 },
+          health: 999,
+          alive: true,
+          velocity: { x: 0.5, y: 0.25, z: -0.5 },
+          rotation: { x: 0, y: 0.707, z: 0, w: 0.707 },
+          isBaby: true,
+          fuseSecs: 3,
+          fireSecs: 6,
+        })
+        const createdVersion = yield* entityManager.getStructureVersion()
+        const createdEntity = expectSome(yield* entityManager.getEntity(entityId))
+
+        expect(created).toBe('created')
+        expect(createdVersion).toBe(beforeVersion + 1)
+        expect(createdEntity.type).toBe(EntityType.Creeper)
+        expect(createdEntity.position).toEqual({ x: 1, y: 64, z: 2 })
+        expect(createdEntity.velocity).toEqual({ x: 0.5, y: 0.25, z: -0.5 })
+        expect(createdEntity.rotation).toEqual({ x: 0, y: 0.707, z: 0, w: 0.707 })
+        expect(createdEntity.isBaby).toBe(true)
+        expect(createdEntity.fuseSecs).toBe(3)
+        expect(createdEntity.fireSecs).toBe(6)
+        expect(createdEntity.health).toBeLessThanOrEqual(999)
+
+        const updated = yield* entityManager.applyEntitySnapshot({
+          entityId,
+          entityType: EntityType.Creeper,
+          position: { x: 3, y: 65, z: 4 },
+          health: 4,
+          alive: true,
+          velocity: { x: 1, y: 0, z: 0 },
+          rotation: { x: 0, y: 0, z: 1, w: 0 },
+          isBaby: false,
+          fuseSecs: 1.5,
+          fireSecs: 2,
+        })
+        const updatedVersion = yield* entityManager.getStructureVersion()
+        const updatedEntity = expectSome(yield* entityManager.getEntity(entityId))
+
+        expect(updated).toBe('updated')
+        expect(updatedVersion).toBe(createdVersion)
+        expect(updatedEntity.position).toEqual({ x: 3, y: 65, z: 4 })
+        expect(updatedEntity.velocity).toEqual({ x: 1, y: 0, z: 0 })
+        expect(updatedEntity.rotation).toEqual({ x: 0, y: 0, z: 1, w: 0 })
+        expect(updatedEntity.isBaby).toBe(false)
+        expect(updatedEntity.fuseSecs).toBe(1.5)
+        expect(updatedEntity.fireSecs).toBe(2)
+        expect(updatedEntity.health).toBe(4)
+
+        const removed = yield* entityManager.applyEntitySnapshot({
+          entityId,
+          entityType: EntityType.Cow,
+          position: updatedEntity.position,
+          health: 0,
+          alive: false,
+        })
+        const removedVersion = yield* entityManager.getStructureVersion()
+        const missing = yield* entityManager.getEntity(entityId)
+
+        expect(removed).toBe('removed')
+        expect(removedVersion).toBe(updatedVersion + 1)
+        expect(Option.isNone(missing)).toBe(true)
+      }))
+  })
+
   describe('getEntity', () => {
     itEntityManagerEffect('returns Option.some for an existing entity', () =>
       Effect.gen(function* () {

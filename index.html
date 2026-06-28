@@ -16,17 +16,122 @@
         width: 100vw;
         height: 100vh;
       }
+      body.weather-rain::before,
+      body.weather-thunder::before {
+        content: "";
+        position: fixed;
+        inset: 0;
+        z-index: 8;
+        pointer-events: none;
+        background-image: repeating-linear-gradient(
+          105deg,
+          rgba(180, 215, 255, 0.28) 0 2px,
+          transparent 2px 12px
+        );
+        background-size: 72px 96px;
+        mix-blend-mode: screen;
+        animation: weather-rain-fall 0.42s linear infinite;
+      }
+      body.weather-thunder::before {
+        opacity: 0.72;
+        background-image: repeating-linear-gradient(
+          105deg,
+          rgba(210, 230, 255, 0.38) 0 2px,
+          transparent 2px 10px
+        );
+      }
+      body.weather-thunder::after {
+        content: "";
+        position: fixed;
+        inset: 0;
+        z-index: 9;
+        pointer-events: none;
+        background: rgba(210, 235, 255, 0.22);
+        opacity: 0;
+        animation: weather-thunder-flash 5.5s steps(1, end) infinite;
+      }
+      @keyframes weather-rain-fall {
+        from {
+          background-position: 0 0;
+        }
+        to {
+          background-position: -72px 96px;
+        }
+      }
+      @keyframes weather-thunder-flash {
+        0%,
+        90%,
+        100% {
+          opacity: 0;
+        }
+        91% {
+          opacity: 0.75;
+        }
+        92% {
+          opacity: 0.15;
+        }
+        93% {
+          opacity: 0.5;
+        }
+        94% {
+          opacity: 0;
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        body.weather-rain::before,
+        body.weather-thunder::before {
+          animation: none;
+        }
+        body.weather-thunder::after {
+          animation: none;
+          opacity: 0.08;
+        }
+      }
       body.hud-hidden #fps-counter,
       body.hud-hidden #health-display,
       body.hud-hidden #hunger-display,
       body.hud-hidden #armor-display,
       body.hud-hidden #air-display,
       body.hud-hidden #break-progress,
+      body.hud-hidden #autosave-status,
       body.hud-hidden #xp-display,
       body.hud-hidden #survival-hud,
       body.hud-hidden #crosshair,
       body.hud-hidden #debug-overlay {
         display: none !important;
+      }
+
+      #autosave-status {
+        position: fixed;
+        top: 42px;
+        right: 10px;
+        min-width: 68px;
+        padding: 4px 9px;
+        border: 1px solid rgba(215, 247, 194, 0.38);
+        background: rgba(0, 0, 0, 0.72);
+        color: #d7f7c2;
+        font-family: monospace;
+        font-size: 12px;
+        letter-spacing: 0.04em;
+        pointer-events: none;
+        text-align: center;
+        z-index: 10;
+      }
+
+      #autosave-status:empty {
+        opacity: 0;
+      }
+
+      #autosave-status[data-save-status="saving"] {
+        border-color: rgba(255, 227, 138, 0.62);
+        color: #ffe38a;
+      }
+
+      #autosave-status[data-save-status="error"] {
+        border-color: rgba(255, 114, 105, 0.76);
+        background: rgba(85, 16, 14, 0.88);
+        box-shadow: 0 0 0 1px rgba(255, 114, 105, 0.22);
+        color: #ffd6d2;
       }
 
       #survival-hud {
@@ -165,6 +270,7 @@
     <div id="fps-counter" style="position: fixed; top: 10px; right: 10px; background: rgba(0,0,0,0.7); color: white; padding: 5px 10px; font-family: monospace; font-size: 14px; pointer-events: none; z-index: 10;">
       FPS: <span id="fps-value">0</span>
     </div>
+    <div id="autosave-status" role="status" aria-live="polite" aria-atomic="true"></div>
     <div id="survival-hud">
       <div id="armor-display" class="hud-meter" aria-label="Armor">
         <span class="hud-meter-icon" data-hud-icon data-fill="empty"></span><span class="hud-meter-icon" data-hud-icon data-fill="empty"></span><span class="hud-meter-icon" data-hud-icon data-fill="empty"></span><span class="hud-meter-icon" data-hud-icon data-fill="empty"></span><span class="hud-meter-icon" data-hud-icon data-fill="empty"></span><span class="hud-meter-icon" data-hud-icon data-fill="empty"></span><span class="hud-meter-icon" data-hud-icon data-fill="empty"></span><span class="hud-meter-icon" data-hud-icon data-fill="empty"></span><span class="hud-meter-icon" data-hud-icon data-fill="empty"></span><span class="hud-meter-icon" data-hud-icon data-fill="empty"></span>

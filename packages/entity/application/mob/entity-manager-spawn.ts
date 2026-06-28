@@ -1,9 +1,10 @@
 import { zero, type Position } from '@ts-minecraft/core'
-import { createEntity as createEntityModel, type EntityId, type EntityType } from '../../domain/mob/entity'
+import { createEntity as createEntityModel, EntityType, type EntityId } from '../../domain/mob/entity'
 import type { EntityDrop } from '../../domain/mob/drop'
 import { BABY_GROW_TICKS } from '../../domain/mob/breeding'
 import { getMobDefinition } from '../../domain/mob/mobs/get-mob-definition'
 import { AIState } from '../../domain/mob/state-machine'
+import { initialDragonPhaseState } from '../../domain/mob/ender-dragon/dragon-phase'
 import type { ManagedEntity } from '../../domain/mob/entity-internal'
 
 export const createSpawnedManagedEntity = (
@@ -43,5 +44,7 @@ export const createSpawnedManagedEntity = (
     breedCooldownRemaining: 0,
     ageTicks,
     woolRegrowthTicks: 0,
+    dragonPhase: type === EntityType.EnderDragon ? initialDragonPhaseState(position.y) : null,
+    dragonDeathProgress: null,
   }
 }

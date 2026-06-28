@@ -9,7 +9,10 @@ import { formatLastPlayed, gameModeLabel } from './main-menu-utils'
 
 export interface MenuButtons {
   readonly newWorld: HTMLButtonElement
+  readonly continueWorld: HTMLButtonElement
   readonly loadWorld: HTMLButtonElement
+  readonly multiplayer: HTMLButtonElement
+  readonly howToPlay: HTMLButtonElement
   readonly settings: HTMLButtonElement
   readonly nwName: HTMLInputElement
   readonly nwMode: HTMLButtonElement
@@ -17,6 +20,11 @@ export interface MenuButtons {
   readonly nwConfirm: HTMLButtonElement
   readonly lwList: HTMLDivElement
   readonly lwBack: HTMLButtonElement
+  readonly mpServerUrl: HTMLInputElement
+  readonly mpPlayerName: HTMLInputElement
+  readonly mpCancel: HTMLButtonElement
+  readonly mpConfirm: HTMLButtonElement
+  readonly howToPlayClose: HTMLButtonElement
 }
 
 export interface MenuDomElements {
@@ -24,6 +32,8 @@ export interface MenuDomElements {
   readonly rootCard: HTMLDivElement
   readonly newWorldCard: HTMLDivElement
   readonly loadWorldCard: HTMLDivElement
+  readonly multiplayerCard: HTMLDivElement
+  readonly howToPlayCard: HTMLDivElement
   readonly buttons: MenuButtons
 }
 
@@ -33,24 +43,40 @@ export const buildMenuDOM = (dom: DomOperationsService): MenuDomElements => {
   const overlay = dom.createElement('div') as HTMLDivElement
   overlay.id = 'main-menu-overlay'
   overlay.style.cssText = `${overlayBaseStyle};display:none`
+  overlay.setAttribute('role', 'dialog')
+  overlay.setAttribute('aria-modal', 'true')
+  overlay.setAttribute('aria-label', 'Main Menu')
 
   // ROOT card
   const rootCard = dom.createElement('div') as HTMLDivElement
   rootCard.id = 'main-menu-root'
-  rootCard.style.cssText = cardStyle
+  rootCard.style.cssText = `${cardStyle};max-height:calc(100vh - 32px);overflow-y:auto`
   dom.setInnerHTML(rootCard, `
     <h1 style="margin:0 0 16px;text-align:center;font-size:28px;color:#fff;text-shadow:2px 2px #222">ts-minecraft</h1>
-    <button type="button" id="mm-new-world" style="${buttonStyle}">Create New World</button>
-    <button type="button" id="mm-load-world" style="${buttonStyle}">Select World</button>
-    <button type="button" id="mm-settings" style="${buttonStyle}">Options...</button>
-  `)
+    <p style="margin:-4px 0 4px;font-size:14px;line-height:1.45;text-align:center">
+      Pick a world, continue your latest save, or open the controls guide before you start.
+    </p>
+    <div style="display:flex;flex-direction:column;gap:4px;margin-bottom:4px;font-size:12px;line-height:1.35;color:#2b2b2b;text-align:center">
+      <span>Keyboard, mouse, and gamepad are supported.</span>
+      <span>Touch controls are not available yet.</span>
+    </div>
+      <button type="button" id="mm-new-world" style="${buttonStyle}">Create New World</button>
+      <button type="button" id="mm-continue-world" style="${buttonStyle}">Continue Last World</button>
+      <button type="button" id="mm-load-world" style="${buttonStyle}">Select World</button>
+      <button type="button" id="mm-multiplayer" style="${buttonStyle}">Multiplayer...</button>
+      <button type="button" id="mm-how-to-play" style="${buttonStyle}">How to Play</button>
+      <button type="button" id="mm-settings" style="${buttonStyle}">Options...</button>
+    `)
 
   // NEW_WORLD card
   const newWorldCard = dom.createElement('div') as HTMLDivElement
   newWorldCard.id = 'main-menu-new-world'
-  newWorldCard.style.cssText = `${cardStyle};display:none`
+  newWorldCard.style.cssText = `${cardStyle};max-height:calc(100vh - 32px);overflow-y:auto;display:none`
   dom.setInnerHTML(newWorldCard, `
     <h2 style="margin:0 0 8px;font-size:20px">Create New World</h2>
+    <p style="margin:0 0 4px;font-size:13px;line-height:1.45">
+      Name the world, choose a starting mode, and confirm to generate the save.
+    </p>
     <label style="display:flex;flex-direction:column;gap:4px">
       <span>World name</span>
       <input type="text" id="mm-nw-name" style="${inputStyle}" placeholder="My World" />
@@ -75,35 +101,83 @@ export const buildMenuDOM = (dom: DomOperationsService): MenuDomElements => {
     <div style="display:flex;gap:8px;margin-top:8px">
       <button type="button" id="mm-lw-back" style="${buttonStyle};flex:1">Back</button>
     </div>
+    `)
+
+    // MULTIPLAYER card
+    const multiplayerCard = dom.createElement('div') as HTMLDivElement
+    multiplayerCard.id = 'main-menu-multiplayer'
+    multiplayerCard.style.cssText = `${cardStyle};max-height:calc(100vh - 32px);overflow-y:auto;display:none`
+    dom.setInnerHTML(multiplayerCard, `
+      <h2 style="margin:0 0 8px;font-size:20px">Join Multiplayer</h2>
+      <p style="margin:0 0 4px;font-size:13px;line-height:1.45">
+        Enter the server address and your player name, then confirm to connect.
+      </p>
+      <label style="display:flex;flex-direction:column;gap:4px">
+        <span>Server URL</span>
+        <input type="text" id="mm-mp-server-url" style="${inputStyle}" placeholder="ws://localhost:8080" />
+      </label>
+      <label style="display:flex;flex-direction:column;gap:4px">
+        <span>Player name</span>
+        <input type="text" id="mm-mp-player-name" style="${inputStyle}" placeholder="Player" />
+      </label>
+      <div style="display:flex;gap:8px;margin-top:8px">
+        <button type="button" id="mm-mp-cancel" style="${buttonStyle};flex:1">Cancel</button>
+        <button type="button" id="mm-mp-confirm" style="${buttonStyle};flex:1">Confirm</button>
+      </div>
+    `)
+
+    const howToPlayCard = dom.createElement('div') as HTMLDivElement
+    howToPlayCard.id = 'main-menu-how-to-play'
+    howToPlayCard.style.cssText = `${cardStyle};width:min(520px,calc(100vw - 32px));max-height:calc(100vh - 32px);overflow-y:auto;display:none`
+  dom.setInnerHTML(howToPlayCard, `
+    <h2 style="margin:0 0 8px;font-size:20px">How to Play</h2>
+      <div style="display:flex;flex-direction:column;gap:8px;font-size:14px;line-height:1.45;text-align:left">
+        <p style="margin:0"><strong>Controls:</strong> Move with WASD or the left stick, look with the mouse or right stick, jump with Space or a gamepad face button, and click or use triggers to break or place blocks.</p>
+        <p style="margin:0"><strong>Input:</strong> Keyboard, mouse, and gamepad are supported. Touch controls are not available yet, so mobile browsers are best used with a paired controller or keyboard.</p>
+        <p style="margin:0"><strong>Saving:</strong> Worlds save during play. Use Pause &gt; Save &amp; Quit to Title before leaving.</p>
+        <p style="margin:0"><strong>Crafting:</strong> Open your inventory to combine blocks and items into useful recipes.</p>
+      <p style="margin:0"><strong>Multiplayer/Chat:</strong> Join a multiplayer session to see other players and use chat to coordinate.</p>
+    </div>
+    <button type="button" id="mm-how-to-play-close" style="${buttonStyle};margin-top:4px">Close</button>
   `)
 
-  overlay.appendChild(rootCard)
-  overlay.appendChild(newWorldCard)
-  overlay.appendChild(loadWorldCard)
-  dom.appendChild(overlay)
+    overlay.appendChild(rootCard)
+    overlay.appendChild(newWorldCard)
+    overlay.appendChild(loadWorldCard)
+    overlay.appendChild(multiplayerCard)
+    overlay.appendChild(howToPlayCard)
+    dom.appendChild(overlay)
 
   const required = <T extends HTMLElement>(parent: HTMLElement, selector: string): T =>
     Option.getOrUndefined(dom.querySelector<T>(parent, selector)) as T
 
   const buttons: MenuButtons = {
     newWorld: required<HTMLButtonElement>(rootCard, '#mm-new-world'),
-    loadWorld: required<HTMLButtonElement>(rootCard, '#mm-load-world'),
-    settings: required<HTMLButtonElement>(rootCard, '#mm-settings'),
-    nwName: required<HTMLInputElement>(newWorldCard, '#mm-nw-name'),
-    nwMode: required<HTMLButtonElement>(newWorldCard, '#mm-nw-mode'),
-    nwCancel: required<HTMLButtonElement>(newWorldCard, '#mm-nw-cancel'),
-    nwConfirm: required<HTMLButtonElement>(newWorldCard, '#mm-nw-confirm'),
-    lwList: required<HTMLDivElement>(loadWorldCard, '#mm-lw-list'),
-    lwBack: required<HTMLButtonElement>(loadWorldCard, '#mm-lw-back'),
-  }
+    continueWorld: required<HTMLButtonElement>(rootCard, '#mm-continue-world'),
+      loadWorld: required<HTMLButtonElement>(rootCard, '#mm-load-world'),
+      multiplayer: required<HTMLButtonElement>(rootCard, '#mm-multiplayer'),
+      howToPlay: required<HTMLButtonElement>(rootCard, '#mm-how-to-play'),
+      settings: required<HTMLButtonElement>(rootCard, '#mm-settings'),
+      nwName: required<HTMLInputElement>(newWorldCard, '#mm-nw-name'),
+      nwMode: required<HTMLButtonElement>(newWorldCard, '#mm-nw-mode'),
+      nwCancel: required<HTMLButtonElement>(newWorldCard, '#mm-nw-cancel'),
+      nwConfirm: required<HTMLButtonElement>(newWorldCard, '#mm-nw-confirm'),
+      lwList: required<HTMLDivElement>(loadWorldCard, '#mm-lw-list'),
+      lwBack: required<HTMLButtonElement>(loadWorldCard, '#mm-lw-back'),
+      mpServerUrl: required<HTMLInputElement>(multiplayerCard, '#mm-mp-server-url'),
+      mpPlayerName: required<HTMLInputElement>(multiplayerCard, '#mm-mp-player-name'),
+      mpCancel: required<HTMLButtonElement>(multiplayerCard, '#mm-mp-cancel'),
+      mpConfirm: required<HTMLButtonElement>(multiplayerCard, '#mm-mp-confirm'),
+      howToPlayClose: required<HTMLButtonElement>(howToPlayCard, '#mm-how-to-play-close'),
+    }
 
-  return { overlay, rootCard, newWorldCard, loadWorldCard, buttons }
-}
+    return { overlay, rootCard, newWorldCard, loadWorldCard, multiplayerCard, howToPlayCard, buttons }
+  }
 
 // --- World list row renderers ---
 
 export const rowBaseStyle = [
-  'display:flex', 'align-items:center', 'gap:8px',
+  'display:flex', 'flex-wrap:wrap', 'align-items:center', 'gap:8px',
   'padding:8px 12px',
   'background:#8b8b8b', 'border:2px solid #111',
   'box-shadow:inset 2px 2px #d8d8d8,inset -2px -2px #3a3a3a',

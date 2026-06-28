@@ -27,6 +27,7 @@ export const ItemTypeSchema = Schema.Literal(
   'APPLE',
   'BREAD',
   'CARROT',
+  'POTATO',
   'RAW_PORKCHOP',
   'COOKED_PORKCHOP',
   'RAW_MUTTON',
@@ -123,6 +124,9 @@ export const ItemTypeSchema = Schema.Literal(
   'BUCKET',
   'WATER_BUCKET',
   'LAVA_BUCKET',
+  // Vehicle items — entity spawning/mounting is not implemented yet
+  'BOAT',
+  'MINECART',
   // Fuel/crafting — smelted from WOOD logs (vanilla)
   'CHARCOAL',
 )

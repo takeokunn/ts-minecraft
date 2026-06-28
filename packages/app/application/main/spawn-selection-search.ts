@@ -52,6 +52,7 @@ const NON_SPAWN_SURFACE_BLOCK_IDS: ReadonlySet<BlockTypeIndex> = new Set([
   blockTypeToIndex('STONE_BUTTON'),
   blockTypeToIndex('PRESSURE_PLATE'),
   blockTypeToIndex('REPEATER'),
+  blockTypeToIndex('PISTON'),
   blockTypeToIndex('DOOR'),
   blockTypeToIndex('DOOR_OPEN'),
   // Portal blocks

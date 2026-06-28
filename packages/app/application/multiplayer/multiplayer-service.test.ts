@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { Effect, Stream } from 'effect'
+import { Effect, Queue, Stream } from 'effect'
 import { MessageType, PlayerId, PlayerName, WorldId, type NetworkMessage } from '@ts-minecraft/network/domain/schemas'
 import type { ClientServiceShape } from '@ts-minecraft/network/application/client-service'
 import {
@@ -79,18 +79,34 @@ const blockBreakMessage = (): NetworkMessage => ({
   timestamp: 5,
 })
 
+const entitySnapshotMessage = (id: string, entityId: string, alive = true): NetworkMessage => ({
+  type: MessageType.EntitySnapshot,
+  playerId: playerId(id),
+  worldId,
+  entityId,
+  entityType: 'ZOMBIE',
+  position: { x: 8, y: 64, z: -2 },
+  health: alive ? 12 : 0,
+  alive,
+  timestamp: 6,
+})
+
 describe('MultiplayerService block sync (T15a)', () => {
   it('sendBlockPlace emits a BlockPlace message with floored integer position + blockType', async () => {
     const sent: NetworkMessage[] = []
     await Effect.runPromise(
       Effect.gen(function* () {
-        const svc = yield* MultiplayerServiceImpl(makeClient(sent))
+        const svc = yield* MultiplayerServiceImpl(makeClient(sent, {
+          inbound: [joinMessage('self', 'alice', 0, 64, 0)],
+        }))
         yield* svc.connect('ws://test', playerName('alice'))
+        yield* Effect.sleep(10)
         yield* svc.sendBlockPlace({ x: 3.7, y: 64.2, z: -2.9 }, 'STONE')
       }),
     )
     const placed = sent.find((m) => m.type === MessageType.BlockPlace)
     expect(placed).toBeDefined()
+    expect(placed).toMatchObject({ playerId: playerId('self') })
     expect((placed as { position: { x: number; y: number; z: number } }).position).toEqual({ x: 3, y: 64, z: -3 })
     expect((placed as { blockType: string }).blockType).toBe('STONE')
   })
@@ -99,29 +115,109 @@ describe('MultiplayerService block sync (T15a)', () => {
     const sent: NetworkMessage[] = []
     await Effect.runPromise(
       Effect.gen(function* () {
-        const svc = yield* MultiplayerServiceImpl(makeClient(sent))
+        const svc = yield* MultiplayerServiceImpl(makeClient(sent, {
+          inbound: [joinMessage('self', 'bob', 0, 64, 0)],
+        }))
         yield* svc.connect('ws://test', playerName('bob'))
+        yield* Effect.sleep(10)
         yield* svc.sendBlockBreak({ x: 10, y: 70, z: 5 })
       }),
     )
-    expect(sent.some((m) => m.type === MessageType.BlockBreak)).toBe(true)
+    const broken = sent.find((m) => m.type === MessageType.BlockBreak)
+    expect(broken).toMatchObject({ playerId: playerId('self') })
   })
 
   it('sends chat and movement after connecting', async () => {
     const sent: NetworkMessage[] = []
     await Effect.runPromise(
       Effect.gen(function* () {
-        const svc = yield* MultiplayerServiceImpl(makeClient(sent))
+        const svc = yield* MultiplayerServiceImpl(makeClient(sent, {
+          inbound: [joinMessage('self', 'casey', 0, 64, 0)],
+        }))
         yield* svc.connect('ws://test', playerName('casey'))
+        yield* Effect.sleep(10)
         yield* svc.sendChat('hello')
         yield* svc.sendPositionUpdate({ x: 1.5, y: 64, z: -2.25 }, { yaw: 0.75, pitch: -0.25 })
       }),
     )
     expect(sent.map((m) => m.type)).toEqual([MessageType.Chat, MessageType.PlayerMove])
-    expect(sent[0]).toMatchObject({ message: 'hello' })
+    expect(sent[0]).toMatchObject({ message: 'hello', playerId: playerId('self') })
     expect(sent[1]).toMatchObject({
+      playerId: playerId('self'),
       position: { x: 1.5, y: 64, z: -2.25 },
       rotation: { yaw: 0.75, pitch: -0.25 },
+    })
+  })
+
+  it('reports joining until self join assigns identity and flushes queued chat', async () => {
+    const sent: NetworkMessage[] = []
+    const result = await Effect.runPromise(
+      Effect.gen(function* () {
+        const inbound = yield* Queue.unbounded<NetworkMessage>()
+        const svc = yield* MultiplayerServiceImpl(makeClient(sent, {
+          receiveMessages: () => Effect.succeed(Stream.fromQueue(inbound)),
+        }))
+
+        yield* svc.connect('ws://test', playerName('casey'))
+        const joiningState = yield* svc.getSessionState()
+        yield* svc.sendChat('queued hello')
+        const sentBeforeJoin = sent.length
+
+      yield* Queue.offer(inbound, joinMessage('self', 'casey', 0, 64, 0))
+      yield* Effect.sleep(10)
+      const readyState = yield* svc.getSessionState()
+      const sentAfterSelfJoin = sent.length
+      yield* Queue.offer(inbound, joinMessage('remote', 'alex', 1, 64, 1))
+      yield* Queue.offer(inbound, joinMessage('self', 'casey', 2, 64, 2))
+      yield* Effect.sleep(10)
+      const sentAfterRepeatedJoins = sent.length
+      yield* svc.disconnect
+
+      return { joiningState, sentBeforeJoin, readyState, sentAfterSelfJoin, sentAfterRepeatedJoins }
+    }),
+  )
+
+  expect(result).toEqual({
+    joiningState: 'joining',
+    sentBeforeJoin: 0,
+    readyState: 'ready',
+    sentAfterSelfJoin: 1,
+    sentAfterRepeatedJoins: 1,
+  })
+  expect(sent).toHaveLength(1)
+  expect(sent[0]).toMatchObject({
+    type: MessageType.Chat,
+    message: 'queued hello',
+      playerId: playerId('self'),
+    })
+  })
+
+  it('sendEntitySnapshot emits an EntitySnapshot message after local identity is known', async () => {
+    const sent: NetworkMessage[] = []
+    await Effect.runPromise(
+      Effect.gen(function* () {
+        const svc = yield* MultiplayerServiceImpl(makeClient(sent, {
+          inbound: [joinMessage('self', 'morgan', 0, 64, 0)],
+        }))
+        yield* svc.connect('ws://test', playerName('morgan'))
+        yield* Effect.sleep(10)
+        yield* svc.sendEntitySnapshot({
+          entityId: 'entity-1',
+          entityType: 'ZOMBIE',
+          position: { x: 8, y: 64, z: -2 },
+          health: 12,
+          alive: true,
+        })
+      }),
+    )
+    const snapshot = sent.find((m) => m.type === MessageType.EntitySnapshot)
+    expect(snapshot).toMatchObject({
+      playerId: playerId('self'),
+      entityId: 'entity-1',
+      entityType: 'ZOMBIE',
+      position: { x: 8, y: 64, z: -2 },
+      health: 12,
+      alive: true,
     })
   })
 
@@ -133,8 +229,39 @@ describe('MultiplayerService block sync (T15a)', () => {
         yield* svc.sendBlockBreak({ x: 0, y: 0, z: 0 })
       }),
     )
-    expect(sent).toHaveLength(0)
-  })
+  expect(sent).toHaveLength(0)
+})
+
+it('does not flush chat sent before connect or after disconnect on later self joins', async () => {
+  const sent: NetworkMessage[] = []
+  const result = await Effect.runPromise(
+    Effect.gen(function* () {
+      const inbound = yield* Queue.unbounded<NetworkMessage>()
+      const svc = yield* MultiplayerServiceImpl(makeClient(sent, {
+        receiveMessages: () => Effect.succeed(Stream.fromQueue(inbound)),
+      }))
+
+      yield* svc.sendChat('before connect')
+      yield* svc.connect('ws://test', playerName('casey'))
+      yield* Queue.offer(inbound, joinMessage('self', 'casey', 0, 64, 0))
+      yield* Effect.sleep(10)
+      const sentAfterFirstJoin = sent.length
+
+      yield* svc.disconnect
+      yield* svc.sendChat('after disconnect')
+      yield* svc.connect('ws://test', playerName('casey'))
+      yield* Queue.offer(inbound, joinMessage('self', 'casey', 1, 64, 1))
+      yield* Effect.sleep(10)
+      const sentAfterReconnect = sent.length
+      yield* svc.disconnect
+
+      return { sentAfterFirstJoin, sentAfterReconnect }
+    }),
+  )
+
+  expect(result).toEqual({ sentAfterFirstJoin: 0, sentAfterReconnect: 0 })
+  expect(sent).toHaveLength(0)
+})
 
   it('swallows send, disconnect, connection-state, and receive failures', async () => {
     const sent: NetworkMessage[] = []
@@ -157,7 +284,7 @@ describe('MultiplayerService block sync (T15a)', () => {
     expect(sent).toHaveLength(0)
   })
 
-  it('sets player name and starts receiving even when connect fails', async () => {
+  it('does not send when connect fails before local player assignment', async () => {
     const sent: NetworkMessage[] = []
     await Effect.runPromise(
       Effect.gen(function* () {
@@ -168,8 +295,7 @@ describe('MultiplayerService block sync (T15a)', () => {
         yield* svc.sendChat('still sends')
       }),
     )
-    expect(sent).toHaveLength(1)
-    expect(sent[0]).toMatchObject({ type: MessageType.Chat, message: 'still sends' })
+    expect(sent).toHaveLength(0)
   })
 
   it('drainBlockEdits returns an empty array initially', async () => {
@@ -200,6 +326,38 @@ describe('MultiplayerService block sync (T15a)', () => {
       { kind: 'break', x: 5, y: 66, z: -4 },
     ])
     expect(edits[1]).toEqual([])
+  })
+
+  it('drains remote entity snapshots once and ignores local entity echoes', async () => {
+    const snapshots = await Effect.runPromise(
+      Effect.gen(function* () {
+        const svc = yield* MultiplayerServiceImpl(makeClient([], {
+          inbound: [
+            joinMessage('self', 'nina', 0, 64, 0),
+            entitySnapshotMessage('self', 'local-entity'),
+            entitySnapshotMessage('remote', 'remote-entity'),
+          ],
+        }))
+        yield* svc.connect('ws://test', playerName('nina'))
+        yield* Effect.sleep(10)
+        const first = yield* svc.drainEntitySnapshots
+        const second = yield* svc.drainEntitySnapshots
+        return [first, second] as const
+      }),
+    )
+    expect(snapshots[0]).toEqual([
+      {
+        playerId: 'remote',
+        worldId: 'overworld',
+        entityId: 'remote-entity',
+        entityType: 'ZOMBIE',
+        position: { x: 8, y: 64, z: -2 },
+        health: 12,
+        alive: true,
+        timestamp: 6,
+      },
+    ])
+    expect(snapshots[1]).toEqual([])
   })
 
   it('tracks remote players from join, move, and leave messages', async () => {
@@ -237,6 +395,7 @@ describe('MultiplayerService block sync (T15a)', () => {
         const svc = yield* MultiplayerServiceImpl(makeClient([], {
           inbound: [
             { type: MessageType.Ping, nonce: 'noop', timestamp: 1 },
+            joinMessage('speaker', 'Speaker', 0, 64, 0),
             ...Array.from({ length: 55 }, (_, index) => chatMessage('speaker', index)),
           ],
         }))
@@ -246,8 +405,8 @@ describe('MultiplayerService block sync (T15a)', () => {
       }),
     )
     expect(chats).toHaveLength(50)
-    expect(chats[0]).toEqual({ player: 'speaker', text: 'chat-5', timestamp: 5 })
-    expect(chats.at(-1)).toEqual({ player: 'speaker', text: 'chat-54', timestamp: 54 })
+    expect(chats[0]).toEqual({ player: 'Speaker', text: 'chat-5', timestamp: 5 })
+    expect(chats.at(-1)).toEqual({ player: 'Speaker', text: 'chat-54', timestamp: 54 })
   })
 
   it('disconnect is a no-op when no drain fiber is running and drainInbound is currently empty work', async () => {

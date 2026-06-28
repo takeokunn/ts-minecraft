@@ -1,6 +1,6 @@
 import { describe, it } from '@effect/vitest'
 import { Array as Arr, Effect, Option } from 'effect'
-import { expect } from 'vitest'
+import { expect, vi } from 'vitest'
 import { CrosshairService } from '@ts-minecraft/presentation/hud/crosshair'
 import { createMockDomLayer } from './crosshair-test-utils'
 
@@ -154,6 +154,51 @@ describe('CrosshairService', () => {
       })
     })
 
+    describe('pulse', () => {
+      it.effect('should apply and reset hit marker styling when visible', () => {
+        vi.useFakeTimers()
+        const { TestLayer, getCreatedElements } = createMockDomLayer()
+
+        return Effect.gen(function* () {
+          const crosshair = yield* CrosshairService
+          yield* crosshair.show()
+
+          const element = Option.getOrThrow(Arr.get(getCreatedElements(), 0))
+          const baseCss = element.style.cssText
+
+          yield* crosshair.pulse()
+
+          expect(element.style.cssText).toContain('scale(1.45)')
+          expect(element.style.cssText).toContain('255, 70, 70')
+
+          vi.advanceTimersByTime(120)
+
+          expect(element.style.cssText).toBe(baseCss)
+        }).pipe(
+          Effect.provide(TestLayer),
+          Effect.ensuring(Effect.sync(() => {
+            vi.clearAllTimers()
+            vi.useRealTimers()
+          }))
+        )
+      })
+
+      it.effect('should keep hidden crosshair at base styling', () => {
+        const { TestLayer, appendChildMock, getCreatedElements } = createMockDomLayer()
+
+        return Effect.gen(function* () {
+          const crosshair = yield* CrosshairService
+
+          yield* crosshair.pulse()
+
+          const element = Option.getOrThrow(Arr.get(getCreatedElements(), 0))
+          expect(appendChildMock).not.toHaveBeenCalled()
+          expect(element.style.cssText).toContain('scale(1)')
+          expect(element.style.cssText).not.toContain('scale(1.45)')
+        }).pipe(Effect.provide(TestLayer))
+      })
+    })
+
     describe('isVisible', () => {
       it.effect('should return false initially', () => {
         const { TestLayer } = createMockDomLayer()
@@ -218,6 +263,19 @@ describe('CrosshairService', () => {
           expect(elements.length).toBe(3)
           // The container should have 2 children
           expect(Option.getOrThrow(Arr.get(elements, 0)).children.length).toBe(2)
+        }).pipe(Effect.provide(TestLayer))
+      })
+
+      it.effect('should protect crosshair contrast against bright and dark backgrounds', () => {
+        const { TestLayer, getCreatedElements } = createMockDomLayer()
+
+        return Effect.gen(function* () {
+          const crosshair = yield* CrosshairService
+          yield* crosshair.show()
+
+          const element = Option.getOrThrow(Arr.get(getCreatedElements(), 0))
+          expect(element.style.cssText).toContain('mix-blend-mode: difference')
+          expect(element.style.cssText).toContain('drop-shadow')
         }).pipe(Effect.provide(TestLayer))
       })
     })

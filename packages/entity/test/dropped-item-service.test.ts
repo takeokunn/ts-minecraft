@@ -1,7 +1,11 @@
 import { describe, it } from '@effect/vitest'
 import { Effect } from 'effect'
 import { expect } from 'vitest'
-import { DroppedItemService } from '@ts-minecraft/entity/application/dropped-item-service';
+import {
+  DROPPED_ITEM_MAX_MERGED_STACK,
+  DROPPED_ITEM_VELOCITY_DAMPING,
+  DroppedItemService,
+} from '@ts-minecraft/entity/application/dropped-item-service';
 import { DROPPED_ITEM_LIFETIME_TICKS, ITEM_PICKUP_DISTANCE } from '@ts-minecraft/entity/domain/dropped-item';
 
 const withDroppedItemService = <A>(
@@ -93,10 +97,73 @@ describe('DroppedItemService', () => {
           position: { x: 3, y: 64, z: -3 },
           ageTicks: 3,
         })
+        const expectedVelocity = Math.pow(DROPPED_ITEM_VELOCITY_DAMPING, 3)
+        expect(moved?.velocity.x).toBeCloseTo(expectedVelocity)
+        expect(moved?.velocity.z).toBeCloseTo(-expectedVelocity)
 
         yield* service.tick(DROPPED_ITEM_LIFETIME_TICKS)
 
         expect(yield* service.getAll()).toEqual([])
+      }),
+    ))
+
+  it.effect('merges nearby matching stacks up to the item stack limit', () =>
+    withDroppedItemService((service) =>
+      Effect.gen(function* () {
+        yield* service.spawn({
+          itemType: 'DIRT',
+          count: 40,
+          position: { x: 0, y: 64, z: 0 },
+          pickupDelayTicks: 1,
+        })
+        yield* service.spawn({
+          itemType: 'DIRT',
+          count: 30,
+          position: { x: 0.25, y: 64, z: 0 },
+          pickupDelayTicks: 4,
+        })
+
+        yield* service.tick(1)
+
+        const items = yield* service.getAll()
+        expect(items).toHaveLength(2)
+        expect(items[0]).toMatchObject({
+          id: 'dropped-item-1',
+          itemType: 'DIRT',
+          count: DROPPED_ITEM_MAX_MERGED_STACK,
+          pickupDelayTicks: 3,
+        })
+        expect(items[1]).toMatchObject({
+          id: 'dropped-item-2',
+          itemType: 'DIRT',
+          count: 6,
+          pickupDelayTicks: 3,
+        })
+      }),
+    ))
+
+  it.effect('keeps distant or different item stacks separate', () =>
+    withDroppedItemService((service) =>
+      Effect.gen(function* () {
+        yield* service.spawn({
+          itemType: 'DIRT',
+          count: 1,
+          position: { x: 0, y: 64, z: 0 },
+        })
+        yield* service.spawn({
+          itemType: 'STONE',
+          count: 1,
+          position: { x: 0.25, y: 64, z: 0 },
+        })
+        yield* service.spawn({
+          itemType: 'DIRT',
+          count: 1,
+          position: { x: 1, y: 64, z: 0 },
+        })
+
+        yield* service.tick(1)
+
+        expect(yield* service.getAll()).toHaveLength(3)
       }),
     ))
 })

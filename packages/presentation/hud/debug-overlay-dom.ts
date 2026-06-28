@@ -88,6 +88,11 @@ export const buildDebugOverlayDom = (
   panelNodes.searchInput.addEventListener('keydown', (event) => {
     if (event.key !== 'Escape') return
     event.preventDefault()
+    if (panelNodes.searchInput.value.length > 0) {
+      panelNodes.searchInput.value = ''
+      runPanelEffect(dom, refreshTogglePanel(dom, deps))
+      return
+    }
     panelNodes.searchInput.blur()
   })
 

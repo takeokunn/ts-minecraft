@@ -10,6 +10,9 @@ import {
   EMPTY_RECIPE_STYLE, RECIPE_ROW_BASE_STYLE,
   RECIPE_ROW_SELECTED_BG, RECIPE_ROW_SELECTED_BORDER,
   RECIPE_ROW_DEFAULT_BG, RECIPE_ROW_DEFAULT_BORDER,
+  CRAFTING_PREVIEW_EMPTY_STYLE, CRAFTING_PREVIEW_INGREDIENTS_STYLE,
+  CRAFTING_PREVIEW_INGREDIENT_STYLE, CRAFTING_PREVIEW_META_STYLE,
+  CRAFTING_PREVIEW_TITLE_STYLE,
   SLOT_BORDER_SELECTED, SLOT_BORDER_DEFAULT,
 } from './inventory-renderer.config'
 
@@ -38,6 +41,42 @@ const buildSlotTooltip = (stack: ItemStack): string => {
   return enchantments.length === 0
     ? lines.join('\n')
     : [...lines, 'Enchantments:', ...enchantments.map(formatEnchantment)].join('\n')
+}
+
+const formatStationLabel = (station: Recipe['station']): string =>
+  station === 'crafting_table'
+    ? 'Crafting Table'
+    : station === 'furnace'
+      ? 'Furnace'
+      : 'Inventory'
+
+const normalizeSearchText = (value: string): string =>
+  value.trim().toLowerCase().replace(/_/g, ' ')
+
+const recipeSearchText = (recipe: Recipe): string =>
+  normalizeSearchText([
+    recipe.id,
+    recipe.station,
+    recipe.output.itemType,
+    ...recipe.ingredients.map((ingredient) => ingredient.itemType),
+  ].join(' '))
+
+const formatIngredientLine = (ingredients: Recipe['ingredients']): string => {
+  let line = ''
+  for (let index = 0; index < ingredients.length; index += 1) {
+    const ingredient = ingredients[index]!
+    if (index > 0) {
+      line += ' + '
+    }
+    line += `${ingredient.count} ${ingredient.itemType}`
+  }
+  return line
+}
+
+const recipeMatchesSearch = (recipe: Recipe, searchQuery: string): boolean => {
+  const normalizedQuery = normalizeSearchText(searchQuery)
+  if (normalizedQuery.length === 0) return true
+  return recipeSearchText(recipe).includes(normalizedQuery)
 }
 
 /* c8 ignore start */
@@ -107,9 +146,98 @@ export const renderCraftingList = (
         : recipe.station === 'furnace'
           ? ' [Furnace]'
           : ''
-      row.textContent = `${Arr.map(recipe.ingredients, (ingredient) => `${ingredient.count} ${ingredient.itemType}`).join(' + ')} → ${recipe.output.count} ${recipe.output.itemType}${stationLabel}`
+      row.textContent = `${formatIngredientLine(recipe.ingredients)} → ${recipe.output.count} ${recipe.output.itemType}${stationLabel}`
       dom.appendChildTo(container, row)
     })
+  })
+}
+
+export const renderRecipeBook = (
+  dom: DomOperationsService,
+  recipeBookEl: Option.Option<HTMLDivElement>,
+  recipes: ReadonlyArray<Recipe>,
+  searchQuery: string,
+): void => {
+  Option.map(recipeBookEl, (container) => {
+    container.innerHTML = ''
+    const visibleRecipes = recipes.filter((recipe) => recipeMatchesSearch(recipe, searchQuery))
+
+    if (recipes.length === 0) {
+      const empty = dom.createElement('div')
+      empty.textContent = 'No recipes available.'
+      empty.style.cssText = EMPTY_RECIPE_STYLE
+      dom.appendChildTo(container, empty)
+      return
+    }
+
+    if (visibleRecipes.length === 0) {
+      const empty = dom.createElement('div')
+      empty.textContent = 'No recipes match your search.'
+      empty.style.cssText = EMPTY_RECIPE_STYLE
+      dom.appendChildTo(container, empty)
+      return
+    }
+
+    Arr.forEach(visibleRecipes, (recipe) => {
+      const row = dom.createElement('button')
+      const dataRow = row as HTMLButtonElement & { dataset?: Record<string, string> }
+      dataRow.dataset ??= {}
+      dataRow.dataset['recipeId'] = recipe.id
+      row.style.cssText = [
+        RECIPE_ROW_BASE_STYLE,
+        'border:1px solid ' + RECIPE_ROW_DEFAULT_BORDER,
+        'background:' + RECIPE_ROW_DEFAULT_BG,
+      ].join(';')
+      const stationLabel = recipe.station === 'crafting_table'
+        ? ' [Crafting Table]'
+        : recipe.station === 'furnace'
+          ? ' [Furnace]'
+          : ''
+      row.textContent = `${formatIngredientLine(recipe.ingredients)} → ${recipe.output.count} ${recipe.output.itemType}${stationLabel}`
+      dom.appendChildTo(container, row)
+    })
+  })
+}
+
+export const renderCraftingPreview = (
+  dom: DomOperationsService,
+  craftingPreviewEl: Option.Option<HTMLDivElement>,
+  craftableRecipes: ReadonlyArray<Recipe>,
+  selectedRecipeIndex: number,
+): void => {
+  Option.map(craftingPreviewEl, (container) => {
+    container.innerHTML = ''
+
+    const title = dom.createElement('div')
+    title.textContent = 'Selected Recipe'
+    title.style.cssText = CRAFTING_PREVIEW_TITLE_STYLE
+    dom.appendChildTo(container, title)
+
+    const recipe = Option.getOrNull(Arr.get(craftableRecipes, selectedRecipeIndex))
+    if (recipe === null) {
+      const empty = dom.createElement('div')
+      empty.textContent = craftableRecipes.length === 0
+        ? 'No craftable recipes yet.'
+        : 'Select a recipe to see its ingredients.'
+      empty.style.cssText = CRAFTING_PREVIEW_EMPTY_STYLE
+      dom.appendChildTo(container, empty)
+      return
+    }
+
+    const meta = dom.createElement('div')
+    meta.textContent = `${formatStationLabel(recipe.station)} • Produces ${recipe.output.count} ${formatLabel(recipe.output.itemType)}`
+    meta.style.cssText = CRAFTING_PREVIEW_META_STYLE
+    dom.appendChildTo(container, meta)
+
+    const ingredients = dom.createElement('div')
+    ingredients.style.cssText = CRAFTING_PREVIEW_INGREDIENTS_STYLE
+    Arr.forEach(recipe.ingredients, (ingredient) => {
+      const chip = dom.createElement('div')
+      chip.textContent = `${ingredient.count} ${formatLabel(ingredient.itemType)}`
+      chip.style.cssText = CRAFTING_PREVIEW_INGREDIENT_STYLE
+      dom.appendChildTo(ingredients, chip)
+    })
+    dom.appendChildTo(container, ingredients)
   })
 }
 

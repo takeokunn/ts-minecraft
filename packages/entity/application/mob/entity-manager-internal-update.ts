@@ -2,8 +2,10 @@ import { Effect, HashMap, MutableRef, Option, Ref } from 'effect'
 import type { DeltaTimeSecs, Position, Vector3 } from '@ts-minecraft/core'
 import { type Entity, type EntityId } from '../../domain/mob/entity'
 import { type ManagedEntity } from '../../domain/mob/entity-internal'
+import type { DragonDeathEvent } from '../../domain/mob/ender-dragon/dragon-death'
 import { type CollisionResolver } from '../../domain/mob/entity-manager-utils'
 import { processEntityAI } from './entity-manager-ai'
+import { runDragonUpdate } from './entity-manager-dragon-update'
 import { advanceDaylightBurnCadence } from './entity-manager-daylight-burn'
 import { updateManagedEntities } from './entity-manager-entity-map'
 import {
@@ -20,6 +22,7 @@ export const makeEntityManagerUpdate = (
   cachedEntitiesRef: Ref.Ref<Option.Option<ReadonlyArray<Entity>>>,
   structureVersionRef: Ref.Ref<number>,
   burnAccumulatorRef: Ref.Ref<number>,
+  dragonEventsRef: Ref.Ref<ReadonlyArray<DragonDeathEvent>>,
 ) => {
   return {
     update: (
@@ -49,6 +52,11 @@ export const makeEntityManagerUpdate = (
         yield* updateManagedEntities(entitiesRef, (entity, entityId) =>
           processEntityAI(entity, entityId, ctx, dirtyRef, fireDamageRef, hasCreeperRef, hasShearedSheepRef)
         )
+
+        // Ender Dragon boss: override the generic wander velocity with the flight FSM and
+        // advance the death sequence (emitting egg/portal/XP events the app drains). Runs
+        // after the AI pass so its velocity wins.
+        yield* runDragonUpdate(entitiesRef, cachedEntitiesRef, structureVersionRef, dragonEventsRef, tick, playerPosition)
 
         yield* updateCreeperFuseStates(entitiesRef, dirtyRef, hasCreeperRef, playerPosition, deltaTime)
         yield* updateSheepWoolRegrowth(entitiesRef, hasShearedSheepRef, deltaTime)

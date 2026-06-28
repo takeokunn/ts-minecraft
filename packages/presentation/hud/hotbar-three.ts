@@ -117,6 +117,7 @@ const FIRST_PERSON_BLOCK_ITEMS: ReadonlySet<InventoryItem> = new Set<InventoryIt
   'LEVER',
   'STONE_BUTTON',
   'REPEATER',
+  'PISTON',
   'BED',
   'ENCHANTING_TABLE',
   'ANVIL',

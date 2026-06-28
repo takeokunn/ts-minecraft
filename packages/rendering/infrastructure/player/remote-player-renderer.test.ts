@@ -306,6 +306,92 @@ describe('infrastructure/player/remote-player-renderer', () => {
     expect(scene.remove).toHaveBeenCalledTimes(1)
   })
 
+  it('updateFromSnapshot eases existing players toward small snapshot changes', () => {
+    const scene = makeScene()
+    const renderer = createRemotePlayerRenderer(scene, new THREE.Camera())
+
+    Effect.runSync(renderer.addPlayer(makeState({
+      position: { x: 0, y: 64, z: 0 },
+      rotation: { yaw: 0, pitch: 0 },
+    })))
+    Effect.runSync(renderer.updateFromSnapshot([makeState({
+      position: { x: 2, y: 64, z: 0 },
+      rotation: { yaw: 1, pitch: 0.5 },
+      limbSwing: 1,
+    })]))
+
+    const group = addedGroup(scene)
+    expect(group.position.x).toBeCloseTo(0.7)
+    expect(group.position.y).toBeCloseTo(64)
+    expect(group.position.z).toBeCloseTo(0)
+    expect(group.rotation.y).toBeCloseTo(0.35)
+    expect(group.children[0]?.rotation.x).toBeCloseTo(0.175)
+  })
+
+  it('updateFromSnapshot keeps interpolation state stable across consecutive snapshots', () => {
+    const scene = makeScene()
+    const renderer = createRemotePlayerRenderer(scene, new THREE.Camera())
+
+    Effect.runSync(renderer.addPlayer(makeState({
+      position: { x: 0, y: 64, z: 0 },
+      rotation: { yaw: 0, pitch: 0 },
+    })))
+    Effect.runSync(renderer.updateFromSnapshot([makeState({
+      position: { x: 2, y: 64, z: 0 },
+      rotation: { yaw: 1, pitch: 0.5 },
+    })]))
+    Effect.runSync(renderer.updateFromSnapshot([makeState({
+      position: { x: 4, y: 64, z: 0 },
+      rotation: { yaw: 2, pitch: 1 },
+    })]))
+
+    const group = addedGroup(scene)
+    expect(group.position.x).toBeCloseTo(1.855)
+    expect(group.position.y).toBeCloseTo(64)
+    expect(group.position.z).toBeCloseTo(0)
+    expect(group.rotation.y).toBeCloseTo(0.9275)
+    expect(group.children[0]?.rotation.x).toBeCloseTo(0.46375)
+    expect(scene.add).toHaveBeenCalledOnce()
+    expect(scene.remove).not.toHaveBeenCalled()
+  })
+
+  it('updateFromSnapshot snaps large remote corrections instead of easing across the world', () => {
+    const scene = makeScene()
+    const renderer = createRemotePlayerRenderer(scene, new THREE.Camera())
+
+    Effect.runSync(renderer.addPlayer(makeState({
+      position: { x: 0, y: 64, z: 0 },
+      rotation: { yaw: 0, pitch: 0 },
+    })))
+    Effect.runSync(renderer.updateFromSnapshot([makeState({
+      position: { x: 12, y: 64, z: 0 },
+      rotation: { yaw: 1, pitch: 0.5 },
+    })]))
+
+    const group = addedGroup(scene)
+    expect(group.position).toMatchObject({ x: 12, y: 64, z: 0 })
+    expect(group.rotation.y).toBe(1)
+    expect(group.children[0]?.rotation.x).toBe(0.5)
+  })
+
+  it('updateFromSnapshot rotates across the shortest yaw path', () => {
+    const scene = makeScene()
+    const renderer = createRemotePlayerRenderer(scene, new THREE.Camera())
+
+    Effect.runSync(renderer.addPlayer(makeState({
+      position: { x: 0, y: 64, z: 0 },
+      rotation: { yaw: 3, pitch: 0 },
+    })))
+    Effect.runSync(renderer.updateFromSnapshot([makeState({
+      position: { x: 0, y: 64, z: 0 },
+      rotation: { yaw: -3, pitch: 0 },
+    })]))
+
+    const group = addedGroup(scene)
+    expect(group.rotation.y).toBeGreaterThan(3)
+    expect(group.rotation.y).toBeCloseTo(3 + (Math.PI * 2 - 6) * 0.35)
+  })
+
   it('getAllPlayerIds returns current player IDs', () => {
     const scene = makeScene()
     const renderer = createRemotePlayerRenderer(scene, new THREE.Camera())

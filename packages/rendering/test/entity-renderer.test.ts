@@ -28,6 +28,7 @@ const makeEntity = (params: {
   position?: { x: number; y: number; z: number }
   velocity?: { x: number; y: number; z: number }
   fuseSecs?: number
+  isSheared?: boolean
 }): Entity => ({
   entityId: EntityId.make(params.id),
   type: Option.getOrElse(Option.fromNullable(params.type), (): EntityType => 'Zombie'),
@@ -36,6 +37,7 @@ const makeEntity = (params: {
   rotation: identity,
   health: 20,
   ...(params.fuseSecs === undefined ? {} : { fuseSecs: params.fuseSecs }),
+  ...(params.isSheared === undefined ? {} : { isSheared: params.isSheared }),
 })
 
 const buildTestLayer = () => {
@@ -170,6 +172,31 @@ describe('infrastructure/three/entity-renderer', () => {
       }).pipe(Effect.provide(TestLayer))
     })
 
+    it.effect('does not swing Shulker shell panel instance matrices', () => {
+      const TestLayer = buildTestLayer()
+      const scene = makeScene()
+      return Effect.gen(function* () {
+        const r = yield* EntityRendererService
+        const e = makeEntity({
+          id: 'mob-shulker',
+          type: 'Shulker',
+          velocity: { x: 2, y: 0, z: 2 },
+        })
+        yield* r.syncEntities([e], scene)
+        yield* r.updateEntityTransforms([e], 0.5, 0.016)
+
+        const slotInfo = Option.getOrThrow(r._getInstancePool().getSlot('Shulker', 'legFL', e.entityId))
+        const matrix = new THREE.Matrix4()
+        const pos = new THREE.Vector3()
+        const quat = new THREE.Quaternion()
+        const scale = new THREE.Vector3()
+        const expected = new THREE.Quaternion().setFromEuler(new THREE.Euler(0, Math.atan2(2, 2), 0))
+        slotInfo.bucket.mesh.getMatrixAt(slotInfo.slot, matrix)
+        matrix.decompose(pos, quat, scale)
+        expect(Math.abs(quat.angleTo(expected))).toBeLessThan(1e-9)
+      }).pipe(Effect.provide(TestLayer))
+    })
+
     it.effect('holds limbs at 0 when speed is below threshold', () => {
       const TestLayer = buildTestLayer()
       const scene = makeScene()
@@ -243,6 +270,32 @@ describe('infrastructure/three/entity-renderer', () => {
         expect(color.r).toBeGreaterThan(base.r)
         expect(color.g).toBeGreaterThan(base.g)
         expect(color.b).toBeGreaterThan(base.b)
+      }).pipe(Effect.provide(TestLayer))
+    })
+
+    it.effect('mutes sheared sheep colors without changing the base mesh palette', () => {
+      const TestLayer = buildTestLayer()
+      const scene = makeScene()
+      return Effect.gen(function* () {
+        const r = yield* EntityRendererService
+        const woolly = makeEntity({ id: 'sheep-woolly', type: 'Sheep' })
+        const sheared = makeEntity({ id: 'sheep-sheared', type: 'Sheep', isSheared: true })
+        yield* r.syncEntities([woolly, sheared], scene)
+        yield* r.updateEntityTransforms([woolly, sheared], 0.2, 0.016)
+
+        const woollySlot = Option.getOrThrow(r._getInstancePool().getSlot('Sheep', 'body', woolly.entityId))
+        const shearedSlot = Option.getOrThrow(r._getInstancePool().getSlot('Sheep', 'body', sheared.entityId))
+        const woollyColor = new THREE.Color()
+        const shearedColor = new THREE.Color()
+        woollySlot.bucket.mesh.getColorAt(woollySlot.slot, woollyColor)
+        shearedSlot.bucket.mesh.getColorAt(shearedSlot.slot, shearedColor)
+
+        const base = new THREE.Color(woollySlot.bucket.spec.color)
+        expect(woollyColor.getHex()).toBe(base.getHex())
+        expect(shearedColor.getHex()).not.toBe(base.getHex())
+        expect(shearedColor.r).toBeLessThan(woollyColor.r)
+        expect(shearedColor.g).toBeLessThan(woollyColor.g)
+        expect(shearedColor.b).toBeLessThan(woollyColor.b)
       }).pipe(Effect.provide(TestLayer))
     })
   })

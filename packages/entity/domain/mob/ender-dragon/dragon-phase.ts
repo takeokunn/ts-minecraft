@@ -108,6 +108,22 @@ const velocityFor = (phase: DragonPhase, input: DragonPhaseInput, state: DragonP
   }
 }
 
+export const DRAGON_CIRCLING_RADIUS = 40
+export const DRAGON_CIRCLING_HEIGHT = 80
+
+// Initial boss FSM state for a freshly-spawned Ender Dragon: circling the return-portal
+// pillar at a fixed radius/height. spawnY seeds circlingHeight so the dragon orbits near
+// its spawn altitude rather than snapping to a constant.
+export const initialDragonPhaseState = (spawnY: number): DragonPhaseState => ({
+  phase: DragonPhase.Circling,
+  phaseTimer: 0,
+  phaseProgress: 0,
+  perchPosition: null,
+  circlingRadius: DRAGON_CIRCLING_RADIUS,
+  circlingHeight: Math.max(DRAGON_CIRCLING_HEIGHT, spawnY),
+  circlingAngle: 0,
+})
+
 export const tickDragonPhase = (state: DragonPhaseState, input: DragonPhaseInput): DragonPhaseStep => {
   const nextPhase = resolveNextPhase(state, input)
   const samePhase = nextPhase === state.phase

@@ -31,6 +31,7 @@ const DEATH_DROP_PICKUP_DELAY_TICKS = 40
 const DEATH_DROP_HEIGHT_OFFSET = 0.5
 const DEATH_DROP_SCATTER_SPEED = 0.08
 const DEATH_DROP_UPWARD_SPEED = 0.16
+const DEATH_DROP_SPAWN_CONCURRENCY = 12
 
 const deathDropPosition = (position: Position): Position => ({
   x: position.x,
@@ -153,7 +154,7 @@ export class GameStateService extends Effect.Service<GameStateService>()(
                       velocity: deathDropVelocity(index),
                       pickupDelayTicks: DEATH_DROP_PICKUP_DELAY_TICKS,
                     }).pipe(Effect.asVoid),
-                }), { concurrency: 1 })
+                }), { concurrency: DEATH_DROP_SPAWN_CONCURRENCY })
               yield* inventoryService.clear()
               yield* equipmentService.reset()
             }

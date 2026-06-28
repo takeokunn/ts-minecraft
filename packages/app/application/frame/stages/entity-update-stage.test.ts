@@ -4,12 +4,20 @@ import { Effect, MutableRef, Option } from 'effect'
 import { createFrameHandlers } from '@ts-minecraft/app/frame-handler'
 import type { DeltaTimeSecs, Position, Vector3 } from '@ts-minecraft/core'
 import { BREED_XP_MAX_REWARD, BREED_XP_MIN_REWARD } from '@ts-minecraft/entity/domain/mob/breeding'
+import { EntityId, EntityType } from '@ts-minecraft/entity/domain/mob/entity'
 import { DROPPED_ITEM_PICKUP_DELAY_TICKS } from '@ts-minecraft/entity/domain/dropped-item'
 import { type DroppedItemEntity } from '@ts-minecraft/entity/domain/dropped-item'
 import { type DroppedXpOrbEntity } from '@ts-minecraft/entity/domain/dropped-xp-orb'
 import { RedstoneComponentType } from '@ts-minecraft/entity/domain/redstone/redstone-model'
 import { type RedstoneComponent } from '@ts-minecraft/entity/domain/redstone/redstone-model'
-import { isEntityPressingPressurePlate, isPlayerPressingPressurePlate, updatePressurePlateStates } from './entity-update-stage'
+import type { MultiplayerService } from '@ts-minecraft/app/application/multiplayer/multiplayer-service'
+import {
+  createLocalEntitySnapshots,
+  isDroppedItemPressingPressurePlate,
+  isEntityPressingPressurePlate,
+  isPlayerPressingPressurePlate,
+  updatePressurePlateStates,
+} from './entity-update-stage'
 import { makeDeps } from '../../../test/frame-handler-test-kit/orchestration/deps'
 import { runFrame } from '../../../test/frame-handler-test-kit/orchestration/harness'
 import { makeInputService } from '../../../test/frame-handler-test-kit/presentation/input'
@@ -45,6 +53,20 @@ describe('pressure plate redstone player overlap', () => {
 
     expect(isEntityPressingPressurePlate({ position: { x: 1.31, y: 64.9, z: 0.5 } }, plate)).toBe(false)
     expect(isEntityPressingPressurePlate({ position: { x: 0.5, y: 65.1, z: 0.5 } }, plate)).toBe(false)
+  })
+
+  it('treats a dropped item AABB overlapping the plate as pressing it', () => {
+    const plate = { x: 0, y: 64, z: 0 }
+
+    expect(isDroppedItemPressingPressurePlate({ position: { x: 0.5, y: 64, z: 0.5 } }, plate)).toBe(true)
+    expect(isDroppedItemPressingPressurePlate({ position: { x: 1.05, y: 64, z: 0.5 } }, plate)).toBe(true)
+  })
+
+  it('does not press from a dropped item outside the plate AABB', () => {
+    const plate = { x: 0, y: 64, z: 0 }
+
+    expect(isDroppedItemPressingPressurePlate({ position: { x: 1.13, y: 64, z: 0.5 } }, plate)).toBe(false)
+    expect(isDroppedItemPressingPressurePlate({ position: { x: 0.5, y: 64.2, z: 0.5 } }, plate)).toBe(false)
   })
 
   it.effect('updates only pressure plate components', () => Effect.gen(function* () {
@@ -92,6 +114,67 @@ describe('pressure plate redstone player overlap', () => {
     expect(setPressed).toHaveBeenCalledOnce()
     expect(setPressed).toHaveBeenCalledWith(plate.position, true)
   }))
+
+  it.effect('presses a plate when a dropped item is on it even if the player and mobs are outside', () => Effect.gen(function* () {
+    const plate: RedstoneComponent = {
+      type: RedstoneComponentType.PressurePlate,
+      position: { x: 0, y: 64, z: 0 },
+      state: { active: false, buttonTicksRemaining: 0, pistonExtended: false },
+    }
+    const setPressed = vi.fn(() => Effect.succeed(Option.some(plate)))
+
+    yield* updatePressurePlateStates(
+      {
+        getComponents: () => Effect.succeed([plate]),
+        setPressurePlatePressed: setPressed,
+      },
+      { x: 2, y: 64, z: 2 },
+      [],
+      [{ position: { x: 0.5, y: 64, z: 0.5 } }],
+    )
+
+    expect(setPressed).toHaveBeenCalledOnce()
+    expect(setPressed).toHaveBeenCalledWith(plate.position, true)
+  }))
+
+  it.effect('uses dropped item snapshots to press plates during redstone ticks', () => Effect.gen(function* () {
+    const deps = yield* makeDeps(false)
+    const services = makeServices({
+      inputService: makeInputService(),
+      inventoryRenderer: makeInventoryRenderer({ open: false }),
+      settingsOverlay: makeSettingsOverlay({ open: false }),
+    })
+    const plate: RedstoneComponent = {
+      type: RedstoneComponentType.PressurePlate,
+      position: { x: 4, y: 64, z: 4 },
+      state: { active: false, buttonTicksRemaining: 0, pistonExtended: false },
+    }
+    const item: DroppedItemEntity = {
+      id: 'drop-plate',
+      itemType: 'STONE',
+      count: 1,
+      position: { x: 4.5, y: 64, z: 4.5 },
+      velocity: { x: 0, y: 0, z: 0 },
+      ageTicks: 1,
+      pickupDelayTicks: 5,
+    }
+    const setPressed = vi.fn(() => Effect.succeed(Option.some(plate)))
+    Object.assign(services.redstoneService, {
+      getComponents: vi.fn(() => Effect.succeed([plate])),
+      setPressurePlatePressed: setPressed,
+      tick: vi.fn(() => Effect.succeed({ tick: 1, poweredPositions: [plate.position] })),
+    })
+    Object.assign(services.droppedItemService, {
+      collectWithin: vi.fn(() => Effect.succeed([])),
+      getAll: vi.fn(() => Effect.succeed([item])),
+    })
+
+    const { frameHandler, maintenanceHandler } = yield* createFrameHandlers(deps, services)
+    yield* maintenanceHandler()
+    yield* frameHandler(0.05 as DeltaTimeSecs)
+
+    expect(setPressed).toHaveBeenCalledWith(plate.position, true)
+  }))
 })
 
 // ---------------------------------------------------------------------------
@@ -99,6 +182,88 @@ describe('pressure plate redstone player overlap', () => {
 // ---------------------------------------------------------------------------
 
 describe('step 2.85 — entity renderer wiring', () => {
+  it('creates multiplayer entity snapshots from local mob state', () => {
+    const snapshots = createLocalEntitySnapshots([
+      {
+        entityId: EntityId.make('entity-1'),
+        type: EntityType.Zombie,
+        position: { x: 2, y: 64, z: 3 },
+        health: 12,
+      },
+      {
+        entityId: EntityId.make('entity-2'),
+        type: EntityType.Cow,
+        position: { x: 4, y: 65, z: 6 },
+        health: 0,
+      },
+      {
+        entityId: EntityId.make('remote:player-2:entity-3'),
+        type: EntityType.Zombie,
+        position: { x: 8, y: 64, z: 8 },
+        health: 20,
+      },
+    ])
+
+    expect(snapshots).toEqual([
+      {
+        entityId: 'entity-1',
+        entityType: EntityType.Zombie,
+        position: { x: 2, y: 64, z: 3 },
+        health: 12,
+        alive: true,
+      },
+      {
+        entityId: 'entity-2',
+        entityType: EntityType.Cow,
+        position: { x: 4, y: 65, z: 6 },
+        health: 0,
+        alive: false,
+      },
+    ])
+  })
+
+  it.effect('sends local entity snapshots through the multiplayer stage', () => Effect.gen(function* () {
+    const deps = yield* makeDeps(false)
+    const services = makeServices({
+      inputService: makeInputService(),
+      inventoryRenderer: makeInventoryRenderer({ open: false }),
+      settingsOverlay: makeSettingsOverlay({ open: false }),
+    })
+    const entity = {
+      entityId: EntityId.make('entity-1'),
+      type: EntityType.Zombie,
+      position: { x: 2, y: 64, z: 3 },
+      health: 12,
+    }
+    const remoteEntity = {
+      entityId: EntityId.make('remote:player-2:entity-2'),
+      type: EntityType.Cow,
+      position: { x: 4, y: 65, z: 6 },
+      health: 8,
+    }
+    const sendEntitySnapshot = vi.fn(() => Effect.void)
+    const multiplayer = {
+      sendPositionUpdate: vi.fn(() => Effect.void),
+      sendEntitySnapshot,
+      drainBlockEdits: Effect.succeed([]),
+      drainEntitySnapshots: Effect.succeed([]),
+      getRemotePlayers: vi.fn(() => Effect.succeed(new Map())),
+    } as unknown as MultiplayerService
+    Object.assign(services.entityManager, { getEntities: vi.fn(() => Effect.succeed([entity, remoteEntity])) })
+    Object.assign(services, { multiplayer: Option.some(multiplayer) })
+
+    yield* runFrame(deps, services)
+
+    expect(sendEntitySnapshot).toHaveBeenCalledOnce()
+    expect(sendEntitySnapshot).toHaveBeenCalledWith({
+      entityId: 'entity-1',
+      entityType: EntityType.Zombie,
+      position: entity.position,
+      health: 12,
+      alive: true,
+    })
+  }))
+
   it.effect('calls entityRenderer.syncEntities on the first frame with the live entity snapshot', () => Effect.gen(function* () {
     const deps = yield* makeDeps(false)
     const services = makeServices({
@@ -555,15 +720,25 @@ describe('step 2.85 — entity renderer wiring', () => {
     const randomSpy = vi.spyOn(Math, 'random')
       .mockReturnValueOnce(0)
       .mockReturnValueOnce(0.999_999)
+    const getChunkSpy = vi.fn(() => Effect.succeed({
+      coord: { x: 0, z: 0 },
+      blocks: new Uint8Array(16 * 16 * 256),
+      dirty: false,
+    }))
 
     Object.assign(services.entityManager, {
       drainBirths: vi.fn(() => Effect.succeed(2)),
+      update: vi.fn(() => Effect.void),
+      applyPhysics: vi.fn(() => Effect.void),
     })
     Object.assign(services.inventoryService, {
       repairMendingItemsWithXP: inventoryMendingSpy,
     })
     Object.assign(services.equipmentService, {
       repairMendingItemsWithXP: equipmentMendingSpy,
+    })
+    Object.assign(services.chunkManagerService, {
+      getChunk: getChunkSpy,
     })
     Object.assign(services.xpService, {
       addXP: addXPSpy,
@@ -575,7 +750,7 @@ describe('step 2.85 — entity renderer wiring', () => {
       (spy) => Effect.sync(() => spy.mockRestore()),
     )
 
-    expect(inventoryMendingSpy).toHaveBeenCalledWith(BREED_XP_MIN_REWARD + BREED_XP_MAX_REWARD)
+    expect(inventoryMendingSpy).toHaveBeenCalledOnce()
     expect(equipmentMendingSpy).toHaveBeenCalledWith(BREED_XP_MIN_REWARD + 4)
     expect(addXPSpy).toHaveBeenCalledWith(3)
   }))

@@ -252,6 +252,41 @@ const ENDERMITE_SPECS = buildQuadrupedSpecs(
   { head: 0xb7b3a5, body: 0x8c887c, leg: 0x5f5b54 },
 )
 
+const SHULKER_SPECS: Readonly<Record<PartRole, Option.Option<RoleSpec>>> = {
+  head: Option.some({
+    size: [0.48, 0.48, 0.48],
+    pivot: 'center',
+    offset: { x: 0, y: 0.62 + 0.48 / 2 - 0.08, z: 0 },
+    color: 0xb483b8,
+    swingAxis: null,
+  }),
+  body: Option.some({
+    size: [0.82, 0.62, 0.82],
+    pivot: 'center',
+    offset: { x: 0, y: 0.62 / 2, z: 0 },
+    color: 0x7f4f87,
+    swingAxis: null,
+  }),
+  armL: Option.none(),
+  armR: Option.none(),
+  legFL: Option.some({
+    size: [0.08, 0.52, 0.82],
+    pivot: 'top',
+    offset: { x: +(0.82 / 2 + 0.08 / 2), y: 0.62, z: 0 },
+    color: 0x4e3454,
+    swingAxis: null,
+  }),
+  legFR: Option.some({
+    size: [0.08, 0.52, 0.82],
+    pivot: 'top',
+    offset: { x: -(0.82 / 2 + 0.08 / 2), y: 0.62, z: 0 },
+    color: 0x4e3454,
+    swingAxis: null,
+  }),
+  legBL: Option.none(),
+  legBR: Option.none(),
+}
+
 // Enderman: extremely tall biped — 3-block-high legs, legXOff wider than legW/2 gives natural stride.
 const ENDERMAN_SPECS = buildBipedSpecs(
   { head: [0.5, 0.5, 0.5], body: [0.375, 0.875, 0.25], arm: [0.125, 1.5, 0.125], leg: [0.125, 3.0, 0.125], legXOff: 0.125 },
@@ -301,6 +336,7 @@ const SPECS_BY_TYPE: Readonly<Record<EntityType, Readonly<Record<PartRole, Optio
   Enderman: ENDERMAN_SPECS,
   EnderDragon: DRAGON_SPECS,
   Endermite: ENDERMITE_SPECS,
+  Shulker: SHULKER_SPECS,
 }
 
 export const getRoleSpec = (type: EntityType, role: PartRole): Option.Option<RoleSpec> =>
@@ -325,4 +361,5 @@ export const ROLES_BY_TYPE: Readonly<Record<EntityType, ReadonlyArray<PartRole>>
   Enderman: ['head', 'body', 'armL', 'armR', 'legFL', 'legFR'],
   EnderDragon: ['head', 'body'],
   Endermite: ['head', 'body', 'legFL', 'legFR', 'legBL', 'legBR'],
+  Shulker: ['head', 'body', 'legFL', 'legFR'],
 }

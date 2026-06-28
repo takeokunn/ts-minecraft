@@ -9,6 +9,7 @@ import { makeEntityManagerUpdateWithBreeding } from './entity-manager-update'
 import { makeEntityManagerMutations } from './entity-manager-entity-mutation'
 import { toPublicEntity } from '../../domain/mob/entity-utils'
 import type { ExplosionEvent } from '../../domain/explosion'
+import type { DragonDeathEvent } from '../../domain/mob/ender-dragon/dragon-death'
 
 export class EntityManager extends Effect.Service<EntityManager>()(
   '@minecraft/entity/EntityManager',
@@ -24,6 +25,10 @@ export class EntityManager extends Effect.Service<EntityManager>()(
       // R10: births since last drain (for the player breeding-XP reward)
       const birthsRef = yield* Ref.make(0)
       const explosionsRef = yield* Ref.make<ReadonlyArray<ExplosionEvent>>([])
+      // Ender Dragon death events (egg/portal/XP/complete) emitted during update(); the app
+      // frame drains these each tick and applies the world/player effects (DDD boundary —
+      // the entity layer never touches world blocks or player XP).
+      const dragonEventsRef = yield* Ref.make<ReadonlyArray<DragonDeathEvent>>([])
       const internal = makeEntityManagerInternal(entitiesRef, cachedEntitiesRef, structureVersionRef, explosionsRef)
       const mutations = makeEntityManagerMutations(
         entitiesRef,
@@ -35,6 +40,7 @@ export class EntityManager extends Effect.Service<EntityManager>()(
       return {
         addEntity: mutations.addEntity,
         removeEntity: mutations.removeEntity,
+        applyEntitySnapshot: mutations.applyEntitySnapshot,
 
         getEntity: (entityId: EntityIdType): Effect.Effect<Option.Option<Entity>, never> =>
           Effect.gen(function* () {
@@ -78,6 +84,10 @@ export class EntityManager extends Effect.Service<EntityManager>()(
 
         drainExplosions: (): Effect.Effect<ReadonlyArray<ExplosionEvent>, never> => Ref.getAndSet(explosionsRef, []),
 
+        // Drain the Ender Dragon death events accumulated since the last call. The app frame
+        // applies them (DragonEgg/ReturnPortal block placement, XP fountain, dragon removal).
+        drainDragonDeathEvents: (): Effect.Effect<ReadonlyArray<DragonDeathEvent>, never> => Ref.getAndSet(dragonEventsRef, []),
+
         ...internal,
         ...makeEntityManagerUpdateWithBreeding(
           entitiesRef,
@@ -86,6 +96,7 @@ export class EntityManager extends Effect.Service<EntityManager>()(
           structureVersionRef,
           burnAccumulatorRef,
           birthsRef,
+          dragonEventsRef,
           mutations.addEntity,
         ),
       }

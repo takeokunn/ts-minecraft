@@ -5,7 +5,7 @@ import {
   buildRespawnPosition,
   loadOrCreateWorld,
 } from './session-world-loader'
-import { type SavedFurnaceStates, type SavedPlayerState, type SavedWeatherState } from './session-world-loader-metadata'
+import { type SavedEntityStates, type SavedFurnaceStates, type SavedPlayerState, type SavedWeatherState } from './session-world-loader-metadata'
 import { GameModeService, type GameMode } from '../../../game'
 import { WorldId, CHUNK_HEIGHT, CHUNK_SIZE } from '@ts-minecraft/core'
 import { ChunkManagerService } from '@ts-minecraft/world/application/chunk-manager-service'
@@ -301,6 +301,31 @@ describe('loadOrCreateWorld', () => {
       expect(Option.getOrThrow(bootstrap.savedWeatherState)).toEqual(weatherState)
     })
 
+    it('returns savedEntityStates as some when metadata has an entityStates value', async () => {
+      const entityStates: SavedEntityStates = [
+        {
+          entityId: 'mob-1',
+          position: { x: 12, y: 65, z: 18 },
+          velocity: { x: 0, y: 0, z: 0 },
+          rotation: { x: 0, y: 0, z: 0, w: 1 },
+          health: 8,
+          type: 'Cow',
+        },
+      ]
+      const metadata = { ...makeMetadata(), entityStates }
+      const storageService = makeStorageService({
+        loadWorldMetadata: vi.fn(() => Effect.succeed(Option.some(metadata))),
+      })
+      const noiseService = makeNoiseService()
+      const gameModeService = makeGameModeService()
+      const worldId = WorldId.make('world-1')
+
+      const result = await runLoad(worldId, 'survival', storageService, noiseService, gameModeService)
+
+      const bootstrap = Option.getOrThrow(Either.getRight(result))
+      expect(Option.isSome(bootstrap.savedEntityStates)).toBe(true)
+      expect(Option.getOrThrow(bootstrap.savedEntityStates)).toEqual(entityStates)
+    })
   })
 
   describe('when world does NOT exist in storage (onNone path)', () => {
@@ -334,6 +359,7 @@ describe('loadOrCreateWorld', () => {
       expect(Option.isNone(bootstrap.savedPlayerState)).toBe(true)
       expect(Option.isNone(bootstrap.savedFurnaceStates)).toBe(true)
       expect(Option.isNone(bootstrap.savedWeatherState)).toBe(true)
+      expect(Option.isNone(bootstrap.savedEntityStates)).toBe(true)
     })
 
     it('uses the initialGameMode for the new world', async () => {

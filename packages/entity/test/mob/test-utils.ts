@@ -13,6 +13,7 @@ import { BABY_GROW_TICKS } from '../../domain/mob/breeding'
 import type { EntityDrop } from '../../domain/mob/drop'
 import type { ManagedEntity } from '../../domain/mob/entity-internal'
 import { makeEntityManagerInternal } from '../../application/mob/entity-manager-internal'
+import { initialDragonPhaseState } from '../../domain/mob/ender-dragon/dragon-phase'
 import { getMobDefinition } from '../../domain/mob/mobs/get-mob-definition'
 import { DeltaTimeSecs } from '@ts-minecraft/core'
 import type { EntityFrameContext } from '../../application/mob/entity-manager-ai-frame'
@@ -174,6 +175,8 @@ export const makeTestManagedEntity = (overrides: ManagedEntityOverrides = {}): M
     breedCooldownRemaining: 0,
     ageTicks: BABY_GROW_TICKS,
     woolRegrowthTicks: 0,
+    dragonPhase: type === EntityType.EnderDragon ? initialDragonPhaseState(entity.position.y) : null,
+    dragonDeathProgress: null,
     ...overrides,
   }
 }

@@ -11,6 +11,8 @@ export const runInteractionStagePreActions = (
   services: Pick<
     FrameHandlerServices,
     | 'entityManager'
+    | 'chunkManagerService'
+    | 'crosshair'
     | 'equipmentService'
     | 'inventoryService'
     | 'hotbarService'

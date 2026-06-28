@@ -71,6 +71,12 @@ const makeQaApi = (
   selectHotbarSlot: (hotbarIndex: number) => selectHotbarSlot(deps.hotbarService, hotbarIndex),
   getRecipeButtons: () => getRecipeButtons(deps.recipeService),
   getEntitySnapshot: () => Effect.runPromise(deps.entityManager.getEntities()),
+  getRemotePlayersForQA: () =>
+    Effect.runPromise(
+      deps.multiplayer === undefined
+        ? Effect.succeed([])
+        : Effect.map(deps.multiplayer.getRemotePlayers(), (remotePlayers) => Array.from(remotePlayers.values())),
+    ),
   getLoadedWaterBlockCount: () => getLoadedWaterBlockCount(deps.chunkManagerService),
   getMobMovementSnapshot: (durationMs: number) => getMobMovementSnapshot(deps.entityManager, durationMs),
   setTimeOfDayForQA: (timeOfDay: number) => setTimeOfDayForQA(deps.timeService, timeOfDay),

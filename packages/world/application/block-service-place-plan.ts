@@ -151,6 +151,7 @@ const ensureSugarCaneAdjacentWater = (
         localHorizontalNeighbors(context.lx, context.lz),
         (neighbor) =>
           readPlacementBlock(context, neighbor.lx, context.y - 1, neighbor.lz, 'sugar cane adjacent support-level'),
+        { concurrency: 8 },
       ).pipe(
         Effect.flatMap((neighborTypes) =>
           hasRequiredSugarCaneAdjacentWater(belowType, neighborTypes)
@@ -175,6 +176,7 @@ const ensureCactusHorizontalSidesAreAir = (
   return Effect.forEach(
     localHorizontalNeighbors(context.lx, context.lz),
     (neighbor) => readPlacementBlock(context, neighbor.lx, context.y, neighbor.lz, 'cactus side'),
+    { concurrency: 8 },
   ).pipe(
     Effect.flatMap((neighborTypes) =>
       hasClearCactusHorizontalSides(neighborTypes)

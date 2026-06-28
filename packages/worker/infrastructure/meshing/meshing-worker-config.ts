@@ -22,13 +22,14 @@ export const MESHING_WORKER_TIMEOUT = '3 seconds'
 // count, so only a genuinely broken pool (e.g. a worker script error, which rejects
 // immediately) trips the breaker.
 export const MESHING_WORKER_FAILURE_THRESHOLD = 3
+const PARALLELISM_CEILING = 12
 
 export const computeMeshingWorkerCountFromHardwareConcurrency = (hardwareConcurrency: number): number => {
   if (!Number.isFinite(hardwareConcurrency) || hardwareConcurrency <= 2) {
     return 1
   }
 
-  return Math.max(1, Math.min(3, Math.floor(hardwareConcurrency / 2)))
+  return Math.max(1, Math.min(PARALLELISM_CEILING, Math.floor((hardwareConcurrency * 3) / 4)))
 }
 
 export const computeMeshingWorkerCount = (): number => {

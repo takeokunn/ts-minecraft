@@ -4,7 +4,7 @@ import { expect } from 'vitest'
 
 import { handleRightClickPriority } from './interaction-right-click-handler'
 
-type Step = 'shear' | 'feed' | 'consume' | 'enderPearl' | 'farm' | 'bucket' | 'ignite' | 'place'
+type Step = 'shear' | 'feed' | 'chorusFruit' | 'consume' | 'enderPearl' | 'farm' | 'bucket' | 'ignite' | 'place'
 
 const makeHandlers = (results: Partial<Record<Step, boolean>> = {}) => {
   const calls: Step[] = []
@@ -21,6 +21,11 @@ const makeHandlers = (results: Partial<Record<Step, boolean>> = {}) => {
         Effect.sync(() => {
           calls.push('feed')
           return results.feed ?? false
+        }),
+      chorusFruit: () =>
+        Effect.sync(() => {
+          calls.push('chorusFruit')
+          return results.chorusFruit ?? false
         }),
       consumeFood: () =>
         Effect.sync(() => {
@@ -72,34 +77,39 @@ describe('handleRightClickPriority', () => {
       expectedCalls: ['shear', 'feed'],
     },
     {
+      name: 'stops after chorus fruit succeeds',
+      results: { chorusFruit: true },
+      expectedCalls: ['shear', 'feed', 'chorusFruit'],
+    },
+    {
       name: 'stops after consuming food succeeds',
       results: { consume: true },
-      expectedCalls: ['shear', 'feed', 'consume'],
+      expectedCalls: ['shear', 'feed', 'chorusFruit', 'consume'],
     },
     {
       name: 'stops after throwing ender pearl succeeds',
       results: { enderPearl: true },
-      expectedCalls: ['shear', 'feed', 'consume', 'enderPearl'],
+      expectedCalls: ['shear', 'feed', 'chorusFruit', 'consume', 'enderPearl'],
     },
     {
       name: 'stops after farming succeeds',
       results: { farm: true },
-      expectedCalls: ['shear', 'feed', 'consume', 'enderPearl', 'farm'],
+      expectedCalls: ['shear', 'feed', 'chorusFruit', 'consume', 'enderPearl', 'farm'],
     },
     {
       name: 'stops after bucket interaction succeeds',
       results: { bucket: true },
-      expectedCalls: ['shear', 'feed', 'consume', 'enderPearl', 'farm', 'bucket'],
+      expectedCalls: ['shear', 'feed', 'chorusFruit', 'consume', 'enderPearl', 'farm', 'bucket'],
     },
     {
       name: 'stops after ignition succeeds',
       results: { ignite: true },
-      expectedCalls: ['shear', 'feed', 'consume', 'enderPearl', 'farm', 'bucket', 'ignite'],
+      expectedCalls: ['shear', 'feed', 'chorusFruit', 'consume', 'enderPearl', 'farm', 'bucket', 'ignite'],
     },
     {
       name: 'falls through to placement when no earlier handler succeeds',
       results: {},
-      expectedCalls: ['shear', 'feed', 'consume', 'enderPearl', 'farm', 'bucket', 'ignite', 'place'],
+      expectedCalls: ['shear', 'feed', 'chorusFruit', 'consume', 'enderPearl', 'farm', 'bucket', 'ignite', 'place'],
     },
   ]
 

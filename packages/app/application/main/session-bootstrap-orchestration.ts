@@ -19,17 +19,27 @@ export const buildSessionBootstrapOrchestration = (deps: SessionBootstrapDeps) =
       services,
     } = deps
 
-    const { rendering, world, gameplay, presentation, inventory, entity } = services
+    const { rendering, world, gameplay, presentation, inventory, entity, multiplayer } = services
     const { sceneService, cameraService, worldRendererService, particleSystem } = rendering
     const { chunkManagerService, biomeService, cropGrowthService } = world
     const { gameState, timeService, weatherService, gameModeService } = gameplay
-    const { debugOverlay, blockHighlight, crosshair, hotbarRenderer } = presentation
+    const {
+      debugOverlay,
+      blockHighlight,
+      crosshair,
+      controlsHint,
+      hotbarRenderer,
+      chatPanel,
+      connectionPanel,
+      playerListPanel,
+    } = presentation
     const { recipeService, inventoryService, equipmentService, chestService, furnaceService } = inventory
     const {
       playerCameraState,
       healthService,
       hungerService,
       xpService,
+      entityManager,
     } = entity
 
     const { canvas, renderer, perfHud, settingsService, soundManager, musicManager, terrainPool } = bootCtx
@@ -73,6 +83,7 @@ export const buildSessionBootstrapOrchestration = (deps: SessionBootstrapDeps) =
         blockHighlight,
         hotbarRenderer,
         crosshair,
+        controlsHint,
         timeService,
         inventoryService,
         equipmentService,
@@ -83,6 +94,7 @@ export const buildSessionBootstrapOrchestration = (deps: SessionBootstrapDeps) =
         furnaceService,
         weatherService,
         cropGrowthService,
+        entityManager,
       },
     })
 
@@ -110,6 +122,9 @@ export const buildSessionBootstrapOrchestration = (deps: SessionBootstrapDeps) =
       overlays: {
         deathScreen,
         debugOverlay,
+        chatPanel,
+        connectionPanel,
+        playerListPanel,
         biomeService,
         recipeService,
       },
@@ -120,6 +135,7 @@ export const buildSessionBootstrapOrchestration = (deps: SessionBootstrapDeps) =
         ...presentation,
         ...inventory,
         ...entity,
+        ...multiplayer,
       },
     })
 

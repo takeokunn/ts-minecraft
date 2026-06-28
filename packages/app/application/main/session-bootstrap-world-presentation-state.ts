@@ -9,6 +9,7 @@ import { PlayerCameraStateService } from '@ts-minecraft/entity/application/camer
 import { HealthService } from '@ts-minecraft/entity/application/health-service'
 import { HungerService } from '@ts-minecraft/entity/application/hunger-service'
 import { XPService } from '@ts-minecraft/entity/application/xp-service'
+import type { EntityManager } from '@ts-minecraft/entity/application/mob/entity-manager'
 import { type WorldBootstrap } from '@ts-minecraft/app/main/session-world-loader-metadata'
 import type { SpawnSelection } from '@ts-minecraft/app/main/spawn-selection-search'
 
@@ -32,6 +33,7 @@ export type SessionBootstrapWorldPresentationStateDeps = {
   readonly furnaceService: FurnaceService
   readonly weatherService: WeatherService
   readonly cropGrowthService: import('@ts-minecraft/world').CropGrowthService
+  readonly entityManager: EntityManager
   readonly spawnPosition: { readonly x: number; readonly y: number; readonly z: number }
 }
 
@@ -51,6 +53,7 @@ export const initializeSessionBootstrapWorldPresentationState = ({
   furnaceService,
   weatherService,
   cropGrowthService,
+  entityManager,
   spawnPosition,
 }: SessionBootstrapWorldPresentationStateDeps) =>
   Effect.gen(function* () {
@@ -71,6 +74,7 @@ export const initializeSessionBootstrapWorldPresentationState = ({
       furnaceService,
       weatherService,
       cropGrowthService,
+      entityManager,
     })
 
     yield* initializeSessionBootstrapWorldPresentationTime({

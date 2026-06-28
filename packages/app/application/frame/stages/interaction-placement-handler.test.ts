@@ -705,6 +705,49 @@ describe('interaction-placement-handler / handleRightClick special blocks', () =
     }),
   )
 
+  it.effect('opens a shulker box through the storage renderer without placing a selected block', () =>
+    Effect.gen(function* () {
+      const dirtyChunksRef = MutableRef.make(HashMap.empty<string, unknown>())
+      const respawnPositionRef = MutableRef.make({ x: 0, y: 64, z: 0 })
+      const { services, spies } = makeRightClickServices('SHULKER_BOX', {
+        inventoryOpen: false,
+        selectedItem: 'STONE',
+      })
+
+      yield* handleRightClick(
+        services,
+        { dirtyChunksRef },
+        { targetHit: Option.some(doorHit), respawnPositionRef },
+      )
+
+      expect(spies.setSelectedChest).toHaveBeenCalledWith({ x: 0, y: 64, z: 0 })
+      expect(spies.toggle).toHaveBeenCalledOnce()
+      expect(spies.placeBlock).not.toHaveBeenCalled()
+    }),
+  )
+
+  it.effect('opens a crafting table through the inventory renderer without placing a selected block', () =>
+    Effect.gen(function* () {
+      const dirtyChunksRef = MutableRef.make(HashMap.empty<string, unknown>())
+      const respawnPositionRef = MutableRef.make({ x: 0, y: 64, z: 0 })
+      const { services, spies } = makeRightClickServices('CRAFTING_TABLE', {
+        inventoryOpen: false,
+        selectedItem: 'STONE',
+      })
+
+      yield* handleRightClick(
+        services,
+        { dirtyChunksRef },
+        { targetHit: Option.some(doorHit), respawnPositionRef },
+      )
+
+      expect(spies.toggle).toHaveBeenCalledOnce()
+      expect(spies.setSelectedChest).not.toHaveBeenCalled()
+      expect(spies.setSelectedFurnace).not.toHaveBeenCalled()
+      expect(spies.placeBlock).not.toHaveBeenCalled()
+    }),
+  )
+
   it.effect('dispatches bed interaction without placing a selected block', () =>
     Effect.gen(function* () {
       const dirtyChunksRef = MutableRef.make(HashMap.empty<string, unknown>())

@@ -18,6 +18,7 @@ export const FOOD_ITEMS = [
   'PUFFERFISH',
   'BREAD',
   'CARROT',
+  'POTATO',
   'RAW_PORKCHOP',
   'COOKED_PORKCHOP',
   'RAW_MUTTON',
@@ -29,6 +30,7 @@ export const FOOD_ITEMS = [
   'GOLDEN_APPLE',
   'SPIDER_EYE',
   'ROTTEN_FLESH',
+  'CHORUS_FRUIT',
 ] as const satisfies ReadonlyArray<ItemType>
 
 export type FoodItem = (typeof FOOD_ITEMS)[number]
@@ -46,6 +48,7 @@ export const FOOD_TABLE = {
   PUFFERFISH: { foodLevel: 1, saturationModifier: 0.1 },
   BREAD: { foodLevel: 5, saturationModifier: 0.6 },
   CARROT: { foodLevel: 3, saturationModifier: 0.6 },
+  POTATO: { foodLevel: 1, saturationModifier: 0.6 },
   RAW_PORKCHOP: { foodLevel: 3, saturationModifier: 0.3 },
   COOKED_PORKCHOP: { foodLevel: 8, saturationModifier: 0.8 },
   RAW_MUTTON: { foodLevel: 2, saturationModifier: 0.3 },
@@ -63,4 +66,6 @@ export const FOOD_TABLE = {
   SPIDER_EYE: { foodLevel: 2, saturationModifier: 0.1 },
   // Zombie drop — edible but barely nourishing (vanilla also applies Hunger).
   ROTTEN_FLESH: { foodLevel: 4, saturationModifier: 0.1 },
+  // Teleports the player through a dedicated right-click handler before generic food handling.
+  CHORUS_FRUIT: { foodLevel: 4, saturationModifier: 0.3 },
 } satisfies Record<FoodItem, FoodProperties>

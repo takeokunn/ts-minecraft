@@ -1,9 +1,9 @@
 import { describe, it } from '@effect/vitest'
 import { Option } from 'effect'
 import { expect } from 'vitest'
-import { type InventorySlot } from '@ts-minecraft/inventory/application/inventory-service'
+import { INVENTORY_SIZE, type InventorySlot } from '@ts-minecraft/inventory/application/inventory-service'
 import { createStack } from '@ts-minecraft/inventory/domain/item-stack'
-import { applyInventoryCursorClick } from './inventory-cursor-click'
+import { applyInventoryCursorClick, returnInventoryCursorToSlots } from './inventory-cursor-click'
 
 const stack = (itemType: 'DIRT' | 'STONE', count: number): InventorySlot =>
   Option.some(createStack(itemType, count))
@@ -80,5 +80,31 @@ describe('presentation/inventory/inventory-cursor-click', () => {
     expect(countOf(result.slot)).toBe(8)
     expect(typeOf(result.cursor)).toBe('DIRT')
     expect(countOf(result.cursor)).toBe(3)
+  })
+
+  it('returns the cursor stack into matching partial stacks before empty slots', () => {
+    const result = returnInventoryCursorToSlots([empty(), stack('DIRT', 60)], stack('DIRT', 4))
+
+    expect(Option.isNone(result.slots[0] ?? empty())).toBe(true)
+    expect(countOf(result.slots[1] ?? empty())).toBe(64)
+    expect(Option.isNone(result.cursor)).toBe(true)
+  })
+
+  it('returns cursor overflow into an empty slot after merging', () => {
+    const result = returnInventoryCursorToSlots([stack('DIRT', 63), empty()], stack('DIRT', 5))
+
+    expect(countOf(result.slots[0] ?? empty())).toBe(64)
+    expect(typeOf(result.slots[1] ?? empty())).toBe('DIRT')
+    expect(countOf(result.slots[1] ?? empty())).toBe(4)
+    expect(Option.isNone(result.cursor)).toBe(true)
+  })
+
+  it('keeps the cursor stack when no slot can accept it', () => {
+    const fullSlots = Array.from({ length: INVENTORY_SIZE }, () => stack('STONE', 64))
+    const result = returnInventoryCursorToSlots(fullSlots, stack('DIRT', 5))
+
+    expect(countOf(result.cursor)).toBe(5)
+    expect(typeOf(result.cursor)).toBe('DIRT')
+    expect(result.slots.every((slot) => countOf(slot) === 64)).toBe(true)
   })
 })

@@ -6,6 +6,8 @@ import { installPerfHudCounters } from '@ts-minecraft/rendering'
 
 import { installBrowserEventBridge } from '@ts-minecraft/app/main/browser-runtime'
 import { startSessionAutoSaveDaemon } from '@ts-minecraft/app/main/session-autosave'
+import type { AutoSaveStatusReporter } from '@ts-minecraft/app/main/session-autosave'
+import { createDomAutoSaveStatusReporter } from '@ts-minecraft/app/main/session-autosave-status'
 import type { BootContext } from '@ts-minecraft/app/main/boot'
 import { buildSessionRuntime } from '@ts-minecraft/app/main/session-runtime'
 import { flushPendingSaves } from '@ts-minecraft/app/main/browser-runtime-save-effects'
@@ -40,13 +42,18 @@ const installSessionTelemetryAndAutoSave = ({
   runtimeParams,
   runtimeServices,
   terrainPool,
-}: Pick<SessionLifecycleStartupDeps, 'bootCtx' | 'runtimeParams' | 'runtimeServices' | 'terrainPool'>) =>
+  reportAutoSaveStatus,
+}: Pick<SessionLifecycleStartupDeps, 'bootCtx' | 'runtimeParams' | 'runtimeServices' | 'terrainPool'> & {
+  readonly reportAutoSaveStatus: AutoSaveStatusReporter
+}) =>
   Effect.gen(function* () {
     yield* installPerfHudCounters(bootCtx.perfHud, runtimeServices.chunkManagerService, () => terrainPool.queueDepth())
 
     const autoSaveFiber = yield* startSessionAutoSaveDaemon(
       runtimeServices.chunkManagerService.saveDirtyChunks(),
       runtimeParams.state.persistSessionState(),
+      undefined,
+      reportAutoSaveStatus,
     )
 
     yield* Effect.addFinalizer(() =>
@@ -64,6 +71,7 @@ export const runSessionLifecycleStartup = ({
 }: SessionLifecycleStartupDeps) =>
   Effect.gen(function* () {
     const { frameHandlerWithBrowserEvents, maintenanceHandler } = yield* buildSessionRuntime(runtimeParams, runtimeServices)
+    const reportAutoSaveStatus = createDomAutoSaveStatusReporter(runtimeParams.hud.autoSaveStatusElement)
 
     yield* installBrowserEventBridge({
       canvas: bootCtx.canvas,
@@ -77,6 +85,7 @@ export const runSessionLifecycleStartup = ({
         pendingSaveDirtyChunksRef: runtimeParams.state.pendingSaveDirtyChunksRef,
         chunkManagerService: runtimeServices.chunkManagerService,
         persistSessionState: runtimeParams.state.persistSessionState().pipe(Effect.catchAllCause(() => Effect.void)),
+        reportAutoSaveStatus,
       }),
     })
 
@@ -87,6 +96,7 @@ export const runSessionLifecycleStartup = ({
       runtimeParams,
       runtimeServices,
       terrainPool,
+      reportAutoSaveStatus,
     })
 
     yield* startSessionGameLoop(gameLoopService, frameHandlerWithBrowserEvents, maintenanceHandler)

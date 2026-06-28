@@ -6,6 +6,7 @@ export type SavedPlayerState = NonNullable<WorldMetadata['playerState']>
 export type SavedChestStates = NonNullable<WorldMetadata['chestStates']>
 export type SavedFurnaceStates = NonNullable<WorldMetadata['furnaceStates']>
 export type SavedWeatherState = NonNullable<WorldMetadata['weatherState']>
+export type SavedEntityStates = NonNullable<WorldMetadata['entityStates']>
 
 export type WorldBootstrap = {
   readonly seed: number
@@ -15,6 +16,7 @@ export type WorldBootstrap = {
   readonly savedChestStates: Option.Option<SavedChestStates>
   readonly savedFurnaceStates: Option.Option<SavedFurnaceStates>
   readonly savedWeatherState: Option.Option<SavedWeatherState>
+  readonly savedEntityStates: Option.Option<SavedEntityStates>
   readonly gameMode: GameMode
 }
 
@@ -38,6 +40,7 @@ const buildWorldBootstrap = (input: {
   readonly savedChestStates: Option.Option<SavedChestStates>
   readonly savedFurnaceStates: Option.Option<SavedFurnaceStates>
   readonly savedWeatherState: Option.Option<SavedWeatherState>
+  readonly savedEntityStates: Option.Option<SavedEntityStates>
   readonly gameMode: GameMode
 }): WorldBootstrap => ({
   seed: input.seed,
@@ -47,6 +50,7 @@ const buildWorldBootstrap = (input: {
   savedChestStates: input.savedChestStates,
   savedFurnaceStates: input.savedFurnaceStates,
   savedWeatherState: input.savedWeatherState,
+  savedEntityStates: input.savedEntityStates,
   gameMode: input.gameMode,
 })
 
@@ -59,6 +63,7 @@ export const buildLoadedWorldBootstrap = (metadata: WorldMetadata): WorldBootstr
     savedChestStates: Option.fromNullable(metadata.chestStates),
     savedFurnaceStates: Option.fromNullable(metadata.furnaceStates),
     savedWeatherState: Option.fromNullable(metadata.weatherState),
+    savedEntityStates: Option.fromNullable(metadata.entityStates),
     gameMode: metadata.gameMode,
   })
 
@@ -71,6 +76,7 @@ export const buildFreshWorldState = (input: FreshWorldMetadataInput): FreshWorld
     savedChestStates: Option.none<SavedChestStates>(),
     savedFurnaceStates: Option.none<SavedFurnaceStates>(),
     savedWeatherState: Option.none<SavedWeatherState>(),
+    savedEntityStates: Option.none<SavedEntityStates>(),
     gameMode: input.gameMode,
   })
 

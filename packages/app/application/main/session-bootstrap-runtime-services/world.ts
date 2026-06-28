@@ -1,5 +1,6 @@
 import type { SessionBootstrapServices } from '@ts-minecraft/app/main/session-bootstrap-types/services'
 import type { FrameHandlerServices } from '@ts-minecraft/app/application/frame/types/services'
+import type { SessionRenderingResources } from '@ts-minecraft/app/main/session-runtime-types'
 
 type SessionRuntimeWorldServices = Pick<
   FrameHandlerServices,
@@ -11,6 +12,7 @@ type SessionRuntimeWorldServices = Pick<
   | 'entityRenderer'
   | 'chunkMeshService'
   | 'particleSystem'
+  | 'remotePlayerRenderer'
   | 'weatherService'
   | 'biomeService'
   | 'redstoneService'
@@ -22,8 +24,10 @@ type SessionRuntimeWorldServices = Pick<
 >
 
 export const buildSessionRuntimeWorldServices = ({
+  rendering,
   services,
 }: {
+  readonly rendering: Pick<SessionRenderingResources, 'remotePlayerRenderer'>
   readonly services: SessionBootstrapServices
 }): SessionRuntimeWorldServices => ({
   chunkManagerService: services.chunkManagerService,
@@ -34,6 +38,7 @@ export const buildSessionRuntimeWorldServices = ({
   entityRenderer: services.entityRenderer,
   chunkMeshService: services.chunkMeshService,
   particleSystem: services.particleSystem,
+  remotePlayerRenderer: rendering.remotePlayerRenderer,
   weatherService: services.weatherService,
   biomeService: services.biomeService,
   redstoneService: services.redstoneService,

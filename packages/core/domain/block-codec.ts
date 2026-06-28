@@ -14,32 +14,35 @@ export const INDEX_TO_BLOCK_TYPE: ReadonlyArray<BlockType> = [
   'COAL_BLOCK', 'IRON_BLOCK', 'GOLD_BLOCK', 'DIAMOND_BLOCK', 'REDSTONE_BLOCK', 'LAPIS_BLOCK', 'EMERALD_BLOCK',
   'PLANKS', 'CRAFTING_TABLE', 'FURNACE', 'TORCH',
   'NETHERRACK', 'NETHER_PORTAL',
-  'FARMLAND', 'WHEAT_CROP',
-  // Redstone components (Phase 16) — indices 48–52
+  'FARMLAND', 'WHEAT_CROP', 'POTATO_CROP',
+  // Redstone components (Phase 16) — indices 49–53
   'REDSTONE_WIRE', 'REDSTONE_TORCH', 'LEVER', 'STONE_BUTTON', 'REPEATER',
-  // Furniture — index 53
+  // Furniture — index 54
   'BED',
-  // Crafting stations — index 54
+  // Crafting stations — index 55
   'ENCHANTING_TABLE',
-  // The End dimension — indices 55–57
+  // The End dimension — indices 56–58
   'END_STONE', 'END_PORTAL_FRAME', 'END_PORTAL',
-  // Explosives — index 58
+  // Explosives — index 59
   'TNT',
-  // The End expansion (Phase 18) — indices 59–71
+  // The End expansion (Phase 18) — indices 60–72
   'CHORUS_FLOWER', 'CHORUS_PLANT', 'DRAGON_EGG', 'END_CRYSTAL', 'END_GATEWAY', 'END_ROD',
   'END_STONE_BRICKS', 'ENDER_CHEST', 'PURPUR_BLOCK', 'PURPUR_PILLAR', 'PURPUR_SLAB',
   'PURPUR_STAIRS', 'SHULKER_BOX',
-  // Storage - index 72
+  // Storage - index 73
   'CHEST',
-  // Doors - indices 73-74
+  // Doors - indices 74-75
   'DOOR', 'DOOR_OPEN',
-  // Nether / passable utility / plants / ice - indices 75-89
+  // Nether / passable utility / plants / ice - indices 76-90
   'GLOWSTONE', 'LADDER', 'COBWEB', 'SAPLING',
   'DANDELION', 'POPPY', 'BROWN_MUSHROOM', 'RED_MUSHROOM',
   'TALL_GRASS', 'FERN', 'SUGAR_CANE', 'CACTUS',
   'LILY_PAD', 'ICE', 'PRESSURE_PLATE',
-  // Basic slabs / stairs / utility blocks - indices 90-95
+  // Basic slabs / stairs / utility blocks - indices 91-96
   'STONE_SLAB', 'OAK_STAIRS', 'ANVIL', 'CAULDRON', 'FIRE', 'WATER_CAULDRON',
+  // Vehicle infrastructure - indices 97-98
+  'RAIL',
+  'PISTON',
 ]
 
 export const BLOCK_COUNT = INDEX_TO_BLOCK_TYPE.length

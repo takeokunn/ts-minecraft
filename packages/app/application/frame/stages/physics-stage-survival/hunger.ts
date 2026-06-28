@@ -11,7 +11,7 @@ import { applyDamageAndPlayHurt } from './feedback'
 import type { ApplyPlayerDamage } from './types'
 
 export const applyHungerTicks = (
-  services: Pick<PhysicsStageServices, 'healthService' | 'hungerService' | 'soundManager'>,
+  services: Pick<PhysicsStageServices, 'healthService' | 'hungerService' | 'soundManager' | 'damageOverlay'>,
   refs: Pick<PhysicsStageRefs, 'hungerTickAccumulatorRef'>,
   inputs: Pick<PhysicsStageInputs, 'deltaTime' | 'difficulty'>,
   refreshedPos: Position,

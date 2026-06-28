@@ -125,6 +125,11 @@ export const handleRightClick = (
           if (!inventoryOpen) yield* services.inventoryRenderer.toggle()
           return
         }
+        case 'craftingTable': {
+          const inventoryOpen = yield* services.inventoryRenderer.isOpen()
+          if (!inventoryOpen) yield* services.inventoryRenderer.toggle()
+          return
+        }
         case 'furnace':
           yield* services.furnaceService.setSelectedFurnace(route.targetPos)
           return

@@ -12,6 +12,7 @@ const HUD_ELEMENT_IDS = {
   armorValueElement: 'armor-value',
   airElement: 'air-display',
   breakProgressElement: 'break-progress',
+  autoSaveStatusElement: 'autosave-status',
 } as const
 
 export const readSessionHudElements = (): SessionHudElements => ({
@@ -26,4 +27,5 @@ export const readSessionHudElements = (): SessionHudElements => ({
   armorValueElement: document.getElementById(HUD_ELEMENT_IDS.armorValueElement),
   airElement: document.getElementById(HUD_ELEMENT_IDS.airElement),
   breakProgressElement: document.getElementById(HUD_ELEMENT_IDS.breakProgressElement),
+  autoSaveStatusElement: document.getElementById(HUD_ELEMENT_IDS.autoSaveStatusElement),
 })

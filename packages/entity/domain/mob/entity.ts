@@ -29,27 +29,7 @@ export const EntityTypeSchema = Schema.Literal(
   'Shulker',
   'Endermite'
 )
-const ActiveEntityTypeSchema = Schema.Literal(
-  'Zombie',
-  'Cow',
-  'Pig',
-  'Sheep',
-  'Chicken',
-  'Bat',
-  'Bee',
-  'Squid',
-  'GlowSquid',
-  'Witch',
-  'Drowned',
-  'ZombieVillager',
-  'Creeper',
-  'Skeleton',
-  'Spider',
-  'Enderman',
-  'EnderDragon',
-  'Endermite'
-)
-export type EntityType = Schema.Schema.Type<typeof ActiveEntityTypeSchema>
+export type EntityType = Schema.Schema.Type<typeof EntityTypeSchema>
 export const EntityType = {
   Zombie: 'Zombie' as const,
   Cow: 'Cow' as const,
@@ -81,10 +61,13 @@ export const EntitySchema = Schema.Struct({
   velocity: Vector3Schema,
   rotation: QuaternionSchema,
   health: Schema.Number.pipe(Schema.finite(), Schema.nonNegative()),
-  type: ActiveEntityTypeSchema,
+  type: EntityTypeSchema,
   // R6d: true while the mob is a baby (ageTicks < BABY_GROW_TICKS); the renderer
   // draws it at reduced scale. Optional because non-mob entities do not age.
   isBaby: Schema.optional(Schema.Boolean),
+  // Sheep-only public shear state for renderers/UI. Optional keeps non-sheep
+  // entities compact.
+  isSheared: Schema.optional(Schema.Boolean),
   // Creeper-only public fuse progress for the renderer flash. Optional keeps
   // non-creeper/test entity construction compact.
   fuseSecs: Schema.optional(Schema.Number.pipe(Schema.finite(), Schema.nonNegative())),

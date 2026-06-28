@@ -19,6 +19,7 @@ export const runInteractionStageFrame = (
     | 'inputService'
     | 'blockService'
     | 'chunkManagerService'
+    | 'crosshair'
     | 'fluidService'
     | 'cropGrowthService'
     | 'soundManager'

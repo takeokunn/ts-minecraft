@@ -98,6 +98,7 @@ describe('infrastructure/three/textures/block-texture-map', () => {
         { blockType: 'CAULDRON', expectedTileIndex: 35 },
         { blockType: 'FIRE', expectedTileIndex: 18 },
         { blockType: 'WATER_CAULDRON', expectedTileIndex: 35 },
+        { blockType: 'RAIL', expectedTileIndex: 35 },
       ]
 
       Arr.forEach(cases, ({ blockType, expectedTileIndex }) => {

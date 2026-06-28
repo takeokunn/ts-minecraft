@@ -16,8 +16,10 @@ export const buildSessionBootstrapStartupState = ({
   settingsService,
 }: Pick<BootContext, 'settingsService'>) =>
   Effect.gen(function* () {
-    const control = yield* createSessionControl
-    const initialSettings = yield* settingsService.getSettings()
+    const [control, initialSettings] = yield* Effect.all([
+      createSessionControl,
+      settingsService.getSettings(),
+    ], { concurrency: 'unbounded' })
     const initialGraphics = yield* Effect.sync(() => resolvePreset(initialSettings.graphicsQuality))
 
     return {

@@ -2,6 +2,7 @@ import type { EntityDrop } from './drop'
 import type { AIState } from './state-machine'
 import type { Entity, MobBehavior } from './entity'
 import type { Vector3 } from '@ts-minecraft/core'
+import type { DragonPhaseState } from './ender-dragon/dragon-phase'
 
 export const HOSTILE_ATTACK_COOLDOWN_SECS = 1
 
@@ -38,4 +39,14 @@ export type ManagedEntity = Entity & {
   // Shearing (FR R11 — see domain/mob/shearing.ts): 0 = woolly/shearable,
   // > 0 = sheared and counting down to wool regrowth. Sheep-only in practice.
   readonly woolRegrowthTicks: number
+  // Ender Dragon boss FSM state (see domain/mob/ender-dragon/dragon-phase.ts).
+  // null for every non-dragon entity; a live DragonPhaseState (starting in Circling)
+  // for the EnderDragon. The per-tick update advances it via tickDragonPhase and
+  // applies the resulting flight velocity.
+  readonly dragonPhase: DragonPhaseState | null
+  // Death-sequence progress (see domain/mob/ender-dragon/dragon-death.ts). null while the
+  // dragon is alive; 0..DEATH_ANIMATION_TICKS once health hits 0. The dragon is NOT removed
+  // at 0 HP — instead it plays out the death animation, and the app drains the emitted
+  // DragonDeathEvents (egg/portal/XP) before the Complete event removes it.
+  readonly dragonDeathProgress: number | null
 }

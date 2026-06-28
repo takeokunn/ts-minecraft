@@ -27,7 +27,11 @@ export const buildSessionRuntimeBundle = ({
       overlays,
       runtimeState,
     })
-    const runtimeServices = buildSessionRuntimeServices({ bootCtx, services })
+    const runtimeServices = buildSessionRuntimeServices({
+      bootCtx,
+      rendering: runtimeParams.rendering,
+      services,
+    })
 
     return { runtimeParams, runtimeServices }
   })

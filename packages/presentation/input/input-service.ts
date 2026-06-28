@@ -200,6 +200,8 @@ export class InputService extends Effect.Service<InputService>()(
 
       // Keyboard event handlers
       const handleKeyDown = (event: KeyboardEvent) => {
+        if (isEditableTarget(event.target)) return
+
         if (shouldPreventGameDefault(event)) {
           event.preventDefault()
         }

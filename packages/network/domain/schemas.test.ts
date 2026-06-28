@@ -16,6 +16,7 @@ import type {
   BlockBreakMessage,
   BlockPlaceMessage,
   ChatMessage,
+  EntitySnapshotMessage,
   ErrorMessage,
   NetworkMessage,
   PingMessage,
@@ -52,43 +53,54 @@ const messagesByType = {
     rotation: { yaw: 90, pitch: -15 },
     timestamp: 3,
   },
+  [MessageType.EntitySnapshot]: {
+    type: MessageType.EntitySnapshot,
+    playerId,
+    worldId,
+    entityId: 'entity-1',
+    entityType: 'ZOMBIE',
+    position: { x: 4, y: 65, z: 5 },
+    health: 20,
+    alive: true,
+    timestamp: 4,
+  },
   [MessageType.BlockPlace]: {
     type: MessageType.BlockPlace,
     playerId,
     worldId,
     position: { x: 10, y: 63, z: -8 },
     blockType: 'STONE',
-    timestamp: 4,
+    timestamp: 5,
   },
   [MessageType.BlockBreak]: {
     type: MessageType.BlockBreak,
     playerId,
     worldId,
     position: { x: 11, y: 64, z: -8 },
-    timestamp: 5,
+    timestamp: 6,
   },
   [MessageType.Chat]: {
     type: MessageType.Chat,
     playerId,
     worldId,
     message: 'hello world',
-    timestamp: 6,
+    timestamp: 7,
   },
   [MessageType.Ping]: {
     type: MessageType.Ping,
     nonce: 'ping-1',
-    timestamp: 7,
+    timestamp: 8,
   },
   [MessageType.Pong]: {
     type: MessageType.Pong,
     nonce: 'ping-1',
-    timestamp: 8,
+    timestamp: 9,
   },
   [MessageType.Error]: {
     type: MessageType.Error,
     code: 'INVALID_MESSAGE',
     message: 'invalid payload',
-    timestamp: 9,
+    timestamp: 10,
   },
 } satisfies Record<NetworkMessage['type'], NetworkMessage>
 
@@ -99,6 +111,7 @@ describe('network protocol schemas', () => {
     expectTypeOf(messagesByType[MessageType.PlayerJoin]).toEqualTypeOf<PlayerJoinMessage>()
     expectTypeOf(messagesByType[MessageType.PlayerLeave]).toEqualTypeOf<PlayerLeaveMessage>()
     expectTypeOf(messagesByType[MessageType.PlayerMove]).toEqualTypeOf<PlayerMoveMessage>()
+    expectTypeOf(messagesByType[MessageType.EntitySnapshot]).toEqualTypeOf<EntitySnapshotMessage>()
     expectTypeOf(messagesByType[MessageType.BlockPlace]).toEqualTypeOf<BlockPlaceMessage>()
     expectTypeOf(messagesByType[MessageType.BlockBreak]).toEqualTypeOf<BlockBreakMessage>()
     expectTypeOf(messagesByType[MessageType.Chat]).toEqualTypeOf<ChatMessage>()
@@ -145,6 +158,14 @@ describe('network protocol schemas', () => {
 
   it('rejects non-integer block coordinates', () => {
     const result = Schema.decodeUnknownEither(BlockPosSchema)({ x: 1.5, y: 64, z: 0 })
+    expect(Either.isLeft(result)).toBe(true)
+  })
+
+  it('rejects negative entity health', () => {
+    const result = Schema.decodeUnknownEither(NetworkMessageSchema)({
+      ...messagesByType[MessageType.EntitySnapshot],
+      health: -1,
+    })
     expect(Either.isLeft(result)).toBe(true)
   })
 })

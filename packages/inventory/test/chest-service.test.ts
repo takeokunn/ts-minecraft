@@ -20,15 +20,17 @@ import {
 
 const chestPosition = { x: 0, y: 64, z: 0 } as const
 const invalidHeightChestPosition = { x: 0, y: -1, z: 0 } as const
+type ChestStorageBlockType = 'CHEST' | 'SHULKER_BOX'
 
-const makeChunkWithChest = () => {
+const makeChunkWithChest = (blockType: ChestStorageBlockType = 'CHEST') => {
   const blocks = new Uint8Array(CHUNK_SIZE * CHUNK_SIZE * CHUNK_HEIGHT)
-  blocks[64] = blockTypeToIndex('CHEST')
+  blocks[64] = blockTypeToIndex(blockType)
   return { coord: { x: 0, z: 0 }, blocks, fluid: Option.none() }
 }
 
 const makeChestLayer = (
   playerPosition: { readonly x: number; readonly y: number; readonly z: number } = chestPosition,
+  blockType: ChestStorageBlockType = 'CHEST',
 ) => {
   const inventoryLayer = InventoryService.Default.pipe(
     Layer.provide(Layer.succeed(BlockRegistry, createTestBlockRegistry(fullHotbarBlocks))),
@@ -37,7 +39,7 @@ const makeChestLayer = (
   return ChestService.Default.pipe(
     Layer.provideMerge(inventoryLayer),
     Layer.provide(Layer.succeed(PlayerServicePort, makePlayerService(playerPosition))),
-    Layer.provide(Layer.succeed(WorldBlockQueryPort, makeChunkManagerService(makeChunkWithChest()))),
+    Layer.provide(Layer.succeed(WorldBlockQueryPort, makeChunkManagerService(makeChunkWithChest(blockType)))),
   )
 }
 
@@ -54,6 +56,20 @@ describe('ChestService', () => {
       expect(chest.slots.every(Option.isNone)).toBe(true)
       expect(yield* chestService.hasNearbyChest()).toBe(true)
     }).pipe(Effect.provide(makeChestLayer())),
+  )
+
+  it.effect('opens a nearby shulker box with 27 empty storage slots', () =>
+    Effect.gen(function* () {
+      const chestService = yield* ChestService
+
+      yield* chestService.setSelectedChest(chestPosition)
+
+      const chest = Option.getOrThrow(yield* chestService.getNearestChestState())
+      expect(chest.position).toEqual(chestPosition)
+      expect(chest.slots).toHaveLength(CHEST_SIZE)
+      expect(chest.slots.every(Option.isNone)).toBe(true)
+      expect(yield* chestService.hasNearbyChest()).toBe(true)
+    }).pipe(Effect.provide(makeChestLayer(chestPosition, 'SHULKER_BOX'))),
   )
 
   it.effect('does not expose a selected chest when the player is out of range', () =>
@@ -123,6 +139,39 @@ describe('ChestService', () => {
 
       yield* chestService.moveChestStackToInventorySlot(1, SlotIndex.make(3))
       expect(Option.isNone(yield* inventoryService.getSlot(SlotIndex.make(3)))).toBe(true)
+    }).pipe(Effect.provide(makeChestLayer())),
+  )
+
+  it.effect('moves, merges, and swaps chest slots directly', () =>
+    Effect.gen(function* () {
+      const chestService = yield* ChestService
+
+      yield* chestService.deserialize([
+        {
+          position: chestPosition,
+          slots: [
+            Option.some(new ItemStack({ itemType: 'STONE', count: 40, durability: null })),
+            Option.some(new ItemStack({ itemType: 'STONE', count: 30, durability: null })),
+            Option.some(new ItemStack({ itemType: 'DIRT', count: 3, durability: null })),
+            ...Array.from({ length: CHEST_SIZE - 3 }, () => Option.none()),
+          ],
+        },
+      ])
+      yield* chestService.setSelectedChest(chestPosition)
+
+      yield* chestService.moveChestStackToChestSlot(0, 1)
+
+      const chestAfterMerge = Option.getOrThrow(yield* chestService.getNearestChestState())
+      expect(Option.getOrThrow(chestAfterMerge.slots[0]).count).toBe(6)
+      expect(Option.getOrThrow(chestAfterMerge.slots[1]).count).toBe(64)
+
+      yield* chestService.moveChestStackToChestSlot(2, 0)
+
+      const chestAfterSwap = Option.getOrThrow(yield* chestService.getNearestChestState())
+      expect(Option.getOrThrow(chestAfterSwap.slots[0]).itemType).toBe('DIRT')
+      expect(Option.getOrThrow(chestAfterSwap.slots[0]).count).toBe(3)
+      expect(Option.getOrThrow(chestAfterSwap.slots[2]).itemType).toBe('STONE')
+      expect(Option.getOrThrow(chestAfterSwap.slots[2]).count).toBe(6)
     }).pipe(Effect.provide(makeChestLayer())),
   )
 

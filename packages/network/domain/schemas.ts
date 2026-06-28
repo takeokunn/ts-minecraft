@@ -44,6 +44,7 @@ export const MessageType = {
   PlayerJoin: 'PlayerJoin',
   PlayerLeave: 'PlayerLeave',
   PlayerMove: 'PlayerMove',
+  EntitySnapshot: 'EntitySnapshot',
   BlockPlace: 'BlockPlace',
   BlockBreak: 'BlockBreak',
   Chat: 'Chat',
@@ -56,6 +57,7 @@ export const MessageTypeSchema = Schema.Literal(
   MessageType.PlayerJoin,
   MessageType.PlayerLeave,
   MessageType.PlayerMove,
+  MessageType.EntitySnapshot,
   MessageType.BlockPlace,
   MessageType.BlockBreak,
   MessageType.Chat,
@@ -101,6 +103,19 @@ export const PlayerMoveMessageSchema = Schema.Struct({
   timestamp: TimestampSchema,
 })
 export type PlayerMoveMessage = Schema.Schema.Type<typeof PlayerMoveMessageSchema>
+
+export const EntitySnapshotMessageSchema = Schema.Struct({
+  type: Schema.Literal(MessageType.EntitySnapshot),
+  playerId: PlayerIdSchema,
+  worldId: WorldIdSchema,
+  entityId: Schema.String,
+  entityType: Schema.String,
+  position: Vec3Schema,
+  health: Schema.Number.pipe(Schema.finite(), Schema.nonNegative()),
+  alive: Schema.Boolean,
+  timestamp: TimestampSchema,
+})
+export type EntitySnapshotMessage = Schema.Schema.Type<typeof EntitySnapshotMessageSchema>
 
 export const BlockPlaceMessageSchema = Schema.Struct({
   type: Schema.Literal(MessageType.BlockPlace),
@@ -156,6 +171,7 @@ export const NetworkMessageSchema = Schema.Union(
   PlayerJoinMessageSchema,
   PlayerLeaveMessageSchema,
   PlayerMoveMessageSchema,
+  EntitySnapshotMessageSchema,
   BlockPlaceMessageSchema,
   BlockBreakMessageSchema,
   ChatMessageSchema,

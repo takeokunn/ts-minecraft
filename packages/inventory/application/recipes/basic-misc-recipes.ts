@@ -58,6 +58,15 @@ export const BASIC_MISC_RECIPES: ReadonlyArray<Recipe> = [
     output: { itemType: 'CAULDRON', count: 1 },
   }),
   new Recipe({
+    id: RecipeId.make('iron-ingots-and-sticks-to-rails'),
+    station: 'crafting_table',
+    ingredients: [
+      new RecipeIngredient({ itemType: 'IRON_INGOT', count: 6 }),
+      new RecipeIngredient({ itemType: 'STICKS', count: 1 }),
+    ],
+    output: { itemType: 'RAIL', count: 16 },
+  }),
+  new Recipe({
     id: RecipeId.make('planks-to-door'),
     station: 'crafting_table',
     ingredients: [new RecipeIngredient({ itemType: 'PLANKS', count: 6 })],

@@ -16,6 +16,7 @@ export const runInteractionStageActions = (
     | 'blockHighlight'
     | 'blockService'
     | 'chunkManagerService'
+    | 'crosshair'
     | 'entityManager'
     | 'equipmentService'
     | 'hotbarService'

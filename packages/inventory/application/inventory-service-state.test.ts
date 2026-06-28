@@ -1,13 +1,14 @@
 import { describe, it, expect } from '@effect/vitest'
 import { Option } from 'effect'
 import { SlotIndex } from '@ts-minecraft/core'
-import { createStack } from '../domain/item-stack'
+import { ItemStack, createStack } from '../domain/item-stack'
 import type { InventorySlots } from './inventory-service-types'
 import {
   deserializeInventorySlots,
   quickMoveInventorySlots,
   removeBlocksFromInventory,
   serializeInventorySlots,
+  sortInventorySlots,
 } from './inventory-service-state'
 import { asSlotIndex } from '../test/inventory-service-test-utils'
 
@@ -59,6 +60,58 @@ describe('application/inventory/inventory-service-state', () => {
       expect(Option.isNone(moved[0])).toBe(true)
       expect(Option.isSome(moved[27])).toBe(true)
       expect(Option.getOrThrow(moved[27]).count).toBe(50)
+    })
+  })
+
+  describe('sortInventorySlots', () => {
+    it('packs matching stackable items and moves occupied slots to the front', () => {
+      const slots = emptySlots()
+      slots[5] = Option.some(createStack('DIRT', 40))
+      slots[8] = Option.some(createStack('DIRT', 30))
+      slots[2] = Option.some(createStack('STONE', 12))
+
+      const sorted = sortInventorySlots(slots)
+
+      expect(Option.getOrThrow(sorted[0] ?? Option.none()).itemType).toBe('DIRT')
+      expect(Option.getOrThrow(sorted[0] ?? Option.none()).count).toBe(64)
+      expect(Option.getOrThrow(sorted[1] ?? Option.none()).itemType).toBe('DIRT')
+      expect(Option.getOrThrow(sorted[1] ?? Option.none()).count).toBe(6)
+      expect(Option.getOrThrow(sorted[2] ?? Option.none()).itemType).toBe('STONE')
+      expect(Option.getOrThrow(sorted[2] ?? Option.none()).count).toBe(12)
+      expect(Option.isNone(sorted[3] ?? Option.none())).toBe(true)
+    })
+
+    it('keeps durable or enchanted item instances separate by identity', () => {
+      const slots = emptySlots()
+      slots[0] = Option.some(new ItemStack({
+        itemType: 'IRON_SWORD',
+        count: 1,
+        durability: 10,
+        enchantments: [{ type: 'SHARPNESS', level: 2 }],
+      }))
+      slots[7] = Option.some(new ItemStack({
+        itemType: 'IRON_SWORD',
+        count: 1,
+        durability: 20,
+        enchantments: [{ type: 'SHARPNESS', level: 2 }],
+      }))
+      slots[8] = Option.some(new ItemStack({
+        itemType: 'IRON_SWORD',
+        count: 1,
+        durability: 10,
+        enchantments: [{ type: 'MENDING', level: 1 }],
+      }))
+
+      const sorted = sortInventorySlots(slots)
+      const occupied = sorted.flatMap((slot) =>
+        Option.match(slot, {
+          onNone: () => [],
+          onSome: (stack) => [stack],
+        }))
+
+      expect(occupied).toHaveLength(3)
+      expect(occupied.map((stack) => stack.durability)).toEqual([10, 10, 20])
+      expect(occupied.map((stack) => stack.enchantments?.[0]?.type)).toEqual(['MENDING', 'SHARPNESS', 'SHARPNESS'])
     })
   })
 

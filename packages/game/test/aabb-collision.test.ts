@@ -1,6 +1,6 @@
 import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
-import { CACTUS_COLLISION_SHAPE, PRESSURE_PLATE_COLLISION_SHAPE, resolveBlockCollisions } from '@ts-minecraft/game'
+import { CACTUS_COLLISION_SHAPE, PRESSURE_PLATE_COLLISION_SHAPE, SLAB_COLLISION_SHAPE, resolveBlockCollisions } from '@ts-minecraft/game'
 
 const HALF_W = 0.3
 const HALF_H = 0.9
@@ -230,6 +230,44 @@ describe('resolveBlockCollisions', () => {
       const result = resolveBlockCollisions(pos, vel, HALF_W, HALF_H, solid, shape)
 
       expect(result.position.z).toBeCloseTo(1 + CACTUS_COLLISION_SHAPE.minZ - HALF_W, 5)
+      expect(result.velocity.z).toBe(0)
+    })
+  })
+
+  describe('auto step-up', () => {
+    it('steps up onto a slab instead of stopping at the wall face', () => {
+      const floor = (bx: number, by: number, bz: number): boolean => bx === 0 && by === 0 && bz === 0
+      const slab = (bx: number, by: number, bz: number): boolean => bx === 1 && by === 1 && bz === 0
+      const solid = (bx: number, by: number, bz: number): boolean => floor(bx, by, bz) || slab(bx, by, bz)
+      const shape = (bx: number, by: number, bz: number) => slab(bx, by, bz) ? SLAB_COLLISION_SHAPE : null
+
+      const pos = { x: 0.75, y: 1 + HALF_H, z: 0.5 }
+      const vel = { x: 1, y: -0.1, z: 0 }
+
+      const result = resolveBlockCollisions(pos, vel, HALF_W, HALF_H, solid, shape)
+
+      expect(result.position.x).toBeCloseTo(pos.x, 5)
+      expect(result.position.y).toBeCloseTo(1 + SLAB_COLLISION_SHAPE.maxY + HALF_H, 5)
+      expect(result.position.z).toBeCloseTo(pos.z, 5)
+      expect(result.isGrounded).toBe(true)
+      expect(result.velocity.x).toBe(1)
+      expect(result.velocity.y).toBe(0)
+      expect(result.velocity.z).toBe(0)
+    })
+
+    it('does not step up onto a full block wall', () => {
+      const solid = (bx: number, by: number, bz: number): boolean => (bx === 0 && by === 0 && bz === 0) || (bx === 1 && by === 1 && bz === 0)
+
+      const pos = { x: 0.75, y: 1 + HALF_H, z: 0.5 }
+      const vel = { x: 1, y: -0.1, z: 0 }
+
+      const result = resolveBlockCollisions(pos, vel, HALF_W, HALF_H, solid)
+
+      expect(result.position.x).toBeCloseTo(1 - HALF_W, 5)
+      expect(result.position.y).toBeCloseTo(1 + HALF_H, 5)
+      expect(result.isGrounded).toBe(true)
+      expect(result.velocity.x).toBe(0)
+      expect(result.velocity.y).toBe(0)
       expect(result.velocity.z).toBe(0)
     })
   })

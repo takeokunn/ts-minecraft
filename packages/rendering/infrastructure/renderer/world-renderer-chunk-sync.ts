@@ -226,14 +226,14 @@ export const syncChunksToScene = (
 
     // Add meshes for newly loaded chunks not yet in scene. Meshing is a Web Worker
     // round-trip (greedy meshing runs off-thread), so we dispatch up to
-    // MAX_CHUNK_UPDATES_PER_FRAME of them IN PARALLEL to keep the whole worker pool
-    // busy. The previous concurrency:1 + wall-clock budget left 3 of 4 worker cores
-    // idle AND counted worker-await latency against a main-thread budget — the budget
-    // was guarding the wrong thing (the old comment's "meshing is mostly main-thread
-    // sync work" is false on the worker path). This sync runs on the maintenance fiber,
-    // not the render loop, so the parallel await never blocks rendering. The per-frame
-    // hard cap bounds the sync geometry-build + GPU-upload cost; chunk order is keyed
-    // by cache identity, so any chunks beyond the cap drain next frame (the caller
+    // MAX_CHUNK_UPDATES_PER_FRAME of them IN PARALLEL to keep the worker pool busy.
+    // The previous concurrency:1 + wall-clock budget left most of the worker pool idle
+    // and counted worker-await latency against a main-thread budget — the budget was
+    // guarding the wrong thing (the old comment's "meshing is mostly main-thread sync
+    // work" is false on the worker path). This sync runs on the maintenance fiber, not
+    // the render loop, so the parallel await never blocks rendering. The per-frame hard
+    // cap bounds the sync geometry-build + GPU-upload cost; chunk order is keyed by
+    // cache identity, so any chunks beyond the cap drain next frame (the caller
     // re-fires while chunkSyncPending is set).
     // Mesh + add newly-streamed chunks within a WALL-CLOCK budget. Each createChunkMesh
     // builds 3 BufferGeometries on the main thread (~3 ms), so meshing the full

@@ -204,7 +204,7 @@ export const buildTogglePanel = (
   const statusText = document.createTextNode('F3 toggles are session-only')
   status.appendChild(statusText)
   const keyboardHint = document.createElement('div')
-  keyboardHint.textContent = 'Tip: / or Ctrl+F searches, Enter/Space toggles, Esc leaves search.'
+  keyboardHint.textContent = 'Tip: / or Ctrl+F searches, Enter/Space toggles, Esc clears search or leaves it when empty.'
   keyboardHint.style.cssText = 'margin-top:4px;color:#64748b;font-size:10px'
   panel.appendChild(header)
   panel.appendChild(searchInput)

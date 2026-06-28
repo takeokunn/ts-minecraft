@@ -106,6 +106,14 @@ describe('initialBlocks known data correctness', () => {
     expect(pressurePlate.properties.hardness).toBe(5)
   })
 
+  it('RAIL block exists as a transparent non-solid track block', () => {
+    const rail = Option.getOrThrow(Arr.findFirst(initialBlocks, (b) => b.type === 'RAIL'))
+    expect(rail.properties.solid).toBe(false)
+    expect(rail.properties.transparency).toBe(true)
+    expect(rail.properties.emissive).toBe(false)
+    expect(rail.properties.hardness).toBe(7)
+  })
+
   it('STONE_SLAB block exists as a transparent solid stone-family block', () => {
     const slab = Option.getOrThrow(Arr.findFirst(initialBlocks, (b) => b.type === 'STONE_SLAB'))
     const stone = Option.getOrThrow(Arr.findFirst(initialBlocks, (b) => b.type === 'STONE'))
@@ -172,6 +180,7 @@ describe('initialBlocks known data correctness', () => {
     expect(hardnessOf('SNOW')).toBeLessThan(hardnessOf('ICE'))
     expect(hardnessOf('ICE')).toBeLessThan(hardnessOf('DIRT'))
     expect(hardnessOf('PRESSURE_PLATE')).toBeLessThan(hardnessOf('STONE'))
+    expect(hardnessOf('RAIL')).toBeLessThan(hardnessOf('STONE'))
     expect(hardnessOf('DIRT')).toBeLessThan(hardnessOf('STONE'))
     expect(hardnessOf('SAND')).toBeLessThan(hardnessOf('STONE'))
     expect(hardnessOf('GRASS')).toBeLessThan(hardnessOf('STONE'))

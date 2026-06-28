@@ -6,6 +6,7 @@ import type { TargetRayHit } from '@ts-minecraft/app/frame/stages/interaction-ty
 import { handleBucket } from '@ts-minecraft/app/frame/stages/interaction-bucket-handler/bucket-handler'
 import { handleRightClick } from '@ts-minecraft/app/frame/stages/interaction-placement-handler'
 import { handleFeedAnimal } from '@ts-minecraft/app/frame/stages/interaction-item-use-handler/feed-animal'
+import { handleChorusFruitUse } from '@ts-minecraft/app/frame/stages/interaction-item-use-handler/chorus-fruit'
 import { handleEnderPearlThrow } from '@ts-minecraft/app/frame/stages/interaction-item-use-handler/ender-pearl'
 import { handleFoodConsumption } from '@ts-minecraft/app/frame/stages/interaction-item-use-handler/food-consumption'
 import { handleShearAnimal } from '@ts-minecraft/app/frame/stages/interaction-item-use-handler/shear-animal'
@@ -18,6 +19,7 @@ import type { InteractionStageSnapshot } from '@ts-minecraft/app/frame/stages/in
 export type RightClickPriorityHandlers = {
   readonly shearAnimal: () => Effect.Effect<boolean, never>
   readonly feedAnimal: () => Effect.Effect<boolean, never>
+  readonly chorusFruit: () => Effect.Effect<boolean, never>
   readonly consumeFood: () => Effect.Effect<boolean, never>
   readonly enderPearl: () => Effect.Effect<boolean, never>
   readonly farm: () => Effect.Effect<boolean, never>
@@ -37,6 +39,7 @@ export const handleRightClickPriority = (
   Effect.gen(function* () {
     if (yield* handlers.shearAnimal()) return
     if (yield* handlers.feedAnimal()) return
+    if (yield* handlers.chorusFruit()) return
     if (yield* handlers.consumeFood()) return
     if (yield* handlers.enderPearl()) return
     if (yield* handlers.farm()) return
@@ -79,6 +82,7 @@ export const handleRightClickPriorityFromContext = (
   Effect.gen(function* () {
     if (yield* handleShearAnimal(deps, services)) return
     if (yield* handleFeedAnimal(deps, services)) return
+    if (yield* handleChorusFruitUse(services)) return
     if (yield* handleFoodConsumption(services)) return
     if (yield* handleEnderPearlThrow(deps, services, { targetHit: context.targetHit })) return
     if (yield* handleFarmingInteraction(services, refs, { targetHit: context.targetHit })) return

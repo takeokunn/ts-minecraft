@@ -148,6 +148,11 @@ describe('isBlockSolid', () => {
         expect(isBlockSolid(0, 60, 0, cache, PLAYER_CX, PLAYER_CZ)).toBe(false)
       }
     })
+
+    it('RAIL block is NOT solid (player walks over track)', () => {
+      const cache = makeSingleBlockCache(BLOCK_IDS.RAIL, 0, 60, 0)
+      expect(isBlockSolid(0, 60, 0, cache, PLAYER_CX, PLAYER_CZ)).toBe(false)
+    })
   })
 
   describe('chunk boundary and neighbouring chunks', () => {
@@ -207,9 +212,11 @@ describe('getBlockCollisionShapeAt', () => {
 
   it('returns null for passable blocks and unloaded chunks', () => {
     const waterCache = makeSingleBlockCache(BLOCK_IDS.WATER, 0, 64, 0)
+    const railCache = makeSingleBlockCache(BLOCK_IDS.RAIL, 0, 64, 0)
     const unloadedCache = makeNullChunkCache()
 
     expect(getBlockCollisionShapeAt(0, 64, 0, waterCache, PLAYER_CX, PLAYER_CZ)).toBeNull()
+    expect(getBlockCollisionShapeAt(0, 64, 0, railCache, PLAYER_CX, PLAYER_CZ)).toBeNull()
     expect(getBlockCollisionShapeAt(0, 64, 0, unloadedCache, PLAYER_CX, PLAYER_CZ)).toBeNull()
   })
 })

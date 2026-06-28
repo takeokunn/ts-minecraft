@@ -21,6 +21,8 @@ describe('session-bootstrap-runtime-params', () => {
     const lighting = { tag: 'lighting' } as never
     const biomeService = { tag: 'biome' } as never
     const recipeService = { tag: 'recipe' } as never
+    const connectionPanel = { tag: 'connection-panel' } as never
+    const chatPanel = { tag: 'chat-panel' } as never
     const rendering = {
       scene,
       camera,
@@ -41,6 +43,8 @@ describe('session-bootstrap-runtime-params', () => {
     const overlays = {
       deathScreen: { tag: 'death-screen' } as never,
       debugOverlay: { tag: 'debug-overlay' } as never,
+      connectionPanel,
+      chatPanel,
       biomeService,
       recipeService,
     }
@@ -60,6 +64,7 @@ describe('session-bootstrap-runtime-params', () => {
         armorValueElement: { tag: 'armor-value' } as never,
         airElement: { tag: 'air' } as never,
         breakProgressElement: { tag: 'break-progress' } as never,
+        autoSaveStatusElement: { tag: 'autosave-status' } as never,
       },
     }
 
@@ -77,6 +82,7 @@ describe('session-bootstrap-runtime-params', () => {
     expect(runtimeParams.rendering.composerRT).toBe(composerRT)
     expect(runtimeParams.rendering.composer).toBe(composer)
     expect(runtimeParams.rendering.lighting).toBe(lighting)
+    expect([...Effect.runSync(runtimeParams.rendering.remotePlayerRenderer.getAllPlayerIds)]).toEqual([])
     expect(runtimeParams.state.control).toBe(control)
     expect(runtimeParams.state.respawnPositionRef).toBe(respawnPositionRef)
     expect(runtimeParams.state.pendingResizeRef).toBe(pendingResizeRef)
@@ -85,6 +91,9 @@ describe('session-bootstrap-runtime-params', () => {
     expect(runtimeParams.state.persistSessionState).toBe(persistSessionState)
     expect(runtimeParams.hud.fpsElement).toBe(runtimeState.hudElements.fpsElement)
     expect(runtimeParams.hud.breakProgressElement).toBe(runtimeState.hudElements.breakProgressElement)
+    expect(runtimeParams.hud.autoSaveStatusElement).toBe(runtimeState.hudElements.autoSaveStatusElement)
+    expect(runtimeParams.overlays.connectionPanel).toBe(connectionPanel)
+    expect(runtimeParams.overlays.chatPanel).toBe(chatPanel)
     expect(runtimeParams.overlays.biomeService).toBe(biomeService)
     expect(runtimeParams.overlays.recipeService).toBe(recipeService)
   })

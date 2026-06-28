@@ -107,6 +107,172 @@ export const resolveBlockCollisionsInto = (
     getBlockCollisionShape?.(bx, by, bz) ?? (isBlockSolid(bx, by, bz) ? FULL_BLOCK_COLLISION_SHAPE : null)
   const rangesOverlap = (aMin: number, aMax: number, bMin: number, bMax: number): boolean => aMax > bMin && aMin < bMax
 
+  type HorizontalResolution = {
+    readonly x: number
+    readonly z: number
+    readonly vx: number
+    readonly vz: number
+    readonly collidedX: boolean
+    readonly collidedZ: boolean
+    readonly stepTop: number
+  }
+
+  const resolveHorizontalCollisions = (
+    startX: number,
+    startY: number,
+    startZ: number,
+    startVx: number,
+    startVz: number,
+  ): HorizontalResolution => {
+    let x = startX
+    let z = startZ
+    let vx = startVx
+    let vz = startVz
+    let collidedX = false
+    let collidedZ = false
+    let stepTop = Number.NEGATIVE_INFINITY
+
+    const feetY = startY - halfH
+
+    // ── X axis ─────────────────────────────────────────────────────────────
+    {
+      const playerMinY = startY - halfH
+      const playerMaxY = startY + halfH
+      const playerMinZ = z - halfW
+      const playerMaxZ = z + halfW
+      const byMin = Math.floor(playerMinY); const byMax = Math.floor(playerMaxY)
+      const bzMin = Math.floor(playerMinZ); const bzMax = Math.floor(playerMaxZ)
+      const bxMin = Math.floor(x - halfW) - 1
+      const bxMax = Math.floor(x + halfW) + 1
+
+      if (vx < 0) {
+        let maxFace = Number.NEGATIVE_INFINITY
+        for (let bx = bxMin; bx <= bxMax; bx++) {
+          for (let by = byMin; by <= byMax; by++) {
+            for (let bz = bzMin; bz <= bzMax; bz++) {
+              const shape = shapeForBlock(bx, by, bz, isBlockSolid, getBlockCollisionShape)
+              if (shape === null) continue
+
+              if (!rangesOverlap(playerMinY, playerMaxY, by + shape.minY, by + shape.maxY)
+                || !rangesOverlap(playerMinZ, playerMaxZ, bz + shape.minZ, bz + shape.maxZ)) continue
+
+              const face = bx + shape.maxX
+              if (face > x - halfW && face <= x + halfW && face > maxFace) {
+                maxFace = face
+                const blockTop = by + shape.maxY
+                if (blockTop - feetY > EPSILON && blockTop - feetY <= MAX_STEP_UP && blockTop > stepTop) {
+                  stepTop = blockTop
+                }
+              }
+            }
+          }
+        }
+        if (maxFace > Number.NEGATIVE_INFINITY) {
+          x = maxFace + halfW
+          vx = 0
+          collidedX = true
+        }
+      } else if (vx > 0) {
+        let minFace = Number.POSITIVE_INFINITY
+        for (let bx = bxMin; bx <= bxMax; bx++) {
+          for (let by = byMin; by <= byMax; by++) {
+            for (let bz = bzMin; bz <= bzMax; bz++) {
+              const shape = shapeForBlock(bx, by, bz, isBlockSolid, getBlockCollisionShape)
+              if (shape === null) continue
+
+              if (!rangesOverlap(playerMinY, playerMaxY, by + shape.minY, by + shape.maxY)
+                || !rangesOverlap(playerMinZ, playerMaxZ, bz + shape.minZ, bz + shape.maxZ)) continue
+
+              const face = bx + shape.minX
+              if (face >= x - halfW && face < x + halfW && face < minFace) {
+                minFace = face
+                const blockTop = by + shape.maxY
+                if (blockTop - feetY > EPSILON && blockTop - feetY <= MAX_STEP_UP && blockTop > stepTop) {
+                  stepTop = blockTop
+                }
+              }
+            }
+          }
+        }
+        if (minFace < Number.POSITIVE_INFINITY) {
+          x = minFace - halfW
+          vx = 0
+          collidedX = true
+        }
+      }
+    }
+
+    // ── Z axis (use corrected X) ──────────────────────────────────────────
+    {
+      const playerMinX = x - halfW
+      const playerMaxX = x + halfW
+      const playerMinY = startY - halfH
+      const playerMaxY = startY + halfH
+      const bxMin = Math.floor(playerMinX); const bxMax = Math.floor(playerMaxX)
+      const byMin = Math.floor(playerMinY); const byMax = Math.floor(playerMaxY)
+      const bzMin = Math.floor(z - halfW) - 1
+      const bzMax = Math.floor(z + halfW) + 1
+
+      if (vz < 0) {
+        let maxFace = Number.NEGATIVE_INFINITY
+        for (let bz = bzMin; bz <= bzMax; bz++) {
+          for (let by = byMin; by <= byMax; by++) {
+            for (let bx = bxMin; bx <= bxMax; bx++) {
+              const shape = shapeForBlock(bx, by, bz, isBlockSolid, getBlockCollisionShape)
+              if (shape === null) continue
+
+              if (!rangesOverlap(playerMinX, playerMaxX, bx + shape.minX, bx + shape.maxX)
+                || !rangesOverlap(playerMinY, playerMaxY, by + shape.minY, by + shape.maxY)) continue
+
+              const face = bz + shape.maxZ
+              if (face > z - halfW && face <= z + halfW && face > maxFace) {
+                maxFace = face
+                const blockTop = by + shape.maxY
+                if (blockTop - feetY > EPSILON && blockTop - feetY <= MAX_STEP_UP && blockTop > stepTop) {
+                  stepTop = blockTop
+                }
+              }
+            }
+          }
+        }
+        if (maxFace > Number.NEGATIVE_INFINITY) {
+          z = maxFace + halfW
+          vz = 0
+          collidedZ = true
+        }
+      } else if (vz > 0) {
+        let minFace = Number.POSITIVE_INFINITY
+        for (let bz = bzMin; bz <= bzMax; bz++) {
+          for (let by = byMin; by <= byMax; by++) {
+            for (let bx = bxMin; bx <= bxMax; bx++) {
+              const shape = shapeForBlock(bx, by, bz, isBlockSolid, getBlockCollisionShape)
+              if (shape === null) continue
+
+              if (!rangesOverlap(playerMinX, playerMaxX, bx + shape.minX, bx + shape.maxX)
+                || !rangesOverlap(playerMinY, playerMaxY, by + shape.minY, by + shape.maxY)) continue
+
+              const face = bz + shape.minZ
+              if (face >= z - halfW && face < z + halfW && face < minFace) {
+                minFace = face
+                const blockTop = by + shape.maxY
+                if (blockTop - feetY > EPSILON && blockTop - feetY <= MAX_STEP_UP && blockTop > stepTop) {
+                  stepTop = blockTop
+                }
+              }
+            }
+          }
+        }
+        if (minFace < Number.POSITIVE_INFINITY) {
+          z = minFace - halfW
+          vz = 0
+          collidedZ = true
+        }
+      }
+    }
+
+    return { x, z, vx, vz, collidedX, collidedZ, stepTop }
+  }
+
   // ── Y axis ──────────────────────────────────────────────────────────────
   {
     const feetY = y - halfH
@@ -169,111 +335,31 @@ export const resolveBlockCollisionsInto = (
     }
   }
 
-  // ── X axis (use corrected Y) ─────────────────────────────────────────────
-  {
-    const playerMinY = y - halfH
-    const playerMaxY = y + halfH
-    const playerMinZ = z - halfW
-    const playerMaxZ = z + halfW
-    const byMin = Math.floor(playerMinY); const byMax = Math.floor(playerMaxY)
-    const bzMin = Math.floor(playerMinZ); const bzMax = Math.floor(playerMaxZ)
-    const bxMin = Math.floor(x - halfW) - 1
-    const bxMax = Math.floor(x + halfW) + 1
+  const baseX = x
+  const baseY = y
+  const baseZ = z
+  const baseVx = vx
+  const baseVz = vz
+  const horizontal = resolveHorizontalCollisions(baseX, baseY, baseZ, baseVx, baseVz)
+  x = horizontal.x
+  z = horizontal.z
+  vx = horizontal.vx
+  vz = horizontal.vz
 
-    if (vx < 0) {
-      let maxFace = Number.NEGATIVE_INFINITY
-      for (let bx = bxMin; bx <= bxMax; bx++) {
-        for (let by = byMin; by <= byMax; by++) {
-          for (let bz = bzMin; bz <= bzMax; bz++) {
-            const shape = shapeForBlock(bx, by, bz, isBlockSolid, getBlockCollisionShape)
-            if (shape === null) continue
+  if ((horizontal.collidedX || horizontal.collidedZ) && isGrounded && vy <= 0 && horizontal.stepTop > Number.NEGATIVE_INFINITY) {
+    const steppedY = horizontal.stepTop + halfH
+    const steppedHorizontal = resolveHorizontalCollisions(baseX, steppedY, baseZ, baseVx, baseVz)
+    const baseClamp = Math.abs(horizontal.x - baseX) + Math.abs(horizontal.z - baseZ)
+    const steppedClamp = Math.abs(steppedHorizontal.x - baseX) + Math.abs(steppedHorizontal.z - baseZ)
 
-            if (!rangesOverlap(playerMinY, playerMaxY, by + shape.minY, by + shape.maxY)
-              || !rangesOverlap(playerMinZ, playerMaxZ, bz + shape.minZ, bz + shape.maxZ)) continue
-
-            const face = bx + shape.maxX
-            if (face > x - halfW && face <= x + halfW && face > maxFace) maxFace = face
-          }
-        }
-      }
-      if (maxFace > Number.NEGATIVE_INFINITY) {
-        x = maxFace + halfW
-        vx = 0
-      }
-    } else if (vx > 0) {
-      let minFace = Number.POSITIVE_INFINITY
-      for (let bx = bxMin; bx <= bxMax; bx++) {
-        for (let by = byMin; by <= byMax; by++) {
-          for (let bz = bzMin; bz <= bzMax; bz++) {
-            const shape = shapeForBlock(bx, by, bz, isBlockSolid, getBlockCollisionShape)
-            if (shape === null) continue
-
-            if (!rangesOverlap(playerMinY, playerMaxY, by + shape.minY, by + shape.maxY)
-              || !rangesOverlap(playerMinZ, playerMaxZ, bz + shape.minZ, bz + shape.maxZ)) continue
-
-            const face = bx + shape.minX
-            if (face >= x - halfW && face < x + halfW && face < minFace) minFace = face
-          }
-        }
-      }
-      if (minFace < Number.POSITIVE_INFINITY) {
-        x = minFace - halfW
-        vx = 0
-      }
-    }
-  }
-
-  // ── Z axis (use corrected Y and X) ──────────────────────────────────────
-  {
-    const playerMinX = x - halfW
-    const playerMaxX = x + halfW
-    const playerMinY = y - halfH
-    const playerMaxY = y + halfH
-    const bxMin = Math.floor(playerMinX); const bxMax = Math.floor(playerMaxX)
-    const byMin = Math.floor(playerMinY); const byMax = Math.floor(playerMaxY)
-    const bzMin = Math.floor(z - halfW) - 1
-    const bzMax = Math.floor(z + halfW) + 1
-
-    if (vz < 0) {
-      let maxFace = Number.NEGATIVE_INFINITY
-      for (let bz = bzMin; bz <= bzMax; bz++) {
-        for (let by = byMin; by <= byMax; by++) {
-          for (let bx = bxMin; bx <= bxMax; bx++) {
-            const shape = shapeForBlock(bx, by, bz, isBlockSolid, getBlockCollisionShape)
-            if (shape === null) continue
-
-            if (!rangesOverlap(playerMinX, playerMaxX, bx + shape.minX, bx + shape.maxX)
-              || !rangesOverlap(playerMinY, playerMaxY, by + shape.minY, by + shape.maxY)) continue
-
-            const face = bz + shape.maxZ
-            if (face > z - halfW && face <= z + halfW && face > maxFace) maxFace = face
-          }
-        }
-      }
-      if (maxFace > Number.NEGATIVE_INFINITY) {
-        z = maxFace + halfW
-        vz = 0
-      }
-    } else if (vz > 0) {
-      let minFace = Number.POSITIVE_INFINITY
-      for (let bz = bzMin; bz <= bzMax; bz++) {
-        for (let by = byMin; by <= byMax; by++) {
-          for (let bx = bxMin; bx <= bxMax; bx++) {
-            const shape = shapeForBlock(bx, by, bz, isBlockSolid, getBlockCollisionShape)
-            if (shape === null) continue
-
-            if (!rangesOverlap(playerMinX, playerMaxX, bx + shape.minX, bx + shape.maxX)
-              || !rangesOverlap(playerMinY, playerMaxY, by + shape.minY, by + shape.maxY)) continue
-
-            const face = bz + shape.minZ
-            if (face >= z - halfW && face < z + halfW && face < minFace) minFace = face
-          }
-        }
-      }
-      if (minFace < Number.POSITIVE_INFINITY) {
-        z = minFace - halfW
-        vz = 0
-      }
+    if (steppedClamp + EPSILON < baseClamp) {
+      x = steppedHorizontal.x
+      y = steppedY
+      z = steppedHorizontal.z
+      vx = steppedHorizontal.vx
+      vz = steppedHorizontal.vz
+      vy = 0
+      isGrounded = true
     }
   }
 

@@ -1137,10 +1137,13 @@ describe('step 7 — block interaction', () => {
     ;(services.hotbarService as { getSelectedBlockType: unknown }).getSelectedBlockType = vi.fn(() => Effect.succeed(Option.none()))
     const playEffectSpy = vi.fn(() => Effect.void)
     ;(services.soundManager as { playEffect: unknown }).playEffect = playEffectSpy
+    const crosshairPulseSpy = vi.fn(() => Effect.void)
+    ;(services.crosshair as { pulse: unknown }).pulse = crosshairPulseSpy
 
     yield* runFrame(deps, services)
 
     expect(playEffectSpy).toHaveBeenCalledWith('entityHit', { position: entity.position })
+    expect(crosshairPulseSpy).toHaveBeenCalledTimes(1)
   }))
 
   it.effect('spawns a hit-burst particle (count 6) at the entity center on a grounded landed attack', () => Effect.gen(function* () {
@@ -2066,6 +2069,8 @@ describe('step R38 — bow kill spawns XP orb', () => {
     ;(services.xpService as { addXP: unknown }).addXP = addXPSpy
     ;(services.droppedItemService as { spawn: unknown }).spawn = spawnDroppedItemSpy
     ;(services.droppedXpOrbService as { spawn: unknown }).spawn = spawnXpOrbSpy
+    const crosshairPulseSpy = vi.fn(() => Effect.void)
+    ;(services.crosshair as { pulse: unknown }).pulse = crosshairPulseSpy
 
     yield* handleBowFire(
       deps,
@@ -2087,6 +2092,55 @@ describe('step R38 — bow kill spawns XP orb', () => {
       position: { x: 0, y: 63.6, z: -2 },
     }))
     expect(addXPSpy).not.toHaveBeenCalled()
+    expect(crosshairPulseSpy).toHaveBeenCalledTimes(1)
+  }))
+
+  it.effect('bow shots do not hit through solid blocks', () => Effect.gen(function* () {
+    const deps = yield* makeDeps(false)
+    deps.camera.position.set(0, 64, 0)
+    deps.camera.getWorldDirection = vi.fn((target: THREE.Vector3) => target.set(0, 0, 1))
+
+    const services = makeServices({
+      inputService: makeInputService(),
+      inventoryRenderer: makeInventoryRenderer({ open: false }),
+      settingsOverlay: makeSettingsOverlay({ open: false }),
+    })
+
+    ;(services.inventoryService as { removeBlock: unknown }).removeBlock = vi.fn(() => Effect.succeed(true))
+    ;(services.inventoryService as { getSlot: unknown }).getSlot = vi.fn(() =>
+      Effect.succeed(Option.some({ itemType: 'BOW', count: 1, enchantments: [] }))
+    )
+    ;(services.inventoryService as { damageSlot: unknown }).damageSlot = vi.fn(() => Effect.void)
+    const chunk = { blocks: new Uint16Array(CHUNK_SIZE * CHUNK_HEIGHT * CHUNK_SIZE) }
+    chunk.blocks[64 + 1 * CHUNK_HEIGHT + 0 * CHUNK_HEIGHT * CHUNK_SIZE] = blockTypeToIndex('STONE')
+    ;(services.chunkManagerService as { getChunk: unknown }).getChunk = vi.fn(() => Effect.succeed(chunk as never))
+
+    const entity = {
+      entityId: 'entity-1',
+      position: { x: 0, y: 63.1, z: 2 },
+      velocity: { x: 0, y: 0, z: 0 },
+      rotation: {} as THREE.Quaternion,
+      health: 1,
+      type: 'Zombie',
+    }
+    ;(services.entityManager as { getEntity: unknown }).getEntity = vi.fn(() => Effect.succeed(Option.some(entity)))
+    const applyDamageSpy = vi.fn(() => Effect.succeed(Option.some([{ blockType: 'ROTTEN_FLESH', count: 1 }])))
+    ;(services.entityManager as { applyDamage: unknown }).applyDamage = applyDamageSpy
+    const spawnDroppedItemSpy = vi.fn(() => Effect.void)
+    const spawnDroppedXpOrbSpy = vi.fn(() => Effect.void)
+    ;(services.droppedItemService as { spawn: unknown }).spawn = spawnDroppedItemSpy
+    ;(services.droppedXpOrbService as { spawn: unknown }).spawn = spawnDroppedXpOrbSpy
+
+    yield* handleBowFire(
+      deps,
+      services,
+      [entity],
+      { chargeStartSecs: 0, nowSecs: 1.0 },
+    )
+
+    expect(applyDamageSpy).not.toHaveBeenCalled()
+    expect(spawnDroppedItemSpy).not.toHaveBeenCalled()
+    expect(spawnDroppedXpOrbSpy).not.toHaveBeenCalled()
   }))
 
   it.effect('short bow charge returns before touching the hotbar', () => Effect.gen(function* () {

@@ -14,7 +14,7 @@ export const buildPlayerUnderwaterChunkCache = (
   playerChunkCoord: ChunkCoord,
 ): Effect.Effect<ReadonlyArray<UnderwaterChunkCacheEntry>, never> =>
   Effect.gen(function* () {
-    const chunkCache = Array.from({ length: 9 }) as Array<UnderwaterChunkCacheEntry>
+    const chunkCache = new Array<UnderwaterChunkCacheEntry>(9)
     let index = 0
 
     for (let dx = -1; dx <= 1; dx += 1) {

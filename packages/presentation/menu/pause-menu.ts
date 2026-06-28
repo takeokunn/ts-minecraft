@@ -10,6 +10,7 @@ import {
 import { SAVE_QUIT_CONFIRM_MESSAGE } from './pause-menu-styles'
 import { buildPauseMenuDOM } from './pause-menu-dom'
 import type { PauseMenuDom } from './pause-menu-types'
+import { trapPauseMenuFocus, visiblePauseMenuControls } from './pause-menu-focus'
 
 // FR-1.4/FR-1.10/FR-1.12 — in-session pause menu. Opened by Escape or
 // OPEN_MENU_KEY through the frame-handler input stage. Once the menu is open,
@@ -23,7 +24,15 @@ export class PauseMenuService extends Effect.Service<PauseMenuService>()(
       const dom = yield* DomOperationsService
       const settingsOverlay = yield* SettingsOverlayService
       const confirmDialog = yield* ConfirmDialogService
-      const { backdropEl, resumeBtn, settingsBtn, saveQuitBtn } = yield* Effect.acquireRelease(
+      const {
+        backdropEl,
+        resumeBtn,
+        settingsBtn,
+        howToPlayBtn,
+        howToPlayPanel,
+        howToPlayCloseBtn,
+        saveQuitBtn,
+      } = yield* Effect.acquireRelease(
         Effect.sync((): PauseMenuDom => buildPauseMenuDOM(dom)),
         ({ backdropEl }) =>
           Effect.sync(() => {
@@ -38,6 +47,50 @@ export class PauseMenuService extends Effect.Service<PauseMenuService>()(
       // scope closes. `openIfClosed` reads this so the frame-handler
       // input stage doesn't have to thread the control through.
       const activeControlRef = MutableRef.make<Option.Option<SessionControl>>(Option.none())
+      const restoreFocusRef = MutableRef.make<Option.Option<HTMLElement>>(Option.none())
+
+      const focusIfAvailable = (element: Element | null): boolean => {
+        const focusable = element as (HTMLElement & { readonly focus?: () => void }) | null
+        if (focusable === null || typeof focusable.focus !== 'function') return false
+        if (focusable.isConnected === false) return false
+        focusable.focus()
+        return true
+      }
+
+      const captureFocusBeforeOpen = (): void => {
+        if (typeof document === 'undefined') return
+        const activeElement = document.activeElement
+        const focusable = activeElement as (HTMLElement & { readonly focus?: () => void }) | null
+        MutableRef.set(
+          restoreFocusRef,
+          focusable !== null && typeof focusable.focus === 'function'
+            ? Option.some(focusable)
+            : Option.none(),
+        )
+      }
+
+      const restoreFocusAfterClose = (): void => {
+        const previousFocus = Option.getOrNull(MutableRef.get(restoreFocusRef))
+        MutableRef.set(restoreFocusRef, Option.none())
+        if (focusIfAvailable(previousFocus)) return
+        if (typeof document !== 'undefined') {
+          focusIfAvailable(document.getElementById('game-canvas'))
+        }
+      }
+
+      const isHowToPlayVisible = (): boolean => {
+        const panel = Option.getOrNull(howToPlayPanel)
+        return panel !== null && panel.style.display !== 'none'
+      }
+
+      const showHowToPlay = (): void => {
+        Option.map(howToPlayPanel, (el) => { el.style.display = 'block' })
+        Option.map(howToPlayCloseBtn, (btn) => btn.focus())
+      }
+
+      const hideHowToPlay = (): void => {
+        Option.map(howToPlayPanel, (el) => { el.style.display = 'none' })
+      }
 
       const showMenu = (): void => {
         Option.map(backdropEl, (el) => { el.style.display = 'flex' })
@@ -46,7 +99,13 @@ export class PauseMenuService extends Effect.Service<PauseMenuService>()(
       }
 
       const hideMenu = (): void => {
+        hideHowToPlay()
         Option.map(backdropEl, (el) => { el.style.display = 'none' })
+      }
+
+      const closeMenu = (): void => {
+        hideMenu()
+        restoreFocusAfterClose()
       }
 
       return {
@@ -62,7 +121,7 @@ export class PauseMenuService extends Effect.Service<PauseMenuService>()(
                 const handleResumeClick = (): void => {
                   if (!MutableRef.get(isOpenRef)) return
                   MutableRef.set(isOpenRef, false)
-                  hideMenu()
+                  closeMenu()
                   setPaused(control, false)
                 }
 
@@ -131,6 +190,17 @@ export class PauseMenuService extends Effect.Service<PauseMenuService>()(
                   openSettingsFromMenu()
                 }
 
+                const handleHowToPlayClick = (): void => {
+                  if (!MutableRef.get(isOpenRef)) return
+                  showHowToPlay()
+                }
+
+                const handleHowToPlayCloseClick = (): void => {
+                  if (!MutableRef.get(isOpenRef)) return
+                  hideHowToPlay()
+                  Option.map(howToPlayBtn, (btn) => btn.focus())
+                }
+
                 const handleSaveQuitClick = (): void => {
                   if (!MutableRef.get(isOpenRef)) return
                   // Hide pause menu while dialog is open so the dialog
@@ -173,6 +243,10 @@ export class PauseMenuService extends Effect.Service<PauseMenuService>()(
                     if (isSettingsOverlayVisible()) return
                     event.preventDefault()
                     event.stopPropagation()
+                    if (isHowToPlayVisible()) {
+                      handleHowToPlayCloseClick()
+                      return
+                    }
                     handleResumeClick()
                   } else if (event.key === 'Enter') {
                     // Let the button's native Enter activation handle it
@@ -180,15 +254,28 @@ export class PauseMenuService extends Effect.Service<PauseMenuService>()(
                     // game's input service.
                     event.stopPropagation()
                   } else if (event.key === 'Tab') {
-                    // Browser default tab cycling between visible buttons
-                    // is sufficient; we just guard against escape into
-                    // the rest of the page.
+                    if (isSettingsOverlayVisible()) return
                     event.stopPropagation()
+                    trapPauseMenuFocus(
+                      event,
+                      visiblePauseMenuControls([
+                        resumeBtn,
+                        settingsBtn,
+                        howToPlayBtn,
+                        ...(isHowToPlayVisible() ? [howToPlayCloseBtn] : []),
+                        saveQuitBtn,
+                      ]),
+                      typeof document === 'undefined' ? null : document.activeElement,
+                    )
                   }
                 }
 
                 Option.map(resumeBtn, (btn) => btn.addEventListener('click', handleResumeClick))
                 Option.map(settingsBtn, (btn) => btn.addEventListener('click', handleSettingsClick))
+                Option.map(howToPlayBtn, (btn) => btn.addEventListener('click', handleHowToPlayClick))
+                Option.map(howToPlayCloseBtn, (btn) =>
+                  btn.addEventListener('click', handleHowToPlayCloseClick),
+                )
                 Option.map(saveQuitBtn, (btn) => btn.addEventListener('click', handleSaveQuitClick))
                 if (typeof document !== 'undefined') {
                   document.addEventListener('keydown', handleKeyDown, true)
@@ -197,6 +284,8 @@ export class PauseMenuService extends Effect.Service<PauseMenuService>()(
                 return {
                   handleResumeClick,
                   handleSettingsClick,
+                  handleHowToPlayClick,
+                  handleHowToPlayCloseClick,
                   handleSaveQuitClick,
                   handleKeyDown,
                   watchdogFiberRef,
@@ -206,6 +295,12 @@ export class PauseMenuService extends Effect.Service<PauseMenuService>()(
                 Effect.gen(function* () {
                   Option.map(resumeBtn, (btn) => btn.removeEventListener('click', handlers.handleResumeClick))
                   Option.map(settingsBtn, (btn) => btn.removeEventListener('click', handlers.handleSettingsClick))
+                  Option.map(howToPlayBtn, (btn) =>
+                    btn.removeEventListener('click', handlers.handleHowToPlayClick),
+                  )
+                  Option.map(howToPlayCloseBtn, (btn) =>
+                    btn.removeEventListener('click', handlers.handleHowToPlayCloseClick),
+                  )
                   Option.map(saveQuitBtn, (btn) => btn.removeEventListener('click', handlers.handleSaveQuitClick))
                   if (typeof document !== 'undefined') {
                     document.removeEventListener('keydown', handlers.handleKeyDown, true)
@@ -228,6 +323,7 @@ export class PauseMenuService extends Effect.Service<PauseMenuService>()(
           Effect.sync(() => {
             if (MutableRef.get(isOpenRef)) return
             Option.map(MutableRef.get(activeControlRef), (control) => {
+              captureFocusBeforeOpen()
               MutableRef.set(isOpenRef, true)
               setPaused(control, true)
               showMenu()

@@ -27,6 +27,8 @@ export const KeyMappings = {
   HOTBAR_SLOT_8: 'Digit8',
   HOTBAR_SLOT_9: 'Digit9',
   INVENTORY_OPEN: 'KeyE',
+  INVENTORY_SORT: 'KeyR',
+  PLAYER_LIST_TOGGLE: 'Tab',
   ESCAPE: 'Escape',
 } as const
 

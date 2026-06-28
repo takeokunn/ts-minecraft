@@ -10,6 +10,7 @@ import { DomOperationsService } from '@ts-minecraft/presentation/hud/crosshair'
 
 const createMockDomLayer = () => {
   const makeElement = (tagName: string) => {
+    const attributes: Record<string, string> = {}
     const node = {
       tagName,
       id: '',
@@ -19,6 +20,7 @@ const createMockDomLayer = () => {
       children: [] as unknown[],
       parentNode: null as unknown,
       firstChild: null as unknown,
+      tabIndex: 0,
       appendChild: vi.fn(function (this: { children: unknown[]; firstChild: unknown }, child: unknown) {
         this.children.push(child)
         this.firstChild = this.children[0] ?? null
@@ -30,6 +32,14 @@ const createMockDomLayer = () => {
       addEventListener: vi.fn(),
       removeEventListener: vi.fn(),
       remove: vi.fn(),
+      focus: vi.fn(),
+      setAttribute: vi.fn((name: string, value: string) => {
+        attributes[name] = value
+      }),
+      getAttribute: vi.fn((name: string) => attributes[name] ?? null),
+      removeAttribute: vi.fn((name: string) => {
+        delete attributes[name]
+      }),
     }
     return node as unknown as HTMLElement
   }
@@ -37,6 +47,8 @@ const createMockDomLayer = () => {
   const overlayEl = makeElement('div') as HTMLElement & {
     style: { cssText: string; display: string }
     children: unknown[]
+    tabIndex: number
+    focus: ReturnType<typeof vi.fn>
   }
 
   const createElement = vi.fn((tagName: string) => {
@@ -101,6 +113,14 @@ describe('presentation/loading/loading-screen', () => {
       expect(mockDom.overlayEl.style.cssText).toContain('position:fixed')
       expect(mockDom.overlayEl.style.display).toBe('flex')
       expect(mockDom.overlayEl.children).toHaveLength(3)
+      expect(mockDom.overlayEl.getAttribute('role')).toBe('status')
+      expect(mockDom.overlayEl.getAttribute('aria-live')).toBe('polite')
+      expect(mockDom.overlayEl.getAttribute('aria-busy')).toBe('true')
+      expect(mockDom.overlayEl.getAttribute('aria-label')).toBe('Loading ts-minecraft')
+      expect(mockDom.overlayEl.getAttribute('aria-modal')).toBeNull()
+      const loadingTextNode = mockDom.overlayEl.children[2] as HTMLElement & { textContent: string }
+      expect(loadingTextNode.getAttribute('role')).toBe('status')
+      expect(loadingTextNode.getAttribute('aria-live')).toBe('polite')
     }).pipe(Effect.provide(TestLayer), Effect.ensuring(Effect.sync(() => {
       Reflect.deleteProperty(globalThis as object, 'document')
     })))
@@ -124,8 +144,16 @@ describe('presentation/loading/loading-screen', () => {
       yield* loading.showError(payload)
 
       expect(mockDom.overlayEl.children).toHaveLength(3)
-      const messageNode = mockDom.overlayEl.children[1] as { textContent: string }
+      expect(mockDom.overlayEl.getAttribute('role')).toBe('alertdialog')
+      expect(mockDom.overlayEl.getAttribute('aria-modal')).toBe('true')
+      expect(mockDom.overlayEl.getAttribute('aria-live')).toBe('assertive')
+      expect(mockDom.overlayEl.getAttribute('aria-busy')).toBe('false')
+      expect(mockDom.overlayEl.getAttribute('aria-label')).toBe('Game session error')
+      expect(mockDom.overlayEl.tabIndex).toBe(-1)
+      expect(mockDom.overlayEl.focus).toHaveBeenCalledWith({ preventScroll: true })
+      const messageNode = mockDom.overlayEl.children[1] as HTMLElement & { textContent: string }
       expect(messageNode.textContent).toBe(payload)
+      expect(messageNode.getAttribute('role')).toBe('alert')
     }).pipe(Effect.provide(TestLayer), Effect.ensuring(Effect.sync(() => {
       Reflect.deleteProperty(globalThis as object, 'document')
     })))
@@ -177,6 +205,9 @@ describe('presentation/loading/loading-screen', () => {
 
       expect(mockDom.overlayEl.style.display).toBe('flex')
       expect(mockDom.overlayEl.children).toHaveLength(3)
+      expect(mockDom.overlayEl.getAttribute('role')).toBe('status')
+      expect(mockDom.overlayEl.getAttribute('aria-busy')).toBe('true')
+      expect(mockDom.overlayEl.getAttribute('aria-modal')).toBeNull()
       const loadingTextNode = mockDom.overlayEl.children[2] as { textContent: string }
       expect(loadingTextNode.textContent).toBe('Loading...')
     }).pipe(Effect.provide(TestLayer), Effect.ensuring(Effect.sync(() => {

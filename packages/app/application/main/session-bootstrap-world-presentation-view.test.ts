@@ -17,6 +17,7 @@ describe('initializeSessionBootstrapWorldPresentationView', () => {
     const hotbarRenderer = { initialize: vi.fn(() => noopEffect) }
     const particleSystem = { attach: vi.fn(() => noopEffect) }
     const crosshair = { show: vi.fn(() => noopEffect) }
+    const controlsHint = { show: vi.fn(() => noopEffect) }
 
     await Effect.runPromise(Effect.scoped(initializeSessionBootstrapWorldPresentationView({
       scene,
@@ -25,11 +26,13 @@ describe('initializeSessionBootstrapWorldPresentationView', () => {
       hotbarRenderer: hotbarRenderer as never,
       particleSystem: particleSystem as never,
       crosshair: crosshair as never,
+      controlsHint: controlsHint as never,
     })))
 
     expect(blockHighlight.initialize).toHaveBeenCalledWith(scene)
     expect(hotbarRenderer.initialize).toHaveBeenCalledWith(800, 600)
     expect(particleSystem.attach).toHaveBeenCalledWith(scene)
     expect(crosshair.show).toHaveBeenCalledOnce()
+    expect(controlsHint.show).toHaveBeenCalledOnce()
   })
 })

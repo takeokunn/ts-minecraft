@@ -21,6 +21,18 @@ export const EQUIPMENT_MISC_RECIPES: ReadonlyArray<Recipe> = [
     output: { itemType: 'SHIELD', count: 1 },
   }),
   new Recipe({
+    id: RecipeId.make('planks-to-boat'),
+    station: 'crafting_table',
+    ingredients: [new RecipeIngredient({ itemType: 'PLANKS', count: 5 })],
+    output: { itemType: 'BOAT', count: 1 },
+  }),
+  new Recipe({
+    id: RecipeId.make('iron-ingots-to-minecart'),
+    station: 'crafting_table',
+    ingredients: [new RecipeIngredient({ itemType: 'IRON_INGOT', count: 5 })],
+    output: { itemType: 'MINECART', count: 1 },
+  }),
+  new Recipe({
     id: RecipeId.make('gold-and-apple-to-golden-apple'),
     station: 'crafting_table',
     ingredients: [

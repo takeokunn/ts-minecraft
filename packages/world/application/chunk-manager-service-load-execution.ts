@@ -13,11 +13,11 @@ export const loadChunkBatch = (
   Effect.forEach(
     chunkLoadBatch,
     (coord) => loadSemaphore.withPermits(1)(getChunk(ctx, coord, terrainLevels)),
-    { concurrency: 4 },
+    { concurrency: 8 },
   )
 
 export const unloadChunkBatch = (
   ctx: ChunkOpsContext,
   chunksToUnload: ReadonlyArray<ChunkCacheEntry>,
 ): Effect.Effect<void, ChunkManagerError> =>
-  Effect.forEach(chunksToUnload, (entry) => unloadChunk(ctx, entry.chunk.coord), { concurrency: 1 })
+  Effect.forEach(chunksToUnload, (entry) => unloadChunk(ctx, entry.chunk.coord), { concurrency: 8 })

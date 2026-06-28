@@ -16,6 +16,8 @@ import {
 const MOTION_THRESHOLD = 0.05
 // R6d: baby mobs render at half scale (vanilla-ish) until they grow up.
 const BABY_RENDER_SCALE = 0.5
+const SHEARED_SHEEP_TINT = 0xb8b8b8
+const SHEARED_SHEEP_TINT_AMOUNT = 0.65
 // Mob models are built FEET-at-origin (legs hang from the hip down to local y=0), but
 // entity.position.y is the AABB CENTER (physics rests the center at ground + MOB_HALF_HEIGHT,
 // feet on the ground). Rendering the feet-origin model straight at position.y therefore
@@ -103,6 +105,9 @@ const mixColorHex = (from: number, to: number, amount: number): number => {
 }
 
 const getInstanceColor = (entity: Entity, baseColor: number, totalTimeSecs: number): number => {
+  if (entity.type === 'Sheep' && entity.isSheared === true) {
+    return mixColorHex(baseColor, SHEARED_SHEEP_TINT, SHEARED_SHEEP_TINT_AMOUNT)
+  }
   if (entity.type !== 'Creeper' || entity.fuseSecs === undefined || entity.fuseSecs <= 0) {
     return baseColor
   }
@@ -285,7 +290,7 @@ export class EntityRendererService extends Effect.Service<EntityRendererService>
                       // access is the documented exception (see greedy-meshing.ts getBlock).
                       if (slotInfo._tag === 'None') continue
                       const { slot, bucket } = slotInfo.value
-                      const swing = swingAngleForRole(role, legL, legR, armLA, armRA)
+                      const swing = bucket.spec.swingAxis === null ? 0 : swingAngleForRole(role, legL, legR, armLA, armRA)
 
                       scratch.offset.set(
                         bucket.spec.offset.x,

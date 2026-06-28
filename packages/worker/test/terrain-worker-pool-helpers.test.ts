@@ -14,10 +14,10 @@ describe('BLOCK_BYTES', () => {
 })
 
 describe('computeWorkerCount', () => {
-  it('returns a number between 1 and 3 inclusive', () => {
+  it('returns a number between 1 and 12 inclusive', () => {
     const count = computeWorkerCount()
     expect(count).toBeGreaterThanOrEqual(1)
-    expect(count).toBeLessThanOrEqual(3)
+    expect(count).toBeLessThanOrEqual(12)
   })
 
   it('returns an integer', () => {
@@ -27,11 +27,12 @@ describe('computeWorkerCount', () => {
   it.each([
     [1, 1],
     [2, 1],
-    [3, 1],
-    [4, 2],
-    [6, 3],
-    [8, 3],
-    [16, 3],
+    [3, 2],
+    [4, 3],
+    [6, 4],
+    [8, 6],
+    [12, 9],
+    [16, 12],
     [Number.NaN, 1],
   ])('returns %i worker(s) for %i hardware thread(s)', (hardwareConcurrency, expected) => {
     expect(computeWorkerCountFromHardwareConcurrency(hardwareConcurrency)).toBe(expected)

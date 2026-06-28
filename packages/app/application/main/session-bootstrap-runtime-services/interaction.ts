@@ -3,7 +3,16 @@ import type { FrameHandlerServices } from '@ts-minecraft/app/application/frame/t
 
 type SessionRuntimeInteractionServices = Pick<
   FrameHandlerServices,
-  'blockHighlight' | 'inputService' | 'blockService' | 'hotbarService' | 'hotbarRenderer' | 'settingsOverlay' | 'pauseMenu'
+  | 'blockHighlight'
+  | 'crosshair'
+  | 'damageOverlay'
+  | 'inputService'
+  | 'blockService'
+  | 'hotbarService'
+  | 'hotbarRenderer'
+  | 'settingsOverlay'
+  | 'pauseMenu'
+  | 'playerListPanel'
 >
 
 export const buildSessionRuntimeInteractionServices = ({
@@ -12,10 +21,13 @@ export const buildSessionRuntimeInteractionServices = ({
   readonly services: SessionBootstrapServices
 }): SessionRuntimeInteractionServices => ({
   blockHighlight: services.blockHighlight,
+  crosshair: services.crosshair,
+  damageOverlay: services.damageOverlay,
   inputService: services.inputService,
   blockService: services.blockService,
   hotbarService: services.hotbarService,
   hotbarRenderer: services.hotbarRenderer,
   settingsOverlay: services.settingsOverlay,
   pauseMenu: services.pauseMenu,
+  playerListPanel: services.playerListPanel,
 })

@@ -9,6 +9,11 @@ import type { FrameHandlerDeps } from '@ts-minecraft/app/application/frame/types
 import type { FrameHandlerServices } from '@ts-minecraft/app/application/frame/types/services'
 import type { FrameStageRefs } from '@ts-minecraft/app/application/frame/types/stage-refs'
 import type { ResolvedDeps } from '@ts-minecraft/app/application/frame/types/runtime'
+import type {
+  LocalEntitySnapshot,
+  MultiplayerService,
+  RemotePlayerSnapshot,
+} from '@ts-minecraft/app/application/multiplayer/multiplayer-service'
 import { chunkSyncStage } from '@ts-minecraft/app/frame/stages/chunk-sync-stage'
 import { cameraStage } from '@ts-minecraft/app/frame/stages/camera-stage'
 import { entityUpdateStage } from '@ts-minecraft/app/frame/stages/entity-update-stage'
@@ -16,13 +21,18 @@ import { hudStage } from '@ts-minecraft/app/frame/stages/hud-stage'
 import { inputStage } from '@ts-minecraft/app/frame/stages/input-stage'
 import { interactionStage } from '@ts-minecraft/app/frame/stages/interaction-stage'
 import { lightingStage } from '@ts-minecraft/app/frame/stages/lighting-stage'
-import { multiplayerStage, applyInboundBlockEdits } from '@ts-minecraft/app/frame/stages/multiplayer-stage'
+import {
+  multiplayerStage,
+  applyInboundBlockEdits,
+  applyInboundEntitySnapshots,
+} from '@ts-minecraft/app/frame/stages/multiplayer-stage'
 import { postProcessingSetupStage, refractionPrepassStage } from '@ts-minecraft/app/frame/stages/post-processing-stage'
 import { physicsStage } from '@ts-minecraft/app/frame/stages/physics-stage'
 import { renderStage } from '@ts-minecraft/app/frame/stages/render-stage'
 import { type DayNightLights, type ResolvedGraphics } from '@ts-minecraft/game'
 import { resolvePreset } from '@ts-minecraft/game/application/settings-service.config'
 import type { Settings } from '@ts-minecraft/game'
+import type { RemotePlayerState } from '@ts-minecraft/rendering'
 
 export type FrameStageExecutorContext = {
   readonly resolved: ResolvedDeps
@@ -43,6 +53,64 @@ const GRAPHICS_QUALITY_INDEX: Record<Parameters<typeof resolvePreset>[0], number
   high: 2,
   ultra: 3,
 }
+
+const REMOTE_PLAYER_LIMB_SWING_SPEED = 8
+
+export const toRemotePlayerRenderState = (
+  player: RemotePlayerSnapshot,
+  totalTimeSecs: number,
+): RemotePlayerState => ({
+  playerId: player.playerId,
+  playerName: player.playerName,
+  position: {
+    x: player.x,
+    y: player.y,
+    z: player.z,
+  },
+  rotation: {
+    yaw: player.yaw,
+    pitch: player.pitch,
+  },
+  limbSwing: totalTimeSecs * REMOTE_PLAYER_LIMB_SWING_SPEED,
+})
+
+export const syncRemotePlayersForFrame = (
+  mp: Pick<MultiplayerService, 'getRemotePlayers'>,
+  services: Pick<FrameHandlerServices, 'entityManager' | 'remotePlayerRenderer'>,
+  refs: Pick<FrameStageRefs, 'lastRemotePlayerIdsRef'>,
+  totalTimeSecs: number,
+) =>
+  mp.getRemotePlayers().pipe(
+    Effect.flatMap((remotePlayers) =>
+      Effect.gen(function* () {
+        const nextRemotePlayerIds = new Set(remotePlayers.keys())
+        const previousRemotePlayerIds = MutableRef.get(refs.lastRemotePlayerIdsRef)
+        const departedRemotePlayerIds: string[] = []
+        for (const previousRemotePlayerId of previousRemotePlayerIds) {
+          if (!nextRemotePlayerIds.has(previousRemotePlayerId)) departedRemotePlayerIds.push(previousRemotePlayerId)
+        }
+        MutableRef.set(refs.lastRemotePlayerIdsRef, nextRemotePlayerIds)
+
+        if (departedRemotePlayerIds.length > 0) {
+          const entities = yield* services.entityManager.getEntities()
+          for (const departedRemotePlayerId of departedRemotePlayerIds) {
+            const remoteEntityPrefix = `remote:${departedRemotePlayerId}:`
+            for (const entity of entities) {
+              if (entity.entityId.startsWith(remoteEntityPrefix)) {
+                yield* services.entityManager.removeEntity(entity.entityId)
+              }
+            }
+          }
+        }
+
+        const snapshots: RemotePlayerState[] = []
+        for (const player of remotePlayers.values()) {
+          snapshots.push(toRemotePlayerRenderState(player, totalTimeSecs))
+        }
+        return services.remotePlayerRenderer.updateFromSnapshot(snapshots)
+      }),
+    ),
+  )
 
 export const resolveGraphicsForFrame = (
   refs: Pick<FrameStageRefs, 'lastGraphicsQualityRef'>,
@@ -130,6 +198,7 @@ export const runActiveFrameStages = (
       return {
         playerPos: inputs.initialPlayerPos,
         sunIntensity: 0,
+        entitySnapshots: [] as ReadonlyArray<LocalEntitySnapshot>,
       }
     }
 
@@ -142,7 +211,7 @@ export const runActiveFrameStages = (
     })
     const isNight = yield* services.timeService.isNight()
     const weather = yield* services.weatherService.getWeather()
-    yield* entityUpdateStage(deps, services, refs, {
+    const entitySnapshots = yield* entityUpdateStage(deps, services, refs, {
       deltaTime: inputs.deltaTime,
       debugFlags: inputs.debugFlags,
       playerPos: inputs.initialPlayerPos,
@@ -170,6 +239,7 @@ export const runActiveFrameStages = (
     return {
       playerPos,
       sunIntensity: lightingResult.sunIntensity,
+      entitySnapshots,
     }
   })
 
@@ -192,6 +262,7 @@ export const runPresentationFrameStages = (
       readonly z: number
     }
     readonly sunIntensity: number
+    readonly entitySnapshots: ReadonlyArray<LocalEntitySnapshot>
     readonly resolved: ResolvedDeps
     readonly sunWorldPos: THREE.Vector3
     readonly markShadowMapDirty: () => void
@@ -209,8 +280,12 @@ export const runPresentationFrameStages = (
       yield* services.playerCameraState
         .getRotation()
         .pipe(
-          Effect.flatMap((rotation) => multiplayerStage(mp, inputs.playerPos, rotation.yaw, rotation.pitch)),
+          Effect.flatMap((rotation) =>
+            multiplayerStage(mp, inputs.playerPos, rotation.yaw, rotation.pitch, inputs.entitySnapshots),
+          ),
           Effect.flatMap(() => applyInboundBlockEdits(mp, services, refs.dirtyChunksRef)),
+          Effect.flatMap(() => applyInboundEntitySnapshots(mp, services)),
+          Effect.flatMap(() => syncRemotePlayersForFrame(mp, services, refs, inputs.totalTimeSecs)),
         )
         .pipe(Effect.catchAll(() => Effect.void))
     }

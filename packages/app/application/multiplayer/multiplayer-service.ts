@@ -29,10 +29,32 @@ export type RemoteBlockEdit =
   | { readonly kind: 'place'; readonly x: number; readonly y: number; readonly z: number; readonly blockType: string }
   | { readonly kind: 'break'; readonly x: number; readonly y: number; readonly z: number }
 
+export type LocalEntitySnapshot = {
+  readonly entityId: string
+  readonly entityType: string
+  readonly position: { readonly x: number; readonly y: number; readonly z: number }
+  readonly health: number
+  readonly alive: boolean
+}
+
+export type RemoteEntitySnapshot = LocalEntitySnapshot & {
+  readonly playerId: string
+  readonly worldId: string
+  readonly timestamp: number
+}
+
+type LocalPlayerIdentity = {
+  readonly playerId: PlayerId
+  readonly playerName: PlayerName
+}
+
+export type MultiplayerSessionState = ConnectionState | 'joining' | 'ready'
+
 export type MultiplayerService = {
   readonly connect: (serverUrl: string, playerName: PlayerName) => Effect.Effect<void, never>
   readonly disconnect: Effect.Effect<void, never>
   readonly getConnectionState: () => Effect.Effect<ConnectionState, never>
+  readonly getSessionState: () => Effect.Effect<MultiplayerSessionState, never>
   readonly getRemotePlayers: () => Effect.Effect<ReadonlyMap<string, RemotePlayerSnapshot>, never>
   readonly getChatMessages: () => Effect.Effect<ReadonlyArray<ChatEntry>, never>
   readonly sendChat: (text: string) => Effect.Effect<void, never>
@@ -48,8 +70,10 @@ export type MultiplayerService = {
   readonly sendBlockBreak: (
     pos: { readonly x: number; readonly y: number; readonly z: number },
   ) => Effect.Effect<void, never>
+  readonly sendEntitySnapshot: (snapshot: LocalEntitySnapshot) => Effect.Effect<void, never>
   // FR-3 block sync: drain and clear the queue of remote edits to apply locally.
   readonly drainBlockEdits: Effect.Effect<ReadonlyArray<RemoteBlockEdit>, never>
+  readonly drainEntitySnapshots: Effect.Effect<ReadonlyArray<RemoteEntitySnapshot>, never>
   readonly drainInbound: Effect.Effect<void, never>
 }
 
@@ -58,16 +82,42 @@ export const MultiplayerService = Context.GenericTag<MultiplayerService>(
 )
 
 const MAX_CHAT_ENTRIES = 50
+const MAX_PENDING_CHAT_MESSAGES = 20
 
 const processInbound = (
   msg: NetworkMessage,
   remotePlayersRef: Ref.Ref<Map<string, RemotePlayerSnapshot>>,
   chatMessagesRef: Ref.Ref<ReadonlyArray<ChatEntry>>,
   inboundBlockEditsRef: Ref.Ref<ReadonlyArray<RemoteBlockEdit>>,
+  inboundEntitySnapshotsRef: Ref.Ref<ReadonlyArray<RemoteEntitySnapshot>>,
+  playerNameRef: Ref.Ref<Option.Option<PlayerName>>,
+  localPlayerRef: Ref.Ref<Option.Option<LocalPlayerIdentity>>,
+  onLocalPlayerReady: (identity: LocalPlayerIdentity) => Effect.Effect<void, never>,
 ): Effect.Effect<void, never> => {
   switch (msg.type) {
+    case MessageType.EntitySnapshot:
+      return Effect.gen(function* () {
+        const localPlayer = yield* Ref.get(localPlayerRef)
+        if (Option.isSome(localPlayer) && localPlayer.value.playerId === msg.playerId) return
+        const snapshots = yield* Ref.get(inboundEntitySnapshotsRef)
+        yield* Ref.set(inboundEntitySnapshotsRef, [
+          ...snapshots,
+          {
+            playerId: String(msg.playerId),
+            worldId: String(msg.worldId),
+            entityId: msg.entityId,
+            entityType: msg.entityType,
+            position: msg.position,
+            health: msg.health,
+            alive: msg.alive,
+            timestamp: msg.timestamp,
+          },
+        ])
+      })
     case MessageType.BlockPlace:
       return Effect.gen(function* () {
+        const localPlayer = yield* Ref.get(localPlayerRef)
+        if (Option.isSome(localPlayer) && localPlayer.value.playerId === msg.playerId) return
         const edits = yield* Ref.get(inboundBlockEditsRef)
         const next = [
           ...edits,
@@ -77,6 +127,8 @@ const processInbound = (
       })
     case MessageType.BlockBreak:
       return Effect.gen(function* () {
+        const localPlayer = yield* Ref.get(localPlayerRef)
+        if (Option.isSome(localPlayer) && localPlayer.value.playerId === msg.playerId) return
         const edits = yield* Ref.get(inboundBlockEditsRef)
         const next = [
           ...edits,
@@ -86,6 +138,22 @@ const processInbound = (
       })
     case MessageType.PlayerJoin:
       return Effect.gen(function* () {
+        const localPlayer = yield* Ref.get(localPlayerRef)
+        const requestedName = yield* Ref.get(playerNameRef)
+        if (
+          Option.isNone(localPlayer)
+          && Option.isSome(requestedName)
+          && String(requestedName.value) === String(msg.playerName)
+        ) {
+          const identity: LocalPlayerIdentity = {
+            playerId: msg.playerId,
+            playerName: msg.playerName,
+          }
+          yield* Ref.set(localPlayerRef, Option.some(identity))
+          yield* onLocalPlayerReady(identity)
+          return
+        }
+        if (Option.isSome(localPlayer) && localPlayer.value.playerId === msg.playerId) return
         const snap: RemotePlayerSnapshot = {
           playerId: String(msg.playerId),
           playerName: String(msg.playerName),
@@ -102,6 +170,11 @@ const processInbound = (
       })
     case MessageType.PlayerLeave:
       return Effect.gen(function* () {
+        const localPlayer = yield* Ref.get(localPlayerRef)
+        if (Option.isSome(localPlayer) && localPlayer.value.playerId === msg.playerId) {
+          yield* Ref.set(localPlayerRef, Option.none())
+          return
+        }
         const players = yield* Ref.get(remotePlayersRef)
         const next = new Map(players)
         next.delete(String(msg.playerId))
@@ -109,6 +182,8 @@ const processInbound = (
       })
     case MessageType.PlayerMove:
       return Effect.gen(function* () {
+        const localPlayer = yield* Ref.get(localPlayerRef)
+        if (Option.isSome(localPlayer) && localPlayer.value.playerId === msg.playerId) return
         const players = yield* Ref.get(remotePlayersRef)
         const existing = players.get(String(msg.playerId))
         if (!existing) return
@@ -125,8 +200,14 @@ const processInbound = (
       })
     case MessageType.Chat: {
       return Effect.gen(function* () {
+        const players = yield* Ref.get(remotePlayersRef)
+        const localPlayer = yield* Ref.get(localPlayerRef)
+        const remotePlayer = players.get(String(msg.playerId))
+        const player = Option.isSome(localPlayer) && localPlayer.value.playerId === msg.playerId
+          ? String(localPlayer.value.playerName)
+          : remotePlayer?.playerName ?? String(msg.playerId)
         const entry: ChatEntry = {
-          player: String(msg.playerId),
+          player,
           text: msg.message,
           timestamp: msg.timestamp,
         }
@@ -152,17 +233,65 @@ export const MultiplayerServiceImpl = (
     )
     const chatMessagesRef = yield* Ref.make<ReadonlyArray<ChatEntry>>([])
     const inboundBlockEditsRef = yield* Ref.make<ReadonlyArray<RemoteBlockEdit>>([])
+    const inboundEntitySnapshotsRef = yield* Ref.make<ReadonlyArray<RemoteEntitySnapshot>>([])
     const playerNameRef = yield* Ref.make<Option.Option<PlayerName>>(Option.none())
+    const localPlayerRef = yield* Ref.make<Option.Option<LocalPlayerIdentity>>(Option.none())
+    const pendingChatRef = yield* Ref.make<ReadonlyArray<string>>([])
     const drainFiberRef = yield* Ref.make<Option.Option<Fiber.RuntimeFiber<void, never>>>(
       Option.none(),
     )
+
+    const resetSessionState: Effect.Effect<void, never> = Effect.gen(function* () {
+      yield* Ref.set(remotePlayersRef, new Map<string, RemotePlayerSnapshot>())
+      yield* Ref.set(chatMessagesRef, [])
+      yield* Ref.set(inboundBlockEditsRef, [])
+      yield* Ref.set(inboundEntitySnapshotsRef, [])
+      yield* Ref.set(localPlayerRef, Option.none())
+      yield* Ref.set(pendingChatRef, [])
+    })
+
+    const getClientConnectionState = (): Effect.Effect<ConnectionState, never> =>
+      client.getConnectionState().pipe(
+        Effect.catchAll(() => Effect.succeed<ConnectionState>('disconnected' as ConnectionState)),
+      )
+
+    const chatMessageFor = (identity: LocalPlayerIdentity, text: string): NetworkMessage => ({
+      type: MessageType.Chat,
+      playerId: identity.playerId,
+      worldId: OVERWORLD_ID,
+      message: text,
+      timestamp: Date.now(),
+    } as NetworkMessage)
+
+    const sendChatFor = (
+      identity: LocalPlayerIdentity,
+      text: string,
+    ): Effect.Effect<void, never> =>
+      client.sendMessage(chatMessageFor(identity, text)).pipe(Effect.catchAll(() => Effect.void))
+
+    const flushPendingChat = (identity: LocalPlayerIdentity): Effect.Effect<void, never> =>
+      Effect.gen(function* () {
+        const pending = yield* Ref.getAndSet(pendingChatRef, [])
+        for (const text of pending) {
+          yield* sendChatFor(identity, text)
+        }
+      })
 
     const startDrain: Effect.Effect<void, never> = Effect.gen(function* () {
       const fiber = yield* Effect.forkDaemon(
         Effect.gen(function* () {
           const stream = yield* client.receiveMessages()
           yield* Stream.runForEach(stream, (msg: NetworkMessage) =>
-            processInbound(msg, remotePlayersRef, chatMessagesRef, inboundBlockEditsRef),
+            processInbound(
+              msg,
+              remotePlayersRef,
+              chatMessagesRef,
+              inboundBlockEditsRef,
+              inboundEntitySnapshotsRef,
+              playerNameRef,
+              localPlayerRef,
+              flushPendingChat,
+            ),
           )
         }).pipe(Effect.catchAll(() => Effect.void)),
       )
@@ -177,11 +306,27 @@ export const MultiplayerServiceImpl = (
       yield* Ref.set(drainFiberRef, Option.none())
     })
 
-    const sendIfConnected = (msg: NetworkMessage): Effect.Effect<void, never> =>
+    const sendIfConnected = (
+      build: (identity: LocalPlayerIdentity) => NetworkMessage,
+    ): Effect.Effect<void, never> =>
       Effect.gen(function* () {
-        const nameOpt = yield* Ref.get(playerNameRef)
-        if (Option.isNone(nameOpt)) return
-        yield* client.sendMessage(msg).pipe(Effect.catchAll(() => Effect.void))
+        const identity = yield* Ref.get(localPlayerRef)
+        if (Option.isNone(identity)) return
+        yield* client.sendMessage(build(identity.value)).pipe(Effect.catchAll(() => Effect.void))
+      })
+
+    const queueChatUntilReady = (text: string): Effect.Effect<void, never> =>
+      Effect.gen(function* () {
+        const requestedName = yield* Ref.get(playerNameRef)
+        if (Option.isNone(requestedName)) return
+        const state = yield* getClientConnectionState()
+        if (state !== 'connected') return
+        const pending = yield* Ref.get(pendingChatRef)
+        const next = [...pending, text]
+        yield* Ref.set(
+          pendingChatRef,
+          next.length > MAX_PENDING_CHAT_MESSAGES ? next.slice(next.length - MAX_PENDING_CHAT_MESSAGES) : next,
+        )
       })
 
     const floorPos = (pos: { readonly x: number; readonly y: number; readonly z: number }): Vec3 =>
@@ -190,11 +335,18 @@ export const MultiplayerServiceImpl = (
     const service: MultiplayerService = {
       connect: (serverUrl, playerName) =>
         Effect.gen(function* () {
-          yield* client.connect(serverUrl, playerName).pipe(
+          yield* stopDrain
+          yield* resetSessionState
+          const connected = yield* client.connect(serverUrl, playerName).pipe(
+            Effect.as(true),
             Effect.catchAll((e) =>
-              Effect.logWarning(`Multiplayer connect failed: ${String(e)}`),
+              Effect.logWarning(`Multiplayer connect failed: ${String(e)}`).pipe(Effect.as(false)),
             ),
           )
+          if (!connected) {
+            yield* Ref.set(playerNameRef, Option.none())
+            return
+          }
           yield* Ref.set(playerNameRef, Option.some(playerName))
           yield* startDrain
         }),
@@ -202,57 +354,82 @@ export const MultiplayerServiceImpl = (
       disconnect: Effect.gen(function* () {
         yield* stopDrain
         yield* client.disconnect().pipe(Effect.catchAll(() => Effect.void))
+        yield* Ref.set(playerNameRef, Option.none())
+        yield* resetSessionState
       }),
 
       getConnectionState: () =>
-        client.getConnectionState().pipe(
-          Effect.catchAll(() => Effect.succeed<ConnectionState>('disconnected' as ConnectionState)),
-        ),
+        getClientConnectionState(),
+
+      getSessionState: () =>
+        Effect.gen(function* () {
+          const state = yield* getClientConnectionState()
+          if (state !== 'connected') return state
+          const identity = yield* Ref.get(localPlayerRef)
+          if (Option.isSome(identity)) return 'ready' as const
+          const requestedName = yield* Ref.get(playerNameRef)
+          return Option.isSome(requestedName) ? 'joining' as const : state
+        }),
 
       getRemotePlayers: () => Ref.get(remotePlayersRef),
 
       getChatMessages: () => Ref.get(chatMessagesRef),
 
       sendChat: (text) =>
-        sendIfConnected({
-          type: MessageType.Chat,
-          playerId: '' as PlayerId,
-          playerName: '' as PlayerName,
-          worldId: OVERWORLD_ID,
-          message: text,
-          timestamp: Date.now(),
-        } as NetworkMessage),
+        Effect.gen(function* () {
+          const identity = yield* Ref.get(localPlayerRef)
+          if (Option.isSome(identity)) {
+            yield* sendChatFor(identity.value, text)
+            return
+          }
+          yield* queueChatUntilReady(text)
+        }),
 
       sendPositionUpdate: (pos, rot) =>
-        sendIfConnected({
+        sendIfConnected((identity) => ({
           type: MessageType.PlayerMove,
-          playerId: '' as PlayerId,
+          playerId: identity.playerId,
           worldId: OVERWORLD_ID,
           position: pos as Vec3,
           rotation: rot,
           timestamp: Date.now(),
-        } as NetworkMessage),
+        } as NetworkMessage)),
 
       sendBlockPlace: (pos, blockType) =>
-        sendIfConnected({
+        sendIfConnected((identity) => ({
           type: MessageType.BlockPlace,
-          playerId: '' as PlayerId,
+          playerId: identity.playerId,
           worldId: OVERWORLD_ID,
           position: floorPos(pos),
           blockType: blockType as BlockType,
           timestamp: Date.now(),
-        } as NetworkMessage),
+        } as NetworkMessage)),
 
       sendBlockBreak: (pos) =>
-        sendIfConnected({
+        sendIfConnected((identity) => ({
           type: MessageType.BlockBreak,
-          playerId: '' as PlayerId,
+          playerId: identity.playerId,
           worldId: OVERWORLD_ID,
           position: floorPos(pos),
           timestamp: Date.now(),
-        } as NetworkMessage),
+        } as NetworkMessage)),
+
+      sendEntitySnapshot: (snapshot) =>
+        sendIfConnected((identity) => ({
+          type: MessageType.EntitySnapshot,
+          playerId: identity.playerId,
+          worldId: OVERWORLD_ID,
+          entityId: snapshot.entityId,
+          entityType: snapshot.entityType,
+          position: snapshot.position as Vec3,
+          health: snapshot.health,
+          alive: snapshot.alive,
+          timestamp: Date.now(),
+        } as NetworkMessage)),
 
       drainBlockEdits: Ref.getAndSet(inboundBlockEditsRef, []),
+
+      drainEntitySnapshots: Ref.getAndSet(inboundEntitySnapshotsRef, []),
 
       drainInbound: Effect.void,
     }

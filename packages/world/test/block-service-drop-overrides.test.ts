@@ -51,6 +51,11 @@ describe('getInventoryDropForBlock — vanilla drop correctness', () => {
     expect(getInventoryDropForBlock('WATER_CAULDRON')).toBe('CAULDRON')
   })
 
+  it('RAIL drops itself (no override)', () => {
+    expect(getInventoryDropForBlock('RAIL')).toBe('RAIL')
+    expect(blockDropsBaseItem('RAIL')).toBe(true)
+  })
+
   it('GLOWSTONE drops four GLOWSTONE_DUST items', () => {
     expect(getInventoryDropForBlock('GLOWSTONE')).toBe('GLOWSTONE_DUST')
     expect(getBlockDropCount('GLOWSTONE')).toBe(4)

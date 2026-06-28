@@ -2,6 +2,7 @@ import { Effect } from 'effect'
 import type { SessionControl } from '@ts-minecraft/app/main/session-control'
 import { InventoryRendererService } from '@ts-minecraft/presentation/inventory'
 import { PauseMenuService } from '@ts-minecraft/presentation/menu/pause-menu'
+import { PlayerListPanelService } from '@ts-minecraft/presentation/multiplayer'
 import { SettingsOverlayService } from '@ts-minecraft/presentation/settings'
 import { TradingPresentationService } from '@ts-minecraft/presentation/trading'
 import type { OverlayState } from '../shared'
@@ -17,6 +18,7 @@ export const makeInventoryRenderer = (state: OverlayState) =>
         return state.open
       }),
     update: () => Effect.void,
+    sortInventory: () => Effect.void,
     cycleRecipes: (_delta: number) => Effect.void,
     craftSelectedRecipe: () => Effect.succeed(false),
   })
@@ -44,6 +46,21 @@ export const makePauseMenu = (state: OverlayState = { open: false }) =>
       state.open = true
     }),
     attach: (_control: SessionControl) => Effect.acquireRelease(Effect.void, () => Effect.void),
+  })
+
+/** Creates a player list panel fake backed by mutable overlay state. */
+export const makePlayerListPanel = (state: OverlayState = { open: false }) =>
+  PlayerListPanelService.of({
+    _tag: '@minecraft/presentation/PlayerListPanel' as const,
+    element: { id: 'player-list-panel' } as never,
+    show: Effect.sync(() => {
+      state.open = true
+    }),
+    hide: Effect.sync(() => {
+      state.open = false
+    }),
+    isOpen: () => Effect.sync(() => state.open),
+    setPlayers: (_players) => Effect.void,
   })
 
 /** Creates a trading presentation fake backed by mutable overlay state. */

@@ -90,6 +90,7 @@ describe('buildSessionBootstrapWorldOrchestration', () => {
         furnaceService: {} as never,
         weatherService: {} as never,
         cropGrowthService: {} as never,
+        entityManager: {} as never,
       },
     } satisfies Parameters<typeof buildSessionBootstrapWorldOrchestration>[0]
 

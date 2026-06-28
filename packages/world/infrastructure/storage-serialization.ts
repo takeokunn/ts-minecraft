@@ -28,20 +28,24 @@ export const collectDecodedWorldMetadata = (
   readonly corrupt: ReadonlyArray<WorldId>
 }, never> =>
   Effect.gen(function* () {
+    const decoded = yield* Effect.forEach(
+      rows.map((row, index) => ({ row, index })),
+      ({ row, index }) =>
+        Schema.decodeUnknown(WorldMetadataSchema)(row.value).pipe(
+          Effect.either,
+          Effect.map((result) => ({ index, row, result })),
+        ),
+      { concurrency: 8 },
+    )
+
     const valid: Array<{ worldId: WorldId; metadata: WorldMetadata }> = []
     const corrupt: Array<WorldId> = []
-    yield* Effect.forEach(
-      rows,
-      (row) =>
-        Effect.gen(function* () {
-          const result = yield* Schema.decodeUnknown(WorldMetadataSchema)(row.value).pipe(Effect.either)
-          if (Either.isRight(result)) {
-            valid.push({ worldId: row.key as WorldId, metadata: result.right })
-          } else {
-            corrupt.push(row.key as WorldId)
-          }
-        }),
-      { concurrency: 1 },
-    )
+    for (const { row, result } of [...decoded].sort((left, right) => left.index - right.index)) {
+      if (Either.isRight(result)) {
+        valid.push({ worldId: row.key as WorldId, metadata: result.right })
+      } else {
+        corrupt.push(row.key as WorldId)
+      }
+    }
     return { valid, corrupt }
   })

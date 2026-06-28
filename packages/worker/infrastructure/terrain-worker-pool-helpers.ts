@@ -62,7 +62,7 @@ export const computeWorkerCountFromHardwareConcurrency = (hardwareConcurrency: n
     return 1
   }
 
-  return Math.max(1, Math.min(3, Math.floor(hardwareConcurrency / 2)))
+  return Math.max(1, Math.min(12, Math.floor((hardwareConcurrency * 3) / 4)))
 }
 
 export const computeWorkerCount = (): number => {

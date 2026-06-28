@@ -52,6 +52,7 @@ export const decideAdaptiveQuality = ({
   renderDistance,
   fps,
   cooldown,
+  chunkSyncPending,
 }: AdaptiveQualityInput): AdaptiveQualityDecision => {
   if (!adaptivePerformanceMode) {
     return noChange(cooldown)
@@ -66,6 +67,10 @@ export const decideAdaptiveQuality = ({
   }
 
   if (fps >= ADAPTIVE_QUALITY_RECOVERY_FPS_THRESHOLD) {
+    if (chunkSyncPending) {
+      return noChange(cooldown)
+    }
+
     if (renderDistance < ADAPTIVE_QUALITY_RECOVERY_RENDER_DISTANCE) {
       return {
         nextCooldown: ADAPTIVE_QUALITY_COOLDOWN_FRAMES,

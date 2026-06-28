@@ -52,6 +52,7 @@ describe('canHarvestBlock', () => {
   it('bare hand can harvest soft blocks (not in any pickaxe set)', () => {
     expect(canHarvestBlock('DIRT', noTool)).toBe(true)
     expect(canHarvestBlock('GRASS', noTool)).toBe(true)
+    expect(canHarvestBlock('RAIL', noTool)).toBe(true)
   })
 
   it('bare hand cannot harvest pickaxe-required blocks (yields no drop)', () => {

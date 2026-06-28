@@ -4,16 +4,18 @@ import type { PhysicsStageServices } from '../physics-stage-types/services'
 import type { ApplyPlayerDamage } from './types'
 
 export const playHurtIfDamaged = (
-  services: Pick<PhysicsStageServices, 'soundManager'>,
+  services: Pick<PhysicsStageServices, 'soundManager' | 'damageOverlay'>,
   position: Position,
   damaged: boolean,
 ): Effect.Effect<void, never> =>
   damaged
-    ? services.soundManager.playEffect('playerHurt', { position })
+    ? services.soundManager.playEffect('playerHurt', { position }).pipe(
+      Effect.zipRight(services.damageOverlay.flash()),
+    )
     : Effect.void
 
 export const applyDamageAndPlayHurt = (
-  services: Pick<PhysicsStageServices, 'soundManager'>,
+  services: Pick<PhysicsStageServices, 'soundManager' | 'damageOverlay'>,
   position: Position,
   applyDamage: ApplyPlayerDamage,
   amount: number,

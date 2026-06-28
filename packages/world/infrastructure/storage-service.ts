@@ -156,7 +156,7 @@ export class StorageService extends Effect.Service<StorageService>()(
               keys,
               (key) =>
                 tryCatchStorage("deleteWorld", db.delete(STORE_CHUNKS, key)),
-              { concurrency: 1 },
+              { concurrency: 8 },
             );
             yield* tryCatchStorage(
               "deleteWorld",

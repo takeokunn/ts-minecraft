@@ -12,7 +12,7 @@ export const RedstonePowerLevel = {
   toNumber: (p: RedstonePowerLevel): number => Number(p),
 }
 
-export const RedstoneComponentTypeSchema = Schema.Literal('wire', 'lever', 'button', 'torch', 'piston', 'pressure_plate')
+export const RedstoneComponentTypeSchema = Schema.Literal('wire', 'lever', 'button', 'torch', 'piston', 'pressure_plate', 'lamp')
 export type RedstoneComponentType = Schema.Schema.Type<typeof RedstoneComponentTypeSchema>
 export const RedstoneComponentType = {
   Wire: 'wire' as const,
@@ -21,6 +21,7 @@ export const RedstoneComponentType = {
   Torch: 'torch' as const,
   Piston: 'piston' as const,
   PressurePlate: 'pressure_plate' as const,
+  Lamp: 'lamp' as const,
 }
 
 export const RedstoneComponentStateSchema = Schema.Struct({

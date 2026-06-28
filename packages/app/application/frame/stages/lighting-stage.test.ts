@@ -1,6 +1,6 @@
 import { describe, it } from '@effect/vitest'
 import { Array as Arr, Effect, MutableRef, Option } from 'effect'
-import { expect, vi } from 'vitest'
+import { afterEach, expect, vi } from 'vitest'
 import { makeDeps } from '../../../test/frame-handler-test-kit/orchestration/deps'
 import { runFrame } from '../../../test/frame-handler-test-kit/orchestration/harness'
 import { makeInputService } from '../../../test/frame-handler-test-kit/presentation/input'
@@ -11,7 +11,8 @@ import {
 import { makeServices } from '../../../test/frame-handler-test-kit/services'
 import { lightingStage } from '@ts-minecraft/app/frame/stages/lighting-stage'
 import type { DeltaTimeSecs } from '@ts-minecraft/core'
-import type { DayNightLights } from '@ts-minecraft/game'
+import type { DayNightLights, Weather } from '@ts-minecraft/game'
+import { WEATHER_RAIN_CLASS, WEATHER_THUNDER_CLASS } from '@ts-minecraft/presentation/hud/weather-visibility'
 import * as THREE from 'three'
 
 // ---------------------------------------------------------------------------
@@ -135,7 +136,50 @@ const makeFakeEffectiveLights = (): DayNightLights => {
   }
 }
 
-const makeLightingServices = () => ({
+type TestDimension = 'overworld' | 'nether' | 'end'
+
+const stubDocumentBodyClassList = (initialClasses: Iterable<string> = []): Set<string> => {
+  const classes = new Set(initialClasses)
+  vi.stubGlobal('document', {
+    body: {
+      classList: {
+        add: (...names: string[]) => {
+          for (const name of names) {
+            classes.add(name)
+          }
+        },
+        remove: (...names: string[]) => {
+          for (const name of names) {
+            classes.delete(name)
+          }
+        },
+        contains: (name: string) => classes.has(name),
+        toggle: (name: string, force?: boolean) => {
+          const shouldAdd = force ?? !classes.has(name)
+          if (shouldAdd) {
+            classes.add(name)
+          } else {
+            classes.delete(name)
+          }
+          return shouldAdd
+        },
+      },
+    },
+  })
+  return classes
+}
+
+afterEach(() => {
+  vi.unstubAllGlobals()
+})
+
+const makeLightingServices = ({
+  dimension = 'overworld',
+  weather = 'clear',
+}: {
+  readonly dimension?: TestDimension
+  readonly weather?: Weather
+} = {}) => ({
   timeService: {
     advanceTick: () => Effect.void,
     getTimeOfDay: () => Effect.succeed(0.5),
@@ -147,13 +191,20 @@ const makeLightingServices = () => ({
   },
   musicManager: { updateFromContext: () => Effect.void },
   chunkMeshService: { setSunIntensity: () => Effect.void },
-  netherService: { getDimension: () => Effect.succeed('overworld' as const) },
+  netherService: { getDimension: () => Effect.succeed(dimension) },
   weatherService: {
-    tick: (_dt: unknown) => Effect.succeed('clear' as const),
-    getWeather: () => Effect.succeed('clear' as const),
+    tick: (_dt: unknown) => Effect.succeed(weather),
+    getWeather: () => Effect.succeed(weather),
     setWeather: (_w: unknown) => Effect.void,
   },
 })
+
+const resetWeatherVisualClasses = () => {
+  if (typeof document === 'undefined') {
+    return
+  }
+  document.body.classList.remove(WEATHER_RAIN_CLASS, WEATHER_THUNDER_CLASS)
+}
 
 describe('step 2.5 — shadow map dirty flag', () => {
   it.effect('marks shadowMap.needsUpdate=true on the 8th frame when castShadow=true', () =>
@@ -202,5 +253,83 @@ describe('step 2.5 — shadow map dirty flag', () => {
       )
       expect(state.needsUpdate).toBe(false)
     })
+  )
+})
+
+describe('step 2.6 — weather visual overlay', () => {
+  it.effect('sets rain body class for overworld rain', () =>
+    Effect.gen(function* () {
+      stubDocumentBodyClassList()
+      const shadowUpdateCounterRef = MutableRef.make(0)
+      const services = makeLightingServices({ weather: 'rain' })
+      const effectiveLights = makeFakeEffectiveLights()
+      const deps = {
+        lights: { light: { castShadow: false } },
+        renderer: {},
+      }
+      const inputs = {
+        deltaTime: 0.016 as DeltaTimeSecs,
+        effectiveLights,
+        playerPos: { x: 0, y: 64, z: 0 },
+        markShadowMapDirty: () => {},
+      }
+
+      yield* lightingStage(deps, services, { shadowUpdateCounterRef }, inputs)
+
+      expect(document.body.classList.contains(WEATHER_RAIN_CLASS)).toBe(true)
+      expect(document.body.classList.contains(WEATHER_THUNDER_CLASS)).toBe(false)
+    }).pipe(Effect.ensuring(Effect.sync(resetWeatherVisualClasses)))
+  )
+
+  it.effect('sets thunder body class for overworld thunder', () =>
+    Effect.gen(function* () {
+      stubDocumentBodyClassList()
+      const shadowUpdateCounterRef = MutableRef.make(0)
+      const services = makeLightingServices({ weather: 'thunder' })
+      const effectiveLights = makeFakeEffectiveLights()
+      const deps = {
+        lights: { light: { castShadow: false } },
+        renderer: {},
+      }
+      const inputs = {
+        deltaTime: 0.016 as DeltaTimeSecs,
+        effectiveLights,
+        playerPos: { x: 0, y: 64, z: 0 },
+        markShadowMapDirty: () => {},
+      }
+
+      yield* lightingStage(deps, services, { shadowUpdateCounterRef }, inputs)
+
+      expect(document.body.classList.contains(WEATHER_RAIN_CLASS)).toBe(false)
+      expect(document.body.classList.contains(WEATHER_THUNDER_CLASS)).toBe(true)
+    }).pipe(Effect.ensuring(Effect.sync(resetWeatherVisualClasses)))
+  )
+
+  it.effect('clears weather classes outside the overworld', () =>
+    Effect.gen(function* () {
+      stubDocumentBodyClassList()
+      const effectiveLights = makeFakeEffectiveLights()
+      const deps = {
+        lights: { light: { castShadow: false } },
+        renderer: {},
+      }
+      const inputs = {
+        deltaTime: 0.016 as DeltaTimeSecs,
+        effectiveLights,
+        playerPos: { x: 0, y: 64, z: 0 },
+        markShadowMapDirty: () => {},
+      }
+
+      for (const dimension of ['nether', 'end'] as const) {
+        document.body.classList.add(WEATHER_RAIN_CLASS, WEATHER_THUNDER_CLASS)
+        const shadowUpdateCounterRef = MutableRef.make(0)
+        const services = makeLightingServices({ dimension, weather: 'rain' })
+
+        yield* lightingStage(deps, services, { shadowUpdateCounterRef }, inputs)
+
+        expect(document.body.classList.contains(WEATHER_RAIN_CLASS)).toBe(false)
+        expect(document.body.classList.contains(WEATHER_THUNDER_CLASS)).toBe(false)
+      }
+    }).pipe(Effect.ensuring(Effect.sync(resetWeatherVisualClasses)))
   )
 })

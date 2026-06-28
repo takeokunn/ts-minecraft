@@ -65,6 +65,7 @@ describe('buildSessionRuntime', () => {
         armorValueElement: { tag: 'armor-value' } as never,
         airElement: { tag: 'air' } as never,
         breakProgressElement: { tag: 'break-progress' } as never,
+        autoSaveStatusElement: { textContent: '' } as HTMLElement,
       },
       state: {
         pendingResizeRef,
@@ -72,7 +73,14 @@ describe('buildSessionRuntime', () => {
         persistSessionState,
         gamePausedRef: { tag: 'game-paused' } as never,
       },
-      overlays: { deathScreen: { tag: 'death-screen' } as never, debugOverlay: { tag: 'debug-overlay' } as never, biomeService: { tag: 'biome-service' } as never, recipeService: { tag: 'recipe-service' } as never },
+      overlays: {
+        deathScreen: { tag: 'death-screen' } as never,
+        debugOverlay: { tag: 'debug-overlay' } as never,
+        connectionPanel: { tag: 'connection-panel' } as never,
+        chatPanel: { tag: 'chat-panel' } as never,
+        biomeService: { tag: 'biome-service' } as never,
+        recipeService: { tag: 'recipe-service' } as never,
+      },
     }
     const services = {
       chunkManagerService,
@@ -92,6 +100,7 @@ describe('buildSessionRuntime', () => {
       pauseMenu: { tag: 'pause-menu' } as never,
       entityManager: { tag: 'entity-manager' } as never,
       fpsCounter: { tag: 'fps-counter' } as never,
+      multiplayer: Option.none(),
     }
 
     mocks.assembleFrameHandlerDeps.mockReturnValue(assembledDeps)
@@ -112,6 +121,7 @@ describe('buildSessionRuntime', () => {
       pendingResizeRef,
       pendingSaveDirtyChunksRef,
       chunkManagerService,
+      reportAutoSaveStatus: expect.any(Function),
       settingsService,
       renderer: params.rendering.renderer,
       camera: params.rendering.camera,
@@ -125,6 +135,9 @@ describe('buildSessionRuntime', () => {
       godRaysPass: params.rendering.godRaysPass,
       frameHandler,
     }))
+    const wrappedDeps = mocks.wrapFrameHandlerWithBrowserEffects.mock.calls[0]?.[0]
+    await Effect.runPromise(wrappedDeps.reportAutoSaveStatus('saved'))
+    expect(params.hud.autoSaveStatusElement.textContent).toBe('Saved')
     expect(runtime).toEqual({
       frameHandlerWithBrowserEvents: wrappedFrameHandler,
       maintenanceHandler,

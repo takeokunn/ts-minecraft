@@ -34,8 +34,24 @@ export const MAX_CHUNK_REMOVALS_PER_FRAME = Math.max(2, Math.ceil(MAX_CHUNK_UPDA
 // Derived from the helper at DEFAULT_TARGET_FPS so the time budget scales with the target FPS.
 export const WORLD_RENDERER_TIME_BUDGET_MS = computeChunkSyncBudgetMs(RENDERING_DEFAULT_TARGET_FPS)
 
+const CHUNK_SYNC_PARALLELISM_CEILING = 12
+
+const computeChunkSyncConcurrencyFromHardwareConcurrency = (hardwareConcurrency: number): number => {
+  if (!Number.isFinite(hardwareConcurrency) || hardwareConcurrency <= 2) {
+    return 1
+  }
+
+  return Math.max(1, Math.min(CHUNK_SYNC_PARALLELISM_CEILING, Math.floor((hardwareConcurrency * 3) / 4)))
+}
+
 /* c8 ignore next */
-export const CHUNK_SYNC_CONCURRENCY = typeof Worker === 'undefined' ? 1 : 2
+export const CHUNK_SYNC_CONCURRENCY = typeof Worker === 'undefined'
+  ? 1
+  : computeChunkSyncConcurrencyFromHardwareConcurrency(
+      typeof navigator !== 'undefined' && typeof navigator.hardwareConcurrency === 'number'
+        ? navigator.hardwareConcurrency
+        : 2,
+    )
 
 // Keep the refraction pass lower-resolution than the main canvas to cut GPU fill cost.
 export const REFRACTION_RT_WIDTH = 400

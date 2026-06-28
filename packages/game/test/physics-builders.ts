@@ -144,6 +144,7 @@ export const BLOCK_IDS = {
   PRESSURE_PLATE: 89,
   STONE_SLAB: 90,
   OAK_STAIRS: 91,
+  RAIL: 96,
 } as const
 
 /**

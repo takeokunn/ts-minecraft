@@ -89,7 +89,7 @@ describe('findAttackableEntity', () => {
 
   it('finds entity beyond default melee reach when maxReach is extended (bow range)', () => {
     const cam = makeCamera(0, 65, 0, 0, 0, -1)
-    // entity at z=-10, alongRay≈10 — beyond default PLAYER_ATTACK_REACH (3.5) but within maxReach=50
+    // entity at z=-10, alongRay≈10 — beyond default PLAYER_ATTACK_REACH (4.5) but within maxReach=50
     const entity = { entityId: EntityId.make('distant'), position: { x: 0, y: 64.1, z: -10 } }
     const result = findAttackableEntity([entity], cam, null, 50)
     expect(Option.isSome(result)).toBe(true)

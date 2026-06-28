@@ -8,15 +8,14 @@ import {
 } from '../infrastructure/entity/entity-instance-pool'
 
 // Active renderable entity types are the keys of ROLES_BY_TYPE.
-// Shulker remains data-only until a renderable entity path exists.
 const ACTIVE_ENTITY_TYPES = Object.keys(ROLES_BY_TYPE) as ReadonlyArray<EntityType>
 const ALL_PART_ROLES: ReadonlyArray<PartRole> = [
   'head', 'body', 'armL', 'armR', 'legFL', 'legFR', 'legBL', 'legBR',
 ]
 
 describe('ROLES_BY_TYPE completeness', () => {
-  it('has 18 active renderable entity types', () => {
-    expect(ACTIVE_ENTITY_TYPES.length).toBe(18)
+  it('has 19 active renderable entity types', () => {
+    expect(ACTIVE_ENTITY_TYPES.length).toBe(19)
   })
 
   it('each entity has at least one role', () => {
@@ -77,6 +76,25 @@ describe('getRoleSpec', () => {
     expect(Option.isSome(getRoleSpec('Endermite', 'legBL'))).toBe(true)
     expect(body.size[1]).toBeLessThan(0.25)
     expect(leg.size[0]).toBeLessThan(0.1)
+  })
+
+  it('Shulker uses shell side roles without arms or back legs', () => {
+    const head = Option.getOrThrow(getRoleSpec('Shulker', 'head'))
+    const body = Option.getOrThrow(getRoleSpec('Shulker', 'body'))
+    const left = Option.getOrThrow(getRoleSpec('Shulker', 'legFL'))
+    const right = Option.getOrThrow(getRoleSpec('Shulker', 'legFR'))
+    expect(Option.isNone(getRoleSpec('Shulker', 'armL'))).toBe(true)
+    expect(Option.isNone(getRoleSpec('Shulker', 'armR'))).toBe(true)
+    expect(Option.isNone(getRoleSpec('Shulker', 'legBL'))).toBe(true)
+    expect(Option.isNone(getRoleSpec('Shulker', 'legBR'))).toBe(true)
+    expect(body.size[0]).toBeGreaterThan(head.size[0])
+    expect(body.size[2]).toBeGreaterThan(head.size[2])
+    expect(left.size).toEqual(right.size)
+    expect(left.offset.x).toBeCloseTo(-right.offset.x)
+    expect(left.swingAxis).toBeNull()
+    expect(right.swingAxis).toBeNull()
+    expect(body.color).toBe(0x7f4f87)
+    expect(left.color).toBe(0x4e3454)
   })
 
   it('Chicken has wing arm roles and no back legs', () => {

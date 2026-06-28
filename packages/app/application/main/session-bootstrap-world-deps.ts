@@ -9,7 +9,14 @@ import type { HealthService } from '@ts-minecraft/entity/application/health-serv
 import type { HungerService } from '@ts-minecraft/entity/application/hunger-service'
 import type { PlayerCameraStateService } from '@ts-minecraft/entity/application/camera-state'
 import type { XPService } from '@ts-minecraft/entity/application/xp-service'
-import type { BlockHighlightService, CrosshairService, LoadingScreenService, HotbarRendererService } from '@ts-minecraft/presentation'
+import type { EntityManager } from '@ts-minecraft/entity/application/mob/entity-manager'
+import type {
+  BlockHighlightService,
+  ControlsHintService,
+  CrosshairService,
+  LoadingScreenService,
+  HotbarRendererService,
+} from '@ts-minecraft/presentation'
 import type * as THREE from 'three'
 import type { ParticleSystemService } from '@ts-minecraft/rendering'
 import type { ChunkManagerService, CropGrowthService } from '@ts-minecraft/world'
@@ -41,6 +48,7 @@ export type SessionBootstrapWorldPresentationDeps = {
   readonly blockHighlight: BlockHighlightService
   readonly hotbarRenderer: HotbarRendererService
   readonly crosshair: CrosshairService
+  readonly controlsHint: ControlsHintService
   readonly timeService: TimeService
   readonly inventoryService: InventoryService
   readonly equipmentService: EquipmentService
@@ -51,6 +59,7 @@ export type SessionBootstrapWorldPresentationDeps = {
   readonly furnaceService: FurnaceService
   readonly weatherService: WeatherService
   readonly cropGrowthService: CropGrowthService
+  readonly entityManager: EntityManager
 }
 
 export type SessionBootstrapWorldDeps = {

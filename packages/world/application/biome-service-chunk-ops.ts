@@ -64,7 +64,7 @@ export const createChunkBiomeOps = ({
       const outsideNeighborBiomes = yield* Effect.forEach(
         samplingPlan.outsideNeighborCoords,
         ({ x, z }) => sampleBaseBiome(x, z),
-        { concurrency: "unbounded" },
+        { concurrency: 8 },
       );
 
       return assembleBiomeChunkEntries({

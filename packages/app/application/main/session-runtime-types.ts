@@ -5,11 +5,17 @@ import type { WebGLRenderTarget } from 'three'
 
 import type { BiomeService } from '@ts-minecraft/world'
 import type { RecipeService } from '@ts-minecraft/inventory/application/recipe-service'
-import type { DebugOverlayService } from '@ts-minecraft/presentation'
-import type { DeathScreenService } from '@ts-minecraft/presentation'
+import type {
+  ChatPanelService,
+  ConnectionPanelService,
+  DebugOverlayService,
+  DeathScreenService,
+  PlayerListPanelService,
+} from '@ts-minecraft/presentation'
 import type { Position, MoonPhasePort, SkyMaterialPort } from '@ts-minecraft/core'
 import type { PlayerError } from '@ts-minecraft/entity/domain/errors'
 import type { StorageError } from '@ts-minecraft/world'
+import type { RemotePlayerRenderer } from '@ts-minecraft/rendering'
 
 import type { PendingResize } from './browser-runtime-types'
 import type { SessionControl } from '@ts-minecraft/app/main/session-control'
@@ -38,6 +44,7 @@ export type SessionHudElements = {
   readonly armorValueElement: HTMLElement | null
   readonly airElement: HTMLElement | null
   readonly breakProgressElement: HTMLElement | null
+  readonly autoSaveStatusElement: HTMLElement | null
 }
 
 export type SessionRenderingResources = {
@@ -52,6 +59,7 @@ export type SessionRenderingResources = {
   readonly godRaysPass: FrameHandlerDeps['godRaysPass']
   readonly smaaPass: FrameHandlerDeps['smaaPass']
   readonly lighting: SessionLightingSnapshot
+  readonly remotePlayerRenderer: RemotePlayerRenderer
 }
 
 export type SessionRuntimeState = {
@@ -66,6 +74,9 @@ export type SessionRuntimeState = {
 export type SessionRuntimeOverlays = {
   readonly deathScreen: DeathScreenService
   readonly debugOverlay: DebugOverlayService
+  readonly chatPanel: ChatPanelService
+  readonly connectionPanel: ConnectionPanelService
+  readonly playerListPanel: PlayerListPanelService
   readonly biomeService: BiomeService
   readonly recipeService: RecipeService
 }

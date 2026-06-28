@@ -63,7 +63,7 @@ export const tryDismantleFurnaceItems = (
       dropped,
       (item) =>
         inventoryService.addBlock(item.itemType as BlockType, item.count),
-      { concurrency: 1 },
+      { concurrency: 4 },
     )
       .pipe(Effect.map(() => undefined)),
   ).pipe(Effect.map(Option.isNone))

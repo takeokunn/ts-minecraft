@@ -12,6 +12,6 @@ export const saveDirtyChunks = (ctx: ChunkOpsContext): Effect.Effect<void, Stora
     yield* Effect.forEach(chunksToSave, (entry) => ctx.storageService.saveChunk(entry.worldId ?? currentWorldId, entry.chunk.coord, {
       blocks: entry.chunk.blocks,
       fluid: Option.getOrUndefined(entry.chunk.fluid),
-    }), { concurrency: 1 })
+    }), { concurrency: 8 })
     yield* Ref.update(ctx.cache, (s) => ({ ...s, dirtyChunks: HashSet.difference(s.dirtyChunks, keysToSave) }))
   })

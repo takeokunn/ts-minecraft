@@ -46,7 +46,10 @@ const makeDiv = (id: string): HTMLDivElement => ({
 
 const makeButtons = (): MenuButtons => ({
   newWorld: makeButton('new-world'),
+  continueWorld: makeButton('continue-world'),
   loadWorld: makeButton('load-world'),
+  multiplayer: makeButton('multiplayer'),
+  howToPlay: makeButton('how-to-play'),
   settings: makeButton('settings'),
   nwName: makeInput('nw-name'),
   nwMode: makeButton('nw-mode'),
@@ -54,6 +57,11 @@ const makeButtons = (): MenuButtons => ({
   nwConfirm: makeButton('nw-confirm'),
   lwList: makeDiv('lw-list'),
   lwBack: makeButton('lw-back'),
+  mpServerUrl: makeInput('mp-server-url'),
+  mpPlayerName: makeInput('mp-player-name'),
+  mpCancel: makeButton('mp-cancel'),
+  mpConfirm: makeButton('mp-confirm'),
+  howToPlayClose: makeButton('how-to-play-close'),
 })
 
 const makeDom = () => {
@@ -119,6 +127,7 @@ describe('presentation/menu/main-menu-handlers', () => {
     expect(MutableRef.get(refs.newWorldModeRef)).toBe('survival')
     expect(Option.isNone(MutableRef.get(refs.activeDeferredRef))).toBe(true)
     expect(Option.isNone(MutableRef.get(refs.escHandlerRef))).toBe(true)
+    expect(Option.isNone(MutableRef.get(refs.recentWorldRef))).toBe(true)
   })
 
   it('toggles visible cards when sub-state changes', () => {
@@ -126,7 +135,9 @@ describe('presentation/menu/main-menu-handlers', () => {
     const rootCard = makeDiv('root')
     const newWorldCard = makeDiv('new-world')
     const loadWorldCard = makeDiv('load-world')
-    const setSubState = makeSetSubState(refs, rootCard, newWorldCard, loadWorldCard)
+    const multiplayerCard = makeDiv('multiplayer')
+    const howToPlayCard = makeDiv('how-to-play')
+    const setSubState = makeSetSubState(refs, rootCard, newWorldCard, loadWorldCard, multiplayerCard, howToPlayCard)
 
     setSubState('new-world')
 
@@ -134,18 +145,40 @@ describe('presentation/menu/main-menu-handlers', () => {
     expect(rootCard.style.display).toBe('none')
     expect(newWorldCard.style.display).toBe('flex')
     expect(loadWorldCard.style.display).toBe('none')
+    expect(multiplayerCard.style.display).toBe('none')
+    expect(howToPlayCard.style.display).toBe('none')
 
     setSubState('load-world')
 
     expect(rootCard.style.display).toBe('none')
     expect(newWorldCard.style.display).toBe('none')
     expect(loadWorldCard.style.display).toBe('flex')
+    expect(multiplayerCard.style.display).toBe('none')
+    expect(howToPlayCard.style.display).toBe('none')
+
+    setSubState('multiplayer')
+
+    expect(rootCard.style.display).toBe('none')
+    expect(newWorldCard.style.display).toBe('none')
+    expect(loadWorldCard.style.display).toBe('none')
+    expect(multiplayerCard.style.display).toBe('flex')
+    expect(howToPlayCard.style.display).toBe('none')
+
+    setSubState('how-to-play')
+
+    expect(rootCard.style.display).toBe('none')
+    expect(newWorldCard.style.display).toBe('none')
+    expect(loadWorldCard.style.display).toBe('none')
+    expect(multiplayerCard.style.display).toBe('none')
+    expect(howToPlayCard.style.display).toBe('flex')
 
     setSubState('root')
 
     expect(rootCard.style.display).toBe('flex')
     expect(newWorldCard.style.display).toBe('none')
     expect(loadWorldCard.style.display).toBe('none')
+    expect(multiplayerCard.style.display).toBe('none')
+    expect(howToPlayCard.style.display).toBe('none')
   })
 
   it('updates the mode button text from the current mode ref', () => {
@@ -179,7 +212,8 @@ describe('presentation/menu/main-menu-handlers', () => {
   it('refreshes the load list with an empty saved-world message', async () => {
     const dom = makeDom()
     const buttons = makeButtons()
-    const refresh = makeRefreshLoadList(dom.service, makeStorage(), buttons, vi.fn(), vi.fn(), vi.fn())
+    const refs = makeMenuRefs()
+    const refresh = makeRefreshLoadList(dom.service, makeStorage(), buttons, refs, vi.fn(), vi.fn(), vi.fn())
 
     await Effect.runPromise(refresh())
 
@@ -195,7 +229,8 @@ describe('presentation/menu/main-menu-handlers', () => {
     const storage = makeStorage({
       listWorldMetadata: Effect.fail(new StorageError({ operation: 'listWorldMetadata', cause: 'boom' })),
     })
-    const refresh = makeRefreshLoadList(dom.service, storage, buttons, vi.fn(), vi.fn(), vi.fn())
+    const refs = makeMenuRefs()
+    const refresh = makeRefreshLoadList(dom.service, storage, buttons, refs, vi.fn(), vi.fn(), vi.fn())
 
     await Effect.runPromise(refresh())
 
@@ -203,11 +238,13 @@ describe('presentation/menu/main-menu-handlers', () => {
       buttons.lwList,
       '<div style="opacity:0.7">Failed to load worlds</div>',
     )
+    expect(Option.isNone(MutableRef.get(refs.recentWorldRef))).toBe(true)
   })
 
   it('refreshes the load list with valid and corrupt row callbacks', async () => {
     const dom = makeDom()
     const buttons = makeButtons()
+    const refs = makeMenuRefs()
     const loadedChoices: MainMenuChoice[] = []
     const deleteRequests: Array<{ readonly worldId: WorldId; readonly label: string }> = []
     const renameRequests: Array<{ readonly worldId: WorldId; readonly label: string }> = []
@@ -227,6 +264,7 @@ describe('presentation/menu/main-menu-handlers', () => {
       dom.service,
       storage,
       buttons,
+      refs,
       (choice) => loadedChoices.push(choice),
       (worldId, label) => deleteRequests.push({ worldId, label }),
       (worldId, label) => renameRequests.push({ worldId, label }),
@@ -239,6 +277,31 @@ describe('presentation/menu/main-menu-handlers', () => {
     expect(loadedChoices).toHaveLength(0)
     expect(deleteRequests).toHaveLength(0)
     expect(renameRequests).toHaveLength(0)
+    expect(Option.match(MutableRef.get(refs.recentWorldRef), {
+      onNone: () => null,
+      onSome: (worldId) => worldId,
+    })).toBe(newerWorldId)
+  })
+
+  it('continues the most recent world when available', () => {
+    const refs = makeMenuRefs()
+    const buttons = makeButtons()
+    const choices: MainMenuChoice[] = []
+    const handlers = makeClickHandlers(
+      refs,
+      buttons,
+      vi.fn(),
+      vi.fn(),
+      (choice) => choices.push(choice),
+      vi.fn(() => Effect.void),
+      vi.fn(() => Effect.void),
+    )
+
+    MutableRef.set(refs.recentWorldRef, Option.some(WorldId.make('latest')))
+
+    handlers.onContinueWorldClick()
+
+    expect(choices).toEqual([{ action: 'loadWorld', worldId: WorldId.make('latest') }])
   })
 
   it('renames a saved world display name and refreshes after prompt entry', async () => {
@@ -396,11 +459,43 @@ describe('presentation/menu/main-menu-handlers', () => {
     expect(subStates).toContain('load-world')
     expect(refreshLoadList).toHaveBeenCalledTimes(1)
 
+    buttons.mpServerUrl.value = ' ws://localhost:8080 '
+    buttons.mpPlayerName.value = ' Alex '
+    handlers.onMultiplayerClick()
+    expect(subStates).toContain('multiplayer')
+    expect(buttons.mpServerUrl.focus).toHaveBeenCalledTimes(1)
+
+    handlers.onMpCancelClick()
+    expect(buttons.multiplayer.focus).toHaveBeenCalledTimes(1)
+
+    handlers.onMultiplayerClick()
+    handlers.onMpConfirmClick()
+    expect(choices).toContainEqual({
+      action: 'multiplayer',
+      serverUrl: 'ws://localhost:8080',
+      playerName: 'Alex',
+    })
+
+    MutableRef.set(refs.recentWorldRef, Option.some(WorldId.make('recent')))
+    handlers.onContinueWorldClick()
+    expect(choices).toContainEqual({ action: 'loadWorld', worldId: WorldId.make('recent') })
+
+    handlers.onHowToPlayClick()
+    expect(subStates.at(-1)).toBe('how-to-play')
+    expect(buttons.howToPlayClose.focus).toHaveBeenCalledTimes(1)
+
     handlers.onNwCancelClick()
     expect(buttons.newWorld.focus).toHaveBeenCalledTimes(1)
 
     handlers.onLwBackClick()
     expect(buttons.loadWorld.focus).toHaveBeenCalledTimes(1)
+
+    handlers.onMpCancelClick()
+    expect(buttons.multiplayer.focus).toHaveBeenCalledTimes(2)
+
+    handlers.onHowToPlayCloseClick()
+    expect(subStates.at(-1)).toBe('root')
+    expect(buttons.howToPlay.focus).toHaveBeenCalledTimes(1)
 
     const preventDefault = vi.fn()
     MutableRef.set(refs.subStateRef, 'load-world')
@@ -435,5 +530,19 @@ describe('presentation/menu/main-menu-handlers', () => {
     expect(preventDefault).toHaveBeenCalledTimes(1)
     expect(subStates.at(-1)).toBe('root')
     expect(buttons.newWorld.focus).toHaveBeenCalledTimes(1)
+
+    MutableRef.set(refs.subStateRef, 'how-to-play')
+    handlers.onEsc({ key: 'Escape', preventDefault } as unknown as KeyboardEvent)
+
+    expect(preventDefault).toHaveBeenCalledTimes(2)
+    expect(subStates.at(-1)).toBe('root')
+    expect(buttons.howToPlay.focus).toHaveBeenCalledTimes(1)
+
+    MutableRef.set(refs.subStateRef, 'multiplayer')
+    handlers.onEsc({ key: 'Escape', preventDefault } as unknown as KeyboardEvent)
+
+    expect(preventDefault).toHaveBeenCalledTimes(3)
+    expect(subStates.at(-1)).toBe('root')
+    expect(buttons.multiplayer.focus).toHaveBeenCalledTimes(1)
   })
 })

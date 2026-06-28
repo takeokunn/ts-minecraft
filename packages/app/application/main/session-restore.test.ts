@@ -1,4 +1,5 @@
 import { describe, it } from '@effect/vitest'
+import { EntityId } from '@ts-minecraft/entity/domain/mob/entity'
 import { expect, vi } from 'vitest'
 import { Effect, Option } from 'effect'
 
@@ -9,6 +10,7 @@ const makeWorldBootstrap = (overrides?: Partial<{
   savedFurnaceStates: ReturnType<typeof Option.none>
   savedChestStates: ReturnType<typeof Option.none>
   savedWeatherState: ReturnType<typeof Option.none>
+  savedEntityStates: ReturnType<typeof Option.none>
 }>) => ({
   seed: 12345,
   createdAt: new Date('2024-01-01'),
@@ -17,6 +19,7 @@ const makeWorldBootstrap = (overrides?: Partial<{
   savedFurnaceStates: Option.none(),
   savedChestStates: Option.none(),
   savedWeatherState: Option.none(),
+  savedEntityStates: Option.none(),
   gameMode: 'survival' as const,
   ...overrides,
 })
@@ -53,6 +56,7 @@ const makeServices = () => ({
   furnaceService: { deserialize: vi.fn(() => Effect.void) },
   weatherService: { restore: vi.fn(() => Effect.void) },
   cropGrowthService: { restore: vi.fn(() => Effect.void) },
+  entityManager: { applyEntitySnapshot: vi.fn(() => Effect.succeed('created' as const)) },
 })
 
 describe('restoreSavedState', () => {
@@ -68,6 +72,7 @@ describe('restoreSavedState', () => {
     expect(services.xpService.setTotalXP).not.toHaveBeenCalled()
     expect(services.equipmentService.deserialize).not.toHaveBeenCalled()
     expect(services.cropGrowthService.restore).not.toHaveBeenCalled()
+    expect(services.entityManager.applyEntitySnapshot).not.toHaveBeenCalled()
   })
 
   it('restores canonical saved player state through the player services', async () => {
@@ -136,5 +141,41 @@ describe('restoreSavedState', () => {
 
     expect(services.weatherService.restore).toHaveBeenCalledOnce()
     expect(services.weatherService.restore).toHaveBeenCalledWith(savedWeatherState)
+  })
+
+  it('restores saved entity states into entityManager', async () => {
+    const entityStates = [
+      {
+        entityId: 'mob-42',
+        position: { x: 8, y: 64, z: 12 },
+        velocity: { x: 1, y: 2, z: 3 },
+        rotation: { x: 0.1, y: 0.2, z: 0.3, w: 0.4 },
+        health: 14,
+        type: 'Zombie' as const,
+        isBaby: true,
+        fuseSecs: 2.5,
+        fireSecs: 4,
+      },
+    ]
+    const worldBootstrap = makeWorldBootstrap({
+      savedEntityStates: Option.some(entityStates) as never,
+    })
+    const services = makeServices()
+
+    await Effect.runPromise(restoreSavedState(worldBootstrap as never, services as never))
+
+    expect(services.entityManager.applyEntitySnapshot).toHaveBeenCalledOnce()
+    expect(services.entityManager.applyEntitySnapshot).toHaveBeenCalledWith({
+      entityId: EntityId.make('mob-42'),
+      entityType: 'Zombie',
+      position: { x: 8, y: 64, z: 12 },
+      health: 14,
+      alive: true,
+      velocity: { x: 1, y: 2, z: 3 },
+      rotation: { x: 0.1, y: 0.2, z: 0.3, w: 0.4 },
+      isBaby: true,
+      fuseSecs: 2.5,
+      fireSecs: 4,
+    })
   })
 })

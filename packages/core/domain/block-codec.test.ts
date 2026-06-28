@@ -29,8 +29,8 @@ describe('block-codec', () => {
       expect(INDEX_TO_BLOCK_TYPE.length).toBe(new Set(INDEX_TO_BLOCK_TYPE).size)
     })
 
-    it('has exactly 96 entries (world-placeable blocks including nether, farming, redstone, furniture, crafting stations, End dimension, End expansion, storage, doors, glowstone, ladder, cobweb, sapling, flowers, mushrooms, grasses, waterside plants, ice, pressure plate, basic slab, basic stair, anvil, cauldron, fire, and water-filled cauldron)', () => {
-      expect(INDEX_TO_BLOCK_TYPE.length).toBe(96)
+    it('has exactly 99 entries (world-placeable blocks including potato crop, rail, and piston)', () => {
+      expect(INDEX_TO_BLOCK_TYPE.length).toBe(99)
     })
 
     it('PLANKS is at index 40', () => {
@@ -49,78 +49,92 @@ describe('block-codec', () => {
       expect(INDEX_TO_BLOCK_TYPE[43]).toBe('TORCH')
     })
 
-    it('REDSTONE_WIRE is at index 48', () => {
-      expect(INDEX_TO_BLOCK_TYPE[48]).toBe('REDSTONE_WIRE')
+    it('POTATO_CROP is at index 48', () => {
+      expect(INDEX_TO_BLOCK_TYPE[48]).toBe('POTATO_CROP')
     })
 
-    it('REPEATER is at index 52', () => {
-      expect(INDEX_TO_BLOCK_TYPE[52]).toBe('REPEATER')
+    it('REDSTONE_WIRE is at index 49', () => {
+      expect(INDEX_TO_BLOCK_TYPE[49]).toBe('REDSTONE_WIRE')
     })
 
-    it('CHEST is appended at index 72', () => {
-      expect(INDEX_TO_BLOCK_TYPE[72]).toBe('CHEST')
-      expect(blockTypeToIndex('CHEST')).toBe(72)
+    it('REPEATER is at index 53', () => {
+      expect(INDEX_TO_BLOCK_TYPE[53]).toBe('REPEATER')
     })
 
-    it('DOOR block states are appended at indices 73-74', () => {
-      expect(INDEX_TO_BLOCK_TYPE[73]).toBe('DOOR')
-      expect(INDEX_TO_BLOCK_TYPE[74]).toBe('DOOR_OPEN')
-      expect(blockTypeToIndex('DOOR')).toBe(73)
-      expect(blockTypeToIndex('DOOR_OPEN')).toBe(74)
+    it('CHEST is appended at index 73', () => {
+      expect(INDEX_TO_BLOCK_TYPE[73]).toBe('CHEST')
+      expect(blockTypeToIndex('CHEST')).toBe(73)
     })
 
-    it('GLOWSTONE, LADDER, COBWEB, SAPLING, flowers, mushrooms, grasses, waterside plants, ice, and pressure plate are appended at indices 75-89', () => {
-      expect(INDEX_TO_BLOCK_TYPE[75]).toBe('GLOWSTONE')
-      expect(INDEX_TO_BLOCK_TYPE[76]).toBe('LADDER')
-      expect(INDEX_TO_BLOCK_TYPE[77]).toBe('COBWEB')
-      expect(INDEX_TO_BLOCK_TYPE[78]).toBe('SAPLING')
-      expect(INDEX_TO_BLOCK_TYPE[79]).toBe('DANDELION')
-      expect(INDEX_TO_BLOCK_TYPE[80]).toBe('POPPY')
-      expect(INDEX_TO_BLOCK_TYPE[81]).toBe('BROWN_MUSHROOM')
-      expect(INDEX_TO_BLOCK_TYPE[82]).toBe('RED_MUSHROOM')
-      expect(INDEX_TO_BLOCK_TYPE[83]).toBe('TALL_GRASS')
-      expect(INDEX_TO_BLOCK_TYPE[84]).toBe('FERN')
-      expect(INDEX_TO_BLOCK_TYPE[85]).toBe('SUGAR_CANE')
-      expect(INDEX_TO_BLOCK_TYPE[86]).toBe('CACTUS')
-      expect(INDEX_TO_BLOCK_TYPE[87]).toBe('LILY_PAD')
-      expect(INDEX_TO_BLOCK_TYPE[88]).toBe('ICE')
-      expect(INDEX_TO_BLOCK_TYPE[89]).toBe('PRESSURE_PLATE')
-      expect(blockTypeToIndex('GLOWSTONE')).toBe(75)
-      expect(blockTypeToIndex('LADDER')).toBe(76)
-      expect(blockTypeToIndex('COBWEB')).toBe(77)
-      expect(blockTypeToIndex('SAPLING')).toBe(78)
-      expect(blockTypeToIndex('DANDELION')).toBe(79)
-      expect(blockTypeToIndex('POPPY')).toBe(80)
-      expect(blockTypeToIndex('BROWN_MUSHROOM')).toBe(81)
-      expect(blockTypeToIndex('RED_MUSHROOM')).toBe(82)
-      expect(blockTypeToIndex('TALL_GRASS')).toBe(83)
-      expect(blockTypeToIndex('FERN')).toBe(84)
-      expect(blockTypeToIndex('SUGAR_CANE')).toBe(85)
-      expect(blockTypeToIndex('CACTUS')).toBe(86)
-      expect(blockTypeToIndex('LILY_PAD')).toBe(87)
-      expect(blockTypeToIndex('ICE')).toBe(88)
-      expect(blockTypeToIndex('PRESSURE_PLATE')).toBe(89)
+    it('DOOR block states are appended at indices 74-75', () => {
+      expect(INDEX_TO_BLOCK_TYPE[74]).toBe('DOOR')
+      expect(INDEX_TO_BLOCK_TYPE[75]).toBe('DOOR_OPEN')
+      expect(blockTypeToIndex('DOOR')).toBe(74)
+      expect(blockTypeToIndex('DOOR_OPEN')).toBe(75)
     })
 
-    it('STONE_SLAB, OAK_STAIRS, ANVIL, CAULDRON, FIRE, and WATER_CAULDRON are appended at indices 90-95', () => {
-      expect(INDEX_TO_BLOCK_TYPE[90]).toBe('STONE_SLAB')
-      expect(INDEX_TO_BLOCK_TYPE[91]).toBe('OAK_STAIRS')
-      expect(INDEX_TO_BLOCK_TYPE[92]).toBe('ANVIL')
-      expect(INDEX_TO_BLOCK_TYPE[93]).toBe('CAULDRON')
-      expect(INDEX_TO_BLOCK_TYPE[94]).toBe('FIRE')
-      expect(INDEX_TO_BLOCK_TYPE[95]).toBe('WATER_CAULDRON')
-      expect(blockTypeToIndex('STONE_SLAB')).toBe(90)
-      expect(blockTypeToIndex('OAK_STAIRS')).toBe(91)
-      expect(blockTypeToIndex('ANVIL')).toBe(92)
-      expect(blockTypeToIndex('CAULDRON')).toBe(93)
-      expect(blockTypeToIndex('FIRE')).toBe(94)
-      expect(blockTypeToIndex('WATER_CAULDRON')).toBe(95)
+    it('GLOWSTONE, LADDER, COBWEB, SAPLING, flowers, mushrooms, grasses, waterside plants, ice, and pressure plate are appended at indices 76-90', () => {
+      expect(INDEX_TO_BLOCK_TYPE[76]).toBe('GLOWSTONE')
+      expect(INDEX_TO_BLOCK_TYPE[77]).toBe('LADDER')
+      expect(INDEX_TO_BLOCK_TYPE[78]).toBe('COBWEB')
+      expect(INDEX_TO_BLOCK_TYPE[79]).toBe('SAPLING')
+      expect(INDEX_TO_BLOCK_TYPE[80]).toBe('DANDELION')
+      expect(INDEX_TO_BLOCK_TYPE[81]).toBe('POPPY')
+      expect(INDEX_TO_BLOCK_TYPE[82]).toBe('BROWN_MUSHROOM')
+      expect(INDEX_TO_BLOCK_TYPE[83]).toBe('RED_MUSHROOM')
+      expect(INDEX_TO_BLOCK_TYPE[84]).toBe('TALL_GRASS')
+      expect(INDEX_TO_BLOCK_TYPE[85]).toBe('FERN')
+      expect(INDEX_TO_BLOCK_TYPE[86]).toBe('SUGAR_CANE')
+      expect(INDEX_TO_BLOCK_TYPE[87]).toBe('CACTUS')
+      expect(INDEX_TO_BLOCK_TYPE[88]).toBe('LILY_PAD')
+      expect(INDEX_TO_BLOCK_TYPE[89]).toBe('ICE')
+      expect(INDEX_TO_BLOCK_TYPE[90]).toBe('PRESSURE_PLATE')
+      expect(blockTypeToIndex('GLOWSTONE')).toBe(76)
+      expect(blockTypeToIndex('LADDER')).toBe(77)
+      expect(blockTypeToIndex('COBWEB')).toBe(78)
+      expect(blockTypeToIndex('SAPLING')).toBe(79)
+      expect(blockTypeToIndex('DANDELION')).toBe(80)
+      expect(blockTypeToIndex('POPPY')).toBe(81)
+      expect(blockTypeToIndex('BROWN_MUSHROOM')).toBe(82)
+      expect(blockTypeToIndex('RED_MUSHROOM')).toBe(83)
+      expect(blockTypeToIndex('TALL_GRASS')).toBe(84)
+      expect(blockTypeToIndex('FERN')).toBe(85)
+      expect(blockTypeToIndex('SUGAR_CANE')).toBe(86)
+      expect(blockTypeToIndex('CACTUS')).toBe(87)
+      expect(blockTypeToIndex('LILY_PAD')).toBe(88)
+      expect(blockTypeToIndex('ICE')).toBe(89)
+      expect(blockTypeToIndex('PRESSURE_PLATE')).toBe(90)
+    })
+
+    it('STONE_SLAB, OAK_STAIRS, ANVIL, CAULDRON, FIRE, and WATER_CAULDRON are appended at indices 91-96', () => {
+      expect(INDEX_TO_BLOCK_TYPE[91]).toBe('STONE_SLAB')
+      expect(INDEX_TO_BLOCK_TYPE[92]).toBe('OAK_STAIRS')
+      expect(INDEX_TO_BLOCK_TYPE[93]).toBe('ANVIL')
+      expect(INDEX_TO_BLOCK_TYPE[94]).toBe('CAULDRON')
+      expect(INDEX_TO_BLOCK_TYPE[95]).toBe('FIRE')
+      expect(INDEX_TO_BLOCK_TYPE[96]).toBe('WATER_CAULDRON')
+      expect(blockTypeToIndex('STONE_SLAB')).toBe(91)
+      expect(blockTypeToIndex('OAK_STAIRS')).toBe(92)
+      expect(blockTypeToIndex('ANVIL')).toBe(93)
+      expect(blockTypeToIndex('CAULDRON')).toBe(94)
+      expect(blockTypeToIndex('FIRE')).toBe(95)
+      expect(blockTypeToIndex('WATER_CAULDRON')).toBe(96)
+    })
+
+    it('RAIL is appended at index 97', () => {
+      expect(INDEX_TO_BLOCK_TYPE[97]).toBe('RAIL')
+      expect(blockTypeToIndex('RAIL')).toBe(97)
+    })
+
+    it('PISTON is appended at index 98', () => {
+      expect(INDEX_TO_BLOCK_TYPE[98]).toBe('PISTON')
+      expect(blockTypeToIndex('PISTON')).toBe(98)
     })
 
     it('does not contain inventory-only items', () => {
       const inventoryItems = ['STICKS', 'COAL', 'WOODEN_SWORD', 'WOODEN_PICKAXE', 'STONE_PICKAXE',
         'RAW_IRON', 'IRON_INGOT', 'IRON_PICKAXE', 'RAW_GOLD', 'GOLD_INGOT', 'DIAMOND',
-        'REDSTONE_DUST', 'LAPIS_LAZULI', 'EMERALD', 'DIAMOND_PICKAXE']
+        'REDSTONE_DUST', 'LAPIS_LAZULI', 'EMERALD', 'DIAMOND_PICKAXE', 'BOAT', 'MINECART']
       inventoryItems.forEach((item) => {
         expect(INDEX_TO_BLOCK_TYPE).not.toContain(item)
       })

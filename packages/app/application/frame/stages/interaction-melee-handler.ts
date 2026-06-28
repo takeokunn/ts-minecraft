@@ -54,6 +54,7 @@ export const handleLeftClick = (
     FrameHandlerServices,
     | 'blockService'
     | 'chunkManagerService'
+    | 'crosshair'
     | 'soundManager'
     | 'entityManager'
     | 'inventoryService'
@@ -88,8 +89,11 @@ export const handleLeftClick = (
     const playerGrounded = yield* services.gameState.isPlayerGrounded()
 
     // Block break is handled by handleBlockBreakProgress (hold-to-break); single click no longer breaks blocks.
-    const entityId = Option.getOrNull(targetEntity)
-    if (entityId === null) return
+  const entityId = Option.getOrNull(targetEntity)
+  if (entityId === null) {
+    yield* triggerHeldItemSwing(refs)
+    return
+  }
 
     const baseDamage = getWeaponBaseDamage(Option.getOrUndefined(context.selectedHotbarItem))
     // Sharpness/Smite/Bane enchantment bonuses: fetched now so entity type is known
@@ -139,6 +143,7 @@ export const handleLeftClick = (
       const impulse = kbMult === 1 ? base : { x: base.x * kbMult, y: base.y, z: base.z * kbMult }
       yield* services.entityManager.applyKnockback(entityId, impulse)
       yield* services.soundManager.playEffect('entityHit', { position: entity.position })
+      yield* services.crosshair.pulse()
       if (debugFlags['particles.spawn']) {
         yield* services.particleSystem.spawnBurst(
           entity.position.x,

@@ -7,14 +7,15 @@ import type { FrameHandlerServices } from '@ts-minecraft/app/application/frame/t
 import type { DeltaTimeSecs } from '@ts-minecraft/core'
 import type { DayNightLights } from '@ts-minecraft/game'
 import type { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js'
-import { makeInputService, makeClickInputService, makeMouseDownInputService, makeInventoryRenderer, makeSettingsOverlay, makeTradingPresentation, makePauseMenu, makeBlockHighlight, makeHotbarRenderer, makeDebugFeatureFlags, makeFPSCounter, makeFurnaceService, makeChestService } from './app-test-kit'
+import { makeInputService, makeClickInputService, makeMouseDownInputService, makeInventoryRenderer, makeSettingsOverlay, makeTradingPresentation, makePauseMenu, makeBlockHighlight, makeHotbarRenderer, makeDebugFeatureFlags, makeFPSCounter, makeFurnaceService, makeChestService, makePlayerListPanel } from './app-test-kit'
 import { makeEntityManager, makeMobSpawner, makeRedstoneService, makeVillageService } from './entities-test-kit'
 import { makeGameMode, makeGameState, makeMusicManager, makeSettingsService, makeSoundManager, makeTimeService } from './game-test-kit'
 import { makeEquipmentService, makeHotbarService, makeInventoryService } from './inventory-test-kit'
 import { makeCameraState, makeFirstPersonCamera, makeFishingService, makeHealthService, makeHungerService, makeThirdPersonCamera, makeXPService } from './player-test-kit'
 import { makeChunkMeshService, makeEntityRenderer, makeParticleSystem, makePerfHud, makeWorldRendererService } from './rendering-test-kit'
 import { makeDroppedItemService, makeDroppedXpOrbService } from '../../packages/app/test/frame-handler-test-kit/entity'
-import { makeBiomeService, makeDroppedItemRenderer, makeDroppedXpOrbRenderer } from '../../packages/app/test/frame-handler-test-kit/world'
+import { makeCrosshair, makeDamageOverlay } from '../../packages/app/test/frame-handler-test-kit/presentation/hud'
+import { makeBiomeService, makeDroppedItemRenderer, makeDroppedXpOrbRenderer, makeRemotePlayerRenderer } from '../../packages/app/test/frame-handler-test-kit/world'
 import { makeBlockService, makeChunkManagerService, makeCropGrowthService, makeFluidService, makeNetherService, makeWeatherService } from './terrain-test-kit'
 
 export type CameraMode = 'firstPerson' | 'thirdPerson'
@@ -129,11 +130,13 @@ export const makeDeps = (paused = false, withComposer = false): Effect.Effect<Fr
 export const makeServices = (opts: {
   inputService: ReturnType<typeof makeInputService>
   inventoryRenderer: ReturnType<typeof makeInventoryRenderer>
+  playerListPanel?: ReturnType<typeof makePlayerListPanel>
   settingsOverlay: ReturnType<typeof makeSettingsOverlay>
   tradingPresentation?: ReturnType<typeof makeTradingPresentation>
 }): FrameHandlerServices & { cameraState: CameraStateStub } => {
   const { inputService, inventoryRenderer, settingsOverlay } = opts
   const tradingPresentation = opts.tradingPresentation ?? makeTradingPresentation({ open: false })
+  const playerListPanel = opts.playerListPanel ?? makePlayerListPanel()
   const cameraState = makeCameraState()
 
   return {
@@ -150,9 +153,12 @@ export const makeServices = (opts: {
     timeService: makeTimeService(),
     settingsService: makeSettingsService(),
     debugFeatureFlags: makeDebugFeatureFlags(),
+    crosshair: makeCrosshair(),
+    damageOverlay: makeDamageOverlay(),
     settingsOverlay,
     pauseMenu: makePauseMenu(),
     inventoryRenderer,
+    playerListPanel,
     inventoryService: makeInventoryService(),
     equipmentService: makeEquipmentService(),
     xpService: makeXPService(),
@@ -162,6 +168,7 @@ export const makeServices = (opts: {
     entityRenderer: makeEntityRenderer(),
     droppedItemRenderer: makeDroppedItemRenderer(),
     droppedXpOrbRenderer: makeDroppedXpOrbRenderer(),
+    remotePlayerRenderer: makeRemotePlayerRenderer(),
     chunkMeshService: makeChunkMeshService(),
     particleSystem: makeParticleSystem(),
     healthService: makeHealthService(),

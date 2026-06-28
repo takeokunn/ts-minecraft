@@ -9,6 +9,7 @@ import type { RecipeService } from '@ts-minecraft/inventory/application/recipe-s
 import type { EntityManager } from '@ts-minecraft/entity/application/mob/entity-manager'
 import type { WorldRendererService } from '@ts-minecraft/rendering'
 import type { DebugFeatureFlagsService } from '@ts-minecraft/app/application/debug-feature-flags'
+import type { MultiplayerService } from '@ts-minecraft/app/application/multiplayer/multiplayer-service'
 import type { BlockHighlightService, InputService, InventoryRendererService } from '@ts-minecraft/presentation'
 
 export type QaApiDeps = {
@@ -29,4 +30,5 @@ export type QaApiDeps = {
   readonly worldRendererService: WorldRendererService
   readonly entityManager: EntityManager
   readonly debugFeatureFlags: DebugFeatureFlagsService
+  readonly multiplayer?: MultiplayerService
 }

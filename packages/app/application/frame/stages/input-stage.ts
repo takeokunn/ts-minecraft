@@ -4,8 +4,8 @@ import { Effect, Ref } from 'effect'
 import { logErrors } from '@ts-minecraft/app/frame/error-logging'
 import type { FrameHandlerDeps } from '@ts-minecraft/app/application/frame/types/deps'
 import type { Position } from '@ts-minecraft/core'
-import { handleDropItemKey, handleInventoryKey } from './input-stage-inventory'
-import { handleEscape, handleMenuKey } from './input-stage-menu'
+import { handleDropItemKey, handleInventoryKey, handleInventorySortKey } from './input-stage-inventory'
+import { handleEscape, handleMenuKey, handlePlayerListKey } from './input-stage-menu'
 import { handleHudToggle } from './input-stage-hud'
 import { handleTradeKeys } from './input-stage-trade'
 import { reconcileModalPause, syncDayLength } from './input-stage-runtime'
@@ -13,7 +13,7 @@ import type { InputDeps, InputServices, InputRefs } from './input-stage-types'
 
 export const inputStage = (
   deps: Pick<FrameHandlerDeps, 'camera'> & InputDeps,
-  services: Pick<InputServices, 'firstPersonCamera' | 'inputService' | 'inventoryRenderer' | 'settingsOverlay' | 'pauseMenu' | 'tradingPresentation' | 'hotbarService' | 'inventoryService' | 'droppedItemService' | 'villageService' | 'timeService' | 'soundManager'>,
+  services: Pick<InputServices, 'firstPersonCamera' | 'inputService' | 'inventoryRenderer' | 'playerListPanel' | 'settingsOverlay' | 'pauseMenu' | 'tradingPresentation' | 'hotbarService' | 'inventoryService' | 'droppedItemService' | 'villageService' | 'timeService' | 'soundManager'>,
   refs: InputRefs,
   inputs: {
     readonly mouseSensitivity: number
@@ -32,9 +32,11 @@ export const inputStage = (
       () =>
         logErrors(handleEscape(deps, services), 'Overlay error').pipe(
           Effect.flatMap(() => logErrors(handleMenuKey(deps, services), 'Overlay error')),
+          Effect.flatMap(() => logErrors(handlePlayerListKey(deps, services), 'Overlay error')),
           Effect.flatMap(() => logErrors(handleHudToggle(services), 'Overlay error')),
-          Effect.flatMap(() => logErrors(handleDropItemKey(services, inputs.playerPos), 'Overlay error')),
+          Effect.flatMap(() => logErrors(handleDropItemKey(services, inputs.playerPos, deps.camera), 'Overlay error')),
           Effect.flatMap(() => logErrors(handleInventoryKey(deps, services), 'Overlay error')),
+          Effect.flatMap(() => logErrors(handleInventorySortKey(services), 'Overlay error')),
           Effect.flatMap(() => logErrors(handleTradeKeys(deps, services, inputs.playerPos), 'Overlay error')),
           Effect.flatMap(() => logErrors(syncDayLength(services, refs, inputs.dayLengthSeconds), 'Overlay error')),
           // Derive gamePausedRef from the live modal state AFTER all the handlers

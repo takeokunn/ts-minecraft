@@ -79,10 +79,10 @@ describe('MESHING_WORKER_TIMEOUT', () => {
 })
 
 describe('computeMeshingWorkerCount', () => {
-  it('returns a number between 1 and 3 inclusive', () => {
+  it('returns a number between 1 and 12 inclusive', () => {
     const count = computeMeshingWorkerCount()
     expect(count).toBeGreaterThanOrEqual(1)
-    expect(count).toBeLessThanOrEqual(3)
+    expect(count).toBeLessThanOrEqual(12)
   })
 
   it('returns an integer', () => {
@@ -95,7 +95,7 @@ describe('computeMeshingWorkerCount', () => {
       value: { hardwareConcurrency: 8 },
     })
 
-    expect(computeMeshingWorkerCount()).toBe(3)
+    expect(computeMeshingWorkerCount()).toBe(6)
   })
 
   it('falls back to two hardware threads when navigator is unavailable', () => {
@@ -110,11 +110,12 @@ describe('computeMeshingWorkerCount', () => {
   it.each([
     [1, 1],
     [2, 1],
-    [3, 1],
-    [4, 2],
-    [6, 3],
-    [8, 3],
-    [16, 3],
+    [3, 2],
+    [4, 3],
+    [6, 4],
+    [8, 6],
+    [12, 9],
+    [16, 12],
     [Number.NaN, 1],
   ])('returns %i worker(s) for %i hardware thread(s)', (hardwareConcurrency, expected) => {
     expect(computeMeshingWorkerCountFromHardwareConcurrency(hardwareConcurrency)).toBe(expected)

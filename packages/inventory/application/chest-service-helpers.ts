@@ -8,6 +8,8 @@ import {
   emptyChestAtPosition,
 } from '../domain/chest-service-utils'
 
+const CHEST_STORAGE_BLOCK_INDICES = new Set<number>([blockTypeToIndex('CHEST'), blockTypeToIndex('SHULKER_BOX')])
+
 export const makeChestHelpers = (
   playerService: PlayerServicePortShape,
   worldBlockQueryPort: WorldBlockQueryPortShape,
@@ -20,7 +22,7 @@ export const makeChestHelpers = (
       const dz = position.z - playerPos.z
       if (Math.abs(dx) > 5 || Math.abs(dy) > 2 || Math.abs(dz) > 5) return false
       const blockIndexOpt = yield* worldBlockQueryPort.getBlockIndexAt(position)
-      return Option.isSome(blockIndexOpt) && blockIndexOpt.value === blockTypeToIndex('CHEST')
+      return Option.isSome(blockIndexOpt) && CHEST_STORAGE_BLOCK_INDICES.has(blockIndexOpt.value)
     })
 
   const getSelectedChestPosition = (): Effect.Effect<Option.Option<{ readonly x: number; readonly y: number; readonly z: number }>, never> =>

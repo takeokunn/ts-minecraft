@@ -193,10 +193,13 @@ describe('step 7 — redstone dispatch', () => {
     )
     const setComponentSpy = vi.fn(() => Effect.succeed({ type: 'piston', position: { x: 2, y: 63, z: 8 }, state: { active: false, buttonTicksRemaining: 0, pistonExtended: false } }))
     ;(services.redstoneService as { setComponent: unknown }).setComponent = setComponentSpy
+    const forceSetBlockSpy = vi.fn(() => Effect.void)
+    ;(services.blockService as { forceSetBlock: unknown }).forceSetBlock = forceSetBlockSpy
 
     yield* runFrame(deps, services)
 
     expect(setComponentSpy).toHaveBeenCalledWith({ x: 2, y: 63, z: 8 }, 'piston')
+    expect(forceSetBlockSpy).toHaveBeenCalledWith({ x: 2, y: 63, z: 8 }, 'PISTON')
   }))
 
   it.effect('no redstone action when target block is absent (orElse fallback)', () => Effect.gen(function* () {

@@ -51,7 +51,7 @@ export const REDSTONE_TOGGLE_TORCH_KEY  = 'KeyI'
 // KeyG is free among the existing redstone/trade key bindings.
 export const UNEQUIP_ARMOR_KEY = 'KeyG'
 
-export const PLAYER_ATTACK_REACH        = 3.5
+export const PLAYER_ATTACK_REACH        = 4.5
 export const PLAYER_ATTACK_RADIUS       = 0.9
 // Entity bounding box center is 0.9 units above position.y (half hitbox height)
 export const ENTITY_CENTER_Y_OFFSET = 0.9

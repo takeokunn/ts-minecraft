@@ -66,6 +66,15 @@ export const makeEntityRenderer = () => ({
   _getTrackedGroup: (_id: unknown) => Effect.succeed(Option.none()),
 }) as unknown as InstanceType<typeof import('@ts-minecraft/rendering').EntityRendererService>
 
+/** Creates a remote player renderer fake that tracks no scene groups. */
+export const makeRemotePlayerRenderer = () => ({
+  addPlayer: (_state: unknown) => Effect.void,
+  updatePlayer: (_playerId: unknown, _state: unknown) => Effect.void,
+  removePlayer: (_playerId: unknown) => Effect.void,
+  updateFromSnapshot: (_snapshots: unknown) => Effect.void,
+  getAllPlayerIds: Effect.succeed(new Set<string>()),
+}) as unknown as import('@ts-minecraft/rendering').RemotePlayerRenderer
+
 /** Creates a dropped item renderer fake that tracks no scene groups. */
 export const makeDroppedItemRenderer = () => ({
   syncItems: (_items: unknown, _scene: unknown, _total: unknown) => Effect.void,

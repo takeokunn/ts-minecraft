@@ -221,6 +221,11 @@ describe('decideAdaptiveQuality', () => {
     expect(result.nextCooldown).toBe(20)
   })
 
+  it('does not recover quality while chunk sync is pending', () => {
+    const result = decideAdaptiveQuality(makeAdaptiveInput({ graphicsQuality: 'low', renderDistance: 6, fps: 120, chunkSyncPending: true }))
+    expect(result).toBe(0)
+  })
+
   it('raises graphicsQuality after renderDistance has recovered', () => {
     const result = decideAdaptiveQuality(makeAdaptiveInput({ graphicsQuality: 'medium', renderDistance: 8, fps: 120 }))
     if (typeof result === 'number') throw new Error('expected patch')

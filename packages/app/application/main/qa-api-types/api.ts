@@ -1,5 +1,6 @@
 import type { InventoryItem, Position } from '@ts-minecraft/core'
 import type { DebugFeatureFlagGroup, DebugFeatureFlagId, DebugFeatureSnapshot } from '@ts-minecraft/app/application/debug-feature-flags.config'
+import type { RemotePlayerSnapshot } from '@ts-minecraft/app/application/multiplayer/multiplayer-service'
 import type { QaRenderingSnapshot } from './rendering'
 
 export type QaApi = {
@@ -23,6 +24,7 @@ export type QaApi = {
   readonly selectHotbarSlot: (hotbarIndex: number) => Promise<void>
   readonly getRecipeButtons: () => ReadonlyArray<string>
   readonly getEntitySnapshot: () => Promise<ReadonlyArray<{ entityId: string; type: string }>>
+  readonly getRemotePlayersForQA: () => Promise<ReadonlyArray<RemotePlayerSnapshot>>
   readonly getLoadedWaterBlockCount: () => Promise<number>
   readonly getMobMovementSnapshot: (durationMs: number) => Promise<{
     tracked: number

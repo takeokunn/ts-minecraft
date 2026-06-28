@@ -3,12 +3,14 @@ import type { DeltaTimeSecs } from '@ts-minecraft/core'
 import type { PendingResize } from './browser-runtime-types'
 import { flushPendingSaves } from './browser-runtime-save-effects'
 import { applyPendingResize } from './browser-runtime-resize-effects'
+import type { AutoSaveStatusReporter } from './session-autosave'
 
 export type BrowserFrameEffectDeps = {
   readonly pendingSaveDirtyChunksRef: import('effect').MutableRef.MutableRef<boolean>
   readonly pendingResizeRef: import('effect').MutableRef.MutableRef<import('effect').Option.Option<PendingResize>>
   readonly chunkManagerService: import('@ts-minecraft/world').ChunkManagerService
   readonly persistSessionState: Effect.Effect<void, never>
+  readonly reportAutoSaveStatus?: AutoSaveStatusReporter
   readonly settingsService: import('@ts-minecraft/game').SettingsService
   readonly renderer: import('three').WebGLRenderer
   readonly camera: import('three').PerspectiveCamera

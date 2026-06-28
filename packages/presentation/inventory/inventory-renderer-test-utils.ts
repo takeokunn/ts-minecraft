@@ -3,7 +3,8 @@ import { vi } from 'vitest'
 import { InventoryRendererService } from '@ts-minecraft/presentation/inventory/inventory-renderer'
 import { ChestService } from '@ts-minecraft/inventory/application/chest-service'
 import { EquipmentService } from '@ts-minecraft/inventory/application/equipment-service'
-import { InventoryService, INVENTORY_SIZE, HOTBAR_START } from '@ts-minecraft/inventory/application/inventory-service'
+import { InventoryService, INVENTORY_SIZE, HOTBAR_START, type InventorySlot, type InventorySlots } from '@ts-minecraft/inventory/application/inventory-service'
+import { sortInventorySlots } from '@ts-minecraft/inventory/application/inventory-service-state'
 import { HotbarService } from '@ts-minecraft/inventory/application/hotbar-service'
 import { RecipeService } from '@ts-minecraft/inventory/application/recipe-service'
 import { FurnaceService } from '@ts-minecraft/inventory/application/furnace-service'
@@ -22,12 +23,22 @@ import type { Recipe } from '@ts-minecraft/inventory/domain/crafting'
 export const createMockDomLayer = () => {
   const createElement = vi.fn((_tagName: string) => {
     const el: Pick<HTMLElement, 'id' | 'textContent' | 'title' | 'dataset'> & {
+      draggable: boolean
+      placeholder: string
+      type: string
+      value: string
+      childrenList: Array<unknown>
       style: Pick<CSSStyleDeclaration, 'cssText' | 'display' | 'background' | 'border'>
       addEventListener: ReturnType<typeof vi.fn>
       removeEventListener: ReturnType<typeof vi.fn>
       remove: ReturnType<typeof vi.fn>
     } = {
       id: '',
+      draggable: false,
+      placeholder: '',
+      type: '',
+      value: '',
+      childrenList: [],
       style: {
         cssText: '',
         display: 'none',
@@ -43,32 +54,50 @@ export const createMockDomLayer = () => {
     }
     return el
   })
+  const appendChildTo = vi.fn((parent: { childrenList?: Array<unknown> }, child: unknown) => {
+    parent.childrenList ??= []
+    parent.childrenList.push(child)
+  })
 
   const MockDomLayer = Layer.succeed(DomOperationsService, {
     createElement,
     appendChild: vi.fn(),
-    appendChildTo: vi.fn(),
+    appendChildTo,
     removeChild: vi.fn(),
     getParentNode: vi.fn(() => Option.none()),
     setInnerHTML: vi.fn(),
     querySelector: vi.fn(() => Option.none()),
   } as DomOperationsService)
 
-  return { MockDomLayer, createElement }
+  return { MockDomLayer, createElement, appendChildTo }
 }
 
 export const createMockInventoryLayer = (overrideSlots?: ReadonlyArray<Option.Option<unknown>>) => {
-  const slots = Option.getOrElse(Option.fromNullable(overrideSlots), () => Arr.makeBy(INVENTORY_SIZE, () => Option.none()))
-  const getAllSlots = vi.fn(() => Effect.succeed(slots))
-  const getSlot = vi.fn((_: SlotIndex) => Effect.succeed(Option.none()))
-  const setSlot = vi.fn((_: SlotIndex, __: unknown) => Effect.void)
+  let currentSlots = Option.getOrElse(
+    Option.fromNullable(overrideSlots),
+    () => Arr.makeBy(INVENTORY_SIZE, () => Option.none()),
+  ) as InventorySlots
+  const getAllSlots = vi.fn(() => Effect.succeed(currentSlots))
+  const getSlot = vi.fn((index: SlotIndex) =>
+    Effect.succeed(currentSlots[SlotIndex.toNumber(index)] ?? Option.none()))
+  const setSlot = vi.fn((index: SlotIndex, slot: InventorySlot) =>
+    Effect.sync(() => {
+      const slotIndex = SlotIndex.toNumber(index)
+      currentSlots = currentSlots.map((current, currentIndex) =>
+        currentIndex === slotIndex ? slot : current,
+      )
+    }))
   const damageSlot = vi.fn((_index: SlotIndex, _amount?: number) => Effect.void)
   const repairMendingItemsWithXP = vi.fn((amount: number) => Effect.succeed(amount))
   const moveStack = vi.fn((_from: SlotIndex, _to: SlotIndex) => Effect.void)
   const quickMove = vi.fn((_from: SlotIndex) => Effect.void)
+  const sortInventory = vi.fn(() =>
+    Effect.sync(() => {
+      currentSlots = sortInventorySlots(currentSlots)
+    }))
   const addBlock = vi.fn((_bt: unknown, _count: number) => Effect.succeed(true))
   const removeBlock = vi.fn((_bt: unknown, _count: number) => Effect.succeed(true))
-  const getHotbarSlots = vi.fn(() => Effect.succeed(Arr.drop(slots, HOTBAR_START)))
+  const getHotbarSlots = vi.fn(() => Effect.succeed(Arr.drop(currentSlots, HOTBAR_START)))
   const serialize = vi.fn(() => Effect.succeed({ slots: [] }))
   const deserialize = vi.fn((_: unknown) => Effect.void)
 
@@ -81,6 +110,7 @@ export const createMockInventoryLayer = (overrideSlots?: ReadonlyArray<Option.Op
     repairMendingItemsWithXP,
     moveStack,
     quickMove,
+    sortInventory,
     addBlock,
     removeBlock,
     getHotbarSlots,
@@ -89,7 +119,7 @@ export const createMockInventoryLayer = (overrideSlots?: ReadonlyArray<Option.Op
     deserialize,
   }))
 
-  return { MockInventoryLayer, getAllSlots, moveStack, quickMove }
+  return { MockInventoryLayer, getAllSlots, getCurrentSlots: () => currentSlots, getSlot, moveStack, quickMove, setSlot, sortInventory }
 }
 
 export const createMockHotbarLayer = (selectedSlot = 0) => {
@@ -147,7 +177,7 @@ export const createMockFurnaceLayer = (overrides: Partial<Pick<FurnaceService,
 }
 
 export const createMockChestLayer = (overrides: Partial<Pick<ChestService,
-  'getState' | 'getNearestChestState' | 'hasNearbyChest' | 'setSelectedChest' | 'moveInventoryStackToChestSlot' | 'moveChestStackToInventorySlot' | 'quickMoveInventoryToChest' | 'quickMoveChestToInventory' | 'clearChest' | 'dismantleChest' | 'serialize' | 'deserialize'
+  'getState' | 'getNearestChestState' | 'hasNearbyChest' | 'setSelectedChest' | 'moveInventoryStackToChestSlot' | 'moveChestStackToInventorySlot' | 'moveChestStackToChestSlot' | 'quickMoveInventoryToChest' | 'quickMoveChestToInventory' | 'clearChest' | 'dismantleChest' | 'serialize' | 'deserialize'
 >> = {}) => {
   const MockChestLayer = Layer.succeed(ChestService, ChestService.of({
     _tag: '@minecraft/application/ChestService' as const,
@@ -157,6 +187,7 @@ export const createMockChestLayer = (overrides: Partial<Pick<ChestService,
     setSelectedChest: () => Effect.void,
     moveInventoryStackToChestSlot: () => Effect.void,
     moveChestStackToInventorySlot: () => Effect.void,
+    moveChestStackToChestSlot: () => Effect.void,
     quickMoveInventoryToChest: () => Effect.void,
     quickMoveChestToInventory: () => Effect.void,
     clearChest: () => Effect.succeed([]),

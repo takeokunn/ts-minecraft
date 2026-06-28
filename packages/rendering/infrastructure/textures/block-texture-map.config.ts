@@ -112,4 +112,6 @@ export const TILE_MAP: ReadonlyArray<Readonly<Record<TextureFaceDir, number>>> =
   { top: 35, bottom: 35, side: 35 }, // 93: CAULDRON
   { top: 18, bottom: 18, side: 18 }, // 94: FIRE (temporary lava tile)
   { top: 35, bottom: 35, side: 35 }, // 95: WATER_CAULDRON
+  { top: 35, bottom: 35, side: 35 }, // 96: RAIL (temporary iron tile)
+  { top: 35, bottom: 35, side: 35 }, // 97: PISTON (temporary iron tile)
 ]

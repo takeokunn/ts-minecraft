@@ -24,6 +24,56 @@ const SPAWN_LAND_MARGIN = 4
 const SPAWN_LAND_CONTINENTALNESS = 0.12
 const SPAWN_LAND_SEARCH_CHUNK_RADIUS = 10
 
+type SpawnCandidate = { x: number; z: number; distSq: number }
+
+type TerrainChannels = {
+  readonly continentalness: Float64Array
+  readonly erosion: Float64Array
+  readonly pv: Float64Array
+  readonly jaggedness: Float64Array
+}
+
+type SpawnSearchResult = Readonly<{
+  bestInland: SpawnCandidate | null
+  bestAnyDry: SpawnCandidate | null
+}>
+
+const betterCandidate = (
+  current: SpawnCandidate | null,
+  candidate: SpawnCandidate,
+): SpawnCandidate =>
+  current === null || candidate.distSq < current.distSq ? candidate : current
+
+const findBestSpawnCandidateInChunk = (
+  channels: TerrainChannels,
+  chunkX: number,
+  chunkZ: number,
+): SpawnSearchResult => {
+  let bestInland: SpawnCandidate | null = null
+  let bestAnyDry: SpawnCandidate | null = null
+
+  for (let lx = 0; lx < CHUNK_SIZE; lx++) {
+    for (let lz = 0; lz < CHUNK_SIZE; lz++) {
+      const surfaceY = computeColumnY(channels, lx, lz)
+      if (surfaceY < SEA_LEVEL + SPAWN_LAND_MARGIN) continue
+
+      const wx = chunkX * CHUNK_SIZE + lx
+      const wz = chunkZ * CHUNK_SIZE + lz
+      const distSq = wx * wx + wz * wz
+      const candidate = { x: wx, z: wz, distSq }
+      bestAnyDry = betterCandidate(bestAnyDry, candidate)
+
+      const columnIndex = lz * CHUNK_SIZE + lx
+      const continentalness = channels.continentalness[columnIndex] ?? Number.NEGATIVE_INFINITY
+      if (continentalness >= SPAWN_LAND_CONTINENTALNESS) {
+        bestInland = betterCandidate(bestInland, candidate)
+      }
+    }
+  }
+
+  return { bestInland, bestAnyDry }
+}
+
 const findLandSpawnXZ = (
   noiseService: NoiseService,
 ): Effect.Effect<{ readonly x: number; readonly z: number }, never> =>
@@ -31,28 +81,28 @@ const findLandSpawnXZ = (
     let bestInland: { x: number; z: number; distSq: number } | null = null
     let bestAnyDry: { x: number; z: number; distSq: number } | null = null
     for (let ring = 0; ring <= SPAWN_LAND_SEARCH_CHUNK_RADIUS && bestInland === null; ring++) {
+      const ringCoords: Array<{ x: number; z: number }> = []
       for (let cx = -ring; cx <= ring; cx++) {
         for (let cz = -ring; cz <= ring; cz++) {
           // Only the perimeter of each ring (inner rings were already scanned).
           if (Math.max(Math.abs(cx), Math.abs(cz)) !== ring) continue
-          const channels = yield* noiseService.sampleTerrainChannels(cx * CHUNK_SIZE, cz * CHUNK_SIZE)
-          for (let lx = 0; lx < CHUNK_SIZE; lx++) {
-            for (let lz = 0; lz < CHUNK_SIZE; lz++) {
-              const surfaceY = computeColumnY(channels, lx, lz)
-              if (surfaceY < SEA_LEVEL + SPAWN_LAND_MARGIN) continue
-              const wx = cx * CHUNK_SIZE + lx
-              const wz = cz * CHUNK_SIZE + lz
-              const distSq = wx * wx + wz * wz
-              const candidate = { x: wx, z: wz, distSq }
-              if (bestAnyDry === null || distSq < bestAnyDry.distSq) bestAnyDry = candidate
-              const columnIndex = lz * CHUNK_SIZE + lx
-              const continentalness = channels.continentalness[columnIndex] ?? Number.NEGATIVE_INFINITY
-              if (continentalness >= SPAWN_LAND_CONTINENTALNESS) {
-                if (bestInland === null || distSq < bestInland.distSq) bestInland = candidate
-              }
-            }
-          }
+          ringCoords.push({ x: cx, z: cz })
         }
+      }
+
+      const ringResults = yield* Effect.forEach(
+        ringCoords,
+        ({ x: cx, z: cz }) =>
+          Effect.map(
+            noiseService.sampleTerrainChannels(cx * CHUNK_SIZE, cz * CHUNK_SIZE),
+            (channels) => findBestSpawnCandidateInChunk(channels, cx, cz),
+          ),
+        { concurrency: 8 },
+      )
+
+      for (const result of ringResults) {
+        if (result.bestInland !== null) bestInland = betterCandidate(bestInland, result.bestInland)
+        if (result.bestAnyDry !== null) bestAnyDry = betterCandidate(bestAnyDry, result.bestAnyDry)
       }
     }
     const best = bestInland ?? bestAnyDry
@@ -134,7 +184,7 @@ export const buildSpawnSelection = (
   const chunks = yield* Effect.forEach(
     spawnSearchChunkCoords(baseSpawnPosition),
     (coord) => chunkManagerService.getChunk(coord),
-    { concurrency: 4 },
+    { concurrency: 8 },
   )
   return selectSurfaceSpawn(chunks, baseSpawnPosition)
 })

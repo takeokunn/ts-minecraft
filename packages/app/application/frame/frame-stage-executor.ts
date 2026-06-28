@@ -48,6 +48,7 @@ export const runFrameStages = (
       sessionPaused,
       playerPos: activeResult.playerPos,
       sunIntensity: activeResult.sunIntensity,
+      entitySnapshots: activeResult.entitySnapshots,
       resolved: context.resolved,
       sunWorldPos: context.sunWorldPos,
       markShadowMapDirty: context.markShadowMapDirty,

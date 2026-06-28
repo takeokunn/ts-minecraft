@@ -11,6 +11,20 @@ describe('resolveRightClickTargetRoute', () => {
     })
   })
 
+  it('routes shulker boxes to chest interaction', () => {
+    expect(resolveRightClickTargetRoute({ x: 1, y: 2, z: 3 }, 'SHULKER_BOX')).toEqual({
+      kind: 'chest',
+      targetPos: { x: 1, y: 2, z: 3 },
+    })
+  })
+
+  it('routes crafting tables to crafting interaction', () => {
+    expect(resolveRightClickTargetRoute({ x: 1, y: 2, z: 3 }, 'CRAFTING_TABLE')).toEqual({
+      kind: 'craftingTable',
+      targetPos: { x: 1, y: 2, z: 3 },
+    })
+  })
+
   it('routes furnaces to furnace interaction', () => {
     expect(resolveRightClickTargetRoute({ x: 1, y: 2, z: 3 }, 'FURNACE')).toEqual({
       kind: 'furnace',

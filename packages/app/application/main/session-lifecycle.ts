@@ -1,4 +1,4 @@
-import { Deferred, Effect } from 'effect'
+import { Deferred, Effect, Option } from 'effect'
 import type { BootContext } from '@ts-minecraft/app/main/boot'
 import type { SessionControl } from '@ts-minecraft/app/main/session-control'
 import { SAVE_FLUSH_TIMEOUT, runBestEffortQuitStep } from '@ts-minecraft/app/main/session-lifecycle-quit'
@@ -24,6 +24,13 @@ const flushSessionLifecycleShutdownState = ({
   runtimeServices,
 }: Pick<SessionLifecycleDeps, 'runtimeParams' | 'runtimeServices'>) =>
   Effect.gen(function* () {
+    if (Option.isSome(runtimeServices.multiplayer)) {
+      yield* runBestEffortQuitStep(
+        runtimeServices.multiplayer.value.disconnect.pipe(Effect.catchAllCause(() => Effect.void)),
+        SAVE_FLUSH_TIMEOUT,
+      )
+    }
+
     // Best-effort save flush before tearing down - metadata save runs first so
     // player-position / health / inventory restoration is prioritized for
     // quit-to-title flows, while both stages are time-bounded so a stalled save

@@ -27,7 +27,7 @@ const writeInventorySlots = (
   Effect.forEach(
     slots,
     (slot, index) => inventoryService.setSlot(SlotIndex.make(index), slot),
-    { discard: true, concurrency: 1 },
+    { discard: true, concurrency: 4 },
   )
 
 export class ChestService extends Effect.Service<ChestService>()(
@@ -101,6 +101,28 @@ export class ChestService extends Effect.Service<ChestService>()(
             yield* inventoryService.setSlot(inventoryIndex, nextInventorySlot)
             yield* Ref.update(stateRef, (state) =>
               setChestState(state, serializeChest({ ...runtimeChest, slots: Arr.modify(slots, chestIndex, () => nextChestSlot) }))
+            )
+          }),
+
+        moveChestStackToChestSlot: (fromIndex: number, toIndex: number): Effect.Effect<void, never> =>
+          Effect.gen(function* () {
+            if (!isValidChestIndex(fromIndex) || !isValidChestIndex(toIndex) || fromIndex === toIndex) return
+            const chestOpt = yield* helpers.getNearestChestState()
+            const chest = Option.getOrNull(chestOpt)
+            if (chest === null) return
+            const runtimeChest = hydrateChest(chest)
+            const slots = runtimeChest.slots
+            const fromSlot = Option.getOrElse(Arr.get(slots, fromIndex), () => Option.none<ItemStack>())
+            const toSlot = Option.getOrElse(Arr.get(slots, toIndex), () => Option.none<ItemStack>())
+            const [nextFromSlot, nextToSlot] = moveBetweenSlots(fromSlot, toSlot)
+            yield* Ref.update(stateRef, (state) =>
+              setChestState(
+                state,
+                serializeChest({
+                  ...runtimeChest,
+                  slots: Arr.modify(Arr.modify(slots, fromIndex, () => nextFromSlot), toIndex, () => nextToSlot),
+                }),
+              ),
             )
           }),
 

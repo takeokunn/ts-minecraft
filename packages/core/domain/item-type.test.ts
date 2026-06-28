@@ -123,6 +123,15 @@ describe('ItemTypeSchema — crafting components', () => {
   })
 })
 
+describe('ItemTypeSchema — vehicle items', () => {
+  const VEHICLE_ITEMS = ['BOAT', 'MINECART'] as const
+
+  it['each'](VEHICLE_ITEMS)('accepts vehicle item "%s"', (item: (typeof VEHICLE_ITEMS)[number]) => {
+    const result = Schema.decodeUnknownEither(ItemTypeSchema)(item)
+    expect(Either.isRight(result)).toBe(true)
+  })
+})
+
 describe('ItemTypeSchema — armor items', () => {
   const LEATHER_ARMOR = [
     'LEATHER_HELMET',

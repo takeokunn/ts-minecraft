@@ -14,19 +14,35 @@ import { VillageService } from '@ts-minecraft/entity/application/village/village
 import { RedstoneService } from '@ts-minecraft/entity/application/redstone/redstone-service'
 
 export const buildEntityBootstrapServices = Effect.gen(function* () {
-  const playerCameraState = yield* PlayerCameraStateService
-  const firstPersonCamera = yield* FirstPersonCameraService
-  const thirdPersonCamera = yield* ThirdPersonCameraService
-  const healthService = yield* HealthService
-  const hungerService = yield* HungerService
-  const xpService = yield* XPService
-  const fishingService = yield* FishingService
-  const droppedItemService = yield* DroppedItemService
-  const droppedXpOrbService = yield* DroppedXpOrbService
-  const entityManager = yield* EntityManager
-  const mobSpawner = yield* MobSpawner
-  const villageService = yield* VillageService
-  const redstoneService = yield* RedstoneService
+  const [
+    playerCameraState,
+    firstPersonCamera,
+    thirdPersonCamera,
+    healthService,
+    hungerService,
+    xpService,
+    fishingService,
+    droppedItemService,
+    droppedXpOrbService,
+    entityManager,
+    mobSpawner,
+    villageService,
+    redstoneService,
+  ] = yield* Effect.all([
+    PlayerCameraStateService,
+    FirstPersonCameraService,
+    ThirdPersonCameraService,
+    HealthService,
+    HungerService,
+    XPService,
+    FishingService,
+    DroppedItemService,
+    DroppedXpOrbService,
+    EntityManager,
+    MobSpawner,
+    VillageService,
+    RedstoneService,
+  ], { concurrency: 'unbounded' })
 
   return {
     playerCameraState,

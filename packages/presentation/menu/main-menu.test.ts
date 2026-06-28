@@ -4,6 +4,7 @@ import { Array as Arr, Effect, Layer, Option } from 'effect'
 import { MainMenuService } from '@ts-minecraft/presentation/menu/main-menu'
 import { ConfirmDialogService } from '@ts-minecraft/presentation/menu/confirm-dialog'
 import { DomOperationsService } from '@ts-minecraft/presentation/hud/crosshair'
+import { SettingsOverlayService } from '@ts-minecraft/presentation/settings/settings-overlay'
 import { StorageService, type WorldMetadata } from '@ts-minecraft/world'
 import { WorldId } from '@ts-minecraft/core'
 import type { ChunkCoord } from '@ts-minecraft/core'
@@ -39,6 +40,19 @@ const stubConfirmDialog = {
 
 const StubConfirmLayer = Layer.succeed(ConfirmDialogService, ConfirmDialogService.of(stubConfirmDialog))
 
+const stubSettingsOverlay = {
+  _tag: '@minecraft/presentation/SettingsOverlay' as const,
+  toggle: () => Effect.succeed(true),
+  isOpen: () => Effect.succeed(false),
+  syncFromSettings: () => Effect.void,
+  applyToSettings: () => Effect.void,
+}
+
+const StubSettingsOverlayLayer = Layer.succeed(
+  SettingsOverlayService,
+  SettingsOverlayService.of(stubSettingsOverlay),
+)
+
 const stubStorage = {
   _tag: '@minecraft/infrastructure/storage/StorageService' as const,
   initialize: Effect.void,
@@ -59,6 +73,7 @@ const TestLayer = MainMenuService.Default.pipe(
   Layer.provide(StubStorageLayer),
   Layer.provide(StubDomLayer),
   Layer.provide(StubConfirmLayer),
+  Layer.provide(StubSettingsOverlayLayer),
 )
 
 describe('presentation/menu/main-menu', () => {
@@ -93,6 +108,17 @@ describe('presentation/menu/main-menu', () => {
       const choice = { action: 'loadWorld' as const, worldId: 'bar' as WorldId }
       expect(choice.action).toBe('loadWorld')
       expect(choice.worldId).toBe('bar')
+    })
+
+    it('multiplayer choice carries serverUrl and playerName', () => {
+      const choice = {
+        action: 'multiplayer' as const,
+        serverUrl: 'ws://localhost:8080',
+        playerName: 'Alex',
+      }
+      expect(choice.action).toBe('multiplayer')
+      expect(choice.serverUrl).toBe('ws://localhost:8080')
+      expect(choice.playerName).toBe('Alex')
     })
 
   })

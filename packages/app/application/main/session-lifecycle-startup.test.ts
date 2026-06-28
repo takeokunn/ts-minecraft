@@ -85,6 +85,7 @@ describe('runSessionLifecycleStartup', () => {
     const runtimeParams = {
       hud: {
         fpsElement: { tag: 'fps-element' } as never,
+        autoSaveStatusElement: { textContent: '' } as HTMLElement,
       },
       state: {
         pendingResizeRef,
@@ -148,6 +149,8 @@ describe('runSessionLifecycleStartup', () => {
     expect(mocks.startSessionAutoSaveDaemon).toHaveBeenCalledWith(
       saveDirtyChunksEffect,
       persistSessionStateEffect,
+      undefined,
+      expect.any(Function),
     )
     expect(gameLoopService.start).toHaveBeenCalledOnce()
     expect(gameLoopService.start).toHaveBeenCalledWith(frameHandlerWithBrowserEvents)
@@ -164,5 +167,10 @@ describe('runSessionLifecycleStartup', () => {
     expect(saveDirtyChunksRunSpy).toHaveBeenCalledOnce()
     expect(persistSessionStateRunSpy).toHaveBeenCalledOnce()
     expect(MutableRef.get(pendingSaveDirtyChunksRef)).toBe(false)
+    expect(runtimeParams.hud.autoSaveStatusElement.textContent).toBe('Saved')
+
+    const reportAutoSaveStatus = mocks.startSessionAutoSaveDaemon.mock.calls[0]?.[3]
+    await Effect.runPromise(reportAutoSaveStatus('error'))
+    expect(runtimeParams.hud.autoSaveStatusElement.textContent).toBe('Save failed')
   })
 })

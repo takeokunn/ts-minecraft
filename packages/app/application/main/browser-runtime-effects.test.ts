@@ -20,9 +20,12 @@ describe('browser-runtime-effects', () => {
       persistSessionState: Effect.sync(() => {
         calls.push('persistSessionState')
       }),
+      reportAutoSaveStatus: (status) => Effect.sync(() => {
+        calls.push(`status:${status}`)
+      }),
     }))
 
-    expect(calls).toEqual(['saveDirtyChunks', 'persistSessionState'])
+    expect(calls).toEqual(['status:saving', 'saveDirtyChunks', 'persistSessionState', 'status:saved'])
     expect(MutableRef.get(pendingSaveDirtyChunksRef)).toBe(false)
   })
 
@@ -40,12 +43,61 @@ describe('browser-runtime-effects', () => {
       persistSessionState: Effect.sync(() => {
         calls.push('persistSessionState')
       }),
+      reportAutoSaveStatus: (status) => Effect.sync(() => {
+        calls.push(`status:${status}`)
+      }),
     })
 
     MutableRef.set(pendingSaveDirtyChunksRef, true)
     await Effect.runPromise(flushEffect)
 
-    expect(calls).toEqual(['saveDirtyChunks', 'persistSessionState'])
+    expect(calls).toEqual(['status:saving', 'saveDirtyChunks', 'persistSessionState', 'status:saved'])
+    expect(MutableRef.get(pendingSaveDirtyChunksRef)).toBe(false)
+  })
+
+  it('skips save work and status reporting when no save is pending', async () => {
+    const calls: string[] = []
+    const pendingSaveDirtyChunksRef = MutableRef.make(false)
+    const chunkManagerService = {
+      saveDirtyChunks: () => Effect.sync(() => {
+        calls.push('saveDirtyChunks')
+      }),
+    }
+
+    await Effect.runPromise(flushPendingSaves({
+      pendingSaveDirtyChunksRef,
+      chunkManagerService: chunkManagerService as never,
+      persistSessionState: Effect.sync(() => {
+        calls.push('persistSessionState')
+      }),
+      reportAutoSaveStatus: (status) => Effect.sync(() => {
+        calls.push(`status:${status}`)
+      }),
+    }))
+
+    expect(calls).toEqual([])
+    expect(MutableRef.get(pendingSaveDirtyChunksRef)).toBe(false)
+  })
+
+  it('reports an error and still clears the pending flag when save flush fails', async () => {
+    const calls: string[] = []
+    const pendingSaveDirtyChunksRef = MutableRef.make(true)
+    const chunkManagerService = {
+      saveDirtyChunks: () => Effect.fail(new Error('chunk write failed')),
+    }
+
+    await Effect.runPromise(flushPendingSaves({
+      pendingSaveDirtyChunksRef,
+      chunkManagerService: chunkManagerService as never,
+      persistSessionState: Effect.sync(() => {
+        calls.push('persistSessionState')
+      }),
+      reportAutoSaveStatus: (status) => Effect.sync(() => {
+        calls.push(`status:${status}`)
+      }),
+    }))
+
+    expect(calls).toEqual(['status:saving', 'status:error'])
     expect(MutableRef.get(pendingSaveDirtyChunksRef)).toBe(false)
   })
 

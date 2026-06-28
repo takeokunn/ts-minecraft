@@ -158,6 +158,7 @@ export const applyHostileDamage = (
     const tookHostileDamage = yield* applyDamage(resolvedDamage.hostileDamage)
     if (tookHostileDamage) {
       yield* services.soundManager.playEffect('playerHurt', { position: refreshedPos })
+      yield* services.damageOverlay.flash()
       if (resolvedDamage.scaledHostileDamage > 0) {
         yield* damageArmorPieces(services)
       }

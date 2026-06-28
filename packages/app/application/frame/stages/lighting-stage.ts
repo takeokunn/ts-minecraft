@@ -7,6 +7,7 @@ import type { FrameWorldServices } from '@ts-minecraft/app/frame/frame-service-t
 import { updateDayNightCycle, computeTerrainSunIntensity, applyNetherEnvironment, applyEndEnvironment, type DayNightLights } from '@ts-minecraft/game'
 import type { DeltaTimeSecs, Position } from '@ts-minecraft/core'
 import type { Weather } from '@ts-minecraft/game'
+import { setWeatherVisualState } from '@ts-minecraft/presentation/hud/weather-visibility'
 
 // Apply a grey-blue tint when it is raining or thundering (overrides the daytime sky).
 const applyRainEnvironment = (lights: DayNightLights, weather: Weather): void => {
@@ -52,9 +53,16 @@ export const lightingStage = (
       // which creates an intermediate 2-element array every frame.
       Effect.flatMap(services.netherService.getDimension(), (dimension) =>
         Effect.sync(() => {
-          if (dimension === 'nether') applyNetherEnvironment(inputs.effectiveLights)
-          else if (dimension === 'end') applyEndEnvironment(inputs.effectiveLights)
-          else applyRainEnvironment(inputs.effectiveLights, weather)
+          if (dimension === 'nether') {
+            setWeatherVisualState(weather, false)
+            applyNetherEnvironment(inputs.effectiveLights)
+          } else if (dimension === 'end') {
+            setWeatherVisualState(weather, false)
+            applyEndEnvironment(inputs.effectiveLights)
+          } else {
+            setWeatherVisualState(weather)
+            applyRainEnvironment(inputs.effectiveLights, weather)
+          }
         }),
       ),
     ),

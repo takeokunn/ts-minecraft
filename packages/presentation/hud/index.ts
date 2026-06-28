@@ -1,4 +1,14 @@
 export { CrosshairService, DomOperationsService } from './crosshair'
+export {
+  DAMAGE_OVERLAY_FLASH_MS,
+  DAMAGE_OVERLAY_HIDDEN_CSS,
+  DAMAGE_OVERLAY_VISIBLE_CSS,
+  DamageOverlayService,
+  createDamageOverlayCss,
+  makeDamageOverlay,
+  type DamageOverlay,
+} from './damage-overlay'
+export { ControlsHintService } from './controls-hint'
 export { HotbarRendererService } from './hotbar-three'
 export {
   EMPTY_HOTBAR_VALUES,
@@ -31,3 +41,4 @@ export {
   type DebugOverlayToggleRowState,
 } from './debug-overlay-panel-state'
 export { DebugOverlayService } from './debug-overlay'
+export * from './weather-visibility'

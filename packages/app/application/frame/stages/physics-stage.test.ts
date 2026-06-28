@@ -498,10 +498,37 @@ describe('step 3.5 — fall damage', () => {
     )
     const applyDamageSpy = vi.fn(() => Effect.void)
     ;(services.healthService as { applyDamage: unknown }).applyDamage = applyDamageSpy
+    const flashSpy = vi.fn(() => Effect.void)
+    ;(services.damageOverlay as { flash: unknown }).flash = flashSpy
 
     yield* runFrame(deps, services)
 
     expect(applyDamageSpy).toHaveBeenCalledWith(3)
+    expect(flashSpy).toHaveBeenCalledOnce()
+  }))
+
+  it.effect('does not flash the hostile damage overlay while player invincibility is active', () => Effect.gen(function* () {
+    const deps = yield* makeDeps(false)
+    const services = makeServices({
+      inputService: makeInputService(),
+      inventoryRenderer: makeInventoryRenderer({ open: false }),
+      settingsOverlay: makeSettingsOverlay({ open: false }),
+    })
+    ;(services.entityManager as { getPlayerContactDamage: unknown }).getPlayerContactDamage = vi.fn(() =>
+      Effect.succeed(3)
+    )
+    ;(services.healthService as { getHealth: unknown }).getHealth = vi.fn(() =>
+      Effect.succeed({ current: 15, max: 20, invincibilityTicks: 10 })
+    )
+    const applyDamageSpy = vi.fn(() => Effect.void)
+    ;(services.healthService as { applyDamage: unknown }).applyDamage = applyDamageSpy
+    const flashSpy = vi.fn(() => Effect.void)
+    ;(services.damageOverlay as { flash: unknown }).flash = flashSpy
+
+    yield* runFrame(deps, services)
+
+    expect(applyDamageSpy).not.toHaveBeenCalled()
+    expect(flashSpy).not.toHaveBeenCalled()
   }))
 
   it.effect('applies hostile ranged damage when the entity manager reports a shot', () => Effect.gen(function* () {

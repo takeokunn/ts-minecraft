@@ -39,6 +39,7 @@ export const NON_PLACEABLE_ITEM_TYPES: HashSet.HashSet<InventoryItem> = HashSet.
   'PUFFERFISH',
   'BREAD',
   'CARROT',
+  'POTATO',
   'RAW_PORKCHOP',
   'COOKED_PORKCHOP',
   'RAW_MUTTON',
@@ -116,6 +117,9 @@ export const NON_PLACEABLE_ITEM_TYPES: HashSet.HashSet<InventoryItem> = HashSet.
   'BUCKET',
   'WATER_BUCKET',
   'LAVA_BUCKET',
+  // Vehicle items are entities/use-actions, not placeable blocks.
+  'BOAT',
+  'MINECART',
   // The End items — consumables, equipment, or crafting ingredients; never placed as world blocks
   'CHORUS_FRUIT',
   'DRAGON_BREATH',
@@ -150,6 +154,7 @@ export const INVENTORY_DROP_OVERRIDES: HashMap.HashMap<BlockType, InventoryItem>
   // Unripe crops drop seeds; ripe crops get a bonus WHEAT added by the interaction handler
   // after querying CropGrowthService.harvest(). Unknown/village crops default to ripe.
   ['WHEAT_CROP', 'WHEAT_SEEDS'],
+  ['POTATO_CROP', 'POTATO'],
   // REDSTONE_WIRE (flat cable on ground) drops REDSTONE_DUST when broken.
   // REDSTONE_TORCH drops itself (you can place it again) — no override needed.
   ['REDSTONE_WIRE', 'REDSTONE_DUST'],

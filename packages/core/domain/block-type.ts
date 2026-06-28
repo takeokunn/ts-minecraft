@@ -49,12 +49,14 @@ export const BlockTypeSchema = Schema.Literal(
   'NETHER_PORTAL',
   'FARMLAND',
   'WHEAT_CROP',
+  'POTATO_CROP',
   // Redstone components (Phase 16)
   'REDSTONE_WIRE',
   'REDSTONE_TORCH',
   'LEVER',
   'STONE_BUTTON',
   'REPEATER',
+  'PISTON',
   // Furniture / utility
   'BED',
   'ENCHANTING_TABLE',
@@ -103,6 +105,7 @@ export const BlockTypeSchema = Schema.Literal(
   'ANVIL',
   'CAULDRON',
   'FIRE',
-  'WATER_CAULDRON'
+  'WATER_CAULDRON',
+  'RAIL'
 )
 export type BlockType = Schema.Schema.Type<typeof BlockTypeSchema>

@@ -12,9 +12,13 @@ type TestElement = HTMLElement & {
   readonly childrenList: TestElement[]
   readonly selectorMatches: Map<string, TestElement>
   readonly clickHandlers: ClickHandler[]
+  readonly attributes: Record<string, string>
   readonly focus: ReturnType<typeof vi.fn>
+  innerHTML: string
   value: string
   type: string
+  setAttribute: (name: string, value: string) => void
+  getAttribute: (name: string) => string | null
   click: () => void
 }
 
@@ -24,13 +28,16 @@ const makeTestElement = <K extends keyof HTMLElementTagNameMap>(_tagName: K): HT
   const childrenList: TestElement[] = []
   const selectorMatches = new Map<string, TestElement>()
   const clickHandlers: ClickHandler[] = []
+  const attributes: Record<string, string> = {}
   const element = {
     id: '',
     style: { cssText: '', display: '', background: '', border: '' },
     dataset: {},
     textContent: '',
+    innerHTML: '',
     value: '',
     type: '',
+    attributes,
     focus: vi.fn(),
     childrenList,
     selectorMatches,
@@ -51,18 +58,25 @@ const makeTestElement = <K extends keyof HTMLElementTagNameMap>(_tagName: K): HT
     click: () => {
       clickHandlers.forEach((handler) => handler())
     },
+    setAttribute: (name: string, value: string) => {
+      attributes[name] = value
+    },
+    getAttribute: (name: string) => attributes[name] ?? null,
   }
   return element as unknown as HTMLElementTagNameMap[K]
 }
 
 const tagForId = (id: string): keyof HTMLElementTagNameMap => {
   if (id === 'mm-nw-name') return 'input'
+  if (id === 'mm-mp-server-url') return 'input'
+  if (id === 'mm-mp-player-name') return 'input'
   if (id === 'mm-lw-list') return 'div'
   return 'button'
 }
 
 const registerInnerHtmlIds = (element: HTMLElement, html: string): void => {
   const parent = asTestElement(element)
+  parent.innerHTML = html
   const idPattern = /id="([^"]+)"/g
   for (const match of html.matchAll(idPattern)) {
     const id = match[1]
@@ -111,12 +125,39 @@ describe('presentation/menu/main-menu-dom', () => {
     const elements = buildMenuDOM(dom)
 
     expect(elements.overlay.id).toBe('main-menu-overlay')
+    expect(elements.overlay.getAttribute('role')).toBe('dialog')
+    expect(elements.overlay.getAttribute('aria-modal')).toBe('true')
+    expect(elements.overlay.getAttribute('aria-label')).toBe('Main Menu')
     expect(elements.rootCard.id).toBe('main-menu-root')
+    expect(elements.rootCard.style.cssText).toContain('max-height:calc(100vh - 32px)')
+    expect(elements.rootCard.style.cssText).toContain('overflow-y:auto')
     expect(elements.newWorldCard.id).toBe('main-menu-new-world')
+    expect(elements.newWorldCard.style.cssText).toContain('max-height:calc(100vh - 32px)')
     expect(elements.loadWorldCard.id).toBe('main-menu-load-world')
+    expect(elements.howToPlayCard.id).toBe('main-menu-how-to-play')
+    expect(elements.howToPlayCard.style.cssText).toContain('max-height:calc(100vh - 32px)')
+    expect(elements.rootCard.innerHTML).toContain('Pick a world, continue your latest save, or open the controls guide before you start.')
+    expect(elements.rootCard.innerHTML).toContain('Keyboard, mouse, and gamepad are supported.')
+    expect(elements.rootCard.innerHTML).toContain('Touch controls are not available yet.')
+    expect(elements.multiplayerCard.id).toBe('main-menu-multiplayer')
+    expect(elements.multiplayerCard.style.cssText).toContain('max-height:calc(100vh - 32px)')
+    expect(elements.multiplayerCard.style.cssText).toContain('display:none')
+    expect(elements.multiplayerCard.innerHTML).toContain('Join Multiplayer')
+    expect(elements.multiplayerCard.innerHTML).toContain('Enter the server address and your player name')
+    expect(elements.howToPlayCard.innerHTML).toContain('gamepad')
+    expect(elements.howToPlayCard.innerHTML).toContain('Touch controls are not available yet')
+    expect(elements.overlay.style.cssText).toContain('overflow:auto')
     expect(elements.buttons.newWorld.id).toBe('mm-new-world')
+    expect(elements.buttons.continueWorld.id).toBe('mm-continue-world')
+    expect(elements.buttons.howToPlay.id).toBe('mm-how-to-play')
     expect(elements.buttons.settings.id).toBe('mm-settings')
+    expect(elements.buttons.multiplayer.id).toBe('mm-multiplayer')
     expect(elements.buttons.lwList.id).toBe('mm-lw-list')
+    expect(elements.buttons.mpServerUrl.id).toBe('mm-mp-server-url')
+    expect(elements.buttons.mpPlayerName.id).toBe('mm-mp-player-name')
+    expect(elements.buttons.mpCancel.id).toBe('mm-mp-cancel')
+    expect(elements.buttons.mpConfirm.id).toBe('mm-mp-confirm')
+    expect(elements.buttons.howToPlayClose.id).toBe('mm-how-to-play-close')
     expect(appended).toHaveLength(1)
   })
 
@@ -146,7 +187,7 @@ describe('presentation/menu/main-menu-dom', () => {
     )
 
     const row = asTestElement(list).childrenList[0]
-  if (row === undefined) expect.fail('Expected renderValidRow to append a row')
+    if (row === undefined) expect.fail('Expected renderValidRow to append a row')
     const name = row.childrenList[0]?.childrenList[0]
     const loadButton = row.childrenList.find((child) => child.textContent === 'Load')
     const renameButton = row.childrenList.find((child) => child.textContent === 'Rename')
@@ -155,6 +196,7 @@ describe('presentation/menu/main-menu-dom', () => {
     expect(loadButton).toBeDefined()
     expect(renameButton).toBeDefined()
     expect(deleteButton).toBeDefined()
+    expect(row.style.cssText).toContain('flex-wrap:wrap')
 
     loadButton?.click()
     renameButton?.click()

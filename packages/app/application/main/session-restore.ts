@@ -6,6 +6,8 @@ import { type InventoryService } from '@ts-minecraft/inventory/application/inven
 import { type HealthService } from '@ts-minecraft/entity/application/health-service'
 import { type HungerService } from '@ts-minecraft/entity/application/hunger-service'
 import { type XPService } from '@ts-minecraft/entity/application/xp-service'
+import { type EntityManager } from '@ts-minecraft/entity/application/mob/entity-manager'
+import { EntityId } from '@ts-minecraft/entity/domain/mob/entity'
 import { type CropGrowthService } from '@ts-minecraft/world'
 import { type ChestService } from '@ts-minecraft/inventory/application/chest-service'
 import { type FurnaceService } from '@ts-minecraft/inventory/application/furnace-service'
@@ -25,9 +27,10 @@ export const restoreSavedState = (
     readonly furnaceService: FurnaceService
     readonly weatherService: WeatherService
     readonly cropGrowthService: CropGrowthService
+    readonly entityManager: EntityManager
   },
 ): Effect.Effect<void, never> => {
-  const { inventoryService, equipmentService, healthService, hungerService, xpService, chestService, furnaceService, weatherService, cropGrowthService } = services
+  const { inventoryService, equipmentService, healthService, hungerService, xpService, chestService, furnaceService, weatherService, cropGrowthService, entityManager } = services
   return Effect.gen(function* () {
     const savedPlayerState = Option.getOrNull(worldBootstrap.savedPlayerState)
     if (savedPlayerState !== null) {
@@ -55,5 +58,23 @@ export const restoreSavedState = (
     if (savedWeatherState !== null) {
       yield* weatherService.restore(savedWeatherState)
     }
+
+      const savedEntityStates = Option.getOrNull(worldBootstrap.savedEntityStates)
+      if (savedEntityStates !== null) {
+        for (const entity of savedEntityStates) {
+          yield* entityManager.applyEntitySnapshot({
+            entityId: EntityId.make(entity.entityId),
+            entityType: entity.type,
+            position: entity.position,
+            health: entity.health,
+            alive: entity.health > 0,
+            ...(entity.velocity !== undefined ? { velocity: entity.velocity } : {}),
+            ...(entity.rotation !== undefined ? { rotation: entity.rotation } : {}),
+            ...(entity.isBaby !== undefined ? { isBaby: entity.isBaby } : {}),
+            ...(entity.fuseSecs !== undefined ? { fuseSecs: entity.fuseSecs } : {}),
+            ...(entity.fireSecs !== undefined ? { fireSecs: entity.fireSecs } : {}),
+          })
+        }
+      }
   })
 }

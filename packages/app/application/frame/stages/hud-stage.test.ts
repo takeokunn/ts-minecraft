@@ -15,15 +15,35 @@ import {
 import { makeServices } from '../../../test/frame-handler-test-kit/services'
 import { runFrame } from '../../../test/frame-handler-test-kit/orchestration/harness'
 
-const stubDocumentBodyClassList = (initialClasses: ReadonlySet<string> = new Set()): void => {
+const stubDocumentBodyClassList = (initialClasses: Iterable<string> = []): Set<string> => {
   const classes = new Set(initialClasses)
   vi.stubGlobal('document', {
     body: {
       classList: {
+        add: (...names: string[]) => {
+          for (const name of names) {
+            classes.add(name)
+          }
+        },
+        remove: (...names: string[]) => {
+          for (const name of names) {
+            classes.delete(name)
+          }
+        },
         contains: (name: string) => classes.has(name),
+        toggle: (name: string, force?: boolean) => {
+          const shouldAdd = force ?? !classes.has(name)
+          if (shouldAdd) {
+            classes.add(name)
+          } else {
+            classes.delete(name)
+          }
+          return shouldAdd
+        },
       },
     },
   })
+  return classes
 }
 
 afterEach(() => {

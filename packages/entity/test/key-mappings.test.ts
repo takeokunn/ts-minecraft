@@ -39,12 +39,20 @@ describe('KeyMappings', () => {
       expect(KeyMappings.INVENTORY_OPEN).toBe('KeyE')
     })
 
+    it('INVENTORY_SORT maps to KeyR', () => {
+      expect(KeyMappings.INVENTORY_SORT).toBe('KeyR')
+    })
+
     it('ESCAPE maps to Escape', () => {
       expect(KeyMappings.ESCAPE).toBe('Escape')
     })
 
     it('CAMERA_TOGGLE maps to F5', () => {
       expect(KeyMappings.CAMERA_TOGGLE).toBe('F5')
+    })
+
+    it('PLAYER_LIST_TOGGLE maps to Tab', () => {
+      expect(KeyMappings.PLAYER_LIST_TOGGLE).toBe('Tab')
     })
   })
 
@@ -95,9 +103,9 @@ describe('KeyMappings', () => {
       })
     })
 
-    it('has exactly 27 key bindings', () => {
-      // 22 primary bindings + 4 arrow-key movement aliases (MOVE_*_ALT) + SPRINT_ALT.
-      expect(Object.keys(KeyMappings).length).toBe(27)
+    it('has exactly 29 key bindings', () => {
+      // 24 primary bindings + 4 arrow-key movement aliases (MOVE_*_ALT) + SPRINT_ALT.
+      expect(Object.keys(KeyMappings).length).toBe(29)
     })
   })
 

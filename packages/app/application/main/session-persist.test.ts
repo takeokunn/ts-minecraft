@@ -15,14 +15,20 @@ const makeWorldBootstrap = (overrides?: Partial<{
   createdAt: Date
   baseSpawnPosition: { x: number; y: number; z: number }
   savedPlayerState: ReturnType<typeof Option.none>
+  savedChestStates: ReturnType<typeof Option.none>
   savedFurnaceStates: ReturnType<typeof Option.none>
+  savedWeatherState: ReturnType<typeof Option.none>
+  savedEntityStates: ReturnType<typeof Option.none>
   gameMode: 'survival' | 'creative'
 }>) => ({
   seed: 12345,
   createdAt: new Date('2024-01-01'),
   baseSpawnPosition: { x: 0, y: 64, z: 0 },
   savedPlayerState: Option.none(),
+  savedChestStates: Option.none(),
   savedFurnaceStates: Option.none(),
+  savedWeatherState: Option.none(),
+  savedEntityStates: Option.none(),
   gameMode: 'survival' as const,
   ...overrides,
 })
@@ -83,11 +89,14 @@ const makeDeps = (overrides?: {
     serialize: vi.fn(() => Effect.succeed({} as Record<string, number>)),
     restore: vi.fn(() => Effect.void),
   }
+  const entityManager = {
+    getEntities: vi.fn(() => Effect.succeed([])),
+  }
   const worldBootstrap = makeWorldBootstrap()
   const worldId = WorldId.make('world-1')
 
   return {
-    spies: { gameState, inventoryService, healthService, hungerService, xpService, equipmentService, timeService, chestService, furnaceService, gameModeService, weatherService, storageService, cropGrowthService },
+    spies: { gameState, inventoryService, healthService, hungerService, xpService, equipmentService, timeService, chestService, furnaceService, gameModeService, weatherService, storageService, cropGrowthService, entityManager },
     deps: {
       gameState,
       inventoryService,
@@ -102,6 +111,7 @@ const makeDeps = (overrides?: {
       weatherService,
       storageService,
       cropGrowthService,
+      entityManager,
       worldBootstrap,
       worldId,
       respawnPositionRef: MutableRef.make({ x: 0, y: 64, z: 0 }),
@@ -239,5 +249,28 @@ describe('buildPersistSessionState', () => {
     expect(spies.cropGrowthService.serialize).toHaveBeenCalledOnce()
     const [, metadata] = spies.storageService.saveWorldMetadata.mock.calls[0] as [unknown, { playerState: { cropAges: Record<string, number> } }]
     expect(metadata.playerState?.cropAges).toEqual(cropAges)
+  })
+
+  it('includes entity snapshots from entityManager', async () => {
+    const { deps, spies } = makeDeps()
+    const entityStates = [
+      {
+        entityId: 'mob-1',
+        position: { x: 12, y: 65, z: 18 },
+        velocity: { x: 0, y: 0, z: 0 },
+        rotation: { x: 0, y: 0, z: 0, w: 1 },
+        health: 8,
+        type: 'Shulker' as const,
+        isBaby: true,
+      },
+    ]
+    spies.entityManager.getEntities.mockReturnValue(Effect.succeed(entityStates as never))
+    const persistFn = buildPersistSessionState(deps)
+
+    await Effect.runPromise(persistFn())
+
+    expect(spies.entityManager.getEntities).toHaveBeenCalledOnce()
+    const [, metadata] = spies.storageService.saveWorldMetadata.mock.calls[0] as [unknown, { entityStates: unknown }]
+    expect(metadata.entityStates).toEqual(entityStates)
   })
 })

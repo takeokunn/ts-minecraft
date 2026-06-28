@@ -13,6 +13,7 @@ describe('physics-stage-survival/hunger', () => {
       },
       hungerService: { tick },
       soundManager: { playEffect: vi.fn(() => Effect.void) },
+      damageOverlay: { flash: vi.fn(() => Effect.void) },
     }
 
     await Effect.runPromise(
@@ -29,6 +30,7 @@ describe('physics-stage-survival/hunger', () => {
   it('applies starvation damage when hunger tick reports starvation', async () => {
     const heal = vi.fn(() => Effect.void)
     const playEffect = vi.fn(() => Effect.void)
+    const flash = vi.fn(() => Effect.void)
     const tick = vi.fn(() => Effect.succeed('starve' as const))
     const applyDamage = vi.fn(() => Effect.succeed(true))
     const services = {
@@ -38,6 +40,7 @@ describe('physics-stage-survival/hunger', () => {
       },
       hungerService: { tick },
       soundManager: { playEffect },
+      damageOverlay: { flash },
     }
 
     await Effect.runPromise(
@@ -50,5 +53,6 @@ describe('physics-stage-survival/hunger', () => {
     expect(tick).toHaveBeenCalledOnce()
     expect(applyDamage).toHaveBeenCalled()
     expect(playEffect).toHaveBeenCalledWith('playerHurt', { position: { x: 1, y: 64, z: 1 } })
+    expect(flash).toHaveBeenCalledOnce()
   })
 })

@@ -13,15 +13,16 @@ import type { BootContext } from '@ts-minecraft/app'
 import type { GameMode } from '@ts-minecraft/game'
 
 const SESSION_FAILURE_MESSAGE = 'The game session stopped unexpectedly.'
+const SESSION_FAILURE_DETAIL = 'Returning to the title screen. Try loading the world again, or refresh the page if the problem continues.'
 const SESSION_FAILURE_DISPLAY_DELAY = '2 seconds'
 const STARTUP_FAILURE_MESSAGE = 'Startup failed.'
-const STARTUP_FAILURE_DETAIL = 'Refresh the page or check the browser console for details.'
+const STARTUP_FAILURE_DETAIL = 'Refresh the page. If startup still fails, check the browser console and try a supported desktop browser.'
 
 const presentSessionFailure = (
   loadingScreen: LoadingScreenService,
   cause: Cause.Cause<unknown>,
 ) =>
-  loadingScreen.showError(SESSION_FAILURE_MESSAGE).pipe(
+  loadingScreen.showError(SESSION_FAILURE_MESSAGE, SESSION_FAILURE_DETAIL).pipe(
     Effect.zipRight(Effect.logError(`Session error: ${Cause.pretty(cause)}`)),
     Effect.zipRight(Effect.sleep(SESSION_FAILURE_DISPLAY_DELAY)),
     Effect.asVoid,
@@ -45,10 +46,11 @@ const runSessionToTitle = (
   bootCtx: BootContext,
   worldId: WorldId,
   gameMode: GameMode,
+  startupMultiplayerConnection = Option.none<{ readonly serverUrl: string; readonly playerName: string }>(),
 ) =>
   Effect.gen(function* () {
     const scope = yield* Scope.make()
-    const exit = yield* sessionProgram(bootCtx, worldId, gameMode).pipe(
+    const exit = yield* sessionProgram(bootCtx, worldId, gameMode, startupMultiplayerConnection).pipe(
       Scope.extend(scope),
       Effect.exit,
     )
@@ -126,11 +128,24 @@ const mainMenuLoop = (bootCtx: BootContext) =>
       yield* loadingScreen.show()
       yield* Effect.sync(() => setGameplayHudHidden(false))
 
+      const startupMultiplayerConnection = choice.action === 'multiplayer'
+        ? Option.some({
+            serverUrl: choice.serverUrl,
+            playerName: choice.playerName,
+          })
+        : Option.none<{ readonly serverUrl: string; readonly playerName: string }>()
+
+      const worldId = choice.action === 'multiplayer'
+        ? WorldId.make(`multiplayer:${encodeURIComponent(choice.serverUrl)}`)
+        : choice.worldId
+
       const gameMode: GameMode = choice.action === 'newWorld'
         ? choice.gameMode
-        : yield* loadGameModeForWorld(choice.worldId)
+        : choice.action === 'multiplayer'
+          ? 'survival'
+          : yield* loadGameModeForWorld(choice.worldId)
 
-      yield* runSessionToTitle(bootCtx, choice.worldId, gameMode).pipe(
+      yield* runSessionToTitle(bootCtx, worldId, gameMode, startupMultiplayerConnection).pipe(
         Effect.catchAllCause((cause) => presentSessionFailure(loadingScreen, cause)),
         Effect.asVoid,
       )

@@ -7,10 +7,11 @@ import type {
   SessionRuntimeParams,
   SessionRuntimeState,
 } from '@ts-minecraft/app/main/session-runtime-types'
+import { createRemotePlayerRenderer } from '@ts-minecraft/rendering'
 
 export type SessionRuntimeParamsInput = {
   readonly bootCtx: Pick<BootContext, 'renderer'>
-  readonly rendering: Omit<SessionRenderingResources, 'renderer'>
+  readonly rendering: Omit<SessionRenderingResources, 'renderer' | 'remotePlayerRenderer'>
   readonly state: Pick<SessionRuntimeState, 'control' | 'respawnPositionRef' | 'persistSessionState'>
   readonly overlays: SessionRuntimeOverlays
   readonly runtimeState: SessionRuntimeBootstrapState
@@ -24,11 +25,12 @@ export const buildSessionRuntimeParams = ({
   runtimeState,
 }: SessionRuntimeParamsInput): SessionRuntimeParams => {
   const { pendingResizeRef, pendingSaveDirtyChunksRef, gamePausedRef, hudElements } = runtimeState
-  const { fpsElement, healthValueElement, healthMaxElement, hungerValueElement, hungerMaxElement, xpLevelElement, xpBarElement, xpBarMaxElement, armorValueElement, airElement, breakProgressElement } = hudElements
+  const { fpsElement, healthValueElement, healthMaxElement, hungerValueElement, hungerMaxElement, xpLevelElement, xpBarElement, xpBarMaxElement, armorValueElement, airElement, breakProgressElement, autoSaveStatusElement } = hudElements
 
   const renderingResources: SessionRenderingResources = {
     renderer: bootCtx.renderer,
     ...rendering,
+    remotePlayerRenderer: createRemotePlayerRenderer(rendering.scene, rendering.camera),
   }
   const hud: SessionHudElements = {
     fpsElement,
@@ -42,6 +44,7 @@ export const buildSessionRuntimeParams = ({
     armorValueElement,
     airElement,
     breakProgressElement,
+    autoSaveStatusElement,
   }
   const runtimeStateValue: SessionRuntimeState = {
     ...state,

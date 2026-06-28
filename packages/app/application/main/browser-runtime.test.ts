@@ -96,6 +96,7 @@ describe('browser-runtime', () => {
       pendingSaveDirtyChunksRef,
       chunkManagerService: chunkManagerService as never,
       persistSessionState: Effect.sync(() => { calls.push('persistSessionState') }),
+      reportAutoSaveStatus: (status) => Effect.sync(() => { calls.push(`status:${status}`) }),
       settingsService: settingsService as never,
       renderer: renderer as never,
       camera: camera as never,
@@ -112,7 +113,9 @@ describe('browser-runtime', () => {
 
     await Effect.runPromise(wrapped(0.016 as never))
 
-    expect(calls[0]).toBe('saveDirtyChunks')
+    expect(calls[0]).toBe('status:saving')
+    expect(calls).toContain('status:saved')
+    expect(calls).toContain('saveDirtyChunks')
     expect(calls).toContain('persistSessionState')
     expect(calls).toContain('renderer.setPixelRatio')
     expect(calls).toContain('resizeRefractionCamera')

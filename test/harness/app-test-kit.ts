@@ -6,6 +6,7 @@ import {
   type DebugFeatureFlagId,
 } from '@ts-minecraft/app/application/debug-feature-flags'
 import type { OverlayState } from './shared-test-kit'
+import { makePlayerListPanel } from '../../packages/app/test/frame-handler-test-kit/presentation/overlay'
 
 /** Creates an inventory renderer fake backed by mutable overlay state. */
 export const makeInventoryRenderer = (state: OverlayState) => ({
@@ -51,6 +52,8 @@ export const makeTradingPresentation = (state: OverlayState) => ({
   refresh: () => Effect.void,
   executeSelectedTrade: () => Effect.succeed(false),
 }) as unknown as InstanceType<typeof import('@ts-minecraft/presentation').TradingPresentationService>
+
+export { makePlayerListPanel }
 
 type InputServiceInstance = InstanceType<typeof import('@ts-minecraft/presentation').InputService>
 

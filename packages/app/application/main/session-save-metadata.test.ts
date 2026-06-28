@@ -52,6 +52,16 @@ describe('buildSessionSaveMetadata', () => {
         },
       ],
       weatherState: { weather: 'rain', remainingSecs: 600 },
+      entityStates: [
+        {
+          entityId: 'mob-1',
+          position: { x: 12, y: 65, z: 18 },
+          velocity: { x: 0, y: 0, z: 0 },
+          rotation: { x: 0, y: 0, z: 0, w: 1 },
+          health: 8,
+          type: 'Shulker',
+        },
+      ],
       gameMode: 'creative',
     })
 
@@ -98,6 +108,16 @@ describe('buildSessionSaveMetadata', () => {
         },
       ],
       weatherState: { weather: 'rain', remainingSecs: 600 },
+      entityStates: [
+        {
+          entityId: 'mob-1',
+          position: { x: 12, y: 65, z: 18 },
+          velocity: { x: 0, y: 0, z: 0 },
+          rotation: { x: 0, y: 0, z: 0, w: 1 },
+          health: 8,
+          type: 'Shulker',
+        },
+      ],
       gameMode: 'creative',
       saveVersion: CURRENT_WORLD_SAVE_VERSION,
     })

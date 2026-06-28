@@ -1,5 +1,5 @@
 import { describe, it } from '@effect/vitest'
-import { expect } from 'vitest'
+import { expect, vi } from 'vitest'
 import { Effect } from 'effect'
 import { WeatherService } from '@ts-minecraft/game'
 
@@ -54,16 +54,45 @@ describe('WeatherService', () => {
       yield* svc.restore({ weather: 'rain', remainingSecs: 1 })
       expect(yield* svc.getWeather()).toBe('rain')
       expect(yield* svc.tick(0.5)).toBe('rain')
-      expect(yield* svc.tick(0.6)).toBe('thunder')
+      yield* Effect.acquireUseRelease(
+        Effect.sync(() => vi.spyOn(Math, 'random').mockReturnValue(0.29)),
+        () =>
+          Effect.gen(function* () {
+            expect(yield* svc.tick(0.6)).toBe('thunder')
+          }),
+        (randomSpy) => Effect.sync(() => randomSpy.mockRestore()),
+      )
     }).pipe(Effect.provide(WeatherService.Default))
   )
 
   it.effect('transitions: clear → rain → thunder → clear', () =>
     Effect.gen(function* () {
       const svc = yield* WeatherService
-      expect(yield* svc.tick(601)).toBe('rain')    // past clear (600s)
-      expect(yield* svc.tick(241)).toBe('thunder') // past rain (240s)
-      expect(yield* svc.tick(121)).toBe('clear')   // past thunder (120s)
+      yield* Effect.acquireUseRelease(
+        Effect.sync(() => vi.spyOn(Math, 'random').mockReturnValue(0.29)),
+        () =>
+          Effect.gen(function* () {
+            expect(yield* svc.tick(601)).toBe('rain')    // past clear (600s)
+            expect(yield* svc.tick(241)).toBe('thunder') // past rain (240s)
+            expect(yield* svc.tick(121)).toBe('clear')   // past thunder (120s)
+          }),
+        (randomSpy) => Effect.sync(() => randomSpy.mockRestore()),
+      )
+    }).pipe(Effect.provide(WeatherService.Default))
+  )
+
+  it.effect('returns to clear after rain when the thunder roll misses', () =>
+    Effect.gen(function* () {
+      const svc = yield* WeatherService
+      yield* svc.restore({ weather: 'rain', remainingSecs: 1 })
+      yield* Effect.acquireUseRelease(
+        Effect.sync(() => vi.spyOn(Math, 'random').mockReturnValue(0.3)),
+        () =>
+          Effect.gen(function* () {
+            expect(yield* svc.tick(1.1)).toBe('clear')
+          }),
+        (randomSpy) => Effect.sync(() => randomSpy.mockRestore()),
+      )
     }).pipe(Effect.provide(WeatherService.Default))
   )
 })

@@ -7,6 +7,7 @@ import { EntityId, type Entity } from '@ts-minecraft/entity/domain/mob/entity'
 import type { FurnaceBlockState } from '@ts-minecraft/inventory/domain/furnace-state'
 import { createStack } from '@ts-minecraft/inventory/domain/item-stack'
 import { installQaApi } from '@ts-minecraft/app/main/qa-api'
+import type { RemotePlayerSnapshot } from '@ts-minecraft/app/application/multiplayer/multiplayer-service'
 import {
   DEBUG_FEATURE_FLAG_CATALOG,
   DEBUG_FEATURE_FLAG_DEFAULTS,
@@ -133,6 +134,16 @@ const makeDeps = () => {
       debugFlagsState.current = { ...DEBUG_FEATURE_FLAG_DEFAULTS }
     })
   )
+  const remotePlayers = new Map<string, RemotePlayerSnapshot>([
+    [
+      'player-1',
+      { playerId: 'player-1', playerName: 'Alex-1', x: 1, y: 64, z: 2, yaw: 10, pitch: 20 },
+    ],
+    [
+      'player-2',
+      { playerId: 'player-2', playerName: 'Alex-2', x: -3, y: 65, z: 4, yaw: 30, pitch: 40 },
+    ],
+  ])
 
   return {
     spies: {
@@ -167,6 +178,7 @@ const makeDeps = () => {
       setDebugFeatureEnabled,
       resetDebugFeatureGroup,
       resetDebugFeatures,
+      getRemotePlayers: vi.fn(() => Effect.succeed(remotePlayers)),
       recipeOverride,
       nearestFurnaceStateOverride,
       selectedBlockType,
@@ -216,6 +228,8 @@ const makeDeps = () => {
         damageSlot: (_index: SlotIndex, _amount?: number) => Effect.void,
         getAllSlots,
         moveStack,
+        quickMove: (_from: SlotIndex) => Effect.void,
+        sortInventory: () => Effect.void,
         addBlock: (_itemType: InventoryItem, _count: number) => Effect.void,
         removeBlock: (_itemType: InventoryItem, _count: number, _preferredSlot?: SlotIndex) => Effect.void,
         getHotbarSlots: () => Effect.succeed([]),
@@ -228,6 +242,7 @@ const makeDeps = () => {
         toggle: toggleInventory,
         isOpen: () => Effect.succeed(false),
         update: () => Effect.void,
+        sortInventory: () => Effect.void,
         cycleRecipes: (_delta: number) => Effect.void,
         craftSelectedRecipe: () => Effect.succeed(false),
         _tag: '@minecraft/presentation/InventoryRenderer',
@@ -334,6 +349,23 @@ const makeDeps = () => {
         despawnAllEntities: () => Effect.succeed(0),
         _tag: '@minecraft/entity/EntityManager',
       },
+      multiplayer: {
+        connect: (_serverUrl: string, _playerName: string) => Effect.void,
+        disconnect: Effect.void,
+        getConnectionState: () => Effect.succeed('connected' as const),
+        getSessionState: () => Effect.succeed('ready' as const),
+        getRemotePlayers: () => Effect.succeed(remotePlayers),
+        getChatMessages: () => Effect.succeed([]),
+        sendChat: (_text: string) => Effect.void,
+        sendPositionUpdate: (_pos: unknown, _rot: unknown) => Effect.void,
+        sendBlockPlace: (_pos: unknown, _blockType: string) => Effect.void,
+        sendBlockBreak: (_pos: unknown) => Effect.void,
+        sendEntitySnapshot: (_snapshot: unknown) => Effect.void,
+        drainBlockEdits: Effect.succeed([]),
+        drainEntitySnapshots: Effect.succeed([]),
+        drainInbound: Effect.void,
+        _tag: '@minecraft/application/MultiplayerService',
+      } as NonNullable<QaInstallDeps['multiplayer']>,
       debugFeatureFlags: {
         catalog: DEBUG_FEATURE_FLAG_CATALOG,
         getSnapshot: getDebugFeatureSnapshot,
@@ -372,9 +404,21 @@ describe('installQaApi', () => {
     const qa = getQaApi()
     expect(typeof qa.consumeMouseClickForQA).toBe('function')
     expect(typeof qa.getEntitySnapshot).toBe('function')
+    expect(typeof qa.getRemotePlayersForQA).toBe('function')
     expect(typeof qa.getRenderingSnapshot).toBe('function')
     expect(typeof qa.getDebugFeatureSnapshot).toBe('function')
     expect(qa.getRecipeButtons()).toEqual(['craft-planks', 'craft-sticks'])
+  })
+
+  it('returns remote multiplayer players for QA inspection', async () => {
+    installWindow()
+    const { deps } = makeDeps()
+    await Effect.runPromise(installQaApi(deps))
+
+    await expect(getQaApi().getRemotePlayersForQA()).resolves.toEqual([
+      { playerId: 'player-1', playerName: 'Alex-1', x: 1, y: 64, z: 2, yaw: 10, pitch: 20 },
+      { playerId: 'player-2', playerName: 'Alex-2', x: -3, y: 65, z: 4, yaw: 30, pitch: 40 },
+    ])
   })
 
   it('exposes debug feature flag snapshot and mutation helpers', async () => {

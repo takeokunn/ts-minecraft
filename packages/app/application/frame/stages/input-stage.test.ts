@@ -1,6 +1,7 @@
 import { describe, it } from '@effect/vitest'
 import { afterEach, expect, vi } from 'vitest'
 import { Effect, MutableHashSet, Option, Ref } from 'effect'
+import * as THREE from 'three'
 import { createFrameHandlers } from '@ts-minecraft/app/frame-handler'
 import { SlotIndex } from '@ts-minecraft/core'
 import type { DeltaTimeSecs } from '@ts-minecraft/core'
@@ -8,6 +9,13 @@ import { KeyMappings } from '@ts-minecraft/entity/domain/key-mappings'
 import { HOTBAR_START } from '@ts-minecraft/inventory/application/inventory-service'
 import { GAMEPLAY_HUD_HIDDEN_CLASS } from '@ts-minecraft/presentation'
 import { OPEN_MENU_KEY } from '@ts-minecraft/app/frame-handler.config'
+import {
+  DROPPED_ITEM_THROW_FORWARD_OFFSET,
+  DROPPED_ITEM_THROW_FORWARD_VELOCITY,
+  DROPPED_ITEM_THROW_UPWARD_VELOCITY,
+  DROPPED_ITEM_THROW_VERTICAL_OFFSET,
+  handleInventorySortKey,
+} from './input-stage-inventory'
 import { DEFAULT_SETTINGS } from '../../../test/frame-handler-test-kit/shared'
 import {
   arrangeFrameHarness,
@@ -193,13 +201,24 @@ describe('Q item drop handling', () => {
   it.effect('removes one item from the selected hotbar slot and spawns a dropped item when Q is pressed during gameplay', () => Effect.gen(function* () {
     const pressedKeys = MutableHashSet.make(KeyMappings.DROP_ITEM)
     const { deps, services } = yield* arrangeFrameHarness({ pressedKeys })
+    const droppedPosition = {
+      x: DROPPED_ITEM_THROW_FORWARD_OFFSET,
+      y: 64 + DROPPED_ITEM_THROW_VERTICAL_OFFSET,
+      z: 0,
+    }
+    const droppedVelocity = {
+      x: DROPPED_ITEM_THROW_FORWARD_VELOCITY,
+      y: DROPPED_ITEM_THROW_UPWARD_VELOCITY,
+      z: 0,
+    }
+    deps.camera.getWorldDirection = vi.fn((target: THREE.Vector3) => target.set(1, 0, 0))
     const removeBlockSpy = vi.fn(() => Effect.void)
     const spawnSpy = vi.fn(() => Effect.succeed({
       id: 'drop-1',
       itemType: 'DIRT',
       count: 1,
-      position: { x: 0, y: 64, z: 0 },
-      velocity: { x: 0, y: 0, z: 0 },
+      position: droppedPosition,
+      velocity: droppedVelocity,
       ageTicks: 0,
       pickupDelayTicks: 10,
     }))
@@ -225,7 +244,8 @@ describe('Q item drop handling', () => {
     expect(spawnSpy).toHaveBeenCalledWith({
       itemType: 'DIRT',
       count: 1,
-      position: { x: 0, y: 64, z: 0 },
+      position: droppedPosition,
+      velocity: droppedVelocity,
       pickupDelayTicks: 10,
     })
   }))
@@ -267,6 +287,29 @@ describe('Q item drop handling', () => {
   }))
 })
 
+describe('player list key (Tab) handling', () => {
+  it.effect('opens the player list and pauses the game when Tab is pressed while it is closed', () => Effect.gen(function* () {
+    const pressedKeys = MutableHashSet.make(KeyMappings.PLAYER_LIST_TOGGLE)
+    const { deps, services } = yield* arrangeFrameHarness({ pressedKeys })
+
+    yield* runFrame(deps, services)
+
+    expect(yield* services.playerListPanel.isOpen()).toBe(true)
+    expect(yield* Ref.get(deps.gamePausedRef)).toBe(true)
+  }))
+
+  it.effect('closes the player list and resumes the game when Tab is pressed while it is open', () => Effect.gen(function* () {
+    const pressedKeys = MutableHashSet.make(KeyMappings.PLAYER_LIST_TOGGLE)
+    const { deps, services } = yield* arrangeFrameHarness({ paused: true, pressedKeys })
+    yield* services.playerListPanel.show
+
+    yield* runFrame(deps, services)
+
+    expect(yield* services.playerListPanel.isOpen()).toBe(false)
+    expect(yield* Ref.get(deps.gamePausedRef)).toBe(false)
+  }))
+})
+
 // ---------------------------------------------------------------------------
 // KeyE (inventory) key: overlay toggle logic
 // ---------------------------------------------------------------------------
@@ -297,6 +340,26 @@ describe('inventory key (KeyE) handling', () => {
     expect(paused).toBe(true)
   }))
 
+  it.effect('closes the player list before opening inventory when KeyE is pressed', () => Effect.gen(function* () {
+    const invState = { open: false }
+    const setState = { open: false }
+    const pressedKeys = MutableHashSet.make(KeyMappings.INVENTORY_OPEN)
+
+    const { deps, services } = yield* arrangeFrameHarness({ paused: true, pressedKeys })
+    const inventoryRenderer = makeInventoryRenderer(invState)
+    yield* services.playerListPanel.show
+    Object.assign(services, {
+      inventoryRenderer,
+      settingsOverlay: makeSettingsOverlay(setState),
+    })
+
+    yield* runFrame(deps, services)
+
+    expect(yield* services.playerListPanel.isOpen()).toBe(false)
+    expect(invState.open).toBe(true)
+    expect(yield* Ref.get(deps.gamePausedRef)).toBe(true)
+  }))
+
   it.effect('closes inventory and sets gamePausedRef to false when KeyE is pressed while inventory is open', () => Effect.gen(function* () {
     const invState = { open: true }
     const setState = { open: false }
@@ -320,6 +383,31 @@ describe('inventory key (KeyE) handling', () => {
     // gamePausedRef must be false
     const paused = yield* Ref.get(deps.gamePausedRef)
     expect(paused).toBe(false)
+  }))
+
+  it.effect('keeps inventory paused when KeyE close is blocked', () => Effect.gen(function* () {
+    const invState = { open: true }
+    const setState = { open: false }
+    const pressedKeys = MutableHashSet.make(KeyMappings.INVENTORY_OPEN)
+
+    const deps = yield* makeDeps(true)
+    const inventoryRenderer = makeInventoryRenderer(invState)
+    const toggleSpy = vi.fn(() => Effect.succeed(true))
+    Object.assign(inventoryRenderer, { toggle: toggleSpy })
+    const services = makeServices({
+      inputService: makeInputService(pressedKeys),
+      inventoryRenderer,
+      settingsOverlay: makeSettingsOverlay(setState),
+    })
+    const playEffectSpy = vi.fn(() => Effect.void)
+    Object.assign(services.soundManager, { playEffect: playEffectSpy })
+
+    yield* runFrame(deps, services)
+
+    expect(toggleSpy).toHaveBeenCalledOnce()
+    expect(playEffectSpy).not.toHaveBeenCalledWith('inventoryClose')
+    const paused = yield* Ref.get(deps.gamePausedRef)
+    expect(paused).toBe(true)
   }))
 
   it.effect('closes settings and opens inventory when KeyE is pressed while settings is open', () => Effect.gen(function* () {
@@ -375,6 +463,38 @@ describe('inventory key (KeyE) handling', () => {
   }))
 })
 
+describe('inventory sort key (KeyR) handling', () => {
+  it.effect('routes KeyR to inventory sorting when inventory is open', () => Effect.gen(function* () {
+    const pressedKeys = MutableHashSet.make(KeyMappings.INVENTORY_SORT)
+    const inventoryRenderer = makeInventoryRenderer({ open: true })
+    const sortSpy = vi.fn(() => Effect.void)
+    Object.assign(inventoryRenderer, { sortInventory: sortSpy })
+
+    yield* handleInventorySortKey({
+      inputService: makeInputService(pressedKeys),
+      inventoryRenderer,
+    } as Parameters<typeof handleInventorySortKey>[0])
+
+    expect(sortSpy).toHaveBeenCalledOnce()
+    expect(MutableHashSet.has(pressedKeys, KeyMappings.INVENTORY_SORT)).toBe(false)
+  }))
+
+  it.effect('leaves KeyR available when inventory is closed', () => Effect.gen(function* () {
+    const pressedKeys = MutableHashSet.make(KeyMappings.INVENTORY_SORT)
+    const inventoryRenderer = makeInventoryRenderer({ open: false })
+    const sortSpy = vi.fn(() => Effect.void)
+    Object.assign(inventoryRenderer, { sortInventory: sortSpy })
+
+    yield* handleInventorySortKey({
+      inputService: makeInputService(pressedKeys),
+      inventoryRenderer,
+    } as Parameters<typeof handleInventorySortKey>[0])
+
+    expect(sortSpy).not.toHaveBeenCalled()
+    expect(MutableHashSet.has(pressedKeys, KeyMappings.INVENTORY_SORT)).toBe(true)
+  }))
+})
+
 describe('inventory crafting runtime wiring', () => {
   it.effect('routes inventory overlay navigation keys to crafting controls when inventory is open', () => Effect.gen(function* () {
     const deps = yield* makeDeps(true)
@@ -425,6 +545,46 @@ describe('Escape key: trade overlay branch', () => {
     expect(tradingState.open).toBe(false)
     const paused = yield* Ref.get(deps.gamePausedRef)
     expect(paused).toBe(false)
+  }))
+})
+
+describe('Escape key: inventory overlay branch', () => {
+  it.effect('closes the player list and clears pause when Escape is pressed while the player list is open', () => Effect.gen(function* () {
+    const pressedKeys = MutableHashSet.make(KeyMappings.ESCAPE)
+    const { deps, services } = yield* arrangeFrameHarness({ paused: true, pressedKeys })
+    yield* services.playerListPanel.show
+
+    yield* runFrame(deps, services)
+
+    expect(yield* services.playerListPanel.isOpen()).toBe(false)
+    expect(yield* Ref.get(deps.gamePausedRef)).toBe(false)
+  }))
+
+  it.effect('keeps inventory paused when Escape close is blocked', () => Effect.gen(function* () {
+    const invState = { open: true }
+    const setState = { open: false }
+    const tradingState = { open: false }
+    const pressedKeys = MutableHashSet.make(KeyMappings.ESCAPE)
+
+    const deps = yield* makeDeps(true)
+    const inventoryRenderer = makeInventoryRenderer(invState)
+    const toggleSpy = vi.fn(() => Effect.succeed(true))
+    Object.assign(inventoryRenderer, { toggle: toggleSpy })
+    const services = makeServices({
+      inputService: makeInputService(pressedKeys),
+      inventoryRenderer,
+      settingsOverlay: makeSettingsOverlay(setState),
+      tradingPresentation: makeTradingPresentation(tradingState),
+    })
+    const playEffectSpy = vi.fn(() => Effect.void)
+    Object.assign(services.soundManager, { playEffect: playEffectSpy })
+
+    yield* runFrame(deps, services)
+
+    expect(toggleSpy).toHaveBeenCalledOnce()
+    expect(playEffectSpy).not.toHaveBeenCalledWith('inventoryClose')
+    const paused = yield* Ref.get(deps.gamePausedRef)
+    expect(paused).toBe(true)
   }))
 })
 
