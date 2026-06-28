@@ -17,8 +17,12 @@ describe('domain/fishing', () => {
       for (let seed = 0; seed < 100; seed++) {
         const wait = resolveFishingWaitSecs(seed)
         expect(wait).toBeGreaterThanOrEqual(FISHING_MIN_WAIT_SECS)
-        expect(wait).toBeLessThan(FISHING_MAX_WAIT_SECS)
+        expect(wait).toBeLessThanOrEqual(FISHING_MAX_WAIT_SECS)
       }
+    })
+
+    it('can return the configured maximum wait time', () => {
+      expect(resolveFishingWaitSecs(FISHING_MAX_WAIT_SECS - FISHING_MIN_WAIT_SECS)).toBe(FISHING_MAX_WAIT_SECS)
     })
 
     it('is deterministic — same seed → same result', () => {
@@ -149,8 +153,7 @@ effectDescribe('application/fishing-service', () => {
     Effect.gen(function* () {
       const svc = yield* FishingService
       yield* svc.cast(42)
-      // Advance 40 seconds — always past the maximum wait
-      const result = yield* svc.tick(40)
+      const result = yield* svc.tick(FISHING_MAX_WAIT_SECS + 1)
       const catchResult = expectSome(result)
       expect(typeof catchResult.item).toBe('string')
       expect(catchResult.experience).toBeGreaterThanOrEqual(1)

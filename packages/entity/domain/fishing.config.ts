@@ -35,6 +35,6 @@ export const JUNK_ENTRIES = [
   { item: 'COAL', weight: 10 },
 ] as const satisfies WeightedLootTable
 
-// Min and max wait time in seconds before a bite (vanilla: 5-30 s without lure).
+// Min and max wait time in seconds before a bite.
 export const FISHING_MIN_WAIT_SECS = 5
-export const FISHING_MAX_WAIT_SECS = 30
+export const FISHING_MAX_WAIT_SECS = 45

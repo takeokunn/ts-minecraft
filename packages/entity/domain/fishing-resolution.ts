@@ -77,7 +77,7 @@ export const resolveFishingCatchResult = (seed: number, luckLevel = 0): FishingC
 })
 
 export const resolveFishingWaitSecs = (seed: number, lureLevel = 0): number => {
-  const range = FISHING_MAX_WAIT_SECS - FISHING_MIN_WAIT_SECS
-  const base = FISHING_MIN_WAIT_SECS + (seed % range)
+  const range = FISHING_MAX_WAIT_SECS - FISHING_MIN_WAIT_SECS + 1
+  const base = FISHING_MIN_WAIT_SECS + normalizeWeightedRoll(seed, range)
   return Math.max(1, base - 5 * lureLevel)
 }

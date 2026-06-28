@@ -1583,7 +1583,7 @@ effBonus = correctTool && efficiencyLevel !== undefined ? efficiencyLevel² + 1 
 ## §K. 釣り (Fishing)
 
 参照ファイル:
-- `packages/entity/domain/fishing.ts` — 釣りドメイン
+- `packages/entity/domain/fishing-resolution.ts` — 釣りドメイン
 - `packages/entity/domain/fishing.config.ts` — ロットテーブル・待機定数
 - `packages/entity/application/fishing-service.ts` — FishingService (cast/tick/cancel/isFishing)
 - `packages/app/application/frame/stages/interaction-stage.ts` — cast/cancel ハンドラ
@@ -1596,7 +1596,7 @@ effBonus = correctTool && efficiencyLevel !== undefined ? efficiencyLevel² + 1 
 | fish | 60% | RAW_COD(60), RAW_SALMON(25), TROPICAL_FISH(10), PUFFERFISH(5) |
 | treasure | 5% | BOW(20), FISHING_ROD(15), EMERALD(15), DIAMOND(10), GOLD_INGOT(20), IRON_INGOT(20) |
 | junk | 35% | BONE(30), STRING(25), STICKS(20), LEATHER(15), COAL(10) |
-| 待機時間 | 5〜30 s | `FISHING_MIN_WAIT_SECS=5`, `FISHING_MAX_WAIT_SECS=30` |
+| 待機時間 | 5〜45 s | `FISHING_MIN_WAIT_SECS=5`, `FISHING_MAX_WAIT_SECS=45` |
 
 参照: `packages/entity/domain/fishing.config.ts`
 
@@ -2094,7 +2094,7 @@ XP スケール: 最大レベル = `floor(xpLevel / 5)`、上限はエンチャ�
 | 27 | DESPAWN_DISTANCE | 64（公式 128）| `packages/entity/domain/spawner-config.ts:4` |
 | 28 | 天候サイクル | 固定順序 clear→rain→thunder（公式はランダム長）| `packages/game/application/weather-service.ts` |
 | 29 | SHEARS 耐久値 | **実装済み** — 最大耐久 238。羊の毛刈り成功時に選択スロットの SHEARS を 1 消耗し、0 到達で破損 | `packages/inventory/domain/durability.ts`, `packages/app/application/frame/stages/interaction-item-use-handler.ts` |
-| 30 | 釣り待ち時間 | 5-30 秒（公式は 5-45 秒）| `packages/entity/domain/fishing.config.ts` |
+| 30 | 釣り待ち時間 | **実装済み** — 5-45 秒。`FISHING_MIN_WAIT_SECS=5` / `FISHING_MAX_WAIT_SECS=45` で上限込みの待機時間を返す | `packages/entity/domain/fishing.config.ts`, `packages/entity/domain/fishing-resolution.ts` |
 | 31 | 弓のヒットスキャン | 矢エンティティなし・ヒットスキャン 50 ブロック（公式は弾道矢）| `packages/entity/domain/bow.ts:8` |
 | 32 | 繁殖 XP | 固定 4（公式は 1-7 ランダム）| `packages/entity/domain/mob/breeding.ts:11` |
 | 33 | IRON_ORE/GOLD_ORE XP | 0（公式は IRON_ORE=0, GOLD_ORE=0 — 一致）| `packages/block/domain/blocks.config.ores.ts` |
@@ -2115,7 +2115,7 @@ XP スケール: 最大レベル = `floor(xpLevel / 5)`、上限はエンチャ�
 | 48 | チャット UI 実装済み | `chat-panel.ts` が DOM 上の入力欄・送信ボタン・メッセージ一覧を持ち、`session-runtime-overlays.ts` でマルチプレイ中に組み込まれる。`getChatMessages()` / `sendChat()` と `handleChat()` まで送受信経路が接続済み | `packages/presentation/multiplayer/chat-panel.ts`, `packages/app/application/main/session-runtime-overlays.ts`, `packages/app/application/multiplayer/multiplayer-service.ts`, `packages/network/application/server-handlers.ts` |
 | 49 | リモートプレイヤー描画 | ボックスジオメトリ＋カラー（0x2f66d0 / 0xd8b08a）の簡易表現。公式スキンなし | `packages/rendering/infrastructure/player/remote-player-renderer.ts` |
 | 50 | マルチプレイ接続 UI | **実装済み** — 右上の接続パネルで WebSocket URL とプレイヤー名を入力し、接続・切断できる。チャット入力 UI も §12 #193 で実装済み | `packages/presentation/multiplayer/connection-panel.ts`, `packages/app/application/main/session-runtime-overlays.ts` |
-| 51 | 釣り待機時間上限 | FISHING_MAX_WAIT_SECS=30（公式は 45 秒。`§12 #30` 参照）| `packages/entity/domain/fishing.config.ts` |
+| 51 | 釣り待機時間上限 | **実装済み** — `FISHING_MAX_WAIT_SECS=45`。`resolveFishingWaitSecs()` は 5-45 秒の上限込み範囲を返す | `packages/entity/domain/fishing.config.ts`, `packages/entity/domain/fishing-resolution.ts` |
 | 52 | 雨天 Zombie 日光保護 | **実装済み** — `WeatherService.getWeather()` を frame stage で `daylightBurnProtected` に変換し、雨/雷天候中の Zombie 日光ダメージを抑制 | `packages/app/application/frame/frame-stage-executor-helpers.ts`, `packages/entity/application/mob/entity-manager-internal-update.ts`, `packages/entity/test/mob/entity-manager-update.test.ts` |
 | 53 | COBWEB ブロック実装済み | **実装済み** — COBWEB を BlockType / codec index 77 / 初期ブロック / 非固体衝突 / 窒息除外 / スポーン面除外 / STRING ドロップ / 仮タイル描画 / 移動速度低下に接続。専用クモの巣アトラステクスチャと自然生成は未実装 | `packages/core/domain/block-type.ts`, `packages/game/application/game-state-service.ts`, `packages/world/application/block-service.config.ts` |
 | 54 | SAPLING ブロック実装済み | **実装済み** — SAPLING を BlockType / codec index 78 / 初期ブロック / 非固体衝突 / 窒息除外 / スポーン面除外 / 支え判定 / 水破壊 / 葉ドロップ / 骨粉での木生成に接続。専用苗木テクスチャと自然成長 tick は未実装 | `packages/core/domain/block-type.ts`, `packages/app/application/frame/stages/interaction-farming-handler.ts` |
