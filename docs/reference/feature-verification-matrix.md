@@ -950,7 +950,7 @@ COAL、CHARCOAL、STICKS、WOODEN_SWORD、WOODEN_PICKAXE、WOODEN_AXE、WOODEN_H
 - `distanceToPlayer <= detectionRange` で Chase 開始することを `state-machine.ts:43` で確認する
 - `distanceToPlayer <= attackRange` で Attack 発動することを `state-machine.ts:38` で確認する
 - Knockback 受信中は AI の速度上書きが抑制されることを確認する
-- DESPAWN_DISTANCE=64 ブロック超でデスポーンする処理が実装されているか確認する（`spawner-config.ts:4` — 公式の 128 と異なる）
+- DESPAWN_DISTANCE=128 ブロック超でデスポーンする処理が実装されているか確認する（`spawner-config.ts:4`）
 - Mob スポーン条件（明るさ≤7、上方2マス空間）を `entity-manager.ts` で確認する
 
 ---
@@ -1352,14 +1352,14 @@ effBonus = correctTool && efficiencyLevel !== undefined ? efficiencyLevel² + 1 
 |---|---|---|
 | MIN_SPAWN_DISTANCE | 16 ブロック | `spawner-config.ts:2` |
 | MAX_SPAWN_DISTANCE | 40 ブロック | `spawner-config.ts:3` |
-| DESPAWN_DISTANCE | **64 ブロック** | `spawner-config.ts:4` |
+| DESPAWN_DISTANCE | **128 ブロック** | `spawner-config.ts:4` |
 | MAX_ENTITY_COUNT | 24 体 | `spawner-config.ts:11` |
 | SPAWN_INTERVAL_SECS | 0.3 s | `spawner-config.ts:18` |
 
-> **注意**: §6-7 で「128 ブロック超でデスポーン」と記述したが、実際の DESPAWN_DISTANCE=64。要確認。
+> **注意**: DESPAWN_DISTANCE は公式に合わせて 128 ブロック。
 
 検証項目:
-- DESPAWN_DISTANCE=64 を `spawner-config.ts:4` で確認する（§6-7 の「128」は誤記 — 要修正）
+- DESPAWN_DISTANCE=128 を `spawner-config.ts:4` で確認する
 - MIN_SPAWN_DISTANCE=16（プレイヤー付近にはスポーンしない）を確認する
 - MAX_SPAWN_DISTANCE=40 でスポーンが打ち切られることを確認する
 - MAX_ENTITY_COUNT=24 でスポーンが停止することを確認する
@@ -2091,7 +2091,7 @@ XP スケール: 最大レベル = `floor(xpLevel / 5)`、上限はエンチャ�
 | 24 | クリエイティブ即時採掘 | **実装済み** — クリエイティブ中の左クリックは即時破壊し、`breakBlock(..., { requireHarvest: false, dropItems: false })` で収穫可否・ドロップをバイパス。XP・追加ドロップ・耐久消費もスキップ | `packages/app/application/frame/stages/interaction-stage.ts`, `packages/app/application/frame/stages/interaction-break-handler.ts`, `packages/world/application/block-service.ts` |
 | 25 | クリエイティブ落下ダメージ無効 | **実装済み** — `processFallDamage` による落下状態更新は継続しつつ、Creative では適用ダメージを 0 にして `healthService.applyDamage` と hurt 音を発火させない | `packages/app/application/frame/stages/physics-stage-health.ts`, `packages/app/application/frame/stages/physics-stage.test.ts` |
 | 26 | エンチャント UI | 公式は 3 択ランダム＋ラピスラズリ消費。本実装は即時決定論的エンチャント（XP のみ）| `interaction-placement-handler.ts:239` |
-| 27 | DESPAWN_DISTANCE | 64（公式 128）| `packages/entity/domain/spawner-config.ts:4` |
+| 27 | DESPAWN_DISTANCE | **実装済み** — 128 ブロック | `packages/entity/domain/mob/spawner-config.ts:4` |
 | 28 | 天候サイクル | 固定順序 clear→rain→thunder（公式はランダム長）| `packages/game/application/weather-service.ts` |
 | 29 | SHEARS 耐久値 | **実装済み** — 最大耐久 238。羊の毛刈り成功時に選択スロットの SHEARS を 1 消耗し、0 到達で破損 | `packages/inventory/domain/durability.ts`, `packages/app/application/frame/stages/interaction-item-use-handler.ts` |
 | 30 | 釣り待ち時間 | **実装済み** — 5-45 秒。`FISHING_MIN_WAIT_SECS=5` / `FISHING_MAX_WAIT_SECS=45` で上限込みの待機時間を返す | `packages/entity/domain/fishing.config.ts`, `packages/entity/domain/fishing-resolution.ts` |

@@ -27,6 +27,10 @@ describe('spawner-config — constants', () => {
     expect(DESPAWN_DISTANCE).toBeGreaterThan(MAX_SPAWN_DISTANCE)
   })
 
+  it('DESPAWN_DISTANCE matches the vanilla despawn radius', () => {
+    expect(DESPAWN_DISTANCE).toBe(128)
+  })
+
   it('MAX_ENTITY_COUNT is 24', () => {
     expect(MAX_ENTITY_COUNT).toBe(24)
   })

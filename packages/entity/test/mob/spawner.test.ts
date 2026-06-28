@@ -5,7 +5,7 @@ import { EntityManager } from '@ts-minecraft/entity/application/mob/entity-manag
 import { MobSpawner } from '@ts-minecraft/entity/application/mob/spawner';
 import { type EntityId } from '@ts-minecraft/entity/domain/mob/entity';
 import { HOSTILE_MOBS, PASSIVE_MOBS } from '@ts-minecraft/entity/domain/mob/mob-categories';
-import { SPAWN_INTERVAL_SECS } from '@ts-minecraft/entity/domain/mob/spawner-config';
+import { DESPAWN_DISTANCE, SPAWN_INTERVAL_SECS } from '@ts-minecraft/entity/domain/mob/spawner-config';
 import { expectSome } from './test-utils'
 
 const makeTimeLayer = (night: boolean) =>
@@ -132,14 +132,13 @@ describe('entity/spawner', () => {
       const spawner = yield* MobSpawner
       const entityManager = yield* EntityManager
 
-      // Resolve every candidate to 70 blocks below the player. Even the closest spawn-ring
-      // candidate (XZ 16) is then sqrt(16² + 70²) ≈ 71.8 blocks away in 3D — past DESPAWN_DISTANCE
-      // (64) — so it must never spawn (a mob there would vanish the next tick).
+      // Resolve every candidate past the 3D despawn radius. Even the closest spawn-ring
+      // candidate (XZ 16) remains beyond DESPAWN_DISTANCE, so it must never spawn.
       yield* Effect.forEach(
         Arr.makeBy(60, () => undefined),
         () => spawner.trySpawn(
           { x: 0, y: 64, z: 0 },
-          (candidatePosition) => Effect.succeed(Option.some({ x: candidatePosition.x, y: 64 - 70, z: candidatePosition.z })),
+          (candidatePosition) => Effect.succeed(Option.some({ x: candidatePosition.x, y: 64 - DESPAWN_DISTANCE, z: candidatePosition.z })),
         ),
         { concurrency: 1, discard: true },
       )
