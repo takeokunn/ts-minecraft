@@ -8,6 +8,7 @@ import type { InputService } from '@ts-minecraft/presentation'
 import type { PauseMenuService } from '@ts-minecraft/presentation'
 import type { SettingsOverlayService } from '@ts-minecraft/presentation'
 import type { TradingPresentationService } from '@ts-minecraft/presentation'
+import type { ChatPanelService } from '@ts-minecraft/presentation'
 
 export type SessionPresentationBootstrapServices = {
   readonly crosshair: CrosshairService
@@ -20,4 +21,5 @@ export type SessionPresentationBootstrapServices = {
   readonly debugFeatureFlags: DebugFeatureFlagsService
   readonly debugOverlay: DebugOverlayService
   readonly tradingPresentation: TradingPresentationService
+  readonly chatPanel: ChatPanelService
 }

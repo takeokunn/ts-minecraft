@@ -2,6 +2,7 @@ import { Effect, type Scope } from 'effect'
 
 import type { FrameHandlerServices } from '@ts-minecraft/app/application/frame/types/services'
 import { installQaApi } from '@ts-minecraft/app/main/qa-api'
+import { installMultiplayerChatOverlay } from '@ts-minecraft/app/main/session-runtime-multiplayer-chat'
 import type { SessionRuntimeParams } from '@ts-minecraft/app/main/session-runtime-types'
 
 export const installSessionRuntimeOverlays = (
@@ -32,6 +33,8 @@ export const installSessionRuntimeOverlays = (
       worldRendererService,
       entityManager,
       fpsCounter,
+      chatPanel,
+      multiplayer,
     } = services
 
     yield* installQaApi({
@@ -61,6 +64,8 @@ export const installSessionRuntimeOverlays = (
     // and drives Resume / Settings / Save & Quit. Listeners + DOM are torn
     // down with the surrounding session scope on quit-to-title.
     yield* pauseMenu.attach(control)
+
+    yield* installMultiplayerChatOverlay(chatPanel, multiplayer)
 
     // FR-1.5: mount the F3 debug overlay. Hidden by default; F3 toggles it.
     // The 4 Hz refresh daemon is forked into the session scope so it tears

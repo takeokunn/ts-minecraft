@@ -1,13 +1,18 @@
-import { Effect, MutableRef } from 'effect'
+import { Effect, MutableRef, Option } from 'effect'
 import { describe, it } from '@effect/vitest'
 import { expect, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({
   installQaApi: vi.fn(),
+  installMultiplayerChatOverlay: vi.fn(),
 }))
 
 vi.mock('@ts-minecraft/app/main/qa-api', () => ({
   installQaApi: mocks.installQaApi,
+}))
+
+vi.mock('@ts-minecraft/app/main/session-runtime-multiplayer-chat', () => ({
+  installMultiplayerChatOverlay: mocks.installMultiplayerChatOverlay,
 }))
 
 import { installSessionRuntimeOverlays } from '@ts-minecraft/app/main/session-runtime-overlays'
@@ -40,6 +45,7 @@ describe('installSessionRuntimeOverlays', () => {
     const timeService = { tag: 'time-service' } as never
     const debugFeatureFlags = { tag: 'debug-feature-flags' } as never
     const fpsCounter = { tag: 'fps-counter' } as never
+    const chatPanel = { tag: 'chat-panel' } as never
     const params = {
       rendering: {
         camera: { tag: 'camera' } as never,
@@ -73,9 +79,12 @@ describe('installSessionRuntimeOverlays', () => {
       worldRendererService: { tag: 'world-renderer-service' } as never,
       entityManager: { tag: 'entity-manager' } as never,
       fpsCounter,
+      chatPanel,
+      multiplayer: Option.none(),
     }
 
     mocks.installQaApi.mockReturnValue(Effect.void)
+    mocks.installMultiplayerChatOverlay.mockReturnValue(Effect.void)
 
     await Effect.runPromise(installSessionRuntimeOverlays(params as never, services as never))
 
@@ -103,6 +112,8 @@ describe('installSessionRuntimeOverlays', () => {
     expect(deathScreen.attach).toHaveBeenCalledWith(control, respawnPositionRef)
     expect(pauseMenu.attach).toHaveBeenCalledOnce()
     expect(pauseMenu.attach).toHaveBeenCalledWith(control)
+    expect(mocks.installMultiplayerChatOverlay).toHaveBeenCalledOnce()
+    expect(mocks.installMultiplayerChatOverlay).toHaveBeenCalledWith(chatPanel, services.multiplayer)
     expect(debugOverlay.attach).toHaveBeenCalledOnce()
     expect(debugOverlay.attach).toHaveBeenCalledWith({
       biomeService,

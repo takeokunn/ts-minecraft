@@ -1,5 +1,6 @@
-import { Effect } from 'effect'
+import { Effect, Stream } from 'effect'
 import type { SessionControl } from '@ts-minecraft/app/main/session-control'
+import { ChatPanelService } from '@ts-minecraft/presentation/multiplayer/chat-panel'
 import { InventoryRendererService } from '@ts-minecraft/presentation/inventory'
 import { PauseMenuService } from '@ts-minecraft/presentation/menu/pause-menu'
 import { SettingsOverlayService } from '@ts-minecraft/presentation/settings'
@@ -64,4 +65,16 @@ export const makeTradingPresentation = (state: OverlayState) =>
     cycleSelection: (_delta: number) => Effect.void,
     refresh: () => Effect.void,
     executeSelectedTrade: () => Effect.succeed(false),
+  })
+
+/** Creates a chat panel fake for multiplayer presentation wiring. */
+export const makeChatPanel = () =>
+  ChatPanelService.of({
+    _tag: '@minecraft/presentation/ChatPanel' as const,
+    element: {} as HTMLElement,
+    onSend: Stream.empty,
+    setMessages: (_messages) => Effect.void,
+    setConnected: (_connected) => Effect.void,
+    show: Effect.void,
+    hide: Effect.void,
   })

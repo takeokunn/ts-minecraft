@@ -2028,6 +2028,7 @@ XP スケール: 最大レベル = `floor(xpLevel / 5)`、上限はエンチャ�
 | 受信ブロック編集適用 | `drainBlockEdits` | `multiplayer-service.ts:236` |
 | チャット送信 | `sendChat(text)` | `multiplayer-service.ts:197` |
 | チャット受信 | `getChatMessages()` → `ChatEntry[]` | `multiplayer-service.ts:195` |
+| ゲーム内チャット UI | `ChatPanelService` が受信表示・送信入力を提供し、`installMultiplayerChatOverlay()` が `getChatMessages()` / `sendChat()` に接続 | `packages/presentation/multiplayer/chat-panel.ts`, `packages/app/application/main/session-runtime-multiplayer-chat.ts` |
 | リモートプレイヤー一覧 | `getRemotePlayers()` → `Map<id, RemotePlayerSnapshot>` | `multiplayer-service.ts:193` |
 
 受信イベント種別: `BlockPlace`, `BlockBreak`, `PlayerJoin`, `PlayerLeave`, `PlayerMove`, `Chat`
@@ -2052,7 +2053,7 @@ XP スケール: 最大レベル = `floor(xpLevel / 5)`、上限はエンチャ�
 - リモートプレイヤーの移動が `updateFromSnapshot` で毎フレーム反映されるか確認する
 - 別クライアントがログアウトしたとき `removePlayer` で Three.js シーンから削除・GPU メモリ解放されるか確認する
 - `getChatMessages()` がサーバーから受信したチャットメッセージ（最大 50 件）を保持するか確認する
-- チャットが DOM に表示されないこと（§12 #48）を確認する（サービスに実装あり、UI なし）
+- チャット UI が `getChatMessages()` の履歴を DOM に表示し、入力送信を `sendChat()` へ転送するか確認する
 - `disconnect()` 後に再接続できるか確認する（ドレインファイバーが正しく停止・再起動するか）
 - `worldId='overworld'` が固定であることを確認する（ネザー接続未対応）
 - ゲーム内に「サーバーへ接続」UI が存在しないことを確認する（§12 #50）
@@ -2112,7 +2113,6 @@ XP スケール: 最大レベル = `floor(xpLevel / 5)`、上限はエンチャ�
 | 45 | 植物ブロック欠如 | TALL_GRASS / FERN は BlockType と基本挙動、通常破壊の WHEAT_SEEDS 1/8 抽選、SHEARS 回収に接続済み。SUGAR_CANE / CACTUS / LILY_PAD も BlockType / codec index 85-87 / 初期ブロック / 支え判定 / 水破壊（SUGAR_CANE・CACTUS）/ 非衝突（SUGAR_CANE・LILY_PAD）/ スポーン面除外 / 仮タイル描画に接続済み。SUGAR_CANE / CACTUS は最大3段の自動成長と砂浜・水辺・砂漠での自然生成に接続済み。草・花・LILY_PAD はバイオーム別の deterministic 自然生成に接続済み。草・花・キノコ・SUGAR_CANE はクロスモデル、CACTUS は 1/16 inset 柱、LILY_PAD は薄板モデルで描画される | `packages/core/domain/block-type.ts`, `packages/world/domain/block-support.ts`, `packages/world/domain/terrain/plant-placer.ts`, `packages/rendering/infrastructure/textures/block-texture-map.config.ts`, `packages/rendering/infrastructure/meshing/plant-mesh.ts` |
 | 46 | 乗り物未実装 | BOAT / MINECART / RAIL は item-type.ts・block-type.ts いずれにも未定義 | `packages/core/domain/item-type.ts` |
 | 47 | 雨の視覚エフェクト | 天候が rain/thunder でも降水パーティクル（雨粒・雪片）なし。照明減衰のみ | `lighting-stage.ts:7-19` |
-| 48 | チャット UI 未接続 | `getChatMessages()` / `sendChat()` はサービスに実装済みだが DOM 表示なし（ゲーム内チャット非表示） | `multiplayer-service.ts:39,195` |
 | 49 | リモートプレイヤー描画 | ボックスジオメトリ＋カラー（0x2f66d0 / 0xd8b08a）の簡易表現。公式スキンなし | `packages/rendering/infrastructure/player/remote-player-renderer.ts` |
 | 50 | マルチプレイ接続 UI | `connect(url, name)` は API で呼び出すのみ。ゲーム内サーバー接続 UI は未実装 | `multiplayer-service.ts:34` |
 | 51 | 釣り待機時間上限 | FISHING_MAX_WAIT_SECS=30（公式は 45 秒。`§12 #30` 参照）| `packages/entity/domain/fishing.config.ts` |
@@ -2257,7 +2257,6 @@ XP スケール: 最大レベル = `floor(xpLevel / 5)`、上限はエンチャ�
 | 190 | 三人称（F5）でローカルプレイヤーモデルが表示されない | `remote-player-renderer.ts` にリモートプレイヤーのモデルあり。ローカルプレイヤーは三人称カメラで視点だけ移動し自身のモデルは表示されない | `packages/rendering/infrastructure/player/remote-player-renderer.ts` |
 | 191 | ネザー水晶鉱石・ネザー金鉱石なし | NETHER_QUARTZ_ORE・NETHER_GOLD_ORE が `block-type.ts` に未定義。ネザーで採掘できる固有鉱石なし | `packages/core/domain/block-type.ts` |
 | 192 | モブ接触ダメージでプレイヤーへのノックバックなし | `combat.ts` に `computeKnockback` は実装済みだが、`getPlayerContactDamage` を呼ぶ `physics-stage.ts:107` でプレイヤーへのノックバック速度設定なし | `packages/app/application/frame/stages/physics-stage.ts:107` |
-| 193 | マルチプレイ中インゲームチャット入力 UI なし | 接続パネル（URL/名前入力）はあるが、ゲームプレイ中のチャット入力フィールド・送信 UI なし。`sendChat` API は実装済みだが呼び出す UI なし | `packages/presentation/multiplayer/connection-panel.ts` |
 | 194 | ゲームルール相当の切替なし | `doMobSpawning`・`keepInventory`・`doDaylightCycle`・`doWeatherCycle` 相当のトグル設定なし。`debugFeatureFlags` で開発時フラグのみ提供 | `packages/game/application/settings.schema.ts` |
 | 195 | ユーザー設定可能 FOV なし | `settings.schema.ts` に FOV フィールドなし。`BASE_FOV=75` がコードにハードコードされ変更不可 | `packages/app/application/frame/stages/camera-stage.ts:3` |
 | 196 | バイオーム境界がハードカット | `biome-service.ts` はブロック単位で離散バイオームを分類。公式のブレンド（補間）なし。隣接バイオームで草色・水色が急変 | `packages/world/application/biome-service.ts:70` |

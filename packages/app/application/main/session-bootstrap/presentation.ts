@@ -11,6 +11,7 @@ import { SettingsOverlayService } from '@ts-minecraft/presentation'
 import { PauseMenuService } from '@ts-minecraft/presentation'
 import { DeathScreenService } from '@ts-minecraft/presentation'
 import { TradingPresentationService } from '@ts-minecraft/presentation'
+import { ChatPanelService } from '@ts-minecraft/presentation'
 
 export const buildPresentationBootstrapServices = Effect.gen(function* () {
   const crosshair = yield* CrosshairService
@@ -23,6 +24,7 @@ export const buildPresentationBootstrapServices = Effect.gen(function* () {
   const debugFeatureFlags = yield* DebugFeatureFlagsService
   const debugOverlay = yield* DebugOverlayService
   const tradingPresentation = yield* TradingPresentationService
+  const chatPanel = yield* ChatPanelService
 
   return {
     crosshair,
@@ -35,6 +37,7 @@ export const buildPresentationBootstrapServices = Effect.gen(function* () {
     debugFeatureFlags,
     debugOverlay,
     tradingPresentation,
+    chatPanel,
   }
 })
 

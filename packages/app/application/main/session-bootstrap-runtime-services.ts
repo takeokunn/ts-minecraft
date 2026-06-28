@@ -7,6 +7,7 @@ import { buildSessionRuntimeInteractionServices } from '@ts-minecraft/app/main/s
 import { buildSessionRuntimeProgressServices } from '@ts-minecraft/app/main/session-bootstrap-runtime-services/progress'
 import { buildSessionRuntimeWorldServices } from '@ts-minecraft/app/main/session-bootstrap-runtime-services/world'
 import { buildSessionRuntimeEntityServices } from '@ts-minecraft/app/main/session-bootstrap-runtime-services/entity'
+import { buildSessionRuntimePresentationServices } from '@ts-minecraft/app/main/session-bootstrap-runtime-services/presentation'
 
 export const buildSessionRuntimeServices = ({
   bootCtx,
@@ -19,6 +20,7 @@ export const buildSessionRuntimeServices = ({
   ...buildSessionRuntimeCameraServices({ services }),
   ...buildSessionRuntimeInteractionServices({ services }),
   ...buildSessionRuntimeProgressServices({ services }),
+  ...buildSessionRuntimePresentationServices({ services }),
   ...buildSessionRuntimeWorldServices({ services }),
   ...buildSessionRuntimeEntityServices({ services }),
 })
