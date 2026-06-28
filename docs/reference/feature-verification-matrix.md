@@ -2229,7 +2229,7 @@ XP スケール: 最大レベル = `floor(xpLevel / 5)`、上限はエンチャ�
 | 162 | デフォルトデイサイクルが 400 秒（公式 1200 秒）| `settings-service.ts:15` の `dayLengthSeconds` デフォルト値が 400 秒。公式は 20 分（1200 秒）。設定範囲 120-1200 秒は公式値を含む | `packages/game/application/settings-service.ts:15` |
 | 163 | 全クラフトレシピが無形式（シェイプレス）| `crafting.ts` のレシピ構造に格子座標フィールドなし。`recipe-service.ts` は素材個数のみ照合。公式の形式レシピ（材料位置が重要）との区別なし | `packages/inventory/domain/crafting.ts:12` |
 | 164 | ネザーポータルがアニメしない | NETHER_PORTAL のテクスチャタイル 86 は静的。公式のゆらぐポータルアニメーションなし | `packages/rendering/infrastructure/textures/block-texture-map.config.ts` |
-| 165 | オートセーブに視覚フィードバックなし | `session-autosave.ts` はバックグラウンドで 5 秒ごと保存。セーブアイコン・トースト通知なし | `packages/app/application/main/session-autosave.ts:21` |
+| 165 | オートセーブの視覚フィードバックを実装済み | 5 秒ごとの autosave tick が saving/saved/error をブラウザの `role=status` / `aria-live=polite` トーストへ反映。通知側の例外も保存デーモンを停止させない | `packages/app/application/main/session-autosave.ts:52`, `packages/app/test/session-autosave.test.ts:33` |
 | 166 | 作業台右クリックが無効 | 公式は作業台右クリック→3×3 クラフトグリッドを開く。`handleRightClick` の処理対象に CRAFTING_TABLE なし。インベントリを開けばクラフトリストは使える | `interaction-placement-handler.ts:265` |
 | 167 | ブロック破壊ドロップの満杯消失は解消済み | Survival のブロック破壊は `breakBlock(..., { dropItems: false })` で world 層の直接インベントリ加算を抑止し、通常ドロップ・Silk Touch・草種・作物・葉ボーナス・Fortune 追加分を `DroppedItemService.spawn()` へ流す。満杯時も frame pickup 経路で再スポーンされ、地面の world item として残る | `packages/app/application/frame/stages/interaction-break-handler.ts`, `packages/app/application/frame/stages/entity-update-stage.ts`, `packages/entity/application/dropped-item-service.ts` |
 | 168 | モブ上限が公式より大幅に少ない | `MAX_ENTITY_COUNT=24`（全モブ共通）。公式は敵対 70 + 受動的 10 + 水棲 5 + 環境 15 の分類別上限。24 は公式の約 1/3 | `packages/entity/domain/mob/spawner-config.ts:11` |
