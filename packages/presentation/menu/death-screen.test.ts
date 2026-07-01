@@ -255,18 +255,20 @@ describe('DeathScreenService', () => {
           const service = yield* DeathScreenService
 
           yield* service.attach(control, respawnPositionRef)
-          yield* health.applyDamage(100)
+          yield* health.applyDamage(100, { kind: 'fall' })
           yield* Effect.sleep(Duration.millis(1))
 
           const backdrop = dom.roots[0]
+          const message = dom.created.find((element) => element.dataset.role === 'death-message')
           const respawnBtn = dom.created.find((element) => element.dataset.role === 'respawn')
-            expect(yield* service.isOpen()).toBe(true)
-            expect(backdrop?.style.display).toBe('flex')
-            expect(respawnBtn).toBeDefined()
-            expect(MutableRef.get(control.isPausedRef)).toBe(true)
+          expect(yield* service.isOpen()).toBe(true)
+          expect(backdrop?.style.display).toBe('flex')
+          expect(message?.textContent).toBe('You hit the ground too hard.')
+          expect(respawnBtn).toBeDefined()
+          expect(MutableRef.get(control.isPausedRef)).toBe(true)
 
-            respawnBtn?.click()
-            yield* Effect.sleep(Duration.millis(1))
+          respawnBtn?.click()
+          yield* Effect.sleep(Duration.millis(1))
 
           expect(yield* service.isOpen()).toBe(false)
           expect(backdrop?.style.display).toBe('none')
@@ -294,12 +296,12 @@ describe('DeathScreenService', () => {
           yield* health.applyDamage(100)
           yield* Effect.sleep(Duration.millis(1))
 
-            expect(yield* service.isOpen()).toBe(false)
-            expect(dom.roots[0]?.style.display).not.toBe('flex')
-            expect(MutableRef.get(control.isPausedRef)).toBe(false)
-          }).pipe(Effect.provide(layer)),
-        ),
-      )
+          expect(yield* service.isOpen()).toBe(false)
+          expect(dom.roots[0]?.style.display).not.toBe('flex')
+          expect(MutableRef.get(control.isPausedRef)).toBe(false)
+        }).pipe(Effect.provide(layer)),
+      ),
+    )
   })
 
   it('routes Enter on the quit button to quit-to-title', async () => {

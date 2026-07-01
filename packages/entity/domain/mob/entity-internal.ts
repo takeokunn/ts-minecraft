@@ -29,7 +29,7 @@ export type ManagedEntity = Entity & {
   readonly stuckTicks: number
   // Seconds a creeper's detonation fuse has burned (0 for non-creepers and for any
   // creeper not currently within ignition range). At CREEPER_FUSE_SECONDS the
-  // creeper detonates (see getPlayerContactDamage).
+  // creeper detonates (see getPlayerContactDamageResolution).
   readonly fuseSecs: number
   // Breeding (FR R6 — see domain/mob/breeding.ts): love window (>0 = in love),
   // post-breed cooldown, and age (>= BABY_GROW_TICKS = adult). Spawned mobs are adults.
@@ -42,11 +42,11 @@ export type ManagedEntity = Entity & {
   // Ender Dragon boss FSM state (see domain/mob/ender-dragon/dragon-phase.ts).
   // null for every non-dragon entity; a live DragonPhaseState (starting in Circling)
   // for the EnderDragon. The per-tick update advances it via tickDragonPhase and
-  // applies the resulting flight velocity.
+  // emits DragonPhaseEvents (circling/charging/hovering/breath/charging transitions).
   readonly dragonPhase: DragonPhaseState | null
   // Death-sequence progress (see domain/mob/ender-dragon/dragon-death.ts). null while the
   // dragon is alive; 0..DEATH_ANIMATION_TICKS once health hits 0. The dragon is NOT removed
-  // at 0 HP — instead it plays out the death animation, and the app drains the emitted
+  // until the sequence completes — the per-tick update must emit
   // DragonDeathEvents (egg/portal/XP) before the Complete event removes it.
   readonly dragonDeathProgress: number | null
 }

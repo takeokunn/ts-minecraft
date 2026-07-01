@@ -11,6 +11,8 @@ const supportSensitiveCases = [
   ['TORCH', true],
   ['PRESSURE_PLATE', true],
   ['RAIL', true],
+  ['WHEAT_CROP', true],
+  ['POTATO_CROP', true],
   ['STONE', false],
 ] as const
 
@@ -23,6 +25,8 @@ const supportRuleCases = [
   ['RAIL', 'PRESSURE_PLATE', false],
   ['WHEAT_CROP', 'FARMLAND', true],
   ['WHEAT_CROP', 'DIRT', false],
+  ['POTATO_CROP', 'FARMLAND', true],
+  ['POTATO_CROP', 'DIRT', false],
   ['SUGAR_CANE', 'SAND', true],
   ['CACTUS', 'DIRT', false],
   ['LILY_PAD', 'WATER', true],
@@ -32,6 +36,8 @@ const waterBreakableCases = [
   ['TORCH', true],
   ['PRESSURE_PLATE', true],
   ['RAIL', true],
+  ['WHEAT_CROP', true],
+  ['POTATO_CROP', true],
   ['STONE', false],
 ] as const
 

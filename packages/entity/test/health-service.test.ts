@@ -133,6 +133,43 @@ describe('HealthService.applyDamage', () => {
     )
   )
 
+  it.effect('records a lethal damage cause for the death message', () =>
+    withHealthService((hs) =>
+      Effect.gen(function* () {
+        yield* hs.applyDamage(100, { kind: 'fall' })
+        expect(yield* hs.getDeathMessage()).toBe('You hit the ground too hard.')
+      })
+    )
+  )
+
+  it.effect('uses the generic death message when no lethal damage cause is supplied', () =>
+    withHealthService((hs) =>
+      Effect.gen(function* () {
+        yield* hs.applyDamage(100)
+        expect(yield* hs.getDeathMessage()).toBe('You died.')
+      })
+    )
+  )
+
+  it.effect('does not record non-lethal damage causes as death messages', () =>
+    withHealthService((hs) =>
+      Effect.gen(function* () {
+        yield* hs.applyDamage(5, { kind: 'lava' })
+        expect(yield* hs.getDeathMessage()).toBe('You died.')
+      })
+    )
+  )
+
+  it.effect('clears the death cause on reset', () =>
+    withHealthService((hs) =>
+      Effect.gen(function* () {
+        yield* hs.applyDamage(100, { kind: 'void' })
+        yield* hs.reset()
+        expect(yield* hs.getDeathMessage()).toBe('You died.')
+      })
+    )
+  )
+
   it.effect('sets invincibility ticks on hit', () =>
     withHealthService((hs) =>
       Effect.gen(function* () {

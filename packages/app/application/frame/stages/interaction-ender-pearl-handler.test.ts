@@ -114,7 +114,7 @@ describe('handleEnderPearlThrow', () => {
     expect(services.gameState.getPlayerPosition).toHaveBeenCalledWith(DEFAULT_PLAYER_ID)
     expect(services.inventoryService.removeBlock).toHaveBeenCalledWith('ENDER_PEARL', 1, selectedHotbarSlotIndex(SlotIndex.make(2)))
     expect(services.gameState.setPlayerPosition).toHaveBeenCalledWith({ x: 10, y: 64, z: 4 })
-    expect(services.healthService.applyDamage).toHaveBeenCalledWith(ENDER_PEARL_DAMAGE)
+    expect(services.healthService.applyDamage).toHaveBeenCalledWith(ENDER_PEARL_DAMAGE, { kind: 'ender_pearl' })
     expect(services.hungerService.addExhaustion).toHaveBeenCalledWith(EXHAUSTION_DAMAGE)
     expect(services.entityManager.addEntity).not.toHaveBeenCalled()
   })

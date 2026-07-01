@@ -4,7 +4,7 @@ import { runVillageMaintenance } from '@ts-minecraft/entity/application/village/
 import type { EntityId } from '@ts-minecraft/entity/domain/mob/entity'
 import type { FrameHandlerServices } from '@ts-minecraft/app/application/frame/types/services'
 import type { DeltaTimeSecs, Position } from '@ts-minecraft/core'
-import { runCropGrowthMaintenance, runFallingBlockMaintenance } from '@ts-minecraft/world'
+import { runCropGrowthMaintenance, runFallingBlockMaintenance, runFireMaintenance } from '@ts-minecraft/world'
 import { runFurnaceMaintenance } from './frame-maintenance-furnace'
 import { resolveMaintenanceTimeOfDay } from './frame-maintenance-time-of-day'
 import {
@@ -14,6 +14,7 @@ import {
 
 type MaintenanceSimulationState = {
   readonly cropTickAccumulatorRef: MutableRef.MutableRef<number>
+  readonly fireTickAccumulatorRef: MutableRef.MutableRef<number>
 }
 
 type MaintenanceSimulationServices = Pick<
@@ -70,6 +71,7 @@ export const runMaintenanceSimulation = (
     }
 
     yield* runFallingBlockMaintenance({ blockService, chunkManagerService })
+    yield* runFireMaintenance({ blockService, chunkManagerService }, state, maintenanceDeltaTime)
 
     // Crop growth tick — advance all player-planted crops every CROP_GROWTH_INTERVAL_SECS.
     // Village / world-generated crops are not tracked and default to ripe on break.

@@ -1,23 +1,24 @@
 import { Effect, MutableRef } from 'effect'
 import { MAX_FOOD_LEVEL } from '@ts-minecraft/entity/application/hunger-service.config'
+import { MAX_ARMOR_POINTS } from '@ts-minecraft/entity/domain/combat.config'
 import type { PhysicsColumnReadError } from '../physics-stage-utils'
 import type { PhysicsStageInputs } from '../physics-stage-types/inputs'
 import type { PhysicsStageRefs } from '../physics-stage-types/refs'
 import type { PhysicsStageServices } from '../physics-stage-types/services'
 
-const writeHudText = (el: HTMLElement | null, value: string | number): void => {
+export const writeHudText = (el: HTMLElement | null, value: string | number): void => {
   /* c8 ignore next */
   if (el !== null) el.textContent = String(value)
 }
 
-const clamp = (value: number, min: number, max: number): number => Math.min(Math.max(value, min), max)
+export const clamp = (value: number, min: number, max: number): number => Math.min(Math.max(value, min), max)
 
-const getHudContainer = (el: HTMLElement | null, selector: string): HTMLElement | null => {
+export const getHudContainer = (el: HTMLElement | null, selector: string): HTMLElement | null => {
   if (el === null || !('closest' in el) || typeof el.closest !== 'function') return null
   return el.closest(selector) as HTMLElement | null
 }
 
-const updateIconMeter = (
+export const updateIconMeter = (
   valueElement: HTMLElement | null,
   containerSelector: string,
   value: number,
@@ -38,7 +39,7 @@ const updateIconMeter = (
   }
 }
 
-const updateXpBar = (
+export const updateXpBar = (
   xpBarElement: HTMLElement | null,
   xpIntoLevel: number,
   xpRequiredForNext: number,
@@ -80,9 +81,8 @@ const syncHungerHud = (
   Effect.gen(function* () {
     const hunger = yield* services.hungerService.getHunger()
     const lastHunger = MutableRef.get(refs.lastHungerRef)
-    if (lastHunger.foodLevel !== hunger.foodLevel || lastHunger.max !== MAX_FOOD_LEVEL) {
+    if (lastHunger.foodLevel !== hunger.foodLevel) {
       lastHunger.foodLevel = hunger.foodLevel
-      lastHunger.max = MAX_FOOD_LEVEL
       yield* Effect.sync(() => {
         writeHudText(inputs.hungerValueElementOrNull, hunger.foodLevel)
         writeHudText(inputs.hungerMaxElementOrNull, MAX_FOOD_LEVEL)
@@ -123,7 +123,7 @@ const syncArmorHud = (
       lastArmor.armorPoints = armorPoints
       yield* Effect.sync(() => {
         writeHudText(inputs.armorValueElementOrNull, armorPoints)
-        updateIconMeter(inputs.armorValueElementOrNull, '#armor-display', armorPoints, 20)
+        updateIconMeter(inputs.armorValueElementOrNull, '#armor-display', armorPoints, MAX_ARMOR_POINTS)
       })
     }
   })

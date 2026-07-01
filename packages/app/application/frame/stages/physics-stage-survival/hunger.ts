@@ -1,5 +1,5 @@
 import { Effect, MutableRef } from 'effect'
-import { HUNGER_TICK_INTERVAL_SECS } from '@ts-minecraft/app/frame-handler.config'
+import { HUNGER_TICK_INTERVAL_SECS } from './survival-timing.config'
 import { advanceFixedStep } from '@ts-minecraft/app/frame/frame-fixed-step'
 import type { Position } from '@ts-minecraft/core'
 import { starvationDamageForDifficulty } from '../physics-stage-damage-logic'
@@ -17,40 +17,23 @@ export const applyHungerTicks = (
   refreshedPos: Position,
   applyDamage: ApplyPlayerDamage,
 ): Effect.Effect<void, PhysicsColumnReadError> =>
-  services.healthService.getHealth().pipe(
-    Effect.flatMap((healthForRegen) => {
-      const canRegen = healthForRegen.current < healthForRegen.max
-      const [hungerTicks, hungerRemainder] = advanceFixedStep(
-        MutableRef.get(refs.hungerTickAccumulatorRef),
-        inputs.deltaTime,
-        HUNGER_TICK_INTERVAL_SECS,
-      )
-      MutableRef.set(refs.hungerTickAccumulatorRef, hungerRemainder)
+  Effect.gen(function* () {
+    const health = yield* services.healthService.getHealth()
+    const canRegen = health.current < health.max
+    const [hungerTicks, hungerRemainder] = advanceFixedStep(
+      MutableRef.get(refs.hungerTickAccumulatorRef),
+      inputs.deltaTime,
+      HUNGER_TICK_INTERVAL_SECS,
+    )
+    MutableRef.set(refs.hungerTickAccumulatorRef, hungerRemainder)
 
-      let hungerEffects: Effect.Effect<void, PhysicsColumnReadError> = Effect.void
-      for (let i = 0; i < hungerTicks; i++) {
-        hungerEffects = hungerEffects.pipe(
-          Effect.flatMap(() =>
-            services.hungerService.tick(canRegen).pipe(
-              Effect.flatMap((hungerEffect) => {
-                if (hungerEffect === 'regen') {
-                  return services.healthService.heal(1)
-                }
-                if (hungerEffect === 'starve') {
-                  return services.healthService.getHealth().pipe(
-                    Effect.flatMap((healthForStarvation) => {
-                      const starvationDamage = starvationDamageForDifficulty(inputs.difficulty, healthForStarvation.current)
-                      return applyDamageAndPlayHurt(services, refreshedPos, applyDamage, starvationDamage)
-                    }),
-                  )
-                }
-                return Effect.void
-              }),
-            ),
-          ),
-        )
+    for (let i = 0; i < hungerTicks; i++) {
+      const hungerEffect = yield* services.hungerService.tick(canRegen)
+      if (hungerEffect === 'regen') {
+        yield* services.healthService.heal(1)
+      } else if (hungerEffect === 'starve') {
+        const starvationDamage = starvationDamageForDifficulty(inputs.difficulty, health.current)
+        yield* applyDamageAndPlayHurt(services, refreshedPos, applyDamage, starvationDamage)
       }
-
-      return hungerEffects
-    }),
-  )
+    }
+  })

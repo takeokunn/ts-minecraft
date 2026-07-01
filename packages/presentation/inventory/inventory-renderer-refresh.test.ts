@@ -3,13 +3,25 @@ import { Option } from 'effect'
 import { expect } from 'vitest'
 import type { InventoryItem } from '@ts-minecraft/core'
 import type { Recipe } from '@ts-minecraft/inventory/domain/crafting'
-import { renderCraftingPreview, renderRecipeBook, renderSlotElements } from './inventory-renderer-refresh'
+import {
+  renderCraftingPreview,
+  renderInventoryCursor,
+  renderRecipeBook,
+  renderSlotElements,
+} from './inventory-renderer-refresh'
 
 const makeSlotElement = (): HTMLDivElement => {
   const attributes = new Map<string, string>()
   return {
     dataset: {},
-    style: { cssText: '' },
+    style: {
+      cssText: '',
+      display: '',
+      background: '',
+      backgroundImage: '',
+      backgroundSize: '',
+      border: '',
+    },
     textContent: '',
     title: '',
     setAttribute: (name: string, value: string) => {
@@ -19,7 +31,7 @@ const makeSlotElement = (): HTMLDivElement => {
     removeAttribute: (name: string) => {
       attributes.delete(name)
     },
-    } as unknown as HTMLDivElement
+  } as unknown as HTMLDivElement
 }
 
 const makeContainerElement = (): HTMLDivElement & { readonly childrenList: Array<unknown>; innerHTML: string } => {
@@ -78,6 +90,37 @@ describe('presentation/inventory/inventory-renderer-refresh', () => {
     expect(slotEl.title).toBe('')
     expect(slotEl.dataset['tooltip']).toBeUndefined()
     expect(slotEl.getAttribute('aria-label')).toBeNull()
+  })
+
+  it('renders the held cursor stack as a floating slot', () => {
+    const cursorEl = makeSlotElement()
+
+    renderInventoryCursor(
+      Option.some(cursorEl),
+      Option.some({ itemType: 'DIRT' as InventoryItem, count: 12 }),
+    )
+
+    expect(cursorEl.style.display).toBe('flex')
+    expect(cursorEl.textContent).toBe('12')
+    expect(cursorEl.title).toBe('Dirt\nCount: 12')
+    expect(cursorEl.dataset['tooltip']).toBe('Dirt\nCount: 12')
+    expect(cursorEl.getAttribute('aria-label')).toBe('Dirt, Count: 12')
+  })
+
+  it('hides and clears the held cursor slot when cursor is empty', () => {
+    const cursorEl = makeSlotElement()
+
+    renderInventoryCursor(
+      Option.some(cursorEl),
+      Option.some({ itemType: 'DIRT' as InventoryItem, count: 12 }),
+    )
+    renderInventoryCursor(Option.some(cursorEl), Option.none())
+
+    expect(cursorEl.style.display).toBe('none')
+    expect(cursorEl.title).toBe('')
+    expect(cursorEl.dataset['tooltip']).toBeUndefined()
+    expect(cursorEl.getAttribute('aria-label')).toBeNull()
+    expect(cursorEl.textContent).toBe('')
   })
 
   it('renders a selected crafting recipe preview', () => {

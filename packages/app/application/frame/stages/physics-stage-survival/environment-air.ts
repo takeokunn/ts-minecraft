@@ -5,18 +5,17 @@ import { resolveAirState, resolveEffectiveMaxAirSecs } from './air-logic'
 import { applyCadencedHazard } from './hazard-logic'
 import { syncAirMeterFeedback } from './environment-feedback'
 import { applyDamageAndPlayHurt } from './feedback'
-import type { ApplyPlayerDamage } from './types'
+import type { ApplyPlayerDamage, SurvivalMovementState } from './types'
 import type { PhysicsStageInputs } from '../physics-stage-types/inputs'
 import type { PhysicsStageRefs } from '../physics-stage-types/refs'
 import type { PhysicsStageServices } from '../physics-stage-types/services'
-import type { SurvivalMovementState } from './types'
 
 export const applySurvivalAirEffects = (
-  services: PhysicsStageServices,
-  refs: PhysicsStageRefs,
-  inputs: PhysicsStageInputs,
+  services: Pick<PhysicsStageServices, 'equipmentService' | 'soundManager' | 'damageOverlay'>,
+  refs: Pick<PhysicsStageRefs, 'airSecsRef' | 'drownDamageSecsRef' | 'lastAirBubblesRef'>,
+  inputs: Pick<PhysicsStageInputs, 'deltaTime' | 'airElementOrNull'>,
   refreshedPos: Position,
-  movement: SurvivalMovementState,
+  movement: Pick<SurvivalMovementState, 'inCreative'>,
   eyeBlock: BlockType | null,
   applyDamage: ApplyPlayerDamage,
 ) =>

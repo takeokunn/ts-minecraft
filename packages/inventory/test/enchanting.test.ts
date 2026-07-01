@@ -98,6 +98,26 @@ describe('enchantItem', () => {
     expect(e2.enchantments).toHaveLength(2)
   })
 
+  it('drops mutually exclusive enchantments when applying a replacement', () => {
+    const stack = createStack('DIAMOND_SWORD')
+    const sharpness = enchantItem(stack, { type: 'SHARPNESS', level: 3 })
+    const looting = enchantItem(sharpness, { type: 'LOOTING', level: 2 })
+    const smite = enchantItem(looting, { type: 'SMITE', level: 4 })
+
+    expect(smite.enchantments).toEqual([
+      { type: 'LOOTING', level: 2 },
+      { type: 'SMITE', level: 4 },
+    ])
+  })
+
+  it('does not keep conflicting protection enchantments on one armor stack', () => {
+    const stack = createStack('DIAMOND_CHESTPLATE')
+    const protection = enchantItem(stack, { type: 'PROTECTION', level: 4 })
+    const fireProtection = enchantItem(protection, { type: 'FIRE_PROTECTION', level: 3 })
+
+    expect(fireProtection.enchantments).toEqual([{ type: 'FIRE_PROTECTION', level: 3 }])
+  })
+
   it('preserves itemType, count, durability', () => {
     const stack = createStack('DIAMOND_SWORD')
     const enchanted = enchantItem(stack, { type: 'SHARPNESS', level: 2 })

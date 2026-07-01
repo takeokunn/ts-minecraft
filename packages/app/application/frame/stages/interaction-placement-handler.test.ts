@@ -1065,7 +1065,7 @@ describe('interaction-placement-handler / handleFlintAndSteel (TNT)', () => {
       const expectedDamage = computeExplosionDamageAt({ x: 0, y: 64, z: 0 }, TNT_EXPLOSION_POWER, playerPosition)
 
       expect(result).toBe(true)
-      expect(applyDamageSpy).toHaveBeenCalledWith(expectedDamage)
+      expect(applyDamageSpy).toHaveBeenCalledWith(expectedDamage, { kind: 'explosion' })
       expect(addExhaustionSpy).toHaveBeenCalledWith(EXHAUSTION_DAMAGE)
       expect(playEffectSpy).toHaveBeenCalledWith('playerHurt', { position: playerPosition })
     }),
@@ -1204,7 +1204,7 @@ describe('interaction-placement-handler / handleBed', () => {
       expect(result).toBe(true)
       expect((services.timeService.setTimeOfDay as ReturnType<typeof vi.fn>)).not.toHaveBeenCalled()
       expect(services.blockService.forceSetBlock.mock.calls.length).toBeGreaterThan(1)
-      expect(services.healthService.applyDamage).toHaveBeenCalledWith(expectedDamage)
+      expect(services.healthService.applyDamage).toHaveBeenCalledWith(expectedDamage, { kind: 'explosion' })
       expect(services.hungerService.addExhaustion).toHaveBeenCalledWith(EXHAUSTION_DAMAGE)
       expect(services.soundManager.playEffect).toHaveBeenCalledWith('blockBreak', { position: bedPos })
       expect(services.soundManager.playEffect).toHaveBeenCalledWith('playerHurt', { position: playerPosition })

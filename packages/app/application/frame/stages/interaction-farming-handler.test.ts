@@ -4,7 +4,8 @@ import { expect, vi } from 'vitest'
 import { CHUNK_SIZE, CHUNK_HEIGHT, blockTypeToIndex, SlotIndex } from '@ts-minecraft/core'
 import type { BlockType } from '@ts-minecraft/core'
 import type { Chunk } from '@ts-minecraft/world'
-import { handleFarmingInteraction } from '@ts-minecraft/app/frame/stages/interaction-farming-handler'
+import { handleFarmingInteraction, planSaplingTreeBlocks } from '@ts-minecraft/app/frame/stages/interaction-farming-handler'
+import { SAPLING_TREE_TRUNK_HEIGHT } from '@ts-minecraft/app/frame/stages/interaction-farming-handler.config'
 import type { FrameHandlerServices } from '@ts-minecraft/app/application/frame/types/services'
 import type { FrameStageRefs } from '@ts-minecraft/app/application/frame/types/stage-refs'
 import type { TargetRayHit } from '@ts-minecraft/app/frame/stages/interaction-types'
@@ -105,7 +106,7 @@ describe('handleFarmingInteraction', () => {
     }),
   )
 
-  it.effect('returns false when selected item is not a hoe or wheat seeds (e.g. STONE)', () =>
+  it.effect('returns false when selected item is not a hoe or plantable crop item (e.g. STONE)', () =>
     Effect.gen(function* () {
       const refs = makeRefs()
       const chunk = makeEmptyChunk(0, 0)
@@ -120,9 +121,9 @@ describe('handleFarmingInteraction', () => {
     }),
   )
 
-  it.effect('returns false when item is an ItemType but not a hoe or WHEAT_SEEDS (e.g. APPLE)', () =>
+  it.effect('returns false when item is an ItemType but not a hoe or plantable crop item (e.g. APPLE)', () =>
     Effect.gen(function* () {
-      // APPLE passes Schema.is(ItemTypeSchema) but is neither HOE nor WHEAT_SEEDS → hits the
+      // APPLE passes Schema.is(ItemTypeSchema) but is neither HOE nor plantable crop item → hits the
       // final `return Effect.succeed(false)` fallthrough at the bottom of the handler.
       const refs = makeRefs()
       const chunk = makeEmptyChunk(0, 0)
@@ -225,6 +226,25 @@ describe('handleFarmingInteraction', () => {
         SlotIndex.make(HOTBAR_START + selectedSlot),
       )
       expect(services._forceSetBlockSpy).toHaveBeenCalledWith({ x: 2, y: 65, z: 3 }, 'WHEAT_CROP')
+    }),
+  )
+
+  it.effect('plants POTATO_CROP on FARMLAND with POTATO and removes one potato', () =>
+    Effect.gen(function* () {
+      const refs = makeRefs()
+      const chunk = makeEmptyChunk(0, 0)
+      setChunkBlock(chunk, 2, 64, 3, 'FARMLAND')
+      const selectedSlot = 3
+      const services = makeServices({
+        selectedItem: 'POTATO',
+        selectedSlot,
+        getChunkFn: (_c) => Effect.succeed(chunk),
+      })
+      const result = yield* handleFarmingInteraction(services, refs, { targetHit: Option.some(makeHit(2, 64, 3)) })
+      expect(result).toBe(true)
+      expect(services._removeBlockSpy).toHaveBeenCalledWith('POTATO', 1, SlotIndex.make(HOTBAR_START + selectedSlot))
+      expect(services._forceSetBlockSpy).toHaveBeenCalledWith({ x: 2, y: 65, z: 3 }, 'POTATO_CROP')
+      expect(services._plantSpy).toHaveBeenCalledWith({ x: 2, y: 65, z: 3 })
     }),
   )
 
@@ -479,4 +499,70 @@ describe('handleFarmingInteraction', () => {
       expect(HashMap.has(dirty, '0,0')).toBe(true)
     }),
   )
+})
+
+// ─── planSaplingTreeBlocks ───────────────────────────────────────────────────
+describe('planSaplingTreeBlocks', () => {
+  const base = { x: 0, y: 64, z: 0 }
+
+  it('produces SAPLING_TREE_TRUNK_HEIGHT WOOD blocks and 49 LEAVES blocks', () => {
+    const blocks = planSaplingTreeBlocks(base)
+    expect(blocks.filter((b) => b.blockType === 'WOOD')).toHaveLength(SAPLING_TREE_TRUNK_HEIGHT)
+    expect(blocks.filter((b) => b.blockType === 'LEAVES')).toHaveLength(49)
+  })
+
+  it('trunk occupies the base column at yOffset 0 through SAPLING_TREE_TRUNK_HEIGHT−1', () => {
+    const trunk = planSaplingTreeBlocks(base).filter((b) => b.blockType === 'WOOD')
+    const yOffsets = trunk.map((b) => b.position.y - base.y).sort((a, z) => a - z)
+    expect(yOffsets).toEqual([0, 1, 2, 3, 4])
+    for (const b of trunk) {
+      expect(b.position.x).toBe(base.x)
+      expect(b.position.z).toBe(base.z)
+    }
+  })
+
+  it('leaf rings at yOffset 3 and 4 each contain 20 blocks (radius-2, corners cut, trunk skipped)', () => {
+    const leaves = planSaplingTreeBlocks(base).filter((b) => b.blockType === 'LEAVES')
+    expect(leaves.filter((b) => b.position.y === base.y + 3)).toHaveLength(20)
+    expect(leaves.filter((b) => b.position.y === base.y + 4)).toHaveLength(20)
+  })
+
+  it('leaf ring at yOffset 5 contains 9 blocks (radius-1, no corners cut, trunk center included)', () => {
+    const leaves = planSaplingTreeBlocks(base).filter((b) => b.blockType === 'LEAVES')
+    expect(leaves.filter((b) => b.position.y === base.y + 5)).toHaveLength(9)
+  })
+
+  it('radius-2 rings exclude all four diagonal corners', () => {
+    const leaves = planSaplingTreeBlocks(base).filter((b) => b.blockType === 'LEAVES')
+    const cornerOffsets = [
+      [-2, -2], [-2, 2], [2, -2], [2, 2],
+    ] as const
+    for (const dy of [3, 4]) {
+      for (const [dx, dz] of cornerOffsets) {
+        const exists = leaves.some(
+          (b) => b.position.x === base.x + dx && b.position.y === base.y + dy && b.position.z === base.z + dz,
+        )
+        expect(exists).toBe(false)
+      }
+    }
+  })
+
+  it('the top leaf ring includes the trunk center column (yOffset 5, dx=0 dz=0)', () => {
+    const leaves = planSaplingTreeBlocks(base).filter((b) => b.blockType === 'LEAVES')
+    const topCenter = leaves.find(
+      (b) => b.position.x === base.x && b.position.y === base.y + 5 && b.position.z === base.z,
+    )
+    expect(topCenter).toBeDefined()
+  })
+
+  it('all positions are relative to base (works correctly for a non-origin base)', () => {
+    const offset = { x: 10, y: 20, z: -5 }
+    const atOrigin = planSaplingTreeBlocks({ x: 0, y: 0, z: 0 })
+    const atOffset = planSaplingTreeBlocks(offset)
+    for (let i = 0; i < atOrigin.length; i++) {
+      expect(atOffset[i]!.position.x).toBe(atOrigin[i]!.position.x + offset.x)
+      expect(atOffset[i]!.position.y).toBe(atOrigin[i]!.position.y + offset.y)
+      expect(atOffset[i]!.position.z).toBe(atOrigin[i]!.position.z + offset.z)
+    }
+  })
 })

@@ -6,6 +6,7 @@ import {
   healHealth,
   tickInvincibility,
 } from '../domain/player-health-resolution'
+import { type PlayerDamageCause, describePlayerDeath } from '../domain/player-damage-cause'
 import { PLAYER_MAX_HEALTH, PLAYER_START_HEALTH } from './health-service.config'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -19,13 +20,18 @@ type FallState = { readonly prevY: Option.Option<number>; readonly fallDistance:
 type HealthState = {
   readonly health: PlayerHealth
   readonly fallState: FallState
+  readonly lastDeathCause: Option.Option<PlayerDamageCause>
 }
+
+const DEFAULT_DAMAGE_CAUSE: PlayerDamageCause = { kind: 'generic' }
+
 
 // ─── Initial state ────────────────────────────────────────────────────────────
 
 const INITIAL_STATE: HealthState = {
   health: new PlayerHealth({ current: PLAYER_START_HEALTH, max: PLAYER_MAX_HEALTH, invincibilityTicks: 0 }),
   fallState: { prevY: Option.none(), fallDistance: 0 },
+  lastDeathCause: Option.none(),
 }
 
 // ─── Service ─────────────────────────────────────────────────────────────────
@@ -45,12 +51,22 @@ export class HealthService extends Effect.Service<HealthService>()(
       // Atomic damage-with-death-signal: returns true when this damage caused death
       // (i.e. health crossed from > 0 to ≤ 0 on this call). Used internally to
       // fulfill the death deferred exactly once per death.
-      const applyDamageInternal = (amount: number): Effect.Effect<boolean, never> =>
+      const applyDamageInternal = (
+        amount: number,
+        cause: PlayerDamageCause = DEFAULT_DAMAGE_CAUSE,
+      ): Effect.Effect<boolean, never> =>
         Ref.modify(stateRef, (s) => {
           const wasAlive = s.health.current > 0
           const next = applyDamageToHealth(s.health, amount)
           const justDied = wasAlive && next.current <= 0
-          return [justDied, { ...s, health: next }] as const
+          return [
+            justDied,
+            {
+              ...s,
+              health: next,
+              lastDeathCause: justDied ? Option.some(cause) : s.lastDeathCause,
+            },
+          ] as const
         })
 
       const signalDeath = (): Effect.Effect<void, never> =>
@@ -66,9 +82,9 @@ export class HealthService extends Effect.Service<HealthService>()(
             return s.health
           }),
 
-        applyDamage: (amount: number): Effect.Effect<void, never> =>
+        applyDamage: (amount: number, cause?: PlayerDamageCause): Effect.Effect<void, never> =>
           Effect.gen(function* () {
-            const justDied = yield* applyDamageInternal(amount)
+            const justDied = yield* applyDamageInternal(amount, cause)
             if (justDied) yield* signalDeath()
           }),
 
@@ -79,6 +95,12 @@ export class HealthService extends Effect.Service<HealthService>()(
           Effect.gen(function* () {
             const s = yield* Ref.get(stateRef)
             return s.health.current <= 0
+          }),
+
+        getDeathMessage: (): Effect.Effect<string, never> =>
+          Effect.gen(function* () {
+            const s = yield* Ref.get(stateRef)
+            return describePlayerDeath(Option.getOrNull(s.lastDeathCause))
           }),
 
         // Single-shot per death cycle: reset() installs a fresh deferred, so the next

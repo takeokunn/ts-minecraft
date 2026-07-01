@@ -1,56 +1,55 @@
-import { describe, it } from '@effect/vitest'
-import { expect } from 'vitest'
-import * as Option from 'effect/Option'
-import type { ToneHandle } from '../domain/audio-types'
-import { resolveMusicPlaybackPlan, type ActiveTrack } from '../application/music-manager-state'
+import { describe, expect, it } from 'vitest'
+import { Option } from 'effect'
+import { resolveMusicPlaybackPlan } from '../application/music-manager-state'
+import type { ActiveTrack } from '../application/music-manager-state'
 
-const makeActiveTrack = (environment: ActiveTrack['environment']): ActiveTrack => ({
-  environment,
-  handle: { id: 1 } as ToneHandle,
+// ─── fixtures ─────────────────────────────────────────────────────────────────
+
+const noTrack: Option.Option<ActiveTrack> = Option.none()
+const dayTrack: ActiveTrack = { environment: 'day', handle: {} as any }
+const nightTrack: ActiveTrack = { environment: 'night', handle: {} as any }
+
+// ─── resolveMusicPlaybackPlan — disabled ──────────────────────────────────────
+
+describe('resolveMusicPlaybackPlan — music disabled', () => {
+  it('should stop active track when disabled', () => {
+    const plan = resolveMusicPlaybackPlan({ enabled: false, activeTrack: Option.some(dayTrack), environment: 'day' })
+    expect(plan.shouldStopActiveTrack).toBe(true)
+  })
+
+  it('should not stop anything when disabled with no active track', () => {
+    const plan = resolveMusicPlaybackPlan({ enabled: false, activeTrack: noTrack, environment: 'day' })
+    expect(plan.shouldStopActiveTrack).toBe(false)
+  })
+
+  it('never starts a new track when disabled', () => {
+    const plan = resolveMusicPlaybackPlan({ enabled: false, activeTrack: noTrack, environment: 'day' })
+    expect(Option.isNone(plan.environmentToPlay)).toBe(true)
+  })
 })
 
-describe('audio/music-manager-state', () => {
-  it('stops the active track when music is disabled', () => {
-    const plan = resolveMusicPlaybackPlan({
-      enabled: false,
-      activeTrack: Option.some(makeActiveTrack('day')),
-      environment: 'night',
-    })
+// ─── resolveMusicPlaybackPlan — same environment ──────────────────────────────
 
-    expect(plan.shouldStopActiveTrack).toBe(true)
-    expect(plan.environmentToPlay).toEqual(Option.none())
-  })
-
-  it('keeps the current track when the environment does not change', () => {
-    const plan = resolveMusicPlaybackPlan({
-      enabled: true,
-      activeTrack: Option.some(makeActiveTrack('cave')),
-      environment: 'cave',
-    })
-
+describe('resolveMusicPlaybackPlan — same environment already playing', () => {
+  it('does not stop or restart when the correct track is already playing', () => {
+    const plan = resolveMusicPlaybackPlan({ enabled: true, activeTrack: Option.some(dayTrack), environment: 'day' })
     expect(plan.shouldStopActiveTrack).toBe(false)
-    expect(plan.environmentToPlay).toEqual(Option.none())
+    expect(Option.isNone(plan.environmentToPlay)).toBe(true)
   })
+})
 
-  it('replaces the active track when the environment changes', () => {
-    const plan = resolveMusicPlaybackPlan({
-      enabled: true,
-      activeTrack: Option.some(makeActiveTrack('day')),
-      environment: 'night',
-    })
+// ─── resolveMusicPlaybackPlan — environment change ────────────────────────────
 
+describe('resolveMusicPlaybackPlan — environment change', () => {
+  it('stops the old track and starts the new environment', () => {
+    const plan = resolveMusicPlaybackPlan({ enabled: true, activeTrack: Option.some(dayTrack), environment: 'night' })
     expect(plan.shouldStopActiveTrack).toBe(true)
-    expect(plan.environmentToPlay).toEqual(Option.some('night'))
+    expect(Option.getOrNull(plan.environmentToPlay)).toBe('night')
   })
 
-  it('starts the requested environment when no track is active', () => {
-    const plan = resolveMusicPlaybackPlan({
-      enabled: true,
-      activeTrack: Option.none(),
-      environment: 'day',
-    })
-
+  it('starts first track with no stop when no track is playing', () => {
+    const plan = resolveMusicPlaybackPlan({ enabled: true, activeTrack: noTrack, environment: 'day' })
     expect(plan.shouldStopActiveTrack).toBe(false)
-    expect(plan.environmentToPlay).toEqual(Option.some('day'))
+    expect(Option.getOrNull(plan.environmentToPlay)).toBe('day')
   })
 })

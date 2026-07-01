@@ -71,6 +71,59 @@ describe('step 7 — block interaction', () => {
     expect(updateSpy).not.toHaveBeenCalled()
   }))
 
+  it.effect('skips interaction input while the player is dead', () => Effect.gen(function* () {
+    const deps = yield* makeDeps(false)
+    const inputService = makeInputService()
+    ;(inputService as { consumeMouseClick: unknown }).consumeMouseClick = vi.fn(() =>
+      Effect.succeed(true)
+    )
+    const services = makeServices({
+      inputService,
+      inventoryRenderer: makeInventoryRenderer({ open: false }),
+      settingsOverlay: makeSettingsOverlay({ open: false }),
+    })
+    ;(services.healthService as { isDead: unknown }).isDead = vi.fn(() =>
+      Effect.succeed(true)
+    )
+    const updateSpy = vi.fn(() => Effect.void)
+    const breakSpy = vi.fn(() => Effect.void)
+    const highlightUpdateSpy = vi.fn(() => Effect.void)
+    const setVisibleSpy = vi.fn(() => Effect.void)
+    ;(services.hotbarService as { update: unknown }).update = updateSpy
+    ;(services.blockService as { breakBlock: unknown }).breakBlock = breakSpy
+    ;(services.blockHighlight as { update: unknown }).update = highlightUpdateSpy
+    ;(services.blockHighlight as { setVisible: unknown }).setVisible = setVisibleSpy
+
+    yield* interactionStage(deps, services, makeInteractionStageRefs(), { debugFlags: DEBUG_FEATURE_FLAG_DEFAULTS })
+
+    expect(updateSpy).not.toHaveBeenCalled()
+    expect(breakSpy).not.toHaveBeenCalled()
+    expect(highlightUpdateSpy).not.toHaveBeenCalled()
+    expect(setVisibleSpy).toHaveBeenCalledWith(false)
+  }))
+
+  it.effect('clears transient interaction state while the player is dead', () => Effect.gen(function* () {
+    const deps = yield* makeDeps(false)
+    const services = makeServices({
+      inputService: makeInputService(),
+      inventoryRenderer: makeInventoryRenderer({ open: false }),
+      settingsOverlay: makeSettingsOverlay({ open: false }),
+    })
+    ;(services.healthService as { isDead: unknown }).isDead = vi.fn(() =>
+      Effect.succeed(true)
+    )
+    const refs = makeInteractionStageRefs()
+    MutableRef.set(refs.breakProgressRef, { blockKey: '0,64,0', ticks: 3, totalTicks: 5 })
+    MutableRef.set(refs.bowChargeStartRef, 12)
+    MutableRef.set(refs.isShieldBlockingRef, true)
+
+    yield* interactionStage(deps, services, refs, { debugFlags: DEBUG_FEATURE_FLAG_DEFAULTS })
+
+    expect(MutableRef.get(refs.breakProgressRef)).toBeNull()
+    expect(MutableRef.get(refs.bowChargeStartRef)).toBeNull()
+    expect(MutableRef.get(refs.isShieldBlockingRef)).toBe(false)
+  }))
+
   it.effect('routes redstone key input through the stage flag bundle', () => Effect.gen(function* () {
     const deps = yield* makeDeps(false)
     const inputService = makeInputService(MutableHashSet.fromIterable([REDSTONE_PLACE_WIRE_KEY]))
@@ -1336,6 +1389,54 @@ describe('step 7 — block interaction', () => {
     expect(placeSpy).not.toHaveBeenCalled()
   }))
 
+  it.effect('right-click holding potato on farmland plants before food consumption', () => Effect.gen(function* () {
+    const deps = yield* makeDeps(false)
+    const inputService = makeInputService()
+    ;(inputService as { consumeMouseClick: unknown }).consumeMouseClick = (btn: number) =>
+      Effect.succeed(btn === 2)
+    const services = makeServices({
+      inputService,
+      inventoryRenderer: makeInventoryRenderer({ open: false }),
+      settingsOverlay: makeSettingsOverlay({ open: false }),
+    })
+    ;(services.blockHighlight as { getTargetBlock: unknown }).getTargetBlock = vi.fn(() =>
+      Effect.succeed(Option.none())
+    )
+    ;(services.blockHighlight as { getTargetHit: unknown }).getTargetHit = vi.fn(() =>
+      Effect.succeed(Option.some({ blockX: 2, blockY: 64, blockZ: 3, normal: { x: 0, y: 1, z: 0 } }))
+    )
+    ;(services.chunkManagerService as { getChunk: unknown }).getChunk = vi.fn(() =>
+      Effect.succeed(makeChunkWithBlock(2, 64, 3, 'FARMLAND') as never)
+    )
+    ;(services.hotbarService as { getSelectedBlockType: unknown }).getSelectedBlockType = vi.fn(() =>
+      Effect.succeed(Option.some('POTATO'))
+    )
+    ;(services.hotbarService as { getSelectedSlot: unknown }).getSelectedSlot = vi.fn(() =>
+      Effect.succeed(3)
+    )
+    ;(services.hungerService as { getHunger: unknown }).getHunger = vi.fn(() =>
+      Effect.succeed({ foodLevel: 10, saturation: 0, exhaustion: 0 })
+    )
+    const eatSpy = vi.fn(() => Effect.void)
+    ;(services.hungerService as { eat: unknown }).eat = eatSpy
+    const removeSpy = vi.fn(() => Effect.succeed(true))
+    ;(services.inventoryService as { removeBlock: unknown }).removeBlock = removeSpy
+    const forceSetBlockSpy = vi.fn(() => Effect.void)
+    ;(services.blockService as { forceSetBlock: unknown }).forceSetBlock = forceSetBlockSpy
+    const placeSpy = vi.fn(() => Effect.void)
+    ;(services.blockService as { placeBlock: unknown }).placeBlock = placeSpy
+    const plantSpy = vi.fn(() => Effect.void)
+    ;(services.cropGrowthService as { plant: unknown }).plant = plantSpy
+
+    yield* runFrame(deps, services)
+
+    expect(forceSetBlockSpy).toHaveBeenCalledWith({ x: 2, y: 65, z: 3 }, 'POTATO_CROP')
+    expect(plantSpy).toHaveBeenCalledWith({ x: 2, y: 65, z: 3 })
+    expect(removeSpy).toHaveBeenCalled()
+    expect(eatSpy).not.toHaveBeenCalled()
+    expect(placeSpy).not.toHaveBeenCalled()
+  }))
+
   it.effect('does NOT eat when the food bar is already full', () => Effect.gen(function* () {
     const deps = yield* makeDeps(false)
     const inputService = makeInputService()
@@ -2112,7 +2213,7 @@ describe('step R38 — bow kill spawns XP orb', () => {
     )
     ;(services.inventoryService as { damageSlot: unknown }).damageSlot = vi.fn(() => Effect.void)
     const chunk = { blocks: new Uint16Array(CHUNK_SIZE * CHUNK_HEIGHT * CHUNK_SIZE) }
-    chunk.blocks[64 + 1 * CHUNK_HEIGHT + 0 * CHUNK_HEIGHT * CHUNK_SIZE] = blockTypeToIndex('STONE')
+    chunk.blocks[64 + 1 * CHUNK_HEIGHT] = blockTypeToIndex('STONE')
     ;(services.chunkManagerService as { getChunk: unknown }).getChunk = vi.fn(() => Effect.succeed(chunk as never))
 
     const entity = {

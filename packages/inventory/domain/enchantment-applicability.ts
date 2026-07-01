@@ -6,6 +6,19 @@ import { ENCHANTMENT_TYPES, type Enchantment, type EnchantmentType, type Enchant
 export const canEnchantItem = (item: ItemType, enchantment: EnchantmentType): boolean =>
   APPLICABLE_TO[enchantment].has(item)
 
+const MUTUALLY_EXCLUSIVE_ENCHANTMENT_GROUPS: ReadonlyArray<ReadonlySet<EnchantmentType>> = Object.freeze([
+  new Set<EnchantmentType>(['SHARPNESS', 'SMITE', 'BANE_OF_ARTHROPODS']),
+  new Set<EnchantmentType>(['PROTECTION', 'PROJECTILE_PROTECTION', 'FIRE_PROTECTION', 'BLAST_PROTECTION']),
+  new Set<EnchantmentType>(['FORTUNE', 'SILK_TOUCH']),
+  new Set<EnchantmentType>(['INFINITY', 'MENDING']),
+])
+
+export const areEnchantmentTypesMutuallyExclusive = (
+  a: EnchantmentType,
+  b: EnchantmentType,
+): boolean =>
+  a !== b && MUTUALLY_EXCLUSIVE_ENCHANTMENT_GROUPS.some(group => group.has(a) && group.has(b))
+
 const EMPTY_ENCHANTMENTS: ReadonlyArray<EnchantmentType> = Object.freeze([])
 
 const appendItemEnchantment = (

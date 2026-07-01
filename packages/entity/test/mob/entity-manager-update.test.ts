@@ -354,7 +354,7 @@ describe('entity/entityManagerUpdate', () => {
 
         const entityId = yield* entityManager.addEntity(EntityType.Zombie, { x: 0, y: 64, z: 0 })
         const playerClose = { x: 1, y: 64, z: 0 }
-        const initialDamage = yield* entityManager.getPlayerContactDamage(playerClose)
+        const initialDamage = (yield* entityManager.getPlayerContactDamageResolution(playerClose)).damage
         expect(initialDamage).toBe(3)
 
         const playerFar = { x: 1000, y: 64, z: 1000 }

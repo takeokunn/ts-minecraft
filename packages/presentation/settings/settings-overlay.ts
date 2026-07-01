@@ -1,6 +1,7 @@
 import { Cause, Effect, Match, Option, Ref } from 'effect'
 import { SettingsService } from '@ts-minecraft/game'
 import { DomOperationsService } from '@ts-minecraft/presentation/hud/crosshair'
+import { asFocusableElement, getActiveDocument, currentActiveElement } from '../dom-focus-utils'
 import { buildSettingsOverlayDom } from './settings-overlay-dom'
 
 export class SettingsOverlayService extends Effect.Service<SettingsOverlayService>()(
@@ -10,6 +11,7 @@ export class SettingsOverlayService extends Effect.Service<SettingsOverlayServic
       const settingsService = yield* SettingsService
       const dom = yield* DomOperationsService
       const isVisibleRef = yield* Ref.make(false)
+      const restoreFocusRef = yield* Ref.make<Option.Option<HTMLElement>>(Option.none())
       // Build DOM once — yields const bindings, eliminates mutable let declarations
       const {
         overlayEl,
@@ -31,15 +33,42 @@ export class SettingsOverlayService extends Effect.Service<SettingsOverlayServic
         if (span !== null) span.textContent = value
       }
 
+      const formatVolumePercent = (value: string): string => {
+        const volume = Number.parseFloat(value)
+        if (!Number.isFinite(volume)) return '0%'
+        return `${Math.round(Math.min(1, Math.max(0, volume)) * 100)}%`
+      }
+
+      const setRangeValueText = (input: HTMLElement, value: string): void => {
+        const setAttribute = (input as { readonly setAttribute?: (name: string, value: string) => void }).setAttribute
+        if (typeof setAttribute === 'function') setAttribute.call(input, 'aria-valuetext', value)
+      }
+
       const syncInputAndLabel = (
         inputOpt: Option.Option<HTMLElement & { value: string }>,
         labelId: string,
         value: string,
+        formatLabel: (value: string) => string = (rawValue) => rawValue,
       ): void => {
         const input = Option.getOrNull(inputOpt)
         if (input !== null) {
           input.value = value
-          updateLabel(labelId, value)
+          const label = formatLabel(value)
+          updateLabel(labelId, label)
+          setRangeValueText(input, label)
+        }
+      }
+
+      const updateInputLabel = (
+        inputOpt: Option.Option<HTMLElement & { value: string }>,
+        labelId: string,
+        formatLabel: (value: string) => string = (rawValue) => rawValue,
+      ): void => {
+        const input = Option.getOrNull(inputOpt)
+        if (input !== null) {
+          const label = formatLabel(input.value)
+          updateLabel(labelId, label)
+          setRangeValueText(input, label)
         }
       }
 
@@ -87,13 +116,123 @@ export class SettingsOverlayService extends Effect.Service<SettingsOverlayServic
             syncInputAndLabel(dayLengthInput, '#dl-val', String(settings.dayLengthSeconds))
             const aeInput = Option.getOrNull(audioEnabledInput)
             if (aeInput !== null) aeInput.checked = settings.audioEnabled
-            syncInputAndLabel(masterVolumeInput, '#mv-val', String(settings.masterVolume))
-            syncInputAndLabel(sfxVolumeInput, '#sv-val', String(settings.sfxVolume))
-            syncInputAndLabel(musicVolumeInput, '#muv-val', String(settings.musicVolume))
+            syncInputAndLabel(masterVolumeInput, '#mv-val', String(settings.masterVolume), formatVolumePercent)
+            syncInputAndLabel(sfxVolumeInput, '#sv-val', String(settings.sfxVolume), formatVolumePercent)
+            syncInputAndLabel(musicVolumeInput, '#muv-val', String(settings.musicVolume), formatVolumePercent)
             const qSel = Option.getOrNull(qualitySelect)
             if (qSel !== null) qSel.value = settings.graphicsQuality
           })
         })
+
+      const documentAddKeydownListener = (): void => {
+        const activeDocument = getActiveDocument()
+        const addEventListener = (activeDocument as { readonly addEventListener?: unknown } | null)?.addEventListener
+        if (typeof addEventListener === 'function') {
+          addEventListener.call(activeDocument, 'keydown', handleDocumentKeyDown)
+        }
+      }
+
+      const documentRemoveKeydownListener = (): void => {
+        const activeDocument = getActiveDocument()
+        const removeEventListener = (activeDocument as { readonly removeEventListener?: unknown } | null)?.removeEventListener
+        if (typeof removeEventListener === 'function') {
+          removeEventListener.call(activeDocument, 'keydown', handleDocumentKeyDown)
+        }
+      }
+
+      const focusableSettingsControls = (): ReadonlyArray<HTMLElement> =>
+        [
+          Option.getOrNull(qualitySelect),
+          Option.getOrNull(adaptivePerformanceInput),
+          Option.getOrNull(renderDistanceInput),
+          Option.getOrNull(sensitivityInput),
+          Option.getOrNull(dayLengthInput),
+          Option.getOrNull(audioEnabledInput),
+          Option.getOrNull(masterVolumeInput),
+          Option.getOrNull(sfxVolumeInput),
+          Option.getOrNull(musicVolumeInput),
+          Option.getOrNull(closeBtn),
+        ].flatMap((element) => {
+          const focusable = asFocusableElement(element)
+          if (focusable === null) return []
+          if ((focusable as { readonly disabled?: boolean }).disabled === true) return []
+          if (focusable.style.display === 'none' || focusable.style.visibility === 'hidden') return []
+          return [focusable]
+        })
+
+      const focusFirstSettingsControl = (): void => {
+        const first = focusableSettingsControls()[0]
+        if (first !== undefined) first.focus()
+      }
+
+      const trapSettingsOverlayFocus = (event: KeyboardEvent): void => {
+        const controls = focusableSettingsControls()
+        const first = controls[0]
+        const last = controls[controls.length - 1]
+        const active = currentActiveElement()
+        if (first === undefined || last === undefined || active === null) return
+        if (event.shiftKey && active === first) {
+          event.preventDefault()
+          last.focus()
+          return
+        }
+        if (!event.shiftKey && active === last) {
+          event.preventDefault()
+          first.focus()
+        }
+      }
+
+      const captureFocusBeforeOpen = (): Effect.Effect<void, never> =>
+        Ref.set(restoreFocusRef, Option.fromNullable(currentActiveElement()))
+
+      const restoreFocusAfterClose = (): Effect.Effect<void, never> =>
+        Effect.gen(function* () {
+          const restoreFocus = yield* Ref.get(restoreFocusRef)
+          yield* Ref.set(restoreFocusRef, Option.none())
+          yield* Effect.sync(() => {
+            const focusable = asFocusableElement(Option.getOrNull(restoreFocus))
+            if (focusable !== null) focusable.focus()
+          })
+        })
+
+      const setOverlayVisible = (visible: boolean): void => {
+        const el = Option.getOrNull(overlayEl)
+        if (el !== null) el.style.display = visible ? 'block' : 'none'
+      }
+
+      const openOverlay = (): Effect.Effect<void, never> =>
+        Effect.gen(function* () {
+          yield* captureFocusBeforeOpen()
+          yield* Ref.set(isVisibleRef, true)
+          yield* Effect.sync(() => {
+            setOverlayVisible(true)
+            documentAddKeydownListener()
+          })
+          yield* syncEffect()
+          yield* Effect.sync(focusFirstSettingsControl)
+        })
+
+      const closeOverlay = (): Effect.Effect<void, never> =>
+        Effect.gen(function* () {
+          yield* Ref.set(isVisibleRef, false)
+          yield* Effect.sync(() => {
+            setOverlayVisible(false)
+            documentRemoveKeydownListener()
+          })
+          yield* restoreFocusAfterClose()
+        })
+
+      const handleDocumentKeyDown = (event: KeyboardEvent): void => {
+        if (event.key === 'Escape') {
+          event.preventDefault()
+          event.stopPropagation()
+          Effect.runSync(closeOverlay())
+          return
+        }
+        if (event.key === 'Tab') {
+          trapSettingsOverlayFocus(event)
+        }
+      }
 
       // Named event handler functions for proper cleanup via removeEventListener
       const handleAdaptivePerformanceChange = () => {
@@ -101,20 +240,17 @@ export class SettingsOverlayService extends Effect.Service<SettingsOverlayServic
       }
 
       const handleRdInput = () => {
-        const input = Option.getOrNull(renderDistanceInput)
-        if (input !== null) updateLabel('#rd-val', input.value)
+        updateInputLabel(renderDistanceInput, '#rd-val')
         runCommit()
       }
 
       const handleMsInput = () => {
-        const input = Option.getOrNull(sensitivityInput)
-        if (input !== null) updateLabel('#ms-val', input.value)
+        updateInputLabel(sensitivityInput, '#ms-val')
         runCommit()
       }
 
       const handleDlInput = () => {
-        const input = Option.getOrNull(dayLengthInput)
-        if (input !== null) updateLabel('#dl-val', input.value)
+        updateInputLabel(dayLengthInput, '#dl-val')
         runCommit()
       }
 
@@ -127,44 +263,30 @@ export class SettingsOverlayService extends Effect.Service<SettingsOverlayServic
       }
 
       const handleMasterVolumeInput = () => {
-        const input = Option.getOrNull(masterVolumeInput)
-        if (input !== null) updateLabel('#mv-val', input.value)
+        updateInputLabel(masterVolumeInput, '#mv-val', formatVolumePercent)
         runCommit()
       }
 
       const handleSfxVolumeInput = () => {
-        const input = Option.getOrNull(sfxVolumeInput)
-        if (input !== null) updateLabel('#sv-val', input.value)
+        updateInputLabel(sfxVolumeInput, '#sv-val', formatVolumePercent)
         runCommit()
       }
 
       const handleMusicVolumeInput = () => {
-        const input = Option.getOrNull(musicVolumeInput)
-        if (input !== null) updateLabel('#muv-val', input.value)
+        updateInputLabel(musicVolumeInput, '#muv-val', formatVolumePercent)
         runCommit()
       }
 
       const handleClose = () => {
-        Effect.runFork(
-          Effect.gen(function* () {
-            yield* Ref.set(isVisibleRef, false)
-            yield* Effect.sync(() => {
-              const el = Option.getOrNull(overlayEl)
-              if (el !== null) el.style.display = 'none'
-            })
-          }).pipe(Effect.catchAllCause(() => Effect.void))
-        )
+        Effect.runSync(closeOverlay())
       }
 
       const handleGearClick = () => {
         Effect.runFork(
           Effect.gen(function* () {
-            const next = yield* Ref.modify(isVisibleRef, (current): [boolean, boolean] => [!current, !current])
-            yield* Effect.sync(() => {
-              const el = Option.getOrNull(overlayEl)
-              if (el !== null) el.style.display = next ? 'block' : 'none'
-            })
-            if (next) yield* syncEffect()
+            const isVisible = yield* Ref.get(isVisibleRef)
+            if (isVisible) yield* closeOverlay()
+            else yield* openOverlay()
           }).pipe(Effect.catchAllCause(() => Effect.void))
         )
       }
@@ -187,6 +309,7 @@ export class SettingsOverlayService extends Effect.Service<SettingsOverlayServic
 
       // Cleanup event listeners + DOM on scope close
       yield* Effect.addFinalizer(() => Effect.sync(() => {
+        documentRemoveKeydownListener()
         Option.getOrNull(adaptivePerformanceInput)?.removeEventListener('change', handleAdaptivePerformanceChange)
         Option.getOrNull(renderDistanceInput)?.removeEventListener('input', handleRdInput)
         Option.getOrNull(sensitivityInput)?.removeEventListener('input', handleMsInput)
@@ -205,13 +328,13 @@ export class SettingsOverlayService extends Effect.Service<SettingsOverlayServic
       return {
         toggle: (): Effect.Effect<boolean, never> =>
           Effect.gen(function* () {
-            const next = yield* Ref.modify(isVisibleRef, (current): [boolean, boolean] => [!current, !current])
-            yield* Effect.sync(() => {
-              const el = Option.getOrNull(overlayEl)
-              if (el !== null) el.style.display = next ? 'block' : 'none'
-            })
-            if (next) yield* syncEffect()
-            return next
+            const isVisible = yield* Ref.get(isVisibleRef)
+            if (isVisible) {
+              yield* closeOverlay()
+              return false
+            }
+            yield* openOverlay()
+            return true
           }),
 
         isOpen: (): Effect.Effect<boolean, never> => Ref.get(isVisibleRef),

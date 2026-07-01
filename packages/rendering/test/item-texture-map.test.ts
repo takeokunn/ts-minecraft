@@ -34,12 +34,16 @@ describe('infrastructure/three/textures/item-texture-map', () => {
       expect(getItemTileIndex('SPYGLASS')).toBe(59)
       expect(getItemTileIndex('BOAT')).toBe(41)
       expect(getItemTileIndex('MINECART')).toBe(35)
+      expect(getItemTileIndex('CARROT')).toBe(96)
+      expect(getItemTileIndex('POTATO')).toBe(96)
     })
 
     it('should keep block mappings stable', () => {
       expect(getItemTileIndex('DIRT')).toBe(0)
       expect(getItemTileIndex('STONE')).toBe(1)
       expect(getItemTileIndex('TORCH')).toBe(45)
+      expect(getItemTileIndex('WHEAT_CROP')).toBe(85)
+      expect(getItemTileIndex('POTATO_CROP')).toBe(85)
       expect(getItemTileIndex('CHEST')).toBe(74)
       expect(getItemTileIndex('DOOR')).toBe(41)
       expect(getItemTileIndex('DOOR_OPEN')).toBe(41)

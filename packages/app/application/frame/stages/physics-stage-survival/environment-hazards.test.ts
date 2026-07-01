@@ -1,4 +1,4 @@
-import { Effect, HashMap, MutableRef, Option } from 'effect'
+import { Effect, MutableRef } from 'effect'
 import { describe, expect, it, vi } from 'vitest'
 import {
   CACTUS_DAMAGE,
@@ -12,77 +12,14 @@ import {
   VOID_DAMAGE_INTERVAL_SECS,
   VOID_DAMAGE_Y,
 } from '@ts-minecraft/entity/domain/environment-hazard.config'
-import { emptyEquipmentSlots } from '../../../../../inventory/application/equipment-persistence'
-import type { PhysicsStageInputs } from '../physics-stage-types/inputs'
-import type { PhysicsStageRefs } from '../physics-stage-types/refs'
-import type { PhysicsStageServices } from '../physics-stage-types/services'
 import { applySurvivalHazardEffects } from './environment-hazards'
 import type { SurvivalMovementState } from './types'
-
-const makeInputs = (deltaTime: number): PhysicsStageInputs =>
-  ({
-    deltaTime,
-    initialPlayerPos: { x: 0, y: 0, z: 0 },
-    healthValueElementOrNull: null,
-    healthMaxElementOrNull: null,
-    hungerValueElementOrNull: null,
-    hungerMaxElementOrNull: null,
-    xpLevelElementOrNull: null,
-    xpBarElementOrNull: null,
-    xpBarMaxElementOrNull: null,
-    armorValueElementOrNull: null,
-    airElementOrNull: null,
-    debugFlags: {} as never,
-    difficulty: 'NORMAL' as never,
-  }) as unknown as PhysicsStageInputs
-
-const makeRefs = (): PhysicsStageRefs =>
-  ({
-    lastHealthRef: MutableRef.make(0),
-    lastHungerRef: MutableRef.make(0),
-    lastXPRef: MutableRef.make(0),
-    lastArmorRef: MutableRef.make(0),
-    portalSecsRef: MutableRef.make(0),
-    dirtyChunksRef: MutableRef.make(HashMap.empty<string, unknown>()),
-    lavaDamageSecsRef: MutableRef.make(0),
-    lavaBurnRemainingSecsRef: MutableRef.make(0),
-    lavaBurnDamageSecsRef: MutableRef.make(0),
-    airSecsRef: MutableRef.make(10),
-    drownDamageSecsRef: MutableRef.make(0),
-    suffocationDamageSecsRef: MutableRef.make(0),
-    lightningDamageSecsRef: MutableRef.make(0),
-    voidDamageSecsRef: MutableRef.make(0),
-    lastAirBubblesRef: MutableRef.make(10),
-    isShieldBlockingRef: MutableRef.make(false),
-    wasGroundedRef: MutableRef.make(false),
-    footstepDistanceAccumulatorRef: MutableRef.make(0),
-    finalPosRef: MutableRef.make({ x: 0, y: 0, z: 0 }),
-    healthTickAccumulatorRef: MutableRef.make(0),
-    hungerTickAccumulatorRef: MutableRef.make(0),
-    entityPhysicsChunkCacheRef: MutableRef.make(new Map()),
-    lastEntityPhysicsChunkCoordRef: MutableRef.make(null),
-  }) as unknown as PhysicsStageRefs
-
-const makeServices = (): PhysicsStageServices => {
-  const playEffect = vi.fn(() => Effect.void)
-  return {
-    chunkManagerService: {
-      getChunk: vi.fn(() => Effect.void),
-    },
-    equipmentService: {
-      getAll: vi.fn(() => Effect.succeed(emptyEquipmentSlots())),
-      getEquippedItem: vi.fn(() => Effect.succeed(Option.none())),
-    },
-    soundManager: {
-      playEffect,
-    },
-  } as never
-}
+import { makeDefaultInputs, makeDefaultRefs, makeDefaultServices } from './test-builders'
 
 describe('physics-stage-survival/environment-hazards', () => {
   it('applies cadenced hazard damage for lava, suffocation, and the void', async () => {
-    const services = makeServices()
-    const refs = makeRefs()
+    const services = makeDefaultServices()
+    const refs = makeDefaultRefs(10, 10)
     const damageCalls: number[] = []
     const applyDamage = (damage: number) => {
       damageCalls.push(damage)
@@ -101,7 +38,7 @@ describe('physics-stage-survival/environment-hazards', () => {
       applySurvivalHazardEffects(
         services,
         refs,
-        makeInputs(VOID_DAMAGE_INTERVAL_SECS),
+        makeDefaultInputs(VOID_DAMAGE_INTERVAL_SECS),
         refreshedPos,
         movement,
         'LAVA',
@@ -124,8 +61,8 @@ describe('physics-stage-survival/environment-hazards', () => {
   })
 
   it('applies cactus contact damage immediately in survival', async () => {
-    const services = makeServices()
-    const refs = makeRefs()
+    const services = makeDefaultServices()
+    const refs = makeDefaultRefs(10, 10)
     const damageCalls: number[] = []
     const applyDamage = (damage: number) => {
       damageCalls.push(damage)
@@ -144,7 +81,7 @@ describe('physics-stage-survival/environment-hazards', () => {
       applySurvivalHazardEffects(
         services,
         refs,
-        makeInputs(0),
+        makeDefaultInputs(0),
         refreshedPos,
         movement,
         'AIR',
@@ -162,8 +99,8 @@ describe('physics-stage-survival/environment-hazards', () => {
   })
 
   it('keeps burning briefly after leaving lava', async () => {
-    const services = makeServices()
-    const refs = makeRefs()
+    const services = makeDefaultServices()
+    const refs = makeDefaultRefs(10, 10)
     const damageCalls: number[] = []
     const applyDamage = (damage: number) => {
       damageCalls.push(damage)
@@ -182,7 +119,7 @@ describe('physics-stage-survival/environment-hazards', () => {
       applySurvivalHazardEffects(
         services,
         refs,
-        makeInputs(0.5),
+        makeDefaultInputs(0.5),
         refreshedPos,
         movement,
         'LAVA',
@@ -197,7 +134,7 @@ describe('physics-stage-survival/environment-hazards', () => {
       applySurvivalHazardEffects(
         services,
         refs,
-        makeInputs(1),
+        makeDefaultInputs(1),
         refreshedPos,
         movement,
         'AIR',
@@ -213,8 +150,8 @@ describe('physics-stage-survival/environment-hazards', () => {
   })
 
   it('clears post-lava burn state in creative', async () => {
-    const services = makeServices()
-    const refs = makeRefs()
+    const services = makeDefaultServices()
+    const refs = makeDefaultRefs(10, 10)
     MutableRef.set(refs.lavaBurnRemainingSecsRef, 4)
     MutableRef.set(refs.lavaBurnDamageSecsRef, 0.5)
     const damageCalls: number[] = []
@@ -235,7 +172,7 @@ describe('physics-stage-survival/environment-hazards', () => {
       applySurvivalHazardEffects(
         services,
         refs,
-        makeInputs(1),
+        makeDefaultInputs(1),
         refreshedPos,
         movement,
         'AIR',
@@ -252,8 +189,8 @@ describe('physics-stage-survival/environment-hazards', () => {
   })
 
   it('applies cadenced lightning damage while thunder sky exposure is active', async () => {
-    const services = makeServices()
-    const refs = makeRefs()
+    const services = makeDefaultServices()
+    const refs = makeDefaultRefs(10, 10)
     const damageCalls: number[] = []
     const applyDamage = (damage: number) => {
       damageCalls.push(damage)
@@ -272,7 +209,7 @@ describe('physics-stage-survival/environment-hazards', () => {
       applySurvivalHazardEffects(
         services,
         refs,
-        makeInputs(LIGHTNING_DAMAGE_INTERVAL_SECS),
+        makeDefaultInputs(LIGHTNING_DAMAGE_INTERVAL_SECS),
         refreshedPos,
         movement,
         'AIR',

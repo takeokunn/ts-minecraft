@@ -16,6 +16,7 @@ export type OverlayDom = {
   readonly chestContainerEl: Option.Option<HTMLDivElement>
   readonly chestSlotEls: HTMLDivElement[]
   readonly slotEls: HTMLDivElement[]
+  readonly cursorEl: Option.Option<HTMLDivElement>
   readonly recipeBookEl: Option.Option<HTMLDivElement>
   readonly recipeBookSearchEl: Option.Option<HTMLInputElement>
   readonly craftingPreviewEl: Option.Option<HTMLDivElement>
@@ -23,6 +24,23 @@ export type OverlayDom = {
   readonly statusEl: Option.Option<HTMLDivElement>
   readonly sortButtonEl: Option.Option<HTMLButtonElement>
 }
+
+const INVENTORY_CURSOR_STYLE = [
+  SLOT_EL_STYLE,
+  'position:fixed',
+  'left:0',
+  'top:0',
+  'width:40px',
+  'height:40px',
+  'z-index:1001',
+  'pointer-events:none',
+  'cursor:inherit',
+  'display:none',
+  'transform:translate(-9999px,-9999px)',
+  'opacity:0.95',
+].join(';')
+
+const OVERLAY_DESCRIPTION_STYLE = 'margin:-6px 0 12px;color:#d7c9a8;font-size:12px;line-height:1.4'
 
 /* c8 ignore next 5 */
 export const createSlotEl = (dom: DomOperationsService, index: number): HTMLDivElement => {
@@ -50,6 +68,7 @@ export const buildOverlayDom = (dom: DomOperationsService): OverlayDom => {
       chestContainerEl: Option.none(),
       chestSlotEls: [],
       slotEls: [],
+      cursorEl: Option.none(),
       recipeBookEl: Option.none(),
       recipeBookSearchEl: Option.none(),
       craftingPreviewEl: Option.none(),
@@ -62,16 +81,30 @@ export const buildOverlayDom = (dom: DomOperationsService): OverlayDom => {
 
   const el = dom.createElement('div')
   el.id = 'inventory-overlay'
+  el.tabIndex = -1
+  el.setAttribute('role', 'dialog')
+  el.setAttribute('aria-modal', 'true')
+  el.setAttribute('aria-labelledby', 'inventory-overlay-title')
+  el.setAttribute('aria-describedby', 'inventory-overlay-description inventory-overlay-status')
   el.style.cssText = OVERLAY_STYLE
 
   const title = dom.createElement('div')
+  title.id = 'inventory-overlay-title'
   title.textContent = 'Inventory'
   title.style.cssText = OVERLAY_TITLE_STYLE
   dom.appendChildTo(el, title)
 
+  const description = dom.createElement('p')
+  description.id = 'inventory-overlay-description'
+  description.textContent = 'Manage items, craft recipes, and press Escape to return to the game.'
+  description.style.cssText = OVERLAY_DESCRIPTION_STYLE
+  dom.appendChildTo(el, description)
+
   const sortButton = dom.createElement('button') as HTMLButtonElement
+  sortButton.type = 'button'
   sortButton.textContent = 'Sort Inventory (R)'
   sortButton.title = 'Sort inventory slots'
+  sortButton.setAttribute('aria-label', 'Sort inventory slots')
   sortButton.dataset['inventoryAction'] = 'sort'
   sortButton.style.cssText = 'margin:0 0 12px 0;padding:6px 10px;background:#6b5b3e;color:#f5e6c8;border:1px solid #d7b46a;border-radius:4px;cursor:pointer'
   dom.appendChildTo(el, sortButton)
@@ -119,14 +152,17 @@ export const buildOverlayDom = (dom: DomOperationsService): OverlayDom => {
   dom.appendChildTo(el, recipeBookTitle)
 
   const recipeBookSearchLabel = dom.createElement('div')
+  recipeBookSearchLabel.id = 'inventory-recipe-search-label'
   recipeBookSearchLabel.textContent = 'Search recipes'
   recipeBookSearchLabel.style.cssText = RECIPE_BOOK_SEARCH_LABEL_STYLE
   dom.appendChildTo(el, recipeBookSearchLabel)
 
   const recipeBookSearch = dom.createElement('input') as HTMLInputElement
+  recipeBookSearch.id = 'inventory-recipe-search'
   recipeBookSearch.type = 'search'
   recipeBookSearch.placeholder = 'Search by name, ingredient, or station'
   recipeBookSearch.value = ''
+  recipeBookSearch.setAttribute('aria-labelledby', 'inventory-recipe-search-label')
   recipeBookSearch.style.cssText = RECIPE_BOOK_SEARCH_INPUT_STYLE
   dom.appendChildTo(el, recipeBookSearch)
 
@@ -143,9 +179,17 @@ export const buildOverlayDom = (dom: DomOperationsService): OverlayDom => {
   dom.appendChildTo(el, craftingList)
 
   const status = dom.createElement('div')
+  status.id = 'inventory-overlay-status'
+  status.setAttribute('role', 'status')
+  status.setAttribute('aria-live', 'polite')
   status.style.cssText = STATUS_STYLE
   status.textContent = 'Click a recipe to craft it.'
   dom.appendChildTo(el, status)
+
+  const cursor = dom.createElement('div')
+  cursor.dataset['inventoryCursor'] = 'held'
+  cursor.style.cssText = `${INVENTORY_CURSOR_STYLE};background:${DEFAULT_SLOT_COLOR}`
+  dom.appendChildTo(el, cursor)
 
   dom.appendChild(el)
 
@@ -154,6 +198,7 @@ export const buildOverlayDom = (dom: DomOperationsService): OverlayDom => {
     chestContainerEl: Option.some(chestContainer),
     chestSlotEls: chestSlots,
     slotEls: Arr.appendAll(mainSlots, hotbarSlots),
+    cursorEl: Option.some(cursor),
     recipeBookEl: Option.some(recipeBook),
     recipeBookSearchEl: Option.some(recipeBookSearch),
     craftingPreviewEl: Option.some(craftingPreview),

@@ -99,7 +99,7 @@ describe('presentation test utilities', () => {
     expect(element.textContent).toBe('')
     expect(element.title).toBe('')
     expect(element.dataset.slot).toBe('3')
-    expect(element.style.display).toBe('none')
+    expect(element.style.display).toBe('')
     expect(element.style.background).toBe('#333')
     expect(element.style.border).toBe('2px solid #666')
   })
@@ -164,7 +164,7 @@ describe('presentation test utilities', () => {
 
     expect(input.tagName).toBe('INPUT')
     expect(input.id).toBe('')
-    expect(input.style.display).toBe('none')
+    expect(input.style.display).toBe('')
     expect(Option.isSome(querySelector(parent, '#settings-gear-btn'))).toBe(true)
     expect(Option.isNone(querySelector(parent, '#missing-control'))).toBe(true)
   })

@@ -64,54 +64,55 @@ export const TILE_MAP: ReadonlyArray<Readonly<Record<TextureFaceDir, number>>> =
   { top: 86, bottom: 86, side: 86 }, // 45: NETHER_PORTAL
   { top: 84, bottom: 0,  side: 0  }, // 46: FARMLAND
   { top: 85, bottom: 85, side: 85 }, // 47: WHEAT_CROP
-  { top: 100, bottom: 100, side: 100 }, // 48: REDSTONE_WIRE
-  { top: 87, bottom: 87, side: 87 }, // 49: REDSTONE_TORCH
-  { top: 88, bottom: 88, side: 88 }, // 50: LEVER
-  { top: 89, bottom: 89, side: 89 }, // 51: STONE_BUTTON
-  { top: 90, bottom: 90, side: 90 }, // 52: REPEATER
-  { top: 76, bottom: 77, side: 77 }, // 53: BED
-  { top: 82, bottom: 19, side: 83 }, // 54: ENCHANTING_TABLE
-  { top: 64, bottom: 64, side: 64 }, // 55: END_STONE
-  { top: 70, bottom: 70, side: 70 }, // 56: END_PORTAL_FRAME
-  { top: 91, bottom: 91, side: 91 }, // 57: END_PORTAL
-  { top: 78, bottom: 78, side: 79 }, // 58: TNT
-  { top: 80, bottom: 80, side: 80 }, // 59: CHORUS_FLOWER
-  { top: 81, bottom: 81, side: 81 }, // 60: CHORUS_PLANT
-  { top: 71, bottom: 71, side: 71 }, // 61: DRAGON_EGG
-  { top: 72, bottom: 72, side: 72 }, // 62: END_CRYSTAL
-  { top: 92, bottom: 92, side: 92 }, // 63: END_GATEWAY
-  { top: 69, bottom: 69, side: 69 }, // 64: END_ROD
-  { top: 65, bottom: 65, side: 65 }, // 65: END_STONE_BRICKS
-  { top: 73, bottom: 74, side: 74 }, // 66: ENDER_CHEST
-  { top: 66, bottom: 66, side: 66 }, // 67: PURPUR_BLOCK
-  { top: 67, bottom: 67, side: 68 }, // 68: PURPUR_PILLAR
-  { top: 66, bottom: 66, side: 66 }, // 69: PURPUR_SLAB
-  { top: 66, bottom: 66, side: 66 }, // 70: PURPUR_STAIRS
-  { top: 75, bottom: 75, side: 75 }, // 71: SHULKER_BOX
-  { top: 73, bottom: 74, side: 74 }, // 72: CHEST
-  { top: 41, bottom: 41, side: 41 }, // 73: DOOR (simplified full-cube render)
-  { top: 41, bottom: 41, side: 41 }, // 74: DOOR_OPEN (interaction state)
-  { top: 113, bottom: 113, side: 113 }, // 75: GLOWSTONE
-  { top: 41, bottom: 41, side: 41 }, // 76: LADDER (simplified full-cube render)
-  { top: 101, bottom: 101, side: 101 }, // 77: COBWEB
-  { top: 102, bottom: 102, side: 102 }, // 78: SAPLING
-  { top: 103, bottom: 103, side: 103 }, // 79: DANDELION
-  { top: 104, bottom: 104, side: 104 }, // 80: POPPY
-  { top: 105, bottom: 105, side: 105 }, // 81: BROWN_MUSHROOM
-  { top: 106, bottom: 106, side: 106 }, // 82: RED_MUSHROOM
-  { top: 107, bottom: 107, side: 107 }, // 83: TALL_GRASS
-  { top: 108, bottom: 108, side: 108 }, // 84: FERN
-  { top: 109, bottom: 109, side: 109 }, // 85: SUGAR_CANE
-  { top: 110, bottom: 110, side: 110 }, // 86: CACTUS
-  { top: 111, bottom: 111, side: 111 }, // 87: LILY_PAD
-  { top: 112, bottom: 112, side: 112 }, // 88: ICE
-  { top: 1, bottom: 1, side: 1 }, // 89: PRESSURE_PLATE
-  { top: 1, bottom: 1, side: 1 }, // 90: STONE_SLAB
-  { top: 41, bottom: 41, side: 41 }, // 91: OAK_STAIRS
-  { top: 35, bottom: 35, side: 35 }, // 92: ANVIL
-  { top: 35, bottom: 35, side: 35 }, // 93: CAULDRON
-  { top: 18, bottom: 18, side: 18 }, // 94: FIRE (temporary lava tile)
-  { top: 35, bottom: 35, side: 35 }, // 95: WATER_CAULDRON
-  { top: 35, bottom: 35, side: 35 }, // 96: RAIL (temporary iron tile)
-  { top: 35, bottom: 35, side: 35 }, // 97: PISTON (temporary iron tile)
+  { top: 85, bottom: 85, side: 85 }, // 48: POTATO_CROP
+  { top: 100, bottom: 100, side: 100 }, // 49: REDSTONE_WIRE
+  { top: 87, bottom: 87, side: 87 }, // 50: REDSTONE_TORCH
+  { top: 88, bottom: 88, side: 88 }, // 51: LEVER
+  { top: 89, bottom: 89, side: 89 }, // 52: STONE_BUTTON
+  { top: 90, bottom: 90, side: 90 }, // 53: REPEATER
+  { top: 76, bottom: 77, side: 77 }, // 54: BED
+  { top: 82, bottom: 19, side: 83 }, // 55: ENCHANTING_TABLE
+  { top: 64, bottom: 64, side: 64 }, // 56: END_STONE
+  { top: 70, bottom: 70, side: 70 }, // 57: END_PORTAL_FRAME
+  { top: 91, bottom: 91, side: 91 }, // 58: END_PORTAL
+  { top: 78, bottom: 78, side: 79 }, // 59: TNT
+  { top: 80, bottom: 80, side: 80 }, // 60: CHORUS_FLOWER
+  { top: 81, bottom: 81, side: 81 }, // 61: CHORUS_PLANT
+  { top: 71, bottom: 71, side: 71 }, // 62: DRAGON_EGG
+  { top: 72, bottom: 72, side: 72 }, // 63: END_CRYSTAL
+  { top: 92, bottom: 92, side: 92 }, // 64: END_GATEWAY
+  { top: 69, bottom: 69, side: 69 }, // 65: END_ROD
+  { top: 65, bottom: 65, side: 65 }, // 66: END_STONE_BRICKS
+  { top: 73, bottom: 74, side: 74 }, // 67: ENDER_CHEST
+  { top: 66, bottom: 66, side: 66 }, // 68: PURPUR_BLOCK
+  { top: 67, bottom: 67, side: 68 }, // 69: PURPUR_PILLAR
+  { top: 66, bottom: 66, side: 66 }, // 70: PURPUR_SLAB
+  { top: 66, bottom: 66, side: 66 }, // 71: PURPUR_STAIRS
+  { top: 75, bottom: 75, side: 75 }, // 72: SHULKER_BOX
+  { top: 73, bottom: 74, side: 74 }, // 73: CHEST
+  { top: 41, bottom: 41, side: 41 }, // 74: DOOR (simplified full-cube render)
+  { top: 41, bottom: 41, side: 41 }, // 75: DOOR_OPEN (interaction state)
+  { top: 113, bottom: 113, side: 113 }, // 76: GLOWSTONE
+  { top: 41, bottom: 41, side: 41 }, // 77: LADDER (simplified full-cube render)
+  { top: 101, bottom: 101, side: 101 }, // 78: COBWEB
+  { top: 102, bottom: 102, side: 102 }, // 79: SAPLING
+  { top: 103, bottom: 103, side: 103 }, // 80: DANDELION
+  { top: 104, bottom: 104, side: 104 }, // 81: POPPY
+  { top: 105, bottom: 105, side: 105 }, // 82: BROWN_MUSHROOM
+  { top: 106, bottom: 106, side: 106 }, // 83: RED_MUSHROOM
+  { top: 107, bottom: 107, side: 107 }, // 84: TALL_GRASS
+  { top: 108, bottom: 108, side: 108 }, // 85: FERN
+  { top: 109, bottom: 109, side: 109 }, // 86: SUGAR_CANE
+  { top: 110, bottom: 110, side: 110 }, // 87: CACTUS
+  { top: 111, bottom: 111, side: 111 }, // 88: LILY_PAD
+  { top: 112, bottom: 112, side: 112 }, // 89: ICE
+  { top: 1, bottom: 1, side: 1 }, // 90: PRESSURE_PLATE
+  { top: 1, bottom: 1, side: 1 }, // 91: STONE_SLAB
+  { top: 41, bottom: 41, side: 41 }, // 92: OAK_STAIRS
+  { top: 35, bottom: 35, side: 35 }, // 93: ANVIL
+  { top: 35, bottom: 35, side: 35 }, // 94: CAULDRON
+  { top: 18, bottom: 18, side: 18 }, // 95: FIRE (temporary lava tile)
+  { top: 35, bottom: 35, side: 35 }, // 96: WATER_CAULDRON
+  { top: 35, bottom: 35, side: 35 }, // 97: RAIL (temporary iron tile)
+  { top: 35, bottom: 35, side: 35 }, // 98: PISTON (temporary iron tile)
 ]

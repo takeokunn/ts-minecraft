@@ -211,6 +211,12 @@ export const terrainBlocks: ReadonlyArray<Block> = [
     faces: defaultBlockFaces,
   }),
   new Block({
+    id: makeBlockId('block:potato_crop'),
+    type: 'POTATO_CROP',
+    properties: plantBlockProperties,
+    faces: defaultBlockFaces,
+  }),
+  new Block({
     id: makeBlockId('block:sapling'),
     type: 'SAPLING',
     properties: plantBlockProperties,

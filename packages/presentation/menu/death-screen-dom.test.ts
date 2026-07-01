@@ -121,20 +121,32 @@ describe('buildDeathScreenDOM', () => {
     const quitBtn = Option.getOrNull(result.quitBtn) as MockElement | null
     const panel = backdrop?.children[0] ?? null
     const title = panel?.children[0] ?? null
+    const message = panel?.children[1] ?? null
+    const help = panel?.children[2] ?? null
 
     expect(backdrop?.id).toBe('death-screen-backdrop')
     expect(backdrop?.children).toHaveLength(1)
     expect(panel?.attributes).toMatchObject({
       role: 'dialog',
       'aria-modal': 'true',
-      'aria-label': 'Death Screen',
+      'aria-labelledby': 'death-screen-title',
+      'aria-describedby': 'death-screen-message death-screen-help',
     })
+    expect(title?.id).toBe('death-screen-title')
     expect(title?.textContent).toBe('YOU DIED')
+    expect(message?.id).toBe('death-screen-message')
+    expect(message?.textContent).toBe('You died.')
+    expect(message?.dataset['role']).toBe('death-message')
+    expect(message?.attributes['aria-live']).toBe('polite')
+    expect(help?.id).toBe('death-screen-help')
+    expect(help?.textContent).toContain('Press Enter or Esc to respawn')
     expect(respawnBtn?.textContent).toBe('Respawn')
     expect(respawnBtn?.dataset['role']).toBe('respawn')
+    expect(respawnBtn?.attributes['aria-label']).toBe('Respawn at your current spawn point')
     expect(quitBtn?.textContent).toBe('Quit to Title')
     expect(quitBtn?.dataset['role']).toBe('quit-to-title')
-    expect(panel?.children).toEqual([title, respawnBtn, quitBtn])
+    expect(quitBtn?.attributes['aria-label']).toBe('Quit to title screen')
+    expect(panel?.children).toEqual([title, message, help, respawnBtn, quitBtn])
     expect(dom.appendChild).toHaveBeenCalledOnce()
     expect(dom.roots).toEqual([backdrop])
   })

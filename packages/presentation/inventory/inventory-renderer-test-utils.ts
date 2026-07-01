@@ -21,19 +21,33 @@ import type { Recipe } from '@ts-minecraft/inventory/domain/crafting'
 // ---------------------------------------------------------------------------
 
 export const createMockDomLayer = () => {
-  const createElement = vi.fn((_tagName: string) => {
-    const el: Pick<HTMLElement, 'id' | 'textContent' | 'title' | 'dataset'> & {
+  const createElement = vi.fn((tagNameInput: string) => {
+    const tagName = tagNameInput.toUpperCase()
+    const defaultTabIndex = ['BUTTON', 'INPUT', 'SELECT', 'TEXTAREA'].includes(tagName) ? 0 : -1
+    const attributes: Record<string, string> = {}
+    const el: Pick<HTMLElement, 'id' | 'textContent' | 'title' | 'dataset' | 'tagName'> & {
+      tabIndex: number
+      disabled: boolean
       draggable: boolean
       placeholder: string
       type: string
       value: string
       childrenList: Array<unknown>
-      style: Pick<CSSStyleDeclaration, 'cssText' | 'display' | 'background' | 'border'>
+      style: Pick<
+        CSSStyleDeclaration,
+        'cssText' | 'display' | 'visibility' | 'background' | 'backgroundImage' | 'backgroundSize' | 'border' | 'transform'
+      >
+      focus: ReturnType<typeof vi.fn>
+      setAttribute: ReturnType<typeof vi.fn>
+      getAttribute: ReturnType<typeof vi.fn>
       addEventListener: ReturnType<typeof vi.fn>
       removeEventListener: ReturnType<typeof vi.fn>
       remove: ReturnType<typeof vi.fn>
     } = {
       id: '',
+      tagName,
+      tabIndex: defaultTabIndex,
+      disabled: false,
       draggable: false,
       placeholder: '',
       type: '',
@@ -41,13 +55,22 @@ export const createMockDomLayer = () => {
       childrenList: [],
       style: {
         cssText: '',
-        display: 'none',
+        display: '',
+        visibility: '',
         background: '#333',
+        backgroundImage: '',
+        backgroundSize: '',
         border: '2px solid #666',
+        transform: '',
       },
       textContent: '',
       title: '',
       dataset: {} as Record<string, string>,
+      focus: vi.fn(),
+      setAttribute: vi.fn((name: string, value: string) => {
+        attributes[name] = String(value)
+      }),
+      getAttribute: vi.fn((name: string) => attributes[name] ?? null),
       addEventListener: vi.fn(),
       removeEventListener: vi.fn(),
       remove: vi.fn(),
@@ -251,6 +274,7 @@ export const createMockGameStateLayer = () => {
     update: (_deltaTime: DeltaTimeSecs) => Effect.void,
     respawn: () => Effect.void,
     setPlayerPosition: () => Effect.void,
+    applyPlayerVelocityImpulse: () => Effect.void,
     getTiming: () => Effect.succeed({ lastFrameTime: 0, deltaTime: DeltaTimeSecs.make(0.016), frameCount: 0 }),
     getPlayerPosition: () => Effect.succeed({ x: 0, y: 0, z: 0 }),
     getCameraRotation: () => Effect.succeed({ yaw: 0, pitch: 0 }),

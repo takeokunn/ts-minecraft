@@ -1,4 +1,5 @@
-import { Effect, Ref } from 'effect'
+import { Effect, Option, Ref } from 'effect'
+import type { ItemStack } from '@ts-minecraft/inventory'
 import { logErrors } from '@ts-minecraft/app/frame/error-logging'
 import { DEFAULT_PLAYER_ID } from '@ts-minecraft/core'
 import type { PhysicsStageDeps } from './physics-stage-types/deps'
@@ -16,7 +17,7 @@ export const applyPhysicsHealthAndHud = (
   services: PhysicsStageServices,
   refs: PhysicsStageRefs,
   inputs: PhysicsStageInputs,
-  bootsOpt: Awaited<ReturnType<PhysicsStageServices['equipmentService']['getEquippedItem']>> extends Effect.Effect<infer A, never> ? A : never,
+  bootsOpt: Option.Option<ItemStack>,
 ): Effect.Effect<void, never> =>
   logErrors(
   Effect.gen(function* () {

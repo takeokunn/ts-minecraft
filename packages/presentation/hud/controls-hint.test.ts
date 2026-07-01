@@ -27,6 +27,9 @@ const createMockDomLayer = () => {
   const createdElements: Array<{
     tagName: string
     id: string
+    type: string
+    textContent: string
+    innerHTML: string
     style: { cssText: string }
     children: unknown[]
     parentNode: unknown | null
@@ -50,6 +53,9 @@ const createMockDomLayer = () => {
     const element = {
       tagName: _tagName.toUpperCase(),
       id: '',
+      type: '',
+      textContent: '',
+      innerHTML: '',
       style: { cssText: '' },
       children: [] as unknown[],
       parentNode: null as unknown,
@@ -73,6 +79,9 @@ const createMockDomLayer = () => {
     return element
   })
   const getParentNodeMock = vi.fn((element: { parentNode: unknown | null }) => Option.fromNullable(element.parentNode))
+  const setInnerHTMLMock = vi.fn((element: { innerHTML: string }, html: string) => {
+    element.innerHTML = html
+  })
 
   const MockDomLayer = Layer.succeed(
     DomOperationsService,
@@ -83,20 +92,21 @@ const createMockDomLayer = () => {
       appendChildTo: appendChildToMock as DomOperationsService['appendChildTo'],
       removeChild: removeChildMock as DomOperationsService['removeChild'],
       getParentNode: getParentNodeMock as DomOperationsService['getParentNode'],
-      setInnerHTML: vi.fn() as DomOperationsService['setInnerHTML'],
+      setInnerHTML: setInnerHTMLMock as DomOperationsService['setInnerHTML'],
       querySelector: vi.fn(() => Option.none()) as DomOperationsService['querySelector'],
     })
   )
 
   const TestLayer = ControlsHintService.Default.pipe(Layer.provide(MockDomLayer))
 
-  return { TestLayer, appendChildMock, appendChildToMock, removeChildMock, createdElements }
+  return { TestLayer, appendChildMock, appendChildToMock, removeChildMock, setInnerHTMLMock, createdElements }
 }
 
 describe('ControlsHintService', () => {
   it.effect('shows, hides, and stays dismissed after hide', () => {
     const localStorageMock = createMockLocalStorage()
-    const { TestLayer, appendChildMock, appendChildToMock, removeChildMock, createdElements } = createMockDomLayer()
+    const { TestLayer, appendChildMock, appendChildToMock, removeChildMock, setInnerHTMLMock, createdElements } =
+      createMockDomLayer()
     vi.stubGlobal('localStorage', localStorageMock)
 
     const firstSession = Effect.gen(function* () {
@@ -107,7 +117,22 @@ describe('ControlsHintService', () => {
       expect(yield* hint.isVisible()).toBe(true)
       yield* hint.show()
       expect(appendChildToMock).toHaveBeenCalledTimes(1)
+      expect(createdElements[0]?.setAttribute).toHaveBeenCalledWith('aria-live', 'polite')
+      expect(createdElements[0]?.setAttribute).toHaveBeenCalledWith('aria-atomic', 'true')
+      expect(setInnerHTMLMock).toHaveBeenCalledWith(
+        createdElements[0],
+        expect.stringContaining('Open inventory with E')
+      )
+      expect(createdElements[0]?.innerHTML).toContain('1-9')
+      expect(createdElements[0]?.innerHTML).toContain('mouse wheel')
+      expect(createdElements[0]?.innerHTML).toContain('controller bumpers')
+      expect(createdElements[0]?.innerHTML).toContain('Press Esc for pause/settings')
       expect(createdElements[1]?.tagName).toBe('BUTTON')
+      expect(createdElements[1]?.textContent).toBe('Don\'t show again')
+      expect(createdElements[1]?.setAttribute).toHaveBeenCalledWith(
+        'aria-label',
+        'Do not show quick controls help again'
+      )
       createdElements[1]?.click()
       expect(yield* hint.isVisible()).toBe(false)
       expect(localStorageMock.setItem).toHaveBeenCalledWith('minecraft-controls-hint-dismissed', '1')

@@ -19,7 +19,7 @@ type HostileDamage = {
 
 type ResolvedHostileDamage = {
   hostileDamage: number
-  scaledHostileDamage: number
+  totalDamage: number
 }
 
 const ARMOR_SLOTS = ['HELMET', 'CHESTPLATE', 'LEGGINGS', 'BOOTS'] as const
@@ -42,7 +42,7 @@ export const resolveHostileDamage = (
   const scaledContactDamage = rawHostileDamage.contactDamage
   const scaledRangedDamage = rawHostileDamage.rangedDamage
   const scaledExplosionDamage = rawHostileDamage.explosionDamage
-  const scaledHostileDamage = scaledContactDamage + scaledRangedDamage + scaledExplosionDamage
+  const totalDamage = scaledContactDamage + scaledRangedDamage + scaledExplosionDamage
   const protectedContactDamage = applyProtectionToDamage(scaledContactDamage, armorPoints, protectionReduction, 0)
   const protectedRangedDamage = applyProtectionToDamage(
     scaledRangedDamage,
@@ -59,7 +59,22 @@ export const resolveHostileDamage = (
   const afterProtection = protectedContactDamage + protectedRangedDamage + protectedExplosionDamage
   const hostileDamage = isBlocking ? afterProtection * 0.34 : afterProtection
 
-  return { hostileDamage, scaledHostileDamage }
+  return { hostileDamage, totalDamage }
+}
+
+export const scaleHostileDamage = (raw: HostileDamage, multiplier: number): HostileDamage => ({
+  contactDamage: raw.contactDamage * multiplier,
+  rangedDamage: raw.rangedDamage * multiplier,
+  explosionDamage: raw.explosionDamage * multiplier,
+})
+
+export const resolveHostileDeathCause = (
+  damage: { contactDamage: number; rangedDamage: number; explosionDamage: number },
+): 'explosion' | 'projectile' | 'mob' | 'generic' => {
+  if (damage.explosionDamage > 0) return 'explosion'
+  if (damage.rangedDamage > 0) return 'projectile'
+  if (damage.contactDamage > 0) return 'mob'
+  return 'generic'
 }
 
 const damageShieldIfBlocking = (
@@ -77,11 +92,11 @@ const damageShieldIfBlocking = (
       )
 
 const damageArmorPieces = (services: PhysicsStageServices): Effect.Effect<void, never> =>
-  Effect.gen(function* () {
-    for (const slot of ARMOR_SLOTS) {
-      yield* services.equipmentService.damageArmorSlot(slot).pipe(Effect.catchAllCause(() => Effect.void))
-    }
-  })
+  Effect.forEach(
+    ARMOR_SLOTS,
+    (slot) => services.equipmentService.damageArmorSlot(slot).pipe(Effect.catchAllCause(() => Effect.void)),
+    { discard: true },
+  )
 
 const getHostileDamage = (
   services: PhysicsStageServices,
@@ -97,7 +112,7 @@ const getHostileDamage = (
     }
 
     if (inputs.debugFlags['mobs.enabled'] && inputs.debugFlags['mobs.damage']) {
-      rawHostileDamage.contactDamage = yield* services.entityManager.getPlayerContactDamage(refreshedPos)
+      rawHostileDamage.contactDamage = (yield* services.entityManager.getPlayerContactDamageResolution(refreshedPos)).damage
       const chunkCache = yield* Ref.get(refs.entityPhysicsChunkCacheRef)
       const chunkCoord = yield* Ref.get(refs.lastEntityPhysicsChunkCoordRef)
       const centerCx = Number.isFinite(chunkCoord.cx) ? chunkCoord.cx : Math.floor(refreshedPos.x / CHUNK_SIZE)
@@ -108,9 +123,7 @@ const getHostileDamage = (
         refreshedPos,
         isProjectileBlocked,
       )
-    }
 
-    if (inputs.debugFlags['mobs.enabled'] && inputs.debugFlags['mobs.damage']) {
       const explosions = yield* services.entityManager.drainExplosions()
       for (const explosion of explosions) {
         yield* applyExplosionBlockDamage(services, explosion)
@@ -134,11 +147,7 @@ export const applyHostileDamage = (
   Effect.gen(function* () {
     const rawHostileDamage = yield* getHostileDamage(services, refs, inputs, refreshedPos)
     const difficultyMultiplier = hostileDamageMultiplierForDifficulty(inputs.difficulty)
-    const scaledHostileDamage = {
-      contactDamage: rawHostileDamage.contactDamage * difficultyMultiplier,
-      rangedDamage: rawHostileDamage.rangedDamage * difficultyMultiplier,
-      explosionDamage: rawHostileDamage.explosionDamage * difficultyMultiplier,
-    }
+    const scaledHostileDamage = scaleHostileDamage(rawHostileDamage, difficultyMultiplier)
     const protectionReduction = yield* services.equipmentService.getTotalProtectionReduction()
     const projectileProtectionReduction = yield* services.equipmentService.getTotalProjectileProtectionReduction()
     const blastProtectionReduction = yield* services.equipmentService.getTotalBlastProtectionReduction()
@@ -151,15 +160,14 @@ export const applyHostileDamage = (
       MutableRef.get(refs.isShieldBlockingRef),
     )
 
-    if (MutableRef.get(refs.isShieldBlockingRef) && resolvedDamage.scaledHostileDamage > 0) {
-      yield* damageShieldIfBlocking(services, refs, resolvedDamage.scaledHostileDamage)
+    if (MutableRef.get(refs.isShieldBlockingRef) && resolvedDamage.totalDamage > 0) {
+      yield* damageShieldIfBlocking(services, refs, resolvedDamage.totalDamage)
     }
 
     const tookHostileDamage = yield* applyDamage(resolvedDamage.hostileDamage)
     if (tookHostileDamage) {
       yield* services.soundManager.playEffect('playerHurt', { position: refreshedPos })
-      yield* services.damageOverlay.flash()
-      if (resolvedDamage.scaledHostileDamage > 0) {
+      if (resolvedDamage.totalDamage > 0) {
         yield* damageArmorPieces(services)
       }
     }

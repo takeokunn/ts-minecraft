@@ -3,7 +3,7 @@ import type { Entity, EntityId } from '../../domain/mob/entity'
 import type { Position } from '@ts-minecraft/core'
 import type { ExplosionEvent } from '../../domain/explosion'
 import { type ManagedEntity } from '../../domain/mob/entity-internal'
-import { resolvePlayerContactDamage, resolvePlayerRangedDamage } from './entity-manager-combat'
+import { type PlayerContactDamageResolution, resolvePlayerContactDamage, resolvePlayerRangedDamage } from './entity-manager-combat'
 import type { ProjectileBlocker } from './entity-manager-projectile'
 import { makeEntityManagerActions } from './entity-manager-actions'
 import { makeEntityManagerLifecycle } from './entity-manager-lifecycle'
@@ -23,21 +23,21 @@ export const makeEntityManagerInternal = (
   ...makeEntityManagerLifecycle(entitiesRef, cachedEntitiesRef, structureVersionRef),
   ...makeEntityManagerActions(entitiesRef, cachedEntitiesRef, structureVersionRef),
 
-  getPlayerContactDamage: (playerPosition: Position): Effect.Effect<number, never> =>
+  getPlayerContactDamageResolution: (playerPosition: Position): Effect.Effect<PlayerContactDamageResolution, never> =>
     Effect.gen(function* () {
-      const { damage, removed, explosions } = yield* Ref.modify(entitiesRef, (entities): [{ damage: number; removed: boolean; explosions: ReadonlyArray<ExplosionEvent> }, HashMap.HashMap<EntityId, ManagedEntity>] => {
-        const [resolution, updatedEntities] = resolvePlayerContactDamage(entities, playerPosition)
-        return [resolution, updatedEntities]
+      const resolution = yield* Ref.modify(entitiesRef, (entities): [PlayerContactDamageResolution, HashMap.HashMap<EntityId, ManagedEntity>] => {
+        const [res, updatedEntities] = resolvePlayerContactDamage(entities, playerPosition)
+        return [res, updatedEntities]
       })
-      if (explosions.length > 0) {
-        yield* Ref.update(explosionsRef, (pending) => [...pending, ...explosions])
+      if (resolution.explosions.length > 0) {
+        yield* Ref.update(explosionsRef, (pending) => [...pending, ...resolution.explosions])
       }
-      if (removed) {
+      if (resolution.removed) {
         yield* invalidateEntityCacheAndBumpStructureVersion(cachedEntitiesRef, structureVersionRef)
-      } else if (damage > 0) {
+      } else if (resolution.damage > 0) {
         yield* invalidateEntityCache(cachedEntitiesRef)
       }
-      return damage
+      return resolution
     }),
 
   getPlayerRangedDamage: (

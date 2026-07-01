@@ -44,6 +44,13 @@ describe('physics-stage — damage helpers', () => {
     expect(services.hungerService.addExhaustion).toHaveBeenCalledOnce()
   })
 
+  it('forwards the damage cause when provided', async () => {
+    const services = makeServices()
+
+    await expect(Effect.runPromise(tryApplyPlayerDamage(4, false, services, { kind: 'fall' }))).resolves.toBe(true)
+    expect(services.healthService.applyDamage).toHaveBeenCalledWith(4, { kind: 'fall' })
+  })
+
   it('returns false when the player is invincible', async () => {
     const services = makeServices({ current: 15, max: 20, invincibilityTicks: 10 })
 

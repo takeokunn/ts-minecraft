@@ -1,127 +1,222 @@
-import { describe, it } from '@effect/vitest'
-import { Effect } from 'effect'
-import { expect } from 'vitest'
+import { beforeEach, describe, it } from '@effect/vitest'
+import { Effect, Option } from 'effect'
+import { expect, vi } from 'vitest'
 
-import { handleRightClickPriority } from './interaction-right-click-handler'
+import { handleRightClickPriorityFromContext } from './interaction-right-click-handler'
 
-type Step = 'shear' | 'feed' | 'chorusFruit' | 'consume' | 'enderPearl' | 'farm' | 'bucket' | 'ignite' | 'place'
+vi.mock('@ts-minecraft/app/frame/stages/interaction-item-use-handler/shear-animal', () => ({
+  handleShearAnimal: vi.fn(() => Effect.succeed(false)),
+}))
+vi.mock('@ts-minecraft/app/frame/stages/interaction-item-use-handler/feed-animal', () => ({
+  handleFeedAnimal: vi.fn(() => Effect.succeed(false)),
+}))
+vi.mock('@ts-minecraft/app/frame/stages/interaction-item-use-handler/food-consumption', () => ({
+  handleFoodConsumption: vi.fn(() => Effect.succeed(false)),
+}))
+vi.mock('@ts-minecraft/app/frame/stages/interaction-item-use-handler/ender-pearl', () => ({
+  handleEnderPearlThrow: vi.fn(() => Effect.succeed(false)),
+}))
+vi.mock('@ts-minecraft/app/frame/stages/interaction-farming-handler', () => ({
+  handleFarmingInteraction: vi.fn(() => Effect.succeed(false)),
+}))
+vi.mock('@ts-minecraft/app/frame/stages/interaction-bucket-handler/bucket-handler', () => ({
+  handleBucket: vi.fn(() => Effect.succeed(false)),
+}))
+vi.mock('@ts-minecraft/app/frame/stages/interaction-flint-steel-handler', () => ({
+  handleFlintAndSteel: vi.fn(() => Effect.succeed(false)),
+}))
+vi.mock('@ts-minecraft/app/frame/stages/interaction-placement-handler', () => ({
+  handleRightClick: vi.fn(() => Effect.void),
+}))
 
-const makeHandlers = (results: Partial<Record<Step, boolean>> = {}) => {
-  const calls: Step[] = []
+import { handleShearAnimal } from '@ts-minecraft/app/frame/stages/interaction-item-use-handler/shear-animal'
+import { handleFeedAnimal } from '@ts-minecraft/app/frame/stages/interaction-item-use-handler/feed-animal'
+import { handleFoodConsumption } from '@ts-minecraft/app/frame/stages/interaction-item-use-handler/food-consumption'
+import { handleEnderPearlThrow } from '@ts-minecraft/app/frame/stages/interaction-item-use-handler/ender-pearl'
+import { handleFarmingInteraction } from '@ts-minecraft/app/frame/stages/interaction-farming-handler'
+import { handleBucket } from '@ts-minecraft/app/frame/stages/interaction-bucket-handler/bucket-handler'
+import { handleFlintAndSteel } from '@ts-minecraft/app/frame/stages/interaction-flint-steel-handler'
+import { handleRightClick } from '@ts-minecraft/app/frame/stages/interaction-placement-handler'
 
-  return {
-    calls,
-    handlers: {
-      shearAnimal: () =>
-        Effect.sync(() => {
-          calls.push('shear')
-          return results.shear ?? false
-        }),
-      feedAnimal: () =>
-        Effect.sync(() => {
-          calls.push('feed')
-          return results.feed ?? false
-        }),
-      chorusFruit: () =>
-        Effect.sync(() => {
-          calls.push('chorusFruit')
-          return results.chorusFruit ?? false
-        }),
-      consumeFood: () =>
-        Effect.sync(() => {
-          calls.push('consume')
-          return results.consume ?? false
-        }),
-      enderPearl: () =>
-        Effect.sync(() => {
-          calls.push('enderPearl')
-          return results.enderPearl ?? false
-        }),
-      farm: () =>
-        Effect.sync(() => {
-          calls.push('farm')
-          return results.farm ?? false
-        }),
-      bucket: () =>
-        Effect.sync(() => {
-          calls.push('bucket')
-          return results.bucket ?? false
-        }),
-      ignite: () =>
-        Effect.sync(() => {
-          calls.push('ignite')
-          return results.ignite ?? false
-        }),
-      place: () =>
-        Effect.sync(() => {
-          calls.push('place')
-        }),
-    },
-  }
-}
+const shearMock = vi.mocked(handleShearAnimal)
+const feedMock = vi.mocked(handleFeedAnimal)
+const foodMock = vi.mocked(handleFoodConsumption)
+const enderPearlMock = vi.mocked(handleEnderPearlThrow)
+const farmMock = vi.mocked(handleFarmingInteraction)
+const bucketMock = vi.mocked(handleBucket)
+const igniteMock = vi.mocked(handleFlintAndSteel)
+const placeMock = vi.mocked(handleRightClick)
 
-describe('handleRightClickPriority', () => {
-  const cases: Array<{
-    readonly name: string
-    readonly results: Partial<Record<Step, boolean>>
-    readonly expectedCalls: Step[]
-  }> = [
-    {
-      name: 'stops after shearing succeeds',
-      results: { shear: true },
-      expectedCalls: ['shear'],
-    },
-    {
-      name: 'stops after feeding succeeds',
-      results: { feed: true },
-      expectedCalls: ['shear', 'feed'],
-    },
-    {
-      name: 'stops after chorus fruit succeeds',
-      results: { chorusFruit: true },
-      expectedCalls: ['shear', 'feed', 'chorusFruit'],
-    },
-    {
-      name: 'stops after consuming food succeeds',
-      results: { consume: true },
-      expectedCalls: ['shear', 'feed', 'chorusFruit', 'consume'],
-    },
-    {
-      name: 'stops after throwing ender pearl succeeds',
-      results: { enderPearl: true },
-      expectedCalls: ['shear', 'feed', 'chorusFruit', 'consume', 'enderPearl'],
-    },
-    {
-      name: 'stops after farming succeeds',
-      results: { farm: true },
-      expectedCalls: ['shear', 'feed', 'chorusFruit', 'consume', 'enderPearl', 'farm'],
-    },
-    {
-      name: 'stops after bucket interaction succeeds',
-      results: { bucket: true },
-      expectedCalls: ['shear', 'feed', 'chorusFruit', 'consume', 'enderPearl', 'farm', 'bucket'],
-    },
-    {
-      name: 'stops after ignition succeeds',
-      results: { ignite: true },
-      expectedCalls: ['shear', 'feed', 'chorusFruit', 'consume', 'enderPearl', 'farm', 'bucket', 'ignite'],
-    },
-    {
-      name: 'falls through to placement when no earlier handler succeeds',
-      results: {},
-      expectedCalls: ['shear', 'feed', 'chorusFruit', 'consume', 'enderPearl', 'farm', 'bucket', 'ignite', 'place'],
-    },
-  ]
+const makeDeps = () =>
+  ({
+    camera: {} as never,
+    respawnPositionRef: {} as never,
+  }) as never
 
-  for (const testCase of cases) {
-    it.effect(testCase.name, () =>
-      Effect.gen(function* () {
-        const { calls, handlers } = makeHandlers(testCase.results)
+const makeServices = () => ({}) as never
 
-        yield* handleRightClickPriority(handlers)
+const makeRefs = () => ({}) as never
 
-        expect(calls).toEqual(testCase.expectedCalls)
-      }),
-    )
-  }
+const makeContext = (selectedHotbarItem: string | null = null) => ({
+  snapshot: {
+    selectedHotbarItem: selectedHotbarItem === null ? Option.none() : Option.some(selectedHotbarItem),
+  } as never,
+  targetHit: Option.none<never>(),
+})
+
+describe('handleRightClickPriorityFromContext', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    shearMock.mockReturnValue(Effect.succeed(false))
+    feedMock.mockReturnValue(Effect.succeed(false))
+    foodMock.mockReturnValue(Effect.succeed(false))
+    enderPearlMock.mockReturnValue(Effect.succeed(false))
+    farmMock.mockReturnValue(Effect.succeed(false))
+    bucketMock.mockReturnValue(Effect.succeed(false))
+    igniteMock.mockReturnValue(Effect.succeed(false))
+    placeMock.mockReturnValue(Effect.void)
+  })
+
+  it.effect('stops after shearing succeeds', () =>
+    Effect.gen(function* () {
+      shearMock.mockReturnValue(Effect.succeed(true))
+
+      yield* handleRightClickPriorityFromContext(makeDeps(), makeServices(), makeRefs(), makeContext())
+
+      expect(shearMock).toHaveBeenCalledOnce()
+      expect(feedMock).not.toHaveBeenCalled()
+      expect(foodMock).not.toHaveBeenCalled()
+      expect(enderPearlMock).not.toHaveBeenCalled()
+      expect(farmMock).not.toHaveBeenCalled()
+      expect(bucketMock).not.toHaveBeenCalled()
+      expect(igniteMock).not.toHaveBeenCalled()
+      expect(placeMock).not.toHaveBeenCalled()
+    }),
+  )
+
+  it.effect('stops after feeding succeeds', () =>
+    Effect.gen(function* () {
+      feedMock.mockReturnValue(Effect.succeed(true))
+
+      yield* handleRightClickPriorityFromContext(makeDeps(), makeServices(), makeRefs(), makeContext())
+
+      expect(shearMock).toHaveBeenCalledOnce()
+      expect(feedMock).toHaveBeenCalledOnce()
+      expect(foodMock).not.toHaveBeenCalled()
+      expect(enderPearlMock).not.toHaveBeenCalled()
+      expect(farmMock).not.toHaveBeenCalled()
+      expect(bucketMock).not.toHaveBeenCalled()
+      expect(igniteMock).not.toHaveBeenCalled()
+      expect(placeMock).not.toHaveBeenCalled()
+    }),
+  )
+
+  it.effect('stops after farming succeeds', () =>
+    Effect.gen(function* () {
+      farmMock.mockReturnValue(Effect.succeed(true))
+
+      yield* handleRightClickPriorityFromContext(makeDeps(), makeServices(), makeRefs(), makeContext())
+
+      expect(shearMock).toHaveBeenCalledOnce()
+      expect(feedMock).toHaveBeenCalledOnce()
+      expect(farmMock).toHaveBeenCalledOnce()
+      expect(foodMock).not.toHaveBeenCalled()
+      expect(enderPearlMock).not.toHaveBeenCalled()
+      expect(bucketMock).not.toHaveBeenCalled()
+      expect(igniteMock).not.toHaveBeenCalled()
+      expect(placeMock).not.toHaveBeenCalled()
+    }),
+  )
+
+  it.effect('stops after consuming food succeeds', () =>
+    Effect.gen(function* () {
+      foodMock.mockReturnValue(Effect.succeed(true))
+
+      yield* handleRightClickPriorityFromContext(makeDeps(), makeServices(), makeRefs(), makeContext())
+
+      expect(shearMock).toHaveBeenCalledOnce()
+      expect(feedMock).toHaveBeenCalledOnce()
+      expect(farmMock).toHaveBeenCalledOnce()
+      expect(foodMock).toHaveBeenCalledOnce()
+      expect(enderPearlMock).not.toHaveBeenCalled()
+      expect(bucketMock).not.toHaveBeenCalled()
+      expect(igniteMock).not.toHaveBeenCalled()
+      expect(placeMock).not.toHaveBeenCalled()
+    }),
+  )
+
+  it.effect('stops after throwing ender pearl succeeds', () =>
+    Effect.gen(function* () {
+      enderPearlMock.mockReturnValue(Effect.succeed(true))
+
+      yield* handleRightClickPriorityFromContext(makeDeps(), makeServices(), makeRefs(), makeContext())
+
+      expect(shearMock).toHaveBeenCalledOnce()
+      expect(feedMock).toHaveBeenCalledOnce()
+      expect(farmMock).toHaveBeenCalledOnce()
+      expect(foodMock).toHaveBeenCalledOnce()
+      expect(enderPearlMock).toHaveBeenCalledOnce()
+      expect(bucketMock).not.toHaveBeenCalled()
+      expect(igniteMock).not.toHaveBeenCalled()
+      expect(placeMock).not.toHaveBeenCalled()
+    }),
+  )
+
+  it.effect('stops after bucket interaction succeeds', () =>
+    Effect.gen(function* () {
+      bucketMock.mockReturnValue(Effect.succeed(true))
+
+      yield* handleRightClickPriorityFromContext(makeDeps(), makeServices(), makeRefs(), makeContext())
+
+      expect(shearMock).toHaveBeenCalledOnce()
+      expect(feedMock).toHaveBeenCalledOnce()
+      expect(farmMock).toHaveBeenCalledOnce()
+      expect(foodMock).toHaveBeenCalledOnce()
+      expect(enderPearlMock).toHaveBeenCalledOnce()
+      expect(bucketMock).toHaveBeenCalledOnce()
+      expect(igniteMock).not.toHaveBeenCalled()
+      expect(placeMock).not.toHaveBeenCalled()
+    }),
+  )
+
+  it.effect('stops after ignition succeeds when holding FLINT_AND_STEEL', () =>
+    Effect.gen(function* () {
+      igniteMock.mockReturnValue(Effect.succeed(true))
+
+      yield* handleRightClickPriorityFromContext(makeDeps(), makeServices(), makeRefs(), makeContext('FLINT_AND_STEEL'))
+
+      expect(shearMock).toHaveBeenCalledOnce()
+      expect(feedMock).toHaveBeenCalledOnce()
+      expect(farmMock).toHaveBeenCalledOnce()
+      expect(foodMock).toHaveBeenCalledOnce()
+      expect(enderPearlMock).toHaveBeenCalledOnce()
+      expect(bucketMock).toHaveBeenCalledOnce()
+      expect(igniteMock).toHaveBeenCalledOnce()
+      expect(placeMock).not.toHaveBeenCalled()
+    }),
+  )
+
+  it.effect('skips ignite and falls through to placement when not holding FLINT_AND_STEEL', () =>
+    Effect.gen(function* () {
+      yield* handleRightClickPriorityFromContext(makeDeps(), makeServices(), makeRefs(), makeContext())
+
+      expect(igniteMock).not.toHaveBeenCalled()
+      expect(placeMock).toHaveBeenCalledOnce()
+    }),
+  )
+
+  it.effect('falls through to placement when no earlier handler succeeds', () =>
+    Effect.gen(function* () {
+      yield* handleRightClickPriorityFromContext(makeDeps(), makeServices(), makeRefs(), makeContext('FLINT_AND_STEEL'))
+
+      expect(shearMock).toHaveBeenCalledOnce()
+      expect(feedMock).toHaveBeenCalledOnce()
+      expect(farmMock).toHaveBeenCalledOnce()
+      expect(foodMock).toHaveBeenCalledOnce()
+      expect(enderPearlMock).toHaveBeenCalledOnce()
+      expect(bucketMock).toHaveBeenCalledOnce()
+      expect(igniteMock).toHaveBeenCalledOnce()
+      expect(placeMock).toHaveBeenCalledOnce()
+    }),
+  )
 })

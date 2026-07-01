@@ -64,8 +64,8 @@ describe('FOOD_TABLE completeness', () => {
     }
   })
 
-  it('covers all 21 registered food items (prevents silent omissions)', () => {
-    expect(FOOD_ITEMS.length).toBe(21)
+  it('covers all 22 registered food items (prevents silent omissions)', () => {
+    expect(FOOD_ITEMS.length).toBe(22)
   })
 })
 

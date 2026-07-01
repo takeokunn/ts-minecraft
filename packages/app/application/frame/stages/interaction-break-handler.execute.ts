@@ -13,13 +13,18 @@ import { SlotIndex } from '@ts-minecraft/core'
 import { HOTBAR_START } from '@ts-minecraft/inventory/application/inventory-service'
 import { isDurable } from '@ts-minecraft/inventory/domain/durability'
 import { rollFortuneExtraDrops, getUnbreakingSkipChance } from '@ts-minecraft/inventory/domain/enchantment'
-import type { Enchantment } from '@ts-minecraft/inventory/domain/enchantment.types'
 import { getOreXpDropOption } from '@ts-minecraft/block/domain/blocks.config.ores'
 import { getParticleUvOffset } from '@ts-minecraft/rendering'
 import type { BreakExecutionContext, BreakExecutionServices } from './interaction-break-handler.shared'
-import { isNeverDroppedBlock } from './interaction-break-handler.shared'
-import { spawnBlockDrop, spawnBlockXpOrb } from './interaction-break-handler.shared'
+import {
+  isNeverDroppedBlock,
+  REDSTONE_CLEANUP_BLOCK_TYPES,
+  resolveBreakExecutionEnchantments,
+  spawnBlockDrop,
+  spawnBlockXpOrb,
+} from './interaction-break-handler.shared'
 import { isGrassSeedDropBlock as isGrassSeedDropBlockWorld } from '@ts-minecraft/world'
+import { CROP_DROP_RULES } from './interaction-break-handler.crop-drops.config'
 
 export const executeBlockBreak = (
   services: BreakExecutionServices,
@@ -32,19 +37,14 @@ export const executeBlockBreak = (
     const uv = getParticleUvOffset(blockId)
     const heldItem = Option.getOrNull(toolStack)
     const shearsHarvestsGrass = isGrassSeedDropBlockWorld(blockType) && heldItem?.itemType === 'SHEARS'
+    const cropDropRule = CROP_DROP_RULES.get(blockType)
 
     if (creative) {
       yield* services.blockService.breakBlock(pos, false, { requireHarvest: false, dropItems: false })
     } else {
       yield* services.blockService.breakBlock(pos, hasSilkTouch || shearsHarvestsGrass, { dropItems: false })
     }
-    if (
-      blockType === 'REDSTONE_WIRE' ||
-      blockType === 'LEVER' ||
-      blockType === 'STONE_BUTTON' ||
-      blockType === 'REDSTONE_TORCH' ||
-      blockType === 'PRESSURE_PLATE'
-    ) {
+    if (REDSTONE_CLEANUP_BLOCK_TYPES.has(blockType)) {
       yield* services.redstoneService.removeComponent(pos)
     }
     const mp = Option.getOrNull(services.multiplayer)
@@ -67,7 +67,7 @@ export const executeBlockBreak = (
 
     const shouldSpawnBaseDrop =
       !isNeverDroppedBlock(blockType) &&
-      blockType !== 'WHEAT_CROP' &&
+      cropDropRule === undefined &&
       (hasSilkTouch || shearsHarvestsGrass || blockDropsBaseItem(blockType)) &&
       (!isGrassSeedDropBlockWorld(blockType) || hasSilkTouch || shearsHarvestsGrass)
     if (shouldSpawnBaseDrop) {
@@ -81,14 +81,11 @@ export const executeBlockBreak = (
       yield* spawnBlockXpOrb(services, pos, oreXp)
     }
 
-    if (blockType === 'WHEAT_CROP') {
+    if (cropDropRule !== undefined) {
       const wasRipe = yield* services.cropGrowthService.harvest(pos)
-      if (wasRipe) {
-        const seedCount = Math.floor(Math.random() * 4) + 1
-        yield* spawnBlockDrop(services, pos, 'WHEAT', 1)
-        yield* spawnBlockDrop(services, pos, 'WHEAT_SEEDS', seedCount)
-      } else {
-        yield* spawnBlockDrop(services, pos, 'WHEAT_SEEDS', 1)
+      const drops = wasRipe ? cropDropRule.ripeDrops(Math.random()) : cropDropRule.unripeDrops
+      for (const [itemType, count] of drops) {
+        yield* spawnBlockDrop(services, pos, itemType, count)
       }
     }
 
@@ -114,24 +111,12 @@ export const executeBlockBreak = (
     }
 
     // SILK_TOUCH and FORTUNE are mutually exclusive (vanilla).
-    let unbreaking: Enchantment | undefined
-    if (!hasSilkTouch && HashSet.has(FORTUNE_ORE_BLOCKS, blockType)) {
-      let fortune: Enchantment | undefined
-      for (const enchantment of toolEnchantments) {
-        switch (enchantment.type) {
-          case 'FORTUNE':
-            fortune = enchantment
-            break
-          case 'UNBREAKING':
-            unbreaking = enchantment
-            break
-        }
-      }
-      if (fortune) {
-        const extra = rollFortuneExtraDrops(fortune.level, Math.random())
-        if (extra > 0) {
-          yield* spawnBlockDrop(services, pos, getInventoryDropForBlock(blockType), extra)
-        }
+    // Resolve both FORTUNE and UNBREAKING upfront — UNBREAKING applies to all blocks, not just ores.
+    const { fortune, unbreaking } = resolveBreakExecutionEnchantments(toolEnchantments)
+    if (!hasSilkTouch && fortune && HashSet.has(FORTUNE_ORE_BLOCKS, blockType)) {
+      const extra = rollFortuneExtraDrops(fortune.level, Math.random())
+      if (extra > 0) {
+        yield* spawnBlockDrop(services, pos, getInventoryDropForBlock(blockType), extra)
       }
     }
 

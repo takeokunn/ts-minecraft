@@ -14,13 +14,14 @@ import { DomOperationsService } from '@ts-minecraft/presentation/hud/crosshair'
 import type { Recipe } from '@ts-minecraft/inventory/domain/crafting'
 import { SlotIndex } from '@ts-minecraft/core'
 import { blockTypeToIndex } from '@ts-minecraft/core'
-import { scanNearbyBlock } from '@ts-minecraft/app/main/qa-spatial'
+import { scanNearbyBlock } from '@ts-minecraft/world'
 
 import { buildOverlayDom } from './inventory-renderer-dom'
 import { collectAvailableCounts } from './inventory-renderer-helpers'
-import { renderSlotElements, renderRecipeBook, renderCraftingList, renderCraftingPreview, renderStatusEl } from './inventory-renderer-refresh'
+import { renderSlotElements, renderRecipeBook, renderCraftingList, renderCraftingPreview, renderStatusEl, renderInventoryCursor } from './inventory-renderer-refresh'
 import { buildHandleDelegatedClick } from './inventory-renderer-click-handler'
 import { returnInventoryCursorToSlots } from './inventory-cursor-click'
+import { getActiveDocument, asFocusableElement } from '../dom-focus-utils'
 
 type DragSource =
   | { readonly kind: 'inventory'; readonly slot: number }
@@ -68,6 +69,12 @@ export class InventoryRendererService extends Effect.Service<InventoryRendererSe
       const statusMessageRef = yield* Ref.make('Click a recipe to craft it.')
       const dragSourceRef = yield* Ref.make<Option.Option<DragSource>>(Option.none())
 
+      // Focus state and cursor position (plain mutables — used only in sync DOM callbacks)
+      let prevFocusEl: { focus?: () => void } | null = null
+      let activeKeydownHandler: ((e: KeyboardEvent) => void) | null = null
+      let cursorClickX = -9999
+      let cursorClickY = -9999
+
       const getChunkOrNone = (coord: { readonly x: number; readonly z: number }) =>
         chunkManagerService.getChunk(coord).pipe(Effect.option)
 
@@ -108,8 +115,7 @@ export class InventoryRendererService extends Effect.Service<InventoryRendererSe
         hasFurnaceAccess: boolean,
       ): Effect.Effect<void, Error, never> => {
         const recipe = Option.getOrNull(recipeService.findById(recipeId))
-        if (recipe === null) return recipeService.craft(recipeId, inventoryService, hasTableAccess, hasFurnaceAccess)
-        if (recipe.station !== 'furnace') return recipeService.craft(recipeId, inventoryService, hasTableAccess, hasFurnaceAccess)
+        if (recipe === null || recipe.station !== 'furnace') return recipeService.craft(recipeId, inventoryService, hasTableAccess, hasFurnaceAccess)
         return Effect.gen(function* () {
           const furnaceOpt = yield* furnaceService.getNearestFurnaceState()
           const furnace = Option.getOrNull(furnaceOpt)
@@ -126,9 +132,31 @@ export class InventoryRendererService extends Effect.Service<InventoryRendererSe
       const clearDragSource = (): Effect.Effect<void, never> =>
         Ref.set(dragSourceRef, Option.none())
 
-      const { overlayEl, chestContainerEl, chestSlotEls, slotEls, recipeBookEl, recipeBookSearchEl, craftingPreviewEl, craftingListEl, statusEl, sortButtonEl } = yield* Effect.sync(() => buildOverlayDom(dom))
+      const { overlayEl, chestContainerEl, chestSlotEls, slotEls, recipeBookEl, recipeBookSearchEl, craftingPreviewEl, craftingListEl, statusEl, sortButtonEl, cursorEl } = yield* Effect.sync(() => buildOverlayDom(dom))
+
+      // Scans craftingListEl then recipeBookEl for the last focusable button with data-recipe-id.
+      // Uses querySelectorAll in real DOM; falls back to childrenList in test mock DOM.
+      const findLastFocusable = (): { focus?: () => void } | null => {
+        for (const containerOpt of [craftingListEl, recipeBookEl]) {
+          const container = Option.getOrNull(containerOpt)
+          if (container === null) continue
+          const asEl = container as unknown as {
+            querySelectorAll?: (selector: string) => NodeListOf<HTMLElement>
+            childrenList?: Array<{ dataset?: Record<string, string>; focus?: () => void }>
+          }
+          if (typeof asEl.querySelectorAll === 'function') {
+            const buttons = Array.from(asEl.querySelectorAll('[data-recipe-id]'))
+            if (buttons.length > 0) return buttons[buttons.length - 1] as unknown as { focus?: () => void }
+          } else if (asEl.childrenList !== undefined) {
+            const children = asEl.childrenList.filter((c) => c.dataset !== undefined && 'recipeId' in c.dataset)
+            if (children.length > 0) return children[children.length - 1] ?? null
+          }
+        }
+        return null
+      }
+
       /* c8 ignore next */
-      const handleDelegatedClick = buildHandleDelegatedClick({
+      const innerDelegatedClick = buildHandleDelegatedClick({
         hasNearbyCraftingTable,
         hasNearbyFurnace,
         performRecipe,
@@ -140,6 +168,11 @@ export class InventoryRendererService extends Effect.Service<InventoryRendererSe
         statusMessageRef,
         refreshSlots: () => refreshSlots(),
       })
+      const handleDelegatedClick = (event: MouseEvent): void => {
+        cursorClickX = event.clientX + 14
+        cursorClickY = event.clientY + 14
+        innerDelegatedClick(event)
+      }
       const dragTargets = [...chestSlotEls, ...slotEls]
 
       const handleDragStart = (event: DragEvent): void => {
@@ -234,6 +267,7 @@ export class InventoryRendererService extends Effect.Service<InventoryRendererSe
           const [craftableRecipes, selectedRecipeIndex] = yield* refreshCraftingState(allSlots)
           const statusMessage = yield* Ref.get(statusMessageRef)
           const recipeBookQuery = yield* Ref.get(recipeBookQueryRef)
+          const cursor = yield* Ref.get(inventoryCursorRef)
 
           /* c8 ignore start */
           yield* Effect.sync(() => {
@@ -247,6 +281,11 @@ export class InventoryRendererService extends Effect.Service<InventoryRendererSe
             renderCraftingPreview(dom, craftingPreviewEl, craftableRecipes, selectedRecipeIndex)
             renderCraftingList(dom, craftingListEl, craftableRecipes, selectedRecipeIndex)
             renderStatusEl(statusEl, statusMessage)
+            renderInventoryCursor(cursorEl, cursor)
+            const cursorElement = Option.getOrNull(cursorEl)
+            if (cursorElement !== null && Option.isSome(cursor)) {
+              cursorElement.style.transform = `translate(${cursorClickX}px,${cursorClickY}px)`
+            }
           })
           /* c8 ignore stop */
         })
@@ -351,26 +390,68 @@ export class InventoryRendererService extends Effect.Service<InventoryRendererSe
         }
       }))
 
-      return {
-        toggle: (): Effect.Effect<boolean, never> =>
-          Effect.gen(function* () {
-            const current = yield* Ref.get(isVisibleRef)
-            if (current) {
-              const canClose = yield* returnCursorToInventory()
-              if (!canClose) {
-                return true
-              }
-            }
-
-            const next = !current
-            yield* Ref.set(isVisibleRef, next)
+      const toggle = (): Effect.Effect<boolean, never> =>
+        Effect.gen(function* () {
+          const current = yield* Ref.get(isVisibleRef)
+          if (current) {
+            const canClose = yield* returnCursorToInventory()
+            if (!canClose) return true
             yield* Effect.sync(() => {
-              const el = Option.getOrNull(overlayEl)
-              if (el !== null) el.style.display = next ? 'block' : 'none'
+              const doc = getActiveDocument()
+              if (activeKeydownHandler !== null) {
+                doc?.removeEventListener?.('keydown', activeKeydownHandler)
+                activeKeydownHandler = null
+              }
+              asFocusableElement(prevFocusEl as HTMLElement | null)?.focus()
+              prevFocusEl = null
             })
-            if (next) yield* refreshSlots()
-            return next
-          }),
+          }
+
+          const next = !current
+          yield* Ref.set(isVisibleRef, next)
+          yield* Effect.sync(() => {
+            const el = Option.getOrNull(overlayEl)
+            if (el !== null) el.style.display = next ? 'block' : 'none'
+          })
+          if (next) {
+            yield* refreshSlots()
+            yield* Effect.sync(() => {
+              const doc = getActiveDocument()
+              prevFocusEl = doc?.activeElement as { focus?: () => void } | null
+              Option.getOrNull(sortButtonEl)?.focus?.()
+              activeKeydownHandler = handleKeydown
+              doc?.addEventListener?.('keydown', handleKeydown)
+            })
+          }
+          return next
+        })
+
+      const handleKeydown = (event: KeyboardEvent): void => {
+        if (event.key === 'Escape') {
+          event.preventDefault()
+          event.stopPropagation()
+          Effect.runFork(toggle())
+          return
+        }
+        if (event.key === 'Tab') {
+          const doc = getActiveDocument()
+          const active = doc?.activeElement
+          const first = Option.getOrNull(sortButtonEl)
+          const last = findLastFocusable()
+          if (!event.shiftKey && active === last && last !== null) {
+            event.preventDefault()
+            event.stopPropagation()
+            first?.focus?.()
+          } else if (event.shiftKey && active === first && first !== null) {
+            event.preventDefault()
+            event.stopPropagation()
+            last?.focus?.()
+          }
+        }
+      }
+
+      return {
+        toggle,
 
         isOpen: (): Effect.Effect<boolean, never> => Ref.get(isVisibleRef),
 

@@ -36,6 +36,7 @@ const panelCss = [
 
 const labelBlockCss = 'display:block;margin-bottom:12px;font-size:13px;line-height:1.45'
 const labelRowCss = 'display:flex;align-items:center;gap:10px;margin-bottom:12px;cursor:pointer;font-size:13px;line-height:1.45'
+const descriptionCss = 'margin:0 0 14px;font-size:12px;line-height:1.5;text-align:center;color:#f3f3f3'
 const controlCss = [
   'display:block',
   'box-sizing:border-box',
@@ -86,9 +87,14 @@ export const buildSettingsOverlayDom = (dom: DomOperationsService): SettingsOver
   const el = dom.createElement('div')
   el.id = 'settings-overlay'
   el.style.cssText = panelCss
+  el.setAttribute('role', 'dialog')
+  el.setAttribute('aria-modal', 'true')
+  el.setAttribute('aria-labelledby', 'settings-overlay-title')
+  el.setAttribute('aria-describedby', 'settings-overlay-description')
 
   dom.setInnerHTML(el, `
-    <h2 style="margin:0 0 16px;font-size:18px;text-align:center;font-weight:700">Options</h2>
+    <h2 id="settings-overlay-title" style="margin:0 0 8px;font-size:18px;text-align:center;font-weight:700">Options</h2>
+    <p id="settings-overlay-description" style="${descriptionCss}">Changes apply immediately. Use Done to return.</p>
     <label style="${labelBlockCss}">
       Graphics Quality:
       <select id="quality-select" style="${controlCss}">
@@ -124,22 +130,25 @@ export const buildSettingsOverlayDom = (dom: DomOperationsService): SettingsOver
       <span>Audio Enabled</span>
     </label>
     <label style="${labelBlockCss};margin-bottom:8px">
-      Master Volume: <span id="mv-val">1.0</span>
+      Master Volume: <span id="mv-val">100%</span>
       <input id="mv-input" type="range" min="0" max="1" step="0.05" value="1"
+        aria-label="Master volume" aria-valuetext="100%"
         style="${rangeCss}">
     </label>
     <label style="${labelBlockCss};margin-bottom:8px">
-      SFX Volume: <span id="sv-val">1.0</span>
+      SFX Volume: <span id="sv-val">100%</span>
       <input id="sv-input" type="range" min="0" max="1" step="0.05" value="1"
+        aria-label="SFX volume" aria-valuetext="100%"
         style="${rangeCss}">
     </label>
     <label style="${labelBlockCss};margin-bottom:12px">
-      Music Volume: <span id="muv-val">1.0</span>
+      Music Volume: <span id="muv-val">100%</span>
       <input id="muv-input" type="range" min="0" max="1" step="0.05" value="1"
+        aria-label="Music volume" aria-valuetext="100%"
         style="${rangeCss}">
     </label>
     <div style="display:flex;gap:8px">
-      <button id="settings-close" style="${closeButtonCss}">Done</button>
+      <button id="settings-close" aria-label="Close settings" style="${closeButtonCss}">Done</button>
     </div>
   `)
 
@@ -148,6 +157,9 @@ export const buildSettingsOverlayDom = (dom: DomOperationsService): SettingsOver
   const btn = dom.createElement('button')
   btn.id = 'settings-gear-btn'
   btn.textContent = 'Options...'
+  btn.setAttribute('aria-label', 'Open options')
+  btn.setAttribute('aria-haspopup', 'dialog')
+  btn.setAttribute('aria-controls', 'settings-overlay')
   btn.style.cssText = [
     'position:fixed', 'top:12px', 'left:12px',
     'background:#6f6f6f', 'color:#fff',

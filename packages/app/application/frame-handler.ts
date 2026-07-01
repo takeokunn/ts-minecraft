@@ -263,6 +263,7 @@ const createFrameLoopHandlersInternal = (
       chunkSyncPendingRef,
       dirtyChunksRef,
       cropTickAccumulatorRef: MutableRef.make(0),
+      fireTickAccumulatorRef: MutableRef.make(0),
       lastMaintenanceTimeMsRef: MutableRef.make(-1),
     })
 

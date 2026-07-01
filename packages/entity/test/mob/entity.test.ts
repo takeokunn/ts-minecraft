@@ -95,7 +95,7 @@ describe('entity/entityManager', () => {
 
       yield* entityManager.addEntity(EntityType.Zombie, { x: 0, y: 64, z: 0 })
 
-      const damage = yield* entityManager.getPlayerContactDamage({ x: 1, y: 64, z: 0 })
+      const damage = (yield* entityManager.getPlayerContactDamageResolution({ x: 1, y: 64, z: 0 })).damage
       expect(damage).toBe(3)
     }))
 
@@ -105,10 +105,10 @@ describe('entity/entityManager', () => {
 
       yield* entityManager.addEntity(EntityType.Zombie, { x: 0, y: 64, z: 0 })
 
-      const firstDamage = yield* entityManager.getPlayerContactDamage({ x: 1, y: 64, z: 0 })
-      const immediateDamage = yield* entityManager.getPlayerContactDamage({ x: 1, y: 64, z: 0 })
+      const firstDamage = (yield* entityManager.getPlayerContactDamageResolution({ x: 1, y: 64, z: 0 })).damage
+      const immediateDamage = (yield* entityManager.getPlayerContactDamageResolution({ x: 1, y: 64, z: 0 })).damage
       yield* entityManager.update(DeltaTimeSecs.make(1), { x: 1, y: 64, z: 0 })
-      const damageAfterCooldown = yield* entityManager.getPlayerContactDamage({ x: 1, y: 64, z: 0 })
+      const damageAfterCooldown = (yield* entityManager.getPlayerContactDamageResolution({ x: 1, y: 64, z: 0 })).damage
 
       expect(firstDamage).toBe(3)
       expect(immediateDamage).toBe(0)
@@ -122,11 +122,11 @@ describe('entity/entityManager', () => {
       yield* entityManager.addEntity(EntityType.Zombie, { x: 0, y: 64, z: 0 })
       yield* entityManager.update(DeltaTimeSecs.make(0.1), { x: 1, y: 64, z: 0 })
 
-      const firstDamage = yield* entityManager.getPlayerContactDamage({ x: 1, y: 64, z: 0 })
+      const firstDamage = (yield* entityManager.getPlayerContactDamageResolution({ x: 1, y: 64, z: 0 })).damage
       yield* entityManager.update(DeltaTimeSecs.make(0.5), { x: 1, y: 64, z: 0 })
-      const midCooldownDamage = yield* entityManager.getPlayerContactDamage({ x: 1, y: 64, z: 0 })
+      const midCooldownDamage = (yield* entityManager.getPlayerContactDamageResolution({ x: 1, y: 64, z: 0 })).damage
       yield* entityManager.update(DeltaTimeSecs.make(0.5), { x: 1, y: 64, z: 0 })
-      const damageAfterFullCooldown = yield* entityManager.getPlayerContactDamage({ x: 1, y: 64, z: 0 })
+      const damageAfterFullCooldown = (yield* entityManager.getPlayerContactDamageResolution({ x: 1, y: 64, z: 0 })).damage
 
       expect(firstDamage).toBe(3)
       expect(midCooldownDamage).toBe(0)
@@ -139,7 +139,7 @@ describe('entity/entityManager', () => {
 
       yield* entityManager.addEntity(EntityType.Cow, { x: 0, y: 64, z: 0 })
 
-      const damage = yield* entityManager.getPlayerContactDamage({ x: 0.5, y: 64, z: 0 })
+      const damage = (yield* entityManager.getPlayerContactDamageResolution({ x: 0.5, y: 64, z: 0 })).damage
       expect(damage).toBe(0)
     }))
 

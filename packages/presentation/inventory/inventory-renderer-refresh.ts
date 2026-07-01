@@ -43,6 +43,34 @@ const buildSlotTooltip = (stack: ItemStack): string => {
     : [...lines, 'Enchantments:', ...enchantments.map(formatEnchantment)].join('\n')
 }
 
+const renderStackVisual = (el: HTMLDivElement, stack: ItemStack): void => {
+  const imageStyle = getSlotImageStyle(stack.itemType)
+  if (imageStyle) {
+    el.style.cssText = el.style.cssText.replace(/background:[^;]+;?/, '')
+    el.style.backgroundImage = imageStyle
+    el.style.backgroundSize = 'cover'
+  } else {
+    el.style.backgroundImage = ''
+    el.style.backgroundSize = ''
+    el.style.background = getSlotColor(stack.itemType)
+  }
+  const tooltip = buildSlotTooltip(stack)
+  el.title = tooltip
+  el.dataset['tooltip'] = tooltip
+  el.setAttribute?.('aria-label', tooltip.replace(/\n/g, ', '))
+  el.textContent = stack.count < 64 ? String(stack.count) : ''
+}
+
+const clearStackVisual = (el: HTMLDivElement): void => {
+  el.style.backgroundImage = ''
+  el.style.backgroundSize = ''
+  el.style.background = DEFAULT_SLOT_COLOR
+  el.title = ''
+  delete el.dataset['tooltip']
+  el.removeAttribute?.('aria-label')
+  el.textContent = ''
+}
+
 const formatStationLabel = (station: Recipe['station']): string =>
   station === 'crafting_table'
     ? 'Crafting Table'
@@ -88,31 +116,29 @@ export const renderSlotElements = (
   Arr.forEach(Arr.zip(slotEls, allSlots), ([el, itemOpt], i) => {
     const stack = Option.getOrNull(itemOpt)
     if (stack !== null) {
-      const imageStyle = getSlotImageStyle(stack.itemType)
-      if (imageStyle) {
-        el.style.cssText = el.style.cssText.replace(/background:[^;]+;?/, '')
-        el.style.backgroundImage = imageStyle
-        el.style.backgroundSize = 'cover'
-      } else {
-        el.style.backgroundImage = ''
-        el.style.background = getSlotColor(stack.itemType)
-      }
-      const tooltip = buildSlotTooltip(stack)
-      el.title = tooltip
-      el.dataset['tooltip'] = tooltip
-      el.setAttribute?.('aria-label', tooltip.replace(/\n/g, ', '))
-      el.textContent = stack.count < 64 ? String(stack.count) : ''
+      renderStackVisual(el, stack)
     } else {
-      el.style.backgroundImage = ''
-      el.style.background = DEFAULT_SLOT_COLOR
-      el.title = ''
-      delete el.dataset['tooltip']
-      el.removeAttribute?.('aria-label')
-      el.textContent = ''
+      clearStackVisual(el)
     }
     el.style.border = i >= HOTBAR_START && i === selectedHotbarIdx
       ? SLOT_BORDER_SELECTED
       : SLOT_BORDER_DEFAULT
+  })
+}
+
+export const renderInventoryCursor = (
+  cursorEl: Option.Option<HTMLDivElement>,
+  cursor: InventorySlot,
+): void => {
+  Option.map(cursorEl, (el) => {
+    const stack = Option.getOrNull(cursor)
+    if (stack === null) {
+      clearStackVisual(el)
+      el.style.display = 'none'
+      return
+    }
+    renderStackVisual(el, stack)
+    el.style.display = 'flex'
   })
 }
 

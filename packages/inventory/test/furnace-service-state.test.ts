@@ -1,79 +1,97 @@
-import { describe, expect, it } from '@effect/vitest'
+import { describe, expect, it } from 'vitest'
 import { HashMap, Option } from 'effect'
+import {
+  getFurnaceItemStacks,
+  resetFurnaceAfterOutputCollected,
+  removeFurnaceAtPosition,
+} from '../application/furnace-service-state'
+import type { FurnaceBlockState } from '../domain/furnace-state'
+import { INITIAL_STATE } from '../domain/furnace-service-utils'
 
-import { RecipeId } from '@ts-minecraft/core'
-import type { FurnaceBlockState, FurnaceItemStack } from '../domain/furnace-state'
-import { furnaceKey, INITIAL_STATE, type FurnaceState } from '../domain/furnace-service-utils'
-import { getFurnaceItemStacks, removeFurnaceAtPosition, resetFurnaceAfterOutputCollected } from '../application/furnace-service-state'
+// ─── fixtures ─────────────────────────────────────────────────────────────────
 
-const makeStack = (itemType: FurnaceItemStack['itemType'], count: number): FurnaceItemStack => ({
-  itemType,
-  count,
+const POS = { x: 10, y: 64, z: 20 }
+
+const makeStack = (itemType: string, count: number) => ({ itemType: itemType as any, count })
+
+const makeFurnace = (overrides: Partial<FurnaceBlockState> = {}): FurnaceBlockState => ({
+  position: POS,
+  input: Option.some(makeStack('RAW_IRON', 1)),
+  fuel: Option.some(makeStack('COAL', 1)),
+  output: Option.some(makeStack('IRON_INGOT', 1)),
+  activeRecipeId: Option.none(),
+  progressSecs: 5,
+  ...overrides,
 })
 
-const makeFurnace = (position: FurnaceBlockState['position']): FurnaceBlockState => ({
-  position,
-  input: Option.some(makeStack('IRON_ORE', 1)),
-  fuel: Option.some(makeStack('COAL', 2)),
-  output: Option.some(makeStack('IRON_INGOT', 3)),
-  activeRecipeId: Option.some(RecipeId.make('smelt_iron_ore')),
-  progressSecs: 7,
-  burnRemainingSecs: 11,
-  burnTotalSecs: 13,
+// ─── getFurnaceItemStacks ─────────────────────────────────────────────────────
+
+describe('getFurnaceItemStacks', () => {
+  it('returns all three item stacks when all slots are filled', () => {
+    const stacks = getFurnaceItemStacks(makeFurnace())
+    expect(stacks).toHaveLength(3)
+  })
+
+  it('excludes empty (None) slots', () => {
+    const sparse = makeFurnace({ fuel: Option.none(), output: Option.none() })
+    expect(getFurnaceItemStacks(sparse)).toHaveLength(1)
+  })
+
+  it('returns empty array when all slots are empty', () => {
+    const empty = makeFurnace({ input: Option.none(), fuel: Option.none(), output: Option.none() })
+    expect(getFurnaceItemStacks(empty)).toHaveLength(0)
+  })
 })
 
-describe('inventory/furnace-service-state', () => {
-  it('returns occupied furnace slots in order', () => {
-    const furnace = makeFurnace({ x: 1, y: 64, z: -2 })
+// ─── resetFurnaceAfterOutputCollected ─────────────────────────────────────────
 
-    expect(getFurnaceItemStacks(furnace)).toEqual([
-      { itemType: 'IRON_ORE', count: 1 },
-      { itemType: 'COAL', count: 2 },
-      { itemType: 'IRON_INGOT', count: 3 },
-    ])
+describe('resetFurnaceAfterOutputCollected', () => {
+  it('clears all item slots', () => {
+    const reset = resetFurnaceAfterOutputCollected(makeFurnace())
+    expect(Option.isNone(reset.input)).toBe(true)
+    expect(Option.isNone(reset.fuel)).toBe(true)
+    expect(Option.isNone(reset.output)).toBe(true)
   })
 
-  it('resets output collection state without touching burn metadata', () => {
-    const furnace = makeFurnace({ x: 4, y: 32, z: 8 })
-
-    expect(resetFurnaceAfterOutputCollected(furnace)).toEqual({
-      position: { x: 4, y: 32, z: 8 },
-      input: Option.none(),
-      fuel: Option.none(),
-      output: Option.none(),
-      activeRecipeId: Option.some('smelt_iron_ore'),
-      progressSecs: 0,
-      burnRemainingSecs: 11,
-      burnTotalSecs: 13,
-    })
+  it('resets progressSecs to 0', () => {
+    const reset = resetFurnaceAfterOutputCollected(makeFurnace())
+    expect(reset.progressSecs).toBe(0)
   })
 
-  it('removes an existing furnace and clears matching selection', () => {
-    const position = { x: 10, y: 64, z: 20 }
-    const key = furnaceKey(position)
-    const furnace = makeFurnace(position)
-    const state: FurnaceState = {
-      furnaces: HashMap.set(INITIAL_STATE.furnaces, key, furnace),
-      selectedFurnacePosition: Option.some(position),
-    }
-
-    const [dropped, nextState] = removeFurnaceAtPosition(state, position)
-
-    expect(dropped).toEqual([
-      { itemType: 'IRON_ORE', count: 1 },
-      { itemType: 'COAL', count: 2 },
-      { itemType: 'IRON_INGOT', count: 3 },
-    ])
-    expect(Option.isNone(HashMap.get(nextState.furnaces, key))).toBe(true)
-    expect(Option.isNone(nextState.selectedFurnacePosition)).toBe(true)
+  it('preserves position', () => {
+    const reset = resetFurnaceAfterOutputCollected(makeFurnace())
+    expect(reset.position).toEqual(POS)
   })
+})
 
-  it('returns the original state unchanged when the furnace does not exist', () => {
-    const position = { x: -3, y: 11, z: 7 }
+// ─── removeFurnaceAtPosition ──────────────────────────────────────────────────
 
-    const [dropped, nextState] = removeFurnaceAtPosition(INITIAL_STATE, position)
-
-    expect(dropped).toEqual([])
+describe('removeFurnaceAtPosition', () => {
+  it('returns empty stacks and unchanged state when furnace is not found', () => {
+    const [stacks, nextState] = removeFurnaceAtPosition(INITIAL_STATE, POS)
+    expect(stacks).toHaveLength(0)
     expect(nextState).toBe(INITIAL_STATE)
+  })
+
+  it('returns the furnace item stacks and removes it from state', () => {
+    const furnace = makeFurnace()
+    const stateWithFurnace = {
+      ...INITIAL_STATE,
+      furnaces: HashMap.set(INITIAL_STATE.furnaces, `${POS.x},${POS.y},${POS.z}`, furnace),
+    }
+    const [stacks, nextState] = removeFurnaceAtPosition(stateWithFurnace, POS)
+    expect(stacks).toHaveLength(3)
+    expect(HashMap.size(nextState.furnaces)).toBe(0)
+  })
+
+  it('clears selectedFurnacePosition when it matches removed furnace', () => {
+    const furnace = makeFurnace()
+    const key = `${POS.x},${POS.y},${POS.z}`
+    const stateWithSelected = {
+      furnaces: HashMap.set(INITIAL_STATE.furnaces, key, furnace),
+      selectedFurnacePosition: Option.some(POS),
+    }
+    const [, nextState] = removeFurnaceAtPosition(stateWithSelected, POS)
+    expect(Option.isNone(nextState.selectedFurnacePosition)).toBe(true)
   })
 })

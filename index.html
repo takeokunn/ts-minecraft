@@ -201,6 +201,16 @@
         --icon-fill: #c81919;
       }
 
+      #health-display[data-state="warning"] .hud-meter-icon {
+        --icon-fill: #ff5a3d;
+      }
+
+      #health-display[data-state="critical"] .hud-meter-icon {
+        --icon-fill: #ff2424;
+        --vital-glow: rgba(255, 36, 36, 0.85);
+        animation: hud-vital-critical 0.7s steps(2, end) infinite;
+      }
+
       #hunger-display .hud-meter-icon::before,
       #hunger-display .hud-meter-icon::after {
         clip-path: polygon(25% 0, 68.75% 0, 68.75% 12.5%, 81.25% 12.5%, 81.25% 25%, 93.75% 25%, 93.75% 50%, 81.25% 50%, 81.25% 62.5%, 68.75% 62.5%, 68.75% 75%, 56.25% 75%, 56.25% 87.5%, 43.75% 87.5%, 43.75% 100%, 18.75% 100%, 18.75% 87.5%, 31.25% 87.5%, 31.25% 75%, 43.75% 75%, 43.75% 62.5%, 25% 62.5%, 25% 50%, 12.5% 50%, 12.5% 25%, 25% 25%);
@@ -208,6 +218,35 @@
 
       #hunger-display .hud-meter-icon {
         --icon-fill: #d18b2f;
+      }
+
+      #hunger-display[data-state="warning"] .hud-meter-icon {
+        --icon-fill: #efb23b;
+      }
+
+      #hunger-display[data-state="critical"] .hud-meter-icon {
+        --icon-fill: #ff7926;
+        --vital-glow: rgba(255, 121, 38, 0.85);
+        animation: hud-vital-critical 0.8s steps(2, end) infinite;
+      }
+
+      @keyframes hud-vital-critical {
+        0%,
+        100% {
+          filter: drop-shadow(1px 1px 0 #1b1b1b);
+          transform: translateY(0);
+        }
+        50% {
+          filter: drop-shadow(1px 1px 0 #1b1b1b) drop-shadow(0 0 4px var(--vital-glow, rgba(255, 36, 36, 0.85)));
+          transform: translateY(-1px);
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        #health-display[data-state="critical"] .hud-meter-icon,
+        #hunger-display[data-state="critical"] .hud-meter-icon {
+          animation: none;
+        }
       }
 
       #armor-display {
@@ -277,11 +316,11 @@
         <span id="armor-value" class="hud-numeric">0</span>
       </div>
       <div class="hud-row">
-        <div id="health-display" class="hud-meter" aria-label="Health">
+        <div id="health-display" class="hud-meter" data-state="normal" aria-label="Health">
           <span class="hud-meter-icon" data-hud-icon data-fill="full"></span><span class="hud-meter-icon" data-hud-icon data-fill="full"></span><span class="hud-meter-icon" data-hud-icon data-fill="full"></span><span class="hud-meter-icon" data-hud-icon data-fill="full"></span><span class="hud-meter-icon" data-hud-icon data-fill="full"></span><span class="hud-meter-icon" data-hud-icon data-fill="full"></span><span class="hud-meter-icon" data-hud-icon data-fill="full"></span><span class="hud-meter-icon" data-hud-icon data-fill="full"></span><span class="hud-meter-icon" data-hud-icon data-fill="full"></span><span class="hud-meter-icon" data-hud-icon data-fill="full"></span>
           <span id="health-value" class="hud-numeric">20</span><span id="health-max" class="hud-numeric">20</span>
         </div>
-        <div id="hunger-display" class="hud-meter" aria-label="Hunger">
+        <div id="hunger-display" class="hud-meter" data-state="normal" aria-label="Hunger">
           <span class="hud-meter-icon" data-hud-icon data-fill="full"></span><span class="hud-meter-icon" data-hud-icon data-fill="full"></span><span class="hud-meter-icon" data-hud-icon data-fill="full"></span><span class="hud-meter-icon" data-hud-icon data-fill="full"></span><span class="hud-meter-icon" data-hud-icon data-fill="full"></span><span class="hud-meter-icon" data-hud-icon data-fill="full"></span><span class="hud-meter-icon" data-hud-icon data-fill="full"></span><span class="hud-meter-icon" data-hud-icon data-fill="full"></span><span class="hud-meter-icon" data-hud-icon data-fill="full"></span><span class="hud-meter-icon" data-hud-icon data-fill="full"></span>
           <span id="hunger-value" class="hud-numeric">20</span><span id="hunger-max" class="hud-numeric">20</span>
         </div>

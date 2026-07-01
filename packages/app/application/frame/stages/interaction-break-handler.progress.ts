@@ -29,6 +29,40 @@ export type BreakProgressContext = {
   readonly debugFlags: DebugFeatureFlags
 }
 
+type BreakModifiers = {
+  readonly hasSilkTouch: boolean
+  readonly efficiencyEnchant: Enchantment | undefined
+  readonly hasAquaAffinity: boolean
+}
+
+export const resolveBreakModifiers = (
+  toolEnchantments: ReadonlyArray<Enchantment>,
+  helmetEnchantments: ReadonlyArray<Enchantment>,
+): BreakModifiers => {
+  let efficiencyEnchant: Enchantment | undefined
+  let hasSilkTouch = false
+  for (const enchantment of toolEnchantments) {
+    switch (enchantment.type) {
+      case 'EFFICIENCY': efficiencyEnchant = enchantment; break
+      case 'SILK_TOUCH': hasSilkTouch = true; break
+    }
+  }
+  let hasAquaAffinity = false
+  for (const enchantment of helmetEnchantments) {
+    if (enchantment.type === 'AQUA_AFFINITY') {
+      hasAquaAffinity = true
+      break
+    }
+  }
+  return { hasSilkTouch, efficiencyEnchant, hasAquaAffinity }
+}
+
+export const resolveEffectiveBreakTicks = (
+  baseBreakTicks: number,
+  underwater: boolean,
+  hasAquaAffinity: boolean,
+): number => underwater && !hasAquaAffinity ? baseBreakTicks * 5 : baseBreakTicks
+
 const clearBreakProgress = (refs: BreakProgressRefs, breakProgressElementOrNull: HTMLElement | null) => {
   MutableRef.set(refs.breakProgressRef, null)
   updateBreakProgressHud(breakProgressElementOrNull, null)
@@ -96,29 +130,13 @@ export const handleBlockBreakProgress = (
     const selectedSlotIdx = yield* services.hotbarService.getSelectedSlot()
     const toolStack = yield* services.inventoryService.getSlot(SlotIndex.make(HOTBAR_START + selectedSlotIdx))
     const toolEnchantments = enchantmentsOf(toolStack)
-    let efficiencyEnchant: Enchantment | undefined
-    let hasSilkTouch = false
-    for (const enchantment of toolEnchantments) {
-      switch (enchantment.type) {
-        case 'EFFICIENCY':
-          efficiencyEnchant = enchantment
-          break
-        case 'SILK_TOUCH':
-          hasSilkTouch = true
-          break
-      }
-    }
     const helmetStack = yield* services.equipmentService.getEquippedItem('HELMET')
-    let hasAquaAffinity = false
-    for (const enchantment of enchantmentsOf(helmetStack)) {
-      if (enchantment.type === 'AQUA_AFFINITY') {
-        hasAquaAffinity = true
-        break
-      }
-    }
+    const { hasSilkTouch, efficiencyEnchant, hasAquaAffinity } = resolveBreakModifiers(
+      toolEnchantments,
+      enchantmentsOf(helmetStack),
+    )
 
     const hardness = getBlockHardness(blockType)
-    // Wrong-category tools (e.g. a shovel on stone) get no speed bonus → bare-hand break time.
     const correctTool = isEffectiveTool(blockType, selectedInventoryItem)
     const baseBreakTicks = computeBreakTicks({
       hardness,
@@ -126,7 +144,7 @@ export const handleBlockBreakProgress = (
       efficiencyLevel: efficiencyEnchant?.level,
       correctTool,
     })
-    const breakTicks = context.underwater && !hasAquaAffinity ? baseBreakTicks * 5 : baseBreakTicks
+    const breakTicks = resolveEffectiveBreakTicks(baseBreakTicks, context.underwater, hasAquaAffinity)
 
     const current = MutableRef.get(refs.breakProgressRef)
     const progress = advanceBreakProgress({

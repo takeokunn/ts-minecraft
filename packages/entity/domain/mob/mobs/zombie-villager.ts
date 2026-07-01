@@ -1,19 +1,10 @@
 import { EntityType } from '../entity'
 import type { MobDefinition } from './mob-definition'
+import { ZOMBIE_BASE_DROPS, ZOMBIE_BASE_STATS } from './zombie'
 
 export const ZombieVillagerDefinition: MobDefinition = {
+  ...ZOMBIE_BASE_STATS,
   type: EntityType.ZombieVillager,
   behavior: 'hostile',
-  maxHealth: 20,
-  attackDamage: 3,
-  speed: 1.25,
-  detectionRange: 16,
-  attackRange: 1.6,
-  fleeHealthThreshold: 0.1,
-  drops: [
-    { blockType: 'ROTTEN_FLESH', count: 1 },
-    { blockType: 'CARROT', count: 1, chance: 0.025 },
-    { blockType: 'IRON_INGOT', count: 1, chance: 0.025 },
-  ],
-  xpReward: 5,
+  drops: ZOMBIE_BASE_DROPS,
 }

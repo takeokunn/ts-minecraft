@@ -23,10 +23,9 @@ import type { ApplyPlayerDamage } from './types'
 import type { PhysicsStageInputs } from '../physics-stage-types/inputs'
 import type { PhysicsStageRefs } from '../physics-stage-types/refs'
 import type { PhysicsStageServices } from '../physics-stage-types/services'
-import type { SurvivalMovementState } from './types'
 
 const applyFireProtectedDamage = (
-  services: PhysicsStageServices,
+  services: Pick<PhysicsStageServices, 'equipmentService' | 'soundManager' | 'damageOverlay'>,
   refreshedPos: Position,
   applyDamage: ApplyPlayerDamage,
   baseDamage: number,
@@ -39,11 +38,11 @@ const applyFireProtectedDamage = (
   )
 
 export const applySurvivalHazardEffects = (
-  services: PhysicsStageServices,
-  refs: PhysicsStageRefs,
-  inputs: PhysicsStageInputs,
+  services: Pick<PhysicsStageServices, 'equipmentService' | 'soundManager' | 'damageOverlay'>,
+  refs: Pick<PhysicsStageRefs, 'lavaDamageSecsRef' | 'lavaBurnRemainingSecsRef' | 'lavaBurnDamageSecsRef' | 'lightningDamageSecsRef' | 'suffocationDamageSecsRef' | 'voidDamageSecsRef'>,
+  inputs: Pick<PhysicsStageInputs, 'deltaTime'>,
   refreshedPos: Position,
-  movement: SurvivalMovementState,
+  movement: { readonly inCreative: boolean },
   feetBlock: BlockType | null,
   eyeBlock: BlockType | null,
   touchingCactus: boolean,

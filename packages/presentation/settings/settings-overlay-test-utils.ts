@@ -7,11 +7,15 @@ import { DomOperationsService } from '@ts-minecraft/presentation/hud/crosshair'
 type MockElementBase = Pick<HTMLElement, 'id' | 'tagName' | 'textContent'> & {
   id: string
   tagName: string
-  style: Pick<CSSStyleDeclaration, 'cssText' | 'display'>
+  style: Pick<CSSStyleDeclaration, 'cssText' | 'display' | 'visibility'>
   textContent: string | null
   dataset: Record<string, string>
+  attributes: Record<string, string>
+  focus: ReturnType<typeof vi.fn>
   addEventListener: ReturnType<typeof vi.fn>
   removeEventListener: ReturnType<typeof vi.fn>
+  setAttribute: ReturnType<typeof vi.fn>
+  getAttribute: ReturnType<typeof vi.fn>
   remove: ReturnType<typeof vi.fn>
 }
 
@@ -27,13 +31,21 @@ type MockTextElement = {
 const createMockControl = (tagName: string, id: string, value = '', checked = false): MockControlElement => ({
   id,
   tagName,
-  style: { cssText: '', display: 'none' },
+  style: { cssText: '', display: '', visibility: '' },
   textContent: '',
   value,
   checked,
   dataset: {},
+  attributes: {},
+  focus: vi.fn(),
   addEventListener: vi.fn(),
   removeEventListener: vi.fn(),
+  setAttribute: vi.fn(function (this: MockElementBase, name: string, attributeValue: string) {
+    this.attributes[name] = attributeValue
+  }),
+  getAttribute: vi.fn(function (this: MockElementBase, name: string) {
+    return this.attributes[name] ?? null
+  }),
   remove: vi.fn(),
 })
 
@@ -72,9 +84,9 @@ export const createMockDomLayer = () => {
   const muvVal = createMockText('0.55')
 
   const createElement = vi.fn(<K extends keyof HTMLElementTagNameMap>(tagName: K): HTMLElementTagNameMap[K] => {
-    if (tagName === 'div') return overlay as HTMLElementTagNameMap[K]
-    if (tagName === 'button') return gearBtn as HTMLElementTagNameMap[K]
-    return createMockControl(String(tagName).toUpperCase(), '') as HTMLElementTagNameMap[K]
+    if (tagName === 'div') return overlay as unknown as HTMLElementTagNameMap[K]
+    if (tagName === 'button') return gearBtn as unknown as HTMLElementTagNameMap[K]
+    return createMockControl(String(tagName).toUpperCase(), '') as unknown as HTMLElementTagNameMap[K]
   })
 
   const querySelector = vi.fn((( _parent: HTMLElement, selector: string) => {
@@ -100,6 +112,8 @@ export const createMockDomLayer = () => {
     }
   }) as DomOperationsService['querySelector'])
 
+  const setInnerHTML = vi.fn()
+
   const MockDomLayer = Layer.succeed(DomOperationsService, DomOperationsService.of({
     _tag: '@minecraft/presentation/DomOperations' as const,
     createElement,
@@ -107,7 +121,7 @@ export const createMockDomLayer = () => {
     appendChildTo: vi.fn(),
     removeChild: vi.fn(),
     getParentNode: vi.fn(() => Option.none()),
-    setInnerHTML: vi.fn(),
+    setInnerHTML,
     querySelector,
   }))
 
@@ -115,6 +129,7 @@ export const createMockDomLayer = () => {
     MockDomLayer,
     createElement,
     querySelector,
+    setInnerHTML,
     elements: {
       overlay,
       adaptivePerformanceInput,

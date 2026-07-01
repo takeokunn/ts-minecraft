@@ -75,6 +75,8 @@ describe('infrastructure/three/textures/block-texture-map', () => {
         { blockType: 'CRAFTING_TABLE', expectedTileIndex: 43 },
         { blockType: 'FURNACE', expectedTileIndex: 44 },
         { blockType: 'TORCH', expectedTileIndex: 45 },
+        { blockType: 'WHEAT_CROP', expectedTileIndex: 85 },
+        { blockType: 'POTATO_CROP', expectedTileIndex: 85 },
         { blockType: 'DOOR', expectedTileIndex: 41 },
         { blockType: 'DOOR_OPEN', expectedTileIndex: 41 },
         { blockType: 'GLOWSTONE', expectedTileIndex: 113 },

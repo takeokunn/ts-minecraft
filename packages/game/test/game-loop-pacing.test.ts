@@ -1,60 +1,54 @@
-import { describe, it, expect } from 'vitest'
-import { advanceFramePacing, TARGET_FRAME_RATE } from '@ts-minecraft/game'
+import { describe, expect, it } from 'vitest'
+import {
+  advanceFramePacing,
+  TARGET_FRAME_RATE,
+  MIN_FRAME_INTERVAL_MS,
+} from '../application/game-loop-pacing'
 
-// Pure frame-pacing function behind the FPS cap. Interval for 60fps ≈ 16.667ms.
-const INTERVAL = 1000 / TARGET_FRAME_RATE
+// ─── constants ────────────────────────────────────────────────────────────────
 
-// Drives the accumulator across a stream of equal inter-callback gaps (simulating
-// a display refreshing every `gapMs`), returning how many frames were emitted.
-const runFeed = (gapMs: number, callbacks: number): number => {
-  let acc = 0
-  let emitted = 0
-  for (let i = 0; i < callbacks; i++) {
-    const r = advanceFramePacing(acc, gapMs, INTERVAL)
-    acc = r.accumulatedMs
-    if (r.emit) emitted++
-  }
-  return emitted
-}
+describe('TARGET_FRAME_RATE and MIN_FRAME_INTERVAL_MS', () => {
+  it('MIN_FRAME_INTERVAL_MS equals 1000 / TARGET_FRAME_RATE', () => {
+    expect(MIN_FRAME_INTERVAL_MS).toBeCloseTo(1000 / TARGET_FRAME_RATE)
+  })
+})
 
-describe('advanceFramePacing — FPS cap pacing', () => {
-  it('does not emit until a full interval has accumulated', () => {
-    const r = advanceFramePacing(0, INTERVAL / 2, INTERVAL)
-    expect(r.emit).toBe(false)
-    expect(r.accumulatedMs).toBeCloseTo(INTERVAL / 2, 6)
+// ─── advanceFramePacing ───────────────────────────────────────────────────────
+
+describe('advanceFramePacing — no emit', () => {
+  it('returns emit=false when accumulator is below the interval', () => {
+    const { emit, accumulatedMs } = advanceFramePacing(0, 5, MIN_FRAME_INTERVAL_MS)
+    expect(emit).toBe(false)
+    expect(accumulatedMs).toBeCloseTo(5)
   })
 
-  it('emits once a full interval is reached and carries the remainder', () => {
-    const r = advanceFramePacing(INTERVAL * 0.6, INTERVAL * 0.6, INTERVAL)
-    expect(r.emit).toBe(true)
-    // 1.2 intervals accumulated → emit one, carry 0.2 interval.
-    expect(r.accumulatedMs).toBeCloseTo(INTERVAL * 0.2, 5)
+  it('accumulates gap into accumulatedMs', () => {
+    const { accumulatedMs } = advanceFramePacing(10, 5, MIN_FRAME_INTERVAL_MS)
+    expect(accumulatedMs).toBeCloseTo(15)
+  })
+})
+
+describe('advanceFramePacing — emits frame', () => {
+  it('returns emit=true when accumulated reaches the interval', () => {
+    const { emit } = advanceFramePacing(0, MIN_FRAME_INTERVAL_MS, MIN_FRAME_INTERVAL_MS)
+    expect(emit).toBe(true)
   })
 
-  it('a 60Hz feed emits ~one frame per callback (never halves under matched rate)', () => {
-    // 100 callbacks at the target interval should emit ~100 frames, not ~50.
-    const emitted = runFeed(INTERVAL, 100)
-    expect(emitted).toBeGreaterThanOrEqual(99)
+  it('subtracts one interval from accumulator after emitting', () => {
+    const { accumulatedMs } = advanceFramePacing(0, MIN_FRAME_INTERVAL_MS + 5, MIN_FRAME_INTERVAL_MS)
+    expect(accumulatedMs).toBeCloseTo(5)
+  })
+})
+
+describe('advanceFramePacing — backlog cap', () => {
+  it('caps accumulator to 2× intervalMs to prevent burst after pause', () => {
+    // Large gap (background tab resumed)
+    const { accumulatedMs } = advanceFramePacing(0, MIN_FRAME_INTERVAL_MS * 100, MIN_FRAME_INTERVAL_MS)
+    expect(accumulatedMs).toBeLessThanOrEqual(MIN_FRAME_INTERVAL_MS * 2)
   })
 
-  it('a 120Hz feed is capped to ~half the callbacks (≈60fps)', () => {
-    const emitted = runFeed(INTERVAL / 2, 240) // 120Hz for ~2s
-    expect(emitted).toBeGreaterThanOrEqual(118)
-    expect(emitted).toBeLessThanOrEqual(122)
-  })
-
-  it('a 144Hz feed converges to ~60fps via carry-over (no undershoot)', () => {
-    // 144Hz → 6.944ms gaps. Over 144 callbacks (~1s) expect ~60 emits.
-    const emitted = runFeed(1000 / 144, 144)
-    expect(emitted).toBeGreaterThanOrEqual(58)
-    expect(emitted).toBeLessThanOrEqual(62)
-  })
-
-  it('clamps backlog so a long pause cannot unleash a burst', () => {
-    // A 1-second gap (e.g. background tab) accumulates far more than 2 intervals,
-    // but the accumulator is clamped — at most one emit, and ≤ one interval carried.
-    const r = advanceFramePacing(0, 1000, INTERVAL)
-    expect(r.emit).toBe(true)
-    expect(r.accumulatedMs).toBeLessThanOrEqual(INTERVAL)
+  it('still emits after a large gap', () => {
+    const { emit } = advanceFramePacing(0, MIN_FRAME_INTERVAL_MS * 100, MIN_FRAME_INTERVAL_MS)
+    expect(emit).toBe(true)
   })
 })

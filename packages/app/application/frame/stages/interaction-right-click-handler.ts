@@ -6,7 +6,6 @@ import type { TargetRayHit } from '@ts-minecraft/app/frame/stages/interaction-ty
 import { handleBucket } from '@ts-minecraft/app/frame/stages/interaction-bucket-handler/bucket-handler'
 import { handleRightClick } from '@ts-minecraft/app/frame/stages/interaction-placement-handler'
 import { handleFeedAnimal } from '@ts-minecraft/app/frame/stages/interaction-item-use-handler/feed-animal'
-import { handleChorusFruitUse } from '@ts-minecraft/app/frame/stages/interaction-item-use-handler/chorus-fruit'
 import { handleEnderPearlThrow } from '@ts-minecraft/app/frame/stages/interaction-item-use-handler/ender-pearl'
 import { handleFoodConsumption } from '@ts-minecraft/app/frame/stages/interaction-item-use-handler/food-consumption'
 import { handleShearAnimal } from '@ts-minecraft/app/frame/stages/interaction-item-use-handler/shear-animal'
@@ -15,39 +14,6 @@ import { handleFlintAndSteel } from '@ts-minecraft/app/frame/stages/interaction-
 import type { BlockServiceError } from '@ts-minecraft/world/application/block-service-error'
 import type { ChunkManagerError } from '@ts-minecraft/world/application/chunk-manager-constants'
 import type { InteractionStageSnapshot } from '@ts-minecraft/app/frame/stages/interaction-stage-snapshot'
-
-export type RightClickPriorityHandlers = {
-  readonly shearAnimal: () => Effect.Effect<boolean, never>
-  readonly feedAnimal: () => Effect.Effect<boolean, never>
-  readonly chorusFruit: () => Effect.Effect<boolean, never>
-  readonly consumeFood: () => Effect.Effect<boolean, never>
-  readonly enderPearl: () => Effect.Effect<boolean, never>
-  readonly farm: () => Effect.Effect<boolean, never>
-  readonly bucket: () => Effect.Effect<boolean, never>
-  readonly ignite: () => Effect.Effect<boolean, never>
-  readonly place: () => Effect.Effect<void, ChunkManagerError | BlockServiceError, never>
-}
-
-type RightClickPriorityContext = {
-  readonly snapshot: InteractionStageSnapshot
-  readonly targetHit: Option.Option<TargetRayHit>
-}
-
-export const handleRightClickPriority = (
-  handlers: RightClickPriorityHandlers,
-): Effect.Effect<void, ChunkManagerError | BlockServiceError, never> =>
-  Effect.gen(function* () {
-    if (yield* handlers.shearAnimal()) return
-    if (yield* handlers.feedAnimal()) return
-    if (yield* handlers.chorusFruit()) return
-    if (yield* handlers.consumeFood()) return
-    if (yield* handlers.enderPearl()) return
-    if (yield* handlers.farm()) return
-    if (yield* handlers.bucket()) return
-    if (yield* handlers.ignite()) return
-
-    yield* handlers.place()
-  })
 
 export const handleRightClickPriorityFromContext = (
   deps: Pick<FrameHandlerDeps, 'camera' | 'respawnPositionRef'>,
@@ -77,15 +43,14 @@ export const handleRightClickPriorityFromContext = (
     | 'redstoneService'
   >,
   refs: Pick<FrameStageRefs, 'dirtyChunksRef'>,
-  context: RightClickPriorityContext,
+  context: { readonly snapshot: InteractionStageSnapshot; readonly targetHit: Option.Option<TargetRayHit> },
 ): Effect.Effect<void, ChunkManagerError | BlockServiceError, never> =>
   Effect.gen(function* () {
     if (yield* handleShearAnimal(deps, services)) return
     if (yield* handleFeedAnimal(deps, services)) return
-    if (yield* handleChorusFruitUse(services)) return
+    if (yield* handleFarmingInteraction(services, refs, { targetHit: context.targetHit })) return
     if (yield* handleFoodConsumption(services)) return
     if (yield* handleEnderPearlThrow(deps, services, { targetHit: context.targetHit })) return
-    if (yield* handleFarmingInteraction(services, refs, { targetHit: context.targetHit })) return
     if (yield* handleBucket(services, refs, { targetHit: context.targetHit })) return
 
     const selectedHotbarItem = Option.getOrNull(context.snapshot.selectedHotbarItem)

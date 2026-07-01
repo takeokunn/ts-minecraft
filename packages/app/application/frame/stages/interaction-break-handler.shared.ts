@@ -5,6 +5,16 @@ import { InventoryItemSchema } from '@ts-minecraft/core'
 import type { Enchantment } from '@ts-minecraft/inventory/domain/enchantment.types'
 import type { DebugFeatureFlags } from '@ts-minecraft/app/application/debug-feature-flags.config'
 
+const NEVER_DROPPED_BLOCK_TYPES: ReadonlySet<BlockType> = new Set<BlockType>(['AIR', 'WATER', 'LAVA'])
+
+export const REDSTONE_CLEANUP_BLOCK_TYPES: ReadonlySet<BlockType> = new Set<BlockType>([
+  'REDSTONE_WIRE',
+  'LEVER',
+  'STONE_BUTTON',
+  'REDSTONE_TORCH',
+  'PRESSURE_PLATE',
+])
+
 export type BreakExecutionServices = Pick<
   FrameHandlerServices,
   | 'blockService'
@@ -36,7 +46,26 @@ export type BreakExecutionContext = {
 }
 
 export const isNeverDroppedBlock = (blockType: BlockType): boolean =>
-  blockType === 'AIR' || blockType === 'WATER' || blockType === 'LAVA'
+  NEVER_DROPPED_BLOCK_TYPES.has(blockType)
+
+type BreakExecutionEnchantments = {
+  readonly fortune: Enchantment | undefined
+  readonly unbreaking: Enchantment | undefined
+}
+
+export const resolveBreakExecutionEnchantments = (
+  toolEnchantments: ReadonlyArray<Enchantment>,
+): BreakExecutionEnchantments => {
+  let fortune: Enchantment | undefined
+  let unbreaking: Enchantment | undefined
+  for (const enchantment of toolEnchantments) {
+    switch (enchantment.type) {
+      case 'FORTUNE': fortune = enchantment; break
+      case 'UNBREAKING': unbreaking = enchantment; break
+    }
+  }
+  return { fortune, unbreaking }
+}
 
 export const spawnBlockDrop = (
   services: Pick<BreakExecutionServices, 'droppedItemService'>,

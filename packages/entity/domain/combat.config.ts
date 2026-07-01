@@ -61,3 +61,8 @@ export const SPRINT_ATTACK_KNOCKBACK_MULTIPLIER_BONUS = 0.5
 // 6 game ticks @ 20 ticks/s. Stored in SECONDS (not a frame count) and decremented by
 // deltaTime so the knockback lasts the same real 0.3s regardless of frame rate.
 export const KNOCKBACK_DURATION_SECS = 0.3
+
+// ─── Shield blocking ──────────────────────────────────────────────────────────
+// When the player is blocking with a shield, incoming damage is reduced by 66%.
+// The remaining 34% passes through (Minecraft Java Edition shield mechanics).
+export const SHIELD_BLOCKING_DAMAGE_MULTIPLIER = 0.34

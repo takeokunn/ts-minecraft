@@ -7,9 +7,10 @@
 import { describe,it } from '@effect/vitest'
 import { GameStateService } from '@ts-minecraft/game'
 import { DEFAULT_PLAYER_ID,DeltaTimeSecs,PLAYER_HALF_HEIGHT,PlayerId } from '@ts-minecraft/core'
+import { PlayerService } from '@ts-minecraft/entity/application/player-service'
 import { Array as Arr,Effect,Either,Option,Ref } from 'effect'
 import { expect } from 'vitest'
-import { TestGameLayer } from './game-state-test-utils'
+import { createTestInputService, createTestLayer, TestGameLayer } from './game-state-test-utils'
 
 // ---------------------------------------------------------------------------
 // Tests
@@ -128,6 +129,35 @@ describe('application/game-state (integration)', () => {
       Effect.gen(function* () {
         const gameState = yield* GameStateService
         const result = yield* Effect.either(gameState.setPlayerPosition({ x: 1, y: 2, z: 3 }))
+
+        expect(Either.isLeft(result)).toBe(true)
+        expect(Option.getOrThrow(Either.getLeft(result))._tag).toBe('GameStateError')
+      }).pipe(Effect.provide(TestGameLayer))
+    )
+  })
+
+  describe('applyPlayerVelocityImpulse', () => {
+    it.effect('adds impulse to the stored player velocity after initialize', () =>
+      Effect.gen(function* () {
+        const gameState = yield* GameStateService
+        const playerService = yield* PlayerService
+
+        yield* gameState.initialize({ x: 0, y: 5, z: 0 })
+        yield* gameState.applyPlayerVelocityImpulse({ x: 0.2, y: 0.35, z: -0.4 })
+
+        const velocity = yield* playerService.getVelocity(DEFAULT_PLAYER_ID)
+        expect(velocity.x).toBeCloseTo(0.2, 3)
+        expect(velocity.y).toBeCloseTo(0.35, 3)
+        expect(velocity.z).toBeCloseTo(-0.4, 3)
+      }).pipe(Effect.provide(createTestLayer(createTestInputService())))
+    )
+
+    it.effect('returns Left before initialize() is called', () =>
+      Effect.gen(function* () {
+        const gameState = yield* GameStateService
+        const result = yield* Effect.either(
+          gameState.applyPlayerVelocityImpulse({ x: 0.2, y: 0.35, z: -0.4 })
+        )
 
         expect(Either.isLeft(result)).toBe(true)
         expect(Option.getOrThrow(Either.getLeft(result))._tag).toBe('GameStateError')

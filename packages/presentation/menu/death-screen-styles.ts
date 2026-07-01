@@ -18,7 +18,8 @@ export const PANEL_STYLE = [
   'background:#c6c6c6',
   'color:#202020',
   'padding:24px 34px',
-  'min-width:320px',
+  'width:min(420px,calc(100vw - 32px))',
+  'box-sizing:border-box',
   'border:2px solid #111',
   'box-shadow:inset 3px 3px #fff,inset -3px -3px #555,0 12px 0 rgba(0,0,0,0.55)',
   'display:flex',
@@ -35,6 +36,26 @@ export const TITLE_STYLE = [
   'margin-bottom:12px',
   'letter-spacing:0',
   'text-shadow:2px 2px #3f0000',
+].join(';')
+
+export const MESSAGE_STYLE = [
+  'font-size:15px',
+  'line-height:1.35',
+  'min-height:20px',
+  'text-align:center',
+  'color:#2d2d2d',
+  'text-shadow:1px 1px #fff',
+  'margin-top:-8px',
+  'margin-bottom:4px',
+].join(';')
+
+export const HELP_STYLE = [
+  'font-size:12px',
+  'line-height:1.45',
+  'text-align:center',
+  'color:#3a3a3a',
+  'text-shadow:1px 1px #fff',
+  'margin:-4px 0 2px',
 ].join(';')
 
 export const BUTTON_STYLE = [

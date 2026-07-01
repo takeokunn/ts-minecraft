@@ -32,9 +32,23 @@ describe('physics-stage-survival/feedback', () => {
     await Effect.runPromise(applyDamageAndPlayHurt(services, position, applyDamage, 4))
 
     expect(applyDamage).toHaveBeenCalledOnce()
-    expect(applyDamage).toHaveBeenCalledWith(4)
+    expect(applyDamage).toHaveBeenCalledWith(4, undefined)
     expect(playEffect).toHaveBeenCalledOnce()
     expect(playEffect).toHaveBeenCalledWith('playerHurt', { position })
+    expect(flash).toHaveBeenCalledOnce()
+  })
+
+  it('passes damage cause through before feedback', async () => {
+    const playEffect = vi.fn(() => Effect.void)
+    const flash = vi.fn(() => Effect.void)
+    const services = { soundManager: { playEffect }, damageOverlay: { flash } }
+    const position = { x: 1, y: 2, z: 3 }
+    const applyDamage = vi.fn((amount: number) => Effect.succeed(amount > 0))
+
+    await Effect.runPromise(applyDamageAndPlayHurt(services, position, applyDamage, 4, { kind: 'lava' }))
+
+    expect(applyDamage).toHaveBeenCalledWith(4, { kind: 'lava' })
+    expect(playEffect).toHaveBeenCalledOnce()
     expect(flash).toHaveBeenCalledOnce()
   })
 })

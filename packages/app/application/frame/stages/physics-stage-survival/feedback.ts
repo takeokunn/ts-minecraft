@@ -1,5 +1,6 @@
 import { Effect } from 'effect'
 import type { Position } from '@ts-minecraft/core'
+import type { PlayerDamageCause } from '@ts-minecraft/entity/domain/player-damage-cause'
 import type { PhysicsStageServices } from '../physics-stage-types/services'
 import type { ApplyPlayerDamage } from './types'
 
@@ -19,7 +20,8 @@ export const applyDamageAndPlayHurt = (
   position: Position,
   applyDamage: ApplyPlayerDamage,
   amount: number,
+  cause?: PlayerDamageCause,
 ): Effect.Effect<boolean, never> =>
-  applyDamage(amount).pipe(
+  applyDamage(amount, cause).pipe(
     Effect.tap((damaged) => playHurtIfDamaged(services, position, damaged)),
   )

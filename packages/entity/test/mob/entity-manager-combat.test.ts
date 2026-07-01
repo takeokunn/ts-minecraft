@@ -98,6 +98,22 @@ describe('entity/entityManagerCombat', () => {
     expect(updatedEntities).toEqual(entities)
   })
 
+  plainIt('resolvePlayerRangedDamage skips skeleton with active cooldown', () => {
+    const skeleton = makeTestManagedEntity({
+      entityId: EntityId.make('entity-skeleton-ranged-cooldown'),
+      type: EntityType.Skeleton,
+      position: { x: 0, y: 64, z: 0 },
+      attackCooldownRemaining: 0.5,
+    })
+    const entities = HashMap.set(HashMap.empty(), skeleton.entityId, skeleton)
+
+    const [resolution, updatedEntities] = resolvePlayerRangedDamage(entities, { x: 10, y: 64, z: 0 })
+
+    expect(resolution.damage).toBe(0)
+    expect(HashMap.get(updatedEntities, skeleton.entityId)).toEqual(Option.some(skeleton))
+    expect(updatedEntities).toEqual(entities)
+  })
+
   plainIt('resolvePlayerRangedDamage applies skeleton damage and cooldown', () => {
     const skeleton = makeTestManagedEntity({
       entityId: EntityId.make('entity-skeleton-ranged-damage'),

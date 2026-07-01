@@ -17,9 +17,9 @@ describe('entity/entityManagerInternal', () => {
       yield* Ref.set(entitiesRef, HashMap.set(HashMap.empty(), zombie.entityId, zombie))
       yield* Ref.set(cachedEntitiesRef, Option.some([]))
 
-      const damage = yield* internal.getPlayerContactDamage({ x: 0, y: 64, z: 0 })
+      const resolution = yield* internal.getPlayerContactDamageResolution({ x: 0, y: 64, z: 0 })
 
-      expect(damage).toBe(0)
+      expect(resolution.damage).toBe(0)
       expect(yield* Ref.get(cachedEntitiesRef)).toEqual(Option.some([]))
     }))
 
@@ -46,9 +46,9 @@ describe('entity/entityManagerInternal', () => {
       )
       yield* Ref.set(cachedEntitiesRef, Option.some([]))
 
-      const damage = yield* internal.getPlayerContactDamage({ x: 0, y: 64, z: 0 })
+      const resolution = yield* internal.getPlayerContactDamageResolution({ x: 0, y: 64, z: 0 })
 
-      expect(damage).toBeGreaterThan(0)
+      expect(resolution.damage).toBeGreaterThan(0)
       expect(yield* Ref.get(cachedEntitiesRef)).toEqual(Option.none())
       expect(yield* Ref.get(structureVersionRef)).toBe(1)
       expect(yield* Ref.get(explosionsRef)).toEqual([

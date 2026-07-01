@@ -3,6 +3,7 @@ import { logErrors } from '@ts-minecraft/app/frame/error-logging'
 import type { FrameAudioServices } from '@ts-minecraft/app/frame/frame-service-types/audio'
 import type { FrameInteractionServices } from '@ts-minecraft/app/frame/frame-service-types/interaction'
 import type { FrameLivingServices } from '@ts-minecraft/app/frame/frame-service-types/living'
+import type { PlayerDamageCause } from '@ts-minecraft/entity/domain/player-damage-cause'
 import type { ExplosionEvent } from '@ts-minecraft/entity/domain/explosion'
 import { EXHAUSTION_DAMAGE } from '@ts-minecraft/entity/application/hunger-service.config'
 import { buildExplosionBreakPositions } from './placement-geometry'
@@ -13,12 +14,15 @@ export const tryApplyPlayerDamage = (
   amount: number,
   isSpectatorMode: boolean,
   services: DamageServices,
+  cause?: PlayerDamageCause,
 ): Effect.Effect<boolean, never> => {
   if (amount <= 0 || isSpectatorMode) return Effect.succeed(false)
   return Effect.gen(function* () {
     const health = yield* services.healthService.getHealth()
     if (health.current <= 0 || health.invincibilityTicks > 0) return false
-    yield* services.healthService.applyDamage(amount)
+    yield* cause !== undefined
+      ? services.healthService.applyDamage(amount, cause)
+      : services.healthService.applyDamage(amount)
     yield* services.hungerService.addExhaustion(EXHAUSTION_DAMAGE)
     return true
   })

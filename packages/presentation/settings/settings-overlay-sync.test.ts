@@ -51,9 +51,42 @@ describe('presentation/settings/settings-overlay', () => {
         expect(mockDom.elements.masterVolumeInput.value).toBe('0.35')
         expect(mockDom.elements.sfxVolumeInput.value).toBe('0.75')
         expect(mockDom.elements.musicVolumeInput.value).toBe('0.2')
-        expect(mockDom.elements.mvVal.textContent).toBe('0.35')
-        expect(mockDom.elements.svVal.textContent).toBe('0.75')
-        expect(mockDom.elements.muvVal.textContent).toBe('0.2')
+        expect(mockDom.elements.mvVal.textContent).toBe('35%')
+        expect(mockDom.elements.svVal.textContent).toBe('75%')
+        expect(mockDom.elements.muvVal.textContent).toBe('20%')
+        expect(mockDom.elements.masterVolumeInput.getAttribute('aria-valuetext')).toBe('35%')
+        expect(mockDom.elements.sfxVolumeInput.getAttribute('aria-valuetext')).toBe('75%')
+        expect(mockDom.elements.musicVolumeInput.getAttribute('aria-valuetext')).toBe('20%')
+      }).pipe(Effect.provide(TestLayer))
+    })
+
+    it.scoped('should update volume labels as percentages while dragging sliders', () => {
+      vi.stubGlobal('document', {})
+      const mockDom = createMockDomLayer()
+      const TestLayer = buildTestLayer(mockDom)
+      return Effect.gen(function* () {
+        yield* SettingsOverlayService
+        const masterHandler = mockDom.elements.masterVolumeInput.addEventListener.mock.calls.find(([eventName]) => eventName === 'input')?.[1]
+        const sfxHandler = mockDom.elements.sfxVolumeInput.addEventListener.mock.calls.find(([eventName]) => eventName === 'input')?.[1]
+        const musicHandler = mockDom.elements.musicVolumeInput.addEventListener.mock.calls.find(([eventName]) => eventName === 'input')?.[1]
+        expect(masterHandler).toEqual(expect.any(Function))
+        expect(sfxHandler).toEqual(expect.any(Function))
+        expect(musicHandler).toEqual(expect.any(Function))
+        const runInputHandler = (handler: unknown) => (handler as () => void)()
+
+        mockDom.elements.masterVolumeInput.value = '0.45'
+        runInputHandler(masterHandler)
+        mockDom.elements.sfxVolumeInput.value = '0.05'
+        runInputHandler(sfxHandler)
+        mockDom.elements.musicVolumeInput.value = '1'
+        runInputHandler(musicHandler)
+
+        expect(mockDom.elements.mvVal.textContent).toBe('45%')
+        expect(mockDom.elements.svVal.textContent).toBe('5%')
+        expect(mockDom.elements.muvVal.textContent).toBe('100%')
+        expect(mockDom.elements.masterVolumeInput.getAttribute('aria-valuetext')).toBe('45%')
+        expect(mockDom.elements.sfxVolumeInput.getAttribute('aria-valuetext')).toBe('5%')
+        expect(mockDom.elements.musicVolumeInput.getAttribute('aria-valuetext')).toBe('100%')
       }).pipe(Effect.provide(TestLayer))
     })
 

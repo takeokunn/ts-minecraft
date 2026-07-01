@@ -66,7 +66,7 @@ export const handleEnderPearlThrow = (
 
     yield* services.gameState.setPlayerPosition(teleportTarget)
     if (!isCreative) {
-      yield* services.healthService.applyDamage(ENDER_PEARL_DAMAGE)
+      yield* services.healthService.applyDamage(ENDER_PEARL_DAMAGE, { kind: 'ender_pearl' })
       yield* services.hungerService.addExhaustion(EXHAUSTION_DAMAGE)
     }
     if (shouldSpawnEndermiteFromEnderPearl(Math.random())) {

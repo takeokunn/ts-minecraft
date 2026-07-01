@@ -16,8 +16,10 @@ type MaintenanceState = {
   readonly lastChunkStreamingRef: MutableRef.MutableRef<{ readonly cx: number; readonly cz: number; readonly renderDistance: number }>
   readonly chunkSyncPendingRef: MutableRef.MutableRef<boolean>
   readonly dirtyChunksRef: MutableRef.MutableRef<HashMap.HashMap<string, DirtyChunkEntry>>
-  // Accumulated maintenance-tick time for crop growth; fires tickAll() every CROP_GROWTH_INTERVAL_SECS.
+  // Accumulated maintenance-tick time for crop growth; triggers tickAll() every CROP_GROWTH_INTERVAL_SECS.
   readonly cropTickAccumulatorRef: MutableRef.MutableRef<number>
+  // Accumulated maintenance-tick time for fire spread and unsupported-fire extinguishing.
+  readonly fireTickAccumulatorRef: MutableRef.MutableRef<number>
   // Wall-clock ms of the previous maintenance iteration, so the real elapsed delta
   // (not a hardcoded constant) drives furnace/crop/village simulation. Sentinel < 0
   // means "first call". The maintenance loop sleeps 16ms (busy) or 48ms (idle) plus

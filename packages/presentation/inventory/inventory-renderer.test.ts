@@ -11,6 +11,7 @@ import {
   createMockInventoryLayer,
   createMockHotbarLayer,
   createMockRecipeLayer,
+  makeRecipe,
 } from './inventory-renderer-test-utils'
 
 // ---------------------------------------------------------------------------
@@ -186,6 +187,191 @@ describe('presentation/inventory/inventory-renderer', () => {
       }).pipe(Effect.provide(TestLayer))
     })
 
+    it.scoped('focuses inventory controls and restores previous focus around open state', () => {
+      const previousFocus = { focus: vi.fn() }
+      const mockDocument = {
+        activeElement: previousFocus,
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+      }
+      vi.stubGlobal('document', mockDocument)
+
+      const mockDom = createMockDomLayer()
+      const mockInventory = createMockInventoryLayer()
+      const mockHotbar = createMockHotbarLayer()
+      const mockRecipe = createMockRecipeLayer()
+      mockRecipe.recipes.push(makeRecipe('tab-cycle-recipe'))
+      const TestLayer = buildTestLayer(mockDom, mockInventory, mockHotbar, mockRecipe)
+
+      return Effect.gen(function* () {
+        const renderer = yield* InventoryRendererService
+        yield* renderer.toggle()
+
+        const sortButton = mockDom.createElement.mock.results
+          .map((result) => result.value)
+          .find((el) => el.dataset?.inventoryAction === 'sort') as
+          | { readonly focus: ReturnType<typeof vi.fn> }
+          | undefined
+        expect(sortButton?.focus).toHaveBeenCalledOnce()
+        expect(mockDocument.addEventListener).toHaveBeenCalledWith('keydown', expect.any(Function))
+
+        yield* renderer.toggle()
+
+        expect(mockDocument.removeEventListener).toHaveBeenCalledWith('keydown', expect.any(Function))
+        expect(previousFocus.focus).toHaveBeenCalledOnce()
+      }).pipe(Effect.provide(TestLayer))
+    })
+
+    it.scoped('closes with Escape and consumes the key event', () => {
+      const mockDocument = {
+        activeElement: null,
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+      }
+      vi.stubGlobal('document', mockDocument)
+
+      const mockDom = createMockDomLayer()
+      const mockInventory = createMockInventoryLayer()
+      const mockHotbar = createMockHotbarLayer()
+      const TestLayer = buildTestLayer(mockDom, mockInventory, mockHotbar)
+
+      return Effect.gen(function* () {
+        const renderer = yield* InventoryRendererService
+        yield* renderer.toggle()
+
+        const keydown = mockDocument.addEventListener.mock.calls.find(([type]) => type === 'keydown')?.[1] as
+          | ((event: KeyboardEvent) => void)
+          | undefined
+        expect(keydown).toBeDefined()
+        if (keydown === undefined) return
+
+        const preventDefault = vi.fn()
+        const stopPropagation = vi.fn()
+        keydown({
+          key: 'Escape',
+          preventDefault,
+          stopPropagation,
+        } as unknown as KeyboardEvent)
+        yield* Effect.promise<void>(() => new Promise((resolve) => setTimeout(resolve, 0)))
+
+        expect(preventDefault).toHaveBeenCalledOnce()
+        expect(stopPropagation).toHaveBeenCalledOnce()
+        expect(yield* renderer.isOpen()).toBe(false)
+        expect(mockDocument.removeEventListener).toHaveBeenCalledWith('keydown', expect.any(Function))
+      }).pipe(Effect.provide(TestLayer))
+    })
+
+    it.scoped('keeps Tab focus inside inventory controls', () => {
+      const mockDocument: {
+        activeElement: unknown
+        addEventListener: ReturnType<typeof vi.fn>
+        removeEventListener: ReturnType<typeof vi.fn>
+      } = {
+        activeElement: null,
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+      }
+      vi.stubGlobal('document', mockDocument)
+
+      const mockDom = createMockDomLayer()
+      const mockInventory = createMockInventoryLayer()
+      const mockHotbar = createMockHotbarLayer()
+      const mockRecipe = createMockRecipeLayer()
+      mockRecipe.recipes.push(makeRecipe('tab-cycle-recipe'))
+      const TestLayer = buildTestLayer(mockDom, mockInventory, mockHotbar, mockRecipe)
+
+      return Effect.gen(function* () {
+        const renderer = yield* InventoryRendererService
+        yield* renderer.toggle()
+
+        const elements = mockDom.createElement.mock.results.map((result) => result.value)
+        const sortButton = elements.find((el) => el.dataset?.inventoryAction === 'sort') as
+          | (HTMLElement & { focus: ReturnType<typeof vi.fn> })
+          | undefined
+        const searchInput = elements.find((el) => el.id === 'inventory-recipe-search') as
+          | (HTMLElement & { focus: ReturnType<typeof vi.fn> })
+          | undefined
+        const recipeButtons = elements.filter((el) => el.dataset?.recipeId === 'tab-cycle-recipe') as Array<
+          HTMLElement & { focus: ReturnType<typeof vi.fn> }
+        >
+        expect(sortButton).toBeDefined()
+        expect(searchInput).toBeDefined()
+        expect(recipeButtons).toHaveLength(2)
+        const firstRecipeButton = recipeButtons[0]
+        const lastRecipeButton = recipeButtons[recipeButtons.length - 1]
+        expect(firstRecipeButton).toBeDefined()
+        expect(lastRecipeButton).toBeDefined()
+        if (
+          sortButton === undefined ||
+          searchInput === undefined ||
+          firstRecipeButton === undefined ||
+          lastRecipeButton === undefined
+        ) {
+          return
+        }
+
+        sortButton.focus = vi.fn(() => {
+          mockDocument.activeElement = sortButton
+        })
+        searchInput.focus = vi.fn(() => {
+          mockDocument.activeElement = searchInput
+        })
+        firstRecipeButton.focus = vi.fn(() => {
+          mockDocument.activeElement = firstRecipeButton
+        })
+        lastRecipeButton.focus = vi.fn(() => {
+          mockDocument.activeElement = lastRecipeButton
+        })
+
+        const keydown = mockDocument.addEventListener.mock.calls.find(([type]) => type === 'keydown')?.[1] as
+          | ((event: KeyboardEvent) => void)
+          | undefined
+        expect(keydown).toBeDefined()
+        if (keydown === undefined) return
+
+        mockDocument.activeElement = firstRecipeButton
+        const middleEvent = {
+          key: 'Tab',
+          shiftKey: false,
+          preventDefault: vi.fn(),
+          stopPropagation: vi.fn(),
+        } as unknown as KeyboardEvent
+        keydown(middleEvent)
+
+        expect(middleEvent.preventDefault).not.toHaveBeenCalled()
+        expect(middleEvent.stopPropagation).not.toHaveBeenCalled()
+        expect(sortButton.focus).not.toHaveBeenCalled()
+
+        mockDocument.activeElement = lastRecipeButton
+        const forwardEvent = {
+          key: 'Tab',
+          shiftKey: false,
+          preventDefault: vi.fn(),
+          stopPropagation: vi.fn(),
+        } as unknown as KeyboardEvent
+        keydown(forwardEvent)
+
+        expect(forwardEvent.preventDefault).toHaveBeenCalledOnce()
+        expect(forwardEvent.stopPropagation).toHaveBeenCalledOnce()
+        expect(sortButton.focus).toHaveBeenCalledOnce()
+        expect(mockDocument.activeElement).toBe(sortButton)
+
+        mockDocument.activeElement = sortButton
+        const backwardEvent = {
+          key: 'Tab',
+          shiftKey: true,
+          preventDefault: vi.fn(),
+          stopPropagation: vi.fn(),
+        } as unknown as KeyboardEvent
+        keydown(backwardEvent)
+
+        expect(backwardEvent.preventDefault).toHaveBeenCalledOnce()
+        expect(backwardEvent.stopPropagation).toHaveBeenCalledOnce()
+        expect(lastRecipeButton.focus).toHaveBeenCalledOnce()
+        expect(mockDocument.activeElement).toBe(lastRecipeButton)
+      }).pipe(Effect.provide(TestLayer))
+    })
+
     it.scoped('returns a held cursor stack to inventory before closing', () => {
       vi.stubGlobal('document', {})
       vi.stubGlobal('HTMLElement', class MockHTMLElement {})
@@ -235,6 +421,66 @@ describe('presentation/inventory/inventory-renderer', () => {
         const closeResult = yield* renderer.toggle()
         expect(closeResult).toBe(false)
         expect(countOf(mockInventory.getCurrentSlots()[0] ?? Option.none())).toBe(12)
+      }).pipe(Effect.provide(TestLayer))
+    })
+
+    it.scoped('renders a held cursor stack at the click position', () => {
+      vi.stubGlobal('document', {})
+      vi.stubGlobal('HTMLElement', class MockHTMLElement {})
+
+      const mockDom = createMockDomLayer()
+      const mockInventorySlots = Arr.makeBy(INVENTORY_SIZE, (index) =>
+        index === 0 ? Option.some(createStack('DIRT', 12)) : Option.none(),
+      )
+      const mockInventory = createMockInventoryLayer(mockInventorySlots)
+      const mockHotbar = createMockHotbarLayer()
+      const TestLayer = buildTestLayer(mockDom, mockInventory, mockHotbar)
+
+      return Effect.gen(function* () {
+        const renderer = yield* InventoryRendererService
+        yield* renderer.toggle()
+
+        const overlay = mockDom.createElement.mock.results[0]?.value as
+          | { addEventListener: ReturnType<typeof vi.fn> }
+          | undefined
+        const clickHandler = overlay?.addEventListener.mock.calls.find(([type]) => type === 'click')?.[1] as
+          | ((event: MouseEvent) => void)
+          | undefined
+        const slotZero = mockDom.createElement.mock.results
+          .map((result) => result.value)
+          .find((el) => el.dataset?.slot === '0') as
+          | (HTMLElement & { closest: ReturnType<typeof vi.fn> })
+          | undefined
+        const cursorEl = mockDom.createElement.mock.results
+          .map((result) => result.value)
+          .find((el) => el.dataset?.inventoryCursor === 'held') as
+          | HTMLDivElement
+          | undefined
+
+        expect(clickHandler).toBeDefined()
+        expect(slotZero).toBeDefined()
+        expect(cursorEl).toBeDefined()
+        if (clickHandler === undefined || slotZero === undefined || cursorEl === undefined) {
+          return
+        }
+
+        Object.setPrototypeOf(slotZero, HTMLElement.prototype)
+        slotZero.closest = vi.fn((selector: string) => (selector === '[data-slot]' ? slotZero : null))
+        clickHandler({
+          button: 0,
+          shiftKey: false,
+          clientX: 320,
+          clientY: 180,
+          target: slotZero,
+          preventDefault: vi.fn(),
+          stopPropagation: vi.fn(),
+        } as unknown as MouseEvent)
+        yield* Effect.promise<void>(() => new Promise((resolve) => setTimeout(resolve, 0)))
+
+        expect(cursorEl.style.display).toBe('flex')
+        expect(cursorEl.style.transform).toBe('translate(334px,194px)')
+        expect(cursorEl.textContent).toBe('12')
+        expect(cursorEl.title).toBe('Dirt\nCount: 12')
       }).pipe(Effect.provide(TestLayer))
     })
 

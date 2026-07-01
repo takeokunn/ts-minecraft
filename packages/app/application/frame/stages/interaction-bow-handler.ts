@@ -18,6 +18,40 @@ import type { FrameBowInteractionServices } from '@ts-minecraft/app/frame/frame-
 import { spawnMobDrop, spawnMobXpOrb } from '@ts-minecraft/app/application/frame/stages/interaction-mob-drops'
 import { isPassableBlockType } from '@ts-minecraft/game/domain/block-collision-predicates'
 
+type BowEnchantments = {
+  readonly hasPower: Enchantment | undefined
+  readonly hasInfinity: boolean
+  readonly hasLooting: Enchantment | undefined
+  readonly hasPunch: Enchantment | undefined
+  readonly bowUnbreaking: Enchantment | undefined
+}
+
+export const resolveBowEnchantments = (enchantments: ReadonlyArray<Enchantment>): BowEnchantments => {
+  let hasPower: Enchantment | undefined
+  let hasInfinity = false
+  let hasLooting: Enchantment | undefined
+  let hasPunch: Enchantment | undefined
+  let bowUnbreaking: Enchantment | undefined
+  for (const enchantment of enchantments) {
+    switch (enchantment.type) {
+      case 'POWER': hasPower = enchantment; break
+      case 'INFINITY': hasInfinity = true; break
+      case 'LOOTING': hasLooting = enchantment; break
+      case 'PUNCH': hasPunch = enchantment; break
+      case 'UNBREAKING': bowUnbreaking = enchantment; break
+    }
+  }
+  return { hasPower, hasInfinity, hasLooting, hasPunch, bowUnbreaking }
+}
+
+export const resolveBowDamage = (
+  charge: number,
+  powerEnchant: Enchantment | undefined,
+): number => {
+  const baseDamage = computeBowDamage(charge)
+  return powerEnchant ? Math.round(baseDamage * getPowerDamageMultiplier(powerEnchant.level)) : baseDamage
+}
+
 // R101: avoid per-kill [] allocation when entity has no drops.
 const NO_DROPS: ReadonlyArray<EntityDrop> = []
 const ENTITY_CENTER_Y_OFFSET = 0.9
@@ -137,36 +171,9 @@ export const handleBowFire = (
     // Read bow enchantments before consuming the arrow (slot still intact here).
     const selectedSlot = yield* services.hotbarService.getSelectedSlot()
     const bowStack = yield* services.inventoryService.getSlot(SlotIndex.make(HOTBAR_START + selectedSlot))
-    const enchantments = enchantmentsOf(bowStack)
+    const { hasPower, hasInfinity, hasLooting, hasPunch, bowUnbreaking } = resolveBowEnchantments(enchantmentsOf(bowStack))
 
-    let hasPower: Enchantment | undefined
-    let hasInfinity = false
-    let hasLooting: Enchantment | undefined
-    let hasPunch: Enchantment | undefined
-    let bowUnbreaking: Enchantment | undefined
-    for (const enchantment of enchantments) {
-      switch (enchantment.type) {
-        case 'POWER':
-          hasPower = enchantment
-          break
-        case 'INFINITY':
-          hasInfinity = true
-          break
-        case 'LOOTING':
-          hasLooting = enchantment
-          break
-        case 'PUNCH':
-          hasPunch = enchantment
-          break
-        case 'UNBREAKING':
-          bowUnbreaking = enchantment
-          break
-      }
-    }
-
-    // Scale base damage by charge, then apply POWER multiplier.
-    const baseDamage = computeBowDamage(charge)
-    const damage = hasPower ? Math.round(baseDamage * getPowerDamageMultiplier(hasPower.level)) : baseDamage
+    const damage = resolveBowDamage(charge, hasPower)
 
     // INFINITY skips arrow consumption. Without it, consume 1 ARROW (silent abort if empty).
     if (!hasInfinity) {

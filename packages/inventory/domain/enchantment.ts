@@ -4,6 +4,7 @@ import type { EnchantmentType, EnchantmentLevel, Enchantment } from './enchantme
 export type { EnchantmentType, EnchantmentLevel, Enchantment }
 export {
   canEnchantItem,
+  areEnchantmentTypesMutuallyExclusive,
   getApplicableEnchantments,
   isEnchantableItem,
   selectEnchantment,

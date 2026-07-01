@@ -131,6 +131,9 @@ const makeServices = (
       },
       getWeatherCalls,
     },
+    damageOverlay: {
+      flash: () => Effect.void,
+    },
   } as unknown as PhysicsStageServices & TestServices
 }
 

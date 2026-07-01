@@ -26,7 +26,7 @@ export class DeathScreenService extends Effect.Service<DeathScreenService>()(
       const gameState = yield* GameStateService
       const gameMode = yield* GameModeService
       const healthService = yield* HealthService
-      const { backdropEl, respawnBtn, quitBtn } = yield* Effect.acquireRelease(
+      const { backdropEl, messageEl, respawnBtn, quitBtn } = yield* Effect.acquireRelease(
         Effect.sync((): DeathScreenDom => buildDeathScreenDOM(dom)),
         ({ backdropEl }) =>
           Effect.sync(() => {
@@ -37,8 +37,10 @@ export class DeathScreenService extends Effect.Service<DeathScreenService>()(
       {
         const isOpenRef = MutableRef.make(false)
 
-            const showOverlay = (): void => {
+            const showOverlay = (deathMessage: string): void => {
               const el = Option.getOrNull(backdropEl)
+              const message = Option.getOrNull(messageEl)
+              if (message !== null) message.textContent = deathMessage
               if (el !== null) el.style.display = 'flex'
               // Default-focus Respawn so Enter respawns immediately.
               Option.getOrNull(respawnBtn)?.focus()
@@ -156,11 +158,12 @@ export class DeathScreenService extends Effect.Service<DeathScreenService>()(
                         yield* healthService.awaitDeath()
                         const isCreative = yield* gameMode.isCreative()
                         if (!isCreative) {
+                          const deathMessage = yield* healthService.getDeathMessage()
                           yield* Effect.sync(() => {
                             if (MutableRef.get(isOpenRef)) return
                             MutableRef.set(isOpenRef, true)
                             setPaused(control, true)
-                            showOverlay()
+                            showOverlay(deathMessage)
                           })
                         }
                         yield* waitForRevival
@@ -180,11 +183,11 @@ export class DeathScreenService extends Effect.Service<DeathScreenService>()(
                       fiber,
                     }
                   }),
-                  (handlers) =>
-                    Effect.gen(function* () {
-                      Option.getOrNull(respawnBtn)?.removeEventListener('click', handlers.handleRespawnClick)
-                      Option.getOrNull(quitBtn)?.removeEventListener('click', handlers.handleQuitClick)
-                      if (typeof document !== 'undefined') {
+                    (handlers) =>
+                      Effect.sync(() => {
+                        Option.getOrNull(respawnBtn)?.removeEventListener('click', handlers.handleRespawnClick)
+                        Option.getOrNull(quitBtn)?.removeEventListener('click', handlers.handleQuitClick)
+                        if (typeof document !== 'undefined') {
                         document.removeEventListener('keydown', handlers.handleKeyDown, true)
                       }
                       hideOverlay()

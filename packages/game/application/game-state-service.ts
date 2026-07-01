@@ -5,7 +5,7 @@ import { MovementService } from '@ts-minecraft/entity/application/movement-servi
 import { PlayerInputService } from '@ts-minecraft/entity/application/player-input-service'
 import { PlayerCameraStateService } from '@ts-minecraft/entity/application/camera-state'
 import { DroppedItemService } from '@ts-minecraft/entity/application/dropped-item-service'
-import { DeltaTimeSecs, PlayerId, Position, PhysicsBodyId, DEFAULT_PLAYER_ID, PLAYER_HALF_WIDTH, PLAYER_HALF_HEIGHT } from '@ts-minecraft/core'
+import { DeltaTimeSecs, PlayerId, Position, PhysicsBodyId, DEFAULT_PLAYER_ID, PLAYER_HALF_WIDTH, PLAYER_HALF_HEIGHT, type Vector3 } from '@ts-minecraft/core'
 import { PhysicsService } from './physics-service'
 import { ChunkManagerService } from '@ts-minecraft/world/application/chunk-manager-service'
 import { InventoryService } from '@ts-minecraft/inventory/application/inventory-service'
@@ -63,19 +63,11 @@ export class GameStateService extends Effect.Service<GameStateService>()(
       const equipmentService = yield* EquipmentService
       const droppedItemService = yield* DroppedItemService
       const inputService = yield* PlayerInputService
-      // deltaTime initial value uses a first-frame estimate of 16ms at 60fps
       const timingStateRef = yield* Ref.make<TimingState>(INITIAL_TIMING_STATE)
-      // Opaque physics body ID for the player (replaces CANNON.Body ref)
       const playerBodyIdRef = yield* Ref.make<Option.Option<PhysicsBodyId>>(Option.none())
-      // AABB-derived grounded state (updated each frame after block collision resolution)
       const isGroundedRef = yield* Ref.make(false)
-      // Fixed-size 9-slot 3×3 chunk neighborhood cache. Indexed by
-      // (dx + 1) * 3 + (dz + 1) where (dx, dz) ∈ [-1, 1]². `null` = not loaded.
-      // Eliminates per-frame Map allocation, .clear(), and string key construction.
       const chunkCacheRef = yield* Ref.make(createChunkCache())
-      // Last refreshed player chunk coord. Refresh the 9-cell cache only when this changes.
       const lastChunkCoordRef = yield* Ref.make<{ cx: number; cz: number }>({ cx: Number.NaN, cz: Number.NaN })
-      // Creative-mode flight toggle state (false outside creative).
       const flyingRef = yield* Ref.make(false)
 
       const playerId = DEFAULT_PLAYER_ID
@@ -190,6 +182,25 @@ export class GameStateService extends Effect.Service<GameStateService>()(
           }).pipe(
             Effect.catchTag('PhysicsServiceError', mapPhysicsServiceError('setPlayerPosition')),
             Effect.catchTag('PlayerError', mapPlayerError('setPlayerPosition'))
+          ),
+
+        applyPlayerVelocityImpulse: (impulse: Vector3): Effect.Effect<void, GameStateError> =>
+          Effect.gen(function* () {
+            const playerBodyId = Option.getOrNull(yield* Ref.get(playerBodyIdRef))
+            if (playerBodyId === null) return yield* failMissingPhysicsBody('applyPlayerVelocityImpulse')
+
+            const currentVelocity = yield* physicsService.getVelocity(playerBodyId)
+            const nextVelocity = {
+              x: currentVelocity.x + impulse.x,
+              y: Math.max(currentVelocity.y, 0) + impulse.y,
+              z: currentVelocity.z + impulse.z,
+            }
+
+            yield* physicsService.setVelocity(playerBodyId, nextVelocity)
+            yield* playerService.updateVelocity(playerId, nextVelocity)
+          }).pipe(
+            Effect.catchTag('PhysicsServiceError', mapPhysicsServiceError('applyPlayerVelocityImpulse')),
+            Effect.catchTag('PlayerError', mapPlayerError('applyPlayerVelocityImpulse'))
           ),
 
         getTiming: (): Effect.Effect<TimingState, never> => Ref.get(timingStateRef),

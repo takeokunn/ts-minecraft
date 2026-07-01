@@ -17,13 +17,15 @@ const WATERSIDE_PLANT_BLOCK_TYPES = new Set<BlockType>([
   'LILY_PAD',
 ])
 
+const CROP_BLOCK_TYPES = new Set<BlockType>(['WHEAT_CROP', 'POTATO_CROP'])
+
 const SUPPORT_SENSITIVE_BLOCK_TYPES = new Set<BlockType>([
   'TORCH',
   'REDSTONE_TORCH',
   'REDSTONE_WIRE',
   'PRESSURE_PLATE',
   'RAIL',
-  'WHEAT_CROP',
+  ...CROP_BLOCK_TYPES,
   ...SURFACE_PLANT_BLOCK_TYPES,
   ...WATERSIDE_PLANT_BLOCK_TYPES,
 ])
@@ -34,7 +36,7 @@ const WATER_BREAKABLE_BLOCK_TYPES = new Set<BlockType>([
   'REDSTONE_WIRE',
   'PRESSURE_PLATE',
   'RAIL',
-  'WHEAT_CROP',
+  ...CROP_BLOCK_TYPES,
   ...SURFACE_PLANT_BLOCK_TYPES,
   'SUGAR_CANE',
   'CACTUS',
@@ -49,7 +51,7 @@ const NON_SUPPORTING_BLOCK_TYPES = new Set<BlockType>([
   'REDSTONE_WIRE',
   'PRESSURE_PLATE',
   'RAIL',
-  'WHEAT_CROP',
+  ...CROP_BLOCK_TYPES,
   ...SURFACE_PLANT_BLOCK_TYPES,
   ...WATERSIDE_PLANT_BLOCK_TYPES,
   'SNOW',
@@ -70,7 +72,10 @@ const WATER_BREAKABLE_BLOCK_INDICES = new Set<number>(
 const SUPPORT_RULE_ENTRIES: ReadonlyArray<
   readonly [BlockType, (blockBelow: BlockType) => boolean]
 > = [
-  ['WHEAT_CROP', (blockBelow) => blockBelow === 'FARMLAND'],
+  ...Array.from(CROP_BLOCK_TYPES, (blockType) => [
+    blockType,
+    (blockBelow: BlockType) => blockBelow === 'FARMLAND',
+  ] as const),
   ['SUGAR_CANE', (blockBelow) => SUGAR_CANE_SUPPORT_BLOCK_TYPES.has(blockBelow)],
   ['CACTUS', (blockBelow) => CACTUS_SUPPORT_BLOCK_TYPES.has(blockBelow)],
   ['LILY_PAD', (blockBelow) => blockBelow === 'WATER'],

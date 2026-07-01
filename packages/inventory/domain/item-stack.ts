@@ -1,6 +1,7 @@
 import { Option, Schema } from 'effect'
 import { InventoryItem, InventoryItemSchema } from '@ts-minecraft/core'
 import { isDurable, getMaxDurability, damageDurability, isBroken, DURABLE_ITEMS } from './durability'
+import { areEnchantmentTypesMutuallyExclusive } from './enchantment-applicability'
 import type { Enchantment, EnchantmentType } from './enchantment.types'
 import { EnchantmentSchema } from './enchantment.types'
 
@@ -27,20 +28,21 @@ export const findStackEnchantment = (
   return Option.none()
 }
 
-// Apply one enchantment to a stack, replacing any existing one of the same type.
+const filterCompatibleEnchantments = (
+  existing: ReadonlyArray<Enchantment>,
+  incoming: Enchantment,
+): Array<Enchantment> =>
+  existing.filter(
+    (e) => e.type !== incoming.type && !areEnchantmentTypesMutuallyExclusive(e.type, incoming.type),
+  )
+
+// Apply one enchantment to a stack, replacing the same type and dropping mutually exclusive types.
 export const enchantItem = (stack: ItemStack, enchantment: Enchantment): ItemStack =>
   new ItemStack({
     itemType: stack.itemType,
     count: stack.count,
     durability: stack.durability,
-    enchantments: (() => {
-      const nextEnchantments: Array<Enchantment> = []
-      for (const existing of getStackEnchantments(stack)) {
-        if (existing.type !== enchantment.type) nextEnchantments.push(existing)
-      }
-      nextEnchantments.push(enchantment)
-      return nextEnchantments
-    })(),
+    enchantments: [...filterCompatibleEnchantments(getStackEnchantments(stack), enchantment), enchantment],
   })
 
 export const MAX_STACK_SIZE = 64

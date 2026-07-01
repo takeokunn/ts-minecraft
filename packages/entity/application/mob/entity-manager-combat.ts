@@ -14,7 +14,7 @@ export type PlayerContactDamageResolution = Readonly<{
   explosions: ReadonlyArray<ExplosionEvent>
 }>
 
-export type PlayerRangedDamageResolution = Readonly<{
+type PlayerRangedDamageResolution = Readonly<{
   damage: number
 }>
 
@@ -24,7 +24,7 @@ export const resolvePlayerContactDamage = (
 ): readonly [PlayerContactDamageResolution, HashMap.HashMap<EntityId, ManagedEntity>] => {
   let totalDamage = 0
   let updatedEntities = entities
-  let touched = false
+  let anyEntityModified = false
   let entityRemoved = false
   const explosionEvents: ExplosionEvent[] = []
 
@@ -34,7 +34,7 @@ export const resolvePlayerContactDamage = (
       totalDamage += creeperDetonation.damage
       explosionEvents.push(creeperDetonation.explosionEvent)
       updatedEntities = HashMap.remove(updatedEntities, entity.entityId)
-      touched = true
+      anyEntityModified = true
       entityRemoved = true
       return
     }
@@ -46,7 +46,7 @@ export const resolvePlayerContactDamage = (
       ...entity,
       attackCooldownRemaining: HOSTILE_ATTACK_COOLDOWN_SECS,
     })
-    touched = true
+    anyEntityModified = true
   })
 
   return [
@@ -55,7 +55,7 @@ export const resolvePlayerContactDamage = (
       removed: entityRemoved,
       explosions: explosionEvents,
     },
-    touched ? updatedEntities : entities,
+    anyEntityModified ? updatedEntities : entities,
   ]
 }
 
@@ -66,7 +66,7 @@ export const resolvePlayerRangedDamage = (
 ): readonly [PlayerRangedDamageResolution, HashMap.HashMap<EntityId, ManagedEntity>] => {
   let totalDamage = 0
   let updatedEntities = entities
-  let touched = false
+  let anyEntityModified = false
 
   HashMap.forEach(entities, (entity) => {
     if (entity.type !== EntityType.Skeleton) return
@@ -79,13 +79,13 @@ export const resolvePlayerRangedDamage = (
       ...entity,
       attackCooldownRemaining: HOSTILE_ATTACK_COOLDOWN_SECS,
     })
-    touched = true
+    anyEntityModified = true
   })
 
   return [
     {
       damage: totalDamage,
     },
-    touched ? updatedEntities : entities,
+    anyEntityModified ? updatedEntities : entities,
   ]
 }

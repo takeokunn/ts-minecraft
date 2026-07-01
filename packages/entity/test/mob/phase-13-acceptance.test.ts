@@ -45,8 +45,8 @@ describe('Phase 13 entity-system acceptance guard', () => {
 
       yield* entityManager.addEntity(EntityType.Zombie, { x: 0, y: 64, z: 0 })
 
-      const firstDamage = yield* entityManager.getPlayerContactDamage(playerPosition)
-      const secondDamage = yield* entityManager.getPlayerContactDamage(playerPosition)
+      const firstDamage = (yield* entityManager.getPlayerContactDamageResolution(playerPosition)).damage
+      const secondDamage = (yield* entityManager.getPlayerContactDamageResolution(playerPosition)).damage
 
       expect(firstDamage).toBe(3)
       expect(secondDamage).toBe(0)

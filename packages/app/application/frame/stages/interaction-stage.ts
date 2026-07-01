@@ -1,5 +1,4 @@
-// Stage 7: interactionStage — block highlight, then break/place/redstone interactions.
-import { Effect } from 'effect'
+import { Effect, MutableRef } from 'effect'
 import type { DebugFeatureFlags } from '@ts-minecraft/app/application/debug-feature-flags.config'
 import { logErrors } from '@ts-minecraft/app/frame/error-logging'
 import type { FrameHandlerDeps } from '@ts-minecraft/app/application/frame/types/deps'
@@ -48,13 +47,21 @@ export const interactionStage = (
 ): Effect.Effect<void, never> =>
   Effect.gen(function* () {
     const debugFlags = inputs.debugFlags
+    const isDead = yield* services.healthService.isDead()
+
+    if (isDead) {
+      MutableRef.set(refs.breakProgressRef, null)
+      MutableRef.set(refs.bowChargeStartRef, null)
+      MutableRef.set(refs.isShieldBlockingRef, false)
+      yield* services.blockHighlight.setVisible(false)
+      return
+    }
 
     // Keep block targeting live for interactions while allowing the outline itself
     // to be toggled independently.
     yield* services.blockHighlight.update(deps.camera, deps.scene)
     yield* services.blockHighlight.setVisible(debugFlags['ui.blockHighlight'])
 
-    // Handle block interaction (break/place) and hotbar (suppressed when paused)
     yield* logErrors(
       runInteractionStageFrame(deps, services, refs, inputs),
       'Block interaction error',

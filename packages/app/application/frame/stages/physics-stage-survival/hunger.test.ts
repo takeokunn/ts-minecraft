@@ -1,5 +1,6 @@
 import { MutableRef, Effect } from 'effect'
 import { describe, expect, it, vi } from 'vitest'
+import { HUNGER_TICK_INTERVAL_SECS } from '@ts-minecraft/app/frame-handler.config'
 import { applyHungerTicks } from './hunger'
 
 describe('physics-stage-survival/hunger', () => {
@@ -13,13 +14,12 @@ describe('physics-stage-survival/hunger', () => {
       },
       hungerService: { tick },
       soundManager: { playEffect: vi.fn(() => Effect.void) },
-      damageOverlay: { flash: vi.fn(() => Effect.void) },
     }
 
     await Effect.runPromise(
       Effect.gen(function* () {
         const refs = { hungerTickAccumulatorRef: MutableRef.make(0) }
-        yield* applyHungerTicks(services, refs, { deltaTime: 0.05, difficulty: 'easy' }, { x: 1, y: 64, z: 1 }, () => Effect.succeed(false))
+        yield* applyHungerTicks(services, refs, { deltaTime: HUNGER_TICK_INTERVAL_SECS, difficulty: 'easy' }, { x: 1, y: 64, z: 1 }, () => Effect.succeed(false))
       }),
     )
 
@@ -46,13 +46,37 @@ describe('physics-stage-survival/hunger', () => {
     await Effect.runPromise(
       Effect.gen(function* () {
         const refs = { hungerTickAccumulatorRef: MutableRef.make(0) }
-        yield* applyHungerTicks(services, refs, { deltaTime: 0.05, difficulty: 'hard' }, { x: 1, y: 64, z: 1 }, applyDamage)
+        yield* applyHungerTicks(services, refs, { deltaTime: HUNGER_TICK_INTERVAL_SECS, difficulty: 'hard' }, { x: 1, y: 64, z: 1 }, applyDamage)
       }),
     )
 
     expect(tick).toHaveBeenCalledOnce()
     expect(applyDamage).toHaveBeenCalled()
     expect(playEffect).toHaveBeenCalledWith('playerHurt', { position: { x: 1, y: 64, z: 1 } })
-    expect(flash).toHaveBeenCalledOnce()
+  })
+
+  it('does nothing when hunger tick reports none', async () => {
+    const heal = vi.fn(() => Effect.void)
+    const applyDamage = vi.fn(() => Effect.succeed(true))
+    const tick = vi.fn(() => Effect.succeed('none' as const))
+    const services = {
+      healthService: {
+        getHealth: () => Effect.succeed({ current: 14, max: 20 }),
+        heal,
+      },
+      hungerService: { tick },
+      soundManager: { playEffect: vi.fn(() => Effect.void) },
+    }
+
+    await Effect.runPromise(
+      Effect.gen(function* () {
+        const refs = { hungerTickAccumulatorRef: MutableRef.make(0) }
+        yield* applyHungerTicks(services, refs, { deltaTime: HUNGER_TICK_INTERVAL_SECS, difficulty: 'normal' }, { x: 1, y: 64, z: 1 }, applyDamage)
+      }),
+    )
+
+    expect(tick).toHaveBeenCalledOnce()
+    expect(heal).not.toHaveBeenCalled()
+    expect(applyDamage).not.toHaveBeenCalled()
   })
 })

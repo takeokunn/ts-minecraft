@@ -8,17 +8,16 @@ import { makeColumnReaderAt } from './physics-stage-utils'
 
 const PORTAL_ACTIVATION_SECS = 4.0
 
-const hasEntityType = (
-  entities: ReadonlyArray<{ readonly type: string }>,
-  type: string,
-): boolean => {
-  for (const entity of entities) {
-    if (entity.type === type) {
-      return true
-    }
+export const collectAffectedChunkCoords = (
+  positions: ReadonlyArray<Position>,
+): ReadonlyMap<string, { readonly x: number; readonly z: number }> => {
+  const coords = new Map<string, { readonly x: number; readonly z: number }>()
+  for (const pos of positions) {
+    const coord = worldToChunkCoord(pos)
+    const key = `${coord.x},${coord.z}`
+    if (!coords.has(key)) coords.set(key, coord)
   }
-
-  return false
+  return coords
 }
 
 export const applyNetherPortalTravel = (
@@ -49,36 +48,34 @@ export const applyNetherPortalTravel = (
         yield* Ref.set(refs.finalPosRef, plan.destination)
         const portalLayout = Option.getOrNull(plan.portalToCreate)
         if (portalLayout !== null) {
-          for (const pos of portalLayout.frame) {
-            yield* services.blockService.forceSetBlock(pos, 'OBSIDIAN').pipe(Effect.catchAll(() => Effect.void))
-          }
-          for (const pos of portalLayout.interior) {
-            yield* services.blockService.forceSetBlock(pos, 'NETHER_PORTAL').pipe(Effect.catchAll(() => Effect.void))
-          }
+          yield* Effect.forEach(
+            portalLayout.frame,
+            (pos) => services.blockService.forceSetBlock(pos, 'OBSIDIAN').pipe(Effect.catchAll(() => Effect.void)),
+            { discard: true },
+          )
+          yield* Effect.forEach(
+            portalLayout.interior,
+            (pos) => services.blockService.forceSetBlock(pos, 'NETHER_PORTAL').pipe(Effect.catchAll(() => Effect.void)),
+            { discard: true },
+          )
           yield* services.netherService.registerPortal(plan.destination, plan.toDimension)
-          const affectedCoords = new Map<string, { readonly x: number; readonly z: number }>()
-          const trackAffectedCoord = (pos: Position): void => {
-            const coord = worldToChunkCoord(pos)
-            const coordKey = `${coord.x},${coord.z}`
-            if (!affectedCoords.has(coordKey)) {
-              affectedCoords.set(coordKey, coord)
-            }
-          }
-          for (const pos of portalLayout.frame) trackAffectedCoord(pos)
-          for (const pos of portalLayout.interior) trackAffectedCoord(pos)
-          for (const [coordKey, coord] of affectedCoords) {
-            yield* services.chunkManagerService.getChunk(coord).pipe(
-              Effect.tap((chunk) =>
-                Effect.sync(() => {
-                  MutableRef.set(
-                    refs.dirtyChunksRef,
-                    HashMap.set(MutableRef.get(refs.dirtyChunksRef), coordKey, { chunk, dirtyAABB: Option.none() }),
-                  )
-                }),
+          const affectedCoords = collectAffectedChunkCoords([...portalLayout.frame, ...portalLayout.interior])
+          yield* Effect.forEach(
+            [...affectedCoords],
+            ([coordKey, coord]) =>
+              services.chunkManagerService.getChunk(coord).pipe(
+                Effect.tap((chunk) =>
+                  Effect.sync(() => {
+                    MutableRef.set(
+                      refs.dirtyChunksRef,
+                      HashMap.set(MutableRef.get(refs.dirtyChunksRef), coordKey, { chunk, dirtyAABB: Option.none() }),
+                    )
+                  }),
+                ),
+                Effect.catchAll(() => Effect.void),
               ),
-              Effect.catchAll(() => Effect.void),
-            )
-          }
+            { discard: true },
+          )
         }
       }
     } else {
@@ -107,7 +104,7 @@ export const applyEndPortalTravel = (
     yield* Ref.set(refs.finalPosRef, destPos)
     if (destDim === 'end') {
       const existingEntities = yield* services.entityManager.getEntities()
-      const hasDragon = hasEntityType(existingEntities, 'EnderDragon')
+      const hasDragon = existingEntities.some((e) => e.type === 'EnderDragon')
       if (!hasDragon) {
         yield* services.entityManager.addEntity('EnderDragon', { x: 0, y: 80, z: 20 })
           .pipe(Effect.catchAllCause(() => Effect.void))

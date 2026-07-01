@@ -20,6 +20,7 @@ import {
   getLureWaitReductionSecs,
   getLuckTreasureChance,
   canEnchantItem,
+  areEnchantmentTypesMutuallyExclusive,
   getMaxEnchantmentLevel,
   getBaneOfArthropodsDamageBonus,
   getApplicableEnchantments,
@@ -212,6 +213,29 @@ describe('domain/enchantment', () => {
       expect(canEnchantItem('DIAMOND_LEGGINGS', 'UNBREAKING')).toBe(true)
       expect(canEnchantItem('LEATHER_BOOTS', 'UNBREAKING')).toBe(true)
       expect(canEnchantItem('DIAMOND_HOE', 'UNBREAKING')).toBe(true)
+    })
+  })
+
+  describe('areEnchantmentTypesMutuallyExclusive', () => {
+    it('marks melee damage enchantments as mutually exclusive', () => {
+      expect(areEnchantmentTypesMutuallyExclusive('SHARPNESS', 'SMITE')).toBe(true)
+      expect(areEnchantmentTypesMutuallyExclusive('SMITE', 'BANE_OF_ARTHROPODS')).toBe(true)
+    })
+
+    it('marks armor protection enchantments as mutually exclusive', () => {
+      expect(areEnchantmentTypesMutuallyExclusive('PROTECTION', 'FIRE_PROTECTION')).toBe(true)
+      expect(areEnchantmentTypesMutuallyExclusive('BLAST_PROTECTION', 'PROJECTILE_PROTECTION')).toBe(true)
+    })
+
+    it('marks tool and bow exclusivity pairs as mutually exclusive', () => {
+      expect(areEnchantmentTypesMutuallyExclusive('FORTUNE', 'SILK_TOUCH')).toBe(true)
+      expect(areEnchantmentTypesMutuallyExclusive('INFINITY', 'MENDING')).toBe(true)
+    })
+
+    it('allows compatible enchantments and same-type upgrades', () => {
+      expect(areEnchantmentTypesMutuallyExclusive('SHARPNESS', 'LOOTING')).toBe(false)
+      expect(areEnchantmentTypesMutuallyExclusive('POWER', 'PUNCH')).toBe(false)
+      expect(areEnchantmentTypesMutuallyExclusive('SHARPNESS', 'SHARPNESS')).toBe(false)
     })
   })
 

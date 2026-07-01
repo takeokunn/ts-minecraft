@@ -17,7 +17,7 @@ import { markChunkDirtyAt, readBlockTypeAt } from './interaction-block-access'
 import { adjacentToHit, buildExplosionBreakPositions } from './placement-geometry'
 import { resolveRightClickTargetRoute } from './interaction-right-click-target-routing'
 import { selectedHotbarSlotIndex } from './selected-hotbar-slot'
-import { applyExplosionPlayerDamage } from './interaction-flint-steel-tnt'
+import { applyExplosionPlayerDamage } from '@ts-minecraft/entity/application/explosion-service'
 
 const BED_EXPLOSION_BREAK_RADIUS = 4
 

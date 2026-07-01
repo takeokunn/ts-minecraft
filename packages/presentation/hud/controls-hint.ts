@@ -35,12 +35,14 @@ export class ControlsHintService extends Effect.Service<ControlsHintService>()(
           element.id = 'controls-hint'
           element.setAttribute('role', 'note')
           element.setAttribute('aria-label', 'Quick controls help')
+          element.setAttribute('aria-live', 'polite')
+          element.setAttribute('aria-atomic', 'true')
           element.style.cssText = [
             'position:fixed',
             'left:16px',
             'bottom:16px',
             'max-width:min(360px,calc(100vw - 32px))',
-            'padding:12px 56px 12px 14px',
+            'padding:12px 132px 12px 14px',
             'border:1px solid rgba(255,255,255,0.16)',
             'border-radius:12px',
             'background:rgba(10,14,18,0.88)',
@@ -55,13 +57,14 @@ export class ControlsHintService extends Effect.Service<ControlsHintService>()(
           dom.setInnerHTML(element, `
             <strong style="display:block;margin:0 0 6px;font-size:14px;letter-spacing:0.04em">Quick Controls</strong>
             <p style="margin:0 0 6px">Move with WASD or the left stick, look with the mouse or right stick, and jump with Space or a face button.</p>
-            <p style="margin:0">Break and place blocks with click or triggers. Press Esc to pause. Keyboard, mouse, and gamepad are supported.</p>
+            <p style="margin:0 0 6px">Break and place blocks with click or triggers. Open inventory with E, then use 1-9, the mouse wheel, or controller bumpers to pick hotbar slots.</p>
+            <p style="margin:0">Press Esc for pause/settings. Keyboard, mouse, and gamepad are supported.</p>
           `)
 
           const hideButton = dom.createElement('button')
           hideButton.type = 'button'
-          hideButton.textContent = 'Hide'
-          hideButton.setAttribute('aria-label', 'Hide quick controls help')
+          hideButton.textContent = 'Don\'t show again'
+          hideButton.setAttribute('aria-label', 'Do not show quick controls help again')
           hideButton.style.cssText = [
             'position:absolute',
             'top:10px',

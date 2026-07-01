@@ -118,6 +118,7 @@ describe('handleBlockBreakProgress', () => {
     const damageSlotSpy = vi.fn(() => Effect.void)
     const spawnBurstSpy = vi.fn(() => Effect.void)
     const sendBlockBreakSpy = options.multiplayer?.sendBlockBreak ?? vi.fn(() => Effect.void)
+    const harvestSpy = vi.fn(() => Effect.succeed(options.harvestRipeCrop ?? false))
 
     const services = {
       blockService: { breakBlock: breakSpy },
@@ -144,10 +145,10 @@ describe('handleBlockBreakProgress', () => {
         addXP: vi.fn(() => Effect.succeed({ totalXP: 0, level: 0, xpIntoLevel: 0, xpRequiredForNext: 7 })),
       },
       multiplayer: options.multiplayer === undefined ? Option.none() : Option.some({ sendBlockBreak: sendBlockBreakSpy }),
-      cropGrowthService: { harvest: vi.fn(() => Effect.succeed(options.harvestRipeCrop ?? false)) },
+      cropGrowthService: { harvest: harvestSpy },
     }
 
-    return { services, breakSpy, addBlockSpy, spawnDroppedItemSpy, spawnXpOrbSpy, damageSlotSpy, spawnBurstSpy, sendBlockBreakSpy }
+    return { services, breakSpy, addBlockSpy, spawnDroppedItemSpy, spawnXpOrbSpy, damageSlotSpy, spawnBurstSpy, sendBlockBreakSpy, harvestSpy }
   }
 
   const makeContext = (
@@ -280,7 +281,7 @@ describe('handleBlockBreakProgress', () => {
   it.effect('spawns ripe wheat crop drops and damages the held tool', () => Effect.gen(function* () {
     const refs = yield* makeRefs()
     const randomSpy = vi.spyOn(Math, 'random').mockReturnValue(0.75)
-    const { services, addBlockSpy, spawnDroppedItemSpy, damageSlotSpy } = makeServices({
+    const { services, addBlockSpy, spawnDroppedItemSpy, damageSlotSpy, harvestSpy } = makeServices({
       blockType: 'WHEAT_CROP',
       selectedItem: 'SHEARS',
       toolStack: makeToolStack('SHEARS'),
@@ -299,6 +300,7 @@ describe('handleBlockBreakProgress', () => {
       count: 4,
       position: { x: 1.5, y: 64.5, z: 0.5 },
     }))
+    expect(harvestSpy).toHaveBeenCalledWith(defaultPosition)
     expect(addBlockSpy).not.toHaveBeenCalled()
     expect(damageSlotSpy).toHaveBeenCalledWith(SlotIndex.make(HOTBAR_START), 1)
     randomSpy.mockRestore()
@@ -316,6 +318,44 @@ describe('handleBlockBreakProgress', () => {
     yield* handleBlockBreakProgress(services, refs, makeContext({ selectedHotbarItem: Option.some('WHEAT') }))
 
     expect(spawnDroppedItemSpy).toHaveBeenCalledWith(expect.objectContaining({ itemType: 'WHEAT_SEEDS', count: 1 }))
+    expect(addBlockSpy).not.toHaveBeenCalled()
+  }))
+
+  it.effect('spawns ripe potato crop drops and clears crop growth tracking', () => Effect.gen(function* () {
+    const refs = yield* makeRefs()
+    const randomSpy = vi.spyOn(Math, 'random').mockReturnValue(0.75)
+    const { services, addBlockSpy, spawnDroppedItemSpy, harvestSpy } = makeServices({
+      blockType: 'POTATO_CROP',
+      selectedItem: 'POTATO',
+      toolStack: makeToolStack('POTATO'),
+      harvestRipeCrop: true,
+    })
+
+    yield* handleBlockBreakProgress(services, refs, makeContext({ selectedHotbarItem: Option.some('POTATO') }))
+
+    expect(spawnDroppedItemSpy).toHaveBeenCalledWith(expect.objectContaining({
+      itemType: 'POTATO',
+      count: 5,
+      position: { x: 1.5, y: 64.5, z: 0.5 },
+    }))
+    expect(harvestSpy).toHaveBeenCalledWith(defaultPosition)
+    expect(addBlockSpy).not.toHaveBeenCalled()
+    randomSpy.mockRestore()
+  }))
+
+  it.effect('spawns one potato when an unripe potato crop breaks', () => Effect.gen(function* () {
+    const refs = yield* makeRefs()
+    const { services, addBlockSpy, spawnDroppedItemSpy, harvestSpy } = makeServices({
+      blockType: 'POTATO_CROP',
+      selectedItem: 'POTATO',
+      toolStack: makeToolStack('POTATO'),
+      harvestRipeCrop: false,
+    })
+
+    yield* handleBlockBreakProgress(services, refs, makeContext({ selectedHotbarItem: Option.some('POTATO') }))
+
+    expect(spawnDroppedItemSpy).toHaveBeenCalledWith(expect.objectContaining({ itemType: 'POTATO', count: 1 }))
+    expect(harvestSpy).toHaveBeenCalledWith(defaultPosition)
     expect(addBlockSpy).not.toHaveBeenCalled()
   }))
 

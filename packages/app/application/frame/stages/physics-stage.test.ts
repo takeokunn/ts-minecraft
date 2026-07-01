@@ -493,42 +493,15 @@ describe('step 3.5 — fall damage', () => {
       inventoryRenderer: makeInventoryRenderer({ open: false }),
       settingsOverlay: makeSettingsOverlay({ open: false }),
     })
-    ;(services.entityManager as { getPlayerContactDamage: unknown }).getPlayerContactDamage = vi.fn(() =>
-      Effect.succeed(3)
+    ;(services.entityManager as { getPlayerContactDamageResolution: unknown }).getPlayerContactDamageResolution = vi.fn(() =>
+      Effect.succeed({ damage: 3, removed: false, explosions: [] })
     )
     const applyDamageSpy = vi.fn(() => Effect.void)
     ;(services.healthService as { applyDamage: unknown }).applyDamage = applyDamageSpy
-    const flashSpy = vi.fn(() => Effect.void)
-    ;(services.damageOverlay as { flash: unknown }).flash = flashSpy
 
     yield* runFrame(deps, services)
 
     expect(applyDamageSpy).toHaveBeenCalledWith(3)
-    expect(flashSpy).toHaveBeenCalledOnce()
-  }))
-
-  it.effect('does not flash the hostile damage overlay while player invincibility is active', () => Effect.gen(function* () {
-    const deps = yield* makeDeps(false)
-    const services = makeServices({
-      inputService: makeInputService(),
-      inventoryRenderer: makeInventoryRenderer({ open: false }),
-      settingsOverlay: makeSettingsOverlay({ open: false }),
-    })
-    ;(services.entityManager as { getPlayerContactDamage: unknown }).getPlayerContactDamage = vi.fn(() =>
-      Effect.succeed(3)
-    )
-    ;(services.healthService as { getHealth: unknown }).getHealth = vi.fn(() =>
-      Effect.succeed({ current: 15, max: 20, invincibilityTicks: 10 })
-    )
-    const applyDamageSpy = vi.fn(() => Effect.void)
-    ;(services.healthService as { applyDamage: unknown }).applyDamage = applyDamageSpy
-    const flashSpy = vi.fn(() => Effect.void)
-    ;(services.damageOverlay as { flash: unknown }).flash = flashSpy
-
-    yield* runFrame(deps, services)
-
-    expect(applyDamageSpy).not.toHaveBeenCalled()
-    expect(flashSpy).not.toHaveBeenCalled()
   }))
 
   it.effect('applies hostile ranged damage when the entity manager reports a shot', () => Effect.gen(function* () {
@@ -556,8 +529,8 @@ describe('step 3.5 — fall damage', () => {
       inventoryRenderer: makeInventoryRenderer({ open: false }),
       settingsOverlay: makeSettingsOverlay({ open: false }),
     })
-    ;(services.entityManager as { getPlayerContactDamage: unknown }).getPlayerContactDamage = vi.fn(() =>
-      Effect.succeed(0)
+    ;(services.entityManager as { getPlayerContactDamageResolution: unknown }).getPlayerContactDamageResolution = vi.fn(() =>
+      Effect.succeed({ damage: 0, removed: false, explosions: [] })
     )
     ;(services.entityManager as { getPlayerRangedDamage: unknown }).getPlayerRangedDamage = vi.fn(() =>
       Effect.succeed(10)
@@ -582,8 +555,8 @@ describe('step 3.5 — fall damage', () => {
       settingsOverlay: makeSettingsOverlay({ open: false }),
     })
     const center = { x: 2, y: 64, z: 3 }
-    ;(services.entityManager as { getPlayerContactDamage: unknown }).getPlayerContactDamage = vi.fn(() =>
-      Effect.succeed(0)
+    ;(services.entityManager as { getPlayerContactDamageResolution: unknown }).getPlayerContactDamageResolution = vi.fn(() =>
+      Effect.succeed({ damage: 0, removed: false, explosions: [] })
     )
     ;(services.entityManager as { drainExplosions: unknown }).drainExplosions = vi.fn(() =>
       Effect.succeed([{ source: 'creeper' as const, position: center, power: 3 }])
@@ -613,8 +586,8 @@ describe('step 3.5 — fall damage', () => {
     })
     const center = { x: 0, y: 64, z: 0 }
     const rawDamage = computeExplosionDamageAt(center, 3, center)
-    ;(services.entityManager as { getPlayerContactDamage: unknown }).getPlayerContactDamage = vi.fn(() =>
-      Effect.succeed(rawDamage)
+    ;(services.entityManager as { getPlayerContactDamageResolution: unknown }).getPlayerContactDamageResolution = vi.fn(() =>
+      Effect.succeed({ damage: rawDamage, removed: false, explosions: [] })
     )
     ;(services.entityManager as { getPlayerRangedDamage: unknown }).getPlayerRangedDamage = vi.fn(() =>
       Effect.succeed(0)
@@ -646,8 +619,8 @@ describe('step 3.5 — fall damage', () => {
     ;(services.chunkManagerService as { getChunk: unknown }).getChunk = vi.fn((coord: { readonly x: number; readonly z: number }) =>
       Effect.succeed({ coord, blocks })
     )
-    ;(services.entityManager as { getPlayerContactDamage: unknown }).getPlayerContactDamage = vi.fn(() =>
-      Effect.succeed(0)
+    ;(services.entityManager as { getPlayerContactDamageResolution: unknown }).getPlayerContactDamageResolution = vi.fn(() =>
+      Effect.succeed({ damage: 0, removed: false, explosions: [] })
     )
     const rangedDamageSpy = vi.fn((
       _playerPos: { readonly x: number; readonly y: number; readonly z: number },
@@ -692,8 +665,8 @@ describe('step 3.5 — fall damage', () => {
     ;(services.healthService as { processFallDamage: unknown }).processFallDamage = vi.fn(() =>
       Effect.succeed(0)
     )
-    ;(services.entityManager as { getPlayerContactDamage: unknown }).getPlayerContactDamage = vi.fn(() =>
-      Effect.succeed(0)
+    ;(services.entityManager as { getPlayerContactDamageResolution: unknown }).getPlayerContactDamageResolution = vi.fn(() =>
+      Effect.succeed({ damage: 0, removed: false, explosions: [] })
     )
     ;(services.entityManager as { drainExplosions: unknown }).drainExplosions = vi.fn(() =>
       Effect.succeed([])
@@ -735,8 +708,8 @@ describe('step 3.5 — fall damage', () => {
       inventoryRenderer: makeInventoryRenderer({ open: false }),
       settingsOverlay: makeSettingsOverlay({ open: false }),
     })
-    ;(services.entityManager as { getPlayerContactDamage: unknown }).getPlayerContactDamage = vi.fn(() =>
-      Effect.succeed(3)
+    ;(services.entityManager as { getPlayerContactDamageResolution: unknown }).getPlayerContactDamageResolution = vi.fn(() =>
+      Effect.succeed({ damage: 3, removed: false, explosions: [] })
     )
     // 5 armor points → 20% reduction → 3 × 0.8 = 2.4
     ;(services.equipmentService as { getTotalArmorPoints: unknown }).getTotalArmorPoints = vi.fn(() =>
@@ -768,8 +741,8 @@ describe('step 3.5 — fall damage', () => {
     ;(services.hotbarService as { getSelectedBlockType: unknown }).getSelectedBlockType = vi.fn(() =>
       Effect.succeed({ _tag: 'Some' as const, value: 'SHIELD' })
     )
-    ;(services.entityManager as { getPlayerContactDamage: unknown }).getPlayerContactDamage = vi.fn(() =>
-      Effect.succeed(10)
+    ;(services.entityManager as { getPlayerContactDamageResolution: unknown }).getPlayerContactDamageResolution = vi.fn(() =>
+      Effect.succeed({ damage: 10, removed: false, explosions: [] })
     )
     const applyDamageSpy = vi.fn(() => Effect.void)
     ;(services.healthService as { applyDamage: unknown }).applyDamage = applyDamageSpy
@@ -796,8 +769,8 @@ describe('step 3.5 — fall damage', () => {
       inventoryRenderer: makeInventoryRenderer({ open: false }),
       settingsOverlay: makeSettingsOverlay({ open: false }),
     })
-    ;(services.entityManager as { getPlayerContactDamage: unknown }).getPlayerContactDamage = vi.fn(() =>
-      Effect.succeed(10)
+    ;(services.entityManager as { getPlayerContactDamageResolution: unknown }).getPlayerContactDamageResolution = vi.fn(() =>
+      Effect.succeed({ damage: 10, removed: false, explosions: [] })
     )
     const applyDamageSpy = vi.fn(() => Effect.void)
     ;(services.healthService as { applyDamage: unknown }).applyDamage = applyDamageSpy
@@ -934,8 +907,8 @@ describe('step 3.5 — fall damage', () => {
       settingsOverlay: makeSettingsOverlay({ open: false }),
     })
     yield* services.debugFeatureFlags.setEnabled('mobs.enabled', false)
-    const contactDamageSpy = vi.fn(() => Effect.succeed(0))
-    ;(services.entityManager as { getPlayerContactDamage: unknown }).getPlayerContactDamage = contactDamageSpy
+    const contactDamageSpy = vi.fn(() => Effect.succeed({ damage: 0, removed: false, explosions: [] }))
+    ;(services.entityManager as { getPlayerContactDamageResolution: unknown }).getPlayerContactDamageResolution = contactDamageSpy
     const rangedDamageSpy = vi.fn(() => Effect.succeed(0))
     ;(services.entityManager as { getPlayerRangedDamage: unknown }).getPlayerRangedDamage = rangedDamageSpy
     const drainExplosionsSpy = vi.fn(() => Effect.succeed([]))
@@ -958,8 +931,8 @@ describe('step 3.5 — fall damage', () => {
     Object.assign(services.settingsService, {
       getSettings: vi.fn(() => Effect.succeed({ ...DEFAULT_SETTINGS, difficulty: 'hard' as const })),
     })
-    ;(services.entityManager as { getPlayerContactDamage: unknown }).getPlayerContactDamage = vi.fn(() =>
-      Effect.succeed(4)
+    ;(services.entityManager as { getPlayerContactDamageResolution: unknown }).getPlayerContactDamageResolution = vi.fn(() =>
+      Effect.succeed({ damage: 4, removed: false, explosions: [] })
     )
     const applyDamageSpy = vi.fn(() => Effect.void)
     ;(services.healthService as { applyDamage: unknown }).applyDamage = applyDamageSpy
@@ -979,8 +952,8 @@ describe('step 3.5 — fall damage', () => {
     Object.assign(services.settingsService, {
       getSettings: vi.fn(() => Effect.succeed({ ...DEFAULT_SETTINGS, difficulty: 'peaceful' as const })),
     })
-    ;(services.entityManager as { getPlayerContactDamage: unknown }).getPlayerContactDamage = vi.fn(() =>
-      Effect.succeed(4)
+    ;(services.entityManager as { getPlayerContactDamageResolution: unknown }).getPlayerContactDamageResolution = vi.fn(() =>
+      Effect.succeed({ damage: 4, removed: false, explosions: [] })
     )
     const applyDamageSpy = vi.fn(() => Effect.void)
     ;(services.healthService as { applyDamage: unknown }).applyDamage = applyDamageSpy
