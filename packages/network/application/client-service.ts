@@ -57,10 +57,21 @@ export const ClientServiceImpl = (
         yield* Ref.set(handleRef, Option.some(handle))
         yield* Ref.set(messageStreamRef, Option.some(
           handle.messages.pipe(
-            // In a real WebSocket binding, invalid messages should be dropped silently.
-            // Effect.orDie is acceptable here because the fake transport uses strictly
-            // typed messages — decode failures are structural errors, not runtime events.
-            Stream.mapEffect((raw) => decodeNetworkMessage(raw).pipe(Effect.orDie)),
+            // Drop-and-log malformed frames. This stream feeds the app's inbound
+            // drain fiber over the REAL websocket binding — an Effect.orDie here
+            // turned one bad server frame into a defect that silently killed the
+            // whole receive fiber (no more chat/positions/blocks until reconnect).
+            Stream.mapEffect((raw) =>
+              decodeNetworkMessage(raw).pipe(
+                Effect.map(Option.some),
+                Effect.catchAll((error) =>
+                  Effect.logWarning(`Dropping malformed network message: ${String(error)}`).pipe(
+                    Effect.as(Option.none<NetworkMessage>()),
+                  ),
+                ),
+              ),
+            ),
+            Stream.filterMap((message) => message),
           ),
         ))
       })

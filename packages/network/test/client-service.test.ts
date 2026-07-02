@@ -134,6 +134,39 @@ describe('network/client-service', () => {
     }).pipe(Effect.provide(ServerServiceDefault(fakeServer)), Effect.provide(ClientServiceDefault(new FakeWebSocketClient(fakeServer))))
   })
 
+  it.effect('drops a malformed inbound frame and keeps receiving later messages', () => {
+    const fakeServer = new FakeWebSocketServer()
+    return Effect.gen(function* () {
+      const server = yield* ServerService
+      yield* server.start(25565)
+      const client = yield* ClientService
+      yield* client.connect('ws://localhost:25565', PlayerName.make('Alex'))
+      const messages = yield* client.receiveMessages()
+      yield* takeFromClient(messages) // join ack
+
+      // Inject raw garbage straight into the client's inbound socket — a real
+      // server bug or proxy corruption must NOT kill the receive stream.
+      const connections = Array.from(
+        (fakeServer as unknown as { connections: Map<string, { send: (d: ArrayBuffer) => Effect.Effect<void, NetworkError> }> }).connections.values(),
+      )
+      const serverSide = connections[connections.length - 1]!
+      yield* serverSide.send(new TextEncoder().encode('{"type":"NotARealMessage"').buffer as ArrayBuffer)
+
+      const second = yield* fakeServer.connectClient()
+      const encoded = yield* encodeNetworkMessage({
+        type: MessageType.PlayerJoin,
+        playerId: PlayerId.make('pending'),
+        playerName: PlayerName.make('Steve'),
+        worldId: WorldId.make('overworld'),
+        position: { x: 0, y: 64, z: 0 },
+        timestamp: 2,
+      })
+      yield* second.clientSend(encoded)
+      const afterGarbage = yield* takeFromClient(messages)
+      expect(afterGarbage.type).toBe(MessageType.PlayerJoin)
+    }).pipe(Effect.provide(ServerServiceDefault(fakeServer)), Effect.provide(ClientServiceDefault(new FakeWebSocketClient(fakeServer))))
+  })
+
   it.effect('client disconnects cleanly', () => {
     const fakeServer = new FakeWebSocketServer()
     return Effect.gen(function* () {
