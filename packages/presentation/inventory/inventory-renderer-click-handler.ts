@@ -11,6 +11,7 @@ import {
 import { removeFromStack } from '@ts-minecraft/inventory/domain/item-stack'
 import { RecipeId, SlotIndex } from '@ts-minecraft/core'
 import { applyInventoryCursorClick, describeInventoryCursor, type InventoryCursorClickButton } from './inventory-cursor-click'
+import { consumeCraftingGridCells, findShapedGridMatch } from './crafting-grid'
 
 export type ClickHandlerDeps = {
   readonly hasNearbyCraftingTable: () => Effect.Effect<boolean, never>
@@ -28,6 +29,8 @@ export type ClickHandlerDeps = {
   readonly equipmentService: EquipmentService
   readonly inventoryCursorRef: Ref.Ref<InventorySlot>
   readonly statusMessageRef: Ref.Ref<string>
+  readonly craftingGridCellsRef: Ref.Ref<ReadonlyArray<InventorySlot>>
+  readonly getAllRecipes: () => ReadonlyArray<import('@ts-minecraft/inventory/domain/crafting').Recipe>
   readonly refreshSlots: () => Effect.Effect<void, never>
 }
 
@@ -70,11 +73,74 @@ export const buildHandleDelegatedClick = (deps: ClickHandlerDeps) =>
       equipmentService,
       inventoryCursorRef,
       statusMessageRef,
+      craftingGridCellsRef,
+      getAllRecipes,
       refreshSlots,
     } = deps
     if (event.type === 'contextmenu') event.preventDefault()
 
     const htmlTarget = event.target instanceof HTMLElement ? event.target : null
+
+    // Interactive 3x3 crafting grid: cells share the inventory-cursor click
+    // semantics; the output cell crafts the matched shaped recipe.
+    const craftCellTarget = Option.getOrNull(
+      Option.fromNullable(htmlTarget?.closest('[data-craft-cell]')).pipe(
+        Option.filter((target): target is HTMLElement => target instanceof HTMLElement),
+      ),
+    )
+    if (craftCellTarget !== null) {
+      const cellIndex = parseInt(craftCellTarget.dataset['craftCell'] ?? '-1', 10)
+      if (cellIndex < 0 || cellIndex > 8) return
+      const button: InventoryCursorClickButton = event.type === 'contextmenu' || event.button === 2 ? 'secondary' : 'primary'
+      Effect.runFork(
+        Effect.gen(function* () {
+          const cells = yield* Ref.get(craftingGridCellsRef)
+          const cell = cells[cellIndex] ?? Option.none()
+          const cursor = yield* Ref.get(inventoryCursorRef)
+          const next = applyInventoryCursorClick({ slot: cell, cursor }, button)
+          const updated = [...cells]
+          updated[cellIndex] = next.slot
+          yield* Ref.set(craftingGridCellsRef, updated)
+          yield* Ref.set(inventoryCursorRef, next.cursor)
+          yield* Ref.set(statusMessageRef, describeInventoryCursor(next.cursor))
+          yield* refreshSlots()
+        }).pipe(
+          Effect.catchAllCause((cause) =>
+            Effect.logError(`Crafting grid click error: ${Cause.pretty(cause)}`),
+          ),
+        ),
+      )
+      return
+    }
+
+    if (htmlTarget?.closest('[data-craft-output]') != null) {
+      Effect.runFork(
+        Effect.gen(function* () {
+          const cells = yield* Ref.get(craftingGridCellsRef)
+          const hasTableAccess = yield* hasNearbyCraftingTable()
+          const matched = findShapedGridMatch(getAllRecipes(), cells, hasTableAccess)
+          if (matched === null) return
+          const added = yield* inventoryService.addBlock(matched.output.itemType, matched.output.count).pipe(
+            Effect.as(true),
+            Effect.catchAll(() => Effect.succeed(false)),
+          )
+          if (!added) {
+            yield* Ref.set(statusMessageRef, 'Cannot craft: inventory is full.')
+            yield* refreshSlots()
+            return
+          }
+          yield* Ref.set(craftingGridCellsRef, consumeCraftingGridCells(cells))
+          yield* Ref.set(statusMessageRef, `Crafted ${matched.output.count} ${matched.output.itemType}.`)
+          yield* refreshSlots()
+        }).pipe(
+          Effect.catchAllCause((cause) =>
+            Effect.logError(`Crafting grid output error: ${Cause.pretty(cause)}`),
+          ),
+        ),
+      )
+      return
+    }
+
     const recipeTarget = Option.fromNullable(htmlTarget?.closest('[data-recipe-id]')).pipe(
       Option.filter((target): target is HTMLElement => target instanceof HTMLElement),
     )

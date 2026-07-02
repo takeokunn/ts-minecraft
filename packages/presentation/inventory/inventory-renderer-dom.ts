@@ -21,6 +21,8 @@ export type OverlayDom = {
   readonly recipeBookSearchEl: Option.Option<HTMLInputElement>
   readonly craftingPreviewEl: Option.Option<HTMLDivElement>
   readonly craftingListEl: Option.Option<HTMLDivElement>
+  readonly craftGridCellEls: HTMLDivElement[]
+  readonly craftGridOutputEl: Option.Option<HTMLDivElement>
   readonly statusEl: Option.Option<HTMLDivElement>
   readonly sortButtonEl: Option.Option<HTMLButtonElement>
 }
@@ -73,6 +75,8 @@ export const buildOverlayDom = (dom: DomOperationsService): OverlayDom => {
       recipeBookSearchEl: Option.none(),
       craftingPreviewEl: Option.none(),
       craftingListEl: Option.none(),
+      craftGridCellEls: [],
+      craftGridOutputEl: Option.none(),
       statusEl: Option.none(),
       sortButtonEl: Option.none(),
     }
@@ -146,6 +150,30 @@ export const buildOverlayDom = (dom: DomOperationsService): OverlayDom => {
   craftingTitle.style.cssText = CRAFTING_TITLE_STYLE
   dom.appendChildTo(el, craftingTitle)
 
+  // Interactive 3x3 shaped-crafting grid: place items with the cursor, click
+  // the output to craft. Cells are real stacks (spilled back on close).
+  const craftGridRow = dom.createElement('div')
+  craftGridRow.style.cssText = 'display:flex;align-items:center;gap:14px;margin:4px 0 10px'
+  const craftGrid = dom.createElement('div')
+  craftGrid.style.cssText = 'display:grid;grid-template-columns:repeat(3, 40px);gap:4px'
+  const craftGridCells = Arr.makeBy(9, (i) => {
+    const cell = dom.createElement('div')
+    cell.dataset['craftCell'] = String(i)
+    cell.style.cssText = `${SLOT_EL_STYLE};background:${DEFAULT_SLOT_COLOR}`
+    return cell
+  })
+  Arr.forEach(craftGridCells, (cell) => dom.appendChildTo(craftGrid, cell))
+  dom.appendChildTo(craftGridRow, craftGrid)
+  const craftGridArrow = dom.createElement('div')
+  craftGridArrow.textContent = '→'
+  craftGridArrow.style.cssText = 'color:#d7c9a8;font-size:20px'
+  dom.appendChildTo(craftGridRow, craftGridArrow)
+  const craftGridOutput = dom.createElement('div')
+  craftGridOutput.dataset['craftOutput'] = 'true'
+  craftGridOutput.style.cssText = `${SLOT_EL_STYLE};background:${DEFAULT_SLOT_COLOR}`
+  dom.appendChildTo(craftGridRow, craftGridOutput)
+  dom.appendChildTo(el, craftGridRow)
+
   const recipeBookTitle = dom.createElement('div')
   recipeBookTitle.textContent = 'Recipe Book'
   recipeBookTitle.style.cssText = CRAFTING_TITLE_STYLE
@@ -203,6 +231,8 @@ export const buildOverlayDom = (dom: DomOperationsService): OverlayDom => {
     recipeBookSearchEl: Option.some(recipeBookSearch),
     craftingPreviewEl: Option.some(craftingPreview),
     craftingListEl: Option.some(craftingList),
+    craftGridCellEls: craftGridCells,
+    craftGridOutputEl: Option.some(craftGridOutput),
     statusEl: Option.some(status),
     sortButtonEl: Option.some(sortButton),
   }

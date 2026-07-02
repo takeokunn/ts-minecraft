@@ -126,6 +126,43 @@ export const renderSlotElements = (
   })
 }
 
+export const renderCraftingGridCells = (
+  cellEls: HTMLDivElement[],
+  cells: ReadonlyArray<RenderableSlot>,
+): void => {
+  Arr.forEach(Arr.zip(cellEls, cells), ([el, itemOpt]) => {
+    const stack = Option.getOrNull(itemOpt)
+    if (stack !== null) {
+      renderStackVisual(el, stack)
+    } else {
+      clearStackVisual(el)
+    }
+  })
+}
+
+// Output cell shows the matched shaped recipe's result (clickable to craft);
+// empty grid or no match clears it.
+export const renderCraftingGridOutput = (
+  outputEl: Option.Option<HTMLDivElement>,
+  matched: Recipe | null,
+): void => {
+  Option.map(outputEl, (el) => {
+    if (matched === null) {
+      clearStackVisual(el)
+      el.style.cursor = ''
+      return
+    }
+    renderStackVisual(el, {
+      itemType: matched.output.itemType,
+      count: matched.output.count,
+      durability: null,
+      enchantments: [],
+    } as unknown as ItemStack)
+    el.title = `Craft ${matched.output.count} ${formatLabel(matched.output.itemType)}`
+    el.style.cursor = 'pointer'
+  })
+}
+
 export const renderInventoryCursor = (
   cursorEl: Option.Option<HTMLDivElement>,
   cursor: InventorySlot,

@@ -18,9 +18,10 @@ import { scanNearbyBlock } from '@ts-minecraft/world'
 
 import { buildOverlayDom } from './inventory-renderer-dom'
 import { collectAvailableCounts } from './inventory-renderer-helpers'
-import { renderSlotElements, renderRecipeBook, renderCraftingList, renderCraftingPreview, renderStatusEl, renderInventoryCursor } from './inventory-renderer-refresh'
+import { renderSlotElements, renderRecipeBook, renderCraftingList, renderCraftingPreview, renderCraftingGridCells, renderCraftingGridOutput, renderStatusEl, renderInventoryCursor } from './inventory-renderer-refresh'
 import { buildHandleDelegatedClick } from './inventory-renderer-click-handler'
 import { returnInventoryCursorToSlots } from './inventory-cursor-click'
+import { emptyCraftingGridCells, findShapedGridMatch } from './crafting-grid'
 import { getActiveDocument, asFocusableElement } from '../dom-focus-utils'
 
 type DragSource =
@@ -68,6 +69,8 @@ export class InventoryRendererService extends Effect.Service<InventoryRendererSe
       const inventoryCursorRef = yield* Ref.make<InventorySlot>(Option.none())
       const statusMessageRef = yield* Ref.make('Click a recipe to craft it.')
       const dragSourceRef = yield* Ref.make<Option.Option<DragSource>>(Option.none())
+      // Interactive 3x3 shaped-crafting grid cells (real stacks; spilled back on close).
+      const craftingGridCellsRef = yield* Ref.make<ReadonlyArray<InventorySlot>>(emptyCraftingGridCells())
 
       // Focus state and cursor position (plain mutables — used only in sync DOM callbacks)
       let prevFocusEl: { focus?: () => void } | null = null
@@ -140,7 +143,7 @@ export class InventoryRendererService extends Effect.Service<InventoryRendererSe
       const clearDragSource = (): Effect.Effect<void, never> =>
         Ref.set(dragSourceRef, Option.none())
 
-      const { overlayEl, chestContainerEl, chestSlotEls, slotEls, recipeBookEl, recipeBookSearchEl, craftingPreviewEl, craftingListEl, statusEl, sortButtonEl, cursorEl } = yield* Effect.sync(() => buildOverlayDom(dom))
+      const { overlayEl, chestContainerEl, chestSlotEls, slotEls, recipeBookEl, recipeBookSearchEl, craftingPreviewEl, craftingListEl, craftGridCellEls, craftGridOutputEl, statusEl, sortButtonEl, cursorEl } = yield* Effect.sync(() => buildOverlayDom(dom))
 
       // Scans craftingListEl then recipeBookEl for the last focusable button with data-recipe-id.
       // Uses querySelectorAll in real DOM; falls back to childrenList in test mock DOM.
@@ -175,6 +178,8 @@ export class InventoryRendererService extends Effect.Service<InventoryRendererSe
         equipmentService,
         inventoryCursorRef,
         statusMessageRef,
+        craftingGridCellsRef,
+        getAllRecipes: () => recipeService.getAllRecipes(),
         refreshSlots: () => refreshSlots(),
       })
       const handleDelegatedClick = (event: MouseEvent): void => {
@@ -277,6 +282,9 @@ export class InventoryRendererService extends Effect.Service<InventoryRendererSe
           const statusMessage = yield* Ref.get(statusMessageRef)
           const recipeBookQuery = yield* Ref.get(recipeBookQueryRef)
           const cursor = yield* Ref.get(inventoryCursorRef)
+          const craftingGridCells = yield* Ref.get(craftingGridCellsRef)
+          const hasTableAccessForGrid = yield* hasNearbyCraftingTable()
+          const shapedMatch = findShapedGridMatch(allRecipes, craftingGridCells, hasTableAccessForGrid)
 
           /* c8 ignore start */
           yield* Effect.sync(() => {
@@ -289,6 +297,8 @@ export class InventoryRendererService extends Effect.Service<InventoryRendererSe
             renderRecipeBook(dom, recipeBookEl, allRecipes, recipeBookQuery, new Set(craftableRecipes.map((recipe) => recipe.id)))
             renderCraftingPreview(dom, craftingPreviewEl, craftableRecipes, selectedRecipeIndex)
             renderCraftingList(dom, craftingListEl, craftableRecipes, selectedRecipeIndex)
+            renderCraftingGridCells(craftGridCellEls, craftingGridCells)
+            renderCraftingGridOutput(craftGridOutputEl, shapedMatch)
             renderStatusEl(statusEl, statusMessage)
             renderInventoryCursor(cursorEl, cursor)
             const cursorElement = Option.getOrNull(cursorEl)
@@ -314,6 +324,25 @@ export class InventoryRendererService extends Effect.Service<InventoryRendererSe
           ),
         )
       }
+
+      // Spill the crafting grid back into the inventory when the overlay
+      // closes — items must never vanish inside the grid. Cells that cannot
+      // fit stay in the grid for the next open.
+      const returnCraftingGridToInventory = (): Effect.Effect<void, never> =>
+        Effect.gen(function* () {
+          const cells = yield* Ref.get(craftingGridCellsRef)
+          const remaining = [...cells]
+          for (let index = 0; index < remaining.length; index += 1) {
+            const stack = Option.getOrNull(remaining[index] ?? Option.none())
+            if (stack === null) continue
+            const returned = yield* inventoryService.addBlock(stack.itemType, stack.count).pipe(
+              Effect.as(true),
+              Effect.catchAll(() => Effect.succeed(false)),
+            )
+            if (returned) remaining[index] = Option.none()
+          }
+          yield* Ref.set(craftingGridCellsRef, remaining)
+        })
 
       const returnCursorToInventory = (): Effect.Effect<boolean, never> =>
         Effect.gen(function* () {
@@ -408,6 +437,7 @@ export class InventoryRendererService extends Effect.Service<InventoryRendererSe
           if (current) {
             const canClose = yield* returnCursorToInventory()
             if (!canClose) return true
+            yield* returnCraftingGridToInventory()
             yield* Effect.sync(() => {
               const doc = getActiveDocument()
               if (activeKeydownHandler !== null) {
