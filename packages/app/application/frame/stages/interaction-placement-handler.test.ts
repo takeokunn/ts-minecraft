@@ -7,7 +7,7 @@ import { buildPlayerXP } from '@ts-minecraft/entity/domain/player-xp-calc'
 import { TNT_EXPLOSION_POWER } from '@ts-minecraft/entity/domain/explosion'
 import { computeExplosionDamageAt } from '@ts-minecraft/entity/domain/explosion-resolution'
 import { EXHAUSTION_DAMAGE } from '@ts-minecraft/entity/application/hunger-service.config'
-import { createStack, enchantmentsOf, type ItemStack } from '@ts-minecraft/inventory/domain/item-stack'
+import { createStack, damageStack, enchantmentsOf, type ItemStack } from '@ts-minecraft/inventory/domain/item-stack'
 import type { Chunk } from '@ts-minecraft/world'
 import { handleBed, handleDoor, handleRightClick } from '@ts-minecraft/app/frame/stages/interaction-placement-handler'
 import { handleBucket } from '@ts-minecraft/app/frame/stages/interaction-bucket-handler/bucket-handler'
@@ -824,6 +824,75 @@ describe('interaction-placement-handler / handleRightClick special blocks', () =
       expect(spies.spendLevels).toHaveBeenCalled()
       expect(spies.removeBlock).toHaveBeenCalledWith('LAPIS_LAZULI', spies.spendLevels.mock.calls[0]?.[0])
       expect(spies.playEffect).toHaveBeenCalledWith('enchant', { position: { x: 0, y: 64, z: 0 } })
+    }),
+  )
+
+  it.effect('repairs the held damaged tool at an anvil for an XP cost', () =>
+    Effect.gen(function* () {
+      const dirtyChunksRef = MutableRef.make(HashMap.empty<string, unknown>())
+      const respawnPositionRef = MutableRef.make({ x: 0, y: 64, z: 0 })
+      // Iron sword 250 max − 200 damage → 50 left; cost = ceil(200/250*5) = 4 levels.
+      const damaged = Option.getOrThrow(damageStack(createStack('IRON_SWORD'), 200))
+      // NOTE: the harness xpLevel option feeds buildPlayerXP as TOTAL XP — 100 total ≈ level 6.
+      const { services, spies } = makeRightClickServices('ANVIL', {
+        xpLevel: 100,
+        slotStack: Option.some(damaged),
+      })
+
+      yield* handleRightClick(
+        services,
+        { dirtyChunksRef },
+        { targetHit: Option.some(doorHit), respawnPositionRef },
+      )
+
+      const stored: ItemStack | null = Option.getOrNull(
+        spies.setSlot.mock.calls[0]?.[1] ?? Option.none<ItemStack>(),
+      )
+      expect(stored).not.toBeNull()
+      expect(stored?.durability).toBe(250)
+      expect(spies.spendLevels).toHaveBeenCalledWith(4)
+      expect(spies.playEffect).toHaveBeenCalledWith('entityHit', { position: { x: 0, y: 64, z: 0 } })
+    }),
+  )
+
+  it.effect('refuses anvil repair when the player lacks the XP levels', () =>
+    Effect.gen(function* () {
+      const dirtyChunksRef = MutableRef.make(HashMap.empty<string, unknown>())
+      const respawnPositionRef = MutableRef.make({ x: 0, y: 64, z: 0 })
+      const damaged = Option.getOrThrow(damageStack(createStack('IRON_SWORD'), 200))
+      const { services, spies } = makeRightClickServices('ANVIL', {
+        xpLevel: 1,
+        slotStack: Option.some(damaged),
+      })
+
+      yield* handleRightClick(
+        services,
+        { dirtyChunksRef },
+        { targetHit: Option.some(doorHit), respawnPositionRef },
+      )
+
+      expect(spies.setSlot).not.toHaveBeenCalled()
+      expect(spies.spendLevels).not.toHaveBeenCalled()
+    }),
+  )
+
+  it.effect('anvil is a no-op for an undamaged tool', () =>
+    Effect.gen(function* () {
+      const dirtyChunksRef = MutableRef.make(HashMap.empty<string, unknown>())
+      const respawnPositionRef = MutableRef.make({ x: 0, y: 64, z: 0 })
+      const { services, spies } = makeRightClickServices('ANVIL', {
+        xpLevel: 100,
+        slotStack: Option.some(createStack('IRON_SWORD')),
+      })
+
+      yield* handleRightClick(
+        services,
+        { dirtyChunksRef },
+        { targetHit: Option.some(doorHit), respawnPositionRef },
+      )
+
+      expect(spies.setSlot).not.toHaveBeenCalled()
+      expect(spies.spendLevels).not.toHaveBeenCalled()
     }),
   )
 

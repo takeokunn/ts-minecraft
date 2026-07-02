@@ -1,6 +1,7 @@
 export * from './domain/armor'
 export * from './domain/crafting'
 export * from './domain/durability'
+export * from './domain/anvil'
 export * from './domain/enchantment'
 export * from './domain/armor-protection'
 export * from './domain/item-stack'

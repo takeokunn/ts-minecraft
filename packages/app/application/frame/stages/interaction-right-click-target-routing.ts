@@ -6,6 +6,7 @@ export type RightClickTargetRoute =
   | { readonly kind: 'furnace'; readonly targetPos: Position }
   | { readonly kind: 'bed'; readonly targetPos: Position }
   | { readonly kind: 'enchantingTable'; readonly targetPos: Position }
+  | { readonly kind: 'anvil'; readonly targetPos: Position }
   | { readonly kind: 'door'; readonly targetPos: Position; readonly blockType: 'DOOR' | 'DOOR_OPEN' }
 
 const CHEST_STORAGE_BLOCK_TYPES = new Set<BlockType>(['CHEST', 'SHULKER_BOX'])
@@ -19,6 +20,7 @@ export const resolveRightClickTargetRoute = (
   if (targetBlockType === 'FURNACE') return { kind: 'furnace', targetPos }
   if (targetBlockType === 'BED') return { kind: 'bed', targetPos }
   if (targetBlockType === 'ENCHANTING_TABLE') return { kind: 'enchantingTable', targetPos }
+  if (targetBlockType === 'ANVIL') return { kind: 'anvil', targetPos }
   if (targetBlockType === 'DOOR' || targetBlockType === 'DOOR_OPEN') {
     return { kind: 'door', targetPos, blockType: targetBlockType }
   }

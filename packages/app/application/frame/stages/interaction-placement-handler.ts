@@ -5,7 +5,9 @@ import type { BlockType, Position } from '@ts-minecraft/core'
 import { RedstoneComponentType } from '@ts-minecraft/entity/domain/redstone/redstone-model'
 import { selectEnchantment } from '@ts-minecraft/inventory/domain/enchantment-applicability'
 import { enchantXPCost } from '@ts-minecraft/inventory/domain/enchantment'
-import { enchantItem } from '@ts-minecraft/inventory/domain/item-stack'
+import { enchantItem, ItemStack } from '@ts-minecraft/inventory/domain/item-stack'
+import { getMaxDurability } from '@ts-minecraft/inventory/domain/durability'
+import { anvilRepairCostLevels } from '@ts-minecraft/inventory/domain/anvil'
 import { TNT_EXPLOSION_POWER } from '@ts-minecraft/entity/domain/explosion'
 import type { FrameStageRefs } from '@ts-minecraft/app/application/frame/types/stage-refs'
 import type { TargetRayHit } from '@ts-minecraft/app/frame/stages/interaction-types'
@@ -111,6 +113,39 @@ const handleEnchantingTable = (
     yield* services.soundManager.playEffect('enchant', { position: tablePos })
   })
 
+// Right-clicking an ANVIL repairs the held damaged tool/armor piece to full
+// durability for an XP-level cost proportional to the missing durability
+// (see anvilRepairCostLevels). Enchantments are preserved.
+const handleAnvilRepair = (
+  services: FrameEnchantingTableInteractionServices,
+  anvilPos: { readonly x: number; readonly y: number; readonly z: number },
+): Effect.Effect<void> =>
+  Effect.gen(function* () {
+    const selectedSlot = yield* services.hotbarService.getSelectedSlot()
+    const slotIndex = selectedHotbarSlotIndex(selectedSlot)
+    const slot = yield* services.inventoryService.getSlot(slotIndex)
+    const stack = Option.getOrNull(slot)
+    if (stack === null || stack.durability === null) return
+    const maxDurability = Option.getOrNull(getMaxDurability(stack.itemType))
+    if (maxDurability === null) return
+    const cost = anvilRepairCostLevels(stack.durability, maxDurability)
+    if (cost === 0) return
+    const xp = yield* services.xpService.getXP()
+    if (xp.level < cost) return
+    yield* services.inventoryService.setSlot(
+      slotIndex,
+      Option.some(new ItemStack({
+        itemType: stack.itemType,
+        count: stack.count,
+        durability: maxDurability,
+        enchantments: stack.enchantments,
+      })),
+    )
+    yield* services.xpService.spendLevels(cost)
+    // Metallic clank — the closest existing cue to a vanilla anvil hit.
+    yield* services.soundManager.playEffect('entityHit', { position: anvilPos })
+  })
+
 export const handleRightClick = (
   services: FrameRightClickInteractionServices,
   refs: Pick<FrameStageRefs, 'dirtyChunksRef'>,
@@ -146,6 +181,9 @@ export const handleRightClick = (
           return
         case 'enchantingTable':
           yield* handleEnchantingTable(services, route.targetPos)
+          return
+        case 'anvil':
+          yield* handleAnvilRepair(services, route.targetPos)
           return
         case 'door':
           yield* handleDoor(services, refs, route.targetPos, route.blockType)
