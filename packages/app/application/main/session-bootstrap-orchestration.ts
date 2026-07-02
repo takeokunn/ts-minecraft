@@ -1,4 +1,4 @@
-import { Effect } from 'effect'
+import { Effect, Option } from 'effect'
 
 import type { SessionBootstrapDeps } from '@ts-minecraft/app/main/session-bootstrap-types/deps'
 import { buildLighting } from '@ts-minecraft/app/main/session-lighting'
@@ -56,7 +56,7 @@ export const buildSessionBootstrapOrchestration = (deps: SessionBootstrapDeps) =
       initialGraphics,
     })
 
-    const { respawnPositionRef, persistSessionState } = yield* buildSessionBootstrapWorldOrchestration({
+    const { respawnPositionRef, persistSessionState, worldSeed } = yield* buildSessionBootstrapWorldOrchestration({
       state: {
         bootCtx: {
           storageService: bootCtx.storageService,
@@ -98,6 +98,13 @@ export const buildSessionBootstrapOrchestration = (deps: SessionBootstrapDeps) =
         cropGrowthService,
         entityManager,
       },
+    })
+
+    // Record the local terrain seed before any multiplayer connect so the
+    // join handshake can carry it (host-seed mismatch warning).
+    yield* Option.match(multiplayer.multiplayerService, {
+      onNone: () => Effect.void,
+      onSome: (multiplayerService) => multiplayerService.setLocalWorldSeed(worldSeed),
     })
 
     const lighting = yield* buildLighting(scene, sceneService, initialSettings, initialGraphics)

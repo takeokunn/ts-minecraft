@@ -63,6 +63,19 @@ export const handlePlayerJoin = (
 
     const assignedJoin: PlayerJoinMessage = { ...message, playerId, timestamp: Date.now() }
     yield* sendEncodedToConnection(connection, assignedJoin)
+    // First joiner's seed becomes the session's authoritative seed; every
+    // joiner (including the first) gets it echoed back so mismatched clients
+    // can warn that their terrain will not match the host's.
+    const sessionSeed = yield* Ref.updateAndGet(services.gameServer.worldSeed, (current) =>
+      current !== null ? current : (message.worldSeed ?? null),
+    )
+    if (sessionSeed !== null) {
+      yield* sendEncodedToConnection(connection, {
+        type: MessageType.WorldInfo,
+        worldSeed: sessionSeed,
+        timestamp: Date.now(),
+      })
+    }
     for (const existingPlayer of currentPlayers.values()) {
       yield* sendEncodedToConnection(connection, {
         type: MessageType.PlayerJoin,

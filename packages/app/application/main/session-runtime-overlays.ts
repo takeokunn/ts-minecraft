@@ -71,7 +71,21 @@ export const connectFromConnectionPanel = (
     const connected = state === 'connected'
 
     yield* panel.setConnected(connected)
-    yield* panel.setStatus(connected ? `Connected to ${serverUrl}` : `Connection failed (${state})`)
+    if (!connected) {
+      yield* panel.setStatus(`Connection failed (${state})`)
+      return
+    }
+
+    // The server echoes the session's authoritative terrain seed (the first
+    // joiner's) right after the join ack; give it a moment to arrive.
+    yield* Effect.sleep(Duration.millis(300))
+    const seeds = yield* multiplayer.getWorldSeedInfo()
+    const seedMismatch = seeds.local !== null && seeds.host !== null && seeds.local !== seeds.host
+    yield* panel.setStatus(
+      seedMismatch
+        ? `Connected to ${serverUrl} — WARNING: world seed differs from host (terrain will not match)`
+        : `Connected to ${serverUrl}`,
+    )
   })
 
 export const disconnectFromConnectionPanel = (

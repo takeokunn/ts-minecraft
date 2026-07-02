@@ -133,6 +133,94 @@ describe('server handler dispatch', () => {
     }),
   )
 
+  it.effect('adopts the first joiner\'s world seed and echoes it via WorldInfo', () =>
+    Effect.gen(function* () {
+      const harness = yield* makeHarness()
+      const pair = yield* makePair()
+
+      yield* handlePlayerJoin(
+        harness,
+        {
+          type: MessageType.PlayerJoin,
+          playerId: PlayerId.make('pending'),
+          playerName: PlayerName.make('Steve'),
+          worldId,
+          position: { x: 0, y: 64, z: 0 },
+          timestamp: 1,
+          worldSeed: 12345,
+        },
+        pair.connection,
+      )
+
+      const assigned = yield* takeMessage(pair)
+      expect(assigned.type).toBe(MessageType.PlayerJoin)
+      const worldInfo = yield* takeMessage(pair)
+      expect(worldInfo.type).toBe(MessageType.WorldInfo)
+      if (worldInfo.type === MessageType.WorldInfo) {
+        expect(worldInfo.worldSeed).toBe(12345)
+      }
+      expect(yield* Ref.get(harness.gameServer.worldSeed)).toBe(12345)
+    }),
+  )
+
+  it.effect('sends the session seed (not the joiner\'s) to later joiners', () =>
+    Effect.gen(function* () {
+      const harness = yield* makeHarness()
+      yield* Ref.set(harness.gameServer.worldSeed, 111)
+      const pair = yield* makePair()
+
+      yield* handlePlayerJoin(
+        harness,
+        {
+          type: MessageType.PlayerJoin,
+          playerId: PlayerId.make('pending'),
+          playerName: PlayerName.make('Alex'),
+          worldId,
+          position: { x: 0, y: 64, z: 0 },
+          timestamp: 1,
+          worldSeed: 222,
+        },
+        pair.connection,
+      )
+
+      yield* takeMessage(pair) // assigned join
+      const worldInfo = yield* takeMessage(pair)
+      expect(worldInfo.type).toBe(MessageType.WorldInfo)
+      if (worldInfo.type === MessageType.WorldInfo) {
+        expect(worldInfo.worldSeed).toBe(111)
+      }
+      // The session seed must not be overwritten by the second joiner.
+      expect(yield* Ref.get(harness.gameServer.worldSeed)).toBe(111)
+    }),
+  )
+
+  it.effect('sends no WorldInfo when neither the session nor the joiner has a seed', () =>
+    Effect.gen(function* () {
+      const harness = yield* makeHarness()
+      const pair = yield* makePair()
+      const existingPlayer = yield* connectedPlayer(firstPlayerId, 'Alex')
+      yield* Ref.set(harness.gameServer.connectedPlayers, new Map([[firstPlayerId, existingPlayer]]))
+
+      yield* handlePlayerJoin(
+        harness,
+        {
+          type: MessageType.PlayerJoin,
+          playerId: PlayerId.make('pending'),
+          playerName: PlayerName.make('Steve'),
+          worldId,
+          position: { x: 0, y: 64, z: 0 },
+          timestamp: 1,
+        },
+        pair.connection,
+      )
+
+      yield* takeMessage(pair) // assigned join
+      const next = yield* takeMessage(pair) // existing player, NOT WorldInfo
+      expect(next.type).toBe(MessageType.PlayerJoin)
+      expect(yield* Ref.get(harness.gameServer.worldSeed)).toBe(null)
+    }),
+  )
+
   it.effect('returns without broadcasting when a leaving player is absent', () =>
     Effect.gen(function* () {
       const harness = yield* makeHarness()

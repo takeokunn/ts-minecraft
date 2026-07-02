@@ -55,7 +55,7 @@ describe('buildSessionBootstrapOrchestration', () => {
     const connectionPanel = { id: 'connection-panel' } as never
     const chatPanel = { id: 'chat-panel' } as never
     const playerListPanel = { id: 'player-list-panel' } as never
-    const multiplayerService = Option.some({ id: 'multiplayer' } as never)
+    const multiplayerService = Option.some({ id: 'multiplayer', setLocalWorldSeed: () => Effect.void } as never)
     const entityManager = { id: 'entity-manager' } as never
 
     vi.mocked(buildSessionBootstrapStartupState).mockImplementation(() => {

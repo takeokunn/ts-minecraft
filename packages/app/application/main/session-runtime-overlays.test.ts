@@ -130,6 +130,8 @@ const makeMultiplayer = (
       disconnectSpy()
     }),
     getConnectionState: vi.fn(() => Effect.succeed(state)),
+    setLocalWorldSeed: vi.fn(() => Effect.void),
+    getWorldSeedInfo: vi.fn(() => Effect.succeed({ local: null, host: null })),
     getSessionState: vi.fn(() => Effect.succeed(sessionState)),
     getRemotePlayers: vi.fn(() => Effect.succeed(remotePlayers)),
     getChatMessages: vi.fn(() => Effect.succeed(chatMessages)),

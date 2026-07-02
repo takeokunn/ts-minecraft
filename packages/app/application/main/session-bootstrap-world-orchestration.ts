@@ -126,5 +126,5 @@ export const buildSessionBootstrapWorldOrchestration = ({
       spawnPosition,
     })
 
-    return { respawnPositionRef, persistSessionState }
+    return { respawnPositionRef, persistSessionState, worldSeed: worldBootstrap.seed }
   })

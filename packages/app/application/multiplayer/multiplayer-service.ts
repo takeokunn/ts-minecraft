@@ -52,6 +52,13 @@ export type MultiplayerSessionState = ConnectionState | 'joining' | 'ready'
 
 export type MultiplayerService = {
   readonly connect: (serverUrl: string, playerName: PlayerName) => Effect.Effect<void, never>
+  // Terrain-seed handshake: the session records the local world's seed before
+  // connecting; the server echoes the authoritative (first joiner's) seed back.
+  readonly setLocalWorldSeed: (seed: number) => Effect.Effect<void, never>
+  readonly getWorldSeedInfo: () => Effect.Effect<
+    { readonly local: number | null; readonly host: number | null },
+    never
+  >
   readonly disconnect: Effect.Effect<void, never>
   readonly getConnectionState: () => Effect.Effect<ConnectionState, never>
   readonly getSessionState: () => Effect.Effect<MultiplayerSessionState, never>
@@ -92,6 +99,7 @@ const processInbound = (
   inboundEntitySnapshotsRef: Ref.Ref<ReadonlyArray<RemoteEntitySnapshot>>,
   playerNameRef: Ref.Ref<Option.Option<PlayerName>>,
   localPlayerRef: Ref.Ref<Option.Option<LocalPlayerIdentity>>,
+  hostWorldSeedRef: Ref.Ref<number | null>,
   onLocalPlayerReady: (identity: LocalPlayerIdentity) => Effect.Effect<void, never>,
 ): Effect.Effect<void, never> => {
   switch (msg.type) {
@@ -219,6 +227,8 @@ const processInbound = (
         )
       })
     }
+    case MessageType.WorldInfo:
+      return Ref.set(hostWorldSeedRef, msg.worldSeed)
     default:
       return Effect.void
   }
@@ -237,6 +247,8 @@ export const MultiplayerServiceImpl = (
     const playerNameRef = yield* Ref.make<Option.Option<PlayerName>>(Option.none())
     const localPlayerRef = yield* Ref.make<Option.Option<LocalPlayerIdentity>>(Option.none())
     const pendingChatRef = yield* Ref.make<ReadonlyArray<string>>([])
+    const localWorldSeedRef = yield* Ref.make<number | null>(null)
+    const hostWorldSeedRef = yield* Ref.make<number | null>(null)
     const drainFiberRef = yield* Ref.make<Option.Option<Fiber.RuntimeFiber<void, never>>>(
       Option.none(),
     )
@@ -248,6 +260,7 @@ export const MultiplayerServiceImpl = (
       yield* Ref.set(inboundEntitySnapshotsRef, [])
       yield* Ref.set(localPlayerRef, Option.none())
       yield* Ref.set(pendingChatRef, [])
+      yield* Ref.set(hostWorldSeedRef, null)
     })
 
     const getClientConnectionState = (): Effect.Effect<ConnectionState, never> =>
@@ -290,6 +303,7 @@ export const MultiplayerServiceImpl = (
               inboundEntitySnapshotsRef,
               playerNameRef,
               localPlayerRef,
+              hostWorldSeedRef,
               flushPendingChat,
             ),
           )
@@ -337,7 +351,8 @@ export const MultiplayerServiceImpl = (
         Effect.gen(function* () {
           yield* stopDrain
           yield* resetSessionState
-          const connected = yield* client.connect(serverUrl, playerName).pipe(
+          const localSeed = yield* Ref.get(localWorldSeedRef)
+          const connected = yield* client.connect(serverUrl, playerName, localSeed ?? undefined).pipe(
             Effect.as(true),
             Effect.catchAll((e) =>
               Effect.logWarning(`Multiplayer connect failed: ${String(e)}`).pipe(Effect.as(false)),
@@ -349,6 +364,15 @@ export const MultiplayerServiceImpl = (
           }
           yield* Ref.set(playerNameRef, Option.some(playerName))
           yield* startDrain
+        }),
+
+      setLocalWorldSeed: (seed) => Ref.set(localWorldSeedRef, seed),
+
+      getWorldSeedInfo: () =>
+        Effect.gen(function* () {
+          const local = yield* Ref.get(localWorldSeedRef)
+          const host = yield* Ref.get(hostWorldSeedRef)
+          return { local, host }
         }),
 
       disconnect: Effect.gen(function* () {

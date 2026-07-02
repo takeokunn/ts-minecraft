@@ -7,7 +7,7 @@ import { decodeNetworkMessage, encodeNetworkMessage } from './codec'
 export type ConnectionState = 'idle' | 'connecting' | 'connected' | 'reconnecting' | 'disconnected' | 'failed'
 
 export type ClientServiceShape = {
-  readonly connect: (serverUrl: string, playerName: PlayerName) => Effect.Effect<void, NetworkError>
+  readonly connect: (serverUrl: string, playerName: PlayerName, worldSeed?: number) => Effect.Effect<void, NetworkError>
   readonly disconnect: () => Effect.Effect<void, never>
   readonly getConnectionState: () => Effect.Effect<ConnectionState, never>
   readonly sendMessage: (message: NetworkMessage) => Effect.Effect<void, NetworkError>
@@ -16,13 +16,14 @@ export type ClientServiceShape = {
 
 export const ClientService = Context.GenericTag<ClientServiceShape>('@minecraft/network/ClientService')
 
-const makeInitialJoin = (playerName: PlayerName): NetworkMessage => ({
+const makeInitialJoin = (playerName: PlayerName, worldSeed?: number): NetworkMessage => ({
   type: MessageType.PlayerJoin,
   playerId: PlayerId.make('pending'),
   playerName,
   worldId: WorldId.make('overworld'),
   position: { x: 0, y: 64, z: 0 },
   timestamp: Date.now(),
+  ...(worldSeed !== undefined ? { worldSeed } : {}),
 })
 
 const sendRawMessage = (
@@ -48,6 +49,7 @@ export const ClientServiceImpl = (
     const reconnectFiberRef = yield* Ref.make<Option.Option<Fiber.RuntimeFiber<void, never>>>(Option.none())
     const serverUrlRef = yield* Ref.make<Option.Option<string>>(Option.none())
     const playerNameRef = yield* Ref.make<Option.Option<PlayerName>>(Option.none())
+    const worldSeedRef = yield* Ref.make<Option.Option<number>>(Option.none())
     const maxReconnectAttempts = options.maxReconnectAttempts ?? 5
 
     const installHandle = (handle: WebSocketClientHandle): Effect.Effect<void, never> =>
@@ -73,10 +75,11 @@ export const ClientServiceImpl = (
         const serverUrlVal = Option.getOrNull(serverUrl)
         const playerNameVal = Option.getOrNull(playerName)
         if (serverUrlVal !== null && playerNameVal !== null) {
+          const storedSeed = Option.getOrUndefined(yield* Ref.get(worldSeedRef))
           result = yield* Effect.gen(function* () {
             const handle = yield* port.connect(serverUrlVal)
             yield* installHandle(handle)
-            yield* sendRawMessage(handle, makeInitialJoin(playerNameVal))
+            yield* sendRawMessage(handle, makeInitialJoin(playerNameVal, storedSeed))
             yield* Ref.set(stateRef, 'connected')
             yield* installWatcher(handle)
             return true
@@ -100,14 +103,15 @@ export const ClientServiceImpl = (
       })
 
     const service: ClientServiceShape = {
-      connect: (serverUrl, playerName) =>
+      connect: (serverUrl, playerName, worldSeed) =>
         Effect.gen(function* () {
           yield* Ref.set(stateRef, 'connecting')
           yield* Ref.set(serverUrlRef, Option.some(serverUrl))
           yield* Ref.set(playerNameRef, Option.some(playerName))
+          yield* Ref.set(worldSeedRef, Option.fromNullable(worldSeed))
           const handle = yield* port.connect(serverUrl)
           yield* installHandle(handle)
-          yield* sendRawMessage(handle, makeInitialJoin(playerName))
+          yield* sendRawMessage(handle, makeInitialJoin(playerName, worldSeed))
           yield* Ref.set(stateRef, 'connected')
           yield* installWatcher(handle)
         }).pipe(

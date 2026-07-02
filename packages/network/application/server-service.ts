@@ -20,6 +20,9 @@ export type GameServer = {
   readonly connectedPlayers: Ref.Ref<Map<PlayerId, ConnectedPlayer>>
   readonly connectionsByPlayerId: Ref.Ref<Map<PlayerId, WebSocketConnection>>
   readonly playerIdByConnectionId: Ref.Ref<Map<string, PlayerId>>
+  // Authoritative terrain seed for the session: the first joiner's seed.
+  // null until a client that knows its seed joins.
+  readonly worldSeed: Ref.Ref<number | null>
   readonly maxPlayers: number
 }
 
@@ -42,7 +45,8 @@ export const makeGameServer = (maxPlayers = 20): Effect.Effect<GameServer, never
     const connectedPlayers = yield* Ref.make(new Map<PlayerId, ConnectedPlayer>())
     const connectionsByPlayerId = yield* Ref.make(new Map<PlayerId, WebSocketConnection>())
     const playerIdByConnectionId = yield* Ref.make(new Map<string, PlayerId>())
-    return { connectedPlayers, connectionsByPlayerId, playerIdByConnectionId, maxPlayers }
+    const worldSeed = yield* Ref.make<number | null>(null)
+    return { connectedPlayers, connectionsByPlayerId, playerIdByConnectionId, worldSeed, maxPlayers }
   })
 
 const wireConnection = (

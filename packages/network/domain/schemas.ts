@@ -48,6 +48,7 @@ export const MessageType = {
   BlockPlace: 'BlockPlace',
   BlockBreak: 'BlockBreak',
   Chat: 'Chat',
+  WorldInfo: 'WorldInfo',
   Ping: 'Ping',
   Pong: 'Pong',
   Error: 'Error',
@@ -61,6 +62,7 @@ export const MessageTypeSchema = Schema.Literal(
   MessageType.BlockPlace,
   MessageType.BlockBreak,
   MessageType.Chat,
+  MessageType.WorldInfo,
   MessageType.Ping,
   MessageType.Pong,
   MessageType.Error,
@@ -83,6 +85,10 @@ export const PlayerJoinMessageSchema = Schema.Struct({
   worldId: WorldIdSchema,
   position: Vec3Schema,
   timestamp: TimestampSchema,
+  // Terrain seed of the joining client's world. Optional for protocol
+  // back-compat; the server adopts the first joiner's seed as the session's
+  // authoritative seed and echoes it back via WorldInfo.
+  worldSeed: Schema.optional(Schema.Number),
 })
 export type PlayerJoinMessage = Schema.Schema.Type<typeof PlayerJoinMessageSchema>
 
@@ -145,6 +151,16 @@ export const ChatMessageSchema = Schema.Struct({
 })
 export type ChatMessage = Schema.Schema.Type<typeof ChatMessageSchema>
 
+// Server -> client: the session's authoritative world seed (the first
+// joiner's). Clients whose local seed differs render different terrain from
+// the host, so they surface a mismatch warning in the connection panel.
+export const WorldInfoMessageSchema = Schema.Struct({
+  type: Schema.Literal(MessageType.WorldInfo),
+  worldSeed: Schema.Number,
+  timestamp: TimestampSchema,
+})
+export type WorldInfoMessage = Schema.Schema.Type<typeof WorldInfoMessageSchema>
+
 export const PingMessageSchema = Schema.Struct({
   type: Schema.Literal(MessageType.Ping),
   nonce: Schema.String,
@@ -175,6 +191,7 @@ export const NetworkMessageSchema = Schema.Union(
   BlockPlaceMessageSchema,
   BlockBreakMessageSchema,
   ChatMessageSchema,
+  WorldInfoMessageSchema,
   PingMessageSchema,
   PongMessageSchema,
   ErrorMessageSchema,
