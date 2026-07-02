@@ -36,7 +36,7 @@ const makeRendererMock = () => {
 
 const makeDeps = (renderer: ReturnType<typeof makeRendererMock>) => ({
   renderer: renderer as never,
-  scene: {} as never,
+  scene: new THREE.Scene() as never,
   camera: new THREE.PerspectiveCamera() as never,
   lights: {
     light: {

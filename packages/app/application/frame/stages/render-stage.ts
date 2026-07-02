@@ -7,6 +7,7 @@ import type { FrameHandlerServices } from '@ts-minecraft/app/application/frame/t
 import type { FrameStageRefs } from '@ts-minecraft/app/application/frame/types/stage-refs'
 import type { ResolvedGraphics } from '@ts-minecraft/game'
 import { getAttackSwingOffset } from '@ts-minecraft/presentation'
+import { ensureFirstPersonHand, updateFirstPersonHandSwing } from '@ts-minecraft/rendering'
 
 const SWING_CAMERA_X_UNITS = 0.045
 const SWING_CAMERA_Y_UNITS = 0.055
@@ -40,6 +41,9 @@ export const renderStage = (
     deps.camera.translateX(swingOffset.x * SWING_CAMERA_X_UNITS)
     deps.camera.translateY(swingOffset.y * SWING_CAMERA_Y_UNITS)
     deps.camera.rotateZ(swingOffset.x * SWING_CAMERA_ROLL_RADS)
+
+    // First-person arm rides the same swing signal as the camera bob.
+    updateFirstPersonHandSwing(ensureFirstPersonHand(deps.camera, deps.scene), swingOffset.x)
 
     if (resolved.godRaysPassOrNull) {
       if (inputs.resolvedGraphics.godRaysEnabled) {
