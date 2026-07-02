@@ -54,6 +54,7 @@ export const connectFromConnectionPanel = (
   panel: ConnectionPanel,
   multiplayer: MultiplayerService,
   request: ConnectionRequest,
+  adoptHostWorld?: (hostSeed: number) => Effect.Effect<void, never>,
 ): Effect.Effect<void, never> =>
   Effect.gen(function* () {
     const { serverUrl, playerName } = normalizeConnectionRequest(request)
@@ -81,11 +82,22 @@ export const connectFromConnectionPanel = (
     yield* Effect.sleep(Duration.millis(300))
     const seeds = yield* multiplayer.getWorldSeedInfo()
     const seedMismatch = seeds.local !== null && seeds.host !== null && seeds.local !== seeds.host
-    yield* panel.setStatus(
-      seedMismatch
-        ? `Connected to ${serverUrl} — WARNING: world seed differs from host (terrain will not match)`
-        : `Connected to ${serverUrl}`,
-    )
+    if (!seedMismatch) {
+      yield* panel.setStatus(`Connected to ${serverUrl}`)
+      return
+    }
+    if (adoptHostWorld === undefined || seeds.host === null) {
+      yield* panel.setStatus(
+        `Connected to ${serverUrl} — WARNING: world seed differs from host (terrain will not match)`,
+      )
+      return
+    }
+    // Adopt: regenerate local terrain from the host seed so both players see
+    // the same world. The local single-player save stays untouched (the
+    // adoption switches to a separate world namespace).
+    yield* panel.setStatus(`Connected to ${serverUrl} — joining host world...`)
+    yield* adoptHostWorld(seeds.host)
+    yield* panel.setStatus(`Connected to ${serverUrl} — joined host world (seed ${seeds.host})`)
   })
 
 export const disconnectFromConnectionPanel = (
@@ -103,6 +115,7 @@ export const installMultiplayerConnectionPanel = (
   panel: ConnectionPanel,
   multiplayer: MultiplayerService,
   pauseMenu: { readonly isOpen: () => Effect.Effect<boolean, never> },
+  adoptHostWorld?: (hostSeed: number) => Effect.Effect<void, never>,
 ): Effect.Effect<void, never, Scope.Scope> =>
   Effect.gen(function* () {
     // The connect UI must not float over gameplay — it rides the pause menu
@@ -122,7 +135,7 @@ export const installMultiplayerConnectionPanel = (
       Effect.forkScoped,
     )
     yield* Stream.runForEach(panel.onConnect, (request) =>
-      connectFromConnectionPanel(panel, multiplayer, request),
+      connectFromConnectionPanel(panel, multiplayer, request, adoptHostWorld),
     ).pipe(Effect.forkScoped)
     yield* Stream.runForEach(panel.onDisconnect, () =>
       disconnectFromConnectionPanel(panel, multiplayer),
@@ -206,6 +219,7 @@ export const installSessionRuntimeOverlays = (
         playerListPanel,
         biomeService,
         recipeService,
+        adoptHostWorld,
       },
     } = params
 
@@ -272,7 +286,7 @@ export const installSessionRuntimeOverlays = (
     })
 
     if (Option.isSome(services.multiplayer)) {
-      yield* installMultiplayerConnectionPanel(connectionPanel, services.multiplayer.value, pauseMenu)
+      yield* installMultiplayerConnectionPanel(connectionPanel, services.multiplayer.value, pauseMenu, adoptHostWorld)
       yield* installMultiplayerChatPanel(chatPanel, services.multiplayer.value)
       yield* installMultiplayerPlayerListPanel(playerListPanel, services.multiplayer.value)
     }

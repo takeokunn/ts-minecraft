@@ -79,6 +79,10 @@ export type SessionRuntimeOverlays = {
   readonly playerListPanel: PlayerListPanelService
   readonly biomeService: BiomeService
   readonly recipeService: RecipeService
+  // Multiplayer seed adoption: regenerate the local session from the host's
+  // terrain seed (separate world namespace, fresh safe spawn). Built by the
+  // bootstrap orchestration where the noise/chunk/spawn services live.
+  readonly adoptHostWorld: (hostSeed: number) => Effect.Effect<void, never>
 }
 
 export type SessionRuntimeParams = {

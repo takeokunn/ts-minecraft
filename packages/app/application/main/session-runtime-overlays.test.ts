@@ -197,6 +197,7 @@ describe('installSessionRuntimeOverlays', () => {
         playerListPanel: playerListPanelFixture.panel,
         biomeService,
         recipeService,
+        adoptHostWorld: vi.fn(() => Effect.void),
       },
     } satisfies SessionRuntimeOverlayParams
     const services = {
@@ -319,6 +320,7 @@ describe('installSessionRuntimeOverlays', () => {
         playerListPanel: playerListPanelFixture.panel,
         biomeService,
         recipeService,
+        adoptHostWorld: vi.fn(() => Effect.void),
       },
     } satisfies SessionRuntimeOverlayParams
     const services = {
@@ -382,6 +384,44 @@ describe('installSessionRuntimeOverlays', () => {
       'Connecting to ws://localhost:8080...',
       'Connected to ws://localhost:8080',
     ])
+  })
+
+  it('adopts the host world seed when it differs from the local seed', async () => {
+    const panelFixture = makeConnectionPanel()
+    const { multiplayer } = makeMultiplayer('connected')
+    multiplayer.getWorldSeedInfo.mockReturnValue(Effect.succeed({ local: 111, host: 222 }))
+    const adoptHostWorld = vi.fn((_seed: number) => Effect.void)
+
+    await Effect.runPromise(
+      connectFromConnectionPanel(
+        panelFixture.panel,
+        multiplayer,
+        { serverUrl: 'ws://localhost:8080', playerName: 'Alex' },
+        adoptHostWorld,
+      ),
+    )
+
+    expect(adoptHostWorld).toHaveBeenCalledWith(222)
+    expect(panelFixture.statuses.at(-1)).toBe(
+      'Connected to ws://localhost:8080 — joined host world (seed 222)',
+    )
+  })
+
+  it('warns instead of adopting when no adoption callback is wired', async () => {
+    const panelFixture = makeConnectionPanel()
+    const { multiplayer } = makeMultiplayer('connected')
+    multiplayer.getWorldSeedInfo.mockReturnValue(Effect.succeed({ local: 111, host: 222 }))
+
+    await Effect.runPromise(
+      connectFromConnectionPanel(panelFixture.panel, multiplayer, {
+        serverUrl: 'ws://localhost:8080',
+        playerName: 'Alex',
+      }),
+    )
+
+    expect(panelFixture.statuses.at(-1)).toBe(
+      'Connected to ws://localhost:8080 — WARNING: world seed differs from host (terrain will not match)',
+    )
   })
 
   it('rejects empty connection panel input without opening a websocket', async () => {

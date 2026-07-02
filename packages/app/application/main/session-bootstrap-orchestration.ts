@@ -1,10 +1,12 @@
-import { Effect, Option } from 'effect'
+import { Cause, Effect, MutableRef, Option } from 'effect'
 
 import type { SessionBootstrapDeps } from '@ts-minecraft/app/main/session-bootstrap-types/deps'
 import { buildLighting } from '@ts-minecraft/app/main/session-lighting'
 import { buildSessionRuntimeBundle } from '@ts-minecraft/app/main/session-bootstrap-runtime'
 import { buildSessionBootstrapWorldOrchestration } from '@ts-minecraft/app/main/session-bootstrap-world-orchestration'
 import { buildSessionBootstrapScene } from '@ts-minecraft/app/main/session-bootstrap-scene'
+import { buildSpawnSelection } from '@ts-minecraft/app/main/session-world-loader'
+import { WorldId } from '@ts-minecraft/core'
 import { buildSessionBootstrapStartupState } from '@ts-minecraft/app/main/session-bootstrap/startup'
 
 export const buildSessionBootstrapOrchestration = (deps: SessionBootstrapDeps) =>
@@ -107,6 +109,22 @@ export const buildSessionBootstrapOrchestration = (deps: SessionBootstrapDeps) =
       onSome: (multiplayerService) => multiplayerService.setLocalWorldSeed(worldSeed),
     })
 
+    // Multiplayer seed adoption: rebuild the session's terrain from the host's
+    // seed under a separate world namespace (the local single-player save is
+    // never overwritten), then respawn on the regenerated terrain.
+    const adoptHostWorld = (hostSeed: number): Effect.Effect<void, never> =>
+      Effect.gen(function* () {
+        yield* bootCtx.noiseService.setSeed(hostSeed)
+        yield* chunkManagerService.setActiveWorldId(WorldId.make(`${worldId}-mp-${hostSeed}`))
+        const spawnSelection = yield* buildSpawnSelection({ x: 0, y: 80, z: 0 }, chunkManagerService)
+        MutableRef.set(respawnPositionRef, spawnSelection.position)
+        yield* gameState.respawn(spawnSelection.position)
+      }).pipe(
+        Effect.catchAllCause((cause) =>
+          Effect.logError(`Host world adoption failed: ${Cause.pretty(cause)}`),
+        ),
+      )
+
     const lighting = yield* buildLighting(scene, sceneService, initialSettings, initialGraphics)
 
     const { runtimeParams, runtimeServices } = yield* buildSessionRuntimeBundle({
@@ -136,6 +154,7 @@ export const buildSessionBootstrapOrchestration = (deps: SessionBootstrapDeps) =
         playerListPanel,
         biomeService,
         recipeService,
+        adoptHostWorld,
       },
       services: {
         ...rendering,
