@@ -3,6 +3,7 @@ import { GAME_TICKS_PER_SEC, type DeltaTimeSecs, type Position } from '@ts-minec
 import { EntityType, type Entity, type EntityId } from '../../domain/mob/entity'
 import { tickCreeperFuse } from '../../domain/mob/creeper-fuse'
 import { isRemoteEntityId } from '../../domain/mob/remote-entity'
+import { nearestPlayerPosition } from './entity-manager-ai-frame'
 import { tickWoolRegrowth } from '../../domain/mob/shearing'
 import { type ManagedEntity } from '../../domain/mob/entity-internal'
 import { invalidateEntityCache } from './entity-manager-cache'
@@ -15,6 +16,7 @@ export const updateCreeperFuseStates = (
   hasCreeperRef: MutableRef.MutableRef<boolean>,
   playerPosition: Position,
   deltaTime: DeltaTimeSecs,
+  remotePlayerPositions: ReadonlyArray<Position> = [],
 ): Effect.Effect<void, never> =>
   Effect.gen(function* () {
     if (!MutableRef.get(hasCreeperRef)) return
@@ -24,9 +26,11 @@ export const updateCreeperFuseStates = (
       // Remote creepers are host-simulated; a locally ticking fuse would
       // detonate a copy the host still considers alive.
       if (isRemoteEntityId(String(entityId))) return entity
+      // Co-op: the fuse arms against whichever player is closest, so a
+      // creeper reaching a non-host player still detonates.
       const nextFuse = tickCreeperFuse(
         entity.position,
-        playerPosition,
+        nearestPlayerPosition(entity.position, playerPosition, remotePlayerPositions),
         { fuseSecs: entity.fuseSecs, ignited: entity.fuseSecs > 0 },
         deltaTime,
       ).state.fuseSecs

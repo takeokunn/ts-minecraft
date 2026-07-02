@@ -17,14 +17,40 @@ export type EntityFrameContext = {
   readonly tick: number
   readonly deltaTime: DeltaTimeSecs
   readonly playerPosition: Position
+  // Co-op: other players' positions (entity host only). Detection and chase
+  // target the NEAREST player so mobs don't ignore everyone but the host.
+  // Enderman stare-aggro stays local-camera based — only the local player's
+  // look direction is known.
+  readonly remotePlayerPositions?: ReadonlyArray<Position>
   readonly playerLookOrigin: Position
   readonly playerLookDirection: Vector3 | undefined
   readonly playerLookBlocked: ((position: Position) => boolean) | undefined
   readonly daytimeBurningActive: boolean
 }
 
+// The closest player to this entity (local player plus any co-op remotes) —
+// the position hostile detection and chase steering should target.
+export const nearestPlayerPosition = (
+  entityPosition: Position,
+  playerPosition: Position,
+  remotePlayerPositions: ReadonlyArray<Position> | undefined,
+): Position => {
+  if (remotePlayerPositions === undefined || remotePlayerPositions.length === 0) return playerPosition
+  let nearest = playerPosition
+  let nearestDistSq = distanceToPlayerSq(entityPosition, playerPosition)
+  for (const remotePosition of remotePlayerPositions) {
+    const remoteDistSq = distanceToPlayerSq(entityPosition, remotePosition)
+    if (remoteDistSq < nearestDistSq) {
+      nearestDistSq = remoteDistSq
+      nearest = remotePosition
+    }
+  }
+  return nearest
+}
+
 export type EntityAIFrame = {
   readonly hash: number
+  readonly targetPlayerPosition: Position
   readonly randomWanderRoll: number
   readonly isProvoked: boolean
   readonly nextState: AIState
@@ -53,7 +79,8 @@ export const prepareEntityAIFrame = (
   } = ctx
 
   const hash = hashEntityId(entityId)
-  const distSq = distanceToPlayerSq(entity.position, playerPosition)
+  const targetPlayerPosition = nearestPlayerPosition(entity.position, playerPosition, ctx.remotePlayerPositions)
+  const distSq = distanceToPlayerSq(entity.position, targetPlayerPosition)
   const distance = Math.sqrt(distSq)
   const randomWanderRoll = ((hash + tick * WANDER_PHASE_TICK_STEP) % 1000) / 1000
 
@@ -101,6 +128,7 @@ export const prepareEntityAIFrame = (
 
   return {
     hash,
+    targetPlayerPosition,
     randomWanderRoll,
     isProvoked,
     nextState,

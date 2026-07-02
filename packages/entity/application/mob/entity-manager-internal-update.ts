@@ -44,6 +44,7 @@ export const makeEntityManagerUpdate = (
       playerLookOrigin: Position = playerPosition,
       playerLookBlocked?: (position: Position) => boolean,
       daylightBurnProtected: boolean = false,
+      remotePlayerPositions: ReadonlyArray<Position> = [],
     ): Effect.Effect<void, never> =>
       Effect.gen(function* () {
         const tick = yield* Ref.updateAndGet(updateTickRef, (value) => value + 1)
@@ -58,7 +59,7 @@ export const makeEntityManagerUpdate = (
         )
         const hasCreeperRef = MutableRef.make(false)
         const hasShearedSheepRef = MutableRef.make(false)
-        const ctx = { tick, deltaTime, playerPosition, playerLookOrigin, playerLookDirection, playerLookBlocked, daytimeBurningActive }
+        const ctx = { tick, deltaTime, playerPosition, remotePlayerPositions, playerLookOrigin, playerLookDirection, playerLookBlocked, daytimeBurningActive }
 
         yield* updateManagedEntities(entitiesRef, (entity, entityId) =>
           isRemoteEntityId(String(entityId))
@@ -71,7 +72,7 @@ export const makeEntityManagerUpdate = (
         // after the AI pass so its velocity wins.
         yield* runDragonUpdate(entitiesRef, cachedEntitiesRef, structureVersionRef, dragonEventsRef, tick, playerPosition)
 
-        yield* updateCreeperFuseStates(entitiesRef, dirtyRef, hasCreeperRef, playerPosition, deltaTime)
+        yield* updateCreeperFuseStates(entitiesRef, dirtyRef, hasCreeperRef, playerPosition, deltaTime, remotePlayerPositions)
         yield* updateSheepWoolRegrowth(entitiesRef, hasShearedSheepRef, deltaTime)
 
         const burnDamageKilledEntity = yield* applyBurnDamageCleanup(

@@ -190,6 +190,9 @@ export const entityUpdateStage = (
     readonly totalTimeSecs: number
     readonly isNight: boolean
     readonly daylightBurnProtected?: boolean
+    // Co-op peers' positions — the entity host feeds these into mob AI so
+    // detection/chase target the nearest player, not just the local one.
+    readonly remotePlayerPositions?: ReadonlyArray<Position>
   },
 ): Effect.Effect<ReadonlyArray<LocalEntitySnapshot>, never> =>
   Effect.gen(function* () {
@@ -264,6 +267,7 @@ export const entityUpdateStage = (
           deps.camera.position,
           (position) => isBlockSolid(position.x, position.y, position.z),
           inputs.daylightBurnProtected ?? false,
+          inputs.remotePlayerPositions ?? [],
         ),
         'Entity system error',
       )

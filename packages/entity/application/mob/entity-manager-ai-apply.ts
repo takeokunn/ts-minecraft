@@ -21,7 +21,9 @@ export const applyEntityAIFrame = (
   ctx: EntityFrameContext,
   frame: EntityAIFrame,
 ): ManagedEntity => {
-  const { tick, playerPosition } = ctx
+  const { tick } = ctx
+  // Chase/flee steer relative to the NEAREST player (co-op: not just the host).
+  const targetPlayerPosition = frame.targetPlayerPosition
 
   if (entity.knockbackSecsRemaining > 0) {
     return {
@@ -66,7 +68,7 @@ export const applyEntityAIFrame = (
     _stateVel,
     frame.nextState,
     entity.position.x, entity.position.z,
-    playerPosition.x, playerPosition.z,
+    targetPlayerPosition.x, targetPlayerPosition.z,
     entity.speed,
     wanderDirection.x, wanderDirection.y, wanderDirection.z,
   )
@@ -80,7 +82,7 @@ export const applyEntityAIFrame = (
     && entity.stuckTicks > 0
     && ctx.playerLookBlocked !== undefined
   ) {
-    const detour = findDetourDirection(entity.position, playerPosition, ctx.playerLookBlocked)
+    const detour = findDetourDirection(entity.position, targetPlayerPosition, ctx.playerLookBlocked)
     if (detour !== null) {
       _stateVel.x = detour.x * entity.speed
       _stateVel.z = detour.z * entity.speed

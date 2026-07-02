@@ -1,7 +1,7 @@
 import { Effect, MutableRef, Option } from 'effect'
 import type * as THREE from 'three'
 import { DEFAULT_PLAYER_ID } from '@ts-minecraft/core'
-import type { DeltaTimeSecs } from '@ts-minecraft/core'
+import type { DeltaTimeSecs, Position } from '@ts-minecraft/core'
 import { FALLBACK_PLAYER_POS } from '@ts-minecraft/app/frame-handler.config'
 import type { DebugFeatureFlags } from '@ts-minecraft/app/application/debug-feature-flags.config'
 import type { FrameAudioServices } from '@ts-minecraft/app/frame/frame-service-types/audio'
@@ -222,6 +222,18 @@ export const runActiveFrameStages = (
     const isNight = yield* services.timeService.isNight()
     const weather = yield* services.weatherService.getWeather()
     const dimension = yield* services.netherService.getDimension()
+    // Co-op: feed peers' positions into mob AI so hostiles chase the nearest
+    // player instead of only the entity host's.
+    const multiplayerOrNull = Option.getOrNull(services.multiplayer)
+    const remotePlayerPositions: Position[] = []
+    if (multiplayerOrNull !== null) {
+      const remotePlayers = yield* multiplayerOrNull.getRemotePlayers().pipe(
+        Effect.catchAll(() => Effect.succeed(new Map<string, RemotePlayerSnapshot>())),
+      )
+      for (const remotePlayer of remotePlayers.values()) {
+        remotePlayerPositions.push({ x: remotePlayer.x, y: remotePlayer.y, z: remotePlayer.z } as Position)
+      }
+    }
     const entitySnapshots = yield* entityUpdateStage(deps, services, refs, {
       deltaTime: inputs.deltaTime,
       debugFlags: inputs.debugFlags,
@@ -229,6 +241,7 @@ export const runActiveFrameStages = (
       totalTimeSecs: inputs.totalTimeSecs,
       isNight,
       daylightBurnProtected: isDaylightBurnProtected(weather, dimension),
+      remotePlayerPositions,
     })
 
     const playerPos = yield* physicsStage(deps, services, refs, {
