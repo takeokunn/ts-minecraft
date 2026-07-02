@@ -27,7 +27,13 @@ export const handleFoodConsumption = (
 
     yield* services.inventoryService.removeBlock(item, 1, selectedHotbarSlotIndex(selectedSlot)).pipe(
       Effect.flatMap(() => services.hungerService.eat(route.food.foodLevel, route.food.saturationModifier)),
-      Effect.flatMap(() => (item === 'GOLDEN_APPLE' ? services.healthService.heal(4) : Effect.void)),
+      // Vanilla golden apple: Regeneration II for 5s (the old flat heal(4) is
+      // replaced by the periodic effect — ~4 HP over the duration).
+      Effect.flatMap(() =>
+        item === 'GOLDEN_APPLE'
+          ? services.healthService.addStatusEffect('REGENERATION', 1, 5)
+          : Effect.void,
+      ),
       Effect.catchAll(() => Effect.void),
     )
     return true

@@ -2386,7 +2386,7 @@ describe('step R38 — bow kill spawns XP orb', () => {
     expect(damageSlotSpy).not.toHaveBeenCalled()
   }))
 
-  it.effect('eating GOLDEN_APPLE also heals 4 HP (R53)', () => Effect.gen(function* () {
+  it.effect('eating GOLDEN_APPLE grants Regeneration II (R53)', () => Effect.gen(function* () {
     const deps = yield* makeDeps(false)
     const inputService = makeInputService()
     ;(inputService as { consumeMouseClick: unknown }).consumeMouseClick = (btn: number) =>
@@ -2405,11 +2405,11 @@ describe('step R38 — bow kill spawns XP orb', () => {
     )
     ;(services.hungerService as { eat: unknown }).eat = vi.fn(() => Effect.void)
     ;(services.inventoryService as { removeBlock: unknown }).removeBlock = vi.fn(() => Effect.succeed(true))
-    const healSpy = vi.fn(() => Effect.void)
-    ;(services.healthService as { heal: unknown }).heal = healSpy
+    const effectSpy = vi.fn(() => Effect.void)
+    ;(services.healthService as { addStatusEffect: unknown }).addStatusEffect = effectSpy
 
     yield* runFrame(deps, services)
 
-    expect(healSpy).toHaveBeenCalledWith(4)
+    expect(effectSpy).toHaveBeenCalledWith('REGENERATION', 1, 5)
   }))
 })

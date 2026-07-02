@@ -293,3 +293,44 @@ describe('HealthService.tick', () => {
     )
   )
 })
+
+describe('HealthService status effects', () => {
+  it.effect('Regeneration heals through tick() on its vanilla cadence', () =>
+    Effect.gen(function* () {
+      const health = yield* HealthService
+      yield* health.applyDamage(10)
+      yield* health.tick() // burn a tick so invincibility from damage elapses independently
+      yield* health.addStatusEffect('REGENERATION', 0, 10)
+      for (let i = 0; i < 50; i++) {
+        yield* health.tick()
+      }
+      const after = yield* health.getHealth()
+      expect(after.current).toBe(11) // 20 - 10 + 1 regen fire at tick 50
+    }).pipe(Effect.provide(HealthService.Default)),
+  )
+
+  it.effect('Poison damages over time but never below 1 HP', () =>
+    Effect.gen(function* () {
+      const health = yield* HealthService
+      yield* health.applyDamage(17) // 3 HP left
+      yield* health.addStatusEffect('POISON', 1, 30)
+      for (let i = 0; i < 600; i++) {
+        yield* health.tick()
+      }
+      const after = yield* health.getHealth()
+      expect(after.current).toBe(1)
+      expect(yield* health.isDead()).toBe(false)
+    }).pipe(Effect.provide(HealthService.Default)),
+  )
+
+  it.effect('expired effects disappear from getStatusEffects', () =>
+    Effect.gen(function* () {
+      const health = yield* HealthService
+      yield* health.addStatusEffect('REGENERATION', 0, 0.1) // 2 ticks
+      yield* health.tick()
+      yield* health.tick()
+      const effects = yield* health.getStatusEffects()
+      expect(effects).toHaveLength(0)
+    }).pipe(Effect.provide(HealthService.Default)),
+  )
+})

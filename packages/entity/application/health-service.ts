@@ -1,6 +1,13 @@
 import { Deferred, Effect, Option, Ref } from 'effect'
 import { PlayerHealth } from '../domain/player-health'
 import {
+  advanceStatusEffectsOneTick,
+  makeStatusEffect,
+  upsertStatusEffect,
+  type ActiveStatusEffect,
+  type StatusEffectType,
+} from '../domain/status-effect'
+import {
   applyDamageToHealth,
   computeFallDamage,
   healHealth,
@@ -21,6 +28,7 @@ type HealthState = {
   readonly health: PlayerHealth
   readonly fallState: FallState
   readonly lastDeathCause: Option.Option<PlayerDamageCause>
+  readonly statusEffects: ReadonlyArray<ActiveStatusEffect>
 }
 
 const DEFAULT_DAMAGE_CAUSE: PlayerDamageCause = { kind: 'generic' }
@@ -32,6 +40,7 @@ const INITIAL_STATE: HealthState = {
   health: new PlayerHealth({ current: PLAYER_START_HEALTH, max: PLAYER_MAX_HEALTH, invincibilityTicks: 0 }),
   fallState: { prevY: Option.none(), fallDistance: 0 },
   lastDeathCause: Option.none(),
+  statusEffects: [],
 }
 
 // ─── Service ─────────────────────────────────────────────────────────────────
@@ -113,8 +122,42 @@ export class HealthService extends Effect.Service<HealthService>()(
             yield* Deferred.await(yield* Ref.get(deathDeferredRef))
           }),
 
+        // Runs on the fixed HEALTH_TICK cadence (one game tick): invincibility
+        // countdown plus the status-effect ticker. Regeneration heals through
+        // the normal heal path; poison bypasses invincibility frames but can
+        // never kill (vanilla: poison floors at 1 HP).
         tick: (): Effect.Effect<void, never> =>
-          Ref.update(stateRef, (s) => ({ ...s, health: tickInvincibility(s.health) })),
+          Ref.update(stateRef, (s) => {
+            const ticked = advanceStatusEffectsOneTick(s.statusEffects)
+            let health = tickInvincibility(s.health)
+            if (ticked.healAmount > 0) {
+              health = healHealth(health, ticked.healAmount)
+            }
+            if (ticked.poisonDamage > 0 && health.current > 1) {
+              health = new PlayerHealth({
+                current: Math.max(1, health.current - ticked.poisonDamage),
+                max: health.max,
+                invincibilityTicks: health.invincibilityTicks,
+              })
+            }
+            return { ...s, health, statusEffects: ticked.effects }
+          }),
+
+        addStatusEffect: (
+          type: StatusEffectType,
+          amplifier: number,
+          durationSecs: number,
+        ): Effect.Effect<void, never> =>
+          Ref.update(stateRef, (s) => ({
+            ...s,
+            statusEffects: upsertStatusEffect(s.statusEffects, makeStatusEffect(type, amplifier, durationSecs)),
+          })),
+
+        getStatusEffects: (): Effect.Effect<ReadonlyArray<ActiveStatusEffect>, never> =>
+          Effect.gen(function* () {
+            const s = yield* Ref.get(stateRef)
+            return s.statusEffects
+          }),
 
         processFallDamage: (currentY: number, isGrounded: boolean): Effect.Effect<number, never> =>
           /* c8 ignore next -- non-finite Y guard: physics always produces finite positions */

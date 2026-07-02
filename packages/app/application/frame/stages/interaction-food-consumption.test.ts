@@ -33,6 +33,7 @@ const makeServices = () => ({
   },
   healthService: {
     heal: vi.fn(() => Effect.void),
+    addStatusEffect: vi.fn(() => Effect.void),
   },
 })
 
@@ -90,13 +91,13 @@ describe('handleFoodConsumption', () => {
     expect(s.hungerService.eat).not.toHaveBeenCalled()
   })
 
-  it('GOLDEN_APPLE also calls healthService.heal(4) in addition to eating', async () => {
+  it('GOLDEN_APPLE grants Regeneration II for 5s in addition to eating', async () => {
     const s = makeServices()
     s.hotbarService.getSelectedBlockType.mockReturnValue(Effect.succeed(Option.some('GOLDEN_APPLE')))
     const ate = await Effect.runPromise(handleFoodConsumption(s as never))
     expect(ate).toBe(true)
     expect(s.hungerService.eat).toHaveBeenCalled()
-    expect(s.healthService.heal).toHaveBeenCalledWith(4)
+    expect(s.healthService.addStatusEffect).toHaveBeenCalledWith('REGENERATION', 1, 5)
   })
 
   it('FISHING_ROD while already fishing: cancels and returns true', async () => {
