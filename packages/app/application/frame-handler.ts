@@ -249,7 +249,7 @@ const createFrameLoopHandlersInternal = (
         const height = deps.renderer.domElement.clientHeight || 1
         deps.renderer.setPixelRatio(nextPixelRatio)
         resolved.composerOrNull?.setPixelRatio(nextPixelRatio)
-        deps.renderer.setSize(width, height)
+        deps.renderer.setSize(width, height, false)
         resolved.composerOrNull?.setSize(width, height)
         MutableRef.set(lastAppliedPixelRatioRef, nextPixelRatio)
         return true

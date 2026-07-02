@@ -143,7 +143,9 @@ describe('browser-runtime-effects', () => {
     }))
 
     expect(renderer.setPixelRatio).toHaveBeenCalledWith(1.5)
-    expect(renderer.setSize).toHaveBeenCalledWith(320, 180)
+    // updateStyle=false — CSS owns the canvas display size; an inline px style
+    // would freeze clientWidth and break future window-resize detection.
+    expect(renderer.setSize).toHaveBeenCalledWith(320, 180, false)
     expect(composer.setPixelRatio).toHaveBeenCalledWith(1.5)
     expect(composer.setSize).toHaveBeenCalledWith(320, 180)
     expect(composerRT.setSize).toHaveBeenCalledWith(320, 180)

@@ -16,7 +16,10 @@ export class RendererService extends Effect.Service<RendererService>()(
             powerPreference: 'high-performance',
             failIfMajorPerformanceCaveat: false,
           })
-          renderer.setSize(canvas.clientWidth, canvas.clientHeight)
+          // updateStyle=false: the canvas display size is owned by the CSS
+          // 100vw/100vh rule. Letting three.js write a fixed-px inline style
+          // would freeze clientWidth and break window-resize detection.
+          renderer.setSize(canvas.clientWidth, canvas.clientHeight, false)
 
           renderer.toneMapping = THREE.ACESFilmicToneMapping
           renderer.toneMappingExposure = TONE_MAPPING_EXPOSURE
@@ -30,7 +33,7 @@ export class RendererService extends Effect.Service<RendererService>()(
         }),
       resize: (renderer: THREE.WebGLRenderer, width: number, height: number): Effect.Effect<void, never> =>
         Effect.sync(() => {
-          renderer.setSize(width, height)
+          renderer.setSize(width, height, false)
         }),
       renderOverlay: (renderer: THREE.WebGLRenderer, hudScene: THREE.Scene, hudCamera: THREE.Camera): Effect.Effect<void, never> =>
         Effect.sync(() => {

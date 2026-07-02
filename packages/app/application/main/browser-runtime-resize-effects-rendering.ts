@@ -36,7 +36,7 @@ export const applyBrowserRuntimeResizeRendering = ({
 }: BrowserRuntimeResizeRenderingDeps): Effect.Effect<void, never> => Effect.sync(() => {
   renderer.setPixelRatio(layout.pixelRatio)
   composer.setPixelRatio(layout.pixelRatio)
-  renderer.setSize(layout.displaySize.width, layout.displaySize.height)
+  renderer.setSize(layout.displaySize.width, layout.displaySize.height, false)
   camera.aspect = layout.cameraAspect
   camera.updateProjectionMatrix()
   composerRT.setSize(layout.displaySize.width, layout.displaySize.height)
