@@ -94,6 +94,43 @@ export const computeOctaveNoise = (
 }
 
 // ---------------------------------------------------------------------------
+// Signed fBm wrapper for terrain channels. Vanilla's climate noises are
+// multi-octave: a single-octave Perlin channel is featureless across any
+// walkable area (one continentalness period = 2000 blocks, so a 512-block
+// view showed <1/4 period — terrain read as a monotonous plateau). Summing
+// octaves adds the mid-scale (~100-500 block) hills vanilla terrain has.
+// Output stays signed for the [-1,1] spline domain; the amplitude-sum
+// normalization shrinks variance, so a modest boost restores the original
+// channel spread (extremes clamp — vanilla splines are flat at the ends).
+export const signedFbm2D = (
+  noiseFn: NoiseFn2D,
+  octaves: number,
+  persistence: number,
+  lacunarity: number,
+  boost: number,
+): NoiseFn2D => {
+  let maxValue = 0
+  let amp = 1
+  for (let i = 0; i < octaves; i++) {
+    maxValue += amp
+    amp *= persistence
+  }
+  const scale = boost / maxValue
+  return (x, z) => {
+    let total = 0
+    let amplitude = 1
+    let frequency = 1
+    for (let i = 0; i < octaves; i++) {
+      total += noiseFn(x * frequency, z * frequency) * amplitude
+      amplitude *= persistence
+      frequency *= lacunarity
+    }
+    const v = total * scale
+    return v < -1 ? -1 : v > 1 ? 1 : v
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Sparse-grid bilinear-interpolated terrain channel sampler.
 // ---------------------------------------------------------------------------
 export type TerrainChannelSamples = Readonly<{
@@ -198,9 +235,13 @@ export type NoisePrimitives = Readonly<{
 export const createNoisePrimitives = (seed: number): NoisePrimitives => {
   const raw2D = createPerlinNoise2D(mulberry32(seed))
   const raw3D = createPerlinNoise3D(mulberry32((seed ^ WEYL_3D) >>> 0))
-  const continentalness = createPerlinNoise2D(mulberry32((seed ^ WEYL_C) >>> 0))
-  const erosion = createPerlinNoise2D(mulberry32((seed ^ WEYL_E) >>> 0))
-  const weirdness = createPerlinNoise2D(mulberry32((seed ^ WEYL_W) >>> 0))
+  // Terrain channels are fBm (see signedFbm2D): base wavelengths 2000/1000/500
+  // blocks with 2× lacunarity octaves reaching down to ~250/250/125 blocks.
+  // Jaggedness stays single-octave — its 50-block base is already the finest
+  // scale and JAGGED_AMP deliberately tames it.
+  const continentalness = signedFbm2D(createPerlinNoise2D(mulberry32((seed ^ WEYL_C) >>> 0)), 4, 0.5, 2.0, 1.4)
+  const erosion = signedFbm2D(createPerlinNoise2D(mulberry32((seed ^ WEYL_E) >>> 0)), 3, 0.5, 2.0, 1.3)
+  const weirdness = signedFbm2D(createPerlinNoise2D(mulberry32((seed ^ WEYL_W) >>> 0)), 3, 0.5, 2.0, 1.3)
   const jaggedness = createPerlinNoise2D(mulberry32((seed ^ WEYL_J) >>> 0))
 
   return {

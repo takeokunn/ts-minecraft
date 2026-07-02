@@ -38,10 +38,11 @@ describe('integration/block-cycle', () => {
         // We read the chunk first to find any solid block within it.
         const chunk = yield* chunkManager.getChunk(coord)
 
-        // Find the first non-AIR block in this chunk by scanning y=80..1
-        // (terrain surface is typically y=48-80 for PLAINS biome)
+        // Find the SURFACE block by scanning from the top of the world down.
+        // Starting mid-column (the old y=80 start) can land on subsurface
+        // STONE, which requires a pickaxe to harvest and fails breakBlock.
         const solidPos = Arr.findFirst(
-          Arr.makeBy(80, (i) => 80 - i),
+          Arr.makeBy(CHUNK_HEIGHT - 1, (i) => CHUNK_HEIGHT - 1 - i),
           (y) => {
             const idx = Option.getOrNull(blockIndex(0, y, 0))
             return idx !== null && chunk.blocks[idx] !== 0
