@@ -1640,8 +1640,37 @@ saveTile(117, 'redstone-lamp-lit', (ctx) => {
   ctx.fillRect(4, 14, 24, 4)
 })
 
+const drawBottle = (ctx, liquidColor) => {
+  ctx.clearRect(0, 0, TILE_PX, TILE_PX)
+  // cork + neck
+  ctx.fillStyle = '#8a5a2c'
+  ctx.fillRect(13, 3, 6, 3)
+  ctx.fillStyle = '#cfe8ef'
+  ctx.fillRect(13, 6, 6, 4)
+  // bulb outline
+  ctx.fillStyle = '#cfe8ef'
+  ctx.fillRect(9, 10, 14, 3)
+  ctx.fillRect(7, 13, 18, 13)
+  ctx.fillRect(9, 26, 14, 3)
+  if (liquidColor !== null) {
+    ctx.fillStyle = liquidColor
+    ctx.fillRect(9, 15, 14, 11)
+    ctx.fillRect(11, 27, 10, 1)
+  }
+  // glass highlight
+  ctx.fillStyle = 'rgba(255,255,255,0.55)'
+  ctx.fillRect(10, 14, 2, 10)
+}
+
+// 118: empty glass bottle
+saveTile(118, 'glass-bottle', (ctx) => drawBottle(ctx, null))
+// 119: potion of swiftness (sky blue)
+saveTile(119, 'potion-swiftness', (ctx) => drawBottle(ctx, '#57b7e6'))
+// 120: potion of healing (red)
+saveTile(120, 'potion-healing', (ctx) => drawBottle(ctx, '#d43a3a'))
+
 // Save combined atlas (single file loaded by chunk-mesh.ts at runtime).
 writeFileSync(join(OUTPUT_DIR, 'atlas.png'), atlasCanvas.toBuffer('image/png'))
-console.log(`  ✓ atlas.png (512×512, all 118 tiles combined)`)
+console.log(`  ✓ atlas.png (512×512, all 121 tiles combined)`)
 
-console.log(`\nDone - 118 individual tiles + atlas.png written to ${OUTPUT_DIR}`)
+console.log(`\nDone - 121 individual tiles + atlas.png written to ${OUTPUT_DIR}`)

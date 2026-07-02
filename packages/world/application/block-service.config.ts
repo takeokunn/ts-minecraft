@@ -9,6 +9,9 @@ export {
 
 export const NON_PLACEABLE_ITEM_TYPES: HashSet.HashSet<InventoryItem> = HashSet.fromIterable<InventoryItem>([
   'STICKS',
+  'GLASS_BOTTLE',
+  'POTION_SWIFTNESS',
+  'POTION_HEALING',
   'COAL',
   'WOODEN_SWORD',
   'STONE_SWORD',

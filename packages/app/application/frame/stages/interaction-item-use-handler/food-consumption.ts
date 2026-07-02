@@ -20,6 +20,24 @@ export const handleFoodConsumption = (
     const route = resolveHeldItemUseRoute(item)
     if (route.kind === 'fishingRod') return yield* handleFishingRodActivation(services, selectedSlot)
     if (route.kind === 'armor') return yield* handleArmorEquipFromHotbar(services, selectedSlot, item)
+    if (route.kind === 'potion') {
+      // Drink: consume the potion, apply its payload, hand back the bottle.
+      yield* services.inventoryService.removeBlock(item, 1, selectedHotbarSlotIndex(selectedSlot)).pipe(
+        Effect.flatMap(() =>
+          Option.match(route.potion.effect, {
+            onNone: () => Effect.void,
+            onSome: (effect) =>
+              services.healthService.addStatusEffect(effect.type, effect.amplifier, effect.durationSecs),
+          }),
+        ),
+        Effect.flatMap(() =>
+          route.potion.instantHeal > 0 ? services.healthService.heal(route.potion.instantHeal) : Effect.void,
+        ),
+        Effect.flatMap(() => services.inventoryService.addBlock('GLASS_BOTTLE', 1)),
+        Effect.catchAll(() => Effect.void),
+      )
+      return true
+    }
     if (route.kind !== 'food') return false
 
     const hunger = yield* services.hungerService.getHunger()

@@ -118,6 +118,32 @@ export const BASIC_MISC_RECIPES: ReadonlyArray<Recipe> = [
     output: { itemType: 'GLOWSTONE', count: 1 },
   }),
   new Recipe({
+    id: RecipeId.make('glass-to-bottles'),
+    station: 'inventory',
+    ingredients: [new RecipeIngredient({ itemType: 'GLASS', count: 3 })],
+    output: { itemType: 'GLASS_BOTTLE', count: 3 },
+  }),
+  // Recipe-book brews until the brewing stand ships: redstone (duration
+  // ingredient) -> Swiftness, glowstone dust (potency ingredient) -> Healing.
+  new Recipe({
+    id: RecipeId.make('bottle-and-redstone-to-swiftness'),
+    station: 'inventory',
+    ingredients: [
+      new RecipeIngredient({ itemType: 'GLASS_BOTTLE', count: 1 }),
+      new RecipeIngredient({ itemType: 'REDSTONE_DUST', count: 1 }),
+    ],
+    output: { itemType: 'POTION_SWIFTNESS', count: 1 },
+  }),
+  new Recipe({
+    id: RecipeId.make('bottle-and-glowstone-to-healing'),
+    station: 'inventory',
+    ingredients: [
+      new RecipeIngredient({ itemType: 'GLASS_BOTTLE', count: 1 }),
+      new RecipeIngredient({ itemType: 'GLOWSTONE_DUST', count: 1 }),
+    ],
+    output: { itemType: 'POTION_HEALING', count: 1 },
+  }),
+  new Recipe({
     id: RecipeId.make('glowstone-and-redstone-to-lamp'),
     station: 'inventory',
     ingredients: [

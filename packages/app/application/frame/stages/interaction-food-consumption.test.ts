@@ -100,6 +100,28 @@ describe('handleFoodConsumption', () => {
     expect(s.healthService.addStatusEffect).toHaveBeenCalledWith('REGENERATION', 1, 5)
   })
 
+  it('POTION_SWIFTNESS grants Speed I for 180s and returns a glass bottle', async () => {
+    const s = makeServices()
+    s.hotbarService.getSelectedBlockType.mockReturnValue(Effect.succeed(Option.some('POTION_SWIFTNESS')))
+    const drank = await Effect.runPromise(handleFoodConsumption(s as never))
+    expect(drank).toBe(true)
+    expect(s.inventoryService.removeBlock).toHaveBeenCalled()
+    expect(s.healthService.addStatusEffect).toHaveBeenCalledWith('SPEED', 0, 180)
+    expect(s.inventoryService.addBlock).toHaveBeenCalledWith('GLASS_BOTTLE', 1)
+    // drinking is not eating: hunger untouched
+    expect(s.hungerService.eat).not.toHaveBeenCalled()
+  })
+
+  it('POTION_HEALING heals 4 HP instantly and returns a glass bottle', async () => {
+    const s = makeServices()
+    s.hotbarService.getSelectedBlockType.mockReturnValue(Effect.succeed(Option.some('POTION_HEALING')))
+    const drank = await Effect.runPromise(handleFoodConsumption(s as never))
+    expect(drank).toBe(true)
+    expect(s.healthService.heal).toHaveBeenCalledWith(4)
+    expect(s.healthService.addStatusEffect).not.toHaveBeenCalled()
+    expect(s.inventoryService.addBlock).toHaveBeenCalledWith('GLASS_BOTTLE', 1)
+  })
+
   it('FISHING_ROD while already fishing: cancels and returns true', async () => {
     const s = makeServices()
     s.hotbarService.getSelectedBlockType.mockReturnValue(Effect.succeed(Option.some('FISHING_ROD')))
