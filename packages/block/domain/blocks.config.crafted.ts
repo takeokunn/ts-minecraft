@@ -153,6 +153,20 @@ new Block({
     faces: defaultBlockFaces,
   }),
   new Block({
+    id: makeBlockId('block:redstone_lamp'),
+    type: 'REDSTONE_LAMP',
+    // Vanilla lamp hardness 0.3 -> soft; unlit emits nothing.
+    properties: { hardness: 10, transparency: false, solid: true, emissive: false, friction: 0.6 },
+    faces: defaultBlockFaces,
+  }),
+  new Block({
+    id: makeBlockId('block:redstone_lamp_lit'),
+    type: 'REDSTONE_LAMP_LIT',
+    // Lit state emits the default max light level (15), matching vanilla.
+    properties: { hardness: 10, transparency: false, solid: true, emissive: true, friction: 0.6 },
+    faces: defaultBlockFaces,
+  }),
+  new Block({
     id: makeBlockId('block:bed'),
     type: 'BED',
     // Bed is walkable but not solid — partial-height block; non-solid lets player walk over it.

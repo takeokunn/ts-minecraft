@@ -29,8 +29,8 @@ describe('block-codec', () => {
       expect(INDEX_TO_BLOCK_TYPE.length).toBe(new Set(INDEX_TO_BLOCK_TYPE).size)
     })
 
-    it('has exactly 99 entries (world-placeable blocks including potato crop, rail, and piston)', () => {
-      expect(INDEX_TO_BLOCK_TYPE.length).toBe(99)
+    it('has exactly 101 entries (world-placeable blocks including potato crop, rail, piston, and redstone lamp states)', () => {
+      expect(INDEX_TO_BLOCK_TYPE.length).toBe(101)
     })
 
     it('PLANKS is at index 40', () => {
@@ -51,6 +51,11 @@ describe('block-codec', () => {
 
     it('POTATO_CROP is at index 48', () => {
       expect(INDEX_TO_BLOCK_TYPE[48]).toBe('POTATO_CROP')
+    })
+
+    it('REDSTONE_LAMP block states are appended at indices 99-100', () => {
+      expect(INDEX_TO_BLOCK_TYPE[99]).toBe('REDSTONE_LAMP')
+      expect(INDEX_TO_BLOCK_TYPE[100]).toBe('REDSTONE_LAMP_LIT')
     })
 
     it('REDSTONE_WIRE is at index 49', () => {

@@ -118,6 +118,15 @@ export const BASIC_MISC_RECIPES: ReadonlyArray<Recipe> = [
     output: { itemType: 'GLOWSTONE', count: 1 },
   }),
   new Recipe({
+    id: RecipeId.make('glowstone-and-redstone-to-lamp'),
+    station: 'inventory',
+    ingredients: [
+      new RecipeIngredient({ itemType: 'GLOWSTONE', count: 1 }),
+      new RecipeIngredient({ itemType: 'REDSTONE_DUST', count: 4 }),
+    ],
+    output: { itemType: 'REDSTONE_LAMP', count: 1 },
+  }),
+  new Recipe({
     id: RecipeId.make('coal-and-stick-to-torches'),
     station: 'inventory',
     ingredients: [

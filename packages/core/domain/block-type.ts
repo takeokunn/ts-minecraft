@@ -56,6 +56,8 @@ export const BlockTypeSchema = Schema.Literal(
   'LEVER',
   'STONE_BUTTON',
   'REPEATER',
+  'REDSTONE_LAMP',
+  'REDSTONE_LAMP_LIT',
   'PISTON',
   // Furniture / utility
   'BED',

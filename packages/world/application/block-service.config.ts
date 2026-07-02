@@ -153,6 +153,8 @@ export const INVENTORY_DROP_OVERRIDES: HashMap.HashMap<BlockType, InventoryItem>
   ['EMERALD_ORE', 'EMERALD'],
   ['DEEPSLATE_EMERALD_ORE', 'EMERALD'],
   ['GLOWSTONE', 'GLOWSTONE_DUST'],
+  // Lit is a transient powered state; both states drop the placeable lamp item.
+  ['REDSTONE_LAMP_LIT', 'REDSTONE_LAMP'],
   ['COBWEB', 'STRING'],
   ['GRASS', 'DIRT'],
   ['FARMLAND', 'DIRT'],

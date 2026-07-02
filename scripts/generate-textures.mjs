@@ -1600,8 +1600,48 @@ saveTile(115, 'potato-crop', (ctx) => {
   ctx.fillRect(23, 27, 4, 2)
 })
 
+// 116: redstone lamp (off) — dark ochre block with an unlit grid core
+saveTile(116, 'redstone-lamp', (ctx) => {
+  ctx.fillStyle = '#5a3d1e'
+  ctx.fillRect(0, 0, TILE_PX, TILE_PX)
+  // border frame
+  ctx.fillStyle = '#3d2a14'
+  ctx.fillRect(0, 0, TILE_PX, 3)
+  ctx.fillRect(0, TILE_PX - 3, TILE_PX, 3)
+  ctx.fillRect(0, 0, 3, TILE_PX)
+  ctx.fillRect(TILE_PX - 3, 0, 3, TILE_PX)
+  // unlit lattice core
+  ctx.fillStyle = '#7a5526'
+  for (const [x, y] of [[6, 6], [17, 6], [6, 17], [17, 17]]) {
+    ctx.fillRect(x, y, 9, 9)
+  }
+  ctx.fillStyle = '#4a3319'
+  ctx.fillRect(14, 4, 4, 24)
+  ctx.fillRect(4, 14, 24, 4)
+})
+
+// 117: redstone lamp (lit) — same frame, glowing amber core
+saveTile(117, 'redstone-lamp-lit', (ctx) => {
+  ctx.fillStyle = '#c98a2d'
+  ctx.fillRect(0, 0, TILE_PX, TILE_PX)
+  ctx.fillStyle = '#5a3d1e'
+  ctx.fillRect(0, 0, TILE_PX, 3)
+  ctx.fillRect(0, TILE_PX - 3, TILE_PX, 3)
+  ctx.fillRect(0, 0, 3, TILE_PX)
+  ctx.fillRect(TILE_PX - 3, 0, 3, TILE_PX)
+  ctx.fillStyle = '#f7c65a'
+  for (const [x, y] of [[6, 6], [17, 6], [6, 17], [17, 17]]) {
+    ctx.fillRect(x, y, 9, 9)
+  }
+  ctx.fillStyle = '#ffe9a8'
+  ctx.fillRect(12, 12, 8, 8)
+  ctx.fillStyle = '#a86d24'
+  ctx.fillRect(14, 4, 4, 24)
+  ctx.fillRect(4, 14, 24, 4)
+})
+
 // Save combined atlas (single file loaded by chunk-mesh.ts at runtime).
 writeFileSync(join(OUTPUT_DIR, 'atlas.png'), atlasCanvas.toBuffer('image/png'))
-console.log(`  ✓ atlas.png (512×512, all 116 tiles combined)`)
+console.log(`  ✓ atlas.png (512×512, all 118 tiles combined)`)
 
-console.log(`\nDone - 116 individual tiles + atlas.png written to ${OUTPUT_DIR}`)
+console.log(`\nDone - 118 individual tiles + atlas.png written to ${OUTPUT_DIR}`)

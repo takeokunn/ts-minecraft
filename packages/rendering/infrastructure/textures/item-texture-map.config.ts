@@ -92,6 +92,8 @@ export const ITEM_TILE_MAP: Readonly<Record<InventoryItem, number>> = {
   WATER_CAULDRON: 35,
   RAIL: 35,
   PISTON: 35,
+  REDSTONE_LAMP: 116,
+  REDSTONE_LAMP_LIT: 117,
 
   // ItemTypes
   STICKS: 48,

@@ -166,6 +166,9 @@ export const handleRightClick = (
     if (item === 'PRESSURE_PLATE') {
       yield* services.redstoneService.setComponent(adjacentPos, RedstoneComponentType.PressurePlate)
     }
+    if (item === 'REDSTONE_LAMP') {
+      yield* services.redstoneService.setComponent(adjacentPos, RedstoneComponentType.Lamp)
+    }
     yield* services.soundManager.playEffect('blockPlace', { position: adjacentPos })
     // FR-3: broadcast the placement to other players (no-op offline).
     yield* (Option.getOrNull(services.multiplayer)?.sendBlockPlace(adjacentPos, item)) ?? Effect.void
