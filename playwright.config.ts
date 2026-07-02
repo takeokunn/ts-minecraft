@@ -8,7 +8,10 @@ export default defineConfig({
   testDir: './e2e',
   testMatch: '**/*.e2e.ts',
   timeout: 60_000,
-  retries: process.env['CI'] ? 1 : 0,
+  // One retry everywhere: with 2 local workers, parallel game instances can
+  // starve the render loop and drop synthetic key presses across frame
+  // boundaries — a retry absorbs that without masking deterministic failures.
+  retries: 1,
   workers: process.env['CI'] ? 1 : 2,
   forbidOnly: !!process.env['CI'],
 

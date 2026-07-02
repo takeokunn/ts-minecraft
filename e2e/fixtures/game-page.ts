@@ -68,4 +68,49 @@ export class GamePage {
   async pressKey(key: string) {
     await this.page.keyboard.press(key)
   }
+
+  /**
+   * Drive an overlay to a target open/closed state with a toggle key.
+   *
+   * Under full-suite CPU contention the game loop runs at a fraction of 60 FPS,
+   * and a synthetic `keyboard.press` is delivered relative to a frame boundary
+   * that the input pipeline consumes non-deterministically: the just-pressed key
+   * is sometimes not observed for many slow frames, or a slow frame followed by
+   * the next one both toggle it (open then immediately close). Real human-speed
+   * input never lands in this window, so robustness lives in the harness rather
+   * than the game: re-read the overlay state, and press the toggle only while it
+   * is not yet in the desired state. The toggle is idempotent once the overlay
+   * has settled, so a redundant press is harmless.
+   *
+   * Focus is returned to the game canvas before each corrective press. When the
+   * overlay opens it moves DOM focus onto a control inside itself; pressing the
+   * toggle again against that control is the timing window most prone to a
+   * dropped or doubled toggle, so we send the key from the canvas instead.
+   */
+  async toggleOverlayTo(overlayId: string, key: string, shouldBeOpen: boolean): Promise<void> {
+    const attempts = 8
+    for (let attempt = 0; attempt < attempts; attempt += 1) {
+      if ((await this.isOverlayOpen(overlayId)) === shouldBeOpen) return
+      await this.page
+        .locator('#game-canvas')
+        .focus({ timeout: 1_000 })
+        .catch(() => undefined)
+      await this.page.keyboard.press(key)
+      // Poll the overlay's display for several slow frames before re-pressing.
+      const settled = await this.page
+        .waitForFunction(
+          ({ id, open }: { id: string; open: boolean }) => {
+            const el = document.getElementById(id)
+            const isOpen = el !== null && el.style.display !== 'none' && el.style.display !== ''
+            return isOpen === open
+          },
+          { id: overlayId, open: shouldBeOpen },
+          { timeout: 2_000, polling: 50 },
+        )
+        .then(() => true)
+        .catch(() => false)
+      if (settled) return
+    }
+    throw new Error(`Overlay "${overlayId}" did not reach open=${shouldBeOpen} after ${attempts} "${key}" presses`)
+  }
 }

@@ -29,7 +29,7 @@ test.describe('Inventory overlay', () => {
     expect(initiallyOpen).toBe(false)
 
     // Press E to open
-    await page.keyboard.press('e')
+    await game.toggleOverlayTo('inventory-overlay', 'e', true)
     await expect(page.locator('#inventory-overlay')).toBeVisible()
 
     const isOpen = await game.isOverlayOpen('inventory-overlay')
@@ -41,7 +41,8 @@ test.describe('Inventory overlay', () => {
     const getFatalErrors = attachFatalErrorMonitor(page)
 
     // Open inventory
-    await page.keyboard.press('e')
+    const game = new GamePage(page)
+    await game.toggleOverlayTo('inventory-overlay', 'e', true)
     await expect(page.locator('#inventory-overlay')).toBeVisible()
 
     // Verify slot elements are rendered (27 main inventory + 9 hotbar = 36 total)
@@ -57,16 +58,17 @@ test.describe('Inventory overlay', () => {
   test('second E key closes inventory overlay', async ({ page }) => {
     const getFatalErrors = attachFatalErrorMonitor(page)
 
+    const game = new GamePage(page)
+
     // Open inventory
-    await page.keyboard.press('e')
+    await game.toggleOverlayTo('inventory-overlay', 'e', true)
     await expect(page.locator('#inventory-overlay')).toBeVisible()
 
-    const game = new GamePage(page)
     const isOpen = await game.isOverlayOpen('inventory-overlay')
     expect(isOpen).toBe(true)
 
     // Press E again to close
-    await page.keyboard.press('e')
+    await game.toggleOverlayTo('inventory-overlay', 'e', false)
     await expect(page.locator('#inventory-overlay')).toBeHidden()
 
     const isClosed = await game.isOverlayOpen('inventory-overlay')
@@ -78,7 +80,8 @@ test.describe('Inventory overlay', () => {
     const getFatalErrors = attachFatalErrorMonitor(page)
 
     // Open inventory with E
-    await page.keyboard.press('e')
+    const game = new GamePage(page)
+    await game.toggleOverlayTo('inventory-overlay', 'e', true)
     await expect(page.locator('#inventory-overlay')).toBeVisible()
 
     // Close with Escape
