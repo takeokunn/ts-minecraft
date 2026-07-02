@@ -286,7 +286,7 @@ export class InventoryRendererService extends Effect.Service<InventoryRendererSe
             if (chestContainer !== null) chestContainer.style.display = chest === null ? 'none' : 'block'
             renderSlotElements(chestSlotEls, chest?.slots ?? [], -1)
             renderSlotElements(slotEls, allSlots, selectedHotbarIdx)
-            renderRecipeBook(dom, recipeBookEl, allRecipes, recipeBookQuery)
+            renderRecipeBook(dom, recipeBookEl, allRecipes, recipeBookQuery, new Set(craftableRecipes.map((recipe) => recipe.id)))
             renderCraftingPreview(dom, craftingPreviewEl, craftableRecipes, selectedRecipeIndex)
             renderCraftingList(dom, craftingListEl, craftableRecipes, selectedRecipeIndex)
             renderStatusEl(statusEl, statusMessage)

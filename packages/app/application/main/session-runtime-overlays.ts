@@ -50,11 +50,19 @@ const normalizeConnectionRequest = (request: ConnectionRequest) => ({
   playerName: request.playerName.trim(),
 })
 
+export type ConnectionTimeSync = {
+  // Read the local clock (fraction of a day) to offer as the session time.
+  readonly getTimeOfDay: () => Effect.Effect<number, never>
+  // Adopt the session-authoritative time echoed back by the server.
+  readonly setTimeOfDay: (fraction: number) => Effect.Effect<void, never>
+}
+
 export const connectFromConnectionPanel = (
   panel: ConnectionPanel,
   multiplayer: MultiplayerService,
   request: ConnectionRequest,
   adoptHostWorld?: (hostSeed: number) => Effect.Effect<void, never>,
+  timeSync?: ConnectionTimeSync,
 ): Effect.Effect<void, never> =>
   Effect.gen(function* () {
     const { serverUrl, playerName } = normalizeConnectionRequest(request)
@@ -66,7 +74,8 @@ export const connectFromConnectionPanel = (
     }
 
     yield* panel.setStatus(`Connecting to ${serverUrl}...`)
-    yield* multiplayer.connect(serverUrl, PlayerName.make(playerName))
+    const localTimeOfDay = timeSync === undefined ? undefined : yield* timeSync.getTimeOfDay()
+    yield* multiplayer.connect(serverUrl, PlayerName.make(playerName), localTimeOfDay)
 
     const state = yield* multiplayer.getConnectionState()
     const connected = state === 'connected'
@@ -80,6 +89,12 @@ export const connectFromConnectionPanel = (
     // The server echoes the session's authoritative terrain seed (the first
     // joiner's) right after the join ack; give it a moment to arrive.
     yield* Effect.sleep(Duration.millis(300))
+    // Day/night sync: adopt the session's authoritative clock (first joiner's)
+    // so all players share the same time of day.
+    if (timeSync !== undefined) {
+      const hostTime = yield* multiplayer.getHostTimeOfDay()
+      if (hostTime !== null) yield* timeSync.setTimeOfDay(hostTime)
+    }
     const seeds = yield* multiplayer.getWorldSeedInfo()
     const seedMismatch = seeds.local !== null && seeds.host !== null && seeds.local !== seeds.host
     if (!seedMismatch) {
@@ -116,6 +131,7 @@ export const installMultiplayerConnectionPanel = (
   multiplayer: MultiplayerService,
   pauseMenu: { readonly isOpen: () => Effect.Effect<boolean, never> },
   adoptHostWorld?: (hostSeed: number) => Effect.Effect<void, never>,
+  timeSync?: ConnectionTimeSync,
 ): Effect.Effect<void, never, Scope.Scope> =>
   Effect.gen(function* () {
     // The connect UI must not float over gameplay — it rides the pause menu
@@ -135,7 +151,7 @@ export const installMultiplayerConnectionPanel = (
       Effect.forkScoped,
     )
     yield* Stream.runForEach(panel.onConnect, (request) =>
-      connectFromConnectionPanel(panel, multiplayer, request, adoptHostWorld),
+      connectFromConnectionPanel(panel, multiplayer, request, adoptHostWorld, timeSync),
     ).pipe(Effect.forkScoped)
     yield* Stream.runForEach(panel.onDisconnect, () =>
       disconnectFromConnectionPanel(panel, multiplayer),
@@ -286,7 +302,10 @@ export const installSessionRuntimeOverlays = (
     })
 
     if (Option.isSome(services.multiplayer)) {
-      yield* installMultiplayerConnectionPanel(connectionPanel, services.multiplayer.value, pauseMenu, adoptHostWorld)
+      yield* installMultiplayerConnectionPanel(connectionPanel, services.multiplayer.value, pauseMenu, adoptHostWorld, {
+        getTimeOfDay: () => timeService.getTimeOfDay(),
+        setTimeOfDay: (fraction) => timeService.setTimeOfDay(fraction),
+      })
       yield* installMultiplayerChatPanel(chatPanel, services.multiplayer.value)
       yield* installMultiplayerPlayerListPanel(playerListPanel, services.multiplayer.value)
     }

@@ -1,5 +1,5 @@
 import { describe, it } from '@effect/vitest'
-import { Effect, Either, Queue, Ref } from 'effect'
+import { Effect, Either, Ref } from 'effect'
 import { expect } from 'vitest'
 import { decodeNetworkMessage, encodeNetworkMessage } from '../application/codec'
 import { dispatchMessage, handleBlockBreak, handleBlockPlace, handlePlayerJoin, handlePlayerLeave, handlePlayerMove, makeJoinMessage } from '../application/server-handlers'
@@ -47,16 +47,12 @@ const connectedPlayer = (
   playerId: PlayerId,
   playerName: string,
 ): Effect.Effect<ConnectedPlayer, never> =>
-  Effect.gen(function* () {
-    const sendQueue = yield* Queue.unbounded<ArrayBuffer>()
-    return {
-      playerId,
-      playerName: PlayerName.make(playerName),
-      worldId,
-      position: { x: 0, y: 64, z: 0 },
-      rotation: { yaw: 0, pitch: 0 },
-      sendQueue,
-    }
+  Effect.succeed({
+    playerId,
+    playerName: PlayerName.make(playerName),
+    worldId,
+    position: { x: 0, y: 64, z: 0 },
+    rotation: { yaw: 0, pitch: 0 },
   })
 
 describe('makeJoinMessage', () => {
@@ -191,6 +187,68 @@ describe('server handler dispatch', () => {
       }
       // The session seed must not be overwritten by the second joiner.
       expect(yield* Ref.get(harness.gameServer.worldSeed)).toBe(111)
+    }),
+  )
+
+  it.effect('adopts the first joiner\'s time of day and echoes it via WorldInfo', () =>
+    Effect.gen(function* () {
+      const harness = yield* makeHarness()
+      const pair = yield* makePair()
+
+      yield* handlePlayerJoin(
+        harness,
+        {
+          type: MessageType.PlayerJoin,
+          playerId: PlayerId.make('pending'),
+          playerName: PlayerName.make('Steve'),
+          worldId,
+          position: { x: 0, y: 64, z: 0 },
+          timestamp: 1,
+          worldSeed: 12345,
+          timeOfDay: 0.42,
+        },
+        pair.connection,
+      )
+
+      yield* takeMessage(pair) // assigned join
+      const worldInfo = yield* takeMessage(pair)
+      expect(worldInfo.type).toBe(MessageType.WorldInfo)
+      if (worldInfo.type === MessageType.WorldInfo) {
+        expect(worldInfo.timeOfDay).toBe(0.42)
+      }
+      expect(yield* Ref.get(harness.gameServer.timeOfDay)).toBe(0.42)
+    }),
+  )
+
+  it.effect('sends the session time (not the joiner\'s) to later joiners', () =>
+    Effect.gen(function* () {
+      const harness = yield* makeHarness()
+      yield* Ref.set(harness.gameServer.worldSeed, 111)
+      yield* Ref.set(harness.gameServer.timeOfDay, 0.5)
+      const pair = yield* makePair()
+
+      yield* handlePlayerJoin(
+        harness,
+        {
+          type: MessageType.PlayerJoin,
+          playerId: PlayerId.make('pending'),
+          playerName: PlayerName.make('Alex'),
+          worldId,
+          position: { x: 0, y: 64, z: 0 },
+          timestamp: 1,
+          worldSeed: 222,
+          timeOfDay: 0.9,
+        },
+        pair.connection,
+      )
+
+      yield* takeMessage(pair) // assigned join
+      const worldInfo = yield* takeMessage(pair)
+      expect(worldInfo.type).toBe(MessageType.WorldInfo)
+      if (worldInfo.type === MessageType.WorldInfo) {
+        expect(worldInfo.timeOfDay).toBe(0.5)
+      }
+      expect(yield* Ref.get(harness.gameServer.timeOfDay)).toBe(0.5)
     }),
   )
 

@@ -51,7 +51,7 @@ type LocalPlayerIdentity = {
 export type MultiplayerSessionState = ConnectionState | 'joining' | 'ready'
 
 export type MultiplayerService = {
-  readonly connect: (serverUrl: string, playerName: PlayerName) => Effect.Effect<void, never>
+  readonly connect: (serverUrl: string, playerName: PlayerName, localTimeOfDay?: number) => Effect.Effect<void, never>
   // Terrain-seed handshake: the session records the local world's seed before
   // connecting; the server echoes the authoritative (first joiner's) seed back.
   readonly setLocalWorldSeed: (seed: number) => Effect.Effect<void, never>
@@ -59,6 +59,9 @@ export type MultiplayerService = {
     { readonly local: number | null; readonly host: number | null },
     never
   >
+  // Session-authoritative time of day echoed by the server (null until the
+  // WorldInfo handshake lands or when the host predates time sync).
+  readonly getHostTimeOfDay: () => Effect.Effect<number | null, never>
   readonly disconnect: Effect.Effect<void, never>
   readonly getConnectionState: () => Effect.Effect<ConnectionState, never>
   readonly getSessionState: () => Effect.Effect<MultiplayerSessionState, never>
@@ -100,6 +103,7 @@ const processInbound = (
   playerNameRef: Ref.Ref<Option.Option<PlayerName>>,
   localPlayerRef: Ref.Ref<Option.Option<LocalPlayerIdentity>>,
   hostWorldSeedRef: Ref.Ref<number | null>,
+  hostTimeOfDayRef: Ref.Ref<number | null>,
   onLocalPlayerReady: (identity: LocalPlayerIdentity) => Effect.Effect<void, never>,
 ): Effect.Effect<void, never> => {
   switch (msg.type) {
@@ -228,7 +232,9 @@ const processInbound = (
       })
     }
     case MessageType.WorldInfo:
-      return Ref.set(hostWorldSeedRef, msg.worldSeed)
+      return Ref.set(hostWorldSeedRef, msg.worldSeed).pipe(
+        Effect.zipRight(Ref.set(hostTimeOfDayRef, msg.timeOfDay ?? null)),
+      )
     default:
       return Effect.void
   }
@@ -249,6 +255,7 @@ export const MultiplayerServiceImpl = (
     const pendingChatRef = yield* Ref.make<ReadonlyArray<string>>([])
     const localWorldSeedRef = yield* Ref.make<number | null>(null)
     const hostWorldSeedRef = yield* Ref.make<number | null>(null)
+    const hostTimeOfDayRef = yield* Ref.make<number | null>(null)
     const drainFiberRef = yield* Ref.make<Option.Option<Fiber.RuntimeFiber<void, never>>>(
       Option.none(),
     )
@@ -261,6 +268,7 @@ export const MultiplayerServiceImpl = (
       yield* Ref.set(localPlayerRef, Option.none())
       yield* Ref.set(pendingChatRef, [])
       yield* Ref.set(hostWorldSeedRef, null)
+      yield* Ref.set(hostTimeOfDayRef, null)
     })
 
     const getClientConnectionState = (): Effect.Effect<ConnectionState, never> =>
@@ -304,6 +312,7 @@ export const MultiplayerServiceImpl = (
               playerNameRef,
               localPlayerRef,
               hostWorldSeedRef,
+              hostTimeOfDayRef,
               flushPendingChat,
             ),
           )
@@ -347,12 +356,12 @@ export const MultiplayerServiceImpl = (
       ({ x: Math.floor(pos.x), y: Math.floor(pos.y), z: Math.floor(pos.z) }) as Vec3
 
     const service: MultiplayerService = {
-      connect: (serverUrl, playerName) =>
+      connect: (serverUrl, playerName, localTimeOfDay) =>
         Effect.gen(function* () {
           yield* stopDrain
           yield* resetSessionState
           const localSeed = yield* Ref.get(localWorldSeedRef)
-          const connected = yield* client.connect(serverUrl, playerName, localSeed ?? undefined).pipe(
+          const connected = yield* client.connect(serverUrl, playerName, localSeed ?? undefined, localTimeOfDay).pipe(
             Effect.as(true),
             Effect.catchAll((e) =>
               Effect.logWarning(`Multiplayer connect failed: ${String(e)}`).pipe(Effect.as(false)),
@@ -367,6 +376,8 @@ export const MultiplayerServiceImpl = (
         }),
 
       setLocalWorldSeed: (seed) => Ref.set(localWorldSeedRef, seed),
+
+      getHostTimeOfDay: () => Ref.get(hostTimeOfDayRef),
 
       getWorldSeedInfo: () =>
         Effect.gen(function* () {

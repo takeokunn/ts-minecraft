@@ -123,9 +123,17 @@ export const buildHandleDelegatedClick = (deps: ClickHandlerDeps) =>
             yield* performRecipe(RecipeId.make(recipeId), hasTableAccess, hasFurnaceAccess, hasBrewingAccess)
             yield* Ref.set(statusMessageRef, 'Crafted successfully.')
           }).pipe(
-            Effect.catchAll((error) =>
-              Ref.set(statusMessageRef, error instanceof Error ? error.message : 'Crafting failed.'),
-            ),
+            Effect.catchAll((error) => {
+              // RecipeError.message reads "Recipe error [craft]: Not enough
+              // materials" — surface just the human part to the player.
+              const cause = (error as { readonly cause?: unknown }).cause
+              const reason = typeof cause === 'string'
+                ? cause
+                : error instanceof Error && error.message.length > 0
+                  ? error.message
+                  : 'Crafting failed.'
+              return Ref.set(statusMessageRef, `Cannot craft: ${reason}`)
+            }),
           )
           yield* refreshSlots()
         }).pipe(

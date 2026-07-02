@@ -210,4 +210,37 @@ describe('presentation/inventory/inventory-renderer-refresh', () => {
     expect(container.childrenList).toHaveLength(1)
     expect((container.childrenList[0] as HTMLButtonElement).dataset['recipeId']).toBe('wooden-sword')
   })
+
+  it('dims recipes that are not currently craftable and hints at missing materials', () => {
+    const dom = makeDom()
+    const container = makeContainerElement()
+    const recipes: ReadonlyArray<Recipe> = [
+      {
+        id: 'wooden-sword',
+        station: 'crafting_table',
+        ingredients: [
+          { itemType: 'PLANKS', count: 2 },
+          { itemType: 'STICK', count: 1 },
+        ],
+        output: { itemType: 'WOODEN_SWORD', count: 1 },
+      },
+      {
+        id: 'iron-ingot',
+        station: 'furnace',
+        ingredients: [
+          { itemType: 'RAW_IRON', count: 1 },
+        ],
+        output: { itemType: 'IRON_INGOT', count: 1 },
+      },
+    ]
+
+    renderRecipeBook(dom as never, Option.some(container), recipes, '', new Set(['iron-ingot']))
+
+    const dimmed = container.childrenList[0] as HTMLButtonElement
+    const craftable = container.childrenList[1] as HTMLButtonElement
+    expect(dimmed.style.cssText).toContain('opacity:0.45')
+    expect(dimmed.title).toBe('Missing materials')
+    expect(craftable.style.cssText).not.toContain('opacity:0.45')
+    expect(craftable.title ?? '').toBe('')
+  })
 })

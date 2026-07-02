@@ -1,4 +1,4 @@
-import { Effect, Queue, Ref } from 'effect'
+import { Effect, Ref } from 'effect'
 import { NetworkError } from '../domain/errors'
 import { MessageType, PlayerId, WorldId } from '../domain/schemas'
 import type { BlockBreakMessage, BlockPlaceMessage, ChatMessage, EntitySnapshotMessage, NetworkMessage, PlayerJoinMessage, PlayerMoveMessage } from '../domain/schemas'
@@ -48,14 +48,12 @@ export const handlePlayerJoin = (
     }
 
     const playerId = nextPlayerId()
-    const sendQueue = yield* Queue.unbounded<ArrayBuffer>()
     const connectedPlayer: ConnectedPlayer = {
       playerId,
       playerName: message.playerName,
       worldId: message.worldId,
       position: message.position,
       rotation: defaultRotation,
-      sendQueue,
     }
 
     yield* Ref.update(services.gameServer.connectedPlayers, (players) => new Map(players).set(playerId, connectedPlayer))
@@ -70,10 +68,16 @@ export const handlePlayerJoin = (
     const sessionSeed = yield* Ref.updateAndGet(services.gameServer.worldSeed, (current) =>
       current !== null ? current : (message.worldSeed ?? null),
     )
+    // Likewise the first joiner's clock becomes the session's time of day, so
+    // every client sees the same day/night phase.
+    const sessionTimeOfDay = yield* Ref.updateAndGet(services.gameServer.timeOfDay, (current) =>
+      current !== null ? current : (message.timeOfDay ?? null),
+    )
     if (sessionSeed !== null) {
       yield* sendEncodedToConnection(connection, {
         type: MessageType.WorldInfo,
         worldSeed: sessionSeed,
+        ...(sessionTimeOfDay !== null ? { timeOfDay: sessionTimeOfDay } : {}),
         timestamp: Date.now(),
       })
     }

@@ -135,6 +135,13 @@ export class MainMenuService extends Effect.Service<MainMenuService>()(
           }),
       )
 
+      // The floating settings gear duplicates the menu's own Options... entry
+      // while the main menu is open — hide it there, restore it for gameplay.
+      const setSettingsGearVisible = (visible: boolean): void => {
+        const gear = document.getElementById('settings-gear-btn')
+        if (gear !== null) gear.style.display = visible ? '' : 'none'
+      }
+
       return {
         show: (): Effect.Effect<MainMenuChoice, never> =>
           Effect.gen(function* () {
@@ -143,6 +150,7 @@ export class MainMenuService extends Effect.Service<MainMenuService>()(
               MutableRef.set(refs.activeDeferredRef, Option.some(deferred))
               setSubState('root')
               overlay.style.display = 'flex'
+              setSettingsGearVisible(false)
               // Attach Esc listener for the duration of the show.
               Option.map(MutableRef.get(refs.escHandlerRef), (handler) => window.removeEventListener('keydown', handler))
               MutableRef.set(refs.escHandlerRef, Option.some(onEsc))
@@ -159,6 +167,7 @@ export class MainMenuService extends Effect.Service<MainMenuService>()(
         hide: (): Effect.Effect<void, never> =>
           Effect.sync(() => {
             overlay.style.display = 'none'
+            setSettingsGearVisible(true)
             Option.map(MutableRef.get(refs.escHandlerRef), (handler) => {
               window.removeEventListener('keydown', handler)
             })

@@ -1,4 +1,4 @@
-import { Context, Effect, Fiber, Layer, Option, Queue, Ref, Stream } from 'effect'
+import { Context, Effect, Fiber, Layer, Option, Ref, Stream } from 'effect'
 import { NetworkError } from '../domain/errors'
 import { MessageType, PlayerId, type BlockBreakMessage, type BlockPlaceMessage, type NetworkMessage, type NetworkRotation, type PlayerName, type Vec3, type WorldId } from '../domain/schemas'
 import type { WebSocketConnection, WebSocketServerHandle, WebSocketServerPort } from '../domain/websocket-ports'
@@ -13,7 +13,6 @@ export type ConnectedPlayer = {
   readonly worldId: WorldId
   readonly position: Vec3
   readonly rotation: NetworkRotation
-  readonly sendQueue: Queue.Queue<ArrayBuffer>
 }
 
 export type GameServer = {
@@ -23,6 +22,9 @@ export type GameServer = {
   // Authoritative terrain seed for the session: the first joiner's seed.
   // null until a client that knows its seed joins.
   readonly worldSeed: Ref.Ref<number | null>
+  // Authoritative time of day for the session: the first joiner's clock,
+  // echoed to every later joiner via WorldInfo so day/night matches.
+  readonly timeOfDay: Ref.Ref<number | null>
   // Last block edit per voxel (last-write-wins), replayed to late joiners so
   // their world converges with everyone else's edits.
   readonly blockEdits: Ref.Ref<Map<string, BlockPlaceMessage | BlockBreakMessage>>
@@ -49,8 +51,9 @@ export const makeGameServer = (maxPlayers = 20): Effect.Effect<GameServer, never
     const connectionsByPlayerId = yield* Ref.make(new Map<PlayerId, WebSocketConnection>())
     const playerIdByConnectionId = yield* Ref.make(new Map<string, PlayerId>())
     const worldSeed = yield* Ref.make<number | null>(null)
+    const timeOfDay = yield* Ref.make<number | null>(null)
     const blockEdits = yield* Ref.make(new Map<string, BlockPlaceMessage | BlockBreakMessage>())
-    return { connectedPlayers, connectionsByPlayerId, playerIdByConnectionId, worldSeed, blockEdits, maxPlayers }
+    return { connectedPlayers, connectionsByPlayerId, playerIdByConnectionId, worldSeed, timeOfDay, blockEdits, maxPlayers }
   })
 
 const wireConnection = (

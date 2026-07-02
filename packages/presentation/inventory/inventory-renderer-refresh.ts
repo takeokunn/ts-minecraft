@@ -185,6 +185,7 @@ export const renderRecipeBook = (
   recipeBookEl: Option.Option<HTMLDivElement>,
   recipes: ReadonlyArray<Recipe>,
   searchQuery: string,
+  craftableRecipeIds?: ReadonlySet<string>,
 ): void => {
   Option.map(recipeBookEl, (container) => {
     container.innerHTML = ''
@@ -211,11 +212,16 @@ export const renderRecipeBook = (
       const dataRow = row as HTMLButtonElement & { dataset?: Record<string, string> }
       dataRow.dataset ??= {}
       dataRow.dataset['recipeId'] = recipe.id
+      // Dim recipes the player cannot craft right now so the book doubles as
+      // a "what am I missing" view; clicking one still reports the shortfall.
+      const isCraftable = craftableRecipeIds === undefined || craftableRecipeIds.has(recipe.id)
       row.style.cssText = [
         RECIPE_ROW_BASE_STYLE,
         'border:1px solid ' + RECIPE_ROW_DEFAULT_BORDER,
         'background:' + RECIPE_ROW_DEFAULT_BG,
+        ...(isCraftable ? [] : ['opacity:0.45']),
       ].join(';')
+      if (!isCraftable) row.title = 'Missing materials'
       const stationLabel = recipe.station === 'crafting_table'
         ? ' [Crafting Table]'
         : recipe.station === 'furnace'

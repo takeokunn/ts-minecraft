@@ -89,6 +89,9 @@ export const PlayerJoinMessageSchema = Schema.Struct({
   // back-compat; the server adopts the first joiner's seed as the session's
   // authoritative seed and echoes it back via WorldInfo.
   worldSeed: Schema.optional(Schema.Number),
+  // The joiner's current time of day [0,1); the first joiner's clock becomes
+  // the session's authoritative time (echoed back via WorldInfo).
+  timeOfDay: Schema.optional(Schema.Number),
 })
 export type PlayerJoinMessage = Schema.Schema.Type<typeof PlayerJoinMessageSchema>
 
@@ -157,6 +160,8 @@ export type ChatMessage = Schema.Schema.Type<typeof ChatMessageSchema>
 export const WorldInfoMessageSchema = Schema.Struct({
   type: Schema.Literal(MessageType.WorldInfo),
   worldSeed: Schema.Number,
+  // Session-authoritative time of day [0,1); absent on pre-time-sync servers.
+  timeOfDay: Schema.optional(Schema.Number),
   timestamp: TimestampSchema,
 })
 export type WorldInfoMessage = Schema.Schema.Type<typeof WorldInfoMessageSchema>

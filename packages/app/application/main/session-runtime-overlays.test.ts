@@ -377,7 +377,7 @@ describe('installSessionRuntimeOverlays', () => {
       }),
     )
 
-    expect(multiplayer.connect).toHaveBeenCalledWith('ws://localhost:8080', 'Alex')
+    expect(multiplayer.connect).toHaveBeenCalledWith('ws://localhost:8080', 'Alex', undefined)
     expect(multiplayer.getConnectionState).toHaveBeenCalledOnce()
     expect(panelFixture.connectedStates).toEqual([true])
     expect(panelFixture.statuses).toEqual([

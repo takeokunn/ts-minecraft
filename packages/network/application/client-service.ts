@@ -7,7 +7,7 @@ import { decodeNetworkMessage, encodeNetworkMessage } from './codec'
 export type ConnectionState = 'idle' | 'connecting' | 'connected' | 'reconnecting' | 'disconnected' | 'failed'
 
 export type ClientServiceShape = {
-  readonly connect: (serverUrl: string, playerName: PlayerName, worldSeed?: number) => Effect.Effect<void, NetworkError>
+  readonly connect: (serverUrl: string, playerName: PlayerName, worldSeed?: number, timeOfDay?: number) => Effect.Effect<void, NetworkError>
   readonly disconnect: () => Effect.Effect<void, never>
   readonly getConnectionState: () => Effect.Effect<ConnectionState, never>
   readonly sendMessage: (message: NetworkMessage) => Effect.Effect<void, NetworkError>
@@ -16,7 +16,7 @@ export type ClientServiceShape = {
 
 export const ClientService = Context.GenericTag<ClientServiceShape>('@minecraft/network/ClientService')
 
-const makeInitialJoin = (playerName: PlayerName, worldSeed?: number): NetworkMessage => ({
+const makeInitialJoin = (playerName: PlayerName, worldSeed?: number, timeOfDay?: number): NetworkMessage => ({
   type: MessageType.PlayerJoin,
   playerId: PlayerId.make('pending'),
   playerName,
@@ -24,6 +24,7 @@ const makeInitialJoin = (playerName: PlayerName, worldSeed?: number): NetworkMes
   position: { x: 0, y: 64, z: 0 },
   timestamp: Date.now(),
   ...(worldSeed !== undefined ? { worldSeed } : {}),
+  ...(timeOfDay !== undefined ? { timeOfDay } : {}),
 })
 
 const sendRawMessage = (
@@ -50,6 +51,7 @@ export const ClientServiceImpl = (
     const serverUrlRef = yield* Ref.make<Option.Option<string>>(Option.none())
     const playerNameRef = yield* Ref.make<Option.Option<PlayerName>>(Option.none())
     const worldSeedRef = yield* Ref.make<Option.Option<number>>(Option.none())
+    const timeOfDayRef = yield* Ref.make<Option.Option<number>>(Option.none())
     const maxReconnectAttempts = options.maxReconnectAttempts ?? 5
 
     const installHandle = (handle: WebSocketClientHandle): Effect.Effect<void, never> =>
@@ -87,10 +89,11 @@ export const ClientServiceImpl = (
         const playerNameVal = Option.getOrNull(playerName)
         if (serverUrlVal !== null && playerNameVal !== null) {
           const storedSeed = Option.getOrUndefined(yield* Ref.get(worldSeedRef))
+          const storedTimeOfDay = Option.getOrUndefined(yield* Ref.get(timeOfDayRef))
           result = yield* Effect.gen(function* () {
             const handle = yield* port.connect(serverUrlVal)
             yield* installHandle(handle)
-            yield* sendRawMessage(handle, makeInitialJoin(playerNameVal, storedSeed))
+            yield* sendRawMessage(handle, makeInitialJoin(playerNameVal, storedSeed, storedTimeOfDay))
             yield* Ref.set(stateRef, 'connected')
             yield* installWatcher(handle)
             return true
@@ -114,15 +117,16 @@ export const ClientServiceImpl = (
       })
 
     const service: ClientServiceShape = {
-      connect: (serverUrl, playerName, worldSeed) =>
+      connect: (serverUrl, playerName, worldSeed, timeOfDay) =>
         Effect.gen(function* () {
           yield* Ref.set(stateRef, 'connecting')
           yield* Ref.set(serverUrlRef, Option.some(serverUrl))
           yield* Ref.set(playerNameRef, Option.some(playerName))
           yield* Ref.set(worldSeedRef, Option.fromNullable(worldSeed))
+          yield* Ref.set(timeOfDayRef, Option.fromNullable(timeOfDay))
           const handle = yield* port.connect(serverUrl)
           yield* installHandle(handle)
-          yield* sendRawMessage(handle, makeInitialJoin(playerName, worldSeed))
+          yield* sendRawMessage(handle, makeInitialJoin(playerName, worldSeed, timeOfDay))
           yield* Ref.set(stateRef, 'connected')
           yield* installWatcher(handle)
         }).pipe(
