@@ -300,8 +300,13 @@ export class InputService extends Effect.Service<InputService>()(
       // Register all event listeners and schedule cleanup via finalizer
       if (typeof window !== 'undefined' && typeof document !== 'undefined') {
         yield* Effect.sync(() => {
-          document.addEventListener('keydown', handleKeyDown)
-          document.addEventListener('keyup', handleKeyUp)
+          // Key listeners live on `window` (bubble phase) so modal overlays
+          // (inventory/settings/pause/chat) that consume a key with
+          // stopPropagation() on `document` shield it from gameplay input.
+          // Otherwise the frame-pipeline sees the same Escape one frame after
+          // the modal already handled it and acts on stale modal state.
+          window.addEventListener('keydown', handleKeyDown)
+          window.addEventListener('keyup', handleKeyUp)
           document.addEventListener('mousemove', handleMouseMove)
           document.addEventListener('mousedown', handleMouseDown)
           document.addEventListener('mouseup', handleMouseUp)
@@ -315,8 +320,8 @@ export class InputService extends Effect.Service<InputService>()(
           window.addEventListener('blur', handleBlur)
         })
         yield* Effect.addFinalizer(() => Effect.sync(() => {
-          document.removeEventListener('keydown', handleKeyDown)
-          document.removeEventListener('keyup', handleKeyUp)
+          window.removeEventListener('keydown', handleKeyDown)
+          window.removeEventListener('keyup', handleKeyUp)
           document.removeEventListener('mousemove', handleMouseMove)
           document.removeEventListener('mousedown', handleMouseDown)
           document.removeEventListener('mouseup', handleMouseUp)

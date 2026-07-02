@@ -430,12 +430,10 @@ export class InventoryRendererService extends Effect.Service<InventoryRendererSe
         })
 
       const handleKeydown = (event: KeyboardEvent): void => {
-        if (event.key === 'Escape') {
-          event.preventDefault()
-          event.stopPropagation()
-          Effect.runFork(toggle())
-          return
-        }
+        // Escape is deliberately NOT handled here: the frame pipeline's
+        // handleEscape owns inventory close (plays the close sound and
+        // resumes the game). A second closer here would race it — the key
+        // reaches the InputService on `window` and both would toggle.
         if (event.key === 'Tab') {
           const doc = getActiveDocument()
           const active = doc?.activeElement

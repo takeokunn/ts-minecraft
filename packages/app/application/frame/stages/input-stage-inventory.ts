@@ -90,11 +90,15 @@ export const handleDropItemKey = (
 
 export const handleInventoryKey = (
   deps: InputDeps,
-  services: Pick<InputServices, 'inputService' | 'inventoryRenderer' | 'playerListPanel' | 'settingsOverlay' | 'tradingPresentation' | 'soundManager'>,
+  services: Pick<InputServices, 'inputService' | 'inventoryRenderer' | 'playerListPanel' | 'settingsOverlay' | 'tradingPresentation' | 'soundManager' | 'pauseMenu'>,
 ): Effect.Effect<void, never> =>
   Effect.gen(function* () {
     const inventoryPressed = yield* services.inputService.consumeKeyPress(KeyMappings.INVENTORY_OPEN)
     if (!inventoryPressed) return
+
+    // Vanilla: the inventory key is inert while the game is paused — it must
+    // never stack the inventory on top of the pause menu.
+    if (yield* services.pauseMenu.isOpen()) return
 
     const isInvOpen = yield* services.inventoryRenderer.isOpen()
     if (isInvOpen) {

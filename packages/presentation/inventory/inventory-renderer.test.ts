@@ -223,7 +223,7 @@ describe('presentation/inventory/inventory-renderer', () => {
       }).pipe(Effect.provide(TestLayer))
     })
 
-    it.scoped('closes with Escape and consumes the key event', () => {
+    it.scoped('leaves Escape to the frame pipeline (does not close or consume it)', () => {
       const mockDocument = {
         activeElement: null,
         addEventListener: vi.fn(),
@@ -246,6 +246,10 @@ describe('presentation/inventory/inventory-renderer', () => {
         expect(keydown).toBeDefined()
         if (keydown === undefined) return
 
+        // Escape ownership lives in the frame pipeline's handleEscape (close
+        // sound + pause bookkeeping). The overlay's own keydown handler must
+        // NOT double-handle it — that raced the pipeline and could reopen the
+        // overlay or spuriously open the pause menu.
         const preventDefault = vi.fn()
         const stopPropagation = vi.fn()
         keydown({
@@ -255,10 +259,9 @@ describe('presentation/inventory/inventory-renderer', () => {
         } as unknown as KeyboardEvent)
         yield* Effect.promise<void>(() => new Promise((resolve) => setTimeout(resolve, 0)))
 
-        expect(preventDefault).toHaveBeenCalledOnce()
-        expect(stopPropagation).toHaveBeenCalledOnce()
-        expect(yield* renderer.isOpen()).toBe(false)
-        expect(mockDocument.removeEventListener).toHaveBeenCalledWith('keydown', expect.any(Function))
+        expect(preventDefault).not.toHaveBeenCalled()
+        expect(stopPropagation).not.toHaveBeenCalled()
+        expect(yield* renderer.isOpen()).toBe(true)
       }).pipe(Effect.provide(TestLayer))
     })
 
