@@ -16,9 +16,9 @@ export const buildSessionBootstrapWorldOrchestration = ({
       bootCtx,
       worldId,
       initialGameMode,
+      initialSeed,
       chunkManagerService,
       gameModeService,
-      initialSeed,
     } = state
     const {
       bootCtx: terrainBootCtx,
@@ -60,6 +60,7 @@ export const buildSessionBootstrapWorldOrchestration = ({
       bootCtx,
       worldId,
       initialGameMode,
+      ...(initialSeed === undefined ? {} : { initialSeed }),
       chunkManagerService,
       gameModeService,
       ...(initialSeed === undefined ? {} : { initialSeed }),

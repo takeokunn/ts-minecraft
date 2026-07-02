@@ -1,5 +1,5 @@
 import { Effect, MutableRef, Option } from 'effect'
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   DROWN_DAMAGE,
   DROWN_DAMAGE_INTERVAL_SECS,
@@ -8,8 +8,13 @@ import {
 import { ItemStack } from '@ts-minecraft/inventory/domain/item-stack'
 import type { PhysicsStageServices } from '../physics-stage-types/services'
 import { applySurvivalAirEffects } from './environment-air'
+import { UNDERWATER_SCREEN_TINT_CLASS } from './environment-feedback'
 import type { SurvivalMovementState } from './types'
 import { makeDefaultInputs, makeDefaultRefs, makeDefaultServices } from './test-builders'
+
+afterEach(() => {
+  vi.unstubAllGlobals()
+})
 
 describe('physics-stage-survival/environment-air', () => {
   it('syncs the air meter and applies drowning damage while submerged', async () => {
@@ -179,5 +184,33 @@ describe('physics-stage-survival/environment-air', () => {
     expect(damageCalls).toEqual([])
     expect(services.soundManager.playEffect).not.toHaveBeenCalled()
     expect(MutableRef.get(refs.airSecsRef)).toBe(MAX_AIR_SECS)
+  })
+
+  it('syncs underwater tint even when air bubble count is unchanged', async () => {
+    const services = makeDefaultServices()
+    const refs = makeDefaultRefs(15, 10)
+    const refreshedPos = { x: 0, y: 64, z: 0 }
+    const damageCalls: number[] = []
+    const applyDamage = (damage: number) => {
+      damageCalls.push(damage)
+      return Effect.succeed(true)
+    }
+    const toggle = vi.fn()
+    vi.stubGlobal('document', { body: { classList: { toggle } } })
+    const movement: SurvivalMovementState = {
+      distanceMoved: 0,
+      inCreative: false,
+      isGrounded: false,
+      isSneaking: false,
+      isSprinting: false,
+    }
+
+    await Effect.runPromise(
+      applySurvivalAirEffects(services as PhysicsStageServices, refs, makeDefaultInputs(0.1), refreshedPos, movement, 'WATER', applyDamage),
+    )
+
+    expect(toggle).toHaveBeenCalledWith(UNDERWATER_SCREEN_TINT_CLASS, true)
+    expect(damageCalls).toEqual([])
+    expect(MutableRef.get(refs.lastAirBubblesRef)).toBe(10)
   })
 })

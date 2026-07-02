@@ -1,5 +1,7 @@
 import { Effect } from 'effect'
 
+export const UNDERWATER_SCREEN_TINT_CLASS = 'underwater-screen-tint'
+
 export type AirMeterFeedback = Readonly<{
   readonly display: 'none' | 'block'
   readonly textContent: string | null
@@ -23,6 +25,13 @@ export const syncAirMeterFeedback = (
         airElementOrNull.style.display = feedback.display
         if (feedback.textContent !== null) {
           airElementOrNull.textContent = feedback.textContent
-        }
-      })
-    : Effect.void
+          }
+        })
+      : Effect.void
+
+const getDocumentBody = (): HTMLElement | null => (typeof document === 'undefined' ? null : document.body)
+
+export const syncUnderwaterScreenTintFeedback = (headSubmerged: boolean): Effect.Effect<void, never> =>
+  Effect.sync(() => {
+    getDocumentBody()?.classList.toggle(UNDERWATER_SCREEN_TINT_CLASS, headSubmerged)
+  })

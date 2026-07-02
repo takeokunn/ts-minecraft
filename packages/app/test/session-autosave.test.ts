@@ -1,8 +1,12 @@
 import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
 import { Duration, Effect, Fiber, Ref, TestClock, TestContext } from 'effect'
-import { performAutoSaveTick, startSessionAutoSaveDaemon } from '@ts-minecraft/app/main/session-autosave'
-import type { AutoSaveStatusReporter } from '@ts-minecraft/app/main/session-autosave'
+import {
+  performAutoSaveTick,
+  startSessionAutoSaveDaemon,
+  type AutoSaveStatus,
+  type AutoSaveStatusReporter,
+} from '@ts-minecraft/app/main/session-autosave'
 
 // The autosave daemon is `Effect.repeat(performAutoSaveTick(...), Schedule.spaced(5s))`.
 // `Effect.repeat` re-runs its effect only while it SUCCEEDS, so each tick must be
@@ -41,6 +45,42 @@ describe('performAutoSaveTick (autosave daemon resilience)', () => {
         'session',
         'status:saved',
       ])
+    }),
+  )
+
+  it.effect('reports saving and saved around a successful tick', () =>
+    Effect.gen(function* () {
+      const statuses = yield* Ref.make<ReadonlyArray<AutoSaveStatus>>([])
+      const reportStatus: AutoSaveStatusReporter = (status) => Ref.update(statuses, (a) => [...a, status])
+
+      yield* performAutoSaveTick(Effect.void, Effect.void, reportStatus)
+
+      expect(yield* Ref.get(statuses)).toEqual(['saving', 'saved'])
+    }),
+  )
+
+  it.effect('reports saving and error when a tick fails but still succeeds', () =>
+    Effect.gen(function* () {
+      const statuses = yield* Ref.make<ReadonlyArray<AutoSaveStatus>>([])
+      const reportStatus: AutoSaveStatusReporter = (status) => Ref.update(statuses, (a) => [...a, status])
+
+      const result = yield* performAutoSaveTick(Effect.fail(new Error('quota exceeded')), Effect.void, reportStatus)
+
+      expect(result).toBeUndefined()
+      expect(yield* Ref.get(statuses)).toEqual(['saving', 'error'])
+    }),
+  )
+
+  it.effect('SUCCEEDS when the autosave status reporter fails', () =>
+    Effect.gen(function* () {
+      const saves = yield* Ref.make(0)
+      const reportStatus: AutoSaveStatusReporter = (status) =>
+        status === 'saving' ? Effect.fail(new Error('status UI failed')) : Effect.void
+
+      const result = yield* performAutoSaveTick(Ref.update(saves, (n) => n + 1), Effect.void, reportStatus)
+
+      expect(result).toBeUndefined()
+      expect(yield* Ref.get(saves)).toBe(1)
     }),
   )
 
@@ -152,16 +192,20 @@ describe('performAutoSaveTick (autosave daemon resilience)', () => {
   it.effect('starts a repeating daemon that can be advanced and interrupted', () =>
     Effect.gen(function* () {
       const ticks = yield* Ref.make(0)
+      const statuses = yield* Ref.make<ReadonlyArray<AutoSaveStatus>>([])
       const save = Ref.update(ticks, (n) => n + 1)
+      const reportStatus: AutoSaveStatusReporter = (status) => Ref.update(statuses, (a) => [...a, status])
 
-      const daemon = yield* startSessionAutoSaveDaemon(save, Effect.void, Duration.millis(5))
+      const daemon = yield* startSessionAutoSaveDaemon(save, Effect.void, Duration.millis(5), reportStatus)
 
       yield* Effect.yieldNow()
       expect(yield* Ref.get(ticks)).toBe(1)
+      expect(yield* Ref.get(statuses)).toEqual(['saving', 'saved'])
 
       yield* TestClock.adjust('5 millis')
       yield* Effect.yieldNow()
       expect(yield* Ref.get(ticks)).toBe(2)
+      expect(yield* Ref.get(statuses)).toEqual(['saving', 'saved', 'saving', 'saved'])
 
       yield* Fiber.interrupt(daemon)
     }).pipe(Effect.provide(TestContext.TestContext)),

@@ -3,7 +3,7 @@ import { DROWN_DAMAGE, DROWN_DAMAGE_INTERVAL_SECS } from '@ts-minecraft/entity/d
 import type { BlockType, Position } from '@ts-minecraft/core'
 import { resolveAirState, resolveEffectiveMaxAirSecs } from './air-logic'
 import { applyCadencedHazard } from './hazard-logic'
-import { syncAirMeterFeedback } from './environment-feedback'
+import { syncAirMeterFeedback, syncUnderwaterScreenTintFeedback } from './environment-feedback'
 import { applyDamageAndPlayHurt } from './feedback'
 import type { ApplyPlayerDamage, SurvivalMovementState } from './types'
 import type { PhysicsStageInputs } from '../physics-stage-types/inputs'
@@ -32,9 +32,10 @@ export const applySurvivalAirEffects = (
       intervalSecs: DROWN_DAMAGE_INTERVAL_SECS,
       onTicks: (ticks) => applyDamageAndPlayHurt(services, refreshedPos, applyDamage, DROWN_DAMAGE * ticks),
     })
+    const screenTintEffect = syncUnderwaterScreenTintFeedback(headSubmerged)
 
     if (MutableRef.get(refs.lastAirBubblesRef) === airState.airBubbles) {
-      return drownEffect
+      return drownEffect.pipe(Effect.zipRight(screenTintEffect))
     }
 
     return drownEffect.pipe(
@@ -42,5 +43,6 @@ export const applySurvivalAirEffects = (
         MutableRef.set(refs.lastAirBubblesRef, airState.airBubbles)
         return syncAirMeterFeedback(inputs.airElementOrNull, airState.airBubbles)
       }),
+      Effect.zipRight(screenTintEffect),
     )
   })

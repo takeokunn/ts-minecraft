@@ -17,9 +17,9 @@ const reportAutoSaveStatus = (
       )
 
 // One autosave tick: persist dirty chunks and session state together, swallowing
-// (and logging) ANY failure so the surrounding `Effect.repeat` daemon survives a
-// transient save error (e.g. a momentary IndexedDB quota/transaction failure) and
-// keeps autosaving for the rest of the session.
+// (and logging) ANY persistence/status failure so the surrounding `Effect.repeat`
+// daemon survives a transient save error (e.g. a momentary IndexedDB
+// quota/transaction failure) and keeps autosaving for the rest of the session.
 //
 // CRITICAL: the catchAllCause MUST stay INSIDE this tick, not outside the repeat.
 // `Effect.repeat(effect, schedule)` re-runs `effect` only while it succeeds — if a

@@ -52,6 +52,7 @@ const createFrameLoopHandlersInternal = (
     const attackSwingStateRef = MutableRef.make(createAttackSwingState())
     // Nether portal: accumulated seconds in a NETHER_PORTAL block (resets on exit).
     const portalSecsRef = yield* Ref.make(0)
+    const portalCooldownSecsRef = yield* Ref.make(0)
     // FR-2 liquid/environment hazards: lava-burn timer + air supply (starts full).
     const lavaDamageSecsRef = MutableRef.make(0)
     const lavaBurnRemainingSecsRef = MutableRef.make(0)
@@ -189,6 +190,7 @@ const createFrameLoopHandlersInternal = (
       lastPlayerAttackTimeRef,
       attackSwingStateRef,
       portalSecsRef,
+      portalCooldownSecsRef,
       lavaDamageSecsRef,
       lavaBurnRemainingSecsRef,
       lavaBurnDamageSecsRef,
