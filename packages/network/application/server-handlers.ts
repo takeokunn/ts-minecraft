@@ -60,8 +60,12 @@ export const handlePlayerJoin = (
     yield* Ref.update(services.gameServer.connectionsByPlayerId, (connections) => new Map(connections).set(playerId, connection))
     yield* Ref.update(services.gameServer.playerIdByConnectionId, (ids) => new Map(ids).set(connection.id, playerId))
 
-    const assignedJoin: PlayerJoinMessage = { ...message, playerId, timestamp: Date.now() }
-    yield* sendEncodedToConnection(connection, assignedJoin)
+    // The direct echo is flagged isSelf so the joiner adopts its assigned id
+    // exactly — never by name, which cross-binds when two players share one.
+    // Broadcast/replay joins carry an explicit isSelf:false so a same-named
+    // joiner's legacy name-matcher can never bind them either.
+    const assignedJoin: PlayerJoinMessage = { ...message, playerId, timestamp: Date.now(), isSelf: false }
+    yield* sendEncodedToConnection(connection, { ...assignedJoin, isSelf: true })
     // First joiner's seed becomes the session's authoritative seed; every
     // joiner (including the first) gets it echoed back so mismatched clients
     // can warn that their terrain will not match the host's.
@@ -103,6 +107,7 @@ export const handlePlayerJoin = (
         worldId: existingPlayer.worldId,
         position: existingPlayer.position,
         timestamp: Date.now(),
+        isSelf: false,
       })
     }
     yield* services.serverService.broadcast(assignedJoin, playerId)

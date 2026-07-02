@@ -544,3 +544,53 @@ describe('MultiplayerService entity host authority', () => {
     expect(second).toEqual([])
   })
 })
+
+describe('MultiplayerService identity binding (same-name safety)', () => {
+  const selfEchoJoin = (id: string, name: string): NetworkMessage => ({
+    ...joinMessage(id, name, 0, 64, 0),
+    isSelf: true,
+  } as NetworkMessage)
+
+  const broadcastJoin = (id: string, name: string): NetworkMessage => ({
+    ...joinMessage(id, name, 0, 64, 0),
+    isSelf: false,
+  } as NetworkMessage)
+
+  it('binds to the isSelf echo even when a same-named broadcast arrives first', async () => {
+    const sent: NetworkMessage[] = []
+    const { remotes } = await Effect.runPromise(
+      Effect.gen(function* () {
+        const svc = yield* MultiplayerServiceImpl(makeClient(sent, {
+          inbound: [
+            broadcastJoin('other-steve', 'steve'),
+            selfEchoJoin('self-steve', 'steve'),
+          ],
+        }))
+        yield* svc.connect('ws://test', playerName('steve'))
+        yield* Effect.sleep(10)
+        yield* svc.sendChat('who am i')
+        return { remotes: yield* svc.getRemotePlayers() }
+      }),
+    )
+    const chat = sent.find((m) => m.type === MessageType.Chat)
+    expect(chat).toMatchObject({ playerId: playerId('self-steve') })
+    expect(remotes.has('other-steve')).toBe(true)
+    expect(remotes.has('self-steve')).toBe(false)
+  })
+
+  it('still adopts by name on a legacy server that never sends isSelf', async () => {
+    const sent: NetworkMessage[] = []
+    await Effect.runPromise(
+      Effect.gen(function* () {
+        const svc = yield* MultiplayerServiceImpl(makeClient(sent, {
+          inbound: [joinMessage('legacy-id', 'casey', 0, 64, 0)],
+        }))
+        yield* svc.connect('ws://test', playerName('casey'))
+        yield* Effect.sleep(10)
+        yield* svc.sendChat('hello')
+      }),
+    )
+    const chat = sent.find((m) => m.type === MessageType.Chat)
+    expect(chat).toMatchObject({ playerId: playerId('legacy-id') })
+  })
+})

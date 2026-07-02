@@ -660,3 +660,47 @@ describe('entity host authority', () => {
     }),
   )
 })
+
+describe('join identity echo (isSelf)', () => {
+  it.effect('flags the direct echo isSelf:true and the broadcast isSelf:false', () =>
+    Effect.gen(function* () {
+      const harness = yield* makeHarness()
+      const pairA = yield* makePair()
+      const pairB = yield* makePair()
+      const join = (name: string) => ({
+        type: MessageType.PlayerJoin,
+        playerId: PlayerId.make('pending'),
+        playerName: PlayerName.make(name),
+        worldId,
+        position: { x: 0, y: 64, z: 0 },
+        worldSeed: 7,
+        timestamp: 1,
+      }) as const
+
+      yield* handlePlayerJoin(harness, join('Steve'), pairA.connection)
+      yield* Ref.set(harness.broadcasts, [])
+      const secondId = yield* handlePlayerJoin(harness, join('Steve'), pairB.connection)
+
+      // Direct echo to the joiner: isSelf true.
+      const echo = yield* takeMessage(pairB)
+      expect(echo.type).toBe(MessageType.PlayerJoin)
+      if (echo.type === MessageType.PlayerJoin) {
+        expect(echo.playerId).toBe(secondId)
+        expect(echo.isSelf).toBe(true)
+      }
+      // Broadcast to everyone else: isSelf false — a same-named joiner's
+      // legacy name matcher must never bind it.
+      const broadcasts = yield* Ref.get(harness.broadcasts)
+      const joinBroadcast = broadcasts.find((call) => call.message.type === MessageType.PlayerJoin)
+      expect(joinBroadcast?.message).toMatchObject({ isSelf: false })
+
+      // Existing-player replay to the new joiner is also isSelf false.
+      yield* takeMessage(pairB) // WorldInfo
+      const replayedExisting = yield* takeMessage(pairB)
+      expect(replayedExisting.type).toBe(MessageType.PlayerJoin)
+      if (replayedExisting.type === MessageType.PlayerJoin) {
+        expect(replayedExisting.isSelf).toBe(false)
+      }
+    }),
+  )
+})

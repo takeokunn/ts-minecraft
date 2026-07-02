@@ -191,11 +191,17 @@ const processInbound = (
       return Effect.gen(function* () {
         const localPlayer = yield* Ref.get(localPlayerRef)
         const requestedName = yield* Ref.get(playerNameRef)
-        if (
-          Option.isNone(localPlayer)
+        // Identity adoption: the server flags its direct echo with isSelf, so
+        // the assigned id binds exactly. Name matching remains only as the
+        // fallback for pre-isSelf servers — and must never bind a message the
+        // server addressed to someone else (isSelf === false is impossible;
+        // broadcasts simply omit the flag, hence the strict checks below).
+        const isSelfEcho = msg.isSelf === true
+        const legacyNameMatch =
+          msg.isSelf === undefined
           && Option.isSome(requestedName)
           && String(requestedName.value) === String(msg.playerName)
-        ) {
+        if (Option.isNone(localPlayer) && Option.isSome(requestedName) && (isSelfEcho || legacyNameMatch)) {
           const identity: LocalPlayerIdentity = {
             playerId: msg.playerId,
             playerName: msg.playerName,
