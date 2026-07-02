@@ -1,4 +1,5 @@
 import { Effect, Layer, MutableHashMap, MutableHashSet, MutableRef, Option } from 'effect'
+import { HealthService } from '@ts-minecraft/entity/application/health-service'
 import { HungerService } from '@ts-minecraft/entity/application/hunger-service';
 import { PlayerInputService } from '@ts-minecraft/entity/application/player-input-service';
 import { PlayerHunger } from '@ts-minecraft/entity/domain/player-hunger';
@@ -82,5 +83,7 @@ export const createTestLayers = (
       reset: () => Effect.void,
       restore: () => Effect.void,
     })),
+    // MovementService reads status effects (Speed/Slowness) from HealthService.
+    HealthService.Default,
   )
 }

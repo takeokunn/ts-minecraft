@@ -1,6 +1,7 @@
 import { Layer, MutableHashMap, MutableHashSet, Effect, Option } from 'effect'
 import { ChunkManagerService } from '@ts-minecraft/world'
 import { DroppedItemService } from '@ts-minecraft/entity/application/dropped-item-service'
+import { HealthService } from '@ts-minecraft/entity/application/health-service'
 import { HungerService } from '@ts-minecraft/entity/application/hunger-service'
 import { PlayerInputService } from '@ts-minecraft/entity/application/player-input-service'
 import { MovementService } from '@ts-minecraft/entity/application/movement-service'
@@ -46,6 +47,7 @@ export const PhysicsLayer = PhysicsService.Default.pipe(
 export const MovementLayer = MovementService.Default.pipe(
   Layer.provide(NoOpPlayerInputLayer),
   Layer.provide(HungerService.Default),
+  Layer.provide(HealthService.Default),
 )
 
 export const InventoryLayerForTest = InventoryService.Default.pipe(Layer.provide(BlockRegistry.Default))
@@ -121,6 +123,7 @@ export const createTestLayer = (inputService: ReturnType<typeof createTestInputS
   const movementLayer = MovementService.Default.pipe(
     Layer.provide(inputLayer),
     Layer.provide(HungerService.Default),
+    Layer.provide(HealthService.Default),
   )
   const dependencyLayers = Layer.mergeAll(
     PhysicsLayer,

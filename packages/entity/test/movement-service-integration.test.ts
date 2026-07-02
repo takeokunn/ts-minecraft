@@ -1,8 +1,9 @@
 import { describe,it } from '@effect/vitest'
 import { DEFAULT_JUMP_VELOCITY, DEFAULT_SPRINT_SPEED, DEFAULT_WALK_SPEED, MovementService, SPRINT_JUMP_HORIZONTAL_MULTIPLIER } from '@ts-minecraft/entity/application/movement-service';
-import { Array as Arr,Effect,Ref } from 'effect'
+import { Array as Arr,Effect,Layer,Ref } from 'effect'
 import { expect } from 'vitest'
 import { createTestInputService,createTestLayers } from './movement-service-test-utils'
+import { HealthService } from '@ts-minecraft/entity/application/health-service'
 
 describe('player/movement-service (integration)', () => {
   describe('update', () => {
@@ -213,3 +214,41 @@ describe('player/movement-service (integration)', () => {
     })
   })
 })
+
+describe('status effect speed coupling', () => {
+  it.effect('SPEED I scales horizontal velocity by 1.2 (jump untouched)', () =>
+    Effect.gen(function* () {
+      const health = yield* HealthService
+      yield* health.addStatusEffect('SPEED', 0, 30)
+      const movement = yield* MovementService
+      const velocity = yield* movement.calculateVelocity(
+        { forward: true, backward: false, left: false, right: false, jump: true, sprint: false, sneak: false },
+        0,
+        true,
+      )
+      const horizontal = Math.hypot(velocity.x, velocity.z)
+      expect(horizontal).toBeCloseTo(4.317 * 1.2, 3)
+      expect(velocity.y).toBeCloseTo(5.0, 3)
+    }).pipe(
+      Effect.provide(MovementService.Default.pipe(Layer.provideMerge(createTestLayers(createTestInputService())))),
+    ),
+  )
+
+  it.effect('SLOWNESS I scales horizontal velocity by 0.85', () =>
+    Effect.gen(function* () {
+      const health = yield* HealthService
+      yield* health.addStatusEffect('SLOWNESS', 0, 30)
+      const movement = yield* MovementService
+      const velocity = yield* movement.calculateVelocity(
+        { forward: true, backward: false, left: false, right: false, jump: false, sprint: false, sneak: false },
+        0,
+        true,
+      )
+      const horizontal = Math.hypot(velocity.x, velocity.z)
+      expect(horizontal).toBeCloseTo(4.317 * 0.85, 3)
+    }).pipe(
+      Effect.provide(MovementService.Default.pipe(Layer.provideMerge(createTestLayers(createTestInputService())))),
+    ),
+  )
+})
+

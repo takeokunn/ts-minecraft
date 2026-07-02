@@ -5,6 +5,7 @@ import type { ChunkCoord } from '@ts-minecraft/core'
 import { GameModeService, GameStateService, PhysicsService } from '@ts-minecraft/game'
 import type { AddBodyConfig } from '@ts-minecraft/game'
 import { PhysicsServiceError } from '../application/physics-service-error'
+import { HealthService } from '@ts-minecraft/entity/application/health-service'
 import { HungerService } from '@ts-minecraft/entity/application/hunger-service'
 import { MovementService } from '@ts-minecraft/entity/application/movement-service'
 import { PlayerCameraStateService } from '@ts-minecraft/entity/application/camera-state'
@@ -56,6 +57,7 @@ describe('application/game-state (coverage)', () => {
     const movementLayer = MovementService.Default.pipe(
       Layer.provide(inputLayer),
       Layer.provide(HungerService.Default),
+      Layer.provide(HealthService.Default),
     )
     const inventoryLayer = InventoryService.Default.pipe(Layer.provide(BlockRegistry.Default))
     const dependencyLayers = Layer.mergeAll(
@@ -85,6 +87,7 @@ describe('application/game-state (coverage)', () => {
     const movementLayer = MovementService.Default.pipe(
       Layer.provide(inputLayer),
       Layer.provide(HungerService.Default),
+      Layer.provide(HealthService.Default),
     )
     const inventoryLayer = InventoryService.Default.pipe(Layer.provide(BlockRegistry.Default))
     const dependencyLayers = Layer.mergeAll(
@@ -160,10 +163,10 @@ describe('application/game-state (coverage)', () => {
         Layer.provide(RigidBodyPortLayer),
         Layer.provide(ShapePortLayer),
       )
-      const movementLayer = MovementService.Default.pipe(
-        Layer.provide(inputLayer),
+      const movementLayer = MovementService.Default.pipe(Layer.provide(inputLayer),
         Layer.provide(HungerService.Default),
-      )
+      Layer.provide(HealthService.Default),
+    )
       const inventoryLayer = InventoryService.Default.pipe(Layer.provide(BlockRegistry.Default))
       const dependencyLayers = Layer.mergeAll(
         physicsLayer,
@@ -239,10 +242,10 @@ describe('application/game-state (coverage)', () => {
     const createLayerWithFailingAddBody = (inputService: ReturnType<typeof createTestInputService>) => {
       const inputLayer = Layer.succeed(PlayerInputService, inputService)
       const failingPhysicsLayer = makeFailingAddBodyPhysicsLayer()
-      const movementLayer = MovementService.Default.pipe(
-        Layer.provide(inputLayer),
+      const movementLayer = MovementService.Default.pipe(Layer.provide(inputLayer),
         Layer.provide(HungerService.Default),
-      )
+      Layer.provide(HealthService.Default),
+    )
       const inventoryLayer = InventoryService.Default.pipe(Layer.provide(BlockRegistry.Default))
       const dependencyLayers = Layer.mergeAll(
         failingPhysicsLayer,
@@ -307,10 +310,10 @@ describe('application/game-state (coverage)', () => {
     const createLayerWithFailingVelocityRead = (inputService: ReturnType<typeof createTestInputService>) => {
       const inputLayer = Layer.succeed(PlayerInputService, inputService)
       const failingPhysicsLayer = makeVelocityReadFailPhysicsLayer()
-      const movementLayer = MovementService.Default.pipe(
-        Layer.provide(inputLayer),
+      const movementLayer = MovementService.Default.pipe(Layer.provide(inputLayer),
         Layer.provide(HungerService.Default),
-      )
+      Layer.provide(HealthService.Default),
+    )
       const inventoryLayer = InventoryService.Default.pipe(Layer.provide(BlockRegistry.Default))
       const dependencyLayers = Layer.mergeAll(
         failingPhysicsLayer,
@@ -395,10 +398,10 @@ describe('application/game-state (coverage)', () => {
         physicsLayer,
         // GameStateService directly requires PlayerInputService (creative flight, FR-1).
         inputLayer,
-        MovementService.Default.pipe(
-          Layer.provide(inputLayer),
+        MovementService.Default.pipe(Layer.provide(inputLayer),
           Layer.provide(HungerService.Default),
-        ),
+        Layer.provide(HealthService.Default),
+    ),
         PlayerCameraStateService.Default,
         PlayerService.Default,
         WaterChunkManagerLayer,

@@ -100,3 +100,18 @@ export const advanceStatusEffectsOneTick = (
   }
   return { effects: survivors, healAmount, poisonDamage }
 }
+
+// Horizontal-speed multiplier from active effects (vanilla: Speed +20% per
+// level, Slowness -15% per level; level = amplifier + 1). Both stack
+// multiplicatively; the result never goes negative.
+export const statusEffectSpeedMultiplier = (
+  effects: ReadonlyArray<ActiveStatusEffect>,
+): number => {
+  let multiplier = 1
+  for (const effect of effects) {
+    const level = effect.amplifier + 1
+    if (effect.type === 'SPEED') multiplier *= 1 + 0.2 * level
+    if (effect.type === 'SLOWNESS') multiplier *= Math.max(0, 1 - 0.15 * level)
+  }
+  return multiplier
+}

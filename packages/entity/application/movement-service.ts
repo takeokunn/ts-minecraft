@@ -3,6 +3,8 @@ import type { Vector3 } from '@ts-minecraft/core'
 import { MetersPerSec } from '@ts-minecraft/core'
 import { PlayerInputService } from './player-input-service'
 import { HungerService } from './hunger-service'
+import { HealthService } from './health-service'
+import { statusEffectSpeedMultiplier } from '../domain/status-effect'
 import { KeyMappings } from '../domain/key-mappings'
 
 export const MovementInputSchema = Schema.Struct({
@@ -99,6 +101,7 @@ export class MovementService extends Effect.Service<MovementService>()(
     effect: Effect.gen(function* () {
       const inputService = yield* PlayerInputService
       const hungerService = yield* HungerService
+      const healthService = yield* HealthService
       // Each movement direction responds to its WASD key OR its arrow-key alias.
       const isDirPressed = (primary: string, alt: string): Effect.Effect<boolean, never> =>
         Effect.zipWith(
@@ -135,17 +138,27 @@ export class MovementService extends Effect.Service<MovementService>()(
           return applySprintHungerGate({ forward, backward, left, right, jump, sprint, sneak }, hunger.foodLevel)
         })
 
+      // Speed/Slowness effects scale horizontal velocity only — jump/gravity
+      // stay untouched (vanilla semantics).
+      const applyEffectSpeed = (velocity: Vector3): Effect.Effect<Vector3, never> =>
+        Effect.gen(function* () {
+          const effects = yield* healthService.getStatusEffects()
+          const multiplier = statusEffectSpeedMultiplier(effects)
+          if (multiplier === 1) return velocity
+          return { x: velocity.x * multiplier, y: velocity.y, z: velocity.z * multiplier }
+        })
+
       return {
         getInput,
         calculateVelocity: (
           input: MovementInput,
           yaw: number,
           isGrounded: boolean,
-        ): Effect.Effect<Vector3, never> => Effect.succeed(computeVelocity(input, yaw, isGrounded)),
+        ): Effect.Effect<Vector3, never> => applyEffectSpeed(computeVelocity(input, yaw, isGrounded)),
         update: (yaw: number, isGrounded: boolean): Effect.Effect<Vector3, never> =>
           Effect.gen(function* () {
             const input = yield* getInput()
-            return computeVelocity(input, yaw, isGrounded)
+            return yield* applyEffectSpeed(computeVelocity(input, yaw, isGrounded))
           }),
       }
     }),
