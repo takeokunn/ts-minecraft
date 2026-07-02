@@ -29,7 +29,7 @@ type MaintenanceState = {
 
 type MaintenanceServices = Pick<
   FrameHandlerServices,
-  'entityManager' | 'gameState' | 'chunkManagerService' | 'settingsService' | 'worldRendererService' | 'fluidService' | 'blockHighlight' | 'furnaceService' | 'mobSpawner' | 'villageService' | 'timeService' | 'debugFeatureFlags' | 'blockService' | 'cropGrowthService' | 'weatherService' | 'biomeService' | 'netherService'
+  'entityManager' | 'gameState' | 'chunkManagerService' | 'settingsService' | 'worldRendererService' | 'fluidService' | 'blockHighlight' | 'furnaceService' | 'mobSpawner' | 'villageService' | 'timeService' | 'debugFeatureFlags' | 'blockService' | 'cropGrowthService' | 'weatherService' | 'biomeService' | 'netherService' | 'multiplayer'
 >
 
 export const computeMaintenanceDeltaTime = (
@@ -82,12 +82,19 @@ const runMaintenanceCycle = (
     const lastMaintenanceMs = MutableRef.get(state.lastMaintenanceTimeMsRef)
     MutableRef.set(state.lastMaintenanceTimeMsRef, nowMs)
     const maintenanceDeltaTime = computeMaintenanceDeltaTime(lastMaintenanceMs, nowMs)
+    // Entity host authority: when another client simulates the session's mobs,
+    // suppress local spawning — the multiplayer stage removes any strays and
+    // the host's mobs arrive as snapshot-driven remote mirrors.
+    const multiplayerOrNull = Option.getOrNull(services.multiplayer)
+    const isEntityAuthority = multiplayerOrNull === null
+      ? true
+      : yield* multiplayerOrNull.isEntityAuthority()
     const simulationResult = yield* runMaintenanceSimulation(
       services,
       state,
       {
         mobsEnabled,
-        mobsSpawnEnabled,
+        mobsSpawnEnabled: mobsSpawnEnabled && isEntityAuthority,
         furnaceEnabled,
         villageEnabled,
         playerPos,

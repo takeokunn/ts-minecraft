@@ -25,6 +25,10 @@ export type GameServer = {
   // Authoritative time of day for the session: the first joiner's clock,
   // echoed to every later joiner via WorldInfo so day/night matches.
   readonly timeOfDay: Ref.Ref<number | null>
+  // The single client that simulates & broadcasts entities (first joiner;
+  // reassigned to a surviving player on leave). Snapshots from anyone else
+  // are dropped so mob populations converge instead of multiplying per client.
+  readonly entityHost: Ref.Ref<PlayerId | null>
   // Last block edit per voxel (last-write-wins), replayed to late joiners so
   // their world converges with everyone else's edits.
   readonly blockEdits: Ref.Ref<Map<string, BlockPlaceMessage | BlockBreakMessage>>
@@ -52,8 +56,9 @@ export const makeGameServer = (maxPlayers = 20): Effect.Effect<GameServer, never
     const playerIdByConnectionId = yield* Ref.make(new Map<string, PlayerId>())
     const worldSeed = yield* Ref.make<number | null>(null)
     const timeOfDay = yield* Ref.make<number | null>(null)
+    const entityHost = yield* Ref.make<PlayerId | null>(null)
     const blockEdits = yield* Ref.make(new Map<string, BlockPlaceMessage | BlockBreakMessage>())
-    return { connectedPlayers, connectionsByPlayerId, playerIdByConnectionId, worldSeed, timeOfDay, blockEdits, maxPlayers }
+    return { connectedPlayers, connectionsByPlayerId, playerIdByConnectionId, worldSeed, timeOfDay, entityHost, blockEdits, maxPlayers }
   })
 
 const wireConnection = (

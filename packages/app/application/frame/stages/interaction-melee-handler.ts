@@ -23,6 +23,7 @@ import { DEFAULT_ATTACK_COOLDOWN_SECS } from '@ts-minecraft/entity/domain/combat
 import { EXHAUSTION_ATTACK } from '@ts-minecraft/entity/application/hunger-service.config'
 import { dropPasses } from '@ts-minecraft/entity/domain/mob/drop'
 import { KeyMappings } from '@ts-minecraft/entity/domain/key-mappings'
+import { stripRemoteEntityId } from '@ts-minecraft/entity/domain/mob/remote-entity'
 import { getMobDefinition } from '@ts-minecraft/entity/domain/mob/mobs/get-mob-definition'
 import { getParticleUvOffset } from '@ts-minecraft/rendering'
 import { triggerAttackSwing } from '@ts-minecraft/presentation'
@@ -142,6 +143,16 @@ export const handleLeftClick = (
       const kbMult = computeAttackKnockbackHorizontalMultiplier(enchantmentKbMult, isSprintAttack)
       const impulse = kbMult === 1 ? base : { x: base.x * kbMult, y: base.y, z: base.z * kbMult }
       yield* services.entityManager.applyKnockback(entityId, impulse)
+      // Host-authoritative target: relay the hit so the entity host applies it
+      // to the real entity. The local applyDamage below is client prediction —
+      // the host's EntitySnapshot stream reconciles the outcome.
+      const hostEntityId = stripRemoteEntityId(String(entityId))
+      if (hostEntityId !== null) {
+        const multiplayerOrNull = Option.getOrNull(services.multiplayer)
+        if (multiplayerOrNull !== null) {
+          yield* multiplayerOrNull.sendEntityDamage(hostEntityId, damage, impulse)
+        }
+      }
       yield* services.soundManager.playEffect('entityHit', { position: entity.position })
       yield* services.crosshair.pulse()
       if (debugFlags['particles.spawn']) {

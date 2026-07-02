@@ -5,6 +5,7 @@ import type { Chunk } from '@ts-minecraft/world'
 import type { DirtyChunkEntry } from '../frame-maintenance-dirty'
 import type { CameraPoseSnapshot } from '../frame-camera-pose'
 import type { Position } from '@ts-minecraft/core'
+import type { LocalEntitySnapshot } from '../../multiplayer/multiplayer-service'
 
 export type FrameStageRefs = {
   readonly totalTimeSecsRef: MutableRef.MutableRef<number>
@@ -50,6 +51,11 @@ export type FrameStageRefs = {
   readonly lastRenderDistanceRef: MutableRef.MutableRef<number>
   readonly lastEntityStructureVersionRef: Ref.Ref<number>
   readonly lastRemotePlayerIdsRef: MutableRef.MutableRef<ReadonlySet<string>>
+  // Entity snapshots broadcast on the previous frame (entity host only). Ids
+  // present here but missing from the current frame were removed locally
+  // (killed/despawned) — the host must send a final alive:false snapshot, or
+  // every other client keeps a ghost copy forever.
+  readonly lastBroadcastEntitySnapshotsRef: MutableRef.MutableRef<ReadonlyMap<string, LocalEntitySnapshot>>
   readonly entityPhysicsChunkCacheRef: Ref.Ref<Array<Chunk | null>>
   readonly lastEntityPhysicsChunkCoordRef: Ref.Ref<{ readonly cx: number; readonly cz: number }>
   readonly lastEntityPhysicsLoadedChunksRef: Ref.Ref<Option.Option<ReadonlyArray<Chunk>>>

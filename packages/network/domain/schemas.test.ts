@@ -64,6 +64,22 @@ const messagesByType = {
     alive: true,
     timestamp: 4,
   },
+  [MessageType.EntityDamage]: {
+    type: MessageType.EntityDamage,
+    playerId,
+    worldId,
+    entityId: 'entity-1',
+    damage: 6,
+    knockback: { x: 3, y: 4.2, z: 0 },
+    timestamp: 4,
+  },
+  [MessageType.WorldInfo]: {
+    type: MessageType.WorldInfo,
+    worldSeed: 42,
+    timeOfDay: 0.5,
+    entityHostPlayerId: playerId,
+    timestamp: 4,
+  },
   [MessageType.BlockPlace]: {
     type: MessageType.BlockPlace,
     playerId,

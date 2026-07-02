@@ -39,8 +39,12 @@ const isActiveRemoteEntityType = (value: string): value is EntityTypeValue =>
 const remoteEntityId = (snapshot: RemoteEntitySnapshot): EntityId =>
   EntityId.make(`remote:${snapshot.playerId}:${snapshot.entityId}`)
 
+const EMPTY_BROADCAST: ReadonlyMap<string, LocalEntitySnapshot> = new Map()
+
 export const multiplayerStage = (
   multiplayer: MultiplayerService,
+  services: Pick<FrameHandlerServices, 'entityManager'>,
+  refs: Pick<FrameStageRefs, 'lastBroadcastEntitySnapshotsRef'>,
   playerPos: { readonly x: number; readonly y: number; readonly z: number },
   playerYaw: number,
   playerPitch: number,
@@ -50,10 +54,70 @@ export const multiplayerStage = (
     yield* multiplayer
       .sendPositionUpdate(playerPos, { yaw: playerYaw, pitch: playerPitch })
       .pipe(Effect.catchAll(() => Effect.void))
+
+    const isAuthority = yield* multiplayer.isEntityAuthority().pipe(
+      Effect.catchAll(() => Effect.succeed(true)),
+    )
+
+    if (!isAuthority) {
+      // Another client is the entity host: our own simulation must not leak
+      // into the session. Remove any locally simulated mobs (entitySnapshots
+      // is exactly the list of non-remote entities this frame) — the host's
+      // authoritative copies arrive via applyInboundEntitySnapshots.
+      MutableRef.set(refs.lastBroadcastEntitySnapshotsRef, EMPTY_BROADCAST)
+      for (const snapshot of entitySnapshots) {
+        yield* services.entityManager
+          .removeEntity(EntityId.make(snapshot.entityId))
+          .pipe(Effect.catchAll(() => Effect.void))
+      }
+      return
+    }
+
+    const previousBroadcast = MutableRef.get(refs.lastBroadcastEntitySnapshotsRef)
+    const currentBroadcast = new Map<string, LocalEntitySnapshot>()
     for (const snapshot of entitySnapshots) {
+      currentBroadcast.set(snapshot.entityId, snapshot)
       yield* multiplayer.sendEntitySnapshot(snapshot).pipe(Effect.catchAll(() => Effect.void))
     }
+    // Entities we broadcast last frame but not this one were removed locally
+    // (killed/despawned). Without a final alive:false, every other client
+    // keeps a ghost copy forever — remote mirrors are exempt from local
+    // distance despawn by design.
+    for (const [entityId, lastSnapshot] of previousBroadcast) {
+      if (currentBroadcast.has(entityId)) continue
+      yield* multiplayer
+        .sendEntitySnapshot({ ...lastSnapshot, health: 0, alive: false })
+        .pipe(Effect.catchAll(() => Effect.void))
+    }
+    MutableRef.set(refs.lastBroadcastEntitySnapshotsRef, currentBroadcast)
   })
+
+/**
+ * Entity host side of non-host combat: applies hits relayed by the server
+ * (knockback first, then damage — a lethal hit removes the entity). Loot and
+ * XP are intentionally NOT spawned here; the attacking client already rolled
+ * its drops locally as prediction, so spawning again would duplicate loot.
+ */
+export const applyInboundEntityDamages = (
+  multiplayer: MultiplayerService,
+  services: Pick<FrameHandlerServices, 'entityManager'>,
+): Effect.Effect<void, never> =>
+  multiplayer.drainEntityDamages.pipe(
+    Effect.flatMap((damages) =>
+      Effect.gen(function* () {
+        for (const hit of damages) {
+          const entityId = EntityId.make(hit.entityId)
+          yield* services.entityManager
+            .applyKnockback(entityId, hit.knockback)
+            .pipe(
+              Effect.flatMap(() => services.entityManager.applyDamage(entityId, hit.damage)),
+              Effect.asVoid,
+              Effect.catchAll(() => Effect.void),
+            )
+        }
+      }),
+    ),
+  )
 
 /**
  * FR-3: applies block edits received from remote players to the local world.

@@ -2,6 +2,7 @@ import { Effect, HashMap, MutableRef, Option, Ref } from 'effect'
 import { GAME_TICKS_PER_SEC, type DeltaTimeSecs, type Position } from '@ts-minecraft/core'
 import { EntityType, type Entity, type EntityId } from '../../domain/mob/entity'
 import { tickCreeperFuse } from '../../domain/mob/creeper-fuse'
+import { isRemoteEntityId } from '../../domain/mob/remote-entity'
 import { tickWoolRegrowth } from '../../domain/mob/shearing'
 import { type ManagedEntity } from '../../domain/mob/entity-internal'
 import { invalidateEntityCache } from './entity-manager-cache'
@@ -18,8 +19,11 @@ export const updateCreeperFuseStates = (
   Effect.gen(function* () {
     if (!MutableRef.get(hasCreeperRef)) return
 
-    yield* updateManagedEntities(entitiesRef, (entity) => {
+    yield* updateManagedEntities(entitiesRef, (entity, entityId) => {
       if (entity.type !== EntityType.Creeper) return entity
+      // Remote creepers are host-simulated; a locally ticking fuse would
+      // detonate a copy the host still considers alive.
+      if (isRemoteEntityId(String(entityId))) return entity
       const nextFuse = tickCreeperFuse(
         entity.position,
         playerPosition,

@@ -25,6 +25,7 @@ import {
   multiplayerStage,
   applyInboundBlockEdits,
   applyInboundEntitySnapshots,
+  applyInboundEntityDamages,
 } from '@ts-minecraft/app/frame/stages/multiplayer-stage'
 import { postProcessingSetupStage, refractionPrepassStage } from '@ts-minecraft/app/frame/stages/post-processing-stage'
 import { physicsStage } from '@ts-minecraft/app/frame/stages/physics-stage'
@@ -291,10 +292,11 @@ export const runPresentationFrameStages = (
         .getRotation()
         .pipe(
           Effect.flatMap((rotation) =>
-            multiplayerStage(mp, inputs.playerPos, rotation.yaw, rotation.pitch, inputs.entitySnapshots),
+            multiplayerStage(mp, services, refs, inputs.playerPos, rotation.yaw, rotation.pitch, inputs.entitySnapshots),
           ),
           Effect.flatMap(() => applyInboundBlockEdits(mp, services, refs.dirtyChunksRef)),
           Effect.flatMap(() => applyInboundEntitySnapshots(mp, services)),
+          Effect.flatMap(() => applyInboundEntityDamages(mp, services)),
           Effect.flatMap(() => syncRemotePlayersForFrame(mp, services, refs, inputs.totalTimeSecs)),
         )
         .pipe(Effect.catchAll(() => Effect.void))

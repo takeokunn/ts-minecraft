@@ -3,6 +3,7 @@ import type { Entity } from '../../domain/mob/entity'
 import type { EntityId } from '../../domain/mob/entity'
 import type { Position } from '@ts-minecraft/core'
 import { type ManagedEntity } from '../../domain/mob/entity-internal'
+import { isRemoteEntityId } from '../../domain/mob/remote-entity'
 import { shouldDespawnEntity } from '../../domain/mob/entity-manager-utils'
 import { invalidateEntityCacheAndBumpStructureVersion } from './entity-manager-cache'
 
@@ -21,6 +22,13 @@ export const makeEntityManagerLifecycle = (
         let updatedEntities = entities
 
         HashMap.forEach(entities, (entity, entityId) => {
+          // Remote mirrors follow the HOST player's position, not ours — a
+          // local distance despawn would just churn against the snapshot
+          // stream (remove + recreate every frame). Their lifecycle is owned
+          // by alive:false snapshots and the departed-player sweep.
+          if (isRemoteEntityId(String(entityId))) {
+            return
+          }
           if (!shouldDespawnEntity(entity, playerPosition, maxDistance)) {
             return
           }

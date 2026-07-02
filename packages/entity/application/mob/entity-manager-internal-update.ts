@@ -1,6 +1,7 @@
 import { Effect, HashMap, MutableRef, Option, Ref } from 'effect'
 import type { DeltaTimeSecs, Position, Vector3 } from '@ts-minecraft/core'
 import { type Entity, type EntityId } from '../../domain/mob/entity'
+import { isRemoteEntityId } from '../../domain/mob/remote-entity'
 import { type ManagedEntity } from '../../domain/mob/entity-internal'
 import type { DragonDeathEvent } from '../../domain/mob/ender-dragon/dragon-death'
 import { type CollisionResolver } from '../../domain/mob/entity-manager-utils'
@@ -15,6 +16,16 @@ import {
   updateSheepWoolRegrowth,
 } from './entity-manager-update-maintenance'
 import { processEntityPhysics } from './entity-manager-physics'
+
+// Remote entities mirror another client's authoritative simulation: position
+// and health arrive via EntitySnapshot, so AI/physics must not run locally.
+// Only the hostile attack cooldown ticks down — player contact/ranged damage
+// is resolved locally against ALL entities (see entity-manager-combat.ts), and
+// without this decrement a remote mob could hit the local player exactly once.
+const tickRemoteEntity = (entity: ManagedEntity, deltaTime: number): ManagedEntity =>
+  entity.attackCooldownRemaining > 0
+    ? { ...entity, attackCooldownRemaining: Math.max(0, entity.attackCooldownRemaining - deltaTime) }
+    : entity
 
 export const makeEntityManagerUpdate = (
   entitiesRef: Ref.Ref<HashMap.HashMap<EntityId, ManagedEntity>>,
@@ -50,7 +61,9 @@ export const makeEntityManagerUpdate = (
         const ctx = { tick, deltaTime, playerPosition, playerLookOrigin, playerLookDirection, playerLookBlocked, daytimeBurningActive }
 
         yield* updateManagedEntities(entitiesRef, (entity, entityId) =>
-          processEntityAI(entity, entityId, ctx, dirtyRef, fireDamageRef, hasCreeperRef, hasShearedSheepRef)
+          isRemoteEntityId(String(entityId))
+            ? tickRemoteEntity(entity, deltaTime)
+            : processEntityAI(entity, entityId, ctx, dirtyRef, fireDamageRef, hasCreeperRef, hasShearedSheepRef)
         )
 
         // Ender Dragon boss: override the generic wander velocity with the flight FSM and
@@ -83,11 +96,13 @@ export const makeEntityManagerUpdate = (
         const tick = yield* Ref.get(updateTickRef)
 
         yield* updateManagedEntities(entitiesRef, (entity, entityId) =>
-          processEntityPhysics(entity, entityId, {
-            tick,
-            deltaTime,
-            resolveCollision,
-          }, dirtyRef)
+          isRemoteEntityId(String(entityId))
+            ? entity
+            : processEntityPhysics(entity, entityId, {
+                tick,
+                deltaTime,
+                resolveCollision,
+              }, dirtyRef)
         )
 
         yield* invalidateEntityCacheIfNeeded(cachedEntitiesRef, dirtyRef, false)

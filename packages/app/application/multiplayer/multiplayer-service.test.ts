@@ -423,3 +423,124 @@ it('does not flush chat sent before connect or after disconnect on later self jo
     expect(MultiplayerServiceDefault(makeClient([]))).toBeDefined()
   })
 })
+
+const worldInfoMessage = (entityHostId?: string): NetworkMessage => ({
+  type: MessageType.WorldInfo,
+  worldSeed: 42,
+  ...(entityHostId !== undefined ? { entityHostPlayerId: playerId(entityHostId) } : {}),
+  timestamp: 7,
+})
+
+const entityDamageMessage = (attackerId: string, entityId: string): NetworkMessage => ({
+  type: MessageType.EntityDamage,
+  playerId: playerId(attackerId),
+  worldId,
+  entityId,
+  damage: 6,
+  knockback: { x: 3, y: 4.2, z: 0 },
+  timestamp: 8,
+})
+
+describe('MultiplayerService entity host authority', () => {
+  it('is the entity authority while disconnected (single-player)', async () => {
+    const sent: NetworkMessage[] = []
+    const authority = await Effect.runPromise(
+      Effect.gen(function* () {
+        const svc = yield* MultiplayerServiceImpl(makeClient(sent, {
+          getConnectionState: () => Effect.succeed('disconnected' as const),
+        }))
+        return yield* svc.isEntityAuthority()
+      }),
+    )
+    expect(authority).toBe(true)
+  })
+
+  it('stays the authority on a legacy server that announces no entity host', async () => {
+    const sent: NetworkMessage[] = []
+    const authority = await Effect.runPromise(
+      Effect.gen(function* () {
+        const svc = yield* MultiplayerServiceImpl(makeClient(sent, {
+          inbound: [joinMessage('self', 'alice', 0, 64, 0), worldInfoMessage()],
+        }))
+        yield* svc.connect('ws://test', playerName('alice'))
+        yield* Effect.sleep(10)
+        return yield* svc.isEntityAuthority()
+      }),
+    )
+    expect(authority).toBe(true)
+  })
+
+  it('is the authority when WorldInfo announces the local player as entity host', async () => {
+    const sent: NetworkMessage[] = []
+    const authority = await Effect.runPromise(
+      Effect.gen(function* () {
+        const svc = yield* MultiplayerServiceImpl(makeClient(sent, {
+          inbound: [joinMessage('self', 'alice', 0, 64, 0), worldInfoMessage('self')],
+        }))
+        yield* svc.connect('ws://test', playerName('alice'))
+        yield* Effect.sleep(10)
+        return yield* svc.isEntityAuthority()
+      }),
+    )
+    expect(authority).toBe(true)
+  })
+
+  it('is NOT the authority when WorldInfo announces someone else as entity host', async () => {
+    const sent: NetworkMessage[] = []
+    const authority = await Effect.runPromise(
+      Effect.gen(function* () {
+        const svc = yield* MultiplayerServiceImpl(makeClient(sent, {
+          inbound: [joinMessage('self', 'alice', 0, 64, 0), worldInfoMessage('other')],
+        }))
+        yield* svc.connect('ws://test', playerName('alice'))
+        yield* Effect.sleep(10)
+        return yield* svc.isEntityAuthority()
+      }),
+    )
+    expect(authority).toBe(false)
+  })
+
+  it('sendEntityDamage emits an EntityDamage message with the raw host entity id', async () => {
+    const sent: NetworkMessage[] = []
+    await Effect.runPromise(
+      Effect.gen(function* () {
+        const svc = yield* MultiplayerServiceImpl(makeClient(sent, {
+          inbound: [joinMessage('self', 'alice', 0, 64, 0)],
+        }))
+        yield* svc.connect('ws://test', playerName('alice'))
+        yield* Effect.sleep(10)
+        yield* svc.sendEntityDamage('entity-42', 6, { x: 3, y: 4.2, z: 0 })
+      }),
+    )
+    const damage = sent.find((m) => m.type === MessageType.EntityDamage)
+    expect(damage).toMatchObject({
+      playerId: playerId('self'),
+      entityId: 'entity-42',
+      damage: 6,
+      knockback: { x: 3, y: 4.2, z: 0 },
+    })
+  })
+
+  it('queues inbound entity damage from other players and drains it once', async () => {
+    const sent: NetworkMessage[] = []
+    const { first, second } = await Effect.runPromise(
+      Effect.gen(function* () {
+        const svc = yield* MultiplayerServiceImpl(makeClient(sent, {
+          inbound: [
+            joinMessage('self', 'alice', 0, 64, 0),
+            entityDamageMessage('other', 'entity-42'),
+          ],
+        }))
+        yield* svc.connect('ws://test', playerName('alice'))
+        yield* Effect.sleep(10)
+        const first = yield* svc.drainEntityDamages
+        const second = yield* svc.drainEntityDamages
+        return { first, second }
+      }),
+    )
+    expect(first).toEqual([
+      { attackerId: 'other', entityId: 'entity-42', damage: 6, knockback: { x: 3, y: 4.2, z: 0 } },
+    ])
+    expect(second).toEqual([])
+  })
+})

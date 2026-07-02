@@ -245,8 +245,10 @@ describe('step 2.85 — entity renderer wiring', () => {
     const multiplayer = {
       sendPositionUpdate: vi.fn(() => Effect.void),
       sendEntitySnapshot,
+      isEntityAuthority: vi.fn(() => Effect.succeed(true)),
       drainBlockEdits: Effect.succeed([]),
       drainEntitySnapshots: Effect.succeed([]),
+      drainEntityDamages: Effect.succeed([]),
       getRemotePlayers: vi.fn(() => Effect.succeed(new Map())),
     } as unknown as MultiplayerService
     Object.assign(services.entityManager, { getEntities: vi.fn(() => Effect.succeed([entity, remoteEntity])) })

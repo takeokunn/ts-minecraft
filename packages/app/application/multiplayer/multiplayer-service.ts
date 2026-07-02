@@ -43,6 +43,16 @@ export type RemoteEntitySnapshot = LocalEntitySnapshot & {
   readonly timestamp: number
 }
 
+// A non-host player's hit on one of OUR (host-authoritative) entities, relayed
+// by the server. `entityId` is our raw entity id (namespace already stripped
+// by the sender).
+export type RemoteEntityDamage = {
+  readonly attackerId: string
+  readonly entityId: string
+  readonly damage: number
+  readonly knockback: { readonly x: number; readonly y: number; readonly z: number }
+}
+
 type LocalPlayerIdentity = {
   readonly playerId: PlayerId
   readonly playerName: PlayerName
@@ -81,9 +91,20 @@ export type MultiplayerService = {
     pos: { readonly x: number; readonly y: number; readonly z: number },
   ) => Effect.Effect<void, never>
   readonly sendEntitySnapshot: (snapshot: LocalEntitySnapshot) => Effect.Effect<void, never>
+  // Entity host authority: true when this client should simulate & broadcast
+  // mobs — i.e. offline, on a pre-host-authority server (none announced), or
+  // announced as the session's entity host via WorldInfo.
+  readonly isEntityAuthority: () => Effect.Effect<boolean, never>
+  // Non-host combat: relay a hit on a host-owned entity (raw host entity id).
+  readonly sendEntityDamage: (
+    entityId: string,
+    damage: number,
+    knockback: { readonly x: number; readonly y: number; readonly z: number },
+  ) => Effect.Effect<void, never>
   // FR-3 block sync: drain and clear the queue of remote edits to apply locally.
   readonly drainBlockEdits: Effect.Effect<ReadonlyArray<RemoteBlockEdit>, never>
   readonly drainEntitySnapshots: Effect.Effect<ReadonlyArray<RemoteEntitySnapshot>, never>
+  readonly drainEntityDamages: Effect.Effect<ReadonlyArray<RemoteEntityDamage>, never>
   readonly drainInbound: Effect.Effect<void, never>
 }
 
@@ -100,10 +121,12 @@ const processInbound = (
   chatMessagesRef: Ref.Ref<ReadonlyArray<ChatEntry>>,
   inboundBlockEditsRef: Ref.Ref<ReadonlyArray<RemoteBlockEdit>>,
   inboundEntitySnapshotsRef: Ref.Ref<ReadonlyArray<RemoteEntitySnapshot>>,
+  inboundEntityDamagesRef: Ref.Ref<ReadonlyArray<RemoteEntityDamage>>,
   playerNameRef: Ref.Ref<Option.Option<PlayerName>>,
   localPlayerRef: Ref.Ref<Option.Option<LocalPlayerIdentity>>,
   hostWorldSeedRef: Ref.Ref<number | null>,
   hostTimeOfDayRef: Ref.Ref<number | null>,
+  entityHostIdRef: Ref.Ref<string | null>,
   onLocalPlayerReady: (identity: LocalPlayerIdentity) => Effect.Effect<void, never>,
 ): Effect.Effect<void, never> => {
   switch (msg.type) {
@@ -123,6 +146,22 @@ const processInbound = (
             health: msg.health,
             alive: msg.alive,
             timestamp: msg.timestamp,
+          },
+        ])
+      })
+    case MessageType.EntityDamage:
+      return Effect.gen(function* () {
+        // Server routes these to the entity host only; ignore echoes of our own hits.
+        const localPlayer = yield* Ref.get(localPlayerRef)
+        if (Option.isSome(localPlayer) && localPlayer.value.playerId === msg.playerId) return
+        const damages = yield* Ref.get(inboundEntityDamagesRef)
+        yield* Ref.set(inboundEntityDamagesRef, [
+          ...damages,
+          {
+            attackerId: String(msg.playerId),
+            entityId: msg.entityId,
+            damage: msg.damage,
+            knockback: msg.knockback,
           },
         ])
       })
@@ -234,6 +273,7 @@ const processInbound = (
     case MessageType.WorldInfo:
       return Ref.set(hostWorldSeedRef, msg.worldSeed).pipe(
         Effect.zipRight(Ref.set(hostTimeOfDayRef, msg.timeOfDay ?? null)),
+        Effect.zipRight(Ref.set(entityHostIdRef, msg.entityHostPlayerId !== undefined ? String(msg.entityHostPlayerId) : null)),
       )
     default:
       return Effect.void
@@ -250,12 +290,14 @@ export const MultiplayerServiceImpl = (
     const chatMessagesRef = yield* Ref.make<ReadonlyArray<ChatEntry>>([])
     const inboundBlockEditsRef = yield* Ref.make<ReadonlyArray<RemoteBlockEdit>>([])
     const inboundEntitySnapshotsRef = yield* Ref.make<ReadonlyArray<RemoteEntitySnapshot>>([])
+    const inboundEntityDamagesRef = yield* Ref.make<ReadonlyArray<RemoteEntityDamage>>([])
     const playerNameRef = yield* Ref.make<Option.Option<PlayerName>>(Option.none())
     const localPlayerRef = yield* Ref.make<Option.Option<LocalPlayerIdentity>>(Option.none())
     const pendingChatRef = yield* Ref.make<ReadonlyArray<string>>([])
     const localWorldSeedRef = yield* Ref.make<number | null>(null)
     const hostWorldSeedRef = yield* Ref.make<number | null>(null)
     const hostTimeOfDayRef = yield* Ref.make<number | null>(null)
+    const entityHostIdRef = yield* Ref.make<string | null>(null)
     const drainFiberRef = yield* Ref.make<Option.Option<Fiber.RuntimeFiber<void, never>>>(
       Option.none(),
     )
@@ -265,10 +307,12 @@ export const MultiplayerServiceImpl = (
       yield* Ref.set(chatMessagesRef, [])
       yield* Ref.set(inboundBlockEditsRef, [])
       yield* Ref.set(inboundEntitySnapshotsRef, [])
+      yield* Ref.set(inboundEntityDamagesRef, [])
       yield* Ref.set(localPlayerRef, Option.none())
       yield* Ref.set(pendingChatRef, [])
       yield* Ref.set(hostWorldSeedRef, null)
       yield* Ref.set(hostTimeOfDayRef, null)
+      yield* Ref.set(entityHostIdRef, null)
     })
 
     const getClientConnectionState = (): Effect.Effect<ConnectionState, never> =>
@@ -309,10 +353,12 @@ export const MultiplayerServiceImpl = (
               chatMessagesRef,
               inboundBlockEditsRef,
               inboundEntitySnapshotsRef,
+              inboundEntityDamagesRef,
               playerNameRef,
               localPlayerRef,
               hostWorldSeedRef,
               hostTimeOfDayRef,
+              entityHostIdRef,
               flushPendingChat,
             ),
           )
@@ -462,9 +508,34 @@ export const MultiplayerServiceImpl = (
           timestamp: Date.now(),
         } as NetworkMessage)),
 
+      isEntityAuthority: () =>
+        Effect.gen(function* () {
+          const state = yield* getClientConnectionState()
+          if (state !== 'connected') return true
+          const entityHostId = yield* Ref.get(entityHostIdRef)
+          // Pre-host-authority server (or handshake still in flight): keep the
+          // legacy behavior where every client simulates its own mobs.
+          if (entityHostId === null) return true
+          const identity = yield* Ref.get(localPlayerRef)
+          return Option.isSome(identity) && String(identity.value.playerId) === entityHostId
+        }),
+
+      sendEntityDamage: (entityId, damage, knockback) =>
+        sendIfConnected((identity) => ({
+          type: MessageType.EntityDamage,
+          playerId: identity.playerId,
+          worldId: OVERWORLD_ID,
+          entityId,
+          damage,
+          knockback: knockback as Vec3,
+          timestamp: Date.now(),
+        } as NetworkMessage)),
+
       drainBlockEdits: Ref.getAndSet(inboundBlockEditsRef, []),
 
       drainEntitySnapshots: Ref.getAndSet(inboundEntitySnapshotsRef, []),
+
+      drainEntityDamages: Ref.getAndSet(inboundEntityDamagesRef, []),
 
       drainInbound: Effect.void,
     }

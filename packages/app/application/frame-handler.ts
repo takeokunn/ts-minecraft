@@ -17,6 +17,7 @@ import type { FrameHandlerDeps } from '@ts-minecraft/app/application/frame/types
 import type { FrameHandlerServices } from '@ts-minecraft/app/application/frame/types/services'
 import type { FrameLoopHandlers, ResolvedDeps } from '@ts-minecraft/app/application/frame/types/runtime'
 import type { FrameStageRefs } from '@ts-minecraft/app/application/frame/types/stage-refs'
+import type { LocalEntitySnapshot } from '@ts-minecraft/app/application/multiplayer/multiplayer-service'
 
 // ---------------------------------------------------------------------------
 // Internal factory — wires refs, derived deps, and the per-frame orchestrator.
@@ -76,6 +77,7 @@ const createFrameLoopHandlersInternal = (
     const lastRenderDistanceRef = MutableRef.make(0)
     const lastEntityStructureVersionRef = yield* Ref.make(-1)
     const lastRemotePlayerIdsRef = MutableRef.make<ReadonlySet<string>>(new Set())
+    const lastBroadcastEntitySnapshotsRef = MutableRef.make<ReadonlyMap<string, LocalEntitySnapshot>>(new Map())
     // 7x7 = 49 slots; see ENTITY_PHYSICS_CHUNK_RADIUS in entity-update-stage.
     const entityPhysicsChunkCacheRef = yield* Ref.make<Array<Chunk | null>>(
       Array.from({ length: 49 }, () => null),
@@ -205,6 +207,7 @@ const createFrameLoopHandlersInternal = (
       lastRenderDistanceRef,
       lastEntityStructureVersionRef,
       lastRemotePlayerIdsRef,
+      lastBroadcastEntitySnapshotsRef,
       entityPhysicsChunkCacheRef,
       lastEntityPhysicsChunkCoordRef,
       lastEntityPhysicsLoadedChunksRef,

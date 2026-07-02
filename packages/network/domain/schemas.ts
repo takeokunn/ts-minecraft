@@ -45,6 +45,7 @@ export const MessageType = {
   PlayerLeave: 'PlayerLeave',
   PlayerMove: 'PlayerMove',
   EntitySnapshot: 'EntitySnapshot',
+  EntityDamage: 'EntityDamage',
   BlockPlace: 'BlockPlace',
   BlockBreak: 'BlockBreak',
   Chat: 'Chat',
@@ -59,6 +60,7 @@ export const MessageTypeSchema = Schema.Literal(
   MessageType.PlayerLeave,
   MessageType.PlayerMove,
   MessageType.EntitySnapshot,
+  MessageType.EntityDamage,
   MessageType.BlockPlace,
   MessageType.BlockBreak,
   MessageType.Chat,
@@ -126,6 +128,22 @@ export const EntitySnapshotMessageSchema = Schema.Struct({
 })
 export type EntitySnapshotMessage = Schema.Schema.Type<typeof EntitySnapshotMessageSchema>
 
+// Client -> host relay: a non-authoritative player hit one of the host's
+// entities. `playerId` is the attacker; `entityId` is the HOST's raw entity id
+// (the `remote:<host>:` namespace stripped by the sender). The server forwards
+// this only to the entity-authoritative client, which applies damage/knockback
+// so the result converges back through EntitySnapshot broadcasts.
+export const EntityDamageMessageSchema = Schema.Struct({
+  type: Schema.Literal(MessageType.EntityDamage),
+  playerId: PlayerIdSchema,
+  worldId: WorldIdSchema,
+  entityId: Schema.String,
+  damage: Schema.Number.pipe(Schema.finite(), Schema.nonNegative()),
+  knockback: Vec3Schema,
+  timestamp: TimestampSchema,
+})
+export type EntityDamageMessage = Schema.Schema.Type<typeof EntityDamageMessageSchema>
+
 export const BlockPlaceMessageSchema = Schema.Struct({
   type: Schema.Literal(MessageType.BlockPlace),
   playerId: PlayerIdSchema,
@@ -162,6 +180,10 @@ export const WorldInfoMessageSchema = Schema.Struct({
   worldSeed: Schema.Number,
   // Session-authoritative time of day [0,1); absent on pre-time-sync servers.
   timeOfDay: Schema.optional(Schema.Number),
+  // The player who simulates & broadcasts entities (first joiner; reassigned on
+  // leave). Absent on pre-host-authority servers — clients then fall back to
+  // the legacy every-client-simulates behavior.
+  entityHostPlayerId: Schema.optional(PlayerIdSchema),
   timestamp: TimestampSchema,
 })
 export type WorldInfoMessage = Schema.Schema.Type<typeof WorldInfoMessageSchema>
@@ -193,6 +215,7 @@ export const NetworkMessageSchema = Schema.Union(
   PlayerLeaveMessageSchema,
   PlayerMoveMessageSchema,
   EntitySnapshotMessageSchema,
+  EntityDamageMessageSchema,
   BlockPlaceMessageSchema,
   BlockBreakMessageSchema,
   ChatMessageSchema,

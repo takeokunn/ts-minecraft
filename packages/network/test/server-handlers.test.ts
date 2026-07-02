@@ -2,7 +2,7 @@ import { describe, it } from '@effect/vitest'
 import { Effect, Either, Ref } from 'effect'
 import { expect } from 'vitest'
 import { decodeNetworkMessage, encodeNetworkMessage } from '../application/codec'
-import { dispatchMessage, handleBlockBreak, handleBlockPlace, handlePlayerJoin, handlePlayerLeave, handlePlayerMove, makeJoinMessage } from '../application/server-handlers'
+import { dispatchMessage, handleBlockBreak, handleBlockPlace, handleEntityDamage, handleEntitySnapshot, handlePlayerJoin, handlePlayerLeave, handlePlayerMove, makeJoinMessage } from '../application/server-handlers'
 import { makeGameServer, type ConnectedPlayer, type ServerServiceShape } from '../application/server-service'
 import { MessageType, PlayerId, PlayerName, WorldId, type NetworkMessage } from '../domain/schemas'
 import { FakeWebSocketServer, type FakeSocketPair } from '../infrastructure/websocket-server'
@@ -504,6 +504,159 @@ describe('fake websocket server', () => {
       }
 
       yield* handle.stop
+    }),
+  )
+})
+
+describe('entity host authority', () => {
+  const makeHostHarness = () =>
+    Effect.gen(function* () {
+      const base = yield* makeHarness()
+      const directSends = yield* Ref.make<ReadonlyArray<{ readonly playerId: PlayerId; readonly message: NetworkMessage }>>([])
+      const serverService: ServerServiceShape = {
+        ...base.serverService,
+        sendToPlayer: (playerId, message) => Ref.update(directSends, (calls) => [...calls, { playerId, message }]),
+      }
+      return { gameServer: base.gameServer, serverService, broadcasts: base.broadcasts, directSends }
+    })
+
+  const joinMessage = (name: string) => ({
+    type: MessageType.PlayerJoin,
+    playerId: PlayerId.make('pending'),
+    playerName: PlayerName.make(name),
+    worldId,
+    position: { x: 0, y: 64, z: 0 },
+    worldSeed: 42,
+    timestamp: 1,
+  }) as const
+
+  it.effect('adopts the first joiner as entity host and echoes it via WorldInfo', () =>
+    Effect.gen(function* () {
+      const harness = yield* makeHostHarness()
+      const pair = yield* makePair()
+
+      const hostId = yield* handlePlayerJoin(harness, joinMessage('Steve'), pair.connection)
+
+      expect(yield* Ref.get(harness.gameServer.entityHost)).toBe(hostId)
+      yield* takeMessage(pair) // assigned join echo
+      const worldInfo = yield* takeMessage(pair)
+      expect(worldInfo.type).toBe(MessageType.WorldInfo)
+      if (worldInfo.type === MessageType.WorldInfo) {
+        expect(worldInfo.entityHostPlayerId).toBe(hostId)
+      }
+    }),
+  )
+
+  it.effect('keeps the original entity host when a second player joins', () =>
+    Effect.gen(function* () {
+      const harness = yield* makeHostHarness()
+      const pairA = yield* makePair()
+      const pairB = yield* makePair()
+
+      const hostId = yield* handlePlayerJoin(harness, joinMessage('Steve'), pairA.connection)
+      yield* handlePlayerJoin(harness, joinMessage('Alex'), pairB.connection)
+
+      expect(yield* Ref.get(harness.gameServer.entityHost)).toBe(hostId)
+      yield* takeMessage(pairB) // assigned join echo
+      const worldInfo = yield* takeMessage(pairB)
+      expect(worldInfo.type).toBe(MessageType.WorldInfo)
+      if (worldInfo.type === MessageType.WorldInfo) {
+        expect(worldInfo.entityHostPlayerId).toBe(hostId)
+      }
+    }),
+  )
+
+  it.effect('drops entity snapshots from a non-host sender but relays the host\'s', () =>
+    Effect.gen(function* () {
+      const harness = yield* makeHostHarness()
+      const pairA = yield* makePair()
+      const pairB = yield* makePair()
+      const hostId = yield* handlePlayerJoin(harness, joinMessage('Steve'), pairA.connection)
+      const otherId = yield* handlePlayerJoin(harness, joinMessage('Alex'), pairB.connection)
+      yield* Ref.set(harness.broadcasts, [])
+
+      const snapshotFrom = (playerId: PlayerId) => ({
+        type: MessageType.EntitySnapshot,
+        playerId,
+        worldId,
+        entityId: 'entity-1',
+        entityType: 'ZOMBIE',
+        position: { x: 0, y: 64, z: 0 },
+        health: 8,
+        alive: true,
+        timestamp: 5,
+      }) as const
+
+      yield* handleEntitySnapshot(harness, snapshotFrom(otherId))
+      expect(yield* Ref.get(harness.broadcasts)).toHaveLength(0)
+
+      yield* handleEntitySnapshot(harness, snapshotFrom(hostId))
+      const broadcasts = yield* Ref.get(harness.broadcasts)
+      expect(broadcasts).toHaveLength(1)
+      expect(broadcasts[0]?.exclude).toBe(hostId)
+    }),
+  )
+
+  it.effect('relays entity damage to the host only and ignores the host\'s own', () =>
+    Effect.gen(function* () {
+      const harness = yield* makeHostHarness()
+      const pairA = yield* makePair()
+      const pairB = yield* makePair()
+      const hostId = yield* handlePlayerJoin(harness, joinMessage('Steve'), pairA.connection)
+      const otherId = yield* handlePlayerJoin(harness, joinMessage('Alex'), pairB.connection)
+
+      const damageFrom = (playerId: PlayerId) => ({
+        type: MessageType.EntityDamage,
+        playerId,
+        worldId,
+        entityId: 'entity-9',
+        damage: 6,
+        knockback: { x: 3, y: 4.2, z: 0 },
+        timestamp: 6,
+      }) as const
+
+      yield* handleEntityDamage(harness, damageFrom(otherId))
+      const sends = yield* Ref.get(harness.directSends)
+      expect(sends).toHaveLength(1)
+      expect(sends[0]?.playerId).toBe(hostId)
+      expect(sends[0]?.message).toMatchObject({ type: MessageType.EntityDamage, entityId: 'entity-9', damage: 6 })
+
+      yield* handleEntityDamage(harness, damageFrom(hostId))
+      expect(yield* Ref.get(harness.directSends)).toHaveLength(1)
+    }),
+  )
+
+  it.effect('promotes a surviving player and broadcasts the new host when the host leaves', () =>
+    Effect.gen(function* () {
+      const harness = yield* makeHostHarness()
+      const pairA = yield* makePair()
+      const pairB = yield* makePair()
+      const hostId = yield* handlePlayerJoin(harness, joinMessage('Steve'), pairA.connection)
+      const otherId = yield* handlePlayerJoin(harness, joinMessage('Alex'), pairB.connection)
+      yield* Ref.set(harness.broadcasts, [])
+
+      yield* handlePlayerLeave(harness, hostId)
+
+      expect(yield* Ref.get(harness.gameServer.entityHost)).toBe(otherId)
+      const broadcasts = yield* Ref.get(harness.broadcasts)
+      const worldInfoBroadcast = broadcasts.find((call) => call.message.type === MessageType.WorldInfo)
+      expect(worldInfoBroadcast).toBeDefined()
+      expect(worldInfoBroadcast?.message).toMatchObject({
+        type: MessageType.WorldInfo,
+        entityHostPlayerId: otherId,
+      })
+    }),
+  )
+
+  it.effect('clears the entity host when the last player leaves', () =>
+    Effect.gen(function* () {
+      const harness = yield* makeHostHarness()
+      const pair = yield* makePair()
+      const hostId = yield* handlePlayerJoin(harness, joinMessage('Steve'), pair.connection)
+
+      yield* handlePlayerLeave(harness, hostId)
+
+      expect(yield* Ref.get(harness.gameServer.entityHost)).toBeNull()
     }),
   )
 })

@@ -4,6 +4,7 @@ import { aabbFromVoxel } from '@ts-minecraft/world'
 import { EntityId, EntityType } from '@ts-minecraft/entity/domain/mob/entity'
 import {
   applyInboundBlockEdits,
+  applyInboundEntityDamages,
   applyInboundEntitySnapshots,
   multiplayerStage,
 } from '@ts-minecraft/app/frame/stages/multiplayer-stage'
@@ -18,20 +19,33 @@ import type { FrameStageRefs } from '@ts-minecraft/app/application/frame/types/s
 import type { Chunk } from '@ts-minecraft/world'
 
 describe('multiplayerStage', () => {
+  const makeStageHarness = (mpOverrides: Record<string, unknown> = {}) => {
+    const removeEntity = vi.fn(() => Effect.succeed(true))
+    const services = { entityManager: { removeEntity } } as unknown as Pick<FrameHandlerServices, 'entityManager'>
+    const refs = {
+      lastBroadcastEntitySnapshotsRef: MutableRef.make<ReadonlyMap<string, LocalEntitySnapshot>>(new Map()),
+    } as Pick<FrameStageRefs, 'lastBroadcastEntitySnapshotsRef'>
+    const multiplayer = {
+      isEntityAuthority: vi.fn(() => Effect.succeed(true)),
+      ...mpOverrides,
+    } as unknown as MultiplayerService
+    return { multiplayer, services, refs, removeEntity }
+  }
+
   it('sends the current position and rotation to the multiplayer service', async () => {
     const sendPositionUpdate = vi.fn(() => Effect.void)
-    const multiplayer = { sendPositionUpdate } as unknown as MultiplayerService
+    const { multiplayer, services, refs } = makeStageHarness({ sendPositionUpdate })
 
-    await Effect.runPromise(multiplayerStage(multiplayer, { x: 1, y: 2, z: 3 }, 0.25, -0.5))
+    await Effect.runPromise(multiplayerStage(multiplayer, services, refs, { x: 1, y: 2, z: 3 }, 0.25, -0.5))
 
     expect(sendPositionUpdate).toHaveBeenCalledWith({ x: 1, y: 2, z: 3 }, { yaw: 0.25, pitch: -0.5 })
   })
 
   it('ignores send failures so a network hiccup cannot abort the frame', async () => {
     const sendPositionUpdate = vi.fn(() => Effect.fail(new Error('offline')))
-    const multiplayer = { sendPositionUpdate } as unknown as MultiplayerService
+    const { multiplayer, services, refs } = makeStageHarness({ sendPositionUpdate })
 
-    await expect(Effect.runPromise(multiplayerStage(multiplayer, { x: 4, y: 5, z: 6 }, 1, 2))).resolves.toBeUndefined()
+    await expect(Effect.runPromise(multiplayerStage(multiplayer, services, refs, { x: 4, y: 5, z: 6 }, 1, 2))).resolves.toBeUndefined()
     expect(sendPositionUpdate).toHaveBeenCalledTimes(1)
   })
 
@@ -44,14 +58,86 @@ describe('multiplayerStage', () => {
       { entityId: 'entity-ok', entityType: 'ZOMBIE', position: { x: 1, y: 64, z: 2 }, health: 10, alive: true },
       { entityId: 'entity-fail', entityType: 'SKELETON', position: { x: 3, y: 64, z: 4 }, health: 0, alive: false },
     ]
-    const multiplayer = { sendPositionUpdate, sendEntitySnapshot } as unknown as MultiplayerService
+    const { multiplayer, services, refs } = makeStageHarness({ sendPositionUpdate, sendEntitySnapshot })
 
-    await Effect.runPromise(multiplayerStage(multiplayer, { x: 7, y: 8, z: 9 }, 0, 0, snapshots))
+    await Effect.runPromise(multiplayerStage(multiplayer, services, refs, { x: 7, y: 8, z: 9 }, 0, 0, snapshots))
 
     expect(sendPositionUpdate).toHaveBeenCalledWith({ x: 7, y: 8, z: 9 }, { yaw: 0, pitch: 0 })
     expect(sendEntitySnapshot).toHaveBeenCalledTimes(2)
     expect(sendEntitySnapshot).toHaveBeenNthCalledWith(1, snapshots[0])
     expect(sendEntitySnapshot).toHaveBeenNthCalledWith(2, snapshots[1])
+  })
+
+  it('broadcasts a final alive:false snapshot for entities that vanished since the last frame', async () => {
+    const sendPositionUpdate = vi.fn(() => Effect.void)
+    const sendEntitySnapshot = vi.fn(() => Effect.void)
+    const { multiplayer, services, refs } = makeStageHarness({ sendPositionUpdate, sendEntitySnapshot })
+    const killed: LocalEntitySnapshot = {
+      entityId: 'entity-dead', entityType: 'ZOMBIE', position: { x: 5, y: 64, z: 5 }, health: 4, alive: true,
+    }
+    MutableRef.set(refs.lastBroadcastEntitySnapshotsRef, new Map([[killed.entityId, killed]]))
+
+    await Effect.runPromise(multiplayerStage(multiplayer, services, refs, { x: 0, y: 0, z: 0 }, 0, 0, []))
+
+    expect(sendEntitySnapshot).toHaveBeenCalledTimes(1)
+    expect(sendEntitySnapshot).toHaveBeenCalledWith({ ...killed, health: 0, alive: false })
+    expect(MutableRef.get(refs.lastBroadcastEntitySnapshotsRef).size).toBe(0)
+  })
+
+  it('as a non-host: sends no snapshots and removes locally simulated mobs', async () => {
+    const sendPositionUpdate = vi.fn(() => Effect.void)
+    const sendEntitySnapshot = vi.fn(() => Effect.void)
+    const { multiplayer, services, refs, removeEntity } = makeStageHarness({
+      sendPositionUpdate,
+      sendEntitySnapshot,
+      isEntityAuthority: vi.fn(() => Effect.succeed(false)),
+    })
+    const snapshots: ReadonlyArray<LocalEntitySnapshot> = [
+      { entityId: 'entity-1', entityType: 'ZOMBIE', position: { x: 1, y: 64, z: 2 }, health: 10, alive: true },
+    ]
+    MutableRef.set(refs.lastBroadcastEntitySnapshotsRef, new Map([['stale', snapshots[0]!]]))
+
+    await Effect.runPromise(multiplayerStage(multiplayer, services, refs, { x: 0, y: 0, z: 0 }, 0, 0, snapshots))
+
+    expect(sendPositionUpdate).toHaveBeenCalledTimes(1)
+    expect(sendEntitySnapshot).not.toHaveBeenCalled()
+    expect(removeEntity).toHaveBeenCalledWith(EntityId.make('entity-1'))
+    expect(MutableRef.get(refs.lastBroadcastEntitySnapshotsRef).size).toBe(0)
+  })
+})
+
+describe('applyInboundEntityDamages', () => {
+  it('applies relayed knockback then damage to the host entity', async () => {
+    const applyKnockback = vi.fn(() => Effect.void)
+    const applyDamage = vi.fn(() => Effect.succeed(Option.none()))
+    const mp = {
+      drainEntityDamages: Effect.succeed([
+        { attackerId: 'player-b', entityId: 'entity-7', damage: 6, knockback: { x: 3, y: 4.2, z: 0 } },
+      ]),
+    } as unknown as MultiplayerService
+    const services = { entityManager: { applyKnockback, applyDamage } } as unknown as Pick<FrameHandlerServices, 'entityManager'>
+
+    await Effect.runPromise(applyInboundEntityDamages(mp, services))
+
+    expect(applyKnockback).toHaveBeenCalledWith(EntityId.make('entity-7'), { x: 3, y: 4.2, z: 0 })
+    expect(applyDamage).toHaveBeenCalledWith(EntityId.make('entity-7'), 6)
+  })
+
+  it('keeps applying hits after one fails', async () => {
+    const applyKnockback = vi.fn(() => Effect.void)
+    const applyDamage = vi.fn()
+      .mockReturnValueOnce(Effect.fail(new Error('missing entity')))
+      .mockReturnValueOnce(Effect.succeed(Option.none()))
+    const mp = {
+      drainEntityDamages: Effect.succeed([
+        { attackerId: 'player-b', entityId: 'entity-a', damage: 2, knockback: { x: 0, y: 4.2, z: 5 } },
+        { attackerId: 'player-b', entityId: 'entity-b', damage: 3, knockback: { x: 5, y: 4.2, z: 0 } },
+      ]),
+    } as unknown as MultiplayerService
+    const services = { entityManager: { applyKnockback, applyDamage } } as unknown as Pick<FrameHandlerServices, 'entityManager'>
+
+    await expect(Effect.runPromise(applyInboundEntityDamages(mp, services))).resolves.toBeUndefined()
+    expect(applyDamage).toHaveBeenCalledTimes(2)
   })
 })
 
