@@ -14,6 +14,7 @@ export type ServerHandlerServices = {
 const defaultRotation = { yaw: 0, pitch: 0 }
 
 const nextPlayerId = (): PlayerId => PlayerId.make(crypto.randomUUID())
+const REPLAY_PLAYER_ID: PlayerId = PlayerId.make('server:replay')
 const defaultWorldId = (): WorldId => WorldId.make('overworld')
 
 const verifyPlayerOwnership = (
@@ -75,6 +76,14 @@ export const handlePlayerJoin = (
         worldSeed: sessionSeed,
         timestamp: Date.now(),
       })
+    }
+    // Replay the session's accumulated block edits (last-write-wins per voxel)
+    // so a late joiner's world converges with everyone's changes. The editor id
+    // is rewritten to a reserved id: clients skip inbound edits carrying their
+    // OWN player id, and a rejoining editor must still apply their past edits.
+    const editLog = yield* Ref.get(services.gameServer.blockEdits)
+    for (const edit of editLog.values()) {
+      yield* sendEncodedToConnection(connection, { ...edit, playerId: REPLAY_PLAYER_ID, timestamp: Date.now() })
     }
     for (const existingPlayer of currentPlayers.values()) {
       yield* sendEncodedToConnection(connection, {
@@ -142,15 +151,34 @@ export const handleEntitySnapshot = (
   message: EntitySnapshotMessage,
 ): Effect.Effect<void, NetworkError> => services.serverService.broadcast(message, message.playerId)
 
+const blockEditKey = (position: { readonly x: number; readonly y: number; readonly z: number }): string =>
+  `${position.x},${position.y},${position.z}`
+
+const recordBlockEdit = (
+  services: ServerHandlerServices,
+  message: BlockPlaceMessage | BlockBreakMessage,
+): Effect.Effect<void, never> =>
+  Ref.update(services.gameServer.blockEdits, (edits) => {
+    const next = new Map(edits)
+    next.set(blockEditKey(message.position), message)
+    return next
+  })
+
 export const handleBlockPlace = (
   services: ServerHandlerServices,
   message: BlockPlaceMessage,
-): Effect.Effect<void, NetworkError> => services.serverService.broadcast(message, message.playerId)
+): Effect.Effect<void, NetworkError> =>
+  recordBlockEdit(services, message).pipe(
+    Effect.flatMap(() => services.serverService.broadcast(message, message.playerId)),
+  )
 
 export const handleBlockBreak = (
   services: ServerHandlerServices,
   message: BlockBreakMessage,
-): Effect.Effect<void, NetworkError> => services.serverService.broadcast(message, message.playerId)
+): Effect.Effect<void, NetworkError> =>
+  recordBlockEdit(services, message).pipe(
+    Effect.flatMap(() => services.serverService.broadcast(message, message.playerId)),
+  )
 
 export const handleChat = (
   services: ServerHandlerServices,

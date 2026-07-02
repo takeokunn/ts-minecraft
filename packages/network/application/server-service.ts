@@ -1,6 +1,6 @@
 import { Context, Effect, Fiber, Layer, Option, Queue, Ref, Stream } from 'effect'
 import { NetworkError } from '../domain/errors'
-import { MessageType, PlayerId, type NetworkMessage, type NetworkRotation, type PlayerName, type Vec3, type WorldId } from '../domain/schemas'
+import { MessageType, PlayerId, type BlockBreakMessage, type BlockPlaceMessage, type NetworkMessage, type NetworkRotation, type PlayerName, type Vec3, type WorldId } from '../domain/schemas'
 import type { WebSocketConnection, WebSocketServerHandle, WebSocketServerPort } from '../domain/websocket-ports'
 import { sendEncodedToConnection } from './codec'
 import { dispatchMessage, handlePlayerLeave } from './server-handlers'
@@ -23,6 +23,9 @@ export type GameServer = {
   // Authoritative terrain seed for the session: the first joiner's seed.
   // null until a client that knows its seed joins.
   readonly worldSeed: Ref.Ref<number | null>
+  // Last block edit per voxel (last-write-wins), replayed to late joiners so
+  // their world converges with everyone else's edits.
+  readonly blockEdits: Ref.Ref<Map<string, BlockPlaceMessage | BlockBreakMessage>>
   readonly maxPlayers: number
 }
 
@@ -46,7 +49,8 @@ export const makeGameServer = (maxPlayers = 20): Effect.Effect<GameServer, never
     const connectionsByPlayerId = yield* Ref.make(new Map<PlayerId, WebSocketConnection>())
     const playerIdByConnectionId = yield* Ref.make(new Map<string, PlayerId>())
     const worldSeed = yield* Ref.make<number | null>(null)
-    return { connectedPlayers, connectionsByPlayerId, playerIdByConnectionId, worldSeed, maxPlayers }
+    const blockEdits = yield* Ref.make(new Map<string, BlockPlaceMessage | BlockBreakMessage>())
+    return { connectedPlayers, connectionsByPlayerId, playerIdByConnectionId, worldSeed, blockEdits, maxPlayers }
   })
 
 const wireConnection = (

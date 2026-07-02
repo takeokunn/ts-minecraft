@@ -2,7 +2,7 @@ import { describe, it } from '@effect/vitest'
 import { Effect, Either, Queue, Ref } from 'effect'
 import { expect } from 'vitest'
 import { decodeNetworkMessage, encodeNetworkMessage } from '../application/codec'
-import { dispatchMessage, handlePlayerJoin, handlePlayerLeave, handlePlayerMove, makeJoinMessage } from '../application/server-handlers'
+import { dispatchMessage, handleBlockBreak, handleBlockPlace, handlePlayerJoin, handlePlayerLeave, handlePlayerMove, makeJoinMessage } from '../application/server-handlers'
 import { makeGameServer, type ConnectedPlayer, type ServerServiceShape } from '../application/server-service'
 import { MessageType, PlayerId, PlayerName, WorldId, type NetworkMessage } from '../domain/schemas'
 import { FakeWebSocketServer, type FakeSocketPair } from '../infrastructure/websocket-server'
@@ -191,6 +191,66 @@ describe('server handler dispatch', () => {
       }
       // The session seed must not be overwritten by the second joiner.
       expect(yield* Ref.get(harness.gameServer.worldSeed)).toBe(111)
+    }),
+  )
+
+  it.effect('replays accumulated block edits to a late joiner (last-write-wins, replay id)', () =>
+    Effect.gen(function* () {
+      const harness = yield* makeHarness()
+
+      // First player joins and edits the world.
+      yield* handleBlockPlace(harness, {
+        type: MessageType.BlockPlace,
+        playerId: firstPlayerId,
+        worldId,
+        position: { x: 1, y: 64, z: 2 },
+        blockType: 'STONE',
+        timestamp: 1,
+      })
+      yield* handleBlockPlace(harness, {
+        type: MessageType.BlockPlace,
+        playerId: firstPlayerId,
+        worldId,
+        position: { x: 1, y: 64, z: 2 },
+        blockType: 'PLANKS',
+        timestamp: 2,
+      })
+      yield* handleBlockBreak(harness, {
+        type: MessageType.BlockBreak,
+        playerId: firstPlayerId,
+        worldId,
+        position: { x: 5, y: 64, z: 5 },
+        timestamp: 3,
+      })
+
+      // Late joiner connects; the log must replay after the join ack.
+      const pair = yield* makePair()
+      yield* handlePlayerJoin(
+        harness,
+        {
+          type: MessageType.PlayerJoin,
+          playerId: PlayerId.make('pending'),
+          playerName: PlayerName.make('Late'),
+          worldId,
+          position: { x: 0, y: 64, z: 0 },
+          timestamp: 4,
+        },
+        pair.connection,
+      )
+
+      yield* takeMessage(pair) // assigned join
+      const replay1 = yield* takeMessage(pair)
+      const replay2 = yield* takeMessage(pair)
+      const types = [replay1.type, replay2.type].sort()
+      expect(types).toEqual([MessageType.BlockBreak, MessageType.BlockPlace].sort())
+      const place = [replay1, replay2].find((m) => m.type === MessageType.BlockPlace)
+      expect(place).toBeDefined()
+      if (place !== undefined && place.type === MessageType.BlockPlace) {
+        // last-write-wins: PLANKS overwrote STONE at the same voxel
+        expect(place.blockType).toBe('PLANKS')
+        // editor id rewritten so a rejoining editor still applies its own edits
+        expect(place.playerId).toBe(PlayerId.make('server:replay'))
+      }
     }),
   )
 
