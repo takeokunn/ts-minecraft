@@ -41,6 +41,12 @@ const FIRST_PERSON_NARROW_ITEM_Y = 0.05
 const FIRST_PERSON_NARROW_ITEM_Z = -2.2
 const FIRST_PERSON_NARROW_BLOCK_SCALE = 0.32
 const FIRST_PERSON_NARROW_FLAT_ITEM_SIZE = 0.58
+// Swing arc mirrors the first-person arm (first-person-hand.ts) so the held
+// item chops in phase with the arm and camera bob during an attack.
+const HELD_ITEM_SWING_PITCH_RADS = -1.1
+const HELD_ITEM_SWING_YAW_RADS = 0.35
+const HELD_ITEM_SWING_DROP_UNITS = 0.3
+const HELD_ITEM_SWING_FORWARD_UNITS = 0.25
 
 type ItemNameLabel = {
   readonly mesh: THREE.Mesh
@@ -192,10 +198,19 @@ const getFirstPersonLayout = (aspect: number): FirstPersonLayout => {
 const applyFirstPersonHeldItemLayout = (
   heldItem: FirstPersonHeldItem,
   aspect: number,
+  swingAmount = 0,
 ): void => {
   const layout = getFirstPersonLayout(aspect)
-  heldItem.group.position.set(layout.x, layout.y, layout.z)
-  heldItem.group.rotation.set(FIRST_PERSON_ITEM_ROTATION_X, FIRST_PERSON_ITEM_ROTATION_Y, FIRST_PERSON_ITEM_ROTATION_Z)
+  heldItem.group.position.set(
+    layout.x,
+    layout.y - swingAmount * HELD_ITEM_SWING_DROP_UNITS,
+    layout.z - swingAmount * HELD_ITEM_SWING_FORWARD_UNITS,
+  )
+  heldItem.group.rotation.set(
+    FIRST_PERSON_ITEM_ROTATION_X + swingAmount * HELD_ITEM_SWING_PITCH_RADS,
+    FIRST_PERSON_ITEM_ROTATION_Y + swingAmount * HELD_ITEM_SWING_YAW_RADS,
+    FIRST_PERSON_ITEM_ROTATION_Z,
+  )
   heldItem.mesh.scale.setScalar(heldItem.isBlock ? layout.blockScale : layout.flatItemSize / FIRST_PERSON_FLAT_ITEM_SIZE)
 }
 
@@ -330,6 +345,7 @@ export class HotbarRendererService extends Effect.Service<HotbarRendererService>
       const heldItemRef = MutableRef.make<Option.Option<FirstPersonHeldItem>>(Option.none())
       const itemNameLabelRef = MutableRef.make<Option.Option<ItemNameLabel>>(Option.none())
       const itemNameLabelShownAtMsRef = MutableRef.make(0)
+      const lastSwingAmountRef = MutableRef.make(0)
 
       const makeCamera = (w: number, h: number): THREE.OrthographicCamera => {
         const cam = new THREE.OrthographicCamera(-w / 2, w / 2, h / 2, -h / 2, 0, 100)
@@ -364,6 +380,8 @@ export class HotbarRendererService extends Effect.Service<HotbarRendererService>
 
         heldItemScene.add(nextHeldItem.group)
         MutableRef.set(heldItemRef, Option.some(nextHeldItem))
+        // Fresh model starts at rest pose; reset the gate so an in-flight swing re-poses it.
+        MutableRef.set(lastSwingAmountRef, 0)
       }
 
       // Resize handler — defined here so it can be registered/unregistered via finalizer.
@@ -538,7 +556,7 @@ export class HotbarRendererService extends Effect.Service<HotbarRendererService>
             }
           }),
 
-        render: (renderer: THREE.WebGLRenderer): Effect.Effect<void, never> => {
+        render: (renderer: THREE.WebGLRenderer, swingAmount = 0): Effect.Effect<void, never> => {
           updateItemNameLabelOpacity()
           const hudCamera = Option.getOrNull(MutableRef.get(hudCameraRef))
           const heldItemCamera = Option.getOrNull(MutableRef.get(heldItemCameraRef))
@@ -546,6 +564,12 @@ export class HotbarRendererService extends Effect.Service<HotbarRendererService>
           if (hudCamera === null) return Effect.void
           return Effect.gen(function* () {
             if (heldItemCamera !== null && heldItem !== null) {
+              // Re-pose only while the swing value is actually moving — at rest
+              // this is 0 === 0 and skips the per-frame layout allocation.
+              if (swingAmount !== MutableRef.get(lastSwingAmountRef)) {
+                applyFirstPersonHeldItemLayout(heldItem, heldItemCamera.aspect, swingAmount)
+                MutableRef.set(lastSwingAmountRef, swingAmount)
+              }
               yield* rendererService.renderOverlay(renderer, heldItemScene, heldItemCamera)
             }
             yield* rendererService.renderOverlay(renderer, hudScene, hudCamera)

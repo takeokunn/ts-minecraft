@@ -604,6 +604,68 @@ describe('HotbarRendererService', () => {
       }).pipe(Effect.provide(TestLayer))
     })
 
+    it.scoped('poses the held item with the attack swing amount', () => {
+      vi.clearAllMocks()
+      const mockRenderer = createMockRendererService()
+      const TestLayer = buildTestLayer(mockRenderer)
+      const fakeWebGLRenderer = {} as import('three').WebGLRenderer
+      const slots: ReadonlyArray<Option.Option<InventoryItem>> = [
+        Option.some('GRASS' as InventoryItem),
+        ...Arr.makeBy(8, () => Option.none<InventoryItem>()),
+      ]
+
+      return Effect.gen(function* () {
+        const renderer = yield* HotbarRendererService
+        yield* renderer.initialize(800, 600)
+        yield* renderer.update(slots, SlotIndex.make(0))
+
+        const group = vi.mocked(THREE.Group).mock.results[0]?.value as {
+          rotation: { x: number; y: number; z: number }
+          position: { x: number; y: number; z: number }
+        }
+        const restRotationX = group.rotation.x
+        const restPositionY = group.position.y
+        const restPositionZ = group.position.z
+
+        yield* renderer.render(fakeWebGLRenderer, 1)
+
+        // Full swing: forward chop (pitch down), item drops and moves forward.
+        expect(group.rotation.x).toBeLessThan(restRotationX)
+        expect(group.position.y).toBeLessThan(restPositionY)
+        expect(group.position.z).toBeLessThan(restPositionZ)
+      }).pipe(Effect.provide(TestLayer))
+    })
+
+    it.scoped('returns the held item to rest pose when the swing ends', () => {
+      vi.clearAllMocks()
+      const mockRenderer = createMockRendererService()
+      const TestLayer = buildTestLayer(mockRenderer)
+      const fakeWebGLRenderer = {} as import('three').WebGLRenderer
+      const slots: ReadonlyArray<Option.Option<InventoryItem>> = [
+        Option.some('GRASS' as InventoryItem),
+        ...Arr.makeBy(8, () => Option.none<InventoryItem>()),
+      ]
+
+      return Effect.gen(function* () {
+        const renderer = yield* HotbarRendererService
+        yield* renderer.initialize(800, 600)
+        yield* renderer.update(slots, SlotIndex.make(0))
+
+        const group = vi.mocked(THREE.Group).mock.results[0]?.value as {
+          rotation: { x: number; y: number; z: number }
+          position: { x: number; y: number; z: number }
+        }
+        const restRotationX = group.rotation.x
+        const restPositionY = group.position.y
+
+        yield* renderer.render(fakeWebGLRenderer, 0.7)
+        yield* renderer.render(fakeWebGLRenderer, 0)
+
+        expect(group.rotation.x).toBeCloseTo(restRotationX, 5)
+        expect(group.position.y).toBeCloseTo(restPositionY, 5)
+      }).pipe(Effect.provide(TestLayer))
+    })
+
     it.scoped('removes the first-person held item when the selected slot becomes empty', () => {
       vi.clearAllMocks()
       const mockRenderer = createMockRendererService()

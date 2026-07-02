@@ -8,12 +8,12 @@ import type { FrameHudServices } from '@ts-minecraft/app/frame/frame-service-typ
 import type { FrameSettingsServices } from '@ts-minecraft/app/frame/frame-service-types/settings'
 import { decideAdaptiveQuality } from '@ts-minecraft/app/frame/frame-adaptive-quality'
 import type { DeltaTimeSecs } from '@ts-minecraft/core'
-import { isGameplayHudHidden } from '@ts-minecraft/presentation'
+import { getAttackSwingOffset, isGameplayHudHidden } from '@ts-minecraft/presentation'
 
 export const hudStage = (
   deps: Pick<FrameHandlerDeps, 'renderer'>,
   services: FrameHudServices & Pick<FrameSettingsServices, 'settingsService'>,
-  refs: Pick<FrameStageRefs, 'frustumThrottleStrideRef' | 'adaptiveQualityCooldownRef' | 'lastFpsTenthsRef' | 'chunkSyncPendingRef'>,
+  refs: Pick<FrameStageRefs, 'frustumThrottleStrideRef' | 'adaptiveQualityCooldownRef' | 'lastFpsTenthsRef' | 'chunkSyncPendingRef' | 'totalTimeSecsRef' | 'attackSwingStateRef'>,
   inputs: {
     readonly deltaTime: DeltaTimeSecs
     readonly debugFlags: DebugFeatureFlags
@@ -70,9 +70,15 @@ export const hudStage = (
 
     // Render HUD hotbar overlay (second pass; autoClear=false prevents erasing the main scene)
     if (debugFlags['ui.hotbar'] && !isGameplayHudHidden()) {
+      // Same swing signal as the render stage's arm/camera bob, so the held
+      // item overlay chops in phase with the first-person arm.
+      const swingOffset = getAttackSwingOffset(
+        MutableRef.get(refs.attackSwingStateRef),
+        MutableRef.get(refs.totalTimeSecsRef) * 1000,
+      )
       yield* logErrors(
         Effect.sync(() => { deps.renderer.autoClear = false }).pipe(
-          Effect.flatMap(() => services.hotbarRenderer.render(deps.renderer)),
+          Effect.flatMap(() => services.hotbarRenderer.render(deps.renderer, swingOffset.x)),
           Effect.ensuring(Effect.sync(() => { deps.renderer.autoClear = true })),
         ),
         'HUD render error',
