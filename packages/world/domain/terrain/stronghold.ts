@@ -44,15 +44,26 @@ export const strongholdSiteForRegion = (
 
 // Nearest stronghold site to (x, z), scanning the surrounding region
 // neighborhood. Drives the eye-of-ender locator; None only in the (rare)
-// all-miss neighborhood — widen the search radius until a site appears.
+// all-miss neighborhood. The scan keeps widening until no unscanned region
+// could possibly hold a closer site than the best found — a naive
+// return-on-first-hit is NOT nearest (a site across a region border can be
+// much closer than the player's own region's site).
 export const nearestStrongholdSite = (x: number, z: number): Option.Option<StrongholdSite> => {
   const centerRegionX = Math.floor(x / STRONGHOLD_REGION_SIZE)
   const centerRegionZ = Math.floor(z / STRONGHOLD_REGION_SIZE)
-  for (let radius = 0; radius <= 4; radius++) {
-    let best: StrongholdSite | null = null
-    let bestDistSq = Number.POSITIVE_INFINITY
+  let best: StrongholdSite | null = null
+  let bestDistSq = Number.POSITIVE_INFINITY
+  for (let radius = 0; radius <= 6; radius++) {
+    // Any region at Chebyshev radius r is at least (r-1) full regions away, so
+    // once the best distance beats that bound no farther shell can win.
+    const shellLowerBound = (radius - 1) * STRONGHOLD_REGION_SIZE
+    if (best !== null && shellLowerBound > 0 && shellLowerBound * shellLowerBound > bestDistSq) {
+      break
+    }
     for (let regionX = centerRegionX - radius; regionX <= centerRegionX + radius; regionX++) {
       for (let regionZ = centerRegionZ - radius; regionZ <= centerRegionZ + radius; regionZ++) {
+        // Only the new shell — inner regions were scanned at smaller radii.
+        if (radius > 0 && Math.max(Math.abs(regionX - centerRegionX), Math.abs(regionZ - centerRegionZ)) < radius) continue
         const site = strongholdSiteForRegion(regionX, regionZ)
         if (site === null) continue
         const dx = site.x - x
@@ -64,9 +75,8 @@ export const nearestStrongholdSite = (x: number, z: number): Option.Option<Stron
         }
       }
     }
-    if (best !== null) return Option.some(best)
   }
-  return Option.none()
+  return best === null ? Option.none() : Option.some(best)
 }
 
 // The 12 end-portal-frame positions for a site: three per side around the

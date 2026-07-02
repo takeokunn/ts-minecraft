@@ -5,7 +5,7 @@ import type { FrameRenderingServices } from '../frame-service-types/rendering'
 import type { FrameWorldServices } from '../frame-service-types/world'
 
 export type FrameEnderEyeInteractionServices = Pick<FrameInteractionServices, 'blockService'> &
-  Pick<FrameWorldServices, 'chunkManagerService'> &
+  Pick<FrameWorldServices, 'chunkManagerService' | 'netherService'> &
   Pick<FrameInventoryServices, 'hotbarService' | 'inventoryService'> &
   Pick<FrameRenderingServices, 'particleSystem'> &
   Pick<FrameAudioServices, 'soundManager'>

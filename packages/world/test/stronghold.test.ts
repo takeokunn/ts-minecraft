@@ -140,3 +140,35 @@ describe('detectCompletedEndPortal', () => {
     }
   })
 })
+
+describe('nearestStrongholdSite nearest-guarantee', () => {
+  // Brute-force reference: global minimum over a generous fixed neighborhood.
+  const bruteNearest = (x: number, z: number) => {
+    const cx = Math.floor(x / STRONGHOLD_REGION_SIZE)
+    const cz = Math.floor(z / STRONGHOLD_REGION_SIZE)
+    let best: { x: number; z: number } | null = null
+    let bestDistSq = Number.POSITIVE_INFINITY
+    for (let rx = cx - 6; rx <= cx + 6; rx++) {
+      for (let rz = cz - 6; rz <= cz + 6; rz++) {
+        const site = strongholdSiteForRegion(rx, rz)
+        if (site === null) continue
+        const d = (site.x - x) ** 2 + (site.z - z) ** 2
+        if (d < bestDistSq) { best = site; bestDistSq = d }
+      }
+    }
+    return best
+  }
+
+  it('matches a brute-force scan across many sample positions (border cases included)', () => {
+    for (let i = 0; i < 300; i++) {
+      const x = (i * 997) % 20000
+      const z = (i * 613) % 20000
+      const expected = bruteNearest(x, z)
+      if (expected === null) continue
+      const actual = Option.getOrThrow(nearestStrongholdSite(x, z))
+      const expectedDist = Math.hypot(expected.x - x, expected.z - z)
+      const actualDist = Math.hypot(actual.x - x, actual.z - z)
+      expect(actualDist, `at (${x}, ${z})`).toBeLessThanOrEqual(expectedDist + 1e-9)
+    }
+  })
+})

@@ -56,6 +56,15 @@ const GRAPHICS_QUALITY_INDEX: Record<Parameters<typeof resolvePreset>[0], number
 
 const REMOTE_PLAYER_LIMB_SWING_SPEED = 8
 
+// Daylight burn is an overworld phenomenon: the roofed nether and the end
+// have no sun, but the shared day/night clock keeps ticking there — without
+// the dimension gate every nether/end hostile (including fortress Blazes)
+// would burn to death during the overworld's daytime.
+export const isDaylightBurnProtected = (
+  weather: 'clear' | 'rain' | 'thunder',
+  dimension: 'overworld' | 'nether' | 'end',
+): boolean => weather !== 'clear' || dimension !== 'overworld'
+
 export const toRemotePlayerRenderState = (
   player: RemotePlayerSnapshot,
   totalTimeSecs: number,
@@ -211,13 +220,14 @@ export const runActiveFrameStages = (
     })
     const isNight = yield* services.timeService.isNight()
     const weather = yield* services.weatherService.getWeather()
+    const dimension = yield* services.netherService.getDimension()
     const entitySnapshots = yield* entityUpdateStage(deps, services, refs, {
       deltaTime: inputs.deltaTime,
       debugFlags: inputs.debugFlags,
       playerPos: inputs.initialPlayerPos,
       totalTimeSecs: inputs.totalTimeSecs,
       isNight,
-      daylightBurnProtected: weather !== 'clear',
+      daylightBurnProtected: isDaylightBurnProtected(weather, dimension),
     })
 
     const playerPos = yield* physicsStage(deps, services, refs, {

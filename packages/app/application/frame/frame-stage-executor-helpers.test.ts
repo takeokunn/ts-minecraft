@@ -3,6 +3,7 @@ import { Effect, MutableRef } from 'effect'
 import { expect, vi } from 'vitest'
 
 import {
+  isDaylightBurnProtected,
   syncRemotePlayersForFrame,
   toRemotePlayerRenderState,
 } from '@ts-minecraft/app/application/frame/frame-stage-executor-helpers'
@@ -146,4 +147,17 @@ describe('frame-stage-executor-helpers remote player rendering', () => {
       expect(MutableRef.get(lastRemotePlayerIdsRef)).toEqual(new Set(['remote-1']))
     })
   )
+})
+
+describe('isDaylightBurnProtected', () => {
+  it('exposes hostiles to daylight burn only in clear overworld weather', () => {
+    expect(isDaylightBurnProtected('clear', 'overworld')).toBe(false)
+    expect(isDaylightBurnProtected('rain', 'overworld')).toBe(true)
+    expect(isDaylightBurnProtected('thunder', 'overworld')).toBe(true)
+  })
+
+  it('protects the sunless nether and end regardless of weather', () => {
+    expect(isDaylightBurnProtected('clear', 'nether')).toBe(true)
+    expect(isDaylightBurnProtected('clear', 'end')).toBe(true)
+  })
 })

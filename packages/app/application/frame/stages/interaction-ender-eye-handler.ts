@@ -135,6 +135,16 @@ export const handleEnderEyeUse = (
       if (blockType === 'END_PORTAL_FRAME') {
         return yield* fillFrameAndMaybeOpenPortal(services, refs, framePos)
       }
+      // Targeting any other block: NOT handled — fall through so doors,
+      // chests, furnaces etc. keep working while the eye is selected. The
+      // locator fires only on an empty-air use (look at the sky/horizon).
+      return false
     }
+
+    // Strongholds only exist in the overworld — the locator is meaningless
+    // (phantom coordinates) in the nether/end.
+    const dimension = yield* services.netherService.getDimension()
+    if (dimension !== 'overworld') return false
+
     return yield* emitLocatorTrail(services, context.playerPosition)
   })
