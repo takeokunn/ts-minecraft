@@ -1,4 +1,5 @@
 import type { Vector3 } from '@ts-minecraft/core'
+import { findDetourDirection } from '../../domain/mob/pathfinding'
 import type { ManagedEntity } from '../../domain/mob/entity-internal'
 import { makeWanderDirectionFromHash } from '../../domain/mob/entity-utils'
 import { WANDER_REDIRECT_PROBABILITY } from '../../domain/mob/entity-manager-utils'
@@ -69,6 +70,23 @@ export const applyEntityAIFrame = (
     entity.speed,
     wanderDirection.x, wanderDirection.y, wanderDirection.z,
   )
+
+  // A* detour: a chaser that has been bumping a wall (stuckTicks > 0) routes
+  // around it instead of grinding into it forever. Stateless per tick — the
+  // node-capped search only runs for stuck chasers, and a null result keeps
+  // the straight steering + hop fallback.
+  if (
+    frame.nextState === AIState.Chase
+    && entity.stuckTicks > 0
+    && ctx.playerLookBlocked !== undefined
+  ) {
+    const detour = findDetourDirection(entity.position, playerPosition, ctx.playerLookBlocked)
+    if (detour !== null) {
+      _stateVel.x = detour.x * entity.speed
+      _stateVel.z = detour.z * entity.speed
+    }
+  }
+
   const velocity: Vector3 = {
     x: _stateVel.x,
     y: entity.velocity.y,

@@ -62,7 +62,9 @@ export const prepareEntityPhysicsFrame = (
         tick + WANDER_STUCK_REDIRECT_TICK_OFFSET,
       )
     : entity.wanderDirection
-  const stuckTicks = entity.type === EntityType.Enderman && entity.aiState === AIState.Chase
+  // Any chaser bumping an obstacle accumulates stuckTicks: endermen use it
+  // for their unstick teleport, every other mob for the A* chase detour.
+  const stuckTicks = entity.aiState === AIState.Chase
     ? shouldHop
       ? entity.stuckTicks + 1
       : 0
