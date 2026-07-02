@@ -29,8 +29,8 @@ describe('block-codec', () => {
       expect(INDEX_TO_BLOCK_TYPE.length).toBe(new Set(INDEX_TO_BLOCK_TYPE).size)
     })
 
-    it('has exactly 101 entries (world-placeable blocks including potato crop, rail, piston, and redstone lamp states)', () => {
-      expect(INDEX_TO_BLOCK_TYPE.length).toBe(101)
+    it('has exactly 102 entries (world-placeable blocks including potato crop, rail, piston, redstone lamp states, and brewing stand)', () => {
+      expect(INDEX_TO_BLOCK_TYPE.length).toBe(102)
     })
 
     it('PLANKS is at index 40', () => {
@@ -56,6 +56,10 @@ describe('block-codec', () => {
     it('REDSTONE_LAMP block states are appended at indices 99-100', () => {
       expect(INDEX_TO_BLOCK_TYPE[99]).toBe('REDSTONE_LAMP')
       expect(INDEX_TO_BLOCK_TYPE[100]).toBe('REDSTONE_LAMP_LIT')
+    })
+
+    it('BREWING_STAND is appended at index 101', () => {
+      expect(INDEX_TO_BLOCK_TYPE[101]).toBe('BREWING_STAND')
     })
 
     it('REDSTONE_WIRE is at index 49', () => {

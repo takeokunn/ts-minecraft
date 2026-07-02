@@ -160,6 +160,14 @@ new Block({
     faces: defaultBlockFaces,
   }),
   new Block({
+    id: makeBlockId('block:brewing_stand'),
+    type: 'BREWING_STAND',
+    // Partial-height workstation (vanilla 0.5 hardness); transparent so
+    // neighbors render, non-solid so the player can stand next to it freely.
+    properties: { hardness: 15, transparency: true, solid: false, emissive: false, friction: 0.6 },
+    faces: defaultBlockFaces,
+  }),
+  new Block({
     id: makeBlockId('block:redstone_lamp_lit'),
     type: 'REDSTONE_LAMP_LIT',
     // Lit state emits the default max light level (15), matching vanilla.

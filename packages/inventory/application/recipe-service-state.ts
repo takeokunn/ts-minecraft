@@ -12,10 +12,12 @@ export const canUseRecipe = (
   recipe: Recipe,
   hasCraftingTableAccess: boolean,
   hasFurnaceAccess: boolean,
+  hasBrewingStandAccess = true,
 ): boolean =>
   recipe.station === 'inventory'
   || (recipe.station === 'crafting_table' && hasCraftingTableAccess)
   || (recipe.station === 'furnace' && hasFurnaceAccess)
+  || (recipe.station === 'brewing_stand' && hasBrewingStandAccess)
 
 export const countAvailableItems = (
   slots: ReadonlyArray<Option.Option<ItemStack>>,

@@ -1,7 +1,7 @@
 import { Schema } from 'effect'
 import { InventoryItemSchema, RecipeIdSchema } from '@ts-minecraft/core'
 
-export const CraftingStationSchema = Schema.Literal('inventory', 'crafting_table', 'furnace')
+export const CraftingStationSchema = Schema.Literal('inventory', 'crafting_table', 'furnace', 'brewing_stand')
 export type CraftingStation = Schema.Schema.Type<typeof CraftingStationSchema>
 
 export class RecipeIngredient extends Schema.Class<RecipeIngredient>('RecipeIngredient')({

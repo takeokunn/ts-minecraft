@@ -96,6 +96,7 @@ describe('presentation/inventory/inventory-renderer (recipe)', () => {
           expect.anything(),
           expect.any(Boolean),
           expect.any(Boolean),
+          expect.any(Boolean),
         )
       }).pipe(Effect.provide(TestLayer))
     })

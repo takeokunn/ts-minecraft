@@ -118,6 +118,17 @@ export const BASIC_MISC_RECIPES: ReadonlyArray<Recipe> = [
     output: { itemType: 'GLOWSTONE', count: 1 },
   }),
   new Recipe({
+    id: RecipeId.make('cobblestone-and-glowstone-to-brewing-stand'),
+    station: 'crafting_table',
+    // v1 stand-in for the vanilla blaze-rod recipe until the nether fortress
+    // (and blazes) ship.
+    ingredients: [
+      new RecipeIngredient({ itemType: 'COBBLESTONE', count: 3 }),
+      new RecipeIngredient({ itemType: 'GLOWSTONE_DUST', count: 1 }),
+    ],
+    output: { itemType: 'BREWING_STAND', count: 1 },
+  }),
+  new Recipe({
     id: RecipeId.make('glass-to-bottles'),
     station: 'inventory',
     ingredients: [new RecipeIngredient({ itemType: 'GLASS', count: 3 })],
@@ -127,7 +138,7 @@ export const BASIC_MISC_RECIPES: ReadonlyArray<Recipe> = [
   // ingredient) -> Swiftness, glowstone dust (potency ingredient) -> Healing.
   new Recipe({
     id: RecipeId.make('bottle-and-redstone-to-swiftness'),
-    station: 'inventory',
+    station: 'brewing_stand',
     ingredients: [
       new RecipeIngredient({ itemType: 'GLASS_BOTTLE', count: 1 }),
       new RecipeIngredient({ itemType: 'REDSTONE_DUST', count: 1 }),
@@ -136,7 +147,7 @@ export const BASIC_MISC_RECIPES: ReadonlyArray<Recipe> = [
   }),
   new Recipe({
     id: RecipeId.make('bottle-and-glowstone-to-healing'),
-    station: 'inventory',
+    station: 'brewing_stand',
     ingredients: [
       new RecipeIngredient({ itemType: 'GLASS_BOTTLE', count: 1 }),
       new RecipeIngredient({ itemType: 'GLOWSTONE_DUST', count: 1 }),

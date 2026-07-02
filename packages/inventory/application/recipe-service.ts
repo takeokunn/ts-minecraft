@@ -31,9 +31,10 @@ export class RecipeService extends Effect.Service<RecipeService>()(
         available: HashMap.HashMap<InventoryItem, number>,
         hasCraftingTableAccess = true,
         hasFurnaceAccess = true,
+        hasBrewingStandAccess = true,
       ): ReadonlyArray<Recipe> =>
         Arr.filter(recipes, (recipe) =>
-          canUseRecipe(recipe, hasCraftingTableAccess, hasFurnaceAccess)
+          canUseRecipe(recipe, hasCraftingTableAccess, hasFurnaceAccess, hasBrewingStandAccess)
           && Option.isNone(findInsufficientIngredient(available, recipe.ingredients))
         )
 
@@ -42,6 +43,7 @@ export class RecipeService extends Effect.Service<RecipeService>()(
         inventoryService: InventoryService,
         hasCraftingTableAccess = true,
         hasFurnaceAccess = true,
+        hasBrewingStandAccess = true,
       ): Effect.Effect<void, RecipeError> =>
         Effect.gen(function* () {
           const recipe = Option.getOrNull(findById(recipeId))
@@ -52,12 +54,14 @@ export class RecipeService extends Effect.Service<RecipeService>()(
 
           // Pre-check all ingredients before any removal to prevent partial consumption
           const shortageOpt = findInsufficientIngredient(available, recipe.ingredients)
-          if (!canUseRecipe(recipe, hasCraftingTableAccess, hasFurnaceAccess)) {
+          if (!canUseRecipe(recipe, hasCraftingTableAccess, hasFurnaceAccess, hasBrewingStandAccess)) {
             return yield* Effect.fail(new RecipeError({
               operation: 'craft',
               cause: recipe.station === 'furnace'
                 ? `Recipe requires a furnace: ${recipeId}`
-                : `Recipe requires a crafting table: ${recipeId}`,
+                : recipe.station === 'brewing_stand'
+                  ? `Recipe requires a brewing stand: ${recipeId}`
+                  : `Recipe requires a crafting table: ${recipeId}`,
             }))
           }
           const shortage = Option.getOrNull(shortageOpt)

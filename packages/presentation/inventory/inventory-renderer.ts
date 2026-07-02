@@ -95,11 +95,18 @@ export class InventoryRendererService extends Effect.Service<InventoryRendererSe
           return yield* scanNearbyBlock(pos, 5, blockTypeToIndex('FURNACE'), getChunkOrNone)
         })
 
+      const hasNearbyBrewingStand = (): Effect.Effect<boolean, never> =>
+        Effect.gen(function* () {
+          const pos = yield* getPlayerPos()
+          return yield* scanNearbyBlock(pos, 5, blockTypeToIndex('BREWING_STAND'), getChunkOrNone)
+        })
+
       const refreshCraftingState = (slots: ReadonlyArray<InventorySlot>): Effect.Effect<readonly [ReadonlyArray<Recipe>, number], never> =>
         Effect.gen(function* () {
           const hasTableAccess = yield* hasNearbyCraftingTable()
           const hasFurnaceAccess = yield* hasNearbyFurnace()
-          const craftable = recipeService.findCraftable(collectAvailableCounts(slots), hasTableAccess, hasFurnaceAccess)
+          const hasBrewingAccess = yield* hasNearbyBrewingStand()
+          const craftable = recipeService.findCraftable(collectAvailableCounts(slots), hasTableAccess, hasFurnaceAccess, hasBrewingAccess)
           const nextSelectedIndex = yield* Ref.modify(selectedRecipeIndexRef, (current) => {
             if (craftable.length === 0) return [0, 0] as const
             const clamped = Math.max(0, Math.min(current, craftable.length - 1))
@@ -113,9 +120,10 @@ export class InventoryRendererService extends Effect.Service<InventoryRendererSe
         recipeId: RecipeId,
         hasTableAccess: boolean,
         hasFurnaceAccess: boolean,
+        hasBrewingAccess = true,
       ): Effect.Effect<void, Error, never> => {
         const recipe = Option.getOrNull(recipeService.findById(recipeId))
-        if (recipe === null || recipe.station !== 'furnace') return recipeService.craft(recipeId, inventoryService, hasTableAccess, hasFurnaceAccess)
+        if (recipe === null || recipe.station !== 'furnace') return recipeService.craft(recipeId, inventoryService, hasTableAccess, hasFurnaceAccess, hasBrewingAccess)
         return Effect.gen(function* () {
           const furnaceOpt = yield* furnaceService.getNearestFurnaceState()
           const furnace = Option.getOrNull(furnaceOpt)
@@ -159,6 +167,7 @@ export class InventoryRendererService extends Effect.Service<InventoryRendererSe
       const innerDelegatedClick = buildHandleDelegatedClick({
         hasNearbyCraftingTable,
         hasNearbyFurnace,
+        hasNearbyBrewingStand,
         performRecipe,
         hotbarService,
         inventoryService,
@@ -488,7 +497,8 @@ export class InventoryRendererService extends Effect.Service<InventoryRendererSe
 
             const hasTableAccess = yield* hasNearbyCraftingTable()
             const hasFurnaceAccess = yield* hasNearbyFurnace()
-            const result = yield* performRecipe(recipe.id, hasTableAccess, hasFurnaceAccess).pipe(Effect.either)
+            const hasBrewingAccess = yield* hasNearbyBrewingStand()
+            const result = yield* performRecipe(recipe.id, hasTableAccess, hasFurnaceAccess, hasBrewingAccess).pipe(Effect.either)
             const crafted = Either.isRight(result)
 
             yield* Ref.set(

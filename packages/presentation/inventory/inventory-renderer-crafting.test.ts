@@ -60,6 +60,7 @@ describe('presentation/inventory/inventory-renderer (recipe)', () => {
           expect.anything(),
           true,
           expect.any(Boolean),
+          expect.any(Boolean),
         )
       }).pipe(Effect.provide(TestLayer))
     })
@@ -104,6 +105,7 @@ describe('presentation/inventory/inventory-renderer (recipe)', () => {
           expect.anything(),
           expect.any(Boolean),
           true,
+          expect.any(Boolean),
         )
       }).pipe(Effect.provide(TestLayer))
     })
@@ -143,6 +145,7 @@ describe('presentation/inventory/inventory-renderer (recipe)', () => {
         expect(mockRecipe.craft).toHaveBeenCalledWith(
           expect.anything(),
           expect.anything(),
+          false,
           false,
           false,
         )

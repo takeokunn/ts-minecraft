@@ -15,10 +15,12 @@ import { applyInventoryCursorClick, describeInventoryCursor, type InventoryCurso
 export type ClickHandlerDeps = {
   readonly hasNearbyCraftingTable: () => Effect.Effect<boolean, never>
   readonly hasNearbyFurnace: () => Effect.Effect<boolean, never>
+  readonly hasNearbyBrewingStand: () => Effect.Effect<boolean, never>
   readonly performRecipe: (
     recipeId: RecipeId,
     hasTableAccess: boolean,
     hasFurnaceAccess: boolean,
+    hasBrewingAccess?: boolean,
   ) => Effect.Effect<void, Error, never>
   readonly hotbarService: HotbarService
   readonly inventoryService: InventoryService
@@ -60,6 +62,7 @@ export const buildHandleDelegatedClick = (deps: ClickHandlerDeps) =>
     const {
       hasNearbyCraftingTable,
       hasNearbyFurnace,
+      hasNearbyBrewingStand,
       performRecipe,
       hotbarService,
       inventoryService,
@@ -115,8 +118,9 @@ export const buildHandleDelegatedClick = (deps: ClickHandlerDeps) =>
         Effect.gen(function* () {
           const hasTableAccess = yield* hasNearbyCraftingTable()
           const hasFurnaceAccess = yield* hasNearbyFurnace()
+          const hasBrewingAccess = yield* hasNearbyBrewingStand()
           yield* Effect.gen(function* () {
-            yield* performRecipe(RecipeId.make(recipeId), hasTableAccess, hasFurnaceAccess)
+            yield* performRecipe(RecipeId.make(recipeId), hasTableAccess, hasFurnaceAccess, hasBrewingAccess)
             yield* Ref.set(statusMessageRef, 'Crafted successfully.')
           }).pipe(
             Effect.catchAll((error) =>

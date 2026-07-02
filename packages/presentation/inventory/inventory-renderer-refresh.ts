@@ -171,7 +171,9 @@ export const renderCraftingList = (
         ? ' [Crafting Table]'
         : recipe.station === 'furnace'
           ? ' [Furnace]'
-          : ''
+          : recipe.station === 'brewing_stand'
+            ? ' [Brewing Stand]'
+            : ''
       row.textContent = `${formatIngredientLine(recipe.ingredients)} → ${recipe.output.count} ${recipe.output.itemType}${stationLabel}`
       dom.appendChildTo(container, row)
     })
@@ -218,7 +220,9 @@ export const renderRecipeBook = (
         ? ' [Crafting Table]'
         : recipe.station === 'furnace'
           ? ' [Furnace]'
-          : ''
+          : recipe.station === 'brewing_stand'
+            ? ' [Brewing Stand]'
+            : ''
       row.textContent = `${formatIngredientLine(recipe.ingredients)} → ${recipe.output.count} ${recipe.output.itemType}${stationLabel}`
       dom.appendChildTo(container, row)
     })

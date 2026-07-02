@@ -1669,8 +1669,34 @@ saveTile(119, 'potion-swiftness', (ctx) => drawBottle(ctx, '#57b7e6'))
 // 120: potion of healing (red)
 saveTile(120, 'potion-healing', (ctx) => drawBottle(ctx, '#d43a3a'))
 
+// 121: brewing stand — stone base, dark rod, amber bottle glints
+saveTile(121, 'brewing-stand', (ctx) => {
+  ctx.clearRect(0, 0, TILE_PX, TILE_PX)
+  // stone slab base
+  ctx.fillStyle = '#7a7a7a'
+  ctx.fillRect(4, 24, 24, 5)
+  ctx.fillStyle = '#5d5d5d'
+  ctx.fillRect(4, 27, 24, 2)
+  // central rod
+  ctx.fillStyle = '#3b3128'
+  ctx.fillRect(14, 6, 4, 18)
+  ctx.fillStyle = '#57493a'
+  ctx.fillRect(14, 6, 2, 18)
+  // side arms
+  ctx.fillStyle = '#3b3128'
+  ctx.fillRect(8, 12, 6, 2)
+  ctx.fillRect(18, 12, 6, 2)
+  // hanging bottles
+  ctx.fillStyle = '#d8a03a'
+  ctx.fillRect(7, 14, 4, 5)
+  ctx.fillRect(21, 14, 4, 5)
+  ctx.fillStyle = 'rgba(255,255,255,0.5)'
+  ctx.fillRect(7, 14, 1, 5)
+  ctx.fillRect(21, 14, 1, 5)
+})
+
 // Save combined atlas (single file loaded by chunk-mesh.ts at runtime).
 writeFileSync(join(OUTPUT_DIR, 'atlas.png'), atlasCanvas.toBuffer('image/png'))
-console.log(`  ✓ atlas.png (512×512, all 121 tiles combined)`)
+console.log(`  ✓ atlas.png (512×512, all 122 tiles combined)`)
 
-console.log(`\nDone - 121 individual tiles + atlas.png written to ${OUTPUT_DIR}`)
+console.log(`\nDone - 122 individual tiles + atlas.png written to ${OUTPUT_DIR}`)

@@ -45,6 +45,8 @@ export const INDEX_TO_BLOCK_TYPE: ReadonlyArray<BlockType> = [
   'PISTON',
   // Redstone lamp block states - indices 99-100
   'REDSTONE_LAMP', 'REDSTONE_LAMP_LIT',
+  // Brewing - index 101
+  'BREWING_STAND',
 ]
 
 export const BLOCK_COUNT = INDEX_TO_BLOCK_TYPE.length

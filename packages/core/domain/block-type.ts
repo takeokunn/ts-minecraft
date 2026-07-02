@@ -58,6 +58,7 @@ export const BlockTypeSchema = Schema.Literal(
   'REPEATER',
   'REDSTONE_LAMP',
   'REDSTONE_LAMP_LIT',
+  'BREWING_STAND',
   'PISTON',
   // Furniture / utility
   'BED',
