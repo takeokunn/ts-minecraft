@@ -13,24 +13,28 @@ export const BASIC_MISC_RECIPES: ReadonlyArray<Recipe> = [
     station: 'inventory',
     ingredients: [new RecipeIngredient({ itemType: 'PLANKS', count: 2 })],
     output: { itemType: 'STICKS', count: 4 },
+    shaped: { pattern: ['P', 'P'], key: { P: 'PLANKS' } },
   }),
   new Recipe({
     id: RecipeId.make('planks-to-crafting-table'),
     station: 'inventory',
     ingredients: [new RecipeIngredient({ itemType: 'PLANKS', count: 4 })],
     output: { itemType: 'CRAFTING_TABLE', count: 1 },
+    shaped: { pattern: ['PP', 'PP'], key: { P: 'PLANKS' } },
   }),
   new Recipe({
     id: RecipeId.make('cobblestone-to-furnace'),
     station: 'crafting_table',
     ingredients: [new RecipeIngredient({ itemType: 'COBBLESTONE', count: 8 })],
     output: { itemType: 'FURNACE', count: 1 },
+    shaped: { pattern: ['CCC', 'C C', 'CCC'], key: { C: 'COBBLESTONE' } },
   }),
   new Recipe({
     id: RecipeId.make('planks-to-chest'),
     station: 'crafting_table',
     ingredients: [new RecipeIngredient({ itemType: 'PLANKS', count: 8 })],
     output: { itemType: 'CHEST', count: 1 },
+    shaped: { pattern: ['PPP', 'P P', 'PPP'], key: { P: 'PLANKS' } },
   }),
   new Recipe({
     id: RecipeId.make('book-diamonds-obsidian-to-enchanting-table'),

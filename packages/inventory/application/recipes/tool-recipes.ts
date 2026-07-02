@@ -11,6 +11,7 @@ export const TOOL_RECIPES: ReadonlyArray<Recipe> = [
       new RecipeIngredient({ itemType: 'STICKS', count: 1 }),
     ],
     output: { itemType: 'WOODEN_SWORD', count: 1 },
+    shaped: { pattern: ['M', 'M', 'S'], key: { M: 'PLANKS', S: 'STICKS' } },
   }),
   new Recipe({
     id: RecipeId.make('cobblestone-and-sticks-to-stone-sword'),
@@ -20,6 +21,7 @@ export const TOOL_RECIPES: ReadonlyArray<Recipe> = [
       new RecipeIngredient({ itemType: 'STICKS', count: 1 }),
     ],
     output: { itemType: 'STONE_SWORD', count: 1 },
+    shaped: { pattern: ['M', 'M', 'S'], key: { M: 'COBBLESTONE', S: 'STICKS' } },
   }),
   new Recipe({
     id: RecipeId.make('iron-ingots-and-sticks-to-iron-sword'),

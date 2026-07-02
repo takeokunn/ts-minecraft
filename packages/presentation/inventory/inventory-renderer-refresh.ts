@@ -268,8 +268,40 @@ export const renderCraftingPreview = (
       dom.appendChildTo(ingredients, chip)
     })
     dom.appendChildTo(container, ingredients)
+
+    // Shaped recipes show their 3x3 layout (rows of cells; '·' = empty), so
+    // the recipe book teaches the vanilla arrangement.
+    if (recipe.shaped !== undefined) {
+      const grid = dom.createElement('div')
+      grid.style.cssText = SHAPED_GRID_STYLE
+      for (const patternRow of recipe.shaped.pattern) {
+        const rowEl = dom.createElement('div')
+        rowEl.style.cssText = SHAPED_GRID_ROW_STYLE
+        for (const char of patternRow.padEnd(3, ' ')) {
+          const cell = dom.createElement('div')
+          const item = char === ' ' ? undefined : recipe.shaped.key[char]
+          cell.textContent = item === undefined ? '·' : formatLabel(item).slice(0, 2)
+          cell.title = item === undefined ? '' : formatLabel(item)
+          cell.style.cssText = item === undefined ? SHAPED_GRID_CELL_EMPTY_STYLE : SHAPED_GRID_CELL_STYLE
+          dom.appendChildTo(rowEl, cell)
+        }
+        dom.appendChildTo(grid, rowEl)
+      }
+      dom.appendChildTo(container, grid)
+    }
   })
 }
+
+const SHAPED_GRID_STYLE = 'display:flex;flex-direction:column;gap:2px;margin-top:6px'
+const SHAPED_GRID_ROW_STYLE = 'display:flex;gap:2px'
+const SHAPED_GRID_CELL_STYLE = [
+  'width:26px', 'height:26px', 'display:flex', 'align-items:center', 'justify-content:center',
+  'background:#3c3c3c', 'border:1px solid #666', 'color:#eee', 'font-size:10px',
+].join(';')
+const SHAPED_GRID_CELL_EMPTY_STYLE = [
+  'width:26px', 'height:26px', 'display:flex', 'align-items:center', 'justify-content:center',
+  'background:#242424', 'border:1px solid #444', 'color:#555', 'font-size:10px',
+].join(';')
 
 export const renderStatusEl = (
   statusEl: Option.Option<HTMLDivElement>,
