@@ -2,7 +2,7 @@ import { Effect, MutableRef, Option as EffectOption, Ref } from 'effect'
 import * as THREE from 'three'
 import {
   getBlockCollisionShapeAt as getCachedBlockCollisionShapeAt,
-  isBlockSolid as isCachedBlockSolid,
+  isBlockSolidForMobPhysics as isCachedBlockSolidForMobPhysics,
   PRESSURE_PLATE_COLLISION_HEIGHT,
   resolveBlockCollisionsInto,
 } from '@ts-minecraft/game'
@@ -26,11 +26,25 @@ import { applyLampWorldEffects } from '@ts-minecraft/app/application/frame/stage
 import { REDSTONE_TICK_INTERVAL_SECS, FLUID_TICK_INTERVAL_SECS } from '@ts-minecraft/app/frame-handler.config'
 import { CHUNK_SIZE, type DeltaTimeSecs, type Position } from '@ts-minecraft/core'
 
-const ENTITY_PHYSICS_CHUNK_OFFSETS = [
-  [-1, -1, 0], [-1, 0, 1], [-1, 1, 2],
-  [0, -1, 3], [0, 0, 4], [0, 1, 5],
-  [1, -1, 6], [1, 0, 7], [1, 1, 8],
-] as const
+// 7x7 chunk neighborhood (radius 3 = 48 blocks) so entity physics covers the
+// full 16-40 block mob spawn band. The old 3x3 (radius 1 = 16 blocks) left
+// most spawned mobs outside the cache, where the terrain read as air and they
+// fell to bedrock (the y=0.9 pile-up).
+export const ENTITY_PHYSICS_CHUNK_RADIUS = 3
+const ENTITY_PHYSICS_CHUNK_SIDE = ENTITY_PHYSICS_CHUNK_RADIUS * 2 + 1
+const ENTITY_PHYSICS_CHUNK_OFFSETS: ReadonlyArray<readonly [number, number, number]> = (() => {
+  const offsets: Array<readonly [number, number, number]> = []
+  for (let dx = -ENTITY_PHYSICS_CHUNK_RADIUS; dx <= ENTITY_PHYSICS_CHUNK_RADIUS; dx++) {
+    for (let dz = -ENTITY_PHYSICS_CHUNK_RADIUS; dz <= ENTITY_PHYSICS_CHUNK_RADIUS; dz++) {
+      offsets.push([
+        dx,
+        dz,
+        (dx + ENTITY_PHYSICS_CHUNK_RADIUS) * ENTITY_PHYSICS_CHUNK_SIDE + (dz + ENTITY_PHYSICS_CHUNK_RADIUS),
+      ] as const)
+    }
+  }
+  return offsets
+})()
 const RENDER_DISABLED_STRUCTURE_VERSION = Number.NEGATIVE_INFINITY
 const REMOTE_ENTITY_ID_PREFIX = 'remote:'
 const _playerLookDirection = new THREE.Vector3()
@@ -233,9 +247,9 @@ export const entityUpdateStage = (
     }
 
     const isBlockSolid = (wx: number, wy: number, wz: number): boolean =>
-      isCachedBlockSolid(wx, wy, wz, chunkCache, playerCx, playerCz)
+      isCachedBlockSolidForMobPhysics(wx, wy, wz, chunkCache, playerCx, playerCz, ENTITY_PHYSICS_CHUNK_RADIUS)
     const getBlockCollisionShape = (wx: number, wy: number, wz: number) =>
-      getCachedBlockCollisionShapeAt(wx, wy, wz, chunkCache, playerCx, playerCz)
+      getCachedBlockCollisionShapeAt(wx, wy, wz, chunkCache, playerCx, playerCz, ENTITY_PHYSICS_CHUNK_RADIUS)
 
     // Entity simulation stays on the frame lane so visible transforms remain responsive.
     // Slower world simulation (furnace/spawn/village) runs on the maintenance lane.

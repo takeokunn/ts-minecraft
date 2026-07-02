@@ -3,9 +3,12 @@ import { TimeServicePort } from '../../domain/time-service-port'
 import { EntityManager } from './entity-manager'
 import type { EntityId } from '../../domain/mob/entity'
 import type { Position } from '@ts-minecraft/core'
-import { MAX_ENTITY_COUNT, MAX_SPAWN_DISTANCE, MIN_SPAWN_DISTANCE, SPAWN_INTERVAL_SECS } from '../../domain/mob/spawner-config'
+import { MAX_ENTITY_COUNT, MAX_HOSTILE_COUNT, MAX_PASSIVE_COUNT, MAX_SPAWN_DISTANCE, MIN_SPAWN_DISTANCE, SPAWN_INTERVAL_SECS } from '../../domain/mob/spawner-config'
+import { HOSTILE_MOBS } from '../../domain/mob/mob-categories'
 import { getSpawnPosition, selectMobType } from './mob-spawner-helpers'
 import { canSpawnAtPosition } from './mob-spawner-rules'
+
+const HOSTILE_SET: ReadonlySet<string> = new Set(HOSTILE_MOBS)
 
 type SpawnPositionResolver = (
   candidatePosition: Position,
@@ -47,6 +50,18 @@ export class MobSpawner extends Effect.Service<MobSpawner>()(
             }
 
             const isNight = yield* timeService.isNight()
+
+            // Category cap: night spawns hostiles, day spawns passives. Count
+            // only the matching category so a world full of daytime passives
+            // can't starve the night-time hostile spawns (and vice versa).
+            const entities = yield* entityManager.getEntities()
+            let categoryCount = 0
+            for (const entity of entities) {
+              if (HOSTILE_SET.has(entity.type) === isNight) categoryCount++
+            }
+            if (categoryCount >= (isNight ? MAX_HOSTILE_COUNT : MAX_PASSIVE_COUNT)) {
+              return Option.none<EntityId>()
+            }
             const cursor = yield* Ref.updateAndGet(spawnCursorRef, (value) => value + 1)
 
             const candidateSpawnPosition = getSpawnPosition(playerPosition, cursor)

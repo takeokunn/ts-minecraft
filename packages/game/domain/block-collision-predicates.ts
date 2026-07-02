@@ -63,11 +63,14 @@ export const OFFSETS_3x3 = [
   [ 1, -1], [ 1, 0], [ 1, 1],
 ] as const
 
+// `radius` selects the square cache layout: 1 -> 3x3 (player physics),
+// 3 -> 7x7 (entity physics; must cover the 16-40 block mob spawn band).
 const blockIdAt = (
   wx: number, wy: number, wz: number,
   chunkCache: ReadonlyArray<{ blocks: Uint8Array } | null>,
   playerCx: number,
   playerCz: number,
+  radius = 1,
 ): number | null => {
   const ly = Math.floor(wy)
   if (ly < 0) return BEDROCK_ID
@@ -78,8 +81,9 @@ const blockIdAt = (
   const cz = Math.floor(bz / CHUNK_SIZE)
   const dx = cx - playerCx
   const dz = cz - playerCz
-  if (dx < -1 || dx > 1 || dz < -1 || dz > 1) return null
-  const chunk = chunkCache[(dx + 1) * 3 + (dz + 1)]
+  if (dx < -radius || dx > radius || dz < -radius || dz > radius) return null
+  const side = radius * 2 + 1
+  const chunk = chunkCache[(dx + radius) * side + (dz + radius)]
   if (chunk == null) return null
   const lx = bx & CHUNK_LOCAL_MASK
   const lz = bz & CHUNK_LOCAL_MASK
@@ -97,13 +101,31 @@ export const isBlockSolid = (
   return blockId !== 0 && !PASSABLE_BLOCK_IDS.has(blockId)
 }
 
+// Mob-physics variant: UNKNOWN terrain (unloaded chunk / outside the cached
+// radius) reads as SOLID so far-away mobs freeze in place instead of treating
+// the void as air and free-falling to bedrock (they piled up at y=0.9 —
+// world floor + mob half height). Above the world stays non-solid.
+export const isBlockSolidForMobPhysics = (
+  wx: number, wy: number, wz: number,
+  chunkCache: ReadonlyArray<{ blocks: Uint8Array } | null>,
+  playerCx: number,
+  playerCz: number,
+  radius: number,
+): boolean => {
+  if (Math.floor(wy) >= CHUNK_HEIGHT) return false
+  const blockId = blockIdAt(wx, wy, wz, chunkCache, playerCx, playerCz, radius)
+  if (blockId === null) return true
+  return blockId !== 0 && !PASSABLE_BLOCK_IDS.has(blockId)
+}
+
 export const getBlockCollisionShapeAt = (
   wx: number, wy: number, wz: number,
   chunkCache: ReadonlyArray<{ blocks: Uint8Array } | null>,
   playerCx: number,
-  playerCz: number
+  playerCz: number,
+  radius = 1,
 ): BlockCollisionShape | null => {
-  const blockId = blockIdAt(wx, wy, wz, chunkCache, playerCx, playerCz)
+  const blockId = blockIdAt(wx, wy, wz, chunkCache, playerCx, playerCz, radius)
   if (blockId === null || blockId === 0 || PASSABLE_BLOCK_IDS.has(blockId)) return null
   if (blockId === CACTUS_ID) return CACTUS_COLLISION_SHAPE
   if (blockId === PRESSURE_PLATE_ID) return PRESSURE_PLATE_COLLISION_SHAPE

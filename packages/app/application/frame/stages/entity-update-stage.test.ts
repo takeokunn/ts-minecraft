@@ -540,9 +540,9 @@ describe('step 2.85 — entity renderer wiring', () => {
     yield* runFrame(deps, services)
 
     expect(applyPhysicsSpy).toHaveBeenCalledOnce()
-    // 9 chunks for entity physics + 2 for physics-stage portal checks (nether + end)
+    // 49 chunks (7x7) for entity physics + 2 for physics-stage portal checks (nether + end)
     // + 5 survival environment reads (feet/eye/ground column + 4 cactus side samples).
-    expect(getChunkSpy).toHaveBeenCalledTimes(16)
+    expect(getChunkSpy).toHaveBeenCalledTimes(56)
   }))
 
   it.effect('reuses the entity physics chunk cache while the player remains in the same chunk', () => Effect.gen(function* () {
@@ -567,9 +567,9 @@ describe('step 2.85 — entity renderer wiring', () => {
     yield* frameHandler(0.016 as DeltaTimeSecs)
     yield* frameHandler(0.016 as DeltaTimeSecs)
 
-    // frame 1: 9 entity + 2 portals + 5 survival = 16;
+    // frame 1: 49 entity (7x7) + 2 portals + 5 survival = 56;
     // frame 2: 0 entity (cache hit) + 2 portals + 5 survival = 7 → total 23.
-    expect(getChunkSpy).toHaveBeenCalledTimes(23)
+    expect(getChunkSpy).toHaveBeenCalledTimes(63)
   }))
 
   it.effect('retries missing entity physics chunks while the player remains in the same chunk', () => Effect.gen(function* () {
@@ -598,8 +598,8 @@ describe('step 2.85 — entity renderer wiring', () => {
     yield* frameHandler(0.016 as DeltaTimeSecs)
     yield* frameHandler(0.016 as DeltaTimeSecs)
 
-    // 9 entity ×2 frames + 2 portal checks ×2 + 5 survival environment reads ×2 = 32
-    expect(getChunkSpy).toHaveBeenCalledTimes(32)
+    // (7x7 cache) entity refresh ×2 frames + 2 portal checks ×2 + 5 survival environment reads ×2 = 32
+    expect(getChunkSpy).toHaveBeenCalledTimes(72)
   }))
 
   it.effect('refreshes the entity physics chunk cache when the player enters another chunk', () => Effect.gen(function* () {
@@ -631,8 +631,8 @@ describe('step 2.85 — entity renderer wiring', () => {
     yield* frameHandler(0.016 as DeltaTimeSecs)
     yield* frameHandler(0.016 as DeltaTimeSecs)
 
-    // 9 entity ×2 frames + 2 portal checks ×2 + 5 survival environment reads ×2 = 32
-    expect(getChunkSpy).toHaveBeenCalledTimes(32)
+    // (7x7 cache) entity refresh ×2 frames + 2 portal checks ×2 + 5 survival environment reads ×2 = 32
+    expect(getChunkSpy).toHaveBeenCalledTimes(112)
   }))
 
   it.effect('refreshes the entity physics chunk cache when loaded chunks change', () => Effect.gen(function* () {
@@ -679,7 +679,7 @@ describe('step 2.85 — entity renderer wiring', () => {
 
     // The second frame publishes a new loaded-chunks snapshot, so the physics
     // cache refreshes all 9 neighboring chunks again; survival checks still run each frame.
-    expect(getChunkSpy).toHaveBeenCalledTimes(32)
+    expect(getChunkSpy).toHaveBeenCalledTimes(112)
   }))
 
   it.effect('skips the entity physics chunk cache when physics has no applyPhysics hook', () => Effect.gen(function* () {

@@ -31,8 +31,8 @@ describe('spawner-config — constants', () => {
     expect(DESPAWN_DISTANCE).toBe(128)
   })
 
-  it('MAX_ENTITY_COUNT is 24', () => {
-    expect(MAX_ENTITY_COUNT).toBe(24)
+  it('MAX_ENTITY_COUNT is 28 (12 passive + 16 hostile category caps)', () => {
+    expect(MAX_ENTITY_COUNT).toBe(28)
   })
 
   it('mob collision half extents match the default entity AABB', () => {

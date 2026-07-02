@@ -3,9 +3,9 @@ import { Array as Arr, Effect, Layer, Option } from 'effect'
 import { TimeServicePort } from '../../domain/time-service-port'
 import { EntityManager } from '@ts-minecraft/entity/application/mob/entity-manager';
 import { MobSpawner } from '@ts-minecraft/entity/application/mob/spawner';
-import { type EntityId } from '@ts-minecraft/entity/domain/mob/entity';
+import { EntityType, type EntityId } from '@ts-minecraft/entity/domain/mob/entity';
 import { HOSTILE_MOBS, PASSIVE_MOBS } from '@ts-minecraft/entity/domain/mob/mob-categories';
-import { DESPAWN_DISTANCE, SPAWN_INTERVAL_SECS } from '@ts-minecraft/entity/domain/mob/spawner-config';
+import { DESPAWN_DISTANCE, MAX_HOSTILE_COUNT, MAX_PASSIVE_COUNT, SPAWN_INTERVAL_SECS } from '@ts-minecraft/entity/domain/mob/spawner-config';
 import { expectSome } from './test-utils'
 
 const makeTimeLayer = (night: boolean) =>
@@ -85,6 +85,60 @@ describe('entity/spawner', () => {
       const count = yield* entityManager.getCount()
       expect(count).toBeLessThanOrEqual(maxPopulation)
     }).pipe(Effect.provide(makeSpawnerLayer(false)))
+  )
+
+  it.effect('night hostiles still spawn when the world is full of daytime passives (category caps)', () =>
+    Effect.gen(function* () {
+      const spawner = yield* MobSpawner
+      const entityManager = yield* EntityManager
+
+      // Pre-fill with the full passive cap — under the old single shared cap
+      // this starved night-time hostile spawning entirely.
+      yield* Effect.forEach(
+        Arr.makeBy(MAX_PASSIVE_COUNT, () => undefined),
+        () => entityManager.addEntity(EntityType.Sheep, { x: 20, y: 64, z: 0 }),
+        { concurrency: 1, discard: true },
+      )
+
+      const state = yield* Effect.iterate(
+        { found: Option.none<EntityId>(), i: 0 },
+        {
+          while: (s) => Option.isNone(s.found) && s.i < 60,
+          body: (s) => Effect.gen(function* () {
+            const found = yield* spawner.trySpawn({ x: 0, y: 64, z: 0 })
+            return { found, i: s.i + 1 }
+          }),
+        }
+      )
+
+      expectSome(state.found)
+      const entities = yield* entityManager.getEntities()
+      const hostiles = entities.filter((e) => (HOSTILE_MOBS as ReadonlyArray<string>).includes(e.type))
+      expect(hostiles.length).toBeGreaterThanOrEqual(1)
+    }).pipe(Effect.provide(makeSpawnerLayer(true)))
+  )
+
+  it.effect('caps night hostiles at MAX_HOSTILE_COUNT even with global headroom', () =>
+    Effect.gen(function* () {
+      const spawner = yield* MobSpawner
+      const entityManager = yield* EntityManager
+
+      yield* Effect.forEach(
+        Arr.makeBy(MAX_HOSTILE_COUNT, () => undefined),
+        () => entityManager.addEntity(EntityType.Zombie, { x: 20, y: 64, z: 0 }),
+        { concurrency: 1, discard: true },
+      )
+
+      yield* Effect.forEach(
+        Arr.makeBy(120, () => undefined),
+        () => spawner.trySpawn({ x: 0, y: 64, z: 0 }),
+        { concurrency: 1, discard: true },
+      )
+
+      const entities = yield* entityManager.getEntities()
+      const hostiles = entities.filter((e) => (HOSTILE_MOBS as ReadonlyArray<string>).includes(e.type))
+      expect(hostiles.length).toBe(MAX_HOSTILE_COUNT)
+    }).pipe(Effect.provide(makeSpawnerLayer(true)))
   )
 
   it.effect('getSpawnBounds returns valid min and max spawn distances', () =>

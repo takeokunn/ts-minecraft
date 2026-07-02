@@ -8,7 +8,12 @@ export const MOB_HALF_WIDTH = 0.3
 export const MOB_HALF_HEIGHT = 0.9
 
 // Maximum total mob population before spawning is suppressed
-export const MAX_ENTITY_COUNT = 24
+export const MAX_ENTITY_COUNT = 28
+// Category caps (vanilla separates hostile and passive mob caps). A single
+// shared cap let daytime passives fill the world and permanently block night
+// hostile spawns — the survival threat loop never started.
+export const MAX_HOSTILE_COUNT = 16
+export const MAX_PASSIVE_COUNT = 12
 
 // Spawn is attempted every SPAWN_INTERVAL_SECS of real time (throttles CPU cost).
 // Previously this was a frame/iteration count (6) on the maintenance lane, which

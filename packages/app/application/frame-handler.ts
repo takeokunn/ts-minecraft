@@ -76,11 +76,10 @@ const createFrameLoopHandlersInternal = (
     const lastRenderDistanceRef = MutableRef.make(0)
     const lastEntityStructureVersionRef = yield* Ref.make(-1)
     const lastRemotePlayerIdsRef = MutableRef.make<ReadonlySet<string>>(new Set())
-    const entityPhysicsChunkCacheRef = yield* Ref.make<Array<Chunk | null>>([
-      null, null, null,
-      null, null, null,
-      null, null, null,
-    ])
+    // 7x7 = 49 slots; see ENTITY_PHYSICS_CHUNK_RADIUS in entity-update-stage.
+    const entityPhysicsChunkCacheRef = yield* Ref.make<Array<Chunk | null>>(
+      Array.from({ length: 49 }, () => null),
+    )
     const lastEntityPhysicsChunkCoordRef = yield* Ref.make({ cx: NaN, cz: NaN })
     const lastEntityPhysicsLoadedChunksRef = yield* Ref.make<Option.Option<ReadonlyArray<Chunk>>>(Option.none())
     const shadowUpdateCounterRef = MutableRef.make(0)
