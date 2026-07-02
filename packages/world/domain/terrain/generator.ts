@@ -17,6 +17,7 @@ import { buildColumnStates } from './generator-column-state'
 import { collectOverhangTargets, applyOverhangNoise } from './generator-overhang'
 import { createTreeColumnContextResolver, placeChunkTrees } from './generator-tree-context'
 import { placeChunkPlants } from './plant-placer'
+import { writeStrongholdBlocksForChunk } from './stronghold'
 
 export const generateTerrain = (
   chunkService: ChunkFactory,
@@ -129,6 +130,10 @@ export const generateTerrain = (
 
     yield* placeChunkTrees(blocks, baseWorldX, baseWorldZ, resolveTreeColumnContext, terrainLevels)
     placeChunkPlants(blocks, baseWorldX, baseWorldZ, columnStates)
+
+    // Stronghold end-portal rooms: final pass so the room shell carves
+    // through caves/ores (pure world-coordinate function — see stronghold.ts).
+    writeStrongholdBlocksForChunk(blocks, coord.x, coord.z)
 
     return { ...chunk, blocks }
   })

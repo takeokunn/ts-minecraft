@@ -36,6 +36,7 @@ export const runInteractionStageUseActions = (
     | 'fluidService'
     | 'redstoneService'
     | 'gameMode'
+    | 'particleSystem'
   >,
   refs: Pick<FrameStageRefs, 'dirtyChunksRef' | 'isShieldBlockingRef' | 'bowChargeStartRef'>,
   context: {

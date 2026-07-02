@@ -119,4 +119,5 @@ export const TILE_MAP: ReadonlyArray<Readonly<Record<TextureFaceDir, number>>> =
   { top: 117, bottom: 117, side: 117 }, // 100: REDSTONE_LAMP_LIT
   { top: 121, bottom: 121, side: 121 }, // 101: BREWING_STAND
   { top: 122, bottom: 122, side: 122 }, // 102: NETHER_BRICK
+  { top: 125, bottom: 125, side: 125 }, // 103: END_PORTAL_FRAME_FILLED (socketed-eye tile)
 ]

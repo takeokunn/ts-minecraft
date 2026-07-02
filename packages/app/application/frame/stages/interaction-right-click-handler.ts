@@ -11,6 +11,7 @@ import { handleFoodConsumption } from '@ts-minecraft/app/frame/stages/interactio
 import { handleShearAnimal } from '@ts-minecraft/app/frame/stages/interaction-item-use-handler/shear-animal'
 import { handleFarmingInteraction } from '@ts-minecraft/app/frame/stages/interaction-farming-handler'
 import { handleFlintAndSteel } from '@ts-minecraft/app/frame/stages/interaction-flint-steel-handler'
+import { handleEnderEyeUse } from '@ts-minecraft/app/frame/stages/interaction-ender-eye-handler'
 import type { BlockServiceError } from '@ts-minecraft/world/application/block-service-error'
 import type { ChunkManagerError } from '@ts-minecraft/world/application/chunk-manager-constants'
 import type { InteractionStageSnapshot } from '@ts-minecraft/app/frame/stages/interaction-stage-snapshot'
@@ -41,6 +42,7 @@ export const handleRightClickPriorityFromContext = (
     | 'fluidService'
     | 'gameMode'
     | 'redstoneService'
+    | 'particleSystem'
   >,
   refs: Pick<FrameStageRefs, 'dirtyChunksRef'>,
   context: { readonly snapshot: InteractionStageSnapshot; readonly targetHit: Option.Option<TargetRayHit> },
@@ -56,6 +58,13 @@ export const handleRightClickPriorityFromContext = (
     const selectedHotbarItem = Option.getOrNull(context.snapshot.selectedHotbarItem)
     if (selectedHotbarItem === 'FLINT_AND_STEEL') {
       if (yield* handleFlintAndSteel(services, refs, { targetHit: context.targetHit })) return
+    }
+    if (selectedHotbarItem === 'ENDER_EYE') {
+      const eyeHandled = yield* handleEnderEyeUse(services, refs, {
+        targetHit: context.targetHit,
+        playerPosition: deps.camera.position,
+      })
+      if (eyeHandled) return
     }
 
     yield* handleRightClick(services, refs, {

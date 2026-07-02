@@ -31,6 +31,8 @@ const EMISSIVE_LEVEL_OVERRIDES: Partial<Record<BlockType, number>> = {
   REDSTONE_TORCH: 7,
   NETHER_PORTAL: 11,
   END_PORTAL_FRAME: 1,
+  // A socketed eye glows a touch brighter than the bare frame.
+  END_PORTAL_FRAME_FILLED: 3,
 }
 
 const EMISSIVE_TABLE: Record<BlockType, number> = (() => {

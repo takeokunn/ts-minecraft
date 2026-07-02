@@ -1737,8 +1737,48 @@ saveTile(123, 'blaze-rod', (ctx) => {
   }
 })
 
+// 124: blaze powder — scattered golden ember grains
+saveTile(124, 'blaze-powder', (ctx) => {
+  ctx.clearRect(0, 0, TILE_PX, TILE_PX)
+  // loose mound of powder
+  ctx.fillStyle = '#e8940a'
+  ctx.fillRect(8, 18, 16, 6)
+  ctx.fillRect(11, 15, 10, 3)
+  ctx.fillStyle = '#c46f00'
+  ctx.fillRect(8, 22, 16, 2)
+  // ember sparks around the mound
+  ctx.fillStyle = '#ffdf6b'
+  for (const [x, y] of [[7, 11], [15, 8], [23, 12], [11, 12], [20, 10]]) {
+    ctx.fillRect(x, y, 2, 2)
+  }
+  ctx.fillStyle = '#fff2b8'
+  ctx.fillRect(14, 16, 3, 2)
+})
+
+// 125: end portal frame with eye — frame tile crowned by a green-glowing eye
+saveTile(125, 'end-portal-frame-filled', (ctx) => {
+  // end-stone-ish frame body
+  ctx.fillStyle = '#dbe2a5'
+  ctx.fillRect(0, 0, TILE_PX, TILE_PX)
+  ctx.fillStyle = '#8f9868'
+  ctx.fillRect(0, 0, TILE_PX, 3)
+  ctx.fillRect(0, TILE_PX - 3, TILE_PX, 3)
+  ctx.fillRect(0, 0, 3, TILE_PX)
+  ctx.fillRect(TILE_PX - 3, 0, 3, TILE_PX)
+  // socket
+  ctx.fillStyle = '#3a3f2b'
+  ctx.fillRect(9, 9, 14, 14)
+  // the inserted eye of ender
+  ctx.fillStyle = '#1e5c4a'
+  ctx.fillRect(11, 11, 10, 10)
+  ctx.fillStyle = '#4fd8a8'
+  ctx.fillRect(13, 13, 6, 6)
+  ctx.fillStyle = '#0b241c'
+  ctx.fillRect(15, 14, 2, 4)
+})
+
 // Save combined atlas (single file loaded by chunk-mesh.ts at runtime).
 writeFileSync(join(OUTPUT_DIR, 'atlas.png'), atlasCanvas.toBuffer('image/png'))
-console.log(`  ✓ atlas.png (512×512, all 124 tiles combined)`)
+console.log(`  ✓ atlas.png (512×512, all 126 tiles combined)`)
 
 console.log(`\nDone - 123 individual tiles + atlas.png written to ${OUTPUT_DIR}`)

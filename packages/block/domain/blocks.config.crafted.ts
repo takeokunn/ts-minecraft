@@ -224,6 +224,13 @@ new Block({
     faces: defaultBlockFaces,
   }),
   new Block({
+    id: makeBlockId('block:end_portal_frame_filled'),
+    type: 'END_PORTAL_FRAME_FILLED',
+    // Frame with an eye of ender inserted — same indestructible shell.
+    properties: { hardness: 9000, transparency: false, solid: true, emissive: true, friction: 0.6 },
+    faces: defaultBlockFaces,
+  }),
+  new Block({
     id: makeBlockId('block:end_portal'),
     type: 'END_PORTAL',
     // Non-solid/transparent so player can walk into it; emissive gives the eerie glow

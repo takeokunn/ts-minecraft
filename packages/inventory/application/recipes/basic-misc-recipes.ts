@@ -122,15 +122,30 @@ export const BASIC_MISC_RECIPES: ReadonlyArray<Recipe> = [
     output: { itemType: 'GLOWSTONE', count: 1 },
   }),
   new Recipe({
-    id: RecipeId.make('cobblestone-and-glowstone-to-brewing-stand'),
+    id: RecipeId.make('blaze-rod-and-cobblestone-to-brewing-stand'),
     station: 'crafting_table',
-    // v1 stand-in for the vanilla blaze-rod recipe until the nether fortress
-    // (and blazes) ship.
+    // Vanilla recipe — blazes ship now, so the glowstone stand-in is retired.
     ingredients: [
+      new RecipeIngredient({ itemType: 'BLAZE_ROD', count: 1 }),
       new RecipeIngredient({ itemType: 'COBBLESTONE', count: 3 }),
-      new RecipeIngredient({ itemType: 'GLOWSTONE_DUST', count: 1 }),
     ],
     output: { itemType: 'BREWING_STAND', count: 1 },
+    shaped: { pattern: [' R ', 'CCC'], key: { R: 'BLAZE_ROD', C: 'COBBLESTONE' } },
+  }),
+  new Recipe({
+    id: RecipeId.make('blaze-rod-to-blaze-powder'),
+    station: 'inventory',
+    ingredients: [new RecipeIngredient({ itemType: 'BLAZE_ROD', count: 1 })],
+    output: { itemType: 'BLAZE_POWDER', count: 2 },
+  }),
+  new Recipe({
+    id: RecipeId.make('ender-pearl-and-blaze-powder-to-ender-eye'),
+    station: 'inventory',
+    ingredients: [
+      new RecipeIngredient({ itemType: 'ENDER_PEARL', count: 1 }),
+      new RecipeIngredient({ itemType: 'BLAZE_POWDER', count: 1 }),
+    ],
+    output: { itemType: 'ENDER_EYE', count: 1 },
   }),
   new Recipe({
     id: RecipeId.make('glass-to-bottles'),

@@ -67,6 +67,7 @@ export const BlockTypeSchema = Schema.Literal(
   // The End dimension
   'END_STONE',
   'END_PORTAL_FRAME',
+  'END_PORTAL_FRAME_FILLED',
   'END_PORTAL',
   'CHORUS_FLOWER',
   'CHORUS_PLANT',

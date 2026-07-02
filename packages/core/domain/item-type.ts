@@ -139,5 +139,7 @@ export const ItemTypeSchema = Schema.Literal(
   'CHARCOAL',
   // Nether fortress loot — dropped by Blazes (brewing/End progression)
   'BLAZE_ROD',
+  // Ground blaze rod — combined with an ender pearl to craft an ENDER_EYE
+  'BLAZE_POWDER',
 )
 export type ItemType = Schema.Schema.Type<typeof ItemTypeSchema>

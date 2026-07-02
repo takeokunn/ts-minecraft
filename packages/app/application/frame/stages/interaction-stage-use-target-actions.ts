@@ -31,6 +31,7 @@ export const runInteractionStageUseTargetActions = (
     | 'fluidService'
     | 'gameMode'
     | 'redstoneService'
+    | 'particleSystem'
   >,
   refs: Pick<FrameStageRefs, 'dirtyChunksRef'>,
   context: InteractionStageUseTargetActionsContext,

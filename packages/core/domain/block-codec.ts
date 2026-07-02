@@ -49,6 +49,8 @@ export const INDEX_TO_BLOCK_TYPE: ReadonlyArray<BlockType> = [
   'BREWING_STAND',
   // Nether fortress material - index 102
   'NETHER_BRICK',
+  // End portal frame with an eye of ender inserted - index 103
+  'END_PORTAL_FRAME_FILLED',
 ]
 
 export const BLOCK_COUNT = INDEX_TO_BLOCK_TYPE.length
