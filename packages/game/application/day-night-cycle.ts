@@ -38,6 +38,10 @@ export const updateDayNightCycle = (
   deltaTime: DeltaTimeSecs,
   lights: DayNightLightsPort,
   timeService: TimeService,
+  // Moon anchor: the sprite lives in world space, so it must follow the
+  // observer or it drifts behind and out of the far plane as the player
+  // travels. Defaults to the origin for callers without a camera.
+  observerPosition: { readonly x: number; readonly y: number; readonly z: number } = { x: 0, y: 0, z: 0 },
 ): Effect.Effect<void, never, never> =>
   Effect.gen(function* () {
     yield* timeService.advanceTick(deltaTime)
@@ -78,7 +82,11 @@ export const updateDayNightCycle = (
 
       const moon = Option.getOrNull(lights.moon)
       if (moon !== null) {
-        moon.setPosition(appearance.moonPosition.x, appearance.moonPosition.y, appearance.moonPosition.z)
+        moon.setPosition(
+          observerPosition.x + appearance.moonPosition.x,
+          observerPosition.y + appearance.moonPosition.y,
+          observerPosition.z + appearance.moonPosition.z,
+        )
         moon.setPhase(moonPhase)
         moon.setOpacity(appearance.moonOpacity)
         moon.setVisible(appearance.moonVisible)

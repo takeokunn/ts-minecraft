@@ -1,6 +1,11 @@
 import type { DayNightCycleState } from './day-night-cycle'
 import { AMBIENT_LIGHT_MIN, AMBIENT_LIGHT_RANGE, DIRECT_LIGHT_MIN, DIRECT_LIGHT_RANGE, SUN_DISTANCE, SUN_HEIGHT } from './day-night-cycle'
 
+// The moon sprite is MOON_VISUAL_SCALE (~34) world units wide; at this
+// distance from the observer it subtends ~9 deg like the vanilla moon. It sits
+// inside the minimum camera far plane (~300 at renderDistance 2).
+export const MOON_DISTANCE = 220
+
 const SKY_TURBIDITY_DAY = 2
 const SKY_TURBIDITY_HORIZON = 4
 const SKY_RAYLEIGH_DAY = 3
@@ -61,11 +66,15 @@ export const resolveDayNightCycleAppearance = (state: DayNightCycleState): DayNi
     },
     skyTurbidity: SKY_TURBIDITY_DAY + (1 - state.dayFactor) * (SKY_TURBIDITY_HORIZON - SKY_TURBIDITY_DAY),
     skyRayleigh: SKY_RAYLEIGH_NIGHT + state.dayFactor * (SKY_RAYLEIGH_DAY - SKY_RAYLEIGH_NIGHT),
-    moonPosition: {
-      x: -state.cosSun * SUN_DISTANCE,
-      y: state.moonElevation * SUN_HEIGHT,
-      z: 0,
-    },
+    // Normalized direction (same trajectory as before) pushed out to
+    // MOON_DISTANCE — the raw sun-vector magnitudes (~50-90) put a huge
+    // billboard right next to the player and it filled the night sky.
+    moonPosition: (() => {
+      const dirX = -state.cosSun * SUN_DISTANCE
+      const dirY = state.moonElevation * SUN_HEIGHT
+      const len = Math.hypot(dirX, dirY) || 1
+      return { x: (dirX / len) * MOON_DISTANCE, y: (dirY / len) * MOON_DISTANCE, z: 0 }
+    })(),
     moonOpacity: state.moonOpacity,
     moonVisible: state.moonOpacity > 0.02,
   }

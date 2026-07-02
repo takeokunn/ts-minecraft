@@ -44,7 +44,7 @@ export const lightingStage = (
 ): Effect.Effect<{ readonly timeOfDay: number; readonly sunIntensity: number }, never> =>
   // Pre-composed flatMap chain — no per-frame generator
   logErrors(
-    updateDayNightCycle(inputs.deltaTime, inputs.effectiveLights, services.timeService),
+    updateDayNightCycle(inputs.deltaTime, inputs.effectiveLights, services.timeService, inputs.playerPos),
     'Day/night error',
   ).pipe(
     Effect.flatMap(() => services.weatherService.tick(inputs.deltaTime)),

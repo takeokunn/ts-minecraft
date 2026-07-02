@@ -30,7 +30,7 @@ describe('game/day-night-cycle-appearance', () => {
     expect(appearance.skyTurbidity).toBeCloseTo(4, 6)
     expect(appearance.skyRayleigh).toBeCloseTo(0.5, 6)
     expect(appearance.moonPosition.x).toBeCloseTo(0, 6)
-    expect(appearance.moonPosition.y).toBeCloseTo(80, 6)
+    expect(appearance.moonPosition.y).toBeCloseTo(220, 6)
     expect(appearance.moonOpacity).toBeCloseTo(1, 6)
     expect(appearance.moonVisible).toBe(true)
   })

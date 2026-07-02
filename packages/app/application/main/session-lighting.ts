@@ -11,7 +11,9 @@ import {
 } from '@ts-minecraft/app/main.config'
 
 const MOON_TEXTURE_SIZE = 64
-const MOON_VISUAL_SCALE = 180
+// ~9 deg apparent diameter at MOON_DISTANCE=220 (2*220*tan(4.5 deg) ~= 34.6).
+// The previous 180 at ~50-90 units filled most of the night sky as a white disc.
+const MOON_VISUAL_SCALE = 34
 
 const createMoonPhaseTexture = (phase: number): THREE.CanvasTexture => {
   const canvas = document.createElement('canvas')
