@@ -101,7 +101,8 @@ export const makeInternalHarness = (): Effect.Effect<InternalHarness> =>
     const cachedEntitiesRef = yield* Ref.make<Option.Option<ReadonlyArray<Entity>>>(Option.none())
     const structureVersionRef = yield* Ref.make(0)
     const explosionsRef = yield* Ref.make<ReadonlyArray<ExplosionEvent>>([])
-    const internal = makeEntityManagerInternal(entitiesRef, cachedEntitiesRef, structureVersionRef, explosionsRef)
+    const playerIgniteSecsRef = yield* Ref.make(0)
+    const internal = makeEntityManagerInternal(entitiesRef, cachedEntitiesRef, structureVersionRef, explosionsRef, playerIgniteSecsRef)
 
     return { entitiesRef, cachedEntitiesRef, structureVersionRef, explosionsRef, internal }
   })

@@ -1,5 +1,6 @@
 import { Cause, Effect, Option } from 'effect'
 import { type DeltaTimeSecs, type Position } from '@ts-minecraft/core'
+import type { Dimension } from '@ts-minecraft/world'
 import { type EntityId } from '../../domain/mob/entity'
 import { DESPAWN_DISTANCE } from '../../domain/mob/spawner-config'
 import { makeTerrainAwareSpawnResolver, type ChunkManagerServiceLike } from './mob-maintenance-spawn-resolver'
@@ -14,6 +15,7 @@ type MobSpawnerLike = {
     playerPosition: Position,
     spawnResolver?: (candidatePosition: Position) => Effect.Effect<Option.Option<Position>, never>,
     deltaSecs?: number,
+    dimension?: Dimension,
   ) => Effect.Effect<Option.Option<EntityId>, never>
 }
 
@@ -29,6 +31,9 @@ export type MobMaintenanceInput = {
   readonly mobsEnabled: boolean
   readonly mobsSpawnEnabled: boolean
   readonly timeOfDay: number
+  // Active dimension — selects the spawn-surface resolver (roofed nether needs
+  // a cavern scan) and the dimension's mob roster. Defaults to the overworld.
+  readonly dimension?: Dimension
 }
 
 export type MobMaintenanceResult = {
@@ -49,6 +54,7 @@ export const runMobMaintenance = (
       mobsSpawnEnabled,
       timeOfDay,
     } = input
+    const dimension = input.dimension ?? 'overworld'
 
     const despawnedCount = mobsEnabled
       ? yield* entityManager.despawnFarEntities(playerPos, DESPAWN_DISTANCE)
@@ -61,9 +67,10 @@ export const runMobMaintenance = (
     const spawnResult = mobsSpawnEnabled
       ? yield* mobSpawner.trySpawn(
           playerPos,
-          makeTerrainAwareSpawnResolver(chunkManagerService, isNightSpawn),
+          makeTerrainAwareSpawnResolver(chunkManagerService, isNightSpawn, dimension),
           // Real elapsed time gates the spawn cadence (frame-rate / load independent).
           maintenanceDeltaTime,
+          dimension,
         ).pipe(
           /* c8 ignore start */
           Effect.catchAllCause((cause) =>

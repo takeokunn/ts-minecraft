@@ -317,6 +317,41 @@ const DRAGON_SPECS: Readonly<Record<PartRole, Option.Option<RoleSpec>>> = {
   legBR: Option.none(),
 }
 
+// Blaze: golden head cube over a molten core, orbited by six floating rods
+// (four in leg slots, two in arm slots) — mirrors buildBlaze in
+// mob-geometry.builders.ts. Rod swing makes them flicker like embers.
+const BLAZE_ROD_SPEC = (x: number, y: number, z: number): Option.Option<RoleSpec> =>
+  Option.some({
+    size: [0.14, 0.6, 0.14] as const,
+    pivot: 'top' as const,
+    offset: { x, y, z },
+    color: 0xd8940a,
+    swingAxis: 'x' as const,
+  })
+
+const BLAZE_SPECS: Readonly<Record<PartRole, Option.Option<RoleSpec>>> = {
+  head: Option.some({
+    size: [0.45, 0.45, 0.45],
+    pivot: 'center',
+    offset: { x: 0, y: 0.6 + 0.14 + 0.14 + 0.45 / 2, z: 0 },
+    color: 0xe8b350,
+    swingAxis: null,
+  }),
+  body: Option.some({
+    size: [0.28, 0.28, 0.28],
+    pivot: 'center',
+    offset: { x: 0, y: 0.6 + 0.14, z: 0 },
+    color: 0xb45f04,
+    swingAxis: null,
+  }),
+  armL: BLAZE_ROD_SPEC(+0.46, 0.88, 0),
+  armR: BLAZE_ROD_SPEC(-0.46, 0.88, 0),
+  legFL: BLAZE_ROD_SPEC(+0.32, 0.6, +0.32),
+  legFR: BLAZE_ROD_SPEC(-0.32, 0.6, +0.32),
+  legBL: BLAZE_ROD_SPEC(+0.32, 0.6, -0.32),
+  legBR: BLAZE_ROD_SPEC(-0.32, 0.6, -0.32),
+}
+
 const SPECS_BY_TYPE: Readonly<Record<EntityType, Readonly<Record<PartRole, Option.Option<RoleSpec>>>>> = {
   Zombie: ZOMBIE_SPECS,
   Cow: COW_SPECS,
@@ -337,6 +372,7 @@ const SPECS_BY_TYPE: Readonly<Record<EntityType, Readonly<Record<PartRole, Optio
   EnderDragon: DRAGON_SPECS,
   Endermite: ENDERMITE_SPECS,
   Shulker: SHULKER_SPECS,
+  Blaze: BLAZE_SPECS,
 }
 
 export const getRoleSpec = (type: EntityType, role: PartRole): Option.Option<RoleSpec> =>
@@ -362,4 +398,5 @@ export const ROLES_BY_TYPE: Readonly<Record<EntityType, ReadonlyArray<PartRole>>
   EnderDragon: ['head', 'body'],
   Endermite: ['head', 'body', 'legFL', 'legFR', 'legBL', 'legBR'],
   Shulker: ['head', 'body', 'legFL', 'legFR'],
+  Blaze: ['head', 'body', 'armL', 'armR', 'legFL', 'legFR', 'legBL', 'legBR'],
 }

@@ -177,3 +177,15 @@ export const DRAGON_PARTS: ZombieParts = {
   leg: [0.25, 0.5, 0.25],
 }
 export const DRAGON_PALETTE: ZombiePalette = { head: 0x0a0020, body: 0x0a0020, arm: 0x0a0020, leg: 0x0a0020 }
+
+export type BlazeParts = Readonly<{ head: Dim3; core: Dim3; rod: Dim3 }>
+export type BlazePalette = Readonly<{ head: number; core: number; rod: number }>
+
+// Blaze: golden head cube over a molten core, orbited by floating rods.
+// The rods reuse the limb slots so the walk cycle animates them.
+export const BLAZE_PARTS: BlazeParts = {
+  head: [0.45, 0.45, 0.45],
+  core: [0.28, 0.28, 0.28],
+  rod: [0.14, 0.6, 0.14],
+}
+export const BLAZE_PALETTE: BlazePalette = { head: 0xe8b350, core: 0xb45f04, rod: 0xd8940a }

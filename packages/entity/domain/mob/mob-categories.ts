@@ -23,3 +23,19 @@ export const HOSTILE_MOBS: ReadonlyArray<EntityType> = [
   EntityType.Drowned,
   EntityType.ZombieVillager,
 ]
+
+// Nether rotation away from fortresses (near a fortress the spawner always
+// picks a Blaze). The nether has no day/night, so this rotation applies at
+// any time of day.
+export const NETHER_HOSTILE_MOBS: ReadonlyArray<EntityType> = [
+  EntityType.Skeleton,
+  EntityType.Enderman,
+  EntityType.Zombie,
+]
+
+// All Blaze/nether-category mobs are hostile; combined set used for the
+// category population cap.
+export const ALL_HOSTILE_MOBS: ReadonlyArray<EntityType> = [
+  ...HOSTILE_MOBS,
+  EntityType.Blaze,
+]

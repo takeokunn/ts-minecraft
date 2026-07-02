@@ -1,7 +1,7 @@
 import { Option } from 'effect'
 import type { Chunk } from '@ts-minecraft/world'
 import type { Position } from '@ts-minecraft/core'
-import { CHUNK_HEIGHT, CHUNK_SIZE } from '@ts-minecraft/core'
+import { blockTypeToIndex, CHUNK_HEIGHT, CHUNK_SIZE } from '@ts-minecraft/core'
 import { chunkBlockIndexUnchecked } from '@ts-minecraft/world'
 import { getLightAt } from '@ts-minecraft/block/domain/light'
 import { MOB_HALF_HEIGHT, HOSTILE_SPAWN_MAX_BLOCK_LIGHT } from './spawner-config'
@@ -50,6 +50,42 @@ export const resolveMobSpawnPosition = (
     return Option.some({
       x: candidatePosition.x,
       y: bodyBlockY + MOB_HALF_HEIGHT,
+      z: candidatePosition.z,
+    })
+  }
+
+  return Option.none()
+}
+
+// The nether is roofed (netherrack up to y≈123 plus a bedrock ceiling), so the
+// overworld top-down "first solid block" scan always lands on the ceiling and
+// fails. Instead, search the column near the candidate's own height for a
+// cavern pocket: solid non-lava ground with 2 air blocks above. No light gate —
+// vanilla nether hostiles spawn at any light level.
+const NETHER_SPAWN_SCAN_UP = 8
+const NETHER_SPAWN_MIN_Y = 5
+
+export const resolveNetherSpawnPosition = (
+  chunk: Chunk,
+  candidatePosition: Position,
+): Option.Option<Position> => {
+  const lx = toLocalAxis(Math.floor(candidatePosition.x))
+  const lz = toLocalAxis(Math.floor(candidatePosition.z))
+  const lavaIndex = blockTypeToIndex('LAVA')
+
+  const startY = Math.min(
+    Math.floor(candidatePosition.y) + NETHER_SPAWN_SCAN_UP,
+    CHUNK_HEIGHT - 3,
+  )
+  for (let groundY = startY; groundY >= NETHER_SPAWN_MIN_Y; groundY--) {
+    const ground = blockIdAt(chunk, lx, groundY, lz)
+    if (ground === 0 || ground === lavaIndex) continue
+    if (blockIdAt(chunk, lx, groundY + 1, lz) !== 0) continue
+    if (blockIdAt(chunk, lx, groundY + 2, lz) !== 0) continue
+
+    return Option.some({
+      x: candidatePosition.x,
+      y: groundY + 1 + MOB_HALF_HEIGHT,
       z: candidatePosition.z,
     })
   }

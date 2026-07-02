@@ -14,8 +14,14 @@ export type PlayerContactDamageResolution = Readonly<{
   explosions: ReadonlyArray<ExplosionEvent>
 }>
 
+// Seconds of burning a landed Blaze fireball inflicts on the player (vanilla: 5s).
+export const BLAZE_IGNITE_SECS = 5
+
 type PlayerRangedDamageResolution = Readonly<{
   damage: number
+  // Seconds of player burn inflicted by fire-based shooters (Blaze). 0 when no
+  // igniting shot landed this resolution.
+  igniteSecs: number
 }>
 
 export const resolvePlayerContactDamage = (
@@ -65,16 +71,20 @@ export const resolvePlayerRangedDamage = (
   isProjectileBlocked?: ProjectileBlocker,
 ): readonly [PlayerRangedDamageResolution, HashMap.HashMap<EntityId, ManagedEntity>] => {
   let totalDamage = 0
+  let igniteSecs = 0
   let updatedEntities = entities
   let anyEntityModified = false
 
   HashMap.forEach(entities, (entity) => {
-    if (entity.type !== EntityType.Skeleton) return
+    if (entity.type !== EntityType.Skeleton && entity.type !== EntityType.Blaze) return
     if (entity.behavior !== 'hostile' || entity.attackDamage <= 0) return
     if (entity.attackCooldownRemaining > 0) return
     if (!canSkeletonShootPlayer(entity, playerPosition, isProjectileBlocked)) return
 
     totalDamage += entity.attackDamage
+    if (entity.type === EntityType.Blaze) {
+      igniteSecs = Math.max(igniteSecs, BLAZE_IGNITE_SECS)
+    }
     updatedEntities = HashMap.set(updatedEntities, entity.entityId, {
       ...entity,
       attackCooldownRemaining: HOSTILE_ATTACK_COOLDOWN_SECS,
@@ -85,6 +95,7 @@ export const resolvePlayerRangedDamage = (
   return [
     {
       damage: totalDamage,
+      igniteSecs,
     },
     anyEntityModified ? updatedEntities : entities,
   ]

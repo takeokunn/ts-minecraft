@@ -1713,8 +1713,32 @@ saveTile(122, 'nether-brick', (ctx) => {
   }
 })
 
+// 123: blaze rod — diagonal golden rod with molten glow segments
+saveTile(123, 'blaze-rod', (ctx) => {
+  ctx.clearRect(0, 0, TILE_PX, TILE_PX)
+  // rod drawn as diagonal stacked segments (bottom-left → top-right)
+  for (let i = 0; i < 9; i++) {
+    const x = 4 + i * 2.5
+    const y = 24 - i * 2.5
+    ctx.fillStyle = i % 3 === 0 ? '#ffdf6b' : '#e8940a'
+    ctx.fillRect(x, y, 5, 5)
+  }
+  // molten core highlights
+  ctx.fillStyle = '#fff2b8'
+  for (const [x, y] of [[7, 22], [14, 15], [21, 8]]) {
+    ctx.fillRect(x, y, 2, 2)
+  }
+  // dark ember edge
+  ctx.fillStyle = '#a35c00'
+  for (let i = 0; i < 9; i++) {
+    const x = 4 + i * 2.5
+    const y = 24 - i * 2.5
+    ctx.fillRect(x + 3, y + 3, 2, 2)
+  }
+})
+
 // Save combined atlas (single file loaded by chunk-mesh.ts at runtime).
 writeFileSync(join(OUTPUT_DIR, 'atlas.png'), atlasCanvas.toBuffer('image/png'))
-console.log(`  ✓ atlas.png (512×512, all 123 tiles combined)`)
+console.log(`  ✓ atlas.png (512×512, all 124 tiles combined)`)
 
 console.log(`\nDone - 123 individual tiles + atlas.png written to ${OUTPUT_DIR}`)

@@ -27,7 +27,8 @@ export const EntityTypeSchema = Schema.Literal(
   'Enderman',
   'EnderDragon',
   'Shulker',
-  'Endermite'
+  'Endermite',
+  'Blaze'
 )
 export type EntityType = Schema.Schema.Type<typeof EntityTypeSchema>
 export const EntityType = {
@@ -50,6 +51,7 @@ export const EntityType = {
   EnderDragon: 'EnderDragon' as const,
   Shulker: 'Shulker' as const,
   Endermite: 'Endermite' as const,
+  Blaze: 'Blaze' as const,
 }
 
 export const MobBehaviorSchema = Schema.Literal('hostile', 'passive')

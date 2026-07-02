@@ -19,7 +19,7 @@ type MaintenanceSimulationState = {
 
 type MaintenanceSimulationServices = Pick<
   FrameHandlerServices,
-  'entityManager' | 'chunkManagerService' | 'furnaceService' | 'mobSpawner' | 'villageService' | 'timeService' | 'blockService' | 'cropGrowthService' | 'weatherService' | 'biomeService'
+  'entityManager' | 'chunkManagerService' | 'furnaceService' | 'mobSpawner' | 'villageService' | 'timeService' | 'blockService' | 'cropGrowthService' | 'weatherService' | 'biomeService' | 'netherService'
 >
 
 type MaintenanceSimulationInput = MaintenanceSimulationPlanInput & {
@@ -50,10 +50,14 @@ export const runMaintenanceSimulation = (
       cropGrowthService,
       weatherService,
       biomeService,
+      netherService,
     } = services
     const { playerPos, maintenanceDeltaTime, mobsEnabled, mobsSpawnEnabled } = input
     const plan = resolveMaintenanceSimulationPlan(input)
     const timeOfDay = yield* resolveMaintenanceTimeOfDay(timeService, plan.shouldResolveTimeOfDay)
+    // Dimension-aware spawning: the nether spawns Blazes near fortresses (and
+    // hostiles at any hour), the end spawns endermen.
+    const dimension = yield* netherService.getDimension()
 
     const { despawnedCount, spawnResult } = yield* runMobMaintenance(
       { entityManager, chunkManagerService, mobSpawner },
@@ -63,6 +67,7 @@ export const runMaintenanceSimulation = (
         mobsEnabled,
         mobsSpawnEnabled,
         timeOfDay,
+        dimension,
       },
     )
 

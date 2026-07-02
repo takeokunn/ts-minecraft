@@ -14,8 +14,8 @@ const ALL_PART_ROLES: ReadonlyArray<PartRole> = [
 ]
 
 describe('ROLES_BY_TYPE completeness', () => {
-  it('has 19 active renderable entity types', () => {
-    expect(ACTIVE_ENTITY_TYPES.length).toBe(19)
+  it('has 20 active renderable entity types', () => {
+    expect(ACTIVE_ENTITY_TYPES.length).toBe(20)
   })
 
   it('each entity has at least one role', () => {

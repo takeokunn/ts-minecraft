@@ -28,6 +28,7 @@ export const NON_PLACEABLE_ITEM_TYPES: HashSet.HashSet<InventoryItem> = HashSet.
   'DIAMOND',
   'REDSTONE_DUST',
   'GLOWSTONE_DUST',
+  'BLAZE_ROD',
   'LAPIS_LAZULI',
   'EMERALD',
   'DIAMOND_PICKAXE',

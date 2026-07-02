@@ -19,6 +19,7 @@ export const makeEntityManagerInternal = (
   cachedEntitiesRef: Ref.Ref<Option.Option<ReadonlyArray<Entity>>>,
   structureVersionRef: Ref.Ref<number>,
   explosionsRef: Ref.Ref<ReadonlyArray<ExplosionEvent>>,
+  playerIgniteSecsRef: Ref.Ref<number>,
 ) => ({
   ...makeEntityManagerLifecycle(entitiesRef, cachedEntitiesRef, structureVersionRef),
   ...makeEntityManagerActions(entitiesRef, cachedEntitiesRef, structureVersionRef),
@@ -45,13 +46,21 @@ export const makeEntityManagerInternal = (
     isProjectileBlocked?: ProjectileBlocker,
   ): Effect.Effect<number, never> =>
     Effect.gen(function* () {
-      const damage = yield* Ref.modify(entitiesRef, (entities): [number, HashMap.HashMap<EntityId, ManagedEntity>] => {
+      const resolved = yield* Ref.modify(entitiesRef, (entities): [{ damage: number; igniteSecs: number }, HashMap.HashMap<EntityId, ManagedEntity>] => {
         const [resolution, updatedEntities] = resolvePlayerRangedDamage(entities, playerPosition, isProjectileBlocked)
-        return [resolution.damage, updatedEntities]
+        return [{ damage: resolution.damage, igniteSecs: resolution.igniteSecs }, updatedEntities]
       })
-      if (damage > 0) {
+      if (resolved.igniteSecs > 0) {
+        yield* Ref.update(playerIgniteSecsRef, (pending) => Math.max(pending, resolved.igniteSecs))
+      }
+      if (resolved.damage > 0) {
         yield* invalidateEntityCache(cachedEntitiesRef)
       }
-      return damage
+      return resolved.damage
     }),
+
+  // Seconds of burning inflicted by fire-based ranged hits (Blaze fireballs)
+  // since the last drain. The app frame applies it to the player's burn timer —
+  // the entity layer never touches player state directly (DDD boundary).
+  drainPlayerIgniteSecs: (): Effect.Effect<number, never> => Ref.getAndSet(playerIgniteSecsRef, 0),
 })

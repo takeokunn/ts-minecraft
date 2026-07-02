@@ -3,12 +3,13 @@ import { TimeServicePort } from '../../domain/time-service-port'
 import { EntityManager } from './entity-manager'
 import type { EntityId } from '../../domain/mob/entity'
 import type { Position } from '@ts-minecraft/core'
+import type { Dimension } from '@ts-minecraft/world'
 import { MAX_ENTITY_COUNT, MAX_HOSTILE_COUNT, MAX_PASSIVE_COUNT, MAX_SPAWN_DISTANCE, MIN_SPAWN_DISTANCE, SPAWN_INTERVAL_SECS } from '../../domain/mob/spawner-config'
-import { HOSTILE_MOBS } from '../../domain/mob/mob-categories'
+import { ALL_HOSTILE_MOBS } from '../../domain/mob/mob-categories'
 import { getSpawnPosition, selectMobType } from './mob-spawner-helpers'
 import { canSpawnAtPosition } from './mob-spawner-rules'
 
-const HOSTILE_SET: ReadonlySet<string> = new Set(HOSTILE_MOBS)
+const HOSTILE_SET: ReadonlySet<string> = new Set(ALL_HOSTILE_MOBS)
 
 type SpawnPositionResolver = (
   candidatePosition: Position,
@@ -32,6 +33,7 @@ export class MobSpawner extends Effect.Service<MobSpawner>()(
           playerPosition: Position,
           spawnResolver?: SpawnPositionResolver,
           deltaSecs: number = SPAWN_INTERVAL_SECS,
+          dimension: Dimension = 'overworld',
         ): Effect.Effect<Option.Option<EntityId>, never> =>
           Effect.gen(function* () {
             // Drain one interval when the accumulator crosses the threshold; carry the
@@ -50,16 +52,18 @@ export class MobSpawner extends Effect.Service<MobSpawner>()(
             }
 
             const isNight = yield* timeService.isNight()
+            // The nether and end have no day/night cycle and only spawn hostiles.
+            const spawnsHostile = isNight || dimension !== 'overworld'
 
-            // Category cap: night spawns hostiles, day spawns passives. Count
-            // only the matching category so a world full of daytime passives
-            // can't starve the night-time hostile spawns (and vice versa).
+            // Category cap: hostile spawns count hostiles, passive spawns count
+            // passives. Count only the matching category so a world full of
+            // daytime passives can't starve the hostile spawns (and vice versa).
             const entities = yield* entityManager.getEntities()
             let categoryCount = 0
             for (const entity of entities) {
-              if (HOSTILE_SET.has(entity.type) === isNight) categoryCount++
+              if (HOSTILE_SET.has(entity.type) === spawnsHostile) categoryCount++
             }
-            if (categoryCount >= (isNight ? MAX_HOSTILE_COUNT : MAX_PASSIVE_COUNT)) {
+            if (categoryCount >= (spawnsHostile ? MAX_HOSTILE_COUNT : MAX_PASSIVE_COUNT)) {
               return Option.none<EntityId>()
             }
             const cursor = yield* Ref.updateAndGet(spawnCursorRef, (value) => value + 1)
@@ -78,7 +82,7 @@ export class MobSpawner extends Effect.Service<MobSpawner>()(
             }
 
             const entityId = yield* entityManager.addEntity(
-              selectMobType(isNight, cursor),
+              selectMobType(spawnsHostile, cursor, dimension, spawnPosition),
               spawnPosition,
             )
 

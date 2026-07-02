@@ -124,6 +124,14 @@ const getHostileDamage = (
         isProjectileBlocked,
       )
 
+      // Blaze fireballs set the player on fire: feed the drained ignite seconds
+      // into the same burn timer lava uses, so the existing fire-damage cadence
+      // and fire-protection reduction apply (see environment-hazards.ts).
+      const igniteSecs = yield* services.entityManager.drainPlayerIgniteSecs()
+      if (igniteSecs > 0) {
+        MutableRef.update(refs.lavaBurnRemainingSecsRef, (remaining) => Math.max(remaining, igniteSecs))
+      }
+
       const explosions = yield* services.entityManager.drainExplosions()
       for (const explosion of explosions) {
         yield* applyExplosionBlockDamage(services, explosion)

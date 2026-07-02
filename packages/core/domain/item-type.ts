@@ -137,5 +137,7 @@ export const ItemTypeSchema = Schema.Literal(
   'MINECART',
   // Fuel/crafting — smelted from WOOD logs (vanilla)
   'CHARCOAL',
+  // Nether fortress loot — dropped by Blazes (brewing/End progression)
+  'BLAZE_ROD',
 )
 export type ItemType = Schema.Schema.Type<typeof ItemTypeSchema>

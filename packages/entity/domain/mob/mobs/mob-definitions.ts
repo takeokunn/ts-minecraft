@@ -2,6 +2,7 @@ import { EntityType } from '../entity'
 import type { MobDefinition } from './mob-definition'
 import { BatDefinition } from './bat'
 import { BeeDefinition } from './bee'
+import { BlazeDefinition } from './blaze'
 import { ChickenDefinition } from './chicken'
 import { CowDefinition } from './cow'
 import { CreeperDefinition } from './creeper'
@@ -39,4 +40,5 @@ export const MobDefinitions = {
   [EntityType.EnderDragon]: EnderDragonDefinition,
   [EntityType.Shulker]: ShulkerDefinition,
   [EntityType.Endermite]: EndermiteDefinition,
+  [EntityType.Blaze]: BlazeDefinition,
 } as Readonly<Record<EntityType, MobDefinition>>

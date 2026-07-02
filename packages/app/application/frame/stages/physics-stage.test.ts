@@ -524,6 +524,44 @@ describe('step 3.5 — fall damage', () => {
     expect(applyDamageSpy).toHaveBeenCalledWith(2)
   }))
 
+  it.effect('a blaze fireball hit feeds the player burn timer via the ignite drain', () => Effect.gen(function* () {
+    const deps = yield* makeDeps(false)
+    const services = makeServices({
+      inputService: makeInputService(),
+      inventoryRenderer: makeInventoryRenderer({ open: false }),
+      settingsOverlay: makeSettingsOverlay({ open: false }),
+    })
+    const refs = yield* makePhysicsStageRefs()
+    ;(services.entityManager as { getPlayerRangedDamage: unknown }).getPlayerRangedDamage = vi.fn(() =>
+      Effect.succeed(3)
+    )
+    ;(services.entityManager as { drainPlayerIgniteSecs: unknown }).drainPlayerIgniteSecs = vi.fn(() =>
+      Effect.succeed(5)
+    )
+    const applyDamageSpy = vi.fn(() => Effect.void)
+    ;(services.healthService as { applyDamage: unknown }).applyDamage = applyDamageSpy
+
+    yield* physicsStage(deps, services, refs, {
+      deltaTime: 0.016 as DeltaTimeSecs,
+      initialPlayerPos: { x: 0, y: 64, z: 0 },
+      healthValueElementOrNull: null,
+      healthMaxElementOrNull: null,
+      hungerValueElementOrNull: null,
+      hungerMaxElementOrNull: null,
+      xpLevelElementOrNull: null,
+      xpBarElementOrNull: null,
+      xpBarMaxElementOrNull: null,
+      armorValueElementOrNull: null,
+      airElementOrNull: null,
+      debugFlags: DEBUG_FEATURE_FLAG_DEFAULTS,
+      difficulty: DEFAULT_SETTINGS.difficulty,
+    })
+
+    expect(applyDamageSpy).toHaveBeenCalledWith(3)
+    // Same-frame hazard ticking may already have decremented by one deltaTime.
+    expect(MutableRef.get(refs.lavaBurnRemainingSecsRef)).toBeGreaterThan(4.9)
+  }))
+
   it.effect('mitigates hostile ranged damage with Projectile Protection', () => Effect.gen(function* () {
     const deps = yield* makeDeps(false)
     const services = makeServices({

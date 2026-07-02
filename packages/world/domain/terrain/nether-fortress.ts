@@ -43,6 +43,34 @@ export const fortressSiteForRegion = (
   }
 }
 
+// Horizontal radius (from a fortress site centre) inside which nether mob
+// spawns become Blazes — matches the corridor reach (±24) plus a margin so
+// blazes also guard the fortress approaches.
+export const FORTRESS_BLAZE_RADIUS = 48
+
+// True when world column (x, z) lies within FORTRESS_BLAZE_RADIUS of any
+// fortress site. Checks every region whose site could be in range.
+export const isNearFortressSite = (
+  x: number,
+  z: number,
+  radius: number = FORTRESS_BLAZE_RADIUS,
+): boolean => {
+  const minRegionX = Math.floor((x - radius) / FORTRESS_REGION_SIZE)
+  const maxRegionX = Math.floor((x + radius) / FORTRESS_REGION_SIZE)
+  const minRegionZ = Math.floor((z - radius) / FORTRESS_REGION_SIZE)
+  const maxRegionZ = Math.floor((z + radius) / FORTRESS_REGION_SIZE)
+  for (let regionX = minRegionX; regionX <= maxRegionX; regionX++) {
+    for (let regionZ = minRegionZ; regionZ <= maxRegionZ; regionZ++) {
+      const site = fortressSiteForRegion(regionX, regionZ)
+      if (site === null) continue
+      const dx = x - site.x
+      const dz = z - site.z
+      if (dx * dx + dz * dz <= radius * radius) return true
+    }
+  }
+  return false
+}
+
 // The block a fortress places at world column (wx, wz) and height y, or 0
 // (nothing). Evaluated per column so a chunk only writes its own slice.
 const fortressBlockAt = (

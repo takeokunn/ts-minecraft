@@ -29,7 +29,9 @@ export class EntityManager extends Effect.Service<EntityManager>()(
       // frame drains these each tick and applies the world/player effects (DDD boundary —
       // the entity layer never touches world blocks or player XP).
       const dragonEventsRef = yield* Ref.make<ReadonlyArray<DragonDeathEvent>>([])
-      const internal = makeEntityManagerInternal(entitiesRef, cachedEntitiesRef, structureVersionRef, explosionsRef)
+      // Pending player burn seconds from Blaze fireball hits (drained by the frame).
+      const playerIgniteSecsRef = yield* Ref.make(0)
+      const internal = makeEntityManagerInternal(entitiesRef, cachedEntitiesRef, structureVersionRef, explosionsRef, playerIgniteSecsRef)
       const mutations = makeEntityManagerMutations(
         entitiesRef,
         nextEntityNumberRef,

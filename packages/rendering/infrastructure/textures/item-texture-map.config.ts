@@ -101,6 +101,7 @@ export const ITEM_TILE_MAP: Readonly<Record<InventoryItem, number>> = {
   POTION_HEALING: 120,
 
   // ItemTypes
+  BLAZE_ROD: 123,
   STICKS: 48,
   COAL: 49,
   CHARCOAL: 49, // same tile as COAL — charcoal looks identical in vanilla

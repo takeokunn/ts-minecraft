@@ -5,6 +5,8 @@ import { getOrCreateGeometry, getOrCreateMaterial } from './mob-geometry.core'
 import {
   type BatPalette,
   type BatParts,
+  type BlazePalette,
+  type BlazeParts,
   type ChickenPalette,
   type ChickenParts,
   type QuadrupedPalette,
@@ -19,6 +21,8 @@ import {
   BAT_PARTS,
   BEE_PALETTE,
   BEE_PARTS,
+  BLAZE_PALETTE,
+  BLAZE_PARTS,
   CHICKEN_PALETTE,
   CHICKEN_PARTS,
   COW_PALETTE,
@@ -313,6 +317,58 @@ const buildShulker = (typeKey: string, parts: ShulkerParts, palette: ShulkerPale
   }
 }
 
+const buildBlaze = (typeKey: string, parts: BlazeParts, palette: BlazePalette): MobLimbGroup => {
+  const [, headH] = parts.head
+  const [, coreH] = parts.core
+  const [rodW, rodH] = parts.rod
+
+  const root = new THREE.Group()
+
+  // Molten core floating at mid-height with the head cube above it.
+  const coreGeom = getOrCreateGeometry(`${typeKey}:core`, parts.core, false)
+  const coreMat = getOrCreateMaterial(`${typeKey}:core`, palette.core)
+  const body = new THREE.Mesh(coreGeom, coreMat)
+  const coreY = rodH + coreH / 2
+  body.position.set(0, coreY, 0)
+  root.add(body)
+
+  const headGeom = getOrCreateGeometry(`${typeKey}:head`, parts.head, false)
+  const headMat = getOrCreateMaterial(`${typeKey}:head`, palette.head)
+  const head = new THREE.Mesh(headGeom, headMat)
+  head.position.set(0, coreY + coreH / 2 + headH / 2, 0)
+  root.add(head)
+
+  // Six floating rods around the core: four in the leg slots, two in the arm
+  // slots, so the walk cycle swings them like orbiting embers.
+  const rodGeom = getOrCreateGeometry(`${typeKey}:rod`, parts.rod, true)
+  const rodMat = getOrCreateMaterial(`${typeKey}:rod`, palette.rod)
+  const rodRadius = 0.32
+  const legY = rodH
+  const legFL = new THREE.Mesh(rodGeom, rodMat)
+  legFL.position.set(+rodRadius, legY, +rodRadius)
+  root.add(legFL)
+  const legFR = new THREE.Mesh(rodGeom, rodMat)
+  legFR.position.set(-rodRadius, legY, +rodRadius)
+  root.add(legFR)
+  const legBL = new THREE.Mesh(rodGeom, rodMat)
+  legBL.position.set(+rodRadius, legY, -rodRadius)
+  root.add(legBL)
+  const legBR = new THREE.Mesh(rodGeom, rodMat)
+  legBR.position.set(-rodRadius, legY, -rodRadius)
+  root.add(legBR)
+
+  const armY = rodH + coreH
+  const armX = rodRadius + rodW
+  const armL = new THREE.Mesh(rodGeom, rodMat)
+  armL.position.set(+armX, armY, 0)
+  root.add(armL)
+  const armR = new THREE.Mesh(rodGeom, rodMat)
+  armR.position.set(-armX, armY, 0)
+  root.add(armR)
+
+  return { root, head, body, armL, armR, legFL, legFR, legBL, legBR }
+}
+
 export const buildMobGroup = (type: EntityType): MobLimbGroup => {
   switch (type) {
     case 'Zombie':
@@ -353,5 +409,7 @@ export const buildMobGroup = (type: EntityType): MobLimbGroup => {
       return buildQuadruped('Endermite', ENDERMITE_PARTS, ENDERMITE_PALETTE)
     case 'Shulker':
       return buildShulker('Shulker', SHULKER_PARTS, SHULKER_PALETTE)
+    case 'Blaze':
+      return buildBlaze('Blaze', BLAZE_PARTS, BLAZE_PALETTE)
   }
 }

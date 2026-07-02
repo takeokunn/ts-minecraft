@@ -323,6 +323,7 @@ const makeDeps = () => {
         getStructureVersion: () => Effect.succeed(0),
         drainBirths: () => Effect.succeed(0),
         drainExplosions: () => Effect.succeed([]),
+        drainPlayerIgniteSecs: () => Effect.succeed(0),
         getPlayerContactDamageResolution: (_playerPosition) => Effect.succeed({ damage: 0, removed: false, explosions: [] }),
         getPlayerRangedDamage: (_playerPosition, _isProjectileBlocked) => Effect.succeed(0),
         update: (_deltaTime, _playerPosition) => Effect.void,
