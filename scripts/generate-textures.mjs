@@ -1695,8 +1695,26 @@ saveTile(121, 'brewing-stand', (ctx) => {
   ctx.fillRect(21, 14, 1, 5)
 })
 
+// 122: nether brick — dark maroon brick courses
+saveTile(122, 'nether-brick', (ctx) => {
+  ctx.fillStyle = '#2d1216'
+  ctx.fillRect(0, 0, TILE_PX, TILE_PX)
+  ctx.fillStyle = '#44201f'
+  for (let row = 0; row < 4; row++) {
+    const y = row * 8
+    const offset = row % 2 === 0 ? 0 : 8
+    for (let col = -1; col < 3; col++) {
+      ctx.fillRect(col * 16 + offset + 1, y + 1, 14, 6)
+    }
+  }
+  ctx.fillStyle = '#571f22'
+  for (const [x, y] of [[3, 2], [19, 10], [11, 18], [27, 26], [7, 26]]) {
+    ctx.fillRect(x, y, 4, 2)
+  }
+})
+
 // Save combined atlas (single file loaded by chunk-mesh.ts at runtime).
 writeFileSync(join(OUTPUT_DIR, 'atlas.png'), atlasCanvas.toBuffer('image/png'))
-console.log(`  ✓ atlas.png (512×512, all 122 tiles combined)`)
+console.log(`  ✓ atlas.png (512×512, all 123 tiles combined)`)
 
-console.log(`\nDone - 122 individual tiles + atlas.png written to ${OUTPUT_DIR}`)
+console.log(`\nDone - 123 individual tiles + atlas.png written to ${OUTPUT_DIR}`)

@@ -29,8 +29,8 @@ describe('block-codec', () => {
       expect(INDEX_TO_BLOCK_TYPE.length).toBe(new Set(INDEX_TO_BLOCK_TYPE).size)
     })
 
-    it('has exactly 102 entries (world-placeable blocks including potato crop, rail, piston, redstone lamp states, and brewing stand)', () => {
-      expect(INDEX_TO_BLOCK_TYPE.length).toBe(102)
+    it('has exactly 103 entries (world-placeable blocks including redstone lamp states, brewing stand, and nether brick)', () => {
+      expect(INDEX_TO_BLOCK_TYPE.length).toBe(103)
     })
 
     it('PLANKS is at index 40', () => {
@@ -60,6 +60,10 @@ describe('block-codec', () => {
 
     it('BREWING_STAND is appended at index 101', () => {
       expect(INDEX_TO_BLOCK_TYPE[101]).toBe('BREWING_STAND')
+    })
+
+    it('NETHER_BRICK is appended at index 102', () => {
+      expect(INDEX_TO_BLOCK_TYPE[102]).toBe('NETHER_BRICK')
     })
 
     it('REDSTONE_WIRE is at index 49', () => {

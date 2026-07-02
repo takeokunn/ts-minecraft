@@ -160,6 +160,12 @@ new Block({
     faces: defaultBlockFaces,
   }),
   new Block({
+    id: makeBlockId('block:nether_brick'),
+    type: 'NETHER_BRICK',
+    properties: { hardness: 40, transparency: false, solid: true, emissive: false, friction: 0.6 },
+    faces: defaultBlockFaces,
+  }),
+  new Block({
     id: makeBlockId('block:brewing_stand'),
     type: 'BREWING_STAND',
     // Partial-height workstation (vanilla 0.5 hardness); transparent so

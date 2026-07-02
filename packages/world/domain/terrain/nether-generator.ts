@@ -6,6 +6,7 @@ import type { Chunk } from '../chunk'
 import { NoiseServicePort } from '../noise-service-port'
 import type { ChunkFactory } from './generator-types'
 import { chunkBlockIndexUnchecked, hash3 } from './math'
+import { writeFortressBlocksForChunk } from './nether-fortress'
 import { CAVE_SAMPLE_STRIDE, CAVE_NOISE_SCALE } from './constants'
 
 const NETHER_FLOOR_BEDROCK_TOP = 3     // y=0 always, y=1-3 probabilistic
@@ -145,6 +146,11 @@ export const generateNetherTerrain = (
         }
       }
     }
+
+    // --- Nether fortress pass: write this chunk's slice of any fortress whose
+    // footprint intersects it (pure world-coordinate function — see
+    // nether-fortress.ts). Runs last so corridors carve through terrain.
+    writeFortressBlocksForChunk(blocks, coord.x, coord.z)
 
     return { ...chunk, blocks }
   })

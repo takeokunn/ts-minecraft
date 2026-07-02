@@ -47,6 +47,8 @@ export const INDEX_TO_BLOCK_TYPE: ReadonlyArray<BlockType> = [
   'REDSTONE_LAMP', 'REDSTONE_LAMP_LIT',
   // Brewing - index 101
   'BREWING_STAND',
+  // Nether fortress material - index 102
+  'NETHER_BRICK',
 ]
 
 export const BLOCK_COUNT = INDEX_TO_BLOCK_TYPE.length
