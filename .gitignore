@@ -74,3 +74,5 @@ yarn-error.log*
 Thumbs.db
 
 *.html
+terrain-*.txt
+terrain-audit-*.txt
