@@ -1,6 +1,7 @@
 import { Effect, MutableRef } from 'effect'
 import { MAX_FOOD_LEVEL } from '@ts-minecraft/entity/application/hunger-service.config'
 import { MAX_ARMOR_POINTS } from '@ts-minecraft/entity/domain/combat.config'
+import { toStatusEffectHudEntry, type ActiveStatusEffect } from '@ts-minecraft/entity/domain/status-effect'
 import type { PhysicsColumnReadError } from '../physics-stage-utils'
 import type { PhysicsStageInputs } from '../physics-stage-types/inputs'
 import type { PhysicsStageRefs } from '../physics-stage-types/refs'
@@ -112,6 +113,46 @@ const syncXpHud = (
     }
   })
 
+// Second-granular render signature: re-render only when an effect appears,
+// expires, changes level, or its displayed (whole-second) countdown ticks.
+export const statusEffectsSignature = (effects: ReadonlyArray<ActiveStatusEffect>): string =>
+  effects
+    .map((effect) => `${effect.type}:${effect.amplifier}:${Math.ceil(effect.remainingTicks / 20)}`)
+    .join('|')
+
+export const renderStatusEffectChips = (
+  container: HTMLElement | null,
+  effects: ReadonlyArray<ActiveStatusEffect>,
+): void => {
+  if (container === null || !('replaceChildren' in container)) return
+  const doc = container.ownerDocument
+  container.replaceChildren(
+    ...effects.map((effect) => {
+      const entry = toStatusEffectHudEntry(effect)
+      const chip = doc.createElement('div')
+      chip.className = 'effect-chip'
+      chip.setAttribute('data-effect', entry.type)
+      chip.textContent = entry.display
+      return chip
+    }),
+  )
+}
+
+const syncEffectsHud = (
+  services: PhysicsStageServices,
+  refs: PhysicsStageRefs,
+  inputs: PhysicsStageInputs,
+): Effect.Effect<void, PhysicsColumnReadError> =>
+  Effect.gen(function* () {
+    const effects = yield* services.healthService.getStatusEffects()
+    const signature = statusEffectsSignature(effects)
+    const lastEffects = MutableRef.get(refs.lastEffectsRef)
+    if (lastEffects.signature !== signature) {
+      lastEffects.signature = signature
+      yield* Effect.sync(() => renderStatusEffectChips(inputs.effectsElementOrNull, effects))
+    }
+  })
+
 const syncArmorHud = (
   refs: PhysicsStageRefs,
   inputs: PhysicsStageInputs,
@@ -138,4 +179,5 @@ export const updateHud = (
     yield* syncHungerHud(services, refs, inputs)
     yield* syncXpHud(services, refs, inputs)
     yield* syncArmorHud(refs, inputs, armorPoints)
+    yield* syncEffectsHud(services, refs, inputs)
   })

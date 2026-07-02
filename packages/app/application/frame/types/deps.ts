@@ -26,6 +26,7 @@ export type FrameHandlerDeps = {
   readonly xpBarElement: Option.Option<HTMLElement>
   readonly xpBarMaxElement: Option.Option<HTMLElement>
   readonly armorValueElement: Option.Option<HTMLElement>
+  readonly effectsElement: Option.Option<HTMLElement>
   readonly airElement: Option.Option<HTMLElement>
   readonly breakProgressElement: Option.Option<HTMLElement>
   readonly gamePausedRef: Ref.Ref<boolean>

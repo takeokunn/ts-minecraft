@@ -19,6 +19,7 @@ export type ResolvedDeps = {
   readonly xpBarElementOrNull: HTMLElement | null
   readonly xpBarMaxElementOrNull: HTMLElement | null
   readonly armorValueElementOrNull: HTMLElement | null
+  readonly effectsElementOrNull: HTMLElement | null
   readonly gtaoPassOrNull: GTAOPass | null
   readonly bloomPassOrNull: UnrealBloomPass | null
   readonly dofPassOrNull: BokehPass | null

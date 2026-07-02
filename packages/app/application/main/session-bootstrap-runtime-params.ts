@@ -25,7 +25,7 @@ export const buildSessionRuntimeParams = ({
   runtimeState,
 }: SessionRuntimeParamsInput): SessionRuntimeParams => {
   const { pendingResizeRef, pendingSaveDirtyChunksRef, gamePausedRef, hudElements } = runtimeState
-  const { fpsElement, healthValueElement, healthMaxElement, hungerValueElement, hungerMaxElement, xpLevelElement, xpBarElement, xpBarMaxElement, armorValueElement, airElement, breakProgressElement, autoSaveStatusElement } = hudElements
+  const { fpsElement, healthValueElement, healthMaxElement, hungerValueElement, hungerMaxElement, xpLevelElement, xpBarElement, xpBarMaxElement, armorValueElement, effectsElement, airElement, breakProgressElement, autoSaveStatusElement } = hudElements
 
   const renderingResources: SessionRenderingResources = {
     renderer: bootCtx.renderer,
@@ -42,6 +42,7 @@ export const buildSessionRuntimeParams = ({
     xpBarElement,
     xpBarMaxElement,
     armorValueElement,
+    effectsElement,
     airElement,
     breakProgressElement,
     autoSaveStatusElement,

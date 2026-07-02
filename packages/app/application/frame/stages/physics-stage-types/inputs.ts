@@ -13,6 +13,7 @@ export type PhysicsStageInputs = {
   readonly xpBarElementOrNull: HTMLElement | null
   readonly xpBarMaxElementOrNull: HTMLElement | null
   readonly armorValueElementOrNull: HTMLElement | null
+  readonly effectsElementOrNull: HTMLElement | null
   readonly airElementOrNull: HTMLElement | null
   readonly debugFlags: DebugFeatureFlags
   readonly difficulty: GameDifficulty

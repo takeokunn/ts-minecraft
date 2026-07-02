@@ -42,6 +42,7 @@ export type SessionHudElements = {
   readonly xpBarElement: HTMLElement | null
   readonly xpBarMaxElement: HTMLElement | null
   readonly armorValueElement: HTMLElement | null
+  readonly effectsElement: HTMLElement | null
   readonly airElement: HTMLElement | null
   readonly breakProgressElement: HTMLElement | null
   readonly autoSaveStatusElement: HTMLElement | null

@@ -101,6 +101,49 @@ export const advanceStatusEffectsOneTick = (
   return { effects: survivors, healAmount, poisonDamage }
 }
 
+// HUD projection of an active effect. Level is 1-based (amplifier 0 → "I");
+// remaining time is rounded UP so the display never shows 0:00 while active.
+export type StatusEffectHudEntry = {
+  readonly type: StatusEffectType
+  readonly label: string
+  readonly remainingSeconds: number
+  readonly display: string
+}
+
+const STATUS_EFFECT_LABELS: Record<StatusEffectType, string> = {
+  REGENERATION: 'Regeneration',
+  POISON: 'Poison',
+  SPEED: 'Speed',
+  SLOWNESS: 'Slowness',
+  HUNGER: 'Hunger',
+}
+
+const ROMAN_LEVELS = ['I', 'II', 'III', 'IV', 'V'] as const
+
+export const statusEffectLevelLabel = (amplifier: number): string => {
+  const level = Math.max(0, Math.floor(amplifier))
+  return ROMAN_LEVELS[level] ?? String(level + 1)
+}
+
+export const formatStatusEffectDuration = (remainingTicks: number): string => {
+  const totalSeconds = Math.max(0, Math.ceil(remainingTicks / TICKS_PER_SECOND))
+  const minutes = Math.floor(totalSeconds / 60)
+  const seconds = totalSeconds % 60
+  return `${minutes}:${String(seconds).padStart(2, '0')}`
+}
+
+export const toStatusEffectHudEntry = (effect: ActiveStatusEffect): StatusEffectHudEntry => {
+  const label = effect.amplifier > 0
+    ? `${STATUS_EFFECT_LABELS[effect.type]} ${statusEffectLevelLabel(effect.amplifier)}`
+    : STATUS_EFFECT_LABELS[effect.type]
+  return {
+    type: effect.type,
+    label,
+    remainingSeconds: Math.max(0, Math.ceil(effect.remainingTicks / TICKS_PER_SECOND)),
+    display: `${label} ${formatStatusEffectDuration(effect.remainingTicks)}`,
+  }
+}
+
 // Horizontal-speed multiplier from active effects (vanilla: Speed +20% per
 // level, Slowness -15% per level; level = amplifier + 1). Both stack
 // multiplicatively; the result never goes negative.

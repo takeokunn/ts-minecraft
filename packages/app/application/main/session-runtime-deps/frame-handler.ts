@@ -34,6 +34,7 @@ export const assembleFrameHandlerDeps = (params: SessionRuntimeParams): FrameHan
     xpBarElement: Option.fromNullable(hud.xpBarElement),
     xpBarMaxElement: Option.fromNullable(hud.xpBarMaxElement),
     armorValueElement: Option.fromNullable(hud.armorValueElement),
+    effectsElement: Option.fromNullable(hud.effectsElement),
     airElement: Option.fromNullable(hud.airElement),
     breakProgressElement: Option.fromNullable(hud.breakProgressElement),
     gamePausedRef: state.gamePausedRef,

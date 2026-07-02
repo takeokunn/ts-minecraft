@@ -20,6 +20,9 @@ export type FrameStageRefs = {
   readonly lastHungerRef: MutableRef.MutableRef<{ foodLevel: number; max: number }>
   readonly lastXPRef: MutableRef.MutableRef<{ level: number; xpIntoLevel: number; xpRequiredForNext: number }>
   readonly lastArmorRef: MutableRef.MutableRef<{ armorPoints: number }>
+  // Rendered-signature of the active status effects ('TYPE:amp:secs|...') —
+  // second-granular so the HUD chip list re-renders at most once a second.
+  readonly lastEffectsRef: MutableRef.MutableRef<{ signature: string }>
   // totalTimeSecs of the player's last melee attack — drives attack-cooldown charge.
   readonly lastPlayerAttackTimeRef: MutableRef.MutableRef<number>
   readonly attackSwingStateRef: MutableRef.MutableRef<AttackSwingState>

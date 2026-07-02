@@ -75,6 +75,7 @@ export const makeDeps = (paused = false, withComposer = false): Effect.Effect<Fr
       xpBarElement: Option.none(),
       xpBarMaxElement: Option.none(),
       armorValueElement: Option.none(),
+      effectsElement: Option.none(),
       airElement: Option.none(),
       breakProgressElement: Option.none(),
       skyMesh: Option.none(),

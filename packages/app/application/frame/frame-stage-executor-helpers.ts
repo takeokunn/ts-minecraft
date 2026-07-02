@@ -255,6 +255,7 @@ export const runActiveFrameStages = (
       xpBarElementOrNull: inputs.resolved.xpBarElementOrNull,
       xpBarMaxElementOrNull: inputs.resolved.xpBarMaxElementOrNull,
       armorValueElementOrNull: inputs.resolved.armorValueElementOrNull,
+      effectsElementOrNull: inputs.resolved.effectsElementOrNull,
       airElementOrNull: inputs.resolved.airElementOrNull,
       debugFlags: inputs.debugFlags,
       difficulty: inputs.currentSettings.difficulty,

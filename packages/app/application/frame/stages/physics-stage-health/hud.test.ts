@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { clamp, getHudContainer, updateIconMeter, updateXpBar, writeHudText } from './hud'
+import { clamp, getHudContainer, renderStatusEffectChips, statusEffectsSignature, updateIconMeter, updateXpBar, writeHudText } from './hud'
 
 const makeEl = (textContent = '') => ({ textContent, style: { display: '' } } as unknown as HTMLElement)
 const makeIcon = () => ({ setAttribute: vi.fn() } as unknown as HTMLElement)
@@ -228,5 +228,74 @@ describe('updateXpBar', () => {
     // 1 / 3 = 0.3333... => Math.round(0.3333 * 1000) / 10 = 33.3%
     updateXpBar(el, 1, 3)
     expect(fillEl.style.width).toBe('33.3%')
+  })
+})
+
+describe('statusEffectsSignature', () => {
+  it('is empty for no effects', () => {
+    expect(statusEffectsSignature([])).toBe('')
+  })
+
+  it('is second-granular: changes only when the displayed countdown ticks', () => {
+    const at = (remainingTicks: number) =>
+      statusEffectsSignature([{ type: 'SPEED', amplifier: 0, remainingTicks, elapsedTicks: 0 }])
+    // 40 and 21 ticks both display as 2s; 20 ticks drops to 1s.
+    expect(at(40)).toBe(at(21))
+    expect(at(21)).not.toBe(at(20))
+  })
+
+  it('distinguishes type, amplifier and joins multiple effects', () => {
+    const speed = { type: 'SPEED', amplifier: 0, remainingTicks: 100, elapsedTicks: 0 } as const
+    const poison = { type: 'POISON', amplifier: 1, remainingTicks: 100, elapsedTicks: 0 } as const
+    expect(statusEffectsSignature([speed, poison])).toBe('SPEED:0:5|POISON:1:5')
+  })
+})
+
+describe('renderStatusEffectChips', () => {
+  type MockChip = {
+    className: string
+    textContent: string
+    setAttribute: ReturnType<typeof vi.fn>
+  }
+
+  const makeContainer = () => {
+    const created: MockChip[] = []
+    const replaceChildren = vi.fn()
+    const container = {
+      replaceChildren,
+      ownerDocument: {
+        createElement: vi.fn(() => {
+          const chip: MockChip = { className: '', textContent: '', setAttribute: vi.fn() }
+          created.push(chip)
+          return chip
+        }),
+      },
+    } as unknown as HTMLElement
+    return { container, created, replaceChildren }
+  }
+
+  it('does nothing when container is null', () => {
+    expect(() => renderStatusEffectChips(null, [])).not.toThrow()
+  })
+
+  it('renders one chip per effect with type attribute and display text', () => {
+    const { container, created, replaceChildren } = makeContainer()
+    renderStatusEffectChips(container, [
+      { type: 'SPEED', amplifier: 1, remainingTicks: 90 * 20, elapsedTicks: 0 },
+      { type: 'POISON', amplifier: 0, remainingTicks: 5 * 20, elapsedTicks: 0 },
+    ])
+    expect(created).toHaveLength(2)
+    expect(created[0]!.className).toBe('effect-chip')
+    expect(created[0]!.textContent).toBe('Speed II 1:30')
+    expect(created[0]!.setAttribute).toHaveBeenCalledWith('data-effect', 'SPEED')
+    expect(created[1]!.textContent).toBe('Poison 0:05')
+    expect(replaceChildren).toHaveBeenCalledTimes(1)
+  })
+
+  it('clears the container when all effects expired', () => {
+    const { container, created, replaceChildren } = makeContainer()
+    renderStatusEffectChips(container, [])
+    expect(created).toHaveLength(0)
+    expect(replaceChildren).toHaveBeenCalledWith()
   })
 })
