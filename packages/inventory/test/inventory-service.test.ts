@@ -146,6 +146,32 @@ describe('application/inventory/inventory-service', () => {
     })
   })
 
+  describe('sortInventory', () => {
+    it.effect('compacts main inventory and keeps hotbar slots untouched', () => {
+      const testLayer = createTestLayer(createTestBlockRegistry(airOnlyBlocks))
+      return Effect.gen(function* () {
+        const service = yield* InventoryService
+        yield* service.setSlot(asSlotIndex(0), Option.some(createStack('STONE', 40)))
+        yield* service.setSlot(asSlotIndex(1), Option.some(createStack('DIRT', 5)))
+        yield* service.setSlot(asSlotIndex(2), Option.some(createStack('STONE', 30)))
+        yield* service.setSlot(asSlotIndex(HOTBAR_START), Option.some(createStack('DIAMOND', 2)))
+
+        yield* service.sortInventory()
+
+        const all = yield* service.getAllSlots()
+        expect(Option.getOrThrow(all[0]).itemType).toBe('DIRT')
+        expect(Option.getOrThrow(all[0]).count).toBe(5)
+        expect(Option.getOrThrow(all[1]).itemType).toBe('STONE')
+        expect(Option.getOrThrow(all[1]).count).toBe(64)
+        expect(Option.getOrThrow(all[2]).itemType).toBe('STONE')
+        expect(Option.getOrThrow(all[2]).count).toBe(6)
+        expect(Option.isNone(all[3])).toBe(true)
+        expect(Option.getOrThrow(all[HOTBAR_START]).itemType).toBe('DIAMOND')
+        expect(Option.getOrThrow(all[HOTBAR_START]).count).toBe(2)
+      }).pipe(Effect.provide(testLayer))
+    })
+  })
+
   describe('moveStack', () => {
     it.effect('moves stack to empty slot', () => {
       const testLayer = createTestLayer(createTestBlockRegistry(airOnlyBlocks))

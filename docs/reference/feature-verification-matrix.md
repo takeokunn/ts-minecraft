@@ -1486,7 +1486,7 @@ effBonus = correctTool && efficiencyLevel !== undefined ? efficiencyLevel² + 1 
 ## §J. ワールド作成・管理
 
 検証項目:
-- 「New World」からワールド名を入力して作成できるか確認する
+- 「New World」からワールド名と任意 seed を入力して作成できるか確認する
 - ワールド作成時にシード値を指定できるか確認する（実装されているか）
 - 未指定シードのとき乱数シードが使われることを確認する
 - 同じシードを指定すると同一地形が生成されることを確認する
@@ -2029,6 +2029,7 @@ XP スケール: 最大レベル = `floor(xpLevel / 5)`、上限はエンチャ�
 | 受信ブロック編集適用 | `drainBlockEdits` | `multiplayer-service.ts:236` |
 | チャット送信 | `sendChat(text)` | `multiplayer-service.ts:197` |
 | チャット受信 | `getChatMessages()` → `ChatEntry[]` | `multiplayer-service.ts:195` |
+| ゲーム内チャット UI | `ChatPanelService` が受信表示・送信入力を提供し、`installMultiplayerChatOverlay()` が `getChatMessages()` / `sendChat()` に接続 | `packages/presentation/multiplayer/chat-panel.ts`, `packages/app/application/main/session-runtime-multiplayer-chat.ts` |
 | リモートプレイヤー一覧 | `getRemotePlayers()` → `Map<id, RemotePlayerSnapshot>` | `multiplayer-service.ts:193` |
 
 受信イベント種別: `BlockPlace`, `BlockBreak`, `PlayerJoin`, `PlayerLeave`, `PlayerMove`, `Chat`
@@ -2054,6 +2055,7 @@ XP スケール: 最大レベル = `floor(xpLevel / 5)`、上限はエンチャ�
 - 別クライアントがログアウトしたとき `removePlayer` で Three.js シーンから削除・GPU メモリ解放されるか確認する
 - `getChatMessages()` がサーバーから受信したチャットメッセージ（最大 50 件）を保持するか確認する
 - チャットが DOM に表示されること（§12 #48）を確認する（チャットパネル実装済み、サービスと同期あり）
+- チャット UI が `getChatMessages()` の履歴を DOM に表示し、入力送信を `sendChat()` へ転送するか確認する
 - 接続パネルから切断後に再接続できるか確認する（ドレインファイバーが正しく停止・再起動するか）
 - `worldId='overworld'` が固定であることを確認する（ネザー接続未対応）
 - ゲーム内の接続パネルが表示され、接続・切断操作を行えることを確認する（§12 #50）
@@ -2212,7 +2214,7 @@ XP スケール: 最大レベル = `floor(xpLevel / 5)`、上限はエンチャ�
 | 144 | ダイヤモンド鉱石の Y レンジが異なる | 本実装：`minY=5, maxY=16, peakY=8`（三角分布）。公式 Java 1.21 は Y=−64 〜 −58 付近に最頻出。Y 座標系の起点差（本実装 Y=0 ≈ 公式 Y=-64）を考慮しても分布範囲が異なる | `packages/world/domain/terrain/constants.ts:70` |
 | 145 | ネザーのベッドが爆発しない | 公式はネザー/エンドでベッド使用→爆発。本実装は `getDimension()==='nether'` で `return false`（無効化のみ、爆発ダメージなし）| `interaction-placement-handler.ts:229` |
 | 146 | 村にアイアンゴーレムなし | 村（VillageService）は実装済みだが防衛 NPC であるアイアンゴーレムの定義・スポーンロジックなし | `packages/entity/domain/mob/mobs/` |
-| 147 | ワールドシード入力 UI なし | NoiseService に `setSeed(n)` は実装済みだが、ワールド作成 UI でシードを指定する入力欄なし。プレイヤーがシードを選択不可 | `packages/presentation/menu/main-menu-handlers.ts:43` |
+| 147 | ワールドシード入力 UI 実装済み | New World 画面の任意 seed 入力を `parseWorldSeedInput()` で uint32 seed に正規化し、新規 world 作成時だけ `metadata.seed` / `NoiseService.setSeed` へ渡す。空欄は従来通りランダム | `packages/presentation/menu/main-menu-dom.ts:60`, `packages/world/domain/world-seed.ts:1`, `packages/app/application/main/session-world-loader.ts:76` |
 | 148 | モブ昼間炎上が 1 秒ごと（公式は 1 game-tick ≒ 0.05 秒ごと判定）| `DAYTIME_BURN_INTERVAL_SECS=1.0` のアキュムレータで 1 秒間隔ダメージ。公式は毎 tick 光レベル検査し炎上継続。間隔が 20× 遅い | `packages/entity/application/mob/entity-manager-internal-update.ts:191` |
 | 149 | 動物 XP ドロップが固定値（公式はランダム範囲）| 牛・豚・羊は `xpReward: 2` 固定。公式はプレイヤーによる死亡の場合 1〜3 ランダム | `packages/entity/domain/mob/mobs/cow.ts:14` |
 | 150 | XP レベル計算式が公式準拠 | Lv0-15: `2L+7`、Lv16-30: `5L-38`、Lv31+: `9L-158`。公式 Java Edition と完全一致 | `packages/entity/domain/player-xp-calc.ts:5` |
@@ -2356,7 +2358,7 @@ XP スケール: 最大レベル = `floor(xpLevel / 5)`、上限はエンチャ�
 | 287 | F1 キーで HUD 非表示実装済み | `KeyMappings.HUD_TOGGLE='F1'` を `input-stage.ts` で消費し、`body.hud-hidden` でFPS/体力/空腹/防具/酸素/破壊バー/XP/クロスヘア/デバッグDOMを非表示化。`hud-stage.ts` は同じ状態で Three.js ホットバー描画も抑制 | `packages/entity/domain/key-mappings.ts`, `packages/app/application/frame/stages/input-stage.ts`, `index.html`, `packages/app/application/frame/stages/hud-stage.ts` |
 | 288 | クラフト UI がグリッドではなくリスト形式 | インベントリ画面の 2×2・クラフトテーブルの 3×3 グリッドが視覚的に存在せず、テキストベースのレシピリスト（ボタン選択式）として実装。公式の直感的なグリッド UI なし | `packages/presentation/inventory/inventory-renderer-dom.ts:47` |
 | 289 | レシピブック UI なし | インゲームでクラフトレシピを一覧・検索できるレシピブックなし | `packages/presentation/inventory/` |
-| 290 | インベントリソートなし | インベントリ画面にソートボタン・キーバインドなし | `packages/presentation/inventory/inventory-renderer.ts` |
+| 290 | インベントリソート実装済み | `Sort (X)` ボタンと `KeyMappings.INVENTORY_SORT='KeyX'` でメインインベントリを圧縮・整列する。ホットバーは選択中アイテム保護のため保持 | `packages/presentation/inventory/inventory-renderer.ts`, `packages/inventory/application/inventory-service-state.ts`, `packages/app/application/frame/stages/input-stage-inventory.ts` |
 | 291 | アイテムホバーツールチップ実装済み | インベントリ/チェスト内アイテムの slot title/data-tooltip/aria-label に表示名・個数・エンチャント一覧を反映し、空スロットでは stale tooltip を消去 | `packages/presentation/inventory/inventory-renderer-refresh.ts`, `packages/presentation/inventory/inventory-renderer-refresh.test.ts` |
 | 292 | 銅ブロック・酸化メカニクスなし | COPPER/COPPER_ORE/EXPOSED_COPPER 等が `block-type.ts` に未定義。時間経過による緑青（酸化）・ロウ付け(Wax)なし | `packages/core/domain/block-type.ts` |
 | 293 | ネザーポータル通過後の再入場クールダウンなし | `physics-stage-portal.ts:8` の PORTAL_ACTIVATION_SECS=4.0 は入場時のみ。出口側ポータルで即座に逆方向へ戻れる（行き来ループ防止なし）| `packages/app/application/frame/stages/physics-stage-portal.ts:8` |

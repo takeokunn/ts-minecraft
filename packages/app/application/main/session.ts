@@ -20,6 +20,7 @@ export const sessionProgram = (
   worldId: WorldId,
   initialGameMode: GameMode,
   startupMultiplayerConnection: SessionBootstrapStartupMultiplayerConnection = Option.none(),
+  initialSeed?: number,
 ) =>
   Effect.gen(function* () {
     const bootstrapDeps = yield* buildSessionBootstrapDeps(
@@ -27,6 +28,7 @@ export const sessionProgram = (
       worldId,
       initialGameMode,
       startupMultiplayerConnection,
+      initialSeed,
     )
     const bootstrap = yield* buildSessionBootstrapOrchestration(bootstrapDeps)
 

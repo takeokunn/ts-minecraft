@@ -2,7 +2,7 @@ import { makeBlockHighlight } from '../presentation/highlight'
 import { makeDebugFeatureFlags } from '../presentation/debug'
 import { makeCrosshair, makeDamageOverlay, makeFPSCounter, makeHotbarRenderer } from '../presentation/hud'
 import { makeInputService } from '../presentation/input'
-import { makeInventoryRenderer, makePauseMenu, makePlayerListPanel, makeSettingsOverlay, makeTradingPresentation } from '../presentation/overlay'
+import { makeChatPanel, makeInventoryRenderer, makePauseMenu, makePlayerListPanel, makeSettingsOverlay, makeTradingPresentation } from '../presentation/overlay'
 
 export const makePresentationServices = (opts: {
   inputService: ReturnType<typeof makeInputService>
@@ -23,4 +23,5 @@ export const makePresentationServices = (opts: {
   playerListPanel: opts.playerListPanel,
   fpsCounter: makeFPSCounter(),
   tradingPresentation: opts.tradingPresentation,
+  chatPanel: makeChatPanel(),
 })

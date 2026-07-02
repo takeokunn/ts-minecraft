@@ -2,7 +2,7 @@ import { describe, it } from '@effect/vitest'
 import { expect, vi } from 'vitest'
 import { Deferred, Effect, MutableRef, Option } from 'effect'
 import { WorldId } from '@ts-minecraft/core'
-import { StorageError, StorageService, type WorldMetadata } from '@ts-minecraft/world'
+import { StorageError, StorageService, parseWorldSeedInput, type WorldMetadata } from '@ts-minecraft/world'
 import { DomOperationsService } from '../hud/crosshair'
 import { ConfirmDialogService } from './confirm-dialog'
 import {
@@ -52,6 +52,7 @@ const makeButtons = (): MenuButtons => ({
   howToPlay: makeButton('how-to-play'),
   settings: makeButton('settings'),
   nwName: makeInput('nw-name'),
+  nwSeed: makeInput('nw-seed'),
   nwMode: makeButton('nw-mode'),
   nwCancel: makeButton('nw-cancel'),
   nwConfirm: makeButton('nw-confirm'),
@@ -360,9 +361,40 @@ describe('presentation/menu/main-menu-handlers', () => {
     )
 
     buttons.nwName.value = '   '
+    buttons.nwSeed.value = 'village spawn'
     handlers.onNwConfirmClick()
 
-    expect(choices.at(0)).toMatchObject({ action: 'newWorld', gameMode: 'survival' })
+    expect(choices.at(0)).toMatchObject({
+      action: 'newWorld',
+      gameMode: 'survival',
+      seed: parseWorldSeedInput('village spawn'),
+    })
+  })
+
+  it('omits seed when confirming with blank seed input', () => {
+    const refs = makeMenuRefs()
+    const buttons = makeButtons()
+    const choices: MainMenuChoice[] = []
+    const handlers = makeClickHandlers(
+      refs,
+      buttons,
+      vi.fn(),
+      vi.fn(),
+      (choice) => choices.push(choice),
+      vi.fn(() => Effect.void),
+      vi.fn(() => Effect.void),
+    )
+
+    buttons.nwName.value = 'seedless'
+    buttons.nwSeed.value = '   '
+    handlers.onNwConfirmClick()
+
+    expect(choices.at(0)).toMatchObject({
+      action: 'newWorld',
+      worldId: 'seedless',
+      gameMode: 'survival',
+    })
+    expect(choices.at(0)).not.toHaveProperty('seed')
   })
 
   it('deletes and refreshes after delete confirmation is accepted', async () => {
@@ -434,10 +466,12 @@ describe('presentation/menu/main-menu-handlers', () => {
     )
 
     buttons.nwName.value = 'stale'
+    buttons.nwSeed.value = 'stale-seed'
     MutableRef.set(refs.newWorldModeRef, 'creative')
     handlers.onNewWorldClick()
     expect(MutableRef.get(refs.newWorldModeRef)).toBe('survival')
     expect(buttons.nwName.value).toBe('')
+    expect(buttons.nwSeed.value).toBe('')
     expect(updateModeButton).toHaveBeenCalledTimes(1)
     expect(subStates).toContain('new-world')
     expect(buttons.nwName.focus).toHaveBeenCalledTimes(1)
@@ -446,8 +480,14 @@ describe('presentation/menu/main-menu-handlers', () => {
     expect(MutableRef.get(refs.newWorldModeRef)).toBe('creative')
 
     buttons.nwName.value = ' Named World '
+    buttons.nwSeed.value = '1234'
     handlers.onNwConfirmClick()
-    expect(choices).toContainEqual({ action: 'newWorld', worldId: WorldId.make('Named World'), gameMode: 'creative' })
+    expect(choices).toContainEqual({
+      action: 'newWorld',
+      worldId: WorldId.make('Named World'),
+      gameMode: 'creative',
+      seed: 1234,
+    })
 
     handlers.onSettingsClick()
     await delayForFork()

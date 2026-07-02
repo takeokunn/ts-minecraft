@@ -50,15 +50,15 @@ export class InventoryService extends Effect.Service<InventoryService>()(
         moveStack: (from: SlotIndex, to: SlotIndex): Effect.Effect<void, never> =>
           Ref.update(slotsRef, (slots) => moveStackInInventorySlots(slots, from, to)),
 
+        sortInventory: (): Effect.Effect<void, never> =>
+          Ref.update(slotsRef, sortInventorySlots),
+
         // Vanilla shift-click quick-move: transfer the whole stack at `from` to the OTHER
         // region (main 0..HOTBAR_START <-> hotbar HOTBAR_START..INVENTORY_SIZE), merging into
         // existing same-type stacks first then empty slots. A partial fit leaves the
         // remainder in the source slot; a full target region is a no-op.
         quickMove: (from: SlotIndex): Effect.Effect<void, never> =>
           Ref.update(slotsRef, (slots) => quickMoveInventorySlots(slots, from)),
-
-        sortInventory: (): Effect.Effect<void, never> =>
-          Ref.update(slotsRef, sortInventorySlots),
 
         addBlock: (itemType: InventoryItem, count: number): Effect.Effect<void, InventoryError> =>
           Effect.gen(function* () {

@@ -80,6 +80,7 @@ describe('session-bootstrap-runtime', () => {
         mobSpawner: makeService('mob-spawner'),
         villageService: makeService('village'),
         tradingPresentation: makeService('trading'),
+        chatPanel: makeService('chat-panel'),
         redstoneService: makeService('redstone'),
         cropGrowthService: makeService('crop-growth'),
         fluidService: makeService('fluid'),
@@ -140,6 +141,7 @@ describe('session-bootstrap-runtime', () => {
       expect(bundle.runtimeServices.multiplayer).toBe(multiplayerService)
       expect(bundle.runtimeServices.remotePlayerRenderer).toBe(bundle.runtimeParams.rendering.remotePlayerRenderer)
       expect(bundle.runtimeServices.perfHud).toBe(perfHud)
+      expect(bundle.runtimeServices.chatPanel).toBe(services.chatPanel)
       expect(bundle.runtimeServices.droppedXpOrbRenderer).toBe(services.droppedXpOrbRenderer)
       expect(vi.isMockFunction(getElementById)).toBe(true)
       expect(getElementById).toHaveBeenCalledWith('fps-value')

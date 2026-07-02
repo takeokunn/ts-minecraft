@@ -154,7 +154,8 @@ const runLoad = (
   storageService: StorageService,
   noiseService: NoiseService,
   gameModeService: GameModeService,
-) => Effect.runPromise(Effect.either(loadOrCreateWorld(worldId, initialGameMode, storageService, noiseService, gameModeService)))
+  initialSeed?: number,
+) => Effect.runPromise(Effect.either(loadOrCreateWorld(worldId, initialGameMode, storageService, noiseService, gameModeService, initialSeed)))
 
 // ---------------------------------------------------------------------------
 // loadOrCreateWorld
@@ -205,6 +206,21 @@ describe('loadOrCreateWorld', () => {
       const worldId = WorldId.make('world-1')
 
       await runLoad(worldId, 'survival', storageService, noiseService, gameModeService)
+
+      expect(setSeed).toHaveBeenCalledWith(9999)
+    })
+
+    it('ignores a supplied initial seed when loading existing metadata', async () => {
+      const metadata = makeMetadata({ seed: 9999 })
+      const setSeed = vi.fn().mockImplementation((_seed: number) => Effect.void)
+      const noiseService = makeNoiseService({ setSeed })
+      const storageService = makeStorageService({
+        loadWorldMetadata: vi.fn(() => Effect.succeed(Option.some(metadata))),
+      })
+      const gameModeService = makeGameModeService()
+      const worldId = WorldId.make('world-1')
+
+      await runLoad(worldId, 'survival', storageService, noiseService, gameModeService, 1234)
 
       expect(setSeed).toHaveBeenCalledWith(9999)
     })
@@ -375,6 +391,25 @@ describe('loadOrCreateWorld', () => {
 
       const bootstrap = Option.getOrThrow(Either.getRight(result))
       expect(bootstrap.gameMode).toBe('creative')
+    })
+
+    it('uses a supplied initial seed for a new world', async () => {
+      const saveWorldMetadataSpy = vi.fn(() => Effect.void)
+      const storageService = makeStorageService({
+        loadWorldMetadata: vi.fn(() => Effect.succeed(Option.none())),
+        saveWorldMetadata: saveWorldMetadataSpy,
+      })
+      const setSeed = vi.fn().mockImplementation((_seed: number) => Effect.void)
+      const noiseService = makeNoiseService({ setSeed })
+      const gameModeService = makeGameModeService()
+      const worldId = WorldId.make('world-new')
+
+      const result = await runLoad(worldId, 'survival', storageService, noiseService, gameModeService, 1234)
+      const bootstrap = Option.getOrThrow(Either.getRight(result))
+
+      expect(setSeed).toHaveBeenCalledWith(1234)
+      expect(bootstrap.seed).toBe(1234)
+      expect(saveWorldMetadataSpy).toHaveBeenCalledWith(worldId, expect.objectContaining({ seed: 1234 }))
     })
 
     it('prefers inland land over a nearer shoreline column for a new world', async () => {

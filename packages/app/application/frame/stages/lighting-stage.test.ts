@@ -190,6 +190,18 @@ const makeLightingServices = ({
     getDayLength: () => Effect.succeed(1200),
   },
   musicManager: { updateFromContext: () => Effect.void },
+  soundManager: {
+    applySettings: () => Effect.void,
+    setListenerPosition: () => Effect.void,
+    playEffect: (_effect: unknown, _options?: unknown) => Effect.void,
+    getState: () =>
+      Effect.succeed({
+        enabled: true,
+        masterVolume: 0.8,
+        sfxVolume: 1,
+        listenerPosition: { x: 0, y: 64, z: 0 },
+      }),
+  },
   chunkMeshService: { setSunIntensity: () => Effect.void },
   netherService: { getDimension: () => Effect.succeed(dimension) },
   weatherService: {
@@ -205,7 +217,6 @@ const resetWeatherVisualClasses = () => {
   }
   document.body.classList.remove(WEATHER_RAIN_CLASS, WEATHER_THUNDER_CLASS)
 }
-
 describe('step 2.5 — shadow map dirty flag', () => {
   it.effect('marks shadowMap.needsUpdate=true on the 8th frame when castShadow=true', () =>
     Effect.gen(function* () {

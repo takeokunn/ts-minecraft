@@ -10,6 +10,7 @@ export type SessionBootstrapCoreDeps = {
   readonly bootCtx: BootContext
   readonly worldId: import('@ts-minecraft/core').WorldId
   readonly initialGameMode: import('@ts-minecraft/game').GameMode
+  readonly initialSeed?: number
   readonly gameLoopService: import('@ts-minecraft/game').GameLoopService
   readonly startupMultiplayerConnection: SessionBootstrapStartupMultiplayerConnection
 }

@@ -12,6 +12,7 @@ export const buildSessionBootstrapDeps = (
   worldId: import('@ts-minecraft/core').WorldId,
   initialGameMode: GameMode,
   startupMultiplayerConnection: SessionBootstrapStartupMultiplayerConnection = Option.none(),
+  initialSeed?: number,
 ) =>
   Effect.gen(function* () {
     const [services, loadingServices, gameLoopService] = yield* Effect.all([
@@ -34,6 +35,7 @@ export const buildSessionBootstrapDeps = (
       bootCtx,
       worldId,
       initialGameMode,
+      ...(initialSeed === undefined ? {} : { initialSeed }),
       gameLoopService,
       startupMultiplayerConnection,
       ...loadingServices,

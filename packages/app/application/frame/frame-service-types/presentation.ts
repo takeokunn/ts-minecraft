@@ -1,5 +1,6 @@
 import type {
   BlockHighlightService,
+  ChatPanelService,
   CrosshairService,
   DamageOverlayService,
   InventoryRendererService,
@@ -16,4 +17,5 @@ export type FramePresentationServices = {
   readonly pauseMenu: PauseMenuService
   readonly inventoryRenderer: InventoryRendererService
   readonly playerListPanel: PlayerListPanelService
+  readonly chatPanel: ChatPanelService
 }

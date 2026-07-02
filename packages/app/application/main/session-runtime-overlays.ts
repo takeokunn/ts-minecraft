@@ -7,6 +7,7 @@ import type {
   RemotePlayerSnapshot,
 } from '@ts-minecraft/app/application/multiplayer/multiplayer-service'
 import { installQaApi } from '@ts-minecraft/app/main/qa-api'
+import { installMultiplayerChatOverlay } from '@ts-minecraft/app/main/session-runtime-multiplayer-chat'
 import type { SessionRuntimeParams } from '@ts-minecraft/app/main/session-runtime-types'
 import { PlayerName } from '@ts-minecraft/network/domain/schemas'
 import type { ChatPanel, ConnectionPanel, ConnectionRequest, PlayerListPanel } from '@ts-minecraft/presentation'
@@ -226,6 +227,8 @@ export const installSessionRuntimeOverlays = (
     // and drives Resume / Settings / Save & Quit. Listeners + DOM are torn
     // down with the surrounding session scope on quit-to-title.
     yield* pauseMenu.attach(control)
+
+    yield* installMultiplayerChatOverlay(chatPanel, multiplayer)
 
     // FR-1.5: mount the F3 debug overlay. Hidden by default; F3 toggles it.
     // The 4 Hz refresh daemon is forked into the session scope so it tears

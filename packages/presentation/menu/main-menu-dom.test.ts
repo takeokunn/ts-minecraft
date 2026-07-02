@@ -67,7 +67,7 @@ const makeTestElement = <K extends keyof HTMLElementTagNameMap>(_tagName: K): HT
 }
 
 const tagForId = (id: string): keyof HTMLElementTagNameMap => {
-  if (id === 'mm-nw-name') return 'input'
+  if (id === 'mm-nw-name' || id === 'mm-nw-seed') return 'input'
   if (id === 'mm-mp-server-url') return 'input'
   if (id === 'mm-mp-player-name') return 'input'
   if (id === 'mm-lw-list') return 'div'
@@ -152,6 +152,7 @@ describe('presentation/menu/main-menu-dom', () => {
     expect(elements.buttons.howToPlay.id).toBe('mm-how-to-play')
     expect(elements.buttons.settings.id).toBe('mm-settings')
     expect(elements.buttons.multiplayer.id).toBe('mm-multiplayer')
+    expect(elements.buttons.nwSeed.id).toBe('mm-nw-seed')
     expect(elements.buttons.lwList.id).toBe('mm-lw-list')
     expect(elements.buttons.mpServerUrl.id).toBe('mm-mp-server-url')
     expect(elements.buttons.mpPlayerName.id).toBe('mm-mp-player-name')

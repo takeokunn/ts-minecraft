@@ -1,4 +1,4 @@
-import { Effect, HashMap, MutableHashSet, Option } from 'effect'
+import { Effect, HashMap, MutableHashSet, Option, Stream } from 'effect'
 import {
   DEBUG_FEATURE_FLAG_CATALOG,
   DEBUG_FEATURE_FLAG_DEFAULTS,
@@ -54,6 +54,16 @@ export const makeTradingPresentation = (state: OverlayState) => ({
 }) as unknown as InstanceType<typeof import('@ts-minecraft/presentation').TradingPresentationService>
 
 export { makePlayerListPanel }
+
+/** Creates a chat panel fake for multiplayer presentation tests. */
+export const makeChatPanel = () => ({
+  element: {} as HTMLElement,
+  onSend: Stream.empty,
+  setMessages: (_messages: unknown) => Effect.void,
+  setConnected: (_connected: boolean) => Effect.void,
+  show: Effect.void,
+  hide: Effect.void,
+}) as unknown as InstanceType<typeof import('@ts-minecraft/presentation').ChatPanelService>
 
 type InputServiceInstance = InstanceType<typeof import('@ts-minecraft/presentation').InputService>
 

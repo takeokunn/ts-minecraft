@@ -61,6 +61,7 @@ describe('session-bootstrap-runtime-services', () => {
       mobSpawner: makeService('mob-spawner'),
       villageService: makeService('village'),
       tradingPresentation: makeService('trading'),
+      chatPanel: makeService('chat-panel'),
       redstoneService: makeService('redstone'),
       cropGrowthService: makeService('crop-growth'),
       fluidService: makeService('fluid'),
@@ -89,6 +90,7 @@ describe('session-bootstrap-runtime-services', () => {
     expect(runtimeServices.soundManager).toBe(soundManager)
     expect(runtimeServices.musicManager).toBe(musicManager)
     expect(runtimeServices.perfHud).toBe(perfHud)
+    expect(runtimeServices.chatPanel).toBe(services.chatPanel)
     expect(runtimeServices.biomeService).toBe(services.biomeService)
     expect(runtimeServices.droppedXpOrbRenderer).toBe(services.droppedXpOrbRenderer)
     expect(runtimeServices.remotePlayerRenderer).toBe(remotePlayerRenderer)

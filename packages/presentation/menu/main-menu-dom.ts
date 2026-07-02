@@ -15,6 +15,7 @@ export interface MenuButtons {
   readonly howToPlay: HTMLButtonElement
   readonly settings: HTMLButtonElement
   readonly nwName: HTMLInputElement
+  readonly nwSeed: HTMLInputElement
   readonly nwMode: HTMLButtonElement
   readonly nwCancel: HTMLButtonElement
   readonly nwConfirm: HTMLButtonElement
@@ -80,6 +81,10 @@ export const buildMenuDOM = (dom: DomOperationsService): MenuDomElements => {
     <label style="display:flex;flex-direction:column;gap:4px">
       <span>World name</span>
       <input type="text" id="mm-nw-name" style="${inputStyle}" placeholder="My World" />
+    </label>
+    <label style="display:flex;flex-direction:column;gap:4px">
+      <span>Seed (optional)</span>
+      <input type="text" id="mm-nw-seed" style="${inputStyle}" placeholder="Leave blank for random" />
     </label>
     <label style="display:flex;flex-direction:column;gap:4px">
       <span>Game mode</span>
@@ -159,6 +164,7 @@ export const buildMenuDOM = (dom: DomOperationsService): MenuDomElements => {
       howToPlay: required<HTMLButtonElement>(rootCard, '#mm-how-to-play'),
       settings: required<HTMLButtonElement>(rootCard, '#mm-settings'),
       nwName: required<HTMLInputElement>(newWorldCard, '#mm-nw-name'),
+      nwSeed: required<HTMLInputElement>(newWorldCard, '#mm-nw-seed'),
       nwMode: required<HTMLButtonElement>(newWorldCard, '#mm-nw-mode'),
       nwCancel: required<HTMLButtonElement>(newWorldCard, '#mm-nw-cancel'),
       nwConfirm: required<HTMLButtonElement>(newWorldCard, '#mm-nw-confirm'),

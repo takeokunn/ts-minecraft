@@ -47,10 +47,11 @@ const runSessionToTitle = (
   worldId: WorldId,
   gameMode: GameMode,
   startupMultiplayerConnection = Option.none<{ readonly serverUrl: string; readonly playerName: string }>(),
+  initialSeed?: number,
 ) =>
   Effect.gen(function* () {
     const scope = yield* Scope.make()
-    const exit = yield* sessionProgram(bootCtx, worldId, gameMode, startupMultiplayerConnection).pipe(
+    const exit = yield* sessionProgram(bootCtx, worldId, gameMode, startupMultiplayerConnection, initialSeed).pipe(
       Scope.extend(scope),
       Effect.exit,
     )
@@ -144,8 +145,9 @@ const mainMenuLoop = (bootCtx: BootContext) =>
         : choice.action === 'multiplayer'
           ? 'survival'
           : yield* loadGameModeForWorld(choice.worldId)
+      const initialSeed = choice.action === 'newWorld' ? choice.seed : undefined
 
-      yield* runSessionToTitle(bootCtx, worldId, gameMode, startupMultiplayerConnection).pipe(
+      yield* runSessionToTitle(bootCtx, worldId, gameMode, startupMultiplayerConnection, initialSeed).pipe(
         Effect.catchAllCause((cause) => presentSessionFailure(loadingScreen, cause)),
         Effect.asVoid,
       )

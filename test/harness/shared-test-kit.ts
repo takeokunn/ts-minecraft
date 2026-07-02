@@ -7,7 +7,7 @@ import type { FrameHandlerServices } from '@ts-minecraft/app/application/frame/t
 import type { DeltaTimeSecs } from '@ts-minecraft/core'
 import type { DayNightLights } from '@ts-minecraft/game'
 import type { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js'
-import { makeInputService, makeClickInputService, makeMouseDownInputService, makeInventoryRenderer, makeSettingsOverlay, makeTradingPresentation, makePauseMenu, makeBlockHighlight, makeHotbarRenderer, makeDebugFeatureFlags, makeFPSCounter, makeFurnaceService, makeChestService, makePlayerListPanel } from './app-test-kit'
+import { makeInputService, makeClickInputService, makeMouseDownInputService, makeInventoryRenderer, makeSettingsOverlay, makeTradingPresentation, makePauseMenu, makeBlockHighlight, makeHotbarRenderer, makeDebugFeatureFlags, makeFPSCounter, makeFurnaceService, makeChestService, makePlayerListPanel, makeChatPanel } from './app-test-kit'
 import { makeEntityManager, makeMobSpawner, makeRedstoneService, makeVillageService } from './entities-test-kit'
 import { makeGameMode, makeGameState, makeMusicManager, makeSettingsService, makeSoundManager, makeTimeService } from './game-test-kit'
 import { makeEquipmentService, makeHotbarService, makeInventoryService } from './inventory-test-kit'
@@ -192,6 +192,7 @@ export const makeServices = (opts: {
     perfHud: makePerfHud(),
     gameMode: makeGameMode(),
     multiplayer: Option.none(),
+    chatPanel: makeChatPanel(),
     cameraState: cameraState.state,
   }
 }

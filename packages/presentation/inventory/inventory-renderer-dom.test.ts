@@ -35,6 +35,7 @@ const makeElement = <K extends keyof HTMLElementTagNameMap>(_tagName: K): HTMLEl
     dataset: {},
     textContent: '',
     title: '',
+    type: '',
     childrenList,
     attributeMap,
     focus: vi.fn(),
@@ -122,6 +123,10 @@ describe('presentation/inventory/inventory-renderer-dom', () => {
       expect(cursor?.dataset['inventoryCursor']).toBe('held')
       expect(cursor?.style.cssText).toContain('pointer-events:none')
       expect(cursor?.style.cssText).toContain('display:none')
+      expect(Option.isSome(overlay.sortButtonEl)).toBe(true)
+      const sortButton = Option.getOrThrow(overlay.sortButtonEl)
+      expect(sortButton.dataset['inventoryAction']).toBe('sort')
+      expect(sortButton.textContent).toBe('Sort Inventory (R)')
       expect(appended).toHaveLength(1)
       expect(appended[0]?.id).toBe('inventory-overlay')
     } finally {

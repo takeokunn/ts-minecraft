@@ -75,6 +75,17 @@ export const OVERLAY_STYLE = [
 ].join(';')
 
 export const OVERLAY_TITLE_STYLE = 'color:#202020;margin-bottom:10px;font-size:14px;text-align:center;font-weight:bold'
+export const INVENTORY_TOOLBAR_STYLE = 'display:flex;justify-content:flex-end;margin:-4px 0 8px'
+export const INVENTORY_ACTION_BUTTON_STYLE = [
+  'padding:4px 8px',
+  'background:#9b9b9b',
+  'border:2px solid #111',
+  'box-shadow:inset 2px 2px #eee,inset -2px -2px #555',
+  'font-family:"Courier New",monospace',
+  'font-size:12px',
+  'color:#202020',
+  'cursor:pointer',
+].join(';')
 export const CHEST_SECTION_STYLE = 'display:none;margin-bottom:12px'
 export const CHEST_TITLE_STYLE = 'color:#202020;margin-bottom:8px;font-size:13px;text-align:center;font-weight:bold'
 export const CHEST_GRID_STYLE = 'display:grid;grid-template-columns:repeat(9,50px);gap:2px'

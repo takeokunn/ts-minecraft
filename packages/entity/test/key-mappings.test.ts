@@ -58,6 +58,10 @@ describe('KeyMappings', () => {
     it('PLAYER_LIST_TOGGLE maps to Tab', () => {
       expect(KeyMappings.PLAYER_LIST_TOGGLE).toBe('Tab')
     })
+
+    it('INVENTORY_SORT maps to KeyR', () => {
+      expect(KeyMappings.INVENTORY_SORT).toBe('KeyR')
+    })
   })
 
   describe('hotbar keys', () => {
