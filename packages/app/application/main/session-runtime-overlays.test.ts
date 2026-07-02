@@ -32,6 +32,7 @@ const makeConnectionPanel = () => {
   const statuses: string[] = []
   const connectedStates: boolean[] = []
   const show = vi.fn()
+  const hide = vi.fn()
   const panel = {
     element: {} as HTMLElement,
     setStatus: vi.fn((status: string) =>
@@ -44,7 +45,9 @@ const makeConnectionPanel = () => {
     show: Effect.sync(() => {
       show()
     }),
-    hide: Effect.void,
+    hide: Effect.sync(() => {
+      hide()
+    }),
     setConnected: vi.fn((connected: boolean) =>
       Effect.sync(() => {
         connectedStates.push(connected)
@@ -52,7 +55,7 @@ const makeConnectionPanel = () => {
     ),
   } satisfies ConnectionPanel
 
-  return { panel, statuses, connectedStates, show }
+  return { panel, statuses, connectedStates, show, hide }
 }
 
 const makeChatPanel = (
@@ -152,6 +155,7 @@ describe('installSessionRuntimeOverlays', () => {
     }
     const pauseMenu = {
       attach: vi.fn(() => Effect.void),
+      isOpen: vi.fn(() => Effect.succeed(false)),
     }
     const debugOverlay = {
       attach: vi.fn(() => Effect.void),
@@ -272,6 +276,7 @@ describe('installSessionRuntimeOverlays', () => {
     }
     const pauseMenu = {
       attach: vi.fn(() => Effect.void),
+      isOpen: vi.fn(() => Effect.succeed(false)),
     }
     const debugOverlay = {
       attach: vi.fn(() => Effect.void),
@@ -346,7 +351,8 @@ describe('installSessionRuntimeOverlays', () => {
       ),
     )
 
-    expect(connectionPanelFixture.show).toHaveBeenCalledOnce()
+    expect(connectionPanelFixture.show).not.toHaveBeenCalled()
+    expect(connectionPanelFixture.hide).toHaveBeenCalledOnce()
     expect(chatPanelFixture.show).not.toHaveBeenCalled()
     expect(chatPanelFixture.hide).toHaveBeenCalledOnce()
     expect(playerListPanelFixture.hide).toHaveBeenCalledOnce()

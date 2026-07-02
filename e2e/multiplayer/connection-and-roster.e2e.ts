@@ -6,7 +6,7 @@ import { dirname, resolve } from 'node:path'
 import { expect, test } from '@playwright/test'
 
 import { GamePage } from '../fixtures/game-page'
-import { waitForStableRender } from '../helpers/wait-helpers'
+import { openPauseMenu, waitForStableRender } from '../helpers/wait-helpers'
 
 const ROOT_URL = 'http://localhost:5180/'
 const SERVER_URL = 'ws://127.0.0.1:25565'
@@ -94,6 +94,8 @@ async function stopMultiplayerServer(child: ChildProcess): Promise<void> {
 }
 
 async function connectPlayer(page: GamePage, playerName: string): Promise<void> {
+  // The connection panel rides the pause menu — it is hidden during gameplay.
+  await openPauseMenu(page.page)
   await page.page.locator('#multiplayer-connection-panel').waitFor({ state: 'visible', timeout: 15_000 })
   await page.page.locator('#mp-server-url').fill(SERVER_URL)
   await page.page.locator('#mp-player-name').fill(playerName)
@@ -102,6 +104,11 @@ async function connectPlayer(page: GamePage, playerName: string): Promise<void> 
     `Connected to ${SERVER_URL}`,
     { timeout: 15_000 },
   )
+  // Resume gameplay; the panel hides with the pause menu.
+  await page.page.keyboard.press('Escape')
+  await page.page
+    .locator('#multiplayer-connection-panel')
+    .waitFor({ state: 'hidden', timeout: 10_000 })
 }
 
 async function sendChatMessage(page: GamePage, message: string): Promise<void> {

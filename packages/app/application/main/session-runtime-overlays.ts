@@ -13,6 +13,7 @@ import type { ChatPanel, ConnectionPanel, ConnectionRequest, PlayerListPanel } f
 
 const CHAT_PANEL_SYNC_INTERVAL_MS = 500
 const PLAYER_LIST_PANEL_SYNC_INTERVAL_MS = 500
+const CONNECTION_PANEL_SYNC_INTERVAL_MS = 200
 
 const canUseChatPanel = (state: MultiplayerSessionState): boolean =>
   state === 'joining' || state === 'ready'
@@ -87,9 +88,25 @@ export const disconnectFromConnectionPanel = (
 export const installMultiplayerConnectionPanel = (
   panel: ConnectionPanel,
   multiplayer: MultiplayerService,
+  pauseMenu: { readonly isOpen: () => Effect.Effect<boolean, never> },
 ): Effect.Effect<void, never, Scope.Scope> =>
   Effect.gen(function* () {
-    yield* panel.show
+    // The connect UI must not float over gameplay — it rides the pause menu
+    // (ESC), where session-level actions live. Visibility is polled rather
+    // than event-driven because the pause menu opens/closes from several
+    // paths (Escape, M key, Save & Quit) with no shared open/close stream.
+    yield* panel.hide
+    let lastVisible = false
+    const syncVisibility = Effect.gen(function* () {
+      const open = yield* pauseMenu.isOpen()
+      if (open === lastVisible) return
+      lastVisible = open
+      yield* open ? panel.show : panel.hide
+    })
+    yield* syncVisibility.pipe(
+      Effect.repeat(Schedule.spaced(Duration.millis(CONNECTION_PANEL_SYNC_INTERVAL_MS))),
+      Effect.forkScoped,
+    )
     yield* Stream.runForEach(panel.onConnect, (request) =>
       connectFromConnectionPanel(panel, multiplayer, request),
     ).pipe(Effect.forkScoped)
@@ -241,7 +258,7 @@ export const installSessionRuntimeOverlays = (
     })
 
     if (Option.isSome(services.multiplayer)) {
-      yield* installMultiplayerConnectionPanel(connectionPanel, services.multiplayer.value)
+      yield* installMultiplayerConnectionPanel(connectionPanel, services.multiplayer.value, pauseMenu)
       yield* installMultiplayerChatPanel(chatPanel, services.multiplayer.value)
       yield* installMultiplayerPlayerListPanel(playerListPanel, services.multiplayer.value)
     }
