@@ -23,7 +23,7 @@ describe('physics-stage-survival/movement', () => {
 
     const services = {
       gameMode: { isCreative },
-      healthService: { tick: healthTick, getHealth, heal },
+      healthService: { tick: healthTick, getHealth, heal, getStatusEffects: () => Effect.succeed([]) },
       hungerService: { getHunger, addExhaustion, tick: hungerTick },
       inputService: { isKeyPressed },
       fishingService: { tick: fishingTick },

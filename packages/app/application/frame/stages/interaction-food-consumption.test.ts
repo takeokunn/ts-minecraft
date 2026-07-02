@@ -100,6 +100,15 @@ describe('handleFoodConsumption', () => {
     expect(s.healthService.addStatusEffect).toHaveBeenCalledWith('REGENERATION', 1, 5)
   })
 
+  it('ROTTEN_FLESH inflicts Hunger I for 30s in addition to eating', async () => {
+    const s = makeServices()
+    s.hotbarService.getSelectedBlockType.mockReturnValue(Effect.succeed(Option.some('ROTTEN_FLESH')))
+    const ate = await Effect.runPromise(handleFoodConsumption(s as never))
+    expect(ate).toBe(true)
+    expect(s.hungerService.eat).toHaveBeenCalled()
+    expect(s.healthService.addStatusEffect).toHaveBeenCalledWith('HUNGER', 0, 30)
+  })
+
   it('POTION_SWIFTNESS grants Speed I for 180s and returns a glass bottle', async () => {
     const s = makeServices()
     s.hotbarService.getSelectedBlockType.mockReturnValue(Effect.succeed(Option.some('POTION_SWIFTNESS')))

@@ -1,6 +1,7 @@
 import { Effect, MutableRef } from 'effect'
 import { HUNGER_TICK_INTERVAL_SECS } from './survival-timing.config'
 import { advanceFixedStep } from '@ts-minecraft/app/frame/frame-fixed-step'
+import { statusEffectHungerExhaustionPerSecond } from '@ts-minecraft/entity/domain/status-effect'
 import type { Position } from '@ts-minecraft/core'
 import { starvationDamageForDifficulty } from '../physics-stage-damage-logic'
 import type { PhysicsStageInputs } from '../physics-stage-types/inputs'
@@ -20,6 +21,13 @@ export const applyHungerTicks = (
   Effect.gen(function* () {
     const health = yield* services.healthService.getHealth()
     const canRegen = health.current < health.max
+    // HUNGER status effect (rotten flesh) drains exhaustion continuously
+    // while active — deltaTime-proportional, so frame rate doesn't matter.
+    const statusEffects = yield* services.healthService.getStatusEffects()
+    const hungerEffectRate = statusEffectHungerExhaustionPerSecond(statusEffects)
+    if (hungerEffectRate > 0) {
+      yield* services.hungerService.addExhaustion(hungerEffectRate * inputs.deltaTime)
+    }
     const [hungerTicks, hungerRemainder] = advanceFixedStep(
       MutableRef.get(refs.hungerTickAccumulatorRef),
       inputs.deltaTime,

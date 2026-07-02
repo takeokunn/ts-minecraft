@@ -144,6 +144,18 @@ export const toStatusEffectHudEntry = (effect: ActiveStatusEffect): StatusEffect
   }
 }
 
+// Vanilla Hunger effect: 0.005 exhaustion per game tick per level
+// = 0.1/s per level (level = amplifier + 1).
+export const statusEffectHungerExhaustionPerSecond = (
+  effects: ReadonlyArray<ActiveStatusEffect>,
+): number => {
+  let rate = 0
+  for (const effect of effects) {
+    if (effect.type === 'HUNGER') rate += 0.1 * (effect.amplifier + 1)
+  }
+  return rate
+}
+
 // Horizontal-speed multiplier from active effects (vanilla: Speed +20% per
 // level, Slowness -15% per level; level = amplifier + 1). Both stack
 // multiplicatively; the result never goes negative.

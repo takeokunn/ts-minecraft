@@ -47,10 +47,14 @@ export const handleFoodConsumption = (
       Effect.flatMap(() => services.hungerService.eat(route.food.foodLevel, route.food.saturationModifier)),
       // Vanilla golden apple: Regeneration II for 5s (the old flat heal(4) is
       // replaced by the periodic effect — ~4 HP over the duration).
+      // Rotten flesh: Hunger I for 30s — applied deterministically (vanilla
+      // rolls 80%; this codebase prefers deterministic gameplay effects).
       Effect.flatMap(() =>
         item === 'GOLDEN_APPLE'
           ? services.healthService.addStatusEffect('REGENERATION', 1, 5)
-          : Effect.void,
+          : item === 'ROTTEN_FLESH'
+            ? services.healthService.addStatusEffect('HUNGER', 0, 30)
+            : Effect.void,
       ),
       Effect.catchAll(() => Effect.void),
     )

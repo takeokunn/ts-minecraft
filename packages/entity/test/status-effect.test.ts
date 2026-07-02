@@ -5,6 +5,7 @@ import {
   statusEffectIntervalTicks,
   upsertStatusEffect,
   formatStatusEffectDuration,
+  statusEffectHungerExhaustionPerSecond,
   statusEffectLevelLabel,
   toStatusEffectHudEntry,
   type ActiveStatusEffect,
@@ -104,5 +105,17 @@ describe('status-effect HUD projection', () => {
     expect(entry.display).toBe('Regeneration II 1:05')
     expect(entry.type).toBe('REGENERATION')
     expect(entry.remainingSeconds).toBe(65)
+  })
+})
+
+describe('statusEffectHungerExhaustionPerSecond', () => {
+  it('is 0 with no effects or non-hunger effects', () => {
+    expect(statusEffectHungerExhaustionPerSecond([])).toBe(0)
+    expect(statusEffectHungerExhaustionPerSecond([makeStatusEffect('SPEED', 2, 60)])).toBe(0)
+  })
+
+  it('drains 0.1/s per level (vanilla 0.005 per tick per level)', () => {
+    expect(statusEffectHungerExhaustionPerSecond([makeStatusEffect('HUNGER', 0, 30)])).toBeCloseTo(0.1)
+    expect(statusEffectHungerExhaustionPerSecond([makeStatusEffect('HUNGER', 1, 30)])).toBeCloseTo(0.2)
   })
 })
