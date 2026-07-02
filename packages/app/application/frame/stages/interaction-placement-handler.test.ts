@@ -1065,6 +1065,7 @@ describe('interaction-placement-handler / handleFlintAndSteel (TNT)', () => {
     readonly protectionReduction?: number
     readonly blastProtectionReduction?: number
     readonly damageSlotSpy?: ReturnType<typeof vi.fn>
+    readonly multiplayer?: Option.Option<{ readonly sendBlockBreak: ReturnType<typeof vi.fn> }>
   } = {}): {
     services: FrameFlintAndSteelInteractionServices
     forceSetBlockSpy: ReturnType<typeof vi.fn>
@@ -1086,6 +1087,7 @@ describe('interaction-placement-handler / handleFlintAndSteel (TNT)', () => {
         blockService: { forceSetBlock: forceSetBlockSpy },
         chunkManagerService: { getChunk: () => Effect.succeed(chunk) },
         netherService: { registerPortal: vi.fn(() => Effect.void) },
+        multiplayer: opts.multiplayer ?? Option.none(),
         soundManager: { playEffect: playEffectSpy },
         gameState: {
           getPlayerPosition: vi.fn(() => Effect.succeed(opts.playerPosition ?? { x: 0, y: 64, z: 0 })),
@@ -1243,6 +1245,7 @@ const makeBedServices = (opts: {
   blockService: {
     forceSetBlock: vi.fn(() => Effect.void),
   },
+  multiplayer: Option.none(),
   timeService: {
     isNight: () => Effect.succeed(opts.isNight ?? true),
     setTimeOfDay: vi.fn(() => Effect.void),
@@ -1319,4 +1322,47 @@ describe('interaction-placement-handler / handleBed', () => {
       expect(services.soundManager.playEffect).toHaveBeenCalledWith('playerHurt', { position: playerPosition })
     }),
   )
+})
+
+describe('interaction-placement-handler / TNT co-op replication', () => {
+  it.effect('broadcasts every crater voxel as a BlockBreak when connected', () =>
+    Effect.gen(function* () {
+      const dirtyChunksRef = MutableRef.make(HashMap.empty<string, unknown>())
+      const sendBlockBreak = vi.fn(() => Effect.void)
+      const chunk = makeEmptyChunk(0, 0)
+      setChunkBlock(chunk, 0, 64, 0, 'TNT')
+      const forceSetBlock = vi.fn(() => Effect.void)
+      const services = {
+        blockService: { forceSetBlock },
+        chunkManagerService: { getChunk: () => Effect.succeed(chunk) },
+        netherService: { registerPortal: vi.fn(() => Effect.void) },
+        multiplayer: Option.some({ sendBlockBreak }),
+        soundManager: { playEffect: vi.fn(() => Effect.void) },
+        gameState: { getPlayerPosition: vi.fn(() => Effect.succeed({ x: 40, y: 64, z: 40 })) },
+        gameMode: { isSpectator: vi.fn(() => Effect.succeed(false)) },
+        healthService: {
+          getHealth: vi.fn(() => Effect.succeed({ current: 20, max: 20, invincibilityTicks: 0 })),
+          applyDamage: vi.fn(() => Effect.void),
+        },
+        hungerService: { addExhaustion: vi.fn(() => Effect.void) },
+        equipmentService: {
+          getTotalArmorPoints: vi.fn(() => Effect.succeed(0)),
+          getTotalProtectionReduction: vi.fn(() => Effect.succeed(0)),
+          getTotalBlastProtectionReduction: vi.fn(() => Effect.succeed(0)),
+        },
+        hotbarService: { getSelectedSlot: vi.fn(() => Effect.succeed(SlotIndex.make(2))) },
+        inventoryService: { damageSlot: vi.fn(() => Effect.void) },
+      } as unknown as FrameFlintAndSteelInteractionServices
+
+      const result = yield* handleFlintAndSteel(
+        services,
+        { dirtyChunksRef } as never,
+        { targetHit: Option.some({ blockX: 0, blockY: 64, blockZ: 0, distance: 2, normal: { x: 0, y: 1, z: 0 } }) },
+      )
+
+      expect(result).toBe(true)
+      // Every local voxel edit (TNT block itself + crater sphere) reaches peers.
+      expect(sendBlockBreak.mock.calls.length).toBe(forceSetBlock.mock.calls.length)
+      expect(sendBlockBreak.mock.calls.length).toBeGreaterThan(1)
+    }))
 })

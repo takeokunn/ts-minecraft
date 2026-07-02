@@ -45,10 +45,15 @@ export const handleFlintAndSteel = (
       return fireIgnited
     }
 
+    // Replicate the crater to co-op peers block-by-block (the same path portal
+    // frame fills use) — the server's edit log then replays it to late joiners.
+    const multiplayerOrNull = Option.getOrNull(services.multiplayer)
     yield* services.blockService.forceSetBlock(tntPos, 'AIR').pipe(Effect.catchAll(() => Effect.void))
+    yield* multiplayerOrNull?.sendBlockBreak(tntPos) ?? Effect.void
     yield* services.soundManager.playEffect('blockBreak', { position: tntPos })
     for (const pos of buildTntBreakPositions(tntPos, TNT_BREAK_RADIUS)) {
       yield* services.blockService.forceSetBlock(pos, 'AIR').pipe(Effect.catchAll(() => Effect.void))
+      yield* multiplayerOrNull?.sendBlockBreak(pos) ?? Effect.void
     }
     yield* applyTntPlayerDamage(services, tntPos)
     yield* damageHeldFlintAndSteel(services)

@@ -1,6 +1,7 @@
-import { Effect } from 'effect'
+import { Effect, Option } from 'effect'
 import { logErrors } from '@ts-minecraft/app/frame/error-logging'
 import type { FrameAudioServices } from '@ts-minecraft/app/frame/frame-service-types/audio'
+import type { FrameGameplayServices } from '@ts-minecraft/app/frame/frame-service-types/gameplay'
 import type { FrameInteractionServices } from '@ts-minecraft/app/frame/frame-service-types/interaction'
 import type { FrameLivingServices } from '@ts-minecraft/app/frame/frame-service-types/living'
 import type { PlayerDamageCause } from '@ts-minecraft/entity/domain/player-damage-cause'
@@ -29,14 +30,21 @@ export const tryApplyPlayerDamage = (
 }
 
 export const applyExplosionBlockDamage = (
-  services: Pick<FrameInteractionServices, 'blockService'> & Pick<FrameAudioServices, 'soundManager'>,
+  services: Pick<FrameInteractionServices, 'blockService'> &
+    Pick<FrameAudioServices, 'soundManager'> &
+    Partial<Pick<FrameGameplayServices, 'multiplayer'>>,
   explosion: ExplosionEvent,
 ): Effect.Effect<void, never> =>
   logErrors(
     Effect.gen(function* () {
       yield* services.soundManager.playEffect('blockBreak', { position: explosion.position })
+      // Creeper craters happen on the entity host only (remote copies never
+      // arm a fuse) — replicate each broken voxel so peers' worlds converge
+      // and the server edit log covers late joiners.
+      const multiplayerOrNull = services.multiplayer !== undefined ? Option.getOrNull(services.multiplayer) : null
       for (const pos of buildExplosionBreakPositions(explosion.position, Math.floor(explosion.power))) {
         yield* services.blockService.forceSetBlock(pos, 'AIR').pipe(Effect.catchAll(() => Effect.void))
+        yield* multiplayerOrNull?.sendBlockBreak(pos) ?? Effect.void
       }
     }),
     'Explosion block damage error',

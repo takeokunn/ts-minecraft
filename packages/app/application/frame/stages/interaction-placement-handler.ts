@@ -34,8 +34,11 @@ export const handleBed = (
     const dimension = yield* services.netherService.getDimension()
     if (dimension === 'nether') {
       yield* services.soundManager.playEffect('blockBreak', { position: bedPos })
+      const multiplayerOrNull = Option.getOrNull(services.multiplayer)
       for (const pos of buildExplosionBreakPositions(bedPos, BED_EXPLOSION_BREAK_RADIUS)) {
         yield* services.blockService.forceSetBlock(pos, 'AIR').pipe(Effect.catchAll(() => Effect.void))
+        // Crater must reach co-op peers (and the server edit log for late joiners).
+        yield* multiplayerOrNull?.sendBlockBreak(pos) ?? Effect.void
       }
       yield* applyExplosionPlayerDamage(services, bedPos, TNT_EXPLOSION_POWER)
       return true

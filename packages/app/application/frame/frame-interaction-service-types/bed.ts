@@ -8,7 +8,7 @@ import type { FrameWorldServices } from '../frame-service-types/world'
 
 export type FrameBedInteractionServices = Pick<FrameInteractionServices, 'blockService'> &
   Pick<FrameWorldServices, 'timeService' | 'netherService'> &
-  Pick<FrameGameplayServices, 'gameState' | 'gameMode'> &
+  Pick<FrameGameplayServices, 'gameState' | 'gameMode' | 'multiplayer'> &
   Pick<FrameLivingServices, 'healthService' | 'hungerService'> &
   Pick<FrameInventoryServices, 'equipmentService'> &
   Pick<FramePresentationServices, 'sleepOverlay'> &
