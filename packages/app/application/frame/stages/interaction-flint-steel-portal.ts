@@ -31,7 +31,7 @@ export const collectAffectedPortalChunkCoords = (positions: Iterable<Position>):
 }
 
 export const handlePortalIgnition = (
-  services: Pick<FrameFlintAndSteelInteractionServices, 'blockService' | 'chunkManagerService' | 'netherService' | 'soundManager'>,
+  services: Pick<FrameFlintAndSteelInteractionServices, 'blockService' | 'chunkManagerService' | 'netherService' | 'soundManager' | 'multiplayer'>,
   refs: Pick<FrameStageRefs, 'dirtyChunksRef'>,
   hit: TargetRayHit,
 ): Effect.Effect<boolean> =>
@@ -56,6 +56,9 @@ export const handlePortalIgnition = (
     const affectedCoords = collectAffectedPortalChunkCoords(portalFrame.interior)
     for (const pos of portalFrame.interior) {
       yield* services.blockService.forceSetBlock(pos, 'NETHER_PORTAL').pipe(Effect.catchAll(() => Effect.void))
+      // FR-3: replicate the portal blocks so co-op peers (and late joiners via
+      // the server edit log) see the lit portal, not a hollow frame.
+      yield* (Option.getOrNull(services.multiplayer)?.sendBlockPlace(pos, 'NETHER_PORTAL')) ?? Effect.void
     }
 
     let updatedDirtyChunks = MutableRef.get(refs.dirtyChunksRef)

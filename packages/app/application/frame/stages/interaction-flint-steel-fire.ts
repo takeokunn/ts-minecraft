@@ -1,4 +1,4 @@
-import { Effect } from 'effect'
+import { Effect, Option } from 'effect'
 import type { FrameStageRefs } from '@ts-minecraft/app/application/frame/types/stage-refs'
 import type { FrameFlintAndSteelInteractionServices } from '@ts-minecraft/app/frame/frame-interaction-service-types/flint-and-steel'
 import type { TargetRayHit } from '@ts-minecraft/app/frame/stages/interaction-types'
@@ -25,5 +25,7 @@ export const handleFireIgnition = (
 
     yield* markChunkDirtyAt(services.chunkManagerService, refs.dirtyChunksRef, ignitionPos)
     yield* services.soundManager.playEffect('blockPlace', { position: ignitionPos })
+    // FR-3: replicate the lit fire block to co-op peers.
+    yield* (Option.getOrNull(services.multiplayer)?.sendBlockPlace(ignitionPos, 'FIRE')) ?? Effect.void
     return true
   })

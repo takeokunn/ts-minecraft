@@ -75,6 +75,7 @@ const makeServices = (opts: {
   damageSlotSpy?: ReturnType<typeof vi.fn>
   getSelectedSlotSpy?: ReturnType<typeof vi.fn>
   getChunkFn?: (coord: { x: number; z: number }) => Effect.Effect<Chunk, Error>
+  multiplayer?: Option.Option<{ readonly sendBlockPlace: ReturnType<typeof vi.fn> }>
 } = {}) => {
   const forceSetBlockSpy = opts.forceSetBlockSpy ?? vi.fn(() => Effect.void)
   const registerPortalSpy = opts.registerPortalSpy ?? vi.fn(() => Effect.void)
@@ -107,6 +108,7 @@ const makeServices = (opts: {
       getTotalBlastProtectionReduction: vi.fn(() => Effect.succeed(0)),
     },
     soundManager: { playEffect: vi.fn(() => Effect.void) },
+    multiplayer: opts.multiplayer ?? Option.none(),
     _forceSetBlockSpy: forceSetBlockSpy,
     _registerPortalSpy: registerPortalSpy,
     _damageSlotSpy: damageSlotSpy,
@@ -221,6 +223,32 @@ describe('interaction-placement-handler / handleFlintAndSteel', () => {
       expect(registerPortalSpy).toHaveBeenCalledOnce()
       expect(services._damageSlotSpy).toHaveBeenCalledWith(selectedHotbarSlotIndex(SlotIndex.make(2)), 1)
       expect(result).toBe(true)
+    }),
+  )
+
+  it.effect('broadcasts each portal block to multiplayer peers when connected', () =>
+    Effect.gen(function* () {
+      const dirtyChunksRef = MutableRef.make(HashMap.empty<string, unknown>())
+      const portalChunks = makePortalChunkMap()
+      const sendBlockPlace = vi.fn(() => Effect.void)
+      const services = makeServices({
+        multiplayer: Option.some({ sendBlockPlace }),
+        getChunkFn: (coord) => {
+          const key = `${coord.x},${coord.z}`
+          return Effect.succeed(portalChunks.get(key) ?? makeEmptyChunk(coord.x, coord.z))
+        },
+      })
+
+      const result = yield* handleFlintAndSteel(
+        services,
+        { dirtyChunksRef },
+        { targetHit: Option.some(makePortalHit()) },
+      )
+
+      expect(result).toBe(true)
+      // All 6 interior portal blocks are replicated (FR-3 edit log convergence).
+      expect(sendBlockPlace).toHaveBeenCalledTimes(6)
+      expect(sendBlockPlace.mock.calls.every((call) => call[1] === 'NETHER_PORTAL')).toBe(true)
     }),
   )
 

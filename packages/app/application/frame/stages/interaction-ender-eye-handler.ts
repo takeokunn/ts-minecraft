@@ -48,6 +48,8 @@ const fillFrameAndMaybeOpenPortal = (
     yield* services.blockService.forceSetBlock(framePos, 'END_PORTAL_FRAME_FILLED').pipe(
       Effect.catchAll(() => Effect.void),
     )
+    // FR-3: replicate the filled frame to co-op peers and the server edit log.
+    yield* (Option.getOrNull(services.multiplayer)?.sendBlockPlace(framePos, 'END_PORTAL_FRAME_FILLED')) ?? Effect.void
     yield* consumeHeldEye(services)
     yield* services.soundManager.playEffect('blockPlace', { position: framePos })
 
@@ -69,6 +71,7 @@ const fillFrameAndMaybeOpenPortal = (
     const affectedCoords = new Map<string, ChunkCoord>()
     for (const pos of completed.interior) {
       yield* services.blockService.forceSetBlock(pos, 'END_PORTAL').pipe(Effect.catchAll(() => Effect.void))
+      yield* (Option.getOrNull(services.multiplayer)?.sendBlockPlace(pos, 'END_PORTAL')) ?? Effect.void
       const coord = worldToChunkCoord(pos)
       affectedCoords.set(`${coord.x},${coord.z}`, coord)
     }

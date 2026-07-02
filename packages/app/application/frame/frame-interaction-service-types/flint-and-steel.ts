@@ -7,7 +7,7 @@ import type { FrameWorldServices } from '../frame-service-types/world'
 
 export type FrameFlintAndSteelInteractionServices = Pick<FrameInteractionServices, 'blockService'> &
   Pick<FrameWorldServices, 'chunkManagerService' | 'netherService'> &
-  Pick<FrameGameplayServices, 'gameState' | 'gameMode'> &
+  Pick<FrameGameplayServices, 'gameState' | 'gameMode' | 'multiplayer'> &
   Pick<FrameLivingServices, 'healthService' | 'hungerService'> &
   Pick<FrameInventoryServices, 'equipmentService' | 'hotbarService' | 'inventoryService'> &
   Pick<FrameAudioServices, 'soundManager'>
