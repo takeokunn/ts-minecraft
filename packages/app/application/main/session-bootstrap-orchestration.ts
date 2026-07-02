@@ -108,6 +108,8 @@ export const buildSessionBootstrapOrchestration = (deps: SessionBootstrapDeps) =
       onNone: () => Effect.void,
       onSome: (multiplayerService) => multiplayerService.setLocalWorldSeed(worldSeed),
     })
+    // Villages derive their deterministic region sites from the same seed.
+    yield* entity.villageService.setWorldSeed(worldSeed)
 
     // Multiplayer seed adoption: rebuild the session's terrain from the host's
     // seed under a separate world namespace (the local single-player save is
@@ -116,6 +118,10 @@ export const buildSessionBootstrapOrchestration = (deps: SessionBootstrapDeps) =
       Effect.gen(function* () {
         yield* bootCtx.noiseService.setSeed(hostSeed)
         yield* chunkManagerService.setActiveWorldId(WorldId.make(`${worldId}-mp-${hostSeed}`))
+        // Villages are seed-derived: switch their seed and drop the old
+        // world's villages so the host's sites regenerate deterministically.
+        yield* entity.villageService.setWorldSeed(hostSeed)
+        yield* entity.villageService.resetVillages()
         const spawnSelection = yield* buildSpawnSelection({ x: 0, y: 80, z: 0 }, chunkManagerService)
         MutableRef.set(respawnPositionRef, spawnSelection.position)
         yield* gameState.respawn(spawnSelection.position)

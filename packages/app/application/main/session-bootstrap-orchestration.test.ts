@@ -153,6 +153,10 @@ describe('buildSessionBootstrapOrchestration', () => {
           hungerService: { id: 'hunger' } as never,
           xpService: { id: 'xp' } as never,
           entityManager,
+          villageService: {
+            setWorldSeed: () => Effect.void,
+            resetVillages: () => Effect.void,
+          } as never,
         },
         multiplayer: {
           multiplayerService,

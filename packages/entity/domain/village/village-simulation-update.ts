@@ -1,6 +1,6 @@
 import type { DeltaTimeSecs, Position } from '@ts-minecraft/core'
 
-import { ensureVillageInState } from './village-creation-resolution'
+import { ensureSeededVillagesInState } from './village-creation-resolution'
 import type { Village } from './village-model'
 import type { VillageState } from './village-state'
 import { tickVillage } from './village-simulation-village'
@@ -11,8 +11,9 @@ export const advanceVillageState = (
   playerPosition: Position,
   timeOfDay: number,
   deltaTime: DeltaTimeSecs,
+  worldSeed: number = 0,
 ): VillageState => {
-  const [ensuredState] = ensureVillageInState(state, playerPosition)
+  const ensuredState = ensureSeededVillagesInState(state, playerPosition, worldSeed)
   const tick = ensuredState.updateTick + 1
   const maxMoveDelta = Math.max(0, VILLAGER_MOVE_SPEED * deltaTime * 60)
 

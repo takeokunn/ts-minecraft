@@ -138,6 +138,8 @@ export const createTradingTestLayer = () => {
 
   const villageSpies = VillageService.of({
     _tag: '@minecraft/village/VillageService' as const,
+    setWorldSeed: (_seed: number) => Effect.void,
+    resetVillages: () => Effect.void,
     ensureVillageNear: (_playerPosition) => Effect.succeed({
       villageId: VillageId.make('village-1'),
       center: { x: 0, y: 64, z: 0 },

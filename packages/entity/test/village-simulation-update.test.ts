@@ -2,31 +2,44 @@ import { describe, expect, it } from 'vitest'
 import { advanceVillageState } from '@ts-minecraft/entity/domain/village/village-simulation-update'
 import { INITIAL_VILLAGE_STATE } from '@ts-minecraft/entity/domain/village/village-state'
 import { DeltaTimeSecs } from '@ts-minecraft/core'
+import { Option } from 'effect'
+import { villageSiteForRegion } from '@ts-minecraft/entity/domain/village/village-region-sites'
 
 // ─── fixtures ─────────────────────────────────────────────────────────────────
 
-const PLAYER = { x: 0, y: 64, z: 0 }
 const DELTA = DeltaTimeSecs.make(0.016)
 const TIME_OF_DAY = 0.5
+
+// Villages are seed-deterministic region sites now — park the player ON a
+// known site so activation is guaranteed.
+const SEEDED = (() => {
+  for (let seed = 1; seed < 200; seed++) {
+    const site = Option.getOrNull(villageSiteForRegion(seed, 0, 0))
+    if (site !== null) return { seed, site }
+  }
+  throw new Error('no village site found for any test seed')
+})()
+const WORLD_SEED = SEEDED.seed
+const PLAYER = { x: SEEDED.site.x, y: 64, z: SEEDED.site.z }
 
 // ─── advanceVillageState ──────────────────────────────────────────────────────
 
 describe('advanceVillageState — tick accounting', () => {
   it('increments updateTick each call', () => {
-    const s1 = advanceVillageState(INITIAL_VILLAGE_STATE, PLAYER, TIME_OF_DAY, DELTA)
+    const s1 = advanceVillageState(INITIAL_VILLAGE_STATE, PLAYER, TIME_OF_DAY, DELTA, WORLD_SEED)
     expect(s1.updateTick).toBe(1)
-    const s2 = advanceVillageState(s1, PLAYER, TIME_OF_DAY, DELTA)
+    const s2 = advanceVillageState(s1, PLAYER, TIME_OF_DAY, DELTA, WORLD_SEED)
     expect(s2.updateTick).toBe(2)
   })
 
   it('creates a village on the first call (empty state)', () => {
-    const next = advanceVillageState(INITIAL_VILLAGE_STATE, PLAYER, TIME_OF_DAY, DELTA)
+    const next = advanceVillageState(INITIAL_VILLAGE_STATE, PLAYER, TIME_OF_DAY, DELTA, WORLD_SEED)
     expect(next.villages).toHaveLength(1)
   })
 
   it('does not duplicate the village on subsequent calls with same player position', () => {
-    const s1 = advanceVillageState(INITIAL_VILLAGE_STATE, PLAYER, TIME_OF_DAY, DELTA)
-    const s2 = advanceVillageState(s1, PLAYER, TIME_OF_DAY, DELTA)
+    const s1 = advanceVillageState(INITIAL_VILLAGE_STATE, PLAYER, TIME_OF_DAY, DELTA, WORLD_SEED)
+    const s2 = advanceVillageState(s1, PLAYER, TIME_OF_DAY, DELTA, WORLD_SEED)
     expect(s2.villages).toHaveLength(1)
   })
 })
@@ -38,8 +51,8 @@ describe('advanceVillageState — reference stability', () => {
     // should match the existing Idle default (Idle → Rest transition changes ref though).
     // Use a large delta so movement and activity are both possible — we just assert the
     // function returns without throwing.
-    const s1 = advanceVillageState(INITIAL_VILLAGE_STATE, PLAYER, 0.9, DELTA)
-    const s2 = advanceVillageState(s1, PLAYER, 0.9, DELTA)
+    const s1 = advanceVillageState(INITIAL_VILLAGE_STATE, PLAYER, 0.9, DELTA, WORLD_SEED)
+    const s2 = advanceVillageState(s1, PLAYER, 0.9, DELTA, WORLD_SEED)
     // Both calls must return valid state regardless of reference stability
     expect(s2.villages).toHaveLength(1)
     expect(s2.updateTick).toBe(2)
@@ -50,9 +63,9 @@ describe('advanceVillageState — maxMoveDelta', () => {
   it('applies minimal movement with a very small deltaTime', () => {
     // DeltaTimeSecs requires positive; use 0.0001 s (≈ negligible movement)
     const tinyDelta = DeltaTimeSecs.make(0.0001)
-    const s1 = advanceVillageState(INITIAL_VILLAGE_STATE, PLAYER, TIME_OF_DAY, tinyDelta)
+    const s1 = advanceVillageState(INITIAL_VILLAGE_STATE, PLAYER, TIME_OF_DAY, tinyDelta, WORLD_SEED)
     const villager = s1.villages[0]!.villagers[0]!
-    const s2 = advanceVillageState(s1, PLAYER, TIME_OF_DAY, tinyDelta)
+    const s2 = advanceVillageState(s1, PLAYER, TIME_OF_DAY, tinyDelta, WORLD_SEED)
     const villagerAfter = s2.villages[0]!.villagers[0]!
     // Positions move by at most VILLAGER_MOVE_SPEED * 0.0001 * 60 ≈ 0.00027 per tick
     const distMoved = Math.hypot(

@@ -13,7 +13,14 @@ export class VillageService extends Effect.Service<VillageService>()(
   {
     effect: Effect.gen(function* () {
       const stateRef = yield* Ref.make<VillageState>(INITIAL_VILLAGE_STATE)
+      // Terrain seed driving deterministic region-based village sites; set at
+      // session bootstrap and again on multiplayer host-world adoption.
+      const worldSeedRef = yield* Ref.make(0)
       return {
+        setWorldSeed: (seed: number): Effect.Effect<void, never> => Ref.set(worldSeedRef, seed),
+
+        resetVillages: (): Effect.Effect<void, never> => Ref.set(stateRef, INITIAL_VILLAGE_STATE),
+
         ensureVillageNear: (playerPosition: Position): Effect.Effect<Village, never> =>
           Ref.modify(stateRef, (state): [Village, VillageState] => {
             const [nextState, village] = ensureVillageInState(state, playerPosition)
@@ -62,7 +69,12 @@ export class VillageService extends Effect.Service<VillageService>()(
           timeOfDay: number,
           deltaTime: DeltaTimeSecs,
         ): Effect.Effect<void, never> =>
-          Ref.update(stateRef, (state) => advanceVillageState(state, playerPosition, timeOfDay, deltaTime)),
+          Effect.gen(function* () {
+            const worldSeed = yield* Ref.get(worldSeedRef)
+            yield* Ref.update(stateRef, (state) =>
+              advanceVillageState(state, playerPosition, timeOfDay, deltaTime, worldSeed),
+            )
+          }),
       }
     }),
   },
