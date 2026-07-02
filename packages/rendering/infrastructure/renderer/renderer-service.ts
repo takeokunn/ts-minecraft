@@ -21,7 +21,10 @@ export class RendererService extends Effect.Service<RendererService>()(
           // would freeze clientWidth and break window-resize detection.
           renderer.setSize(canvas.clientWidth, canvas.clientHeight, false)
 
-          renderer.toneMapping = THREE.ACESFilmicToneMapping
+          // Vanilla Minecraft renders raw sRGB — no filmic curve. ACES darkened
+          // and desaturated the mid-tones (saturated dirt/grass read as muddy
+          // brown-black). Light levels are tuned to peak at 1.0, so nothing clips.
+          renderer.toneMapping = THREE.NoToneMapping
           renderer.toneMappingExposure = TONE_MAPPING_EXPOSURE
           renderer.outputColorSpace = THREE.SRGBColorSpace
 

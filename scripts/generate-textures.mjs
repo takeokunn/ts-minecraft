@@ -155,12 +155,14 @@ const DEEPSLATE_NOISE = ['#555555', '#353535', '#4a4a4a']
 
 console.log('Generating textures...')
 
-// tile 0: dirt
+// tile 0: dirt — vanilla dirt averages #866043 (desaturated brown, NOT the
+// red-orange #8B4513 saddle-brown this used to be; ACES tone mapping made
+// that read as dark maroon terrain).
 saveTile(0, 'dirt', (ctx) => {
-  ctx.fillStyle = '#8B4513'
+  ctx.fillStyle = '#866043'
   ctx.fillRect(0, 0, TILE_PX, TILE_PX)
   for (const [sx, sy] of DIRT_SPOTS) {
-    ctx.fillStyle = sx % 3 === 0 ? '#7a3a0e' : '#9a5520'
+    ctx.fillStyle = sx % 3 === 0 ? '#75543B' : '#96714F'
     ctx.fillRect(sx, sy, 2, 2)
   }
 })
@@ -200,74 +202,77 @@ saveTile(3, 'wood-top', (ctx) => {
   ctx.fillRect(TILE_PX / 2 - 2, TILE_PX / 2 - 2, 4, 4)
 })
 
-// tile 4: grass_top — green top view
+// tile 4: grass_top — vanilla plains grass tint averages #91BD59 (bright
+// yellow-green); the old #3a8a3a dark forest green read as swampy black-green.
 saveTile(4, 'grass-top', (ctx) => {
-  ctx.fillStyle = '#3a8a3a'
+  ctx.fillStyle = '#91BD59'
   ctx.fillRect(0, 0, TILE_PX, TILE_PX)
-  drawNoise(ctx, ['#2d7a2d', '#4a9a4a', '#228b22'], 0.3)
+  drawNoise(ctx, ['#83AC4E', '#9CC968', '#7BA647'], 0.3)
 })
 
-// tile 5: grass_side — dirt base with green top stripe
+// tile 5: grass_side — dirt base with green top stripe (colors track tiles 0/4)
 saveTile(5, 'grass-side', (ctx) => {
-  ctx.fillStyle = '#8B4513'
+  ctx.fillStyle = '#866043'
   ctx.fillRect(0, 0, TILE_PX, TILE_PX)
   for (const [sx, sy] of DIRT_SPOTS) {
-    ctx.fillStyle = sx % 3 === 0 ? '#7a3a0e' : '#9a5520'
+    ctx.fillStyle = sx % 3 === 0 ? '#75543B' : '#96714F'
     ctx.fillRect(sx, sy + 4, 2, 2)
   }
-  ctx.fillStyle = '#3a8a3a'
+  ctx.fillStyle = '#91BD59'
   ctx.fillRect(0, 0, TILE_PX, 5)
-  ctx.fillStyle = '#2d7a2d'
+  ctx.fillStyle = '#83AC4E'
   for (let bx = 0; bx < TILE_PX; bx += 3) {
     ctx.fillRect(bx, 4, 1, 3)
   }
-  ctx.fillStyle = '#4a7a3a'
+  ctx.fillStyle = '#79A14E'
   ctx.fillRect(0, 5, TILE_PX, 1)
 })
 
-// tile 6: sand — yellow-tan with noise
+// tile 6: sand — vanilla sand averages #DBD3A0 (pale desaturated tan, not orange)
 saveTile(6, 'sand', (ctx) => {
-  ctx.fillStyle = '#deba6e'
+  ctx.fillStyle = '#DBD3A0'
   ctx.fillRect(0, 0, TILE_PX, TILE_PX)
-  drawNoise(ctx, ['#c9a64a', '#e8cb80', '#d0b060'], 0.3)
+  drawNoise(ctx, ['#CFC490', '#E5DDAD', '#D7CD9B'], 0.3)
 })
 
-// tile 7: water — blue with wave lines
+// tile 7: water — vanilla water tint is #3F76E4 (bright azure)
 saveTile(7, 'water', (ctx) => {
-  ctx.fillStyle = '#1a44bb'
+  ctx.fillStyle = '#3F76E4'
   ctx.fillRect(0, 0, TILE_PX, TILE_PX)
   for (let wy = 0; wy < TILE_PX; wy += 4) {
-    ctx.fillStyle = wy % 8 === 0 ? '#2255cc' : '#1e4ecc'
+    ctx.fillStyle = wy % 8 === 0 ? '#4A80EA' : '#437AE6'
     ctx.fillRect(0, wy, TILE_PX, 2)
   }
   for (const [fx, fy] of FOAM_DOTS) {
-    ctx.fillStyle = '#4488ee'
+    ctx.fillStyle = '#6B99F0'
     ctx.fillRect(fx, fy, 2, 1)
   }
 })
 
-// tile 8: leaves — dense canopy with irregular highlights
+// tile 8: leaves — dense canopy with irregular highlights. Vanilla oak leaves
+// render around #59A52E after the foliage tint; the old #1b7f1b canopy was
+// nearly black in scene lighting.
 saveTile(8, 'leaves', (ctx) => {
-  ctx.fillStyle = '#1b7f1b'
+  ctx.fillStyle = '#4E9A2E'
   ctx.fillRect(0, 0, TILE_PX, TILE_PX)
   for (let lx = 0; lx < TILE_PX; lx += 4) {
     for (let ly = 0; ly < TILE_PX; ly += 4) {
       const variant = (lx * 3 + ly * 5) % 16
       if (variant < 6) {
-        ctx.fillStyle = '#2aa82a'
+        ctx.fillStyle = '#63B23C'
         ctx.fillRect(lx, ly, 4, 4)
       } else if (variant < 10) {
-        ctx.fillStyle = '#228b22'
+        ctx.fillStyle = '#57A434'
         ctx.fillRect(lx + 1, ly, 3, 4)
       } else {
-        ctx.fillStyle = '#166216'
+        ctx.fillStyle = '#417F26'
         ctx.fillRect(lx, ly + 1, 4, 3)
       }
     }
   }
   for (let gx = 1; gx < TILE_PX; gx += 6) {
     for (let gy = 1; gy < TILE_PX; gy += 6) {
-      ctx.fillStyle = (gx + gy) % 2 === 0 ? '#0f5a0f' : '#3cb33c'
+      ctx.fillStyle = (gx + gy) % 2 === 0 ? '#39701F' : '#71C24A'
       ctx.fillRect(gx, gy, 1, 1)
     }
   }

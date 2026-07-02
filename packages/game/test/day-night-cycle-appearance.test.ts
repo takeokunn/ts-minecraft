@@ -9,8 +9,8 @@ describe('game/day-night-cycle-appearance', () => {
   it('resolves bright daytime lighting at noon', () => {
     const appearance = appearanceAt(0.5)
 
-    expect(appearance.directionalLightIntensity).toBeCloseTo(1, 6)
-    expect(appearance.ambientLightIntensity).toBeCloseTo(0.98, 6)
+    expect(appearance.directionalLightIntensity).toBeCloseTo(0.2, 6)
+    expect(appearance.ambientLightIntensity).toBeCloseTo(0.8, 6)
     expect(appearance.lightPosition.x).toBeCloseTo(0, 6)
     expect(appearance.lightPosition.y).toBeCloseTo(80, 6)
     expect(appearance.skySunPosition).toEqual(appearance.lightPosition)
@@ -23,8 +23,8 @@ describe('game/day-night-cycle-appearance', () => {
   it('resolves night lighting with a visible moon at midnight', () => {
     const appearance = appearanceAt(0)
 
-    expect(appearance.directionalLightIntensity).toBeCloseTo(0.3, 6)
-    expect(appearance.ambientLightIntensity).toBeCloseTo(0.56, 6)
+    expect(appearance.directionalLightIntensity).toBeCloseTo(0.08, 6)
+    expect(appearance.ambientLightIntensity).toBeCloseTo(0.5, 6)
     expect(appearance.lightPosition.x).toBeCloseTo(0, 6)
     expect(appearance.lightPosition.y).toBeCloseTo(-80, 6)
     expect(appearance.skyTurbidity).toBeCloseTo(4, 6)

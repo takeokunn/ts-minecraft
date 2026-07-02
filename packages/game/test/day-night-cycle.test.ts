@@ -51,10 +51,10 @@ const makeFakeMoon = () => {
   return { state, port }
 }
 
-const DIRECT_LIGHT_MIN = 0.3
-const DIRECT_LIGHT_RANGE = 0.7
-const AMBIENT_LIGHT_MIN = 0.56
-const AMBIENT_LIGHT_RANGE = 0.42
+const DIRECT_LIGHT_MIN = 0.08
+const DIRECT_LIGHT_RANGE = 0.12
+const AMBIENT_LIGHT_MIN = 0.5
+const AMBIENT_LIGHT_RANGE = 0.3
 
 describe('application/time/day-night-cycle', () => {
   // The shared brightness curve used by BOTH the scene lights and the terrain shader.
@@ -270,7 +270,8 @@ describe('application/time/day-night-cycle', () => {
         yield* updateDayNightCycle(0 as DeltaTimeSecs, lights, timeService)
         expect(lights.light.intensity).toBeCloseTo(DIRECT_LIGHT_MIN + TWILIGHT_DAY_FACTOR * DIRECT_LIGHT_RANGE, 4)
         // Regression: the old model collapsed dusk to DIRECT_LIGHT_MIN (pitch black).
-        expect(lights.light.intensity).toBeGreaterThan(DIRECT_LIGHT_MIN + 0.2)
+        // Guard proportionally to the range so retuning intensities keeps the intent.
+        expect(lights.light.intensity).toBeGreaterThan(DIRECT_LIGHT_MIN + 0.4 * DIRECT_LIGHT_RANGE)
       }).pipe(Effect.provide(TimeService.Default))
     )
   })

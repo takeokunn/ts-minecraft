@@ -5,7 +5,11 @@ export const MAX_SEED_VALUE = 0xFFFFFFFF
 // ─── Lighting colors (hex) ───────────────────────────────────────────────────
 
 export const SUN_COLOR         = 0xffffff
-export const AMBIENT_COLOR     = 0x404040
+// White ambient: brightness is controlled by intensity alone (day-night cycle).
+// The old 0x404040 gray silently quartered ambient irradiance, so any face not
+// directly sunlit (all side faces near noon) rendered at ~25% brightness —
+// terrain read as near-black slabs instead of Minecraft's flat bright look.
+export const AMBIENT_COLOR     = 0xffffff
 export const SKY_COLOR_NIGHT   = 0x232a45  // moonlit blue (lightened again on '夜が暗すぎる' — night horizon/fog reads as dim blue, not black)
 export const SKY_COLOR_DAY     = 0x87ceeb  // sky blue
 

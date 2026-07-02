@@ -1,11 +1,17 @@
 const DAWN_PHASE_OFFSET = 0.25   // 0=midnight, 0.25=dawn, 0.5=noon, 0.75=dusk
-const DIRECT_LIGHT_MIN = 0.3
-const DIRECT_LIGHT_RANGE = 0.7
-// Night ambient floor (raised again 0.42 → 0.56 on '夜が暗すぎる' feedback): combined with
-// the terrain moonlight floor below this lifts the whole night closer to a bright-moonlit
-// look while the cool-blue night tint + reduced directional light keep it reading as night.
-const AMBIENT_LIGHT_MIN = 0.56
-const AMBIENT_LIGHT_RANGE = 0.42
+// Vanilla-Minecraft light balance: terrain shading comes from fixed per-face
+// factors (chunk shader) + the ambient term, NOT from sun-angle Lambert. The
+// directional light is deliberately weak — it exists to carry shadow-map
+// contrast and give entities a subtle 3D cue, never to darken whole hillsides
+// that happen to face away from the sun. Ambient is the dominant term and is
+// WHITE (main.config AMBIENT_COLOR); noon totals ambient 0.8 + direct 0.2 = 1.0.
+const DIRECT_LIGHT_MIN = 0.08
+const DIRECT_LIGHT_RANGE = 0.12
+// Night ambient floor (raised on '夜が暗すぎる' feedback): combined with the terrain
+// moonlight floor below this keeps night a readable bright-moonlit look while the
+// cool-blue night tint + reduced directional light keep it reading as night.
+const AMBIENT_LIGHT_MIN = 0.5
+const AMBIENT_LIGHT_RANGE = 0.3
 const SUN_DISTANCE = 50
 const SUN_HEIGHT = 80
 // Half-width (in sun-elevation units, sinSun ∈ [-1,1]) of the dawn/dusk twilight band

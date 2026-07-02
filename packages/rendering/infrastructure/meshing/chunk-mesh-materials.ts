@@ -82,15 +82,19 @@ export const createChunkMeshMaterials = (atlasTexture: THREE.Texture): Effect.Ef
           ) {
             throw new Error('chunk-mesh: Three.js shader tokens for atlas/lighting injection not found — terrain shader injection will silently no-op')
           }
+          // vFaceFactor = vanilla Minecraft's fixed per-face brightness
+          // (top 1.0, north/south 0.8, east/west 0.6, bottom 0.5). Chunk
+          // meshes are never rotated, so the object-space normal IS the
+          // world-space face direction.
           shader.vertexShader = shader.vertexShader
             .replace(
               'void main() {',
-              `attribute float tileIndex;\nvarying float vAtlasTileIndex;\nvoid main() {\n  vAtlasTileIndex = tileIndex;`
+              `attribute float tileIndex;\nvarying float vAtlasTileIndex;\nvarying float vFaceFactor;\nvoid main() {\n  vAtlasTileIndex = tileIndex;\n  vFaceFactor = normal.y > 0.5 ? 1.0 : (normal.y < -0.5 ? 0.5 : (abs(normal.x) > 0.5 ? 0.6 : 0.8));`
             )
           shader.fragmentShader = shader.fragmentShader
             .replace(
               'void main() {',
-              `uniform float uSunIntensity;\nuniform float uAtlasCols;\nuniform float uAtlasHalfTexel;\nvarying float vAtlasTileIndex;\nvoid main() {`
+              `uniform float uSunIntensity;\nuniform float uAtlasCols;\nuniform float uAtlasHalfTexel;\nvarying float vAtlasTileIndex;\nvarying float vFaceFactor;\nvoid main() {`
             )
             .replace(
               '#include <map_fragment>',
@@ -121,7 +125,7 @@ export const createChunkMeshMaterials = (atlasTexture: THREE.Texture): Effect.Ef
                  float skyFactor = vColor.g;
                  float blockFactor = vColor.b;
                  float lightFactor = max(skyFactor * uSunIntensity, blockFactor);
-                  diffuseColor.rgb *= (0.45 + 0.55 * lightFactor) * (0.8 + 0.2 * aoFactor);
+                  diffuseColor.rgb *= (0.45 + 0.55 * lightFactor) * (0.8 + 0.2 * aoFactor) * vFaceFactor;
                #endif`
             )
         }
@@ -164,15 +168,19 @@ export const createChunkMeshMaterials = (atlasTexture: THREE.Texture): Effect.Ef
           ) {
             throw new Error('chunk-mesh: Three.js shader tokens for atlas/lighting injection not found — transparent solid shader injection will silently no-op')
           }
+          // vFaceFactor = vanilla Minecraft's fixed per-face brightness
+          // (top 1.0, north/south 0.8, east/west 0.6, bottom 0.5). Chunk
+          // meshes are never rotated, so the object-space normal IS the
+          // world-space face direction.
           shader.vertexShader = shader.vertexShader
             .replace(
               'void main() {',
-              `attribute float tileIndex;\nvarying float vAtlasTileIndex;\nvoid main() {\n  vAtlasTileIndex = tileIndex;`
+              `attribute float tileIndex;\nvarying float vAtlasTileIndex;\nvarying float vFaceFactor;\nvoid main() {\n  vAtlasTileIndex = tileIndex;\n  vFaceFactor = normal.y > 0.5 ? 1.0 : (normal.y < -0.5 ? 0.5 : (abs(normal.x) > 0.5 ? 0.6 : 0.8));`
             )
           shader.fragmentShader = shader.fragmentShader
             .replace(
               'void main() {',
-              `uniform float uSunIntensity;\nuniform float uAtlasCols;\nuniform float uAtlasHalfTexel;\nvarying float vAtlasTileIndex;\nvoid main() {`
+              `uniform float uSunIntensity;\nuniform float uAtlasCols;\nuniform float uAtlasHalfTexel;\nvarying float vAtlasTileIndex;\nvarying float vFaceFactor;\nvoid main() {`
             )
             .replace(
               '#include <map_fragment>',
@@ -203,7 +211,7 @@ export const createChunkMeshMaterials = (atlasTexture: THREE.Texture): Effect.Ef
                  float skyFactor = vColor.g;
                  float blockFactor = vColor.b;
                  float lightFactor = max(skyFactor * uSunIntensity, blockFactor);
-                  diffuseColor.rgb *= (0.45 + 0.55 * lightFactor) * (0.8 + 0.2 * aoFactor);
+                  diffuseColor.rgb *= (0.45 + 0.55 * lightFactor) * (0.8 + 0.2 * aoFactor) * vFaceFactor;
                #endif`
             )
         }
