@@ -72,8 +72,19 @@ const cloneStackWithCount = (stack: ItemStack, count: number): ItemStack =>
     enchantments: stack.enchantments,
   })
 
+// Deterministic identity signature for durable/enchanted instances so distinct
+// non-mergeable stacks of the same itemType keep a stable, repeatable order.
+const enchantmentSignature = (stack: ItemStack): string =>
+  (stack.enchantments ?? [])
+    .map((e) => `${e.type}:${e.level}`)
+    .sort()
+    .join(',')
+
 const compareIndexedStacks = (a: IndexedStack, b: IndexedStack): number =>
-  a.stack.itemType.localeCompare(b.stack.itemType) || a.originalIndex - b.originalIndex
+  a.stack.itemType.localeCompare(b.stack.itemType) ||
+  enchantmentSignature(a.stack).localeCompare(enchantmentSignature(b.stack)) ||
+  (a.stack.durability ?? 0) - (b.stack.durability ?? 0) ||
+  a.originalIndex - b.originalIndex
 
 const compactSortedMainInventoryStacks = (entries: ReadonlyArray<IndexedStack>): ReadonlyArray<ItemStack> => {
   const compacted: ItemStack[] = []

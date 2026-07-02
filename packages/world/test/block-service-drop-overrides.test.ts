@@ -19,6 +19,10 @@ describe('getInventoryDropForBlock — vanilla drop correctness', () => {
     expect(getInventoryDropForBlock('FARMLAND')).toBe('DIRT')
   })
 
+  it('POTATO_CROP drops POTATO for fallback harvests', () => {
+    expect(getInventoryDropForBlock('POTATO_CROP')).toBe('POTATO')
+  })
+
   it('DIAMOND_ORE drops DIAMOND', () => {
     expect(getInventoryDropForBlock('DIAMOND_ORE')).toBe('DIAMOND')
   })

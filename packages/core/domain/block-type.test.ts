@@ -71,6 +71,13 @@ describe('BlockTypeSchema', () => {
       expect(Either.isRight(result)).toBe(true)
     })
 
+    const CROP_BLOCKS = ['WHEAT_CROP', 'POTATO_CROP'] as const
+
+    it['each'](CROP_BLOCKS)('accepts crop block "%s"', (block: (typeof CROP_BLOCKS)[number]) => {
+      const result = Schema.decodeUnknownEither(BlockTypeSchema)(block)
+      expect(Either.isRight(result)).toBe(true)
+    })
+
     const STONE_VARIANTS = ['COBBLESTONE', 'GRANITE', 'DIORITE', 'ANDESITE', 'BEDROCK', 'OBSIDIAN'] as const
 
     it['each'](STONE_VARIANTS)('accepts stone variant "%s"', (block: (typeof STONE_VARIANTS)[number]) => {

@@ -67,7 +67,7 @@ export const makeTerrainChunk = (
   ...overrides,
 })
 
-export const withEntityManager = <A, E>(program: Effect.Effect<A, E, EntityManager>): Effect.Effect<A, E> =>
+export const withEntityManager = <A, E>(program: Effect.Effect<A, E, EntityManager>): Effect.Effect<A, E, never> =>
   Effect.provide(program, EntityManager.Default)
 
 export const runWithEntityManager = <A, E>(program: Effect.Effect<A, E, EntityManager>): Promise<A> =>

@@ -7,7 +7,6 @@ import type { ActiveTrack } from '../application/music-manager-state'
 
 const noTrack: Option.Option<ActiveTrack> = Option.none()
 const dayTrack: ActiveTrack = { environment: 'day', handle: {} as any }
-const nightTrack: ActiveTrack = { environment: 'night', handle: {} as any }
 
 // ─── resolveMusicPlaybackPlan — disabled ──────────────────────────────────────
 

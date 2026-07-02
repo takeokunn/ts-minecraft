@@ -31,6 +31,14 @@ describe('mob definitions', () => {
     }
   })
 
+  describe('Zombie', () => {
+    const def = getMobDefinition(EntityType.Zombie)
+
+    it('drops vanilla zombie loot entries', () => {
+      expectDrops(def, 'ROTTEN_FLESH', 'CARROT', 'POTATO', 'IRON_INGOT')
+    })
+  })
+
   describe('Creeper', () => {
     const def = getMobDefinition(EntityType.Creeper)
 

@@ -68,7 +68,7 @@ describe('initialBlocks known data correctness', () => {
     expect(cobweb.properties.friction).toBeLessThan(0.6)
   })
 
-  it['each'](['SAPLING', 'DANDELION', 'POPPY', 'BROWN_MUSHROOM', 'RED_MUSHROOM', 'TALL_GRASS', 'FERN', 'SUGAR_CANE', 'LILY_PAD'] as const)(
+  it['each'](['WHEAT_CROP', 'POTATO_CROP', 'SAPLING', 'DANDELION', 'POPPY', 'BROWN_MUSHROOM', 'RED_MUSHROOM', 'TALL_GRASS', 'FERN', 'SUGAR_CANE', 'LILY_PAD'] as const)(
     '%s block exists as a transparent non-solid plant block',
     (blockType) => {
       const plant = Option.getOrThrow(Arr.findFirst(initialBlocks, (b) => b.type === blockType))

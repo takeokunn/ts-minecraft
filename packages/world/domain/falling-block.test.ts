@@ -12,7 +12,6 @@ const BLOCK_COUNT = CHUNK_SIZE * CHUNK_SIZE * CHUNK_HEIGHT
 const SAND = blockTypeToIndex('SAND')
 const GRAVEL = blockTypeToIndex('GRAVEL')
 const STONE = blockTypeToIndex('STONE')
-const AIR = blockTypeToIndex('AIR')
 
 const blockIdx = (lx: number, y: number, lz: number): number =>
   y + lz * CHUNK_HEIGHT + lx * CHUNK_HEIGHT * CHUNK_SIZE

@@ -10,7 +10,7 @@
 //   34-40: blocks (coal, iron, gold, diamond, redstone, lapis, emerald)
 //   41-45: planks, sticks (item-only atlas tile), crafting table, furnace, torch
 //   63-92: end/nether/decorative/storage block texture tiles
-//   100-113: redstone wire, cobweb, plants, cactus, lily pad, ice, glowstone
+//   100-115: redstone wire, cobweb, plants, cactus, lily pad, ice, glowstone, potato crop
 // TILE_MAP is indexed by BlockType storage id only. Inventory-only atlas tiles
 // such as sticks are not valid block ids and must not be inserted here.
 export type TextureFaceDir = 'top' | 'bottom' | 'side'
@@ -64,7 +64,7 @@ export const TILE_MAP: ReadonlyArray<Readonly<Record<TextureFaceDir, number>>> =
   { top: 86, bottom: 86, side: 86 }, // 45: NETHER_PORTAL
   { top: 84, bottom: 0,  side: 0  }, // 46: FARMLAND
   { top: 85, bottom: 85, side: 85 }, // 47: WHEAT_CROP
-  { top: 85, bottom: 85, side: 85 }, // 48: POTATO_CROP
+  { top: 115, bottom: 115, side: 115 }, // 48: POTATO_CROP
   { top: 100, bottom: 100, side: 100 }, // 49: REDSTONE_WIRE
   { top: 87, bottom: 87, side: 87 }, // 50: REDSTONE_TORCH
   { top: 88, bottom: 88, side: 88 }, // 51: LEVER
@@ -106,13 +106,13 @@ export const TILE_MAP: ReadonlyArray<Readonly<Record<TextureFaceDir, number>>> =
   { top: 110, bottom: 110, side: 110 }, // 87: CACTUS
   { top: 111, bottom: 111, side: 111 }, // 88: LILY_PAD
   { top: 112, bottom: 112, side: 112 }, // 89: ICE
-  { top: 1, bottom: 1, side: 1 }, // 90: PRESSURE_PLATE
-  { top: 1, bottom: 1, side: 1 }, // 91: STONE_SLAB
-  { top: 41, bottom: 41, side: 41 }, // 92: OAK_STAIRS
-  { top: 35, bottom: 35, side: 35 }, // 93: ANVIL
-  { top: 35, bottom: 35, side: 35 }, // 94: CAULDRON
-  { top: 18, bottom: 18, side: 18 }, // 95: FIRE (temporary lava tile)
-  { top: 35, bottom: 35, side: 35 }, // 96: WATER_CAULDRON
+  { top: 1, bottom: 1, side: 1 }, // 90: PRESSURE_PLATE (stone tile)
+  { top: 1, bottom: 1, side: 1 }, // 91: STONE_SLAB (stone tile)
+  { top: 41, bottom: 41, side: 41 }, // 92: OAK_STAIRS (planks tile)
+  { top: 35, bottom: 35, side: 35 }, // 93: ANVIL (iron tile)
+  { top: 35, bottom: 35, side: 35 }, // 94: CAULDRON (iron tile)
+  { top: 18, bottom: 18, side: 18 }, // 95: FIRE (lava tile)
+  { top: 35, bottom: 35, side: 35 }, // 96: WATER_CAULDRON (iron tile)
   { top: 35, bottom: 35, side: 35 }, // 97: RAIL (temporary iron tile)
   { top: 35, bottom: 35, side: 35 }, // 98: PISTON (temporary iron tile)
 ]

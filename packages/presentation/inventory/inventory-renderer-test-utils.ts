@@ -65,7 +65,6 @@ export const createMockDomLayer = () => {
       },
       textContent: '',
       title: '',
-      type: '',
       dataset: {} as Record<string, string>,
       focus: vi.fn(),
       setAttribute: vi.fn((name: string, value: string) => {

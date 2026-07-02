@@ -3,7 +3,6 @@ import { canSpawnAtPosition } from '@ts-minecraft/entity/application/mob/mob-spa
 import {
   MIN_SPAWN_DISTANCE,
   MAX_SPAWN_DISTANCE,
-  DESPAWN_DISTANCE,
 } from '@ts-minecraft/entity/domain/mob/spawner-config'
 
 // ─── canSpawnAtPosition ───────────────────────────────────────────────────────
@@ -46,10 +45,10 @@ describe('canSpawnAtPosition — too far XZ', () => {
 
 describe('canSpawnAtPosition — DESPAWN_DISTANCE limit', () => {
   it('returns false when 3D distance exceeds DESPAWN_DISTANCE despite valid XZ', () => {
-    // XZ distance = 20 (valid band), dy = 60: total 3D = sqrt(400 + 3600) = sqrt(4000) ≈ 63.2
-    // 63.2 < 64 → should still return true
-    expect(canSpawnAtPosition(PLAYER, at(20, 0, 60))).toBe(true)
-    // XZ distance = 20, dy = 63: total 3D = sqrt(400 + 3969) = sqrt(4369) ≈ 66.1 > 64
-    expect(canSpawnAtPosition(PLAYER, at(20, 0, 63))).toBe(false)
+    // XZ distance = 20 (valid band), dy = 100: total 3D = sqrt(400 + 10000) = sqrt(10400) ≈ 102.0
+    // 102.0 < DESPAWN_DISTANCE (128) → should still return true
+    expect(canSpawnAtPosition(PLAYER, at(20, 0, 100))).toBe(true)
+    // XZ distance = 20, dy = 130: total 3D = sqrt(400 + 16900) = sqrt(17300) ≈ 131.5 > 128
+    expect(canSpawnAtPosition(PLAYER, at(20, 0, 130))).toBe(false)
   })
 })

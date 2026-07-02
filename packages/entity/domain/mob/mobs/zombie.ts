@@ -4,6 +4,7 @@ import type { MobDefinition } from './mob-definition'
 export const ZOMBIE_BASE_DROPS: MobDefinition['drops'] = [
   { blockType: 'ROTTEN_FLESH', count: 1 },
   { blockType: 'CARROT', count: 1, chance: 0.025 },
+  { blockType: 'POTATO', count: 1, chance: 0.025 },
   { blockType: 'IRON_INGOT', count: 1, chance: 0.025 },
 ]
 

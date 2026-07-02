@@ -1,7 +1,7 @@
 import { describe, it } from '@effect/vitest'
 import { afterEach, expect } from 'vitest'
 import { Effect, Layer, Option } from 'effect'
-import { PlayerListPanelService, makePlayerListPanel } from '../../multiplayer/player-list-panel'
+import { PlayerListPanelService } from '../../multiplayer/player-list-panel'
 import { DomOperationsService } from '../../hud/crosshair'
 import type { RemotePlayerSnapshot } from '../../../app/application/multiplayer/multiplayer-service'
 

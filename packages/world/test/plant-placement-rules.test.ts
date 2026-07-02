@@ -12,7 +12,6 @@ import {
   canPlaceMushroomAt,
 } from '@ts-minecraft/world/domain/terrain/plant-placement-rules'
 import {
-  AIR_BLOCK_INDEX,
   DIRT_BLOCK_INDEX,
   GRASS_BLOCK_INDEX,
   SAND_BLOCK_INDEX,
@@ -21,8 +20,6 @@ import {
   RED_MUSHROOM_BLOCK_INDEX,
   FERN_BLOCK_INDEX,
   TALL_GRASS_BLOCK_INDEX,
-  DANDELION_BLOCK_INDEX,
-  POPPY_BLOCK_INDEX,
   MAX_NATURAL_PLANT_HEIGHT,
 } from '@ts-minecraft/world/domain/terrain/plant-placement-model'
 

@@ -1,5 +1,4 @@
 import { describe, expect, it } from 'vitest'
-import { Option } from 'effect'
 import { tickVillage } from '@ts-minecraft/entity/domain/village/village-simulation-village'
 import {
   VillagerId,

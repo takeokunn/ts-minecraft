@@ -12,7 +12,6 @@ import { MAX_DRAGON_HEALTH } from '@ts-minecraft/entity/domain/mob/ender-dragon/
 
 const PORTAL = { x: 0, y: 64, z: 0 }
 const DRAGON_POS = { x: 40, y: 80, z: 0 }
-const PLAYER_NEARBY = { x: 5, y: 64, z: 5 } // within 96 blocks
 
 const makeInput = (overrides: Partial<Parameters<typeof tickDragonPhase>[1]> = {}) => ({
   dragonPosition: DRAGON_POS,

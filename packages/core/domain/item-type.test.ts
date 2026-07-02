@@ -59,6 +59,7 @@ describe('ItemTypeSchema — food items (Phase 11)', () => {
     'APPLE',
     'BREAD',
     'CARROT',
+    'POTATO',
     'RAW_PORKCHOP',
     'COOKED_PORKCHOP',
     'RAW_MUTTON',

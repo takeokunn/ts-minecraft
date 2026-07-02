@@ -156,7 +156,7 @@ export const INVENTORY_DROP_OVERRIDES: HashMap.HashMap<BlockType, InventoryItem>
   ['COBWEB', 'STRING'],
   ['GRASS', 'DIRT'],
   ['FARMLAND', 'DIRT'],
-  // Unripe crops drop seeds; ripe crops get a bonus WHEAT added by the interaction handler
+  // Unripe crops drop seeds/potatoes; ripe crop bonuses are added by the interaction handler
   // after querying CropGrowthService.harvest(). Unknown/village crops default to ripe.
   ['WHEAT_CROP', 'WHEAT_SEEDS'],
   ['POTATO_CROP', 'POTATO'],

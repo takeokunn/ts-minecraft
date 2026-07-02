@@ -13,6 +13,7 @@ describe('getFoodProperties', () => {
     ['APPLE', 4, 0.3],
     ['BREAD', 5, 0.6],
     ['CARROT', 3, 0.6],
+    ['POTATO', 1, 0.6],
     ['RAW_PORKCHOP', 3, 0.3],
     ['COOKED_PORKCHOP', 8, 0.8],
     ['RAW_MUTTON', 2, 0.3],

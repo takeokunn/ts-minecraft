@@ -340,6 +340,26 @@ describe('handleFarmingInteraction', () => {
     }),
   )
 
+  it.effect('applying BONE_MEAL to a POTATO_CROP calls advanceByBoneMeal and consumes 1 bone meal', () =>
+    Effect.gen(function* () {
+      const dirtyChunksRef = MutableRef.make(HashMap.empty<string, unknown>())
+      const chunk = makeEmptyChunk(0, 0)
+      setChunkBlock(chunk, 2, 64, 3, 'POTATO_CROP')
+      const services = makeServices({
+        selectedItem: 'BONE_MEAL',
+        getChunkFn: (_c) => Effect.succeed(chunk),
+      })
+      const result = yield* handleFarmingInteraction(
+        services as never,
+        { dirtyChunksRef } as never,
+        { targetHit: Option.some(makeHit(2, 64, 3)) },
+      )
+      expect(result).toBe(true)
+      expect(services._advanceByBoneMealSpy).toHaveBeenCalledWith({ x: 2, y: 64, z: 3 })
+      expect(services._removeBlockSpy).toHaveBeenCalledWith('BONE_MEAL', 1, SlotIndex.make(HOTBAR_START + 0))
+    }),
+  )
+
   it.effect('applying BONE_MEAL to a SAPLING grows an oak-like tree and consumes 1 bone meal', () =>
     Effect.gen(function* () {
       const refs = makeRefs()

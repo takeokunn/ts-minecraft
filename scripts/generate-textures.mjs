@@ -2,12 +2,12 @@
  * Generates individual tile PNGs and a combined atlas.png into /public/textures/.
  * Run once with: pnpm generate-textures
  *
- * - tile-{00-113}-*.png : individual 32×32 tiles for manual inspection/editing
+ * - tile-{00-115}-*.png : individual 32×32 tiles for manual inspection/editing
  * - atlas.png          : 512×512 combined atlas loaded by chunk-mesh.ts at runtime
  *
  * Drawing logic is the single source of truth for all block and item appearance.
- * Tiles 0-45, 63-92, 100-113: block textures (indexed by TILE_MAP in block-texture-map.config.ts)
- * Tiles 46-62, 93-99: item textures (indexed by ITEM_TILE_MAP in item-texture-map.config.ts)
+ * Tiles 0-45, 63-92, 100-113, 115: block textures (indexed by TILE_MAP in block-texture-map.config.ts)
+ * Tiles 46-62, 93-99, 114: item textures (indexed by ITEM_TILE_MAP in item-texture-map.config.ts)
  */
 
 import { createCanvas } from '@napi-rs/canvas'
@@ -1562,8 +1562,46 @@ saveTile(113, 'glowstone', (ctx) => {
   ctx.fillRect(TILE_PX - 2, 0, 2, TILE_PX)
 })
 
+// 114: potato
+saveTile(114, 'potato', (ctx) => {
+  ctx.clearRect(0, 0, TILE_PX, TILE_PX)
+  ctx.fillStyle = '#8a5a2c'
+  ctx.beginPath()
+  ctx.ellipse(16, 17, 11, 8, -0.25, 0, Math.PI * 2)
+  ctx.fill()
+  ctx.fillStyle = '#b77a38'
+  ctx.beginPath()
+  ctx.ellipse(13, 14, 3, 2, -0.4, 0, Math.PI * 2)
+  ctx.fill()
+  ctx.fillStyle = '#5f3b1c'
+  for (const [x, y] of [[10, 18], [17, 12], [21, 19], [14, 22]]) {
+    ctx.fillRect(x, y, 2, 1)
+  }
+})
+
+// 115: potato crop
+saveTile(115, 'potato-crop', (ctx) => {
+  ctx.clearRect(0, 0, TILE_PX, TILE_PX)
+  ctx.fillStyle = '#2b7a36'
+  ctx.fillRect(8, 18, 4, 11)
+  ctx.fillRect(15, 13, 4, 16)
+  ctx.fillRect(22, 17, 4, 12)
+  ctx.fillStyle = '#4aa24c'
+  ctx.fillRect(6, 16, 7, 3)
+  ctx.fillRect(13, 11, 8, 3)
+  ctx.fillRect(20, 15, 8, 3)
+  ctx.fillStyle = '#6fb95e'
+  ctx.fillRect(9, 20, 4, 2)
+  ctx.fillRect(16, 15, 4, 2)
+  ctx.fillRect(23, 19, 4, 2)
+  ctx.fillStyle = '#6b4524'
+  ctx.fillRect(9, 27, 4, 2)
+  ctx.fillRect(16, 27, 4, 2)
+  ctx.fillRect(23, 27, 4, 2)
+})
+
 // Save combined atlas (single file loaded by chunk-mesh.ts at runtime).
 writeFileSync(join(OUTPUT_DIR, 'atlas.png'), atlasCanvas.toBuffer('image/png'))
-console.log(`  ✓ atlas.png (512×512, all 114 tiles combined)`)
+console.log(`  ✓ atlas.png (512×512, all 116 tiles combined)`)
 
-console.log(`\nDone — 114 individual tiles + atlas.png written to ${OUTPUT_DIR}`)
+console.log(`\nDone - 116 individual tiles + atlas.png written to ${OUTPUT_DIR}`)

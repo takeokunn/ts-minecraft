@@ -359,6 +359,8 @@ describe('handleBlockBreakProgress', () => {
     expect(addBlockSpy).not.toHaveBeenCalled()
   }))
 
+
+
   it.effect('lets shears harvest tall grass itself without seed drops', () => Effect.gen(function* () {
     const refs = yield* makeRefs()
     const { services, breakSpy, addBlockSpy, spawnDroppedItemSpy } = makeServices({

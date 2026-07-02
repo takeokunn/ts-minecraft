@@ -61,6 +61,7 @@ const NON_SPAWN_SURFACE_BLOCK_IDS: ReadonlySet<BlockTypeIndex> = new Set([
   blockTypeToIndex('END_GATEWAY'),
   // Crops & decor
   blockTypeToIndex('WHEAT_CROP'),
+  blockTypeToIndex('POTATO_CROP'),
   // End dimension blocks that are non-solid
   blockTypeToIndex('END_ROD'),
   blockTypeToIndex('CHORUS_FLOWER'),

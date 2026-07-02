@@ -338,6 +338,9 @@ export class InventoryRendererService extends Effect.Service<InventoryRendererSe
 
       const sortInventory = (): Effect.Effect<void, never> =>
         Effect.gen(function* () {
+          const isVisible = yield* Ref.get(isVisibleRef)
+          if (!isVisible) return
+
           const cursor = yield* Ref.get(inventoryCursorRef)
           if (Option.isSome(cursor)) {
             yield* Ref.set(statusMessageRef, 'Place held item before sorting inventory.')

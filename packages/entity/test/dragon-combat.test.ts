@@ -8,7 +8,6 @@ import {
 } from '@ts-minecraft/entity/domain/mob/ender-dragon/dragon-combat'
 import type { DragonPhase } from '@ts-minecraft/entity/domain/mob/ender-dragon/dragon-phase'
 
-const PHASES: DragonPhase[] = ['Circling', 'Strafing', 'Landing', 'Perched', 'Takeoff', 'DeathSequence']
 
 // ─── dragonDamageMultiplier ───────────────────────────────────────────────────
 describe('dragonDamageMultiplier', () => {

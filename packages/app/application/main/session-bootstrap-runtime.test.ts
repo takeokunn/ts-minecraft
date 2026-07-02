@@ -57,7 +57,6 @@ describe('session-bootstrap-runtime', () => {
         debugFeatureFlags: makeService('debug-flags'),
         debugOverlay: makeService('debug-overlay-service'),
         connectionPanel: makeService('connection-panel-service'),
-        chatPanel: makeService('chat-panel-service'),
         settingsOverlay: makeService('settings-overlay'),
         pauseMenu: makeService('pause-menu'),
         inventoryRenderer: makeService('inventory-renderer'),

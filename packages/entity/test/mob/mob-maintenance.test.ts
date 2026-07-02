@@ -2,6 +2,7 @@ import { describe, expect, it } from '@effect/vitest'
 import { Effect, Option } from 'effect'
 import { runMobMaintenance } from '@ts-minecraft/entity/application/mob/mob-maintenance';
 import { EntityId } from '@ts-minecraft/entity/domain/mob/entity';
+import { DESPAWN_DISTANCE } from '@ts-minecraft/entity/domain/mob/spawner-config';
 import { expectSome, makeTerrainChunk } from './test-utils'
 
 type MobMaintenanceServices = Parameters<typeof runMobMaintenance>[0]
@@ -89,7 +90,7 @@ describe('entity/mob-maintenance', () => {
         },
       )
 
-      expect(despawnFarArgs).toEqual([9, 64])
+      expect(despawnFarArgs).toEqual([9, DESPAWN_DISTANCE])
       expect(despawnAllCalls).toBe(0)
       expect(result.despawnedCount).toBe(4)
       expect(Option.isNone(result.spawnResult)).toBe(true)

@@ -15,6 +15,7 @@ import type { InventoryItem } from '@ts-minecraft/core'
 //   93: ROTTEN_FLESH 94: APPLE       95: BREAD/PAPER/MAP
 //   96: CARROT/POTATO 97: COOKED_PORKCHOP 98: GOLDEN_APPLE 99: WHEAT
 //   100: REDSTONE_WIRE 101-113: COBWEB, plants, cactus, lily pad, ice, glowstone
+//   114: POTATO     115: POTATO_CROP
 export const ITEM_TILE_MAP: Readonly<Record<InventoryItem, number>> = {
   // BlockTypes
   AIR: -1,
@@ -65,7 +66,7 @@ export const ITEM_TILE_MAP: Readonly<Record<InventoryItem, number>> = {
   NETHER_PORTAL: 86,
   FARMLAND: 0,
   WHEAT_CROP: 85,
-  POTATO_CROP: 85,
+  POTATO_CROP: 115,
   DOOR: 41,
   DOOR_OPEN: 41,
   GLOWSTONE: 113,
@@ -119,7 +120,7 @@ export const ITEM_TILE_MAP: Readonly<Record<InventoryItem, number>> = {
   BOOK: 49,
   PAPER: 95,
   CARROT: 96,
-  POTATO: 96,
+  POTATO: 114,
   RAW_PORKCHOP: 93,
   COOKED_PORKCHOP: 97,
   RAW_MUTTON: 93,
