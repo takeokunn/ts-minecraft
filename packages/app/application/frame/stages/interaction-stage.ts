@@ -22,7 +22,7 @@ export const interactionStage = (
     | 'soundManager'
     | 'entityManager'
     | 'inventoryService'
-    | 'inventoryRenderer'
+    | 'inventoryRenderer' | 'sleepOverlay'
     | 'chestService'
     | 'equipmentService'
     | 'xpService'

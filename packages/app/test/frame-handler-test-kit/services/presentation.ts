@@ -1,6 +1,6 @@
 import { makeBlockHighlight } from '../presentation/highlight'
 import { makeDebugFeatureFlags } from '../presentation/debug'
-import { makeCrosshair, makeDamageOverlay, makeFPSCounter, makeHotbarRenderer } from '../presentation/hud'
+import { makeCrosshair, makeDamageOverlay, makeFPSCounter, makeHotbarRenderer, makeSleepOverlay } from '../presentation/hud'
 import { makeInputService } from '../presentation/input'
 import { makeChatPanel, makeInventoryRenderer, makePauseMenu, makePlayerListPanel, makeSettingsOverlay, makeTradingPresentation } from '../presentation/overlay'
 
@@ -14,6 +14,7 @@ export const makePresentationServices = (opts: {
   blockHighlight: makeBlockHighlight(),
   crosshair: makeCrosshair(),
   damageOverlay: makeDamageOverlay(),
+  sleepOverlay: makeSleepOverlay(),
   inputService: opts.inputService,
   hotbarRenderer: makeHotbarRenderer(),
   debugFeatureFlags: makeDebugFeatureFlags(),

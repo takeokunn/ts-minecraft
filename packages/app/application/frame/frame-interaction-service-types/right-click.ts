@@ -9,7 +9,7 @@ import type { FrameWorldServices } from '../frame-service-types/world'
 export type FrameRightClickInteractionServices = Pick<FrameInteractionServices, 'blockService' | 'redstoneService'> &
   Pick<FrameWorldServices, 'chunkManagerService' | 'timeService' | 'netherService'> &
   Pick<FrameInventoryServices, 'hotbarService' | 'inventoryService' | 'equipmentService' | 'chestService' | 'furnaceService'> &
-  Pick<FramePresentationServices, 'inventoryRenderer'> &
+  Pick<FramePresentationServices, 'inventoryRenderer' | 'sleepOverlay'> &
   Pick<FrameLivingServices, 'healthService' | 'hungerService' | 'xpService'> &
   Pick<FrameGameplayServices, 'gameState' | 'gameMode' | 'multiplayer'> &
   Pick<FrameAudioServices, 'soundManager'>

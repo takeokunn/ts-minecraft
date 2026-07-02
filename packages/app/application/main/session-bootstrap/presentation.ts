@@ -6,6 +6,7 @@ import { DebugOverlayService } from '@ts-minecraft/presentation'
 import { LoadingScreenService } from '@ts-minecraft/presentation'
 import { BlockHighlightService } from '@ts-minecraft/presentation'
 import { DamageOverlayService } from '@ts-minecraft/presentation'
+import { SleepOverlayService } from '@ts-minecraft/presentation'
 import { InputService } from '@ts-minecraft/presentation'
 import { HotbarRendererService } from '@ts-minecraft/presentation'
 import { FPSCounterService } from '@ts-minecraft/presentation'
@@ -21,6 +22,7 @@ export const buildPresentationBootstrapServices = Effect.gen(function* () {
   const [
     crosshair,
     damageOverlay,
+    sleepOverlay,
     controlsHint,
     blockHighlight,
     inputService,
@@ -37,6 +39,7 @@ export const buildPresentationBootstrapServices = Effect.gen(function* () {
   ] = yield* Effect.all([
     CrosshairService,
     DamageOverlayService,
+    SleepOverlayService,
     ControlsHintService,
     BlockHighlightService,
     InputService,
@@ -55,6 +58,7 @@ export const buildPresentationBootstrapServices = Effect.gen(function* () {
   return {
     crosshair,
     damageOverlay,
+    sleepOverlay,
     controlsHint,
     blockHighlight,
     inputService,

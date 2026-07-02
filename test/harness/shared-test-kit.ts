@@ -14,7 +14,7 @@ import { makeEquipmentService, makeHotbarService, makeInventoryService } from '.
 import { makeCameraState, makeFirstPersonCamera, makeFishingService, makeHealthService, makeHungerService, makeThirdPersonCamera, makeXPService } from './player-test-kit'
 import { makeChunkMeshService, makeEntityRenderer, makeParticleSystem, makePerfHud, makeWorldRendererService } from './rendering-test-kit'
 import { makeDroppedItemService, makeDroppedXpOrbService } from '../../packages/app/test/frame-handler-test-kit/entity'
-import { makeCrosshair, makeDamageOverlay } from '../../packages/app/test/frame-handler-test-kit/presentation/hud'
+import { makeCrosshair, makeDamageOverlay, makeSleepOverlay } from '../../packages/app/test/frame-handler-test-kit/presentation/hud'
 import { makeBiomeService, makeDroppedItemRenderer, makeDroppedXpOrbRenderer, makeRemotePlayerRenderer } from '../../packages/app/test/frame-handler-test-kit/world'
 import { makeBlockService, makeChunkManagerService, makeCropGrowthService, makeFluidService, makeNetherService, makeWeatherService } from './terrain-test-kit'
 
@@ -155,6 +155,7 @@ export const makeServices = (opts: {
     debugFeatureFlags: makeDebugFeatureFlags(),
     crosshair: makeCrosshair(),
     damageOverlay: makeDamageOverlay(),
+    sleepOverlay: makeSleepOverlay(),
     settingsOverlay,
     pauseMenu: makePauseMenu(),
     inventoryRenderer,

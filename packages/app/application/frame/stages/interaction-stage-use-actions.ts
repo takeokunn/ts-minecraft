@@ -23,7 +23,7 @@ export const runInteractionStageUseActions = (
     | 'timeService'
     | 'netherService'
     | 'inventoryService'
-    | 'inventoryRenderer'
+    | 'inventoryRenderer' | 'sleepOverlay'
     | 'xpService'
     | 'multiplayer'
     | 'entityManager'

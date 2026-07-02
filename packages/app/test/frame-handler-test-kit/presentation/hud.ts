@@ -1,5 +1,5 @@
 import { Effect } from 'effect'
-import { CrosshairService, DamageOverlayService, FPSCounterService } from '@ts-minecraft/presentation'
+import { CrosshairService, DamageOverlayService, SleepOverlayService, FPSCounterService } from '@ts-minecraft/presentation'
 import { HotbarRendererService } from '@ts-minecraft/presentation/hud'
 
 /** Creates a hotbar renderer fake with no-op update and render methods. */
@@ -37,5 +37,15 @@ export const makeDamageOverlay = () =>
     _tag: '@minecraft/presentation/DamageOverlay' as const,
     element: {} as HTMLElement,
     flash: () => Effect.void,
+    hide: () => Effect.void,
+  })
+
+/** Creates a sleep overlay fake with no-op fade/message behavior. */
+export const makeSleepOverlay = () =>
+  SleepOverlayService.of({
+    _tag: '@minecraft/presentation/SleepOverlay' as const,
+    element: {} as HTMLElement,
+    playSleepFade: () => Effect.void,
+    showMessage: (_text: string) => Effect.void,
     hide: () => Effect.void,
   })

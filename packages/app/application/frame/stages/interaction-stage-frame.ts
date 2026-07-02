@@ -25,7 +25,7 @@ export const runInteractionStageFrame = (
     | 'soundManager'
     | 'entityManager'
     | 'inventoryService'
-    | 'inventoryRenderer'
+    | 'inventoryRenderer' | 'sleepOverlay'
     | 'chestService'
     | 'equipmentService'
     | 'xpService'

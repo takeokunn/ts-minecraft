@@ -29,7 +29,7 @@ export const handleRightClickPriorityFromContext = (
     | 'timeService'
     | 'netherService'
     | 'inventoryService'
-    | 'inventoryRenderer'
+    | 'inventoryRenderer' | 'sleepOverlay'
     | 'xpService'
     | 'multiplayer'
     | 'entityManager'

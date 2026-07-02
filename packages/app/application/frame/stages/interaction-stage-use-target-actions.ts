@@ -18,7 +18,7 @@ export const runInteractionStageUseTargetActions = (
     | 'timeService'
     | 'netherService'
     | 'inventoryService'
-    | 'inventoryRenderer'
+    | 'inventoryRenderer' | 'sleepOverlay'
     | 'xpService'
     | 'multiplayer'
     | 'entityManager'

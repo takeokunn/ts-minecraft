@@ -39,7 +39,15 @@ export const handleBed = (
       return true
     }
     const isNight = yield* services.timeService.isNight()
-    if (!isNight) return false
+    if (!isNight) {
+      // Vanilla refusal message; handled=true so the click doesn't fall
+      // through to block placement against the bed.
+      yield* services.sleepOverlay.showMessage('You can only sleep at night')
+      return true
+    }
+    // Fade to black while the clock jumps — the dawn skip happens under the
+    // overlay instead of the sky visibly snapping.
+    yield* services.sleepOverlay.playSleepFade()
     yield* services.timeService.setTimeOfDay(0.25)            // skip to dawn
     MutableRef.set(respawnPositionRef, { x: bedPos.x, y: bedPos.y + 1, z: bedPos.z })
     yield* services.soundManager.playEffect('blockPlace', { position: bedPos })

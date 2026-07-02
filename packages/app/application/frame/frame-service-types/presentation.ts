@@ -3,6 +3,7 @@ import type {
   ChatPanelService,
   CrosshairService,
   DamageOverlayService,
+  SleepOverlayService,
   InventoryRendererService,
   PauseMenuService,
   PlayerListPanelService,
@@ -13,6 +14,7 @@ export type FramePresentationServices = {
   readonly blockHighlight: BlockHighlightService
   readonly crosshair: CrosshairService
   readonly damageOverlay: DamageOverlayService
+  readonly sleepOverlay: SleepOverlayService
   readonly settingsOverlay: SettingsOverlayService
   readonly pauseMenu: PauseMenuService
   readonly inventoryRenderer: InventoryRendererService

@@ -22,7 +22,7 @@ export const runInteractionStageActions = (
     | 'hotbarService'
     | 'inputService'
     | 'inventoryService'
-    | 'inventoryRenderer'
+    | 'inventoryRenderer' | 'sleepOverlay'
     | 'soundManager'
     | 'cropGrowthService'
     | 'fluidService'

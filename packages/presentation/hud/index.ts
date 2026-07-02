@@ -8,6 +8,14 @@ export {
   makeDamageOverlay,
   type DamageOverlay,
 } from './damage-overlay'
+export {
+  SLEEP_FADE_MS,
+  SLEEP_HOLD_MS,
+  SLEEP_MESSAGE_MS,
+  SleepOverlayService,
+  makeSleepOverlay,
+  type SleepOverlay,
+} from './sleep-overlay'
 export { ControlsHintService } from './controls-hint'
 export { HotbarRendererService } from './hotbar-three'
 export {

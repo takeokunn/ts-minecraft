@@ -673,6 +673,10 @@ const makeRightClickServices = (
       getTotalBlastProtectionReduction: vi.fn(() => Effect.succeed(0)),
     },
     multiplayer: opts.multiplayer ?? Option.none(),
+    sleepOverlay: {
+      playSleepFade: vi.fn(() => Effect.void),
+      showMessage: vi.fn(() => Effect.void),
+    },
   } as FrameRightClickInteractionServices
 
   return {
@@ -1196,6 +1200,10 @@ const makeBedServices = (opts: {
     getTotalBlastProtectionReduction: vi.fn(() => Effect.succeed(opts.blastProtectionReduction ?? 0)),
   },
   soundManager: { playEffect: vi.fn(() => Effect.void) },
+  sleepOverlay: {
+    playSleepFade: vi.fn(() => Effect.void),
+    showMessage: vi.fn(() => Effect.void),
+  },
 })
 
 describe('interaction-placement-handler / handleBed', () => {
@@ -1209,16 +1217,20 @@ describe('interaction-placement-handler / handleBed', () => {
       expect(result).toBe(true)
       expect((services.timeService.setTimeOfDay as ReturnType<typeof vi.fn>)).toHaveBeenCalledWith(0.25)
       expect(MutableRef.get(respawnRef).y).toBe(bedPos.y + 1)
+      expect(services.sleepOverlay.playSleepFade).toHaveBeenCalledOnce()
     }),
   )
 
-  it.effect('returns false and does nothing during daytime', () =>
+  it.effect('shows the refusal message (and keeps the clock) during daytime', () =>
     Effect.gen(function* () {
       const respawnRef = MutableRef.make({ x: 0, y: 64, z: 0 })
       const services = makeBedServices({ isNight: false, dimension: 'overworld' })
       const result = yield* handleBed(services, respawnRef, bedPos)
-      expect(result).toBe(false)
+      // Handled: the click gives feedback instead of falling through to placement.
+      expect(result).toBe(true)
       expect((services.timeService.setTimeOfDay as ReturnType<typeof vi.fn>)).not.toHaveBeenCalled()
+      expect(services.sleepOverlay.showMessage).toHaveBeenCalledWith('You can only sleep at night')
+      expect(services.sleepOverlay.playSleepFade).not.toHaveBeenCalled()
     }),
   )
 

@@ -6,6 +6,7 @@ type SessionRuntimeInteractionServices = Pick<
   | 'blockHighlight'
   | 'crosshair'
   | 'damageOverlay'
+  | 'sleepOverlay'
   | 'inputService'
   | 'blockService'
   | 'hotbarService'
@@ -23,6 +24,7 @@ export const buildSessionRuntimeInteractionServices = ({
   blockHighlight: services.blockHighlight,
   crosshair: services.crosshair,
   damageOverlay: services.damageOverlay,
+  sleepOverlay: services.sleepOverlay,
   inputService: services.inputService,
   blockService: services.blockService,
   hotbarService: services.hotbarService,

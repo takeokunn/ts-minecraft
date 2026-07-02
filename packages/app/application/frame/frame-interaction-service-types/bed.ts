@@ -1,4 +1,5 @@
 import type { FrameAudioServices } from '../frame-service-types/audio'
+import type { FramePresentationServices } from '../frame-service-types/presentation'
 import type { FrameGameplayServices } from '../frame-service-types/gameplay'
 import type { FrameInteractionServices } from '../frame-service-types/interaction'
 import type { FrameInventoryServices } from '../frame-service-types/inventory'
@@ -10,4 +11,5 @@ export type FrameBedInteractionServices = Pick<FrameInteractionServices, 'blockS
   Pick<FrameGameplayServices, 'gameState' | 'gameMode'> &
   Pick<FrameLivingServices, 'healthService' | 'hungerService'> &
   Pick<FrameInventoryServices, 'equipmentService'> &
+  Pick<FramePresentationServices, 'sleepOverlay'> &
   Pick<FrameAudioServices, 'soundManager'>
