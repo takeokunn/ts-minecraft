@@ -26,6 +26,12 @@ const POTION_TABLE: Readonly<Record<string, PotionUse>> = {
     effect: Option.none(),
     instantHeal: 4,
   },
+  // Awkward potion: the nether-wart base brew — drinkable but does nothing,
+  // exactly like vanilla. Real potions are brewed FROM it.
+  POTION_AWKWARD: {
+    effect: Option.none(),
+    instantHeal: 0,
+  },
 }
 
 export const getPotionUse = (item: string): Option.Option<PotionUse> =>

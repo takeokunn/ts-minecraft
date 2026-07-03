@@ -51,6 +51,8 @@ export const INDEX_TO_BLOCK_TYPE: ReadonlyArray<BlockType> = [
   'NETHER_BRICK',
   // End portal frame with an eye of ender inserted - index 103
   'END_PORTAL_FRAME_FILLED',
+  // Nether farming (brewing chain) - indices 104-105
+  'SOUL_SAND', 'NETHER_WART_CROP',
 ]
 
 export const BLOCK_COUNT = INDEX_TO_BLOCK_TYPE.length

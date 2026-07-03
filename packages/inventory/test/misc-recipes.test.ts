@@ -477,3 +477,23 @@ describe('application/recipes/misc-recipes', () => {
     })
   })
 })
+
+describe('nether-wart brewing chain', () => {
+  it('bottle + nether wart brews the Awkward base at the brewing stand', () => {
+    const recipe = findById('bottle-and-nether-wart-to-awkward')
+    expect(recipe).toBeDefined()
+    expect(recipe!.station).toBe('brewing_stand')
+    expect(recipe!.output.itemType).toBe('POTION_AWKWARD')
+    expect(recipe!.ingredients.map((i) => i.itemType).sort()).toEqual(['GLASS_BOTTLE', 'NETHER_WART'])
+  })
+
+  it('Swiftness and Healing are brewed FROM the Awkward potion, not raw bottles', () => {
+    const swiftness = findById('awkward-and-redstone-to-swiftness')
+    const healing = findById('awkward-and-glowstone-to-healing')
+    expect(swiftness!.ingredients.map((i) => i.itemType)).toContain('POTION_AWKWARD')
+    expect(healing!.ingredients.map((i) => i.itemType)).toContain('POTION_AWKWARD')
+    // The old single-step bottle recipes are gone.
+    expect(findById('bottle-and-redstone-to-swiftness')).toBeUndefined()
+    expect(findById('bottle-and-glowstone-to-healing')).toBeUndefined()
+  })
+})

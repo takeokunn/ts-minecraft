@@ -147,10 +147,47 @@ export const generateNetherTerrain = (
       }
     }
 
+    // --- Soul sand valleys: clumped patches on cavern floors. An 8×8-cell
+    // hash picks valley regions (~22% of cells) and every exposed netherrack
+    // floor inside one becomes SOUL_SAND — the farmable soil for nether wart.
+    const soulSandIndex = blockTypeToIndex('SOUL_SAND')
+    for (let lx = 0; lx < CHUNK_SIZE; lx++) {
+      const wx = baseWorldX + lx
+      for (let lz = 0; lz < CHUNK_SIZE; lz++) {
+        const wz = baseWorldZ + lz
+        if (hash3(wx >> 3, 91, wz >> 3) >= 0.22) continue
+        for (let y = NETHER_LAVA_LEVEL + 1; y <= CARVE_CEILING; y++) {
+          const blockIdx = chunkBlockIndexUnchecked(lx, y, lz)
+          if (blocks[blockIdx] !== netherrackIndex) continue
+          if (blocks[chunkBlockIndexUnchecked(lx, y + 1, lz)] !== 0) continue
+          blocks[blockIdx] = soulSandIndex
+        }
+      }
+    }
+
     // --- Nether fortress pass: write this chunk's slice of any fortress whose
     // footprint intersects it (pure world-coordinate function — see
     // nether-fortress.ts). Runs last so corridors carve through terrain.
     writeFortressBlocksForChunk(blocks, coord.x, coord.z)
+
+    // --- Fortress wart gardens: sparse soul-sand pockets with a planted wart
+    // on corridor floors (vanilla fortresses are the only nether wart source).
+    const netherWartIndex = blockTypeToIndex('NETHER_WART_CROP')
+    const netherBrickIndex = blockTypeToIndex('NETHER_BRICK')
+    for (let lx = 0; lx < CHUNK_SIZE; lx++) {
+      const wx = baseWorldX + lx
+      for (let lz = 0; lz < CHUNK_SIZE; lz++) {
+        const wz = baseWorldZ + lz
+        for (let y = 40; y <= 60; y++) {
+          if (blocks[chunkBlockIndexUnchecked(lx, y, lz)] !== netherBrickIndex) continue
+          if (blocks[chunkBlockIndexUnchecked(lx, y + 1, lz)] !== 0) continue
+          if (blocks[chunkBlockIndexUnchecked(lx, y + 2, lz)] !== 0) continue
+          if (hash3(wx, y * 3 + 7, wz) >= 0.05) continue
+          blocks[chunkBlockIndexUnchecked(lx, y, lz)] = soulSandIndex
+          blocks[chunkBlockIndexUnchecked(lx, y + 1, lz)] = netherWartIndex
+        }
+      }
+    }
 
     return { ...chunk, blocks }
   })

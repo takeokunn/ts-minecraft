@@ -17,7 +17,7 @@ const WATERSIDE_PLANT_BLOCK_TYPES = new Set<BlockType>([
   'LILY_PAD',
 ])
 
-const CROP_BLOCK_TYPES = new Set<BlockType>(['WHEAT_CROP', 'POTATO_CROP'])
+const CROP_BLOCK_TYPES = new Set<BlockType>(['WHEAT_CROP', 'POTATO_CROP', 'NETHER_WART_CROP'])
 
 const SUPPORT_SENSITIVE_BLOCK_TYPES = new Set<BlockType>([
   'TORCH',

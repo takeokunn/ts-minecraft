@@ -141,5 +141,10 @@ export const ItemTypeSchema = Schema.Literal(
   'BLAZE_ROD',
   // Ground blaze rod — combined with an ender pearl to craft an ENDER_EYE
   'BLAZE_POWDER',
+  // Nether-wart brewing chain: fortress crop grown on soul sand; the base
+  // ingredient that turns a bottle into the Awkward potion.
+  'NETHER_WART',
+  // Awkward potion — no effect on drink; the base every real brew starts from.
+  'POTION_AWKWARD',
 )
 export type ItemType = Schema.Schema.Type<typeof ItemTypeSchema>

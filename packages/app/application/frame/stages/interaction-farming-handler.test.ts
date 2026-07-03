@@ -248,6 +248,39 @@ describe('handleFarmingInteraction', () => {
     }),
   )
 
+  it.effect('plants NETHER_WART_CROP on SOUL_SAND with NETHER_WART and removes one wart', () =>
+    Effect.gen(function* () {
+      const refs = makeRefs()
+      const chunk = makeEmptyChunk(0, 0)
+      setChunkBlock(chunk, 2, 64, 3, 'SOUL_SAND')
+      const selectedSlot = 4
+      const services = makeServices({
+        selectedItem: 'NETHER_WART',
+        selectedSlot,
+        getChunkFn: (_c) => Effect.succeed(chunk),
+      })
+      const result = yield* handleFarmingInteraction(services, refs, { targetHit: Option.some(makeHit(2, 64, 3)) })
+      expect(result).toBe(true)
+      expect(services._removeBlockSpy).toHaveBeenCalledWith('NETHER_WART', 1, SlotIndex.make(HOTBAR_START + selectedSlot))
+      expect(services._forceSetBlockSpy).toHaveBeenCalledWith({ x: 2, y: 65, z: 3 }, 'NETHER_WART_CROP')
+    }),
+  )
+
+  it.effect('refuses NETHER_WART on FARMLAND — soul sand is the only valid soil', () =>
+    Effect.gen(function* () {
+      const refs = makeRefs()
+      const chunk = makeEmptyChunk(0, 0)
+      setChunkBlock(chunk, 2, 64, 3, 'FARMLAND')
+      const services = makeServices({
+        selectedItem: 'NETHER_WART',
+        getChunkFn: (_c) => Effect.succeed(chunk),
+      })
+      const result = yield* handleFarmingInteraction(services, refs, { targetHit: Option.some(makeHit(2, 64, 3)) })
+      expect(result).toBe(false)
+      expect(services._removeBlockSpy).not.toHaveBeenCalled()
+    }),
+  )
+
   it.effect('returns false when WHEAT_SEEDS targets non-FARMLAND block', () =>
     Effect.gen(function* () {
       const refs = makeRefs()

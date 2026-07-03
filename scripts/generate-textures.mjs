@@ -1782,8 +1782,58 @@ saveTile(125, 'end-portal-frame-filled', (ctx) => {
   ctx.fillRect(15, 14, 2, 4)
 })
 
+// 126: soul sand — dark umber sand with trapped-soul swirls
+saveTile(126, 'soul-sand', (ctx) => {
+  ctx.fillStyle = '#4d3a2a'
+  ctx.fillRect(0, 0, TILE_PX, TILE_PX)
+  drawNoise(ctx, ['#5b4633', '#41301f', '#54402d'], 0.35)
+  // faint "face" swirls (dark eye-pits like vanilla)
+  ctx.fillStyle = '#2e2015'
+  ctx.fillRect(6, 8, 3, 3)
+  ctx.fillRect(12, 9, 3, 3)
+  ctx.fillRect(9, 13, 5, 2)
+  ctx.fillRect(20, 20, 3, 3)
+  ctx.fillRect(25, 21, 3, 3)
+  ctx.fillRect(22, 25, 5, 2)
+})
+
+// 127: nether wart crop — crimson bulbous sprouts on transparent ground
+saveTile(127, 'nether-wart-crop', (ctx) => {
+  ctx.clearRect(0, 0, TILE_PX, TILE_PX)
+  const drawSprout = (bx, by) => {
+    ctx.fillStyle = '#8a1e1e'
+    ctx.fillRect(bx, by + 4, 6, 6)
+    ctx.fillStyle = '#b32d2d'
+    ctx.fillRect(bx + 1, by + 2, 4, 4)
+    ctx.fillStyle = '#d94f3f'
+    ctx.fillRect(bx + 2, by, 2, 3)
+  }
+  drawSprout(4, 18)
+  drawSprout(13, 14)
+  drawSprout(22, 20)
+  drawSprout(8, 6)
+  drawSprout(20, 5)
+})
+
+// 128: nether wart item — single crimson wart
+saveTile(128, 'item-nether-wart', (ctx) => {
+  ctx.clearRect(0, 0, TILE_PX, TILE_PX)
+  ctx.fillStyle = '#8a1e1e'
+  ctx.fillRect(10, 12, 12, 12)
+  ctx.fillStyle = '#b32d2d'
+  ctx.fillRect(12, 10, 8, 10)
+  ctx.fillStyle = '#d94f3f'
+  ctx.fillRect(14, 7, 4, 5)
+  ctx.fillStyle = '#6b1414'
+  ctx.fillRect(12, 20, 3, 3)
+  ctx.fillRect(18, 18, 3, 3)
+})
+
+// 129: awkward potion (murky blue-gray base brew)
+saveTile(129, 'potion-awkward', (ctx) => drawBottle(ctx, '#7686a5'))
+
 // Save combined atlas (single file loaded by chunk-mesh.ts at runtime).
 writeFileSync(join(OUTPUT_DIR, 'atlas.png'), atlasCanvas.toBuffer('image/png'))
-console.log(`  ✓ atlas.png (512×512, all 126 tiles combined)`)
+console.log(`  ✓ atlas.png (512×512, all 130 tiles combined)`)
 
 console.log(`\nDone - 123 individual tiles + atlas.png written to ${OUTPUT_DIR}`)

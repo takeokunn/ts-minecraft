@@ -24,4 +24,12 @@ export const CROP_DROP_RULES: ReadonlyMap<BlockType, CropDropRule> = new Map<Blo
       ripeDrops: (randomValue) => [['POTATO', Math.floor(randomValue * 4) + 2]],
     },
   ],
+  [
+    'NETHER_WART_CROP',
+    {
+      unripeDrops: [['NETHER_WART', 1]],
+      // Vanilla mature nether wart: 2-4 warts.
+      ripeDrops: (randomValue) => [['NETHER_WART', Math.floor(randomValue * 3) + 2]],
+    },
+  ],
 ])

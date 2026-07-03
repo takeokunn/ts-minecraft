@@ -46,4 +46,20 @@ describe('CROP_DROP_RULES', () => {
       expect(drops).toEqual([['POTATO', 5]])
     })
   })
+
+  describe('NETHER_WART_CROP', () => {
+    const rule = CROP_DROP_RULES.get('NETHER_WART_CROP')!
+
+    it('drops one wart when unripe', () => {
+      expect(rule.unripeDrops).toEqual([['NETHER_WART', 1]])
+    })
+
+    it('drops 2 warts when ripe (randomValue=0)', () => {
+      expect(rule.ripeDrops(0)).toEqual([['NETHER_WART', 2]])
+    })
+
+    it('drops up to 4 warts when ripe (randomValue=0.99), matching vanilla 2-4', () => {
+      expect(rule.ripeDrops(0.99)).toEqual([['NETHER_WART', 4]])
+    })
+  })
 })

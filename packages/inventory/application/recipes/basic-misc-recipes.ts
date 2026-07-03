@@ -153,22 +153,33 @@ export const BASIC_MISC_RECIPES: ReadonlyArray<Recipe> = [
     ingredients: [new RecipeIngredient({ itemType: 'GLASS', count: 3 })],
     output: { itemType: 'GLASS_BOTTLE', count: 3 },
   }),
-  // Recipe-book brews until the brewing stand ships: redstone (duration
-  // ingredient) -> Swiftness, glowstone dust (potency ingredient) -> Healing.
+  // Vanilla brewing chain: nether wart turns a bottle into the AWKWARD base,
+  // then a flavor ingredient turns Awkward into the real potion (redstone as
+  // the duration stand-in for Swiftness, glowstone dust as the potency
+  // stand-in for Healing — same ingredients as before, one wart step deeper).
   new Recipe({
-    id: RecipeId.make('bottle-and-redstone-to-swiftness'),
+    id: RecipeId.make('bottle-and-nether-wart-to-awkward'),
     station: 'brewing_stand',
     ingredients: [
       new RecipeIngredient({ itemType: 'GLASS_BOTTLE', count: 1 }),
+      new RecipeIngredient({ itemType: 'NETHER_WART', count: 1 }),
+    ],
+    output: { itemType: 'POTION_AWKWARD', count: 1 },
+  }),
+  new Recipe({
+    id: RecipeId.make('awkward-and-redstone-to-swiftness'),
+    station: 'brewing_stand',
+    ingredients: [
+      new RecipeIngredient({ itemType: 'POTION_AWKWARD', count: 1 }),
       new RecipeIngredient({ itemType: 'REDSTONE_DUST', count: 1 }),
     ],
     output: { itemType: 'POTION_SWIFTNESS', count: 1 },
   }),
   new Recipe({
-    id: RecipeId.make('bottle-and-glowstone-to-healing'),
+    id: RecipeId.make('awkward-and-glowstone-to-healing'),
     station: 'brewing_stand',
     ingredients: [
-      new RecipeIngredient({ itemType: 'GLASS_BOTTLE', count: 1 }),
+      new RecipeIngredient({ itemType: 'POTION_AWKWARD', count: 1 }),
       new RecipeIngredient({ itemType: 'GLOWSTONE_DUST', count: 1 }),
     ],
     output: { itemType: 'POTION_HEALING', count: 1 },

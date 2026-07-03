@@ -12,6 +12,8 @@ export const NON_PLACEABLE_ITEM_TYPES: HashSet.HashSet<InventoryItem> = HashSet.
   'GLASS_BOTTLE',
   'POTION_SWIFTNESS',
   'POTION_HEALING',
+  'POTION_AWKWARD',
+  'NETHER_WART',
   'COAL',
   'WOODEN_SWORD',
   'STONE_SWORD',
@@ -167,6 +169,7 @@ export const INVENTORY_DROP_OVERRIDES: HashMap.HashMap<BlockType, InventoryItem>
   // after querying CropGrowthService.harvest(). Unknown/village crops default to ripe.
   ['WHEAT_CROP', 'WHEAT_SEEDS'],
   ['POTATO_CROP', 'POTATO'],
+  ['NETHER_WART_CROP', 'NETHER_WART'],
   // REDSTONE_WIRE (flat cable on ground) drops REDSTONE_DUST when broken.
   // REDSTONE_TORCH drops itself (you can place it again) — no override needed.
   ['REDSTONE_WIRE', 'REDSTONE_DUST'],

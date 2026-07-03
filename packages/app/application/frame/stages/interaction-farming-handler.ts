@@ -9,6 +9,7 @@ import { HOE_ITEM_TYPES, TILLABLE_BLOCK_TYPES } from '@ts-minecraft/world'
 import {
   SAPLING_TREE_TRUNK_HEIGHT,
   SAPLING_REPLACEABLE_BLOCK_TYPES,
+  CROP_SOIL_BLOCK_TYPES,
   PLANTABLE_CROP_ITEMS,
   BONE_MEAL_CROP_BLOCK_TYPES,
 } from './interaction-farming-handler.config'
@@ -226,7 +227,8 @@ export const handleFarmingInteraction = (
         .pipe(Effect.catchAll(() => Effect.succeed(null)))
       if (chunk === null) return false
       const blockType = Option.getOrNull(blockTypeAt(chunk.blocks, targetPos))
-      if (blockType === null || blockType !== 'FARMLAND') return false
+      const requiredSoil = CROP_SOIL_BLOCK_TYPES.get(cropBlockType) ?? 'FARMLAND'
+      if (blockType === null || blockType !== requiredSoil) return false
       const cropPos = { x: hit.blockX, y: hit.blockY + 1, z: hit.blockZ }
       return yield* plantCrop(services, refs, selectedSlot, item, cropBlockType, cropPos)
     }

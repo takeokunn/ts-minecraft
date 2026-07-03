@@ -46,6 +46,7 @@ export const NON_SUFFOCATING_BLOCKS = new Set<BlockType>([
   'NETHER_PORTAL',
   'FARMLAND',
   'WHEAT_CROP',
+  'NETHER_WART_CROP',
   'REDSTONE_WIRE',
   'REDSTONE_TORCH',
   'LEVER',

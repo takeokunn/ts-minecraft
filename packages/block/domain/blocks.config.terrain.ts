@@ -217,6 +217,22 @@ export const terrainBlocks: ReadonlyArray<Block> = [
     faces: defaultBlockFaces,
   }),
   new Block({
+    id: makeBlockId('block:soul_sand'),
+    type: 'SOUL_SAND',
+    properties: {
+      ...defaultBlockProperties,
+      hardness: 8,
+      friction: 0.5,
+    },
+    faces: defaultBlockFaces,
+  }),
+  new Block({
+    id: makeBlockId('block:nether_wart_crop'),
+    type: 'NETHER_WART_CROP',
+    properties: plantBlockProperties,
+    faces: defaultBlockFaces,
+  }),
+  new Block({
     id: makeBlockId('block:sapling'),
     type: 'SAPLING',
     properties: plantBlockProperties,
