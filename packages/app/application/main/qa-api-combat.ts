@@ -14,10 +14,13 @@ export const spawnLowHealthZombieInFront = (
 ) =>
   Effect.runPromise(Effect.gen(function* () {
     const direction = getNormalizedLookDirection(camera)
+    // 3 blocks: inside PLAYER_ATTACK_REACH (4.5) so REAL left-click melee can
+    // land — the old 6-block spawn was unreachable by the genuine input path
+    // and only the range-bypassing attackFirstZombie could ever hit it.
     const zombiePos = {
-      x: camera.position.x + direction.x * 6,
+      x: camera.position.x + direction.x * 3,
       y: camera.position.y,
-      z: camera.position.z + direction.z * 6,
+      z: camera.position.z + direction.z * 3,
     }
     MutableRef.set(stagedZombiePositionRef, zombiePos)
     const zombieId = yield* entityManager.addEntity(EntityType.Zombie, zombiePos)

@@ -60,7 +60,7 @@ const makeQaApi = (
   aimAtBuildSpot: () => aimAtBuildSpot(deps.camera, deps.scene, deps.playerCameraState, deps.blockHighlight),
   aimNaturalForQA: (target: { x: number; y: number; z: number }) =>
     aimNaturalForQA(deps.camera, deps.scene, deps.playerCameraState, deps.blockHighlight, target),
-  aimAtStagedZombie: () => aimAtStagedZombie(deps.camera, deps.scene, deps.playerCameraState, deps.blockHighlight, stagedZombiePositionRef),
+  aimAtStagedZombie: () => aimAtStagedZombie(deps.camera, deps.scene, deps.playerCameraState, deps.blockHighlight, stagedZombiePositionRef, deps.entityManager),
   clearBlocksInFront: () => clearBlocksInFront(deps.camera, deps.blockService, deps.blockHighlight),
   stageBuildSupportBlock: () =>
     stageBuildSupportBlock(deps.camera, deps.scene, deps.chunkManagerService, deps.worldRendererService, deps.blockHighlight),

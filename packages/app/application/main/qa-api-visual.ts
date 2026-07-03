@@ -2,6 +2,7 @@ import { Effect, MutableRef } from 'effect'
 import * as THREE from 'three'
 import type { Position } from '@ts-minecraft/core'
 import type { PlayerCameraStateService } from '@ts-minecraft/entity/application/camera-state'
+import type { EntityManager } from '@ts-minecraft/entity/application/mob/entity-manager'
 import type { BlockHighlightService } from '@ts-minecraft/presentation'
 import type { StagedResourceBlock } from '@ts-minecraft/app/main/qa-api-types/staged'
 import { projectBlockAhead } from '@ts-minecraft/app/main/qa-spatial'
@@ -110,12 +111,20 @@ export const aimAtStagedZombie = (
   playerCameraState: PlayerCameraStateService,
   blockHighlight: BlockHighlightService,
   stagedZombiePositionRef: MutableRef.MutableRef<Position | null>,
+  entityManager: EntityManager,
 ) =>
   Effect.runPromise(Effect.gen(function* () {
-    const stagedZombiePosition = MutableRef.get(stagedZombiePositionRef)
-    if (!stagedZombiePosition) return
+    // Aim at the zombie's LIVE position, not the staged spawn point: the mob
+    // falls/settles after spawning (it spawns at camera height), so a ray at
+    // the stale coordinate passes over its head and real left-click melee
+    // (attack cone = ray ± PLAYER_ATTACK_RADIUS) can never connect.
+    const entities = yield* entityManager.getEntities()
+    const liveZombie = entities.find((entity) => entity.type === 'Zombie') ?? null
+    const target = liveZombie?.position ?? MutableRef.get(stagedZombiePositionRef)
+    if (!target) return
     const setAimForQA = makeSetAimForQA(camera, scene, playerCameraState, blockHighlight)
-    yield* setAimForQA({ x: stagedZombiePosition.x, y: stagedZombiePosition.y + 0.9, z: stagedZombiePosition.z })
+    // +0.9 = ENTITY_CENTER_Y_OFFSET used by combat targeting.
+    yield* setAimForQA({ x: target.x, y: target.y + 0.9, z: target.z })
     yield* blockHighlight.clearTargetForQA()
   }))
 
