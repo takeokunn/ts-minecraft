@@ -17,6 +17,12 @@ import type { EntityPhysicsFrame } from './entity-manager-physics-reuse'
 // These are never retained — the resolver only reads them — and the shared entity-map
 // traversal used by the mob manager stays sequential, so a single shared pair is safe and
 // avoids two object literals per entity per physics tick.
+// Hover tuning (Ghast/Blaze): a firm lift while touching ground, then a slow
+// ±0.6-block/s bob that keeps them airborne without net climb.
+const HOVER_LIFT_VELOCITY_Y = 2.2
+const HOVER_BOB_RATE = 0.11
+const HOVER_BOB_AMPLITUDE_Y = 0.6
+
 const _candPos = { x: 0, y: 0, z: 0 }
 const _candVel = { x: 0, y: 0, z: 0 }
 
@@ -32,13 +38,22 @@ export const prepareEntityPhysicsFrame = (
   ctx: EntityPhysicsFrameContext,
 ): EntityPhysicsFrame => {
   const { tick, deltaTime, resolveCollision } = ctx
-  const isFlyingType = entity.type === EntityType.EnderDragon
+  // The dragon's flight AI owns its own vertical velocity; Ghasts and Blazes
+  // HOVER instead of walking (the long-deferred flight gap): lift off while
+  // grounded, then ride a deterministic tick-driven bob around their altitude.
+  const isDragon = entity.type === EntityType.EnderDragon
+  const isHoverType = entity.type === EntityType.Ghast || entity.type === EntityType.Blaze
+  const hoverY = entity.isGrounded
+    ? HOVER_LIFT_VELOCITY_Y
+    : Math.sin(tick * HOVER_BOB_RATE) * HOVER_BOB_AMPLITUDE_Y
 
   // Transient collision inputs — written into shared module scratch (not retained).
   _candVel.x = entity.velocity.x
-  _candVel.y = isFlyingType
+  _candVel.y = isDragon
     ? entity.velocity.y
-    : Math.max(entity.velocity.y + MOB_GRAVITY_Y * deltaTime, MOB_TERMINAL_VELOCITY_Y)
+    : isHoverType
+      ? hoverY
+      : Math.max(entity.velocity.y + MOB_GRAVITY_Y * deltaTime, MOB_TERMINAL_VELOCITY_Y)
   _candVel.z = entity.velocity.z
   _candPos.x = entity.position.x + _candVel.x * deltaTime
   _candPos.y = entity.position.y + _candVel.y * deltaTime

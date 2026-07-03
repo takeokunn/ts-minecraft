@@ -111,3 +111,68 @@ describe('entity/entityManagerPhysics', () => {
     expect(MutableRef.get(dirtyRef)).toBe(false)
   })
 })
+
+describe('hover flight (Ghast/Blaze)', () => {
+  const passThroughResolver = (
+    outPos: { x: number; y: number; z: number },
+    outVel: { x: number; y: number; z: number },
+    position: { x: number; y: number; z: number },
+    velocity: { x: number; y: number; z: number },
+  ) => {
+    outPos.x = position.x
+    outPos.y = position.y
+    outPos.z = position.z
+    outVel.x = velocity.x
+    outVel.y = velocity.y
+    outVel.z = velocity.z
+    return false
+  }
+
+  it('a grounded Ghast lifts off instead of walking', () => {
+    const entity = makeTestManagedEntity({
+      entityId: EntityId.make('ghast-hover-1'),
+      type: EntityType.Ghast,
+      position: { x: 0, y: 40, z: 0 },
+      velocity: { x: 0, y: 0, z: 0 },
+      isGrounded: true,
+    })
+    const frame = prepareEntityPhysicsFrame(entity, entity.entityId, {
+      tick: 5,
+      deltaTime: DeltaTimeSecs.make(0.05),
+      resolveCollision: passThroughResolver,
+    })
+    expect(frame.velocity.y).toBeGreaterThan(1)
+  })
+
+  it('an airborne Blaze bobs gently — no gravity pull, no runaway climb', () => {
+    const entity = makeTestManagedEntity({
+      entityId: EntityId.make('blaze-hover-1'),
+      type: EntityType.Blaze,
+      position: { x: 0, y: 48, z: 0 },
+      velocity: { x: 0, y: 0, z: 0 },
+      isGrounded: false,
+    })
+    const frame = prepareEntityPhysicsFrame(entity, entity.entityId, {
+      tick: 30,
+      deltaTime: DeltaTimeSecs.make(0.05),
+      resolveCollision: passThroughResolver,
+    })
+    expect(Math.abs(frame.velocity.y)).toBeLessThanOrEqual(0.6)
+  })
+
+  it('walking mobs still fall under gravity', () => {
+    const entity = makeTestManagedEntity({
+      entityId: EntityId.make('zombie-gravity-1'),
+      type: EntityType.Zombie,
+      position: { x: 0, y: 48, z: 0 },
+      velocity: { x: 0, y: 0, z: 0 },
+      isGrounded: false,
+    })
+    const frame = prepareEntityPhysicsFrame(entity, entity.entityId, {
+      tick: 30,
+      deltaTime: DeltaTimeSecs.make(0.05),
+      resolveCollision: passThroughResolver,
+    })
+    expect(frame.velocity.y).toBeLessThan(0)
+  })
+})
