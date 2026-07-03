@@ -896,6 +896,53 @@ describe('interaction-placement-handler / handleRightClick special blocks', () =
     }),
   )
 
+  it.effect('renames an undamaged item at the anvil for 1 XP level via prompt', () =>
+    Effect.gen(function* () {
+      const dirtyChunksRef = MutableRef.make(HashMap.empty<string, unknown>())
+      const respawnPositionRef = MutableRef.make({ x: 0, y: 64, z: 0 })
+      const { services, spies } = makeRightClickServices('ANVIL', {
+        xpLevel: 100,
+        slotStack: Option.some(createStack('IRON_SWORD')),
+      })
+      vi.stubGlobal('window', { prompt: vi.fn(() => 'Excalibur') })
+
+      yield* handleRightClick(
+        services,
+        { dirtyChunksRef },
+        { targetHit: Option.some(doorHit), respawnPositionRef },
+      )
+      vi.unstubAllGlobals()
+
+      const stored: ItemStack | null = Option.getOrNull(
+        spies.setSlot.mock.calls[0]?.[1] ?? Option.none<ItemStack>(),
+      )
+      expect(stored?.customName).toBe('Excalibur')
+      expect(spies.spendLevels).toHaveBeenCalledWith(1)
+    }),
+  )
+
+  it.effect('cancelling the anvil rename prompt is free and changes nothing', () =>
+    Effect.gen(function* () {
+      const dirtyChunksRef = MutableRef.make(HashMap.empty<string, unknown>())
+      const respawnPositionRef = MutableRef.make({ x: 0, y: 64, z: 0 })
+      const { services, spies } = makeRightClickServices('ANVIL', {
+        xpLevel: 100,
+        slotStack: Option.some(createStack('IRON_SWORD')),
+      })
+      vi.stubGlobal('window', { prompt: vi.fn(() => null) })
+
+      yield* handleRightClick(
+        services,
+        { dirtyChunksRef },
+        { targetHit: Option.some(doorHit), respawnPositionRef },
+      )
+      vi.unstubAllGlobals()
+
+      expect(spies.setSlot).not.toHaveBeenCalled()
+      expect(spies.spendLevels).not.toHaveBeenCalled()
+    }),
+  )
+
   it.effect('does not enchant when lapis lazuli cannot be consumed', () =>
     Effect.gen(function* () {
       const dirtyChunksRef = MutableRef.make(HashMap.empty<string, unknown>())

@@ -9,6 +9,8 @@ const InventorySlotSaveEntrySchema = Schema.Struct({
   itemType: InventoryItemSchema,
   count: Schema.Number.pipe(Schema.int(), Schema.between(1, 64)),
   durability: Schema.NullOr(Schema.Number.pipe(Schema.int(), Schema.nonNegative())),
+  // Anvil rename — optional keeps pre-rename saves decodable (like durability).
+  customName: Schema.optional(Schema.String),
 })
 
 export type InventorySlotSaveEntry = Schema.Schema.Type<typeof InventorySlotSaveEntrySchema>

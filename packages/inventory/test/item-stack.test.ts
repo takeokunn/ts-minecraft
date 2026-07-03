@@ -13,6 +13,7 @@ import {
   findStackEnchantment,
   enchantmentsOf,
   enchantItem,
+  renameStack,
 } from '../domain/item-stack'
 import { isDurable, DURABLE_ITEMS } from '../domain/durability'
 
@@ -311,5 +312,32 @@ describe('enchantmentsOf', () => {
     const step1 = enchantItem(base, { type: 'POWER', level: 2 })
     const step2 = enchantItem(step1, { type: 'INFINITY', level: 1 })
     expect(enchantmentsOf(Option.some(step2))).toHaveLength(2)
+  })
+})
+
+describe('renameStack (anvil custom names)', () => {
+  it('sets a trimmed custom name, capped at the vanilla 35-char limit', () => {
+    const named = renameStack(createStack('IRON_SWORD'), '  Excalibur  ')
+    expect(named.customName).toBe('Excalibur')
+    const long = renameStack(createStack('IRON_SWORD'), 'x'.repeat(50))
+    expect(long.customName).toHaveLength(35)
+  })
+
+  it('a blank name clears the custom name (vanilla default-restore)', () => {
+    const named = renameStack(createStack('DIRT'), 'My Dirt')
+    expect(renameStack(named, '   ').customName).toBeUndefined()
+  })
+
+  it('renamed stacks only merge with identically-named stacks', () => {
+    const plain = createStack('DIRT', 10)
+    const named = renameStack(createStack('DIRT', 10), 'My Dirt')
+    expect(canMerge(plain, named)).toBe(false)
+    expect(canMerge(named, renameStack(createStack('DIRT', 5), 'My Dirt'))).toBe(true)
+  })
+
+  it('the custom name survives count changes and preserves other fields', () => {
+    const named = renameStack(createStack('DIRT', 10), 'My Dirt')
+    expect(addToStack(named, 5).customName).toBe('My Dirt')
+    expect(Option.getOrThrow(removeFromStack(named, 3)).customName).toBe('My Dirt')
   })
 })

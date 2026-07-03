@@ -37,7 +37,12 @@ const formatEnchantment = (enchantment: Enchantment): string =>
 
 const buildSlotTooltip = (stack: ItemStack): string => {
   const enchantments = stack.enchantments ?? []
-  const lines = [formatLabel(stack.itemType), `Count: ${stack.count}`]
+  // A renamed item leads with its custom name; the real type stays visible
+  // in parentheses so renames can't disguise one item as another.
+  const nameLine = stack.customName !== undefined
+    ? `${stack.customName} (${formatLabel(stack.itemType)})`
+    : formatLabel(stack.itemType)
+  const lines = [nameLine, `Count: ${stack.count}`]
   return enchantments.length === 0
     ? lines.join('\n')
     : [...lines, 'Enchantments:', ...enchantments.map(formatEnchantment)].join('\n')

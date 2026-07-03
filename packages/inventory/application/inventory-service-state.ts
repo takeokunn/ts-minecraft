@@ -12,10 +12,16 @@ const serializeInventorySlot = (slot: InventorySlot, index: number): InventorySa
     itemType: stack.itemType,
     count: stack.count,
     durability: stack.durability ?? null,
+    ...(stack.customName !== undefined ? { customName: stack.customName } : {}),
   }))
 
 const hydrateInventorySlot = (entry: InventorySlotSaveEntry): InventorySlot =>
-  Option.some(new ItemStack({ itemType: entry.itemType, count: entry.count, durability: entry.durability }))
+  Option.some(new ItemStack({
+    itemType: entry.itemType,
+    count: entry.count,
+    durability: entry.durability,
+    ...(entry.customName !== undefined ? { customName: entry.customName } : {}),
+  }))
 
 export const serializeInventorySlots = (slots: InventorySlots): InventorySaveData => ({
   slots: Arr.makeBy(INVENTORY_SIZE, (index) =>

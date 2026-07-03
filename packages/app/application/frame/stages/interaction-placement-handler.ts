@@ -1,11 +1,11 @@
 import { Effect, HashMap, MutableRef, Option, Schema } from 'effect'
 import { aabbFromVoxel } from '@ts-minecraft/world'
-import { CHUNK_SIZE, BlockTypeSchema, ItemTypeSchema } from '@ts-minecraft/core'
+import { CHUNK_SIZE, BlockTypeSchema, ItemTypeSchema, type SlotIndex } from '@ts-minecraft/core'
 import type { BlockType, Position } from '@ts-minecraft/core'
 import { RedstoneComponentType } from '@ts-minecraft/entity/domain/redstone/redstone-model'
 import { selectEnchantment } from '@ts-minecraft/inventory/domain/enchantment-applicability'
 import { enchantXPCost } from '@ts-minecraft/inventory/domain/enchantment'
-import { enchantItem, ItemStack } from '@ts-minecraft/inventory/domain/item-stack'
+import { enchantItem, ItemStack, renameStack } from '@ts-minecraft/inventory/domain/item-stack'
 import { getMaxDurability } from '@ts-minecraft/inventory/domain/durability'
 import { anvilRepairCostLevels } from '@ts-minecraft/inventory/domain/anvil'
 import { TNT_EXPLOSION_POWER } from '@ts-minecraft/entity/domain/explosion'
@@ -116,9 +116,43 @@ const handleEnchantingTable = (
     yield* services.soundManager.playEffect('enchant', { position: tablePos })
   })
 
+// Vanilla anvil rename costs a flat 1 XP level.
+const ANVIL_RENAME_COST_LEVELS = 1
+
+// Asks the player for an item name via the native prompt — synchronous, exits
+// pointer lock automatically, and needs no modal/keyboard-shield infra. In
+// non-browser environments (unit tests) there is no prompt → rename is a no-op.
+/* c8 ignore start */
+const promptForItemName = (currentName: string): string | null =>
+  typeof window !== 'undefined' && typeof window.prompt === 'function'
+    ? window.prompt('Name this item:', currentName)
+    : null
+/* c8 ignore stop */
+
+// Renames the held item for 1 XP level (vanilla). A blank name clears the
+// custom name; cancelling the prompt (null) or an unchanged name is free.
+const handleAnvilRename = (
+  services: FrameEnchantingTableInteractionServices,
+  anvilPos: { readonly x: number; readonly y: number; readonly z: number },
+  slotIndex: SlotIndex,
+  stack: ItemStack,
+): Effect.Effect<void> =>
+  Effect.gen(function* () {
+    const entered = promptForItemName(stack.customName ?? '')
+    if (entered === null) return
+    const renamed = renameStack(stack, entered)
+    if (renamed.customName === stack.customName) return
+    const xp = yield* services.xpService.getXP()
+    if (xp.level < ANVIL_RENAME_COST_LEVELS) return
+    yield* services.inventoryService.setSlot(slotIndex, Option.some(renamed))
+    yield* services.xpService.spendLevels(ANVIL_RENAME_COST_LEVELS)
+    yield* services.soundManager.playEffect('entityHit', { position: anvilPos })
+  })
+
 // Right-clicking an ANVIL repairs the held damaged tool/armor piece to full
 // durability for an XP-level cost proportional to the missing durability
-// (see anvilRepairCostLevels). Enchantments are preserved.
+// (see anvilRepairCostLevels). Enchantments are preserved. An undamaged (or
+// non-durable) held item routes to RENAME instead.
 const handleAnvilRepair = (
   services: FrameEnchantingTableInteractionServices,
   anvilPos: { readonly x: number; readonly y: number; readonly z: number },
@@ -128,11 +162,14 @@ const handleAnvilRepair = (
     const slotIndex = selectedHotbarSlotIndex(selectedSlot)
     const slot = yield* services.inventoryService.getSlot(slotIndex)
     const stack = Option.getOrNull(slot)
-    if (stack === null || stack.durability === null) return
+    if (stack === null) return
     const maxDurability = Option.getOrNull(getMaxDurability(stack.itemType))
-    if (maxDurability === null) return
-    const cost = anvilRepairCostLevels(stack.durability, maxDurability)
-    if (cost === 0) return
+    const cost = stack.durability !== null && maxDurability !== null
+      ? anvilRepairCostLevels(stack.durability, maxDurability)
+      : 0
+    if (cost === 0 || maxDurability === null) {
+      return yield* handleAnvilRename(services, anvilPos, slotIndex, stack)
+    }
     const xp = yield* services.xpService.getXP()
     if (xp.level < cost) return
     yield* services.inventoryService.setSlot(
@@ -142,6 +179,7 @@ const handleAnvilRepair = (
         count: stack.count,
         durability: maxDurability,
         enchantments: stack.enchantments,
+        customName: stack.customName,
       })),
     )
     yield* services.xpService.spendLevels(cost)

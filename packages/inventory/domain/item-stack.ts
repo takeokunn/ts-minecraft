@@ -10,7 +10,26 @@ export class ItemStack extends Schema.Class<ItemStack>('ItemStack')({
   count: Schema.Number.pipe(Schema.int(), Schema.between(1, 64)),
   durability: Schema.NullOr(Schema.Number.pipe(Schema.int(), Schema.nonNegative())),
   enchantments: Schema.optional(Schema.Array(EnchantmentSchema)),
+  // Anvil rename. Absent = default item name. Every ItemStack-copying helper
+  // below MUST thread this through or renames silently drop on merge/damage.
+  customName: Schema.optional(Schema.String),
 }) {}
+
+// Vanilla anvil name-length limit.
+export const MAX_CUSTOM_NAME_LENGTH = 35
+
+// Applies an anvil rename. A blank/whitespace name clears the custom name
+// (vanilla: erasing the text restores the default); long names are truncated.
+export const renameStack = (stack: ItemStack, name: string): ItemStack => {
+  const trimmed = name.trim().slice(0, MAX_CUSTOM_NAME_LENGTH)
+  return new ItemStack({
+    itemType: stack.itemType,
+    count: stack.count,
+    durability: stack.durability,
+    enchantments: stack.enchantments,
+    ...(trimmed.length > 0 ? { customName: trimmed } : {}),
+  })
+}
 
 // Frozen empty array shared across stack enchantment reads.
 const EMPTY_ENCHANTMENTS: ReadonlyArray<Enchantment> = Object.freeze([])
@@ -43,6 +62,7 @@ export const enchantItem = (stack: ItemStack, enchantment: Enchantment): ItemSta
     count: stack.count,
     durability: stack.durability,
     enchantments: [...filterCompatibleEnchantments(getStackEnchantments(stack), enchantment), enchantment],
+    customName: stack.customName,
   })
 
 export const MAX_STACK_SIZE = 64
@@ -64,19 +84,20 @@ export const createStack = (itemType: InventoryItem, count = 1): ItemStack => {
 }
 
 export const addToStack = (stack: ItemStack, n: number): ItemStack =>
-  new ItemStack({ itemType: stack.itemType, count: Math.min(maxStackFor(stack.itemType), stack.count + n), durability: stack.durability, enchantments: stack.enchantments })
+  new ItemStack({ itemType: stack.itemType, count: Math.min(maxStackFor(stack.itemType), stack.count + n), durability: stack.durability, enchantments: stack.enchantments, customName: stack.customName })
 
 // Returns Option.none() when the stack is depleted.
 export const removeFromStack = (stack: ItemStack, n: number): Option.Option<ItemStack> => {
   const newCount = stack.count - n
   if (newCount <= 0) return Option.none()
-  return Option.some(new ItemStack({ itemType: stack.itemType, count: newCount, durability: stack.durability, enchantments: stack.enchantments }))
+  return Option.some(new ItemStack({ itemType: stack.itemType, count: newCount, durability: stack.durability, enchantments: stack.enchantments, customName: stack.customName }))
 }
 
 // Two stacks may only merge when they share an item type AND neither is a durable
-// tool — distinct tool instances each carry their own durability and must stay apart.
+// tool — distinct tool instances each carry their own durability and must stay
+// apart. Renamed stacks only merge with identically-named stacks.
 export const canMerge = (a: ItemStack, b: ItemStack): boolean =>
-  a.itemType === b.itemType && !isDurable(a.itemType)
+  a.itemType === b.itemType && !isDurable(a.itemType) && a.customName === b.customName
 
 // Returns [updatedA, remainderB]; remainderB is Option.none() when b was fully absorbed.
 export const mergeStacks = (
@@ -87,9 +108,9 @@ export const mergeStacks = (
   const space = maxStackFor(a.itemType) - a.count
   if (space <= 0) return [a, Option.some(b)]
   const transferred = Math.min(space, b.count)
-  const newA = new ItemStack({ itemType: a.itemType, count: a.count + transferred, durability: a.durability, enchantments: a.enchantments })
+  const newA = new ItemStack({ itemType: a.itemType, count: a.count + transferred, durability: a.durability, enchantments: a.enchantments, customName: a.customName })
   const remaining = b.count - transferred
-  const newB = remaining > 0 ? Option.some(new ItemStack({ itemType: b.itemType, count: remaining, durability: b.durability, enchantments: b.enchantments })) : Option.none<ItemStack>()
+  const newB = remaining > 0 ? Option.some(new ItemStack({ itemType: b.itemType, count: remaining, durability: b.durability, enchantments: b.enchantments, customName: b.customName })) : Option.none<ItemStack>()
   return [newA, newB]
 }
 
@@ -129,6 +150,7 @@ export const repairStackWithMendingXP = (stack: ItemStack, xp: number): MendingR
       count: stack.count,
       durability: stack.durability + durabilityRepaired,
       enchantments: stack.enchantments,
+      customName: stack.customName,
     }),
     xpUsed,
     durabilityRepaired,
@@ -142,5 +164,5 @@ export const damageStack = (stack: ItemStack, amount = 1): Option.Option<ItemSta
   if (!isDurable(stack.itemType) || stack.durability === null) return Option.some(stack)
   const next = damageDurability(stack.durability, amount)
   if (isBroken(next)) return Option.none()
-  return Option.some(new ItemStack({ itemType: stack.itemType, count: stack.count, durability: next, enchantments: stack.enchantments }))
+  return Option.some(new ItemStack({ itemType: stack.itemType, count: stack.count, durability: next, enchantments: stack.enchantments, customName: stack.customName }))
 }
