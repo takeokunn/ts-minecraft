@@ -30,6 +30,7 @@ const makeHarness = (options: {
   const spawn = vi.fn(() => Effect.succeed({} as never))
   const getEntities = vi.fn(() => Effect.succeed(options.entities ?? []))
   const applyDamage = vi.fn(() => Effect.succeed(Option.none()))
+  const forceSetBlock = vi.fn(() => Effect.void)
   return {
     setPower: (value: number) => { power = value },
     getPowerAt,
@@ -37,16 +38,38 @@ const makeHarness = (options: {
     spawn,
     getEntities,
     applyDamage,
+    forceSetBlock,
     services: {
       redstoneService: { getPowerAt },
       chestService: { withdrawOneFromChestAt },
       droppedItemService: { spawn },
       entityManager: { getEntities, applyDamage },
+      blockService: { forceSetBlock },
+      soundManager: { playEffect: vi.fn(() => Effect.void) },
+      multiplayer: Option.none(),
+      gameMode: { isSpectator: vi.fn(() => Effect.succeed(true)) },
+      gameState: { getPlayerPosition: vi.fn(() => Effect.succeed({ x: 100, y: 64, z: 100 })) },
+      healthService: { getHealth: vi.fn(() => Effect.succeed({ current: 20, max: 20 })), applyDamage: vi.fn(() => Effect.void) },
+      hungerService: { addExhaustion: vi.fn(() => Effect.void) },
+      equipmentService: { getAll: vi.fn(() => Effect.succeed({})) },
     } as unknown as RedstoneDispenserWorldServices,
   }
 }
 
 describe('redstone dispenser world effects', () => {
+  it.effect('dispensed TNT detonates at the muzzle cell', () => {
+    const dispenser = dispenserAt({ x: 0, y: 64, z: 0 }, 'east')
+    const harness = makeHarness({ power: 15, chestItem: 'TNT' })
+
+    return applyDispenserWorldEffects(harness.services, [dispenser]).pipe(
+      Effect.tap(() => Effect.sync(() => {
+        // crater cleared at (and around) the muzzle; nothing dropped
+        expect(harness.forceSetBlock).toHaveBeenCalledWith({ x: 1, y: 64, z: 0 }, 'AIR')
+        expect(harness.spawn).not.toHaveBeenCalled()
+      })),
+    )
+  })
+
   it.effect('a dispensed ARROW hits the nearest entity in front as a projectile', () => {
     const dispenser = dispenserAt({ x: 0, y: 64, z: 0 }, 'east')
     const harness = makeHarness({

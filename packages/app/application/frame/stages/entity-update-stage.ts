@@ -175,7 +175,7 @@ export const entityUpdateStage = (
   deps: Pick<FrameHandlerDeps, 'scene' | 'camera'>,
   services: Pick<
     FrameHandlerServices,
-    'chunkManagerService' | 'droppedItemService' | 'droppedXpOrbService' | 'droppedItemRenderer' | 'droppedXpOrbRenderer' | 'entityManager' | 'entityRenderer' | 'redstoneService' | 'fluidService' | 'particleSystem' | 'inventoryService' | 'equipmentService' | 'xpService' | 'blockService' | 'soundManager' | 'chestService' | 'gameState'
+    'chunkManagerService' | 'droppedItemService' | 'droppedXpOrbService' | 'droppedItemRenderer' | 'droppedXpOrbRenderer' | 'entityManager' | 'entityRenderer' | 'redstoneService' | 'fluidService' | 'particleSystem' | 'inventoryService' | 'equipmentService' | 'xpService' | 'blockService' | 'soundManager' | 'chestService' | 'gameState' | 'gameMode' | 'multiplayer' | 'healthService' | 'hungerService'
   >,
   refs: Pick<
     FrameStageRefs,

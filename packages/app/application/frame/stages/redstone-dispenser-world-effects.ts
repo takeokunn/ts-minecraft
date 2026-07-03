@@ -2,10 +2,13 @@ import { Effect, Option } from 'effect'
 import type { Position } from '@ts-minecraft/core'
 import { RedstoneComponentType, type PistonFacing, type RedstoneComponent } from '@ts-minecraft/entity/domain/redstone/redstone-model'
 import type { FrameHandlerServices } from '@ts-minecraft/app/application/frame/types/services'
+import { detonateTnt } from '@ts-minecraft/app/frame/stages/interaction-flint-steel-handler'
 
 export type RedstoneDispenserWorldServices = Pick<
   FrameHandlerServices,
-  'redstoneService' | 'chestService' | 'droppedItemService' | 'entityManager'
+  | 'redstoneService' | 'chestService' | 'droppedItemService' | 'entityManager'
+  | 'blockService' | 'soundManager' | 'multiplayer' | 'gameMode' | 'gameState'
+  | 'healthService' | 'hungerService' | 'equipmentService'
 >
 
 const EJECT_DIRECTIONS: Readonly<Record<PistonFacing, { readonly x: number; readonly y: number; readonly z: number }>> = {
@@ -69,6 +72,17 @@ export const applyDispenserWorldEffects = (
       if (itemType === null) continue
 
       const direction = EJECT_DIRECTIONS[component.state.pistonFacing ?? 'east']
+
+      // TNT detonates at the muzzle cell (vanilla dispensers prime TNT; this
+      // model's TNT is instant everywhere, so the dispenser matches).
+      if (itemType === 'TNT') {
+        yield* detonateTnt(services, {
+          x: base.x + direction.x,
+          y: base.y + direction.y,
+          z: base.z + direction.z,
+        })
+        continue
+      }
 
       // ARROWs fire as projectiles: hitscan along the facing axis hits the
       // nearest entity within range; a miss falls to the ground as a

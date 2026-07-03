@@ -1,6 +1,7 @@
 import { Effect, Option } from 'effect'
 import type { FrameStageRefs } from '@ts-minecraft/app/application/frame/types/stage-refs'
 import type { FrameFlintAndSteelInteractionServices } from '@ts-minecraft/app/frame/frame-interaction-service-types/flint-and-steel'
+import type { Position } from '@ts-minecraft/core'
 import type { TargetRayHit } from '@ts-minecraft/app/frame/stages/interaction-types'
 import { buildTntBreakPositions } from './placement-geometry'
 import { readBlockTypeAt } from './interaction-block-access'
@@ -45,6 +46,23 @@ export const handleFlintAndSteel = (
       return fireIgnited
     }
 
+    yield* detonateTnt(services, tntPos)
+    yield* damageHeldFlintAndSteel(services)
+    return true
+  })
+
+// Shared TNT detonation: crater + co-op replication + player blast damage.
+// Used by flint&steel ignition and by dispensers ejecting TNT.
+export type TntDetonationServices = Pick<
+  FrameFlintAndSteelInteractionServices,
+  'blockService' | 'soundManager' | 'multiplayer' | 'gameMode' | 'gameState' | 'healthService' | 'hungerService' | 'equipmentService'
+>
+
+export const detonateTnt = (
+  services: TntDetonationServices,
+  tntPos: Position,
+): Effect.Effect<void, never> =>
+  Effect.gen(function* () {
     // Replicate the crater to co-op peers block-by-block (the same path portal
     // frame fills use) — the server's edit log then replays it to late joiners.
     const multiplayerOrNull = Option.getOrNull(services.multiplayer)
@@ -56,6 +74,4 @@ export const handleFlintAndSteel = (
       yield* multiplayerOrNull?.sendBlockBreak(pos) ?? Effect.void
     }
     yield* applyTntPlayerDamage(services, tntPos)
-    yield* damageHeldFlintAndSteel(services)
-    return true
   })
