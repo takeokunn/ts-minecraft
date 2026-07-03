@@ -234,14 +234,20 @@ describe('step 7 — redstone dispatch', () => {
 
 describe('pistonFacingFromDirection', () => {
   it('maps the dominant horizontal axis to the matching cardinal', () => {
-    expect(pistonFacingFromDirection(1, 0)).toBe('east')
-    expect(pistonFacingFromDirection(-1, 0.2)).toBe('west')
-    expect(pistonFacingFromDirection(0.1, 0.9)).toBe('south')
-    expect(pistonFacingFromDirection(-0.3, -0.8)).toBe('north')
+    expect(pistonFacingFromDirection(1, 0, 0)).toBe('east')
+    expect(pistonFacingFromDirection(-1, 0, 0.2)).toBe('west')
+    expect(pistonFacingFromDirection(0.1, 0, 0.9)).toBe('south')
+    expect(pistonFacingFromDirection(-0.3, 0, -0.8)).toBe('north')
   })
 
-  it('ties on |x| == |z| resolve to the x axis', () => {
-    expect(pistonFacingFromDirection(0.5, 0.5)).toBe('east')
-    expect(pistonFacingFromDirection(-0.5, -0.5)).toBe('west')
+  it('a dominant vertical component selects up/down', () => {
+    expect(pistonFacingFromDirection(0.1, 0.9, 0.2)).toBe('up')
+    expect(pistonFacingFromDirection(-0.2, -0.85, 0.3)).toBe('down')
+  })
+
+  it('shallow pitch stays horizontal; ties on |x| == |z| resolve to the x axis', () => {
+    expect(pistonFacingFromDirection(0.7, 0.5, 0.1)).toBe('east')
+    expect(pistonFacingFromDirection(0.5, 0.2, 0.5)).toBe('east')
+    expect(pistonFacingFromDirection(-0.5, 0.1, -0.5)).toBe('west')
   })
 })

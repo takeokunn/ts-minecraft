@@ -85,7 +85,7 @@ Chicken, Bat, Squid, Bee.
 | Feature | Status | Notes |
 |---|---|---|
 | Wire, torch, lever, button, pressure plate, repeater, lamp | ✅ | signal propagation sim (`getPowerAt`) |
-| Piston | 🟡 | pushes one movable block on the extend edge **in the direction the player faced at placement** (all 4 horizontal cardinals; unit-tested incl. occupied-destination refusal, no re-push while extended, immovable list, legacy-east default). Limitations: no vertical facing, no retraction pull, no extended-arm visual |
+| Piston | 🟡 | pushes one movable block on the extend edge **in the direction the player faced at placement** (all 6 facings incl. up/down; unit-tested: occupied-destination refusal, no re-push while extended, immovable list, legacy-east default, vertical push). Limitations: no retraction pull (sticky piston), no extended-arm visual |
 | Comparators, observers, hoppers, dispensers | ❌ | |
 
 ## Multiplayer (co-op)

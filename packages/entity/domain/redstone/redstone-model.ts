@@ -24,9 +24,10 @@ export const RedstoneComponentType = {
   Lamp: 'lamp' as const,
 }
 
-// Horizontal cardinal a piston pushes toward. Captured from the player's view
-// direction at placement (vanilla-style orientation); east = +x, south = +z.
-export const PistonFacingSchema = Schema.Literal('north', 'south', 'east', 'west')
+// Direction a piston pushes toward, captured from the player's view direction
+// at placement (vanilla-style orientation); east = +x, south = +z, up = +y.
+// Steep view pitch (dominant vertical component) selects up/down.
+export const PistonFacingSchema = Schema.Literal('north', 'south', 'east', 'west', 'up', 'down')
 export type PistonFacing = Schema.Schema.Type<typeof PistonFacingSchema>
 
 export const RedstoneComponentStateSchema = Schema.Struct({

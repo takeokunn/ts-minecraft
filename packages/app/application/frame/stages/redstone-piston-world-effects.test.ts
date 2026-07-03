@@ -144,6 +144,25 @@ describe('redstone piston world effects', () => {
     )
   })
 
+  it.effect('pushes vertically when facing up', () => {
+    const piston = { x: 0, y: 64, z: 0 }
+    const source = { x: 0, y: 65, z: 0 }
+    const destination = { x: 0, y: 66, z: 0 }
+    const harness = makeHarness([[source, 'STONE']])
+
+    return applyPistonWorldEffects(
+      harness.services,
+      harness.refs,
+      [pistonAt(piston, false, 'up')],
+      [pistonAt(piston, true, 'up')],
+    ).pipe(
+      Effect.tap(() => Effect.sync(() => {
+        expect(harness.blocks.get(positionKey(source))).toBe('AIR')
+        expect(harness.blocks.get(positionKey(destination))).toBe('STONE')
+      })),
+    )
+  })
+
   it.effect('a facing-less legacy piston still pushes east', () => {
     const piston = { x: 0, y: 64, z: 0 }
     const source = { x: 1, y: 64, z: 0 }

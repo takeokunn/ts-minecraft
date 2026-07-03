@@ -16,19 +16,25 @@ export type RedstoneFlags = {
   readonly toggleTorch: boolean
 }
 
-// Dominant horizontal cardinal of the camera's look direction — a piston
-// placed while looking east pushes east (away from the player), vanilla-style.
-export const pistonFacingFromDirection = (dirX: number, dirZ: number): PistonFacing =>
-  Math.abs(dirX) >= Math.abs(dirZ)
+// Dominant axis of the camera's look direction — a piston placed while
+// looking east pushes east (away from the player), vanilla-style. A steep
+// pitch (vertical component dominating both horizontal ones) selects up/down.
+export const pistonFacingFromDirection = (dirX: number, dirY: number, dirZ: number): PistonFacing => {
+  const absY = Math.abs(dirY)
+  if (absY > Math.abs(dirX) && absY > Math.abs(dirZ)) {
+    return dirY >= 0 ? 'up' : 'down'
+  }
+  return Math.abs(dirX) >= Math.abs(dirZ)
     ? (dirX >= 0 ? 'east' : 'west')
     : (dirZ >= 0 ? 'south' : 'north')
+}
 
 export const pistonFacingFromCamera = (
   camera: Pick<THREE.Camera, 'getWorldDirection'>,
   scratch: THREE.Vector3,
 ): PistonFacing => {
   camera.getWorldDirection(scratch)
-  return pistonFacingFromDirection(scratch.x, scratch.z)
+  return pistonFacingFromDirection(scratch.x, scratch.y, scratch.z)
 }
 
 const placeComponentAndBlock = (
