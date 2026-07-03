@@ -13,6 +13,7 @@ export const runInteractionStagePreActions = (
     | 'entityManager'
     | 'chunkManagerService'
     | 'crosshair'
+    | 'particleSystem'
     | 'equipmentService'
     | 'inventoryService'
     | 'hotbarService'

@@ -17,6 +17,12 @@ import { enchantmentsOf } from '@ts-minecraft/inventory/domain/item-stack'
 import type { FrameBowInteractionServices } from '@ts-minecraft/app/frame/frame-interaction-service-types/bow'
 import { spawnMobDrop, spawnMobXpOrb } from '@ts-minecraft/app/application/frame/stages/interaction-mob-drops'
 import { isPassableBlockType } from '@ts-minecraft/game/domain/block-collision-predicates'
+import * as THREE from 'three'
+import { blockTypeToIndex } from '@ts-minecraft/core'
+import { getParticleUvOffset } from '@ts-minecraft/rendering'
+
+// Module scratch for the tracer direction (render loop is single-fiber).
+const scratchBowDirection = new THREE.Vector3()
 
 type BowEnchantments = {
   readonly hasPower: Enchantment | undefined
@@ -195,6 +201,35 @@ export const handleBowFire = (
     const targetId = findAttackableEntity(entities, deps.camera, null, BOW_MAX_RANGE)
 
     const targetIdVal = Option.getOrNull(targetId)
+    // Tracer streak along the arrow's flight line — the hitscan arrow is
+    // otherwise invisible. On a hit the streak stops at the target; on a
+    // miss it flies the full range.
+    deps.camera.getWorldDirection(scratchBowDirection)
+    const target = targetIdVal !== null ? entities.find((entity) => entity.entityId === targetIdVal) : undefined
+    const tracerRange = target !== undefined
+      ? Math.min(
+          BOW_MAX_RANGE,
+          Math.hypot(
+            target.position.x - deps.camera.position.x,
+            target.position.y - deps.camera.position.y,
+            target.position.z - deps.camera.position.z,
+          ),
+        )
+      : BOW_MAX_RANGE
+    const arrowUv = getParticleUvOffset(blockTypeToIndex('SNOW'))
+    const TRACER_POINTS = 6
+    for (let i = 1; i <= TRACER_POINTS; i++) {
+      const t = (i / TRACER_POINTS) * tracerRange
+      yield* services.particleSystem.spawnBurst(
+        deps.camera.position.x + scratchBowDirection.x * t,
+        deps.camera.position.y + scratchBowDirection.y * t,
+        deps.camera.position.z + scratchBowDirection.z * t,
+        arrowUv.u,
+        arrowUv.v,
+        1,
+      )
+    }
+
     if (targetIdVal !== null) {
       yield* applyBowHitToEntity(targetIdVal, deps, services, { damage, hasLooting, hasPunch })
     }
