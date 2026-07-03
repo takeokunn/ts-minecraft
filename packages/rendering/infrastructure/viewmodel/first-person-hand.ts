@@ -15,19 +15,71 @@ const SWING_PITCH_RADS = -1.1
 const SWING_YAW_RADS = 0.35
 const SWING_FORWARD_UNITS = 0.12
 
+// Deterministic per-pixel hash (no Math.random — keeps the skin identical
+// across sessions and testable).
+const pixelHash = (x: number, y: number): number => {
+  let h = (x * 374761393 + y * 668265263) >>> 0
+  h = (h ^ (h >>> 13)) >>> 0
+  h = (h * 1274126177) >>> 0
+  return ((h >>> 16) & 0xff) / 255
+}
+
+// 8×8 pixel-noise texture around a base color — the classic Minecraft-skin
+// dither that keeps a flat-colored box from reading as an untextured quad.
+// Returns null outside the browser (unit tests run in node); callers fall
+// back to a plain color material.
+const makePixelSkinTexture = (r: number, g: number, b: number): THREE.CanvasTexture | null => {
+  // Guard both node (no document) and tests that stub a partial document.
+  /* c8 ignore next */
+  if (typeof document === 'undefined' || typeof document.createElement !== 'function') return null
+  const SIZE = 8
+  const canvas = document.createElement('canvas')
+  canvas.width = SIZE
+  canvas.height = SIZE
+  const ctx = canvas.getContext('2d')
+  if (ctx === null) return null
+  for (let y = 0; y < SIZE; y++) {
+    for (let x = 0; x < SIZE; x++) {
+      const shade = 0.9 + pixelHash(x, y) * 0.18
+      ctx.fillStyle = `rgb(${Math.min(255, Math.round(r * shade))}, ${Math.min(255, Math.round(g * shade))}, ${Math.min(255, Math.round(b * shade))})`
+      ctx.fillRect(x, y, 1, 1)
+    }
+  }
+  const texture = new THREE.CanvasTexture(canvas)
+  texture.magFilter = THREE.NearestFilter
+  texture.minFilter = THREE.NearestFilter
+  texture.colorSpace = THREE.SRGBColorSpace
+  return texture
+}
+
+const makeSkinMaterial = (color: number): THREE.MeshLambertMaterial => {
+  const r = (color >> 16) & 0xff
+  const g = (color >> 8) & 0xff
+  const b = color & 0xff
+  const texture = makePixelSkinTexture(r, g, b)
+  return texture === null
+    ? new THREE.MeshLambertMaterial({ color })
+    : new THREE.MeshLambertMaterial({ map: texture })
+}
+
+// Steve palette: tanned skin + teal shirt sleeve.
+const SKIN_COLOR = 0xc68e63
+const SLEEVE_COLOR = 0x2e8b8b
+
 const buildArmMesh = (): THREE.Mesh => {
-  // Skin-tone arm with a darker sleeve cap, mirroring the classic skin.
+  // Skin-tone forearm; the teal sleeve covers the upper (camera-near) half
+  // like the classic Steve shirt, instead of the old thin cap.
   const arm = new THREE.Mesh(
     new THREE.BoxGeometry(0.16, 0.16, 0.5),
-    new THREE.MeshLambertMaterial({ color: 0xd0a080 }),
+    makeSkinMaterial(SKIN_COLOR),
   )
   arm.name = 'first-person-hand-arm'
   const sleeve = new THREE.Mesh(
-    new THREE.BoxGeometry(0.18, 0.18, 0.18),
-    new THREE.MeshLambertMaterial({ color: 0x3f7f3f }),
+    new THREE.BoxGeometry(0.185, 0.185, 0.26),
+    makeSkinMaterial(SLEEVE_COLOR),
   )
   sleeve.name = 'first-person-hand-sleeve'
-  sleeve.position.z = 0.2
+  sleeve.position.z = 0.15
   arm.add(sleeve)
   return arm
 }
