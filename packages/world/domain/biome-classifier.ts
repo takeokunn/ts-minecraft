@@ -114,8 +114,11 @@ export const classifyBiomeFromClimate = ({
     return 'OCEAN'
   }
 
+  // Measured coverage at the old bounds (cont>0.5 && mountaininess>0.42) was
+  // 0.9% — vanilla mountain families cover ~8-10% of land. fBm continentalness
+  // rarely exceeds 0.5, so both gates are loosened together.
   const mountaininess = Math.max(0, pv) * 0.65 + Math.max(0, 0.45 - erosion) * 0.35
-  if (continentalness > 0.5 && mountaininess > 0.42) {
+  if (continentalness > 0.32 && mountaininess > 0.32) {
     return temperature < TEMP_COLD ? 'SNOW' : 'MOUNTAINS'
   }
 
