@@ -117,6 +117,7 @@ export const BlockTypeSchema = Schema.Literal(
   'SANDSTONE',
   'PRISMARINE',
   'OBSERVER',
-  'HOPPER'
+  'HOPPER',
+  'COMPARATOR'
 )
 export type BlockType = Schema.Schema.Type<typeof BlockTypeSchema>

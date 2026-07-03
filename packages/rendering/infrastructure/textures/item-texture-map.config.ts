@@ -103,6 +103,7 @@ export const ITEM_TILE_MAP: Readonly<Record<InventoryItem, number>> = {
   PRISMARINE: 136,
   OBSERVER: 140,
   HOPPER: 141,
+  COMPARATOR: 142,
   GLASS_BOTTLE: 118,
   POTION_SWIFTNESS: 119,
   POTION_HEALING: 120,

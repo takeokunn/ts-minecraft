@@ -1960,6 +1960,21 @@ saveTile(141, 'hopper', (ctx) => {
   ctx.fillRect(7, 7, TILE_PX - 14, TILE_PX - 14)
 })
 
+// 142: comparator — smooth stone slab face with three redstone nubs.
+saveTile(142, 'comparator', (ctx) => {
+  ctx.fillStyle = '#9d9d9d'
+  ctx.fillRect(0, 0, TILE_PX, TILE_PX)
+  drawNoise(ctx, ['#a8a8a8', '#8f8f8f', '#999999'], 0.25)
+  ctx.strokeStyle = '#6f6f6f'
+  ctx.lineWidth = 2
+  ctx.strokeRect(1, 1, TILE_PX - 2, TILE_PX - 2)
+  // front torch pair + rear mode torch
+  ctx.fillStyle = '#8c2c2c'
+  ctx.fillRect(7, 22, 4, 4)
+  ctx.fillRect(21, 22, 4, 4)
+  ctx.fillRect(14, 7, 4, 4)
+})
+
 // 140: observer — stone body with a redstone 'eye' watching face.
 saveTile(140, 'observer', (ctx) => {
   ctx.fillStyle = '#7e7e7e'

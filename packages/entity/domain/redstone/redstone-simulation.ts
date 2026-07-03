@@ -29,7 +29,8 @@ export const canConduct = (type: RedstoneComponentType): boolean =>
   type === RedstoneComponentType.Piston ||
   type === RedstoneComponentType.PressurePlate ||
   type === RedstoneComponentType.Observer ||
-  type === RedstoneComponentType.Repeater
+  type === RedstoneComponentType.Repeater ||
+  type === RedstoneComponentType.Comparator
 
 export const isPowerSource = (component: RedstoneComponent): boolean =>
   (component.type === RedstoneComponentType.Lever && component.state.active) ||
@@ -39,7 +40,9 @@ export const isPowerSource = (component: RedstoneComponent): boolean =>
   // Observers pulse like buttons: power while the pulse timer runs.
   (component.type === RedstoneComponentType.Observer && component.state.buttonTicksRemaining > 0) ||
   // Active repeaters re-emit at full strength (signal refresh).
-  (component.type === RedstoneComponentType.Repeater && component.state.active)
+  (component.type === RedstoneComponentType.Repeater && component.state.active) ||
+  // Comparators emit their computed output strength.
+  (component.type === RedstoneComponentType.Comparator && (component.state.comparatorOutput ?? 0) > 0)
 
 export const neighborsOf = (position: Position): ReadonlyArray<Position> => [
   { x: position.x + 1, y: position.y, z: position.z },
@@ -58,7 +61,12 @@ export const propagatePower = (
   const queue: Array<{ readonly key: PositionKey; readonly power: number }> = []
   HashMap.forEach(components, (component, key) => {
     if (!isPowerSource(component)) return
-    queue.push({ key, power: MAX_REDSTONE_POWER })
+    // Comparators are the one variable-strength source: they re-emit the
+    // measured rear signal, not a full 15.
+    const power = component.type === RedstoneComponentType.Comparator
+      ? Math.min(MAX_REDSTONE_POWER, Math.max(0, component.state.comparatorOutput ?? 0))
+      : MAX_REDSTONE_POWER
+    queue.push({ key, power })
   })
 
   let cursor = 0
@@ -140,6 +148,59 @@ export const updateRepeaters = (
       nextComponents = HashMap.set(nextComponents, key, {
         ...component,
         state: { ...component.state, active: nextActive },
+      })
+    }
+  })
+  return [nextComponents, changed]
+}
+
+// Perpendicular side offsets per facing (vertical facings measure the four
+// horizontal neighbors, mirroring how vanilla has no vertical comparators).
+const COMPARATOR_SIDE_OFFSETS: Readonly<Record<string, ReadonlyArray<{ x: number; y: number; z: number }>>> = {
+  east: [{ x: 0, y: 0, z: 1 }, { x: 0, y: 0, z: -1 }],
+  west: [{ x: 0, y: 0, z: 1 }, { x: 0, y: 0, z: -1 }],
+  north: [{ x: 1, y: 0, z: 0 }, { x: -1, y: 0, z: 0 }],
+  south: [{ x: 1, y: 0, z: 0 }, { x: -1, y: 0, z: 0 }],
+  up: [{ x: 1, y: 0, z: 0 }, { x: -1, y: 0, z: 0 }, { x: 0, y: 0, z: 1 }, { x: 0, y: 0, z: -1 }],
+  down: [{ x: 1, y: 0, z: 0 }, { x: -1, y: 0, z: 0 }, { x: 0, y: 0, z: 1 }, { x: 0, y: 0, z: -1 }],
+}
+
+// Comparators (compare mode): output = rear signal when rear >= max(side
+// signals), else 0. Samples the previous tick's power map like repeaters,
+// so comparator chains settle one tick per stage.
+export const updateComparators = (
+  components: HashMap.HashMap<PositionKey, RedstoneComponent>,
+  powered: HashMap.HashMap<PositionKey, number>,
+): [HashMap.HashMap<PositionKey, RedstoneComponent>, boolean] => {
+  let nextComponents = components
+  let changed = false
+  HashMap.forEach(components, (component, key) => {
+    if (component.type !== RedstoneComponentType.Comparator) return
+    const facing = component.state.pistonFacing ?? 'east'
+    const offset = REPEATER_FACING_OFFSETS[facing]
+    const base = {
+      x: Math.floor(component.position.x),
+      y: Math.floor(component.position.y),
+      z: Math.floor(component.position.z),
+    }
+    const rearPower = Option.getOrElse(
+      HashMap.get(powered, positionKey({ x: base.x - offset.x, y: base.y - offset.y, z: base.z - offset.z })),
+      () => 0,
+    )
+    let sideMax = 0
+    for (const side of COMPARATOR_SIDE_OFFSETS[facing]!) {
+      const sidePower = Option.getOrElse(
+        HashMap.get(powered, positionKey({ x: base.x + side.x, y: base.y + side.y, z: base.z + side.z })),
+        () => 0,
+      )
+      if (sidePower > sideMax) sideMax = sidePower
+    }
+    const nextOutput = rearPower > 0 && rearPower >= sideMax ? rearPower : 0
+    if (nextOutput !== (component.state.comparatorOutput ?? 0)) {
+      changed = true
+      nextComponents = HashMap.set(nextComponents, key, {
+        ...component,
+        state: { ...component.state, comparatorOutput: nextOutput, active: nextOutput > 0 },
       })
     }
   })

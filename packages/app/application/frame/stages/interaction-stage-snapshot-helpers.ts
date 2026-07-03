@@ -34,6 +34,7 @@ export const createInteractionStageRedstoneFlags = (
   placeObserver: false,
   placeHopper: false,
   placeRepeater: false,
+  placeComparator: false,
   toggleLever: false,
   pressButton: false,
   toggleTorch: false,

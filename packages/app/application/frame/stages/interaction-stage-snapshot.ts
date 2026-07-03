@@ -12,6 +12,7 @@ import {
   REDSTONE_PLACE_OBSERVER_KEY,
   REDSTONE_PLACE_HOPPER_KEY,
   REDSTONE_PLACE_REPEATER_KEY,
+  REDSTONE_PLACE_COMPARATOR_KEY,
   REDSTONE_TOGGLE_LEVER_KEY,
   REDSTONE_PRESS_BUTTON_KEY,
   REDSTONE_TOGGLE_TORCH_KEY,
@@ -71,6 +72,7 @@ export const readInteractionStageSnapshot = (
     const placeObserver = yield* services.inputService.consumeKeyPress(REDSTONE_PLACE_OBSERVER_KEY)
     const placeHopper = yield* services.inputService.consumeKeyPress(REDSTONE_PLACE_HOPPER_KEY)
     const placeRepeater = yield* services.inputService.consumeKeyPress(REDSTONE_PLACE_REPEATER_KEY)
+    const placeComparator = yield* services.inputService.consumeKeyPress(REDSTONE_PLACE_COMPARATOR_KEY)
     const toggleLever = yield* services.inputService.consumeKeyPress(REDSTONE_TOGGLE_LEVER_KEY)
     const pressButton = yield* services.inputService.consumeKeyPress(REDSTONE_PRESS_BUTTON_KEY)
     const toggleTorch = yield* services.inputService.consumeKeyPress(REDSTONE_TOGGLE_TORCH_KEY)
@@ -94,6 +96,7 @@ export const readInteractionStageSnapshot = (
         placeObserver,
         placeHopper,
         placeRepeater,
+        placeComparator,
         toggleLever,
         pressButton,
         toggleTorch,

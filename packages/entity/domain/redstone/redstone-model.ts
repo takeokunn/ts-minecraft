@@ -12,7 +12,7 @@ export const RedstonePowerLevel = {
   toNumber: (p: RedstonePowerLevel): number => Number(p),
 }
 
-export const RedstoneComponentTypeSchema = Schema.Literal('wire', 'lever', 'button', 'torch', 'piston', 'pressure_plate', 'lamp', 'observer', 'hopper', 'repeater')
+export const RedstoneComponentTypeSchema = Schema.Literal('wire', 'lever', 'button', 'torch', 'piston', 'pressure_plate', 'lamp', 'observer', 'hopper', 'repeater', 'comparator')
 export type RedstoneComponentType = Schema.Schema.Type<typeof RedstoneComponentTypeSchema>
 export const RedstoneComponentType = {
   Wire: 'wire' as const,
@@ -25,6 +25,7 @@ export const RedstoneComponentType = {
   Observer: 'observer' as const,
   Hopper: 'hopper' as const,
   Repeater: 'repeater' as const,
+  Comparator: 'comparator' as const,
 }
 
 // Direction a piston pushes toward, captured from the player's view direction
@@ -40,6 +41,9 @@ export const RedstoneComponentStateSchema = Schema.Struct({
   // Optional so every pre-facing construction site stays valid; readers
   // default absent to 'east' (the old fixed +x push direction).
   pistonFacing: Schema.optional(PistonFacingSchema),
+  // Comparator output strength (0-15): rear signal when rear >= max(sides),
+  // else 0. Optional so pre-comparator states stay valid; readers default 0.
+  comparatorOutput: Schema.optional(Schema.Number),
 })
 export type RedstoneComponentState = Schema.Schema.Type<typeof RedstoneComponentStateSchema>
 

@@ -18,6 +18,7 @@ import {
   normalizeComponentPosition,
   propagatePower,
   sortedPowerSnapshot,
+  updateComparators,
   updatePistons,
   updateRepeaters,
 } from '../../domain/redstone/redstone-simulation'
@@ -55,9 +56,10 @@ const computeNextRedstoneState = (
   // one-tick delay falls out of the ordering. A state flip forces a
   // re-propagation so the refreshed signal spreads this tick.
   const [componentsWithRepeaters, repeaterChanged] = updateRepeaters(state.components, state.powerByPosition)
+  const [componentsWithComparators, comparatorChanged] = updateComparators(componentsWithRepeaters, state.powerByPosition)
 
-  const needsPropagation = repeaterChanged || computeNeedsPropagation(
-    componentsWithRepeaters,
+  const needsPropagation = repeaterChanged || comparatorChanged || computeNeedsPropagation(
+    componentsWithComparators,
     state.powerByPosition,
     state.buttonKeys,
     dirty,
@@ -65,11 +67,11 @@ const computeNextRedstoneState = (
 
   const [powered, nextComponents] = needsPropagation
     ? (() => {
-        const pow = propagatePower(componentsWithRepeaters)
-        const withPistons = updatePistons(componentsWithRepeaters, pow, state.pistonKeys)
+        const pow = propagatePower(componentsWithComparators)
+        const withPistons = updatePistons(componentsWithComparators, pow, state.pistonKeys)
         return [pow, decayButtonTimers(withPistons, state.buttonKeys)] as const
       })()
-    : [state.powerByPosition, decayButtonTimers(componentsWithRepeaters, state.buttonKeys)] as const
+    : [state.powerByPosition, decayButtonTimers(componentsWithComparators, state.buttonKeys)] as const
 
   const cachedSnapshot: Option.Option<RedstoneTickSnapshot['poweredPositions']> =
     needsPropagation

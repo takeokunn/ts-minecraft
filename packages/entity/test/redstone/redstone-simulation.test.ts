@@ -3,7 +3,7 @@ import { expect } from 'vitest'
 import { Array as Arr, HashMap, HashSet, Option } from 'effect'
 import { RedstoneComponentType, RedstonePowerLevel } from '@ts-minecraft/entity/domain/redstone/redstone-model';
 import { positionKey, toBlockPosition } from '@ts-minecraft/entity/domain/redstone/redstone-position-utils';
-import { canConduct, computeNeedsPropagation, decayButtonTimers, isPowerSource, neighborsOf, normalizeComponentPosition, propagatePower, sortedPowerSnapshot, updatePistons, updateRepeaters } from '@ts-minecraft/entity/domain/redstone/redstone-simulation';
+import { canConduct, computeNeedsPropagation, decayButtonTimers, isPowerSource, neighborsOf, normalizeComponentPosition, propagatePower, sortedPowerSnapshot, updateComparators, updatePistons, updateRepeaters } from '@ts-minecraft/entity/domain/redstone/redstone-simulation';
 import type { RedstoneComponent } from '@ts-minecraft/entity/domain/redstone/redstone-model';
 import type { PositionKey } from '@ts-minecraft/entity/domain/redstone/redstone-position-utils';
 import { makeTestRedstoneComponent } from '../redstone/test-utils'
@@ -449,5 +449,77 @@ describe('updateRepeaters', () => {
     expect(canConduct(RedstoneComponentType.Repeater)).toBe(true)
     const inactive = repeaterAt(0, 64, 0, 'east', false)
     expect(isPowerSource(inactive)).toBe(false)
+  })
+})
+
+describe('updateComparators', () => {
+  const comparatorAt = (
+    x: number, y: number, z: number,
+    facing: 'east' | 'west' | 'north' | 'south',
+    output = 0,
+  ) => makeComponent(RedstoneComponentType.Comparator, x, y, z, {
+    pistonFacing: facing,
+    comparatorOutput: output,
+    active: output > 0,
+  })
+
+  const componentsOf = (...components: ReadonlyArray<RedstoneComponent>) =>
+    HashMap.fromIterable(components.map((c) => [positionKey(c.position), c] as const))
+
+  const poweredOf = (...entries: ReadonlyArray<readonly [{ x: number; y: number; z: number }, number]>) =>
+    HashMap.fromIterable(entries.map(([pos, power]) => [positionKey(pos), power] as const))
+
+  it('outputs the rear signal when it beats the sides', () => {
+    const comparator = comparatorAt(0, 64, 0, 'east')
+    const powered = poweredOf(
+      [{ x: -1, y: 64, z: 0 }, 9],
+      [{ x: 0, y: 64, z: 1 }, 5],
+    )
+
+    const [next, changed] = updateComparators(componentsOf(comparator), powered)
+
+    expect(changed).toBe(true)
+    const updated = expectSome(HashMap.get(next, positionKey(comparator.position)))
+    expect(updated.state.comparatorOutput).toBe(9)
+    expect(updated.state.active).toBe(true)
+  })
+
+  it('outputs zero when a side signal exceeds the rear', () => {
+    const comparator = comparatorAt(0, 64, 0, 'east', 9)
+    const powered = poweredOf(
+      [{ x: -1, y: 64, z: 0 }, 4],
+      [{ x: 0, y: 64, z: -1 }, 12],
+    )
+
+    const [next, changed] = updateComparators(componentsOf(comparator), powered)
+
+    expect(changed).toBe(true)
+    const updated = expectSome(HashMap.get(next, positionKey(comparator.position)))
+    expect(updated.state.comparatorOutput).toBe(0)
+    expect(updated.state.active).toBe(false)
+  })
+
+  it('rear equal to side still passes (compare-mode >=)', () => {
+    const comparator = comparatorAt(0, 64, 0, 'south')
+    const powered = poweredOf(
+      [{ x: 0, y: 64, z: -1 }, 7],
+      [{ x: 1, y: 64, z: 0 }, 7],
+    )
+
+    const [next] = updateComparators(componentsOf(comparator), powered)
+
+    const updated = expectSome(HashMap.get(next, positionKey(comparator.position)))
+    expect(updated.state.comparatorOutput).toBe(7)
+  })
+
+  it('propagation seeds comparator sources at their measured strength, not 15', () => {
+    const comparator = comparatorAt(0, 64, 0, 'east', 6)
+    const wire = makeComponent(RedstoneComponentType.Wire, 1, 64, 0)
+    const components = componentsOf(comparator, wire)
+
+    const powered = propagatePower(components)
+
+    expect(expectSome(HashMap.get(powered, positionKey(comparator.position)))).toBe(6)
+    expect(expectSome(HashMap.get(powered, positionKey(wire.position)))).toBe(5)
   })
 })

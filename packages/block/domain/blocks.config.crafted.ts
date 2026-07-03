@@ -167,6 +167,13 @@ new Block({
     faces: defaultBlockFaces,
   }),
   new Block({
+    id: makeBlockId('block:comparator'),
+    type: 'COMPARATOR',
+    // Vanilla comparator is a fragile surface component (hardness 0).
+    properties: { hardness: 5, transparency: false, solid: true, emissive: false, friction: 0.6 },
+    faces: defaultBlockFaces,
+  }),
+  new Block({
     id: makeBlockId('block:redstone_lamp'),
     type: 'REDSTONE_LAMP',
     // Vanilla lamp hardness 0.3 -> soft; unlit emits nothing.
