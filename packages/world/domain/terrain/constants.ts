@@ -4,8 +4,8 @@ export const LAKE_NOISE_SCALE = 0.02
 // Noise threshold above which a column becomes a lake basin
 export const LAKE_THRESHOLD = 0.70
 export const LAKE_MAX_DEPTH = 18
-// Minimum water depth — prevents single-block shallow patches
-export const LAKE_MIN_DEPTH = 10
+// (retired) LAKE_MIN_DEPTH=10 forced every lake edge into a 10-block cliff;
+// lake-generator now ramps depth smoothly from LAKE_EDGE_DEPTH to LAKE_MAX_DEPTH.
 // Noise range below LAKE_THRESHOLD that becomes sandy shoreline
 export const LAKE_SHORE_WIDTH = 0.04
 export const RIVER_WATER_LEVEL = 62

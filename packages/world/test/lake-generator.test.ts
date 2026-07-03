@@ -10,7 +10,7 @@ describe('lake-generator', () => {
   it('creates inland basins below lake level and fills water with nonzero depth', () => {
     const terrainLevels = { seaLevel: 40, lakeLevel: 52 }
     const initialSurfaceY = terrainLevels.lakeLevel + 1
-    const lakeBasinY = computeLakeBasin('PLAINS', 0.71, initialSurfaceY, terrainLevels)
+    const lakeBasinY = computeLakeBasin('PLAINS', 0.95, initialSurfaceY, terrainLevels)
 
     expect(Option.isSome(lakeBasinY)).toBe(true)
     if (Option.isNone(lakeBasinY)) {
@@ -35,5 +35,34 @@ expect.fail('expected inland lake basin')
     expect(shouldFreezeWaterSurface('SNOW', 0.5)).toBe(true)
     expect(shouldFreezeWaterSurface('PLAINS', 0.05)).toBe(true)
     expect(shouldFreezeWaterSurface('PLAINS', 0.5)).toBe(false)
+  })
+})
+
+describe('shore shapes (vanilla-like banks)', () => {
+  it('lake surface blends continuously — no carve cliff at the region boundary', () => {
+    // Just past the threshold (t≈0): essentially untouched terrain.
+    const edge = Option.getOrNull(computeLakeBasin('PLAINS', 0.701, 70))
+    expect(70 - (edge ?? 70)).toBeLessThanOrEqual(1)
+    // Deep center (t≈1) reaches a bed well below the y=62 water line.
+    const center = Option.getOrNull(computeLakeBasin('PLAINS', 0.999, 70))
+    expect(center).not.toBeNull()
+    expect(center!).toBeLessThan(62 - 10)
+    // Monotonic slope: adjacent noise samples never step more than 3 blocks.
+    let prev = 70
+    for (let v = 0.701; v <= 0.999; v += 0.01) {
+      const y = Option.getOrNull(computeLakeBasin('PLAINS', v, 70)) ?? 70
+      expect(prev - y).toBeLessThanOrEqual(3)
+      prev = y
+    }
+  })
+
+  it('river beds always sit below the water line — no dry canyons through hills', () => {
+    // High terrain (y=90): the old cap left the bed at y=80, above y=62 water.
+    const highBed = resolveSurfaceY('RIVER', 90, Option.none())
+    expect(highBed).toBeLessThan(62)
+    // Low terrain keeps a sane bed too.
+    const lowBed = resolveSurfaceY('RIVER', 64, Option.none())
+    expect(lowBed).toBeLessThan(62)
+    expect(lowBed).toBeGreaterThanOrEqual(62 - 10)
   })
 })
