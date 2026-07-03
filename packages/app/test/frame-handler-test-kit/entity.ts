@@ -157,6 +157,10 @@ export const makeGameState = () => ({
   update: (_dt: unknown) => Effect.void,
   respawn: (_position: unknown) => Effect.void,
   isPlayerGrounded: () => Effect.succeed(true),
+  isBoating: () => Effect.succeed(false),
+  isMinecarting: () => Effect.succeed(false),
+  enterBoat: () => Effect.void,
+  enterMinecart: () => Effect.void,
 }) as unknown as InstanceType<typeof import('@ts-minecraft/game').GameStateService>
 
 /** Creates a time service fake pinned to midday using default settings. */

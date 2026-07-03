@@ -16,7 +16,7 @@ export const buildSessionRuntimeServices = ({
   services,
 }: {
   readonly bootCtx: Pick<BootContext, 'perfHud' | 'settingsService' | 'soundManager' | 'musicManager'>
-  readonly rendering: Pick<SessionRenderingResources, 'remotePlayerRenderer'>
+  readonly rendering: Pick<SessionRenderingResources, 'remotePlayerRenderer' | 'vehicleVisual'>
   readonly services: SessionBootstrapServices
 }): FrameHandlerServices => ({
   ...buildSessionRuntimeStateServices({ bootCtx, services }),

@@ -32,6 +32,7 @@ export const makeWorldServices = () => ({
   chunkMeshService: makeChunkMeshService(),
   particleSystem: makeParticleSystem(),
   remotePlayerRenderer: makeRemotePlayerRenderer(),
+  vehicleVisual: { update: () => {} },
   weatherService: makeWeatherService(),
   biomeService: makeBiomeService(),
   fluidService: makeFluidService(),

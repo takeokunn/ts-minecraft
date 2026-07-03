@@ -324,6 +324,14 @@ export const runPresentationFrameStages = (
         markShadowMapDirty: inputs.markShadowMapDirty,
       }))
       yield* markEffect('frame:interaction', interactionStage(deps, services, refs, { debugFlags: inputs.debugFlags }))
+      // Vehicle body under the rider (boat hull / minecart tub) — synced after
+      // the camera so third-person and look-down first-person both see it at
+      // the final player position for this frame.
+      const boating = yield* services.gameState.isBoating()
+      const minecarting = yield* services.gameState.isMinecarting()
+      const vehicleKind = boating ? 'boat' as const : minecarting ? 'minecart' as const : null
+      const vehicleYaw = vehicleKind !== null ? (yield* services.playerCameraState.getRotation()).yaw : 0
+      services.vehicleVisual.update(vehicleKind, inputs.playerPos, vehicleYaw)
       yield* markEffect('frame:refraction', refractionPrepassStage(deps, services, refs, {
         resolvedGraphics: inputs.resolvedGraphics,
         totalTimeSecs: inputs.totalTimeSecs,

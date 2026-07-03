@@ -15,7 +15,7 @@ import type {
 import type { Position, MoonPhasePort, SkyMaterialPort } from '@ts-minecraft/core'
 import type { PlayerError } from '@ts-minecraft/entity/domain/errors'
 import type { StorageError } from '@ts-minecraft/world'
-import type { RemotePlayerRenderer } from '@ts-minecraft/rendering'
+import type { RemotePlayerRenderer, VehicleVisual } from '@ts-minecraft/rendering'
 
 import type { PendingResize } from './browser-runtime-types'
 import type { SessionControl } from '@ts-minecraft/app/main/session-control'
@@ -61,6 +61,7 @@ export type SessionRenderingResources = {
   readonly smaaPass: FrameHandlerDeps['smaaPass']
   readonly lighting: SessionLightingSnapshot
   readonly remotePlayerRenderer: RemotePlayerRenderer
+  readonly vehicleVisual: VehicleVisual
 }
 
 export type SessionRuntimeState = {

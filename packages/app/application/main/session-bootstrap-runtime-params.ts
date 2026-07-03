@@ -7,11 +7,11 @@ import type {
   SessionRuntimeParams,
   SessionRuntimeState,
 } from '@ts-minecraft/app/main/session-runtime-types'
-import { createRemotePlayerRenderer } from '@ts-minecraft/rendering'
+import { createRemotePlayerRenderer, createVehicleVisual } from '@ts-minecraft/rendering'
 
 export type SessionRuntimeParamsInput = {
   readonly bootCtx: Pick<BootContext, 'renderer'>
-  readonly rendering: Omit<SessionRenderingResources, 'renderer' | 'remotePlayerRenderer'>
+  readonly rendering: Omit<SessionRenderingResources, 'renderer' | 'remotePlayerRenderer' | 'vehicleVisual'>
   readonly state: Pick<SessionRuntimeState, 'control' | 'respawnPositionRef' | 'persistSessionState'>
   readonly overlays: SessionRuntimeOverlays
   readonly runtimeState: SessionRuntimeBootstrapState
@@ -31,6 +31,7 @@ export const buildSessionRuntimeParams = ({
     renderer: bootCtx.renderer,
     ...rendering,
     remotePlayerRenderer: createRemotePlayerRenderer(rendering.scene, rendering.camera),
+    vehicleVisual: createVehicleVisual(rendering.scene),
   }
   const hud: SessionHudElements = {
     fpsElement,

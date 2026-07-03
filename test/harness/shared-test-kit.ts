@@ -174,6 +174,7 @@ export const makeServices = (opts: {
     droppedItemRenderer: makeDroppedItemRenderer(),
     droppedXpOrbRenderer: makeDroppedXpOrbRenderer(),
     remotePlayerRenderer: makeRemotePlayerRenderer(),
+    vehicleVisual: { update: () => {} },
     chunkMeshService: makeChunkMeshService(),
     particleSystem: makeParticleSystem(),
     healthService: makeHealthService(),

@@ -13,6 +13,7 @@ type SessionRuntimeWorldServices = Pick<
   | 'chunkMeshService'
   | 'particleSystem'
   | 'remotePlayerRenderer'
+  | 'vehicleVisual'
   | 'weatherService'
   | 'biomeService'
   | 'redstoneService'
@@ -27,7 +28,7 @@ export const buildSessionRuntimeWorldServices = ({
   rendering,
   services,
 }: {
-  readonly rendering: Pick<SessionRenderingResources, 'remotePlayerRenderer'>
+  readonly rendering: Pick<SessionRenderingResources, 'remotePlayerRenderer' | 'vehicleVisual'>
   readonly services: SessionBootstrapServices
 }): SessionRuntimeWorldServices => ({
   chunkManagerService: services.chunkManagerService,
@@ -39,6 +40,7 @@ export const buildSessionRuntimeWorldServices = ({
   chunkMeshService: services.chunkMeshService,
   particleSystem: services.particleSystem,
   remotePlayerRenderer: rendering.remotePlayerRenderer,
+  vehicleVisual: rendering.vehicleVisual,
   weatherService: services.weatherService,
   biomeService: services.biomeService,
   redstoneService: services.redstoneService,

@@ -4,6 +4,7 @@ import type {
   EntityRendererService,
   ParticleSystemService,
   RemotePlayerRenderer,
+  VehicleVisual,
 } from '@ts-minecraft/rendering'
 
 export type FrameRenderingServices = {
@@ -12,4 +13,5 @@ export type FrameRenderingServices = {
   readonly entityRenderer: EntityRendererService
   readonly particleSystem: ParticleSystemService
   readonly remotePlayerRenderer: RemotePlayerRenderer
+  readonly vehicleVisual: VehicleVisual
 }
