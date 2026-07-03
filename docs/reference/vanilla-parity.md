@@ -129,7 +129,7 @@ Chicken, Bat, Squid, Bee.
 - Modding: 🟡 first data-driven surface shipped 2026-07-03 — custom recipe packs via `localStorage['ts-minecraft:custom-recipes']` (JSON array validated by the built-in Recipe schema; per-entry rejection, built-in id collisions skipped). No scripting/plugin API — Luanti-class modding remains out of scope.
 - Boats & minecarts — items exist; ride-able entities not implemented.
 - Ocean depth content (guardians, kelp forests), amethyst/deepslate caves biome variety.
-- Audio on localhost is force-disabled by environment policy (engine unit-tested; needs non-localhost origin for live validation).
+- ~~Audio live validation~~ RESOLVED 2026-07-03: served via LAN IP (non-localhost origin) the audio pipeline was live-verified — settings toggle persists (policy pass-through), AudioContext running at 48 kHz, 23 oscillator+gain pairs scheduled during a mining sequence. The localhost force-off remains a deliberate dev-environment policy.
 - Multiplayer beyond small co-op (no server-authoritative physics, no interest management).
 
 ## Verification provenance
