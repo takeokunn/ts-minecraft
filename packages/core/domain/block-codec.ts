@@ -55,6 +55,8 @@ export const INDEX_TO_BLOCK_TYPE: ReadonlyArray<BlockType> = [
   'SOUL_SAND', 'NETHER_WART_CROP',
   // Desert temple material - index 106
   'SANDSTONE',
+  // Ocean monument material - index 107
+  'PRISMARINE',
 ]
 
 export const BLOCK_COUNT = INDEX_TO_BLOCK_TYPE.length

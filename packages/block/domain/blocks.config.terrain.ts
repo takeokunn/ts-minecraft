@@ -242,6 +242,16 @@ export const terrainBlocks: ReadonlyArray<Block> = [
     faces: defaultBlockFaces,
   }),
   new Block({
+    id: makeBlockId('block:prismarine'),
+    type: 'PRISMARINE',
+    properties: {
+      ...defaultBlockProperties,
+      hardness: 25,
+      friction: 0.8,
+    },
+    faces: defaultBlockFaces,
+  }),
+  new Block({
     id: makeBlockId('block:sapling'),
     type: 'SAPLING',
     properties: plantBlockProperties,

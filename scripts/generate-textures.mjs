@@ -1924,8 +1924,24 @@ saveTile(135, 'sandstone', (ctx) => {
   ctx.fillRect(0, 27, TILE_PX, 1)
 })
 
+// 136: prismarine — sea-green tessellated stone
+saveTile(136, 'prismarine', (ctx) => {
+  ctx.fillStyle = '#4E8E86'
+  ctx.fillRect(0, 0, TILE_PX, TILE_PX)
+  drawNoise(ctx, ['#437E76', '#5AA096', '#4A8880'], 0.3)
+  // tessellation seams
+  ctx.strokeStyle = '#356B63'
+  ctx.lineWidth = 1
+  for (let i = 0; i <= TILE_PX; i += 8) {
+    ctx.strokeRect(0.5 + i, 0.5, 8, 8)
+    ctx.strokeRect(0.5 + ((i + 4) % TILE_PX), 8.5, 8, 8)
+    ctx.strokeRect(0.5 + i, 16.5, 8, 8)
+    ctx.strokeRect(0.5 + ((i + 4) % TILE_PX), 24.5, 8, 8)
+  }
+})
+
 // Save combined atlas (single file loaded by chunk-mesh.ts at runtime).
 writeFileSync(join(OUTPUT_DIR, 'atlas.png'), atlasCanvas.toBuffer('image/png'))
-console.log(`  ✓ atlas.png (512×512, all 136 tiles combined)`)
+console.log(`  ✓ atlas.png (512×512, all 137 tiles combined)`)
 
 console.log(`\nDone - 123 individual tiles + atlas.png written to ${OUTPUT_DIR}`)

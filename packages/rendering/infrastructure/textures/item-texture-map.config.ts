@@ -100,6 +100,7 @@ export const ITEM_TILE_MAP: Readonly<Record<InventoryItem, number>> = {
   SOUL_SAND: 126,
   NETHER_WART_CROP: 127,
   SANDSTONE: 135,
+  PRISMARINE: 136,
   GLASS_BOTTLE: 118,
   POTION_SWIFTNESS: 119,
   POTION_HEALING: 120,
