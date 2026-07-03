@@ -209,6 +209,13 @@ const GLOW_SQUID_SPECS = buildSquidSpecs(
   { head: 0x37d6c8, body: 0x5df0df, tentacle: 0x1db8aa },
 )
 
+// Ghast: a large pale cube with dangling tentacles — the squid frame scaled
+// up with the vanilla off-white palette and gray under-tentacles.
+const GHAST_SPECS = buildSquidSpecs(
+  { head: [1.1, 0.5, 1.1], body: [1.3, 1.3, 1.3], tentacle: [0.16, 0.9, 0.16] },
+  { head: 0xd8d8d8, body: 0xefefef, tentacle: 0xbdbdbd },
+)
+
 const WITCH_SPECS = buildBipedSpecs(
   { head: [0.42, 0.55, 0.42], body: [0.56, 1.05, 0.32], arm: [0.18, 0.95, 0.18], leg: [0.18, 0.45, 0.18] },
   { head: 0x6b8f4e, body: 0x4b2a63, arm: 0x3a214f, leg: 0x2a1a36 },
@@ -373,6 +380,7 @@ const SPECS_BY_TYPE: Readonly<Record<EntityType, Readonly<Record<PartRole, Optio
   Drowned: DROWNED_SPECS,
   ZombieVillager: ZOMBIE_VILLAGER_SPECS,
   Villager: VILLAGER_SPECS,
+  Ghast: GHAST_SPECS,
   Creeper: CREEPER_SPECS,
   Skeleton: SKELETON_SPECS,
   Spider: SPIDER_SPECS,
@@ -400,6 +408,7 @@ export const ROLES_BY_TYPE: Readonly<Record<EntityType, ReadonlyArray<PartRole>>
   Drowned: ['head', 'body', 'armL', 'armR', 'legFL', 'legFR'],
   ZombieVillager: ['head', 'body', 'armL', 'armR', 'legFL', 'legFR'],
   Villager: ['head', 'body', 'armL', 'armR', 'legFL', 'legFR'],
+  Ghast: ['head', 'body', 'legFL', 'legFR', 'legBL', 'legBR'],
   Creeper: ['head', 'body', 'legFL', 'legFR', 'legBL', 'legBR'],
   Skeleton: ['head', 'body', 'armL', 'armR', 'legFL', 'legFR'],
   Spider: ['head', 'body', 'legFL', 'legFR', 'legBL', 'legBR'],

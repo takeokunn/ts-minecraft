@@ -76,13 +76,14 @@ export const resolvePlayerRangedDamage = (
   let anyEntityModified = false
 
   HashMap.forEach(entities, (entity) => {
-    if (entity.type !== EntityType.Skeleton && entity.type !== EntityType.Blaze) return
+    if (entity.type !== EntityType.Skeleton && entity.type !== EntityType.Blaze && entity.type !== EntityType.Ghast) return
     if (entity.behavior !== 'hostile' || entity.attackDamage <= 0) return
     if (entity.attackCooldownRemaining > 0) return
     if (!canSkeletonShootPlayer(entity, playerPosition, isProjectileBlocked)) return
 
     totalDamage += entity.attackDamage
-    if (entity.type === EntityType.Blaze) {
+    // Fire-based shooters: a landed fireball also sets the player burning.
+    if (entity.type === EntityType.Blaze || entity.type === EntityType.Ghast) {
       igniteSecs = Math.max(igniteSecs, BLAZE_IGNITE_SECS)
     }
     updatedEntities = HashMap.set(updatedEntities, entity.entityId, {

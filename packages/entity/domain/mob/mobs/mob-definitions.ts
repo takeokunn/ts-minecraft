@@ -4,6 +4,7 @@ import { BatDefinition } from './bat'
 import { BeeDefinition } from './bee'
 import { BlazeDefinition } from './blaze'
 import { VillagerDefinition } from './villager'
+import { GhastDefinition } from './ghast'
 import { ChickenDefinition } from './chicken'
 import { CowDefinition } from './cow'
 import { CreeperDefinition } from './creeper'
@@ -43,4 +44,5 @@ export const MobDefinitions = {
   [EntityType.Endermite]: EndermiteDefinition,
   [EntityType.Blaze]: BlazeDefinition,
   [EntityType.Villager]: VillagerDefinition,
+  [EntityType.Ghast]: GhastDefinition,
 } as Readonly<Record<EntityType, MobDefinition>>

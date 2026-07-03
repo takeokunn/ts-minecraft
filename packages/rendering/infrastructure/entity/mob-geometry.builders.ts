@@ -38,6 +38,8 @@ import {
   ENDERMITE_PALETTE,
   ENDERMITE_PARTS,
   GLOW_SQUID_PALETTE,
+  GHAST_PARTS,
+  GHAST_PALETTE,
   PIG_PALETTE,
   PIG_PARTS,
   SHEEP_PALETTE,
@@ -391,6 +393,8 @@ export const buildMobGroup = (type: EntityType): MobLimbGroup => {
       return buildSquid('Squid', SQUID_PARTS, SQUID_PALETTE)
     case 'GlowSquid':
       return buildSquid('GlowSquid', SQUID_PARTS, GLOW_SQUID_PALETTE)
+    case 'Ghast':
+      return buildSquid('Ghast', GHAST_PARTS, GHAST_PALETTE)
     case 'Witch':
       return buildBiped('Witch', WITCH_PARTS, WITCH_PALETTE)
     case 'Drowned':

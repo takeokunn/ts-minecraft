@@ -31,6 +31,7 @@ export const NETHER_HOSTILE_MOBS: ReadonlyArray<EntityType> = [
   EntityType.Skeleton,
   EntityType.Enderman,
   EntityType.Zombie,
+  EntityType.Ghast,
 ]
 
 // All Blaze/nether-category mobs are hostile; combined set used for the
@@ -38,4 +39,5 @@ export const NETHER_HOSTILE_MOBS: ReadonlyArray<EntityType> = [
 export const ALL_HOSTILE_MOBS: ReadonlyArray<EntityType> = [
   ...HOSTILE_MOBS,
   EntityType.Blaze,
+  EntityType.Ghast,
 ]

@@ -100,6 +100,12 @@ export const SQUID_PARTS: SquidParts = {
   tentacle: [0.08, 0.55, 0.08],
 }
 export const SQUID_PALETTE: SquidPalette = { head: 0x315f8f, body: 0x2f78b7, tentacle: 0x1f4f7a }
+export const GHAST_PARTS: SquidParts = {
+  head: [1.1, 0.5, 1.1],
+  body: [1.3, 1.3, 1.3],
+  tentacle: [0.16, 0.9, 0.16],
+}
+export const GHAST_PALETTE: SquidPalette = { head: 0xd8d8d8, body: 0xefefef, tentacle: 0xbdbdbd }
 export const GLOW_SQUID_PALETTE: SquidPalette = { head: 0x37d6c8, body: 0x5df0df, tentacle: 0x1db8aa }
 
 export const WITCH_PARTS: ZombieParts = {
