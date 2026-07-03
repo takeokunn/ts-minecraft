@@ -10,6 +10,7 @@ export const SoundEffectSchema = Schema.Literal(
   'mobDeath',
   'enchant',
   'inventoryOpen',
+  'itemPickup',
   'inventoryClose',
   'footstepGrass',
   'footstepStone',

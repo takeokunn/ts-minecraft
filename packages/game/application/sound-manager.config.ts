@@ -23,6 +23,8 @@ export const SOUND_LIBRARY = {
   // success", clearly distinct from the dull blockPlace tick it replaces.
   enchant: { frequency: 660, durationMs: 200, wave: 'triangle' as OscillatorWave, baseGain: 0.34 },
   inventoryOpen: { frequency: 520, durationMs: 85, wave: 'triangle' as OscillatorWave, baseGain: 0.28 },
+  // Bright little pop when a dropped item enters the inventory (vanilla 'plop').
+  itemPickup: { frequency: 840, durationMs: 55, wave: 'triangle' as OscillatorWave, baseGain: 0.3 },
   inventoryClose: { frequency: 360, durationMs: 75, wave: 'triangle' as OscillatorWave, baseGain: 0.24 },
   footstepGrass: { frequency: 170, durationMs: 45, wave: 'triangle' as OscillatorWave, baseGain: 0.18 },
   footstepStone: { frequency: 260, durationMs: 38, wave: 'square' as OscillatorWave, baseGain: 0.16 },

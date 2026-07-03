@@ -1,4 +1,6 @@
 import { Effect, MutableRef, Option as EffectOption, Ref } from 'effect'
+import { blockTypeToIndex } from '@ts-minecraft/core'
+import { getParticleUvOffset } from '@ts-minecraft/rendering'
 import * as THREE from 'three'
 import {
   getBlockCollisionShapeAt as getCachedBlockCollisionShapeAt,
@@ -170,7 +172,7 @@ export const entityUpdateStage = (
   deps: Pick<FrameHandlerDeps, 'scene' | 'camera'>,
   services: Pick<
     FrameHandlerServices,
-    'chunkManagerService' | 'droppedItemService' | 'droppedXpOrbService' | 'droppedItemRenderer' | 'droppedXpOrbRenderer' | 'entityManager' | 'entityRenderer' | 'redstoneService' | 'fluidService' | 'particleSystem' | 'inventoryService' | 'equipmentService' | 'xpService' | 'blockService'
+    'chunkManagerService' | 'droppedItemService' | 'droppedXpOrbService' | 'droppedItemRenderer' | 'droppedXpOrbRenderer' | 'entityManager' | 'entityRenderer' | 'redstoneService' | 'fluidService' | 'particleSystem' | 'inventoryService' | 'equipmentService' | 'xpService' | 'blockService' | 'soundManager'
   >,
   refs: Pick<
     FrameStageRefs,
@@ -306,6 +308,21 @@ export const entityUpdateStage = (
         const collectedItems = yield* services.droppedItemService.collectWithin(inputs.playerPos)
         for (const item of collectedItems) {
           yield* addCollectedDroppedItem(services, item)
+        }
+        // Pickup feedback: one bright pop + a small sparkle at the item's
+        // last position (once per frame, not per stack — no sound pile-up).
+        if (collectedItems.length > 0) {
+          yield* services.soundManager.playEffect('itemPickup', { position: inputs.playerPos })
+          const first = collectedItems[0]!
+          const pickupUv = getParticleUvOffset(blockTypeToIndex('GOLD_BLOCK'))
+          yield* services.particleSystem.spawnBurst(
+            first.position.x,
+            first.position.y + 0.3,
+            first.position.z,
+            pickupUv.u,
+            pickupUv.v,
+            4,
+          )
         }
         yield* services.droppedXpOrbService.tick(1, inputs.playerPos)
         const collectedXpOrbs = yield* services.droppedXpOrbService.collectWithin(inputs.playerPos)
