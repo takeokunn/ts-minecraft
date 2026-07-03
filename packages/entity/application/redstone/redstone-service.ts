@@ -117,7 +117,8 @@ export class RedstoneService extends Effect.Service<RedstoneService>()(
               const pistonKeys = type === RedstoneComponentType.Piston
                 ? HashSet.add(state.pistonKeys, key)
                 : state.pistonKeys
-              const buttonKeys = type === RedstoneComponentType.Button
+              // Observers share the button pulse-decay machinery.
+              const buttonKeys = type === RedstoneComponentType.Button || type === RedstoneComponentType.Observer
                 ? HashSet.add(state.buttonKeys, key)
                 : state.buttonKeys
               return [comp, { ...state, components, pistonKeys, buttonKeys }]
@@ -181,6 +182,30 @@ export class RedstoneService extends Effect.Service<RedstoneService>()(
               const key = positionKey(position)
               const currentValue = Option.getOrNull(HashMap.get(state.components, key))
               const current = currentValue !== null && currentValue.type === RedstoneComponentType.Button ? currentValue : null
+              if (current === null) return [Option.none(), state]
+              const normalizedDuration = Math.min(Math.max(1, Math.floor(durationTicks)), MAX_BUTTON_TICKS)
+              const updated: RedstoneComponent = {
+                ...current,
+                state: { ...current.state, active: true, buttonTicksRemaining: normalizedDuration },
+              }
+              return [Option.some(updated), { ...state, components: HashMap.set(state.components, key, updated) }]
+            })
+            yield* Ref.set(dirtyRef, true)
+            return result
+          }),
+
+        // Observer pulse: block-change detection (app layer) fires this; the
+        // observer then emits power for a short window via the shared
+        // button-tick decay.
+        pulseObserver: (
+          position: Position,
+          durationTicks = 2,
+        ): Effect.Effect<Option.Option<RedstoneComponent>, never> =>
+          Effect.gen(function* () {
+            const result = yield* Ref.modify(stateRef, (state): [Option.Option<RedstoneComponent>, RedstoneState] => {
+              const key = positionKey(position)
+              const currentValue = Option.getOrNull(HashMap.get(state.components, key))
+              const current = currentValue !== null && currentValue.type === RedstoneComponentType.Observer ? currentValue : null
               if (current === null) return [Option.none(), state]
               const normalizedDuration = Math.min(Math.max(1, Math.floor(durationTicks)), MAX_BUTTON_TICKS)
               const updated: RedstoneComponent = {

@@ -11,6 +11,7 @@ export type RedstoneFlags = {
   readonly placeButton: boolean
   readonly placeTorch: boolean
   readonly placePiston: boolean
+  readonly placeObserver: boolean
   readonly toggleLever: boolean
   readonly pressButton: boolean
   readonly toggleTorch: boolean
@@ -66,6 +67,8 @@ const dispatchRedstoneAction = (
     Match.when({ placeButton: true }, () => placeComponentAndBlock(services, RedstoneComponentType.Button, 'STONE_BUTTON',    position)),
     Match.when({ placeTorch: true },  () => placeComponentAndBlock(services, RedstoneComponentType.Torch,  'REDSTONE_TORCH',  position)),
     Match.when({ placePiston: true }, () => placeComponentAndBlock(services, RedstoneComponentType.Piston, 'PISTON', position, pistonFacing !== undefined ? { pistonFacing } : undefined)),
+    // Observers reuse the placement-facing capture: they watch the cell they face.
+    Match.when({ placeObserver: true }, () => placeComponentAndBlock(services, RedstoneComponentType.Observer, 'OBSERVER', position, pistonFacing !== undefined ? { pistonFacing } : undefined)),
     Match.when({ toggleLever: true }, () => services.redstoneService.toggleLever(position)),
     Match.when({ pressButton: true }, () => services.redstoneService.pressButton(position)),
     Match.when({ toggleTorch: true }, () => services.redstoneService.toggleTorch(position)),

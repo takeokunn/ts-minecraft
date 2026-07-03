@@ -57,6 +57,8 @@ export const INDEX_TO_BLOCK_TYPE: ReadonlyArray<BlockType> = [
   'SANDSTONE',
   // Ocean monument material - index 107
   'PRISMARINE',
+  // Redstone observer - index 108
+  'OBSERVER',
 ]
 
 export const BLOCK_COUNT = INDEX_TO_BLOCK_TYPE.length

@@ -1946,6 +1946,23 @@ saveTile(138, 'potion-healing-ii', (ctx) => drawBottle(ctx, '#a51f1f'))
 // 139: extended swiftness — pale, airy tint for the long-clock brew.
 saveTile(139, 'potion-swiftness-long', (ctx) => drawBottle(ctx, '#8fd0f5'))
 
+// 140: observer — stone body with a redstone 'eye' watching face.
+saveTile(140, 'observer', (ctx) => {
+  ctx.fillStyle = '#7e7e7e'
+  ctx.fillRect(0, 0, TILE_PX, TILE_PX)
+  drawNoise(ctx, ['#8a8a8a', '#6a6a6a', '#808080'], 0.3)
+  // face plate
+  ctx.strokeStyle = '#5d5d5d'
+  ctx.lineWidth = 2
+  ctx.strokeRect(2, 2, TILE_PX - 4, TILE_PX - 4)
+  // watching slit
+  ctx.fillStyle = '#3a3a3a'
+  ctx.fillRect(6, 12, TILE_PX - 12, 8)
+  // redstone eye
+  ctx.fillStyle = '#c33'
+  ctx.fillRect(13, 14, 6, 4)
+})
+
 // Save combined atlas (single file loaded by chunk-mesh.ts at runtime).
 writeFileSync(join(OUTPUT_DIR, 'atlas.png'), atlasCanvas.toBuffer('image/png'))
 console.log(`  ✓ atlas.png (512×512, all 140 tiles combined)`)

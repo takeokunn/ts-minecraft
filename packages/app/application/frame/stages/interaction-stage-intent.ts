@@ -23,6 +23,7 @@ export const resolveInteractionStageIntent = (
     snapshot.redstoneFlags.placeButton ||
     snapshot.redstoneFlags.placeTorch ||
     snapshot.redstoneFlags.placePiston ||
+    snapshot.redstoneFlags.placeObserver ||
     snapshot.redstoneFlags.toggleLever ||
     snapshot.redstoneFlags.pressButton ||
     snapshot.redstoneFlags.toggleTorch

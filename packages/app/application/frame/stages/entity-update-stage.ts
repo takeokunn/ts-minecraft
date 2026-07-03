@@ -25,6 +25,7 @@ import { addExperienceWithMending } from '@ts-minecraft/app/application/frame/st
 import { dragonDeathStage } from '@ts-minecraft/app/application/frame/stages/dragon-death-stage'
 import { applyPistonWorldEffects } from '@ts-minecraft/app/application/frame/stages/redstone-piston-world-effects'
 import { applyLampWorldEffects } from '@ts-minecraft/app/application/frame/stages/redstone-lamp-world-effects'
+import { applyObserverWorldEffects } from '@ts-minecraft/app/application/frame/stages/redstone-observer-world-effects'
 import { REDSTONE_TICK_INTERVAL_SECS, FLUID_TICK_INTERVAL_SECS } from '@ts-minecraft/app/frame-handler.config'
 import { CHUNK_SIZE, type DeltaTimeSecs, type Position } from '@ts-minecraft/core'
 
@@ -392,6 +393,7 @@ export const entityUpdateStage = (
               redstoneComponentsBeforeTick,
               redstoneComponentsAfterTick,
             )
+            yield* applyObserverWorldEffects(services, redstoneComponentsAfterTick)
             yield* applyLampWorldEffects(services, refs, redstoneComponentsAfterTick)
           }),
           inputs.deltaTime,
