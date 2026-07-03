@@ -16,9 +16,12 @@ const hideMoon = (lights: DayNightLightsPort): void => {
 // The End: deep void black with faint purple ambient, no sun.
 export const applyEndEnvironment = (lights: DayNightLightsPort): void => {
   lights.light.intensity = 0
-  lights.ambientLight.intensity = 0.15
-  lights.ambientLight.color.setHSL(0.8, 0.5, 0.25)  // deep purple
-  lights.skyCurrent.setHSL(0.8, 0.3, 0.02)           // near-black void
+  // Tuned for the white-ambient/NoToneMapping model (same rebalance as the
+  // nether): vanilla's End is FULLY lit in a pale lavender cast — the old
+  // 0.15 x deep-purple (~0.04 effective) rendered the dimension black.
+  lights.ambientLight.intensity = 0.95
+  lights.ambientLight.color.setHSL(0.75, 0.15, 0.68)  // pale lavender-gray
+  lights.skyCurrent.setHSL(0.75, 0.35, 0.06)           // deep violet void
   lights.renderer.setClearColor(lights.skyCurrent)
   hideMoon(lights)
 }
