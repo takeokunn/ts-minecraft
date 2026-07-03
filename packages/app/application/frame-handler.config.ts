@@ -26,7 +26,9 @@ export const MAX_DIRTY_CHUNK_UPDATES_PER_FRAME = computeMaxDirtyChunkUpdatesPerF
 export const DIRTY_CHUNK_FLUSH_CONCURRENCY = typeof Worker === 'undefined' ? 1 : 2
 
 export const REDSTONE_TICK_INTERVAL_SECS = 0.05
-export const FLUID_TICK_INTERVAL_SECS = 0.05
+// Vanilla water spreads one block per 5 game ticks (0.25 s); ticking at 0.05 s
+// ran the fluid sim 5x faster than vanilla AND 5x more often than needed.
+export const FLUID_TICK_INTERVAL_SECS = 0.25
 // Health invincibility counts down at the 20 ticks/s game-tick rate (0.05 s/tick). The
 // tick was previously decremented once per RENDER frame, so the 10-tick (0.5 s) i-frame
 // window collapsed to ~0.167 s at 60fps — gating it here restores the correct, frame-rate

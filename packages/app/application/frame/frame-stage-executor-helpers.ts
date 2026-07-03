@@ -1,4 +1,5 @@
 import { Effect, MutableRef, Option } from 'effect'
+import { markEffect } from '@ts-minecraft/rendering'
 import type * as THREE from 'three'
 import { DEFAULT_PLAYER_ID } from '@ts-minecraft/core'
 import type { DeltaTimeSecs, Position } from '@ts-minecraft/core'
@@ -212,13 +213,13 @@ export const runActiveFrameStages = (
       }
     }
 
-    yield* chunkSyncStage(deps, services, refs)
-    const lightingResult = yield* lightingStage(deps, services, refs, {
+    yield* markEffect('frame:chunkSync', chunkSyncStage(deps, services, refs))
+    const lightingResult = yield* markEffect('frame:lighting', lightingStage(deps, services, refs, {
       deltaTime: inputs.deltaTime,
       effectiveLights: inputs.effectiveLights,
       playerPos: inputs.initialPlayerPos,
       markShadowMapDirty: inputs.markShadowMapDirty,
-    })
+    }))
     const isNight = yield* services.timeService.isNight()
     const weather = yield* services.weatherService.getWeather()
     const dimension = yield* services.netherService.getDimension()
@@ -234,7 +235,7 @@ export const runActiveFrameStages = (
         remotePlayerPositions.push({ x: remotePlayer.x, y: remotePlayer.y, z: remotePlayer.z } as Position)
       }
     }
-    const entitySnapshots = yield* entityUpdateStage(deps, services, refs, {
+    const entitySnapshots = yield* markEffect('frame:entityUpdate', entityUpdateStage(deps, services, refs, {
       deltaTime: inputs.deltaTime,
       debugFlags: inputs.debugFlags,
       playerPos: inputs.initialPlayerPos,
@@ -242,9 +243,9 @@ export const runActiveFrameStages = (
       isNight,
       daylightBurnProtected: isDaylightBurnProtected(weather, dimension),
       remotePlayerPositions,
-    })
+    }))
 
-    const playerPos = yield* physicsStage(deps, services, refs, {
+    const playerPos = yield* markEffect('frame:physics', physicsStage(deps, services, refs, {
       deltaTime: inputs.deltaTime,
       initialPlayerPos: inputs.initialPlayerPos,
       healthValueElementOrNull: inputs.resolved.healthValueElementOrNull,
@@ -259,7 +260,7 @@ export const runActiveFrameStages = (
       airElementOrNull: inputs.resolved.airElementOrNull,
       debugFlags: inputs.debugFlags,
       difficulty: inputs.currentSettings.difficulty,
-    })
+    }))
 
     return {
       playerPos,
@@ -294,11 +295,11 @@ export const runPresentationFrameStages = (
   },
 ) =>
   Effect.gen(function* () {
-    yield* inputStage(deps, services, refs, {
+    yield* markEffect('frame:input', inputStage(deps, services, refs, {
       mouseSensitivity: inputs.currentSettings.mouseSensitivity,
       dayLengthSeconds: inputs.currentSettings.dayLengthSeconds,
       playerPos: inputs.playerPos,
-    })
+    }))
 
     const mp = Option.getOrNull(services.multiplayer)
     if (mp !== null) {
@@ -317,38 +318,38 @@ export const runPresentationFrameStages = (
     }
 
     if (!inputs.sessionPaused) {
-      yield* cameraStage(deps, services, refs, {
+      yield* markEffect('frame:camera', cameraStage(deps, services, refs, {
         playerPos: inputs.playerPos,
         renderDistance: inputs.currentSettings.renderDistance,
         markShadowMapDirty: inputs.markShadowMapDirty,
-      })
-      yield* interactionStage(deps, services, refs, { debugFlags: inputs.debugFlags })
-      yield* refractionPrepassStage(deps, services, refs, {
+      }))
+      yield* markEffect('frame:interaction', interactionStage(deps, services, refs, { debugFlags: inputs.debugFlags }))
+      yield* markEffect('frame:refraction', refractionPrepassStage(deps, services, refs, {
         resolvedGraphics: inputs.resolvedGraphics,
         totalTimeSecs: inputs.totalTimeSecs,
         sunIntensity: inputs.sunIntensity,
-      })
+      }))
     }
 
-    yield* postProcessingSetupStage(deps, inputs.resolved, {
+    yield* markEffect('frame:postSetup', postProcessingSetupStage(deps, inputs.resolved, {
       resolvedGraphics: inputs.resolvedGraphics,
       graphicsChanged: inputs.graphicsChanged,
       pixelRatioChanged: inputs.pixelRatioChanged,
       markShadowMapDirty: inputs.markShadowMapDirty,
-    })
-    yield* renderStage(deps, services, refs, inputs.resolved, {
+    }))
+    yield* markEffect('frame:render', renderStage(deps, services, refs, inputs.resolved, {
       resolvedGraphics: inputs.resolvedGraphics,
       sunWorldPos: inputs.sunWorldPos,
       debugFlags: inputs.debugFlags,
       reducedMotion: inputs.currentSettings.reducedMotion,
-    })
-    yield* hudStage(deps, services, refs, {
+    }))
+    yield* markEffect('frame:hud', hudStage(deps, services, refs, {
       deltaTime: inputs.deltaTime,
       debugFlags: inputs.debugFlags,
       currentSettings: inputs.currentSettings,
       fpsElementOrNull: inputs.resolved.fpsElementOrNull,
       paused: inputs.sessionPaused,
-    })
+    }))
   })
 
 export const primeFrameEnvironment = (

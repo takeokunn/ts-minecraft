@@ -764,8 +764,8 @@ describe('step 2.85 — entity renderer wiring', () => {
       inventoryRenderer: makeInventoryRenderer({ open: false }),
       settingsOverlay: makeSettingsOverlay({ open: false }),
     })
-    // REDSTONE_TICK_INTERVAL_SECS = FLUID_TICK_INTERVAL_SECS = 0.05
-    // deltaTime = 0.12 → Math.floor(0.12 / 0.05) = 2 → ticksToRun > 1 branch
+    // REDSTONE_TICK_INTERVAL_SECS = 0.05, FLUID_TICK_INTERVAL_SECS = 0.25 (vanilla water speed)
+    // deltaTime = 0.6 → redstone floor(0.6/0.05) = 12, fluid floor(0.6/0.25) = 2 → both >1
     // Effect.repeatN repeats the Effect value, so use Effect.sync to count executions
     const redstoneCountRef = MutableRef.make(0)
     const fluidCountRef = MutableRef.make(0)
@@ -781,7 +781,7 @@ describe('step 2.85 — entity renderer wiring', () => {
       yield* maintenanceHandler()
       yield* frameHandler(deltaTime)
     })
-    yield* handler(0.12 as DeltaTimeSecs)
+    yield* handler(0.6 as DeltaTimeSecs)
 
     expect(MutableRef.get(redstoneCountRef)).toBeGreaterThan(1)
     expect(MutableRef.get(fluidCountRef)).toBeGreaterThan(1)

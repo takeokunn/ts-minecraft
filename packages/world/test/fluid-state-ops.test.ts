@@ -104,6 +104,47 @@ describe('hydrateChunk', () => {
     expect(Option.getOrThrow(HashMap.get(next.cells, blockKey(pos(4, 11, 5))))).toEqual(lava())
   })
 
+  it('does not enqueue steady-state ocean-interior cells (frontier stays lean)', () => {
+    // Fill a solid-floored basin: stone floor at y=9, water filling y=10..13
+    // across the full chunk. Only the surface layer (air above) is enqueued
+    // directly; enqueueKey spills one layer below as its neighbor. Cells two
+    // or more layers below the surface — the bulk of any ocean — must stay
+    // out of the frontier.
+    const blocks = new Uint8Array(chunkLength)
+    const STONE = blockTypeToIndex('STONE')
+    const WATER = blockTypeToIndex('WATER')
+    for (let x = 0; x < CHUNK_SIZE; x++) {
+      for (let z = 0; z < CHUNK_SIZE; z++) {
+        blocks[indexAt(x, 9, z)] = STONE
+        for (let y = 10; y <= 13; y++) blocks[indexAt(x, y, z)] = WATER
+      }
+    }
+    const next = hydrateChunk(INITIAL_STATE, makeChunk({ blocks }))
+    // every water cell is tracked
+    expect(HashMap.size(next.cells)).toBe(CHUNK_SIZE * CHUNK_SIZE * 4)
+    // deep interior cells (2+ below the surface) are NOT in the frontier
+    expect(HashSet.has(next.frontier, blockKey(pos(8, 11, 8)))).toBe(false)
+    expect(HashSet.has(next.frontier, blockKey(pos(8, 10, 8)))).toBe(false)
+    // the surface layer (air above) IS enqueued
+    expect(HashSet.has(next.frontier, blockKey(pos(8, 13, 8)))).toBe(true)
+    // chunk-face cells are conservatively enqueued (outward neighbor unknown)
+    expect(HashSet.has(next.frontier, blockKey(pos(0, 11, 8)))).toBe(true)
+  })
+
+  it('enqueues an interior source next to the other fluid (contact must react)', () => {
+    const blocks = new Uint8Array(chunkLength)
+    const WATER = blockTypeToIndex('WATER')
+    const LAVA = blockTypeToIndex('LAVA')
+    const STONE = blockTypeToIndex('STONE')
+    // encase a water+lava pair in stone so only the contact matters
+    for (let x = 6; x <= 9; x++) for (let y = 19; y <= 21; y++) for (let z = 6; z <= 9; z++) blocks[indexAt(x, y, z)] = STONE
+    blocks[indexAt(7, 20, 7)] = WATER
+    blocks[indexAt(8, 20, 7)] = LAVA
+    const next = hydrateChunk(INITIAL_STATE, makeChunk({ blocks }))
+    expect(HashSet.has(next.frontier, blockKey(pos(7, 20, 7)))).toBe(true)
+    expect(HashSet.has(next.frontier, blockKey(pos(8, 20, 7)))).toBe(true)
+  })
+
   it('rejects non-zero fluid bytes that were not written by the codec', () => {
     const fluid = createFluidBuffer()
     fluid[indexAt(0, 1, 0)] = 0x07

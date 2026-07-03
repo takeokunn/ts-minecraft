@@ -1,4 +1,5 @@
 import { Effect, MutableRef, Option as EffectOption, Ref } from 'effect'
+import { markEffect } from '@ts-minecraft/rendering'
 import { blockTypeToIndex } from '@ts-minecraft/core'
 import { getParticleUvOffset } from '@ts-minecraft/rendering'
 import * as THREE from 'three'
@@ -214,6 +215,7 @@ export const entityUpdateStage = (
     let chunkCache = yield* Ref.get(refs.entityPhysicsChunkCacheRef)
 
     if (needsEntityChunkCache) {
+      yield* markEffect('entity:chunkCache', Effect.gen(function* () {
       const lastChunkCoord = yield* Ref.get(refs.lastEntityPhysicsChunkCoordRef)
       const loadedChunks = MutableRef.get(refs.lastLoadedChunksRef)
       const lastLoadedChunks = yield* Ref.get(refs.lastEntityPhysicsLoadedChunksRef)
@@ -252,6 +254,7 @@ export const entityUpdateStage = (
         yield* Ref.set(refs.lastEntityPhysicsChunkCoordRef, { cx: playerCx, cz: playerCz })
         yield* Ref.set(refs.lastEntityPhysicsLoadedChunksRef, loadedChunks)
       }
+      }))
     }
 
     const isBlockSolid = (wx: number, wy: number, wz: number): boolean =>
@@ -263,7 +266,7 @@ export const entityUpdateStage = (
     // Slower world simulation (furnace/spawn/village) runs on the maintenance lane.
     if (mobsAiEnabled) {
       deps.camera.getWorldDirection(_playerLookDirection)
-      yield* logErrors(
+      yield* markEffect('entity:ai', logErrors(
         services.entityManager.update(
           inputs.deltaTime,
           inputs.playerPos,
@@ -275,7 +278,7 @@ export const entityUpdateStage = (
           inputs.remotePlayerPositions ?? [],
         ),
         'Entity system error',
-      )
+      ))
       // R10: reward the player with XP for each animal born this tick (vanilla breeding XP).
       const births = yield* services.entityManager.drainBirths()
       if (births > 0) {
@@ -291,7 +294,7 @@ export const entityUpdateStage = (
     }
 
     if (mobsPhysicsEnabled && typeof applyPhysics === 'function') {
-      yield* logErrors(
+      yield* markEffect('entity:physics', logErrors(
         applyPhysics(
           inputs.deltaTime,
           (
@@ -302,10 +305,10 @@ export const entityUpdateStage = (
           ) => resolveBlockCollisionsInto(outPos, outVel, position, velocity, MOB_HALF_WIDTH, MOB_HALF_HEIGHT, isBlockSolid, getBlockCollisionShape),
         ),
         'Entity physics error',
-      )
+      ))
     }
 
-    const entitySnapshotsResult = yield* logErrors(
+    const entitySnapshotsResult = yield* markEffect('entity:dropsAndRender', logErrors(
       Effect.gen(function* () {
         yield* services.droppedItemService.tick(1, isBlockSolid)
         const collectedItems = yield* services.droppedItemService.collectWithin(inputs.playerPos)
@@ -369,10 +372,10 @@ export const entityUpdateStage = (
         return entitySnapshots
       }),
       'Entity render error',
-    )
+    ))
 
     if (debugFlags['simulation.redstone']) {
-      yield* logErrors(
+      yield* markEffect('entity:redstone', logErrors(
         runTickable(
           refs.redstoneTickAccumulatorRef,
           Effect.gen(function* () {
@@ -404,20 +407,20 @@ export const entityUpdateStage = (
           REDSTONE_TICK_INTERVAL_SECS,
         ),
         'Redstone system error',
-      )
+      ))
     }
 
     if (debugFlags['simulation.fluid']) {
-      yield* logErrors(
+      yield* markEffect('entity:fluid', logErrors(
         runTickable(refs.fluidTickAccumulatorRef, services.fluidService.tick(), inputs.deltaTime, FLUID_TICK_INTERVAL_SECS),
         'Fluid system error',
-      )
+      ))
     }
 
     // FR-1.6 — block-break particles: integrate position/velocity/lifetime
     // and write the InstancedMesh's instanceMatrix exactly once per frame.
     if (debugFlags['particles.update']) {
-      yield* logErrors(services.particleSystem.update(inputs.deltaTime), 'Particle system error')
+      yield* markEffect('entity:particles', logErrors(services.particleSystem.update(inputs.deltaTime), 'Particle system error'))
     }
     return entitySnapshotsResult ?? []
   })
