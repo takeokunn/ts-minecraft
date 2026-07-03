@@ -22,6 +22,7 @@ import { writeJungleTempleForChunk } from './jungle-temple'
 import { writeDesertTempleForChunk } from './desert-temple'
 import { writeOceanMonumentForChunk } from './ocean-monument'
 import { writeWoodlandMansionForChunk } from './woodland-mansion'
+import { writeShipwreckForChunk } from './shipwreck'
 import { RAVINE_NOISE_SCALE, RAVINE_WORLD_OFFSET, carveRavines } from './ravine-carver'
 
 export const generateTerrain = (
@@ -169,6 +170,7 @@ export const generateTerrain = (
     writeDesertTempleForChunk(blocks, coord.x, coord.z, initialSurfaceYs, biomeColumns)
     writeOceanMonumentForChunk(blocks, coord.x, coord.z, initialSurfaceYs, biomeColumns)
     writeWoodlandMansionForChunk(blocks, coord.x, coord.z, initialSurfaceYs, biomeColumns)
+    writeShipwreckForChunk(blocks, coord.x, coord.z, initialSurfaceYs, biomeColumns)
 
     return { ...chunk, blocks }
   })
