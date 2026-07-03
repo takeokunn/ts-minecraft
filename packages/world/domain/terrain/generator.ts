@@ -21,6 +21,7 @@ import { writeStrongholdBlocksForChunk } from './stronghold'
 import { writeJungleTempleForChunk } from './jungle-temple'
 import { writeDesertTempleForChunk } from './desert-temple'
 import { writeOceanMonumentForChunk } from './ocean-monument'
+import { writeWoodlandMansionForChunk } from './woodland-mansion'
 
 export const generateTerrain = (
   chunkService: ChunkFactory,
@@ -143,6 +144,7 @@ export const generateTerrain = (
     writeJungleTempleForChunk(blocks, coord.x, coord.z, initialSurfaceYs, biomeColumns)
     writeDesertTempleForChunk(blocks, coord.x, coord.z, initialSurfaceYs, biomeColumns)
     writeOceanMonumentForChunk(blocks, coord.x, coord.z, initialSurfaceYs, biomeColumns)
+    writeWoodlandMansionForChunk(blocks, coord.x, coord.z, initialSurfaceYs, biomeColumns)
 
     return { ...chunk, blocks }
   })
