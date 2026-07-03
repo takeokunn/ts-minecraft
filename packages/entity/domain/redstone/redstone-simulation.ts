@@ -28,7 +28,8 @@ export const canConduct = (type: RedstoneComponentType): boolean =>
   type === RedstoneComponentType.Torch ||
   type === RedstoneComponentType.Piston ||
   type === RedstoneComponentType.PressurePlate ||
-  type === RedstoneComponentType.Observer
+  type === RedstoneComponentType.Observer ||
+  type === RedstoneComponentType.Repeater
 
 export const isPowerSource = (component: RedstoneComponent): boolean =>
   (component.type === RedstoneComponentType.Lever && component.state.active) ||
@@ -36,7 +37,9 @@ export const isPowerSource = (component: RedstoneComponent): boolean =>
   (component.type === RedstoneComponentType.Torch && component.state.active) ||
   (component.type === RedstoneComponentType.PressurePlate && component.state.active) ||
   // Observers pulse like buttons: power while the pulse timer runs.
-  (component.type === RedstoneComponentType.Observer && component.state.buttonTicksRemaining > 0)
+  (component.type === RedstoneComponentType.Observer && component.state.buttonTicksRemaining > 0) ||
+  // Active repeaters re-emit at full strength (signal refresh).
+  (component.type === RedstoneComponentType.Repeater && component.state.active)
 
 export const neighborsOf = (position: Position): ReadonlyArray<Position> => [
   { x: position.x + 1, y: position.y, z: position.z },
@@ -100,6 +103,47 @@ export const updatePistons = (
     }
   }
   return nextComponents
+}
+
+const REPEATER_FACING_OFFSETS = {
+  east: { x: 1, y: 0, z: 0 },
+  west: { x: -1, y: 0, z: 0 },
+  south: { x: 0, y: 0, z: 1 },
+  north: { x: 0, y: 0, z: -1 },
+  up: { x: 0, y: 1, z: 0 },
+  down: { x: 0, y: -1, z: 0 },
+} as const
+
+// Repeaters read the PREVIOUS tick's power at their rear cell (opposite the
+// facing) and become full-strength sources when it is powered — a signal
+// refresh with an inherent one-tick delay. Returns whether any state changed
+// so the caller can force a re-propagation.
+export const updateRepeaters = (
+  components: HashMap.HashMap<PositionKey, RedstoneComponent>,
+  powered: HashMap.HashMap<PositionKey, number>,
+): [HashMap.HashMap<PositionKey, RedstoneComponent>, boolean] => {
+  let nextComponents = components
+  let changed = false
+  HashMap.forEach(components, (component, key) => {
+    if (component.type !== RedstoneComponentType.Repeater) return
+    const facing = component.state.pistonFacing ?? 'east'
+    const offset = REPEATER_FACING_OFFSETS[facing]
+    const rear: Position = {
+      x: Math.floor(component.position.x) - offset.x,
+      y: Math.floor(component.position.y) - offset.y,
+      z: Math.floor(component.position.z) - offset.z,
+    }
+    const rearPower = Option.getOrElse(HashMap.get(powered, positionKey(rear)), () => 0)
+    const nextActive = rearPower > 0
+    if (nextActive !== component.state.active) {
+      changed = true
+      nextComponents = HashMap.set(nextComponents, key, {
+        ...component,
+        state: { ...component.state, active: nextActive },
+      })
+    }
+  })
+  return [nextComponents, changed]
 }
 
 export const decayButtonTimers = (

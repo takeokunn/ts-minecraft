@@ -84,7 +84,8 @@ Chicken, Bat, Squid, Bee.
 
 | Feature | Status | Notes |
 |---|---|---|
-| Wire, torch, lever, button, pressure plate, repeater, lamp | ✅ | signal propagation sim (`getPowerAt`) |
+| Wire, torch, lever, button, pressure plate, lamp | ✅ | signal propagation sim (`getPowerAt`) |
+| Repeater | ✅ | placement-facing signal refresher: rear-cell power (previous tick) → full-strength re-emission with an inherent 1-tick delay. Note: was previously a decorative block only — this row was overstated until 2026-07-03 |
 | Piston | 🟡 | placement-oriented (all 6 facings incl. up/down): pushes one movable block on the extend edge, **pulls it back on the falling edge** (sticky semantics). Unit-tested: occupied-cell refusals both ways, edge-only triggering, immovable list, legacy-east default, vertical push. Limitation: no extended-arm visual, no regular/sticky distinction |
 | Observer | ✅ | pulses on watched-block change (placement-facing, all 6 directions; first sighting arms without pulsing; button-style 2-tick pulse into the power graph) |
 | Hopper | ✅ | placed with KeyH; transfers resting drops into the chest directly below (lazy chest-state materialization, overflow re-spawned — items never destroyed). Simplified vs vanilla: no internal buffer, down-only, no container-to-container pull |

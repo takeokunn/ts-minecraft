@@ -3,7 +3,7 @@ import { expect } from 'vitest'
 import { Array as Arr, HashMap, HashSet, Option } from 'effect'
 import { RedstoneComponentType, RedstonePowerLevel } from '@ts-minecraft/entity/domain/redstone/redstone-model';
 import { positionKey, toBlockPosition } from '@ts-minecraft/entity/domain/redstone/redstone-position-utils';
-import { canConduct, computeNeedsPropagation, decayButtonTimers, isPowerSource, neighborsOf, normalizeComponentPosition, propagatePower, sortedPowerSnapshot, updatePistons } from '@ts-minecraft/entity/domain/redstone/redstone-simulation';
+import { canConduct, computeNeedsPropagation, decayButtonTimers, isPowerSource, neighborsOf, normalizeComponentPosition, propagatePower, sortedPowerSnapshot, updatePistons, updateRepeaters } from '@ts-minecraft/entity/domain/redstone/redstone-simulation';
 import type { RedstoneComponent } from '@ts-minecraft/entity/domain/redstone/redstone-model';
 import type { PositionKey } from '@ts-minecraft/entity/domain/redstone/redstone-position-utils';
 import { makeTestRedstoneComponent } from '../redstone/test-utils'
@@ -398,5 +398,56 @@ describe('computeNeedsPropagation', () => {
     expect(
       computeNeedsPropagation(makeComponents([]), HashMap.empty<PositionKey, number>(), HashSet.make(orphanKey), false),
     ).toBe(false)
+  })
+})
+
+describe('updateRepeaters', () => {
+  const repeaterAt = (x: number, y: number, z: number, facing: 'east' | 'west' | 'north' | 'south', active = false) =>
+    makeComponent(RedstoneComponentType.Repeater, x, y, z, { active, pistonFacing: facing })
+
+  const componentsOf = (...components: ReadonlyArray<RedstoneComponent>) =>
+    HashMap.fromIterable(components.map((c) => [positionKey(c.position), c] as const))
+
+  it('activates when the rear cell was powered on the previous tick', () => {
+    const repeater = repeaterAt(0, 64, 0, 'east')
+    const rearKey = positionKey({ x: -1, y: 64, z: 0 })
+    const powered = HashMap.fromIterable([[rearKey, 15] as const])
+
+    const [next, changed] = updateRepeaters(componentsOf(repeater), powered)
+
+    expect(changed).toBe(true)
+    const updated = expectSome(HashMap.get(next, positionKey(repeater.position)))
+    expect(updated.state.active).toBe(true)
+  })
+
+  it('does not activate from power at its own or front cell', () => {
+    const repeater = repeaterAt(0, 64, 0, 'east')
+    const powered = HashMap.fromIterable([
+      [positionKey({ x: 0, y: 64, z: 0 }), 15] as const,
+      [positionKey({ x: 1, y: 64, z: 0 }), 15] as const,
+    ])
+
+    const [, changed] = updateRepeaters(componentsOf(repeater), powered)
+
+    expect(changed).toBe(false)
+  })
+
+  it('deactivates when the rear power disappears', () => {
+    const repeater = repeaterAt(0, 64, 0, 'west', true)
+    const powered = HashMap.empty<PositionKey, number>()
+
+    const [next, changed] = updateRepeaters(componentsOf(repeater), powered)
+
+    expect(changed).toBe(true)
+    const updated = expectSome(HashMap.get(next, positionKey(repeater.position)))
+    expect(updated.state.active).toBe(false)
+  })
+
+  it('active repeaters are power sources and conduct', () => {
+    const active = repeaterAt(0, 64, 0, 'east', true)
+    expect(isPowerSource(active)).toBe(true)
+    expect(canConduct(RedstoneComponentType.Repeater)).toBe(true)
+    const inactive = repeaterAt(0, 64, 0, 'east', false)
+    expect(isPowerSource(inactive)).toBe(false)
   })
 })

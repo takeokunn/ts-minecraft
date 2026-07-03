@@ -12,7 +12,7 @@ export const RedstonePowerLevel = {
   toNumber: (p: RedstonePowerLevel): number => Number(p),
 }
 
-export const RedstoneComponentTypeSchema = Schema.Literal('wire', 'lever', 'button', 'torch', 'piston', 'pressure_plate', 'lamp', 'observer', 'hopper')
+export const RedstoneComponentTypeSchema = Schema.Literal('wire', 'lever', 'button', 'torch', 'piston', 'pressure_plate', 'lamp', 'observer', 'hopper', 'repeater')
 export type RedstoneComponentType = Schema.Schema.Type<typeof RedstoneComponentTypeSchema>
 export const RedstoneComponentType = {
   Wire: 'wire' as const,
@@ -24,6 +24,7 @@ export const RedstoneComponentType = {
   Lamp: 'lamp' as const,
   Observer: 'observer' as const,
   Hopper: 'hopper' as const,
+  Repeater: 'repeater' as const,
 }
 
 // Direction a piston pushes toward, captured from the player's view direction
