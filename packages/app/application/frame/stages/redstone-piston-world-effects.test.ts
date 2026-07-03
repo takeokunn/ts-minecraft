@@ -79,13 +79,13 @@ describe('redstone piston world effects', () => {
     )
   })
 
-  it.effect('does not push when destination is occupied', () => {
+  it.effect('does not push when the run is capped by an immovable block', () => {
     const piston = { x: 0, y: 64, z: 0 }
     const source = { x: 1, y: 64, z: 0 }
-    const destination = { x: 2, y: 64, z: 0 }
+    const blocker = { x: 2, y: 64, z: 0 }
     const harness = makeHarness([
       [source, 'STONE'],
-      [destination, 'DIRT'],
+      [blocker, 'BEDROCK'],
     ])
 
     return applyPistonWorldEffects(
@@ -96,8 +96,54 @@ describe('redstone piston world effects', () => {
     ).pipe(
       Effect.tap(() => Effect.sync(() => {
         expect(harness.blocks.get(positionKey(source))).toBe('STONE')
-        expect(harness.blocks.get(positionKey(destination))).toBe('DIRT')
+        expect(harness.blocks.get(positionKey(blocker))).toBe('BEDROCK')
         expect(harness.forceSetBlock).not.toHaveBeenCalled()
+      })),
+    )
+  })
+
+  it.effect('pushes a contiguous train of blocks one cell (vanilla trains)', () => {
+    const piston = { x: 0, y: 64, z: 0 }
+    const harness = makeHarness([
+      [{ x: 1, y: 64, z: 0 }, 'STONE'],
+      [{ x: 2, y: 64, z: 0 }, 'DIRT'],
+      [{ x: 3, y: 64, z: 0 }, 'SAND'],
+    ])
+
+    return applyPistonWorldEffects(
+      harness.services,
+      harness.refs,
+      [pistonAt(piston, false)],
+      [pistonAt(piston, true)],
+    ).pipe(
+      Effect.tap(() => Effect.sync(() => {
+        expect(harness.blocks.get(positionKey({ x: 1, y: 64, z: 0 }))).toBe('PISTON_HEAD')
+        expect(harness.blocks.get(positionKey({ x: 2, y: 64, z: 0 }))).toBe('STONE')
+        expect(harness.blocks.get(positionKey({ x: 3, y: 64, z: 0 }))).toBe('DIRT')
+        expect(harness.blocks.get(positionKey({ x: 4, y: 64, z: 0 }))).toBe('SAND')
+      })),
+    )
+  })
+
+  it.effect('refuses trains longer than the 12-block vanilla limit', () => {
+    const piston = { x: 0, y: 64, z: 0 }
+    const entries: Array<readonly [Position, BlockType]> = []
+    for (let i = 1; i <= 13; i++) {
+      entries.push([{ x: i, y: 64, z: 0 }, 'STONE'] as const)
+    }
+    const harness = makeHarness(entries)
+
+    return applyPistonWorldEffects(
+      harness.services,
+      harness.refs,
+      [pistonAt(piston, false)],
+      [pistonAt(piston, true)],
+    ).pipe(
+      Effect.tap(() => Effect.sync(() => {
+        // 13 movable blocks — over the limit, nothing moves, no arm placed
+        // (the head cell is still occupied by the train's first block).
+        expect(harness.blocks.get(positionKey({ x: 1, y: 64, z: 0 }))).toBe('STONE')
+        expect(harness.blocks.get(positionKey({ x: 14, y: 64, z: 0 }))).toBeUndefined()
       })),
     )
   })

@@ -92,32 +92,43 @@ const forceSetBlockSafely = (
     Effect.catchAll(() => Effect.succeed(false)),
   )
 
-const pushSingleBlock = (
+// Vanilla pushes trains of up to 12 blocks: scan along the facing collecting
+// contiguous movable blocks; the run must terminate in AIR within the limit
+// and contain no immovable block, then the whole train shifts one cell
+// (written far-end first so nothing is overwritten mid-shift).
+const PISTON_MAX_PUSH = 12
+
+const pushBlockTrain = (
   services: RedstonePistonWorldServices,
   refs: RedstonePistonWorldRefs,
   pistonPosition: Position,
   direction: PushDirection,
 ): Effect.Effect<void, never> =>
   Effect.gen(function* () {
-    const source = addPositions(pistonPosition, direction)
-    const destination = addPositions(source, direction)
-    const sourceBlock = yield* readBlock(services, source)
-    if (sourceBlock === null || !isPistonMovableBlock(sourceBlock)) return
+    const train: Array<{ readonly cell: Position; readonly blockType: BlockType }> = []
+    let cursor = addPositions(pistonPosition, direction)
 
-    const destinationBlock = yield* readBlock(services, destination)
-    if (destinationBlock !== 'AIR') return
-
-    const placed = yield* forceSetBlockSafely(services, destination, sourceBlock)
-    if (!placed) return
-
-    const cleared = yield* forceSetBlockSafely(services, source, 'AIR')
-    if (!cleared) {
-      yield* forceSetBlockSafely(services, destination, 'AIR')
-      return
+    while (train.length <= PISTON_MAX_PUSH) {
+      const blockType = yield* readBlock(services, cursor)
+      if (blockType === null) return // unreadable world edge — blocked
+      if (blockType === 'AIR') break // room to push into
+      if (!isPistonMovableBlock(blockType)) return // immovable in the run — blocked
+      train.push({ cell: cursor, blockType })
+      cursor = addPositions(cursor, direction)
     }
+    if (train.length === 0) return // nothing in front (arm placement handles the empty head)
+    if (train.length > PISTON_MAX_PUSH) return // vanilla limit exceeded — blocked
 
-    yield* markChunkDirty(refs, services, source)
-    yield* markChunkDirty(refs, services, destination)
+    // Shift far-end first: cursor is the AIR cell past the train.
+    let writeCell = cursor
+    for (let i = train.length - 1; i >= 0; i--) {
+      const placed = yield* forceSetBlockSafely(services, writeCell, train[i]!.blockType)
+      if (!placed) return
+      yield* markChunkDirty(refs, services, writeCell)
+      writeCell = train[i]!.cell
+    }
+    const cleared = yield* forceSetBlockSafely(services, train[0]!.cell, 'AIR')
+    if (cleared) yield* markChunkDirty(refs, services, train[0]!.cell)
   })
 
 // Sticky-style retraction: on the falling edge, the block sitting one cell
@@ -175,7 +186,7 @@ export const applyPistonWorldEffects = (
       // Rising edge → push the block ahead one cell further, then extend the
       // arm into the freed head cell (the arm physically occupies it).
       if (component.state.pistonExtended && previous?.state.pistonExtended !== true) {
-        yield* pushSingleBlock(services, refs, component.position, direction)
+        yield* pushBlockTrain(services, refs, component.position, direction)
         const headBlock = yield* readBlock(services, headCell)
         if (headBlock === 'AIR') {
           const placed = yield* forceSetBlockSafely(services, headCell, 'PISTON_HEAD')

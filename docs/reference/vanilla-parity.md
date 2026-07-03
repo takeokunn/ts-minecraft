@@ -86,7 +86,7 @@ Chicken, Bat, Squid, Bee.
 |---|---|---|
 | Wire, torch, lever, button, pressure plate, lamp | ✅ | signal propagation sim (`getPowerAt`) |
 | Repeater | ✅ | placement-facing signal refresher: rear-cell power (previous tick) → full-strength re-emission with an inherent 1-tick delay. Note: was previously a decorative block only — this row was overstated until 2026-07-03 |
-| Piston | ✅ | placement-oriented (all 6 facings): pushes one movable block on the extend edge, **extends a physical PISTON_HEAD arm into the freed cell**, withdraws the arm and pulls the block back on the falling edge (sticky semantics). Unit-tested: occupied-cell refusals both ways, edge-only triggering, immovable list (arm included), arm lifecycle. Remaining nuance: no regular/sticky item distinction, single-block push (no 12-block trains) |
+| Piston | ✅ | placement-oriented (all 6 facings): pushes **contiguous trains up to the vanilla 12-block limit** on the extend edge, extends a physical PISTON_HEAD arm into the freed cell, withdraws the arm and pulls one block back on the falling edge (sticky semantics). Unit-tested: train shifting, 12-limit refusal, immovable-capped runs, arm lifecycle, edge-only triggering. Remaining nuance: no regular/sticky item distinction |
 | Observer | ✅ | pulses on watched-block change (placement-facing, all 6 directions; first sighting arms without pulsing; button-style 2-tick pulse into the power graph) |
 | Hopper | ✅ | placed with KeyH; transfers resting drops into the chest directly below (lazy chest-state materialization, overflow re-spawned — items never destroyed). Simplified vs vanilla: no internal buffer, down-only, no container-to-container pull |
 | Comparator | ✅ | both vanilla modes (KeyK to place, toggle key to switch): compare (rear passes when ≥ max(sides)) and subtract (rear − max(sides), floored at 0); the sim's only variable-strength source |
@@ -128,7 +128,7 @@ Chicken, Bat, Squid, Bee.
 
 - Modding / plugin / datapack API — none (out of scope for a clone core).
 - Boats & minecarts — items exist; ride-able entities not implemented.
-- Redstone: pistons-push-entities, multi-block push trains, dispenser block-placement behaviors.
+- Redstone: pistons-push-entities, dispenser block-placement behaviors.
 - Ocean depth content (guardians, kelp forests), amethyst/deepslate caves biome variety.
 - Audio on localhost is force-disabled by environment policy (engine unit-tested; needs non-localhost origin for live validation).
 - Multiplayer beyond small co-op (no server-authoritative physics, no interest management).
