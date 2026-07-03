@@ -32,6 +32,16 @@ const POTION_TABLE: Readonly<Record<string, PotionUse>> = {
     effect: Option.none(),
     instantHeal: 0,
   },
+  // Glowstone-amplified tier 2: vanilla Swiftness II runs 1:30 (vs I's 3:00).
+  POTION_SWIFTNESS_II: {
+    effect: Option.some({ type: 'SPEED', amplifier: 1, durationSecs: 90 }),
+    instantHeal: 0,
+  },
+  // Vanilla Healing II: instant 8 HP (4 hearts).
+  POTION_HEALING_II: {
+    effect: Option.none(),
+    instantHeal: 8,
+  },
 }
 
 export const getPotionUse = (item: string): Option.Option<PotionUse> =>

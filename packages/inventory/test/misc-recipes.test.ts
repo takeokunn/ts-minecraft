@@ -497,3 +497,15 @@ describe('nether-wart brewing chain', () => {
     expect(findById('bottle-and-glowstone-to-healing')).toBeUndefined()
   })
 })
+
+describe('tier-2 brews (glowstone amplification)', () => {
+  it('Swiftness II and Healing II brew FROM their tier-1 potions', () => {
+    const swiftII = findById('swiftness-and-glowstone-to-swiftness-ii')
+    const healII = findById('healing-and-glowstone-to-healing-ii')
+    expect(swiftII!.station).toBe('brewing_stand')
+    expect(swiftII!.ingredients.map((i) => i.itemType)).toContain('POTION_SWIFTNESS')
+    expect(swiftII!.output.itemType).toBe('POTION_SWIFTNESS_II')
+    expect(healII!.ingredients.map((i) => i.itemType)).toContain('POTION_HEALING')
+    expect(healII!.output.itemType).toBe('POTION_HEALING_II')
+  })
+})

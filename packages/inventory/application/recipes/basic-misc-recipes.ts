@@ -175,6 +175,25 @@ export const BASIC_MISC_RECIPES: ReadonlyArray<Recipe> = [
     ],
     output: { itemType: 'POTION_SWIFTNESS', count: 1 },
   }),
+  // Glowstone amplifies a finished brew to tier 2 (vanilla's potency modifier).
+  new Recipe({
+    id: RecipeId.make('swiftness-and-glowstone-to-swiftness-ii'),
+    station: 'brewing_stand',
+    ingredients: [
+      new RecipeIngredient({ itemType: 'POTION_SWIFTNESS', count: 1 }),
+      new RecipeIngredient({ itemType: 'GLOWSTONE_DUST', count: 1 }),
+    ],
+    output: { itemType: 'POTION_SWIFTNESS_II', count: 1 },
+  }),
+  new Recipe({
+    id: RecipeId.make('healing-and-glowstone-to-healing-ii'),
+    station: 'brewing_stand',
+    ingredients: [
+      new RecipeIngredient({ itemType: 'POTION_HEALING', count: 1 }),
+      new RecipeIngredient({ itemType: 'GLOWSTONE_DUST', count: 1 }),
+    ],
+    output: { itemType: 'POTION_HEALING_II', count: 1 },
+  }),
   new Recipe({
     id: RecipeId.make('awkward-and-glowstone-to-healing'),
     station: 'brewing_stand',
