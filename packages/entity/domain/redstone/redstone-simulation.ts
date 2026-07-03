@@ -196,7 +196,11 @@ export const updateComparators = (
       )
       if (sidePower > sideMax) sideMax = sidePower
     }
-    const nextOutput = rearPower > 0 && rearPower >= sideMax ? rearPower : 0
+    // Subtract mode: rear − max(sides), floored at 0. Compare mode (default):
+    // rear passes only when it beats every side.
+    const nextOutput = component.state.comparatorSubtract === true
+      ? Math.max(0, rearPower - sideMax)
+      : (rearPower > 0 && rearPower >= sideMax ? rearPower : 0)
     if (nextOutput !== (component.state.comparatorOutput ?? 0)) {
       changed = true
       nextComponents = HashMap.set(nextComponents, key, {

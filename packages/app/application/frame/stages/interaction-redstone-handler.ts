@@ -78,7 +78,16 @@ const dispatchRedstoneAction = (
     Match.when({ placeRepeater: true }, () => placeComponentAndBlock(services, RedstoneComponentType.Repeater, 'REPEATER', position, pistonFacing !== undefined ? { pistonFacing } : undefined)),
     Match.when({ placeComparator: true }, () => placeComponentAndBlock(services, RedstoneComponentType.Comparator, 'COMPARATOR', position, pistonFacing !== undefined ? { pistonFacing } : undefined)),
     Match.when({ placeDispenser: true }, () => placeComponentAndBlock(services, RedstoneComponentType.Dispenser, 'DISPENSER', position, pistonFacing !== undefined ? { pistonFacing } : undefined)),
-    Match.when({ toggleLever: true }, () => services.redstoneService.toggleLever(position)),
+    // The toggle key flips whatever togglable component is targeted:
+    // lever on/off first, else comparator compare/subtract mode.
+    Match.when({ toggleLever: true }, () =>
+      services.redstoneService.toggleLever(position).pipe(
+        Effect.flatMap((toggled) =>
+          Option.isSome(toggled)
+            ? Effect.void
+            : services.redstoneService.toggleComparatorMode(position).pipe(Effect.asVoid),
+        ),
+      )),
     Match.when({ pressButton: true }, () => services.redstoneService.pressButton(position)),
     Match.when({ toggleTorch: true }, () => services.redstoneService.toggleTorch(position)),
     Match.orElse(() => Effect.void),

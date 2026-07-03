@@ -523,3 +523,39 @@ describe('updateComparators', () => {
     expect(expectSome(HashMap.get(powered, positionKey(wire.position)))).toBe(5)
   })
 })
+
+describe('comparator subtract mode', () => {
+  const subtractComparatorAt = (x: number, y: number, z: number, facing: 'east' | 'west' | 'north' | 'south') =>
+    makeComponent(RedstoneComponentType.Comparator, x, y, z, {
+      pistonFacing: facing,
+      comparatorSubtract: true,
+      comparatorOutput: 0,
+    })
+
+  it('outputs rear minus the strongest side, floored at zero', () => {
+    const comparator = subtractComparatorAt(0, 64, 0, 'east')
+    const components = HashMap.fromIterable([[positionKey(comparator.position), comparator] as const])
+    const powered = HashMap.fromIterable([
+      [positionKey({ x: -1, y: 64, z: 0 }), 12] as const,
+      [positionKey({ x: 0, y: 64, z: 1 }), 5] as const,
+    ])
+
+    const [next] = updateComparators(components, powered)
+    const updated = expectSome(HashMap.get(next, positionKey(comparator.position)))
+    expect(updated.state.comparatorOutput).toBe(7)
+  })
+
+  it('side stronger than rear floors to zero', () => {
+    const comparator = subtractComparatorAt(0, 64, 0, 'east')
+    const components = HashMap.fromIterable([[positionKey(comparator.position), comparator] as const])
+    const powered = HashMap.fromIterable([
+      [positionKey({ x: -1, y: 64, z: 0 }), 3] as const,
+      [positionKey({ x: 0, y: 64, z: -1 }), 9] as const,
+    ])
+
+    const [next, changed] = updateComparators(components, powered)
+    const updated = expectSome(HashMap.get(next, positionKey(comparator.position)))
+    expect(updated.state.comparatorOutput).toBe(0)
+    expect(changed).toBe(false)
+  })
+})

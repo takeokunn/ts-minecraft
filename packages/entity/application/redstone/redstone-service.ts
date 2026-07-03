@@ -202,6 +202,25 @@ export class RedstoneService extends Effect.Service<RedstoneService>()(
             return result
           }),
 
+        // Vanilla toggles comparator mode by using the block; here the shared
+        // component-toggle key routes to this when the target is a comparator.
+        toggleComparatorMode: (position: Position): Effect.Effect<Option.Option<RedstoneComponent>, never> =>
+          Effect.gen(function* () {
+            const result = yield* Ref.modify(stateRef, (state): [Option.Option<RedstoneComponent>, RedstoneState] => {
+              const key = positionKey(position)
+              const currentValue = Option.getOrNull(HashMap.get(state.components, key))
+              const current = currentValue !== null && currentValue.type === RedstoneComponentType.Comparator ? currentValue : null
+              if (current === null) return [Option.none(), state]
+              const updated: RedstoneComponent = {
+                ...current,
+                state: { ...current.state, comparatorSubtract: current.state.comparatorSubtract !== true },
+              }
+              return [Option.some(updated), { ...state, components: HashMap.set(state.components, key, updated) }]
+            })
+            yield* Ref.set(dirtyRef, true)
+            return result
+          }),
+
         // Observer pulse: block-change detection (app layer) fires this; the
         // observer then emits power for a short window via the shared
         // button-tick decay.

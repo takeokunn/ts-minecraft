@@ -45,6 +45,8 @@ export const RedstoneComponentStateSchema = Schema.Struct({
   // Comparator output strength (0-15): rear signal when rear >= max(sides),
   // else 0. Optional so pre-comparator states stay valid; readers default 0.
   comparatorOutput: Schema.optional(Schema.Number),
+  // Comparator mode: subtract (true) or compare (false/absent, the default).
+  comparatorSubtract: Schema.optional(Schema.Boolean),
 })
 export type RedstoneComponentState = Schema.Schema.Type<typeof RedstoneComponentStateSchema>
 
