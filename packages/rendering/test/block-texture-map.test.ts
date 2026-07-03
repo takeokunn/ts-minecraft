@@ -95,11 +95,11 @@ describe('infrastructure/three/textures/block-texture-map', () => {
         { blockType: 'PRESSURE_PLATE', expectedTileIndex: 1 },
         { blockType: 'STONE_SLAB', expectedTileIndex: 1 },
         { blockType: 'OAK_STAIRS', expectedTileIndex: 41 },
-        { blockType: 'ANVIL', expectedTileIndex: 35 },
-        { blockType: 'CAULDRON', expectedTileIndex: 35 },
+        { blockType: 'ANVIL', expectedTileIndex: 133 },
+        { blockType: 'CAULDRON', expectedTileIndex: 134 },
         { blockType: 'FIRE', expectedTileIndex: 18 },
-        { blockType: 'WATER_CAULDRON', expectedTileIndex: 35 },
-        { blockType: 'RAIL', expectedTileIndex: 35 },
+        { blockType: 'WATER_CAULDRON', expectedTileIndex: 134 },
+        { blockType: 'RAIL', expectedTileIndex: 132 },
       ]
 
       Arr.forEach(cases, ({ blockType, expectedTileIndex }) => {

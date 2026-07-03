@@ -35,7 +35,7 @@ describe('infrastructure/three/textures/item-texture-map', () => {
       expect(getItemTileIndex('MAP')).toBe(95)
       expect(getItemTileIndex('SPYGLASS')).toBe(59)
       expect(getItemTileIndex('BOAT')).toBe(41)
-      expect(getItemTileIndex('MINECART')).toBe(35)
+      expect(getItemTileIndex('MINECART')).toBe(132)
       expect(getItemTileIndex('CARROT')).toBe(96)
     })
 
@@ -64,10 +64,10 @@ describe('infrastructure/three/textures/item-texture-map', () => {
       expect(getItemTileIndex('PRESSURE_PLATE')).toBe(1)
       expect(getItemTileIndex('STONE_SLAB')).toBe(1)
       expect(getItemTileIndex('OAK_STAIRS')).toBe(41)
-      expect(getItemTileIndex('ANVIL')).toBe(35)
-      expect(getItemTileIndex('CAULDRON')).toBe(35)
-      expect(getItemTileIndex('WATER_CAULDRON')).toBe(35)
-      expect(getItemTileIndex('RAIL')).toBe(35)
+      expect(getItemTileIndex('ANVIL')).toBe(133)
+      expect(getItemTileIndex('CAULDRON')).toBe(134)
+      expect(getItemTileIndex('WATER_CAULDRON')).toBe(134)
+      expect(getItemTileIndex('RAIL')).toBe(132)
     })
   })
 

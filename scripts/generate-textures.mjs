@@ -1859,8 +1859,60 @@ saveTile(131, 'piston-side', (ctx) => {
   ctx.fillRect(13, 12, 6, 14)
 })
 
+// 132: rail — gravel bed with wooden ties and two iron rails
+saveTile(132, 'rail', (ctx) => {
+  ctx.fillStyle = '#8a8578'
+  ctx.fillRect(0, 0, TILE_PX, TILE_PX)
+  drawNoise(ctx, ['#7a7568', '#969183', '#858071'], 0.3)
+  // wooden ties
+  ctx.fillStyle = '#6b5330'
+  for (let ty = 2; ty < TILE_PX; ty += 8) ctx.fillRect(2, ty, TILE_PX - 4, 4)
+  // iron rails
+  ctx.fillStyle = '#c8c8c8'
+  ctx.fillRect(7, 0, 3, TILE_PX)
+  ctx.fillRect(22, 0, 3, TILE_PX)
+  ctx.fillStyle = '#9a9a9a'
+  ctx.fillRect(9, 0, 1, TILE_PX)
+  ctx.fillRect(24, 0, 1, TILE_PX)
+})
+
+// 133: anvil — dark iron mass with the wide top face silhouette
+saveTile(133, 'anvil', (ctx) => {
+  ctx.fillStyle = '#494949'
+  ctx.fillRect(0, 0, TILE_PX, TILE_PX)
+  drawNoise(ctx, ['#3d3d3d', '#555555', '#454545'], 0.3)
+  // top slab (lighter, worn)
+  ctx.fillStyle = '#6a6a6a'
+  ctx.fillRect(2, 2, TILE_PX - 4, 8)
+  ctx.fillStyle = '#7d7d7d'
+  ctx.fillRect(4, 3, TILE_PX - 8, 2)
+  // waist
+  ctx.fillStyle = '#3a3a3a'
+  ctx.fillRect(10, 12, 12, 10)
+  // base
+  ctx.fillStyle = '#525252'
+  ctx.fillRect(5, 24, 22, 6)
+})
+
+// 134: cauldron — dark iron shell with rim and water glint
+saveTile(134, 'cauldron', (ctx) => {
+  ctx.fillStyle = '#3f3f3f'
+  ctx.fillRect(0, 0, TILE_PX, TILE_PX)
+  drawNoise(ctx, ['#353535', '#4a4a4a', '#3b3b3b'], 0.3)
+  // rim
+  ctx.fillStyle = '#5d5d5d'
+  ctx.fillRect(0, 0, TILE_PX, 4)
+  // legs
+  ctx.fillStyle = '#2c2c2c'
+  ctx.fillRect(3, 24, 5, 8)
+  ctx.fillRect(24, 24, 5, 8)
+  // inner water glint band
+  ctx.fillStyle = '#3F76E4'
+  ctx.fillRect(6, 5, 20, 3)
+})
+
 // Save combined atlas (single file loaded by chunk-mesh.ts at runtime).
 writeFileSync(join(OUTPUT_DIR, 'atlas.png'), atlasCanvas.toBuffer('image/png'))
-console.log(`  ✓ atlas.png (512×512, all 132 tiles combined)`)
+console.log(`  ✓ atlas.png (512×512, all 135 tiles combined)`)
 
 console.log(`\nDone - 123 individual tiles + atlas.png written to ${OUTPUT_DIR}`)
