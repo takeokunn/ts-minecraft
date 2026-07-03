@@ -233,6 +233,15 @@ export const terrainBlocks: ReadonlyArray<Block> = [
     faces: defaultBlockFaces,
   }),
   new Block({
+    id: makeBlockId('block:sandstone'),
+    type: 'SANDSTONE',
+    properties: {
+      ...defaultBlockProperties,
+      hardness: 10,
+    },
+    faces: defaultBlockFaces,
+  }),
+  new Block({
     id: makeBlockId('block:sapling'),
     type: 'SAPLING',
     properties: plantBlockProperties,

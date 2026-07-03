@@ -53,6 +53,8 @@ export const INDEX_TO_BLOCK_TYPE: ReadonlyArray<BlockType> = [
   'END_PORTAL_FRAME_FILLED',
   // Nether farming (brewing chain) - indices 104-105
   'SOUL_SAND', 'NETHER_WART_CROP',
+  // Desert temple material - index 106
+  'SANDSTONE',
 ]
 
 export const BLOCK_COUNT = INDEX_TO_BLOCK_TYPE.length

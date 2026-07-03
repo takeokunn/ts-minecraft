@@ -113,6 +113,7 @@ export const BlockTypeSchema = Schema.Literal(
   'WATER_CAULDRON',
   'RAIL',
   'SOUL_SAND',
-  'NETHER_WART_CROP'
+  'NETHER_WART_CROP',
+  'SANDSTONE'
 )
 export type BlockType = Schema.Schema.Type<typeof BlockTypeSchema>

@@ -1911,8 +1911,21 @@ saveTile(134, 'cauldron', (ctx) => {
   ctx.fillRect(6, 5, 20, 3)
 })
 
+// 135: sandstone — pale banded sand rock
+saveTile(135, 'sandstone', (ctx) => {
+  ctx.fillStyle = '#D9CE9C'
+  ctx.fillRect(0, 0, TILE_PX, TILE_PX)
+  drawNoise(ctx, ['#CFC48D', '#E2D8A9', '#D4C995'], 0.25)
+  // horizontal strata bands
+  ctx.fillStyle = '#C4B87F'
+  ctx.fillRect(0, 8, TILE_PX, 2)
+  ctx.fillRect(0, 20, TILE_PX, 2)
+  ctx.fillStyle = '#B9AD74'
+  ctx.fillRect(0, 27, TILE_PX, 1)
+})
+
 // Save combined atlas (single file loaded by chunk-mesh.ts at runtime).
 writeFileSync(join(OUTPUT_DIR, 'atlas.png'), atlasCanvas.toBuffer('image/png'))
-console.log(`  ✓ atlas.png (512×512, all 135 tiles combined)`)
+console.log(`  ✓ atlas.png (512×512, all 136 tiles combined)`)
 
 console.log(`\nDone - 123 individual tiles + atlas.png written to ${OUTPUT_DIR}`)
