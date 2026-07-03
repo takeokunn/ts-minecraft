@@ -29,8 +29,15 @@ const fluidTypeForBlockId = (blockId: number): FluidType => blockId === LAVA_BLO
 const fluidArrayIndex = (lx: number, y: number, lz: number): number =>
   y + lz * CHUNK_HEIGHT + lx * CHUNK_HEIGHT * CHUNK_SIZE
 
+// Vanilla surface sources render at 14/16 — the slight inset below the block
+// top is what makes shorelines read as water meeting land instead of a glass
+// wall flush with the grass. Submerged cells still render full height: the
+// column resolver returns 1 whenever same-type fluid sits above (see
+// fluidSurfaceHeightForColumn), so only the visible surface drops.
+const SOURCE_SURFACE_HEIGHT = 14 / 16
+
 const fluidHeightForCell = (cell: FluidCell): number => {
-  if (cell.source) return 1
+  if (cell.source) return SOURCE_SURFACE_HEIGHT
   const maxLevel = maxLevelFor(cell.type)
   return Math.max(1 / (maxLevel + 1), 1 - cell.level / (maxLevel + 1))
 }

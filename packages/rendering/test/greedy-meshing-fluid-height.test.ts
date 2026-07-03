@@ -96,10 +96,12 @@ describe('greedyMeshChunk fluid-aware heights', () => {
     const meshed = greedyMeshChunk(chunk, ZERO_OFFSET, TRANSPARENT_IDS).toMeshed()
     const heights = topFaceHeights(meshed.water)
 
-    expect(heights[0]).toBeCloseTo(1)
-    expect(heights[1]).toBeCloseTo(1)
-    expect(heights[2]).toBeCloseTo(0.75)
-    expect(heights[3]).toBeCloseTo(0.75)
+    // vanilla surface inset: sources render at 14/16, so the source-side
+    // corners sit at 0.875 and shared corners average (0.875 + 0.5) / 2
+    expect(heights[0]).toBeCloseTo(0.875)
+    expect(heights[1]).toBeCloseTo(0.875)
+    expect(heights[2]).toBeCloseTo(0.6875)
+    expect(heights[3]).toBeCloseTo(0.6875)
     expect(Math.min(...heights)).toBeLessThan(Math.max(...heights))
   })
 
