@@ -60,5 +60,10 @@ export const shouldDespawnEntity = (
     return true
   }
 
+  // Villagers are village-bound and persistent (vanilla): distance-despawning
+  // them would thrash against village-activation respawning in the
+  // 128-160-block band between the despawn radius and the activation radius.
+  if (entity.type === 'Villager') return false
+
   return distanceToPlayerSq(entity.position, playerPosition) > maxDistance * maxDistance
 }

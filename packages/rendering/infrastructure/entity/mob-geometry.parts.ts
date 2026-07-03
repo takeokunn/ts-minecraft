@@ -126,6 +126,15 @@ export const ZOMBIE_VILLAGER_PARTS: ZombieParts = {
 }
 export const ZOMBIE_VILLAGER_PALETTE: ZombiePalette = { head: 0x7fa85a, body: 0x7a4f2a, arm: 0x6f9b4c, leg: 0x2f3f5f }
 
+// Living villager: zombie-villager frame with warm skin + brown robe palette.
+export const VILLAGER_PARTS: ZombieParts = {
+  head: [0.62, 0.58, 0.62],
+  body: [0.58, 0.9, 0.32],
+  arm: [0.22, 0.85, 0.22],
+  leg: [0.22, 0.6, 0.22],
+}
+export const VILLAGER_PALETTE: ZombiePalette = { head: 0xbd8b72, body: 0x7a5a3b, arm: 0x7a5a3b, leg: 0x52402c }
+
 export const CREEPER_PARTS: QuadrupedParts = {
   head: [0.5, 0.5, 0.5],
   body: [0.5, 0.75, 0.375],

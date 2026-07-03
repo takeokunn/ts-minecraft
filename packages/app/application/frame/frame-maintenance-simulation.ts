@@ -96,7 +96,7 @@ export const runMaintenanceSimulation = (
     // call TimeService twice in the same maintenance pass.
     if (plan.shouldRunVillage) {
       yield* runVillageMaintenance(
-        { chunkManagerService, blockService, villageService },
+        { chunkManagerService, blockService, villageService, entityManager },
         playerPos,
         timeOfDay,
         maintenanceDeltaTime,

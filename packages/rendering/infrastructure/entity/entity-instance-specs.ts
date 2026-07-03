@@ -224,6 +224,13 @@ const ZOMBIE_VILLAGER_SPECS = buildBipedSpecs(
   { head: 0x7fa85a, body: 0x7a4f2a, arm: 0x6f9b4c, leg: 0x2f3f5f },
 )
 
+// Villager: zombie-villager proportions with living skin + the classic brown
+// robe (arms crossed under it read fine as robe-colored arm boxes).
+const VILLAGER_SPECS = buildBipedSpecs(
+  { head: [0.62, 0.58, 0.62], body: [0.58, 0.9, 0.32], arm: [0.22, 0.85, 0.22], leg: [0.22, 0.6, 0.22] },
+  { head: 0xbd8b72, body: 0x7a5a3b, arm: 0x7a5a3b, leg: 0x52402c },
+)
+
 // Creeper: quadruped (4 stubby legs), no arms, dark-green all over.
 const CREEPER_SPECS = buildQuadrupedSpecs(
   { head: [0.5, 0.5, 0.5], body: [0.5, 0.75, 0.375], leg: [0.25, 0.5, 0.25] },
@@ -365,6 +372,7 @@ const SPECS_BY_TYPE: Readonly<Record<EntityType, Readonly<Record<PartRole, Optio
   Witch: WITCH_SPECS,
   Drowned: DROWNED_SPECS,
   ZombieVillager: ZOMBIE_VILLAGER_SPECS,
+  Villager: VILLAGER_SPECS,
   Creeper: CREEPER_SPECS,
   Skeleton: SKELETON_SPECS,
   Spider: SPIDER_SPECS,
@@ -391,6 +399,7 @@ export const ROLES_BY_TYPE: Readonly<Record<EntityType, ReadonlyArray<PartRole>>
   Witch: ['head', 'body', 'armL', 'armR', 'legFL', 'legFR'],
   Drowned: ['head', 'body', 'armL', 'armR', 'legFL', 'legFR'],
   ZombieVillager: ['head', 'body', 'armL', 'armR', 'legFL', 'legFR'],
+  Villager: ['head', 'body', 'armL', 'armR', 'legFL', 'legFR'],
   Creeper: ['head', 'body', 'legFL', 'legFR', 'legBL', 'legBR'],
   Skeleton: ['head', 'body', 'armL', 'armR', 'legFL', 'legFR'],
   Spider: ['head', 'body', 'legFL', 'legFR', 'legBL', 'legBR'],

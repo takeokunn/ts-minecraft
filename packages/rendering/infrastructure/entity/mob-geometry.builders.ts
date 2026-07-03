@@ -55,7 +55,9 @@ import {
   ZOMBIE_PALETTE,
   ZOMBIE_PARTS,
   ZOMBIE_VILLAGER_PALETTE,
+  VILLAGER_PALETTE,
   ZOMBIE_VILLAGER_PARTS,
+  VILLAGER_PARTS,
 } from './mob-geometry.parts'
 
 const buildBiped = (typeKey: string, parts: ZombieParts, palette: ZombiePalette): MobLimbGroup => {
@@ -395,6 +397,8 @@ export const buildMobGroup = (type: EntityType): MobLimbGroup => {
       return buildBiped('Drowned', DROWNED_PARTS, DROWNED_PALETTE)
     case 'ZombieVillager':
       return buildBiped('ZombieVillager', ZOMBIE_VILLAGER_PARTS, ZOMBIE_VILLAGER_PALETTE)
+    case 'Villager':
+      return buildBiped('Villager', VILLAGER_PARTS, VILLAGER_PALETTE)
     case 'Creeper':
       return buildQuadruped('Creeper', CREEPER_PARTS, CREEPER_PALETTE)
     case 'Skeleton':

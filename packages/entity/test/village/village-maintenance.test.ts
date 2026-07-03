@@ -4,7 +4,7 @@ import { Effect, Ref } from 'effect'
 import { CHUNK_HEIGHT, CHUNK_SIZE, blockTypeToIndex } from '@ts-minecraft/core'
 import { VillageStructureId } from '@ts-minecraft/entity/domain/village/village-model';
 import { chunkBlockIndexUnchecked, type Chunk } from '@ts-minecraft/world'
-import { runVillageMaintenance } from '../../application/village/village-maintenance'
+import { runVillageMaintenance, syncVillagerEntities } from '../../application/village/village-maintenance'
 import {
   placeVillageStructures,
 } from '../../application/village/village-placement'
@@ -62,6 +62,7 @@ describe('village/village-maintenance / structure placement', () => {
           villageService: { getVillages, update },
           chunkManagerService: { getChunk },
           blockService: { forceSetBlock },
+          entityManager: { getEntities: () => Effect.succeed([]), addEntity: () => Effect.succeed('e1' as never) },
         },
         { x: 0, y: 64, z: 0 },
         12000,
@@ -87,6 +88,7 @@ describe('village/village-maintenance / structure placement', () => {
           villageService: { getVillages, update },
           chunkManagerService: { getChunk },
           blockService: { forceSetBlock },
+          entityManager: { getEntities: () => Effect.succeed([]), addEntity: () => Effect.succeed('e1' as never) },
         },
         { x: 0, y: 64, z: 0 },
         12000,
@@ -184,6 +186,61 @@ describe('village/village-maintenance / structure placement', () => {
         expect(result.left.message).toContain('no value at index')
       }
       expect(forceSetBlock).not.toHaveBeenCalled()
+    }),
+  )
+})
+
+describe('village/village-maintenance / villager entity sync', () => {
+  const villageWithVillagers = (id: string, center: { x: number; y: number; z: number }, count: number) => ({
+    ...makeTestVillage({ center }),
+    villagers: Array.from({ length: count }, (_, i) => ({
+      villagerId: `${id}:villager-${i}`,
+      profession: 'farmer',
+      experience: 0,
+      position: { x: center.x + i, y: center.y, z: center.z },
+      activity: 'idle',
+    })),
+  }) as never
+
+  it.effect('spawns one Villager entity per domain villager on an activated village', () =>
+    Effect.gen(function* () {
+      const added: Array<{ type: string; position: { x: number; y: number; z: number } }> = []
+      const entityManager = {
+        getEntities: () => Effect.succeed([]),
+        addEntity: (type: never, position: never) => {
+          added.push({ type, position })
+          return Effect.succeed('e1' as never)
+        },
+      }
+      const spawned = yield* syncVillagerEntities(entityManager as never, [
+        villageWithVillagers('v1', { x: 100, y: 64, z: 100 }, 3),
+      ])
+      expect(spawned).toBe(3)
+      expect(added).toHaveLength(3)
+      expect(added.every((a) => a.type === 'Villager')).toBe(true)
+    }),
+  )
+
+  it.effect('is idempotent — villagers already standing near the center are not respawned', () =>
+    Effect.gen(function* () {
+      const added: Array<string> = []
+      const entityManager = {
+        getEntities: () =>
+          Effect.succeed([
+            { type: 'Villager', position: { x: 101, y: 64, z: 100 } },
+            { type: 'Villager', position: { x: 99, y: 64, z: 102 } },
+            { type: 'Zombie', position: { x: 100, y: 64, z: 100 } },
+          ] as never),
+        addEntity: (type: never) => {
+          added.push(type)
+          return Effect.succeed('e1' as never)
+        },
+      }
+      const spawned = yield* syncVillagerEntities(entityManager as never, [
+        villageWithVillagers('v1', { x: 100, y: 64, z: 100 }, 2),
+      ])
+      expect(spawned).toBe(0)
+      expect(added).toHaveLength(0)
     }),
   )
 })

@@ -1,15 +1,34 @@
 import { Effect, Ref, Option } from 'effect'
 import { TRADE_DISTANCE, TRADE_OPEN_KEY, TRADE_NEXT_KEY, TRADE_PREV_KEY, TRADE_EXECUTE_KEY } from '@ts-minecraft/app/frame-handler.config'
 import type { Position } from '@ts-minecraft/core'
+import type { FrameHandlerDeps } from '@ts-minecraft/app/application/frame/types/deps'
+import { hasAttackableTargetInCombatRange } from './interaction-stage-combat-targeting'
 import type { InputDeps, InputServices } from './input-stage-types'
 
 export const handleTradeKeys = (
-  deps: InputDeps,
+  deps: InputDeps & Pick<FrameHandlerDeps, 'camera'>,
   services: Pick<InputServices, 'inputService' | 'inventoryRenderer' | 'settingsOverlay' | 'tradingPresentation' | 'villageService'>,
   playerPos: Position,
 ): Effect.Effect<void, never> =>
   Effect.gen(function* () {
-    const tradePressed = yield* services.inputService.consumeKeyPress(TRADE_OPEN_KEY)
+    const keyPressed = yield* services.inputService.consumeKeyPress(TRADE_OPEN_KEY)
+    // Vanilla trade opening: right-click a villager. This stage runs BEFORE
+    // the interaction stage, so the click is consumed ONLY when a villager is
+    // actually under the crosshair in reach — otherwise block placement sees
+    // it untouched. The T key stays as an accessibility fallback.
+    let rightClickedVillager = false
+    if (!keyPressed) {
+      const tradeAlreadyOpen = yield* services.tradingPresentation.isOpen()
+      if (!tradeAlreadyOpen) {
+        const aimTarget = Option.getOrNull(
+          yield* services.villageService.findNearestVillager(playerPos, TRADE_DISTANCE),
+        )
+        if (aimTarget !== null && hasAttackableTargetInCombatRange([aimTarget], deps.camera, null)) {
+          rightClickedVillager = yield* services.inputService.consumeMouseClick(2)
+        }
+      }
+    }
+    const tradePressed = keyPressed || rightClickedVillager
     const tradeNextPressed = yield* services.inputService.consumeKeyPress(TRADE_NEXT_KEY)
     const tradePrevPressed = yield* services.inputService.consumeKeyPress(TRADE_PREV_KEY)
     const tradeExecutePressed = yield* services.inputService.consumeKeyPress(TRADE_EXECUTE_KEY)
