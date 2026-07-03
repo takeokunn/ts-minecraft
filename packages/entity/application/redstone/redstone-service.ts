@@ -2,6 +2,7 @@ import { Effect, HashMap, HashSet, Option, Ref } from 'effect'
 import type { Position } from '@ts-minecraft/core'
 import {
   RedstoneComponentType,
+  type PistonFacing,
   type RedstoneComponent,
   type RedstoneTickSnapshot,
 } from '../../domain/redstone/redstone-model'
@@ -94,6 +95,7 @@ export class RedstoneService extends Effect.Service<RedstoneService>()(
         setComponent: (
           position: Position,
           type: RedstoneComponentType,
+          options?: { readonly pistonFacing?: PistonFacing },
         ): Effect.Effect<RedstoneComponent, never> =>
           Effect.gen(function* () {
             const component = yield* Ref.modify(stateRef, (state): [RedstoneComponent, RedstoneState] => {
@@ -101,7 +103,11 @@ export class RedstoneService extends Effect.Service<RedstoneService>()(
               const key = positionKey(normalized)
               const existingValue = Option.getOrNull(HashMap.get(state.components, key))
               const existing = existingValue !== null && existingValue.type === type ? existingValue : null
-              const componentState = existing !== null ? existing.state : makeDefaultState(type)
+              const baseState = existing !== null ? existing.state : makeDefaultState(type)
+              // Re-placing a piston re-orients it to the player's current facing.
+              const componentState = options?.pistonFacing !== undefined
+                ? { ...baseState, pistonFacing: options.pistonFacing }
+                : baseState
               const comp: RedstoneComponent = normalizeComponentPosition({
                 type,
                 position: normalized,

@@ -9,6 +9,7 @@ import {
   makeSettingsOverlay,
 } from '../../../test/frame-handler-test-kit/presentation/overlay'
 import { makeServices } from '../../../test/frame-handler-test-kit/services'
+import { pistonFacingFromDirection } from './interaction-redstone-handler'
 
 describe('step 7 — redstone dispatch', () => {
   it.effect('placeWire key (KeyR) calls redstoneService.setComponent with Wire type', () => Effect.gen(function* () {
@@ -198,7 +199,12 @@ describe('step 7 — redstone dispatch', () => {
 
     yield* runFrame(deps, services)
 
-    expect(setComponentSpy).toHaveBeenCalledWith({ x: 2, y: 63, z: 8 }, 'piston')
+    // Piston placement now carries the player-view facing as a third argument.
+    expect(setComponentSpy).toHaveBeenCalledWith(
+      { x: 2, y: 63, z: 8 },
+      'piston',
+      { pistonFacing: expect.stringMatching(/^(north|south|east|west)$/) },
+    )
     expect(forceSetBlockSpy).toHaveBeenCalledWith({ x: 2, y: 63, z: 8 }, 'PISTON')
   }))
 
@@ -224,4 +230,18 @@ describe('step 7 — redstone dispatch', () => {
 
     expect(setComponentSpy).not.toHaveBeenCalled()
   }))
+})
+
+describe('pistonFacingFromDirection', () => {
+  it('maps the dominant horizontal axis to the matching cardinal', () => {
+    expect(pistonFacingFromDirection(1, 0)).toBe('east')
+    expect(pistonFacingFromDirection(-1, 0.2)).toBe('west')
+    expect(pistonFacingFromDirection(0.1, 0.9)).toBe('south')
+    expect(pistonFacingFromDirection(-0.3, -0.8)).toBe('north')
+  })
+
+  it('ties on |x| == |z| resolve to the x axis', () => {
+    expect(pistonFacingFromDirection(0.5, 0.5)).toBe('east')
+    expect(pistonFacingFromDirection(-0.5, -0.5)).toBe('west')
+  })
 })

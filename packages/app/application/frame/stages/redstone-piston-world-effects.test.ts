@@ -13,13 +13,18 @@ import {
 const positionKey = (position: Position): string =>
   `${position.x},${position.y},${position.z}`
 
-const pistonAt = (position: Position, pistonExtended: boolean): RedstoneComponent => ({
+const pistonAt = (
+  position: Position,
+  pistonExtended: boolean,
+  pistonFacing?: RedstoneComponent['state']['pistonFacing'],
+): RedstoneComponent => ({
   type: RedstoneComponentType.Piston,
   position,
   state: {
     active: pistonExtended,
     buttonTicksRemaining: 0,
     pistonExtended,
+    ...(pistonFacing !== undefined ? { pistonFacing } : {}),
   },
 })
 
@@ -118,5 +123,42 @@ describe('redstone piston world effects', () => {
     expect(isPistonMovableBlock('BEDROCK')).toBe(false)
     expect(isPistonMovableBlock('PISTON')).toBe(false)
     expect(isPistonMovableBlock('STONE')).toBe(true)
+  })
+
+  it.effect('pushes along the stored facing (north = -z)', () => {
+    const piston = { x: 0, y: 64, z: 0 }
+    const source = { x: 0, y: 64, z: -1 }
+    const destination = { x: 0, y: 64, z: -2 }
+    const harness = makeHarness([[source, 'STONE']])
+
+    return applyPistonWorldEffects(
+      harness.services,
+      harness.refs,
+      [pistonAt(piston, false, 'north')],
+      [pistonAt(piston, true, 'north')],
+    ).pipe(
+      Effect.tap(() => Effect.sync(() => {
+        expect(harness.blocks.get(positionKey(source))).toBe('AIR')
+        expect(harness.blocks.get(positionKey(destination))).toBe('STONE')
+      })),
+    )
+  })
+
+  it.effect('a facing-less legacy piston still pushes east', () => {
+    const piston = { x: 0, y: 64, z: 0 }
+    const source = { x: 1, y: 64, z: 0 }
+    const destination = { x: 2, y: 64, z: 0 }
+    const harness = makeHarness([[source, 'STONE']])
+
+    return applyPistonWorldEffects(
+      harness.services,
+      harness.refs,
+      [pistonAt(piston, false)],
+      [pistonAt(piston, true)],
+    ).pipe(
+      Effect.tap(() => Effect.sync(() => {
+        expect(harness.blocks.get(positionKey(destination))).toBe('STONE')
+      })),
+    )
   })
 })

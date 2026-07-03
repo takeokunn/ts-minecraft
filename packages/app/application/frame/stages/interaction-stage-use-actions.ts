@@ -7,8 +7,13 @@ import type {
   InteractionStageIntent,
 } from '@ts-minecraft/app/frame/stages/interaction-stage-intent'
 import type { InteractionStageSnapshot } from '@ts-minecraft/app/frame/stages/interaction-stage-snapshot'
+import { pistonFacingFromCamera } from '@ts-minecraft/app/frame/stages/interaction-redstone-handler'
 import { runInteractionStageUseStateActions } from '@ts-minecraft/app/frame/stages/interaction-stage-use-state-actions'
 import { runInteractionStageUseTargetActions } from '@ts-minecraft/app/frame/stages/interaction-stage-use-target-actions'
+import * as THREE from 'three'
+
+// Module scratch for the piston-facing lookup (frame loop is single-fiber).
+const _pistonFacingScratch = new THREE.Vector3()
 
 export const runInteractionStageUseActions = (
   deps: Pick<FrameHandlerDeps, 'camera' | 'respawnPositionRef'>,
@@ -51,6 +56,11 @@ export const runInteractionStageUseActions = (
       snapshot: context.snapshot,
       intent: context.intent,
       targetBlock: context.targetBlock,
+      // Compute the view cardinal only when a piston is actually being placed —
+      // getWorldDirection costs a matrix decompose.
+      ...(context.snapshot.redstoneFlags.placePiston
+        ? { pistonFacing: pistonFacingFromCamera(deps.camera, _pistonFacingScratch) }
+        : {}),
     })
 
     yield* runInteractionStageUseTargetActions(deps, services, refs, {

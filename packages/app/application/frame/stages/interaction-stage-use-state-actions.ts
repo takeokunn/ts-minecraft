@@ -1,4 +1,5 @@
 import { Effect, MutableRef, Option } from 'effect'
+import type { PistonFacing } from '@ts-minecraft/entity/domain/redstone/redstone-model'
 import type { FrameHandlerServices } from '@ts-minecraft/app/application/frame/types/services'
 import type { FrameStageRefs } from '@ts-minecraft/app/application/frame/types/stage-refs'
 import type { TargetBlockHit } from '@ts-minecraft/app/frame/stages/interaction-types'
@@ -25,6 +26,8 @@ export const runInteractionStageUseStateActions = (
     readonly snapshot: InteractionStageSnapshot
     readonly intent: InteractionStageIntent
     readonly targetBlock: Option.Option<TargetBlockHit>
+    // Player-view cardinal for piston orientation (caller owns the camera).
+    readonly pistonFacing?: PistonFacing
   },
 ): Effect.Effect<void, never> =>
   Effect.gen(function* () {
@@ -35,7 +38,7 @@ export const runInteractionStageUseStateActions = (
     }
 
     if (intent.hasRedstoneInput) {
-      yield* handleRedstoneInput(services, snapshot.redstoneFlags, targetBlock)
+      yield* handleRedstoneInput(services, snapshot.redstoneFlags, targetBlock, context.pistonFacing)
     }
 
     const updates = resolveInteractionStageUseStateRefUpdates(snapshot, intent)

@@ -24,10 +24,18 @@ export const RedstoneComponentType = {
   Lamp: 'lamp' as const,
 }
 
+// Horizontal cardinal a piston pushes toward. Captured from the player's view
+// direction at placement (vanilla-style orientation); east = +x, south = +z.
+export const PistonFacingSchema = Schema.Literal('north', 'south', 'east', 'west')
+export type PistonFacing = Schema.Schema.Type<typeof PistonFacingSchema>
+
 export const RedstoneComponentStateSchema = Schema.Struct({
   active: Schema.Boolean,
   buttonTicksRemaining: Schema.Number.pipe(Schema.int(), Schema.nonNegative()),
   pistonExtended: Schema.Boolean,
+  // Optional so every pre-facing construction site stays valid; readers
+  // default absent to 'east' (the old fixed +x push direction).
+  pistonFacing: Schema.optional(PistonFacingSchema),
 })
 export type RedstoneComponentState = Schema.Schema.Type<typeof RedstoneComponentStateSchema>
 

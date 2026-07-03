@@ -30,7 +30,15 @@ const PISTON_IMMOVABLE_BLOCKS: ReadonlySet<BlockType> = new Set([
   'WATER_CAULDRON',
 ])
 
-const PISTON_PUSH_DIRECTION = { x: 1, y: 0, z: 0 } as const
+// Push vector per stored facing; components placed before facing existed
+// default to east (the historical fixed +x behavior).
+const PISTON_PUSH_DIRECTIONS = {
+  east: { x: 1, y: 0, z: 0 },
+  west: { x: -1, y: 0, z: 0 },
+  south: { x: 0, y: 0, z: 1 },
+  north: { x: 0, y: 0, z: -1 },
+} as const
+type PushDirection = (typeof PISTON_PUSH_DIRECTIONS)[keyof typeof PISTON_PUSH_DIRECTIONS]
 
 export const isPistonMovableBlock = (blockType: BlockType): boolean =>
   !PISTON_IMMOVABLE_BLOCKS.has(blockType)
@@ -38,7 +46,7 @@ export const isPistonMovableBlock = (blockType: BlockType): boolean =>
 const redstonePositionKey = (position: Position): string =>
   `${Math.floor(position.x)},${Math.floor(position.y)},${Math.floor(position.z)}`
 
-const addPositions = (position: Position, direction: typeof PISTON_PUSH_DIRECTION): Position => ({
+const addPositions = (position: Position, direction: PushDirection): Position => ({
   x: Math.floor(position.x) + direction.x,
   y: Math.floor(position.y) + direction.y,
   z: Math.floor(position.z) + direction.z,
@@ -85,10 +93,11 @@ const pushSingleBlock = (
   services: RedstonePistonWorldServices,
   refs: RedstonePistonWorldRefs,
   pistonPosition: Position,
+  direction: PushDirection,
 ): Effect.Effect<void, never> =>
   Effect.gen(function* () {
-    const source = addPositions(pistonPosition, PISTON_PUSH_DIRECTION)
-    const destination = addPositions(source, PISTON_PUSH_DIRECTION)
+    const source = addPositions(pistonPosition, direction)
+    const destination = addPositions(source, direction)
     const sourceBlock = yield* readBlock(services, source)
     if (sourceBlock === null || !isPistonMovableBlock(sourceBlock)) return
 
@@ -127,6 +136,11 @@ export const applyPistonWorldEffects = (
       if (!component.state.pistonExtended) continue
       const previous = beforePistons.get(redstonePositionKey(component.position))
       if (previous?.state.pistonExtended === true) continue
-      yield* pushSingleBlock(services, refs, component.position)
+      yield* pushSingleBlock(
+        services,
+        refs,
+        component.position,
+        PISTON_PUSH_DIRECTIONS[component.state.pistonFacing ?? 'east'],
+      )
     }
   })
