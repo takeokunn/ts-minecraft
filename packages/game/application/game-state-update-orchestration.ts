@@ -15,6 +15,7 @@ import {
   isInCobweb,
   isInLadder,
   isInWater,
+  isOnPoweredRail,
   isOnRail,
 } from '../domain/block-collision-predicates'
 import { KeyMappings } from '@ts-minecraft/entity/domain/key-mappings'
@@ -71,6 +72,8 @@ const BOAT_SURFACE_RISE_SPEED = 3
 // Vanilla minecarts cap at ~8 b/s vs 4.317 walking; the multiplier applies to
 // the post-step velocity, re-derived from input each frame (no compounding).
 const MINECART_SPEED_MULTIPLIER = 1.85
+// Powered rails boost carts harder (vanilla powered rails push to full speed).
+const POWERED_RAIL_SPEED_MULTIPLIER = 2.5
 
 // Vertical offset subtracted from the body-center Y before sampling the vehicle
 // support cell (rail). Deliberately samples MID-BODY, not the true feet: the
@@ -234,8 +237,11 @@ export const runGameStateUpdate = (
         const refunded = yield* deps.inventoryService.addBlock('MINECART', 1).pipe(Effect.as(true), Effect.catchAll(() => Effect.succeed(false)))
         if (refunded) yield* Ref.set(deps.minecartingRef, false)
       } else {
-        physVel.x *= MINECART_SPEED_MULTIPLIER
-        physVel.z *= MINECART_SPEED_MULTIPLIER
+        const boost = isOnPoweredRail(physPos.x, physPos.y - VEHICLE_SURFACE_SAMPLE_OFFSET, physPos.z, chunkCache, playerCx, playerCz)
+          ? POWERED_RAIL_SPEED_MULTIPLIER
+          : MINECART_SPEED_MULTIPLIER
+        physVel.x *= boost
+        physVel.z *= boost
         yield* deps.physicsService.setVelocity(playerBodyId, physVel).pipe(Effect.catchTag('PhysicsServiceError', () => Effect.void))
       }
     }

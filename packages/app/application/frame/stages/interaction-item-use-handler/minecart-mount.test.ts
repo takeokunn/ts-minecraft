@@ -46,6 +46,16 @@ describe('handleMinecartMount', () => {
     )
   })
 
+  it.effect('mounts on a POWERED_RAIL too', () => {
+    const { services, enterMinecart } = makeServices({ selected: 'MINECART', feetBlock: 'POWERED_RAIL' })
+    return handleMinecartMount(services).pipe(
+      Effect.tap((handled) => Effect.sync(() => {
+        expect(handled).toBe(true)
+        expect(enterMinecart).toHaveBeenCalled()
+      })),
+    )
+  })
+
   it.effect('does nothing off the rail', () => {
     const { services, enterMinecart } = makeServices({ selected: 'MINECART', feetBlock: 'GRASS' })
     return handleMinecartMount(services).pipe(

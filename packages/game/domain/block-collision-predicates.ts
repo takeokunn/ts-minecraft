@@ -36,6 +36,7 @@ const PASSABLE_BLOCK_IDS: ReadonlySet<number> = new Set([
   blockTypeToIndex('SUGAR_CANE'),
   blockTypeToIndex('LILY_PAD'),
   blockTypeToIndex('RAIL'),
+  blockTypeToIndex('POWERED_RAIL'),
 ])
 
 export const isPassableBlockType = (blockType: BlockType): boolean => PASSABLE_BLOCK_IDS.has(blockTypeToIndex(blockType))
@@ -44,6 +45,7 @@ export const isPassableBlockType = (blockType: BlockType): boolean => PASSABLE_B
 const WATER_ID = blockTypeToIndex('WATER')
 const LADDER_ID = blockTypeToIndex('LADDER')
 const RAIL_ID = blockTypeToIndex('RAIL')
+const POWERED_RAIL_ID = blockTypeToIndex('POWERED_RAIL')
 const COBWEB_ID = blockTypeToIndex('COBWEB')
 const CACTUS_ID = blockTypeToIndex('CACTUS')
 const PRESSURE_PLATE_ID = blockTypeToIndex('PRESSURE_PLATE')
@@ -174,7 +176,19 @@ export const isOnRail = (
   chunkCache: ReadonlyArray<{ blocks: Uint8Array } | null>,
   playerCx: number,
   playerCz: number,
-): boolean => isBlockTypeAt(wx, wy, wz, chunkCache, playerCx, playerCz, RAIL_ID)
+): boolean => {
+  const id = blockIdAt(wx, wy, wz, chunkCache, playerCx, playerCz)
+  return id === RAIL_ID || id === POWERED_RAIL_ID
+}
+
+// Powered rails give minecarts an extra speed tier (redstone gating of the
+// boost is deferred — see vanilla-parity notes).
+export const isOnPoweredRail = (
+  wx: number, wy: number, wz: number,
+  chunkCache: ReadonlyArray<{ blocks: Uint8Array } | null>,
+  playerCx: number,
+  playerCz: number,
+): boolean => isBlockTypeAt(wx, wy, wz, chunkCache, playerCx, playerCz, POWERED_RAIL_ID)
 
 export const isInCobweb = (
   wx: number, wy: number, wz: number,

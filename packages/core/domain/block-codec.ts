@@ -67,6 +67,7 @@ export const INDEX_TO_BLOCK_TYPE: ReadonlyArray<BlockType> = [
   'DISPENSER',
   // Extended piston arm - index 112
   'PISTON_HEAD',
+  'POWERED_RAIL',
 ]
 
 export const BLOCK_COUNT = INDEX_TO_BLOCK_TYPE.length

@@ -1,3 +1,4 @@
+import { blockTypeToIndex } from '@ts-minecraft/core'
 import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
 import {
@@ -12,6 +13,7 @@ import {
   isInCobweb,
   isInLadder,
   isInWater,
+  isOnPoweredRail,
   isOnRail,
   OFFSETS_3x3,
 } from '@ts-minecraft/game'
@@ -354,6 +356,20 @@ describe('isOnRail', () => {
     const cache = makeSingleBlockCache(BLOCK_IDS.RAIL, 2, 61, 3)
     expect(isOnRail(2, -1, 3, cache, PLAYER_CX, PLAYER_CZ)).toBe(false)
     expect(isOnRail(3 * 16, 61, 3, cache, PLAYER_CX, PLAYER_CZ)).toBe(false)
+  })
+
+  it('treats POWERED_RAIL as a rail (mount + stay-mounted work on powered rails)', () => {
+    const cache = makeSingleBlockCache(blockTypeToIndex('POWERED_RAIL'), 2, 61, 3)
+    expect(isOnRail(2, 61, 3, cache, PLAYER_CX, PLAYER_CZ)).toBe(true)
+  })
+})
+
+describe('isOnPoweredRail', () => {
+  it('distinguishes powered rails from plain rails', () => {
+    const powered = makeSingleBlockCache(blockTypeToIndex('POWERED_RAIL'), 2, 61, 3)
+    const plain = makeSingleBlockCache(BLOCK_IDS.RAIL, 2, 61, 3)
+    expect(isOnPoweredRail(2, 61, 3, powered, PLAYER_CX, PLAYER_CZ)).toBe(true)
+    expect(isOnPoweredRail(2, 61, 3, plain, PLAYER_CX, PLAYER_CZ)).toBe(false)
   })
 })
 

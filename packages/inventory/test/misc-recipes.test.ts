@@ -233,6 +233,13 @@ describe('application/recipes/misc-recipes', () => {
       expect(ingredientTotal('iron-ingots-and-sticks-to-rails')).toBe(7)
     })
 
+    it('gold-redstone-to-powered-rails: 6 GOLD_INGOT + STICKS + REDSTONE_DUST -> 6 POWERED_RAIL', () => {
+      const recipe = findById('gold-redstone-to-powered-rails')
+      expect(recipe).toBeDefined()
+      expect(recipe!.station).toBe('crafting_table')
+      expect(recipe!.output).toEqual({ itemType: 'POWERED_RAIL', count: 6 })
+    })
+
     it('planks-to-boat: 5 PLANKS -> 1 BOAT at crafting_table', () => {
       const recipe = findById('planks-to-boat')
       expect(recipe).toBeDefined()

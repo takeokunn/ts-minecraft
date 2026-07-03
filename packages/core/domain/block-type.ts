@@ -120,6 +120,7 @@ export const BlockTypeSchema = Schema.Literal(
   'HOPPER',
   'COMPARATOR',
   'DISPENSER',
-  'PISTON_HEAD'
+  'PISTON_HEAD',
+  'POWERED_RAIL'
 )
 export type BlockType = Schema.Schema.Type<typeof BlockTypeSchema>

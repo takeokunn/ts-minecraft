@@ -42,7 +42,7 @@ export const handleMinecartMount = (
       y: Math.floor(playerPos.y - VEHICLE_SURFACE_SAMPLE_OFFSET),
       z: Math.floor(playerPos.z),
     }).pipe(Effect.catchAll(() => Effect.succeed(null)))
-    if (feetBlock !== 'RAIL') return false
+    if (feetBlock !== 'RAIL' && feetBlock !== 'POWERED_RAIL') return false
 
     // Consume the minecart BEFORE mounting — a failed removal must not mount.
     const selectedSlot = yield* services.hotbarService.getSelectedSlot()

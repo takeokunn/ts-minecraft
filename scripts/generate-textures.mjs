@@ -1876,6 +1876,25 @@ saveTile(132, 'rail', (ctx) => {
   ctx.fillRect(24, 0, 1, TILE_PX)
 })
 
+// 144: powered rail — gravel bed, redstone ties, gold rails
+saveTile(144, 'powered_rail', (ctx) => {
+  ctx.fillStyle = '#8a8578'
+  ctx.fillRect(0, 0, TILE_PX, TILE_PX)
+  drawNoise(ctx, ['#7a7568', '#969183', '#858071'], 0.3)
+  // redstone-infused ties
+  ctx.fillStyle = '#7a2a1a'
+  for (let ty = 2; ty < TILE_PX; ty += 8) ctx.fillRect(2, ty, TILE_PX - 4, 4)
+  ctx.fillStyle = '#c33b22'
+  for (let ty = 3; ty < TILE_PX; ty += 8) ctx.fillRect(4, ty, TILE_PX - 8, 2)
+  // gold rails
+  ctx.fillStyle = '#e8c840'
+  ctx.fillRect(7, 0, 3, TILE_PX)
+  ctx.fillRect(22, 0, 3, TILE_PX)
+  ctx.fillStyle = '#b89a2a'
+  ctx.fillRect(9, 0, 1, TILE_PX)
+  ctx.fillRect(24, 0, 1, TILE_PX)
+})
+
 // 133: anvil — dark iron mass with the wide top face silhouette
 saveTile(133, 'anvil', (ctx) => {
   ctx.fillStyle = '#494949'

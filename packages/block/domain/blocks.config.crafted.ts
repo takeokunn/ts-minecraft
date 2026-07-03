@@ -135,6 +135,12 @@ new Block({
     faces: defaultBlockFaces,
   }),
   new Block({
+    id: makeBlockId('block:powered_rail'),
+    type: 'POWERED_RAIL',
+    properties: { hardness: 7, transparency: true, solid: false, emissive: false, friction: 0.6 },
+    faces: defaultBlockFaces,
+  }),
+  new Block({
     id: makeBlockId('block:stone_slab'),
     type: 'STONE_SLAB',
     properties: { hardness: 25, transparency: true, solid: true, emissive: false, friction: 0.6 },
