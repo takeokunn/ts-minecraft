@@ -196,4 +196,21 @@ describe('domain/block-light-bfs', () => {
     expect(getLightAt(grid, 7, CHUNK_HEIGHT - 1, 8)).toBe(0)
     expect(boundary).toEqual({ nx: false, px: false, nz: false, pz: false })
   })
+  it('relights a cleared opaque cell next to an emitter', () => {
+    // Regression: clearing a dark opaque block (old light 0, no emission)
+    // queued nothing, so light from an adjacent LAVA never flowed into the
+    // freed cell even though a full re-compute lights it to 14.
+    const blocks = createAirBlocks()
+    const grid = createLightBuffer()
+    placeBlock(blocks, 8, 100, 8, LAVA)
+    placeBlock(blocks, 9, 100, 8, STONE)
+    propagate(blocks, grid, [{ lx: 8, y: 100, lz: 8 }])
+    expect(getLightAt(grid, 9, 100, 8)).toBe(0)
+
+    placeBlock(blocks, 9, 100, 8, AIR)
+    propagate(blocks, grid, [{ lx: 9, y: 100, lz: 8 }])
+
+    expect(getLightAt(grid, 9, 100, 8)).toBe(14)
+    expect(getLightAt(grid, 10, 100, 8)).toBe(13)
+  })
 })

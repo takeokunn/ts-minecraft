@@ -83,6 +83,23 @@ export const propagateBlockLightIncremental = (
     }
   }
 
+  // A dark opaque cell cleared to a transparent non-emitter (oldLevel 0,
+  // newEmit 0) queues nothing above, so neighbor light never flows into the
+  // freed cell — seed the add queue from its lit neighbors. This must run
+  // AFTER the removal BFS: seeding pre-removal levels would resurrect light
+  // that a cleared emitter's removal wave is about to erase.
+  for (const d of dirty) {
+    if (isTransparentIndex(blockAt(blocks, d.lx, d.y, d.lz)) === false) continue
+    for (const [dx, dy, dz] of NEIGHBOR_OFFSETS) {
+      const nx = d.lx + dx
+      const ny = d.y + dy
+      const nz = d.lz + dz
+      if (isOutsideChunk(nx, ny, nz)) continue
+      const nLevel = getLightAt(grid, nx, ny, nz)
+      if (nLevel > 1) addQueue.push(packPosLevel(nx, ny, nz, nLevel))
+    }
+  }
+
   head = 0
   while (head < addQueue.length) {
     const packed = queuedLightAt(addQueue, head)

@@ -175,4 +175,28 @@ describe('domain/sky-light-bfs', () => {
     expect(getLightAt(grid, 9, 64, 8)).toBe(0)
     expect(getLightAt(grid, 10, 64, 8)).toBe(0)
   })
+  it('relights a hole carved into a dark column from lit side neighbors', () => {
+    // Regression for the property-test counterexample: a full-height STONE
+    // pillar at (8, 8) inside an otherwise open chunk; carving one AIR cell
+    // out of the pillar produced a permanently dark hole because neither the
+    // removal path (old light was 0) nor the column scan (still roofed) ever
+    // seeded the add queue.
+    const blocks = createAirBlocks()
+    const grid = createLightBuffer()
+    for (let y = 0; y < CHUNK_HEIGHT; y++) placeBlock(blocks, 8, y, 8, STONE)
+    // Baseline = what a full compute yields: everything at max except the pillar.
+    for (let lx = 0; lx < CHUNK_SIZE; lx++) {
+      for (let lz = 0; lz < CHUNK_SIZE; lz++) {
+        if (lx === 8 && lz === 8) continue
+        for (let y = 0; y < CHUNK_HEIGHT; y++) setLightAt(grid, lx, y, lz, LIGHT_LEVEL_MAX)
+      }
+    }
+
+    placeBlock(blocks, 8, 60, 8, AIR)
+    propagate(blocks, grid, [{ lx: 8, y: 60, lz: 8 }])
+
+    expect(getLightAt(grid, 8, 60, 8)).toBe(LIGHT_LEVEL_MAX - 1)
+    expect(getLightAt(grid, 8, 61, 8)).toBe(0)
+    expect(getLightAt(grid, 8, 59, 8)).toBe(0)
+  })
 })

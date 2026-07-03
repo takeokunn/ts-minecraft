@@ -100,6 +100,25 @@ export const propagateSkyLightIncremental = (
     }
   }
 
+  // A dirty cell that became transparent while dark (opaque block carved out
+  // below the sky-exposed region) triggers no removal and no column fill, so
+  // nothing would seed the add queue — light from lit neighbors must be
+  // pulled in explicitly or the hole stays dark forever. This runs AFTER the
+  // removal BFS so it reads post-removal levels and cannot resurrect light a
+  // removal wave just erased.
+  for (const dirtyVoxel of dirty) {
+    const blockIdx = blockAt(blocks, dirtyVoxel.lx, dirtyVoxel.y, dirtyVoxel.lz)
+    if (isTransparentIndex(blockIdx) === false) continue
+    for (const [dx, dy, dz] of NEIGHBOR_OFFSETS) {
+      const nx = dirtyVoxel.lx + dx
+      const ny = dirtyVoxel.y + dy
+      const nz = dirtyVoxel.lz + dz
+      if (isOutsideChunk(nx, ny, nz)) continue
+      const nLevel = getLightAt(grid, nx, ny, nz)
+      if (nLevel > 1) addQueue.push(packPosLevel(nx, ny, nz, nLevel))
+    }
+  }
+
   head = 0
   while (head < addQueue.length) {
     const packed = queuedLightAt(addQueue, head)
