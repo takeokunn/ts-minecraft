@@ -2,6 +2,7 @@ import type { BiomeType } from './biome'
 import { CHUNK_SIZE } from '@ts-minecraft/core'
 import {
   BIOME_SCALE,
+  CLIMATE_VARIANCE_STRETCH,
   HUMIDITY_WORLD_OFFSET,
   RIVER_CENTER,
   RIVER_HALF_WIDTH,
@@ -85,14 +86,23 @@ export const classifyBiome = (temperature: number, humidity: number): BiomeType 
   return 'PLAINS'
 }
 
+// Widens fBm-concentrated climate noise back to the [0,1] spread the
+// thresholds assume (see CLIMATE_VARIANCE_STRETCH).
+export const stretchClimate = (value: number): number => {
+  const stretched = 0.5 + (value - 0.5) * CLIMATE_VARIANCE_STRETCH
+  return stretched < 0 ? 0 : stretched > 1 ? 1 : stretched
+}
+
 export const classifyBiomeFromClimate = ({
-  temperature,
-  humidity,
+  temperature: rawTemperature,
+  humidity: rawHumidity,
   continentalness,
   erosion,
   pv,
   riverNoise,
 }: ClimateSample): BiomeType => {
+  const temperature = stretchClimate(rawTemperature)
+  const humidity = stretchClimate(rawHumidity)
   const riverDistance = Math.abs(riverNoise - RIVER_CENTER)
   if (continentalness > -0.22 && continentalness < 0.42 && riverDistance < RIVER_HALF_WIDTH) {
     return 'RIVER'
@@ -109,7 +119,10 @@ export const classifyBiomeFromClimate = ({
     return temperature < TEMP_COLD ? 'SNOW' : 'MOUNTAINS'
   }
 
-  if (baseBiome === 'SWAMP' && (continentalness > 0.15 || erosion < 0.35)) {
+  // Swamps live on low flat wetlands; demote only clearly-inland or
+  // clearly-carved terrain (the old 0.15/0.35 bounds demoted essentially
+  // every swamp — measured 0.0% world coverage).
+  if (baseBiome === 'SWAMP' && (continentalness > 0.35 || erosion < 0.15)) {
     return 'FOREST'
   }
 

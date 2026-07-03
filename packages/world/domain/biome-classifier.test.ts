@@ -9,6 +9,7 @@ import {
   refineBeachBiome,
 } from './biome-classifier'
 import { toPV } from './noise-primitives'
+import { CLIMATE_VARIANCE_STRETCH } from './biome-classifier.config'
 
 const classifyBiomeCases = [
   [0.1, 0.1, 'SNOW'],
@@ -57,7 +58,13 @@ describe('classifyBiome', () => {
 
 describe('classifyBiomeFromClimate', () => {
   it.each(classifyBiomeFromClimateCases)('classifies %o as %s', (climate, expected) => {
-    expect(classifyBiomeFromClimate(climate)).toBe(expected)
+    expect(classifyBiomeFromClimate({
+      ...climate,
+      // The table expresses INTENT-domain climate (0.2=cold, 0.8=hot); the
+      // classifier stretches raw fBm noise, so feed it the inverse.
+      temperature: 0.5 + (climate.temperature - 0.5) / CLIMATE_VARIANCE_STRETCH,
+      humidity: 0.5 + (climate.humidity - 0.5) / CLIMATE_VARIANCE_STRETCH,
+    })).toBe(expected)
   })
 })
 
