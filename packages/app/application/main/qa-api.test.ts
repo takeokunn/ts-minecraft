@@ -134,8 +134,11 @@ const makeDeps = () => {
     })
   )
 
+  const setWeather = vi.fn((_w: unknown) => Effect.void)
+
   return {
     spies: {
+      setWeather,
       consumeMouseClick,
       getEntities,
       toggleInventory,
@@ -242,6 +245,10 @@ const makeDeps = () => {
         getCameraRotation: () => Effect.succeed({ yaw: 0, pitch: 0 }),
         isPlayerGrounded: () => Effect.succeed(true),
         _tag: '@minecraft/application/GameStateService',
+      },
+      weatherService: {
+        getWeather: () => Effect.succeed('clear' as const),
+        setWeather,
       },
       timeService: {
         getTimeOfDay: () => Effect.succeed(0.5),
@@ -597,6 +604,15 @@ describe('installQaApi', () => {
       { type: 'mousedown', button: 0 },
       { type: 'mouseup', button: 0 },
     ])
+  })
+
+  it('setWeatherForQA drives the weather service', async () => {
+    installWindow()
+    const { deps, spies } = makeDeps()
+    await Effect.runPromise(installQaApi(deps))
+
+    await getQaApi().setWeatherForQA('rain')
+    expect(spies.setWeather).toHaveBeenCalledWith('rain')
   })
 
   it('returns false when moving a missing block to the hotbar', async () => {

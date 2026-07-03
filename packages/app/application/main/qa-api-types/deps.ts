@@ -22,6 +22,7 @@ export type QaApiDeps = {
   readonly inventoryRenderer: InventoryRendererService
   readonly gameState: GameStateService
   readonly timeService: TimeService
+  readonly weatherService: import('@ts-minecraft/game').WeatherService
   readonly chunkManagerService: ChunkManagerService
   readonly blockService: BlockService
   readonly hotbarService: HotbarService

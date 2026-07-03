@@ -64,6 +64,7 @@ const makeQaApi = (
     stageBuildSupportBlock(deps.camera, deps.scene, deps.chunkManagerService, deps.worldRendererService, deps.blockHighlight),
   dispatchMouseClick: (button: 0 | 1 | 2) => dispatchMouseClick(button),
   setMouseHeldForQA: (button: 0 | 1 | 2, held: boolean) => setMouseHeldForQA(button, held),
+  setWeatherForQA: (weather: 'clear' | 'rain' | 'thunder') => Effect.runPromise(deps.weatherService.setWeather(weather)),
   consumeMouseClickForQA: (button: 0 | 1 | 2) => Effect.runPromise(deps.inputService.consumeMouseClick(button)),
   getCurrentTargetForQA: () => Effect.runPromise(deps.blockHighlight.getTargetBlock()),
   attackFirstZombie: () => attackFirstZombie(deps.hotbarService, deps.entityManager),
