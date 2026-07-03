@@ -91,7 +91,7 @@ export const ITEM_TILE_MAP: Readonly<Record<InventoryItem, number>> = {
   FIRE: 18,
   WATER_CAULDRON: 35,
   RAIL: 35,
-  PISTON: 35,
+  PISTON: 131,
   REDSTONE_LAMP: 116,
   REDSTONE_LAMP_LIT: 117,
   BREWING_STAND: 121,

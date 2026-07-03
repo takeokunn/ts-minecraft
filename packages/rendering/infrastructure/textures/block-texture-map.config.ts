@@ -114,7 +114,7 @@ export const TILE_MAP: ReadonlyArray<Readonly<Record<TextureFaceDir, number>>> =
   { top: 18, bottom: 18, side: 18 }, // 95: FIRE (lava tile)
   { top: 35, bottom: 35, side: 35 }, // 96: WATER_CAULDRON (iron tile)
   { top: 35, bottom: 35, side: 35 }, // 97: RAIL (temporary iron tile)
-  { top: 35, bottom: 35, side: 35 }, // 98: PISTON (temporary iron tile)
+  { top: 130, bottom: 1, side: 131 }, // 98: PISTON (plank face, stone body)
   { top: 116, bottom: 116, side: 116 }, // 99: REDSTONE_LAMP
   { top: 117, bottom: 117, side: 117 }, // 100: REDSTONE_LAMP_LIT
   { top: 121, bottom: 121, side: 121 }, // 101: BREWING_STAND

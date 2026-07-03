@@ -1832,8 +1832,35 @@ saveTile(128, 'item-nether-wart', (ctx) => {
 // 129: awkward potion (murky blue-gray base brew)
 saveTile(129, 'potion-awkward', (ctx) => drawBottle(ctx, '#7686a5'))
 
+// 130: piston face — oak-plank pushing plate with a subtle frame
+saveTile(130, 'piston-face', (ctx) => {
+  ctx.fillStyle = '#9a7b4a'
+  ctx.fillRect(0, 0, TILE_PX, TILE_PX)
+  // plank seams
+  ctx.fillStyle = '#7e6238'
+  for (let py = 7; py < TILE_PX; py += 8) ctx.fillRect(0, py, TILE_PX, 1)
+  // frame
+  ctx.strokeStyle = '#6b5330'
+  ctx.lineWidth = 2
+  ctx.strokeRect(1, 1, TILE_PX - 2, TILE_PX - 2)
+})
+
+// 131: piston side — stone body with the wooden head band on top
+saveTile(131, 'piston-side', (ctx) => {
+  ctx.fillStyle = '#7e7e7e'
+  ctx.fillRect(0, 0, TILE_PX, TILE_PX)
+  drawNoise(ctx, ['#8a8a8a', '#6a6a6a', '#808080'], 0.3)
+  ctx.fillStyle = '#9a7b4a'
+  ctx.fillRect(0, 0, TILE_PX, 8)
+  ctx.fillStyle = '#7e6238'
+  ctx.fillRect(0, 7, TILE_PX, 1)
+  // center piston rod hint
+  ctx.fillStyle = '#5d5d5d'
+  ctx.fillRect(13, 12, 6, 14)
+})
+
 // Save combined atlas (single file loaded by chunk-mesh.ts at runtime).
 writeFileSync(join(OUTPUT_DIR, 'atlas.png'), atlasCanvas.toBuffer('image/png'))
-console.log(`  ✓ atlas.png (512×512, all 130 tiles combined)`)
+console.log(`  ✓ atlas.png (512×512, all 132 tiles combined)`)
 
 console.log(`\nDone - 123 individual tiles + atlas.png written to ${OUTPUT_DIR}`)
