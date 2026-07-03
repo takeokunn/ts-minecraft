@@ -47,6 +47,8 @@ export type GameStateUpdateOrchestrationDeps = {
   readonly chunkCacheRef: Ref.Ref<ChunkCache>
   readonly lastChunkCoordRef: Ref.Ref<{ cx: number; cz: number }>
   readonly flyingRef: Ref.Ref<boolean>
+  readonly boatingRef: Ref.Ref<boolean>
+  readonly inventoryService: { readonly addBlock: (blockType: 'BOAT', count: number) => Effect.Effect<unknown, unknown> }
   readonly playerId: PlayerId
   readonly deltaTime: DeltaTimeSecs
   readonly waterHorizontalDrag?: number | undefined
@@ -58,6 +60,11 @@ export type GameStateUpdateOrchestrationDeps = {
 const _scratchPosA = { x: 0, y: 0, z: 0 }
 const _scratchPosB = { x: 0, y: 0, z: 0 }
 const _scratchVel = { x: 0, y: 0, z: 0 }
+
+// Vanilla boats travel ~8 b/s vs 4.317 walking; the multiplier applies to the
+// post-step velocity, which is re-derived from input each frame (no compounding).
+const BOAT_SPEED_MULTIPLIER = 1.85
+const BOAT_SURFACE_RISE_SPEED = 3
 
 export const runGameStateUpdate = (
   deps: GameStateUpdateOrchestrationDeps,
@@ -175,9 +182,28 @@ export const runGameStateUpdate = (
     yield* deps.physicsService.setVelocity(playerBodyId, physVel).pipe(Effect.catchTag('PhysicsServiceError', () => Effect.void))
     yield* Ref.set(deps.isGroundedRef, postPhysicsContactState.isGrounded)
 
+    // Boat modality: while boating and in water the player rides the surface
+    // at boat speed. Sneak or reaching land dismounts and refunds the item.
+    const boating = yield* Ref.get(deps.boatingRef)
+    if (boating && (frameContext.frameMotionState.sneaking || !postPhysicsContactState.inWater)) {
+      yield* Ref.set(deps.boatingRef, false)
+      yield* deps.inventoryService.addBlock('BOAT', 1).pipe(Effect.catchAll(() => Effect.void))
+    }
+
     if (postPhysicsContactState.inWater) {
-      const swimUp = !frameContext.frameMotionState.flying && (yield* deps.inputService.isKeyPressed(KeyMappings.JUMP))
-      yield* applyWaterDrag(deps.physicsService, playerBodyId, physVel, swimUp, frameContext.frameMotionState.sneaking, waterHorizontalDrag)
+      const stillBoating = yield* Ref.get(deps.boatingRef)
+      if (stillBoating) {
+        // Surface-seeking float: rise while the head is submerged, otherwise
+        // rest on the surface; horizontal speed boosted to vanilla boat pace.
+        const headInWater = isInWater(physPos.x, physPos.y + 0.6, physPos.z, chunkCache, playerCx, playerCz)
+        physVel.y = headInWater ? BOAT_SURFACE_RISE_SPEED : Math.max(0, physVel.y)
+        physVel.x *= BOAT_SPEED_MULTIPLIER
+        physVel.z *= BOAT_SPEED_MULTIPLIER
+        yield* deps.physicsService.setVelocity(playerBodyId, physVel).pipe(Effect.catchTag('PhysicsServiceError', () => Effect.void))
+      } else {
+        const swimUp = !frameContext.frameMotionState.flying && (yield* deps.inputService.isKeyPressed(KeyMappings.JUMP))
+        yield* applyWaterDrag(deps.physicsService, playerBodyId, physVel, swimUp, frameContext.frameMotionState.sneaking, waterHorizontalDrag)
+      }
     }
 
     // Sequential: updatePosition/updateVelocity are synchronous state writes

@@ -281,6 +281,8 @@ export const createMockGameStateLayer = () => {
     getPlayerPosition: () => Effect.succeed({ x: 0, y: 0, z: 0 }),
     getCameraRotation: () => Effect.succeed({ yaw: 0, pitch: 0 }),
     isPlayerGrounded: () => Effect.succeed(true),
+    enterBoat: () => Effect.void,
+    isBoating: () => Effect.succeed(false),
   }))
   return { MockGameStateLayer }
 }

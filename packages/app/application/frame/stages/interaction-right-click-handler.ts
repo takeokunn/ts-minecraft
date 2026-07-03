@@ -8,6 +8,7 @@ import { handleRightClick } from '@ts-minecraft/app/frame/stages/interaction-pla
 import { handleFeedAnimal } from '@ts-minecraft/app/frame/stages/interaction-item-use-handler/feed-animal'
 import { handleEnderPearlThrow } from '@ts-minecraft/app/frame/stages/interaction-item-use-handler/ender-pearl'
 import { handleFoodConsumption } from '@ts-minecraft/app/frame/stages/interaction-item-use-handler/food-consumption'
+import { handleBoatMount } from '@ts-minecraft/app/frame/stages/interaction-item-use-handler/boat-mount'
 import { handleShearAnimal } from '@ts-minecraft/app/frame/stages/interaction-item-use-handler/shear-animal'
 import { handleFarmingInteraction } from '@ts-minecraft/app/frame/stages/interaction-farming-handler'
 import { handleFlintAndSteel } from '@ts-minecraft/app/frame/stages/interaction-flint-steel-handler'
@@ -52,6 +53,7 @@ export const handleRightClickPriorityFromContext = (
     if (yield* handleFeedAnimal(deps, services)) return
     if (yield* handleFarmingInteraction(services, refs, { targetHit: context.targetHit })) return
     if (yield* handleFoodConsumption(services)) return
+    if (yield* handleBoatMount(services)) return
     if (yield* handleEnderPearlThrow(deps, services, { targetHit: context.targetHit })) return
     if (yield* handleBucket(services, refs, { targetHit: context.targetHit })) return
 

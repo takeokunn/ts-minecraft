@@ -69,6 +69,9 @@ export class GameStateService extends Effect.Service<GameStateService>()(
       const chunkCacheRef = yield* Ref.make(createChunkCache())
       const lastChunkCoordRef = yield* Ref.make<{ cx: number; cz: number }>({ cx: Number.NaN, cz: Number.NaN })
       const flyingRef = yield* Ref.make(false)
+      // Rideable boat as a movement modality: while true, water physics floats
+      // the player at the surface with boosted speed (see the update branch).
+      const boatingRef = yield* Ref.make(false)
 
       const playerId = DEFAULT_PLAYER_ID
 
@@ -109,10 +112,18 @@ export class GameStateService extends Effect.Service<GameStateService>()(
             chunkCacheRef,
             lastChunkCoordRef,
             flyingRef,
+            boatingRef,
+            inventoryService,
             playerId,
             deltaTime,
             waterHorizontalDrag,
           }),
+
+        // Mount: called by the right-click handler after consuming the BOAT
+        // item. Dismount happens inside the update loop (sneak or leaving
+        // water) which refunds the item.
+        enterBoat: (): Effect.Effect<void, never> => Ref.set(boatingRef, true),
+        isBoating: (): Effect.Effect<boolean, never> => Ref.get(boatingRef),
 
         respawn: (spawnPosition: Position): Effect.Effect<void, GameStateError> =>
           Effect.gen(function* () {
