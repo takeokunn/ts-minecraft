@@ -21,6 +21,13 @@ const CHUNK_BLOCK_COUNT = CHUNK_SIZE * CHUNK_SIZE * CHUNK_HEIGHT
 const AIR = blockTypeToIndex('AIR')
 const WATER = blockTypeToIndex('WATER')
 const LAVA = blockTypeToIndex('LAVA')
+const GRASS = blockTypeToIndex('GRASS')
+
+// Grassy columns give the vanilla "plains spawn" first impression; stone
+// mountainsides and beaches are technically valid but visually hostile.
+// Worth 5 openness points: a grass column loses only to a DRAMATICALLY
+// more open non-grass one.
+const GRASS_SURFACE_BONUS = 5 * 1000
 
 // Block types that should NOT be used as spawn surfaces.
 // Non-solid / semi-solid / transparent / interactive-only blocks.
@@ -90,6 +97,7 @@ export type SpawnCandidate = SpawnSelectionLike & {
   readonly surfaceY: number
   readonly distanceSq: number
   readonly openness: number
+  readonly isGrassSurface: boolean
 }
 
 export class SpawnSelectionChunkError extends Data.TaggedError('SpawnSelectionChunkError')<{
@@ -168,8 +176,12 @@ const openDirection = (chunks: ReadonlyMap<string, Chunk>, wx: number, surfaceY:
   return { yaw: bestYaw, openness: totalOpenness }
 }
 
-export const scoreSpawnCandidate = (candidate: Pick<SpawnCandidate, 'openness' | 'distanceSq'>): number =>
-  candidate.openness * SPAWN_OPENNESS_WEIGHT - candidate.distanceSq
+export const scoreSpawnCandidate = (
+  candidate: Pick<SpawnCandidate, 'openness' | 'distanceSq'> & Partial<Pick<SpawnCandidate, 'isGrassSurface'>>,
+): number =>
+  candidate.openness * SPAWN_OPENNESS_WEIGHT
+  + (candidate.isGrassSurface === true ? GRASS_SURFACE_BONUS : 0)
+  - candidate.distanceSq
 
 export const candidateAt = (
   chunks: ReadonlyMap<string, Chunk>,
@@ -179,7 +191,8 @@ export const candidateAt = (
 ): Option.Option<SpawnCandidate> => {
   const surfaceLimit = Math.min(CHUNK_HEIGHT - SPAWN_HEADROOM_BLOCKS, MAX_SURFACE_Y)
   for (let surfaceY = surfaceLimit - 1; surfaceY >= 0; surfaceY--) {
-    if (NON_SPAWN_SURFACE_BLOCK_IDS.has(blockAt(chunks, wx, surfaceY, wz))) continue
+    const surfaceBlockId = blockAt(chunks, wx, surfaceY, wz)
+    if (NON_SPAWN_SURFACE_BLOCK_IDS.has(surfaceBlockId)) continue
     if (!hasSkyVisibleHeadroom(chunks, wx, surfaceY, wz)) continue
 
     const facing = openDirection(chunks, wx, surfaceY, wz)
@@ -188,6 +201,7 @@ export const candidateAt = (
       yaw: facing.yaw,
       surfaceY,
       openness: facing.openness,
+      isGrassSurface: surfaceBlockId === GRASS,
       distanceSq: (wx + 0.5 - base.x) ** 2 + (wz + 0.5 - base.z) ** 2,
     })
   }

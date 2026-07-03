@@ -73,3 +73,22 @@ describe('clampAboveWater', () => {
     expect(clampAboveWater(sel)).toBe(sel)
   })
 })
+
+describe('scoreSpawnCandidate — grass surface preference', () => {
+  it('prefers a grass column over an equally-open stone column', () => {
+    const grass = scoreSpawnCandidate({ openness: 10, distanceSq: 100, isGrassSurface: true })
+    const stone = scoreSpawnCandidate({ openness: 10, distanceSq: 100, isGrassSurface: false })
+    expect(grass).toBeGreaterThan(stone)
+  })
+
+  it('grass bonus equals 5 openness points — a dramatically more open non-grass column still wins', () => {
+    const grass = scoreSpawnCandidate({ openness: 10, distanceSq: 0, isGrassSurface: true })
+    const veryOpenStone = scoreSpawnCandidate({ openness: 16, distanceSq: 0, isGrassSurface: false })
+    expect(veryOpenStone).toBeGreaterThan(grass)
+  })
+
+  it('treats a missing isGrassSurface as non-grass (back-compat)', () => {
+    expect(scoreSpawnCandidate({ openness: 10, distanceSq: 100 }))
+      .toBe(scoreSpawnCandidate({ openness: 10, distanceSq: 100, isGrassSurface: false }))
+  })
+})
