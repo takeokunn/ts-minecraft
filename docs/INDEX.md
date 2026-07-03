@@ -79,6 +79,7 @@ Context, background, and design rationale
 
 Technical specifications and API documentation
 
+- [Vanilla Parity Matrix](./reference/vanilla-parity.md) - Grounded inventory of implemented vs. missing vanilla features (live-verified)
 - [API Reference](./reference/api/README.md) - API documentation
   - [Effect-TS APIs](./reference/api/effect-ts-effect-api.md)
   - [Domain APIs](./reference/api/domain-apis.md)
