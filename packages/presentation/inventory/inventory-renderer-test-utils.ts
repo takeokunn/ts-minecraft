@@ -283,6 +283,8 @@ export const createMockGameStateLayer = () => {
     isPlayerGrounded: () => Effect.succeed(true),
     enterBoat: () => Effect.void,
     isBoating: () => Effect.succeed(false),
+    enterMinecart: () => Effect.void,
+    isMinecarting: () => Effect.succeed(false),
   }))
   return { MockGameStateLayer }
 }

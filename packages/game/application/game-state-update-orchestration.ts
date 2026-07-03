@@ -15,6 +15,7 @@ import {
   isInCobweb,
   isInLadder,
   isInWater,
+  isOnRail,
 } from '../domain/block-collision-predicates'
 import { KeyMappings } from '@ts-minecraft/entity/domain/key-mappings'
 import {
@@ -48,7 +49,8 @@ export type GameStateUpdateOrchestrationDeps = {
   readonly lastChunkCoordRef: Ref.Ref<{ cx: number; cz: number }>
   readonly flyingRef: Ref.Ref<boolean>
   readonly boatingRef: Ref.Ref<boolean>
-  readonly inventoryService: { readonly addBlock: (blockType: 'BOAT', count: number) => Effect.Effect<unknown, unknown> }
+  readonly minecartingRef: Ref.Ref<boolean>
+  readonly inventoryService: { readonly addBlock: (blockType: 'BOAT' | 'MINECART', count: number) => Effect.Effect<unknown, unknown> }
   readonly playerId: PlayerId
   readonly deltaTime: DeltaTimeSecs
   readonly waterHorizontalDrag?: number | undefined
@@ -65,6 +67,18 @@ const _scratchVel = { x: 0, y: 0, z: 0 }
 // post-step velocity, which is re-derived from input each frame (no compounding).
 const BOAT_SPEED_MULTIPLIER = 1.85
 const BOAT_SURFACE_RISE_SPEED = 3
+
+// Vanilla minecarts cap at ~8 b/s vs 4.317 walking; the multiplier applies to
+// the post-step velocity, re-derived from input each frame (no compounding).
+const MINECART_SPEED_MULTIPLIER = 1.85
+
+// Vertical offset subtracted from the body-center Y before sampling the vehicle
+// support cell (rail). Deliberately samples MID-BODY, not the true feet: the
+// feet (−PLAYER_HALF_HEIGHT = −0.9) sit exactly on the rail-cell floor boundary,
+// where downward physics jitter flips floor(y) to the cell below and spuriously
+// dismounts. Sampling the cell interior keeps mount and dismount consistent —
+// minecart-mount.ts imports this so both predicates read the same cell.
+export const VEHICLE_SURFACE_SAMPLE_OFFSET = 0.4
 
 export const runGameStateUpdate = (
   deps: GameStateUpdateOrchestrationDeps,
@@ -186,8 +200,9 @@ export const runGameStateUpdate = (
     // at boat speed. Sneak or reaching land dismounts and refunds the item.
     const boating = yield* Ref.get(deps.boatingRef)
     if (boating && (frameContext.frameMotionState.sneaking || !postPhysicsContactState.inWater)) {
-      yield* Ref.set(deps.boatingRef, false)
-      yield* deps.inventoryService.addBlock('BOAT', 1).pipe(Effect.catchAll(() => Effect.void))
+      // refund-before-dismount: a full inventory keeps the rider mounted rather than destroying the item
+      const refunded = yield* deps.inventoryService.addBlock('BOAT', 1).pipe(Effect.as(true), Effect.catchAll(() => Effect.succeed(false)))
+      if (refunded) yield* Ref.set(deps.boatingRef, false)
     }
 
     if (postPhysicsContactState.inWater) {
@@ -203,6 +218,25 @@ export const runGameStateUpdate = (
       } else {
         const swimUp = !frameContext.frameMotionState.flying && (yield* deps.inputService.isKeyPressed(KeyMappings.JUMP))
         yield* applyWaterDrag(deps.physicsService, playerBodyId, physVel, swimUp, frameContext.frameMotionState.sneaking, waterHorizontalDrag)
+      }
+    }
+
+    // Minecart modality: while minecarting and on a rail the player rides at
+    // minecart speed. Sneak or leaving the rail dismounts and refunds the item.
+    const minecarting = yield* Ref.get(deps.minecartingRef)
+    if (minecarting) {
+      // Sample the rail cell at mid-body (physPos.y is the body center): see
+      // VEHICLE_SURFACE_SAMPLE_OFFSET — true feet sit on the cell boundary and
+      // jitter out on downward noise, so we sample the cell interior instead.
+      const onRail = isOnRail(physPos.x, physPos.y - VEHICLE_SURFACE_SAMPLE_OFFSET, physPos.z, chunkCache, playerCx, playerCz)
+      if (frameContext.frameMotionState.sneaking || !onRail) {
+        // refund-before-dismount: a full inventory keeps the rider mounted rather than destroying the item
+        const refunded = yield* deps.inventoryService.addBlock('MINECART', 1).pipe(Effect.as(true), Effect.catchAll(() => Effect.succeed(false)))
+        if (refunded) yield* Ref.set(deps.minecartingRef, false)
+      } else {
+        physVel.x *= MINECART_SPEED_MULTIPLIER
+        physVel.z *= MINECART_SPEED_MULTIPLIER
+        yield* deps.physicsService.setVelocity(playerBodyId, physVel).pipe(Effect.catchTag('PhysicsServiceError', () => Effect.void))
       }
     }
 

@@ -57,6 +57,7 @@ const makeServices = () => ({
   weatherService: { restore: vi.fn(() => Effect.void) },
   cropGrowthService: { restore: vi.fn(() => Effect.void) },
   entityManager: { applyEntitySnapshot: vi.fn(() => Effect.succeed('created' as const)) },
+  gameState: { enterBoat: vi.fn(() => Effect.void), enterMinecart: vi.fn(() => Effect.void) },
 })
 
 describe('restoreSavedState', () => {

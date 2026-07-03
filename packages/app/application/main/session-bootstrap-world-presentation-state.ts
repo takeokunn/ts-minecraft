@@ -75,6 +75,7 @@ export const initializeSessionBootstrapWorldPresentationState = ({
       weatherService,
       cropGrowthService,
       entityManager,
+      gameState,
     })
 
     yield* initializeSessionBootstrapWorldPresentationTime({

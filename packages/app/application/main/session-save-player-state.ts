@@ -14,6 +14,7 @@ type SessionSavePlayerStateInput = {
     readonly LEGGINGS: InventoryItem | null
     readonly BOOTS: InventoryItem | null
   }
+  readonly mountedVehicle: NonNullable<WorldMetadata['playerState']>['mountedVehicle']
   readonly respawnPosition: NonNullable<WorldMetadata['playerState']>['respawnPosition']
   readonly cropAges: NonNullable<WorldMetadata['playerState']>['cropAges']
 }
@@ -28,7 +29,7 @@ const buildSerializedEquipment = (equipment: SessionSavePlayerStateInput['equipm
 export const buildSessionSavePlayerState = (
   input: SessionSavePlayerStateInput,
 ): NonNullable<WorldMetadata['playerState']> => {
-  const { position, health, inventory, timeOfDay, hunger, totalXP, equipment, respawnPosition, cropAges } = input
+  const { position, health, inventory, timeOfDay, hunger, totalXP, equipment, mountedVehicle, respawnPosition, cropAges } = input
   return {
     position,
     health,
@@ -37,6 +38,7 @@ export const buildSessionSavePlayerState = (
     hunger,
     totalXP,
     equipment: buildSerializedEquipment(equipment),
+    mountedVehicle,
     respawnPosition,
     cropAges,
   }

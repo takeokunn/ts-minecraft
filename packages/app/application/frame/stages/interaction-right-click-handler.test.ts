@@ -16,6 +16,9 @@ vi.mock('@ts-minecraft/app/frame/stages/interaction-item-use-handler/food-consum
 vi.mock('@ts-minecraft/app/frame/stages/interaction-item-use-handler/boat-mount', () => ({
   handleBoatMount: vi.fn(() => Effect.succeed(false)),
 }))
+vi.mock('@ts-minecraft/app/frame/stages/interaction-item-use-handler/minecart-mount', () => ({
+  handleMinecartMount: vi.fn(() => Effect.succeed(false)),
+}))
 vi.mock('@ts-minecraft/app/frame/stages/interaction-item-use-handler/ender-pearl', () => ({
   handleEnderPearlThrow: vi.fn(() => Effect.succeed(false)),
 }))
@@ -36,6 +39,7 @@ import { handleShearAnimal } from '@ts-minecraft/app/frame/stages/interaction-it
 import { handleFeedAnimal } from '@ts-minecraft/app/frame/stages/interaction-item-use-handler/feed-animal'
 import { handleFoodConsumption } from '@ts-minecraft/app/frame/stages/interaction-item-use-handler/food-consumption'
 import { handleBoatMount } from '@ts-minecraft/app/frame/stages/interaction-item-use-handler/boat-mount'
+import { handleMinecartMount } from '@ts-minecraft/app/frame/stages/interaction-item-use-handler/minecart-mount'
 import { handleEnderPearlThrow } from '@ts-minecraft/app/frame/stages/interaction-item-use-handler/ender-pearl'
 import { handleFarmingInteraction } from '@ts-minecraft/app/frame/stages/interaction-farming-handler'
 import { handleBucket } from '@ts-minecraft/app/frame/stages/interaction-bucket-handler/bucket-handler'
@@ -46,6 +50,7 @@ const shearMock = vi.mocked(handleShearAnimal)
 const feedMock = vi.mocked(handleFeedAnimal)
 const foodMock = vi.mocked(handleFoodConsumption)
 const boatMock = vi.mocked(handleBoatMount)
+const minecartMock = vi.mocked(handleMinecartMount)
 const enderPearlMock = vi.mocked(handleEnderPearlThrow)
 const farmMock = vi.mocked(handleFarmingInteraction)
 const bucketMock = vi.mocked(handleBucket)
@@ -76,6 +81,7 @@ describe('handleRightClickPriorityFromContext', () => {
     feedMock.mockReturnValue(Effect.succeed(false))
     foodMock.mockReturnValue(Effect.succeed(false))
     boatMock.mockReturnValue(Effect.succeed(false))
+    minecartMock.mockReturnValue(Effect.succeed(false))
     enderPearlMock.mockReturnValue(Effect.succeed(false))
     farmMock.mockReturnValue(Effect.succeed(false))
     bucketMock.mockReturnValue(Effect.succeed(false))
@@ -160,6 +166,21 @@ describe('handleRightClickPriorityFromContext', () => {
 
       expect(foodMock).toHaveBeenCalledOnce()
       expect(boatMock).toHaveBeenCalledOnce()
+      expect(minecartMock).not.toHaveBeenCalled()
+      expect(enderPearlMock).not.toHaveBeenCalled()
+      expect(bucketMock).not.toHaveBeenCalled()
+      expect(placeMock).not.toHaveBeenCalled()
+    }),
+  )
+
+  it.effect('stops after mounting a minecart succeeds', () =>
+    Effect.gen(function* () {
+      minecartMock.mockReturnValue(Effect.succeed(true))
+
+      yield* handleRightClickPriorityFromContext(makeDeps(), makeServices(), makeRefs(), makeContext())
+
+      expect(boatMock).toHaveBeenCalledOnce()
+      expect(minecartMock).toHaveBeenCalledOnce()
       expect(enderPearlMock).not.toHaveBeenCalled()
       expect(bucketMock).not.toHaveBeenCalled()
       expect(placeMock).not.toHaveBeenCalled()
@@ -177,6 +198,7 @@ describe('handleRightClickPriorityFromContext', () => {
       expect(farmMock).toHaveBeenCalledOnce()
       expect(foodMock).toHaveBeenCalledOnce()
       expect(boatMock).toHaveBeenCalledOnce()
+      expect(minecartMock).toHaveBeenCalledOnce()
       expect(enderPearlMock).toHaveBeenCalledOnce()
       expect(bucketMock).not.toHaveBeenCalled()
       expect(igniteMock).not.toHaveBeenCalled()

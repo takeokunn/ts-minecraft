@@ -24,6 +24,10 @@ export const handleBoatMount = (
     const alreadyBoating = yield* services.gameState.isBoating()
     if (alreadyBoating) return false
 
+    // Cross-modality exclusion: never stack boat + minecart speed multipliers.
+    const alreadyMinecarting = yield* services.gameState.isMinecarting()
+    if (alreadyMinecarting) return false
+
     const playerPos = yield* services.gameState.getPlayerPosition(DEFAULT_PLAYER_ID).pipe(
       Effect.catchAll(() => Effect.succeed(null)),
     )

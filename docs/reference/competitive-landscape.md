@@ -53,9 +53,10 @@ measured performance floor) that none of the surveyed projects document.
 
 ## Known gaps relative to the wider field
 
-Unchanged from the parity matrix: no modding API (Luanti's decisive
-advantage), no rideable boats/minecarts yet, co-op-scale multiplayer only,
-audio not live-validatable on localhost by policy.
+Unchanged from the parity matrix: modding limited to data-driven recipe packs
+(Luanti's scripting API remains its decisive advantage), boats/minecarts ride
+only as movement modalities (no vehicle entities or models), co-op-scale
+multiplayer only, audio not live-validatable on localhost by policy.
 
 ## Sources
 

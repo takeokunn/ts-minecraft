@@ -8,6 +8,7 @@ const makeServices = (options: {
   readonly selected: string | null
   readonly feetBlock: string
   readonly boating?: boolean
+  readonly minecarting?: boolean
   readonly removeFails?: boolean
 }) => {
   const enterBoat = vi.fn(() => Effect.void)
@@ -21,6 +22,7 @@ const makeServices = (options: {
     inventoryService: { removeBlock },
     gameState: {
       isBoating: () => Effect.succeed(options.boating ?? false),
+      isMinecarting: () => Effect.succeed(options.minecarting ?? false),
       enterBoat,
       getPlayerPosition: () => Effect.succeed({ x: 0.5, y: 63.4, z: 0.5 }),
     },
@@ -68,6 +70,17 @@ describe('handleBoatMount', () => {
       Effect.tap((handled) => Effect.sync(() => {
         expect(handled).toBe(false)
         expect(enterBoat).not.toHaveBeenCalled()
+      })),
+    )
+  })
+
+  it.effect('does not mount while minecarting', () => {
+    const { services, enterBoat, removeBlock } = makeServices({ selected: 'BOAT', feetBlock: 'WATER', minecarting: true })
+    return handleBoatMount(services).pipe(
+      Effect.tap((handled) => Effect.sync(() => {
+        expect(handled).toBe(false)
+        expect(enterBoat).not.toHaveBeenCalled()
+        expect(removeBlock).not.toHaveBeenCalled()
       })),
     )
   })

@@ -12,6 +12,7 @@ import {
   isInCobweb,
   isInLadder,
   isInWater,
+  isOnRail,
   OFFSETS_3x3,
 } from '@ts-minecraft/game'
 import {
@@ -329,6 +330,30 @@ describe('isInLadder', () => {
     const cache = makeSingleBlockCache(BLOCK_IDS.LADDER, 2, 61, 3)
     expect(isInLadder(2, -1, 3, cache, PLAYER_CX, PLAYER_CZ)).toBe(false)
     expect(isInLadder(3 * 16, 61, 3, cache, PLAYER_CX, PLAYER_CZ)).toBe(false)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// isOnRail
+// ---------------------------------------------------------------------------
+
+describe('isOnRail', () => {
+  it('returns true when a RAIL block is at the queried position', () => {
+    const cache = makeSingleBlockCache(BLOCK_IDS.RAIL, 2, 61, 3)
+    expect(isOnRail(2, 61, 3, cache, PLAYER_CX, PLAYER_CZ)).toBe(true)
+  })
+
+  it('returns false when the block is AIR or another passable block', () => {
+    const airCache = makeAirChunkCache()
+    const waterCache = makeSingleBlockCache(BLOCK_IDS.WATER, 2, 61, 3)
+    expect(isOnRail(2, 61, 3, airCache, PLAYER_CX, PLAYER_CZ)).toBe(false)
+    expect(isOnRail(2, 61, 3, waterCache, PLAYER_CX, PLAYER_CZ)).toBe(false)
+  })
+
+  it('returns false outside world height or cached chunks', () => {
+    const cache = makeSingleBlockCache(BLOCK_IDS.RAIL, 2, 61, 3)
+    expect(isOnRail(2, -1, 3, cache, PLAYER_CX, PLAYER_CZ)).toBe(false)
+    expect(isOnRail(3 * 16, 61, 3, cache, PLAYER_CX, PLAYER_CZ)).toBe(false)
   })
 })
 

@@ -72,6 +72,9 @@ export class GameStateService extends Effect.Service<GameStateService>()(
       // Rideable boat as a movement modality: while true, water physics floats
       // the player at the surface with boosted speed (see the update branch).
       const boatingRef = yield* Ref.make(false)
+      // Rideable minecart as a movement modality: while true and on a rail the
+      // player's horizontal speed is boosted (see the update branch).
+      const minecartingRef = yield* Ref.make(false)
 
       const playerId = DEFAULT_PLAYER_ID
 
@@ -113,6 +116,7 @@ export class GameStateService extends Effect.Service<GameStateService>()(
             lastChunkCoordRef,
             flyingRef,
             boatingRef,
+            minecartingRef,
             inventoryService,
             playerId,
             deltaTime,
@@ -124,6 +128,12 @@ export class GameStateService extends Effect.Service<GameStateService>()(
         // water) which refunds the item.
         enterBoat: (): Effect.Effect<void, never> => Ref.set(boatingRef, true),
         isBoating: (): Effect.Effect<boolean, never> => Ref.get(boatingRef),
+
+        // Mount: called by the right-click handler after consuming the MINECART
+        // item. Dismount happens inside the update loop (sneak or leaving the
+        // rail) which refunds the item.
+        enterMinecart: (): Effect.Effect<void, never> => Ref.set(minecartingRef, true),
+        isMinecarting: (): Effect.Effect<boolean, never> => Ref.get(minecartingRef),
 
         respawn: (spawnPosition: Position): Effect.Effect<void, GameStateError> =>
           Effect.gen(function* () {

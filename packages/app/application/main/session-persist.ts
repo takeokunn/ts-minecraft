@@ -55,6 +55,9 @@ export const buildPersistSessionState = (deps: PersistSessionStateDeps) => (): E
     const chestStates = yield* chestService.serialize()
     const furnaceStates = yield* furnaceService.serialize()
     const gameMode = yield* gameModeService.get()
+    const isBoating = yield* gameState.isBoating()
+    const isMinecarting = yield* gameState.isMinecarting()
+    const mountedVehicle = isBoating ? 'BOAT' : isMinecarting ? 'MINECART' : undefined
     const cropAges = yield* cropGrowthService.serialize()
     const weatherState = yield* weatherService.serialize()
     const entityStates = yield* entityManager.getEntities()
@@ -69,6 +72,7 @@ export const buildPersistSessionState = (deps: PersistSessionStateDeps) => (): E
         hunger: { foodLevel: hunger.foodLevel, saturation: hunger.saturation },
         totalXP: xp.totalXP,
         equipment,
+        mountedVehicle,
         respawnPosition: MutableRef.get(respawnPositionRef),
         cropAges,
       }),

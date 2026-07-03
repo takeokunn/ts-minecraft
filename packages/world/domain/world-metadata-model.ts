@@ -107,6 +107,10 @@ export const WorldMetadataSchema = Schema.Struct({
         LEGGINGS: Schema.optional(InventoryItemSchema),
         BOOTS: Schema.optional(InventoryItemSchema),
       }),
+      // Currently-mounted vehicle modality. Plain optional so pre-vehicle saves
+      // decode to undefined (no mount); on restore it re-enters the modality so
+      // the consumed item stays accounted for across reloads.
+      mountedVehicle: Schema.optional(Schema.Literal('BOAT', 'MINECART')),
       // Bed-set respawn point (FR-4). Optional because some game modes do not
       // establish a bed spawn before the first save.
       respawnPosition: Schema.optional(PositionSchema),

@@ -1,5 +1,6 @@
-import { Effect } from 'effect'
+import { Effect, Option } from 'effect'
 
+import { type GameStateService } from '@ts-minecraft/game'
 import { EquipmentService } from '@ts-minecraft/inventory/application/equipment-service'
 import { InventoryService } from '@ts-minecraft/inventory/application/inventory-service'
 import { HealthService } from '@ts-minecraft/entity/application/health-service'
@@ -18,13 +19,14 @@ export type RestoreSavedPlayerStateDeps = {
   readonly hungerService: HungerService
   readonly xpService: XPService
   readonly cropGrowthService: CropGrowthService
+  readonly gameState: Pick<GameStateService, 'enterBoat' | 'enterMinecart'>
 }
 
 export const restoreSavedPlayerState = (
   savedPlayerState: SavedPlayerState,
   services: RestoreSavedPlayerStateDeps,
 ): Effect.Effect<void, never> => {
-  const { inventoryService, equipmentService, healthService, hungerService, xpService, cropGrowthService } = services
+  const { inventoryService, equipmentService, healthService, hungerService, xpService, cropGrowthService, gameState } = services
   const restored = buildSessionRestorePlayerState(savedPlayerState)
 
   return Effect.gen(function* () {
@@ -41,5 +43,13 @@ export const restoreSavedPlayerState = (
     if (restored.cropAges != null) {
       yield* cropGrowthService.restore(restored.cropAges)
     }
+    // Re-enter the persisted vehicle modality so the item consumed at mount is
+    // still accounted for; pre-vehicle saves decode mountedVehicle to undefined.
+    yield* Option.fromNullable(savedPlayerState.mountedVehicle).pipe(
+      Option.match({
+        onNone: () => Effect.void,
+        onSome: (vehicle) => (vehicle === 'BOAT' ? gameState.enterBoat() : gameState.enterMinecart()),
+      }),
+    )
   })
 }

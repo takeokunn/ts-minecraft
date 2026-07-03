@@ -1,6 +1,6 @@
 import { Effect, Option } from 'effect'
 
-import { type WeatherService } from '@ts-minecraft/game'
+import { type GameStateService, type WeatherService } from '@ts-minecraft/game'
 import { type EquipmentService } from '@ts-minecraft/inventory/application/equipment-service'
 import { type InventoryService } from '@ts-minecraft/inventory/application/inventory-service'
 import { type HealthService } from '@ts-minecraft/entity/application/health-service'
@@ -28,9 +28,10 @@ export const restoreSavedState = (
     readonly weatherService: WeatherService
     readonly cropGrowthService: CropGrowthService
     readonly entityManager: EntityManager
+    readonly gameState: Pick<GameStateService, 'enterBoat' | 'enterMinecart'>
   },
 ): Effect.Effect<void, never> => {
-  const { inventoryService, equipmentService, healthService, hungerService, xpService, chestService, furnaceService, weatherService, cropGrowthService, entityManager } = services
+  const { inventoryService, equipmentService, healthService, hungerService, xpService, chestService, furnaceService, weatherService, cropGrowthService, entityManager, gameState } = services
   return Effect.gen(function* () {
     const savedPlayerState = Option.getOrNull(worldBootstrap.savedPlayerState)
     if (savedPlayerState !== null) {
@@ -41,6 +42,7 @@ export const restoreSavedState = (
         hungerService,
         xpService,
         cropGrowthService,
+        gameState,
       })
     }
 

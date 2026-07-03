@@ -42,6 +42,8 @@ const makeDeps = (overrides?: {
 
   const gameState = {
     getPlayerPosition: vi.fn(() => Effect.succeed({ x: 10, y: 64, z: 20 })),
+    isBoating: vi.fn(() => Effect.succeed(false)),
+    isMinecarting: vi.fn(() => Effect.succeed(false)),
   }
   const inventoryService = {
     serialize: vi.fn(() => Effect.succeed(makeEmptyInventory())),
