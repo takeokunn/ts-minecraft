@@ -3,6 +3,7 @@ import { Effect } from 'effect'
 import { expect } from 'vitest'
 import {
   DROPPED_ITEM_MAX_MERGED_STACK,
+  DROPPED_ITEM_REST_OFFSET,
   DROPPED_ITEM_VELOCITY_DAMPING,
   DroppedItemService,
 } from '@ts-minecraft/entity/application/dropped-item-service';
@@ -74,9 +75,8 @@ describe('DroppedItemService', () => {
 
         yield* service.tick(2)
 
-        expect(yield* service.collectWithin(playerPosition)).toEqual([
-          { ...item, pickupDelayTicks: 0, ageTicks: 2 },
-        ])
+        const [collected] = yield* service.collectWithin(playerPosition)
+        expect(collected).toMatchObject({ id: item.id, pickupDelayTicks: 0, ageTicks: 2 })
       }),
     ))
 
@@ -93,10 +93,12 @@ describe('DroppedItemService', () => {
         yield* service.tick(3)
 
         const [moved] = yield* service.getAll()
-        expect(moved).toMatchObject({
-          position: { x: 3, y: 64, z: -3 },
-          ageTicks: 3,
-        })
+        expect(moved).toMatchObject({ ageTicks: 3 })
+        expect(moved?.position.x).toBe(3)
+        expect(moved?.position.z).toBe(-3)
+        // Gravity: with no floor provided the item falls.
+        expect(moved?.position.y).toBeLessThan(64)
+        expect(moved?.velocity.y).toBeLessThan(0)
         const expectedVelocity = Math.pow(DROPPED_ITEM_VELOCITY_DAMPING, 3)
         expect(moved?.velocity.x).toBeCloseTo(expectedVelocity)
         expect(moved?.velocity.z).toBeCloseTo(-expectedVelocity)
@@ -139,6 +141,27 @@ describe('DroppedItemService', () => {
           count: 6,
           pickupDelayTicks: 3,
         })
+      }),
+    ))
+
+  it.effect('falls with gravity and rests on the first solid block below', () =>
+    withDroppedItemService((service) =>
+      Effect.gen(function* () {
+        // Drop floating 3 blocks above a solid floor at y=63 (top face y=64).
+        yield* service.spawn({
+          itemType: 'COBBLESTONE',
+          count: 1,
+          position: { x: 0.5, y: 67, z: 0.5 },
+        })
+        const isSolidAt = (_x: number, y: number, _z: number): boolean => y <= 63
+
+        for (let i = 0; i < 200; i++) {
+          yield* service.tick(1, isSolidAt)
+        }
+
+        const [rested] = yield* service.getAll()
+        expect(rested?.position.y).toBeCloseTo(64 + DROPPED_ITEM_REST_OFFSET)
+        expect(rested?.velocity.y).toBe(0)
       }),
     ))
 

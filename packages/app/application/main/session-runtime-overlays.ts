@@ -43,6 +43,7 @@ export type SessionRuntimeOverlayServices = Pick<
   | 'pauseMenu'
   | 'worldRendererService'
   | 'entityManager'
+  | 'droppedItemService'
   | 'fpsCounter'
   | 'multiplayer'
 >
@@ -260,6 +261,7 @@ export const installSessionRuntimeOverlays = (
       pauseMenu,
       worldRendererService,
       entityManager,
+      droppedItemService,
       fpsCounter,
     } = services
 
@@ -282,6 +284,7 @@ export const installSessionRuntimeOverlays = (
       furnaceService,
       worldRendererService,
       entityManager,
+      droppedItemService,
       debugFeatureFlags,
       ...(Option.isSome(multiplayer) ? { multiplayer: multiplayer.value } : {}),
     })

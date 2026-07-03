@@ -22,6 +22,7 @@ export class RaycastingService extends Effect.Service<RaycastingService>()(
       // Prevents per-frame GC pressure from ~60 Raycaster + Vector2 allocations/second.
       const raycaster = new THREE.Raycaster()
       const center = new THREE.Vector2(0, 0)
+      const scratchNormal = new THREE.Vector3()
 
       return {
         raycastFromCamera: (
@@ -43,13 +44,25 @@ export class RaycastingService extends Effect.Service<RaycastingService>()(
             if (hit === null) return Option.none()
             const face = hit.face ?? null
             if (face === null) return Option.none()
-            // Offset slightly in the direction of the normal to get the block we hit, not the block we're standing in.
-            const blockX = Math.floor(hit.point.x - face.normal.x * 0.01)
-            const blockY = Math.floor(hit.point.y - face.normal.y * 0.01)
-            const blockZ = Math.floor(hit.point.z - face.normal.z * 0.01)
+            // face.normal is the AUTHORED object-space normal: three.js does not
+            // flip it for back-face hits, and chunk materials are DoubleSide, so
+            // a quad wound the "wrong" way reports a normal pointing ALONG the
+            // ray. Transform to world space and force it against the ray — the
+            // entry face of a solid always faces the viewer. Without this, the
+            // 0.01 nudge lands in the AIR cell in front of the block: mining
+            // reads AIR (progress never starts) and placement targets the cell
+            // behind the face.
+            scratchNormal.copy(face.normal).transformDirection(hit.object.matrixWorld)
+            if (scratchNormal.dot(raycaster.ray.direction) > 0) {
+              scratchNormal.multiplyScalar(-1)
+            }
+            // Offset slightly against the normal to get the block we hit, not the block in front of it.
+            const blockX = Math.floor(hit.point.x - scratchNormal.x * 0.01)
+            const blockY = Math.floor(hit.point.y - scratchNormal.y * 0.01)
+            const blockZ = Math.floor(hit.point.z - scratchNormal.z * 0.01)
             return Option.some({
               point: { x: hit.point.x, y: hit.point.y, z: hit.point.z },
-              normal: { x: face.normal.x, y: face.normal.y, z: face.normal.z },
+              normal: { x: scratchNormal.x, y: scratchNormal.y, z: scratchNormal.z },
               distance: hit.distance,
               blockX,
               blockY,

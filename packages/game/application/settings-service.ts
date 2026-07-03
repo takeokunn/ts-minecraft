@@ -12,7 +12,10 @@ export { GameDifficultySchema, GraphicsQuality, ResolvedGraphicsSchema, Settings
 const DEFAULT_SETTINGS: Settings = {
   renderDistance: 3,
   mouseSensitivity: 0.5,
-  dayLengthSeconds: 400,
+  // Vanilla parity: a full Minecraft day/night cycle is 20 minutes. The old
+  // 400s default hit dusk 100 seconds after a noon boot — brand-new players
+  // met the night-mob roster before they had tools.
+  dayLengthSeconds: 1200,
   difficulty: 'normal',
   reducedMotion: false,
   uiScale: 1,

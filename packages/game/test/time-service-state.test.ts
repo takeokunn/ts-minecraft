@@ -14,7 +14,23 @@ import { DeltaTimeSecs } from '@ts-minecraft/core'
 // ─── fixtures ─────────────────────────────────────────────────────────────────
 
 const dt = (n: number) => DeltaTimeSecs.make(n)
-const state = INITIAL_TIME_STATE // { ticks: 0, dayLengthTicks: 24000 }
+// Midnight fixture for the arithmetic tests; the real INITIAL_TIME_STATE
+// starts fresh worlds mid-morning (see the daytime-start suite below).
+const state = { ...INITIAL_TIME_STATE, ticks: 0 }
+
+// ─── INITIAL_TIME_STATE ───────────────────────────────────────────────────────
+
+describe('INITIAL_TIME_STATE', () => {
+  it('starts fresh worlds in daytime, not midnight (spawn-kill regression guard)', () => {
+    expect(isNightFromState(INITIAL_TIME_STATE)).toBe(false)
+  })
+
+  it('starts clear of the sunrise boundary with most of day one remaining', () => {
+    const timeOfDay = getTimeOfDayFromState(INITIAL_TIME_STATE)
+    expect(timeOfDay).toBeGreaterThan(0.25)
+    expect(timeOfDay).toBeLessThan(0.5)
+  })
+})
 
 // ─── advanceTimeState ─────────────────────────────────────────────────────────
 

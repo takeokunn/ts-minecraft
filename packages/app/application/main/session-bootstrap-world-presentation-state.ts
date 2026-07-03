@@ -1,4 +1,4 @@
-import { Effect } from 'effect'
+import { Effect, Option } from 'effect'
 
 import { GameStateService, TimeService, WeatherService } from '@ts-minecraft/game'
 import { ChestService } from '@ts-minecraft/inventory/application/chest-service'
@@ -80,5 +80,6 @@ export const initializeSessionBootstrapWorldPresentationState = ({
     yield* initializeSessionBootstrapWorldPresentationTime({
       initialSettings,
       timeService,
+      savedTimeOfDay: Option.map(worldBootstrap.savedPlayerState, (state) => state.timeOfDay),
     })
   })

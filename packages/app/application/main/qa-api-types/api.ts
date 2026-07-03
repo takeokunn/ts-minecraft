@@ -28,6 +28,12 @@ export type QaApi = {
   readonly selectHotbarSlot: (hotbarIndex: number) => Promise<void>
   readonly getRecipeButtons: () => ReadonlyArray<string>
   readonly getEntitySnapshot: () => Promise<ReadonlyArray<{ entityId: string; type: string }>>
+  readonly getDroppedItemsForQA: () => Promise<ReadonlyArray<{
+    readonly id: string
+    readonly itemType: string
+    readonly count: number
+    readonly position: { readonly x: number; readonly y: number; readonly z: number }
+  }>>
   readonly getRemotePlayersForQA: () => Promise<ReadonlyArray<RemotePlayerSnapshot>>
   readonly getLoadedWaterBlockCount: () => Promise<number>
   readonly getMobMovementSnapshot: (durationMs: number) => Promise<{

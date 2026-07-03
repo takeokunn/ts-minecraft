@@ -84,6 +84,10 @@ const makeQaApi = (
   selectHotbarSlot: (hotbarIndex: number) => selectHotbarSlot(deps.hotbarService, hotbarIndex),
   getRecipeButtons: () => getRecipeButtons(deps.recipeService),
   getEntitySnapshot: () => Effect.runPromise(deps.entityManager.getEntities()),
+  getDroppedItemsForQA: () =>
+    Effect.runPromise(Effect.map(deps.droppedItemService.getAll(), (items) =>
+      items.map((item) => ({ id: item.id, itemType: item.itemType, count: item.count, position: item.position })),
+    )),
   getRemotePlayersForQA: () =>
     Effect.runPromise(
       deps.multiplayer === undefined

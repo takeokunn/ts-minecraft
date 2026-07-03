@@ -22,7 +22,7 @@ export const SETTINGS_RECORD_KEY = 'current'
 export const DEFAULT_SETTINGS = {
   renderDistance: 3,
   mouseSensitivity: 0.5,
-  dayLengthSeconds: 400,
+  dayLengthSeconds: 1200, // vanilla 20-min cycle — must match settings-service.ts DEFAULT_SETTINGS
   difficulty: 'normal',
   reducedMotion: false,
   uiScale: 1,

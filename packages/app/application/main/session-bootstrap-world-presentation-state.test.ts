@@ -52,11 +52,12 @@ describe('initializeSessionBootstrapWorldPresentationState', () => {
     expect(playerCameraState.setPitch).toHaveBeenCalledWith(0)
     expect(restoreSavedState).toHaveBeenCalledOnce()
     expect(timeService.setDayLength).toHaveBeenCalledWith(900)
-    expect(timeService.setTimeOfDay).toHaveBeenCalledWith(0.5)
+    // Fresh world (no saved player state) → mid-morning start.
+    expect(timeService.setTimeOfDay).toHaveBeenCalledWith(0.3)
   })
 
   it('does not reset the camera when a saved player state exists', async () => {
-    const worldBootstrap = { savedPlayerState: Option.some({} as never) } as never
+    const worldBootstrap = { savedPlayerState: Option.some({ timeOfDay: 0.82 } as never) } as never
     const initialSpawnSelection = { yaw: 45 } as never
     const spawnPosition = { x: 1, y: 2, z: 3 }
     const noopEffect = Effect.succeed(undefined) as Effect.Effect<void, never, never>
@@ -92,6 +93,7 @@ describe('initializeSessionBootstrapWorldPresentationState', () => {
     expect(playerCameraState.setPitch).not.toHaveBeenCalled()
     expect(restoreSavedState).toHaveBeenCalledOnce()
     expect(timeService.setDayLength).toHaveBeenCalledWith(600)
-    expect(timeService.setTimeOfDay).toHaveBeenCalledWith(0.5)
+    // Saved world → the persisted time of day is restored, not reset.
+    expect(timeService.setTimeOfDay).toHaveBeenCalledWith(0.82)
   })
 })

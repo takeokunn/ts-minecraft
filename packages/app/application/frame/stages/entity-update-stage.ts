@@ -304,7 +304,7 @@ export const entityUpdateStage = (
 
     const entitySnapshotsResult = yield* logErrors(
       Effect.gen(function* () {
-        yield* services.droppedItemService.tick()
+        yield* services.droppedItemService.tick(1, isBlockSolid)
         const collectedItems = yield* services.droppedItemService.collectWithin(inputs.playerPos)
         for (const item of collectedItems) {
           yield* addCollectedDroppedItem(services, item)

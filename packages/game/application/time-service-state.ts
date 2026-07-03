@@ -8,8 +8,15 @@ export const TimeStateSchema = Schema.Struct({
 
 export type TimeState = Schema.Schema.Type<typeof TimeStateSchema>
 
+// Fresh worlds start at mid-morning (timeOfDay 0.30), not ticks:0 — in this
+// cycle 0 is MIDNIGHT (0.25=dawn, 0.5=noon, 0.75=dusk). A midnight start
+// spawned the night-mob roster on top of brand-new players and daylight-immune
+// hostiles (creeper/witch/spider) then camped the respawn point: an
+// unrecoverable death loop on world creation. 0.30 clears the sunrise twilight
+// band and leaves most of day one for gathering, matching vanilla's day start.
+// Saved worlds are unaffected: their persisted timeOfDay overwrites this.
 export const INITIAL_TIME_STATE: TimeState = {
-  ticks: 0,
+  ticks: 7200,
   dayLengthTicks: 24000,
 }
 

@@ -11,6 +11,12 @@ const ZERO_VELOCITY: DroppedItemPosition = { x: 0, y: 0, z: 0 }
 
 export const DROPPED_ITEM_VELOCITY_DAMPING = 0.92
 export const DROPPED_ITEM_STOP_SPEED = 0.001
+// Vanilla item-entity gravity: 0.04 blocks/tick², capped so a long fall can't
+// tunnel through a block in one tick.
+export const DROPPED_ITEM_GRAVITY_PER_TICK = 0.04
+export const DROPPED_ITEM_TERMINAL_VELOCITY = 0.9
+// Visual rest height of an item above the supporting block's top face.
+export const DROPPED_ITEM_REST_OFFSET = 0.25
 export const DROPPED_ITEM_MERGE_DISTANCE = 0.75
 export const DROPPED_ITEM_MERGE_DISTANCE_SQUARED =
   DROPPED_ITEM_MERGE_DISTANCE * DROPPED_ITEM_MERGE_DISTANCE
@@ -143,24 +149,49 @@ export class DroppedItemService extends Effect.Service<DroppedItemService>()(
 
         getAll: (): Effect.Effect<readonly DroppedItemEntity[], never> => Ref.get(itemsRef),
 
-        tick: (ageDeltaTicks = 1): Effect.Effect<void, never> =>
+        // isSolidAt (optional): world solidity probe used to land falling items.
+        // Without it, gravity still applies but items have no floor to rest on
+        // (only exercised by unit tests / callers without terrain access).
+        tick: (
+          ageDeltaTicks = 1,
+          isSolidAt?: (x: number, y: number, z: number) => boolean,
+        ): Effect.Effect<void, never> =>
           Effect.gen(function* () {
             const deltaTicks = normalizeTicks(ageDeltaTicks)
 
             yield* Ref.update(itemsRef, (items) =>
               mergeNearbyDroppedItems(
                 items
-                  .map((item) => ({
-                    ...item,
-                    position: {
-                      x: item.position.x + item.velocity.x * deltaTicks,
-                      y: item.position.y + item.velocity.y * deltaTicks,
-                      z: item.position.z + item.velocity.z * deltaTicks,
-                    },
-                    velocity: dampVelocity(item.velocity, deltaTicks),
-                    ageTicks: item.ageTicks + deltaTicks,
-                    pickupDelayTicks: Math.max(0, item.pickupDelayTicks - deltaTicks),
-                  }))
+                  .map((item) => {
+                    // Vanilla: dropped items fall. Without gravity a drop from a
+                    // block mined at eye level floats midair forever, out of the
+                    // 1.5-block pickup radius.
+                    const fallVy = Math.max(
+                      item.velocity.y - DROPPED_ITEM_GRAVITY_PER_TICK * deltaTicks,
+                      -DROPPED_ITEM_TERMINAL_VELOCITY,
+                    )
+                    const nextX = item.position.x + item.velocity.x * deltaTicks
+                    const nextZ = item.position.z + item.velocity.z * deltaTicks
+                    let nextY = item.position.y + fallVy * deltaTicks
+                    let restVy = fallVy
+                    if (isSolidAt !== undefined && fallVy < 0) {
+                      const supportY = Math.floor(nextY - DROPPED_ITEM_REST_OFFSET)
+                      if (isSolidAt(Math.floor(nextX), supportY, Math.floor(nextZ))) {
+                        nextY = supportY + 1 + DROPPED_ITEM_REST_OFFSET
+                        restVy = 0
+                      }
+                    }
+                    const damped = dampVelocity({ x: item.velocity.x, y: restVy, z: item.velocity.z }, deltaTicks)
+                    return {
+                      ...item,
+                      position: { x: nextX, y: nextY, z: nextZ },
+                      // Resting items keep vy exactly 0; falling items keep the
+                      // undamped fall speed so gravity accelerates realistically.
+                      velocity: { x: damped.x, y: restVy === 0 ? 0 : restVy, z: damped.z },
+                      ageTicks: item.ageTicks + deltaTicks,
+                      pickupDelayTicks: Math.max(0, item.pickupDelayTicks - deltaTicks),
+                    }
+                  })
                   .filter((item) => item.ageTicks < DROPPED_ITEM_LIFETIME_TICKS),
               ),
             )

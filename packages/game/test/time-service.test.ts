@@ -25,19 +25,19 @@ describe('application/time/time-service', () => {
   })
 
   describe('initial state', () => {
-    it.effect('should start at timeOfDay 0 (midnight)', () =>
+    it.effect('should start mid-morning (daytime), not midnight — spawn-kill regression guard', () =>
       Effect.gen(function* () {
         const service = yield* TimeService
         const timeOfDay = yield* service.getTimeOfDay()
-        expect(timeOfDay).toBe(0)
+        expect(timeOfDay).toBeCloseTo(0.3)
       }).pipe(Effect.provide(TimeService.Default))
     )
 
-    it.effect('should report isNight true at midnight (timeOfDay=0)', () =>
+    it.effect('should report isNight false at the initial time', () =>
       Effect.gen(function* () {
         const service = yield* TimeService
         const night = yield* service.isNight()
-        expect(night).toBe(true)
+        expect(night).toBe(false)
       }).pipe(Effect.provide(TimeService.Default))
     )
 
@@ -167,10 +167,10 @@ describe('application/time/time-service', () => {
       }).pipe(Effect.provide(TimeService.Default))
     )
 
-    it.effect('should return true (nighttime) near midnight (timeOfDay near 0)', () =>
+    it.effect('should return true (nighttime) at midnight (timeOfDay=0)', () =>
       Effect.gen(function* () {
         const service = yield* TimeService
-        // Leave at default state: ticks=0, timeOfDay=0 → midnight
+        yield* service.setTimeOfDay(0)  // midnight (initial state is mid-morning)
         const night = yield* service.isNight()
         expect(night).toBe(true)
       }).pipe(Effect.provide(TimeService.Default))

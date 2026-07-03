@@ -31,6 +31,7 @@ export type QaApiDeps = {
   readonly furnaceService: FurnaceService
   readonly worldRendererService: WorldRendererService
   readonly entityManager: EntityManager
+  readonly droppedItemService: import('@ts-minecraft/entity/application/dropped-item-service').DroppedItemService
   readonly debugFeatureFlags: DebugFeatureFlagsService
   readonly multiplayer?: MultiplayerService
 }

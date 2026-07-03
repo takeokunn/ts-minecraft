@@ -4,6 +4,7 @@ import type { Position } from '@ts-minecraft/core'
 import type { PlayerCameraStateService } from '@ts-minecraft/entity/application/camera-state'
 import type { BlockHighlightService } from '@ts-minecraft/presentation'
 import type { StagedResourceBlock } from '@ts-minecraft/app/main/qa-api-types/staged'
+import { projectBlockAhead } from '@ts-minecraft/app/main/qa-spatial'
 
 const makeSetAimForQA = (
   camera: THREE.PerspectiveCamera,
@@ -61,12 +62,11 @@ export const aimAtBuildSpot = (
   blockHighlight: BlockHighlightService,
 ) =>
   Effect.runPromise(Effect.gen(function* () {
-    const direction = new THREE.Vector3()
-    camera.getWorldDirection(direction)
-    direction.normalize()
-    const wx = Math.floor(camera.position.x + direction.x * 4)
-    const wy = Math.floor(camera.position.y)
-    const wz = Math.floor(camera.position.z + direction.z * 4)
+    // MUST match stageBuildSupportBlock's projectBlockAhead(camera, 3) exactly —
+    // this forces the highlight target, and any divergence (this used to inline
+    // the projection at distance 4) points the break handler at an AIR cell
+    // one block past the staged STONE, so hold-to-break never starts.
+    const { x: wx, y: wy, z: wz } = projectBlockAhead(camera, 3)
     const setAimForQA = makeSetAimForQA(camera, scene, playerCameraState, blockHighlight)
     yield* setAimForQA({ x: wx + 0.5, y: wy + 0.5, z: wz + 0.5 })
     yield* blockHighlight.setTargetForQA(
