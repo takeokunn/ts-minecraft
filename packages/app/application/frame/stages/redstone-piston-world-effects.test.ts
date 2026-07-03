@@ -28,7 +28,10 @@ const pistonAt = (
   },
 })
 
-const makeHarness = (entries: ReadonlyArray<readonly [Position, BlockType]>) => {
+const makeHarness = (
+  entries: ReadonlyArray<readonly [Position, BlockType]>,
+  entities: ReadonlyArray<{ entityId: string; position: Position }> = [],
+) => {
   const blocks = new Map<string, BlockType>()
   for (const [position, blockType] of entries) {
     blocks.set(positionKey(position), blockType)
@@ -43,15 +46,20 @@ const makeHarness = (entries: ReadonlyArray<readonly [Position, BlockType]>) => 
   const getChunk = vi.fn((coord: { readonly x: number; readonly z: number }) =>
     Effect.succeed({ coord, blocks: new Uint8Array(16 * 16 * 256), fluid: Option.none() }))
   const dirtyChunksRef = MutableRef.make(HashMap.empty<string, unknown>())
+  const getEntities = vi.fn(() => Effect.succeed(entities))
+  const applyKnockback = vi.fn(() => Effect.void)
 
   return {
     blocks,
     forceSetBlock,
     dirtyChunksRef,
+    getEntities,
+    applyKnockback,
     refs: { dirtyChunksRef } as unknown as RedstonePistonWorldRefs,
     services: {
       blockService: { getBlock, forceSetBlock },
       chunkManagerService: { getChunk },
+      entityManager: { getEntities, applyKnockback },
     } as unknown as RedstonePistonWorldServices,
   }
 }
@@ -284,6 +292,48 @@ describe('redstone piston world effects', () => {
     ).pipe(
       Effect.tap(() => Effect.sync(() => {
         expect(harness.blocks.get(positionKey(destination))).toBe('STONE')
+      })),
+    )
+  })
+})
+
+describe('piston entity shove', () => {
+  it.effect('an entity standing in the head cell is shoved along the facing', () => {
+    const piston = { x: 0, y: 64, z: 0 }
+    const harness = makeHarness([], [
+      { entityId: 'mob-in-cell', position: { x: 1.5, y: 64.9, z: 0.5 } },
+      { entityId: 'mob-elsewhere', position: { x: 5.5, y: 64.9, z: 0.5 } },
+    ])
+
+    return applyPistonWorldEffects(
+      harness.services,
+      harness.refs,
+      [pistonAt(piston, false)],
+      [pistonAt(piston, true)],
+    ).pipe(
+      Effect.tap(() => Effect.sync(() => {
+        expect(harness.applyKnockback).toHaveBeenCalledTimes(1)
+        const [id, impulse] = harness.applyKnockback.mock.calls[0]! as unknown as [string, { x: number; y: number; z: number }]
+        expect(id).toBe('mob-in-cell')
+        expect(impulse.x).toBeGreaterThan(0)
+      })),
+    )
+  })
+
+  it.effect('retraction does not shove', () => {
+    const piston = { x: 0, y: 64, z: 0 }
+    const harness = makeHarness([], [
+      { entityId: 'mob-in-cell', position: { x: 1.5, y: 64.9, z: 0.5 } },
+    ])
+
+    return applyPistonWorldEffects(
+      harness.services,
+      harness.refs,
+      [pistonAt(piston, true)],
+      [pistonAt(piston, false)],
+    ).pipe(
+      Effect.tap(() => Effect.sync(() => {
+        expect(harness.applyKnockback).not.toHaveBeenCalled()
       })),
     )
   })

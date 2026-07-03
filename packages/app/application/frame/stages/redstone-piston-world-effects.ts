@@ -5,7 +5,7 @@ import { worldToChunkCoord } from '@ts-minecraft/world/domain/chunk-coord-utils'
 import type { FrameHandlerServices } from '@ts-minecraft/app/application/frame/types/services'
 import type { FrameStageRefs } from '@ts-minecraft/app/application/frame/types/stage-refs'
 
-export type RedstonePistonWorldServices = Pick<FrameHandlerServices, 'blockService' | 'chunkManagerService'>
+export type RedstonePistonWorldServices = Pick<FrameHandlerServices, 'blockService' | 'chunkManagerService' | 'entityManager'>
 export type RedstonePistonWorldRefs = Pick<FrameStageRefs, 'dirtyChunksRef'>
 
 const PISTON_IMMOVABLE_BLOCKS: ReadonlySet<BlockType> = new Set([
@@ -97,6 +97,13 @@ const forceSetBlockSafely = (
 // and contain no immovable block, then the whole train shifts one cell
 // (written far-end first so nothing is overwritten mid-shift).
 const PISTON_MAX_PUSH = 12
+// Entity shove on extension: mobs standing in the swept head cell get an
+// impulse along the facing (vanilla pistons push entities). Matches the
+// knockback speeds used by melee so the shove reads consistently.
+const PISTON_SHOVE_SPEED = 5
+const PISTON_SHOVE_LIFT = 1.5
+const ENTITY_HALF_WIDTH = 0.3
+const ENTITY_HALF_HEIGHT = 0.9
 
 const pushBlockTrain = (
   services: RedstonePistonWorldServices,
@@ -162,6 +169,27 @@ const pullSingleBlock = (
     yield* markChunkDirty(refs, services, destination)
   })
 
+// Shove any entity overlapping the given cell one step along the direction.
+const shoveEntitiesInCell = (
+  services: Pick<RedstonePistonWorldServices, 'entityManager'>,
+  cell: Position,
+  direction: PushDirection,
+): Effect.Effect<void, never> =>
+  Effect.gen(function* () {
+    const entities = yield* services.entityManager.getEntities()
+    for (const entity of entities) {
+      const overlapsX = Math.abs(entity.position.x - (cell.x + 0.5)) < 0.5 + ENTITY_HALF_WIDTH
+      const overlapsZ = Math.abs(entity.position.z - (cell.z + 0.5)) < 0.5 + ENTITY_HALF_WIDTH
+      const overlapsY = entity.position.y + ENTITY_HALF_HEIGHT > cell.y && entity.position.y - ENTITY_HALF_HEIGHT < cell.y + 1
+      if (!overlapsX || !overlapsY || !overlapsZ) continue
+      yield* services.entityManager.applyKnockback(entity.entityId, {
+        x: direction.x * PISTON_SHOVE_SPEED,
+        y: Math.max(direction.y * PISTON_SHOVE_SPEED, PISTON_SHOVE_LIFT),
+        z: direction.z * PISTON_SHOVE_SPEED,
+      })
+    }
+  })
+
 export const applyPistonWorldEffects = (
   services: RedstonePistonWorldServices,
   refs: RedstonePistonWorldRefs,
@@ -192,6 +220,7 @@ export const applyPistonWorldEffects = (
           const placed = yield* forceSetBlockSafely(services, headCell, 'PISTON_HEAD')
           if (placed) yield* markChunkDirty(refs, services, headCell)
         }
+        yield* shoveEntitiesInCell(services, headCell, direction)
         continue
       }
 
