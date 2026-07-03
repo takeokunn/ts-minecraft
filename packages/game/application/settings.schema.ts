@@ -51,6 +51,9 @@ export const SettingsSchema = Schema.Struct({
   reducedMotion: Schema.optionalWith(Schema.Boolean, { default: () => false }),
   // Accessibility: scales the DOM HUD (bars, effects, counters). 1 = default.
   uiScale: Schema.optionalWith(Schema.Number.pipe(Schema.between(0.75, 1.5)), { default: () => 1 }),
+  // Accessibility: player key rebinds (action name -> KeyboardEvent.code).
+  // Partial overrides — unbound actions keep their defaults.
+  keyBindings: Schema.optionalWith(Schema.Record({ key: Schema.String, value: Schema.String }), { default: () => ({}) }),
   graphicsQuality: GraphicsQuality,
   adaptivePerformanceMode: Schema.Boolean,
   // NOTE: audioEnabled defaults to false intentionally — do NOT change this to true.

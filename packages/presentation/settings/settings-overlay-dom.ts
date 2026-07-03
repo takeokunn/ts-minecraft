@@ -8,6 +8,7 @@ export type SettingsOverlayDom = {
   readonly difficultySelect: Option.Option<HTMLSelectElement>
   readonly reducedMotionInput: Option.Option<HTMLInputElement>
   readonly uiScaleInput: Option.Option<HTMLInputElement>
+  readonly keyBindingsContainer: Option.Option<HTMLDivElement>
   readonly sensitivityInput: Option.Option<HTMLInputElement>
   readonly dayLengthInput: Option.Option<HTMLInputElement>
   readonly audioEnabledInput: Option.Option<HTMLInputElement>
@@ -77,6 +78,7 @@ export const buildSettingsOverlayDom = (dom: DomOperationsService): SettingsOver
       difficultySelect: Option.none<HTMLSelectElement>(),
       reducedMotionInput: Option.none<HTMLInputElement>(),
       uiScaleInput: Option.none<HTMLInputElement>(),
+      keyBindingsContainer: Option.none<HTMLDivElement>(),
       sensitivityInput: Option.none<HTMLInputElement>(),
       dayLengthInput: Option.none<HTMLInputElement>(),
       audioEnabledInput: Option.none<HTMLInputElement>(),
@@ -132,6 +134,10 @@ export const buildSettingsOverlayDom = (dom: DomOperationsService): SettingsOver
       <input id="us-input" type="range" min="0.75" max="1.5" step="0.05" value="1"
         style="${rangeCss}">
     </label>
+    <hr style="border:0;border-top:3px solid #3f3f3f;border-bottom:3px solid #ababab;margin:16px 0">
+    <h3 style="margin:0 0 8px;font-size:14px">Controls</h3>
+    <p style="${descriptionCss}">Click a field, then press the new key. Blank restores the default.</p>
+    <div id="key-bindings" style="display:grid;grid-template-columns:1fr auto;gap:4px 8px;align-items:center;margin-bottom:12px"></div>
     <label style="${labelBlockCss}">
       Render Distance: <span id="rd-val">4</span>
       <input id="rd-input" type="range" min="2" max="16" step="1" value="4"
@@ -214,6 +220,7 @@ export const buildSettingsOverlayDom = (dom: DomOperationsService): SettingsOver
     difficultySelect: dom.querySelector<HTMLSelectElement>(el, '#difficulty-select'),
     reducedMotionInput: dom.querySelector<HTMLInputElement>(el, '#reduced-motion-input'),
     uiScaleInput: dom.querySelector<HTMLInputElement>(el, '#us-input'),
+    keyBindingsContainer: dom.querySelector<HTMLDivElement>(el, '#key-bindings'),
     closeBtn: dom.querySelector<HTMLButtonElement>(el, '#settings-close'),
     gearBtn: Option.some(btn),
   }

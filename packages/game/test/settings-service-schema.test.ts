@@ -19,6 +19,7 @@ describe('application/settings/settings-service', () => {
       difficulty: 'normal' as const,
   reducedMotion: false,
   uiScale: 1,
+  keyBindings: {},
       graphicsQuality: 'medium' as const,
       adaptivePerformanceMode: true,
       audioEnabled: false,
@@ -54,6 +55,7 @@ describe('application/settings/settings-service', () => {
         difficulty: 'normal',
   reducedMotion: false,
   uiScale: 1,
+  keyBindings: {},
         graphicsQuality: 'medium',
         adaptivePerformanceMode: false,
         audioEnabled: false,
@@ -87,6 +89,7 @@ describe('application/settings/settings-service', () => {
         musicVolume: 0.55,
         reducedMotion: false,
         uiScale: 1,
+        keyBindings: {},
       })
     })
 

@@ -27,6 +27,7 @@ export class SettingsOverlayService extends Effect.Service<SettingsOverlayServic
         difficultySelect,
         reducedMotionInput,
         uiScaleInput,
+        keyBindingsContainer,
         closeBtn,
         gearBtn,
       } = yield* Effect.sync(() => buildSettingsOverlayDom(dom))
@@ -87,6 +88,7 @@ export class SettingsOverlayService extends Effect.Service<SettingsOverlayServic
           musicVolume: parseFloat(Option.getOrNull(musicVolumeInput)?.value ?? '0.55'),
           reducedMotion: Option.getOrNull(reducedMotionInput)?.checked ?? false,
           uiScale: parseFloat(Option.getOrNull(uiScaleInput)?.value ?? '1'),
+          keyBindings: Object.fromEntries(keyBindingValues),
           difficulty: (() => {
             const val = Option.getOrNull(difficultySelect)?.value
             if (!val) return 'normal' as const
@@ -110,6 +112,54 @@ export class SettingsOverlayService extends Effect.Service<SettingsOverlayServic
             )
           })(),
         })
+
+      // Player-rebindable actions (curated core set; F-keys and hotbar digits
+      // keep their defaults). Values live in this map between commits.
+      const REBINDABLE_ACTIONS: ReadonlyArray<readonly [string, string]> = [
+        ['MOVE_FORWARD', 'Move Forward'],
+        ['MOVE_BACKWARD', 'Move Backward'],
+        ['MOVE_LEFT', 'Move Left'],
+        ['MOVE_RIGHT', 'Move Right'],
+        ['JUMP', 'Jump'],
+        ['SNEAK', 'Sneak'],
+        ['SPRINT', 'Sprint'],
+        ['DROP_ITEM', 'Drop Item'],
+        ['INVENTORY_OPEN', 'Open Inventory'],
+      ]
+      const keyBindingValues = new Map<string, string>()
+
+      const buildKeyBindingRows = (): void => {
+        const container = Option.getOrNull(keyBindingsContainer)
+        if (container === null || typeof container.appendChild !== 'function') return
+        container.innerHTML = ''
+        for (const [action, label] of REBINDABLE_ACTIONS) {
+          const name = container.ownerDocument.createElement('span')
+          name.textContent = label
+          name.style.cssText = 'font-size:12px'
+          const input = container.ownerDocument.createElement('input')
+          input.type = 'text'
+          input.readOnly = true
+          input.dataset['action'] = action
+          input.placeholder = 'default'
+          input.style.cssText = 'width:110px;font-size:11px;text-align:center;cursor:pointer'
+          input.value = keyBindingValues.get(action) ?? ''
+          input.addEventListener('keydown', (event) => {
+            event.preventDefault()
+            event.stopPropagation()
+            if (event.code === 'Escape' || event.code === 'Backspace') {
+              keyBindingValues.delete(action)
+              input.value = ''
+            } else {
+              keyBindingValues.set(action, event.code)
+              input.value = event.code
+            }
+            input.blur()
+            runCommit()
+          })
+          container.appendChild(name)
+          container.appendChild(input)
+        }
+      }
 
       const runCommit = () => {
         Effect.runFork(
@@ -142,6 +192,9 @@ export class SettingsOverlayService extends Effect.Service<SettingsOverlayServic
             const rmInput = Option.getOrNull(reducedMotionInput)
             if (rmInput !== null) rmInput.checked = settings.reducedMotion
             syncInputAndLabel(uiScaleInput, '#us-val', String(settings.uiScale), formatVolumePercent)
+            keyBindingValues.clear()
+            for (const [action, code] of Object.entries(settings.keyBindings ?? {})) keyBindingValues.set(action, code)
+            buildKeyBindingRows()
           })
         })
 

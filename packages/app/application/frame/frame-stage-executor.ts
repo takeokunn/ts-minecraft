@@ -2,6 +2,7 @@ import { Effect, MutableRef } from 'effect'
 import type { FrameHandlerDeps } from '@ts-minecraft/app/application/frame/types/deps'
 import type { FrameHandlerServices } from '@ts-minecraft/app/application/frame/types/services'
 import type { FrameStageRefs } from '@ts-minecraft/app/application/frame/types/stage-refs'
+import { applyKeyBindings } from '@ts-minecraft/entity/domain/key-mappings'
 import {
   primeFrameEnvironment,
   runActiveFrameStages,
@@ -10,6 +11,9 @@ import {
 } from './frame-stage-executor-helpers'
 
 const HIT_STOP_TIME_SCALE = 0.1
+
+// Change-gate for key rebind application (module scratch).
+let lastAppliedKeyBindings: Readonly<Record<string, string>> | null = null
 
 export const runFrameStages = (
   deps: FrameHandlerDeps,
@@ -30,6 +34,12 @@ export const runFrameStages = (
     const totalTimeSecs = MutableRef.get(refs.totalTimeSecsRef) + deltaTime
     MutableRef.set(refs.totalTimeSecsRef, totalTimeSecs)
     const currentSettings = yield* services.settingsService.getSettings()
+    // Player key rebinds: apply on change only (reference compare — the
+    // settings object is rebuilt when Options commits).
+    if (currentSettings.keyBindings !== lastAppliedKeyBindings) {
+      lastAppliedKeyBindings = currentSettings.keyBindings
+      applyKeyBindings(currentSettings.keyBindings)
+    }
     const debugFlags = yield* services.debugFeatureFlags.getFlags()
     const environment = yield* primeFrameEnvironment(deps, services, refs, context, currentSettings, debugFlags)
     const sessionPaused = MutableRef.get(deps.sessionPausedRef)

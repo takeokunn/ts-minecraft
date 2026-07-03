@@ -16,6 +16,7 @@ const DEFAULT_SETTINGS: Settings = {
   difficulty: 'normal',
   reducedMotion: false,
   uiScale: 1,
+  keyBindings: {},
   graphicsQuality: 'low',
   adaptivePerformanceMode: true,
   // NOTE: false intentionally — audio is disabled by default (see Schema comment above).

@@ -1,4 +1,5 @@
-export const KeyMappings = {
+// Factory defaults — the immutable reference the runtime registry resets to.
+export const DEFAULT_KEY_MAPPINGS = {
   MOVE_FORWARD: 'KeyW',
   MOVE_BACKWARD: 'KeyS',
   MOVE_LEFT: 'KeyA',
@@ -33,4 +34,22 @@ export const KeyMappings = {
   ESCAPE: 'Escape',
 } as const
 
-export type KeyMappings = typeof KeyMappings
+export type KeyAction = keyof typeof DEFAULT_KEY_MAPPINGS
+
+// RUNTIME key registry. Call sites read properties per frame, so rebinding
+// mutates this object in place and takes effect immediately with zero
+// call-site changes. Reset + overlay pattern keeps unbound actions on their
+// defaults.
+export const KeyMappings: Record<KeyAction, string> = { ...DEFAULT_KEY_MAPPINGS }
+
+// Applies player bindings from settings: reset to defaults, then overlay the
+// overrides (unknown action names are ignored — stale saves stay harmless).
+export const applyKeyBindings = (overrides: Readonly<Record<string, string>> | undefined): void => {
+  for (const action of Object.keys(DEFAULT_KEY_MAPPINGS) as ReadonlyArray<KeyAction>) {
+    const override = overrides?.[action]
+    KeyMappings[action] = typeof override === 'string' && override.length > 0 ? override : DEFAULT_KEY_MAPPINGS[action]
+  }
+}
+
+
+export type KeyMappings = typeof DEFAULT_KEY_MAPPINGS

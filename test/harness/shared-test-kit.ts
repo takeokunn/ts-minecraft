@@ -35,6 +35,7 @@ export const DEFAULT_SETTINGS = {
   difficulty: 'normal' as const,
   reducedMotion: false,
   uiScale: 1,
+  keyBindings: {},
   graphicsQuality: 'high' as const,
   adaptivePerformanceMode: false,
   audioEnabled: true,

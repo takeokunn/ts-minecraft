@@ -26,6 +26,7 @@ export const DEFAULT_SETTINGS = {
   difficulty: 'normal',
   reducedMotion: false,
   uiScale: 1,
+  keyBindings: {},
   graphicsQuality: 'low',
   adaptivePerformanceMode: true,
   audioEnabled: false, // NOTE: false intentionally — must match settings-service.ts DEFAULT_SETTINGS

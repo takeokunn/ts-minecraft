@@ -16,6 +16,7 @@ const BASE = {
   difficulty: 'normal' as const,
   reducedMotion: false,
   uiScale: 1,
+  keyBindings: {},
 } as const
 
 const decode = Schema.decodeUnknownSync(SettingsSchema)

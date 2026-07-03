@@ -132,6 +132,7 @@ describe('presentation/settings/settings-overlay', () => {
           difficulty: 'normal',
           reducedMotion: false,
           uiScale: 1,
+          keyBindings: {},
         })
       }).pipe(Effect.provide(TestLayer))
     })
@@ -163,6 +164,7 @@ describe('presentation/settings/settings-overlay', () => {
           difficulty: 'normal',
           reducedMotion: false,
           uiScale: 1,
+          keyBindings: {},
         })
       }).pipe(Effect.provide(TestLayer))
     })

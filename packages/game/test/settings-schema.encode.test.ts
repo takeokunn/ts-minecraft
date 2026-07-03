@@ -11,6 +11,7 @@ describe('SettingsSchema encode round-trip', () => {
     difficulty: 'normal',
   reducedMotion: false,
   uiScale: 1,
+  keyBindings: {},
     graphicsQuality: 'high',
     adaptivePerformanceMode: false,
     audioEnabled: false, // NOTE: false intentionally — matches DEFAULT_SETTINGS in settings-service.ts
