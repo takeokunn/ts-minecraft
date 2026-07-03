@@ -138,8 +138,8 @@ export const generateTerrain = (
 
     // Ravines: narrow noise-band canyons sliced after decoration so their
     // walls cut cleanly through ores and surface cover.
-    const ravineXs = new Array<number>(CHUNK_SIZE * CHUNK_SIZE)
-    const ravineZs = new Array<number>(CHUNK_SIZE * CHUNK_SIZE)
+    const ravineXs: Array<number> = Array.from({ length: CHUNK_SIZE * CHUNK_SIZE }, () => 0)
+    const ravineZs: Array<number> = Array.from({ length: CHUNK_SIZE * CHUNK_SIZE }, () => 0)
     let ravineIndex = 0
     for (let lx = 0; lx < CHUNK_SIZE; lx++) {
       const rx = (baseWorldX + lx + RAVINE_WORLD_OFFSET) * RAVINE_NOISE_SCALE
