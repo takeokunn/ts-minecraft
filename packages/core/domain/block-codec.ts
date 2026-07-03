@@ -63,6 +63,8 @@ export const INDEX_TO_BLOCK_TYPE: ReadonlyArray<BlockType> = [
   'HOPPER',
   // Signal comparator - index 110
   'COMPARATOR',
+  // Item dispenser - index 111
+  'DISPENSER',
 ]
 
 export const BLOCK_COUNT = INDEX_TO_BLOCK_TYPE.length

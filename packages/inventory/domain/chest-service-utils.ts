@@ -60,3 +60,18 @@ export const depositIntoChest = (
 
   return { chest: { ...chest, slots }, deposited: count - remaining }
 }
+
+// Pure withdraw: removes ONE item from the first occupied slot. Returns the
+// updated chest and the item taken (None when the chest is empty).
+export const takeOneFromChest = (
+  chest: ChestBlockState,
+): { readonly chest: ChestBlockState; readonly taken: Option.Option<ChestItemStack['itemType']> } => {
+  const slots = [...chest.slots]
+  for (let i = 0; i < slots.length; i++) {
+    const slot = Option.getOrNull(slots[i]!)
+    if (slot === null) continue
+    slots[i] = slot.count > 1 ? Option.some({ ...slot, count: slot.count - 1 }) : Option.none()
+    return { chest: { ...chest, slots }, taken: Option.some(slot.itemType) }
+  }
+  return { chest, taken: Option.none() }
+}

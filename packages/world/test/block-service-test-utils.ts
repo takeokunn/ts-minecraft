@@ -229,6 +229,7 @@ export const createMockChestService = (options?: {
   quickMoveChestToInventory: (_chestIndex) => Effect.void,
   clearChest: (_position: Position) => Effect.succeed([]),
   depositIntoChestAt: (_position: Position, _itemType: unknown, _count: number) => Effect.succeed(0),
+  withdrawOneFromChestAt: (_position: Position) => Effect.succeed(Option.none()),
   dismantleChest: (position: Position) =>
     options?.dismantleChest ? options.dismantleChest(position) : Effect.succeed(true),
   serialize: () => Effect.succeed([]),

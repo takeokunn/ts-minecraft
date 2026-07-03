@@ -17,6 +17,7 @@ export const REDSTONE_CLEANUP_BLOCK_TYPES: ReadonlySet<BlockType> = new Set<Bloc
   'HOPPER',
   'REPEATER',
   'COMPARATOR',
+  'DISPENSER',
 ])
 
 export type BreakExecutionServices = Pick<

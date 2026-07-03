@@ -46,6 +46,7 @@ export const REDSTONE_PLACE_OBSERVER_KEY = 'KeyV'
 export const REDSTONE_PLACE_HOPPER_KEY = 'KeyH'
 export const REDSTONE_PLACE_REPEATER_KEY = 'KeyN'
 export const REDSTONE_PLACE_COMPARATOR_KEY = 'KeyK'
+export const REDSTONE_PLACE_DISPENSER_KEY = 'KeyX'
 
 export const REDSTONE_TOGGLE_LEVER_KEY  = 'KeyY'
 export const REDSTONE_PRESS_BUTTON_KEY  = 'KeyU'

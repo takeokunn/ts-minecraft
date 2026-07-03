@@ -27,6 +27,7 @@ import { applyPistonWorldEffects } from '@ts-minecraft/app/application/frame/sta
 import { applyLampWorldEffects } from '@ts-minecraft/app/application/frame/stages/redstone-lamp-world-effects'
 import { applyObserverWorldEffects } from '@ts-minecraft/app/application/frame/stages/redstone-observer-world-effects'
 import { applyHopperWorldEffects } from '@ts-minecraft/app/application/frame/stages/redstone-hopper-world-effects'
+import { applyDispenserWorldEffects } from '@ts-minecraft/app/application/frame/stages/redstone-dispenser-world-effects'
 import { REDSTONE_TICK_INTERVAL_SECS, FLUID_TICK_INTERVAL_SECS } from '@ts-minecraft/app/frame-handler.config'
 import { CHUNK_SIZE, type DeltaTimeSecs, type Position } from '@ts-minecraft/core'
 
@@ -396,6 +397,7 @@ export const entityUpdateStage = (
             )
             yield* applyObserverWorldEffects(services, redstoneComponentsAfterTick)
             yield* applyHopperWorldEffects(services, redstoneComponentsAfterTick)
+            yield* applyDispenserWorldEffects(services, redstoneComponentsAfterTick)
             yield* applyLampWorldEffects(services, refs, redstoneComponentsAfterTick)
           }),
           inputs.deltaTime,

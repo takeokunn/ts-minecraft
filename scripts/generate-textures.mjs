@@ -1975,6 +1975,25 @@ saveTile(142, 'comparator', (ctx) => {
   ctx.fillRect(14, 7, 4, 4)
 })
 
+// 143: dispenser — stone housing with a dark round muzzle.
+saveTile(143, 'dispenser', (ctx) => {
+  ctx.fillStyle = '#7e7e7e'
+  ctx.fillRect(0, 0, TILE_PX, TILE_PX)
+  drawNoise(ctx, ['#8a8a8a', '#6a6a6a', '#808080'], 0.3)
+  ctx.strokeStyle = '#5d5d5d'
+  ctx.lineWidth = 2
+  ctx.strokeRect(1, 1, TILE_PX - 2, TILE_PX - 2)
+  // muzzle
+  ctx.fillStyle = '#2a2a2a'
+  ctx.beginPath()
+  ctx.arc(TILE_PX / 2, TILE_PX / 2, 8, 0, Math.PI * 2)
+  ctx.fill()
+  ctx.fillStyle = '#151515'
+  ctx.beginPath()
+  ctx.arc(TILE_PX / 2, TILE_PX / 2, 5, 0, Math.PI * 2)
+  ctx.fill()
+})
+
 // 140: observer — stone body with a redstone 'eye' watching face.
 saveTile(140, 'observer', (ctx) => {
   ctx.fillStyle = '#7e7e7e'

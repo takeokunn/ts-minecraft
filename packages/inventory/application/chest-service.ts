@@ -18,6 +18,7 @@ import {
   depositIntoChest,
   emptyChestAtPosition,
   setChestState,
+  takeOneFromChest,
 } from '../domain/chest-service-utils'
 import { makeChestHelpers } from './chest-service-helpers'
 import { fillSlotsFromStack, isValidChestIndex, moveBetweenSlots, removeChestAtPosition, tryFillSlotsFromStacks } from './chest-service-state'
@@ -181,6 +182,23 @@ export class ChestService extends Effect.Service<ChestService>()(
               const result = depositIntoChest(chest, itemType, count)
               if (result.deposited === 0) return [0, state]
               return [result.deposited, setChestState(state, result.chest)]
+            })
+          }),
+
+        // Positional single-item withdraw for automation (dispensers).
+        withdrawOneFromChestAt: (
+          position: { readonly x: number; readonly y: number; readonly z: number },
+        ): Effect.Effect<Option.Option<ChestItemStack['itemType']>, never> =>
+          Effect.gen(function* () {
+            const blockIndexOpt = yield* worldBlockQueryPort.getBlockIndexAt(position)
+            const isChestBlock = Option.isSome(blockIndexOpt) && blockIndexOpt.value === blockTypeToIndex('CHEST')
+            if (!isChestBlock) return Option.none()
+            return yield* Ref.modify(stateRef, (state): [Option.Option<ChestItemStack['itemType']>, ChestState] => {
+              const existing = Option.getOrNull(HashMap.get(state.chests, chestKey(position)))
+              if (existing === null) return [Option.none(), state]
+              const result = takeOneFromChest(existing)
+              if (Option.isNone(result.taken)) return [Option.none(), state]
+              return [result.taken, setChestState(state, result.chest)]
             })
           }),
 

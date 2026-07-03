@@ -174,6 +174,13 @@ new Block({
     faces: defaultBlockFaces,
   }),
   new Block({
+    id: makeBlockId('block:dispenser'),
+    type: 'DISPENSER',
+    // Vanilla dispenser hardness 3.5 — furnace-tier stone housing.
+    properties: { hardness: 60, transparency: false, solid: true, emissive: false, friction: 0.6 },
+    faces: defaultBlockFaces,
+  }),
+  new Block({
     id: makeBlockId('block:redstone_lamp'),
     type: 'REDSTONE_LAMP',
     // Vanilla lamp hardness 0.3 -> soft; unlit emits nothing.

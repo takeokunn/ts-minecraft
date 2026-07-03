@@ -30,7 +30,8 @@ export const canConduct = (type: RedstoneComponentType): boolean =>
   type === RedstoneComponentType.PressurePlate ||
   type === RedstoneComponentType.Observer ||
   type === RedstoneComponentType.Repeater ||
-  type === RedstoneComponentType.Comparator
+  type === RedstoneComponentType.Comparator ||
+  type === RedstoneComponentType.Dispenser
 
 export const isPowerSource = (component: RedstoneComponent): boolean =>
   (component.type === RedstoneComponentType.Lever && component.state.active) ||

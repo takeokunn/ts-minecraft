@@ -15,6 +15,7 @@ export type RedstoneFlags = {
   readonly placeHopper: boolean
   readonly placeRepeater: boolean
   readonly placeComparator: boolean
+  readonly placeDispenser: boolean
   readonly toggleLever: boolean
   readonly pressButton: boolean
   readonly toggleTorch: boolean
@@ -76,6 +77,7 @@ const dispatchRedstoneAction = (
     // Repeaters refresh the signal arriving at their REAR (opposite the view facing).
     Match.when({ placeRepeater: true }, () => placeComponentAndBlock(services, RedstoneComponentType.Repeater, 'REPEATER', position, pistonFacing !== undefined ? { pistonFacing } : undefined)),
     Match.when({ placeComparator: true }, () => placeComponentAndBlock(services, RedstoneComponentType.Comparator, 'COMPARATOR', position, pistonFacing !== undefined ? { pistonFacing } : undefined)),
+    Match.when({ placeDispenser: true }, () => placeComponentAndBlock(services, RedstoneComponentType.Dispenser, 'DISPENSER', position, pistonFacing !== undefined ? { pistonFacing } : undefined)),
     Match.when({ toggleLever: true }, () => services.redstoneService.toggleLever(position)),
     Match.when({ pressButton: true }, () => services.redstoneService.pressButton(position)),
     Match.when({ toggleTorch: true }, () => services.redstoneService.toggleTorch(position)),

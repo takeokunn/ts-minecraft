@@ -90,7 +90,7 @@ Chicken, Bat, Squid, Bee.
 | Observer | ✅ | pulses on watched-block change (placement-facing, all 6 directions; first sighting arms without pulsing; button-style 2-tick pulse into the power graph) |
 | Hopper | ✅ | placed with KeyH; transfers resting drops into the chest directly below (lazy chest-state materialization, overflow re-spawned — items never destroyed). Simplified vs vanilla: no internal buffer, down-only, no container-to-container pull |
 | Comparator | ✅ | compare mode (KeyK, placement-facing): output = rear signal when rear ≥ max(sides), else 0; the sim's only variable-strength source (emits the measured level, not 15). No subtract mode |
-| Dispensers | ❌ | |
+| Dispenser | ✅ | KeyX, placement-facing: on each power RISING edge, draws one item from a chest directly above and ejects it as a drop out of the muzzle. Simplified vs vanilla: no internal 9-slot inventory (chest-fed), items only (no arrow-projectile / block-placement behaviors) |
 
 ## Multiplayer (co-op)
 
@@ -128,7 +128,7 @@ Chicken, Bat, Squid, Bee.
 
 - Modding / plugin / datapack API — none (out of scope for a clone core).
 - Boats & minecarts — items exist; ride-able entities not implemented.
-- Redstone: dispensers, pistons-push-entities, comparator subtract mode.
+- Redstone: pistons-push-entities, comparator subtract mode, dispenser projectile behaviors.
 - Ocean depth content (guardians, kelp forests), amethyst/deepslate caves biome variety.
 - Audio on localhost is force-disabled by environment policy (engine unit-tested; needs non-localhost origin for live validation).
 - Multiplayer beyond small co-op (no server-authoritative physics, no interest management).

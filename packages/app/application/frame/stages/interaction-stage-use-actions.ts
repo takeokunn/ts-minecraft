@@ -58,7 +58,7 @@ export const runInteractionStageUseActions = (
       targetBlock: context.targetBlock,
       // Compute the view cardinal only when a piston is actually being placed —
       // getWorldDirection costs a matrix decompose.
-      ...(context.snapshot.redstoneFlags.placePiston || context.snapshot.redstoneFlags.placeObserver || context.snapshot.redstoneFlags.placeRepeater || context.snapshot.redstoneFlags.placeComparator
+      ...(context.snapshot.redstoneFlags.placePiston || context.snapshot.redstoneFlags.placeObserver || context.snapshot.redstoneFlags.placeRepeater || context.snapshot.redstoneFlags.placeComparator || context.snapshot.redstoneFlags.placeDispenser
         ? { pistonFacing: pistonFacingFromCamera(deps.camera, _pistonFacingScratch) }
         : {}),
     })
