@@ -2,7 +2,7 @@ import { Option } from 'effect'
 import { describe, expect, it } from 'vitest'
 import { CHUNK_HEIGHT, CHUNK_SIZE, PLAYER_HALF_HEIGHT, SEA_LEVEL, blockIndex, blockTypeToIndex } from '@ts-minecraft/core'
 import type { Chunk } from '@ts-minecraft/world/domain/chunk'
-import { candidateAt, clampAboveWater, findFallbackSurfaceY, keyOf, scoreSpawnCandidate } from '@ts-minecraft/app/main/spawn-selection-search'
+import { candidateAt, clampAboveWater, findFallbackSurfaceY, keyOf, scoreSpawnCandidate, selectSurfaceSpawn } from '@ts-minecraft/app/main/spawn-selection-search'
 
 const DIRT = blockTypeToIndex('DIRT')
 const STONE = blockTypeToIndex('STONE')
@@ -24,6 +24,29 @@ const setBlock = (chunk: Chunk, x: number, y: number, z: number, type: number) =
 const fillColumn = (chunk: Chunk, x: number, z: number, fromY: number, toY: number, type: number) => {
   for (let y = fromY; y <= toY; y++) setBlock(chunk, x, y, z, type)
 }
+
+// ─── mountain-top spawns (regression: no surface height cap) ─────────────────
+describe('selectSurfaceSpawn above the old y=96 cap', () => {
+  it('prefers an open plateau above y=96 over a walled ravine floor', () => {
+    // Regression: an old MAX_SURFACE_Y=+32 cap silently discarded every column
+    // taller than y=96, so in mountainous regions the only sky-visible
+    // candidates were ravine floors — players spawned at the bottom of a pit.
+    const chunk = emptyChunk()
+    // plateau: solid to y=100 across most of the chunk (surface ABOVE the old cap)
+    for (let x = 0; x < CHUNK_SIZE; x++) {
+      for (let z = 0; z < CHUNK_SIZE; z++) {
+        fillColumn(chunk, x, z, 0, 100, STONE)
+      }
+    }
+    // a narrow ravine slot: floor at y=70, walls all around (low openness)
+    fillColumn(chunk, 8, 8, 0, CHUNK_HEIGHT - 1, 0 as never) // clear the column to air
+    fillColumn(chunk, 8, 8, 0, 70, STONE) // ravine floor
+
+    const spawn = selectSurfaceSpawn([chunk], { x: 8.5, y: 0, z: 8.5 })
+    // must pick the open plateau surface (y=100 → feet 101), not the ravine floor (y=70)
+    expect(spawn.position.y).toBeGreaterThan(100)
+  })
+})
 
 // ─── keyOf ────────────────────────────────────────────────────────────────────
 describe('keyOf', () => {

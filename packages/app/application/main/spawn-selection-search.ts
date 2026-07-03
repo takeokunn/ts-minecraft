@@ -15,7 +15,13 @@ const FALLBACK_SURFACE_Y = 64
 const FALLBACK_HEADROOM = 3
 const SPAWN_HEADROOM_BLOCKS = 2
 const OPEN_VIEW_DISTANCE_BLOCKS = 5
-const MAX_SURFACE_Y = FALLBACK_SURFACE_Y + 32
+// Surface scan starts from the world top. An earlier +32 cap (y=96) excluded
+// legitimate mountain-top surfaces: in mountainous spawn regions every column
+// taller than the cap yielded NO candidate (the scan started inside rock and
+// sky-headroom failed all the way down), leaving ravine floors as the only
+// sky-visible options — players spawned at the bottom of a pit. The openness
+// and grass scoring already steer selection toward pleasant surfaces; no
+// height cap is needed.
 const SPAWN_OPENNESS_WEIGHT = 1000
 const CHUNK_BLOCK_COUNT = CHUNK_SIZE * CHUNK_SIZE * CHUNK_HEIGHT
 const AIR = blockTypeToIndex('AIR')
@@ -189,7 +195,7 @@ export const candidateAt = (
   wx: number,
   wz: number,
 ): Option.Option<SpawnCandidate> => {
-  const surfaceLimit = Math.min(CHUNK_HEIGHT - SPAWN_HEADROOM_BLOCKS, MAX_SURFACE_Y)
+  const surfaceLimit = CHUNK_HEIGHT - SPAWN_HEADROOM_BLOCKS
   for (let surfaceY = surfaceLimit - 1; surfaceY >= 0; surfaceY--) {
     const surfaceBlockId = blockAt(chunks, wx, surfaceY, wz)
     if (NON_SPAWN_SURFACE_BLOCK_IDS.has(surfaceBlockId)) continue
