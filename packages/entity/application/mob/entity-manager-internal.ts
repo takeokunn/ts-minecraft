@@ -3,7 +3,7 @@ import type { Entity, EntityId } from '../../domain/mob/entity'
 import type { Position } from '@ts-minecraft/core'
 import type { ExplosionEvent } from '../../domain/explosion'
 import { type ManagedEntity } from '../../domain/mob/entity-internal'
-import { type PlayerContactDamageResolution, resolvePlayerContactDamage, resolvePlayerRangedDamage } from './entity-manager-combat'
+import { type PlayerContactDamageResolution, resolvePlayerContactDamage, resolvePlayerRangedDamage, type PlayerShotOrigin } from './entity-manager-combat'
 import type { ProjectileBlocker } from './entity-manager-projectile'
 import { makeEntityManagerActions } from './entity-manager-actions'
 import { makeEntityManagerLifecycle } from './entity-manager-lifecycle'
@@ -20,6 +20,7 @@ export const makeEntityManagerInternal = (
   structureVersionRef: Ref.Ref<number>,
   explosionsRef: Ref.Ref<ReadonlyArray<ExplosionEvent>>,
   playerIgniteSecsRef: Ref.Ref<number>,
+  playerShotOriginsRef: Ref.Ref<ReadonlyArray<PlayerShotOrigin>>,
 ) => ({
   ...makeEntityManagerLifecycle(entitiesRef, cachedEntitiesRef, structureVersionRef),
   ...makeEntityManagerActions(entitiesRef, cachedEntitiesRef, structureVersionRef),
@@ -46,12 +47,15 @@ export const makeEntityManagerInternal = (
     isProjectileBlocked?: ProjectileBlocker,
   ): Effect.Effect<number, never> =>
     Effect.gen(function* () {
-      const resolved = yield* Ref.modify(entitiesRef, (entities): [{ damage: number; igniteSecs: number }, HashMap.HashMap<EntityId, ManagedEntity>] => {
+      const resolved = yield* Ref.modify(entitiesRef, (entities): [{ damage: number; igniteSecs: number; shotOrigins: ReadonlyArray<PlayerShotOrigin> }, HashMap.HashMap<EntityId, ManagedEntity>] => {
         const [resolution, updatedEntities] = resolvePlayerRangedDamage(entities, playerPosition, isProjectileBlocked)
-        return [{ damage: resolution.damage, igniteSecs: resolution.igniteSecs }, updatedEntities]
+        return [{ damage: resolution.damage, igniteSecs: resolution.igniteSecs, shotOrigins: resolution.shotOrigins }, updatedEntities]
       })
       if (resolved.igniteSecs > 0) {
         yield* Ref.update(playerIgniteSecsRef, (pending) => Math.max(pending, resolved.igniteSecs))
+      }
+      if (resolved.shotOrigins.length > 0) {
+        yield* Ref.update(playerShotOriginsRef, (pending) => [...pending, ...resolved.shotOrigins])
       }
       if (resolved.damage > 0) {
         yield* invalidateEntityCache(cachedEntitiesRef)
@@ -63,4 +67,9 @@ export const makeEntityManagerInternal = (
   // since the last drain. The app frame applies it to the player's burn timer —
   // the entity layer never touches player state directly (DDD boundary).
   drainPlayerIgniteSecs: (): Effect.Effect<number, never> => Ref.getAndSet(playerIgniteSecsRef, 0),
+
+  // Shooter positions of ranged hits since the last drain — the frame layer
+  // draws tracer streaks from these to the player (shots are instant-hit).
+  drainPlayerShotOrigins: (): Effect.Effect<ReadonlyArray<PlayerShotOrigin>, never> =>
+    Ref.getAndSet(playerShotOriginsRef, [] as ReadonlyArray<PlayerShotOrigin>),
 })

@@ -31,7 +31,8 @@ export class EntityManager extends Effect.Service<EntityManager>()(
       const dragonEventsRef = yield* Ref.make<ReadonlyArray<DragonDeathEvent>>([])
       // Pending player burn seconds from Blaze fireball hits (drained by the frame).
       const playerIgniteSecsRef = yield* Ref.make(0)
-      const internal = makeEntityManagerInternal(entitiesRef, cachedEntitiesRef, structureVersionRef, explosionsRef, playerIgniteSecsRef)
+      const playerShotOriginsRef = yield* Ref.make<ReadonlyArray<import('./entity-manager-combat').PlayerShotOrigin>>([])
+      const internal = makeEntityManagerInternal(entitiesRef, cachedEntitiesRef, structureVersionRef, explosionsRef, playerIgniteSecsRef, playerShotOriginsRef)
       const mutations = makeEntityManagerMutations(
         entitiesRef,
         nextEntityNumberRef,

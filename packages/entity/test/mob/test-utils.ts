@@ -102,7 +102,8 @@ export const makeInternalHarness = (): Effect.Effect<InternalHarness> =>
     const structureVersionRef = yield* Ref.make(0)
     const explosionsRef = yield* Ref.make<ReadonlyArray<ExplosionEvent>>([])
     const playerIgniteSecsRef = yield* Ref.make(0)
-    const internal = makeEntityManagerInternal(entitiesRef, cachedEntitiesRef, structureVersionRef, explosionsRef, playerIgniteSecsRef)
+    const playerShotOriginsRef = yield* Ref.make<ReadonlyArray<import('../../application/mob/entity-manager-combat').PlayerShotOrigin>>([])
+    const internal = makeEntityManagerInternal(entitiesRef, cachedEntitiesRef, structureVersionRef, explosionsRef, playerIgniteSecsRef, playerShotOriginsRef)
 
     return { entitiesRef, cachedEntitiesRef, structureVersionRef, explosionsRef, internal }
   })

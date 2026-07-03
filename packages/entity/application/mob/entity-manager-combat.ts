@@ -17,11 +17,20 @@ export type PlayerContactDamageResolution = Readonly<{
 // Seconds of burning a landed Blaze fireball inflicts on the player (vanilla: 5s).
 export const BLAZE_IGNITE_SECS = 5
 
+export type PlayerShotOrigin = Readonly<{
+  readonly x: number
+  readonly y: number
+  readonly z: number
+  // Fire shots (Blaze/Ghast fireballs) trace in lava tint; arrows in white.
+  readonly fire: boolean
+}>
+
 type PlayerRangedDamageResolution = Readonly<{
   damage: number
   // Seconds of player burn inflicted by fire-based shooters (Blaze). 0 when no
   // igniting shot landed this resolution.
   igniteSecs: number
+  readonly shotOrigins: ReadonlyArray<PlayerShotOrigin>
 }>
 
 export const resolvePlayerContactDamage = (
@@ -72,6 +81,7 @@ export const resolvePlayerRangedDamage = (
 ): readonly [PlayerRangedDamageResolution, HashMap.HashMap<EntityId, ManagedEntity>] => {
   let totalDamage = 0
   let igniteSecs = 0
+  const shotOrigins: Array<PlayerShotOrigin> = []
   let updatedEntities = entities
   let anyEntityModified = false
 
@@ -82,8 +92,12 @@ export const resolvePlayerRangedDamage = (
     if (!canSkeletonShootPlayer(entity, playerPosition, isProjectileBlocked)) return
 
     totalDamage += entity.attackDamage
+    const isFireShot = entity.type === EntityType.Blaze || entity.type === EntityType.Ghast
+    // Tracer origin for the frame layer: shots are instant-hit, the visual
+    // streak from shooter to player is drawn by the app.
+    shotOrigins.push({ x: entity.position.x, y: entity.position.y + 0.5, z: entity.position.z, fire: isFireShot })
     // Fire-based shooters: a landed fireball also sets the player burning.
-    if (entity.type === EntityType.Blaze || entity.type === EntityType.Ghast) {
+    if (isFireShot) {
       igniteSecs = Math.max(igniteSecs, BLAZE_IGNITE_SECS)
     }
     updatedEntities = HashMap.set(updatedEntities, entity.entityId, {
@@ -97,6 +111,7 @@ export const resolvePlayerRangedDamage = (
     {
       damage: totalDamage,
       igniteSecs,
+      shotOrigins,
     },
     anyEntityModified ? updatedEntities : entities,
   ]

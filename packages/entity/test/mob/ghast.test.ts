@@ -47,6 +47,9 @@ describe('Ghast', () => {
     const [resolution] = resolvePlayerRangedDamage(entities, { x: 0, y: 70, z: 0 })
     expect(resolution.damage).toBe(4)
     expect(resolution.igniteSecs).toBeGreaterThan(0)
+    // Tracer origin for the frame layer, flagged as a FIRE shot (lava tint).
+    expect(resolution.shotOrigins).toHaveLength(1)
+    expect(resolution.shotOrigins[0]).toMatchObject({ x: 5, z: 0, fire: true })
   })
 
   it('does not fire while the shot is blocked by terrain', () => {

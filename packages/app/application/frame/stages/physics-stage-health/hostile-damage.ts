@@ -10,6 +10,8 @@ import type { PhysicsStageRefs } from '../physics-stage-types/refs'
 import type { PhysicsStageServices } from '../physics-stage-types/services'
 import { applyExplosionBlockDamage } from '../physics-stage-damage-helpers'
 import { hostileDamageMultiplierForDifficulty } from '../physics-stage-damage-logic'
+import { blockTypeToIndex } from '@ts-minecraft/core'
+import { getParticleUvOffset } from '@ts-minecraft/rendering'
 
 type HostileDamage = {
   contactDamage: number
@@ -123,6 +125,25 @@ const getHostileDamage = (
         refreshedPos,
         isProjectileBlocked,
       )
+
+      // Tracer streaks: every landed ranged shot draws a particle line from
+      // the shooter to the player — instant-hit shots are otherwise invisible.
+      const shotOrigins = yield* services.entityManager.drainPlayerShotOrigins()
+      for (const shot of shotOrigins) {
+        const uv = getParticleUvOffset(blockTypeToIndex(shot.fire ? 'LAVA' : 'SNOW'))
+        const TRACER_POINTS = 5
+        for (let i = 1; i <= TRACER_POINTS; i++) {
+          const t = i / (TRACER_POINTS + 1)
+          yield* services.particleSystem.spawnBurst(
+            shot.x + (refreshedPos.x - shot.x) * t,
+            shot.y + (refreshedPos.y + 0.5 - shot.y) * t,
+            shot.z + (refreshedPos.z - shot.z) * t,
+            uv.u,
+            uv.v,
+            1,
+          )
+        }
+      }
 
       // Blaze fireballs set the player on fire: feed the drained ignite seconds
       // into the same burn timer lava uses, so the existing fire-damage cadence
