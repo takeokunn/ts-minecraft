@@ -97,6 +97,9 @@ describe('terrain/application/fluid-service', () => {
     return withFluidService(
       [chunk],
       svc => Effect.gen(function* () {
+      // worldgen fluid is inert since the vanilla-static hydration change;
+      // disturb the source cell first, as a block edit would
+      yield* svc.notifyBlockChanged({ x: 0, y: 64, z: 0 })
       yield* svc.tick()
       // markChunkDirty should be called for the water spread
       expect(MutableRef.get(markDirtyCountRef)).toBeGreaterThan(0)
@@ -118,6 +121,9 @@ describe('terrain/application/fluid-service', () => {
       fluids: [{ lx: 0, y: 64, lz: 0, cell: { level: 0, source: true, type: 'water' } }],
     })
     return withFluidService([chunk], svc => Effect.gen(function* () {
+      // worldgen fluid is inert since the vanilla-static hydration change;
+      // disturb the source cell first, as a block edit would
+      yield* svc.notifyBlockChanged({ x: 0, y: 64, z: 0 })
       yield* svc.tick()
 
       const belowIdx = blockIndexAt(0, 63, 0)
@@ -146,6 +152,9 @@ describe('terrain/application/fluid-service', () => {
     return withFluidService(
       [chunk],
       svc => Effect.gen(function* () {
+      // worldgen fluid is inert since the vanilla-static hydration change;
+      // disturb the source cell first, as a block edit would
+      yield* svc.notifyBlockChanged({ x: 0, y: 64, z: 0 })
       yield* svc.tick()
       // Lateral spread should have been attempted, calling markChunkDirty
       expect(MutableRef.get(markDirtyCountRef)).toBeGreaterThan(0)
@@ -168,6 +177,9 @@ describe('terrain/application/fluid-service', () => {
       fluids: [{ lx: 0, y: 64, lz: 0, cell: { level: 0, source: true, type: 'water' } }],
     })
     return withFluidService([chunk], svc => Effect.gen(function* () {
+      // worldgen fluid is inert since the vanilla-static hydration change;
+      // disturb the source cell first, as a block edit would
+      yield* svc.notifyBlockChanged({ x: 0, y: 64, z: 0 })
       yield* svc.tick()
 
       const torchIdx = blockIndexAt(1, 64, 0)

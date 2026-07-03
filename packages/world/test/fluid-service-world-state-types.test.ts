@@ -42,6 +42,8 @@ describe('application/fluid/fluid-service', () => {
 
     return withTrackedFluidService([chunk], (fluid, dirtyCalls) =>
       Effect.gen(function* () {
+        // inert hydration: disturb the source first, as a block edit would
+        yield* fluid.notifyBlockChanged({ x: 4, y: 10, z: 4 })
         yield* fluid.tick()
         const blockIdx = blockIndexOrMinusOne(4, 9, 4)
         expect(chunk.blocks[blockIdx]).toBe(blockTypeToIndex('WATER'))

@@ -82,8 +82,10 @@ describe('hydrateChunk', () => {
 
     expect(Option.getOrThrow(HashMap.get(next.cells, waterKey))).toEqual(water(2, false))
     expect(Option.getOrThrow(HashMap.get(next.cells, lavaKey))).toEqual(lava())
+    // mid-flow (non-source) cells resume ticking after a load…
     expect(HashSet.has(next.frontier, waterKey)).toBe(true)
-    expect(HashSet.has(next.frontier, lavaKey)).toBe(true)
+    // …but an undisturbed SOURCE stays inert like vanilla worldgen fluid
+    expect(HashSet.has(next.frontier, lavaKey)).toBe(false)
   })
 
   it('returns the same state when no fluid cells are present', () => {
@@ -104,7 +106,7 @@ describe('hydrateChunk', () => {
     expect(Option.getOrThrow(HashMap.get(next.cells, blockKey(pos(4, 11, 5))))).toEqual(lava())
   })
 
-  it('does not enqueue steady-state ocean-interior cells (frontier stays lean)', () => {
+  it('keeps worldgen water inert: hydration enqueues no steady-state cells', () => {
     // Fill a solid-floored basin: stone floor at y=9, water filling y=10..13
     // across the full chunk. Only the surface layer (air above) is enqueued
     // directly; enqueueKey spills one layer below as its neighbor. Cells two
@@ -122,13 +124,10 @@ describe('hydrateChunk', () => {
     const next = hydrateChunk(INITIAL_STATE, makeChunk({ blocks }))
     // every water cell is tracked
     expect(HashMap.size(next.cells)).toBe(CHUNK_SIZE * CHUNK_SIZE * 4)
-    // deep interior cells (2+ below the surface) are NOT in the frontier
-    expect(HashSet.has(next.frontier, blockKey(pos(8, 11, 8)))).toBe(false)
-    expect(HashSet.has(next.frontier, blockKey(pos(8, 10, 8)))).toBe(false)
-    // the surface layer (air above) IS enqueued
-    expect(HashSet.has(next.frontier, blockKey(pos(8, 13, 8)))).toBe(true)
-    // chunk-face cells are conservatively enqueued (outward neighbor unknown)
-    expect(HashSet.has(next.frontier, blockKey(pos(0, 11, 8)))).toBe(true)
+    // vanilla-inert worldgen water: NOTHING is enqueued — not the surface,
+    // not the interior, not chunk faces. Generated water flows only when a
+    // block edit disturbs it (notifyBlockChanged).
+    expect(HashSet.size(next.frontier)).toBe(0)
   })
 
   it('enqueues an interior source next to the other fluid (contact must react)', () => {

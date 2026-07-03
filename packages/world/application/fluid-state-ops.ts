@@ -32,29 +32,27 @@ export const removeCell = (state: FluidState, position: Position): FluidState =>
 })
 
 
-// Steady-state guard for chunk hydration: an ocean-interior cell (every
-// neighbor is the same fluid or solid) can never flow, so enqueueing it only
-// burns tick budget on no-ops — a single ocean chunk otherwise floods the
-// frontier with thousands of dead cells at world load. A cell needs a tick
-// only when a reachable in-chunk neighbor is AIR (room to flow) or a
-// DIFFERENT fluid (contact reaction). Cells on the chunk's x/z faces are
-// enqueued conservatively — their outward neighbor is invisible here.
+// Vanilla worldgen water is INERT: a generated river or lake never starts
+// flowing on its own — only a disturbance (place/break/bucket, all of which
+// call notifyBlockChanged) wakes the cells around the edit. Hydration
+// therefore enqueues a SOURCE cell only for the one reaction that must fire
+// without player input: contact with the other fluid (in-chunk neighbors;
+// cross-chunk contact pairs are rare and stay dormant like vanilla).
+// Air-adjacent edges deliberately stay OUT of the frontier — enqueueing them
+// used to pour every generated river edge down the nearest slope, draping
+// hillsides in flowing terraces vanilla never shows (and burning tick budget
+// on thousands of ocean-edge cells at world load).
 // Chunk block layout: idx = (x * CHUNK_SIZE + z) * CHUNK_HEIGHT + y.
 const hydratedCellNeedsTick = (blocks: Uint8Array | Readonly<Uint8Array>, idx: number, fluidIdx: number): boolean => {
   const y = idx % CHUNK_HEIGHT
-  const column = Math.floor(idx / CHUNK_HEIGHT)
-  const z = column % CHUNK_SIZE
-  const x = Math.floor(column / CHUNK_SIZE)
-  if (x === 0 || x === CHUNK_SIZE - 1 || z === 0 || z === CHUNK_SIZE - 1) return true
   const otherFluid = fluidIdx === WATER_INDEX ? LAVA_INDEX : WATER_INDEX
-  const flows = (neighbor: number | undefined): boolean => neighbor === 0 || neighbor === otherFluid
   return (
-    (y > 0 && flows(blocks[idx - 1])) ||
-    (y < CHUNK_HEIGHT - 1 && flows(blocks[idx + 1])) ||
-    flows(blocks[idx - CHUNK_HEIGHT]) ||
-    flows(blocks[idx + CHUNK_HEIGHT]) ||
-    flows(blocks[idx - CHUNK_SIZE * CHUNK_HEIGHT]) ||
-    flows(blocks[idx + CHUNK_SIZE * CHUNK_HEIGHT])
+    (y > 0 && blocks[idx - 1] === otherFluid) ||
+    (y < CHUNK_HEIGHT - 1 && blocks[idx + 1] === otherFluid) ||
+    blocks[idx - CHUNK_HEIGHT] === otherFluid ||
+    blocks[idx + CHUNK_HEIGHT] === otherFluid ||
+    blocks[idx - CHUNK_SIZE * CHUNK_HEIGHT] === otherFluid ||
+    blocks[idx + CHUNK_SIZE * CHUNK_HEIGHT] === otherFluid
   )
 }
 

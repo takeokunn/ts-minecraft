@@ -49,8 +49,10 @@ describe('buildSyncedFluidState', () => {
     expect(HashMap.has(nextCache, ChunkCacheKey.make(chunk.coord))).toBe(true)
     expect(Option.getOrThrow(HashMap.get(nextState.cells, waterKey))).toEqual(water())
     expect(Option.getOrThrow(HashMap.get(nextState.cells, lavaKey))).toEqual(lava())
-    expect(HashSet.has(nextState.frontier, waterKey)).toBe(true)
-    expect(HashSet.has(nextState.frontier, lavaKey)).toBe(true)
+    // vanilla-inert hydration: undisturbed worldgen sources are tracked as
+    // cells but NOT enqueued — they flow only after notifyBlockChanged.
+    expect(HashSet.has(nextState.frontier, waterKey)).toBe(false)
+    expect(HashSet.has(nextState.frontier, lavaKey)).toBe(false)
   })
 
   it('prunes cells and frontier entries from departed chunks', () => {
@@ -68,7 +70,9 @@ describe('buildSyncedFluidState', () => {
     expect(Option.isNone(HashMap.get(nextState.cells, departedKey))).toBe(true)
     expect(HashSet.has(nextState.frontier, departedKey)).toBe(false)
     expect(Option.getOrThrow(HashMap.get(nextState.cells, retainedKey))).toEqual(lava())
-    expect(HashSet.has(nextState.frontier, retainedKey)).toBe(true)
+    // retained cell survives in the cell map; inert hydration keeps it out
+    // of the frontier until a block edit disturbs it
+    expect(HashSet.has(nextState.frontier, retainedKey)).toBe(false)
   })
 })
 
