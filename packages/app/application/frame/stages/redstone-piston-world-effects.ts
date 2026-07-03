@@ -119,6 +119,37 @@ const pushSingleBlock = (
     yield* markChunkDirty(refs, services, destination)
   })
 
+// Sticky-style retraction: on the falling edge, the block sitting one cell
+// past the piston head is pulled back into the head cell. Mirrors
+// pushSingleBlock with source/destination swapped along the facing.
+const pullSingleBlock = (
+  services: RedstonePistonWorldServices,
+  refs: RedstonePistonWorldRefs,
+  pistonPosition: Position,
+  direction: PushDirection,
+): Effect.Effect<void, never> =>
+  Effect.gen(function* () {
+    const destination = addPositions(pistonPosition, direction)
+    const source = addPositions(destination, direction)
+    const sourceBlock = yield* readBlock(services, source)
+    if (sourceBlock === null || !isPistonMovableBlock(sourceBlock)) return
+
+    const destinationBlock = yield* readBlock(services, destination)
+    if (destinationBlock !== 'AIR') return
+
+    const placed = yield* forceSetBlockSafely(services, destination, sourceBlock)
+    if (!placed) return
+
+    const cleared = yield* forceSetBlockSafely(services, source, 'AIR')
+    if (!cleared) {
+      yield* forceSetBlockSafely(services, destination, 'AIR')
+      return
+    }
+
+    yield* markChunkDirty(refs, services, source)
+    yield* markChunkDirty(refs, services, destination)
+  })
+
 export const applyPistonWorldEffects = (
   services: RedstonePistonWorldServices,
   refs: RedstonePistonWorldRefs,
@@ -135,14 +166,18 @@ export const applyPistonWorldEffects = (
 
     for (const component of afterComponents) {
       if (component.type !== RedstoneComponentType.Piston) continue
-      if (!component.state.pistonExtended) continue
       const previous = beforePistons.get(redstonePositionKey(component.position))
-      if (previous?.state.pistonExtended === true) continue
-      yield* pushSingleBlock(
-        services,
-        refs,
-        component.position,
-        PISTON_PUSH_DIRECTIONS[component.state.pistonFacing ?? 'east'],
-      )
+      const direction = PISTON_PUSH_DIRECTIONS[component.state.pistonFacing ?? 'east']
+
+      // Rising edge → push the block ahead one cell further.
+      if (component.state.pistonExtended && previous?.state.pistonExtended !== true) {
+        yield* pushSingleBlock(services, refs, component.position, direction)
+        continue
+      }
+
+      // Falling edge → pull the block back (sticky-piston semantics).
+      if (!component.state.pistonExtended && previous?.state.pistonExtended === true) {
+        yield* pullSingleBlock(services, refs, component.position, direction)
+      }
     }
   })

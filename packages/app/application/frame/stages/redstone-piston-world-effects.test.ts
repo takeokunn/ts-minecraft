@@ -163,6 +163,66 @@ describe('redstone piston world effects', () => {
     )
   })
 
+  it.effect('pulls the pushed block back on the falling edge (sticky retraction)', () => {
+    const piston = { x: 0, y: 64, z: 0 }
+    const head = { x: 1, y: 64, z: 0 }
+    const pushedTo = { x: 2, y: 64, z: 0 }
+    const harness = makeHarness([[pushedTo, 'STONE']])
+
+    return applyPistonWorldEffects(
+      harness.services,
+      harness.refs,
+      [pistonAt(piston, true)],
+      [pistonAt(piston, false)],
+    ).pipe(
+      Effect.tap(() => Effect.sync(() => {
+        expect(harness.blocks.get(positionKey(pushedTo))).toBe('AIR')
+        expect(harness.blocks.get(positionKey(head))).toBe('STONE')
+      })),
+    )
+  })
+
+  it.effect('retraction does not pull when the head cell is occupied', () => {
+    const piston = { x: 0, y: 64, z: 0 }
+    const head = { x: 1, y: 64, z: 0 }
+    const pushedTo = { x: 2, y: 64, z: 0 }
+    const harness = makeHarness([
+      [head, 'DIRT'],
+      [pushedTo, 'STONE'],
+    ])
+
+    return applyPistonWorldEffects(
+      harness.services,
+      harness.refs,
+      [pistonAt(piston, true)],
+      [pistonAt(piston, false)],
+    ).pipe(
+      Effect.tap(() => Effect.sync(() => {
+        expect(harness.blocks.get(positionKey(head))).toBe('DIRT')
+        expect(harness.blocks.get(positionKey(pushedTo))).toBe('STONE')
+        expect(harness.forceSetBlock).not.toHaveBeenCalled()
+      })),
+    )
+  })
+
+  it.effect('steady retracted state does not pull', () => {
+    const piston = { x: 0, y: 64, z: 0 }
+    const pushedTo = { x: 2, y: 64, z: 0 }
+    const harness = makeHarness([[pushedTo, 'STONE']])
+
+    return applyPistonWorldEffects(
+      harness.services,
+      harness.refs,
+      [pistonAt(piston, false)],
+      [pistonAt(piston, false)],
+    ).pipe(
+      Effect.tap(() => Effect.sync(() => {
+        expect(harness.blocks.get(positionKey(pushedTo))).toBe('STONE')
+        expect(harness.forceSetBlock).not.toHaveBeenCalled()
+      })),
+    )
+  })
+
   it.effect('a facing-less legacy piston still pushes east', () => {
     const piston = { x: 0, y: 64, z: 0 }
     const source = { x: 1, y: 64, z: 0 }
