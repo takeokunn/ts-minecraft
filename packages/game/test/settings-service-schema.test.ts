@@ -87,7 +87,6 @@ describe('application/settings/settings-service', () => {
         musicVolume: 0.55,
         reducedMotion: false,
         uiScale: 1,
-  uiScale: 1,
       })
     })
 
