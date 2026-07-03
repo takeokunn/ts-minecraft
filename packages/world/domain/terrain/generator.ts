@@ -18,6 +18,7 @@ import { collectOverhangTargets, applyOverhangNoise } from './generator-overhang
 import { createTreeColumnContextResolver, placeChunkTrees } from './generator-tree-context'
 import { placeChunkPlants } from './plant-placer'
 import { writeStrongholdBlocksForChunk } from './stronghold'
+import { writeJungleTempleForChunk } from './jungle-temple'
 
 export const generateTerrain = (
   chunkService: ChunkFactory,
@@ -134,6 +135,10 @@ export const generateTerrain = (
     // Stronghold end-portal rooms: final pass so the room shell carves
     // through caves/ores (pure world-coordinate function — see stronghold.ts).
     writeStrongholdBlocksForChunk(blocks, coord.x, coord.z)
+
+    // Jungle temples: surface structures seated on this chunk's own
+    // pre-carve surface heights (footprint never crosses a chunk border).
+    writeJungleTempleForChunk(blocks, coord.x, coord.z, initialSurfaceYs, biomeColumns)
 
     return { ...chunk, blocks }
   })
