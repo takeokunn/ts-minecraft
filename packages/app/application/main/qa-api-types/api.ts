@@ -22,6 +22,7 @@ export type QaApi = {
   readonly placeSelectedItemInFront: () => Promise<void>
   readonly moveItemToHotbar: (itemType: InventoryItem, hotbarIndex: number) => Promise<boolean>
   readonly giveItemForQA: (itemType: InventoryItem, count: number) => Promise<boolean>
+  readonly setMouseHeldForQA: (button: 0 | 1 | 2, held: boolean) => Promise<void>
   readonly selectHotbarSlot: (hotbarIndex: number) => Promise<void>
   readonly getRecipeButtons: () => ReadonlyArray<string>
   readonly getEntitySnapshot: () => Promise<ReadonlyArray<{ entityId: string; type: string }>>

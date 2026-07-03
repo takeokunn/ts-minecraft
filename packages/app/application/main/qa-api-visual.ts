@@ -105,3 +105,11 @@ export const dispatchMouseClick = (button: 0 | 1 | 2) =>
       document.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, button }))
     }
   }))
+
+// Holds or releases a mouse button through the REAL event path (mousedown
+// without the paired mouseup), so InputService.isMouseDown reports held and
+// the frame loop drives genuine hold-to-break progress — no handler bypass.
+export const setMouseHeldForQA = (button: 0 | 1 | 2, held: boolean) =>
+  Effect.runPromise(Effect.sync(() => {
+    document.dispatchEvent(new MouseEvent(held ? 'mousedown' : 'mouseup', { bubbles: true, button }))
+  }))

@@ -20,7 +20,7 @@ import {
   stageProgressionScenario,
 } from '@ts-minecraft/app/main/qa-api-world'
 import { attackFirstZombie, getMobMovementSnapshot, spawnLowHealthZombieInFront } from '@ts-minecraft/app/main/qa-api-combat'
-import { aimAtBuildSpot, aimAtStagedResource, aimAtStagedZombie, dispatchMouseClick } from '@ts-minecraft/app/main/qa-api-visual'
+import { aimAtBuildSpot, aimAtStagedResource, aimAtStagedZombie, dispatchMouseClick, setMouseHeldForQA } from '@ts-minecraft/app/main/qa-api-visual'
 import { getLoadedWaterBlockCount, getRenderingSnapshot, setTimeOfDayForQA } from '@ts-minecraft/app/main/qa-api-rendering'
 import type { QaApi } from '@ts-minecraft/app/main/qa-api-types/api'
 import type { QaApiDeps } from '@ts-minecraft/app/main/qa-api-types/deps'
@@ -63,6 +63,7 @@ const makeQaApi = (
   stageBuildSupportBlock: () =>
     stageBuildSupportBlock(deps.camera, deps.scene, deps.chunkManagerService, deps.worldRendererService, deps.blockHighlight),
   dispatchMouseClick: (button: 0 | 1 | 2) => dispatchMouseClick(button),
+  setMouseHeldForQA: (button: 0 | 1 | 2, held: boolean) => setMouseHeldForQA(button, held),
   consumeMouseClickForQA: (button: 0 | 1 | 2) => Effect.runPromise(deps.inputService.consumeMouseClick(button)),
   getCurrentTargetForQA: () => Effect.runPromise(deps.blockHighlight.getTargetBlock()),
   attackFirstZombie: () => attackFirstZombie(deps.hotbarService, deps.entityManager),

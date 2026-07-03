@@ -568,6 +568,37 @@ describe('installQaApi', () => {
     await expect(getQaApi().giveItemForQA('NETHER_WART', 4)).resolves.toBe(true)
   })
 
+  it('setMouseHeldForQA dispatches a lone mousedown (hold) and mouseup (release)', async () => {
+    installWindow()
+    const { deps } = makeDeps()
+    await Effect.runPromise(installQaApi(deps))
+
+    const dispatched: Array<{ type: string; button: number }> = []
+    vi.stubGlobal('MouseEvent', class {
+      readonly type: string
+      readonly button: number
+      constructor(type: string, init: { button: number }) {
+        this.type = type
+        this.button = init.button
+      }
+    })
+    vi.stubGlobal('document', {
+      dispatchEvent: (e: { type: string; button: number }) => {
+        dispatched.push({ type: e.type, button: e.button })
+        return true
+      },
+    })
+
+    await getQaApi().setMouseHeldForQA(0, true)
+    await getQaApi().setMouseHeldForQA(0, false)
+    vi.unstubAllGlobals()
+
+    expect(dispatched).toEqual([
+      { type: 'mousedown', button: 0 },
+      { type: 'mouseup', button: 0 },
+    ])
+  })
+
   it('returns false when moving a missing block to the hotbar', async () => {
     installWindow()
     const { deps } = makeDeps()
