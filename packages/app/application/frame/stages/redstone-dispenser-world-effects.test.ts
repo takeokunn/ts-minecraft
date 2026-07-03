@@ -18,26 +18,67 @@ const dispenserAt = (
   state: { active: false, buttonTicksRemaining: 0, pistonExtended: false, pistonFacing },
 })
 
-const makeHarness = (options: { readonly power: number; readonly chestItem: string | null }) => {
+const makeHarness = (options: {
+  readonly power: number
+  readonly chestItem: string | null
+  readonly entities?: ReadonlyArray<{ entityId: string; position: Position }>
+}) => {
   let power = options.power
   const getPowerAt = vi.fn(() => Effect.sync(() => power))
   const withdrawOneFromChestAt = vi.fn(() =>
     Effect.succeed(options.chestItem === null ? Option.none() : Option.some(options.chestItem)))
   const spawn = vi.fn(() => Effect.succeed({} as never))
+  const getEntities = vi.fn(() => Effect.succeed(options.entities ?? []))
+  const applyDamage = vi.fn(() => Effect.succeed(Option.none()))
   return {
     setPower: (value: number) => { power = value },
     getPowerAt,
     withdrawOneFromChestAt,
     spawn,
+    getEntities,
+    applyDamage,
     services: {
       redstoneService: { getPowerAt },
       chestService: { withdrawOneFromChestAt },
       droppedItemService: { spawn },
+      entityManager: { getEntities, applyDamage },
     } as unknown as RedstoneDispenserWorldServices,
   }
 }
 
 describe('redstone dispenser world effects', () => {
+  it.effect('a dispensed ARROW hits the nearest entity in front as a projectile', () => {
+    const dispenser = dispenserAt({ x: 0, y: 64, z: 0 }, 'east')
+    const harness = makeHarness({
+      power: 15,
+      chestItem: 'ARROW',
+      entities: [
+        { entityId: 'far', position: { x: 6, y: 63.6, z: 0.5 } },
+        { entityId: 'near', position: { x: 3, y: 63.6, z: 0.5 } },
+        { entityId: 'behind', position: { x: -3, y: 63.6, z: 0.5 } },
+      ],
+    })
+
+    return applyDispenserWorldEffects(harness.services, [dispenser]).pipe(
+      Effect.tap(() => Effect.sync(() => {
+        expect(harness.applyDamage).toHaveBeenCalledWith('near', 5)
+        expect(harness.spawn).not.toHaveBeenCalled()
+      })),
+    )
+  })
+
+  it.effect('a dispensed ARROW with no target in range falls as a drop', () => {
+    const dispenser = dispenserAt({ x: 0, y: 64, z: 0 }, 'east')
+    const harness = makeHarness({ power: 15, chestItem: 'ARROW', entities: [] })
+
+    return applyDispenserWorldEffects(harness.services, [dispenser]).pipe(
+      Effect.tap(() => Effect.sync(() => {
+        expect(harness.applyDamage).not.toHaveBeenCalled()
+        expect(harness.spawn).toHaveBeenCalledTimes(1)
+      })),
+    )
+  })
+
   beforeEach(() => {
     resetDispenserState()
   })

@@ -5,7 +5,7 @@ import type { FrameHandlerServices } from '@ts-minecraft/app/application/frame/t
 
 export type RedstoneDispenserWorldServices = Pick<
   FrameHandlerServices,
-  'redstoneService' | 'chestService' | 'droppedItemService'
+  'redstoneService' | 'chestService' | 'droppedItemService' | 'entityManager'
 >
 
 const EJECT_DIRECTIONS: Readonly<Record<PistonFacing, { readonly x: number; readonly y: number; readonly z: number }>> = {
@@ -18,6 +18,11 @@ const EJECT_DIRECTIONS: Readonly<Record<PistonFacing, { readonly x: number; read
 }
 
 const EJECT_SPEED = 0.15
+// Fired-arrow hitscan: vanilla dispenser arrows deal ~3 hearts.
+const DISPENSED_ARROW_DAMAGE = 5
+const DISPENSED_ARROW_RANGE = 8
+const DISPENSED_ARROW_RADIUS = 0.9
+const ENTITY_CENTER_Y_OFFSET = 0.9
 
 const dispenserKey = (position: Position): string =>
   `${Math.floor(position.x)},${Math.floor(position.y)},${Math.floor(position.z)}`
@@ -64,6 +69,38 @@ export const applyDispenserWorldEffects = (
       if (itemType === null) continue
 
       const direction = EJECT_DIRECTIONS[component.state.pistonFacing ?? 'east']
+
+      // ARROWs fire as projectiles: hitscan along the facing axis hits the
+      // nearest entity within range; a miss falls to the ground as a
+      // pick-up-able arrow (vanilla behavior).
+      if (itemType === 'ARROW') {
+        const origin = {
+          x: base.x + 0.5 + direction.x,
+          y: base.y + 0.5 + direction.y,
+          z: base.z + 0.5 + direction.z,
+        }
+        const entities = yield* services.entityManager.getEntities()
+        let nearestId: (typeof entities)[number]['entityId'] | null = null
+        let nearestAlong = Number.POSITIVE_INFINITY
+        for (const entity of entities) {
+          const ex = entity.position.x - origin.x
+          const ey = entity.position.y + ENTITY_CENTER_Y_OFFSET - origin.y
+          const ez = entity.position.z - origin.z
+          const alongRay = ex * direction.x + ey * direction.y + ez * direction.z
+          if (alongRay < 0 || alongRay > DISPENSED_ARROW_RANGE) continue
+          const perpendicularSq = ex * ex + ey * ey + ez * ez - alongRay * alongRay
+          if (perpendicularSq > DISPENSED_ARROW_RADIUS * DISPENSED_ARROW_RADIUS) continue
+          if (alongRay < nearestAlong) {
+            nearestAlong = alongRay
+            nearestId = entity.entityId
+          }
+        }
+        if (nearestId !== null) {
+          yield* services.entityManager.applyDamage(nearestId, DISPENSED_ARROW_DAMAGE).pipe(Effect.asVoid)
+          continue
+        }
+      }
+
       yield* services.droppedItemService.spawn({
         itemType,
         count: 1,
