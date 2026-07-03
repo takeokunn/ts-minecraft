@@ -10,6 +10,7 @@ describe('SettingsSchema encode round-trip', () => {
     dayLengthSeconds: 400,
     difficulty: 'normal',
   reducedMotion: false,
+  uiScale: 1,
     graphicsQuality: 'high',
     adaptivePerformanceMode: false,
     audioEnabled: false, // NOTE: false intentionally — matches DEFAULT_SETTINGS in settings-service.ts

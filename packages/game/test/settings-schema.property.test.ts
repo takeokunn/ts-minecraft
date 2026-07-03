@@ -15,6 +15,7 @@ const BASE = {
   musicVolume: 0.55,
   difficulty: 'normal' as const,
   reducedMotion: false,
+  uiScale: 1,
 } as const
 
 const decode = Schema.decodeUnknownSync(SettingsSchema)

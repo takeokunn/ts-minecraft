@@ -8,7 +8,10 @@ import type { FrameHudServices } from '@ts-minecraft/app/frame/frame-service-typ
 import type { FrameSettingsServices } from '@ts-minecraft/app/frame/frame-service-types/settings'
 import { decideAdaptiveQuality } from '@ts-minecraft/app/frame/frame-adaptive-quality'
 import type { DeltaTimeSecs } from '@ts-minecraft/core'
-import { getAttackSwingOffset, isGameplayHudHidden } from '@ts-minecraft/presentation'
+import { applyHudScale, getAttackSwingOffset, isGameplayHudHidden } from '@ts-minecraft/presentation'
+
+// Change-gate for the HUD scale DOM write (visual-only module scratch).
+let lastAppliedUiScale = Number.NaN
 
 export const hudStage = (
   deps: Pick<FrameHandlerDeps, 'renderer'>,
@@ -23,6 +26,10 @@ export const hudStage = (
   },
 ): Effect.Effect<void, never> =>
   Effect.gen(function* () {
+    if (inputs.currentSettings.uiScale !== lastAppliedUiScale) {
+      lastAppliedUiScale = inputs.currentSettings.uiScale
+      applyHudScale(inputs.currentSettings.uiScale)
+    }
     const debugFlags = inputs.debugFlags
 
     // Feed the per-frame delta into the perf-HUD ring buffer. No-op when

@@ -49,6 +49,8 @@ export const SettingsSchema = Schema.Struct({
   // Accessibility: disables camera bob/roll and other non-essential motion.
   // optionalWith default keeps previously-saved settings decodable.
   reducedMotion: Schema.optionalWith(Schema.Boolean, { default: () => false }),
+  // Accessibility: scales the DOM HUD (bars, effects, counters). 1 = default.
+  uiScale: Schema.optionalWith(Schema.Number.pipe(Schema.between(0.75, 1.5)), { default: () => 1 }),
   graphicsQuality: GraphicsQuality,
   adaptivePerformanceMode: Schema.Boolean,
   // NOTE: audioEnabled defaults to false intentionally — do NOT change this to true.

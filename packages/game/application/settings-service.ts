@@ -15,6 +15,7 @@ const DEFAULT_SETTINGS: Settings = {
   dayLengthSeconds: 400,
   difficulty: 'normal',
   reducedMotion: false,
+  uiScale: 1,
   graphicsQuality: 'low',
   adaptivePerformanceMode: true,
   // NOTE: false intentionally — audio is disabled by default (see Schema comment above).

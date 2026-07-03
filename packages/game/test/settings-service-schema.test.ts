@@ -18,6 +18,7 @@ describe('application/settings/settings-service', () => {
       dayLengthSeconds: 400,
       difficulty: 'normal' as const,
   reducedMotion: false,
+  uiScale: 1,
       graphicsQuality: 'medium' as const,
       adaptivePerformanceMode: true,
       audioEnabled: false,
@@ -52,6 +53,7 @@ describe('application/settings/settings-service', () => {
         dayLengthSeconds: 120,
         difficulty: 'normal',
   reducedMotion: false,
+  uiScale: 1,
         graphicsQuality: 'medium',
         adaptivePerformanceMode: false,
         audioEnabled: false,
@@ -84,6 +86,8 @@ describe('application/settings/settings-service', () => {
         sfxVolume: 1.0,
         musicVolume: 0.55,
         reducedMotion: false,
+        uiScale: 1,
+  uiScale: 1,
       })
     })
 

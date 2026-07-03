@@ -7,6 +7,7 @@ export type SettingsOverlayDom = {
   readonly adaptivePerformanceInput: Option.Option<HTMLInputElement>
   readonly difficultySelect: Option.Option<HTMLSelectElement>
   readonly reducedMotionInput: Option.Option<HTMLInputElement>
+  readonly uiScaleInput: Option.Option<HTMLInputElement>
   readonly sensitivityInput: Option.Option<HTMLInputElement>
   readonly dayLengthInput: Option.Option<HTMLInputElement>
   readonly audioEnabledInput: Option.Option<HTMLInputElement>
@@ -75,6 +76,7 @@ export const buildSettingsOverlayDom = (dom: DomOperationsService): SettingsOver
       adaptivePerformanceInput: Option.none<HTMLInputElement>(),
       difficultySelect: Option.none<HTMLSelectElement>(),
       reducedMotionInput: Option.none<HTMLInputElement>(),
+      uiScaleInput: Option.none<HTMLInputElement>(),
       sensitivityInput: Option.none<HTMLInputElement>(),
       dayLengthInput: Option.none<HTMLInputElement>(),
       audioEnabledInput: Option.none<HTMLInputElement>(),
@@ -124,6 +126,11 @@ export const buildSettingsOverlayDom = (dom: DomOperationsService): SettingsOver
     <label style="${labelRowCss}">
       <input id="reduced-motion-input" type="checkbox" style="margin:0">
       <span>Reduce camera motion (bob/roll)</span>
+    </label>
+    <label style="${labelBlockCss}">
+      UI Scale: <span id="us-val">100%</span>
+      <input id="us-input" type="range" min="0.75" max="1.5" step="0.05" value="1"
+        style="${rangeCss}">
     </label>
     <label style="${labelBlockCss}">
       Render Distance: <span id="rd-val">4</span>
@@ -206,6 +213,7 @@ export const buildSettingsOverlayDom = (dom: DomOperationsService): SettingsOver
     qualitySelect: dom.querySelector<HTMLSelectElement>(el, '#quality-select'),
     difficultySelect: dom.querySelector<HTMLSelectElement>(el, '#difficulty-select'),
     reducedMotionInput: dom.querySelector<HTMLInputElement>(el, '#reduced-motion-input'),
+    uiScaleInput: dom.querySelector<HTMLInputElement>(el, '#us-input'),
     closeBtn: dom.querySelector<HTMLButtonElement>(el, '#settings-close'),
     gearBtn: Option.some(btn),
   }

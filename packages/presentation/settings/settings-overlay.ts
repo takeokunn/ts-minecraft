@@ -26,6 +26,7 @@ export class SettingsOverlayService extends Effect.Service<SettingsOverlayServic
         qualitySelect,
         difficultySelect,
         reducedMotionInput,
+        uiScaleInput,
         closeBtn,
         gearBtn,
       } = yield* Effect.sync(() => buildSettingsOverlayDom(dom))
@@ -85,6 +86,7 @@ export class SettingsOverlayService extends Effect.Service<SettingsOverlayServic
           sfxVolume: parseFloat(Option.getOrNull(sfxVolumeInput)?.value ?? '1'),
           musicVolume: parseFloat(Option.getOrNull(musicVolumeInput)?.value ?? '0.55'),
           reducedMotion: Option.getOrNull(reducedMotionInput)?.checked ?? false,
+          uiScale: parseFloat(Option.getOrNull(uiScaleInput)?.value ?? '1'),
           difficulty: (() => {
             const val = Option.getOrNull(difficultySelect)?.value
             if (!val) return 'normal' as const
@@ -139,6 +141,7 @@ export class SettingsOverlayService extends Effect.Service<SettingsOverlayServic
             if (dSel !== null) dSel.value = settings.difficulty
             const rmInput = Option.getOrNull(reducedMotionInput)
             if (rmInput !== null) rmInput.checked = settings.reducedMotion
+            syncInputAndLabel(uiScaleInput, '#us-val', String(settings.uiScale), formatVolumePercent)
           })
         })
 
@@ -267,6 +270,11 @@ export class SettingsOverlayService extends Effect.Service<SettingsOverlayServic
         runCommit()
       }
 
+      const handleUiScaleInput = () => {
+        updateInputLabel(uiScaleInput, '#us-val', formatVolumePercent)
+        runCommit()
+      }
+
       const handleDlInput = () => {
         updateInputLabel(dayLengthInput, '#dl-val')
         runCommit()
@@ -314,6 +322,7 @@ export class SettingsOverlayService extends Effect.Service<SettingsOverlayServic
         Option.getOrNull(adaptivePerformanceInput)?.addEventListener('change', handleAdaptivePerformanceChange)
         Option.getOrNull(difficultySelect)?.addEventListener('change', handleAdaptivePerformanceChange)
         Option.getOrNull(reducedMotionInput)?.addEventListener('change', handleAdaptivePerformanceChange)
+        Option.getOrNull(uiScaleInput)?.addEventListener('input', handleUiScaleInput)
         Option.getOrNull(renderDistanceInput)?.addEventListener('input', handleRdInput)
         Option.getOrNull(sensitivityInput)?.addEventListener('input', handleMsInput)
         Option.getOrNull(dayLengthInput)?.addEventListener('input', handleDlInput)
@@ -333,6 +342,7 @@ export class SettingsOverlayService extends Effect.Service<SettingsOverlayServic
         Option.getOrNull(adaptivePerformanceInput)?.removeEventListener('change', handleAdaptivePerformanceChange)
         Option.getOrNull(difficultySelect)?.removeEventListener('change', handleAdaptivePerformanceChange)
         Option.getOrNull(reducedMotionInput)?.removeEventListener('change', handleAdaptivePerformanceChange)
+        Option.getOrNull(uiScaleInput)?.removeEventListener('input', handleUiScaleInput)
         Option.getOrNull(renderDistanceInput)?.removeEventListener('input', handleRdInput)
         Option.getOrNull(sensitivityInput)?.removeEventListener('input', handleMsInput)
         Option.getOrNull(dayLengthInput)?.removeEventListener('input', handleDlInput)

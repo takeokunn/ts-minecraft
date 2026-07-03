@@ -34,6 +34,7 @@ export const DEFAULT_SETTINGS = {
   dayLengthSeconds: 400,
   difficulty: 'normal' as const,
   reducedMotion: false,
+  uiScale: 1,
   graphicsQuality: 'high' as const,
   adaptivePerformanceMode: false,
   audioEnabled: true,

@@ -50,3 +50,4 @@ export {
 } from './debug-overlay-panel-state'
 export { DebugOverlayService } from './debug-overlay'
 export * from './weather-visibility'
+export { applyHudScale } from './hud-scale'
