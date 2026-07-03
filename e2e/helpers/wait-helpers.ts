@@ -75,9 +75,25 @@ export async function waitForPauseMenu(page: Page, timeoutMs = 10_000): Promise<
 /**
  * Focus the game surface before sending Escape so the app-level input stage
  * receives the key even after a previous test left focus on a menu control.
+ *
+ * A single Escape can be swallowed when the canvas click's focus/pointer-lock
+ * handling races the key event (observed as a rare flake in multiplayer
+ * connect flows), so retry the press until the dialog appears — checking
+ * visibility BEFORE each re-press, because Escape on an open pause menu
+ * resumes the game and would undo a successful open.
  */
 export async function openPauseMenu(page: Page, timeoutMs = 10_000): Promise<void> {
   await page.locator('#game-canvas').click({ position: { x: 320, y: 240 }, timeout: 2_000 }).catch(() => undefined)
-  await page.keyboard.press('Escape')
-  await waitForPauseMenu(page, timeoutMs)
+  const dialog = page.getByRole('dialog', { name: 'Pause Menu' })
+  const deadline = Date.now() + timeoutMs
+  while (true) {
+    if (await dialog.isVisible().catch(() => false)) break
+    await page.keyboard.press('Escape')
+    const remaining = deadline - Date.now()
+    if (remaining <= 0) break
+    await dialog.waitFor({ state: 'visible', timeout: Math.min(2_500, remaining) }).catch(() => undefined)
+    if (await dialog.isVisible().catch(() => false)) break
+    if (Date.now() >= deadline) break
+  }
+  await waitForPauseMenu(page, Math.max(1_000, deadline - Date.now()))
 }
