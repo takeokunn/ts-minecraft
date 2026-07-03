@@ -30,11 +30,14 @@ export const syncVillagerEntities = (
       }).length
       const missing = village.villagers.length - present
       for (let i = 0; i < missing; i++) {
-        const home = village.villagers[i]!
+        // Spawn around the village CENTER, which is grounded to terrain at
+        // placement — domain villager positions sit atop structures (roofs),
+        // so spawning there stranded villagers on rooftops. Gravity settles
+        // the small headroom onto the ground.
         yield* entityManager.addEntity('Villager', {
-          x: home.position.x,
-          y: home.position.y + 0.9,
-          z: home.position.z,
+          x: village.center.x + (i - (missing - 1) / 2) * 1.5,
+          y: village.center.y + 1.9,
+          z: village.center.z + 1.5,
         })
         spawned++
       }
