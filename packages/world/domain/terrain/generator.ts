@@ -22,6 +22,7 @@ import { writeJungleTempleForChunk } from './jungle-temple'
 import { writeDesertTempleForChunk } from './desert-temple'
 import { writeOceanMonumentForChunk } from './ocean-monument'
 import { writeWoodlandMansionForChunk } from './woodland-mansion'
+import { RAVINE_NOISE_SCALE, RAVINE_WORLD_OFFSET, carveRavines } from './ravine-carver'
 
 export const generateTerrain = (
   chunkService: ChunkFactory,
@@ -134,6 +135,29 @@ export const generateTerrain = (
 
     yield* placeChunkTrees(blocks, baseWorldX, baseWorldZ, resolveTreeColumnContext, terrainLevels)
     placeChunkPlants(blocks, baseWorldX, baseWorldZ, columnStates)
+
+    // Ravines: narrow noise-band canyons sliced after decoration so their
+    // walls cut cleanly through ores and surface cover.
+    const ravineXs = new Array<number>(CHUNK_SIZE * CHUNK_SIZE)
+    const ravineZs = new Array<number>(CHUNK_SIZE * CHUNK_SIZE)
+    let ravineIndex = 0
+    for (let lx = 0; lx < CHUNK_SIZE; lx++) {
+      const rx = (baseWorldX + lx + RAVINE_WORLD_OFFSET) * RAVINE_NOISE_SCALE
+      for (let lz = 0; lz < CHUNK_SIZE; lz++) {
+        ravineXs[ravineIndex] = rx
+        ravineZs[ravineIndex] = (baseWorldZ + lz + RAVINE_WORLD_OFFSET) * RAVINE_NOISE_SCALE
+        ravineIndex++
+      }
+    }
+    const ravineNoiseVals = yield* noiseService.noise2DBatchXY(ravineXs, ravineZs)
+    carveRavines(
+      blocks,
+      ravineNoiseVals,
+      columnStates,
+      blockIndices.airBlockIndex,
+      blockIndices.lavaBlockIndex,
+      blockIndices.bedrockBlockIndex,
+    )
 
     // Stronghold end-portal rooms: final pass so the room shell carves
     // through caves/ores (pure world-coordinate function — see stronghold.ts).
