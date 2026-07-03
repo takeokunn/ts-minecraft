@@ -40,7 +40,12 @@ export class RaycastingService extends Effect.Service<RaycastingService>()(
             // so we can skip recursive traversal and save per-frame tree walking.
             const intersects = raycaster.intersectObjects(scene.children, false)
 
-            const hit = intersects[0] ?? null
+            // Take the nearest intersection that carries face data (a solid
+            // triangle mesh). Face-less hits — LineSegments (block highlight),
+            // Points/Sprites (particles) — are overlay objects, not world
+            // geometry; treating intersects[0] as THE hit let them mask the
+            // terrain behind and clear the block target.
+            const hit = intersects.find((intersection) => intersection.face != null) ?? null
             if (hit === null) return Option.none()
             const face = hit.face ?? null
             if (face === null) return Option.none()

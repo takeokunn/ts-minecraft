@@ -12,6 +12,7 @@ export type QaApi = {
   readonly spawnLowHealthZombieInFront: () => Promise<void>
   readonly aimAtStagedResource: (resourceIndex: number) => Promise<void>
   readonly aimAtBuildSpot: () => Promise<void>
+  readonly aimNaturalForQA: (target: { x: number; y: number; z: number }) => Promise<void>
   readonly aimAtStagedZombie: () => Promise<void>
   readonly clearBlocksInFront: () => Promise<void>
   readonly stageBuildSupportBlock: () => Promise<void>

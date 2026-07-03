@@ -19,7 +19,14 @@ export const createWireframeCube = (color: number = DEFAULT_HIGHLIGHT_COLOR): TH
     color,
     linewidth: 2,
   })
-  return new THREE.LineSegments(edges, material)
+  const cube = new THREE.LineSegments(edges, material)
+  // The highlight must never intercept the targeting ray: Raycaster tests line
+  // segments with a fat threshold and IGNORES `visible`, so the cube drawn
+  // around the current target block became the closest hit on the very next
+  // frame — face-less LineSegments hit → target cleared → flicker, and
+  // hold-to-break progress could never accumulate.
+  cube.raycast = () => {}
+  return cube
 }
 
 // ─── CameraPose ──────────────────────────────────────────────────────────────

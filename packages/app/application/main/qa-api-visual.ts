@@ -16,7 +16,11 @@ const makeSetAimForQA = (
     const dx = target.x - camera.position.x
     const dy = target.y - camera.position.y
     const dz = target.z - camera.position.z
-    const yaw = Math.atan2(dx, -dz)
+    // three.js YXZ camera forward = (−cosP·sinYaw, sinP, −cosP·cosYaw), so the
+    // yaw that faces (dx,dz) is atan2(−dx, −dz). The old atan2(dx, −dz) MIRRORED
+    // every aim across the x-axis — unnoticed because the other aim helpers force
+    // the highlight target anyway; aimNaturalForQA relies on the real raycast.
+    const yaw = Math.atan2(-dx, -dz)
     const pitch = Math.atan2(dy, Math.hypot(dx, dz))
     yield* playerCameraState.setYaw(yaw)
     yield* playerCameraState.setPitch(pitch)
@@ -80,6 +84,24 @@ export const aimAtBuildSpot = (
         blockZ: wz,
       },
     )
+  }))
+
+// Aims the camera at a world position WITHOUT forcing a highlight override —
+// the block target comes from the real per-frame raycast against the scene,
+// exercising the same targeting path a mouse-driven player uses. This is the
+// only QA aim that validates raycast block resolution (aimAtBuildSpot and
+// aimAtStagedResource both force the target and bypass it).
+export const aimNaturalForQA = (
+  camera: THREE.PerspectiveCamera,
+  scene: THREE.Scene,
+  playerCameraState: PlayerCameraStateService,
+  blockHighlight: BlockHighlightService,
+  target: Position,
+) =>
+  Effect.runPromise(Effect.gen(function* () {
+    yield* blockHighlight.clearTargetForQA()
+    const setAimForQA = makeSetAimForQA(camera, scene, playerCameraState, blockHighlight)
+    yield* setAimForQA(target)
   }))
 
 export const aimAtStagedZombie = (
