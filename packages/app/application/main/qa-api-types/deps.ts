@@ -23,6 +23,7 @@ export type QaApiDeps = {
   readonly gameState: GameStateService
   readonly timeService: TimeService
   readonly weatherService: import('@ts-minecraft/game').WeatherService
+  readonly netherService: { readonly getDimension: () => import('effect').Effect.Effect<'overworld' | 'nether' | 'end', never>; readonly setDimension: (d: 'overworld' | 'nether' | 'end') => import('effect').Effect.Effect<void, never> }
   readonly chunkManagerService: ChunkManagerService
   readonly blockService: BlockService
   readonly hotbarService: HotbarService

@@ -65,6 +65,15 @@ const makeQaApi = (
   dispatchMouseClick: (button: 0 | 1 | 2) => dispatchMouseClick(button),
   setMouseHeldForQA: (button: 0 | 1 | 2, held: boolean) => setMouseHeldForQA(button, held),
   setWeatherForQA: (weather: 'clear' | 'rain' | 'thunder') => Effect.runPromise(deps.weatherService.setWeather(weather)),
+  // Mirrors the portal-travel core (physics-stage-portal.ts): dimension flag,
+  // chunk-cache switch, respawn. Skips portal construction — QA teleports.
+  setDimensionForQA: (dimension: 'overworld' | 'nether' | 'end') =>
+    Effect.runPromise(Effect.gen(function* () {
+      yield* deps.netherService.setDimension(dimension)
+      yield* deps.chunkManagerService.setActiveDimension(dimension)
+      const spawnY = dimension === 'nether' ? 70 : 80
+      yield* deps.gameState.respawn({ x: 8, y: spawnY, z: 8 })
+    })),
   consumeMouseClickForQA: (button: 0 | 1 | 2) => Effect.runPromise(deps.inputService.consumeMouseClick(button)),
   getCurrentTargetForQA: () => Effect.runPromise(deps.blockHighlight.getTargetBlock()),
   attackFirstZombie: () => attackFirstZombie(deps.hotbarService, deps.entityManager),

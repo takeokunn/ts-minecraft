@@ -38,6 +38,7 @@ export type SessionRuntimeOverlayServices = Pick<
   | 'chunkManagerService'
   | 'timeService'
   | 'weatherService'
+  | 'netherService'
   | 'debugFeatureFlags'
   | 'pauseMenu'
   | 'worldRendererService'
@@ -253,6 +254,7 @@ export const installSessionRuntimeOverlays = (
       chunkManagerService,
       timeService,
       weatherService,
+      netherService,
       debugFeatureFlags,
       multiplayer,
       pauseMenu,
@@ -272,6 +274,7 @@ export const installSessionRuntimeOverlays = (
       gameState,
       timeService,
       weatherService,
+      netherService,
       chunkManagerService,
       blockService,
       hotbarService,

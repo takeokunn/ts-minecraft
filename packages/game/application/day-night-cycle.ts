@@ -27,9 +27,14 @@ export const applyEndEnvironment = (lights: DayNightLightsPort): void => {
 // but the visual result is always dark red regardless of time-of-day.
 export const applyNetherEnvironment = (lights: DayNightLightsPort): void => {
   lights.light.intensity = 0              // no sun in the nether
-  lights.ambientLight.intensity = 0.2
-  lights.ambientLight.color.setHSL(0.04, 0.8, 0.3)   // dark orange-red ambient
-  lights.skyCurrent.setHSL(0.02, 0.9, 0.04)           // near-black red background
+  // Tuned for the white-ambient/NoToneMapping model: the nether has no sky
+  // light, so the terrain shader sits at its 0.45 floor and the scene ambient
+  // is the only brightness lever. 0.9 x warm-red (L 0.55) lands overall
+  // luminance near the verified moonlit-night level — dim but readable, red.
+  // (The old 0.2 x dark-red was ~0.06 effective: the nether rendered black.)
+  lights.ambientLight.intensity = 0.9
+  lights.ambientLight.color.setHSL(0.05, 0.5, 0.55)  // warm orange-red ambient
+  lights.skyCurrent.setHSL(0.02, 0.85, 0.09)          // deep red haze background
   lights.renderer.setClearColor(lights.skyCurrent)
   hideMoon(lights)
 }

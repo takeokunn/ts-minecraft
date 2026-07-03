@@ -135,10 +135,12 @@ const makeDeps = () => {
   )
 
   const setWeather = vi.fn((_w: unknown) => Effect.void)
+  const setDimension = vi.fn((_d: unknown) => Effect.void)
 
   return {
     spies: {
       setWeather,
+      setDimension,
       consumeMouseClick,
       getEntities,
       toggleInventory,
@@ -250,6 +252,10 @@ const makeDeps = () => {
         getWeather: () => Effect.succeed('clear' as const),
         setWeather,
       },
+      netherService: {
+        getDimension: () => Effect.succeed('overworld' as const),
+        setDimension: setDimension,
+      },
       timeService: {
         getTimeOfDay: () => Effect.succeed(0.5),
         getMoonPhase: () => Effect.succeed(0),
@@ -261,6 +267,7 @@ const makeDeps = () => {
         _tag: '@minecraft/application/TimeService',
       },
       chunkManagerService: {
+        setActiveDimension: (_d: unknown) => Effect.void,
         getChunk,
         loadChunksAroundPlayer: () => Effect.succeed(true),
         getLoadedChunks: () => Effect.succeed([]),
@@ -613,6 +620,15 @@ describe('installQaApi', () => {
 
     await getQaApi().setWeatherForQA('rain')
     expect(spies.setWeather).toHaveBeenCalledWith('rain')
+  })
+
+  it('setDimensionForQA switches dimension, chunk cache, and respawns', async () => {
+    installWindow()
+    const { deps, spies } = makeDeps()
+    await Effect.runPromise(installQaApi(deps))
+
+    await getQaApi().setDimensionForQA('nether')
+    expect(spies.setDimension).toHaveBeenCalledWith('nether')
   })
 
   it('returns false when moving a missing block to the hotbar', async () => {

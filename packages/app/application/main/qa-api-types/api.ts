@@ -24,6 +24,7 @@ export type QaApi = {
   readonly giveItemForQA: (itemType: InventoryItem, count: number) => Promise<boolean>
   readonly setMouseHeldForQA: (button: 0 | 1 | 2, held: boolean) => Promise<void>
   readonly setWeatherForQA: (weather: 'clear' | 'rain' | 'thunder') => Promise<void>
+  readonly setDimensionForQA: (dimension: 'overworld' | 'nether' | 'end') => Promise<void>
   readonly selectHotbarSlot: (hotbarIndex: number) => Promise<void>
   readonly getRecipeButtons: () => ReadonlyArray<string>
   readonly getEntitySnapshot: () => Promise<ReadonlyArray<{ entityId: string; type: string }>>
