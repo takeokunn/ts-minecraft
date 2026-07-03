@@ -16,21 +16,23 @@ export default defineConfig(({ command, mode }) => {
         allow: ['..'],
         deny: ['node_modules/.vite', 'test'],
       },
-      port: env.VITE_PORT ? Number(env.VITE_PORT) : 5173,
+      // Default moved off vite's stock 5173/5174 — other projects on this
+      // machine grab those first and the instances fight over the port.
+      port: env.VITE_PORT ? Number(env.VITE_PORT) : 5273,
       host: '0.0.0.0',
       strictPort: false,
       open: false,
       cors: {
-        origin: ['http://localhost:5173', 'http://127.0.0.1:5173'],
+        origin: ['http://localhost:5273', 'http://127.0.0.1:5273'],
         credentials: true,
       },
       hmr:
         env.VITE_E2E_DISABLE_HMR === '1'
           ? false
           : {
-              port: env.VITE_HMR_PORT ? Number(env.VITE_HMR_PORT) : 5174,
+              port: env.VITE_HMR_PORT ? Number(env.VITE_HMR_PORT) : 5274,
               overlay: true,
-              clientPort: env.VITE_HMR_CLIENT_PORT ? Number(env.VITE_HMR_CLIENT_PORT) : 5174,
+              clientPort: env.VITE_HMR_CLIENT_PORT ? Number(env.VITE_HMR_CLIENT_PORT) : 5274,
             },
       proxy: isDev
         ? {
