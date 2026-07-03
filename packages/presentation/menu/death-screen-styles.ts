@@ -1,27 +1,30 @@
 const Z_INDEX = 1100
 
+// Vanilla death screen: a translucent deep-red full-screen tint with the big
+// shadowed "YOU DIED" floating over the world — no opaque dialog panel.
+// Buttons share the beveled look from main-menu-styles.
+const SANS_FONT = "system-ui,-apple-system,'Segoe UI',sans-serif"
+
 export const BACKDROP_STYLE = [
   'position:fixed',
   'top:0',
   'left:0',
   'width:100vw',
   'height:100vh',
-  'background:rgba(85,8,8,0.55)',
+  'background:rgba(96,10,10,0.6)',
   'display:none',
   'align-items:center',
   'justify-content:center',
   `z-index:${Z_INDEX}`,
-  'font-family:"Courier New",monospace',
+  `font-family:${SANS_FONT}`,
 ].join(';')
 
 export const PANEL_STYLE = [
-  'background:#c6c6c6',
-  'color:#202020',
+  'background:transparent',
+  'color:#f0f0f0',
   'padding:24px 34px',
-  'width:min(420px,calc(100vw - 32px))',
+  'width:min(460px,calc(100vw - 32px))',
   'box-sizing:border-box',
-  'border:2px solid #111',
-  'box-shadow:inset 3px 3px #fff,inset -3px -3px #555,0 12px 0 rgba(0,0,0,0.55)',
   'display:flex',
   'flex-direction:column',
   'align-items:stretch',
@@ -29,22 +32,22 @@ export const PANEL_STYLE = [
 ].join(';')
 
 export const TITLE_STYLE = [
-  'font-size:32px',
-  'font-weight:bold',
+  'font-size:52px',
+  'font-weight:900',
   'text-align:center',
-  'color:#ff5555',
+  'color:#ffffff',
   'margin-bottom:12px',
-  'letter-spacing:0',
-  'text-shadow:2px 2px #3f0000',
+  'letter-spacing:2px',
+  'text-shadow:3px 3px 0 #3f0000',
 ].join(';')
 
 export const MESSAGE_STYLE = [
-  'font-size:15px',
+  'font-size:16px',
   'line-height:1.35',
   'min-height:20px',
   'text-align:center',
-  'color:#2d2d2d',
-  'text-shadow:1px 1px #fff',
+  'color:#ffe9e9',
+  'text-shadow:1px 1px 0 #3f0000',
   'margin-top:-8px',
   'margin-bottom:4px',
 ].join(';')
@@ -53,21 +56,26 @@ export const HELP_STYLE = [
   'font-size:12px',
   'line-height:1.45',
   'text-align:center',
-  'color:#3a3a3a',
-  'text-shadow:1px 1px #fff',
+  'color:#e8c9c9',
+  'text-shadow:1px 1px 0 #3f0000',
   'margin:-4px 0 2px',
 ].join(';')
 
 export const BUTTON_STYLE = [
-  'padding:10px 18px',
-  'background:#737373',
-  'color:#fff',
-  'border:2px solid #111',
-  'box-shadow:inset 2px 2px #bcbcbc,inset -2px -2px #2d2d2d',
+  'padding:9px 18px',
+  'min-height:40px',
+  'background-color:#6d6d6d',
+  'background-image:linear-gradient(180deg,#7e7e7e 0%,#6d6d6d 52%,#5c5c5c 100%)',
+  'color:#e0e0e0',
+  'border:2px solid #000',
+  'box-shadow:inset 2px 2px 0 rgba(255,255,255,0.35),inset -2px -2px 0 rgba(0,0,0,0.35)',
   'cursor:pointer',
-  'font-family:"Courier New",monospace',
-  'font-size:14px',
+  `font-family:${SANS_FONT}`,
+  'font-size:15px',
+  'font-weight:600',
+  'letter-spacing:0.5px',
   'min-width:220px',
   'text-align:center',
-  'text-shadow:2px 2px #222',
+  'text-shadow:1px 1px 0 #383838',
+  'image-rendering:pixelated',
 ].join(';')
