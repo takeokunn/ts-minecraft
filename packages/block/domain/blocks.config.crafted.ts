@@ -160,6 +160,13 @@ new Block({
     faces: defaultBlockFaces,
   }),
   new Block({
+    id: makeBlockId('block:hopper'),
+    type: 'HOPPER',
+    // Vanilla hopper hardness 3.0; solid full cube in this voxel model.
+    properties: { hardness: 55, transparency: false, solid: true, emissive: false, friction: 0.6 },
+    faces: defaultBlockFaces,
+  }),
+  new Block({
     id: makeBlockId('block:redstone_lamp'),
     type: 'REDSTONE_LAMP',
     // Vanilla lamp hardness 0.3 -> soft; unlit emits nothing.

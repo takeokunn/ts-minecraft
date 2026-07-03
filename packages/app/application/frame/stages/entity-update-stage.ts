@@ -26,6 +26,7 @@ import { dragonDeathStage } from '@ts-minecraft/app/application/frame/stages/dra
 import { applyPistonWorldEffects } from '@ts-minecraft/app/application/frame/stages/redstone-piston-world-effects'
 import { applyLampWorldEffects } from '@ts-minecraft/app/application/frame/stages/redstone-lamp-world-effects'
 import { applyObserverWorldEffects } from '@ts-minecraft/app/application/frame/stages/redstone-observer-world-effects'
+import { applyHopperWorldEffects } from '@ts-minecraft/app/application/frame/stages/redstone-hopper-world-effects'
 import { REDSTONE_TICK_INTERVAL_SECS, FLUID_TICK_INTERVAL_SECS } from '@ts-minecraft/app/frame-handler.config'
 import { CHUNK_SIZE, type DeltaTimeSecs, type Position } from '@ts-minecraft/core'
 
@@ -173,7 +174,7 @@ export const entityUpdateStage = (
   deps: Pick<FrameHandlerDeps, 'scene' | 'camera'>,
   services: Pick<
     FrameHandlerServices,
-    'chunkManagerService' | 'droppedItemService' | 'droppedXpOrbService' | 'droppedItemRenderer' | 'droppedXpOrbRenderer' | 'entityManager' | 'entityRenderer' | 'redstoneService' | 'fluidService' | 'particleSystem' | 'inventoryService' | 'equipmentService' | 'xpService' | 'blockService' | 'soundManager'
+    'chunkManagerService' | 'droppedItemService' | 'droppedXpOrbService' | 'droppedItemRenderer' | 'droppedXpOrbRenderer' | 'entityManager' | 'entityRenderer' | 'redstoneService' | 'fluidService' | 'particleSystem' | 'inventoryService' | 'equipmentService' | 'xpService' | 'blockService' | 'soundManager' | 'chestService'
   >,
   refs: Pick<
     FrameStageRefs,
@@ -394,6 +395,7 @@ export const entityUpdateStage = (
               redstoneComponentsAfterTick,
             )
             yield* applyObserverWorldEffects(services, redstoneComponentsAfterTick)
+            yield* applyHopperWorldEffects(services, redstoneComponentsAfterTick)
             yield* applyLampWorldEffects(services, refs, redstoneComponentsAfterTick)
           }),
           inputs.deltaTime,

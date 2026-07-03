@@ -1946,6 +1946,20 @@ saveTile(138, 'potion-healing-ii', (ctx) => drawBottle(ctx, '#a51f1f'))
 // 139: extended swiftness — pale, airy tint for the long-clock brew.
 saveTile(139, 'potion-swiftness-long', (ctx) => drawBottle(ctx, '#8fd0f5'))
 
+// 141: hopper — dark iron funnel mouth.
+saveTile(141, 'hopper', (ctx) => {
+  ctx.fillStyle = '#4a4a4a'
+  ctx.fillRect(0, 0, TILE_PX, TILE_PX)
+  drawNoise(ctx, ['#555555', '#3d3d3d', '#474747'], 0.3)
+  // funnel rim
+  ctx.strokeStyle = '#2e2e2e'
+  ctx.lineWidth = 2
+  ctx.strokeRect(1, 1, TILE_PX - 2, TILE_PX - 2)
+  // dark intake mouth
+  ctx.fillStyle = '#1f1f1f'
+  ctx.fillRect(7, 7, TILE_PX - 14, TILE_PX - 14)
+})
+
 // 140: observer — stone body with a redstone 'eye' watching face.
 saveTile(140, 'observer', (ctx) => {
   ctx.fillStyle = '#7e7e7e'

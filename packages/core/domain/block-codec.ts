@@ -59,6 +59,8 @@ export const INDEX_TO_BLOCK_TYPE: ReadonlyArray<BlockType> = [
   'PRISMARINE',
   // Redstone observer - index 108
   'OBSERVER',
+  // Item-transport hopper - index 109
+  'HOPPER',
 ]
 
 export const BLOCK_COUNT = INDEX_TO_BLOCK_TYPE.length

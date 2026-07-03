@@ -43,6 +43,7 @@ export const REDSTONE_PLACE_BUTTON_KEY = 'KeyB'
 export const REDSTONE_PLACE_TORCH_KEY  = 'KeyO'
 export const REDSTONE_PLACE_PISTON_KEY = 'KeyP'
 export const REDSTONE_PLACE_OBSERVER_KEY = 'KeyV'
+export const REDSTONE_PLACE_HOPPER_KEY = 'KeyH'
 
 export const REDSTONE_TOGGLE_LEVER_KEY  = 'KeyY'
 export const REDSTONE_PRESS_BUTTON_KEY  = 'KeyU'

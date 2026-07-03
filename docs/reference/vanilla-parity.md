@@ -87,7 +87,8 @@ Chicken, Bat, Squid, Bee.
 | Wire, torch, lever, button, pressure plate, repeater, lamp | ✅ | signal propagation sim (`getPowerAt`) |
 | Piston | 🟡 | placement-oriented (all 6 facings incl. up/down): pushes one movable block on the extend edge, **pulls it back on the falling edge** (sticky semantics). Unit-tested: occupied-cell refusals both ways, edge-only triggering, immovable list, legacy-east default, vertical push. Limitation: no extended-arm visual, no regular/sticky distinction |
 | Observer | ✅ | pulses on watched-block change (placement-facing, all 6 directions; first sighting arms without pulsing; button-style 2-tick pulse into the power graph) |
-| Comparators, hoppers, dispensers | ❌ | |
+| Hopper | ✅ | placed with KeyH; transfers resting drops into the chest directly below (lazy chest-state materialization, overflow re-spawned — items never destroyed). Simplified vs vanilla: no internal buffer, down-only, no container-to-container pull |
+| Comparators, dispensers | ❌ | |
 
 ## Multiplayer (co-op)
 
@@ -125,7 +126,7 @@ Chicken, Bat, Squid, Bee.
 
 - Modding / plugin / datapack API — none (out of scope for a clone core).
 - Boats & minecarts — items exist; ride-able entities not implemented.
-- Redstone: comparators, hoppers, dispensers, pistons-push-entities.
+- Redstone: comparators, dispensers, pistons-push-entities.
 - Ocean depth content (guardians, kelp forests), amethyst/deepslate caves biome variety.
 - Audio on localhost is force-disabled by environment policy (engine unit-tested; needs non-localhost origin for live validation).
 - Multiplayer beyond small co-op (no server-authoritative physics, no interest management).

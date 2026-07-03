@@ -125,4 +125,5 @@ export const TILE_MAP: ReadonlyArray<Readonly<Record<TextureFaceDir, number>>> =
   { top: 135, bottom: 135, side: 135 }, // 106: SANDSTONE
   { top: 136, bottom: 136, side: 136 }, // 107: PRISMARINE
   { top: 140, bottom: 1, side: 140 }, // 108: OBSERVER (watch-face tile, stone bottom)
+  { top: 141, bottom: 141, side: 141 }, // 109: HOPPER
 ]

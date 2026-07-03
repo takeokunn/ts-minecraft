@@ -1,5 +1,5 @@
 import { Array as Arr, Effect, HashMap, Option, Ref } from 'effect'
-import { SlotIndex } from '@ts-minecraft/core'
+import { SlotIndex, blockTypeToIndex } from '@ts-minecraft/core'
 import { PlayerServicePort, WorldBlockQueryPort } from '@ts-minecraft/world'
 import { InventoryService } from './inventory-service'
 import type { InventorySlots } from './inventory-service-types'
@@ -15,6 +15,8 @@ import {
   type ChestState,
   INITIAL_CHEST_STATE,
   chestKey,
+  depositIntoChest,
+  emptyChestAtPosition,
   setChestState,
 } from '../domain/chest-service-utils'
 import { makeChestHelpers } from './chest-service-helpers'
@@ -159,6 +161,27 @@ export class ChestService extends Effect.Service<ChestService>()(
               return { ...chest, slots: Arr.modify(chestSlots, chestIndex, () => removeFromStack(source, moved)) }
             })
             if (nextInventorySlots !== inventorySlots) yield* writeInventorySlots(inventoryService, nextInventorySlots)
+          }),
+
+        // Positional deposit for automation (hoppers): requires an actual
+        // CHEST block at the position (never-opened chests materialize their
+        // state lazily here). Returns how many items were stored.
+        depositIntoChestAt: (
+          position: { readonly x: number; readonly y: number; readonly z: number },
+          itemType: ChestItemStack['itemType'],
+          count: number,
+        ): Effect.Effect<number, never> =>
+          Effect.gen(function* () {
+            const blockIndexOpt = yield* worldBlockQueryPort.getBlockIndexAt(position)
+            const isChestBlock = Option.isSome(blockIndexOpt) && blockIndexOpt.value === blockTypeToIndex('CHEST')
+            if (!isChestBlock) return 0
+            return yield* Ref.modify(stateRef, (state): [number, ChestState] => {
+              const existing = Option.getOrNull(HashMap.get(state.chests, chestKey(position)))
+              const chest = existing ?? emptyChestAtPosition(position)
+              const result = depositIntoChest(chest, itemType, count)
+              if (result.deposited === 0) return [0, state]
+              return [result.deposited, setChestState(state, result.chest)]
+            })
           }),
 
         clearChest: (position: { readonly x: number; readonly y: number; readonly z: number }): Effect.Effect<ReadonlyArray<ChestItemStack>, never> =>

@@ -129,6 +129,7 @@ export const buildIntegrationLayer = (playerPos: Position = { x: 100, y: 0, z: 1
     quickMoveInventoryToChest: () => Effect.void,
     quickMoveChestToInventory: () => Effect.void,
     clearChest: () => Effect.succeed([]),
+    depositIntoChestAt: () => Effect.succeed(0),
     dismantleChest: () => Effect.succeed(true),
     serialize: () => Effect.succeed([]),
     deserialize: () => Effect.void,
