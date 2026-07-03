@@ -21,6 +21,7 @@ export type QaApi = {
   readonly attackFirstZombie: () => Promise<boolean>
   readonly placeSelectedItemInFront: () => Promise<void>
   readonly moveItemToHotbar: (itemType: InventoryItem, hotbarIndex: number) => Promise<boolean>
+  readonly giveItemForQA: (itemType: InventoryItem, count: number) => Promise<boolean>
   readonly selectHotbarSlot: (hotbarIndex: number) => Promise<void>
   readonly getRecipeButtons: () => ReadonlyArray<string>
   readonly getEntitySnapshot: () => Promise<ReadonlyArray<{ entityId: string; type: string }>>

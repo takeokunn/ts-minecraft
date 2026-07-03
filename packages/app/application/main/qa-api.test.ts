@@ -560,6 +560,14 @@ describe('installQaApi', () => {
     expect(spies.setSelectedSlot).toHaveBeenCalledWith(4)
   })
 
+  it('giveItemForQA grants an item via inventory addBlock', async () => {
+    installWindow()
+    const { deps } = makeDeps()
+    await Effect.runPromise(installQaApi(deps))
+
+    await expect(getQaApi().giveItemForQA('NETHER_WART', 4)).resolves.toBe(true)
+  })
+
   it('returns false when moving a missing block to the hotbar', async () => {
     installWindow()
     const { deps } = makeDeps()

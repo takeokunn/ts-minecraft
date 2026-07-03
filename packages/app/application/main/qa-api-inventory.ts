@@ -25,6 +25,20 @@ export const getInventorySnapshot = (inventoryService: InventoryService) =>
 export const openInventoryForQA = (inventoryRenderer: InventoryRendererService) =>
   Effect.runPromise(inventoryRenderer.toggle())
 
+// Grants an arbitrary item without staging blocks in the world — playtests of
+// crafting/eating/planting flows shouldn't need to mine their inputs first.
+export const giveItemForQA = (
+  inventoryService: InventoryService,
+  itemType: InventoryItem,
+  count: number,
+) =>
+  Effect.runPromise(
+    inventoryService.addBlock(itemType, Math.max(1, Math.floor(count))).pipe(
+      Effect.as(true),
+      Effect.catchAll(() => Effect.succeed(false)),
+    ),
+  )
+
 export const moveItemToHotbar = (
   inventoryService: InventoryService,
   hotbarService: HotbarService,
