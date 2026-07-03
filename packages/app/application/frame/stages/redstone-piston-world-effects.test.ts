@@ -31,6 +31,7 @@ const pistonAt = (
 const makeHarness = (
   entries: ReadonlyArray<readonly [Position, BlockType]>,
   entities: ReadonlyArray<{ entityId: string; position: Position }> = [],
+  playerPos: Position | null = null,
 ) => {
   const blocks = new Map<string, BlockType>()
   for (const [position, blockType] of entries) {
@@ -48,6 +49,8 @@ const makeHarness = (
   const dirtyChunksRef = MutableRef.make(HashMap.empty<string, unknown>())
   const getEntities = vi.fn(() => Effect.succeed(entities))
   const applyKnockback = vi.fn(() => Effect.void)
+  const getPlayerPosition = vi.fn(() => Effect.succeed(playerPos ?? { x: 1000, y: 64, z: 1000 }))
+  const setPlayerPosition = vi.fn(() => Effect.void)
 
   return {
     blocks,
@@ -55,11 +58,14 @@ const makeHarness = (
     dirtyChunksRef,
     getEntities,
     applyKnockback,
+    getPlayerPosition,
+    setPlayerPosition,
     refs: { dirtyChunksRef } as unknown as RedstonePistonWorldRefs,
     services: {
       blockService: { getBlock, forceSetBlock },
       chunkManagerService: { getChunk },
       entityManager: { getEntities, applyKnockback },
+      gameState: { getPlayerPosition, setPlayerPosition },
     } as unknown as RedstonePistonWorldServices,
   }
 }
@@ -316,6 +322,38 @@ describe('piston entity shove', () => {
         const [id, impulse] = harness.applyKnockback.mock.calls[0]! as unknown as [string, { x: number; y: number; z: number }]
         expect(id).toBe('mob-in-cell')
         expect(impulse.x).toBeGreaterThan(0)
+      })),
+    )
+  })
+
+  it.effect('the player standing in the head cell is shifted one cell', () => {
+    const piston = { x: 0, y: 64, z: 0 }
+    const harness = makeHarness([], [], { x: 1.5, y: 64.9, z: 0.5 })
+
+    return applyPistonWorldEffects(
+      harness.services,
+      harness.refs,
+      [pistonAt(piston, false)],
+      [pistonAt(piston, true)],
+    ).pipe(
+      Effect.tap(() => Effect.sync(() => {
+        expect(harness.setPlayerPosition).toHaveBeenCalledWith({ x: 2.5, y: 64.9, z: 0.5 })
+      })),
+    )
+  })
+
+  it.effect('a distant player is not shifted', () => {
+    const piston = { x: 0, y: 64, z: 0 }
+    const harness = makeHarness([], [], { x: 30, y: 64.9, z: 30 })
+
+    return applyPistonWorldEffects(
+      harness.services,
+      harness.refs,
+      [pistonAt(piston, false)],
+      [pistonAt(piston, true)],
+    ).pipe(
+      Effect.tap(() => Effect.sync(() => {
+        expect(harness.setPlayerPosition).not.toHaveBeenCalled()
       })),
     )
   })

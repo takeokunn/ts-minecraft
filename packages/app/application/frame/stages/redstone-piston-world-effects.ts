@@ -1,11 +1,12 @@
 import { Effect, HashMap, MutableRef, Option } from 'effect'
 import type { BlockType, Position } from '@ts-minecraft/core'
+import { DEFAULT_PLAYER_ID } from '@ts-minecraft/core'
 import { RedstoneComponentType, type RedstoneComponent } from '@ts-minecraft/entity/domain/redstone/redstone-model'
 import { worldToChunkCoord } from '@ts-minecraft/world/domain/chunk-coord-utils'
 import type { FrameHandlerServices } from '@ts-minecraft/app/application/frame/types/services'
 import type { FrameStageRefs } from '@ts-minecraft/app/application/frame/types/stage-refs'
 
-export type RedstonePistonWorldServices = Pick<FrameHandlerServices, 'blockService' | 'chunkManagerService' | 'entityManager'>
+export type RedstonePistonWorldServices = Pick<FrameHandlerServices, 'blockService' | 'chunkManagerService' | 'entityManager' | 'gameState'>
 export type RedstonePistonWorldRefs = Pick<FrameStageRefs, 'dirtyChunksRef'>
 
 const PISTON_IMMOVABLE_BLOCKS: ReadonlySet<BlockType> = new Set([
@@ -190,6 +191,29 @@ const shoveEntitiesInCell = (
     }
   })
 
+// The player rides a separate physics pipeline, so the shove is positional:
+// overlap with the swept cell moves the player one cell along the facing.
+const shovePlayerInCell = (
+  services: Pick<RedstonePistonWorldServices, 'gameState'>,
+  cell: Position,
+  direction: PushDirection,
+): Effect.Effect<void, never> =>
+  Effect.gen(function* () {
+    const playerPos = yield* services.gameState.getPlayerPosition(DEFAULT_PLAYER_ID).pipe(
+      Effect.catchAll(() => Effect.succeed(null)),
+    )
+    if (playerPos === null) return
+    const overlapsX = Math.abs(playerPos.x - (cell.x + 0.5)) < 0.5 + ENTITY_HALF_WIDTH
+    const overlapsZ = Math.abs(playerPos.z - (cell.z + 0.5)) < 0.5 + ENTITY_HALF_WIDTH
+    const overlapsY = playerPos.y + ENTITY_HALF_HEIGHT > cell.y && playerPos.y - ENTITY_HALF_HEIGHT < cell.y + 1
+    if (!overlapsX || !overlapsY || !overlapsZ) return
+    yield* services.gameState.setPlayerPosition({
+      x: playerPos.x + direction.x,
+      y: playerPos.y + Math.max(direction.y, 0),
+      z: playerPos.z + direction.z,
+    }).pipe(Effect.catchAll(() => Effect.void))
+  })
+
 export const applyPistonWorldEffects = (
   services: RedstonePistonWorldServices,
   refs: RedstonePistonWorldRefs,
@@ -221,6 +245,7 @@ export const applyPistonWorldEffects = (
           if (placed) yield* markChunkDirty(refs, services, headCell)
         }
         yield* shoveEntitiesInCell(services, headCell, direction)
+        yield* shovePlayerInCell(services, headCell, direction)
         continue
       }
 
