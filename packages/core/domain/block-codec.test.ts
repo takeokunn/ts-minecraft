@@ -30,7 +30,7 @@ describe('block-codec', () => {
     })
 
     it('has exactly 104 entries (world-placeable blocks including redstone lamp states, brewing stand, nether brick, and the filled end-portal frame)', () => {
-      expect(INDEX_TO_BLOCK_TYPE.length).toBe(112)
+      expect(INDEX_TO_BLOCK_TYPE.length).toBe(113)
     })
 
     it('PLANKS is at index 40', () => {

@@ -128,4 +128,5 @@ export const TILE_MAP: ReadonlyArray<Readonly<Record<TextureFaceDir, number>>> =
   { top: 141, bottom: 141, side: 141 }, // 109: HOPPER
   { top: 142, bottom: 142, side: 142 }, // 110: COMPARATOR
   { top: 1, bottom: 1, side: 143 }, // 111: DISPENSER (stone top/bottom, muzzle sides)
+  { top: 130, bottom: 130, side: 130 }, // 112: PISTON_HEAD (wooden plate faces)
 ]

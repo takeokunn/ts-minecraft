@@ -5,7 +5,7 @@ import { InventoryItemSchema } from '@ts-minecraft/core'
 import type { Enchantment } from '@ts-minecraft/inventory/domain/enchantment.types'
 import type { DebugFeatureFlags } from '@ts-minecraft/app/application/debug-feature-flags.config'
 
-const NEVER_DROPPED_BLOCK_TYPES: ReadonlySet<BlockType> = new Set<BlockType>(['AIR', 'WATER', 'LAVA'])
+const NEVER_DROPPED_BLOCK_TYPES: ReadonlySet<BlockType> = new Set<BlockType>(['AIR', 'WATER', 'LAVA', 'PISTON_HEAD'])
 
 export const REDSTONE_CLEANUP_BLOCK_TYPES: ReadonlySet<BlockType> = new Set<BlockType>([
   'REDSTONE_WIRE',

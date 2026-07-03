@@ -181,6 +181,13 @@ new Block({
     faces: defaultBlockFaces,
   }),
   new Block({
+    id: makeBlockId('block:piston_head'),
+    type: 'PISTON_HEAD',
+    // The extended arm: breaks instantly like vanilla, occupies the cell.
+    properties: { hardness: 1, transparency: false, solid: true, emissive: false, friction: 0.6 },
+    faces: defaultBlockFaces,
+  }),
+  new Block({
     id: makeBlockId('block:redstone_lamp'),
     type: 'REDSTONE_LAMP',
     // Vanilla lamp hardness 0.3 -> soft; unlit emits nothing.

@@ -22,6 +22,7 @@ const PISTON_IMMOVABLE_BLOCKS: ReadonlySet<BlockType> = new Set([
   'DRAGON_EGG',
   'END_CRYSTAL',
   'PISTON',
+  'PISTON_HEAD',
   'CHEST',
   'FURNACE',
   'SHULKER_BOX',
@@ -169,14 +170,28 @@ export const applyPistonWorldEffects = (
       const previous = beforePistons.get(redstonePositionKey(component.position))
       const direction = PISTON_PUSH_DIRECTIONS[component.state.pistonFacing ?? 'east']
 
-      // Rising edge → push the block ahead one cell further.
+      const headCell = addPositions(component.position, direction)
+
+      // Rising edge → push the block ahead one cell further, then extend the
+      // arm into the freed head cell (the arm physically occupies it).
       if (component.state.pistonExtended && previous?.state.pistonExtended !== true) {
         yield* pushSingleBlock(services, refs, component.position, direction)
+        const headBlock = yield* readBlock(services, headCell)
+        if (headBlock === 'AIR') {
+          const placed = yield* forceSetBlockSafely(services, headCell, 'PISTON_HEAD')
+          if (placed) yield* markChunkDirty(refs, services, headCell)
+        }
         continue
       }
 
-      // Falling edge → pull the block back (sticky-piston semantics).
+      // Falling edge → withdraw the arm first, then pull the block back
+      // (sticky-piston semantics) into the freed head cell.
       if (!component.state.pistonExtended && previous?.state.pistonExtended === true) {
+        const headBlock = yield* readBlock(services, headCell)
+        if (headBlock === 'PISTON_HEAD') {
+          const cleared = yield* forceSetBlockSafely(services, headCell, 'AIR')
+          if (cleared) yield* markChunkDirty(refs, services, headCell)
+        }
         yield* pullSingleBlock(services, refs, component.position, direction)
       }
     }

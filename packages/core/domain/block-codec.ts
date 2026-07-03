@@ -65,6 +65,8 @@ export const INDEX_TO_BLOCK_TYPE: ReadonlyArray<BlockType> = [
   'COMPARATOR',
   // Item dispenser - index 111
   'DISPENSER',
+  // Extended piston arm - index 112
+  'PISTON_HEAD',
 ]
 
 export const BLOCK_COUNT = INDEX_TO_BLOCK_TYPE.length

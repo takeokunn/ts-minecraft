@@ -70,7 +70,8 @@ describe('redstone piston world effects', () => {
       [pistonAt(piston, true)],
     ).pipe(
       Effect.tap(() => Effect.sync(() => {
-        expect(harness.blocks.get(positionKey(source))).toBe('AIR')
+        // The freed head cell now holds the extended arm.
+        expect(harness.blocks.get(positionKey(source))).toBe('PISTON_HEAD')
         expect(harness.blocks.get(positionKey(destination))).toBe('STONE')
         expect(harness.forceSetBlock).toHaveBeenCalledWith(destination, 'STONE')
         expect(harness.forceSetBlock).toHaveBeenCalledWith(source, 'AIR')
@@ -138,7 +139,7 @@ describe('redstone piston world effects', () => {
       [pistonAt(piston, true, 'north')],
     ).pipe(
       Effect.tap(() => Effect.sync(() => {
-        expect(harness.blocks.get(positionKey(source))).toBe('AIR')
+        expect(harness.blocks.get(positionKey(source))).toBe('PISTON_HEAD')
         expect(harness.blocks.get(positionKey(destination))).toBe('STONE')
       })),
     )
@@ -157,7 +158,7 @@ describe('redstone piston world effects', () => {
       [pistonAt(piston, true, 'up')],
     ).pipe(
       Effect.tap(() => Effect.sync(() => {
-        expect(harness.blocks.get(positionKey(source))).toBe('AIR')
+        expect(harness.blocks.get(positionKey(source))).toBe('PISTON_HEAD')
         expect(harness.blocks.get(positionKey(destination))).toBe('STONE')
       })),
     )
@@ -237,6 +238,68 @@ describe('redstone piston world effects', () => {
     ).pipe(
       Effect.tap(() => Effect.sync(() => {
         expect(harness.blocks.get(positionKey(destination))).toBe('STONE')
+      })),
+    )
+  })
+})
+
+describe('piston arm visual', () => {
+  it.effect('extension places PISTON_HEAD in the freed head cell', () => {
+    const piston = { x: 0, y: 64, z: 0 }
+    const head = { x: 1, y: 64, z: 0 }
+    const pushedTo = { x: 2, y: 64, z: 0 }
+    const harness = makeHarness([[head, 'STONE']])
+
+    return applyPistonWorldEffects(
+      harness.services,
+      harness.refs,
+      [pistonAt(piston, false)],
+      [pistonAt(piston, true)],
+    ).pipe(
+      Effect.tap(() => Effect.sync(() => {
+        expect(harness.blocks.get(positionKey(pushedTo))).toBe('STONE')
+        expect(harness.blocks.get(positionKey(head))).toBe('PISTON_HEAD')
+      })),
+    )
+  })
+
+  it.effect('retraction withdraws the arm before pulling the block back', () => {
+    const piston = { x: 0, y: 64, z: 0 }
+    const head = { x: 1, y: 64, z: 0 }
+    const beyond = { x: 2, y: 64, z: 0 }
+    const harness = makeHarness([
+      [head, 'PISTON_HEAD'],
+      [beyond, 'STONE'],
+    ])
+
+    return applyPistonWorldEffects(
+      harness.services,
+      harness.refs,
+      [pistonAt(piston, true)],
+      [pistonAt(piston, false)],
+    ).pipe(
+      Effect.tap(() => Effect.sync(() => {
+        expect(harness.blocks.get(positionKey(head))).toBe('STONE')
+        expect(harness.blocks.get(positionKey(beyond))).toBe('AIR')
+      })),
+    )
+  })
+
+  it.effect('the arm itself is never pushed by another piston', () => {
+    const piston = { x: 0, y: 64, z: 0 }
+    const head = { x: 1, y: 64, z: 0 }
+    const harness = makeHarness([[head, 'PISTON_HEAD']])
+
+    return applyPistonWorldEffects(
+      harness.services,
+      harness.refs,
+      [pistonAt(piston, false)],
+      [pistonAt(piston, true)],
+    ).pipe(
+      Effect.tap(() => Effect.sync(() => {
+        // push refused (immovable) — head cell keeps its arm, nothing beyond
+        expect(harness.blocks.get(positionKey(head))).toBe('PISTON_HEAD')
+        expect(harness.blocks.get(positionKey({ x: 2, y: 64, z: 0 }))).toBeUndefined()
       })),
     )
   })
