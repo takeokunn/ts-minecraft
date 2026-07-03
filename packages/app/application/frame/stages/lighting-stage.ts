@@ -5,6 +5,8 @@ import type { FrameStageRefs } from '@ts-minecraft/app/application/frame/types/s
 import type { FrameAudioServices } from '@ts-minecraft/app/frame/frame-service-types/audio'
 import type { FrameWorldServices } from '@ts-minecraft/app/frame/frame-service-types/world'
 import { updateDayNightCycle, computeTerrainSunIntensity, applyNetherEnvironment, applyEndEnvironment, type DayNightLights } from '@ts-minecraft/game'
+import type { FrameHandlerServices } from '@ts-minecraft/app/application/frame/types/services'
+import { spawnPrecipitationParticles } from './lighting-stage-precipitation'
 import type { DeltaTimeSecs, Position } from '@ts-minecraft/core'
 import type { Weather } from '@ts-minecraft/game'
 import { setWeatherVisualState } from '@ts-minecraft/presentation/hud/weather-visibility'
@@ -33,7 +35,7 @@ const musicContextScratch: { isNight: boolean; playerPosition: Position } = {
 
 export const lightingStage = (
   deps: Pick<FrameHandlerDeps, 'lights' | 'renderer'>,
-  services: FrameWorldServices & FrameAudioServices,
+  services: FrameWorldServices & FrameAudioServices & Pick<FrameHandlerServices, 'particleSystem'>,
   refs: Pick<FrameStageRefs, 'shadowUpdateCounterRef'>,
   inputs: {
     readonly deltaTime: DeltaTimeSecs
@@ -63,7 +65,15 @@ export const lightingStage = (
             setWeatherVisualState(weather)
             applyRainEnvironment(inputs.effectiveLights, weather)
           }
-        }),
+        }).pipe(
+          // In-world precipitation motes accompany the CSS streak overlay
+          // (overworld only — nether/end have no weather).
+          Effect.flatMap(() =>
+            dimension === 'overworld'
+              ? logErrors(spawnPrecipitationParticles(services, inputs.playerPos, weather), 'Precipitation error')
+              : Effect.void,
+          ),
+        ),
       ),
     ),
     Effect.flatMap(() =>
