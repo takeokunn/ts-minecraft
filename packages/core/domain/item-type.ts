@@ -149,5 +149,7 @@ export const ItemTypeSchema = Schema.Literal(
   // Tier-2 brews (glowstone-amplified): stronger effect, shorter clock.
   'POTION_SWIFTNESS_II',
   'POTION_HEALING_II',
+  // Redstone-extended brew: same strength, 8:00 clock (vanilla).
+  'POTION_SWIFTNESS_LONG',
 )
 export type ItemType = Schema.Schema.Type<typeof ItemTypeSchema>

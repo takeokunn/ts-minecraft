@@ -42,6 +42,12 @@ const POTION_TABLE: Readonly<Record<string, PotionUse>> = {
     effect: Option.none(),
     instantHeal: 8,
   },
+  // Redstone-extended Swiftness: Speed I for 8:00 (vanilla; Healing is
+  // instant and has no extended variant — correct by omission).
+  POTION_SWIFTNESS_LONG: {
+    effect: Option.some({ type: 'SPEED', amplifier: 0, durationSecs: 480 }),
+    instantHeal: 0,
+  },
 }
 
 export const getPotionUse = (item: string): Option.Option<PotionUse> =>

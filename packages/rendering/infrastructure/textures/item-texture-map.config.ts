@@ -112,6 +112,7 @@ export const ITEM_TILE_MAP: Readonly<Record<InventoryItem, number>> = {
   POTION_AWKWARD: 129,
   POTION_SWIFTNESS_II: 137,
   POTION_HEALING_II: 138,
+  POTION_SWIFTNESS_LONG: 139,
   STICKS: 48,
   COAL: 49,
   CHARCOAL: 49, // same tile as COAL — charcoal looks identical in vanilla

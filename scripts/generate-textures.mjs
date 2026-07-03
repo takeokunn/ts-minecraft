@@ -1943,9 +1943,11 @@ saveTile(136, 'prismarine', (ctx) => {
 // 137/138: tier-2 potions — deeper, more saturated bottle tints.
 saveTile(137, 'potion-swiftness-ii', (ctx) => drawBottle(ctx, '#1f8fd6'))
 saveTile(138, 'potion-healing-ii', (ctx) => drawBottle(ctx, '#a51f1f'))
+// 139: extended swiftness — pale, airy tint for the long-clock brew.
+saveTile(139, 'potion-swiftness-long', (ctx) => drawBottle(ctx, '#8fd0f5'))
 
 // Save combined atlas (single file loaded by chunk-mesh.ts at runtime).
 writeFileSync(join(OUTPUT_DIR, 'atlas.png'), atlasCanvas.toBuffer('image/png'))
-console.log(`  ✓ atlas.png (512×512, all 139 tiles combined)`)
+console.log(`  ✓ atlas.png (512×512, all 140 tiles combined)`)
 
 console.log(`\nDone - 123 individual tiles + atlas.png written to ${OUTPUT_DIR}`)

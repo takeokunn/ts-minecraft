@@ -498,6 +498,15 @@ describe('nether-wart brewing chain', () => {
   })
 })
 
+describe('extended brews (redstone duration modifier)', () => {
+  it('Swiftness LONG brews from tier-1 Swiftness + redstone', () => {
+    const long = findById('swiftness-and-redstone-to-swiftness-long')
+    expect(long!.station).toBe('brewing_stand')
+    expect(long!.ingredients.map((i) => i.itemType).sort()).toEqual(['POTION_SWIFTNESS', 'REDSTONE_DUST'])
+    expect(long!.output.itemType).toBe('POTION_SWIFTNESS_LONG')
+  })
+})
+
 describe('tier-2 brews (glowstone amplification)', () => {
   it('Swiftness II and Healing II brew FROM their tier-1 potions', () => {
     const swiftII = findById('swiftness-and-glowstone-to-swiftness-ii')

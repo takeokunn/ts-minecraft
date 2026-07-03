@@ -175,6 +175,16 @@ export const BASIC_MISC_RECIPES: ReadonlyArray<Recipe> = [
     ],
     output: { itemType: 'POTION_SWIFTNESS', count: 1 },
   }),
+  // Redstone extends a finished brew's clock (vanilla's duration modifier).
+  new Recipe({
+    id: RecipeId.make('swiftness-and-redstone-to-swiftness-long'),
+    station: 'brewing_stand',
+    ingredients: [
+      new RecipeIngredient({ itemType: 'POTION_SWIFTNESS', count: 1 }),
+      new RecipeIngredient({ itemType: 'REDSTONE_DUST', count: 1 }),
+    ],
+    output: { itemType: 'POTION_SWIFTNESS_LONG', count: 1 },
+  }),
   // Glowstone amplifies a finished brew to tier 2 (vanilla's potency modifier).
   new Recipe({
     id: RecipeId.make('swiftness-and-glowstone-to-swiftness-ii'),
