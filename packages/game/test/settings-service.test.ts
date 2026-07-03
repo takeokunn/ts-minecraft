@@ -110,11 +110,11 @@ describe('application/settings/settings-service', () => {
       }).pipe(Effect.provide(SettingsServiceLayer))
     })
 
-    it.effect("default settings should include graphicsQuality='low'", () =>
+    it.effect("default settings should include graphicsQuality='medium'", () =>
       Effect.gen(function* () {
         const service = yield* SettingsService
         const settings = yield* service.getSettings()
-        expect(settings.graphicsQuality).toBe('low')
+        expect(settings.graphicsQuality).toBe('medium')
       }).pipe(Effect.provide(SettingsServiceDefault))
     )
 

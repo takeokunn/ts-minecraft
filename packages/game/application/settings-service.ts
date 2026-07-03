@@ -10,7 +10,9 @@ export type { GameDifficulty, ResolvedGraphics } from './settings.schema'
 export { GameDifficultySchema, GraphicsQuality, ResolvedGraphicsSchema, SettingsSchema }
 
 const DEFAULT_SETTINGS: Settings = {
-  renderDistance: 3,
+  // Vanilla look: distance 3 puts the fog wall ~50 blocks out and washes the
+  // whole scene milky; 5 matches the perf floor measured in the parity doc.
+  renderDistance: 5,
   mouseSensitivity: 0.5,
   // Vanilla parity: a full Minecraft day/night cycle is 20 minutes. The old
   // 400s default hit dusk 100 seconds after a noon boot — brand-new players
@@ -20,7 +22,10 @@ const DEFAULT_SETTINGS: Settings = {
   reducedMotion: false,
   uiScale: 1,
   keyBindings: {},
-  graphicsQuality: 'low',
+  // 'low' renders at HALF resolution (pixelRatioCap 0.5) with no sky and no
+  // shadows — a permanently blurry first impression. Medium is the balanced
+  // default; adaptive mode still steps down on weak hardware.
+  graphicsQuality: 'medium',
   adaptivePerformanceMode: true,
   // NOTE: false intentionally — audio is disabled by default (see Schema comment above).
   audioEnabled: false,

@@ -5,6 +5,10 @@ import { DomOperationsService } from '@ts-minecraft/presentation/hud/crosshair'
 // Higher z-index (6000) than main menu overlay (5000) and pause menu (1050) so dialogs always stack above their caller.
 const DIALOG_Z_INDEX = 6000
 
+// Same classic-Minecraft treatment as the main menu (see main-menu-styles.ts):
+// dark panel, bevelled buttons, system-ui.
+const SANS_FONT = 'system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif'
+
 const BACKDROP_STYLE = [
   'position:fixed',
   'top:0',
@@ -16,18 +20,18 @@ const BACKDROP_STYLE = [
   'align-items:center',
   'justify-content:center',
   `z-index:${DIALOG_Z_INDEX}`,
-  'font-family:monospace',
+  `font-family:${SANS_FONT}`,
 ].join(';')
 
 const PANEL_STYLE = [
-  'background:rgba(20,20,20,0.96)',
-  'color:#fff',
-  'padding:24px 32px',
-  'border-radius:8px',
+  'background:rgba(30,30,30,0.96)',
+  'color:#e0e0e0',
+  'padding:24px 28px',
   'min-width:320px',
   'max-width:480px',
-  'border:1px solid #4d4d4d',
-  'box-shadow:0 8px 32px rgba(0,0,0,0.6)',
+  'border:2px solid #000',
+  'box-shadow:inset 2px 2px 0 rgba(255,255,255,0.15),inset -2px -2px 0 rgba(0,0,0,0.5),0 12px 28px rgba(0,0,0,0.55)',
+  'text-shadow:1px 1px 0 #1a1a1a',
 ].join(';')
 
 const MESSAGE_STYLE = [
@@ -44,17 +48,22 @@ const BUTTON_ROW_STYLE = [
 ].join(';')
 
 const BUTTON_BASE_STYLE = [
-  'padding:8px 20px',
-  'border:none',
-  'border-radius:4px',
+  'box-sizing:border-box',
+  'padding:9px 20px',
+  'min-height:40px',
+  'border:2px solid #000',
+  'border-radius:0',
   'cursor:pointer',
-  'font-family:monospace',
-  'font-size:13px',
-  'min-width:80px',
+  `font-family:${SANS_FONT}`,
+  'font-size:14px',
+  'font-weight:600',
+  'min-width:96px',
+  'text-shadow:1px 1px 0 #383838',
+  'box-shadow:inset 2px 2px 0 rgba(255,255,255,0.3),inset -2px -2px 0 rgba(0,0,0,0.38)',
 ].join(';')
 
-const BUTTON_CANCEL_STYLE = `${BUTTON_BASE_STYLE};background:#555;color:#fff`
-const BUTTON_CONFIRM_STYLE = `${BUTTON_BASE_STYLE};background:#a04040;color:#fff`
+const BUTTON_CANCEL_STYLE = `${BUTTON_BASE_STYLE};background-color:#6d6d6d;background-image:linear-gradient(180deg,#7e7e7e 0%,#6d6d6d 52%,#5c5c5c 100%);color:#e0e0e0`
+const BUTTON_CONFIRM_STYLE = `${BUTTON_BASE_STYLE};background-color:#8f3a3a;background-image:linear-gradient(180deg,#a24a4a 0%,#8f3a3a 52%,#7a2f2f 100%);color:#f0dede;text-shadow:1px 1px 0 #3a1414`
 
 export class ConfirmDialogService extends Effect.Service<ConfirmDialogService>()(
   '@minecraft/presentation/ConfirmDialog',

@@ -159,10 +159,11 @@ console.log('Generating textures...')
 // red-orange #8B4513 saddle-brown this used to be; ACES tone mapping made
 // that read as dark maroon terrain).
 saveTile(0, 'dirt', (ctx) => {
-  ctx.fillStyle = '#866043'
+  // vanilla dirt reads gray-brown (~#977E63), not red-saturated
+  ctx.fillStyle = '#8f7355'
   ctx.fillRect(0, 0, TILE_PX, TILE_PX)
   for (const [sx, sy] of DIRT_SPOTS) {
-    ctx.fillStyle = sx % 3 === 0 ? '#75543B' : '#96714F'
+    ctx.fillStyle = sx % 3 === 0 ? '#7d634a' : '#9c8060'
     ctx.fillRect(sx, sy, 2, 2)
   }
 })
@@ -212,17 +213,19 @@ saveTile(4, 'grass-top', (ctx) => {
 
 // tile 5: grass_side — dirt base with green top stripe (colors track tiles 0/4)
 saveTile(5, 'grass-side', (ctx) => {
-  ctx.fillStyle = '#866043'
+  ctx.fillStyle = '#8f7355'
   ctx.fillRect(0, 0, TILE_PX, TILE_PX)
   for (const [sx, sy] of DIRT_SPOTS) {
-    ctx.fillStyle = sx % 3 === 0 ? '#75543B' : '#96714F'
+    ctx.fillStyle = sx % 3 === 0 ? '#7d634a' : '#9c8060'
     ctx.fillRect(sx, sy + 4, 2, 2)
   }
+  // wide grass rim: hillsides are seen mostly edge-on, a thin rim reads as
+  // bare dirt walls from eye level
   ctx.fillStyle = '#91BD59'
-  ctx.fillRect(0, 0, TILE_PX, 5)
+  ctx.fillRect(0, 0, TILE_PX, 9)
   ctx.fillStyle = '#83AC4E'
   for (let bx = 0; bx < TILE_PX; bx += 3) {
-    ctx.fillRect(bx, 4, 1, 3)
+    ctx.fillRect(bx, 8, 1, 4)
   }
   ctx.fillStyle = '#79A14E'
   ctx.fillRect(0, 5, TILE_PX, 1)

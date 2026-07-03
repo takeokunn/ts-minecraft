@@ -92,14 +92,25 @@ export class PauseMenuService extends Effect.Service<PauseMenuService>()(
         Option.map(howToPlayPanel, (el) => { el.style.display = 'none' })
       }
 
+      // The floating settings gear is hidden during pointer-lock gameplay (see
+      // main-menu.ts) and only surfaced while an overlay context — the pause menu —
+      // is open, giving a visible route to Options alongside the menu's own entry.
+      const setSettingsGearVisible = (visible: boolean): void => {
+        if (typeof document === 'undefined') return
+        const gear = document.getElementById('settings-gear-btn')
+        if (gear !== null) gear.style.display = visible ? '' : 'none'
+      }
+
       const showMenu = (): void => {
         Option.map(backdropEl, (el) => { el.style.display = 'flex' })
+        setSettingsGearVisible(true)
         // Default-focus Resume so Enter resumes immediately.
         Option.map(resumeBtn, (btn) => btn.focus())
       }
 
       const hideMenu = (): void => {
         hideHowToPlay()
+        setSettingsGearVisible(false)
         Option.map(backdropEl, (el) => { el.style.display = 'none' })
       }
 

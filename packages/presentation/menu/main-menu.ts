@@ -135,8 +135,10 @@ export class MainMenuService extends Effect.Service<MainMenuService>()(
           }),
       )
 
-      // The floating settings gear duplicates the menu's own Options... entry
-      // while the main menu is open — hide it there, restore it for gameplay.
+      // The floating settings gear is redundant while the main menu is open (the
+      // menu has its own Options... entry) AND during pointer-lock gameplay (vanilla
+      // never floats a settings button there). It is kept hidden across both; the
+      // pause menu re-shows it while paused. See pause-menu.ts.
       const setSettingsGearVisible = (visible: boolean): void => {
         const gear = document.getElementById('settings-gear-btn')
         if (gear !== null) gear.style.display = visible ? '' : 'none'
@@ -167,7 +169,8 @@ export class MainMenuService extends Effect.Service<MainMenuService>()(
         hide: (): Effect.Effect<void, never> =>
           Effect.sync(() => {
             overlay.style.display = 'none'
-            setSettingsGearVisible(true)
+            // Entering gameplay: keep the gear hidden. The pause menu shows it when paused.
+            setSettingsGearVisible(false)
             Option.map(MutableRef.get(refs.escHandlerRef), (handler) => {
               window.removeEventListener('keydown', handler)
             })

@@ -20,14 +20,14 @@ export const SETTINGS_STORE_NAME = 'settings'
 export const SETTINGS_RECORD_KEY = 'current'
 
 export const DEFAULT_SETTINGS = {
-  renderDistance: 3,
+  renderDistance: 5, // vanilla look — must match settings-service.ts DEFAULT_SETTINGS
   mouseSensitivity: 0.5,
   dayLengthSeconds: 1200, // vanilla 20-min cycle — must match settings-service.ts DEFAULT_SETTINGS
   difficulty: 'normal',
   reducedMotion: false,
   uiScale: 1,
   keyBindings: {},
-  graphicsQuality: 'low',
+  graphicsQuality: 'medium', // balanced default — must match settings-service.ts DEFAULT_SETTINGS
   adaptivePerformanceMode: true,
   audioEnabled: false, // NOTE: false intentionally — must match settings-service.ts DEFAULT_SETTINGS
   masterVolume: 0.8,

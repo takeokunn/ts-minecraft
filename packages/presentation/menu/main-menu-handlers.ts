@@ -61,6 +61,16 @@ export const makeCompleteWith = (refs: MenuRefs) => (choice: MainMenuChoice): vo
   })
 }
 
+// Reflect world-save availability onto the Continue button. With no saves there is
+// nothing to continue, so the button is disabled (native `disabled` blocks the click)
+// and carries a tooltip — avoids the dead-end empty "Load World" screen.
+const setContinueAvailability = (button: HTMLButtonElement, available: boolean): void => {
+  button.disabled = !available
+  button.title = available ? '' : 'No saved worlds yet'
+  button.style.opacity = available ? '' : '0.45'
+  button.style.cursor = available ? '' : 'not-allowed'
+}
+
 // --- Load list ---
 
 export const makeRefreshLoadList = (
@@ -81,6 +91,7 @@ export const makeRefreshLoadList = (
             MutableRef.set(refs.recentWorldRef, Option.none())
             yield* Effect.sync(() => {
               dom.setInnerHTML(buttons.lwList, '<div style="opacity:0.7">Failed to load worlds</div>')
+              setContinueAvailability(buttons.continueWorld, false)
             })
           }),
         onSuccess: ({ valid, corrupt }) =>
@@ -91,6 +102,7 @@ export const makeRefreshLoadList = (
                 buttons.lwList,
                 '<div style="opacity:0.7;padding:8px">No saved worlds yet</div>',
               )
+              setContinueAvailability(buttons.continueWorld, false)
               return
             }
             // Sort valid by lastPlayed desc.
@@ -105,6 +117,10 @@ export const makeRefreshLoadList = (
             MutableRef.set(
               refs.recentWorldRef,
               Option.fromNullable(sorted.at(0)?.worldId),
+            )
+            setContinueAvailability(
+              buttons.continueWorld,
+              Option.isSome(MutableRef.get(refs.recentWorldRef)),
             )
             dom.setInnerHTML(buttons.lwList, '')
             Arr.forEach(sorted, ({ worldId, metadata }) => {

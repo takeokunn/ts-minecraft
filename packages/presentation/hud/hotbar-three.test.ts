@@ -301,7 +301,7 @@ describe('HotbarRendererService', () => {
       }).pipe(Effect.provide(TestLayer))
     })
 
-    it.scoped('uses readable empty slot and warm selected border materials', () => {
+    it.scoped('uses a dark empty slot and a white selected border material', () => {
       vi.clearAllMocks()
       const TestLayer = buildTestLayer()
       const emptySlots: ReadonlyArray<Option.Option<BlockType>> = Arr.makeBy(9, () => Option.none())
@@ -315,12 +315,14 @@ describe('HotbarRendererService', () => {
         const borderMaterial = expectMockedMaterial(meshCalls[0]?.[1])
         const firstSlotMaterial = expectMockedMaterial(meshCalls[1]?.[1])
 
-        expect(borderMaterial.color.getHex()).toBe(0xfff4b0)
+        // Selection border: thick opaque white (vanilla-style highlight).
+        expect(borderMaterial.color.getHex()).toBe(0xffffff)
         expect(borderMaterial.transparent).toBe(true)
-        expect(borderMaterial.opacity).toBeCloseTo(0.92, 5)
-        expect(firstSlotMaterial.color.getHex()).toBe(0x8a8f96)
+        expect(borderMaterial.opacity).toBeCloseTo(1, 5)
+        // Empty slot: dark translucent cell — rgba(0, 0, 0, 0.55).
+        expect(firstSlotMaterial.color.getHex()).toBe(0x000000)
         expect(firstSlotMaterial.transparent).toBe(true)
-        expect(firstSlotMaterial.opacity).toBeCloseTo(0.78, 5)
+        expect(firstSlotMaterial.opacity).toBeCloseTo(0.55, 5)
       }).pipe(Effect.provide(TestLayer))
     })
 

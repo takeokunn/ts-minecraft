@@ -2,7 +2,7 @@ import { Option } from 'effect'
 import type { WorldMetadata } from '@ts-minecraft/world'
 import { WorldId } from '@ts-minecraft/core'
 import { DomOperationsService } from '@ts-minecraft/presentation/hud/crosshair'
-import { overlayBaseStyle, cardStyle, buttonStyle, dangerButtonStyle, inputStyle } from './main-menu-styles'
+import { overlayBaseStyle, cardStyle, buttonStyle, dangerButtonStyle, inputStyle, menuButtonHoverCss } from './main-menu-styles'
 import { formatLastPlayed, gameModeLabel } from './main-menu-utils'
 
 // --- Shared types ---
@@ -48,25 +48,32 @@ export const buildMenuDOM = (dom: DomOperationsService): MenuDomElements => {
   overlay.setAttribute('aria-modal', 'true')
   overlay.setAttribute('aria-label', 'Main Menu')
 
+  // Hover/focus styling for the bevelled buttons lives in a scoped <style> because
+  // inline styles can't express pseudo-classes. Kept inside the overlay so it is
+  // torn down with it, and so we don't add a second document-level appendChild.
+  const styleEl = dom.createElement('style') as HTMLStyleElement
+  dom.setInnerHTML(styleEl, menuButtonHoverCss)
+  overlay.appendChild(styleEl)
+
   // ROOT card
   const rootCard = dom.createElement('div') as HTMLDivElement
   rootCard.id = 'main-menu-root'
   rootCard.style.cssText = `${cardStyle};max-height:calc(100vh - 32px);overflow-y:auto`
   dom.setInnerHTML(rootCard, `
-    <h1 style="margin:0 0 16px;text-align:center;font-size:28px;color:#fff;text-shadow:2px 2px #222">ts-minecraft</h1>
+    <h1 style="margin:0 0 18px;text-align:center;font-size:40px;font-weight:900;letter-spacing:3px;color:#fff;text-shadow:2px 2px 0 #3f3f3f;font-family:system-ui,-apple-system,'Segoe UI',Roboto,sans-serif">ts-minecraft</h1>
     <p style="margin:-4px 0 4px;font-size:14px;line-height:1.45;text-align:center">
       Pick a world, continue your latest save, or open the controls guide before you start.
     </p>
-    <div style="display:flex;flex-direction:column;gap:4px;margin-bottom:4px;font-size:12px;line-height:1.35;color:#2b2b2b;text-align:center">
+    <div style="display:flex;flex-direction:column;gap:4px;margin-bottom:4px;font-size:12px;line-height:1.35;color:#b0b0b0;text-align:center">
       <span>Keyboard, mouse, and gamepad are supported.</span>
       <span>Touch controls are not available yet.</span>
     </div>
-      <button type="button" id="mm-new-world" style="${buttonStyle}">Create New World</button>
-      <button type="button" id="mm-continue-world" style="${buttonStyle}">Continue Last World</button>
-      <button type="button" id="mm-load-world" style="${buttonStyle}">Select World</button>
-      <button type="button" id="mm-multiplayer" style="${buttonStyle}">Multiplayer...</button>
-      <button type="button" id="mm-how-to-play" style="${buttonStyle}">How to Play</button>
-      <button type="button" id="mm-settings" style="${buttonStyle}">Options...</button>
+      <button type="button" id="mm-new-world" class="mc-menu-btn" style="${buttonStyle}">Create New World</button>
+      <button type="button" id="mm-continue-world" class="mc-menu-btn" style="${buttonStyle}">Continue Last World</button>
+      <button type="button" id="mm-load-world" class="mc-menu-btn" style="${buttonStyle}">Select World</button>
+      <button type="button" id="mm-multiplayer" class="mc-menu-btn" style="${buttonStyle}">Multiplayer...</button>
+      <button type="button" id="mm-how-to-play" class="mc-menu-btn" style="${buttonStyle}">How to Play</button>
+      <button type="button" id="mm-settings" class="mc-menu-btn" style="${buttonStyle}">Options...</button>
     `)
 
   // NEW_WORLD card
@@ -88,11 +95,11 @@ export const buildMenuDOM = (dom: DomOperationsService): MenuDomElements => {
     </label>
     <label style="display:flex;flex-direction:column;gap:4px">
       <span>Game mode</span>
-      <button type="button" id="mm-nw-mode" style="${buttonStyle}">Survival</button>
+      <button type="button" id="mm-nw-mode" class="mc-menu-btn" style="${buttonStyle}">Survival</button>
     </label>
     <div style="display:flex;gap:8px;margin-top:8px">
-      <button type="button" id="mm-nw-cancel" style="${buttonStyle};flex:1">Cancel</button>
-      <button type="button" id="mm-nw-confirm" style="${buttonStyle};flex:1">Confirm</button>
+      <button type="button" id="mm-nw-cancel" class="mc-menu-btn" style="${buttonStyle};flex:1">Cancel</button>
+      <button type="button" id="mm-nw-confirm" class="mc-menu-btn" style="${buttonStyle};flex:1">Confirm</button>
     </div>
   `)
 
@@ -104,7 +111,7 @@ export const buildMenuDOM = (dom: DomOperationsService): MenuDomElements => {
     <h2 style="margin:0 0 8px;font-size:20px">Load World</h2>
     <div id="mm-lw-list" style="display:flex;flex-direction:column;gap:8px;min-height:60px;flex:1;overflow-y:auto"></div>
     <div style="display:flex;gap:8px;margin-top:8px">
-      <button type="button" id="mm-lw-back" style="${buttonStyle};flex:1">Back</button>
+      <button type="button" id="mm-lw-back" class="mc-menu-btn" style="${buttonStyle};flex:1">Back</button>
     </div>
     `)
 
@@ -126,8 +133,8 @@ export const buildMenuDOM = (dom: DomOperationsService): MenuDomElements => {
         <input type="text" id="mm-mp-player-name" style="${inputStyle}" placeholder="Player" />
       </label>
       <div style="display:flex;gap:8px;margin-top:8px">
-        <button type="button" id="mm-mp-cancel" style="${buttonStyle};flex:1">Cancel</button>
-        <button type="button" id="mm-mp-confirm" style="${buttonStyle};flex:1">Confirm</button>
+        <button type="button" id="mm-mp-cancel" class="mc-menu-btn" style="${buttonStyle};flex:1">Cancel</button>
+        <button type="button" id="mm-mp-confirm" class="mc-menu-btn" style="${buttonStyle};flex:1">Confirm</button>
       </div>
     `)
 
@@ -143,7 +150,7 @@ export const buildMenuDOM = (dom: DomOperationsService): MenuDomElements => {
         <p style="margin:0"><strong>Crafting:</strong> Open your inventory to combine blocks and items into useful recipes.</p>
       <p style="margin:0"><strong>Multiplayer/Chat:</strong> Join a multiplayer session to see other players and use chat to coordinate.</p>
     </div>
-    <button type="button" id="mm-how-to-play-close" style="${buttonStyle};margin-top:4px">Close</button>
+    <button type="button" id="mm-how-to-play-close" class="mc-menu-btn" style="${buttonStyle};margin-top:4px">Close</button>
   `)
 
     overlay.appendChild(rootCard)
@@ -184,10 +191,10 @@ export const buildMenuDOM = (dom: DomOperationsService): MenuDomElements => {
 
 export const rowBaseStyle = [
   'display:flex', 'flex-wrap:wrap', 'align-items:center', 'gap:8px',
-  'padding:8px 12px',
-  'background:#8b8b8b', 'border:2px solid #111',
-  'box-shadow:inset 2px 2px #d8d8d8,inset -2px -2px #3a3a3a',
-  'color:#fff', 'text-shadow:1px 1px #222',
+  'padding:10px 12px',
+  'background:rgba(255,255,255,0.08)', 'border:2px solid #000',
+  'box-shadow:inset 2px 2px 0 rgba(255,255,255,0.12),inset -2px -2px 0 rgba(0,0,0,0.4)',
+  'color:#e8e8e8', 'text-shadow:1px 1px 0 #1a1a1a',
 ].join(';')
 
 export const renderValidRow = (
@@ -220,16 +227,19 @@ export const renderValidRow = (
   badge.textContent = gameModeLabel(metadata.gameMode)
   const loadBtn = dom.createElement('button')
   loadBtn.type = 'button'
+  loadBtn.className = 'mc-menu-btn'
   loadBtn.textContent = 'Load'
   loadBtn.style.cssText = buttonStyle
   loadBtn.addEventListener('click', onLoad)
   const renameBtn = dom.createElement('button')
   renameBtn.type = 'button'
+  renameBtn.className = 'mc-menu-btn'
   renameBtn.textContent = 'Rename'
   renameBtn.style.cssText = buttonStyle
   renameBtn.addEventListener('click', onRename)
   const deleteBtn = dom.createElement('button')
   deleteBtn.type = 'button'
+  deleteBtn.className = 'mc-menu-btn-danger'
   deleteBtn.textContent = 'Delete'
   deleteBtn.style.cssText = dangerButtonStyle
   deleteBtn.addEventListener('click', onDelete)
@@ -261,6 +271,7 @@ export const renderCorruptRow = (
   info.appendChild(meta)
   const deleteBtn = dom.createElement('button')
   deleteBtn.type = 'button'
+  deleteBtn.className = 'mc-menu-btn-danger'
   deleteBtn.textContent = 'Delete'
   deleteBtn.style.cssText = dangerButtonStyle
   deleteBtn.addEventListener('click', onDelete)

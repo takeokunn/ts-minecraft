@@ -16,9 +16,22 @@ const SLOT_GAP = 10
 const SLOT_STRIDE = SLOT_SIZE + SLOT_GAP
 const TOTAL_WIDTH = HOTBAR_SLOTS * SLOT_SIZE + (HOTBAR_SLOTS - 1) * SLOT_GAP
 const HOTBAR_Y_OFFSET = 50 // pixels from bottom edge of viewport to center of hotbar strip
-const DEFAULT_TILE_COLOR = 0x8a8f96
-const SLOT_OPACITY = 0.78
-const SELECTED_BORDER_COLOR = 0xfff4b0
+// Vanilla-style slot cell: a dark translucent square framed by a light-grey
+// outer border and a darker inner edge. The frame is built from two planes
+// sitting *behind* the slot plane — each is slightly larger than the slot so a
+// thin ring of it peeks out around the cell (the same peek-behind trick the
+// selection highlight uses). Colours mirror the Minecraft widgets texture.
+const DEFAULT_TILE_COLOR = 0x000000 // empty-slot fill (dark, translucent below)
+const SLOT_OPACITY = 0.55 // rgba(0, 0, 0, 0.55) dark translucent cell
+const SLOT_FRAME_COLOR = 0x8b8b8b // 2px outer border ring
+const SLOT_INNER_EDGE_COLOR = 0x373737 // 1px inner edge ring
+const SLOT_FRAME_OPACITY = 0.9
+const SLOT_FRAME_SIZE = SLOT_SIZE + 6 // grey border peeks ~3px around the cell
+const SLOT_INNER_EDGE_SIZE = SLOT_SIZE + 2 // dark edge peeks ~1px inside the grey
+const SELECTED_SLOT_SCALE = 1.05 // subtle pop; stays inside the grey frame
+const SELECTED_BORDER_COLOR = 0xffffff // thick white border that clearly pops
+const SELECTED_BORDER_SIZE = SLOT_SIZE + 12
+const SELECTED_BORDER_OPACITY = 1
 const ITEM_NAME_LABEL_WIDTH = 360
 const ITEM_NAME_LABEL_HEIGHT = 48
 const ITEM_NAME_LABEL_Y_OFFSET = HOTBAR_Y_OFFSET + 62
@@ -322,10 +335,13 @@ export class HotbarRendererService extends Effect.Service<HotbarRendererService>
         const scene = new THREE.Scene()
         const firstPersonScene = new THREE.Scene()
         const border = new THREE.Mesh(
-          new THREE.PlaneGeometry(SLOT_SIZE + 8, SLOT_SIZE + 8),
-          new THREE.MeshBasicMaterial({ color: SELECTED_BORDER_COLOR, transparent: true, opacity: 0.92 })
+          new THREE.PlaneGeometry(SELECTED_BORDER_SIZE, SELECTED_BORDER_SIZE),
+          new THREE.MeshBasicMaterial({ color: SELECTED_BORDER_COLOR, transparent: true, opacity: SELECTED_BORDER_OPACITY })
         )
-        border.position.z = 0
+        // In front of the grey/inner frames (z 0.35/0.4) but behind the slot
+        // cell (z 1): the opaque white plane is hidden by the cell except for
+        // the ring peeking beyond it, reading as a clean white outline.
+        border.position.z = 0.5
         border.visible = false
         scene.add(border)
         return { hudScene: scene, heldItemScene: firstPersonScene, borderMesh: border }
@@ -342,6 +358,9 @@ export class HotbarRendererService extends Effect.Service<HotbarRendererService>
       const hudCameraRef = MutableRef.make<Option.Option<THREE.OrthographicCamera>>(Option.none())
       const heldItemCameraRef = MutableRef.make<Option.Option<THREE.PerspectiveCamera>>(Option.none())
       const slotMeshesRef = MutableRef.make<ReadonlyArray<THREE.Mesh>>([])
+      // Static per-slot frame planes (grey border + inner edge). They live for
+      // the session and only need their y re-anchored on resize.
+      const frameMeshesRef = MutableRef.make<ReadonlyArray<THREE.Mesh>>([])
       const heldItemRef = MutableRef.make<Option.Option<FirstPersonHeldItem>>(Option.none())
       const itemNameLabelRef = MutableRef.make<Option.Option<ItemNameLabel>>(Option.none())
       const itemNameLabelShownAtMsRef = MutableRef.make(0)
@@ -410,6 +429,9 @@ export class HotbarRendererService extends Effect.Service<HotbarRendererService>
 
         const newY = -h / 2 + HOTBAR_Y_OFFSET
         Arr.forEach(slotMeshes, (m) => {
+          m.position.y = newY
+        })
+        Arr.forEach(MutableRef.get(frameMeshesRef), (m) => {
           m.position.y = newY
         })
         borderMesh.position.y = newY
@@ -483,12 +505,38 @@ export class HotbarRendererService extends Effect.Service<HotbarRendererService>
               Arr.forEach(built, (m) => {
                 hudScene.add(m)
               })
-              borderMesh.position.set(0, -initialHeight / 2 + HOTBAR_Y_OFFSET, 0)
+              borderMesh.position.set(0, -initialHeight / 2 + HOTBAR_Y_OFFSET, 0.5)
               const itemNameLabel = createItemNameLabel(initialHeight)
               if (itemNameLabel !== null) {
                 hudScene.add(itemNameLabel.mesh)
                 MutableRef.set(itemNameLabelRef, Option.some(itemNameLabel))
               }
+
+              // Per-slot frames — created AFTER the label so the earlier
+              // THREE.Mesh indices (border #0, slots #1..9, label #10) stay put.
+              // Two concentric planes per slot: grey outer border behind a
+              // darker inner edge, both behind the slot cell (z 1). Frame draw
+              // order is set by z, not creation order, so appending last is safe.
+              const y = -initialHeight / 2 + HOTBAR_Y_OFFSET
+              const frames = Arr.makeBy(HOTBAR_SLOTS, (i) => {
+                const x = -TOTAL_WIDTH / 2 + SLOT_SIZE / 2 + i * SLOT_STRIDE
+                const outer = new THREE.Mesh(
+                  new THREE.PlaneGeometry(SLOT_FRAME_SIZE, SLOT_FRAME_SIZE),
+                  new THREE.MeshBasicMaterial({ color: SLOT_FRAME_COLOR, transparent: true, opacity: SLOT_FRAME_OPACITY }),
+                )
+                outer.position.set(x, y, 0.35)
+                const inner = new THREE.Mesh(
+                  new THREE.PlaneGeometry(SLOT_INNER_EDGE_SIZE, SLOT_INNER_EDGE_SIZE),
+                  new THREE.MeshBasicMaterial({ color: SLOT_INNER_EDGE_COLOR, transparent: true, opacity: SLOT_FRAME_OPACITY }),
+                )
+                inner.position.set(x, y, 0.4)
+                return [outer, inner] as const
+              })
+              const frameMeshes = Arr.flatMap(frames, (pair) => pair)
+              Arr.forEach(frameMeshes, (m) => {
+                hudScene.add(m)
+              })
+              MutableRef.set(frameMeshesRef, frameMeshes)
               return built
             })
             MutableRef.set(slotMeshesRef, meshes)
@@ -548,7 +596,7 @@ export class HotbarRendererService extends Effect.Service<HotbarRendererService>
 
             const selectedMesh = slotMeshes[decision.selectedIndex] ?? null
             if (selectedMesh !== null) {
-              selectedMesh.scale.setScalar(1.2)
+              selectedMesh.scale.setScalar(SELECTED_SLOT_SCALE)
               borderMesh.position.x = selectedMesh.position.x
               borderMesh.visible = true
             } else {

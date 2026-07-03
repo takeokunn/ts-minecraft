@@ -176,7 +176,7 @@ export const buildLighting = (
   // the map/color chunks, leaving the fog chunks intact.
   yield* Effect.sync(() => {
     const visible = initialSettings.renderDistance * CHUNK_SIZE
-    scene.fog = new THREE.Fog(skyCurrent.getHex(), visible * 0.55, visible * 1.08)
+    scene.fog = new THREE.Fog(skyCurrent.getHex(), visible * 0.7, visible * 1.05)
     scene.fog.color = skyCurrent // share the reference so it tracks the day/night sky
   })
 

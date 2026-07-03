@@ -131,12 +131,13 @@
         right: 10px;
         min-width: 68px;
         padding: 4px 9px;
-        border: 1px solid rgba(215, 247, 194, 0.38);
-        background: rgba(0, 0, 0, 0.72);
+        border: 1px solid rgba(215, 247, 194, 0.3);
+        background: rgba(0, 0, 0, 0.35);
         color: #d7f7c2;
         font-family: monospace;
         font-size: 12px;
         letter-spacing: 0.04em;
+        text-shadow: 1px 1px 0 #000;
         pointer-events: none;
         text-align: center;
         z-index: 10;
@@ -190,11 +191,16 @@
       #survival-hud {
         position: fixed;
         left: 50%;
-        bottom: 50px;
+        /* Clear the THREE.js hotbar strip (slot centres sit 50px from the
+           bottom, so the strip + selection border reach ~86px up). */
+        bottom: 94px;
         transform: translateX(-50%);
         display: grid;
-        gap: 2px;
-        width: min(430px, calc(100vw - 24px));
+        gap: 3px;
+        /* Match the hotbar width (9 * 60 + 8 * 10 = 620px) so the meters and
+           XP bar align over the slots — health at the left end, hunger at the
+           right end, vanilla-style. */
+        width: min(620px, calc(100vw - 24px));
         pointer-events: none;
         z-index: 10;
         image-rendering: pixelated;
@@ -360,7 +366,7 @@
     <div id="multiplayer-root"></div>
     <canvas id="game-canvas"></canvas>
     <div id="underwater-screen-tint" aria-hidden="true"></div>
-    <div id="fps-counter" style="position: fixed; top: 10px; right: 10px; background: rgba(0,0,0,0.7); color: white; padding: 5px 10px; font-family: monospace; font-size: 14px; pointer-events: none; z-index: 10;">
+    <div id="fps-counter" style="position: fixed; top: 10px; right: 10px; background: rgba(0,0,0,0.35); color: #f0f0f0; padding: 4px 9px; font-family: monospace; font-size: 12px; text-shadow: 1px 1px 0 #000; pointer-events: none; z-index: 10;">
       FPS: <span id="fps-value">0</span>
     </div>
     <div id="autosave-status" role="status" aria-live="polite" aria-atomic="true"></div>
@@ -387,7 +393,7 @@
       </div>
     </div>
     <!-- Air/oxygen (FR-2): hidden until the head is underwater; physics-stage toggles display + bubble count. -->
-    <div id="air-display" style="display: none; position: fixed; bottom: 170px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.7); color: #7ec8ff; padding: 5px 12px; font-family: monospace; font-size: 16px; pointer-events: none; z-index: 10;"></div>
+    <div id="air-display" style="display: none; position: fixed; bottom: 170px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.35); color: #7ec8ff; padding: 5px 12px; font-family: monospace; font-size: 16px; text-shadow: 1px 1px 0 #000; pointer-events: none; z-index: 10;"></div>
     <!-- Block break progress: hidden until left-click held on a block; interaction-stage updates value/max each frame. -->
     <progress id="break-progress" value="0" max="100" style="display: none; position: fixed; top: calc(50% + 20px); left: 50%; transform: translateX(-50%); width: 140px; height: 8px; pointer-events: none; z-index: 10; accent-color: #e8c040;"></progress>
     <script type="module" src="/src/main.ts"></script>

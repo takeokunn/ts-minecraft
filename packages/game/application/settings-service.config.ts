@@ -27,7 +27,7 @@ export const GRAPHICS_PRESETS = {
   low: {
     shadowsEnabled: false, ssaoEnabled: false, bloomEnabled: false,
     smaaEnabled: false,  skyEnabled: false,  dofEnabled: false, godRaysEnabled: false,
-    godRaysSamples: 0,  bloomStrength: 0,    refractionThrottleFrames: 0, pixelRatioCap: 0.5,
+    godRaysSamples: 0,  bloomStrength: 0,    refractionThrottleFrames: 0, pixelRatioCap: 1.0,
     refractionMinScreenRatio: 0.05, // FR-4.4: aggressive skip on low — refraction is throttled to 0 anyway
     composerRtType: 1009, // THREE.UnsignedByteType — no HDR pass, save VRAM bandwidth
     useCompositePass: false, // FR-4.3: no HDR effects — CompositePass would no-op

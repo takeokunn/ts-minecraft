@@ -78,8 +78,10 @@ void main() {
   float f5 = f2 * f2 * NdotV;
   float fresnel = 0.02 + 0.98 * f5;
 
-  vec4 shallowColor = vec4(0.10, 0.42, 0.64, 0.84);
-  vec4 deepColor = vec4(0.02, 0.16, 0.40, 0.92);
+  // Vanilla-leaning blues (~#3F76E4): the water must read clearly darker and
+  // more saturated than the sky or lakes vanish into the horizon haze.
+  vec4 shallowColor = vec4(0.13, 0.38, 0.78, 0.84);
+  vec4 deepColor = vec4(0.03, 0.12, 0.45, 0.92);
   float depthFactor = clamp(0.55 + (1.0 - fresnel) * 0.4, 0.0, 1.0);
   vec4 waterTint = mix(shallowColor, deepColor, depthFactor);
 
@@ -100,7 +102,7 @@ void main() {
     : waterTint;
   vec4 color = uRefractionValid
     ? mix(refracted, vec4(mix(skyColor, waterTint.rgb, 0.4), waterTint.a), clamp(fresnel, 0.05, 0.95))
-    : vec4(mix(skyColor, waterTint.rgb, 0.3), waterTint.a);
+    : vec4(mix(skyColor, waterTint.rgb, 0.75), waterTint.a); // no refraction texture (low/medium): stay water-blue, not sky-colored
   color.rgb *= (0.30 + 0.70 * uSunIntensity);
   color.a = 0.86;
 

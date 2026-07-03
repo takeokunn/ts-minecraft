@@ -20,52 +20,60 @@ export type SettingsOverlayDom = {
   readonly gearBtn: Option.Option<HTMLButtonElement>
 }
 
+// Matches the classic-Minecraft menu treatment in packages/presentation/menu/main-menu-styles.ts:
+// dark panel, bevelled buttons, system-ui (not the Minecraftia/monospace that fell back to Courier).
+const SANS_FONT = 'system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif'
+
 const panelCss = [
   'position:fixed', 'top:50%', 'left:50%', 'transform:translate(-50%,-50%)',
   'box-sizing:border-box',
   'width:min(420px,calc(100vw - 32px))',
   'max-height:calc(100vh - 48px)',
   'overflow:auto',
-  'background:#7f7f7f',
-  'background-image:linear-gradient(135deg,#9b9b9b 0%,#737373 52%,#565656 100%)',
-  'color:#fff',
-  'padding:18px',
-  'border:4px solid #1d1d1d',
-  'box-shadow:inset 3px 3px 0 #c9c9c9,inset -3px -3px 0 #353535,0 8px 0 rgba(0,0,0,0.28)',
-  'font-family:"Minecraftia","Press Start 2P",monospace',
-  'text-shadow:2px 2px 0 #2b2b2b',
+  'background:rgba(30,30,30,0.96)',
+  'color:#e0e0e0',
+  'padding:20px',
+  'border:2px solid #000',
+  'box-shadow:inset 2px 2px 0 rgba(255,255,255,0.15),inset -2px -2px 0 rgba(0,0,0,0.5),0 12px 28px rgba(0,0,0,0.55)',
+  `font-family:${SANS_FONT}`,
+  'text-shadow:1px 1px 0 #1a1a1a',
   'z-index:5800',
   'display:none',
 ].join(';')
 
 const labelBlockCss = 'display:block;margin-bottom:12px;font-size:13px;line-height:1.45'
 const labelRowCss = 'display:flex;align-items:center;gap:10px;margin-bottom:12px;cursor:pointer;font-size:13px;line-height:1.45'
-const descriptionCss = 'margin:0 0 14px;font-size:12px;line-height:1.5;text-align:center;color:#f3f3f3'
+const descriptionCss = 'margin:0 0 14px;font-size:12px;line-height:1.5;text-align:center;color:#c8c8c8'
 const controlCss = [
   'display:block',
   'box-sizing:border-box',
   'width:100%',
   'margin-top:6px',
   'padding:7px 8px',
-  'background:#2f2f2f',
+  'background:#2a2a2a',
   'color:#fff',
-  'border:3px solid #111',
+  'border:2px solid #000',
   'border-radius:0',
-  'box-shadow:inset 2px 2px 0 #5a5a5a,inset -2px -2px 0 #161616',
-  'font-family:monospace',
+  'box-shadow:inset 2px 2px 0 #101010,inset -2px -2px 0 #4a4a4a',
+  `font-family:${SANS_FONT}`,
 ].join(';')
 const rangeCss = 'display:block;width:100%;margin-top:6px;accent-color:#74b84a'
 const closeButtonCss = [
   'flex:1',
+  'box-sizing:border-box',
   'padding:9px 12px',
+  'min-height:40px',
   'cursor:pointer',
-  'background:#6f6f6f',
-  'color:#fff',
-  'border:3px solid #111',
+  'background-color:#6d6d6d',
+  'background-image:linear-gradient(180deg,#7e7e7e 0%,#6d6d6d 52%,#5c5c5c 100%)',
+  'color:#e0e0e0',
+  'border:2px solid #000',
   'border-radius:0',
-  'box-shadow:inset 2px 2px 0 #bcbcbc,inset -2px -2px 0 #353535',
-  'font-family:"Minecraftia","Press Start 2P",monospace',
-  'text-shadow:2px 2px 0 #222',
+  'box-shadow:inset 2px 2px 0 rgba(255,255,255,0.35),inset -2px -2px 0 rgba(0,0,0,0.35)',
+  `font-family:${SANS_FONT}`,
+  'font-size:15px',
+  'font-weight:600',
+  'text-shadow:1px 1px 0 #383838',
 ].join(';')
 
 /* c8 ignore next 2 */
@@ -192,17 +200,21 @@ export const buildSettingsOverlayDom = (dom: DomOperationsService): SettingsOver
   btn.setAttribute('aria-controls', 'settings-overlay')
   btn.style.cssText = [
     'position:fixed', 'top:12px', 'left:12px',
-    'background:#6f6f6f', 'color:#fff',
-    'border:3px solid #111',
-    'box-shadow:inset 2px 2px 0 #bcbcbc,inset -2px -2px 0 #353535,0 3px 0 rgba(0,0,0,0.3)',
+    'background-color:#6d6d6d',
+    'background-image:linear-gradient(180deg,#7e7e7e 0%,#6d6d6d 52%,#5c5c5c 100%)',
+    'color:#e0e0e0',
+    'border:2px solid #000',
+    'box-shadow:inset 2px 2px 0 rgba(255,255,255,0.35),inset -2px -2px 0 rgba(0,0,0,0.35),0 3px 0 rgba(0,0,0,0.3)',
     'font-size:13px',
+    'font-weight:600',
     'line-height:1',
-    'padding:8px 12px',
+    'padding:9px 13px',
+    'min-height:36px',
     'cursor:pointer',
     'border-radius:0',
     'z-index:5500',
-    'font-family:"Minecraftia","Press Start 2P",monospace',
-    'text-shadow:2px 2px 0 #222',
+    `font-family:${SANS_FONT}`,
+    'text-shadow:1px 1px 0 #383838',
   ].join(';')
   dom.appendChild(btn)
 
