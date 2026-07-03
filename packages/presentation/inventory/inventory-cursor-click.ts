@@ -1,4 +1,5 @@
 import { Option } from 'effect'
+import { formatLabel } from './inventory-renderer-refresh'
 import { addToStack, canMerge, ItemStack, maxStackFor, mergeStacks, removeFromStack } from '@ts-minecraft/inventory/domain/item-stack'
 import type { InventorySlot } from '@ts-minecraft/inventory/application/inventory-service'
 
@@ -134,5 +135,5 @@ export const applyInventoryCursorClick = (
 export const describeInventoryCursor = (cursor: InventorySlot): string =>
   Option.match(cursor, {
     onNone: () => 'Cursor empty.',
-    onSome: (stack) => `Holding ${stack.count} ${stack.itemType}.`,
+    onSome: (stack) => `Holding ${stack.count} ${formatLabel(stack.itemType)}.`,
   })

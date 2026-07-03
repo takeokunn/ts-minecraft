@@ -133,7 +133,7 @@ describe('TradingPresentationService', () => {
 
       const list = createdElements.find((el) => el.id === 'trading-list')!
       expect(list.children).toHaveLength(1)
-      expect(list.children[0]!.textContent).toContain('GLASS')
+      expect(list.children[0]!.textContent).toContain('Glass')
     }).pipe(Effect.provide(TestLayer))
   })
 

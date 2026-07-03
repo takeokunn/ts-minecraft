@@ -1,4 +1,5 @@
 import { Cause, Effect, Option, Ref } from 'effect'
+import { formatLabel } from './inventory-renderer-refresh'
 import { type ChestService } from '@ts-minecraft/inventory/application/chest-service'
 import { type EquipmentService } from '@ts-minecraft/inventory/application/equipment-service'
 import { type HotbarService } from '@ts-minecraft/inventory/application/hotbar-service'
@@ -130,7 +131,7 @@ export const buildHandleDelegatedClick = (deps: ClickHandlerDeps) =>
             return
           }
           yield* Ref.set(craftingGridCellsRef, consumeCraftingGridCells(cells))
-          yield* Ref.set(statusMessageRef, `Crafted ${matched.output.count} ${matched.output.itemType}.`)
+          yield* Ref.set(statusMessageRef, `Crafted ${matched.output.count} ${formatLabel(matched.output.itemType)}.`)
           yield* refreshSlots()
         }).pipe(
           Effect.catchAllCause((cause) =>

@@ -26,7 +26,7 @@ const ROMAN_LEVELS: Readonly<Record<number, string>> = {
   5: 'V',
 }
 
-const formatLabel = (value: string): string =>
+export const formatLabel = (value: string): string =>
   value
     .split('_')
     .map((part) => part.length === 0 ? part : `${part[0]!.toUpperCase()}${part.slice(1).toLowerCase()}`)
@@ -101,7 +101,9 @@ const formatIngredientLine = (ingredients: Recipe['ingredients']): string => {
     if (index > 0) {
       line += ' + '
     }
-    line += `${ingredient.count} ${ingredient.itemType}`
+    // Player-facing text uses display names ('Iron Ingot'), never the raw
+    // ITEM_TYPE identifiers the data model carries.
+    line += `${ingredient.count} ${formatLabel(ingredient.itemType)}`
   }
   return line
 }
@@ -216,7 +218,7 @@ export const renderCraftingList = (
           : recipe.station === 'brewing_stand'
             ? ' [Brewing Stand]'
             : ''
-      row.textContent = `${formatIngredientLine(recipe.ingredients)} → ${recipe.output.count} ${recipe.output.itemType}${stationLabel}`
+      row.textContent = `${formatIngredientLine(recipe.ingredients)} → ${recipe.output.count} ${formatLabel(recipe.output.itemType)}${stationLabel}`
       dom.appendChildTo(container, row)
     })
   })
@@ -271,7 +273,7 @@ export const renderRecipeBook = (
           : recipe.station === 'brewing_stand'
             ? ' [Brewing Stand]'
             : ''
-      row.textContent = `${formatIngredientLine(recipe.ingredients)} → ${recipe.output.count} ${recipe.output.itemType}${stationLabel}`
+      row.textContent = `${formatIngredientLine(recipe.ingredients)} → ${recipe.output.count} ${formatLabel(recipe.output.itemType)}${stationLabel}`
       dom.appendChildTo(container, row)
     })
   })

@@ -177,9 +177,9 @@ describe('presentation/inventory/inventory-renderer-refresh', () => {
 
     expect(container.childrenList).toHaveLength(2)
     expect((container.childrenList[0] as HTMLButtonElement).dataset['recipeId']).toBe('wooden-sword')
-    expect((container.childrenList[0] as HTMLButtonElement).textContent).toBe('2 PLANKS + 1 STICK → 1 WOODEN_SWORD [Crafting Table]')
+    expect((container.childrenList[0] as HTMLButtonElement).textContent).toBe('2 Planks + 1 Stick → 1 Wooden Sword [Crafting Table]')
     expect((container.childrenList[1] as HTMLButtonElement).dataset['recipeId']).toBe('iron-ingot')
-    expect((container.childrenList[1] as HTMLButtonElement).textContent).toBe('1 RAW_IRON → 1 IRON_INGOT [Furnace]')
+    expect((container.childrenList[1] as HTMLButtonElement).textContent).toBe('1 Raw Iron → 1 Iron Ingot [Furnace]')
   })
 
   it('filters the recipe book by search text', () => {

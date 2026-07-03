@@ -1,4 +1,5 @@
 import { Array as Arr, Effect, Option, Ref } from 'effect'
+import { formatLabel } from './inventory/inventory-renderer-refresh'
 import { DomOperationsService } from '@ts-minecraft/presentation/hud/crosshair'
 import { TradingService } from '@ts-minecraft/entity/application/trading/trading-service'
 import { VillageService } from '@ts-minecraft/entity/application/village/village-service'
@@ -24,7 +25,7 @@ const renderOfferRows = (
   Arr.forEach(state.offers, (offer, index) => {
     const row = dom.createElement('div')
     row.style.cssText = rowStyles(index === state.selectedIndex)
-    row.textContent = `${offer.input.count} ${offer.input.itemType} → ${offer.output.count} ${offer.output.itemType} (Lv${offer.levelRequired})`
+    row.textContent = `${offer.input.count} ${formatLabel(offer.input.itemType)} → ${offer.output.count} ${formatLabel(offer.output.itemType)} (Lv${offer.levelRequired})`
     dom.appendChildTo(container, row)
   })
 }

@@ -1,4 +1,5 @@
 import { Array as Arr, Cause, Effect, Either, Option, Ref } from 'effect'
+import { formatLabel } from './inventory-renderer-refresh'
 import { ChestService } from '@ts-minecraft/inventory/application/chest-service'
 import { EquipmentService } from '@ts-minecraft/inventory/application/equipment-service'
 import { InventoryService, HOTBAR_START, type InventorySlot } from '@ts-minecraft/inventory/application/inventory-service'
@@ -534,7 +535,7 @@ export class InventoryRendererService extends Effect.Service<InventoryRendererSe
             yield* Ref.set(
               statusMessageRef,
               crafted
-                ? `Crafted ${recipe.output.count} ${recipe.output.itemType}.`
+                ? `Crafted ${recipe.output.count} ${formatLabel(recipe.output.itemType)}.`
                 : 'Crafting failed.',
             )
             yield* refreshSlots()
