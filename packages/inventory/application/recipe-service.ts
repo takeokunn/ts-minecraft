@@ -5,6 +5,7 @@ import { RecipeError } from '../domain/errors'
 import type { InventoryService } from './inventory-service'
 import { RecipeId } from '@ts-minecraft/core'
 import { RECIPE_DEFINITIONS } from './recipes'
+import { loadCustomRecipesFromStorage, mergeCustomRecipes } from '../domain/custom-recipes'
 import {
   buildRecipeMap,
   canUseRecipe,
@@ -18,8 +19,21 @@ import {
 export class RecipeService extends Effect.Service<RecipeService>()(
   '@minecraft/application/RecipeService',
   {
-    effect: Effect.succeed((() => {
-      const recipes: ReadonlyArray<Recipe> = RECIPE_DEFINITIONS
+    effect: Effect.sync(() => {
+      // Data-driven modding surface: user recipes from localStorage merge
+      // after the built-ins (id collisions skipped, bad entries rejected
+      // per-item by the Recipe schema — see domain/custom-recipes.ts).
+      const custom = loadCustomRecipesFromStorage()
+      const { recipes: mergedRecipes, skippedIds } = mergeCustomRecipes(RECIPE_DEFINITIONS, custom.recipes)
+      for (const message of custom.errors) {
+        // eslint-disable-next-line no-console -- boot-time diagnostics for user packs
+        console.warn(message)
+      }
+      if (skippedIds.length > 0) {
+        // eslint-disable-next-line no-console -- boot-time diagnostics for user packs
+        console.warn(`custom recipes skipped (id collides with a built-in): ${skippedIds.join(', ')}`)
+      }
+      const recipes: ReadonlyArray<Recipe> = mergedRecipes
 
       const recipeMap = buildRecipeMap(recipes)
 
@@ -87,6 +101,6 @@ export class RecipeService extends Effect.Service<RecipeService>()(
         findCraftable,
         craft,
       }
-    })()),
+    }),
   }
 ) {}

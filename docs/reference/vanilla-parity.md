@@ -126,7 +126,7 @@ Chicken, Bat, Squid, Bee.
 
 ## Known gaps (honest ❌ list)
 
-- Modding / plugin / datapack API — none (out of scope for a clone core).
+- Modding: 🟡 first data-driven surface shipped 2026-07-03 — custom recipe packs via `localStorage['ts-minecraft:custom-recipes']` (JSON array validated by the built-in Recipe schema; per-entry rejection, built-in id collisions skipped). No scripting/plugin API — Luanti-class modding remains out of scope.
 - Boats & minecarts — items exist; ride-able entities not implemented.
 - Ocean depth content (guardians, kelp forests), amethyst/deepslate caves biome variety.
 - Audio on localhost is force-disabled by environment policy (engine unit-tested; needs non-localhost origin for live validation).
