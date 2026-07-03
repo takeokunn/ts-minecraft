@@ -37,6 +37,40 @@ describe('entity/entityManagerAIFrame', () => {
     })
   })
 
+  it('daylight burn ignites undead hostiles (Skeleton) only', () => {
+    const skeleton = makeTestManagedEntity({
+      entityId: EntityId.make('entity-frame-skeleton'),
+      type: EntityType.Skeleton,
+      health: 20,
+    })
+
+    const frame = prepareEntityAIFrame(
+      skeleton,
+      skeleton.entityId,
+      makeEntityFrameContext({ deltaTime: DeltaTimeSecs.make(1), daytimeBurningActive: true }),
+    )
+
+    expect(frame.burning).toBe(true)
+    expect(frame.nextHealth).toBe(19)
+  })
+
+  it('daylight burn spares non-undead hostiles (Creeper) — vanilla daytime ambushes survive', () => {
+    const creeper = makeTestManagedEntity({
+      entityId: EntityId.make('entity-frame-creeper'),
+      type: EntityType.Creeper,
+      health: 20,
+    })
+
+    const frame = prepareEntityAIFrame(
+      creeper,
+      creeper.entityId,
+      makeEntityFrameContext({ deltaTime: DeltaTimeSecs.make(1), daytimeBurningActive: true }),
+    )
+
+    expect(frame.burning).toBe(false)
+    expect(frame.nextHealth).toBe(20)
+  })
+
   it('promotes a looked-at Enderman into a provoked chase frame', () => {
     const entity = makeTestManagedEntity({
       entityId: EntityId.make('entity-frame-enderman'),

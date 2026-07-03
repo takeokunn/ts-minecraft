@@ -3,6 +3,7 @@ import { GAME_TICKS_PER_SEC } from '@ts-minecraft/core'
 import { EntityType, type EntityId } from '../../domain/mob/entity'
 import type { ManagedEntity } from '../../domain/mob/entity-internal'
 import { tickBreedingTimers } from '../../domain/mob/breeding'
+import { UNDEAD_MOBS } from '../../domain/mob/mob-categories'
 import { hashEntityId } from '../../domain/mob/entity-utils'
 import { WANDER_PHASE_TICK_STEP } from '../../domain/mob/entity-manager-utils'
 import {
@@ -121,7 +122,9 @@ export const prepareEntityAIFrame = (
     || tickedBreeding.breedCooldownRemaining !== entity.breedCooldownRemaining
     || tickedBreeding.ageTicks !== entity.ageTicks
 
-  const burning = daytimeBurningActive && entity.behavior === 'hostile'
+  // Vanilla: only undead hostiles burn in daylight — creepers/spiders/
+  // endermen/witches survive the day.
+  const burning = daytimeBurningActive && UNDEAD_MOBS.has(entity.type)
   const fireTick = tickEntityFire(entity, deltaTime)
   const burnDamage = (burning ? 1 : 0) + fireTick.damage
   const nextHealth = Math.max(0, entity.health - burnDamage)

@@ -41,3 +41,14 @@ export const ALL_HOSTILE_MOBS: ReadonlyArray<EntityType> = [
   EntityType.Blaze,
   EntityType.Ghast,
 ]
+
+// Vanilla daylight burn applies to UNDEAD mobs only — creepers, spiders,
+// endermen and witches survive the day (daytime creeper ambushes are a core
+// vanilla experience). Native Set: membership is checked per mob per burn
+// tick on the frame hot path.
+export const UNDEAD_MOBS: ReadonlySet<EntityType> = new Set([
+  EntityType.Zombie,
+  EntityType.Skeleton,
+  EntityType.Drowned,
+  EntityType.ZombieVillager,
+])
