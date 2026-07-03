@@ -43,7 +43,7 @@ export const runInteractionStageFrame = (
     | 'droppedItemService'
     | 'droppedXpOrbService'
   >,
-  refs: Pick<FrameStageRefs, 'dirtyChunksRef' | 'totalTimeSecsRef' | 'lastPlayerAttackTimeRef' | 'attackSwingStateRef' | 'breakProgressRef' | 'bowChargeStartRef' | 'isShieldBlockingRef'>,
+  refs: Pick<FrameStageRefs, 'dirtyChunksRef' | 'totalTimeSecsRef' | 'lastPlayerAttackTimeRef' | 'attackSwingStateRef' | 'breakProgressRef' | 'bowChargeStartRef' | 'isShieldBlockingRef' | 'hitStopFramesRef'>,
   inputs: {
     readonly debugFlags: DebugFeatureFlags
   },

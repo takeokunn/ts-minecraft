@@ -34,7 +34,7 @@ export const runInteractionStageCombatActions = (
   >,
   refs: Pick<
     FrameStageRefs,
-    'dirtyChunksRef' | 'totalTimeSecsRef' | 'lastPlayerAttackTimeRef' | 'attackSwingStateRef' | 'breakProgressRef'
+    'dirtyChunksRef' | 'totalTimeSecsRef' | 'lastPlayerAttackTimeRef' | 'attackSwingStateRef' | 'breakProgressRef' | 'hitStopFramesRef'
   >,
   context: {
     readonly snapshot: InteractionStageSnapshot

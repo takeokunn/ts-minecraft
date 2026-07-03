@@ -16,6 +16,7 @@ import { makeServices } from "../../../test/frame-handler-test-kit/services"
 
 const makeRefs = (): Parameters<typeof handleLeftClick>[2] => ({
   attackSwingStateRef: MutableRef.make(createAttackSwingState()),
+  hitStopFramesRef: MutableRef.make(0),
   dirtyChunksRef: MutableRef.make(HashMap.empty()) as Parameters<
     typeof handleLeftClick
   >[2]["dirtyChunksRef"],

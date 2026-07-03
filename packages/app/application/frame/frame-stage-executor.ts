@@ -9,6 +9,8 @@ import {
   type FrameStageExecutorContext,
 } from './frame-stage-executor-helpers'
 
+const HIT_STOP_TIME_SCALE = 0.1
+
 export const runFrameStages = (
   deps: FrameHandlerDeps,
   services: FrameHandlerServices,
@@ -16,7 +18,15 @@ export const runFrameStages = (
   context: FrameStageExecutorContext,
 ) =>
   Effect.gen(function* () {
-    const deltaTime = MutableRef.get(refs.deltaTimeRef)
+    const rawDeltaTime = MutableRef.get(refs.deltaTimeRef)
+    // Melee hit-stop: a landed hit freezes time hard for a few frames — the
+    // classic impact-juice beat. Time-scaled (not skipped) so physics stays
+    // coherent; input/render keep running at full rate.
+    const hitStopFrames = MutableRef.get(refs.hitStopFramesRef)
+    const deltaTime = hitStopFrames > 0
+      ? (rawDeltaTime * HIT_STOP_TIME_SCALE) as typeof rawDeltaTime
+      : rawDeltaTime
+    if (hitStopFrames > 0) MutableRef.set(refs.hitStopFramesRef, hitStopFrames - 1)
     const totalTimeSecs = MutableRef.get(refs.totalTimeSecsRef) + deltaTime
     MutableRef.set(refs.totalTimeSecsRef, totalTimeSecs)
     const currentSettings = yield* services.settingsService.getSettings()

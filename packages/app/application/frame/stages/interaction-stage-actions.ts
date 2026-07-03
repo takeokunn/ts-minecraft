@@ -51,6 +51,7 @@ export const runInteractionStageActions = (
     | 'breakProgressRef'
     | 'bowChargeStartRef'
     | 'isShieldBlockingRef'
+    | 'hitStopFramesRef'
   >,
   context: {
     readonly snapshot: InteractionStageSnapshot

@@ -70,7 +70,7 @@ export const handleLeftClick = (
     | 'droppedItemService'
     | 'droppedXpOrbService'
   >,
-  refs: Pick<FrameStageRefs, 'dirtyChunksRef' | 'totalTimeSecsRef' | 'lastPlayerAttackTimeRef' | 'attackSwingStateRef'>,
+  refs: Pick<FrameStageRefs, 'dirtyChunksRef' | 'totalTimeSecsRef' | 'lastPlayerAttackTimeRef' | 'attackSwingStateRef' | 'hitStopFramesRef'>,
   context: {
     readonly targetBlock: Option.Option<TargetBlockHit>
     readonly targetHit: Option.Option<TargetRayHit>
@@ -154,6 +154,8 @@ export const handleLeftClick = (
         }
       }
       yield* services.soundManager.playEffect('entityHit', { position: entity.position })
+      // Impact beat: 3 frames of hard time-scale (see frame-stage-executor).
+      MutableRef.set(refs.hitStopFramesRef, 3)
       yield* services.crosshair.pulse()
       if (debugFlags['particles.spawn']) {
         yield* services.particleSystem.spawnBurst(

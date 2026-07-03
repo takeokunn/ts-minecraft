@@ -23,6 +23,9 @@ export type FrameStageRefs = {
   // Rendered-signature of the active status effects ('TYPE:amp:secs|...') —
   // second-granular so the HUD chip list re-renders at most once a second.
   readonly lastEffectsRef: MutableRef.MutableRef<{ signature: string }>
+  // Remaining frames of melee hit-stop: while > 0, the frame executor scales
+  // deltaTime down hard (~10%) for a brief impact freeze. Set on landed hits.
+  readonly hitStopFramesRef: MutableRef.MutableRef<number>
   // totalTimeSecs of the player's last melee attack — drives attack-cooldown charge.
   readonly lastPlayerAttackTimeRef: MutableRef.MutableRef<number>
   readonly attackSwingStateRef: MutableRef.MutableRef<AttackSwingState>
