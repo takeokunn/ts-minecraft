@@ -37,6 +37,7 @@ export const makeDamageOverlay = () =>
     _tag: '@minecraft/presentation/DamageOverlay' as const,
     element: {} as HTMLElement,
     flash: () => Effect.void,
+  flashDirectional: (_bearing: number) => Effect.void,
     hide: () => Effect.void,
   })
 

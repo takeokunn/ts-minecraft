@@ -129,7 +129,21 @@ const getHostileDamage = (
       // Tracer streaks: every landed ranged shot draws a particle line from
       // the shooter to the player — instant-hit shots are otherwise invisible.
       const shotOrigins = yield* services.entityManager.drainPlayerShotOrigins()
+      const cameraRotation = shotOrigins.length > 0
+        ? yield* services.playerCameraState.getRotation()
+        : null
       for (const shot of shotOrigins) {
+        // Damage-direction wedge: bearing of the attacker relative to the
+        // camera (0 = ahead, positive = clockwise). Redundant channel for the
+        // hurt sound, per the accessibility guidelines.
+        if (cameraRotation !== null) {
+          const dx = shot.x - refreshedPos.x
+          const dz = shot.z - refreshedPos.z
+          const yaw = cameraRotation.yaw
+          const forwardness = -dx * Math.sin(yaw) - dz * Math.cos(yaw)
+          const rightness = dx * Math.cos(yaw) - dz * Math.sin(yaw)
+          yield* services.damageOverlay.flashDirectional(Math.atan2(rightness, forwardness))
+        }
         const uv = getParticleUvOffset(blockTypeToIndex(shot.fire ? 'LAVA' : 'SNOW'))
         const TRACER_POINTS = 5
         for (let i = 1; i <= TRACER_POINTS; i++) {
