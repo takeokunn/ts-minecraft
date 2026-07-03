@@ -129,6 +129,8 @@ describe('presentation/settings/settings-overlay', () => {
           sfxVolume: 1,
           musicVolume: 0.55,
           graphicsQuality: 'medium',
+          difficulty: 'normal',
+          reducedMotion: false,
         })
       }).pipe(Effect.provide(TestLayer))
     })
@@ -157,6 +159,8 @@ describe('presentation/settings/settings-overlay', () => {
           sfxVolume: 0.65,
           musicVolume: 0.15,
           graphicsQuality: 'medium',
+          difficulty: 'normal',
+          reducedMotion: false,
         })
       }).pipe(Effect.provide(TestLayer))
     })

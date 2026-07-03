@@ -24,6 +24,8 @@ export class SettingsOverlayService extends Effect.Service<SettingsOverlayServic
         sfxVolumeInput,
         musicVolumeInput,
         qualitySelect,
+        difficultySelect,
+        reducedMotionInput,
         closeBtn,
         gearBtn,
       } = yield* Effect.sync(() => buildSettingsOverlayDom(dom))
@@ -82,6 +84,18 @@ export class SettingsOverlayService extends Effect.Service<SettingsOverlayServic
           masterVolume: parseFloat(Option.getOrNull(masterVolumeInput)?.value ?? '0.8'),
           sfxVolume: parseFloat(Option.getOrNull(sfxVolumeInput)?.value ?? '1'),
           musicVolume: parseFloat(Option.getOrNull(musicVolumeInput)?.value ?? '0.55'),
+          reducedMotion: Option.getOrNull(reducedMotionInput)?.checked ?? false,
+          difficulty: (() => {
+            const val = Option.getOrNull(difficultySelect)?.value
+            if (!val) return 'normal' as const
+            return Match.value(val).pipe(
+              Match.when('peaceful', () => 'peaceful' as const),
+              Match.when('easy', () => 'easy' as const),
+              Match.when('normal', () => 'normal' as const),
+              Match.when('hard', () => 'hard' as const),
+              Match.orElse(() => 'normal' as const),
+            )
+          })(),
           graphicsQuality: (() => {
             const val = Option.getOrNull(qualitySelect)?.value
             if (!val) return 'medium' as const
@@ -121,6 +135,10 @@ export class SettingsOverlayService extends Effect.Service<SettingsOverlayServic
             syncInputAndLabel(musicVolumeInput, '#muv-val', String(settings.musicVolume), formatVolumePercent)
             const qSel = Option.getOrNull(qualitySelect)
             if (qSel !== null) qSel.value = settings.graphicsQuality
+            const dSel = Option.getOrNull(difficultySelect)
+            if (dSel !== null) dSel.value = settings.difficulty
+            const rmInput = Option.getOrNull(reducedMotionInput)
+            if (rmInput !== null) rmInput.checked = settings.reducedMotion
           })
         })
 
@@ -294,6 +312,8 @@ export class SettingsOverlayService extends Effect.Service<SettingsOverlayServic
       // Register event listeners + prime DOM inputs from SettingsService on mount (FR-1.4)
       yield* Effect.sync(() => {
         Option.getOrNull(adaptivePerformanceInput)?.addEventListener('change', handleAdaptivePerformanceChange)
+        Option.getOrNull(difficultySelect)?.addEventListener('change', handleAdaptivePerformanceChange)
+        Option.getOrNull(reducedMotionInput)?.addEventListener('change', handleAdaptivePerformanceChange)
         Option.getOrNull(renderDistanceInput)?.addEventListener('input', handleRdInput)
         Option.getOrNull(sensitivityInput)?.addEventListener('input', handleMsInput)
         Option.getOrNull(dayLengthInput)?.addEventListener('input', handleDlInput)
@@ -311,6 +331,8 @@ export class SettingsOverlayService extends Effect.Service<SettingsOverlayServic
       yield* Effect.addFinalizer(() => Effect.sync(() => {
         documentRemoveKeydownListener()
         Option.getOrNull(adaptivePerformanceInput)?.removeEventListener('change', handleAdaptivePerformanceChange)
+        Option.getOrNull(difficultySelect)?.removeEventListener('change', handleAdaptivePerformanceChange)
+        Option.getOrNull(reducedMotionInput)?.removeEventListener('change', handleAdaptivePerformanceChange)
         Option.getOrNull(renderDistanceInput)?.removeEventListener('input', handleRdInput)
         Option.getOrNull(sensitivityInput)?.removeEventListener('input', handleMsInput)
         Option.getOrNull(dayLengthInput)?.removeEventListener('input', handleDlInput)

@@ -33,6 +33,7 @@ export const DEFAULT_SETTINGS = {
   mouseSensitivity: 0.5,
   dayLengthSeconds: 400,
   difficulty: 'normal' as const,
+  reducedMotion: false,
   graphicsQuality: 'high' as const,
   adaptivePerformanceMode: false,
   audioEnabled: true,

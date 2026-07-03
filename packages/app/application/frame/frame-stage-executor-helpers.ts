@@ -340,6 +340,7 @@ export const runPresentationFrameStages = (
       resolvedGraphics: inputs.resolvedGraphics,
       sunWorldPos: inputs.sunWorldPos,
       debugFlags: inputs.debugFlags,
+      reducedMotion: inputs.currentSettings.reducedMotion,
     })
     yield* hudStage(deps, services, refs, {
       deltaTime: inputs.deltaTime,

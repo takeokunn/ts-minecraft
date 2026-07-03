@@ -46,6 +46,9 @@ export const SettingsSchema = Schema.Struct({
   mouseSensitivity: Schema.Number.pipe(Schema.finite(), Schema.between(0.1, 3.0)),
   dayLengthSeconds: Schema.Number.pipe(Schema.finite(), Schema.between(120, 1200)),
   difficulty: GameDifficulty,
+  // Accessibility: disables camera bob/roll and other non-essential motion.
+  // optionalWith default keeps previously-saved settings decodable.
+  reducedMotion: Schema.optionalWith(Schema.Boolean, { default: () => false }),
   graphicsQuality: GraphicsQuality,
   adaptivePerformanceMode: Schema.Boolean,
   // NOTE: audioEnabled defaults to false intentionally — do NOT change this to true.

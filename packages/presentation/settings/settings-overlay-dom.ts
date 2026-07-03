@@ -5,6 +5,8 @@ export type SettingsOverlayDom = {
   readonly overlayEl: Option.Option<HTMLDivElement>
   readonly renderDistanceInput: Option.Option<HTMLInputElement>
   readonly adaptivePerformanceInput: Option.Option<HTMLInputElement>
+  readonly difficultySelect: Option.Option<HTMLSelectElement>
+  readonly reducedMotionInput: Option.Option<HTMLInputElement>
   readonly sensitivityInput: Option.Option<HTMLInputElement>
   readonly dayLengthInput: Option.Option<HTMLInputElement>
   readonly audioEnabledInput: Option.Option<HTMLInputElement>
@@ -71,6 +73,8 @@ export const buildSettingsOverlayDom = (dom: DomOperationsService): SettingsOver
       overlayEl: Option.none<HTMLDivElement>(),
       renderDistanceInput: Option.none<HTMLInputElement>(),
       adaptivePerformanceInput: Option.none<HTMLInputElement>(),
+      difficultySelect: Option.none<HTMLSelectElement>(),
+      reducedMotionInput: Option.none<HTMLInputElement>(),
       sensitivityInput: Option.none<HTMLInputElement>(),
       dayLengthInput: Option.none<HTMLInputElement>(),
       audioEnabledInput: Option.none<HTMLInputElement>(),
@@ -107,6 +111,19 @@ export const buildSettingsOverlayDom = (dom: DomOperationsService): SettingsOver
     <label style="${labelRowCss}">
       <input id="adaptive-performance-input" type="checkbox" checked style="margin:0">
       <span>Adaptive performance mode</span>
+    </label>
+    <label style="${labelBlockCss}">
+      Difficulty:
+      <select id="difficulty-select" style="${controlCss}">
+        <option value="peaceful">Peaceful</option>
+        <option value="easy">Easy</option>
+        <option value="normal" selected>Normal</option>
+        <option value="hard">Hard</option>
+      </select>
+    </label>
+    <label style="${labelRowCss}">
+      <input id="reduced-motion-input" type="checkbox" style="margin:0">
+      <span>Reduce camera motion (bob/roll)</span>
     </label>
     <label style="${labelBlockCss}">
       Render Distance: <span id="rd-val">4</span>
@@ -187,6 +204,8 @@ export const buildSettingsOverlayDom = (dom: DomOperationsService): SettingsOver
     sfxVolumeInput: dom.querySelector<HTMLInputElement>(el, '#sv-input'),
     musicVolumeInput: dom.querySelector<HTMLInputElement>(el, '#muv-input'),
     qualitySelect: dom.querySelector<HTMLSelectElement>(el, '#quality-select'),
+    difficultySelect: dom.querySelector<HTMLSelectElement>(el, '#difficulty-select'),
+    reducedMotionInput: dom.querySelector<HTMLInputElement>(el, '#reduced-motion-input'),
     closeBtn: dom.querySelector<HTMLButtonElement>(el, '#settings-close'),
     gearBtn: Option.some(btn),
   }

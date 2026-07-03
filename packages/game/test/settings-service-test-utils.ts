@@ -24,6 +24,7 @@ export const DEFAULT_SETTINGS = {
   mouseSensitivity: 0.5,
   dayLengthSeconds: 400,
   difficulty: 'normal',
+  reducedMotion: false,
   graphicsQuality: 'low',
   adaptivePerformanceMode: true,
   audioEnabled: false, // NOTE: false intentionally — must match settings-service.ts DEFAULT_SETTINGS

@@ -9,6 +9,7 @@ describe('SettingsSchema encode round-trip', () => {
     mouseSensitivity: 0.5,
     dayLengthSeconds: 400,
     difficulty: 'normal',
+  reducedMotion: false,
     graphicsQuality: 'high',
     adaptivePerformanceMode: false,
     audioEnabled: false, // NOTE: false intentionally — matches DEFAULT_SETTINGS in settings-service.ts

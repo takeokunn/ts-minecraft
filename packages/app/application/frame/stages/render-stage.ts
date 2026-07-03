@@ -28,6 +28,9 @@ export const renderStage = (
     readonly resolvedGraphics: ResolvedGraphics
     readonly sunWorldPos: THREE.Vector3
     readonly debugFlags: DebugFeatureFlags
+    // Accessibility: suppress camera bob/roll; the first-person arm keeps
+    // swinging (essential feedback), only CAMERA motion is reduced.
+    readonly reducedMotion: boolean
   },
 ): Effect.Effect<void, never> =>
   Effect.gen(function* () {
@@ -38,9 +41,11 @@ export const renderStage = (
     scratchCameraPosition.copy(deps.camera.position)
     scratchCameraQuaternion.copy(deps.camera.quaternion)
 
-    deps.camera.translateX(swingOffset.x * SWING_CAMERA_X_UNITS)
-    deps.camera.translateY(swingOffset.y * SWING_CAMERA_Y_UNITS)
-    deps.camera.rotateZ(swingOffset.x * SWING_CAMERA_ROLL_RADS)
+    if (!inputs.reducedMotion) {
+      deps.camera.translateX(swingOffset.x * SWING_CAMERA_X_UNITS)
+      deps.camera.translateY(swingOffset.y * SWING_CAMERA_Y_UNITS)
+      deps.camera.rotateZ(swingOffset.x * SWING_CAMERA_ROLL_RADS)
+    }
 
     // First-person arm rides the same swing signal as the camera bob.
     updateFirstPersonHandSwing(ensureFirstPersonHand(deps.camera, deps.scene), swingOffset.x)

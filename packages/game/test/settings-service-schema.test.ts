@@ -17,6 +17,7 @@ describe('application/settings/settings-service', () => {
       mouseSensitivity: 0.5,
       dayLengthSeconds: 400,
       difficulty: 'normal' as const,
+  reducedMotion: false,
       graphicsQuality: 'medium' as const,
       adaptivePerformanceMode: true,
       audioEnabled: false,
@@ -50,6 +51,7 @@ describe('application/settings/settings-service', () => {
         mouseSensitivity: 0.1,
         dayLengthSeconds: 120,
         difficulty: 'normal',
+  reducedMotion: false,
         graphicsQuality: 'medium',
         adaptivePerformanceMode: false,
         audioEnabled: false,
@@ -81,6 +83,7 @@ describe('application/settings/settings-service', () => {
         masterVolume: 0.8,
         sfxVolume: 1.0,
         musicVolume: 0.55,
+        reducedMotion: false,
       })
     })
 

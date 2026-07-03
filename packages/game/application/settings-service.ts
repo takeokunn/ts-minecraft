@@ -14,6 +14,7 @@ const DEFAULT_SETTINGS: Settings = {
   mouseSensitivity: 0.5,
   dayLengthSeconds: 400,
   difficulty: 'normal',
+  reducedMotion: false,
   graphicsQuality: 'low',
   adaptivePerformanceMode: true,
   // NOTE: false intentionally — audio is disabled by default (see Schema comment above).
