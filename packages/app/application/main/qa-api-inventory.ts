@@ -45,6 +45,12 @@ export const openInventoryForQA = (inventoryRenderer: InventoryRendererService) 
 export const grantXpForQA = (xpService: XPService, amount: number) =>
   Effect.runPromise(xpService.addXP(amount))
 
+// Wears down a durable tool/armor piece in the given absolute inventory slot so
+// anvil repair can be exercised without mining/fighting to damage it first. A
+// no-op on empty/non-durable slots; clears the slot if the damage would break it.
+export const damageSlotForQA = (inventoryService: InventoryService, slotIndex: number, amount: number) =>
+  Effect.runPromise(inventoryService.damageSlot(SlotIndex.make(slotIndex), amount))
+
 // Grants an arbitrary item without staging blocks in the world — playtests of
 // crafting/eating/planting flows shouldn't need to mine their inputs first.
 export const giveItemForQA = (

@@ -34,6 +34,7 @@ export type QaApi = {
   readonly moveItemToHotbar: (itemType: InventoryItem, hotbarIndex: number) => Promise<boolean>
   readonly giveItemForQA: (itemType: InventoryItem, count: number) => Promise<boolean>
   readonly grantXpForQA: (amount: number) => Promise<{ readonly level: number; readonly totalXP: number }>
+  readonly damageSlotForQA: (slotIndex: number, amount: number) => Promise<void>
   readonly setMouseHeldForQA: (button: 0 | 1 | 2, held: boolean) => Promise<void>
   readonly setWeatherForQA: (weather: 'clear' | 'rain' | 'thunder') => Promise<void>
   readonly setDimensionForQA: (dimension: 'overworld' | 'nether' | 'end') => Promise<void>

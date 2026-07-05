@@ -6,6 +6,7 @@ import { isQaApiEnabled } from '@ts-minecraft/app/main/qa-api-env'
 import {
   craftRecipeForQA,
   getInventorySnapshot,
+  damageSlotForQA,
   giveItemForQA,
   grantXpForQA,
   getRecipeButtons,
@@ -86,6 +87,7 @@ const makeQaApi = (
   placeSelectedItemInFront: () => placeSelectedItemInFront(deps.camera, deps.hotbarService, deps.blockService, deps.blockHighlight),
   giveItemForQA: (itemType: InventoryItem, count: number) => giveItemForQA(deps.inventoryService, itemType, count),
   grantXpForQA: (amount: number) => grantXpForQA(deps.xpService, amount),
+  damageSlotForQA: (slotIndex: number, amount: number) => damageSlotForQA(deps.inventoryService, slotIndex, amount),
   moveItemToHotbar: (itemType: InventoryItem, hotbarIndex: number) =>
     moveItemToHotbar(deps.inventoryService, deps.hotbarService, itemType, hotbarIndex),
   selectHotbarSlot: (hotbarIndex: number) => selectHotbarSlot(deps.hotbarService, hotbarIndex),
