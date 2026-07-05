@@ -62,8 +62,9 @@ const BUTTON_BASE_STYLE = [
   'box-shadow:inset 2px 2px 0 rgba(255,255,255,0.3),inset -2px -2px 0 rgba(0,0,0,0.38)',
 ].join(';')
 
-const BUTTON_CANCEL_STYLE = `${BUTTON_BASE_STYLE};background-color:#6d6d6d;background-image:linear-gradient(180deg,#7e7e7e 0%,#6d6d6d 52%,#5c5c5c 100%);color:#e0e0e0`
-const BUTTON_CONFIRM_STYLE = `${BUTTON_BASE_STYLE};background-color:#8f3a3a;background-image:linear-gradient(180deg,#a24a4a 0%,#8f3a3a 52%,#7a2f2f 100%);color:#f0dede;text-shadow:1px 1px 0 #3a1414`
+// WCAG AA: white on the darker gradient (5.36:1 lightest stop); #e0e0e0-on-#7e7e7e was 3.92:1.
+const BUTTON_CANCEL_STYLE = `${BUTTON_BASE_STYLE};background-color:#5c5c5c;background-image:linear-gradient(180deg,#6d6d6d 0%,#5c5c5c 52%,#4a4a4a 100%);color:#ffffff`
+const BUTTON_CONFIRM_STYLE = `${BUTTON_BASE_STYLE};background-color:#8f3a3a;background-image:linear-gradient(180deg,#a24a4a 0%,#8f3a3a 52%,#7a2f2f 100%);color:#ffffff;text-shadow:1px 1px 0 #3a1414`
 
 export class ConfirmDialogService extends Effect.Service<ConfirmDialogService>()(
   '@minecraft/presentation/ConfirmDialog',

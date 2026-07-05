@@ -51,7 +51,7 @@ export const dangerButtonStyle = [
   'padding:9px 14px', 'min-height:40px', 'cursor:pointer',
   'background-color:#8f3a3a',
   'background-image:linear-gradient(180deg,#a24a4a 0%,#8f3a3a 52%,#7a2f2f 100%)',
-  'border:2px solid #000', 'color:#f0dede',
+  'border:2px solid #000', 'color:#ffffff',  // #f0dede was 4.48:1 on the red gradient; white = 5.66:1 (WCAG AA)
   'box-shadow:inset 2px 2px 0 rgba(255,255,255,0.25),inset -2px -2px 0 rgba(0,0,0,0.4)',
   `font-family:${SANS_FONT}`,
   'font-size:14px', 'font-weight:600',

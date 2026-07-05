@@ -203,9 +203,11 @@ export const buildSettingsOverlayDom = (dom: DomOperationsService): SettingsOver
   btn.setAttribute('aria-controls', 'settings-overlay')
   btn.style.cssText = [
     'position:fixed', 'top:12px', 'left:12px',
-    'background-color:#6d6d6d',
-    'background-image:linear-gradient(180deg,#7e7e7e 0%,#6d6d6d 52%,#5c5c5c 100%)',
-    'color:#e0e0e0',
+    // WCAG AA: white on the darker gradient (5.36:1 lightest stop); the old
+    // #e0e0e0-on-#7e7e7e gear button was 3.92:1.
+    'background-color:#5c5c5c',
+    'background-image:linear-gradient(180deg,#6d6d6d 0%,#5c5c5c 52%,#4a4a4a 100%)',
+    'color:#ffffff',
     'border:2px solid #000',
     'box-shadow:inset 2px 2px 0 rgba(255,255,255,0.35),inset -2px -2px 0 rgba(0,0,0,0.35),0 3px 0 rgba(0,0,0,0.3)',
     'font-size:13px',
