@@ -2,63 +2,32 @@
 // and presentation. Pure state management + network delegation.
 import { Context, Effect, Fiber, Layer, Option, Ref, Stream } from 'effect'
 import type { ConnectionState, ClientServiceShape } from '@ts-minecraft/network/application/client-service'
-import { MessageType, PlayerId, PlayerName, WorldId, type NetworkMessage, type Vec3 } from '@ts-minecraft/network/domain/schemas'
+import { MessageType, PlayerName, WorldId, type NetworkMessage, type Vec3 } from '@ts-minecraft/network/domain/schemas'
 import type { BlockType } from '@ts-minecraft/core'
+import { processInbound } from './multiplayer-inbound'
+import type {
+  ChatEntry,
+  LocalEntitySnapshot,
+  LocalPlayerIdentity,
+  MultiplayerSessionState,
+  RemoteBlockEdit,
+  RemoteEntityDamage,
+  RemoteEntitySnapshot,
+  RemotePlayerSnapshot,
+} from './multiplayer-types'
+// Re-export the shared data/message types so the 17 consumers keep importing
+// them from this module (and the presentation/frame code that references them).
+export type {
+  ChatEntry,
+  LocalEntitySnapshot,
+  MultiplayerSessionState,
+  RemoteBlockEdit,
+  RemoteEntityDamage,
+  RemoteEntitySnapshot,
+  RemotePlayerSnapshot,
+} from './multiplayer-types'
 
 const OVERWORLD_ID = WorldId.make('overworld')
-
-export type RemotePlayerSnapshot = {
-  readonly playerId: string
-  readonly playerName: string
-  readonly x: number
-  readonly y: number
-  readonly z: number
-  readonly yaw: number
-  readonly pitch: number
-}
-
-export type ChatEntry = {
-  readonly player: string
-  readonly text: string
-  readonly timestamp: number
-}
-
-// A block edit received from a remote player, queued for the frame loop to apply
-// to the local world (T15c). The network layer stays world-agnostic.
-export type RemoteBlockEdit =
-  | { readonly kind: 'place'; readonly x: number; readonly y: number; readonly z: number; readonly blockType: string }
-  | { readonly kind: 'break'; readonly x: number; readonly y: number; readonly z: number }
-
-export type LocalEntitySnapshot = {
-  readonly entityId: string
-  readonly entityType: string
-  readonly position: { readonly x: number; readonly y: number; readonly z: number }
-  readonly health: number
-  readonly alive: boolean
-}
-
-export type RemoteEntitySnapshot = LocalEntitySnapshot & {
-  readonly playerId: string
-  readonly worldId: string
-  readonly timestamp: number
-}
-
-// A non-host player's hit on one of OUR (host-authoritative) entities, relayed
-// by the server. `entityId` is our raw entity id (namespace already stripped
-// by the sender).
-export type RemoteEntityDamage = {
-  readonly attackerId: string
-  readonly entityId: string
-  readonly damage: number
-  readonly knockback: { readonly x: number; readonly y: number; readonly z: number }
-}
-
-type LocalPlayerIdentity = {
-  readonly playerId: PlayerId
-  readonly playerName: PlayerName
-}
-
-export type MultiplayerSessionState = ConnectionState | 'joining' | 'ready'
 
 export type MultiplayerService = {
   readonly connect: (serverUrl: string, playerName: PlayerName, localTimeOfDay?: number) => Effect.Effect<void, never>
@@ -112,179 +81,7 @@ export const MultiplayerService = Context.GenericTag<MultiplayerService>(
   '@minecraft/MultiplayerService',
 )
 
-const MAX_CHAT_ENTRIES = 50
 const MAX_PENDING_CHAT_MESSAGES = 20
-
-const processInbound = (
-  msg: NetworkMessage,
-  remotePlayersRef: Ref.Ref<Map<string, RemotePlayerSnapshot>>,
-  chatMessagesRef: Ref.Ref<ReadonlyArray<ChatEntry>>,
-  inboundBlockEditsRef: Ref.Ref<ReadonlyArray<RemoteBlockEdit>>,
-  inboundEntitySnapshotsRef: Ref.Ref<ReadonlyArray<RemoteEntitySnapshot>>,
-  inboundEntityDamagesRef: Ref.Ref<ReadonlyArray<RemoteEntityDamage>>,
-  playerNameRef: Ref.Ref<Option.Option<PlayerName>>,
-  localPlayerRef: Ref.Ref<Option.Option<LocalPlayerIdentity>>,
-  hostWorldSeedRef: Ref.Ref<number | null>,
-  hostTimeOfDayRef: Ref.Ref<number | null>,
-  entityHostIdRef: Ref.Ref<string | null>,
-  onLocalPlayerReady: (identity: LocalPlayerIdentity) => Effect.Effect<void, never>,
-): Effect.Effect<void, never> => {
-  switch (msg.type) {
-    case MessageType.EntitySnapshot:
-      return Effect.gen(function* () {
-        const localPlayer = yield* Ref.get(localPlayerRef)
-        if (Option.isSome(localPlayer) && localPlayer.value.playerId === msg.playerId) return
-        const snapshots = yield* Ref.get(inboundEntitySnapshotsRef)
-        yield* Ref.set(inboundEntitySnapshotsRef, [
-          ...snapshots,
-          {
-            playerId: String(msg.playerId),
-            worldId: String(msg.worldId),
-            entityId: msg.entityId,
-            entityType: msg.entityType,
-            position: msg.position,
-            health: msg.health,
-            alive: msg.alive,
-            timestamp: msg.timestamp,
-          },
-        ])
-      })
-    case MessageType.EntityDamage:
-      return Effect.gen(function* () {
-        // Server routes these to the entity host only; ignore echoes of our own hits.
-        const localPlayer = yield* Ref.get(localPlayerRef)
-        if (Option.isSome(localPlayer) && localPlayer.value.playerId === msg.playerId) return
-        const damages = yield* Ref.get(inboundEntityDamagesRef)
-        yield* Ref.set(inboundEntityDamagesRef, [
-          ...damages,
-          {
-            attackerId: String(msg.playerId),
-            entityId: msg.entityId,
-            damage: msg.damage,
-            knockback: msg.knockback,
-          },
-        ])
-      })
-    case MessageType.BlockPlace:
-      return Effect.gen(function* () {
-        const localPlayer = yield* Ref.get(localPlayerRef)
-        if (Option.isSome(localPlayer) && localPlayer.value.playerId === msg.playerId) return
-        const edits = yield* Ref.get(inboundBlockEditsRef)
-        const next = [
-          ...edits,
-          { kind: 'place' as const, x: msg.position.x, y: msg.position.y, z: msg.position.z, blockType: String(msg.blockType) },
-        ]
-        yield* Ref.set(inboundBlockEditsRef, next)
-      })
-    case MessageType.BlockBreak:
-      return Effect.gen(function* () {
-        const localPlayer = yield* Ref.get(localPlayerRef)
-        if (Option.isSome(localPlayer) && localPlayer.value.playerId === msg.playerId) return
-        const edits = yield* Ref.get(inboundBlockEditsRef)
-        const next = [
-          ...edits,
-          { kind: 'break' as const, x: msg.position.x, y: msg.position.y, z: msg.position.z },
-        ]
-        yield* Ref.set(inboundBlockEditsRef, next)
-      })
-    case MessageType.PlayerJoin:
-      return Effect.gen(function* () {
-        const localPlayer = yield* Ref.get(localPlayerRef)
-        const requestedName = yield* Ref.get(playerNameRef)
-        // Identity adoption: the server flags its direct echo with isSelf, so
-        // the assigned id binds exactly. Name matching remains only as the
-        // fallback for pre-isSelf servers — and must never bind a message the
-        // server addressed to someone else (isSelf === false is impossible;
-        // broadcasts simply omit the flag, hence the strict checks below).
-        const isSelfEcho = msg.isSelf === true
-        const legacyNameMatch =
-          msg.isSelf === undefined
-          && Option.isSome(requestedName)
-          && String(requestedName.value) === String(msg.playerName)
-        if (Option.isNone(localPlayer) && Option.isSome(requestedName) && (isSelfEcho || legacyNameMatch)) {
-          const identity: LocalPlayerIdentity = {
-            playerId: msg.playerId,
-            playerName: msg.playerName,
-          }
-          yield* Ref.set(localPlayerRef, Option.some(identity))
-          yield* onLocalPlayerReady(identity)
-          return
-        }
-        if (Option.isSome(localPlayer) && localPlayer.value.playerId === msg.playerId) return
-        const snap: RemotePlayerSnapshot = {
-          playerId: String(msg.playerId),
-          playerName: String(msg.playerName),
-          x: msg.position.x,
-          y: msg.position.y,
-          z: msg.position.z,
-          yaw: 0,
-          pitch: 0,
-        }
-        const players = yield* Ref.get(remotePlayersRef)
-        const next = new Map(players)
-        next.set(snap.playerId, snap)
-        yield* Ref.set(remotePlayersRef, next)
-      })
-    case MessageType.PlayerLeave:
-      return Effect.gen(function* () {
-        const localPlayer = yield* Ref.get(localPlayerRef)
-        if (Option.isSome(localPlayer) && localPlayer.value.playerId === msg.playerId) {
-          yield* Ref.set(localPlayerRef, Option.none())
-          return
-        }
-        const players = yield* Ref.get(remotePlayersRef)
-        const next = new Map(players)
-        next.delete(String(msg.playerId))
-        yield* Ref.set(remotePlayersRef, next)
-      })
-    case MessageType.PlayerMove:
-      return Effect.gen(function* () {
-        const localPlayer = yield* Ref.get(localPlayerRef)
-        if (Option.isSome(localPlayer) && localPlayer.value.playerId === msg.playerId) return
-        const players = yield* Ref.get(remotePlayersRef)
-        const existing = players.get(String(msg.playerId))
-        if (!existing) return
-        const next = new Map(players)
-        next.set(String(msg.playerId), {
-          ...existing,
-          x: msg.position.x,
-          y: msg.position.y,
-          z: msg.position.z,
-          yaw: msg.rotation.yaw,
-          pitch: msg.rotation.pitch,
-        })
-        yield* Ref.set(remotePlayersRef, next)
-      })
-    case MessageType.Chat: {
-      return Effect.gen(function* () {
-        const players = yield* Ref.get(remotePlayersRef)
-        const localPlayer = yield* Ref.get(localPlayerRef)
-        const remotePlayer = players.get(String(msg.playerId))
-        const player = Option.isSome(localPlayer) && localPlayer.value.playerId === msg.playerId
-          ? String(localPlayer.value.playerName)
-          : remotePlayer?.playerName ?? String(msg.playerId)
-        const entry: ChatEntry = {
-          player,
-          text: msg.message,
-          timestamp: msg.timestamp,
-        }
-        const entries = yield* Ref.get(chatMessagesRef)
-        const next = [...entries, entry]
-        yield* Ref.set(
-          chatMessagesRef,
-          next.length > MAX_CHAT_ENTRIES ? next.slice(next.length - MAX_CHAT_ENTRIES) : next,
-        )
-      })
-    }
-    case MessageType.WorldInfo:
-      return Ref.set(hostWorldSeedRef, msg.worldSeed).pipe(
-        Effect.zipRight(Ref.set(hostTimeOfDayRef, msg.timeOfDay ?? null)),
-        Effect.zipRight(Ref.set(entityHostIdRef, msg.entityHostPlayerId !== undefined ? String(msg.entityHostPlayerId) : null)),
-      )
-    default:
-      return Effect.void
-  }
-}
 
 export const MultiplayerServiceImpl = (
   client: ClientServiceShape,
