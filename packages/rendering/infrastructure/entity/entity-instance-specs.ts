@@ -1,177 +1,22 @@
 import type { EntityType } from '@ts-minecraft/entity/domain/mob/entity'
 import { Option } from 'effect'
+import type { PartRole, RoleSpec } from './entity-instance-specs.types'
+import {
+  buildBatSpecs,
+  buildBipedSpecs,
+  buildChickenSpecs,
+  buildQuadrupedSpecs,
+  buildSquidSpecs,
+} from './entity-instance-specs.builders'
 
-// Roles align with MobLimbGroup fields. We store a per-(type, role) bucket
-// because mob types have different geometry sizes per role (e.g. zombie head
-// = 0.5×0.5×0.5 vs cow head = 0.5×0.5×0.4) so geometry cannot be shared
-// across types within a single InstancedMesh.
-export type PartRole = 'head' | 'body' | 'armL' | 'armR' | 'legFL' | 'legFR' | 'legBL' | 'legBR'
-
-// Geometry pivot policy mirrors mob-geometry.ts:
-//   - head/body: geometric center pivot
-//   - arm/leg: TOP-CENTER pivot (so rotation.x swings from the shoulder/hip)
-export type Dim3 = readonly [number, number, number]
-export type RolePivot = 'center' | 'top'
-
-export type RoleSpec = Readonly<{
-  size: Dim3
-  pivot: RolePivot
-  // Local offset from mob root to the part pivot. Combined with per-mob world
-  // transform to produce the InstancedMesh matrix.
-  offset: { readonly x: number; readonly y: number; readonly z: number }
-  color: number
-  // Optional: which axis carries the swing angle (currently always 'x'). Kept
-  // explicit so future limb-types could rotate around y/z without code change.
-  swingAxis: 'x' | null
-}>
+// Re-export the role/spec vocabulary so existing consumers keep importing it
+// from this module (the public spec surface).
+export type { Dim3, PartRole, RolePivot, RoleSpec } from './entity-instance-specs.types'
 
 // ---------------------------------------------------------------------------
-// Per-type role specs — derived from mob-geometry.ts. Built via factory helpers
-// at module load; cost is paid once.
+// Per-type role specs — derived from mob-geometry.ts, built via the factory
+// helpers (entity-instance-specs.builders.ts) at module load; cost paid once.
 // ---------------------------------------------------------------------------
-
-// Biped layout helper (head + body + 2 arms + 2 front legs; back legs absent).
-const buildBipedSpecs = (
-  parts: { head: Dim3; body: Dim3; arm: Dim3; leg: Dim3; legXOff?: number },
-  palette: { head: number; body: number; arm: number; leg: number },
-): Readonly<Record<PartRole, Option.Option<RoleSpec>>> => {
-  const [bodyW, bodyH] = parts.body
-  const [, headH] = parts.head
-  const [armW] = parts.arm
-  const [legW, legH] = parts.leg
-  const legXOff = parts.legXOff ?? legW / 2
-  return {
-    head: Option.some({ size: parts.head, pivot: 'center', offset: { x: 0, y: legH + bodyH + headH / 2, z: 0 }, color: palette.head, swingAxis: null }),
-    body: Option.some({ size: parts.body, pivot: 'center', offset: { x: 0, y: legH + bodyH / 2, z: 0 }, color: palette.body, swingAxis: null }),
-    armL: Option.some({ size: parts.arm, pivot: 'top', offset: { x: +(bodyW / 2 + armW / 2), y: legH + bodyH, z: 0 }, color: palette.arm, swingAxis: 'x' }),
-    armR: Option.some({ size: parts.arm, pivot: 'top', offset: { x: -(bodyW / 2 + armW / 2), y: legH + bodyH, z: 0 }, color: palette.arm, swingAxis: 'x' }),
-    legFL: Option.some({ size: parts.leg, pivot: 'top', offset: { x: +legXOff, y: legH, z: 0 }, color: palette.leg, swingAxis: 'x' }),
-    legFR: Option.some({ size: parts.leg, pivot: 'top', offset: { x: -legXOff, y: legH, z: 0 }, color: palette.leg, swingAxis: 'x' }),
-    legBL: Option.none(),
-    legBR: Option.none(),
-  }
-}
-
-// Quadruped layout helper.
-const buildQuadrupedSpecs = (
-  parts: { head: Dim3; body: Dim3; leg: Dim3 },
-  palette: { head: number; body: number; leg: number },
-): Readonly<Record<PartRole, Option.Option<RoleSpec>>> => {
-  const [bodyW, bodyH, bodyD] = parts.body
-  const [, headH, headD] = parts.head
-  const [legW, legH, legD] = parts.leg
-  const xOff = bodyW / 2 - legW / 2
-  const zOff = bodyD / 2 - legD / 2
-  const hipY = legH
-
-  return {
-    head: Option.some({
-      size: parts.head,
-      pivot: 'center',
-      offset: { x: 0, y: legH + bodyH - headH / 2 + 0.1, z: bodyD / 2 + headD / 2 },
-      color: palette.head,
-      swingAxis: null,
-    }),
-    body: Option.some({
-      size: parts.body,
-      pivot: 'center',
-      offset: { x: 0, y: legH + bodyH / 2, z: 0 },
-      color: palette.body,
-      swingAxis: null,
-    }),
-    armL: Option.none(),
-    armR: Option.none(),
-    legFL: Option.some({
-      size: parts.leg, pivot: 'top',
-      offset: { x: +xOff, y: hipY, z: +zOff }, color: palette.leg, swingAxis: 'x',
-    }),
-    legFR: Option.some({
-      size: parts.leg, pivot: 'top',
-      offset: { x: -xOff, y: hipY, z: +zOff }, color: palette.leg, swingAxis: 'x',
-    }),
-    legBL: Option.some({
-      size: parts.leg, pivot: 'top',
-      offset: { x: +xOff, y: hipY, z: -zOff }, color: palette.leg, swingAxis: 'x',
-    }),
-    legBR: Option.some({
-      size: parts.leg, pivot: 'top',
-      offset: { x: -xOff, y: hipY, z: -zOff }, color: palette.leg, swingAxis: 'x',
-    }),
-  }
-}
-
-const buildChickenSpecs = (
-  parts: { head: Dim3; body: Dim3; wing: Dim3; leg: Dim3 },
-  palette: { head: number; body: number; wing: number; leg: number },
-): Readonly<Record<PartRole, Option.Option<RoleSpec>>> => {
-  const [bodyW, bodyH, bodyD] = parts.body
-  const [, headH, headD] = parts.head
-  const [wingW] = parts.wing
-  const [legW, legH] = parts.leg
-  return {
-    head: Option.some({
-      size: parts.head,
-      pivot: 'center',
-      offset: { x: 0, y: legH + bodyH + headH / 2 - 0.03, z: bodyD / 2 + headD / 2 - 0.04 },
-      color: palette.head,
-      swingAxis: null,
-    }),
-    body: Option.some({ size: parts.body, pivot: 'center', offset: { x: 0, y: legH + bodyH / 2, z: 0 }, color: palette.body, swingAxis: null }),
-    armL: Option.some({ size: parts.wing, pivot: 'top', offset: { x: +(bodyW / 2 + wingW / 2), y: legH + bodyH * 0.85, z: 0 }, color: palette.wing, swingAxis: 'x' }),
-    armR: Option.some({ size: parts.wing, pivot: 'top', offset: { x: -(bodyW / 2 + wingW / 2), y: legH + bodyH * 0.85, z: 0 }, color: palette.wing, swingAxis: 'x' }),
-    legFL: Option.some({ size: parts.leg, pivot: 'top', offset: { x: +(legW * 1.1), y: legH, z: 0.05 }, color: palette.leg, swingAxis: 'x' }),
-    legFR: Option.some({ size: parts.leg, pivot: 'top', offset: { x: -(legW * 1.1), y: legH, z: 0.05 }, color: palette.leg, swingAxis: 'x' }),
-    legBL: Option.none(),
-    legBR: Option.none(),
-  }
-}
-
-const buildBatSpecs = (
-  parts: { head: Dim3; body: Dim3; wing: Dim3; foot: Dim3 },
-  palette: { head: number; body: number; wing: number; foot: number },
-): Readonly<Record<PartRole, Option.Option<RoleSpec>>> => {
-  const [bodyW, bodyH, bodyD] = parts.body
-  const [, headH, headD] = parts.head
-  const [wingW] = parts.wing
-  const [footW, footH] = parts.foot
-  return {
-    head: Option.some({
-      size: parts.head,
-      pivot: 'center',
-      offset: { x: 0, y: footH + bodyH + headH / 2 - 0.02, z: bodyD / 2 + headD / 2 - 0.04 },
-      color: palette.head,
-      swingAxis: null,
-    }),
-    body: Option.some({ size: parts.body, pivot: 'center', offset: { x: 0, y: footH + bodyH / 2, z: 0 }, color: palette.body, swingAxis: null }),
-    armL: Option.some({ size: parts.wing, pivot: 'top', offset: { x: +(bodyW / 2 + wingW / 2), y: footH + bodyH * 0.85, z: 0 }, color: palette.wing, swingAxis: 'x' }),
-    armR: Option.some({ size: parts.wing, pivot: 'top', offset: { x: -(bodyW / 2 + wingW / 2), y: footH + bodyH * 0.85, z: 0 }, color: palette.wing, swingAxis: 'x' }),
-    legFL: Option.some({ size: parts.foot, pivot: 'top', offset: { x: +footW, y: footH, z: 0 }, color: palette.foot, swingAxis: 'x' }),
-    legFR: Option.some({ size: parts.foot, pivot: 'top', offset: { x: -footW, y: footH, z: 0 }, color: palette.foot, swingAxis: 'x' }),
-    legBL: Option.none(),
-    legBR: Option.none(),
-  }
-}
-
-const buildSquidSpecs = (
-  parts: { head: Dim3; body: Dim3; tentacle: Dim3 },
-  palette: { head: number; body: number; tentacle: number },
-): Readonly<Record<PartRole, Option.Option<RoleSpec>>> => {
-  const [headW, headH, headD] = parts.head
-  const [, bodyH] = parts.body
-  const [tentacleW, tentacleH, tentacleD] = parts.tentacle
-  const xOff = headW / 2 - tentacleW / 2
-  const zOff = headD / 2 - tentacleD / 2
-  return {
-    head: Option.some({ size: parts.head, pivot: 'center', offset: { x: 0, y: tentacleH + headH / 2, z: 0 }, color: palette.head, swingAxis: null }),
-    body: Option.some({ size: parts.body, pivot: 'center', offset: { x: 0, y: tentacleH + headH + bodyH / 2, z: 0 }, color: palette.body, swingAxis: null }),
-    armL: Option.none(),
-    armR: Option.none(),
-    legFL: Option.some({ size: parts.tentacle, pivot: 'top', offset: { x: +xOff, y: tentacleH, z: +zOff }, color: palette.tentacle, swingAxis: 'x' }),
-    legFR: Option.some({ size: parts.tentacle, pivot: 'top', offset: { x: -xOff, y: tentacleH, z: +zOff }, color: palette.tentacle, swingAxis: 'x' }),
-    legBL: Option.some({ size: parts.tentacle, pivot: 'top', offset: { x: +xOff, y: tentacleH, z: -zOff }, color: palette.tentacle, swingAxis: 'x' }),
-    legBR: Option.some({ size: parts.tentacle, pivot: 'top', offset: { x: -xOff, y: tentacleH, z: -zOff }, color: palette.tentacle, swingAxis: 'x' }),
-  }
-}
 
 const COW_SPECS = buildQuadrupedSpecs(
   { head: [0.5, 0.5, 0.4], body: [0.625, 0.5, 1.0], leg: [0.25, 0.75, 0.25] },
@@ -333,7 +178,7 @@ const DRAGON_SPECS: Readonly<Record<PartRole, Option.Option<RoleSpec>>> = {
 
 // Blaze: golden head cube over a molten core, orbited by six floating rods
 // (four in leg slots, two in arm slots) — mirrors buildBlaze in
-// mob-geometry.builders.ts. Rod swing makes them flicker like embers.
+// mob-geometry.builders.shapes.ts. Rod swing makes them flicker like embers.
 const BLAZE_ROD_SPEC = (x: number, y: number, z: number): Option.Option<RoleSpec> =>
   Option.some({
     size: [0.14, 0.6, 0.14] as const,
