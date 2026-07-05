@@ -146,6 +146,7 @@ export const createFailingChunkManagerService = (): ChunkManagerService => Chunk
 
 export const createMockPlayerService = (position: Position): PlayerService => PlayerService.of({
   _tag: '@minecraft/application/PlayerService' as const,
+  reset: () => Effect.void,
   create: (_id: PlayerId, _position: Position) => Effect.void,
   updatePosition: (_id: PlayerId, _position: Position) => Effect.void,
   updateVelocity: (_id: PlayerId, _velocity: { x: number; y: number; z: number }) => Effect.void,
@@ -156,6 +157,7 @@ export const createMockPlayerService = (position: Position): PlayerService => Pl
 
 export const createFailingPlayerService = (): PlayerService => PlayerService.of({
   _tag: '@minecraft/application/PlayerService' as const,
+  reset: () => Effect.void,
   create: (_id: PlayerId, _position: Position) => Effect.void,
   updatePosition: (_id: PlayerId, _position: Position) => Effect.void,
   updateVelocity: (_id: PlayerId, _velocity: { x: number; y: number; z: number }) => Effect.void,
