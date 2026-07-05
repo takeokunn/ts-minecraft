@@ -5,6 +5,14 @@ import { DomOperationsService } from './crosshair'
 
 const controlsHintDismissedStorageKey = 'minecraft-controls-hint-dismissed'
 
+// Onboarding hints should teach and then get out of the way: without this the
+// panel covered the lower-left viewport for the whole session, and during
+// pointer lock the dismiss button cannot even be clicked. Auto-hide does NOT
+// persist the dismissed flag — the hint returns next session until the player
+// explicitly opts out.
+const AUTO_HIDE_MS = 30_000
+const FADE_MS = 400
+
 const readDismissedFlag = (): boolean => {
   try {
     return globalThis.localStorage?.getItem(controlsHintDismissedStorageKey) === '1'
@@ -52,6 +60,8 @@ export class ControlsHintService extends Effect.Service<ControlsHintService>()(
             'line-height:1.45',
             'z-index:1300',
             'pointer-events:none',
+            'opacity:1',
+            `transition:opacity ${FADE_MS}ms ease`,
           ].join(';')
 
           dom.setInnerHTML(element, `
@@ -84,10 +94,36 @@ export class ControlsHintService extends Effect.Service<ControlsHintService>()(
         }),
         ({ element }) =>
           Effect.sync(() => {
+            clearTimers()
             MutableRef.set(visibleRef, false)
             if (Option.isSome(dom.getParentNode(element))) dom.removeChild(element)
           }),
       )
+
+      let autoHideTimer: ReturnType<typeof setTimeout> | null = null
+      let fadeTimer: ReturnType<typeof setTimeout> | null = null
+
+      const clearTimers = (): void => {
+        if (autoHideTimer !== null) { clearTimeout(autoHideTimer); autoHideTimer = null }
+        if (fadeTimer !== null) { clearTimeout(fadeTimer); fadeTimer = null }
+      }
+
+      const removeFromDom = (): void => {
+        MutableRef.set(visibleRef, false)
+        if (Option.isSome(dom.getParentNode(element))) dom.removeChild(element)
+        element.style.opacity = '1'
+      }
+
+      // Session-scoped auto-hide: fades out and removes the panel without
+      // touching the persistent dismissed flag.
+      const startFadeOut = (): void => {
+        if (!MutableRef.get(visibleRef)) return
+        element.style.opacity = '0'
+        fadeTimer = setTimeout(() => {
+          fadeTimer = null
+          removeFromDom()
+        }, FADE_MS)
+      }
 
       const dismissElement = (): void => {
         if (MutableRef.get(dismissedRef)) return
@@ -97,14 +133,15 @@ export class ControlsHintService extends Effect.Service<ControlsHintService>()(
 
       const hideElement = (): void => {
         dismissElement()
+        clearTimers()
         if (!MutableRef.get(visibleRef)) return
-        MutableRef.set(visibleRef, false)
-        if (Option.isSome(dom.getParentNode(element))) dom.removeChild(element)
+        removeFromDom()
       }
 
       const toggleElement = (): void => {
         const wasVisible = MutableRef.get(visibleRef)
         if (!wasVisible && MutableRef.get(dismissedRef)) return
+        clearTimers()
         MutableRef.set(visibleRef, !wasVisible)
         if (wasVisible) dom.removeChild(element)
         else dom.appendChild(element)
@@ -117,6 +154,10 @@ export class ControlsHintService extends Effect.Service<ControlsHintService>()(
             if (MutableRef.get(visibleRef) || MutableRef.get(dismissedRef)) return
             MutableRef.set(visibleRef, true)
             dom.appendChild(element)
+            autoHideTimer = setTimeout(() => {
+              autoHideTimer = null
+              startFadeOut()
+            }, AUTO_HIDE_MS)
           }),
 
         hide: (): Effect.Effect<void, never> =>

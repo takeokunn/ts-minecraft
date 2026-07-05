@@ -30,7 +30,7 @@ const createMockDomLayer = () => {
     type: string
     textContent: string
     innerHTML: string
-    style: { cssText: string }
+    style: { cssText: string; opacity?: string }
     children: unknown[]
     parentNode: unknown | null
     setAttribute: (name: string, value: string) => void
@@ -56,7 +56,7 @@ const createMockDomLayer = () => {
       type: '',
       textContent: '',
       innerHTML: '',
-      style: { cssText: '' },
+      style: { cssText: '' } as { cssText: string; opacity?: string },
       children: [] as unknown[],
       parentNode: null as unknown,
       setAttribute: vi.fn(),
@@ -160,6 +160,74 @@ describe('ControlsHintService', () => {
       expect(createdElements[0]?.id).toBe('controls-hint')
     }).pipe(
       Effect.ensuring(Effect.sync(() => {
+        vi.unstubAllGlobals()
+      }))
+    )
+  })
+
+  it.effect('auto-hides after 30s with a fade, WITHOUT persisting the dismissed flag', () => {
+    const localStorageMock = createMockLocalStorage()
+    const { TestLayer, removeChildMock, createdElements } = createMockDomLayer()
+    vi.stubGlobal('localStorage', localStorageMock)
+    vi.useFakeTimers()
+
+    const session = Effect.gen(function* () {
+      const hint = yield* ControlsHintService
+
+      yield* hint.show()
+      expect(yield* hint.isVisible()).toBe(true)
+      expect(createdElements[0]?.style.cssText).toContain('transition:opacity')
+
+      // 30s elapse: fade starts (opacity 0) but the panel is still mounted
+      yield* Effect.sync(() => vi.advanceTimersByTime(30_000))
+      expect(createdElements[0]?.style.opacity).toBe('0')
+      expect(yield* hint.isVisible()).toBe(true)
+
+      // fade duration elapses: panel removed, opacity reset for potential re-show
+      yield* Effect.sync(() => vi.advanceTimersByTime(400))
+      expect(yield* hint.isVisible()).toBe(false)
+      expect(removeChildMock).toHaveBeenCalledTimes(1)
+      expect(createdElements[0]?.style.opacity).toBe('1')
+
+      // auto-hide is session-scoped: no permanent opt-out was written
+      expect(localStorageMock.setItem).not.toHaveBeenCalled()
+
+      // and the hint can be shown again in the same session
+      yield* hint.show()
+      expect(yield* hint.isVisible()).toBe(true)
+    }).pipe(Effect.provide(TestLayer))
+
+    return session.pipe(
+      Effect.ensuring(Effect.sync(() => {
+        vi.useRealTimers()
+        vi.unstubAllGlobals()
+      }))
+    )
+  })
+
+  it.effect('explicit dismiss cancels the pending auto-hide timers', () => {
+    const localStorageMock = createMockLocalStorage()
+    const { TestLayer, removeChildMock, createdElements } = createMockDomLayer()
+    vi.stubGlobal('localStorage', localStorageMock)
+    vi.useFakeTimers()
+
+    const session = Effect.gen(function* () {
+      const hint = yield* ControlsHintService
+
+      yield* hint.show()
+      createdElements[1]?.click()
+      expect(yield* hint.isVisible()).toBe(false)
+      expect(removeChildMock).toHaveBeenCalledTimes(1)
+
+      // stale auto-hide timer must not fire against the already-hidden panel
+      yield* Effect.sync(() => vi.advanceTimersByTime(31_000))
+      expect(removeChildMock).toHaveBeenCalledTimes(1)
+      expect(localStorageMock.setItem).toHaveBeenCalledWith('minecraft-controls-hint-dismissed', '1')
+    }).pipe(Effect.provide(TestLayer))
+
+    return session.pipe(
+      Effect.ensuring(Effect.sync(() => {
+        vi.useRealTimers()
         vi.unstubAllGlobals()
       }))
     )
