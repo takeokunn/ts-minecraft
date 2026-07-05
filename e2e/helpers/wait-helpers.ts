@@ -82,16 +82,23 @@ export async function waitForPauseMenu(page: Page, timeoutMs = 10_000): Promise<
  * visibility BEFORE each re-press, because Escape on an open pause menu
  * resumes the game and would undo a successful open.
  */
-export async function openPauseMenu(page: Page, timeoutMs = 10_000): Promise<void> {
-  await page.locator('#game-canvas').click({ position: { x: 320, y: 240 }, timeout: 2_000 }).catch(() => undefined)
+export async function openPauseMenu(page: Page, timeoutMs = 15_000): Promise<void> {
   const dialog = page.getByRole('dialog', { name: 'Pause Menu' })
   const deadline = Date.now() + timeoutMs
   while (true) {
     if (await dialog.isVisible().catch(() => false)) break
+    // Re-focus the game surface on EVERY attempt, not just once up front: a
+    // page reload or a preceding overlay transition can leave canvas focus
+    // unsettled just long enough that the first Escape is swallowed before the
+    // app-level input stage is wired. Re-clicking each round makes the open
+    // resilient to that window instead of burning the whole deadline on one
+    // dead press. Skipped once the dialog is up so we never click through it.
+    await page.locator('#game-canvas').click({ position: { x: 320, y: 240 }, timeout: 1_500 }).catch(() => undefined)
+    if (await dialog.isVisible().catch(() => false)) break
     await page.keyboard.press('Escape')
     const remaining = deadline - Date.now()
     if (remaining <= 0) break
-    await dialog.waitFor({ state: 'visible', timeout: Math.min(2_500, remaining) }).catch(() => undefined)
+    await dialog.waitFor({ state: 'visible', timeout: Math.min(2_000, remaining) }).catch(() => undefined)
     if (await dialog.isVisible().catch(() => false)) break
     if (Date.now() >= deadline) break
   }
