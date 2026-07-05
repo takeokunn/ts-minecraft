@@ -104,3 +104,27 @@ export async function openPauseMenu(page: Page, timeoutMs = 15_000): Promise<voi
   }
   await waitForPauseMenu(page, Math.max(1_000, deadline - Date.now()))
 }
+
+/**
+ * Open the multiplayer player-list (roster) via Tab, resilient to the same
+ * single-keypress-swallowed-under-load flake as openPauseMenu. Under two
+ * concurrent WebGL contexts + a server the render loop drops to ~20 FPS and a
+ * lone Tab press can land before the input stage consumes it; re-focus the
+ * canvas and re-press each round until the panel is visible.
+ */
+export async function openPlayerListRoster(page: Page, timeoutMs = 15_000): Promise<void> {
+  const roster = page.locator('#multiplayer-player-list-panel')
+  const deadline = Date.now() + timeoutMs
+  while (true) {
+    if (await roster.isVisible().catch(() => false)) break
+    await page.locator('#game-canvas').click({ position: { x: 320, y: 240 }, timeout: 1_500 }).catch(() => undefined)
+    if (await roster.isVisible().catch(() => false)) break
+    await page.keyboard.press('Tab')
+    const remaining = deadline - Date.now()
+    if (remaining <= 0) break
+    await roster.waitFor({ state: 'visible', timeout: Math.min(2_000, remaining) }).catch(() => undefined)
+    if (await roster.isVisible().catch(() => false)) break
+    if (Date.now() >= deadline) break
+  }
+  await roster.waitFor({ state: 'visible', timeout: Math.max(1_000, deadline - Date.now()) })
+}

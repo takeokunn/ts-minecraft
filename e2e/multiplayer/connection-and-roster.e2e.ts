@@ -6,7 +6,7 @@ import { dirname, resolve } from 'node:path'
 import { expect, test } from '@playwright/test'
 
 import { GamePage } from '../fixtures/game-page'
-import { openPauseMenu, waitForStableRender } from '../helpers/wait-helpers'
+import { openPauseMenu, openPlayerListRoster, waitForStableRender } from '../helpers/wait-helpers'
 
 const ROOT_URL = 'http://localhost:5180/'
 const SERVER_URL = 'ws://127.0.0.1:25565'
@@ -149,20 +149,17 @@ test.describe.serial('multiplayer e2e', () => {
 
       await Promise.all([connectPlayer(primary, 'Alex-1'), connectPlayer(secondary, 'Alex-2')])
 
+      // Retry-based roster open: a single Tab press can be swallowed at the
+      // ~20 FPS two-context load this test runs under (same flake class as
+      // openPauseMenu). openPlayerListRoster re-focuses + re-presses until the
+      // panel is visible.
       await Promise.all([
-        primary.page.locator('#game-canvas').click({ position: { x: 320, y: 240 } }),
-        secondary.page.locator('#game-canvas').click({ position: { x: 320, y: 240 } }),
+        openPlayerListRoster(primary.page),
+        openPlayerListRoster(secondary.page),
       ])
-
-      await Promise.all([primary.pressKey('Tab'), secondary.pressKey('Tab')])
 
       const primaryRoster = primary.page.locator('#multiplayer-player-list-panel')
       const secondaryRoster = secondary.page.locator('#multiplayer-player-list-panel')
-
-      await Promise.all([
-        expect(primaryRoster).toBeVisible({ timeout: 15_000 }),
-        expect(secondaryRoster).toBeVisible({ timeout: 15_000 }),
-      ])
 
       await Promise.all([
         expect(primaryRoster).toContainText('1 player', { timeout: 15_000 }),
