@@ -54,7 +54,7 @@ const makeServices = () => ({
   xpService: { setTotalXP: vi.fn(() => Effect.void), reset: vi.fn(() => Effect.void) },
   chestService: { deserialize: vi.fn(() => Effect.void) },
   furnaceService: { deserialize: vi.fn(() => Effect.void) },
-  weatherService: { restore: vi.fn(() => Effect.void) },
+  weatherService: { restore: vi.fn(() => Effect.void), setWeather: vi.fn(() => Effect.void) },
   cropGrowthService: { restore: vi.fn(() => Effect.void) },
   entityManager: { applyEntitySnapshot: vi.fn(() => Effect.succeed('created' as const)), clear: vi.fn(() => Effect.void) },
   gameState: { enterBoat: vi.fn(() => Effect.void), enterMinecart: vi.fn(() => Effect.void) },
@@ -79,6 +79,7 @@ describe('restoreSavedState', () => {
     expect(services.entityManager.clear).toHaveBeenCalledOnce()
     expect(services.chestService.deserialize).toHaveBeenCalledWith([])
     expect(services.furnaceService.deserialize).toHaveBeenCalledWith([])
+    expect(services.weatherService.setWeather).toHaveBeenCalledWith('clear')
 
     // But the RESTORE paths (which apply saved values) must NOT run.
     expect(services.inventoryService.deserialize).not.toHaveBeenCalled()

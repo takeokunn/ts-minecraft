@@ -48,6 +48,10 @@ export const restoreSavedState = (
     yield* entityManager.clear()
     yield* chestService.deserialize([])
     yield* furnaceService.deserialize([])
+    // Fresh clear-sky weather; the gated restore below overlays saved weather
+    // for a loaded world. Without this a new world inherits the prior world's
+    // active thunderstorm until the weather cycle happens to roll it over.
+    yield* weatherService.setWeather('clear')
 
     const savedPlayerState = Option.getOrNull(worldBootstrap.savedPlayerState)
     if (savedPlayerState !== null) {
