@@ -1,4 +1,4 @@
-import { Either, Schema } from 'effect'
+import { Effect, Either, Schema } from 'effect'
 import { Recipe } from './crafting'
 
 // Data-driven custom recipes — the first modding surface. Players drop a JSON
@@ -64,9 +64,15 @@ export const loadCustomRecipesFromStorage = (): CustomRecipeLoadResult => {
   }
   const raw = window.localStorage.getItem(CUSTOM_RECIPES_STORAGE_KEY)
   if (raw === null || raw.trim() === '') return { recipes: [], errors: [] }
-  try {
-    return decodeCustomRecipes(JSON.parse(raw))
-  } catch {
-    return { recipes: [], errors: [`custom recipes: invalid JSON under localStorage['${CUSTOM_RECIPES_STORAGE_KEY}']`] }
-  }
+  // Effect.try (not try/catch — forbidden in domain) captures a malformed-JSON
+  // throw; every failure path degrades to "no custom recipes". Run synchronously
+  // so this stays a plain boot-time loader for the Effect.sync recipe factory.
+  return Effect.runSync(
+    Effect.try(() => decodeCustomRecipes(JSON.parse(raw))).pipe(
+      Effect.orElseSucceed((): CustomRecipeLoadResult => ({
+        recipes: [],
+        errors: [`custom recipes: invalid JSON under localStorage['${CUSTOM_RECIPES_STORAGE_KEY}']`],
+      })),
+    ),
+  )
 }
