@@ -321,6 +321,17 @@ const makeDeps = () => {
         spendLevels: (_levels: number) => Effect.succeed({ totalXP: 0, level: 0, xpIntoLevel: 0, xpRequiredForNext: 7 }),
         reset: () => Effect.void,
       },
+      villageService: {
+        setWorldSeed: (_seed: number) => Effect.void,
+        resetVillages: () => Effect.void,
+        ensureVillageNear: (_playerPosition: unknown) => Effect.succeed({ villageId: 'v0', center: { x: 0, y: 64, z: 0 }, structures: [], villagers: [] }),
+        getVillages: () => Effect.succeed([]),
+        getVillagers: () => Effect.succeed([]),
+        getVillager: (_villagerId: unknown) => Effect.succeed(Option.none()),
+        findNearestVillager: (_position: unknown, _maxDistance: number) => Effect.succeed(Option.none()),
+        addVillagerExperience: (_villagerId: unknown, _amount: number) => Effect.succeed(Option.none()),
+        update: (_playerPosition: unknown, _timeOfDay: number, _deltaTime: number) => Effect.void,
+      },
       worldRendererService: {
         syncChunksToScene: (_loadedChunks, _scene) => Effect.succeed(true),
         updateChunkInScene,
@@ -417,6 +428,11 @@ describe('installQaApi', () => {
     const { deps } = makeDeps()
 
     await Effect.runPromise(installQaApi(deps))
+
+    const villages = await getQaApi().getVillagesForQA()
+    expect(villages.villageCount).toBe(0)
+    expect(villages.villagerCount).toBe(0)
+    expect(Array.isArray(villages.villages)).toBe(true)
 
     const state = await getQaApi().getDebugStateForQA()
     // Structural: the point of the helper is one round-trip covering every domain.

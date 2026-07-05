@@ -4,6 +4,7 @@ import type { RemotePlayerSnapshot } from '@ts-minecraft/app/application/multipl
 import type { QaRenderingSnapshot } from './rendering'
 import type { QaDebugState } from '@ts-minecraft/app/main/qa-api-debug-state'
 import type { QaFrameStats } from '@ts-minecraft/app/main/qa-api-perf'
+import type { QaVillageState } from '@ts-minecraft/app/main/qa-api-village'
 
 export type QaApi = {
   readonly getInventorySnapshot: () => Promise<ReadonlyArray<null | {
@@ -62,6 +63,7 @@ export type QaApi = {
   readonly getRenderingSnapshot: () => QaRenderingSnapshot
   readonly getDebugStateForQA: () => Promise<QaDebugState>
   readonly getFrameStatsForQA: (durationMs?: number) => Promise<QaFrameStats>
+  readonly getVillagesForQA: () => Promise<QaVillageState>
   readonly getDebugFeatureSnapshot: () => Promise<DebugFeatureSnapshot>
   readonly setDebugFeatureEnabled: (id: DebugFeatureFlagId, enabled: boolean) => Promise<boolean>
   readonly resetDebugFeatures: (group?: DebugFeatureFlagGroup) => Promise<void>

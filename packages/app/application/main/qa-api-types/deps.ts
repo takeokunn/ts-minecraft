@@ -7,6 +7,7 @@ import type { HotbarService } from '@ts-minecraft/inventory/application/hotbar-s
 import type { InventoryService } from '@ts-minecraft/inventory/application/inventory-service'
 import type { RecipeService } from '@ts-minecraft/inventory/application/recipe-service'
 import type { XPService } from '@ts-minecraft/entity/application/xp-service'
+import type { VillageService } from '@ts-minecraft/entity/application/village/village-service'
 import type { EntityManager } from '@ts-minecraft/entity/application/mob/entity-manager'
 import type { WorldRendererService } from '@ts-minecraft/rendering'
 import type { DebugFeatureFlagsService } from '@ts-minecraft/app/application/debug-feature-flags'
@@ -31,6 +32,7 @@ export type QaApiDeps = {
   readonly recipeService: RecipeService
   readonly furnaceService: FurnaceService
   readonly xpService: XPService
+  readonly villageService: VillageService
   readonly worldRendererService: WorldRendererService
   readonly entityManager: EntityManager
   readonly droppedItemService: import('@ts-minecraft/entity/application/dropped-item-service').DroppedItemService
