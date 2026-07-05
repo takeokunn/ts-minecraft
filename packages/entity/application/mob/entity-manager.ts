@@ -45,6 +45,24 @@ export class EntityManager extends Effect.Service<EntityManager>()(
         removeEntity: mutations.removeEntity,
         applyEntitySnapshot: mutations.applyEntitySnapshot,
 
+        // Drops every entity and all pending per-tick events. This service is an
+        // app-scoped singleton reused across worlds, so a new world must clear
+        // the prior world's mobs (and any un-drained explosion/dragon/ignite
+        // events) rather than inherit them. Bumps the structure version so the
+        // renderer rebuilds against an empty set. See restoreSavedState.
+        clear: (): Effect.Effect<void, never> =>
+          Effect.gen(function* () {
+            yield* Ref.set(entitiesRef, HashMap.empty<EntityIdType, ManagedEntity>())
+            yield* Ref.set(cachedEntitiesRef, Option.none())
+            yield* Ref.update(structureVersionRef, (v) => v + 1)
+            yield* Ref.set(explosionsRef, [])
+            yield* Ref.set(dragonEventsRef, [])
+            yield* Ref.set(playerShotOriginsRef, [])
+            yield* Ref.set(birthsRef, 0)
+            yield* Ref.set(playerIgniteSecsRef, 0)
+            yield* Ref.set(burnAccumulatorRef, 0)
+          }),
+
         getEntity: (entityId: EntityIdType): Effect.Effect<Option.Option<Entity>, never> =>
           Effect.gen(function* () {
             const entities = yield* Ref.get(entitiesRef)

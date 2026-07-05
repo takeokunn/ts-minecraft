@@ -43,32 +43,45 @@ const makeSavedPlayerState = (overrides?: Partial<{
 }) as never
 
 const makeServices = () => ({
-  inventoryService: { deserialize: vi.fn(() => Effect.void) },
-  equipmentService: { deserialize: vi.fn(() => Effect.void) },
+  inventoryService: { deserialize: vi.fn(() => Effect.void), clear: vi.fn(() => Effect.void) },
+  equipmentService: { deserialize: vi.fn(() => Effect.void), reset: vi.fn(() => Effect.void) },
   healthService: {
     reset: vi.fn(() => Effect.void),
     getHealth: vi.fn(() => Effect.succeed({ current: 20, max: 20, invincibilityTicks: 0 })),
     applyDamage: vi.fn(() => Effect.void),
   },
-  hungerService: { restore: vi.fn(() => Effect.void) },
-  xpService: { setTotalXP: vi.fn(() => Effect.void) },
+  hungerService: { restore: vi.fn(() => Effect.void), reset: vi.fn(() => Effect.void) },
+  xpService: { setTotalXP: vi.fn(() => Effect.void), reset: vi.fn(() => Effect.void) },
   chestService: { deserialize: vi.fn(() => Effect.void) },
   furnaceService: { deserialize: vi.fn(() => Effect.void) },
   weatherService: { restore: vi.fn(() => Effect.void) },
   cropGrowthService: { restore: vi.fn(() => Effect.void) },
-  entityManager: { applyEntitySnapshot: vi.fn(() => Effect.succeed('created' as const)) },
+  entityManager: { applyEntitySnapshot: vi.fn(() => Effect.succeed('created' as const)), clear: vi.fn(() => Effect.void) },
   gameState: { enterBoat: vi.fn(() => Effect.void), enterMinecart: vi.fn(() => Effect.void) },
 })
 
 describe('restoreSavedState', () => {
-  it('does not touch player services when savedPlayerState is none', async () => {
+  it('resets per-world state to defaults (no restore) when savedPlayerState is none', async () => {
     const worldBootstrap = makeWorldBootstrap()
     const services = makeServices()
 
     await Effect.runPromise(restoreSavedState(worldBootstrap as never, services as never))
 
+    // A brand-new world must START CLEAN: these services are app-scoped
+    // singletons reused across worlds, so the reset-to-defaults runs even with
+    // no saved state (otherwise the new world inherits the prior world's
+    // inventory/XP/gear/mobs — verified live before this fix).
+    expect(services.inventoryService.clear).toHaveBeenCalledOnce()
+    expect(services.equipmentService.reset).toHaveBeenCalledOnce()
+    expect(services.xpService.reset).toHaveBeenCalledOnce()
+    expect(services.healthService.reset).toHaveBeenCalledOnce()
+    expect(services.hungerService.reset).toHaveBeenCalledOnce()
+    expect(services.entityManager.clear).toHaveBeenCalledOnce()
+    expect(services.chestService.deserialize).toHaveBeenCalledWith([])
+    expect(services.furnaceService.deserialize).toHaveBeenCalledWith([])
+
+    // But the RESTORE paths (which apply saved values) must NOT run.
     expect(services.inventoryService.deserialize).not.toHaveBeenCalled()
-    expect(services.healthService.reset).not.toHaveBeenCalled()
     expect(services.hungerService.restore).not.toHaveBeenCalled()
     expect(services.xpService.setTotalXP).not.toHaveBeenCalled()
     expect(services.equipmentService.deserialize).not.toHaveBeenCalled()
@@ -92,7 +105,9 @@ describe('restoreSavedState', () => {
     await Effect.runPromise(restoreSavedState(worldBootstrap as never, services as never))
 
     expect(services.inventoryService.deserialize).toHaveBeenCalledOnce()
-    expect(services.healthService.reset).toHaveBeenCalledOnce()
+    // reset() runs twice for a saved world: once in the clean-slate reset block,
+    // once inside restoreSavedPlayerState before applying the saved health delta.
+    expect(services.healthService.reset).toHaveBeenCalledTimes(2)
     expect(services.healthService.applyDamage).toHaveBeenCalledWith(8)
     expect(services.hungerService.restore).toHaveBeenCalledWith(9, 3)
     expect(services.xpService.setTotalXP).toHaveBeenCalledWith(42)
@@ -114,8 +129,9 @@ describe('restoreSavedState', () => {
 
     await Effect.runPromise(restoreSavedState(worldBootstrap as never, services as never))
 
-    expect(services.furnaceService.deserialize).toHaveBeenCalledOnce()
-    expect(services.furnaceService.deserialize).toHaveBeenCalledWith(savedStates)
+    // deserialize runs twice: [] in the clean-slate reset, then the saved states.
+    expect(services.furnaceService.deserialize).toHaveBeenCalledTimes(2)
+    expect(services.furnaceService.deserialize).toHaveBeenLastCalledWith(savedStates)
   })
 
   it('calls chestService.deserialize when savedChestStates is some', async () => {
@@ -127,8 +143,9 @@ describe('restoreSavedState', () => {
 
     await Effect.runPromise(restoreSavedState(worldBootstrap as never, services as never))
 
-    expect(services.chestService.deserialize).toHaveBeenCalledOnce()
-    expect(services.chestService.deserialize).toHaveBeenCalledWith(savedStates)
+    // deserialize runs twice: [] in the clean-slate reset, then the saved states.
+    expect(services.chestService.deserialize).toHaveBeenCalledTimes(2)
+    expect(services.chestService.deserialize).toHaveBeenLastCalledWith(savedStates)
   })
 
   it('calls weatherService.restore when savedWeatherState is some', async () => {

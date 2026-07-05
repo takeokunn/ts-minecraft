@@ -42,6 +42,24 @@ describe('entity/entityManagerLifecycle', () => {
       }))
   })
 
+  describe('clear', () => {
+    // Regression: EntityManager is an app-scoped singleton reused across worlds,
+    // so a new world must drop the prior world's mobs rather than inherit them.
+    itEntityManagerEffect('removes all entities and bumps the structure version', () =>
+      Effect.gen(function* () {
+        const entityManager = yield* EntityManager
+        yield* entityManager.addEntity(EntityType.Zombie, { x: 0, y: 64, z: 0 })
+        yield* entityManager.addEntity(EntityType.Cow, { x: 10, y: 64, z: 0 })
+        const before = yield* entityManager.getStructureVersion()
+
+        yield* entityManager.clear()
+
+        expect(yield* entityManager.getCount()).toBe(0)
+        expect(yield* entityManager.getEntities()).toHaveLength(0)
+        expect(yield* entityManager.getStructureVersion()).toBe(before + 1)
+      }))
+  })
+
   describe('getStructureVersion', () => {
     itEntityManagerEffect('increments on add/remove but not on position-only update', () =>
       Effect.gen(function* () {

@@ -33,6 +33,22 @@ export const restoreSavedState = (
 ): Effect.Effect<void, never> => {
   const { inventoryService, equipmentService, healthService, hungerService, xpService, chestService, furnaceService, weatherService, cropGrowthService, entityManager, gameState } = services
   return Effect.gen(function* () {
+    // Establish clean per-world state FIRST, then overlay saved state below.
+    // These services are app-scoped singletons reused across worlds (only the
+    // session fiber unwinds to the title loop), so without this a brand-new
+    // world — which has no saved state to restore — inherits the previous
+    // world's inventory, XP, equipment, mobs, and container contents. Restore
+    // paths below (deserialize / setTotalXP / applyEntitySnapshot) overwrite
+    // these defaults for a loaded world, so the reset is a no-op cost there.
+    yield* inventoryService.clear()
+    yield* equipmentService.reset()
+    yield* xpService.reset()
+    yield* healthService.reset()
+    yield* hungerService.reset()
+    yield* entityManager.clear()
+    yield* chestService.deserialize([])
+    yield* furnaceService.deserialize([])
+
     const savedPlayerState = Option.getOrNull(worldBootstrap.savedPlayerState)
     if (savedPlayerState !== null) {
       yield* restoreSavedPlayerState(savedPlayerState, {
