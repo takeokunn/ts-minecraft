@@ -1,9 +1,9 @@
-import type { InventoryItem, RecipeId } from '@ts-minecraft/core'
+import type { InventoryItem, RecipeId, StackCount } from '@ts-minecraft/core'
 import type { Option } from 'effect'
 
 export type FurnaceItemStack = {
   readonly itemType: InventoryItem
-  readonly count: number
+  readonly count: StackCount
 }
 
 export type FurnaceBlockState = {

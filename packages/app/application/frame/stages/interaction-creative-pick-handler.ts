@@ -1,7 +1,7 @@
 import { Effect, Option } from 'effect'
 import { HOTBAR_START } from '@ts-minecraft/inventory/application/inventory-service'
 import { ItemStack, maxStackFor } from '@ts-minecraft/inventory/domain/item-stack'
-import { SlotIndex } from '@ts-minecraft/core'
+import { SlotIndex, StackCount } from '@ts-minecraft/core'
 import type { BlockType } from '@ts-minecraft/core'
 import type { FrameCreativePickInteractionServices } from '@ts-minecraft/app/frame/frame-interaction-service-types/creative-pick'
 import type { TargetBlockHit } from '@ts-minecraft/app/frame/stages/interaction-types'
@@ -35,6 +35,6 @@ export const handleCreativePickBlock = (
     const selectedSlot = yield* services.hotbarService.getSelectedSlot()
     yield* services.inventoryService.setSlot(
       SlotIndex.make(HOTBAR_START + selectedSlot),
-      Option.some(new ItemStack({ itemType: blockType, count: maxStackFor(blockType), durability: null })),
+      Option.some(new ItemStack({ itemType: blockType, count: StackCount.make(maxStackFor(blockType)), durability: null })),
     )
   })

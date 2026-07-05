@@ -1,4 +1,5 @@
 import { Array as Arr, HashMap, Option } from 'effect'
+import { StackCount } from '@ts-minecraft/core'
 
 import { CHEST_SIZE } from '../domain/chest-service.config'
 import { ItemStack, canMerge, maxStackFor, mergeStacks, removeFromStack } from '../domain/item-stack'
@@ -48,7 +49,7 @@ export const fillSlotsFromStack = (
     const moved = Math.min(sourceStack.count, maxStackFor(sourceStack.itemType))
     const placed = new ItemStack({
       itemType: sourceStack.itemType,
-      count: moved,
+      count: StackCount.make(moved),
       durability: sourceStack.durability,
       enchantments: sourceStack.enchantments,
     })

@@ -2,6 +2,7 @@ import { Array as Arr, Effect, Option, MutableRef } from 'effect'
 import * as THREE from 'three'
 import { InventoryItem } from '@ts-minecraft/core'
 import { SlotIndex } from '@ts-minecraft/core'
+import type { HotbarSlotStack } from '@ts-minecraft/inventory/application/hotbar-service'
 import { RendererService, TextureService, getItemTileIndex, getItemTileUVs } from '@ts-minecraft/rendering'
 import {
   EMPTY_HOTBAR_VALUES,
@@ -10,6 +11,12 @@ import {
   type HotbarState,
   type HotbarSlotValue,
 } from './hotbar-three-state'
+import {
+  badgeAnchorY,
+  createSlotCountBadge,
+  updateSlotCountBadge,
+  type SlotCountBadge,
+} from './hotbar-count-badge'
 
 const SLOT_SIZE = 60
 const SLOT_GAP = 10
@@ -362,6 +369,7 @@ export class HotbarRendererService extends Effect.Service<HotbarRendererService>
       const hudCameraRef = MutableRef.make<Option.Option<THREE.OrthographicCamera>>(Option.none())
       const heldItemCameraRef = MutableRef.make<Option.Option<THREE.PerspectiveCamera>>(Option.none())
       const slotMeshesRef = MutableRef.make<ReadonlyArray<THREE.Mesh>>([])
+      const countBadgesRef = MutableRef.make<ReadonlyArray<SlotCountBadge>>([])
       // Static per-slot frame planes (grey border + inner edge). They live for
       // the session and only need their y re-anchored on resize.
       const frameMeshesRef = MutableRef.make<ReadonlyArray<THREE.Mesh>>([])
@@ -398,7 +406,7 @@ export class HotbarRendererService extends Effect.Service<HotbarRendererService>
         if (selectedItem === null) return
 
         const heldItemCamera = Option.getOrNull(MutableRef.get(heldItemCameraRef))
-        const nextHeldItem = createFirstPersonHeldItem(selectedItem, atlasTexture, heldItemCamera?.aspect ?? 1)
+        const nextHeldItem = createFirstPersonHeldItem(selectedItem.item, atlasTexture, heldItemCamera?.aspect ?? 1)
         if (nextHeldItem === null) return
 
         heldItemScene.add(nextHeldItem.group)
@@ -438,6 +446,9 @@ export class HotbarRendererService extends Effect.Service<HotbarRendererService>
         Arr.forEach(MutableRef.get(frameMeshesRef), (m) => {
           m.position.y = newY
         })
+        Arr.forEach(MutableRef.get(countBadgesRef), (badge) => {
+          badge.mesh.position.y = badgeAnchorY(newY, SLOT_SIZE)
+        })
         borderMesh.position.y = newY
         Option.map(MutableRef.get(itemNameLabelRef), (label) => {
           label.mesh.position.y = -h / 2 + ITEM_NAME_LABEL_Y_OFFSET
@@ -454,7 +465,7 @@ export class HotbarRendererService extends Effect.Service<HotbarRendererService>
           return
         }
 
-        redrawItemNameLabel(label, selectedItem)
+        redrawItemNameLabel(label, selectedItem.item)
         MutableRef.set(itemNameLabelShownAtMsRef, Date.now())
         label.material.opacity = 1
         label.mesh.visible = true
@@ -541,12 +552,23 @@ export class HotbarRendererService extends Effect.Service<HotbarRendererService>
                 hudScene.add(m)
               })
               MutableRef.set(frameMeshesRef, frameMeshes)
+
+              // Stack-count badges: one per slot, above the item tile (z 2).
+              const badges: Array<SlotCountBadge> = []
+              for (let i = 0; i < HOTBAR_SLOTS; i++) {
+                const x = -TOTAL_WIDTH / 2 + SLOT_SIZE / 2 + i * SLOT_STRIDE
+                const badge = createSlotCountBadge(x, y, SLOT_SIZE)
+                if (badge === null) continue
+                hudScene.add(badge.mesh)
+                badges.push(badge)
+              }
+              MutableRef.set(countBadgesRef, badges)
               return built
             })
             MutableRef.set(slotMeshesRef, meshes)
           }),
 
-        update: (slots: ReadonlyArray<Option.Option<InventoryItem>>, selectedSlot: SlotIndex): Effect.Effect<void, never> =>
+        update: (slots: ReadonlyArray<Option.Option<HotbarSlotStack>>, selectedSlot: SlotIndex): Effect.Effect<void, never> =>
           Effect.sync(() => {
             const slotMeshes = MutableRef.get(slotMeshesRef)
             const prevState = MutableRef.get(prevStateRef)
@@ -564,10 +586,15 @@ export class HotbarRendererService extends Effect.Service<HotbarRendererService>
             MutableRef.set(prevStateRef, decision.nextState)
 
             if (decision.slotsChanged) {
+              const countBadges = MutableRef.get(countBadgesRef)
               for (let index = 0; index < slotMeshes.length && index < HOTBAR_SLOTS; index++) {
                 const mesh = slotMeshes[index]
                 if (mesh === undefined) continue
                 const slot = slots[index]
+                const badge = countBadges[index]
+                if (badge !== undefined) {
+                  updateSlotCountBadge(badge, decision.nextState.slots[index] ?? null)
+                }
                 /* c8 ignore next */
                 if (!(mesh.material instanceof THREE.MeshBasicMaterial)) continue
                 const mat = mesh.material
@@ -577,7 +604,7 @@ export class HotbarRendererService extends Effect.Service<HotbarRendererService>
                   mat.map = null
                   mat.needsUpdate = true
                 } else {
-                  const itemType = slot.value
+                  const itemType = slot.value.itemType
                   const tileIndex = getItemTileIndex(itemType)
                   if (tileIndex < 0) {
                     mat.color.setHex(DEFAULT_TILE_COLOR)

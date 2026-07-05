@@ -35,16 +35,20 @@ const mockCanvasContext = {
   fillStyle: '',
 }
 
-const mockCanvas = {
+// Each createElement('canvas') returns a FRESH canvas: the item-name label and
+// the 9 per-slot count badges size their canvases differently, and a shared
+// object would let the last-created badge clobber the label's dimensions.
+// The 2D context spy stays shared so assertions can match any draw call.
+const makeMockCanvas = () => ({
   width: 0,
   height: 0,
   getContext: vi.fn(() => mockCanvasContext),
-}
+})
 
 Object.defineProperty(globalThis, 'document', {
   value: {
     createElement: vi.fn((tagName: string) => {
-      if (tagName === 'canvas') return mockCanvas
+      if (tagName === 'canvas') return makeMockCanvas()
       return {}
     }),
   },
@@ -173,7 +177,7 @@ import * as THREE from 'three'
 import { HotbarRendererService } from '@ts-minecraft/presentation/hud/hotbar-three'
 import { RendererService, TextureService } from '@ts-minecraft/rendering'
 import type { BlockType, InventoryItem } from '@ts-minecraft/core'
-import { SlotIndex } from '@ts-minecraft/core'
+import { SlotIndex, StackCount } from '@ts-minecraft/core'
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -283,9 +287,9 @@ describe('HotbarRendererService', () => {
     it.scoped('should complete without error when called with populated slots', () => {
       const TestLayer = buildTestLayer()
       const slots: ReadonlyArray<Option.Option<BlockType>> = [
-        Option.some('GRASS' as BlockType),
-        Option.some('DIRT' as BlockType),
-        Option.some('STONE' as BlockType),
+        Option.some({ itemType: 'GRASS' as BlockType, count: StackCount.make(1) }),
+        Option.some({ itemType: 'DIRT' as BlockType, count: StackCount.make(1) }),
+        Option.some({ itemType: 'STONE' as BlockType, count: StackCount.make(1) }),
         Option.none(),
         Option.none(),
         Option.none(),
@@ -352,7 +356,7 @@ describe('HotbarRendererService', () => {
       const TestLayer = buildTestLayer()
       // 'AIR' is a valid BlockType that getItemTileIndex maps to -1 (no atlas tile).
       const slotsWithAir: ReadonlyArray<Option.Option<BlockType>> = [
-        Option.some('AIR' as BlockType),
+        Option.some({ itemType: 'AIR' as BlockType, count: StackCount.make(1) }),
         ...Arr.makeBy(8, () => Option.none<BlockType>()),
       ]
 
@@ -369,11 +373,11 @@ describe('HotbarRendererService', () => {
       const TestLayer = buildTestLayer()
 
       const slotsA: ReadonlyArray<Option.Option<BlockType>> = [
-        Option.some('GRASS' as BlockType),
+        Option.some({ itemType: 'GRASS' as BlockType, count: StackCount.make(1) }),
         ...Arr.makeBy(8, () => Option.none<BlockType>()),
       ]
       const slotsB: ReadonlyArray<Option.Option<BlockType>> = [
-        Option.some('GRASS' as BlockType),
+        Option.some({ itemType: 'GRASS' as BlockType, count: StackCount.make(1) }),
         ...Arr.makeBy(8, () => Option.none<BlockType>()),
       ]
 
@@ -400,8 +404,8 @@ describe('HotbarRendererService', () => {
       const TestLayer = buildTestLayer()
 
       const slots: ReadonlyArray<Option.Option<BlockType>> = [
-        Option.some('GRASS' as BlockType),
-        Option.some('STONE' as BlockType),
+        Option.some({ itemType: 'GRASS' as BlockType, count: StackCount.make(1) }),
+        Option.some({ itemType: 'STONE' as BlockType, count: StackCount.make(1) }),
         ...Arr.makeBy(7, () => Option.none<BlockType>()),
       ]
 
@@ -429,8 +433,8 @@ describe('HotbarRendererService', () => {
       vi.clearAllMocks()
       const TestLayer = buildTestLayer()
       const slots: ReadonlyArray<Option.Option<BlockType>> = [
-        Option.some('GRASS' as BlockType),
-        Option.some('DIRT' as BlockType),
+        Option.some({ itemType: 'GRASS' as BlockType, count: StackCount.make(1) }),
+        Option.some({ itemType: 'DIRT' as BlockType, count: StackCount.make(1) }),
         ...Arr.makeBy(7, () => Option.none<BlockType>()),
       ]
 
@@ -451,7 +455,7 @@ describe('HotbarRendererService', () => {
       vi.clearAllMocks()
       const TestLayer = buildTestLayer()
       const slots: ReadonlyArray<Option.Option<BlockType>> = [
-        Option.some('GRASS' as BlockType),
+        Option.some({ itemType: 'GRASS' as BlockType, count: StackCount.make(1) }),
         ...Arr.makeBy(8, () => Option.none<BlockType>()),
       ]
 
@@ -472,7 +476,7 @@ describe('HotbarRendererService', () => {
       vi.clearAllMocks()
       const TestLayer = buildTestLayer()
       const slots: ReadonlyArray<Option.Option<InventoryItem>> = [
-        Option.some('GRASS' as InventoryItem),
+        Option.some({ itemType: 'GRASS' as InventoryItem, count: StackCount.make(1) }),
         ...Arr.makeBy(8, () => Option.none<InventoryItem>()),
       ]
 
@@ -490,7 +494,7 @@ describe('HotbarRendererService', () => {
       vi.clearAllMocks()
       const TestLayer = buildTestLayer()
       const slots: ReadonlyArray<Option.Option<InventoryItem>> = [
-        Option.some('DIAMOND_SWORD' as InventoryItem),
+        Option.some({ itemType: 'DIAMOND_SWORD' as InventoryItem, count: StackCount.make(1) }),
         ...Arr.makeBy(8, () => Option.none<InventoryItem>()),
       ]
 
@@ -561,8 +565,8 @@ describe('HotbarRendererService', () => {
       const TestLayer = buildTestLayer(mockRenderer)
       const fakeWebGLRenderer = {} as import('three').WebGLRenderer
       const slots: ReadonlyArray<Option.Option<BlockType>> = [
-        Option.some('GRASS' as BlockType),
-        Option.some('DIRT' as BlockType),
+        Option.some({ itemType: 'GRASS' as BlockType, count: StackCount.make(1) }),
+        Option.some({ itemType: 'DIRT' as BlockType, count: StackCount.make(1) }),
         ...Arr.makeBy(7, () => Option.none<BlockType>()),
       ]
 
@@ -588,7 +592,7 @@ describe('HotbarRendererService', () => {
       const TestLayer = buildTestLayer(mockRenderer)
       const fakeWebGLRenderer = {} as import('three').WebGLRenderer
       const slots: ReadonlyArray<Option.Option<InventoryItem>> = [
-        Option.some('GRASS' as InventoryItem),
+        Option.some({ itemType: 'GRASS' as InventoryItem, count: StackCount.make(1) }),
         ...Arr.makeBy(8, () => Option.none<InventoryItem>()),
       ]
 
@@ -612,7 +616,7 @@ describe('HotbarRendererService', () => {
       const TestLayer = buildTestLayer(mockRenderer)
       const fakeWebGLRenderer = {} as import('three').WebGLRenderer
       const slots: ReadonlyArray<Option.Option<InventoryItem>> = [
-        Option.some('GRASS' as InventoryItem),
+        Option.some({ itemType: 'GRASS' as InventoryItem, count: StackCount.make(1) }),
         ...Arr.makeBy(8, () => Option.none<InventoryItem>()),
       ]
 
@@ -644,7 +648,7 @@ describe('HotbarRendererService', () => {
       const TestLayer = buildTestLayer(mockRenderer)
       const fakeWebGLRenderer = {} as import('three').WebGLRenderer
       const slots: ReadonlyArray<Option.Option<InventoryItem>> = [
-        Option.some('GRASS' as InventoryItem),
+        Option.some({ itemType: 'GRASS' as InventoryItem, count: StackCount.make(1) }),
         ...Arr.makeBy(8, () => Option.none<InventoryItem>()),
       ]
 
@@ -674,7 +678,7 @@ describe('HotbarRendererService', () => {
       const TestLayer = buildTestLayer(mockRenderer)
       const fakeWebGLRenderer = {} as import('three').WebGLRenderer
       const populatedSlots: ReadonlyArray<Option.Option<InventoryItem>> = [
-        Option.some('GRASS' as InventoryItem),
+        Option.some({ itemType: 'GRASS' as InventoryItem, count: StackCount.make(1) }),
         ...Arr.makeBy(8, () => Option.none<InventoryItem>()),
       ]
       const emptySlots: ReadonlyArray<Option.Option<InventoryItem>> = Arr.makeBy(9, () => Option.none())
@@ -698,7 +702,7 @@ describe('HotbarRendererService', () => {
       const TestLayer = buildTestLayer(mockRenderer)
 
       const slots: ReadonlyArray<Option.Option<BlockType>> = [
-        Option.some('GRASS' as BlockType),
+        Option.some({ itemType: 'GRASS' as BlockType, count: StackCount.make(1) }),
         ...Arr.makeBy(8, () => Option.none<BlockType>()),
       ]
       const fakeWebGLRenderer = {} as import('three').WebGLRenderer

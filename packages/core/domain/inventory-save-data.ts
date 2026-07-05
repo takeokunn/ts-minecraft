@@ -2,12 +2,14 @@
 //   @ts-minecraft/world → @ts-minecraft/inventory → @ts-minecraft/world
 import { Schema } from 'effect'
 import { InventoryItemSchema } from './inventory-item'
-import { SlotIndexSchema } from './numerics'
+import { SlotIndexSchema, StackCountSchema } from './numerics'
 
 const InventorySlotSaveEntrySchema = Schema.Struct({
   slot: SlotIndexSchema,
   itemType: InventoryItemSchema,
-  count: Schema.Number.pipe(Schema.int(), Schema.between(1, 64)),
+  // Branded like ItemStack.count — plain JSON numbers still decode, but the
+  // hydrated value carries the 1-64 invariant end to end.
+  count: StackCountSchema,
   durability: Schema.NullOr(Schema.Number.pipe(Schema.int(), Schema.nonNegative())),
   // Anvil rename — optional keeps pre-rename saves decodable (like durability).
   customName: Schema.optional(Schema.String),

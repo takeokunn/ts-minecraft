@@ -1,4 +1,5 @@
 import { Option } from 'effect'
+import { StackCount } from '@ts-minecraft/core'
 import { formatLabel } from './inventory-renderer-refresh'
 import { addToStack, canMerge, ItemStack, maxStackFor, mergeStacks, removeFromStack } from '@ts-minecraft/inventory/domain/item-stack'
 import type { InventorySlot } from '@ts-minecraft/inventory/application/inventory-service'
@@ -18,7 +19,7 @@ export type InventoryCursorReturnState = {
 const cloneStackWithCount = (stack: ItemStack, count: number): ItemStack =>
   new ItemStack({
     itemType: stack.itemType,
-    count,
+    count: StackCount.make(count),
     durability: stack.durability,
     enchantments: stack.enchantments,
   })

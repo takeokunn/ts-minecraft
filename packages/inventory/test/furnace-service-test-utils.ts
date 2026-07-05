@@ -5,7 +5,7 @@ import { InventoryService } from '@ts-minecraft/inventory/application/inventory-
 import { InventoryError } from '@ts-minecraft/inventory/domain/errors'
 import { PlayerServicePort, WorldBlockQueryPort, worldToBlockIndex } from '@ts-minecraft/world'
 import type { PlayerServicePortShape, WorldBlockQueryPortShape } from '@ts-minecraft/world'
-import { blockTypeToIndex, CHUNK_HEIGHT, CHUNK_SIZE } from '@ts-minecraft/core'
+import { blockTypeToIndex, CHUNK_HEIGHT, CHUNK_SIZE, StackCount } from '@ts-minecraft/core'
 import type { InventoryItem, PlayerId, Position } from '@ts-minecraft/core'
 import type { Chunk } from '@ts-minecraft/world'
 
@@ -82,9 +82,13 @@ export const makeInventoryService = (
     _tag: '@minecraft/application/InventoryService' as const,
     getAllSlots: (): ReturnType<InventoryService['getAllSlots']> =>
       Effect.succeed(
-        Arr.fromIterable(MutableHashMap.keys(items)).map((itemType) =>
-          Option.some({ itemType, count: Option.getOrElse(MutableHashMap.get(items, itemType), () => 0), durability: null }),
-        ),
+        Arr.fromIterable(MutableHashMap.keys(items)).flatMap((itemType) => {
+          // removeBlock decrements in place, so a drained item lingers with
+          // count 0 — a state the real service never exposes. Filter it out
+          // instead of fabricating an invalid StackCount.
+          const count = Option.getOrElse(MutableHashMap.get(items, itemType), () => 0)
+          return count >= 1 ? [Option.some({ itemType, count: StackCount.make(count), durability: null })] : []
+        }),
       ),
     removeBlock: (itemType: InventoryItem, count: number) =>
       Effect.suspend(() => {

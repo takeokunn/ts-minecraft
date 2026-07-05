@@ -2,6 +2,7 @@ import { Array as Arr, Effect, HashMap, Option, Ref } from 'effect'
 import { RecipeService } from './recipe-service'
 import { InventoryService } from './inventory-service'
 import type { BlockType, DeltaTimeSecs, RecipeId } from '@ts-minecraft/core'
+import { StackCount } from '@ts-minecraft/core'
 import { PlayerServicePort, WorldBlockQueryPort } from '@ts-minecraft/world'
 import { FurnaceError } from '../domain/furnace-errors'
 import type { FurnaceBlockState, FurnaceItemStack } from '../domain/furnace-state'
@@ -67,8 +68,8 @@ export class FurnaceService extends Effect.Service<FurnaceService>()(
             const nextBurnDurationSecs = fuelItem === null ? burnRemainingSecs : getFuelBurnDurationSecs(fuelItem)
             const nextFurnace: FurnaceBlockState = {
               position,
-              input: Option.some(input),
-              fuel: fuelItem === null ? Option.none() : Option.some({ itemType: fuelItem, count: 1 }),
+              input: Option.some({ itemType: input.itemType, count: StackCount.make(input.count) }),
+              fuel: fuelItem === null ? Option.none() : Option.some({ itemType: fuelItem, count: StackCount.make(1) }),
               output: Option.none(),
               activeRecipeId: Option.some(recipeId),
               progressSecs: 0,

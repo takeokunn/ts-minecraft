@@ -1,4 +1,5 @@
 import { Array as Arr, Option, identity } from 'effect'
+import { StackCount } from '@ts-minecraft/core'
 import { getArmorSlot, computeTotalArmorPoints } from '../domain/armor'
 import { ARMOR_SLOTS, type ArmorSlot } from '../domain/armor.config'
 import {
@@ -26,7 +27,7 @@ const asSingleArmorStack = (stack: ItemStack): ItemStack =>
     ? stack
     : new ItemStack({
         itemType: stack.itemType,
-        count: 1,
+        count: StackCount.make(1),
         durability: stack.durability,
         enchantments: stack.enchantments,
       })

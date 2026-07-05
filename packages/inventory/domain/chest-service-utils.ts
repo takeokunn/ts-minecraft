@@ -1,4 +1,5 @@
 import { Array as Arr, HashMap, Option } from 'effect'
+import { StackCount } from '@ts-minecraft/core'
 import { CHEST_SIZE } from './chest-service.config'
 import type { ChestBlockState, ChestItemStack } from './chest-state'
 
@@ -47,14 +48,14 @@ export const depositIntoChest = (
     const capacity = CHEST_MAX_STACK - slot.count
     if (capacity <= 0) continue
     const moved = Math.min(capacity, remaining)
-    slots[i] = Option.some({ ...slot, count: slot.count + moved })
+    slots[i] = Option.some({ ...slot, count: StackCount.make(slot.count + moved) })
     remaining -= moved
   }
 
   for (let i = 0; i < slots.length && remaining > 0; i++) {
     if (Option.isSome(slots[i]!)) continue
     const moved = Math.min(CHEST_MAX_STACK, remaining)
-    slots[i] = Option.some({ itemType, count: moved, durability: null })
+    slots[i] = Option.some({ itemType, count: StackCount.make(moved), durability: null })
     remaining -= moved
   }
 
@@ -70,7 +71,7 @@ export const takeOneFromChest = (
   for (let i = 0; i < slots.length; i++) {
     const slot = Option.getOrNull(slots[i]!)
     if (slot === null) continue
-    slots[i] = slot.count > 1 ? Option.some({ ...slot, count: slot.count - 1 }) : Option.none()
+    slots[i] = slot.count > 1 ? Option.some({ ...slot, count: StackCount.make(slot.count - 1) }) : Option.none()
     return { chest: { ...chest, slots }, taken: Option.some(slot.itemType) }
   }
   return { chest, taken: Option.none() }

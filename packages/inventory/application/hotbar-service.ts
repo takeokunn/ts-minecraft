@@ -1,11 +1,17 @@
 import { Array as Arr, Effect, Option, Ref } from 'effect'
-import type { InventoryItem } from '@ts-minecraft/core'
+import type { InventoryItem, StackCount } from '@ts-minecraft/core'
 import { InventoryService, HOTBAR_SIZE, HOTBAR_START } from './inventory-service'
 import { PlayerInputService } from '@ts-minecraft/entity/application/player-input-service'
 import { KeyMappings } from '@ts-minecraft/entity/domain/key-mappings'
 import { SlotIndex } from '@ts-minecraft/core'
 
 export { HOTBAR_SIZE }
+
+/** Item type + stack size for one hotbar cell — what the HUD needs to draw a slot. */
+export type HotbarSlotStack = {
+  readonly itemType: InventoryItem
+  readonly count: StackCount
+}
 
 export class HotbarService extends Effect.Service<HotbarService>()(
   '@minecraft/application/HotbarService',
@@ -40,10 +46,11 @@ export class HotbarService extends Effect.Service<HotbarService>()(
             return Option.map(inventorySlot, (stack) => stack.itemType)
           }),
 
-        getSlots: (): Effect.Effect<ReadonlyArray<Option.Option<InventoryItem>>, never> =>
+        getSlots: (): Effect.Effect<ReadonlyArray<Option.Option<HotbarSlotStack>>, never> =>
           Effect.gen(function* () {
             const hotbarSlots = yield* inventoryService.getHotbarSlots()
-            return Arr.map(hotbarSlots, (slot) => Option.map(slot, (stack) => stack.itemType))
+            // stack.count is already the branded StackCount — no re-validation here.
+            return Arr.map(hotbarSlots, (slot) => Option.map(slot, (stack) => ({ itemType: stack.itemType, count: stack.count })))
           }),
 
         update: (): Effect.Effect<void, never> =>

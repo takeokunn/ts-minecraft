@@ -8,6 +8,8 @@ import {
   DeltaTimeSecsSchema,
   BlockIndex,
   BlockIndexSchema,
+  StackCount,
+  StackCountSchema,
 } from './numerics'
 
 describe('numerics', () => {
@@ -115,6 +117,30 @@ describe('numerics', () => {
 
     it('Schema.is returns true for valid BlockIndex', () => {
       expect(Schema.is(BlockIndexSchema)(BlockIndex.make(42))).toBe(true)
+    })
+  })
+
+  describe('StackCount', () => {
+    it('make returns a branded StackCount across the full 1-64 range', () => {
+      expect(StackCount.toNumber(StackCount.make(1))).toBe(1)
+      expect(StackCount.toNumber(StackCount.make(64))).toBe(64)
+    })
+
+    it('rejects zero (an empty stack is Option.none, never count 0)', () => {
+      expect(() => StackCount.make(0)).toThrow()
+    })
+
+    it('rejects values above the vanilla stack limit', () => {
+      expect(() => StackCount.make(65)).toThrow()
+    })
+
+    it('rejects non-integer and non-finite input', () => {
+      expect(() => StackCount.make(1.5)).toThrow()
+      expect(() => StackCount.make(Number.NaN)).toThrow()
+    })
+
+    it('Schema decodes plain JSON numbers (save-file boundary)', () => {
+      expect(StackCount.toNumber(Schema.decodeUnknownSync(StackCountSchema)(32))).toBe(32)
     })
   })
 })

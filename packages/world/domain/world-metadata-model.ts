@@ -6,6 +6,7 @@ import {
   PositionSchema,
   QuaternionSchema,
   RecipeIdSchema,
+  StackCountSchema,
   Vector3Schema,
 } from '@ts-minecraft/core'
 
@@ -13,7 +14,7 @@ export const CURRENT_WORLD_SAVE_VERSION = 1
 
 const FurnaceItemStackSchema = Schema.Struct({
   itemType: InventoryItemSchema,
-  count: Schema.Number.pipe(Schema.int(), Schema.between(1, 64)),
+  count: StackCountSchema,
 })
 
 const FurnaceStateSchema = Schema.Struct({
@@ -29,7 +30,7 @@ const FurnaceStateSchema = Schema.Struct({
 
 const ChestItemStackSchema = Schema.Struct({
   itemType: InventoryItemSchema,
-  count: Schema.Number.pipe(Schema.int(), Schema.between(1, 64)),
+  count: StackCountSchema,
   durability: Schema.NullOr(Schema.Number.pipe(Schema.int(), Schema.nonNegative())),
 })
 

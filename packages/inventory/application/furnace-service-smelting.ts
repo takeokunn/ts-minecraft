@@ -1,5 +1,5 @@
 import { Array as Arr, Effect, HashMap, Option, Ref } from 'effect'
-import { DeltaTimeSecs } from '@ts-minecraft/core'
+import { StackCount, DeltaTimeSecs } from '@ts-minecraft/core'
 import type { BlockType, InventoryItem, RecipeId } from '@ts-minecraft/core'
 import type { InventoryService } from './inventory-service'
 import type { RecipeService } from './recipe-service'
@@ -158,7 +158,7 @@ export const advanceFurnace = (
         }
         currentFurnace = {
           ...currentFurnace,
-          fuel: Option.some({ itemType: nextFuel.itemType, count: 1 }),
+          fuel: Option.some({ itemType: nextFuel.itemType, count: StackCount.make(1) }),
           burnRemainingSecs: nextFuel.burnSecs,
           burnTotalSecs: nextFuel.burnSecs,
         }
@@ -168,7 +168,7 @@ export const advanceFurnace = (
         currentFurnace,
         DeltaTimeSecs.make(remainingDelta),
         FURNACE_SMELT_DURATION_SECS,
-        { itemType: recipe.output.itemType, count: recipe.output.count },
+        { itemType: recipe.output.itemType, count: StackCount.make(recipe.output.count) },
       )
       currentFurnace = advanceResult.furnace
       remainingDelta = advanceResult.remainingDeltaSecs

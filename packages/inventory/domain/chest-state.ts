@@ -1,9 +1,9 @@
-import type { InventoryItem } from '@ts-minecraft/core'
+import type { InventoryItem, StackCount } from '@ts-minecraft/core'
 import { Option } from 'effect'
 
 export type ChestItemStack = {
   readonly itemType: InventoryItem
-  readonly count: number
+  readonly count: StackCount
   readonly durability: number | null
 }
 

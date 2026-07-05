@@ -1,6 +1,6 @@
 import { Array as Arr, Option } from 'effect'
 import type { InventoryItem, InventorySaveData, InventorySlotSaveEntry } from '@ts-minecraft/core'
-import { SlotIndex } from '@ts-minecraft/core'
+import { SlotIndex, StackCount } from '@ts-minecraft/core'
 import { INVENTORY_SIZE, HOTBAR_START } from './inventory-service.config'
 import { ItemStack, canMerge, maxStackFor, mergeStacks, removeFromStack, repairStackWithMendingXP } from '../domain/item-stack'
 import type { InventorySlot, InventorySlots } from './inventory-service-types'
@@ -73,7 +73,7 @@ type IndexedStack = {
 const cloneStackWithCount = (stack: ItemStack, count: number): ItemStack =>
   new ItemStack({
     itemType: stack.itemType,
-    count,
+    count: StackCount.make(count),
     durability: stack.durability,
     enchantments: stack.enchantments,
   })
@@ -95,7 +95,8 @@ const compareIndexedStacks = (a: IndexedStack, b: IndexedStack): number =>
 const compactSortedMainInventoryStacks = (entries: ReadonlyArray<IndexedStack>): ReadonlyArray<ItemStack> => {
   const compacted: ItemStack[] = []
   for (const { stack } of [...entries].sort(compareIndexedStacks)) {
-    let remaining = stack.count
+    // Widen: `remaining` is a running tally, not a stack-count invariant.
+    let remaining: number = stack.count
     for (let i = 0; i < compacted.length && remaining > 0; i++) {
       const existing = compacted[i]
       if (existing === undefined || !canMerge(existing, stack)) continue
