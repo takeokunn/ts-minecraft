@@ -444,6 +444,13 @@ describe('installQaApi', () => {
 
     await Effect.runPromise(installQaApi(deps))
 
+    const mobAi = await getQaApi().getMobAiForQA()
+    expect(Array.isArray(mobAi.mobs)).toBe(true)
+    // The mock entity manager returns one entity; its AI state comes through.
+    expect(mobAi.mobs.length).toBe(1)
+    expect(mobAi.mobs[0]).toHaveProperty('aiState')
+    expect(mobAi.mobs[0]).toHaveProperty('distanceToPlayer')
+
     const villages = await getQaApi().getVillagesForQA()
     expect(villages.villageCount).toBe(0)
     expect(villages.villagerCount).toBe(0)
