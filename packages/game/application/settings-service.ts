@@ -34,17 +34,30 @@ const DEFAULT_SETTINGS: Settings = {
   musicVolume: 0.55,
 }
 
-const loadFromStorage = (storage: SettingsStoragePort, isLocalhost: boolean): Effect.Effect<Settings, never, never> =>
+// Fresh-user defaults, seeded with the OS reduced-motion preference. Only
+// applied when nothing is stored (or a decode fails) — once a user saves any
+// settings, their explicit reducedMotion choice persists and wins over the OS.
+const freshDefaults = (isLocalhost: boolean, prefersReducedMotion: boolean): Settings =>
+  applySettingsEnvironmentPolicy(
+    { ...DEFAULT_SETTINGS, reducedMotion: DEFAULT_SETTINGS.reducedMotion || prefersReducedMotion },
+    isLocalhost,
+  )
+
+const loadFromStorage = (
+  storage: SettingsStoragePort,
+  isLocalhost: boolean,
+  prefersReducedMotion: boolean,
+): Effect.Effect<Settings, never, never> =>
   Effect.gen(function* () {
     const storedSettings = yield* storage.loadSettings()
-    if (Option.isNone(storedSettings)) return DEFAULT_SETTINGS
+    if (Option.isNone(storedSettings)) return freshDefaults(isLocalhost, prefersReducedMotion)
     const decoded = yield* Schema.decodeUnknown(SettingsSchema)(storedSettings.value).pipe(
       Effect.mapError((e) => new SettingsError({ operation: 'load', cause: e })),
     )
     return applySettingsEnvironmentPolicy(decoded, isLocalhost)
   }).pipe(
     Effect.tapError((e) => Effect.logWarning(`Settings load failed, using defaults: ${e.message}`)),
-    Effect.catchAllCause(() => Effect.succeed(applySettingsEnvironmentPolicy(DEFAULT_SETTINGS, isLocalhost)))
+    Effect.catchAllCause(() => Effect.succeed(freshDefaults(isLocalhost, prefersReducedMotion)))
   )
 
 const saveToStorage = (storage: SettingsStoragePort, settings: Settings): Effect.Effect<void, never, never> =>
@@ -57,7 +70,8 @@ export class SettingsService extends Effect.Service<SettingsService>()(
       const env = yield* EnvironmentPort
       const storage = yield* SettingsStoragePort
       const isLocalhost = yield* env.isLocalhost
-      const initialSettings = yield* loadFromStorage(storage, isLocalhost)
+      const prefersReducedMotion = yield* env.prefersReducedMotion
+      const initialSettings = yield* loadFromStorage(storage, isLocalhost, prefersReducedMotion)
       const settingsRef = MutableRef.make<Settings>(initialSettings)
       return {
         getSettings: () => Effect.sync(() => MutableRef.get(settingsRef)),

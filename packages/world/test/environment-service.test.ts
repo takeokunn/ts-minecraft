@@ -9,8 +9,20 @@ const runIsLocalhost = Effect.provide(
   EnvironmentLayer,
 )
 
+const runPrefersReducedMotion = Effect.provide(
+  Effect.flatMap(EnvironmentPort, (env) => env.prefersReducedMotion),
+  EnvironmentLayer,
+)
+
 const setWindow = (hostname: string): void => {
   Reflect.set(globalThis as object, 'window', { location: { hostname } })
+}
+
+const setWindowWithReducedMotion = (matches: boolean): void => {
+  Reflect.set(globalThis as object, 'window', {
+    location: { hostname: 'example.com' },
+    matchMedia: (q: string) => ({ matches: q.includes('reduce') ? matches : false }),
+  })
 }
 
 const clearWindow = (): void => {
@@ -69,5 +81,26 @@ describe('EnvironmentLayer / isLocalhost', () => {
       const result = await Effect.runPromise(runIsLocalhost)
       expect(result).toBe(false)
     })
+  })
+})
+
+describe('EnvironmentLayer / prefersReducedMotion', () => {
+  afterEach(() => {
+    clearWindow()
+  })
+
+  it('returns false when window/matchMedia is unavailable', async () => {
+    clearWindow()
+    expect(await Effect.runPromise(runPrefersReducedMotion)).toBe(false)
+  })
+
+  it('returns true when the OS reports prefers-reduced-motion: reduce', async () => {
+    setWindowWithReducedMotion(true)
+    expect(await Effect.runPromise(runPrefersReducedMotion)).toBe(true)
+  })
+
+  it('returns false when the OS does not prefer reduced motion', async () => {
+    setWindowWithReducedMotion(false)
+    expect(await Effect.runPromise(runPrefersReducedMotion)).toBe(false)
   })
 })

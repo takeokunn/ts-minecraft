@@ -14,5 +14,10 @@ export const EnvironmentLayer = Layer.succeed(
       /* c8 ignore next */
       return HashSet.has(LOCALHOST_HOSTNAMES, window.location.hostname)
     }),
+    prefersReducedMotion: Effect.sync(() => {
+      if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return false
+      /* c8 ignore next */
+      return window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    }),
   },
 )

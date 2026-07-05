@@ -5,7 +5,7 @@ import { EnvironmentPort } from '@ts-minecraft/core'
 
 // Test EnvironmentPort: jsdom localhost is treated as local development.
 // as localhost, which forces audioEnabled=false on load. Replicate that explicitly here.
-export const EnvironmentTest = Layer.succeed(EnvironmentPort, { isLocalhost: Effect.succeed(true) })
+export const EnvironmentTest = Layer.succeed(EnvironmentPort, { isLocalhost: Effect.succeed(true), prefersReducedMotion: Effect.succeed(false) })
 
 export const SettingsServiceLayer = SettingsService.Default.pipe(
   Layer.provide(SettingsStorageServiceLayer),

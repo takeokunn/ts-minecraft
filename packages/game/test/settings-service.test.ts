@@ -1,7 +1,8 @@
 import { describe,it } from '@effect/vitest'
-import { GRAPHICS_PRESETS,SettingsService } from '@ts-minecraft/game'
+import { GRAPHICS_PRESETS,SettingsService, SettingsStorageServiceLayer } from '@ts-minecraft/game'
+import { EnvironmentPort } from '@ts-minecraft/core'
 import { resolvePreset } from '../application/settings-service.config'
-import { Array as Arr,Effect,MutableHashMap } from 'effect'
+import { Array as Arr,Effect,Layer,MutableHashMap } from 'effect'
 import { afterEach,beforeEach,expect,vi } from 'vitest'
 import {
   DEFAULT_SETTINGS,
@@ -37,6 +38,22 @@ describe('application/settings/settings-service', () => {
         expect(idbGetSpy).toHaveBeenCalledWith('current')
       }).pipe(Effect.provide(SettingsServiceLayer))
     )
+
+    it.effect('seeds reducedMotion from the OS prefers-reduced-motion preference for a fresh user', () => {
+      // Empty storage (fresh user) + EnvironmentPort reporting the OS preference.
+      const ReducedMotionEnv = Layer.succeed(EnvironmentPort, {
+        isLocalhost: Effect.succeed(true),
+        prefersReducedMotion: Effect.succeed(true),
+      })
+      const layer = SettingsService.Default.pipe(
+        Layer.provide(SettingsStorageServiceLayer),
+        Layer.provide(ReducedMotionEnv),
+      )
+      return Effect.gen(function* () {
+        const settings = yield* (yield* SettingsService).getSettings()
+        expect(settings.reducedMotion).toBe(true)
+      }).pipe(Effect.provide(layer))
+    })
 
     it.effect('loads persisted settings when IndexedDB has valid data', () => {
       MutableHashMap.set(idbStore,
