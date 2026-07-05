@@ -76,15 +76,25 @@ export async function waitForPauseMenu(page: Page, timeoutMs = 10_000): Promise<
  * Focus the game surface before sending Escape so the app-level input stage
  * receives the key even after a previous test left focus on a menu control.
  *
- * A single Escape can be swallowed when the canvas click's focus/pointer-lock
- * handling races the key event (observed as a rare flake in multiplayer
- * connect flows), so retry the press until the dialog appears — checking
- * visibility BEFORE each re-press, because Escape on an open pause menu
- * resumes the game and would undo a successful open.
+ * Empirically (2026-07-05 diagnosis) the PRODUCT Escape->pause path is 100%
+ * reliable once the session is warm: 8/8 single Escapes open the menu, with or
+ * without a preceding canvas click. The flake is purely a cold-start timing
+ * window — a test can press Escape in the ~sub-second gap after waitForReady
+ * (FPS>0) but before the pause-menu input path has fully settled, a gap no real
+ * human hits. So: (1) a short internal settle before the first press closes
+ * that window for every caller (no per-spec waitForTimeout needed), and (2) the
+ * loop retries the press until the dialog appears — checking visibility BEFORE
+ * each re-press, since Escape on an open pause menu resumes and would undo it.
  */
-export async function openPauseMenu(page: Page, timeoutMs = 15_000): Promise<void> {
+export async function openPauseMenu(page: Page, timeoutMs = 18_000): Promise<void> {
   const dialog = page.getByRole('dialog', { name: 'Pause Menu' })
   const deadline = Date.now() + timeoutMs
+  // Cold-start settle: let the input stage + pause-menu wiring come up before
+  // the first Escape, rather than burning retry rounds on the dead window.
+  await dialog.waitFor({ state: 'visible', timeout: 1 }).catch(() => undefined)
+  if (!(await dialog.isVisible().catch(() => false))) {
+    await page.waitForTimeout(500)
+  }
   while (true) {
     if (await dialog.isVisible().catch(() => false)) break
     // Re-focus the game surface on EVERY attempt, not just once up front: a

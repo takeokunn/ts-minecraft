@@ -112,10 +112,8 @@ test.describe('accessibility gate', () => {
     const game = new GamePage(page)
     await game.goto()
     await game.waitForReady()
-    // Let the render loop + input stage settle before Escape — opening the pause
-    // menu on the very first frame after ready can race the input wiring.
-    await page.waitForTimeout(2_000)
-    await openPauseMenu(page, 20_000)
+    // openPauseMenu settles the cold-start input window internally.
+    await openPauseMenu(page)
     const findings = await audit(page, ['#pause-menu-backdrop'])
     assertNoFindings(findings)
   })
