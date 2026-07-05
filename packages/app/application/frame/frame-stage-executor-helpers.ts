@@ -1,5 +1,6 @@
 import { Effect, MutableRef, Option } from 'effect'
 import { markEffect } from '@ts-minecraft/rendering'
+import { VEHICLE_SURFACE_SAMPLE_OFFSET } from '@ts-minecraft/game/application/game-state-update-orchestration'
 import type * as THREE from 'three'
 import { DEFAULT_PLAYER_ID } from '@ts-minecraft/core'
 import type { DeltaTimeSecs, Position } from '@ts-minecraft/core'
@@ -332,6 +333,17 @@ export const runPresentationFrameStages = (
       const vehicleKind = boating ? 'boat' as const : minecarting ? 'minecart' as const : null
       const vehicleYaw = vehicleKind !== null ? (yield* services.playerCameraState.getRotation()).yaw : 0
       services.vehicleVisual.update(vehicleKind, inputs.playerPos, vehicleYaw)
+      if (minecarting) {
+        // vanilla powered rails: the boost fires only while the rail cell is
+        // redstone-powered; unpowered powered rails brake (see orchestration)
+        const railCell = {
+          x: Math.floor(inputs.playerPos.x),
+          y: Math.floor(inputs.playerPos.y - VEHICLE_SURFACE_SAMPLE_OFFSET),
+          z: Math.floor(inputs.playerPos.z),
+        } as Position
+        const railPower = yield* services.redstoneService.getPowerAt(railCell)
+        yield* services.gameState.setPoweredRailBoost(railPower > 0)
+      }
       yield* markEffect('frame:refraction', refractionPrepassStage(deps, services, refs, {
         resolvedGraphics: inputs.resolvedGraphics,
         totalTimeSecs: inputs.totalTimeSecs,

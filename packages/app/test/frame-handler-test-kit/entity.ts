@@ -161,6 +161,7 @@ export const makeGameState = () => ({
   isMinecarting: () => Effect.succeed(false),
   enterBoat: () => Effect.void,
   enterMinecart: () => Effect.void,
+  setPoweredRailBoost: () => Effect.void,
 }) as unknown as InstanceType<typeof import('@ts-minecraft/game').GameStateService>
 
 /** Creates a time service fake pinned to midday using default settings. */

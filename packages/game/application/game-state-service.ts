@@ -75,6 +75,7 @@ export class GameStateService extends Effect.Service<GameStateService>()(
       // Rideable minecart as a movement modality: while true and on a rail the
       // player's horizontal speed is boosted (see the update branch).
       const minecartingRef = yield* Ref.make(false)
+      const poweredRailBoostRef = yield* Ref.make(false)
 
       const playerId = DEFAULT_PLAYER_ID
 
@@ -117,6 +118,7 @@ export class GameStateService extends Effect.Service<GameStateService>()(
             flyingRef,
             boatingRef,
             minecartingRef,
+            poweredRailBoostRef,
             inventoryService,
             playerId,
             deltaTime,
@@ -134,6 +136,9 @@ export class GameStateService extends Effect.Service<GameStateService>()(
         // rail) which refunds the item.
         enterMinecart: (): Effect.Effect<void, never> => Ref.set(minecartingRef, true),
         isMinecarting: (): Effect.Effect<boolean, never> => Ref.get(minecartingRef),
+        // Written by the app layer each frame while minecarting: whether the
+        // rail cell under the rider currently carries redstone power.
+        setPoweredRailBoost: (active: boolean): Effect.Effect<void, never> => Ref.set(poweredRailBoostRef, active),
 
         respawn: (spawnPosition: Position): Effect.Effect<void, GameStateError> =>
           Effect.gen(function* () {

@@ -285,6 +285,7 @@ export const createMockGameStateLayer = () => {
     isBoating: () => Effect.succeed(false),
     enterMinecart: () => Effect.void,
     isMinecarting: () => Effect.succeed(false),
+    setPoweredRailBoost: () => Effect.void,
   }))
   return { MockGameStateLayer }
 }

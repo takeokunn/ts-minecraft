@@ -51,6 +51,7 @@ export type GameStateUpdateOrchestrationDeps = {
   readonly flyingRef: Ref.Ref<boolean>
   readonly boatingRef: Ref.Ref<boolean>
   readonly minecartingRef: Ref.Ref<boolean>
+  readonly poweredRailBoostRef: Ref.Ref<boolean>
   readonly inventoryService: { readonly addBlock: (blockType: 'BOAT' | 'MINECART', count: number) => Effect.Effect<unknown, unknown> }
   readonly playerId: PlayerId
   readonly deltaTime: DeltaTimeSecs
@@ -72,8 +73,17 @@ const BOAT_SURFACE_RISE_SPEED = 3
 // Vanilla minecarts cap at ~8 b/s vs 4.317 walking; the multiplier applies to
 // the post-step velocity, re-derived from input each frame (no compounding).
 const MINECART_SPEED_MULTIPLIER = 1.85
-// Powered rails boost carts harder (vanilla powered rails push to full speed).
+// Powered rails boost carts harder (vanilla powered rails push to full speed)
+// — but only while REDSTONE-POWERED; an unpowered powered rail brakes the
+// cart instead (vanilla parity). The app layer samples getPowerAt for the
+// rail cell each frame and writes poweredRailBoostRef.
 const POWERED_RAIL_SPEED_MULTIPLIER = 2.5
+const UNPOWERED_POWERED_RAIL_BRAKE = 0.5
+
+export const resolveMinecartMultiplier = (onPoweredRail: boolean, boostActive: boolean): number =>
+  onPoweredRail
+    ? (boostActive ? POWERED_RAIL_SPEED_MULTIPLIER : UNPOWERED_POWERED_RAIL_BRAKE)
+    : MINECART_SPEED_MULTIPLIER
 
 // Vertical offset subtracted from the body-center Y before sampling the vehicle
 // support cell (rail). Deliberately samples MID-BODY, not the true feet: the
@@ -237,9 +247,9 @@ export const runGameStateUpdate = (
         const refunded = yield* deps.inventoryService.addBlock('MINECART', 1).pipe(Effect.as(true), Effect.catchAll(() => Effect.succeed(false)))
         if (refunded) yield* Ref.set(deps.minecartingRef, false)
       } else {
-        const boost = isOnPoweredRail(physPos.x, physPos.y - VEHICLE_SURFACE_SAMPLE_OFFSET, physPos.z, chunkCache, playerCx, playerCz)
-          ? POWERED_RAIL_SPEED_MULTIPLIER
-          : MINECART_SPEED_MULTIPLIER
+        const onPoweredRail = isOnPoweredRail(physPos.x, physPos.y - VEHICLE_SURFACE_SAMPLE_OFFSET, physPos.z, chunkCache, playerCx, playerCz)
+        const boostActive = yield* Ref.get(deps.poweredRailBoostRef)
+        const boost = resolveMinecartMultiplier(onPoweredRail, boostActive)
         physVel.x *= boost
         physVel.z *= boost
         yield* deps.physicsService.setVelocity(playerBodyId, physVel).pipe(Effect.catchTag('PhysicsServiceError', () => Effect.void))
