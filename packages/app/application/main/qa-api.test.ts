@@ -492,9 +492,9 @@ describe('installQaApi', () => {
     await Effect.runPromise(installQaApi(deps))
 
     await expect(getQaApi().getInventorySnapshot()).resolves.toEqual([
-      { slot: 0, itemType: 'WOOD', count: 3 },
+      { slot: 0, itemType: 'WOOD', count: 3, durability: null },
       null,
-      { slot: 2, itemType: 'STONE', count: 8 },
+      { slot: 2, itemType: 'STONE', count: 8, durability: null },
     ])
     expect(spies.getAllSlots).toHaveBeenCalledOnce()
   })

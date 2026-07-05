@@ -21,7 +21,7 @@ import {
   stageProgressionScenario,
 } from '@ts-minecraft/app/main/qa-api-world'
 import { attackFirstZombie, getMobMovementSnapshot, spawnLowHealthZombieInFront } from '@ts-minecraft/app/main/qa-api-combat'
-import { aimAtBuildSpot, aimAtStagedResource, aimAtStagedZombie, aimNaturalForQA, dispatchMouseClick, setMouseHeldForQA } from '@ts-minecraft/app/main/qa-api-visual'
+import { aimAtBlockForQA, aimAtBuildSpot, aimAtStagedResource, aimAtStagedZombie, aimNaturalForQA, dispatchMouseClick, setMouseHeldForQA } from '@ts-minecraft/app/main/qa-api-visual'
 import { getBlockTypeAtForQA, getLoadedWaterBlockCount, getRenderingSnapshot, setTimeOfDayForQA } from '@ts-minecraft/app/main/qa-api-rendering'
 import { getDebugStateForQA } from '@ts-minecraft/app/main/qa-api-debug-state'
 import { getFrameStatsForQA } from '@ts-minecraft/app/main/qa-api-perf'
@@ -61,6 +61,7 @@ const makeQaApi = (
   aimAtStagedResource: (resourceIndex: number) =>
     aimAtStagedResource(deps.camera, deps.scene, deps.playerCameraState, deps.blockHighlight, stagedResourceBlocksRef, resourceIndex),
   aimAtBuildSpot: () => aimAtBuildSpot(deps.camera, deps.scene, deps.playerCameraState, deps.blockHighlight),
+  aimAtBlockForQA: (x: number, y: number, z: number) => aimAtBlockForQA(deps.camera, deps.scene, deps.playerCameraState, deps.blockHighlight, x, y, z),
   aimNaturalForQA: (target: { x: number; y: number; z: number }) =>
     aimNaturalForQA(deps.camera, deps.scene, deps.playerCameraState, deps.blockHighlight, target),
   aimAtStagedZombie: () => aimAtStagedZombie(deps.camera, deps.scene, deps.playerCameraState, deps.blockHighlight, stagedZombiePositionRef, deps.entityManager),

@@ -60,6 +60,37 @@ export const aimAtStagedResource = (
     )
   }))
 
+// Aims at an ARBITRARY world block by coordinate and forces the highlight
+// target to it, so a subsequent right/left click resolves to that exact block.
+// Unblocks live station-interaction tests (anvil rename/repair, enchanting
+// table, chest, furnace) on real terrain, where the crosshair otherwise can't
+// be reliably put on a placed block — aimAtBuildSpot only hits the fixed
+// build spot, and aimNaturalForQA depends on the block being within raycast reach.
+export const aimAtBlockForQA = (
+  camera: THREE.PerspectiveCamera,
+  scene: THREE.Scene,
+  playerCameraState: PlayerCameraStateService,
+  blockHighlight: BlockHighlightService,
+  x: number,
+  y: number,
+  z: number,
+) =>
+  Effect.runPromise(Effect.gen(function* () {
+    const setAimForQA = makeSetAimForQA(camera, scene, playerCameraState, blockHighlight)
+    yield* setAimForQA({ x: x + 0.5, y: y + 0.5, z: z + 0.5 })
+    yield* blockHighlight.setTargetForQA(
+      { x, y, z },
+      {
+        point: { x: x + 0.5, y: y + 0.5, z: z + 0.5 },
+        normal: { x: 0, y: 1, z: 0 },
+        distance: Math.hypot(x + 0.5 - camera.position.x, y + 0.5 - camera.position.y, z + 0.5 - camera.position.z),
+        blockX: x,
+        blockY: y,
+        blockZ: z,
+      },
+    )
+  }))
+
 export const aimAtBuildSpot = (
   camera: THREE.PerspectiveCamera,
   scene: THREE.Scene,

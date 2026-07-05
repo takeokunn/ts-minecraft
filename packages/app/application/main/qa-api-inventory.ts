@@ -18,7 +18,20 @@ export const getInventorySnapshot = (inventoryService: InventoryService) =>
       const slots = yield* inventoryService.getAllSlots()
       return Arr.map(slots, (slot, index) => {
         const s = Option.getOrNull(slot)
-        return s !== null ? { slot: index, itemType: s.itemType, count: s.count } : null
+        if (s === null) return null
+        // Expose the full stack identity, not just type+count: anvil renames set
+        // customName, tools carry durability, and enchanting adds enchantments —
+        // debugging those flows needs all three visible, not inferred.
+        return {
+          slot: index,
+          itemType: s.itemType,
+          count: s.count,
+          durability: s.durability ?? null,
+          ...(s.customName !== undefined ? { customName: s.customName } : {}),
+          ...(s.enchantments !== undefined && s.enchantments.length > 0
+            ? { enchantments: s.enchantments.map((e) => ({ type: e.type, level: e.level })) }
+            : {}),
+        }
       })
     }),
   )

@@ -6,7 +6,14 @@ import type { QaDebugState } from '@ts-minecraft/app/main/qa-api-debug-state'
 import type { QaFrameStats } from '@ts-minecraft/app/main/qa-api-perf'
 
 export type QaApi = {
-  readonly getInventorySnapshot: () => Promise<ReadonlyArray<null | { readonly slot: number; readonly itemType: InventoryItem; readonly count: number }>>
+  readonly getInventorySnapshot: () => Promise<ReadonlyArray<null | {
+    readonly slot: number
+    readonly itemType: InventoryItem
+    readonly count: number
+    readonly durability: number | null
+    readonly customName?: string
+    readonly enchantments?: ReadonlyArray<{ readonly type: string; readonly level: number }>
+  }>>
   readonly openInventoryForQA: () => Promise<boolean>
   readonly craftRecipeForQA: (recipeId: string) => Promise<void>
   readonly stageProgressionScenario: () => Promise<void>
@@ -14,6 +21,7 @@ export type QaApi = {
   readonly spawnLowHealthZombieInFront: () => Promise<void>
   readonly aimAtStagedResource: (resourceIndex: number) => Promise<void>
   readonly aimAtBuildSpot: () => Promise<void>
+  readonly aimAtBlockForQA: (x: number, y: number, z: number) => Promise<void>
   readonly aimNaturalForQA: (target: { x: number; y: number; z: number }) => Promise<void>
   readonly aimAtStagedZombie: () => Promise<void>
   readonly clearBlocksInFront: () => Promise<void>
