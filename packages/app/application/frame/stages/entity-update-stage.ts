@@ -6,14 +6,12 @@ import * as THREE from 'three'
 import {
   getBlockCollisionShapeAt as getCachedBlockCollisionShapeAt,
   isBlockSolidForMobPhysics as isCachedBlockSolidForMobPhysics,
-  PRESSURE_PLATE_COLLISION_HEIGHT,
   resolveBlockCollisionsInto,
 } from '@ts-minecraft/game'
 import { MOB_HALF_HEIGHT, MOB_HALF_WIDTH } from '@ts-minecraft/entity/domain/mob/spawner-config'
 import { resolveBreedingExperience } from '@ts-minecraft/entity/domain/mob/breeding'
 import { DROPPED_ITEM_PICKUP_DELAY_TICKS, type DroppedItemEntity } from '@ts-minecraft/entity/domain/dropped-item'
 import type { DroppedXpOrbEntity } from '@ts-minecraft/entity/domain/dropped-xp-orb'
-import { RedstoneComponentType } from '@ts-minecraft/entity/domain/redstone/redstone-model'
 import type { Entity } from '@ts-minecraft/entity/domain/mob/entity'
 import type { DebugFeatureFlags } from '@ts-minecraft/app/application/debug-feature-flags.config'
 import { logErrors } from '@ts-minecraft/app/frame/error-logging'
@@ -23,6 +21,12 @@ import type { FrameStageRefs } from '@ts-minecraft/app/application/frame/types/s
 import type { LocalEntitySnapshot } from '@ts-minecraft/app/application/multiplayer/multiplayer-service'
 import { runTickable } from '@ts-minecraft/app/frame/frame-fixed-step'
 import { addExperienceWithMending } from '@ts-minecraft/app/application/frame/stages/xp-mending'
+import { updatePressurePlateStates } from '@ts-minecraft/app/application/frame/stages/entity-update-stage.pressure-plate'
+import {
+  ENTITY_PHYSICS_CHUNK_OFFSETS,
+  ENTITY_PHYSICS_CHUNK_RADIUS,
+  hasMissingPhysicsChunk,
+} from '@ts-minecraft/app/application/frame/stages/entity-update-stage.physics-chunks'
 import { dragonDeathStage } from '@ts-minecraft/app/application/frame/stages/dragon-death-stage'
 import { applyPistonWorldEffects } from '@ts-minecraft/app/application/frame/stages/redstone-piston-world-effects'
 import { applyLampWorldEffects } from '@ts-minecraft/app/application/frame/stages/redstone-lamp-world-effects'
@@ -32,111 +36,9 @@ import { applyDispenserWorldEffects } from '@ts-minecraft/app/application/frame/
 import { REDSTONE_TICK_INTERVAL_SECS, FLUID_TICK_INTERVAL_SECS } from '@ts-minecraft/app/frame-handler.config'
 import { CHUNK_SIZE, type DeltaTimeSecs, type Position } from '@ts-minecraft/core'
 
-// 7x7 chunk neighborhood (radius 3 = 48 blocks) so entity physics covers the
-// full 16-40 block mob spawn band. The old 3x3 (radius 1 = 16 blocks) left
-// most spawned mobs outside the cache, where the terrain read as air and they
-// fell to bedrock (the y=0.9 pile-up).
-export const ENTITY_PHYSICS_CHUNK_RADIUS = 3
-const ENTITY_PHYSICS_CHUNK_SIDE = ENTITY_PHYSICS_CHUNK_RADIUS * 2 + 1
-const ENTITY_PHYSICS_CHUNK_OFFSETS: ReadonlyArray<readonly [number, number, number]> = (() => {
-  const offsets: Array<readonly [number, number, number]> = []
-  for (let dx = -ENTITY_PHYSICS_CHUNK_RADIUS; dx <= ENTITY_PHYSICS_CHUNK_RADIUS; dx++) {
-    for (let dz = -ENTITY_PHYSICS_CHUNK_RADIUS; dz <= ENTITY_PHYSICS_CHUNK_RADIUS; dz++) {
-      offsets.push([
-        dx,
-        dz,
-        (dx + ENTITY_PHYSICS_CHUNK_RADIUS) * ENTITY_PHYSICS_CHUNK_SIDE + (dz + ENTITY_PHYSICS_CHUNK_RADIUS),
-      ] as const)
-    }
-  }
-  return offsets
-})()
 const RENDER_DISABLED_STRUCTURE_VERSION = Number.NEGATIVE_INFINITY
 const REMOTE_ENTITY_ID_PREFIX = 'remote:'
 const _playerLookDirection = new THREE.Vector3()
-const PRESSURE_PLATE_PLAYER_VERTICAL_REACH = 1.75
-const DROPPED_ITEM_PRESSURE_PLATE_HALF_WIDTH = 0.125
-const DROPPED_ITEM_PRESSURE_PLATE_HALF_HEIGHT = 0.125
-
-const hasMissingPhysicsChunk = (chunkCache: ReadonlyArray<unknown>): boolean => {
-  for (let i = 0; i < chunkCache.length; i++) {
-    if (chunkCache[i] == null) return true
-  }
-  return false
-}
-
-export const isPlayerPressingPressurePlate = (playerPos: Position, platePos: Position): boolean => {
-  const overlapsHorizontally =
-    playerPos.x >= platePos.x &&
-    playerPos.x < platePos.x + 1 &&
-    playerPos.z >= platePos.z &&
-    playerPos.z < platePos.z + 1
-  const verticalOffset = playerPos.y - platePos.y
-  return overlapsHorizontally && verticalOffset >= 0 && verticalOffset <= PRESSURE_PLATE_PLAYER_VERTICAL_REACH
-}
-
-export const isEntityPressingPressurePlate = (entity: Pick<Entity, 'position'>, platePos: Position): boolean => {
-  const pos = entity.position
-  const overlapsHorizontally =
-    pos.x + MOB_HALF_WIDTH > platePos.x &&
-    pos.x - MOB_HALF_WIDTH < platePos.x + 1 &&
-    pos.z + MOB_HALF_WIDTH > platePos.z &&
-    pos.z - MOB_HALF_WIDTH < platePos.z + 1
-  const entityBottom = pos.y - MOB_HALF_HEIGHT
-  const entityTop = pos.y + MOB_HALF_HEIGHT
-  return overlapsHorizontally && entityBottom <= platePos.y + PRESSURE_PLATE_COLLISION_HEIGHT && entityTop >= platePos.y
-}
-
-export const isDroppedItemPressingPressurePlate = (
-  item: Pick<DroppedItemEntity, 'position'>,
-  platePos: Position,
-): boolean => {
-  const pos = item.position
-  const overlapsHorizontally =
-    pos.x + DROPPED_ITEM_PRESSURE_PLATE_HALF_WIDTH > platePos.x &&
-    pos.x - DROPPED_ITEM_PRESSURE_PLATE_HALF_WIDTH < platePos.x + 1 &&
-    pos.z + DROPPED_ITEM_PRESSURE_PLATE_HALF_WIDTH > platePos.z &&
-    pos.z - DROPPED_ITEM_PRESSURE_PLATE_HALF_WIDTH < platePos.z + 1
-  const itemBottom = pos.y - DROPPED_ITEM_PRESSURE_PLATE_HALF_HEIGHT
-  const itemTop = pos.y + DROPPED_ITEM_PRESSURE_PLATE_HALF_HEIGHT
-  return overlapsHorizontally && itemBottom <= platePos.y + PRESSURE_PLATE_COLLISION_HEIGHT && itemTop >= platePos.y
-}
-
-const isAnyEntityPressingPressurePlate = (entities: ReadonlyArray<Pick<Entity, 'position'>>, platePos: Position): boolean => {
-  for (const entity of entities) {
-    if (isEntityPressingPressurePlate(entity, platePos)) return true
-  }
-  return false
-}
-
-const isAnyDroppedItemPressingPressurePlate = (
-  droppedItems: ReadonlyArray<Pick<DroppedItemEntity, 'position'>>,
-  platePos: Position,
-): boolean => {
-  for (const item of droppedItems) {
-    if (isDroppedItemPressingPressurePlate(item, platePos)) return true
-  }
-  return false
-}
-
-export const updatePressurePlateStates = (
-  redstoneService: Pick<FrameHandlerServices['redstoneService'], 'getComponents' | 'setPressurePlatePressed'>,
-  playerPos: Position,
-  entities: ReadonlyArray<Pick<Entity, 'position'>> = [],
-  droppedItems: ReadonlyArray<Pick<DroppedItemEntity, 'position'>> = [],
-): Effect.Effect<void, never> =>
-  Effect.gen(function* () {
-    const components = yield* redstoneService.getComponents()
-    for (const component of components) {
-      if (component.type !== RedstoneComponentType.PressurePlate) continue
-      yield* redstoneService.setPressurePlatePressed(
-        component.position,
-        isPlayerPressingPressurePlate(playerPos, component.position) ||
-          isAnyEntityPressingPressurePlate(entities, component.position) ||
-          isAnyDroppedItemPressingPressurePlate(droppedItems, component.position),
-      )
-    }
-  })
 
 export const createLocalEntitySnapshots = (
   entities: ReadonlyArray<Pick<Entity, 'entityId' | 'type' | 'position' | 'health'>>,

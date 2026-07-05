@@ -11,13 +11,13 @@ import { type DroppedXpOrbEntity } from '@ts-minecraft/entity/domain/dropped-xp-
 import { RedstoneComponentType } from '@ts-minecraft/entity/domain/redstone/redstone-model'
 import { type RedstoneComponent } from '@ts-minecraft/entity/domain/redstone/redstone-model'
 import type { MultiplayerService } from '@ts-minecraft/app/application/multiplayer/multiplayer-service'
+import { createLocalEntitySnapshots } from './entity-update-stage'
 import {
-  createLocalEntitySnapshots,
   isDroppedItemPressingPressurePlate,
   isEntityPressingPressurePlate,
   isPlayerPressingPressurePlate,
   updatePressurePlateStates,
-} from './entity-update-stage'
+} from './entity-update-stage.pressure-plate'
 import { makeDeps } from '../../../test/frame-handler-test-kit/orchestration/deps'
 import { runFrame } from '../../../test/frame-handler-test-kit/orchestration/harness'
 import { makeInputService } from '../../../test/frame-handler-test-kit/presentation/input'
