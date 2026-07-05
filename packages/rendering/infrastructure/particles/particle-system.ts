@@ -54,6 +54,10 @@ export class ParticleSystemService extends Effect.Service<ParticleSystemService>
         alphaTest: 0.5,
         side: THREE.DoubleSide,
         depthWrite: false,
+        // Single-pass: two-pass transparent DoubleSide rendering would bump this
+        // material's version twice every frame the pool is visible (program-cache
+        // thrash; see chunk-mesh-materials.ts). Cutout particles don't need it.
+        forceSinglePass: true,
       })
       // Patch the shader to add the `uvOffset` instanced attribute to the
       // sampled UV. Three.js' MeshBasicMaterial ships with a `vUv = uv;` line

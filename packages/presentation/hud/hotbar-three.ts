@@ -263,6 +263,10 @@ const createFirstPersonHeldItem = (
     map: atlasTexture,
     transparent: !isBlock,
     side: THREE.DoubleSide,
+    // Single-pass: Three.js' two-pass transparent DoubleSide rendering bumps
+    // material.version twice per frame (program-cache thrash; see
+    // chunk-mesh-materials.ts). A flat held-item sprite doesn't need it.
+    forceSinglePass: true,
   })
   const mesh = new THREE.Mesh(geometry, material)
   applyAtlasUvsToMesh(mesh, tileIndex)

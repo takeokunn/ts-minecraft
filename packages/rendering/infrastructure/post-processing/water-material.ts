@@ -131,5 +131,9 @@ export const createWaterMaterial = (
     transparent: true,
     depthWrite: false,
     side: THREE.DoubleSide,
+    // Avoid Three.js' two-pass transparent DoubleSide rendering: it bumps
+    // material.version twice per object per frame, thrashing the program cache
+    // for every water mesh sharing this material (see chunk-mesh-materials.ts).
+    forceSinglePass: true,
   }), { uniforms })
 }

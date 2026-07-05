@@ -142,6 +142,12 @@ export const createChunkMeshMaterials = (atlasTexture: THREE.Texture): Effect.Ef
     // Keep material opacity at 1 so opaque leaves texels stay solid; glass/ice translucency comes from PNG alpha.
     // alphaTest:0.1 cuts out fully-transparent atlas texels for plant silhouettes.
     // depthWrite:false prevents z-fighting with overlapping faces.
+    // forceSinglePass: Three.js renders transparent+DoubleSide materials in TWO
+    // passes (back then front faces), setting material.needsUpdate per pass. On a
+    // material SHARED by every glass/leaves chunk mesh that version bump forces a
+    // shader-program re-resolution for all sharers each frame (measured ~15k
+    // getParameters calls/3s at idle). Cutout foliage gains nothing from the
+    // two-pass ordering, so render single-pass like vanilla.
     const transparentSolidMaterial = yield* Effect.acquireRelease(
       Effect.sync(() => {
         const mat = new THREE.MeshLambertMaterial({
@@ -155,6 +161,7 @@ export const createChunkMeshMaterials = (atlasTexture: THREE.Texture): Effect.Ef
           alphaTest: 0.1,
           depthWrite: false,
           side: THREE.DoubleSide,
+          forceSinglePass: true,
         })
         mat.onBeforeCompile = (shader) => {
           shader.uniforms['uSunIntensity'] = sharedUniforms.uSunIntensity
