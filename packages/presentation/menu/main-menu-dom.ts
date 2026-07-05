@@ -64,7 +64,7 @@ export const buildMenuDOM = (dom: DomOperationsService): MenuDomElements => {
     <p style="margin:-4px 0 4px;font-size:14px;line-height:1.45;text-align:center">
       Pick a world, continue your latest save, or open the controls guide before you start.
     </p>
-    <div style="display:flex;flex-direction:column;gap:4px;margin-bottom:4px;font-size:12px;line-height:1.35;color:#b0b0b0;text-align:center">
+    <div style="display:flex;flex-direction:column;gap:4px;margin-bottom:4px;font-size:12px;line-height:1.35;color:#c8c8c8;text-align:center">
       <span>Keyboard, mouse, and gamepad are supported.</span>
       <span>Touch controls are not available yet.</span>
     </div>

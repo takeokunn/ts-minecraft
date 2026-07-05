@@ -34,9 +34,12 @@ export const cardStyle = [
 export const buttonStyle = [
   'display:block', 'width:100%', 'box-sizing:border-box',
   'padding:9px 16px', 'min-height:40px', 'cursor:pointer',
-  'background-color:#6d6d6d',
-  'background-image:linear-gradient(180deg,#7e7e7e 0%,#6d6d6d 52%,#5c5c5c 100%)',
-  'border:2px solid #000', 'color:#e0e0e0',
+  // WCAG AA (4.5:1): pure-white label on a gradient whose lightest stop
+  // (#6d6d6d) yields 5.36:1. The old #e0e0e0-on-#7e7e7e was 3.92:1 — a real
+  // fail across every menu button. Same vanilla bevel, a shade darker.
+  'background-color:#5c5c5c',
+  'background-image:linear-gradient(180deg,#6d6d6d 0%,#5c5c5c 52%,#4a4a4a 100%)',
+  'border:2px solid #000', 'color:#ffffff',
   'box-shadow:inset 2px 2px 0 rgba(255,255,255,0.35),inset -2px -2px 0 rgba(0,0,0,0.35)',
   `font-family:${SANS_FONT}`,
   'font-size:15px', 'font-weight:600', 'letter-spacing:0.5px',
