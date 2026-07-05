@@ -141,6 +141,9 @@ export class SettingsOverlayService extends Effect.Service<SettingsOverlayServic
           input.readOnly = true
           input.dataset['action'] = action
           input.placeholder = 'default'
+          // Programmatic accessible name: the visible label is a sibling <span>,
+          // so a screen reader would otherwise announce this only as "edit text".
+          input.setAttribute('aria-label', `Rebind ${label}`)
           input.style.cssText = 'width:110px;font-size:11px;text-align:center;cursor:pointer'
           input.value = keyBindingValues.get(action) ?? ''
           input.addEventListener('keydown', (event) => {
