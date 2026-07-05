@@ -1,4 +1,4 @@
-import { Effect, MutableRef, Option, Schema } from 'effect'
+import { Cause, Effect, MutableRef, Option, Schema } from 'effect'
 import type * as THREE from 'three'
 import { BlockTypeSchema, SlotIndex } from '@ts-minecraft/core'
 import { HOTBAR_START } from '@ts-minecraft/inventory/application/inventory-service'
@@ -69,24 +69,42 @@ export const stageBuildSupportBlock = (
     yield* blockHighlight.invalidateCache()
   }))
 
+// Result surface exists because placement can legitimately fail (target cell
+// occupied / would overlap the player) — a silent void here cost a whole QA
+// audit session chasing phantom bugs. Reports the outcome and exact cell.
+export type QaPlaceResult = {
+  readonly placed: boolean
+  readonly position: { readonly x: number; readonly y: number; readonly z: number } | null
+  readonly reason: string | null
+}
+
 export const placeSelectedItemInFront = (
   camera: THREE.PerspectiveCamera,
   hotbarService: HotbarService,
   blockService: BlockService,
   blockHighlight: BlockHighlightService,
-) =>
+): Promise<QaPlaceResult> =>
   Effect.runPromise(Effect.gen(function* () {
     const selectedItem = yield* hotbarService.getSelectedBlockType()
     const selectedSlot = yield* hotbarService.getSelectedSlot()
     const item = Option.getOrNull(selectedItem)
-    if (item !== null && Schema.is(BlockTypeSchema)(item)) {
-      yield* blockService.placeBlock(
-        projectBlockAhead(camera, 4),
-        item,
-        SlotIndex.make(HOTBAR_START + SlotIndex.toNumber(selectedSlot)),
-      ).pipe(Effect.catchAllCause(() => Effect.void))
+    if (item === null || !Schema.is(BlockTypeSchema)(item)) {
+      yield* blockHighlight.invalidateCache()
+      return { placed: false, position: null, reason: 'selected hotbar slot holds no placeable block' }
     }
+    const position = projectBlockAhead(camera, 4)
+    const outcome = yield* blockService.placeBlock(
+      position,
+      item,
+      SlotIndex.make(HOTBAR_START + SlotIndex.toNumber(selectedSlot)),
+    ).pipe(
+      Effect.as({ placed: true, position, reason: null } satisfies QaPlaceResult),
+      Effect.catchAllCause((cause) =>
+        Effect.succeed({ placed: false, position, reason: String(Cause.squash(cause)) } satisfies QaPlaceResult),
+      ),
+    )
     yield* blockHighlight.invalidateCache()
+    return outcome
   }))
 
 export const clearBlocksInFront = (

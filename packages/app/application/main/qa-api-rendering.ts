@@ -1,6 +1,8 @@
 import { Effect } from 'effect'
 import * as THREE from 'three'
-import { blockTypeToIndex } from '@ts-minecraft/core'
+import { Option } from 'effect'
+import { blockTypeToIndex, decodeBlockType } from '@ts-minecraft/core'
+import { worldToBlockIndex } from '@ts-minecraft/world'
 import type { ChunkManagerService } from '@ts-minecraft/world'
 import type { TimeService } from '@ts-minecraft/game'
 import type { QaChunkCoord, QaChunkMeshSnapshot, QaRenderingSnapshot } from '@ts-minecraft/app/main/qa-api-types/rendering'
@@ -78,6 +80,17 @@ export const getLoadedWaterBlockCount = (chunkManagerService: ChunkManagerServic
       }
     }
     return count
+  }))
+
+// Reads the authoritative chunk-cache block at a world position — the same data
+// the crafting-station proximity scan sees. Diagnostic surface for QA.
+export const getBlockTypeAtForQA = (chunkManagerService: ChunkManagerService, x: number, y: number, z: number) =>
+  Effect.runPromise(Effect.gen(function* () {
+    const { chunkCoord, flatIdx } = worldToBlockIndex({ x, y, z })
+    const chunkOpt = yield* chunkManagerService.getChunk(chunkCoord).pipe(Effect.option)
+    return chunkOpt._tag === 'Some'
+      ? Option.getOrNull(decodeBlockType(chunkOpt.value.blocks[flatIdx]))
+      : null
   }))
 
 export const setTimeOfDayForQA = (timeService: TimeService, timeOfDay: number) =>

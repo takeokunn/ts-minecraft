@@ -20,7 +20,7 @@ export type QaApi = {
   readonly consumeMouseClickForQA: (button: 0 | 1 | 2) => Promise<boolean>
   readonly getCurrentTargetForQA: () => Promise<unknown>
   readonly attackFirstZombie: () => Promise<boolean>
-  readonly placeSelectedItemInFront: () => Promise<void>
+  readonly placeSelectedItemInFront: () => Promise<{ readonly placed: boolean; readonly position: { readonly x: number; readonly y: number; readonly z: number } | null; readonly reason: string | null }>
   readonly moveItemToHotbar: (itemType: InventoryItem, hotbarIndex: number) => Promise<boolean>
   readonly giveItemForQA: (itemType: InventoryItem, count: number) => Promise<boolean>
   readonly setMouseHeldForQA: (button: 0 | 1 | 2, held: boolean) => Promise<void>
@@ -37,6 +37,7 @@ export type QaApi = {
   }>>
   readonly getRemotePlayersForQA: () => Promise<ReadonlyArray<RemotePlayerSnapshot>>
   readonly getLoadedWaterBlockCount: () => Promise<number>
+  readonly getBlockTypeAtForQA: (x: number, y: number, z: number) => Promise<string | null>
   readonly getMobMovementSnapshot: (durationMs: number) => Promise<{
     tracked: number
     moved: number
