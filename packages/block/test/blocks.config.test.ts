@@ -5,6 +5,7 @@ import { Schema } from 'effect'
 import { BlockTypeSchema } from '@ts-minecraft/core'
 import { initialBlocks } from '@ts-minecraft/block/domain/blocks.config'
 import { terrainBlocks } from '../domain/blocks.config.terrain'
+import { floraBlocks } from '../domain/blocks.config.flora'
 import { oreAndMineralBlocks, getOreXpDrop, getOreXpDropOption, isOreXpBlock } from '../domain/blocks.config.ores'
 import { craftedAndItemBlocks } from '../domain/blocks.config.crafted'
 import { endBlocks } from '../domain/blocks.config.end'
@@ -221,8 +222,8 @@ describe('initialBlocks known data correctness', () => {
 // ---------------------------------------------------------------------------
 
 describe('config split correctness', () => {
-  it('terrainBlocks + oreAndMineralBlocks + craftedAndItemBlocks + endBlocks equals initialBlocks length', () => {
-    const sum = terrainBlocks.length + oreAndMineralBlocks.length + craftedAndItemBlocks.length + endBlocks.length
+  it('terrainBlocks + floraBlocks + oreAndMineralBlocks + craftedAndItemBlocks + endBlocks equals initialBlocks length', () => {
+    const sum = terrainBlocks.length + floraBlocks.length + oreAndMineralBlocks.length + craftedAndItemBlocks.length + endBlocks.length
     expect(sum).toBe(initialBlocks.length)
   })
 })
