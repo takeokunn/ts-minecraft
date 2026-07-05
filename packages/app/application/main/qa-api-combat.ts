@@ -4,6 +4,7 @@ import type { Position } from '@ts-minecraft/core'
 import type { EntityManager } from '@ts-minecraft/entity/application/mob/entity-manager'
 import { EntityType } from '@ts-minecraft/entity/domain/mob/entity'
 import type { HotbarService } from '@ts-minecraft/inventory/application/hotbar-service'
+import type { HealthService } from '@ts-minecraft/entity/application/health-service'
 import { getNormalizedLookDirection } from '@ts-minecraft/app/main/qa-spatial'
 import { getWeaponBaseDamage } from '@ts-minecraft/entity/domain/combat-resolution'
 
@@ -72,3 +73,9 @@ export const getMobMovementSnapshot = (entityManager: EntityManager, durationMs:
 
     return { tracked, moved, maxDistance, maxHorizontalDistance, maxVerticalDistance }
   }))
+
+// Applies lethal damage so the death-screen flow can be driven deterministically
+// (teleporting does not accrue fall damage). Cause 'void' matches the vanilla
+// out-of-world death and needs no attacker.
+export const killPlayerForQA = (healthService: HealthService) =>
+  Effect.runPromise(healthService.applyDamage(1000, { kind: 'void' }))

@@ -119,4 +119,29 @@ test.describe('accessibility gate', () => {
     const findings = await audit(page, ['#pause-menu-backdrop'])
     assertNoFindings(findings)
   })
+
+  test('how to play overlay: all controls named and AA-contrasted', async ({ page }) => {
+    const game = new GamePage(page)
+    await game.gotoMainMenuOnly()
+    await page.waitForSelector('#mm-how-to-play', { state: 'visible', timeout: 60_000 })
+    await page.click('#mm-how-to-play')
+    await page.waitForSelector('#main-menu-how-to-play', { state: 'visible', timeout: 10_000 })
+    const findings = await audit(page, ['#main-menu-how-to-play'])
+    assertNoFindings(findings)
+  })
+
+  test('death screen: all controls named and AA-contrasted', async ({ page }) => {
+    const game = new GamePage(page)
+    await game.goto()
+    await game.waitForReady()
+    // Deterministically reach the death screen via the QA kill hook (teleporting
+    // does not accrue fall damage, so it can't be used to die).
+    await page.evaluate(() => {
+      const qa = (window as unknown as { __TS_MINECRAFT_QA__?: { killPlayerForQA: () => Promise<unknown> } }).__TS_MINECRAFT_QA__
+      return qa?.killPlayerForQA()
+    })
+    await page.waitForSelector('#death-screen-backdrop', { state: 'visible', timeout: 10_000 })
+    const findings = await audit(page, ['#death-screen-backdrop'])
+    assertNoFindings(findings)
+  })
 })

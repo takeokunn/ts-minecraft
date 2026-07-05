@@ -347,6 +347,19 @@ const makeDeps = () => {
         getPowerSnapshot: () => Effect.succeed({ tick: 0, poweredPositions: [] }),
         tick: () => Effect.succeed({ tick: 0, poweredPositions: [] }),
       },
+      healthService: {
+        getHealth: () => Effect.succeed({ current: 20, max: 20, invincibilityTicks: 0 }),
+        applyDamage: (_amount: number, _cause?: unknown) => Effect.void,
+        heal: (_amount: number) => Effect.void,
+        isDead: () => Effect.succeed(false),
+        getDeathMessage: () => Effect.succeed(''),
+        awaitDeath: () => Effect.void,
+        tick: (_deltaTime: number) => Effect.void,
+        addStatusEffect: (_effect: unknown) => Effect.void,
+        getStatusEffects: () => Effect.succeed([]),
+        processFallDamage: (_currentY: number, _isGrounded: boolean) => Effect.succeed(0),
+        reset: () => Effect.void,
+      },
       worldRendererService: {
         syncChunksToScene: (_loadedChunks, _scene) => Effect.succeed(true),
         updateChunkInScene,
@@ -436,6 +449,16 @@ describe('installQaApi', () => {
 
     const result = await getQaApi().grantXpForQA(30)
     expect(result.totalXP).toBe(30)
+  })
+
+  it('killPlayerForQA is exposed and resolves (drives the death-screen flow)', async () => {
+    installWindow()
+    const { deps } = makeDeps()
+
+    await Effect.runPromise(installQaApi(deps))
+
+    expect(typeof getQaApi().killPlayerForQA).toBe('function')
+    await expect(getQaApi().killPlayerForQA()).resolves.toBeUndefined()
   })
 
   it('getDebugStateForQA aggregates player/world/entities/inventory/rendering in one call', async () => {

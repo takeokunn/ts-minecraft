@@ -70,6 +70,7 @@ export type QaApi = {
   readonly tickRedstoneForQA: (ticks: number) => Promise<void>
   readonly getRedstonePowerAtForQA: (x: number, y: number, z: number) => Promise<number>
   readonly getMobAiForQA: () => Promise<QaMobAi>
+  readonly killPlayerForQA: () => Promise<void>
   readonly getDebugFeatureSnapshot: () => Promise<DebugFeatureSnapshot>
   readonly setDebugFeatureEnabled: (id: DebugFeatureFlagId, enabled: boolean) => Promise<boolean>
   readonly resetDebugFeatures: (group?: DebugFeatureFlagGroup) => Promise<void>

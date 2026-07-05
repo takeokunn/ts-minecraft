@@ -9,6 +9,7 @@ import type { RecipeService } from '@ts-minecraft/inventory/application/recipe-s
 import type { XPService } from '@ts-minecraft/entity/application/xp-service'
 import type { VillageService } from '@ts-minecraft/entity/application/village/village-service'
 import type { RedstoneService } from '@ts-minecraft/entity/application/redstone/redstone-service'
+import type { HealthService } from '@ts-minecraft/entity/application/health-service'
 import type { EntityManager } from '@ts-minecraft/entity/application/mob/entity-manager'
 import type { WorldRendererService } from '@ts-minecraft/rendering'
 import type { DebugFeatureFlagsService } from '@ts-minecraft/app/application/debug-feature-flags'
@@ -35,6 +36,7 @@ export type QaApiDeps = {
   readonly xpService: XPService
   readonly villageService: VillageService
   readonly redstoneService: RedstoneService
+  readonly healthService: HealthService
   readonly worldRendererService: WorldRendererService
   readonly entityManager: EntityManager
   readonly droppedItemService: import('@ts-minecraft/entity/application/dropped-item-service').DroppedItemService

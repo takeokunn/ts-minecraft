@@ -29,6 +29,7 @@ import { getFrameStatsForQA } from '@ts-minecraft/app/main/qa-api-perf'
 import { getVillagesForQA } from '@ts-minecraft/app/main/qa-api-village'
 import { getRedstonePowerAtForQA, setRedstoneComponentForQA, tickRedstoneForQA, toggleLeverForQA } from '@ts-minecraft/app/main/qa-api-redstone'
 import { getMobAiForQA } from '@ts-minecraft/app/main/qa-api-mob-ai'
+import { killPlayerForQA } from '@ts-minecraft/app/main/qa-api-combat'
 import type { QaApi } from '@ts-minecraft/app/main/qa-api-types/api'
 import type { QaApiDeps } from '@ts-minecraft/app/main/qa-api-types/deps'
 import type { StagedResourceBlock, StagedZombiePosition } from '@ts-minecraft/app/main/qa-api-types/staged'
@@ -141,6 +142,7 @@ const makeQaApi = (
   tickRedstoneForQA: (ticks: number) => tickRedstoneForQA(deps.redstoneService, ticks),
   getRedstonePowerAtForQA: (x: number, y: number, z: number) => getRedstonePowerAtForQA(deps.redstoneService, x, y, z),
   getMobAiForQA: () => getMobAiForQA({ entityManager: deps.entityManager, gameState: deps.gameState }),
+  killPlayerForQA: () => killPlayerForQA(deps.healthService),
   getDebugFeatureSnapshot: () => Effect.runPromise(deps.debugFeatureFlags.getSnapshot()),
   setDebugFeatureEnabled: (id: DebugFeatureFlagId, enabled: boolean) =>
     Effect.runPromise(deps.debugFeatureFlags.setEnabled(id, enabled)),
