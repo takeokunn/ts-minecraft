@@ -2,11 +2,11 @@ import { describe, it } from '@effect/vitest'
 import { Effect, MutableRef } from 'effect'
 import { expect, vi } from 'vitest'
 
+import { isDaylightBurnProtected } from '@ts-minecraft/app/application/frame/frame-stage-executor-helpers'
 import {
-  isDaylightBurnProtected,
   syncRemotePlayersForFrame,
   toRemotePlayerRenderState,
-} from '@ts-minecraft/app/application/frame/frame-stage-executor-helpers'
+} from '@ts-minecraft/app/application/frame/frame-remote-player-sync'
 import type { RemotePlayerSnapshot } from '@ts-minecraft/app/application/multiplayer/multiplayer-service'
 import type { RemotePlayerRenderer, RemotePlayerState } from '@ts-minecraft/rendering'
 

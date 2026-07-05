@@ -1,4 +1,4 @@
-import { Effect, MutableRef, Option } from 'effect'
+import { Effect, Option } from 'effect'
 import { markEffect } from '@ts-minecraft/rendering'
 import { VEHICLE_SURFACE_SAMPLE_OFFSET } from '@ts-minecraft/game/application/game-state-update-orchestration'
 import type * as THREE from 'three'
@@ -6,14 +6,12 @@ import { DEFAULT_PLAYER_ID } from '@ts-minecraft/core'
 import type { DeltaTimeSecs, Position } from '@ts-minecraft/core'
 import { FALLBACK_PLAYER_POS } from '@ts-minecraft/app/frame-handler.config'
 import type { DebugFeatureFlags } from '@ts-minecraft/app/application/debug-feature-flags.config'
-import type { FrameAudioServices } from '@ts-minecraft/app/frame/frame-service-types/audio'
 import type { FrameHandlerDeps } from '@ts-minecraft/app/application/frame/types/deps'
 import type { FrameHandlerServices } from '@ts-minecraft/app/application/frame/types/services'
 import type { FrameStageRefs } from '@ts-minecraft/app/application/frame/types/stage-refs'
 import type { ResolvedDeps } from '@ts-minecraft/app/application/frame/types/runtime'
 import type {
   LocalEntitySnapshot,
-  MultiplayerService,
   RemotePlayerSnapshot,
 } from '@ts-minecraft/app/application/multiplayer/multiplayer-service'
 import { chunkSyncStage } from '@ts-minecraft/app/frame/stages/chunk-sync-stage'
@@ -32,10 +30,10 @@ import {
 import { postProcessingSetupStage, refractionPrepassStage } from '@ts-minecraft/app/frame/stages/post-processing-stage'
 import { physicsStage } from '@ts-minecraft/app/frame/stages/physics-stage'
 import { renderStage } from '@ts-minecraft/app/frame/stages/render-stage'
+import { syncRemotePlayersForFrame } from '@ts-minecraft/app/application/frame/frame-remote-player-sync'
+import { applyAudioSettings, resolveGraphicsForFrame } from '@ts-minecraft/app/application/frame/frame-settings-apply'
 import { type DayNightLights, type ResolvedGraphics } from '@ts-minecraft/game'
-import { resolvePreset } from '@ts-minecraft/game/application/settings-service.config'
 import type { Settings } from '@ts-minecraft/game'
-import type { RemotePlayerState } from '@ts-minecraft/rendering'
 
 export type FrameStageExecutorContext = {
   readonly resolved: ResolvedDeps
@@ -45,20 +43,6 @@ export type FrameStageExecutorContext = {
   readonly markShadowMapDirty: () => void
 }
 
-type FrameAudioSettings = Pick<Settings, 'audioEnabled' | 'masterVolume' | 'sfxVolume' | 'musicVolume'>
-
-// Bit-packed numeric key for the graphics-resolve cache. Building a number
-// instead of a joined string avoids a per-frame array + string allocation in
-// the hot path; the cache changes only when a graphics setting is toggled.
-const GRAPHICS_QUALITY_INDEX: Record<Parameters<typeof resolvePreset>[0], number> = {
-  low: 0,
-  medium: 1,
-  high: 2,
-  ultra: 3,
-}
-
-const REMOTE_PLAYER_LIMB_SWING_SPEED = 8
-
 // Daylight burn is an overworld phenomenon: the roofed nether and the end
 // have no sun, but the shared day/night clock keeps ticking there — without
 // the dimension gate every nether/end hostile (including fortress Blazes)
@@ -67,122 +51,6 @@ export const isDaylightBurnProtected = (
   weather: 'clear' | 'rain' | 'thunder',
   dimension: 'overworld' | 'nether' | 'end',
 ): boolean => weather !== 'clear' || dimension !== 'overworld'
-
-export const toRemotePlayerRenderState = (
-  player: RemotePlayerSnapshot,
-  totalTimeSecs: number,
-): RemotePlayerState => ({
-  playerId: player.playerId,
-  playerName: player.playerName,
-  position: {
-    x: player.x,
-    y: player.y,
-    z: player.z,
-  },
-  rotation: {
-    yaw: player.yaw,
-    pitch: player.pitch,
-  },
-  limbSwing: totalTimeSecs * REMOTE_PLAYER_LIMB_SWING_SPEED,
-})
-
-export const syncRemotePlayersForFrame = (
-  mp: Pick<MultiplayerService, 'getRemotePlayers'>,
-  services: Pick<FrameHandlerServices, 'entityManager' | 'remotePlayerRenderer'>,
-  refs: Pick<FrameStageRefs, 'lastRemotePlayerIdsRef'>,
-  totalTimeSecs: number,
-) =>
-  mp.getRemotePlayers().pipe(
-    Effect.flatMap((remotePlayers) =>
-      Effect.gen(function* () {
-        const nextRemotePlayerIds = new Set(remotePlayers.keys())
-        const previousRemotePlayerIds = MutableRef.get(refs.lastRemotePlayerIdsRef)
-        const departedRemotePlayerIds: string[] = []
-        for (const previousRemotePlayerId of previousRemotePlayerIds) {
-          if (!nextRemotePlayerIds.has(previousRemotePlayerId)) departedRemotePlayerIds.push(previousRemotePlayerId)
-        }
-        MutableRef.set(refs.lastRemotePlayerIdsRef, nextRemotePlayerIds)
-
-        if (departedRemotePlayerIds.length > 0) {
-          const entities = yield* services.entityManager.getEntities()
-          for (const departedRemotePlayerId of departedRemotePlayerIds) {
-            const remoteEntityPrefix = `remote:${departedRemotePlayerId}:`
-            for (const entity of entities) {
-              if (entity.entityId.startsWith(remoteEntityPrefix)) {
-                yield* services.entityManager.removeEntity(entity.entityId)
-              }
-            }
-          }
-        }
-
-        const snapshots: RemotePlayerState[] = []
-        for (const player of remotePlayers.values()) {
-          snapshots.push(toRemotePlayerRenderState(player, totalTimeSecs))
-        }
-        return services.remotePlayerRenderer.updateFromSnapshot(snapshots)
-      }),
-    ),
-  )
-
-export const resolveGraphicsForFrame = (
-  refs: Pick<FrameStageRefs, 'lastGraphicsQualityRef'>,
-  graphicsQuality: Parameters<typeof resolvePreset>[0],
-  shadowsEnabled: boolean,
-  skyEnabled: boolean,
-): readonly [ResolvedGraphics, boolean] => {
-  const graphicsCacheKey = GRAPHICS_QUALITY_INDEX[graphicsQuality] * 4 + (shadowsEnabled ? 2 : 0) + (skyEnabled ? 1 : 0)
-  const last = MutableRef.get(refs.lastGraphicsQualityRef)
-  if (last.quality === graphicsCacheKey) return [last.resolved, false]
-
-  const preset = resolvePreset(graphicsQuality)
-  const resolvedWithDebugFlags = shadowsEnabled && skyEnabled
-    ? preset
-    : {
-        ...preset,
-        shadowsEnabled: preset.shadowsEnabled && shadowsEnabled,
-        skyEnabled: preset.skyEnabled && skyEnabled,
-      }
-  const next = { quality: graphicsCacheKey, resolved: resolvedWithDebugFlags }
-  MutableRef.set(refs.lastGraphicsQualityRef, next)
-  return [next.resolved, true]
-}
-
-export const applyAudioSettings = (
-  services: FrameAudioServices,
-  refs: Pick<FrameStageRefs, 'lastAudioRef'>,
-  settings: FrameAudioSettings,
-) => {
-  const lastAudio = MutableRef.get(refs.lastAudioRef)
-  const audioChanged =
-    lastAudio.enabled !== settings.audioEnabled ||
-    lastAudio.master !== settings.masterVolume ||
-    lastAudio.sfx !== settings.sfxVolume ||
-    lastAudio.music !== settings.musicVolume
-  if (!audioChanged) return Effect.void
-
-  MutableRef.set(refs.lastAudioRef, {
-    enabled: settings.audioEnabled,
-    master: settings.masterVolume,
-    sfx: settings.sfxVolume,
-    music: settings.musicVolume,
-  })
-
-  return services.soundManager
-    .applySettings({
-      enabled: settings.audioEnabled,
-      masterVolume: settings.masterVolume,
-      sfxVolume: settings.sfxVolume,
-    })
-    .pipe(
-      Effect.flatMap(() =>
-        services.musicManager.applySettings({
-          enabled: settings.audioEnabled,
-          masterVolume: settings.masterVolume,
-          musicVolume: settings.musicVolume,
-        }),
-      ),
-    )
-}
 
 export const runActiveFrameStages = (
   deps: FrameHandlerDeps,
