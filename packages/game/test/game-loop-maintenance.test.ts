@@ -2,7 +2,6 @@ import { describe, it } from '@effect/vitest'
 import { expect, vi, beforeEach, afterEach } from 'vitest'
 import { Effect, Either, MutableRef, Option, Ref } from 'effect'
 import { GameLoopService } from '@ts-minecraft/game'
-import { GameLoopError } from '../domain/errors'
 
 // ---------------------------------------------------------------------------
 // requestAnimationFrame / setInterval mocks
@@ -76,17 +75,19 @@ describe('application/game-loop', () => {
       }).pipe(Effect.provide(TestLayer))
     )
 
-    it.effect('startMaintenance fails when called twice without stop', () =>
+    // Re-entrant by design: the service is an app-scoped singleton reused across
+    // worlds, its maintenance fiber is a daemon that survives session teardown,
+    // and a best-effort quit stop() can be interrupted by its timeout before it
+    // clears the fiber ref. A second startMaintenance must interrupt the prior
+    // fiber and start fresh (not fail "already running"), so the next world runs.
+    it.effect('startMaintenance is re-entrant: a second call restarts cleanly', () =>
       Effect.gen(function* () {
         const service = yield* GameLoopService
 
         yield* service.startMaintenance(() => Effect.succeed(false))
         const result = yield* Effect.either(service.startMaintenance(() => Effect.succeed(false)))
 
-        expect(Either.isLeft(result)).toBe(true)
-        const err = Option.getOrThrow(Either.getLeft(result))
-        expect(err).toBeInstanceOf(GameLoopError)
-        expect((err as GameLoopError).reason).toContain('Maintenance loop is already running')
+        expect(Either.isRight(result)).toBe(true)
 
         yield* service.stop()
       }).pipe(Effect.provide(TestLayer))

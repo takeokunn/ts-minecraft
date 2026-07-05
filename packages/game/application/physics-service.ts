@@ -38,18 +38,19 @@ export class PhysicsService extends Effect.Service<PhysicsService>()(
         })
 
       return {
+        // Re-entrant by design: this service is an app-scoped singleton reused
+        // across worlds (quit-to-title -> start another world), so initialize
+        // must ESTABLISH a clean world rather than preserve the prior one. It
+        // installs a fresh world and drops the previous session's bodies — the
+        // old CustomWorld is discarded (GC'd). The player body (the only body
+        // added here) is re-added by GameStateService.initialize right after.
         initialize: (config: WorldConfig): Effect.Effect<void, PhysicsServiceError> =>
           Effect.gen(function* () {
             const newWorld = yield* physicsWorldPort.create(config).pipe(
               Effect.mapError((e) => new PhysicsServiceError({ operation: 'initialize', cause: e }))
             )
-
-            // Atomic check-and-set: write only if still None
-            const wasAlreadyInit = yield* Ref.modify(worldRef, (current): [boolean, Option.Option<CustomWorld>] =>
-              Option.isSome(current) ? [true, current] : [false, Option.some(newWorld)]
-            )
-
-            if (wasAlreadyInit) return
+            yield* Ref.set(worldRef, Option.some(newWorld))
+            yield* Ref.set(bodyMapRef, HashMap.empty<PhysicsBodyId, CustomBody>())
           }),
 
         addBody: (config: AddBodyConfig): Effect.Effect<PhysicsBodyId, PhysicsServiceError> =>

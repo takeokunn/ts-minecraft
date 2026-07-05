@@ -82,6 +82,22 @@ export class GameStateService extends Effect.Service<GameStateService>()(
       return {
         initialize: (spawnPosition: Position): Effect.Effect<void, GameStateError> =>
           Effect.gen(function* () {
+            // Re-entrant: GameState, PhysicsService and PlayerService are all
+            // app-scoped singletons reused across worlds (quit-to-title -> start
+            // another world). Clear every prior-session Ref and the player map
+            // before establishing the new world, or the second world inherits
+            // stale movement modalities (boating/flying) and player.create fails
+            // "Player already exists", killing session init.
+            yield* playerService.reset()
+            yield* Ref.set(timingStateRef, INITIAL_TIMING_STATE)
+            yield* Ref.set(isGroundedRef, false)
+            yield* Ref.set(chunkCacheRef, createChunkCache())
+            yield* Ref.set(lastChunkCoordRef, { cx: Number.NaN, cz: Number.NaN })
+            yield* Ref.set(flyingRef, false)
+            yield* Ref.set(boatingRef, false)
+            yield* Ref.set(minecartingRef, false)
+            yield* Ref.set(poweredRailBoostRef, false)
+
             yield* physicsService.initialize({
               gravity: { x: 0, y: GRAVITY_Y, z: 0 },
             })

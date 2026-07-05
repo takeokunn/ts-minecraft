@@ -61,12 +61,29 @@ describe('application/physics/physics-service', () => {
       }).pipe(Effect.provide(TestLayer))
     )
 
-    it.effect('should idempotently initialize (calling twice is safe)', () =>
+    it.effect('should re-initialize into a fresh world (calling twice is safe)', () =>
       Effect.gen(function* () {
         const service = yield* PhysicsService
         yield* service.initialize({ gravity: DEFAULT_GRAVITY })
         yield* service.initialize({ gravity: DEFAULT_GRAVITY })
         yield* service.step(DeltaTimeSecs.make(0.016))
+      }).pipe(Effect.provide(TestLayer))
+    )
+
+    // Regression: the service is an app-scoped singleton reused across worlds,
+    // so a second initialize (quit-to-title -> new world) must drop the prior
+    // session's bodies. Before the fix, initialize no-op'd when already
+    // initialized, leaking the old player body into the next world.
+    it.effect('re-initialize drops bodies added to the previous world', () =>
+      Effect.gen(function* () {
+        const service = yield* PhysicsService
+        yield* service.initialize({ gravity: DEFAULT_GRAVITY })
+        const staleBody = yield* service.addBody({ mass: 70, position: { x: 0, y: 10, z: 0 }, shape: 'box' })
+        yield* service.initialize({ gravity: DEFAULT_GRAVITY })
+        // The old body no longer exists in the fresh world.
+        const removeResult = yield* Effect.either(service.removeBody(staleBody))
+        expect(Either.isLeft(removeResult)).toBe(true)
+        expect(Option.getOrThrow(Either.getLeft(removeResult))).toBeInstanceOf(PhysicsServiceError)
       }).pipe(Effect.provide(TestLayer))
     )
   })

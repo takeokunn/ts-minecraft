@@ -130,9 +130,16 @@ export class GameLoopService extends Effect.Service<GameLoopService>()(
       return {
         start: (frameHandler: FrameHandler): Effect.Effect<void, GameLoopError> =>
           Effect.gen(function* () {
+            // Re-entrant: this service is an app-scoped singleton reused across
+            // worlds, and its fibers are daemons that outlive session teardown.
+            // A best-effort quit stop() can be cut off by its timeout, so rather
+            // than fail "already running", tear down any lingering processing
+            // fiber and start fresh — a new world always gets a clean loop.
             if (MutableRef.get(isRunningRef)) {
-              /* c8 ignore next 2 */
-              yield* Effect.fail(new GameLoopError({ reason: 'Game loop is already running' }))
+              MutableRef.set(isRunningRef, false)
+              cancelScheduledFrame()
+              const previous = yield* takeOption(processingFiberRef)
+              if (Option.isSome(previous)) yield* Fiber.interrupt(previous.value)
             }
 
             yield* Ref.set(frameHandlerRef, Option.some(frameHandler))
@@ -165,9 +172,14 @@ export class GameLoopService extends Effect.Service<GameLoopService>()(
           maintenanceHandler: () => Effect.Effect<boolean, never>,
         ): Effect.Effect<void, GameLoopError> =>
           Effect.gen(function* () {
-            const existing = yield* Ref.get(maintenanceFiberRef)
-            /* c8 ignore next 2 */
-            if (Option.isSome(existing)) yield* Effect.fail(new GameLoopError({ reason: 'Maintenance loop is already running' }))
+            // Re-entrant: interrupt any prior session's maintenance fiber before
+            // starting a fresh one. These are daemon fibers that survive session
+            // teardown, and a best-effort quit stop() can be interrupted by its
+            // timeout after clearing isRunningRef but before reaching the
+            // maintenance teardown — leaving a stale ref that would otherwise
+            // fail the next world with "Maintenance loop is already running".
+            const existing = yield* takeOption(maintenanceFiberRef)
+            if (Option.isSome(existing)) yield* Fiber.interrupt(existing.value)
 
             const maintenanceLoop = Effect.gen(function* () {
               const wasBusy = yield* maintenanceHandler().pipe(

@@ -12,6 +12,11 @@ export class PlayerService extends Effect.Service<PlayerService>()(
       const playersRef = yield* Ref.make(HashMap.empty<PlayerId, PlayerState>())
       const notFound = (id: PlayerId) => new PlayerError({ playerId: id, reason: 'Player not found' })
       return {
+        // Clears every registered player. This service is an app-scoped
+        // singleton reused across worlds, so a new session must reset it before
+        // re-creating its player — otherwise create() fails "already exists".
+        reset: (): Effect.Effect<void, never> => Ref.set(playersRef, HashMap.empty<PlayerId, PlayerState>()),
+
         create: (id: PlayerId, position: Position): Effect.Effect<void, PlayerError> =>
           Effect.gen(function* () {
             const alreadyExists = yield* Ref.modify(playersRef, (players): [boolean, HashMap.HashMap<PlayerId, PlayerState>] => {

@@ -106,20 +106,20 @@ describe('application/game-loop', () => {
   })
 
   describe('start', () => {
-    it.effect('should fail with GameLoopError when called while already running', () =>
+    // Re-entrant by design: the service is an app-scoped singleton reused across
+    // worlds, and a best-effort quit stop() can be cut off by its timeout. A
+    // second start must therefore tear down the prior processing and start
+    // fresh (not fail "already running"), so a new world always runs.
+    it.effect('is re-entrant: a second start restarts cleanly instead of failing', () =>
       Effect.gen(function* () {
         const service = yield* GameLoopService
 
-        // First start succeeds.
         yield* service.start(() => Effect.void)
-
-        // Second start must fail.
+        // Second start succeeds (interrupts the prior processing fiber).
         const result = yield* Effect.either(service.start(() => Effect.void))
 
-        expect(Either.isLeft(result)).toBe(true)
-        const err = Option.getOrThrow(Either.getLeft(result))
-        expect(err).toBeInstanceOf(GameLoopError)
-        expect((err as GameLoopError).reason).toContain('already running')
+        expect(Either.isRight(result)).toBe(true)
+        expect(yield* service.isRunning()).toBe(true)
 
         yield* service.stop()
       }).pipe(Effect.provide(TestLayer))

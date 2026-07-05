@@ -58,6 +58,32 @@ describe('PlayerService — create', () => {
     )
   )
 
+  // Regression: the service is an app-scoped singleton reused across worlds.
+  // reset() clears the map so a new session can re-create its player instead of
+  // failing "already exists" — the crash that killed the second world's init.
+  it.effect('reset clears players so the same id can be created again', () =>
+    withPlayerService((ps) =>
+      Effect.gen(function* () {
+        yield* ps.create(P1, pos(0, 64, 0))
+        yield* ps.reset()
+        // create must succeed (not fail "already exists") after reset.
+        yield* ps.create(P1, pos(7, 64, 3))
+        const p1Pos = yield* ps.getPosition(P1)
+        expect(p1Pos).toEqual(pos(7, 64, 3))
+      })
+    )
+  )
+
+  it.effect('reset on an empty service is a no-op', () =>
+    withPlayerService((ps) =>
+      Effect.gen(function* () {
+        yield* ps.reset()
+        const result = yield* ps.getPosition(P1).pipe(Effect.either)
+        expect(result._tag).toBe('Left')
+      })
+    )
+  )
+
   it.effect('multiple distinct players can coexist', () =>
     withPlayerService((ps) =>
       Effect.gen(function* () {
