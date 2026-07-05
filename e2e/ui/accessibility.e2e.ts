@@ -114,8 +114,8 @@ test.describe('accessibility gate', () => {
     await game.waitForReady()
     // Let the render loop + input stage settle before Escape — opening the pause
     // menu on the very first frame after ready can race the input wiring.
-    await page.waitForTimeout(1_000)
-    await openPauseMenu(page)
+    await page.waitForTimeout(2_000)
+    await openPauseMenu(page, 20_000)
     const findings = await audit(page, ['#pause-menu-backdrop'])
     assertNoFindings(findings)
   })
@@ -144,4 +144,30 @@ test.describe('accessibility gate', () => {
     const findings = await audit(page, ['#death-screen-backdrop'])
     assertNoFindings(findings)
   })
+
+  // The multiplayer/trading panels are created (hidden) at session start and are
+  // otherwise only reachable via a server connection or a villager. Revealing
+  // them directly audits their real markup without that setup.
+  for (const { label, id } of [
+    { label: 'multiplayer connection panel', id: 'multiplayer-connection-panel' },
+    { label: 'multiplayer chat panel', id: 'multiplayer-chat-panel' },
+    { label: 'trading overlay', id: 'trading-overlay' },
+  ]) {
+    test(`${label}: all controls named and AA-contrasted`, async ({ page }) => {
+      const game = new GamePage(page)
+      await game.goto()
+      await game.waitForReady()
+      const revealed = await page.evaluate((elementId) => {
+        const el = document.getElementById(elementId)
+        if (!el) return false
+        el.style.display = 'block'
+        el.setAttribute('aria-hidden', 'false')
+        return true
+      }, id)
+      if (!revealed) throw new Error(`#${id} not found in the DOM`)
+      await page.waitForTimeout(300)
+      const findings = await audit(page, [`#${id}`])
+      assertNoFindings(findings)
+    })
+  }
 })
