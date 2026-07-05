@@ -2,6 +2,7 @@ import type { InventoryItem, Position } from '@ts-minecraft/core'
 import type { DebugFeatureFlagGroup, DebugFeatureFlagId, DebugFeatureSnapshot } from '@ts-minecraft/app/application/debug-feature-flags.config'
 import type { RemotePlayerSnapshot } from '@ts-minecraft/app/application/multiplayer/multiplayer-service'
 import type { QaRenderingSnapshot } from './rendering'
+import type { QaDebugState } from '@ts-minecraft/app/main/qa-api-debug-state'
 
 export type QaApi = {
   readonly getInventorySnapshot: () => Promise<ReadonlyArray<null | { readonly slot: number; readonly itemType: InventoryItem; readonly count: number }>>
@@ -49,6 +50,7 @@ export type QaApi = {
   readonly setTimeOfDayForQA: (timeOfDay: number) => Promise<void>
   readonly movePlayerForQA: (offset: { readonly x?: number; readonly y?: number; readonly z?: number }) => Promise<Position>
   readonly getRenderingSnapshot: () => QaRenderingSnapshot
+  readonly getDebugStateForQA: () => Promise<QaDebugState>
   readonly getDebugFeatureSnapshot: () => Promise<DebugFeatureSnapshot>
   readonly setDebugFeatureEnabled: (id: DebugFeatureFlagId, enabled: boolean) => Promise<boolean>
   readonly resetDebugFeatures: (group?: DebugFeatureFlagGroup) => Promise<void>

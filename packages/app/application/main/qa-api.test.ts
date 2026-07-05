@@ -246,6 +246,8 @@ const makeDeps = () => {
         getPlayerPosition: () => Effect.succeed(playerPosition.current),
         getCameraRotation: () => Effect.succeed({ yaw: 0, pitch: 0 }),
         isPlayerGrounded: () => Effect.succeed(true),
+        isBoating: () => Effect.succeed(false),
+        isMinecarting: () => Effect.succeed(false),
         _tag: '@minecraft/application/GameStateService',
       },
       weatherService: {
@@ -408,6 +410,26 @@ describe('installQaApi', () => {
 
     const result = await getQaApi().grantXpForQA(30)
     expect(result.totalXP).toBe(30)
+  })
+
+  it('getDebugStateForQA aggregates player/world/entities/inventory/rendering in one call', async () => {
+    installWindow()
+    const { deps } = makeDeps()
+
+    await Effect.runPromise(installQaApi(deps))
+
+    const state = await getQaApi().getDebugStateForQA()
+    // Structural: the point of the helper is one round-trip covering every domain.
+    expect(state.player).toBeDefined()
+    expect(state.world).toBeDefined()
+    expect(state.entities).toBeDefined()
+    expect(state.inventory).toBeDefined()
+    expect(state.rendering).toBeDefined()
+    // The mock inventory holds WOOD x3 + STONE x8 across 2 occupied slots.
+    expect(state.inventory.occupiedSlots).toBe(2)
+    expect(state.inventory.totalItems).toBe(11)
+    // The mock entity manager returns a single entity → byType has one bucket.
+    expect(state.entities.total).toBe(1)
   })
 
   it('exposes debug feature flag snapshot and mutation helpers', async () => {

@@ -23,6 +23,7 @@ import {
 import { attackFirstZombie, getMobMovementSnapshot, spawnLowHealthZombieInFront } from '@ts-minecraft/app/main/qa-api-combat'
 import { aimAtBuildSpot, aimAtStagedResource, aimAtStagedZombie, aimNaturalForQA, dispatchMouseClick, setMouseHeldForQA } from '@ts-minecraft/app/main/qa-api-visual'
 import { getBlockTypeAtForQA, getLoadedWaterBlockCount, getRenderingSnapshot, setTimeOfDayForQA } from '@ts-minecraft/app/main/qa-api-rendering'
+import { getDebugStateForQA } from '@ts-minecraft/app/main/qa-api-debug-state'
 import type { QaApi } from '@ts-minecraft/app/main/qa-api-types/api'
 import type { QaApiDeps } from '@ts-minecraft/app/main/qa-api-types/deps'
 import type { StagedResourceBlock, StagedZombiePosition } from '@ts-minecraft/app/main/qa-api-types/staged'
@@ -114,6 +115,18 @@ const makeQaApi = (
       return next
     })),
   getRenderingSnapshot: () => getRenderingSnapshot(deps.camera, deps.scene),
+  getDebugStateForQA: () => getDebugStateForQA({
+    gameState: deps.gameState,
+    netherService: deps.netherService,
+    timeService: deps.timeService,
+    weatherService: deps.weatherService,
+    chunkManagerService: deps.chunkManagerService,
+    entityManager: deps.entityManager,
+    inventoryService: deps.inventoryService,
+    xpService: deps.xpService,
+    camera: deps.camera,
+    scene: deps.scene,
+  }),
   getDebugFeatureSnapshot: () => Effect.runPromise(deps.debugFeatureFlags.getSnapshot()),
   setDebugFeatureEnabled: (id: DebugFeatureFlagId, enabled: boolean) =>
     Effect.runPromise(deps.debugFeatureFlags.setEnabled(id, enabled)),
