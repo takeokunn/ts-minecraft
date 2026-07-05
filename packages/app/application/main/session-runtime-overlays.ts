@@ -33,6 +33,7 @@ export type SessionRuntimeOverlayServices = Pick<
   | 'blockService'
   | 'hotbarService'
   | 'furnaceService'
+  | 'xpService'
   | 'inventoryService'
   | 'inventoryRenderer'
   | 'chunkManagerService'
@@ -250,6 +251,7 @@ export const installSessionRuntimeOverlays = (
       blockService,
       hotbarService,
       furnaceService,
+      xpService,
       inventoryService,
       inventoryRenderer,
       chunkManagerService,
@@ -282,6 +284,7 @@ export const installSessionRuntimeOverlays = (
       hotbarService,
       recipeService,
       furnaceService,
+      xpService,
       worldRendererService,
       entityManager,
       droppedItemService,

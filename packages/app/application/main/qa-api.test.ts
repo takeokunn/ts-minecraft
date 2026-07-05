@@ -312,6 +312,13 @@ const makeDeps = () => {
         tick: (_deltaTime) => Effect.void,
         _tag: '@minecraft/application/FurnaceService',
       },
+      xpService: {
+        getXP: () => Effect.succeed({ totalXP: 0, level: 0, xpIntoLevel: 0, xpRequiredForNext: 7 }),
+        addXP: (amount: number) => Effect.succeed({ totalXP: amount, level: 0, xpIntoLevel: amount, xpRequiredForNext: 7 }),
+        setTotalXP: (_totalXP: number) => Effect.void,
+        spendLevels: (_levels: number) => Effect.succeed({ totalXP: 0, level: 0, xpIntoLevel: 0, xpRequiredForNext: 7 }),
+        reset: () => Effect.void,
+      },
       worldRendererService: {
         syncChunksToScene: (_loadedChunks, _scene) => Effect.succeed(true),
         updateChunkInScene,
@@ -389,7 +396,18 @@ describe('installQaApi', () => {
     expect(typeof qa.getEntitySnapshot).toBe('function')
     expect(typeof qa.getRenderingSnapshot).toBe('function')
     expect(typeof qa.getDebugFeatureSnapshot).toBe('function')
+    expect(typeof qa.grantXpForQA).toBe('function')
     expect(qa.getRecipeButtons()).toEqual(['craft-planks', 'craft-sticks'])
+  })
+
+  it('grantXpForQA routes through XPService.addXP and returns the new XP state', async () => {
+    installWindow()
+    const { deps } = makeDeps()
+
+    await Effect.runPromise(installQaApi(deps))
+
+    const result = await getQaApi().grantXpForQA(30)
+    expect(result.totalXP).toBe(30)
   })
 
   it('exposes debug feature flag snapshot and mutation helpers', async () => {

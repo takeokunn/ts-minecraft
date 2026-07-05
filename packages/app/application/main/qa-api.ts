@@ -7,6 +7,7 @@ import {
   craftRecipeForQA,
   getInventorySnapshot,
   giveItemForQA,
+  grantXpForQA,
   getRecipeButtons,
   moveItemToHotbar,
   openInventoryForQA,
@@ -81,6 +82,7 @@ const makeQaApi = (
   attackFirstZombie: () => attackFirstZombie(deps.hotbarService, deps.entityManager),
   placeSelectedItemInFront: () => placeSelectedItemInFront(deps.camera, deps.hotbarService, deps.blockService, deps.blockHighlight),
   giveItemForQA: (itemType: InventoryItem, count: number) => giveItemForQA(deps.inventoryService, itemType, count),
+  grantXpForQA: (amount: number) => grantXpForQA(deps.xpService, amount),
   moveItemToHotbar: (itemType: InventoryItem, hotbarIndex: number) =>
     moveItemToHotbar(deps.inventoryService, deps.hotbarService, itemType, hotbarIndex),
   selectHotbarSlot: (hotbarIndex: number) => selectHotbarSlot(deps.hotbarService, hotbarIndex),

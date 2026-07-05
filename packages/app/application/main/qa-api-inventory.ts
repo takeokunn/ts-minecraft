@@ -7,6 +7,7 @@ import type { FurnaceService } from '@ts-minecraft/inventory/application/furnace
 import type { HotbarService } from '@ts-minecraft/inventory/application/hotbar-service'
 import type { InventoryService } from '@ts-minecraft/inventory/application/inventory-service'
 import type { RecipeService } from '@ts-minecraft/inventory/application/recipe-service'
+import type { XPService } from '@ts-minecraft/entity/application/xp-service'
 import type { InventoryItem } from '@ts-minecraft/core'
 import type { InventoryRendererService } from '@ts-minecraft/presentation'
 import { scanNearbyBlock } from '@ts-minecraft/app/main/qa-spatial'
@@ -24,6 +25,12 @@ export const getInventorySnapshot = (inventoryService: InventoryService) =>
 
 export const openInventoryForQA = (inventoryRenderer: InventoryRendererService) =>
   Effect.runPromise(inventoryRenderer.toggle())
+
+// Grants raw XP so playtests can exercise the XP-gated flows — anvil
+// repair/rename and enchanting-table — without grinding mobs/ore first.
+// Returns the resulting {level, totalXP} so tests can assert the grant landed.
+export const grantXpForQA = (xpService: XPService, amount: number) =>
+  Effect.runPromise(xpService.addXP(amount))
 
 // Grants an arbitrary item without staging blocks in the world — playtests of
 // crafting/eating/planting flows shouldn't need to mine their inputs first.
