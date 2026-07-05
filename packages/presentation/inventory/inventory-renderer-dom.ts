@@ -42,7 +42,9 @@ const INVENTORY_CURSOR_STYLE = [
   'opacity:0.95',
 ].join(';')
 
-const OVERLAY_DESCRIPTION_STYLE = 'margin:-6px 0 12px;color:#d7c9a8;font-size:12px;line-height:1.4'
+// Dark text on the light-grey (#c6c6c6) inventory panel — #d7c9a8 cream was for
+// a dark theme and rendered at 1.04:1 (invisible). #404040 gives 6.19:1 (WCAG AA).
+const OVERLAY_DESCRIPTION_STYLE = 'margin:-6px 0 12px;color:#404040;font-size:12px;line-height:1.4'
 
 /* c8 ignore next 5 */
 export const createSlotEl = (dom: DomOperationsService, index: number): HTMLDivElement => {
@@ -166,7 +168,7 @@ export const buildOverlayDom = (dom: DomOperationsService): OverlayDom => {
   dom.appendChildTo(craftGridRow, craftGrid)
   const craftGridArrow = dom.createElement('div')
   craftGridArrow.textContent = '→'
-  craftGridArrow.style.cssText = 'color:#d7c9a8;font-size:20px'
+  craftGridArrow.style.cssText = 'color:#404040;font-size:20px'
   dom.appendChildTo(craftGridRow, craftGridArrow)
   const craftGridOutput = dom.createElement('div')
   craftGridOutput.dataset['craftOutput'] = 'true'

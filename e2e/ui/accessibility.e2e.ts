@@ -1,5 +1,6 @@
 import { test, type PlaywrightTestArgs } from '@playwright/test'
 import { GamePage } from '../fixtures/game-page'
+import { openPauseMenu } from '../helpers/wait-helpers'
 
 type Page = PlaywrightTestArgs['page']
 
@@ -89,6 +90,33 @@ test.describe('accessibility gate', () => {
     })
     await page.waitForTimeout(300)
     const findings = await audit(page, ['#survival-hud', '#fps-counter', '#settings-overlay', '#effects-display'])
+    assertNoFindings(findings)
+  })
+
+  test('inventory overlay: all controls named and AA-contrasted', async ({ page }) => {
+    const game = new GamePage(page)
+    await game.goto()
+    await game.waitForReady()
+    // Open the inventory via the QA hook (deterministic; avoids pointer-lock).
+    await page.evaluate(() => {
+      const qa = (window as unknown as { __TS_MINECRAFT_QA__?: { openInventoryForQA: () => Promise<unknown> } }).__TS_MINECRAFT_QA__
+      return qa?.openInventoryForQA()
+    })
+    await page.waitForSelector('#inventory-overlay', { state: 'visible', timeout: 10_000 })
+    await page.waitForTimeout(300)
+    const findings = await audit(page, ['#inventory-overlay'])
+    assertNoFindings(findings)
+  })
+
+  test('pause menu: all controls named and AA-contrasted', async ({ page }) => {
+    const game = new GamePage(page)
+    await game.goto()
+    await game.waitForReady()
+    // Let the render loop + input stage settle before Escape — opening the pause
+    // menu on the very first frame after ready can race the input wiring.
+    await page.waitForTimeout(1_000)
+    await openPauseMenu(page)
+    const findings = await audit(page, ['#pause-menu-backdrop'])
     assertNoFindings(findings)
   })
 })
