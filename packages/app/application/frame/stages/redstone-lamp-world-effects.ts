@@ -11,6 +11,32 @@ export type RedstoneLampWorldServices = Pick<
 >
 export type RedstoneLampWorldRefs = Pick<FrameStageRefs, 'dirtyChunksRef'>
 
+// Six axis-adjacent offsets. A lamp is a non-conductor, so the power BFS never
+// writes power into the lamp's OWN position (getPowerAt(lampPos) is always 0);
+// the lamp lights when any ADJACENT cell carries power, exactly like vanilla.
+const NEIGHBOR_OFFSETS: ReadonlyArray<readonly [number, number, number]> = [
+  [1, 0, 0], [-1, 0, 0],
+  [0, 1, 0], [0, -1, 0],
+  [0, 0, 1], [0, 0, -1],
+]
+
+const maxNeighborPower = (
+  services: Pick<RedstoneLampWorldServices, 'redstoneService'>,
+  position: Position,
+): Effect.Effect<number, never> =>
+  Effect.gen(function* () {
+    let max = 0
+    for (const [dx, dy, dz] of NEIGHBOR_OFFSETS) {
+      const p = yield* services.redstoneService.getPowerAt({
+        x: position.x + dx,
+        y: position.y + dy,
+        z: position.z + dz,
+      })
+      if (p > max) max = p
+    }
+    return max
+  })
+
 const markChunkDirty = (
   refs: RedstoneLampWorldRefs,
   services: Pick<RedstoneLampWorldServices, 'chunkManagerService'>,
@@ -48,7 +74,9 @@ export const applyLampWorldEffects = (
   Effect.gen(function* () {
     for (const component of components) {
       if (component.type !== RedstoneComponentType.Lamp) continue
-      const power = yield* services.redstoneService.getPowerAt(component.position)
+      // Vanilla: a lamp lights from an adjacent powered cell, not from power at
+      // its own (non-conducting) position — which the sim always reports as 0.
+      const power = yield* maxNeighborPower(services, component.position)
       const currentBlock = yield* services.blockService
         .getBlock(component.position)
         .pipe(Effect.catchAll(() => Effect.succeed(null)))

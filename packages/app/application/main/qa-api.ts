@@ -27,6 +27,7 @@ import { getBlockTypeAtForQA, getLoadedWaterBlockCount, getRenderingSnapshot, se
 import { getDebugStateForQA } from '@ts-minecraft/app/main/qa-api-debug-state'
 import { getFrameStatsForQA } from '@ts-minecraft/app/main/qa-api-perf'
 import { getVillagesForQA } from '@ts-minecraft/app/main/qa-api-village'
+import { getRedstonePowerAtForQA, setRedstoneComponentForQA, tickRedstoneForQA, toggleLeverForQA } from '@ts-minecraft/app/main/qa-api-redstone'
 import type { QaApi } from '@ts-minecraft/app/main/qa-api-types/api'
 import type { QaApiDeps } from '@ts-minecraft/app/main/qa-api-types/deps'
 import type { StagedResourceBlock, StagedZombiePosition } from '@ts-minecraft/app/main/qa-api-types/staged'
@@ -134,6 +135,10 @@ const makeQaApi = (
   }),
   getFrameStatsForQA: (durationMs?: number) => getFrameStatsForQA(durationMs),
   getVillagesForQA: () => getVillagesForQA(deps.villageService),
+  setRedstoneComponentForQA: (x: number, y: number, z: number, type: string) => setRedstoneComponentForQA(deps.redstoneService, x, y, z, type),
+  toggleLeverForQA: (x: number, y: number, z: number) => toggleLeverForQA(deps.redstoneService, x, y, z),
+  tickRedstoneForQA: (ticks: number) => tickRedstoneForQA(deps.redstoneService, ticks),
+  getRedstonePowerAtForQA: (x: number, y: number, z: number) => getRedstonePowerAtForQA(deps.redstoneService, x, y, z),
   getDebugFeatureSnapshot: () => Effect.runPromise(deps.debugFeatureFlags.getSnapshot()),
   setDebugFeatureEnabled: (id: DebugFeatureFlagId, enabled: boolean) =>
     Effect.runPromise(deps.debugFeatureFlags.setEnabled(id, enabled)),

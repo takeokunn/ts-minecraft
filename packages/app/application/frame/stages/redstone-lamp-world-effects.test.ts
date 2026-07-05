@@ -57,14 +57,31 @@ const makeHarness = (
 }
 
 describe('redstone lamp world effects', () => {
-  it.effect('lights an unlit lamp when the simulation reports power', () => {
+  it.effect('lights an unlit lamp when an ADJACENT cell is powered', () => {
     const lamp = { x: 3, y: 64, z: 2 }
-    const harness = makeHarness([[lamp, 'REDSTONE_LAMP']], [[lamp, 15]])
+    const neighbor = { x: 4, y: 64, z: 2 }
+    // Power lives on the neighbouring conductor, never on the lamp's own
+    // (non-conducting) cell — matches how the real sim fills powerByPosition.
+    const harness = makeHarness([[lamp, 'REDSTONE_LAMP']], [[neighbor, 15]])
 
     return applyLampWorldEffects(harness.services, harness.refs, [lampAt(lamp)]).pipe(
       Effect.tap(() => Effect.sync(() => {
         expect(harness.blocks.get(positionKey(lamp))).toBe('REDSTONE_LAMP_LIT')
         expect(HashMap.size(MutableRef.get(harness.dirtyChunksRef))).toBe(1)
+      })),
+    )
+  })
+
+  it.effect('does NOT light from power at the lamp\'s own cell (regression: lamps are non-conductors, getPowerAt(lampPos) is always 0)', () => {
+    const lamp = { x: 3, y: 64, z: 2 }
+    const harness = makeHarness([[lamp, 'REDSTONE_LAMP']], [[lamp, 15]])
+
+    return applyLampWorldEffects(harness.services, harness.refs, [lampAt(lamp)]).pipe(
+      Effect.tap(() => Effect.sync(() => {
+        // Before the fix this read getPowerAt(lampPos)=15 and lit the lamp; the
+        // real sim never powers the lamp's own cell, so it must stay unlit.
+        expect(harness.blocks.get(positionKey(lamp))).toBe('REDSTONE_LAMP')
+        expect(harness.forceSetBlock).not.toHaveBeenCalled()
       })),
     )
   })
@@ -82,7 +99,8 @@ describe('redstone lamp world effects', () => {
 
   it.effect('leaves a lamp alone when its lit state already matches the power', () => {
     const lamp = { x: 3, y: 64, z: 2 }
-    const harness = makeHarness([[lamp, 'REDSTONE_LAMP_LIT']], [[lamp, 9]])
+    const neighbor = { x: 4, y: 64, z: 2 }
+    const harness = makeHarness([[lamp, 'REDSTONE_LAMP_LIT']], [[neighbor, 9]])
 
     return applyLampWorldEffects(harness.services, harness.refs, [lampAt(lamp)]).pipe(
       Effect.tap(() => Effect.sync(() => {
