@@ -66,6 +66,11 @@ const makeDeps = () => {
   const consumeMouseClick = vi.fn((button: number) => Effect.succeed(button === 2))
   const getEntities: QaInstallDeps['entityManager']['getEntities'] = vi.fn(() => Effect.succeed([qaEntity]))
   const toggleInventory = vi.fn(() => Effect.succeed(true))
+  const settingsOpen = { current: false }
+  const toggleSettings = vi.fn(() => {
+    settingsOpen.current = !settingsOpen.current
+    return Effect.succeed(settingsOpen.current)
+  })
   const getAllSlots = vi.fn(() => Effect.succeed([
     Option.some(createStack('WOOD', 3)),
     Option.none(),
@@ -144,6 +149,7 @@ const makeDeps = () => {
       consumeMouseClick,
       getEntities,
       toggleInventory,
+      toggleSettings,
       getAllSlots,
       moveStack,
       getChunk,
@@ -236,6 +242,13 @@ const makeDeps = () => {
         cycleRecipes: (_delta: number) => Effect.void,
         craftSelectedRecipe: () => Effect.succeed(false),
         _tag: '@minecraft/presentation/InventoryRenderer',
+      },
+      settingsOverlay: {
+        toggle: toggleSettings,
+        isOpen: () => Effect.succeed(settingsOpen.current),
+        syncFromSettings: () => Effect.void,
+        applyToSettings: () => Effect.void,
+        _tag: '@minecraft/presentation/SettingsOverlay',
       },
       gameState: {
         initialize: () => Effect.void,
@@ -567,6 +580,26 @@ describe('installQaApi', () => {
 
     await expect(getQaApi().openInventoryForQA()).resolves.toBe(true)
     expect(spies.toggleInventory).toHaveBeenCalledOnce()
+  })
+
+  it('opens the settings overlay via the settings overlay service', async () => {
+    installWindow()
+    const { deps, spies } = makeDeps()
+    await Effect.runPromise(installQaApi(deps))
+
+    await expect(getQaApi().openSettingsForQA()).resolves.toBe(true)
+    expect(spies.toggleSettings).toHaveBeenCalledOnce()
+  })
+
+  it('openSettingsForQA is idempotent — no re-toggle when already open', async () => {
+    installWindow()
+    const { deps, spies } = makeDeps()
+    await Effect.runPromise(installQaApi(deps))
+
+    await expect(getQaApi().openSettingsForQA()).resolves.toBe(true)
+    // Second call finds it already open and must NOT toggle it shut.
+    await expect(getQaApi().openSettingsForQA()).resolves.toBe(true)
+    expect(spies.toggleSettings).toHaveBeenCalledOnce()
   })
 
   it('delegates consumeMouseClickForQA to inputService.consumeMouseClick', async () => {

@@ -14,7 +14,7 @@ import type { EntityManager } from '@ts-minecraft/entity/application/mob/entity-
 import type { WorldRendererService } from '@ts-minecraft/rendering'
 import type { DebugFeatureFlagsService } from '@ts-minecraft/app/application/debug-feature-flags'
 import type { MultiplayerService } from '@ts-minecraft/app/application/multiplayer/multiplayer-service'
-import type { BlockHighlightService, InputService, InventoryRendererService } from '@ts-minecraft/presentation'
+import type { BlockHighlightService, InputService, InventoryRendererService, SettingsOverlayService } from '@ts-minecraft/presentation'
 
 export type QaApiDeps = {
   readonly camera: THREE.PerspectiveCamera
@@ -24,6 +24,7 @@ export type QaApiDeps = {
   readonly inputService: InputService
   readonly inventoryService: InventoryService
   readonly inventoryRenderer: InventoryRendererService
+  readonly settingsOverlay: SettingsOverlayService
   readonly gameState: GameStateService
   readonly timeService: TimeService
   readonly weatherService: import('@ts-minecraft/game').WeatherService

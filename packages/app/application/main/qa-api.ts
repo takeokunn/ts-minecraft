@@ -14,6 +14,7 @@ import {
   openInventoryForQA,
   selectHotbarSlot,
 } from '@ts-minecraft/app/main/qa-api-inventory'
+import { openSettingsForQA } from '@ts-minecraft/app/main/qa-api-settings'
 import {
   clearBlocksInFront,
   collectStagedResources,
@@ -41,6 +42,7 @@ const makeQaApi = (
 ): QaApi => ({
   getInventorySnapshot: () => getInventorySnapshot(deps.inventoryService),
   openInventoryForQA: () => openInventoryForQA(deps.inventoryRenderer),
+  openSettingsForQA: () => openSettingsForQA(deps.settingsOverlay),
   craftRecipeForQA: (recipeId: string) =>
     craftRecipeForQA(
       deps.inventoryService,

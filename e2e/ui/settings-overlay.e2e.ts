@@ -210,10 +210,18 @@ test.describe('Settings overlay', () => {
     await game.startNewWorldFromMainMenu()
     await game.waitForReady(90_000)
     await page.waitForSelector('#settings-overlay', { state: 'attached', timeout: 8_000 })
-    await page.waitForSelector('#settings-gear-btn', { state: 'visible', timeout: 8_000 })
 
-    // Open settings directly; this test verifies persisted settings, not pause-menu routing.
-    await page.click('#settings-gear-btn')
+    // Open settings deterministically via the QA hook, which drives the real
+    // openOverlay path (seeding every control from persisted settings). This
+    // avoids both flaky entry routes: the floating gear (#settings-gear-btn) is
+    // deliberately display:none during pointer-lock gameplay (vanilla parity —
+    // see main-menu.ts) so waiting for it 'visible' never resolves, and the
+    // Escape->pause route can drop a keypress in the post-reload cold-start
+    // window. This test verifies persisted settings, not the entry route.
+    await page.evaluate(() => {
+      const qa = (window as unknown as { __TS_MINECRAFT_QA__?: { openSettingsForQA: () => Promise<boolean> } }).__TS_MINECRAFT_QA__
+      return qa?.openSettingsForQA()
+    })
     await waitForOverlayState(page, true)
 
     const sliderValueAfterReload = await page.evaluate(() => {

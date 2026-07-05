@@ -17,6 +17,7 @@ export type QaApi = {
     readonly enchantments?: ReadonlyArray<{ readonly type: string; readonly level: number }>
   }>>
   readonly openInventoryForQA: () => Promise<boolean>
+  readonly openSettingsForQA: () => Promise<boolean>
   readonly craftRecipeForQA: (recipeId: string) => Promise<void>
   readonly stageProgressionScenario: () => Promise<void>
   readonly collectStagedResources: () => Promise<void>

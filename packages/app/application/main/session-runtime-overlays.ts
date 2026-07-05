@@ -39,6 +39,7 @@ export type SessionRuntimeOverlayServices = Pick<
   | 'healthService'
   | 'inventoryService'
   | 'inventoryRenderer'
+  | 'settingsOverlay'
   | 'chunkManagerService'
   | 'timeService'
   | 'weatherService'
@@ -260,6 +261,7 @@ export const installSessionRuntimeOverlays = (
       healthService,
       inventoryService,
       inventoryRenderer,
+      settingsOverlay,
       chunkManagerService,
       timeService,
       weatherService,
@@ -281,6 +283,7 @@ export const installSessionRuntimeOverlays = (
       inputService,
       inventoryService,
       inventoryRenderer,
+      settingsOverlay,
       gameState,
       timeService,
       weatherService,
