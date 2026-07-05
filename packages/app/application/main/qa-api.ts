@@ -24,6 +24,7 @@ import { attackFirstZombie, getMobMovementSnapshot, spawnLowHealthZombieInFront 
 import { aimAtBuildSpot, aimAtStagedResource, aimAtStagedZombie, aimNaturalForQA, dispatchMouseClick, setMouseHeldForQA } from '@ts-minecraft/app/main/qa-api-visual'
 import { getBlockTypeAtForQA, getLoadedWaterBlockCount, getRenderingSnapshot, setTimeOfDayForQA } from '@ts-minecraft/app/main/qa-api-rendering'
 import { getDebugStateForQA } from '@ts-minecraft/app/main/qa-api-debug-state'
+import { getFrameStatsForQA } from '@ts-minecraft/app/main/qa-api-perf'
 import type { QaApi } from '@ts-minecraft/app/main/qa-api-types/api'
 import type { QaApiDeps } from '@ts-minecraft/app/main/qa-api-types/deps'
 import type { StagedResourceBlock, StagedZombiePosition } from '@ts-minecraft/app/main/qa-api-types/staged'
@@ -127,6 +128,7 @@ const makeQaApi = (
     camera: deps.camera,
     scene: deps.scene,
   }),
+  getFrameStatsForQA: (durationMs?: number) => getFrameStatsForQA(durationMs),
   getDebugFeatureSnapshot: () => Effect.runPromise(deps.debugFeatureFlags.getSnapshot()),
   setDebugFeatureEnabled: (id: DebugFeatureFlagId, enabled: boolean) =>
     Effect.runPromise(deps.debugFeatureFlags.setEnabled(id, enabled)),
